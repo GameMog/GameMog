@@ -6,6 +6,7 @@ import { buildTrack, buildLanes, assignLanes } from './track';
 import { mix, darken, lighten, shiftHue } from './color';
 import { playtest, type PlaytestReport } from './playtest';
 import { protectCharacter, type Character, type CharacterImage } from './character';
+import { coerceRig, varyRig, DEFAULT_RIG, TOPPERS, type Rig } from './rig';
 
 export const MODEL = 'claude-opus-5';
 
@@ -37,6 +38,20 @@ const BriefSchema = z.object({
   characterName: z.string().describe('The player. If an image is attached, name THAT character.'),
   characterFur: z.string().describe("#RRGGBB read off the character's body, ignoring its backdrop."),
   characterNote: z.string().describe('One short line on who they are. Steers the result copy.'),
+
+  bodyHeight: z.number().describe('0.8 squat, 1.0 default, 1.22 lanky'),
+  bodyGirth: z.number().describe('0.78 slender, 1.0 default, 1.26 round'),
+  bodyHead: z.number().describe('0 one continuous egg, 1 a pinched neck and a distinct head'),
+  legLength: z.number().describe('0.55 stumpy, 1.0 default, 1.6 long-legged'),
+  armLength: z.number().describe('0.6 tiny, 1.0 default, 1.55 long'),
+  furLength: z.number().describe('0.25 sleek and seal-like, 1.0 default, 2.2 deep shag'),
+  furDensity: z.number().describe('0.55 sparse and wispy, 1.0 default, 1.75 thick'),
+  faceOpen: z.number().describe('0.74 wide open face, 0.845 default hood, 0.92 deep hood with little face showing'),
+  eyeSize: z.number().describe('0.6 beady, 1.0 default, 1.6 huge'),
+  eyeSpread: z.number().describe('0.7 close-set, 1.0 default, 1.35 wide-set'),
+  mouthWidth: z.number().describe('0.45 tiny, 1.0 default, 1.7 broad'),
+  topper: z.enum(TOPPERS).describe("What is on its head: none, ears, horns, antennae or a crest along the crown"),
+  eyeColour: z.string().describe('#RRGGBB. Near-black reads as a dot eye; lighter reads as an iris.'),
 
   rivalNames: z.array(z.string()).describe('3 or 4 rival names that fit this world. Keep each under 14 characters — they are shown on a narrow leaderboard and longer names are cut off.'),
   rivalColours: z.array(z.string()).describe('One #RRGGBB per rival, same order. Each must read clearly against the ground.'),
@@ -102,6 +117,15 @@ export function expandBrief(b: Brief, locked?: Character): WorldSpec {
   const lanes = buildLanes(racerCount, roadHalf);
   const laneOrder = assignLanes(racerCount);
 
+  const playerRig: Rig = coerceRig({
+    height: b.bodyHeight, girth: b.bodyGirth, headRoom: b.bodyHead,
+    legLength: b.legLength, armLength: b.armLength,
+    furLength: b.furLength, furDensity: b.furDensity,
+    faceOpen: b.faceOpen, eyeSize: b.eyeSize, eyeSpread: b.eyeSpread,
+    mouthWidth: b.mouthWidth, topper: b.topper, eye: b.eyeColour,
+  });
+  const rigSeed = Math.floor(clamp(b.seed, 1, 1e9, 7));
+
   const track = buildTrack(
     {
       size: clamp(b.trackSize, 0.55, 1.3, 0.9),
@@ -158,12 +182,14 @@ export function expandBrief(b: Brief, locked?: Character): WorldSpec {
         fur: hex(locked?.fur ?? b.characterFur, '#F0DEBD'),
         you: true,
         lane: laneOrder[0],
+        rig: playerRig,
       },
       ...rivalNames.slice(0, racerCount - 1).map((n, i) => ({
         name: (n || `Rival ${i + 1}`).slice(0, 14),
         fur: hex(rivalColours[i], ['#B6DEC4', '#F2C2CB', '#C0C8EE', '#F3DC9B', '#CFC0E4'][i % 5]),
         you: false,
         lane: laneOrder[i + 1],
+        rig: varyRig(playerRig, rigSeed, i + 1),
       })),
     ],
     palette: {
@@ -381,6 +407,14 @@ export function offlineWorld(prompt: string, locked?: Character): { spec: WorldS
     difficulty: 'standard',
 
     trackSize: 0.9, trackCorners: 11, trackTwist: 0.55, trackHills: 0.4, seed,
+
+    bodyHeight: 0.9 + (seed % 30) / 100, bodyGirth: 0.85 + (seed % 37) / 100,
+    bodyHead: (seed % 11) / 10, legLength: 0.7 + (seed % 17) / 20,
+    armLength: 0.75 + (seed % 13) / 20, furLength: 0.5 + (seed % 23) / 15,
+    furDensity: 0.7 + (seed % 19) / 25, faceOpen: 0.78 + (seed % 9) / 100,
+    eyeSize: 0.75 + (seed % 15) / 20, eyeSpread: 0.85 + (seed % 7) / 20,
+    mouthWidth: 0.7 + (seed % 21) / 20,
+    topper: TOPPERS[seed % TOPPERS.length], eyeColour: '#0E0C0B',
 
     characterName: character.name,
     characterFur: character.fur,

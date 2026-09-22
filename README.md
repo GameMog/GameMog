@@ -62,6 +62,16 @@ prompt ────┘              │                                        �
   the game: lanes hanging off the road, a racer camouflaged against the ground, a lap so short
   the tempo banner covers it, a scene budget no phone will hold. Errors block publishing;
   warnings are shown. It does not tell you whether a game is fun. Nothing automatic does.
+- **`lib/rig.ts`** — the creature itself. Muse Sprint's animal was a fixed lathe profile, four
+  limb spheres and a face plate, which made every generated world *the same animal in a new
+  colour*. A rig now authors the body: height, girth, how much of a head it has, leg and arm
+  length, fur length and density, how far the hood opens, eye size and spread, mouth width, and
+  what is on its head (ears, horns, antennae, a crest, or nothing). Every field is a **bounded
+  multiplier against the shipped silhouette**, never an absolute measurement — so the identity
+  rig reproduces Muse Sprint exactly, and every other rig is a deformation of a shape already
+  known to read at racing speed. The model designs one rig, the player's; rivals are jittered
+  from it so the field looks like one species with individual variation rather than five
+  unrelated creatures (and so the grammar budget survives).
 - **`lib/character.ts`** — an uploaded character is the one thing in a world that is not up for
   negotiation. Its colour is fixed; when the generated palette would swallow it, the **world**
   moves — terrain shifts away, rivals recolour — and the creator is told what gave way rather
@@ -98,7 +108,8 @@ rejected the shipped game.
 ## The engine
 
 `scripts/build-engine.mjs` transforms `reference/musesprint.original.html` into
-`public/engine/engine.js` by replacing 45 hardcoded constants with config reads. Every
+`public/engine/engine.js` by replacing 72 hardcoded constants with config reads — the world's
+palette and props, and the creature's own geometry, fur shader and face shader. Every
 substitution is asserted — if the source drifts and an anchor stops matching, the build fails
 loudly rather than shipping a half-parameterised engine. It also guards against a source block
 shadowing the injected config binding, which is a real bug this caught once.

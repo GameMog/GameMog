@@ -1,4 +1,5 @@
 import type { WorldSpec } from '../worldspec';
+import { DEFAULT_RIG } from '../rig';
 
 /**
  * Muse Sprint — the reference world, and the proof that the abstraction holds.
@@ -33,12 +34,12 @@ export const MUSE_SPRINT: WorldSpec = {
   },
 
   racers: [
-    { name: 'Muse', fur: '#F0DEBD', you: true, lane: 2 },
-    { name: 'Pip', fur: '#B6DEC4', you: false, lane: 0 },
-    { name: 'Bibo', fur: '#F2C2CB', you: false, lane: 4 },
-    { name: 'Tova', fur: '#C0C8EE', you: false, lane: 1 },
-    { name: 'Nim', fur: '#F3DC9B', you: false, lane: 5 },
-    { name: 'Wuff', fur: '#CFC0E4', you: false, lane: 3 },
+    { name: 'Muse', fur: '#F0DEBD', you: true, lane: 2, rig: DEFAULT_RIG },
+    { name: 'Pip', fur: '#B6DEC4', you: false, lane: 0, rig: DEFAULT_RIG },
+    { name: 'Bibo', fur: '#F2C2CB', you: false, lane: 4, rig: DEFAULT_RIG },
+    { name: 'Tova', fur: '#C0C8EE', you: false, lane: 1, rig: DEFAULT_RIG },
+    { name: 'Nim', fur: '#F3DC9B', you: false, lane: 5, rig: DEFAULT_RIG },
+    { name: 'Wuff', fur: '#CFC0E4', you: false, lane: 3, rig: DEFAULT_RIG },
   ],
 
   palette: {

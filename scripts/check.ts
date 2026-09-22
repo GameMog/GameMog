@@ -12,6 +12,7 @@ import { compileWorld } from '../lib/worldspec.ts';
 import { protectCharacter } from '../lib/character.ts';
 import { buildTrack, buildLanes } from '../lib/track.ts';
 import { distance } from '../lib/color.ts';
+import { BOUNDS } from '../lib/rig.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -47,6 +48,29 @@ ok('repair makes it publishable', playtest(fixed).ok,
 ok('the character kept its exact colour', fixed.racers.find((r) => r.you)!.fur === '#F0DEBD');
 ok('the world is what moved, and said so', moved.length > 0, `${moved.length} adjustments`);
 ok('protection is idempotent', protectCharacter(fixed, cream).moved.length === 0);
+
+console.log('\ncharacter rigs');
+{
+  const { DEFAULT_RIG, coerceRig, varyRig } = await import('../lib/rig.ts');
+  ok('every shipped racer carries the identity rig',
+    MUSE_SPRINT.racers.every((r) => r.rig.height === 1 && r.rig.girth === 1 && r.rig.topper === 'none'));
+  // a rig is only safe if nothing can escape its envelope
+  const wild = coerceRig({ height: 99, girth: -5, furLength: NaN, topper: 'dragon', eye: 'nonsense' });
+  ok('absurd input is clamped, not rejected',
+    wild.height === 1.22 && wild.girth === 0.78 && wild.furLength === 1 && wild.topper === 'none' && wild.eye === '#0E0C0B');
+  let escaped = 0;
+  for (let s = 1; s <= 300; s++) {
+    const r = varyRig(DEFAULT_RIG, s, s % 6);
+    for (const [k, [lo, hi]] of Object.entries(BOUNDS)) {
+      const v = (r as unknown as Record<string, number>)[k];
+      if (typeof v === 'number' && (v < lo - 1e-9 || v > hi + 1e-9)) escaped++;
+    }
+  }
+  ok('300 sibling rigs stay inside the envelope', escaped === 0, `${escaped} escapes`);
+  const sib = varyRig(DEFAULT_RIG, 42, 1);
+  ok('siblings differ from the player', sib.height !== 1 || sib.girth !== 1);
+  ok('siblings keep the species topper and eye', sib.topper === DEFAULT_RIG.topper && sib.eye === DEFAULT_RIG.eye);
+}
 
 console.log('\nprocedural tracks');
 let selfIntersecting = 0, tooTight = 0, outOfRange = 0;

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RigSchema, DEFAULT_RIG } from './rig';
 
 /**
  * A WorldSpec is the entire authored surface of a game.
@@ -50,6 +51,8 @@ export const WorldSpecSchema = z.object({
         you: z.boolean(),
         /** Index into track.lanes. */
         lane: z.number().int().min(0).max(6),
+        /** Body, fur and face proportions. Bounded, so no rig can break the rig. */
+        rig: RigSchema,
       })
     )
     .min(2)
@@ -187,7 +190,7 @@ export function compileWorld(spec: WorldSpec, id: string) {
     physics: PHYSICS[spec.difficulty],
     track: spec.track,
     // fur must be an integer: the HUD renders it with .toString(16)
-    racers: spec.racers.map((r) => ({ ...r, fur: hexInt(r.fur) })),
+    racers: spec.racers.map((r) => ({ ...r, fur: hexInt(r.fur), rig: r.rig ?? DEFAULT_RIG })),
     tempi: ladder.map((b, i) => ({
       ...b,
       col: ramp[i].accent,

@@ -1,4 +1,4 @@
-/* generated from lib/presets/muse-sprint.ts by build-engine step */
+/* generated from lib/presets/muse-sprint.ts */
 /**
  * Muse Sprint — the reference world, and the proof that the abstraction holds.
  *
@@ -32,12 +32,12 @@ export const MUSE_SPRINT = {
   },
 
   racers: [
-    { name: 'Muse', fur: '#F0DEBD', you: true, lane: 2 },
-    { name: 'Pip', fur: '#B6DEC4', you: false, lane: 0 },
-    { name: 'Bibo', fur: '#F2C2CB', you: false, lane: 4 },
-    { name: 'Tova', fur: '#C0C8EE', you: false, lane: 1 },
-    { name: 'Nim', fur: '#F3DC9B', you: false, lane: 5 },
-    { name: 'Wuff', fur: '#CFC0E4', you: false, lane: 3 },
+    { name: 'Muse', fur: '#F0DEBD', you: true, lane: 2, rig: {"height":1,"girth":1,"headRoom":0,"slouch":0.5,"legLength":1,"legStance":1,"armLength":1,"armGirth":1,"furLength":1,"furDensity":1,"faceSize":1,"faceOpen":0.845,"eyeSize":1,"eyeSpread":1,"eyeHeight":0,"mouthWidth":1,"mouthCurve":1,"blush":1,"topperSize":1,"topper":"none","eye":"#0E0C0B"} },
+    { name: 'Pip', fur: '#B6DEC4', you: false, lane: 0, rig: {"height":1,"girth":1,"headRoom":0,"slouch":0.5,"legLength":1,"legStance":1,"armLength":1,"armGirth":1,"furLength":1,"furDensity":1,"faceSize":1,"faceOpen":0.845,"eyeSize":1,"eyeSpread":1,"eyeHeight":0,"mouthWidth":1,"mouthCurve":1,"blush":1,"topperSize":1,"topper":"none","eye":"#0E0C0B"} },
+    { name: 'Bibo', fur: '#F2C2CB', you: false, lane: 4, rig: {"height":1,"girth":1,"headRoom":0,"slouch":0.5,"legLength":1,"legStance":1,"armLength":1,"armGirth":1,"furLength":1,"furDensity":1,"faceSize":1,"faceOpen":0.845,"eyeSize":1,"eyeSpread":1,"eyeHeight":0,"mouthWidth":1,"mouthCurve":1,"blush":1,"topperSize":1,"topper":"none","eye":"#0E0C0B"} },
+    { name: 'Tova', fur: '#C0C8EE', you: false, lane: 1, rig: {"height":1,"girth":1,"headRoom":0,"slouch":0.5,"legLength":1,"legStance":1,"armLength":1,"armGirth":1,"furLength":1,"furDensity":1,"faceSize":1,"faceOpen":0.845,"eyeSize":1,"eyeSpread":1,"eyeHeight":0,"mouthWidth":1,"mouthCurve":1,"blush":1,"topperSize":1,"topper":"none","eye":"#0E0C0B"} },
+    { name: 'Nim', fur: '#F3DC9B', you: false, lane: 5, rig: {"height":1,"girth":1,"headRoom":0,"slouch":0.5,"legLength":1,"legStance":1,"armLength":1,"armGirth":1,"furLength":1,"furDensity":1,"faceSize":1,"faceOpen":0.845,"eyeSize":1,"eyeSpread":1,"eyeHeight":0,"mouthWidth":1,"mouthCurve":1,"blush":1,"topperSize":1,"topper":"none","eye":"#0E0C0B"} },
+    { name: 'Wuff', fur: '#CFC0E4', you: false, lane: 3, rig: {"height":1,"girth":1,"headRoom":0,"slouch":0.5,"legLength":1,"legStance":1,"armLength":1,"armGirth":1,"furLength":1,"furDensity":1,"faceSize":1,"faceOpen":0.845,"eyeSize":1,"eyeSpread":1,"eyeHeight":0,"mouthWidth":1,"mouthCurve":1,"blush":1,"topperSize":1,"topper":"none","eye":"#0E0C0B"} },
   ],
 
   palette: {
