@@ -2,6 +2,8 @@
 import { useRef, useState } from 'react';
 import { SiteHeader } from '../header';
 import { prepareUpload, type CharacterImage } from '@/lib/character';
+import { Cover } from '../cover';
+import type { WorldSpec } from '@/lib/worldspec';
 
 type Finding = { level: 'error' | 'warn'; code: string; message: string };
 type Report = { ok: boolean; findings: Finding[]; stats: Record<string, number> };
@@ -99,23 +101,20 @@ export default function Create() {
 
   const meta = spec?.meta as { title?: string; tagline?: string; blurb?: string } | undefined;
   const racers = (spec?.racers ?? []) as { name: string; fur: string }[];
-  const palette = spec?.palette as { skyHigh?: string; skyLow?: string; terrain?: { moss?: string } } | undefined;
 
   return (
     <>
       <SiteHeader />
-      <main className="wrap" style={{ paddingBottom: 80, maxWidth: 820 }}>
-        <h1 className="display" style={{ fontSize: 'clamp(32px,5.4vw,46px)', marginBottom: 8 }}>
-          Describe a world.
-        </h1>
-        <p className="muted" style={{ marginBottom: 26, lineHeight: 1.6 }}>
+      <main className="wrap" style={{ paddingBottom: 80, maxWidth: 780 }}>
+        <h1 className="h1" style={{ marginTop: 28, marginBottom: 8 }}>Create a world</h1>
+        <p className="muted" style={{ marginBottom: 24, lineHeight: 1.6, fontSize: 15 }}>
           Bring a character and describe somewhere to run. The format is a rhythm footrace and the
           controls never change — you are choosing the place, the palette and the cast. Everything
           generated is playtested before you can publish it.
         </p>
 
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>Your character <span style={{ opacity: .6, letterSpacing: 0, textTransform: 'none', fontWeight: 600 }}>— optional</span></div>
+          <label className="lbl">Your character <span style={{ opacity: .6, letterSpacing: 0, textTransform: 'none', fontWeight: 600 }}>— optional</span></label>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
             <div
               onClick={() => fileRef.current?.click()}
@@ -160,16 +159,16 @@ export default function Create() {
         </div>
 
         <div className="card" style={{ marginBottom: 16 }}>
-          <label className="field eyebrow" htmlFor="p">The setting</label>
+          <label className="lbl" htmlFor="p">The setting</label>
           <textarea
             id="p" rows={4} value={prompt} placeholder="Somewhere specific. Smells, light, weather, what the ground is made of."
             onChange={(e) => setPrompt(e.target.value)}
           />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
             {EXAMPLES.map((ex) => (
-              <button key={ex} className="pill" style={{ cursor: 'pointer', textAlign: 'left', maxWidth: 360 }}
+              <button key={ex} className="pill" style={{ cursor: 'pointer', textAlign: 'left', maxWidth: 340 }}
                 onClick={() => setPrompt(ex)}>
-                {ex.slice(0, 54)}…
+                {ex.slice(0, 46)}…
               </button>
             ))}
           </div>
@@ -179,17 +178,16 @@ export default function Create() {
         </div>
 
         {error && (
-          <div className="card" style={{ marginBottom: 16, borderColor: 'rgba(208,104,74,.4)' }}>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>Didn&apos;t work</div>
-            <p style={{ fontSize: 14 }}>{error}</p>
+          <div className="note error" style={{ marginBottom: 16, padding: '13px 15px' }}>
+            <b>error</b><span>{error}</span>
           </div>
         )}
 
         {report && report.findings.length > 0 && (
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="eyebrow" style={{ marginBottom: 10 }}>Playtest</div>
+            <label className="lbl">Playtest</label>
             {report.findings.map((f, i) => (
-              <div key={i} className={`finding ${f.level}`}>
+              <div key={i} className={`note ${f.level}`}>
                 <b>{f.level}</b><span>{f.message}</span>
               </div>
             ))}
@@ -199,22 +197,14 @@ export default function Create() {
         {spec && meta && (
           <div className="card">
             {offline && (
-              <div className="finding warn" style={{ marginBottom: 14 }}>
+              <div className="note warn" style={{ marginBottom: 14 }}>
                 <b>offline</b>
                 <span>No <code>ANTHROPIC_API_KEY</code> is set, so this world was generated
                   deterministically rather than designed. It is playable but arbitrary.</span>
               </div>
             )}
-            <div
-              style={{
-                height: 92, borderRadius: 14, marginBottom: 16, display: 'flex',
-                alignItems: 'flex-end', gap: 6, padding: 12,
-                background: `linear-gradient(160deg, ${palette?.skyHigh}, ${palette?.skyLow} 55%, ${palette?.terrain?.moss})`,
-              }}
-            >
-              {racers.map((r) => (
-                <i key={r.name} title={r.name} style={{ width: 22, height: 22, borderRadius: '50%', background: r.fur, border: '2px solid rgba(255,255,255,.85)', boxShadow: '0 2px 5px rgba(0,0,0,.2)' }} />
-              ))}
+            <div style={{ borderRadius: 14, overflow: 'hidden', marginBottom: 16, maxWidth: 300 }}>
+              <Cover spec={spec as unknown as WorldSpec} seed={7} />
             </div>
             {character && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -228,12 +218,12 @@ export default function Create() {
             {adjustments.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 {adjustments.map((a, i) => (
-                  <div key={i} className="finding warn"><b>kept</b><span>{a}</span></div>
+                  <div key={i} className="note info"><b>kept</b><span>{a}</span></div>
                 ))}
               </div>
             )}
-            <h2 className="display" style={{ fontSize: 28 }}>{meta.title}</h2>
-            <p className="muted" style={{ marginBottom: 10 }}>{meta.tagline}</p>
+            <h2 className="h1" style={{ fontSize: 26 }}>{meta.title}</h2>
+            <p className="muted" style={{ marginBottom: 10, fontSize: 14 }}>{meta.tagline}</p>
             <p style={{ fontSize: 14, lineHeight: 1.65, marginBottom: 14 }}>{meta.blurb}</p>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
               <span className="pill">{String(spec.difficulty)}</span>

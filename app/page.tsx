@@ -1,124 +1,103 @@
 import Link from 'next/link';
 import { SiteHeader } from './header';
-import { listGames, type GameRow } from '@/lib/db';
+import { Tile } from './tile';
+import { Cover } from './cover';
+import { listGames } from '@/lib/db';
+import { playtest } from '@/lib/playtest';
 import type { WorldSpec } from '@/lib/worldspec';
 
 export const dynamic = 'force-dynamic';
 
-function Swatch({ spec }: { spec: WorldSpec }) {
-  const p = spec.palette;
+function Shelf({ title, id, games, href }: { title: string; id?: string; games: ReturnType<typeof listGames>; href?: string }) {
+  if (!games.length) return null;
   return (
-    <div
-      className="swatch"
-      style={{ background: `linear-gradient(160deg, ${p.skyHigh}, ${p.skyLow} 55%, ${p.terrain.moss})` }}
-    >
-      {spec.racers.slice(0, 6).map((r, i) => (
-        <i key={i} style={{ background: r.fur }} />
-      ))}
-    </div>
-  );
-}
-
-function Card({ g }: { g: GameRow }) {
-  const spec = JSON.parse(g.spec) as WorldSpec;
-  return (
-    <Link href={`/g/${g.slug}`} className="card gamecard">
-      <Swatch spec={spec} />
-      <div className="body">
-        <h3>{g.title}</h3>
-        <p className="muted" style={{ fontSize: 13 }}>{g.tagline}</p>
-        <div style={{ marginTop: 10, display: 'flex', gap: 6 }}>
-          <span className="pill">{spec.difficulty}</span>
-          <span className="pill">{g.plays} plays</span>
-        </div>
+    <section id={id}>
+      <div className="shelfhead">
+        <h2 className="h2">{title}</h2>
+        {href && <Link href={href} className="seeall">See all <span aria-hidden>→</span></Link>}
       </div>
-    </Link>
+      <div className="shelf">{games.map((g, i) => <Tile key={g.id} g={g} i={i} />)}</div>
+    </section>
   );
 }
 
 export default function Home() {
-  const games = listGames();
+  const games = listGames(60);
   const featured = games.find((g) => g.featured) ?? games[0];
-  const rest = games.filter((g) => g.id !== featured?.id);
+  const spec = featured ? (JSON.parse(featured.spec) as WorldSpec) : null;
+  const stats = spec ? playtest(spec).stats : null;
+
+  const newest = [...games].sort((a, b) => b.created_at - a.created_at);
+  const popular = [...games].sort((a, b) => b.plays - a.plays);
 
   return (
     <>
       <SiteHeader />
-      <main className="wrap" style={{ paddingBottom: 80 }}>
-        <section style={{ padding: '46px 0 34px', maxWidth: 720 }}>
-          <div className="eyebrow" style={{ marginBottom: 12 }}>Playable worlds, not prompts</div>
-          <h1 className="display" style={{ fontSize: 'clamp(40px,7vw,68px)' }}>
-            Give your character
-            <br />a world to run through.
-          </h1>
-          <p className="muted" style={{ marginTop: 16, fontSize: 17, lineHeight: 1.6 }}>
-            Pick a proven format. Describe a setting. Get a link people can play in one tap —
-            with a leaderboard, a shareable URL, and a world that holds together because the
-            game underneath it never changes.
-          </p>
-          <div style={{ marginTop: 24, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <Link href="/create" className="btn">Make a world</Link>
-            {featured && <Link href={`/g/${featured.slug}`} className="btn ghost">Play the first one</Link>}
-          </div>
-        </section>
-
-        {featured && (
-          <section style={{ marginBottom: 46 }}>
-            <div className="eyebrow" style={{ marginBottom: 10 }}>Featured</div>
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div className="grid c2" style={{ gap: 0 }}>
-                <div style={{ padding: 26 }}>
-                  <h2 className="display" style={{ fontSize: 34, marginBottom: 8 }}>{featured.title}</h2>
-                  <p className="muted" style={{ marginBottom: 14, lineHeight: 1.6 }}>{featured.blurb}</p>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
-                    <span className="pill">rhythm race</span>
-                    <span className="pill">3 tempo levels</span>
-                    <span className="pill">photo finish</span>
-                  </div>
-                  <Link href={`/g/${featured.slug}`} className="btn">Play now</Link>
+      <main className="wrap" style={{ paddingBottom: 72 }}>
+        {featured && spec && (
+          <section className="hero">
+            <div style={{ display: 'grid', gap: 26, gridTemplateColumns: 'minmax(0,1.25fr) minmax(0,.75fr)', alignItems: 'center' }}>
+              <div>
+                <span className="pill" style={{ background: 'rgba(255,255,255,.16)', color: '#fff', borderColor: 'transparent', marginBottom: 14 }}>
+                  Featured world
+                </span>
+                <h1>{spec.meta.title}</h1>
+                <p>{spec.meta.blurb}</p>
+                <div className="cta">
+                  <Link href={`/g/${featured.slug}`} className="btn">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                    Play now
+                  </Link>
+                  <Link href="/create" className="btn ghost">Make your own</Link>
                 </div>
-                <Swatch spec={JSON.parse(featured.spec)} />
+              </div>
+              <div style={{ borderRadius: 14, overflow: 'hidden', boxShadow: '0 18px 44px rgba(10,6,40,.4)' }}>
+                <Cover spec={spec} seed={99} />
               </div>
             </div>
           </section>
         )}
 
-        <section id="gallery" style={{ marginBottom: 46 }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>Worlds</div>
-          {rest.length ? (
-            <div className="grid c3">{rest.map((g) => <Card key={g.id} g={g} />)}</div>
-          ) : (
-            <div className="card muted">Nothing else published yet. <Link href="/create" style={{ color: 'var(--gold-deep)' }}>Make the second one.</Link></div>
-          )}
-        </section>
+        <div style={{ display: 'flex', gap: 8, marginTop: 24, flexWrap: 'wrap' }}>
+          <span className="pill on">All</span>
+          <span className="pill">Racing</span>
+          <span className="pill" style={{ opacity: .5 }}>Obstacle · soon</span>
+          <span className="pill" style={{ opacity: .5 }}>Collecting · soon</span>
+          <span className="pill" style={{ opacity: .5 }}>Survival · soon</span>
+        </div>
+
+        <Shelf title="Most played" games={popular} href="/" />
+        <Shelf title="New worlds" id="new" games={newest} href="/" />
 
         <section>
-          <div className="eyebrow" style={{ marginBottom: 18 }}>How it works</div>
-          <div className="steps">
-            <div className="card">
-              <h3 className="display" style={{ fontSize: 17, marginBottom: 6 }}>Bring a character</h3>
-              <p className="muted" style={{ fontSize: 13, lineHeight: 1.55 }}>
-                A picture or a description. It sets the cast&apos;s colour and name.
-              </p>
-            </div>
-            <div className="card">
-              <h3 className="display" style={{ fontSize: 17, marginBottom: 6 }}>Pick a format</h3>
-              <p className="muted" style={{ fontSize: 13, lineHeight: 1.55 }}>
-                Racing ships today. Obstacle, collecting and survival reuse the same engine contract.
-              </p>
-            </div>
-            <div className="card">
-              <h3 className="display" style={{ fontSize: 17, marginBottom: 6 }}>Describe the world</h3>
-              <p className="muted" style={{ fontSize: 13, lineHeight: 1.55 }}>
-                Mood, palette, cast, track shape. Every generated world is playtested before it publishes.
-              </p>
-            </div>
-            <div className="card">
-              <h3 className="display" style={{ fontSize: 17, marginBottom: 6 }}>Share the link</h3>
-              <p className="muted" style={{ fontSize: 13, lineHeight: 1.55 }}>
-                One tap to play, a leaderboard to beat, and a remix button for anyone who wants their own.
-              </p>
-            </div>
+          <div className="shelfhead"><h2 className="h2">Every world</h2>{stats && <span className="tiny muted">{games.length} published</span>}</div>
+          <div className="grid">{games.map((g, i) => <Tile key={g.id} g={g} i={i + 100} />)}</div>
+        </section>
+
+        <section className="card flat" style={{ marginTop: 34, display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+          <div>
+            <h3 className="h3">Bring a character</h3>
+            <p className="tiny muted" style={{ marginTop: 5, lineHeight: 1.55 }}>
+              A picture or a description sets its body, fur, face and colour. The world bends around it, never the other way.
+            </p>
+          </div>
+          <div>
+            <h3 className="h3">Describe a world</h3>
+            <p className="tiny muted" style={{ marginTop: 5, lineHeight: 1.55 }}>
+              Mood, palette, cast and the shape of the loop. The controls underneath never change.
+            </p>
+          </div>
+          <div>
+            <h3 className="h3">Playtested before it ships</h3>
+            <p className="tiny muted" style={{ marginTop: 5, lineHeight: 1.55 }}>
+              Lanes on the road, racers visible, a lap that holds frame rate on a phone. Errors block publishing.
+            </p>
+          </div>
+          <div>
+            <h3 className="h3">Share the link</h3>
+            <p className="tiny muted" style={{ marginTop: 5, lineHeight: 1.55 }}>
+              One tap to play, a leaderboard to beat, and a remix button for anyone who wants their own.
+            </p>
           </div>
         </section>
       </main>

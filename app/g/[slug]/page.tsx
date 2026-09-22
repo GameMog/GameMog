@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { SiteHeader } from '../../header';
-import { getGameBySlug, topScores } from '@/lib/db';
+import { SiteHeader, Stat } from '../../header';
+import { Tile } from '../../tile';
+import { getGameBySlug, topScores, listGames } from '@/lib/db';
 import { playtest } from '@/lib/playtest';
 import type { WorldSpec } from '@/lib/worldspec';
 import { PlayFrame } from './play-frame';
@@ -15,68 +16,94 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
 
   const spec = JSON.parse(game.spec) as WorldSpec;
   const scores = topScores(game.id);
-  const report = playtest(spec);
+  const { stats } = playtest(spec);
+  const others = listGames(20).filter((g) => g.id !== game.id);
+  const best = scores[0];
 
   return (
     <>
       <SiteHeader />
-      <main className="wrap" style={{ paddingBottom: 70 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
-          <div>
-            <h1 className="display" style={{ fontSize: 'clamp(30px,5vw,44px)' }}>{game.title}</h1>
-            <p className="muted" style={{ marginTop: 4 }}>{game.tagline}</p>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Link href={`/create?remix=${game.slug}`} className="btn ghost sm">Remix</Link>
-            <a href={`/g/${game.slug}/play`} target="_blank" rel="noreferrer" className="btn sm">Full screen</a>
-          </div>
+      <main className="wrap" style={{ paddingBottom: 72 }}>
+        <div style={{ display: 'grid', gap: 22, gridTemplateColumns: 'minmax(0,2.1fr) minmax(0,1fr)', marginTop: 20 }} className="gamelayout">
+          <PlayFrame slug={game.slug} gameId={game.id} />
+
+          <aside>
+            <h1 className="h1" style={{ fontSize: 26 }}>{game.title}</h1>
+            <p className="muted tiny" style={{ marginTop: 6 }}>{game.tagline}</p>
+
+            <div className="stats" style={{ marginTop: 14, fontSize: 13 }}>
+              <Stat icon="people">{game.plays} plays</Stat>
+              <Stat icon="flag">{spec.racers.length} racers</Stat>
+              <Stat icon="clock">~{Math.round(stats.estRaceSeconds)}s</Stat>
+            </div>
+
+            <a href="#play" className="btn lg" style={{ marginTop: 16 }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+              Play
+            </a>
+            <div style={{ display: 'flex', gap: 8, marginTop: 9 }}>
+              <Link href={`/create?remix=${game.slug}`} className="btn ghost sm" style={{ flex: 1 }}>Remix</Link>
+              <a href={`/g/${game.slug}/play`} target="_blank" rel="noreferrer" className="btn ghost sm" style={{ flex: 1 }}>Full screen</a>
+            </div>
+
+            {best && (
+              <div className="card flat" style={{ marginTop: 14, padding: 14 }}>
+                <div className="tiny muted" style={{ marginBottom: 3 }}>Record</div>
+                <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-.02em' }}>{(best.time_ms / 1000).toFixed(2)}s</div>
+                <div className="tiny muted">by {best.player}</div>
+              </div>
+            )}
+
+            <div className="card" style={{ marginTop: 14 }}>
+              <div className="tiny muted" style={{ marginBottom: 9, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase' }}>The field</div>
+              <div style={{ display: 'grid', gap: 7 }}>
+                {spec.racers.map((r) => (
+                  <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, fontWeight: 700 }}>
+                    <i style={{ width: 18, height: 18, borderRadius: 6, background: r.fur, border: '1px solid var(--line)', flex: '0 0 auto' }} />
+                    <span style={{ flex: 1 }}>{r.name}</span>
+                    {r.you && <span className="pill accent" style={{ padding: '2px 8px', fontSize: 11 }}>you</span>}
+                    {r.rig?.topper !== 'none' && <span className="tiny muted">{r.rig?.topper}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
         </div>
 
-        <PlayFrame slug={game.slug} gameId={game.id} />
-
-        <div className="grid c2" style={{ marginTop: 20, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', marginTop: 24 }}>
           <div className="card">
-            <div className="eyebrow" style={{ marginBottom: 10 }}>Leaderboard</div>
+            <h2 className="h2" style={{ fontSize: 17, marginBottom: 10 }}>Leaderboard</h2>
             {scores.length ? (
               <table className="board">
-                <thead><tr><th></th><th>Runner</th><th>Time</th><th>Place</th><th>Locks</th></tr></thead>
+                <thead><tr><th /><th>Runner</th><th>Time</th><th>Place</th><th>Locks</th></tr></thead>
                 <tbody>
                   {scores.map((s, i) => (
                     <tr key={s.id}>
-                      <td>{i + 1}</td>
-                      <td>{s.player}</td>
-                      <td>{(s.time_ms / 1000).toFixed(2)}s</td>
-                      <td>{s.place}</td>
-                      <td>{s.locks}</td>
+                      <td>{i + 1}</td><td>{s.player}</td>
+                      <td>{(s.time_ms / 1000).toFixed(2)}s</td><td>{s.place}</td><td>{s.locks}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            ) : (
-              <p className="muted" style={{ fontSize: 14 }}>No times yet. Finish a race and yours lands here.</p>
-            )}
+            ) : <p className="tiny muted">No times yet. Finish a race and yours lands here.</p>}
           </div>
-
           <div className="card">
-            <div className="eyebrow" style={{ marginBottom: 10 }}>About this world</div>
-            <p style={{ fontSize: 14, lineHeight: 1.65, marginBottom: 14 }}>{game.blurb}</p>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+            <h2 className="h2" style={{ fontSize: 17, marginBottom: 10 }}>About</h2>
+            <p style={{ fontSize: 14, lineHeight: 1.65 }}>{game.blurb}</p>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 13 }}>
               <span className="pill">{spec.difficulty}</span>
-              <span className="pill">{report.stats.lapMetres}m lap</span>
-              <span className="pill">~{report.stats.estRaceSeconds}s race</span>
-              <span className="pill">{game.plays} plays</span>
-            </div>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>The field</div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {spec.racers.map((r) => (
-                <span key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-                  <i style={{ width: 16, height: 16, borderRadius: '50%', background: r.fur, border: '2px solid rgba(255,255,255,.9)', boxShadow: '0 1px 4px rgba(0,0,0,.18)' }} />
-                  {r.name}{r.you ? ' (you)' : ''}
-                </span>
-              ))}
+              <span className="pill">{Math.round(stats.lapMetres)}m lap</span>
+              <span className="pill">3 tempo levels</span>
             </div>
           </div>
         </div>
+
+        {others.length > 0 && (
+          <section>
+            <div className="shelfhead"><h2 className="h2">More worlds</h2><Link href="/" className="seeall">See all <span aria-hidden>→</span></Link></div>
+            <div className="shelf">{others.map((g, i) => <Tile key={g.id} g={g} i={i + 40} />)}</div>
+          </section>
+        )}
       </main>
     </>
   );

@@ -55,7 +55,7 @@ export function PlayFrame({ slug, gameId }: { slug: string; gameId: string }) {
   }
 
   return (
-    <>
+    <div id="play">
       <iframe
         ref={ref}
         className="frame"
@@ -66,17 +66,17 @@ export function PlayFrame({ slug, gameId }: { slug: string; gameId: string }) {
       />
       {result && result.finished && !saved && (
         <div className="card" style={{ marginTop: 12, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <b className="display" style={{ fontSize: 18 }}>
-            {result.place === 1 ? 'You won' : `${result.place}${['st','nd','rd'][result.place - 1] ?? 'th'} place`} — {(result.timeMs / 1000).toFixed(2)}s
+          <b style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-.02em' }}>
+            {result.place === 1 ? 'You won' : `${result.place}${['st','nd','rd'][result.place - 1] ?? 'th'} place`} · {(result.timeMs / 1000).toFixed(2)}s
           </b>
           <input
             type="text" value={name} placeholder="your name"
             onChange={(e) => setName(e.target.value.slice(0, 16))}
-            style={{ width: 160 }}
+            style={{ width: 170, flex: '0 1 auto' }}
           />
           <button className="btn sm" onClick={submit}>Post to leaderboard</button>
         </div>
       )}
-    </>
+    </div>
   );
 }
