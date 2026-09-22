@@ -111,6 +111,28 @@ console.log('\nprocedural tracks');
     `lobing spans ${(Math.min(...lobings) * 100).toFixed(0)}%-${(Math.max(...lobings) * 100).toFixed(0)}%`);
 }
 
+console.log('\ncatalogue diversity');
+{
+  const { debias } = await import('../lib/diversity.ts');
+  const SH = ['oval', 'lobed', 'serpentine', 'hairpins', 'sprawling'] as const;
+  const saturated = { serpentine: 8, sprawling: 1 };
+  ok('a saturated favourite is rotated away', debias('serpentine', SH, saturated, 's').value !== 'serpentine');
+  ok('it rotates to a genuinely unused option',
+    ['oval', 'lobed', 'hairpins'].includes(debias('serpentine', SH, saturated, 's').value as string));
+  ok('an under-used pick is left alone', debias('oval', SH, saturated, 's').value === 'oval');
+  ok('a thin catalogue is not second-guessed',
+    debias('serpentine', SH, { serpentine: 1, lobed: 1 }, 's').value === 'serpentine');
+  ok('an override is reported, never silent', !!debias('serpentine', SH, saturated, 's').note);
+  // feeding the rule its own output must converge, not oscillate
+  const counts: Record<string, number> = { serpentine: 8, sprawling: 1 };
+  for (let i = 0; i < 20; i++) {
+    const v = debias('serpentine', SH, counts, 's').value as string;
+    counts[v] = (counts[v] ?? 0) + 1;
+  }
+  const share = Math.max(...SH.map((o) => counts[o] ?? 0)) / Object.values(counts).reduce((a, b) => a + b, 0);
+  ok('20 saturated picks in a row still spread out', share < 0.45, `top option ends at ${Math.round(share * 100)}%`);
+}
+
 console.log('\nlanes (the road holds 7 at a readable spacing)');
 for (const n of [2, 3, 4, 5, 6, 7]) {
   const lanes = buildLanes(n, 5.9);
