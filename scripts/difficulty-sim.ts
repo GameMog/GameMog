@@ -1,43 +1,35 @@
 /**
  * Difficulty simulator.
  *
- * Tuning a rhythm game by feel is how you end up with a game its author always
- * wins. This replays the engine's exact arithmetic headlessly against a player
- * model, so a ladder can be judged by a measured win rate instead of by how it
- * felt to the person who wrote it.
+ * Replays the engine's arithmetic headlessly so a ladder can be judged by a
+ * measured win rate. Everything here is copied from the engine, not
+ * approximated: the player's drag, stride quality, streak bonus and locks; the
+ * rivals' surge, fade, rubber band, stumbles and corner losses; the real track
+ * (lib/course.ts); and the finish-line slow motion.
  *
- * Everything below is copied from the engine, not approximated:
+ * It is only trusted because it was checked against the real game. A harness
+ * drove the actual engine in Chrome at 60fps with the same player model and
+ * the two agree: race times within half a second at every skill level, and the
+ * elite win rate on Muse Sprint 8% simulated against 2 of 12 real races.
  *
- *   player   vel -= vel*DRAG*dt*(1 + vel*0.012);  dist += vel*dt
- *   tap      vel  = min(MAXSPEED, vel + imp*quality*bonus)
- *            bonus = 1 + min(streak,12)*0.022, and every 8th clean stride
- *            is a lock worth a flat +1.7
- *   rival    target = (base + sin(t*surgeF*6.28 + ph)*surgeA + fade*(0.5-lapT)*2) * cpu
- *            target += clamp(gap*0.058, -mercy, chase)
- *            target -= |curvature|*5.5
- *            vel = smoothDamp(vel, max(4,target), 1.5, dt)
+ * Two lessons from getting it wrong first:
  *
- * The player is a metronome with Gaussian timing error, which is the standard
- * model for rhythm-game accuracy. The standard deviations are the interesting
- * part, and they are chosen from published rhythm-game timing research rather
- * than invented: a 7ms deviation is about the limit of trained human motor
- * timing, and a 30ms deviation is an ordinary person keeping a beat.
+ *  - A simulator calibrated only against a game everybody wins proves nothing.
+ *    The first version charged rivals a flat 0.9 m/s for corners, matched the
+ *    original game perfectly (100% = 100%), and was badly wrong the moment the
+ *    ladder was close. Real worlds cost rivals 0.5 to 4.8 m/s in corners.
  *
- * The player is also assumed to play *optimally*: for each ladder we sweep the
- * interval they aim for and keep their best result. Anything less would tune
- * the game against a worse player than the one who will actually show up.
+ *  - A good win-rate table can still describe a ruined game. An earlier ladder
+ *    hit its targets by slowing lap 1's rhythm, narrowing its window and
+ *    cutting top speed, and it felt wrong from the first stride. The contract
+ *    in difficulty-check.ts now pins the feel before it measures outcomes.
+ *
+ * The player is a metronome aiming at each lap's ideal stride with Gaussian
+ * timing error: 30ms is an ordinary person keeping a beat, 16ms a good player,
+ * 11ms an expert, 7ms about the limit of trained human timing, 3ms flawless.
  */
 import { LADDERS, PHYSICS, paceFor, type Difficulty } from '../lib/worldspec.ts';
 
-export const SKILLS = [
-  { name: 'masher', sd: 0.045 },
-  { name: 'casual', sd: 0.030 },
-  { name: 'average', sd: 0.022 },
-  { name: 'good', sd: 0.016 },
-  { name: 'expert', sd: 0.011 },
-  { name: 'elite', sd: 0.007 },
-  { name: 'inhuman', sd: 0.003 },
-] as const;
 
 const LAPS = 3;
 const TICK = 1 / 60;
@@ -61,23 +53,32 @@ const gauss = (r: () => number) =>
   Math.sqrt(-2 * Math.log(1 - r())) * Math.cos(6.283185 * r());
 
 /**
- * Rival temperaments, and the speed ladder they are hung on.
- *
- * The engine used to give rival i the i-th archetype, which meant the fastest
- * one only existed in a field of five. A four-rival world was therefore a
- * materially easier game than a five-rival one, for no reason anybody chose.
- * The pace is now spread across whatever field the world has, with the last
- * rival always the pace-setter, so difficulty is a property of the ladder and
- * not of how many creatures the generator happened to name.
+ * Muse Sprint's own five rivals, exactly as the hand-built game shipped them:
+ * sprinter, metronome, closer, wobbler, and Wuff, the rival. A world with fewer
+ * than five rivals still gets Wuff as its last one, so every world has the same
+ * pace-setter; a world with more cycles the first four before Wuff.
  */
-const TEMPERAMENTS = [
-  { surgeA: 1.3, surgeF: 0.30, fade: 2.4 },   // fast starter
-  { surgeA: 0.5, surgeF: 0.12, fade: 0.0 },   // metronome
-  { surgeA: 2.1, surgeF: 0.21, fade: -2.6 },  // closer
-  { surgeA: 2.6, surgeF: 0.46, fade: 0.4 },   // wobbler
-  { surgeA: 1.1, surgeF: 0.17, fade: -0.8 },  // the rival
-];
-export const PACE_SLOW = 20.5, PACE_FAST = 26.6;
+const ARCHETYPES = {
+  pip: { base: 25.6, surgeA: 1.3, surgeF: 0.30, fade: 2.4 },
+  bibo: { base: 24.0, surgeA: 0.5, surgeF: 0.12, fade: 0.0 },
+  tova: { base: 23.4, surgeA: 2.1, surgeF: 0.21, fade: -2.6 },
+  nim: { base: 24.6, surgeA: 2.6, surgeF: 0.46, fade: 0.4 },
+  wuff: { base: 26.4, surgeA: 1.1, surgeF: 0.17, fade: -0.8 },
+};
+const CYCLE = [ARCHETYPES.pip, ARCHETYPES.bibo, ARCHETYPES.tova, ARCHETYPES.nim];
+export const rivalFor = (k: number, n: number) => (k === n - 1 ? ARCHETYPES.wuff : CYCLE[k % 4]);
+
+/* --------------------------------------------------------------- track -- */
+/*
+ * Races run on the world's real track (lib/course.ts), because corners are
+ * where a twisty world hands the player their race. The first version of this
+ * file charged every rival a flat 0.9 m/s for corners; real worlds range from
+ * 0.5 to 4.8, and the flat guess put the simulated elite win rate at 10% where
+ * real races in Chrome won 6 of 7.
+ */
+import { course } from '../lib/course.ts';
+type Pt = [number, number, number];
+export const trackProfile = course;
 
 export type Band = {
   lo: number; hi: number; ideal: number; imp: number;
@@ -97,9 +98,14 @@ export type RaceOpts = {
   seed: number;
   /** Mean |curvature| * 5.5, the speed corners cost a rival. */
   cornerCost?: number;
-  /** Slowest and fastest rival pace, for sweeping the field's spread. */
-  paceSlow?: number;
-  paceFast?: number;
+  /** If set, the player ignores the dial and taps at this one interval (s). */
+  fixed?: number;
+  /** The world's actual track. When given, lap length and corners come from it. */
+  track?: { points: Pt[]; scale: number };
+  /** Model the finish-line slow motion (on by default, as in the engine). */
+  photo?: boolean;
+  /** Scale the lock bonus by the slow-motion factor, as a stride is. */
+  scaledLock?: boolean;
 };
 
 export type RaceResult = {
@@ -109,25 +115,29 @@ export type RaceResult = {
   inBand: number[];
   /** Where the player stood as they crossed the end of laps 1 and 2. */
   standing: number[];
+  /** Metres ahead of the best rival at those moments (negative: behind). */
+  lead: number[];
   taps: number;
   locks: number;
 };
 
 export function race(o: RaceOpts): RaceResult {
   const r = rng(o.seed);
-  const TOTAL = o.lapMetres;
+  const prof = o.track ? trackProfile(o.track.points, o.track.scale) : null;
+  const TOTAL = prof ? prof.total : o.lapMetres;
   const FINISH = TOTAL * LAPS;
-  const corner = o.cornerCost ?? 0.9;
+  const cornerAt = (d: number) => {
+    if (!prof) return o.cornerCost ?? 0.9;
+    let x = d % TOTAL; if (x < 0) x += TOTAL;
+    return prof.corner[Math.floor(x)];
+  };
 
   const you = { dist: 0, vel: 0, finished: false, time: 0 };
   const rivals = Array.from({ length: o.rivals }, (_, i) => {
-    // the pace-setter is always the same temperament; see assignPersonalities
-    const a = i === o.rivals - 1 ? TEMPERAMENTS[4] : TEMPERAMENTS[i % 4];
-    const t = o.rivals === 1 ? 1 : i / (o.rivals - 1);
-    const slow = o.paceSlow ?? PACE_SLOW, fast = o.paceFast ?? PACE_FAST;
+    const a = rivalFor(i, o.rivals);
     return {
       ...a,
-      base: slow + (fast - slow) * t + (r() - 0.5) * 0.5,
+      base: a.base + (r() - 0.5) * 0.8,
       surgePh: r() * 6.28,
       stumbleT: 5 + r() * 9,
       stumble: 0,
@@ -138,12 +148,17 @@ export function race(o: RaceOpts): RaceResult {
   let tempo = 0;
   let T = o.bands[0];
   const standing: number[] = [];
+  const lead: number[] = [];
   let lastTap = 0, streak = 0, locks = 0, taps = 0;
   const good = [0, 0, 0], strides = [0, 0, 0];
 
   // the player's next intended tap, in race seconds
-  let nextTap = Math.max(0.05, T.ideal * o.aimFactor + gauss(r) * o.sd);
-  let t = 0;
+  const aim = () => o.fixed ?? T.ideal * o.aimFactor;
+  let nextTap = Math.max(0.05, aim() + gauss(r) * o.sd);
+  let t = 0;          // real seconds: the player's hands never slow down
+  let wt = 0;         // world seconds: what the race clock and the rivals run on
+  let timeScale = 1, scaleTarget = 1, armed = false;
+  const PHOTO_ARM = 32;
   const CAP = 400;
 
   while (t < CAP && (!you.finished || rivals.some((x) => !x.finished))) {
@@ -153,6 +168,7 @@ export function race(o: RaceOpts): RaceResult {
       // the player's place at the moment they finish a lap: the story the
       // race tells, as opposed to the result it ends on
       standing.push(1 + rivals.filter((x) => x.dist > you.dist).length);
+      lead.push(you.dist - Math.max(...rivals.map((x) => x.dist)));
       tempo = lvl; T = o.bands[lvl];
     }
     const mash = T.lo * 0.60, cold = T.hi * 2.0;
@@ -179,38 +195,49 @@ export function race(o: RaceOpts): RaceResult {
       }
 
       const bonus = 1 + Math.min(streak, 12) * 0.022;
-      you.vel = Math.min(o.maxSpeed, you.vel + T.imp * quality * bonus);
+      you.vel = Math.min(o.maxSpeed, you.vel + T.imp * quality * bonus * timeScale);
       if (streak > 0 && streak % LOCK_EVERY === 0) {
         locks++;
-        you.vel = Math.min(o.maxSpeed, you.vel + 1.7);
+        you.vel = Math.min(o.maxSpeed, you.vel + 1.7 * (o.scaledLock ? timeScale : 1));
       }
-      nextTap = lastTap + Math.max(0.02, T.ideal * o.aimFactor + gauss(r) * o.sd);
+      nextTap = lastTap + Math.max(0.02, aim() + gauss(r) * o.sd);
     }
+
+    // ---- the finish rig: the last 32m run in slow motion, slower the closer
+    //      the nearest rival is, exactly as armPhoto() sets it
+    if ((o.photo ?? true) && !armed && !you.finished && FINISH - you.dist <= PHOTO_ARM) {
+      armed = true;
+      const gap = Math.min(...rivals.map((x) => Math.abs(x.dist - you.dist)));
+      scaleTarget = [0.58, 0.38, 0.26][gap < 7 ? 2 : gap < 20 ? 1 : 0];
+    }
+    if (you.finished) scaleTarget = 1;
+    timeScale = smoothDamp(timeScale, scaleTarget, 4.5, TICK);
+    const SDT = TICK * timeScale;
 
     // ---- integrate
     if (!you.finished) {
-      you.vel = Math.max(0, you.vel - you.vel * o.drag * TICK * (1 + you.vel * 0.012));
-      you.dist += you.vel * TICK;
+      you.vel = Math.max(0, you.vel - you.vel * o.drag * SDT * (1 + you.vel * 0.012));
+      you.dist += you.vel * SDT;
     }
 
     for (const x of rivals) {
       if (x.finished) continue;
       const lapT = clamp(x.dist / FINISH, 0, 1);
       let target = (x.base
-        + Math.sin(t * x.surgeF * 6.28 + x.surgePh) * x.surgeA
+        + Math.sin(wt * x.surgeF * 6.28 + x.surgePh) * x.surgeA
         + x.fade * (0.5 - lapT) * 2) * T.cpu;
       target += clamp((you.dist - x.dist) * 0.058, -T.mercy, T.chase);
-      target -= corner;
-      x.stumbleT -= TICK;
+      target -= cornerAt(x.dist);
+      x.stumbleT -= SDT;
       if (x.stumbleT <= 0) { x.stumble = 0.5; x.stumbleT = 7 + r() * 11; }
-      if (x.stumble > 0) { x.stumble -= TICK; target *= 0.72; }
-      x.vel = smoothDamp(x.vel, Math.max(4, target), 1.5, TICK);
-      x.dist += x.vel * TICK;
+      if (x.stumble > 0) { x.stumble -= SDT; target *= 0.72; }
+      x.vel = smoothDamp(x.vel, Math.max(4, target), 1.5, SDT);
+      x.dist += x.vel * SDT;
     }
 
-    t += TICK;
-    if (!you.finished && you.dist >= FINISH) { you.finished = true; you.time = t; }
-    for (const x of rivals) if (!x.finished && x.dist >= FINISH) { x.finished = true; x.time = t; }
+    t += TICK; wt += SDT;
+    if (!you.finished && you.dist >= FINISH) { you.finished = true; you.time = wt; }
+    for (const x of rivals) if (!x.finished && x.dist >= FINISH) { x.finished = true; x.time = wt; }
   }
 
   if (!you.finished) you.time = CAP;
@@ -221,57 +248,29 @@ export function race(o: RaceOpts): RaceResult {
     seconds: you.time,
     inBand: good.map((g, i) => (strides[i] ? g / strides[i] : 0)),
     standing,
+    lead,
     taps,
     locks,
   };
 }
 
-/** The ladder exactly as the engine will receive it, pace compensation included. */
-export function shippedBands(difficulty: Difficulty, lapMetres: number): Band[] {
-  const pace = paceFor(lapMetres);
-  return LADDERS[difficulty].map((b) => ({
+/** The ladder exactly as compileWorld hands it to the engine for this track. */
+export function shippedBands(difficulty: Difficulty, track: { points: Pt[]; scale: number }): Band[] {
+  const pace = paceFor(course(track.points, track.scale));
+  return LADDERS[difficulty].map((b, i) => ({
     lo: b.lo, hi: b.hi, ideal: b.ideal, imp: b.imp,
-    cpu: +(b.cpu * pace).toFixed(4), chase: b.chase, mercy: b.mercy,
+    cpu: i === 0 ? b.cpu : +(b.cpu * pace).toFixed(4), chase: b.chase, mercy: b.mercy,
   }));
 }
 
-/** The best any player of this skill can do, across aiming strategies. */
-export function bestFor(
-  skill: number, base: Omit<RaceOpts, 'sd' | 'aimFactor' | 'seed'>, runs = 260,
-  aims = [0.85, 0.92, 0.97, 1.0, 1.03, 1.08]
-) {
-  let best = { win: -1, aim: 1, podium: 0, inBand: [0, 0, 0], standing: [0, 0], seconds: 1e9, place: 9 };
-  for (const aimFactor of aims) {
-    let wins = 0, podium = 0, secs = 0, pl = 0;
-    const band = [0, 0, 0], st = [0, 0];
-    for (let i = 0; i < runs; i++) {
-      const res = race({ ...base, sd: skill, aimFactor, seed: 1000 + i * 7919 });
-      if (res.place === 1) wins++;
-      if (res.place <= 3) podium++;
-      secs += res.seconds; pl += res.place;
-      res.inBand.forEach((v, k) => (band[k] += v));
-      res.standing.forEach((v, k) => { if (k < 2) st[k] += v; });
-    }
-    const win = wins / runs, seconds = secs / runs;
-    if (win > best.win || (win === best.win && seconds < best.seconds)) {
-      best = {
-        win, aim: aimFactor, podium: podium / runs, seconds, place: pl / runs,
-        inBand: band.map((v) => v / runs), standing: st.map((v) => v / runs),
-      };
-    }
-  }
-  return best;
-}
-
-/** Win rate by skill for a difficulty, on a given world shape. */
-export function profile(
-  difficulty: Difficulty, lapMetres = 740, rivals = 4, runs = 260
-) {
-  const bands = shippedBands(difficulty, lapMetres);
-  const phys = PHYSICS[difficulty];
-  return SKILLS.map((s) => ({
-    skill: s.name,
-    sdMs: Math.round(s.sd * 1000),
-    ...bestFor(s.sd, { bands, lapMetres, rivals, drag: phys.drag, maxSpeed: phys.maxSpeed }, runs),
-  }));
+/** One race on a world's real track, with its tier's own physics. */
+export function raceWorld(o: {
+  difficulty: Difficulty; track: { points: Pt[]; scale: number }; rivals: number;
+  sd: number; seed: number; aimFactor?: number; fixed?: number;
+}) {
+  return race({
+    bands: shippedBands(o.difficulty, o.track), lapMetres: 0, rivals: o.rivals,
+    drag: PHYSICS[o.difficulty].drag, maxSpeed: PHYSICS[o.difficulty].maxSpeed,
+    sd: o.sd, aimFactor: o.aimFactor ?? 1, fixed: o.fixed, seed: o.seed, track: o.track,
+  });
 }

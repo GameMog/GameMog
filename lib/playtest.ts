@@ -86,10 +86,7 @@ export function playtest(input: unknown): PlaytestReport {
 
   /* ---- the race is the right length ------------------------------------ */
   const lapMetres = loopLength(w.track.points, w.track.scale);
-  // Measured, not guessed: a competent (16ms) player averages this across the
-  // rebuilt ladder in scripts/difficulty-sim.ts. It used to say 26, which was
-  // the speed of a player exploiting the old wide windows.
-  const paceGuess = 24.5;
+  const paceGuess = 26; // u/s for a competent player across the ladder
   const estLapSeconds = lapMetres / paceGuess;
   const estRaceSeconds = estLapSeconds * ladder.length;
   if (lapMetres < 180) err('track_short', `A lap is only ${lapMetres.toFixed(0)}m — the tempo banner alone covers most of it.`);

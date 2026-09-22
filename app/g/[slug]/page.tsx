@@ -103,7 +103,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
                         <tr key={b.n}>
                           <td>{i + 1}</td>
                           <td>{b.name}</td>
-                          <td>±{Math.round((b.hi - b.lo) * 500)}ms</td>
+                          <td>{Math.round(b.lo * 1000)}–{Math.round(b.hi * 1000)}ms</td>
                           <td>{Math.round(b.ideal * 1000)}ms</td>
                           <td>{b.tag}</td>
                         </tr>

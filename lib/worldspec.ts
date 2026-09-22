@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { course } from './course';
 import { RigSchema, DEFAULT_RIG } from './rig';
 
 /**
@@ -116,37 +117,28 @@ export type WorldSpec = z.infer<typeof WorldSpecSchema>;
 
 /* ------------------------------------------------------------ difficulty -- */
 /**
- * The tempo ladder.
+ * The tempo ladder. Every lap is a level.
  *
- * Every lap is a level. The window you have to hit narrows exponentially, the
- * pack speeds up, and the rubber band that was carrying you lets go.
+ * Lap 1 is the original hand-tuned ANDANTE, untouched: same rhythm, same wide
+ * window, same slow pack. It is the lap that teaches the game, and it is meant
+ * to be won by anybody who can keep a beat.
  *
- * These numbers are measured, not felt. `scripts/difficulty-sim.ts` replays the
- * engine's exact arithmetic against a player modelled as a metronome with
- * Gaussian timing error, and `npm run check` asserts the resulting win rates.
- * The previous ladder was tuned by hand and simulated at a **100% win rate for
- * every skill level including a random masher**, which is exactly what it felt
- * like to play.
+ * Laps 2 and 3 keep their original rhythm and impulse too, so the game feels
+ * the same under your thumb and runs at the same top speed. What changes is
+ * only what they demand: the window shrinks about 3x a lap (210ms, then 70ms,
+ * then 20ms wide) and the pack gets faster, so the lead lap 1 hands you is
+ * clawed back on lap 2 and has to be defended on lap 3 by tapping that is
+ * nearly perfect for the whole lap.
  *
- * Two structural facts drove the rebuild.
+ * Lap 3's pack is deliberately held *just below* the game's top speed. A pack
+ * faster than top speed would catch even flawless play on a long enough loop,
+ * which made every world over ~700m unwinnable when that was tried. Held just
+ * below it, flawless play always wins, and the question the lap asks is only
+ * whether you can stay that close to flawless.
  *
- * First, the old windows were wildly asymmetric: ANDANTE ran 210ms to 420ms
- * around an ideal of 297ms. Because a stride's value is fixed but its cost is
- * the time you waited, tapping at the fast edge of a wide window beat tapping
- * well, and the simulator found it immediately: optimal play was to hammer at
- * 0.70x the ideal. The game rewarded rate, not rhythm. Windows are now
- * symmetric, and narrow enough that the fast edge loses:
- *
- *     in-band quality runs 1.28 at the ideal down to 1.14 at the edge, so
- *     edge-tapping wins iff 1.14 * ideal/lo > 1.28, i.e. iff lo < 0.891*ideal.
- *
- * MIN_LO_RATIO keeps every band clear of that, and check.ts asserts it.
- *
- * Second, difficulty has to be a property of the ladder rather than an
- * accident of the world. A four-rival world was materially easier than a
- * five-rival one, and a 1280m loop was 36x harder than a 340m one, because
- * sustaining accuracy compounds with race length. The rival pace ladder is now
- * normalised in the engine, and `paceFor()` below compensates for lap length.
+ * Measured, not felt: scripts/difficulty-sim.ts replays the engine's arithmetic
+ * and was checked against real races in Chrome at 60fps (within 3% on time,
+ * exact on finishing place). npm run check asserts the outcomes.
  */
 type TempoBand = {
   n: number;
@@ -163,101 +155,68 @@ type TempoBand = {
   spore: number;
 };
 
-/** Below this ratio of lo to ideal, hammering the fast edge beats playing well. */
-export const MIN_LO_RATIO = 0.9;
+const STANDARD: TempoBand[] = [
+  // the original lap 1, exactly as shipped
+  { n: 1, name: 'ANDANTE', tag: 'the pack waits for you', lo: 0.21, hi: 0.42, ideal: 0.297, imp: 2.46, cpu: 0.85, chase: 2.5, mercy: 4.0, shake: 1.0, spore: 1.0 },
+  // original rhythm and impulse; window 135ms -> 70ms, pack faster, rubber band tighter
+  { n: 2, name: 'ALLEGRO', tag: 'the pack closes in', lo: 0.177, hi: 0.247, ideal: 0.212, imp: 2.14, cpu: 1.322, chase: 9.0, mercy: 1.0, shake: 1.3, spore: 1.8 },
+  // original rhythm and impulse; window 95ms -> 18ms, pack just under top speed
+  { n: 3, name: 'PRESTO', tag: 'the pack hunts you', lo: 0.152, hi: 0.170, ideal: 0.161, imp: 1.92, cpu: 1.300, chase: 6.0, mercy: 0.2, shake: 1.7, spore: 2.8 },
+];
 
-/** Drag is uniform across tiers: the impulses below are solved against it. */
-const DRAG = 0.345;
-const MAX_SPEED = 36;
-
-/**
- * The impulse that makes flawless play settle at `targetV` metres per second.
- * Solves imp * (1.28 * 1.264) = v * DRAG * ideal * (1 + 0.012v), which is the
- * engine's own drag integration at equilibrium with a full streak bonus.
- */
-const impFor = (ideal: number, targetV: number) =>
-  +((targetV * DRAG * ideal * (1 + 0.012 * targetV)) / (1.28 * 1.264)).toFixed(3);
-
-type Rung = {
-  name: string; tag: string;
-  /** Seconds between strides this lap asks for. */
-  ideal: number;
-  /** Half-window, as a fraction of ideal. Must stay under 1 - MIN_LO_RATIO. */
-  w: number;
-  /** Speed flawless play settles at. */
-  v: number;
-  cpu: number; chase: number; mercy: number; shake: number; spore: number;
-};
-
-const rung = (n: number, r: Rung): TempoBand => ({
-  n,
-  name: r.name,
-  tag: r.tag,
-  ideal: r.ideal,
-  lo: +(r.ideal * (1 - r.w)).toFixed(4),
-  hi: +(r.ideal * (1 + r.w)).toFixed(4),
-  imp: impFor(r.ideal, r.v),
-  cpu: r.cpu,
-  chase: r.chase,
-  mercy: r.mercy,
-  shake: r.shake,
-  spore: r.spore,
-});
-
-/**
- * Windows, in milliseconds either side of the ideal:
- *
- *            lap 1     lap 2     lap 3
- *   gentle    +-42      +-21      +-12
- *   standard  +-40      +-18      +-10
- *   brutal    +-37      +-16       +-8
- *
- * Lap 1 is generous and the pack dawdles, so anybody who can hold a beat leads
- * it. Lap 2 halves the window and the pack wakes up. Lap 3 halves it again and
- * the pace-setter runs faster than all but flawless play, which is the whole
- * point: the third lap is not meant to be won often.
- */
-export const LADDERS: Record<Difficulty, TempoBand[]> = {
-  gentle: [
-    rung(1, { name: 'ANDANTE', tag: 'the pack dawdles', ideal: 0.40, w: 0.100, v: 26, cpu: 0.76, chase: 2.0, mercy: 5.5, shake: 1.0, spore: 1.0 }),
-    rung(2, { name: 'ALLEGRO', tag: 'the window halves', ideal: 0.26, w: 0.082, v: 30, cpu: 1.00, chase: 4.0, mercy: 2.6, shake: 1.3, spore: 1.8 }),
-    rung(3, { name: 'PRESTO', tag: 'the pack hunts you', ideal: 0.17, w: 0.071, v: 33, cpu: 1.20, chase: 5.0, mercy: 1.6, shake: 1.7, spore: 2.8 }),
-  ],
-  standard: [
-    rung(1, { name: 'ANDANTE', tag: 'the pack dawdles', ideal: 0.40, w: 0.100, v: 27, cpu: 0.80, chase: 2.0, mercy: 5.0, shake: 1.0, spore: 1.0 }),
-    rung(2, { name: 'ALLEGRO', tag: 'the window halves', ideal: 0.26, w: 0.070, v: 31, cpu: 1.05, chase: 4.5, mercy: 2.2, shake: 1.3, spore: 1.8 }),
-    rung(3, { name: 'PRESTO', tag: 'the pack hunts you', ideal: 0.17, w: 0.059, v: 34, cpu: 1.28, chase: 5.5, mercy: 1.4, shake: 1.7, spore: 2.8 }),
-  ],
-  brutal: [
-    rung(1, { name: 'ANDANTE', tag: 'the pack dawdles', ideal: 0.40, w: 0.096, v: 27, cpu: 0.79, chase: 2.2, mercy: 4.2, shake: 1.0, spore: 1.0 }),
-    rung(2, { name: 'ALLEGRO', tag: 'the window halves', ideal: 0.26, w: 0.060, v: 31, cpu: 1.12, chase: 5.0, mercy: 1.6, shake: 1.3, spore: 1.8 }),
-    rung(3, { name: 'PRESTO', tag: 'nothing short of flawless', ideal: 0.17, w: 0.047, v: 34, cpu: 1.34, chase: 6.0, mercy: 1.0, shake: 1.7, spore: 2.8 }),
-  ],
-};
-
-/**
- * Lap-length compensation for the pack's pace.
- *
- * Holding a window is a per-stride coin flip, so the odds of holding it for a
- * whole race compound with the number of strides in it. Measured on the
- * standard ladder against a 7ms player, the same pack speed produced a 63% win
- * over a 340m loop and a 4% win over a 1280m one. Nobody chose that; the
- * generator chose a loop length for variety and it moved the difficulty by an
- * order of magnitude.
- *
- * So the pace is scaled against the 740m reference, by the factor the
- * simulation says holds the win rate flat. Clamped, because past about a
- * kilometre the effect saturates and further easing just hands the race back.
- */
-export function paceFor(lapMetres: number) {
-  return +Math.min(1.05, Math.max(0.993, 1 + 0.075 * (1 - lapMetres / 740))).toFixed(4);
+/** Widen or tighten the band and move the field, keeping the ladder's shape. */
+function scaleBand(b: TempoBand, bandMul: number, cpuMul: number): TempoBand {
+  const half = ((b.hi - b.lo) / 2) * bandMul;
+  return { ...b, lo: +(b.ideal - half).toFixed(4), hi: +(b.ideal + half).toFixed(4), cpu: +(b.cpu * cpuMul).toFixed(3) };
 }
 
-export const PHYSICS: Record<Difficulty, { drag: number; maxSpeed: number }> = {
-  gentle: { drag: DRAG, maxSpeed: MAX_SPEED },
-  standard: { drag: DRAG, maxSpeed: MAX_SPEED },
-  brutal: { drag: DRAG, maxSpeed: MAX_SPEED },
+/**
+ * Lap 1 of each tier is scaled exactly as it always was. Laps 2 and 3 get the
+ * tier's own late-race multipliers, so no tier's opening lap changed.
+ */
+function tier(lap1: [number, number], late: [number, number]): TempoBand[] {
+  return [scaleBand(STANDARD[0], ...lap1), scaleBand(STANDARD[1], ...late), scaleBand(STANDARD[2], ...late)];
+}
+
+export const LADDERS: Record<Difficulty, TempoBand[]> = {
+  gentle: tier([1.28, 0.9], [1.12, 0.992]),
+  standard: STANDARD,
+  brutal: tier([0.82, 1.07], [0.9, 0.99]),
 };
+
+export const PHYSICS: Record<Difficulty, { drag: number; maxSpeed: number }> = {
+  gentle: { drag: 0.33, maxSpeed: 36 },
+  standard: { drag: 0.345, maxSpeed: 36 },
+  brutal: { drag: 0.36, maxSpeed: 36 },
+};
+
+/** The deciding lap cannot be won by hammering its fast edge: see check.ts. */
+export const MIN_LO_RATIO = 0.891;
+
+/**
+ * Per-world compensation for the lap 2 and 3 pack. Lap 1 is never touched.
+ *
+ * Rivals lose 5.5 m/s per radian of curvature, so a twisty world hands the
+ * player free speed that a flowing one does not. Across the 21 published
+ * worlds that corner cost runs from 0.5 to 4.8 m/s, and with no compensation
+ * the same ladder let a merely good player win Whaleback Night Market 87% of
+ * the time while stopping even elite play at 1% on The Tick Vault. Loop length
+ * matters too, less: a short lap 3 gives the pack less road to claw back a lead.
+ *
+ * For each of those 21 real tracks the simulator searched for the pack
+ * strength that holds an elite run to about an 8% win. One plane fits all 21
+ * to within half a percent:
+ *
+ *     k = 0.9635 + 0.0359 * meanCorner - 0.0442 * ln(lap / 740)
+ *
+ * so each m/s the corners take from the pack is handed back as ~3.6% pace.
+ * Clamped, because a generated track outside the fitted range should get the
+ * nearest measured answer rather than an extrapolated one.
+ */
+export function paceFor(c: { total: number; meanCorner: number }) {
+  const k = 0.9635 + 0.0359 * c.meanCorner - 0.0442 * Math.log(c.total / 740);
+  return +Math.min(1.19, Math.max(0.95, k)).toFixed(4);
+}
 
 /* --------------------------------------------------------------- compile -- */
 const THREE_SOURCES = [
@@ -286,9 +245,9 @@ export function loopLength(points: [number, number, number][], scale: number) {
 export function compileWorld(spec: WorldSpec, id: string) {
   const ladder = LADDERS[spec.difficulty];
   const ramp = spec.palette.moodRamp;
-  // the pack's pace is scaled so a world's difficulty is the one it declares,
-  // not a side effect of how long its loop happens to be
-  const pace = paceFor(loopLength(spec.track.points, spec.track.scale));
+  // laps 2 and 3 are scaled for this world's own corners and length, so every
+  // world is as hard as it declares; lap 1 is left exactly as it was
+  const pace = paceFor(course(spec.track.points as [number, number, number][], spec.track.scale));
 
   return {
     meta: { id, title: spec.meta.title, tagline: spec.meta.tagline },
@@ -300,7 +259,7 @@ export function compileWorld(spec: WorldSpec, id: string) {
     racers: spec.racers.map((r) => ({ ...r, fur: hexInt(r.fur), rig: r.rig ?? DEFAULT_RIG })),
     tempi: ladder.map((b, i) => ({
       ...b,
-      cpu: +(b.cpu * pace).toFixed(4),
+      cpu: i === 0 ? b.cpu : +(b.cpu * pace).toFixed(4),
       col: ramp[i].accent,
       fog: ramp[i].fog,
       light: ramp[i].light,

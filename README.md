@@ -107,66 +107,57 @@ rejected the shipped game.
 
 ## Difficulty
 
-Every lap is a level, and the level is the timing window. It narrows roughly
-2x a lap while the pack speeds up and the rubber band that was carrying you
-lets go:
+Every lap is a level. Lap 1 is the original hand-tuned ANDANTE, untouched, and
+anybody who can keep a beat leads it. Laps 2 and 3 keep their original rhythm
+and stride too, so the game feels the same and runs at the same top speed; what
+changes is what they demand:
 
 |          | lap 1 | lap 2 | lap 3 |
 |----------|-------|-------|-------|
-| window   | +-40ms | +-18ms | +-10ms |
-| stride   | 400ms | 260ms | 170ms |
-| pack     | 0.80x | 1.05x | 1.28x |
+| window   | 210-420ms (210 wide) | 177-247ms (70 wide) | 152-170ms (18 wide) |
+| stride   | 297ms | 212ms | 161ms |
+| pack     | 0.85x | 1.32x | 1.30x, just under top speed |
 
-Those are the standard tier. `gentle` and `brutal` keep the same shape and move
-the last lap to +-12ms and +-8ms.
+Measured on the real game in Chrome at 60fps and in the simulator, standard
+tier:
 
-None of it was chosen by feel. `scripts/difficulty-sim.ts` replays the engine's
-exact arithmetic headlessly against a player modelled as a metronome with
-Gaussian timing error, sweeping the interval they aim for and keeping their
-best result, so the ladder is judged against a player who has found the optimal
-line rather than against a polite one. `npm run check` asserts the outcome.
+| player | after lap 1 | lap 2 | finishes | wins |
+|---|---|---|---|---|
+| ordinary (30ms timing) | leads | gets caught | last | 0% |
+| good (16ms) | leads | holds on | 3rd-4th | 0% |
+| expert (11ms) | leads | leads | 2nd-4th | 0% |
+| elite (7ms, the limit of trained timing) | leads | leads | usually 2nd | ~10% |
+| flawless (3ms) | leads | leads | 1st | ~100% |
 
-Measured on a 740m loop with four rivals, standard tier:
+Two things hold that together.
 
-| player | timing | leads lap 1 | after lap 2 | finishes | wins |
-|---|---|---|---|---|---|
-| masher | random | sometimes | 4th | 5th | 0% |
-| casual | 30ms | yes | 3rd | 4th | 0% |
-| average | 22ms | yes | 2nd | 4th | 0% |
-| good | 16ms | yes | 2nd | 4th | 0% |
-| expert | 11ms | yes | 1st | 3rd | 0% |
-| elite | 7ms | yes | 1st | 2nd | **2.7%** |
+**Lap 3's pack runs just under top speed.** A pack faster than 36 m/s catches
+even flawless play on any loop long enough to give it time; tried once, that
+made every world over ~700m unwinnable. Held just under, flawless play always
+wins, and the lap asks only whether you can stay that close to flawless.
 
-The previous ladder measured at a **100% win rate for every one of those rows,
-including the random masher**. Three things were wrong with it.
+**Each world's pack is scaled for its own track.** Rivals lose 5.5 m/s per
+radian of curvature, and across the published worlds corners cost them
+anywhere from 0.5 to 4.8 m/s. Unscaled, a merely good player won the twisty
+Whaleback Night Market 87% of the time while elite play managed 1% on the
+flowing Tick Vault. `lib/course.ts` measures each track exactly as the engine
+does, and `paceFor()` scales laps 2 and 3 by a plane fitted to all 21 real
+tracks (worst error half a percent). Across all 25 track types the generator
+can make, an elite run now wins between 4% and 20%, a good player never.
 
-**It paid for rate, not rhythm.** ANDANTE ran 210ms to 420ms around an ideal of
-297ms. A stride is worth a fixed impulse but costs the time you waited, so
-hammering the fast edge of a wide window beat playing well, and the simulator
-found it on the first sweep: optimal play was to tap at 0.70x the ideal.
-Windows are now symmetric and narrow enough that the edge loses, which happens
-exactly when `lo >= 0.891 * ideal`. `MIN_LO_RATIO` keeps every band clear of it
-and check.ts asserts it.
+**How this went wrong first.** An earlier pass hit its win-rate targets on paper
+and wrecked the game: it slowed lap 1 from 297ms to 400ms strides, narrowed its
+window from 210ms to 80ms and cut top speed, so races ran a quarter longer and
+the lock chain fell from ~28 a race to ~4. It was tuned against a simulator
+that had only ever been checked against the original game, where everyone
+wins, which proves nothing; the simulator's flat corner guess was off by 2x.
+So `npm run check` now pins the feel first (lap 1, every stride, drag and top
+speed must equal the original) before it measures a single outcome, and the
+simulator's numbers are quoted only because they were checked against real
+races.
 
-**Difficulty depended on things nobody chose.** The engine gave rival *i* the
-*i*-th archetype, so the fastest creature only existed in a field of five: a
-four-rival world was a materially easier game than a five-rival one, and a
-seventh rival got no personality at all and stood still. Worse, whichever
-temperament landed on the pace-setter decided the race, because a closer and a
-fader finish at very different speeds. Measured, that alone moved an expert's
-win rate between 0% and 66%. Pace is now a ladder spread across whatever field
-the world has, and the pace-setter is always the same creature mechanically.
-
-**Length was difficulty.** Holding a window is a per-stride coin flip, so the
-odds of holding it all race compound with the number of strides in it: the same
-pack speed gave a 63% win over a 340m loop and 4% over a 1280m one. `paceFor()`
-scales the pack against the 740m reference by the factor the simulation says
-holds the win rate flat. Across all twenty combinations of five lap lengths and
-four field sizes, an elite run now wins between 0% and 4%.
-
-The published worlds needed no migration. A game row stores its authored
-WorldSpec and `compileWorld` runs per request, so the ladder is central by
-construction and every world moved at once.
+Published worlds needed no migration: a game row stores its authored
+WorldSpec and `compileWorld` runs per request, so every world moved at once.
 
 ## The interface
 
