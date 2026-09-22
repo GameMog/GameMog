@@ -38,7 +38,8 @@ export const WorldSpecSchema = z.object({
     points: z.array(z.tuple([z.number(), z.number(), z.number()])).min(6).max(24),
     scale: z.number().min(0.4).max(1.6),
     roadHalf: z.number().min(4).max(9),
-    lanes: z.array(z.number().min(-9).max(9)).min(2).max(8),
+    // 7 is what a 5.9m half-road holds at a readable 1.3m spacing; see scripts/check.ts
+    lanes: z.array(z.number().min(-9).max(9)).min(2).max(7),
   }),
 
   racers: z
@@ -48,11 +49,11 @@ export const WorldSpecSchema = z.object({
         fur: Hex,
         you: z.boolean(),
         /** Index into track.lanes. */
-        lane: z.number().int().min(0).max(7),
+        lane: z.number().int().min(0).max(6),
       })
     )
     .min(2)
-    .max(8),
+    .max(7),
 
   palette: z.object({
     light: Hex,

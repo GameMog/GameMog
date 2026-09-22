@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start -p 3939",
     "seed": "node scripts/seed.mjs",
-    "build:engine": "node scripts/build-engine.mjs"
+    "build:engine": "node scripts/build-engine.mjs",
+    "check": "node --import ./scripts/ts-resolve.mjs scripts/check.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",

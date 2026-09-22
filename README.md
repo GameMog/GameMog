@@ -13,7 +13,13 @@ npm run dev              # http://localhost:3939
 ```
 
 Set `ANTHROPIC_API_KEY` in `.env.local` for real generation. Without it, `/create` still works
-end to end on a deterministic placeholder world, so the whole product is demoable with no spend.
+end to end on a deterministic placeholder world, so the whole product is demoable with no spend —
+and an uploaded character still sets the racer, because its colour is read in the browser rather
+than by a model.
+
+```bash
+npm run check            # regression guard; the featured game is the canary
+```
 
 ---
 
@@ -38,9 +44,10 @@ which is the right problem to have.
 ## How a world is built
 
 ```
-prompt ──▶ Claude (structured output) ──▶ Brief ──▶ expandBrief ──▶ WorldSpec ──▶ playtest ──▶ publish
-                     │                                   │                          │
-            narrow creative surface          clamps + procedural track      gate: errors block
+character ─┐
+           ├─▶ Claude (vision + structured output) ─▶ Brief ─▶ expandBrief ─▶ protectCharacter ─▶ playtest ─▶ publish
+prompt ────┘              │                                        │                 │              │
+                  narrow creative surface            clamps + procedural track   world yields   errors block
 ```
 
 - **`lib/generate.ts`** — the model's output surface (`BriefSchema`) is deliberately *narrower*
@@ -55,8 +62,38 @@ prompt ──▶ Claude (structured output) ──▶ Brief ──▶ expandBrie
   the game: lanes hanging off the road, a racer camouflaged against the ground, a lap so short
   the tempo banner covers it, a scene budget no phone will hold. Errors block publishing;
   warnings are shown. It does not tell you whether a game is fun. Nothing automatic does.
+- **`lib/character.ts`** — an uploaded character is the one thing in a world that is not up for
+  negotiation. Its colour is fixed; when the generated palette would swallow it, the **world**
+  moves — terrain shifts away, rivals recolour — and the creator is told what gave way rather
+  than silently overruled. The image is downsampled to 768px in the browser before upload
+  (a character reference needs no fidelity, and it keeps the vision token cost honest), and its
+  dominant colour is read there too, ignoring the white backdrop that exports almost always
+  carry. A plain average returns white for exactly the kind of image people upload.
 - **`lib/worldspec.ts`** — the authored schema, the tuned difficulty ladders, and `compileWorld`,
   which expands a spec into exactly what the engine reads.
+
+## Enforce, don't instruct
+
+The system prompt asks for readable colours. Asking is not enforcing, and the point of a fixed
+engine is that correctness does not depend on a model remembering an instruction. So the same
+rules are applied in code after generation, and every threshold is calibrated against the Muse
+Sprint cast — a field that has actually been watched race:
+
+| | verified-good floor | gate |
+|---|---|---|
+| racer vs ground, hue distance | 167 | 90 |
+| racer vs ground, luminance contrast | 1.46 | 1.30 |
+| player vs rival, hue distance | 49 | 34 |
+
+Both metrics are needed. Distance alone misses a rival that differs in hue but sits at the same
+brightness as the ground; contrast alone misses one that shares the ground's hue. The first
+version of this checked only distance and shipped two invisible rivals.
+
+`npm run check` asserts the featured game still passes its own playtest, that protection is
+idempotent and keeps the character's exact colour, and that 400 procedurally generated tracks
+stay star-shaped, unpinched and a sane length. It has already caught two real defects: an
+8-racer grid whose lanes overlapped, and a confusable-colour threshold tuned so tight it
+rejected the shipped game.
 
 ## The engine
 
@@ -94,9 +131,6 @@ quality can actually be measured rather than guessed at.
 
 Named honestly, because an MVP that pretends to be complete is worse than one that doesn't:
 
-- **Character upload.** The flow is described on the homepage but `/create` takes text only. The
-  path is short — pass the image to the model as a content block and let it derive the player's
-  colour and name — but it is not wired.
 - **Runtime playtesting.** Static validation catches config-level defects. It does not catch a
   world that loads and then drops to 20fps on a real phone. That needs a headless browser
   running a scripted race and asserting on frame time, which is the next thing worth building.

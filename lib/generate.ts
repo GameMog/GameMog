@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { DIFFICULTIES, WorldSpecSchema, type WorldSpec } from './worldspec';
 import { buildTrack, buildLanes, assignLanes } from './track';
 import { playtest, type PlaytestReport } from './playtest';
+import { protectCharacter, type Character, type CharacterImage } from './character';
 
 export const MODEL = 'claude-opus-5';
 
@@ -34,6 +35,14 @@ const BriefSchema = z.object({
     seed: z.number().describe('any integer'),
   }),
 
+  character: z
+    .object({
+      name: z.string().describe('A name for the uploaded character, or one that fits the world if no image was given.'),
+      fur: z.string().describe("#RRGGBB read off the character's own body — its dominant colour, not its background."),
+      personality: z.string().describe('One short line on who they are. Steers the tone of the result copy.'),
+    })
+    .describe('The player. If an image is attached, this describes THAT character, not an invented one.'),
+
   racers: z
     .array(
       z.object({
@@ -41,7 +50,7 @@ const BriefSchema = z.object({
         fur: z.string().describe('#RRGGBB. Must read clearly against the ground colour.'),
       })
     )
-    .describe('4 to 6 racers. The first is the player. Give each a distinct, readable colour.'),
+    .describe('3 to 5 RIVALS, not counting the player. Each distinct from the player and from each other.'),
 
   palette: z.object({
     light: z.string().describe('#RRGGBB key light — the colour of the sun here'),
@@ -121,9 +130,11 @@ function pad<T>(arr: T[] | undefined, len: number, fill: (i: number) => T): T[] 
  * rather than rejected, so a slightly sloppy generation still ships a playable
  * world. Only things that cannot be repaired reach the playtest as errors.
  */
-export function expandBrief(b: Brief): WorldSpec {
+export function expandBrief(b: Brief, locked?: Character): WorldSpec {
   const roadHalf = 5.9;
-  const racerCount = Math.max(2, Math.min(6, b.racers?.length ?? 4));
+  // the player is always index 0; the brief lists rivals only
+  const rivals = Array.isArray(b.racers) ? b.racers.slice(0, 5) : [];
+  const racerCount = Math.max(2, Math.min(6, rivals.length + 1));
   const lanes = buildLanes(racerCount, roadHalf);
   const laneOrder = assignLanes(racerCount);
 
@@ -153,12 +164,20 @@ export function expandBrief(b: Brief): WorldSpec {
       blurb: (b.blurb || 'A rhythm footrace. Tap in time to stride.').slice(0, 400),
     },
     track: { ...track, roadHalf, lanes },
-    racers: b.racers.slice(0, racerCount).map((r, i) => ({
-      name: (r?.name || `Racer ${i + 1}`).slice(0, 12),
-      fur: hex(r?.fur, ['#F0DEBD', '#B6DEC4', '#F2C2CB', '#C0C8EE', '#F3DC9B', '#CFC0E4'][i % 6]),
-      you: i === 0,
-      lane: laneOrder[i],
-    })),
+    racers: [
+      {
+        name: (locked?.name || b.character?.name || 'You').slice(0, 12),
+        fur: hex(locked?.fur ?? b.character?.fur, '#F0DEBD'),
+        you: true,
+        lane: laneOrder[0],
+      },
+      ...rivals.slice(0, racerCount - 1).map((r, i) => ({
+        name: (r?.name || `Rival ${i + 1}`).slice(0, 12),
+        fur: hex(r?.fur, ['#B6DEC4', '#F2C2CB', '#C0C8EE', '#F3DC9B', '#CFC0E4'][i % 5]),
+        you: false,
+        lane: laneOrder[i + 1],
+      })),
+    ],
     palette: {
       light: hex(b.palette?.light, '#FFF0D2'),
       skyLow: hex(b.palette?.skyLow, '#F9E6CE'),
@@ -236,9 +255,16 @@ an undersea world is dim and luminous. Cute is the house style; keep it.
 You choose a mood, a palette, a cast, and the shape of the loop. You do not
 choose how the game plays — timing, physics and controls are fixed.
 
+If an image is attached it is the player's character. Read its actual dominant
+body colour — not the backdrop it was photographed or exported against — and put
+that in character.fur. Name it and describe it from what you can see. Then build
+a world that flatters it: the ground must not be the same tone as the character,
+and no rival may be close enough to be mistaken for them.
+
 Rules that matter:
-- Every racer's colour must read clearly against terrainMoss. No racer should
-  be within a hair of the ground colour or it vanishes mid-race.
+- racers lists RIVALS only. The player comes from character.
+- Every colour must read clearly against terrainMoss. No racer should be within
+  a hair of the ground colour or it vanishes mid-race.
 - The moodRamp must visibly escalate across the three laps: lap 1 calm, lap 2
   tense, lap 3 urgent. Push the fog and light warmer or colder, not just darker.
 - fogDensity above 0.005 hides the next corner. Stay under it unless the world
@@ -251,12 +277,42 @@ export type GenerateResult = {
   ok: boolean;
   spec?: WorldSpec;
   report?: PlaytestReport;
+  character?: Character;
+  /** What had to move to keep the character visible. Shown, not hidden. */
+  adjustments?: string[];
   attempts: number;
   ms: number;
   error?: string;
 };
 
-export async function generateWorld(prompt: string): Promise<GenerateResult> {
+const normaliseHex = (v: unknown, fallback: string) => hex(v, fallback);
+
+/** Prompt, optional character image, optional repair note. */
+function userContent(prompt: string, image: CharacterImage | undefined, hintFur: string | undefined, note: string) {
+  const parts: Anthropic.ContentBlockParam[] = [];
+  if (image) {
+    parts.push({ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } });
+    parts.push({
+      type: 'text',
+      text:
+        'This is the player character. Read its dominant BODY colour, ignoring any white or transparent backdrop' +
+        (hintFur ? ` (a sample of the image suggests roughly ${hintFur}, but trust your own reading)` : '') +
+        '. Give it a name and a one-line personality, then build the world below around it.',
+    });
+  }
+  parts.push({ type: 'text', text: note ? `${prompt}\n\n${note}` : prompt });
+  return parts;
+}
+
+export type GenerateInput = {
+  prompt: string;
+  image?: CharacterImage;
+  /** A colour read off the upload in the browser, offered as a hint. */
+  hintFur?: string;
+};
+
+export async function generateWorld(input: GenerateInput | string): Promise<GenerateResult> {
+  const { prompt, image, hintFur } = typeof input === 'string' ? { prompt: input, image: undefined, hintFur: undefined } : input;
   const started = Date.now();
   const client = new Anthropic();
   let attempts = 0;
@@ -274,7 +330,7 @@ export async function generateWorld(prompt: string): Promise<GenerateResult> {
         model: MODEL,
         max_tokens: 16000,
         system: SYSTEM,
-        messages: [{ role: 'user', content: note ? `${prompt}\n\n${note}` : prompt }],
+        messages: [{ role: 'user', content: userContent(prompt, image, hintFur, note) }],
         output_config: { format: zodOutputFormat(BriefSchema) },
       });
     } catch (e) {
@@ -293,10 +349,23 @@ export async function generateWorld(prompt: string): Promise<GenerateResult> {
       continue;
     }
 
-    const spec = expandBrief(brief as Brief);
+    const b = brief as Brief;
+    let spec = expandBrief(b);
+    let moved: string[] = [];
+
+    // The character outranks the world. If the generated palette would hide
+    // them, the palette is what gives way.
+    const character: Character = {
+      name: (b.character?.name || 'You').slice(0, 12),
+      fur: normaliseHex(b.character?.fur, hintFur ?? '#F0DEBD'),
+      personality: b.character?.personality?.slice(0, 200),
+      source: image ? 'upload' : 'model',
+    };
+    ({ spec, moved } = protectCharacter(spec, character));
+
     const report = playtest(spec);
     lastReport = report;
-    if (report.ok) return { ok: true, spec, report, attempts, ms: Date.now() - started };
+    if (report.ok) return { ok: true, spec, report, character, adjustments: moved, attempts, ms: Date.now() - started };
 
     note =
       'Your previous world failed automatic playtesting. Fix exactly these and return the whole world again:\n' +
@@ -310,7 +379,7 @@ export async function generateWorld(prompt: string): Promise<GenerateResult> {
 }
 
 /** Deterministic stand-in so the whole product works without an API key. */
-export function offlineWorld(prompt: string): WorldSpec {
+export function offlineWorld(prompt: string, locked?: Character): { spec: WorldSpec; character: Character; adjustments: string[] } {
   const seed = [...prompt].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
   const rnd = () => ((Math.sin(seed * 9301 + 49297) * 233280) % 1 + 1) % 1;
   const hue = rnd();
@@ -323,13 +392,17 @@ export function offlineWorld(prompt: string): WorldSpec {
     };
     return ('#' + f(0) + f(8) + f(4)).toUpperCase();
   };
-  return expandBrief({
+  const character: Character = locked ?? {
+    name: 'You', fur: wheel(hue, 0.4, 0.8), source: 'default',
+  };
+  const brief = {
+    character: { name: character.name, fur: character.fur, personality: character.personality ?? '' },
     title: prompt.split(/\s+/).slice(0, 3).join(' ') || 'Offline Run',
     tagline: 'Generated without a model — set ANTHROPIC_API_KEY for the real thing.',
     blurb: `A placeholder world derived from "${prompt.slice(0, 80)}". It is playable, but nothing here was designed.`,
     difficulty: 'standard',
     track: { size: 0.9, corners: 11, twistiness: 0.55, elevation: 0.4, seed },
-    racers: [0, 1, 2, 3, 4].map((i) => ({ name: `Run ${i + 1}`, fur: wheel((hue + i * 0.17) % 1, 0.45, 0.78) })),
+    racers: [0, 1, 2, 3].map((i) => ({ name: `Rival ${i + 1}`, fur: wheel((hue + 0.2 + i * 0.17) % 1, 0.45, 0.72) })),
     palette: {
       light: wheel(hue, 0.35, 0.9), skyLow: wheel(hue, 0.3, 0.86), skyMid: wheel(hue, 0.22, 0.84),
       skyHigh: wheel((hue + 0.55) % 1, 0.4, 0.72), skyAmbient: wheel((hue + 0.5) % 1, 0.35, 0.8),
@@ -361,7 +434,10 @@ export function offlineWorld(prompt: string): WorldSpec {
       'You took it.', 'Beaten by a stride.', 'On the podium.',
       'A clean run, just short.', 'The band got away from you.', 'Run it back.',
     ],
-  } as Brief);
+  } as Brief;
+
+  const { spec, moved } = protectCharacter(expandBrief(brief, character), character);
+  return { spec, character, adjustments: moved };
 }
 
 export { WorldSpecSchema, BriefSchema };

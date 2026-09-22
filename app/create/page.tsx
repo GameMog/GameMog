@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { SiteHeader } from '../header';
+import { prepareUpload, type CharacterImage } from '@/lib/character';
 
 type Finding = { level: 'error' | 'warn'; code: string; message: string };
 type Report = { ok: boolean; findings: Finding[]; stats: Record<string, number> };
@@ -12,8 +13,17 @@ const EXAMPLES = [
   'An orchard on a dying star. White grass, long shadows, fruit that glows because nothing else does.',
 ];
 
+type Character = { name: string; fur: string; personality?: string; source?: string };
+
 export default function Create() {
   const [prompt, setPrompt] = useState('');
+  const [image, setImage] = useState<CharacterImage | null>(null);
+  const [preview, setPreview] = useState('');
+  const [hintFur, setHintFur] = useState('');
+  const [charName, setCharName] = useState('');
+  const [character, setCharacter] = useState<Character | null>(null);
+  const [adjustments, setAdjustments] = useState<string[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [spec, setSpec] = useState<Record<string, unknown> | null>(null);
   const [report, setReport] = useState<Report | null>(null);
@@ -21,17 +31,52 @@ export default function Create() {
   const [offline, setOffline] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    setError('');
+    if (!/^image\/(png|jpeg|jpg|webp|gif)$/.test(file.type)) {
+      setError('That needs to be a PNG, JPEG, WebP or GIF.');
+      return;
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      setError('That image is over 12MB. Try a smaller one.');
+      return;
+    }
+    try {
+      // Resized in the browser: a character reference needs no fidelity, and
+      // it keeps the upload (and the vision token cost) small.
+      const { image: img, preview: p, dominant } = await prepareUpload(file);
+      setImage(img); setPreview(p); setHintFur(dominant);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  function clearCharacter() {
+    setImage(null); setPreview(''); setHintFur(''); setCharName('');
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
   async function generate() {
     setBusy(true); setError(''); setSpec(null); setReport(null);
+    setCharacter(null); setAdjustments([]);
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          prompt,
+          image: image ?? undefined,
+          hintFur: hintFur || undefined,
+          characterName: charName || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Generation failed'); setReport(data.report ?? null); }
-      else { setSpec(data.spec); setReport(data.report); setOffline(!!data.offline); }
+      else {
+        setSpec(data.spec); setReport(data.report); setOffline(!!data.offline);
+        setCharacter(data.character ?? null); setAdjustments(data.adjustments ?? []);
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally { setBusy(false); }
@@ -64,9 +109,55 @@ export default function Create() {
           Describe a world.
         </h1>
         <p className="muted" style={{ marginBottom: 26, lineHeight: 1.6 }}>
-          The format is a rhythm footrace and the controls never change — you are choosing the
-          place, the palette and the cast. Everything generated is playtested before you can publish it.
+          Bring a character and describe somewhere to run. The format is a rhythm footrace and the
+          controls never change — you are choosing the place, the palette and the cast. Everything
+          generated is playtested before you can publish it.
         </p>
+
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="eyebrow" style={{ marginBottom: 10 }}>Your character <span style={{ opacity: .6, letterSpacing: 0, textTransform: 'none', fontWeight: 600 }}>— optional</span></div>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div
+              onClick={() => fileRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); onFile(e.dataTransfer.files?.[0]); }}
+              style={{
+                width: 108, height: 108, borderRadius: 18, cursor: 'pointer', flex: '0 0 auto',
+                border: `2px dashed ${preview ? 'transparent' : 'var(--line)'}`,
+                background: preview ? `#fff url(${preview}) center/cover` : 'rgba(201,162,94,.07)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                textAlign: 'center', fontSize: 11, color: 'var(--ink-soft)', lineHeight: 1.4, padding: 8,
+              }}
+            >
+              {preview ? '' : 'Drop a picture, or click'}
+            </div>
+            <div style={{ flex: '1 1 220px', minWidth: 200 }}>
+              <input
+                type="text" placeholder="Name them (optional)" value={charName}
+                onChange={(e) => setCharName(e.target.value.slice(0, 12))}
+                style={{ marginBottom: 8 }}
+              />
+              {hintFur ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <i style={{ width: 22, height: 22, borderRadius: '50%', background: hintFur, border: '2px solid rgba(255,255,255,.9)', boxShadow: '0 2px 5px rgba(0,0,0,.2)' }} />
+                  <span className="muted">Read <b>{hintFur}</b> off the body, ignoring the backdrop. The world will move aside rather than let this colour get lost.</span>
+                </div>
+              ) : (
+                <p className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
+                  Sets the racer&apos;s colour and name. Without one, the world picks its own cast.
+                </p>
+              )}
+              {preview && (
+                <button className="pill" style={{ cursor: 'pointer', marginTop: 8 }} onClick={clearCharacter}>Remove</button>
+              )}
+            </div>
+          </div>
+          <input
+            ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif"
+            style={{ display: 'none' }}
+            onChange={(e) => onFile(e.target.files?.[0])}
+          />
+        </div>
 
         <div className="card" style={{ marginBottom: 16 }}>
           <label className="field eyebrow" htmlFor="p">The setting</label>
@@ -125,6 +216,22 @@ export default function Create() {
                 <i key={r.name} title={r.name} style={{ width: 22, height: 22, borderRadius: '50%', background: r.fur, border: '2px solid rgba(255,255,255,.85)', boxShadow: '0 2px 5px rgba(0,0,0,.2)' }} />
               ))}
             </div>
+            {character && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <i style={{ width: 26, height: 26, borderRadius: '50%', background: character.fur, border: '2.5px solid rgba(255,255,255,.95)', boxShadow: '0 2px 6px rgba(0,0,0,.2)' }} />
+                <div style={{ fontSize: 13 }}>
+                  <b>{character.name}</b> runs this one
+                  {character.personality ? <span className="muted"> — {character.personality}</span> : null}
+                </div>
+              </div>
+            )}
+            {adjustments.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                {adjustments.map((a, i) => (
+                  <div key={i} className="finding warn"><b>kept</b><span>{a}</span></div>
+                ))}
+              </div>
+            )}
             <h2 className="display" style={{ fontSize: 28 }}>{meta.title}</h2>
             <p className="muted" style={{ marginBottom: 10 }}>{meta.tagline}</p>
             <p style={{ fontSize: 14, lineHeight: 1.65, marginBottom: 14 }}>{meta.blurb}</p>

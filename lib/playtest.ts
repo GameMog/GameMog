@@ -31,18 +31,7 @@ export type PlaytestReport = {
   };
 };
 
-const luminance = (hex: string) => {
-  const n = parseInt(hex.slice(1), 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
-    const s = v / 255;
-    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-};
-const contrast = (a: string, b: string) => {
-  const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p);
-  return (x + 0.05) / (y + 0.05);
-};
+import { contrast, distance } from './color';
 
 /** Catmull-Rom is longer than its control polygon; ~4% is a good approximation. */
 function loopLength(points: [number, number, number][], scale: number) {
@@ -126,11 +115,25 @@ export function playtest(input: unknown): PlaytestReport {
   const climb = Math.max(...pts.map((p) => p[1])) - Math.min(...pts.map((p) => p[1]));
   if (climb > 30) warn('track_steep', `${climb.toFixed(0)}m of elevation change will read as a wall at racing speed.`);
 
-  /* ---- you can see the racers against the ground ----------------------- */
+  /* ---- you can see the racers, and tell yourself apart from them -------- */
   for (const r of w.racers) {
-    const c = contrast(r.fur, w.palette.terrain.moss);
-    if (c < 1.25) {
-      warn('racer_camouflage', `${r.name} (${r.fur}) is nearly the same tone as the ground — it will vanish mid-race.`);
+    const d = distance(r.fur, w.palette.terrain.moss);
+    if (d < 90 || contrast(r.fur, w.palette.terrain.moss) < 1.18) {
+      // The player vanishing is not a matter of taste — it is the one thing the
+      // creator brought, so it blocks. A rival vanishing is a warning.
+      const msg = `${r.name} (${r.fur}) is nearly the same tone as the ground and will vanish mid-race.`;
+      r.you ? err('player_camouflage', msg) : warn('racer_camouflage', msg);
+    }
+  }
+  const me = w.racers.find((r) => r.you);
+  if (me) {
+    for (const r of w.racers) {
+      if (r === me) continue;
+      // 34 is calibrated below the closest pair in Muse Sprint (49), which is
+      // verified readable in play. Above that is a style choice, not a defect.
+      if (distance(r.fur, me.fur) < 34) {
+        err('racer_confusable', `${r.name} (${r.fur}) is too close to your own colour (${me.fur}) to tell apart at speed.`);
+      }
     }
   }
   if (contrast(w.palette.terrain.sand, w.palette.terrain.moss) < 1.15) {
