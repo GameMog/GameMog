@@ -13,7 +13,7 @@ import type { WorldSpec } from './worldspec';
  */
 
 export const CharacterSchema = z.object({
-  name: z.string().min(1).max(12),
+  name: z.string().min(1).max(14),
   fur: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   /** A short read of who they are; steers the world's copy, not its mechanics. */
   personality: z.string().max(200).optional(),
@@ -50,7 +50,7 @@ export function protectCharacter(spec: WorldSpec, character: Character): Protect
   // 1. the player wears the character, exactly
   const player = next.racers.find((r) => r.you) ?? next.racers[0];
   if (player) {
-    player.name = character.name.slice(0, 12);
+    player.name = character.name.slice(0, 14);
     player.fur = fur;
   }
 

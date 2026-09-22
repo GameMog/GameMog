@@ -45,7 +45,7 @@ export const WorldSpecSchema = z.object({
   racers: z
     .array(
       z.object({
-        name: z.string().min(1).max(12),
+        name: z.string().min(1).max(14),
         fur: Hex,
         you: z.boolean(),
         /** Index into track.lanes. */

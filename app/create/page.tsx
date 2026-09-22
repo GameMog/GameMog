@@ -134,7 +134,7 @@ export default function Create() {
             <div style={{ flex: '1 1 220px', minWidth: 200 }}>
               <input
                 type="text" placeholder="Name them (optional)" value={charName}
-                onChange={(e) => setCharName(e.target.value.slice(0, 12))}
+                onChange={(e) => setCharName(e.target.value.slice(0, 14))}
                 style={{ marginBottom: 8 }}
               />
               {hintFur ? (

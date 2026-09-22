@@ -61,3 +61,40 @@ export function pushApart(colour: string, from: string, minDistance = 140, minCo
   }
   return best;
 }
+
+/* ---------------------------------------------------------- derivations -- */
+/**
+ * A model picking eighteen separate hexes produces an incoherent palette and,
+ * with structured outputs, a decoding grammar too large to compile. It picks
+ * the few that carry meaning; these derive the rest, which also makes the
+ * shading consistent instead of eighteen independent guesses.
+ */
+export const mix = (a: string, b: string, t: number) => {
+  const x = toRgb(a), y = toRgb(b);
+  return toHex({ r: x.r + (y.r - x.r) * t, g: x.g + (y.g - x.g) * t, b: x.b + (y.b - x.b) * t });
+};
+export const darken = (c: string, t = 0.18) => mix(c, '#000000', t);
+export const lighten = (c: string, t = 0.18) => mix(c, '#FFFFFF', t);
+
+/** Rotate hue while keeping perceived lightness, for sibling colours. */
+export function shiftHue(hex: string, degrees: number) {
+  const { r, g, b } = toRgb(hex);
+  const [R, G, B] = [r / 255, g / 255, b / 255];
+  const max = Math.max(R, G, B), min = Math.min(R, G, B), l = (max + min) / 2;
+  const d = max - min;
+  let h = 0;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  if (d !== 0) {
+    if (max === R) h = ((G - B) / d) % 6;
+    else if (max === G) h = (B - R) / d + 2;
+    else h = (R - G) / d + 4;
+  }
+  h = (h * 60 + degrees + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const seg: [number, number, number] =
+    h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x]
+    : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return toHex({ r: (seg[0] + m) * 255, g: (seg[1] + m) * 255, b: (seg[2] + m) * 255 });
+}
