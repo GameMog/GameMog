@@ -90,31 +90,34 @@ function Racer({
   );
 }
 
-export function Cover({ spec, seed = 0 }: { spec: WorldSpec; seed?: number }) {
-  const W = 300, H = 300;
-  const horizon = 138;
+export function Cover({ spec, seed = 0, wide = false }: { spec: WorldSpec; seed?: number; wide?: boolean }) {
+  const W = 300, H = wide ? 169 : 300;
+  const horizon = wide ? 74 : 138;
   const p = spec.palette;
   const uid = `c${seed}${spec.meta.title.replace(/\W/g, '').slice(0, 6)}`;
 
-  const loop = project(spec.track.points as P[], spec.track.scale, W, horizon, 58);
+  const loop = project(spec.track.points as P[], spec.track.scale, W, horizon, wide ? 40 : 58);
   const path = loopPath(loop);
 
   // scenery along the horizon, from the world's own cap colours
   const caps = spec.props.caps.palettes;
+  const hs = wide ? 0.55 : 1;
   const hills = [0, 1, 2].map((i) => ({
     cx: [60, 168, 262][i],
-    cy: horizon + [6, 2, 9][i],
+    cy: horizon + [6, 2, 9][i] * hs,
     rx: [78, 96, 72][i],
-    ry: [34, 44, 30][i],
+    ry: [34, 44, 30][i] * hs,
     fill: i === 1 ? p.terrain.moss : i === 0 ? p.terrain.pale : p.terrain.accent,
   }));
 
   // the front three racers, biggest first, standing on the near edge of the loop
   const cast = spec.racers.slice(0, 3);
-  const spots: [number, number, number][] = [[150, 252, 1.0], [86, 238, 0.82], [214, 240, 0.86]];
+  const spots: [number, number, number][] = wide
+    ? [[150, 146, 0.62], [92, 137, 0.52], [208, 139, 0.55]]
+    : [[150, 252, 1.0], [86, 238, 0.82], [214, 240, 0.86]];
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${spec.meta.title} cover`}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label={`${spec.meta.title} cover`}>
       <defs>
         <linearGradient id={`${uid}sky`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={p.skyHigh} />
@@ -139,15 +142,15 @@ export function Cover({ spec, seed = 0 }: { spec: WorldSpec; seed?: number }) {
         <rect width={W} height={H} fill={`url(#${uid}sky)`} />
 
         {/* sun / light source */}
-        <circle cx={232} cy={54} r={26} fill={p.light} opacity="0.5" />
-        <circle cx={232} cy={54} r={13} fill={p.light} opacity="0.85" />
+        <circle cx={232} cy={wide ? 30 : 54} r={wide ? 17 : 26} fill={p.light} opacity="0.5" />
+        <circle cx={232} cy={wide ? 30 : 54} r={wide ? 9 : 13} fill={p.light} opacity="0.85" />
 
         {/* distant scenery */}
         {caps.slice(0, 4).map((c, i) => {
-          const cx = 34 + i * 74, cy = horizon - 10 - (i % 2) * 8, r = 17 - (i % 3) * 3;
+          const cx = 34 + i * 74, cy = horizon - (wide ? 6 : 10) - (i % 2) * (wide ? 5 : 8), r = (wide ? 11 : 17) - (i % 3) * (wide ? 2 : 3);
           return (
             <g key={i} opacity="0.92">
-              <rect x={cx - 1.8} y={cy} width="3.6" height={16} fill={c[2]} />
+              <rect x={cx - 1.8} y={cy} width="3.6" height={wide ? 10 : 16} fill={c[2]} />
               <ellipse cx={cx} cy={cy} rx={r} ry={r * 0.6} fill={c[0]} />
             </g>
           );
@@ -156,13 +159,13 @@ export function Cover({ spec, seed = 0 }: { spec: WorldSpec; seed?: number }) {
         <rect width={W} height={H} fill={`url(#${uid}vig)`} />
 
         {/* ground */}
-        <path d={`M0,${horizon} Q${W / 2},${horizon - 16} ${W},${horizon} L${W},${H} L0,${H} Z`} fill={`url(#${uid}gnd)`} />
+        <path d={`M0,${horizon} Q${W / 2},${horizon - (wide ? 9 : 16)} ${W},${horizon} L${W},${H} L0,${H} Z`} fill={`url(#${uid}gnd)`} />
         {hills.map((h, i) => <ellipse key={i} cx={h.cx} cy={h.cy} rx={h.rx} ry={h.ry} fill={h.fill} opacity="0.5" />)}
 
         {/* the world's actual racing loop */}
-        <path d={path} fill="none" stroke={p.terrain.sand} strokeWidth="21" strokeLinejoin="round" opacity="0.96" />
-        <path d={path} fill="none" stroke={p.fog} strokeWidth="21" strokeLinejoin="round" opacity="0.16" />
-        <path d={path} fill="none" stroke="#fff" strokeWidth="1.6" strokeDasharray="5 8" opacity="0.5" strokeLinejoin="round" />
+        <path d={path} fill="none" stroke={p.terrain.sand} strokeWidth={wide ? 13 : 21} strokeLinejoin="round" opacity="0.96" />
+        <path d={path} fill="none" stroke={p.fog} strokeWidth={wide ? 13 : 21} strokeLinejoin="round" opacity="0.16" />
+        <path d={path} fill="none" stroke="#fff" strokeWidth={wide ? 1.1 : 1.6} strokeDasharray={wide ? "4 6" : "5 8"} opacity="0.5" strokeLinejoin="round" />
 
         {/* the cast, at their own proportions */}
         {cast.map((r, i) => (

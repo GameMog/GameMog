@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState } from 'react';
-import { SiteHeader } from '../header';
+import { SiteHeader, SiteFooter } from '../header';
 import { prepareUpload, type CharacterImage } from '@/lib/character';
 import { Cover } from '../cover';
 import type { WorldSpec } from '@/lib/worldspec';
@@ -106,14 +106,14 @@ export default function Create() {
     <>
       <SiteHeader />
       <main className="wrap" style={{ paddingBottom: 80, maxWidth: 780 }}>
-        <h1 className="h1" style={{ marginTop: 28, marginBottom: 8 }}>Create a world</h1>
-        <p className="muted" style={{ marginBottom: 24, lineHeight: 1.6, fontSize: 15 }}>
+        <h1 className="t-xl" style={{ marginTop: 22, marginBottom: 6 }}>Create a world</h1>
+        <p className="dim" style={{ marginBottom: 20, lineHeight: 1.6, maxWidth: '62ch' }}>
           Bring a character and describe somewhere to run. The format is a rhythm footrace and the
           controls never change — you are choosing the place, the palette and the cast. Everything
           generated is playtested before you can publish it.
         </p>
 
-        <div className="card" style={{ marginBottom: 16 }}>
+        <div className="well" style={{ marginBottom: 16 }}>
           <label className="lbl">Your character <span style={{ opacity: .6, letterSpacing: 0, textTransform: 'none', fontWeight: 600 }}>— optional</span></label>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
             <div
@@ -142,12 +142,12 @@ export default function Create() {
                   <span className="muted">Read <b>{hintFur}</b> off the body, ignoring the backdrop. The world will move aside rather than let this colour get lost.</span>
                 </div>
               ) : (
-                <p className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
+                <p className="dim" style={{ fontSize: 12, lineHeight: 1.5 }}>
                   Sets the racer&apos;s colour and name. Without one, the world picks its own cast.
                 </p>
               )}
               {preview && (
-                <button className="pill" style={{ cursor: 'pointer', marginTop: 8 }} onClick={clearCharacter}>Remove</button>
+                <button className="chip" style={{ cursor: 'pointer', marginTop: 8 }} onClick={clearCharacter}>Remove</button>
               )}
             </div>
           </div>
@@ -158,7 +158,7 @@ export default function Create() {
           />
         </div>
 
-        <div className="card" style={{ marginBottom: 16 }}>
+        <div className="well" style={{ marginBottom: 16 }}>
           <label className="lbl" htmlFor="p">The setting</label>
           <textarea
             id="p" rows={4} value={prompt} placeholder="Somewhere specific. Smells, light, weather, what the ground is made of."
@@ -166,7 +166,7 @@ export default function Create() {
           />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
             {EXAMPLES.map((ex) => (
-              <button key={ex} className="pill" style={{ cursor: 'pointer', textAlign: 'left', maxWidth: 340 }}
+              <button key={ex} className="chip" style={{ cursor: 'pointer', textAlign: 'left', maxWidth: 340 }}
                 onClick={() => setPrompt(ex)}>
                 {ex.slice(0, 46)}…
               </button>
@@ -178,16 +178,16 @@ export default function Create() {
         </div>
 
         {error && (
-          <div className="note error" style={{ marginBottom: 16, padding: '13px 15px' }}>
+          <div className="msg error" style={{ marginBottom: 16, padding: '13px 15px' }}>
             <b>error</b><span>{error}</span>
           </div>
         )}
 
         {report && report.findings.length > 0 && (
-          <div className="card" style={{ marginBottom: 16 }}>
+          <div className="well" style={{ marginBottom: 16 }}>
             <label className="lbl">Playtest</label>
             {report.findings.map((f, i) => (
-              <div key={i} className={`note ${f.level}`}>
+              <div key={i} className={`msg ${f.level}`}>
                 <b>{f.level}</b><span>{f.message}</span>
               </div>
             ))}
@@ -195,9 +195,9 @@ export default function Create() {
         )}
 
         {spec && meta && (
-          <div className="card">
+          <div className="well">
             {offline && (
-              <div className="note warn" style={{ marginBottom: 14 }}>
+              <div className="msg warn" style={{ marginBottom: 14 }}>
                 <b>offline</b>
                 <span>No <code>ANTHROPIC_API_KEY</code> is set, so this world was generated
                   deterministically rather than designed. It is playable but arbitrary.</span>
@@ -218,18 +218,18 @@ export default function Create() {
             {adjustments.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 {adjustments.map((a, i) => (
-                  <div key={i} className="note info"><b>kept</b><span>{a}</span></div>
+                  <div key={i} className="msg info"><b>kept</b><span>{a}</span></div>
                 ))}
               </div>
             )}
-            <h2 className="h1" style={{ fontSize: 26 }}>{meta.title}</h2>
-            <p className="muted" style={{ marginBottom: 10, fontSize: 14 }}>{meta.tagline}</p>
+            <h2 className="t-lg">{meta.title}</h2>
+            <p className="dim" style={{ marginBottom: 10, fontSize: 14 }}>{meta.tagline}</p>
             <p style={{ fontSize: 14, lineHeight: 1.65, marginBottom: 14 }}>{meta.blurb}</p>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
-              <span className="pill">{String(spec.difficulty)}</span>
-              <span className="pill">{report?.stats.lapMetres}m lap</span>
-              <span className="pill">~{report?.stats.estRaceSeconds}s race</span>
-              <span className="pill">{racers.length} racers</span>
+              <span className="chip">{String(spec.difficulty)}</span>
+              <span className="chip">{report?.stats.lapMetres}m lap</span>
+              <span className="chip">~{report?.stats.estRaceSeconds}s race</span>
+              <span className="chip">{racers.length} racers</span>
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button className="btn" onClick={publish} disabled={publishing || !report?.ok}>
@@ -240,6 +240,7 @@ export default function Create() {
           </div>
         )}
       </main>
+      <SiteFooter />
     </>
   );
 }

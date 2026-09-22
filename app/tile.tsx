@@ -1,25 +1,25 @@
 import Link from 'next/link';
 import { Cover } from './cover';
-import { Stat } from './header';
+import { Icon } from './header';
 import type { GameRow } from '@/lib/db';
 import type { WorldSpec } from '@/lib/worldspec';
 
-const FRESH_MS = 1000 * 60 * 60 * 24 * 3;
+const NEW_MS = 1000 * 60 * 60 * 36;
 
-export function Tile({ g, i = 0 }: { g: GameRow; i?: number }) {
+export function Tile({ g, i = 0, best }: { g: GameRow; i?: number; best?: number }) {
   const spec = JSON.parse(g.spec) as WorldSpec;
-  const fresh = Date.now() - g.created_at < FRESH_MS;
+  const isNew = Date.now() - g.created_at < NEW_MS;
   return (
-    <Link href={`/g/${g.slug}`} className="tile">
-      <div className="art">
+    <Link href={`/g/${g.slug}`} className="tl">
+      <div className="th">
         <Cover spec={spec} seed={i} />
-        {g.featured ? <span className="badge">FEATURED</span> : fresh ? <span className="badge" style={{ background: 'var(--accent)' }}>NEW</span> : null}
+        {g.featured ? <span className="bd">FEATURED</span> : isNew ? <span className="bd blue">NEW</span> : null}
       </div>
       <div className="nm">{g.title}</div>
-      <div className="stats">
-        <Stat icon="people">{g.plays}</Stat>
-        <Stat icon="flag">{spec.racers.length}</Stat>
-        <Stat icon="clock">{spec.difficulty}</Stat>
+      <div className="mt">
+        <span><Icon name="players" />{g.plays}</span>
+        {best ? <span><Icon name="trophy" />{(best / 1000).toFixed(1)}s</span>
+              : <span><Icon name="field" />{spec.racers.length}</span>}
       </div>
     </Link>
   );

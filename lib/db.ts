@@ -143,6 +143,14 @@ export const topScores = (gameId: string, limit = 10) =>
     .prepare('SELECT * FROM scores WHERE game_id = ? ORDER BY time_ms ASC LIMIT ?')
     .all(gameId, limit) as ScoreRow[];
 
+/** Fastest run per game, for the shelf metric. */
+export function bestTimes(): Record<string, number> {
+  const rows = db
+    .prepare('SELECT game_id, MIN(time_ms) AS t FROM scores GROUP BY game_id')
+    .all() as { game_id: string; t: number }[];
+  return Object.fromEntries(rows.map((r) => [r.game_id, r.t]));
+}
+
 export function insertScore(s: {
   gameId: string;
   player: string;
