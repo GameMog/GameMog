@@ -138,6 +138,24 @@ function lengthBucket(w: WorldSpec): string | undefined {
     .slice().sort((x, y) => Math.abs(x[1] - per) - Math.abs(y[1] - per))[0][0];
 }
 
+/**
+ * House punctuation, enforced rather than requested.
+ *
+ * The system prompt asks for no dashes-as-punctuation, and the model mostly
+ * complies, but "mostly" is not a house style. Every line of generated copy
+ * goes through here on its way into a spec, so a published world cannot carry
+ * an em dash no matter what came back.
+ */
+export function houseCopy(text: string): string {
+  return String(text)
+    .replace(/\s*\u2014\s*/g, ', ')   // em dash used as punctuation
+    .replace(/\s+\u2013\s+/g, ', ')   // spaced en dash, same job
+    .replace(/\u2026/g, '...')
+    .replace(/\s*,\s*,/g, ',')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 export function expandBrief(b: Brief, locked?: Character, cat?: Catalogue, notes?: string[]): WorldSpec {
   const roadHalf = 5.9;
   const rivalNames = Array.isArray(b.rivalNames) ? b.rivalNames.slice(0, 5) : [];
@@ -208,9 +226,9 @@ export function expandBrief(b: Brief, locked?: Character, cat?: Catalogue, notes
     format: 'race',
     difficulty: DIFFICULTIES.includes(b.difficulty as never) ? b.difficulty : 'standard',
     meta: {
-      title: (b.title || 'Untitled Run').slice(0, 40),
-      tagline: (b.tagline || 'A race through somewhere new.').slice(0, 140),
-      blurb: (b.blurb || 'A rhythm footrace. Tap in time to stride.').slice(0, 400),
+      title: houseCopy(b.title || 'Untitled Run').slice(0, 40),
+      tagline: houseCopy(b.tagline || 'A race through somewhere new.').slice(0, 140),
+      blurb: houseCopy(b.blurb || 'A rhythm footrace. Tap in time to stride.').slice(0, 400),
     },
     track: { ...track, roadHalf, lanes },
     racers: [
@@ -280,8 +298,8 @@ export function expandBrief(b: Brief, locked?: Character, cat?: Catalogue, notes
       },
     },
     copy: {
-      placeTitles: pad(b.placeTitles, 6, (i) => ['YOU TOOK IT', 'SO CLOSE', 'ON THE PODIUM', 'GOOD RUN', 'KEEP GOING', 'NEXT TIME'][i]).map((s2) => String(s2).slice(0, 40)),
-      placeLines: pad(b.placeLines, 6, () => 'The race is over. Run it back.').map((s2) => String(s2).slice(0, 180)),
+      placeTitles: pad(b.placeTitles, 6, (i) => ['YOU TOOK IT', 'SO CLOSE', 'ON THE PODIUM', 'GOOD RUN', 'KEEP GOING', 'NEXT TIME'][i]).map((s2) => houseCopy(s2).slice(0, 40)),
+      placeLines: pad(b.placeLines, 6, () => 'The race is over. Run it back.').map((s2) => houseCopy(s2).slice(0, 180)),
     },
   };
 }
@@ -289,7 +307,7 @@ export function expandBrief(b: Brief, locked?: Character, cat?: Catalogue, notes
 /* ------------------------------------------------------------- generate -- */
 const SYSTEM = `You design worlds for a rhythm footrace game.
 
-The racers are small, round, fuzzy creatures with a hooded face — soft and
+The racers are small, round, fuzzy creatures with a hooded face: soft and
 characterful, never grim. Whatever setting you are given, render it in that
 register: a haunted world is spooky-cosy, a volcanic world is warm and glowing,
 an undersea world is dim and luminous. Cute is the house style; keep it.
@@ -298,8 +316,8 @@ You choose a mood, a palette, a cast, and the shape of the loop. You do not
 choose how the game plays — timing, physics and controls are fixed.
 
 If an image is attached it is the player's character. Read its actual dominant
-body colour — not the backdrop it was photographed or exported against — and put
-that in character.fur. Name it and describe it from what you can see. Then build
+body colour, meaning the body itself and not the backdrop it was photographed
+or exported against, and put that in character.fur. Name it and describe it from what you can see. Then build
 a world that flatters it: the ground must not be the same tone as the character,
 and no rival may be close enough to be mistaken for them.
 
@@ -317,7 +335,10 @@ Rules that matter:
   is explicitly meant to be blind.
 - placeTitles and placeLines are exactly six entries, best result first, in the
   voice of this specific world. Do not write generic praise.
-- Colours are #RRGGBB.`;
+- Colours are #RRGGBB.
+- Punctuation: never use an em dash or a spaced en dash. Use a full stop, a
+  comma or a colon. Copy that reaches the page is rewritten if it contains one,
+  and the rewrite is always worse than writing it properly.`;
 
 export type GenerateResult = {
   ok: boolean;
@@ -448,7 +469,7 @@ export function offlineWorld(prompt: string, locked?: Character): { spec: WorldS
 
   const brief: Brief = {
     title: prompt.split(/\s+/).slice(0, 3).join(' ') || 'Offline Run',
-    tagline: 'Generated without a model — set ANTHROPIC_API_KEY for the real thing.',
+    tagline: 'Generated without a model. Set ANTHROPIC_API_KEY for the real thing.',
     blurb: `A placeholder world derived from "${prompt.slice(0, 80)}". It is playable, but nothing here was designed.`,
     difficulty: 'standard',
 

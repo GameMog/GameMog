@@ -21,6 +21,18 @@ export function PlayFrame({ slug, gameId }: { slug: string; gameId: string }) {
   const [result, setResult] = useState<Result | null>(null);
   const [name, setName] = useState('');
   const [saved, setSaved] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [stalled, setStalled] = useState(false);
+
+  // A frame that never loads is a real state, not an edge case: privacy
+  // extensions and some embedded browsers refuse third-party frames outright.
+  // Waiting forever behind a skeleton tells the player nothing, so after a
+  // generous window we say so and hand them the direct link.
+  useEffect(() => {
+    if (loaded) return;
+    const t = setTimeout(() => setStalled(true), 9000);
+    return () => clearTimeout(t);
+  }, [loaded]);
 
   useEffect(() => {
     try { setName(localStorage.getItem('gamemog:name') ?? ''); } catch {}
@@ -55,7 +67,7 @@ export function PlayFrame({ slug, gameId }: { slug: string; gameId: string }) {
   }
 
   return (
-    <div id="play">
+    <div id="play" style={{ position: 'relative' }}>
       <iframe
         ref={ref}
         className="frame"
@@ -63,10 +75,22 @@ export function PlayFrame({ slug, gameId }: { slug: string; gameId: string }) {
         sandbox="allow-scripts"
         allow="autoplay"
         title="game"
+        onLoad={() => setLoaded(true)}
       />
+      {!loaded && (
+        <div className="sk-stage" role="status">
+          {stalled ? (
+            <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--ink-2)', maxWidth: 360, lineHeight: 1.5 }}>
+              This browser is blocking the embedded game.{' '}
+              <a href={`/g/${slug}/play`} target="_blank" rel="noreferrer"
+                 style={{ color: 'var(--blue)', fontWeight: 500 }}>Open it in a new tab</a>.
+            </p>
+          ) : <span>Loading the world</span>}
+        </div>
+      )}
       {result && result.finished && !saved && (
-        <div className="card" style={{ marginTop: 12, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <b style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-.02em' }}>
+        <div className="panel" style={{ marginTop: 12, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <b style={{ fontSize: 20, fontWeight: 700, lineHeight: '28px' }}>
             {result.place === 1 ? 'You won' : `${result.place}${['st','nd','rd'][result.place - 1] ?? 'th'} place`} · {(result.timeMs / 1000).toFixed(2)}s
           </b>
           <input
@@ -74,7 +98,7 @@ export function PlayFrame({ slug, gameId }: { slug: string; gameId: string }) {
             onChange={(e) => setName(e.target.value.slice(0, 16))}
             style={{ width: 170, flex: '0 1 auto' }}
           />
-          <button className="btn sm" onClick={submit}>Post to leaderboard</button>
+          <button className="btn" onClick={submit}>Post to leaderboard</button>
         </div>
       )}
     </div>

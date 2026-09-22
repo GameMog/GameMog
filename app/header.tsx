@@ -1,37 +1,47 @@
 import Link from 'next/link';
 
-const CATEGORIES = [
-  { label: 'Discover', href: '/', on: true },
-  { label: 'Racing', href: '/?f=race' },
-  { label: 'New', href: '/#new' },
-  { label: 'Most played', href: '/#played' },
-  { label: 'Obstacle', soon: true },
-  { label: 'Collecting', soon: true },
-  { label: 'Survival', soon: true },
+/**
+ * One 40px bar, the height Roblox runs. No second row of category tabs, no
+ * border under it, no shadow: the nav is the same colour as the page and is
+ * separated from the content by space alone.
+ */
+/** `wide` links are dropped on a phone, where the bar has room for two. */
+const NAV = [
+  { label: 'Charts', href: '/' },
+  { label: 'Create', href: '/create', wide: true },
+  { label: 'Racing', href: '/?f=race', wide: true },
+  { label: 'Obstacle', soon: true, wide: true },
+  { label: 'Survival', soon: true, wide: true },
 ];
 
-export function SiteHeader() {
+export function SiteHeader({ on = 'Charts' }: { on?: string }) {
   return (
     <header className="hdr">
-      <div className="wrap row1">
+      <div className="wrap bar">
         <Link href="/" className="wordmark" aria-label="GameMog home">
           <span className="mk" /><b>GameMog</b>
         </Link>
-        <div className="srch">
-          <Icon name="search" />
-          <input placeholder="Search worlds, creators, characters" aria-label="Search" />
-        </div>
-        <Link href="/create" className="btn">Create a world</Link>
-      </div>
-      <nav className="wrap row2" aria-label="Categories">
-        {CATEGORIES.map((c) =>
-          c.soon ? (
-            <span key={c.label} className="cat" aria-disabled>{c.label}<span className="dim-2" style={{ fontSize: 10, marginLeft: 5 }}>SOON</span></span>
+        {NAV.map((n) =>
+          n.soon ? (
+            <span key={n.label} className={`nvl${n.wide ? ' wide' : ''}`} aria-disabled>{n.label}</span>
           ) : (
-            <Link key={c.label} href={c.href!} className={`cat${c.on ? ' on' : ''}`}>{c.label}</Link>
+            <Link key={n.label} href={n.href!}
+              className={`nvl${n.label === on ? ' on' : ''}${n.wide ? ' wide' : ''}`}>
+              {n.label}
+            </Link>
           )
         )}
-      </nav>
+        <div className="srch">
+          <span className="ic"><Icon name="search" size={16} /></span>
+          <input placeholder="Search" aria-label="Search worlds" />
+        </div>
+        <div className="right">
+          <Link href="/create" className="btn">
+            <span className="wide">Create a world</span>
+            <span className="narrow">Create</span>
+          </Link>
+        </div>
+      </div>
     </header>
   );
 }
@@ -39,30 +49,39 @@ export function SiteHeader() {
 export function SiteFooter() {
   return (
     <footer className="ftr">
-      <div className="wrap" style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>GameMog</span>
-        <span>One engine, many worlds.</span>
-        <span style={{ marginLeft: 'auto' }}>Every world is playtested before it publishes.</span>
+      <div className="wrap">
+        <div className="links">
+          <Link href="/">Charts</Link>
+          <Link href="/create">Create</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
+        </div>
+        <p className="fine">
+          One engine, many worlds. Every world is playtested before it publishes.
+        </p>
       </div>
     </footer>
   );
 }
 
+/**
+ * Solid glyphs at 16px, filled rather than stroked. A 24px two-pixel stroked
+ * outline icon is the single most recognisable mark of a generated interface,
+ * and it is not what this site is copying.
+ */
 const PATHS: Record<string, React.ReactNode> = {
-  search: <><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.6-3.6" /></>,
-  players: <><circle cx="9" cy="8" r="3.1" /><path d="M3.2 19.5c0-3.1 2.6-5.2 5.8-5.2s5.8 2.1 5.8 5.2" /><path d="M16.8 8.4a3 3 0 010 5.3" /></>,
-  time: <><circle cx="12" cy="12" r="8.4" /><path d="M12 7.6V12l2.9 1.9" /></>,
-  field: <><path d="M5 20.5V4" /><path d="M5 4.6h11.4l-2 3.4 2 3.4H5" /></>,
-  trophy: <><path d="M7 4h10v4a5 5 0 01-10 0z" /><path d="M7 5.5H4.6V7a3 3 0 003 3M17 5.5h2.4V7a3 3 0 01-3 3" /><path d="M12 13v4M9 20h6" /></>,
-  play: <path d="M8 5v14l11-7z" />,
+  search: <path d="M10.4 2a6.4 6.4 0 104 11.4l3.1 3.1a1.1 1.1 0 001.6-1.6l-3.1-3.1A6.4 6.4 0 0010.4 2zm0 2.2a4.2 4.2 0 110 8.4 4.2 4.2 0 010-8.4z" />,
+  players: <path d="M10 3.4a3.1 3.1 0 110 6.2 3.1 3.1 0 010-6.2zM4.2 16.6c0-2.7 2.6-4.5 5.8-4.5s5.8 1.8 5.8 4.5c0 .6-.4 1-1 1H5.2c-.6 0-1-.4-1-1z" />,
+  time: <path d="M10 2.2a7.8 7.8 0 100 15.6 7.8 7.8 0 000-15.6zm.9 3.6v4l2.7 1.7a.9.9 0 01-1 1.5l-3.1-2a.9.9 0 01-.4-.8V5.8a.9.9 0 011.8 0z" />,
+  field: <path d="M4 2.4a1 1 0 011 1v13.3a1 1 0 11-2 0V3.4a1 1 0 011-1zm2.4 1h9.3a.8.8 0 01.7 1.2L14.8 7.6l1.6 3a.8.8 0 01-.7 1.2H6.4z" />,
+  trophy: <path d="M6 2.6h8v3.6a4 4 0 01-8 0zM4.6 3.6H2.8v1.3a2.8 2.8 0 002.4 2.8zm10.8 0h1.8v1.3a2.8 2.8 0 01-2.4 2.8zM9 10.8h2v3.4h2.2a.9.9 0 010 1.8H6.8a.9.9 0 010-1.8H9z" />,
+  play: <path d="M6.6 3.7a.9.9 0 011.4-.8l8.2 5.3a.9.9 0 010 1.6l-8.2 5.3a.9.9 0 01-1.4-.8z" />,
+  bolt: <path d="M11.4 1.8L4.6 10.4a.7.7 0 00.5 1.1h3.3l-1 6.2a.5.5 0 00.9.4l7-8.9a.7.7 0 00-.5-1.1h-3.4l1-5.9a.5.5 0 00-.9-.4z" />,
 };
 
-export function Icon({ name, size = 13 }: { name: keyof typeof PATHS | string; size?: number }) {
-  const filled = name === 'play';
+export function Icon({ name, size = 14 }: { name: keyof typeof PATHS | string; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24"
-      fill={filled ? 'currentColor' : 'none'} stroke={filled ? 'none' : 'currentColor'}
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
       {PATHS[name]}
     </svg>
   );

@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       : undefined;
 
   // Without a key the whole product still works end to end on a deterministic
-  // world — and an upload still sets the character, because the colour is read
+  // world, and an upload still sets the character, because the colour is read
   // in the browser rather than by a model.
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
     const locked: Character | undefined = hintFur

@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from 'react';
 /**
  * The flagship, running live.
  *
- * It boots the real game in a sandboxed frame, but holds the world's own cover
- * art over the top until the engine says it has drawn a frame. Without that the
- * hero is a blank box for as long as three.js takes to arrive — which is
- * exactly the moment a visitor decides whether this is a real product.
+ * There is no skeleton here on purpose. The world's cover art is drawn on the
+ * server from the same WorldSpec the engine is about to run, so it is in the
+ * HTML before the frame has even been requested. A grey box standing in for a
+ * picture we already have would be a downgrade, not a loading state.
  *
- * If the frame never boots (no network, WebGL unavailable, a blocked embed) the
- * poster simply stays, and the hero still looks like the game.
+ * The poster holds until the engine posts `ready`, meaning it has drawn a
+ * frame. If the frame never boots, the poster stays and the hero still looks
+ * like the game.
  */
 export function HeroStage({
   slug, gameId, poster,
@@ -37,11 +38,9 @@ export function HeroStage({
         ref={ref}
         src={`/g/${slug}/play`}
         sandbox="allow-scripts"
-        title={`${slug} — playing`}
+        title={`${slug}, playing`}
       />
-      <div className="poster" data-hide={live ? '1' : '0'} aria-hidden={live}>
-        {poster}
-      </div>
+      <div className="poster" data-hide={live ? '1' : '0'} aria-hidden>{poster}</div>
     </div>
   );
 }

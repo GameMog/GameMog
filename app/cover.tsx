@@ -3,7 +3,7 @@ import type { WorldSpec } from '@/lib/worldspec';
 /**
  * Cover art, drawn from the world itself.
  *
- * A games portal is a wall of thumbnails, and we have no screenshots — so the
+ * A games portal is a wall of thumbnails, and we have no screenshots, so the
  * tile is generated from the WorldSpec: the real sky gradient, the real ground,
  * the world's actual track loop projected into perspective, and the actual cast
  * at their actual rigged proportions. Two worlds look different on the shelf

@@ -9,7 +9,7 @@ type Finding = { level: 'error' | 'warn'; code: string; message: string };
 type Report = { ok: boolean; findings: Finding[]; stats: Record<string, number> };
 
 const EXAMPLES = [
-  'A drowned cathedral city at low tide — barnacled spires, green glass light, lanterns made of jellyfish.',
+  'A drowned cathedral city at low tide. Barnacled spires, green glass light, lanterns made of jellyfish.',
   'The inside of a grandfather clock. Brass gears the size of hills, dust in the light, everything ticking.',
   'A night market on the back of a sleeping whale. Paper lanterns, steam, warm reds against black water.',
   'An orchard on a dying star. White grass, long shadows, fruit that glows because nothing else does.',
@@ -105,27 +105,27 @@ export default function Create() {
   return (
     <>
       <SiteHeader />
-      <main className="wrap" style={{ paddingBottom: 80, maxWidth: 780 }}>
-        <h1 className="t-xl" style={{ marginTop: 22, marginBottom: 6 }}>Create a world</h1>
-        <p className="dim" style={{ marginBottom: 20, lineHeight: 1.6, maxWidth: '62ch' }}>
+      <main className="wrap" style={{ paddingBottom: 80, maxWidth: 820 }}>
+        <h1 style={{ marginTop: 24, marginBottom: 6 }}>Create a world</h1>
+        <p className="dim" style={{ marginBottom: 20, lineHeight: 1.55, maxWidth: '62ch' }}>
           Bring a character and describe somewhere to run. The format is a rhythm footrace and the
-          controls never change — you are choosing the place, the palette and the cast. Everything
-          generated is playtested before you can publish it.
+          controls never change, so you are choosing the place, the palette and the cast.
+          Everything generated is playtested before you can publish it.
         </p>
 
-        <div className="well" style={{ marginBottom: 16 }}>
-          <label className="lbl">Your character <span style={{ opacity: .6, letterSpacing: 0, textTransform: 'none', fontWeight: 600 }}>— optional</span></label>
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <label className="lbl">Your character <span style={{ opacity: .65, fontWeight: 500 }}>(optional)</span></label>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
             <div
               onClick={() => fileRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => { e.preventDefault(); onFile(e.dataTransfer.files?.[0]); }}
               style={{
-                width: 108, height: 108, borderRadius: 18, cursor: 'pointer', flex: '0 0 auto',
-                border: `2px dashed ${preview ? 'transparent' : 'var(--line)'}`,
-                background: preview ? `#fff url(${preview}) center/cover` : 'rgba(201,162,94,.07)',
+                width: 110, height: 110, borderRadius: 8, cursor: 'pointer', flex: '0 0 auto',
+                border: preview ? '1px solid var(--line)' : '1px dashed var(--ink-3)',
+                background: preview ? `#fff url(${preview}) center/cover` : 'var(--fill)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                textAlign: 'center', fontSize: 11, color: 'var(--ink-soft)', lineHeight: 1.4, padding: 8,
+                textAlign: 'center', fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.4, padding: 8,
               }}
             >
               {preview ? '' : 'Drop a picture, or click'}
@@ -137,9 +137,9 @@ export default function Create() {
                 style={{ marginBottom: 8 }}
               />
               {hintFur ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                  <i style={{ width: 22, height: 22, borderRadius: '50%', background: hintFur, border: '2px solid rgba(255,255,255,.9)', boxShadow: '0 2px 5px rgba(0,0,0,.2)' }} />
-                  <span className="muted">Read <b>{hintFur}</b> off the body, ignoring the backdrop. The world will move aside rather than let this colour get lost.</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, lineHeight: 1.5 }}>
+                  <i style={{ width: 22, height: 22, borderRadius: 4, background: hintFur, border: '1px solid var(--line)' }} />
+                  <span className="dim">Read <b>{hintFur}</b> off the body, ignoring the backdrop. The world will move aside rather than let this colour get lost.</span>
                 </div>
               ) : (
                 <p className="dim" style={{ fontSize: 12, lineHeight: 1.5 }}>
@@ -147,7 +147,7 @@ export default function Create() {
                 </p>
               )}
               {preview && (
-                <button className="chip" style={{ cursor: 'pointer', marginTop: 8 }} onClick={clearCharacter}>Remove</button>
+                <button className="tag" style={{ marginTop: 8 }} onClick={clearCharacter}>Remove</button>
               )}
             </div>
           </div>
@@ -158,7 +158,7 @@ export default function Create() {
           />
         </div>
 
-        <div className="well" style={{ marginBottom: 16 }}>
+        <div className="panel" style={{ marginBottom: 16 }}>
           <label className="lbl" htmlFor="p">The setting</label>
           <textarea
             id="p" rows={4} value={prompt} placeholder="Somewhere specific. Smells, light, weather, what the ground is made of."
@@ -166,16 +166,26 @@ export default function Create() {
           />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
             {EXAMPLES.map((ex) => (
-              <button key={ex} className="chip" style={{ cursor: 'pointer', textAlign: 'left', maxWidth: 340 }}
+              <button key={ex} className="tag multi" style={{ maxWidth: 340 }}
                 onClick={() => setPrompt(ex)}>
-                {ex.slice(0, 46)}…
+                {ex.slice(0, 44)}...
               </button>
             ))}
           </div>
           <button className="btn" onClick={generate} disabled={busy || prompt.trim().length < 8}>
-            {busy ? <><span className="spin" /> Building…</> : 'Build the world'}
+            {busy ? 'Building the world' : 'Build the world'}
           </button>
         </div>
+
+        {busy && (
+          <div className="panel sk-card" aria-hidden>
+            <div className="art" />
+            <div className="h" />
+            <div className="p" style={{ width: '92%' }} />
+            <div className="p" style={{ width: '78%' }} />
+            <div className="p" style={{ width: '40%' }} />
+          </div>
+        )}
 
         {error && (
           <div className="msg error" style={{ marginBottom: 16, padding: '13px 15px' }}>
@@ -184,7 +194,7 @@ export default function Create() {
         )}
 
         {report && report.findings.length > 0 && (
-          <div className="well" style={{ marginBottom: 16 }}>
+          <div className="panel" style={{ marginBottom: 16 }}>
             <label className="lbl">Playtest</label>
             {report.findings.map((f, i) => (
               <div key={i} className={`msg ${f.level}`}>
@@ -195,7 +205,7 @@ export default function Create() {
         )}
 
         {spec && meta && (
-          <div className="well">
+          <div className="panel">
             {offline && (
               <div className="msg warn" style={{ marginBottom: 14 }}>
                 <b>offline</b>
@@ -203,15 +213,15 @@ export default function Create() {
                   deterministically rather than designed. It is playable but arbitrary.</span>
               </div>
             )}
-            <div style={{ borderRadius: 14, overflow: 'hidden', marginBottom: 16, maxWidth: 300 }}>
+            <div style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 16, width: 300 }}>
               <Cover spec={spec as unknown as WorldSpec} seed={7} />
             </div>
             {character && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <i style={{ width: 26, height: 26, borderRadius: '50%', background: character.fur, border: '2.5px solid rgba(255,255,255,.95)', boxShadow: '0 2px 6px rgba(0,0,0,.2)' }} />
-                <div style={{ fontSize: 13 }}>
+                <i style={{ width: 24, height: 24, borderRadius: 4, background: character.fur, border: '1px solid var(--line)' }} />
+                <div style={{ fontSize: 14 }}>
                   <b>{character.name}</b> runs this one
-                  {character.personality ? <span className="muted"> — {character.personality}</span> : null}
+                  {character.personality ? <span className="dim">. {character.personality}</span> : null}
                 </div>
               </div>
             )}
@@ -222,20 +232,20 @@ export default function Create() {
                 ))}
               </div>
             )}
-            <h2 className="t-lg">{meta.title}</h2>
-            <p className="dim" style={{ marginBottom: 10, fontSize: 14 }}>{meta.tagline}</p>
-            <p style={{ fontSize: 14, lineHeight: 1.65, marginBottom: 14 }}>{meta.blurb}</p>
+            <h2>{meta.title}</h2>
+            <p className="dim" style={{ marginBottom: 10, fontSize: 16 }}>{meta.tagline}</p>
+            <p style={{ fontSize: 16, lineHeight: 1.55, marginBottom: 14 }}>{meta.blurb}</p>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
-              <span className="chip">{String(spec.difficulty)}</span>
-              <span className="chip">{report?.stats.lapMetres}m lap</span>
-              <span className="chip">~{report?.stats.estRaceSeconds}s race</span>
-              <span className="chip">{racers.length} racers</span>
+              <span className="tag">{String(spec.difficulty)}</span>
+              <span className="tag">{report?.stats.lapMetres}m lap</span>
+              <span className="tag">about {report?.stats.estRaceSeconds}s race</span>
+              <span className="tag">{racers.length} racers</span>
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button className="btn" onClick={publish} disabled={publishing || !report?.ok}>
-                {publishing ? <><span className="spin" /> Publishing…</> : 'Publish and get a link'}
+                {publishing ? 'Publishing' : 'Publish and get a link'}
               </button>
-              <button className="btn ghost" onClick={generate} disabled={busy}>Try again</button>
+              <button className="btn outline" onClick={generate} disabled={busy}>Try again</button>
             </div>
           </div>
         )}

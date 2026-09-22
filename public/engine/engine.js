@@ -1393,7 +1393,7 @@ addEventListener('blur', () => { if (document.hidden) audio.setParked(true); });
 let muted = false;
 function toggleMute(){
   muted = !muted; audio.setMuted(muted);
-  document.getElementById('mute').textContent = muted ? '🔇' : '🔊';
+  document.getElementById('mute').textContent = muted ? 'MUTED' : 'SOUND';
 }
 document.getElementById('mute').onclick = toggleMute;
 
@@ -2036,7 +2036,7 @@ function updateHUD(dt){
       r.row.querySelector('.pos').textContent = (i + 1);
       const gap = r.dist - you.dist;
       r.row.querySelector('.gap').textContent =
-        r === you ? '—' : (gap > 0 ? '+' : '') + gap.toFixed(0) + 'm';
+        r === you ? '-' : (gap > 0 ? '+' : '') + gap.toFixed(0) + 'm';
       r.row.style.order = i;
       boardRows.appendChild(r.row);
     });

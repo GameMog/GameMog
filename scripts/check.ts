@@ -2,9 +2,12 @@
  * Regression guard. `npm run check`
  *
  * The featured game is the canary: if the engine or the rules ever stop
- * accepting Muse Sprint — a world we have actually played — then a threshold
- * has been tuned by vibes and the abstraction has drifted. This catches that
+ * accepting Muse Sprint, a world we have actually played, then a threshold has
+ * been tuned by vibes and the abstraction has drifted. This catches that
  * before a creator does.
+ *
+ * The design contract runs here too, for the same reason: a rule that only
+ * lives in a brief is a rule that lasts until the next hurried component.
  */
 import { MUSE_SPRINT } from '../lib/presets/muse-sprint.ts';
 import { playtest } from '../lib/playtest.ts';
@@ -13,10 +16,11 @@ import { protectCharacter } from '../lib/character.ts';
 import { buildTrack, buildLanes } from '../lib/track.ts';
 import { distance } from '../lib/color.ts';
 import { BOUNDS } from '../lib/rig.ts';
+import { runDesignChecks } from './design-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
-  console.log(`${cond ? '  ok  ' : '  FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
+  console.log(`${cond ? '  ok  ' : '  FAIL'}  ${name}${detail ? `: ${detail}` : ''}`);
   if (!cond) failures++;
 };
 
@@ -142,6 +146,8 @@ for (const n of [2, 3, 4, 5, 6, 7]) {
   ok(`${n} lanes fit on the road`, inside && (gaps.length === 0 || Math.min(...gaps) >= 1.3),
     `spread ${lanes[0]} to ${lanes[lanes.length - 1]}`);
 }
+
+runDesignChecks(ok);
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);

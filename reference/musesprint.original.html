@@ -279,9 +279,10 @@
 
   #mute{
     position:absolute;bottom:22px;right:22px;pointer-events:auto;cursor:pointer;
-    width:42px;height:42px;border-radius:50%;background:var(--panel);
+    height:30px;padding:0 12px;border-radius:999px;background:var(--panel);
     box-shadow:var(--shadow);border:1.5px solid rgba(201,162,94,.35);
-    display:flex;align-items:center;justify-content:center;font-size:18px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--ink-soft);
   }
   #loading{
     position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
@@ -306,7 +307,7 @@
     #stride{width:92vw;bottom:22px;gap:7px;}
     #hint{font-size:12px;padding:5px 12px;max-width:74vw;}
     #hint kbd{font-size:10px;padding:2px 7px;}
-    #mute{width:34px;height:34px;bottom:14px;right:12px;font-size:14px;}
+    #mute{height:26px;padding:0 10px;bottom:14px;right:12px;font-size:10px;}
     #callout{font-size:22px;bottom:128px;}
     .tempolist b{min-width:0;}
     .tempolist div{flex-wrap:wrap;gap:6px;}
@@ -339,7 +340,7 @@
   <div class="topbar">
     <div class="chip"><div class="k">Lap</div><div class="v" id="lapv">1<small>/3</small></div></div>
     <div class="chip" id="tempochip"><div class="k">Tempo</div><div class="v" id="tempov">1</div></div>
-    <div class="chip"><div class="k">Place</div><div class="v" id="posv">—</div></div>
+    <div class="chip"><div class="k">Place</div><div class="v" id="posv">-</div></div>
     <div class="chip"><div class="k">Time</div><div class="v" id="timev">0.0</div></div>
     <div class="chip"><div class="k">Locks</div><div class="v" id="lockv">0</div></div>
   </div>
@@ -357,7 +358,7 @@
   <div id="tempoup"><div class="tnum" id="tnum">TEMPO 2</div><div class="tname" id="tname">ALLEGRO</div><div class="tdesc" id="tdesc">the band tightens</div></div>
   <div id="callout"></div>
   <div id="big"></div>
-  <div id="mute">🔊</div>
+  <div id="mute">SOUND</div>
 </div>
 
 <div class="screen" id="title">
@@ -365,15 +366,15 @@
     <div class="title">MUSE<br>SPRINT</div>
     <div class="sub">
       Six fuzzlings. One mossy loop through the Hollow.<br>
-      Tap <b class="tapkey">SPACE</b> when the needle is inside the band — miss it and you stall.
+      Tap <b class="tapkey">SPACE</b> when the needle is inside the band. Miss it and you stall.
     </div>
     <div class="tempolist">
-      <div><i style="background:#7FB268"></i><b>LAP 1 · ANDANTE</b><span>wide band — the pack waits</span></div>
-      <div><i style="background:#C9A25E"></i><b>LAP 2 · ALLEGRO</b><span>band narrows — the pack closes</span></div>
-      <div><i style="background:#D0684A"></i><b>LAP 3 · PRESTO</b><span>tightest band — the pack hunts</span></div>
+      <div><i style="background:#7FB268"></i><b>LAP 1 · ANDANTE</b><span>wide band, the pack waits</span></div>
+      <div><i style="background:#C9A25E"></i><b>LAP 2 · ALLEGRO</b><span>band narrows, the pack closes</span></div>
+      <div><i style="background:#D0684A"></i><b>LAP 3 · PRESTO</b><span>tightest band, the pack hunts</span></div>
     </div>
     <div class="sub" style="margin-top:12px;font-size:12.5px;opacity:.82">
-      Every lap is a level. Eight clean strides in a row is a <b>lock</b> — free speed.
+      Every lap is a level. Eight clean strides in a row is a <b>lock</b>, which is free speed.
     </div>
     <div class="btn" id="startbtn">START THE RACE</div>
   </div>
@@ -1720,7 +1721,7 @@ addEventListener('blur', () => { if (document.hidden) audio.setParked(true); });
 let muted = false;
 function toggleMute(){
   muted = !muted; audio.setMuted(muted);
-  document.getElementById('mute').textContent = muted ? '🔇' : '🔊';
+  document.getElementById('mute').textContent = muted ? 'MUTED' : 'SOUND';
 }
 document.getElementById('mute').onclick = toggleMute;
 
@@ -2363,7 +2364,7 @@ function updateHUD(dt){
       r.row.querySelector('.pos').textContent = (i + 1);
       const gap = r.dist - you.dist;
       r.row.querySelector('.gap').textContent =
-        r === you ? '—' : (gap > 0 ? '+' : '') + gap.toFixed(0) + 'm';
+        r === you ? '-' : (gap > 0 ? '+' : '') + gap.toFixed(0) + 'm';
       r.row.style.order = i;
       boardRows.appendChild(r.row);
     });

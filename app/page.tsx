@@ -3,58 +3,52 @@ import { SiteHeader, SiteFooter, Icon } from './header';
 import { Tile } from './tile';
 import { Cover } from './cover';
 import { HeroStage } from './hero-stage';
+import { Rail as Shelf } from './rail';
 import { listGames, bestTimes, topScores, type GameRow } from '@/lib/db';
 import { playtest } from '@/lib/playtest';
 import type { WorldSpec } from '@/lib/worldspec';
 
 export const dynamic = 'force-dynamic';
 
-function Rail({ title, sub, id, games, best }: {
-  title: string; sub?: string; id?: string; games: GameRow[]; best: Record<string, number>;
+/**
+ * A heading, a "See all", and a row of identical tiles. That is the entire
+ * unit a games catalogue is built from, repeated. There is no promo card, no
+ * two-up feature block and no ragged grid, because a shelf that changes shape
+ * every section reads as a landing page rather than a catalogue.
+ */
+function Rail({ title, id, games, best, seed }: {
+  title: string; id?: string; games: GameRow[]; best: Record<string, number>; seed: number;
 }) {
   if (!games.length) return null;
   return (
     <section className="sec" id={id}>
       <div className="sechead">
-        <div>
-          <h2 className="t-lg">{title}</h2>
-          {sub && <p>{sub}</p>}
-        </div>
+        <h2>{title}</h2>
         <Link href="#all" className="more">See all</Link>
       </div>
-      <div className="rail">
-        {games.map((g, i) => <Tile key={g.id} g={g} i={i} best={best[g.id]} />)}
-      </div>
+      <Shelf>
+        {games.map((g, i) => <Tile key={g.id} g={g} i={seed + i} best={best[g.id]} />)}
+      </Shelf>
     </section>
-  );
-}
-
-function Feature({ g, tall, tag, seed }: { g: GameRow; tall?: boolean; tag: string; seed: number }) {
-  const spec = JSON.parse(g.spec) as WorldSpec;
-  return (
-    <Link href={`/g/${g.slug}`} className={`fcard${tall ? ' tall' : ''}`}>
-      <span className="tag">{tag}</span>
-      <div className="art"><Cover spec={spec} seed={seed} wide={!tall} /></div>
-      <div className="ov">
-        <h3>{g.title}</h3>
-        <p>{g.tagline}</p>
-      </div>
-    </Link>
   );
 }
 
 export default function Home() {
   const games = listGames(120);
   const best = bestTimes();
+
   if (!games.length) {
     return (
       <>
         <SiteHeader />
-        <main className="wrap" style={{ paddingTop: 40 }}>
-          <div className="well"><h1 className="t-lg">Nothing published yet</h1>
-            <p className="dim" style={{ marginTop: 6 }}>Run <code>npm run seed</code>, or <Link href="/create" style={{ color: 'var(--accent)' }}>make the first world</Link>.</p>
-          </div>
+        <main className="wrap" style={{ paddingTop: 24 }}>
+          <h1>Charts</h1>
+          <p className="dim" style={{ marginTop: 8 }}>
+            Nothing published yet. Run <code>npm run seed</code>, or{' '}
+            <Link href="/create" style={{ color: 'var(--blue)', fontWeight: 500 }}>make the first world</Link>.
+          </p>
         </main>
+        <SiteFooter />
       </>
     );
   }
@@ -65,60 +59,58 @@ export default function Home() {
   const fBest = topScores(featured.id, 1)[0];
   const newest = [...games].sort((a, b) => b.created_at - a.created_at);
   const played = [...games].sort((a, b) => b.plays - a.plays);
-  const promo = newest.filter((g) => g.id !== featured.id).slice(0, 3);
 
   return (
     <>
-      <SiteHeader />
-      <main className="wrap" style={{ paddingTop: 16 }}>
-        {/* The flagship runs live in the hero rather than sitting as a still.
-            It is the whole pitch: this is a real game, playing, right now. */}
-        <section className="hero">
-          <HeroStage
-            slug={featured.slug}
-            gameId={featured.id}
-            poster={<Cover spec={fSpec} seed={500} wide />}
-          />
-          <div className="side">
-            <div>
-              <h1>{featured.title}</h1>
-              <p className="by">Flagship world · <b>one engine, every world</b></p>
-            </div>
-            <p style={{ fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.55 }}>{featured.tagline}</p>
-            <Link href={`/g/${featured.slug}`} className="btn play">
-              <Icon name="play" size={17} />Play
-            </Link>
-            <div className="facts">
-              <div><b>{featured.plays}</b><span>plays</span></div>
-              <div><b>{fBest ? (fBest.time_ms / 1000).toFixed(1) + 's' : '—'}</b><span>record</span></div>
-              <div><b>{Math.round(fStats.lapMetres)}m</b><span>lap</span></div>
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <span className="chip">{fSpec.racers.length} racers</span>
-              <span className="chip">3 laps</span>
-              <span className="chip">{fSpec.difficulty}</span>
+      <SiteHeader on="Charts" />
+      <main className="wrap" style={{ paddingTop: 24 }}>
+        <h1>Charts</h1>
+
+        <div style={{ display: 'flex', gap: 8, margin: '6px 0 18px', flexWrap: 'wrap' }}>
+          <span className="pill">Racing</span>
+          <span className="pill off">Obstacle</span>
+          <span className="pill off">Collecting</span>
+          <span className="pill off">Survival</span>
+        </div>
+
+        {/* The flagship is running, not pictured. A catalogue of playable games
+            that leads with a screenshot is arguing against itself. */}
+        <section>
+          <div className="sechead"><h2>Playing now</h2></div>
+          <div className="hero">
+            <HeroStage
+              slug={featured.slug}
+              gameId={featured.id}
+              poster={<Cover spec={fSpec} seed={500} wide />}
+            />
+            <div className="side">
+              <h1 style={{ fontSize: 28, lineHeight: '36px' }}>{featured.title}</h1>
+              <p className="by">Flagship world by <b>GameMog</b></p>
+              <p className="dim" style={{ fontSize: 16, lineHeight: 1.5 }}>{featured.tagline}</p>
+              <Link href={`/g/${featured.slug}`} className="btn cta">
+                <Icon name="play" size={15} />Play
+              </Link>
+              <div className="facts">
+                <div><b>{featured.plays}</b><span>plays</span></div>
+                <div><b>{fBest ? (fBest.time_ms / 1000).toFixed(1) + 's' : 'none yet'}</b><span>record</span></div>
+                <div><b>{Math.round(fStats.lapMetres)}m</b><span>lap</span></div>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <span className="tag">{fSpec.racers.length} racers</span>
+                <span className="tag">3 laps</span>
+                <span className="tag">{fSpec.difficulty}</span>
+              </div>
             </div>
           </div>
         </section>
 
-        {promo.length > 0 && (
-          <div className="feat" style={{ marginTop: 22 }}>
-            <Feature g={promo[0]} tag="NEW" seed={900} />
-            {promo[1] && <Feature g={promo[1]} tall tag="NEW" seed={901} />}
-            {promo[2] && <Feature g={promo[2]} tall tag="NEW" seed={902} />}
-          </div>
-        )}
-
-        <Rail title="Most played" sub="What people are actually running" id="played" games={played.slice(0, 14)} best={best} />
-        <Rail title="New worlds" sub="Published in the last few days" id="new" games={newest.slice(0, 14)} best={best} />
+        <Rail title="Top playing now" id="played" games={played.slice(0, 16)} best={best} seed={0} />
+        <Rail title="Up and coming" id="new" games={newest.slice(0, 16)} best={best} seed={40} />
 
         <section className="sec" id="all">
           <div className="sechead">
-            <div>
-              <h2 className="t-lg">All worlds</h2>
-              <p>{games.length} published · one engine · every one playtested</p>
-            </div>
-            <span className="chip"><Icon name="time" />Racing</span>
+            <h2>All worlds</h2>
+            <span className="t-meta dim">{games.length} published, every one playtested</span>
           </div>
           <div className="gridw">
             {games.map((g, i) => <Tile key={g.id} g={g} i={i + 200} best={best[g.id]} />)}

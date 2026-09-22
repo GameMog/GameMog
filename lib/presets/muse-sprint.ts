@@ -95,11 +95,11 @@ export const MUSE_SPRINT: WorldSpec = {
       'THE MEADOW IS PATIENT',
     ],
     placeLines: [
-      'Muse crosses first — and held the band all the way into PRESTO.',
+      'Muse crosses first, and held the band all the way into PRESTO.',
       'Second by a whisker. The last lap is where it slipped away.',
       'Third, and the spores still swirl in your wake.',
       'Fourth. Every lap the band slides left. Move with it before it moves without you.',
-      'Fifth. Watch the needle, not the pack — the band is the whole race.',
+      'Fifth. Watch the needle, not the pack. The band is the whole race.',
       'Last, but the moss is soft. Get the first lap clean and the rest follows.',
     ],
   },
