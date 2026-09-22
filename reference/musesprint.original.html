@@ -368,11 +368,7 @@
       Six fuzzlings. One mossy loop through the Hollow.<br>
       Tap <b class="tapkey">SPACE</b> when the needle is inside the band. Miss it and you stall.
     </div>
-    <div class="tempolist">
-      <div><i style="background:#7FB268"></i><b>LAP 1 · ANDANTE</b><span>wide band, the pack waits</span></div>
-      <div><i style="background:#C9A25E"></i><b>LAP 2 · ALLEGRO</b><span>band narrows, the pack closes</span></div>
-      <div><i style="background:#D0684A"></i><b>LAP 3 · PRESTO</b><span>tightest band, the pack hunts</span></div>
-    </div>
+    <div class="tempolist" id="tempolist"></div>
     <div class="sub" style="margin-top:12px;font-size:12.5px;opacity:.82">
       Every lap is a level. Eight clean strides in a row is a <b>lock</b>, which is free speed.
     </div>
@@ -467,7 +463,15 @@ const RACERS = [
 /* physics tuning */
 const DRAG     = 0.345;     // velocity decay per second
 const MAXSPEED = 36.0;
-const DIAL_MAX = 0.50;      // seconds represented by the full cadence dial
+/* Seconds represented by the full cadence dial.
+   Fixed at 0.50 this used to be fine, because PRESTO's window was 95ms wide
+   and drew as a comfortable 82px. The rebuilt ladder puts PRESTO at 20ms,
+   which on a fixed dial is a 17px sliver behind a 4px needle: unreadable, and
+   unfair in a way that reads as broken rather than hard. The dial now ends a
+   fixed 130ms past the window, so the target stays legible, still visibly
+   shrinks lap to lap, and the needle sweeps it faster each time. */
+let DIAL_MAX = 0.53;
+const dialFor = t => t.hi + 0.13;
 
 /* ---------------------------------------------------------------- TEMPO ----
    Borrowed straight from Tetris gravity: every lap is a level, and every level
@@ -1757,6 +1761,7 @@ const pips = [];
    should SEE the landing zone shrink the instant a lap ticks over.          */
 function applyTempo(instant){
   const zone = el('zone');
+  DIAL_MAX = dialFor(T);
   if (instant) zone.style.transition = 'none';
   zone.style.left  = (T.lo / DIAL_MAX * 100) + '%';
   zone.style.width = ((T.hi - T.lo) / DIAL_MAX * 100) + '%';
@@ -1783,6 +1788,13 @@ function onTempoUp(){
   b.style.animation = 'tempoup 2.4s cubic-bezier(.2,.8,.3,1) forwards';
   audio.tempoUp(T.n);
 }
+/* The lap list on the title card is this world's actual ladder: its tempo
+   names, its colours, and the real width of each window in milliseconds. A
+   player is owed the numbers they are about to be judged against. */
+el('tempolist').innerHTML = TEMPI.map((t, i) =>
+  `<div><i style="background:${t.col}"></i><b>LAP ${i + 1} \u00B7 ${t.name}</b>` +
+  `<span>\u00B1${Math.round((t.hi - t.lo) * 500)}ms, ${t.tag}</span></div>`).join('');
+
 /* phones get told to tap the screen, not a key they do not have */
 if (matchMedia('(hover: none)').matches || 'ontouchstart' in window){
   el('hint').innerHTML = 'tap the screen when the needle is inside the band';
@@ -1867,20 +1879,35 @@ function reset(){
   startRace();
 }
 
+const PACE_SLOW = 20.5, PACE_FAST = 26.6;
 function assignPersonalities(){
-  /* CPU archetypes: sprinter fades, metronome, closer, wobbler, rival */
-  const specs = [
-    null,
-    { base: 25.6, surgeA: 1.3, surgeF: .30, fade:  2.4 },   // Pip — fast starter
-    { base: 24.0, surgeA: 0.5, surgeF: .12, fade:  0.0 },   // Bibo — metronome
-    { base: 23.4, surgeA: 2.1, surgeF: .21, fade: -2.6 },   // Tova — closer
-    { base: 24.6, surgeA: 2.6, surgeF: .46, fade:  0.4 },   // Nim  — wobbler
-    { base: 26.4, surgeA: 1.1, surgeF: .17, fade: -0.8 }    // Wuff — the rival
+  /* Temperament and pace are separate. Temperament cycles; pace is spread
+     across however many rivals this world has, with the last one always the
+     pace-setter at PACE_FAST.
+
+     This used to hand rival i the i-th archetype, which meant the fastest
+     creature only existed in a field of five. A four-rival world was a
+     materially easier game than a five-rival one, and a seventh rival got no
+     personality at all and stood still. Nobody chose either of those. */
+  const temperaments = [
+    { surgeA: 1.3, surgeF: .30, fade:  2.4 },   // fast starter
+    { surgeA: 0.5, surgeF: .12, fade:  0.0 },   // metronome
+    { surgeA: 2.1, surgeF: .21, fade: -2.6 },   // closer
+    { surgeA: 2.6, surgeF: .46, fade:  0.4 },   // wobbler
+    { surgeA: 1.1, surgeF: .17, fade: -0.8 }    // the rival
   ];
+  const n = racers.length - 1;
   racers.forEach((r, i) => {
-    if (!specs[i]) return;
-    const s = specs[i];
-    r.base = s.base + (rnd() - .5) * .8;
+    if (i === 0) return;
+    /* The fastest rival is always the same creature mechanically. Cycling
+       temperaments by position meant field size picked the pace-setter's
+       character, and a pace-setter that fades is a different game from one
+       that closes: measured, that alone moved an expert's win rate between
+       0% and 66%. Everyone else cycles the other four. */
+    const last = i === racers.length - 1;
+    const s = last ? temperaments[4] : temperaments[(i - 1) % 4];
+    const t = n <= 1 ? 1 : (i - 1) / (n - 1);
+    r.base = PACE_SLOW + (PACE_FAST - PACE_SLOW) * t + (rnd() - .5) * .5;
     r.surgeA = s.surgeA; r.surgeF = s.surgeF; r.fade = s.fade;
     r.surgePh = rnd() * 6.28;
     r.stumbleT = 5 + rnd() * 9;

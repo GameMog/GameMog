@@ -1,4 +1,4 @@
-import { WorldSpecSchema, type WorldSpec, LADDERS } from './worldspec';
+import { WorldSpecSchema, type WorldSpec, LADDERS, loopLength } from './worldspec';
 
 /**
  * Static playtest.
@@ -34,16 +34,6 @@ export type PlaytestReport = {
 import { contrast, distance } from './color';
 
 /** Catmull-Rom is longer than its control polygon; ~4% is a good approximation. */
-function loopLength(points: [number, number, number][], scale: number) {
-  let total = 0;
-  for (let i = 0; i < points.length; i++) {
-    const a = points[i];
-    const b = points[(i + 1) % points.length];
-    total += Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-  }
-  return total * scale * 1.04;
-}
-
 export function playtest(input: unknown): PlaytestReport {
   const findings: Finding[] = [];
   const err = (code: string, message: string) => findings.push({ level: 'error', code, message });
@@ -96,7 +86,10 @@ export function playtest(input: unknown): PlaytestReport {
 
   /* ---- the race is the right length ------------------------------------ */
   const lapMetres = loopLength(w.track.points, w.track.scale);
-  const paceGuess = 26; // u/s for a competent player across the ladder
+  // Measured, not guessed: a competent (16ms) player averages this across the
+  // rebuilt ladder in scripts/difficulty-sim.ts. It used to say 26, which was
+  // the speed of a player exploiting the old wide windows.
+  const paceGuess = 24.5;
   const estLapSeconds = lapMetres / paceGuess;
   const estRaceSeconds = estLapSeconds * ladder.length;
   if (lapMetres < 180) err('track_short', `A lap is only ${lapMetres.toFixed(0)}m — the tempo banner alone covers most of it.`);

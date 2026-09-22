@@ -105,6 +105,69 @@ stay star-shaped, unpinched and a sane length. It has already caught two real de
 8-racer grid whose lanes overlapped, and a confusable-colour threshold tuned so tight it
 rejected the shipped game.
 
+## Difficulty
+
+Every lap is a level, and the level is the timing window. It narrows roughly
+2x a lap while the pack speeds up and the rubber band that was carrying you
+lets go:
+
+|          | lap 1 | lap 2 | lap 3 |
+|----------|-------|-------|-------|
+| window   | +-40ms | +-18ms | +-10ms |
+| stride   | 400ms | 260ms | 170ms |
+| pack     | 0.80x | 1.05x | 1.28x |
+
+Those are the standard tier. `gentle` and `brutal` keep the same shape and move
+the last lap to +-12ms and +-8ms.
+
+None of it was chosen by feel. `scripts/difficulty-sim.ts` replays the engine's
+exact arithmetic headlessly against a player modelled as a metronome with
+Gaussian timing error, sweeping the interval they aim for and keeping their
+best result, so the ladder is judged against a player who has found the optimal
+line rather than against a polite one. `npm run check` asserts the outcome.
+
+Measured on a 740m loop with four rivals, standard tier:
+
+| player | timing | leads lap 1 | after lap 2 | finishes | wins |
+|---|---|---|---|---|---|
+| masher | random | sometimes | 4th | 5th | 0% |
+| casual | 30ms | yes | 3rd | 4th | 0% |
+| average | 22ms | yes | 2nd | 4th | 0% |
+| good | 16ms | yes | 2nd | 4th | 0% |
+| expert | 11ms | yes | 1st | 3rd | 0% |
+| elite | 7ms | yes | 1st | 2nd | **2.7%** |
+
+The previous ladder measured at a **100% win rate for every one of those rows,
+including the random masher**. Three things were wrong with it.
+
+**It paid for rate, not rhythm.** ANDANTE ran 210ms to 420ms around an ideal of
+297ms. A stride is worth a fixed impulse but costs the time you waited, so
+hammering the fast edge of a wide window beat playing well, and the simulator
+found it on the first sweep: optimal play was to tap at 0.70x the ideal.
+Windows are now symmetric and narrow enough that the edge loses, which happens
+exactly when `lo >= 0.891 * ideal`. `MIN_LO_RATIO` keeps every band clear of it
+and check.ts asserts it.
+
+**Difficulty depended on things nobody chose.** The engine gave rival *i* the
+*i*-th archetype, so the fastest creature only existed in a field of five: a
+four-rival world was a materially easier game than a five-rival one, and a
+seventh rival got no personality at all and stood still. Worse, whichever
+temperament landed on the pace-setter decided the race, because a closer and a
+fader finish at very different speeds. Measured, that alone moved an expert's
+win rate between 0% and 66%. Pace is now a ladder spread across whatever field
+the world has, and the pace-setter is always the same creature mechanically.
+
+**Length was difficulty.** Holding a window is a per-stride coin flip, so the
+odds of holding it all race compound with the number of strides in it: the same
+pack speed gave a 63% win over a 340m loop and 4% over a 1280m one. `paceFor()`
+scales the pack against the 740m reference by the factor the simulation says
+holds the win rate flat. Across all twenty combinations of five lap lengths and
+four field sizes, an elite run now wins between 0% and 4%.
+
+The published worlds needed no migration. A game row stores its authored
+WorldSpec and `compileWorld` runs per request, so the ladder is central by
+construction and every world moved at once.
+
 ## The interface
 
 The catalogue is built to Roblox's measurements, not to an impression of them. Every value in

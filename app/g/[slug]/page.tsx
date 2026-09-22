@@ -4,6 +4,7 @@ import { SiteHeader, SiteFooter, Icon } from '../../header';
 import { Tile } from '../../tile';
 import { getGameBySlug, topScores, listGames, bestTimes } from '@/lib/db';
 import { playtest } from '@/lib/playtest';
+import { LADDERS } from '@/lib/worldspec';
 import type { WorldSpec } from '@/lib/worldspec';
 import { PlayFrame } from './play-frame';
 import { Tabs } from './tabs';
@@ -27,6 +28,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
   const best = bestTimes();
   const others = listGames(30).filter((g) => g.id !== game.id).slice(0, 16);
   const me = spec.racers.find((r) => r.you);
+  const ladder = LADDERS[spec.difficulty];
 
   const leaderboard = scores.length ? (
     <table className="bd">
@@ -102,6 +104,30 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
                     <dt className="dim-2">Controls</dt><dd>Space, or tap the screen</dd>
                     <dt className="dim-2">Scene budget</dt><dd>{stats.propBudget}</dd>
                   </dl>
+
+                  {/* The windows are the game. A player is owed them before they
+                      start, not after they lose. */}
+                  <h3 className="t-strong" style={{ marginTop: 22, fontWeight: 700 }}>What each lap asks for</h3>
+                  <table className="bd" style={{ marginTop: 6, maxWidth: 520 }}>
+                    <thead>
+                      <tr><th>Lap</th><th>Tempo</th><th>Window</th><th>Stride</th><th>The pack</th></tr>
+                    </thead>
+                    <tbody>
+                      {ladder.map((b, i) => (
+                        <tr key={b.n}>
+                          <td>{i + 1}</td>
+                          <td>{b.name}</td>
+                          <td>±{Math.round((b.hi - b.lo) * 500)}ms</td>
+                          <td>{Math.round(b.ideal * 1000)}ms</td>
+                          <td>{b.tag}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="t-meta dim" style={{ marginTop: 8, maxWidth: 520 }}>
+                    Eight strides inside the window in a row is a lock, worth free speed.
+                    The third lap is not meant to be won often.
+                  </p>
                 </div>
               ),
             },

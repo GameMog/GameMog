@@ -17,6 +17,7 @@ import { buildTrack, buildLanes } from '../lib/track.ts';
 import { distance } from '../lib/color.ts';
 import { BOUNDS } from '../lib/rig.ts';
 import { runDesignChecks } from './design-check.ts';
+import { runDifficultyChecks } from './difficulty-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -147,6 +148,7 @@ for (const n of [2, 3, 4, 5, 6, 7]) {
     `spread ${lanes[0]} to ${lanes[lanes.length - 1]}`);
 }
 
+runDifficultyChecks(ok);
 runDesignChecks(ok);
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
