@@ -1,0 +1,168 @@
+import { WorldSpecSchema, type WorldSpec, LADDERS } from './worldspec';
+
+/**
+ * Static playtest.
+ *
+ * The schema proves a world is well-typed. This proves it is *playable* — the
+ * checks a human would otherwise find by loading the game and discovering the
+ * lanes hang off the road, or the pack is invisible against the ground, or the
+ * track is so short a lap ends before the tempo banner clears.
+ *
+ * It is deliberately cheap and deterministic so it can run on every generation
+ * and gate publishing. It does not tell you whether a game is fun. Nothing
+ * automatic does.
+ */
+
+export type Finding = {
+  level: 'error' | 'warn';
+  code: string;
+  message: string;
+};
+
+export type PlaytestReport = {
+  ok: boolean;
+  findings: Finding[];
+  stats: {
+    lapMetres: number;
+    estLapSeconds: number;
+    estRaceSeconds: number;
+    propBudget: number;
+    laneSpread: number;
+  };
+};
+
+const luminance = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: string, b: string) => {
+  const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+};
+
+/** Catmull-Rom is longer than its control polygon; ~4% is a good approximation. */
+function loopLength(points: [number, number, number][], scale: number) {
+  let total = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    total += Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  }
+  return total * scale * 1.04;
+}
+
+export function playtest(input: unknown): PlaytestReport {
+  const findings: Finding[] = [];
+  const err = (code: string, message: string) => findings.push({ level: 'error', code, message });
+  const warn = (code: string, message: string) => findings.push({ level: 'warn', code, message });
+
+  const parsed = WorldSpecSchema.safeParse(input);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      err('schema', `${issue.path.join('.') || '(root)'}: ${issue.message}`);
+    }
+    return {
+      ok: false,
+      findings,
+      stats: { lapMetres: 0, estLapSeconds: 0, estRaceSeconds: 0, propBudget: 0, laneSpread: 0 },
+    };
+  }
+
+  const w: WorldSpec = parsed.data;
+  const ladder = LADDERS[w.difficulty];
+
+  /* ---- the field fits on the road ------------------------------------- */
+  if (w.racers.length !== w.track.lanes.length) {
+    err('lane_count', `${w.racers.length} racers but ${w.track.lanes.length} lanes — every racer needs its own lane.`);
+  }
+  const usedLanes = new Set<number>();
+  for (const r of w.racers) {
+    if (r.lane >= w.track.lanes.length) {
+      err('lane_index', `${r.name} is assigned lane ${r.lane}, which does not exist.`);
+    } else if (usedLanes.has(r.lane)) {
+      err('lane_clash', `Lane ${r.lane} is assigned to more than one racer.`);
+    }
+    usedLanes.add(r.lane);
+  }
+  const edge = w.track.roadHalf - 1.2;
+  for (const [i, lane] of w.track.lanes.entries()) {
+    if (Math.abs(lane) > edge) {
+      err('lane_offroad', `Lane ${i} sits at ${lane.toFixed(2)}m but the racing surface ends at ${edge.toFixed(2)}m.`);
+    }
+  }
+  const sorted = [...w.track.lanes].sort((a, b) => a - b);
+  let minGap = Infinity;
+  for (let i = 1; i < sorted.length; i++) minGap = Math.min(minGap, sorted[i] - sorted[i - 1]);
+  if (minGap < 1.3) warn('lane_tight', `Lanes are ${minGap.toFixed(2)}m apart; racers are ~1.5m wide and will overlap.`);
+
+  /* ---- exactly one player ---------------------------------------------- */
+  const players = w.racers.filter((r) => r.you);
+  if (players.length !== 1) {
+    err('player_count', `Exactly one racer must be the player; found ${players.length}.`);
+  }
+
+  /* ---- the race is the right length ------------------------------------ */
+  const lapMetres = loopLength(w.track.points, w.track.scale);
+  const paceGuess = 26; // u/s for a competent player across the ladder
+  const estLapSeconds = lapMetres / paceGuess;
+  const estRaceSeconds = estLapSeconds * ladder.length;
+  if (lapMetres < 180) err('track_short', `A lap is only ${lapMetres.toFixed(0)}m — the tempo banner alone covers most of it.`);
+  if (lapMetres > 1400) warn('track_long', `A lap is ${lapMetres.toFixed(0)}m (~${estLapSeconds.toFixed(0)}s). Races over two minutes lose people.`);
+
+  /* ---- the track does not cross itself or fold back -------------------- */
+  const pts = w.track.points;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const d = Math.hypot(a[0] - b[0], a[2] - b[2]) * w.track.scale;
+    if (d < w.track.roadHalf * 2.2) {
+      warn('track_kink', `Control points ${i} and ${(i + 1) % pts.length} are ${d.toFixed(1)}m apart — tighter than the road is wide, which pinches the corner.`);
+      break;
+    }
+  }
+  const climb = Math.max(...pts.map((p) => p[1])) - Math.min(...pts.map((p) => p[1]));
+  if (climb > 30) warn('track_steep', `${climb.toFixed(0)}m of elevation change will read as a wall at racing speed.`);
+
+  /* ---- you can see the racers against the ground ----------------------- */
+  for (const r of w.racers) {
+    const c = contrast(r.fur, w.palette.terrain.moss);
+    if (c < 1.25) {
+      warn('racer_camouflage', `${r.name} (${r.fur}) is nearly the same tone as the ground — it will vanish mid-race.`);
+    }
+  }
+  if (contrast(w.palette.terrain.sand, w.palette.terrain.moss) < 1.15) {
+    warn('track_camouflage', 'The path and the surrounding ground are the same tone; the racing line will be hard to read.');
+  }
+
+  /* ---- it will hold frame rate on a phone ------------------------------ */
+  const propBudget =
+    w.props.caps.count * 3 + w.props.tufts.count * 0.35 + w.props.spores.count * 0.02 + w.props.islets.count * 6;
+  if (propBudget > 1800) {
+    err('perf_budget', `Scene budget ${propBudget.toFixed(0)} is past what a mid-range phone holds at 60fps. Reduce cap or tuft counts.`);
+  } else if (propBudget > 1300) {
+    warn('perf_budget', `Scene budget ${propBudget.toFixed(0)} is heavy; expect frame drops on older phones.`);
+  }
+  const lanternCount = Math.floor(lapMetres / w.props.lanterns.spacing) * 2;
+  if (lanternCount > 160) warn('lantern_count', `${lanternCount} lanterns is a lot of additive sprites; widen the spacing.`);
+
+  /* ---- the atmosphere does not swallow the track ----------------------- */
+  const visibility = 1 / w.palette.fogDensity;
+  if (visibility < 170) {
+    warn('fog_thick', `Fog closes in at ~${visibility.toFixed(0)}m; the corner ahead will be invisible.`);
+  }
+
+  return {
+    ok: !findings.some((f) => f.level === 'error'),
+    findings,
+    stats: {
+      lapMetres: +lapMetres.toFixed(1),
+      estLapSeconds: +estLapSeconds.toFixed(1),
+      estRaceSeconds: +estRaceSeconds.toFixed(1),
+      propBudget: +propBudget.toFixed(0),
+      laneSpread: +(Math.max(...w.track.lanes) - Math.min(...w.track.lanes)).toFixed(2),
+    },
+  };
+}

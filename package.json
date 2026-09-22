@@ -1,0 +1,26 @@
+{
+  "name": "gamemog",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3939",
+    "build": "next build",
+    "start": "next start -p 3939",
+    "seed": "node scripts/seed.mjs",
+    "playtest": "node scripts/playtest.mjs",
+    "build:engine": "node scripts/build-engine.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.127.0",
+    "next": "^15.5.4",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "typescript": "^5.7.2"
+  }
+}
