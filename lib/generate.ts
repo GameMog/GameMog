@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 import { DIFFICULTIES, WorldSpecSchema, type WorldSpec } from './worldspec';
-import { buildTrack, buildLanes, assignLanes } from './track';
+import { buildTrack, buildLanes, assignLanes, seedFrom, TRACK_LENGTHS, TRACK_SHAPES } from './track';
 import { mix, darken, lighten, shiftHue } from './color';
 import { playtest, type PlaytestReport } from './playtest';
 import { protectCharacter, type Character, type CharacterImage } from './character';
@@ -29,11 +29,13 @@ const BriefSchema = z.object({
   blurb: z.string().describe('Two sentences of flavour for the game page.'),
   difficulty: z.enum(DIFFICULTIES).describe('gentle for a relaxed world, brutal for a hostile one'),
 
-  trackSize: z.number().describe('0.55 tight and quick, 1.3 long and sweeping'),
-  trackCorners: z.number().describe('7-16 control points; more means more direction changes'),
-  trackTwist: z.number().describe('0 almost circular, 1 strong straights and hairpins'),
+  trackLength: z
+    .enum(TRACK_LENGTHS)
+    .describe('sprint ~340m (about 40s), short ~520m, standard ~740m, long ~1000m, epic ~1280m (about two and a half minutes). Choose for the world: a frantic place should be short.'),
+  trackShape: z
+    .enum(TRACK_SHAPES)
+    .describe('oval = fast and simple, lobed = clover with sweeping bends, serpentine = constant S-bends, hairpins = tight repeated switchbacks, sprawling = two long straights and wide turns'),
   trackHills: z.number().describe('0 flat, 1 rolling'),
-  seed: z.number().describe('any integer'),
 
   characterName: z.string().describe('The player. If an image is attached, name THAT character.'),
   characterFur: z.string().describe("#RRGGBB read off the character's body, ignoring its backdrop."),
@@ -124,15 +126,17 @@ export function expandBrief(b: Brief, locked?: Character): WorldSpec {
     faceOpen: b.faceOpen, eyeSize: b.eyeSize, eyeSpread: b.eyeSpread,
     mouthWidth: b.mouthWidth, topper: b.topper, eye: b.eyeColour,
   });
-  const rigSeed = Math.floor(clamp(b.seed, 1, 1e9, 7));
+  // Seed from the title rather than asking for a number: models pick round,
+  // repeated integers, and two worlds with the same knobs would be twins.
+  const seed = seedFrom(`${b.title}|${b.tagline}`);
+  const rigSeed = seed;
 
   const track = buildTrack(
     {
-      size: clamp(b.trackSize, 0.55, 1.3, 0.9),
-      corners: clamp(b.trackCorners, 7, 16, 11),
-      twistiness: clamp(b.trackTwist, 0, 1, 0.55),
+      length: TRACK_LENGTHS.includes(b.trackLength as never) ? b.trackLength : 'standard',
+      shape: TRACK_SHAPES.includes(b.trackShape as never) ? b.trackShape : 'lobed',
       elevation: clamp(b.trackHills, 0, 1, 0.4),
-      seed: Math.floor(clamp(b.seed, 1, 1e9, 7)),
+      seed,
     },
     roadHalf
   );
@@ -267,6 +271,10 @@ a world that flatters it: the ground must not be the same tone as the character,
 and no rival may be close enough to be mistaken for them.
 
 Rules that matter:
+- trackLength and trackShape are real choices, not defaults. A frantic market
+  should be a sprint; a vast dead place should be epic. Pick hairpins or
+  serpentine when the setting is cramped or tangled, sprawling when it is open.
+  Do not answer "standard" and "lobed" unless the world genuinely calls for it.
 - racers lists RIVALS only. The player comes from character.
 - Every colour must read clearly against terrainMoss. No racer should be within
   a hair of the ground colour or it vanishes mid-race.
@@ -406,7 +414,9 @@ export function offlineWorld(prompt: string, locked?: Character): { spec: WorldS
     blurb: `A placeholder world derived from "${prompt.slice(0, 80)}". It is playable, but nothing here was designed.`,
     difficulty: 'standard',
 
-    trackSize: 0.9, trackCorners: 11, trackTwist: 0.55, trackHills: 0.4, seed,
+    trackLength: TRACK_LENGTHS[seed % TRACK_LENGTHS.length],
+    trackShape: TRACK_SHAPES[(seed >>> 3) % TRACK_SHAPES.length],
+    trackHills: 0.4,
 
     bodyHeight: 0.9 + (seed % 30) / 100, bodyGirth: 0.85 + (seed % 37) / 100,
     bodyHead: (seed % 11) / 10, legLength: 0.7 + (seed % 17) / 20,

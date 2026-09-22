@@ -73,30 +73,43 @@ console.log('\ncharacter rigs');
 }
 
 console.log('\nprocedural tracks');
-let selfIntersecting = 0, tooTight = 0, outOfRange = 0;
-for (let seed = 1; seed <= 400; seed++) {
-  const size = 0.55 + (seed % 16) / 20;
-  const t = buildTrack(
-    { size, corners: 7 + (seed % 10), twistiness: (seed % 11) / 10, elevation: (seed % 7) / 6, seed },
-    5.9
-  );
-  // star-shaped about the origin => cannot self-intersect; verify the property
-  // holds rather than trusting the derivation
-  const radii = t.points.map((p) => Math.hypot(p[0], p[2]));
-  if (radii.some((r) => r <= 0.001)) selfIntersecting++;
-  for (let i = 0; i < t.points.length; i++) {
-    const a = t.points[i], b = t.points[(i + 1) % t.points.length];
-    if (Math.hypot(a[0] - b[0], a[2] - b[2]) < 5.9 * 2.2) tooTight++;
+{
+  const { TRACK_LENGTHS, TRACK_SHAPES } = await import('../lib/track.ts');
+  const TARGET: Record<string, number> = { sprint: 340, short: 520, standard: 740, long: 1000, epic: 1280 };
+  let degenerate = 0, pinched = 0, offLength = 0;
+  const lobings: number[] = [];
+  for (const length of TRACK_LENGTHS) {
+    for (const shape of TRACK_SHAPES) {
+      for (let s = 1; s <= 12; s++) {
+        const t = buildTrack({ length, shape, elevation: (s % 7) / 6, seed: s * 7919 }, 5.9);
+        const rad = t.points.map((p) => Math.hypot(p[0], p[2]));
+        // star-shaped about the origin => cannot self-intersect
+        if (rad.some((r) => r <= 0.001)) degenerate++;
+        for (let i = 0; i < t.points.length; i++) {
+          const a = t.points[i], b = t.points[(i + 1) % t.points.length];
+          if (Math.hypot(a[0] - b[0], a[2] - b[2]) < 5.9 * 2.2) pinched++;
+        }
+        let per = 0;
+        for (let i = 0; i < t.points.length; i++) {
+          const a = t.points[i], b = t.points[(i + 1) % t.points.length];
+          per += Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+        }
+        per *= 1.04;
+        // the pinch repair can only lengthen a loop, so allow headroom above
+        if (per < TARGET[length] * 0.88 || per > TARGET[length] * 1.35) offLength++;
+        lobings.push((Math.max(...rad) - Math.min(...rad)) / Math.max(...rad));
+      }
+    }
   }
-  const perim = t.points.reduce((s, p, i) => {
-    const q = t.points[(i + 1) % t.points.length];
-    return s + Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
-  }, 0) * 1.04;
-  if (perim < 180 || perim > 1400) outOfRange++;
+  const n = TRACK_LENGTHS.length * TRACK_SHAPES.length * 12;
+  ok(`${n} tracks across every shape stay star-shaped`, degenerate === 0, `${degenerate} degenerate`);
+  ok(`${n} tracks have no pinched corners`, pinched === 0, `${pinched} pinches`);
+  ok(`${n} tracks land near their requested length`, offLength === 0, `${offLength} off target`);
+  // the whole point of named shapes: the gallery must not be one oval repeated
+  const spread = Math.max(...lobings) - Math.min(...lobings);
+  ok('shapes differ enough to tell apart', spread > 0.35,
+    `lobing spans ${(Math.min(...lobings) * 100).toFixed(0)}%-${(Math.max(...lobings) * 100).toFixed(0)}%`);
 }
-ok('400 generated tracks stay star-shaped', selfIntersecting === 0, `${selfIntersecting} degenerate`);
-ok('400 generated tracks have no pinched corners', tooTight === 0, `${tooTight} pinches`);
-ok('400 generated tracks are a sane lap length', outOfRange === 0, `${outOfRange} out of range`);
 
 console.log('\nlanes (the road holds 7 at a readable spacing)');
 for (const n of [2, 3, 4, 5, 6, 7]) {
