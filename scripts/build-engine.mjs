@@ -381,6 +381,14 @@ sub('bootErrors', /loadThree\(0\)\.then\(boot\)\.catch\(\(\) => \{[\s\S]*?\n\}\)
     '<div style="text-align:center;padding:30px;line-height:1.7">Could not reach the three.js CDN.<br>Connect to the internet once and reload.</div>';
 });`);
 
+/* ---- tell the host the moment there is something worth looking at, so an
+       embed can hold a poster instead of showing an empty canvas -------- */
+sub('readySignal', `  if (!started){
+    started = true;`,
+`  if (!started){
+    started = true;
+    try { parent.postMessage({ source: 'gamemog', type: 'ready', gameId: __W.meta.id }, '*'); } catch (e) {}`);
+
 /* ---- score reporting: the platform needs a result, the sandbox cannot fetch */
 sub('reportResult', `  el('finish').classList.remove('hide');
 }`, `  el('finish').classList.remove('hide');

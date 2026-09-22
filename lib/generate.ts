@@ -7,6 +7,7 @@ import { mix, darken, lighten, shiftHue } from './color';
 import { playtest, type PlaytestReport } from './playtest';
 import { protectCharacter, type Character, type CharacterImage } from './character';
 import { coerceRig, varyRig, DEFAULT_RIG, TOPPERS, type Rig } from './rig';
+import { debias, tally, type Counts } from './diversity';
 
 export const MODEL = 'claude-opus-5';
 
@@ -111,7 +112,33 @@ function pad<T>(arr: T[] | undefined, len: number, fill: (i: number) => T): T[] 
  * rather than rejected, so a slightly sloppy generation still ships a playable
  * world. Only things that cannot be repaired reach the playtest as errors.
  */
-export function expandBrief(b: Brief, locked?: Character): WorldSpec {
+export type Catalogue = { shapes: Counts; lengths: Counts; toppers: Counts };
+
+/** Read the distribution of the choices that collapse, off published worlds. */
+export function readCatalogue(specs: unknown[]): Catalogue {
+  const s = specs as WorldSpec[];
+  return {
+    // shape is recoverable from the control-point count: each recipe has its own
+    shapes: tally(s.map((w) => ({ 9: 'oval', 12: 'lobed', 15: 'serpentine', 16: 'hairpins', 11: 'sprawling' } as Record<number, string>)[w?.track?.points?.length ?? 0])),
+    lengths: tally(s.map((w) => lengthBucket(w))),
+    toppers: tally(s.map((w) => w?.racers?.find((r) => r.you)?.rig?.topper)),
+  };
+}
+
+function lengthBucket(w: WorldSpec): string | undefined {
+  const p = w?.track?.points;
+  if (!p?.length) return undefined;
+  let per = 0;
+  for (let i = 0; i < p.length; i++) {
+    const a = p[i], b = p[(i + 1) % p.length];
+    per += Math.hypot(a[0] - b[0], a[2] - b[2]);
+  }
+  per *= 1.04;
+  return ([['sprint', 340], ['short', 520], ['standard', 740], ['long', 1000], ['epic', 1280]] as const)
+    .slice().sort((x, y) => Math.abs(x[1] - per) - Math.abs(y[1] - per))[0][0];
+}
+
+export function expandBrief(b: Brief, locked?: Character, cat?: Catalogue, notes?: string[]): WorldSpec {
   const roadHalf = 5.9;
   const rivalNames = Array.isArray(b.rivalNames) ? b.rivalNames.slice(0, 5) : [];
   const rivalColours = Array.isArray(b.rivalColours) ? b.rivalColours : [];
@@ -119,25 +146,31 @@ export function expandBrief(b: Brief, locked?: Character): WorldSpec {
   const lanes = buildLanes(racerCount, roadHalf);
   const laneOrder = assignLanes(racerCount);
 
+  // Keep the model's choice unless the shelf is already full of it.
+  const topper = cat ? debias(b.topper, TOPPERS, cat.toppers, 'topper') : { value: b.topper };
+  if (topper.note && notes) notes.push(topper.note);
+
   const playerRig: Rig = coerceRig({
     height: b.bodyHeight, girth: b.bodyGirth, headRoom: b.bodyHead,
     legLength: b.legLength, armLength: b.armLength,
     furLength: b.furLength, furDensity: b.furDensity,
     faceOpen: b.faceOpen, eyeSize: b.eyeSize, eyeSpread: b.eyeSpread,
-    mouthWidth: b.mouthWidth, topper: b.topper, eye: b.eyeColour,
+    mouthWidth: b.mouthWidth, topper: topper.value, eye: b.eyeColour,
   });
   // Seed from the title rather than asking for a number: models pick round,
   // repeated integers, and two worlds with the same knobs would be twins.
   const seed = seedFrom(`${b.title}|${b.tagline}`);
   const rigSeed = seed;
 
+  const rawLength = TRACK_LENGTHS.includes(b.trackLength as never) ? b.trackLength : 'standard';
+  const rawShape = TRACK_SHAPES.includes(b.trackShape as never) ? b.trackShape : 'lobed';
+  const length = cat ? debias(rawLength, TRACK_LENGTHS, cat.lengths, 'track length') : { value: rawLength };
+  const shape = cat ? debias(rawShape, TRACK_SHAPES, cat.shapes, 'track shape') : { value: rawShape };
+  if (length.note && notes) notes.push(length.note);
+  if (shape.note && notes) notes.push(shape.note);
+
   const track = buildTrack(
-    {
-      length: TRACK_LENGTHS.includes(b.trackLength as never) ? b.trackLength : 'standard',
-      shape: TRACK_SHAPES.includes(b.trackShape as never) ? b.trackShape : 'lobed',
-      elevation: clamp(b.trackHills, 0, 1, 0.4),
-      seed,
-    },
+    { length: length.value, shape: shape.value, elevation: clamp(b.trackHills, 0, 1, 0.4), seed },
     roadHalf
   );
 
@@ -322,10 +355,14 @@ export type GenerateInput = {
   image?: CharacterImage;
   /** A colour read off the upload in the browser, offered as a hint. */
   hintFur?: string;
+  /** What the shelf already holds, so one option cannot take it over. */
+  catalogue?: Catalogue;
 };
 
 export async function generateWorld(input: GenerateInput | string): Promise<GenerateResult> {
-  const { prompt, image, hintFur } = typeof input === 'string' ? { prompt: input, image: undefined, hintFur: undefined } : input;
+  const { prompt, image, hintFur, catalogue } = typeof input === 'string'
+    ? { prompt: input, image: undefined, hintFur: undefined, catalogue: undefined }
+    : input;
   const started = Date.now();
   const client = new Anthropic();
   let attempts = 0;
@@ -363,7 +400,8 @@ export async function generateWorld(input: GenerateInput | string): Promise<Gene
     }
 
     const b = brief as Brief;
-    let spec = expandBrief(b);
+    const balanced: string[] = [];
+    let spec = expandBrief(b, undefined, catalogue, balanced);
     let moved: string[] = [];
 
     // The character outranks the world. If the generated palette would hide
@@ -378,7 +416,7 @@ export async function generateWorld(input: GenerateInput | string): Promise<Gene
 
     const report = playtest(spec);
     lastReport = report;
-    if (report.ok) return { ok: true, spec, report, character, adjustments: moved, attempts, ms: Date.now() - started };
+    if (report.ok) return { ok: true, spec, report, character, adjustments: [...balanced, ...moved], attempts, ms: Date.now() - started };
 
     note =
       'Your previous world failed automatic playtesting. Fix exactly these and return the whole world again:\n' +

@@ -2216,6 +2216,7 @@ function frame(){
 
   if (!started){
     started = true;
+    try { parent.postMessage({ source: 'gamemog', type: 'ready', gameId: __W.meta.id }, '*'); } catch (e) {}
     setTimeout(() => {
       const l = document.getElementById('loading');
       l.style.transition = 'opacity .5s'; l.style.opacity = '0';

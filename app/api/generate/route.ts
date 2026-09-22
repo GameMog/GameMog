@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { generateWorld, offlineWorld } from '@/lib/generate';
+import { generateWorld, offlineWorld, readCatalogue } from '@/lib/generate';
 import { playtest } from '@/lib/playtest';
-import { logGeneration } from '@/lib/db';
+import { logGeneration, recentSpecs } from '@/lib/db';
+
 import { ImageSchema, type Character } from '@/lib/character';
 
 export const runtime = 'nodejs';
@@ -60,7 +61,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ spec, report, character, adjustments, offline: true });
   }
 
-  const out = await generateWorld({ prompt: text, image, hintFur });
+  // Balance against what is already on the shelf, not against nothing.
+  const catalogue = readCatalogue(recentSpecs(24));
+  const out = await generateWorld({ prompt: text, image, hintFur, catalogue });
   logGeneration({
     gameId: null,
     prompt: text,

@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { SiteHeader, SiteFooter, Icon } from './header';
 import { Tile } from './tile';
 import { Cover } from './cover';
-import { listGames, bestTimes, type GameRow } from '@/lib/db';
+import { HeroStage } from './hero-stage';
+import { listGames, bestTimes, topScores, type GameRow } from '@/lib/db';
+import { playtest } from '@/lib/playtest';
 import type { WorldSpec } from '@/lib/worldspec';
 
 export const dynamic = 'force-dynamic';
@@ -58,19 +60,54 @@ export default function Home() {
   }
 
   const featured = games.find((g) => g.featured) ?? games[0];
+  const fSpec = JSON.parse(featured.spec) as WorldSpec;
+  const fStats = playtest(fSpec).stats;
+  const fBest = topScores(featured.id, 1)[0];
   const newest = [...games].sort((a, b) => b.created_at - a.created_at);
   const played = [...games].sort((a, b) => b.plays - a.plays);
-  const promo = [featured, ...newest.filter((g) => g.id !== featured.id)].slice(0, 3);
+  const promo = newest.filter((g) => g.id !== featured.id).slice(0, 3);
 
   return (
     <>
       <SiteHeader />
       <main className="wrap" style={{ paddingTop: 16 }}>
-        <div className="feat">
-          <Feature g={promo[0]} tag="FEATURED" seed={900} />
-          {promo[1] && <Feature g={promo[1]} tall tag="NEW" seed={901} />}
-          {promo[2] && <Feature g={promo[2]} tall tag="NEW" seed={902} />}
-        </div>
+        {/* The flagship runs live in the hero rather than sitting as a still.
+            It is the whole pitch: this is a real game, playing, right now. */}
+        <section className="hero">
+          <HeroStage
+            slug={featured.slug}
+            gameId={featured.id}
+            poster={<Cover spec={fSpec} seed={500} wide />}
+          />
+          <div className="side">
+            <div>
+              <h1>{featured.title}</h1>
+              <p className="by">Flagship world · <b>one engine, every world</b></p>
+            </div>
+            <p style={{ fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.55 }}>{featured.tagline}</p>
+            <Link href={`/g/${featured.slug}`} className="btn play">
+              <Icon name="play" size={17} />Play
+            </Link>
+            <div className="facts">
+              <div><b>{featured.plays}</b><span>plays</span></div>
+              <div><b>{fBest ? (fBest.time_ms / 1000).toFixed(1) + 's' : '—'}</b><span>record</span></div>
+              <div><b>{Math.round(fStats.lapMetres)}m</b><span>lap</span></div>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <span className="chip">{fSpec.racers.length} racers</span>
+              <span className="chip">3 laps</span>
+              <span className="chip">{fSpec.difficulty}</span>
+            </div>
+          </div>
+        </section>
+
+        {promo.length > 0 && (
+          <div className="feat" style={{ marginTop: 22 }}>
+            <Feature g={promo[0]} tag="NEW" seed={900} />
+            {promo[1] && <Feature g={promo[1]} tall tag="NEW" seed={901} />}
+            {promo[2] && <Feature g={promo[2]} tall tag="NEW" seed={902} />}
+          </div>
+        )}
 
         <Rail title="Most played" sub="What people are actually running" id="played" games={played.slice(0, 14)} best={best} />
         <Rail title="New worlds" sub="Published in the last few days" id="new" games={newest.slice(0, 14)} best={best} />

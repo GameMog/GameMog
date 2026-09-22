@@ -106,15 +106,15 @@ svg{display:block}
 .more:hover{color:var(--accent)}
 
 /* ------------------------------------------------------------------ rail -- */
-.rail{display:grid;grid-auto-flow:column;grid-auto-columns:150px;gap:12px;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x proximity}
+.rail{display:grid;grid-auto-flow:column;grid-auto-columns:150px;gap:14px;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x proximity}
 .rail::-webkit-scrollbar{height:5px}
 .rail::-webkit-scrollbar-thumb{background:#D5D9E0;border-radius:99px}
 .rail::-webkit-scrollbar-track{background:transparent}
-.gridw{display:grid;gap:12px 12px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.gridw{display:grid;gap:18px 14px;grid-template-columns:repeat(auto-fill,150px);justify-content:space-between}
 
 /* ------------------------------------------------------------------ tile -- */
-.tl{display:block;scroll-snap-align:start}
-.tl .th{position:relative;aspect-ratio:1/1;border-radius:var(--r2);overflow:hidden;background:var(--line-2)}
+.tl{display:block;scroll-snap-align:start;width:150px}
+.tl .th{position:relative;width:150px;height:150px;border-radius:var(--r2);overflow:hidden;background:var(--line-2)}
 .tl .th svg{width:100%;height:100%}
 .tl:hover .th{outline:2px solid var(--ink);outline-offset:-1px}
 .tl .bd{
@@ -122,11 +122,37 @@ svg{display:block}
   border-radius:4px;background:var(--hot);color:#fff;font-size:10px;font-weight:700;letter-spacing:.02em;
 }
 .tl .bd.blue{background:var(--accent)}
-.tl .nm{margin-top:7px;font-size:15px;font-weight:700;line-height:1.3;letter-spacing:-.01em;
+.tl .nm{margin-top:6px;font-size:16px;font-weight:700;line-height:22.4px;letter-spacing:-.01em;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  min-height:calc(2 * 1.3em)}
-.tl .mt{display:flex;align-items:center;gap:9px;margin-top:2px;font-size:12px;font-weight:500;color:var(--ink-2)}
+  height:44.8px}
+.tl .mt{display:flex;align-items:center;gap:10px;margin-top:1px;font-size:12px;font-weight:500;color:var(--ink-2)}
 .tl .mt span{display:flex;align-items:center;gap:3px}
+
+/* ------------------------------------------------------------------ hero -- */
+.hero{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start;margin-top:16px}
+.hero .stage{position:relative;border-radius:var(--r3);overflow:hidden;background:#EFDFC8;border:1px solid var(--line)}
+.hero .stage iframe{display:block;width:100%;aspect-ratio:16/9;border:none}
+.hero .live{
+  position:absolute;top:10px;left:10px;z-index:2;height:22px;padding:0 9px;display:inline-flex;align-items:center;gap:6px;
+  border-radius:4px;background:rgba(10,12,18,.66);backdrop-filter:blur(6px);
+  color:#fff;font-size:10px;font-weight:700;letter-spacing:.08em;
+}
+.hero .live i{width:6px;height:6px;border-radius:50%;background:#3BD16F;box-shadow:0 0 0 0 rgba(59,209,111,.7);animation:pulse 1.8s infinite}
+.hero .live[data-on="0"] i{background:var(--ink-3);animation:none}
+.hero .poster{position:absolute;inset:0;transition:opacity .5s ease;pointer-events:none}
+.hero .poster svg{width:100%;height:100%;object-fit:cover}
+.hero .poster[data-hide="1"]{opacity:0}
+@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(59,209,111,0)}100%{box-shadow:0 0 0 0 rgba(59,209,111,0)}}
+.hero .side{display:grid;gap:10px;align-content:start}
+.hero h1{font-size:30px;font-weight:800;letter-spacing:-.025em;line-height:1.12}
+.hero .by{font-size:13px;color:var(--ink-2)}
+.hero .by b{font-weight:600;color:var(--ink)}
+.btn.play{height:60px;font-size:19px;font-weight:700;border-radius:var(--r2);width:100%;gap:9px}
+.hero .facts{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:var(--r2);overflow:hidden;background:var(--card)}
+.hero .facts div{padding:9px 10px;border-right:1px solid var(--line)}
+.hero .facts div:last-child{border-right:none}
+.hero .facts b{display:block;font-size:17px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.hero .facts span{font-size:11px;color:var(--ink-3);font-weight:500}
 
 /* --------------------------------------------------------------- feature -- */
 /* one row, one height: ragged promo cards are the fastest way to look unfinished */
@@ -168,6 +194,7 @@ table.bd td:nth-child(2){font-weight:600}
 
 .ftr{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 40px;font-size:12.5px;color:var(--ink-3)}
 
+@media(max-width:1060px){ .hero{grid-template-columns:1fr} }
 @media(max-width:980px){
   .feat{grid-template-columns:1fr 1fr;height:230px}
   .feat .fcard:nth-child(3){display:none}
@@ -179,7 +206,10 @@ table.bd td:nth-child(2){font-weight:600}
   .t-xl{font-size:22px}
   .frame{aspect-ratio:4/3}
   .rail{grid-auto-columns:132px}
-  .gridw{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
+  .gridw{grid-template-columns:repeat(auto-fill,132px);justify-content:space-between}
+  .tl,.tl .th{width:132px}
+  .tl .th{height:132px}
+  .hero h1{font-size:24px}
 }
 
 @media(max-width:900px){ .gamelayout{grid-template-columns:1fr !important} }

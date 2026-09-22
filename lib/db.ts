@@ -166,6 +166,16 @@ export function insertScore(s: {
   ).run(s.gameId, s.player, s.timeMs, s.place, s.tempoReached, s.locks, s.bestStreak, Date.now());
 }
 
+/**
+ * The recent catalogue, as raw specs. Used to balance generation choices so a
+ * model's favourite option cannot take over the shelf.
+ */
+export function recentSpecs(limit = 24): unknown[] {
+  return (db
+    .prepare('SELECT spec FROM games ORDER BY created_at DESC LIMIT ?')
+    .all(limit) as { spec: string }[]).map((r) => JSON.parse(r.spec));
+}
+
 export function logGeneration(g: {
   gameId: string | null;
   prompt: string;
