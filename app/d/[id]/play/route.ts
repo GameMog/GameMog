@@ -1,0 +1,23 @@
+import { getDraft } from '@/lib/db';
+import { renderCustomGame, CUSTOM_CSP } from '@/lib/custom-game';
+
+/**
+ * A draft game, before publishing: what the runtime playtest plays, and what
+ * the creator previews. Served with the same locked-down policy as a published
+ * game, because it is the same untrusted code.
+ */
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  const d = getDraft(id);
+  if (!d) return new Response('Not found', { status: 404 });
+  const meta = JSON.parse(d.meta);
+  return new Response(renderCustomGame(d.code, meta, `draft-${d.id}`), {
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'content-security-policy': CUSTOM_CSP,
+      'x-content-type-options': 'nosniff',
+      'referrer-policy': 'no-referrer',
+      'cache-control': 'no-store',
+    },
+  });
+}

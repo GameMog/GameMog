@@ -12,7 +12,7 @@ npm run seed             # put Muse Sprint in the database
 npm run dev              # http://localhost:3939
 ```
 
-Set `ANTHROPIC_API_KEY` in `.env.local` for real generation. Without it, `/create` still works
+Set `ANTHROPIC_API_KEY` in `.env.local` for real generation (Claude Opus 5.5). Written games are playtested in the Chrome installed on this machine; set `CHROME_PATH` if it lives somewhere unusual. Without it, `/create` still works
 end to end on a deterministic placeholder world, so the whole product is demoable with no spend,
 and an uploaded character still sets the racer, because its colour is read in the browser rather
 than by a model.
@@ -23,23 +23,28 @@ npm run check            # regression guard; the featured game is the canary
 
 ---
 
-## The one decision everything rests on
+## Two kinds of world
 
-**Generated games are data, never code.**
+**Written games (the default).** Claude Opus 5.5 writes the whole game as one three.js
+program: world, characters, controls, rules, HUD, sound. `lib/generate-game.ts`.
 
-A model never writes a line of JavaScript here. It fills in a `WorldSpec`: colours, counts,
-names, four track knobs. A fixed, reviewed engine reads it. That single constraint is what
-delivers most of the hard requirements for free:
+**Race worlds.** The model fills in a `WorldSpec` (colours, cast, track shape) and the fixed,
+tuned rhythm-race engine reads it. Muse Sprint and the first 21 worlds are these, and the
+template is still offered on the create page.
 
-| Requirement | How it is met |
-|---|---|
-| Change the track without breaking controls | The model cannot reach the controls. Physics and timing come from a named difficulty preset, not from generation. |
-| Isolate generated code | There is no generated code. The world is JSON; the engine is a shipped artifact. |
-| Keep the world frame consistent | Every game is the same engine with different data, by construction. |
-| Automatic playtesting | A world is a value, so it can be checked statically, before anything runs. |
+The race engine came first and was built on one rule: generated games are data, never code.
+That made safety, consistency and playtesting nearly free, and it was also a ceiling. No
+prompt could change the controls, the mechanics or the creature, so "a frog hopping through a
+swamp on the arrow keys, running forward on its own" came back as a tap-Space rhythm race with
+swamp colours and fuzzball racers. Written games remove the ceiling and move the guarantees:
 
-The remaining risk is not "did the model write valid code" but "is this world worth playing",
-which is the right problem to have.
+| Requirement | Race worlds | Written games |
+|---|---|---|
+| Isolate generated code | There is none; the world is JSON | A sandboxed opaque origin, a CSP with `sandbox` (so it holds in a tab of its own too), `connect-src 'none'`, no remote images or media |
+| Automatic playtesting | Static checks on the spec | A static read, then real Chrome boots it, plays it with the arrow keys, WASD and Space, and checks for errors, frame rate, a blank or frozen screen |
+| Fixing what fails | Findings go back to the model | The same, in the same conversation, up to two repair rounds |
+| Consistent frame | One engine | One contract: `GameMog.ready()`, `GameMog.finish(result)`, audio parked when hidden |
+| Cover art | Drawn from the spec | The screenshot the playtest took mid-play |
 
 ## How a world is built
 
@@ -203,17 +208,28 @@ sprung a leak.
 
 ## Safe execution
 
-The game is served from its own route (`/g/[slug]/play`) into an iframe with
-`sandbox="allow-scripts"` and **no** `allow-same-origin`. That puts it on an opaque origin: it
-cannot read the host page, our cookies, or our API. Its only channel is one `postMessage`
-carrying a result, verified by *source window* rather than origin string (an opaque origin
-reports as `"null"`, so origin checks are useless here). A tight CSP allows inline script and
-two CDN hosts and nothing else.
+Every game is served from its own route (`/g/[slug]/play`, drafts at `/d/[id]/play`) into an
+iframe with `sandbox="allow-scripts"` and **no** `allow-same-origin`. That puts it on an opaque
+origin: it cannot read the host page, our cookies, or our API. Its only channel is
+`postMessage`, verified by *source window* rather than origin string (an opaque origin reports
+as `"null"`).
+
+Written games get more, because they are untrusted code (`lib/custom-game.ts`): the document's
+own CSP carries `sandbox allow-scripts allow-pointer-lock`, so opening the game in its own tab
+still gives it an opaque origin; `connect-src 'none'`, and images and media only from `data:`
+and `blob:`, so it cannot send anything anywhere; no `unsafe-eval`. A static read refuses
+network, storage, eval, dialogs and imports before a game ever runs, so a player never meets a
+game that throws on them. What a game can still do is burn its own tab's CPU; the runtime
+playtest rejects the ones that do.
+
+The embedding page asks the game whether it is running (`hello`) until it answers (`ready`),
+rather than waiting to be told. A game can finish booting before the page's own script starts,
+and a message sent before anyone is listening is lost; that was once a "browser is blocking the
+embedded game" warning sitting over a game that was running fine underneath.
 
 A posted score is a claim from an untrusted surface. `POST /api/scores` does the cheap sanity
-checks that catch accidents and casual tampering: a floor derived from the world's own
-physically fastest race, a ceiling, a valid finishing place. **It is not proof.** Real
-verification needs replay validation; the shape is there for it to slot into.
+checks that catch accidents and casual tampering. **It is not proof.** Real verification needs
+replay validation; the shape is there for it to slot into.
 
 ## Data
 

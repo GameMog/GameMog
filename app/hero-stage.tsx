@@ -19,6 +19,16 @@ export function HeroStage({
   const ref = useRef<HTMLIFrameElement>(null);
   const [live, setLive] = useState(false);
 
+  // Ask until the game answers: it can boot before this script starts, and a
+  // ready message sent before anyone listens is lost.
+  useEffect(() => {
+    if (live) return;
+    const ask = () => ref.current?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'hello' }, '*');
+    ask();
+    const t = setInterval(ask, 400);
+    return () => clearInterval(t);
+  }, [live]);
+
   useEffect(() => {
     function onMessage(e: MessageEvent) {
       if (!ref.current || e.source !== ref.current.contentWindow) return;

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { insertGame, slugify, listGames } from '@/lib/db';
+import { insertGame, slugify, listGames, getDraft, publishDraft } from '@/lib/db';
 import { playtest } from '@/lib/playtest';
 import type { WorldSpec } from '@/lib/worldspec';
 
@@ -11,7 +11,20 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const body = (await req.json()) as { spec?: unknown; prompt?: string };
+  const body = (await req.json()) as { spec?: unknown; prompt?: string; draftId?: string };
+
+  // A written game publishes from its draft: exactly the code that passed the
+  // runtime playtest, never code resent by the client.
+  if (body.draftId) {
+    const d = getDraft(body.draftId);
+    if (!d) return NextResponse.json({ error: 'That draft no longer exists.' }, { status: 404 });
+    const report = JSON.parse(d.report) as { ok?: boolean; ran?: boolean };
+    if (!report.ok) return NextResponse.json({ error: 'This game did not pass playtesting.' }, { status: 400 });
+    const id = randomUUID();
+    const slug = slugify(JSON.parse(d.meta).title);
+    publishDraft(d.id, slug, id);
+    return NextResponse.json({ id, slug });
+  }
 
   // Publishing revalidates. A client can send anything; nothing reaches the
   // database until it passes the same gate a generation did.

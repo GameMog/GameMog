@@ -2226,6 +2226,14 @@ function frame(){
   if (!started){
     started = true;
     try { parent.postMessage({ source: 'gamemog', type: 'ready', gameId: __W.meta.id }, '*'); } catch (e) {}
+    /* The embedding page may not have been listening when that was sent: in
+       development its script can start well after this frame has drawn. So it
+       asks, and we answer, for as long as it keeps asking. */
+    addEventListener('message', (e) => {
+      const d = e.data;
+      if (d && d.source === 'gamemog-host' && d.type === 'hello')
+        try { parent.postMessage({ source: 'gamemog', type: 'ready', gameId: __W.meta.id }, '*'); } catch (e2) {}
+    });
     setTimeout(() => {
       const l = document.getElementById('loading');
       l.style.transition = 'opacity .5s'; l.style.opacity = '0';

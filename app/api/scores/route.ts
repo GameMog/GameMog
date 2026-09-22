@@ -13,11 +13,29 @@ export const runtime = 'nodejs';
  */
 export async function POST(req: Request) {
   const b = (await req.json()) as Record<string, unknown>;
-  const row = db.prepare('SELECT * FROM games WHERE id = ?').get(String(b.gameId ?? '')) as
-    | { id: string; slug: string; spec: string }
+  const row = db.prepare('SELECT id, slug, spec, format, meta FROM games WHERE id = ?').get(String(b.gameId ?? '')) as
+    | { id: string; slug: string; spec: string; format: string; meta: string | null }
     | undefined;
   if (!row) return NextResponse.json({ error: 'Unknown game' }, { status: 404 });
   void getGameBySlug;
+
+  // A written game reports its own score, time and place. There is no model of
+  // its physics to check them against, so the bounds are only sanity bounds.
+  if (row.format === 'custom') {
+    const timeMs = Number(b.timeMs) || 0, score = Number(b.score) || 0, place = Number(b.place) || 0;
+    const meta = JSON.parse(row.meta ?? '{}') as { cast?: unknown[] };
+    if (![timeMs, score, place].every(Number.isFinite) || timeMs < 0 || timeMs > 60 * 60 * 1000 ||
+        Math.abs(score) > 1e9 || place < 0 || place > (meta.cast?.length ?? 8) + 1) {
+      return NextResponse.json({ error: 'Result outside plausible range' }, { status: 422 });
+    }
+    insertScore({
+      gameId: row.id,
+      player: String(b.player ?? 'anon').slice(0, 16).replace(/[^\w \-.]/g, '') || 'anon',
+      timeMs: Math.round(timeMs), place: Math.round(place), score: Math.round(score),
+      tempoReached: 0, locks: 0, bestStreak: 0,
+    });
+    return NextResponse.json({ ok: true });
+  }
 
   const spec = JSON.parse(row.spec) as WorldSpec;
   const { stats } = playtest(spec);

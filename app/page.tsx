@@ -53,7 +53,9 @@ export default function Home() {
     );
   }
 
-  const featured = games.find((g) => g.featured) ?? games[0];
+  // the hero runs the race engine live, so it features a race world
+  const races = games.filter((g) => g.format === 'race');
+  const featured = races.find((g) => g.featured) ?? races[0] ?? games[0];
   const fSpec = JSON.parse(featured.spec) as WorldSpec;
   const fStats = playtest(fSpec).stats;
   const fBest = topScores(featured.id, 1)[0];

@@ -1,0 +1,204 @@
+import { z } from 'zod';
+import { Script } from 'node:vm';
+
+/**
+ * Games the model writes itself.
+ *
+ * The race engine takes data and nothing else, which is safe and was also the
+ * ceiling: no prompt could change the controls, the mechanics or the creature,
+ * so "a frog hopping through a swamp on the arrow keys" came back as a rhythm
+ * race with swamp colours. A custom game is code, and the safety moves from
+ * "the model cannot write code" to "the code cannot reach anything":
+ *
+ *   - it runs in a sandboxed frame on an opaque origin: no cookies, no storage,
+ *     no access to this site or its API
+ *   - the document's own CSP carries `sandbox`, so the same holds when the game
+ *     is opened in a tab of its own rather than in our frame
+ *   - connect-src is 'none' and images and media are data:/blob: only, so the
+ *     game cannot send anything anywhere, not even as an image request
+ *   - the only channel out is postMessage, whose results the host treats as
+ *     claims
+ *
+ * What a game can still do is burn its own tab's CPU. The runtime playtest
+ * catches the games that do that before anyone sees them.
+ */
+
+const Hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+export const GameMetaSchema = z.object({
+  title: z.string().min(2).max(40),
+  tagline: z.string().min(2).max(140),
+  blurb: z.string().min(10).max(600),
+  genre: z.string().min(2).max(32),
+  controls: z.string().min(4).max(220),
+  /** How the leaderboard ranks a finished run. */
+  scoring: z.enum(['time', 'score', 'place']),
+  cast: z.array(z.object({
+    name: z.string().min(1).max(24),
+    color: Hex,
+    role: z.string().max(80).optional(),
+  })).min(1).max(8),
+  palette: z.object({ sky: Hex, ground: Hex, accent: Hex }),
+});
+export type GameMeta = z.infer<typeof GameMetaSchema>;
+
+export const CUSTOM_CSP = [
+  "default-src 'none'",
+  "script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+  "style-src 'unsafe-inline' https://fonts.googleapis.com",
+  'font-src https://fonts.gstatic.com data:',
+  'img-src data: blob:',
+  'media-src data: blob:',
+  "connect-src 'none'",
+  'worker-src blob:',
+  "frame-ancestors 'self'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  'sandbox allow-scripts allow-pointer-lock',
+].join('; ');
+
+/**
+ * The host side of the contract, injected before the game's own code.
+ *
+ * GameMog.ready() once the first frame is on screen; GameMog.finish(result)
+ * once per run. The host also answers the embedding page's "hello", which is
+ * what makes the ready signal impossible to miss: the page asks when it is
+ * listening, rather than hoping it was listening when the game spoke.
+ *
+ * Every AudioContext the game creates is tracked and suspended while the tab is
+ * hidden. That guarantee lives here rather than in each game, because the one
+ * time it lived in a game it was forgotten.
+ */
+function hostScript(id: string, title: string) {
+  return `(function () {
+  var id = ${JSON.stringify(id)}, isReady = false, finished = 0;
+  var gm = window.__gm = { ready: false, results: [], errors: [] };
+  function post(m) { m.source = 'gamemog'; m.gameId = id; try { parent.postMessage(m, '*'); } catch (e) {} }
+  function note(msg) { msg = String(msg).slice(0, 400); if (gm.errors.length < 20) gm.errors.push(msg); post({ type: 'error', message: msg }); }
+  addEventListener('error', function (e) { note((e.message || 'error') + (e.lineno ? ' (line ' + e.lineno + ')' : '')); });
+  addEventListener('unhandledrejection', function (e) { note('unhandled rejection: ' + (e.reason && e.reason.message || e.reason)); });
+  addEventListener('message', function (e) {
+    var d = e.data;
+    if (d && d.source === 'gamemog-host' && d.type === 'hello' && isReady) post({ type: 'ready' });
+  });
+
+  var contexts = [], Native = window.AudioContext || window.webkitAudioContext;
+  if (Native) {
+    var Tracked = function (opts) { var c = new Native(opts); contexts.push(c); return c; };
+    Tracked.prototype = Native.prototype;
+    window.AudioContext = window.webkitAudioContext = Tracked;
+  }
+  function park(off) { contexts.forEach(function (c) { try { off ? c.suspend() : c.resume(); } catch (e) {} }); }
+  document.addEventListener('visibilitychange', function () { park(document.hidden); });
+  addEventListener('pagehide', function () { park(true); });
+
+  window.GameMog = {
+    id: id,
+    title: ${JSON.stringify(title)},
+    ready: function () {
+      if (isReady) return;
+      isReady = gm.ready = true;
+      post({ type: 'ready' });
+    },
+    finish: function (r) {
+      r = r || {};
+      var out = {
+        type: 'result', finished: true, run: ++finished,
+        won: !!r.won,
+        place: Math.max(0, Math.round(Number(r.place) || 0)),
+        timeMs: Math.max(0, Math.round(Number(r.timeMs) || 0)),
+        score: Math.round(Number(r.score) || 0),
+      };
+      gm.results.push(out);
+      post(out);
+    }
+  };
+})();`;
+}
+
+/** Stop a `</script>` or `<!--` inside the game from ending our script element. */
+const inert = (code: string) => code.replace(/<\/(script)/gi, '<\\/$1').replace(/<!--/g, '<\\!--');
+
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+export function renderCustomGame(code: string, meta: Pick<GameMeta, 'title'>, id: string) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>${escapeHtml(meta.title)}</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#000;touch-action:none;-webkit-user-select:none;user-select:none}canvas{display:block}</style>
+<script>${hostScript(id, meta.title)}</script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+<script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.js"><\\/script>');</script>
+</head>
+<body>
+<script>
+${inert(code)}
+</script>
+</body>
+</html>`;
+}
+
+/* ----------------------------------------------------------- static check -- */
+/**
+ * Read before it runs. Most of what is refused here would be blocked by the
+ * sandbox anyway, but blocked at runtime means a game that throws on a player;
+ * refused here means the model is told and fixes it.
+ */
+const FORBIDDEN: [RegExp, string][] = [
+  [/\bfetch\s*\(/, 'fetch() is blocked: the game has no network access. Generate everything procedurally.'],
+  [/\bXMLHttpRequest\b/, 'XMLHttpRequest is blocked: the game has no network access.'],
+  [/\b(WebSocket|EventSource)\b/, 'WebSocket and EventSource are blocked: the game has no network access.'],
+  [/sendBeacon/, 'navigator.sendBeacon is blocked: the game has no network access.'],
+  [/\b(localStorage|sessionStorage|indexedDB)\b/, 'Browser storage throws in the sandbox. Keep state in memory.'],
+  [/document\.cookie/, 'Cookies are unavailable in the sandbox.'],
+  [/\beval\s*\(|\bnew\s+Function\s*\(/, 'eval and new Function are blocked by the content security policy.'],
+  [/\bimport\s*\(|^\s*import\s[^(]/m, 'Modules cannot be imported. THREE is already a global (r157); use it directly.'],
+  [/\bimportScripts\b/, 'importScripts is blocked.'],
+  [/\bwindow\.open\s*\(|\b(alert|confirm|prompt)\s*\(/, 'Popups and dialogs are blocked in the sandbox. Draw UI in the page instead.'],
+  [/\b(top|parent)\.location\b/, 'The game cannot navigate its host.'],
+  [/https?:\/\/(?!fonts\.(googleapis|gstatic)\.com)[\w.-]+\.[a-z]{2,}\/[\w./%-]*\.(png|jpe?g|gif|webp|glb|gltf|obj|fbx|mp3|ogg|wav|m4a|json)/i,
+    'External assets cannot load (images, models and sounds are blocked). Build them procedurally.'],
+];
+
+export function staticCheck(code: string): string[] {
+  const problems: string[] = [];
+  if (code.length < 2500) problems.push('The game is too short to be a complete game. Write the whole thing.');
+  if (code.length > 450_000) problems.push(`The game is ${Math.round(code.length / 1000)}KB; keep it under 450KB.`);
+  if (!/GameMog\.ready\s*\(/.test(code)) problems.push('The game never calls GameMog.ready(). Call it right after the first frame renders.');
+  if (!/GameMog\.finish\s*\(/.test(code)) problems.push('The game never calls GameMog.finish(). Call it once when each run ends.');
+  if (!/THREE\.WebGLRenderer/.test(code)) problems.push('The game must render with THREE.WebGLRenderer.');
+  for (const [re, why] of FORBIDDEN) if (re.test(code)) problems.push(why);
+  try { new Script(code, { filename: 'game.js' }); }
+  catch (e) { problems.push(`Syntax error: ${(e as Error).message}`); }
+  return problems;
+}
+
+/* ------------------------------------------------------------- parsing -- */
+/**
+ * The model answers with one ```json block (metadata) and one ```javascript
+ * block (the game). Fenced blocks rather than structured output: a 20k-token
+ * program as an escaped JSON string is harder for the model to write well and
+ * harder for us to diagnose when it goes wrong.
+ */
+export function parseGameResponse(text: string): { meta?: GameMeta; code?: string; problems: string[] } {
+  const problems: string[] = [];
+  const blocks = [...text.matchAll(/```([a-zA-Z]*)[^\n]*\n([\s\S]*?)```/g)].map((m) => ({ lang: m[1].toLowerCase(), body: m[2] }));
+  const jsonBlock = blocks.find((b) => b.lang === 'json');
+  const codeBlock = blocks.filter((b) => ['javascript', 'js'].includes(b.lang)).sort((a, b) => b.body.length - a.body.length)[0];
+
+  let meta: GameMeta | undefined;
+  if (!jsonBlock) problems.push('No ```json metadata block was found.');
+  else {
+    try {
+      const parsed = GameMetaSchema.safeParse(JSON.parse(jsonBlock.body));
+      if (parsed.success) meta = parsed.data;
+      else problems.push('The metadata did not match the schema: ' + parsed.error.issues.slice(0, 6).map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
+    } catch (e) { problems.push('The metadata block is not valid JSON: ' + (e as Error).message); }
+  }
+  if (!codeBlock) problems.push('No ```javascript block with the game was found.');
+  return { meta, code: codeBlock?.body, problems };
+}

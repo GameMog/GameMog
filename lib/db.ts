@@ -65,6 +65,28 @@ function open() {
       created_at INTEGER NOT NULL
     );
   `);
+
+  // Games Opus writes itself. A game row keeps its authored WorldSpec for the
+  // race engine; a 'custom' row keeps the model's code, its metadata and the
+  // screenshot the runtime playtest took, which becomes its cover.
+  const cols = (t: string) => (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name);
+  const add = (t: string, c: string, ddl: string) => { if (!cols(t).includes(c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${ddl}`); };
+  add('games', 'format', "format TEXT NOT NULL DEFAULT 'race'");
+  add('games', 'code', 'code TEXT');
+  add('games', 'meta', 'meta TEXT');
+  add('games', 'cover', 'cover BLOB');
+  add('scores', 'score', 'score INTEGER');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS drafts (
+      id          TEXT PRIMARY KEY,
+      prompt      TEXT NOT NULL,
+      meta        TEXT NOT NULL,
+      code        TEXT NOT NULL,
+      cover       BLOB,
+      report      TEXT NOT NULL,
+      created_at  INTEGER NOT NULL
+    );
+  `);
   return db;
 }
 
@@ -83,10 +105,18 @@ export type GameRow = {
   featured: number;
   plays: number;
   created_at: number;
+  /** 'race' runs the built-in engine from `spec`; 'custom' runs `code`. */
+  format: 'race' | 'custom';
+  code: string | null;
+  meta: string | null;
 };
+
+/** Columns that are large or binary stay out of list queries. */
+const ROW = 'id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, plays, created_at, format, code, meta';
 
 export type ScoreRow = {
   id: number;
+  score: number | null;
   player: string;
   time_ms: number;
   place: number;
@@ -135,20 +165,54 @@ export function insertGame(args: {
 }
 
 export const getGameBySlug = (slug: string) =>
-  db.prepare('SELECT * FROM games WHERE slug = ?').get(slug) as GameRow | undefined;
+  db.prepare(`SELECT ${ROW} FROM games WHERE slug = ?`).get(slug) as GameRow | undefined;
 
 export const listGames = (limit = 40) =>
   db
-    .prepare('SELECT * FROM games ORDER BY featured DESC, created_at DESC LIMIT ?')
+    .prepare(`SELECT ${ROW} FROM games ORDER BY featured DESC, created_at DESC LIMIT ?`)
     .all(limit) as GameRow[];
+
+export function gameCover(slug: string): Uint8Array | undefined {
+  const r = db.prepare('SELECT cover FROM games WHERE slug = ?').get(slug) as { cover: Uint8Array | null } | undefined;
+  return r?.cover ?? undefined;
+}
+
+/* ---------------------------------------------------------------- drafts -- */
+export type DraftRow = { id: string; prompt: string; meta: string; code: string; report: string; created_at: number };
+
+export function insertDraft(d: { id: string; prompt: string; meta: unknown; code: string; cover?: Uint8Array; report: unknown }) {
+  db.prepare(`INSERT INTO drafts (id, prompt, meta, code, cover, report, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .run(d.id, d.prompt, JSON.stringify(d.meta), d.code, d.cover ?? null, JSON.stringify(d.report), Date.now());
+}
+export const getDraft = (id: string) =>
+  db.prepare('SELECT id, prompt, meta, code, report, created_at FROM drafts WHERE id = ?').get(id) as DraftRow | undefined;
+export function draftCover(id: string): Uint8Array | undefined {
+  const r = db.prepare('SELECT cover FROM drafts WHERE id = ?').get(id) as { cover: Uint8Array | null } | undefined;
+  return r?.cover ?? undefined;
+}
+
+/** Publish a draft as a custom game. The draft row is what was playtested. */
+export function publishDraft(draftId: string, slug: string, id: string): boolean {
+  const d = db.prepare('SELECT * FROM drafts WHERE id = ?').get(draftId) as (DraftRow & { cover: Uint8Array | null }) | undefined;
+  if (!d) return false;
+  const meta = JSON.parse(d.meta) as { title: string; tagline: string; blurb: string };
+  db.prepare(
+    `INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover)
+     VALUES (?, ?, ?, ?, ?, 'custom', '{}', ?, 0, ?, 'custom', ?, ?, ?)`
+  ).run(id, slug, meta.title, meta.tagline, meta.blurb, d.prompt, Date.now(), d.code, d.meta, d.cover);
+  return true;
+}
 
 export const bumpPlays = (id: string) =>
   db.prepare('UPDATE games SET plays = plays + 1 WHERE id = ?').run(id);
 
-export const topScores = (gameId: string, limit = 10) =>
-  db
-    .prepare('SELECT * FROM scores WHERE game_id = ? ORDER BY time_ms ASC LIMIT ?')
-    .all(gameId, limit) as ScoreRow[];
+/** Best runs. Race worlds and 'time' games rank by time; 'score' by points; 'place' by finish. */
+export function topScores(gameId: string, limit = 10, by: 'time' | 'score' | 'place' = 'time') {
+  const order = by === 'score' ? 'score DESC, time_ms ASC'
+    : by === 'place' ? 'CASE WHEN place > 0 THEN place ELSE 99 END ASC, time_ms ASC'
+    : 'CASE WHEN time_ms > 0 THEN time_ms ELSE 1e12 END ASC';
+  return db.prepare(`SELECT * FROM scores WHERE game_id = ? ORDER BY ${order} LIMIT ?`).all(gameId, limit) as ScoreRow[];
+}
 
 /** Fastest run per game, for the shelf metric. */
 export function bestTimes(): Record<string, number> {
@@ -166,11 +230,12 @@ export function insertScore(s: {
   tempoReached: number;
   locks: number;
   bestStreak: number;
+  score?: number | null;
 }) {
   db.prepare(
-    `INSERT INTO scores (game_id, player, time_ms, place, tempo_reached, locks, best_streak, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(s.gameId, s.player, s.timeMs, s.place, s.tempoReached, s.locks, s.bestStreak, Date.now());
+    `INSERT INTO scores (game_id, player, time_ms, place, tempo_reached, locks, best_streak, created_at, score)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(s.gameId, s.player, s.timeMs, s.place, s.tempoReached, s.locks, s.bestStreak, Date.now(), s.score ?? null);
 }
 
 /* ----------------------------------------------------------------- votes -- */
@@ -206,7 +271,7 @@ export function castVote(gameId: string, voter: string, value: -1 | 0 | 1) {
  */
 export function recentSpecs(limit = 24): unknown[] {
   return (db
-    .prepare('SELECT spec FROM games ORDER BY created_at DESC LIMIT ?')
+    .prepare("SELECT spec FROM games WHERE format = 'race' ORDER BY created_at DESC LIMIT ?")
     .all(limit) as { spec: string }[]).map((r) => JSON.parse(r.spec));
 }
 

@@ -12,8 +12,9 @@ export default function Terms() {
 
         <h2>What this is</h2>
         <p>
-          GameMog is a preview. It runs a single racing engine and generates worlds for it from
-          text you write and images you upload. It is not a finished, operated service: there is no
+          GameMog is a preview. From text you write and images you upload, Claude Opus 5.5 writes
+          games as code, which run in a sandbox with no access to this site, your account or the
+          network; or it fills in our own racing engine. It is not a finished, operated service: there is no
           account system, no payment, no moderation queue and no uptime commitment. Treat anything
           you publish here as temporary.
         </p>
@@ -26,8 +27,10 @@ export default function Terms() {
         </p>
         <p>
           Do not upload anything you do not have the right to use, anything depicting a real person
-          without their permission, or anything unlawful. Generated worlds are produced by a model
-          and are not reviewed by a person before they appear.
+          without their permission, or anything unlawful. Characters from existing franchises are
+          reinterpreted rather than copied, but you remain responsible for what you ask for. Games
+          are produced by a model, checked automatically and played by a bot before they can be
+          published, and are not reviewed by a person.
         </p>
 
         <h2>Published links are public</h2>

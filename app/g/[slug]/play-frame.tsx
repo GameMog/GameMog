@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 type Result = {
-  place: number; timeMs: number; finished: boolean;
+  place: number; timeMs: number; finished: boolean; score: number; won: boolean;
   tempoReached: number; locks: number; bestStreak: number;
 };
 
@@ -16,7 +16,11 @@ type Result = {
  *
  * A result posted from a frame is a claim, not a fact. It is stored as one.
  */
-export function PlayFrame({ slug, gameId, poster }: { slug: string; gameId: string; poster: React.ReactNode }) {
+export function PlayFrame({ slug, gameId, poster, src = `/g/${slug}/play`, scores = true }: {
+  slug: string; gameId: string; poster: React.ReactNode; src?: string;
+  /** Off for drafts: a run in a preview has no leaderboard to post to. */
+  scores?: boolean;
+}) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [name, setName] = useState('');
@@ -25,14 +29,27 @@ export function PlayFrame({ slug, gameId, poster }: { slug: string; gameId: stri
   const [live, setLive] = useState(false);
   const [stalled, setStalled] = useState(false);
 
-  // A frame that never loads is a real state, not an edge case: privacy
-  // extensions and some embedded browsers refuse third-party frames outright.
-  // After a generous window we say so and hand them the direct link.
+  // Ask the game whether it is running, until it says so. Waiting to be told
+  // does not work: the game can finish booting before this page's script has
+  // started, and a message sent before anyone listens is simply lost. That was
+  // the "browser is blocking the embedded game" warning over a game that was
+  // running perfectly well underneath.
   useEffect(() => {
-    if (loaded) return;
-    const t = setTimeout(() => setStalled(true), 9000);
+    if (live) return;
+    const ask = () => ref.current?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'hello' }, '*');
+    ask();
+    const t = setInterval(ask, 400);
+    return () => clearInterval(t);
+  }, [live]);
+
+  // A game that never answers is a real state: some extensions and embedded
+  // browsers refuse frames outright, and a broken game never boots. After a
+  // generous wait we say so plainly and offer the direct link.
+  useEffect(() => {
+    if (live) return;
+    const t = setTimeout(() => setStalled(true), 15000);
     return () => clearTimeout(t);
-  }, [loaded]);
+  }, [live]);
 
   useEffect(() => {
     try { setName(localStorage.getItem('gamemog:name') ?? ''); } catch {}
@@ -40,12 +57,14 @@ export function PlayFrame({ slug, gameId, poster }: { slug: string; gameId: stri
       if (!ref.current || e.source !== ref.current.contentWindow) return;
       const d = e.data;
       if (!d || d.source !== 'gamemog' || d.gameId !== gameId) return;
-      if (d.type === 'ready') { setLive(true); return; }
+      if (d.type === 'ready') { setLive(true); setLoaded(true); return; }
       if (d.type !== 'result') return;
       setResult({
         place: Number(d.place) || 0,
         timeMs: Number(d.timeMs) || 0,
         finished: !!d.finished,
+        score: Number(d.score) || 0,
+        won: !!d.won || Number(d.place) === 1,
         tempoReached: Number(d.tempoReached) || 0,
         locks: Number(d.locks) || 0,
         bestStreak: Number(d.bestStreak) || 0,
@@ -75,24 +94,26 @@ export function PlayFrame({ slug, gameId, poster }: { slug: string; gameId: stri
       <div id="play" className="gframe">
         <iframe
           ref={ref}
-          src={`/g/${slug}/play`}
+          src={src}
           sandbox="allow-scripts"
           allow="autoplay; fullscreen"
           title={`${slug}, game`}
           onLoad={() => setLoaded(true)}
         />
         <div className="poster" data-hide={live ? '1' : '0'} aria-hidden>{poster}</div>
-        {!loaded && stalled && (
+        {!live && stalled && (
           <p className="stall" role="status">
-            This browser is blocking the embedded game.{' '}
-            <a href={`/g/${slug}/play`} target="_blank" rel="noreferrer">Open it in a new tab</a>.
+            {loaded ? 'The game has not started yet.' : 'The game has not loaded in this frame.'}{' '}
+            <a href={src} target="_blank" rel="noreferrer">Open it in its own tab</a>.
           </p>
         )}
       </div>
-      {result && result.finished && !saved && (
+      {scores && result && result.finished && !saved && (
         <div className="panel" style={{ marginTop: 12, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <b style={{ fontSize: 20, fontWeight: 700, lineHeight: '28px' }}>
-            {result.place === 1 ? 'You won' : `${result.place}${['st','nd','rd'][result.place - 1] ?? 'th'} place`} · {(result.timeMs / 1000).toFixed(2)}s
+            {result.won ? 'You won' : result.place ? `${result.place}${['st','nd','rd'][result.place - 1] ?? 'th'} place` : 'Run over'}
+            {result.score ? ` · ${result.score.toLocaleString()} pts` : ''}
+            {result.timeMs ? ` · ${(result.timeMs / 1000).toFixed(2)}s` : ''}
           </b>
           <input
             type="text" value={name} placeholder="your name"
