@@ -1,21 +1,25 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { SiteHeader, SiteFooter, Icon } from '../../header';
+import { SiteHeader, SiteFooter } from '../../header';
 import { Tile } from '../../tile';
-import { getGameBySlug, topScores, listGames, bestTimes } from '@/lib/db';
+import { Cover } from '../../cover';
+import { getGameBySlug, topScores, listGames, bestTimes, voteCounts } from '@/lib/db';
 import { playtest } from '@/lib/playtest';
 import { LADDERS } from '@/lib/worldspec';
 import type { WorldSpec } from '@/lib/worldspec';
 import { PlayFrame } from './play-frame';
+import { GameActions } from './actions';
 import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Laid out the way Roblox lays out a game: the media fills the left, and the
- * title, byline, one large primary action and the counters sit in a fixed
- * 330px column on the right. Everything else goes below a tab bar.
+ * Laid out on Roblox's game page grid, measured: a 970px column centred on the
+ * page, 640px of media on the left, a 330px column on the right holding the
+ * title, byline and one large play button over the Favorite / Like / Dislike
+ * row, and everything else below a full-width tab bar. The page used to run
+ * edge to edge, which made the media 1060px wide and the tabs span the screen.
  */
 export default async function GamePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -29,6 +33,8 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
   const others = listGames(30).filter((g) => g.id !== game.id).slice(0, 16);
   const me = spec.racers.find((r) => r.you);
   const ladder = LADDERS[spec.difficulty];
+  const difficulty = spec.difficulty[0].toUpperCase() + spec.difficulty.slice(1);
+  const created = new Date(game.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
   const leaderboard = scores.length ? (
     <table className="bd">
@@ -48,40 +54,17 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
   return (
     <>
       <SiteHeader on="Charts" />
-      <main className="wrap" style={{ paddingTop: 20 }}>
-        <p className="t-meta dim-2" style={{ marginBottom: 10 }}>
-          <Link href="/">Charts</Link> <span style={{ opacity: .5 }}>/</span>{' '}
-          <Link href="/?f=race">Racing</Link> <span style={{ opacity: .5 }}>/</span>{' '}
-          <span className="dim">{game.title}</span>
-        </p>
+      <main className="gpage">
+        <div className="gtop">
+          <PlayFrame slug={game.slug} gameId={game.id} poster={<Cover spec={spec} seed={900} wide />} />
 
-        <div style={{ display: 'grid', gap: 0, gridTemplateColumns: 'minmax(0,1fr) 330px' }} className="gamelayout">
-          <PlayFrame slug={game.slug} gameId={game.id} />
-
-          <aside style={{ padding: '0 12px 0 18px', display: 'grid', gap: 12, alignContent: 'start' }}>
+          <aside className="ginfo">
             <div>
               <h1>{game.title}</h1>
-              <p className="by dim">
-                Built on the GameMog engine
-              </p>
+              <p className="by">By <b>{game.featured ? 'GameMog' : 'a GameMog creator'}</b></p>
+              <p className="by">Difficulty: {difficulty}</p>
             </div>
-            <p className="dim" style={{ fontSize: 16, lineHeight: 1.5 }}>{game.tagline}</p>
-
-            <a href="#play" className="btn cta"><Icon name="play" size={15} />Play</a>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <Link href={`/create?remix=${game.slug}`} className="btn outline wide">Remix</Link>
-              <a href={`/g/${game.slug}/play`} target="_blank" rel="noreferrer" className="btn outline wide">Full screen</a>
-            </div>
-
-            <div className="facts" style={{ marginTop: 4 }}>
-              <div><b>{game.plays}</b><span>plays</span></div>
-              <div>
-                <b>{scores[0] ? (scores[0].time_ms / 1000).toFixed(2) + 's' : 'unbeaten'}</b>
-                <span>record</span>
-              </div>
-              <div><b>{spec.racers.length}</b><span>racers</span></div>
-            </div>
+            <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />
           </aside>
         </div>
 
@@ -90,25 +73,28 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
             {
               label: 'About',
               body: (
-                <div style={{ maxWidth: 720 }}>
-                  <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)' }}>{game.blurb}</p>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 14 }}>
-                    <span className="tag">{spec.difficulty}</span>
-                    <span className="tag">{Math.round(stats.lapMetres)}m lap</span>
-                    <span className="tag">3 laps</span>
-                    <span className="tag">about {Math.round(stats.estRaceSeconds)}s</span>
-                    {me?.rig?.topper !== 'none' && <span className="tag">{me?.rig?.topper}</span>}
-                  </div>
-                  <dl style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 20px', fontSize: 14 }}>
-                    <dt className="dim-2">Format</dt><dd>Rhythm race, tap to stride</dd>
-                    <dt className="dim-2">Controls</dt><dd>Space, or tap the screen</dd>
-                    <dt className="dim-2">Scene budget</dt><dd>{stats.propBudget}</dd>
+                <div>
+                  <h2 style={{ marginBottom: 8 }}>Description</h2>
+                  <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>
+                    {game.tagline} {game.blurb}
+                  </p>
+
+                  {/* Roblox's stat row: a label over a value, in a single line */}
+                  <dl className="gstats">
+                    <div><dt>Plays</dt><dd>{game.plays.toLocaleString()}</dd></div>
+                    <div><dt>Record</dt><dd>{scores[0] ? `${(scores[0].time_ms / 1000).toFixed(2)}s` : 'Unbeaten'}</dd></div>
+                    <div><dt>Racers</dt><dd>{spec.racers.length}</dd></div>
+                    <div><dt>Lap</dt><dd>{Math.round(stats.lapMetres)}m</dd></div>
+                    <div><dt>Race</dt><dd>about {Math.round(stats.estRaceSeconds)}s</dd></div>
+                    <div><dt>Genre</dt><dd>Racing</dd></div>
+                    {me?.rig?.topper && me.rig.topper !== 'none' && <div><dt>Creature</dt><dd>{me.rig.topper[0].toUpperCase() + me.rig.topper.slice(1)}</dd></div>}
+                    <div><dt>Created</dt><dd>{created}</dd></div>
                   </dl>
 
                   {/* The windows are the game. A player is owed them before they
                       start, not after they lose. */}
-                  <h3 className="t-strong" style={{ marginTop: 22, fontWeight: 700 }}>What each lap asks for</h3>
-                  <table className="bd" style={{ marginTop: 6, maxWidth: 520 }}>
+                  <h2 style={{ marginTop: 26, marginBottom: 6 }}>What each lap asks for</h2>
+                  <table className="bd" style={{ maxWidth: 560 }}>
                     <thead>
                       <tr><th>Lap</th><th>Tempo</th><th>Window</th><th>Stride</th><th>The pack</th></tr>
                     </thead>
@@ -124,9 +110,9 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
                       ))}
                     </tbody>
                   </table>
-                  <p className="t-meta dim" style={{ marginTop: 8, maxWidth: 520 }}>
-                    Eight strides inside the window in a row is a lock, worth free speed.
-                    The third lap is not meant to be won often.
+                  <p className="t-meta dim" style={{ marginTop: 8, maxWidth: 560 }}>
+                    Space, or tap the screen. Eight strides inside the window in a row is a lock, worth
+                    free speed. The third lap is not meant to be won often.
                   </p>
                 </div>
               ),
@@ -152,7 +138,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
 
         {others.length > 0 && (
           <section className="sec">
-            <div className="sechead"><h2>More worlds</h2><Link href="/" className="more">See all</Link></div>
+            <div className="sechead"><h2>Recommended</h2><Link href="/" className="more">See all</Link></div>
             <Shelf>{others.map((g, i) => <Tile key={g.id} g={g} i={i + 40} best={best[g.id]} />)}</Shelf>
           </section>
         )}

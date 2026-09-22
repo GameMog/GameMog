@@ -46,6 +46,13 @@ function open() {
       created_at    INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS scores_by_game ON scores(game_id, time_ms);
+    CREATE TABLE IF NOT EXISTS votes (
+      game_id    TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      voter      TEXT NOT NULL,
+      value      INTEGER NOT NULL CHECK (value IN (-1, 1)),
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (game_id, voter)
+    );
     CREATE TABLE IF NOT EXISTS generations (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       game_id    TEXT,
@@ -164,6 +171,33 @@ export function insertScore(s: {
     `INSERT INTO scores (game_id, player, time_ms, place, tempo_reached, locks, best_streak, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(s.gameId, s.player, s.timeMs, s.place, s.tempoReached, s.locks, s.bestStreak, Date.now());
+}
+
+/* ----------------------------------------------------------------- votes -- */
+/**
+ * Likes and dislikes, one per browser per game. With no accounts the voter is
+ * a random id the browser generated for itself, which stops accidental double
+ * votes and nothing more; it is a signal, not a ballot.
+ */
+export type VoteCounts = { up: number; down: number };
+
+export function voteCounts(gameId: string): VoteCounts {
+  const r = db
+    .prepare(`SELECT SUM(value = 1) AS up, SUM(value = -1) AS down FROM votes WHERE game_id = ?`)
+    .get(gameId) as { up: number | null; down: number | null };
+  return { up: r.up ?? 0, down: r.down ?? 0 };
+}
+
+export function castVote(gameId: string, voter: string, value: -1 | 0 | 1) {
+  if (value === 0) {
+    db.prepare('DELETE FROM votes WHERE game_id = ? AND voter = ?').run(gameId, voter);
+  } else {
+    db.prepare(
+      `INSERT INTO votes (game_id, voter, value, created_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(game_id, voter) DO UPDATE SET value = excluded.value, created_at = excluded.created_at`
+    ).run(gameId, voter, value, Date.now());
+  }
+  return voteCounts(gameId);
 }
 
 /**

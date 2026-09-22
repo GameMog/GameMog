@@ -16,18 +16,18 @@ type Result = {
  *
  * A result posted from a frame is a claim, not a fact. It is stored as one.
  */
-export function PlayFrame({ slug, gameId }: { slug: string; gameId: string }) {
+export function PlayFrame({ slug, gameId, poster }: { slug: string; gameId: string; poster: React.ReactNode }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [name, setName] = useState('');
   const [saved, setSaved] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [live, setLive] = useState(false);
   const [stalled, setStalled] = useState(false);
 
   // A frame that never loads is a real state, not an edge case: privacy
   // extensions and some embedded browsers refuse third-party frames outright.
-  // Waiting forever behind a skeleton tells the player nothing, so after a
-  // generous window we say so and hand them the direct link.
+  // After a generous window we say so and hand them the direct link.
   useEffect(() => {
     if (loaded) return;
     const t = setTimeout(() => setStalled(true), 9000);
@@ -39,8 +39,9 @@ export function PlayFrame({ slug, gameId }: { slug: string; gameId: string }) {
     function onMessage(e: MessageEvent) {
       if (!ref.current || e.source !== ref.current.contentWindow) return;
       const d = e.data;
-      if (!d || d.source !== 'gamemog' || d.type !== 'result') return;
-      if (d.gameId !== gameId) return;
+      if (!d || d.source !== 'gamemog' || d.gameId !== gameId) return;
+      if (d.type === 'ready') { setLive(true); return; }
+      if (d.type !== 'result') return;
       setResult({
         place: Number(d.place) || 0,
         timeMs: Number(d.timeMs) || 0,
@@ -67,27 +68,27 @@ export function PlayFrame({ slug, gameId }: { slug: string; gameId: string }) {
   }
 
   return (
-    <div id="play" style={{ position: 'relative' }}>
-      <iframe
-        ref={ref}
-        className="frame"
-        src={`/g/${slug}/play`}
-        sandbox="allow-scripts"
-        allow="autoplay"
-        title="game"
-        onLoad={() => setLoaded(true)}
-      />
-      {!loaded && (
-        <div className="sk-stage" role="status">
-          {stalled ? (
-            <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--ink-2)', maxWidth: 360, lineHeight: 1.5 }}>
-              This browser is blocking the embedded game.{' '}
-              <a href={`/g/${slug}/play`} target="_blank" rel="noreferrer"
-                 style={{ color: 'var(--blue)', fontWeight: 500 }}>Open it in a new tab</a>.
-            </p>
-          ) : <span>Loading the world</span>}
-        </div>
-      )}
+    <div>
+      {/* The world's own cover art holds the frame until the engine has drawn,
+          the way Roblox shows a thumbnail before its video. A grey box here
+          was the first thing every game page showed. */}
+      <div id="play" className="gframe">
+        <iframe
+          ref={ref}
+          src={`/g/${slug}/play`}
+          sandbox="allow-scripts"
+          allow="autoplay; fullscreen"
+          title={`${slug}, game`}
+          onLoad={() => setLoaded(true)}
+        />
+        <div className="poster" data-hide={live ? '1' : '0'} aria-hidden>{poster}</div>
+        {!loaded && stalled && (
+          <p className="stall" role="status">
+            This browser is blocking the embedded game.{' '}
+            <a href={`/g/${slug}/play`} target="_blank" rel="noreferrer">Open it in a new tab</a>.
+          </p>
+        )}
+      </div>
       {result && result.finished && !saved && (
         <div className="panel" style={{ marginTop: 12, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <b style={{ fontSize: 20, fontWeight: 700, lineHeight: '28px' }}>

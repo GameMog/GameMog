@@ -14,7 +14,9 @@ export default function Privacy() {
         <p>
           A published world, which holds the title, description and world data generated from what
           you wrote. A leaderboard row, which holds the name you type, your finishing time, place,
-          lock count and the tempo you reached. Nothing else is recorded about a play session.
+          lock count and the tempo you reached. A like or dislike, stored against a random
+          identifier your browser generates for itself; it is not linked to you, to your name on a
+          leaderboard, or to anything else. Nothing else is recorded about a play session.
         </p>
         <p>
           We do not ask for an email address, we do not create accounts, and we do not run
@@ -31,9 +33,11 @@ export default function Privacy() {
 
         <h2>Your browser</h2>
         <p>
-          The name you last used on a leaderboard is kept in your own browser storage so you do not
-          have to retype it. It never leaves your device until you post a score. Clearing your site
-          data removes it.
+          The name you last used on a leaderboard, the worlds you have favorited, and the random
+          identifier used for your votes are kept in your own browser storage. Favorites never leave
+          your device. The identifier is sent only with a vote. Clearing your site data removes all
+          three, and your existing votes then stay counted but can no longer be changed from this
+          browser.
         </p>
 
         <h2>Games run sandboxed</h2>

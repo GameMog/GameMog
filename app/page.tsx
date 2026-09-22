@@ -73,33 +73,31 @@ export default function Home() {
           <span className="pill off">Survival</span>
         </div>
 
-        {/* The flagship is running, not pictured. A catalogue of playable games
-            that leads with a screenshot is arguing against itself. */}
-        <section>
-          <div className="sechead"><h2>Playing now</h2></div>
-          <div className="hero">
-            <HeroStage
-              slug={featured.slug}
-              gameId={featured.id}
-              poster={<Cover spec={fSpec} seed={500} wide />}
-            />
-            <div className="side">
-              <h1 style={{ fontSize: 28, lineHeight: '36px' }}>{featured.title}</h1>
-              <p className="by">Flagship world by <b>GameMog</b></p>
-              <p className="dim" style={{ fontSize: 16, lineHeight: 1.5 }}>{featured.tagline}</p>
-              <Link href={`/g/${featured.slug}`} className="btn cta">
-                <Icon name="play" size={15} />Play
-              </Link>
-              <div className="facts">
-                <div><b>{featured.plays}</b><span>plays</span></div>
-                <div><b>{fBest ? (fBest.time_ms / 1000).toFixed(1) + 's' : 'none yet'}</b><span>record</span></div>
-                <div><b>{Math.round(fStats.lapMetres)}m</b><span>lap</span></div>
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <span className="tag">{fSpec.racers.length} racers</span>
-                <span className="tag">3 laps</span>
-                <span className="tag">{fSpec.difficulty}</span>
-              </div>
+        {/* The flagship is running, not pictured, but at the size of a shelf
+            item rather than a billboard. roblox.com/charts opens straight onto
+            its rows, with two and a half of them above the fold; a full-screen
+            hero here pushed every other world below it. At 448x252 the live
+            game still leads, and two full rows still fit on a 1000px screen. */}
+        <section className="hero" aria-label="Playing now">
+          <HeroStage
+            slug={featured.slug}
+            gameId={featured.id}
+            poster={<Cover spec={fSpec} seed={500} wide />}
+          />
+          <div className="side">
+            <div>
+              <h2 className="hero-title">{featured.title}</h2>
+              <p className="by">By <b>GameMog</b></p>
+            </div>
+            <p className="dim hero-tag">{featured.tagline}</p>
+            <Link href={`/g/${featured.slug}`} className="btn cta" aria-label={`Play ${featured.title}`}>
+              <Icon name="play" size={26} />
+            </Link>
+            <div className="facts">
+              <div><b>{featured.plays}</b><span>plays</span></div>
+              <div><b>{fBest ? (fBest.time_ms / 1000).toFixed(1) + 's' : 'none yet'}</b><span>record</span></div>
+              <div><b>{Math.round(fStats.lapMetres)}m</b><span>lap</span></div>
+              <div><b>{fSpec.racers.length}</b><span>racers</span></div>
             </div>
           </div>
         </section>
