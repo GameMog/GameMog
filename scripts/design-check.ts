@@ -99,8 +99,9 @@ export function runDesignChecks(ok: Ok) {
     .map((v) => parseFloat(v))
     .filter((v) => v > 8);
   ok('no soft radii between 9px and a full pill', radii.length === 0, radii.join(', '));
-  // every cover is a frame of gameplay, and gameplay is 16:9
-  ok('tiles are 16:9 at 264px', /\.tl\{[^}]*width:264px/.test(css) && /\.tl \.th\{[^}]*aspect-ratio:16\/9/.test(css));
+  // Runtime worlds now generate dedicated square key art, so tiles return to
+  // the measured 150px catalogue rhythm instead of cropping gameplay frames.
+  ok('tiles are square at 150px', /\.tl\{[^}]*width:150px/.test(css) && /\.tl \.th\{[^}]*width:150px;height:150px/.test(css));
   ok('tile name is the measured 16px/700 at 22.4px', /\.tl \.nm\{[^}]*font-size:16px;font-weight:700;line-height:22\.4px/.test(css));
   ok('page is not pure white', /--page:#F7F7F8/.test(css) && !/--page:#FFFFFF/i.test(css));
 

@@ -10,17 +10,13 @@ const NEW_MS = 1000 * 60 * 60 * 36;
 export const short = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n));
 
 /**
- * A 16:9 thumbnail 264px wide, a two-line 16/700 name, one 12/500 metadata
- * row. Every world's cover is a frame of its own gameplay, and gameplay is
- * 16:9: a square crop threw away a third of every picture. The metadata is
- * the catalogue's two numbers, liked and played, plus how many Mogs are
- * challenging the game, because that is what makes a game worth opening
- * here. Every tile is identical in size and rhythm.
+ * A 150px square key-art thumbnail, a two-line 16/700 name and one compact
+ * metadata row. Every tile is identical in size and rhythm.
  */
 export function Tile({ g, i = 0, best, stats }: { g: GameRow; i?: number; best?: number; stats?: TileStats }) {
   const isNew = Date.now() - g.created_at < NEW_MS;
-  // a written world's cover is the frame its playtest took mid-race; a race
-  // world's is drawn from its spec
+  // Runtime worlds use generated square key art. Classic covers are drawn
+  // from their specs at the same square shape.
   const custom = g.format === 'custom' || g.format === 'world';
   const spec = custom ? null : (JSON.parse(g.spec) as WorldSpec);
   const votes = (stats?.up ?? 0) + (stats?.down ?? 0);
@@ -30,9 +26,10 @@ export function Tile({ g, i = 0, best, stats }: { g: GameRow; i?: number; best?:
       <div className="th">
         {custom
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={`/g/${g.slug}/cover`} alt="" loading="lazy" />
-          : <Cover spec={spec!} seed={i} wide />}
+          ? <img src={`/g/${g.slug}/cover?shape=square`} alt="" loading="lazy" />
+          : <Cover spec={spec!} seed={i} />}
         {g.parent_id ? <span className="bd ink">MOG</span>
+          : g.slug === 'muse-sprint' ? <span className="bd">FLAGSHIP</span>
           : isNew ? <span className="bd blue">NEW</span> : null}
       </div>
       <div className="nm">{g.title}</div>
