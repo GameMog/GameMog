@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import '@fontsource-variable/figtree';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -7,11 +8,7 @@ export const metadata: Metadata = {
     'Bring a character, describe a world, publish a playable link. Millions of small games on one engine.',
 };
 
-/**
- * No webfont. Roblox ships a proprietary face and falls back to Helvetica
- * Neue; we cannot ship theirs, so we render the fallback they already render,
- * out of the operating system, with no network request and no layout shift.
- */
+/** Figtree is bundled locally under the SIL Open Font License. */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
