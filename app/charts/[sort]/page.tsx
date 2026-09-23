@@ -28,7 +28,7 @@ export default async function ChartPage({ params, searchParams }: {
 
   return (
     <>
-      <SiteHeader on={sort === 'classic' ? '' : sort === 'new-mogs' ? 'Mogs' : 'Charts'} />
+      <SiteHeader on={sort === 'classic' ? 'Classic' : sort === 'new-mogs' ? 'Mogs' : 'Charts'} />
       <main className="wrap chartpage">
         <div className="charthead">
           <div><h1>{chart.title}</h1><p className="cap">{chart.explanation}</p></div>

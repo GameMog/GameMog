@@ -6,6 +6,7 @@ import Link from 'next/link';
  */
 const NAV = [
   { label: 'Charts', href: '/charts/trending' },
+  { label: 'Classic', href: '/classic' },
   { label: 'Create', href: '/create' },
   { label: 'Library', href: '/library' },
   { label: 'Mogs', href: '/charts/new-mogs' },
