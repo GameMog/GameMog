@@ -37,8 +37,11 @@ rules, and **Claude Opus 5.5** writes a **world module** from a creator's prompt
   games: the static check refuses a world that creates, moves or re-projects a camera, and the
   runtime re-asserts its camera every frame.
 - Endless laps; your level is the lap you are on.
-- Lap 1 has one rival; every new lap adds one more, faster and more aggressive than the last
-  (0.78x your cruising speed and 0.15 aggression at level 1, rising 0.07 and 0.09 a level).
+- One rival lines up beside you on the start line; every lap one more joins at the line as you
+  cross it (in a clear lane, holding it for 2.5 seconds before it hunts you).
+- Every lap is harder, gradually: your speeds rise 5% a lap (up to 1.6x); rival k joins at
+  0.80x your cruising speed plus 0.05 per earlier rival, and every rival gains 0.015 on you and
+  0.02 aggression each lap it races; moving obstacles speed up 4% a lap (up to 1.5x).
 - The only way to die is to touch a rival or an obstacle.
 - Golden **GM** coins, re-laid every lap, identical in every world.
 - Arrow keys or WASD steer and change speed, Space pauses, touch buttons on phones.

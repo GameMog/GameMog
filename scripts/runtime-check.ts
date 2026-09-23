@@ -27,7 +27,7 @@ insertDraft({
   meta: { title: 'Clover Loop', tagline: 'The reference world', blurb: 'Runtime check.', genre: 'Test', cast: [{ name: 'Pip', color: '#F2E3C4' }], palette: { sky: '#9CCBEB', ground: '#7DB356', accent: '#F28C28' }, runtime: 1 },
 });
 
-type State = { state: string; level: number; gm: number; alive: boolean; rivals: { k: number; ratio: number; aggro: number }[]; lap: number; obstacles: number; coins: number; x: number; d: number; speed: number; paused: boolean; crashedInto: string };
+type State = { state: string; level: number; gm: number; alive: boolean; pace: number; cruise: number; rivals: { k: number; ratio: number; aggro: number; ahead: number; x: number; joinedFromLine: number }[]; lap: number; obstacles: number; coins: number; x: number; d: number; speed: number; paused: boolean; crashedInto: string };
 
 try {
   await withBrowser(async (page) => {
@@ -45,6 +45,8 @@ try {
     ok('the lap is within 320-900m', s0.lap >= 320 && s0.lap <= 900, `${Math.round(s0.lap)}m`);
     ok('golden GM coins are laid', s0.coins > 10, `${s0.coins}`);
     ok('the title screen waits for the player', s0.state === 'title');
+    const r0 = s0.rivals[0];
+    ok('one rival stands on the start line beside you before the gun', s0.rivals.length === 1 && Math.abs(r0.ahead) < 0.5 && Math.abs(r0.x - s0.x) > 1.2, r0 ? `${r0.ahead.toFixed(1)}m ahead, ${Math.abs(r0.x - s0.x).toFixed(1)}m across` : 'none');
     const warnings = await page.eval<string[]>('window.__gm.warnings');
     console.log(`        runtime repairs reported: ${warnings.length ? warnings.join(' | ') : 'none'}`);
 
@@ -95,6 +97,12 @@ try {
     const r = top.rivals;
     ok('each new rival is faster than the last', r.every((v, i) => i === 0 || v.ratio > r[i - 1].ratio), r.map((v) => v.ratio.toFixed(2)).join(' < '));
     ok('and more aggressive than the last', r.every((v, i) => i === 0 || v.aggro > r[i - 1].aggro), r.map((v) => v.aggro.toFixed(2)).join(' < '));
+    ok('every rival joined at the start line (in view, a few metres past it)', r.every((v) => v.joinedFromLine < 8), r.map((v) => v.joinedFromLine.toFixed(1)).join(' '));
+    const byLevel = new Map<number, State>(); seen.forEach((x) => byLevel.set(x.level, x));
+    const levels = [...byLevel.keys()].sort((a, b) => a - b), paces = levels.map((l) => byLevel.get(l)!.pace);
+    ok('your pace rises every lap', paces.every((p, i) => i === 0 || p > paces[i - 1]), paces.map((p) => p.toFixed(2)).join(' < '));
+    const first = levels.map((l) => byLevel.get(l)!.rivals.find((x) => x.k === 1)!);
+    ok('and the rivals already racing gain on you and hunt harder every lap', first.every((x, i) => i === 0 || (x.ratio > first[i - 1].ratio && x.aggro > first[i - 1].aggro)), `rival 1: ${first.map((x) => x.ratio.toFixed(3)).join(' < ')}`);
     ok('GM coins are collected', top.gm > 0, `${top.gm} GM`);
     ok('no errors during the run', (await errors()).length === 0, (await errors()).join(' | '));
 

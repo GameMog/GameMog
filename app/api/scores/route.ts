@@ -26,8 +26,12 @@ export async function POST(req: Request) {
     const level = Number(b.level) || 0, gm = Number(b.gm) || 0, timeMs = Number(b.timeMs) || 0;
     if (b.assisted) return NextResponse.json({ error: 'Assisted runs are not ranked.' }, { status: 422 });
     // a lap takes at least 320m at the top speed of 28 m/s
+    // the fastest a level can be reached: every lap at the shortest lap
+    // length, holding up, at that lap's pace (the runtime's rules)
+    let floorMs = 0;
+    for (let l = 1; l < Math.min(level, 1000); l++) floorMs += (320 / (28 * Math.min(1.6, 1 + 0.05 * (l - 1)))) * 1000 * 0.9;
     if (!Number.isInteger(level) || level < 1 || level > 999 || gm < 0 || gm > level * 90 ||
-        timeMs < (level - 1) * (320 / 28) * 1000 * 0.9 || timeMs > 6 * 60 * 60 * 1000) {
+        timeMs < floorMs || timeMs > 6 * 60 * 60 * 1000) {
       return NextResponse.json({ error: 'Result outside plausible range' }, { status: 422 });
     }
     insertScore({

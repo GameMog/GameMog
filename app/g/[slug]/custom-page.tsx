@@ -82,9 +82,10 @@ export function CustomGamePage({ game }: { game: GameRow }) {
                     <>
                       <h2 style={{ marginTop: 26, marginBottom: 6 }}>How it works</h2>
                       <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>
-                        Endless laps. Lap 1 has one rival; every lap after adds another, faster and more
-                        aggressive than the last. Touch a rival or an obstacle and the run is over. Collect the
-                        golden GM on the way. The leaderboard ranks the highest level reached, then GM.
+                        Endless laps. One rival lines up beside you at the start, and every lap another joins at
+                        the line, faster and more aggressive than the last. Every lap everyone runs faster: you,
+                        the whole field and the moving obstacles. Touch a rival or an obstacle and the run is over.
+                        Collect the golden GM on the way. The leaderboard ranks the highest level reached, then GM.
                       </p>
                     </>
                   )}

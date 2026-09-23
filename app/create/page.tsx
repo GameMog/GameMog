@@ -183,7 +183,8 @@ export default function Create() {
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)' }}>
             <li>Every world is 3D, seen from behind your character by the chase camera.</li>
             <li>Endless laps. Your level is the lap you are on.</li>
-            <li>Lap 1 has one rival. Every lap adds another, faster and meaner than the last.</li>
+            <li>One rival lines up beside you. Every lap another joins at the line, faster and meaner than the last.</li>
+            <li>Every lap everyone runs faster: you, the whole field and the moving obstacles.</li>
             <li>Touch a rival or an obstacle and the run is over.</li>
             <li>Collect the golden GM along the way.</li>
             <li>Arrow keys steer and change speed, Space pauses, touch buttons on phones.</li>

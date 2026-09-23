@@ -10,9 +10,12 @@ creativity: it decides what the world is, who lives in it, and how it looks, mov
   the player. There are no 2D, top-down, side-scrolling or isometric worlds, and a world never
   moves, replaces or re-projects the camera.
 - **Endless laps.** There is no final lap. Your level is the lap you are on.
-- **Rivals.** Lap 1 has one rival. Every new lap adds one more rival, faster and more
-  aggressive than the last. The first is slower than you; by the fifth they match your pace;
-  after that they come from behind.
+- **Rivals.** One rival lines up beside you on the start line. Every lap, one more joins at the
+  line as you cross it (a few metres ahead, where you can see it), faster and more aggressive than
+  the last, and holds its lane for a moment before it starts to hunt you.
+- **Every lap is harder.** Every lap you run faster (5% a lap, up to 1.6x), every rival already
+  racing gains on you and hunts harder, and moving obstacles speed up. The first rival starts
+  slower than you; later ones catch you from behind.
 - **Death.** The only way to die is to touch a rival or an obstacle. One touch ends the run.
 - **GM.** Golden GM coins are laid along the track and re-laid every lap. They are the
   platform's currency and look the same in every world. Do not make coins.
@@ -176,7 +179,8 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
 
 ### ctx
 - `ctx.THREE`, `ctx.scene`, `ctx.scenery`, `ctx.camera`
-- `ctx.theme` (resolved colours), `ctx.rules` (the rule numbers, read-only)
+- `ctx.theme` (resolved colours), `ctx.rules` (the rule numbers, read-only: `pace(level)`,
+  `rivalSpeed(k, level)`, `rivalAggression(k, level)`, `obstaclePace(level)`)
 - `ctx.quality`: `'high'` on laptops and desktops, `'low'` on phones and tablets. On `'low'`, build
   lighter: fewer instances, simpler meshes. The track, the rules and the obstacles stay the same.
 - `ctx.random()`: seeded by the world's title, so a world builds the same every time
