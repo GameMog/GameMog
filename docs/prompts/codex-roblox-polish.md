@@ -9,6 +9,7 @@ Stack: Next.js 15 (app router), TypeScript, React, node:sqlite. No CSS framework
 Where things are:
 - Repo root: /Users/sheed/Desktop/GameMog
 - Homepage: /Users/sheed/Desktop/GameMog/app/page.tsx
+- Classic page (all 22 Classic races): /Users/sheed/Desktop/GameMog/app/classic/page.tsx
 - Homepage film player: /Users/sheed/Desktop/GameMog/app/hero-film.tsx
 - Film files: /Users/sheed/Desktop/GameMog/public/media/la-olympics-2028-wide.mp4, -wide.jpg, -4x3.mp4, -4x3.jpg
 - Film recorder: /Users/sheed/Desktop/GameMog/scripts/media/record-hero.ts (npm run media:hero -- <slug>)
@@ -55,8 +56,8 @@ Page and header (desktop 1440):
 - Body text: 16px, #202227.
 - Header: 40px tall, fixed, background #F7F7F8, 1px bottom border #FFFFFF, no shadow.
 - Header search: 360x28, background rgba(27,37,75,.08), border 1px solid rgba(27,37,75,.12), radius 8px, 16px text.
-- Primary header button: 30px tall, padding 6px 9px, #335FFF, text #F7F7F8, 16px/500, radius 8px.
-- Secondary header button: 30px tall, transparent, 1px solid #494D5A, text #6A6F81, radius 8px.
+- Roblox has Sign Up and Log In buttons at the right of its header. GameMog's header has no buttons there, by the owner's choice. Do not add any.
+- Primary button style (for buttons elsewhere): 30px tall, padding 6px 9px, #335FFF, text #F7F7F8, 16px/500, radius 8px.
 - Page title h1: 32px/800, line-height 44.8px.
 - Filter pills: 32px tall, background #272930, white 16px/700 text, radius 999px, padding 9px, trailing chevron.
 - Rail heading h2: 20px/700, line-height 28px, followed by an (i) info icon.
@@ -72,7 +73,7 @@ Tiles and rails (desktop):
 - Hover: none on Charts tiles.
 
 Phone (375px):
-- Header: 74px in two rows: logo, primary buttons and a search icon on top; nav links spread across the second row.
+- Header: 74px in two rows: logo and a search icon on top (Roblox also puts its buttons there; GameMog has none); nav links spread across the second row.
 - h1 24px. Rail heading 16px.
 - Tiles: about 88px squares, about 3.5 visible, swipe only, no arrows.
 - Filter pills: same dark pills.
@@ -92,15 +93,19 @@ Experience (game) page, desktop:
 
 Homepage (/Users/sheed/Desktop/GameMog/app/page.tsx), top to bottom:
 1. A full-width billboard for LA Olympics 2028 playing a real gameplay film, with Play and Mog it buttons. KEEP THE BILLBOARD EXACTLY AS IT IS. The owner asked for it.
-2. "Top playing now": a rail of the 4 current games (3 worlds on the GameMog Runtime plus 1 older custom 3D game), as 264px 16:9 tiles.
-3. "Classic": a captioned grid of 22 games on the original race engine. These are 3D, but they are the older format: three laps run to a beat, no GM coins, no rival joining each lap, so they do not follow the platform's current rules. Their covers are drawn SVG illustrations with title lettering (/Users/sheed/Desktop/GameMog/app/cover.tsx), all from one template. Games are Classic when format = 'race' in the games table.
+2. "Top playing now": a rail of the 4 current games (3 worlds on the GameMog Runtime plus 1 older custom 3D game), as 264px 16:9 tiles. The homepage shows worlds only.
+
+Classic page (/Users/sheed/Desktop/GameMog/app/classic/page.tsx, at /classic): all 22 games on the original race engine, as a grid sorted by plays, under an h1 "Classic" and a caption. These games are 3D, but they are the older format: three laps run to a beat, no GM coins, no rival joining each lap, so they do not follow the platform's current rules. Their covers are drawn SVG illustrations with title lettering (/Users/sheed/Desktop/GameMog/app/cover.tsx), all from one template. A game is Classic when format = 'race' in the games table. Game pages already recommend their own kind: worlds with worlds, Classic with Classic.
+
+Header nav (the owner's decision, keep it exactly): "Classic" (/classic), "Create" (/create), "Racing" (/?f=race). The wordmark links home. There is no "Create a world" button and no Charts link. Racing currently points to /?f=race, which the homepage ignores. Give it a real destination (task E) without renaming or removing it.
+
+Tiles show MOG and NEW badges. There is no FLAGSHIP badge; the owner removed it. Muse Sprint still has featured = 1 in the database because npm run check plays the featured game as its canary. Leave that flag alone.
 
 - The 3D worlds' covers are JPEG screenshots from the playtest (gameCover() in /Users/sheed/Desktop/GameMog/lib/db.ts, served by /Users/sheed/Desktop/GameMog/app/g/[slug]/cover/route.ts).
 - Tiles are 16:9 only because those screenshots are 16:9. Once key art exists (task A), go back to Roblox's exact 150x150 squares.
 - The body font is 'Helvetica Neue', Helvetica, Arial in /Users/sheed/Desktop/GameMog/app/globals.css.
-- The header has greyed-out nav items that do nothing ("Obstacle", "Survival").
 
-THE CLASSIC SPLIT IS THE OWNER'S DECISION: Classic games never appear in the main rails, the main charts or the billboard. They get their own section and their own chart.
+THE CLASSIC SPLIT IS THE OWNER'S DECISION: Classic games appear only on /classic and on their own game pages. They never appear on the homepage, in the world rails and charts, or in the billboard.
 
 === 5. THE WORK, IN ORDER ===
 
@@ -119,7 +124,7 @@ Acceptance: a contact sheet of every world's icon at 150px looks like a row of R
 
 B. TILES AND RAILS, EXACTLY AS ROBLOX
 
-- Tiles back to 150x150 squares: the key-art icon for worlds, and the square Cover (app/cover.tsx without "wide") for Classic games. Name 16/700/22.4 over up to two lines, margin-top 6px. Stats row 12/500 #494D5A with like % (when there are votes) and plays formatted 1.2K / 3.4M (short() in app/tile.tsx). Keep the Mog count and the MOG / NEW / FLAGSHIP badges.
+- Tiles back to 150x150 squares: the key-art icon for worlds, and the square Cover (app/cover.tsx without "wide") for Classic games. Name 16/700/22.4 over up to two lines, margin-top 6px. Stats row 12/500 #494D5A with like % (when there are votes) and plays formatted 1.2K / 3.4M (short() in app/tile.tsx). Keep the Mog count and the MOG / NEW badges. Do not bring back FLAGSHIP.
 - Rails: 14px gap, a 30px arrow gutter at each end with plain chevrons (no circle), arrows only on the side that has more to show. No arrows on phones.
 - Update the tile assertion in /Users/sheed/Desktop/GameMog/scripts/design-check.ts back to 150x150, with a one-line reason.
 
@@ -129,16 +134,16 @@ Replace Helvetica Neue with a self-hosted, SIL OFL-licensed typeface close to Bu
 
 D. HEADER (/Users/sheed/Desktop/GameMog/app/header.tsx)
 
-- Desktop: 40px, fixed, with the measurements from section 3. Nav: Charts, Create, Library, and Mogs (linking to the "New Mogs" chart from task E, which you build first). Search 360x28. The right-hand button is "Create a world", with Roblox's primary button spec.
+- Desktop: 40px, fixed, with the measurements from section 3. Keep the nav items exactly as the owner set them: Classic, Create, Racing. Do not add, rename or remove any, and add no buttons on the right. Search 360x28.
 - Phone: Roblox's two-row 74px header, with the nav links as the second row.
-- Remove nav items that do nothing ("Obstacle", "Survival", and "Racing" unless it links somewhere real).
 
 E. HOMEPAGE BELOW THE BILLBOARD
 
 - Main section (worlds only, format not 'race'): Roblox-style rails. Only show a rail when it has at least 4 games and does not just repeat a rail above it. Candidates: "Top Trending" (plays), "Up-and-Coming" (newest), "Top Rated" (like %), "Most Mogged" (Mog count), "New Mogs" (games with a parent). Each has an (i) info icon with a one-line explanation, and a caption where Roblox would have one.
 - Real filter pills in Roblox's dark style that actually filter the main section, e.g. Genre (from each game's meta.genre). No inert controls.
-- Classic section (format = 'race'), below everything else: heading "Classic" with the existing caption ("The first GameMog races, from before the GameMog Runtime: three laps, run to the beat. They keep their own rules."), shown as a rail sorted by plays with "See All" going to a Classic chart page.
-- Chart pages: build /charts/<sort> (e.g. /charts/trending, /charts/new-mogs, /charts/classic) as Roblox-style grids of 150px tiles with the h1 and pills. "See All" links go there. There are no anchors pretending to be pages.
+- No Classic games on the homepage.
+- The Classic page (/classic) becomes a Roblox Charts page of its own: the h1 "Classic" and its caption, dark sort pills that actually sort (Most played, Newest, Best record), and 150px tiles.
+- Chart pages for worlds: build /charts/<sort> (e.g. /charts/trending, /charts/new-mogs, /charts/racing) as Roblox-style grids of 150px tiles with the h1 and pills. "See All" links go there, and there are no anchors pretending to be pages. Point the "Racing" nav item at /charts/racing (racing worlds).
 
 F. GAME PAGE, ROBLOX'S EXPERIENCE LAYOUT
 
@@ -149,7 +154,7 @@ Apply section 3's experience-page measurements to /Users/sheed/Desktop/GameMog/a
 - Stats strip between two #BCBEC8 rules with centred columns: Plays, Players, Likes, Mogs, Generation, Created, Updated, Genre, Rivals.
 - Tabs 40px tall.
 - Keep every Mog element (Mog button, lineage line, Mog-off panel, Mogs tab); they are the product.
-- The "Recommended" rail becomes "Players Also Play" with standard tiles. On a world's page, show worlds only. On a Classic page, show Classic games only.
+- The "Recommended" rail becomes "Players Also Play" with standard tiles. Keep the existing split: worlds recommend worlds, Classic recommends Classic.
 - Classic game pages carry a small "Classic" label near the title.
 
 G. FOOTER, EMPTY STATES, PHONE PASS
@@ -170,7 +175,7 @@ G. FOOTER, EMPTY STATES, PHONE PASS
   - purple, and fully saturated neon colours;
   - radii between 9px and a full pill.
   It also requires the page background #F7F7F8. Stay inside it. Where a task above changes a measured rule, update the assertion and put the reason in a comment. Never weaken a rule just to make a check pass.
-- Keep the billboard as it is, and keep the Classic split.
+- Keep the billboard as it is. Keep the Classic split (Classic only on /classic and on its own game pages). Keep the header nav as Classic, Create, Racing, with no "Create a world" button and no FLAGSHIP badge.
 - Honest numbers. Show the real plays, likes and Mogs. Never inflate, seed or fake counts or badges.
 - Do not change:
   - the rules of play (RULES in /Users/sheed/Desktop/GameMog/lib/runtime/v1.js, and /Users/sheed/Desktop/GameMog/docs/RULES.md);
@@ -190,7 +195,7 @@ G. FOOTER, EMPTY STATES, PHONE PASS
    - /g/la-olympics-2028
    - /g/pepe-s-thunderbog-dash
    - /g/muse-sprint
-   - /charts/classic
+   - /classic
    - /create
    - /mog/la-olympics-2028
    For a true 375px width, add an emulate({ width, height, mobile }) method to the Page type in lib/browser.ts using DevTools' Emulation.setDeviceMetricsOverride.
@@ -202,4 +207,4 @@ G. FOOTER, EMPTY STATES, PHONE PASS
 - What changed, per task, with the commit hashes.
 - Before and after screenshots from section 7.
 - Anything you could not match, and why.
-- Decisions for the owner. For example, Muse Sprint still carries the FLAGSHIP badge inside Classic; say whether that should stay.
+- Decisions for the owner: anything you think should change but that this brief tells you to leave alone.
