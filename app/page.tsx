@@ -5,7 +5,9 @@ import { SiteHeader, SiteFooter, Icon } from './header';
 import { Tile, short } from './tile';
 import { HeroFilm, type Film } from './hero-film';
 import { Rail as Shelf } from './rail';
+import { GenreFilter } from './genre-filter';
 import { listGames, bestTimes, topScores, tileStats, type GameRow, type TileStats } from '@/lib/db';
+import { CHARTS, genreOf, sortGames, type ChartSort } from '@/lib/catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,16 +25,18 @@ function filmFor(slug: string): Film | null {
  * A heading, a "See all" when there is more than the row shows, and a row of
  * identical tiles. That is the entire unit a games catalogue is built from.
  */
-function Rail({ title, id, games, best, stats, seed, more }: {
-  title: string; id?: string; games: GameRow[]; best: Record<string, number>; stats: Record<string, TileStats>; seed: number; more?: string;
+function Rail({ sort, games, best, stats, seed, caption }: {
+  sort: ChartSort; games: GameRow[]; best: Record<string, number>; stats: Record<string, TileStats>; seed: number; caption?: string;
 }) {
-  if (!games.length) return null;
+  if (games.length < 4) return null;
+  const chart = CHARTS[sort];
   return (
-    <section className="sec" id={id}>
+    <section className="sec">
       <div className="sechead">
-        <h2>{title}</h2>
-        {more && <Link href={more} className="more">See all</Link>}
+        <h2>{chart.title}<span className="info" title={chart.explanation} aria-label={chart.explanation}>i</span></h2>
+        <Link href={`/charts/${sort}`} className="more">See All<span aria-hidden>›</span></Link>
       </div>
+      {(caption ?? chart.caption) && <p className="cap">{caption ?? chart.caption}</p>}
       <Shelf>
         {games.map((g, i) => <Tile key={g.id} g={g} i={seed + i} best={best[g.id]} stats={stats[g.id]} />)}
       </Shelf>
@@ -74,7 +78,7 @@ function Billboard({ game, film, stats }: { game: GameRow; film: Film | null; st
   );
 }
 
-export default function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ genre?: string }> }) {
   const games = listGames(120);
   const best = bestTimes();
 
@@ -99,9 +103,26 @@ export default function Home() {
   // does not play by the platform's rules, so it is not ranked with worlds
   // that do
   const worlds = games.filter((g) => g.format !== 'race');
+  const classic = games.filter((g) => g.format === 'race');
   const hero = worlds.find((g) => g.slug === HERO) ?? worlds.find((g) => g.format === 'world') ?? worlds[0] ?? games[0];
-  const played = [...worlds].sort((a, b) => b.plays - a.plays);
-  const newest = [...worlds].sort((a, b) => b.created_at - a.created_at);
+  const genres = [...new Set(worlds.map(genreOf))].sort();
+  const requested = (await searchParams).genre;
+  const genre = requested && genres.includes(requested) ? requested : 'All';
+  const filtered = genre === 'All' ? worlds : worlds.filter((g) => genreOf(g) === genre);
+  const candidates: { sort: ChartSort; games: GameRow[] }[] = [
+    { sort: 'trending', games: sortGames(filtered, 'trending', stats).slice(0, 16) },
+    { sort: 'up-and-coming', games: sortGames(filtered, 'up-and-coming', stats).slice(0, 16) },
+    { sort: 'top-rated', games: sortGames(filtered.filter((g) => (stats[g.id]?.up ?? 0) + (stats[g.id]?.down ?? 0) > 0), 'top-rated', stats).slice(0, 16) },
+    { sort: 'most-mogged', games: sortGames(filtered.filter((g) => (stats[g.id]?.mogs ?? 0) > 0), 'most-mogged', stats).slice(0, 16) },
+    { sort: 'new-mogs', games: sortGames(filtered, 'new-mogs', stats).slice(0, 16) },
+  ];
+  const seen = new Set<string>();
+  const rails = candidates.filter((rail) => {
+    if (rail.games.length < 4) return false;
+    const signature = rail.games.map((g) => g.id).sort().join(',');
+    if (seen.has(signature)) return false;
+    seen.add(signature); return true;
+  });
 
   return (
     <>
@@ -109,21 +130,15 @@ export default function Home() {
       <main className="wrap" style={{ paddingTop: 16 }}>
         <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />
 
-        <Rail title="Top playing now" id="played" games={played.slice(0, 16)} best={best} stats={stats} seed={0} more={worlds.length > 16 ? '#all' : undefined} />
-        {/* a second rail only once it would not repeat the first */}
-        {worlds.length > 8 && <Rail title="Up and coming" id="new" games={newest.slice(0, 16)} best={best} stats={stats} seed={40} more={worlds.length > 16 ? '#all' : undefined} />}
+        <div className="charthead homecharts">
+          <h1>Charts</h1>
+          <GenreFilter genres={genres} value={genre} />
+        </div>
+        {rails.map((rail, i) => <Rail key={rail.sort} sort={rail.sort} games={rail.games} best={best} stats={stats} seed={i * 40} />)}
+        {!rails.length && <div className="empty"><h2>No full chart for this genre yet</h2><p>Charts appear when at least four worlds qualify.</p></div>}
 
-        {worlds.length > 16 && (
-          <section className="sec" id="all">
-            <div className="sechead">
-              <h2>All worlds</h2>
-              <span className="t-meta dim">{worlds.length} published, every one playtested</span>
-            </div>
-            <div className="gridw">
-              {worlds.map((g, i) => <Tile key={g.id} g={g} i={i + 200} best={best[g.id]} stats={stats[g.id]} />)}
-            </div>
-          </section>
-        )}
+        <Rail sort="classic" games={sortGames(classic, 'classic', stats).slice(0, 16)} best={best} stats={stats} seed={400}
+          caption="The first GameMog races, from before the GameMog Runtime: three laps, run to the beat. They keep their own rules." />
 
       </main>
       <SiteFooter />
