@@ -1,0 +1,15 @@
+{
+  "title": "LA Olympics 2028",
+  "tagline": "The 400 metres final that never ends.",
+  "blurb": "Golden hour in a sold-out Los Angeles stadium, and the final never stops. Every lap another sprinter from another nation joins the field, faster and hungrier than the last, so thread the hurdles, stay off their heels and grab the golden GM.",
+  "genre": "Stadium sprint",
+  "cast": [
+    { "name": "Banks (USA)", "color": "#15264F", "role": "player" },
+    { "name": "Mensah (GHA)", "color": "#E8B420", "role": "rival" },
+    { "name": "Kiptoo (KEN)", "color": "#C8102E", "role": "rival" },
+    { "name": "Lindqvist (SWE)", "color": "#2F7FD8", "role": "rival" },
+    { "name": "Campbell (JAM)", "color": "#1F9D55", "role": "rival" },
+    { "name": "De Vries (NED)", "color": "#F07D1A", "role": "rival" }
+  ],
+  "palette": { "sky": "#E9A877", "ground": "#A8432E", "accent": "#F2553A" }
+}

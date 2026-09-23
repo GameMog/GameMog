@@ -6,6 +6,9 @@ creativity: it decides what the world is, who lives in it, and how it looks, mov
 
 ## The rules (the runtime owns these; a world cannot change them)
 
+- **3D only.** Every world is a 3D place seen through the runtime's chase camera, from behind
+  the player. There are no 2D, top-down, side-scrolling or isometric worlds, and a world never
+  moves, replaces or re-projects the camera.
 - **Endless laps.** There is no final lap. Your level is the lap you are on.
 - **Rivals.** Lap 1 has one rival. Every new lap adds one more rival, faster and more
   aggressive than the last. The first is slower than you; by the fifth they match your pace;
@@ -28,6 +31,7 @@ procedurally.
 ```js
 GameMog.world({
   theme,      // colours and font for the HUD and screens
+  graphics,   // optional: cinematic rendering (light from the sky, bloom, grading)
   camera,     // optional: how the chase camera frames the world
   track,      // the loop: control points and width
   build,      // the world: sky, ground, the track's surface, scenery, lights
@@ -44,9 +48,36 @@ GameMog.world({
 `panel` is the HUD boards and cards, `accent` is highlights. `font` is one Google Font family
 name (for example `"Fredoka"`, `"Baloo 2"`, `"Bungee"`, `"Rubik"`). Pick them for this world.
 
+### graphics (optional)
+Turns on the runtime's cinematic renderer. Use it whenever the world should look its best,
+and always for a realistic world. Every value is optional and bounded.
+
+```js
+graphics: {
+  exposure: 1,                                   // 0.3 to 3, filmic tone mapping
+  environment: true,                             // light every surface from the world's own sky
+                                                 // (or { intensity: 0 to 4 }, or (ctx) => Object3D
+                                                 // of extra bright shapes, such as floodlight panels)
+  bloom: { strength: 0.5, threshold: 1, radius: 0.7 },  // glow on anything brighter than white
+  grade: { contrast: 1.04, saturation: 1.05, warmth: 0, vignette: 0.25, grain: 0.015 },
+  shadows: { extent: 38, mapSize: 2048 },         // a sharp shadow map that follows the player
+}
+```
+
+- The environment is baked from `ctx.sky(...)` if the world built one, otherwise from the theme.
+  Metal, wet skin, glass and paint only look real with it on: use `MeshStandardMaterial` or
+  `MeshPhysicalMaterial` with honest `roughness` and `metalness`.
+- Bloom catches colours brighter than white: give lamps, floodlights, neon, lava and the sun
+  `emissive` colours with `emissiveIntensity` of 2 to 12. Ordinary surfaces never glow.
+- The shadow map follows the player, so the one shadow-casting `DirectionalLight` needs no
+  shadow camera of its own. Scenery far away does not need to cast shadows.
+- The runtime lowers the resolution, then the antialiasing, then the bloom if a device cannot
+  hold 60 fps.
+
 ### camera (optional)
 `{ distance, height, fov }`: metres behind the player (6 to 14), metres above (2.5 to 6.5),
-field of view (50 to 78). The runtime drives the camera; this only frames it.
+field of view (50 to 78). The runtime drives the camera; this only frames it. `ctx.camera` is
+read-only: read its position (to face a billboard at it), never write to it.
 
 ### track
 `{ points: [[x, y, z], ...], width }`. 6 to 80 control points forming a closed loop (do not
@@ -59,7 +90,8 @@ through a market.
 ### build(ctx)
 Build everything that is not a character or an obstacle: sky, ground, water, the track's
 surface, scenery, lights (at least a HemisphereLight and a DirectionalLight in the world's
-own colours; one shadow-casting light with a map of 1024 or smaller).
+own colours; one shadow-casting light, with a map of 1024 or smaller unless `graphics.shadows`
+sizes it).
 
 - Draw the track surface with `ctx.track.ribbon({ width, offset, y, color | material })`.
   Ribbons for edges, stripes, kerbs, boardwalk planks and so on are cheap.
@@ -111,17 +143,26 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
 ### ctx
 - `ctx.THREE`, `ctx.scene`, `ctx.scenery`, `ctx.camera`
 - `ctx.theme` (resolved colours), `ctx.rules` (the rule numbers, read-only)
+- `ctx.quality`: `'high'` on laptops and desktops, `'low'` on phones and tablets. On `'low'`, build
+  lighter: fewer instances, simpler meshes. The track, the rules and the obstacles stay the same.
 - `ctx.random()`: seeded by the world's title, so a world builds the same every time
 - `ctx.track`: `length`, `halfWidth`, `width`, `frameAt(d)` (returns `{ pos, tan, right, up }`),
   `pointAt(d, x, y)`, `nearest(x, z)` (returns `{ d, distance, lateral }`), `clear(x, z, margin)`,
   `ribbon(opts)`
-- `ctx.textures.canvas(width, height, (g, w, h) => { ...draw with 2D canvas... })`
+- `ctx.textures.canvas(width, height, (g, w, h) => { ...draw with 2D canvas... }, { linear })`:
+  colour maps by default; pass `{ linear: true }` for roughness and other data maps
+- `ctx.textures.normal(width, height, (g, w, h) => { ...draw heights in greys... }, strength)`:
+  a normal map from a height field (white is high): grain, weave, cracks, pores
+- `ctx.sky({ top, horizon, bottom, sun: [x, y, z], sunColor, sunSize, glow, haze, curve })`: a sky
+  dome with a glowing sun (`sun` is the direction towards it, `sunSize` in degrees; `curve` above
+  0.45 keeps the horizon colour higher up the sky); it always stays around the camera. Match
+  `sun` to the direction of your key light.
 - `ctx.instanced(geometry, material, count, fn)`
 - `ctx.audio` (inside `ambient`)
 
 ## Never
 
-Create a renderer, call `requestAnimationFrame`, `setTimeout` or `setInterval`, add event
+Build a 2D game, move or replace the camera, create a renderer, call `requestAnimationFrame`, `setTimeout` or `setInterval`, add event
 listeners, touch the page (`document.body`, `innerHTML`, `appendChild`), call
 `GameMog.ready` or `GameMog.finish`, use the network, storage, `eval`, dialogs or imports,
 or make GM coins. The runtime does all of it.

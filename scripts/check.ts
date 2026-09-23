@@ -148,6 +148,26 @@ for (const n of [2, 3, 4, 5, 6, 7]) {
     `spread ${lanes[0]} to ${lanes[lanes.length - 1]}`);
 }
 
+console.log('\nworlds are 3D: the camera is the runtime\'s');
+{
+  const { staticCheckWorld } = await import('../lib/custom-game.ts');
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const ref = readFileSync('lib/runtime/reference-world.js', 'utf8');
+  const cam = (line: string) => staticCheckWorld(ref.replace('update(ctx, t) {', `update(ctx, t) {\n    ${line}`)).some((p) => /camera/i.test(p));
+  ok('the reference world passes the static check', staticCheckWorld(ref).length === 0, staticCheckWorld(ref).join(' | '));
+  for (const line of ['new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10);', 'ctx.camera.position.set(0, 200, 0);', 'ctx.camera.position.y = 90;',
+    'ctx.camera.lookAt(0, 0, 0);', 'ctx.camera.fov = 5;', 'ctx.camera.zoom *= 0.1;', 'ctx.camera.projectionMatrix.makeOrthographic(-1, 1, 1, -1, 0, 1);', 'ctx.camera.add(new THREE.Mesh());']) {
+    ok(`refused: ${line}`, cam(line));
+  }
+  for (const line of ['const p = ctx.camera.position.clone();', 'sprite.lookAt(ctx.camera.position);', 'if (ctx.camera.fov > 60) {}']) {
+    ok(`allowed (reading the camera): ${line}`, !cam(line));
+  }
+  for (const f of readdirSync('worlds').filter((f) => f.endsWith('.js'))) {
+    const problems = staticCheckWorld(readFileSync(`worlds/${f}`, 'utf8'));
+    ok(`first-party world ${f} passes the static check`, problems.length === 0, problems.join(' | '));
+  }
+}
+
 runDifficultyChecks(ok);
 runDesignChecks(ok);
 

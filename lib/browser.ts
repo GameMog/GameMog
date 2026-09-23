@@ -39,7 +39,8 @@ export type Page = {
   eval<T = unknown>(expr: string): Promise<T>;
   key(key: string, type?: 'keyDown' | 'keyUp'): Promise<void>;
   click(x: number, y: number): Promise<void>;
-  screenshot(quality?: number): Promise<Uint8Array>;
+  /** A JPEG of the viewport, or of `clip` (CSS pixels) within it. */
+  screenshot(quality?: number, clip?: { x: number; y: number; width: number; height: number }): Promise<Uint8Array>;
   /** Uncaught exceptions and console errors, in order. */
   errors: string[];
 };
@@ -133,8 +134,8 @@ export async function withBrowser<T>(
         await s('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
         await s('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
       },
-      async screenshot(quality = 72) {
-        const { data } = await s('Page.captureScreenshot', { format: 'jpeg', quality });
+      async screenshot(quality = 72, clip) {
+        const { data } = await s('Page.captureScreenshot', { format: 'jpeg', quality, ...(clip ? { clip: { ...clip, scale: 1 } } : {}) });
         return new Uint8Array(Buffer.from(data, 'base64'));
       },
     };

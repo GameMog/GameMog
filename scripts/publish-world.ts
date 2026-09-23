@@ -1,0 +1,47 @@
+/**
+ * Publish a first-party world from worlds/<name>.js and worlds/<name>.json.
+ * `npm run publish:world -- la-olympics-2028`   (needs the dev server: BASE)
+ *
+ * A world written by hand goes through exactly the gate a generated one does:
+ * the static check, then a real-Chrome playtest on the runtime. Only a world
+ * that passes is published. Publishing again updates the game in place, so
+ * its URL and leaderboard survive.
+ */
+import { readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { WorldMetaSchema, WORLD_CONTROLS, staticCheckWorld } from '../lib/custom-game.ts';
+import { playtestWorld } from '../lib/playtest-runtime.ts';
+import { insertDraft, publishDraft, slugify, db } from '../lib/db.ts';
+
+const BASE = process.env.BASE ?? 'http://localhost:3939';
+const name = process.argv[2];
+if (!name) { console.error('usage: npm run publish:world -- <name>'); process.exit(1); }
+const code = readFileSync(`worlds/${name}.js`, 'utf8');
+const parsed = WorldMetaSchema.safeParse(JSON.parse(readFileSync(`worlds/${name}.json`, 'utf8')));
+if (!parsed.success) { console.error('meta:', parsed.error.issues); process.exit(1); }
+const meta = parsed.data;
+
+const problems = staticCheckWorld(code);
+if (problems.length) { console.error('static check:\n- ' + problems.join('\n- ')); process.exit(1); }
+console.log(`static check: clean (${Math.round(code.length / 1000)}KB)`);
+
+const draftId = randomUUID();
+insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world', report: { pending: true }, code, meta: { ...meta, controls: WORLD_CONTROLS, scoring: 'level', runtime: 1 } });
+console.log('playtesting in Chrome...');
+const report = await playtestWorld(`${BASE}/d/${draftId}/play`);
+const { cover, ...rest } = report;
+db.prepare('UPDATE drafts SET cover = ?, report = ? WHERE id = ?').run(cover ?? null, JSON.stringify(rest), draftId);
+console.log(`ready in ${report.readyMs}ms, ${report.fps} fps, reached level ${report.levelReached}`);
+if (report.advisories.length) console.log('runtime repairs:\n- ' + report.advisories.join('\n- '));
+if (!report.ok) { console.error('playtest failed:\n- ' + report.problems.join('\n- ')); process.exit(1); }
+
+const slug = slugify(meta.title);
+const existing = db.prepare('SELECT id FROM games WHERE slug = ?').get(slug) as { id: string } | undefined;
+if (existing) {
+  db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = (SELECT meta FROM drafts WHERE id = ?), cover = ?, format = ? WHERE id = ?')
+    .run(meta.title, meta.tagline, meta.blurb, code, draftId, cover ?? null, 'world', existing.id);
+  console.log(`updated ${BASE}/g/${slug}`);
+} else {
+  publishDraft(draftId, slug, randomUUID());
+  console.log(`published ${BASE}/g/${slug}`);
+}

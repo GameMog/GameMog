@@ -20,6 +20,7 @@ than by a model.
 ```bash
 npm run check            # regression guard; the featured game is the canary
 npm run check:runtime    # the framework's rules, asserted in real Chrome (needs the dev server)
+npm run publish:world -- la-olympics-2028   # a first-party world from worlds/, through the same gate
 ```
 
 ---
@@ -31,6 +32,9 @@ creators script experiences on it; here the **GameMog Runtime** (`lib/runtime/v1
 rules, and **Claude Opus 5.5** writes a **world module** from a creator's prompt.
 
 **The runtime owns the rules, and no world can change them:**
+- Every world is 3D, seen through the runtime's chase camera. No 2D, top-down or side-on
+  games: the static check refuses a world that creates, moves or re-projects a camera, and the
+  runtime re-asserts its camera every frame.
 - Endless laps; your level is the lap you are on.
 - Lap 1 has one rival; every new lap adds one more, faster and more aggressive than the last
   (0.78x your cruising speed and 0.15 aggression at level 1, rising 0.07 and 0.09 a level).
@@ -64,6 +68,23 @@ world through the keyboard, the pause key, eight laps and a crash, and asserts e
 
 Worlds are pinned to the runtime version they were written against, so a later runtime can
 change without changing a world that already shipped.
+
+**Cinematic graphics, opt-in** (`graphics` in the API). A world that declares it renders into a
+multisampled HDR target with image-based light baked from its own sky (`ctx.sky`), a 2048 shadow
+map that follows the player (texel-snapped, so edges do not crawl), bloom on anything brighter
+than white, filmic tone mapping, grading, vignette and grain. The runtime holds 60 fps by
+lowering the resolution, then the antialiasing, then the bloom; it drops NaN and infinite pixels
+before they can bloom; and `ctx.quality` tells a world to build lighter on phones. Worlds
+without `graphics` render exactly as before. A tall screen widens the vertical field of view so
+the track never shrinks to a sliver.
+
+**First-party worlds** live in `worlds/` as a module and its metadata, and publish with
+`npm run publish:world -- <name>` through the same static check and Chrome playtest as a
+generated world; publishing again updates the game in place. *LA Olympics 2028*
+(`worlds/la-olympics-2028.js`) is the showcase: a standard 400m track (84.39m straights, 36.5m
+kerb, nine lanes, the 400m stagger), a two-tier bowl of about 48,000 instanced fans who do the
+wave, a colonnade with the cauldron burning at the open end, and skinned, muscled sprinters in
+national kits running a keyframed sprint cycle.
 
 ### Earlier formats, still playable
 

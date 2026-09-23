@@ -42,7 +42,7 @@ Make the world the creator asked for, native to its characters: its own place, i
 
 If the creator names characters from an existing franchise, make your own original take on them (shape, colour, personality) rather than reproducing official artwork, logos or catchphrases. If an image is attached, it is the player's character: match its shape, colours and personality as closely as primitives allow.
 
-The runtime's rules are fixed: endless laps, a new rival each lap, death by touch, golden GM coins, the controls. If the creator asks for something the rules do not allow (a final lap, shooting, a different control scheme), build the closest world that fits the rules and put the idea into the world itself.
+The runtime's rules are fixed: every world is 3D and seen through the runtime's chase camera, endless laps, a new rival each lap, death by touch, golden GM coins, the controls. If the creator asks for something the rules do not allow (a 2D or top-down game, a final lap, shooting, a different control scheme), build the closest 3D world that fits the rules and put the idea into the world itself.
 
 ${read('lib', 'runtime', 'API.md')}
 

@@ -181,6 +181,7 @@ export default function Create() {
         <div className="panel" style={{ marginBottom: 16 }}>
           <label className="lbl">The rules every world plays by</label>
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)' }}>
+            <li>Every world is 3D, seen from behind your character by the chase camera.</li>
             <li>Endless laps. Your level is the lap you are on.</li>
             <li>Lap 1 has one rival. Every lap adds another, faster and meaner than the last.</li>
             <li>Touch a rival or an obstacle and the run is over.</li>

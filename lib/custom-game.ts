@@ -264,6 +264,11 @@ const WORLD_FORBIDDEN: [RegExp, string][] = [
   [/\b(setTimeout|setInterval)\s*\(/, 'Do not use timers; time things from t in update() and animate().'],
   [/\baddEventListener\s*\(/, 'Do not listen for input; the runtime owns the controls.'],
   [/document\.body|\.innerHTML|\.appendChild\s*\(|document\.querySelector/, 'Do not touch the page; the runtime owns the HUD and screens. Draw textures with ctx.textures.canvas.'],
+  // 3D only: the chase camera is the runtime's, so a world cannot flatten it
+  // into a 2D, top-down or side-on view
+  [/\bOrthographicCamera\b|\bnew\s+THREE\.PerspectiveCamera\b/, 'GameMog worlds are 3D and seen through the runtime\'s chase camera. Do not create cameras.'],
+  [/\bcamera\s*\.\s*(position|rotation|quaternion|up|scale|matrix\w*|projectionMatrix\w*)\s*\.\s*(set|copy|add\w*|sub\w*|lerp\w*|multiply\w*|apply\w*|setFrom\w*|make\w*|identity|normalize|negate)\s*\(|\bcamera\s*\.\s*(position|rotation|quaternion|up|fov|zoom|near|far|aspect|filmGauge|filmOffset|matrix\w*|projectionMatrix\w*|view)\s*(\.\s*[xyzw]\s*)?[-+*/]?=(?!=)|\bcamera\s*\.\s*(lookAt|rotate[XYZ]|rotateOnAxis|translate[XYZ]|translateOnAxis|setViewOffset|setFocalLength|setLens|updateProjectionMatrix|add|attach)\s*\(/,
+    'The camera belongs to the runtime: every world is 3D, seen from behind the player. Read ctx.camera (for example its position, to face a billboard at it) but never move, re-aim, re-project or attach things to it.'],
 ];
 
 export function staticCheckWorld(code: string): string[] {

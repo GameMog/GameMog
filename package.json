@@ -10,7 +10,8 @@
     "seed": "node scripts/seed.mjs",
     "build:engine": "node scripts/build-engine.mjs",
     "check": "node --import ./scripts/ts-resolve.mjs scripts/check.ts",
-    "check:runtime": "node --import ./scripts/ts-resolve.mjs scripts/runtime-check.ts"
+    "check:runtime": "node --import ./scripts/ts-resolve.mjs scripts/runtime-check.ts",
+    "publish:world": "node --import ./scripts/ts-resolve.mjs scripts/publish-world.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
