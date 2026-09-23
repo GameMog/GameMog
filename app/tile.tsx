@@ -32,8 +32,7 @@ export function Tile({ g, i = 0, best, stats }: { g: GameRow; i?: number; best?:
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={`/g/${g.slug}/cover`} alt="" loading="lazy" />
           : <Cover spec={spec!} seed={i} wide />}
-        {g.featured ? <span className="bd">FLAGSHIP</span>
-          : g.parent_id ? <span className="bd ink">MOG</span>
+        {g.parent_id ? <span className="bd ink">MOG</span>
           : isNew ? <span className="bd blue">NEW</span> : null}
       </div>
       <div className="nm">{g.title}</div>

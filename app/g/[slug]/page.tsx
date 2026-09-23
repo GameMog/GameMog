@@ -34,7 +34,8 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
   const scores = topScores(game.id);
   const { stats } = playtest(spec);
   const best = bestTimes();
-  const others = listGames(30).filter((g) => g.id !== game.id).slice(0, 16);
+  // a Classic race recommends other Classic races
+  const others = listGames(120).filter((g) => g.id !== game.id && g.format === 'race').slice(0, 16);
   const me = spec.racers.find((r) => r.you);
   const ladder = LADDERS[spec.difficulty];
   const difficulty = spec.difficulty[0].toUpperCase() + spec.difficulty.slice(1);
@@ -57,7 +58,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
 
   return (
     <>
-      <SiteHeader on="Charts" />
+      <SiteHeader on="Classic" />
       <main className="gpage">
         <div className="gtop">
           <PlayFrame slug={game.slug} gameId={game.id} poster={<Cover spec={spec} seed={900} wide />} />

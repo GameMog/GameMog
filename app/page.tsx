@@ -95,18 +95,17 @@ export default function Home() {
   }
 
   const stats = tileStats();
-  const hero = games.find((g) => g.slug === HERO) ?? games.find((g) => g.format === 'world') ?? games[0];
-  // Classic: the race format from before the GameMog Runtime. Three laps run
-  // to a beat, no GM, no rival joining each lap, so they do not play by the
-  // platform's rules and are not ranked with the worlds that do.
-  const classic = games.filter((g) => g.format === 'race').sort((a, b) => b.plays - a.plays);
+  // the race format from before the GameMog Runtime lives on /classic: it
+  // does not play by the platform's rules, so it is not ranked with worlds
+  // that do
   const worlds = games.filter((g) => g.format !== 'race');
+  const hero = worlds.find((g) => g.slug === HERO) ?? worlds.find((g) => g.format === 'world') ?? worlds[0] ?? games[0];
   const played = [...worlds].sort((a, b) => b.plays - a.plays);
   const newest = [...worlds].sort((a, b) => b.created_at - a.created_at);
 
   return (
     <>
-      <SiteHeader on="Charts" />
+      <SiteHeader />
       <main className="wrap" style={{ paddingTop: 16 }}>
         <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />
 
@@ -126,18 +125,6 @@ export default function Home() {
           </section>
         )}
 
-        {classic.length > 0 && (
-          <section className="sec" id="classic">
-            <div className="sechead">
-              <h2>Classic</h2>
-              <span className="t-meta dim">{classic.length} races</span>
-            </div>
-            <p className="cap">The first GameMog races, from before the GameMog Runtime: three laps, run to the beat. They keep their own rules.</p>
-            <div className="gridw">
-              {classic.map((g, i) => <Tile key={g.id} g={g} i={i + 400} best={best[g.id]} stats={stats[g.id]} />)}
-            </div>
-          </section>
-        )}
       </main>
       <SiteFooter />
     </>

@@ -84,7 +84,6 @@ h2,.t-h2{font-size:20px;font-weight:700;line-height:28px}
 }
 .srch input::placeholder{color:var(--ink-3)}
 .srch .ic{position:absolute;left:10px;top:6px;color:var(--ink-3)}
-.hdr .right{margin-left:auto;display:flex;align-items:center;gap:4px;flex:0 0 auto}
 .btn .narrow{display:none}
 
 /* --------------------------------------------------------------- buttons -- */

@@ -21,7 +21,8 @@ export function CustomGamePage({ game }: { game: GameRow }) {
   const by = world ? 'level' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
   const best = bestTimes();
-  const others = listGames(30).filter((g) => g.id !== game.id).slice(0, 16);
+  // worlds recommend worlds; Classic races live on /classic
+  const others = listGames(120).filter((g) => g.id !== game.id && g.format !== 'race').slice(0, 16);
   const created = new Date(game.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   const fmt = (s: (typeof scores)[number]) =>
     by === 'level' ? `Level ${s.level ?? 0}` : by === 'score' ? `${(s.score ?? 0).toLocaleString()} pts` : by === 'place' ? `${s.place || '-'}` : `${(s.time_ms / 1000).toFixed(2)}s`;
@@ -44,7 +45,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
 
   return (
     <>
-      <SiteHeader on="Charts" />
+      <SiteHeader />
       <main className="gpage">
         <div className="gtop">
           <PlayFrame slug={game.slug} gameId={game.id}

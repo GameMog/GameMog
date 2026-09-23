@@ -3,43 +3,31 @@ import Link from 'next/link';
 /**
  * One 40px bar, the height Roblox runs. No second row of category tabs, no
  * border under it, no shadow: the nav is the same colour as the page and is
- * separated from the content by space alone.
+ * separated from the content by space alone. The wordmark is the way home.
  */
 /** `wide` links are dropped on a phone, where the bar has room for two. */
 const NAV = [
-  { label: 'Charts', href: '/' },
-  { label: 'Create', href: '/create', wide: true },
+  { label: 'Classic', href: '/classic' },
+  { label: 'Create', href: '/create' },
   { label: 'Racing', href: '/?f=race', wide: true },
-  { label: 'Obstacle', soon: true, wide: true },
-  { label: 'Survival', soon: true, wide: true },
 ];
 
-export function SiteHeader({ on = 'Charts' }: { on?: string }) {
+export function SiteHeader({ on = '' }: { on?: string }) {
   return (
     <header className="hdr">
       <div className="wrap bar">
         <Link href="/" className="wordmark" aria-label="GameMog home">
           <span className="mk" /><b>GameMog</b>
         </Link>
-        {NAV.map((n) =>
-          n.soon ? (
-            <span key={n.label} className={`nvl${n.wide ? ' wide' : ''}`} aria-disabled>{n.label}</span>
-          ) : (
-            <Link key={n.label} href={n.href!}
-              className={`nvl${n.label === on ? ' on' : ''}${n.wide ? ' wide' : ''}`}>
-              {n.label}
-            </Link>
-          )
-        )}
+        {NAV.map((n) => (
+          <Link key={n.label} href={n.href}
+            className={`nvl${n.label === on ? ' on' : ''}${n.wide ? ' wide' : ''}`}>
+            {n.label}
+          </Link>
+        ))}
         <div className="srch">
           <span className="ic"><Icon name="search" size={16} /></span>
           <input placeholder="Search" aria-label="Search worlds" />
-        </div>
-        <div className="right">
-          <Link href="/create" className="btn">
-            <span className="wide">Create a world</span>
-            <span className="narrow">Create</span>
-          </Link>
         </div>
       </div>
     </header>
