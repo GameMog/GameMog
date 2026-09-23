@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 type Result = {
-  place: number; timeMs: number; finished: boolean; score: number; won: boolean;
+  place: number; timeMs: number; finished: boolean; score: number; won: boolean; level: number; gm: number; assisted: boolean;
   tempoReached: number; locks: number; bestStreak: number;
 };
 
@@ -65,6 +65,9 @@ export function PlayFrame({ slug, gameId, poster, src = `/g/${slug}/play`, score
         finished: !!d.finished,
         score: Number(d.score) || 0,
         won: !!d.won || Number(d.place) === 1,
+        level: Number(d.level) || 0,
+        gm: Number(d.gm) || 0,
+        assisted: !!d.assisted,
         tempoReached: Number(d.tempoReached) || 0,
         locks: Number(d.locks) || 0,
         bestStreak: Number(d.bestStreak) || 0,
@@ -108,12 +111,16 @@ export function PlayFrame({ slug, gameId, poster, src = `/g/${slug}/play`, score
           </p>
         )}
       </div>
-      {scores && result && result.finished && !saved && (
+      {scores && result && result.finished && !saved && !result.assisted && (
         <div className="panel" style={{ marginTop: 12, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <b style={{ fontSize: 20, fontWeight: 700, lineHeight: '28px' }}>
-            {result.won ? 'You won' : result.place ? `${result.place}${['st','nd','rd'][result.place - 1] ?? 'th'} place` : 'Run over'}
-            {result.score ? ` · ${result.score.toLocaleString()} pts` : ''}
-            {result.timeMs ? ` · ${(result.timeMs / 1000).toFixed(2)}s` : ''}
+            {result.level
+              ? `Level ${result.level} · ${result.gm} GM`
+              : <>
+                  {result.won ? 'You won' : result.place ? `${result.place}${['st','nd','rd'][result.place - 1] ?? 'th'} place` : 'Run over'}
+                  {result.score ? ` · ${result.score.toLocaleString()} pts` : ''}
+                  {result.timeMs ? ` · ${(result.timeMs / 1000).toFixed(2)}s` : ''}
+                </>}
           </b>
           <input
             type="text" value={name} placeholder="your name"

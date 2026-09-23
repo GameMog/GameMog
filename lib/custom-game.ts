@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { Script } from 'node:vm';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * Games the model writes itself.
@@ -42,6 +44,11 @@ export const GameMetaSchema = z.object({
 });
 export type GameMeta = z.infer<typeof GameMetaSchema>;
 
+/** A framework world's metadata. Controls and scoring are the runtime's, not the model's. */
+export const WorldMetaSchema = GameMetaSchema.omit({ controls: true, scoring: true });
+export type WorldMeta = z.infer<typeof WorldMetaSchema>;
+export const WORLD_CONTROLS = 'Arrow keys or WASD: left and right steer, up is faster, down is slower. Space pauses. On-screen buttons on touch screens.';
+
 export const CUSTOM_CSP = [
   "default-src 'none'",
   "script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
@@ -69,7 +76,7 @@ export const CUSTOM_CSP = [
  * hidden. That guarantee lives here rather than in each game, because the one
  * time it lived in a game it was forgotten.
  */
-function hostScript(id: string, title: string) {
+function hostScript(id: string, title: string, tagline = '') {
   return `(function () {
   var id = ${JSON.stringify(id)}, isReady = false, finished = 0;
   var gm = window.__gm = { ready: false, results: [], errors: [] };
@@ -95,6 +102,7 @@ function hostScript(id: string, title: string) {
   window.GameMog = {
     id: id,
     title: ${JSON.stringify(title)},
+    meta: { title: ${JSON.stringify(title)}, tagline: ${JSON.stringify(tagline)} },
     ready: function () {
       if (isReady) return;
       isReady = gm.ready = true;
@@ -108,6 +116,9 @@ function hostScript(id: string, title: string) {
         place: Math.max(0, Math.round(Number(r.place) || 0)),
         timeMs: Math.max(0, Math.round(Number(r.timeMs) || 0)),
         score: Math.round(Number(r.score) || 0),
+        level: Math.max(0, Math.round(Number(r.level) || 0)),
+        gm: Math.max(0, Math.round(Number(r.gm) || 0)),
+        assisted: !!r.assisted,
       };
       gm.results.push(out);
       post(out);
@@ -137,6 +148,44 @@ export function renderCustomGame(code: string, meta: Pick<GameMeta, 'title'>, id
 <body>
 <script>
 ${inert(code)}
+</script>
+</body>
+</html>`;
+}
+
+/* ------------------------------------------------------ framework worlds -- */
+/**
+ * A world built on the GameMog Runtime: the platform's rules (lib/runtime) run
+ * first, then the world module, which only describes the world. Pinned to the
+ * runtime version the world was written against, so a later runtime can change
+ * without changing a game that already shipped.
+ */
+const RUNTIMES: Record<number, string> = {};
+function runtimeSource(version: number) {
+  if (!RUNTIMES[version] || process.env.NODE_ENV !== 'production') {
+    RUNTIMES[version] = readFileSync(join(process.cwd(), 'lib', 'runtime', `v${version}.js`), 'utf8');
+  }
+  return RUNTIMES[version];
+}
+
+export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 'tagline'>, id: string, runtime = 1) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>${escapeHtml(meta.title)}</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#000;touch-action:none;-webkit-user-select:none;user-select:none}canvas{display:block}</style>
+<script>${hostScript(id, meta.title, meta.tagline)}</script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+<script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.js"><\\/script>');</script>
+</head>
+<body>
+<script>
+${inert(runtimeSource(runtime))}
+</script>
+<script>
+${inert(world)}
 </script>
 </body>
 </html>`;
@@ -184,21 +233,46 @@ export function staticCheck(code: string): string[] {
  * program as an escaped JSON string is harder for the model to write well and
  * harder for us to diagnose when it goes wrong.
  */
-export function parseGameResponse(text: string): { meta?: GameMeta; code?: string; problems: string[] } {
+export function parseGameResponse<S extends z.ZodTypeAny = typeof GameMetaSchema>(text: string, schema?: S): { meta?: z.infer<S>; code?: string; problems: string[] } {
   const problems: string[] = [];
   const blocks = [...text.matchAll(/```([a-zA-Z]*)[^\n]*\n([\s\S]*?)```/g)].map((m) => ({ lang: m[1].toLowerCase(), body: m[2] }));
   const jsonBlock = blocks.find((b) => b.lang === 'json');
   const codeBlock = blocks.filter((b) => ['javascript', 'js'].includes(b.lang)).sort((a, b) => b.body.length - a.body.length)[0];
 
-  let meta: GameMeta | undefined;
+  let meta: z.infer<S> | undefined;
   if (!jsonBlock) problems.push('No ```json metadata block was found.');
   else {
     try {
-      const parsed = GameMetaSchema.safeParse(JSON.parse(jsonBlock.body));
-      if (parsed.success) meta = parsed.data;
+      const parsed = (schema ?? GameMetaSchema).safeParse(JSON.parse(jsonBlock.body));
+      if (parsed.success) meta = parsed.data as z.infer<S>;
       else problems.push('The metadata did not match the schema: ' + parsed.error.issues.slice(0, 6).map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
     } catch (e) { problems.push('The metadata block is not valid JSON: ' + (e as Error).message); }
   }
   if (!codeBlock) problems.push('No ```javascript block with the game was found.');
   return { meta, code: codeBlock?.body, problems };
+}
+
+/**
+ * Read a world module before it runs. On top of the sandbox rules, a world
+ * must leave the runtime's jobs to the runtime: the loop, the input, the page,
+ * the contract and the coins.
+ */
+const WORLD_FORBIDDEN: [RegExp, string][] = [
+  [/GameMog\.(ready|finish)\s*\(/, 'Do not call GameMog.ready or GameMog.finish; the runtime does.'],
+  [/new\s+THREE\.WebGLRenderer/, 'Do not create a renderer; the runtime owns it.'],
+  [/\brequestAnimationFrame\b/, 'Do not run your own loop; animate in update(ctx, t, dt) and in animate(t, dt, s).'],
+  [/\b(setTimeout|setInterval)\s*\(/, 'Do not use timers; time things from t in update() and animate().'],
+  [/\baddEventListener\s*\(/, 'Do not listen for input; the runtime owns the controls.'],
+  [/document\.body|\.innerHTML|\.appendChild\s*\(|document\.querySelector/, 'Do not touch the page; the runtime owns the HUD and screens. Draw textures with ctx.textures.canvas.'],
+];
+
+export function staticCheckWorld(code: string): string[] {
+  const problems: string[] = [];
+  if (code.length < 1500) problems.push('The world module is too short to be a real world. Build the whole thing.');
+  if (code.length > 260_000) problems.push(`The world module is ${Math.round(code.length / 1000)}KB; keep it under 260KB.`);
+  if (!/GameMog\.world\s*\(/.test(code)) problems.push('The module never calls GameMog.world({...}).');
+  for (const [re, why] of [...FORBIDDEN, ...WORLD_FORBIDDEN]) if (re.test(code)) problems.push(why);
+  try { new Script(code, { filename: 'world.js' }); }
+  catch (e) { problems.push(`Syntax error: ${(e as Error).message}`); }
+  return problems;
 }

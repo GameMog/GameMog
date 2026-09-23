@@ -26,7 +26,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const game = getGameBySlug(slug);
   if (!game) notFound();
-  if (game.format === 'custom') return <CustomGamePage game={game} />;
+  if (game.format === 'custom' || game.format === 'world') return <CustomGamePage game={game} />;
 
   const spec = JSON.parse(game.spec) as WorldSpec;
   const scores = topScores(game.id);

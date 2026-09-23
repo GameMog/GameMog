@@ -9,12 +9,12 @@ import type { WorldSpec } from '@/lib/worldspec';
 type Finding = { level: 'error' | 'warn'; code: string; message: string };
 type Report = { ok: boolean; findings: Finding[]; stats: Record<string, number> };
 
-/** For games Opus writes: say what you do, not only where you are. */
+/** Every world plays by the runtime's rules, so a prompt only needs the world. */
 const GAME_EXAMPLES = [
-  'A frog races three rivals through a firefly swamp at dusk. He runs forward on his own; arrow keys steer and hop over logs. Collect coins, dodge snapping turtles.',
-  'A snowball rolls down through a mountain village, growing as it goes. Left and right to steer, space to jump fences. Knock over snowmen for points.',
-  'A paper boat drifts down a rainy city gutter at night. Arrow keys to steer, dodge leaves and drains, collect glowing bottle caps before the storm drain.',
-  'Three tiny robots race around a breakfast table. WASD to drive, space to boost, avoid the spilled cereal and the cat.',
+  'Pepe and his frog friends race laps of a firefly swamp at dusk. Mossy logs, lily pads, snapping turtles, a lantern-lit boardwalk.',
+  'A snowball rolls laps of a mountain village at night. Snowmen and sleds on the road, warm windows, falling snow.',
+  'Paper boats race round a rainy city gutter. Floating leaves and bottle caps, drains, neon reflections in the puddles.',
+  'Tiny robots race laps of a breakfast table. Cereal spills, a toast rack, the cat watching from the edge.',
 ];
 
 const EXAMPLES = [
@@ -27,15 +27,15 @@ const EXAMPLES = [
 type Character = { name: string; fur: string; personality?: string; source?: string };
 type Draft = {
   draftId: string; attempts: number; ms: number;
-  meta: { title: string; tagline: string; blurb: string; genre: string; controls: string; cast: { name: string; color: string; role?: string }[] };
-  runtime: { ran: boolean; readyMs: number | null; fps: number | null };
+  meta: { title: string; tagline: string; blurb: string; genre: string; cast: { name: string; color: string; role?: string }[] };
+  runtime: { ran: boolean; readyMs: number | null; fps: number | null; levelReached?: number; advisories?: string[] };
 };
 
 const STAGE_TEXT: Record<string, string> = {
-  thinking: 'Claude Opus 5.5 is planning the game',
-  writing: 'Writing the game',
-  checking: 'Reading the code for anything the sandbox would block',
-  playtesting: 'Playing it in a real browser: booting, pressing keys, watching the screen',
+  thinking: 'Claude Opus 5.5 is designing the world',
+  writing: 'Writing the world',
+  checking: 'Reading the code for anything the runtime would refuse',
+  playtesting: 'Racing it in a real browser: rivals joining lap after lap, then a crash',
   repairing: 'Sending what the playtest found back to be fixed',
 };
 
@@ -55,7 +55,9 @@ export default function Create() {
   const [offline, setOffline] = useState(false);
   const [publishing, setPublishing] = useState(false);
   // 'game': Opus writes the whole game. 'race': the tuned rhythm-race template.
-  const [kind, setKind] = useState<'game' | 'race'>('game');
+  // every future game is a world on the runtime; the race template remains for
+  // the worlds already built on it and for running without an API key
+  const kind = 'game' as 'game' | 'race';
   const [stage, setStage] = useState<{ stage: string; attempt: number; chars: number } | null>(null);
   const [rounds, setRounds] = useState<{ attempt: number; problems: string[] }[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -172,13 +174,19 @@ export default function Create() {
       <main className="wrap" style={{ paddingBottom: 80, maxWidth: 820 }}>
         <h1 style={{ marginTop: 24, marginBottom: 6 }}>Create a world</h1>
         <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
-          {kind === 'game'
-            ? 'Describe the game and Claude Opus 5.5 writes all of it: the world, the characters, the controls and the rules. Every game is played in a real browser before you can publish it. It takes a few minutes.'
-            : 'The tuned rhythm footrace. You choose the place, the palette and the cast; the controls and the difficulty ladder are fixed. Takes under a minute.'}
+          Describe a world and Claude Opus 5.5 builds it: the place, the track, your character, every
+          rival, the obstacles, the light and the sound. Every GameMog world plays by the same rules,
+          so you only have to describe the world.
         </p>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 18 }} role="radiogroup" aria-label="What to make">
-          <button role="radio" aria-checked={kind === 'game'} className={`pill${kind === 'game' ? '' : ' off'}`} onClick={() => setKind('game')}>Any game</button>
-          <button role="radio" aria-checked={kind === 'race'} className={`pill${kind === 'race' ? '' : ' off'}`} onClick={() => setKind('race')}>Rhythm race template</button>
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <label className="lbl">The rules every world plays by</label>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)' }}>
+            <li>Endless laps. Your level is the lap you are on.</li>
+            <li>Lap 1 has one rival. Every lap adds another, faster and meaner than the last.</li>
+            <li>Touch a rival or an obstacle and the run is over.</li>
+            <li>Collect the golden GM along the way.</li>
+            <li>Arrow keys steer and change speed, Space pauses, touch buttons on phones.</li>
+          </ul>
         </div>
 
         <div className="panel" style={{ marginBottom: 16 }}>
@@ -211,9 +219,7 @@ export default function Create() {
                 </div>
               ) : (
                 <p className="dim" style={{ fontSize: 12, lineHeight: 1.5 }}>
-                  {kind === 'game'
-                    ? 'The model builds your character from this picture. Without one, it designs its own.'
-                    : "Sets the racer's colour and name. Without one, the world picks its own cast."}
+                  The model builds your character from this picture. Without one, it designs its own.
                 </p>
               )}
               {preview && (
@@ -229,12 +235,10 @@ export default function Create() {
         </div>
 
         <div className="panel" style={{ marginBottom: 16 }}>
-          <label className="lbl" htmlFor="p">{kind === 'game' ? 'The game' : 'The setting'}</label>
+          <label className="lbl" htmlFor="p">The world</label>
           <textarea
             id="p" rows={kind === 'game' ? 6 : 4} value={prompt}
-            placeholder={kind === 'game'
-              ? 'Who you play, where, what you do, and the controls. The more specific, the better.'
-              : 'Somewhere specific. Smells, light, weather, what the ground is made of.'}
+            placeholder={'Who you play, who you race, and where: the place, its light, what the obstacles are. The more specific, the better.'}
             onChange={(e) => setPrompt(e.target.value)}
           />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
@@ -246,7 +250,7 @@ export default function Create() {
             ))}
           </div>
           <button className="btn" onClick={generate} disabled={busy || prompt.trim().length < 8}>
-            {busy ? (kind === 'game' ? 'Making the game' : 'Building the world') : (kind === 'game' ? 'Make the game' : 'Build the world')}
+            {busy ? 'Building the world' : 'Build the world'}
           </button>
         </div>
 
@@ -313,7 +317,7 @@ export default function Create() {
             <h2>{draft.meta.title}</h2>
             <p className="dim" style={{ marginBottom: 10, fontSize: 16 }}>{draft.meta.tagline}</p>
             <p style={{ fontSize: 16, lineHeight: 1.55, marginBottom: 10 }}>{draft.meta.blurb}</p>
-            <p style={{ fontSize: 14, marginBottom: 12 }}><b>Controls.</b> {draft.meta.controls}</p>
+
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
               <span className="tag">{draft.meta.genre}</span>
               {draft.meta.cast.map((c) => (
@@ -324,8 +328,8 @@ export default function Create() {
             </div>
             <p className="t-meta dim" style={{ marginBottom: 16 }}>
               {draft.runtime.ran
-                ? `Played in Chrome: ready in ${((draft.runtime.readyMs ?? 0) / 1000).toFixed(1)}s, ${draft.runtime.fps} fps, no errors.`
-                : 'Chrome was not found on this machine, so this game was only checked statically.'}
+                ? `Raced in Chrome: ready in ${((draft.runtime.readyMs ?? 0) / 1000).toFixed(1)}s, ${draft.runtime.fps} fps, ${draft.runtime.levelReached ?? 0} laps of rivals joining with no errors, and a crash ended the run as it should.`
+                : 'Chrome was not found on this machine, so this world was only checked statically.'}
               {' '}Written in {Math.round(draft.ms / 60000)} min{draft.attempts > 1 ? `, ${draft.attempts} attempts` : ''}.
             </p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

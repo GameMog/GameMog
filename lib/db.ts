@@ -76,6 +76,8 @@ function open() {
   add('games', 'meta', 'meta TEXT');
   add('games', 'cover', 'cover BLOB');
   add('scores', 'score', 'score INTEGER');
+  add('scores', 'level', 'level INTEGER');
+  add('scores', 'gm', 'gm INTEGER');
   db.exec(`
     CREATE TABLE IF NOT EXISTS drafts (
       id          TEXT PRIMARY KEY,
@@ -87,6 +89,7 @@ function open() {
       created_at  INTEGER NOT NULL
     );
   `);
+  add('drafts', 'format', "format TEXT NOT NULL DEFAULT 'custom'");
   return db;
 }
 
@@ -105,8 +108,9 @@ export type GameRow = {
   featured: number;
   plays: number;
   created_at: number;
-  /** 'race' runs the built-in engine from `spec`; 'custom' runs `code`. */
-  format: 'race' | 'custom';
+  /** 'race' runs the built-in engine from `spec`; 'custom' runs `code` as a
+   *  whole game; 'world' runs `code` as a world module on the GameMog Runtime. */
+  format: 'race' | 'custom' | 'world';
   code: string | null;
   meta: string | null;
 };
@@ -117,6 +121,8 @@ const ROW = 'id, slug, title, tagline, blurb, difficulty, spec, prompt, featured
 export type ScoreRow = {
   id: number;
   score: number | null;
+  level: number | null;
+  gm: number | null;
   player: string;
   time_ms: number;
   place: number;
@@ -178,14 +184,14 @@ export function gameCover(slug: string): Uint8Array | undefined {
 }
 
 /* ---------------------------------------------------------------- drafts -- */
-export type DraftRow = { id: string; prompt: string; meta: string; code: string; report: string; created_at: number };
+export type DraftRow = { id: string; prompt: string; meta: string; code: string; report: string; created_at: number; format: 'custom' | 'world' };
 
-export function insertDraft(d: { id: string; prompt: string; meta: unknown; code: string; cover?: Uint8Array; report: unknown }) {
-  db.prepare(`INSERT INTO drafts (id, prompt, meta, code, cover, report, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-    .run(d.id, d.prompt, JSON.stringify(d.meta), d.code, d.cover ?? null, JSON.stringify(d.report), Date.now());
+export function insertDraft(d: { id: string; prompt: string; meta: unknown; code: string; cover?: Uint8Array; report: unknown; format?: 'custom' | 'world' }) {
+  db.prepare(`INSERT INTO drafts (id, prompt, meta, code, cover, report, created_at, format) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(d.id, d.prompt, JSON.stringify(d.meta), d.code, d.cover ?? null, JSON.stringify(d.report), Date.now(), d.format ?? 'custom');
 }
 export const getDraft = (id: string) =>
-  db.prepare('SELECT id, prompt, meta, code, report, created_at FROM drafts WHERE id = ?').get(id) as DraftRow | undefined;
+  db.prepare('SELECT id, prompt, meta, code, report, created_at, format FROM drafts WHERE id = ?').get(id) as DraftRow | undefined;
 export function draftCover(id: string): Uint8Array | undefined {
   const r = db.prepare('SELECT cover FROM drafts WHERE id = ?').get(id) as { cover: Uint8Array | null } | undefined;
   return r?.cover ?? undefined;
@@ -198,8 +204,8 @@ export function publishDraft(draftId: string, slug: string, id: string): boolean
   const meta = JSON.parse(d.meta) as { title: string; tagline: string; blurb: string };
   db.prepare(
     `INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover)
-     VALUES (?, ?, ?, ?, ?, 'custom', '{}', ?, 0, ?, 'custom', ?, ?, ?)`
-  ).run(id, slug, meta.title, meta.tagline, meta.blurb, d.prompt, Date.now(), d.code, d.meta, d.cover);
+     VALUES (?, ?, ?, ?, ?, 'endless', '{}', ?, 0, ?, ?, ?, ?, ?)`
+  ).run(id, slug, meta.title, meta.tagline, meta.blurb, d.prompt, Date.now(), d.format === 'world' ? 'world' : 'custom', d.code, d.meta, d.cover);
   return true;
 }
 
@@ -207,8 +213,9 @@ export const bumpPlays = (id: string) =>
   db.prepare('UPDATE games SET plays = plays + 1 WHERE id = ?').run(id);
 
 /** Best runs. Race worlds and 'time' games rank by time; 'score' by points; 'place' by finish. */
-export function topScores(gameId: string, limit = 10, by: 'time' | 'score' | 'place' = 'time') {
-  const order = by === 'score' ? 'score DESC, time_ms ASC'
+export function topScores(gameId: string, limit = 10, by: 'time' | 'score' | 'place' | 'level' = 'time') {
+  const order = by === 'level' ? 'level DESC, gm DESC, time_ms ASC'
+    : by === 'score' ? 'score DESC, time_ms ASC'
     : by === 'place' ? 'CASE WHEN place > 0 THEN place ELSE 99 END ASC, time_ms ASC'
     : 'CASE WHEN time_ms > 0 THEN time_ms ELSE 1e12 END ASC';
   return db.prepare(`SELECT * FROM scores WHERE game_id = ? ORDER BY ${order} LIMIT ?`).all(gameId, limit) as ScoreRow[];
@@ -231,11 +238,13 @@ export function insertScore(s: {
   locks: number;
   bestStreak: number;
   score?: number | null;
+  level?: number | null;
+  gm?: number | null;
 }) {
   db.prepare(
-    `INSERT INTO scores (game_id, player, time_ms, place, tempo_reached, locks, best_streak, created_at, score)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(s.gameId, s.player, s.timeMs, s.place, s.tempoReached, s.locks, s.bestStreak, Date.now(), s.score ?? null);
+    `INSERT INTO scores (game_id, player, time_ms, place, tempo_reached, locks, best_streak, created_at, score, level, gm)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(s.gameId, s.player, s.timeMs, s.place, s.tempoReached, s.locks, s.bestStreak, Date.now(), s.score ?? null, s.level ?? null, s.gm ?? null);
 }
 
 /* ----------------------------------------------------------------- votes -- */

@@ -1,6 +1,6 @@
 import { getGameBySlug, bumpPlays } from '@/lib/db';
 import { renderGame, GAME_CSP } from '@/lib/engine/shell';
-import { renderCustomGame, CUSTOM_CSP } from '@/lib/custom-game';
+import { renderCustomGame, renderWorldGame, CUSTOM_CSP } from '@/lib/custom-game';
 import type { WorldSpec } from '@/lib/worldspec';
 
 /**
@@ -14,10 +14,13 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
   if (!game) return new Response('Not found', { status: 404 });
 
   bumpPlays(game.id);
-  const custom = game.format === 'custom' && game.code;
-  const html = custom
-    ? renderCustomGame(game.code!, JSON.parse(game.meta ?? '{}'), game.id)
-    : renderGame(JSON.parse(game.spec) as WorldSpec, game.id);
+  const custom = (game.format === 'custom' || game.format === 'world') && game.code;
+  const meta = JSON.parse(game.meta ?? '{}');
+  const html = !custom
+    ? renderGame(JSON.parse(game.spec) as WorldSpec, game.id)
+    : game.format === 'world'
+      ? renderWorldGame(game.code!, meta, game.id, meta.runtime ?? 1)
+      : renderCustomGame(game.code!, meta, game.id);
 
   return new Response(html, {
     headers: {

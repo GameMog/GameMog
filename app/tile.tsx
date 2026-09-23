@@ -15,7 +15,7 @@ export function Tile({ g, i = 0, best }: { g: GameRow; i?: number; best?: number
   const isNew = Date.now() - g.created_at < NEW_MS;
   // A written game's cover is the screenshot its playtest took mid-play; a
   // race world's is drawn from its spec.
-  const custom = g.format === 'custom';
+  const custom = g.format === 'custom' || g.format === 'world';
   const spec = custom ? null : (JSON.parse(g.spec) as WorldSpec);
   const cast = custom ? (JSON.parse(g.meta ?? '{}').cast?.length ?? 0) : spec!.racers.length;
   return (

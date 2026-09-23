@@ -14,23 +14,25 @@ import { Rail as Shelf } from '../../rail';
  * place of the race engine's laps and windows.
  */
 export function CustomGamePage({ game }: { game: GameRow }) {
-  const meta = JSON.parse(game.meta ?? '{}') as GameMeta;
-  const by = meta.scoring ?? 'score';
+  const meta = JSON.parse(game.meta ?? '{}') as Omit<GameMeta, 'scoring'> & { scoring?: GameMeta['scoring'] | 'level' };
+  const world = game.format === 'world';
+  const by = world ? 'level' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
   const best = bestTimes();
   const others = listGames(30).filter((g) => g.id !== game.id).slice(0, 16);
   const created = new Date(game.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   const fmt = (s: (typeof scores)[number]) =>
-    by === 'score' ? `${(s.score ?? 0).toLocaleString()} pts` : by === 'place' ? `${s.place || '-'}` : `${(s.time_ms / 1000).toFixed(2)}s`;
+    by === 'level' ? `Level ${s.level ?? 0}` : by === 'score' ? `${(s.score ?? 0).toLocaleString()} pts` : by === 'place' ? `${s.place || '-'}` : `${(s.time_ms / 1000).toFixed(2)}s`;
   const record = scores[0] ? fmt(scores[0]) : 'Unbeaten';
 
   const leaderboard = scores.length ? (
     <table className="bd">
-      <thead><tr><th /><th>Player</th><th>{by === 'score' ? 'Score' : by === 'place' ? 'Place' : 'Time'}</th><th>Time</th></tr></thead>
+      <thead><tr><th /><th>Player</th><th>{by === 'level' ? 'Level' : by === 'score' ? 'Score' : by === 'place' ? 'Place' : 'Time'}</th>{by === 'level' && <th>GM</th>}<th>Time</th></tr></thead>
       <tbody>
         {scores.map((s, i) => (
           <tr key={s.id}>
-            <td>{i + 1}</td><td>{s.player}</td><td>{fmt(s)}</td>
+            <td>{i + 1}</td><td>{s.player}</td><td>{by === 'level' ? s.level : fmt(s)}</td>
+            {by === 'level' && <td>{s.gm ?? 0}</td>}
             <td>{s.time_ms ? `${(s.time_ms / 1000).toFixed(1)}s` : '-'}</td>
           </tr>
         ))}
@@ -50,7 +52,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
             <div>
               <h1>{game.title}</h1>
               <p className="by">By <b>a GameMog creator</b></p>
-              <p className="by">Written by Claude Opus 5.5</p>
+              <p className="by">{world ? 'Endless laps · GameMog Runtime' : 'Written by Claude Opus 5.5'}</p>
             </div>
             <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />
           </aside>
@@ -68,13 +70,24 @@ export function CustomGamePage({ game }: { game: GameRow }) {
                   </p>
                   <dl className="gstats">
                     <div><dt>Plays</dt><dd>{game.plays.toLocaleString()}</dd></div>
-                    <div><dt>Record</dt><dd>{record}</dd></div>
+                    <div><dt>{world ? 'Best' : 'Record'}</dt><dd>{record}</dd></div>
+                    {world && scores[0] && <div><dt>GM on that run</dt><dd>{scores[0].gm ?? 0}</dd></div>}
                     <div><dt>Genre</dt><dd>{meta.genre}</dd></div>
                     <div><dt>Cast</dt><dd>{meta.cast?.length ?? 0}</dd></div>
                     <div><dt>Created</dt><dd>{created}</dd></div>
                   </dl>
                   <h2 style={{ marginTop: 26, marginBottom: 6 }}>Controls</h2>
                   <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{meta.controls}</p>
+                  {world && (
+                    <>
+                      <h2 style={{ marginTop: 26, marginBottom: 6 }}>How it works</h2>
+                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>
+                        Endless laps. Lap 1 has one rival; every lap after adds another, faster and more
+                        aggressive than the last. Touch a rival or an obstacle and the run is over. Collect the
+                        golden GM on the way. The leaderboard ranks the highest level reached, then GM.
+                      </p>
+                    </>
+                  )}
                 </div>
               ),
             },

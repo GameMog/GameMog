@@ -19,32 +19,67 @@ than by a model.
 
 ```bash
 npm run check            # regression guard; the featured game is the canary
+npm run check:runtime    # the framework's rules, asserted in real Chrome (needs the dev server)
 ```
 
 ---
 
-## Two kinds of world
+## The framework: GameMog Runtime + world modules
 
-**Written games (the default).** Claude Opus 5.5 writes the whole game as one three.js
-program: world, characters, controls, rules, HUD, sound. `lib/generate-game.ts`.
+GameMog works the way Roblox does, without a studio to download. Roblox owns the engine and
+creators script experiences on it; here the **GameMog Runtime** (`lib/runtime/v1.js`) owns the
+rules, and **Claude Opus 5.5** writes a **world module** from a creator's prompt.
 
-**Race worlds.** The model fills in a `WorldSpec` (colours, cast, track shape) and the fixed,
-tuned rhythm-race engine reads it. Muse Sprint and the first 21 worlds are these, and the
-template is still offered on the create page.
+**The runtime owns the rules, and no world can change them:**
+- Endless laps; your level is the lap you are on.
+- Lap 1 has one rival; every new lap adds one more, faster and more aggressive than the last
+  (0.78x your cruising speed and 0.15 aggression at level 1, rising 0.07 and 0.09 a level).
+- The only way to die is to touch a rival or an obstacle.
+- Golden **GM** coins, re-laid every lap, identical in every world.
+- Arrow keys or WASD steer and change speed, Space pauses, touch buttons on phones.
+- Title, countdown, HUD, level-up banners, rear warnings, pause, results, restart, leaderboard
+  (highest level, then GM).
 
-The race engine came first and was built on one rule: generated games are data, never code.
-That made safety, consistency and playtesting nearly free, and it was also a ceiling. No
-prompt could change the controls, the mechanics or the creature, so "a frog hopping through a
-swamp on the arrow keys, running forward on its own" came back as a tap-Space rhythm race with
-swamp colours and fuzzball racers. Written games remove the ceiling and move the guarantees:
+**The world module owns everything else:** the track's shape, the sky, the ground and the
+scenery, the player and every rival (look, name, colour, animation), the obstacles, ambient
+life and sound, and the HUD's colours and font. The API it writes against is
+[`lib/runtime/API.md`](lib/runtime/API.md), the same document a human developer would read;
+[`lib/runtime/reference-world.js`](lib/runtime/reference-world.js) is the worked example.
 
-| Requirement | Race worlds | Written games |
-|---|---|---|
-| Isolate generated code | There is none; the world is JSON | A sandboxed opaque origin, a CSP with `sandbox` (so it holds in a tab of its own too), `connect-src 'none'`, no remote images or media |
-| Automatic playtesting | Static checks on the spec | A static read, then real Chrome boots it, plays it with the arrow keys, WASD and Space, and checks for errors, frame rate, a blank or frozen screen |
-| Fixing what fails | Findings go back to the model | The same, in the same conversation, up to two repair rounds |
-| Consistent frame | One engine | One contract: `GameMog.ready()`, `GameMog.finish(result)`, audio parked when hidden |
-| Cover art | Drawn from the spec | The screenshot the playtest took mid-play |
+**The runtime also guards the world against itself.** Hitboxes are measured from the models
+rather than trusted. An obstacle row that closes the whole track is thinned. Scenery inside
+the racing corridor is hidden, so nothing can block the chase camera; that was the start gate
+whose banner filled the screen in an earlier game. Every repair is reported, and the model is
+told once so it can do better.
+
+**Every world is raced before it can be published** (`playtestWorld` in
+`lib/playtest-runtime.ts`): real Chrome boots it, starts a run, drives several laps of rivals
+joining through the runtime's own test hooks, measures the frame rate, forces a crash, and
+checks the result reaches the platform. Blocking problems go back to the model in the same
+conversation, up to two repair rounds. The cover is a frame from that run with the HUD hidden.
+
+**The rules are tested in real Chrome too.** `npm run check:runtime` drives the reference
+world through the keyboard, the pause key, eight laps and a crash, and asserts every rule above
+(25 checks).
+
+Worlds are pinned to the runtime version they were written against, so a later runtime can
+change without changing a world that already shipped.
+
+### Earlier formats, still playable
+
+- **Race worlds.** Muse Sprint and the first worlds: a `WorldSpec` filled in for the tuned
+  rhythm-race engine. Safe and consistent, but a reskin at most; no prompt could change the
+  controls, the movement or the creatures.
+- **Written games.** Pepe's Bog Derby: Opus wrote an entire game with no framework. Unlimited,
+  but nothing guaranteed the platform's rules. The framework keeps the freedom and adds the
+  rules.
+
+| Requirement | How the framework meets it |
+|---|---|
+| Isolate generated code | A sandboxed opaque origin, a CSP carrying `sandbox` (so it holds in a tab of its own), `connect-src 'none'`, no remote images or media, and a static read that refuses network, storage, eval, timers, the DOM, input listeners and the runtime's own jobs |
+| Automatic playtesting | Real Chrome races the world through the runtime's test hooks; the rules themselves are tested by `check:runtime` |
+| Reliable editing | A world module only describes the world; it cannot reach the controls, the rules or the scoring, so no edit can break them |
+| Consistent frame | One runtime; every world on it plays by the same rules and speaks the same contract |
 
 ## How a world is built
 

@@ -104,3 +104,96 @@ export async function runtimePlaytest(url: string): Promise<RuntimeReport> {
     };
   }
 }
+
+/* --------------------------------------------------------- framework worlds -- */
+/**
+ * Playtest a world on the GameMog Runtime, using the runtime's own test hooks
+ * rather than guessing at key presses. The rules are the runtime's and are
+ * tested separately (npm run check:runtime); what is tested here is the world:
+ * does it build, do its characters and obstacles work, does it hold 60 fps,
+ * does a run survive several laps of rivals joining without anything throwing,
+ * and does a crash report a result.
+ *
+ * `problems` block publishing and go back to the model. `advisories` are the
+ * runtime's repairs (scenery hidden from the camera, an unfair obstacle row
+ * thinned): the world still works, but the model is told once so it can do
+ * better.
+ */
+export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: number };
+
+type RtState = { state: string; level: number; gm: number; alive: boolean; rivals: { ahead: number; x: number }[]; lap: number; obstacles: number; coins: number; crashedInto: string };
+
+export async function playtestWorld(url: string): Promise<WorldReport> {
+  const empty = { ok: true, ran: false, readyMs: null, fps: null, errors: [], problems: [], advisories: [], levelReached: 0 };
+  if (!chromePath()) return empty;
+  try {
+    return await withBrowser(async (page) => {
+      await page.preload('window.__frames = 0; (function tick() { window.__frames++; requestAnimationFrame(tick); })();');
+      const t0 = Date.now();
+      await page.goto(url);
+      let readyMs: number | null = null;
+      for (let i = 0; i < 100; i++) {
+        if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) { readyMs = Date.now() - t0; break; }
+        await sleep(200);
+      }
+      const problems: string[] = [];
+      const errs = async () => [...new Set([...page.errors, ...(await page.eval<string[]>('(window.__gm && window.__gm.errors) || []').catch(() => []))])].slice(0, 12);
+      if (readyMs === null) {
+        const e = await errs();
+        problems.push('The world never finished loading.' + (e.length ? ' Errors: ' + e.join(' | ') : ' GameMog.world() may never have been called.'));
+        return { ok: false, ran: true, readyMs, fps: null, errors: e, problems, advisories: [], levelReached: 0 };
+      }
+      const hasRuntime = await page.eval<boolean>('!!window.__gmRuntime').catch(() => false);
+      if (!hasRuntime) {
+        const e = await errs();
+        problems.push('The runtime did not start the world. ' + (e.join(' | ') || 'Check that GameMog.world({...}) is called with track, build, player, rival and obstacles.'));
+        return { ok: false, ran: true, readyMs, fps: null, errors: e, problems, advisories: [], levelReached: 0 };
+      }
+      const st = () => page.eval<RtState>('window.__gmRuntime.state()');
+
+      await page.eval('window.__gmRuntime.debug.start()');
+      await sleep(3600);
+      // real speed, driven, collisions off: the frame rate a player would get
+      await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true)');
+      const f0 = await page.eval<number>('window.__frames');
+      await sleep(2500);
+      const fps = Math.round(((await page.eval<number>('window.__frames')) - f0) / 2.5);
+
+      // several laps of rivals joining, quickly
+      await page.eval('window.__gmRuntime.debug.timeScale(6)');
+      let s = await st();
+      for (let i = 0; i < 70 && s.level < 5; i++) { await sleep(400); s = await st(); }
+      const levelReached = s.level;
+
+      // the cover: real speed, a rival in frame ahead
+      await page.eval('window.__gmRuntime.debug.timeScale(1)');
+      let cover: Uint8Array | undefined;
+      for (let i = 0; i < 40; i++) {
+        s = await st();
+        if (s.rivals.some((r) => r.ahead > 6 && r.ahead < 22)) break;
+        await sleep(150);
+      }
+      await page.eval('window.__gmRuntime.debug.cinematic(true)');
+      await sleep(60);
+      cover = await page.screenshot(80);
+      await page.eval('window.__gmRuntime.debug.cinematic(false)');
+
+      // a crash must end the run and report a result
+      await page.eval('window.__gmRuntime.debug.invincible(false); window.__gmRuntime.debug.autopilot(false); window.__gmRuntime.debug.crashInto()');
+      await sleep(2400);
+      const results = await page.eval<{ level: number }[]>('window.__gm.results').catch(() => []);
+      const errors = await errs();
+      const advisories = await page.eval<string[]>('window.__gm.warnings || []').catch(() => []);
+
+      for (const e of errors) problems.push(`Runtime error: ${e}`);
+      if (levelReached < 4) problems.push(`A run reached only level ${levelReached} in the time several laps should take. Check that the track loop is sensible and nothing in update() or animate() stalls the game.`);
+      if (fps < 30) problems.push(`The world ran at ${fps} fps on a laptop GPU. Instance repeated scenery with ctx.instanced, reduce geometry detail, use at most one shadow-casting light, until it holds 60.`);
+      if (!results.length) problems.push('A crash did not end the run with a result. Do not interfere with the runtime; make sure nothing throws in animate().');
+      if (cover.length < 14_000) problems.push('The screen is nearly a flat colour while racing. Check that build() adds the ground, the track surface and lights, and that the sky and fog do not swallow everything.');
+
+      return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover };
+    }, { timeoutMs: 90_000 });
+  } catch (e) {
+    return { ...empty, ok: false, ran: true, problems: [`The world could not be playtested: ${(e as Error).message}`] };
+  }
+}

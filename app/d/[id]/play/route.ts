@@ -1,5 +1,5 @@
 import { getDraft } from '@/lib/db';
-import { renderCustomGame, CUSTOM_CSP } from '@/lib/custom-game';
+import { renderCustomGame, renderWorldGame, CUSTOM_CSP } from '@/lib/custom-game';
 
 /**
  * A draft game, before publishing: what the runtime playtest plays, and what
@@ -11,7 +11,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const d = getDraft(id);
   if (!d) return new Response('Not found', { status: 404 });
   const meta = JSON.parse(d.meta);
-  return new Response(renderCustomGame(d.code, meta, `draft-${d.id}`), {
+  const html = d.format === 'world'
+    ? renderWorldGame(d.code, meta, `draft-${d.id}`, meta.runtime ?? 1)
+    : renderCustomGame(d.code, meta, `draft-${d.id}`);
+  return new Response(html, {
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'content-security-policy': CUSTOM_CSP,

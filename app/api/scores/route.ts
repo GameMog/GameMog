@@ -19,6 +19,26 @@ export async function POST(req: Request) {
   if (!row) return NextResponse.json({ error: 'Unknown game' }, { status: 404 });
   void getGameBySlug;
 
+  // A world on the runtime reports the level reached and the GM collected.
+  // The runtime marks a run that used its test autopilot or time controls, and
+  // those never reach a leaderboard.
+  if (row.format === 'world') {
+    const level = Number(b.level) || 0, gm = Number(b.gm) || 0, timeMs = Number(b.timeMs) || 0;
+    if (b.assisted) return NextResponse.json({ error: 'Assisted runs are not ranked.' }, { status: 422 });
+    // a lap takes at least 320m at the top speed of 28 m/s
+    if (!Number.isInteger(level) || level < 1 || level > 999 || gm < 0 || gm > level * 90 ||
+        timeMs < (level - 1) * (320 / 28) * 1000 * 0.9 || timeMs > 6 * 60 * 60 * 1000) {
+      return NextResponse.json({ error: 'Result outside plausible range' }, { status: 422 });
+    }
+    insertScore({
+      gameId: row.id,
+      player: String(b.player ?? 'anon').slice(0, 16).replace(/[^\w \-.]/g, '') || 'anon',
+      timeMs: Math.round(timeMs), place: 0, score: level * 1000 + gm, level, gm,
+      tempoReached: 0, locks: 0, bestStreak: 0,
+    });
+    return NextResponse.json({ ok: true });
+  }
+
   // A written game reports its own score, time and place. There is no model of
   // its physics to check them against, so the bounds are only sanity bounds.
   if (row.format === 'custom') {
