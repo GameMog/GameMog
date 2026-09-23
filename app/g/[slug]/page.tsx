@@ -3,8 +3,7 @@ import { notFound } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '../../header';
 import { Tile } from '../../tile';
 import { Cover } from '../../cover';
-import { getGameBySlug, topScores, listGames, bestTimes, voteCounts } from '@/lib/db';
-import { playtest } from '@/lib/playtest';
+import { getGameBySlug, topScores, listGames, bestTimes, voteCounts, playerStats } from '@/lib/db';
 import { LADDERS } from '@/lib/worldspec';
 import type { WorldSpec } from '@/lib/worldspec';
 import { PlayFrame } from './play-frame';
@@ -14,6 +13,7 @@ import { Rail as Shelf } from '../../rail';
 import { CustomGamePage } from './custom-page';
 import { Lineage, MogsPanel } from './mog';
 import { mogsOf, tileStats } from '@/lib/db';
+import { MediaCarousel } from './media-carousel';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,14 +32,16 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
 
   const spec = JSON.parse(game.spec) as WorldSpec;
   const scores = topScores(game.id);
-  const { stats } = playtest(spec);
   const best = bestTimes();
   // a Classic race recommends other Classic races
   const others = listGames(120).filter((g) => g.id !== game.id && g.format === 'race').slice(0, 16);
-  const me = spec.racers.find((r) => r.you);
   const ladder = LADDERS[spec.difficulty];
   const difficulty = spec.difficulty[0].toUpperCase() + spec.difficulty.slice(1);
   const created = new Date(game.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const players = playerStats(game.id).players;
+  const votes = voteCounts(game.id), voteTotal = votes.up + votes.down;
+  const likes = voteTotal ? `${Math.round(votes.up / voteTotal * 100)}%` : 'No votes';
+  const mogs = mogsOf(game.id);
 
   const leaderboard = scores.length ? (
     <table className="bd">
@@ -61,13 +63,17 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
       <SiteHeader on="Classic" />
       <main className="gpage">
         <div className="gtop">
-          <PlayFrame slug={game.slug} gameId={game.id} poster={<Cover spec={spec} seed={900} wide />} />
+          <MediaCarousel slides={[
+            { label: 'Play', content: <PlayFrame slug={game.slug} gameId={game.id} poster={<Cover spec={spec} seed={900} wide />} /> },
+            { label: 'Key art', content: <Cover spec={spec} seed={900} wide /> },
+          ]} />
 
           <aside className="ginfo">
             <div>
+              <span className="tag solid classic-label">Classic</span>
               <h1>{game.title}</h1>
               <p className="by">By <b>{game.featured ? 'GameMog' : 'a GameMog creator'}</b></p>
-              <p className="by">Difficulty: {difficulty}</p>
+              <p className="maturity">Difficulty: {difficulty}</p>
               <Lineage game={game} />
             </div>
             <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />
@@ -88,13 +94,14 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
                   {/* Roblox's stat row: a label over a value, in a single line */}
                   <dl className="gstats">
                     <div><dt>Plays</dt><dd>{game.plays.toLocaleString()}</dd></div>
-                    <div><dt>Record</dt><dd>{scores[0] ? `${(scores[0].time_ms / 1000).toFixed(2)}s` : 'Unbeaten'}</dd></div>
-                    <div><dt>Racers</dt><dd>{spec.racers.length}</dd></div>
-                    <div><dt>Lap</dt><dd>{Math.round(stats.lapMetres)}m</dd></div>
-                    <div><dt>Race</dt><dd>about {Math.round(stats.estRaceSeconds)}s</dd></div>
-                    <div><dt>Genre</dt><dd>Racing</dd></div>
-                    {me?.rig?.topper && me.rig.topper !== 'none' && <div><dt>Creature</dt><dd>{me.rig.topper[0].toUpperCase() + me.rig.topper.slice(1)}</dd></div>}
+                    <div><dt>Players</dt><dd>{players.toLocaleString()}</dd></div>
+                    <div><dt>Likes</dt><dd>{likes}</dd></div>
+                    <div><dt>Mogs</dt><dd>{mogs.length}</dd></div>
+                    <div><dt>Generation</dt><dd>{game.generation}</dd></div>
                     <div><dt>Created</dt><dd>{created}</dd></div>
+                    <div><dt>Updated</dt><dd>Not tracked</dd></div>
+                    <div><dt>Genre</dt><dd>Racing</dd></div>
+                    <div><dt>Rivals</dt><dd>{Math.max(0, spec.racers.length - 1)}</dd></div>
                   </dl>
 
                   {/* The windows are the game. A player is owed them before they
@@ -124,7 +131,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
               ),
             },
             { label: `Leaderboard${scores.length ? ` (${scores.length})` : ''}`, body: leaderboard },
-            { label: `Mogs${mogsOf(game.id).length ? ` (${mogsOf(game.id).length})` : ''}`, body: <MogsPanel game={game} /> },
+            { label: `Mogs${mogs.length ? ` (${mogs.length})` : ''}`, body: <MogsPanel game={game} /> },
             {
               label: 'The field',
               body: (
@@ -145,7 +152,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
 
         {others.length > 0 && (
           <section className="sec">
-            <div className="sechead"><h2>Recommended</h2><Link href="/" className="more">See all</Link></div>
+            <div className="sechead"><h2>Players Also Play</h2><Link href="/charts/classic" className="more">See All<span aria-hidden>›</span></Link></div>
             <Shelf>{(() => { const st = tileStats(); return others.map((g, i) => <Tile key={g.id} g={g} i={i + 40} best={best[g.id]} stats={st[g.id]} />); })()}</Shelf>
           </section>
         )}

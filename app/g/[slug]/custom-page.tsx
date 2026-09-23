@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { SiteHeader, SiteFooter } from '../../header';
 import { Tile } from '../../tile';
-import { topScores, listGames, bestTimes, voteCounts, type GameRow } from '@/lib/db';
+import { topScores, listGames, bestTimes, voteCounts, playerStats, type GameRow } from '@/lib/db';
 import type { GameMeta } from '@/lib/custom-game';
 import { PlayFrame } from './play-frame';
 import { GameActions } from './actions';
@@ -9,6 +11,7 @@ import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
 import { Lineage, MogOffPanel, MogsPanel } from './mog';
 import { mogsOf, tileStats } from '@/lib/db';
+import { MediaCarousel } from './media-carousel';
 
 /**
  * The page for a game Opus wrote: the same grid as a race world, with what
@@ -24,10 +27,15 @@ export function CustomGamePage({ game }: { game: GameRow }) {
   // worlds recommend worlds; Classic races live on /classic
   const others = listGames(120).filter((g) => g.id !== game.id && g.format !== 'race').slice(0, 16);
   const created = new Date(game.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const players = playerStats(game.id).players;
+  const votes = voteCounts(game.id), voteTotal = votes.up + votes.down;
+  const likes = voteTotal ? `${Math.round(votes.up / voteTotal * 100)}%` : 'No votes';
+  const mogs = mogsOf(game.id);
+  const rivals = (meta.cast ?? []).filter((c) => c.role !== 'player').length;
+  const filmBase = `/media/${game.slug}-wide`;
+  const hasFilm = existsSync(join(process.cwd(), 'public', 'media', `${game.slug}-wide.mp4`));
   const fmt = (s: (typeof scores)[number]) =>
     by === 'level' ? `Level ${s.level ?? 0}` : by === 'score' ? `${(s.score ?? 0).toLocaleString()} pts` : by === 'place' ? `${s.place || '-'}` : `${(s.time_ms / 1000).toFixed(2)}s`;
-  const record = scores[0] ? fmt(scores[0]) : 'Unbeaten';
-
   const leaderboard = scores.length ? (
     <table className="bd">
       <thead><tr><th /><th>Player</th><th>{by === 'level' ? 'Level' : by === 'score' ? 'Score' : by === 'place' ? 'Place' : 'Time'}</th>{by === 'level' && <th>GM</th>}<th>Time</th></tr></thead>
@@ -48,14 +56,18 @@ export function CustomGamePage({ game }: { game: GameRow }) {
       <SiteHeader />
       <main className="gpage">
         <div className="gtop">
-          <PlayFrame slug={game.slug} gameId={game.id}
-            // eslint-disable-next-line @next/next/no-img-element
-            poster={<img src={`/g/${game.slug}/cover`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />} />
+          <MediaCarousel slides={[
+            { label: 'Play', content: <PlayFrame slug={game.slug} gameId={game.id}
+              // eslint-disable-next-line @next/next/no-img-element
+              poster={<img src={`/g/${game.slug}/cover`} alt="" />} /> },
+            ...(hasFilm ? [{ label: 'Gameplay film', content: <video src={`${filmBase}.mp4`} poster={`${filmBase}.jpg`} controls muted loop playsInline /> }] : []),
+            { label: 'Key art', content: <img src={`/g/${game.slug}/cover`} alt={`${game.title} key art`} /> },
+          ]} />
           <aside className="ginfo">
             <div>
               <h1>{game.title}</h1>
               <p className="by">By <b>a GameMog creator</b></p>
-              <p className="by">{world ? 'Endless laps · GameMog Runtime' : 'Written by Claude Opus 5.5'}</p>
+              <p className="maturity">{world ? 'Endless laps · GameMog Runtime' : 'Written by Claude Opus 5.5'}</p>
               <Lineage game={game} />
             </div>
             <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />
@@ -76,11 +88,14 @@ export function CustomGamePage({ game }: { game: GameRow }) {
                   </p>
                   <dl className="gstats">
                     <div><dt>Plays</dt><dd>{game.plays.toLocaleString()}</dd></div>
-                    <div><dt>{world ? 'Best' : 'Record'}</dt><dd>{record}</dd></div>
-                    {world && scores[0] && <div><dt>GM on that run</dt><dd>{scores[0].gm ?? 0}</dd></div>}
-                    <div><dt>Genre</dt><dd>{meta.genre}</dd></div>
-                    <div><dt>Cast</dt><dd>{meta.cast?.length ?? 0}</dd></div>
+                    <div><dt>Players</dt><dd>{players.toLocaleString()}</dd></div>
+                    <div><dt>Likes</dt><dd>{likes}</dd></div>
+                    <div><dt>Mogs</dt><dd>{mogs.length}</dd></div>
+                    <div><dt>Generation</dt><dd>{game.generation}</dd></div>
                     <div><dt>Created</dt><dd>{created}</dd></div>
+                    <div><dt>Updated</dt><dd>Not tracked</dd></div>
+                    <div><dt>Genre</dt><dd>{meta.genre}</dd></div>
+                    <div><dt>Rivals</dt><dd>{world ? 'One more each lap' : rivals}</dd></div>
                   </dl>
                   <h2 style={{ marginTop: 26, marginBottom: 6 }}>Controls</h2>
                   <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{meta.controls}</p>
@@ -99,7 +114,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
               ),
             },
             { label: `Leaderboard${scores.length ? ` (${scores.length})` : ''}`, body: leaderboard },
-            { label: `Mogs${mogsOf(game.id).length ? ` (${mogsOf(game.id).length})` : ''}`, body: <MogsPanel game={game} /> },
+            { label: `Mogs${mogs.length ? ` (${mogs.length})` : ''}`, body: <MogsPanel game={game} /> },
             {
               label: 'Cast',
               body: (
@@ -119,7 +134,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
 
         {others.length > 0 && (
           <section className="sec">
-            <div className="sechead"><h2>Recommended</h2><Link href="/" className="more">See all</Link></div>
+            <div className="sechead"><h2>Players Also Play</h2><Link href="/charts/trending" className="more">See All<span aria-hidden>›</span></Link></div>
             <Shelf>{(() => { const st = tileStats(); return others.map((g, i) => <Tile key={g.id} g={g} i={i + 40} best={best[g.id]} stats={st[g.id]} />); })()}</Shelf>
           </section>
         )}
