@@ -51,6 +51,8 @@ export type Page = {
   click(x: number, y: number): Promise<void>;
   /** Override the viewport exactly, including widths Chrome's window will not accept. */
   emulate(viewport: { width: number; height: number; mobile?: boolean }): Promise<void>;
+  /** Block matching network requests, useful for read-only presentation captures. */
+  blockRequests(patterns: string[]): Promise<void>;
   /** A JPEG of the viewport, or of `clip` (CSS pixels) within it. */
   screenshot(quality?: number, clip?: { x: number; y: number; width: number; height: number }): Promise<Uint8Array>;
   /** Uncaught exceptions and console errors, in order. */
@@ -112,6 +114,10 @@ export async function withBrowser<T>(
       if (m.id && pending.has(m.id)) {
         const p = pending.get(m.id)!; pending.delete(m.id);
         if (m.error) p.rej(new Error(m.error.message)); else p.res(m.result);
+      } else if (m.method === 'Fetch.requestPaused') {
+        // Request interception is used by presentation capture to keep page
+        // rendering read-only. Fail the matched request before it reaches Next.
+        ws!.send(JSON.stringify({ id: ++id, method: 'Fetch.failRequest', params: { requestId: m.params.requestId, errorReason: 'BlockedByClient' }, sessionId: m.sessionId }));
       } else if (m.method === 'Runtime.exceptionThrown') {
         const d = m.params.exceptionDetails;
         errors.push(String(d.exception?.description ?? d.text).split('\n').slice(0, 3).join(' | '));
@@ -155,6 +161,9 @@ export async function withBrowser<T>(
           screenWidth: viewport.width,
           screenHeight: viewport.height,
         });
+      },
+      async blockRequests(patterns) {
+        await s('Fetch.enable', { patterns: patterns.map((urlPattern) => ({ urlPattern, requestStage: 'Request' })) });
       },
       async screenshot(quality = 72, clip) {
         const { data } = await s('Page.captureScreenshot', { format: 'jpeg', quality, ...(clip ? { clip: { ...clip, scale: 1 } } : {}) });

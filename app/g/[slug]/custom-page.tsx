@@ -126,18 +126,19 @@ export function CustomGamePage({ game }: { game: GameRow }) {
                       {c.role && <span className="t-meta dim-2">{c.role}</span>}
                     </div>
                   ))}
+                  {!meta.cast?.length && <div className="empty compact"><p>No cast has been listed for this game.</p></div>}
                 </div>
               ),
             },
           ]}
         />
 
-        {others.length > 0 && (
+        {others.length > 0 ? (
           <section className="sec">
             <div className="sechead"><h2>Players Also Play</h2><Link href="/charts/trending" className="more">See All<span aria-hidden>›</span></Link></div>
             <Shelf>{(() => { const st = tileStats(); return others.map((g, i) => <Tile key={g.id} g={g} i={i + 40} best={best[g.id]} stats={st[g.id]} />); })()}</Shelf>
           </section>
-        )}
+        ) : <section className="sec"><div className="sechead"><h2>Players Also Play</h2></div><div className="empty compact"><p>No other worlds are published yet.</p></div></section>}
       </main>
       <SiteFooter />
     </>

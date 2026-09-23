@@ -150,12 +150,12 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
           ]}
         />
 
-        {others.length > 0 && (
+        {others.length > 0 ? (
           <section className="sec">
             <div className="sechead"><h2>Players Also Play</h2><Link href="/charts/classic" className="more">See All<span aria-hidden>›</span></Link></div>
             <Shelf>{(() => { const st = tileStats(); return others.map((g, i) => <Tile key={g.id} g={g} i={i + 40} best={best[g.id]} stats={st[g.id]} />); })()}</Shelf>
           </section>
-        )}
+        ) : <section className="sec"><div className="sechead"><h2>Players Also Play</h2></div><div className="empty compact"><p>No other Classic games are published yet.</p></div></section>}
       </main>
       <SiteFooter />
     </>

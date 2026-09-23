@@ -42,13 +42,13 @@ export function SiteFooter() {
         <div className="links">
           <Link href="/">Charts</Link>
           <Link href="/create">Create</Link>
+          <Link href="/charts/new-mogs">Mogs</Link>
+          <Link href="/charts/classic">Classic</Link>
           <Link href="/library">Library</Link>
           <Link href="/terms">Terms</Link>
           <Link href="/privacy">Privacy</Link>
         </div>
-        <p className="fine">
-          One engine, many worlds. Every world is playtested before it publishes.
-        </p>
+        <p className="fine">GameMog makes the internet playable. Every Runtime world is playtested before it publishes.</p>
       </div>
     </footer>
   );
