@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'Charts | GameMog' };
 
 export default async function ChartPage({ params, searchParams }: {
   params: Promise<{ sort: string }>;
-  searchParams: Promise<{ genre?: string }>;
+  searchParams: Promise<{ genre?: string; q?: string }>;
 }) {
   const { sort: raw } = await params;
   if (!(raw in CHARTS)) notFound();
@@ -19,9 +19,12 @@ export default async function ChartPage({ params, searchParams }: {
   const all = listGames(500), stats = tileStats(), best = bestTimes();
   const base = sortGames(all, sort, stats);
   const genres = [...new Set(base.map(genreOf))].sort();
-  const requested = (await searchParams).genre;
+  const query = await searchParams;
+  const requested = query.genre;
   const genre = requested && genres.includes(requested) ? requested : 'All';
-  const games = genre === 'All' ? base : base.filter((g) => genreOf(g) === genre);
+  const byGenre = genre === 'All' ? base : base.filter((g) => genreOf(g) === genre);
+  const q = query.q?.trim().toLocaleLowerCase() ?? '';
+  const games = q ? byGenre.filter((g) => `${g.title} ${g.tagline} ${genreOf(g)}`.toLocaleLowerCase().includes(q)) : byGenre;
 
   return (
     <>
@@ -33,7 +36,7 @@ export default async function ChartPage({ params, searchParams }: {
         </div>
         {games.length
           ? <div className="gridw">{games.map((game, i) => <Tile key={game.id} g={game} i={i + 500} best={best[game.id]} stats={stats[game.id]} />)}</div>
-          : <div className="empty"><h2>No games here yet</h2><p>Try another genre, or create the first one for this chart.</p></div>}
+          : <div className="empty"><h2>{q ? `No games match “${query.q?.trim()}”` : 'No games here yet'}</h2><p>Try another search or genre, or create the first one for this chart.</p></div>}
       </main>
       <SiteFooter />
     </>

@@ -1,15 +1,14 @@
 import Link from 'next/link';
 
 /**
- * One 40px bar, the height Roblox runs. No second row of category tabs, no
- * border under it, no shadow: the nav is the same colour as the page and is
- * separated from the content by space alone. The wordmark is the way home.
+ * One measured 40px desktop bar. Phones keep the same controls in a 40px top
+ * row and place navigation in a 34px row underneath.
  */
-/** `wide` links are dropped on a phone, where the bar has room for two. */
 const NAV = [
-  { label: 'Classic', href: '/classic' },
+  { label: 'Charts', href: '/charts/trending' },
   { label: 'Create', href: '/create' },
-  { label: 'Racing', href: '/?f=race', wide: true },
+  { label: 'Library', href: '/library' },
+  { label: 'Mogs', href: '/charts/new-mogs' },
 ];
 
 export function SiteHeader({ on = '' }: { on?: string }) {
@@ -19,17 +18,19 @@ export function SiteHeader({ on = '' }: { on?: string }) {
         <Link href="/" className="wordmark" aria-label="GameMog home">
           <span className="mk" /><b>GameMog</b>
         </Link>
-        {NAV.map((n) => (
-          <Link key={n.label} href={n.href}
-            className={`nvl${n.label === on ? ' on' : ''}${n.wide ? ' wide' : ''}`}>
-            {n.label}
-          </Link>
-        ))}
-        <div className="srch">
+        <nav className="desktopnav" aria-label="Primary">
+          {NAV.map((n) => <Link key={n.label} href={n.href} className={`nvl${n.label === on ? ' on' : ''}`}>{n.label}</Link>)}
+        </nav>
+        <form className="srch" action="/charts/trending">
           <span className="ic"><Icon name="search" size={16} /></span>
-          <input placeholder="Search" aria-label="Search worlds" />
-        </div>
+          <input name="q" placeholder="Search" aria-label="Search worlds" />
+        </form>
+        <Link href="/create" className="btn createworld">Create a world</Link>
+        <Link href="/charts/trending" className="mobile-search" aria-label="Search worlds"><Icon name="search" size={20} /></Link>
       </div>
+      <nav className="mobile-nav wrap" aria-label="Primary">
+        {NAV.map((n) => <Link key={n.label} href={n.href} className={`nvl${n.label === on ? ' on' : ''}`}>{n.label}</Link>)}
+      </nav>
     </header>
   );
 }
