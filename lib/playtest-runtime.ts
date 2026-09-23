@@ -1,4 +1,4 @@
-import { withBrowser, chromePath } from './browser';
+import { withBrowser, chromePath, HostSlept } from './browser';
 
 /**
  * Playtest a game by playing it.
@@ -29,6 +29,16 @@ export type RuntimeReport = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Run a playtest again when the machine slept through it. Sleep freezes the
+ * browser mid-run, and the time-out that follows is the host's, not the game's.
+ */
+async function awake<T>(fn: () => Promise<T>): Promise<T> {
+  for (let i = 0; ; i++) {
+    try { return await fn(); } catch (e) { if (!(e instanceof HostSlept) || i === 2) throw e; }
+  }
+}
+
 /** A JPEG this small at 1280x720 is a flat colour, not a scene. */
 const BLANK_BYTES = 14_000;
 
@@ -37,7 +47,7 @@ export async function runtimePlaytest(url: string): Promise<RuntimeReport> {
     return { ok: true, ran: false, readyMs: null, fps: null, errors: [], problems: [] };
   }
   try {
-    return await withBrowser(async (page) => {
+    return await awake(() => withBrowser(async (page) => {
       await page.preload(`
         window.__frames = 0;
         (function tick() { window.__frames++; requestAnimationFrame(tick); })();
@@ -96,7 +106,7 @@ export async function runtimePlaytest(url: string): Promise<RuntimeReport> {
       }
 
       return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, cover };
-    }, { timeoutMs: 75_000 });
+    }, { timeoutMs: 75_000 }));
   } catch (e) {
     return {
       ok: false, ran: true, readyMs: null, fps: null, errors: [], cover: undefined,
@@ -127,7 +137,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
   const empty = { ok: true, ran: false, readyMs: null, fps: null, errors: [], problems: [], advisories: [], levelReached: 0 };
   if (!chromePath()) return empty;
   try {
-    return await withBrowser(async (page) => {
+    return await awake(() => withBrowser(async (page) => {
       await page.preload('window.__frames = 0; (function tick() { window.__frames++; requestAnimationFrame(tick); })();');
       const t0 = Date.now();
       await page.goto(url);
@@ -192,7 +202,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
       if (cover.length < 14_000) problems.push('The screen is nearly a flat colour while racing. Check that build() adds the ground, the track surface and lights, and that the sky and fog do not swallow everything.');
 
       return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover };
-    }, { timeoutMs: 90_000 });
+    }, { timeoutMs: 90_000 }));
   } catch (e) {
     return { ...empty, ok: false, ran: true, problems: [`The world could not be playtested: ${(e as Error).message}`] };
   }

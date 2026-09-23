@@ -11,6 +11,7 @@
     "build:engine": "node scripts/build-engine.mjs",
     "check": "node --import ./scripts/ts-resolve.mjs scripts/check.ts",
     "check:runtime": "node --import ./scripts/ts-resolve.mjs scripts/runtime-check.ts",
+    "check:platform": "node --import ./scripts/ts-resolve.mjs scripts/platform-check.ts",
     "publish:world": "node --import ./scripts/ts-resolve.mjs scripts/publish-world.ts",
     "assets:fetch": "node --import ./scripts/ts-resolve.mjs scripts/assets/fetch.ts",
     "assets:build": "node --import ./scripts/ts-resolve.mjs scripts/assets/build.ts"

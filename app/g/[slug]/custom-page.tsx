@@ -7,6 +7,8 @@ import { PlayFrame } from './play-frame';
 import { GameActions } from './actions';
 import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
+import { Lineage, MogOffPanel, MogsPanel } from './mog';
+import { mogsOf } from '@/lib/db';
 
 /**
  * The page for a game Opus wrote: the same grid as a race world, with what
@@ -53,10 +55,13 @@ export function CustomGamePage({ game }: { game: GameRow }) {
               <h1>{game.title}</h1>
               <p className="by">By <b>a GameMog creator</b></p>
               <p className="by">{world ? 'Endless laps · GameMog Runtime' : 'Written by Claude Opus 5.5'}</p>
+              <Lineage game={game} />
             </div>
             <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />
           </aside>
         </div>
+
+        <MogOffPanel game={game} />
 
         <Tabs
           panels={[
@@ -93,6 +98,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
               ),
             },
             { label: `Leaderboard${scores.length ? ` (${scores.length})` : ''}`, body: leaderboard },
+            { label: `Mogs${mogsOf(game.id).length ? ` (${mogsOf(game.id).length})` : ''}`, body: <MogsPanel game={game} /> },
             {
               label: 'Cast',
               body: (

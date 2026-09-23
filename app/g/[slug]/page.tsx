@@ -12,6 +12,8 @@ import { GameActions } from './actions';
 import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
 import { CustomGamePage } from './custom-page';
+import { Lineage, MogsPanel } from './mog';
+import { mogsOf } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +67,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
               <h1>{game.title}</h1>
               <p className="by">By <b>{game.featured ? 'GameMog' : 'a GameMog creator'}</b></p>
               <p className="by">Difficulty: {difficulty}</p>
+              <Lineage game={game} />
             </div>
             <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />
           </aside>
@@ -120,6 +123,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
               ),
             },
             { label: `Leaderboard${scores.length ? ` (${scores.length})` : ''}`, body: leaderboard },
+            { label: `Mogs${mogsOf(game.id).length ? ` (${mogsOf(game.id).length})` : ''}`, body: <MogsPanel game={game} /> },
             {
               label: 'The field',
               body: (

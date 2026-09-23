@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { CharacterImage } from './character';
 import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, type WorldMeta } from './custom-game';
 import { playtestWorld, type WorldReport } from './playtest-runtime';
-import { insertDraft, db } from './db';
+import { insertDraft, db, type GameRow } from './db';
 
 /**
  * A world, written by Claude Opus 5.5 on the GameMog Runtime.
@@ -73,8 +73,36 @@ List the player first in cast, then the first few rivals. Never use an em dash i
 A strong world module is usually 600 to 1,400 lines. Spend effort on the world, not on explaining it: no long comments, no alternatives left in the code, and plan briefly before you write.`;
 }
 
-function firstTurn(prompt: string, image?: CharacterImage): Anthropic.Beta.BetaContentBlockParam[] {
+/**
+ * A Mog: challenge an existing game with a better variation. The model gets
+ * the original whole (its code if it is a world on the runtime, what it was
+ * built from otherwise), what its creator asked for, and the challenger's
+ * idea, and writes a complete new world that should beat it.
+ */
+export type MogInput = { parent: GameRow; instruction: string };
+function mogTurn(m: MogInput): string {
+  const p = m.parent, meta = JSON.parse(p.meta ?? '{}') as { title?: string; genre?: string };
+  const original = p.format === 'world' && p.code
+    ? `Its complete world module, on the same runtime you are writing for:\n\n\`\`\`javascript\n${p.code}\n\`\`\``
+    : p.format === 'custom' && p.code
+      ? `It was written before the runtime existed, as a whole game. Rebuild it as a world on the runtime, keeping what made it itself. Its code, for reference:\n\n\`\`\`javascript\n${p.code}\n\`\`\``
+      : `It runs on the old rhythm-race engine, so there is no world module to start from. Rebuild it as a world on the runtime, keeping its look, cast and feel. What it was built from:\n\n\`\`\`json\n${p.spec}\n\`\`\``;
+  return `This is a Mog: a challenger wants to beat an existing GameMog game with a better variation of it. Players will play both and pick the better one.
+
+The original: "${p.title}"${meta.genre ? ` (${meta.genre})` : ''}, generation ${p.generation}. ${p.tagline}
+${p.prompt ? `What its creator asked for: ${p.prompt}\n` : ''}
+${original}
+
+The challenger's idea for how to make it better:
+
+${m.instruction}
+
+Write a complete new world module. Keep what makes the original work, carry the challenger's idea out boldly, and fix anything weak you notice. It should be recognisably a variation of "${p.title}" and different enough that a player would have a real choice between them. Give it its own title and tagline, never the original's.`;
+}
+
+function firstTurn(prompt: string, image?: CharacterImage, mog?: MogInput): Anthropic.Beta.BetaContentBlockParam[] {
   const parts: Anthropic.Beta.BetaContentBlockParam[] = [];
+  if (mog) { parts.push({ type: 'text', text: mogTurn(mog) }); return parts; }
   if (image) {
     parts.push({ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } });
     parts.push({ type: 'text', text: 'The image above is the player character.' });
@@ -84,13 +112,13 @@ function firstTurn(prompt: string, image?: CharacterImage): Anthropic.Beta.BetaC
 }
 
 export async function generateGame(
-  input: { prompt: string; image?: CharacterImage; origin: string },
+  input: { prompt: string; image?: CharacterImage; origin: string; mog?: MogInput },
   emit: (e: GameEvent) => void
 ) {
   const started = Date.now();
   const client = new Anthropic();
   const SYSTEM = system();
-  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: firstTurn(input.prompt, input.image) }];
+  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: firstTurn(input.prompt, input.image, input.mog) }];
   const draftId = randomUUID();
   let lastProblems: string[] = [];
   let advisedOnce = false;
@@ -148,7 +176,7 @@ export async function generateGame(
       emit({ type: 'stage', stage: 'playtesting', attempt });
       const stored = { ...meta, controls: WORLD_CONTROLS, scoring: 'level', runtime: RUNTIME_VERSION };
       db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
-      insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report: { pending: true }, format: 'world' });
+      insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report: { pending: true }, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
       report = await playtestWorld(`${input.origin}/d/${draftId}/play`);
       problems.push(...report.problems);
       const { cover, ...rest } = report;

@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { playerId } from '../../anon';
 
 type Result = {
   place: number; timeMs: number; finished: boolean; score: number; won: boolean; level: number; gm: number; assisted: boolean;
@@ -73,10 +74,16 @@ export function PlayFrame({ slug, gameId, poster, src = `/g/${slug}/play`, score
         bestStreak: Number(d.bestStreak) || 0,
       });
       setSaved(false);
+      // a finished, unassisted run on a published game is what "has played"
+      // means: for distinct players, and for a Mog-off pick to count
+      if (scores && d.finished && !d.assisted) {
+        fetch('/api/plays', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ gameId, player: playerId(), level: Number(d.level) || undefined }) })
+          .then(() => dispatchEvent(new CustomEvent('gamemog:run', { detail: { gameId } }))).catch(() => {});
+      }
     }
     addEventListener('message', onMessage);
     return () => removeEventListener('message', onMessage);
-  }, [gameId]);
+  }, [gameId, scores]);
 
   async function submit() {
     if (!result) return;

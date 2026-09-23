@@ -1,6 +1,8 @@
 # GameMog
 
-Give a character a world to run through. Describe a setting, get a playable link.
+The internet, playable. Prompt → build a world → play → share → **Mog** it: challenge any game
+with a better variation. AI generates, humans select, winners reproduce. The platform's rules,
+in the owner's words next to how the code reads them, are in [docs/RULES.md](docs/RULES.md).
 
 Muse Sprint, the hand-built rhythm footrace this platform was extracted from, is the
 featured game on the homepage, and it now runs on the same engine every generated world uses.
@@ -20,11 +22,35 @@ than by a model.
 ```bash
 npm run check            # regression guard; the featured game is the canary
 npm run check:runtime    # the framework's rules, asserted in real Chrome (needs the dev server)
+npm run check:platform   # Mog: lineage, Mog-offs and family ranking, end to end (needs the dev server)
 npm run publish:world -- la-olympics-2028   # a first-party world from worlds/, through the same gate
 npm run assets:fetch && npm run assets:build # rebuild the licensed asset library from its pinned sources
 ```
 
 ---
+
+## Mog
+
+Every game page has a **Mog** button. It opens `/mog/<slug>`, where a challenger says in a line
+how to beat the game. Claude Opus 5.5 is given the original's complete code (a runtime world's
+module; for older formats, what the game was built from), the original creator's prompt and the
+challenger's idea, and writes a complete new world. It goes through exactly the gate any world
+does, the static check and the Chrome playtest with up to three repair rounds, and publishes
+from the draft that passed.
+
+- **Lineage.** A Mog records its parent, its family's root and its generation. Its page says
+  "Mogged from …" and links the original; the original's page says how many Mogs challenge it
+  and lists them under a Mogs tab. The original is always credited, at any depth.
+- **Mog-off.** A Mog's page asks: this Mog, or the game it challenged? A pick counts only once
+  that browser has finished a run in **both** games (`plays`, reported by the game frame when a
+  run ends). One pick per browser per Mog-off, changeable.
+- **Selection.** A family is ranked by Elo over its counted picks (K = 32, from 1000), then by
+  distinct players. The leader is marked on its page.
+
+Players are ids the browser makes for itself, so this counts browsers, not verified humans.
+That is enough to rank a family honestly among people acting in good faith; creator earnings
+tied to verified human audiences need accounts first. `npm run check:platform` publishes a
+throwaway family through the real API, asserts all of the above and removes it.
 
 ## The framework: GameMog Runtime + world modules
 
@@ -309,20 +335,22 @@ replay validation; the shape is there for it to slot into.
 ## Data
 
 SQLite via Node's built-in `node:sqlite`: no native module, no build step, one file in `data/`.
-`games`, `scores`, and `generations` (prompt, model, attempts, findings, latency) so generation
-quality can actually be measured rather than guessed at.
+`games` (with `parent_id`, `root_id`, `generation`, `mog_prompt` for Mogs), `scores`, `plays`
+(finished runs per player), `mog_picks`, and `generations` (prompt, model, attempts, findings,
+latency) so generation quality can actually be measured rather than guessed at.
 
 ## What is not built yet
 
 Named honestly, because an MVP that pretends to be complete is worse than one that doesn't:
 
-- **Runtime playtesting.** Static validation catches config-level defects. It does not catch a
-  world that loads and then drops to 20fps on a real phone. That needs a headless browser
-  running a scripted race and asserting on frame time, which is the next thing worth building.
+- **Phone playtesting.** Worlds are playtested in desktop Chrome; nothing yet asserts frame time
+  on a real phone.
 - **The other three formats.** Only `race` exists. The engine contract (`WorldSpec` in, canvas
   out) is what the others would implement.
 - **Server-side refusal fallbacks.** `generate.ts` handles `stop_reason: "refusal"` with a clear
   error rather than wiring `betas: ["server-side-fallback-2026-07-01"]` + `fallbacks: "default"`,
   because that path could not be tested without a key. One-line change when you want it.
-- **Remix.** The button links to `/create?remix=slug`; the create page does not read the param yet.
+- **Mog steps 5 and 6.** Family leaders are ranked and marked but not yet featured on the
+  homepage, and there is no share card for a Mog-off.
+- **Verified players.** Mog-off picks and distinct players count browsers; see Mog above.
 - **Auth, rate limiting, moderation.** None. Do not deploy this publicly as is.

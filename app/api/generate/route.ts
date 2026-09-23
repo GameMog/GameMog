@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { generateWorld, offlineWorld, readCatalogue, MODEL } from '@/lib/generate';
 import { generateGame, GAME_MODEL, type GameEvent } from '@/lib/generate-game';
 import { playtest } from '@/lib/playtest';
-import { logGeneration, recentSpecs } from '@/lib/db';
+import { logGeneration, recentSpecs, getGameBySlug } from '@/lib/db';
 
 import { ImageSchema, type Character, type CharacterImage } from '@/lib/character';
 
@@ -14,7 +14,7 @@ export const maxDuration = 1800;
 const MAX_IMAGE_BYTES = 2_200_000;
 
 export async function POST(req: Request) {
-  let body: { prompt?: string; image?: unknown; hintFur?: string; characterName?: string; kind?: 'game' | 'race' };
+  let body: { prompt?: string; image?: unknown; hintFur?: string; characterName?: string; kind?: 'game' | 'race'; mogOf?: string };
   try {
     body = await req.json();
   } catch {
@@ -22,8 +22,17 @@ export async function POST(req: Request) {
   }
 
   const text = (body.prompt ?? '').trim();
-  if (text.length < 8) {
+  // a Mog: the game it challenges, and one line on how to beat it
+  const parent = typeof body.mogOf === 'string' ? getGameBySlug(body.mogOf) : undefined;
+  if (body.mogOf && !parent) return NextResponse.json({ error: 'The game you are mogging no longer exists.' }, { status: 404 });
+  if (parent && (text.length < 4 || text.length > 600)) {
+    return NextResponse.json({ error: 'Say in a line how your Mog should beat the original.' }, { status: 400 });
+  }
+  if (!parent && text.length < 8) {
     return NextResponse.json({ error: 'Describe the world in a sentence or two.' }, { status: 400 });
+  }
+  if (parent && !(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN)) {
+    return NextResponse.json({ error: 'Mogging needs the model: set ANTHROPIC_API_KEY.' }, { status: 503 });
   }
 
   let image: CharacterImage | undefined;
@@ -66,7 +75,7 @@ export async function POST(req: Request) {
         const beat = setInterval(() => send({ type: 'tick' }), 10_000);
         let result: GameEvent | undefined;
         try {
-          await generateGame({ prompt: text, image, origin }, (e) => {
+          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined }, (e) => {
             if (e.type === 'done' || e.type === 'error') result = e;
             send(e);
           });
@@ -75,7 +84,7 @@ export async function POST(req: Request) {
         } finally {
           clearInterval(beat);
           logGeneration({
-            gameId: null, prompt: text, model: GAME_MODEL + (image ? '+vision' : ''),
+            gameId: null, prompt: parent ? `[mog of ${parent.slug}] ${text}` : text, model: GAME_MODEL + (image ? '+vision' : '') + (parent ? '+mog' : ''),
             attempts: result?.type === 'done' ? result.attempts : 0, ok: result?.type === 'done',
             findings: result?.type === 'error' ? result.problems ?? [result.error] : [],
             ms: Date.now() - started,

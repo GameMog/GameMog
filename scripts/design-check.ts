@@ -108,7 +108,7 @@ export function runDesignChecks(ok: Ok) {
   ok('terms page exists and is linked', hits([join(APP, 'terms/page.tsx')], /Terms of Service/).length > 0 && /href="\/terms"/.test(footer));
   ok('privacy page exists and is linked', hits([join(APP, 'privacy/page.tsx')], /Privacy Policy/).length > 0 && /href="\/privacy"/.test(footer));
   ok('skeleton loaders exist where content is pending',
-    /\.sk-card\{/.test(css) && hits([join(APP, 'create/page.tsx')], /sk-card/).length > 0);
+    /\.sk-card\{/.test(css) && hits([join(APP, 'create/generation.tsx')], /sk-card/).length > 0);
   ok('no game frame opens on a grey box',
     ['hero-stage.tsx', 'g/[slug]/play-frame.tsx'].every((f) => /className="poster"/.test(readFileSync(join(APP, f), 'utf8'))));
   ok('the hero runs the real game, not a screenshot', hits([join(APP, 'hero-stage.tsx')], /<iframe/).length > 0);

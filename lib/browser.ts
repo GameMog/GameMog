@@ -28,6 +28,16 @@ const CANDIDATES = [
 
 export const chromePath = () => CANDIDATES.find((p) => existsSync(p));
 
+/**
+ * The machine slept during a browser session. A laptop that sleeps freezes
+ * Chrome and this process together, so the session's timings and time-outs
+ * say nothing about the page. Callers rerun rather than blame the game.
+ */
+export class HostSlept extends Error {
+  lostMs: number;
+  constructor(lostMs: number) { super(`The machine slept for ${Math.round(lostMs / 1000)}s during the playtest.`); this.lostMs = lostMs; }
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Pending = { res: (v: any) => void; rej: (e: Error) => void };
@@ -143,12 +153,18 @@ export async function withBrowser<T>(
   };
 
   const limit = opts.timeoutMs ?? 60_000;
+  // a one-second beat that arrives late means this process was not running
+  let last = Date.now(), lost = 0;
+  const beat = setInterval(() => { const now = Date.now(); if (now - last > 5000) lost += now - last; last = now; }, 1000);
   try {
-    return await Promise.race([
+    const out = await Promise.race([
       run(),
       new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`Playtest browser timed out after ${limit / 1000}s.`)), limit)),
-    ]);
+    ]).catch((e) => { throw lost ? new HostSlept(lost) : e; });
+    if (lost) throw new HostSlept(lost);
+    return out;
   } finally {
+    clearInterval(beat);
     try { ws?.close(); } catch {}
     try { proc?.kill('SIGKILL'); } catch {}
     try { rmSync(dir, { recursive: true, force: true }); } catch {}

@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { SiteHeader, SiteFooter } from '../header';
 import { prepareUpload, type CharacterImage } from '@/lib/character';
 import { Cover } from '../cover';
-import { PlayFrame } from '../g/[slug]/play-frame';
 import type { WorldSpec } from '@/lib/worldspec';
+import { useGeneration, GenerationProgress, DraftResult } from './generation';
 
 type Finding = { level: 'error' | 'warn'; code: string; message: string };
 type Report = { ok: boolean; findings: Finding[]; stats: Record<string, number> };
@@ -25,19 +25,6 @@ const EXAMPLES = [
 ];
 
 type Character = { name: string; fur: string; personality?: string; source?: string };
-type Draft = {
-  draftId: string; attempts: number; ms: number;
-  meta: { title: string; tagline: string; blurb: string; genre: string; cast: { name: string; color: string; role?: string }[] };
-  runtime: { ran: boolean; readyMs: number | null; fps: number | null; levelReached?: number; advisories?: string[] };
-};
-
-const STAGE_TEXT: Record<string, string> = {
-  thinking: 'Claude Opus 5.5 is designing the world',
-  writing: 'Writing the world',
-  checking: 'Reading the code for anything the runtime would refuse',
-  playtesting: 'Racing it in a real browser: rivals joining lap after lap, then a crash',
-  repairing: 'Sending what the playtest found back to be fixed',
-};
 
 export default function Create() {
   const [prompt, setPrompt] = useState('');
@@ -48,26 +35,16 @@ export default function Create() {
   const [character, setCharacter] = useState<Character | null>(null);
   const [adjustments, setAdjustments] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
+  const gen = useGeneration();
+  const { busy, error, setError, draft } = gen;
   const [spec, setSpec] = useState<Record<string, unknown> | null>(null);
   const [report, setReport] = useState<Report | null>(null);
-  const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
   const [publishing, setPublishing] = useState(false);
   // 'game': Opus writes the whole game. 'race': the tuned rhythm-race template.
   // every future game is a world on the runtime; the race template remains for
   // the worlds already built on it and for running without an API key
   const kind = 'game' as 'game' | 'race';
-  const [stage, setStage] = useState<{ stage: string; attempt: number; chars: number } | null>(null);
-  const [rounds, setRounds] = useState<{ attempt: number; problems: string[] }[]>([]);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [startedAt, setStartedAt] = useState(0);
-  const [now, setNow] = useState(0);
-  useEffect(() => {
-    if (!busy) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [busy]);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -96,69 +73,27 @@ export default function Create() {
   }
 
   async function generate() {
-    setBusy(true); setError(''); setSpec(null); setReport(null);
-    setCharacter(null); setAdjustments([]); setDraft(null); setRounds([]); setStage(null);
-    setStartedAt(Date.now()); setNow(Date.now());
-    try {
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          kind,
-          prompt: kind === 'game' && charName ? `${prompt}\n\nThe player's character is called ${charName}.` : prompt,
-          image: image ?? undefined,
-          hintFur: hintFur || undefined,
-          characterName: charName || undefined,
-        }),
-      });
-
-      // a written game streams its progress as one JSON event per line
-      if (res.ok && res.body && (res.headers.get('content-type') ?? '').includes('ndjson')) {
-        const reader = res.body.getReader();
-        const dec = new TextDecoder();
-        let buf = '';
-        for (;;) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buf += dec.decode(value, { stream: true });
-          let nl;
-          while ((nl = buf.indexOf('\n')) >= 0) {
-            const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
-            if (!line.trim()) continue;
-            const e = JSON.parse(line);
-            if (e.type === 'stage') setStage((s) => ({ stage: e.stage, attempt: e.attempt, chars: e.stage === 'writing' ? s?.chars ?? 0 : 0 }));
-            else if (e.type === 'progress') setStage((s) => (s ? { ...s, chars: e.chars } : s));
-            else if (e.type === 'problems') setRounds((r) => [...r, { attempt: e.attempt, problems: e.problems }]);
-            else if (e.type === 'done') setDraft(e);
-            else if (e.type === 'error') {
-              setError(e.error);
-              if (e.problems?.length) setRounds((r) => [...r, { attempt: 0, problems: e.problems }]);
-            }
-          }
-        }
-        return;
-      }
-
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? 'Generation failed'); setReport(data.report ?? null); }
-      else {
-        setSpec(data.spec); setReport(data.report); setOffline(!!data.offline);
-        setCharacter(data.character ?? null); setAdjustments(data.adjustments ?? []);
-      }
-    } catch (e) {
-      setError((e as Error).message);
-    } finally { setBusy(false); }
+    setSpec(null); setReport(null); setCharacter(null); setAdjustments([]);
+    const data = await gen.run({
+      kind,
+      prompt: kind === 'game' && charName ? `${prompt}\n\nThe player's character is called ${charName}.` : prompt,
+      image: image ?? undefined,
+      hintFur: hintFur || undefined,
+      characterName: charName || undefined,
+    }) as { spec?: Record<string, unknown>; report?: Report; offline?: boolean; character?: Character; adjustments?: string[] } | null;
+    if (!data) return;
+    if (data.spec) {
+      setSpec(data.spec); setReport(data.report ?? null); setOffline(!!data.offline);
+      setCharacter(data.character ?? null); setAdjustments(data.adjustments ?? []);
+    } else if (data.report) setReport(data.report);
   }
 
+  // the race template's spec publishes here; a written world publishes from its draft
   async function publish() {
-    if (!spec && !draft) return;
+    if (!spec) return;
     setPublishing(true);
     try {
-      const res = await fetch('/api/games', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(draft ? { draftId: draft.draftId } : { spec, prompt }),
-      });
+      const res = await fetch('/api/games', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ spec, prompt }) });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Publish failed'); setReport(data.report ?? report); }
       else location.href = `/g/${data.slug}`;
@@ -256,47 +191,7 @@ export default function Create() {
           </button>
         </div>
 
-        {busy && kind === 'game' && (
-          <div className="panel" style={{ marginBottom: 16 }} role="status" aria-live="polite">
-            <label className="lbl">Progress</label>
-            <p style={{ fontSize: 16, fontWeight: 500 }}>
-              {STAGE_TEXT[stage?.stage ?? 'thinking']}
-              {stage?.stage === 'writing' && stage.chars > 0 ? `: ${Math.round(stage.chars / 1000)}k characters so far` : ''}
-            </p>
-            <p className="t-meta dim" style={{ marginTop: 4 }}>
-              {Math.floor((now - startedAt) / 60000)}m {String(Math.floor(((now - startedAt) / 1000) % 60)).padStart(2, '0')}s
-              {stage && stage.attempt > 1 ? `, attempt ${stage.attempt} of 3` : ''}
-            </p>
-          </div>
-        )}
-
-        {rounds.length > 0 && (
-          <div className="panel" style={{ marginBottom: 16 }}>
-            <label className="lbl">What the checks found</label>
-            {rounds.map((r, i) => (
-              <div key={i} style={{ marginBottom: 8 }}>
-                <p className="t-meta dim">{r.attempt ? `After attempt ${r.attempt}${draft || busy ? ', sent back to be fixed' : ''}` : 'Still unresolved'}</p>
-                {r.problems.map((p, j) => <div key={j} className="msg warn"><b>fix</b><span>{p}</span></div>)}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {busy && (
-          <div className="panel sk-card" aria-hidden>
-            <div className="art" />
-            <div className="h" />
-            <div className="p" style={{ width: '92%' }} />
-            <div className="p" style={{ width: '78%' }} />
-            <div className="p" style={{ width: '40%' }} />
-          </div>
-        )}
-
-        {error && (
-          <div className="msg error" style={{ marginBottom: 16, padding: '13px 15px' }}>
-            <b>error</b><span>{error}</span>
-          </div>
-        )}
+        <GenerationProgress gen={gen} />
 
         {report && report.findings.length > 0 && (
           <div className="panel" style={{ marginBottom: 16 }}>
@@ -309,39 +204,7 @@ export default function Create() {
           </div>
         )}
 
-        {draft && (
-          <div className="panel">
-            <div style={{ marginBottom: 16 }}>
-              <PlayFrame slug={draft.draftId} gameId={`draft-${draft.draftId}`} src={`/d/${draft.draftId}/play`} scores={false}
-                // eslint-disable-next-line @next/next/no-img-element
-                poster={<img src={`/d/${draft.draftId}/cover`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />} />
-            </div>
-            <h2>{draft.meta.title}</h2>
-            <p className="dim" style={{ marginBottom: 10, fontSize: 16 }}>{draft.meta.tagline}</p>
-            <p style={{ fontSize: 16, lineHeight: 1.55, marginBottom: 10 }}>{draft.meta.blurb}</p>
-
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-              <span className="tag">{draft.meta.genre}</span>
-              {draft.meta.cast.map((c) => (
-                <span key={c.name} className="tag" style={{ gap: 5 }}>
-                  <i style={{ width: 10, height: 10, borderRadius: 2, background: c.color }} />{c.name}
-                </span>
-              ))}
-            </div>
-            <p className="t-meta dim" style={{ marginBottom: 16 }}>
-              {draft.runtime.ran
-                ? `Raced in Chrome: ready in ${((draft.runtime.readyMs ?? 0) / 1000).toFixed(1)}s, ${draft.runtime.fps} fps, ${draft.runtime.levelReached ?? 0} laps of rivals joining with no errors, and a crash ended the run as it should.`
-                : 'Chrome was not found on this machine, so this world was only checked statically.'}
-              {' '}Written in {Math.round(draft.ms / 60000)} min{draft.attempts > 1 ? `, ${draft.attempts} attempts` : ''}.
-            </p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button className="btn" onClick={publish} disabled={publishing}>
-                {publishing ? 'Publishing' : 'Publish and get a link'}
-              </button>
-              <button className="btn outline" onClick={generate} disabled={busy}>Make another</button>
-            </div>
-          </div>
-        )}
+        <DraftResult gen={gen} publishLabel="Publish and get a link" againLabel="Make another" onAgain={generate} />
 
         {spec && meta && (
           <div className="panel">

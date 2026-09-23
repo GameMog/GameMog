@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../header';
+import { playerId } from '../../anon';
 
 /**
  * The play button and the row under it, laid out the way Roblox lays out its
@@ -20,16 +21,7 @@ const read = <T,>(k: string, d: T): T => {
 };
 const write = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
-function voterId() {
-  let id = read<string>('gamemog:voter', '');
-  if (!id) {
-    id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-    write('gamemog:voter', id);
-  }
-  return id;
-}
+const voterId = playerId;
 
 const short = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K` : String(n);
@@ -100,8 +92,8 @@ export function GameActions({ gameId, slug, title, initial }: {
         <button className="act" onClick={favourite} aria-pressed={fav}>
           <Icon name="star" size={24} /><span>{fav ? 'Favorited' : 'Favorite'}</span>
         </button>
-        <Link className="act" href={`/create?remix=${slug}`}>
-          <Icon name="remix" size={24} /><span>Remix</span>
+        <Link className="act" href={`/mog/${slug}`}>
+          <Icon name="remix" size={24} /><span>Mog</span>
         </Link>
         <div className="votes">
           <button className="act" onClick={() => vote(1)} aria-pressed={mine === 1} aria-label="Like">

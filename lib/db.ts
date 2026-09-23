@@ -90,6 +90,40 @@ function open() {
     );
   `);
   add('drafts', 'format', "format TEXT NOT NULL DEFAULT 'custom'");
+
+  // Mog: every game can be challenged by a better variation. A Mog keeps its
+  // parent, the root of its family and its generation, so the original is
+  // always credited and a family can be ranked.
+  add('games', 'parent_id', 'parent_id TEXT');
+  add('games', 'root_id', 'root_id TEXT');
+  add('games', 'generation', 'generation INTEGER NOT NULL DEFAULT 0');
+  add('games', 'mog_prompt', 'mog_prompt TEXT');
+  add('drafts', 'parent_id', 'parent_id TEXT');
+  add('drafts', 'mog_prompt', 'mog_prompt TEXT');
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS games_by_parent ON games(parent_id);
+    CREATE INDEX IF NOT EXISTS games_by_root ON games(root_id);
+    -- finished runs per game per player: distinct players, and whether a
+    -- player has actually played both sides of a Mog-off
+    CREATE TABLE IF NOT EXISTS plays (
+      game_id   TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      player    TEXT NOT NULL,
+      runs      INTEGER NOT NULL DEFAULT 0,
+      best      INTEGER,
+      first_at  INTEGER NOT NULL,
+      last_at   INTEGER NOT NULL,
+      PRIMARY KEY (game_id, player)
+    );
+    -- a Mog-off is always a Mog against the game it challenged
+    CREATE TABLE IF NOT EXISTS mog_picks (
+      child_id   TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      parent_id  TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      voter      TEXT NOT NULL,
+      winner_id  TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (child_id, voter)
+    );
+  `);
   return db;
 }
 
@@ -113,10 +147,14 @@ export type GameRow = {
   format: 'race' | 'custom' | 'world';
   code: string | null;
   meta: string | null;
+  parent_id: string | null;
+  root_id: string | null;
+  generation: number;
+  mog_prompt: string | null;
 };
 
 /** Columns that are large or binary stay out of list queries. */
-const ROW = 'id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, plays, created_at, format, code, meta';
+const ROW = 'id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, plays, created_at, format, code, meta, parent_id, root_id, generation, mog_prompt';
 
 export type ScoreRow = {
   id: number;
@@ -184,14 +222,14 @@ export function gameCover(slug: string): Uint8Array | undefined {
 }
 
 /* ---------------------------------------------------------------- drafts -- */
-export type DraftRow = { id: string; prompt: string; meta: string; code: string; report: string; created_at: number; format: 'custom' | 'world' };
+export type DraftRow = { id: string; prompt: string; meta: string; code: string; report: string; created_at: number; format: 'custom' | 'world'; parent_id: string | null; mog_prompt: string | null };
 
-export function insertDraft(d: { id: string; prompt: string; meta: unknown; code: string; cover?: Uint8Array; report: unknown; format?: 'custom' | 'world' }) {
-  db.prepare(`INSERT INTO drafts (id, prompt, meta, code, cover, report, created_at, format) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(d.id, d.prompt, JSON.stringify(d.meta), d.code, d.cover ?? null, JSON.stringify(d.report), Date.now(), d.format ?? 'custom');
+export function insertDraft(d: { id: string; prompt: string; meta: unknown; code: string; cover?: Uint8Array; report: unknown; format?: 'custom' | 'world'; parentId?: string | null; mogPrompt?: string | null }) {
+  db.prepare(`INSERT INTO drafts (id, prompt, meta, code, cover, report, created_at, format, parent_id, mog_prompt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(d.id, d.prompt, JSON.stringify(d.meta), d.code, d.cover ?? null, JSON.stringify(d.report), Date.now(), d.format ?? 'custom', d.parentId ?? null, d.mogPrompt ?? null);
 }
 export const getDraft = (id: string) =>
-  db.prepare('SELECT id, prompt, meta, code, report, created_at, format FROM drafts WHERE id = ?').get(id) as DraftRow | undefined;
+  db.prepare('SELECT id, prompt, meta, code, report, created_at, format, parent_id, mog_prompt FROM drafts WHERE id = ?').get(id) as DraftRow | undefined;
 export function draftCover(id: string): Uint8Array | undefined {
   const r = db.prepare('SELECT cover FROM drafts WHERE id = ?').get(id) as { cover: Uint8Array | null } | undefined;
   return r?.cover ?? undefined;
@@ -202,11 +240,92 @@ export function publishDraft(draftId: string, slug: string, id: string): boolean
   const d = db.prepare('SELECT * FROM drafts WHERE id = ?').get(draftId) as (DraftRow & { cover: Uint8Array | null }) | undefined;
   if (!d) return false;
   const meta = JSON.parse(d.meta) as { title: string; tagline: string; blurb: string };
+  // a Mog joins its parent's family, one generation down
+  const parent = d.parent_id ? db.prepare('SELECT id, root_id, generation FROM games WHERE id = ?').get(d.parent_id) as { id: string; root_id: string | null; generation: number } | undefined : undefined;
   db.prepare(
-    `INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover)
-     VALUES (?, ?, ?, ?, ?, 'endless', '{}', ?, 0, ?, ?, ?, ?, ?)`
-  ).run(id, slug, meta.title, meta.tagline, meta.blurb, d.prompt, Date.now(), d.format === 'world' ? 'world' : 'custom', d.code, d.meta, d.cover);
+    `INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, parent_id, root_id, generation, mog_prompt)
+     VALUES (?, ?, ?, ?, ?, 'endless', '{}', ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, slug, meta.title, meta.tagline, meta.blurb, d.prompt, Date.now(), d.format === 'world' ? 'world' : 'custom', d.code, d.meta, d.cover,
+    parent?.id ?? null, parent ? parent.root_id ?? parent.id : null, parent ? parent.generation + 1 : 0, parent ? d.mog_prompt : null);
   return true;
+}
+
+/* -------------------------------------------------------------------- mog -- */
+/**
+ * A Mog is a game made from another one plus an idea for how to beat it. The
+ * family is the original and everything mogged from it, at any depth; it is
+ * ranked by the Mog-off picks of players who have finished a run in both
+ * games of that Mog-off (Elo, K = 32, from 1000), then by distinct players.
+ * Players are ids the browser makes for itself: a signal, not an identity.
+ */
+export const getGameById = (id: string) =>
+  db.prepare(`SELECT ${ROW} FROM games WHERE id = ?`).get(id) as GameRow | undefined;
+export const mogsOf = (id: string) =>
+  db.prepare(`SELECT ${ROW} FROM games WHERE parent_id = ? ORDER BY created_at DESC`).all(id) as GameRow[];
+
+export function recordRun(gameId: string, player: string, best: number | null) {
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO plays (game_id, player, runs, best, first_at, last_at) VALUES (?, ?, 1, ?, ?, ?)
+     ON CONFLICT(game_id, player) DO UPDATE SET runs = runs + 1, best = MAX(COALESCE(best, 0), COALESCE(excluded.best, 0)), last_at = excluded.last_at`
+  ).run(gameId, player, best, now, now);
+}
+export function playerStats(gameId: string) {
+  const r = db.prepare('SELECT COUNT(*) AS players, COALESCE(SUM(runs), 0) AS runs FROM plays WHERE game_id = ?').get(gameId) as { players: number; runs: number };
+  return { players: r.players, runs: r.runs, runsPerPlayer: r.players ? +(r.runs / r.players).toFixed(1) : 0 };
+}
+const hasPlayed = (gameId: string, player: string) =>
+  !!db.prepare('SELECT 1 FROM plays WHERE game_id = ? AND player = ? AND runs > 0').get(gameId, player);
+
+export type MogOff = { childId: string; parentId: string; child: number; parent: number; uncounted: number; pick: string | null; played: { child: boolean; parent: boolean } };
+export function mogOff(childId: string, voter?: string): MogOff | null {
+  const g = getGameById(childId);
+  if (!g?.parent_id) return null;
+  const picks = db.prepare('SELECT voter, winner_id FROM mog_picks WHERE child_id = ?').all(childId) as { voter: string; winner_id: string }[];
+  let child = 0, parent = 0, uncounted = 0;
+  for (const p of picks) {
+    if (!(hasPlayed(childId, p.voter) && hasPlayed(g.parent_id, p.voter))) { uncounted++; continue; }
+    if (p.winner_id === childId) child++; else parent++;
+  }
+  const mine = voter ? picks.find((p) => p.voter === voter)?.winner_id ?? null : null;
+  return { childId, parentId: g.parent_id, child, parent, uncounted, pick: mine, played: { child: !!voter && hasPlayed(childId, voter), parent: !!voter && hasPlayed(g.parent_id, voter) } };
+}
+export function castPick(childId: string, voter: string, winnerId: string | null) {
+  const g = getGameById(childId);
+  if (!g?.parent_id) return null;
+  if (winnerId === null) db.prepare('DELETE FROM mog_picks WHERE child_id = ? AND voter = ?').run(childId, voter);
+  else {
+    if (winnerId !== childId && winnerId !== g.parent_id) return null;
+    db.prepare(
+      `INSERT INTO mog_picks (child_id, parent_id, voter, winner_id, created_at) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(child_id, voter) DO UPDATE SET winner_id = excluded.winner_id, created_at = excluded.created_at`
+    ).run(childId, g.parent_id, voter, winnerId, Date.now());
+  }
+  return mogOff(childId, voter);
+}
+
+export type FamilyMember = GameRow & { elo: number; wins: number; losses: number; players: number; runs: number; rank: number };
+/** The original and every Mog descended from it, ranked. */
+export function family(gameId: string): FamilyMember[] {
+  const g = getGameById(gameId);
+  if (!g) return [];
+  const root = g.root_id ?? g.id;
+  const members = db.prepare(`SELECT ${ROW} FROM games WHERE id = ? OR root_id = ? ORDER BY generation, created_at`).all(root, root) as GameRow[];
+  const elo = new Map(members.map((m) => [m.id, 1000])), wins = new Map(members.map((m) => [m.id, 0])), losses = new Map(members.map((m) => [m.id, 0]));
+  const ids = members.map((m) => m.id);
+  const picks = ids.length > 1 ? db.prepare(`SELECT child_id, parent_id, voter, winner_id FROM mog_picks WHERE child_id IN (${ids.map(() => '?').join(',')}) ORDER BY created_at`).all(...ids) as { child_id: string; parent_id: string; voter: string; winner_id: string }[] : [];
+  for (const p of picks) {
+    if (!(hasPlayed(p.child_id, p.voter) && hasPlayed(p.parent_id, p.voter))) continue;
+    const w = p.winner_id, l = w === p.child_id ? p.parent_id : p.child_id;
+    if (!elo.has(w) || !elo.has(l)) continue;
+    const ew = 1 / (1 + 10 ** ((elo.get(l)! - elo.get(w)!) / 400));
+    elo.set(w, elo.get(w)! + 32 * (1 - ew)); elo.set(l, elo.get(l)! - 32 * (1 - ew));
+    wins.set(w, wins.get(w)! + 1); losses.set(l, losses.get(l)! + 1);
+  }
+  const out = members.map((m) => { const s = playerStats(m.id); return { ...m, elo: Math.round(elo.get(m.id)!), wins: wins.get(m.id)!, losses: losses.get(m.id)!, players: s.players, runs: s.runs, rank: 0 }; });
+  out.sort((a, b) => b.elo - a.elo || b.players - a.players || a.created_at - b.created_at);
+  out.forEach((m, i) => { m.rank = i + 1; });
+  return out;
 }
 
 export const bumpPlays = (id: string) =>
