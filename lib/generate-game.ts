@@ -179,8 +179,8 @@ export async function generateGame(
       insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report: { pending: true }, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
       report = await playtestWorld(`${input.origin}/d/${draftId}/play`);
       problems.push(...report.problems);
-      const { cover, ...rest } = report;
-      db.prepare('UPDATE drafts SET cover = ?, report = ? WHERE id = ?').run(cover ?? null, JSON.stringify(rest), draftId);
+      const { cover, artIcon, artWide, ...rest } = report;
+      db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ? WHERE id = ?').run(cover ?? null, artIcon ?? null, artWide ?? null, JSON.stringify(rest), draftId);
       // the runtime's repairs are not failures, but the model hears about
       // them once, so the world it ships is the one it meant
       if (!problems.length && report.advisories.length && !advisedOnce && attempt < MAX_ATTEMPTS) {
@@ -190,7 +190,7 @@ export async function generateGame(
     }
 
     if (!problems.length && meta && report) {
-      const { cover: _c, ...rest } = report;
+      const { cover: _c, artIcon: _i, artWide: _w, ...rest } = report;
       return emit({ type: 'done', draftId, meta, runtime: rest, attempts: attempt, ms: Date.now() - started });
     }
 

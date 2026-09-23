@@ -49,6 +49,8 @@ export type Page = {
   eval<T = unknown>(expr: string): Promise<T>;
   key(key: string, type?: 'keyDown' | 'keyUp'): Promise<void>;
   click(x: number, y: number): Promise<void>;
+  /** Override the viewport exactly, including widths Chrome's window will not accept. */
+  emulate(viewport: { width: number; height: number; mobile?: boolean }): Promise<void>;
   /** A JPEG of the viewport, or of `clip` (CSS pixels) within it. */
   screenshot(quality?: number, clip?: { x: number; y: number; width: number; height: number }): Promise<Uint8Array>;
   /** Uncaught exceptions and console errors, in order. */
@@ -143,6 +145,16 @@ export async function withBrowser<T>(
       async click(x, y) {
         await s('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
         await s('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+      },
+      async emulate(viewport) {
+        await s('Emulation.setDeviceMetricsOverride', {
+          width: viewport.width,
+          height: viewport.height,
+          deviceScaleFactor: 1,
+          mobile: viewport.mobile ?? false,
+          screenWidth: viewport.width,
+          screenHeight: viewport.height,
+        });
       },
       async screenshot(quality = 72, clip) {
         const { data } = await s('Page.captureScreenshot', { format: 'jpeg', quality, ...(clip ? { clip: { ...clip, scale: 1 } } : {}) });

@@ -1,4 +1,5 @@
 import { withBrowser, chromePath, HostSlept } from './browser';
+import { captureWorldKeyArt } from './key-art';
 
 /**
  * Playtest a game by playing it.
@@ -129,7 +130,7 @@ export async function runtimePlaytest(url: string): Promise<RuntimeReport> {
  * thinned): the world still works, but the model is told once so it can do
  * better.
  */
-export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: number };
+export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: number; artIcon?: Uint8Array; artWide?: Uint8Array };
 
 type RtState = { state: string; level: number; gm: number; alive: boolean; rivals: { ahead: number; x: number }[]; lap: number; obstacles: number; coins: number; crashedInto: string };
 
@@ -138,6 +139,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
   if (!chromePath()) return empty;
   try {
     return await awake(() => withBrowser(async (page) => {
+      await page.emulate({ width: 1280, height: 720 });
       await page.preload('window.__frames = 0; (function tick() { window.__frames++; requestAnimationFrame(tick); })();');
       const t0 = Date.now();
       await page.goto(url);
@@ -169,9 +171,15 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
       await sleep(2500);
       const fps = Math.round(((await page.eval<number>('window.__frames')) - f0) / 2.5);
 
-      // several laps of rivals joining, quickly
+      // Reach lap 3 quickly. This is the first frame with a small field around
+      // the player, and the best moment for the world's permanent key art.
       await page.eval('window.__gmRuntime.debug.timeScale(6)');
       let s = await st();
+      for (let i = 0; i < 70 && s.level < 3; i++) { await sleep(400); s = await st(); }
+      const art = s.level >= 3 ? await captureWorldKeyArt(page) : undefined;
+
+      // Continue through several laps to exercise rival joins and world code.
+      await page.eval('window.__gmRuntime.debug.timeScale(6)');
       for (let i = 0; i < 70 && s.level < 5; i++) { await sleep(400); s = await st(); }
       const levelReached = s.level;
 
@@ -201,8 +209,8 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
       if (!results.length) problems.push('A crash did not end the run with a result. Do not interfere with the runtime; make sure nothing throws in animate().');
       if (cover.length < 14_000) problems.push('The screen is nearly a flat colour while racing. Check that build() adds the ground, the track surface and lights, and that the sky and fog do not swallow everything.');
 
-      return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover };
-    }, { timeoutMs: 90_000 }));
+      return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover, artIcon: art?.icon, artWide: art?.wide };
+    }, { width: 1280, height: 807, timeoutMs: 90_000 }));
   } catch (e) {
     return { ...empty, ok: false, ran: true, problems: [`The world could not be playtested: ${(e as Error).message}`] };
   }

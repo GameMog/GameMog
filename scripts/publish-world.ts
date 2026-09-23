@@ -29,8 +29,8 @@ const draftId = randomUUID();
 insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world', report: { pending: true }, code, meta: { ...meta, controls: WORLD_CONTROLS, scoring: 'level', runtime: 1 } });
 console.log('playtesting in Chrome...');
 const report = await playtestWorld(`${BASE}/d/${draftId}/play`);
-const { cover, ...rest } = report;
-db.prepare('UPDATE drafts SET cover = ?, report = ? WHERE id = ?').run(cover ?? null, JSON.stringify(rest), draftId);
+const { cover, artIcon, artWide, ...rest } = report;
+db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ? WHERE id = ?').run(cover ?? null, artIcon ?? null, artWide ?? null, JSON.stringify(rest), draftId);
 console.log(`ready in ${report.readyMs}ms, ${report.fps} fps, reached level ${report.levelReached}`);
 if (report.advisories.length) console.log('runtime repairs:\n- ' + report.advisories.join('\n- '));
 if (!report.ok) { console.error('playtest failed:\n- ' + report.problems.join('\n- ')); process.exit(1); }
@@ -40,8 +40,8 @@ const base = meta.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$
 const existing = db.prepare('SELECT id FROM games WHERE slug = ?').get(base) as { id: string } | undefined;
 const slug = existing ? base : slugify(meta.title);
 if (existing) {
-  db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = (SELECT meta FROM drafts WHERE id = ?), cover = ?, format = ? WHERE id = ?')
-    .run(meta.title, meta.tagline, meta.blurb, code, draftId, cover ?? null, 'world', existing.id);
+  db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = (SELECT meta FROM drafts WHERE id = ?), cover = ?, art_icon = ?, art_wide = ?, format = ? WHERE id = ?')
+    .run(meta.title, meta.tagline, meta.blurb, code, draftId, cover ?? null, artIcon ?? null, artWide ?? null, 'world', existing.id);
   console.log(`updated ${BASE}/g/${slug}`);
 } else {
   publishDraft(draftId, slug, randomUUID());

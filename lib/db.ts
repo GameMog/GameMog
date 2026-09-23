@@ -75,6 +75,8 @@ function open() {
   add('games', 'code', 'code TEXT');
   add('games', 'meta', 'meta TEXT');
   add('games', 'cover', 'cover BLOB');
+  add('games', 'art_icon', 'art_icon BLOB');
+  add('games', 'art_wide', 'art_wide BLOB');
   add('scores', 'score', 'score INTEGER');
   add('scores', 'level', 'level INTEGER');
   add('scores', 'gm', 'gm INTEGER');
@@ -90,6 +92,8 @@ function open() {
     );
   `);
   add('drafts', 'format', "format TEXT NOT NULL DEFAULT 'custom'");
+  add('drafts', 'art_icon', 'art_icon BLOB');
+  add('drafts', 'art_wide', 'art_wide BLOB');
 
   // Mog: every game can be challenged by a better variation. A Mog keeps its
   // parent, the root of its family and its generation, so the original is
@@ -221,8 +225,14 @@ export function gameCover(slug: string): Uint8Array | undefined {
   return r?.cover ?? undefined;
 }
 
+export function gameArt(slug: string, shape: 'square' | 'wide'): Uint8Array | undefined {
+  const column = shape === 'square' ? 'art_icon' : 'art_wide';
+  const r = db.prepare(`SELECT ${column} AS art FROM games WHERE slug = ?`).get(slug) as { art: Uint8Array | null } | undefined;
+  return r?.art ?? undefined;
+}
+
 /* ---------------------------------------------------------------- drafts -- */
-export type DraftRow = { id: string; prompt: string; meta: string; code: string; report: string; created_at: number; format: 'custom' | 'world'; parent_id: string | null; mog_prompt: string | null };
+export type DraftRow = { id: string; prompt: string; meta: string; code: string; report: string; created_at: number; format: 'custom' | 'world'; parent_id: string | null; mog_prompt: string | null; art_icon: Uint8Array | null; art_wide: Uint8Array | null };
 
 export function insertDraft(d: { id: string; prompt: string; meta: unknown; code: string; cover?: Uint8Array; report: unknown; format?: 'custom' | 'world'; parentId?: string | null; mogPrompt?: string | null }) {
   db.prepare(`INSERT INTO drafts (id, prompt, meta, code, cover, report, created_at, format, parent_id, mog_prompt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
@@ -234,6 +244,11 @@ export function draftCover(id: string): Uint8Array | undefined {
   const r = db.prepare('SELECT cover FROM drafts WHERE id = ?').get(id) as { cover: Uint8Array | null } | undefined;
   return r?.cover ?? undefined;
 }
+export function draftArt(id: string, shape: 'square' | 'wide'): Uint8Array | undefined {
+  const column = shape === 'square' ? 'art_icon' : 'art_wide';
+  const r = db.prepare(`SELECT ${column} AS art FROM drafts WHERE id = ?`).get(id) as { art: Uint8Array | null } | undefined;
+  return r?.art ?? undefined;
+}
 
 /** Publish a draft as a custom game. The draft row is what was playtested. */
 export function publishDraft(draftId: string, slug: string, id: string): boolean {
@@ -243,10 +258,10 @@ export function publishDraft(draftId: string, slug: string, id: string): boolean
   // a Mog joins its parent's family, one generation down
   const parent = d.parent_id ? db.prepare('SELECT id, root_id, generation FROM games WHERE id = ?').get(d.parent_id) as { id: string; root_id: string | null; generation: number } | undefined : undefined;
   db.prepare(
-    `INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, parent_id, root_id, generation, mog_prompt)
-     VALUES (?, ?, ?, ?, ?, 'endless', '{}', ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+     VALUES (?, ?, ?, ?, ?, 'endless', '{}', ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(id, slug, meta.title, meta.tagline, meta.blurb, d.prompt, Date.now(), d.format === 'world' ? 'world' : 'custom', d.code, d.meta, d.cover,
-    parent?.id ?? null, parent ? parent.root_id ?? parent.id : null, parent ? parent.generation + 1 : 0, parent ? d.mog_prompt : null);
+    d.art_icon, d.art_wide, parent?.id ?? null, parent ? parent.root_id ?? parent.id : null, parent ? parent.generation + 1 : 0, parent ? d.mog_prompt : null);
   return true;
 }
 
