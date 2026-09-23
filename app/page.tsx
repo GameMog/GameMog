@@ -20,18 +20,18 @@ function filmFor(slug: string): Film | null {
 }
 
 /**
- * A heading, a "See all", and a row of identical tiles. That is the entire
- * unit a games catalogue is built from, repeated.
+ * A heading, a "See all" when there is more than the row shows, and a row of
+ * identical tiles. That is the entire unit a games catalogue is built from.
  */
-function Rail({ title, id, games, best, stats, seed }: {
-  title: string; id?: string; games: GameRow[]; best: Record<string, number>; stats: Record<string, TileStats>; seed: number;
+function Rail({ title, id, games, best, stats, seed, more }: {
+  title: string; id?: string; games: GameRow[]; best: Record<string, number>; stats: Record<string, TileStats>; seed: number; more?: string;
 }) {
   if (!games.length) return null;
   return (
     <section className="sec" id={id}>
       <div className="sechead">
         <h2>{title}</h2>
-        <Link href="#all" className="more">See all</Link>
+        {more && <Link href={more} className="more">See all</Link>}
       </div>
       <Shelf>
         {games.map((g, i) => <Tile key={g.id} g={g} i={seed + i} best={best[g.id]} stats={stats[g.id]} />)}
@@ -96,8 +96,13 @@ export default function Home() {
 
   const stats = tileStats();
   const hero = games.find((g) => g.slug === HERO) ?? games.find((g) => g.format === 'world') ?? games[0];
-  const newest = [...games].sort((a, b) => b.created_at - a.created_at);
-  const played = [...games].sort((a, b) => b.plays - a.plays);
+  // Classic: the race format from before the GameMog Runtime. Three laps run
+  // to a beat, no GM, no rival joining each lap, so they do not play by the
+  // platform's rules and are not ranked with the worlds that do.
+  const classic = games.filter((g) => g.format === 'race').sort((a, b) => b.plays - a.plays);
+  const worlds = games.filter((g) => g.format !== 'race');
+  const played = [...worlds].sort((a, b) => b.plays - a.plays);
+  const newest = [...worlds].sort((a, b) => b.created_at - a.created_at);
 
   return (
     <>
@@ -105,18 +110,34 @@ export default function Home() {
       <main className="wrap" style={{ paddingTop: 16 }}>
         <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />
 
-        <Rail title="Top playing now" id="played" games={played.slice(0, 16)} best={best} stats={stats} seed={0} />
-        <Rail title="Up and coming" id="new" games={newest.slice(0, 16)} best={best} stats={stats} seed={40} />
+        <Rail title="Top playing now" id="played" games={played.slice(0, 16)} best={best} stats={stats} seed={0} more={worlds.length > 16 ? '#all' : undefined} />
+        {/* a second rail only once it would not repeat the first */}
+        {worlds.length > 8 && <Rail title="Up and coming" id="new" games={newest.slice(0, 16)} best={best} stats={stats} seed={40} more={worlds.length > 16 ? '#all' : undefined} />}
 
-        <section className="sec" id="all">
-          <div className="sechead">
-            <h2>All worlds</h2>
-            <span className="t-meta dim">{games.length} published, every one playtested</span>
-          </div>
-          <div className="gridw">
-            {games.map((g, i) => <Tile key={g.id} g={g} i={i + 200} best={best[g.id]} stats={stats[g.id]} />)}
-          </div>
-        </section>
+        {worlds.length > 16 && (
+          <section className="sec" id="all">
+            <div className="sechead">
+              <h2>All worlds</h2>
+              <span className="t-meta dim">{worlds.length} published, every one playtested</span>
+            </div>
+            <div className="gridw">
+              {worlds.map((g, i) => <Tile key={g.id} g={g} i={i + 200} best={best[g.id]} stats={stats[g.id]} />)}
+            </div>
+          </section>
+        )}
+
+        {classic.length > 0 && (
+          <section className="sec" id="classic">
+            <div className="sechead">
+              <h2>Classic</h2>
+              <span className="t-meta dim">{classic.length} races</span>
+            </div>
+            <p className="cap">The first GameMog races, from before the GameMog Runtime: three laps, run to the beat. They keep their own rules.</p>
+            <div className="gridw">
+              {classic.map((g, i) => <Tile key={g.id} g={g} i={i + 400} best={best[g.id]} stats={stats[g.id]} />)}
+            </div>
+          </section>
+        )}
       </main>
       <SiteFooter />
     </>

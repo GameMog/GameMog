@@ -129,6 +129,8 @@ button.tag:hover{background:var(--line)}
 .sechead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:3px 0 6px}
 .sechead h2{padding-bottom:5px}
 .more{font-size:16px;font-weight:500;color:var(--ink-2)}
+/* the caption Roblox sets under some rail headings */
+.cap{font-size:14px;font-weight:400;line-height:20px;color:var(--ink-2);margin:-4px 0 10px}
 .more:hover{color:var(--blue)}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
 
