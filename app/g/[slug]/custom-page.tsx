@@ -8,7 +8,7 @@ import { GameActions } from './actions';
 import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
 import { Lineage, MogOffPanel, MogsPanel } from './mog';
-import { mogsOf } from '@/lib/db';
+import { mogsOf, tileStats } from '@/lib/db';
 
 /**
  * The page for a game Opus wrote: the same grid as a race world, with what
@@ -119,7 +119,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
         {others.length > 0 && (
           <section className="sec">
             <div className="sechead"><h2>Recommended</h2><Link href="/" className="more">See all</Link></div>
-            <Shelf>{others.map((g, i) => <Tile key={g.id} g={g} i={i + 40} best={best[g.id]} />)}</Shelf>
+            <Shelf>{(() => { const st = tileStats(); return others.map((g, i) => <Tile key={g.id} g={g} i={i + 40} best={best[g.id]} stats={st[g.id]} />); })()}</Shelf>
           </section>
         )}
       </main>

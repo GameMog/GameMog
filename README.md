@@ -25,6 +25,7 @@ npm run check:runtime    # the framework's rules, asserted in real Chrome (needs
 npm run check:platform   # Mog: lineage, Mog-offs and family ranking, end to end (needs the dev server)
 npm run publish:world -- la-olympics-2028   # a first-party world from worlds/, through the same gate
 npm run assets:fetch && npm run assets:build # rebuild the licensed asset library from its pinned sources
+npm run media:hero -- la-olympics-2028        # re-film the homepage hero from the world itself
 ```
 
 ---
@@ -266,6 +267,15 @@ Published worlds needed no migration: a game row stores its authored
 WorldSpec and `compileWorld` runs per request, so every world moved at once.
 
 ## The interface
+
+**The homepage leads with a featured world, playing.** The billboard is real gameplay of
+LA Olympics 2028, filmed from the world's own canvas in Chrome by `npm run media:hero`: the
+race is fast-forwarded to lap 7, where the field runs at your pace, then filmed at real speed
+through the runtime's recording camera (`debug.film`), which sits closer than play so the
+athlete fills the frame. Two cuts: 8:3 for desktop with the runner right of the title card, and
+4:3 for phones. The poster is the film's first frame and is in the HTML; with reduced motion
+it stays. Re-film whenever the world changes. Below it, rails of 16:9 tiles: every cover is a
+frame of gameplay, so a square crop was throwing away a third of each picture.
 
 The catalogue is built to Roblox's measurements, not to an impression of them. Every value in
 `app/globals.css` was read off `roblox.com/charts` and a Roblox game page with `getComputedStyle`

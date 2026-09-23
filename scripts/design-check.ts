@@ -99,7 +99,8 @@ export function runDesignChecks(ok: Ok) {
     .map((v) => parseFloat(v))
     .filter((v) => v > 8);
   ok('no soft radii between 9px and a full pill', radii.length === 0, radii.join(', '));
-  ok('tiles are the measured 150x150', /\.tl \.th\{[^}]*width:150px;height:150px/.test(css));
+  // every cover is a frame of gameplay, and gameplay is 16:9
+  ok('tiles are 16:9 at 264px', /\.tl\{[^}]*width:264px/.test(css) && /\.tl \.th\{[^}]*aspect-ratio:16\/9/.test(css));
   ok('tile name is the measured 16px/700 at 22.4px', /\.tl \.nm\{[^}]*font-size:16px;font-weight:700;line-height:22\.4px/.test(css));
   ok('page is not pure white', /--page:#F7F7F8/.test(css) && !/--page:#FFFFFF/i.test(css));
 
@@ -110,8 +111,9 @@ export function runDesignChecks(ok: Ok) {
   ok('skeleton loaders exist where content is pending',
     /\.sk-card\{/.test(css) && hits([join(APP, 'create/generation.tsx')], /sk-card/).length > 0);
   ok('no game frame opens on a grey box',
-    ['hero-stage.tsx', 'g/[slug]/play-frame.tsx'].every((f) => /className="poster"/.test(readFileSync(join(APP, f), 'utf8'))));
-  ok('the hero runs the real game, not a screenshot', hits([join(APP, 'hero-stage.tsx')], /<iframe/).length > 0);
+    /className="poster"/.test(readFileSync(join(APP, 'g/[slug]/play-frame.tsx'), 'utf8')) && /<picture>/.test(readFileSync(join(APP, 'hero-film.tsx'), 'utf8')));
+  ok('the hero shows real gameplay, filmed from the world\'s own canvas',
+    /<video/.test(readFileSync(join(APP, 'hero-film.tsx'), 'utf8')) && /captureStream/.test(readFileSync(join(ROOT, 'scripts/media/record-hero.ts'), 'utf8')));
 
   console.log('\ndesign contract: layout patterns');
   const page = readFileSync(join(APP, 'page.tsx'), 'utf8');

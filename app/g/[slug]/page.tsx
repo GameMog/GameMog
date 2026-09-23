@@ -13,7 +13,7 @@ import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
 import { CustomGamePage } from './custom-page';
 import { Lineage, MogsPanel } from './mog';
-import { mogsOf } from '@/lib/db';
+import { mogsOf, tileStats } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -145,7 +145,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
         {others.length > 0 && (
           <section className="sec">
             <div className="sechead"><h2>Recommended</h2><Link href="/" className="more">See all</Link></div>
-            <Shelf>{others.map((g, i) => <Tile key={g.id} g={g} i={i + 40} best={best[g.id]} />)}</Shelf>
+            <Shelf>{(() => { const st = tileStats(); return others.map((g, i) => <Tile key={g.id} g={g} i={i + 40} best={best[g.id]} stats={st[g.id]} />); })()}</Shelf>
           </section>
         )}
       </main>

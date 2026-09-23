@@ -12,6 +12,7 @@
     "check": "node --import ./scripts/ts-resolve.mjs scripts/check.ts",
     "check:runtime": "node --import ./scripts/ts-resolve.mjs scripts/runtime-check.ts",
     "check:platform": "node --import ./scripts/ts-resolve.mjs scripts/platform-check.ts",
+    "media:hero": "node --import ./scripts/ts-resolve.mjs scripts/media/record-hero.ts",
     "publish:world": "node --import ./scripts/ts-resolve.mjs scripts/publish-world.ts",
     "assets:fetch": "node --import ./scripts/ts-resolve.mjs scripts/assets/fetch.ts",
     "assets:build": "node --import ./scripts/ts-resolve.mjs scripts/assets/build.ts"

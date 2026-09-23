@@ -328,6 +328,18 @@ export function family(gameId: string): FamilyMember[] {
   return out;
 }
 
+/** What a catalogue tile shows beside its plays: likes, and how many Mogs challenge it. */
+export type TileStats = { up: number; down: number; mogs: number };
+export function tileStats(): Record<string, TileStats> {
+  const out: Record<string, TileStats> = {};
+  const at = (id: string) => (out[id] ??= { up: 0, down: 0, mogs: 0 });
+  for (const r of db.prepare('SELECT game_id, SUM(value = 1) AS up, SUM(value = -1) AS down FROM votes GROUP BY game_id').all() as { game_id: string; up: number; down: number }[]) {
+    Object.assign(at(r.game_id), { up: r.up ?? 0, down: r.down ?? 0 });
+  }
+  for (const r of db.prepare('SELECT parent_id, COUNT(*) AS n FROM games WHERE parent_id IS NOT NULL GROUP BY parent_id').all() as { parent_id: string; n: number }[]) at(r.parent_id).mogs = r.n;
+  return out;
+}
+
 export const bumpPlays = (id: string) =>
   db.prepare('UPDATE games SET plays = plays + 1 WHERE id = ?').run(id);
 

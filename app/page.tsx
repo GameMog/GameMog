@@ -1,23 +1,30 @@
 import Link from 'next/link';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { SiteHeader, SiteFooter, Icon } from './header';
-import { Tile } from './tile';
-import { Cover } from './cover';
-import { HeroStage } from './hero-stage';
+import { Tile, short } from './tile';
+import { HeroFilm, type Film } from './hero-film';
 import { Rail as Shelf } from './rail';
-import { listGames, bestTimes, topScores, type GameRow } from '@/lib/db';
-import { playtest } from '@/lib/playtest';
-import type { WorldSpec } from '@/lib/worldspec';
+import { listGames, bestTimes, topScores, tileStats, type GameRow, type TileStats } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+/** The world the homepage leads with. Its film is made by `npm run media:hero -- <slug>`. */
+const HERO = 'la-olympics-2028';
+
+/** The featured world's film, when it has been recorded. */
+function filmFor(slug: string): Film | null {
+  const base = `/media/${slug}`, dir = join(process.cwd(), 'public', 'media');
+  const has = (cut: string) => existsSync(join(dir, `${slug}-${cut}.mp4`)) && existsSync(join(dir, `${slug}-${cut}.jpg`));
+  return has('wide') && has('4x3') ? { wide: `${base}-wide`, narrow: `${base}-4x3` } : null;
+}
+
 /**
  * A heading, a "See all", and a row of identical tiles. That is the entire
- * unit a games catalogue is built from, repeated. There is no promo card, no
- * two-up feature block and no ragged grid, because a shelf that changes shape
- * every section reads as a landing page rather than a catalogue.
+ * unit a games catalogue is built from, repeated.
  */
-function Rail({ title, id, games, best, seed }: {
-  title: string; id?: string; games: GameRow[]; best: Record<string, number>; seed: number;
+function Rail({ title, id, games, best, stats, seed }: {
+  title: string; id?: string; games: GameRow[]; best: Record<string, number>; stats: Record<string, TileStats>; seed: number;
 }) {
   if (!games.length) return null;
   return (
@@ -27,8 +34,42 @@ function Rail({ title, id, games, best, seed }: {
         <Link href="#all" className="more">See all</Link>
       </div>
       <Shelf>
-        {games.map((g, i) => <Tile key={g.id} g={g} i={seed + i} best={best[g.id]} />)}
+        {games.map((g, i) => <Tile key={g.id} g={g} i={seed + i} best={best[g.id]} stats={stats[g.id]} />)}
       </Shelf>
+    </section>
+  );
+}
+
+/**
+ * The featured world across the top, playing, with the two things you can do
+ * with any game here: play it, or Mog it.
+ */
+function Billboard({ game, film, stats }: { game: GameRow; film: Film | null; stats?: TileStats }) {
+  const record = topScores(game.id, 1, 'level')[0];
+  const mogs = stats?.mogs ?? 0;
+  return (
+    <section className="billboard" aria-label="Featured world">
+      <div className="screen">
+        {film
+          ? <HeroFilm film={film} />
+          // eslint-disable-next-line @next/next/no-img-element
+          : <div className="film"><img src={`/g/${game.slug}/cover`} alt="" /></div>}
+        <Link href={`/g/${game.slug}`} className="filmlink" tabIndex={-1} aria-hidden />
+      </div>
+      <div className="card">
+        <span className="kicker">Featured world</span>
+        <h1>{game.title}</h1>
+        <p className="tagline">{game.tagline}</p>
+        <div className="hstats">
+          <span><b>{short(game.plays)}</b> plays</span>
+          {record?.level ? <span><b>Lap {record.level}</b> record</span> : null}
+          {mogs ? <span><b>{mogs}</b> {mogs === 1 ? 'Mog' : 'Mogs'}</span> : <span>No Mogs yet</span>}
+        </div>
+        <div className="acts">
+          <Link href={`/g/${game.slug}`} className="btn big" aria-label={`Play ${game.title}`}><Icon name="play" size={20} />Play</Link>
+          <Link href={`/mog/${game.slug}`} className="btn big light"><Icon name="remix" size={18} />Mog it</Link>
+        </div>
+      </div>
     </section>
   );
 }
@@ -53,59 +94,19 @@ export default function Home() {
     );
   }
 
-  // the hero runs the race engine live, so it features a race world
-  const races = games.filter((g) => g.format === 'race');
-  const featured = races.find((g) => g.featured) ?? races[0] ?? games[0];
-  const fSpec = JSON.parse(featured.spec) as WorldSpec;
-  const fStats = playtest(fSpec).stats;
-  const fBest = topScores(featured.id, 1)[0];
+  const stats = tileStats();
+  const hero = games.find((g) => g.slug === HERO) ?? games.find((g) => g.format === 'world') ?? games[0];
   const newest = [...games].sort((a, b) => b.created_at - a.created_at);
   const played = [...games].sort((a, b) => b.plays - a.plays);
 
   return (
     <>
       <SiteHeader on="Charts" />
-      <main className="wrap" style={{ paddingTop: 24 }}>
-        <h1>Charts</h1>
+      <main className="wrap" style={{ paddingTop: 16 }}>
+        <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />
 
-        <div style={{ display: 'flex', gap: 8, margin: '6px 0 18px', flexWrap: 'wrap' }}>
-          <span className="pill">Racing</span>
-          <span className="pill off">Obstacle</span>
-          <span className="pill off">Collecting</span>
-          <span className="pill off">Survival</span>
-        </div>
-
-        {/* The flagship is running, not pictured, but at the size of a shelf
-            item rather than a billboard. roblox.com/charts opens straight onto
-            its rows, with two and a half of them above the fold; a full-screen
-            hero here pushed every other world below it. At 448x252 the live
-            game still leads, and two full rows still fit on a 1000px screen. */}
-        <section className="hero" aria-label="Playing now">
-          <HeroStage
-            slug={featured.slug}
-            gameId={featured.id}
-            poster={<Cover spec={fSpec} seed={500} wide />}
-          />
-          <div className="side">
-            <div>
-              <h2 className="hero-title">{featured.title}</h2>
-              <p className="by">By <b>GameMog</b></p>
-            </div>
-            <p className="dim hero-tag">{featured.tagline}</p>
-            <Link href={`/g/${featured.slug}`} className="btn cta" aria-label={`Play ${featured.title}`}>
-              <Icon name="play" size={26} />
-            </Link>
-            <div className="facts">
-              <div><b>{featured.plays}</b><span>plays</span></div>
-              <div><b>{fBest ? (fBest.time_ms / 1000).toFixed(1) + 's' : 'none yet'}</b><span>record</span></div>
-              <div><b>{Math.round(fStats.lapMetres)}m</b><span>lap</span></div>
-              <div><b>{fSpec.racers.length}</b><span>racers</span></div>
-            </div>
-          </div>
-        </section>
-
-        <Rail title="Top playing now" id="played" games={played.slice(0, 16)} best={best} seed={0} />
-        <Rail title="Up and coming" id="new" games={newest.slice(0, 16)} best={best} seed={40} />
+        <Rail title="Top playing now" id="played" games={played.slice(0, 16)} best={best} stats={stats} seed={0} />
+        <Rail title="Up and coming" id="new" games={newest.slice(0, 16)} best={best} stats={stats} seed={40} />
 
         <section className="sec" id="all">
           <div className="sechead">
@@ -113,7 +114,7 @@ export default function Home() {
             <span className="t-meta dim">{games.length} published, every one playtested</span>
           </div>
           <div className="gridw">
-            {games.map((g, i) => <Tile key={g.id} g={g} i={i + 200} best={best[g.id]} />)}
+            {games.map((g, i) => <Tile key={g.id} g={g} i={i + 200} best={best[g.id]} stats={stats[g.id]} />)}
           </div>
         </section>
       </main>
