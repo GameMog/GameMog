@@ -1,0 +1,306 @@
+{
+  "cmu-mocap/09/09.asf": {
+    "sha256": "be10dbce393fd60a2d322410032d618757afcc5bb2f7a508d887c5b0213f1897",
+    "bytes": 7260
+  },
+  "cmu-mocap/09/09_01.amc": {
+    "sha256": "02c94e8c2d4d2ff05f9a784f06403700c2c9d7caedd9bd92b50284d1a05f2bee",
+    "bytes": 118653
+  },
+  "cmu-mocap/09/09_02.amc": {
+    "sha256": "9e618b1c3897776e98485ad01509708b1e5190c76fc630ad6db9ccb12529b927",
+    "bytes": 104237
+  },
+  "cmu-mocap/09/09_03.amc": {
+    "sha256": "2d2114dcc00c3e4d5f08b95e36a7e82883804d3dcfbcb1a4a5c976eebbc538b1",
+    "bytes": 102784
+  },
+  "cmu-mocap/09/09_04.amc": {
+    "sha256": "8dab7838b13302ba49183cb506c25832d9ae398c229c690a6cdb580551064771",
+    "bytes": 110005
+  },
+  "cmu-mocap/09/09_05.amc": {
+    "sha256": "291760ca4a0ad482400233e56862df39fb7de7018bbe16ad4657ff52cbf3b992",
+    "bytes": 114544
+  },
+  "cmu-mocap/09/09_06.amc": {
+    "sha256": "d181d43ca32c8c2b3906f796e7670c8c679aa1767184d3a919540e7bb6d7382f",
+    "bytes": 112971
+  },
+  "cmu-mocap/09/09_07.amc": {
+    "sha256": "123e5ebb29f428a6048a4bca264dcdae09d25d383bb8aed435fd32935c8bd2c9",
+    "bytes": 110563
+  },
+  "cmu-mocap/09/09_08.amc": {
+    "sha256": "2529ea372b5604c0ba88aa0dfc52f0e52485d3072c70e3045fc70c137937ccfe",
+    "bytes": 102868
+  },
+  "cmu-mocap/09/09_09.amc": {
+    "sha256": "7185ba29118fa01809e61a6a1e61c90d1ee5926f46d62977ba7ecee87e3a0a91",
+    "bytes": 121812
+  },
+  "cmu-mocap/09/09_10.amc": {
+    "sha256": "fe9df0c542000f3b68cd159897348c4f1d97e76a3247d1ca7dc016e70dff79d0",
+    "bytes": 104091
+  },
+  "cmu-mocap/09/09_11.amc": {
+    "sha256": "061415f9a707270f9ad570ca904bb0478f02080a960811d6d47a3c104fd9de4b",
+    "bytes": 132308
+  },
+  "cmu-mocap/104/104.asf": {
+    "sha256": "89cbe32f72f93c1fd71df364d2dd7a15a6738b19f20bf3858d211bf9460c0c0b",
+    "bytes": 7269
+  },
+  "cmu-mocap/104/104_53.amc": {
+    "sha256": "fc16f1b1dca1d2f7dbc480c0e747ee2707716e7cb1486756fbb4e148153f6091",
+    "bytes": 237960
+  },
+  "cmu-mocap/104/104_54.amc": {
+    "sha256": "205e5c48e4d63dc66caeac362a14ebe00d9929a467bf8ea79c9b777fb6f93ab4",
+    "bytes": 198677
+  },
+  "cmu-mocap/104/104_55.amc": {
+    "sha256": "12258e975b6a10f9fb192181869a973f030678089f9124232d2b54b5299e3230",
+    "bytes": 400616
+  },
+  "cmu-mocap/140/140.asf": {
+    "sha256": "13d3c7488671d3902c0ea7faa672e1c79465c034c050de88668ace164e519a37",
+    "bytes": 7259
+  },
+  "cmu-mocap/140/140_06.amc": {
+    "sha256": "c3964ee9fc83bf1c92de5f0f413e47cf5fe50569774541b9615b60ffffbb30f9",
+    "bytes": 2842839
+  },
+  "cmu-mocap/140/140_07.amc": {
+    "sha256": "543b7172ddd9ef6dc11b2d50920647151c9626da4081f9c70448cf00f8499426",
+    "bytes": 984703
+  },
+  "cmu-mocap/35/35.asf": {
+    "sha256": "2a8e2eda3c0d7d828566b2a9a8ab36b2b8b3864110574e8b73c8f069fded416c",
+    "bytes": 7261
+  },
+  "cmu-mocap/35/35_22.amc": {
+    "sha256": "00d8356c0ce02a2b75b7dcda190a69a27e1623c84a331c3ba9b09c61f1849cc1",
+    "bytes": 133592
+  },
+  "cmu-mocap/90/90.asf": {
+    "sha256": "2b8d402ef539db75263ab7c7697bc387777fa037ac55ee85a7b734960c965384",
+    "bytes": 7263
+  },
+  "cmu-mocap/90/90_16.amc": {
+    "sha256": "6cf3344e887d483ab0ff917fea3b8a92f383277263a344ae6141f377bfa7b3c1",
+    "bytes": 578522
+  },
+  "makehuman-system/eyebrows/eyebrow001/eyebrow001.mhclo": {
+    "sha256": "54c8892c2ba577f4152d779ce1f20f7cd323beb8cbd9cb701796165c221b4f5b",
+    "bytes": 9141
+  },
+  "makehuman-system/eyebrows/eyebrow001/eyebrow001.obj": {
+    "sha256": "88b13146395133f3901715e11706cdfd293e5d6087ad7c5e01efe1485a26b513",
+    "bytes": 8227
+  },
+  "makehuman-system/eyebrows/eyebrow001/eyebrow001.png": {
+    "sha256": "9940f7d0b1b223709a19b05156ba6f6e9e4dbdbced02d7574f4d51d72c58967b",
+    "bytes": 89619
+  },
+  "makehuman-system/eyebrows/eyebrow010/eyebrow010.mhclo": {
+    "sha256": "f007d2739463323d1398f20e6c77afd683da997956527ce5bc7cf9e56160e81e",
+    "bytes": 9142
+  },
+  "makehuman-system/eyebrows/eyebrow010/eyebrow010.obj": {
+    "sha256": "db7a9747ffdc534b10de584f2d140f2006cc528ffffb6eff5071fef2ed94dce9",
+    "bytes": 8227
+  },
+  "makehuman-system/eyebrows/eyebrow010/eyebrow010.png": {
+    "sha256": "d0aca671c7d51008177a2a607dc8eba3d3e84935375c6fcac2f85841563e44f3",
+    "bytes": 72383
+  },
+  "makehuman-system/eyelashes/eyelashes01/eyelashes01.mhclo": {
+    "sha256": "5a86b29c15649273d723084954b7fa7bf199112571d4f58539b46734d397ee6b",
+    "bytes": 2265
+  },
+  "makehuman-system/eyelashes/eyelashes01/eyelashes01.obj": {
+    "sha256": "f78f5b93fea1946fcae103d32c4f082dd9612a1ec2e7e2f90b03ebe59b0baf20",
+    "bytes": 18832
+  },
+  "makehuman-system/eyelashes/eyelashes01/eyelashes01.png": {
+    "sha256": "4b69c0fff2648874460e9caf80c31413c444218a5c50afebc425aeaa65484a35",
+    "bytes": 91600
+  },
+  "makehuman-system/eyes/high-poly/high-poly.mhclo": {
+    "sha256": "b183cfe37120ab726f9b3f2ea6cd3a64c44ce7b4bd91a77c841cf70c04f83a0d",
+    "bytes": 72490
+  },
+  "makehuman-system/eyes/high-poly/high-poly.obj": {
+    "sha256": "da2493215b708a344c33dc72f2a9a5b8fa985dcc5a70ad3b208995cf871da8e1",
+    "bytes": 100882
+  },
+  "makehuman-system/eyes/materials/blue_eye.png": {
+    "sha256": "572ddc93ab3e177100619ec7c00b2574540cfb382805afc2e450788117f6140c",
+    "bytes": 666029
+  },
+  "makehuman-system/eyes/materials/brown_eye.png": {
+    "sha256": "4659691c7295ad6206c78b003e5fd0e5f91dcd53032fa914a229bb48cabe424b",
+    "bytes": 610817
+  },
+  "makehuman-system/eyes/materials/brownlight_eye.png": {
+    "sha256": "3f43a4de70e446186dac1760cfa01dfe36d530ed7564208455395b0ebcdf788a",
+    "bytes": 680577
+  },
+  "makehuman-system/hair/afro01/afro01.mhclo": {
+    "sha256": "9977bd4507e2dd1408504b7a39a6f585ffa2d3ba3aa40ad4bdc2844884bbebb5",
+    "bytes": 149574
+  },
+  "makehuman-system/hair/afro01/afro01.obj": {
+    "sha256": "8344fffef15120a05a89219f31184ca2958537223fa885c885137ad1e97edcb8",
+    "bytes": 130040
+  },
+  "makehuman-system/hair/afro01/afro_diffuse.png": {
+    "sha256": "dc0db7dd8a13802f02303ca7e49844b219e09db134471b7061538a8af8f7c7fb",
+    "bytes": 4817185
+  },
+  "makehuman-system/hair/short02/short02.mhclo": {
+    "sha256": "625736cdb73e6d094df6e5a2df18f371781f1d2cd37b0ae15795c5d7051c3ec2",
+    "bytes": 119240
+  },
+  "makehuman-system/hair/short02/short02.obj": {
+    "sha256": "48f979114adfa712165a69cc55c45a70831af1fb3cba8e2a89120f0c87407b64",
+    "bytes": 139742
+  },
+  "makehuman-system/hair/short02/short02_diffuse.png": {
+    "sha256": "47fe33831a3929567c733356dd66243116e05df2ace1f884ddca0080b728229f",
+    "bytes": 3553543
+  },
+  "makehuman-system/hair/short02/short02_normal.png": {
+    "sha256": "2cfac7619f8eec77dd90df979d912415058f4f0fc16940cba40a8eb1ae6d74b5",
+    "bytes": 1626745
+  },
+  "makehuman-system/hair/short04/short04.mhclo": {
+    "sha256": "d60640aa4c4ffce1aa269647ba436b6ee0bb21bb948f927b84e27a48d2107157",
+    "bytes": 59195
+  },
+  "makehuman-system/hair/short04/short04.obj": {
+    "sha256": "676964a133ee35ffcea1195382bf75542da7a298931e4001bc7b0d7b707225de",
+    "bytes": 55152
+  },
+  "makehuman-system/hair/short04/short04_diffuse.png": {
+    "sha256": "0bef7fc0e403db5a40fabb2111ebfa6f7e8158e204c6e56b8da98e9ef527846e",
+    "bytes": 2308132
+  },
+  "makehuman-system/skins/young_african_female/young_darkskinned_female_diffuse.png": {
+    "sha256": "96aa4a96b247fc90d371587bb88e6ae3bfc77e83f5126f17e6bbb713aa200470",
+    "bytes": 4427634
+  },
+  "makehuman-system/skins/young_african_male/young_darkskinned_male_diffuse.png": {
+    "sha256": "e3f0dbb634e4c68561338f0087f7a122444e84ec56df102212f1222aa12e4d50",
+    "bytes": 2976491
+  },
+  "makehuman-system/skins/young_asian_female/young_lightskinned_female_diffuse3.png": {
+    "sha256": "1d82f782b7d2da732229633bd2d14754d873fff53cdb1d088977bcf67ae19dde",
+    "bytes": 3884420
+  },
+  "makehuman-system/skins/young_asian_male/young_lightskinned_male_diffuse3.png": {
+    "sha256": "f50016a5507fc687dc8df06599c8ea48de950cd185de33a71cafc1319ddab4d5",
+    "bytes": 3593099
+  },
+  "makehuman-system/skins/young_caucasian_female/young_lightskinned_female_diffuse.png": {
+    "sha256": "b2a6ac8cd4f9febdb447368e29c76cd68410bb66e46d9dcfa2d5f75126eea8fc",
+    "bytes": 4391156
+  },
+  "makehuman-system/skins/young_caucasian_male/young_lightskinned_male_diffuse.png": {
+    "sha256": "862a26e335e958b70534cb5f0d7c47ef30ab148a56c42b3e9da969cf76f12963",
+    "bytes": 3693828
+  },
+  "makehuman-system/skins/young_caucasian_male2/young_lightskinned_male_diffuse2.png": {
+    "sha256": "03efe1f6b0ae52429649dcefc9dcaef6058032f874a251169cc3e2ed473c3874",
+    "bytes": 3595270
+  },
+  "makehuman/3dobjs/base.obj": {
+    "sha256": "8e761e6624b8f54536409135d1636da63b32486a90d4897f84e121d144f6fb4c",
+    "bytes": 1749303
+  },
+  "makehuman/rigs/default.mhskel": {
+    "sha256": "99f179bce0aa850b45d4191a1d0d234c5851f881c057439470ded3bddf729a24",
+    "bytes": 117790
+  },
+  "makehuman/rigs/default_weights.mhw": {
+    "sha256": "0f3641d651ae3d00ad6b4ccee43142edb109d3bd909d27d9e4139ef1beed8625",
+    "bytes": 897521
+  },
+  "makehuman/targets/macrodetails/african-female-young.target": {
+    "sha256": "92d61eeb3c164b421fd5a7c3537ee45e7e1a51de4d49bf312e19c3df2be1d8fc",
+    "bytes": 411735
+  },
+  "makehuman/targets/macrodetails/african-male-young.target": {
+    "sha256": "894abc1fbb3d28543a51fef16f89d5d4bdf9aa2e1534413339811a3d47818b7d",
+    "bytes": 406170
+  },
+  "makehuman/targets/macrodetails/asian-female-young.target": {
+    "sha256": "095fe79694fa19e1fe98d93009ec116199bd524e081c640351a10eccf2cca1eb",
+    "bytes": 435553
+  },
+  "makehuman/targets/macrodetails/asian-male-young.target": {
+    "sha256": "ed2e8c191cb6b87b4a2d97c80486acb2604fa549316c7aa2a738a5d5a14334dc",
+    "bytes": 421040
+  },
+  "makehuman/targets/macrodetails/caucasian-female-young.target": {
+    "sha256": "118379f6e8ba9266247fdb8788a20e1df40a239f97ced0b9905bcbcc74f6e820",
+    "bytes": 420559
+  },
+  "makehuman/targets/macrodetails/caucasian-male-young.target": {
+    "sha256": "70e228ba7164737dae664454394536fc5935fa48d333c1a97d77e2dc6eacc5f5",
+    "bytes": 396479
+  },
+  "makehuman/targets/macrodetails/height/female-young-maxmuscle-averageweight-maxheight.target": {
+    "sha256": "3baacc70187410ebba2b62c56a53775266ab859b7844d47e658d36ee78493621",
+    "bytes": 420920
+  },
+  "makehuman/targets/macrodetails/height/male-young-maxmuscle-averageweight-maxheight.target": {
+    "sha256": "3baacc70187410ebba2b62c56a53775266ab859b7844d47e658d36ee78493621",
+    "bytes": 420920
+  },
+  "makehuman/targets/macrodetails/proportions/female-young-maxmuscle-averageweight-idealproportions.target": {
+    "sha256": "12654c6dd22d81a9595f41f149f1988c141ca22a350d4c2b91fccd8f9b2ce23b",
+    "bytes": 351047
+  },
+  "makehuman/targets/macrodetails/proportions/female-young-maxmuscle-minweight-idealproportions.target": {
+    "sha256": "30330cfaf3d4850c3561567dca3c9dbe08b5c7ddab6163b2565a2964c168fc60",
+    "bytes": 349835
+  },
+  "makehuman/targets/macrodetails/proportions/male-young-maxmuscle-averageweight-idealproportions.target": {
+    "sha256": "d9452857903d18a2100ca26105d5a61083e7064fbe16f035863446728755ec20",
+    "bytes": 164317
+  },
+  "makehuman/targets/macrodetails/proportions/male-young-maxmuscle-minweight-idealproportions.target": {
+    "sha256": "d9452857903d18a2100ca26105d5a61083e7064fbe16f035863446728755ec20",
+    "bytes": 164317
+  },
+  "makehuman/targets/macrodetails/universal-female-young-averagemuscle-minweight.target": {
+    "sha256": "e53a4afc87ac2703460a59e8290b1111478aeee5c02ece6735328c1f8c62eb63",
+    "bytes": 147131
+  },
+  "makehuman/targets/macrodetails/universal-female-young-maxmuscle-averageweight.target": {
+    "sha256": "2e56b09b44a8497b927585447fdaac5ea7293521d1f3a3df1059495873c53f4e",
+    "bytes": 138225
+  },
+  "makehuman/targets/macrodetails/universal-female-young-maxmuscle-minweight.target": {
+    "sha256": "05351f0063429f4e1e484501b73997a6fb129b93939db355d108f98d5479fb10",
+    "bytes": 147219
+  },
+  "makehuman/targets/macrodetails/universal-male-young-averagemuscle-minweight.target": {
+    "sha256": "fac0d53b7051f4d1f06230d0b419e916eb5bae5ce67c031a9998fdde05229755",
+    "bytes": 147071
+  },
+  "makehuman/targets/macrodetails/universal-male-young-maxmuscle-averageweight.target": {
+    "sha256": "c171ff9cc95e96273beb3e3b1969a01988c2d4982ebc6fe04bf81cf72ee3b295",
+    "bytes": 147110
+  },
+  "makehuman/targets/macrodetails/universal-male-young-maxmuscle-minweight.target": {
+    "sha256": "5873f11edc96fde72a79ec35fa1d292a6a1a594b5eadfd82d59faf48834561de",
+    "bytes": 150179
+  },
+  "polyhaven/sunset_jhbcentral_1k.hdr": {
+    "sha256": "39a9c6b391e9bda935501eb5abbe200c38959f054902050ca198d82e9f20b65b",
+    "bytes": 1573705
+  }
+}

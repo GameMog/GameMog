@@ -33,6 +33,13 @@ export default function Terms() {
           published, and are not reviewed by a person.
         </p>
 
+        <h2>Third-party assets</h2>
+        <p>
+          Games can use characters, motion capture and skies from our <a href="/library">asset
+          library</a>. Each one is built from openly licensed sources, listed on that page with its
+          author and licence. You may use them in the worlds you make here.
+        </p>
+
         <h2>Published links are public</h2>
         <p>
           Every published world has a URL that anybody holding it can open. There is no private

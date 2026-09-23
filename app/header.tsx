@@ -53,6 +53,7 @@ export function SiteFooter() {
         <div className="links">
           <Link href="/">Charts</Link>
           <Link href="/create">Create</Link>
+          <Link href="/library">Library</Link>
           <Link href="/terms">Terms</Link>
           <Link href="/privacy">Privacy</Link>
         </div>

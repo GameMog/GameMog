@@ -30,6 +30,7 @@ procedurally.
 
 ```js
 GameMog.world({
+  assets,     // optional: ids from the platform's licensed asset library
   theme,      // colours and font for the HUD and screens
   graphics,   // optional: cinematic rendering (light from the sky, bloom, grading)
   camera,     // optional: how the chase camera frames the world
@@ -48,6 +49,37 @@ GameMog.world({
 `panel` is the HUD boards and cards, `accent` is highlights. `font` is one Google Font family
 name (for example `"Fredoka"`, `"Baloo 2"`, `"Bungee"`, `"Rubik"`). Pick them for this world.
 
+### assets (optional)
+Ids from the platform's asset library: licensed files (CC0 and the CMU motion capture terms),
+checked against their SHA-256 when they load, credited on the site's Library page. List what the
+world uses; it all loads before `build()` runs.
+
+| id | what it is |
+|---|---|
+| `human-athlete-male` | a realistic male athlete: skins `african`, `caucasian`, `caucasian2`, `asian`; hair `short02`, `short04`, `afro01`; motion-captured idle, standing start, run, sprint and fall |
+| `human-athlete-female` | the same for a female athlete: skins `african`, `caucasian`, `asian` |
+| `hdri-sunset-city` | a golden-hour city sky for `graphics.environment.hdri` |
+
+`ctx.assets.human(id, options)` returns `{ object, animate, name, color }`: return it straight
+from `player()` or `rival()`. It idles when standing, plays a standing start when it first moves,
+runs and sprints with its stride matched to its speed, falls when it crashes, and leans into
+bends. Options, all optional:
+
+```js
+ctx.assets.human('human-athlete-male', {
+  skin: 'african', skinTint: '#FFFFFF', hair: 'short04', hairColor: '#1A120C', eyes: 'brown',
+  height: 1.86, build: { muscle: 0.8, lean: 0.4 }, face: 'african',
+  outfit: { top: '#15264F', trim: '#D22B3A', shorts: '#15264F', shoes: '#F4C542',
+            pattern: 'band',                 // plain, band, sash, stripes, split, checker, yoke
+            bib: { name: 'BANKS', number: '28' }, glow: 0 },   // glow lights the trim
+  name: 'Banks (USA)', color: '#15264F',
+})
+```
+
+`outfit.top: null` leaves the chest bare. `ctx.assets.ready(id)` is false if the library could not
+load: always keep a fallback of your own. `ctx.assets.info(id)` lists an asset's skins, hair and
+clips.
+
 ### graphics (optional)
 Turns on the runtime's cinematic renderer. Use it whenever the world should look its best,
 and always for a realistic world. Every value is optional and bounded.
@@ -56,8 +88,10 @@ and always for a realistic world. Every value is optional and bounded.
 graphics: {
   exposure: 1,                                   // 0.3 to 3, filmic tone mapping
   environment: true,                             // light every surface from the world's own sky
-                                                 // (or { intensity: 0 to 4 }, or (ctx) => Object3D
-                                                 // of extra bright shapes, such as floodlight panels)
+                                                 // (or { hdri: 'hdri-sunset-city', intensity, extras },
+                                                 // or (ctx) => Object3D of extra bright shapes, such
+                                                 // as floodlight panels; a library sky's sun is
+                                                 // turned to match your key light)
   bloom: { strength: 0.5, threshold: 1, radius: 0.7 },  // glow on anything brighter than white
   grade: { contrast: 1.04, saturation: 1.05, warmth: 0, vignette: 0.25, grain: 0.015 },
   shadows: { extent: 38, mapSize: 2048 },         // a sharp shadow map that follows the player

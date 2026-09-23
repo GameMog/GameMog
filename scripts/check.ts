@@ -168,6 +168,24 @@ console.log('\nworlds are 3D: the camera is the runtime\'s');
   }
 }
 
+console.log('\nthe asset library: every file licensed, listed and unchanged');
+{
+  const { readFileSync, readdirSync, statSync } = await import('node:fs');
+  const { createHash } = await import('node:crypto');
+  const lib = JSON.parse(readFileSync('public/assets/library.json', 'utf8'));
+  const ALLOWED = new Set(['CC0-1.0', 'LicenseRef-CMU-Mocap']);
+  const dirs = readdirSync('public/assets').filter((d) => statSync(`public/assets/${d}`).isDirectory());
+  ok('every folder in public/assets is a listed asset', dirs.every((d) => lib.assets[d]), dirs.filter((d) => !lib.assets[d]).join(', '));
+  for (const [id, a] of Object.entries<any>(lib.assets)) {
+    const onDisk = readdirSync(`public/assets/${id}`).sort(), listed = Object.keys(a.files).sort();
+    ok(`${id}: the files on disk are exactly the files listed`, JSON.stringify(onDisk) === JSON.stringify(listed), onDisk.filter((f) => !a.files[f]).concat(listed.filter((f) => !onDisk.includes(f))).join(', '));
+    const bad = listed.filter((f) => createHash('sha256').update(readFileSync(`public/assets/${id}/${f}`)).digest('hex') !== a.files[f].sha256);
+    ok(`${id}: every file matches its SHA-256`, bad.length === 0, bad.join(', '));
+    const lic = a.sources.map((s: string) => lib.sources[s]);
+    ok(`${id}: built only from sources under an allowed licence`, lic.length > 0 && lic.every((s: any) => s && ALLOWED.has(s.license) && s.licenseUrl && s.author), a.sources.join(', '));
+  }
+}
+
 runDifficultyChecks(ok);
 runDesignChecks(ok);
 

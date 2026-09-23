@@ -141,10 +141,12 @@
 
   /* ------------------------------------------------------------ world -- */
   GameMog.world({
+    // realistic sprinters and a real sky from the platform's licensed library
+    assets: ['human-athlete-male', 'hdri-sunset-city'],
     theme: { sky: '#E9A877', fog: '#E4B08C', ink: '#0E1A2B', panel: '#FFF6EA', accent: '#F2553A', font: 'Oswald' },
     graphics: {
       exposure: 1.0,
-      environment: envExtras,
+      environment: { hdri: 'hdri-sunset-city', extras: envExtras, intensity: 1 },
       bloom: { strength: 0.55, threshold: 1.2, radius: 0.8 },
       grade: { contrast: 1.07, saturation: 1.06, warmth: 0.28, vignette: 0.34, grain: 0.018 },
       shadows: { extent: 30, mapSize: 2048 },
@@ -152,11 +154,11 @@
     camera: { distance: 6.2, height: 2.6, fov: 55 },
     track: { width: TRACK_W, points: TRACK_POINTS },
     build: build,
-    player: function (ctx) { return athlete(ctx, PLAYER, 0); },
+    player: function (ctx) { return libraryAthlete(ctx, PLAYER, 0) || athlete(ctx, PLAYER, 0); },
     rival: function (ctx, k) {
       var base = RIVALS[(k - 1) % RIVALS.length], round = Math.floor((k - 1) / RIVALS.length);
       var kit = Object.assign({}, base, { build: base.build + round * 0.04 });
-      var r = athlete(ctx, kit, k);
+      var r = libraryAthlete(ctx, kit, k) || athlete(ctx, kit, k);
       if (round) r.name += ' ' + (round + 1);
       return r;
     },
@@ -964,6 +966,33 @@
     { name: 'OKAFOR', code: 'NGR', top: '#57C443', trim: '#FFFFFF', shorts: '#0F6B35', shoe: '#FFFFFF', skin: '#4A2D1C', hair: '#0C0907', style: 'curly', height: 1.91, build: 1.24, pattern: 'sash' },
   ];
   RIVALS.forEach(function (r, i) { r.number = String(1100 + i * 37); r.label = r.name.toLowerCase().replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }) + ' (' + r.code + ')'; });
+
+  // a sprinter from the library: MakeHuman body, motion capture, painted kit
+  var PATTERN = { stars: 'band', band: 'band', sash: 'sash', checker: 'checker', tricolor: 'split', zigzag: 'stripes', plain: 'plain' };
+  function libraryAthlete(ctx, kit, k) {
+    if (!ctx.assets || !ctx.assets.ready('human-athlete-male')) return null;
+    var tone = skinKey(kit.skin);
+    var r = ctx.assets.human('human-athlete-male', {
+      skin: tone.key, skinTint: tone.tint, hair: kit.style === 'bald' ? 'none' : kit.style === 'curly' ? 'afro01' : kit.style === 'bun' ? 'short02' : 'short04',
+      hairColor: kit.hair, eyes: tone.key === 'african' ? 'brown' : 'brownlight', height: kit.height,
+      build: { muscle: clamp(0.55 + (kit.build - 0.96) * 2.5 + Math.min(k, 12) * 0.02, 0, 1), lean: clamp(0.55 - (kit.build - 0.96) * 1.5, 0, 1) },
+      outfit: { top: kit.top, trim: kit.trim, shorts: kit.shorts, shoes: kit.shoe, pattern: PATTERN[kit.pattern] || 'plain', bib: { name: kit.name, number: kit.number }, bibColor: kit.code === 'USA' ? '#F4C542' : '#1C2F5E', glow: k >= 9 ? 2.4 : 0 },
+      name: k === 0 ? PLAYER.label : kit.label, color: kit.top,
+    });
+    if (!r) return null;
+    var inner = r.animate;
+    r.animate = function (t, dt, s) { inner(t, dt, s); if (k === 0 && W.step && s.speed > 3) { W.stepPh = (W.stepPh || 0) + dt * s.speed / 3.1; if (W.stepPh > 1) { W.stepPh -= 1; W.step(); } } };
+    return r;
+  }
+  // the library has four skin textures; a tint covers the tones in between
+  function skinKey(hex) {
+    var n = parseInt(hex.slice(1), 16), l = (((n >> 16) & 255) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11) / 255;
+    if (l < 0.3) return { key: 'african', tint: l < 0.22 ? '#D8D2CE' : '#FFFFFF' };
+    if (l < 0.45) return { key: 'african', tint: '#FFFFFF' };
+    if (l < 0.62) return { key: 'caucasian2', tint: '#C49A7C' };
+    if (hex === '#D6AB84') return { key: 'asian', tint: '#FFFFFF' };
+    return { key: l < 0.7 ? 'caucasian2' : 'caucasian', tint: '#F4E6DC' };
+  }
 
   function kitTexture(ctx, kit, emissive) {
     return ctx.textures.canvas(512, 512, function (g, w, h) {

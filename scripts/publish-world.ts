@@ -35,8 +35,10 @@ console.log(`ready in ${report.readyMs}ms, ${report.fps} fps, reached level ${re
 if (report.advisories.length) console.log('runtime repairs:\n- ' + report.advisories.join('\n- '));
 if (!report.ok) { console.error('playtest failed:\n- ' + report.problems.join('\n- ')); process.exit(1); }
 
-const slug = slugify(meta.title);
-const existing = db.prepare('SELECT id FROM games WHERE slug = ?').get(slug) as { id: string } | undefined;
+// the world's own slug, before slugify() would suffix it to dodge itself
+const base = meta.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'world';
+const existing = db.prepare('SELECT id FROM games WHERE slug = ?').get(base) as { id: string } | undefined;
+const slug = existing ? base : slugify(meta.title);
 if (existing) {
   db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = (SELECT meta FROM drafts WHERE id = ?), cover = ?, format = ? WHERE id = ?')
     .run(meta.title, meta.tagline, meta.blurb, code, draftId, cover ?? null, 'world', existing.id);

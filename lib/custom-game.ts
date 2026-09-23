@@ -65,6 +65,16 @@ export const CUSTOM_CSP = [
 ].join('; ');
 
 /**
+ * A framework world may also read the platform's asset library, and only
+ * that: its runtime fetches /assets/ on this site (licensed, hash-checked
+ * files). Everything else stays shut. World code itself still cannot call
+ * fetch; the static check refuses it.
+ */
+export function worldCsp(origin: string) {
+  return CUSTOM_CSP.replace("connect-src 'none'", `connect-src ${origin}/assets/`);
+}
+
+/**
  * The host side of the contract, injected before the game's own code.
  *
  * GameMog.ready() once the first frame is on screen; GameMog.finish(result)

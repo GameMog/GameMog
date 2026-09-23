@@ -21,6 +21,7 @@ than by a model.
 npm run check            # regression guard; the featured game is the canary
 npm run check:runtime    # the framework's rules, asserted in real Chrome (needs the dev server)
 npm run publish:world -- la-olympics-2028   # a first-party world from worlds/, through the same gate
+npm run assets:fetch && npm run assets:build # rebuild the licensed asset library from its pinned sources
 ```
 
 ---
@@ -78,13 +79,28 @@ before they can bloom; and `ctx.quality` tells a world to build lighter on phone
 without `graphics` render exactly as before. A tall screen widens the vertical field of view so
 the track never shrinks to a sliver.
 
+**The asset library** (`public/assets`, browsable at `/library`) gives worlds realistic people and
+real skies. `npm run assets:fetch` downloads the pinned, licensed sources in
+`assets-src/sources.json` (MakeHuman's CC0 body, skins, hair and eyes; CMU motion capture; a
+Poly Haven CC0 sky), locking each file's SHA-256 in `sources.lock.json`, so a source that changes
+upstream stops the build. `npm run assets:build` turns them into compact assets: MakeHuman's base
+mesh shaped into athletes with five runtime morphs, its 163-bone rig reduced to 66, proxies
+fitted and skinned, a kit layer with position and normal maps so the runtime can paint any kit
+and bib in body space, and CMU captures retargeted by bone direction into a run, a sprint, an
+idle, a standing start and a fall. `library.json` lists every file's hash and every asset's
+licences. A world names ids in `assets`; the runtime fetches them from `/assets/` (the only
+network a world's CSP allows), refuses any file whose hash does not match, and hands
+`ctx.assets.human(...)` to the world. `npm run check` fails on any file without a licensed
+source, and `check:runtime` boots a library athlete in Chrome and a missing id that must fall back.
+
 **First-party worlds** live in `worlds/` as a module and its metadata, and publish with
 `npm run publish:world -- <name>` through the same static check and Chrome playtest as a
 generated world; publishing again updates the game in place. *LA Olympics 2028*
 (`worlds/la-olympics-2028.js`) is the showcase: a standard 400m track (84.39m straights, 36.5m
 kerb, nine lanes, the 400m stagger), a two-tier bowl of about 48,000 instanced fans who do the
-wave, a colonnade with the cauldron burning at the open end, and skinned, muscled sprinters in
-national kits running a keyframed sprint cycle.
+wave, a colonnade with the cauldron burning at the open end, and library athletes in national
+kits running on motion capture, lit by a real sunset sky; its own procedural sprinters remain as
+the fallback.
 
 ### Earlier formats, still playable
 

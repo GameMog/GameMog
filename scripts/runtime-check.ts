@@ -122,6 +122,40 @@ try {
       await sleep(2600); await page.key('Enter'); await sleep(3500);
     }
   }, { timeoutMs: 300_000 });
+
+  // the asset library, through the same runtime: a realistic athlete as the
+  // player, a library sky for the light, and a missing id that must fall back
+  console.log('\nthe asset library');
+  const ref = readFileSync(new URL('../lib/runtime/reference-world.js', import.meta.url), 'utf8');
+  const withLibrary = (ids: string[]) => ref
+    .replace('GameMog.world({', `GameMog.world({\n  assets: ${JSON.stringify(ids)},\n  graphics: { environment: { hdri: 'hdri-sunset-city' } },`)
+    .replace("return critter(ctx, '#F2E3C4', 'Pip');", "return ctx.assets.human('human-athlete-female', { skin: 'african', hair: 'afro01', outfit: { top: '#1F9D55', trim: '#F9D71C', shorts: '#111111', shoes: '#F9D71C', pattern: 'sash', bib: { name: 'TEST', number: '7' } } }) || critter(ctx, '#F2E3C4', 'Pip');");
+  for (const [label, ids, expectHuman] of [['library athlete and sky', ['human-athlete-female', 'hdri-sunset-city'], true], ['an id that is not in the library', ['no-such-asset'], false]] as const) {
+    const lid = randomUUID();
+    insertDraft({ id: lid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: withLibrary([...ids]), meta: { title: 'Library Loop', tagline: 'Library check', blurb: 'Runtime check.', genre: 'Test', cast: [{ name: 'Test', color: '#1F9D55' }], palette: { sky: '#9CCBEB', ground: '#7DB356', accent: '#F28C28' }, runtime: 1 } });
+    try {
+      await withBrowser(async (page) => {
+        await page.goto(`${BASE}/d/${lid}/play`);
+        let ready = false;
+        for (let i = 0; i < 150 && !ready; i++) { ready = await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false); if (!ready) await sleep(200); }
+        const errs = await page.eval<string[]>('window.__gm.errors').catch(() => ['no page']);
+        const warns = await page.eval<string[]>('window.__gm.warnings').catch(() => []);
+        const s0 = await page.eval<{ assets: string[]; playerSkinned: boolean }>('window.__gmRuntime.state()');
+        if (expectHuman) {
+          ok(`${label}: boots, hash-checks and builds`, ready && errs.length === 0, errs.join(' | '));
+          ok(`${label}: both assets are loaded`, s0.assets.length === 2, s0.assets.join(', '));
+          ok(`${label}: the player is the skinned library athlete`, s0.playerSkinned);
+          await page.eval('window.__gmRuntime.debug.start()'); await sleep(4500);
+          await page.eval('window.__gmRuntime.debug.crashInto()'); await sleep(2600);
+          const e2 = await page.eval<string[]>('window.__gm.errors');
+          ok(`${label}: runs, sprints and falls without an error`, e2.length === 0, e2.join(' | '));
+        } else {
+          ok(`${label}: the world still boots`, ready && errs.length === 0, errs.join(' | '));
+          ok(`${label}: it is reported, and the world's own fallback is used`, warns.some((w) => /not in the library/.test(w)) && !s0.playerSkinned, warns.join(' | '));
+        }
+      }, { timeoutMs: 90_000 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(lid); }
+  }
 } finally {
   db.prepare('DELETE FROM drafts WHERE id = ?').run(id);
 }
