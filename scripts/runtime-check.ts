@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { withBrowser } from '../lib/browser.ts';
 import { insertDraft, db } from '../lib/db.ts';
+import { meFragment, sanitizeMe } from '../lib/me.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3939';
 let failures = 0;
@@ -164,6 +165,36 @@ try {
       }, { timeoutMs: 90_000 });
     } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(lid); }
   }
+
+  // "You are the main character" (docs/PRODUCT.md): the player's own
+  // character, passed in the frame's URL fragment, replaces the world's
+  // player() in any world, and can change mid-run
+  console.log('\nyou are the main character');
+  const you = sanitizeMe({ name: 'Check', body: 'a', tone: '#7E4E33', hair: 'short02', build: 'athletic', kit: { top: '#0B6E4F', trim: '#F4C542', pattern: 'band', number: '23' } });
+  await withBrowser(async (page) => {
+    type Me = { me: boolean; playerSkinned: boolean; assets: string[]; state: string; level: number; alive: boolean };
+    const boot = async (url: string) => {
+      await page.goto(url);
+      for (let i = 0; i < 150; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__gmRuntime)').catch(() => false)) break; await sleep(200); }
+      return page.eval<Me>('window.__gmRuntime.state()');
+    };
+    const plain = await boot(`${BASE}/d/${id}/play`);
+    ok('without a character, the world\'s own hero plays', !plain.me && !plain.playerSkinned);
+    // a new document, not a fragment change on the same one (which does not reload)
+    const s1 = await boot(`${BASE}/d/${id}/play?you=1${meFragment(you)}`);
+    ok('with one, you play: a library human in the world\'s place', s1.me && s1.playerSkinned, `me=${s1.me} skinned=${s1.playerSkinned}`);
+    ok('your body is loaded even though the world never asked for it', s1.assets.includes('human-athlete-male'), s1.assets.join(', '));
+    await page.eval(`window.postMessage({ source: 'gamemog-host', type: 'me', me: ${JSON.stringify({ ...you, body: 'b', hair: 'afro01' })} }, '*')`);
+    await sleep(2500);
+    const s2 = await page.eval<Me>('window.__gmRuntime.state()');
+    ok('a new look from the page rebuilds you in place', s2.me && s2.playerSkinned && s2.assets.includes('human-athlete-female'), s2.assets.join(', '));
+    await page.eval('window.__gmRuntime.debug.start()'); await sleep(3800);
+    await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true); window.__gmRuntime.debug.timeScale(6)');
+    let s3 = s2;
+    for (let i = 0; i < 40; i++) { await sleep(400); s3 = await page.eval<Me>('window.__gmRuntime.state()'); if (s3.level >= 3) break; }
+    const errs = await page.eval<string[]>('window.__gm.errors');
+    ok('and the race runs with you in it, by the same rules', s3.state === 'race' && s3.level >= 3 && errs.length === 0, `level ${s3.level}${errs.length ? ', ' + errs.join(' | ') : ''}`);
+  }, { timeoutMs: 120_000 });
 } finally {
   db.prepare('DELETE FROM drafts WHERE id = ?').run(id);
 }

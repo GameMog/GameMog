@@ -27,7 +27,7 @@ for (const { slug } of rows) {
   console.log(`key art: ${slug}`);
   await withBrowser(async (page) => {
     await page.emulate({ width: 1280, height: 720 });
-    await page.goto(`${BASE}/g/${slug}/play`);
+    await page.goto(`${BASE}/g/${slug}/play?preview=1`);
     for (let i = 0; i < 100 && !(await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__gmRuntime)').catch(() => false)); i++) await sleep(200);
     if (!(await page.eval<boolean>('!!window.__gmRuntime').catch(() => false))) throw new Error(`${slug} did not start its Runtime.`);
     await page.eval('window.__gmRuntime.debug.start()');

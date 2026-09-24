@@ -6,6 +6,7 @@ import { Tile } from '../../tile';
 import { topScores, listGames, bestTimes, voteCounts, playerStats, type GameRow } from '@/lib/db';
 import type { GameMeta } from '@/lib/custom-game';
 import { PlayFrame } from './play-frame';
+import { YouLine } from './you-line';
 import { GameActions } from './actions';
 import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
@@ -57,7 +58,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
       <main className="gpage">
         <div className="gtop">
           <MediaCarousel slides={[
-            { label: 'Play', content: <PlayFrame slug={game.slug} gameId={game.id}
+            { label: 'Play', content: <PlayFrame slug={game.slug} gameId={game.id} you={game.format === 'world'}
               // eslint-disable-next-line @next/next/no-img-element
               poster={<img src={`/g/${game.slug}/cover`} alt="" />} /> },
             ...(hasFilm ? [{ label: 'Gameplay film', content: <video src={`${filmBase}.mp4`} poster={`${filmBase}.jpg`} controls muted loop playsInline /> }] : []),
@@ -69,6 +70,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
               <p className="by">By <b>a GameMog creator</b></p>
               <p className="maturity">{world ? 'Endless laps · GameMog Runtime' : 'Written by Claude Opus 5.5'}</p>
               <Lineage game={game} />
+              {world && <YouLine slug={game.slug} />}
             </div>
             <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />
           </aside>

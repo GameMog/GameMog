@@ -49,7 +49,7 @@ async function pull(page: Page, expr: string): Promise<Buffer> {
 for (const cut of only) {
   const c = CUTS[cut];
   await withBrowser(async (page) => {
-    await page.goto(`${BASE}/g/${slug}/play`);
+    await page.goto(`${BASE}/g/${slug}/play?preview=1`);
     for (let i = 0; i < 100 && !(await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__gmRuntime)').catch(() => false)); i++) await sleep(200);
     const mime = await page.eval<string>(`['video/mp4;codecs=avc1.640028', 'video/mp4;codecs=avc1.4d0028', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) || ''`);
     if (!mime) throw new Error('This Chrome cannot record MP4.');

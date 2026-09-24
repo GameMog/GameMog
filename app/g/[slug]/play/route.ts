@@ -13,7 +13,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   const game = getGameBySlug(slug);
   if (!game) return new Response('Not found', { status: 404 });
 
-  bumpPlays(game.id);
+  // a play is someone opening the game to play it; the character preview on
+  // /me, films and key art load it with ?preview=1 and are not plays
+  if (new URL(req.url).searchParams.get('preview') !== '1') bumpPlays(game.id);
   const custom = (game.format === 'custom' || game.format === 'world') && game.code;
   const meta = JSON.parse(game.meta ?? '{}');
   const html = !custom

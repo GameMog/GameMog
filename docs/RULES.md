@@ -33,6 +33,16 @@ AI generates, humans select, winners reproduce. Platform first; movement second.
 | "humans select" | On a Mog's page, a **Mog-off** asks: this Mog or the one it challenged? A pick counts only if that browser has finished a run in **both** games. One pick per browser per Mog-off; it can be changed. | `check:platform` counted / uncounted picks |
 | "winners reproduce" (selection signal, v1) | Each family is ranked by Elo over its counted Mog-off picks (K = 32, from 1000), then by distinct players. The leader is marked on its page. (Featuring winners is step 5, not built.) | `check:platform` Elo |
 
+## 3. You
+
+| Owner's words | Interpretation in code | Tested by |
+|---|---|---|
+| "You are the main character" / "Put yourself in the game" | When the page passes the player's character (the frame's URL fragment, which never reaches a server), it replaces `player()` in every GameMog Runtime world, and a new look can arrive mid-run. The world's own `player()` still runs and plays when there is no character. | `check:runtime` "you are the main character" |
+| "every answer is you" | One character everywhere: a realistic library human with your skin tone, hair, eyes, build, kit, name and number. Classic races cannot hold it. | same |
+| A resemblance from a selfie, never a copy (decision, 23 Sep) | One selfie is read by Claude for visible appearance only (skin colour, hair, eyes, build). It is never asked to identify anyone or infer ethnicity or gender. The photo is never stored. | `check:platform` "the selfie route cannot store a photo" |
+| 13 and over (decision, 23 Sep) | The selfie is refused without the 13-or-older confirmation, and refused if the photo is clearly of a young child. | `check:platform` "a selfie needs the 13-or-older confirmation" |
+| Honest numbers | A preview of a world (the /me start line, films, key art) is not a play; opening the game to play it is. | `check:platform` "a preview … is not a play" |
+
 ### Known limits of v1
 
 - **Players are browsers, not verified humans.** Without accounts, a "player" is an id the browser

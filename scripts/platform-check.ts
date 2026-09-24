@@ -89,6 +89,21 @@ try {
   ok('distinct players are counted from finished runs', fam.find((f) => f.id === mog.id)!.players === 3);
   const leader = await page(`/g/${mog.slug}`);
   ok('the leader says so on its page', leader.html.includes('Leads its family'));
+
+  console.log('\nYou are the main character');
+  const playsOf = (id: string) => (db.prepare('SELECT plays FROM games WHERE id = ?').get(id) as { plays: number }).plays;
+  const before = playsOf(original.id);
+  await fetch(`${BASE}/g/${original.slug}/play?preview=1`);
+  ok('a preview of a world (the /me start line, films, key art) is not a play', playsOf(original.id) === before);
+  await fetch(`${BASE}/g/${original.slug}/play`);
+  ok('opening the game to play it is', playsOf(original.id) === before + 1);
+  const me = await page('/me');
+  ok('the character page opens on the line', me.status === 200 && me.html.includes('You are the main character'));
+  const selfie = (body: unknown) => post('/api/me/selfie', body);
+  ok('a selfie needs the 13-or-older confirmation', (await selfie({ image: 'data:image/jpeg;base64,AAAA' })).status === 403);
+  ok('and has to be a photo', (await selfie({ image: 'not a photo', age13: true })).status === 400);
+  const route = readFileSync(new URL('../app/api/me/selfie/route.ts', import.meta.url), 'utf8');
+  ok('the selfie route cannot store a photo: it touches no database and no file system', !/lib\/db|node:fs|from 'fs'|writeFile|localStorage/.test(route));
 } finally {
   for (const id of made.reverse()) {
     db.prepare('DELETE FROM mog_picks WHERE child_id = ? OR parent_id = ?').run(id, id);

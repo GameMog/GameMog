@@ -357,3 +357,27 @@ table.bd td:nth-child(2){font-weight:500}
   .ginfo{padding:16px 0 0;min-height:0}
   .gstats{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);row-gap:14px}
 }
+
+/* ------------------------------------------------------------------- you -- */
+/* "You are the main character": the selfie, and your runner on the line. */
+.you-start{max-width:640px;margin:0 auto;padding:56px 0 24px}
+.you-h1{font-size:48px;line-height:52px;font-weight:800;margin-top:6px}
+.you-lede{font-size:18px;line-height:26px;color:var(--ink-2);margin-top:12px;max-width:520px}
+.you-age{display:flex;align-items:center;gap:8px;margin-top:22px;font-size:16px;font-weight:500}
+.you-age input{width:18px;height:18px}
+.you-look{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start;padding-top:20px}
+.you-studio{position:relative}
+.you-wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:var(--r);background:#0E1014;color:#C9CDD8;font-size:14px;font-weight:600}
+.you-h2{font-size:28px;line-height:34px;font-weight:800;margin-bottom:6px}
+.you-row{margin-top:14px}
+.you-swatches{display:flex;flex-wrap:wrap;gap:8px}
+.you-sw{width:32px;height:32px;border-radius:8px;border:2px solid var(--line)}
+.you-sw[aria-pressed="true"]{border-color:var(--ink);outline:2px solid var(--page);outline-offset:-4px}
+.you-kit{display:flex;width:44px;height:32px;border-radius:8px;overflow:hidden;border:2px solid var(--line);padding:0}
+.you-kit i{flex:1}
+.you-kit[aria-pressed="true"]{border-color:var(--ink)}
+@media(max-width:899px){
+  .you-look{grid-template-columns:minmax(0,1fr)}
+  .you-h1{font-size:36px;line-height:40px}
+  .you-start{padding-top:28px}
+}

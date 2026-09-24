@@ -17,6 +17,11 @@ creativity: it decides what the world is, who lives in it, and how it looks, mov
   racing gains on you and hunts harder, and moving obstacles speed up. The first rival starts
   slower than you; later ones catch you from behind.
 - **Death.** The only way to die is to touch a rival or an obstacle. One touch ends the run.
+- **You.** The player is the person playing. Once they have made their character (a realistic
+  human athlete from the library, about 1.7 to 1.8 m tall, in their own kit with their name on
+  the bib), it replaces `player()`. Build every world for a human runner: its scale, its
+  clearances and a track a person could run on. Still write `player()`, which plays when there
+  is no character, and never depend on the player's shape.
 - **GM.** Golden GM coins are laid along the track and re-laid every lap. They are the
   platform's currency and look the same in every world. Do not make coins.
 - **Controls.** The player moves forward on their own. Arrow keys (or WASD): left and right
@@ -79,7 +84,8 @@ ctx.assets.human('human-athlete-male', {
 })
 ```
 
-`outfit.top: null` leaves the chest bare. `ctx.assets.ready(id)` is false if the library could not
+`tone: '#RRGGBB'` in place of `skin` and `skinTint` picks the nearest skin texture and tints it
+to that colour. `outfit.top: null` leaves the chest bare. `ctx.assets.ready(id)` is false if the library could not
 load: always keep a fallback of your own. `ctx.assets.info(id)` lists an asset's skins, hair and
 clips.
 

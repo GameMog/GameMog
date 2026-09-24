@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { playerId } from '../../anon';
+import { useMe } from '../../me-store';
+import { meFragment } from '@/lib/me';
 
 type Result = {
   place: number; timeMs: number; finished: boolean; score: number; won: boolean; level: number; gm: number; assisted: boolean;
@@ -17,18 +19,36 @@ type Result = {
  *
  * A result posted from a frame is a claim, not a fact. It is stored as one.
  */
-export function PlayFrame({ slug, gameId, poster, src = `/g/${slug}/play`, scores = true }: {
+export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`, scores = true, you = false }: {
   slug: string; gameId: string; poster: React.ReactNode; src?: string;
   /** Off for drafts: a run in a preview has no leaderboard to post to. */
   scores?: boolean;
+  /**
+   * A world on the GameMog Runtime, where the player is you (docs/PRODUCT.md).
+   * The frame then waits for this browser's character before it loads, so the
+   * world is built with you in it, and hears about any change after.
+   */
+  you?: boolean;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
+  const me = useMe();
+  // the character rides in the URL fragment, which never reaches the server;
+  // it is fixed when the frame first loads, and changes after go by message
+  const [src, setSrc] = useState<string | null>(you ? null : base);
+  useEffect(() => { if (you && me !== undefined && src === null) setSrc(base + (me ? meFragment(me) : '')); }, [you, me, base, src]);
   const [result, setResult] = useState<Result | null>(null);
   const [name, setName] = useState('');
   const [saved, setSaved] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [live, setLive] = useState(false);
   const [stalled, setStalled] = useState(false);
+  // the leaderboard asks for your name; your character already has one
+  useEffect(() => { if (me) setName((n) => n || me.name); }, [me]);
+  // a change of look while playing: the runtime rebuilds you in place
+  useEffect(() => {
+    if (you && me && live) ref.current?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'me', me }, '*');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me]);
 
   // Ask the game whether it is running, until it says so. Waiting to be told
   // does not work: the game can finish booting before this page's script has
@@ -102,19 +122,19 @@ export function PlayFrame({ slug, gameId, poster, src = `/g/${slug}/play`, score
           the way Roblox shows a thumbnail before its video. A grey box here
           was the first thing every game page showed. */}
       <div id="play" className="gframe">
-        <iframe
+        {src !== null && <iframe
           ref={ref}
           src={src}
           sandbox="allow-scripts"
           allow="autoplay; fullscreen"
           title={`${slug}, game`}
           onLoad={() => setLoaded(true)}
-        />
+        />}
         <div className="poster" data-hide={live ? '1' : '0'} aria-hidden>{poster}</div>
         {!live && stalled && (
           <p className="stall" role="status">
             {loaded ? 'The game has not started yet.' : 'The game has not loaded in this frame.'}{' '}
-            <a href={src} target="_blank" rel="noreferrer">Open it in its own tab</a>.
+            <a href={src ?? base} target="_blank" rel="noreferrer">Open it in its own tab</a>.
           </p>
         )}
       </div>

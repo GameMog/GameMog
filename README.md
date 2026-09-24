@@ -30,6 +30,17 @@ npm run media:hero -- la-olympics-2028        # re-film the homepage hero from t
 
 ---
 
+## You
+
+The direction is "You are the main character" ([docs/PRODUCT.md](docs/PRODUCT.md)). At `/me` a
+selfie becomes your runner: Claude reads only what it can see (skin colour, hair, eyes, build),
+never identifies anyone, and the photo is never stored. You see yourself standing on the LA
+Olympics start line, change anything in a tap, and from then on every GameMog Runtime world puts
+you in the lead. Your character rides into each game frame in the URL fragment, which never
+reaches the server, and a new look can arrive mid-run. It lives in this browser until accounts
+arrive. The runtime side is tested by `check:runtime` ("you are the main character"), the rest by
+`check:platform`.
+
 ## Mog
 
 Every game page has a **Mog** button. It opens `/mog/<slug>`, where a challenger says in a line

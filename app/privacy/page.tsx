@@ -31,6 +31,17 @@ export default function Privacy() {
           kept after the world is built.
         </p>
 
+        <h2>Your selfie</h2>
+        <p>
+          If you take a selfie to make your character, it is shrunk in your browser and sent once to
+          the Anthropic API, which reports what it can see as a few settings: your skin colour, hair,
+          eye colour and build. It is not asked to identify you or to infer anything else about you.
+          GameMog never stores the photo: not in our database, not on disk and not in our logs.
+          Anthropic&apos;s own privacy policy covers how its API handles what it receives. Your
+          character, meaning those settings and the name and number you choose, is kept in your own
+          browser. GameMog is for people 13 and over.
+        </p>
+
         <h2>Your browser</h2>
         <p>
           The name you last used on a leaderboard, the worlds you have favorited, and the random
