@@ -1,0 +1,16 @@
+{
+  "title": "Tideline",
+  "tagline": "Laps of a tropical bay, and the surf never stops.",
+  "blurb": "Late sun over a palm-lined bay. The beach leg runs the firm sand where every wave washes up beside you; the back leg crosses the lagoon on a long boardwalk and winds through the palms. Every lap another beach sprinter joins, faster and hungrier than the last, so dodge the driftwood, the sandcastles and the rolling balls and grab the golden GM.",
+  "genre": "Beach sprint",
+  "cast": [
+    { "name": "Kahale (USA)", "color": "#0F3D6E", "role": "player" },
+    { "name": "Duarte (BRA)", "color": "#FFD83A", "role": "rival" },
+    { "name": "Walsh (AUS)", "color": "#1E7F4F", "role": "rival" },
+    { "name": "Tui (NZL)", "color": "#161616", "role": "rival" },
+    { "name": "Marin (ESP)", "color": "#D7263D", "role": "rival" },
+    { "name": "Okoro (NGR)", "color": "#0F8A4B", "role": "rival" },
+    { "name": "Nakamura (JPN)", "color": "#F4F4F4", "role": "rival" }
+  ],
+  "palette": { "sky": "#8EC5E8", "ground": "#E3C79A", "accent": "#FF6B3D" }
+}

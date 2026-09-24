@@ -149,7 +149,13 @@ generated world; publishing again updates the game in place. *LA Olympics 2028*
 kerb, nine lanes, the 400m stagger), a two-tier bowl of about 48,000 instanced fans who do the
 wave, a colonnade with the cauldron burning at the open end, and library athletes in national
 kits running on motion capture, lit by a real sunset sky; its own procedural sprinters remain as
-the fallback.
+the fallback. *Tideline* (`worlds/tideline.js`) is endless laps of a tropical bay: the beach leg
+runs just above the swash, the back leg crosses a lagoon on a boardwalk and winds through the
+palms, and the rivals are men and women beach sprinters from the library. Its look is ported
+from Dan Greenheck's [Tidewater](https://github.com/dgreenheck/tidewater) (MIT; the notice is in
+the world's header), which runs on a WebGPU engine of its own, to three.js: the ridge-skeleton
+hills and sea stacks, shore waves that break and run up the sand as a swash sheet leaving it wet
+behind them, and the coconut palm's crown. Only techniques came across, none of Tidewater's assets.
 
 ### Earlier formats, still playable
 

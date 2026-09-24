@@ -159,7 +159,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ g
   const seen = new Set<string>();
   const rails = candidates.filter((rail) => {
     if (rail.games.length < least) return false;
-    const signature = rail.games.map((g) => g.id).sort().join(',');
+    // a rail repeats another only if it shows the same cards in the same
+    // order; the same few worlds in a different order is a different chart
+    const signature = rail.games.slice(0, 4).map((g) => g.id).join(',');
     if (seen.has(signature)) return false;
     seen.add(signature); return true;
   });

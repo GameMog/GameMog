@@ -20,7 +20,7 @@ const NAV = [
 ];
 
 /** The featured world the promo strip points at (the homepage's billboard). */
-const PROMO = { href: '/g/la-olympics-2028', title: 'LA Olympics 2028', line: 'The 400 metres final that never ends.' };
+const PROMO = { href: '/g/tideline', title: 'Tideline', line: 'Laps of a tropical bay, and the surf never stops.' };
 
 export function SiteHeader({ on = '' }: { on?: string }) {
   return (
