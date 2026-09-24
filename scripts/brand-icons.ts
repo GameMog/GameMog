@@ -1,36 +1,22 @@
 /**
- * Build the site's icons from the one mark in lib/brand.ts.
+ * Build the site's icons from the one description in lib/brand.ts.
  *
  *   npm run brand:icons
  *
- * Writes, where Next.js serves them from without any wiring:
- *   app/icon.svg        the tab icon for browsers that take SVG (sharp at any size)
- *   app/favicon.ico     16, 32 and 48 pixel PNGs, for everything else
+ * Writes, where Next.js serves and links them without any wiring:
+ *   app/favicon.ico     16, 32 and 48 pixel PNGs, for the browser tab
  *   app/apple-icon.png  180 pixels, square corners (the iPhone rounds them itself)
  *
- * Chrome rasterises the SVG, so the PNGs match what the header draws.
+ * Chrome draws the letter with the same self-hosted font the logo uses, so the
+ * icon and the logo cannot drift apart.
  */
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withBrowser } from '../lib/browser.ts';
-import { markSvg } from '../lib/brand.ts';
+import { ICON } from '../lib/brand.ts';
 
-const APP = join(new URL('..', import.meta.url).pathname, 'app');
-
-/** One PNG of `svg` at `size` pixels, transparent outside the tile. */
-function rasterise(page: { eval<T>(expr: string): Promise<T> }, svg: string, size: number) {
-  return page.eval<string>(`new Promise((done, fail) => {
-    const img = new Image(${size}, ${size});
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = c.height = ${size};
-      c.getContext('2d').drawImage(img, 0, 0, ${size}, ${size});
-      done(c.toDataURL('image/png').split(',')[1]);
-    };
-    img.onerror = () => fail(new Error('the mark did not load'));
-    img.src = 'data:image/svg+xml;base64,' + ${JSON.stringify(Buffer.from(svg).toString('base64'))};
-  })`).then((b64) => Buffer.from(b64, 'base64'));
-}
+const ROOT = new URL('..', import.meta.url).pathname;
+const APP = join(ROOT, 'app');
 
 /** An .ico holding PNG images, which every browser since 2010 reads. */
 function ico(images: { size: number; png: Buffer }[]) {
@@ -55,12 +41,36 @@ function ico(images: { size: number; png: Buffer }[]) {
 }
 
 await withBrowser(async (page) => {
-  const tile = markSvg();
-  writeFileSync(join(APP, 'icon.svg'), tile + '\n');
+  const font = readFileSync(join(ROOT, ICON.font)).toString('base64');
+  await page.eval(`(async () => {
+    const face = new FontFace('Display', 'url(data:font/woff2;base64,${font})', { weight: '200 900' });
+    document.fonts.add(await face.load());
+  })()`);
+
+  /** One PNG at `size` pixels: the tile, and the letter centred on its ink. */
+  const draw = (size: number, bleed = false) => page.eval<string>(`(() => {
+    const size = ${size}, c = document.createElement('canvas');
+    c.width = c.height = size;
+    const x = c.getContext('2d');
+    x.fillStyle = ${JSON.stringify(ICON.tile)};
+    x.beginPath(); x.roundRect(0, 0, size, size, ${bleed ? 0 : `size * ${ICON.radius}`}); x.fill();
+    const letter = ${JSON.stringify(ICON.letter)}, weight = ${ICON.weight};
+    x.font = weight + ' 100px Display';
+    let m = x.measureText(letter);
+    const per100 = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+    x.font = weight + ' ' + (100 * size * ${ICON.height} / per100) + 'px Display';
+    m = x.measureText(letter);
+    x.fillStyle = ${JSON.stringify(ICON.ink)};
+    x.fillText(letter,
+      size / 2 - (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2,
+      size / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
+    return c.toDataURL('image/png').split(',')[1];
+  })()`).then((b64) => Buffer.from(b64, 'base64'));
+
   const sizes = [16, 32, 48];
   const pngs = [];
-  for (const size of sizes) pngs.push({ size, png: await rasterise(page, tile, size) });
+  for (const size of sizes) pngs.push({ size, png: await draw(size) });
   writeFileSync(join(APP, 'favicon.ico'), ico(pngs));
-  writeFileSync(join(APP, 'apple-icon.png'), await rasterise(page, markSvg({ bleed: true }), 180));
-  console.log(`wrote app/icon.svg, app/favicon.ico (${sizes.join(', ')}) and app/apple-icon.png (180)`);
+  writeFileSync(join(APP, 'apple-icon.png'), await draw(180, true));
+  console.log(`wrote app/favicon.ico (${sizes.join(', ')}) and app/apple-icon.png (180)`);
 });

@@ -60,7 +60,7 @@ export function SiteFooter() {
     <footer className="ftr">
       <div className="wrap fcols">
         <div className="fbrand">
-          <Wordmark size={30} />
+          <Wordmark />
           <p>The internet, playable. Every world on the GameMog Runtime is playtested in a real browser before it publishes.</p>
         </div>
         <div>

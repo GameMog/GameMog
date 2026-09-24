@@ -11,7 +11,6 @@
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { markSvg } from '../lib/brand.ts';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const APP = join(ROOT, 'app');
@@ -113,11 +112,13 @@ export function runDesignChecks(ok: Ok) {
 
   console.log('\ndesign contract: things that must be present');
   const footer = readFileSync(join(APP, 'header.tsx'), 'utf8');
-  // one mark everywhere: a tab icon that is not the header's logo is a second brand
-  ok('the tab and home-screen icons are built from the mark (npm run brand:icons)',
-    ['favicon.ico', 'apple-icon.png'].every((f) => existsSync(join(APP, f)))
-    && existsSync(join(APP, 'icon.svg')) && readFileSync(join(APP, 'icon.svg'), 'utf8').trim() === markSvg()
-    && /<Wordmark/.test(footer) && /\.wordmark \.mark\{/.test(css));
+  // the logo is the name alone (the owner, 24 Sep: no crown); the tab and
+  // home-screen icons are its first letter, drawn from lib/brand.ts
+  const icon = existsSync(join(APP, 'favicon.ico')) ? readFileSync(join(APP, 'favicon.ico')) : Buffer.alloc(0);
+  ok('the tab and home-screen icons exist (npm run brand:icons)',
+    icon.readUInt32LE(0) === 0x00010000 && icon.readUInt16LE(4) >= 2 && existsSync(join(APP, 'apple-icon.png')));
+  ok('the logo is the name alone, with no picture mark',
+    /<Wordmark \/>/.test(footer) && /<b>GameMog<\/b>/.test(readFileSync(join(APP, 'logo.tsx'), 'utf8')) && !/<svg/.test(readFileSync(join(APP, 'logo.tsx'), 'utf8')));
   ok('terms page exists and is linked', hits([join(APP, 'terms/page.tsx')], /Terms of Service/).length > 0 && /href="\/terms"/.test(footer));
   ok('privacy page exists and is linked', hits([join(APP, 'privacy/page.tsx')], /Privacy Policy/).length > 0 && /href="\/privacy"/.test(footer));
   ok('skeleton loaders exist where content is pending',

@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import '@fontsource-variable/figtree';
-import '@fontsource-variable/hubot-sans/standard.css';
+import '@fontsource-variable/hubot-sans';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'GameMog: play and create worlds',
+  title: 'GameMog',
   description:
     'Bring a character, describe a world, publish a playable link. Millions of small games on one engine.',
 };
