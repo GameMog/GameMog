@@ -75,8 +75,7 @@ export function runDesignChecks(ok: Ok) {
   // a shadow may come only from the three elevation tokens, never ad hoc
   none('shadows only from the elevation tokens', hits(files, /box-shadow\s*:\s*(?!none|var\(--elev(?:-hover|-hair)?\))/i, { code: true }));
   ok('the elevation tokens are GameStop\'s soft card shadows', /--elev:0 1px 6px rgba\(0,0,0,\.15\)/.test(css) && /--elev-hover:0 6px 18px rgba\(0,0,0,\.16\)/.test(css));
-  // one exception, the owner's: the desktop hero copies roblox.com, whose film darkens toward the bottom under its copy
-  none('no gradients in chrome, except the hero film\'s scrim', hits(files, /^(?!\s*\.billboard \.scrim\{).*(linear|radial|conic)-gradient\s*\(/i, { code: true, exempt: ['app/cover.tsx'] }));
+  none('no gradients in chrome', hits(files, /(linear|radial|conic)-gradient\s*\(/i, { code: true, exempt: ['app/cover.tsx'] }));
   none('no frosted glass', hits(files, /backdrop-filter/i, { code: true }));
   none('no transitions or animations', hits(files, /\b(transition|animation)\s*:|@keyframes/i, { code: true }));
   none('no dot-grid or orb backgrounds', hits(files, /repeating-(linear|radial)-gradient|radial-gradient\(circle/i, { code: true, exempt: ['app/cover.tsx'] }));

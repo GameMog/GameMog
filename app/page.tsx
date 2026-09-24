@@ -105,7 +105,6 @@ function Billboard({ game, film, stats }: { game: GameRow; film: Film | null; st
           // eslint-disable-next-line @next/next/no-img-element
           : <div className="film"><img src={`/g/${game.slug}/cover`} alt="" /></div>}
         <Link href={`/g/${game.slug}`} className="filmlink" tabIndex={-1} aria-hidden />
-        <div className="scrim" />
       </div>
       {/* desktop: roblox.com's hero, straight on the film */}
       <div className="lead">

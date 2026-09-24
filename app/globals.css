@@ -242,15 +242,15 @@ button.tag:hover{border-color:var(--ink)}
 /* ------------------------------------------------------------- billboard -- */
 /* The featured world across the top, playing (the owner's pick: Speed
    Skating 2030). On a desktop it is laid out as roblox.com's hero, at the
-   owner's request: the film edge to edge with no frame, darkened only in
-   the corner under the copy (the one gradient the contract allows), a
-   two-line headline, one sentence, and two buttons. Phones keep the card. */
+   owner's request: the film edge to edge with no frame and nothing over it
+   (the owner took the shade off), the copy straight on it with a soft halo
+   for legibility: a two-line headline, one sentence, and two buttons.
+   Phones keep the card. */
 .billboard{position:relative;overflow:hidden;background:#0B0B0F;height:clamp(520px,calc(100vh - 180px),760px)}
 .billboard .screen{position:absolute;inset:0}
 .film{position:absolute;inset:0}
 .film img,.film video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .filmlink{position:absolute;inset:0;z-index:1}
-.billboard .scrim{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse 42% 56% at 18% 84%,rgba(11,11,15,.4),rgba(11,11,15,.2) 55%,rgba(11,11,15,0) 100%)}
 .lead{position:absolute;z-index:2;text-shadow:0 1px 2px rgba(11,11,15,.45),0 0 22px rgba(11,11,15,.4);left:calc(max(0px,(100% - 1600px) / 2) + var(--gutter));bottom:24px;width:min(640px,calc(100% - 2 * var(--gutter)));display:grid;gap:8px;color:#F7F7F8}
 .lead h1{font-family:var(--display);font-size:56px;line-height:67px;font-weight:800;letter-spacing:-.01em;color:#F7F7F8}
 .lead h1 span{display:block}
@@ -438,7 +438,7 @@ table.bd td:nth-child(2){font-weight:600}
   /* phones: the 4:3 cut, with the card under it as page text */
   .billboard{height:auto;padding:24px var(--gutter) 0;background:none;overflow:visible}
   .billboard .screen{position:relative;aspect-ratio:4/3;border-radius:var(--r);overflow:hidden;background:#0B0B0F;box-shadow:var(--elev)}
-  .billboard .scrim,.lead{display:none}
+  .lead{display:none}
   .billboard .card{display:grid;gap:12px;padding:16px 0 0;color:var(--ink)}
   .kicker{color:var(--ink-3)}
   .billboard .card h1{font-size:32px;line-height:36px;color:var(--ink)}

@@ -20,10 +20,12 @@ import { writeFileSync } from 'node:fs';
 import { withBrowser } from '../../lib/browser.ts';
 
 const CUTS = {
-  // the title panel sits bottom left, so the runner is framed right of centre
-  wide: { width: 1680, height: 630, bitrate: 1_500_000, film: { distance: 3.8, height: 1.6, fov: 38, side: -1.8, look: 1.25 } },
+  // the full-bleed desktop hero (about 2:1 to 2.5:1 on screen): big enough to
+  // stay sharp on a wide screen, at a bitrate that holds a crowd of fans; the
+  // copy sits bottom left, so the runner is framed right of centre
+  wide: { width: 2048, height: 960, bitrate: 4_500_000, film: { distance: 3.8, height: 1.6, fov: 38, side: -1.8, look: 1.25 } },
   // phones put the title under the film, so the runner is centred
-  '4x3': { width: 960, height: 720, bitrate: 900_000, film: { distance: 3.6, height: 1.55, fov: 44, side: -0.4, look: 1.25 } },
+  '4x3': { width: 960, height: 720, bitrate: 1_400_000, film: { distance: 3.6, height: 1.55, fov: 44, side: -0.4, look: 1.25 } },
 } as const;
 type Cut = keyof typeof CUTS;
 
@@ -54,10 +56,11 @@ for (const cut of only) {
   await withBrowser(async (page) => {
     await page.goto(`${BASE}/g/${slug}/play?preview=1`);
     for (let i = 0; i < 100 && !(await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__gmRuntime)').catch(() => false)); i++) await sleep(200);
-    const mime = await page.eval<string>(`['video/mp4;codecs=avc1.640028', 'video/mp4;codecs=avc1.4d0028', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) || ''`);
+    // High profile at a level that allows 2048x960 at 60 fps (4.2 or 5.1) where the encoder offers it
+    const mime = await page.eval<string>(`['video/mp4;codecs=avc1.640033', 'video/mp4;codecs=avc1.64002a', 'video/mp4;codecs=avc1.640028', 'video/mp4;codecs=avc1.4d0028', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) || ''`);
     if (!mime) throw new Error('This Chrome cannot record MP4.');
     await page.eval(`(() => { const c = [...document.querySelectorAll('canvas')].sort((a, b) => b.width * b.height - a.width * a.height)[0]; c.id = 'gm-film'; })()`);
-    await page.eval('window.__gmRuntime.debug.cinematic(true); window.__gmRuntime.debug.start()');
+    await page.eval('window.__gmRuntime.debug.cinematic(true); window.__gmRuntime.debug.master && window.__gmRuntime.debug.master(true); window.__gmRuntime.debug.start()');
     await sleep(3800);
     await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true); window.__gmRuntime.debug.timeScale(6)');
     for (let i = 0; i < 900 && (await page.eval<number>('window.__gmRuntime.state().level')) < FROM_LAP; i++) await sleep(100);
