@@ -27,8 +27,9 @@ creativity: it decides what the world is, who lives in it, and how it looks, mov
 - **Controls.** The player moves forward on their own. Arrow keys (or WASD): left and right
   steer, up goes faster, down goes slower. Space pauses. Touch screens get on-screen buttons.
 - **Screens.** No card over the game. Until the player starts, the world races itself (a demo
-  run: it steers itself, cannot crash, is silent and is never scored) behind one small "Press
-  Enter or tap to play" prompt, so a visitor sees the world moving. Then countdown, HUD (level,
+  run: it steers itself, cannot crash, is silent and is never scored) with nothing over it, so a
+  visitor sees the world moving. The start screen appears only when someone asks to play (the
+  page's Play button, or a tap or key on the demo). Then countdown, HUD (level,
   time, GM, rival count, a warning when a rival closes from behind), level-up banners naming the
   new rival, and pause and results as a bar along the bottom. Build every world to look good in
   motion from the first frame: the demo is its first impression.

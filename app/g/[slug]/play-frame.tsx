@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { playerId } from '../../anon';
 import { useMe } from '../../me-store';
-import { meFragment } from '@/lib/me';
+import { meFragment, YOU_IN_GAMES } from '@/lib/me';
 
 type Result = {
   place: number; timeMs: number; finished: boolean; score: number; won: boolean; level: number; gm: number; assisted: boolean;
@@ -19,7 +19,7 @@ type Result = {
  *
  * A result posted from a frame is a claim, not a fact. It is stored as one.
  */
-export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`, scores = true, you = false }: {
+export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`, scores = true, you: wantsYou = false }: {
   slug: string; gameId: string; poster: React.ReactNode; src?: string;
   /** Off for drafts: a run in a preview has no leaderboard to post to. */
   scores?: boolean;
@@ -31,6 +31,7 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
   you?: boolean;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
+  const you = wantsYou && YOU_IN_GAMES;
   const me = useMe();
   // the character rides in the URL fragment, which never reaches the server;
   // it is fixed when the frame first loads, and changes after go by message
@@ -43,7 +44,7 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
   const [live, setLive] = useState(false);
   const [stalled, setStalled] = useState(false);
   // the leaderboard asks for your name; your character already has one
-  useEffect(() => { if (me) setName((n) => n || me.name); }, [me]);
+  useEffect(() => { if (you && me) setName((n) => n || me.name); }, [you, me]);
   // a change of look while playing: the runtime rebuilds you in place
   useEffect(() => {
     if (you && me && live) ref.current?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'me', me }, '*');

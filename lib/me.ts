@@ -8,6 +8,13 @@
  * readMe); this file is the authority for everything the site accepts.
  */
 
+/**
+ * Whether games put your character in the lead. Paused by the owner (23 Sep)
+ * until the character is right: games play their own heroes, and /me still
+ * makes and previews your character. The runtime keeps full support.
+ */
+export const YOU_IN_GAMES = false;
+
 export const HAIR = ['short02', 'short04', 'afro01', 'none'] as const;
 export const EYES = ['brown', 'brownlight', 'blue'] as const;
 export const BUILD = ['slim', 'athletic', 'strong'] as const;

@@ -15,7 +15,7 @@ AI generates, humans select, winners reproduce. Platform first; movement second.
 |---|---|---|
 | "future games are endless laps … there is no final lap" | No finish. Level = the lap you are on. | `check:runtime` "there is no final lap" |
 | "you start with 1 competitor" | When you start (any key or a tap), one rival stands beside you on the start line through the countdown and starts from standing at the gun. | "any key starts your run: one rival stands on the start line beside you through the countdown" |
-| "the 'Enter or tap to start' or any overlay over the game ruins the experience … the user can see gameplay" (Sep 23) | No card over the game. Until you start, the world races itself: a demo run that steers itself, cannot crash, makes no sound, is never scored or posted, and starts over every few laps, behind one small "Press Enter or tap to play" prompt. Pause and results are a bar along the bottom with the world in view; results left alone give way to the demo. Classic races: the start card becomes the same kind of prompt, without the blur. | "before you start, the world races itself", "the demo run … is never scored", "the results are a bar along the bottom", "left alone, the results give way …" |
+| "the 'Enter or tap to start' or any overlay over the game ruins the experience … the user can see gameplay" and "the tap to enter screen should only pop up and inhibit the game once someone presses the PLAY button" (Sep 23) | Until someone asks to play, the world races itself with nothing over it: a demo run that steers itself, cannot crash, makes no sound, is never scored or posted, and starts over every few laps. The start screen (you and one rival on the line, the controls, "Enter or tap to start") appears only when someone asks: the page's Play button, or a tap or a key on the demo. Pause and results are a bar along the bottom; results left alone give way to the demo. Classic races: the start card is hidden until Play, without the blur. | "before anyone asks to play …", "Play brings up the start screen …", "a key on the demo also brings up the start screen …", "the results are a bar along the bottom" |
 | "each lap … 1 additional competitor appears with a slightly faster speed and aggressiveness than prior lap" | As you cross the line, rival k joins at the line (6 m past it, in a clear lane, in view of the camera), faster and more aggressive than rival k−1. It holds its lane for 2.5 s before it hunts you. | "one new rival per lap", "each new rival is faster / more aggressive", "every rival joined at the start line" |
 | "gradual increasing speed, aggression and difficulty per lap" (Sep 23) | Every lap: your speeds × 1.05 (to 1.6×); every rival already racing gains 0.015 of your speed and 0.02 aggression; moving obstacles × 1.04 (to 1.5×). | "your pace rises every lap", "rivals already racing gain on you and hunt harder" |
 | "only way to die is bump a competitor or obstacle" | Touching a rival or an obstacle ends the run; nothing else does. | "touching an obstacle or rival ends the run" |
@@ -35,6 +35,9 @@ AI generates, humans select, winners reproduce. Platform first; movement second.
 | "winners reproduce" (selection signal, v1) | Each family is ranked by Elo over its counted Mog-off picks (K = 32, from 1000), then by distinct players. The leader is marked on its page. (Featuring winners is step 5, not built.) | `check:platform` Elo |
 
 ## 3. You
+
+**Paused by the owner (23 Sep) until the character is right.** Games play their own heroes;
+`YOU_IN_GAMES` in `lib/me.ts` turns this back on. The runtime keeps full support and its tests.
 
 | Owner's words | Interpretation in code | Tested by |
 |---|---|---|

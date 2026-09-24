@@ -102,9 +102,9 @@ export function runDesignChecks(ok: Ok) {
   // the owner found 150px squares "way too small" (23 Sep); key art is wide
   ok('tiles are 16:9, four across a desktop row', /\.tl\{[^}]*width:calc\(\(100% - 48px\) \/ 4\)/.test(css) && /\.tl \.th\{[^}]*aspect-ratio:16\/9/.test(css));
   ok('tile name is the measured 16px/700 at 22.4px', /\.tl \.nm\{[^}]*font-size:16px;font-weight:700;line-height:22\.4px/.test(css));
-  // dark by default (the owner's call, 23 Sep), measured from Roblox's dark
-  // theme; the light palette is kept under [data-theme="light"]
-  ok('page is Roblox dark, not pure black; light is kept, not pure white', /:root\{[^}]*--page:#121215/.test(css) && !/--page:#000000/i.test(css) && /\[data-theme="light"\]\{[^}]*--page:#F7F7F8/.test(css));
+  // light by default (the owner, 23 Sep); Roblox's dark theme is kept under
+  // [data-theme="dark"]
+  ok('page is not pure white; the dark palette is kept, not pure black', /:root\{[^}]*--page:#F7F7F8/.test(css) && !/--page:#FFFFFF/i.test(css) && /\[data-theme="dark"\]\{[^}]*--page:#121215/.test(css));
 
   console.log('\ndesign contract: things that must be present');
   const footer = readFileSync(join(APP, 'header.tsx'), 'utf8');

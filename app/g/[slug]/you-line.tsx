@@ -1,10 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { useMe } from '../../me-store';
+import { YOU_IN_GAMES } from '@/lib/me';
 
 /** Who you play as in this world, or the way to put yourself in it. */
 export function YouLine({ slug }: { slug: string }) {
   const me = useMe();
+  if (!YOU_IN_GAMES) return null;
   const to = `/me?then=${encodeURIComponent(`/g/${slug}`)}`;
   if (me === undefined) return <p className="by" style={{ minHeight: 24 }} />;
   return me

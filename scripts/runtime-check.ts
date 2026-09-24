@@ -46,7 +46,7 @@ try {
     ok('the lap is within 320-900m', s0.lap >= 320 && s0.lap <= 900, `${Math.round(s0.lap)}m`);
     ok('golden GM coins are laid', s0.coins > 10, `${s0.coins}`);
     // the owner, 23 Sep: no card over the game before you start
-    ok('before you start, the world races itself, with no card over the game', !!s0.demo && s0.state === 'race' && (await page.eval<number>('document.querySelectorAll("#gm .screen").length')) === 0);
+    ok('before anyone asks to play, the world races itself with nothing over it', !!s0.demo && s0.state === 'race' && (await page.eval<number>('document.querySelectorAll("#gm .screen, #gm .prompt").length')) === 0);
     await sleep(2000);
     const sd = await st();
     ok('the demo run moves on its own and is never scored', !!sd.demo && sd.d > s0.d + 5 && (await page.eval<unknown[]>('window.__gm.results')).length === 0, `${Math.round(sd.d - s0.d)}m in 2s`);
@@ -54,10 +54,15 @@ try {
     console.log(`        runtime repairs reported: ${warnings.length ? warnings.join(' | ') : 'none'}`);
 
     console.log('\nthe rules');
+    // the page's Play button
+    await page.eval(`window.postMessage({ source: 'gamemog-host', type: 'play' }, '*')`);
+    await sleep(500);
+    const t0 = await st(), tr = t0.rivals[0];
+    ok('Play brings up the start screen: you and one rival on the line, waiting', !t0.demo && t0.state === 'title' && (await page.eval<number>('document.querySelectorAll("#gm .screen").length')) === 1 && t0.rivals.length === 1 && Math.abs(tr.ahead) < 0.5 && Math.abs(tr.x - t0.x) > 1.2, tr ? `${t0.state}, ${tr.ahead.toFixed(1)}m ahead, ${Math.abs(tr.x - t0.x).toFixed(1)}m across` : 'none');
     await page.key('Enter');
     await sleep(500);
     const c0 = await st(), r0 = c0.rivals[0];
-    ok('any key starts your run: one rival stands on the start line beside you through the countdown', !c0.demo && c0.state === 'countdown' && c0.rivals.length === 1 && Math.abs(r0.ahead) < 0.5 && Math.abs(r0.x - c0.x) > 1.2, r0 ? `${c0.state}, ${r0.ahead.toFixed(1)}m ahead, ${Math.abs(r0.x - c0.x).toFixed(1)}m across` : 'none');
+    ok('Enter starts the countdown, the rival still beside you on the line', !c0.demo && c0.state === 'countdown' && c0.rivals.length === 1 && Math.abs(r0.ahead) < 0.5 && Math.abs(r0.x - c0.x) > 1.2, r0 ? `${c0.state}, ${r0.ahead.toFixed(1)}m ahead` : 'none');
     await sleep(2900);
     let s = await st();
     ok('then the race', s.state === 'race', s.state);
@@ -129,7 +134,10 @@ try {
     await page.eval('window.__gmRuntime.debug.crashInto()'); await sleep(2600 + 12500);
     s = await st();
     ok('left alone, the results give way to the world racing itself again', !!s.demo && s.state === 'race', `${s.state}${s.demo ? ', demo' : ''}`);
-    await page.key('Enter'); await sleep(3400);
+    await page.key('ArrowLeft'); await sleep(400);
+    s = await st();
+    ok('a key on the demo also brings up the start screen, and does not start a run', s.state === 'title' && !s.demo && (await page.eval<number>('document.querySelectorAll("#gm .screen").length')) === 1, s.state);
+    await page.eval('window.__gmRuntime.debug.start()'); await sleep(3400);
 
     console.log('\nhow far a bot gets (reported, not asserted)');
     const reached: number[] = [];

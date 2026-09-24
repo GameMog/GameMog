@@ -43,24 +43,27 @@ export const GAME_CSP = [
 ].join('; ');
 
 /**
- * No card over the game (the owner, 23 Sep). The engine's start card becomes
- * one small prompt along the bottom with the world in view behind it, and a
- * tap on the world (the engine's own canvas handler) or Space starts the race.
- * The finish card keeps its results but sits at the bottom, without the wash.
- * The engine is generated from reference/, so this lives here, not in it.
+ * No card over the game until someone asks to play (the owner, 23 Sep). The
+ * engine's start card is hidden, without its blur, so the world is in view;
+ * the page's Play button (a message from the host) brings the card back, and
+ * Enter joins Space as a start key. A tap on the world still starts the race
+ * (the engine's own canvas handler). The finish card sits at the bottom
+ * without the wash. The engine is generated from reference/, so this lives
+ * here, not in it.
  */
 const NO_CARD = `
 #title,#finish{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-#title{background:none!important;justify-content:flex-end!important;padding-bottom:24px;pointer-events:none!important}
-#title .card{background:none!important;border:0!important;box-shadow:none!important;padding:0!important;width:auto!important;max-width:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-#title .card>*:not(#startbtn){display:none!important}
-#title #startbtn{pointer-events:auto;margin:0!important;padding:10px 20px!important;border-radius:999px!important;font:700 16px system-ui,sans-serif!important;letter-spacing:0!important;text-transform:none!important;box-shadow:none!important;border:0!important;background:rgba(10,12,16,.72)!important;color:#fff!important}
+body:not(.gm-play) #title{background:none!important;pointer-events:none!important}
+body:not(.gm-play) #title .card{display:none!important}
 #finish{background:none!important;justify-content:flex-end!important;padding-bottom:18px}
 body:has(#title:not(.hide)) #hint{visibility:hidden}
 `;
 const START_KEYS = `(function () {
   var b = document.getElementById('startbtn'), t = document.getElementById('title');
-  if (b) b.textContent = 'Press Space or tap to race';
+  addEventListener('message', function (e) {
+    var d = e.data; if (e.source !== parent || !d || d.source !== 'gamemog-host' || d.type !== 'play') return;
+    document.body.classList.add('gm-play');
+  });
   addEventListener('keydown', function (e) { if (e.key === 'Enter' && b && t && !t.classList.contains('hide')) b.click(); });
 })();`;
 

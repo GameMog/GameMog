@@ -19,28 +19,28 @@
    scripts/design-check.ts fails the build if any of them come back.
 --------------------------------------------------------------------------- */
 :root{
-  /* dark, the owner's call (23 Sep): measured from roblox.com's own dark
-     theme, 1440px (page, header, text, search and thumbnail washes) */
-  color-scheme:dark;
-  --page:#121215;
-  --surface:#191A1F;
-  --ink:#F7F7F8;
-  --ink-2:#D5D7DD;
-  --ink-3:#A3A6B3;
-  --line:rgba(208,217,251,.12);
-  --line-2:rgba(208,217,251,.07);
-  --fill:rgba(208,217,251,.08);
-  --header:#191A1F;
-  --header-line:#202227;
-  --inv:#FFFFFF;
-  --on-inv:#272930;
-  --sk:rgba(208,217,251,.12);
-  --tabbg:rgba(208,217,251,.05);
-  --rule:#393B45;
-  --err-bg:#3B1A1C;
-  --err-ink:#FFB4AE;
-  --warn-bg:#3A2F12;
-  --warn-ink:#F2D58C;
+  /* light by default (the owner, 23 Sep: dark "isn't flowing right, fix or
+     go back to white"). measured: roblox.com/charts, 1440px, light theme */
+  color-scheme:light;
+  --page:#F7F7F8;
+  --surface:#FFFFFF;
+  --ink:#202227;
+  --ink-2:#494D5A;
+  --ink-3:#6A6F81;
+  --line:rgba(27,37,75,.12);
+  --line-2:rgba(27,37,75,.07);
+  --fill:rgba(27,37,75,.08);
+  --header:#F7F7F8;
+  --header-line:#FFFFFF;
+  --inv:#272930;
+  --on-inv:#FFFFFF;
+  --sk:#E4E6EC;
+  --tabbg:rgba(27,37,75,.05);
+  --rule:#BCBEC8;
+  --err-bg:#FBE9E9;
+  --err-ink:#8E201C;
+  --warn-bg:#FBF2DF;
+  --warn-ink:#6E4E0B;
   --blue:#335FFF;
   --blue-press:#1F49E0;
   --dark:#272930;
@@ -50,14 +50,14 @@
   --gutter:24px;
 }
 
-:root[data-theme="light"]{
-  /* measured: roblox.com/charts, 1440px, light theme */
-  color-scheme:light;
-  --page:#F7F7F8; --surface:#FFFFFF; --ink:#202227; --ink-2:#494D5A; --ink-3:#6A6F81;
-  --line:rgba(27,37,75,.12); --line-2:rgba(27,37,75,.07); --fill:rgba(27,37,75,.08);
-  --header:#F7F7F8; --header-line:#FFFFFF; --inv:#272930; --on-inv:#FFFFFF;
-  --sk:#E4E6EC; --tabbg:rgba(27,37,75,.05); --rule:#BCBEC8;
-  --err-bg:#FBE9E9; --err-ink:#8E201C; --warn-bg:#FBF2DF; --warn-ink:#6E4E0B;
+:root[data-theme="dark"]{
+  /* Roblox's own dark theme, measured: kept for when it comes back */
+  color-scheme:dark;
+  --page:#121215; --surface:#191A1F; --ink:#F7F7F8; --ink-2:#D5D7DD; --ink-3:#A3A6B3;
+  --line:rgba(208,217,251,.12); --line-2:rgba(208,217,251,.07); --fill:rgba(208,217,251,.08);
+  --header:#191A1F; --header-line:#202227; --inv:#FFFFFF; --on-inv:#272930;
+  --sk:rgba(208,217,251,.12); --tabbg:rgba(208,217,251,.05); --rule:#393B45;
+  --err-bg:#3B1A1C; --err-ink:#FFB4AE; --warn-bg:#3A2F12; --warn-ink:#F2D58C;
 }
 
 *{box-sizing:border-box;margin:0;padding:0}

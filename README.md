@@ -32,11 +32,11 @@ npm run media:hero -- la-olympics-2028        # re-film the homepage hero from t
 
 ## Look and feel
 
-Dark by default, measured from Roblox's own dark theme (page `#121215`, header `#191A1F`); the
-light palette is kept under `data-theme="light"`. A game page is a stage: the game as wide as the
-screen's height allows at 16:9, with the title and actions under it; phones stack. Nothing covers
-a game before you play: a GameMog Runtime world races itself behind a small prompt until you press
-a key or tap, and Classic races show the start line with the same prompt.
+Light by default; Roblox's dark theme, measured, is kept under `data-theme="dark"`. A game page
+is a stage: the game as wide as the screen's height allows at 16:9, with the title and actions
+under it; phones stack. Nothing covers a game until someone asks to play: a GameMog Runtime world
+races itself, and the start screen appears when Play is pressed (or the demo is tapped); Classic
+races show their racers on the line until Play.
 
 ## You
 

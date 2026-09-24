@@ -38,11 +38,14 @@ export function GameActions({ gameId, slug, title, initial }: {
     setFav(read<string[]>('gamemog:favorites', []).includes(gameId));
   }, [gameId]);
 
-  /* Play takes the embedded game full screen. The frame stays in this page,
-     so the finished race can still post its result to the leaderboard. */
+  /* Play takes the embedded game full screen and asks it for its start
+     screen: until then the world only races itself, with nothing over it.
+     The frame stays in this page, so the finished race can still post its
+     result to the leaderboard. */
   function play() {
     const box = document.getElementById('play');
     const frame = box?.querySelector('iframe');
+    frame?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'play' }, '*');
     if (box?.requestFullscreen) box.requestFullscreen().catch(() => box.scrollIntoView({ block: 'center' }));
     else box?.scrollIntoView({ block: 'center' });
     frame?.focus();
