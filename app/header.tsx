@@ -4,9 +4,9 @@ import { Wordmark } from './logo';
 /**
  * GameStop's header, for GameMog (docs/design/premium.md): a white brand row
  * that stays at the top (the mark, a wide search, icon actions with labels,
- * the one primary button), a category row, and a black promo strip for the
- * featured world. Create leads the categories and Classic takes its old place
- * (the owner, 24 Sep).
+ * the one primary button) and a category row. Create leads the categories and
+ * Classic takes its old place (the owner, 24 Sep). The black promo strip for a
+ * featured world is gone: the homepage hero does that job (the owner, 24 Sep).
  */
 const NAV = [
   { label: 'Create', href: '/create' },
@@ -18,9 +18,6 @@ const NAV = [
   { label: 'Classic', href: '/classic' },
   { label: 'Asset Library', href: '/library', key: 'Library' },
 ];
-
-/** The featured world the promo strip points at (the homepage's billboard). */
-const PROMO = { href: '/g/tideline', title: 'Tideline', line: 'Laps of a tropical bay, and the surf never stops.' };
 
 export function SiteHeader({ on = '' }: { on?: string }) {
   return (
@@ -46,11 +43,6 @@ export function SiteHeader({ on = '' }: { on?: string }) {
           ))}
         </div>
       </nav>
-      <Link href={PROMO.href} className="promo">
-        <b>NEW WORLD</b>
-        <span>{PROMO.title} is live.<span className="long"> {PROMO.line}</span></span>
-        <u>Play now</u>
-      </Link>
     </>
   );
 }
