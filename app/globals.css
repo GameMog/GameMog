@@ -1,63 +1,70 @@
 /* ---------------------------------------------------------------------------
-   Design system.
+   Design system v2: premium (docs/design/premium.md).
 
-   Every value here was read off roblox.com with getComputedStyle, not chosen
-   by eye. See design/roblox.measured.md for the readings and the date.
+   The owner (23 Sep): "we need elite polish and a design language that
+   screams premium. Check gamestop.com, model or mimic if necessary." Every
+   value below was measured on gamestop.com with getComputedStyle: its system
+   (surfaces, type scale, section anatomy, controls), never its brand.
 
-   Things this file deliberately does not contain, because they are the tells
-   of a generated interface:
-
-     no box-shadow          roblox.com computes `none` on every element sampled
-     no gradient            flat fills only; a title sits under a thumbnail,
-                            never on top of it behind a scrim
-     no backdrop-filter     nothing is frosted
-     no transition          state changes land immediately
-     no border-radius       above 8px, except a 999px pill, which is a
-                            decision rather than a softening
-     no purple
-
-   scripts/design-check.ts fails the build if any of them come back.
+   What stays out, as before, because they are the tells of a generated
+   interface: gradients in the interface, frosted glass, transitions and
+   animations, purple, neon, radii between 9px and a pill. Shadows come only
+   from the three elevation tokens; scripts/design-check.ts fails the build on
+   any other.
 --------------------------------------------------------------------------- */
 :root{
-  /* light by default (the owner, 23 Sep: dark "isn't flowing right, fix or
-     go back to white"). measured: roblox.com/charts, 1440px, light theme */
   color-scheme:light;
-  --page:#F7F7F8;
+  /* surfaces: a cool grey page, content on white */
+  --page:#F2F4F7;
   --surface:#FFFFFF;
-  --ink:#202227;
-  --ink-2:#494D5A;
-  --ink-3:#6A6F81;
-  --line:rgba(27,37,75,.12);
-  --line-2:rgba(27,37,75,.07);
-  --fill:rgba(27,37,75,.08);
-  --header:#F7F7F8;
-  --header-line:#FFFFFF;
-  --inv:#272930;
+  --ink:#0B0B0F;
+  --ink-2:#474A57;
+  --ink-3:#727272;
+  --line:#E4E4E4;
+  --line-2:#EEF0F3;
+  --fill:rgba(11,11,15,.05);
+  --header:#FFFFFF;
+  --header-line:#E4E4E4;
+  --inv:#0B0B0F;
   --on-inv:#FFFFFF;
-  --sk:#E4E6EC;
-  --tabbg:rgba(27,37,75,.05);
-  --rule:#BCBEC8;
+  --sk:#E7E9EE;
+  --tabbg:transparent;
+  --rule:#E4E4E4;
   --err-bg:#FBE9E9;
   --err-ink:#8E201C;
   --warn-bg:#FBF2DF;
   --warn-ink:#6E4E0B;
-  --blue:#335FFF;
+  /* the brand: GameMog black, GM gold (the coin), deal green */
+  --brand:#0B0B0F;
+  --brand-press:#2B2B31;
+  --gold:#F5B82E;
+  --green:#117A4B;
+  --blue:#2E5BFF;
   --blue-press:#1F49E0;
-  --dark:#272930;
-  --hot:#E22D2D;
+  --dark:#0B0B0F;
+  --hot:#D93A2B;
+  /* elevation, GameStop's: a card, a card under the pointer, a hairline */
+  --elev:0 1px 6px rgba(0,0,0,.15);
+  --elev-hover:0 6px 18px rgba(0,0,0,.16);
+  --elev-hair:0 0 1px rgba(24,24,27,.2),0 1px 2px rgba(24,24,27,.1);
   --r:8px;
+  --r-sm:6px;
+  --r-btn:4px;
   --pill:999px;
   --gutter:24px;
+  /* type: a display face for titles, an interface face for everything else */
+  --display:'Hubot Sans Variable','Figtree Variable',system-ui,sans-serif;
+  --ui:'Figtree Variable','Helvetica Neue',Helvetica,Arial,sans-serif;
 }
-
 :root[data-theme="dark"]{
   /* Roblox's own dark theme, measured: kept for when it comes back */
   color-scheme:dark;
   --page:#121215; --surface:#191A1F; --ink:#F7F7F8; --ink-2:#D5D7DD; --ink-3:#A3A6B3;
   --line:rgba(208,217,251,.12); --line-2:rgba(208,217,251,.07); --fill:rgba(208,217,251,.08);
   --header:#191A1F; --header-line:#202227; --inv:#FFFFFF; --on-inv:#272930;
-  --sk:rgba(208,217,251,.12); --tabbg:rgba(208,217,251,.05); --rule:#393B45;
+  --sk:rgba(208,217,251,.12); --tabbg:transparent; --rule:#393B45;
   --err-bg:#3B1A1C; --err-ink:#FFB4AE; --warn-bg:#3A2F12; --warn-ink:#F2D58C;
+  --brand:#FFFFFF; --brand-press:#D5D7DD;
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -65,212 +72,234 @@ html{-webkit-text-size-adjust:100%;background:var(--page)}
 body{
   background:var(--page);
   color:var(--ink);
-  font-family:'Figtree Variable','Helvetica Neue',Helvetica,Arial,sans-serif;
-  font-size:16px;font-weight:400;line-height:1.4;
+  font-family:var(--ui);
+  font-size:15px;font-weight:400;line-height:1.45;
   -webkit-font-smoothing:antialiased;
-  padding-top:40px;
+  /* the footer sits on the bottom of the window however short the page */
+  min-height:100vh;display:flex;flex-direction:column;
 }
+body>main{flex:1 0 auto}
 a{color:inherit;text-decoration:none}
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 input,textarea{font:inherit;color:inherit}
+img{max-width:100%}
 svg{display:block}
 :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
 .wrap{max-width:1600px;margin:0 auto;padding:0 var(--gutter)}
 
 /* ------------------------------------------------------------------ type -- */
-h1,.t-h1{font-size:32px;font-weight:800;line-height:44.8px}
-h2,.t-h2{font-size:20px;font-weight:700;line-height:28px}
-.t-body{font-size:16px;font-weight:400}
-.t-strong{font-size:16px;font-weight:500}
-.t-meta{font-size:12px;font-weight:500;line-height:18px}
+h1,.t-h1{font-family:var(--display);font-size:44px;font-weight:800;line-height:48px;letter-spacing:-.02em}
+h2,.t-h2{font-family:var(--display);font-size:24px;font-weight:700;line-height:30px;letter-spacing:-.01em}
+.t-body{font-size:15px;font-weight:400}
+.t-strong{font-size:15px;font-weight:600}
+.t-meta{font-size:12px;font-weight:600;line-height:18px}
 .dim{color:var(--ink-2)}
 .dim-2{color:var(--ink-3)}
 
 /* ---------------------------------------------------------------- header -- */
-/* 40px, flat, no shadow. Exactly the height Roblox runs. */
-.hdr{background:var(--header);position:fixed;top:0;left:0;right:0;z-index:60;border-bottom:1px solid var(--header-line)}
-.hdr .bar{display:flex;align-items:center;height:40px;gap:0}
-.wordmark{display:flex;align-items:center;gap:7px;padding:0 9px 0 0;flex:0 0 auto}
-.wordmark .mk{width:22px;height:22px;border-radius:5px;background:var(--inv);position:relative}
-.wordmark .mk::after{content:'';position:absolute;left:6px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--page)}
-.wordmark b{font-size:18px;font-weight:800;letter-spacing:-.02em}
-.nvl{font-size:16px;font-weight:500;padding:6px 9px;color:var(--ink);flex:0 0 auto;white-space:nowrap}
-.nvl:hover{color:var(--blue)}
-.nvl.on{font-weight:700}
-.desktopnav{display:flex;align-items:center}
-.mobile-nav,.mobile-search{display:none}
-.srch{position:relative;width:360px;flex:0 1 360px;margin:0 12px 0 auto}
+/* GameStop's three layers: a white brand row (logo, a wide search, icon
+   actions with labels, the one primary button) that stays at the top; a
+   category row; a promo strip. */
+.hdr{position:sticky;top:0;z-index:60;background:var(--header);border-bottom:1px solid var(--header-line)}
+.hrow{display:flex;align-items:center;gap:28px;height:72px}
+.wordmark{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.wordmark .mk{width:30px;height:30px;border-radius:7px;background:var(--ink);position:relative;flex:0 0 auto}
+.wordmark .mk::after{content:'';position:absolute;inset:9px;border-radius:50%;background:var(--gold)}
+.wordmark b{font-family:var(--display);font-size:25px;font-weight:800;letter-spacing:-.03em}
+.srch{position:relative;flex:1 1 auto;max-width:680px}
 .srch input{
-  width:100%;height:28px;background:var(--fill);border:1px solid var(--line);border-radius:var(--r);
-  padding:5px 12px 5px 33px;font-size:16px;line-height:22.4px;outline:none;
+  width:100%;height:44px;background:var(--page);border:1.5px solid transparent;border-radius:var(--r-sm);
+  padding:0 16px 0 44px;font-size:16px;line-height:24px;outline:none;color:var(--ink);
 }
 .srch input::placeholder{color:var(--ink-3)}
-.srch .ic{position:absolute;left:10px;top:6px;color:var(--ink-3)}
+.srch input:focus{border-color:var(--ink);background:var(--surface)}
+.srch .ic{position:absolute;left:16px;top:14px;color:var(--ink-2)}
+.hicons{display:flex;align-items:center;gap:24px;margin-left:auto;flex:0 0 auto}
+.hicon{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:600;line-height:13px;color:var(--ink)}
+.hicon:hover{color:var(--ink-2)}
 .createworld{flex:0 0 auto}
+.catnav{background:var(--surface);border-bottom:1px solid var(--line)}
+.catnav .wrap{display:flex;align-items:center;gap:30px;height:46px;overflow-x:auto;scrollbar-width:none}
+.catnav .wrap::-webkit-scrollbar{display:none}
+.nvl{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;padding:13px 0 11px;border-bottom:2px solid transparent;flex:0 0 auto}
+.nvl:hover{border-bottom-color:var(--line)}
+.nvl.on{border-bottom-color:var(--ink);font-weight:700}
+.promo{display:flex;align-items:center;justify-content:center;gap:12px;min-height:42px;padding:8px var(--gutter);background:var(--ink);color:#FFFFFF;font-size:14px;font-weight:500;text-align:center}
+.promo b{flex:0 0 auto;font-size:11px;font-weight:800;letter-spacing:.08em;padding:3px 8px;border-radius:var(--r-btn);background:var(--gold);color:var(--ink)}
+.promo u{font-weight:700;text-underline-offset:3px}
 
 /* --------------------------------------------------------------- buttons -- */
+/* GameStop's: 4px corners, bold, confident heights. The brand is black. */
 .btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:7px;
-  background:var(--blue);color:#F7F7F8;border-radius:var(--r);
-  height:30px;padding:6px 9px;font-size:16px;font-weight:500;white-space:nowrap;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  height:40px;padding:0 18px;border-radius:var(--r-btn);border:1.5px solid var(--brand);
+  background:var(--brand);color:#FFFFFF;font-size:14px;font-weight:700;letter-spacing:.01em;white-space:nowrap;
 }
-.btn:hover{background:var(--blue-press)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.btn:disabled:hover{background:var(--blue)}
-.btn.quiet{background:none;color:var(--ink-3)}
+.btn:hover{background:var(--brand-press);border-color:var(--brand-press)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:disabled:hover{background:var(--brand);border-color:var(--brand)}
+.btn.quiet{background:none;border-color:transparent;color:var(--ink-2)}
 .btn.quiet:hover{background:var(--fill);color:var(--ink)}
-.btn.outline{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
-.btn.outline:hover{background:var(--fill)}
-/* the one primary action on a page: 300x60, measured off the Roblox play button */
-.btn.cta{height:68px;font-size:16px;font-weight:600;width:300px;padding:0 12px}
-.btn.wide{width:100%;height:40px}
+.btn.outline{background:var(--surface);color:var(--ink);border-color:#D5D7DD}
+.btn.outline:hover{border-color:var(--ink);background:var(--surface)}
+.btn.big{height:48px;padding:0 24px;font-size:15px}
+/* the one primary action on a game page */
+.btn.cta{height:52px;width:280px;font-size:15px;padding:0 16px}
+.btn.wide{width:100%;height:44px}
+/* on film: white, and a white outline */
+.btn.light{background:#FFFFFF;border-color:#FFFFFF;color:var(--ink)}
+.btn.light:hover{background:#E9EBEF;border-color:#E9EBEF}
+.btn.ghost{background:transparent;border-color:rgba(255,255,255,.6);color:#FFFFFF}
+.btn.ghost:hover{border-color:#FFFFFF}
 
-/* pill filters, 999px, dark. Roblox's own device/country selectors. */
-.pill{
-  display:inline-flex;align-items:center;gap:6px;height:32px;padding:9px;
-  border-radius:var(--pill);background:var(--inv);color:var(--on-inv);
-  font-size:16px;font-weight:700;white-space:nowrap;
-}
-.pill.off{background:var(--fill);color:var(--ink-2)}
+/* tab chips, GameStop's: a quiet tray, the chosen one lifted onto white */
+.chips{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;border-radius:var(--r);background:#E8EBF0}
+.chip{display:inline-flex;align-items:center;height:31px;padding:0 12px;border-radius:var(--r-sm);border:1.5px solid transparent;
+  font-size:13px;font-weight:600;color:var(--ink-3);white-space:nowrap}
+.chip:hover{color:var(--ink)}
+.chip.on{background:var(--surface);color:var(--ink);border-color:var(--line);box-shadow:var(--elev-hair)}
+.pill{display:inline-flex;align-items:center;gap:6px;height:31px;padding:0 12px;border-radius:var(--r-sm);
+  background:var(--surface);color:var(--ink);border:1.5px solid var(--line);box-shadow:var(--elev-hair);font-size:13px;font-weight:600;white-space:nowrap}
+.pill.off{background:transparent;box-shadow:none;border-color:transparent;color:var(--ink-3)}
 
 .tag{
-  display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:var(--r);
-  background:var(--fill);color:var(--ink-2);font-size:12px;font-weight:500;white-space:nowrap;
+  display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:var(--r-sm);
+  background:var(--surface);border:1px solid var(--line);color:var(--ink-2);font-size:12px;font-weight:600;white-space:nowrap;
 }
-.tag.solid{background:var(--inv);color:var(--on-inv)}
-.tag.multi{height:auto;white-space:normal;text-align:left;padding:6px 9px;line-height:18px}
+.tag.solid{background:var(--inv);border-color:var(--inv);color:var(--on-inv)}
+.tag.multi{height:auto;white-space:normal;text-align:left;padding:7px 10px;line-height:18px}
 button.tag{cursor:pointer}
-button.tag:hover{background:var(--line)}
-.tag.hot{background:var(--hot);color:#fff}
-.tag.blue{background:var(--blue);color:#fff}
+button.tag:hover{border-color:var(--ink)}
+.tag.hot{background:var(--hot);border-color:var(--hot);color:#FFFFFF}
+.tag.blue{background:var(--ink);border-color:var(--ink);color:#FFFFFF}
 
 /* -------------------------------------------------------------- sections -- */
-/* No wells. Content sits on the page, the way a catalogue does. */
-.sec{margin-top:26px}
-.sechead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:3px 0 6px}
-.sechead h2{padding-bottom:5px;display:flex;align-items:center;gap:6px}
-.info{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:1px solid var(--ink-3);
-  border-radius:50%;font-size:11px;font-weight:700;line-height:1;color:var(--ink-3);cursor:help}
-.more{display:inline-flex;align-items:center;gap:4px;font-size:16px;font-weight:500;color:var(--ink-2)}
-.more span{font-size:22px;line-height:16px;margin-top:-1px}
-/* the caption Roblox sets under some rail headings */
-.cap{font-size:14px;font-weight:400;line-height:20px;color:var(--ink-2);margin:-4px 0 10px}
-.more:hover{color:var(--blue)}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
-.chartpage{padding-top:24px;min-height:calc(100vh - 170px)}
-.charthead{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:18px}
-.charthead .cap{margin:2px 0 0}
-.homecharts{align-items:center;margin:26px 0 -7px}
-.filterpill{position:relative;cursor:pointer}
-.filterpill .down{width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:-4px 2px 0 3px}
-.filterpill select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
-.empty{margin-top:18px;border:1px solid var(--line);border-radius:var(--r);padding:28px;text-align:center;color:var(--ink-2)}
-.empty h2{color:var(--ink);margin-bottom:4px}
-.empty.compact{margin-top:8px;padding:18px;text-align:left}
+/* GameStop's section: a display title and a grey subtitle, square arrows to
+   the right, the rail, an underlined "View all" under the rail's end. */
+.sec{margin-top:52px}
+.sechead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px}
+.sectext{min-width:0}
+.sectitle{font-family:var(--display);font-size:40px;font-weight:700;line-height:48px;letter-spacing:-.24px}
+.secsub{font-size:16px;font-weight:500;line-height:24px;color:var(--ink-3);margin-top:2px}
+.seccontrols{margin:-4px 0 18px}
+.arrows{display:flex;gap:8px;flex:0 0 auto}
+.arrow{width:40px;height:40px;border-radius:var(--r-btn);display:flex;align-items:center;justify-content:center;background:var(--ink);color:#FFFFFF}
+.arrow:hover{background:var(--brand-press)}
+.arrow:disabled{background:var(--surface);color:#B5B7BE;border:1px solid var(--line);cursor:default}
+.secfoot{display:flex;justify-content:flex-end;margin-top:18px}
+.viewmore{font-size:14px;font-weight:700;color:var(--ink);border-bottom:2px solid var(--ink);padding-bottom:2px}
+.viewmore:hover{color:var(--ink-2);border-color:var(--ink-2)}
+.sechead h2{display:flex;align-items:center;gap:6px}
+.more{display:inline-flex;align-items:center;gap:4px;font-size:14px;font-weight:700;color:var(--ink);border-bottom:2px solid var(--ink);padding-bottom:2px}
+.more span{font-size:18px;line-height:14px}
+.cap{font-size:16px;font-weight:500;line-height:24px;color:var(--ink-3)}
+.panel{background:var(--surface);border-radius:var(--r);padding:20px;box-shadow:var(--elev)}
+.chartpage{padding-top:32px}
+.charthead{margin-bottom:22px}
+.charthead .cap{margin-top:4px}
+.charthead .chips{margin-top:18px}
+.empty{margin-top:18px;background:var(--surface);border-radius:var(--r);box-shadow:var(--elev);padding:32px;text-align:center;color:var(--ink-2)}
+.empty h2{color:var(--ink);margin-bottom:6px}
+.empty.compact{margin-top:8px;padding:20px;text-align:left}
 
 /* ------------------------------------------------------------------ rail -- */
-/* No scrollbar track across the shelf: Roblox moves a rail with arrows at the
-   ends, and a 1440px-wide grey line under every section reads as a divider
-   nobody asked for. */
-.railwrap{position:relative;padding:0 30px}
-.rail{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none}
+/* Padding inside the scroller and the same amount pulled back outside, so the
+   cards' shadows are not clipped by the scroll box. */
+.railwrap{position:relative}
+.rail{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;padding:6px 4px 14px;margin:-6px -4px -14px}
 .rail::-webkit-scrollbar{display:none}
-.railbtn{
-  position:absolute;top:calc(28% - 15px);z-index:3;width:30px;height:30px;
-  color:var(--ink);display:flex;align-items:center;justify-content:center;
-}
-.railbtn.l{left:0}
-.railbtn.r{right:0}
-.gridw{display:grid;gap:4px 16px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.gridw{display:grid;gap:22px 16px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
 .gridw .tl{width:auto}
 
-/* ------------------------------------------------------------------ tile -- */
-/* 16:9, four across a desktop row. The owner found 150px squares "way too
-   small" (23 Sep), and every world's key art is composed wide: the square
-   crop cut its runner in half. One treatment for every tile. */
-.tl{display:block;width:calc((100% - 48px) / 4);flex:0 0 calc((100% - 48px) / 4);scroll-snap-align:start;margin-bottom:6px}
-.tl .th{position:relative;width:100%;aspect-ratio:16/9;border-radius:var(--r);overflow:hidden;background:var(--line)}
+/* ------------------------------------------------------------------ card -- */
+/* GameStop's product card, for a game: a white card, the art flush to the
+   top at 16:9, a body with the name and one row of numbers, and a badge
+   tucked into the top-left corner. Four across a desktop row. */
+.tl{position:relative;display:flex;flex-direction:column;width:calc((100% - 48px) / 4);flex:0 0 calc((100% - 48px) / 4);scroll-snap-align:start;
+  background:var(--surface);border-radius:var(--r);overflow:hidden;box-shadow:var(--elev)}
+.tl:hover{box-shadow:var(--elev-hover)}
+.tl .th{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:var(--sk)}
 .tl .th svg{width:100%;height:100%}
 .tl .th img{width:100%;height:100%;object-fit:cover;display:block}
-.tl .bd{position:absolute;top:6px;left:6px;height:18px;padding:0 6px;display:inline-flex;align-items:center;
-  border-radius:4px;font-size:10px;font-weight:700;color:#fff;background:var(--hot)}
-.tl .bd.blue{background:var(--blue)}
-.tl .bd.ink{background:var(--dark)}
-.tl .nm{margin:8px 0 2px;font-size:16px;font-weight:700;line-height:22.4px;height:22.4px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tl .mt{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:500;line-height:18px;color:var(--ink-2)}
+.tl .tb{padding:12px 14px 14px}
+.tl .nm{font-size:15px;font-weight:700;line-height:20px;height:20px;letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl .mt{display:flex;align-items:center;gap:12px;margin-top:6px;font-size:12px;font-weight:600;line-height:16px;color:var(--ink-3)}
 .tl .mt span{display:flex;align-items:center;gap:4px}
+.tl .bd{position:absolute;top:0;left:0;z-index:2;display:inline-flex;align-items:center;padding:5px 12px;border-radius:var(--r) 0 4px 0;
+  font-size:11px;font-weight:800;letter-spacing:.05em;color:#FFFFFF;background:var(--green)}
+.tl .bd.mog{background:var(--gold);color:var(--ink)}
+
+/* ----------------------------------------------------------------- jump in -- */
+/* GameStop's round category bubbles */
+.bubbles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:20px}
+.bubble{display:flex;flex-direction:column;align-items:center;gap:12px;font-size:14px;font-weight:700;text-align:center;color:var(--ink)}
+.bubble i{display:flex;align-items:center;justify-content:center;width:100%;max-width:150px;aspect-ratio:1;border-radius:50%;overflow:hidden;background:var(--surface);box-shadow:var(--elev);color:#FFFFFF}
+.bubble i>img,.bubble i>svg{width:100%;height:100%;object-fit:cover}
+.bubble i.solid{background:var(--ink)}
+.bubble:hover i{box-shadow:var(--elev-hover)}
 
 /* ------------------------------------------------------------- billboard -- */
-/* The featured world across the top, playing: its film behind a solid card
-   with the two things you can do with any game here, play it or Mog it. 8:3
-   keeps the first row of tiles above the fold on a 900px laptop screen. */
-.billboard{position:relative;border-radius:var(--r);overflow:hidden;background:#0E1014;
-  aspect-ratio:8/3;max-height:calc(100vh - 190px);min-height:380px}
+/* The featured world across the top, playing (the owner's LA hero), with the
+   two things you can do with any game here: play it or Mog it. */
+.billboard{position:relative;border-radius:var(--r);overflow:hidden;background:#0B0B0F;box-shadow:var(--elev);
+  aspect-ratio:8/3;max-height:calc(100vh - 230px);min-height:380px}
 .billboard .screen{position:absolute;inset:0}
 .film{position:absolute;inset:0}
 .film img,.film video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .filmlink{position:absolute;inset:0;z-index:1}
-.billboard .card{position:absolute;left:24px;bottom:24px;z-index:2;width:min(440px,46%);padding:20px 22px 22px;
-  display:grid;gap:10px;background:rgba(14,16,20,.84);border-radius:var(--r);color:#F7F7F8}
-.kicker{font-size:12px;font-weight:700;line-height:18px;letter-spacing:.08em;text-transform:uppercase;color:#B7C5FF}
-.billboard h1{font-size:40px;line-height:44px;font-weight:800;color:#FFFFFF}
-.tagline{font-size:16px;line-height:22px;color:#C9CDD8}
+.billboard .card{position:absolute;left:28px;bottom:28px;z-index:2;width:min(460px,46%);padding:24px 26px 26px;
+  display:grid;gap:12px;background:rgba(11,11,15,.84);border-radius:var(--r);color:#F7F7F8}
+.kicker{font-size:11px;font-weight:800;line-height:16px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+.billboard h1{font-family:var(--display);font-size:46px;line-height:48px;font-weight:800;letter-spacing:-.025em;color:#FFFFFF}
+.tagline{font-size:16px;line-height:23px;color:#C9CDD8}
 .hstats{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:14px;line-height:20px;color:#C9CDD8}
 .hstats b{color:#FFFFFF;font-weight:700;font-variant-numeric:tabular-nums}
-.acts{display:flex;gap:10px;margin-top:4px}
-.btn.big{height:48px;padding:0 22px;font-size:18px;font-weight:700;gap:8px}
-.btn.light{background:#F7F7F8;color:#202227}
-.btn.light:hover{background:var(--sk)}
-.by{font-size:16px;font-weight:400;color:var(--ink-2)}
-.by b{font-weight:500;color:var(--ink)}
+.acts{display:flex;gap:10px;margin-top:6px}
+.by{font-size:15px;font-weight:400;color:var(--ink-2)}
+.by b{font-weight:600;color:var(--ink)}
 
 /* -------------------------------------------------------------- skeleton -- */
-/* Used where content is genuinely pending: the result card while a world is
-   being generated, and a tile before its data lands. Not used where the server
-   already sent the real thing: both game frames hold the world's cover art,
-   which is in the HTML before the frame is even requested. No shimmer sweep:
-   a flat block at the exact size and shape of what is arriving. */
-.sk{background:var(--line);border-radius:var(--r)}
-.sk-line{height:12px;border-radius:4px;background:var(--line)}
-.sk-tile{width:calc((100% - 48px) / 4);flex:0 0 calc((100% - 48px) / 4)}
-.sk-tile .th{width:100%;aspect-ratio:16/9;border-radius:var(--r);background:var(--line)}
-.sk-tile .a{margin-top:7px;width:100%}
-.sk-tile .b{margin-top:8px;width:62%}
+/* Only where content is genuinely pending. A flat block at the exact size and
+   shape of what is arriving; no shimmer. */
+.sk{background:var(--sk);border-radius:var(--r)}
+.sk-line{height:12px;border-radius:4px;background:var(--sk)}
+.sk-tile{width:calc((100% - 48px) / 4);flex:0 0 calc((100% - 48px) / 4);background:var(--surface);border-radius:var(--r);box-shadow:var(--elev);overflow:hidden;padding-bottom:14px}
+.sk-tile .th{width:100%;aspect-ratio:16/9;background:var(--sk)}
+.sk-tile .a{margin:14px 14px 0;width:auto}
+.sk-tile .b{margin:8px 14px 0;width:50%}
 .sk-card{display:grid;gap:10px}
 .sk-card .art{width:300px;height:300px;border-radius:var(--r);background:var(--sk)}
 .sk-card .h{height:28px;width:58%;border-radius:4px;background:var(--sk)}
 .sk-card .p{height:12px;border-radius:4px;background:var(--sk)}
-.sk-line{background:var(--sk)}
-.sk-tile .th{background:var(--sk)}
 
 /* ------------------------------------------------------------------ tabs -- */
-.tabs{display:flex;margin-top:32px}
-.tab{flex:1;height:40px;display:flex;align-items:center;justify-content:center;
-  font-size:16px;font-weight:500;color:var(--ink-2);background:var(--tabbg);border-bottom:3px solid transparent}
+.tabs{display:flex;gap:30px;margin-top:40px;border-bottom:1px solid var(--line)}
+.tab{flex:0 0 auto;height:48px;display:flex;align-items:center;font-size:16px;font-weight:700;color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px}
 .tab:hover{color:var(--ink)}
-.tab.on{color:var(--ink);background:none;border-bottom-color:var(--ink);font-weight:700}
+.tab.on{color:var(--ink);border-bottom-color:var(--ink)}
 
 /* ------------------------------------------------------------- game page -- */
-/* The game is the page (the owner, 23 Sep: it should "adjust dramatically"
-   for desktop). Roblox's 970px column with 640px of media suits a page whose
-   game runs in another app; ours runs here. The stage is as wide as the
-   screen's height allows at 16:9, leaving room for the title bar under it,
-   and everything below lines up with it. */
-.gpage{--stage:min(100%, calc((100vh - 190px) * 16 / 9));max-width:1600px;margin:0 auto;padding:0 var(--gutter)}
+/* The game is the page (the owner, 23 Sep): a stage as wide as the screen's
+   height allows at 16:9. GameStop's product page supplies the rest:
+   breadcrumbs, the media on an elevated surface, and a white purchase panel
+   with the title, the credit and one confident primary action. */
+.gpage{--stage:min(100%, calc((100vh - 230px) * 16 / 9));max-width:1600px;margin:0 auto;padding:0 var(--gutter)}
 .gpage>*{width:var(--stage);margin-left:auto;margin-right:auto}
-.gtop{margin-top:16px}
-.gstage .gframe{width:100%;aspect-ratio:16/9}
-.gstage .panel{margin-top:10px}
-.gbar{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:14px}
+.crumbs{display:flex;flex-wrap:wrap;gap:8px;padding:18px 0 14px;font-size:14px;color:var(--ink-3)}
+.crumbs a{color:var(--ink-2)}
+.crumbs a:hover{color:var(--ink);text-decoration:underline}
+.gstage .gframe{width:100%;aspect-ratio:16/9;box-shadow:var(--elev)}
+.gstage .panel{margin-top:12px}
+.gbar{display:flex;align-items:center;justify-content:space-between;gap:28px;margin-top:16px;padding:22px 26px;
+  background:var(--surface);border-radius:var(--r);box-shadow:var(--elev)}
 .gtitle{min-width:0}
-.gtitle h1{font-size:28px;line-height:34px;font-weight:800}
-.gtitle .by{margin-top:2px}
+.gtitle h1{font-family:var(--display);font-size:34px;line-height:40px;font-weight:800;letter-spacing:-.02em}
+.gtitle .by{margin-top:4px}
 .gtitle .maturity{display:inline;font-size:14px}
-.gmedia{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;max-width:900px}
-.gmedia img,.gmedia video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:var(--r);background:var(--line)}
-.gframe{position:relative;border-radius:var(--r);overflow:hidden;background:var(--line)}
+.gmedia{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;max-width:900px}
+.gmedia img,.gmedia video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:var(--r);background:var(--sk);box-shadow:var(--elev)}
+.gframe{position:relative;border-radius:var(--r);overflow:hidden;background:#0B0B0F}
 .gframe iframe{display:block;width:100%;height:100%;border:none}
 .gframe .poster{position:absolute;inset:0;pointer-events:none}
 .gframe .poster svg{width:100%;height:100%}
@@ -279,128 +308,146 @@ button.tag:hover{background:var(--line)}
 .gframe:fullscreen{background:#000;border-radius:0}
 .gframe:fullscreen iframe{height:100%;aspect-ratio:auto}
 .stall{position:absolute;left:12px;right:12px;bottom:12px;z-index:3;padding:10px 12px;border-radius:var(--r);
-  background:#272930;color:#fff;font-size:14px;line-height:1.45}
-.stall a{color:#fff;text-decoration:underline;font-weight:500}
-.maturity{font-size:12px;font-weight:400;line-height:18px;color:var(--ink-2);margin-top:2px}
-.classic-label{margin-bottom:4px}
-.gactions{display:flex;align-items:center;gap:20px;flex:0 0 auto}
-.gactions .btn.cta{height:68px;width:300px}
-.arow{display:flex;align-items:flex-start;gap:12px}
-.act{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:46px;
-  font-size:12px;font-weight:500;line-height:16px;color:var(--ink-2)}
+  background:#1B1C22;color:#FFFFFF;font-size:14px;line-height:1.45}
+.stall a{color:#FFFFFF;text-decoration:underline;font-weight:600}
+.maturity{font-size:12px;font-weight:400;line-height:18px;color:var(--ink-3);margin-top:2px}
+.classic-label{margin-bottom:8px}
+.gactions{display:flex;align-items:center;gap:22px;flex:0 0 auto}
+.arow{display:flex;align-items:flex-start;gap:14px}
+.act{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:46px;
+  font-size:12px;font-weight:600;line-height:16px;color:var(--ink-2)}
 .act:hover{color:var(--ink)}
-.act[aria-pressed="true"]{color:var(--blue)}
-.votes{display:flex;align-items:flex-start;gap:6px;margin-left:auto}
+.act[aria-pressed="true"]{color:var(--ink)}
+.act[aria-pressed="true"] svg{color:var(--gold)}
+.votes{display:flex;align-items:flex-start;gap:8px;margin-left:auto}
 .votebar{width:58px;height:4px;margin-top:10px;border-radius:2px;overflow:hidden;background:var(--line)}
-.votebar i{display:block;height:100%;background:var(--ink-2)}
-.gstats{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));margin-top:20px;padding:12px 0;
-  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
-.gstats div{text-align:center;padding:0 5px;min-width:0}
-.gstats dt{font-size:12px;font-weight:500;line-height:18px;color:var(--ink-2)}
-.gstats dd{font-size:12px;font-weight:400;line-height:18px;color:var(--ink);overflow-wrap:anywhere}
+.votebar i{display:block;height:100%;background:var(--ink)}
+.gstats{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));margin-top:22px;padding:16px 0;
+  background:var(--surface);border-radius:var(--r);box-shadow:var(--elev)}
+.gstats div{text-align:center;padding:0 6px;min-width:0;border-left:1px solid var(--line-2)}
+.gstats div:first-child{border-left:none}
+.gstats dt{font-size:11px;font-weight:700;line-height:16px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.gstats dd{margin-top:4px;font-size:14px;font-weight:700;line-height:18px;color:var(--ink);overflow-wrap:anywhere}
 
 /* ----------------------------------------------------------------- forms -- */
 textarea,input[type=text]{
-  width:100%;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:var(--r);
-  padding:9px 12px;font-size:16px;outline:none;resize:vertical;
+  width:100%;background:var(--surface);color:var(--ink);border:1.5px solid var(--line);border-radius:var(--r-sm);
+  padding:11px 14px;font-size:16px;outline:none;resize:vertical;
 }
-textarea:focus,input[type=text]:focus{border-color:var(--blue)}
-.lbl{display:block;font-size:12px;font-weight:700;line-height:18px;color:var(--ink-2);margin-bottom:6px}
+input[type=text]{height:44px;padding:0 14px}
+textarea:focus,input[type=text]:focus{border-color:var(--ink)}
+.lbl{display:block;font-size:12px;font-weight:800;line-height:18px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);margin-bottom:8px}
 
-.msg{display:flex;gap:8px;padding:9px 11px;border-radius:var(--r);font-size:14px;margin-bottom:6px;align-items:flex-start;line-height:1.5}
+.msg{display:flex;gap:8px;padding:10px 12px;border-radius:var(--r-sm);font-size:14px;margin-bottom:6px;align-items:flex-start;line-height:1.5}
 .msg.error{background:var(--err-bg);color:var(--err-ink)}
 .msg.warn{background:var(--warn-bg);color:var(--warn-ink)}
 .msg.info{background:var(--fill);color:var(--ink-2)}
-.msg b{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;flex:0 0 auto;padding-top:4px;opacity:.75}
+.msg b{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;flex:0 0 auto;padding-top:4px;opacity:.75}
 
-table.bd{width:100%;border-collapse:collapse;font-size:14px}
-table.bd th{font-size:12px;line-height:18px;color:var(--ink-3);text-align:left;padding:5px 8px;font-weight:700}
-table.bd td{padding:8px;border-top:1px solid var(--line-2);font-variant-numeric:tabular-nums}
-table.bd td:first-child{width:28px;color:var(--ink-3);font-weight:700}
-table.bd td:nth-child(2){font-weight:500}
+table.bd{width:100%;border-collapse:collapse;font-size:14px;background:var(--surface);border-radius:var(--r);box-shadow:var(--elev);overflow:hidden}
+table.bd th{font-size:11px;line-height:16px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);text-align:left;padding:12px 12px 10px;font-weight:800}
+table.bd td{padding:11px 12px;border-top:1px solid var(--line-2);font-variant-numeric:tabular-nums}
+table.bd td:first-child{width:36px;color:var(--ink-3);font-weight:800}
+table.bd td:nth-child(2){font-weight:600}
 
-.frame{width:100%;aspect-ratio:16/9;border:none;border-radius:var(--r);background:var(--line);display:block}
+.frame{width:100%;aspect-ratio:16/9;border:none;border-radius:var(--r);background:#0B0B0F;display:block;box-shadow:var(--elev)}
 
 /* ---------------------------------------------------------------- footer -- */
-.ftr{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 48px}
-.ftr .links{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 28px}
-.ftr a{font-size:16px;font-weight:500;color:var(--ink-2)}
-.ftr a:hover{color:var(--ink)}
-.ftr .fine{margin:14px auto 0;max-width:720px;text-align:center;font-size:12px;font-weight:400;line-height:18px;color:var(--ink-3)}
+/* GameStop's footer: white, columns under uppercase headings, a legal row. */
+.ftr{background:var(--surface);border-top:1px solid var(--line);margin-top:72px}
+.fcols{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:32px;padding-top:44px;padding-bottom:36px}
+.fcols h3{font-family:var(--display);font-size:14px;font-weight:800;line-height:20px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px}
+.fcols a{display:block;font-size:14px;line-height:30px;color:var(--ink-2)}
+.fcols a:hover{color:var(--ink);text-decoration:underline}
+.fbrand p{font-size:14px;line-height:22px;color:var(--ink-3);max-width:300px;margin-top:14px}
+.flegal{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;padding-top:18px;padding-bottom:30px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3)}
+.flegal nav{display:flex;gap:20px}
+.flegal a:hover{color:var(--ink);text-decoration:underline}
 
-/* ------------------------------------------------------------------ prose */
+/* ----------------------------------------------------------------- prose -- */
 .prose{max-width:720px}
-.prose h2{margin:26px 0 8px}
-.prose p{font-size:16px;line-height:1.55;color:var(--ink-2);margin-bottom:10px}
-.prose li{font-size:16px;line-height:1.55;color:var(--ink-2);margin:0 0 6px 20px}
+.prose h2{margin:28px 0 8px}
+.prose p{font-size:16px;line-height:1.6;color:var(--ink-2);margin-bottom:10px}
+.prose li{font-size:16px;line-height:1.6;color:var(--ink-2);margin:0 0 6px 20px}
 
+@media(max-width:1100px){
+  .bubbles{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+  .fcols{grid-template-columns:1fr 1fr}
+}
 @media(max-width:899px){
   /* phones: the 4:3 cut, with the card under it as page text */
-  .billboard{aspect-ratio:auto;max-height:none;min-height:0;background:none;border-radius:0;overflow:visible}
-  .billboard .screen{position:relative;aspect-ratio:4/3;border-radius:var(--r);overflow:hidden;background:#0E1014}
-  .billboard .card{position:static;width:auto;padding:12px 0 0;background:none;color:var(--ink)}
-  .kicker{color:var(--blue)}
-  .billboard h1{font-size:28px;line-height:32px;color:var(--ink)}
+  .billboard{aspect-ratio:auto;max-height:none;min-height:0;background:none;border-radius:0;overflow:visible;box-shadow:none}
+  .billboard .screen{position:relative;aspect-ratio:4/3;border-radius:var(--r);overflow:hidden;background:#0B0B0F;box-shadow:var(--elev)}
+  .billboard .card{position:static;width:auto;padding:16px 0 0;background:none;color:var(--ink)}
+  .kicker{color:var(--ink-3)}
+  .billboard h1{font-size:32px;line-height:36px;color:var(--ink)}
   .tagline,.hstats{color:var(--ink-2)}
   .hstats b{color:var(--ink)}
-  .btn.light{background:var(--fill)}
+  .btn.light{background:var(--brand);border-color:var(--brand);color:#FFFFFF}
+  .btn.ghost{background:var(--surface);border-color:#D5D7DD;color:var(--ink)}
   .acts .btn{flex:1}
 }
 @media(max-width:760px){
   :root{--gutter:16px}
-  body{padding-top:74px}
-  .hdr .bar{height:40px}
-  .desktopnav{display:none}
-  .srch{display:none}
-  .wordmark b{font-size:16px}
-  .createworld{margin-left:auto;font-size:14px;height:30px}
-  .mobile-search{display:flex;align-items:center;justify-content:center;width:32px;height:32px;margin-left:4px;color:var(--ink-2)}
-  .mobile-nav{display:flex;height:34px;align-items:center;justify-content:space-around;padding:0 var(--gutter)}
-  .mobile-nav .nvl{font-size:14px;padding:5px 7px}
-  .tab{font-size:13px;padding:0 8px;white-space:nowrap}
-  h1,.t-h1{font-size:24px;line-height:32px}
-  .charthead{align-items:center;margin-bottom:14px}
-  .homecharts{margin-top:20px;margin-bottom:-4px}
-  .filterpill{font-size:14px}
-  .railwrap{padding:0}
+  .hdr{position:static}
+  .hrow{flex-wrap:wrap;height:auto;gap:12px;padding-top:12px;padding-bottom:12px}
+  .wordmark b{font-size:21px}
+  .srch{order:3;flex:1 1 100%;max-width:none}
+  .hicons{gap:16px}
+  .hicon span{display:none}
+  .createworld{height:36px;padding:0 12px;font-size:13px}
+  .catnav .wrap{gap:22px}
+  .promo{font-size:13px}
+  .promo .long{display:none}
+  .tab{font-size:14px}
+  .tabs{gap:20px;overflow-x:auto}
+  h1,.t-h1{font-size:30px;line-height:34px}
+  .sec{margin-top:36px}
+  .sectitle{font-size:28px;line-height:34px}
+  .secsub{font-size:14px;line-height:20px}
+  .arrows{display:none}
   .rail{gap:12px}
-  .railbtn{display:none}
-  .gridw{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:4px 12px}
+  .gridw{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px 12px}
   .tl,.sk-tile{width:74%;flex-basis:74%}
   .gridw .tl{width:auto}
-  .tl .nm{font-size:15px}
-  .tl .mt{gap:7px}
+  .tl .tb{padding:10px 12px 12px}
+  .tl .mt{gap:8px}
   .tl .mt span:nth-child(n+3){display:none}
+  .bubbles{gap:14px}
+  .fcols{grid-template-columns:1fr;gap:24px;padding-top:32px}
 }
 @media(max-width:1018px){
-  /* phones and small tablets: the stage full width, the bar stacked */
+  /* phones and small tablets: the stage full width, the panel stacked */
   .gpage{--stage:100%}
-  .gbar{flex-direction:column;align-items:stretch;gap:14px}
-  .gactions{flex-direction:column-reverse;align-items:stretch;gap:12px}
+  .gbar{flex-direction:column;align-items:stretch;gap:16px;padding:18px}
+  .gtitle h1{font-size:26px;line-height:31px}
+  .gactions{flex-direction:column-reverse;align-items:stretch;gap:14px}
   .gactions .btn.cta{width:100%}
-  .gstats{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);row-gap:14px}
+  .gstats{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);row-gap:16px}
+  .gstats div:nth-child(3n+1){border-left:none}
 }
 
 /* ------------------------------------------------------------------- you -- */
 /* "You are the main character": the selfie, and your runner on the line. */
 .you-start{max-width:640px;margin:0 auto;padding:56px 0 24px}
-.you-h1{font-size:48px;line-height:52px;font-weight:800;margin-top:6px}
-.you-lede{font-size:18px;line-height:26px;color:var(--ink-2);margin-top:12px;max-width:520px}
-.you-age{display:flex;align-items:center;gap:8px;margin-top:22px;font-size:16px;font-weight:500}
+.you-h1{font-size:52px;line-height:54px;font-weight:800;margin-top:6px}
+.you-lede{font-size:18px;line-height:26px;color:var(--ink-2);margin-top:14px;max-width:520px}
+.you-age{display:flex;align-items:center;gap:8px;margin-top:22px;font-size:16px;font-weight:600}
 .you-age input{width:18px;height:18px}
-.you-look{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start;padding-top:20px}
+.you-look{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start;padding-top:24px}
+.you-panel{background:var(--surface);border-radius:var(--r);box-shadow:var(--elev);padding:22px}
 .you-studio{position:relative}
-.you-wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:var(--r);background:#0E1014;color:#C9CDD8;font-size:14px;font-weight:600}
-.you-h2{font-size:28px;line-height:34px;font-weight:800;margin-bottom:6px}
-.you-row{margin-top:14px}
+.you-wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:var(--r);background:#0B0B0F;color:#C9CDD8;font-size:14px;font-weight:600}
+.you-h2{font-size:30px;line-height:34px;font-weight:800;margin-bottom:6px}
+.you-row{margin-top:16px}
 .you-swatches{display:flex;flex-wrap:wrap;gap:8px}
 .you-sw{width:32px;height:32px;border-radius:8px;border:2px solid var(--line)}
-.you-sw[aria-pressed="true"]{border-color:var(--ink);outline:2px solid var(--page);outline-offset:-4px}
+.you-sw[aria-pressed="true"]{border-color:var(--ink);outline:2px solid var(--surface);outline-offset:-4px}
 .you-kit{display:flex;width:44px;height:32px;border-radius:8px;overflow:hidden;border:2px solid var(--line);padding:0}
 .you-kit i{flex:1}
 .you-kit[aria-pressed="true"]{border-color:var(--ink)}
 @media(max-width:899px){
   .you-look{grid-template-columns:minmax(0,1fr)}
-  .you-h1{font-size:36px;line-height:40px}
+  .you-h1{font-size:38px;line-height:42px}
   .you-start{padding-top:28px}
 }

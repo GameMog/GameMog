@@ -28,10 +28,11 @@ export default async function ChartPage({ params, searchParams }: {
 
   return (
     <>
-      <SiteHeader on={sort === 'classic' ? 'Classic' : sort === 'new-mogs' ? 'Mogs' : 'Charts'} />
+      <SiteHeader on={sort === 'classic' ? 'Classic' : sort === 'new-mogs' ? 'Mogs' : sort === 'trending' ? 'Charts' : chart.title} />
       <main className="wrap chartpage">
         <div className="charthead">
-          <div><h1>{chart.title}</h1><p className="cap">{chart.explanation}</p></div>
+          <h1>{chart.title}</h1>
+          <p className="cap">{chart.caption ?? chart.explanation}</p>
           {genres.length > 1 && <GenreFilter genres={genres} value={genre} />}
         </div>
         {games.length

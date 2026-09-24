@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import '@fontsource-variable/figtree';
+import '@fontsource-variable/hubot-sans';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -8,7 +9,7 @@ export const metadata: Metadata = {
     'Bring a character, describe a world, publish a playable link. Millions of small games on one engine.',
 };
 
-/** Figtree is bundled locally under the SIL Open Font License. */
+/** Figtree (interface) and Hubot Sans (titles) are bundled locally under the SIL Open Font License. */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">

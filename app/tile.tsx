@@ -10,10 +10,11 @@ const NEW_MS = 1000 * 60 * 60 * 36;
 export const short = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n));
 
 /**
- * A 16:9 key-art thumbnail, four across a desktop row, a 16/700 name and one
- * compact metadata row. Every tile is identical in size and rhythm, and every
- * one shows its game's art whole: worlds their wide key art, Classic races
- * their wide drawn cover.
+ * GameStop's product card, for a game (docs/design/premium.md): a white card,
+ * the art flush to the top at 16:9, a corner badge, a 15/700 name and one
+ * compact metadata row, four across a desktop row. Every card is identical
+ * in size and rhythm and shows its game's art whole: worlds their wide key
+ * art, Classic races their wide drawn cover.
  */
 export function Tile({ g, i = 0, best, stats }: { g: GameRow; i?: number; best?: number; stats?: TileStats }) {
   const isNew = Date.now() - g.created_at < NEW_MS;
@@ -30,16 +31,18 @@ export function Tile({ g, i = 0, best, stats }: { g: GameRow; i?: number; best?:
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={`/g/${g.slug}/cover`} alt="" loading="lazy" />
           : <Cover spec={spec!} seed={i} wide />}
-        {g.parent_id ? <span className="bd ink">MOG</span>
-          : isNew ? <span className="bd blue">NEW</span> : null}
       </div>
-      <div className="nm">{g.title}</div>
-      <div className="mt">
-        {votes > 0 && <span aria-label={`${liked}% liked`}><Icon name="thumbUp" size={13} />{liked}%</span>}
-        <span aria-label={`${g.plays} plays`}><Icon name="players" size={13} />{short(g.plays)}</span>
-        {stats?.mogs
-          ? <span aria-label={`${stats.mogs} Mogs`}><Icon name="remix" size={13} />{stats.mogs}</span>
-          : best ? <span><Icon name="trophy" size={13} />{(best / 1000).toFixed(1)}s</span> : null}
+      {g.parent_id ? <span className="bd mog">MOG</span>
+        : isNew ? <span className="bd">NEW</span> : null}
+      <div className="tb">
+        <div className="nm">{g.title}</div>
+        <div className="mt">
+          {votes > 0 && <span aria-label={`${liked}% liked`}><Icon name="thumbUp" size={13} />{liked}%</span>}
+          <span aria-label={`${g.plays} plays`}><Icon name="players" size={13} />{short(g.plays)}</span>
+          {stats?.mogs
+            ? <span aria-label={`${stats.mogs} Mogs`}><Icon name="remix" size={13} />{stats.mogs}</span>
+            : best ? <span><Icon name="trophy" size={13} />{(best / 1000).toFixed(1)}s</span> : null}
+        </div>
       </div>
     </Link>
   );

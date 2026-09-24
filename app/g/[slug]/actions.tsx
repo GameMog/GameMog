@@ -89,7 +89,7 @@ export function GameActions({ gameId, slug, title, initial }: {
   return (
     <div className="gactions">
       <button className="btn cta" onClick={play} aria-label={`Play ${title}`}>
-        <Icon name="play" size={30} />
+        <Icon name="play" size={20} /><span>Play</span>
       </button>
       <div className="arow">
         <button className="act" onClick={favourite} aria-pressed={fav}>

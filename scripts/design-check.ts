@@ -71,7 +71,10 @@ export function runDesignChecks(ok: Ok) {
     ok(label, found.length === 0, found.slice(0, 4).join(', '));
 
   console.log('\ndesign contract: surfaces');
-  none('no drop shadows', hits(files, /box-shadow\s*:\s*(?!none)/i, { code: true }));
+  // GameStop's soft elevation, by the owner's call (23 Sep, docs/design/premium.md):
+  // a shadow may come only from the three elevation tokens, never ad hoc
+  none('shadows only from the elevation tokens', hits(files, /box-shadow\s*:\s*(?!none|var\(--elev(?:-hover|-hair)?\))/i, { code: true }));
+  ok('the elevation tokens are GameStop\'s soft card shadows', /--elev:0 1px 6px rgba\(0,0,0,\.15\)/.test(css) && /--elev-hover:0 6px 18px rgba\(0,0,0,\.16\)/.test(css));
   none('no gradients in chrome', hits(files, /(linear|radial|conic)-gradient\s*\(/i, { code: true, exempt: ['app/cover.tsx'] }));
   none('no frosted glass', hits(files, /backdrop-filter/i, { code: true }));
   none('no transitions or animations', hits(files, /\b(transition|animation)\s*:|@keyframes/i, { code: true }));
@@ -101,10 +104,11 @@ export function runDesignChecks(ok: Ok) {
   ok('no soft radii between 9px and a full pill', radii.length === 0, radii.join(', '));
   // the owner found 150px squares "way too small" (23 Sep); key art is wide
   ok('tiles are 16:9, four across a desktop row', /\.tl\{[^}]*width:calc\(\(100% - 48px\) \/ 4\)/.test(css) && /\.tl \.th\{[^}]*aspect-ratio:16\/9/.test(css));
-  ok('tile name is the measured 16px/700 at 22.4px', /\.tl \.nm\{[^}]*font-size:16px;font-weight:700;line-height:22\.4px/.test(css));
+  ok('cards are white, elevated and 8px round, with a 15px/700 name', /\.tl\{[^}]*background:var\(--surface\);border-radius:var\(--r\);overflow:hidden;box-shadow:var\(--elev\)/.test(css) && /\.tl \.nm\{[^}]*font-size:15px;font-weight:700/.test(css));
+  ok('titles are set in the display face, self-hosted', /--display:'Hubot Sans Variable'/.test(css) && /@fontsource-variable\/hubot-sans/.test(readFileSync(join(APP, 'layout.tsx'), 'utf8')));
   // light by default (the owner, 23 Sep); Roblox's dark theme is kept under
   // [data-theme="dark"]
-  ok('page is not pure white; the dark palette is kept, not pure black', /:root\{[^}]*--page:#F7F7F8/.test(css) && !/--page:#FFFFFF/i.test(css) && /\[data-theme="dark"\]\{[^}]*--page:#121215/.test(css));
+  ok('page is GameStop\'s cool grey under white surfaces; the dark palette is kept', /:root\{[^}]*--page:#F2F4F7/.test(css) && /:root\{[^}]*--surface:#FFFFFF/.test(css) && /\[data-theme="dark"\]\{[^}]*--page:#121215/.test(css));
 
   console.log('\ndesign contract: things that must be present');
   const footer = readFileSync(join(APP, 'header.tsx'), 'utf8');

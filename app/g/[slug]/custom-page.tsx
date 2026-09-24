@@ -57,6 +57,9 @@ export function CustomGamePage({ game }: { game: GameRow }) {
       <main className="gpage">
         {/* the game is the page: a stage as wide as the screen's height allows,
             then who made it and what you can do with it */}
+        <nav className="crumbs" aria-label="Breadcrumb">
+          <Link href="/">Home</Link><span aria-hidden>/</span><Link href="/charts/trending">Top Trending</Link><span aria-hidden>/</span><span>{game.title}</span>
+        </nav>
         <div className="gtop">
           <div className="gstage">
             <PlayFrame slug={game.slug} gameId={game.id} you={game.format === 'world'}
@@ -93,7 +96,6 @@ export function CustomGamePage({ game }: { game: GameRow }) {
                     <div><dt>Mogs</dt><dd>{mogs.length}</dd></div>
                     <div><dt>Generation</dt><dd>{game.generation}</dd></div>
                     <div><dt>Created</dt><dd>{created}</dd></div>
-                    <div><dt>Updated</dt><dd>Not tracked</dd></div>
                     <div><dt>Genre</dt><dd>{meta.genre}</dd></div>
                     <div><dt>Rivals</dt><dd>{world ? 'One more each lap' : rivals}</dd></div>
                   </dl>
@@ -140,11 +142,10 @@ export function CustomGamePage({ game }: { game: GameRow }) {
         />
 
         {others.length > 0 ? (
-          <section className="sec">
-            <div className="sechead"><h2>Players Also Play</h2><Link href="/charts/trending" className="more">See All<span aria-hidden>›</span></Link></div>
-            <Shelf>{(() => { const st = tileStats(); return others.map((g, i) => <Tile key={g.id} g={g} i={i + 40} best={best[g.id]} stats={st[g.id]} />); })()}</Shelf>
-          </section>
-        ) : <section className="sec"><div className="sechead"><h2>Players Also Play</h2></div><div className="empty compact"><p>No other worlds are published yet.</p></div></section>}
+          <Shelf title="Players Also Play" sub="More worlds on the GameMog Runtime." more={{ href: '/charts/trending', label: 'View all worlds' }}>
+            {(() => { const st = tileStats(); return others.map((g, i) => <Tile key={g.id} g={g} i={i + 40} best={best[g.id]} stats={st[g.id]} />); })()}
+          </Shelf>
+        ) : <section className="sec"><div className="sechead"><div className="sectext"><h2 className="sectitle">Players Also Play</h2></div></div><div className="empty compact"><p>No other worlds are published yet.</p></div></section>}
       </main>
       <SiteFooter />
     </>

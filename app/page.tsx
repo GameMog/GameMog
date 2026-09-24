@@ -8,6 +8,8 @@ import { Rail as Shelf } from './rail';
 import { GenreFilter } from './genre-filter';
 import { listGames, bestTimes, topScores, tileStats, type GameRow, type TileStats } from '@/lib/db';
 import { CHARTS, genreOf, sortGames, type ChartSort } from '@/lib/catalog';
+import { Cover } from './cover';
+import type { WorldSpec } from '@/lib/worldspec';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,24 +24,60 @@ function filmFor(slug: string): Film | null {
 }
 
 /**
- * A heading, a "See all" when there is more than the row shows, and a row of
- * identical tiles. That is the entire unit a games catalogue is built from.
+ * A chart as a GameStop section (docs/design/premium.md): the title and a grey
+ * subtitle, arrows, any tab chips, the rail of cards, "View all" under it.
  */
-function Rail({ sort, games, best, stats, seed, caption }: {
-  sort: ChartSort; games: GameRow[]; best: Record<string, number>; stats: Record<string, TileStats>; seed: number; caption?: string;
+function Section({ sort, games, best, stats, seed, controls }: {
+  sort: ChartSort; games: GameRow[]; best: Record<string, number>; stats: Record<string, TileStats>; seed: number; controls?: React.ReactNode;
 }) {
   if (games.length < 4) return null;
   const chart = CHARTS[sort];
   return (
+    <Shelf title={chart.title} sub={chart.caption ?? chart.explanation} controls={controls}
+      more={{ href: `/charts/${sort}`, label: `View all ${chart.title}` }}>
+      {games.map((g, i) => <Tile key={g.id} g={g} i={seed + i} best={best[g.id]} stats={stats[g.id]} />)}
+    </Shelf>
+  );
+}
+
+/**
+ * GameStop's round category bubbles: every way into GameMog, each with a
+ * picture from a real game where there is one.
+ */
+function JumpIn({ worlds, classic, stats }: { worlds: GameRow[]; classic?: GameRow; stats: Record<string, TileStats> }) {
+  // each bubble gets its own picture: a chart's natural pick, or the next
+  // world nobody else is showing, so no two circles repeat
+  const used = new Set<string>();
+  const pick = (...order: (GameRow | undefined)[]) => {
+    const g = [...order, ...worlds].find((w) => w && !used.has(w.id));
+    if (g) used.add(g.id);
+    return g;
+  };
+  const byPlays = [...worlds].sort((a, b) => b.plays - a.plays);
+  const mog = pick(worlds.find((g) => g.parent_id), ...byPlays);
+  const trending = pick(...byPlays);
+  const mogged = pick(...[...worlds].sort((a, b) => (stats[b.id]?.mogs ?? 0) - (stats[a.id]?.mogs ?? 0)));
+  const rising = pick(...[...worlds].sort((a, b) => b.created_at - a.created_at));
+  const art = (g?: GameRow) => (g ? <img src={`/g/${g.slug}/cover`} alt="" loading="lazy" /> : null);
+  const items: { href: string; label: string; pic: React.ReactNode; solid?: boolean }[] = [
+    { href: '/charts/trending', label: 'Top Trending', pic: art(trending) },
+    { href: '/charts/up-and-coming', label: 'Up-and-Coming', pic: art(rising) },
+    { href: '/charts/new-mogs', label: 'New Mogs', pic: art(mog) },
+    { href: '/classic', label: 'Classic', pic: classic ? <Cover spec={JSON.parse(classic.spec) as WorldSpec} seed={7} /> : null },
+    { href: '/charts/most-mogged', label: 'Most Mogged', pic: art(mogged) },
+    { href: '/create', label: 'Create a world', pic: <span aria-hidden><Icon name="plus" size={44} /></span>, solid: true },
+  ];
+  return (
     <section className="sec">
-      <div className="sechead">
-        <h2>{chart.title}<span className="info" title={chart.explanation} aria-label={chart.explanation}>i</span></h2>
-        <Link href={`/charts/${sort}`} className="more">See All<span aria-hidden>›</span></Link>
+      <div className="sechead"><div className="sectext"><h2 className="sectitle">Jump in</h2><p className="secsub">Every way into GameMog.</p></div></div>
+      <div className="bubbles">
+        {items.map((it) => (
+          <Link key={it.label} href={it.href} className="bubble">
+            <i className={it.solid ? 'solid' : undefined}>{it.pic}</i>
+            {it.label}
+          </Link>
+        ))}
       </div>
-      {(caption ?? chart.caption) && <p className="cap">{caption ?? chart.caption}</p>}
-      <Shelf>
-        {games.map((g, i) => <Tile key={g.id} g={g} i={seed + i} best={best[g.id]} stats={stats[g.id]} />)}
-      </Shelf>
     </section>
   );
 }
@@ -70,8 +108,8 @@ function Billboard({ game, film, stats }: { game: GameRow; film: Film | null; st
           {mogs ? <span><b>{mogs}</b> {mogs === 1 ? 'Mog' : 'Mogs'}</span> : <span>No Mogs yet</span>}
         </div>
         <div className="acts">
-          <Link href={`/g/${game.slug}`} className="btn big" aria-label={`Play ${game.title}`}><Icon name="play" size={20} />Play</Link>
-          <Link href={`/mog/${game.slug}`} className="btn big light"><Icon name="remix" size={18} />Mog it</Link>
+          <Link href={`/g/${game.slug}`} className="btn big light" aria-label={`Play ${game.title}`}><Icon name="play" size={20} />Play</Link>
+          <Link href={`/mog/${game.slug}`} className="btn big ghost"><Icon name="remix" size={18} />Mog it</Link>
         </div>
       </div>
     </section>
@@ -126,15 +164,20 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ g
   return (
     <>
       <SiteHeader />
-      <main className="wrap" style={{ paddingTop: 16 }}>
+      <main className="wrap" style={{ paddingTop: 24 }}>
         <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />
 
-        <div className="charthead homecharts">
-          <h1>Charts</h1>
-          <GenreFilter genres={genres} value={genre} />
-        </div>
-        {rails.map((rail, i) => <Rail key={rail.sort} sort={rail.sort} games={rail.games} best={best} stats={stats} seed={i * 40} />)}
-        {!rails.length && <div className="empty"><h2>No full chart for this genre yet</h2><p>Charts appear when at least four worlds qualify.</p></div>}
+        {rails.map((rail, i) => (
+          <Section key={rail.sort} sort={rail.sort} games={rail.games} best={best} stats={stats} seed={i * 40}
+            controls={i === 0 && genres.length > 1 ? <GenreFilter genres={genres} value={genre} /> : undefined} />
+        ))}
+        {!rails.length && (
+          <section className="sec">
+            {genres.length > 1 && <div className="seccontrols"><GenreFilter genres={genres} value={genre} /></div>}
+            <div className="empty"><h2>No full chart for this genre yet</h2><p>Charts appear when at least four worlds qualify.</p></div>
+          </section>
+        )}
+        <JumpIn worlds={worlds} classic={games.find((g) => g.slug === 'muse-sprint') ?? games.find((g) => g.format === 'race')} stats={stats} />
 
       </main>
       <SiteFooter />

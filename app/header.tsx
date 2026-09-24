@@ -1,55 +1,90 @@
 import Link from 'next/link';
 
 /**
- * One measured 40px desktop bar. Phones keep the same controls in a 40px top
- * row and place navigation in a 34px row underneath.
+ * GameStop's header, for GameMog (docs/design/premium.md): a white brand row
+ * that stays at the top (the mark, a wide search, icon actions with labels,
+ * the one primary button), a category row, and a black promo strip for the
+ * featured world. Classic leads the categories: the owner's call.
  */
 const NAV = [
   { label: 'Classic', href: '/classic' },
-  { label: 'Charts', href: '/charts/trending' },
+  { label: 'Top Trending', href: '/charts/trending', key: 'Charts' },
+  { label: 'Up-and-Coming', href: '/charts/up-and-coming' },
+  { label: 'Top Rated', href: '/charts/top-rated' },
+  { label: 'Most Mogged', href: '/charts/most-mogged' },
+  { label: 'New Mogs', href: '/charts/new-mogs', key: 'Mogs' },
   { label: 'Create', href: '/create' },
-  { label: 'Library', href: '/library' },
-  { label: 'Mogs', href: '/charts/new-mogs' },
+  { label: 'Asset Library', href: '/library', key: 'Library' },
 ];
+
+/** The featured world the promo strip points at (the homepage's billboard). */
+const PROMO = { href: '/g/la-olympics-2028', title: 'LA Olympics 2028', line: 'The 400 metres final that never ends.' };
 
 export function SiteHeader({ on = '' }: { on?: string }) {
   return (
-    <header className="hdr">
-      <div className="wrap bar">
-        <Link href="/" className="wordmark" aria-label="GameMog home">
-          <span className="mk" /><b>GameMog</b>
-        </Link>
-        <nav className="desktopnav" aria-label="Primary">
-          {NAV.map((n) => <Link key={n.label} href={n.href} className={`nvl${n.label === on ? ' on' : ''}`}>{n.label}</Link>)}
-        </nav>
-        <form className="srch" action="/charts/trending">
-          <span className="ic"><Icon name="search" size={16} /></span>
-          <input name="q" placeholder="Search" aria-label="Search worlds" />
-        </form>
-        <Link href="/create" className="btn createworld">Create a world</Link>
-        <Link href="/charts/trending" className="mobile-search" aria-label="Search worlds"><Icon name="search" size={20} /></Link>
-      </div>
-      <nav className="mobile-nav wrap" aria-label="Primary">
-        {NAV.map((n) => <Link key={n.label} href={n.href} className={`nvl${n.label === on ? ' on' : ''}`}>{n.label}</Link>)}
+    <>
+      <header className="hdr">
+        <div className="wrap hrow">
+          <Link href="/" className="wordmark" aria-label="GameMog home">
+            <span className="mk" aria-hidden /><b>GameMog</b>
+          </Link>
+          <form className="srch" action="/charts/trending" role="search">
+            <span className="ic"><Icon name="search" size={16} /></span>
+            <input name="q" placeholder="Search worlds" aria-label="Search worlds" />
+          </form>
+          <nav className="hicons" aria-label="Shortcuts">
+            <Link href="/charts/new-mogs" className="hicon"><Icon name="remix" size={22} /><span>Mogs</span></Link>
+            <Link href="/library" className="hicon"><Icon name="library" size={22} /><span>Library</span></Link>
+            <Link href="/create" className="btn createworld">Create a world</Link>
+          </nav>
+        </div>
+      </header>
+      <nav className="catnav" aria-label="Browse">
+        <div className="wrap">
+          {NAV.map((n) => (
+            <Link key={n.label} href={n.href} className={`nvl${(n.key ?? n.label) === on ? ' on' : ''}`}>{n.label}</Link>
+          ))}
+        </div>
       </nav>
-    </header>
+      <Link href={PROMO.href} className="promo">
+        <b>NEW WORLD</b>
+        <span>{PROMO.title} is live.<span className="long"> {PROMO.line}</span></span>
+        <u>Play now</u>
+      </Link>
+    </>
   );
 }
 
 export function SiteFooter() {
   return (
     <footer className="ftr">
-      <div className="wrap">
-        <div className="links">
-          <Link href="/">Charts</Link>
-          <Link href="/create">Create</Link>
-          <Link href="/charts/new-mogs">Mogs</Link>
-          <Link href="/charts/classic">Classic</Link>
-          <Link href="/library">Library</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/privacy">Privacy</Link>
+      <div className="wrap fcols">
+        <div className="fbrand">
+          <Link href="/" className="wordmark" aria-label="GameMog home"><span className="mk" aria-hidden /><b>GameMog</b></Link>
+          <p>The internet, playable. Every world on the GameMog Runtime is playtested in a real browser before it publishes.</p>
         </div>
-        <p className="fine">GameMog makes the internet playable. Every Runtime world is playtested before it publishes.</p>
+        <div>
+          <h3>Play</h3>
+          <Link href="/charts/trending">Top Trending</Link>
+          <Link href="/charts/up-and-coming">Up-and-Coming</Link>
+          <Link href="/charts/new-mogs">New Mogs</Link>
+          <Link href="/classic">Classic</Link>
+        </div>
+        <div>
+          <h3>Make</h3>
+          <Link href="/create">Create a world</Link>
+          <Link href="/charts/most-mogged">Most Mogged</Link>
+          <Link href="/library">Asset library</Link>
+        </div>
+        <div>
+          <h3>Legal &amp; privacy</h3>
+          <Link href="/terms">Terms of Service</Link>
+          <Link href="/privacy">Privacy Policy</Link>
+        </div>
+      </div>
+      <div className="wrap flegal">
+        <span>© 2026 GameMog. The internet, playable.</span>
+        <nav aria-label="Legal"><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link></nav>
       </div>
     </footer>
   );
@@ -72,6 +107,8 @@ const PATHS: Record<string, React.ReactNode> = {
   thumbUp: <path d="M2.2 8.6h3.2v9.2H2.2zM7 17.8V8.7l3.7-6c.3-.5 1-.7 1.5-.4.6.3.9 1 .7 1.6l-1 3.6h4.4c1.1 0 1.9 1 1.7 2l-1.3 6.6c-.2 1-1 1.7-1.9 1.7z" />,
   thumbDown: <g transform="rotate(180 10 10)"><path d="M2.2 8.6h3.2v9.2H2.2zM7 17.8V8.7l3.7-6c.3-.5 1-.7 1.5-.4.6.3.9 1 .7 1.6l-1 3.6h4.4c1.1 0 1.9 1 1.7 2l-1.3 6.6c-.2 1-1 1.7-1.9 1.7z" /></g>,
   remix: <path d="M15.6 5.2A7.2 7.2 0 003 8.1l2 .6a5.1 5.1 0 019-2L12 8.8h6.2V2.6zM4.4 14.8A7.2 7.2 0 0017 11.9l-2-.6a5.1 5.1 0 01-9 2L8 11.2H1.8v6.2z" />,
+  library: <path d="M3 3.2h3.2v13.6H3zM7.6 3.2h3.2v13.6H7.6zM12.3 4.1l3-.8 3.5 13.1-3 .8z" />,
+  plus: <path d="M9 3.5h2v5.5h5.5v2H11v5.5H9V11H3.5V9H9z" />,
 };
 
 export function Icon({ name, size = 14 }: { name: keyof typeof PATHS | string; size?: number }) {

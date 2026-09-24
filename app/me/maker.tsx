@@ -61,7 +61,7 @@ export function MeMaker({ then }: { then: string }) {
     return (
       <div className="you-start">
         {picker}
-        <p className="kicker" style={{ color: 'var(--blue)' }}>GameMog</p>
+        <p className="kicker" style={{ color: 'var(--ink-3)' }}>GameMog</p>
         <h1 className="you-h1">You are the main character.</h1>
         <p className="you-lede">Take a selfie and GameMog makes a runner who looks like you. You play as them in every world.</p>
         <label className="you-age">

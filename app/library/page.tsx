@@ -22,7 +22,7 @@ export default function Library() {
   const assets = Object.entries(lib.assets);
   return (
     <>
-      <SiteHeader on="" />
+      <SiteHeader on="Library" />
       <main className="wrap prose" style={{ paddingTop: 24, paddingBottom: 60 }}>
         <h1>Asset library</h1>
         <p className="dim" style={{ marginTop: 6 }}>

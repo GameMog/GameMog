@@ -105,7 +105,7 @@ export default function Create() {
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader on="Create" />
       <main className="wrap" style={{ paddingBottom: 80, maxWidth: 820 }}>
         <h1 style={{ marginTop: 24, marginBottom: 6 }}>Create a world</h1>
         <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
