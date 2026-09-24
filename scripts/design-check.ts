@@ -9,8 +9,9 @@
  * Scope is the presentation layer only. app/cover.tsx is exempt from the
  * gradient rule because it draws a sky, and a sky is a gradient.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { markSvg } from '../lib/brand.ts';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const APP = join(ROOT, 'app');
@@ -112,6 +113,11 @@ export function runDesignChecks(ok: Ok) {
 
   console.log('\ndesign contract: things that must be present');
   const footer = readFileSync(join(APP, 'header.tsx'), 'utf8');
+  // one mark everywhere: a tab icon that is not the header's logo is a second brand
+  ok('the tab and home-screen icons are built from the mark (npm run brand:icons)',
+    ['favicon.ico', 'apple-icon.png'].every((f) => existsSync(join(APP, f)))
+    && existsSync(join(APP, 'icon.svg')) && readFileSync(join(APP, 'icon.svg'), 'utf8').trim() === markSvg()
+    && /<Wordmark/.test(footer) && /\.wordmark \.mark\{/.test(css));
   ok('terms page exists and is linked', hits([join(APP, 'terms/page.tsx')], /Terms of Service/).length > 0 && /href="\/terms"/.test(footer));
   ok('privacy page exists and is linked', hits([join(APP, 'privacy/page.tsx')], /Privacy Policy/).length > 0 && /href="\/privacy"/.test(footer));
   ok('skeleton loaders exist where content is pending',

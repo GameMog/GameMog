@@ -15,6 +15,7 @@
     "media:hero": "node --import ./scripts/ts-resolve.mjs scripts/media/record-hero.ts",
     "media:art": "node --import ./scripts/ts-resolve.mjs scripts/media/key-art.ts",
     "media:pages": "node --import ./scripts/ts-resolve.mjs scripts/media/capture-pages.ts",
+    "brand:icons": "node --import ./scripts/ts-resolve.mjs scripts/brand-icons.ts",
     "publish:world": "node --import ./scripts/ts-resolve.mjs scripts/publish-world.ts",
     "assets:fetch": "node --import ./scripts/ts-resolve.mjs scripts/assets/fetch.ts",
     "assets:build": "node --import ./scripts/ts-resolve.mjs scripts/assets/build.ts"

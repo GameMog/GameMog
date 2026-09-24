@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Wordmark } from './logo';
 
 /**
  * GameStop's header, for GameMog (docs/design/premium.md): a white brand row
@@ -25,9 +26,7 @@ export function SiteHeader({ on = '' }: { on?: string }) {
     <>
       <header className="hdr">
         <div className="wrap hrow">
-          <Link href="/" className="wordmark" aria-label="GameMog home">
-            <span className="mk" aria-hidden /><b>GameMog</b>
-          </Link>
+          <Wordmark />
           <form className="srch" action="/charts/trending" role="search">
             <span className="ic"><Icon name="search" size={16} /></span>
             <input name="q" placeholder="Search worlds" aria-label="Search worlds" />
@@ -60,7 +59,7 @@ export function SiteFooter() {
     <footer className="ftr">
       <div className="wrap fcols">
         <div className="fbrand">
-          <Link href="/" className="wordmark" aria-label="GameMog home"><span className="mk" aria-hidden /><b>GameMog</b></Link>
+          <Wordmark size={30} />
           <p>The internet, playable. Every world on the GameMog Runtime is playtested in a real browser before it publishes.</p>
         </div>
         <div>

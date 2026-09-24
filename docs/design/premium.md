@@ -27,6 +27,7 @@ no logo, no red, no copy, no imagery.
 | Hero | 534x400 banners, radius 9, carousel | full-width film (kept: the owner's LA billboard) | film kept, radius 8, elevated, title in Hubot Sans |
 | Category bubbles | round image bubbles with 13/600 labels | none | "Jump in" bubbles: Classic, Trending, New Mogs, Racing, Create, Library |
 | Product page | breadcrumbs 14 `#5F5F5F`; media in a white panel; purchase column; red 48px CTA; option chips with black outline; accordion headings Poppins 20/600 | stage and a bare bar | breadcrumbs; the stage elevated; a white purchase panel (title, credit, 48px Play, actions); section headings Hubot 24/700 |
+| Logo and favicon | bold all-caps wordmark; favicon on every tab | a black square with a gold dot; no favicon at all; the footer logo collapsed to grey text | a black crown on a GM-gold tile (lib/brand.ts: the promise and the verb, drawn on a 16px pixel grid) beside GAMEMOG in Hubot Sans 800 at 118% width; favicon.ico, icon.svg and the iPhone icon built from the same mark by `npm run brand:icons` |
 | Footer | white, column headings 18/600 uppercase, 14px links, legal row | one line of links | white, four columns with uppercase headings, legal row |
 | Motion | hover states, no decorative animation | none | instant hover states only (no transitions: the owner's contract) |
 

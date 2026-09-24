@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import '@fontsource-variable/figtree';
-import '@fontsource-variable/hubot-sans';
+import '@fontsource-variable/hubot-sans/standard.css';
 import './globals.css';
 
 export const metadata: Metadata = {
