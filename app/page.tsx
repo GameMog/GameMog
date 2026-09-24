@@ -17,6 +17,11 @@ export const dynamic = 'force-dynamic';
 const HERO = 'speed-skating-2030';
 /** A line of the owner's under the featured world's tagline. */
 const HERO_NOTE = 'The next Winter Olympics will take place in the French Alps, France, from February 1 to February 17, 2030.';
+/** The desktop hero's words, in roblox.com's voice: two short lines and one sentence. */
+const HERO_COPY = {
+  headline: ['One oval.', 'Endless laps.'],
+  sub: `Speed Skating 2030 is Olympic long-track on mirror ice, lap after lap. ${HERO_NOTE}`,
+};
 
 /** The featured world's film, when it has been recorded. */
 function filmFor(slug: string): Film | null {
@@ -90,6 +95,7 @@ function JumpIn({ worlds, classic, stats }: { worlds: GameRow[]; classic?: GameR
  */
 function Billboard({ game, film, stats }: { game: GameRow; film: Film | null; stats?: TileStats }) {
   const record = topScores(game.id, 1, 'level')[0];
+  const copy = game.slug === HERO ? HERO_COPY : { headline: [game.title], sub: game.tagline };
   const mogs = stats?.mogs ?? 0;
   return (
     <section className="billboard" aria-label="Featured world">
@@ -99,7 +105,18 @@ function Billboard({ game, film, stats }: { game: GameRow; film: Film | null; st
           // eslint-disable-next-line @next/next/no-img-element
           : <div className="film"><img src={`/g/${game.slug}/cover`} alt="" /></div>}
         <Link href={`/g/${game.slug}`} className="filmlink" tabIndex={-1} aria-hidden />
+        <div className="scrim" />
       </div>
+      {/* desktop: roblox.com's hero, straight on the film */}
+      <div className="lead">
+        <h1>{copy.headline.map((l) => <span key={l}>{l}</span>)}</h1>
+        <p>{copy.sub}</p>
+        <div className="acts">
+          <Link href={`/g/${game.slug}`} className="btn play" aria-label={`Play ${game.title}`}>Play</Link>
+          <Link href={`/mog/${game.slug}`} className="btn more">Mog it</Link>
+        </div>
+      </div>
+      {/* phones: the card under the film */}
       <div className="card">
         <span className="kicker">Featured world</span>
         <h1>{game.title}</h1>
@@ -172,8 +189,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ g
   return (
     <>
       <SiteHeader />
+      <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />
       <main className="wrap" style={{ paddingTop: 24 }}>
-        <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />
 
         {rails.map((rail, i) => (
           <Section key={rail.sort} sort={rail.sort} games={rail.games} best={best} stats={stats} seed={i * 40} genre={genre}

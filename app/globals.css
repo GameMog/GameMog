@@ -244,20 +244,29 @@ button.tag:hover{border-color:var(--ink)}
 
 /* ------------------------------------------------------------- billboard -- */
 /* The featured world across the top, playing (the owner's pick: Speed
-   Skating 2030), with the two things you can do with any game here: play it
-   or Mog it. The card is glass over the film, at the owner's request: the one
-   place the contract allows a backdrop blur. */
-.billboard{position:relative;border-radius:var(--r);overflow:hidden;background:#0B0B0F;box-shadow:var(--elev);
-  aspect-ratio:8/3;max-height:calc(100vh - 230px);min-height:380px}
+   Skating 2030). On a desktop it is laid out as roblox.com's hero, at the
+   owner's request: the film edge to edge with no frame, darkened toward the
+   bottom (the one gradient the contract allows) so the copy reads on it, a
+   two-line headline, one sentence, and two buttons. Phones keep the card. */
+.billboard{position:relative;overflow:hidden;background:#0B0B0F;height:clamp(520px,calc(100vh - 220px),760px)}
 .billboard .screen{position:absolute;inset:0}
 .film{position:absolute;inset:0}
 .film img,.film video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .filmlink{position:absolute;inset:0;z-index:1}
-.billboard .card{position:absolute;left:28px;bottom:28px;z-index:2;width:min(460px,46%);padding:24px 26px 26px;
-  display:grid;gap:12px;background:rgba(10,16,28,.3);border:1px solid rgba(255,255,255,.22);border-radius:var(--r);color:#F7F7F8}
-.billboard .card{-webkit-backdrop-filter:blur(20px) saturate(1.4) brightness(.62);backdrop-filter:blur(20px) saturate(1.4) brightness(.62)}
+.billboard .scrim{position:absolute;left:0;right:0;bottom:0;height:64%;z-index:1;pointer-events:none;background:linear-gradient(0deg,rgba(11,11,15,.94),rgba(11,11,15,.62) 42%,rgba(11,11,15,0))}
+.lead{position:absolute;z-index:2;left:calc(max(0px,(100% - 1600px) / 2) + var(--gutter));bottom:24px;width:min(640px,calc(100% - 2 * var(--gutter)));display:grid;gap:8px;color:#F7F7F8}
+.lead h1{font-family:var(--display);font-size:56px;line-height:67px;font-weight:800;letter-spacing:-.01em;color:#F7F7F8}
+.lead h1 span{display:block}
+.lead p{max-width:560px;font-size:16px;line-height:22px;color:#D5D7DD}
+.lead .acts{display:flex;gap:8px;margin-top:12px}
+.lead .btn{height:48px;padding:0 16px;border:0;border-radius:8px;font-size:16px;font-weight:600;letter-spacing:0}
+.lead .btn.play{background:var(--blue);color:#FFFFFF}
+.lead .btn.play:hover{background:var(--blue-press)}
+.lead .btn.more{background:rgba(208,217,251,.12);color:#F7F7F8}
+.lead .btn.more:hover{background:rgba(208,217,251,.2)}
+.billboard .card{display:none}
 .kicker{font-size:11px;font-weight:800;line-height:16px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
-.billboard h1{font-family:var(--display);font-size:46px;line-height:48px;font-weight:800;letter-spacing:-.025em;color:#FFFFFF}
+.billboard .card h1{font-family:var(--display);font-size:46px;line-height:48px;font-weight:800;letter-spacing:-.025em;color:#FFFFFF}
 .tagline{font-size:16px;line-height:23px;color:#C9CDD8}
 .hnote{font-size:14px;line-height:20px;color:#E4E9F2}
 .hstats{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:14px;line-height:20px;color:#C9CDD8}
@@ -430,11 +439,12 @@ table.bd td:nth-child(2){font-weight:600}
 }
 @media(max-width:899px){
   /* phones: the 4:3 cut, with the card under it as page text */
-  .billboard{aspect-ratio:auto;max-height:none;min-height:0;background:none;border-radius:0;overflow:visible;box-shadow:none}
+  .billboard{height:auto;padding:24px var(--gutter) 0;background:none;overflow:visible}
   .billboard .screen{position:relative;aspect-ratio:4/3;border-radius:var(--r);overflow:hidden;background:#0B0B0F;box-shadow:var(--elev)}
-  .billboard .card{position:static;width:auto;padding:16px 0 0;background:none;border:0;color:var(--ink);-webkit-backdrop-filter:none;backdrop-filter:none}
+  .billboard .scrim,.lead{display:none}
+  .billboard .card{display:grid;gap:12px;padding:16px 0 0;color:var(--ink)}
   .kicker{color:var(--ink-3)}
-  .billboard h1{font-size:32px;line-height:36px;color:var(--ink)}
+  .billboard .card h1{font-size:32px;line-height:36px;color:var(--ink)}
   .tagline,.hstats,.hnote{color:var(--ink-2)}
   .hstats b{color:var(--ink)}
   .btn.light{background:var(--brand);border-color:var(--brand);color:#FFFFFF}
