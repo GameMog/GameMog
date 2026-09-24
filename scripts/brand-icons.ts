@@ -4,8 +4,15 @@
  *   npm run brand:icons
  *
  * Writes, where Next.js serves and links them without any wiring:
- *   app/favicon.ico     16, 32 and 48 pixel PNGs, for the browser tab
- *   app/apple-icon.png  180 pixels, square corners (the iPhone rounds them itself)
+ *   app/icon.png         32 pixels, the tab icon every page links
+ *   app/apple-icon.png   180 pixels, square corners (the iPhone rounds them itself)
+ *   public/favicon.ico   16, 32 and 48 pixels, for anything that asks for
+ *                        /favicon.ico by name
+ *
+ * Next.js links app/icon.png with a hash of its contents in the URL, so a new
+ * icon is a new address and no browser can keep showing a cached old one (or
+ * a cached "none": /favicon.ico was missing until 23 Sep, and a link to that
+ * same fixed address left browsers showing nothing).
  *
  * Chrome draws the letter with the same self-hosted font the logo uses, so the
  * icon and the logo cannot drift apart.
@@ -17,6 +24,7 @@ import { ICON } from '../lib/brand.ts';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const APP = join(ROOT, 'app');
+const PUBLIC = join(ROOT, 'public');
 
 /** An .ico holding PNG images, which every browser since 2010 reads. */
 function ico(images: { size: number; png: Buffer }[]) {
@@ -70,7 +78,8 @@ await withBrowser(async (page) => {
   const sizes = [16, 32, 48];
   const pngs = [];
   for (const size of sizes) pngs.push({ size, png: await draw(size) });
-  writeFileSync(join(APP, 'favicon.ico'), ico(pngs));
+  writeFileSync(join(PUBLIC, 'favicon.ico'), ico(pngs));
+  writeFileSync(join(APP, 'icon.png'), pngs.find((p) => p.size === 32)!.png);
   writeFileSync(join(APP, 'apple-icon.png'), await draw(180, true));
-  console.log(`wrote app/favicon.ico (${sizes.join(', ')}) and app/apple-icon.png (180)`);
+  console.log(`wrote app/icon.png (32), app/apple-icon.png (180) and public/favicon.ico (${sizes.join(', ')})`);
 });

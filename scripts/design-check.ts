@@ -114,9 +114,13 @@ export function runDesignChecks(ok: Ok) {
   const footer = readFileSync(join(APP, 'header.tsx'), 'utf8');
   // the logo is the name alone (the owner, 24 Sep: no crown); the tab and
   // home-screen icons are its first letter, drawn from lib/brand.ts
-  const icon = existsSync(join(APP, 'favicon.ico')) ? readFileSync(join(APP, 'favicon.ico')) : Buffer.alloc(0);
-  ok('the tab and home-screen icons exist (npm run brand:icons)',
-    icon.readUInt32LE(0) === 0x00010000 && icon.readUInt16LE(4) >= 2 && existsSync(join(APP, 'apple-icon.png')));
+  // the tab icon is app/icon.png, which Next links under a hash of its bytes;
+  // an app/favicon.ico would be linked at a fixed address browsers cache
+  const ico = join(APP, '..', 'public', 'favicon.ico');
+  const icon = existsSync(ico) ? readFileSync(ico) : Buffer.alloc(6);
+  ok('the tab and home-screen icons exist, at addresses that change with them (npm run brand:icons)',
+    existsSync(join(APP, 'icon.png')) && existsSync(join(APP, 'apple-icon.png')) && !existsSync(join(APP, 'favicon.ico'))
+    && icon.readUInt32LE(0) === 0x00010000 && icon.readUInt16LE(4) >= 2);
   ok('the logo is the name alone, with no picture mark',
     /<Wordmark \/>/.test(footer) && /<b>GameMog<\/b>/.test(readFileSync(join(APP, 'logo.tsx'), 'utf8')) && !/<svg/.test(readFileSync(join(APP, 'logo.tsx'), 'utf8')));
   ok('terms page exists and is linked', hits([join(APP, 'terms/page.tsx')], /Terms of Service/).length > 0 && /href="\/terms"/.test(footer));
