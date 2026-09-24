@@ -19,6 +19,9 @@ const NAV = [
   { label: 'Asset Library', href: '/library', key: 'Library' },
 ];
 
+/** The "Create a world" button at the top right: hidden for now (the owner, 24 Sep). Create still leads the categories. */
+const SHOW_CREATE_BUTTON = false;
+
 export function SiteHeader({ on = '' }: { on?: string }) {
   return (
     <>
@@ -32,7 +35,7 @@ export function SiteHeader({ on = '' }: { on?: string }) {
           <nav className="hicons" aria-label="Shortcuts">
             <Link href="/charts/new-mogs" className="hicon"><Icon name="remix" size={22} /><span>Mogs</span></Link>
             <Link href="/library" className="hicon"><Icon name="library" size={22} /><span>Library</span></Link>
-            <Link href="/create" className="btn createworld">Create a world</Link>
+            {SHOW_CREATE_BUTTON && <Link href="/create" className="btn createworld">Create a world</Link>}
           </nav>
         </div>
       </header>

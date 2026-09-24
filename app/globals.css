@@ -461,7 +461,7 @@ table.bd td:nth-child(2){font-weight:600}
   .catnav .wrap{gap:22px;height:42px}
   .nvl{padding:11px 0 9px}
   /* one row for the brand: the Mogs and Library icons repeat the category
-     row, so a phone keeps the name and "Create a world" */
+     row, so a phone keeps the name (and "Create a world" when it is shown) */
   .hicon{display:none}
   .wordmark b{font-size:22px}
   .tab{font-size:14px}
