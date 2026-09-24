@@ -17,4 +17,12 @@ export const ICON = {
   /** The letter's height as a share of the tile, so it reads at 16px. */
   height: 0.64,
   font: 'node_modules/@fontsource-variable/hubot-sans/files/hubot-sans-latin-wght-normal.woff2',
+  /**
+   * Written into every icon file, so raising it gives the same picture a new
+   * address. Chrome remembers an icon address it once failed to fetch (the
+   * dev server was down, say) and will not try it again, leaving the tab
+   * blank: a new address is always fetched. 2: 24 Sep, a blank tab after a
+   * server restart.
+   */
+  version: 2,
 } as const;

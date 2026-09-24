@@ -18,6 +18,7 @@
  * icon and the logo cannot drift apart.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { crc32 } from 'node:zlib';
 import { join } from 'node:path';
 import { withBrowser } from '../lib/browser.ts';
 import { ICON } from '../lib/brand.ts';
@@ -25,6 +26,15 @@ import { ICON } from '../lib/brand.ts';
 const ROOT = new URL('..', import.meta.url).pathname;
 const APP = join(ROOT, 'app');
 const PUBLIC = join(ROOT, 'public');
+
+/** The PNG with a text chunk naming the icon's version (see ICON.version), after its header. */
+function stamp(png: Buffer) {
+  const data = Buffer.from(`Software\0GameMog icon v${ICON.version}`, 'latin1'), type = Buffer.from('tEXt', 'latin1');
+  const len = Buffer.alloc(4); len.writeUInt32BE(data.length, 0);
+  const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(Buffer.concat([type, data])) >>> 0, 0);
+  const ihdrEnd = 8 + 4 + 4 + 13 + 4;
+  return Buffer.concat([png.subarray(0, ihdrEnd), len, type, data, crc, png.subarray(ihdrEnd)]);
+}
 
 /** An .ico holding PNG images, which every browser since 2010 reads. */
 function ico(images: { size: number; png: Buffer }[]) {
@@ -73,7 +83,7 @@ await withBrowser(async (page) => {
       size / 2 - (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2,
       size / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
     return c.toDataURL('image/png').split(',')[1];
-  })()`).then((b64) => Buffer.from(b64, 'base64'));
+  })()`).then((b64) => stamp(Buffer.from(b64, 'base64')));
 
   const sizes = [16, 32, 48];
   const pngs = [];
