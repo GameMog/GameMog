@@ -19,7 +19,7 @@ const HERO = 'speed-skating-2030';
 const HERO_NOTE = 'The next Winter Olympics will take place in the French Alps, France, from February 1 to February 17, 2030.';
 /** The desktop hero's words, in roblox.com's voice: two short lines and one sentence. */
 const HERO_COPY = {
-  headline: ['One oval.', 'Endless laps.'],
+  headline: ['One game.', 'Endless mogs.'],
   sub: `Speed Skating 2030 is Olympic long-track on mirror ice, lap after lap. ${HERO_NOTE}`,
 };
 
