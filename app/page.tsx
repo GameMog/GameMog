@@ -99,11 +99,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ g
   }
 
   const stats = tileStats();
-  // the race format from before the GameMog Runtime lives on /classic: it
-  // does not play by the platform's rules, so it is not ranked with worlds
-  // that do
+  // the race format from before the GameMog Runtime lives on /classic, in
+  // the nav, and not on the homepage (the owner's call): it does not play by
+  // the platform's rules, so it is not ranked with worlds that do
   const worlds = games.filter((g) => g.format !== 'race');
-  const classic = games.filter((g) => g.format === 'race');
   const hero = worlds.find((g) => g.slug === HERO) ?? worlds.find((g) => g.format === 'world') ?? worlds[0] ?? games[0];
   const genres = [...new Set(worlds.map(genreOf))].sort();
   const requested = (await searchParams).genre;
@@ -136,9 +135,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ g
         </div>
         {rails.map((rail, i) => <Rail key={rail.sort} sort={rail.sort} games={rail.games} best={best} stats={stats} seed={i * 40} />)}
         {!rails.length && <div className="empty"><h2>No full chart for this genre yet</h2><p>Charts appear when at least four worlds qualify.</p></div>}
-
-        <Rail sort="classic" games={sortGames(classic, 'classic', stats).slice(0, 16)} best={best} stats={stats} seed={400}
-          caption="The first GameMog races, from before the GameMog Runtime: three laps, run to the beat. They keep their own rules." />
 
       </main>
       <SiteFooter />

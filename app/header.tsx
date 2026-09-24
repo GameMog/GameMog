@@ -5,8 +5,8 @@ import Link from 'next/link';
  * row and place navigation in a 34px row underneath.
  */
 const NAV = [
-  { label: 'Charts', href: '/charts/trending' },
   { label: 'Classic', href: '/classic' },
+  { label: 'Charts', href: '/charts/trending' },
   { label: 'Create', href: '/create' },
   { label: 'Library', href: '/library' },
   { label: 'Mogs', href: '/charts/new-mogs' },

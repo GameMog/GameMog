@@ -99,9 +99,8 @@ export function runDesignChecks(ok: Ok) {
     .map((v) => parseFloat(v))
     .filter((v) => v > 8);
   ok('no soft radii between 9px and a full pill', radii.length === 0, radii.join(', '));
-  // Runtime worlds now generate dedicated square key art, so tiles return to
-  // the measured 150px catalogue rhythm instead of cropping gameplay frames.
-  ok('tiles are square at 150px', /\.tl\{[^}]*width:150px/.test(css) && /\.tl \.th\{[^}]*width:150px;height:150px/.test(css));
+  // the owner found 150px squares "way too small" (23 Sep); key art is wide
+  ok('tiles are 16:9, four across a desktop row', /\.tl\{[^}]*width:calc\(\(100% - 48px\) \/ 4\)/.test(css) && /\.tl \.th\{[^}]*aspect-ratio:16\/9/.test(css));
   ok('tile name is the measured 16px/700 at 22.4px', /\.tl \.nm\{[^}]*font-size:16px;font-weight:700;line-height:22\.4px/.test(css));
   ok('page is not pure white', /--page:#F7F7F8/.test(css) && !/--page:#FFFFFF/i.test(css));
 

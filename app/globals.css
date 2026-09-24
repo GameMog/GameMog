@@ -151,28 +151,31 @@ button.tag:hover{background:var(--line)}
    ends, and a 1440px-wide grey line under every section reads as a divider
    nobody asked for. */
 .railwrap{position:relative;padding:0 30px}
-.rail{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none}
+.rail{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none}
 .rail::-webkit-scrollbar{display:none}
 .railbtn{
-  position:absolute;top:60px;z-index:3;width:30px;height:30px;
+  position:absolute;top:calc(28% - 15px);z-index:3;width:30px;height:30px;
   color:var(--ink);display:flex;align-items:center;justify-content:center;
 }
 .railbtn.l{left:0}
 .railbtn.r{right:0}
-.gridw{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,150px)}
+.gridw{display:grid;gap:4px 16px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.gridw .tl{width:auto}
 
 /* ------------------------------------------------------------------ tile -- */
-/* Key art is authored for the 150px square Roblox catalogue rhythm. */
-.tl{display:block;width:150px;min-height:240px;flex:0 0 150px;scroll-snap-align:start}
-.tl .th{position:relative;width:150px;height:150px;border-radius:var(--r);overflow:hidden;background:var(--line)}
+/* 16:9, four across a desktop row. The owner found 150px squares "way too
+   small" (23 Sep), and every world's key art is composed wide: the square
+   crop cut its runner in half. One treatment for every tile. */
+.tl{display:block;width:calc((100% - 48px) / 4);flex:0 0 calc((100% - 48px) / 4);scroll-snap-align:start;margin-bottom:6px}
+.tl .th{position:relative;width:100%;aspect-ratio:16/9;border-radius:var(--r);overflow:hidden;background:var(--line)}
 .tl .th svg{width:100%;height:100%}
 .tl .th img{width:100%;height:100%;object-fit:cover;display:block}
 .tl .bd{position:absolute;top:6px;left:6px;height:18px;padding:0 6px;display:inline-flex;align-items:center;
   border-radius:4px;font-size:10px;font-weight:700;color:#fff;background:var(--hot)}
 .tl .bd.blue{background:var(--blue)}
 .tl .bd.ink{background:var(--dark)}
-.tl .nm{margin:6px 0 2px;font-size:16px;font-weight:700;line-height:22.4px;height:44.8px;
-  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.tl .nm{margin:8px 0 2px;font-size:16px;font-weight:700;line-height:22.4px;height:22.4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl .mt{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:500;line-height:18px;color:var(--ink-2)}
 .tl .mt span{display:flex;align-items:center;gap:4px}
 
@@ -208,8 +211,8 @@ button.tag:hover{background:var(--line)}
    a flat block at the exact size and shape of what is arriving. */
 .sk{background:var(--line);border-radius:var(--r)}
 .sk-line{height:12px;border-radius:4px;background:var(--line)}
-.sk-tile{width:150px;flex:0 0 150px}
-.sk-tile .th{width:150px;height:150px;border-radius:var(--r);background:var(--line)}
+.sk-tile{width:calc((100% - 48px) / 4);flex:0 0 calc((100% - 48px) / 4)}
+.sk-tile .th{width:100%;aspect-ratio:16/9;border-radius:var(--r);background:var(--line)}
 .sk-tile .a{margin-top:7px;width:100%}
 .sk-tile .b{margin-top:8px;width:62%}
 .sk-card{display:grid;gap:10px}
@@ -341,10 +344,10 @@ table.bd td:nth-child(2){font-weight:500}
   .railwrap{padding:0}
   .rail{gap:12px}
   .railbtn{display:none}
-  .gridw{grid-template-columns:repeat(auto-fill,88px);gap:12px}
-  .tl,.sk-tile{width:88px;min-height:184px;flex-basis:88px}
-  .tl .th,.sk-tile .th{width:88px;height:88px}
-  .tl .nm{font-size:14px;line-height:19.6px;height:39.2px}
+  .gridw{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:4px 12px}
+  .tl,.sk-tile{width:74%;flex-basis:74%}
+  .gridw .tl{width:auto}
+  .tl .nm{font-size:15px}
   .tl .mt{gap:7px}
   .tl .mt span:nth-child(n+3){display:none}
 }
