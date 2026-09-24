@@ -19,15 +19,28 @@
    scripts/design-check.ts fails the build if any of them come back.
 --------------------------------------------------------------------------- */
 :root{
-  /* measured: roblox.com/charts, 1440px, light theme */
-  --page:#F7F7F8;
-  --surface:#FFFFFF;
-  --ink:#202227;
-  --ink-2:#494D5A;
-  --ink-3:#6A6F81;
-  --line:rgba(27,37,75,.12);
-  --line-2:rgba(27,37,75,.07);
-  --fill:rgba(27,37,75,.08);
+  /* dark, the owner's call (23 Sep): measured from roblox.com's own dark
+     theme, 1440px (page, header, text, search and thumbnail washes) */
+  color-scheme:dark;
+  --page:#121215;
+  --surface:#191A1F;
+  --ink:#F7F7F8;
+  --ink-2:#D5D7DD;
+  --ink-3:#A3A6B3;
+  --line:rgba(208,217,251,.12);
+  --line-2:rgba(208,217,251,.07);
+  --fill:rgba(208,217,251,.08);
+  --header:#191A1F;
+  --header-line:#202227;
+  --inv:#FFFFFF;
+  --on-inv:#272930;
+  --sk:rgba(208,217,251,.12);
+  --tabbg:rgba(208,217,251,.05);
+  --rule:#393B45;
+  --err-bg:#3B1A1C;
+  --err-ink:#FFB4AE;
+  --warn-bg:#3A2F12;
+  --warn-ink:#F2D58C;
   --blue:#335FFF;
   --blue-press:#1F49E0;
   --dark:#272930;
@@ -35,6 +48,16 @@
   --r:8px;
   --pill:999px;
   --gutter:24px;
+}
+
+:root[data-theme="light"]{
+  /* measured: roblox.com/charts, 1440px, light theme */
+  color-scheme:light;
+  --page:#F7F7F8; --surface:#FFFFFF; --ink:#202227; --ink-2:#494D5A; --ink-3:#6A6F81;
+  --line:rgba(27,37,75,.12); --line-2:rgba(27,37,75,.07); --fill:rgba(27,37,75,.08);
+  --header:#F7F7F8; --header-line:#FFFFFF; --inv:#272930; --on-inv:#FFFFFF;
+  --sk:#E4E6EC; --tabbg:rgba(27,37,75,.05); --rule:#BCBEC8;
+  --err-bg:#FBE9E9; --err-ink:#8E201C; --warn-bg:#FBF2DF; --warn-ink:#6E4E0B;
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -66,10 +89,10 @@ h2,.t-h2{font-size:20px;font-weight:700;line-height:28px}
 
 /* ---------------------------------------------------------------- header -- */
 /* 40px, flat, no shadow. Exactly the height Roblox runs. */
-.hdr{background:var(--page);position:fixed;top:0;left:0;right:0;z-index:60;border-bottom:1px solid #FFFFFF}
+.hdr{background:var(--header);position:fixed;top:0;left:0;right:0;z-index:60;border-bottom:1px solid var(--header-line)}
 .hdr .bar{display:flex;align-items:center;height:40px;gap:0}
 .wordmark{display:flex;align-items:center;gap:7px;padding:0 9px 0 0;flex:0 0 auto}
-.wordmark .mk{width:22px;height:22px;border-radius:5px;background:var(--dark);position:relative}
+.wordmark .mk{width:22px;height:22px;border-radius:5px;background:var(--inv);position:relative}
 .wordmark .mk::after{content:'';position:absolute;left:6px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--page)}
 .wordmark b{font-size:18px;font-weight:800;letter-spacing:-.02em}
 .nvl{font-size:16px;font-weight:500;padding:6px 9px;color:var(--ink);flex:0 0 auto;white-space:nowrap}
@@ -106,7 +129,7 @@ h2,.t-h2{font-size:20px;font-weight:700;line-height:28px}
 /* pill filters, 999px, dark. Roblox's own device/country selectors. */
 .pill{
   display:inline-flex;align-items:center;gap:6px;height:32px;padding:9px;
-  border-radius:var(--pill);background:var(--dark);color:#fff;
+  border-radius:var(--pill);background:var(--inv);color:var(--on-inv);
   font-size:16px;font-weight:700;white-space:nowrap;
 }
 .pill.off{background:var(--fill);color:var(--ink-2)}
@@ -115,7 +138,7 @@ h2,.t-h2{font-size:20px;font-weight:700;line-height:28px}
   display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:var(--r);
   background:var(--fill);color:var(--ink-2);font-size:12px;font-weight:500;white-space:nowrap;
 }
-.tag.solid{background:var(--dark);color:#fff}
+.tag.solid{background:var(--inv);color:var(--on-inv)}
 .tag.multi{height:auto;white-space:normal;text-align:left;padding:6px 9px;line-height:18px}
 button.tag{cursor:pointer}
 button.tag:hover{background:var(--line)}
@@ -198,8 +221,8 @@ button.tag:hover{background:var(--line)}
 .hstats b{color:#FFFFFF;font-weight:700;font-variant-numeric:tabular-nums}
 .acts{display:flex;gap:10px;margin-top:4px}
 .btn.big{height:48px;padding:0 22px;font-size:18px;font-weight:700;gap:8px}
-.btn.light{background:#F7F7F8;color:var(--ink)}
-.btn.light:hover{background:#E4E6EC}
+.btn.light{background:#F7F7F8;color:#202227}
+.btn.light:hover{background:var(--sk)}
 .by{font-size:16px;font-weight:400;color:var(--ink-2)}
 .by b{font-weight:500;color:var(--ink)}
 
@@ -216,38 +239,37 @@ button.tag:hover{background:var(--line)}
 .sk-tile .a{margin-top:7px;width:100%}
 .sk-tile .b{margin-top:8px;width:62%}
 .sk-card{display:grid;gap:10px}
-.sk-card .art{width:300px;height:300px;border-radius:var(--r);background:#E4E6EC}
-.sk-card .h{height:28px;width:58%;border-radius:4px;background:#E4E6EC}
-.sk-card .p{height:12px;border-radius:4px;background:#E4E6EC}
-.sk-line{background:#E4E6EC}
-.sk-tile .th{background:#E4E6EC}
+.sk-card .art{width:300px;height:300px;border-radius:var(--r);background:var(--sk)}
+.sk-card .h{height:28px;width:58%;border-radius:4px;background:var(--sk)}
+.sk-card .p{height:12px;border-radius:4px;background:var(--sk)}
+.sk-line{background:var(--sk)}
+.sk-tile .th{background:var(--sk)}
 
 /* ------------------------------------------------------------------ tabs -- */
 .tabs{display:flex;margin-top:32px}
 .tab{flex:1;height:40px;display:flex;align-items:center;justify-content:center;
-  font-size:16px;font-weight:500;color:var(--ink-2);background:rgba(27,37,75,.05);border-bottom:3px solid transparent}
+  font-size:16px;font-weight:500;color:var(--ink-2);background:var(--tabbg);border-bottom:3px solid transparent}
 .tab:hover{color:var(--ink)}
 .tab.on{color:var(--ink);background:none;border-bottom-color:var(--ink);font-weight:700}
 
 /* ------------------------------------------------------------- game page -- */
-/* Roblox's game page, measured: a 970px column, 640px of media, a 330px info
-   column padded 0 12 0 18, the play button at the foot of that column level
-   with the bottom of the media. */
-.gpage{max-width:970px;margin:0 auto}
-.gtop{display:grid;grid-template-columns:640px 330px;margin-top:24px}
-.media-carousel{position:relative;width:640px}
-.media-stage{position:relative;width:640px;height:360px}
-.media-slide{display:none;position:relative;width:100%;height:100%}
-.media-slide.on{display:block}
-.media-slide>img,.media-slide>video{display:block;width:100%;height:100%;object-fit:cover;border-radius:var(--r);background:var(--line)}
-.media-slide>div,.media-slide .gframe{width:100%;height:100%}
-.media-slide .gframe+ .panel{position:absolute;left:12px;right:12px;bottom:12px;z-index:4;margin:0!important;background:var(--surface)}
-.media-arrow{position:absolute;top:156px;z-index:5;width:48px;height:48px;border-radius:50%;background:#F7F7F8;color:var(--ink);
-  display:flex;align-items:center;justify-content:center;border:1px solid var(--line)}
-.media-arrow.left{left:12px}
-.media-arrow.right{right:12px}
-.media-count{position:absolute;right:12px;bottom:10px;z-index:4;background:#F7F7F8;border-radius:var(--r);padding:4px 7px;
-  font-size:12px;font-weight:500;color:var(--ink-2)}
+/* The game is the page (the owner, 23 Sep: it should "adjust dramatically"
+   for desktop). Roblox's 970px column with 640px of media suits a page whose
+   game runs in another app; ours runs here. The stage is as wide as the
+   screen's height allows at 16:9, leaving room for the title bar under it,
+   and everything below lines up with it. */
+.gpage{--stage:min(100%, calc((100vh - 190px) * 16 / 9));max-width:1600px;margin:0 auto;padding:0 var(--gutter)}
+.gpage>*{width:var(--stage);margin-left:auto;margin-right:auto}
+.gtop{margin-top:16px}
+.gstage .gframe{width:100%;aspect-ratio:16/9}
+.gstage .panel{margin-top:10px}
+.gbar{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:14px}
+.gtitle{min-width:0}
+.gtitle h1{font-size:28px;line-height:34px;font-weight:800}
+.gtitle .by{margin-top:2px}
+.gtitle .maturity{display:inline;font-size:14px}
+.gmedia{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;max-width:900px}
+.gmedia img,.gmedia video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:var(--r);background:var(--line)}
 .gframe{position:relative;border-radius:var(--r);overflow:hidden;background:var(--line)}
 .gframe iframe{display:block;width:100%;height:100%;border:none}
 .gframe .poster{position:absolute;inset:0;pointer-events:none}
@@ -257,14 +279,13 @@ button.tag:hover{background:var(--line)}
 .gframe:fullscreen{background:#000;border-radius:0}
 .gframe:fullscreen iframe{height:100%;aspect-ratio:auto}
 .stall{position:absolute;left:12px;right:12px;bottom:12px;z-index:3;padding:10px 12px;border-radius:var(--r);
-  background:var(--dark);color:#fff;font-size:14px;line-height:1.45}
+  background:#272930;color:#fff;font-size:14px;line-height:1.45}
 .stall a{color:#fff;text-decoration:underline;font-weight:500}
-.ginfo{padding:0 12px 0 18px;display:grid;align-content:space-between;gap:16px;min-height:360px}
-.ginfo .by{margin-top:2px}
 .maturity{font-size:12px;font-weight:400;line-height:18px;color:var(--ink-2);margin-top:2px}
 .classic-label{margin-bottom:4px}
+.gactions{display:flex;align-items:center;gap:20px;flex:0 0 auto}
 .gactions .btn.cta{height:68px;width:300px}
-.arow{display:flex;align-items:flex-start;gap:12px;margin-top:10px}
+.arow{display:flex;align-items:flex-start;gap:12px}
 .act{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:46px;
   font-size:12px;font-weight:500;line-height:16px;color:var(--ink-2)}
 .act:hover{color:var(--ink)}
@@ -273,22 +294,22 @@ button.tag:hover{background:var(--line)}
 .votebar{width:58px;height:4px;margin-top:10px;border-radius:2px;overflow:hidden;background:var(--line)}
 .votebar i{display:block;height:100%;background:var(--ink-2)}
 .gstats{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));margin-top:20px;padding:12px 0;
-  border-top:1px solid #BCBEC8;border-bottom:1px solid #BCBEC8}
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
 .gstats div{text-align:center;padding:0 5px;min-width:0}
 .gstats dt{font-size:12px;font-weight:500;line-height:18px;color:var(--ink-2)}
 .gstats dd{font-size:12px;font-weight:400;line-height:18px;color:var(--ink);overflow-wrap:anywhere}
 
 /* ----------------------------------------------------------------- forms -- */
 textarea,input[type=text]{
-  width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  width:100%;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:var(--r);
   padding:9px 12px;font-size:16px;outline:none;resize:vertical;
 }
 textarea:focus,input[type=text]:focus{border-color:var(--blue)}
 .lbl{display:block;font-size:12px;font-weight:700;line-height:18px;color:var(--ink-2);margin-bottom:6px}
 
 .msg{display:flex;gap:8px;padding:9px 11px;border-radius:var(--r);font-size:14px;margin-bottom:6px;align-items:flex-start;line-height:1.5}
-.msg.error{background:#FBE9E9;color:#8E201C}
-.msg.warn{background:#FBF2DF;color:#6E4E0B}
+.msg.error{background:var(--err-bg);color:var(--err-ink)}
+.msg.warn{background:var(--warn-bg);color:var(--warn-ink)}
 .msg.info{background:var(--fill);color:var(--ink-2)}
 .msg b{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;flex:0 0 auto;padding-top:4px;opacity:.75}
 
@@ -352,12 +373,11 @@ table.bd td:nth-child(2){font-weight:500}
   .tl .mt span:nth-child(n+3){display:none}
 }
 @media(max-width:1018px){
-  .gpage{padding:0 var(--gutter)}
-  .gtop{grid-template-columns:minmax(0,1fr)}
-  .media-carousel,.media-stage{width:100%}
-  .media-stage{height:auto;aspect-ratio:16/9}
-  .media-arrow{top:calc(50% - 24px)}
-  .ginfo{padding:16px 0 0;min-height:0}
+  /* phones and small tablets: the stage full width, the bar stacked */
+  .gpage{--stage:100%}
+  .gbar{flex-direction:column;align-items:stretch;gap:14px}
+  .gactions{flex-direction:column-reverse;align-items:stretch;gap:12px}
+  .gactions .btn.cta{width:100%}
   .gstats{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);row-gap:14px}
 }
 

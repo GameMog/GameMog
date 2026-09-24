@@ -13,7 +13,6 @@ import { Rail as Shelf } from '../../rail';
 import { CustomGamePage } from './custom-page';
 import { Lineage, MogsPanel } from './mog';
 import { mogsOf, tileStats } from '@/lib/db';
-import { MediaCarousel } from './media-carousel';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,22 +61,21 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
     <>
       <SiteHeader on="Classic" />
       <main className="gpage">
+        {/* the game is the page: a stage as wide as the screen's height allows,
+            then who made it and what you can do with it */}
         <div className="gtop">
-          <MediaCarousel slides={[
-            { label: 'Play', content: <PlayFrame slug={game.slug} gameId={game.id} poster={<Cover spec={spec} seed={900} wide />} /> },
-            { label: 'Key art', content: <Cover spec={spec} seed={900} wide /> },
-          ]} />
-
-          <aside className="ginfo">
-            <div>
+          <div className="gstage">
+            <PlayFrame slug={game.slug} gameId={game.id} poster={<Cover spec={spec} seed={900} wide />} />
+          </div>
+          <div className="gbar">
+            <div className="gtitle">
               <span className="tag solid classic-label">Classic</span>
               <h1>{game.title}</h1>
-              <p className="by">By <b>{game.featured ? 'GameMog' : 'a GameMog creator'}</b></p>
-              <p className="maturity">Difficulty: {difficulty}</p>
+              <p className="by">By <b>{game.featured ? 'GameMog' : 'a GameMog creator'}</b> <span className="maturity">· Difficulty: {difficulty}</span></p>
               <Lineage game={game} />
             </div>
             <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />
-          </aside>
+          </div>
         </div>
 
         <Tabs

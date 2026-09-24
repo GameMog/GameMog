@@ -28,7 +28,7 @@ insertDraft({
   meta: { title: 'Clover Loop', tagline: 'The reference world', blurb: 'Runtime check.', genre: 'Test', cast: [{ name: 'Pip', color: '#F2E3C4' }], palette: { sky: '#9CCBEB', ground: '#7DB356', accent: '#F28C28' }, runtime: 1 },
 });
 
-type State = { state: string; level: number; gm: number; alive: boolean; pace: number; cruise: number; rivals: { k: number; ratio: number; aggro: number; ahead: number; x: number; joinedFromLine: number }[]; lap: number; obstacles: number; coins: number; x: number; d: number; speed: number; paused: boolean; crashedInto: string };
+type State = { demo?: boolean; state: string; level: number; gm: number; alive: boolean; pace: number; cruise: number; rivals: { k: number; ratio: number; aggro: number; ahead: number; x: number; joinedFromLine: number }[]; lap: number; obstacles: number; coins: number; x: number; d: number; speed: number; paused: boolean; crashedInto: string };
 
 try {
   await withBrowser(async (page) => {
@@ -45,17 +45,22 @@ try {
     const s0 = await st();
     ok('the lap is within 320-900m', s0.lap >= 320 && s0.lap <= 900, `${Math.round(s0.lap)}m`);
     ok('golden GM coins are laid', s0.coins > 10, `${s0.coins}`);
-    ok('the title screen waits for the player', s0.state === 'title');
-    const r0 = s0.rivals[0];
-    ok('one rival stands on the start line beside you before the gun', s0.rivals.length === 1 && Math.abs(r0.ahead) < 0.5 && Math.abs(r0.x - s0.x) > 1.2, r0 ? `${r0.ahead.toFixed(1)}m ahead, ${Math.abs(r0.x - s0.x).toFixed(1)}m across` : 'none');
+    // the owner, 23 Sep: no card over the game before you start
+    ok('before you start, the world races itself, with no card over the game', !!s0.demo && s0.state === 'race' && (await page.eval<number>('document.querySelectorAll("#gm .screen").length')) === 0);
+    await sleep(2000);
+    const sd = await st();
+    ok('the demo run moves on its own and is never scored', !!sd.demo && sd.d > s0.d + 5 && (await page.eval<unknown[]>('window.__gm.results')).length === 0, `${Math.round(sd.d - s0.d)}m in 2s`);
     const warnings = await page.eval<string[]>('window.__gm.warnings');
     console.log(`        runtime repairs reported: ${warnings.length ? warnings.join(' | ') : 'none'}`);
 
     console.log('\nthe rules');
     await page.key('Enter');
-    await sleep(3400);
+    await sleep(500);
+    const c0 = await st(), r0 = c0.rivals[0];
+    ok('any key starts your run: one rival stands on the start line beside you through the countdown', !c0.demo && c0.state === 'countdown' && c0.rivals.length === 1 && Math.abs(r0.ahead) < 0.5 && Math.abs(r0.x - c0.x) > 1.2, r0 ? `${c0.state}, ${r0.ahead.toFixed(1)}m ahead, ${Math.abs(r0.x - c0.x).toFixed(1)}m across` : 'none');
+    await sleep(2900);
     let s = await st();
-    ok('Enter starts a countdown, then the race', s.state === 'race', s.state);
+    ok('then the race', s.state === 'race', s.state);
     await sleep(1500); s = await st();
     ok('lap 1 has exactly one rival', s.rivals.length === 1 && s.level === 1, `${s.rivals.length} at level ${s.level}`);
     ok('the first rival is slower than your cruising speed', s.rivals[0].ratio < 1, `${s.rivals[0].ratio}x`);
@@ -117,9 +122,14 @@ try {
     const last = results[results.length - 1];
     ok('the result reaches the platform with level and GM', !!last && last.level >= 1 && last.gm >= 0, last ? `level ${last.level}, ${last.gm} GM` : 'none');
     ok('a run that used the test autopilot is marked assisted', !!last?.assisted);
+    ok('the results are a bar along the bottom, with the world still in view', (await page.eval<number>('document.querySelectorAll("#gm .screen.bar").length')) === 1);
     await page.key('Enter'); await sleep(3400);
     s = await st();
     ok('Enter starts a fresh run at level 1 with one rival', s.state === 'race' && s.level === 1 && s.rivals.length === 1, `${s.state}, level ${s.level}`);
+    await page.eval('window.__gmRuntime.debug.crashInto()'); await sleep(2600 + 12500);
+    s = await st();
+    ok('left alone, the results give way to the world racing itself again', !!s.demo && s.state === 'race', `${s.state}${s.demo ? ', demo' : ''}`);
+    await page.key('Enter'); await sleep(3400);
 
     console.log('\nhow far a bot gets (reported, not asserted)');
     const reached: number[] = [];
@@ -184,6 +194,11 @@ try {
     const s1 = await boot(`${BASE}/d/${id}/play?you=1${meFragment(you)}`);
     ok('with one, you play: a library human in the world\'s place', s1.me && s1.playerSkinned, `me=${s1.me} skinned=${s1.playerSkinned}`);
     ok('your body is loaded even though the world never asked for it', s1.assets.includes('human-athlete-male'), s1.assets.join(', '));
+    await page.eval(`window.postMessage({ source: 'gamemog-host', type: 'view', view: 'portrait' }, '*')`); await sleep(300);
+    const sp = await page.eval<Me & { demo: boolean }>('window.__gmRuntime.state()');
+    ok('the /me close-up stands you still on the start line', sp.state === 'title' && !sp.demo, sp.state);
+    await page.eval(`window.postMessage({ source: 'gamemog-host', type: 'view', view: 'play' }, '*')`); await sleep(300);
+    ok('and after it, the world races itself again', (await page.eval<{ demo: boolean }>('window.__gmRuntime.state()')).demo);
     await page.eval(`window.postMessage({ source: 'gamemog-host', type: 'me', me: ${JSON.stringify({ ...you, body: 'b', hair: 'afro01' })} }, '*')`);
     await sleep(2500);
     const s2 = await page.eval<Me>('window.__gmRuntime.state()');
@@ -191,7 +206,7 @@ try {
     await page.eval('window.__gmRuntime.debug.start()'); await sleep(3800);
     await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true); window.__gmRuntime.debug.timeScale(6)');
     let s3 = s2;
-    for (let i = 0; i < 40; i++) { await sleep(400); s3 = await page.eval<Me>('window.__gmRuntime.state()'); if (s3.level >= 3) break; }
+    for (let i = 0; i < 75; i++) { await sleep(400); s3 = await page.eval<Me>('window.__gmRuntime.state()'); if (s3.level >= 3) break; }
     const errs = await page.eval<string[]>('window.__gm.errors');
     ok('and the race runs with you in it, by the same rules', s3.state === 'race' && s3.level >= 3 && errs.length === 0, `level ${s3.level}${errs.length ? ', ' + errs.join(' | ') : ''}`);
   }, { timeoutMs: 120_000 });

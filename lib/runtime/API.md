@@ -26,8 +26,12 @@ creativity: it decides what the world is, who lives in it, and how it looks, mov
   platform's currency and look the same in every world. Do not make coins.
 - **Controls.** The player moves forward on their own. Arrow keys (or WASD): left and right
   steer, up goes faster, down goes slower. Space pauses. Touch screens get on-screen buttons.
-- **Screens.** Title, countdown, HUD (level, time, GM, rival count, a warning when a rival
-  closes from behind), level-up banners naming the new rival, pause, results, restart.
+- **Screens.** No card over the game. Until the player starts, the world races itself (a demo
+  run: it steers itself, cannot crash, is silent and is never scored) behind one small "Press
+  Enter or tap to play" prompt, so a visitor sees the world moving. Then countdown, HUD (level,
+  time, GM, rival count, a warning when a rival closes from behind), level-up banners naming the
+  new rival, and pause and results as a bar along the bottom. Build every world to look good in
+  motion from the first frame: the demo is its first impression.
 - **Leaderboard.** Runs rank by level reached, then GM collected.
 
 ## The world module (you own this)

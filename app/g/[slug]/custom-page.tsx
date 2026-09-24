@@ -12,7 +12,6 @@ import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
 import { Lineage, MogOffPanel, MogsPanel } from './mog';
 import { mogsOf, tileStats } from '@/lib/db';
-import { MediaCarousel } from './media-carousel';
 
 /**
  * The page for a game Opus wrote: the same grid as a race world, with what
@@ -56,24 +55,23 @@ export function CustomGamePage({ game }: { game: GameRow }) {
     <>
       <SiteHeader />
       <main className="gpage">
+        {/* the game is the page: a stage as wide as the screen's height allows,
+            then who made it and what you can do with it */}
         <div className="gtop">
-          <MediaCarousel slides={[
-            { label: 'Play', content: <PlayFrame slug={game.slug} gameId={game.id} you={game.format === 'world'}
+          <div className="gstage">
+            <PlayFrame slug={game.slug} gameId={game.id} you={game.format === 'world'}
               // eslint-disable-next-line @next/next/no-img-element
-              poster={<img src={`/g/${game.slug}/cover`} alt="" />} /> },
-            ...(hasFilm ? [{ label: 'Gameplay film', content: <video src={`${filmBase}.mp4`} poster={`${filmBase}.jpg`} controls muted loop playsInline /> }] : []),
-            { label: 'Key art', content: <img src={`/g/${game.slug}/cover`} alt={`${game.title} key art`} /> },
-          ]} />
-          <aside className="ginfo">
-            <div>
+              poster={<img src={`/g/${game.slug}/cover`} alt="" />} />
+          </div>
+          <div className="gbar">
+            <div className="gtitle">
               <h1>{game.title}</h1>
-              <p className="by">By <b>a GameMog creator</b></p>
-              <p className="maturity">{world ? 'Endless laps · GameMog Runtime' : 'Written by Claude Opus 5.5'}</p>
+              <p className="by">By <b>a GameMog creator</b> <span className="maturity">· {world ? 'Endless laps · GameMog Runtime' : 'Written by Claude Opus 5.5'}</span></p>
               <Lineage game={game} />
               {world && <YouLine slug={game.slug} />}
             </div>
             <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />
-          </aside>
+          </div>
         </div>
 
         <MogOffPanel game={game} />
@@ -101,6 +99,12 @@ export function CustomGamePage({ game }: { game: GameRow }) {
                   </dl>
                   <h2 style={{ marginTop: 26, marginBottom: 6 }}>Controls</h2>
                   <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{meta.controls}</p>
+                  <h2 style={{ marginTop: 26, marginBottom: 8 }}>Media</h2>
+                  <div className="gmedia">
+                    {hasFilm && <video src={`${filmBase}.mp4`} poster={`${filmBase}.jpg`} controls muted loop playsInline aria-label="Gameplay film" />}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/g/${game.slug}/cover`} alt={`${game.title} key art`} />
+                  </div>
                   {world && (
                     <>
                       <h2 style={{ marginTop: 26, marginBottom: 6 }}>How it works</h2>
