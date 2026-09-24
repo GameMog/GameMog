@@ -14,7 +14,9 @@ import type { WorldSpec } from '@/lib/worldspec';
 export const dynamic = 'force-dynamic';
 
 /** The world the homepage leads with. Its film is made by `npm run media:hero -- <slug>`. */
-const HERO = 'la-olympics-2028';
+const HERO = 'speed-skating-2030';
+/** A line of the owner's under the featured world's tagline. */
+const HERO_NOTE = 'The next Winter Olympics will take place in the French Alps, France, from February 1 to February 17, 2030.';
 
 /** The featured world's film, when it has been recorded. */
 function filmFor(slug: string): Film | null {
@@ -102,8 +104,9 @@ function Billboard({ game, film, stats }: { game: GameRow; film: Film | null; st
         <span className="kicker">Featured world</span>
         <h1>{game.title}</h1>
         <p className="tagline">{game.tagline}</p>
+        {game.slug === HERO && HERO_NOTE ? <p className="hnote">{HERO_NOTE}</p> : null}
         <div className="hstats">
-          <span><b>{short(game.plays)}</b> plays</span>
+          <span><b>{short(game.plays)}</b> {game.plays === 1 ? 'play' : 'plays'}</span>
           {record?.level ? <span><b>Lap {record.level}</b> record</span> : null}
           {mogs ? <span><b>{mogs}</b> {mogs === 1 ? 'Mog' : 'Mogs'}</span> : <span>No Mogs yet</span>}
         </div>
