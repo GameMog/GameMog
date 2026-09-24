@@ -1,0 +1,48 @@
+{
+  "title": "Velodrome 2028",
+  "tagline": "Olympic track cycling on 42-degree banking, and it never ends.",
+  "blurb": "A sold-out velodrome, a 333 metre board track banked at 42 degrees through the bends, and a keirin that never finishes. Every lap another national sprinter rolls off the line on a disc-wheeled bike, faster and hungrier than the last, so hold your line, dodge the foam blocks, the loose wheels and the weaving derny, and grab the golden GM.",
+  "genre": "Track cycling",
+  "cast": [
+    {
+      "name": "Holland (USA)",
+      "color": "#15264F",
+      "role": "player"
+    },
+    {
+      "name": "Ashworth (GBR)",
+      "color": "#0B2A63",
+      "role": "rival"
+    },
+    {
+      "name": "Visser (NED)",
+      "color": "#F07D1A",
+      "role": "rival"
+    },
+    {
+      "name": "Laroche (CAN)",
+      "color": "#D8282F",
+      "role": "rival"
+    },
+    {
+      "name": "Okada (JPN)",
+      "color": "#FFFFFF",
+      "role": "rival"
+    },
+    {
+      "name": "Hartmann (GER)",
+      "color": "#111111",
+      "role": "rival"
+    },
+    {
+      "name": "Calloway (AUS)",
+      "color": "#1E7F4F",
+      "role": "rival"
+    }
+  ],
+  "palette": {
+    "sky": "#1C2433",
+    "ground": "#D6AA70",
+    "accent": "#E4002B"
+  }
+}

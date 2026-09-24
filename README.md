@@ -157,6 +157,22 @@ the world's header), which runs on a WebGPU engine of its own, to three.js: the 
 hills and sea stacks, shore waves that break and run up the sand as a swash sheet leaving it wet
 behind them, and the coconut palm's crown. Only techniques came across, none of Tidewater's assets.
 
+Two cycling worlds ride on runtime features added for them. *Velodrome 2028*
+(`worlds/velodrome.js`) is endless laps of a 333m indoor board track, banked 42 degrees in the
+bends and 13 on the straights, with track sprinters on disc wheels and a derny pacing the field.
+*Road Race 2028* (`worlds/roadrace.js`) is the first world that is not an oval: a hill-town
+circuit on the coast that runs along the harbour, climbs a hairpin to a ridge road above the bay
+and drops back through S-bends, bending both ways and climbing 18m a lap. A track point may now
+carry a fourth value, its bank in degrees (up to 45), and the road tilts, the frame turns and the
+corridor guard measures across the banked surface to match. `ctx.assets.cyclist(...)` puts a
+library athlete on a racing bicycle fitted to their legs and arms (track or road frame, disc,
+five-spoke, deep or spoked wheels, aero or road helmet), posed every frame by two-bone IK on the
+turning pedals and the drops; the bike leans into a bend by the physics of its speed less the
+bank under it, and a player in a cycling world rides one too. The IK, the crank's ankle path and
+the knee and elbow poles are ported from Prasenjit's
+[Summer Cycle](https://github.com/StarKnightt/summer-cycle) (MIT; the notice is in the runtime
+beside the kit). `lib/runtime/cycling-world.js` is the banked oval `check:runtime` rides.
+
 ### Earlier formats, still playable
 
 - **Race worlds.** Muse Sprint and the first worlds: a `WorldSpec` filled in for the tuned

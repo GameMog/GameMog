@@ -184,6 +184,60 @@ try {
     } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(lid); }
   }
 
+  // cycling: banked tracks and the cyclist kit (a library athlete on a bike,
+  // posed by IK), on a velodrome-shaped oval banked 42 degrees in the bends
+  console.log('\ncycling: banking and the cyclist kit');
+  const cid = randomUUID();
+  const cycMeta = { title: 'Cycling Check', tagline: 'Banking and cyclists', blurb: 'Runtime check.', genre: 'Test', cast: [{ name: 'Lab', color: '#15264F' }], palette: { sky: '#9BC4E6', ground: '#7C8B6A', accent: '#E4002B' }, runtime: 1 };
+  insertDraft({ id: cid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../lib/runtime/cycling-world.js', import.meta.url), 'utf8'), meta: cycMeta });
+  try {
+    await withBrowser(async (page) => {
+      const boot = async (url: string) => {
+        await page.goto(url);
+        for (let i = 0; i < 150; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__cyc)').catch(() => false)) break; await sleep(200); }
+      };
+      await boot(`${BASE}/d/${cid}/play`);
+      const errs = await page.eval<string[]>('window.__gm.errors');
+      const s0 = await page.eval<{ playerSkinned: boolean; lap: number }>('window.__gmRuntime.state()');
+      ok('a banked world boots with cyclists and no errors', errs.length === 0 && s0.playerSkinned, errs.join(' | '));
+      // the fourth value of a point banks the track: the frame's right-hand side climbs
+      const banks = await page.eval<number[]>(`(() => { const t = window.__cyc.track, out = []; for (let d = 0; d < t.length; d += 4) out.push(t.frameAt(d).bank * 180 / Math.PI); return out; })()`);
+      ok('the track banks to 42 degrees in the bends and about 12 on the straights', Math.max(...banks) > 40 && Math.max(...banks) < 44 && Math.min(...banks) > 10 && Math.min(...banks) < 14, `${Math.min(...banks).toFixed(1)} to ${Math.max(...banks).toFixed(1)}`);
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(3800);
+      await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true)');
+      // measure every rider through a lap: the tilt from vertical where the track banks 40+
+      const tilts: number[] = [], feet: number[] = [], hands: number[] = [];
+      for (let i = 0; i < 30; i++) {
+        await sleep(350);
+        const m = await page.eval<{ tilt: number[]; foot: number[]; hand: number[] }>(`(() => {
+          const out = { tilt: [], foot: [], hand: [] }, q = new THREE.Quaternion(), v = new THREE.Vector3(), w = new THREE.Vector3();
+          window.__cyc.scene.children.forEach((c) => {
+            const root = c.children && c.children[0], lean = root && root.children[0];
+            if (!lean || !lean.children || lean.children.length !== 2) return;
+            let pedal = null, foot = null, wrist = null;
+            lean.traverse((o) => { if (o.isBone && o.name === 'foot_L') foot = o; if (o.isBone && o.name === 'wrist_L') wrist = o; if (o.isMesh && o.geometry.parameters && o.geometry.parameters.width === 0.075 && !pedal) pedal = o; });
+            if (!foot || !pedal) return;
+            c.getWorldQuaternion(q); const left = new THREE.Vector3(1, 0, 0).applyQuaternion(q), bank = Math.asin(-left.y) * 180 / Math.PI;
+            const up = new THREE.Vector3(0, 1, 0).applyQuaternion(lean.getWorldQuaternion(new THREE.Quaternion()));
+            if (bank > 40) out.tilt.push(Math.acos(up.y) * 180 / Math.PI);
+            out.foot.push(foot.getWorldPosition(v).distanceTo(pedal.getWorldPosition(w)));
+          });
+          return out; })()`);
+        tilts.push(...m.tilt); feet.push(...m.foot);
+      }
+      const maxTilt = Math.max(...tilts), minTilt = Math.min(...tilts);
+      ok('riders lean into the banked bends like the boards, and no further', tilts.length > 3 && minTilt > 25 && maxTilt < 60, `${minTilt.toFixed(0)} to ${maxTilt.toFixed(0)} degrees over ${tilts.length} samples`);
+      ok('feet stay on the pedals through the stroke', feet.length > 10 && Math.max(...feet) < 0.2, `within ${Math.max(...feet).toFixed(3)}m`);
+      const e2 = await page.eval<string[]>('window.__gm.errors');
+      ok('a lap of pedalling, leaning and sprinting raises no error', e2.length === 0, e2.join(' | '));
+      // your own character rides the world's bike
+      await boot(`${BASE}/d/${cid}/play?you=1${meFragment(sanitizeMe({ name: 'Rider', body: 'b', tone: '#C98E6B', hair: 'short02', build: 'slim', kit: { top: '#8B1E3F', trim: '#F4C542', pattern: 'band', number: '9' } }))}`);
+      const sy = await page.eval<{ me: boolean; playerSkinned: boolean }>('window.__gmRuntime.state()');
+      const bikes = await page.eval<number>(`(() => { let n = 0; window.__cyc.scene.traverse((o) => { if (o.isMesh && o.geometry.parameters && o.geometry.parameters.width === 0.075) n++; }); return n; })()`);
+      ok('in a cycling world, you ride the bike too', sy.me && sy.playerSkinned && bikes >= 4, `me=${sy.me}, ${bikes / 2} bikes`);
+    }, { timeoutMs: 150_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(cid); }
+
   // "You are the main character" (docs/PRODUCT.md): the player's own
   // character, passed in the frame's URL fragment, replaces the world's
   // player() in any world, and can change mid-run

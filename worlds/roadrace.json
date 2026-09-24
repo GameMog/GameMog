@@ -1,0 +1,48 @@
+{
+  "title": "Road Race 2028",
+  "tagline": "The Olympic road race over a coast hill town, lap after lap.",
+  "blurb": "Out along the harbour, up the hairpin to the ridge road with the whole bay below, and down through the S-bends into town under the bunting, again and again. Every lap another national rider bridges across, faster and hungrier than the last, so dodge the cones, the hay bales, the dropped bottles and the camera moto, and grab the golden GM.",
+  "genre": "Road cycling",
+  "cast": [
+    {
+      "name": "Parker (USA)",
+      "color": "#15264F",
+      "role": "player"
+    },
+    {
+      "name": "Dubois (BEL)",
+      "color": "#111111",
+      "role": "rival"
+    },
+    {
+      "name": "Bakker (NED)",
+      "color": "#F07D1A",
+      "role": "rival"
+    },
+    {
+      "name": "Kovac (SLO)",
+      "color": "#FFFFFF",
+      "role": "rival"
+    },
+    {
+      "name": "Peeters (BEL)",
+      "color": "#FFD83A",
+      "role": "rival"
+    },
+    {
+      "name": "Tesfaye (ERI)",
+      "color": "#1E9E4A",
+      "role": "rival"
+    },
+    {
+      "name": "Ferrara (ITA)",
+      "color": "#2E6FC4",
+      "role": "rival"
+    }
+  ],
+  "palette": {
+    "sky": "#86B8E0",
+    "ground": "#8C9A56",
+    "accent": "#D8432B"
+  }
+}

@@ -90,7 +90,28 @@ ctx.assets.human('human-athlete-male', {
 ```
 
 `tone: '#RRGGBB'` in place of `skin` and `skinTint` picks the nearest skin texture and tints it
-to that colour. `outfit.top: null` leaves the chest bare. `ctx.assets.ready(id)` is false if the library could not
+to that colour.
+
+`ctx.assets.cyclist(id, options)` puts the same athlete on a racing bicycle and returns
+`{ object, animate, name, color, radius }` for `player()` or `rival()`. The bike is built and
+fitted to the rider (saddle height from the legs, the bars from the arms); the rider's own
+skeleton is posed on it every frame: hips on the saddle, back flat, feet on the turning pedals
+and hands on the drops by IK. The wheels and cranks turn with the speed, the bike leans into
+bends at the angle a real one would (less the track's banking), the rider stands on the pedals
+to accelerate, and both go down in a crash. All the human options apply, plus:
+
+```js
+ctx.assets.cyclist('human-athlete-female', {
+  skin: 'caucasian', height: 1.72, outfit: { top: '#1D3F9E', trim: '#E4002B', shorts: '#1D3F9E', shoes: '#FFFFFF', pattern: 'band', bib: { name: 'DUBOIS', number: '14' } },
+  bike: { kind: 'track', frame: '#1D3F9E', trim: '#FFFFFF', rear: 'disc', front: 'five' },  // kind: track or road; wheels: disc, five, deep, spoked
+  helmet: { kind: 'aero', color: '#FFFFFF', trim: '#E4002B', visor: true },               // kind: aero or road
+  name: 'Dubois (FRA)', color: '#1D3F9E',
+})
+```
+
+A track bike has a disc wheel, a five-spoke front and a fixed gear; a road bike deep-section
+rims and a vented helmet. Build the track for a bicycle: bikes go the runtime's speeds, so
+leave room in the bends. `outfit.top: null` leaves the chest bare. `ctx.assets.ready(id)` is false if the library could not
 load: always keep a fallback of your own. `ctx.assets.info(id)` lists an asset's skins, hair and
 clips.
 
@@ -130,7 +151,11 @@ read-only: read its position (to face a billboard at it), never write to it.
 ### track
 `{ points: [[x, y, z], ...], width }`. 6 to 80 control points forming a closed loop (do not
 repeat the first point at the end), smoothed into a Catmull-Rom spline. `y` is height, so the
-loop can climb and dip gently. A lap must be 320 to 900 metres; the runtime rescales a loop
+loop can climb and dip gently. A point may carry a fourth value, `[x, y, z, bank]`: the track
+banks there, in degrees up to 45, positive raising the right-hand edge (the outside of a
+left-hand bend), and eases between points. Everything on the track tilts with it: runners,
+rivals, coins, obstacles and `ribbon()` lines. A velodrome banks its bends at about 42 degrees
+and its straights at about 12. A lap must be 320 to 900 metres; the runtime rescales a loop
 outside that. `width` is 8 to 18 metres. The loop must never pass close to itself. Give it a
 shape that belongs to the world: a figure that winds round a lake, climbs a hill, snakes
 through a market.
@@ -141,7 +166,8 @@ surface, scenery, lights (at least a HemisphereLight and a DirectionalLight in t
 own colours; one shadow-casting light, with a map of 1024 or smaller unless `graphics.shadows`
 sizes it).
 
-- Draw the track surface with `ctx.track.ribbon({ width, offset, y, color | material })`.
+- Draw the track surface with `ctx.track.ribbon({ width, offset, y, color | material })`. It
+  returns a `Mesh` and does not add it: `ctx.scene.add(ctx.track.ribbon({...}))`.
   Ribbons for edges, stripes, kerbs, boardwalk planks and so on are cheap.
 - Keep the racing corridor clear: nothing taller than 0.8m within the track's half width plus
   1.2m of the centre line, below 7m. Use `ctx.track.clear(x, z, margin)` before placing
