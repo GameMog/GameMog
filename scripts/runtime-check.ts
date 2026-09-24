@@ -238,6 +238,65 @@ try {
     }, { timeoutMs: 150_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(cid); }
 
+  // skating: mirror ice, the live broadcast, and the skater kit on its blades
+  console.log('\nskating: mirror ice, the broadcast and the skater kit');
+  const sid = randomUUID();
+  const skMeta = { title: 'Skating Check', tagline: 'Mirror ice and skaters', blurb: 'Runtime check.', genre: 'Test', cast: [{ name: 'Lab', color: '#15264F' }], palette: { sky: '#9BC4E6', ground: '#EEF2F6', accent: '#E4002B' }, runtime: 1 };
+  insertDraft({ id: sid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../lib/runtime/skating-world.js', import.meta.url), 'utf8'), meta: skMeta });
+  try {
+    await withBrowser(async (page) => {
+      const boot = async (url: string) => {
+        await page.goto(url);
+        for (let i = 0; i < 150; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__skate)').catch(() => false)) break; await sleep(200); }
+      };
+      await boot(`${BASE}/d/${sid}/play`);
+      await sleep(1500);
+      const errs = await page.eval<string[]>('window.__gm.errors');
+      type R = { playerSkinned: boolean; render: { mirror: { on: boolean; frames: number; materials: number } | null; broadcast: { frames: number } | null } };
+      const s0 = await page.eval<R>('window.__gmRuntime.state()');
+      ok('a skating world boots with skaters and no errors', errs.length === 0 && s0.playerSkinned, errs.join(' | '));
+      ok('the ice is a mirror: the scene is rendered again from under it every frame', !!s0.render.mirror && s0.render.mirror.on && s0.render.mirror.frames > 20 && s0.render.mirror.materials >= 1, JSON.stringify(s0.render.mirror));
+      ok('the broadcast camera films the race for the big screens', !!s0.render.broadcast && s0.render.broadcast.frames > 10, JSON.stringify(s0.render.broadcast));
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(3800);
+      await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true)');
+      // every skater, sampled through a lap: its lowest blade, each ankle's
+      // distance to its boot's hinge, and the lean where the track bends
+      const low: number[] = [], sink: number[] = [], ankles: number[] = [], tilts: number[] = [];
+      for (let i = 0; i < 36; i++) {
+        await sleep(300);
+        const m = await page.eval<{ low: number[]; sink: number[]; ank: number[]; tilt: number[] }>(`(() => {
+          const out = { low: [], sink: [], ank: [], tilt: [] }, b = new THREE.Box3(), v = new THREE.Vector3(), w = new THREE.Vector3();
+          window.__skate.scene.children.forEach((c) => {
+            const root = c.children && c.children[0];
+            if (!root || !root.children || !root.children.some((k) => k.isPoints)) return;
+            const skates = root.children.filter((k) => k.type === 'Group' && k.children.length === 2 && k.children[0].isMesh);
+            let lowest = 9;
+            skates.forEach((k, i) => {
+              b.setFromObject(k.children[0], true); lowest = Math.min(lowest, b.min.y); out.sink.push(b.min.y);
+              let foot = null; root.traverse((o) => { if (o.isBone && o.name === (i ? 'foot_R' : 'foot_L')) foot = o; });
+              if (foot) out.ank.push(foot.getWorldPosition(v).distanceTo(k.children[1].getWorldPosition(w)));
+            });
+            out.low.push(lowest);
+            const lean = root.children[0], up = new THREE.Vector3(0, 1, 0).applyQuaternion(lean.getWorldQuaternion(new THREE.Quaternion()));
+            const p = c.getWorldPosition(v); if (Math.abs(p.x) > 60) out.tilt.push(Math.acos(Math.min(1, up.y)) * 180 / Math.PI);
+          });
+          return out; })()`);
+        low.push(...m.low); sink.push(...m.sink); ankles.push(...m.ank); tilts.push(...m.tilt);
+      }
+      ok('a skater always has a blade on the ice', low.length > 20 && Math.max(...low) < 0.02, `highest lowest blade ${Math.max(...low).toFixed(3)}m over ${low.length} samples`);
+      ok('and no blade sinks into it', Math.min(...sink) > -0.02, `${Math.min(...sink).toFixed(3)}m`);
+      const ak = ankles.map((d) => Math.abs(d - ankles[0]));
+      ok('ankles stay in their boots through the stroke', ankles.length > 20 && Math.max(...ak) < 0.03, `within ${Math.max(...ak).toFixed(3)}m`);
+      ok('skaters lean into the bends', tilts.length > 3 && Math.max(...tilts) > 25 && Math.max(...tilts) < 55, `${tilts.length ? Math.min(...tilts).toFixed(0) : '-'} to ${tilts.length ? Math.max(...tilts).toFixed(0) : '-'} degrees`);
+      const e2 = await page.eval<string[]>('window.__gm.errors');
+      ok('a lap of skating raises no error', e2.length === 0, e2.join(' | '));
+      await boot(`${BASE}/d/${sid}/play?you=1${meFragment(sanitizeMe({ name: 'Skater', body: 'b', tone: '#C98E6B', hair: 'short02', build: 'slim', kit: { top: '#8B1E3F', trim: '#F4C542', pattern: 'band', number: '9' } }))}`);
+      const sy = await page.eval<{ me: boolean; playerSkinned: boolean }>('window.__gmRuntime.state()');
+      const skaters = await page.eval<number>(`(() => { let n = 0; window.__skate.scene.traverse((o) => { if (o.isPoints && o.parent && o.parent.children.some((k) => k.type === 'Group' && k.children.length === 2)) n++; }); return n; })()`);
+      ok('in a skating world, you skate too', sy.me && sy.playerSkinned && skaters >= 2, `me=${sy.me}, ${skaters} skaters`);
+    }, { timeoutMs: 150_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(sid); }
+
   // "You are the main character" (docs/PRODUCT.md): the player's own
   // character, passed in the frame's URL fragment, replaces the world's
   // player() in any world, and can change mid-run

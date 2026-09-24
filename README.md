@@ -173,6 +173,25 @@ the knee and elbow poles are ported from Prasenjit's
 [Summer Cycle](https://github.com/StarKnightt/summer-cycle) (MIT; the notice is in the runtime
 beside the kit). `lib/runtime/cycling-world.js` is the banked oval `check:runtime` rides.
 
+*Speed Skating 2030* (`worlds/speedskating.js`) is the showcase for three more runtime features.
+It is endless laps of an Olympic long-track oval: a 400m track of two lanes and a warm-up lane,
+lane blocks through the bends, a two-tier bowl of fans who do the wave under LED ribbon boards,
+hospitality suites, a barrel roof of trusses carrying long rows of lights, giant national flags,
+team zones with coaches, skaters warming up in the infield rink, and an ice resurfacer crossing
+the back straight. `ctx.mirror(material)` turns a level surface into a live mirror: the runtime
+renders the scene again from under it every frame, and the material takes that as its clear
+coat's reflection, bent by its normal map, blurred by roughness and view angle, weighted by
+Fresnel, so the hall's lights run down the ice in streaks and every skater skates on their own
+reflection. `ctx.broadcast()` is a live TV picture of the race, cut between a rail camera, a long
+lens head-on and a high wide shot, which the world shows on its giant screens under broadcast
+graphics. `ctx.assets.skater(...)` dresses a library athlete in a skinsuit painted on the body
+(hood, panels, gloves, the country and number on the back and thighs), mirrored iridescent
+glasses and clap skates whose heel lifts off the blade at the end of each push, and poses them
+by IK through the stroke, the crossovers and the lean, with the blades held on the ice. No
+speed-skating motion capture exists under the library's licences (CMU has none; Bandai Namco's
+is non-commercial), so the stroke is built from the sport's own mechanics.
+`lib/runtime/skating-world.js` is the oval `check:runtime` skates.
+
 ### Earlier formats, still playable
 
 - **Race worlds.** Muse Sprint and the first worlds: a `WorldSpec` filled in for the tuned

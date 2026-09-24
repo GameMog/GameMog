@@ -1,0 +1,16 @@
+{
+  "title": "Speed Skating 2030",
+  "tagline": "Olympic long-track speed skating on mirror ice, lap after lap.",
+  "blurb": "A sold-out oval, 400 metres of ice so clear the whole hall shines back up through it, and a mass start that never ends. Every lap another national skater comes off the line in a skinsuit and mirrored glasses, faster and hungrier than the last, so sit low, push wide, cross over through the bends, dodge the stray lane blocks, the loose pads and the ice resurfacer, and grab the golden GM.",
+  "genre": "Speed skating",
+  "cast": [
+    { "name": "Reyes (USA)", "color": "#14264F", "role": "player" },
+    { "name": "Mulder (NED)", "color": "#F36C21", "role": "rival" },
+    { "name": "Haugen (NOR)", "color": "#BA0C2F", "role": "rival" },
+    { "name": "Tanabe (JPN)", "color": "#BC002D", "role": "rival" },
+    { "name": "Beaulieu (CAN)", "color": "#D52B1E", "role": "rival" },
+    { "name": "Albrecht (GER)", "color": "#161616", "role": "rival" },
+    { "name": "Liang (CHN)", "color": "#DE2910", "role": "rival" }
+  ],
+  "palette": { "sky": "#0E1624", "ground": "#EEF3F8", "accent": "#1FA2FF" }
+}

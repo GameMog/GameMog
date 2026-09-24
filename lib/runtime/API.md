@@ -115,6 +115,30 @@ leave room in the bends. `outfit.top: null` leaves the chest bare. `ctx.assets.r
 load: always keep a fallback of your own. `ctx.assets.info(id)` lists an asset's skins, hair and
 clips.
 
+`ctx.assets.skater(id, options)` puts the same athlete in a speed-skating skinsuit on clap skates
+and returns `{ object, animate, name, color }` for `player()` or `rival()`. The skater's own
+skeleton is posed every frame through the stroke: a deep sit with the trunk near level, a glide
+over one skate while the other pushes out sideways until the leg is straight and the clap's heel
+lifts off the blade, then the recovery back under the hip. In the bends the skater leans in and
+crosses over; the hands rest on the back while cruising, swing when driving, and the outside one
+swings through bends; from a standstill the first strides are a run on the blades. The blades
+stay on the ice. All the human options apply, plus:
+
+```js
+ctx.assets.skater('human-athlete-female', {
+  skin: 'caucasian', height: 1.72, build: { muscle: 0.8, lean: 0.5 },
+  suit: { color: '#F36C21', trim: '#1B1B1B', accent: '#FFFFFF', pattern: 'panels',   // panels, split, band, chevron, stripes, plain
+          code: 'NED', number: '12', gloves: '#16171A', hood: true },               // country and number on the back and thighs
+  skates: { boot: '#F2F2F0', trim: '#F36C21', tube: '#1B1C20' },
+  glasses: { lens: '#C9A45A', frame: '#141416' },                                    // glasses: false for none
+  name: 'Mulder (NED)', color: '#F36C21',
+})
+```
+
+`suit` also works on `ctx.assets.human` (a skinsuit for any athlete: the kit and hair are hidden
+under it, the feet are left for the world's own footwear). Build an oval for skaters: they lean
+hard at the runtime's speeds, so give the bends a radius of 25 m or more.
+
 ### graphics (optional)
 Turns on the runtime's cinematic renderer. Use it whenever the world should look its best,
 and always for a realistic world. Every value is optional and bounded.
@@ -233,6 +257,19 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
   0.45 keeps the horizon colour higher up the sky); it always stays around the camera. Match
   `sun` to the direction of your key light.
 - `ctx.instanced(geometry, material, count, fn)`
+- `ctx.mirror(material, { y, strength, blur, distortion })`: makes a `MeshStandardMaterial` or
+  `MeshPhysicalMaterial` on a level surface a live mirror of the world: ice, still water, a
+  polished floor. The runtime renders the scene again from under the plane every frame; the
+  material takes it as its reflection (its clear coat's when it has one, so ice is white paint
+  under a mirror coat), bent by its normal map, blurred by `blur` and its roughness (sharp at a
+  glance, soft looking down), and weighted by Fresnel. Every mirror lies at one height `y`. Give
+  paint under the ice the same treatment so it reflects with it. It costs a second render:
+  mark distant clutter (a bowl of fans, roof gear) `object.userData.noReflection = true` to keep
+  it out of the reflection.
+- `ctx.broadcast()`: a live television picture of the race for a world's big screens, as a
+  texture for an `emissiveMap`. The runtime's own TV camera cuts between a rail camera beside
+  the player, a long lens head-on and a high wide shot. Returns `null` on phones and tablets:
+  always keep a screen picture of your own.
 - `ctx.audio` (inside `ambient`)
 
 ## Never
