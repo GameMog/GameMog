@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { SiteHeader, SiteFooter } from '../header';
+import { SiteHeader, SiteFooter, Icon } from '../header';
 import { prepareUpload, type CharacterImage } from '@/lib/character';
 import { Cover } from '../cover';
 import type { WorldSpec } from '@/lib/worldspec';
@@ -9,19 +9,34 @@ import { useGeneration, GenerationProgress, DraftResult } from './generation';
 type Finding = { level: 'error' | 'warn'; code: string; message: string };
 type Report = { ok: boolean; findings: Finding[]; stats: Record<string, number> };
 
-/** Every world plays by the runtime's rules, so a prompt only needs the world. */
-const GAME_EXAMPLES = [
-  'Pepe and his frog friends race laps of a firefly swamp at dusk. Mossy logs, lily pads, snapping turtles, a lantern-lit boardwalk.',
-  'A snowball rolls laps of a mountain village at night. Snowmen and sleds on the road, warm windows, falling snow.',
-  'Paper boats race round a rainy city gutter. Floating leaves and bottle caps, drains, neon reflections in the puddles.',
-  'Tiny robots race laps of a breakfast table. Cereal spills, a toast rack, the cat watching from the edge.',
+/** Every world plays by the runtime's rules, so an idea only needs the world. */
+const GAME_IDEAS = [
+  { title: 'Firefly swamp', text: 'Pepe and his frog friends race laps of a firefly swamp at dusk. Mossy logs, lily pads, snapping turtles, a lantern-lit boardwalk.' },
+  { title: 'Snowball village', text: 'A snowball rolls laps of a mountain village at night. Snowmen and sleds on the road, warm windows, falling snow.' },
+  { title: 'Gutter regatta', text: 'Paper boats race round a rainy city gutter. Floating leaves and bottle caps, drains, neon reflections in the puddles.' },
+  { title: 'Breakfast table', text: 'Tiny robots race laps of a breakfast table. Cereal spills, a toast rack, the cat watching from the edge.' },
 ];
 
-const EXAMPLES = [
-  'A drowned cathedral city at low tide. Barnacled spires, green glass light, lanterns made of jellyfish.',
-  'The inside of a grandfather clock. Brass gears the size of hills, dust in the light, everything ticking.',
-  'A night market on the back of a sleeping whale. Paper lanterns, steam, warm reds against black water.',
-  'An orchard on a dying star. White grass, long shadows, fruit that glows because nothing else does.',
+const RACE_IDEAS = [
+  { title: 'Drowned cathedral', text: 'A drowned cathedral city at low tide. Barnacled spires, green glass light, lanterns made of jellyfish.' },
+  { title: 'Grandfather clock', text: 'The inside of a grandfather clock. Brass gears the size of hills, dust in the light, everything ticking.' },
+  { title: 'Whale night market', text: 'A night market on the back of a sleeping whale. Paper lanterns, steam, warm reds against black water.' },
+  { title: 'Dying star orchard', text: 'An orchard on a dying star. White grass, long shadows, fruit that glows because nothing else does.' },
+];
+
+/**
+ * What the Runtime supplies, so an idea never has to: shown after the idea,
+ * because a creator comes to describe a world, not to configure an engine.
+ */
+const RULES = [
+  { title: '3D, from behind', text: 'Every world is 3D, seen from behind your character by the chase camera.' },
+  { title: 'Endless laps', text: 'There is no finish line. Your level is the lap you are on.' },
+  { title: 'A rival every lap', text: 'One rival lines up beside you. Every lap another joins, faster and meaner than the last.' },
+  { title: 'Faster every lap', text: 'You, the whole field and the moving obstacles all speed up together.' },
+  { title: 'One touch ends it', text: 'Touch a rival or an obstacle and the run is over.' },
+  { title: 'Collect the GM', text: 'Golden GM line the track. The leaderboard ranks the lap reached, then GM.' },
+  { title: 'Arrows and Space', text: 'Arrow keys steer and change speed, Space pauses, touch buttons on phones.' },
+  { title: 'Raced before it publishes', text: 'A bot plays every new world in a real browser before it can go live.' },
 ];
 
 type Character = { name: string; fur: string; personality?: string; source?: string };
@@ -106,89 +121,76 @@ export default function Create() {
   return (
     <>
       <SiteHeader on="Create" />
-      <main className="wrap" style={{ paddingBottom: 80, maxWidth: 820 }}>
-        <h1 style={{ marginTop: 24, marginBottom: 6 }}>Create a world</h1>
-        <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
-          Describe a world and Claude Opus 5.5 builds it: the place, the track, your character, every
-          rival, the obstacles, the light and the sound. Every GameMog world plays by the same rules,
-          so you only have to describe the world.
-        </p>
-        <div className="panel" style={{ marginBottom: 16 }}>
-          <label className="lbl">The rules every world plays by</label>
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)' }}>
-            <li>Every world is 3D, seen from behind your character by the chase camera.</li>
-            <li>Endless laps. Your level is the lap you are on.</li>
-            <li>One rival lines up beside you. Every lap another joins at the line, faster and meaner than the last.</li>
-            <li>Every lap everyone runs faster: you, the whole field and the moving obstacles.</li>
-            <li>Touch a rival or an obstacle and the run is over.</li>
-            <li>Collect the golden GM along the way.</li>
-            <li>Arrow keys steer and change speed, Space pauses, touch buttons on phones.</li>
-          </ul>
+      <main className="wrap" style={{ paddingBottom: 80 }}>
+        <div className="chead">
+          <h1>Create a world</h1>
+          <p className="secsub">
+            Describe a place and Claude Opus 5.5 builds it: the track, the rivals, the obstacles, the
+            light and the sound. It goes on the charts, and anyone can Mog it with a better version.
+          </p>
         </div>
 
-        <div className="panel" style={{ marginBottom: 16 }}>
-          <label className="lbl">Your character <span style={{ opacity: .65, fontWeight: 500 }}>(optional)</span></label>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="cgrid">
+          <section className="panel cidea">
+            <label className="lbl" htmlFor="p">Your world</label>
+            <textarea
+              id="p" rows={6} value={prompt}
+              placeholder="Where is the race, who runs it, and what is in the way? Name the place, its light and its obstacles. The more specific, the better."
+              onChange={(e) => setPrompt(e.target.value)}
+            />
+            <div className="cgo">
+              <p className="dim-2">You describe the world. The rules below come with it.</p>
+              <button className="btn big" onClick={generate} disabled={busy || prompt.trim().length < 8}>
+                {busy ? 'Building the world' : 'Build the world'}
+              </button>
+            </div>
+            <p className="lbl" style={{ marginTop: 22 }}>Or start from one of these</p>
+            <div className="cideas">
+              {(kind === 'game' ? GAME_IDEAS : RACE_IDEAS).map((idea) => (
+                <button key={idea.title} className={`cideacard${prompt === idea.text ? ' on' : ''}`} onClick={() => setPrompt(idea.text)}>
+                  <b>{idea.title}</b><span>{idea.text}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <aside className="panel cchar">
+            <label className="lbl">Your character <span className="opt">(optional)</span></label>
             <div
+              className={`cdrop${preview ? ' has' : ''}`}
               onClick={() => fileRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => { e.preventDefault(); onFile(e.dataTransfer.files?.[0]); }}
-              style={{
-                width: 110, height: 110, borderRadius: 8, cursor: 'pointer', flex: '0 0 auto',
-                border: preview ? '1px solid var(--line)' : '1px dashed var(--ink-3)',
-                background: preview ? `#fff url(${preview}) center/cover` : 'var(--fill)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                textAlign: 'center', fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.4, padding: 8,
-              }}
+              style={preview ? { backgroundImage: `url(${preview})` } : undefined}
+              role="button" tabIndex={0} aria-label="Add a picture of your character"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileRef.current?.click(); } }}
             >
-              {preview ? '' : 'Drop a picture, or click'}
+              {!preview && <span><Icon name="plus" size={28} /><b>Drop a picture</b>or click to choose one</span>}
             </div>
-            <div style={{ flex: '1 1 220px', minWidth: 200 }}>
-              <input
-                type="text" placeholder="Name them (optional)" value={charName}
-                onChange={(e) => setCharName(e.target.value.slice(0, 14))}
-                style={{ marginBottom: 8 }}
-              />
-              {hintFur ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, lineHeight: 1.5 }}>
-                  <i style={{ width: 22, height: 22, borderRadius: 4, background: hintFur, border: '1px solid var(--line)' }} />
-                  <span className="dim">Read <b>{hintFur}</b> off the body, ignoring the backdrop. The world will move aside rather than let this colour get lost.</span>
-                </div>
-              ) : (
-                <p className="dim" style={{ fontSize: 12, lineHeight: 1.5 }}>
-                  The model builds your character from this picture. Without one, it designs its own.
-                </p>
-              )}
-              {preview && (
-                <button className="tag" style={{ marginTop: 8 }} onClick={clearCharacter}>Remove</button>
-              )}
-            </div>
-          </div>
-          <input
-            ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif"
-            style={{ display: 'none' }}
-            onChange={(e) => onFile(e.target.files?.[0])}
-          />
-        </div>
-
-        <div className="panel" style={{ marginBottom: 16 }}>
-          <label className="lbl" htmlFor="p">The world</label>
-          <textarea
-            id="p" rows={kind === 'game' ? 6 : 4} value={prompt}
-            placeholder={'Who you play, who you race, and where: the place, its light, what the obstacles are. The more specific, the better.'}
-            onChange={(e) => setPrompt(e.target.value)}
-          />
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
-            {(kind === 'game' ? GAME_EXAMPLES : EXAMPLES).map((ex) => (
-              <button key={ex} className="tag multi" style={{ maxWidth: 340 }}
-                onClick={() => setPrompt(ex)}>
-                {ex.slice(0, 44)}...
-              </button>
-            ))}
-          </div>
-          <button className="btn" onClick={generate} disabled={busy || prompt.trim().length < 8}>
-            {busy ? 'Building the world' : 'Build the world'}
-          </button>
+            <input
+              type="text" placeholder="Name them (optional)" value={charName}
+              onChange={(e) => setCharName(e.target.value.slice(0, 14))}
+              style={{ marginTop: 12 }} aria-label="Character name"
+            />
+            {hintFur ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, lineHeight: 1.5, marginTop: 10 }}>
+                <i style={{ width: 22, height: 22, borderRadius: 4, background: hintFur, border: '1px solid var(--line)', flex: '0 0 auto' }} />
+                <span className="dim">Read <b>{hintFur}</b> off the body, ignoring the backdrop. The world will move aside rather than let this colour get lost.</span>
+              </div>
+            ) : (
+              <p className="dim" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 10 }}>
+                The model builds your character from this picture. Without one, it designs its own.
+              </p>
+            )}
+            {preview && (
+              <button className="tag" style={{ marginTop: 10 }} onClick={clearCharacter}>Remove</button>
+            )}
+            <input
+              ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif"
+              style={{ display: 'none' }}
+              onChange={(e) => onFile(e.target.files?.[0])}
+            />
+          </aside>
         </div>
 
         <GenerationProgress gen={gen} />
@@ -251,6 +253,24 @@ export default function Create() {
             </div>
           </div>
         )}
+
+        <section className="sec">
+          <div className="sechead">
+            <div className="sectext">
+              <h2 className="sectitle">How every world plays</h2>
+              <p className="secsub">The GameMog Runtime supplies the rules, so every world is fair to race and fair to Mog.</p>
+            </div>
+          </div>
+          <ol className="crules">
+            {RULES.map((r, i) => (
+              <li key={r.title}>
+                <span className="n">{String(i + 1).padStart(2, '0')}</span>
+                <b>{r.title}</b>
+                <span>{r.text}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
       </main>
       <SiteFooter />
     </>

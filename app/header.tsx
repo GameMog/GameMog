@@ -5,16 +5,17 @@ import { Wordmark } from './logo';
  * GameStop's header, for GameMog (docs/design/premium.md): a white brand row
  * that stays at the top (the mark, a wide search, icon actions with labels,
  * the one primary button), a category row, and a black promo strip for the
- * featured world. Classic leads the categories: the owner's call.
+ * featured world. Create leads the categories and Classic takes its old place
+ * (the owner, 24 Sep).
  */
 const NAV = [
-  { label: 'Classic', href: '/classic' },
+  { label: 'Create', href: '/create' },
   { label: 'Top Trending', href: '/charts/trending', key: 'Charts' },
   { label: 'Up-and-Coming', href: '/charts/up-and-coming' },
   { label: 'Top Rated', href: '/charts/top-rated' },
   { label: 'Most Mogged', href: '/charts/most-mogged' },
   { label: 'New Mogs', href: '/charts/new-mogs', key: 'Mogs' },
-  { label: 'Create', href: '/create' },
+  { label: 'Classic', href: '/classic' },
   { label: 'Asset Library', href: '/library', key: 'Library' },
 ];
 

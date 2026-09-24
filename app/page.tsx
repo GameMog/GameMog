@@ -27,14 +27,14 @@ function filmFor(slug: string): Film | null {
  * A chart as a GameStop section (docs/design/premium.md): the title and a grey
  * subtitle, arrows, any tab chips, the rail of cards, "View all" under it.
  */
-function Section({ sort, games, best, stats, seed, controls }: {
-  sort: ChartSort; games: GameRow[]; best: Record<string, number>; stats: Record<string, TileStats>; seed: number; controls?: React.ReactNode;
+function Section({ sort, games, best, stats, seed, controls, genre }: {
+  sort: ChartSort; games: GameRow[]; best: Record<string, number>; stats: Record<string, TileStats>; seed: number; controls?: React.ReactNode; genre: string;
 }) {
-  if (games.length < 4) return null;
   const chart = CHARTS[sort];
+  const query = genre === 'All' ? '' : `?genre=${encodeURIComponent(genre)}`;
   return (
     <Shelf title={chart.title} sub={chart.caption ?? chart.explanation} controls={controls}
-      more={{ href: `/charts/${sort}`, label: `View all ${chart.title}` }}>
+      more={{ href: `/charts/${sort}${query}`, label: `View all ${chart.title}` }}>
       {games.map((g, i) => <Tile key={g.id} g={g} i={seed + i} best={best[g.id]} stats={stats[g.id]} />)}
     </Shelf>
   );
@@ -153,9 +153,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ g
     { sort: 'most-mogged', games: sortGames(filtered.filter((g) => (stats[g.id]?.mogs ?? 0) > 0), 'most-mogged', stats).slice(0, 16) },
     { sort: 'new-mogs', games: sortGames(filtered, 'new-mogs', stats).slice(0, 16) },
   ];
+  // unfiltered, a chart needs four worlds to be worth a row; filtered, every
+  // match is shown, or picking a genre that exists would empty the page
+  const least = genre === 'All' ? 4 : 1;
   const seen = new Set<string>();
   const rails = candidates.filter((rail) => {
-    if (rail.games.length < 4) return false;
+    if (rail.games.length < least) return false;
     const signature = rail.games.map((g) => g.id).sort().join(',');
     if (seen.has(signature)) return false;
     seen.add(signature); return true;
@@ -168,13 +171,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ g
         <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />
 
         {rails.map((rail, i) => (
-          <Section key={rail.sort} sort={rail.sort} games={rail.games} best={best} stats={stats} seed={i * 40}
+          <Section key={rail.sort} sort={rail.sort} games={rail.games} best={best} stats={stats} seed={i * 40} genre={genre}
             controls={i === 0 && genres.length > 1 ? <GenreFilter genres={genres} value={genre} /> : undefined} />
         ))}
         {!rails.length && (
           <section className="sec">
             {genres.length > 1 && <div className="seccontrols"><GenreFilter genres={genres} value={genre} /></div>}
-            <div className="empty"><h2>No full chart for this genre yet</h2><p>Charts appear when at least four worlds qualify.</p></div>
+            <div className="empty"><h2>No worlds here yet</h2><p>Charts appear when at least four worlds qualify.</p></div>
           </section>
         )}
         <JumpIn worlds={worlds} classic={games.find((g) => g.slug === 'muse-sprint') ?? games.find((g) => g.format === 'race')} stats={stats} />
