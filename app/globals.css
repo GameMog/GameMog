@@ -117,13 +117,19 @@ h2,.t-h2{font-family:var(--display);font-size:24px;font-weight:700;line-height:3
 .hicons{display:flex;align-items:center;gap:24px;margin-left:auto;flex:0 0 auto}
 .hicon{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:600;line-height:13px;color:var(--ink)}
 .hicon:hover{color:var(--ink-2)}
+/* the menu, as anthropic.com's: thin lines that open a full panel under the
+   header, large links on hairlines, a thin cross to close */
+.menubtn{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:40px;background:none;border:0;padding:0;cursor:pointer;font-size:11px;font-weight:600;line-height:13px;color:var(--ink)}
+.menubtn:hover{color:var(--ink-2)}
+.sitemenu{position:fixed;left:0;right:0;bottom:0;z-index:59;overflow-y:auto;background:var(--surface);border-top:1px solid var(--line)}
+.sitemenu ul{list-style:none;margin:0;padding:8px 0 48px;max-width:880px}
+.sitemenu li{border-bottom:1px solid var(--line)}
+.sitemenu a{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 0;font-family:var(--display);font-size:32px;line-height:38px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.sitemenu a svg{color:var(--ink-3);flex:0 0 auto}
+.sitemenu a:hover{color:var(--ink-2)}
+.sitemenu a:hover svg{color:var(--ink)}
+.sitemenu a.on span{border-bottom:3px solid var(--gold)}
 .createworld{flex:0 0 auto}
-.catnav{background:var(--surface);border-bottom:1px solid var(--line)}
-.catnav .wrap{display:flex;align-items:center;gap:30px;height:46px;overflow-x:auto;scrollbar-width:none}
-.catnav .wrap::-webkit-scrollbar{display:none}
-.nvl{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;padding:13px 0 11px;border-bottom:2px solid transparent;flex:0 0 auto}
-.nvl:hover{border-bottom-color:var(--line)}
-.nvl.on{border-bottom-color:var(--ink);font-weight:700}
 
 /* --------------------------------------------------------------- buttons -- */
 /* GameStop's: 4px corners, bold, confident heights. The brand is black. */
@@ -391,12 +397,59 @@ table.bd td:nth-child(2){font-weight:600}
 .cidea textarea{min-height:176px;font-size:17px;line-height:26px;padding:14px 16px}
 .cgo{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:14px}
 .cgo p{font-size:13px;line-height:18px}
+.cideashead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px;margin-bottom:8px}
+.cideashead .lbl{margin:0}
+.cideasnav{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;white-space:nowrap}
 .cideas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .cideacard{display:flex;flex-direction:column;gap:4px;min-width:0;padding:14px 16px;border-radius:var(--r);border:1.5px solid var(--line);background:var(--surface);text-align:left}
 .cideacard b{font-size:15px;font-weight:700;line-height:20px;color:var(--ink)}
 .cideacard span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13px;line-height:19px;color:var(--ink-2)}
 .cideacard:hover{border-color:var(--ink-3)}
 .cideacard.on{border-color:var(--ink)}
+
+/* ---------------------------------------------------------- build show -- */
+/* While a world or a Mog is built: a dark stage with what is happening in
+   plain words, a track that draws itself, a bar with the time left, and the
+   steps. The builder is never named. */
+.bshow{background:#0B0B0F;color:#F7F7F8;border-radius:var(--r);padding:28px 32px 26px;margin-bottom:16px;box-shadow:var(--elev)}
+.bs-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.bs-kicker{font-family:var(--display);font-size:44px;line-height:46px;font-weight:800;letter-spacing:-.01em;text-transform:uppercase;color:#FFFFFF}
+.bs-clock{font-family:var(--display);font-size:22px;line-height:28px;font-weight:700;font-variant-numeric:tabular-nums;color:#C9CDD8;padding-top:6px}
+.bs-title{margin-top:14px;font-size:20px;line-height:26px;font-weight:800;color:var(--gold)}
+.bs-line{margin-top:4px;font-size:16px;line-height:24px;color:#C9CDD8;min-height:24px}
+.bs-art{display:block;width:100%;height:auto;max-height:260px;margin:14px 0 18px}
+.bs-bar{display:flex;gap:4px;height:12px}
+.bs-bar span{flex:1;background:rgba(255,255,255,.12);border-radius:6px;overflow:hidden}
+.bs-bar i{display:block;height:100%;background:var(--gold)}
+.bs-bar .polish i{background:var(--blue)}
+.bs-meta{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-top:10px}
+.bs-meta b{font-family:var(--display);font-size:30px;line-height:34px;font-weight:800;font-variant-numeric:tabular-nums;color:#FFFFFF}
+.bs-meta span{font-size:15px;line-height:22px;font-weight:600;color:#C9CDD8;text-align:right}
+.bs-steps{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin:18px 0 0;padding:0}
+.bs-steps li{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border-radius:var(--r-btn);background:rgba(255,255,255,.06);color:#8E93A0;font-size:14px;font-weight:700}
+.bs-steps li i{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(255,255,255,.1);font-style:normal;font-size:12px;font-weight:800}
+.bs-steps li.done{color:#FFFFFF;background:rgba(255,255,255,.12)}
+.bs-steps li.done i{background:#FFFFFF;color:#0B0B0F}
+.bs-steps li.now{background:var(--gold);color:#0B0B0F}
+.bs-steps li.now i{background:#0B0B0F;color:var(--gold)}
+.bs-fixes{margin-top:18px;padding:14px 16px;border-left:3px solid var(--gold);background:rgba(245,184,46,.1);color:#F3E3B8;font-size:15px;line-height:22px}
+.bs-fixes b{color:#FFFFFF}
+.bs-fixes ul{margin:6px 0 0;padding-left:20px}
+.bs-fixes details,.bs-error details{margin-top:8px;font-size:13px;line-height:19px}
+.bs-fixes summary,.bs-error summary{cursor:pointer;font-weight:700;opacity:.8}
+.bs-fixes details p{color:#C9CDD8;margin-top:6px}
+.bs-foot{display:grid;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.1)}
+.bs-foot p{font-size:14px;line-height:21px;color:#C9CDD8}
+.bs-foot p span{display:block;font-size:11px;line-height:16px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#8E93A0}
+.bs-idea{color:#FFFFFF}
+.bs-keep{color:#8E93A0}
+.bs-error{margin-bottom:16px;padding:18px 20px;border-radius:var(--r);background:var(--err-bg);color:var(--err-ink)}
+.bs-error b{display:block;font-size:17px;line-height:24px;font-weight:800}
+.bs-error > p{margin-top:4px;font-size:15px;line-height:22px}
+.bs-error details p{margin-top:6px;opacity:.85;word-break:break-word}
+/* the new world plays right here, full size, before it is published */
+.bs-ready .gframe{width:100%;aspect-ratio:16/9;box-shadow:var(--elev)}
+.bs-readylbl{font-size:12px;font-weight:800;line-height:18px;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin-bottom:12px}
 .cchar .opt{font-weight:500;letter-spacing:0;text-transform:none;opacity:.7}
 .cdrop{display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:1;border-radius:var(--r);border:1.5px dashed #C4C7CF;background:var(--page) center/cover no-repeat;cursor:pointer;text-align:center}
 .cdrop span{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;line-height:18px;color:var(--ink-3)}
@@ -450,6 +503,11 @@ table.bd td:nth-child(2){font-weight:600}
 }
 @media(max-width:760px){
   :root{--gutter:16px}
+  .bshow{padding:20px 18px}
+  .cideashead{flex-direction:column;align-items:flex-start;gap:6px}
+  .bs-kicker{font-size:28px;line-height:31px}
+  .bs-clock{font-size:18px;padding-top:2px}
+  .sitemenu a{font-size:26px;line-height:32px;padding:18px 0}
   .hdr{position:static}
   .hrow{flex-wrap:wrap;height:auto;gap:10px 12px;padding-top:10px;padding-bottom:10px}
   .srch input{height:40px}
@@ -458,9 +516,7 @@ table.bd td:nth-child(2){font-weight:600}
   .hicons{gap:16px}
   .hicon span{display:none}
   .createworld{height:36px;padding:0 12px;font-size:13px}
-  .catnav .wrap{gap:22px;height:42px}
-  .nvl{padding:11px 0 9px}
-  /* one row for the brand: the Mogs and Library icons repeat the category
+      /* one row for the brand: the Mogs and Library icons repeat the category
      row, so a phone keeps the name (and "Create a world" when it is shown) */
   .hicon{display:none}
   .wordmark b{font-size:22px}

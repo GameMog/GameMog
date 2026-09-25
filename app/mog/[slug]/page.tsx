@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Mog a game: challenge it with a better variation. The challenger says in a
- * line how to beat it; Claude Opus 5.5 gets the original whole and writes the
+ * line how to beat it; GameMog gets the original whole and writes the
  * variation; it is raced before it can publish; the original stays credited.
  */
 export default async function MogPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -25,7 +25,7 @@ export default async function MogPage({ params }: { params: Promise<{ slug: stri
       <main className="wrap" style={{ paddingBottom: 80, maxWidth: 820 }}>
         <h1 style={{ marginTop: 24, marginBottom: 6 }}>Mog {game.title}</h1>
         <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
-          Challenge it with a better variation. Say how to beat it; Claude Opus 5.5 gets the original&apos;s
+          Challenge it with a better variation. Say how to beat it; GameMog gets the original&apos;s
           code and your idea and writes the variation, and it is raced in a real browser before it can
           publish. Players who have played both pick the better one, and the original is always credited.
         </p>

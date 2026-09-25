@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { Wordmark } from './logo';
+import { SiteMenu } from './menu';
 
 /**
  * GameStop's header, for GameMog (docs/design/premium.md): a white brand row
- * that stays at the top (the mark, a wide search, icon actions with labels,
- * the one primary button) and a category row. Create leads the categories and
- * Classic takes its old place (the owner, 24 Sep). The black promo strip for a
- * featured world is gone: the homepage hero does that job (the owner, 24 Sep).
+ * that stays at the top (the mark, a wide search, icon actions with labels).
+ * The pages live in a menu at the far right, after Library, opened like
+ * anthropic.com's (the owner, 24 Sep): Create first, Classic seventh. The
+ * category row and the black promo strip under it are gone.
  */
 const NAV = [
   { label: 'Create', href: '/create' },
@@ -36,16 +37,10 @@ export function SiteHeader({ on = '' }: { on?: string }) {
             <Link href="/charts/new-mogs" className="hicon"><Icon name="remix" size={22} /><span>Mogs</span></Link>
             <Link href="/library" className="hicon"><Icon name="library" size={22} /><span>Library</span></Link>
             {SHOW_CREATE_BUTTON && <Link href="/create" className="btn createworld">Create a world</Link>}
+            <SiteMenu items={NAV} on={on} />
           </nav>
         </div>
       </header>
-      <nav className="catnav" aria-label="Browse">
-        <div className="wrap">
-          {NAV.map((n) => (
-            <Link key={n.label} href={n.href} className={`nvl${(n.key ?? n.label) === on ? ' on' : ''}`}>{n.label}</Link>
-          ))}
-        </div>
-      </nav>
     </>
   );
 }

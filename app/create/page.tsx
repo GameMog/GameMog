@@ -9,12 +9,72 @@ import { useGeneration, GenerationProgress, DraftResult } from './generation';
 type Finding = { level: 'error' | 'warn'; code: string; message: string };
 type Report = { ok: boolean; findings: Finding[]; stats: Record<string, number> };
 
-/** Every world plays by the runtime's rules, so an idea only needs the world. */
+/**
+ * Sixty ideas to start from, four at a time (the owner, 24 Sep). They turn
+ * over on their own every few seconds, shuffled for each visit, and stop
+ * while a creator is hovering over them or has started writing their own.
+ */
 const GAME_IDEAS = [
-  { title: 'Firefly swamp', text: 'Pepe and his frog friends race laps of a firefly swamp at dusk. Mossy logs, lily pads, snapping turtles, a lantern-lit boardwalk.' },
-  { title: 'Snowball village', text: 'A snowball rolls laps of a mountain village at night. Snowmen and sleds on the road, warm windows, falling snow.' },
-  { title: 'Gutter regatta', text: 'Paper boats race round a rainy city gutter. Floating leaves and bottle caps, drains, neon reflections in the puddles.' },
-  { title: 'Breakfast table', text: 'Tiny robots race laps of a breakfast table. Cereal spills, a toast rack, the cat watching from the edge.' },
+  { title: "Firefly swamp", text: "Pepe and his frog friends race laps of a firefly swamp at dusk. Mossy logs, lily pads, snapping turtles, a lantern-lit boardwalk." },
+  { title: "Snowball village", text: "A snowball rolls laps of a mountain village at night. Snowmen and sleds on the road, warm windows, falling snow." },
+  { title: "Gutter regatta", text: "Paper boats race round a rainy city gutter. Floating leaves and bottle caps, drains, neon reflections in the puddles." },
+  { title: "Breakfast table", text: "Tiny robots race laps of a breakfast table. Cereal spills, a toast rack, the cat watching from the edge." },
+  { title: "Canyon rally", text: "Dune buggies race a red-rock canyon at sunset. Tumbleweeds, rockfalls, a hot-air balloon drifting overhead." },
+  { title: "Cherry blossom park", text: "Kids on scooters race round a park in cherry blossom season. Petals in the air, picnic blankets, a koi pond bridge." },
+  { title: "Volcano rim", text: "Lizards race the rim of an island volcano. Lava bubbles, black sand, steam vents that burst without warning." },
+  { title: "Neon night city", text: "Hoverbikes race a rain-soaked city at 3am. Neon signs, noodle stalls, delivery drones crossing the road." },
+  { title: "Haunted manor", text: "Ghosts race the hallways of a haunted manor. Swinging chandeliers, portraits whose eyes follow you, a candle-lit ballroom." },
+  { title: "Coral reef", text: "Sea turtles race round a coral reef in bright shallow water. Schools of fish, drifting jellyfish, sunbeams through the waves." },
+  { title: "Jungle temple", text: "Explorers race through a jungle temple overgrown with vines. Rolling stones, rope bridges, golden idols." },
+  { title: "Harvest farm", text: "Piglets race round a farm at harvest time. Pumpkin patches, hay bales, a tractor crossing the lane." },
+  { title: "Polar station", text: "Penguins race round a research station at the South Pole. Ice floes, snowcats, the aurora overhead." },
+  { title: "Toy box", text: "Wind-up toys race across a bedroom floor. Building blocks, a train set, a sleepy dog in the way." },
+  { title: "Space station ring", text: "Astronauts race round a spinning space station. Floating tools, airlocks, Earth turning past the windows." },
+  { title: "Canal city", text: "Gondolas race the canals of a floating city at golden hour. Stone bridges, market boats, pigeons taking off." },
+  { title: "Rooftop run", text: "Parkour runners race across rooftops at dusk. Water towers, clotheslines, a flock of pigeons." },
+  { title: "Candy kingdom", text: "Gingerbread racers run laps of a candy kingdom. Chocolate rivers, gumdrop hills, lollipop trees." },
+  { title: "Dinosaur valley", text: "Baby dinosaurs race through a prehistoric valley. Giant ferns, a sleeping T. rex, bubbling tar pits." },
+  { title: "Stadium lights", text: "Sprinters race laps of a packed stadium at night. Camera flashes, waving flags, a flame burning at the far end." },
+  { title: "Alpine resort", text: "Snowboarders race round an alpine resort. Chairlifts, pine trees, snow cannons blasting the piste." },
+  { title: "Moon base", text: "Rovers race across the Moon. Craters, landers, Earth rising over the horizon." },
+  { title: "Medieval market", text: "Knights on donkeys race through a medieval market. Fruit carts, jugglers, a castle on the hill." },
+  { title: "Beach boardwalk", text: "Surfers race round a seaside boardwalk. Ice cream carts, seagulls, the pier lights coming on." },
+  { title: "Mushroom forest", text: "Snails race through a giant mushroom forest glowing at night. Spore clouds, dewdrops, beetles marching past." },
+  { title: "Sunken city", text: "Mermaids race round a sunken city. Bubble streams, statues covered in shells, a curious octopus." },
+  { title: "Train yard", text: "Rail workers race through a train yard at dawn. Rolling freight cars, signal lights, drifting steam." },
+  { title: "Sky islands", text: "Birds race between floating islands above the clouds. Waterfalls into nothing, windmills, balloons." },
+  { title: "Bamboo forest", text: "Pandas race through a misty bamboo forest. Falling leaves, stone lanterns, a quiet stream." },
+  { title: "Coastal circuit", text: "Go-karts race a street circuit by the sea. Tyre walls, grandstands, the water glittering past the barriers." },
+  { title: "Ice palace", text: "Skaters race round a palace carved from ice. Frozen fountains, crystal chandeliers, snow falling indoors." },
+  { title: "Summer garden", text: "Ladybugs race round a vegetable garden at noon. Watering cans, tomato vines, a sprinkler sweeping the path." },
+  { title: "Pirate cove", text: "Pirates race round a hidden cove. Treasure chests, cannons, a parrot shouting directions." },
+  { title: "Library after hours", text: "Bookworms race through a library after closing. Toppling books, rolling ladders, a snoring librarian." },
+  { title: "Savanna sunset", text: "Zebras race across the savanna at sunset. Acacia trees, watering holes, a lion watching from the grass." },
+  { title: "Chocolate factory", text: "Robots race along a chocolate factory's conveyor belts. Stirring vats, wrapping machines, falling cocoa beans." },
+  { title: "Rainforest canopy", text: "Monkeys race along the treetops of a rainforest. Hanging vines, toucans, a thunderstorm rolling in." },
+  { title: "Carnival night", text: "Clowns race round a carnival at night. Carousels, popcorn stands, a Ferris wheel lighting up." },
+  { title: "Frozen lake", text: "Huskies pull sleds round a frozen lake under the northern lights. Cracking ice, log cabins, a moose crossing." },
+  { title: "Airport at night", text: "Baggage carts race round an airport at night. Taxiing jets, runway lights, a runaway suitcase." },
+  { title: "Chariot circus", text: "Chariots race an ancient stadium. Cheering crowds, marble columns, a sudden sandstorm." },
+  { title: "Cloud kingdom", text: "Paper planes race through a kingdom in the clouds. Rainbow bridges, cloud castles, a friendly thunderbird." },
+  { title: "Aquarium tunnel", text: "Kids race through an aquarium tunnel. Sharks gliding overhead, glass walls, a school trip crowd." },
+  { title: "Frontier town", text: "Cowboys race round a dusty frontier town. Saloon doors, tumbleweeds, a train pulling in." },
+  { title: "Rush hour crossing", text: "Cats race through a city crossing at rush hour. Umbrellas, taxis, giant video screens overhead." },
+  { title: "Glacier lagoon", text: "Seals race round a glacier lagoon. Floating icebergs, calving ice walls, puffins overhead." },
+  { title: "Kitchen after hours", text: "Mice race round a restaurant kitchen after closing. Pots and pans, a spilled flour sack, a cheese wheel finish." },
+  { title: "Lighthouse storm", text: "Seagulls race round a lighthouse in a storm. Crashing waves, slick rocks, the beam sweeping the sea." },
+  { title: "Twilight orchard", text: "Fairies race through an orchard at twilight. Glowing apples, fireflies, a sleepy owl." },
+  { title: "Mountain monastery", text: "Goats race round a monastery high in the mountains. Prayer flags, stone steps, clouds below." },
+  { title: "Desert oasis", text: "Camels race round a desert oasis. Palm trees, rolling dunes, a caravan passing through." },
+  { title: "Future city", text: "Delivery bots race round a city of the future. Flying cars, glass towers, glowing billboards." },
+  { title: "Bayou at dawn", text: "Otters race round a bayou at dawn. Cypress roots, airboats, herons taking off." },
+  { title: "Board game", text: "Game pieces race round a giant board game. Rolling dice, card piles, a spilled drink." },
+  { title: "Castle moat", text: "Ducks race round a castle moat. Drawbridges, archers on the walls, lily pads." },
+  { title: "Greenhouse jungle", text: "Chameleons race through a giant greenhouse. Misting pipes, orchids, steamed-up glass." },
+  { title: "Harbor festival", text: "Crabs race round a harbor festival. Fishing boats, lanterns on strings, fireworks over the water." },
+  { title: "Clockwork city", text: "Clockwork mice race through a city of gears. Turning cogs, steam pipes, a giant swinging pendulum." },
+  { title: "Midnight mall", text: "Shopping carts race through an empty mall at midnight. Escalators, fountains, mannequins that seem to move." },
+  { title: "Ice oval", text: "Speed skaters race an Olympic oval of mirror ice. Lane blocks, a roaring crowd, rows of lights reflected below." },
 ];
 
 const RACE_IDEAS = [
@@ -40,6 +100,47 @@ const RULES = [
 ];
 
 type Character = { name: string; fur: string; personality?: string; source?: string };
+
+/** The ideas, four at a time: they turn over on their own, or on request. */
+function IdeaDeck({ ideas, value, onPick, still }: { ideas: { title: string; text: string }[]; value: string; onPick: (text: string) => void; still: boolean }) {
+  const PER = 4, pages = Math.ceil(ideas.length / PER);
+  const [order, setOrder] = useState<number[]>(() => ideas.map((_, i) => i));
+  const [page, setPage] = useState(0);
+  const [hover, setHover] = useState(false);
+  // a fresh shuffle for each visit, after the first paint so the server and the page agree
+  useEffect(() => {
+    const o = ideas.map((_, i) => i);
+    for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    setOrder(o);
+  }, [ideas]);
+  useEffect(() => {
+    if (hover || still || pages < 2) return;
+    const t = setInterval(() => setPage((p) => (p + 1) % pages), 9000);
+    return () => clearInterval(t);
+  }, [hover, still, pages]);
+  const shown = order.slice(page * PER, page * PER + PER).map((i) => ideas[i]).filter(Boolean);
+  return (
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} onFocus={() => setHover(true)} onBlur={() => setHover(false)}>
+      <div className="cideashead">
+        <p className="lbl">Or start from one of these</p>
+        {pages > 1 && (
+          <div className="cideasnav">
+            <span className="dim-2">{page + 1} of {pages}</span>
+            <button type="button" className="tag" onClick={() => setPage((p) => (p + pages - 1) % pages)} aria-label="Previous ideas">Back</button>
+            <button type="button" className="tag" onClick={() => setPage((p) => (p + 1) % pages)}>More ideas</button>
+          </div>
+        )}
+      </div>
+      <div className="cideas" aria-live="polite">
+        {shown.map((idea) => (
+          <button key={idea.title} className={`cideacard${value === idea.text ? ' on' : ''}`} onClick={() => onPick(idea.text)}>
+            <b>{idea.title}</b><span>{idea.text}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Create() {
   const [prompt, setPrompt] = useState('');
@@ -125,8 +226,8 @@ export default function Create() {
         <div className="chead">
           <h1>Create a world</h1>
           <p className="secsub">
-            Describe a place and Claude Opus 5.5 builds it: the track, the rivals, the obstacles, the
-            light and the sound. It goes on the charts, and anyone can Mog it with a better version.
+            Describe a place and GameMog builds it: the track, the rivals, the obstacles, the light and
+            the sound. It goes on the charts, and anyone can Mog it with a better version.
           </p>
         </div>
 
@@ -141,17 +242,10 @@ export default function Create() {
             <div className="cgo">
               <p className="dim-2">You describe the world. The rules below come with it.</p>
               <button className="btn big" onClick={generate} disabled={busy || prompt.trim().length < 8}>
-                {busy ? 'Building the world' : 'Build the world'}
+                {busy ? 'Creating your world' : 'Build the world'}
               </button>
             </div>
-            <p className="lbl" style={{ marginTop: 22 }}>Or start from one of these</p>
-            <div className="cideas">
-              {(kind === 'game' ? GAME_IDEAS : RACE_IDEAS).map((idea) => (
-                <button key={idea.title} className={`cideacard${prompt === idea.text ? ' on' : ''}`} onClick={() => setPrompt(idea.text)}>
-                  <b>{idea.title}</b><span>{idea.text}</span>
-                </button>
-              ))}
-            </div>
+            <IdeaDeck ideas={kind === 'game' ? GAME_IDEAS : RACE_IDEAS} value={prompt} onPick={setPrompt} still={busy || prompt.trim().length > 0} />
           </section>
 
           <aside className="panel cchar">
@@ -179,7 +273,7 @@ export default function Create() {
               </div>
             ) : (
               <p className="dim" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 10 }}>
-                The model builds your character from this picture. Without one, it designs its own.
+                GameMog builds your character from this picture. Without one, it designs its own.
               </p>
             )}
             {preview && (
@@ -193,7 +287,7 @@ export default function Create() {
           </aside>
         </div>
 
-        <GenerationProgress gen={gen} />
+        <GenerationProgress gen={gen} mode="create" subject={prompt} />
 
         {report && report.findings.length > 0 && (
           <div className="panel" style={{ marginBottom: 16 }}>
@@ -213,8 +307,8 @@ export default function Create() {
             {offline && (
               <div className="msg warn" style={{ marginBottom: 14 }}>
                 <b>offline</b>
-                <span>No <code>ANTHROPIC_API_KEY</code> is set, so this world was generated
-                  deterministically rather than designed. It is playable but arbitrary.</span>
+                <span>The world builder isn&apos;t connected, so this world was generated automatically
+                  rather than designed. It is playable but arbitrary.</span>
               </div>
             )}
             <div style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 16, width: 300 }}>

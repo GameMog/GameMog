@@ -69,7 +69,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
           <div className="gbar">
             <div className="gtitle">
               <h1>{game.title}</h1>
-              <p className="by">By <b>a GameMog creator</b> <span className="maturity">· {world ? 'Endless laps · GameMog Runtime' : 'Written by Claude Opus 5.5'}</span></p>
+              <p className="by">By <b>a GameMog creator</b> <span className="maturity">· {world ? 'Endless laps · GameMog Runtime' : 'Written by GameMog'}</span></p>
               <Lineage game={game} />
               {world && <YouLine slug={game.slug} />}
             </div>

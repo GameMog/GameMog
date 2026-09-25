@@ -1,24 +1,20 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PlayFrame } from '../g/[slug]/play-frame';
 
 /**
- * Writing a world, shared by Create and Mog: the request, the progress Opus
- * streams back while it writes, the rounds of problems the checks send back,
- * and the playtested draft with its preview and publish button.
+ * Writing a world, shared by Create and Mog: the request and the events the
+ * builder streams back while it works (useGeneration, the plumbing), and what
+ * the creator sees meanwhile: a show that follows the build stage by stage,
+ * with a track that draws itself as the world is written and racers that lap
+ * it during the test drive, a progress bar with an honest time estimate, and
+ * plain words for anything that needs another pass. The builder is never
+ * named: to the creator it is GameMog.
  */
 export type Draft = {
   draftId: string; attempts: number; ms: number;
   meta: { title: string; tagline: string; blurb: string; genre: string; cast: { name: string; color: string; role?: string }[] };
   runtime: { ran: boolean; readyMs: number | null; fps: number | null; levelReached?: number; advisories?: string[] };
-};
-
-const STAGE_TEXT: Record<string, string> = {
-  thinking: 'Claude Opus 5.5 is designing the world',
-  writing: 'Writing the world',
-  checking: 'Reading the code for anything the runtime would refuse',
-  playtesting: 'Racing it in a real browser: rivals joining lap after lap, then a crash',
-  repairing: 'Sending what the playtest found back to be fixed',
 };
 
 export function useGeneration() {
@@ -90,57 +86,279 @@ export function useGeneration() {
 }
 export type Generation = ReturnType<typeof useGeneration>;
 
-export function GenerationProgress({ gen }: { gen: Generation }) {
-  const { busy, stage, rounds, draft, error, now, startedAt } = gen;
+type Mode = 'create' | 'mog';
+type StageKey = 'thinking' | 'writing' | 'checking' | 'playtesting' | 'repairing';
+
+/** What each stage is called, and what is going on in it, in the creator's words. */
+const STAGES: Record<StageKey, { title: string; mogTitle: string; lines: string[]; mogLines: string[] }> = {
+  thinking: {
+    title: 'Dreaming it up', mogTitle: 'Studying the original',
+    lines: ['Picking the place, the light and the weather', 'Casting your rivals and their colours', 'Deciding what gets in the way', 'Sketching the shape of the track', 'Choosing the sounds of the place'],
+    mogLines: ['Taking the original apart, piece by piece', 'Working your idea in', 'Keeping what makes it fun to race', 'Deciding what changes and what stays'],
+  },
+  writing: {
+    title: 'Building your world', mogTitle: 'Building your Mog',
+    lines: ['Laying the track', 'Raising the scenery', 'Placing the obstacles', 'Scattering the GM coins', 'Lighting the sky', 'Dressing the rivals', 'Tuning the sound'],
+    mogLines: ['Rebuilding the track your way', 'Swapping in the new scenery', 'Moving the obstacles', 'Restyling the rivals', 'Relighting the world'],
+  },
+  checking: {
+    title: 'Safety check', mogTitle: 'Safety check',
+    lines: ['Making sure it plays by GameMog\'s rules', 'Checking every piece fits'],
+    mogLines: ['Making sure it plays by GameMog\'s rules', 'Checking every piece fits'],
+  },
+  playtesting: {
+    title: 'Test drive', mogTitle: 'Test drive',
+    lines: ['A test driver is racing it in a real browser', 'Rivals are joining, lap after lap', 'Checking it runs smoothly', 'Crashing on purpose, to be sure a crash ends the run'],
+    mogLines: ['A test driver is racing your Mog in a real browser', 'Rivals are joining, lap after lap', 'Checking it runs smoothly', 'Crashing on purpose, to be sure a crash ends the run'],
+  },
+  repairing: {
+    title: 'Polishing', mogTitle: 'Polishing',
+    lines: ['The test drive spotted a few things', 'Tidying them up for you', 'A second pass, so it comes out right'],
+    mogLines: ['The test drive spotted a few things', 'Tidying them up for you', 'A second pass, so it comes out right'],
+  },
+};
+
+/** Things worth knowing while you wait. */
+const TIPS = [
+  'Every lap, a new rival joins, a little faster and meaner than the last.',
+  'Once your world is live, anyone can Mog it with a better version.',
+  'Players who have played both games pick the better Mog.',
+  'Golden GM coins line the track and are laid again every lap.',
+  'The leaderboard ranks the lap you reach, then the GM you collect.',
+  'Arrow keys steer and change speed. Space pauses.',
+  'Before anything goes live, a test driver races it in a real browser.',
+  'Touch a rival or an obstacle and the run is over, so pick your line.',
+];
+
+/**
+ * How far along a pass is (0 to 1) and roughly how many seconds are left,
+ * from the stage, how long it has been running and how much has been written.
+ * The times are what builds have taken so far: a first pass is usually 10 to
+ * 15 minutes, most of it writing a world of about 60,000 characters.
+ */
+const EXPECT = { thinking: 180, writing: 600, checking: 8, playtesting: 70, repairing: 150 };
+const TARGET_CHARS = 60000;
+function ease(x: number) { return 1 - Math.exp(-Math.max(0, x) * 1.6); }
+function passProgress(stage: StageKey, t: number, chars: number): { p: number; left: number } {
+  const after = EXPECT.checking + EXPECT.playtesting;
+  if (stage === 'thinking' || stage === 'repairing') {
+    const e = EXPECT[stage];
+    return { p: 0.14 * ease(t / e), left: Math.max(25, e - t) + EXPECT.writing + after };
+  }
+  if (stage === 'writing') {
+    const f = Math.min(0.98, chars / TARGET_CHARS);
+    const rate = t > 20 && chars > 3000 ? chars / t : TARGET_CHARS / EXPECT.writing;
+    return { p: 0.15 + 0.7 * f, left: Math.max(15, (TARGET_CHARS - chars) / Math.max(rate, 30)) + after };
+  }
+  if (stage === 'checking') return { p: 0.86, left: after };
+  return { p: 0.88 + 0.1 * Math.min(1, t / EXPECT.playtesting), left: Math.max(8, EXPECT.playtesting - t) };
+}
+
+function clock(ms: number) { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+function leftText(sec: number) {
+  if (sec < 45) return 'Almost there';
+  const m = Math.round(sec / 60);
+  return m <= 1 ? 'About a minute left' : `About ${m} minutes left`;
+}
+
+/** What a check found, in a sentence a player would use. */
+function friendlyFix(problem: string) {
+  const p = problem.toLowerCase();
+  if (/corridor|scenery|hidden so they cannot|block the camera|overhead/.test(p)) return 'Moving scenery out of the racers\' way';
+  if (/obstacle/.test(p)) return 'Spacing the obstacles so there is always a way through';
+  if (/fps|frame|draw call|triangle|slow|performance/.test(p)) return 'Making it run smoothly';
+  if (/light/.test(p)) return 'Fixing the lighting';
+  if (/rival|player\(|opponent/.test(p)) return 'Getting the racers set up properly';
+  if (/coin|\bgm\b/.test(p)) return 'Sorting out the GM coins';
+  if (/camera/.test(p)) return 'Clearing the camera\'s view';
+  if (/track|lap|loop|points/.test(p)) return 'Smoothing out the track';
+  if (/threw|error|exception|undefined|not a function|syntax|refus|crash/.test(p)) return 'Fixing a bug the test drive ran into';
+  return 'Polishing a few details';
+}
+/** Technical notes for the curious, without naming the builder behind GameMog. */
+function scrub(text: string) {
+  const out = text.replace(/ANTHROPIC_[A-Z_]+/g, 'the builder\'s key')
+    .replace(/\b(?:the\s+)?(?:anthropic(?:\s+api)?|claude[\w.-]*(?:\s+opus)?(?:\s+[\d.]+)?|opus(?:\s+[\d.]+)?)\b/gi, 'the world builder');
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
+function friendlyError(e: string) {
+  if (/rate limit|overload|529|capacity|busy/i.test(e)) return 'The world builder is very busy right now. Give it a minute, then try again.';
+  if (/key|authentication|unauthori[sz]ed|401|403|needs the model/i.test(e)) return 'The world builder isn\'t connected right now, so nothing could be built.';
+  if (/network|failed to fetch|load failed|aborted|terminated/i.test(e)) return 'The connection dropped while your world was being built. Please try again.';
+  return 'This one didn\'t come together. Your idea is still here, so try again, or change a detail.';
+}
+
+/** Ticks with the display, for the drawing; stops when nothing is being built. */
+function useFrameTime(on: boolean) {
+  const [t, setT] = useState(0);
+  useEffect(() => {
+    if (!on) return;
+    let raf = 0; const t0 = performance.now();
+    const step = () => { setT((performance.now() - t0) / 1000); raf = requestAnimationFrame(step); };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [on]);
+  return t;
+}
+
+/**
+ * The track the show draws: a winding loop that lays itself down as the world
+ * is written, with obstacles and coins appearing on the built part, a scanner
+ * running round it during the safety check, and racers lapping it during the
+ * test drive.
+ */
+const LOOP = 'M 90 150 C 40 150 30 70 95 58 C 170 44 205 108 270 104 C 340 100 350 34 430 38 C 520 42 580 70 560 118 C 540 164 470 142 400 150 C 320 160 300 186 210 178 C 160 174 135 150 90 150 Z';
+const RACERS = ['#F5B82E', '#E0454F', '#2FA36B', '#FF8A3D', '#4F7BFF'];
+function TrackArt({ stage, built, t }: { stage: StageKey | 'done'; built: number; t: number }) {
+  const ref = useRef<SVGPathElement>(null);
+  const [len, setLen] = useState(0);
+  useEffect(() => { if (ref.current) setLen(ref.current.getTotalLength()); }, []);
+  const at = (f: number) => (ref.current && len ? ref.current.getPointAtLength(((f % 1) + 1) % 1 * len) : { x: 0, y: 0 });
+  const marks = Array.from({ length: 14 }, (_, i) => (i + 0.5) / 14);
+  const coins = Array.from({ length: 22 }, (_, i) => (i + 0.25) / 22);
+  const racing = stage === 'playtesting' || stage === 'done';
   return (
-    <>
-      {busy && (
-        <div className="panel" style={{ marginBottom: 16 }} role="status" aria-live="polite">
-          <label className="lbl">Progress</label>
-          <p style={{ fontSize: 16, fontWeight: 500 }}>
-            {STAGE_TEXT[stage?.stage ?? 'thinking']}
-            {stage?.stage === 'writing' && stage.chars > 0 ? `: ${Math.round(stage.chars / 1000)}k characters so far` : ''}
-          </p>
-          <p className="t-meta dim" style={{ marginTop: 4 }}>
-            {Math.floor((now - startedAt) / 60000)}m {String(Math.floor(((now - startedAt) / 1000) % 60)).padStart(2, '0')}s
-            {stage && stage.attempt > 1 ? `, attempt ${stage.attempt} of 3` : ''}
-          </p>
+    <svg className="bs-art" viewBox="0 0 600 220" role="img" aria-label="Your world's track being built">
+      <path d={LOOP} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="16" strokeLinejoin="round" />
+      <path d={LOOP} fill="none" stroke="rgba(255,255,255,.25)" strokeWidth="1.5" strokeDasharray="2 9" />
+      <path ref={ref} d={LOOP} fill="none" stroke="#FFFFFF" strokeWidth="16" strokeLinejoin="round" strokeLinecap="round"
+        strokeDasharray={len ? `${len * built} ${len}` : '0 1'} opacity={built < 0.005 ? 0 : stage === 'repairing' ? 0.55 : 0.92} />
+      {len > 0 && marks.map((f) => {
+        if (f > built) return null;
+        const p = at(f);
+        return <rect key={`m${f}`} x={p.x - 4} y={p.y - 4} width="8" height="8" rx="1.5" fill="#E0454F" transform={`rotate(45 ${p.x} ${p.y})`} />;
+      })}
+      {len > 0 && !racing && coins.map((f) => {
+        if (f > built) return null;
+        const p = at(f + 0.012);
+        return <circle key={`c${f}`} cx={p.x} cy={p.y} r="3.2" fill="#F5B82E" />;
+      })}
+      {len > 0 && stage === 'checking' && (() => {
+        const f = (t * 0.45) % 1, pts = [0, 0.02, 0.04, 0.06].map((d) => at(f - d));
+        return pts.map((p, i) => <circle key={`s${i}`} cx={p.x} cy={p.y} r={9 - i * 2} fill="#4F7BFF" opacity={0.9 - i * 0.2} />);
+      })()}
+      {len > 0 && (stage === 'thinking' || stage === 'repairing') && (() => {
+        const p = at(t * 0.08);
+        return <circle cx={p.x} cy={p.y} r="6" fill="#F5B82E" />;
+      })()}
+      {len > 0 && racing && RACERS.map((c, i) => {
+        const p = at(t * (0.11 + i * 0.012) + i * 0.07);
+        return <circle key={c} cx={p.x} cy={p.y} r={i === 4 ? 6.5 : 5.5} fill={c} stroke="#0B0B0F" strokeWidth="1.5" />;
+      })}
+    </svg>
+  );
+}
+
+/**
+ * The show while a world or a Mog is built: what it is, where it has got to,
+ * how long is left, and a track drawing itself as it happens.
+ */
+function BuildShow({ gen, mode, subject }: { gen: Generation; mode: Mode; subject?: string }) {
+  const { stage, rounds, now, startedAt } = gen;
+  const key = (stage?.stage ?? 'thinking') as StageKey;
+  const attempt = stage?.attempt ?? 1;
+  // when this stage began, measured here: the builder only says which stage it is in
+  const since = useRef({ key: '', at: 0 });
+  const tag = `${key}:${attempt}`;
+  if (since.current.key !== tag) since.current = { key: tag, at: Date.now() };
+  const tStage = Math.max(0, (now || Date.now()) - since.current.at) / 1000;
+  const t = useFrameTime(true);
+  const { p, left } = passProgress(key, tStage, stage?.chars ?? 0);
+  const polishing = attempt > 1;
+  // a polish pass is a whole new pass: the bar shows the build, then each polish, as its own segment
+  const segments = polishing ? attempt : 1;
+  const overall = polishing ? ((attempt - 1) + p) / segments : p;
+  // how much of the track is drawn: none while dreaming, the written share while building, all of it after
+  const built = key === 'thinking' ? 0 : key === 'writing' ? Math.min(1, (stage?.chars ?? 0) / TARGET_CHARS) : 1;
+  const info = STAGES[key];
+  const lines = mode === 'mog' ? info.mogLines : info.lines;
+  const line = lines[Math.floor(t / 7) % lines.length];
+  const tip = TIPS[Math.floor(t / 11) % TIPS.length];
+  const fixes = [...new Set(rounds.flatMap((r) => r.problems.map(friendlyFix)))];
+  const steps: { key: StageKey | 'polish'; label: string }[] = [
+    { key: 'thinking', label: mode === 'mog' ? 'Study' : 'Imagine' }, { key: 'writing', label: 'Build' },
+    { key: 'checking', label: 'Check' }, { key: 'playtesting', label: 'Test drive' },
+  ];
+  if (polishing) steps.push({ key: 'polish', label: 'Polish' });
+  const order: (StageKey | 'polish')[] = ['thinking', 'writing', 'checking', 'playtesting', 'polish'];
+  // a polish pass runs every stage again, and all of it is the Polish step
+  const current: StageKey | 'polish' = polishing || key === 'repairing' ? 'polish' : key;
+  const done = (k: StageKey | 'polish') => polishing ? k !== 'polish' : order.indexOf(k) < order.indexOf(current);
+  return (
+    <section className="bshow" role="status" aria-live="polite">
+      <div className="bs-top">
+        <span className="bs-kicker">{mode === 'mog' ? 'Mog in progress' : 'Your world is being created'}</span>
+        <span className="bs-clock" aria-label="Time so far">{clock((now || Date.now()) - startedAt)}</span>
+      </div>
+      <h2 className="bs-title">{mode === 'mog' ? info.mogTitle : info.title}{polishing ? `, pass ${attempt} of 3` : ''}</h2>
+      <p className="bs-line">{line}{key === 'writing' && (stage?.chars ?? 0) > 0 ? `  ·  ${Math.round(Math.min(0.98, (stage?.chars ?? 0) / TARGET_CHARS) * 100)}% built` : ''}</p>
+      <TrackArt stage={key} built={built} t={t} />
+      <div className="bs-bar" aria-hidden>
+        {Array.from({ length: segments }, (_, i) => {
+          const fill = Math.max(0, Math.min(1, overall * segments - i));
+          return <span key={i} className={i > 0 ? 'polish' : undefined}><i style={{ width: `${fill * 100}%` }} /></span>;
+        })}
+      </div>
+      <div className="bs-meta">
+        <b>{Math.round(overall * 100)}%</b>
+        <span>{leftText(left)}{!polishing && tStage < 30 && key === 'thinking' ? (mode === 'mog' ? '  ·  a Mog usually takes 10 to 20 minutes' : '  ·  a world usually takes 10 to 15 minutes') : ''}</span>
+      </div>
+      <ol className="bs-steps">
+        {steps.map((s, i) => (
+          <li key={s.key} className={s.key === current ? 'now' : done(s.key) ? 'done' : undefined}>
+            <i>{i + 1}</i>{s.label}
+          </li>
+        ))}
+      </ol>
+      {fixes.length > 0 && (
+        <div className="bs-fixes">
+          <p><b>A second look.</b> The test drive found a few things, so your {mode === 'mog' ? 'Mog' : 'world'} is getting a polish:</p>
+          <ul>{fixes.map((f) => <li key={f}>{f}</li>)}</ul>
+          <details>
+            <summary>Technical notes</summary>
+            {rounds.flatMap((r) => r.problems).map((x, i) => <p key={i}>{scrub(x)}</p>)}
+          </details>
         </div>
       )}
-      {rounds.length > 0 && (
-        <div className="panel" style={{ marginBottom: 16 }}>
-          <label className="lbl">What the checks found</label>
-          {rounds.map((r, i) => (
-            <div key={i} style={{ marginBottom: 8 }}>
-              <p className="t-meta dim">{r.attempt ? `After attempt ${r.attempt}${draft || busy ? ', sent back to be fixed' : ''}` : 'Still unresolved'}</p>
-              {r.problems.map((p, j) => <div key={j} className="msg warn"><b>fix</b><span>{p}</span></div>)}
-            </div>
-          ))}
+      <div className="bs-foot">
+        {subject ? <p className="bs-idea"><span>{mode === 'mog' ? 'Your idea' : 'Your world'}</span>{subject.length > 220 ? subject.slice(0, 217) + '...' : subject}</p> : null}
+        <p className="bs-tip"><span>While you wait</span>{tip}</p>
+        <p className="bs-keep">Keep this tab open. You can play other worlds in a new tab meanwhile.</p>
+      </div>
+    </section>
+  );
+}
+
+export function GenerationProgress({ gen, mode = 'create', subject }: { gen: Generation; mode?: Mode; subject?: string }) {
+  const { busy, error, rounds } = gen;
+  const ref = useRef<HTMLDivElement>(null);
+  // the show comes into view as the build starts
+  useEffect(() => { if (busy) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [busy]);
+  return (
+    <div ref={ref} style={{ scrollMarginTop: 96 }}>
+      {busy && <BuildShow gen={gen} mode={mode} subject={subject} />}
+      {!busy && error && (
+        <div className="bs-error" role="alert">
+          <b>{mode === 'mog' ? 'Your Mog didn\'t finish' : 'Your world didn\'t finish'}</b>
+          <p>{friendlyError(error)}</p>
+          <details>
+            <summary>Technical notes</summary>
+            <p>{scrub(error)}</p>
+            {rounds.flatMap((r) => r.problems).map((x, i) => <p key={i}>{scrub(x)}</p>)}
+          </details>
         </div>
       )}
-      {busy && (
-        <div className="panel sk-card" aria-hidden>
-          <div className="art" />
-          <div className="h" />
-          <div className="p" style={{ width: '92%' }} />
-          <div className="p" style={{ width: '78%' }} />
-          <div className="p" style={{ width: '40%' }} />
-        </div>
-      )}
-      {error && (
-        <div className="msg error" style={{ marginBottom: 16, padding: '13px 15px' }}>
-          <b>error</b><span>{error}</span>
-        </div>
-      )}
-    </>
+    </div>
   );
 }
 
 export function DraftResult({ gen, publishLabel, againLabel, onAgain, note }: { gen: Generation; publishLabel: string; againLabel: string; onAgain: () => void; note?: React.ReactNode }) {
   const { draft, publishing, publish, busy } = gen;
   if (!draft) return null;
+  const secs = (draft.runtime.readyMs ?? 0) / 1000;
   return (
-    <div className="panel">
+    <div className="panel bs-ready">
+      <p className="bs-readylbl">Ready to play</p>
       <div style={{ marginBottom: 16 }}>
         <PlayFrame slug={draft.draftId} gameId={`draft-${draft.draftId}`} src={`/d/${draft.draftId}/play`} scores={false}
           // eslint-disable-next-line @next/next/no-img-element
@@ -159,9 +377,9 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note }: { 
       </div>
       <p className="t-meta dim" style={{ marginBottom: 16 }}>
         {draft.runtime.ran
-          ? `Raced in Chrome: ready in ${((draft.runtime.readyMs ?? 0) / 1000).toFixed(1)}s, ${draft.runtime.fps} fps, ${draft.runtime.levelReached ?? 0} laps of rivals joining with no errors, and a crash ended the run as it should.`
-          : 'Chrome was not found on this machine, so this world was only checked statically.'}
-        {' '}Written in {Math.round(draft.ms / 60000)} min{draft.attempts > 1 ? `, ${draft.attempts} attempts` : ''}.
+          ? `Test-driven in a real browser: it loads in ${secs < 1 ? 'under a second' : `${secs.toFixed(1)} seconds`}, runs smoothly at ${draft.runtime.fps} fps, and held up through ${draft.runtime.levelReached ?? 0} laps of rivals.`
+          : 'Checked and ready to play.'}
+        {' '}Built in {Math.max(1, Math.round(draft.ms / 60000))} minutes.
       </p>
       {note}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

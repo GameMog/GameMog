@@ -125,8 +125,9 @@ export function runDesignChecks(ok: Ok) {
     /<Wordmark \/>/.test(footer) && /<b>GameMog<\/b>/.test(readFileSync(join(APP, 'logo.tsx'), 'utf8')) && !/<svg/.test(readFileSync(join(APP, 'logo.tsx'), 'utf8')));
   ok('terms page exists and is linked', hits([join(APP, 'terms/page.tsx')], /Terms of Service/).length > 0 && /href="\/terms"/.test(footer));
   ok('privacy page exists and is linked', hits([join(APP, 'privacy/page.tsx')], /Privacy Policy/).length > 0 && /href="\/privacy"/.test(footer));
-  ok('skeleton loaders exist where content is pending',
-    /\.sk-card\{/.test(css) && hits([join(APP, 'create/generation.tsx')], /sk-card/).length > 0);
+  // a world being built shows the build show (the owner, 24 Sep): stages, a bar and the time left
+  ok('skeleton loaders, or the build show, stand in where content is pending',
+    /\.sk-card\{/.test(css) && /\.bshow\{/.test(css) && hits([join(APP, 'create/generation.tsx')], /sk-card|className="bshow"/).length > 0);
   ok('no game frame opens on a grey box',
     /className="poster"/.test(readFileSync(join(APP, 'g/[slug]/play-frame.tsx'), 'utf8')) && /<picture>/.test(readFileSync(join(APP, 'hero-film.tsx'), 'utf8')));
   ok('the hero shows real gameplay, filmed from the world\'s own canvas',

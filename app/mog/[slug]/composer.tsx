@@ -25,10 +25,10 @@ export function MogComposer({ slug, title }: { slug: string; title: string }) {
           {IDEAS.map((x) => <button key={x} className="tag" onClick={() => setIdea(x)}>{x}</button>)}
         </div>
         <button className="btn" onClick={go} disabled={gen.busy || idea.trim().length < 4}>
-          {gen.busy ? 'Writing your Mog' : 'Mog it'}
+          {gen.busy ? 'Mog in progress' : 'Mog it'}
         </button>
       </div>
-      <GenerationProgress gen={gen} />
+      <GenerationProgress gen={gen} mode="mog" subject={idea} />
       <DraftResult gen={gen} publishLabel="Publish your Mog" againLabel="Try another take" onAgain={go}
         note={<p className="t-meta dim" style={{ marginBottom: 16 }}>Published, it is listed as a Mog of {title}, and anyone who has played both can pick the better one.</p>} />
     </>
