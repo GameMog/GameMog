@@ -7,7 +7,9 @@
  * sources.lock.json; every later download must match it, so a source that
  * changes upstream stops the build instead of quietly changing the library.
  * From the 280 MB MakeHuman zip only the listed entries are fetched, with
- * HTTP range requests against the zip's central directory.
+ * HTTP range requests against the zip's central directory. Sources marked
+ * `manual` (Quaternius's packs, which itch.io serves through links that
+ * expire in a minute) are downloaded by hand and checked here.
  */
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -101,6 +103,36 @@ for (const [name, src] of Object.entries(sources)) {
     const data = e.method === 8 ? new Uint8Array(inflateRawSync(raw)) : raw;
     save(`${name}/${f}`, data);
     console.log(`  ${name}/${f} (${(data.length / 1024).toFixed(0)} KB)`);
+  }
+}
+
+// packs a person downloads by hand (itch.io's links expire in a minute): the
+// zip must be where sources.json says and match the lock; the files the
+// build reads are unpacked from it and pinned too
+for (const [name, src] of Object.entries(sources)) {
+  if (!src.manual) continue;
+  for (const [zip, z] of Object.entries(src.manual.zips as Record<string, { page: string; entries: Record<string, string> }>)) {
+    const key = `${name}/${zip}`, path = join(CACHE, key);
+    if (!existsSync(path)) throw new Error(`${key} is missing. ${src.manual.note} Page: ${z.page}`);
+    const buf = new Uint8Array(readFileSync(path));
+    if (lock[key] && lock[key].sha256 !== sha(buf)) throw new Error(`${key} is not the pinned file: expected ${lock[key].sha256}, got ${sha(buf)}`);
+    lock[key] = { sha256: sha(buf), bytes: buf.length };
+    const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    let eocd = -1; for (let i = buf.length - 22; i >= 0; i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new Error(`${key}: no end of central directory`);
+    const found = new Map<string, { method: number; csize: number; offset: number }>();
+    for (let p = dv.getUint32(eocd + 16, true); dv.getUint32(p, true) === 0x02014b50;) {
+      const nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true);
+      found.set(new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nl)), { method: dv.getUint16(p + 10, true), csize: dv.getUint32(p + 20, true), offset: dv.getUint32(p + 42, true) });
+      p += 46 + nl + el + cl;
+    }
+    for (const [entry, out] of Object.entries(z.entries)) {
+      if (have(`${name}/${out}`)) continue;
+      const e = found.get(entry); if (!e) throw new Error(`${key}: ${entry} is not in the zip`);
+      const start = e.offset + 30 + dv.getUint16(e.offset + 26, true) + dv.getUint16(e.offset + 28, true), raw = buf.subarray(start, start + e.csize);
+      save(`${name}/${out}`, e.method === 8 ? new Uint8Array(inflateRawSync(raw)) : raw);
+      console.log(`  ${name}/${out} (unpacked from ${zip})`);
+    }
   }
 }
 

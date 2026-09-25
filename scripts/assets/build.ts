@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { buildHuman } from './human.ts';
 import { retargetClip, sprintFrom, type Clip } from './mocap.ts';
+import { retargetGltf } from './gltf.ts';
 import { buildHdri } from './hdri.ts';
 import { sha256, Packer } from './lib.ts';
 
@@ -28,10 +29,21 @@ function packClips(clips: Clip[]) {
   const meta = clips.map((c) => {
     pk.add(`${c.name}:q`, new Int16Array(Array.from(c.quats, (v) => Math.round(Math.max(-1, Math.min(1, v)) * 32767))), 4);
     pk.add(`${c.name}:root`, c.root, 3);
-    return { name: c.name, fps: c.fps, frames: c.frames, loop: c.loop, speed: +c.speed.toFixed(3), duration: +(c.frames / c.fps).toFixed(4) };
+    return { name: c.name, fps: c.fps, frames: c.frames, loop: c.loop, speed: +c.speed.toFixed(3), duration: +(c.frames / c.fps).toFixed(4), ...(c.contact != null ? { contact: c.contact } : {}) };
   });
   return { buffer: pk.buffer(), layout: pk.layout, meta };
 }
+
+// [file, clip, library name, loops]
+const COMBAT: [string, string, string, boolean][] = [
+  ['UAL1_Standard.glb', 'Sword_Idle', 'guard', true],
+  ['UAL2_Standard.glb', 'Sword_Regular_A', 'slash1', false],
+  ['UAL2_Standard.glb', 'Sword_Regular_B', 'slash2', false],
+  ['UAL2_Standard.glb', 'Sword_Regular_C', 'slash3', false],
+  ['UAL2_Standard.glb', 'Sword_Dash', 'dash', false],
+  ['UAL2_Standard.glb', 'Hit_Knockback', 'hit', false],
+  ['UAL1_Standard.glb', 'Death01', 'death', false],
+];
 
 function human(id: string, gender: 'male' | 'female', title: string, skins: Record<string, string>, hair: string[], brows: string) {
   const dir = join(OUT, id);
@@ -51,6 +63,9 @@ function human(id: string, gender: 'male' | 'female', title: string, skins: Reco
     retargetClip(h.skeleton, { asf: '90/90.asf', amc: '90/90_16.amc' }, { name: 'idle', kind: 'idle', start: 0, end: 260 }),
     retargetClip(h.skeleton, { asf: '104/104.asf', amc: '104/104_53.amc' }, { name: 'start', kind: 'once', start: 40, end: 230, inPlace: true }),
     retargetClip(h.skeleton, { asf: '90/90.asf', amc: '90/90_16.amc' }, { name: 'fall', kind: 'once', start: 300, end: 560 }),
+    // the sword: a guard stance, three cuts, a lunge, a hit and a death
+    // (Quaternius, CC0), for worlds that turn combat on
+    ...COMBAT.map(([file, clip, name, loop]) => retargetGltf(h.skeleton, `quaternius-ual/${file}`, clip, { name, loop })),
   ];
   const packed = packClips(clips);
   writeFileSync(join(dir, 'clips.bin.z'), deflateSync(packed.buffer, { level: 9 }));
@@ -58,13 +73,13 @@ function human(id: string, gender: 'male' | 'female', title: string, skins: Reco
   const body = readFileSync(join(dir, 'body.bin'));
   writeFileSync(join(dir, 'body.bin.z'), deflateSync(body, { level: 9 }));
   rmSync(join(dir, 'body.bin'));
-  const asset = { ...h.asset, body: 'body.bin.z', clips: { file: 'clips.bin.z', layout: packed.layout, list: packed.meta, credits: { run: `CMU ${bestTrial}`, sprint: `derived from CMU ${bestTrial}`, idle: 'CMU 90_16 (standing)', start: 'CMU 104_53', fall: 'CMU 90_16' } } };
+  const asset = { ...h.asset, body: 'body.bin.z', clips: { file: 'clips.bin.z', layout: packed.layout, list: packed.meta, credits: { run: `CMU ${bestTrial}`, sprint: `derived from CMU ${bestTrial}`, idle: 'CMU 90_16 (standing)', start: 'CMU 104_53', fall: 'CMU 90_16', ...Object.fromEntries(COMBAT.map(([file, clip, name]) => [name, `Quaternius ${file.replace('_Standard.glb', '')} ${clip}`])) } } };
   writeFileSync(join(dir, 'asset.json'), JSON.stringify(asset));
   library[id] = {
     kind: 'human', title,
-    description: `A realistic ${gender === 'male' ? 'male' : 'female'} athlete: MakeHuman body shaped for sprinting, ${Object.keys(skins).length} skin tones, ${hair.length} hairstyles, eyes, eyebrows and eyelashes, a paintable kit (${gender === 'male' ? 'singlet' : 'crop top'}, shorts and spikes), five body morphs and a 66-bone rig with motion-captured run, sprint, idle, standing start and fall.`,
-    sources: ['makehuman', 'makehuman-system', 'cmu-mocap'],
-    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; motion retargeted from CMU captures; the sprint clip amplifies the captured run.',
+    description: `A realistic ${gender === 'male' ? 'male' : 'female'} athlete: MakeHuman body shaped for sprinting, ${Object.keys(skins).length} skin tones, ${hair.length} hairstyles, eyes, eyebrows and eyelashes, a paintable kit (${gender === 'male' ? 'singlet' : 'crop top'}, shorts and spikes), five body morphs and a 66-bone rig with motion-captured run, sprint, idle, standing start and fall, and sword motion: a guard, three cuts, a lunge, a hit and a death.`,
+    sources: ['makehuman', 'makehuman-system', 'cmu-mocap', 'quaternius-ual'],
+    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion retargeted from Quaternius\'s Universal Animation Library.',
     meta: { skins: Object.keys(skins), hair, morphs: Object.keys(h.asset.morphs as object), clips: packed.meta.map((c) => c.name), vertices: h.asset.vertexCount, bones: h.skeleton.length },
     files: {}, bytes: 0,
   };

@@ -15,27 +15,27 @@
  */
 import { read } from './lib.ts';
 
-type V3 = [number, number, number];
-type Q = [number, number, number, number]; // x y z w
-const qmul = (a: Q, b: Q): Q => [
+export type V3 = [number, number, number];
+export type Q = [number, number, number, number]; // x y z w
+export const qmul = (a: Q, b: Q): Q => [
   a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
   a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
   a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
   a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
 ];
-const qinv = (a: Q): Q => [-a[0], -a[1], -a[2], a[3]];
-const qaxis = (ax: V3, ang: number): Q => { const s = Math.sin(ang / 2); return [ax[0] * s, ax[1] * s, ax[2] * s, Math.cos(ang / 2)]; };
-const qrot = (q: Q, v: V3): V3 => { const p = qmul(qmul(q, [v[0], v[1], v[2], 0]), qinv(q)); return [p[0], p[1], p[2]]; };
-const norm = (v: V3): V3 => { const l = Math.hypot(...v) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
-const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-function arc(from: V3, to: V3): Q {
+export const qinv = (a: Q): Q => [-a[0], -a[1], -a[2], a[3]];
+export const qaxis = (ax: V3, ang: number): Q => { const s = Math.sin(ang / 2); return [ax[0] * s, ax[1] * s, ax[2] * s, Math.cos(ang / 2)]; };
+export const qrot = (q: Q, v: V3): V3 => { const p = qmul(qmul(q, [v[0], v[1], v[2], 0]), qinv(q)); return [p[0], p[1], p[2]]; };
+export const norm = (v: V3): V3 => { const l = Math.hypot(...v) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+export const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+export const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+export function arc(from: V3, to: V3): Q {
   const a = norm(from), b = norm(to), d = dot(a, b);
   if (d > 0.999999) return [0, 0, 0, 1];
   if (d < -0.999999) { const ax = norm(Math.abs(a[0]) < 0.9 ? cross(a, [1, 0, 0]) : cross(a, [0, 1, 0])); return qaxis(ax, Math.PI); }
   const c = cross(a, b); const q: Q = [c[0], c[1], c[2], 1 + d]; const l = Math.hypot(...q); return [q[0] / l, q[1] / l, q[2] / l, q[3] / l];
 }
-function slerp(a: Q, b: Q, t: number): Q {
+export function slerp(a: Q, b: Q, t: number): Q {
   let d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
   const bb: Q = d < 0 ? [-b[0], -b[1], -b[2], -b[3]] : b; d = Math.abs(d);
   if (d > 0.9995) { const r = a.map((v, i) => v + (bb[i] - v) * t) as Q; const l = Math.hypot(...r); return r.map((v) => v / l) as Q; }
@@ -105,7 +105,7 @@ for (const [s, c] of [['L', 'l'], ['R', 'r']]) Object.assign(MAP, {
 });
 
 export type Skeleton = { name: string; parent: number; head: number[]; tail: number[] }[];
-export type Clip = { name: string; fps: number; frames: number; loop: boolean; speed: number; bones: string[]; quats: Float32Array; root: Float32Array };
+export type Clip = { name: string; fps: number; frames: number; loop: boolean; speed: number; bones: string[]; quats: Float32Array; root: Float32Array; contact?: number };
 
 export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, opts: { name: string; kind: 'cycle' | 'idle' | 'once'; start?: number; end?: number; fps?: number; inPlace?: boolean }): Clip {
   const asf = parseAsf(read(`cmu-mocap/${src.asf}`)), frames = parseAmc(read(`cmu-mocap/${src.amc}`));
@@ -191,7 +191,7 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
 
 // close a loop: frame n (the start of the next cycle) must equal frame 0, so
 // spread the difference across the cycle
-function closeLoop(quats: Float32Array, root: Float32Array, n: number, nb: number) {
+export function closeLoop(quats: Float32Array, root: Float32Array, n: number, nb: number) {
   for (let b = 0; b < nb; b++) {
     const first = Array.from(quats.subarray(b * 4, b * 4 + 4)) as Q, end = Array.from(quats.subarray((n * nb + b) * 4, (n * nb + b) * 4 + 4)) as Q;
     const fix = qmul(first, qinv(end));

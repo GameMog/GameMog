@@ -48,6 +48,12 @@ export type GameMeta = z.infer<typeof GameMetaSchema>;
 export const WorldMetaSchema = GameMetaSchema.omit({ controls: true, scoring: true });
 export type WorldMeta = z.infer<typeof WorldMetaSchema>;
 export const WORLD_CONTROLS = 'Arrow keys or WASD: left and right steer, up is faster, down is slower. Space pauses. On-screen buttons on touch screens.';
+/** The controls line for a world, with the sword key when the world turns combat on (play.combat). */
+export function worldControls(code: string) {
+  return /\bplay\s*:\s*\{[\s\S]{0,400}?\bcombat\s*:/.test(code)
+    ? 'Arrow keys or WASD: left and right steer, up is faster, down is slower. X (or J) swings your sword. Space pauses. On-screen buttons, and a sword button, on touch screens.'
+    : WORLD_CONTROLS;
+}
 
 export const CUSTOM_CSP = [
   "default-src 'none'",

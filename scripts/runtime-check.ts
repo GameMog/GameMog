@@ -70,6 +70,8 @@ try {
     ok('lap 1 has exactly one rival', s.rivals.length === 1 && s.level === 1, `${s.rivals.length} at level ${s.level}`);
     ok('the first rival is slower than your cruising speed', s.rivals[0].ratio < 1, `${s.rivals[0].ratio}x`);
     ok('the player moves forward without any key held', s.speed > 15, `${s.speed.toFixed(1)} m/s`);
+    // the demo drives with the same controls; none of its steering carries into your run
+    ok('and runs straight: the demo leaves no steering behind', Math.abs(s.x - c0.x) < 0.3, `${c0.x.toFixed(2)} -> ${s.x.toFixed(2)}`);
 
     const x0 = s.x; await page.key('ArrowRight', 'keyDown'); await sleep(400);
     const x1 = (await st()).x; await page.key('ArrowRight', 'keyUp'); await sleep(200);
@@ -296,6 +298,60 @@ try {
       ok('in a skating world, you skate too', sy.me && sy.playerSkinned && skaters >= 2, `me=${sy.me}, ${skaters} skaters`);
     }, { timeoutMs: 150_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(sid); }
+
+  // combat and the bounty (the owner's platform options, 25 Sep): no coins,
+  // a GM bounty for every lap, a sword that cuts rivals down, rivals who come
+  // back from the line, and a touch that still ends a run
+  console.log('\ncombat: the sword, the fallen, the bounty');
+  const kid = randomUUID();
+  const kMeta = { title: 'Combat Check', tagline: 'Swords out', blurb: 'Runtime check.', genre: 'Test', cast: [{ name: 'Kage', color: '#1C2230' }], palette: { sky: '#C9B8A6', ground: '#B9AE9F', accent: '#B8322A' }, runtime: 1 };
+  insertDraft({ id: kid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../lib/runtime/combat-world.js', import.meta.url), 'utf8'), meta: kMeta });
+  try {
+    await withBrowser(async (page) => {
+      await page.goto(`${BASE}/d/${kid}/play`);
+      for (let i = 0; i < 150; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__combat)').catch(() => false)) break; await sleep(200); }
+      await sleep(1000);
+      type K = { play: { coins: boolean; bounty: { base: number; step: number } | null; combat: boolean }; coins: number; slain: number; fallen: number; alive: boolean; level: number; gm: number; playerSword: boolean; crashedInto: string; x: number; d: number; lap: number;
+        rivals: { k: number; out: boolean; inReach: boolean; mark: number | null; name: string; joinedFromLine: number }[] };
+      const st = () => page.eval<K>('window.__gmRuntime.state()');
+      const errs = await page.eval<string[]>('window.__gm.errors');
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(3700);
+      // the attract demo fights too; count only this run's moments
+      await page.eval('Object.keys(window.__combat.seen).forEach((k) => { window.__combat.seen[k].length = 0; })');
+      const s0 = await st();
+      ok('a combat world boots with no errors and reads its options', errs.length === 0 && s0.play.combat && !s0.play.coins && s0.play.bounty?.base === 100, errs.join(' | ') || JSON.stringify(s0.play));
+      ok('with coins off, no GM is laid on the track', s0.coins === 0, `${s0.coins} coins`);
+      ok('the runner carries a sword', s0.playerSword);
+      await page.eval('window.__gmRuntime.debug.rivalAt(1, 1.6, window.__gmRuntime.state().x + 1.2)'); await sleep(250);
+      const s1 = await st();
+      ok('a rival in reach wears the mark', s1.rivals[0].inReach && (s1.rivals[0].mark ?? 0) > 0.5, JSON.stringify(s1.rivals[0]));
+      await page.eval('window.__gmRuntime.debug.swing()'); await sleep(450);
+      const s2 = await st(), seen = await page.eval<{ slay: unknown[]; swing: unknown[] }>('window.__combat.seen');
+      ok('a swing cuts it down, and the world hears both', s2.slain === 1 && s2.rivals[0].out && seen.slay.length === 1 && seen.swing.length === 1, `slain ${s2.slain}, out ${s2.rivals[0].out}, events ${seen.swing.length}/${seen.slay.length}`);
+      await page.eval('window.__gmRuntime.debug.rivalAt(1, 0, window.__gmRuntime.state().x)'); await sleep(400);
+      ok('a rival cut down cannot end your run', (await st()).alive);
+      // a lap at speed: the bounty is paid and the fallen run again from the
+      // line (the autopilot lets go before the line, or it would cut them again)
+      await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true); window.__gmRuntime.debug.timeScale(8)');
+      for (let i = 0; i < 200; i++) { const q = await st(); if (q.d % q.lap > q.lap - 70) break; await sleep(60); }
+      await page.eval('window.__gmRuntime.debug.autopilot(false); window.__gmRuntime.debug.timeScale(2)');
+      for (let i = 0; i < 200; i++) { if ((await st()).level >= 2) break; await sleep(30); }
+      const s3 = await st(), laps = await page.eval<{ lap: number; bounty: number }[]>('window.__combat.seen.lap');
+      await page.eval('window.__gmRuntime.debug.timeScale(1)');
+      ok('each finished lap pays the bounty in GM', s3.level >= 2 && s3.gm >= 100 && laps[0]?.bounty === 100, `level ${s3.level}, gm ${s3.gm}, ${JSON.stringify(laps[0])}`);
+      const back = s3.rivals.find((r) => r.k === 1);
+      ok('rivals cut down run again from the line next lap', !!back && !back.out && back.joinedFromLine < 12 && s3.rivals.some((r) => r.k === 2), JSON.stringify(s3.rivals.map((r) => [r.k, r.out, Math.round(r.joinedFromLine)])));
+      // a rival still standing ends the run on touch, sword or no sword
+      await page.eval('window.__gmRuntime.debug.invincible(false)');
+      const standing = (await st()).rivals.find((r) => !r.out);
+      if (standing) await page.eval(`window.__gmRuntime.debug.rivalAt(${standing.k}, 0, window.__gmRuntime.state().x)`);
+      await sleep(500);
+      const s4 = await st();
+      ok('touching a rival still standing ends the run', !!standing && !s4.alive && s4.crashedInto === standing.name, `${standing?.name} / ${s4.crashedInto}`);
+      const e2 = await page.eval<string[]>('window.__gm.errors');
+      ok('a run of cuts and laps raises no error', e2.length === 0, e2.join(' | '));
+    }, { timeoutMs: 150_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(kid); }
 
   // "You are the main character" (docs/PRODUCT.md): the player's own
   // character, passed in the frame's URL fragment, replaces the world's

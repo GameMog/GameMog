@@ -302,5 +302,25 @@
   "polyhaven/sunset_jhbcentral_1k.hdr": {
     "sha256": "39a9c6b391e9bda935501eb5abbe200c38959f054902050ca198d82e9f20b65b",
     "bytes": 1573705
+  },
+  "quaternius-ual/License.txt": {
+    "sha256": "6d01f55c6e4c49a2c9963e147e561945ae2c83958c8ca667d90a6bffdbfac061",
+    "bytes": 332
+  },
+  "quaternius-ual/UAL1_Standard.glb": {
+    "sha256": "69591853d817488edaa8fd9bf8fc1d821eaeaf789f8627b3cd23b41c4ed67997",
+    "bytes": 7618436
+  },
+  "quaternius-ual/UAL2_Standard.glb": {
+    "sha256": "8cee20ab1bc55130092447e810e26df22dd2803eccc54f52137a7d54d7ab88a8",
+    "bytes": 8091444
+  },
+  "quaternius-ual/Universal Animation Library 2[Standard].zip": {
+    "sha256": "4008ea208a604773a2b2177d965f0f5d3195498b5bf838c3f5785d68e95f2a68",
+    "bytes": 18735003
+  },
+  "quaternius-ual/Universal Animation Library[Standard].zip": {
+    "sha256": "cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724",
+    "bytes": 15904933
   }
 }

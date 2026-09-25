@@ -9,7 +9,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { WorldMetaSchema, WORLD_CONTROLS, staticCheckWorld } from '../lib/custom-game.ts';
+import { WorldMetaSchema, worldControls, staticCheckWorld } from '../lib/custom-game.ts';
 import { playtestWorld } from '../lib/playtest-runtime.ts';
 import { insertDraft, publishDraft, slugify, db } from '../lib/db.ts';
 
@@ -26,7 +26,7 @@ if (problems.length) { console.error('static check:\n- ' + problems.join('\n- ')
 console.log(`static check: clean (${Math.round(code.length / 1000)}KB)`);
 
 const draftId = randomUUID();
-insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world', report: { pending: true }, code, meta: { ...meta, controls: WORLD_CONTROLS, scoring: 'level', runtime: 1 } });
+insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world', report: { pending: true }, code, meta: { ...meta, controls: worldControls(code), scoring: 'level', runtime: 1 } });
 console.log('playtesting in Chrome...');
 const report = await playtestWorld(`${BASE}/d/${draftId}/play`);
 const { cover, artIcon, artWide, ...rest } = report;

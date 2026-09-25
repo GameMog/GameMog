@@ -1,0 +1,53 @@
+{
+  "title": "Great Wall Shinobi",
+  "tagline": "Run the Great Wall at dusk and cut down every assassin who catches you.",
+  "blurb": "Out through the Grand Gate and along the Wall as it rides the crest of the mountains, through watchtower after watchtower, over a valley drowned in mist, with the snow coming in and a huge low sun behind the range. Every lap another of the Kurokage clan joins the chase, then the lacquered guards of the Wall, faster and meaner than the last. Press X to swing your katana and cut them down before they touch you, dodge the barricades, braziers and supply carts, and every lap you finish pays the Emperor's bounty.",
+  "genre": "Shinobi run",
+  "cast": [
+    {
+      "name": "Kage",
+      "color": "#B3261E",
+      "role": "player"
+    },
+    {
+      "name": "Kurogane",
+      "color": "#5B5E66",
+      "role": "rival"
+    },
+    {
+      "name": "Tsubame",
+      "color": "#6E2F35",
+      "role": "rival"
+    },
+    {
+      "name": "Hayate",
+      "color": "#2E3B4A",
+      "role": "rival"
+    },
+    {
+      "name": "Tetsu",
+      "color": "#7A1C14",
+      "role": "rival"
+    },
+    {
+      "name": "Oboro",
+      "color": "#40405A",
+      "role": "rival"
+    },
+    {
+      "name": "Raiden",
+      "color": "#1E1E22",
+      "role": "rival"
+    },
+    {
+      "name": "Kagero",
+      "color": "#8A7F72",
+      "role": "rival"
+    }
+  ],
+  "palette": {
+    "sky": "#E7B894",
+    "ground": "#EEF2F8",
+    "accent": "#A8231C"
+  }
+}

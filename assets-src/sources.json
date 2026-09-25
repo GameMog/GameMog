@@ -48,14 +48,30 @@
         "skins/young_african_female/young_darkskinned_female_diffuse.png",
         "skins/young_caucasian_female/young_lightskinned_female_diffuse.png",
         "skins/young_asian_female/young_lightskinned_female_diffuse3.png",
-        "hair/short02/short02.obj", "hair/short02/short02.mhclo", "hair/short02/short02_diffuse.png", "hair/short02/short02_normal.png",
-        "hair/short04/short04.obj", "hair/short04/short04.mhclo", "hair/short04/short04_diffuse.png",
-        "hair/afro01/afro01.obj", "hair/afro01/afro01.mhclo", "hair/afro01/afro_diffuse.png",
-        "eyebrows/eyebrow001/eyebrow001.obj", "eyebrows/eyebrow001/eyebrow001.mhclo", "eyebrows/eyebrow001/eyebrow001.png",
-        "eyebrows/eyebrow010/eyebrow010.obj", "eyebrows/eyebrow010/eyebrow010.mhclo", "eyebrows/eyebrow010/eyebrow010.png",
-        "eyelashes/eyelashes01/eyelashes01.obj", "eyelashes/eyelashes01/eyelashes01.mhclo", "eyelashes/eyelashes01/eyelashes01.png",
-        "eyes/high-poly/high-poly.obj", "eyes/high-poly/high-poly.mhclo",
-        "eyes/materials/brown_eye.png", "eyes/materials/brownlight_eye.png", "eyes/materials/blue_eye.png"
+        "hair/short02/short02.obj",
+        "hair/short02/short02.mhclo",
+        "hair/short02/short02_diffuse.png",
+        "hair/short02/short02_normal.png",
+        "hair/short04/short04.obj",
+        "hair/short04/short04.mhclo",
+        "hair/short04/short04_diffuse.png",
+        "hair/afro01/afro01.obj",
+        "hair/afro01/afro01.mhclo",
+        "hair/afro01/afro_diffuse.png",
+        "eyebrows/eyebrow001/eyebrow001.obj",
+        "eyebrows/eyebrow001/eyebrow001.mhclo",
+        "eyebrows/eyebrow001/eyebrow001.png",
+        "eyebrows/eyebrow010/eyebrow010.obj",
+        "eyebrows/eyebrow010/eyebrow010.mhclo",
+        "eyebrows/eyebrow010/eyebrow010.png",
+        "eyelashes/eyelashes01/eyelashes01.obj",
+        "eyelashes/eyelashes01/eyelashes01.mhclo",
+        "eyelashes/eyelashes01/eyelashes01.png",
+        "eyes/high-poly/high-poly.obj",
+        "eyes/high-poly/high-poly.mhclo",
+        "eyes/materials/brown_eye.png",
+        "eyes/materials/brownlight_eye.png",
+        "eyes/materials/blue_eye.png"
       ]
     },
     "cmu-mocap": {
@@ -67,12 +83,29 @@
       "homepage": "http://mocap.cs.cmu.edu/",
       "base": "http://mocap.cs.cmu.edu/subjects/",
       "files": [
-        "09/09.asf", "09/09_01.amc", "09/09_02.amc", "09/09_03.amc", "09/09_04.amc", "09/09_05.amc", "09/09_06.amc",
-        "09/09_07.amc", "09/09_08.amc", "09/09_09.amc", "09/09_10.amc", "09/09_11.amc",
-        "35/35.asf", "35/35_22.amc",
-        "104/104.asf", "104/104_53.amc", "104/104_54.amc", "104/104_55.amc",
-        "140/140.asf", "140/140_06.amc", "140/140_07.amc",
-        "90/90.asf", "90/90_16.amc"
+        "09/09.asf",
+        "09/09_01.amc",
+        "09/09_02.amc",
+        "09/09_03.amc",
+        "09/09_04.amc",
+        "09/09_05.amc",
+        "09/09_06.amc",
+        "09/09_07.amc",
+        "09/09_08.amc",
+        "09/09_09.amc",
+        "09/09_10.amc",
+        "09/09_11.amc",
+        "35/35.asf",
+        "35/35_22.amc",
+        "104/104.asf",
+        "104/104_53.amc",
+        "104/104_54.amc",
+        "104/104_55.amc",
+        "140/140.asf",
+        "140/140_06.amc",
+        "140/140_07.amc",
+        "90/90.asf",
+        "90/90_16.amc"
       ]
     },
     "polyhaven": {
@@ -82,8 +115,42 @@
       "licenseUrl": "https://polyhaven.com/license",
       "homepage": "https://polyhaven.com/a/sunset_jhbcentral",
       "base": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/",
-      "files": ["sunset_jhbcentral_1k.hdr"],
-      "md5": { "sunset_jhbcentral_1k.hdr": "97335a81ba615beb6f6ae0da707ecd75" }
+      "files": [
+        "sunset_jhbcentral_1k.hdr"
+      ],
+      "md5": {
+        "sunset_jhbcentral_1k.hdr": "97335a81ba615beb6f6ae0da707ecd75"
+      }
+    },
+    "quaternius-ual": {
+      "title": "Universal Animation Library 1 and 2 (Standard)",
+      "author": "Quaternius (with Gonzalo Furnier)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://quaternius.com/packs/universalanimationlibrary.html",
+      "manual": {
+        "note": "itch.io serves these free packs through 60-second signed links, so they cannot be fetched by address. Download each Standard zip from its page (\"Download Now\", then \"No thanks, just take me to the downloads\"), put it in assets-src/cache/quaternius-ual/ under the name below, and run npm run assets:fetch, which checks it against sources.lock.json and unpacks the files the build uses.",
+        "zips": {
+          "Universal Animation Library[Standard].zip": {
+            "page": "https://quaternius.itch.io/universal-animation-library",
+            "entries": {
+              "Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb": "UAL1_Standard.glb"
+            }
+          },
+          "Universal Animation Library 2[Standard].zip": {
+            "page": "https://quaternius.itch.io/universal-animation-library-2",
+            "entries": {
+              "Universal Animation Library 2[Standard]/Unreal-Godot/UAL2_Standard.glb": "UAL2_Standard.glb",
+              "Universal Animation Library 2[Standard]/License.txt": "License.txt"
+            }
+          }
+        }
+      },
+      "files": [
+        "UAL1_Standard.glb",
+        "UAL2_Standard.glb",
+        "License.txt"
+      ]
     }
   }
 }

@@ -17,15 +17,19 @@ creativity: it decides what the world is, who lives in it, and how it looks, mov
   racing gains on you and hunts harder, and moving obstacles speed up. The first rival starts
   slower than you; later ones catch you from behind.
 - **Death.** The only way to die is to touch a rival or an obstacle. One touch ends the run.
+  In a world with the sword on (`play.combat`), a rival you cut down falls and runs again from
+  the line next lap; touching one still standing ends the run all the same.
 - **You.** The player is the person playing. Once they have made their character (a realistic
   human athlete from the library, about 1.7 to 1.8 m tall, in their own kit with their name on
   the bib), it replaces `player()`. Build every world for a human runner: its scale, its
   clearances and a track a person could run on. Still write `player()`, which plays when there
   is no character, and never depend on the player's shape.
 - **GM.** Golden GM coins are laid along the track and re-laid every lap. They are the
-  platform's currency and look the same in every world. Do not make coins.
+  platform's currency and look the same in every world. Do not make coins. A world may lay none
+  (`play.coins: false`) and pay a bounty for every lap finished instead (`play.bounty`).
 - **Controls.** The player moves forward on their own. Arrow keys (or WASD): left and right
   steer, up goes faster, down goes slower. Space pauses. Touch screens get on-screen buttons.
+  With the sword on, X (or J or K, or a sword button on touch screens) swings it.
 - **Screens.** No card over the game. Until the player starts, the world races itself (a demo
   run: it steers itself, cannot crash, is silent and is never scored) with nothing over it, so a
   visitor sees the world moving. The start screen appears only when someone asks to play (the
@@ -44,6 +48,7 @@ procedurally.
 ```js
 GameMog.world({
   assets,     // optional: ids from the platform's licensed asset library
+  play,       // optional: platform options (no coins, a lap bounty, the sword)
   theme,      // colours and font for the HUD and screens
   graphics,   // optional: cinematic rendering (light from the sky, bloom, grading)
   camera,     // optional: how the chase camera frames the world
@@ -57,6 +62,27 @@ GameMog.world({
 });
 ```
 
+### play (optional)
+Platform options, the same in every world that turns them on. Leave `play` out for the
+standard race.
+
+```js
+play: {
+  coins: false,                                            // no GM coins on the track
+  bounty: { base: 100, step: 50, name: 'Lap bounty' },     // GM paid for each finished lap: base, plus step every lap
+  combat: { mark: '!', verb: 'Cut down' },                 // the sword: X swings; mark shows over a rival in reach
+}
+```
+
+- **combat**: a swing cuts for a moment a little after the key, up to about 3.4 m ahead, 1.6 m
+  behind and 2.6 m to either side. A rival cut down falls where it was, sinks away, and runs
+  again from the line on the next lap. The runtime handles all of it; a rival from
+  `ctx.assets.human` with a `weapon` swings and dies by itself, and any other rival topples.
+  Give the player a weapon (below) so the swing shows. Rivals alongside you swing back (for
+  show: only a touch ends a run).
+- **bounty**: the level-up banner shows the bounty; use `ctx.on('lap', ...)` to celebrate it in
+  the world (fireworks, a bell, a gong).
+
 ### theme
 `{ sky, fog, ink, panel, accent, font }`. Colours are `#RRGGBB`. `ink` is text and borders,
 `panel` is the HUD boards and cards, `accent` is highlights. `font` is one Google Font family
@@ -69,7 +95,7 @@ world uses; it all loads before `build()` runs.
 
 | id | what it is |
 |---|---|
-| `human-athlete-male` | a realistic male athlete: skins `african`, `caucasian`, `caucasian2`, `asian`; hair `short02`, `short04`, `afro01`; motion-captured idle, standing start, run, sprint and fall |
+| `human-athlete-male` | a realistic male athlete: skins `african`, `caucasian`, `caucasian2`, `asian`; hair `short02`, `short04`, `afro01`; motion-captured idle, standing start, run, sprint and fall, and sword motion (a guard, three cuts, a hit and a death) |
 | `human-athlete-female` | the same for a female athlete: skins `african`, `caucasian`, `asian` |
 | `hdri-sunset-city` | a golden-hour city sky for `graphics.environment.hdri` |
 
@@ -91,6 +117,16 @@ ctx.assets.human('human-athlete-male', {
 
 `tone: '#RRGGBB'` in place of `skin` and `skinTint` picks the nearest skin texture and tints it
 to that colour.
+
+For a world with the sword on: `weapon: { blade, grip, trail }` (colours, or `true`) puts a katana
+in the right hand, carried back along the forearm while running and brought round for a cut,
+with a trail on the swing; `stance: 'guard'` stands on guard instead of idling. The athlete then
+cuts when the player swings and dies when cut down.
+
+Headgear (a mask, a helmet, a band) goes on the athlete's `head` bone. The body's shape moves the
+face off that bone by centimetres, so fit gear to the mesh itself: its geometry's
+`userData.groups` names each group in order (`body`, `eyes`, `brows`, `hair:<style>`, ...),
+and the vertices the head carries give the brow line, the eyes and the face's width and depth.
 
 `ctx.assets.cyclist(id, options)` puts the same athlete on a racing bicycle and returns
 `{ object, animate, name, color, radius }` for `player()` or `rival()`. The bike is built and
@@ -152,7 +188,11 @@ graphics: {
                                                  // as floodlight panels; a library sky's sun is
                                                  // turned to match your key light)
   bloom: { strength: 0.5, threshold: 1, radius: 0.7 },  // glow on anything brighter than white
-  grade: { contrast: 1.04, saturation: 1.05, warmth: 0, vignette: 0.25, grain: 0.015 },
+  grade: { contrast: 1.04, saturation: 1.05, warmth: 0, vignette: 0.25, grain: 0.015,
+           split: 0, highlights: 1, paper: 0 },   // a painter's dusk: split 0-1 lifts the shadows cold and
+                                                  // warms the highlights, highlights 0.6-1.6 keeps their
+                                                  // heat while mid-tones stay muted, paper 0-0.08 a still
+                                                  // paper grain
   shadows: { extent: 38, mapSize: 2048 },         // a sharp shadow map that follows the player
 }
 ```
@@ -212,7 +252,8 @@ Each returns `{ object, radius?, name?, color?, animate? }`.
 - `name` and `color` (rivals): shown in the level-up banner and the rear warning.
 - `animate(t, dt, s)` runs every frame. `s = { speed, lateral, crashed, paused }`: speed in
   m/s, lateral steering speed (positive is to the player's right), and whether this run just
-  crashed.
+  crashed. With the sword on it also carries `attack` (`{ t, n }` while swinging: seconds into
+  the swing and which of three cuts) and, for a rival, `slain` once it is cut down.
 - `rival(ctx, k)` is called for k = 1, 2, 3, ... with no upper limit. Every rival must be
   distinct in colour and name, and later ones should look meaner: bigger, spikier, glowing,
   whatever fits. Handle any k (cycle a list of names, add numerals, vary the build).
@@ -270,6 +311,9 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
   texture for an `emissiveMap`. The runtime's own TV camera cuts between a rail camera beside
   the player, a long lens head-on and a high wide shot. Returns `null` on phones and tablets:
   always keep a screen picture of your own.
+- `ctx.play`: the platform options as the runtime read them
+- `ctx.on(name, fn)`: moments to stage in the world: `'lap'` (`{ lap, level, bounty, gm }`),
+  `'swing'` (`{ n }`), `'slay'` (`{ name, slain }`), `'crash'` (`{ into }`), `'start'`
 - `ctx.audio` (inside `ambient`)
 
 ## Never
