@@ -208,8 +208,10 @@ graphics: {
   hold 60 fps.
 
 ### camera (optional)
-`{ distance, height, fov }`: metres behind the player (6 to 14), metres above (2.5 to 6.5),
-field of view (50 to 78). The runtime drives the camera; this only frames it. `ctx.camera` is
+`{ distance, height, fov }`: metres behind the player (3.5 to 14), metres above (1.8 to 6.5),
+field of view (50 to 78). The camera holds that distance at any speed. Under 5 m is a close,
+over-the-shoulder action view with the athlete a third of the screen tall; 9 (the default)
+shows more of the course. The runtime drives the camera; this only frames it. `ctx.camera` is
 read-only: read its position (to face a billboard at it), never write to it.
 
 ### track

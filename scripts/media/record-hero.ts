@@ -13,7 +13,7 @@
  *
  * The race is fast-forwarded to lap 7, where each new rival runs at your pace
  * and the field stays around you, then filmed at real speed from the moment
- * two rivals are within 15 m. debug.film() moves the chase camera closer
+ * two rivals are within 15 m. debug.film() frames the chase camera closer
  * than play does so the athlete fills the frame.
  */
 import { writeFileSync } from 'node:fs';
@@ -23,9 +23,12 @@ const CUTS = {
   // the full-bleed desktop hero (about 2:1 to 2.5:1 on screen): big enough to
   // stay sharp on a wide screen, at a bitrate that holds a crowd of fans; the
   // copy sits bottom left, so the runner is framed right of centre
-  wide: { width: 2048, height: 960, bitrate: 4_500_000, film: { distance: 3.8, height: 1.6, fov: 38, side: -1.8, look: 1.25 } },
+  // (the camera holds its distance at any speed, so these are the real
+  // distances: the runner about 45% of the frame tall, clear of the edges
+  // wherever she is across the track)
+  wide: { width: 2048, height: 960, bitrate: 4_500_000, film: { distance: 5.2, height: 1.7, fov: 40, side: -1, look: 1.25 } },
   // phones put the title under the film, so the runner is centred
-  '4x3': { width: 960, height: 720, bitrate: 1_400_000, film: { distance: 3.6, height: 1.55, fov: 44, side: -0.4, look: 1.25 } },
+  '4x3': { width: 960, height: 720, bitrate: 1_400_000, film: { distance: 4.6, height: 1.65, fov: 44, side: 0, look: 1.25 } },
 } as const;
 type Cut = keyof typeof CUTS;
 

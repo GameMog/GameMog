@@ -101,7 +101,8 @@
       grade: { contrast: 1.07, saturation: 0.92, highlights: 1.3, split: 1, paper: 0.035, warmth: 0.05, vignette: 0.34, grain: 0.006 },
       shadows: { extent: 40, mapSize: 2048 },
     },
-    camera: { distance: 6.4, height: 2.7, fov: 58 },
+    // close over the shoulder, as in a duel: you a third of the screen tall, the Wall ahead
+    camera: { distance: 3.8, height: 2.0, fov: 60 },
     track: { width: TW, points: ROUTE },
     build: build,
     player: function (ctx) { return fighter(ctx, PLAYER, 0); },
@@ -789,8 +790,9 @@
         '  p = mod(p - origin, box) + origin;',
         '  vec4 mv = viewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;',
         '  gl_PointSize = clamp((0.028 + aSeed * 0.035) * uScale / -mv.z, 1.0, 14.0);',
-        '  vGlint = pow(max(dot(normalize(p - cameraPosition), uSun), 0.0), 6.0);',
         '  float dist = -mv.z; vA = smoothstep(0.3, 1.2, dist) * (1.0 - smoothstep(22.0, 32.0, dist));',
+        // only flakes out in the air catch the sun: one glinting by the lens blooms into a ball
+        '  vGlint = pow(max(dot(normalize(p - cameraPosition), uSun), 0.0), 6.0) * smoothstep(3.0, 7.0, dist);',
         '}',
       ].join('\n'),
       fragmentShader: 'varying float vA, vGlint; void main() { float d = length(gl_PointCoord - 0.5); float a = (1.0 - smoothstep(0.1, 0.5, d)) * vA; vec3 col = mix(vec3(0.62, 0.68, 0.86), vec3(3.8, 1.75, 0.8), vGlint); gl_FragColor = vec4(col * a, a * 0.9); }',
