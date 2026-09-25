@@ -4,9 +4,21 @@ import { SiteHeader, SiteFooter } from '../../header';
 import { Cover } from '../../cover';
 import { getGameBySlug, getGameById, mogsOf } from '@/lib/db';
 import type { WorldSpec } from '@/lib/worldspec';
+import type { Metadata } from 'next';
 import { MogComposer } from './composer';
+import { clip, pageMeta } from '../../seo';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const game = getGameBySlug(slug);
+  if (!game) return { title: 'Not found | GameMog' };
+  return pageMeta({
+    name: `Mog ${game.title}`, path: `/mog/${slug}`, image: { url: `/g/${slug}/cover`, alt: game.title },
+    description: clip(`Think you can beat ${game.title}? Say how in one line and GameMog builds your version, credited to the original.`),
+  });
+}
 
 /**
  * Mog a game: challenge it with a better variation. The challenger says in a

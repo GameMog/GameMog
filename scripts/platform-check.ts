@@ -4,12 +4,16 @@
  * Mog v1 (docs/RULES.md section 2): a Mog publishes with its lineage, the
  * pages credit the original and list the challengers, a Mog-off pick counts
  * only once that player has finished a run in both games, and a family is
- * ranked by the counted picks. Uses throwaway games built from the reference
- * world and removes them afterwards. Needs the dev server (BASE).
+ * ranked by the counted picks. Also the owner's controls (25 Sep): a world
+ * taken down from /admin disappears everywhere and comes back whole, /admin
+ * shows nothing without a session, and the site's own visit counts keep no
+ * address and skip bots. Uses throwaway games built from the reference world
+ * and removes them afterwards. Needs the dev server (BASE).
  */
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { insertDraft, db, getGameBySlug, family, mogOff } from '../lib/db.ts';
+import { setWorldHidden } from '../lib/analytics.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3939';
 let failures = 0;
@@ -104,6 +108,35 @@ try {
   ok('and has to be a photo', (await selfie({ image: 'not a photo', age13: true })).status === 400);
   const route = readFileSync(new URL('../app/api/me/selfie/route.ts', import.meta.url), 'utf8');
   ok('the selfie route cannot store a photo: it touches no database and no file system', !/lib\/db|node:fs|from 'fs'|writeFile|localStorage/.test(route));
+
+  console.log('\nThe owner can take a world down');
+  setWorldHidden(mog2.id, true);
+  ok('an unpublished world is a 404, not a page', (await page(`/g/${mog2.slug}`)).status === 404);
+  ok('it leaves the charts, the sitemap and its family',
+    !(await page('/charts/new-mogs')).html.includes(`/g/${mog2.slug}"`) && !(await page('/sitemap.xml')).html.includes(mog2.slug) && !family(mog.id).some((f) => f.id === mog2.id));
+  ok('and nobody can Mog it', (await page(`/mog/${mog2.slug}`)).status === 404);
+  setWorldHidden(mog2.id, false);
+  ok('restoring it brings the page back', (await page(`/g/${mog2.slug}`)).status === 200 && family(mog.id).some((f) => f.id === mog2.id));
+
+  console.log('\nOwner only');
+  const admin = await page('/admin');
+  ok('/admin without a session is a sign-in (or absent), never the numbers', (admin.status === 404 || admin.html.includes('Owner sign in')) && !admin.html.includes('Est. API spend'));
+  const forged = await fetch(`${BASE}/admin`, { headers: { cookie: `gm_admin=v1.9999999999.${'a'.repeat(64)}` } });
+  ok('a forged session cookie is only a sign-in too', !(await forged.text()).includes('Est. API spend'));
+  ok('the admin page asks search engines to stay out', /noindex/.test(admin.html) || admin.status === 404);
+
+  console.log('\nThe site counts its own visits');
+  const v = `check-${randomUUID()}`, phone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148';
+  const hit = (body: unknown, ua = phone) => fetch(`${BASE}/api/hit`, { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': ua }, body: JSON.stringify(body) });
+  await hit({ v, k: 'view', p: `/g/${original.slug}`, r: 'www.Reddit.com' });
+  const row = db.prepare('SELECT * FROM events WHERE visitor = ?').get(v) as Record<string, unknown> | undefined;
+  ok('a page view keeps its page, the device kind and the referring site', row?.path === `/g/${original.slug}` && row.device === 'phone' && row.ref === 'reddit.com');
+  ok('and no address of any kind', !!row && !Object.keys(row).some((k) => /ip|addr|agent/i.test(k)));
+  await hit({ v, k: 'view', p: '/' }, 'Twitterbot/1.0');
+  await hit({ v, k: 'view', p: '/admin' });
+  await hit({ v, k: 'download', p: '/' });
+  ok('link unfurlers, the admin pages and junk are not counted', (db.prepare('SELECT COUNT(*) AS n FROM events WHERE visitor = ?').get(v) as { n: number }).n === 1);
+  db.prepare('DELETE FROM events WHERE visitor = ?').run(v);
 } finally {
   for (const id of made.reverse()) {
     db.prepare('DELETE FROM mog_picks WHERE child_id = ? OR parent_id = ?').run(id, id);

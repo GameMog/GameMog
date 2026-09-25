@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../header';
 import { playerId } from '../../anon';
+import { track } from '../../beacon';
 
 /**
  * The play button and the row under it, laid out the way Roblox lays out its
@@ -46,6 +47,7 @@ export function GameActions({ gameId, slug, title, initial }: {
     const box = document.getElementById('play');
     const frame = box?.querySelector('iframe');
     frame?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'play' }, '*');
+    track('play');
     if (box?.requestFullscreen) box.requestFullscreen().catch(() => box.scrollIntoView({ block: 'center' }));
     else box?.scrollIntoView({ block: 'center' });
     frame?.focus();

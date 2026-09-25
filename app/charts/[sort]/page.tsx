@@ -5,9 +5,15 @@ import { GenreFilter } from '../../genre-filter';
 import { Tile } from '../../tile';
 import { bestTimes, listGames, tileStats } from '@/lib/db';
 import { CHARTS, genreOf, sortGames, type ChartSort } from '@/lib/catalog';
+import { pageMeta } from '../../seo';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Charts | GameMog' };
+export async function generateMetadata({ params }: { params: Promise<{ sort: string }> }): Promise<Metadata> {
+  const { sort } = await params;
+  const chart = CHARTS[sort as ChartSort];
+  if (!chart) return { title: 'Charts | GameMog' };
+  return pageMeta({ name: chart.title, path: `/charts/${sort}`, description: `${chart.explanation} Play any of them free in your browser, then Mog the one you think you can beat.` });
+}
 
 export default async function ChartPage({ params, searchParams }: {
   params: Promise<{ sort: string }>;

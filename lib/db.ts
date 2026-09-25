@@ -128,6 +128,28 @@ function open() {
       PRIMARY KEY (child_id, voter)
     );
   `);
+
+  // Moderation from /admin: the owner can take a world or a leaderboard row
+  // down and put it back. Nothing is deleted; a hidden row is simply not
+  // served to anyone.
+  add('games', 'hidden', 'hidden INTEGER NOT NULL DEFAULT 0');
+  add('scores', 'hidden', 'hidden INTEGER NOT NULL DEFAULT 0');
+  // First-party analytics (lib/analytics.ts): a page view or a press of Play,
+  // against the random id the browser made for itself. No IP address, no
+  // cookie, no third party.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS events (
+      id       INTEGER PRIMARY KEY AUTOINCREMENT,
+      at       INTEGER NOT NULL,
+      visitor  TEXT NOT NULL,
+      kind     TEXT NOT NULL,
+      path     TEXT NOT NULL,
+      ref      TEXT,
+      source   TEXT,
+      device   TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS events_by_time ON events(at);
+  `);
   return db;
 }
 
@@ -212,22 +234,23 @@ export function insertGame(args: {
   );
 }
 
+/* Everything public reads live games only; /admin reads its own queries. */
 export const getGameBySlug = (slug: string) =>
-  db.prepare(`SELECT ${ROW} FROM games WHERE slug = ?`).get(slug) as GameRow | undefined;
+  db.prepare(`SELECT ${ROW} FROM games WHERE slug = ? AND hidden = 0`).get(slug) as GameRow | undefined;
 
 export const listGames = (limit = 40) =>
   db
-    .prepare(`SELECT ${ROW} FROM games ORDER BY featured DESC, created_at DESC LIMIT ?`)
+    .prepare(`SELECT ${ROW} FROM games WHERE hidden = 0 ORDER BY featured DESC, created_at DESC LIMIT ?`)
     .all(limit) as GameRow[];
 
 export function gameCover(slug: string): Uint8Array | undefined {
-  const r = db.prepare('SELECT cover FROM games WHERE slug = ?').get(slug) as { cover: Uint8Array | null } | undefined;
+  const r = db.prepare('SELECT cover FROM games WHERE slug = ? AND hidden = 0').get(slug) as { cover: Uint8Array | null } | undefined;
   return r?.cover ?? undefined;
 }
 
 export function gameArt(slug: string, shape: 'square' | 'wide'): Uint8Array | undefined {
   const column = shape === 'square' ? 'art_icon' : 'art_wide';
-  const r = db.prepare(`SELECT ${column} AS art FROM games WHERE slug = ?`).get(slug) as { art: Uint8Array | null } | undefined;
+  const r = db.prepare(`SELECT ${column} AS art FROM games WHERE slug = ? AND hidden = 0`).get(slug) as { art: Uint8Array | null } | undefined;
   return r?.art ?? undefined;
 }
 
@@ -274,9 +297,9 @@ export function publishDraft(draftId: string, slug: string, id: string): boolean
  * Players are ids the browser makes for itself: a signal, not an identity.
  */
 export const getGameById = (id: string) =>
-  db.prepare(`SELECT ${ROW} FROM games WHERE id = ?`).get(id) as GameRow | undefined;
+  db.prepare(`SELECT ${ROW} FROM games WHERE id = ? AND hidden = 0`).get(id) as GameRow | undefined;
 export const mogsOf = (id: string) =>
-  db.prepare(`SELECT ${ROW} FROM games WHERE parent_id = ? ORDER BY created_at DESC`).all(id) as GameRow[];
+  db.prepare(`SELECT ${ROW} FROM games WHERE parent_id = ? AND hidden = 0 ORDER BY created_at DESC`).all(id) as GameRow[];
 
 export function recordRun(gameId: string, player: string, best: number | null) {
   const now = Date.now();
@@ -325,7 +348,7 @@ export function family(gameId: string): FamilyMember[] {
   const g = getGameById(gameId);
   if (!g) return [];
   const root = g.root_id ?? g.id;
-  const members = db.prepare(`SELECT ${ROW} FROM games WHERE id = ? OR root_id = ? ORDER BY generation, created_at`).all(root, root) as GameRow[];
+  const members = db.prepare(`SELECT ${ROW} FROM games WHERE (id = ? OR root_id = ?) AND hidden = 0 ORDER BY generation, created_at`).all(root, root) as GameRow[];
   const elo = new Map(members.map((m) => [m.id, 1000])), wins = new Map(members.map((m) => [m.id, 0])), losses = new Map(members.map((m) => [m.id, 0]));
   const ids = members.map((m) => m.id);
   const picks = ids.length > 1 ? db.prepare(`SELECT child_id, parent_id, voter, winner_id FROM mog_picks WHERE child_id IN (${ids.map(() => '?').join(',')}) ORDER BY created_at`).all(...ids) as { child_id: string; parent_id: string; voter: string; winner_id: string }[] : [];
@@ -351,7 +374,7 @@ export function tileStats(): Record<string, TileStats> {
   for (const r of db.prepare('SELECT game_id, SUM(value = 1) AS up, SUM(value = -1) AS down FROM votes GROUP BY game_id').all() as { game_id: string; up: number; down: number }[]) {
     Object.assign(at(r.game_id), { up: r.up ?? 0, down: r.down ?? 0 });
   }
-  for (const r of db.prepare('SELECT parent_id, COUNT(*) AS n FROM games WHERE parent_id IS NOT NULL GROUP BY parent_id').all() as { parent_id: string; n: number }[]) at(r.parent_id).mogs = r.n;
+  for (const r of db.prepare('SELECT parent_id, COUNT(*) AS n FROM games WHERE parent_id IS NOT NULL AND hidden = 0 GROUP BY parent_id').all() as { parent_id: string; n: number }[]) at(r.parent_id).mogs = r.n;
   return out;
 }
 
@@ -364,13 +387,13 @@ export function topScores(gameId: string, limit = 10, by: 'time' | 'score' | 'pl
     : by === 'score' ? 'score DESC, time_ms ASC'
     : by === 'place' ? 'CASE WHEN place > 0 THEN place ELSE 99 END ASC, time_ms ASC'
     : 'CASE WHEN time_ms > 0 THEN time_ms ELSE 1e12 END ASC';
-  return db.prepare(`SELECT * FROM scores WHERE game_id = ? ORDER BY ${order} LIMIT ?`).all(gameId, limit) as ScoreRow[];
+  return db.prepare(`SELECT * FROM scores WHERE game_id = ? AND hidden = 0 ORDER BY ${order} LIMIT ?`).all(gameId, limit) as ScoreRow[];
 }
 
 /** Fastest run per game, for the shelf metric. */
 export function bestTimes(): Record<string, number> {
   const rows = db
-    .prepare('SELECT game_id, MIN(time_ms) AS t FROM scores GROUP BY game_id')
+    .prepare('SELECT game_id, MIN(time_ms) AS t FROM scores WHERE hidden = 0 GROUP BY game_id')
     .all() as { game_id: string; t: number }[];
   return Object.fromEntries(rows.map((r) => [r.game_id, r.t]));
 }

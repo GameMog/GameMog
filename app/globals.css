@@ -157,6 +157,10 @@ h2,.t-h2{font-family:var(--display);font-size:24px;font-weight:700;line-height:3
 
 /* tab chips, GameStop's: a quiet tray, the chosen one lifted onto white */
 .chips{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;border-radius:var(--r);background:#E8EBF0}
+.chipselect{display:none;position:relative;align-items:center;gap:10px;height:44px;padding:0 14px;border-radius:var(--r);background:var(--surface);box-shadow:var(--elev-hair)}
+.chipselect span{font-size:13px;font-weight:700;color:var(--ink-3)}
+.chipselect select{flex:1;min-width:0;height:100%;border:0;background:none;appearance:none;-webkit-appearance:none;font:700 15px/1 var(--ui);color:var(--ink);padding-right:22px}
+.chipselect svg{position:absolute;right:14px;top:15px;pointer-events:none;color:var(--ink-2)}
 .chip{display:inline-flex;align-items:center;height:31px;padding:0 12px;border-radius:var(--r-sm);border:1.5px solid transparent;
   font-size:13px;font-weight:600;color:var(--ink-3);white-space:nowrap}
 .chip:hover{color:var(--ink)}
@@ -200,7 +204,15 @@ button.tag:hover{border-color:var(--ink)}
 .chartpage{padding-top:32px}
 .charthead{margin-bottom:22px}
 .charthead .cap{margin-top:4px}
-.charthead .chips{margin-top:18px}
+.charthead .chips,.charthead .chipselect{margin-top:18px}
+/* ------------------------------------------------------------------- 404 -- */
+.nf{padding-top:72px;padding-bottom:96px;max-width:720px}
+.nf-code{font:800 15px/1 var(--display);letter-spacing:.12em;color:var(--ink-3)}
+.nf h1{margin-top:14px;font-size:48px;line-height:52px}
+.nf-lede{margin-top:14px;font-size:18px;line-height:27px;color:var(--ink-2);max-width:520px}
+.nf-acts{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.nf-acts .btn{height:48px;padding:0 22px}
+@media(max-width:760px){.nf{padding-top:40px;padding-bottom:64px}.nf h1{font-size:34px;line-height:38px}.nf-acts .btn{flex:1 1 100%}}
 .empty{margin-top:18px;background:var(--surface);border-radius:var(--r);box-shadow:var(--elev);padding:32px;text-align:center;color:var(--ink-2)}
 .empty h2{color:var(--ink);margin-bottom:6px}
 .empty.compact{margin-top:8px;padding:20px;text-align:left}
@@ -521,24 +533,36 @@ table.bd td:nth-child(2){font-weight:600}
   .hicon{display:none}
   .wordmark b{font-size:22px}
   .tab{font-size:14px}
-  .tabs{gap:20px;overflow-x:auto}
-  .chips{max-width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
-  .chips::-webkit-scrollbar{display:none}
-  .chip{flex:0 0 auto}
+  /* nothing on a phone scrolls sideways (the owner, 25 Sep): the genre chips
+     become one picker, the tabs share the row, and a rail becomes a
+     two-by-two grid whose "View all" leads to the rest */
+  .tabs{gap:18px;flex-wrap:wrap}
+  .chips{display:none}
+  .chipselect{display:flex}
   h1,.t-h1{font-size:30px;line-height:34px}
   .sec{margin-top:36px}
   .sectitle{font-size:28px;line-height:34px}
   .secsub{font-size:14px;line-height:20px}
   .arrows{display:none}
-  .rail{gap:12px}
+  .rail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 12px;overflow:visible;scroll-snap-type:none}
+  .rail>:nth-child(n+5){display:none}
+  .secfoot{justify-content:flex-start}
   .gridw{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px 12px}
-  .tl,.sk-tile{width:74%;flex-basis:74%}
+  .tl,.sk-tile{width:auto;flex-basis:auto}
   .gridw .tl{width:auto}
   .tl .tb{padding:10px 12px 12px}
   .tl .mt{gap:8px}
   .tl .mt span:nth-child(n+3){display:none}
   .bubbles{gap:14px}
   .fcols{grid-template-columns:1fr;gap:24px;padding-top:32px}
+}
+@media(max-width:420px){
+  /* the smallest phones: tables and long idea chips fit the width instead of pushing past it */
+  table.bd{font-size:12px}
+  table.bd th{font-size:10px;letter-spacing:.02em;padding:10px 6px 8px}
+  table.bd td{padding:9px 6px;overflow-wrap:anywhere}
+  table.bd td:first-child{width:22px}
+  button.tag{height:auto;min-height:32px;white-space:normal;text-align:left;line-height:18px;padding:7px 10px}
 }
 @media(max-width:1018px){
   /* phones and small tablets: the stage full width, the panel stacked */

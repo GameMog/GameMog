@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SiteHeader, SiteFooter } from '../header';
+import { pageMeta } from '../seo';
 
-export const metadata = { title: 'Asset library | GameMog' };
+export const metadata = pageMeta({ name: 'Asset library', path: '/library', description: 'The free characters, motion capture and skies every GameMog world is built from, with where each one came from and its licence.' });
 export const dynamic = 'force-static';
 
 type Source = { title: string; author: string; license: string; licenseUrl: string; licenseText?: string; homepage: string };

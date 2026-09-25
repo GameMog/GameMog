@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { SiteHeader, SiteFooter } from '../header';
 import { MeMaker } from './maker';
+import { pageMeta } from '../seo';
 
-export const metadata: Metadata = { title: 'You | GameMog' };
+export const metadata: Metadata = pageMeta({ name: 'You', path: '/me', description: 'Make your character for GameMog worlds.', noindex: true });
 
 /** Where "That's me. Run" goes: a path on this site only, never another site. */
 function safeThen(then: unknown): string {

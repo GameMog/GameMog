@@ -12,9 +12,28 @@ import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
 import { CustomGamePage } from './custom-page';
 import { Lineage, MogsPanel } from './mog';
-import { mogsOf, tileStats } from '@/lib/db';
+import { mogsOf, tileStats, getGameById } from '@/lib/db';
+import type { Metadata } from 'next';
+import { clip, pageMeta } from '../../seo';
 
 export const dynamic = 'force-dynamic';
+
+/** A shared game link unfurls with the game's own cover, name and pitch. */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const game = getGameBySlug(slug);
+  if (!game) return { title: 'Not found | GameMog' };
+  const parent = game.parent_id ? getGameById(game.parent_id) : null;
+  // whole sentences from the pitch, as many as fit an unfurl, then the offer
+  const sentences = (t: string) => (t.trim().replace(/([^.!?])$/, '$1.').match(/[^.!?]+[.!?]+/g) ?? []).map((x) => x.trim());
+  const parts = [...(parent ? [`A Mog of ${parent.title}.`] : []), ...sentences(game.tagline), ...sentences(game.blurb)];
+  let pitch = '';
+  for (const p of parts) { if (`${pitch} ${p}`.trim().length > 128) break; pitch = `${pitch} ${p}`.trim(); }
+  return pageMeta({
+    name: game.title, path: `/g/${slug}`, image: { url: `/g/${slug}/cover`, alt: game.title },
+    description: `${pitch || clip(parts.join(' '), 126)} Play it free in your browser.`,
+  });
+}
 
 /**
  * Laid out on Roblox's game page grid, measured: a 970px column centred on the

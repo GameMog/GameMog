@@ -10,8 +10,10 @@ import { listGames, bestTimes, topScores, tileStats, type GameRow, type TileStat
 import { CHARTS, genreOf, sortGames, type ChartSort } from '@/lib/catalog';
 import { Cover } from './cover';
 import type { WorldSpec } from '@/lib/worldspec';
+import { DEFAULT_DESCRIPTION, pageMeta } from './seo';
 
 export const dynamic = 'force-dynamic';
+export const metadata = pageMeta({ description: DEFAULT_DESCRIPTION, path: '/' });
 
 /** The world the homepage leads with. Its film is made by `npm run media:hero -- <slug>`. */
 const HERO = 'speed-skating-2030';

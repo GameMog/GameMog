@@ -1,6 +1,7 @@
 import { SiteHeader, SiteFooter } from '../header';
+import { pageMeta } from '../seo';
 
-export const metadata = { title: 'Terms of Service | GameMog' };
+export const metadata = pageMeta({ name: 'Terms of Service', path: '/terms', description: 'The terms for playing, creating and sharing worlds on GameMog.' });
 
 export default function Terms() {
   return (
