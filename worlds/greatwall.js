@@ -13,9 +13,9 @@
 //
 // The look and the sound follow Shinobi Duel (github.com/StarKnightt/
 // shinobi-duel): the low hazy sun behind drifting mist banks, falling snow
-// that catches the light, brush lettering drawn in code, and a score and
-// ambience synthesized in the browser (o-daiko, nagado and shime drums, a
-// breathy shakuhachi, a Karplus-Strong koto, a bonsho bell, the wind). Its
+// that catches the light, brush lettering drawn in code, and sound
+// synthesized in the browser (the platform's taiko score of shakuhachi, koto
+// and drums; the world's own o-daiko, bonsho bell and wind). Its
 // fighters are Mixamo files and are not used; ours are the library's CC0
 // runners with Quaternius CC0 sword motion. Shinobi Duel's code is under the
 // MIT licence:
@@ -116,6 +116,9 @@
     // the owner's rules for this world (25 Sep): cut rivals down; no coins,
     // only the bounty for every lap you finish
     play: { coins: false, bounty: { base: 100, step: 50, name: 'The Emperor’s bounty' }, combat: { mark: '斬', verb: 'Cut down' } },
+    // the score is the platform's: shakuhachi over koto and a taiko ensemble,
+    // in the Japanese in scale on D, building lap by lap
+    music: { style: 'taiko', key: 'D', mode: 'in', tempo: 100 },
     theme: { sky: '#E7B894', fog: '#C9B6AC', ink: '#17110D', panel: '#F2E8D6', accent: '#A8231C', font: 'Shippori Mincho' },
     graphics: {
       exposure: 1.0,
@@ -1224,10 +1227,10 @@
   }
 
   /* ------------------------------------------------------------ sound -- */
-  // Everything synthesized (Shinobi Duel's Audio.ts, music.ts and synth.ts,
-  // condensed): the wind over the Wall, a slow drone, taiko that thicken
-  // lap by lap, shakuhachi phrases on the miyako-bushi scale, a koto, a
-  // bronze bell and fireworks for the bounty.
+  // Everything synthesized (after Shinobi Duel's Audio.ts and synth.ts): the
+  // score is the platform's (music: taiko, above); the world plays the wind
+  // over the Wall, the great drum and the bronze bell for the bounty, the
+  // fireworks, the drum when a rival falls, and your own fall.
   function ambient(ctx) {
     var ac = ctx.audio.context, out = ctx.audio.destination, sr = ac.sampleRate;
     function noiseBuf(sec, brown) { var n = Math.floor(sr * sec), b = ac.createBuffer(1, n, sr), d = b.getChannelData(0), l = 0; for (var i = 0; i < n; i++) { var w = Math.random() * 2 - 1; if (brown) { l = (l + 0.02 * w) / 1.02; d[i] = l * 3.5; } else d[i] = w; } return b; }
@@ -1245,9 +1248,6 @@
     // wind: brown noise, low-passed, rising with speed
     var ws = ac.createBufferSource(); ws.buffer = noiseBuf(4, true); ws.loop = true; var wl = ac.createBiquadFilter(); wl.type = 'lowpass'; wl.frequency.value = 520;
     var wind = ac.createGain(); wind.gain.value = 0.05; ws.connect(wl); wl.connect(wind); wind.connect(out); ws.start();
-    // the drone: D2 and A2, slowly beating
-    var drone = ac.createGain(); drone.gain.value = 0.03; var dl = ac.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 420; drone.connect(dl); dl.connect(music);
-    [[73.42, 0], [73.42, 7], [110, -4], [146.8, 3]].forEach(function (f) { var o = ac.createOscillator(); o.type = 'triangle'; o.frequency.value = f[0]; o.detune.value = f[1]; o.connect(drone); o.start(); });
 
     function osc(dest, t, f0, f1, dur, gain, glide, type) {
       var s = ac.createOscillator(), e = ac.createGain(); s.type = type || 'sine';
@@ -1262,21 +1262,9 @@
       s.connect(f); f.connect(e); e.connect(dest); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.02);
     }
     function odaiko(t, v, big) { var f = big ? 52 : 62 + Math.random() * 4, g = 0.55 * v * (big ? 1.4 : 1); osc(drums, t, f * 1.7, f, big ? 1.8 : 1.1, g, 0.04); osc(drums, t, f * 2.07, f * 1.59, 0.35, g * 0.35, 0.03); hit(drums, t, 0.09, 'lowpass', 900, 0.7, g * 0.5); hit(drums, t, 0.012, 'bandpass', 2600, 1.2, g * 0.25); }
-    function nagado(t, v) { var f = 118 + Math.random() * 6, g = 0.32 * v; osc(drums, t, f * 1.5, f, 0.4, g, 0.025); hit(drums, t, 0.05, 'bandpass', 1100, 0.8, g * 0.45); }
-    function shime(t, v) { var g = 0.2 * v; osc(drums, t, 520, 430, 0.1, g, 0.01); hit(drums, t, 0.035, 'bandpass', 3200, 1.4, g * 0.9); }
     function ka(t, v) { hit(drums, t, 0.022, 'bandpass', 2300, 5, 0.22 * v); }
-    // a koto string (Karplus-Strong), rendered once and repitched
-    var koto = (function () {
-      var len = Math.floor(sr * 3.2), b = ac.createBuffer(1, len, sr), o = b.getChannelData(0), period = sr / 293.66, n = Math.ceil(period) + 2, line = new Float32Array(n), R = rng(9);
-      for (var i = 0; i < n; i++) line[i] = (R() * 2 - 1) * 0.8 + (i / n < 0.18 ? 0.5 * (1 - i / n / 0.18) : 0);
-      var w = 0, frac = period - Math.floor(period), prev = 0, a2 = 0.77;
-      for (i = 0; i < len; i++) { var rp = w - Math.floor(period), i0 = (rp + n * 4) % n, i1 = (i0 - 1 + n) % n, y = line[i0] * (1 - frac) + line[i1] * frac, v2 = (a2 * y + (1 - a2) * prev) * 0.9992; prev = v2; line[w % n] = v2; o[i] = y; w++; }
-      var pk = 0; for (i = 0; i < len; i++) pk = Math.max(pk, Math.abs(o[i])); for (i = 0; i < len; i++) o[i] = o[i] / pk * 0.8 * Math.min(1, (len - i) / (sr * 0.25));
-      return b;
-    })();
     var SCALE = [0, 1, 5, 7, 8], D4 = 293.66;
     function note(deg) { return D4 * Math.pow(2, (SCALE[((deg % 5) + 5) % 5] + 12 * Math.floor(deg / 5)) / 12); }
-    function kotoNote(t, deg, gain) { var s = ac.createBufferSource(), g = ac.createGain(); s.buffer = koto; s.playbackRate.value = note(deg) / D4; g.gain.value = gain; s.connect(g); g.connect(flute); var sd = ac.createGain(); sd.gain.value = 0.6; g.connect(sd); sd.connect(verb); s.start(t); }
     function shakuhachi(t, f, dur, gain) {
       var env = ac.createGain(); env.gain.setValueAtTime(0, t); env.gain.linearRampToValueAtTime(gain, t + 0.12); env.gain.setTargetAtTime(gain * 0.75, t + 0.12, dur * 0.5); env.gain.setTargetAtTime(0, t + dur, 0.12);
       var lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200; env.connect(lp); lp.connect(flute); var sd = ac.createGain(); sd.gain.value = 0.9; lp.connect(sd); sd.connect(verb);
@@ -1292,50 +1280,19 @@
       [[1, 1], [2.02, 0.6], [2.76, 0.45], [4.07, 0.3], [5.4, 0.2], [0.5, 0.5]].forEach(function (p) { osc(music, t, 98 * p[0], 98 * p[0] * 0.998, 5.5 / Math.sqrt(p[0]), gain * p[1], 5); });
       hit(music, t, 0.05, 'bandpass', 1400, 2, gain * 0.4);
     }
-    // the score's clock: sixteenths at 76 bpm, the drums thickening each lap
-    var ODAIKO = [1, 0, 0, 0, 0, 0, 0, 0, 0.8, 0, 0, 0, 0, 0, 0.45, 0], ODAIKO2 = [1, 0, 0, 0.5, 0, 0, 0.7, 0, 0.9, 0, 0, 0.45, 0, 0, 0.75, 0.5];
-    var NAGADO = [0, 0, 0.6, 0, 0.8, 0, 0, 0.5, 0, 0, 0.6, 0, 0.8, 0, 0, 0], SHIME = [0.7, 0, 0.35, 0, 0.6, 0, 0.35, 0.3, 0.7, 0, 0.35, 0, 0.6, 0.3, 0.45, 0.35], KA = [0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0, 0.5, 0, 0.35, 0];
-    var next = ac.currentTime + 0.3, stepN = 0, phraseAt = ac.currentTime + 3, lastDeg = 5;
+    // the score is the platform's (music: taiko); the world keeps its air:
+    // wind that rises with the pace
     W.audio = {
       tick: function () {
         var now = ac.currentTime, s = clamp((W.speed || 0) / 28, 0, 1);
         wind.gain.setTargetAtTime(0.03 + 0.08 * s, now, 0.2);
-        var L = clamp((W.level - 1) / 5, 0, 1) * 0.8 + (W.speed > 5 ? 0.2 : 0);
-        drone.gain.setTargetAtTime(W.speed > 5 ? 0.022 : 0.05, now, 1.2);
-        if (next < now - 0.3) next = now + 0.02;
-        while (next < now + 0.16) {
-          var st = stepN % 16, v = function () { return next + (Math.random() - 0.5) * 0.008; };
-          if (W.speed > 5) {
-            var od = L > 0.62 ? ODAIKO2 : ODAIKO, k = 1 - 0.25 * L;
-            if (od[st]) odaiko(v(), od[st] * (0.75 + L * 0.3) * k);
-            if (L > 0.3 && NAGADO[st]) nagado(v(), NAGADO[st] * Math.min(1, (L - 0.3) * 3) * k);
-            if (L > 0.55 && SHIME[st]) shime(v(), SHIME[st] * Math.min(1, (L - 0.55) * 3.5) * k);
-            if (L > 0.2 && KA[st]) ka(v(), KA[st]);
-          }
-          stepN++; next += 60 / 76 / 4;
-        }
-        if (now >= phraseAt) {
-          var busy = W.speed > 5 ? L : 0;
-          if (busy < 0.85) {
-            var n = 2 + Math.floor(Math.random() * (busy > 0.5 ? 2 : 4)), at = now + 0.05, deg = lastDeg;
-            for (var i = 0; i < n; i++) {
-              deg = clamp(deg + [-2, -1, -1, 1, 1, 2][Math.floor(Math.random() * 6)], 2, 9); if (i === n - 1) deg = Math.max(2, deg - 1);
-              var len = (i === n - 1 ? 2.2 : 0.9 + Math.random() * 0.9) * (busy > 0.5 ? 0.8 : 1);
-              if (Math.random() < 0.3 && busy < 0.6) kotoNote(at, deg - 5, 0.45);
-              shakuhachi(at, note(deg), len, 0.22 - busy * 0.08);
-              at += len * (0.85 + Math.random() * 0.2);
-            }
-            lastDeg = deg;
-          }
-          phraseAt = now + 8 + Math.random() * (5 + busy * 8);
-        }
       },
-      // the bounty: a roll into one great drum, the bell, a rising koto
-      bounty: function (lap) {
+      // the bounty: a roll into one great drum and the temple bell (the score
+      // answers with its own figure in the song's key)
+      bounty: function () {
         var t = ac.currentTime + 0.05;
         for (var i = 0; i < 6; i++) odaiko(t + i * 0.09 * (1 - i * 0.06), 0.35 + i * 0.08);
         odaiko(t + 0.55, 1.2, true); bell(t + 0.58, 0.16);
-        for (i = 0; i < 5; i++) kotoNote(t + 0.7 + i * 0.12, [0, 2, 3, 4, 5][i] + (lap % 2), 0.5);
       },
       pop: function (g) { var t = ac.currentTime; hit(music, t, 0.4, 'lowpass', 700, 0.7, g * 0.6); hit(music, t + 0.05, 1.2, 'highpass', 3000, 0.5, g * 0.12); },
       slay: function () { var t = ac.currentTime; odaiko(t + 0.02, 0.6); ka(t, 1); },

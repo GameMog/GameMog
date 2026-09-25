@@ -179,7 +179,8 @@ ${inert(code)}
 const RUNTIMES: Record<number, string> = {};
 function runtimeSource(version: number) {
   if (!RUNTIMES[version] || process.env.NODE_ENV !== 'production') {
-    RUNTIMES[version] = readFileSync(join(process.cwd(), 'lib', 'runtime', `v${version}.js`), 'utf8');
+    // the platform's score engine rides in front of the runtime that plays it
+    RUNTIMES[version] = readFileSync(join(process.cwd(), 'lib', 'runtime', 'music.js'), 'utf8') + '\n' + readFileSync(join(process.cwd(), 'lib', 'runtime', `v${version}.js`), 'utf8');
   }
   return RUNTIMES[version];
 }

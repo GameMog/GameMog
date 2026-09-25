@@ -49,6 +49,7 @@ procedurally.
 GameMog.world({
   assets,     // optional: ids from the platform's licensed asset library
   play,       // optional: platform options (no coins, a lap bounty, the sword)
+  music,      // the score: a style, and if you like a key, a mode and a tempo
   theme,      // colours and font for the HUD and screens
   graphics,   // optional: cinematic rendering (light from the sky, bloom, grading)
   camera,     // optional: how the chase camera frames the world
@@ -82,6 +83,39 @@ play: {
   show: only a touch ends a run).
 - **bounty**: the level-up banner shows the bounty; use `ctx.on('lap', ...)` to celebrate it in
   the world (fireworks, a bell, a gong).
+
+### music
+The score. Name a style and the runtime composes a song for this world: a tune in phrases
+that returns so players learn it, harmony from the mode, a bass line, a counter-line, drums
+with fills, all synthesised, mixed and loudness-normalised like every other world's, ducked
+under the game's sounds. The start screen hears it quietly and every lap adds weight. The
+world's title seeds the tune, so a world always plays its own song.
+
+```js
+music: { style: 'taiko', key: 'D', mode: 'in', tempo: 100 }   // only style is needed
+```
+
+| style | sounds like | default key, mode, tempo |
+|---|---|---|
+| `anthem` | stadium brass, strings, rock drums | D major, 128 |
+| `synthwave` | synth lead, arpeggios, pads, drum machine | A minor, 108 |
+| `orchestral` | horns, strings, harp, timpani | D minor, 96 |
+| `taiko` | shakuhachi, koto, taiko drums | D in, 100 |
+| `folk` | flute, fiddle, guitar, bodhran, in 6/8 | G dorian, 112 |
+| `chiptune` | pulse-wave leads, noise drums | C major, 144 |
+| `lofi` | bells and electric piano over soft swung drums | F dorian, 84 |
+| `tropical` | marimba, guitar, congas and shakers | F mixolydian, 104 |
+| `cinematic` | strings and horns over pads, low drums | E minor, 80 |
+
+Pick the style for the world, then the key, mode and tempo if the default does not fit.
+Modes: `major`, `minor`, `dorian`, `mixolydian`, `lydian`, `phrygian`, `harmonic`,
+`pentatonic`, `minorpent`, `in`, `yo`, `hirajoshi`. Tempo 60 to 180. `meter`: `'4/4'`, `'3/4'`
+or `'6/8'`. Swap an instrument with `lead`, `counter`, `chords`, `arp` or `bass` (`pluck`,
+`guitar`, `koto`, `harp`, `piano`, `epiano`, `marimba`, `bell`, `flute`, `shakuhachi`, `fiddle`,
+`strings`, `cello`, `horn`, `brass`, `pad`, `choir`, `synthlead`, `synthpluck`, `chip`, `chip2`,
+`bass`, `synthbass`, `chipbass`; `null` leaves that part out) and the drums with `drums`
+(`stadium`, `synth`, `timpani`, `taiko`, `bodhran`, `chip`, `lofi`, `tropical`, `pulse` or
+`false`). Write no score of your own in `ambient()`: it is for the world's air.
 
 ### theme
 `{ sky, fog, ink, panel, accent, font }`. Colours are `#RRGGBB`. The HUD, screens and touch
@@ -285,7 +319,8 @@ Ambient life every frame: water shimmer, swaying reeds, fireflies, drifting clou
 ### ambient(ctx) (optional)
 Called once, after the first key press or tap. `ctx.audio.context` is an AudioContext and
 `ctx.audio.destination` a gain node to connect to: frogs, wind, market chatter, all
-synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
+synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds, and the score
+is `music`'s.
 
 ### ctx
 - `ctx.THREE`, `ctx.scene`, `ctx.scenery`, `ctx.camera`
@@ -321,7 +356,8 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
   always keep a screen picture of your own.
 - `ctx.play`: the platform options as the runtime read them
 - `ctx.on(name, fn)`: moments to stage in the world: `'lap'` (`{ lap, level, bounty, gm }`),
-  `'swing'` (`{ n }`), `'slay'` (`{ name, slain }`), `'crash'` (`{ into }`), `'start'`
+  `'swing'` (`{ n }`), `'slay'` (`{ name, slain }`), `'crash'` (`{ into }`), `'start'`, and with
+  `music`, `'beat'` (`{ bar, beat, section }`) on every beat of the score (pulse the lanterns)
 - `ctx.audio` (inside `ambient`)
 
 ## Never
