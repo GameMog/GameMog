@@ -62,30 +62,53 @@
   var TW = 9, HW = TW / 2, WALK = 6.1, PARA = 0.85, PARA_H = 1.05, MERLON_H = 0.95, BASE = 7.5;
   // the sun low ahead down the first straight: out of the Gate straight into it
   var SUN = (function () { var v = [-0.28, 0.13, 0.95], l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; })();
-  var ROUTE = [];
-  for (var i = 0; i < 30; i++) {
-    var a = i / 30 * TAU, r = 116 + 17 * Math.sin(2 * a + 0.7) + 9 * Math.sin(3 * a + 2.1) + 4 * Math.sin(5 * a + 0.3);
-    ROUTE.push([Math.cos(a) * r * 1.12, 5.5 - 5.5 * Math.cos(a) + 2 * Math.sin(2 * a + 0.9) + 0.8 * Math.sin(3 * a + 1.3), Math.sin(a) * r]);
-  }
-  var TOWERS = 7; // watchtowers between the Gate and itself, evenly along the lap
+  // the route, after the real Wall on its ridges: out of the Gate and down a
+  // sweeping bend into a saddle, up a flight of stairs to a summit tower on a
+  // spur, over two blind crests, down a long steep stair into the valley,
+  // up a snaking climb and home along the ridge. 814 m, 38 m from the valley
+  // to the summit, flights near 40 per cent, bends as tight as 12 m. Laid out
+  // evenly (a Catmull-Rom through uneven points kinks the parapets).
+  var ROUTE = [
+    [127.68,0,0], [127.12,0.05,11], [124.42,-1.21,21.6], [120.73,-2.87,31.85], [116.13,-4.61,41.72], [110.5,-6.31,51.04],
+    [103.82,-7.77,59.68], [95.68,-8.42,67.07], [89.88,-8.53,76.27], [81.98,-8.57,83.33], [71.95,-8.29,87.79], [62.93,-6.43,93.8],
+    [54.01,-3.08,99.34], [44.73,0.56,104.05], [35.06,4.45,107.61], [24.91,8.16,109.77], [14.44,11.3,111.22], [3.65,13.38,111.98],
+    [-5.96,14.76,116.14], [-12.95,16.78,124.41], [-20.35,19.74,132.03], [-28.58,22.13,138.95], [-38.53,23.55,143.28], [-48.94,23.93,141.46],
+    [-55.82,23.13,132.95], [-59.7,22.19,122.73], [-62,20.64,112.07], [-64.83,18.81,101.64], [-71.49,18.65,92.94], [-79.87,20.88,86.3],
+    [-88.09,17.81,79.73], [-95.62,21.14,72.49], [-102.63,18.85,64.4], [-108.77,15.74,55.79], [-114.03,12.44,46.68], [-118.36,9.09,37.11],
+    [-121.7,5.72,27.16], [-124,2.35,16.92], [-125.25,-1.09,6.52], [-125.24,-4.67,-3.89], [-123.24,-8.2,-14.14], [-120.22,-11.38,-24.25],
+    [-115.76,-13.16,-34.16], [-114.68,-13.97,-44.96], [-109.28,-13.84,-53.89], [-100.05,-13.1,-59.86], [-94.11,-11.16,-68.71], [-91.21,-8.41,-78.98],
+    [-85.17,-5.46,-87.38], [-74.72,-3.19,-89.81], [-64.01,-1.04,-91.2], [-54.89,1.7,-96.47], [-47.77,4.7,-104.33], [-38.94,8.08,-109.65],
+    [-28.58,11.76,-110.12], [-17.89,13.87,-111.08], [-7.1,12.92,-112.9], [3.71,10.73,-112.95], [14.56,9.02,-112.25], [25.35,10.48,-110.7],
+    [36.01,11.98,-108.33], [46.35,10.39,-105.09], [56.46,7.48,-101.79], [66.29,4.95,-97.52], [75.62,3.47,-91.85], [84.53,4.24,-85.42],
+    [92.86,4.18,-78.23], [100.47,3.02,-70.34], [107.32,1.99,-61.76], [113.3,1.13,-52.54], [118.35,0.5,-42.77], [122.38,0.07,-32.52],
+    [125.32,-0.03,-21.89], [127.05,0,-11.01],
+  ];
+  // the watchtowers stand where the Wall does something: the foot of the
+  // stair climb, the summit, the top of the long stair, the valley, the top of
+  // the climb, the ridge (metres along the lap, of 814; the Gate is the
+  // first). Each on a straight: a tower is a box, and a bend under it would
+  // swing its bastions into the lane.
+  var TOWER_AT = [0, 120, 220, 342, 446, 606, 712];
 
   var W = { time: { value: 0 }, level: 1, scarves: [], fires: [], lanterns: null, fireworks: null, flare: 0 };
 
   /* ---------------------------------------------------------- the cast -- */
   // you: a kunoichi in indigo with a crimson scarf. Them: the Kurokage clan
-  // in black and ash, then the Iron Guard in lacquered armour.
+  // in black and ash, then the Iron Guard in lacquered armour, every one of
+  // them a head taller than you (Shinobi Duel's general stands 2.1 m to its
+  // shinobi's 1.68)
   var PLAYER = { gender: 'female', name: 'Kage', suit: '#1B2233', trim: '#8E1B1B', accent: '#C8B18A', scarf: '#B3261E', skin: 'asian', height: 1.7, muscle: 0.62, lean: 0.62, hair: 'short02', mask: '#15171D', blade: '#E9EEF3', grip: '#2B1A14', trail: '#FFE3C2' };
   var RIVALS = [
-    { gender: 'male', name: 'Kurogane', suit: '#141416', trim: '#3A3A3E', accent: '#6B6B70', scarf: '#5B5E66', skin: 'asian', height: 1.78, muscle: 0.8, kind: 'shinobi' },
-    { gender: 'female', name: 'Tsubame', suit: '#1A1618', trim: '#4A2A2E', accent: '#8B6E6A', scarf: '#6E2F35', skin: 'asian', height: 1.68, muscle: 0.68, kind: 'shinobi' },
-    { gender: 'male', name: 'Hayate', suit: '#18191C', trim: '#2E3B4A', accent: '#8A96A8', scarf: '#2E3B4A', skin: 'caucasian', height: 1.82, muscle: 0.82, kind: 'shinobi' },
-    { gender: 'male', name: 'Tetsu', suit: '#26140F', trim: '#7A1C14', accent: '#C9A45C', scarf: '#7A1C14', skin: 'asian', height: 1.84, muscle: 0.92, kind: 'guard', armour: '#7A1C14', crest: '#D4A63A' },
-    { gender: 'female', name: 'Oboro', suit: '#16161A', trim: '#40405A', accent: '#9A9AB8', scarf: '#40405A', skin: 'asian', height: 1.7, muscle: 0.7, kind: 'shinobi' },
-    { gender: 'male', name: 'Raiden', suit: '#141216', trim: '#1E1E22', accent: '#B89A4E', scarf: '#1E1E22', skin: 'african', height: 1.88, muscle: 0.95, kind: 'guard', armour: '#141416', crest: '#D4A63A' },
-    { gender: 'male', name: 'Kagero', suit: '#1C1A18', trim: '#5A5048', accent: '#A89A88', scarf: '#8A7F72', skin: 'caucasian', height: 1.76, muscle: 0.78, kind: 'shinobi' },
-    { gender: 'female', name: 'Shiden', suit: '#1A1216', trim: '#5E1A2A', accent: '#C0A060', scarf: '#5E1A2A', skin: 'asian', height: 1.72, muscle: 0.78, kind: 'guard', armour: '#5E1A2A', crest: '#E0C070' },
-    { gender: 'male', name: 'Yamikaze', suit: '#0F0F11', trim: '#26262B', accent: '#56565E', scarf: '#26262B', skin: 'asian', height: 1.8, muscle: 0.86, kind: 'shinobi' },
-    { gender: 'male', name: 'Genbu', suit: '#1A1A14', trim: '#3A4A2A', accent: '#B8A060', scarf: '#3A4A2A', skin: 'african', height: 1.86, muscle: 0.96, kind: 'guard', armour: '#23301C', crest: '#D4A63A' },
+    { gender: 'male', name: 'Kurogane', suit: '#141416', trim: '#3A3A3E', accent: '#6B6B70', scarf: '#5B5E66', skin: 'asian', height: 2.06, muscle: 0.88, kind: 'shinobi' },
+    { gender: 'female', name: 'Tsubame', suit: '#1A1618', trim: '#4A2A2E', accent: '#8B6E6A', scarf: '#6E2F35', skin: 'asian', height: 2.0, muscle: 0.76, kind: 'shinobi' },
+    { gender: 'male', name: 'Hayate', suit: '#18191C', trim: '#2E3B4A', accent: '#8A96A8', scarf: '#2E3B4A', skin: 'caucasian', height: 2.1, muscle: 0.9, kind: 'shinobi' },
+    { gender: 'male', name: 'Tetsu', suit: '#26140F', trim: '#7A1C14', accent: '#C9A45C', scarf: '#7A1C14', skin: 'asian', height: 2.18, muscle: 1.0, kind: 'guard', armour: '#7A1C14', crest: '#D4A63A' },
+    { gender: 'female', name: 'Oboro', suit: '#16161A', trim: '#40405A', accent: '#9A9AB8', scarf: '#40405A', skin: 'asian', height: 2.02, muscle: 0.78, kind: 'shinobi' },
+    { gender: 'male', name: 'Raiden', suit: '#141216', trim: '#1E1E22', accent: '#B89A4E', scarf: '#1E1E22', skin: 'african', height: 2.2, muscle: 1.0, kind: 'guard', armour: '#141416', crest: '#D4A63A' },
+    { gender: 'male', name: 'Kagero', suit: '#1C1A18', trim: '#5A5048', accent: '#A89A88', scarf: '#8A7F72', skin: 'caucasian', height: 2.08, muscle: 0.86, kind: 'shinobi' },
+    { gender: 'female', name: 'Shiden', suit: '#1A1216', trim: '#5E1A2A', accent: '#C0A060', scarf: '#5E1A2A', skin: 'asian', height: 2.12, muscle: 0.86, kind: 'guard', armour: '#5E1A2A', crest: '#E0C070' },
+    { gender: 'male', name: 'Yamikaze', suit: '#0F0F11', trim: '#26262B', accent: '#56565E', scarf: '#26262B', skin: 'asian', height: 2.1, muscle: 0.94, kind: 'shinobi' },
+    { gender: 'male', name: 'Genbu', suit: '#1A1A14', trim: '#3A4A2A', accent: '#B8A060', scarf: '#3A4A2A', skin: 'african', height: 2.2, muscle: 1.0, kind: 'guard', armour: '#23301C', crest: '#D4A63A' },
   ];
 
   GameMog.world({
@@ -101,8 +124,10 @@
       grade: { contrast: 1.07, saturation: 0.92, highlights: 1.3, split: 1, paper: 0.035, warmth: 0.05, vignette: 0.34, grain: 0.006 },
       shadows: { extent: 40, mapSize: 2048 },
     },
-    // close over the shoulder, as in a duel: you a third of the screen tall, the Wall ahead
-    camera: { distance: 3.8, height: 2.0, fov: 60 },
+    // close over the right shoulder, as Shinobi Duel frames its duel: you
+    // nearly half the screen tall, aimed low so your feet stay in frame, and
+    // off to the left so you never hide the Wall ahead
+    camera: { distance: 3.3, height: 2.1, fov: 54, side: 0.7, look: 0.7 },
     track: { width: TW, points: ROUTE },
     build: build,
     player: function (ctx) { return fighter(ctx, PLAYER, 0); },
@@ -256,6 +281,7 @@
 
     terrain(ctx, low);
     wall(ctx, low);
+    stairs(ctx);
     towers(ctx, low);
     gate(ctx);
     ranges(ctx, low);
@@ -347,8 +373,7 @@
       rb.renderOrder = 1; ctx.scene.add(rb);
     });
     // the tower footprints: the parapet steps round them
-    var towerAt = [];
-    for (var k = 0; k <= TOWERS; k++) towerAt.push(k / (TOWERS + 1) * L);
+    var towerAt = TOWER_AT.map(function (m) { return m / 814 * L; });
     W.towerAt = towerAt;
     function inTower(d) { for (var q = 0; q < towerAt.length; q++) { var dd = Math.abs(((d - towerAt[q]) % L + L * 1.5) % L - L / 2); if (dd < (q === 0 ? 9.5 : 5.5)) return true; } return false; }
     // both sides as one strip each: the inner face of the parapet, its top,
@@ -411,6 +436,42 @@
   }
 
   // red paper lanterns that glow: one instanced mesh, their flicker in update
+  // stone stairs wherever the walk climbs or drops steeply, as on the real
+  // Wall: each tread level across the walk, a riser at each step. They sit on
+  // the smooth ramp the runners follow, never below it, and end in a riser
+  // down to it. One mesh.
+  function stairs(ctx) {
+    var THREE = ctx.THREE, trk = ctx.track, L = trk.length, M = W.M;
+    var TREAD = 0.36, STEEP = 0.13, P = [], NR = [], UV = [];
+    function slope(d) { var f = trk.frameAt(d); return f.tan.y / Math.max(1e-6, Math.hypot(f.tan.x, f.tan.z)); }
+    function at(d, sd, y) { var f = trk.frameAt(d); return [f.pos.x + f.right.x * sd * WALK, y, f.pos.z + f.right.z * sd * WALK]; }
+    function tri(a, b, c, n, ua, ub, uc) { P.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]); for (var k = 0; k < 3; k++) NR.push(n[0], n[1], n[2]); UV.push(ua[0], ua[1], ub[0], ub[1], uc[0], uc[1]); }
+    function quad(a, b, c, e, n, v0, v1) { tri(a, b, c, n, [0, v0], [1, v0], [1, v1]); tri(a, c, e, n, [0, v0], [1, v1], [0, v1]); }
+    function riser(d, lo, hi) {
+      if (hi - lo < 0.004) return;
+      var f = trk.frameAt(d), h = Math.hypot(f.tan.x, f.tan.z), n = [-f.tan.x / h, 0, -f.tan.z / h];
+      quad(at(d, -1, lo), at(d, 1, lo), at(d, 1, hi), at(d, -1, hi), n, d / 5.2, d / 5.2 + (hi - lo) / 5.2);
+    }
+    var top = null;
+    for (var d = 0; d < L; d += TREAD) {
+      var d1 = Math.min(d + TREAD, L), y0 = trk.frameAt(d).pos.y;
+      if (Math.abs(slope(d + TREAD / 2)) < STEEP) { if (top !== null) riser(d, y0, top); top = null; continue; }
+      var t = Math.max(y0, trk.frameAt(d1).pos.y) + 0.03;
+      riser(d, Math.min(top === null ? y0 : top, t), Math.max(top === null ? y0 : top, t));
+      quad(at(d, -1, t), at(d, 1, t), at(d1, 1, t), at(d1, -1, t), [0, 1, 0], d / 5.2, d1 / 5.2);
+      top = t;
+    }
+    if (!P.length) return;
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(NR, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2));
+    var mat = M.walk.clone(); mat.side = THREE.DoubleSide;
+    if (mat.map) { mat.map = mat.map.clone(); mat.map.repeat.set(2.3, 1); mat.map.needsUpdate = true; }
+    if (mat.normalMap) { mat.normalMap = mat.normalMap.clone(); mat.normalMap.repeat.set(2.3, 1); mat.normalMap.needsUpdate = true; }
+    var mesh = new THREE.Mesh(g, mat); mesh.receiveShadow = true; mesh.userData.gmTrack = true;
+    ctx.scene.add(mesh);
+    W.stairMetres = Math.round(P.length / 9 / 4 * TREAD);
+  }
+
   function lanterns(ctx, pts, size) {
     var THREE = ctx.THREE;
     var body = new THREE.SphereGeometry(size, 14, 10); body.scale(1, 1.18, 1);
@@ -592,7 +653,7 @@
     return roomM;
   }
 
-  function towers(ctx) { for (var k = 1; k <= TOWERS; k++) tower(ctx, W.towerAt[k], false); }
+  function towers(ctx) { for (var k = 1; k < W.towerAt.length; k++) tower(ctx, W.towerAt[k], k === 2); }
 
   // the Grand Gate: the start and finish, a great tower with a two-tier
   // roof, a plaque in brush lettering, and the Emperor's lanterns
@@ -960,7 +1021,7 @@
       // fitted on each axis, its rim resting just above the brows
       var K = new THREE.Vector3(size.x / 0.194, size.y / 0.24, size.z / 0.221), top = new THREE.Vector3(mid.x, browY + 0.014, mid.z - size.z * 0.06);
       var onHead = function (mesh, off) { mesh.position.copy(top).add(off.clone().multiply(K)); mesh.scale.copy(K); return wear(mesh); };
-      // the helmet: a lacquered bowl, a peak, a three-lame neck guard, a gold crescent with its horns up
+      // the helmet: a lacquered bowl, a peak, a three-lame neck guard and gold horns
       var lac = new THREE.MeshPhysicalMaterial({ color: spec.armour, roughness: 0.38, clearcoat: 0.8, clearcoatRoughness: 0.25 });
       var gold = new THREE.MeshStandardMaterial({ color: spec.crest, roughness: 0.28, metalness: 1 });
       var bg2 = new THREE.SphereGeometry(1, 22, 12, 0, TAU, 0, PI * 0.54); bg2.scale(0.118, 0.13, 0.126);
@@ -970,11 +1031,22 @@
         lame.material.side = THREE.DoubleSide; onHead(lame, new THREE.Vector3(0, -0.02 - j * 0.04, -0.012));
       }
       var peak = new THREE.Mesh(new THREE.CylinderGeometry(0.128, 0.15, 0.012, 22, 1, false, -PI * 0.28, PI * 0.56), lac); onHead(peak, new THREE.Vector3(0, 0.025, 0.012));
-      var crest = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.01, 6, 20, PI * 0.9), gold); crest.rotation.z = PI * 1.05; onHead(crest, new THREE.Vector3(0, 0.13, 0.132));
+      // kuwagata: two tall gold horns rising in a V from the brow, as on
+      // Shinobi Duel's general, with a gold disc where they meet
+      [-1, 1].forEach(function (sx) {
+        var hc = new THREE.CatmullRomCurve3([new THREE.Vector3(0.015 * sx, 0.04, 0.128), new THREE.Vector3(0.07 * sx, 0.1, 0.152), new THREE.Vector3(0.14 * sx, 0.17, 0.145), new THREE.Vector3(0.2 * sx, 0.25, 0.12), new THREE.Vector3(0.23 * sx, 0.31, 0.09)]);
+        var horn = new THREE.TubeGeometry(hc, 20, 0.02, 6, false);
+        // taper toward the tip
+        var hp2 = horn.attributes.position, c3 = new THREE.Vector3(), pt3 = new THREE.Vector3();
+        for (var q = 0; q < hp2.count; q++) { var u = Math.floor(q / 7) / 20; hc.getPoint(u, c3); pt3.fromBufferAttribute(hp2, q).sub(c3).multiplyScalar(1 - u * 0.75).add(c3); hp2.setXYZ(q, pt3.x, pt3.y, pt3.z); }
+        horn.computeVertexNormals();
+        onHead(new THREE.Mesh(horn, gold), new THREE.Vector3(0, 0, 0));
+      });
+      var disc = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.008, 16).rotateX(PI / 2), gold); onHead(disc, new THREE.Vector3(0, 0.05, 0.132));
       // shoulder plates on the upper arms
       ['upperarm01_L', 'upperarm01_R'].forEach(function (bn, i) {
         var b = B[bn]; if (!b) return;
-        var plate = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.2, 12, 1, true, i ? PI * 0.2 : PI * 1.2, PI * 0.9), lac);
+        var plate = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.19, 0.28, 12, 1, true, i ? PI * 0.2 : PI * 1.2, PI * 0.9), lac);
         plate.material.side = THREE.DoubleSide; plate.position.set(i ? -0.02 : 0.02, -0.06, 0); b.add(plate); plate.castShadow = true;
       });
     }
@@ -1064,20 +1136,73 @@
       });
       return o;
     }
-    function put(d, x, o, extra) { var e = { at: d / L, x: x, object: o }; if (extra) Object.assign(e, extra); out.push(e); }
+    // a tower's doorway: brick jambs that narrow the passage to one gap
+    function jamb() {
+      var o = new THREE.Group();
+      var j = add(o, new THREE.Mesh(new THREE.BoxGeometry(1.5, 3.2, 1.4).translate(0, 1.6, 0), M.brick)); setUV(j.geometry, 3);
+      add(o, new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.22, 1.52).translate(0, 3.31, 0), M.plaster));
+      return o;
+    }
+    var trk = ctx.track, used = [];
+    function gapTo(d) { var g = 1e9; used.forEach(function (u) { g = Math.min(g, Math.abs(((d - u) % L + L * 1.5) % L - L / 2)); }); return g; }
+    function put(d, x, o, extra) { d = (d % L + L) % L; var e = { at: d / L, x: x, object: o }; if (extra) Object.assign(e, extra); out.push(e); used.push(d); }
     function nearTower(d) { for (var q = 0; q < W.towerAt.length; q++) { var dd = Math.abs(((d - W.towerAt[q]) % L + L * 1.5) % L - L / 2); if (dd < (q === 0 ? 30 : 12)) return true; } return false; }
-    var n = 0;
-    for (var d = 60; d < L - 30; d += 23) {
-      if (nearTower(d)) continue;
-      var side = n % 2 ? 1 : -1, x = side * (1.1 + ((n * 7) % 11) / 11 * 1.9), kind = n % 6;
-      if (kind === 0) put(d, x, rubble());
-      else if (kind === 1) put(d, side * 2.2, barricade());
-      else if (kind === 2) put(d, side * 3.1, brazier());
-      else if (kind === 3) put(d, x * 0.4, cart(), { move: { amplitude: 1.6, period: 5 } });
-      else if (kind === 4) put(d, x, barrels());
-      else put(d, -side * 2.4, brazier());
+    // read the course every 2 m: height, grade, and which way and how hard it turns
+    var C = [];
+    for (var d = 0; d < L; d += 2) {
+      var f = trk.frameAt(d), a0 = trk.frameAt(d - 8).pos, a1 = trk.frameAt(d + 8).pos;
+      var mx = (a0.x + a1.x) / 2 - f.pos.x, mz = (a0.z + a1.z) / 2 - f.pos.z, bend = Math.hypot(mx, mz);
+      C.push({ d: d, y: f.pos.y, grade: f.tan.y / Math.max(1e-6, Math.hypot(f.tan.x, f.tan.z)), bend: bend, inside: Math.sign(mx * f.right.x + mz * f.right.z) || 1 });
+    }
+    function c(d) { return C[Math.round(((d % L + L) % L) / 2) % C.length]; }
+    var n = 0, R = rng(814);
+    // 1. over every blind crest, something waiting to one side: pick your lane
+    //    before you can see it
+    C.forEach(function (p, i) {
+      var before = c(p.d - 14).y, after = c(p.d + 16).y;
+      if (p.y < before + 1.2 || p.y < after + 2.5) return;
+      for (var j = -6; j <= 6; j++) if (C[(i + j + C.length) % C.length].y > p.y) return;
+      var at = p.d + 13;
+      if (nearTower(at) || gapTo(at) < 18) return;
+      var side = n++ % 2 ? 1 : -1;
+      put(at, side * 2.1, n % 3 ? barricade() : barrels());
+      put(at + 9, -side * 2.6, rubble());
+    });
+    // 2. three towers narrow to a doorway: jambs either side of one gap
+    [2, 4, 5].forEach(function (k) {
+      var dt = W.towerAt[k];
+      if (dt === undefined) return;
+      put(dt, -3.35, jamb()); put(dt, 3.35, jamb());
+    });
+    // 3. tight bends: a brazier on the inside of the apex, so the fast line burns
+    for (var i = 0; i < C.length; i++) {
+      var p = C[i];
+      if (p.bend < 1.6) continue;
+      var peak = true; for (var j = -4; j <= 4; j++) if (C[(i + j + C.length) % C.length].bend > p.bend) peak = false;
+      if (!peak || nearTower(p.d) || gapTo(p.d) < 14 || p.d < 45) continue;
+      put(p.d, p.inside * 3.0, brazier());
+    }
+    // 4. the flights: rubble and barrels on the steps; a cart slides across the long drop
+    var cartDone = false;
+    for (var ds = 50; ds < L - 20; ds += 4) {
+      var q = c(ds);
+      if (Math.abs(q.grade) < 0.2 || nearTower(ds) || gapTo(ds) < 15) continue;
+      if (!cartDone && q.grade < -0.25) { put(ds, 0, cart(), { move: { amplitude: 2.2, period: 3.6 } }); cartDone = true; continue; }
+      var sd = n++ % 2 ? 1 : -1;
+      put(ds, sd * (1.2 + R() * 1.8), q.grade > 0 ? rubble() : barrels());
+    }
+    // 5. the rest: the old mix wherever the course runs long and open
+    for (var dd = 60; dd < L - 30; dd += 5) {
+      if (nearTower(dd) || gapTo(dd) < 20) continue;
+      var side2 = n % 2 ? 1 : -1, x2 = side2 * (1.1 + ((n * 7) % 11) / 11 * 1.9), kind = n % 5;
+      if (kind === 0) put(dd, x2, rubble());
+      else if (kind === 1) put(dd, side2 * 2.2, barricade());
+      else if (kind === 2) put(dd, side2 * 3.1, brazier());
+      else if (kind === 3) put(dd, x2 * 0.4, cart(), { move: { amplitude: 1.6, period: 5 } });
+      else put(dd, x2, barrels());
       n++;
     }
+    W.obstacleCount = out.length;
     return out;
   }
 

@@ -105,7 +105,7 @@ world uses; it all loads before `build()` runs.
 `ctx.assets.human(id, options)` returns `{ object, animate, name, color }`: return it straight
 from `player()` or `rival()`. It idles when standing, plays a standing start when it first moves,
 runs and sprints with its stride matched to its speed, falls when it crashes, and leans into
-bends. Options, all optional:
+bends. It stands plumb on a slope, so a track may climb steep stairs. Options, all optional:
 
 ```js
 ctx.assets.human('human-athlete-male', {
@@ -211,10 +211,13 @@ graphics: {
   hold 60 fps.
 
 ### camera (optional)
-`{ distance, height, fov }`: metres behind the player (3.5 to 14), metres above (1.8 to 6.5),
-field of view (50 to 78). The camera holds that distance at any speed. Under 5 m is a close,
-over-the-shoulder action view with the athlete a third of the screen tall; 9 (the default)
-shows more of the course. The runtime drives the camera; this only frames it. `ctx.camera` is
+`{ distance, height, fov, side, look }`: metres behind the player (3 to 14), metres above
+(1.8 to 6.5), field of view (50 to 78), metres over the right shoulder (-2 to 2, default 0) and
+the height the camera aims at 9 m ahead (0.3 to 3, default 1.3). The camera holds that distance
+at any speed. Under 5 m is a close action view with the athlete a third of the screen tall or
+more; aim it lower (`look` about 0.7) so the feet stay in frame, and put it over the shoulder
+(`side` about 0.8) so the athlete does not hide the track ahead. 9 (the default) shows more of
+the course. The runtime drives the camera; this only frames it. `ctx.camera` is
 read-only: read its position (to face a billboard at it), never write to it.
 
 ### track
