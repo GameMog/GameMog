@@ -84,9 +84,12 @@ play: {
   the world (fireworks, a bell, a gong).
 
 ### theme
-`{ sky, fog, ink, panel, accent, font }`. Colours are `#RRGGBB`. `ink` is text and borders,
-`panel` is the HUD boards and cards, `accent` is highlights. `font` is one Google Font family
-name (for example `"Fredoka"`, `"Baloo 2"`, `"Bungee"`, `"Rubik"`). Pick them for this world.
+`{ sky, fog, ink, panel, accent, font }`. Colours are `#RRGGBB`. The HUD, screens and touch
+controls are the platform's and look the same in every world (frosted glass, white type in
+Oxanium); `accent` is this world's colour in them: the lit edges, glows and buttons. Pick an
+accent that reads on dark glass. `ink` and `font` letter the world's key art; `font` is one
+Google Font family name (for example `"Fredoka"`, `"Baloo 2"`, `"Bungee"`, `"Rubik"`), loaded
+for the world to letter its own scenery with. `panel` is accepted and unused.
 
 ### assets (optional)
 Ids from the platform's asset library: licensed files (CC0 and the CMU motion capture terms),
