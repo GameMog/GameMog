@@ -472,6 +472,49 @@ try {
     }, { timeoutMs: 180_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(vid); }
 
+  // daylight and the library (the owner, 26 Sep: "lean into assets, AAA and
+  // hyperrealism"): a photographed sky turned to the world's sea, scanned
+  // surfaces at true scale, scanned models, the sea with its beach and surf,
+  // an open roadster with one of the library's people at the wheel
+  console.log('\ndaylight: a photographed sky, scanned surfaces and models, the sea, a person at the wheel');
+  const did = randomUUID();
+  const dMeta = { title: 'Daylight Check', tagline: 'The coast', blurb: 'Runtime check.', genre: 'Test', cast: [{ name: 'Lab', color: '#B01C22' }], palette: { sky: '#8EC3E8', ground: '#C8B48A', accent: '#FF5A36' }, runtime: 1 };
+  insertDraft({ id: did, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../lib/runtime/daylight-world.js', import.meta.url), 'utf8'), meta: dMeta });
+  try {
+    await withBrowser(async (page) => {
+      await page.goto(`${BASE}/d/${did}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__day)').catch(() => false)) break; await sleep(200); }
+      await sleep(1500);
+      const errs = await page.eval<string[]>('window.__gm.errors');
+      ok('a coast world of library skies, surfaces, models and water boots with no errors', errs.length === 0, errs.join(' | '));
+      const sky = await page.eval<{ view: number; rot: number; sun: number[]; haze: string | null }>(`(async () => { const I = window.__gmRuntime.debug.internals(), j = await fetch('/assets/sky-beach/asset.json').then((r) => r.json()); const m = I.skies.filter((k) => k.userData.gmSky)[0]; return { view: j.view, rot: m.rotation.y, sun: m.userData.sun.toArray(), haze: window.__day.haze }; })()`);
+      const vphi = 2 * Math.PI * sky.view, vaz = Math.atan2(-Math.cos(vphi), Math.sin(vphi)), faced = Math.atan2(Math.sin(vaz + sky.rot - Math.PI / 2), Math.cos(vaz + sky.rot - Math.PI / 2));
+      ok('a photographed beach is turned so its sea lies where the world\'s sea is (face: east)', Math.abs(faced) < 0.01, `off by ${faced.toFixed(3)} rad`);
+      ok('the world is lit from the photograph\'s own sun, and fogged with its horizon', sky.sun[1] > 0.3 && !!sky.haze && sky.haze !== '#000000', `sun ${sky.sun.map((v) => v.toFixed(2))}, haze ${sky.haze}`);
+      const surf = await page.eval<{ n: number; bad: number; sand: number; grass: number }>(`(() => { const I = window.__gmRuntime.debug.internals(); let n = 0, bad = 0, sand = -1, grass = -1; I.scene.traverse((m) => { const g = m.material && m.material.userData && m.material.userData.gmSurface; if (!g) return; n++; const p = I.renderer.properties.get(m.material).currentProgram; if (p && p.diagnostics && !p.diagnostics.runnable) bad++; if (g.id === 'texture-sand') sand = g.lean; if (g.id === 'texture-grass') grass = g.lean; }); return { n, bad, sand, grass }; })()`);
+      ok('scanned surfaces laid on at true scale compile and draw (ground, beach, walls)', surf.n >= 3 && surf.bad === 0, JSON.stringify(surf));
+      ok('a scan that leans (the sand, about 9 degrees) is measured and set level', surf.sand > 0.1 && surf.grass >= 0 && surf.grass < 0.05, `sand ${surf.sand}, grass ${surf.grass}`);
+      const wat = await page.eval<{ water: boolean; beach: boolean; foam: boolean; models: Record<string, number> }>(`(() => { const W = window.__gmRuntime.debug.internals().water; return { water: !!W, beach: !!(W && W.beach), foam: !!(W && W.foam), models: window.__day.models }; })()`);
+      ok('the sea has its beach and surf along the whole shore', wat.water && wat.beach && wat.foam, JSON.stringify(wat));
+      ok('scanned models load as their parts (lamps, rocks, ferns)', wat.models.lamp >= 1 && wat.models.rocks === 6 && wat.models.fern === 4, JSON.stringify(wat.models));
+      const drv = await page.eval<{ seated: boolean; kind: string; person: boolean; grip: number[]; beams: number }>(`(() => { const I = window.__gmRuntime.debug.internals(), P = window.__day.car, T = I.THREE, cp = P.cockpit; cp.body.updateMatrixWorld(true); const c = new T.Vector3().setFromMatrixPosition(cp.wheel.matrixWorld); const grip = ['L', 'R'].map((s) => +(P.driver.bones['wrist_' + s].getWorldPosition(new T.Vector3()).distanceTo(c) - cp.rimR).toFixed(3)); let beams = 0; I.scene.traverse((m) => { if (m.isMesh && m.geometry && m.geometry.type === 'ConeGeometry' && m.material && m.material.type === 'ShaderMaterial') beams++; }); return { seated: !!P.driver, kind: P.vehicle.kind, person: cp.person.every((m) => !m.visible), grip, beams }; })()`);
+      ok('an open roadster takes one of the library\'s people at the wheel, in place of the helmeted driver', drv.seated && drv.kind === 'roadster' && drv.person, JSON.stringify(drv));
+      ok('the driver\'s hands hold the rim of the wheel', drv.grip.every((d) => Math.abs(d) < 0.1), `wrists ${drv.grip.join(', ')} m off the rim`);
+      ok('by day the headlights throw no beams', drv.beams === 0, `${drv.beams} beams`);
+      await page.eval('window.__gmRuntime.debug.audio(); window.__gmRuntime.debug.start()'); await sleep(3900);
+      await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true); window.__gmRuntime.debug.timeScale(4)');
+      let d2 = await page.eval<State>('window.__gmRuntime.state()');
+      for (let i = 0; i < 60 && d2.level < 3; i++) { await sleep(400); d2 = await page.eval<State>('window.__gmRuntime.state()'); }
+      const e2 = await page.eval<string[]>('window.__gm.errors');
+      ok('laps along the coast (roadsters, a single-seater, a stock car, a truck) raise no error', d2.level >= 3 && e2.length === 0, `level ${d2.level}${e2.length ? ', ' + e2.join(' | ') : ''}`);
+      // a material whose shader cannot compile is reported, not silently invisible
+      await page.eval(`(() => { const I = window.__gmRuntime.debug.internals(), T = I.THREE; const m = new T.Mesh(new T.BoxGeometry(1, 1, 1), new T.ShaderMaterial({ fragmentShader: 'void main() { gl_FragColor = vec4( notDeclared ); }' })); m.position.copy(I.camera.position).add(new T.Vector3(0, 0, -3).applyQuaternion(I.camera.quaternion)); m.frustumCulled = false; I.scene.add(m); })()`);
+      await sleep(500);
+      const e3 = await page.eval<string[]>('window.__gm.errors');
+      ok('a shader that will not compile is reported as an error', e3.some((e) => /did not compile/.test(e)), e3.join(' | '));
+    }, { timeoutMs: 200_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(did); }
+
   // the creator's options (Create and Mog, the owner, 26 Sep): obstacles each
   // lap fewer, the same or more, and music, enforced by the runtime from the
   // page, whatever the world's code says

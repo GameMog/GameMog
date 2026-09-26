@@ -13,6 +13,10 @@ export type Hazards = (typeof HAZARDS)[number];
 /** Recorded tracks a creator can pick, all CC0, in the asset library. */
 export const MUSIC_TRACKS = [
   { id: 'music-dance-field', label: 'Dance Field', style: 'Retro electro' },
+  { id: 'music-funky-house', label: 'Funky House', style: 'Funky house' },
+  { id: 'music-slampe', label: 'Slampe', style: 'Synthwave house' },
+  { id: 'music-vengeance-electro', label: 'Vengeance Electro', style: 'Electro' },
+  { id: 'music-liquid-flame', label: 'Liquid Flame', style: 'Electronic' },
 ] as const;
 export type MusicTrack = (typeof MUSIC_TRACKS)[number]['id'];
 

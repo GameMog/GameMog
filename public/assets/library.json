@@ -51,6 +51,244 @@
       "license": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "homepage": "https://opengameart.org/content/dance-field"
+    },
+    "ph-sky-qwantani_noon_puresky": {
+      "title": "Qwantani Noon (Pure Sky) (HDRI)",
+      "author": "Greg Zaal and Jarod Guest, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/qwantani_noon_puresky"
+    },
+    "ph-sky-kloofendal_48d_partly_cloudy_puresky": {
+      "title": "Kloofendal 48d Partly Cloudy (Pure Sky) (HDRI)",
+      "author": "Greg Zaal and Jarod Guest, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky"
+    },
+    "ph-sky-qwantani_sunset_puresky": {
+      "title": "Qwantani Sunset (Pure Sky) (HDRI)",
+      "author": "Greg Zaal and Jarod Guest, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/qwantani_sunset_puresky"
+    },
+    "ph-sky-qwantani_dusk_2_puresky": {
+      "title": "Qwantani Dusk 2 (Pure Sky) (HDRI)",
+      "author": "Greg Zaal and Jarod Guest, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/qwantani_dusk_2_puresky"
+    },
+    "ph-sky-qwantani_night_puresky": {
+      "title": "Qwantani Night (Pure Sky) (HDRI)",
+      "author": "Greg Zaal and Jarod Guest, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/qwantani_night_puresky"
+    },
+    "ph-sky-kloofendal_overcast_puresky": {
+      "title": "Kloofendal Overcast (Pure Sky) (HDRI)",
+      "author": "Greg Zaal, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/kloofendal_overcast_puresky"
+    },
+    "ph-sky-spiaggia_di_mondello": {
+      "title": "Spiaggia di Mondello (HDRI)",
+      "author": "Andreas Mischok, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/spiaggia_di_mondello"
+    },
+    "ph-sky-shanghai_bund": {
+      "title": "Shanghai Bund (HDRI)",
+      "author": "Greg Zaal, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/shanghai_bund"
+    },
+    "ph-tex-sand_01": {
+      "title": "Sand 01 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/sand_01"
+    },
+    "ph-tex-leafy_grass": {
+      "title": "Leafy Grass (textures)",
+      "author": "Charlotte Baglioni, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/leafy_grass"
+    },
+    "ph-tex-white_plaster_02": {
+      "title": "White Plaster 02 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/white_plaster_02"
+    },
+    "ph-tex-concrete_floor_02": {
+      "title": "Concrete Floor 02 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/concrete_floor_02"
+    },
+    "ph-tex-red_brick_03": {
+      "title": "Red Brick 03 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/red_brick_03"
+    },
+    "ph-tex-weathered_brown_planks": {
+      "title": "Weathered Brown Planks (textures)",
+      "author": "Dimitrios Savva and Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/weathered_brown_planks"
+    },
+    "ph-tex-rock_face_03": {
+      "title": "Rock Face 03 (textures)",
+      "author": "Dario Barresi and Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/rock_face_03"
+    },
+    "ph-tex-snow_02": {
+      "title": "Snow 02 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/snow_02"
+    },
+    "ph-tex-forrest_ground_01": {
+      "title": "Forest Ground 01 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/forrest_ground_01"
+    },
+    "ph-tex-cobblestone_floor_04": {
+      "title": "Cobblestone Floor 04 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/cobblestone_floor_04"
+    },
+    "ph-tex-bark_brown_02": {
+      "title": "Bark Brown 02 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/bark_brown_02"
+    },
+    "ph-tex-corrugated_iron": {
+      "title": "Corrugated Iron (textures)",
+      "author": "Dimitrios Savva and Jenelle van Heerden, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/corrugated_iron"
+    },
+    "ph-model-boulder_01": {
+      "title": "Boulder 01 (model)",
+      "author": "Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/boulder_01"
+    },
+    "ph-model-rock_moss_set_01": {
+      "title": "Rock Moss Set 01 (model)",
+      "author": "Kless Gyzen, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/rock_moss_set_01"
+    },
+    "ph-model-coastal_cliff_04": {
+      "title": "Coastal Cliff 04 (model)",
+      "author": "Rico Cilliers and Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/coastal_cliff_04"
+    },
+    "ph-model-fern_02": {
+      "title": "Fern 02 (model)",
+      "author": "Rico Cilliers and Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/fern_02"
+    },
+    "ph-model-shrub_01": {
+      "title": "Shrub 01 (model)",
+      "author": "Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/shrub_01"
+    },
+    "ph-model-grass_medium_01": {
+      "title": "Grass Medium 01 (model)",
+      "author": "Rico Cilliers and Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/grass_medium_01"
+    },
+    "ph-model-street_lamp_01": {
+      "title": "Street Lamp 01 (model)",
+      "author": "Josh Dean, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/street_lamp_01"
+    },
+    "ph-model-concrete_road_barrier": {
+      "title": "Concrete Road Barrier (model)",
+      "author": "Amal Kumar, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/concrete_road_barrier"
+    },
+    "ph-model-fire_hydrant": {
+      "title": "Fire Hydrant (model)",
+      "author": "Gon\u00e7alo Fel\u00edcio, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/fire_hydrant"
+    },
+    "ph-model-modular_street_seating": {
+      "title": "Modular Street Seating (model)",
+      "author": "Stuart Attenborrow, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_street_seating"
+    },
+    "ofdn-funky-house": {
+      "title": "Funky House",
+      "author": "Of Far Different Nature (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/funky-house"
+    },
+    "fupi-slampe": {
+      "title": "Slampe (Synthwave House)",
+      "author": "Fupi (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/slampe-synthwave-house"
+    },
+    "ofdn-vengeance-electro": {
+      "title": "Vengeance Electro",
+      "author": "Of Far Different Nature (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/vengeance-electro"
+    },
+    "ofdn-liquid-flame": {
+      "title": "Liquid Flame",
+      "author": "Of Far Different Nature (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/liquid-flame"
     }
   },
   "assets": {
@@ -396,6 +634,1226 @@
         }
       },
       "bytes": 936603
+    },
+    "sky-noon": {
+      "kind": "hdri",
+      "title": "Noon",
+      "description": "A clear noon sky over open country (2048 x 1024, full dynamic range).",
+      "sources": [
+        "ph-sky-qwantani_noon_puresky"
+      ],
+      "meta": {
+        "width": 2048,
+        "height": 1024
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "f58008d7ab0d3bfcbfa03b02aac4d4c5e8eba4bd88a5c7ac9d04d4f6cbcbc5ba",
+          "bytes": 101
+        },
+        "sky.rgbe.z": {
+          "sha256": "9474c633c5114559b9f3717ce538ad0827f9717e59a50d9b196de50160610d5d",
+          "bytes": 2386609
+        }
+      },
+      "bytes": 2386710
+    },
+    "sky-partly-cloudy": {
+      "kind": "hdri",
+      "title": "Partly cloudy",
+      "description": "A bright day with drifting cumulus (2048 x 1024).",
+      "sources": [
+        "ph-sky-kloofendal_48d_partly_cloudy_puresky"
+      ],
+      "meta": {
+        "width": 2048,
+        "height": 1024
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "f58008d7ab0d3bfcbfa03b02aac4d4c5e8eba4bd88a5c7ac9d04d4f6cbcbc5ba",
+          "bytes": 101
+        },
+        "sky.rgbe.z": {
+          "sha256": "ba06adb7fa19fde035bb0120f70a51f7837f047608a566c410c7d99e703365c6",
+          "bytes": 3868048
+        }
+      },
+      "bytes": 3868149
+    },
+    "sky-sunset": {
+      "kind": "hdri",
+      "title": "Sunset",
+      "description": "The sun on the horizon, a warm sky (2048 x 1024).",
+      "sources": [
+        "ph-sky-qwantani_sunset_puresky"
+      ],
+      "meta": {
+        "width": 2048,
+        "height": 1024
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "f58008d7ab0d3bfcbfa03b02aac4d4c5e8eba4bd88a5c7ac9d04d4f6cbcbc5ba",
+          "bytes": 101
+        },
+        "sky.rgbe.z": {
+          "sha256": "dabb7f7304260832d50c67fe985497269bc0f0298e2c1228f5662cce27676460",
+          "bytes": 2530412
+        }
+      },
+      "bytes": 2530513
+    },
+    "sky-dusk": {
+      "kind": "hdri",
+      "title": "Dusk",
+      "description": "After sunset: the glow low, the sky deepening (2048 x 1024).",
+      "sources": [
+        "ph-sky-qwantani_dusk_2_puresky"
+      ],
+      "meta": {
+        "width": 2048,
+        "height": 1024
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "f58008d7ab0d3bfcbfa03b02aac4d4c5e8eba4bd88a5c7ac9d04d4f6cbcbc5ba",
+          "bytes": 101
+        },
+        "sky.rgbe.z": {
+          "sha256": "9a13b5b21de934c5883ac2bc20e8429d047e5471154bd438ef1d7894c926dd3f",
+          "bytes": 2869708
+        }
+      },
+      "bytes": 2869809
+    },
+    "sky-night": {
+      "kind": "hdri",
+      "title": "Night",
+      "description": "A clear night sky with stars (2048 x 1024).",
+      "sources": [
+        "ph-sky-qwantani_night_puresky"
+      ],
+      "meta": {
+        "width": 2048,
+        "height": 1024
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "f58008d7ab0d3bfcbfa03b02aac4d4c5e8eba4bd88a5c7ac9d04d4f6cbcbc5ba",
+          "bytes": 101
+        },
+        "sky.rgbe.z": {
+          "sha256": "1cb36dd3f9289260f505d9b24eb4b2df8dad3fb877cdd9eb6d38f4d810d9aa0b",
+          "bytes": 3970268
+        }
+      },
+      "bytes": 3970369
+    },
+    "sky-overcast": {
+      "kind": "hdri",
+      "title": "Overcast",
+      "description": "A soft grey overcast day (2048 x 1024).",
+      "sources": [
+        "ph-sky-kloofendal_overcast_puresky"
+      ],
+      "meta": {
+        "width": 2048,
+        "height": 1024
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "f58008d7ab0d3bfcbfa03b02aac4d4c5e8eba4bd88a5c7ac9d04d4f6cbcbc5ba",
+          "bytes": 101
+        },
+        "sky.rgbe.z": {
+          "sha256": "7af42dfe96355a32d69bb0e317b143fcf8901540927481790bc52dbf12cd4026",
+          "bytes": 2596180
+        }
+      },
+      "bytes": 2596281
+    },
+    "sky-beach": {
+      "kind": "hdri",
+      "title": "Beach",
+      "description": "A Mediterranean beach at midday: the sea to the horizon, bright sand (2048 x 1024).",
+      "sources": [
+        "ph-sky-spiaggia_di_mondello"
+      ],
+      "meta": {
+        "width": 2048,
+        "height": 1024
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "078d4b0e0c3129d0fde21ed2d951a2b7bb16a52c8cd458a5df2b8a66074ee98c",
+          "bytes": 114
+        },
+        "sky.rgbe.z": {
+          "sha256": "3c54cacedb9e56ba1196bbb86b6a591ef3dfd20a848936e92f6a38a2a0be4e9e",
+          "bytes": 5115198
+        }
+      },
+      "bytes": 5115312
+    },
+    "sky-city-night": {
+      "kind": "hdri",
+      "title": "City at night",
+      "description": "A waterfront city at night: towers, neon and river light (2048 x 1024).",
+      "sources": [
+        "ph-sky-shanghai_bund"
+      ],
+      "meta": {
+        "width": 2048,
+        "height": 1024
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "fd509f59d71435bd9db200a80e353b8d89191453b77012c427081af342101e16",
+          "bytes": 113
+        },
+        "sky.rgbe.z": {
+          "sha256": "f19131c14c97e6269bf02ec7919bcf60bcb66e8d21804f12d79405a5291afd51",
+          "bytes": 5832908
+        }
+      },
+      "bytes": 5833021
+    },
+    "texture-sand": {
+      "kind": "texture",
+      "title": "Sand",
+      "description": "Fine beach sand, rippled. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-sand_01"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "a73b90eaa6d675ef57e7d48a8cf23e1f412e353ab2e29cf73930b8ecd4e76875",
+          "bytes": 485088
+        },
+        "normal.jpg": {
+          "sha256": "73984aecdc35b1ffbc322d64b7f8d8165b06970d11f37dd47010609fcb532704",
+          "bytes": 877821
+        },
+        "roughness.jpg": {
+          "sha256": "ccb179b12c56a9032d60e4f4e2da690b3612a58e1784eb14576372690cdcd1cb",
+          "bytes": 189667
+        }
+      },
+      "bytes": 1552703
+    },
+    "texture-grass": {
+      "kind": "texture",
+      "title": "Grass",
+      "description": "A leafy lawn. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-leafy_grass"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "cfa40bc9d9417d1852db8753a8d5917f110c40101179f63543c382e39bc05e4a",
+          "bytes": 1195394
+        },
+        "normal.jpg": {
+          "sha256": "832328216adc0a7e1f70a31d5ee48c9ab7f2152d83816122736cf42ac4b2ebd6",
+          "bytes": 1466049
+        },
+        "roughness.jpg": {
+          "sha256": "0c2a1d91aacb8e54a496051b59854e51e456fe858abeade778e308359ef16463",
+          "bytes": 511385
+        }
+      },
+      "bytes": 3172955
+    },
+    "texture-plaster": {
+      "kind": "texture",
+      "title": "White plaster",
+      "description": "Painted plaster and stucco, for walls. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-white_plaster_02"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "a1ebbe091bd1ae93d2abd5de8d69f9003a8d0ee6532bcf9a87c2492c97051f23",
+          "bytes": 527219
+        },
+        "normal.jpg": {
+          "sha256": "eb572ca3630d5bfde72e2601b1f02412da23ca005cd19384dced8690be4cb783",
+          "bytes": 652310
+        },
+        "roughness.jpg": {
+          "sha256": "4ff1fe957cd161b07f721fe6c28a9459c8c2e8ec65627a26c16e483a07c80d85",
+          "bytes": 295900
+        }
+      },
+      "bytes": 1475556
+    },
+    "texture-concrete": {
+      "kind": "texture",
+      "title": "Concrete",
+      "description": "A worn concrete floor or pavement. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-concrete_floor_02"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "6db84a6d87dc50508b9d134d6fbd2b7e876b8081a5f43a118a249ca18de73af5",
+          "bytes": 776097
+        },
+        "normal.jpg": {
+          "sha256": "fcda391b57a816d646ae15544688be53790478da5cd48dbe514b3c6901415e61",
+          "bytes": 192757
+        },
+        "roughness.jpg": {
+          "sha256": "c7f026a611b7859903c61ec7fd4574944157223e9e7796413dd6e2a66eaeac7a",
+          "bytes": 318550
+        }
+      },
+      "bytes": 1287531
+    },
+    "texture-brick": {
+      "kind": "texture",
+      "title": "Brick",
+      "description": "Red brick in courses. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-red_brick_03"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "9c58254c099b2d211478f50a427fcdde622af24249ff2e94da41fb836f8c857f",
+          "bytes": 694500
+        },
+        "normal.jpg": {
+          "sha256": "9bfd45e24720d851017c1e1678b70219c72239b2ac6b25e11d57d458bdab8503",
+          "bytes": 955430
+        },
+        "roughness.jpg": {
+          "sha256": "cd865623c1422926848024e877103e9dfe857b2ca8221fce49264b74c9ff48b1",
+          "bytes": 286623
+        }
+      },
+      "bytes": 1936680
+    },
+    "texture-planks": {
+      "kind": "texture",
+      "title": "Weathered planks",
+      "description": "Old boards: boardwalks, piers, decks. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-weathered_brown_planks"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "94833feda44e025a9139f7b5723ea84e4f0258d3b54939a79e1013c133085e29",
+          "bytes": 226049
+        },
+        "normal.jpg": {
+          "sha256": "8d38f02f121c0e58eaedc19cd668faea21381ae3ff4d5332cd90de75e6683393",
+          "bytes": 223250
+        },
+        "roughness.jpg": {
+          "sha256": "b80c45969d8299ca5f21de969f0269138a5e3e78e51fc911af809683d99c5bc9",
+          "bytes": 234672
+        }
+      },
+      "bytes": 684098
+    },
+    "texture-rock": {
+      "kind": "texture",
+      "title": "Rock face",
+      "description": "A rock face, for cliffs and cuttings. Scanned colour, normal and roughness maps, 1024 px for 4 m.",
+      "sources": [
+        "ph-tex-rock_face_03"
+      ],
+      "meta": {
+        "size": 4,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "90f4bf73fe23bcacd68db197860f24e8d394e78a4f4c35d0f70261342be5187b",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "ea48e0e47ad42c8bd312476178b1248ec66f0eb19156a26a1c222f2a40caaf2d",
+          "bytes": 927082
+        },
+        "normal.jpg": {
+          "sha256": "c6423169583f31715cf0636954bad524e806848a5f2861fcea6794275f726ff0",
+          "bytes": 1146788
+        },
+        "roughness.jpg": {
+          "sha256": "9e3d9a2fd75244892e7acb6bab2eaed1279299510a7970672c0ee27ff1c19fea",
+          "bytes": 638904
+        }
+      },
+      "bytes": 2712901
+    },
+    "texture-snow": {
+      "kind": "texture",
+      "title": "Snow",
+      "description": "Packed snow. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-snow_02"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "523a4e69c90b96d787dd69b897f29a2b3761a017024405c60aa630d1e8e9009a",
+          "bytes": 325497
+        },
+        "normal.jpg": {
+          "sha256": "9495ec680616b8340e2cbecbd151bff84c690cfad4209e90cc98d2d0ba81f810",
+          "bytes": 1081858
+        },
+        "roughness.jpg": {
+          "sha256": "b6dea8039ac2a5beaed6fd41834fb55540cc76b492edd1d48ba2da2f30f1cb75",
+          "bytes": 146089
+        }
+      },
+      "bytes": 1553571
+    },
+    "texture-forest-floor": {
+      "kind": "texture",
+      "title": "Forest floor",
+      "description": "Leaf litter, twigs and soil. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-forrest_ground_01"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "3dd6875cb3908e022a3c45ebbffa5e84c670ff2691fbbb6dc9ea4bff88523800",
+          "bytes": 833711
+        },
+        "normal.jpg": {
+          "sha256": "32528a7cdee962cc0b248ee4023a74d0df175737ea90e1eb425122351e0bdab4",
+          "bytes": 1428763
+        },
+        "roughness.jpg": {
+          "sha256": "30d8b56a03d7b12da16f58011b675662a40e58e1cdc768119a5f03968140058c",
+          "bytes": 257165
+        }
+      },
+      "bytes": 2519766
+    },
+    "texture-cobblestone": {
+      "kind": "texture",
+      "title": "Cobblestones",
+      "description": "A cobbled street. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-cobblestone_floor_04"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "b0662eaec38a2056ef00abc66d1a0e8da421d704ed3ff8f9e268ad4c7b2aa58c",
+          "bytes": 575440
+        },
+        "normal.jpg": {
+          "sha256": "a5c71dffb3f25b8b33cfeeb1bfc2fc0f158b8ebc04f3987d68f64343868d1065",
+          "bytes": 781854
+        },
+        "roughness.jpg": {
+          "sha256": "2f62e01aa5c2051cd700c20c21ed791ee2d4ab88274b5724dfd852c4bd2264dc",
+          "bytes": 416114
+        }
+      },
+      "bytes": 1773535
+    },
+    "texture-bark": {
+      "kind": "texture",
+      "title": "Bark",
+      "description": "Brown tree bark, for trunks. Scanned colour, normal and roughness maps, 1024 px for 1 m.",
+      "sources": [
+        "ph-tex-bark_brown_02"
+      ],
+      "meta": {
+        "size": 1,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "88a4ec471b3a812bcc1e51a18251fcc5109b470af236b2ca0cdd6088a03b2718",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "920fa0bed0c9d78c1d530e99795113afd532d7db746de440f4a85d7c83ed0f1a",
+          "bytes": 659592
+        },
+        "normal.jpg": {
+          "sha256": "0d5e691e8ad8bcd093a3587887fda2a6b4a948b5708a4f256f7919584c6eb857",
+          "bytes": 1015623
+        },
+        "roughness.jpg": {
+          "sha256": "68125592de36e15bae7aa6db85c4d135aeb7e5653199ba226483a70f6d69837d",
+          "bytes": 337946
+        }
+      },
+      "bytes": 2013288
+    },
+    "texture-corrugated-metal": {
+      "kind": "texture",
+      "title": "Corrugated metal",
+      "description": "Corrugated iron sheeting. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-corrugated_iron"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "7f3649dd0d056a55a910146f09b1d5298370696a90f511a255fb4c5715bb4b58",
+          "bytes": 719557
+        },
+        "normal.jpg": {
+          "sha256": "e98b839ae681ba929eb80f07348c70d0731b48239abe69268effab18420cd271",
+          "bytes": 755185
+        },
+        "roughness.jpg": {
+          "sha256": "1addcfc0210fc101f9f12c8e4dbd7a7d2642a5ef76699a8a485f00b5476af357",
+          "bytes": 455677
+        }
+      },
+      "bytes": 1930546
+    },
+    "model-boulder": {
+      "kind": "model",
+      "title": "Boulder",
+      "description": "A weathered boulder about 1.8 m tall. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 5533 triangles.",
+      "sources": [
+        "ph-model-boulder_01"
+      ],
+      "derived": "Cut from 66122 to 5533 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "boulder_01"
+        ],
+        "triangles": 5533
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "90335f0517cae147696d4252ed6617294dbb02f3057acb33cbbe0ceaf13a2690",
+          "bytes": 870
+        },
+        "boulder_01_arm.jpg": {
+          "sha256": "c57187c5746b6be913fa53846cb44ff78743e7ca5000f131c9627b99563c2b87",
+          "bytes": 659386
+        },
+        "boulder_01_diff.jpg": {
+          "sha256": "c38f0e918f6dc16b8d386ba3cdd89805c78320c119a1ceec85856f82b09a65b8",
+          "bytes": 987467
+        },
+        "boulder_01_nor_gl.jpg": {
+          "sha256": "0810cf6e89d89bb6eb065b4d2e2855288f5dcbd2c15c6e40ab90d462021b50aa",
+          "bytes": 1183552
+        },
+        "model.bin.z": {
+          "sha256": "0ebec86f0bb25477edd3d0025b3b258c7cc06003ae37c612812085208ebbbf45",
+          "bytes": 99697
+        }
+      },
+      "bytes": 2930972
+    },
+    "model-mossy-rocks": {
+      "kind": "model",
+      "title": "Mossy rocks",
+      "description": "Six mossy rocks, each its own part (rock01 to rock06). Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 8995 triangles.",
+      "sources": [
+        "ph-model-rock_moss_set_01"
+      ],
+      "derived": "Cut from 63127 to 8995 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "rock_moss_set_01_rock01",
+          "rock_moss_set_01_rock02",
+          "rock_moss_set_01_rock03",
+          "rock_moss_set_01_rock04",
+          "rock_moss_set_01_rock05",
+          "rock_moss_set_01_rock06"
+        ],
+        "triangles": 8995
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "00cd5d376a3aeb82be8e6c50859d2c52186b63283aaa21609cfc35f5921f1966",
+          "bytes": 3522
+        },
+        "model.bin.z": {
+          "sha256": "633dc0acec836f25667ad4018b565f608446ca5547d2f85a8c44a6e4f581cb00",
+          "bytes": 151155
+        },
+        "rock_moss_set_01_diff.jpg": {
+          "sha256": "40cea65d8aa4ee73a93b04af19963834d061eee9779c3fc2c1cba76eef812ccc",
+          "bytes": 168099
+        },
+        "rock_moss_set_01_nor_gl.jpg": {
+          "sha256": "eb4aad3f207f1dc5b624d74ae240372171626a66912bd71adf7bd3e518181d6e",
+          "bytes": 209975
+        },
+        "rock_moss_set_01_rough.jpg": {
+          "sha256": "4d6ec46623abd8e2cdb855f59c7ce31873ad61b36b60e4de579e9e776a497c6b",
+          "bytes": 82624
+        }
+      },
+      "bytes": 615375
+    },
+    "model-coastal-cliff": {
+      "kind": "model",
+      "title": "Coastal cliff",
+      "description": "A sea cliff 87 m long and 11 m high. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 39994 triangles.",
+      "sources": [
+        "ph-model-coastal_cliff_04"
+      ],
+      "derived": "Cut from 1537926 to 39994 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "coastal_cliff_04"
+        ],
+        "triangles": 39994
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "972120cf1d20170f501e2332e3889721eb5fd1d64c270e8062098cfd05332aa4",
+          "bytes": 907
+        },
+        "coastal_cliff_04_arm.jpg": {
+          "sha256": "cf23e8b784876d93dc28c317cfe2efa1a37376956cad76fbc951b7903d10993a",
+          "bytes": 782097
+        },
+        "coastal_cliff_04_diff.jpg": {
+          "sha256": "c3af6c8768139b74dd4658a57487114e2caacb8035858ccd9b66077109a49fab",
+          "bytes": 802870
+        },
+        "coastal_cliff_04_nor_gl.jpg": {
+          "sha256": "6b1937ab6c8e8084ef69a492272c2d6aadc11b667bb5278c58d00a360c9c7d9b",
+          "bytes": 1190406
+        },
+        "model.bin.z": {
+          "sha256": "174dbdc44bcecc04623fb006f38e6ee3d4e905da87809a07ac10c2030f08e809",
+          "bytes": 680747
+        }
+      },
+      "bytes": 3457027
+    },
+    "model-fern": {
+      "kind": "model",
+      "title": "Fern",
+      "description": "Four ferns, each its own part (a to d). Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 5996 triangles.",
+      "sources": [
+        "ph-model-fern_02"
+      ],
+      "derived": "Cut from 6232 to 5996 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "fern_02_b",
+          "fern_02_c",
+          "fern_02_a",
+          "fern_02_d"
+        ],
+        "triangles": 5996
+      },
+      "files": {
+        "alpha.png": {
+          "sha256": "ea3c64284c7ebdeedf484d2d816eae92825ec526140c3bb83859ddc7a64001f9",
+          "bytes": 114589
+        },
+        "asset.json": {
+          "sha256": "c0f105d035778e58c6e0af2bd3e4bb5cbd0cc8167498c6bf59575e999dcdd7d0",
+          "bytes": 2409
+        },
+        "fern_02_arm.jpg": {
+          "sha256": "ebfb5d76ce9cbdaec20bcd22dce9b755f0b1b8650ef29ca13555e3e6961025d7",
+          "bytes": 280359
+        },
+        "fern_02_diff.jpg": {
+          "sha256": "a828a6e7b4c01c826911e2eac4b3afc7457dab7b3b392a31c681ed88b7d50029",
+          "bytes": 315705
+        },
+        "fern_02_nor_gl.jpg": {
+          "sha256": "45bce132c6e96a0864bc89ab5da51361ab3f4afa83a6669ae499ab5ca811f621",
+          "bytes": 367222
+        },
+        "model.bin.z": {
+          "sha256": "8f6dd3b6bbcc53db5aa492711744a26381d6fc72c81184af02ddde27642ad058",
+          "bytes": 87237
+        }
+      },
+      "bytes": 1167521
+    },
+    "model-shrub": {
+      "kind": "model",
+      "title": "Shrub",
+      "description": "A leafy shrub about 2.6 m across. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 15870 triangles.",
+      "sources": [
+        "ph-model-shrub_01"
+      ],
+      "derived": "Cut from 156012 to 15870 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "shrub_01_a"
+        ],
+        "triangles": 15870
+      },
+      "files": {
+        "alpha.png": {
+          "sha256": "eb693835205913dfc705a08fb45f3e8d1c338332bd0097e9837773765b421603",
+          "bytes": 132597
+        },
+        "asset.json": {
+          "sha256": "7b87a792e77547f35ad4a95a42b9b61b7fadcaff395ad038035f648c31af917e",
+          "bytes": 885
+        },
+        "model.bin.z": {
+          "sha256": "0ce2b9f8b3e771adccff88ce387c591f60b838d82968d326dad3c8906d159bbb",
+          "bytes": 144619
+        },
+        "shrub_01_arm.jpg": {
+          "sha256": "8faecdc28d8f03ba0ac139be16e617e8bfd0778780ec1d7850812230378b89be",
+          "bytes": 386309
+        },
+        "shrub_01_diff.jpg": {
+          "sha256": "fe60e639d694e1807c0a3ae97dd1d5a7e7b3f84e5fc32d0610b868ce48f36331",
+          "bytes": 502162
+        },
+        "shrub_01_nor_gl.jpg": {
+          "sha256": "076870a39a4e21a364cf94566e6dd1852a29045fdf1f23393637235b19d1c2e8",
+          "bytes": 746497
+        }
+      },
+      "bytes": 1913069
+    },
+    "model-grass": {
+      "kind": "model",
+      "title": "Grass clumps",
+      "description": "Seventeen clumps of grass, small to tall, each its own part. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 10686 triangles.",
+      "sources": [
+        "ph-model-grass_medium_01"
+      ],
+      "derived": "Cut from 24730 to 10686 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "grass_medium_01_small_a",
+          "grass_medium_01_large_b",
+          "grass_medium_01_mid_b",
+          "grass_medium_01_tall_b",
+          "grass_medium_01_tall_a",
+          "grass_medium_01_tall_c",
+          "grass_medium_01_small_b",
+          "grass_medium_01_mid_c",
+          "grass_medium_01_mid_a",
+          "grass_medium_01_large_a",
+          "grass_medium_01_large_c",
+          "grass_medium_01_tiny_c",
+          "grass_medium_01_tiny_a",
+          "grass_medium_01_tiny_b",
+          "grass_medium_01_tiny_d",
+          "grass_medium_01_tiny_e",
+          "grass_medium_01_tiny_f"
+        ],
+        "triangles": 10686
+      },
+      "files": {
+        "alpha.png": {
+          "sha256": "711a8e49af758d6a6ce1f610db858899a27be19da6d1866bd35c13bc7b8ffeff",
+          "bytes": 648718
+        },
+        "asset.json": {
+          "sha256": "5a060c7271e8d4258f5dbdfe66035dcb8abe95a5f4f73e50c7bd33f50ba376bc",
+          "bytes": 9371
+        },
+        "grass_medium_01_arm.jpg": {
+          "sha256": "9a3a30f72bc02f4398967c5b08f2d20cce30bd423a2613b42a727034296fa3ae",
+          "bytes": 679518
+        },
+        "grass_medium_01_diff.jpg": {
+          "sha256": "71495bd6a11fddcab0aaff38246fea1a7b802a705483f1c7cbca53955daa8050",
+          "bytes": 395673
+        },
+        "grass_medium_01_nor_gl.jpg": {
+          "sha256": "cae298d3d1d7ff7c7e210ad8ac772b96706e356f9315a6b04fde373ce01ccf1e",
+          "bytes": 956166
+        },
+        "model.bin.z": {
+          "sha256": "601af7eaa62583821a46be221028e30bb13a37bdc5e02bbdb915bab8c8f71072",
+          "bytes": 277935
+        }
+      },
+      "bytes": 2967381
+    },
+    "model-street-lamp": {
+      "kind": "model",
+      "title": "Street lamp",
+      "description": "A 3.9 m cast-iron street lamp with its glass and bulb. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 5988 triangles.",
+      "sources": [
+        "ph-model-street_lamp_01"
+      ],
+      "derived": "Cut from 30610 to 5988 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "street_lamp_01"
+        ],
+        "triangles": 5988
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "1c9d4a029ec6abfa9eded4664caa19a5ca87e3ec7366e013ef2e4567f5e7d7d8",
+          "bytes": 2076
+        },
+        "model.bin.z": {
+          "sha256": "86663a822c873f02472ccdd23b37393f5db73d6002b2e0268a3731b5502e7b3c",
+          "bytes": 88034
+        },
+        "street_lamp_01_arm.jpg": {
+          "sha256": "4b5487a6c7ee300c3cf5449629e01c35409e5c7ac1695edb9fe69d4821853c7c",
+          "bytes": 664324
+        },
+        "street_lamp_01_diff.jpg": {
+          "sha256": "3e9d3471b33eb1f8075ed741c2b1932103598626d057ca12ef38005ea5fcb165",
+          "bytes": 307889
+        },
+        "street_lamp_01_nor_gl.jpg": {
+          "sha256": "172af0fd7ed4999e9f520b9f56e1f357a6dba87adbd7b8aa87e0a0b95840c63d",
+          "bytes": 438623
+        }
+      },
+      "bytes": 1500946
+    },
+    "model-concrete-barrier": {
+      "kind": "model",
+      "title": "Concrete barrier",
+      "description": "A concrete road barrier 1.5 m long. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 2998 triangles.",
+      "sources": [
+        "ph-model-concrete_road_barrier"
+      ],
+      "derived": "Cut from 60928 to 2998 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "concrete_road_barrier"
+        ],
+        "triangles": 2998
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "3fd69852d0814569f67499e7ac0405d3c682b017ae26048a7ef880c2b70f0aa5",
+          "bytes": 924
+        },
+        "concrete_road_barrier_arm.jpg": {
+          "sha256": "b940847648012f2db8c24b16e07ad1e39b3bd33ea493203364deca209606e4b4",
+          "bytes": 619502
+        },
+        "concrete_road_barrier_diff.jpg": {
+          "sha256": "88b2d79829ffec7b11ac4d9c8554328f30b665d2c17f634197fde4f1ca8696fe",
+          "bytes": 792641
+        },
+        "concrete_road_barrier_nor_gl.jpg": {
+          "sha256": "c1072f51ff5c3d7158f0fbb0aa26e82b816b745b9f03639c4816832af2b37c52",
+          "bytes": 961760
+        },
+        "model.bin.z": {
+          "sha256": "3c3dc7579bcca61178e4020cf9738c46784f54a44510dec6efcb72d9c1dba11f",
+          "bytes": 47859
+        }
+      },
+      "bytes": 2422686
+    },
+    "model-fire-hydrant": {
+      "kind": "model",
+      "title": "Fire hydrant",
+      "description": "A fire hydrant, new and aged (parts fire_hydrant and fire_hydrant_aged). Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 8295 triangles.",
+      "sources": [
+        "ph-model-fire_hydrant"
+      ],
+      "derived": "Cut from 86316 to 8295 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "fire_hydrant",
+          "fire_hydrant_cap_01",
+          "fire_hydrant_cap_02",
+          "fire_hydrant_cap_03",
+          "fire_hydrant_chain",
+          "fire_hydrant_aged",
+          "fire_hydrant_cap_01_aged",
+          "fire_hydrant_cap_02_aged",
+          "fire_hydrant_cap_03_aged",
+          "fire_hydrant_chain_aged"
+        ],
+        "triangles": 8295
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "8071be0ebbfbc4bc26e889f5339ec24a2a1e0876a9709e5a3dbeb1a2de71d738",
+          "bytes": 7181
+        },
+        "fire_hydrant_aged_arm.jpg": {
+          "sha256": "9c46b014735a4e8df5a80e4c030ddb321c9aeaa715ad4ea3eb60e6f0909c9d0a",
+          "bytes": 665642
+        },
+        "fire_hydrant_aged_diff.jpg": {
+          "sha256": "3198cabcaf5107e59109bd07dfe8e4c87b3f0533173d10fafdaf86f8024a291e",
+          "bytes": 629331
+        },
+        "fire_hydrant_aged_nor_gl.jpg": {
+          "sha256": "6fadc78fd5d696bf594ff021aaf93a0c6aced761830f9aa6971c51b17c869c35",
+          "bytes": 543768
+        },
+        "fire_hydrant_arm.jpg": {
+          "sha256": "d15bf8fc6389ae48a1060a38057c2093469e62f585c8033d300b80af81d40f9d",
+          "bytes": 671743
+        },
+        "fire_hydrant_diff.jpg": {
+          "sha256": "a3d0b8b6fcd8a39c8d5067f8ef95e3290053131887398f89baf57c1f8d24ab45",
+          "bytes": 570746
+        },
+        "fire_hydrant_nor_gl.jpg": {
+          "sha256": "f6786775276c7b48f0582fdd7c43984b63b15b7a8e0ea0e2f2af8cdab98c06d7",
+          "bytes": 490552
+        },
+        "model.bin.z": {
+          "sha256": "c67e8e7d0c6e7329f5eb6e0c556ea4489c7953a6c081227292cd2298d228583c",
+          "bytes": 149184
+        }
+      },
+      "bytes": 3728147
+    },
+    "model-street-seating": {
+      "kind": "model",
+      "title": "Street seating",
+      "description": "Modular street benches: legs, seats, backs and connectors as parts. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 7462 triangles.",
+      "sources": [
+        "ph-model-modular_street_seating"
+      ],
+      "derived": "Cut from 25156 to 7462 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "crossbar",
+          "legs_double",
+          "legs_single",
+          "suspended_support_01",
+          "suspended_support_02",
+          "back_support_r",
+          "back_support_l",
+          "arm_rest_01",
+          "arm_rest_02",
+          "seat",
+          "seat_back",
+          "connector_60",
+          "connector_45",
+          "connector_90",
+          "connector_30",
+          "seat_bench"
+        ],
+        "triangles": 7462
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "342d6c8e789c4d84e7db63ce404110aaf32c9cd6ffa212d562c2e2f49630e6d7",
+          "bytes": 9901
+        },
+        "model.bin.z": {
+          "sha256": "358847a2b90f3f1ed4b728172ea7cc10945a49c5834841a2aca37d105015f706",
+          "bytes": 134978
+        },
+        "modular_street_seating_armrests_arm.jpg": {
+          "sha256": "0016585de0b1d3accd9b204f912e76e03385901410e02e5c8dd3186333ff882f",
+          "bytes": 622643
+        },
+        "modular_street_seating_armrests_diff.jpg": {
+          "sha256": "1df79fcf237bcca5dcbd6af8e283e775125e723d2782dee3184550564905990f",
+          "bytes": 612860
+        },
+        "modular_street_seating_armrests_nor_gl.jpg": {
+          "sha256": "1625c7492bfdc6fb97a49a09e5f958bfc62d46b7fc97bdcda97ba83fc13f18c4",
+          "bytes": 324073
+        },
+        "modular_street_seating_connectors_arm.jpg": {
+          "sha256": "30af91ae8f610ce5ffc15289005b1e6eaf7e904048ad7cd129dcd6e68163512c",
+          "bytes": 591917
+        },
+        "modular_street_seating_connectors_diff.jpg": {
+          "sha256": "0b869d0b8d85d89e79fdb74794a45532b64b32221272c3777089730ca9097003",
+          "bytes": 212785
+        },
+        "modular_street_seating_connectors_nor_gl.jpg": {
+          "sha256": "1debc33dce0a35acee944281a712b90ce3ba0a1914e0d30201dc45e4639ecd28",
+          "bytes": 398150
+        },
+        "modular_street_seating_supports_arm.jpg": {
+          "sha256": "8dbdaf063699c6d81319a9f0ac2fa5997236981fa703103fdadb008570df8de2",
+          "bytes": 734095
+        },
+        "modular_street_seating_supports_diff.jpg": {
+          "sha256": "3d2dc8a4ac499b540445be6277a1fa7c84fb7cdbf0fbe04d9738d806393393e4",
+          "bytes": 721380
+        },
+        "modular_street_seating_supports_nor_gl.jpg": {
+          "sha256": "5396d42fc24e0bf0e038767dc0548c4562b359930a9f8ade61897d18192ec929",
+          "bytes": 477177
+        },
+        "modular_street_seating_timber_arm.jpg": {
+          "sha256": "07b108f3c6ee8afe56c9c23592d48f80344992bd0512080a1cc2bf37e7c7cb84",
+          "bytes": 762344
+        },
+        "modular_street_seating_timber_diff.jpg": {
+          "sha256": "2dce35474445e91743ec1e5a1ffbc405cdd3b7ec94be945d93d684e23e127be3",
+          "bytes": 596026
+        },
+        "modular_street_seating_timber_nor_gl.jpg": {
+          "sha256": "b7d0fff50ca56f12a3ebc3056c0c8104be84efce118a38094608d8e15af27d9a",
+          "bytes": 557669
+        }
+      },
+      "bytes": 6755998
+    },
+    "music-funky-house": {
+      "kind": "music",
+      "title": "Funky House",
+      "description": "Funky house, 128 BPM: the opening once, then 24 bars that loop seamlessly.",
+      "sources": [
+        "ofdn-funky-house"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 128,
+        "duration": 61.4583,
+        "loop": {
+          "start": 16.4583,
+          "end": 61.4583,
+          "bars": 24,
+          "introBars": 8,
+          "similarity": 1.976
+        },
+        "lufs": -7.02
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "e7f1e8ab2b579e4753db92da993e40bdc710367acee6a81b1a1505167510ab4d",
+          "bytes": 279
+        },
+        "track.m4a": {
+          "sha256": "fca6f9c6a9fd3e06525dc34b8f16010210f1a506fd86ab7157784eb6a8a39a9b",
+          "bytes": 1500183
+        }
+      },
+      "bytes": 1500462
+    },
+    "music-slampe": {
+      "kind": "music",
+      "title": "Slampe",
+      "description": "Synthwave house, 114.03 BPM: the opening once, then 40 bars that loop seamlessly.",
+      "sources": [
+        "fupi-slampe"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 114.03,
+        "duration": 97.9692,
+        "loop": {
+          "start": 13.78086,
+          "end": 97.96923,
+          "bars": 40,
+          "introBars": 6,
+          "similarity": 1.828
+        },
+        "lufs": -13.18
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "49e0ae26b08163088692a07f8787b2429a127bed597f6109cd9e5d560f8fed17",
+          "bytes": 287
+        },
+        "track.m4a": {
+          "sha256": "a1e201759535c245b2f8f5df6327bcc54a47dc0a9d1e751f2d9f4a43fe5e0855",
+          "bytes": 2334582
+        }
+      },
+      "bytes": 2334869
+    },
+    "music-vengeance-electro": {
+      "kind": "music",
+      "title": "Vengeance Electro",
+      "description": "Electro, 128.01 BPM: the opening once, then 32 bars that loop seamlessly.",
+      "sources": [
+        "ofdn-vengeance-electro"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 128.01,
+        "duration": 112.5112,
+        "loop": {
+          "start": 52.51594,
+          "end": 112.51126,
+          "bars": 32,
+          "introBars": 28,
+          "similarity": 1.904
+        },
+        "lufs": -5.68
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "52b08794bb78f92a2748afe8405785bbffd557e7d2f0cab6d25d5f785a9be5ab",
+          "bytes": 287
+        },
+        "track.m4a": {
+          "sha256": "8252b65d1c44ba2b65d20d6c71b44aac32855bdb5627ffa8b851713b8bc2068d",
+          "bytes": 2739916
+        }
+      },
+      "bytes": 2740203
+    },
+    "music-liquid-flame": {
+      "kind": "music",
+      "title": "Liquid Flame",
+      "description": "Electronic, 125 BPM: the opening once, then 24 bars that loop seamlessly.",
+      "sources": [
+        "ofdn-liquid-flame"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 125,
+        "duration": 83.0486,
+        "loop": {
+          "start": 36.96861,
+          "end": 83.04861,
+          "bars": 24,
+          "introBars": 19,
+          "similarity": 1.97
+        },
+        "lufs": -8.44
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c54daf4a65283983ce762676b7231118f5a5cdfad4632a2c9fad401e6b35538",
+          "bytes": 280
+        },
+        "track.m4a": {
+          "sha256": "b8750b5083d8c3f4d0573fb2d1fd454238ee05e1d62f66125e3dec5b6f72becb",
+          "bytes": 2045534
+        }
+      },
+      "bytes": 2045814
     }
   }
 }

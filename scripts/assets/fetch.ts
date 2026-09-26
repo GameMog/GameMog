@@ -58,6 +58,23 @@ for (const [name, src] of Object.entries(sources)) {
   }
 }
 
+// files listed one by one, each at its own address (Poly Haven serves a
+// model's glTF, buffer and textures from different folders)
+for (const [name, src] of Object.entries(sources)) {
+  if (!src.urls) continue;
+  for (const [f, url] of Object.entries(src.urls as Record<string, string>)) {
+    const key = `${name}/${f}`;
+    if (have(key)) continue;
+    const data = await get(url);
+    if (src.md5?.[f]) {
+      const m = createHash('md5').update(data).digest('hex');
+      if (m !== src.md5[f]) throw new Error(`${key}: md5 ${m} does not match the publisher's ${src.md5[f]}`);
+    }
+    save(key, data);
+    console.log(`  ${key} (${(data.length / 1024).toFixed(0)} KB)`);
+  }
+}
+
 // entries of a remote zip, by range request
 for (const [name, src] of Object.entries(sources)) {
   if (!src.zip) continue;

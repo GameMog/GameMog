@@ -130,7 +130,7 @@ export function beats(pcm: Pcm, lo = 70, hi = 200) {
 }
 
 /** Where the track can loop: a bar after the intro back to a later bar that sounds like it. */
-export function findLoop(pcm: Pcm, bt: ReturnType<typeof beats>) {
+export function findLoop(pcm: Pcm, bt: ReturnType<typeof beats>, maxSeconds = 100) {
   const barS = 240 / bt.bpm, n = pcm.ch[0].length / pcm.sr;
   const bars: number[] = [];
   for (let t = bt.first; t + barS <= n; t += barS) bars.push(t);
@@ -150,9 +150,11 @@ export function findLoop(pcm: Pcm, bt: ReturnType<typeof beats>) {
   const sorted = level.slice().sort((a, b) => a - b), body = sorted[Math.floor(sorted.length * 0.5)];
   const intro = level.findIndex((l) => l > body - 0.25);
   let best = { a: intro, b: bars.length - 1, score: -Infinity };
-  for (let a = intro; a < bars.length; a++) for (let b = a + 16; b < bars.length; b++) {
-    if ((b - a) % 8) continue; // whole phrases
-    const score = sim(a, b) + 0.6 * sim(a - 1, b - 1) + 0.3 * sim(a + 1, b + 1) + (b - a) * 0.004;
+  const most = Math.max(16, Math.floor(maxSeconds / barS));
+  for (let a = intro; a < bars.length; a++) for (let b = a + 16; b < bars.length && b - a <= most; b++) {
+    if ((b - a) % 8) continue; // whole phrases, and no longer than a download should be
+    // a loop that ends sooner means a smaller file: prefer it when the joins are as good
+    const score = sim(a, b) + 0.6 * sim(a - 1, b - 1) + 0.3 * sim(a + 1, b + 1) + (b - a) * 0.004 - Math.max(0, bars[b] - 90) * 0.004;
     if (score > best.score) best = { a, b, score };
   }
   return { start: bars[best.a], end: bars[best.b], bars: best.b - best.a, introBars: best.a, similarity: +best.score.toFixed(3), barSeconds: barS };

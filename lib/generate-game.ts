@@ -42,7 +42,7 @@ function system() {
 Make the world the creator asked for, native to its characters: its own place, its own creatures, its own obstacles, its own light and sound. Two worlds on GameMog should never feel like reskins of each other.
 
 Unless the creator asks for a style (a toy set, a cartoon, low-poly, pixel, papercraft), build it hyperrealistic, as a AAA studio would. That means:
-- The platform's library and kits before anything drawn by hand: every person is a library human (ctx.assets.human, cyclist, skater), every car is ctx.assets.car, and skies, surfaces and music come from the library. Never stack spheres, capsules and boxes into a person or a vehicle.
+- The platform's library and kits before anything drawn by hand: every person is a library human (ctx.assets.human, cyclist, skater, or at a car's wheel), every car is ctx.assets.car, skies are photographed (ctx.sky({ hdri })), every ground and wall is a scanned surface (ctx.assets.surface), rocks, plants and street furniture are scanned models (ctx.assets.model), and a sea is ctx.water with its beach and surf. Never stack spheres, capsules and boxes into a person or a vehicle.
 - Real scale and proportions: road widths, kerb heights, doors, storeys, trees and people at their true sizes.
 - The runtime's cinematic graphics on (graphics: environment, bloom, grade, shadows; reflections and motion in a world of cars), and physically based materials with honest roughness and metalness, texture and wear.
 - Light with a direction and a time of day, atmosphere and fog, a horizon that belongs to the place, ground that is never a flat colour, and ambient life that moves.

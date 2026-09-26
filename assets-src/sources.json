@@ -180,6 +180,594 @@
       "files": [
         "dance_field_2.wav"
       ]
+    },
+    "ph-sky-qwantani_noon_puresky": {
+      "title": "Qwantani Noon (Pure Sky) (HDRI)",
+      "author": "Greg Zaal and Jarod Guest, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/qwantani_noon_puresky",
+      "urls": {
+        "qwantani_noon_puresky_2k.hdr": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/qwantani_noon_puresky_2k.hdr"
+      },
+      "md5": {
+        "qwantani_noon_puresky_2k.hdr": "a316dccf04a17de5581240ed172790f0"
+      }
+    },
+    "ph-sky-kloofendal_48d_partly_cloudy_puresky": {
+      "title": "Kloofendal 48d Partly Cloudy (Pure Sky) (HDRI)",
+      "author": "Greg Zaal and Jarod Guest, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky",
+      "urls": {
+        "kloofendal_48d_partly_cloudy_puresky_2k.hdr": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/kloofendal_48d_partly_cloudy_puresky_2k.hdr"
+      },
+      "md5": {
+        "kloofendal_48d_partly_cloudy_puresky_2k.hdr": "2eba3a4d7eeb23cbfbeca364c97e7980"
+      }
+    },
+    "ph-sky-qwantani_sunset_puresky": {
+      "title": "Qwantani Sunset (Pure Sky) (HDRI)",
+      "author": "Greg Zaal and Jarod Guest, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/qwantani_sunset_puresky",
+      "urls": {
+        "qwantani_sunset_puresky_2k.hdr": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/qwantani_sunset_puresky_2k.hdr"
+      },
+      "md5": {
+        "qwantani_sunset_puresky_2k.hdr": "b918af5fefb341535961ffdad5fab7bc"
+      }
+    },
+    "ph-sky-qwantani_dusk_2_puresky": {
+      "title": "Qwantani Dusk 2 (Pure Sky) (HDRI)",
+      "author": "Greg Zaal and Jarod Guest, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/qwantani_dusk_2_puresky",
+      "urls": {
+        "qwantani_dusk_2_puresky_2k.hdr": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/qwantani_dusk_2_puresky_2k.hdr"
+      },
+      "md5": {
+        "qwantani_dusk_2_puresky_2k.hdr": "a6754f300315d6b2e06c4682009a7991"
+      }
+    },
+    "ph-sky-qwantani_night_puresky": {
+      "title": "Qwantani Night (Pure Sky) (HDRI)",
+      "author": "Greg Zaal and Jarod Guest, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/qwantani_night_puresky",
+      "urls": {
+        "qwantani_night_puresky_2k.hdr": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/qwantani_night_puresky_2k.hdr"
+      },
+      "md5": {
+        "qwantani_night_puresky_2k.hdr": "a2ef5b92f49f77b5bad15add5dad4feb"
+      }
+    },
+    "ph-sky-kloofendal_overcast_puresky": {
+      "title": "Kloofendal Overcast (Pure Sky) (HDRI)",
+      "author": "Greg Zaal, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/kloofendal_overcast_puresky",
+      "urls": {
+        "kloofendal_overcast_puresky_2k.hdr": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/kloofendal_overcast_puresky_2k.hdr"
+      },
+      "md5": {
+        "kloofendal_overcast_puresky_2k.hdr": "26462123fc5ce757a331553d05e4db37"
+      }
+    },
+    "ph-sky-spiaggia_di_mondello": {
+      "title": "Spiaggia di Mondello (HDRI)",
+      "author": "Andreas Mischok, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/spiaggia_di_mondello",
+      "urls": {
+        "spiaggia_di_mondello_2k.hdr": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/spiaggia_di_mondello_2k.hdr"
+      },
+      "md5": {
+        "spiaggia_di_mondello_2k.hdr": "c73bdbbb5558c6c02114764b9260dcad"
+      }
+    },
+    "ph-sky-shanghai_bund": {
+      "title": "Shanghai Bund (HDRI)",
+      "author": "Greg Zaal, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/shanghai_bund",
+      "urls": {
+        "shanghai_bund_2k.hdr": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/shanghai_bund_2k.hdr"
+      },
+      "md5": {
+        "shanghai_bund_2k.hdr": "7514519fbe8a917aa2e4829f3b52cdde"
+      }
+    },
+    "ph-tex-sand_01": {
+      "title": "Sand 01 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/sand_01",
+      "urls": {
+        "sand_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/sand_01/sand_01_diff_1k.jpg",
+        "sand_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/sand_01/sand_01_nor_gl_1k.jpg",
+        "sand_01_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/sand_01/sand_01_rough_1k.jpg"
+      },
+      "md5": {
+        "sand_01_diff_1k.jpg": "c914c8edb419f040e04224081a3f79a5",
+        "sand_01_nor_gl_1k.jpg": "369b82aa417c77ec85c4c07c4c7b60a0",
+        "sand_01_rough_1k.jpg": "663d0ddf782a427b7da4e247c939e73b"
+      }
+    },
+    "ph-tex-leafy_grass": {
+      "title": "Leafy Grass (textures)",
+      "author": "Charlotte Baglioni, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/leafy_grass",
+      "urls": {
+        "leafy_grass_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leafy_grass/leafy_grass_diff_1k.jpg",
+        "leafy_grass_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leafy_grass/leafy_grass_nor_gl_1k.jpg",
+        "leafy_grass_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leafy_grass/leafy_grass_rough_1k.jpg"
+      },
+      "md5": {
+        "leafy_grass_diff_1k.jpg": "0dbc071e91d6905edfcfbe8eb785a1ab",
+        "leafy_grass_nor_gl_1k.jpg": "8279e096e204ea326d57a318869f99df",
+        "leafy_grass_rough_1k.jpg": "05f6bb1383e12b327727d313c5899cf2"
+      }
+    },
+    "ph-tex-white_plaster_02": {
+      "title": "White Plaster 02 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/white_plaster_02",
+      "urls": {
+        "white_plaster_02_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_plaster_02/white_plaster_02_diff_1k.jpg",
+        "white_plaster_02_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_plaster_02/white_plaster_02_nor_gl_1k.jpg",
+        "white_plaster_02_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_plaster_02/white_plaster_02_rough_1k.jpg"
+      },
+      "md5": {
+        "white_plaster_02_diff_1k.jpg": "7b10c2686bcfd76d1f309a20fd06b57e",
+        "white_plaster_02_nor_gl_1k.jpg": "55fc03203ebf1dc703a380fde93ff502",
+        "white_plaster_02_rough_1k.jpg": "8b28f263360b8c4ddbdc4f7c650c4eeb"
+      }
+    },
+    "ph-tex-concrete_floor_02": {
+      "title": "Concrete Floor 02 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/concrete_floor_02",
+      "urls": {
+        "concrete_floor_02_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_diff_1k.jpg",
+        "concrete_floor_02_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_nor_gl_1k.jpg",
+        "concrete_floor_02_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_rough_1k.jpg"
+      },
+      "md5": {
+        "concrete_floor_02_diff_1k.jpg": "1cfee53d2f82fa59726ab7ae6a2e8c09",
+        "concrete_floor_02_nor_gl_1k.jpg": "c2065fd81f571f4e39163ea5661128fb",
+        "concrete_floor_02_rough_1k.jpg": "653d60d0db1872a49138455cf31c8326"
+      }
+    },
+    "ph-tex-red_brick_03": {
+      "title": "Red Brick 03 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/red_brick_03",
+      "urls": {
+        "red_brick_03_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/red_brick_03/red_brick_03_diff_1k.jpg",
+        "red_brick_03_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/red_brick_03/red_brick_03_nor_gl_1k.jpg",
+        "red_brick_03_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/red_brick_03/red_brick_03_rough_1k.jpg"
+      },
+      "md5": {
+        "red_brick_03_diff_1k.jpg": "d157c6d6dd774762b4269927a87fe9b5",
+        "red_brick_03_nor_gl_1k.jpg": "e89ce432d9160edb7c902f901756865f",
+        "red_brick_03_rough_1k.jpg": "8f16439361c5fe27f9df03be279ce8c9"
+      }
+    },
+    "ph-tex-weathered_brown_planks": {
+      "title": "Weathered Brown Planks (textures)",
+      "author": "Dimitrios Savva and Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/weathered_brown_planks",
+      "urls": {
+        "weathered_brown_planks_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_brown_planks/weathered_brown_planks_diff_1k.jpg",
+        "weathered_brown_planks_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_brown_planks/weathered_brown_planks_nor_gl_1k.jpg",
+        "weathered_brown_planks_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_brown_planks/weathered_brown_planks_rough_1k.jpg"
+      },
+      "md5": {
+        "weathered_brown_planks_diff_1k.jpg": "e2fbdf7ed402e272e33e3f7ba707cf69",
+        "weathered_brown_planks_nor_gl_1k.jpg": "1180a2ce3566529b25128252e02bd049",
+        "weathered_brown_planks_rough_1k.jpg": "4893f3ee360a4e1e30b96a157e65e50a"
+      }
+    },
+    "ph-tex-rock_face_03": {
+      "title": "Rock Face 03 (textures)",
+      "author": "Dario Barresi and Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/rock_face_03",
+      "urls": {
+        "rock_face_03_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_face_03/rock_face_03_diff_1k.jpg",
+        "rock_face_03_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_face_03/rock_face_03_nor_gl_1k.jpg",
+        "rock_face_03_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_face_03/rock_face_03_rough_1k.jpg"
+      },
+      "md5": {
+        "rock_face_03_diff_1k.jpg": "e4c34abb1aad5befe12754fad507147a",
+        "rock_face_03_nor_gl_1k.jpg": "cbd30858439ece391480c5e67e09de89",
+        "rock_face_03_rough_1k.jpg": "bbb2c7dafde3f81808fa7404d4527a56"
+      }
+    },
+    "ph-tex-snow_02": {
+      "title": "Snow 02 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/snow_02",
+      "urls": {
+        "snow_02_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/snow_02/snow_02_diff_1k.jpg",
+        "snow_02_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/snow_02/snow_02_nor_gl_1k.jpg",
+        "snow_02_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/snow_02/snow_02_rough_1k.jpg"
+      },
+      "md5": {
+        "snow_02_diff_1k.jpg": "fc54766c6b36ff298699115a619d440b",
+        "snow_02_nor_gl_1k.jpg": "f16b5701f9ad521cdd6af10c1d6d2b48",
+        "snow_02_rough_1k.jpg": "1dbae0269e53dbf80d4fd1c4335f25a2"
+      }
+    },
+    "ph-tex-forrest_ground_01": {
+      "title": "Forest Ground 01 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/forrest_ground_01",
+      "urls": {
+        "forrest_ground_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forrest_ground_01/forrest_ground_01_diff_1k.jpg",
+        "forrest_ground_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forrest_ground_01/forrest_ground_01_nor_gl_1k.jpg",
+        "forrest_ground_01_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forrest_ground_01/forrest_ground_01_rough_1k.jpg"
+      },
+      "md5": {
+        "forrest_ground_01_diff_1k.jpg": "236e7d928f5e357a194fd92de189cbe4",
+        "forrest_ground_01_nor_gl_1k.jpg": "ba4265df25aea293913d004b69ef9ab0",
+        "forrest_ground_01_rough_1k.jpg": "72dacf5b829cafc025f08ca64e92e5eb"
+      }
+    },
+    "ph-tex-cobblestone_floor_04": {
+      "title": "Cobblestone Floor 04 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/cobblestone_floor_04",
+      "urls": {
+        "cobblestone_floor_04_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/cobblestone_floor_04/cobblestone_floor_04_diff_1k.jpg",
+        "cobblestone_floor_04_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/cobblestone_floor_04/cobblestone_floor_04_nor_gl_1k.jpg",
+        "cobblestone_floor_04_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/cobblestone_floor_04/cobblestone_floor_04_rough_1k.jpg"
+      },
+      "md5": {
+        "cobblestone_floor_04_diff_1k.jpg": "b57737026948ed8b4fce9b0cb3c91e81",
+        "cobblestone_floor_04_nor_gl_1k.jpg": "583a0f00ea8cb54ed38265ff2db6f022",
+        "cobblestone_floor_04_rough_1k.jpg": "a3a7d7660d212d8d59058451116eae44"
+      }
+    },
+    "ph-tex-bark_brown_02": {
+      "title": "Bark Brown 02 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/bark_brown_02",
+      "urls": {
+        "bark_brown_02_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_02/bark_brown_02_diff_1k.jpg",
+        "bark_brown_02_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_02/bark_brown_02_nor_gl_1k.jpg",
+        "bark_brown_02_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_02/bark_brown_02_rough_1k.jpg"
+      },
+      "md5": {
+        "bark_brown_02_diff_1k.jpg": "6669cca520594bdca19f94084984ab72",
+        "bark_brown_02_nor_gl_1k.jpg": "1cad3fe0349a44df2d4d1c2859c79920",
+        "bark_brown_02_rough_1k.jpg": "bbcde696e5b9418cdcb2abe638965417"
+      }
+    },
+    "ph-tex-corrugated_iron": {
+      "title": "Corrugated Iron (textures)",
+      "author": "Dimitrios Savva and Jenelle van Heerden, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/corrugated_iron",
+      "urls": {
+        "corrugated_iron_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/corrugated_iron/corrugated_iron_diff_1k.jpg",
+        "corrugated_iron_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/corrugated_iron/corrugated_iron_nor_gl_1k.jpg",
+        "corrugated_iron_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/corrugated_iron/corrugated_iron_rough_1k.jpg"
+      },
+      "md5": {
+        "corrugated_iron_diff_1k.jpg": "fabb629c5ad6f427e6862bb4043564bd",
+        "corrugated_iron_nor_gl_1k.jpg": "02249d61a2b1839552938f35a20d075a",
+        "corrugated_iron_rough_1k.jpg": "7c14b728587586e74be45a67cfe44160"
+      }
+    },
+    "ph-model-boulder_01": {
+      "title": "Boulder 01 (model)",
+      "author": "Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/boulder_01",
+      "urls": {
+        "boulder_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/boulder_01/boulder_01_1k.gltf",
+        "textures/boulder_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/boulder_01/boulder_01_arm_1k.jpg",
+        "textures/boulder_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/boulder_01/boulder_01_diff_1k.jpg",
+        "boulder_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/boulder_01/boulder_01.bin",
+        "textures/boulder_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/boulder_01/boulder_01_nor_gl_1k.jpg"
+      },
+      "md5": {
+        "boulder_01_1k.gltf": "26e2eef4a1f68c9557c65cd375b21d6c",
+        "textures/boulder_01_arm_1k.jpg": "d632159982cc3121ed3d69b89a122146",
+        "textures/boulder_01_diff_1k.jpg": "25f8a843f13369d56d37f49db05ea8c3",
+        "boulder_01.bin": "27a19fa031d8b4c3a09261f19c444dc5",
+        "textures/boulder_01_nor_gl_1k.jpg": "0c4da644d901144b53e4fe2446f3c389"
+      }
+    },
+    "ph-model-rock_moss_set_01": {
+      "title": "Rock Moss Set 01 (model)",
+      "author": "Kless Gyzen, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/rock_moss_set_01",
+      "urls": {
+        "rock_moss_set_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/rock_moss_set_01/rock_moss_set_01_1k.gltf",
+        "textures/rock_moss_set_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rock_moss_set_01/rock_moss_set_01_nor_gl_1k.jpg",
+        "rock_moss_set_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/rock_moss_set_01/rock_moss_set_01.bin",
+        "textures/rock_moss_set_01_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rock_moss_set_01/rock_moss_set_01_rough_1k.jpg",
+        "textures/rock_moss_set_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rock_moss_set_01/rock_moss_set_01_diff_1k.jpg"
+      },
+      "md5": {
+        "rock_moss_set_01_1k.gltf": "75113cc1c21806cca5d8badad4737af7",
+        "textures/rock_moss_set_01_nor_gl_1k.jpg": "eb7ebd31ad08e78d0497900652ff1568",
+        "rock_moss_set_01.bin": "207a51c9f56d34732e9814bbf9cc07b1",
+        "textures/rock_moss_set_01_rough_1k.jpg": "ed9d8a2c863262f76f881346e8047c6a",
+        "textures/rock_moss_set_01_diff_1k.jpg": "b8742301e6b4bc5683d2de712e83f772"
+      }
+    },
+    "ph-model-coastal_cliff_04": {
+      "title": "Coastal Cliff 04 (model)",
+      "author": "Rico Cilliers and Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/coastal_cliff_04",
+      "urls": {
+        "coastal_cliff_04_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/coastal_cliff_04/coastal_cliff_04_1k.gltf",
+        "textures/coastal_cliff_04_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/coastal_cliff_04/coastal_cliff_04_arm_1k.jpg",
+        "textures/coastal_cliff_04_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/coastal_cliff_04/coastal_cliff_04_nor_gl_1k.jpg",
+        "textures/coastal_cliff_04_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/coastal_cliff_04/coastal_cliff_04_diff_1k.jpg",
+        "coastal_cliff_04.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/coastal_cliff_04/coastal_cliff_04.bin"
+      },
+      "md5": {
+        "coastal_cliff_04_1k.gltf": "68418cc5fbddbd0ff1c350fb2aaaa62f",
+        "textures/coastal_cliff_04_arm_1k.jpg": "0975cb928cf15ec821a4894f6ed1a8ef",
+        "textures/coastal_cliff_04_nor_gl_1k.jpg": "871fd83dabbb8abc463ce00917591532",
+        "textures/coastal_cliff_04_diff_1k.jpg": "945ccb738b5f2ddc590da02a1a216720",
+        "coastal_cliff_04.bin": "77612519fa9eb44129ba40943612c3c3"
+      }
+    },
+    "ph-model-fern_02": {
+      "title": "Fern 02 (model)",
+      "author": "Rico Cilliers and Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/fern_02",
+      "urls": {
+        "fern_02_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/fern_02/fern_02_1k.gltf",
+        "textures/fern_02_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fern_02/fern_02_arm_1k.jpg",
+        "textures/fern_02_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fern_02/fern_02_diff_1k.jpg",
+        "textures/fern_02_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fern_02/fern_02_nor_gl_1k.jpg",
+        "fern_02.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/fern_02/fern_02.bin",
+        "textures/fern_02_alpha_1k.png": "https://dl.polyhaven.org/file/ph-assets/Models/png/1k/fern_02/fern_02_alpha_1k.png"
+      },
+      "md5": {
+        "fern_02_1k.gltf": "cf276874d37bfb73c299504a6b355b77",
+        "textures/fern_02_arm_1k.jpg": "1bbb2b22951f450720d28e17d93a2987",
+        "textures/fern_02_diff_1k.jpg": "82c18a6cfd5ae91c37c0e078f591181c",
+        "textures/fern_02_nor_gl_1k.jpg": "43aed63dff79554f6064627515afd9d7",
+        "fern_02.bin": "c061e9255f7d36ae9ce0e92ef3e100b2",
+        "textures/fern_02_alpha_1k.png": "1421e5e36946c23a7ddcc907de89025c"
+      }
+    },
+    "ph-model-shrub_01": {
+      "title": "Shrub 01 (model)",
+      "author": "Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/shrub_01",
+      "urls": {
+        "shrub_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/shrub_01/shrub_01_1k.gltf",
+        "textures/shrub_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/shrub_01/shrub_01_nor_gl_1k.jpg",
+        "shrub_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/shrub_01/shrub_01.bin",
+        "textures/shrub_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/shrub_01/shrub_01_arm_1k.jpg",
+        "textures/shrub_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/shrub_01/shrub_01_diff_1k.jpg",
+        "textures/shrub_01_alpha_1k.png": "https://dl.polyhaven.org/file/ph-assets/Models/png/1k/shrub_01/shrub_01_alpha_1k.png"
+      },
+      "md5": {
+        "shrub_01_1k.gltf": "4ac1312e5ea687b321b78382f5f209c8",
+        "textures/shrub_01_nor_gl_1k.jpg": "985fa065ed411dc49e07d564330555ac",
+        "shrub_01.bin": "baf77d162f397f43fa4737b545d73e1a",
+        "textures/shrub_01_arm_1k.jpg": "1682705926a9fc60ab34d079564f1a9e",
+        "textures/shrub_01_diff_1k.jpg": "c5ac2665a0e2b4f11fd20b3296d62fe2",
+        "textures/shrub_01_alpha_1k.png": "5ed0301c1bf12c291f183563a2b8c370"
+      }
+    },
+    "ph-model-grass_medium_01": {
+      "title": "Grass Medium 01 (model)",
+      "author": "Rico Cilliers and Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/grass_medium_01",
+      "urls": {
+        "grass_medium_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/grass_medium_01/grass_medium_01_1k.gltf",
+        "textures/grass_medium_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_01/grass_medium_01_nor_gl_1k.jpg",
+        "textures/grass_medium_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_01/grass_medium_01_diff_1k.jpg",
+        "textures/grass_medium_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_01/grass_medium_01_arm_1k.jpg",
+        "grass_medium_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/grass_medium_01/grass_medium_01.bin",
+        "textures/grass_medium_01_alpha_1k.png": "https://dl.polyhaven.org/file/ph-assets/Models/png/1k/grass_medium_01/grass_medium_01_alpha_1k.png"
+      },
+      "md5": {
+        "grass_medium_01_1k.gltf": "28dd8247f3faa749bf87a0b84be01e7e",
+        "textures/grass_medium_01_nor_gl_1k.jpg": "fcf43dd1253f56e4c361079f34155c37",
+        "textures/grass_medium_01_diff_1k.jpg": "6b18ed50d776fd20c1304d9994bd764e",
+        "textures/grass_medium_01_arm_1k.jpg": "37ed2730a507b681af2e9f9f7ef3ae5e",
+        "grass_medium_01.bin": "e0527a0561c2dae5b7b5c1b478d8c6bf",
+        "textures/grass_medium_01_alpha_1k.png": "6b5b251ef1ca9a69ab9f49def66d758a"
+      }
+    },
+    "ph-model-street_lamp_01": {
+      "title": "Street Lamp 01 (model)",
+      "author": "Josh Dean, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/street_lamp_01",
+      "urls": {
+        "street_lamp_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/street_lamp_01/street_lamp_01_1k.gltf",
+        "textures/street_lamp_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/street_lamp_01/street_lamp_01_arm_1k.jpg",
+        "textures/street_lamp_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/street_lamp_01/street_lamp_01_diff_1k.jpg",
+        "textures/street_lamp_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/street_lamp_01/street_lamp_01_nor_gl_1k.jpg",
+        "street_lamp_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/street_lamp_01/street_lamp_01.bin"
+      },
+      "md5": {
+        "street_lamp_01_1k.gltf": "d29d1fc30bbdad99a58371754f144e65",
+        "textures/street_lamp_01_arm_1k.jpg": "63d980174db10cf22a1b175743c465c9",
+        "textures/street_lamp_01_diff_1k.jpg": "82efb7531a25cda3ef8af2aff8ecccf7",
+        "textures/street_lamp_01_nor_gl_1k.jpg": "c27d8102c7e851a8f0f654bb959b9d67",
+        "street_lamp_01.bin": "324bc6295e3962322514ddcfc7037b23"
+      }
+    },
+    "ph-model-concrete_road_barrier": {
+      "title": "Concrete Road Barrier (model)",
+      "author": "Amal Kumar, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/concrete_road_barrier",
+      "urls": {
+        "concrete_road_barrier_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/concrete_road_barrier/concrete_road_barrier_1k.gltf",
+        "textures/concrete_road_barrier_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_road_barrier/concrete_road_barrier_nor_gl_1k.jpg",
+        "textures/concrete_road_barrier_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_road_barrier/concrete_road_barrier_arm_1k.jpg",
+        "textures/concrete_road_barrier_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_road_barrier/concrete_road_barrier_diff_1k.jpg",
+        "concrete_road_barrier.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/concrete_road_barrier/concrete_road_barrier.bin"
+      },
+      "md5": {
+        "concrete_road_barrier_1k.gltf": "6d6feaf068f434e8dc163a1a9d983f4a",
+        "textures/concrete_road_barrier_nor_gl_1k.jpg": "5cc77a0a52de7f3e6c7405b5bfedfc6f",
+        "textures/concrete_road_barrier_arm_1k.jpg": "a289412cc7fe2c265f0975b31d8edda1",
+        "textures/concrete_road_barrier_diff_1k.jpg": "0fc11541996e1ddbdb1875dff35bc1c9",
+        "concrete_road_barrier.bin": "f256cb4d2bd9e5623b062502605dfcf2"
+      }
+    },
+    "ph-model-fire_hydrant": {
+      "title": "Fire Hydrant (model)",
+      "author": "Gon\u00e7alo Fel\u00edcio, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/fire_hydrant",
+      "urls": {
+        "fire_hydrant_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/fire_hydrant/fire_hydrant_1k.gltf",
+        "fire_hydrant.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/fire_hydrant/fire_hydrant.bin",
+        "textures/fire_hydrant_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_nor_gl_1k.jpg",
+        "textures/fire_hydrant_aged_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_aged_diff_1k.jpg",
+        "textures/fire_hydrant_aged_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_aged_arm_1k.jpg",
+        "textures/fire_hydrant_aged_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_aged_nor_gl_1k.jpg",
+        "textures/fire_hydrant_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_diff_1k.jpg",
+        "textures/fire_hydrant_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fire_hydrant/fire_hydrant_arm_1k.jpg"
+      },
+      "md5": {
+        "fire_hydrant_1k.gltf": "85c3205fe0cdb2b23390ee1205d035c3",
+        "fire_hydrant.bin": "636cd237cd1c9a793e3fc3edbf7f6a15",
+        "textures/fire_hydrant_nor_gl_1k.jpg": "62f1bb906fddb58f26bf8b2513b972bc",
+        "textures/fire_hydrant_aged_diff_1k.jpg": "7a01bfe1ec2235c3ae280544b258d16c",
+        "textures/fire_hydrant_aged_arm_1k.jpg": "4d593fa44c621a98079ed7c6261af8be",
+        "textures/fire_hydrant_aged_nor_gl_1k.jpg": "59aa175275e7e15709c586e144b4474c",
+        "textures/fire_hydrant_diff_1k.jpg": "ecd42c8726c77692c8ff2d5a236896b2",
+        "textures/fire_hydrant_arm_1k.jpg": "22a64a6b558956476a5e1140a510704f"
+      }
+    },
+    "ph-model-modular_street_seating": {
+      "title": "Modular Street Seating (model)",
+      "author": "Stuart Attenborrow, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_street_seating",
+      "urls": {
+        "modular_street_seating_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/modular_street_seating/modular_street_seating_1k.gltf",
+        "textures/modular_street_seating_supports_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_street_seating/modular_street_seating_supports_diff_1k.jpg",
+        "textures/modular_street_seating_armrests_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_street_seating/modular_street_seating_armrests_nor_gl_1k.jpg",
+        "textures/modular_street_seating_timber_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_street_seating/modular_street_seating_timber_arm_1k.jpg",
+        "textures/modular_street_seating_supports_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_street_seating/modular_street_seating_supports_nor_gl_1k.jpg",
+        "textures/modular_street_seating_timber_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_street_seating/modular_street_seating_timber_diff_1k.jpg",
+        "textures/modular_street_seating_connectors_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_street_seating/modular_street_seating_connectors_nor_gl_1k.jpg",
+        "textures/modular_street_seating_armrests_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_street_seating/modular_street_seating_armrests_diff_1k.jpg",
+        "textures/modular_street_seating_supports_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_street_seating/modular_street_seating_supports_arm_1k.jpg",
+        "textures/modular_street_seating_connectors_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_street_seating/modular_street_seating_connectors_diff_1k.jpg",
+        "textures/modular_street_seating_armrests_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_street_seating/modular_street_seating_armrests_arm_1k.jpg",
+        "textures/modular_street_seating_timber_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_street_seating/modular_street_seating_timber_nor_gl_1k.jpg",
+        "textures/modular_street_seating_connectors_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_street_seating/modular_street_seating_connectors_arm_1k.jpg",
+        "modular_street_seating.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/modular_street_seating/modular_street_seating.bin"
+      },
+      "md5": {
+        "modular_street_seating_1k.gltf": "350ccab60ac6ed46009c6bd578cf212f",
+        "textures/modular_street_seating_supports_diff_1k.jpg": "f8f3ce0a8510267bb320523b147e8bc5",
+        "textures/modular_street_seating_armrests_nor_gl_1k.jpg": "3161b56f328b98f1cc3a3748bdcdd57a",
+        "textures/modular_street_seating_timber_arm_1k.jpg": "ed6858f805affc2d5387043c7de0b9f3",
+        "textures/modular_street_seating_supports_nor_gl_1k.jpg": "eb422efce89e6d40608ce8e9a8c7d42a",
+        "textures/modular_street_seating_timber_diff_1k.jpg": "ef96054b965201bcf45a5fe1a137d853",
+        "textures/modular_street_seating_connectors_nor_gl_1k.jpg": "4489712b8404eb94a0ef2a8536f8571f",
+        "textures/modular_street_seating_armrests_diff_1k.jpg": "a1fa7086f8fadb9fc2861962505ee05d",
+        "textures/modular_street_seating_supports_arm_1k.jpg": "2464500fdfcde0319bffc0a8d46647cf",
+        "textures/modular_street_seating_connectors_diff_1k.jpg": "f6718698d2c27333dd568db4a42798ff",
+        "textures/modular_street_seating_armrests_arm_1k.jpg": "df3dbc4ed5ef4fb98970e331a18805b5",
+        "textures/modular_street_seating_timber_nor_gl_1k.jpg": "0d0b133fb0a1b66dad5501f2a861e19d",
+        "textures/modular_street_seating_connectors_arm_1k.jpg": "0d5bb2990258ddcb5f12e758b242c1da",
+        "modular_street_seating.bin": "5c0426b5068d5d41f0a301035ecac9ab"
+      }
+    },
+    "ofdn-funky-house": {
+      "title": "Funky House",
+      "author": "Of Far Different Nature (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/funky-house",
+      "urls": {
+        "ofdn-funky-house.wav": "https://opengameart.org/sites/default/files/Of%20Far%20Different%20Nature%20-%20Funky%20House%20%28CC0%29.wav"
+      }
+    },
+    "fupi-slampe": {
+      "title": "Slampe (Synthwave House)",
+      "author": "Fupi (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/slampe-synthwave-house",
+      "urls": {
+        "fupi-slampe.wav": "https://opengameart.org/sites/default/files/slampe.wav"
+      }
+    },
+    "ofdn-vengeance-electro": {
+      "title": "Vengeance Electro",
+      "author": "Of Far Different Nature (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/vengeance-electro",
+      "urls": {
+        "ofdn-vengeance-electro.wav": "https://opengameart.org/sites/default/files/Of%20Far%20Different%20Nature%20-%20Vengeance%20Electro%20%28CC0%29.wav"
+      }
+    },
+    "ofdn-liquid-flame": {
+      "title": "Liquid Flame",
+      "author": "Of Far Different Nature (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/liquid-flame",
+      "urls": {
+        "ofdn-liquid-flame.wav": "https://opengameart.org/sites/default/files/Of%20Far%20Different%20Nature%20-%20Liquid%20Flame%20%28CC0%29_0.wav"
+      }
     }
   }
 }

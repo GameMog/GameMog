@@ -109,14 +109,27 @@ for the world to letter its own scenery with. `panel` is accepted and unused.
 ### assets (optional)
 Ids from the platform's asset library: licensed files (CC0 and the CMU motion capture terms),
 checked against their SHA-256 when they load, credited on the site's Library page. List what the
-world uses; it all loads before `build()` runs.
+world uses (up to 24); it all loads before `build()` runs.
 
 | id | what it is |
 |---|---|
 | `human-athlete-male` | a realistic male athlete: skins `african`, `caucasian`, `caucasian2`, `asian`; hair `short02`, `short04`, `afro01`; motion-captured idle, standing start, run, sprint and fall, and sword motion (a guard, three cuts, a hit and a death) |
 | `human-athlete-female` | the same for a female athlete: skins `african`, `caucasian`, `asian` |
 | `hdri-sunset-city` | a golden-hour city sky for `graphics.environment.hdri` |
-| `texture-asphalt-track` | scanned race-track asphalt (colour, normal and roughness maps; one tile is 2 m of road) for `ctx.assets.texture` |
+| `sky-noon`, `sky-partly-cloudy`, `sky-sunset`, `sky-dusk`, `sky-night`, `sky-overcast` | photographed skies, open all round, full dynamic range, for `ctx.sky({ hdri })` |
+| `sky-beach` | a photographed Mediterranean beach at midday: sand, pines, a headland, the sea to the horizon (`face` turns its sea) |
+| `sky-city-night` | a photographed waterfront city at night: towers, neon, river light (`face` turns its skyline) |
+| `texture-asphalt-track` | scanned race-track asphalt (one tile is 2 m of road) |
+| `texture-sand`, `texture-grass`, `texture-plaster`, `texture-concrete`, `texture-brick`, `texture-planks`, `texture-snow`, `texture-forest-floor`, `texture-cobblestone`, `texture-corrugated-metal` | scanned surfaces, a tile 2 m across, for `ctx.assets.surface` |
+| `texture-rock` (4 m), `texture-bark` (1 m) | scanned rock face and tree bark |
+| `model-boulder` | a scanned weathered boulder about 1.8 m tall |
+| `model-mossy-rocks` | six scanned mossy rocks, each its own part |
+| `model-coastal-cliff` | a scanned sea cliff 87 m long and 11 m high |
+| `model-fern`, `model-shrub`, `model-grass` | scanned plants: four ferns, a shrub 2.6 m across, seventeen clumps of grass (each its own part) |
+| `model-street-lamp` | a scanned 3.9 m cast-iron street lamp |
+| `model-concrete-barrier` | a scanned concrete road barrier 1.5 m long |
+| `model-fire-hydrant` | a scanned fire hydrant, new (`fire_hydrant`) and aged (`fire_hydrant_aged`) |
+| `model-street-seating` | scanned modular street benches (legs, seats, backs as parts) |
 
 `ctx.assets.human(id, options)` returns `{ object, animate, name, color }`: return it straight
 from `player()` or `rival()`. It idles when standing, plays a standing start when it first moves,
@@ -196,11 +209,13 @@ hard at the runtime's speeds, so give the bends a radius of 25 m or more.
 
 `ctx.assets.car(options)` builds a racing car for `player()` or `rival()` in a world with
 `play.vehicle` and returns `{ object, animate, name, color, vehicle }`: return it as it is (set
-`name` and `color` on it for a rival). It needs no library asset. Four kinds, each built from its
+`name` and `color` on it for a rival). It needs no library asset. Five kinds, each built from its
 class's real dimensions: `hypercar` (a road hypercar, cab-forward, a big rear wing), `formula`
 (a single-seater: open wheels, halo, wings, sparks from the floor at speed), `stockcar` (a stock
-car with its number on the doors and roof, a window net, a spoiler) and `monster` (a monster truck
-on 66-inch tyres and long-travel shocks). The paint is clear-coated with its livery painted on
+car with its number on the doors and roof, a window net, a spoiler), `monster` (a monster truck
+on 66-inch tyres and long-travel shocks) and `roadster` (an open two-seat sports car, also
+`convertible`, `spider`, `speedster`: long bonnet, round lamps in the wings, a raked screen, a
+leather cockpit and speedster humps). The paint is clear-coated with its livery painted on
 the body; a driver in a helmet turns the wheel. The car drives by itself: wheels roll and steer,
 the body rolls, dives and squats, the gears climb and the exhaust pops, brake lights and discs
 glow, and in a crash it spins, flips or barrel-rolls with sparks, smoke and debris.
@@ -220,10 +235,50 @@ ctx.assets.car({
 Make later rivals meaner: `glow`, `chrome` or `iridescent` paint, `spikes` on trucks. A car is
 authored facing +Z like any character; do not scale it.
 
-`ctx.assets.texture(id)` returns a scanned surface as `{ map, normalMap, roughnessMap, size }`
-(`size`: metres one tile covers) to put on a material: set `repeat` on the maps to match your
-geometry's UVs (a `ribbon` of width w spans u 0 to 1 across and v one unit per w metres along).
-It returns `null` if the library could not load: keep a surface of your own.
+A person at the wheel: `driver: { human: 'human-athlete-male' }` (or `-female`; list it in
+`assets`) seats the library's scanned athlete in the car in place of the helmeted driver: hips on
+the seat, feet on the pedals, hands on the wheel turning with it, head into the bends. All the
+human options apply inside `driver` (`skin`, `tone`, `hair`, `hairColor`, `height`, `outfit`).
+Use it for every open car (a roadster's driver is in full view) and for anyone the story puts
+behind a wheel; a roadster's `interior` is the leather's colour.
+
+```js
+ctx.assets.car({ kind: 'roadster', paint: '#B01C22', interior: '#7A4326',
+  driver: { human: 'human-athlete-male', skin: 'african', hair: 'short02', outfit: { top: '#F4F1EA' } } })
+```
+
+`ctx.assets.surface(id, options)` returns a scanned surface as a ready material, laid on by
+where each point is in the world at the scan's true scale, so it needs no UVs and fits geometry
+of any size: ground, beaches, pavements, walls, cliffs. Across a big field the scan is shifted,
+turned and blended region by region with a broad light-and-dark mottle, so no repeat shows to the
+horizon. Use it for every ground and every wall; a flat colour is never ground.
+
+```js
+var sand = ctx.assets.surface('texture-sand');                           // ground, laid from above
+var wall = ctx.assets.surface('texture-plaster', { project: 'box', color: '#F3E4D0' });  // walls, rocks: from all three sides
+var road = ctx.assets.surface('texture-cobblestone', { size: 3, roughness: 0.9, normal: 1.4, mottle: 0.2, clearcoat: 0.6 });  // wet
+```
+
+Options: `color` (a tint), `roughness` and `normal` (multipliers), `size` (metres a tile covers),
+`project` (`'ground'` or `'box'`), `mottle` (0 to 0.6), `variety: false` (one plain tiling),
+`clearcoat` (wet, polished), `side: 'double'`. It returns `null` if the library could not load:
+keep a material of your own.
+
+`ctx.assets.texture(id)` returns the raw maps instead, `{ map, normalMap, roughnessMap, size }`
+(`size`: metres one tile covers), for geometry with its own UVs: set `repeat` on the maps to match
+(a `ribbon` of width w spans u 0 to 1 across and v one unit per w metres along).
+
+`ctx.assets.model(id)` returns a scanned model: `{ object, parts, size, part(name), instanced(count, fn, parts) }`.
+`object` is the whole model (a new copy each call), `part(name)` one of its parts (a rock of the
+set, a fern), `size` its bounding box in metres. Scenery repeated along the track goes in one
+`instanced(count, (i, dummy) => { dummy.position.set(...); dummy.rotation.y = ...; dummy.scale.setScalar(...) }, parts)`
+call: every copy of every part in a handful of draw calls. Models are at true scale and stand on
+y = 0: place them, never stretch them into something else.
+
+```js
+var lamps = ctx.assets.model('model-street-lamp');
+if (lamps) ctx.scene.add(lamps.instanced(40, function (i, d) { var p = ctx.track.pointAt(i * 25, 13, 0); d.position.set(p.x, 0, p.z); }));
+```
 
 ### graphics (optional)
 Turns on the runtime's cinematic renderer. Use it whenever the world should look its best,
@@ -358,6 +413,27 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
   dome with a glowing sun (`sun` is the direction towards it, `sunSize` in degrees; `curve` above
   0.45 keeps the horizon colour higher up the sky); it always stays around the camera. Match
   `sun` to the direction of your key light.
+- `ctx.sky({ hdri: 'sky-noon', sun: [x, y, z], exposure })`: a photographed sky from the library
+  (list it in `assets`), turned so its sun stands at `sun`'s bearing, at the height it was
+  photographed; the environment lighting is baked from the same photograph. A photograph with
+  land in it (`sky-beach`, `sky-city-night`) takes `face: [x, z]` in place of `sun`: its sea or
+  skyline is turned to lie that way, so the photograph's sea meets the world's sea. Either way,
+  light the world from the photograph: the returned mesh's `userData.sun` is the direction of
+  its sun (put the key light there) and `userData.haze` the colour of its horizon (the fog).
+
+  ```js
+  var sky = ctx.sky({ hdri: 'sky-beach', face: [1, 0] });          // the sea lies east
+  var sun = new ctx.THREE.DirectionalLight('#FFF3E0', 3.2); sun.position.copy(sky.userData.sun).multiplyScalar(200);
+  ctx.scene.fog = new ctx.THREE.Fog(sky.userData.haze, 300, 2400);
+  ```
+- `ctx.water({ y, color, deep, waves, wind: [x, z], shore, beach, surf, reflect, size })`: a sea
+  or a lake to the horizon at height `y`: long swells (`waves` 0 to 2), ripples blown by `wind`,
+  the world's reflection, turquoise over the shallows and `deep` farther out. `shore` is the
+  waterline as `[[x, z], ...]`, walked with the water on its left; the water stays off the land
+  and the swell dies before the beach. `beach: { land, width, back, texture }` lays scanned sand
+  from the land's height (`land`, flat for `back` metres) down under the water, and surf rolls in
+  along the whole shore, foam and wet sand. One water per world. Keep the sea close to the road
+  and in the camera's view: a coast world the player cannot see the sea from is not a coast.
 - `ctx.instanced(geometry, material, count, fn)`
 - `ctx.mirror(material, { y, strength, blur, distortion })`: makes a `MeshStandardMaterial` or
   `MeshPhysicalMaterial` on a level surface a live mirror of the world: ice, still water, a

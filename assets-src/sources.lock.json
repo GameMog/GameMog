@@ -95,6 +95,10 @@
     "sha256": "6cf3344e887d483ab0ff917fea3b8a92f383277263a344ae6141f377bfa7b3c1",
     "bytes": 578522
   },
+  "fupi-slampe/fupi-slampe.wav": {
+    "sha256": "8978889eb0dc94777dff28bd9ddcf0daa60007c8ecd47fbb6afd42c3b53d1f8f",
+    "bytes": 27234348
+  },
   "makehuman-system/eyebrows/eyebrow001/eyebrow001.mhclo": {
     "sha256": "54c8892c2ba577f4152d779ce1f20f7cd323beb8cbd9cb701796165c221b4f5b",
     "bytes": 9141
@@ -302,6 +306,454 @@
   "makehuman/targets/macrodetails/universal-male-young-maxmuscle-minweight.target": {
     "sha256": "5873f11edc96fde72a79ec35fa1d292a6a1a594b5eadfd82d59faf48834561de",
     "bytes": 150179
+  },
+  "ofdn-funky-house/ofdn-funky-house.wav": {
+    "sha256": "63e07cb24cbed4681eb760067f7109c190eb0b16ec14ca8e5aeb2727ebb28034",
+    "bytes": 12121710
+  },
+  "ofdn-liquid-flame/ofdn-liquid-flame.wav": {
+    "sha256": "e15447c6d689081890b6c27e7be969ddf93587f91f4993ccbbd02c394a58996d",
+    "bytes": 38949774
+  },
+  "ofdn-vengeance-electro/ofdn-vengeance-electro.wav": {
+    "sha256": "c05ff85983e97a18be3c1dcc159e900cb8f0a81c8344edf6b2eae1a191a33086",
+    "bytes": 45644494
+  },
+  "ph-model-boulder_01/boulder_01.bin": {
+    "sha256": "7f5b06503d62bd95bfe9c6b8a354a5cc8ff04a4d271a8cf87a3e3125db4232d7",
+    "bytes": 2938808
+  },
+  "ph-model-boulder_01/boulder_01_1k.gltf": {
+    "sha256": "51487934db898b4c24072780a451e34eca5c02e3ada24a62bbc600bbc4019e92",
+    "bytes": 2773
+  },
+  "ph-model-boulder_01/textures/boulder_01_arm_1k.jpg": {
+    "sha256": "c57187c5746b6be913fa53846cb44ff78743e7ca5000f131c9627b99563c2b87",
+    "bytes": 659386
+  },
+  "ph-model-boulder_01/textures/boulder_01_diff_1k.jpg": {
+    "sha256": "c38f0e918f6dc16b8d386ba3cdd89805c78320c119a1ceec85856f82b09a65b8",
+    "bytes": 987467
+  },
+  "ph-model-boulder_01/textures/boulder_01_nor_gl_1k.jpg": {
+    "sha256": "0810cf6e89d89bb6eb065b4d2e2855288f5dcbd2c15c6e40ab90d462021b50aa",
+    "bytes": 1183552
+  },
+  "ph-model-coastal_cliff_04/coastal_cliff_04.bin": {
+    "sha256": "f7c3a18acc848552b91b0de931ba8439d5f2a8849bd0d4ac718878aa4a90abcf",
+    "bytes": 43704136
+  },
+  "ph-model-coastal_cliff_04/coastal_cliff_04_1k.gltf": {
+    "sha256": "645cadf494f60e247434451af6a88291d3be3019aa0973d635596810b0fe2d11",
+    "bytes": 2828
+  },
+  "ph-model-coastal_cliff_04/textures/coastal_cliff_04_arm_1k.jpg": {
+    "sha256": "cf23e8b784876d93dc28c317cfe2efa1a37376956cad76fbc951b7903d10993a",
+    "bytes": 782097
+  },
+  "ph-model-coastal_cliff_04/textures/coastal_cliff_04_diff_1k.jpg": {
+    "sha256": "c3af6c8768139b74dd4658a57487114e2caacb8035858ccd9b66077109a49fab",
+    "bytes": 802870
+  },
+  "ph-model-coastal_cliff_04/textures/coastal_cliff_04_nor_gl_1k.jpg": {
+    "sha256": "6b1937ab6c8e8084ef69a492272c2d6aadc11b667bb5278c58d00a360c9c7d9b",
+    "bytes": 1190406
+  },
+  "ph-model-concrete_road_barrier/concrete_road_barrier.bin": {
+    "sha256": "64a4f9bc6e4af64d714a252c3c13428c430a60569deba3d52ca6b7dd3aa70d8c",
+    "bytes": 1374016
+  },
+  "ph-model-concrete_road_barrier/concrete_road_barrier_1k.gltf": {
+    "sha256": "c371e87d303fff3f0c9fbe88520f7837514364e5c66aac3244e115ffa673d061",
+    "bytes": 2868
+  },
+  "ph-model-concrete_road_barrier/textures/concrete_road_barrier_arm_1k.jpg": {
+    "sha256": "b940847648012f2db8c24b16e07ad1e39b3bd33ea493203364deca209606e4b4",
+    "bytes": 619502
+  },
+  "ph-model-concrete_road_barrier/textures/concrete_road_barrier_diff_1k.jpg": {
+    "sha256": "88b2d79829ffec7b11ac4d9c8554328f30b665d2c17f634197fde4f1ca8696fe",
+    "bytes": 792641
+  },
+  "ph-model-concrete_road_barrier/textures/concrete_road_barrier_nor_gl_1k.jpg": {
+    "sha256": "c1072f51ff5c3d7158f0fbb0aa26e82b816b745b9f03639c4816832af2b37c52",
+    "bytes": 961760
+  },
+  "ph-model-fern_02/fern_02.bin": {
+    "sha256": "fe1abb762bcbbc7ad9e86925c8080437a62add257d9280e9142fdc85c226e64c",
+    "bytes": 176176
+  },
+  "ph-model-fern_02/fern_02_1k.gltf": {
+    "sha256": "33974295ee19670af4877705fc7d91f33f42d6302f0d44a625e072271223031f",
+    "bytes": 6899
+  },
+  "ph-model-fern_02/textures/fern_02_alpha_1k.png": {
+    "sha256": "ea3c64284c7ebdeedf484d2d816eae92825ec526140c3bb83859ddc7a64001f9",
+    "bytes": 114589
+  },
+  "ph-model-fern_02/textures/fern_02_arm_1k.jpg": {
+    "sha256": "ebfb5d76ce9cbdaec20bcd22dce9b755f0b1b8650ef29ca13555e3e6961025d7",
+    "bytes": 280359
+  },
+  "ph-model-fern_02/textures/fern_02_diff_1k.jpg": {
+    "sha256": "a828a6e7b4c01c826911e2eac4b3afc7457dab7b3b392a31c681ed88b7d50029",
+    "bytes": 315705
+  },
+  "ph-model-fern_02/textures/fern_02_nor_gl_1k.jpg": {
+    "sha256": "45bce132c6e96a0864bc89ab5da51361ab3f4afa83a6669ae499ab5ca811f621",
+    "bytes": 367222
+  },
+  "ph-model-fire_hydrant/fire_hydrant.bin": {
+    "sha256": "a3c7ed023bc4aff190902764326e7f83ae1a108f6bac2a1b637c38a8e03eb516",
+    "bytes": 1928772
+  },
+  "ph-model-fire_hydrant/fire_hydrant_1k.gltf": {
+    "sha256": "aaca81b2904e6e5f1fb10a854c7b9a921232624387d1f8757b5c6bdaedcd9eb0",
+    "bytes": 20926
+  },
+  "ph-model-fire_hydrant/textures/fire_hydrant_aged_arm_1k.jpg": {
+    "sha256": "9c46b014735a4e8df5a80e4c030ddb321c9aeaa715ad4ea3eb60e6f0909c9d0a",
+    "bytes": 665642
+  },
+  "ph-model-fire_hydrant/textures/fire_hydrant_aged_diff_1k.jpg": {
+    "sha256": "3198cabcaf5107e59109bd07dfe8e4c87b3f0533173d10fafdaf86f8024a291e",
+    "bytes": 629331
+  },
+  "ph-model-fire_hydrant/textures/fire_hydrant_aged_nor_gl_1k.jpg": {
+    "sha256": "6fadc78fd5d696bf594ff021aaf93a0c6aced761830f9aa6971c51b17c869c35",
+    "bytes": 543768
+  },
+  "ph-model-fire_hydrant/textures/fire_hydrant_arm_1k.jpg": {
+    "sha256": "d15bf8fc6389ae48a1060a38057c2093469e62f585c8033d300b80af81d40f9d",
+    "bytes": 671743
+  },
+  "ph-model-fire_hydrant/textures/fire_hydrant_diff_1k.jpg": {
+    "sha256": "a3d0b8b6fcd8a39c8d5067f8ef95e3290053131887398f89baf57c1f8d24ab45",
+    "bytes": 570746
+  },
+  "ph-model-fire_hydrant/textures/fire_hydrant_nor_gl_1k.jpg": {
+    "sha256": "f6786775276c7b48f0582fdd7c43984b63b15b7a8e0ea0e2f2af8cdab98c06d7",
+    "bytes": 490552
+  },
+  "ph-model-grass_medium_01/grass_medium_01.bin": {
+    "sha256": "f4587cabdb96a2e96d8be644923dc954a248edfaaa717a0ff224cacb898bee1f",
+    "bytes": 1006632
+  },
+  "ph-model-grass_medium_01/grass_medium_01_1k.gltf": {
+    "sha256": "3e5e2a314c94e16de54fd7c28e41709731fbd2b1613ab539f1544f622ddb6a85",
+    "bytes": 27110
+  },
+  "ph-model-grass_medium_01/textures/grass_medium_01_alpha_1k.png": {
+    "sha256": "711a8e49af758d6a6ce1f610db858899a27be19da6d1866bd35c13bc7b8ffeff",
+    "bytes": 648718
+  },
+  "ph-model-grass_medium_01/textures/grass_medium_01_arm_1k.jpg": {
+    "sha256": "9a3a30f72bc02f4398967c5b08f2d20cce30bd423a2613b42a727034296fa3ae",
+    "bytes": 679518
+  },
+  "ph-model-grass_medium_01/textures/grass_medium_01_diff_1k.jpg": {
+    "sha256": "71495bd6a11fddcab0aaff38246fea1a7b802a705483f1c7cbca53955daa8050",
+    "bytes": 395673
+  },
+  "ph-model-grass_medium_01/textures/grass_medium_01_nor_gl_1k.jpg": {
+    "sha256": "cae298d3d1d7ff7c7e210ad8ac772b96706e356f9315a6b04fde373ce01ccf1e",
+    "bytes": 956166
+  },
+  "ph-model-modular_street_seating/modular_street_seating.bin": {
+    "sha256": "968558aa808b6cf74783b375d32a346a4de2ce9c118c0f17fba24c6999f03547",
+    "bytes": 977224
+  },
+  "ph-model-modular_street_seating/modular_street_seating_1k.gltf": {
+    "sha256": "ae0c5b89927446dd3c3dc8fc021c5a6042448b785f340affaa132307d8a7b18d",
+    "bytes": 29629
+  },
+  "ph-model-modular_street_seating/textures/modular_street_seating_armrests_arm_1k.jpg": {
+    "sha256": "0016585de0b1d3accd9b204f912e76e03385901410e02e5c8dd3186333ff882f",
+    "bytes": 622643
+  },
+  "ph-model-modular_street_seating/textures/modular_street_seating_armrests_diff_1k.jpg": {
+    "sha256": "1df79fcf237bcca5dcbd6af8e283e775125e723d2782dee3184550564905990f",
+    "bytes": 612860
+  },
+  "ph-model-modular_street_seating/textures/modular_street_seating_armrests_nor_gl_1k.jpg": {
+    "sha256": "1625c7492bfdc6fb97a49a09e5f958bfc62d46b7fc97bdcda97ba83fc13f18c4",
+    "bytes": 324073
+  },
+  "ph-model-modular_street_seating/textures/modular_street_seating_connectors_arm_1k.jpg": {
+    "sha256": "30af91ae8f610ce5ffc15289005b1e6eaf7e904048ad7cd129dcd6e68163512c",
+    "bytes": 591917
+  },
+  "ph-model-modular_street_seating/textures/modular_street_seating_connectors_diff_1k.jpg": {
+    "sha256": "0b869d0b8d85d89e79fdb74794a45532b64b32221272c3777089730ca9097003",
+    "bytes": 212785
+  },
+  "ph-model-modular_street_seating/textures/modular_street_seating_connectors_nor_gl_1k.jpg": {
+    "sha256": "1debc33dce0a35acee944281a712b90ce3ba0a1914e0d30201dc45e4639ecd28",
+    "bytes": 398150
+  },
+  "ph-model-modular_street_seating/textures/modular_street_seating_supports_arm_1k.jpg": {
+    "sha256": "8dbdaf063699c6d81319a9f0ac2fa5997236981fa703103fdadb008570df8de2",
+    "bytes": 734095
+  },
+  "ph-model-modular_street_seating/textures/modular_street_seating_supports_diff_1k.jpg": {
+    "sha256": "3d2dc8a4ac499b540445be6277a1fa7c84fb7cdbf0fbe04d9738d806393393e4",
+    "bytes": 721380
+  },
+  "ph-model-modular_street_seating/textures/modular_street_seating_supports_nor_gl_1k.jpg": {
+    "sha256": "5396d42fc24e0bf0e038767dc0548c4562b359930a9f8ade61897d18192ec929",
+    "bytes": 477177
+  },
+  "ph-model-modular_street_seating/textures/modular_street_seating_timber_arm_1k.jpg": {
+    "sha256": "07b108f3c6ee8afe56c9c23592d48f80344992bd0512080a1cc2bf37e7c7cb84",
+    "bytes": 762344
+  },
+  "ph-model-modular_street_seating/textures/modular_street_seating_timber_diff_1k.jpg": {
+    "sha256": "2dce35474445e91743ec1e5a1ffbc405cdd3b7ec94be945d93d684e23e127be3",
+    "bytes": 596026
+  },
+  "ph-model-modular_street_seating/textures/modular_street_seating_timber_nor_gl_1k.jpg": {
+    "sha256": "b7d0fff50ca56f12a3ebc3056c0c8104be84efce118a38094608d8e15af27d9a",
+    "bytes": 557669
+  },
+  "ph-model-rock_moss_set_01/rock_moss_set_01.bin": {
+    "sha256": "de8360e6175879aaf02c171911069cf5f1852547f9ca7f10e440085dbcc3315e",
+    "bytes": 1466380
+  },
+  "ph-model-rock_moss_set_01/rock_moss_set_01_1k.gltf": {
+    "sha256": "c36675aca9c6b2be7785c2534cf413b03ec82a5a2a5407a2b1c0cdb0346c9727",
+    "bytes": 9987
+  },
+  "ph-model-rock_moss_set_01/textures/rock_moss_set_01_diff_1k.jpg": {
+    "sha256": "40cea65d8aa4ee73a93b04af19963834d061eee9779c3fc2c1cba76eef812ccc",
+    "bytes": 168099
+  },
+  "ph-model-rock_moss_set_01/textures/rock_moss_set_01_nor_gl_1k.jpg": {
+    "sha256": "eb4aad3f207f1dc5b624d74ae240372171626a66912bd71adf7bd3e518181d6e",
+    "bytes": 209975
+  },
+  "ph-model-rock_moss_set_01/textures/rock_moss_set_01_rough_1k.jpg": {
+    "sha256": "4d6ec46623abd8e2cdb855f59c7ce31873ad61b36b60e4de579e9e776a497c6b",
+    "bytes": 82624
+  },
+  "ph-model-shrub_01/shrub_01.bin": {
+    "sha256": "a8646f51386c84b12a6be8324dd0c2357c393c9108aac911847a203cf490b426",
+    "bytes": 5239664
+  },
+  "ph-model-shrub_01/shrub_01_1k.gltf": {
+    "sha256": "c3bb3340687d46c684b9dab82f5b2f92b7b0fe761842423d3c9e19f59a839393",
+    "bytes": 2895
+  },
+  "ph-model-shrub_01/textures/shrub_01_alpha_1k.png": {
+    "sha256": "eb693835205913dfc705a08fb45f3e8d1c338332bd0097e9837773765b421603",
+    "bytes": 132597
+  },
+  "ph-model-shrub_01/textures/shrub_01_arm_1k.jpg": {
+    "sha256": "8faecdc28d8f03ba0ac139be16e617e8bfd0778780ec1d7850812230378b89be",
+    "bytes": 386309
+  },
+  "ph-model-shrub_01/textures/shrub_01_diff_1k.jpg": {
+    "sha256": "fe60e639d694e1807c0a3ae97dd1d5a7e7b3f84e5fc32d0610b868ce48f36331",
+    "bytes": 502162
+  },
+  "ph-model-shrub_01/textures/shrub_01_nor_gl_1k.jpg": {
+    "sha256": "076870a39a4e21a364cf94566e6dd1852a29045fdf1f23393637235b19d1c2e8",
+    "bytes": 746497
+  },
+  "ph-model-street_lamp_01/street_lamp_01.bin": {
+    "sha256": "c283db9b6d95835d9e8fc1692829acadcb21a0623b2daaa7231cec1440488401",
+    "bytes": 748908
+  },
+  "ph-model-street_lamp_01/street_lamp_01_1k.gltf": {
+    "sha256": "5d0358ede168b5e04547780b99d8e6d651cbe644e468e67cb505019047cbd5c8",
+    "bytes": 6419
+  },
+  "ph-model-street_lamp_01/textures/street_lamp_01_arm_1k.jpg": {
+    "sha256": "4b5487a6c7ee300c3cf5449629e01c35409e5c7ac1695edb9fe69d4821853c7c",
+    "bytes": 664324
+  },
+  "ph-model-street_lamp_01/textures/street_lamp_01_diff_1k.jpg": {
+    "sha256": "3e9d3471b33eb1f8075ed741c2b1932103598626d057ca12ef38005ea5fcb165",
+    "bytes": 307889
+  },
+  "ph-model-street_lamp_01/textures/street_lamp_01_nor_gl_1k.jpg": {
+    "sha256": "172af0fd7ed4999e9f520b9f56e1f357a6dba87adbd7b8aa87e0a0b95840c63d",
+    "bytes": 438623
+  },
+  "ph-sky-kloofendal_48d_partly_cloudy_puresky/kloofendal_48d_partly_cloudy_puresky_2k.hdr": {
+    "sha256": "5244534e9cf5b606f2ff513aa00ddb161b0a4826ffd88a0d3bd03ac29247d198",
+    "bytes": 5451493
+  },
+  "ph-sky-kloofendal_overcast_puresky/kloofendal_overcast_puresky_2k.hdr": {
+    "sha256": "312b1b04b7f10057a4f1418abc59d1166c8933cc93fc72051502edaf8d6b2fcd",
+    "bytes": 4335717
+  },
+  "ph-sky-qwantani_dusk_2_puresky/qwantani_dusk_2_puresky_2k.hdr": {
+    "sha256": "440d1b5d29c79bea0985a13777642df6829e80399602a9d5f39bc20203ae6d1b",
+    "bytes": 4612798
+  },
+  "ph-sky-qwantani_night_puresky/qwantani_night_puresky_2k.hdr": {
+    "sha256": "d458fe7f20969d89eedbb7ae12d346abf68c86d844235696e7d70baad3e04cf0",
+    "bytes": 5461210
+  },
+  "ph-sky-qwantani_noon_puresky/qwantani_noon_puresky_2k.hdr": {
+    "sha256": "d070d48c8e802c92027b0f7b1965b5bd820b0d25afca225503abfec67e00ad07",
+    "bytes": 4184949
+  },
+  "ph-sky-qwantani_sunset_puresky/qwantani_sunset_puresky_2k.hdr": {
+    "sha256": "d66e08231e9c09ca40c6d035214ae8efb638782745c82addbb2a063fa32cabef",
+    "bytes": 4171959
+  },
+  "ph-sky-shanghai_bund/shanghai_bund_2k.hdr": {
+    "sha256": "ed4be21489e86a915bc872072e7e6d83c163a2d2fbb1c260979f7b9224a3322b",
+    "bytes": 6467753
+  },
+  "ph-sky-spiaggia_di_mondello/spiaggia_di_mondello_2k.hdr": {
+    "sha256": "30421cdd4832ae3f362e9f4d4aac146fb096da5b15cdec65cba8eb44aa860dc3",
+    "bytes": 6230981
+  },
+  "ph-tex-bark_brown_02/bark_brown_02_diff_1k.jpg": {
+    "sha256": "920fa0bed0c9d78c1d530e99795113afd532d7db746de440f4a85d7c83ed0f1a",
+    "bytes": 659592
+  },
+  "ph-tex-bark_brown_02/bark_brown_02_nor_gl_1k.jpg": {
+    "sha256": "0d5e691e8ad8bcd093a3587887fda2a6b4a948b5708a4f256f7919584c6eb857",
+    "bytes": 1015623
+  },
+  "ph-tex-bark_brown_02/bark_brown_02_rough_1k.jpg": {
+    "sha256": "68125592de36e15bae7aa6db85c4d135aeb7e5653199ba226483a70f6d69837d",
+    "bytes": 337946
+  },
+  "ph-tex-cobblestone_floor_04/cobblestone_floor_04_diff_1k.jpg": {
+    "sha256": "b0662eaec38a2056ef00abc66d1a0e8da421d704ed3ff8f9e268ad4c7b2aa58c",
+    "bytes": 575440
+  },
+  "ph-tex-cobblestone_floor_04/cobblestone_floor_04_nor_gl_1k.jpg": {
+    "sha256": "a5c71dffb3f25b8b33cfeeb1bfc2fc0f158b8ebc04f3987d68f64343868d1065",
+    "bytes": 781854
+  },
+  "ph-tex-cobblestone_floor_04/cobblestone_floor_04_rough_1k.jpg": {
+    "sha256": "2f62e01aa5c2051cd700c20c21ed791ee2d4ab88274b5724dfd852c4bd2264dc",
+    "bytes": 416114
+  },
+  "ph-tex-concrete_floor_02/concrete_floor_02_diff_1k.jpg": {
+    "sha256": "6db84a6d87dc50508b9d134d6fbd2b7e876b8081a5f43a118a249ca18de73af5",
+    "bytes": 776097
+  },
+  "ph-tex-concrete_floor_02/concrete_floor_02_nor_gl_1k.jpg": {
+    "sha256": "fcda391b57a816d646ae15544688be53790478da5cd48dbe514b3c6901415e61",
+    "bytes": 192757
+  },
+  "ph-tex-concrete_floor_02/concrete_floor_02_rough_1k.jpg": {
+    "sha256": "c7f026a611b7859903c61ec7fd4574944157223e9e7796413dd6e2a66eaeac7a",
+    "bytes": 318550
+  },
+  "ph-tex-corrugated_iron/corrugated_iron_diff_1k.jpg": {
+    "sha256": "7f3649dd0d056a55a910146f09b1d5298370696a90f511a255fb4c5715bb4b58",
+    "bytes": 719557
+  },
+  "ph-tex-corrugated_iron/corrugated_iron_nor_gl_1k.jpg": {
+    "sha256": "e98b839ae681ba929eb80f07348c70d0731b48239abe69268effab18420cd271",
+    "bytes": 755185
+  },
+  "ph-tex-corrugated_iron/corrugated_iron_rough_1k.jpg": {
+    "sha256": "1addcfc0210fc101f9f12c8e4dbd7a7d2642a5ef76699a8a485f00b5476af357",
+    "bytes": 455677
+  },
+  "ph-tex-forrest_ground_01/forrest_ground_01_diff_1k.jpg": {
+    "sha256": "3dd6875cb3908e022a3c45ebbffa5e84c670ff2691fbbb6dc9ea4bff88523800",
+    "bytes": 833711
+  },
+  "ph-tex-forrest_ground_01/forrest_ground_01_nor_gl_1k.jpg": {
+    "sha256": "32528a7cdee962cc0b248ee4023a74d0df175737ea90e1eb425122351e0bdab4",
+    "bytes": 1428763
+  },
+  "ph-tex-forrest_ground_01/forrest_ground_01_rough_1k.jpg": {
+    "sha256": "30d8b56a03d7b12da16f58011b675662a40e58e1cdc768119a5f03968140058c",
+    "bytes": 257165
+  },
+  "ph-tex-leafy_grass/leafy_grass_diff_1k.jpg": {
+    "sha256": "cfa40bc9d9417d1852db8753a8d5917f110c40101179f63543c382e39bc05e4a",
+    "bytes": 1195394
+  },
+  "ph-tex-leafy_grass/leafy_grass_nor_gl_1k.jpg": {
+    "sha256": "832328216adc0a7e1f70a31d5ee48c9ab7f2152d83816122736cf42ac4b2ebd6",
+    "bytes": 1466049
+  },
+  "ph-tex-leafy_grass/leafy_grass_rough_1k.jpg": {
+    "sha256": "0c2a1d91aacb8e54a496051b59854e51e456fe858abeade778e308359ef16463",
+    "bytes": 511385
+  },
+  "ph-tex-red_brick_03/red_brick_03_diff_1k.jpg": {
+    "sha256": "9c58254c099b2d211478f50a427fcdde622af24249ff2e94da41fb836f8c857f",
+    "bytes": 694500
+  },
+  "ph-tex-red_brick_03/red_brick_03_nor_gl_1k.jpg": {
+    "sha256": "9bfd45e24720d851017c1e1678b70219c72239b2ac6b25e11d57d458bdab8503",
+    "bytes": 955430
+  },
+  "ph-tex-red_brick_03/red_brick_03_rough_1k.jpg": {
+    "sha256": "cd865623c1422926848024e877103e9dfe857b2ca8221fce49264b74c9ff48b1",
+    "bytes": 286623
+  },
+  "ph-tex-rock_face_03/rock_face_03_diff_1k.jpg": {
+    "sha256": "ea48e0e47ad42c8bd312476178b1248ec66f0eb19156a26a1c222f2a40caaf2d",
+    "bytes": 927082
+  },
+  "ph-tex-rock_face_03/rock_face_03_nor_gl_1k.jpg": {
+    "sha256": "c6423169583f31715cf0636954bad524e806848a5f2861fcea6794275f726ff0",
+    "bytes": 1146788
+  },
+  "ph-tex-rock_face_03/rock_face_03_rough_1k.jpg": {
+    "sha256": "9e3d9a2fd75244892e7acb6bab2eaed1279299510a7970672c0ee27ff1c19fea",
+    "bytes": 638904
+  },
+  "ph-tex-sand_01/sand_01_diff_1k.jpg": {
+    "sha256": "a73b90eaa6d675ef57e7d48a8cf23e1f412e353ab2e29cf73930b8ecd4e76875",
+    "bytes": 485088
+  },
+  "ph-tex-sand_01/sand_01_nor_gl_1k.jpg": {
+    "sha256": "73984aecdc35b1ffbc322d64b7f8d8165b06970d11f37dd47010609fcb532704",
+    "bytes": 877821
+  },
+  "ph-tex-sand_01/sand_01_rough_1k.jpg": {
+    "sha256": "ccb179b12c56a9032d60e4f4e2da690b3612a58e1784eb14576372690cdcd1cb",
+    "bytes": 189667
+  },
+  "ph-tex-snow_02/snow_02_diff_1k.jpg": {
+    "sha256": "523a4e69c90b96d787dd69b897f29a2b3761a017024405c60aa630d1e8e9009a",
+    "bytes": 325497
+  },
+  "ph-tex-snow_02/snow_02_nor_gl_1k.jpg": {
+    "sha256": "9495ec680616b8340e2cbecbd151bff84c690cfad4209e90cc98d2d0ba81f810",
+    "bytes": 1081858
+  },
+  "ph-tex-snow_02/snow_02_rough_1k.jpg": {
+    "sha256": "b6dea8039ac2a5beaed6fd41834fb55540cc76b492edd1d48ba2da2f30f1cb75",
+    "bytes": 146089
+  },
+  "ph-tex-weathered_brown_planks/weathered_brown_planks_diff_1k.jpg": {
+    "sha256": "94833feda44e025a9139f7b5723ea84e4f0258d3b54939a79e1013c133085e29",
+    "bytes": 226049
+  },
+  "ph-tex-weathered_brown_planks/weathered_brown_planks_nor_gl_1k.jpg": {
+    "sha256": "8d38f02f121c0e58eaedc19cd668faea21381ae3ff4d5332cd90de75e6683393",
+    "bytes": 223250
+  },
+  "ph-tex-weathered_brown_planks/weathered_brown_planks_rough_1k.jpg": {
+    "sha256": "b80c45969d8299ca5f21de969f0269138a5e3e78e51fc911af809683d99c5bc9",
+    "bytes": 234672
+  },
+  "ph-tex-white_plaster_02/white_plaster_02_diff_1k.jpg": {
+    "sha256": "a1ebbe091bd1ae93d2abd5de8d69f9003a8d0ee6532bcf9a87c2492c97051f23",
+    "bytes": 527219
+  },
+  "ph-tex-white_plaster_02/white_plaster_02_nor_gl_1k.jpg": {
+    "sha256": "eb572ca3630d5bfde72e2601b1f02412da23ca005cd19384dced8690be4cb783",
+    "bytes": 652310
+  },
+  "ph-tex-white_plaster_02/white_plaster_02_rough_1k.jpg": {
+    "sha256": "4ff1fe957cd161b07f721fe6c28a9459c8c2e8ec65627a26c16e483a07c80d85",
+    "bytes": 295900
   },
   "polyhaven-asphalt-track/asphalt_track_diff_1k.jpg": {
     "sha256": "05c4e79cd99160075969d37bfc6ef72be262153a410bb45510b2c23f7303894c",
