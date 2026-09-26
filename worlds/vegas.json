@@ -1,0 +1,17 @@
+{
+  "title": "Las Vegas Night GP",
+  "tagline": "Race a silver hypercar down the rain-soaked Las Vegas Strip at night.",
+  "blurb": "Off the grid under the red lights, flat out past the Sphere, round it and onto the Strip: fountains, a half-size Eiffel Tower, a volcano, a wheel of light and a mile of neon, every light in the city lying in the wet street. Single-seaters, stock cars and monster trucks join the race one per lap, faster and meaner, the later ones glowing underneath and bristling with spikes. Dodge the tyre stacks, the wrecks and the blown drain covers, grab the GM, and every lap you finish pays the jackpot.",
+  "genre": "Street racing",
+  "cast": [
+    { "name": "Silver Arrow", "color": "#BCC1C7", "role": "player" },
+    { "name": "Aurora GP", "color": "#0E7C86", "role": "rival" },
+    { "name": "Strip King", "color": "#1B3FA6", "role": "rival" },
+    { "name": "Big Iron", "color": "#1E7A34", "role": "rival" },
+    { "name": "Scuderia Neon", "color": "#C8102E", "role": "rival" },
+    { "name": "Midnight Bandit", "color": "#141416", "role": "rival" },
+    { "name": "Jackpot Jaws", "color": "#5B2A86", "role": "rival" },
+    { "name": "Desert Viper", "color": "#101311", "role": "rival" }
+  ],
+  "palette": { "sky": "#0A0B14", "ground": "#1C1C22", "accent": "#00D1C1" }
+}
