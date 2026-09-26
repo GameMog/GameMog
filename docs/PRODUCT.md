@@ -34,6 +34,15 @@ is built. The platform's rules of play are in [RULES.md](RULES.md).
 | Minimum age | 13 and over. |
 | Shared links | Anyone who opens a shared game can play at once with a stand-in character, and is offered "Put yourself in this game". |
 
+## Decisions: music (25 Sep 2026)
+
+| Owner's words | Decision |
+|---|---|
+| "music does not add value, it makes game worse" | No music by default. The builder is not told a score exists, so new worlds and Mogs sound like their world (crowds, wind, surf, blades). |
+| "keep it, it adds value and sound" | Great Wall Shinobi keeps its score (the platform's taiko style). |
+| "dormant … it could be an option when someone builds … check box" | The score engine (lib/runtime/music.js) stays in the runtime, silent unless a world's code asks for it. A later option: an "Add music" box when building, off by default. Not built. |
+| "we can add the feature later to upload music if users request" | Uploading your own music: only if players ask for it. Not built. |
+
 ## The plan
 
 1. **You, in the game.** Selfie → your character → play LA Olympics as yourself. Every world
