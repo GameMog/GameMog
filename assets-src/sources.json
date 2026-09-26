@@ -151,6 +151,35 @@
         "UAL2_Standard.glb",
         "License.txt"
       ]
+    },
+    "polyhaven-asphalt-track": {
+      "title": "Asphalt Track (textures)",
+      "author": "Dimitrios Savva, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/asphalt_track",
+      "base": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_track/",
+      "files": [
+        "asphalt_track_diff_1k.jpg",
+        "asphalt_track_nor_gl_1k.jpg",
+        "asphalt_track_rough_1k.jpg"
+      ],
+      "md5": {
+        "asphalt_track_diff_1k.jpg": "92e0682878c39430e521cce235ac1f75",
+        "asphalt_track_nor_gl_1k.jpg": "d61d8e22e24ea0e44873b9c9c97d4e0c",
+        "asphalt_track_rough_1k.jpg": "c57f7b3a42ebfaf58e44c0ccc83326c3"
+      }
+    },
+    "cynicmusic-hyper-ultra-racing": {
+      "title": "Hyper Ultra-Racing",
+      "author": "cynicmusic (cynicmusic.com), for the game Pixelsphere",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/hyper-ultra-racing",
+      "base": "https://opengameart.org/sites/default/files/",
+      "files": [
+        "AugustUltraAmbience.wav"
+      ]
     }
   }
 }

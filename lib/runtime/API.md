@@ -23,7 +23,9 @@ creativity: it decides what the world is, who lives in it, and how it looks, mov
   human athlete from the library, about 1.7 to 1.8 m tall, in their own kit with their name on
   the bib), it replaces `player()`. Build every world for a human runner: its scale, its
   clearances and a track a person could run on. Still write `player()`, which plays when there
-  is no character, and never depend on the player's shape.
+  is no character, and never depend on the player's shape. In a world of cars
+  (`play.vehicle`), they drive the world's own car in their colours instead, and the world is
+  built for cars.
 - **GM.** Golden GM coins are laid along the track and re-laid every lap. They are the
   platform's currency and look the same in every world. Do not make coins. A world may lay none
   (`play.coins: false`) and pay a bounty for every lap finished instead (`play.bounty`).
@@ -71,6 +73,7 @@ play: {
   coins: false,                                            // no GM coins on the track
   bounty: { base: 100, step: 50, name: 'Lap bounty' },     // GM paid for each finished lap: base, plus step every lap
   combat: { mark: '!', verb: 'Cut down' },                 // the sword: X swings; mark shows over a rival in reach
+  vehicle: true,                                           // a world of cars (below)
 }
 ```
 
@@ -82,6 +85,13 @@ play: {
   show: only a touch ends a run).
 - **bounty**: the level-up banner shows the bounty; use `ctx.on('lap', ...)` to celebrate it in
   the world (fireworks, a bell, a gong).
+- **vehicle**: a race of cars. Every speed and every distance along the track is 2.2 times a
+  runner's (160 km/h cruising on lap 1, over 350 km/h flat out late in a run), so a lap may be
+  704 to 1,980 m and the road 10 to 24 m wide, and a lap still takes about as long. Build the
+  player and every rival with `ctx.assets.car` (below): a car's hitbox is its length and width,
+  not a circle. The HUD adds a speedometer, the engines are the runtime's, and a rival the
+  camera would be inside is not drawn. Build the track for cars: street widths (16 m or more),
+  bends of 30 m radius or more, walls or barriers at the edges, and scenery at car scale.
 
 ### theme
 `{ sky, fog, ink, panel, accent, font }`. Colours are `#RRGGBB`. The HUD, screens and touch
@@ -101,6 +111,7 @@ world uses; it all loads before `build()` runs.
 | `human-athlete-male` | a realistic male athlete: skins `african`, `caucasian`, `caucasian2`, `asian`; hair `short02`, `short04`, `afro01`; motion-captured idle, standing start, run, sprint and fall, and sword motion (a guard, three cuts, a hit and a death) |
 | `human-athlete-female` | the same for a female athlete: skins `african`, `caucasian`, `asian` |
 | `hdri-sunset-city` | a golden-hour city sky for `graphics.environment.hdri` |
+| `texture-asphalt-track` | scanned race-track asphalt (colour, normal and roughness maps; one tile is 2 m of road) for `ctx.assets.texture` |
 
 `ctx.assets.human(id, options)` returns `{ object, animate, name, color }`: return it straight
 from `player()` or `rival()`. It idles when standing, plays a standing start when it first moves,
@@ -178,6 +189,37 @@ ctx.assets.skater('human-athlete-female', {
 under it, the feet are left for the world's own footwear). Build an oval for skaters: they lean
 hard at the runtime's speeds, so give the bends a radius of 25 m or more.
 
+`ctx.assets.car(options)` builds a racing car for `player()` or `rival()` in a world with
+`play.vehicle` and returns `{ object, animate, name, color, vehicle }`: return it as it is (set
+`name` and `color` on it for a rival). It needs no library asset. Four kinds, each built from its
+class's real dimensions: `hypercar` (a road hypercar, cab-forward, a big rear wing), `formula`
+(a single-seater: open wheels, halo, wings, sparks from the floor at speed), `stockcar` (a stock
+car with its number on the doors and roof, a window net, a spoiler) and `monster` (a monster truck
+on 66-inch tyres and long-travel shocks). The paint is clear-coated with its livery painted on
+the body; a driver in a helmet turns the wheel. The car drives by itself: wheels roll and steer,
+the body rolls, dives and squats, the gears climb and the exhaust pops, brake lights and discs
+glow, and in a crash it spins, flips or barrel-rolls with sparks, smoke and debris.
+
+```js
+ctx.assets.car({
+  kind: 'formula', paint: '#0E7C86', trim: '#F2F2F2', accent: '#FFB000',
+  pattern: 'split',                 // plain, stripes, arrow, split, flames, teeth, bands
+  number: '27', livery: 'AURORA',   // the number on the car, a name along its flanks
+  driver: { suit: '#101820', helmet: '#FFB000' }, rims: '#23252A', calipers: '#C8102E',
+  metallic: 0.2, chrome: false, iridescent: false,   // paint: how metallic, mirror chrome, colour-shift
+  glow: '#FF2A2A', spikes: false,   // a meaner rival: neon under the car; spikes on a monster truck
+  name: 'Aurora GP', color: '#0E7C86',
+})
+```
+
+Make later rivals meaner: `glow`, `chrome` or `iridescent` paint, `spikes` on trucks. A car is
+authored facing +Z like any character; do not scale it.
+
+`ctx.assets.texture(id)` returns a scanned surface as `{ map, normalMap, roughnessMap, size }`
+(`size`: metres one tile covers) to put on a material: set `repeat` on the maps to match your
+geometry's UVs (a `ribbon` of width w spans u 0 to 1 across and v one unit per w metres along).
+It returns `null` if the library could not load: keep a surface of your own.
+
 ### graphics (optional)
 Turns on the runtime's cinematic renderer. Use it whenever the world should look its best,
 and always for a realistic world. Every value is optional and bounded.
@@ -197,6 +239,8 @@ graphics: {
                                                   // heat while mid-tones stay muted, paper 0-0.08 a still
                                                   // paper grain
   shadows: { extent: 38, mapSize: 2048 },         // a sharp shadow map that follows the player
+  reflections: true,                              // the world itself in cars' paint and glass, kept live
+  motion: 0.5,                                    // 0 to 1: the edges of the picture stream with speed
 }
 ```
 
@@ -207,8 +251,12 @@ graphics: {
   `emissive` colours with `emissiveIntensity` of 2 to 12. Ordinary surfaces never glow.
 - The shadow map follows the player, so the one shadow-casting `DirectionalLight` needs no
   shadow camera of its own. Scenery far away does not need to cast shadows.
-- The runtime lowers the resolution, then the antialiasing, then the bloom if a device cannot
-  hold 60 fps.
+- `reflections` renders the world round the player into a cube, a face a frame, for the paint,
+  glass and chrome of `ctx.assets.car` (not on phones). Use it in a world of cars.
+- `motion` blurs the edges of the picture outward with speed, keeping the middle sharp. Use it
+  in a world of cars (about 0.5); runners do not need it.
+- The runtime lowers the resolution, then the antialiasing, then the reflections, then the
+  bloom if a device cannot hold 60 fps.
 
 ### camera (optional)
 `{ distance, height, fov, side, look }`: metres behind the player (3 to 14), metres above

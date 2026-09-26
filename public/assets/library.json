@@ -37,6 +37,20 @@
       "license": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "homepage": "https://quaternius.com/packs/universalanimationlibrary.html"
+    },
+    "polyhaven-asphalt-track": {
+      "title": "Asphalt Track (textures)",
+      "author": "Dimitrios Savva, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/asphalt_track"
+    },
+    "cynicmusic-hyper-ultra-racing": {
+      "title": "Hyper Ultra-Racing",
+      "author": "cynicmusic (cynicmusic.com), for the game Pixelsphere",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/hyper-ultra-racing"
     }
   },
   "assets": {
@@ -315,6 +329,73 @@
         }
       },
       "bytes": 1249987
+    },
+    "texture-asphalt-track": {
+      "kind": "texture",
+      "title": "Race-track asphalt",
+      "description": "Scanned asphalt from a race track (colour, normal and roughness maps, 1024 px for 2 m of road), for track surfaces that hold up close.",
+      "sources": [
+        "polyhaven-asphalt-track"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "05c4e79cd99160075969d37bfc6ef72be262153a410bb45510b2c23f7303894c",
+          "bytes": 858925
+        },
+        "normal.jpg": {
+          "sha256": "18caf02427a7cd9cd577ceae5aa9daa7bb3ffba60598e2df8aaf75d1925a8a94",
+          "bytes": 832851
+        },
+        "roughness.jpg": {
+          "sha256": "0646d0cfbe6bf9ea4a8a9e43aec826e7ec32a10b8aff61bf5a4ec02b1bc3c363",
+          "bytes": 459197
+        }
+      },
+      "bytes": 2151100
+    },
+    "music-hyper-ultra-racing": {
+      "kind": "music",
+      "title": "Hyper Ultra-Racing",
+      "description": "Fast cinematic drum and bass for a race, 168.04 BPM: a 19 s intro, then 32 bars that loop seamlessly.",
+      "sources": [
+        "cynicmusic-hyper-ultra-racing"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 168.04,
+        "duration": 64.8718,
+        "loop": {
+          "start": 19.16837,
+          "end": 64.87177,
+          "bars": 32,
+          "introBars": 13,
+          "similarity": 1.81
+        },
+        "lufs": -8.73
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "3bc4dbd65456e74b390582e087d4bf1486da61f746feecda356c805ae6de969d",
+          "bytes": 282
+        },
+        "track.m4a": {
+          "sha256": "cd480a7fdde05048616d5d42d02209aaa1edc441d2b0a3abb1549fe6b7741dda",
+          "bytes": 1600897
+        }
+      },
+      "bytes": 1601179
     }
   }
 }

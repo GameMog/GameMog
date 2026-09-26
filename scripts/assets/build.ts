@@ -7,13 +7,14 @@
  * sources it was built from. The runtime refuses a file whose hash does not
  * match, and `npm run check` refuses a library with a file no licence covers.
  */
-import { readFileSync, readdirSync, rmSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { buildHuman } from './human.ts';
 import { retargetClip, sprintFrom, type Clip } from './mocap.ts';
 import { retargetGltf } from './gltf.ts';
 import { buildHdri } from './hdri.ts';
+import { buildMusic } from './music.ts';
 import { sha256, Packer } from './lib.ts';
 
 const OUT = 'public/assets';
@@ -103,6 +104,25 @@ human('human-athlete-female', 'female', 'Athlete (female)', {
   const sky = buildHdri('polyhaven/sunset_jhbcentral_1k.hdr', dir);
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'hdri', ...sky, encoding: 'rgbe' }));
   library[id] = { kind: 'hdri', title: 'City sunset sky', description: 'A golden-hour sky over a city, for image-based light and reflections (1024 x 512, full dynamic range).', sources: ['polyhaven'], meta: { width: sky.width, height: sky.height }, files: {}, bytes: 0 };
+}
+
+{
+  // a scanned race-track surface, 2 m square in the world: colour, normal (OpenGL) and roughness
+  const id = 'texture-asphalt-track', dir = join(OUT, id), src = 'assets-src/cache/polyhaven-asphalt-track/';
+  mkdirSync(dir, { recursive: true });
+  copyFileSync(src + 'asphalt_track_diff_1k.jpg', join(dir, 'color.jpg'));
+  copyFileSync(src + 'asphalt_track_nor_gl_1k.jpg', join(dir, 'normal.jpg'));
+  copyFileSync(src + 'asphalt_track_rough_1k.jpg', join(dir, 'roughness.jpg'));
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'texture', size: 2, maps: { color: 'color.jpg', normal: 'normal.jpg', roughness: 'roughness.jpg' } }));
+  library[id] = { kind: 'texture', title: 'Race-track asphalt', description: 'Scanned asphalt from a race track (colour, normal and roughness maps, 1024 px for 2 m of road), for track surfaces that hold up close.', sources: ['polyhaven-asphalt-track'], meta: { size: 2, maps: ['color', 'normal', 'roughness'] }, files: {}, bytes: 0 };
+}
+{
+  // a recorded track, measured and made to loop (see music.ts)
+  const id = 'music-hyper-ultra-racing', dir = join(OUT, id);
+  const m = buildMusic('cynicmusic-hyper-ultra-racing/AugustUltraAmbience.wav', dir, { lo: 150, hi: 190, kbps: 192 });
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'music', ...m }));
+  library[id] = { kind: 'music', title: 'Hyper Ultra-Racing', description: `Fast cinematic drum and bass for a race, ${m.bpm} BPM: a ${Math.round(m.loop.start)} s intro, then ${m.loop.bars} bars that loop seamlessly.`, sources: ['cynicmusic-hyper-ultra-racing'], derived: 'Measured for loudness (BS.1770) and tempo; cut to loop on a phrase with a crossfaded join; encoded to AAC.', meta: { bpm: m.bpm, duration: m.duration, loop: m.loop, lufs: m.lufs }, files: {}, bytes: 0 };
+  console.log(`${id}: ${m.bpm} BPM, loop ${m.loop.start.toFixed(2)}-${m.loop.end.toFixed(2)} s (${m.loop.bars} bars), ${m.lufs} LUFS`);
 }
 
 // hash every file, and record which licences cover each asset

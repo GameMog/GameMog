@@ -408,6 +408,70 @@ try {
     }, { timeoutMs: 150_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(mid); }
 
+  // cars (play.vehicle, the owner's "car speeds, same rhythm", 25 Sep): the
+  // car kit, speeds and distances 2.2 times a runner's, a car's hitbox, the
+  // dash, live reflections, engines, and a recorded track from the library
+  console.log('\ncars: play.vehicle, the car kit, live reflections, a recorded track');
+  const vid = randomUUID();
+  const vMeta = { title: 'Car Check', tagline: 'Cars on the platform', blurb: 'Runtime check.', genre: 'Test', cast: [{ name: 'Lab', color: '#BCC1C7' }], palette: { sky: '#101424', ground: '#16161A', accent: '#00D1C1' }, runtime: 1 };
+  insertDraft({ id: vid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../lib/runtime/vehicle-world.js', import.meta.url), 'utf8'), meta: vMeta });
+  try {
+    await withBrowser(async (page) => {
+      type V = State & { scale: number; playerRadius: number; playerHalf: number; vehicle: { kind: string; kmh: number; gear: number; rpm: number; engine: boolean } | null;
+        track: { id: string; loaded: boolean; playing: boolean; energy: number | null; gain: number | null; position: number | null } | null; render: { live: { on: boolean; frames: number } | null };
+        rivals: (State['rivals'][number] & { name: string })[] };
+      const vst = () => page.eval<V>('window.__gmRuntime.state()');
+      await page.goto(`${BASE}/d/${vid}/play`);
+      for (let i = 0; i < 150; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__veh)').catch(() => false)) break; await sleep(200); }
+      await sleep(1200);
+      const errs = await page.eval<string[]>('window.__gm.errors');
+      const v0 = await vst();
+      ok('a car world boots with its cars and no errors', errs.length === 0 && !!v0.vehicle && v0.vehicle.kind === 'hypercar', errs.join(' | '));
+      ok('a library texture arrives as colour, normal and roughness maps', !!(await page.eval<{ texture: { map: boolean; normal: boolean; rough: boolean } | null }>('({ texture: window.__veh.texture })')).texture?.rough);
+      ok('speeds and distances are 2.2 times a runner\'s (lap 1 cruises at 44 m/s)', v0.scale === 2.2 && Math.abs(v0.cruise - 44) < 0.01, `scale ${v0.scale}, cruise ${v0.cruise}`);
+      ok('a lap of 1.4 km is a legal car lap (laps may run to 1,980 m)', v0.lap > 1300 && v0.lap < 1500, `${Math.round(v0.lap)}m`);
+      ok('a car\'s hitbox is its footprint: long along the track, narrow across', v0.playerHalf > v0.playerRadius * 2, `half-length ${v0.playerHalf.toFixed(2)}, half-width ${v0.playerRadius.toFixed(2)}`);
+      await page.eval('window.__gmRuntime.debug.audio(); window.__gmRuntime.debug.start()'); await sleep(3900);
+      await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true)'); await sleep(2500);
+      const v1 = await vst();
+      ok('the dash shows speed and gear in the race', v1.vehicle!.kmh > 100 && v1.vehicle!.gear >= 2 && (await page.eval<boolean>('!!document.querySelector("#gm .speed") && document.querySelector("#gm .speed").style.display !== "none"')), `${v1.vehicle!.kmh} km/h in gear ${v1.vehicle!.gear}`);
+      ok('the engine sings with the revs', v1.vehicle!.engine && v1.vehicle!.rpm > 4000, `${v1.vehicle!.rpm} rpm`);
+      ok('live reflections render the street round the car, frame by frame', !!v1.render.live && v1.render.live.on && v1.render.live.frames > 10, JSON.stringify(v1.render.live));
+      const nan = await page.eval<number>(`(() => { const I = window.__gmRuntime.debug.internals(), L = I.live, r = I.renderer, T = I.THREE, S = 256, buf = new Uint16Array(4 * S * S); let n = 0; for (let f = 0; f < 6; f++) { r.readRenderTargetPixels(L.rt, 0, 0, S, S, buf, f); for (let i = 0; i < buf.length; i++) { const v = T.DataUtils.fromHalfFloat(buf[i]); if (v !== v || !isFinite(v)) n++; } } return n; })()`);
+      ok('the reflection cube holds no bad pixels (one would black out every car)', nan === 0, `${nan} NaN or infinite`);
+      ok('the recorded track plays, opened up for the race, at the platform\'s loudness', !!v1.track && v1.track.loaded && v1.track.playing && v1.track.energy! >= 1 && v1.track.gain! > 0.3 && v1.track.gain! < 0.6, JSON.stringify(v1.track));
+      // the box, not a circle: alongside at 2.8 m (half-widths sum to 1.8) is clear; at 1.0 m it is contact
+      await page.eval('window.__gmRuntime.debug.autopilot(false); window.__gmRuntime.debug.invincible(false)');
+      const r1 = v1.rivals[0];
+      const side = `(window.__gmRuntime.state().x > 0 ? -1 : 1)`;
+      await page.eval(`window.__gmRuntime.debug.rivalAt(${r1.k}, 1.0, window.__gmRuntime.state().x + ${side} * 2.8)`);
+      await sleep(80);
+      const beside = await vst();
+      ok('a car alongside, not touching, is not a crash', beside.alive, beside.crashedInto);
+      // a rival right where the camera is: not drawn
+      // (a first rival is slower than you: placed just ahead of the camera, it drifts back into it)
+      await page.eval(`window.__gmRuntime.debug.rivalAt(${r1.k}, -5.8, window.__gmRuntime.state().x)`);
+      await sleep(50);
+      const near = await page.eval<{ dist: number; vis: boolean }>(`(() => { const I = window.__gmRuntime.debug.internals(), cam = I.camera.position; let best = null; I.scene.children.forEach((c) => { const m = c.children && c.children[0]; if (m && m.userData && m.userData.gmVehicle && c !== I.player.object) { const d = c.position.distanceTo(cam); if (!best || d < best.dist) best = { dist: +d.toFixed(2), vis: c.visible }; } }); return best; })()`);
+      ok('a rival the camera would be inside is not drawn', !!near && near.dist < 2.8 && !near.vis, JSON.stringify(near));
+      await page.eval(`window.__gmRuntime.debug.rivalAt(${r1.k}, 0.5, window.__gmRuntime.state().x + ${side} * 1.0)`);
+      await sleep(200);
+      const hit = await vst();
+      ok('a car touching yours ends the run', !hit.alive && hit.crashedInto === r1.name, hit.crashedInto);
+      await sleep(2200);
+      const after = await vst();
+      ok('the music stops with the run', !!after.track && !after.track.playing);
+      // the field cycles the classes
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(3900);
+      await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true); window.__gmRuntime.debug.timeScale(6)');
+      let v2 = await vst();
+      for (let i = 0; i < 80 && v2.level < 5; i++) { await sleep(400); v2 = await vst(); }
+      const kinds = await page.eval<string[]>(`(() => { const out = []; window.__veh.scene.children.forEach((c) => { const m = c.children[0]; if (m && m.userData && m.userData.gmVehicle && c !== window.__gmRuntime.debug.internals().player.object) out.push(m.children.length); }); return out.map(String); })()`);
+      const e3 = await page.eval<string[]>('window.__gm.errors');
+      ok('laps of cars racing (a single-seater, a stock car, a monster truck, a hypercar) raise no error', v2.level >= 5 && kinds.length >= 4 && e3.length === 0, `level ${v2.level}, ${kinds.length} rival cars${e3.length ? ', ' + e3.join(' | ') : ''}`);
+    }, { timeoutMs: 180_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(vid); }
+
   // "You are the main character" (docs/PRODUCT.md): the player's own
   // character, passed in the frame's URL fragment, replaces the world's
   // player() in any world, and can change mid-run

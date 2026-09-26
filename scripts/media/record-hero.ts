@@ -31,6 +31,13 @@ const CUTS = {
   '4x3': { width: 960, height: 720, bitrate: 1_400_000, film: { distance: 4.6, height: 1.65, fov: 44, side: 0, look: 1.25 } },
 } as const;
 type Cut = keyof typeof CUTS;
+// a world of cars (play.vehicle): the car is four and a half metres long, so
+// the camera sits a car's length further back and a little higher, over the
+// wing rather than level with it
+const CAR_FILM: Record<Cut, { distance: number; height: number; fov: number; side: number; look: number }> = {
+  wide: { distance: 7.6, height: 2.05, fov: 44, side: -0.8, look: 1.0 },
+  '4x3': { distance: 7.2, height: 2.1, fov: 50, side: 0, look: 1.0 },
+};
 
 const slug = process.argv[2] ?? 'la-olympics-2028';
 const only = (process.argv[3] ?? 'wide,4x3').split(',') as Cut[];
@@ -67,7 +74,8 @@ for (const cut of only) {
     await sleep(3800);
     await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true); window.__gmRuntime.debug.timeScale(6)');
     for (let i = 0; i < 900 && (await page.eval<number>('window.__gmRuntime.state().level')) < FROM_LAP; i++) await sleep(100);
-    await page.eval(`window.__gmRuntime.debug.timeScale(1); window.__gmRuntime.debug.film(${JSON.stringify(c.film)})`);
+    const cars = await page.eval<boolean>('!!(window.__gmRuntime.state().play && window.__gmRuntime.state().play.vehicle)');
+    await page.eval(`window.__gmRuntime.debug.timeScale(1); window.__gmRuntime.debug.film(${JSON.stringify(cars ? CAR_FILM[cut] : c.film)})`);
     // two rivals in shot (and, with AT, at that point of the lap: up to four
     // laps of trying, then the point alone)
     const at = AT === null ? 'true' : `(((st.d % st.lap) / st.lap - ${AT} + 1) % 1) < 0.03`;

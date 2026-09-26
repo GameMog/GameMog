@@ -10,7 +10,7 @@ type Source = { title: string; author: string; license: string; licenseUrl: stri
 type Asset = { kind: string; title: string; description: string; sources: string[]; derived?: string; meta?: Record<string, unknown>; files: Record<string, { sha256: string; bytes: number }>; bytes: number };
 
 const LICENCE: Record<string, string> = { 'CC0-1.0': 'CC0 1.0 (public domain dedication)', 'LicenseRef-CMU-Mocap': 'Free for all uses (CMU Graphics Lab)' };
-const KIND: Record<string, string> = { human: 'Character', hdri: 'Sky' };
+const KIND: Record<string, string> = { human: 'Character', hdri: 'Sky', texture: 'Surface', music: 'Music' };
 const mb = (b: number) => `${(b / 1e6).toFixed(1)} MB`;
 
 /**

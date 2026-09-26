@@ -24,6 +24,14 @@ AI generates, humans select, winners reproduce. Platform first; movement second.
 | "2D should not be allowed" | Every world is 3D, seen through the runtime's chase camera; worlds cannot create, move or re-project cameras. | `check` "worlds are 3D" |
 | "goal is to get to highest level without getting killed" | Leaderboard ranks level, then GM. | score route |
 
+### Cars (platform option `play.vehicle`, 25 Sep 2026)
+
+| Owner's words | Interpretation in code | Tested by |
+|---|---|---|
+| "the main car being a Mercedes hypercar and enemies such as F1, mostter trucks and Nascars" | A car kit in the runtime (`ctx.assets.car`, `lib/runtime/vehicle.js`) for any world or Mog: a hypercar, a single-seater, a stock car and a monster truck, built in code, with a driver, lights, gears, engine sound, sparks and crashes. Look-alikes only: no maker's badge, no series' or casino's name (the owner's choice, "Look-alikes, no logos"). | `check:runtime` "cars: …" |
+| "Car speeds, same rhythm" (the owner's choice for how fast cars go) | A world of cars multiplies every speed and every distance along the track by 2.2: 160 km/h cruising on lap 1, over 350 flat out late on, laps of 704 to 1,980 m and a road up to 24 m wide, so a lap takes as long as a runner's and a rival joins as often. The per-lap rules (5% faster, one more rival, one touch ends it) are unchanged. | "speeds and distances are 2.2 times a runner's" |
+| "only way to die is bump a competitor or obstacle" (for cars) | A car's hitbox is its footprint: its length along the track and its width across, with rounded corners. A car alongside you is not a touch. | "a car's hitbox is its footprint", "a car alongside, not touching, is not a crash", "a car touching yours ends the run" |
+
 ## 2. Mog (v1)
 
 | Owner's words | Interpretation in code | Tested by |

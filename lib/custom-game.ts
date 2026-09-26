@@ -179,8 +179,8 @@ ${inert(code)}
 const RUNTIMES: Record<number, string> = {};
 function runtimeSource(version: number) {
   if (!RUNTIMES[version] || process.env.NODE_ENV !== 'production') {
-    // the platform's score engine rides in front of the runtime that plays it
-    RUNTIMES[version] = readFileSync(join(process.cwd(), 'lib', 'runtime', 'music.js'), 'utf8') + '\n' + readFileSync(join(process.cwd(), 'lib', 'runtime', `v${version}.js`), 'utf8');
+    // the platform's score engine and car kit ride in front of the runtime that uses them
+    RUNTIMES[version] = ['music.js', 'vehicle.js', `v${version}.js`].map((f) => readFileSync(join(process.cwd(), 'lib', 'runtime', f), 'utf8')).join('\n');
   }
   return RUNTIMES[version];
 }
