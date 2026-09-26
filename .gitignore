@@ -10,3 +10,4 @@ data/*.db-*
 
 # third-party source downloads for the asset library (rebuild with npm run assets:fetch)
 assets-src/cache/
+data/backups/
