@@ -1,4 +1,8 @@
 {
+  "centurion-dance-field/dance_field_2.wav": {
+    "sha256": "1147a7de995b65ea3d55daa512fe589471e94e06dc0a8f77226c10fdc6e96e0e",
+    "bytes": 19353746
+  },
   "cmu-mocap/09/09.asf": {
     "sha256": "be10dbce393fd60a2d322410032d618757afcc5bb2f7a508d887c5b0213f1897",
     "bytes": 7260
@@ -90,10 +94,6 @@
   "cmu-mocap/90/90_16.amc": {
     "sha256": "6cf3344e887d483ab0ff917fea3b8a92f383277263a344ae6141f377bfa7b3c1",
     "bytes": 578522
-  },
-  "cynicmusic-hyper-ultra-racing/AugustUltraAmbience.wav": {
-    "sha256": "5657d8b3cc0a5cd5d8a6919ee6c9fdc1c8e23d5727f3e2bdeb7f18d902747a3b",
-    "bytes": 14063104
   },
   "makehuman-system/eyebrows/eyebrow001/eyebrow001.mhclo": {
     "sha256": "54c8892c2ba577f4152d779ce1f20f7cd323beb8cbd9cb701796165c221b4f5b",

@@ -45,12 +45,12 @@
       "licenseUrl": "https://polyhaven.com/license",
       "homepage": "https://polyhaven.com/a/asphalt_track"
     },
-    "cynicmusic-hyper-ultra-racing": {
-      "title": "Hyper Ultra-Racing",
-      "author": "cynicmusic (cynicmusic.com), for the game Pixelsphere",
+    "centurion-dance-field": {
+      "title": "Dance Field",
+      "author": "Centurion_of_war (OpenGameArt)",
       "license": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
-      "homepage": "https://opengameart.org/content/hyper-ultra-racing"
+      "homepage": "https://opengameart.org/content/dance-field"
     }
   },
   "assets": {
@@ -365,37 +365,37 @@
       },
       "bytes": 2151100
     },
-    "music-hyper-ultra-racing": {
+    "music-dance-field": {
       "kind": "music",
-      "title": "Hyper Ultra-Racing",
-      "description": "Fast cinematic drum and bass for a race, 168.04 BPM: a 19 s intro, then 32 bars that loop seamlessly.",
+      "title": "Dance Field",
+      "description": "Upbeat retro electro, 140.03 BPM: the opening once, then 16 bars that loop seamlessly.",
       "sources": [
-        "cynicmusic-hyper-ultra-racing"
+        "centurion-dance-field"
       ],
-      "derived": "Measured for loudness (BS.1770) and tempo; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
       "meta": {
-        "bpm": 168.04,
-        "duration": 64.8718,
+        "bpm": 140.03,
+        "duration": 38.7861,
         "loop": {
-          "start": 19.16837,
-          "end": 64.87177,
-          "bars": 32,
-          "introBars": 13,
-          "similarity": 1.81
+          "start": 11.36345,
+          "end": 38.78615,
+          "bars": 16,
+          "introBars": 6,
+          "similarity": 1.489
         },
-        "lufs": -8.73
+        "lufs": -19.63
       },
       "files": {
         "asset.json": {
-          "sha256": "3bc4dbd65456e74b390582e087d4bf1486da61f746feecda356c805ae6de969d",
-          "bytes": 282
+          "sha256": "6e05d862931d5db6606ec4850edcdcd89f1c893af6127e9772145616b189201b",
+          "bytes": 287
         },
         "track.m4a": {
-          "sha256": "cd480a7fdde05048616d5d42d02209aaa1edc441d2b0a3abb1549fe6b7741dda",
-          "bytes": 1600897
+          "sha256": "d07102728e30761084bc0b9da90af39d6dcfb9b573f013ade65bfca7a308fe6e",
+          "bytes": 936316
         }
       },
-      "bytes": 1601179
+      "bytes": 936603
     }
   }
 }

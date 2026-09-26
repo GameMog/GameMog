@@ -170,15 +170,15 @@
         "asphalt_track_rough_1k.jpg": "c57f7b3a42ebfaf58e44c0ccc83326c3"
       }
     },
-    "cynicmusic-hyper-ultra-racing": {
-      "title": "Hyper Ultra-Racing",
-      "author": "cynicmusic (cynicmusic.com), for the game Pixelsphere",
+    "centurion-dance-field": {
+      "title": "Dance Field",
+      "author": "Centurion_of_war (OpenGameArt)",
       "license": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
-      "homepage": "https://opengameart.org/content/hyper-ultra-racing",
+      "homepage": "https://opengameart.org/content/dance-field",
       "base": "https://opengameart.org/sites/default/files/",
       "files": [
-        "AugustUltraAmbience.wav"
+        "dance_field_2.wav"
       ]
     }
   }

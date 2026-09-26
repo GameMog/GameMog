@@ -30,9 +30,14 @@ export function readWav(path: string): Pcm {
     if (id === 'data') data = [p + 8, size];
     p += 8 + size + (size & 1);
   }
-  if (!fmt || !data || fmt.tag !== 1 || fmt.bits !== 16) throw new Error(`${path}: only 16-bit PCM WAV is supported`);
-  const n = Math.floor(data[1] / (fmt.ch * 2)), ch = Array.from({ length: fmt.ch }, () => new Float32Array(n));
-  for (let i = 0; i < n; i++) for (let c = 0; c < fmt.ch; c++) ch[c][i] = b.readInt16LE(data[0] + (i * fmt.ch + c) * 2) / 32768;
+  // 16-bit PCM, or 32-bit float (format 3; also as an extensible WAV)
+  const float = fmt && (fmt.tag === 3 || fmt.tag === 0xfffe) && fmt.bits === 32, pcm16 = fmt && fmt.tag === 1 && fmt.bits === 16;
+  if (!fmt || !data || !(float || pcm16)) throw new Error(`${path}: only 16-bit PCM or 32-bit float WAV is supported`);
+  const bytes = fmt.bits / 8, n = Math.floor(data[1] / (fmt.ch * bytes)), ch = Array.from({ length: fmt.ch }, () => new Float32Array(n));
+  for (let i = 0; i < n; i++) for (let c = 0; c < fmt.ch; c++) {
+    const at = data[0] + (i * fmt.ch + c) * bytes;
+    ch[c][i] = float ? b.readFloatLE(at) : b.readInt16LE(at) / 32768;
+  }
   return { sr: fmt.sr, ch };
 }
 
@@ -167,6 +172,9 @@ function bake(pcm: Pcm, start: number, end: number, fade = 0.06): Pcm {
 
 export function buildMusic(src: string, outDir: string, opts: { lo?: number; hi?: number; kbps?: number } = {}) {
   const pcm = readWav(join(CACHE, src));
+  // a float master that peaks over full scale would clip in the encoder: bring it under
+  let peak = 0; for (const c of pcm.ch) for (let i = 0; i < c.length; i++) peak = Math.max(peak, Math.abs(c[i]));
+  if (peak > 0.98) { const k = 0.98 / peak; for (const c of pcm.ch) for (let i = 0; i < c.length; i++) c[i] *= k; }
   const loud = loudness(pcm), bt = beats(pcm, opts.lo, opts.hi), loop = findLoop(pcm, bt);
   const baked = bake(pcm, loop.start, loop.end);
   const tmp = join(tmpdir(), `gm-music-${process.pid}`); mkdirSync(tmp, { recursive: true });

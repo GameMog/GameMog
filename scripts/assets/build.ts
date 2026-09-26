@@ -118,10 +118,10 @@ human('human-athlete-female', 'female', 'Athlete (female)', {
 }
 {
   // a recorded track, measured and made to loop (see music.ts)
-  const id = 'music-hyper-ultra-racing', dir = join(OUT, id);
-  const m = buildMusic('cynicmusic-hyper-ultra-racing/AugustUltraAmbience.wav', dir, { lo: 150, hi: 190, kbps: 192 });
+  const id = 'music-dance-field', dir = join(OUT, id);
+  const m = buildMusic('centurion-dance-field/dance_field_2.wav', dir, { lo: 100, hi: 180, kbps: 192 });
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'music', ...m }));
-  library[id] = { kind: 'music', title: 'Hyper Ultra-Racing', description: `Fast cinematic drum and bass for a race, ${m.bpm} BPM: a ${Math.round(m.loop.start)} s intro, then ${m.loop.bars} bars that loop seamlessly.`, sources: ['cynicmusic-hyper-ultra-racing'], derived: 'Measured for loudness (BS.1770) and tempo; cut to loop on a phrase with a crossfaded join; encoded to AAC.', meta: { bpm: m.bpm, duration: m.duration, loop: m.loop, lufs: m.lufs }, files: {}, bytes: 0 };
+  library[id] = { kind: 'music', title: 'Dance Field', description: `Upbeat retro electro, ${m.bpm} BPM: the opening once, then ${m.loop.bars} bars that loop seamlessly.`, sources: ['centurion-dance-field'], derived: 'Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.', meta: { bpm: m.bpm, duration: m.duration, loop: m.loop, lufs: m.lufs }, files: {}, bytes: 0 };
   console.log(`${id}: ${m.bpm} BPM, loop ${m.loop.start.toFixed(2)}-${m.loop.end.toFixed(2)} s (${m.loop.bars} bars), ${m.lufs} LUFS`);
 }
 

@@ -14,7 +14,7 @@
 // underneath and grow spikes). The platform's options this world turns on:
 // play.vehicle (cars: 2.2 times a runner's speed on a lap up to 2 km, the
 // owner's "car speeds, same rhythm", 25 Sep 2026), live reflections, speed
-// blur, and a recorded track (music-hyper-ultra-racing, CC0, by cynicmusic).
+// blur, and a recorded track (music-dance-field, CC0, by Centurion_of_war).
 // The road is scanned race-track asphalt from the library (Poly Haven, CC0).
 //
 // Everything else is built here in code. No brand is copied: the cars follow
@@ -156,10 +156,10 @@
     // standing water: a film over the asphalt, pooled in the low spots
     var R1 = rng(21);
     var puddles = ctx.textures.canvas(512, 512, function (g, w, h) {
-      g.fillStyle = '#6A6A6A'; g.fillRect(0, 0, w, h);
-      for (var i = 0; i < 70; i++) {
+      g.fillStyle = '#2C2C2C'; g.fillRect(0, 0, w, h);
+      for (var i = 0; i < 46; i++) {
         var x = R1() * w, y = R1() * h, r = 18 + R1() * 70, gr = g.createRadialGradient(x, y, 0, x, y, r);
-        gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.6, 'rgba(255,255,255,0.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        gr.addColorStop(0, 'rgba(255,255,255,0.75)'); gr.addColorStop(0.6, 'rgba(255,255,255,0.4)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
         g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r, r * (0.4 + R1() * 0.5), R1() * 3, 0, Math.PI * 2); g.fill();
       }
       // tyre lines: the racing line dries first, two darker bands where the cars run
@@ -167,8 +167,8 @@
     }, { linear: true });
     puddles.repeat.set(1, 0.25);
     var mat = new T.MeshPhysicalMaterial({
-      color: '#8E8E90', map: tx.map, normalMap: tx.normalMap, normalScale: new T.Vector2(0.9, 0.9), roughnessMap: tx.roughnessMap || null, roughness: 0.92, metalness: 0,
-      clearcoat: 1, clearcoatMap: puddles, clearcoatRoughness: 0.07,
+      color: '#B4B4B6', map: tx.map, normalMap: tx.normalMap, normalScale: new T.Vector2(0.9, 0.9), roughnessMap: tx.roughnessMap || null, roughness: 0.92, metalness: 0,
+      clearcoat: 1, clearcoatMap: puddles, clearcoatRoughness: 0.2,
     });
     W.roadMat = mat;
     // the painted lines and the kerbs, in the road's own shader: edge lines,
@@ -191,7 +191,7 @@
         '  float kst = step( 0.5, fract( d / 2.4 ) );',
         // the grid: boxes behind the line, two by two
         '  float gd = gmL - d; float slot = step( 6.0, gd ) * step( gd, 46.0 ) * step( fract( ( gd - 6.0 ) / 10.0 ), 0.06 ) * step( abs( abs( lat ) - 3.0 ), 1.2 );',
-        '  vec3 paint = vec3( 0.86, 0.86, 0.84 );',
+        '  vec3 paint = vec3( 0.95, 0.95, 0.92 );',
         '  diffuseColor.rgb = mix( diffuseColor.rgb, paint, clamp( line + lane + slot, 0.0, 1.0 ) * 0.9 );',
         '  diffuseColor.rgb = mix( diffuseColor.rgb, mix( vec3( 0.02 ), vec3( 0.9 ), chq ), st * step( abs( lat ), gmHW - 0.36 ) );',
         '  diffuseColor.rgb = mix( diffuseColor.rgb, mix( vec3( 0.42, 0.03, 0.03 ), vec3( 0.5 ), kst ), onK );',
@@ -202,7 +202,8 @@
     // neon beside it, baked once from every light the world placed (uv1)
     var ribbon = ctx.track.ribbon({ width: HW * 2, material: mat, step: 1.5, y: 0 });
     addLightUV(ctx, ribbon.geometry, -HW, HW);
-    ctx.mirror(mat, { y: 0, strength: 1.0, blur: 0.18, distortion: 0.02 });
+    // a damp street: the city's lights lie in it, soft, without drowning the road
+    ctx.mirror(mat, { y: 0, strength: 0.34, blur: 0.6, distortion: 0.04 });
     ribbon.userData.gmTrack = true; ctx.scene.add(ribbon);
     W.roadRibbon = ribbon; W.kerbU = U.gmKerb;
     // the pavements beyond the walls, and the ground under the city
@@ -1010,7 +1011,7 @@
   GameMog.world({
     assets: ['texture-asphalt-track'],
     play: { vehicle: true, bounty: { base: 250, step: 250, name: 'Jackpot' } },
-    music: { track: 'music-hyper-ultra-racing' },
+    music: { track: 'music-dance-field' },
     theme: { sky: '#0A0B14', fog: '#1A1222', ink: '#FFFFFF', accent: '#00D1C1', font: 'Bungee' },
     graphics: {
       exposure: 1.1,

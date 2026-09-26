@@ -418,7 +418,7 @@ try {
   try {
     await withBrowser(async (page) => {
       type V = State & { scale: number; playerRadius: number; playerHalf: number; vehicle: { kind: string; kmh: number; gear: number; rpm: number; engine: boolean } | null;
-        track: { id: string; loaded: boolean; playing: boolean; energy: number | null; gain: number | null; position: number | null } | null; render: { live: { on: boolean; frames: number } | null };
+        track: { id: string; lufs: number | null; loaded: boolean; playing: boolean; energy: number | null; gain: number | null; position: number | null } | null; render: { live: { on: boolean; frames: number } | null };
         rivals: (State['rivals'][number] & { name: string })[] };
       const vst = () => page.eval<V>('window.__gmRuntime.state()');
       await page.goto(`${BASE}/d/${vid}/play`);
@@ -439,7 +439,7 @@ try {
       ok('live reflections render the street round the car, frame by frame', !!v1.render.live && v1.render.live.on && v1.render.live.frames > 10, JSON.stringify(v1.render.live));
       const nan = await page.eval<number>(`(() => { const I = window.__gmRuntime.debug.internals(), L = I.live, r = I.renderer, T = I.THREE, S = 256, buf = new Uint16Array(4 * S * S); let n = 0; for (let f = 0; f < 6; f++) { r.readRenderTargetPixels(L.rt, 0, 0, S, S, buf, f); for (let i = 0; i < buf.length; i++) { const v = T.DataUtils.fromHalfFloat(buf[i]); if (v !== v || !isFinite(v)) n++; } } return n; })()`);
       ok('the reflection cube holds no bad pixels (one would black out every car)', nan === 0, `${nan} NaN or infinite`);
-      ok('the recorded track plays, opened up for the race, at the platform\'s loudness', !!v1.track && v1.track.loaded && v1.track.playing && v1.track.energy! >= 1 && v1.track.gain! > 0.3 && v1.track.gain! < 0.6, JSON.stringify(v1.track));
+      ok('the recorded track plays, opened up for the race, at the platform\'s loudness (its measured loudness plus its gain is -16 LUFS)', !!v1.track && v1.track.loaded && v1.track.playing && v1.track.energy! >= 1 && Math.abs(v1.track.lufs! + 20 * Math.log10(v1.track.gain!) + 16) < 0.2, JSON.stringify(v1.track));
       // the box, not a circle: alongside at 2.8 m (half-widths sum to 1.8) is clear; at 1.0 m it is contact
       await page.eval('window.__gmRuntime.debug.autopilot(false); window.__gmRuntime.debug.invincible(false)');
       const r1 = v1.rivals[0];
