@@ -16,6 +16,8 @@ export const dynamic = 'force-dynamic';
 export const metadata = pageMeta({ description: DEFAULT_DESCRIPTION, path: '/' });
 
 /** The world the homepage leads with. Its film is made by `npm run media:hero -- <slug>`. */
+// the Mog rows (Most Mogged, New Mogs) join the homepage once each has this many worlds
+const MOG_ROW_MIN = 25;
 const HERO = 'speed-skating-2030';
 /** A line of the owner's under the featured world's tagline. */
 const HERO_NOTE = 'The next Winter Olympics will take place in the French Alps, France, from February 1 to February 17, 2030.';
@@ -167,19 +169,22 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ g
   const requested = (await searchParams).genre;
   const genre = requested && genres.includes(requested) ? requested : 'All';
   const filtered = genre === 'All' ? worlds : worlds.filter((g) => genreOf(g) === genre);
-  const candidates: { sort: ChartSort; games: GameRow[] }[] = [
-    { sort: 'trending', games: sortGames(filtered, 'trending', stats).slice(0, 16) },
-    { sort: 'up-and-coming', games: sortGames(filtered, 'up-and-coming', stats).slice(0, 16) },
-    { sort: 'top-rated', games: sortGames(filtered.filter((g) => (stats[g.id]?.up ?? 0) + (stats[g.id]?.down ?? 0) > 0), 'top-rated', stats).slice(0, 16) },
-    { sort: 'most-mogged', games: sortGames(filtered.filter((g) => (stats[g.id]?.mogs ?? 0) > 0), 'most-mogged', stats).slice(0, 16) },
-    { sort: 'new-mogs', games: sortGames(filtered, 'new-mogs', stats).slice(0, 16) },
+  const charts: { sort: ChartSort; all: GameRow[] }[] = [
+    { sort: 'trending', all: sortGames(filtered, 'trending', stats) },
+    { sort: 'up-and-coming', all: sortGames(filtered, 'up-and-coming', stats) },
+    { sort: 'top-rated', all: sortGames(filtered.filter((g) => (stats[g.id]?.up ?? 0) + (stats[g.id]?.down ?? 0) > 0), 'top-rated', stats) },
+    { sort: 'most-mogged', all: sortGames(filtered.filter((g) => (stats[g.id]?.mogs ?? 0) > 0), 'most-mogged', stats) },
+    { sort: 'new-mogs', all: sortGames(filtered, 'new-mogs', stats) },
   ];
   // unfiltered, a chart needs four worlds to be worth a row; filtered, every
-  // match is shown, or picking a genre that exists would empty the page
-  const least = genre === 'All' ? 4 : 1;
+  // match is shown, or picking a genre that exists would empty the page.
+  // The two Mog rows wait for 25 (the owner, 25 Sep), with or without a
+  // genre; until then they live on the Charts pages. Counted before a row is
+  // cut to its 16 cards.
+  const least = (sort: ChartSort) => sort === 'most-mogged' || sort === 'new-mogs' ? MOG_ROW_MIN : genre === 'All' ? 4 : 1;
+  const candidates = charts.filter((c) => c.all.length >= least(c.sort)).map((c) => ({ sort: c.sort, games: c.all.slice(0, 16) }));
   const seen = new Set<string>();
   const rails = candidates.filter((rail) => {
-    if (rail.games.length < least) return false;
     // a rail repeats another only if it shows the same cards in the same
     // order; the same few worlds in a different order is a different chart
     const signature = rail.games.slice(0, 4).map((g) => g.id).join(',');
