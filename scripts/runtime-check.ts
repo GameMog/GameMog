@@ -472,6 +472,46 @@ try {
     }, { timeoutMs: 180_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(vid); }
 
+  // the creator's options (Create and Mog, the owner, 26 Sep): obstacles each
+  // lap fewer, the same or more, and music, enforced by the runtime from the
+  // page, whatever the world's code says
+  console.log('\nthe creator\'s options: obstacles each lap, music');
+  const refWorld = readFileSync(new URL('../lib/runtime/reference-world.js', import.meta.url), 'utf8');
+  const optMeta = (options: unknown) => ({ title: 'Options Check', tagline: 'Options', blurb: 'Runtime check.', genre: 'Test', cast: [{ name: 'Pip', color: '#F2E3C4' }], palette: { sky: '#9CCBEB', ground: '#7DB356', accent: '#F28C28' }, runtime: 1, options });
+  const oids: string[] = [];
+  try {
+    await withBrowser(async (page) => {
+      type O = State & { hazards: { mode: string; base: number; copies: number }; track: { id: string; playing: boolean } | null };
+      const boot = async (options: unknown) => {
+        const oid = randomUUID(); oids.push(oid);
+        insertDraft({ id: oid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: refWorld, meta: optMeta(options) });
+        await page.goto(`${BASE}/d/${oid}/play`);
+        for (let i = 0; i < 100; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+        await page.eval('window.__gmRuntime.debug.start()'); await sleep(3800);
+        await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true); window.__gmRuntime.debug.timeScale(6)');
+      };
+      const upTo = async (lvl: number) => { let s = await page.eval<O>('window.__gmRuntime.state()'); for (let i = 0; i < 90 && s.level < lvl; i++) { await sleep(300); s = await page.eval<O>('window.__gmRuntime.state()'); } await sleep(300); return page.eval<O>('window.__gmRuntime.state()'); };
+      // no two obstacles in one row: the gap a player needs is always there
+      const rows = () => page.eval<number>(`(() => { const I = window.__gmRuntime.debug.internals(), o = I.obstacles.slice().sort((a, b) => a.d - b.d); let n = 0; for (let i = 1; i < o.length; i++) { if (o[i].copy || o[i - 1].copy) { if (o[i].d - o[i - 1].d < 3.5 + o[i].half + o[i - 1].half) n++; } } return n; })()`);
+      await boot({ hazards: 'more', music: null });
+      const m1 = await page.eval<O>('window.__gmRuntime.state()');
+      const m4 = await upTo(4);
+      ok('"More": the obstacles grow every lap (about 15% a lap), from the world\'s own set', m1.hazards.mode === 'more' && m4.obstacles > m1.obstacles && m4.obstacles <= m1.hazards.base * 2, `${m1.obstacles} on lap 1, ${m4.obstacles} on lap ${m4.level}`);
+      ok('"More" never puts a copy in a row with another obstacle', (await rows()) === 0);
+      await boot({ hazards: 'fewer', music: null });
+      const f1 = await page.eval<O>('window.__gmRuntime.state()');
+      const f5 = await upTo(5);
+      ok('"Fewer": obstacles thin every lap, never below a third', f5.obstacles < f1.obstacles && f5.obstacles >= Math.ceil(f1.obstacles / 3), `${f1.obstacles} on lap 1, ${f5.obstacles} on lap ${f5.level}`);
+      await boot({ hazards: 'same', music: 'music-dance-field' });
+      await page.eval('window.__gmRuntime.debug.audio()'); await sleep(1500);
+      const s3 = await upTo(3);
+      ok('"The same": the obstacles stay as the world laid them', s3.obstacles === s3.hazards.base, `${s3.obstacles} of ${s3.hazards.base}`);
+      ok('music ticked on the page plays in a world that never asked for it', !!s3.track && s3.track.id === 'music-dance-field' && s3.track.playing, JSON.stringify(s3.track));
+      const e = await page.eval<string[]>('window.__gm.errors');
+      ok('laps under every option raise no error', e.length === 0, e.join(' | '));
+    }, { timeoutMs: 180_000 });
+  } finally { oids.forEach((x) => db.prepare('DELETE FROM drafts WHERE id = ?').run(x)); }
+
   // "You are the main character" (docs/PRODUCT.md): the player's own
   // character, passed in the frame's URL fragment, replaces the world's
   // player() in any world, and can change mid-run

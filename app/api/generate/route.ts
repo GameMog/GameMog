@@ -5,6 +5,7 @@ import { playtest } from '@/lib/playtest';
 import { logGeneration, recentSpecs, getGameBySlug } from '@/lib/db';
 
 import { ImageSchema, type Character, type CharacterImage } from '@/lib/character';
+import { readOptions } from '@/lib/world-options';
 
 export const runtime = 'nodejs';
 // Opus writing a whole game, a real-browser playtest and up to two repairs
@@ -14,7 +15,7 @@ export const maxDuration = 1800;
 const MAX_IMAGE_BYTES = 2_200_000;
 
 export async function POST(req: Request) {
-  let body: { prompt?: string; image?: unknown; hintFur?: string; characterName?: string; kind?: 'game' | 'race'; mogOf?: string };
+  let body: { prompt?: string; image?: unknown; hintFur?: string; characterName?: string; kind?: 'game' | 'race'; mogOf?: string; options?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
         const beat = setInterval(() => send({ type: 'tick' }), 10_000);
         let result: GameEvent | undefined;
         try {
-          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined }, (e) => {
+          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options: readOptions(body.options) }, (e) => {
             if (e.type === 'done' || e.type === 'error') result = e;
             send(e);
           });

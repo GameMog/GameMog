@@ -1,3 +1,4 @@
+import { DEFAULT_OPTIONS, optionsBrief, type WorldOptions } from './world-options';
 import Anthropic from '@anthropic-ai/sdk';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -38,9 +39,16 @@ const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8')
 function system() {
   return `You design and build worlds for GameMog, a platform where people describe a world and get a playable 3D game at a link. Every GameMog game runs on the GameMog Runtime, which owns the rules; you write the world module, which owns everything else.
 
-Make the world the creator asked for, native to its characters: its own place, its own creatures, its own obstacles, its own light and sound. Two worlds on GameMog should never feel like reskins of each other. Characters are built from primitives (spheres, capsules, cones, boxes, lathes, tori) but must be recognisable and charming, and animated in motion: running, hopping, waddling, flapping, bobbing, blinking. The player's character must stand out from every rival at a glance. Give the world depth: a horizon, atmosphere and fog, a key light with a clear direction, ground that is not a flat colour, and ambient life that moves.
+Make the world the creator asked for, native to its characters: its own place, its own creatures, its own obstacles, its own light and sound. Two worlds on GameMog should never feel like reskins of each other.
 
-If the creator names characters from an existing franchise, make your own original take on them (shape, colour, personality) rather than reproducing official artwork, logos or catchphrases. If an image is attached, it is the player's character: match its shape, colours and personality as closely as primitives allow.
+Unless the creator asks for a style (a toy set, a cartoon, low-poly, pixel, papercraft), build it hyperrealistic, as a AAA studio would. That means:
+- The platform's library and kits before anything drawn by hand: every person is a library human (ctx.assets.human, cyclist, skater), every car is ctx.assets.car, and skies, surfaces and music come from the library. Never stack spheres, capsules and boxes into a person or a vehicle.
+- Real scale and proportions: road widths, kerb heights, doors, storeys, trees and people at their true sizes.
+- The runtime's cinematic graphics on (graphics: environment, bloom, grade, shadows; reflections and motion in a world of cars), and physically based materials with honest roughness and metalness, texture and wear.
+- Light with a direction and a time of day, atmosphere and fog, a horizon that belongs to the place, ground that is never a flat colour, and ambient life that moves.
+Build in code only what the library has no kit for (a creature, a landmark, a prop), and then as a modeller would: lathed and lofted forms, real silhouettes, layered materials and detail, not a primitive standing in for the thing. The player's character must stand out from every rival at a glance, and everything alive is animated in motion.
+
+If the creator names characters from an existing franchise, make your own original take on them (shape, colour, personality) rather than reproducing official artwork, logos or catchphrases. If an image is attached, it is the player's character: match its shape, colours and personality as closely as the kits and your modelling allow.
 
 The runtime's rules are fixed: every world is 3D and seen through the runtime's chase camera, endless laps, one rival at the start and one more joining each lap, every lap faster, death by touch, golden GM coins, the controls. If the creator asks for something the rules do not allow (a 2D or top-down game, a final lap, shooting, a different control scheme), build the closest 3D world that fits the rules and put the idea into the world itself.
 
@@ -97,28 +105,30 @@ The challenger's idea for how to make it better:
 
 ${m.instruction}
 
-Write a complete new world module. Keep what makes the original work, carry the challenger's idea out boldly, and fix anything weak you notice. It should be recognisably a variation of "${p.title}" and different enough that a player would have a real choice between them. Give it its own title and tagline, never the original's.`;
+A Mog inherits. Start from the original's module and change what the idea asks for; do not write a new world from scratch. Everything the idea does not replace stays: its library assets and kits (every ctx.assets call and the assets list), its graphics, camera and platform options, its track if the place stays, its music, and the level of detail and realism of its scenery. If the idea moves the world somewhere new, rebuild the place at least as detailed and as real as the original. If the idea asks for something a kit cannot do exactly (a model of car, a costume), get as close as the kit allows, with its nearest kind, colours and options, rather than replacing it with something drawn by hand.
+
+Write the complete world module. Carry the challenger's idea out boldly and fix anything weak you notice. It should be recognisably a variation of "${p.title}" and different enough that a player would have a real choice between them. Give it its own title and tagline, never the original's.`;
 }
 
-function firstTurn(prompt: string, image?: CharacterImage, mog?: MogInput): Anthropic.Beta.BetaContentBlockParam[] {
+function firstTurn(prompt: string, image?: CharacterImage, mog?: MogInput, options: WorldOptions = DEFAULT_OPTIONS): Anthropic.Beta.BetaContentBlockParam[] {
   const parts: Anthropic.Beta.BetaContentBlockParam[] = [];
-  if (mog) { parts.push({ type: 'text', text: mogTurn(mog) }); return parts; }
+  if (mog) { parts.push({ type: 'text', text: mogTurn(mog) + '\n\n' + optionsBrief(options) }); return parts; }
   if (image) {
     parts.push({ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } });
     parts.push({ type: 'text', text: 'The image above is the player character.' });
   }
-  parts.push({ type: 'text', text: `The creator's request:\n\n${prompt}` });
+  parts.push({ type: 'text', text: `The creator's request:\n\n${prompt}\n\n${optionsBrief(options)}` });
   return parts;
 }
 
 export async function generateGame(
-  input: { prompt: string; image?: CharacterImage; origin: string; mog?: MogInput },
+  input: { prompt: string; image?: CharacterImage; origin: string; mog?: MogInput; options?: WorldOptions },
   emit: (e: GameEvent) => void
 ) {
   const started = Date.now();
   const client = new Anthropic();
   const SYSTEM = system();
-  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: firstTurn(input.prompt, input.image, input.mog) }];
+  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: firstTurn(input.prompt, input.image, input.mog, input.options) }];
   const draftId = randomUUID();
   let lastProblems: string[] = [];
   let advisedOnce = false;
@@ -174,7 +184,7 @@ export async function generateGame(
     let report: WorldReport | undefined;
     if (!problems.length && meta && code) {
       emit({ type: 'stage', stage: 'playtesting', attempt });
-      const stored = { ...meta, controls: WORLD_CONTROLS, scoring: 'level', runtime: RUNTIME_VERSION };
+      const stored = { ...meta, controls: WORLD_CONTROLS, scoring: 'level', runtime: RUNTIME_VERSION, options: input.options ?? DEFAULT_OPTIONS };
       db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
       insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report: { pending: true }, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
       report = await playtestWorld(`${input.origin}/d/${draftId}/play`);

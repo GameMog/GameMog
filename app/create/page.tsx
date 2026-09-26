@@ -5,6 +5,8 @@ import { prepareUpload, type CharacterImage } from '@/lib/character';
 import { Cover } from '../cover';
 import type { WorldSpec } from '@/lib/worldspec';
 import { useGeneration, GenerationProgress, DraftResult } from './generation';
+import { WorldOptionsFields } from './options';
+import { DEFAULT_OPTIONS, type WorldOptions } from '@/lib/world-options';
 
 type Finding = { level: 'error' | 'warn'; code: string; message: string };
 type Report = { ok: boolean; findings: Finding[]; stats: Record<string, number> };
@@ -150,6 +152,7 @@ export default function Create() {
   const [charName, setCharName] = useState('');
   const [character, setCharacter] = useState<Character | null>(null);
   const [adjustments, setAdjustments] = useState<string[]>([]);
+  const [options, setOptions] = useState<WorldOptions>(DEFAULT_OPTIONS);
   const fileRef = useRef<HTMLInputElement>(null);
   const gen = useGeneration();
   const { busy, error, setError, draft } = gen;
@@ -196,6 +199,7 @@ export default function Create() {
       image: image ?? undefined,
       hintFur: hintFur || undefined,
       characterName: charName || undefined,
+      options,
     }) as { spec?: Record<string, unknown>; report?: Report; offline?: boolean; character?: Character; adjustments?: string[] } | null;
     if (!data) return;
     if (data.spec) {
@@ -239,6 +243,7 @@ export default function Create() {
               placeholder="Where is the race, who runs it, and what is in the way? Name the place, its light and its obstacles. The more specific, the better."
               onChange={(e) => setPrompt(e.target.value)}
             />
+            <WorldOptionsFields value={options} onChange={setOptions} disabled={busy} />
             <div className="cgo">
               <p className="dim-2">You describe the world. The rules below come with it.</p>
               <button className="btn big" onClick={generate} disabled={busy || prompt.trim().length < 8}>

@@ -1,3 +1,4 @@
+import { readOptions, type WorldOptions } from './world-options';
 import { z } from 'zod';
 import { Script } from 'node:vm';
 import { readFileSync } from 'node:fs';
@@ -92,7 +93,7 @@ export function worldCsp(origin: string) {
  * hidden. That guarantee lives here rather than in each game, because the one
  * time it lived in a game it was forgotten.
  */
-function hostScript(id: string, title: string, tagline = '') {
+function hostScript(id: string, title: string, tagline = '', options?: WorldOptions) {
   return `(function () {
   var id = ${JSON.stringify(id)}, isReady = false, finished = 0;
   var gm = window.__gm = { ready: false, results: [], errors: [] };
@@ -119,6 +120,8 @@ function hostScript(id: string, title: string, tagline = '') {
     id: id,
     title: ${JSON.stringify(title)},
     meta: { title: ${JSON.stringify(title)}, tagline: ${JSON.stringify(tagline)} },
+    // the creator's platform options (lib/world-options.ts), enforced by the runtime
+    options: ${JSON.stringify(options ?? null)},
     ready: function () {
       if (isReady) return;
       isReady = gm.ready = true;
@@ -185,7 +188,7 @@ function runtimeSource(version: number) {
   return RUNTIMES[version];
 }
 
-export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 'tagline'>, id: string, runtime = 1) {
+export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 'tagline'> & { options?: unknown }, id: string, runtime = 1) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -193,7 +196,7 @@ export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 't
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>${escapeHtml(meta.title)}</title>
 <style>html,body{margin:0;height:100%;overflow:hidden;background:#000;touch-action:none;-webkit-user-select:none;user-select:none}canvas{display:block}</style>
-<script>${hostScript(id, meta.title, meta.tagline)}</script>
+<script>${hostScript(id, meta.title, meta.tagline, meta.options === undefined ? undefined : readOptions(meta.options))}</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
 <script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.js"><\\/script>');</script>
 </head>

@@ -44,8 +44,9 @@ creativity: it decides what the world is, who lives in it, and how it looks, mov
 ## The world module (you own this)
 
 One script that calls `GameMog.world({...})` exactly once. `THREE` (three.js r157) is a
-global. There are no addons, no modules and no network: build every mesh, texture and sound
-procedurally.
+global. There are no addons, no modules and no network. Use the platform's library and kits
+(`ctx.assets`) first, for every person, vehicle, sky, surface and track they cover, and build
+everything else in code, in detail.
 
 ```js
 GameMog.world({
@@ -92,6 +93,10 @@ play: {
   not a circle. The HUD adds a speedometer, the engines are the runtime's, and a rival the
   camera would be inside is not drawn. Build the track for cars: street widths (16 m or more),
   bends of 30 m radius or more, walls or barriers at the edges, and scenery at car scale.
+
+- **The creator's options** (obstacles each lap: fewer, the same or more; music on or off) are
+  chosen on the page and enforced by the runtime. Do not set them; build for the one you are
+  told, and never compose or synthesise music yourself.
 
 ### theme
 `{ sky, fog, ink, panel, accent, font }`. Colours are `#RRGGBB`. The HUD, screens and touch

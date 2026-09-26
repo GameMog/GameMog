@@ -408,6 +408,13 @@ table.bd td:nth-child(2){font-weight:600}
 .cidea,.cchar{padding:24px}
 .cidea textarea{min-height:176px;font-size:17px;line-height:26px;padding:14px 16px}
 .cgo{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:14px}
+.copts{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0}
+.cselect{position:relative;display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;border-radius:var(--r);background:var(--surface);box-shadow:var(--elev-hair);min-width:0}
+.cselect span{font-size:13px;font-weight:700;color:var(--ink-3);white-space:nowrap}
+.cselect select{min-width:0;height:100%;border:0;background:none;appearance:none;-webkit-appearance:none;font:700 15px/1 var(--ui);color:var(--ink);padding-right:24px;cursor:pointer}
+.cselect svg{position:absolute;right:14px;top:15px;pointer-events:none;color:var(--ink-2)}
+.ccheck{display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;border-radius:var(--r);background:var(--surface);box-shadow:var(--elev-hair);font-size:14px;font-weight:700;color:var(--ink);cursor:pointer}
+.ccheck input{width:18px;height:18px;margin:0;accent-color:var(--ink)}
 .cgo p{font-size:13px;line-height:18px}
 .cideashead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px;margin-bottom:8px}
 .cideashead .lbl{margin:0}

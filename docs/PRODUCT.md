@@ -43,6 +43,15 @@ is built. The platform's rules of play are in [RULES.md](RULES.md).
 | "dormant … it could be an option when someone builds … check box" | The score engine (lib/runtime/music.js) stays in the runtime, silent unless a world's code asks for it. A later option: an "Add music" box when building, off by default. Not built. |
 | "we can add the feature later to upload music if users request" | Uploading your own music: only if players ask for it. Not built. |
 
+## Decisions: quality and options (26 Sep 2026)
+
+| Owner's words | Decision |
+|---|---|
+| "in general we want to lean into assets, AAA & hyperrealism unless otherwise prompted" | The builder's default is hyperreal: the library and kits first (people, cars, skies, surfaces, music), real scale, cinematic graphics and physical materials. A style the creator names (toy, cartoon, low-poly) overrides it. Nothing is stacked from primitives. |
+| "that was a MOG, it should have inherited those characteristics" | A Mog edits its original rather than rewriting it, and keeps its kits, library assets, graphics, camera, track, music, options and level of detail unless the idea replaces them. |
+| Music checkbox: "Yes, off by default" | Built: "Add music" on Create and Mog, off unless ticked (music still never plays by default). |
+| Upgrades to start: builder direction, asset library expansion, water and daylight rendering, car kit convertible and custom driver | In progress, in that order. Asset downloads are listed for the owner's approval first. |
+
 ## The plan
 
 1. **You, in the game.** Selfie → your character → play LA Olympics as yourself. Every world

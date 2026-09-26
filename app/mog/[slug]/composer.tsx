@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useGeneration, GenerationProgress, DraftResult } from '../../create/generation';
+import { WorldOptionsFields } from '../../create/options';
+import type { WorldOptions } from '@/lib/world-options';
 
 const IDEAS = [
   'Set it at night in a thunderstorm',
@@ -10,10 +12,12 @@ const IDEAS = [
   'Make it look like a toy set on a kitchen table',
 ];
 
-export function MogComposer({ slug, title }: { slug: string; title: string }) {
+export function MogComposer({ slug, title, inherited }: { slug: string; title: string; inherited: WorldOptions }) {
   const gen = useGeneration();
   const [idea, setIdea] = useState('');
-  const go = () => gen.run({ mogOf: slug, prompt: idea.trim() });
+  // a Mog starts from the original's options; the challenger can change them
+  const [options, setOptions] = useState<WorldOptions>(inherited);
+  const go = () => gen.run({ mogOf: slug, prompt: idea.trim(), options });
   return (
     <>
       <div className="panel" style={{ marginBottom: 16 }}>
@@ -24,6 +28,7 @@ export function MogComposer({ slug, title }: { slug: string; title: string }) {
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
           {IDEAS.map((x) => <button key={x} className="tag" onClick={() => setIdea(x)}>{x}</button>)}
         </div>
+        <WorldOptionsFields value={options} onChange={setOptions} disabled={gen.busy} />
         <button className="btn" onClick={go} disabled={gen.busy || idea.trim().length < 4}>
           {gen.busy ? 'Mog in progress' : 'Mog it'}
         </button>

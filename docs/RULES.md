@@ -32,6 +32,13 @@ AI generates, humans select, winners reproduce. Platform first; movement second.
 | "Car speeds, same rhythm" (the owner's choice for how fast cars go) | A world of cars multiplies every speed and every distance along the track by 2.2: 160 km/h cruising on lap 1, over 350 flat out late on, laps of 704 to 1,980 m and a road up to 24 m wide, so a lap takes as long as a runner's and a rival joins as often. The per-lap rules (5% faster, one more rival, one touch ends it) are unchanged. | "speeds and distances are 2.2 times a runner's" |
 | "only way to die is bump a competitor or obstacle" (for cars) | A car's hitbox is its footprint: its length along the track and its width across, with rounded corners. A car alongside you is not a touch. | "a car's hitbox is its footprint", "a car alongside, not touching, is not a crash", "a car touching yours ends the run" |
 
+### The creator's options (Create and Mog, 26 Sep 2026)
+
+| Owner's words | Interpretation in code | Tested by |
+|---|---|---|
+| "add more OR less, obstacles each lap as a platform option, maybe a dropdown on creation?" and the choice "Dropdown: Fewer / Same / More" | A dropdown on Create and Mog, default The same. Stored with the world and enforced by the runtime, whatever the world's code says (`play.hazards`, `lib/world-options.ts`). More lays copies of the world's own obstacles each lap, about 15% more a lap, up to double and never past the track's density, never two in a row. Fewer clears about 10% a lap, down to a third. A Mog starts from its original's choice. | `check:runtime` "the creator's options" |
+| "is there a checkbox for music currently?" and the choice "Yes, off by default" | An "Add music" box on Create and Mog, unticked by default; ticked, a track dropdown from the library's CC0 tracks. The runtime plays the track in any world; the builder never composes music. A Mog starts from its original's music. | "music ticked on the page plays in a world that never asked for it" |
+
 ## 2. Mog (v1)
 
 | Owner's words | Interpretation in code | Tested by |

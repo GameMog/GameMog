@@ -6,6 +6,7 @@ import { getGameBySlug, getGameById, mogsOf } from '@/lib/db';
 import type { WorldSpec } from '@/lib/worldspec';
 import type { Metadata } from 'next';
 import { MogComposer } from './composer';
+import { optionsOf } from '@/lib/world-options';
 import { clip, pageMeta } from '../../seo';
 
 export const dynamic = 'force-dynamic';
@@ -59,7 +60,7 @@ export default async function MogPage({ params }: { params: Promise<{ slug: stri
             </p>
           </div>
         </div>
-        <MogComposer slug={game.slug} title={game.title} />
+        <MogComposer slug={game.slug} title={game.title} inherited={optionsOf(game)} />
       </main>
       <SiteFooter />
     </>
