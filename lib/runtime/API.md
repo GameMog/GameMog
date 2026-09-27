@@ -240,7 +240,9 @@ A person at the wheel: `driver: { human: 'human-athlete-male' }` (or `-female`; 
 the seat, feet on the pedals, hands on the wheel turning with it, head into the bends. All the
 human options apply inside `driver` (`skin`, `tone`, `hair`, `hairColor`, `height`, `outfit`).
 Use it for every open car (a roadster's driver is in full view) and for anyone the story puts
-behind a wheel; a roadster's `interior` is the leather's colour.
+behind a wheel; a roadster's `interior` is the leather's colour. The returned car's
+`driver.bones` is the seated person's skeleton: a costume's hat, beard or glasses go on
+`driver.bones.head`, fitted to the mesh as for any athlete (see headgear above).
 
 ```js
 ctx.assets.car({ kind: 'roadster', paint: '#B01C22', interior: '#7A4326',
