@@ -258,15 +258,17 @@ button.tag:hover{border-color:var(--ink)}
 .bubble:hover i{box-shadow:var(--elev-hover)}
 
 /* ------------------------------------------------------------- billboard -- */
-/* The featured world across the top, playing (the owner's pick: Speed
-   Skating 2030). On a desktop it is laid out as roblox.com's hero, at the
+/* The featured worlds across the top, playing: a reel (the owner, 27 Sep)
+   of Speed Skating's lap, the Great Wall's fight and the Miami GP, dissolving
+   one into the next (app/hero-reel.tsx). On a desktop it is laid out as roblox.com's hero, at the
    owner's request: the film edge to edge with no frame and nothing over it
    (the owner took the shade off), the copy straight on it with a soft halo
    for legibility: a two-line headline, one sentence, and two buttons.
    Phones keep the card. */
 .billboard{position:relative;overflow:hidden;background:#0B0B0F;height:clamp(520px,calc(100vh - 180px),760px)}
 .billboard .screen{position:absolute;inset:0}
-.film{position:absolute;inset:0}
+.film{position:absolute;inset:0;isolation:isolate}
+.slots{display:grid}.slots>.slot{grid-area:1/1;display:grid;gap:8px;align-content:end}.card-slots>.slot{gap:12px;align-content:start}
 .film img,.film video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .filmlink{position:absolute;inset:0;z-index:1}
 .lead{position:absolute;z-index:2;text-shadow:0 1px 2px rgba(11,11,15,.45),0 0 22px rgba(11,11,15,.4);left:calc(max(0px,(100% - 1600px) / 2) + var(--gutter));bottom:24px;width:min(640px,calc(100% - 2 * var(--gutter)));display:grid;gap:8px;color:#F7F7F8}

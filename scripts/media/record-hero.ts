@@ -4,6 +4,11 @@
  *
  *   npm run media:hero -- la-olympics-2028
  *   AT=0.93 npm run media:hero -- road-race-2028   # open at 93% of the lap
+ *   LAPS=1 NAME=-reel npm run media:hero -- speed-skating-2030   # exactly one lap, line to line
+ *   NEAR=3 AHEAD=25 SECONDS=7 NAME=-reel npm run media:hero -- great-wall-shinobi   # rolls when three rivals are within 25 m ahead
+ *
+ * NAME is added to the file names, so a cut for the homepage reel leaves the
+ * world's own film (its game page shows it) as it is.
  *
  * Writes public/media/<slug>-wide.mp4 (8:3, desktop) and <slug>-4x3.mp4
  * (phones), each with a poster taken from its first frame. Needs the dev
@@ -43,7 +48,13 @@ const slug = process.argv[2] ?? 'la-olympics-2028';
 const only = (process.argv[3] ?? 'wide,4x3').split(',') as Cut[];
 const FROM_LAP = Number(process.env.FROM_LAP ?? 7), SECONDS = Number(process.env.SECONDS ?? 14);
 // AT: where on the lap the film opens, as a fraction of it (a loop that isn't an oval has a best side)
-const AT = process.env.AT === undefined ? null : Number(process.env.AT);
+// LAPS: film exactly that many laps, from AT (the line, unless AT says otherwise) round to it again
+const LAPS = process.env.LAPS === undefined ? null : Number(process.env.LAPS);
+const AT = process.env.AT === undefined ? (LAPS ? 0 : null) : Number(process.env.AT);
+// NEAR, AHEAD: the field it waits for: NEAR rivals, still racing, within AHEAD metres in front
+// (without them: two rivals within 15 m either way)
+const NEAR = process.env.NEAR === undefined ? null : Number(process.env.NEAR), AHEAD = Number(process.env.AHEAD ?? 25);
+const NAME = process.env.NAME ?? '';
 const BASE = process.env.BASE ?? 'http://localhost:3939';
 const OUT = new URL('../../public/media/', import.meta.url).pathname;
 // headless Chrome's window includes 87px of browser chrome above the page
@@ -79,7 +90,8 @@ for (const cut of only) {
     // two rivals in shot (and, with AT, at that point of the lap: up to four
     // laps of trying, then the point alone)
     const at = AT === null ? 'true' : `(((st.d % st.lap) / st.lap - ${AT} + 1) % 1) < 0.03`;
-    const ready = (near: boolean) => page.eval<boolean>(`(() => { const st = window.__gmRuntime.state(); return ${near ? 'st.rivals.filter((r) => Math.abs(r.ahead) < 15).length >= 2' : 'true'} && ${at}; })()`);
+    const field = NEAR === null ? 'st.rivals.filter((r) => Math.abs(r.ahead) < 15).length >= 2' : `st.rivals.filter((r) => !r.out && r.ahead > 0 && r.ahead < ${AHEAD}).length >= ${NEAR}`;
+    const ready = (near: boolean) => page.eval<boolean>(`(() => { const st = window.__gmRuntime.state(); return ${near ? field : 'true'} && ${at}; })()`);
     const until = Date.now() + (AT === null ? 20_000 : 110_000);
     let found = false;
     while (!found && Date.now() < until) { found = await ready(true); if (!found) await sleep(AT === null ? 100 : 25); }
@@ -93,13 +105,19 @@ for (const cut of only) {
       rec.start(1000);
       (function f() { if (!window.__rec.done) { window.__rec.frames++; requestAnimationFrame(f); } })();
     })()`);
-    await sleep(SECONDS * 1000);
+    const d0 = await page.eval<number>('window.__gmRuntime.state().d'), t1 = Date.now();
+    if (LAPS) {
+      // round to where it began: stop as the lap closes
+      const lap = await page.eval<number>('window.__gmRuntime.state().lap');
+      while ((await page.eval<number>('window.__gmRuntime.state().d')) - d0 < LAPS * lap && Date.now() - t1 < 120_000) await sleep(16);
+    } else await sleep(SECONDS * 1000);
+    const took = (Date.now() - t1) / 1000;
     const frames = await page.eval<number>('window.__rec.rec.stop(), window.__rec.frames');
     while (!(await page.eval<boolean>('window.__rec.done'))) await sleep(100);
     const mp4 = await pull(page, `new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.readAsDataURL(new Blob(window.__rec.chunks, { type: 'video/mp4' })); })`);
     if (page.errors.length) throw new Error(`The world threw while filming: ${page.errors.join(' | ')}`);
-    writeFileSync(`${OUT}${slug}-${cut}.mp4`, mp4);
-    log(`${cut}: ${slug}-${cut}.mp4, ${(mp4.length / 1e6).toFixed(1)} MB, ${Math.round(frames / SECONDS)} fps rendered`);
+    writeFileSync(`${OUT}${slug}${NAME}-${cut}.mp4`, mp4);
+    log(`${cut}: ${slug}${NAME}-${cut}.mp4, ${took.toFixed(1)} s, ${(mp4.length / 1e6).toFixed(1)} MB, ${Math.round(frames / took)} fps rendered`);
   }, { width: c.width, height: c.height + CHROME_H, timeoutMs: 240_000 });
 }
 
@@ -108,15 +126,15 @@ await withBrowser(async (page) => {
   await page.goto(`${BASE}/terms`);
   for (const cut of only) {
     const jpg = await pull(page, `(async () => {
-      const v = document.createElement('video'); v.muted = true; v.src = '/media/${slug}-${cut}.mp4?' + Date.now();
+      const v = document.createElement('video'); v.muted = true; v.src = '/media/${slug}${NAME}-${cut}.mp4?' + Date.now();
       await new Promise((r, j) => { v.onloadeddata = r; v.onerror = () => j(new Error('cannot load the film')); });
       v.currentTime = 0.02; await new Promise((r) => { v.onseeked = r; });
       const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
       c.getContext('2d').drawImage(v, 0, 0);
       return c.toDataURL('image/jpeg', 0.82).split(',')[1];
     })()`);
-    writeFileSync(`${OUT}${slug}-${cut}.jpg`, jpg);
-    log(`${cut}: poster ${slug}-${cut}.jpg, ${Math.round(jpg.length / 1000)} KB`);
+    writeFileSync(`${OUT}${slug}${NAME}-${cut}.jpg`, jpg);
+    log(`${cut}: poster ${slug}${NAME}-${cut}.jpg, ${Math.round(jpg.length / 1000)} KB`);
   }
 }, { width: 1280, height: 800 });
 process.exit(0);

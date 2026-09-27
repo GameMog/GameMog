@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import { Fragment } from 'react';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { SiteHeader, SiteFooter, Icon } from './header';
 import { Tile, short } from './tile';
 import { HeroFilm, type Film } from './hero-film';
+import { HeroReel, type ReelClip } from './hero-reel';
 import { Rail as Shelf } from './rail';
 import { GenreFilter } from './genre-filter';
 import { listGames, bestTimes, topScores, tileStats, type GameRow, type TileStats } from '@/lib/db';
@@ -27,11 +29,65 @@ const HERO_COPY = {
   sub: `Speed Skating 2030 is Olympic long-track on mirror ice, lap after lap. ${HERO_NOTE}`,
 };
 
-/** The featured world's film, when it has been recorded. */
-function filmFor(slug: string): Film | null {
-  const base = `/media/${slug}`, dir = join(process.cwd(), 'public', 'media');
-  const has = (cut: string) => existsSync(join(dir, `${slug}-${cut}.mp4`)) && existsSync(join(dir, `${slug}-${cut}.jpg`));
+/**
+ * The hero reel (the owner, 27 Sep): Speed Skating does one lap, the Great
+ * Wall's seven most action-packed seconds, then ten seconds of the Miami GP,
+ * each dissolving into the next. `film` names the recorded cut (the reel's own
+ * cuts end in -reel, so each world's page keeps its own film); `seconds` plays
+ * only the start of a longer film.
+ *
+ *   LAPS=1 NAME=-reel npm run media:hero -- speed-skating-2030
+ *   NEAR=3 AHEAD=25 SECONDS=7 NAME=-reel npm run media:hero -- great-wall-shinobi
+ */
+const REEL: { slug: string; film: string; seconds?: number }[] = [
+  { slug: 'speed-skating-2030', film: 'speed-skating-2030-reel' },
+  { slug: 'great-wall-shinobi', film: 'great-wall-shinobi-reel' },
+  { slug: 'santa-south-beach-gp', film: 'santa-south-beach-gp', seconds: 10 },
+];
+
+/** A film, when both its cuts have been recorded. */
+function filmFor(name: string): Film | null {
+  const base = `/media/${name}`, dir = join(process.cwd(), 'public', 'media');
+  const has = (cut: string) => existsSync(join(dir, `${name}-${cut}.mp4`)) && existsSync(join(dir, `${name}-${cut}.jpg`));
   return has('wide') && has('4x3') ? { wide: `${base}-wide`, narrow: `${base}-4x3` } : null;
+}
+
+/** The reel's worlds that are published and filmed, with each one's copy for the desktop and the phone card. */
+function Reel({ worlds, stats }: { worlds: GameRow[]; stats: Record<string, TileStats> }) {
+  const shown = REEL.map((r) => ({ r, game: worlds.find((g) => g.slug === r.slug), film: filmFor(r.film) }))
+    .filter((x): x is { r: (typeof REEL)[number]; game: GameRow; film: Film } => !!x.game && !!x.film);
+  if (shown.length < 2) return null;
+  const clips: ReelClip[] = shown.map(({ r, game, film }) => ({ film, seconds: r.seconds, href: `/g/${game.slug}`, title: game.title }));
+  const leads = shown.map(({ game }) => (
+    <Fragment key={game.slug}>
+      <p>{game.slug === HERO ? HERO_COPY.sub : `${game.title}: ${game.tagline}`}</p>
+      <div className="acts">
+        <Link href={`/g/${game.slug}`} className="btn play" aria-label={`Play ${game.title}`}>Play</Link>
+        <Link href={`/mog/${game.slug}`} className="btn more">Mog it</Link>
+      </div>
+    </Fragment>
+  ));
+  const cards = shown.map(({ game }) => {
+    const record = topScores(game.id, 1, 'level')[0], mogs = stats[game.id]?.mogs ?? 0;
+    return (
+      <Fragment key={game.slug}>
+        <span className="kicker">Featured world</span>
+        <h1>{game.title}</h1>
+        <p className="tagline">{game.tagline}</p>
+        {game.slug === HERO && HERO_NOTE ? <p className="hnote">{HERO_NOTE}</p> : null}
+        <div className="hstats">
+          <span><b>{short(game.plays)}</b> {game.plays === 1 ? 'play' : 'plays'}</span>
+          {record?.level ? <span><b>Lap {record.level}</b> record</span> : null}
+          {mogs ? <span><b>{mogs}</b> {mogs === 1 ? 'Mog' : 'Mogs'}</span> : <span>No Mogs yet</span>}
+        </div>
+        <div className="acts">
+          <Link href={`/g/${game.slug}`} className="btn big light" aria-label={`Play ${game.title}`}><Icon name="play" size={20} />Play</Link>
+          <Link href={`/mog/${game.slug}`} className="btn big ghost"><Icon name="remix" size={18} />Mog it</Link>
+        </div>
+      </Fragment>
+    );
+  });
+  return <HeroReel clips={clips} headline={<h1>{HERO_COPY.headline.map((l) => <span key={l}>{l}</span>)}</h1>} leads={leads} cards={cards} />;
 }
 
 /**
@@ -195,7 +251,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ g
   return (
     <>
       <SiteHeader />
-      <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />
+      {Reel({ worlds, stats }) ?? <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />}
       <main className="wrap" style={{ paddingTop: 24 }}>
 
         {rails.map((rail, i) => (
