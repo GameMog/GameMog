@@ -512,7 +512,18 @@ try {
       await sleep(500);
       const e3 = await page.eval<string[]>('window.__gm.errors');
       ok('a shader that will not compile is reported as an error', e3.some((e) => /did not compile/.test(e)), e3.join(' | '));
-    }, { timeoutMs: 200_000 });
+      // a shore walked the wrong way round (the sea on the track's side) is turned
+      // round, and the road is never under water, however close the shore
+      const dayCode = readFileSync(new URL('../lib/runtime/daylight-world.js', import.meta.url), 'utf8');
+      const wrong = dayCode.replace('shore.reverse(); // walked north to south, the water lies on the line\'s left', '// walked south to north: the sea on the right (wrong way round)');
+      ok('the check\'s coast can be walked the wrong way round', wrong !== dayCode);
+      db.prepare('UPDATE drafts SET code = ? WHERE id = ?').run(wrong, did);
+      await page.goto(`${BASE}/d/${did}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__day)').catch(() => false)) break; await sleep(200); }
+      await sleep(800);
+      const turned = await page.eval<{ warned: boolean; road: number; sea: number; errors: string[] }>(`(() => { const I = window.__gmRuntime.debug.internals(), W = I.water, U = W.U, img = U.uMask.value.image, g = img.getContext('2d'); const px = (x, z) => { const u = (x - U.uMaskMin.value.x) / U.uMaskSize.value * img.width, v = (z - U.uMaskMin.value.y) / U.uMaskSize.value * img.height; return g.getImageData(Math.floor(u), Math.floor(v), 1, 1).data[0]; }; return { warned: window.__gm.warnings.some((w) => /turned round/.test(w)), road: px(70, 0), sea: px(300, 0), errors: window.__gm.errors }; })()`);
+      ok('a shore walked with the sea on the track\'s side is turned round: the road is land, the sea lies beyond the beach', turned.warned && turned.road < 40 && turned.sea > 215 && turned.errors.length === 0, JSON.stringify(turned));
+    }, { timeoutMs: 260_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(did); }
 
   // the creator's options (Create and Mog, the owner, 26 Sep): obstacles each
