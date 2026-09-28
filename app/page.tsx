@@ -38,7 +38,8 @@ const HERO_COPY = {
  * only the start of a longer film.
  *
  *   LAPS=1 NAME=-reel npm run media:hero -- speed-skating-2030
- *   HEAT=3 NEAR=3 npm run media:hero -- miami-og
+ *   HEAT=3 NEAR=3 PLACE=-12,40,1.5708 SIZE=1600x750 npm run media:hero -- miami-og wide
+ *   HEAT=3 NEAR=3 PLACE=-12,40,1.5708 npm run media:hero -- miami-og 4x3
  *   NEAR=3 AHEAD=25 SECONDS=7 NAME=-reel npm run media:hero -- great-wall-shinobi
  */
 const REEL: { slug: string; film: string; seconds?: number }[] = [
