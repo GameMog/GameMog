@@ -30,19 +30,22 @@ const HERO_COPY = {
 };
 
 /**
- * The hero reel (the owner, 27 Sep): Speed Skating does one lap, the Great
- * Wall's seven most action-packed seconds, then ten seconds of the Miami GP,
- * each dissolving into the next. `film` names the recorded cut (the reel's own
+ * The hero reel (the owner, 27 Sep): Speed Skating does one lap, then Miami
+ * OG's street fight, ten seconds of the Miami GP, and last the Great Wall's
+ * seven most action-packed seconds, each dissolving into the next over about
+ * two seconds. `film` names the recorded cut (the reel's own
  * cuts end in -reel, so each world's page keeps its own film); `seconds` plays
  * only the start of a longer film.
  *
  *   LAPS=1 NAME=-reel npm run media:hero -- speed-skating-2030
+ *   HEAT=3 NEAR=3 npm run media:hero -- miami-og
  *   NEAR=3 AHEAD=25 SECONDS=7 NAME=-reel npm run media:hero -- great-wall-shinobi
  */
 const REEL: { slug: string; film: string; seconds?: number }[] = [
   { slug: 'speed-skating-2030', film: 'speed-skating-2030-reel' },
-  { slug: 'great-wall-shinobi', film: 'great-wall-shinobi-reel' },
+  { slug: 'miami-og', film: 'miami-og' },
   { slug: 'santa-south-beach-gp', film: 'santa-south-beach-gp', seconds: 10 },
+  { slug: 'great-wall-shinobi', film: 'great-wall-shinobi-reel' },
 ];
 
 /** A film, when both its cuts have been recorded. */
@@ -50,6 +53,18 @@ function filmFor(name: string): Film | null {
   const base = `/media/${name}`, dir = join(process.cwd(), 'public', 'media');
   const has = (cut: string) => existsSync(join(dir, `${name}-${cut}.mp4`)) && existsSync(join(dir, `${name}-${cut}.jpg`));
   return has('wide') && has('4x3') ? { wide: `${base}-wide`, narrow: `${base}-4x3` } : null;
+}
+
+/** A world's record for its card: the time survived in an open world, the lap reached in a lap world. */
+function RecordStat({ game }: { game: GameRow }) {
+  const survival = (JSON.parse(game.meta ?? '{}') as { scoring?: string }).scoring === 'survival';
+  const record = topScores(game.id, 1, survival ? 'survival' : 'level')[0];
+  if (survival) {
+    if (!record?.time_ms) return null;
+    const t = Math.floor(record.time_ms / 1000);
+    return <span><b>{Math.floor(t / 60)}:{String(t % 60).padStart(2, '0')}</b> survived</span>;
+  }
+  return record?.level ? <span><b>Lap {record.level}</b> record</span> : null;
 }
 
 /** The reel's worlds that are published and filmed, with each one's copy for the desktop and the phone card. */
@@ -68,7 +83,7 @@ function Reel({ worlds, stats }: { worlds: GameRow[]; stats: Record<string, Tile
     </Fragment>
   ));
   const cards = shown.map(({ game }) => {
-    const record = topScores(game.id, 1, 'level')[0], mogs = stats[game.id]?.mogs ?? 0;
+    const mogs = stats[game.id]?.mogs ?? 0;
     return (
       <Fragment key={game.slug}>
         <span className="kicker">Featured world</span>
@@ -77,7 +92,7 @@ function Reel({ worlds, stats }: { worlds: GameRow[]; stats: Record<string, Tile
         {game.slug === HERO && HERO_NOTE ? <p className="hnote">{HERO_NOTE}</p> : null}
         <div className="hstats">
           <span><b>{short(game.plays)}</b> {game.plays === 1 ? 'play' : 'plays'}</span>
-          {record?.level ? <span><b>Lap {record.level}</b> record</span> : null}
+          <RecordStat game={game} />
           {mogs ? <span><b>{mogs}</b> {mogs === 1 ? 'Mog' : 'Mogs'}</span> : <span>No Mogs yet</span>}
         </div>
         <div className="acts">
@@ -154,7 +169,6 @@ function JumpIn({ worlds, classic, stats }: { worlds: GameRow[]; classic?: GameR
  * with any game here: play it, or Mog it.
  */
 function Billboard({ game, film, stats }: { game: GameRow; film: Film | null; stats?: TileStats }) {
-  const record = topScores(game.id, 1, 'level')[0];
   const copy = game.slug === HERO ? HERO_COPY : { headline: [game.title], sub: game.tagline };
   const mogs = stats?.mogs ?? 0;
   return (
@@ -183,7 +197,7 @@ function Billboard({ game, film, stats }: { game: GameRow; film: Film | null; st
         {game.slug === HERO && HERO_NOTE ? <p className="hnote">{HERO_NOTE}</p> : null}
         <div className="hstats">
           <span><b>{short(game.plays)}</b> {game.plays === 1 ? 'play' : 'plays'}</span>
-          {record?.level ? <span><b>Lap {record.level}</b> record</span> : null}
+          <RecordStat game={game} />
           {mogs ? <span><b>{mogs}</b> {mogs === 1 ? 'Mog' : 'Mogs'}</span> : <span>No Mogs yet</span>}
         </div>
         <div className="acts">

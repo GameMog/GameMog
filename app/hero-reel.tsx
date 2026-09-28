@@ -7,8 +7,8 @@ import type { Film } from './hero-film';
 export type ReelClip = { film: Film; seconds?: number; href: string; title: string };
 
 const PHONE = '(max-width: 899px)';
-/** The dissolve between films, in seconds. */
-const FADE = 1.1;
+/** The dissolve between films, in seconds (the owner, 27 Sep: slower, about 2). */
+const FADE = 2;
 
 /**
  * The homepage hero as a reel (the owner, 27 Sep): several worlds' gameplay

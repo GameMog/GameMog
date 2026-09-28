@@ -259,8 +259,8 @@ button.tag:hover{border-color:var(--ink)}
 
 /* ------------------------------------------------------------- billboard -- */
 /* The featured worlds across the top, playing: a reel (the owner, 27 Sep)
-   of Speed Skating's lap, the Great Wall's fight and the Miami GP, dissolving
-   one into the next (app/hero-reel.tsx). On a desktop it is laid out as roblox.com's hero, at the
+   of Speed Skating's lap, Miami OG's street fight, the Miami GP and the Great Wall's fight,
+   dissolving one into the next (app/hero-reel.tsx). On a desktop it is laid out as roblox.com's hero, at the
    owner's request: the film edge to edge with no frame and nothing over it
    (the owner took the shade off), the copy straight on it with a soft halo
    for legibility: a two-line headline, one sentence, and two buttons.
