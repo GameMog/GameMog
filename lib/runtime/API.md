@@ -497,6 +497,7 @@ GameMog.world({
     spawn: [-4, 30, 180],          // x, z, facing in degrees
     heat: { every: 40 },           // seconds a level of heat lasts (15 to 180)
     health: 100, maxEnemies: 12, civilians: 12,
+    weapons: { count: 8, kinds: { bat: 3, pipe: 3, chain: 2, baton: 2, sword: 1 }, drops: true },   // or false: fists only
     crew: {                        // who comes for you; every field optional
       thug:  { names: ['Hustler', 'Enforcer'], look: function (ctx, i, heat) { return { /* human options: clothes, gear, weapon */ }; }, hp: 3, damage: 7 },
       biker: { names: ['Road Dog'], look: function (ctx, i) { return { clothes: {...}, gear: {...}, weapon: { kind: 'chain' } }; } },
@@ -517,12 +518,26 @@ Without a map, build the ground, the streets and the buildings yourself and give
 car, tree and post a collider with `ctx.solid({ min: { x, z }, max: { x, z } })`, `ctx.solid({ x, z, r })`
 or `ctx.solid(object)`; leave open ground to fight on. No `track`, `rival()` or `obstacles()`.
 
+Hidden weapons are on unless `weapons: false`: `count` street weapons (bat, pipe, chain, baton,
+or a rare katana, `sword`, weighted by `kinds`) lie in the map's hiding places (in alleys, on
+bins, by the lifeguard towers, against fences) and glint now and then. Walking over one takes it,
+E (or GRAB) swaps it for the one in hand; it swings harder and further than a fist and breaks
+after its hits. With `drops`, an armed enemy put down may drop his. Melee only: no guns.
+
+Where the walkable ground ends, something you can see ends it: on a library map the runtime
+builds it; without one, build a wall, fence or barrier at every edge of `bounds` and give it a
+collider. People move like people: a guard held up while stepping, sidesteps and backpedals
+round a foe, punches thrown on the move, leaning into turns; the runtime animates it all.
+
 The library map `ocean-drive` is Miami Beach at sunrise (StarKnightt/ocean-drive, MIT): a mile
 of Ocean Drive with its pastel deco hotels, cafés, palms, parked cars and passing traffic, the
 park, the beach with lifeguard towers and surf, and the Atlantic. It brings its own sky, sun,
 shadows, fog and colliders, so add no lights or sky of your own; `+x` is east (the sea), `-z`
 north; the hotel fronts are at x = -30, the road at x = -21 to -14, the park to x = 12, the sand to
-the water at x = 90; blocks run from z = -340 to 340. `def.onMap(ctx, map)` runs once it is built.
+the water at x = 90; blocks run from z = -340 to 340. The alleys between the hotels and the cross
+streets go 20 m back (to x = -50) to walls and roadblocks, both ends are fenced, and the player can
+wade into the sea to the swim-area buoys (x = 104, about mid-thigh). `def.onMap(ctx, map)` runs
+once it is built; `map.hideouts` lists the hiding places and `map.water.depthAt(x, z)` the sea's depth.
 
 ## Never
 

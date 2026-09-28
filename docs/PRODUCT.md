@@ -69,6 +69,13 @@ gear for library humans, 18 new Quaternius clips (fight and street life), the "O
 option on Create and Mog, the Open World category, and Miami OG (`/g/miami-og`), published
 through the same playtest gate. The shallows use Clearwater's clear-water optics (SamG-Coder/clearwater, MIT; credited in the map's NOTICE.md) with caustics on the sand.
 
+Added (28 Sep, the owner's second round): people move better (a guard held over walking legs,
+punches on the move, sidesteps and backpedals, leaning, turning in steps, a fighter's bounce,
+blows that carry); hidden melee weapons (bat, pipe, chain, baton, a rare katana) that wear out,
+and armed enemies may drop theirs; every edge of the district is something you can see (alley
+walls, roadblocks, fences, swim-area buoys; `edges.js`); and the sea is wadeable to mid-thigh.
+One new Quaternius clip, `pickup`. Rules: docs/RULES.md 1b.
+
 ## The plan
 
 1. **You, in the game.** Selfie → your character → play LA Olympics as yourself. Every world

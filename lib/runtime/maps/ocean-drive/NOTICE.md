@@ -3,7 +3,11 @@
 `src/` is StarKnightt/ocean-drive (MIT, Copyright (c) 2026 Prasenjit (StarKnightt); `LICENSE`
 beside this file), snapshot of commit 03d1ed66b1117be1ef8d7c19a33ff56ab3762c25. It is bundled by
 `scripts/runtime/build-maps.mjs` into `lib/runtime/maps/ocean-drive.js`, which a world gets with
-`open: { map: 'ocean-drive' }`. `entry.js` (ours) builds the district into a world's scene.
+`open: { map: 'ocean-drive' }`. `entry.js` (ours) builds the district into a world's scene, and
+`edges.js` (ours) closes it: block walls at the ends of the alleys, roadblocks 20 m down the cross
+streets, construction fencing across both ends of the district, swim-area buoys in the sea, the
+colliders for all of it and the hiding places for an open world's weapons. The passing traffic
+(in `entry.js`) stops at the roadblocks and goes round again only out of sight.
 
 Changes to the original, so it runs on the runtime's three.js (r157):
 

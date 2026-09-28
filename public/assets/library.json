@@ -302,7 +302,7 @@
         "cmu-mocap",
         "quaternius-ual"
       ],
-      "derived": "Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion and the street fight (punches, hits, a roll, getting up) and street life (walking, a phone call, folded arms, talking, dancing, sitting) retargeted from Quaternius's Universal Animation Library.",
+      "derived": "Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion and the street fight (punches, hits, a roll, getting up) and street life (walking, a phone call, folded arms, talking, dancing, sitting, picking something up) retargeted from Quaternius's Universal Animation Library.",
       "meta": {
         "skins": [
           "african",
@@ -352,15 +352,16 @@
           "arms",
           "talk",
           "dance",
-          "sit"
+          "sit",
+          "pickup"
         ],
         "vertices": 25482,
         "bones": 66
       },
       "files": {
         "asset.json": {
-          "sha256": "8a0f02aa53f239f827f24790188e5c9b983d82c845c54451035994317a809705",
-          "bytes": 17507
+          "sha256": "d1159989fce95883b25481cddbfe7fa3d945ddc15d398040eb7e1f61c592f9f1",
+          "bytes": 17798
         },
         "body.bin.z": {
           "sha256": "b0220b57797ab352f72c350ffc6a514a155110aff50d527aeb1b04d01f883f0b",
@@ -371,8 +372,8 @@
           "bytes": 100121
         },
         "clips.bin.z": {
-          "sha256": "a730d3b50caf87ec841a460fe6edd371c5215fb3742b3df68ad3eb4ab8de9b44",
-          "bytes": 240699
+          "sha256": "3e1cc1b2072d298ed6b5b8a8688b373fdc41d8abe41bdbec56f2c7683aa8d735",
+          "bytes": 244666
         },
         "eye-blue.jpg": {
           "sha256": "92b1ad1b2907b403f73b1acb2ce9bb8144075f88c6cbce4e7b24c9cfcbe46429",
@@ -439,7 +440,7 @@
           "bytes": 637106
         }
       },
-      "bytes": 8804466
+      "bytes": 8808724
     },
     "human-athlete-female": {
       "kind": "human",
@@ -451,7 +452,7 @@
         "cmu-mocap",
         "quaternius-ual"
       ],
-      "derived": "Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion and the street fight (punches, hits, a roll, getting up) and street life (walking, a phone call, folded arms, talking, dancing, sitting) retargeted from Quaternius's Universal Animation Library.",
+      "derived": "Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion and the street fight (punches, hits, a roll, getting up) and street life (walking, a phone call, folded arms, talking, dancing, sitting, picking something up) retargeted from Quaternius's Universal Animation Library.",
       "meta": {
         "skins": [
           "african",
@@ -500,15 +501,16 @@
           "arms",
           "talk",
           "dance",
-          "sit"
+          "sit",
+          "pickup"
         ],
         "vertices": 24794,
         "bones": 66
       },
       "files": {
         "asset.json": {
-          "sha256": "280083c33e4658615278da6839cd1e2326f3d36574e9400a74039444a7adac78",
-          "bytes": 17442
+          "sha256": "3236f6ddd51e7d1e4482477e325fc0d8d9f52b41d895da0a95717199139be06e",
+          "bytes": 17733
         },
         "body.bin.z": {
           "sha256": "54779f519bc926a7eb78844043882bf2c7a04ad33ba645c1200989e431a4c1e7",
@@ -519,8 +521,8 @@
           "bytes": 81643
         },
         "clips.bin.z": {
-          "sha256": "dd45a798c915ef43ff52bcc2b57fa84f2fbd1ba9ccd6b18668a57cac1f8c257b",
-          "bytes": 239735
+          "sha256": "986f69f73f0f5dbd9b1bafa4b2761f6789a327a0e31f8000e0b6d5e4d8be49ff",
+          "bytes": 243669
         },
         "eye-blue.jpg": {
           "sha256": "92b1ad1b2907b403f73b1acb2ce9bb8144075f88c6cbce4e7b24c9cfcbe46429",
@@ -579,7 +581,7 @@
           "bytes": 711060
         }
       },
-      "bytes": 7892647
+      "bytes": 7896873
     },
     "hdri-sunset-city": {
       "kind": "hdri",

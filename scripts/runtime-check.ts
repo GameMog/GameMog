@@ -556,6 +556,25 @@ try {
       await page.eval('window.__gmRuntime.debug.invincible(true)');
       for (let i = 0; i < 60 && (o.kos < 1 || o.gm < 1); i++) { await page.eval('window.__gmRuntime.debug.open().punch()'); await sleep(260); o = await os(); }
       ok('punches knock them out, and their GM comes to you', o.kos >= 1 && o.gm >= 1, `${o.kos} knockouts, ${o.gm} GM`);
+      // hidden weapons (the owner, 28 Sep): about the map, taken by walking over one, worn down by use
+      type OW2 = OS & { weapon: { kind: string; hits: number; max: number } | null; pickups: { kind: string; dropped: boolean }[]; player: { x: number; z: number; wet: number; stance: string } };
+      const ow2 = () => page.eval<OW2>('window.__gmRuntime.state().open');
+      let w2 = await ow2();
+      ok('weapons are hidden about the map', w2.pickups.filter((q) => !q.dropped).length >= 6, w2.pickups.map((q) => q.kind).join(', '));
+      await page.eval('window.__gmRuntime.debug.open().weapon("pipe")');
+      for (let i = 0; i < 20 && !(w2 = await ow2()).weapon; i++) await sleep(100);
+      ok('walking over one puts it in your hand', w2.weapon?.kind === 'pipe', JSON.stringify(w2.weapon));
+      await page.eval('window.__gmRuntime.debug.open().spawn("thug")');
+      const h0 = w2.weapon?.hits ?? 0;
+      for (let i = 0; i < 40 && ((w2 = await ow2()).weapon?.hits ?? 0) >= h0; i++) { await page.eval('window.__gmRuntime.debug.open().punch()'); await sleep(260); }
+      ok('an armed swing lands and wears the weapon down', (w2.weapon?.hits ?? 0) < h0, `${h0} -> ${w2.weapon?.hits}`);
+      // the edges are walls: an alley runs back to one; the sea is yours to the buoys
+      const walk = async (x: number, z: number, yaw: number, ms: number) => { await page.eval(`window.__gmRuntime.debug.open().place(${x}, ${z}, ${yaw}, 0.3)`); await page.key('KeyW', 'keyDown'); await sleep(ms); await page.key('KeyW', 'keyUp'); return (await ow2()).player; };
+      await page.eval('window.__gmRuntime.debug.invincible(true)');
+      const al = await walk(-36, 25.9, Math.PI / 2, 3600);
+      ok('an alley runs back to a wall, and the wall stops you', al.x < -49.3 && al.x > -50.2, `stopped at x ${al.x.toFixed(2)}`);
+      const sea = await walk(97, 150, -Math.PI / 2, 4200);
+      ok('you can wade into the sea, as far as the buoys', sea.wet > 0.3 && sea.x < 104.2 && sea.x > 102, `x ${sea.x.toFixed(2)}, ${sea.wet} m deep`);
       // the heat: the police by patrol car and a boss
       await page.eval('window.__gmRuntime.debug.open().heat(3)');
       let boss = false, police = false;

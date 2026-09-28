@@ -75,6 +75,8 @@ const BRAWL: [string, string, string, boolean, number?, number?][] = [
   ['UAL1_Standard.glb', 'Idle_Talking_Loop', 'talk', true],
   ['UAL1_Standard.glb', 'Dance_Loop', 'dance', true],
   ['UAL1_Standard.glb', 'Sitting_Idle_Loop', 'sit', true],
+  // picking a weapon up off a wall, a bin or a bench (open worlds' hidden weapons)
+  ['UAL1_Standard.glb', 'PickUp_Table', 'pickup', false],
 ];
 
 function human(id: string, gender: 'male' | 'female', title: string, skins: Record<string, string>, hair: string[], brows: string) {
@@ -113,7 +115,7 @@ function human(id: string, gender: 'male' | 'female', title: string, skins: Reco
     kind: 'human', title,
     description: `A realistic ${gender === 'male' ? 'male' : 'female'} athlete: MakeHuman body shaped for sprinting, ${Object.keys(skins).length} skin tones, ${hair.length} hairstyles, eyes, eyebrows and eyelashes, a paintable kit (${gender === 'male' ? 'singlet' : 'crop top'}, shorts and spikes), five body morphs and a 66-bone rig with motion-captured run, sprint, idle, standing start and fall, and sword motion: a guard, three cuts, a lunge, a hit and a death.`,
     sources: ['makehuman', 'makehuman-system', 'cmu-mocap', 'quaternius-ual'],
-    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion and the street fight (punches, hits, a roll, getting up) and street life (walking, a phone call, folded arms, talking, dancing, sitting) retargeted from Quaternius\'s Universal Animation Library.',
+    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion and the street fight (punches, hits, a roll, getting up) and street life (walking, a phone call, folded arms, talking, dancing, sitting, picking something up) retargeted from Quaternius\'s Universal Animation Library.',
     meta: { skins: Object.keys(skins), hair, morphs: Object.keys(h.asset.morphs as object), clips: packed.meta.map((c) => c.name), vertices: h.asset.vertexCount, bones: h.skeleton.length },
     files: {}, bytes: 0,
   };
