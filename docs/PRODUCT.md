@@ -76,6 +76,12 @@ and armed enemies may drop theirs; every edge of the district is something you c
 walls, roadblocks, fences, swim-area buoys; `edges.js`); and the sea is wadeable to mid-thigh.
 One new Quaternius clip, `pickup`. Rules: docs/RULES.md 1b.
 
+Added (28 Sep, third round): human motion rebuilt on CMU captures (the owner approved CMU, and it
+is the only exhaustively-searched source that is both good and ours to ship): a real boxing guard
+and footwork, punches, everyday/cool/confident/women's walks, idles; an opening scene engine
+(`open.intro`) and Miami OG's opening (the OG, his club-to-be on Ocean Drive, the crew); "Club
+fund" for the GM; traffic stops for people in the road.
+
 ## The plan
 
 1. **You, in the game.** Selfie → your character → play LA Olympics as yourself. Every world

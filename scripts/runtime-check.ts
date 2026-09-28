@@ -570,9 +570,10 @@ try {
       ok('an armed swing lands and wears the weapon down', (w2.weapon?.hits ?? 0) < h0, `${h0} -> ${w2.weapon?.hits}`);
       // the edges are walls: an alley runs back to one; the sea is yours to the buoys
       const walk = async (x: number, z: number, yaw: number, ms: number) => { await page.eval(`window.__gmRuntime.debug.open().place(${x}, ${z}, ${yaw}, 0.3)`); await page.key('KeyW', 'keyDown'); await sleep(ms); await page.key('KeyW', 'keyUp'); return (await ow2()).player; };
-      await page.eval('window.__gmRuntime.debug.invincible(true)');
+      await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.open().clear()');
       const al = await walk(-36, 25.9, Math.PI / 2, 3600);
       ok('an alley runs back to a wall, and the wall stops you', al.x < -49.3 && al.x > -50.2, `stopped at x ${al.x.toFixed(2)}`);
+      await page.eval('window.__gmRuntime.debug.open().clear()');
       const sea = await walk(97, 150, -Math.PI / 2, 4200);
       ok('you can wade into the sea, as far as the buoys', sea.wet > 0.3 && sea.x < 104.2 && sea.x > 102, `x ${sea.x.toFixed(2)}, ${sea.wet} m deep`);
       // the heat: the police by patrol car and a boss
@@ -589,6 +590,13 @@ try {
       const res = await page.eval<{ survival?: boolean; timeMs: number; level: number }[]>('window.__gm.results || []');
       const last = res[res.length - 1];
       ok('a knockout ends the run with the time survived', !!last && !!last.survival && last.timeMs > 3000 && last.level >= 3, JSON.stringify(last));
+      // the opening scene (the owner, 28 Sep): letterboxed, skippable, and the crew it shows is there when the run begins
+      await page.eval('window.__gmRuntime.debug.open().intro()');
+      await sleep(1500);
+      const ix = await page.eval<{ shot: number } | null>('window.__gmRuntime.debug.open().introState()');
+      await page.key('Enter'); await sleep(600);
+      const after = await page.eval<{ ix: unknown; enemies: number; boards: string }>('({ ix: window.__gmRuntime.debug.open().introState(), enemies: window.__gmRuntime.state().open.enemies.filter((e) => !e.ko).length, boards: [...document.querySelectorAll(".board small")].map((e) => e.textContent).join(",") })');
+      ok('an opening scene plays before the run, and Enter skips it into the run with its crew', !!ix && after.ix === null && after.enemies >= 3 && /Club fund/.test(after.boards), `${JSON.stringify(ix)} -> ${JSON.stringify(after)}`);
       const e1 = await page.eval<string[]>('window.__gm.errors');
       ok('a whole open-world run raises no error', e1.length === 0, e1.join(' | '));
     }, { timeoutMs: 200_000 });

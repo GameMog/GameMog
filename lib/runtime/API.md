@@ -498,6 +498,9 @@ GameMog.world({
     heat: { every: 40 },           // seconds a level of heat lasts (15 to 180)
     health: 100, maxEnemies: 12, civilians: 12,
     weapons: { count: 8, kinds: { bat: 3, pipe: 3, chain: 2, baton: 2, sword: 1 }, drops: true },   // or false: fists only
+    gait: 'walkCool',              // the hero's walk: walk, walkCool, walkHeavy, walkF
+    hud: { gm: 'Club fund', banner: 'Stack GM for the club. Survive.' },   // what the story calls the GM, and the first banner
+    intro: { shots: [ /* the opening scene, below */ ] },
     crew: {                        // who comes for you; every field optional
       thug:  { names: ['Hustler', 'Enforcer'], look: function (ctx, i, heat) { return { /* human options: clothes, gear, weapon */ }; }, hp: 3, damage: 7 },
       biker: { names: ['Road Dog'], look: function (ctx, i) { return { clothes: {...}, gear: {...}, weapon: { kind: 'chain' } }; } },
@@ -517,6 +520,21 @@ A look may name its body (`body: 'human-athlete-female'`). Other fields per kind
 Without a map, build the ground, the streets and the buildings yourself and give every wall,
 car, tree and post a collider with `ctx.solid({ min: { x, z }, max: { x, z } })`, `ctx.solid({ x, z, r })`
 or `ctx.solid(object)`; leave open ground to fight on. No `track`, `rival()` or `obstacles()`.
+
+People move on captured motion (CMU): a crew look may set `gait` (`walk` everyday,
+`walkCool` the street's cool walk, `walkHeavy` a big man's confident walk, `walkF` a woman's);
+by default thugs walk cool, bikers and bosses heavy, women their own walk. Fighters stand in a
+boxer's guard and move on his footwork; stances for standing about: `shift` (weight shifting),
+`argue`, `phone`, `arms`, `dance`; one-off moves: `shrug`, `wave`.
+
+The opening scene, `intro.shots`, plays letterboxed before the first run of a visit (Enter,
+Space, Esc or Skip skips it). Each shot: `t` seconds; `cam: { from: [x,y,z], to, look: [x,y,z] |
+'og' | a cast id, lookTo, fov, fovTo }`; `cast: [{ id: 'og' | a name, kind: 'thug' (a new person),
+at: [x,z] (placed at the cut), to: [x,z] or path: [[x,z], ...], speed, gait, stance, face: degrees |
+'og' | 'cam' | [x,z] | a cast id, act: [['shrug', atSeconds, rate]], stay: true }]`; text:
+`place` and `time` (a location card), `say` (a subtitle), `title` and `tagline` (the title card);
+`fade: 'in' | 'out' | 'both'`. Whoever is marked `stay` is there when the run begins and comes
+for you; the run begins where the scene leaves the hero.
 
 Hidden weapons are on unless `weapons: false`: `count` street weapons (bat, pipe, chain, baton,
 or a rare katana, `sword`, weighted by `kinds`) lie in the map's hiding places (in alleys, on

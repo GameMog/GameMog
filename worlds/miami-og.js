@@ -17,6 +17,41 @@
       spawn: [-4, 30, 180],
       heat: { every: 40 },
       health: 100,
+      // his mission (the owner, 28 Sep): every coin goes to his own club on South Beach
+      hud: { gm: 'Club fund', banner: 'Stack GM for the club. Survive.' },
+      // the opening scene: South Beach at sunrise, the OG, the corner his club will be on, and the crew that wants his money
+      intro: {
+        shots: [
+          { t: 6, fade: 'in', place: 'SOUTH BEACH', time: 'OCEAN DRIVE  ·  6:12 AM',
+            cam: { from: [60, 30, 92], to: [16, 14, 60], look: [-26, 7, 38], lookTo: [-24, 3, 38], fov: 46, fovTo: 40 },
+            cast: [{ id: 'og', at: [-12.4, 50], to: [-12.4, 44], speed: 1.0, gait: 'walkCool', stance: 'shift' }] },
+          { t: 5.5, say: 'They call him the OG. Born two blocks from here.',
+            cam: { from: [-11.9, 0.9, 39.6], to: [-12.0, 1.0, 35.4], look: 'og', fov: 38 },
+            cast: [{ id: 'og', to: [-12.6, 38.6], speed: 1.0 }] },
+          { t: 7, say: 'Twenty years on this strip, and one dream: a club of his own, right here on South Beach.',
+            cam: { from: [-11.6, 1.55, 40.2], to: [-15.2, 1.7, 39.4], look: [-30.6, 4.6, 33.3], lookTo: [-28, 3.2, 34.5], fov: 44, fovTo: 38 },
+            cast: [{ id: 'og', path: [[-14.2, 38.2], [-24.4, 37.0]], speed: 1.75, gait: 'walk' }] },
+          { t: 5, say: '“All it takes is money. Every coin on this street is mine.”',
+            cam: { from: [-23.05, 1.62, 37.5], to: [-23.1, 1.64, 37.42], look: 'og', fov: 30 },
+            cast: [{ id: 'og', at: [-24.4, 37.0], face: [-15, 37.6], stance: 'shift', act: [['shrug', 1.7, 1.1]] }] },
+          { t: 6.5, say: 'But South Beach doesn’t give anything away.',
+            cam: { from: [-21.6, 1.6, 22.2], to: [-21.9, 1.55, 22.9], look: [-27.2, 1.3, 27.2], lookTo: [-25.8, 1.4, 30.5], fov: 50 },
+            cast: [
+              { id: 'og', at: [-24.4, 37.0], face: [-26, 29.5] },
+              { id: 't1', kind: 'thug', at: [-32.5, 25.5], path: [[-28.4, 25.5], [-25.9, 29.8]], speed: 1.5, gait: 'walkCool', stance: 'shift' },
+              { id: 't2', kind: 'thug', at: [-35.5, 25.4], path: [[-28.4, 25.4], [-24.7, 29.1]], speed: 1.75, gait: 'walkCool', stance: 'shift' },
+              { id: 't3', kind: 'thug', at: [-20.6, 24.4], to: [-23.3, 30.5], speed: 1.35, gait: 'walkCool', stance: 'shift' }] },
+          { t: 4.5, say: '“Let’s get to work.”',
+            cam: { from: [-24.6, 1.05, 26.4], to: [-24.5, 1.1, 27.1], look: 'og', fov: 42 },
+            cast: [
+              { id: 'og', at: [-24.4, 36.4], to: [-24.8, 33.6], speed: 1.0, gait: 'walkCool', stance: 'fight', face: 't2' },
+              { id: 't1', at: [-25.9, 29.8], stance: 'fight', face: 'og', stay: true },
+              { id: 't2', at: [-24.7, 29.1], stance: 'fight', face: 'og', stay: true },
+              { id: 't3', at: [-23.3, 30.5], stance: 'fight', face: 'og', stay: true }] },
+          { t: 5.5, fade: 'out', title: 'MIAMI OG', tagline: 'Knock them out. Take their GM. Every coin you stack goes to the club. Survive as long as you can.',
+            cam: { from: [-21.5, 2, 35.5], to: [-14, 11, 48], look: [-26, 1.2, 33], fov: 44 } },
+        ],
+      },
       crew: {
         thug: {
           names: ['Corner boy', 'Hustler', 'Enforcer', 'Lookout', 'Muscle', 'Runner'],
@@ -76,6 +111,21 @@
           },
         },
       },
+    },
+    // the OG's club-to-be: a pink neon sign on the deco front where it will open
+    onMap: function (ctx) {
+      var THREE = ctx.THREE;
+      var tex = ctx.textures.canvas(1024, 320, function (g, w, h) {
+        g.clearRect(0, 0, w, h); g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.font = 'italic 700 158px Georgia, serif'; g.lineJoin = 'round';
+        g.shadowColor = '#FF2E78'; g.shadowBlur = 36; g.strokeStyle = '#FF4F8E'; g.lineWidth = 16; g.strokeText('OG\u2019s', w / 2, h * 0.39);
+        g.shadowBlur = 10; g.fillStyle = '#FFE3EE'; g.fillText('OG\u2019s', w / 2, h * 0.39);
+        g.font = '700 50px Arial, Helvetica, sans-serif'; g.shadowColor = '#22E4FF'; g.shadowBlur = 22; g.fillStyle = '#D8FBFF';
+        g.fillText('C O M I N G   S O O N', w / 2, h * 0.84);
+      });
+      var sign = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.125), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, color: new THREE.Color(2.4, 2.4, 2.4), toneMapped: true }));
+      sign.position.set(-30.7, 5.45, 33.3); sign.rotation.y = Math.PI / 2;
+      ctx.scene.add(sign);
     },
     player: function (ctx) {
       // the OG: an original look of Miami today, nobody's likeness

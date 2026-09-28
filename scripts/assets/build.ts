@@ -38,7 +38,7 @@ function packClips(clips: Clip[]) {
   const meta = clips.map((c) => {
     pk.add(`${c.name}:q`, new Int16Array(Array.from(c.quats, (v) => Math.round(Math.max(-1, Math.min(1, v)) * 32767))), 4);
     pk.add(`${c.name}:root`, c.root, 3);
-    return { name: c.name, fps: c.fps, frames: c.frames, loop: c.loop, speed: +c.speed.toFixed(3), duration: +(c.frames / c.fps).toFixed(4), ...(c.contact != null ? { contact: c.contact } : {}) };
+    return { name: c.name, fps: c.fps, frames: c.frames, loop: c.loop, speed: +c.speed.toFixed(3), duration: +(c.frames / c.fps).toFixed(4), ...(c.contact != null ? { contact: c.contact } : {}), ...(c.dir != null ? { dir: c.dir } : {}) };
   });
   return { buffer: pk.buffer(), layout: pk.layout, meta };
 }
@@ -57,12 +57,6 @@ const COMBAT: [string, string, string, boolean][] = [
 // the street fight and the street's own life (Quaternius, CC0), for open worlds:
 // [file, clip, library name, loops, from s, to s]
 const BRAWL: [string, string, string, boolean, number?, number?][] = [
-  ['UAL1_Standard.glb', 'Walk_Loop', 'walk', true],
-  ['UAL1_Standard.glb', 'Jog_Fwd_Loop', 'jog', true],
-  ['UAL1_Standard.glb', 'Punch_Jab', 'fight', true, 0, 0.12],
-  ['UAL1_Standard.glb', 'Punch_Jab', 'jab', false],
-  ['UAL1_Standard.glb', 'Punch_Cross', 'cross', false],
-  ['UAL2_Standard.glb', 'Melee_Hook', 'hook', false],
   ['UAL1_Standard.glb', 'Hit_Head', 'hitHead', false],
   ['UAL1_Standard.glb', 'Hit_Chest', 'hitChest', false],
   ['UAL2_Standard.glb', 'LayToIdle', 'getup', false],
@@ -78,6 +72,42 @@ const BRAWL: [string, string, string, boolean, number?, number?][] = [
   // picking a weapon up off a wall, a bin or a bench (open worlds' hidden weapons)
   ['UAL1_Standard.glb', 'PickUp_Table', 'pickup', false],
 ];
+
+// the street fight and the street's own life, captured (CMU, the owner, 28 Sep:
+// "everyone is a zombie with zombie movements when fighting"): a boxer's guard
+// and footwork, single punches from the guard, everyday and styled walks,
+// standing about. Chosen with a scan of each trial (hands, guard, travel).
+// [trial, library name, kind, from s, to s, options]
+// (a woman's body takes a woman's capture where one is given: [trial, from, to])
+type CmuCut = [string, string, 'cycle' | 'idle' | 'once' | 'move', number?, number?, { face?: 'hips'; srcFps?: number; contact?: number; period?: number; fist?: boolean; female?: [string, number, number] }?];
+const CMU_STREET: CmuCut[] = [
+  // the guard: the window of each trial where the fists sit at the chin, the feet
+  // apart, standing (a scan scored every 1.2 s of the fight trials for it)
+  ['15_13', 'fight', 'idle', 11.6, 12.8, { fist: true, female: ['144_21', 12.1, 13.3] }],
+  // footwork for the legs (the runtime keeps the guard's arms over it)
+  ['17_10', 'guardF', 'move', 4.0, 5.5, { fist: true }],    // in,
+  ['17_10', 'guardB', 'move', 14.5, 16.0, { fist: true }],  // back,
+  ['14_01', 'guardL', 'move', 2.75, 4.25, { fist: true }],  // to the left,
+  ['76_03', 'guardR', 'move', 5.25, 6.5, { fist: true }],   // to the right
+  ['143_23', 'jab', 'once', 0.2, 0.9, { contact: 0.33, fist: true }],   // the lead hand, from the guard and back
+  ['143_23', 'cross', 'once', 0.86, 1.6, { contact: 0.30, fist: true }],// the rear hand
+  ['15_13', 'hook', 'once', 22.45, 23.2, { contact: 0.34, fist: true }],
+  ['104_19', 'walk', 'cycle', 1.75, 5.5],                   // a casual walk
+  ['91_23', 'walkCool', 'cycle', 4.0, 8.75],               // the street's cool walk
+  ['82_09', 'walkHeavy', 'cycle', 6.25, 9.5],              // a big man's confident walk
+  ['144_33', 'walkF', 'cycle', 25.5, 28.25],               // a woman's walk
+  ['143_39', 'walkBack', 'cycle', 1.5, 4.5, { face: 'hips', period: 1.25 }],
+  ['35_17', 'jog', 'cycle'],
+  ['139_02', 'shift', 'idle'],                              // standing, shifting weight
+  ['80_48', 'argue', 'idle', undefined, undefined, { srcFps: 60 }],
+  ['141_21', 'shrug', 'once'],
+  ['141_16', 'wave', 'once'],
+];
+const cmuCut = (skel: Parameters<typeof retargetClip>[0], [trial0, name, kind, from0, to0, o]: CmuCut, gender: 'male' | 'female') => {
+  const [trial, from, to] = gender === 'female' && o?.female ? o.female : [trial0, from0, to0];
+  const sub = trial.split('_')[0], fps = /^(79|80)_/.test(trial) ? 60 : o?.srcFps ?? 120;
+  return retargetClip(skel, { asf: `${sub}/${sub}.asf`, amc: `${sub}/${trial}.amc` }, { name, kind, start: from == null ? undefined : Math.round(from * fps), end: to == null ? undefined : Math.round(to * fps), face: o?.face, srcFps: fps, contact: o?.contact, period: o?.period, fist: o?.fist, inPlace: kind === 'once' });
+};
 
 function human(id: string, gender: 'male' | 'female', title: string, skins: Record<string, string>, hair: string[], brows: string) {
   if (!want(id)) return;
@@ -102,6 +132,7 @@ function human(id: string, gender: 'male' | 'female', title: string, skins: Reco
     // (Quaternius, CC0), for worlds that turn combat on
     ...COMBAT.map(([file, clip, name, loop]) => retargetGltf(h.skeleton, `quaternius-ual/${file}`, clip, { name, loop })),
     ...BRAWL.map(([file, clip, name, loop, start, end]) => retargetGltf(h.skeleton, `quaternius-ual/${file}`, clip, { name, loop, start, end })),
+    ...CMU_STREET.map((c) => cmuCut(h.skeleton, c, gender)),
   ];
   const packed = packClips(clips);
   writeFileSync(join(dir, 'clips.bin.z'), deflateSync(packed.buffer, { level: 9 }));
@@ -109,13 +140,13 @@ function human(id: string, gender: 'male' | 'female', title: string, skins: Reco
   const body = readFileSync(join(dir, 'body.bin'));
   writeFileSync(join(dir, 'body.bin.z'), deflateSync(body, { level: 9 }));
   rmSync(join(dir, 'body.bin'));
-  const asset = { ...h.asset, body: 'body.bin.z', clips: { file: 'clips.bin.z', layout: packed.layout, list: packed.meta, credits: { run: `CMU ${bestTrial}`, sprint: `derived from CMU ${bestTrial}`, idle: 'CMU 90_16 (standing)', start: 'CMU 104_53', fall: 'CMU 90_16', ...Object.fromEntries([...COMBAT, ...BRAWL].map(([file, clip, name]) => [name, `Quaternius ${file.replace('_Standard.glb', '')} ${clip}`])) } } };
+  const asset = { ...h.asset, body: 'body.bin.z', clips: { file: 'clips.bin.z', layout: packed.layout, list: packed.meta, credits: { run: `CMU ${bestTrial}`, sprint: `derived from CMU ${bestTrial}`, idle: 'CMU 90_16 (standing)', start: 'CMU 104_53', fall: 'CMU 90_16', ...Object.fromEntries([...COMBAT, ...BRAWL].map(([file, clip, name]) => [name, `Quaternius ${file.replace('_Standard.glb', '')} ${clip}`])), ...Object.fromEntries(CMU_STREET.map(([trial, name, , , , o]) => [name, o?.female ? `CMU ${trial} (men), ${o.female[0]} (women)` : `CMU ${trial}`])) } } };
   writeFileSync(join(dir, 'asset.json'), JSON.stringify(asset));
   library[id] = {
     kind: 'human', title,
     description: `A realistic ${gender === 'male' ? 'male' : 'female'} athlete: MakeHuman body shaped for sprinting, ${Object.keys(skins).length} skin tones, ${hair.length} hairstyles, eyes, eyebrows and eyelashes, a paintable kit (${gender === 'male' ? 'singlet' : 'crop top'}, shorts and spikes), five body morphs and a 66-bone rig with motion-captured run, sprint, idle, standing start and fall, and sword motion: a guard, three cuts, a lunge, a hit and a death.`,
     sources: ['makehuman', 'makehuman-system', 'cmu-mocap', 'quaternius-ual'],
-    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion and the street fight (punches, hits, a roll, getting up) and street life (walking, a phone call, folded arms, talking, dancing, sitting, picking something up) retargeted from Quaternius\'s Universal Animation Library.',
+    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); the street fight (a boxer\'s guard and footwork, jab, cross, hook) and street life (casual, cool, heavyset and women\'s walks, walking backwards, a jog, shifting weight, arguing, a shrug, a wave) retargeted from CMU captures; sword motion, hits, a roll, getting up, a phone call, folded arms, talking, dancing, sitting and picking something up retargeted from Quaternius\'s Universal Animation Library.',
     meta: { skins: Object.keys(skins), hair, morphs: Object.keys(h.asset.morphs as object), clips: packed.meta.map((c) => c.name), vertices: h.asset.vertexCount, bones: h.skeleton.length },
     files: {}, bytes: 0,
   };

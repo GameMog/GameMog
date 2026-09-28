@@ -105,12 +105,18 @@ for (const [s, c] of [['L', 'l'], ['R', 'r']]) Object.assign(MAP, {
 });
 
 export type Skeleton = { name: string; parent: number; head: number[]; tail: number[] }[];
-export type Clip = { name: string; fps: number; frames: number; loop: boolean; speed: number; bones: string[]; quats: Float32Array; root: Float32Array; contact?: number };
+export type Clip = { name: string; fps: number; frames: number; loop: boolean; speed: number; bones: string[]; quats: Float32Array; root: Float32Array; contact?: number; dir?: number };
 
-export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, opts: { name: string; kind: 'cycle' | 'idle' | 'once'; start?: number; end?: number; fps?: number; inPlace?: boolean }): Clip {
+// kinds: 'cycle' one gait cycle found by the left foot's strikes; 'idle' a loop
+// in place; 'once' a move in place; 'move' a loop cut at start..end that keeps
+// its travel as a speed and a direction (footwork: a step in, back, aside).
+// face 'hips' turns the clip to face where the hips face, not where it goes
+// (a sidestep, a backpedal). srcFps is the capture's rate (most CMU trials 120).
+// contact: seconds from start to the moment a blow lands.
+export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, opts: { name: string; kind: 'cycle' | 'idle' | 'once' | 'move'; start?: number; end?: number; fps?: number; inPlace?: boolean; face?: 'travel' | 'hips'; srcFps?: number; contact?: number; period?: number; fist?: boolean }): Clip {
   const asf = parseAsf(read(`cmu-mocap/${src.asf}`)), frames = parseAmc(read(`cmu-mocap/${src.amc}`));
   const poses = frames.map((f) => fk(asf, f));
-  const FPS = 120, fps = opts.fps ?? 30;
+  const FPS = opts.srcFps ?? 120, fps = opts.fps ?? 30;
   // the source at rest: every rotation zero, bones along their ASF directions
   const align = skel.map((b) => {
     const s = MAP[b.name]; if (!s || s === 'root') return [0, 0, 0, 1] as Q;
@@ -121,20 +127,32 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
   let a = opts.start ?? 0, z = opts.end ?? poses.length - 1;
   const footY = (p: Pose, side: 'l' | 'r') => Math.min(p.get(`${side}foot`)!.tail[1], p.get(`${side}toes`)!.tail[1]);
   if (opts.kind === 'cycle') {
-    // one gait cycle: left toe-strike to the next, from the steady middle of the run
-    const y = poses.map((p) => footY(p, 'l')), strikes: number[] = [];
-    for (let i = 2; i < y.length - 2; i++) if (y[i] <= y[i - 1] && y[i] < y[i + 1] && y[i] < Math.min(...y) + 0.06 && (!strikes.length || i - strikes[strikes.length - 1] > 30)) strikes.push(i);
-    if (strikes.length < 2) throw new Error(`${src.amc}: fewer than two left-foot strikes`);
-    const k = Math.max(0, Math.floor((strikes.length - 2) / 2));
-    a = strikes[k]; z = strikes[k + 1];
+    // one gait cycle, left foot-strike to the next, from the steady middle of
+    // the stretch (start..end when given). The stride's period comes first: the
+    // lag at which the left foot's height best repeats (a walk's heel and toe
+    // would otherwise pass for two strikes)
+    const lo = a, hi = z, y = poses.map((p) => footY(p, 'l')), yr = poses.map((p) => footY(p, 'r'));
+    const diff = (L: number) => { let d = 0, c = 0; for (let i = lo; i + L <= hi; i++) { d += Math.abs(y[i] - y[i + L]) + Math.abs(yr[i] - yr[i + L]); c++; } return c ? d / c : Infinity; };
+    let T = opts.period ? Math.round(opts.period * FPS) : 0, best = Infinity;
+    if (!T) for (let L = Math.round(0.45 * FPS); L <= Math.round(1.6 * FPS) && L < (hi - lo) * 0.7; L++) { const d = diff(L); if (d < best) { best = d; T = L; } }
+    if (!T) throw new Error(`${src.amc}: too short to find a stride`);
+    const floor = Math.min(...y.slice(lo, hi + 1)), strikes: number[] = [];
+    for (let i = Math.max(lo, 2); i < Math.min(hi, y.length - 2); i++) if (y[i] <= y[i - 1] && y[i] < y[i + 1] && y[i] < floor + 0.06 && (!strikes.length || i - strikes[strikes.length - 1] > T * 0.6)) strikes.push(i);
+    const pairs = strikes.slice(1).map((s2, i) => [strikes[i], s2]).filter(([p, q]) => q - p > T * 0.8 && q - p < T * 1.25);
+    if (pairs.length) { const pick = pairs[Math.floor((pairs.length - 1) / 2)]; a = pick[0]; z = pick[1]; }
+    else { a = Math.round((lo + hi - T) / 2); z = a + T; }
   }
   const n = Math.max(2, Math.round(((z - a) / FPS) * fps) + (opts.kind === 'once' ? 1 : 0));
   // heading: face +Z along the direction of travel (or of the hips, standing still)
   const r0 = poses[a].get('root')!.head, r1 = poses[z].get('root')!.head;
   let fwd: V3 = [r1[0] - r0[0], 0, r1[2] - r0[2]];
-  if (Math.hypot(fwd[0], fwd[2]) < 0.3) { const h = poses[a], l = h.get('lfemur')!.head, r = h.get('rfemur')!.head; fwd = cross([l[0] - r[0], 0, l[2] - r[2]], [0, 1, 0]); }
+  const hipsFwd = (): V3 => { let sx = 0, sz = 0; for (let i = a; i <= z; i++) { const l = poses[i].get('lfemur')!.head, r = poses[i].get('rfemur')!.head; const c = cross([l[0] - r[0], 0, l[2] - r[2]], [0, 1, 0]); const cl = Math.hypot(c[0], c[2]) || 1; sx += c[0] / cl; sz += c[2] / cl; } return [sx, 0, sz]; };
+  if (opts.face === 'hips' || opts.kind === 'move' || Math.hypot(fwd[0], fwd[2]) < 0.3) fwd = hipsFwd();
   const heading = arc(norm(fwd), [0, 0, 1]);
   const travel = Math.hypot(r1[0] - r0[0], r1[2] - r0[2]), duration = (z - a) / FPS;
+  // the travel in the clip's own frame (+z ahead, +x to its left)
+  const tv = qrot(heading, [r1[0] - r0[0], 0, r1[2] - r0[2]]);
+  const moves = opts.kind === 'cycle' || opts.kind === 'move';
 
   // leg scale: target hip-to-ankle over source hip-to-ankle
   const J = (nm: string) => skel.find((b) => b.name === nm)!;
@@ -154,7 +172,7 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
   const m = loop ? n + 1 : n;
   const quats = new Float32Array(m * nb * 4), root = new Float32Array(m * 3);
   const world: Q[] = new Array(nb);
-  const curl = fingerCurl(skel), rootRest = skel[0].head;
+  const curl = fingerCurl(skel, !!opts.fist), rootRest = skel[0].head;
   for (let fI = 0; fI < m; fI++) {
     const t = loop ? fI / n : fI / (n - 1);
     const s = sample(t);
@@ -165,10 +183,11 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
       quats.set(local, (fI * nb + bi) * 4);
     });
     const rel = qrot(heading, [s.rp[0] - r0[0], s.rp[1], s.rp[2] - r0[2]]);
-    const along = opts.kind === 'cycle' ? travel * t : 0;
-    root.set([rel[0] * k + rootRest[0], rel[1] * k, (rel[2] - along) * k + rootRest[2]], fI * 3);
+    // a moving clip plays on the spot: its travel is taken out as it goes
+    const ax = moves ? tv[0] * t : 0, az = moves ? tv[2] * t : 0;
+    root.set([(rel[0] - ax) * k + rootRest[0], rel[1] * k, (rel[2] - az) * k + rootRest[2]], fI * 3);
   }
-  if (opts.kind !== 'cycle') {
+  if (!moves) {
     // in place: take out the drift of the hips over the clip
     let cx = 0, cz = 0; for (let fI = 0; fI < m; fI++) { cx += root[fI * 3] / m; cz += root[fI * 3 + 2] / m; }
     const z0 = root[2];
@@ -186,7 +205,10 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
   for (let fI = 0; fI < n; fI++) { const hp = forward(skel, quats, root, fI); for (const side of ['foot.L', 'foot.R']) low = Math.min(low, hp[bones.indexOf(side)][1]); }
   const lift = ankle - low;
   for (let fI = 0; fI < n; fI++) root[fI * 3 + 1] += lift;
-  return { name: opts.name, fps, frames: n, loop, speed: opts.kind === 'cycle' ? (travel * k) / duration : 0, bones, quats: quats.slice(0, n * nb * 4), root: root.slice(0, n * 3) };
+  const out: Clip = { name: opts.name, fps, frames: n, loop, speed: moves ? (travel * k) / duration : 0, bones, quats: quats.slice(0, n * nb * 4), root: root.slice(0, n * 3) };
+  if (moves) out.dir = +Math.atan2(tv[0], tv[2]).toFixed(3);
+  if (opts.contact != null) out.contact = +opts.contact.toFixed(3);
+  return out;
 }
 
 // close a loop: frame n (the start of the next cycle) must equal frame 0, so
@@ -216,7 +238,8 @@ export function forward(skel: Skeleton, quats: Float32Array, root: Float32Array,
 }
 
 // a relaxed, loosely closed hand: each finger joint curls toward the palm
-function fingerCurl(skel: Skeleton): Record<number, Q> {
+// (a fist for a fighter: the fingers rolled in tight, the thumb across)
+function fingerCurl(skel: Skeleton, fist = false): Record<number, Q> {
   const out: Record<number, Q> = {};
   for (const s of ['L', 'R']) {
     const B = (n: string) => skel.findIndex((b) => b.name === n);
@@ -226,13 +249,19 @@ function fingerCurl(skel: Skeleton): Record<number, Q> {
       const bi = B(`finger${f}-${j}.${s}`); if (bi < 0) continue;
       const b = skel[bi], dir = norm([b.tail[0] - b.head[0], b.tail[1] - b.head[1], b.tail[2] - b.head[2]]);
       const axis = f === 1 ? norm(cross(dir, across)) : across;
-      const ang = (f === 1 ? 0.18 : [0.5, 0.62, 0.45][j - 1]);
+      const ang = fist ? (f === 1 ? 0.55 : [1.35, 1.5, 1.05][j - 1]) : (f === 1 ? 0.18 : [0.5, 0.62, 0.45][j - 1]);
       // choose the sign that brings the fingertip toward the thumb's root: toward the palm
       const tip = (sg: number) => { const d = qrot(qaxis(axis, sg * ang), dir); const t: V3 = [b.head[0] + d[0] * 0.05, b.head[1] + d[1] * 0.05, b.head[2] + d[2] * 0.05]; return Math.hypot(t[0] - thumb.head[0], t[1] - thumb.head[1], t[2] - thumb.head[2]); };
       out[bi] = qaxis(axis, tip(1) < tip(-1) ? ang : -ang);
     }
   }
   return out;
+}
+
+/** A trial's poses (forward kinematics per frame), for choosing where to cut clips. */
+export function trialPoses(asfPath: string, amcPath: string) {
+  const asf = parseAsf(read(`cmu-mocap/${asfPath}`)), frames = parseAmc(read(`cmu-mocap/${amcPath}`));
+  return { bones: asf.bones, poses: frames.map((f) => fk(asf, f)) };
 }
 
 /** Root speed profile of a trial, for choosing clips. */
