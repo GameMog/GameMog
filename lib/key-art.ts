@@ -9,6 +9,16 @@ export type WorldKeyArt = { icon: Uint8Array; wide: Uint8Array };
  * unchanged: the camera and title are recording-only and removed afterwards.
  */
 export async function captureWorldKeyArt(page: Page): Promise<WorldKeyArt> {
+  // an open world may name its shot: where the player stands and which way the
+  // camera looks (open.keyArt: { at: [x, z], look: degrees, tilt }); the fight
+  // is brought to him there
+  const spot = await page.eval<{ at: number[]; look?: number; tilt?: number } | null>('window.__gmRuntime.debug.art().keyArt').catch(() => null);
+  if (spot) {
+    const yaw = ((Number(spot.look) || 0) * Math.PI) / 180, tilt = Number(spot.tilt) || 0.15;
+    await page.eval(`(() => { const o = window.__gmRuntime.debug.open(); window.__gmRuntime.debug.autopilot(false);
+      o.place(${Number(spot.at[0]) || 0}, ${Number(spot.at[1]) || 0}, ${yaw}, ${tilt}); o.spawn('thug'); o.spawn('thug'); o.spawn('biker'); })()`);
+    await sleep(1900);
+  }
   await page.eval(`window.__gmRuntime.debug.timeScale(1);
     window.__gmRuntime.debug.invincible(true);
     window.__gmRuntime.debug.film({ target: 'player', distance: -9.5, height: 2.35, fov: 46, side: -0.8, look: 1.35 });

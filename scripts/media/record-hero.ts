@@ -6,7 +6,7 @@
  *   AT=0.93 npm run media:hero -- road-race-2028   # open at 93% of the lap
  *   LAPS=1 NAME=-reel npm run media:hero -- speed-skating-2030   # exactly one lap, line to line
  *   NEAR=3 AHEAD=25 SECONDS=7 NAME=-reel npm run media:hero -- great-wall-shinobi   # rolls when three rivals are within 25 m ahead
- *   HEAT=3 NEAR=3 npm run media:hero -- miami-og   # an open world: heat 3 (a boss), three of them on you
+ *   HEAT=3 NEAR=3 npm run media:hero -- zombie-beach   # an open world: heat 3 (a boss), three of them on you
  *
  * NAME is added to the file names, so a cut for the homepage reel leaves the
  * world's own film (its game page shows it) as it is.

@@ -30,21 +30,21 @@ const HERO_COPY = {
 };
 
 /**
- * The hero reel (the owner, 27 Sep): Speed Skating does one lap, then Miami
- * OG's street fight, ten seconds of the Miami GP, and last the Great Wall's
+ * The hero reel (the owner, 27 Sep): Speed Skating does one lap, then Zombie
+ * Beach's street fight (was Miami OG), ten seconds of the Miami GP, and last the Great Wall's
  * seven most action-packed seconds, each dissolving into the next over about
  * two seconds. `film` names the recorded cut (the reel's own
  * cuts end in -reel, so each world's page keeps its own film); `seconds` plays
  * only the start of a longer film.
  *
  *   LAPS=1 NAME=-reel npm run media:hero -- speed-skating-2030
- *   HEAT=3 NEAR=3 PLACE=-12,40,1.5708 SIZE=1600x750 npm run media:hero -- miami-og wide
- *   HEAT=3 NEAR=3 PLACE=-12,40,1.5708 npm run media:hero -- miami-og 4x3
+ *   HEAT=3 NEAR=3 PLACE=-12,40,1.5708 SIZE=1600x750 npm run media:hero -- zombie-beach wide
+ *   HEAT=3 NEAR=3 PLACE=-12,40,1.5708 npm run media:hero -- zombie-beach 4x3
  *   NEAR=3 AHEAD=25 SECONDS=7 NAME=-reel npm run media:hero -- great-wall-shinobi
  */
 const REEL: { slug: string; film: string; seconds?: number }[] = [
   { slug: 'speed-skating-2030', film: 'speed-skating-2030-reel' },
-  { slug: 'miami-og', film: 'miami-og' },
+  { slug: 'zombie-beach', film: 'zombie-beach' },
   { slug: 'santa-south-beach-gp', film: 'santa-south-beach-gp', seconds: 10 },
   { slug: 'great-wall-shinobi', film: 'great-wall-shinobi-reel' },
 ];

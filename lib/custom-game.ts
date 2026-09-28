@@ -142,7 +142,7 @@ function hostScript(id: string, title: string, tagline = '', options?: WorldOpti
         level: Math.max(0, Math.round(Number(r.level) || 0)),
         gm: Math.max(0, Math.round(Number(r.gm) || 0)),
         // an open world's run: the time survived is what ranks, knockouts beside it
-        survival: !!r.survival, kos: Math.max(0, Math.round(Number(r.kos) || 0)),
+        survival: !!r.survival, kos: Math.max(0, Math.round(Number(r.kos) || 0)), goal: !!r.goal,
         assisted: !!r.assisted,
       };
       gm.results.push(out);

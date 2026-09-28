@@ -501,6 +501,9 @@ GameMog.world({
     gait: 'walkCool',              // the hero's walk: walk, walkCool, walkHeavy, walkF
     hud: { gm: 'Club fund', banner: 'Stack GM for the club. Survive.' },   // what the story calls the GM, and the first banner
     intro: { shots: [ /* the opening scene, below */ ] },
+    goal: { gm: 10000, title: 'Cured', text: 'a line for the win' },   // reach it and the run ends won
+    outro: { shots: [ /* the closing scene, played when the goal is reached */ ] },
+    keyArt: { at: [x, z], look: 107, tilt: 0.15 },   // where the thumbnail is shot: the player there, the camera looking along `look` degrees
     crew: {                        // who comes for you; every field optional
       thug:  { names: ['Hustler', 'Enforcer'], look: function (ctx, i, heat) { return { /* human options: clothes, gear, weapon */ }; }, hp: 3, damage: 7 },
       biker: { names: ['Road Dog'], look: function (ctx, i) { return { clothes: {...}, gear: {...}, weapon: { kind: 'chain' } }; } },
@@ -534,7 +537,13 @@ at: [x,z] (placed at the cut), to: [x,z] or path: [[x,z], ...], speed, gait, sta
 'og' | 'cam' | [x,z] | a cast id, act: [['shrug', atSeconds, rate]], stay: true }]`; text:
 `place` and `time` (a location card), `say` (a subtitle), `title` and `tagline` (the title card);
 `fade: 'in' | 'out' | 'both'`. Whoever is marked `stay` is there when the run begins and comes
-for you; the run begins where the scene leaves the hero.
+for you; the run begins where the scene leaves the hero. The closing scene (`outro`) takes the
+same shots when the `goal` is reached, then the win. A cast member may bring its own `look` (any
+human options, e.g. a doctor: white `jacket`, `gear: { mask: '#9CCBE6' }`, `weapon: { kind:
+'syringe' }`), walk through walls with `ghost: true` (out of a doorway), and `act: [['heal', at,
+seconds]]` drains a sickness away in a warm light. A human's `sick: 0 to 1` makes the skin pale
+and grey-green, the eyes sunk, veins showing (the hero of an outbreak story); the heal cures it.
+Knockouts drop the crew's `gm` (more with the heat), in up to a dozen coins.
 
 Hidden weapons are on unless `weapons: false`: `count` street weapons (bat, pipe, chain, baton,
 or a rare katana, `sword`, weighted by `kinds`) lie in the map's hiding places (in alleys, on

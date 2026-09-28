@@ -66,7 +66,7 @@ Built (27 Sep): the Open World runtime (`lib/runtime/open.js`, walking routes, t
 heat, the police and bosses, civilians, GM drops, a radar), the Ocean Drive map
 (`lib/runtime/maps/ocean-drive`, NOTICE.md lists the changes for three r157), street clothes and
 gear for library humans, 18 new Quaternius clips (fight and street life), the "Open world"
-option on Create and Mog, the Open World category, and Miami OG (`/g/miami-og`), published
+option on Create and Mog, the Open World category, and Miami OG (now Zombie Beach, `/g/zombie-beach`), published
 through the same playtest gate. The shallows use Clearwater's clear-water optics (SamG-Coder/clearwater, MIT; credited in the map's NOTICE.md) with caustics on the sand.
 
 Added (28 Sep, the owner's second round): people move better (a guard held over walking legs,

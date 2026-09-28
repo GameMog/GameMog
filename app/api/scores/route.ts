@@ -32,7 +32,8 @@ export async function POST(req: Request) {
     try { survival = (JSON.parse(row.meta ?? '{}') as { scoring?: string }).scoring === 'survival'; } catch {}
     if (survival) {
       const secs = timeMs / 1000;
-      if (!Number.isInteger(level) || level < 1 || level > 2 + secs / 4 || gm < 0 || gm > 30 + secs * 12 || timeMs < 1000 || timeMs > 6 * 60 * 60 * 1000) {
+      // (a world with a goal pays big: Zombie Beach's 10,000 GM vaccine; no run makes more than 60 GM a second)
+      if (!Number.isInteger(level) || level < 1 || level > 2 + secs / 4 || gm < 0 || gm > 60 + secs * 60 || timeMs < 1000 || timeMs > 6 * 60 * 60 * 1000) {
         return NextResponse.json({ error: 'Result outside plausible range' }, { status: 422 });
       }
       insertScore({

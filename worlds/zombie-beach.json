@@ -1,0 +1,43 @@
+{
+  "title": "Zombie Beach",
+  "tagline": "An unknown virus on Ocean Drive. 10,000 GM buys the only vaccine.",
+  "blurb": "Three days ago an unknown virus reached Miami, and now the OG has it: pale, grey, running out of time. One clinic on Ocean Drive has the vaccine, and it costs 10,000 GM. The street is not giving it away. Knock out whoever comes for you and their GM spills on the pavement: street thugs, bikers swinging chains, patrol cars full of officers, and a boss with a name at every third level of heat. Weapons are hidden about the block. Stack 10,000 GM before the virus takes you, and the doctor will be waiting.",
+  "genre": "Open World",
+  "cast": [
+    {
+      "name": "The OG",
+      "color": "#FF3D7F",
+      "role": "player"
+    },
+    {
+      "name": "Dr. Reyes",
+      "color": "#9CCBE6",
+      "role": "rival"
+    },
+    {
+      "name": "Street thugs",
+      "color": "#7A1E2B",
+      "role": "rival"
+    },
+    {
+      "name": "Bikers",
+      "color": "#141417",
+      "role": "rival"
+    },
+    {
+      "name": "Police",
+      "color": "#1D2B4B",
+      "role": "rival"
+    },
+    {
+      "name": "El Jefe",
+      "color": "#F4F0E6",
+      "role": "rival"
+    }
+  ],
+  "palette": {
+    "sky": "#F2A36B",
+    "ground": "#D8C39A",
+    "accent": "#FF3D7F"
+  }
+}

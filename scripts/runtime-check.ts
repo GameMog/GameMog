@@ -531,7 +531,7 @@ try {
   // the police and a boss, and a knockout that ends the run with the time survived
   console.log('\nopen worlds: the Ocean Drive map, the fight, the heat, survival');
   const owid = randomUUID();
-  insertDraft({ id: owid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../worlds/miami-og.js', import.meta.url), 'utf8'),
+  insertDraft({ id: owid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../worlds/zombie-beach.js', import.meta.url), 'utf8'),
     meta: { title: 'Open Check', tagline: 'Survive', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'OG', color: '#FF3D7F' }], palette: { sky: '#F2A36B', ground: '#C8B48A', accent: '#FF3D7F' }, runtime: 1, scoring: 'survival' } });
   try {
     await withBrowser(async (page) => {
@@ -596,7 +596,15 @@ try {
       const ix = await page.eval<{ shot: number } | null>('window.__gmRuntime.debug.open().introState()');
       await page.key('Enter'); await sleep(600);
       const after = await page.eval<{ ix: unknown; enemies: number; boards: string }>('({ ix: window.__gmRuntime.debug.open().introState(), enemies: window.__gmRuntime.state().open.enemies.filter((e) => !e.ko).length, boards: [...document.querySelectorAll(".board small")].map((e) => e.textContent).join(",") })');
-      ok('an opening scene plays before the run, and Enter skips it into the run with its crew', !!ix && after.ix === null && after.enemies >= 3 && /Club fund/.test(after.boards), `${JSON.stringify(ix)} -> ${JSON.stringify(after)}`);
+      ok('an opening scene plays before the run, and Enter skips it into the run with its crew', !!ix && after.ix === null && after.enemies >= 3 && /Vaccine fund/.test(after.boards), `${JSON.stringify(ix)} -> ${JSON.stringify(after)}`);
+      // the goal (the owner, 28 Sep): 10,000 GM buys the vaccine; the doctor's scene plays and the run ends won
+      await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.open().ending()');
+      await sleep(1200);
+      const endScene = await page.eval<unknown>('window.__gmRuntime.debug.open().introState()');
+      await page.key('Enter'); await sleep(900);
+      const won = await page.eval<{ won?: boolean; goal?: boolean; gm: number }[]>('window.__gm.results || []');
+      const lastWon = won[won.length - 1];
+      ok('reaching the goal plays the closing scene and ends the run won', !!endScene && !!lastWon && lastWon.won === true && lastWon.goal === true && lastWon.gm >= 10000, JSON.stringify(lastWon));
       const e1 = await page.eval<string[]>('window.__gm.errors');
       ok('a whole open-world run raises no error', e1.length === 0, e1.join(' | '));
     }, { timeoutMs: 200_000 });

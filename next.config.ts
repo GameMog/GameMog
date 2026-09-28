@@ -5,6 +5,10 @@ const config: NextConfig = {
   serverExternalPackages: ['node:sqlite'],
   // the asset library is read by sandboxed game frames, whose origin is
   // opaque: allow any origin to read these public, hash-checked files
+  // Miami OG was renamed Zombie Beach (the owner, 28 Sep): its old links still land
+  async redirects() {
+    return [{ source: '/:section(g|mog)/miami-og/:rest*', destination: '/:section/zombie-beach/:rest*', permanent: true }];
+  },
   async headers() {
     return [{
       source: '/assets/:path*',
