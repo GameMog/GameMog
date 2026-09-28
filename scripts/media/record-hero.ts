@@ -116,6 +116,10 @@ for (const cut of only) {
       if (!found && AT !== null) for (const until2 = Date.now() + 60_000; !(await ready(false)) && Date.now() < until2; ) await sleep(25);
       log(`${cut}: rolling on lap ${await page.eval<number>('window.__gmRuntime.state().level')}`);
     }
+    // a sixtieth of a second of play per frame drawn, however long it took to
+    // draw: the recorder stamps frames at 60 a second, so a heavy scene drawn
+    // at 40 would otherwise play half again as fast
+    await page.eval('window.__gmRuntime.debug.fixedStep(60)');
     await page.eval(`(() => {
       const rec = new MediaRecorder(document.getElementById('gm-film').captureStream(60), { mimeType: ${JSON.stringify(mime)}, videoBitsPerSecond: ${c.bitrate} });
       window.__rec = { rec, chunks: [], done: false, frames: 0 };
@@ -129,7 +133,7 @@ for (const cut of only) {
       // round to where it began: stop as the lap closes
       const lap = await page.eval<number>('window.__gmRuntime.state().lap');
       while ((await page.eval<number>('window.__gmRuntime.state().d')) - d0 < LAPS * lap && Date.now() - t1 < 120_000) await sleep(16);
-    } else await sleep(SECONDS * 1000);
+    } else while ((await page.eval<number>('window.__rec.frames')) < SECONDS * 60 && Date.now() - t1 < SECONDS * 4000) await sleep(16);
     const took = (Date.now() - t1) / 1000;
     const frames = await page.eval<number>('window.__rec.rec.stop(), window.__rec.frames');
     while (!(await page.eval<boolean>('window.__rec.done'))) await sleep(100);
