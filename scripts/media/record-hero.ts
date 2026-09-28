@@ -53,6 +53,11 @@ const OPEN_FILM: Record<Cut, { distance: number; height: number; fov: number; si
   '4x3': { distance: 5.8, height: 1.85, fov: 52, side: 0, look: 1.2 },
 };
 const HEAT = Number(process.env.HEAT ?? 3);
+// PLACE=x,z,yaw: stand the player there before it rolls, the camera held along yaw
+// (radians; +PI/2 looks west): pick the light and the street. SIZE=WxH records the
+// cut smaller, same shape, for a scene too heavy to draw at 60 frames a second
+const PLACE = process.env.PLACE ? process.env.PLACE.split(',').map(Number) : null;
+const SIZE = process.env.SIZE ? process.env.SIZE.split('x').map(Number) : null;
 
 const slug = process.argv[2] ?? 'la-olympics-2028';
 const only = (process.argv[3] ?? 'wide,4x3').split(',') as Cut[];
@@ -83,7 +88,7 @@ async function pull(page: Page, expr: string): Promise<Buffer> {
 }
 
 for (const cut of only) {
-  const c = CUTS[cut];
+  const c = SIZE ? { ...CUTS[cut], width: SIZE[0], height: SIZE[1] } : CUTS[cut];
   await withBrowser(async (page) => {
     await page.goto(`${BASE}/g/${slug}/play?preview=1`);
     for (let i = 0; i < 100 && !(await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__gmRuntime)').catch(() => false)); i++) await sleep(200);
@@ -98,6 +103,7 @@ for (const cut of only) {
     if (open) {
       for (let i = 0; i < 900 && (await page.eval<number>('window.__gmRuntime.state().open.heat')) < HEAT; i++) await sleep(100);
       await page.eval(`window.__gmRuntime.debug.timeScale(1); window.__gmRuntime.debug.film(${JSON.stringify(OPEN_FILM[cut])})`);
+      if (PLACE) await page.eval(`window.__gmRuntime.debug.open().place(${PLACE[0]}, ${PLACE[1]}, ${PLACE[2] ?? 0}, 0.18)`);
       const on = `window.__gmRuntime.state().open.enemies.filter((e) => !e.ko && e.d < 7).length >= ${NEAR ?? 2}`;
       for (const until = Date.now() + 40_000; !(await page.eval<boolean>(on)) && Date.now() < until; ) await sleep(50);
       log(`${cut}: rolling at heat ${await page.eval<number>('window.__gmRuntime.state().open.heat')}`);
