@@ -382,8 +382,9 @@ export const bumpPlays = (id: string) =>
   db.prepare('UPDATE games SET plays = plays + 1 WHERE id = ?').run(id);
 
 /** Best runs. Race worlds and 'time' games rank by time; 'score' by points; 'place' by finish. */
-export function topScores(gameId: string, limit = 10, by: 'time' | 'score' | 'place' | 'level' = 'time') {
-  const order = by === 'level' ? 'level DESC, gm DESC, time_ms ASC'
+export function topScores(gameId: string, limit = 10, by: 'time' | 'score' | 'place' | 'level' | 'survival' = 'time') {
+  const order = by === 'survival' ? 'time_ms DESC, gm DESC'
+    : by === 'level' ? 'level DESC, gm DESC, time_ms ASC'
     : by === 'score' ? 'score DESC, time_ms ASC'
     : by === 'place' ? 'CASE WHEN place > 0 THEN place ELSE 99 END ASC, time_ms ASC'
     : 'CASE WHEN time_ms > 0 THEN time_ms ELSE 1e12 END ASC';

@@ -526,6 +526,55 @@ try {
     }, { timeoutMs: 260_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(did); }
 
+  // open worlds (the owner, 27 Sep: "a GTA blueprint game builder"): Miami OG on
+  // the Ocean Drive map, roamed on foot, people who come and fight, the heat,
+  // the police and a boss, and a knockout that ends the run with the time survived
+  console.log('\nopen worlds: the Ocean Drive map, the fight, the heat, survival');
+  const owid = randomUUID();
+  insertDraft({ id: owid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../worlds/miami-og.js', import.meta.url), 'utf8'),
+    meta: { title: 'Open Check', tagline: 'Survive', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'OG', color: '#FF3D7F' }], palette: { sky: '#F2A36B', ground: '#C8B48A', accent: '#FF3D7F' }, runtime: 1, scoring: 'survival' } });
+  try {
+    await withBrowser(async (page) => {
+      type OS = { heat: number; time: number; kos: number; gm: number; boss: { name: string } | null; player: { x: number; z: number; hp: number; max: number; ko: boolean }; enemies: { kind: string; ko: boolean; d: number }[]; civilians: number; police: string[]; map: string; ready: boolean; colliders: { boxes: number; circles: number } };
+      const os = () => page.eval<OS>('window.__gmRuntime.state().open');
+      await page.goto(`${BASE}/d/${owid}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      const e0 = await page.eval<string[]>('window.__gm.errors');
+      let o = await os();
+      ok('an open world builds on its library map, with its colliders and its street crowd, and no errors', o.ready && o.map === 'ocean-drive' && o.colliders.boxes > 300 && o.civilians > 0 && e0.length === 0, `${o.colliders.boxes} boxes, ${o.colliders.circles} circles, ${o.civilians} people${e0.length ? ', ' + e0.join(' | ') : ''}`);
+      await page.eval('window.__gmRuntime.debug.audio(); window.__gmRuntime.debug.start()'); await sleep(600);
+      const p0 = (await os()).player;
+      await page.key('KeyW', 'keyDown'); await sleep(1200); await page.key('KeyW', 'keyUp');
+      const p1 = (await os()).player;
+      ok('W walks you across the street, the way the camera looks', Math.hypot(p1.x - p0.x, p1.z - p0.z) > 2.5, `${Math.hypot(p1.x - p0.x, p1.z - p0.z).toFixed(1)} m`);
+      // they come for you, and they hit
+      await page.eval('window.__gmRuntime.debug.open().spawn("thug"); window.__gmRuntime.debug.open().spawn("thug")');
+      let hurt = false;
+      for (let i = 0; i < 40 && !hurt; i++) { await sleep(250); o = await os(); hurt = o.player.hp < o.player.max; }
+      ok('the people who come for you fight: their punches take your health', hurt, `${o.player.hp}/${o.player.max}`);
+      // you hit back: a knockout spills GM, and you pick it up
+      await page.eval('window.__gmRuntime.debug.invincible(true)');
+      for (let i = 0; i < 60 && (o.kos < 1 || o.gm < 1); i++) { await page.eval('window.__gmRuntime.debug.open().punch()'); await sleep(260); o = await os(); }
+      ok('punches knock them out, and their GM comes to you', o.kos >= 1 && o.gm >= 1, `${o.kos} knockouts, ${o.gm} GM`);
+      // the heat: the police by patrol car and a boss
+      await page.eval('window.__gmRuntime.debug.open().heat(3)');
+      let boss = false, police = false;
+      for (let i = 0; i < 40 && !(boss && police); i++) { await sleep(300); o = await os(); boss = boss || !!o.boss; police = police || o.police.length > 0; }
+      ok('heat 3 brings a patrol car and a named boss', boss && police, `boss ${o.boss ? o.boss.name : 'none'}, police ${JSON.stringify(o.police)}`);
+      const f0 = await page.eval<number>('performance.now()'), n0 = await page.eval<number>('new Promise((r) => { let n = 0, t = performance.now(); (function f(now) { n++; if (now - t < 2000) requestAnimationFrame(f); else r(n); })(t); })');
+      void f0;
+      ok('a street fight at heat 3 holds its frame rate', n0 / 2 >= 45, `${Math.round(n0 / 2)} fps`);
+      // knocked out: the run ends with the time survived
+      await page.eval('window.__gmRuntime.debug.invincible(false); window.__gmRuntime.debug.open().hurt(9999)');
+      await sleep(3200);
+      const res = await page.eval<{ survival?: boolean; timeMs: number; level: number }[]>('window.__gm.results || []');
+      const last = res[res.length - 1];
+      ok('a knockout ends the run with the time survived', !!last && !!last.survival && last.timeMs > 3000 && last.level >= 3, JSON.stringify(last));
+      const e1 = await page.eval<string[]>('window.__gm.errors');
+      ok('a whole open-world run raises no error', e1.length === 0, e1.join(' | '));
+    }, { timeoutMs: 200_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(owid); }
+
   // the creator's options (Create and Mog, the owner, 26 Sep): obstacles each
   // lap fewer, the same or more, and music, enforced by the runtime from the
   // page, whatever the world's code says

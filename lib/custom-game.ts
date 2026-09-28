@@ -50,7 +50,11 @@ export const WorldMetaSchema = GameMetaSchema.omit({ controls: true, scoring: tr
 export type WorldMeta = z.infer<typeof WorldMetaSchema>;
 export const WORLD_CONTROLS = 'Arrow keys or WASD: left and right steer, up is faster, down is slower. Space pauses. On-screen buttons on touch screens.';
 /** The controls line for a world, with the sword key when the world turns combat on (play.combat). */
+/** An open world (open: {...} in GameMog.world): free roam and survival, ranked by the time survived. */
+export function isOpenWorld(code?: string) { return !!code && /\bopen\s*:\s*\{/.test(code); }
+export const OPEN_CONTROLS = 'W A S D or the arrow keys: move. Shift: run. J, F or a click: punch (jab, cross, hook). Space: roll. Drag: look around. P: pause. On touch screens, a stick and buttons.';
 export function worldControls(code: string) {
+  if (isOpenWorld(code)) return OPEN_CONTROLS;
   return /\bplay\s*:\s*\{[\s\S]{0,400}?\bcombat\s*:/.test(code)
     ? 'Arrow keys or WASD: left and right steer, up is faster, down is slower. X (or J) swings your sword. Space pauses. On-screen buttons, and a sword button, on touch screens.'
     : WORLD_CONTROLS;
@@ -137,6 +141,8 @@ function hostScript(id: string, title: string, tagline = '', options?: WorldOpti
         score: Math.round(Number(r.score) || 0),
         level: Math.max(0, Math.round(Number(r.level) || 0)),
         gm: Math.max(0, Math.round(Number(r.gm) || 0)),
+        // an open world's run: the time survived is what ranks, knockouts beside it
+        survival: !!r.survival, kos: Math.max(0, Math.round(Number(r.kos) || 0)),
         assisted: !!r.assisted,
       };
       gm.results.push(out);
@@ -183,9 +189,26 @@ const RUNTIMES: Record<number, string> = {};
 function runtimeSource(version: number) {
   if (!RUNTIMES[version] || process.env.NODE_ENV !== 'production') {
     // the platform's score engine and car kit ride in front of the runtime that uses them
-    RUNTIMES[version] = ['music.js', 'vehicle.js', `v${version}.js`].map((f) => readFileSync(join(process.cwd(), 'lib', 'runtime', f), 'utf8')).join('\n');
+    const read = (f: string) => readFileSync(join(process.cwd(), 'lib', 'runtime', f), 'utf8');
+    // open worlds (open.js) run inside the runtime's own closure, at its marker
+    const core = read(`v${version}.js`).replace('/*@include open.js*/', () => read('open.js'));
+    RUNTIMES[version] = [read('music.js'), read('vehicle.js'), core].join('\n');
   }
   return RUNTIMES[version];
+}
+
+/**
+ * The runtime's library maps (lib/runtime/maps, built by scripts/runtime/build-maps.mjs):
+ * a world that asks for one (open: { map: 'ocean-drive' }) gets its script ahead of the runtime.
+ */
+const MAPS: Record<string, string> = {};
+function mapScripts(world: string) {
+  const ids = [...new Set([...world.matchAll(/\bmap\s*:\s*['"]([a-z0-9-]{2,40})['"]/g)].map((m) => m[1]))];
+  return ids.map((id) => {
+    const f = join(process.cwd(), 'lib', 'runtime', 'maps', `${id}.js`);
+    if (!MAPS[id] || process.env.NODE_ENV !== 'production') { try { MAPS[id] = readFileSync(f, 'utf8'); } catch { MAPS[id] = ''; } }
+    return MAPS[id] ? `<script>\n${inert(MAPS[id])}\n</script>` : '';
+  }).join('\n');
 }
 
 export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 'tagline'> & { options?: unknown }, id: string, runtime = 1) {
@@ -201,6 +224,7 @@ export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 't
 <script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.js"><\\/script>');</script>
 </head>
 <body>
+${mapScripts(world)}
 <script>
 ${inert(runtimeSource(runtime))}
 </script>

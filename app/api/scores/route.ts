@@ -25,6 +25,24 @@ export async function POST(req: Request) {
   if (row.format === 'world') {
     const level = Number(b.level) || 0, gm = Number(b.gm) || 0, timeMs = Number(b.timeMs) || 0;
     if (b.assisted) return NextResponse.json({ error: 'Assisted runs are not ranked.' }, { status: 422 });
+    // an open world ranks the time survived: the heat reached rises with time
+    // (at most a level every few seconds, even knocking people out) and GM comes
+    // a few coins a knockout
+    let survival = false;
+    try { survival = (JSON.parse(row.meta ?? '{}') as { scoring?: string }).scoring === 'survival'; } catch {}
+    if (survival) {
+      const secs = timeMs / 1000;
+      if (!Number.isInteger(level) || level < 1 || level > 2 + secs / 4 || gm < 0 || gm > 30 + secs * 12 || timeMs < 1000 || timeMs > 6 * 60 * 60 * 1000) {
+        return NextResponse.json({ error: 'Result outside plausible range' }, { status: 422 });
+      }
+      insertScore({
+        gameId: row.id,
+        player: String(b.player ?? 'anon').slice(0, 16).replace(/[^\w \-.]/g, '') || 'anon',
+        timeMs: Math.round(timeMs), place: 0, score: Math.round(timeMs), level, gm,
+        tempoReached: 0, locks: 0, bestStreak: 0,
+      });
+      return NextResponse.json({ ok: true });
+    }
     // a lap takes at least 320m at the top speed of 28 m/s
     // the fastest a level can be reached: every lap at the shortest lap
     // length, holding up, at that lap's pace (the runtime's rules)

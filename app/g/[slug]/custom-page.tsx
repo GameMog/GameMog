@@ -19,9 +19,10 @@ import { mogsOf, tileStats } from '@/lib/db';
  * place of the race engine's laps and windows.
  */
 export function CustomGamePage({ game }: { game: GameRow }) {
-  const meta = JSON.parse(game.meta ?? '{}') as Omit<GameMeta, 'scoring'> & { scoring?: GameMeta['scoring'] | 'level' };
+  const meta = JSON.parse(game.meta ?? '{}') as Omit<GameMeta, 'scoring'> & { scoring?: GameMeta['scoring'] | 'level' | 'survival' };
   const world = game.format === 'world';
-  const by = world ? 'level' : meta.scoring ?? 'score';
+  // an open world ranks the time survived; a race the level reached
+  const by = world ? (meta.scoring === 'survival' ? 'survival' : 'level') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
   const best = bestTimes();
   // worlds recommend worlds; Classic races live on /classic
@@ -34,17 +35,19 @@ export function CustomGamePage({ game }: { game: GameRow }) {
   const rivals = (meta.cast ?? []).filter((c) => c.role !== 'player').length;
   const filmBase = `/media/${game.slug}-wide`;
   const hasFilm = existsSync(join(process.cwd(), 'public', 'media', `${game.slug}-wide.mp4`));
+  const clock = (ms: number) => { const t = Math.floor(ms / 1000); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
   const fmt = (s: (typeof scores)[number]) =>
-    by === 'level' ? `Level ${s.level ?? 0}` : by === 'score' ? `${(s.score ?? 0).toLocaleString()} pts` : by === 'place' ? `${s.place || '-'}` : `${(s.time_ms / 1000).toFixed(2)}s`;
+    by === 'survival' ? clock(s.time_ms)
+    : by === 'level' ? `Level ${s.level ?? 0}` : by === 'score' ? `${(s.score ?? 0).toLocaleString()} pts` : by === 'place' ? `${s.place || '-'}` : `${(s.time_ms / 1000).toFixed(2)}s`;
   const leaderboard = scores.length ? (
     <table className="bd">
-      <thead><tr><th /><th>Player</th><th>{by === 'level' ? 'Level' : by === 'score' ? 'Score' : by === 'place' ? 'Place' : 'Time'}</th>{by === 'level' && <th>GM</th>}<th>Time</th></tr></thead>
+      <thead><tr><th /><th>Player</th><th>{by === 'survival' ? 'Survived' : by === 'level' ? 'Level' : by === 'score' ? 'Score' : by === 'place' ? 'Place' : 'Time'}</th>{(by === 'level' || by === 'survival') && <th>GM</th>}<th>{by === 'survival' ? 'Heat' : 'Time'}</th></tr></thead>
       <tbody>
         {scores.map((s, i) => (
           <tr key={s.id}>
             <td>{i + 1}</td><td>{s.player}</td><td>{by === 'level' ? s.level : fmt(s)}</td>
-            {by === 'level' && <td>{s.gm ?? 0}</td>}
-            <td>{s.time_ms ? `${(s.time_ms / 1000).toFixed(1)}s` : '-'}</td>
+            {(by === 'level' || by === 'survival') && <td>{s.gm ?? 0}</td>}
+            <td>{by === 'survival' ? s.level ?? 1 : s.time_ms ? `${(s.time_ms / 1000).toFixed(1)}s` : '-'}</td>
           </tr>
         ))}
       </tbody>

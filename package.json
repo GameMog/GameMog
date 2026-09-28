@@ -33,7 +33,9 @@
   "devDependencies": {
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
+    "esbuild": "^0.24.0",
     "meshoptimizer": "^0.22.0",
+    "three": "^0.157.0",
     "typescript": "^5.7.2"
   }
 }

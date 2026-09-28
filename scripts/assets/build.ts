@@ -20,11 +20,18 @@ import { sha256, Packer } from './lib.ts';
 
 const OUT = 'public/assets';
 const sources = JSON.parse(readFileSync('assets-src/sources.json', 'utf8')).sources as Record<string, any>;
-rmSync(OUT, { recursive: true, force: true });
+// a full build starts clean; ONLY (below) clears just the assets it rebuilds
+if (!process.env.ONLY) rmSync(OUT, { recursive: true, force: true });
+else for (const id of process.env.ONLY.split(',')) rmSync(join(OUT, id), { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
 type Entry = { kind: string; title: string; description: string; sources: string[]; derived?: string; meta?: Record<string, unknown> };
 const library: Record<string, Entry & { files: Record<string, { sha256: string; bytes: number }>; bytes: number }> = {};
+// ONLY=id,id builds just those assets and merges them into the library as it
+// stands (a full build is not byte-reproducible: the brows and the encoded
+// music come out different each time, so rebuild only what changed)
+const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
+const want = (id: string) => !ONLY || ONLY.has(id);
 
 function packClips(clips: Clip[]) {
   const pk = new Packer();
@@ -47,7 +54,31 @@ const COMBAT: [string, string, string, boolean][] = [
   ['UAL1_Standard.glb', 'Death01', 'death', false],
 ];
 
+// the street fight and the street's own life (Quaternius, CC0), for open worlds:
+// [file, clip, library name, loops, from s, to s]
+const BRAWL: [string, string, string, boolean, number?, number?][] = [
+  ['UAL1_Standard.glb', 'Walk_Loop', 'walk', true],
+  ['UAL1_Standard.glb', 'Jog_Fwd_Loop', 'jog', true],
+  ['UAL1_Standard.glb', 'Punch_Jab', 'fight', true, 0, 0.12],
+  ['UAL1_Standard.glb', 'Punch_Jab', 'jab', false],
+  ['UAL1_Standard.glb', 'Punch_Cross', 'cross', false],
+  ['UAL2_Standard.glb', 'Melee_Hook', 'hook', false],
+  ['UAL1_Standard.glb', 'Hit_Head', 'hitHead', false],
+  ['UAL1_Standard.glb', 'Hit_Chest', 'hitChest', false],
+  ['UAL2_Standard.glb', 'LayToIdle', 'getup', false],
+  ['UAL1_Standard.glb', 'Roll', 'roll', false],
+  ['UAL2_Standard.glb', 'Idle_Shield_Loop', 'shield', true],
+  ['UAL2_Standard.glb', 'Shield_Dash', 'shieldDash', false],
+  ['UAL2_Standard.glb', 'Idle_Shield_Break', 'shieldBreak', false],
+  ['UAL2_Standard.glb', 'Idle_TalkingPhone_Loop', 'phone', true],
+  ['UAL2_Standard.glb', 'Idle_FoldArms_Loop', 'arms', true],
+  ['UAL1_Standard.glb', 'Idle_Talking_Loop', 'talk', true],
+  ['UAL1_Standard.glb', 'Dance_Loop', 'dance', true],
+  ['UAL1_Standard.glb', 'Sitting_Idle_Loop', 'sit', true],
+];
+
 function human(id: string, gender: 'male' | 'female', title: string, skins: Record<string, string>, hair: string[], brows: string) {
+  if (!want(id)) return;
   const dir = join(OUT, id);
   const h = buildHuman({ id, gender, outDir: dir, hair, brows, skins: Object.fromEntries(Object.entries(skins).map(([k, v]) => [k, `makehuman-system/skins/${v}`])) });
 
@@ -68,6 +99,7 @@ function human(id: string, gender: 'male' | 'female', title: string, skins: Reco
     // the sword: a guard stance, three cuts, a lunge, a hit and a death
     // (Quaternius, CC0), for worlds that turn combat on
     ...COMBAT.map(([file, clip, name, loop]) => retargetGltf(h.skeleton, `quaternius-ual/${file}`, clip, { name, loop })),
+    ...BRAWL.map(([file, clip, name, loop, start, end]) => retargetGltf(h.skeleton, `quaternius-ual/${file}`, clip, { name, loop, start, end })),
   ];
   const packed = packClips(clips);
   writeFileSync(join(dir, 'clips.bin.z'), deflateSync(packed.buffer, { level: 9 }));
@@ -75,13 +107,13 @@ function human(id: string, gender: 'male' | 'female', title: string, skins: Reco
   const body = readFileSync(join(dir, 'body.bin'));
   writeFileSync(join(dir, 'body.bin.z'), deflateSync(body, { level: 9 }));
   rmSync(join(dir, 'body.bin'));
-  const asset = { ...h.asset, body: 'body.bin.z', clips: { file: 'clips.bin.z', layout: packed.layout, list: packed.meta, credits: { run: `CMU ${bestTrial}`, sprint: `derived from CMU ${bestTrial}`, idle: 'CMU 90_16 (standing)', start: 'CMU 104_53', fall: 'CMU 90_16', ...Object.fromEntries(COMBAT.map(([file, clip, name]) => [name, `Quaternius ${file.replace('_Standard.glb', '')} ${clip}`])) } } };
+  const asset = { ...h.asset, body: 'body.bin.z', clips: { file: 'clips.bin.z', layout: packed.layout, list: packed.meta, credits: { run: `CMU ${bestTrial}`, sprint: `derived from CMU ${bestTrial}`, idle: 'CMU 90_16 (standing)', start: 'CMU 104_53', fall: 'CMU 90_16', ...Object.fromEntries([...COMBAT, ...BRAWL].map(([file, clip, name]) => [name, `Quaternius ${file.replace('_Standard.glb', '')} ${clip}`])) } } };
   writeFileSync(join(dir, 'asset.json'), JSON.stringify(asset));
   library[id] = {
     kind: 'human', title,
     description: `A realistic ${gender === 'male' ? 'male' : 'female'} athlete: MakeHuman body shaped for sprinting, ${Object.keys(skins).length} skin tones, ${hair.length} hairstyles, eyes, eyebrows and eyelashes, a paintable kit (${gender === 'male' ? 'singlet' : 'crop top'}, shorts and spikes), five body morphs and a 66-bone rig with motion-captured run, sprint, idle, standing start and fall, and sword motion: a guard, three cuts, a lunge, a hit and a death.`,
     sources: ['makehuman', 'makehuman-system', 'cmu-mocap', 'quaternius-ual'],
-    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion retargeted from Quaternius\'s Universal Animation Library.',
+    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion and the street fight (punches, hits, a roll, getting up) and street life (walking, a phone call, folded arms, talking, dancing, sitting) retargeted from Quaternius\'s Universal Animation Library.',
     meta: { skins: Object.keys(skins), hair, morphs: Object.keys(h.asset.morphs as object), clips: packed.meta.map((c) => c.name), vertices: h.asset.vertexCount, bones: h.skeleton.length },
     files: {}, bytes: 0,
   };
@@ -100,14 +132,14 @@ human('human-athlete-female', 'female', 'Athlete (female)', {
   asian: 'young_asian_female/young_lightskinned_female_diffuse3.png',
 }, ['short02', 'short04', 'afro01'], 'eyebrow010');
 
-{
+if (want('hdri-sunset-city')) {
   const id = 'hdri-sunset-city', dir = join(OUT, id);
   const sky = buildHdri('polyhaven/sunset_jhbcentral_1k.hdr', dir);
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'hdri', ...sky, encoding: 'rgbe' }));
   library[id] = { kind: 'hdri', title: 'City sunset sky', description: 'A golden-hour sky over a city, for image-based light and reflections (1024 x 512, full dynamic range).', sources: ['polyhaven'], meta: { width: sky.width, height: sky.height }, files: {}, bytes: 0 };
 }
 
-{
+if (want('texture-asphalt-track')) {
   // a scanned race-track surface, 2 m square in the world: colour, normal (OpenGL) and roughness
   const id = 'texture-asphalt-track', dir = join(OUT, id), src = 'assets-src/cache/polyhaven-asphalt-track/';
   mkdirSync(dir, { recursive: true });
@@ -117,7 +149,7 @@ human('human-athlete-female', 'female', 'Athlete (female)', {
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'texture', size: 2, maps: { color: 'color.jpg', normal: 'normal.jpg', roughness: 'roughness.jpg' } }));
   library[id] = { kind: 'texture', title: 'Race-track asphalt', description: 'Scanned asphalt from a race track (colour, normal and roughness maps, 1024 px for 2 m of road), for track surfaces that hold up close.', sources: ['polyhaven-asphalt-track'], meta: { size: 2, maps: ['color', 'normal', 'roughness'] }, files: {}, bytes: 0 };
 }
-{
+if (want('music-dance-field')) {
   // a recorded track, measured and made to loop (see music.ts)
   const id = 'music-dance-field', dir = join(OUT, id);
   const m = buildMusic('centurion-dance-field/dance_field_2.wav', dir, { lo: 100, hi: 180, kbps: 192 });
@@ -141,6 +173,7 @@ const SKIES: [string, string, string, string, number?][] = [
   ['sky-city-night', 'shanghai_bund', 'City at night', 'A waterfront city at night: towers, neon and river light (2048 x 1024).', 0.59],
 ];
 for (const [id, slug, title, description, view] of SKIES) {
+  if (!want(id)) continue;
   const dir = join(OUT, id), src = `ph-sky-${slug}`;
   const sky = buildHdri(`${src}/${slug}_2k.hdr`, dir);
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'hdri', ...sky, encoding: 'rgbe', ...(view != null ? { view } : {}) }));
@@ -163,6 +196,7 @@ const SURFACES: [string, string, string, number, string][] = [
   ['texture-corrugated-metal', 'corrugated_iron', 'Corrugated metal', 2, 'Corrugated iron sheeting.'],
 ];
 for (const [id, slug, title, size, description] of SURFACES) {
+  if (!want(id)) continue;
   const dir = join(OUT, id), src = `assets-src/cache/ph-tex-${slug}/`;
   mkdirSync(dir, { recursive: true });
   copyFileSync(src + `${slug}_diff_1k.jpg`, join(dir, 'color.jpg'));
@@ -186,6 +220,7 @@ const MODELS: [string, string, string, number, string][] = [
   ['model-street-seating', 'modular_street_seating', 'Street seating', 8000, 'Modular street benches: legs, seats, backs and connectors as parts.'],
 ];
 for (const [id, slug, title, budget, description] of MODELS) {
+  if (!want(id)) continue;
   const dir = join(OUT, id);
   const m = await buildModel(`ph-model-${slug}`, dir, { budget });
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'model', ...m }));
@@ -201,6 +236,7 @@ const TRACKS: [string, string, string, string, [number, number]][] = [
   ['music-liquid-flame', 'ofdn-liquid-flame', 'Liquid Flame', 'Electronic', [100, 180]],
 ];
 for (const [id, src, title, style, [lo, hi]] of TRACKS) {
+  if (!want(id)) continue;
   const dir = join(OUT, id);
   const m = buildMusic(`${src}/${src}.wav`, dir, { lo, hi, kbps: 192 });
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'music', ...m }));
@@ -215,14 +251,17 @@ for (const [id, e] of Object.entries(library)) {
     e.files[f] = { sha256: sha256(data), bytes: data.length }; e.bytes += data.length;
   }
 }
+// with ONLY, everything not rebuilt stays as the library had it
+const previous = ONLY ? (JSON.parse(readFileSync(join(OUT, 'library.json'), 'utf8')).assets as typeof library) : {};
+const assets = ONLY ? Object.fromEntries(Object.keys({ ...previous, ...library }).map((id) => [id, library[id] ?? previous[id]])) : library;
 const manifest = {
   format: 'gamemog-library/1',
   note: 'Every file here is listed with its SHA-256; every asset names the sources it was built from and their licences. Built by scripts/assets/build.ts from assets-src/sources.json.',
   sources: Object.fromEntries(Object.entries(sources).map(([k, s]) => [k, { title: s.title, author: s.author, license: s.license, licenseUrl: s.licenseUrl, licenseText: s.licenseText, homepage: s.homepage }])),
-  assets: library,
+  assets,
 };
 writeFileSync(join(OUT, 'library.json'), JSON.stringify(manifest, null, 2) + '\n');
-const total = Object.values(library).reduce((a, b) => a + b.bytes, 0);
-console.log(`library: ${Object.keys(library).length} assets, ${(total / 1e6).toFixed(1)} MB in ${OUT}`);
+const total = Object.values(assets).reduce((a, b) => a + b.bytes, 0);
+console.log(`library: ${Object.keys(assets).length} assets, ${(total / 1e6).toFixed(1)} MB in ${OUT}`);
 for (const [id, e] of Object.entries(library)) console.log(`  ${id}: ${(e.bytes / 1e6).toFixed(2)} MB, ${Object.keys(e.files).length} files`);
 void statSync;

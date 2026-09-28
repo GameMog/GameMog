@@ -39,6 +39,19 @@ AI generates, humans select, winners reproduce. Platform first; movement second.
 | "add more OR less, obstacles each lap as a platform option, maybe a dropdown on creation?" and the choice "Dropdown: Fewer / Same / More" | A dropdown on Create and Mog, default The same. Stored with the world and enforced by the runtime, whatever the world's code says (`play.hazards`, `lib/world-options.ts`). More lays copies of the world's own obstacles each lap, about 15% more a lap, up to double and never past the track's density, never two in a row. Fewer clears about 10% a lap, down to a third. A Mog starts from its original's choice. | `check:runtime` "the creator's options" |
 | "is there a checkbox for music currently?" and the choice "Yes, off by default" | An "Add music" box on Create and Mog, unticked by default; ticked, a track dropdown from the library's CC0 tracks. The runtime plays the track in any world; the builder never composes music. A Mog starts from its original's music. | "music ticked on the page plays in a world that never asked for it" |
 
+## 1b. Open worlds (`lib/runtime/open.js`, 27 Sep 2026)
+
+| Owner's words | Interpretation in code | Tested by |
+|---|---|---|
+| "a new option on GameMog runtime next to add music could be 'open world' which is feel more like a GTA blueprint game builder for anyone to develop and not follow our strict rules and patterns of prior games" | An "Open world" box on Create and Mog. Ticked, the builder writes `GameMog.world({ open: {...} })`: a place to roam on foot, not a lap race. The lap rules above do not apply; the obstacles dropdown hides. The runtime runs the fight, the people, their routes round walls, the heat, the HUD and the scores; the world says where and who (its map or its own ground, and the looks, names and weapons of its crew). A Mog of an open world stays one. | `check:runtime` "open worlds: …" |
+| "These will have their own category. Call it Open World" | An "Open World" page (`/open-world`) in the menu, after Create, listing every open world; its genre is "Open World". | page loads |
+| "knocks people out to collect GM" | Knockouts spill GM coins that come to you when you are near. Bystanders can be knocked out too (1 GM, and the heat rises). | "punches knock them out, and their GM comes to you" |
+| "The enemies get stronger and take more punches to defeat as the game goes on" | Heat rises every 40 s (the world can set 15 to 180) and every 8 knockouts. Each level: more of them at once (2 + 1.6 per level, up to 12), each takes more punches (+0.7 a level; bosses +2.5 and +5 per boss), hits a little harder, moves faster and winds up sooner; more of them may swing at once (1 + one per two levels, up to 4). | "the people who come for you fight" |
+| "increase the quantity and quality of GTA like bosses and enemies" | Thugs from heat 1, bikers with chains from 2, the police by patrol car with sirens from 3 (officers with batons; the car runs down whoever is in the road), a named boss with his escort at every third level, with a banner and a health bar. | "heat 3 brings a patrol car and a named boss" |
+| "Survival is your goal" and the choice "Time survived" | A run ends when you are knocked out; the board ranks the time survived, GM and heat beside it. | "a knockout ends the run with the time survived", score route (survival) |
+| The choices "On foot, cars as traffic" and "Melee only" | You go on foot; cars are traffic and patrol cars. Fists for you (jab, cross, hook combos, a roll); thugs punch, bikers chains, cops batons, bosses bats and pipes. No guns, no blood. | same |
+| "Main character should look like someone from GTA 6" | An original Miami OG (tank, ink, beard, chain, shades, jeans): no Rockstar character's likeness, names or logos (stated to the owner in writing). | review |
+
 ## 2. Mog (v1)
 
 | Owner's words | Interpretation in code | Tested by |

@@ -247,7 +247,8 @@ export function buildHuman(opts: { id: string; gender: Gender; outDir: string; h
   pk.add('uv', new Uint16Array(uv.map((v, i) => Math.round(Math.max(0, Math.min(1, i % 2 ? v : v)) * 65535))), 2);
   pk.add('skinIndex', new Uint8Array(si), 4);
   const swq = new Uint8Array(sw.length);
-  for (let i = 0; i < sw.length; i += 4) { let rest = 255; for (let k = 0; k < 3; k++) { swq[i + k] = Math.round(sw[i + k] * 255); rest -= swq[i + k]; } swq[i + 3] = Math.max(0, rest); }
+  // normalised first: a few source hair vertices are weighted twice over
+  for (let i = 0; i < sw.length; i += 4) { const t = sw[i] + sw[i + 1] + sw[i + 2] + sw[i + 3] || 1; let rest = 255; for (let k = 0; k < 3; k++) { swq[i + k] = Math.round(sw[i + k] / t * 255); rest -= swq[i + k]; } swq[i + 3] = Math.max(0, rest); }
   pk.add('skinWeight', swq, 4);
   const morphMeta: Record<string, number> = {};
   morphNames.forEach((m, k) => {

@@ -9,7 +9,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { WorldMetaSchema, worldControls, staticCheckWorld } from '../lib/custom-game.ts';
+import { WorldMetaSchema, worldControls, staticCheckWorld, isOpenWorld } from '../lib/custom-game.ts';
 import { playtestWorld } from '../lib/playtest-runtime.ts';
 import { insertDraft, publishDraft, slugify, db } from '../lib/db.ts';
 
@@ -26,12 +26,12 @@ if (problems.length) { console.error('static check:\n- ' + problems.join('\n- ')
 console.log(`static check: clean (${Math.round(code.length / 1000)}KB)`);
 
 const draftId = randomUUID();
-insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world', report: { pending: true }, code, meta: { ...meta, controls: worldControls(code), scoring: 'level', runtime: 1 } });
+insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world', report: { pending: true }, code, meta: { ...meta, controls: worldControls(code), scoring: isOpenWorld(code) ? 'survival' : 'level', runtime: 1 } });
 console.log('playtesting in Chrome...');
 const report = await playtestWorld(`${BASE}/d/${draftId}/play`);
 const { cover, artIcon, artWide, ...rest } = report;
 db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ? WHERE id = ?').run(cover ?? null, artIcon ?? null, artWide ?? null, JSON.stringify(rest), draftId);
-console.log(`ready in ${report.readyMs}ms, ${report.fps} fps, reached level ${report.levelReached}`);
+console.log(`ready in ${report.readyMs}ms, ${report.fps} fps, reached ${report.open ? `heat ${report.levelReached}, ${report.open.kos} knockouts, boss ${report.open.boss}, police ${report.open.police}` : `level ${report.levelReached}`}`);
 if (report.advisories.length) console.log('runtime repairs:\n- ' + report.advisories.join('\n- '));
 if (!report.ok) { console.error('playtest failed:\n- ' + report.problems.join('\n- ')); process.exit(1); }
 

@@ -9,17 +9,24 @@ const Chevron = () => (
 /**
  * The creator's platform options, on Create and on Mog (the owner, 26 Sep):
  * obstacles each lap, and music (off unless ticked). The runtime enforces
- * them, whatever the world's code says.
+ * them, whatever the world's code says. "Open world" (27 Sep) builds a place
+ * to roam and survive in instead of a lap race; the obstacles do not apply.
  */
 export function WorldOptionsFields({ value, onChange, disabled }: { value: WorldOptions; onChange: (o: WorldOptions) => void; disabled?: boolean }) {
   return (
     <div className="copts">
-      <label className="cselect">
-        <span>Obstacles</span>
-        <select value={value.hazards} disabled={disabled} onChange={(e) => onChange({ ...value, hazards: e.target.value as Hazards })}>
-          {HAZARDS.map((h) => <option key={h} value={h}>{HAZARD_LABEL[h]}</option>)}
-        </select>
-        <Chevron />
+      {!value.open && (
+        <label className="cselect">
+          <span>Obstacles</span>
+          <select value={value.hazards} disabled={disabled} onChange={(e) => onChange({ ...value, hazards: e.target.value as Hazards })}>
+            {HAZARDS.map((h) => <option key={h} value={h}>{HAZARD_LABEL[h]}</option>)}
+          </select>
+          <Chevron />
+        </label>
+      )}
+      <label className="ccheck">
+        <input type="checkbox" checked={!!value.open} disabled={disabled} onChange={(e) => onChange({ ...value, open: e.target.checked })} />
+        <span>Open world</span>
       </label>
       <label className="ccheck">
         <input type="checkbox" checked={!!value.music} disabled={disabled}

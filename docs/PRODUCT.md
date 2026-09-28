@@ -52,6 +52,23 @@ is built. The platform's rules of play are in [RULES.md](RULES.md).
 | Music checkbox: "Yes, off by default" | Built: "Add music" on Create and Mog, off unless ticked (music still never plays by default). |
 | Upgrades to start: builder direction, asset library expansion, water and daylight rendering, car kit convertible and custom driver | Built. Downloads approved (8 skies, 12 surfaces, 10 scanned models, 4 tracks, all CC0): the library is 39 assets. The runtime gained scanned surfaces laid on at true scale with no visible tiling (`ctx.assets.surface`), scanned models (`ctx.assets.model`), photographed skies turned to face the world's sea or skyline, their sun and haze lighting the world (`ctx.sky({ hdri, face })`), the sea with swell, shallows, a beach and surf (`ctx.water`), no headlight beams by day, the open `roadster`, and a library person at any car's wheel (`driver: { human }`). Four more tracks in the music picker. Not built: screen-space ambient occlusion (a depth pass per frame; costly beside the car worlds' mirror and live reflections) and sunglasses for the seated driver. |
 
+## Decisions: Open World and Miami OG (27 Sep 2026)
+
+| Owner's words | Decision |
+|---|---|
+| "a new option on GameMog runtime next to add music could be 'open world' ... a GTA blueprint game builder for anyone to develop and not follow our strict rules" | A second kind of world: free roam in a bounded 3D map, survival instead of laps. Its own category, "Open World". An "Open world" option on Create and Mog, after the flagship proves the engine ("Flagship first"). |
+| "first game is Miami OG ... a Miami OG goes around and knocks people out to collect GM ... enemies get stronger and take more punches ... increase the quantity and quality of GTA like bosses and enemies" | Scope (owner's pick): on foot, cars as traffic. Melee only (fists; thugs punch, bikers swing chains, cops use batons, bosses bats). Heat rises with time: more enemies at once, more punches to put down, new kinds (thugs, bikers, cops by patrol car), bosses. Knockouts drop GM. |
+| Leaderboard | Time survived; GM and knockouts beside it. |
+| "Main character should like someone from GTA 6" | An original Vice City-era OG (tank top, tattoos, beard, gold chain), no Rockstar character's likeness, names or logos. |
+| ocean-drive, clearwater | StarKnightt/ocean-drive (MIT) ported to the runtime as the Miami map, with its notice. SamG-Coder/clearwater (MIT) is a CUDA-to-WebGPU ray tracer that cannot run in the runtime's WebGL renderer; its ocean model (FFT cascades, foam, clear-water optics) is ported into the runtime's water instead. |
+
+Built (27 Sep): the Open World runtime (`lib/runtime/open.js`, walking routes, the fight, the
+heat, the police and bosses, civilians, GM drops, a radar), the Ocean Drive map
+(`lib/runtime/maps/ocean-drive`, NOTICE.md lists the changes for three r157), street clothes and
+gear for library humans, 18 new Quaternius clips (fight and street life), the "Open world"
+option on Create and Mog, the Open World category, and Miami OG (`/g/miami-og`), published
+through the same playtest gate. The shallows use Clearwater's clear-water optics (SamG-Coder/clearwater, MIT; credited in the map's NOTICE.md) with caustics on the sand.
+
 ## The plan
 
 1. **You, in the game.** Selfie → your character → play LA Olympics as yourself. Every world

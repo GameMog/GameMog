@@ -250,7 +250,7 @@
     },
     "ph-model-fire_hydrant": {
       "title": "Fire Hydrant (model)",
-      "author": "Gon\u00e7alo Fel\u00edcio, Poly Haven",
+      "author": "Gonçalo Felício, Poly Haven",
       "license": "CC0-1.0",
       "licenseUrl": "https://polyhaven.com/license",
       "homepage": "https://polyhaven.com/a/fire_hydrant"
@@ -302,7 +302,7 @@
         "cmu-mocap",
         "quaternius-ual"
       ],
-      "derived": "Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion retargeted from Quaternius's Universal Animation Library.",
+      "derived": "Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion and the street fight (punches, hits, a roll, getting up) and street life (walking, a phone call, folded arms, talking, dancing, sitting) retargeted from Quaternius's Universal Animation Library.",
       "meta": {
         "skins": [
           "african",
@@ -334,15 +334,33 @@
           "slash3",
           "dash",
           "hit",
-          "death"
+          "death",
+          "walk",
+          "jog",
+          "fight",
+          "jab",
+          "cross",
+          "hook",
+          "hitHead",
+          "hitChest",
+          "getup",
+          "roll",
+          "shield",
+          "shieldDash",
+          "shieldBreak",
+          "phone",
+          "arms",
+          "talk",
+          "dance",
+          "sit"
         ],
         "vertices": 25482,
         "bones": 66
       },
       "files": {
         "asset.json": {
-          "sha256": "93c5a0f0aa5e5d2402b127a33ab4e3e4b19dcbd2efb430a657b4416a347b7f9a",
-          "bytes": 12337
+          "sha256": "8a0f02aa53f239f827f24790188e5c9b983d82c845c54451035994317a809705",
+          "bytes": 17507
         },
         "body.bin.z": {
           "sha256": "b0220b57797ab352f72c350ffc6a514a155110aff50d527aeb1b04d01f883f0b",
@@ -353,8 +371,8 @@
           "bytes": 100121
         },
         "clips.bin.z": {
-          "sha256": "26dfdcbe86fedcad4ddb267465deae0f800faf0b6c3d27cb86038730e127efde",
-          "bytes": 107185
+          "sha256": "a730d3b50caf87ec841a460fe6edd371c5215fb3742b3df68ad3eb4ab8de9b44",
+          "bytes": 240699
         },
         "eye-blue.jpg": {
           "sha256": "92b1ad1b2907b403f73b1acb2ce9bb8144075f88c6cbce4e7b24c9cfcbe46429",
@@ -421,7 +439,7 @@
           "bytes": 637106
         }
       },
-      "bytes": 8665782
+      "bytes": 8804466
     },
     "human-athlete-female": {
       "kind": "human",
@@ -433,7 +451,7 @@
         "cmu-mocap",
         "quaternius-ual"
       ],
-      "derived": "Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion retargeted from Quaternius's Universal Animation Library.",
+      "derived": "Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); sword motion and the street fight (punches, hits, a roll, getting up) and street life (walking, a phone call, folded arms, talking, dancing, sitting) retargeted from Quaternius's Universal Animation Library.",
       "meta": {
         "skins": [
           "african",
@@ -464,15 +482,33 @@
           "slash3",
           "dash",
           "hit",
-          "death"
+          "death",
+          "walk",
+          "jog",
+          "fight",
+          "jab",
+          "cross",
+          "hook",
+          "hitHead",
+          "hitChest",
+          "getup",
+          "roll",
+          "shield",
+          "shieldDash",
+          "shieldBreak",
+          "phone",
+          "arms",
+          "talk",
+          "dance",
+          "sit"
         ],
         "vertices": 24794,
         "bones": 66
       },
       "files": {
         "asset.json": {
-          "sha256": "270cba312b55455d274263c4e5f6f6620d035628b20dc16112e4379b35283c4a",
-          "bytes": 12272
+          "sha256": "280083c33e4658615278da6839cd1e2326f3d36574e9400a74039444a7adac78",
+          "bytes": 17442
         },
         "body.bin.z": {
           "sha256": "54779f519bc926a7eb78844043882bf2c7a04ad33ba645c1200989e431a4c1e7",
@@ -483,8 +519,8 @@
           "bytes": 81643
         },
         "clips.bin.z": {
-          "sha256": "97bcac0b0bfc5a37f39dc80846fab348a4558b534d804638e5a1c6453a827293",
-          "bytes": 107174
+          "sha256": "dd45a798c915ef43ff52bcc2b57fa84f2fbd1ba9ccd6b18668a57cac1f8c257b",
+          "bytes": 239735
         },
         "eye-blue.jpg": {
           "sha256": "92b1ad1b2907b403f73b1acb2ce9bb8144075f88c6cbce4e7b24c9cfcbe46429",
@@ -543,7 +579,7 @@
           "bytes": 711060
         }
       },
-      "bytes": 7754915
+      "bytes": 7892647
     },
     "hdri-sunset-city": {
       "kind": "hdri",

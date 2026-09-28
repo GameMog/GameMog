@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CharacterImage } from './character';
-import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, type WorldMeta } from './custom-game';
+import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, OPEN_CONTROLS, isOpenWorld, type WorldMeta } from './custom-game';
 import { playtestWorld, type WorldReport } from './playtest-runtime';
 import { insertDraft, db, type GameRow } from './db';
 
@@ -184,7 +184,8 @@ export async function generateGame(
     let report: WorldReport | undefined;
     if (!problems.length && meta && code) {
       emit({ type: 'stage', stage: 'playtesting', attempt });
-      const stored = { ...meta, controls: WORLD_CONTROLS, scoring: 'level', runtime: RUNTIME_VERSION, options: input.options ?? DEFAULT_OPTIONS };
+      const openWorld = isOpenWorld(code);
+      const stored = { ...meta, controls: openWorld ? OPEN_CONTROLS : WORLD_CONTROLS, scoring: openWorld ? 'survival' : 'level', runtime: RUNTIME_VERSION, options: { ...(input.options ?? DEFAULT_OPTIONS), open: openWorld } };
       db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
       insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report: { pending: true }, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
       report = await playtestWorld(`${input.origin}/d/${draftId}/play`);

@@ -23,17 +23,19 @@ export type MusicTrack = (typeof MUSIC_TRACKS)[number]['id'];
 export const WorldOptionsSchema = z.object({
   hazards: z.enum(HAZARDS).default('same'),
   music: z.string().nullable().default(null),
+  // an open world (the owner, 27 Sep): roam a place and survive, not a lap race
+  open: z.boolean().default(false),
 });
-export type WorldOptions = { hazards: Hazards; music: MusicTrack | null };
+export type WorldOptions = { hazards: Hazards; music: MusicTrack | null; open: boolean };
 
-export const DEFAULT_OPTIONS: WorldOptions = { hazards: 'same', music: null };
+export const DEFAULT_OPTIONS: WorldOptions = { hazards: 'same', music: null, open: false };
 
 /** Anything in, a valid set of options out (unknown tracks become no music). */
 export function readOptions(raw: unknown): WorldOptions {
   const p = WorldOptionsSchema.safeParse(raw ?? {});
   if (!p.success) return { ...DEFAULT_OPTIONS };
   const music = MUSIC_TRACKS.some((t) => t.id === p.data.music) ? (p.data.music as MusicTrack) : null;
-  return { hazards: p.data.hazards, music };
+  return { hazards: p.data.hazards, music, open: p.data.open };
 }
 
 /** What the builder is told about the creator's choices. */
@@ -47,6 +49,7 @@ export function optionsBrief(o: WorldOptions) {
   const mu = track
     ? `On: the runtime plays the library track "${track.label}" (${track.style.toLowerCase()}), loud enough for the race and ducked under the effects. Do not compose or synthesise music yourself.`
     : 'Off. Do not compose or synthesise music: ambient() is for the world\'s own sounds (crowds, wind, surf, engines).';
+  if (o.open) return `## The creator's platform options (the runtime enforces these; do not set them in play)\n\n- Open world: on. Write an open world, not a lap race: follow the "Open worlds" section (GameMog.world({ open: {...}, player, build }), no track, rival() or obstacles()). Give it a place worth roaming, the whole crew (thugs, bikers, police, named bosses) in looks that belong there, and a hero who stands out.\n- Music: ${mu}`;
   return `## The creator's platform options (the runtime enforces these; do not set them in play)\n\n- Obstacles each lap: ${hz}\n- Music: ${mu}`;
 }
 
@@ -58,9 +61,13 @@ export function optionsBrief(o: WorldOptions) {
 export function optionsOf(game: { meta?: string | null; code?: string | null }): WorldOptions {
   let meta: { options?: unknown } = {};
   try { meta = JSON.parse(game.meta ?? '{}'); } catch {}
-  if (meta.options !== undefined) return readOptions(meta.options);
+  if (meta.options !== undefined) {
+    const o = readOptions(meta.options);
+    // a world written before the option existed may still be an open world
+    return /\bopen\s*:\s*\{/.test(game.code ?? '') ? { ...o, open: true } : o;
+  }
   const code = game.code ?? '';
   const track = /\bmusic\s*:\s*\{\s*track\s*:\s*['"]([a-z0-9-]+)['"]/.exec(code)?.[1] ?? null;
   const hazards = /\bhazards\s*:\s*['"](fewer|more)['"]/.exec(code)?.[1] ?? 'same';
-  return readOptions({ hazards, music: track });
+  return readOptions({ hazards, music: track, open: /\bopen\s*:\s*\{/.test(code) });
 }

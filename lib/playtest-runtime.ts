@@ -130,7 +130,7 @@ export async function runtimePlaytest(url: string): Promise<RuntimeReport> {
  * thinned): the world still works, but the model is told once so it can do
  * better.
  */
-export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: number; artIcon?: Uint8Array; artWide?: Uint8Array };
+export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: number; artIcon?: Uint8Array; artWide?: Uint8Array; open?: { kos: number; heat: number; boss: boolean; police: boolean } };
 
 type RtState = { state: string; level: number; gm: number; alive: boolean; rivals: { ahead: number; x: number }[]; lap: number; obstacles: number; coins: number; crashedInto: string };
 
@@ -162,6 +162,48 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         return { ok: false, ran: true, readyMs, fps: null, errors: e, problems, advisories: [], levelReached: 0 };
       }
       const st = () => page.eval<RtState>('window.__gmRuntime.state()');
+
+      // an open world: no laps. It must run at speed, its people must come and
+      // fight and go down, the heat must bring the police and a boss, and a
+      // knockout of the player must end the run with a result.
+      type OpenState = { heat: number; time: number; kos: number; gm: number; boss: { name: string } | null; player: { hp: number; ko: boolean } | null; enemies: { ko: boolean }[]; civilians: number; police: string[]; ready: boolean };
+      const open = await page.eval<OpenState | null>('window.__gmRuntime.state().open').catch(() => null);
+      if (open) {
+        const os = () => page.eval<OpenState>('window.__gmRuntime.state().open');
+        await page.eval('window.__gmRuntime.debug.start()');
+        await sleep(1500);
+        await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true)');
+        const f0 = await page.eval<number>('window.__frames');
+        await sleep(2500);
+        const fps = Math.round(((await page.eval<number>('window.__frames')) - f0) / 2.5);
+        await page.eval('window.__gmRuntime.debug.timeScale(4)');
+        let o = await os();
+        for (let i = 0; i < 60 && o.kos < 4; i++) { await sleep(400); o = await os(); }
+        const kos = o.kos;
+        // the heat: police by patrol car, and a boss at level 3
+        await page.eval('window.__gmRuntime.debug.open().heat(3)');
+        let sawBoss = false, sawPolice = false;
+        for (let i = 0; i < 40; i++) { await sleep(300); o = await os(); sawBoss = sawBoss || !!o.boss; sawPolice = sawPolice || o.police.length > 0; if (sawBoss && sawPolice) break; }
+        await page.eval('window.__gmRuntime.debug.timeScale(1)');
+        await sleep(1500);
+        const art = await captureWorldKeyArt(page);
+        await page.eval('window.__gmRuntime.debug.cinematic(true); window.__gmRuntime.debug.film(null)');
+        await sleep(600);
+        const cover = await page.screenshot(80);
+        await page.eval('window.__gmRuntime.debug.cinematic(false)');
+        await page.eval('window.__gmRuntime.debug.invincible(false); window.__gmRuntime.debug.autopilot(false); window.__gmRuntime.debug.open().hurt(9999)');
+        await sleep(3200);
+        const results = await page.eval<unknown[]>('window.__gm.results').catch(() => []);
+        const errors = await errs();
+        const advisories = await page.eval<string[]>('window.__gm.warnings || []').catch(() => []);
+        for (const e of errors) problems.push(`Runtime error: ${e}`);
+        if (fps < 30) problems.push(`The open world ran at ${fps} fps on a laptop GPU. Instance repeated scenery, cut draw calls and lights, keep the crowd modest, until it holds 60.`);
+        if (kos < 2) problems.push(`In the time a few fights should take, only ${kos} people were knocked out. Check that the map leaves open ground to stand and fight on, and that nothing blocks the people from reaching the player.`);
+        if (!sawBoss) problems.push('Raising the heat to 3 brought no boss. Check open.crew.boss.');
+        if (!results.length) problems.push('A knockout of the player did not end the run with a result.');
+        if (cover.length < 14_000) problems.push('The screen is nearly a flat colour in the open world. Check the map or the ground, the lights and the camera.');
+        return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: o.heat, cover, artIcon: art?.icon, artWide: art?.wide, open: { kos, heat: o.heat, boss: sawBoss, police: sawPolice } } as WorldReport;
+      }
 
       await page.eval('window.__gmRuntime.debug.start()');
       await sleep(3600);

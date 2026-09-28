@@ -101,6 +101,18 @@ const RULES = [
   { title: 'Raced before it publishes', text: 'A bot plays every new world in a real browser before it can go live.' },
 ];
 
+/** An open world's rules, shown when "Open world" is ticked (the owner, 27 Sep). */
+const OPEN_RULES = [
+  { title: '3D, over the shoulder', text: 'Roam the whole place on foot, the camera over your shoulder. Drag to look around.' },
+  { title: 'Survive', text: 'There is no finish and no lap. Your run lasts until you are knocked out.' },
+  { title: 'They come for you', text: 'People come for you and fight. Knock them out with a jab, a cross and a hook; roll out of trouble.' },
+  { title: 'The heat rises', text: 'Every minute, and with every few knockouts, more come at once and each takes more punches.' },
+  { title: 'Police and bosses', text: 'Bikers join, the police arrive by patrol car, and a named boss comes at every third level.' },
+  { title: 'Collect the GM', text: 'Every knockout spills GM on the ground. The leaderboard ranks the time you survived.' },
+  { title: 'WASD and a punch', text: 'WASD or arrows move, Shift runs, J or a click punches, Space rolls; a stick and buttons on phones.' },
+  { title: 'Played before it publishes', text: 'A bot plays every new world in a real browser before it can go live.' },
+];
+
 type Character = { name: string; fur: string; personality?: string; source?: string };
 
 /** The ideas, four at a time: they turn over on their own, or on request. */
@@ -356,12 +368,12 @@ export default function Create() {
         <section className="sec">
           <div className="sechead">
             <div className="sectext">
-              <h2 className="sectitle">How every world plays</h2>
-              <p className="secsub">The GameMog Runtime supplies the rules, so every world is fair to race and fair to Mog.</p>
+              <h2 className="sectitle">{options.open ? 'How every open world plays' : 'How every world plays'}</h2>
+              <p className="secsub">The GameMog Runtime supplies the rules, so every world is fair to {options.open ? 'play' : 'race'} and fair to Mog.</p>
             </div>
           </div>
           <ol className="crules">
-            {RULES.map((r, i) => (
+            {(options.open ? OPEN_RULES : RULES).map((r, i) => (
               <li key={r.title}>
                 <span className="n">{String(i + 1).padStart(2, '0')}</span>
                 <b>{r.title}</b>

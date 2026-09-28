@@ -207,6 +207,27 @@ ctx.assets.skater('human-athlete-female', {
 under it, the feet are left for the world's own footwear). Build an oval for skaters: they lean
 hard at the runtime's speeds, so give the bends a radius of 25 m or more.
 
+Street clothes for any library human (`clothes`, painted onto the body; the kit's singlet and
+shorts come off, its `shoes` stay) and small things worn (`gear`):
+
+```js
+ctx.assets.human('human-athlete-male', {
+  skin: 'caucasian2', hair: 'short04', height: 1.86, build: { muscle: 0.9, lean: 0.35 }, outfit: { shoes: '#F7F7F7' },
+  clothes: {
+    shirt: { kind: 'tank', color: '#F4F1EA' },   // kind: tank, tee, long, open, polo, uniform (a police shirt: badge, patches); print: plain, floral, stripes, camo, check; color2: the print's colour
+    pants: { kind: 'jeans', color: '#4A6A92' },  // kind: jeans, trousers, shorts
+    jacket: { kind: 'vest', color: '#121012' },  // vest (leather, open) or jacket (open, long sleeves)
+    belt: '#2A1C12',                             // false for none
+    tattoos: { arms: true, chest: false, neck: true, color: '#1C2A38' },   // ink where the skin shows
+    beard: 'full',                               // stubble, full, goatee
+  },
+  gear: { chain: '#D4AF37', shades: '#0E0F12', cap: { color: '#101012', backwards: true }, bandana: '#8C1C1C', police: '#111827' },
+})
+```
+
+Hats hide the hair under them. A weapon for a street fight: `weapon: { kind: 'bat' }` (also
+`baton`, `pipe`, `chain`, or a sword), carried in the right hand.
+
 `ctx.assets.car(options)` builds a racing car for `player()` or `rival()` in a world with
 `play.vehicle` and returns `{ object, animate, name, color, vehicle }`: return it as it is (set
 `name` and `color` on it for a rival). It needs no library asset. Five kinds, each built from its
@@ -454,6 +475,54 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
 - `ctx.on(name, fn)`: moments to stage in the world: `'lap'` (`{ lap, level, bounty, gm }`),
   `'swing'` (`{ n }`), `'slay'` (`{ name, slain }`), `'crash'` (`{ into }`), `'start'`
 - `ctx.audio` (inside `ambient`)
+
+## Open worlds
+
+When the creator ticks "Open world", the world is not a lap race: ignore the lap rules above
+(track, laps, rivals joining at the line, obstacles, coins along a lap). An open world is a place
+the player roams on foot, seen over the shoulder, and the game is survival: people come for the
+player, the player knocks them out (jab, cross, hook, a roll), their GM spills on the ground, and
+the heat rises with time and knockouts. More come at once, each takes more punches, bikers join
+at heat 2, the police arrive by patrol car from heat 3, and a boss comes at every third level.
+The runtime runs the fight, the people's movement and routes round walls, the crowd, the heat,
+the HUD (health, heat stars, a radar, the time survived) and the scores (the time survived). The
+world says where it happens and who they are:
+
+```js
+GameMog.world({
+  assets: ['human-athlete-male', 'human-athlete-female'],
+  open: {
+    map: 'ocean-drive',            // optional: a library map (below); without one, build the place yourself
+    bounds: { x: [-80, 80], z: [-120, 120] },   // without a map: the walkable area
+    spawn: [-4, 30, 180],          // x, z, facing in degrees
+    heat: { every: 40 },           // seconds a level of heat lasts (15 to 180)
+    health: 100, maxEnemies: 12, civilians: 12,
+    crew: {                        // who comes for you; every field optional
+      thug:  { names: ['Hustler', 'Enforcer'], look: function (ctx, i, heat) { return { /* human options: clothes, gear, weapon */ }; }, hp: 3, damage: 7 },
+      biker: { names: ['Road Dog'], look: function (ctx, i) { return { clothes: {...}, gear: {...}, weapon: { kind: 'chain' } }; } },
+      cop:   { names: ['Officer Ruiz'], look: function (ctx, i) { return { clothes: { shirt: { kind: 'uniform' } }, gear: { police: '#111827' }, weapon: { kind: 'baton' } }; } },
+      boss:  { names: ['El Jefe', 'La Reina'], look: function (ctx, i) { return { height: 2.02, build: { muscle: 1 }, clothes: {...}, gear: {...}, weapon: { kind: 'bat' } }; } },
+    },
+  },
+  theme: {...}, graphics: {...}, camera: { distance: 5.2, height: 1.55, fov: 54 },
+  build: function (ctx) { /* scenery; ctx.solid(box or object) for anything nobody walks through */ },
+  player: function (ctx) { return ctx.assets.human('human-athlete-male', { /* the hero: clothes, gear */ }); },
+})
+```
+
+A look may name its body (`body: 'human-athlete-female'`). Other fields per kind: `hp`
+(punches to put one down at heat 1), `damage`, `speed` (m/s), `reach` (m), `windup` (s),
+`moves` (`jab`, `cross`, `hook`, `slash1` to `slash3`), `gm` (coins dropped), `weapon`.
+Without a map, build the ground, the streets and the buildings yourself and give every wall,
+car, tree and post a collider with `ctx.solid({ min: { x, z }, max: { x, z } })`, `ctx.solid({ x, z, r })`
+or `ctx.solid(object)`; leave open ground to fight on. No `track`, `rival()` or `obstacles()`.
+
+The library map `ocean-drive` is Miami Beach at sunrise (StarKnightt/ocean-drive, MIT): a mile
+of Ocean Drive with its pastel deco hotels, cafés, palms, parked cars and passing traffic, the
+park, the beach with lifeguard towers and surf, and the Atlantic. It brings its own sky, sun,
+shadows, fog and colliders, so add no lights or sky of your own; `+x` is east (the sea), `-z`
+north; the hotel fronts are at x = -30, the road at x = -21 to -14, the park to x = 12, the sand to
+the water at x = 90; blocks run from z = -340 to 340. `def.onMap(ctx, map)` runs once it is built.
 
 ## Never
 

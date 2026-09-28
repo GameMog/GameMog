@@ -11,6 +11,7 @@ import { SiteMenu } from './menu';
  */
 const NAV = [
   { label: 'Create', href: '/create' },
+  { label: 'Open World', href: '/open-world' },
   { label: 'Top Trending', href: '/charts/trending', key: 'Charts' },
   { label: 'Up-and-Coming', href: '/charts/up-and-coming' },
   { label: 'Top Rated', href: '/charts/top-rated' },
