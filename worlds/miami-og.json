@@ -1,0 +1,15 @@
+{
+  "title": "Miami OG",
+  "tagline": "Own Ocean Drive at sunrise. Survive whoever comes for you.",
+  "blurb": "The sun is a hand above the Atlantic and Ocean Drive is yours to walk: the pastel deco hotels, the cafés, the palms, the park, the sand down to the surf. Then they come for you. Knock them out and their GM spills on the street. Every minute the heat rises: more of them at once, each harder to put down, bikers swinging chains, patrol cars screaming in with officers and batons, and at every third level a boss with a name. Jab, cross, hook, roll out of trouble, and last as long as you can.",
+  "genre": "Open World",
+  "cast": [
+    { "name": "The OG", "color": "#FF3D7F", "role": "player" },
+    { "name": "Street thugs", "color": "#7A1E2B", "role": "rival" },
+    { "name": "Bikers", "color": "#141417", "role": "rival" },
+    { "name": "Police", "color": "#1D2B4B", "role": "rival" },
+    { "name": "El Jefe", "color": "#F4F0E6", "role": "rival" },
+    { "name": "La Reina", "color": "#8C1020", "role": "rival" }
+  ],
+  "palette": { "sky": "#F2A36B", "ground": "#D8C39A", "accent": "#FF3D7F" }
+}
