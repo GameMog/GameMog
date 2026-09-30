@@ -26,7 +26,7 @@ The films are the heavy part: each hero film is about 15 MB. For a small invite 
 
 - **Updates:** every push to `main` redeploys. A service with a disk stops the old instance before starting the new one, so expect a brief outage on each deploy.
 - **The database** lives on the disk and survives deploys. `deploy/seed.db.gz` is only read when the disk is empty. To refresh it for a future new disk, run `npm run deploy:snapshot` on the Mac and commit the result.
-- **Custom domain:** add it in Render, then set `SITE_URL` to it so link previews use it. Until then the Render address is used automatically.
+- **Custom domain:** gamemog.com (live 30 Sep 2026). DNS stays at GoDaddy: one `A` record `@` → `216.24.57.1` and a `CNAME` `www` → `gamemog.onrender.com`, with GoDaddy's domain forwarding off and no `AAAA` records. `render.yaml` lists the domain (www redirects to it) and sets `SITE_URL`. Render issues and renews the certificate; there is nothing to buy.
 
 ## Turning Mog mode on
 

@@ -30,5 +30,8 @@ services:
       # every world plays; Create and Mog it show "Coming soon" (middleware.ts)
       - key: NEXT_PUBLIC_BUILDS
         value: "off"
+      # link previews, canonical addresses and the sitemap use the custom domain
+      - key: SITE_URL
+        value: https://gamemog.com
       - key: ADMIN_PASSWORD
         sync: false
