@@ -15,6 +15,10 @@ services:
     startCommand: node deploy/boot.mjs && node_modules/.bin/next start -p $PORT
     healthCheckPath: /robots.txt
     autoDeployTrigger: commit
+    # www.gamemog.com is added and redirected here automatically. DNS is at
+    # GoDaddy (docs/DEPLOY-RENDER.md); Render issues and renews the certificate.
+    domains:
+      - gamemog.com
     # the database lives here, and survives deploys; $0.25 a month
     disk:
       name: gamemog-data
