@@ -86,6 +86,20 @@ export function worldCsp(origin: string) {
 }
 
 /**
+ * The address the player's browser used, for worldCsp. Behind a host's proxy
+ * (Render) `req.url` carries the server's own address, https://localhost:10000
+ * on 30 Sep, and a world allowed to read only that could fetch no assets at
+ * all. The proxy's forwarded host and scheme are what the browser sees; the
+ * host is checked before it goes into a header.
+ */
+export function publicOrigin(req: Request) {
+  const url = new URL(req.url), h = req.headers;
+  const host = (h.get('x-forwarded-host') ?? h.get('host') ?? '').split(',')[0].trim();
+  const proto = (h.get('x-forwarded-proto') ?? '').split(',')[0].trim() || url.protocol.slice(0, -1);
+  return /^[a-z0-9.-]+(:\d+)?$/i.test(host) && /^https?$/.test(proto) ? `${proto}://${host}` : url.origin;
+}
+
+/**
  * The host side of the contract, injected before the game's own code.
  *
  * GameMog.ready() once the first frame is on screen; GameMog.finish(result)

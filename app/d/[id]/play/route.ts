@@ -1,5 +1,5 @@
 import { getDraft } from '@/lib/db';
-import { renderCustomGame, renderWorldGame, CUSTOM_CSP, worldCsp } from '@/lib/custom-game';
+import { renderCustomGame, renderWorldGame, CUSTOM_CSP, worldCsp, publicOrigin } from '@/lib/custom-game';
 
 /**
  * A draft game, before publishing: what the runtime playtest plays, and what
@@ -17,7 +17,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   return new Response(html, {
     headers: {
       'content-type': 'text/html; charset=utf-8',
-      'content-security-policy': d.format === 'world' ? worldCsp(new URL(req.url).origin) : CUSTOM_CSP,
+      'content-security-policy': d.format === 'world' ? worldCsp(publicOrigin(req)) : CUSTOM_CSP,
       'x-content-type-options': 'nosniff',
       'referrer-policy': 'no-referrer',
       'cache-control': 'no-store',

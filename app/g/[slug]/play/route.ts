@@ -1,6 +1,6 @@
 import { getGameBySlug, bumpPlays } from '@/lib/db';
 import { renderGame, GAME_CSP } from '@/lib/engine/shell';
-import { renderCustomGame, renderWorldGame, CUSTOM_CSP, worldCsp } from '@/lib/custom-game';
+import { renderCustomGame, renderWorldGame, CUSTOM_CSP, worldCsp, publicOrigin } from '@/lib/custom-game';
 import type { WorldSpec } from '@/lib/worldspec';
 
 /**
@@ -27,7 +27,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   return new Response(html, {
     headers: {
       'content-type': 'text/html; charset=utf-8',
-      'content-security-policy': !custom ? GAME_CSP : game.format === 'world' ? worldCsp(new URL(req.url).origin) : CUSTOM_CSP,
+      'content-security-policy': !custom ? GAME_CSP : game.format === 'world' ? worldCsp(publicOrigin(req)) : CUSTOM_CSP,
       'x-content-type-options': 'nosniff',
       'referrer-policy': 'no-referrer',
       'cache-control': 'no-store',
