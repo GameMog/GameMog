@@ -76,7 +76,8 @@ export function runDesignChecks(ok: Ok) {
   none('shadows only from the elevation tokens', hits(files, /box-shadow\s*:\s*(?!none|var\(--elev(?:-hover|-hair)?\))/i, { code: true }));
   ok('the elevation tokens are GameStop\'s soft card shadows', /--elev:0 1px 6px rgba\(0,0,0,\.15\)/.test(css) && /--elev-hover:0 6px 18px rgba\(0,0,0,\.16\)/.test(css));
   none('no gradients in chrome', hits(files, /(linear|radial|conic)-gradient\s*\(/i, { code: true, exempt: ['app/cover.tsx'] }));
-  none('no frosted glass', hits(files, /backdrop-filter/i, { code: true }));
+  // the one exception: the beta's "Coming soon" pop-up, glass at the owner's request
+  none('no frosted glass', hits(files, /backdrop-filter|backdropFilter/i, { code: true, exempt: ['app/coming-soon.tsx'] }));
   none('no transitions or animations', hits(files, /\b(transition|animation)\s*:|@keyframes/i, { code: true }));
   none('no dot-grid or orb backgrounds', hits(files, /repeating-(linear|radial)-gradient|radial-gradient\(circle/i, { code: true, exempt: ['app/cover.tsx'] }));
 

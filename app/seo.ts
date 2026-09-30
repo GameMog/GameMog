@@ -4,9 +4,9 @@ import type { Metadata } from 'next';
  * Titles, descriptions and link previews. A pasted GameMog link should unfurl
  * as a card with a picture, a name and one plain sentence, in chats and posts
  * alike. Next resolves the relative addresses here against SITE_URL (set it
- * in production; Netlify's own URL is used when it is not).
+ * in production; Netlify's or Render's own URL is used when it is not).
  */
-export const siteUrl = () => new URL(process.env.SITE_URL ?? process.env.URL ?? 'http://localhost:3939');
+export const siteUrl = () => new URL(process.env.SITE_URL ?? process.env.URL ?? process.env.RENDER_EXTERNAL_URL ?? 'http://localhost:3939');
 
 export const DEFAULT_DESCRIPTION =
   'Make a 3D game from one sentence, play it in your browser, and Mog any world into a better one. Speed skating, cycling, kart racing and more.';

@@ -1,0 +1,29 @@
+# Render Blueprint: the GameMog play-only beta (docs/DEPLOY-RENDER.md).
+# In the Render dashboard: New > Blueprint > whyagents/GameMog. Render then asks
+# for ADMIN_PASSWORD. No secret lives in this file, and there is deliberately no
+# ANTHROPIC_API_KEY: with builds off, nothing on the server can spend model time.
+services:
+  - type: web
+    name: gamemog
+    runtime: node
+    # Starter, $7 a month. Mog mode may want 1c-2g (Standard, $25).
+    plan: 0.5c-512mb
+    region: virginia
+    buildCommand: npm ci && npm run build
+    # the first boot on an empty disk copies in deploy/seed.db.gz
+    startCommand: node deploy/boot.mjs && node_modules/.bin/next start -p $PORT
+    healthCheckPath: /robots.txt
+    autoDeployTrigger: commit
+    # the database lives here, and survives deploys; $0.25 a month
+    disk:
+      name: gamemog-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      # every world plays; Create and Mog it show "Coming soon" (middleware.ts)
+      - key: NEXT_PUBLIC_BUILDS
+        value: "off"
+      - key: ADMIN_PASSWORD
+        sync: false

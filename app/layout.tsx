@@ -3,6 +3,7 @@ import '@fontsource-variable/figtree';
 import '@fontsource-variable/hubot-sans';
 import './globals.css';
 import { Beacon } from './beacon';
+import { ComingSoon } from './coming-soon';
 import { DEFAULT_DESCRIPTION, pageMeta, siteUrl } from './seo';
 
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <Beacon />
+        <ComingSoon />
       </body>
     </html>
   );
