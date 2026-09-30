@@ -3,10 +3,6 @@
  * the worlds live in the database, so the first boot copies in the snapshot
  * shipped with the code (deploy/seed.db.gz, made by `npm run deploy:snapshot`).
  * After that the disk's own copy is the live one and this leaves it alone.
- *
- * It also runs before `next build` (render.yaml), so the build's parallel
- * workers open a database that already has every column instead of racing to
- * add them to an empty one.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
