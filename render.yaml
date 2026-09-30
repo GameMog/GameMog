@@ -9,7 +9,10 @@ services:
     # Starter, $7 a month. Mog mode may want 1c-2g (Standard, $25).
     plan: 0.5c-512mb
     region: virginia
-    buildCommand: npm ci && npm run build
+    # seed data/ before building: `next build` opens the database from several
+    # processes at once, and on an empty one they race to add the same columns
+    # ("duplicate column name"). The disk hides this copy at runtime.
+    buildCommand: npm ci && node deploy/boot.mjs && npm run build
     # the first boot on an empty disk copies in deploy/seed.db.gz
     startCommand: node deploy/boot.mjs && node_modules/.bin/next start -p $PORT
     healthCheckPath: /robots.txt
