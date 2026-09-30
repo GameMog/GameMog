@@ -74,7 +74,8 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="wrap flegal">
-        <span>© 2026 GameMog. The internet, playable.</span>
+        <span>GameMog. The internet, playable.</span>
+        <span className="fcopy">© 2026 Ockams Inc. All rights reserved.</span>
         <nav aria-label="Legal"><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link></nav>
       </div>
     </footer>

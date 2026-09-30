@@ -396,8 +396,9 @@ table.bd td:nth-child(2){font-weight:600}
 .fcols a.wordmark:hover{text-decoration:none}
 .fcols .wordmark b{font-size:24px}
 .fbrand p{font-size:14px;line-height:22px;color:var(--ink-3);max-width:300px;margin-top:14px}
-.flegal{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;padding-top:18px;padding-bottom:30px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3)}
-.flegal nav{display:flex;gap:20px}
+.flegal{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px 24px;padding-top:18px;padding-bottom:30px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3)}
+.flegal nav{display:flex;gap:20px;justify-self:end}
+.flegal .fcopy{text-align:center}
 .flegal a:hover{color:var(--ink);text-decoration:underline}
 
 /* ---------------------------------------------------------------- create -- */
@@ -564,6 +565,8 @@ table.bd td:nth-child(2){font-weight:600}
   .tl .mt span:nth-child(n+3){display:none}
   .bubbles{gap:14px}
   .fcols{grid-template-columns:1fr;gap:24px;padding-top:32px}
+  .flegal{grid-template-columns:1fr;justify-items:center;text-align:center}
+  .flegal nav{justify-self:center}
 }
 @media(max-width:420px){
   /* the smallest phones: tables and long idea chips fit the width instead of pushing past it */
