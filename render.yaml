@@ -28,11 +28,11 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "24"
-      # "off": every world plays, Create and Mog it show "Coming soon" and
-      # builds are refused (middleware.ts). "on" opens them, once the owner
-      # has entered ANTHROPIC_API_KEY on the Environment page.
+      # Create and Mog it are open (the owner, 30 Sep; ANTHROPIC_API_KEY is on
+      # the Environment page). "off" goes back to "Coming soon" and refuses
+      # builds (middleware.ts).
       - key: NEXT_PUBLIC_BUILDS
-        value: "off"
+        value: "on"
       # link previews, canonical addresses and the sitemap use the custom domain
       - key: SITE_URL
         value: https://gamemog.com
