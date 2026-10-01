@@ -239,7 +239,10 @@ class's real dimensions: `hypercar` (a road hypercar, cab-forward, a big rear wi
 car with its number on the doors and roof, a window net, a spoiler), `monster` (a monster truck
 on 66-inch tyres and long-travel shocks) and `roadster` (an open two-seat sports car, also
 `convertible`, `spider`, `speedster`: long bonnet, round lamps in the wings, a raked screen, a
-leather cockpit and speedster humps). The paint is clear-coated with its livery painted on
+leather cockpit and speedster humps) and `van` (a step van, a food truck, also `foodtruck`,
+`icecream`: a tall box over a short cab, a serving window under a striped awning on the kerb
+side, polka dots (`pattern: 'dots'`) and a cone (`art: 'cone'`) on its flanks, its `livery` name
+big on the side and the roof, a lit `sign` over the cab, a `motto` on the back doors). The paint is clear-coated with its livery painted on
 the body; a driver in a helmet turns the wheel. The car drives by itself: wheels roll and steer,
 the body rolls, dives and squats, the gears climb and the exhaust pops, brake lights and discs
 glow, and in a crash it spins, flips or barrel-rolls with sparks, smoke and debris.
@@ -257,7 +260,15 @@ ctx.assets.car({
 ```
 
 Make later rivals meaner: `glow`, `chrome` or `iridescent` paint, `spikes` on trucks. A car is
-authored facing +Z like any character; do not scale it.
+authored facing +Z like any character; do not scale it. Any car can be `armed: true` (twin guns
+on its roof, fired by the runtime in a derby); a van can wear a `topper: 'swirl'` (a grinning
+soft-serve on a spring that rocks with every lurch, `swirl: '#FFB3CF'` its colour). A car takes
+damage by itself: smoke from under the bonnet as it is hurt, and a wreck sags, burns and scorches.
+
+```js
+ctx.assets.car({ kind: 'van', paint: '#F8F5EF', trim: '#F0468C', accent: '#FF8DC0', livery: 'SCOOPS',
+  sign: 'ICE CREAM', motto: 'BRAKES FOR SPRINKLES', topper: 'swirl', armed: true })
+```
 
 A person at the wheel: `driver: { human: 'human-athlete-male' }` (or `-female`; list it in
 `assets`) seats the library's scanned athlete in the car in place of the helmeted driver: hips on
@@ -591,6 +602,34 @@ or a rare katana, `sword`, weighted by `kinds`) lie in the map's hiding places (
 bins, by the lifeguard towers, against fences) and glint now and then. Walking over one takes it,
 E (or GRAB) swaps it for the one in hand; it swings harder and further than a fist and breaks
 after its hits. With `drops`, an armed enemy put down may drop his. The hero has no gun.
+
+**A derby: an open world on wheels.** `open.vehicle` turns the fight into car combat in an
+arena (Mog Derby, worlds/mog-derby.js): the hero drives the car `player()` returns (W/S
+throttle, brake and reverse, A/D steer, Space the handbrake, Shift boost, J or a held click the
+roof guns if the car is `armed`), and every crew kind drives a car. A hit lands by zone (a nose
+is the weak point, a tail the strong one) and grows with the change of speed it causes; a car
+you hit that spins pays by how far it turns (90, 180, 360 degrees), and a wreck pays most and
+spills the crew's `gm` on the floor. The others ram back: they lead you, go for your back
+corners, back in with a dented nose and steer off the wall. Build the arena's wall and stands
+yourself; the runtime keeps the cars inside the ellipse.
+
+```js
+open: {
+  vehicle: { arena: { x: 0, z: 0, rx: 54, rz: 38 },     // the wall: an ellipse round the floor
+    gates: [[48, 0], [0, 32], [-48, 0], [0, -32]],       // where the crew drive in
+    guns: true, armor: 0.55,                             // how hard hits land on the hero
+    gm: { spin90: 30, spin180: 60, spin360: 150, wreck: 150 } },
+  crew: {
+    thug: { names: ['Rust Bucket'], gm: 110, hp: 3, car: function (ctx, i, heat) { return { kind: 'stockcar', paint: '#C8102E', number: String(i + 2) }; } },
+    boss: { names: ['Big Tusk'], gm: 900, hp: 14, car: { kind: 'monster', spikes: true }, ranged: { every: 3.4, range: 26, color: '#FF8A2A' } },
+  },
+  heat: { every: 45, say: ['Hot rods roll in', 'The sheriff is coming'] },   // the banner at heat 2, 3, ...
+}
+```
+
+A crew kind's `car` is the car kit's options (or a function returning them); `body` may build its
+own and return the car (a light bar on a cruiser). `hp` counts as armour (30 a point). The intro
+and outro cast cars the same way: `kind` brings a crew car, `speed` up to 30 m/s.
 
 Where the walkable ground ends, something you can see ends it: on a library map the runtime
 builds it; without one, build a wall, fence or barrier at every edge of `bounds` and give it a

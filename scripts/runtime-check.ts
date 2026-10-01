@@ -615,6 +615,87 @@ try {
     }, { timeoutMs: 200_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(owid); }
 
+  // the derby (the owner, 1 Oct: Mog Derby): an open world on wheels, car combat in an arena
+  console.log('\nthe derby: Mog Derby, a truck, rams, guns, spins and wrecks');
+  const dwid = randomUUID();
+  insertDraft({ id: dwid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../worlds/mog-derby.js', import.meta.url), 'utf8'),
+    meta: { title: 'Derby Check', tagline: 'Wreck them', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Scoops', color: '#F0468C' }], palette: { sky: '#0E1428', ground: '#8A6A4A', accent: '#F0468C' }, runtime: 1, scoring: 'survival' } });
+  try {
+    await withBrowser(async (page) => {
+      type DC = { kind: string; name: string; armor: number; wreck: boolean; x: number; z: number; mode: string | null };
+      type DS = { heat: number; kos: number; gm: number; boss: { name: string } | null; ready: boolean; player: { x: number; z: number; ko: boolean };
+        derby: { speed: number; armor: number; guns: number; hot: boolean; spins: number; wrecks: number; log: string[]; cars: DC[] } };
+      const ds = () => page.eval<DS>('window.__gmRuntime.state().open');
+      const dbg = (js: string) => page.eval(`(() => { const D = window.__gmRuntime.debug, O = D.open(); ${js} })()`);
+      await page.goto(`${BASE}/d/${dwid}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      const e0 = await page.eval<string[]>('window.__gm.errors');
+      let d = await ds();
+      ok('a derby builds: you drive a truck in an arena, with no errors', d.ready && !!d.derby && e0.length === 0, `${JSON.stringify(d.derby && { armor: d.derby.armor, guns: d.derby.guns })}${e0.length ? ', ' + e0.join(' | ') : ''}`);
+      await page.eval('window.__gmRuntime.debug.audio(); window.__gmRuntime.debug.start()'); await sleep(500);
+      await dbg('D.invincible(true); O.clear();');
+      // W drives, S brakes and then reverses
+      const p0 = (await ds()).player;
+      await page.key('KeyW', 'keyDown'); await sleep(2200); d = await ds(); await page.key('KeyW', 'keyUp');
+      const p1 = d.player, fwd = d.derby.speed;
+      ok('W drives the truck: it gathers speed and covers ground', fwd > 6 && Math.hypot(p1.x - p0.x, p1.z - p0.z) > 6, `${fwd} m/s, ${Math.hypot(p1.x - p0.x, p1.z - p0.z).toFixed(1)} m`);
+      await page.key('KeyS', 'keyDown'); await sleep(3200); d = await ds(); await page.key('KeyS', 'keyUp');
+      ok('S brakes, then backs up', d.derby.speed < -1, `${d.derby.speed} m/s`);
+      // a crew car rams you: your armour goes down
+      await dbg('D.invincible(false); O.clear(); O.place(-20, 0, -Math.PI / 2, 0.2, false, Math.PI / 2); O.car("thug", 22, 0, Math.PI);');
+      let rammed = false;
+      for (let i = 0; i < 50 && !rammed; i++) { await sleep(250); d = await ds(); rammed = d.derby.armor < 100; }
+      ok('a crew car comes at you and its hits dent your armour', rammed, `armor ${d.derby.armor}`);
+      // your guns: held, they fire, the rounds hit, the guns heat
+      await dbg('D.invincible(true); O.clear(); O.place(-20, 0, -Math.PI / 2, 0.2, false, Math.PI / 2); O.car("thug", 16, 0, Math.PI / 2, true);');
+      await sleep(300);
+      const a0 = (await ds()).derby.cars[0]?.armor ?? 0;
+      await page.key('KeyJ', 'keyDown'); await sleep(1600); d = await ds(); await page.key('KeyJ', 'keyUp');
+      const a1 = d.derby.cars[0]?.armor ?? 0;
+      ok('J fires the roof guns: rounds hit the car ahead, and the guns heat', a1 < a0 && d.derby.guns > 0.2, `armor ${a0} -> ${a1}, heat ${d.derby.guns}`);
+      // a hit on a car's back corner spins it, and a spin you cause pays
+      await dbg('O.clear(); O.place(-30, 0, -Math.PI / 2, 0.2, false, Math.PI / 2); O.car("biker", 16, -2.6, Math.PI / 2, true);');
+      const g0 = (await ds()).gm;
+      await page.key('KeyW', 'keyDown'); await sleep(3000); await page.key('KeyW', 'keyUp'); await sleep(2500);
+      d = await ds();
+      const spun = d.derby.log.filter((s) => /^you>/.test(s)).map((s) => +s.split(':')[1]);
+      ok('ramming a car\'s back corner spins it, and the spin pays GM', d.derby.spins >= 1 && d.gm > g0, `${JSON.stringify(spun)}, ${d.derby.spins} spins, ${g0} -> ${d.gm} GM`);
+      // wrecks: the pilot rams and shoots until one is done; the wreck pays and spills GM
+      await dbg('O.clear(); D.autopilot(true); D.timeScale(3);');
+      for (let i = 0; i < 80 && (d.derby.wrecks < 1); i++) { await sleep(400); d = await ds(); }
+      ok('wrecking a car pays GM and counts', d.derby.wrecks >= 1 && d.kos >= 1 && d.gm > 0, `${d.derby.wrecks} wrecks, ${d.kos} out, ${d.gm} GM`);
+      await dbg('D.timeScale(1);');
+      // the heat: the sheriff's cruisers and a monster truck with a name
+      await dbg('O.heat(3);');
+      let bossOn = false, copOn = false;
+      for (let i = 0; i < 40 && !(bossOn && copOn); i++) { await sleep(300); d = await ds(); bossOn = bossOn || !!d.boss; copOn = copOn || d.derby.cars.some((c) => c.kind === 'cop'); }
+      ok('heat 3 brings the sheriff and a monster truck with a name', bossOn && copOn, `boss ${d.boss ? d.boss.name : 'none'}, cars ${d.derby.cars.map((c) => c.kind).join(',')}`);
+      const n0 = await page.eval<number>('new Promise((r) => { let n = 0, t = performance.now(); (function f(now) { n++; if (now - t < 2000) requestAnimationFrame(f); else r(n); })(t); })');
+      ok('a derby at heat 3 holds its frame rate', n0 / 2 >= 45, `${Math.round(n0 / 2)} fps`);
+      // wrecked: the run ends with the time survived
+      await dbg('D.autopilot(false); D.invincible(false); O.hurt(9999);');
+      await sleep(3400);
+      const res = await page.eval<{ survival?: boolean; timeMs: number; kos: number }[]>('window.__gm.results || []');
+      const last = res[res.length - 1];
+      const words = await page.eval<string>('document.querySelector("#gm .screen") ? document.querySelector("#gm .screen").textContent : ""');
+      ok('your truck wrecked ends the run, in the derby\'s words', !!last && !!last.survival && /Wrecked/.test(words) && /Wrecks/.test(words), `${JSON.stringify(last)} ${words.slice(0, 60)}`);
+      // the opening scene, its cars driving in, skipped into the run with them; then the goal and the closing scene
+      await dbg('O.intro();'); await sleep(14000);
+      const ixs = await page.eval<{ shot: number; cast: string[] } | null>('window.__gmRuntime.debug.open().introState()');
+      await page.key('Enter'); await sleep(700);
+      d = await ds();
+      ok('the opening scene drives the derby\'s cars in, and Enter starts the run with them', !!ixs && ixs.cast.length >= 3 && d.derby.cars.filter((c) => !c.wreck).length >= 3, `${JSON.stringify(ixs)} -> ${d.derby.cars.length} cars`);
+      await dbg('D.invincible(true); O.ending();'); await sleep(1200);
+      const endIx = await page.eval<unknown>('window.__gmRuntime.debug.open().introState()');
+      await page.key('Enter'); await sleep(900);
+      const won = await page.eval<{ won?: boolean; goal?: boolean; gm: number }[]>('window.__gm.results || []');
+      const lastWon = won[won.length - 1];
+      ok('10,000 GM plays the closing scene and the run ends won', !!endIx && !!lastWon && lastWon.won === true && lastWon.gm >= 10000, JSON.stringify(lastWon));
+      const e1 = await page.eval<string[]>('window.__gm.errors');
+      ok('a whole derby raises no error', e1.length === 0, e1.join(' | '));
+    }, { timeoutMs: 240_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(dwid); }
+
   // the creator's options (Create and Mog, the owner, 26 Sep): obstacles each
   // lap fewer, the same or more, and music, enforced by the runtime from the
   // page, whatever the world's code says

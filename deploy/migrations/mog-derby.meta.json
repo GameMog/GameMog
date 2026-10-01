@@ -1,0 +1,47 @@
+{
+  "id": "5e118e8c-07b0-4f15-b551-1a1b3ab4101a",
+  "title": "Mog Derby",
+  "tagline": "Grandpa's ice-cream truck is in the derby. 10,000 GM saves it.",
+  "blurb": "Saturday night at the Mog County Fair, and the bank wants 10,000 GM by midnight for Scoops: Grandpa's ice-cream truck, pink polka dots, a soft-serve grinning on a spring on its roof. So Dottie drives it into the Mog Derby, where every spin and every wreck pays GM. Ram the regulars' stock cars, spin the hot rods, keep the sheriff off you, and take down a monster truck every third level of heat. The roof guns help until they overheat. Your nose is your weak point. Wrecks spill GM on the dirt.",
+  "meta": {
+    "title": "Mog Derby",
+    "tagline": "Grandpa's ice-cream truck is in the derby. 10,000 GM saves it.",
+    "blurb": "Saturday night at the Mog County Fair, and the bank wants 10,000 GM by midnight for Scoops: Grandpa's ice-cream truck, pink polka dots, a soft-serve grinning on a spring on its roof. So Dottie drives it into the Mog Derby, where every spin and every wreck pays GM. Ram the regulars' stock cars, spin the hot rods, keep the sheriff off you, and take down a monster truck every third level of heat. The roof guns help until they overheat. Your nose is your weak point. Wrecks spill GM on the dirt.",
+    "genre": "Open World",
+    "cast": [
+      {
+        "name": "Scoops",
+        "color": "#F0468C",
+        "role": "player"
+      },
+      {
+        "name": "Derby regulars",
+        "color": "#C8102E",
+        "role": "rival"
+      },
+      {
+        "name": "Hot rods",
+        "color": "#7A0E14",
+        "role": "rival"
+      },
+      {
+        "name": "The sheriff",
+        "color": "#1D4ED8",
+        "role": "rival"
+      },
+      {
+        "name": "Big Tusk",
+        "color": "#F2B705",
+        "role": "rival"
+      }
+    ],
+    "palette": {
+      "sky": "#2B2442",
+      "ground": "#8A6A4A",
+      "accent": "#F0468C"
+    },
+    "controls": "W A S D or the arrow keys: drive (S brakes, then reverses). Space: handbrake. Shift: boost. J, F or a held click: the roof guns. Drag: look around. P: pause. On touch screens, a stick to drive and BOOST, BRAKE and FIRE.",
+    "scoring": "survival",
+    "runtime": 1
+  }
+}

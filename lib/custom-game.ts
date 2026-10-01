@@ -53,8 +53,10 @@ export const WORLD_CONTROLS = 'Arrow keys or WASD: left and right steer, up is f
 /** An open world (open: {...} in GameMog.world): free roam and survival, ranked by the time survived. */
 export function isOpenWorld(code?: string) { return !!code && /\bopen\s*:\s*\{/.test(code); }
 export const OPEN_CONTROLS = 'W A S D or the arrow keys: move. Shift: run. J, F or a click: punch (jab, cross, hook). Space: roll. Drag: look around. P: pause. On touch screens, a stick and buttons.';
+// a derby (open.vehicle): car combat in an arena
+export const DERBY_CONTROLS = 'W A S D or the arrow keys: drive (S brakes, then reverses). Space: handbrake. Shift: boost. J, F or a held click: the roof guns. Drag: look around. P: pause. On touch screens, a stick to drive and BOOST, BRAKE and FIRE.';
 export function worldControls(code: string) {
-  if (isOpenWorld(code)) return OPEN_CONTROLS;
+  if (isOpenWorld(code)) return /\bvehicle\s*:\s*\{/.test(code) ? DERBY_CONTROLS : OPEN_CONTROLS;
   return /\bplay\s*:\s*\{[\s\S]{0,400}?\bcombat\s*:/.test(code)
     ? 'Arrow keys or WASD: left and right steer, up is faster, down is slower. X (or J) swings your sword. Space pauses. On-screen buttons, and a sword button, on touch screens.'
     : WORLD_CONTROLS;
@@ -205,7 +207,8 @@ function runtimeSource(version: number) {
     // the platform's score engine and car kit ride in front of the runtime that uses them
     const read = (f: string) => readFileSync(join(process.cwd(), 'lib', 'runtime', f), 'utf8');
     // open worlds (open.js) run inside the runtime's own closure, at its marker
-    const core = read(`v${version}.js`).replace('/*@include open.js*/', () => read('open.js'));
+    // and a derby (derby.js) inside the open world's, at its own
+    const core = read(`v${version}.js`).replace('/*@include open.js*/', () => read('open.js').replace('/*@include derby.js*/', () => read('derby.js')));
     RUNTIMES[version] = [read('music.js'), read('vehicle.js'), read('creature.js'), core].join('\n');
   }
   return RUNTIMES[version];

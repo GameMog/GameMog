@@ -29,6 +29,27 @@ const MIGRATIONS = [
       return `renamed${wide && icon ? ', new key art' : ''}`;
     },
   },
+  {
+    // the owner, 1 Oct: two official open worlds; the first, Mog Derby, a car combat arena
+    // (published on the Mac by `npm run publish:world -- mog-derby`, which playtested it and shot its art)
+    id: '2026-10-01-mog-derby',
+    run(db) {
+      const code = file('mog-derby.js'), meta = file('mog-derby.meta.json');
+      if (!code || !meta) return 'files missing';
+      // mog-derby.meta.json: { id, title, tagline, blurb, meta } (meta: the games row's meta, as published)
+      const m = JSON.parse(meta.toString('utf8')), cover = file('mog-derby-cover.jpg'), icon = file('mog-derby-icon.jpg'), wide = file('mog-derby-wide.jpg');
+      const g = db.prepare("SELECT id FROM games WHERE slug = 'mog-derby'").get();
+      if (g) {
+        db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = ?, cover = ?, art_icon = ?, art_wide = ?, format = ? WHERE id = ?')
+          .run(m.title, m.tagline, m.blurb, code.toString('utf8'), JSON.stringify(m.meta), cover, icon, wide, 'world', g.id);
+        return 'updated';
+      }
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+        VALUES (?, 'mog-derby', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
+        .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: mog-derby', Date.now(), code.toString('utf8'), JSON.stringify(m.meta), cover, icon, wide);
+      return 'published';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

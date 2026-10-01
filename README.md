@@ -192,6 +192,17 @@ speed-skating motion capture exists under the library's licences (CMU has none; 
 is non-commercial), so the stroke is built from the sport's own mechanics.
 `lib/runtime/skating-world.js` is the oval `check:runtime` skates.
 
+*Mog Derby* (`worlds/mog-derby.js`) is the first open world on wheels: `open.vehicle` turns the
+open world's fight into car combat in a floodlit arena (`lib/runtime/derby.js`, inside the open
+world's engine). The hero is Scoops, an ice-cream truck from the car kit's new `van` (polka dots,
+a cone on its flank, a serving window under a striped awning, twin roof guns and a grinning
+soft-serve on a spring); the crews drive stock cars, hot rods, the sheriff's cruisers and
+monster trucks. The derby's rules (spins of 90, 180 and 360 degrees and wrecks pay; damage by
+zone; drivers that lead you, go for your back corners, back in with a dented nose and steer off
+the wall) follow Patrick Hable's [demolition-derby](https://github.com/drcollect/demolition-derby)
+(MIT); its car models and its physics engine are not used: the runtime's cars are boxes that
+slide and turn on a flat floor, pushed apart by impulses.
+
 ### Earlier formats, still playable
 
 - **Race worlds.** Muse Sprint and the first worlds: a `WorldSpec` filled in for the tuned
