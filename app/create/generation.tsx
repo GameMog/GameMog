@@ -14,7 +14,7 @@ import { PlayFrame } from '../g/[slug]/play-frame';
 export type Draft = {
   draftId: string; attempts: number; ms: number;
   meta: { title: string; tagline: string; blurb: string; genre: string; cast: { name: string; color: string; role?: string }[] };
-  runtime: { ran: boolean; readyMs: number | null; fps: number | null; levelReached?: number; advisories?: string[] };
+  runtime: { ran: boolean; readyMs: number | null; fps: number | null; levelReached?: number; advisories?: string[]; open?: { kos: number; heat: number; boss: boolean } };
 };
 
 export function useGeneration() {
@@ -427,7 +427,7 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note }: { 
       </div>
       <p className="t-meta dim" style={{ marginBottom: 16 }}>
         {draft.runtime.ran
-          ? `Test-driven in a real browser: it loads in ${secs < 1 ? 'under a second' : `${secs.toFixed(1)} seconds`}, runs smoothly at ${draft.runtime.fps} fps, and held up through ${draft.runtime.levelReached ?? 0} laps of rivals.`
+          ? `Test-driven in a real browser: it loads in ${secs < 1 ? 'under a second' : `${secs.toFixed(1)} seconds`}, runs smoothly at ${draft.runtime.fps} fps, and ${draft.runtime.open ? `held up through ${draft.runtime.open.kos} knockouts to heat ${draft.runtime.open.heat}${draft.runtime.open.boss ? ' and a boss' : ''}` : `held up through ${draft.runtime.levelReached ?? 0} laps of rivals`}.`
           : 'Checked and ready to play.'}
         {' '}Built in {Math.max(1, Math.round(draft.ms / 60000))} minutes.
       </p>
