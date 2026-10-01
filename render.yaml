@@ -1,7 +1,8 @@
-# Render Blueprint: the GameMog play-only beta (docs/DEPLOY-RENDER.md).
-# In the Render dashboard: New > Blueprint > whyagents/GameMog. Render then asks
-# for ADMIN_PASSWORD. No secret lives in this file, and there is deliberately no
-# ANTHROPIC_API_KEY: with builds off, nothing on the server can spend model time.
+# Render Blueprint for GameMog (docs/DEPLOY-RENDER.md). In the Render dashboard:
+# New > Blueprint > whyagents/GameMog. No secret lives in this file: the owner
+# enters ADMIN_PASSWORD and ANTHROPIC_API_KEY on the service's Environment page.
+# Worlds are test-driven in the creator's browser (lib/test-drive.ts): this
+# server has no graphics card and runs no Chrome.
 services:
   - type: web
     name: gamemog
@@ -27,7 +28,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "24"
-      # every world plays; Create and Mog it show "Coming soon" (middleware.ts)
+      # "off": every world plays, Create and Mog it show "Coming soon" and
+      # builds are refused (middleware.ts). "on" opens them, once the owner
+      # has entered ANTHROPIC_API_KEY on the Environment page.
       - key: NEXT_PUBLIC_BUILDS
         value: "off"
       # link previews, canonical addresses and the sitemap use the custom domain

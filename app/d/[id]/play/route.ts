@@ -12,7 +12,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   if (!d) return new Response('Not found', { status: 404 });
   const meta = JSON.parse(d.meta);
   const html = d.format === 'world'
-    ? renderWorldGame(d.code, meta, `draft-${d.id}`, meta.runtime ?? 1)
+    ? renderWorldGame(d.code, meta, `draft-${d.id}`, meta.runtime ?? 1, new URL(req.url).searchParams.get('drive') === '1')
     : renderCustomGame(d.code, meta, `draft-${d.id}`);
   return new Response(html, {
     headers: {

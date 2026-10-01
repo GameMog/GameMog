@@ -24,6 +24,8 @@ export function useGeneration() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState('');
   const [publishing, setPublishing] = useState(false);
+  // a draft the builder wants this page to test-drive (lib/test-drive.ts)
+  const [drive, setDrive] = useState<{ draftId: string; token: string; attempt: number } | null>(null);
   const [startedAt, setStartedAt] = useState(0);
   const [now, setNow] = useState(0);
   useEffect(() => {
@@ -34,7 +36,7 @@ export function useGeneration() {
 
   /** Streams a written world; any other response comes back as JSON for the caller. */
   async function run(body: Record<string, unknown>): Promise<unknown | null> {
-    setBusy(true); setError(''); setDraft(null); setRounds([]); setStage(null);
+    setBusy(true); setError(''); setDraft(null); setRounds([]); setStage(null); setDrive(null);
     setStartedAt(Date.now()); setNow(Date.now());
     try {
       const res = await fetch('/api/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -53,6 +55,7 @@ export function useGeneration() {
             if (e.type === 'stage') setStage((s) => ({ stage: e.stage, attempt: e.attempt, chars: e.stage === 'writing' ? s?.chars ?? 0 : 0 }));
             else if (e.type === 'progress') setStage((s) => (s ? { ...s, chars: e.chars } : s));
             else if (e.type === 'problems') setRounds((r) => [...r, { attempt: e.attempt, problems: e.problems }]);
+            else if (e.type === 'drive') setDrive({ draftId: e.draftId, token: e.token, attempt: e.attempt });
             else if (e.type === 'done') setDraft(e);
             else if (e.type === 'error') {
               setError(e.error);
@@ -68,7 +71,7 @@ export function useGeneration() {
     } catch (e) {
       setError((e as Error).message);
       return null;
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setDrive(null); }
   }
 
   async function publish() {
@@ -82,7 +85,7 @@ export function useGeneration() {
     } finally { setPublishing(false); }
   }
 
-  return { busy, stage, rounds, draft, error, setError, publishing, startedAt, now, run, publish };
+  return { busy, stage, rounds, draft, error, setError, publishing, startedAt, now, run, publish, drive, endDrive: () => setDrive(null) };
 }
 export type Generation = ReturnType<typeof useGeneration>;
 
@@ -250,6 +253,49 @@ function TrackArt({ stage, built, t }: { stage: StageKey | 'done'; built: number
 }
 
 /**
+ * The test drive, played here (the owner, 30 Sep): the draft at 1280x720,
+ * scaled to the show, driven by its own autopilot (lib/runtime/drive.js).
+ * What it measured goes to the builder; a drive that never reports is let go.
+ */
+function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string; attempt: number }; onDone: () => void }) {
+  const box = useRef<HTMLDivElement>(null), frame = useRef<HTMLIFrameElement>(null);
+  const [scale, setScale] = useState(0.5);
+  // the show re-renders every frame; the drive's listener and its time-out must not
+  const done = useRef(onDone); done.current = onDone;
+  useEffect(() => {
+    const el = box.current; if (!el) return;
+    const fit = () => setScale(el.clientWidth / 1280);
+    fit();
+    const ro = new ResizeObserver(fit); ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    let sent = false;
+    const send = (payload: Record<string, unknown>) => {
+      if (sent) return; sent = true;
+      fetch('/api/generate/drive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draftId: drive.draftId, token: drive.token, ...payload }) })
+        .catch(() => {}).finally(() => done.current());
+    };
+    const onMsg = (e: MessageEvent) => {
+      if (e.source !== frame.current?.contentWindow) return;
+      const d = e.data as { gm?: string; type?: string; raw?: unknown; cover?: unknown; artIcon?: unknown; artWide?: unknown };
+      if (d?.gm !== 'drive' || d.type !== 'report') return;
+      send({ raw: d.raw, cover: d.cover, artIcon: d.artIcon, artWide: d.artWide });
+    };
+    window.addEventListener('message', onMsg);
+    const t = setTimeout(() => send({ raw: { timedOut: true } }), 200_000);
+    return () => { window.removeEventListener('message', onMsg); clearTimeout(t); };
+  }, [drive.draftId, drive.token]);
+  return (
+    <div className="bs-drive" ref={box} style={{ height: 720 * scale }}>
+      <iframe ref={frame} src={`/d/${drive.draftId}/play?drive=1`} sandbox="allow-scripts" title="Test drive"
+        width={1280} height={720} tabIndex={-1} style={{ transform: `scale(${scale})` }} />
+      <span className="bs-drivetag">Live test drive</span>
+    </div>
+  );
+}
+
+/**
  * The show while a world or a Mog is built: what it is, where it has got to,
  * how long is left, and a track drawing itself as it happens.
  */
@@ -292,7 +338,7 @@ function BuildShow({ gen, mode, subject }: { gen: Generation; mode: Mode; subjec
       </div>
       <h2 className="bs-title">{mode === 'mog' ? info.mogTitle : info.title}{polishing ? `, pass ${attempt} of 3` : ''}</h2>
       <p className="bs-line">{line}{key === 'writing' && (stage?.chars ?? 0) > 0 ? `  ·  ${Math.round(Math.min(0.98, (stage?.chars ?? 0) / TARGET_CHARS) * 100)}% built` : ''}</p>
-      <TrackArt stage={key} built={built} t={t} />
+      {gen.drive ? <TestDrive key={gen.drive.token} drive={gen.drive} onDone={gen.endDrive} /> : <TrackArt stage={key} built={built} t={t} />}
       <div className="bs-bar" aria-hidden>
         {Array.from({ length: segments }, (_, i) => {
           const fill = Math.max(0, Math.min(1, overall * segments - i));

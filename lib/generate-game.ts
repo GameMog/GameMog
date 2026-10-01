@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import type { CharacterImage } from './character';
 import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, OPEN_CONTROLS, isOpenWorld, type WorldMeta } from './custom-game';
 import { playtestWorld, type WorldReport } from './playtest-runtime';
+import { drivesInBrowser, waitForDrive } from './test-drive';
 import { insertDraft, db, type GameRow } from './db';
 
 /**
@@ -32,6 +33,8 @@ export type GameEvent =
   | { type: 'stage'; stage: 'thinking' | 'writing' | 'checking' | 'playtesting' | 'repairing'; attempt: number }
   | { type: 'progress'; chars: number }
   | { type: 'problems'; attempt: number; problems: string[] }
+  // the page drives the draft itself and posts the report (lib/test-drive.ts)
+  | { type: 'drive'; draftId: string; token: string; attempt: number }
   | { type: 'done'; draftId: string; meta: WorldMeta; runtime: Omit<WorldReport, 'cover'>; attempts: number; ms: number }
   | { type: 'error'; error: string; problems?: string[] };
 
@@ -188,7 +191,11 @@ export async function generateGame(
       const stored = { ...meta, controls: openWorld ? OPEN_CONTROLS : WORLD_CONTROLS, scoring: openWorld ? 'survival' : 'level', runtime: RUNTIME_VERSION, options: { ...(input.options ?? DEFAULT_OPTIONS), open: openWorld } };
       db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
       insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report: { pending: true }, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
-      report = await playtestWorld(`${input.origin}/d/${draftId}/play`);
+      if (drivesInBrowser()) {
+        const token = randomUUID();
+        emit({ type: 'drive', draftId, token, attempt });
+        report = await waitForDrive(draftId, token);
+      } else report = await playtestWorld(`${input.origin}/d/${draftId}/play`);
       problems.push(...report.problems);
       const { cover, artIcon, artWide, ...rest } = report;
       db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ? WHERE id = ?').run(cover ?? null, artIcon ?? null, artWide ?? null, JSON.stringify(rest), draftId);

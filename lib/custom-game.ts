@@ -225,7 +225,14 @@ function mapScripts(world: string) {
   }).join('\n');
 }
 
-export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 'tagline'> & { options?: unknown }, id: string, runtime = 1) {
+/** The test drive that runs in the creator's browser (lib/runtime/drive.js). */
+let DRIVE = '';
+function driveSource() {
+  if (!DRIVE || process.env.NODE_ENV !== 'production') DRIVE = readFileSync(join(process.cwd(), 'lib', 'runtime', 'drive.js'), 'utf8');
+  return DRIVE;
+}
+
+export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 'tagline'> & { options?: unknown }, id: string, runtime = 1, drive = false) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -234,6 +241,9 @@ export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 't
 <title>${escapeHtml(meta.title)}</title>
 <style>html,body{margin:0;height:100%;overflow:hidden;background:#000;touch-action:none;-webkit-user-select:none;user-select:none}canvas{display:block}</style>
 <script>${hostScript(id, meta.title, meta.tagline, meta.options === undefined ? undefined : readOptions(meta.options))}</script>
+${drive ? `<script>
+${inert(driveSource())}
+</script>` : ''}
 <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
 <script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.js"><\\/script>');</script>
 </head>
