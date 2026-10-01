@@ -16,7 +16,7 @@ The films are the heavy part: each hero film is about 15 MB. For a small invite 
 
 ## First deploy (the owner, about five minutes)
 
-1. Render dashboard: **New > Blueprint**. Connect GitHub as `whyagents` if asked, and pick `GameMog`.
+1. Render dashboard: **New > Blueprint**. The code lives at `GameMog/GameMog` (the GameMog organisation, since 1 Oct; it moved from `whyagents/GameMog`). Render's GitHub app must be installed on the GameMog organisation with access to the repo; then pick `GameMog/GameMog`.
 2. Render reads `render.yaml` and asks for one value, `ADMIN_PASSWORD`. Use a new one, not the password on the Mac.
 3. Check the plan it shows ($7 service + $0.25 disk), then **Apply**.
 4. The first build takes a few minutes. On first boot `deploy/boot.mjs` finds the empty disk and copies in `deploy/seed.db.gz` (all 38 worlds, scores and plays as of the snapshot).

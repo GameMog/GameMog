@@ -1,5 +1,5 @@
 # Render Blueprint for GameMog (docs/DEPLOY-RENDER.md). In the Render dashboard:
-# New > Blueprint > whyagents/GameMog. No secret lives in this file: the owner
+# New > Blueprint > GameMog/GameMog. No secret lives in this file: the owner
 # enters ADMIN_PASSWORD and ANTHROPIC_API_KEY on the service's Environment page.
 # Worlds are test-driven in the creator's browser (lib/test-drive.ts): this
 # server has no graphics card and runs no Chrome.
