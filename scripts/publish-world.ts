@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { WorldMetaSchema, worldControls, staticCheckWorld, isOpenWorld, worldMode } from '../lib/custom-game.ts';
 import { playtestWorld } from '../lib/playtest-runtime.ts';
 import { insertDraft, publishDraft, slugify, db } from '../lib/db.ts';
+import { codeHash, testStatus } from '../lib/test-drive.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3939';
 const name = process.argv[2];
@@ -31,7 +32,9 @@ insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world'
 console.log('playtesting in Chrome...');
 const report = await playtestWorld(`${BASE}/d/${draftId}/play`);
 const { cover, artIcon, artWide, ...rest } = report;
-db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ? WHERE id = ?').run(cover ?? null, artIcon ?? null, artWide ?? null, JSON.stringify(rest), draftId);
+// what the drive found, and the code it drove, kept with the world (as a creator's publish keeps it)
+const hash = codeHash(code), test = { status: testStatus(report), codeHash: hash, cover: cover ? 'current' : 'none' };
+db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ?, meta = ? WHERE id = ?').run(cover ?? null, artIcon ?? null, artWide ?? null, JSON.stringify({ ...rest, status: test.status, codeHash: hash }), JSON.stringify({ ...stored, test }), draftId);
 console.log(`ready in ${report.readyMs}ms, ${report.fps} fps, reached ${report.open ? `heat ${report.levelReached}, ${report.open.kos} knockouts, boss ${report.open.boss}, police ${report.open.police}` : `level ${report.levelReached}`}`);
 if (report.advisories.length) console.log('runtime repairs:\n- ' + report.advisories.join('\n- '));
 if (!report.ok) { console.error('playtest failed:\n- ' + report.problems.join('\n- ')); process.exit(1); }

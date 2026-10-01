@@ -131,7 +131,10 @@ export async function runtimePlaytest(url: string): Promise<RuntimeReport> {
  * thinned): the world still works, but the model is told once so it can do
  * better.
  */
-export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: number; artIcon?: Uint8Array; artWide?: Uint8Array; open?: { kos: number; heat: number; boss: boolean; police: boolean }; look?: Look };
+export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: number; artIcon?: Uint8Array; artWide?: Uint8Array; open?: { kos: number; heat: number; boss: boolean; police: boolean }; look?: Look;
+  /** What the test drive found (1 Oct): a drive that never ran is unverified, never a pass; and the code it drove, and the code its cover shows. */
+  status?: TestStatus; codeHash?: string; coverHash?: string };
+export type TestStatus = 'passed' | 'failed' | 'unverified';
 
 /** The cover: the best of three frames by how they look (lib/look.ts), and how that frame measured. */
 async function bestCover(page: Parameters<Parameters<typeof withBrowser>[0]>[0]) {

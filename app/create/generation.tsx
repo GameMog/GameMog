@@ -469,7 +469,7 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note }: { 
       <p className="t-meta dim" style={{ marginBottom: 16 }}>
         {draft.runtime.ran
           ? `Test-driven in a real browser: it loads in ${secs < 1 ? 'under a second' : `${secs.toFixed(1)} seconds`}, runs smoothly at ${draft.runtime.fps} fps, and ${draft.runtime.open ? `held up through ${draft.runtime.open.kos} knockouts to heat ${draft.runtime.open.heat}${draft.runtime.open.boss ? ' and a boss' : ''}` : `held up through ${draft.runtime.levelReached ?? 0} laps of rivals`}.`
-          : 'Checked and ready to play.'}
+          : 'It passed the safety check, but the test drive did not get to run in this tab, so nobody has played it yet. Give it a run above before you publish.'}
         {' '}Built in {Math.max(1, Math.round(draft.ms / 60000))} minutes.
       </p>
       {note}

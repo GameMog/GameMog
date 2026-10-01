@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto';
 import { chromePath } from './browser';
-import type { WorldReport } from './playtest-runtime';
+import type { WorldReport, TestStatus } from './playtest-runtime';
 import { lookScore, lookAdvisories, isLook, type Look } from './look';
 
 /**
@@ -21,7 +22,13 @@ type Pending = { token: string; resolve: (r: WorldReport) => void; timer?: Retur
 const G = globalThis as unknown as { __gmDrives?: Map<string, Pending> };
 const pending = (G.__gmDrives ??= new Map<string, Pending>());
 
+// skipped is not failed (the world is not held back) and not passed: nobody played it (testStatus says unverified)
 const SKIPPED: WorldReport = { ok: true, ran: false, readyMs: null, fps: null, errors: [], problems: [], advisories: [], levelReached: 0 };
+
+/** Which code a report or a cover belongs to: a world is rewritten between passes. */
+export const codeHash = (code: string) => createHash('sha256').update(code).digest('hex').slice(0, 16);
+/** A report's verdict: passed only when a drive ran and found nothing. */
+export const testStatus = (r: { ok?: boolean; ran?: boolean }): TestStatus => (!r.ran ? 'unverified' : r.ok ? 'passed' : 'failed');
 
 // a creator who has switched tabs is waited for, a minute and a half at a time, never longer than this
 const HOLD_MAX = 15 * 60_000;

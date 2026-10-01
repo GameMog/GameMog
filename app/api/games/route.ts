@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { insertGame, slugify, listGames, getDraft, publishDraft } from '@/lib/db';
 import { playtest } from '@/lib/playtest';
+import { codeHash, testStatus } from '@/lib/test-drive';
 import type { WorldSpec } from '@/lib/worldspec';
 
 export const runtime = 'nodejs';
@@ -18,11 +19,14 @@ export async function POST(req: Request) {
   if (body.draftId) {
     const d = getDraft(body.draftId);
     if (!d) return NextResponse.json({ error: 'That draft no longer exists.' }, { status: 404 });
-    const report = JSON.parse(d.report) as { ok?: boolean; ran?: boolean };
+    const report = JSON.parse(d.report) as { ok?: boolean; ran?: boolean; status?: string; codeHash?: string; coverHash?: string };
     if (!report.ok) return NextResponse.json({ error: 'This game did not pass playtesting.' }, { status: 400 });
+    // a drive that never ran, or ran on other code, publishes as unverified: honest, not held back
+    const hash = codeHash(d.code), status = !report.codeHash ? testStatus(report) : report.codeHash === hash ? report.status ?? testStatus(report) : 'unverified';
+    const test = d.format === 'world' ? { status, codeHash: hash, cover: !report.coverHash ? 'none' : report.coverHash === hash ? 'current' : 'earlier' } : undefined;
     const id = randomUUID();
     const slug = slugify(JSON.parse(d.meta).title);
-    publishDraft(d.id, slug, id);
+    publishDraft(d.id, slug, id, test);
     return NextResponse.json({ id, slug });
   }
 

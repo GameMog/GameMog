@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import type { CharacterImage } from './character';
 import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, worldControls, isOpenWorld, worldMode, type WorldMeta } from './custom-game';
 import { playtestWorld, type WorldReport } from './playtest-runtime';
-import { drivesInBrowser, waitForDrive } from './test-drive';
+import { drivesInBrowser, waitForDrive, codeHash, testStatus } from './test-drive';
 import { insertDraft, db, type GameRow } from './db';
 
 /**
@@ -143,7 +143,7 @@ export async function generateGame(
   let lastProblems: string[] = [];
   let advisedOnce = false;
   // the latest pictures any pass's test drive took (cover and key art)
-  const shots: { cover?: Uint8Array; artIcon?: Uint8Array; artWide?: Uint8Array } = {};
+  const shots: { cover?: Uint8Array; artIcon?: Uint8Array; artWide?: Uint8Array; hash?: string } = {};
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     emit({ type: 'stage', stage: attempt === 1 ? 'thinking' : 'repairing', attempt });
@@ -207,9 +207,14 @@ export async function generateGame(
         report = await waitForDrive(draftId, token);
       } else report = await playtestWorld(`${input.origin}/d/${draftId}/play`);
       problems.push(...report.problems);
+      // the verdict, and the code it is about: a skipped drive is unverified, never a pass
+      const hash = codeHash(code);
+      report = { ...report, status: testStatus(report), codeHash: hash };
       const { cover, artIcon, artWide, ...rest } = report;
-      // a pass whose drive took no pictures (skipped) keeps the last pass's: a world never ships without a cover it had
-      if (cover) shots.cover = cover; if (artIcon) shots.artIcon = artIcon; if (artWide) shots.artWide = artWide;
+      // a pass whose drive took no pictures (skipped) keeps the last pass's: a world never ships without a cover it had,
+      // and the report says which code that cover shows
+      if (cover) { shots.cover = cover; shots.hash = hash; } if (artIcon) shots.artIcon = artIcon; if (artWide) shots.artWide = artWide;
+      if (shots.cover) rest.coverHash = shots.hash;
       db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ? WHERE id = ?').run(shots.cover ?? null, shots.artIcon ?? null, shots.artWide ?? null, JSON.stringify(rest), draftId);
       // the runtime's repairs are not failures, but the model hears about
       // them once, so the world it ships is the one it meant
