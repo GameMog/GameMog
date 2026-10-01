@@ -758,6 +758,41 @@ try {
     }, { timeoutMs: 120_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(swid); }
 
+  // light (1 Oct): presets are opt-in, so a world without one is drawn exactly as before; under
+  // one, a photographed sky is exposed to the preset's brightness whatever the photograph; lamps
+  // in physical units are told about, never changed; and the look measures the player and the glare
+  console.log('\nlight: opt-in presets, light units, and what the look measures');
+  const solidSrc = readFileSync(new URL('../lib/runtime/open-solid-world.js', import.meta.url), 'utf8');
+  const lit = (extra: string, graphics: string) => solidSrc
+    .replace("assets: ['human-athlete-male'],", `assets: ['human-athlete-male', 'sky-overcast'],${graphics}`)
+    .replace('self.__solids =', `${extra} self.__solids =`);
+  type Lit = { sky: number; env: number | null; exposure: number; warnings: string[]; look: Record<string, number> | null };
+  const litOf = async (code: string) => {
+    const lid = randomUUID();
+    insertDraft({ id: lid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code,
+      meta: { title: 'Light Check', tagline: 'Light', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#9CC0E0', ground: '#A79C88', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' } });
+    try {
+      return await withBrowser(async (page) => {
+        await page.goto(`${BASE}/d/${lid}/play`);
+        for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+        await page.eval('window.__gmRuntime.debug.start()'); await sleep(1200);
+        return page.eval<Lit>(`(() => { const I = window.__gmRuntime.debug.internals(), sk = I.skies[I.skies.length - 1];
+          return { sky: sk && sk.material.color ? +sk.material.color.r.toFixed(3) : -1, env: I.scene.environment ? 1 : null, exposure: +I.renderer.toneMappingExposure.toFixed(2),
+            warnings: window.__gm.warnings || [], look: window.__gmRuntime.debug.look() }; })()`);
+      }, { timeoutMs: 120_000 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(lid); }
+  };
+  const sky = "ctx.sky({ hdri: 'sky-overcast', sun: [0.4, 0.6, 0.3] });";
+  const plain = await litOf(lit(sky, ' graphics: { environment: true },'));
+  ok('without a preset, a photographed sky is drawn as it always was (exposure 1)', plain.sky === 1 && plain.exposure === 1, `sky ${plain.sky}, exposure ${plain.exposure}`);
+  const day = await litOf(lit(sky, " graphics: { preset: 'daylight' },"));
+  ok('under a preset, the overcast sky (it washes out at 1) is exposed down to the preset\'s brightness', day.sky > 0.3 && day.sky < 0.65 && day.env === 1, `sky ${day.sky} (its 90th percentile is 1.84; daylight wants 0.85)`);
+  const set = await litOf(lit("ctx.sky({ hdri: 'sky-overcast', sun: [0.4, 0.6, 0.3], exposure: 0.8 });", " graphics: { preset: 'daylight', exposure: 1.3 },"));
+  ok('what a world sets itself wins over its preset', set.sky === 0.8 && set.exposure === 1.3, `sky ${set.sky}, exposure ${set.exposure}`);
+  const bad = await litOf(lit(sky, " graphics: { preset: 'sunrise' },"));
+  ok('an unknown preset is ignored, and the builder is told', bad.sky === 1 && bad.warnings.some((w) => /graphics.preset "sunrise"/.test(w)), bad.warnings.join(' | ').slice(0, 120));
+  const loud = await litOf(lit(sky + " var lamp = new T.PointLight('#FFD9A0', 380); lamp.position.set(0, 3, 4); ctx.scene.add(lamp);", ' graphics: { environment: true },'));
+  ok('a lamp in physical units is told about (and left as it is)', loud.warnings.some((w) => /PointLight has intensity 380/.test(w)) && !plain.warnings.some((w) => /legacy light units/.test(w)), loud.warnings.join(' | ').slice(0, 120));
   // the creator's options (Create and Mog, the owner, 26 Sep): obstacles each
   // lap fewer, the same or more, and music, enforced by the runtime from the
   // page, whatever the world's code says

@@ -328,6 +328,7 @@ and always for a realistic world. Every value is optional and bounded.
 
 ```js
 graphics: {
+  preset: 'daylight',                            // optional: 'daylight', 'golden', 'moonlit' or 'toy' (below)
   exposure: 1,                                   // 0.3 to 3, filmic tone mapping
   environment: true,                             // light every surface from the world's own sky
                                                  // (or { hdri: 'hdri-sunset-city', intensity, extras },
@@ -346,6 +347,13 @@ graphics: {
 }
 ```
 
+- `preset` is a calibrated starting point for the time of day: it sets the exposure, bloom and
+  grade (anything you set yourself wins) and, with a photographed sky, draws the sky at a
+  brightness that suits the light whichever photograph it is, and lights the world from it at
+  the preset's strength. `daylight` for sun and open sky, `golden` for the low warm sun of
+  sunrise or sunset, `moonlit` for night (the sky dim, lamps and neon carrying the picture),
+  `toy` for a bright, saturated toy or cartoon world. Use one unless you have a reason to tune
+  every value by hand.
 - The environment is baked from `ctx.sky(...)` if the world built one, otherwise from the theme.
   Metal, wet skin, glass and paint only look real with it on: use `MeshStandardMaterial` or
   `MeshPhysicalMaterial` with honest `roughness` and `metalness`.
@@ -387,6 +395,12 @@ Build everything that is not a character or an obstacle: sky, ground, water, the
 surface, scenery, lights (at least a HemisphereLight and a DirectionalLight in the world's
 own colours; one shadow-casting light, with a map of 1024 or smaller unless `graphics.shadows`
 sizes it).
+
+Lights are in the runtime's units (three.js's legacy units), not physical ones: a sun
+(`DirectionalLight`) of 2 to 4, a `HemisphereLight` of 0.4 to 1.5, and a lamp (`PointLight`,
+`SpotLight`) of 0.5 to 4. A lamp's light fades from full at the lamp to nothing at its
+`distance`, so always give it one; without a distance it never fades. Physical values in the
+tens or hundreds wash the whole picture out white.
 
 - Draw the track surface with `ctx.track.ribbon({ width, offset, y, color | material })`. It
   returns a `Mesh` and does not add it: `ctx.scene.add(ctx.track.ribbon({...}))`.
@@ -458,9 +472,13 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
   dome with a glowing sun (`sun` is the direction towards it, `sunSize` in degrees; `curve` above
   0.45 keeps the horizon colour higher up the sky); it always stays around the camera. Match
   `sun` to the direction of your key light.
-- `ctx.sky({ hdri: 'sky-noon', sun: [x, y, z], exposure })`: a photographed sky from the library
+- `ctx.sky({ hdri: 'sky-noon', sun: [x, y, z], exposure, light })`: a photographed sky from the library
   (list it in `assets`), turned so its sun stands at `sun`'s bearing, at the height it was
-  photographed; the environment lighting is baked from the same photograph. A photograph with
+  photographed; the environment lighting is baked from the same photograph. `exposure` (0.1 to 4)
+  is how bright the sky looks, and the light follows it unless `light` (0 to 4) sets the light on
+  the world apart from the look. The skies differ a lot in brightness and draw without tone
+  mapping (`sky-overcast`, `sky-dusk` and `sky-night` wash out white at 1): under a
+  `graphics.preset`, leave both out and the runtime calibrates them. A photograph with
   land in it (`sky-beach`, `sky-city-night`) takes `face: [x, z]` in place of `sun`: its sea or
   skyline is turned to lie that way, so the photograph's sea meets the world's sea. Either way,
   light the world from the photograph: the returned mesh's `userData.sun` is the direction of
