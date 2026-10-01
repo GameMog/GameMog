@@ -18,22 +18,25 @@ const config: NextConfig = {
       { source: '/:section(g|mog)/mariomog-canyon-gp/:rest*', destination: '/:section/mog-kart-canyon-gp/:rest*', permanent: true },
     ];
   },
-  // Caching (the owner, 1 Oct: faster loads). Render's edge cache keeps static
-  // files near the player and is purged on every deploy; these say for how long.
+  // Caching (the owner, 1 Oct: faster loads). Render's edge cache is OFF: with it
+  // on, browsers were sent recompressed JPEGs (13 KB for a 32 KB eye texture),
+  // which fail the runtime's hash check and broke the worlds that use them. These
+  // headers still give browsers long caching, and forbid transforms if it returns.
   async headers() {
     return [
       {
         source: '/assets/:path*',
         headers: [
           { key: 'access-control-allow-origin', value: '*' },
-          { key: 'cache-control', value: 'public, max-age=3600, s-maxage=31536000' },
+          // no-transform: a CDN must never recompress these; the runtime checks every byte
+          { key: 'cache-control', value: 'public, max-age=3600, s-maxage=31536000, no-transform' },
           { key: 'x-content-type-options', value: 'nosniff' },
         ],
       },
-      // asked for by its hash (the runtime adds ?v=): the same bytes forever
-      { source: '/assets/:path*', has: [{ type: 'query', key: 'v' }], headers: [{ key: 'cache-control', value: 'public, max-age=31536000, immutable' }] },
+      // asked for by its hash (the runtime adds ?h=): the same bytes forever
+      { source: '/assets/:path*', has: [{ type: 'query', key: 'h' }], headers: [{ key: 'cache-control', value: 'public, max-age=31536000, immutable, no-transform' }] },
       // the library itself is always checked, so a new hash is seen at once
-      { source: '/assets/library.json', headers: [{ key: 'cache-control', value: 'public, max-age=0, must-revalidate' }] },
+      { source: '/assets/library.json', headers: [{ key: 'cache-control', value: 'public, max-age=0, must-revalidate, no-transform' }] },
       // films and pictures: an hour in the browser, at the edge until the next deploy
       { source: '/media/:path*', headers: [{ key: 'cache-control', value: 'public, max-age=3600, s-maxage=31536000' }] },
     ];
