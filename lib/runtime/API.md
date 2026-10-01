@@ -30,8 +30,11 @@ creativity: it decides what the world is, who lives in it, and how it looks, mov
   platform's currency and look the same in every world. Do not make coins. A world may lay none
   (`play.coins: false`) and pay a bounty for every lap finished instead (`play.bounty`).
 - **Controls.** The player moves forward on their own. Arrow keys (or WASD): left and right
-  steer, up goes faster, down goes slower. Space pauses. Touch screens get on-screen buttons.
-  With the sword on, X (or J or K, or a sword button on touch screens) swings it.
+  steer, up goes faster, down goes slower. Space pauses. Touch screens get the same controls in
+  every world: a stick wherever the left thumb lands (steer, and push up or down for the pace), and
+  round buttons on the right, the main one biggest and furthest right (SLOW and SPRINT, BRAKE and
+  GAS in a car, SLASH with the sword; an open world has RUN, ROLL and PUNCH).
+  With the sword on, X (or J or K, or SLASH on touch screens) swings it.
 - **Screens.** No card over the game. Until the player starts, the world races itself (a demo
   run: it steers itself, cannot crash, is silent and is never scored) with nothing over it, so a
   visitor sees the world moving. The start screen appears only when someone asks to play (the

@@ -67,6 +67,42 @@ const START_KEYS = `(function () {
   addEventListener('keydown', function (e) { if (e.key === 'Enter' && b && t && !t.classList.contains('hide')) b.click(); });
 })();`;
 
+/**
+ * Touch, as in every GameMog game (the owner, 30 Sep: Zombie Beach's controls
+ * are the master; the buttons on the far right change per game). A classic
+ * race has no steering, so no stick: its one action, the stride, gets the big
+ * round button on the far right, over the SOUND pill. It sends the engine the
+ * tap it already takes on the world, and shows only while a race is on.
+ */
+const TOUCH_CSS = `
+#gm-tap{position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(56px + env(safe-area-inset-bottom,0px));z-index:30;width:96px;height:96px;border-radius:50%;display:none;align-items:center;justify-content:center;
+  background:linear-gradient(150deg,rgba(255,255,255,.15),rgba(255,255,255,.03) 62%) rgba(10,12,18,.34);-webkit-backdrop-filter:blur(16px) saturate(170%);backdrop-filter:blur(16px) saturate(170%);
+  border:1px solid rgba(255,255,255,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 12px 32px rgba(0,0,0,.2);
+  color:#fff;font:700 15px Oxanium,system-ui,sans-serif;letter-spacing:.08em;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+#gm-tap.on{background-color:rgba(255,255,255,.3)}
+body.gm-touch:has(#title.hide) #gm-tap{display:flex}
+body:has(#finish:not(.hide)) #gm-tap{display:none!important}
+`;
+const TOUCH = `(function () {
+  var touch = 'ontouchstart' in window; try { touch = touch || matchMedia('(pointer: coarse)').matches; } catch (e) {}
+  if (!touch) return;
+  document.body.classList.add('gm-touch');
+  var b = document.createElement('button'); b.id = 'gm-tap'; b.textContent = 'STRIDE'; b.setAttribute('aria-label', 'stride'); document.body.appendChild(b);
+  b.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); e.stopPropagation(); b.classList.add('on');
+    var c = document.querySelector('canvas'); if (c) c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: e.pointerType }));
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { b.addEventListener(ev, function () { b.classList.remove('on'); }); });
+  // never over the stride meter: on a narrow screen it spans the bottom, so the
+  // button lifts above it (and follows it when the HUD moves for the finish)
+  function place() {
+    var m = document.getElementById('stride'), bottom = '';
+    if (m) { var r = m.getBoundingClientRect(); if (r.height && r.right > innerWidth - 18 - 96 - 8) bottom = Math.round(innerHeight - r.top + 12) + 'px'; }
+    if (b.style.bottom !== bottom) b.style.bottom = bottom;
+  }
+  place(); addEventListener('resize', place); setInterval(place, 400);
+})();`;
+
 export function renderGame(spec: WorldSpec, id: string) {
   const { js, css } = engine();
   const world = compileWorld(spec, id);
@@ -79,15 +115,17 @@ export function renderGame(spec: WorldSpec, id: string) {
 <title>${escapeHtml(spec.meta.title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&family=Oxanium:wght@700&display=swap" rel="stylesheet">
 <style>${css}</style>
 <style>${NO_CARD}</style>
+<style>${TOUCH_CSS}</style>
 </head>
 <body>
 ${GAME_BODY}
 <script>window.__WORLD__ = ${safeJson(world)};</script>
 <script>${js}</script>
 <script>${START_KEYS}</script>
+<script>${TOUCH}</script>
 </body>
 </html>`;
 }

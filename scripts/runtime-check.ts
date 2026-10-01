@@ -88,9 +88,14 @@ try {
     await page.key('Space'); await sleep(400);
     ok('Space resumes', !(await st()).paused);
 
-    const pads = await page.eval<number>("document.querySelectorAll('#gm .pad button').length");
-    const pauseBtn = await page.eval<number>("document.querySelectorAll('#gm .pause').length");
-    ok('touch controls exist: four direction buttons and a pause button', pads === 4 && pauseBtn === 1, `${pads} + ${pauseBtn}`);
+    // the touch kit every world shares (Zombie Beach's, the owner, 30 Sep): a
+    // stick, and round buttons on the right with the main one last and big
+    const kit = await page.eval<{ stick: number; buttons: string[]; bigLast: boolean; pause: number }>(`(() => {
+      const b = [...document.querySelectorAll('#gm .tpad button')];
+      return { stick: document.querySelectorAll('#gm .stick').length, buttons: b.map((x) => x.textContent), bigLast: !!b.length && b[b.length - 1].classList.contains('big'), pause: document.querySelectorAll('#gm .pause').length };
+    })()`);
+    ok('touch controls exist: a stick, buttons on the right with the main one big and last, and a pause button',
+      kit.stick === 1 && kit.buttons.length >= 2 && kit.bigLast && kit.pause === 1, JSON.stringify(kit));
 
     console.log('\nendless laps (rules, with collisions off so the test does not depend on a bot surviving)');
     // frame rate at real speed, driving, before speeding things up

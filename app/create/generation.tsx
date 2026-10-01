@@ -42,7 +42,7 @@ export function useGeneration() {
       const res = await fetch('/api/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       if (res.ok && res.body && (res.headers.get('content-type') ?? '').includes('ndjson')) {
         const reader = res.body.getReader(), dec = new TextDecoder();
-        let buf = '';
+        let buf = '', ended = false;
         for (;;) {
           const { value, done } = await reader.read();
           if (done) break;
@@ -56,13 +56,17 @@ export function useGeneration() {
             else if (e.type === 'progress') setStage((s) => (s ? { ...s, chars: e.chars } : s));
             else if (e.type === 'problems') setRounds((r) => [...r, { attempt: e.attempt, problems: e.problems }]);
             else if (e.type === 'drive') setDrive({ draftId: e.draftId, token: e.token, attempt: e.attempt });
-            else if (e.type === 'done') setDraft(e);
+            else if (e.type === 'done') { ended = true; setDraft(e); }
             else if (e.type === 'error') {
+              ended = true;
               setError(e.error);
               if (e.problems?.length) setRounds((r) => [...r, { attempt: 0, problems: e.problems }]);
             }
           }
         }
+        // the stream closed with neither a world nor an error: the server went
+        // away mid-build (a deploy restarts it), so say so rather than vanish
+        if (!ended) setError('The connection was terminated before the world was finished.');
         return null;
       }
       const data = await res.json();
