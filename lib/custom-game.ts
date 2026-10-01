@@ -206,7 +206,7 @@ function runtimeSource(version: number) {
     const read = (f: string) => readFileSync(join(process.cwd(), 'lib', 'runtime', f), 'utf8');
     // open worlds (open.js) run inside the runtime's own closure, at its marker
     const core = read(`v${version}.js`).replace('/*@include open.js*/', () => read('open.js'));
-    RUNTIMES[version] = [read('music.js'), read('vehicle.js'), core].join('\n');
+    RUNTIMES[version] = [read('music.js'), read('vehicle.js'), read('creature.js'), core].join('\n');
   }
   return RUNTIMES[version];
 }

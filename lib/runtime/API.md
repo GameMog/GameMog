@@ -504,7 +504,7 @@ GameMog.world({
     gait: 'walkCool',              // the hero's walk: walk, walkCool, walkHeavy, walkF
     hud: { gm: 'Club fund', banner: 'Stack GM for the club. Survive.' },   // what the story calls the GM, and the first banner
     intro: { shots: [ /* the opening scene, below */ ] },
-    goal: { gm: 10000, title: 'Cured', text: 'a line for the win' },   // reach it and the run ends won
+    goal: { gm: 10000, title: 'Cured', text: 'a line for the win' },   // always: 10,000 unless the creator names an amount
     outro: { shots: [ /* the closing scene, played when the goal is reached */ ] },
     keyArt: { at: [x, z], look: 107, tilt: 0.15 },   // where the thumbnail is shot: the player there, the camera looking along `look` degrees
     crew: {                        // who comes for you; every field optional
@@ -512,6 +512,9 @@ GameMog.world({
       biker: { names: ['Road Dog'], look: function (ctx, i) { return { clothes: {...}, gear: {...}, weapon: { kind: 'chain' } }; } },
       cop:   { names: ['Officer Ruiz'], look: function (ctx, i) { return { clothes: { shirt: { kind: 'uniform' } }, gear: { police: '#111827' }, weapon: { kind: 'baton' } }; } },
       boss:  { names: ['El Jefe', 'La Reina'], look: function (ctx, i) { return { height: 2.02, build: { muscle: 1 }, clothes: {...}, gear: {...}, weapon: { kind: 'bat' } }; } },
+      // or anything that is not a person: a creature body, and a shot from range
+      // thug: { names: ['Zorg'], body: { plan: 'biped', height: 2.4, skin: { color: '#4FBF3A' }, head: { shape: 'dome', size: 1.5 } },
+      //         ranged: { every: 3, range: 16, damage: 8, color: '#FF7A1A' } },
     },
   },
   theme: {...}, graphics: {...}, camera: { distance: 5.2, height: 1.55, fov: 54 },
@@ -548,11 +551,46 @@ seconds]]` drains a sickness away in a warm light. A human's `sick: 0 to 1` make
 and grey-green, the eyes sunk, veins showing (the hero of an outbreak story); the heal cures it.
 Knockouts drop the crew's `gm` (more with the heat), in up to a dozen coins.
 
+**Every open world is a story with a goal.** The GM is what the hero is after (a vaccine, a
+ticket home, the fuel for a ship), and `goal.gm` is how much: 10,000 unless the creator names an
+amount. The HUD shows it as "of 10,000". Write the opening scene (`intro`) that introduces the
+hero, the place and the mission, and what the GM is for (`hud.gm` names it), and the closing scene
+(`outro`) where the hero gets it. A world with no goal gets 10,000 and a plain win.
+
+**Enemies can be anything the creator asks for.** When they are not people (aliens, robots,
+monsters, animals, ghosts), they must not be people in costume: give the crew kind a `body`.
+`body: { ... }` builds one from the platform's creature kit (`ctx.assets.creature`, also usable
+anywhere else), animated by the runtime like a person: it walks, squares up, strikes, shoots,
+flinches and goes down. Its options, all optional:
+
+- `plan`: `'biped'` (two legs, two arms: aliens, robots, demons, mutants), `'beast'` (four legs,
+  a long body, a neck and a tail: hounds, cats, lizards, insects), `'floater'` (hovers, no legs:
+  drones, ghosts, jellyfish, orbs)
+- `height` (m; for a beast, at the shoulder)
+- `skin: { color, color2 (the belly), glow (eyes, spots and shots), spots (glowing dots, 0 to 20),
+  pattern: 'spots' | 'stripes' | 'scales' | 'panels', metalness (a robot: 0.8), roughness, sheen, gloss }`
+- `head: { shape: 'dome' (the classic big-skulled alien) | 'long' | 'round' | 'snout' | 'visor' (a
+  robot), size (1 is a person's; 1.5 is too big, on purpose), eyes: { count (0 to 8), size, color,
+  glow, shape: 'almond' | 'round' }, antennae, horns, mouth: false }`
+- `body: { build (0 thin to 1 bulky), arms, legs, neck (lengths, 1 is a person's), fingers, tail,
+  digitigrade, tendrils (a floater's), length (a beast's) }`
+- `suit: { color, metalness }` for armour or a uniform over the skin
+- `name`
+
+For full control, `body` may be a function returning your own `{ object, animate(t, dt, s) }`
+(forward is +z, the feet at y = 0); `s.speed` is m/s and `s.brawl` is `{ stance, action: { name,
+id }, ko }`: a new `action.id` is a new move (a strike, a cast, a hit), `ko` is down for good.
+
+`ranged: { every (s), range (m), speed (m/s), damage, size, color, keep (stay at range, default
+true), melee (also fight up close, default true) }` gives a crew kind a shot: a fireball, a bolt,
+spit or a beam, aimed a little ahead of the player. A roll ducks under it; a wall stops it. The
+hero fights hand to hand and with what they find.
+
 Hidden weapons are on unless `weapons: false`: `count` street weapons (bat, pipe, chain, baton,
 or a rare katana, `sword`, weighted by `kinds`) lie in the map's hiding places (in alleys, on
 bins, by the lifeguard towers, against fences) and glint now and then. Walking over one takes it,
 E (or GRAB) swaps it for the one in hand; it swings harder and further than a fist and breaks
-after its hits. With `drops`, an armed enemy put down may drop his. Melee only: no guns.
+after its hits. With `drops`, an armed enemy put down may drop his. The hero has no gun.
 
 Where the walkable ground ends, something you can see ends it: on a library map the runtime
 builds it; without one, build a wall, fence or barrier at every edge of `bounds` and give it a

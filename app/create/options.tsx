@@ -12,7 +12,8 @@ const Chevron = () => (
  * them, whatever the world's code says. "Open world" (27 Sep) builds a place
  * to roam and survive in instead of a lap race; the obstacles do not apply.
  */
-export function WorldOptionsFields({ value, onChange, disabled }: { value: WorldOptions; onChange: (o: WorldOptions) => void; disabled?: boolean }) {
+/** `lockOpen`: a Mog keeps its original's kind, an open world or a race (the owner, 1 Oct: no "Open world" box on a Mog). */
+export function WorldOptionsFields({ value, onChange, disabled, lockOpen }: { value: WorldOptions; onChange: (o: WorldOptions) => void; disabled?: boolean; lockOpen?: boolean }) {
   return (
     <div className="copts">
       {!value.open && (
@@ -24,10 +25,12 @@ export function WorldOptionsFields({ value, onChange, disabled }: { value: World
           <Chevron />
         </label>
       )}
-      <label className="ccheck">
-        <input type="checkbox" checked={!!value.open} disabled={disabled} onChange={(e) => onChange({ ...value, open: e.target.checked })} />
-        <span>Open world</span>
-      </label>
+      {!lockOpen && (
+        <label className="ccheck">
+          <input type="checkbox" checked={!!value.open} disabled={disabled} onChange={(e) => onChange({ ...value, open: e.target.checked })} />
+          <span>Open world</span>
+        </label>
+      )}
       <label className="ccheck">
         <input type="checkbox" checked={!!value.music} disabled={disabled}
           onChange={(e) => onChange({ ...value, music: e.target.checked ? (value.music ?? MUSIC_TRACKS[0].id) : null })} />

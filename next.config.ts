@@ -12,7 +12,11 @@ const config: NextConfig = {
   // opaque: allow any origin to read these public, hash-checked files
   // Miami OG was renamed Zombie Beach (the owner, 28 Sep): its old links still land
   async redirects() {
-    return [{ source: '/:section(g|mog)/miami-og/:rest*', destination: '/:section/zombie-beach/:rest*', permanent: true }];
+    return [
+      { source: '/:section(g|mog)/miami-og/:rest*', destination: '/:section/zombie-beach/:rest*', permanent: true },
+      // MarioMog Canyon GP became Mog Kart Canyon GP (the owner, 1 Oct; deploy/migrate.mjs)
+      { source: '/:section(g|mog)/mariomog-canyon-gp/:rest*', destination: '/:section/mog-kart-canyon-gp/:rest*', permanent: true },
+    ];
   },
   async headers() {
     return [{

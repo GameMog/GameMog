@@ -6,6 +6,7 @@ import { logGeneration, recentSpecs, getGameBySlug } from '@/lib/db';
 
 import { ImageSchema, type Character, type CharacterImage } from '@/lib/character';
 import { readOptions } from '@/lib/world-options';
+import { isOpenWorld } from '@/lib/custom-game';
 
 export const runtime = 'nodejs';
 // Opus writing a whole game, a real-browser playtest and up to two repairs
@@ -76,7 +77,10 @@ export async function POST(req: Request) {
         const beat = setInterval(() => send({ type: 'tick' }), 10_000);
         let result: GameEvent | undefined;
         try {
-          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options: readOptions(body.options) }, (e) => {
+          // a Mog keeps its original's kind, whatever the request says
+          const options = readOptions(body.options);
+          if (parent) options.open = parent.format === 'world' && !!parent.code && isOpenWorld(parent.code);
+          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options }, (e) => {
             if (e.type === 'done' || e.type === 'error') result = e;
             send(e);
           });

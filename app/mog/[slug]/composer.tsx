@@ -15,7 +15,8 @@ const IDEAS = [
 export function MogComposer({ slug, title, inherited }: { slug: string; title: string; inherited: WorldOptions }) {
   const gen = useGeneration();
   const [idea, setIdea] = useState('');
-  // a Mog starts from the original's options; the challenger can change them
+  // a Mog starts from the original's options; the challenger can change them,
+  // all but its kind (an open world stays one, a race stays a race)
   const [options, setOptions] = useState<WorldOptions>(inherited);
   const go = () => gen.run({ mogOf: slug, prompt: idea.trim(), options });
   return (
@@ -28,7 +29,7 @@ export function MogComposer({ slug, title, inherited }: { slug: string; title: s
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
           {IDEAS.map((x) => <button key={x} className="tag" onClick={() => setIdea(x)}>{x}</button>)}
         </div>
-        <WorldOptionsFields value={options} onChange={setOptions} disabled={gen.busy} />
+        <WorldOptionsFields value={options} onChange={setOptions} disabled={gen.busy} lockOpen />
         <button className="btn" onClick={go} disabled={gen.busy || idea.trim().length < 4}>
           {gen.busy ? 'Mog in progress' : 'Mog it'}
         </button>

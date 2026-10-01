@@ -6,6 +6,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
+import { migrate } from './migrate.mjs';
 
 const DB = 'data/gamemog.db', SEED = 'deploy/seed.db.gz';
 mkdirSync('data', { recursive: true });
@@ -16,3 +17,6 @@ if (existsSync(DB)) {
   renameSync(`${DB}.seeding`, DB);
   console.log(`boot: seeded ${DB} from ${SEED}`);
 }
+
+// what has changed in the published content since (deploy/migrate.mjs)
+migrate(DB);

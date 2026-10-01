@@ -49,7 +49,7 @@ export function optionsBrief(o: WorldOptions) {
   const mu = track
     ? `On: the runtime plays the library track "${track.label}" (${track.style.toLowerCase()}), loud enough for the race and ducked under the effects. Do not compose or synthesise music yourself.`
     : 'Off. Do not compose or synthesise music: ambient() is for the world\'s own sounds (crowds, wind, surf, engines).';
-  if (o.open) return `## The creator's platform options (the runtime enforces these; do not set them in play)\n\n- Open world: on. Write an open world, not a lap race: follow the "Open worlds" section (GameMog.world({ open: {...}, player, build }), no track, rival() or obstacles()). Give it a place worth roaming, the whole crew (thugs, bikers, police, named bosses) in looks that belong there, and a hero who stands out.\n- Music: ${mu}`;
+  if (o.open) return `## The creator's platform options (the runtime enforces these; do not set them in play)\n\n- Open world: on. Write an open world, not a lap race: follow the "Open worlds" section (GameMog.world({ open: {...}, player, build }), no track, rival() or obstacles()). Give it a place worth roaming, the whole crew (the four kinds: thug, biker, cop, boss) as whatever belongs there and whatever the creator asks for: people in looks that fit, or creatures with a 'body' and a 'ranged' shot when the creator asks for aliens, monsters, robots or animals. Give it a story: an intro that sets up the hero and the mission, a 'goal' (10,000 GM unless the creator names an amount) and an outro where the hero gets what the GM was for. And a hero who stands out.\n- Music: ${mu}`;
   return `## The creator's platform options (the runtime enforces these; do not set them in play)\n\n- Obstacles each lap: ${hz}\n- Music: ${mu}`;
 }
 
