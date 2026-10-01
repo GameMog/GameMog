@@ -793,6 +793,9 @@ try {
   ok('an unknown preset is ignored, and the builder is told', bad.sky === 1 && bad.warnings.some((w) => /graphics.preset "sunrise"/.test(w)), bad.warnings.join(' | ').slice(0, 120));
   const loud = await litOf(lit(sky + " var lamp = new T.PointLight('#FFD9A0', 380); lamp.position.set(0, 3, 4); ctx.scene.add(lamp);", ' graphics: { environment: true },'));
   ok('a lamp in physical units is told about (and left as it is)', loud.warnings.some((w) => /PointLight has intensity 380/.test(w)) && !plain.warnings.some((w) => /legacy light units/.test(w)), loud.warnings.join(' | ').slice(0, 120));
+  const lk = day.look ?? {};
+  ok('the look measures the glare and the player: how much shows, and how far it stands from its background', ['clipped', 'floor', 'player', 'seen', 'apart'].every((k) => Number.isFinite(lk[k])) && lk.player > 0.001 && lk.seen > 0.9 && lk.apart > 0, JSON.stringify(lk));
+
   // the creator's options (Create and Mog, the owner, 26 Sep): obstacles each
   // lap fewer, the same or more, and music, enforced by the runtime from the
   // page, whatever the world's code says

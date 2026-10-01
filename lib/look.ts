@@ -12,8 +12,21 @@
  * reference world (primitive trees on a flat field under a big sky) measures
  * 3.3 bits and 33%, a near-black night world 2.6 bits, 39%, 0.032 edges,
  * contrast 35 and brightness 12. The lines sit between.
+ *
+ * The glare and the player (1 Oct, from Codex's review), calibrated the same
+ * day on the 25 published runtime worlds mid-run, three frames each: pure white
+ * covers 0 to 2.8% of a frame, except Lantern Hour, whose lamps in physical
+ * units blow 7 to 8.8% of it out; scenery leaves 73% or more of the player
+ * showing (Mog Derby's smoke is the least); the player's colour stands 40 to
+ * 210 from what is round it (of 441), down to 10 to 25 in a few frames of a
+ * night race, a jungle and a near-black world. The brightness of the darkest
+ * 5% (floor) runs 0 to 112 in worlds that look right, so it is measured and
+ * not judged. Each line is a note for one repair, never a reason to hold a
+ * world back.
  */
-export type Look = { entropy: number; dominant: number; edges: number; contrast: number; mean: number };
+export type Look = { entropy: number; dominant: number; edges: number; contrast: number; mean: number;
+  /** 1 Oct: the share of the frame that is pure white, the brightness of its darkest 5%, and the player: the share of the frame it fills, how much of it scenery leaves showing, and how far its colour stands from what is round it (0 to 441). */
+  clipped?: number; floor?: number; player?: number; seen?: number; apart?: number };
 
 export function isLook(v: unknown): v is Look {
   const o = v as Look;
@@ -23,7 +36,9 @@ export function isLook(v: unknown): v is Look {
 /** Higher is a richer, readable frame: variety, detail, contrast, neither crushed nor blown out. */
 export function lookScore(m: Look) {
   const dark = m.mean < 35 ? (35 - m.mean) / 8 : 0, blown = m.mean > 200 ? (m.mean - 200) / 8 : 0;
-  return m.entropy + Math.min(m.edges, 0.35) * 10 + Math.min(m.contrast, 180) / 60 - m.dominant * 4 - dark - blown;
+  // and the cover should show the player, clear of the scenery and of the background, without glare
+  const glare = (m.clipped ?? 0) * 20, hidden = m.seen != null && m.seen < 0.5 ? (0.5 - m.seen) * 6 : 0, blend = m.apart != null && m.apart < 25 ? (25 - m.apart) / 25 : 0;
+  return m.entropy + Math.min(m.edges, 0.35) * 10 + Math.min(m.contrast, 180) / 60 - m.dominant * 4 - dark - blown - glare - hidden - blend;
 }
 
 /** The notes a world gets when its best frame still looks basic, in words the model can act on. */
@@ -35,5 +50,8 @@ export function lookAdvisories(m: Look): string[] {
   if (m.entropy < 4) out.push(`The test drive's view has few distinct tones (${m.entropy} bits of colour variety; the published worlds have 5 to 6.7). Use real materials (scanned surfaces, roughness, wear), a photographed sky and more than one light colour.`);
   if (m.edges < 0.04) out.push(`The test drive's view has little detail (edge density ${m.edges}; the published worlds have 0.058 or more). It reads as empty or primitive: add authored props, silhouettes and set dressing near the camera.`);
   else if (m.contrast < 60) out.push(`The test drive's view is murky (contrast ${m.contrast}): fog, darkness or bloom is flattening it. Thin the fog, add a key light, and let darks and lights separate.`);
+  if ((m.clipped ?? 0) > 0.05) out.push(`${Math.round((m.clipped ?? 0) * 100)}% of the test drive's view is blown out to pure white (the published worlds stay under 3%). Lamps are usually the cause: the runtime's lights are legacy units (a lamp 0.5 to 4, with a distance), so lower any light over 12, then the bloom or the exposure.`);
+  if (m.seen != null && m.player != null && m.player > 0 && m.seen < 0.5) out.push(`Scenery hides ${Math.round((1 - m.seen) * 100)}% of the player from the chase camera. Keep tall props, walls and overhangs out of the space between the camera and the player's path, or make them low or see-through there.`);
+  if (m.apart != null && m.player != null && m.player > 0 && m.apart < 25) out.push(`The player is hard to tell from what is round them (colour distance ${m.apart} of 441; most published worlds are 40 or more). Give the hero colours, a material or a rim light that stand out from the ground and scenery behind them.`);
   return out;
 }
