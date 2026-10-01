@@ -282,9 +282,9 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
     };
     const onMsg = (e: MessageEvent) => {
       if (e.source !== frame.current?.contentWindow) return;
-      const d = e.data as { gm?: string; type?: string; raw?: unknown; cover?: unknown; artIcon?: unknown; artWide?: unknown };
+      const d = e.data as { gm?: string; type?: string; raw?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown };
       if (d?.gm !== 'drive' || d.type !== 'report') return;
-      send({ raw: d.raw, cover: d.cover, artIcon: d.artIcon, artWide: d.artWide });
+      send({ raw: d.raw, covers: d.covers, artIcon: d.artIcon, artWide: d.artWide });
     };
     window.addEventListener('message', onMsg);
     const t = setTimeout(() => send({ raw: { timedOut: true } }), 200_000);

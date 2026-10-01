@@ -1,4 +1,5 @@
 import { withBrowser, chromePath, HostSlept } from './browser';
+import { lookScore, lookAdvisories, isLook, type Look } from './look';
 import { captureWorldKeyArt } from './key-art';
 
 /**
@@ -130,7 +131,20 @@ export async function runtimePlaytest(url: string): Promise<RuntimeReport> {
  * thinned): the world still works, but the model is told once so it can do
  * better.
  */
-export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: number; artIcon?: Uint8Array; artWide?: Uint8Array; open?: { kos: number; heat: number; boss: boolean; police: boolean } };
+export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: number; artIcon?: Uint8Array; artWide?: Uint8Array; open?: { kos: number; heat: number; boss: boolean; police: boolean }; look?: Look };
+
+/** The cover: the best of three frames by how they look (lib/look.ts), and how that frame measured. */
+async function bestCover(page: Parameters<Parameters<typeof withBrowser>[0]>[0]) {
+  let best: { cover: Uint8Array; look: Look | undefined; score: number } | null = null;
+  for (let k = 0; k < 3; k++) {
+    if (k) await sleep(450);
+    const look = await page.eval<unknown>('window.__gmRuntime.debug.look ? window.__gmRuntime.debug.look() : null').catch(() => null);
+    const cover = await page.screenshot(80);
+    const m = isLook(look) ? look : undefined, score = m ? lookScore(m) : 0;
+    if (!best || score > best.score) best = { cover, look: m, score };
+  }
+  return best!;
+}
 
 type RtState = { state: string; level: number; gm: number; alive: boolean; rivals: { ahead: number; x: number }[]; lap: number; obstacles: number; coins: number; crashedInto: string };
 
@@ -189,20 +203,21 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         const art = await captureWorldKeyArt(page);
         await page.eval('window.__gmRuntime.debug.cinematic(true); window.__gmRuntime.debug.film(null)');
         await sleep(600);
-        const cover = await page.screenshot(80);
+        const { cover, look } = await bestCover(page);
         await page.eval('window.__gmRuntime.debug.cinematic(false)');
         await page.eval('window.__gmRuntime.debug.invincible(false); window.__gmRuntime.debug.autopilot(false); window.__gmRuntime.debug.open().hurt(9999)');
         await sleep(3200);
         const results = await page.eval<unknown[]>('window.__gm.results').catch(() => []);
         const errors = await errs();
-        const advisories = await page.eval<string[]>('window.__gm.warnings || []').catch(() => []);
+        const advisories: string[] = await page.eval<string[]>('window.__gm.warnings || []').catch(() => []);
+        if (look) advisories.push(...lookAdvisories(look));
         for (const e of errors) problems.push(`Runtime error: ${e}`);
         if (fps < 30) problems.push(`The open world ran at ${fps} fps on a laptop GPU. Instance repeated scenery, cut draw calls and lights, keep the crowd modest, until it holds 60.`);
         if (kos < 2) problems.push(`In the time a few fights should take, only ${kos} people were knocked out. Check that the map leaves open ground to stand and fight on, and that nothing blocks the people from reaching the player.`);
         if (!sawBoss) problems.push('Raising the heat to 3 brought no boss. Check open.crew.boss.');
         if (!results.length) problems.push('A knockout of the player did not end the run with a result.');
         if (cover.length < 14_000) problems.push('The screen is nearly a flat colour in the open world. Check the map or the ground, the lights and the camera.');
-        return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: o.heat, cover, artIcon: art?.icon, artWide: art?.wide, open: { kos, heat: o.heat, boss: sawBoss, police: sawPolice } } as WorldReport;
+        return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: o.heat, cover, artIcon: art?.icon, artWide: art?.wide, open: { kos, heat: o.heat, boss: sawBoss, police: sawPolice }, look } as WorldReport;
       }
 
       await page.eval('window.__gmRuntime.debug.start()');
@@ -235,7 +250,8 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
       }
       await page.eval('window.__gmRuntime.debug.cinematic(true)');
       await sleep(60);
-      cover = await page.screenshot(80);
+      const picked = await bestCover(page);
+      cover = picked.cover;
       await page.eval('window.__gmRuntime.debug.cinematic(false)');
 
       // a crash must end the run and report a result
@@ -243,7 +259,8 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
       await sleep(2400);
       const results = await page.eval<{ level: number }[]>('window.__gm.results').catch(() => []);
       const errors = await errs();
-      const advisories = await page.eval<string[]>('window.__gm.warnings || []').catch(() => []);
+      const advisories: string[] = await page.eval<string[]>('window.__gm.warnings || []').catch(() => []);
+      if (picked.look) advisories.push(...lookAdvisories(picked.look));
 
       for (const e of errors) problems.push(`Runtime error: ${e}`);
       if (levelReached < 4) problems.push(`A run reached only level ${levelReached} in the time several laps should take. Check that the track loop is sensible and nothing in update() or animate() stalls the game.`);
@@ -251,7 +268,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
       if (!results.length) problems.push('A crash did not end the run with a result. Do not interfere with the runtime; make sure nothing throws in animate().');
       if (cover.length < 14_000) problems.push('The screen is nearly a flat colour while racing. Check that build() adds the ground, the track surface and lights, and that the sky and fog do not swallow everything.');
 
-      return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover, artIcon: art?.icon, artWide: art?.wide };
+      return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover, artIcon: art?.icon, artWide: art?.wide, look: picked.look };
     }, { width: 1280, height: 807, timeoutMs: 90_000 }));
   } catch (e) {
     return { ...empty, ok: false, ran: true, problems: [`The world could not be playtested: ${(e as Error).message}`] };

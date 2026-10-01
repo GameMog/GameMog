@@ -1,5 +1,6 @@
 import { chromePath } from './browser';
 import type { WorldReport } from './playtest-runtime';
+import { lookScore, lookAdvisories, isLook, type Look } from './look';
 
 /**
  * The test drive in the creator's browser (the owner, 30 Sep). A server with no
@@ -40,7 +41,7 @@ function jpeg(v: unknown): Uint8Array | undefined {
 }
 
 /** What the drive measured, judged as the server's own test drive would. */
-export function judge(raw: Record<string, unknown>, images: { cover?: unknown; artIcon?: unknown; artWide?: unknown }): WorldReport {
+export function judge(raw: Record<string, unknown>, images: { cover?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown }): WorldReport {
   if (raw.timedOut) return SKIPPED;
   const errors = strs(raw.errors, 12), advisories = strs(raw.advisories, 12), problems: string[] = [];
   const readyMs = num(raw.readyMs, 0, 600_000);
@@ -54,7 +55,16 @@ export function judge(raw: Record<string, unknown>, images: { cover?: unknown; a
     return { ...SKIPPED, ok: false, ran: true, readyMs, errors, problems };
   }
   const fps = num(raw.fps, 0, 500), levelReached = num(raw.levelReached, 0, 99) ?? 0, results = num(raw.results, 0, 99) ?? 0;
-  const cover = jpeg(images.cover), artIcon = jpeg(images.artIcon), artWide = jpeg(images.artWide);
+  const artIcon = jpeg(images.artIcon), artWide = jpeg(images.artWide);
+  // the cover: the best-looking of the frames the drive measured (lib/look.ts)
+  let cover = jpeg(images.cover), look: Look | undefined, best = -Infinity;
+  const covers = Array.isArray(images.covers) ? images.covers.slice(0, 3) : [], looks = Array.isArray(raw.looks) ? raw.looks : [];
+  covers.forEach((c, i) => {
+    const img = jpeg(c); if (!img) return;
+    const m = isLook(looks[i]) ? looks[i] as Look : undefined, sc = m ? lookScore(m) : -1e9;
+    if (sc > best) { best = sc; cover = img; look = m; }
+  });
+  if (look) advisories.push(...lookAdvisories(look));
   // a hidden tab stops the world's clock, so only what threw counts; a phone is
   // not the laptop the frame-rate rule was written for
   const timed = !raw.hidden, fpsCounts = timed && !raw.mobile;
@@ -66,17 +76,17 @@ export function judge(raw: Record<string, unknown>, images: { cover?: unknown; a
     if (timed && !raw.boss) problems.push('Raising the heat to 3 brought no boss. Check open.crew.boss.');
     if (timed && !results) problems.push('A knockout of the player did not end the run with a result.');
     if (timed && (!cover || cover.length < 14_000)) problems.push('The screen is nearly a flat colour in the open world. Check the map or the ground, the lights and the camera.');
-    return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover, artIcon, artWide, open: { kos, heat: levelReached, boss: !!raw.boss, police: !!raw.police } };
+    return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover, artIcon, artWide, open: { kos, heat: levelReached, boss: !!raw.boss, police: !!raw.police }, look };
   }
   if (timed && levelReached < 4) problems.push(`A run reached only level ${levelReached} in the time several laps should take. Check that the track loop is sensible and nothing in update() or animate() stalls the game.`);
   if (fpsCounts && fps !== null && fps < 30) problems.push(`The world ran at ${fps} fps on a laptop GPU. Instance repeated scenery with ctx.instanced, reduce geometry detail, use at most one shadow-casting light, until it holds 60.`);
   if (timed && !results) problems.push('A crash did not end the run with a result. Do not interfere with the runtime; make sure nothing throws in animate().');
   if (timed && (!cover || cover.length < 14_000)) problems.push('The screen is nearly a flat colour while racing. Check that build() adds the ground, the track surface and lights, and that the sky and fog do not swallow everything.');
-  return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover, artIcon, artWide };
+  return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover, artIcon, artWide, look };
 }
 
 /** The page's report for a draft it was asked to drive. */
-export function submitDrive(draftId: string, token: string, raw: Record<string, unknown>, images: { cover?: unknown; artIcon?: unknown; artWide?: unknown }) {
+export function submitDrive(draftId: string, token: string, raw: Record<string, unknown>, images: { cover?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown }) {
   const p = pending.get(draftId);
   if (!p || p.token !== token) return false;
   p.resolve(judge(raw && typeof raw === 'object' ? raw : {}, images));

@@ -18,15 +18,25 @@ const config: NextConfig = {
       { source: '/:section(g|mog)/mariomog-canyon-gp/:rest*', destination: '/:section/mog-kart-canyon-gp/:rest*', permanent: true },
     ];
   },
+  // Caching (the owner, 1 Oct: faster loads). Render's edge cache keeps static
+  // files near the player and is purged on every deploy; these say for how long.
   async headers() {
-    return [{
-      source: '/assets/:path*',
-      headers: [
-        { key: 'access-control-allow-origin', value: '*' },
-        { key: 'cache-control', value: 'public, max-age=86400' },
-        { key: 'x-content-type-options', value: 'nosniff' },
-      ],
-    }];
+    return [
+      {
+        source: '/assets/:path*',
+        headers: [
+          { key: 'access-control-allow-origin', value: '*' },
+          { key: 'cache-control', value: 'public, max-age=3600, s-maxage=31536000' },
+          { key: 'x-content-type-options', value: 'nosniff' },
+        ],
+      },
+      // asked for by its hash (the runtime adds ?v=): the same bytes forever
+      { source: '/assets/:path*', has: [{ type: 'query', key: 'v' }], headers: [{ key: 'cache-control', value: 'public, max-age=31536000, immutable' }] },
+      // the library itself is always checked, so a new hash is seen at once
+      { source: '/assets/library.json', headers: [{ key: 'cache-control', value: 'public, max-age=0, must-revalidate' }] },
+      // films and pictures: an hour in the browser, at the edge until the next deploy
+      { source: '/media/:path*', headers: [{ key: 'cache-control', value: 'public, max-age=3600, s-maxage=31536000' }] },
+    ];
   },
 };
 

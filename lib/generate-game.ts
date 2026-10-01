@@ -51,6 +51,11 @@ Unless the creator asks for a style (a toy set, a cartoon, low-poly, pixel, pape
 - The runtime's cinematic graphics on (graphics: environment, bloom, grade, shadows; reflections and motion in a world of cars), and physically based materials with honest roughness and metalness, texture and wear.
 - Light with a direction and a time of day, atmosphere and fog, a horizon that belongs to the place, ground that is never a flat colour, and ambient life that moves.
 Build in code only what the library has no kit for (a creature, a landmark, a prop), and then as a modeller would: lathed and lofted forms, real silhouettes, layered materials and detail, not a primitive standing in for the thing. The player's character must stand out from every rival at a glance, and everything alive is animated in motion.
+- Work in this order, as an art team would: authored forms first, then materials, then lighting, then effects. Glow, bloom, fog and darkness never stand in for missing geometry; a primitive with a glow on it is still a primitive.
+- Compose every view in layers: a foreground that frames the action, a midground where it happens, a background and skyline that say where you are. No empty plains or bare boxes the design does not call for.
+- Make roles readable at a glance: the player, enemies or rivals, hazards and rewards each have their own silhouette, colour and material, and every event (a hit, a pickup, a knockout) gets visible feedback.
+- Anything alive that is not a person is a creature (ctx.assets.creature) or modelled as one; never a person in costume.
+- Hold the frame rate on a phone too: under about 150 draw calls and 300k triangles in view (instance and merge repeats with ctx.instanced), at most one shadow-casting light, and the detail spent near the camera.
 
 If the creator names characters from an existing franchise, make your own original take on them (shape, colour, personality) rather than reproducing official artwork, logos or catchphrases. If an image is attached, it is the player's character: match its shape, colours and personality as closely as the kits and your modelling allow.
 
@@ -147,11 +152,12 @@ export async function generateGame(
         max_tokens: 128_000,
         system: SYSTEM,
         messages,
-        // Adaptive thinking, steered by effort. Sonnet 5.5 defaults to high;
-        // on Opus 5.5, high spent all 128k tokens thinking on the first real
-        // world and never wrote a line. Medium, then, with a size target below.
+        // Adaptive thinking, steered by effort: high, Sonnet 5.5's default (the
+        // owner, 1 Oct). On Opus 5.5, high once spent all 128k tokens thinking
+        // and never wrote a line; the size target below and the max_tokens
+        // problem keep a runaway pass from passing silently.
         thinking: { type: 'adaptive' },
-        output_config: { effort: 'medium' },
+        output_config: { effort: 'high' },
         // the system prompt (API and example) is the same for every world, and
         // a repair turn resends the first attempt: cache both
         cache_control: { type: 'ephemeral' },
