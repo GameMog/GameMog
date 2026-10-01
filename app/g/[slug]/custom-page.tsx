@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { SiteHeader, SiteFooter } from '../../header';
 import { Tile } from '../../tile';
 import { topScores, listGames, bestTimes, voteCounts, playerStats, type GameRow } from '@/lib/db';
-import type { GameMeta } from '@/lib/custom-game';
+import { worldControls, type GameMeta } from '@/lib/custom-game';
 import { PlayFrame } from './play-frame';
 import { YouLine } from './you-line';
 import { GameActions } from './actions';
@@ -21,6 +21,9 @@ import { mogsOf, tileStats } from '@/lib/db';
 export function CustomGamePage({ game }: { game: GameRow }) {
   const meta = JSON.parse(game.meta ?? '{}') as Omit<GameMeta, 'scoring'> & { scoring?: GameMeta['scoring'] | 'level' | 'survival' };
   const world = game.format === 'world';
+  // a framework world's controls are the runtime's, read from its code, so a change to them
+  // (the jump, 1 Oct) reaches every published world; a written game keeps the ones it declared
+  const controls = world && game.code ? worldControls(game.code) : meta.controls;
   // an open world ranks the time survived; a race the level reached
   const by = world ? (meta.scoring === 'survival' ? 'survival' : 'level') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
@@ -103,7 +106,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
                     <div><dt>Rivals</dt><dd>{world ? 'One more each lap' : rivals}</dd></div>
                   </dl>
                   <h2 style={{ marginTop: 26, marginBottom: 6 }}>Controls</h2>
-                  <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{meta.controls}</p>
+                  <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{controls}</p>
                   <h2 style={{ marginTop: 26, marginBottom: 8 }}>Media</h2>
                   <div className="gmedia">
                     {hasFilm && <video src={`${filmBase}.mp4`} poster={`${filmBase}.jpg`} controls muted loop playsInline aria-label="Gameplay film" />}

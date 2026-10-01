@@ -30,10 +30,15 @@ creativity: it decides what the world is, who lives in it, and how it looks, mov
   platform's currency and look the same in every world. Do not make coins. A world may lay none
   (`play.coins: false`) and pay a bounty for every lap finished instead (`play.bounty`).
 - **Controls.** The player moves forward on their own. Arrow keys (or WASD): left and right
-  steer, up goes faster, down goes slower. Space pauses. Touch screens get the same controls in
-  every world: a stick wherever the left thumb lands (steer, and push up or down for the pace), and
-  round buttons on the right, the main one biggest and furthest right (SLOW and SPRINT, BRAKE and
-  GAS in a car, SLASH with the sword; an open world has RUN, ROLL and PUNCH).
+  steer, up goes faster, down goes slower, Space jumps, P pauses. Touch screens get the same
+  controls in every world: a stick wherever the left thumb lands (steer, and push up or down for
+  the pace), and round buttons on the right, the main one biggest and furthest right (SLOW,
+  SPRINT and JUMP, BRAKE, GAS and JUMP in a car, SPRINT, JUMP and SLASH with the sword; an open
+  world has RUN, JUMP and PUNCH).
+- **The jump.** The hero (and every rival) jumps anything lower than nine tenths of the hero's
+  height: hurdles, barriers, logs, crates, cones. The runtime sizes the jump to the world's
+  tallest such obstacle, so it always clears with room to spare; anything taller is steered
+  round. Make obstacles that ask to be jumped low, and ones that ask to be dodged tall.
   With the sword on, X (or J or K, or SLASH on touch screens) swings it.
 - **Screens.** No card over the game. Until the player starts, the world races itself (a demo
   run: it steers itself, cannot crash, is silent and is never scored) with nothing over it, so a
@@ -422,6 +427,9 @@ Returns an array of `{ at, x, object, radius?, move?, animate? }`.
   never close a row: always leave a gap wider than the player. The runtime repairs these,
   but a repaired course is a worse course.
 - Obstacles are part of the world: logs in a swamp, crates in a market, snowmen on a slope.
+- Height decides how one is passed: lower than nine tenths of the hero is jumped (Space, JUMP),
+  taller is steered round. A hurdle race lays hurdles; a world can mix low ones to jump and tall
+  ones to dodge.
 
 ### update(ctx, t, dt) (optional)
 Ambient life every frame: water shimmer, swaying reeds, fireflies, drifting clouds, birds.
@@ -495,7 +503,7 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
 When the creator ticks "Open world", the world is not a lap race: ignore the lap rules above
 (track, laps, rivals joining at the line, obstacles, coins along a lap). An open world is a place
 the player roams on foot, seen over the shoulder, and the game is survival: people come for the
-player, the player knocks them out (jab, cross, hook, a roll; in a big fight, the boss close or four or more at once, the camera comes in over the shoulder and the combo runs to five with body shots and uppercuts), their GM spills on the ground, and
+player, the player knocks them out (jab, cross, hook, a jump clear of a blow; in a big fight, the boss close or four or more at once, the camera comes in over the shoulder and the combo runs to five with body shots and uppercuts), their GM spills on the ground, and
 the heat rises with time and knockouts. More come at once, each takes more punches, bikers join
 at heat 2, the police arrive by patrol car from heat 3, and a boss comes at every third level.
 The runtime runs the fight, the people's movement and routes round walls, the crowd, the heat,
@@ -594,7 +602,7 @@ id }, ko }`: a new `action.id` is a new move (a strike, a cast, a hit), `ko` is 
 
 `ranged: { every (s), range (m), speed (m/s), damage, size, color, keep (stay at range, default
 true), melee (also fight up close, default true) }` gives a crew kind a shot: a fireball, a bolt,
-spit or a beam, aimed a little ahead of the player. A roll ducks under it; a wall stops it. The
+spit or a beam, aimed a little ahead of the player. A jump clears a low one; a wall stops it. The
 hero fights hand to hand and with what they find.
 
 Hidden weapons are on unless `weapons: false`: `count` street weapons (bat, pipe, chain, baton,

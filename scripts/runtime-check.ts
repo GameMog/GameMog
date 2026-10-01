@@ -82,9 +82,9 @@ try {
     await page.key('ArrowDown', 'keyDown'); await sleep(1100); const slow = (await st()).speed; await page.key('ArrowDown', 'keyUp');
     ok('up is faster and down is slower', fast > 24 && slow < 16, `up ${fast.toFixed(1)}, down ${slow.toFixed(1)} m/s`);
 
-    await page.key('Space'); await sleep(300);
+    await page.key('KeyP'); await sleep(300);
     const p1 = await st(); await sleep(700); const p2 = await st();
-    ok('Space pauses, and a paused race does not move', p1.paused && p2.d === p1.d, `paused=${p1.paused}`);
+    ok('P pauses (Space jumps now), and a paused race does not move', p1.paused && p2.d === p1.d, `paused=${p1.paused}`);
     await page.key('Space'); await sleep(400);
     ok('Space resumes', !(await st()).paused);
 
@@ -145,6 +145,24 @@ try {
     s = await st();
     ok('a key on the demo also brings up the start screen, and does not start a run', s.state === 'title' && !s.demo && (await page.eval<number>('document.querySelectorAll("#gm .screen").length')) === 1, s.state);
     await page.eval('window.__gmRuntime.debug.start()'); await sleep(3400);
+
+    // the jump (the owner, 1 Oct: the roll retired; hurdles and obstacles cleared, the height uniformly useful)
+    console.log('\nthe jump');
+    type J = { top: number; v: number; H: number; T: number } | null;
+    const jk = await page.eval<{ H: number; T: number; low: number; obstacles: number[] }>('window.__gmRuntime.state().jump');
+    ok('the jump is sized to the world: it clears its tallest jumpable obstacle by a third', jk.obstacles.filter((h) => h <= jk.low).every((h) => jk.H >= h * 1.3), `${jk.H} m apex, ${jk.T} s, jumpable up to ${jk.low} m: ${[...new Set(jk.obstacles)].join('/')}`);
+    // timed so the top of the jump is over it: cleared, the run goes on
+    await sleep(2500);   // at the race's pace, as a jump is taken
+    const lu = await page.eval<J>('(() => { const D = window.__gmRuntime.debug, s = window.__gmRuntime.state(), v = s.speed; const r = D.lineUp(v * ' + jk.T + ' / 2); D.jump(); return r; })()');
+    await sleep(1600); s = await st();
+    ok('Space over a low obstacle clears it, and the run goes on', !!lu && s.alive && s.state === 'race', `${JSON.stringify(lu)} -> ${s.state}`);
+    const peak = await page.eval<number>('(async () => { const D = window.__gmRuntime.debug; D.jump(); let m = 0; for (let i = 0; i < 30; i++) { await new Promise((r) => setTimeout(r, 30)); m = Math.max(m, window.__gmRuntime.state().y); } return m; })()');
+    ok('the jump goes up to its height and comes down', peak > jk.H * 0.85 && peak <= jk.H + 0.05, `peak ${peak.toFixed(2)} of ${jk.H} m`);
+    await sleep(800);
+    // the same obstacle without a jump: the run is over
+    await page.eval('window.__gmRuntime.debug.lineUp(6)'); await sleep(1800); s = await st();
+    ok('without the jump, the same obstacle ends the run', !s.alive, s.state);
+    await sleep(1200); await page.key('Enter'); await sleep(3500);
 
     console.log('\nhow far a bot gets (reported, not asserted)');
     const reached: number[] = [];
@@ -552,6 +570,9 @@ try {
       await page.key('KeyW', 'keyDown'); await sleep(1200); await page.key('KeyW', 'keyUp');
       const p1 = (await os()).player;
       ok('W walks you across the street, the way the camera looks', Math.hypot(p1.x - p0.x, p1.z - p0.z) > 2.5, `${Math.hypot(p1.x - p0.x, p1.z - p0.z).toFixed(1)} m`);
+      // the jump on foot (it replaced the roll): up to three quarters of the hero's height, and down again
+      const jp = await page.eval<{ g: number; top: number; end: number }>('(async () => { const O = window.__gmRuntime.debug.open(), y0 = window.__gmRuntime.state().open.player.y; O.jump(); let m = 0; for (let i = 0; i < 34; i++) { await new Promise((r) => setTimeout(r, 30)); m = Math.max(m, window.__gmRuntime.state().open.player.y - y0); } return { g: y0, top: m, end: window.__gmRuntime.state().open.player.y - y0 }; })()');
+      ok('Space jumps (no roll): up most of a metre and more, and back down', jp.top > 1.0 && jp.top < 1.8 && Math.abs(jp.end) < 0.05, JSON.stringify(jp));
       // they come for you, and they hit
       await page.eval('window.__gmRuntime.debug.open().spawn("thug"); window.__gmRuntime.debug.open().spawn("thug")');
       let hurt = false;

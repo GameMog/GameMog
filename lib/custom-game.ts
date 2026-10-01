@@ -48,17 +48,17 @@ export type GameMeta = z.infer<typeof GameMetaSchema>;
 /** A framework world's metadata. Controls and scoring are the runtime's, not the model's. */
 export const WorldMetaSchema = GameMetaSchema.omit({ controls: true, scoring: true });
 export type WorldMeta = z.infer<typeof WorldMetaSchema>;
-export const WORLD_CONTROLS = 'Arrow keys or WASD: left and right steer, up is faster, down is slower. Space pauses. On-screen buttons on touch screens.';
+export const WORLD_CONTROLS = 'Arrow keys or WASD: left and right steer, up is faster, down is slower. Space: jump (anything lower than you). P: pause. On-screen buttons, and a JUMP button, on touch screens.';
 /** The controls line for a world, with the sword key when the world turns combat on (play.combat). */
 /** An open world (open: {...} in GameMog.world): free roam and survival, ranked by the time survived. */
 export function isOpenWorld(code?: string) { return !!code && /\bopen\s*:\s*\{/.test(code); }
-export const OPEN_CONTROLS = 'W A S D or the arrow keys: move. Shift: run. J, F or a click: punch (jab, cross, hook). Space: roll. Drag: look around. P: pause. On touch screens, a stick and buttons.';
+export const OPEN_CONTROLS = 'W A S D or the arrow keys: move. Shift: run. J, F or a click: punch (jab, cross, hook). Space: jump. Drag: look around. P: pause. On touch screens, a stick and buttons.';
 // a derby (open.vehicle): car combat in an arena
 export const DERBY_CONTROLS = 'W A S D or the arrow keys: drive (S brakes, then reverses). Space: handbrake. Shift: boost. J, F or a held click: the roof guns. Drag: look around. P: pause. On touch screens, a stick to drive and BOOST, BRAKE and FIRE.';
 export function worldControls(code: string) {
   if (isOpenWorld(code)) return /\bvehicle\s*:\s*\{/.test(code) ? DERBY_CONTROLS : OPEN_CONTROLS;
   return /\bplay\s*:\s*\{[\s\S]{0,400}?\bcombat\s*:/.test(code)
-    ? 'Arrow keys or WASD: left and right steer, up is faster, down is slower. X (or J) swings your sword. Space pauses. On-screen buttons, and a sword button, on touch screens.'
+    ? 'Arrow keys or WASD: left and right steer, up is faster, down is slower. X (or J) swings your sword. Space: jump. P: pause. On-screen buttons, a JUMP and a sword button, on touch screens.'
     : WORLD_CONTROLS;
 }
 

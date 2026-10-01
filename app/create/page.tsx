@@ -97,7 +97,7 @@ const RULES = [
   { title: 'Faster every lap', text: 'You, the whole field and the moving obstacles all speed up together.' },
   { title: 'One touch ends it', text: 'Touch a rival or an obstacle and the run is over.' },
   { title: 'Collect the GM', text: 'Golden GM line the track. The leaderboard ranks the lap reached, then GM.' },
-  { title: 'Arrows and Space', text: 'Arrow keys steer and change speed, Space pauses, touch buttons on phones.' },
+  { title: 'Arrows and Space', text: 'Arrow keys steer and change speed, Space jumps anything lower than you, touch buttons on phones.' },
   { title: 'Raced before it publishes', text: 'A bot plays every new world in a real browser before it can go live.' },
 ];
 
@@ -105,11 +105,11 @@ const RULES = [
 const OPEN_RULES = [
   { title: '3D, over the shoulder', text: 'Roam the whole place on foot, the camera over your shoulder. Drag to look around.' },
   { title: 'Survive', text: 'There is no finish and no lap. Your run lasts until you are knocked out.' },
-  { title: 'They come for you', text: 'People come for you and fight. Knock them out with a jab, a cross and a hook; roll out of trouble.' },
+  { title: 'They come for you', text: 'People come for you and fight. Knock them out with a jab, a cross and a hook; jump clear of trouble.' },
   { title: 'The heat rises', text: 'Every minute, and with every few knockouts, more come at once and each takes more punches.' },
   { title: 'Police and bosses', text: 'Bikers join, the police arrive by patrol car, and a named boss comes at every third level.' },
   { title: 'Collect the GM', text: 'Every knockout spills GM on the ground. The leaderboard ranks the time you survived.' },
-  { title: 'WASD and a punch', text: 'WASD or arrows move, Shift runs, J or a click punches, Space rolls; a stick and buttons on phones.' },
+  { title: 'WASD and a punch', text: 'WASD or arrows move, Shift runs, J or a click punches, Space jumps; a stick and buttons on phones.' },
   { title: 'Played before it publishes', text: 'A bot plays every new world in a real browser before it can go live.' },
 ];
 

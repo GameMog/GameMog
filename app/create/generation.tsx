@@ -132,7 +132,7 @@ const TIPS = [
   'Players who have played both games pick the better Mog.',
   'Golden GM coins line the track and are laid again every lap.',
   'The leaderboard ranks the lap you reach, then the GM you collect.',
-  'Arrow keys steer and change speed. Space pauses.',
+  'Arrow keys steer and change speed. Space jumps hurdles and anything lower than you.',
   'Before anything goes live, a test driver races it in a real browser.',
   'Touch a rival or an obstacle and the run is over, so pick your line.',
 ];
