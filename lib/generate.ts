@@ -405,9 +405,9 @@ export async function generateWorld(input: GenerateInput | string): Promise<Gene
         messages: [{ role: 'user', content: userContent(prompt, image, hintFur, note) }],
         // Opus 5.5 always thought; Sonnet 5.5 thinks only when asked
         thinking: { type: 'adaptive' },
-        // high, Sonnet 5.5's default (the owner, 1 Oct); set explicitly so it
+        // medium, for the shorter build (the owner, 1 Oct); set explicitly so it
         // does not drift with the API default
-        output_config: { format: zodOutputFormat(BriefSchema), effort: 'high' },
+        output_config: { format: zodOutputFormat(BriefSchema), effort: 'medium' },
       });
     } catch (e) {
       return { ok: false, attempts, ms: Date.now() - started, error: (e as Error).message };

@@ -140,10 +140,11 @@ const TIPS = [
 /**
  * How far along a pass is (0 to 1) and roughly how many seconds are left,
  * from the stage, how long it has been running and how much has been written.
- * The times are what builds have taken so far: a first pass is usually 10 to
- * 15 minutes, most of it writing a world of about 60,000 characters.
+ * The times are what builds take at medium effort (the owner, 1 Oct): about 6
+ * minutes, a couple of them thinking and a few writing a world of about
+ * 60,000 characters; once writing starts, its own pace takes over.
  */
-const EXPECT = { thinking: 180, writing: 600, checking: 8, playtesting: 70, repairing: 150 };
+const EXPECT = { thinking: 110, writing: 180, checking: 8, playtesting: 70, repairing: 80 };
 const TARGET_CHARS = 60000;
 function ease(x: number) { return 1 - Math.exp(-Math.max(0, x) * 1.6); }
 function passProgress(stage: StageKey, t: number, chars: number): { p: number; left: number } {
@@ -351,7 +352,7 @@ function BuildShow({ gen, mode, subject }: { gen: Generation; mode: Mode; subjec
       </div>
       <div className="bs-meta">
         <b>{Math.round(overall * 100)}%</b>
-        <span>{leftText(left)}{!polishing && tStage < 30 && key === 'thinking' ? (mode === 'mog' ? '  ·  a Mog usually takes 10 to 20 minutes' : '  ·  a world usually takes 10 to 15 minutes') : ''}</span>
+        <span>{leftText(left)}{!polishing && tStage < 30 && key === 'thinking' ? (mode === 'mog' ? '  ·  a Mog usually takes 5 to 10 minutes' : '  ·  a world usually takes 5 to 8 minutes') : ''}</span>
       </div>
       <ol className="bs-steps">
         {steps.map((s, i) => (

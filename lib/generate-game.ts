@@ -152,12 +152,13 @@ export async function generateGame(
         max_tokens: 128_000,
         system: SYSTEM,
         messages,
-        // Adaptive thinking, steered by effort: high, Sonnet 5.5's default (the
-        // owner, 1 Oct). On Opus 5.5, high once spent all 128k tokens thinking
-        // and never wrote a line; the size target below and the max_tokens
-        // problem keep a runaway pass from passing silently.
+        // Adaptive thinking, steered by effort: medium (the owner, 1 Oct: about
+        // 6 minutes a build at medium against 17 at high; "i want the shorter
+        // time"). On Opus 5.5, high once spent all 128k tokens thinking and
+        // never wrote a line; the size target below and the max_tokens problem
+        // keep a runaway pass from passing silently.
         thinking: { type: 'adaptive' },
-        output_config: { effort: 'high' },
+        output_config: { effort: 'medium' },
         // the system prompt (API and example) is the same for every world, and
         // a repair turn resends the first attempt: cache both
         cache_control: { type: 'ephemeral' },
