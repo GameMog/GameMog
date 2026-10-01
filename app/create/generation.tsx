@@ -265,6 +265,11 @@ function TrackArt({ stage, built, t }: { stage: StageKey | 'done'; built: number
 function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string; attempt: number }; onDone: () => void }) {
   const box = useRef<HTMLDivElement>(null), frame = useRef<HTMLIFrameElement>(null);
   const [scale, setScale] = useState(0.5);
+  // A tab in the background draws nothing, so a drive there can never run (1 Oct:
+  // a Mog built in a background tab published with no cover). The drive starts
+  // when this tab is in front; its clock runs only while it is; while it is not,
+  // the page asks the build to keep waiting, and the tab's title says why.
+  const [go, setGo] = useState(() => typeof document === 'undefined' || !document.hidden);
   // the show re-renders every frame; the drive's listener and its time-out must not
   const done = useRef(onDone); done.current = onDone;
   useEffect(() => {
@@ -275,11 +280,12 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
     return () => ro.disconnect();
   }, []);
   useEffect(() => {
-    let sent = false;
+    let sent = false, shown = 0, away = 0;
+    const title = document.title;
+    const post = (payload: Record<string, unknown>) => fetch('/api/generate/drive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draftId: drive.draftId, token: drive.token, ...payload }) });
     const send = (payload: Record<string, unknown>) => {
-      if (sent) return; sent = true;
-      fetch('/api/generate/drive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draftId: drive.draftId, token: drive.token, ...payload }) })
-        .catch(() => {}).finally(() => done.current());
+      if (sent) return; sent = true; document.title = title;
+      post(payload).catch(() => {}).finally(() => done.current());
     };
     const onMsg = (e: MessageEvent) => {
       if (e.source !== frame.current?.contentWindow) return;
@@ -287,14 +293,23 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
       if (d?.gm !== 'drive' || d.type !== 'report') return;
       send({ raw: d.raw, covers: d.covers, artIcon: d.artIcon, artWide: d.artWide });
     };
+    const onVis = () => { if (!document.hidden) { setGo(true); document.title = title; } else if (!sent) document.title = 'Your world is ready to test-drive'; };
     window.addEventListener('message', onMsg);
-    const t = setTimeout(() => send({ raw: { timedOut: true } }), 200_000);
-    return () => { window.removeEventListener('message', onMsg); clearTimeout(t); };
+    document.addEventListener('visibilitychange', onVis);
+    onVis();
+    const tick = setInterval(() => {
+      if (sent) return;
+      if (document.hidden) { if (away++ % 30 === 0) post({ hold: true }).catch(() => {}); return; }
+      if (++shown >= 200) send({ raw: { timedOut: true } });
+    }, 1000);
+    return () => { window.removeEventListener('message', onMsg); document.removeEventListener('visibilitychange', onVis); clearInterval(tick); document.title = title; };
   }, [drive.draftId, drive.token]);
   return (
     <div className="bs-drive" ref={box} style={{ height: 720 * scale }}>
-      <iframe ref={frame} src={`/d/${drive.draftId}/play?drive=1`} sandbox="allow-scripts" title="Test drive"
-        width={1280} height={720} tabIndex={-1} style={{ transform: `scale(${scale})` }} />
+      {go ? (
+        <iframe ref={frame} src={`/d/${drive.draftId}/play?drive=1`} sandbox="allow-scripts" title="Test drive"
+          width={1280} height={720} tabIndex={-1} style={{ transform: `scale(${scale})` }} />
+      ) : <p className="bs-drivewait">Your world is ready for its test drive. It runs as soon as this tab is in front.</p>}
       <span className="bs-drivetag">Live test drive</span>
     </div>
   );

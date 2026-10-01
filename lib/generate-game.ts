@@ -141,6 +141,8 @@ export async function generateGame(
   const draftId = randomUUID();
   let lastProblems: string[] = [];
   let advisedOnce = false;
+  // the latest pictures any pass's test drive took (cover and key art)
+  const shots: { cover?: Uint8Array; artIcon?: Uint8Array; artWide?: Uint8Array } = {};
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     emit({ type: 'stage', stage: attempt === 1 ? 'thinking' : 'repairing', attempt });
@@ -205,7 +207,9 @@ export async function generateGame(
       } else report = await playtestWorld(`${input.origin}/d/${draftId}/play`);
       problems.push(...report.problems);
       const { cover, artIcon, artWide, ...rest } = report;
-      db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ? WHERE id = ?').run(cover ?? null, artIcon ?? null, artWide ?? null, JSON.stringify(rest), draftId);
+      // a pass whose drive took no pictures (skipped) keeps the last pass's: a world never ships without a cover it had
+      if (cover) shots.cover = cover; if (artIcon) shots.artIcon = artIcon; if (artWide) shots.artWide = artWide;
+      db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ? WHERE id = ?').run(shots.cover ?? null, shots.artIcon ?? null, shots.artWide ?? null, JSON.stringify(rest), draftId);
       // the runtime's repairs are not failures, but the model hears about
       // them once, so the world it ships is the one it meant
       if (!problems.length && report.advisories.length && !advisedOnce && attempt < MAX_ATTEMPTS) {

@@ -444,6 +444,7 @@ table.bd td:nth-child(2){font-weight:600}
 .bs-art{display:block;width:100%;height:auto;max-height:260px;margin:14px 0 18px}
 .bs-drive{position:relative;width:100%;margin:14px 0 18px;overflow:hidden;border-radius:var(--r-sm);background:#000}
 .bs-drive iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;pointer-events:none}
+.bs-drivewait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;margin:0;padding:24px;text-align:center;color:rgba(255,255,255,.78);font-size:15px;line-height:1.5}
 .bs-drivetag{position:absolute;left:10px;top:10px;padding:3px 8px;border-radius:var(--r-btn);background:rgba(11,11,15,.72);color:#FFFFFF;font-size:12px;font-weight:700;letter-spacing:.04em}
 .bs-bar{display:flex;gap:4px;height:12px}
 .bs-bar span{flex:1;background:rgba(255,255,255,.12);border-radius:6px;overflow:hidden}

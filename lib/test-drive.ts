@@ -16,19 +16,41 @@ export function drivesInBrowser() {
   return !chromePath() || process.env.GAMEMOG_DRIVE === 'browser';
 }
 
-type Pending = { token: string; resolve: (r: WorldReport) => void };
+type Pending = { token: string; resolve: (r: WorldReport) => void; timer?: ReturnType<typeof setTimeout>; skip: () => void; until: number };
 // one map for the whole process: each route is its own bundle
 const G = globalThis as unknown as { __gmDrives?: Map<string, Pending> };
 const pending = (G.__gmDrives ??= new Map<string, Pending>());
 
 const SKIPPED: WorldReport = { ok: true, ran: false, readyMs: null, fps: null, errors: [], problems: [], advisories: [], levelReached: 0 };
 
-/** Waits for the creator's page to drive the draft; skipped after `ms`. */
+// a creator who has switched tabs is waited for, a minute and a half at a time, never longer than this
+const HOLD_MAX = 15 * 60_000;
+
+/** Waits for the creator's page to drive the draft; skipped after `ms`, unless the page asks to hold. */
 export function waitForDrive(draftId: string, token: string, ms = 240_000): Promise<WorldReport> {
   return new Promise((resolve) => {
-    const timer = setTimeout(() => { pending.delete(draftId); resolve(SKIPPED); }, ms);
-    pending.set(draftId, { token, resolve: (r) => { clearTimeout(timer); pending.delete(draftId); resolve(r); } });
+    const p: Pending = {
+      token, until: Date.now() + HOLD_MAX,
+      skip: () => { pending.delete(draftId); resolve(SKIPPED); },
+      resolve: (r) => { clearTimeout(p.timer); pending.delete(draftId); resolve(r); },
+    };
+    p.timer = setTimeout(p.skip, ms);
+    pending.set(draftId, p);
   });
+}
+
+/**
+ * The creator's page is still open but its tab is in the background, where a
+ * browser stops drawing and the drive cannot run (1 Oct: a Mog built in a
+ * background tab published with no cover). It asks to be waited for; the
+ * drive runs when the tab comes back.
+ */
+export function holdDrive(draftId: string, token: string) {
+  const p = pending.get(draftId);
+  if (!p || p.token !== token) return false;
+  clearTimeout(p.timer);
+  p.timer = setTimeout(p.skip, Math.max(0, Math.min(90_000, p.until - Date.now())));
+  return true;
 }
 
 const num = (v: unknown, lo: number, hi: number) => { const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, Math.round(n))) : null; };

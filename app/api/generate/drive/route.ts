@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { submitDrive } from '@/lib/test-drive';
+import { submitDrive, holdDrive } from '@/lib/test-drive';
 
 export const runtime = 'nodejs';
 
@@ -9,9 +9,11 @@ export const runtime = 'nodejs';
  * page, is accepted; anything else is refused.
  */
 export async function POST(req: Request) {
-  let body: { draftId?: unknown; token?: unknown; raw?: unknown; cover?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown };
+  let body: { draftId?: unknown; token?: unknown; hold?: unknown; raw?: unknown; cover?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'Malformed request.' }, { status: 400 }); }
   if (typeof body.draftId !== 'string' || typeof body.token !== 'string') return NextResponse.json({ error: 'Malformed request.' }, { status: 400 });
+  // the page is waiting for its tab to come back to the front: keep the build waiting for it
+  if (body.hold === true) return holdDrive(body.draftId, body.token) ? NextResponse.json({ ok: true }) : NextResponse.json({ error: 'No test drive is waiting for that.' }, { status: 404 });
   const ok = submitDrive(body.draftId, body.token, (body.raw ?? {}) as Record<string, unknown>, { cover: body.cover, covers: body.covers, artIcon: body.artIcon, artWide: body.artWide });
   return ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: 'No test drive is waiting for that.' }, { status: 404 });
 }

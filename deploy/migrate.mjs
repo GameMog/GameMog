@@ -50,6 +50,17 @@ const MIGRATIONS = [
       return 'published';
     },
   },
+  {
+    // 1 Oct: Lantern Hour (a Mog) was built in a background tab, its test drive never
+    // ran, and it published with no cover; these were shot on the Mac from its own code
+    id: '2026-10-01-lantern-hour-cover',
+    run(db) {
+      const cover = file('lantern-hour-moon-whale-midway-cover.jpg'), icon = file('lantern-hour-moon-whale-midway-icon.jpg'), wide = file('lantern-hour-moon-whale-midway-wide.jpg');
+      if (!cover) return 'files missing';
+      const r = db.prepare("UPDATE games SET cover = ?, art_icon = COALESCE(art_icon, ?), art_wide = COALESCE(art_wide, ?) WHERE slug = 'lantern-hour-moon-whale-midway' AND cover IS NULL").run(cover, icon, wide);
+      return r.changes ? 'cover restored' : 'already has a cover (or no such game)';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
