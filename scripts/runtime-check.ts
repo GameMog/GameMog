@@ -595,7 +595,13 @@ try {
       for (let i = 0; i < 40 && ((w2 = await ow2()).weapon?.hits ?? 0) >= h0; i++) { await page.eval('window.__gmRuntime.debug.open().punch()'); await sleep(260); }
       ok('an armed swing lands and wears the weapon down', (w2.weapon?.hits ?? 0) < h0, `${h0} -> ${w2.weapon?.hits}`);
       // the edges are walls: an alley runs back to one; the sea is yours to the buoys
-      const walk = async (x: number, z: number, yaw: number, ms: number) => { await page.eval(`window.__gmRuntime.debug.open().place(${x}, ${z}, ${yaw}, 0.3)`); await page.key('KeyW', 'keyDown'); await sleep(ms); await page.key('KeyW', 'keyUp'); return (await ow2()).player; };
+      // W held, the page asked where you are as you go: a test that only sleeps while a key is down
+      // saw the world stall about one walk in four (1 Oct, on the old runtime and the new alike)
+      const walk = async (x: number, z: number, yaw: number, ms: number) => {
+        await page.eval(`window.__gmRuntime.debug.open().place(${x}, ${z}, ${yaw}, 0.3)`); await page.key('KeyW', 'keyDown');
+        for (const t0 = Date.now(); Date.now() - t0 < ms;) { await page.eval('window.__gmRuntime.state().open.player.x'); await sleep(200); }
+        await page.key('KeyW', 'keyUp'); return (await ow2()).player;
+      };
       await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.open().clear()');
       const al = await walk(-36, 25.9, Math.PI / 2, 3600);
       ok('an alley runs back to a wall, and the wall stops you', al.x < -49.3 && al.x > -50.2, `stopped at x ${al.x.toFixed(2)}`);
@@ -716,6 +722,41 @@ try {
       ok('a whole derby raises no error', e1.length === 0, e1.join(' | '));
     }, { timeoutMs: 240_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(dwid); }
+
+  // an open world on its own ground registers its colliders while it builds (the API's
+  // word); they reached the open world's collision only after it started (1 Oct)
+  console.log('\nopen worlds on their own ground: colliders registered while building');
+  const swid = randomUUID();
+  insertDraft({ id: swid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../lib/runtime/open-solid-world.js', import.meta.url), 'utf8'),
+    meta: { title: 'Solid Check', tagline: 'Walls', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#9CC0E0', ground: '#A79C88', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' } });
+  try {
+    await withBrowser(async (page) => {
+      type SO = { kos: number; ready: boolean; player: { x: number; z: number }; colliders: { boxes: number; circles: number; early: number } };
+      const so = () => page.eval<SO>('window.__gmRuntime.state().open');
+      await page.goto(`${BASE}/d/${swid}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      const e0 = await page.eval<string[]>('window.__gm.errors'), built = await page.eval<{ open: boolean; heat: number }>('self.__solids');
+      let o = await so();
+      ok('ctx.solid and ctx.open are there while the world builds, and no error', !!built && built.open && built.heat === 1 && e0.length === 0, `${JSON.stringify(built)}${e0.length ? ' ' + e0.join(' | ') : ''}`);
+      ok('a box, a circle and an object registered while building all reach the collision', o.colliders.early === 3 && o.colliders.boxes >= 2 && o.colliders.circles >= 1, JSON.stringify(o.colliders));
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(500);
+      await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.open().clear()');
+      const walk = async (x: number, z: number, cam: number, face: number, ms: number) => { await page.eval(`window.__gmRuntime.debug.open().clear(); window.__gmRuntime.debug.open().place(${x}, ${z}, ${cam}, 0.2, false, ${face})`); await page.key('KeyW', 'keyDown'); await sleep(ms); await page.key('KeyW', 'keyUp'); await sleep(150); return (await so()).player; };
+      const east = await walk(0, 0, -Math.PI / 2, Math.PI / 2, 2600);
+      ok('walking into the wall (a box) stops you at its face', east.x > 5.3 && east.x < 5.8 && Math.abs(east.z) < 0.6, `x ${east.x.toFixed(2)} (face at 6)`);
+      const west = await walk(0, 0, Math.PI / 2, -Math.PI / 2, 2600);
+      ok('walking into the post (a circle) stops you at its edge', west.x < -4.2 && west.x > -4.7, `x ${west.x.toFixed(2)} (edge at -4.8)`);
+      const north = await walk(0, 0, 0, Math.PI, 2600);
+      ok('walking into the crate (an object, measured) stops you at its side', north.z < -5.9 && north.z > -6.4, `z ${north.z.toFixed(2)} (side at -6.5)`);
+      const edge = await walk(12, -10, 0, Math.PI, 5000);
+      ok('the edge of the world still holds', edge.z > -29.9 && edge.z < -29.4, `z ${edge.z.toFixed(2)} (edge at -30)`);
+      await page.eval('window.__gmRuntime.debug.open().clear(); window.__gmRuntime.debug.open().place(12, 0, -Math.PI / 2, 0.2, false, Math.PI / 2); window.__gmRuntime.debug.open().spawn("thug")');
+      for (let i = 0; i < 60 && (o = await so()).kos < 1; i++) { await page.eval('window.__gmRuntime.debug.open().punch()'); await sleep(260); }
+      ok('and a fight still works among them', o.kos >= 1, `${o.kos} knockouts`);
+      const e1 = await page.eval<string[]>('window.__gm.errors');
+      ok('no errors', e1.length === 0, e1.join(' | '));
+    }, { timeoutMs: 120_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(swid); }
 
   // the creator's options (Create and Mog, the owner, 26 Sep): obstacles each
   // lap fewer, the same or more, and music, enforced by the runtime from the
