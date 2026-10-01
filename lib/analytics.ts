@@ -49,7 +49,10 @@ export function buildCost(b: { model: string; attempts: number; ms: number }) {
   if (b.model === 'offline') return 0;
   const r = b.model.includes('+mog') ? RATE.mog : RATE.world;
   const passes = b.attempts > 0 ? b.attempts : Math.min(2, Math.max(1, Math.round(b.ms / 720_000)));
-  return Math.min((b.ms / 60_000) * r.minute, passes * r.pass);
+  // the rates were measured on Opus 5.5; Sonnet 5.5 costs half per token, so a
+  // pass costs half (it also writes faster, so the per-minute rate stands)
+  const price = b.model.startsWith('claude-sonnet') ? 0.5 : 1;
+  return Math.min((b.ms / 60_000) * r.minute, passes * r.pass * price);
 }
 
 /* -------------------------------------------------------------- overview -- */

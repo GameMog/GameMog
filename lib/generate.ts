@@ -9,7 +9,7 @@ import { protectCharacter, type Character, type CharacterImage } from './charact
 import { coerceRig, varyRig, DEFAULT_RIG, TOPPERS, type Rig } from './rig';
 import { debias, tally, type Counts } from './diversity';
 
-export const MODEL = 'claude-opus-5-5';
+export const MODEL = 'claude-sonnet-5-5';
 
 /**
  * The model's output surface — deliberately narrower than a WorldSpec.
@@ -399,12 +399,14 @@ export async function generateWorld(input: GenerateInput | string): Promise<Gene
     try {
       res = await client.messages.parse({
         model: MODEL,
-        // Opus 5.5 always thinks, and thinking counts toward max_tokens
+        // thinking counts toward max_tokens
         max_tokens: 32000,
         system: SYSTEM,
         messages: [{ role: 'user', content: userContent(prompt, image, hintFur, note) }],
-        // a structured brief is well inside medium, the Opus 5.5 default;
-        // set explicitly so it does not drift with the API default
+        // Opus 5.5 always thought; Sonnet 5.5 thinks only when asked
+        thinking: { type: 'adaptive' },
+        // a structured brief is well inside medium (Sonnet 5.5 defaults to
+        // high); set explicitly so it does not drift with the API default
         output_config: { format: zodOutputFormat(BriefSchema), effort: 'medium' },
       });
     } catch (e) {

@@ -92,6 +92,12 @@ const CMU_STREET: CmuCut[] = [
   ['143_23', 'jab', 'once', 0.2, 0.9, { contact: 0.33, fist: true }],   // the lead hand, from the guard and back
   ['143_23', 'cross', 'once', 0.86, 1.6, { contact: 0.30, fist: true }],// the rear hand
   ['15_13', 'hook', 'once', 22.45, 23.2, { contact: 0.34, fist: true }],
+  // more blows for the big fights (the owner, 30 Sep: "more variations in punches"),
+  // found by a scan for a hand rising fast in front to the chin (uppercuts) or
+  // reaching out at the stomach (body shots), each from a guard and back to it
+  ['143_23', 'upperL', 'once', 4.72, 5.22, { contact: 0.16, fist: true }],  // the lead uppercut,
+  ['14_01', 'uppercut', 'once', 6.25, 7.05, { contact: 0.38, fist: true }], // the rear uppercut,
+  ['13_18', 'body', 'once', 11.42, 11.87, { contact: 0.21, fist: true }],  // the lead hand to the body
   ['104_19', 'walk', 'cycle', 1.75, 5.5],                   // a casual walk
   ['91_23', 'walkCool', 'cycle', 4.0, 8.75],               // the street's cool walk
   ['82_09', 'walkHeavy', 'cycle', 6.25, 9.5],              // a big man's confident walk

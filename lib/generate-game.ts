@@ -23,7 +23,8 @@ import { insertDraft, db, type GameRow } from './db';
  * developer would read, and the reference world is its worked example.
  */
 
-export const GAME_MODEL = 'claude-opus-5-5';
+// Sonnet 5.5 (the owner, 30 Sep): half Opus 5.5's price per token, and faster
+export const GAME_MODEL = 'claude-sonnet-5-5';
 export const RUNTIME_VERSION = 1;
 const MAX_ATTEMPTS = 3;
 
@@ -143,10 +144,9 @@ export async function generateGame(
         max_tokens: 128_000,
         system: SYSTEM,
         messages,
-        // Thinking is always on for Opus 5.5; effort is the control. At high,
-        // the first real world spent all 128k tokens thinking and never wrote
-        // a line, and Anthropic's guidance is that Opus 5.5 at medium beats
-        // Opus 5 at high on coding. Medium, then, with a size target below.
+        // Adaptive thinking, steered by effort. Sonnet 5.5 defaults to high;
+        // on Opus 5.5, high spent all 128k tokens thinking on the first real
+        // world and never wrote a line. Medium, then, with a size target below.
         thinking: { type: 'adaptive' },
         output_config: { effort: 'medium' },
         // the system prompt (API and example) is the same for every world, and
