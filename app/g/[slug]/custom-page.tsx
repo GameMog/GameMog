@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { SiteHeader, SiteFooter } from '../../header';
 import { Tile } from '../../tile';
 import { topScores, listGames, bestTimes, voteCounts, playerStats, type GameRow } from '@/lib/db';
-import { worldControls, type GameMeta } from '@/lib/custom-game';
+import { worldControls, worldMode, MODE_PAGE, type GameMeta } from '@/lib/custom-game';
 import { PlayFrame } from './play-frame';
 import { YouLine } from './you-line';
 import { GameActions } from './actions';
@@ -24,8 +24,10 @@ export function CustomGamePage({ game }: { game: GameRow }) {
   // a framework world's controls are the runtime's, read from its code, so a change to them
   // (the jump, 1 Oct) reaches every published world; a written game keeps the ones it declared
   const controls = world && game.code ? worldControls(game.code) : meta.controls;
+  // a lap race, an open world or a derby (1 Oct): read from the code, so an open world's page never talks laps
+  const mode = world ? worldMode(game.code, game.meta) : null, page = mode ? MODE_PAGE[mode] : null;
   // an open world ranks the time survived; a race the level reached
-  const by = world ? (meta.scoring === 'survival' ? 'survival' : 'level') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
+  const by = mode ? (mode === 'race' ? 'level' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
   const best = bestTimes();
   // worlds recommend worlds; Classic races live on /classic
@@ -75,7 +77,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
           <div className="gbar">
             <div className="gtitle">
               <h1>{game.title}</h1>
-              <p className="by">By <b>a GameMog creator</b> <span className="maturity">· {world ? 'Endless laps · GameMog Runtime' : 'Written by GameMog'}</span></p>
+              <p className="by">By <b>a GameMog creator</b> <span className="maturity">· {page ? `${page.label} · GameMog Runtime` : 'Written by GameMog'}</span></p>
               <Lineage game={game} />
               {world && <YouLine slug={game.slug} />}
             </div>
@@ -103,7 +105,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
                     <div><dt>Generation</dt><dd>{game.generation}</dd></div>
                     <div><dt>Created</dt><dd>{created}</dd></div>
                     <div><dt>Genre</dt><dd>{meta.genre}</dd></div>
-                    <div><dt>Rivals</dt><dd>{world ? 'One more each lap' : rivals}</dd></div>
+                    <div><dt>Rivals</dt><dd>{page ? page.rivals : rivals}</dd></div>
                   </dl>
                   <h2 style={{ marginTop: 26, marginBottom: 6 }}>Controls</h2>
                   <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{controls}</p>
@@ -113,15 +115,10 @@ export function CustomGamePage({ game }: { game: GameRow }) {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={`/g/${game.slug}/cover`} alt={`${game.title} key art`} />
                   </div>
-                  {world && (
+                  {page && (
                     <>
                       <h2 style={{ marginTop: 26, marginBottom: 6 }}>How it works</h2>
-                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>
-                        Endless laps. One rival lines up beside you at the start, and every lap another joins at
-                        the line, faster and more aggressive than the last. Every lap everyone runs faster: you,
-                        the whole field and the moving obstacles. Touch a rival or an obstacle and the run is over.
-                        Collect the golden GM on the way. The leaderboard ranks the highest level reached, then GM.
-                      </p>
+                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{page.how}</p>
                     </>
                   )}
                 </div>

@@ -12,6 +12,7 @@ import { listGames, bestTimes, topScores, tileStats, type GameRow, type TileStat
 import { CHARTS, genreOf, sortGames, type ChartSort } from '@/lib/catalog';
 import { Cover } from './cover';
 import type { WorldSpec } from '@/lib/worldspec';
+import { worldMode } from '@/lib/custom-game';
 import { DEFAULT_DESCRIPTION, pageMeta } from './seo';
 
 export const dynamic = 'force-dynamic';
@@ -58,7 +59,7 @@ function filmFor(name: string): Film | null {
 
 /** A world's record for its card: the time survived in an open world, the lap reached in a lap world. */
 function RecordStat({ game }: { game: GameRow }) {
-  const survival = (JSON.parse(game.meta ?? '{}') as { scoring?: string }).scoring === 'survival';
+  const survival = worldMode(game.code, game.meta) !== 'race';
   const record = topScores(game.id, 1, survival ? 'survival' : 'level')[0];
   if (survival) {
     if (!record?.time_ms) return null;

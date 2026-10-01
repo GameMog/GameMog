@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CharacterImage } from './character';
-import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, worldControls, isOpenWorld, type WorldMeta } from './custom-game';
+import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, worldControls, isOpenWorld, worldMode, type WorldMeta } from './custom-game';
 import { playtestWorld, type WorldReport } from './playtest-runtime';
 import { drivesInBrowser, waitForDrive } from './test-drive';
 import { insertDraft, db, type GameRow } from './db';
@@ -14,9 +14,10 @@ import { insertDraft, db, type GameRow } from './db';
  *
  * Roblox's split: the platform owns the engine and the rules, the creator owns
  * the experience. Here the runtime (lib/runtime/v1.js) owns the rules every
- * world plays by (endless laps, a new faster and meaner rival each lap, touch
- * anything and it is over, golden GM, arrow keys and Space, touch controls,
- * HUD, leaderboard), and the model writes only the world module: the track's
+ * world plays by (in a lap world, endless laps, a new faster and meaner rival
+ * each lap, touch anything and it is over; in an open world, crews and heat
+ * until you are knocked out; golden GM, the controls, touch controls, HUD,
+ * leaderboard), and the model writes only the world module: the track's
  * shape, the scenery, every character, the obstacles, ambient life and sound.
  * Unlimited creativity, bounded by rules it cannot break.
  *
@@ -59,7 +60,7 @@ Build in code only what the library has no kit for (a creature, a landmark, a pr
 
 If the creator names characters from an existing franchise, make your own original take on them (shape, colour, personality) rather than reproducing official artwork, logos or catchphrases. If an image is attached, it is the player's character: match its shape, colours and personality as closely as the kits and your modelling allow.
 
-The runtime's rules are fixed: every world is 3D and seen through the runtime's chase camera, endless laps, one rival at the start and one more joining each lap, every lap faster, death by touch, golden GM coins, the controls. If the creator asks for something the rules do not allow (a 2D or top-down game, a final lap, shooting, a different control scheme), build the closest 3D world that fits the rules and put the idea into the world itself.
+The runtime's rules are fixed. Every world is 3D, seen through the runtime's chase camera, with golden GM and the runtime's controls. A lap world (the default) has endless laps, one rival at the start and one more joining each lap, every lap faster, and death by touch. An open world (when the creator's options turn it on) plays by the "Open worlds" section instead: no laps, no track, crews that come as the heat rises, and a run that ends with a knockout. If the creator asks for something the rules do not allow (a 2D or top-down game, a final lap, shooting in a lap world, a different control scheme), build the closest 3D world that fits the rules and put the idea into the world itself.
 
 ${read('lib', 'runtime', 'API.md')}
 
@@ -197,7 +198,7 @@ export async function generateGame(
     if (!problems.length && meta && code) {
       emit({ type: 'stage', stage: 'playtesting', attempt });
       const openWorld = isOpenWorld(code);
-      const stored = { ...meta, controls: openWorld ? worldControls(code) : WORLD_CONTROLS, scoring: openWorld ? 'survival' : 'level', runtime: RUNTIME_VERSION, options: { ...(input.options ?? DEFAULT_OPTIONS), open: openWorld } };
+      const stored = { ...meta, mode: worldMode(code), controls: openWorld ? worldControls(code) : WORLD_CONTROLS, scoring: openWorld ? 'survival' : 'level', runtime: RUNTIME_VERSION, options: { ...(input.options ?? DEFAULT_OPTIONS), open: openWorld } };
       db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
       insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report: { pending: true }, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
       if (drivesInBrowser()) {

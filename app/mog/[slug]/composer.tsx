@@ -34,7 +34,7 @@ export function MogComposer({ slug, title, inherited }: { slug: string; title: s
           {gen.busy ? 'Mog in progress' : 'Mog it'}
         </button>
       </div>
-      <GenerationProgress gen={gen} mode="mog" subject={idea} />
+      <GenerationProgress gen={gen} mode="mog" subject={idea} open={options.open} />
       <DraftResult gen={gen} publishLabel="Publish your Mog" againLabel="Try another take" onAgain={go}
         note={<p className="t-meta dim" style={{ marginBottom: 16 }}>Published, it is listed as a Mog of {title}, and anyone who has played both can pick the better one.</p>} />
     </>

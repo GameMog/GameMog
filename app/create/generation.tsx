@@ -125,6 +125,31 @@ const STAGES: Record<StageKey, { title: string; mogTitle: string; lines: string[
   },
 };
 
+/** An open world's build, in its own words: no track, no laps (1 Oct). */
+const OPEN_LINES: Partial<Record<StageKey, { lines: string[]; mogLines: string[] }>> = {
+  thinking: {
+    lines: ['Picking the place, the light and the weather', 'Casting your hero and the crews', 'Deciding what you can pick up and fight with', 'Sketching the streets and the open ground', 'Choosing the sounds of the place'],
+    mogLines: ['Taking the original apart, piece by piece', 'Working your idea in', 'Keeping what makes it fun to play', 'Deciding what changes and what stays'],
+  },
+  writing: {
+    lines: ['Raising the place', 'Laying the ground and the streets', 'Dressing the crews', 'Writing the intro and the story', 'Lighting the sky', 'Tuning the sound'],
+    mogLines: ['Rebuilding the place your way', 'Swapping in the new scenery', 'Restyling the crews', 'Relighting the world'],
+  },
+  playtesting: {
+    lines: ['A test player is playing it in a real browser', 'The crews are coming, and the heat is rising', 'Checking it runs smoothly', 'Getting knocked out on purpose, to be sure it ends the run'],
+    mogLines: ['A test player is playing your Mog in a real browser', 'The crews are coming, and the heat is rising', 'Checking it runs smoothly', 'Getting knocked out on purpose, to be sure it ends the run'],
+  },
+};
+const OPEN_TIPS = [
+  'The heat rises with time and with every few knockouts, and a boss comes at every third heat.',
+  'Once your world is live, anyone can Mog it with a better version.',
+  'Players who have played both games pick the better Mog.',
+  'Knockouts drop golden GM. Walk over it to collect it.',
+  'The leaderboard ranks the time survived, then the GM you collect.',
+  'W A S D moves, Shift runs, J or a click punches, and Space jumps.',
+  'Before anything goes live, a test player plays it in a real browser.',
+];
+
 /** Things worth knowing while you wait. */
 const TIPS = [
   'Every lap, a new rival joins, a little faster and meaner than the last.',
@@ -319,7 +344,7 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
  * The show while a world or a Mog is built: what it is, where it has got to,
  * how long is left, and a track drawing itself as it happens.
  */
-function BuildShow({ gen, mode, subject }: { gen: Generation; mode: Mode; subject?: string }) {
+function BuildShow({ gen, mode, subject, open }: { gen: Generation; mode: Mode; subject?: string; open?: boolean }) {
   const { stage, rounds, now, startedAt } = gen;
   const key = (stage?.stage ?? 'thinking') as StageKey;
   const attempt = stage?.attempt ?? 1;
@@ -336,10 +361,10 @@ function BuildShow({ gen, mode, subject }: { gen: Generation; mode: Mode; subjec
   const overall = polishing ? ((attempt - 1) + p) / segments : p;
   // how much of the track is drawn: none while dreaming, the written share while building, all of it after
   const built = key === 'thinking' ? 0 : key === 'writing' ? Math.min(1, (stage?.chars ?? 0) / TARGET_CHARS) : 1;
-  const info = STAGES[key];
-  const lines = mode === 'mog' ? info.mogLines : info.lines;
+  const info = STAGES[key], own = open ? OPEN_LINES[key] : undefined;
+  const lines = mode === 'mog' ? (own ?? info).mogLines : (own ?? info).lines;
   const line = lines[Math.floor(t / 7) % lines.length];
-  const tip = TIPS[Math.floor(t / 11) % TIPS.length];
+  const tips = open ? OPEN_TIPS : TIPS, tip = tips[Math.floor(t / 11) % tips.length];
   const fixes = [...new Set(rounds.flatMap((r) => r.problems.map(friendlyFix)))];
   const steps: { key: StageKey | 'polish'; label: string }[] = [
     { key: 'thinking', label: mode === 'mog' ? 'Study' : 'Imagine' }, { key: 'writing', label: 'Build' },
@@ -395,14 +420,14 @@ function BuildShow({ gen, mode, subject }: { gen: Generation; mode: Mode; subjec
   );
 }
 
-export function GenerationProgress({ gen, mode = 'create', subject }: { gen: Generation; mode?: Mode; subject?: string }) {
+export function GenerationProgress({ gen, mode = 'create', subject, open }: { gen: Generation; mode?: Mode; subject?: string; open?: boolean }) {
   const { busy, error, rounds } = gen;
   const ref = useRef<HTMLDivElement>(null);
   // the show comes into view as the build starts
   useEffect(() => { if (busy) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [busy]);
   return (
     <div ref={ref} style={{ scrollMarginTop: 96 }}>
-      {busy && <BuildShow gen={gen} mode={mode} subject={subject} />}
+      {busy && <BuildShow gen={gen} mode={mode} subject={subject} open={open} />}
       {!busy && error && (
         <div className="bs-error" role="alert">
           <b>{mode === 'mog' ? 'Your Mog didn\'t finish' : 'Your world didn\'t finish'}</b>

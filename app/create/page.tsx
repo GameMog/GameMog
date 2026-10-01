@@ -304,7 +304,7 @@ export default function Create() {
           </aside>
         </div>
 
-        <GenerationProgress gen={gen} mode="create" subject={prompt} />
+        <GenerationProgress gen={gen} mode="create" subject={prompt} open={options.open} />
 
         {report && report.findings.length > 0 && (
           <div className="panel" style={{ marginBottom: 16 }}>

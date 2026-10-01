@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getGameBySlug, insertScore, db } from '@/lib/db';
 import { playtest } from '@/lib/playtest';
 import type { WorldSpec } from '@/lib/worldspec';
+import { worldMode } from '@/lib/custom-game';
 
 export const runtime = 'nodejs';
 
@@ -13,8 +14,8 @@ export const runtime = 'nodejs';
  */
 export async function POST(req: Request) {
   const b = (await req.json()) as Record<string, unknown>;
-  const row = db.prepare('SELECT id, slug, spec, format, meta FROM games WHERE id = ?').get(String(b.gameId ?? '')) as
-    | { id: string; slug: string; spec: string; format: string; meta: string | null }
+  const row = db.prepare('SELECT id, slug, spec, format, meta, code FROM games WHERE id = ?').get(String(b.gameId ?? '')) as
+    | { id: string; slug: string; spec: string; format: string; meta: string | null; code: string | null }
     | undefined;
   if (!row) return NextResponse.json({ error: 'Unknown game' }, { status: 404 });
   void getGameBySlug;
@@ -28,8 +29,7 @@ export async function POST(req: Request) {
     // an open world ranks the time survived: the heat reached rises with time
     // (at most a level every few seconds, even knocking people out) and GM comes
     // a few coins a knockout
-    let survival = false;
-    try { survival = (JSON.parse(row.meta ?? '{}') as { scoring?: string }).scoring === 'survival'; } catch {}
+    const survival = worldMode(row.code, row.meta) !== 'race';
     if (survival) {
       const secs = timeMs / 1000;
       // (a world with a goal pays big: Zombie Beach's 10,000 GM vaccine; no run makes more than 60 GM a second)

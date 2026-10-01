@@ -55,8 +55,42 @@ export function isOpenWorld(code?: string) { return !!code && /\bopen\s*:\s*\{/.
 export const OPEN_CONTROLS = 'W A S D or the arrow keys: move. Shift: run. J, F or a click: punch (jab, cross, hook). Space: jump. Drag: look around. P: pause. On touch screens, a stick and buttons.';
 // a derby (open.vehicle): car combat in an arena
 export const DERBY_CONTROLS = 'W A S D or the arrow keys: drive (S brakes, then reverses). Space: handbrake. Shift: boost. J, F or a held click: the roof guns. Drag: look around. P: pause. On touch screens, a stick to drive and BOOST, BRAKE and FIRE.';
+/**
+ * What kind of world a game is (1 Oct): a lap race, an open world you survive in, or a
+ * derby (cars in an arena). The runtime decides it from the code, so the code is the
+ * truth; meta.mode records it when a world is stored, and a game stored before that
+ * is read from what it did store (scoring 'survival', options.open).
+ */
+export const WORLD_MODES = ['race', 'survival', 'derby'] as const;
+export type WorldMode = (typeof WORLD_MODES)[number];
+export function worldMode(code?: string | null, meta?: string | null | Record<string, unknown>): WorldMode {
+  if (code) return isOpenWorld(code) ? (/\bvehicle\s*:\s*\{/.test(code) ? 'derby' : 'survival') : 'race';
+  let m: { mode?: unknown; scoring?: unknown; options?: { open?: unknown } } = {};
+  try { m = (typeof meta === 'string' ? JSON.parse(meta) : meta) ?? {}; } catch { /* a race */ }
+  if (WORLD_MODES.includes(m.mode as WorldMode)) return m.mode as WorldMode;
+  return m.scoring === 'survival' || m.options?.open === true ? 'survival' : 'race';
+}
+/** How each kind of world reads on its page: what it is, who comes for you, and how it plays. */
+export const MODE_PAGE: Record<WorldMode, { label: string; rivals: string; how: string }> = {
+  race: {
+    label: 'Endless laps',
+    rivals: 'One more each lap',
+    how: 'Endless laps. One rival lines up beside you at the start, and every lap another joins at the line, faster and more aggressive than the last. Every lap everyone runs faster: you, the whole field and the moving obstacles. Touch a rival or an obstacle and the run is over. Collect the golden GM on the way. The leaderboard ranks the highest level reached, then GM.',
+  },
+  survival: {
+    label: 'Open world',
+    rivals: 'More as the heat rises',
+    how: 'An open world to roam. Crews come for you, more of them and tougher as the heat rises: it climbs with time and with every few knockouts, and a boss arrives at every third heat. Fight them off and collect the GM they drop. Get knocked out and the run is over. The leaderboard ranks the time survived, then GM.',
+  },
+  derby: {
+    label: 'Car combat arena',
+    rivals: 'More cars as the heat rises',
+    how: 'A car combat arena. Ram rivals, spin them out and open up with the roof guns; every spin and every wreck pays GM, and more cars come as the heat rises. Get your car wrecked and the run is over. The leaderboard ranks the time survived, then GM.',
+  },
+};
 export function worldControls(code: string) {
-  if (isOpenWorld(code)) return /\bvehicle\s*:\s*\{/.test(code) ? DERBY_CONTROLS : OPEN_CONTROLS;
+  const mode = worldMode(code);
+  if (mode !== 'race') return mode === 'derby' ? DERBY_CONTROLS : OPEN_CONTROLS;
   return /\bplay\s*:\s*\{[\s\S]{0,400}?\bcombat\s*:/.test(code)
     ? 'Arrow keys or WASD: left and right steer, up is faster, down is slower. X (or J) swings your sword. Space: jump. P: pause. On-screen buttons, a JUMP and a sword button, on touch screens.'
     : WORLD_CONTROLS;
