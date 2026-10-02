@@ -420,6 +420,11 @@ SQLite via Node's built-in `node:sqlite`: no native module, no build step, one f
 (finished runs per player), `mog_picks`, and `generations` (prompt, model, attempts, findings,
 latency) so generation quality can actually be measured rather than guessed at.
 
+## License
+
+GameMog is open source under the [MIT licence](LICENSE). The code and assets of others that it
+uses keep their own licences, listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
 ## What is not built yet
 
 Named honestly, because an MVP that pretends to be complete is worse than one that doesn't:
