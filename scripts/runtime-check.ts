@@ -595,15 +595,11 @@ try {
       for (let i = 0; i < 40 && ((w2 = await ow2()).weapon?.hits ?? 0) >= h0; i++) { await page.eval('window.__gmRuntime.debug.open().punch()'); await sleep(260); }
       ok('an armed swing lands and wears the weapon down', (w2.weapon?.hits ?? 0) < h0, `${h0} -> ${w2.weapon?.hits}`);
       // the edges are walls: an alley runs back to one; the sea is yours to the buoys
-      // W held, the page asked where you are as you go: a test that only sleeps while a key is down
-      // saw the world stall about one walk in four (1 Oct, on the old runtime and the new alike)
-      const walk = async (x: number, z: number, yaw: number, ms: number) => {
-        await page.eval(`window.__gmRuntime.debug.open().place(${x}, ${z}, ${yaw}, 0.3)`); await page.key('KeyW', 'keyDown');
-        for (const t0 = Date.now(); Date.now() - t0 < ms;) { await page.eval('window.__gmRuntime.state().open.player.x'); await sleep(200); }
-        await page.key('KeyW', 'keyUp'); return (await ow2()).player;
-      };
+      const walk = async (x: number, z: number, yaw: number, ms: number) => { await page.eval(`window.__gmRuntime.debug.open().place(${x}, ${z}, ${yaw}, 0.3)`); await page.key('KeyW', 'keyDown'); await sleep(ms); await page.key('KeyW', 'keyUp'); return (await ow2()).player; };
       await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.open().clear()');
       const al = await walk(-36, 25.9, Math.PI / 2, 3600);
+      // (it failed about one run in three: after the big fight the camera kept turning to where the fight had been,
+      // and W follows the camera, so the walk turned back; 2 Oct, the camera lets a finished fight go)
       ok('an alley runs back to a wall, and the wall stops you', al.x < -49.3 && al.x > -50.2, `stopped at x ${al.x.toFixed(2)}`);
       await page.eval('window.__gmRuntime.debug.open().clear()');
       const sea = await walk(97, 150, -Math.PI / 2, 4200);
