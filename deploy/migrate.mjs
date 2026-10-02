@@ -61,6 +61,27 @@ const MIGRATIONS = [
       return r.changes ? 'cover restored' : 'already has a cover (or no such game)';
     },
   },
+  {
+    // the owner, 1 Oct: MogDune, an official open world in Dune's deep desert (the owner chose
+    // Dune's names); no GM. Published on the Mac by `npm run publish:world -- mogdune`, which
+    // playtested it; the key art is its opening's eclipse shot, shot on the Mac from its own code
+    id: '2026-10-02-mogdune',
+    run(db) {
+      const code = file('mogdune.js'), meta = file('mogdune.meta.json');
+      if (!code || !meta) return 'files missing';
+      const m = JSON.parse(meta.toString('utf8')), cover = file('mogdune-cover.jpg'), icon = file('mogdune-icon.jpg'), wide = file('mogdune-wide.jpg');
+      const g = db.prepare("SELECT id FROM games WHERE slug = 'mogdune'").get();
+      if (g) {
+        db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = ?, cover = ?, art_icon = ?, art_wide = ?, format = ? WHERE id = ?')
+          .run(m.title, m.tagline, m.blurb, code.toString('utf8'), JSON.stringify(m.meta), cover, icon, wide, 'world', g.id);
+        return 'updated';
+      }
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+        VALUES (?, 'mogdune', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
+        .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: mogdune', Date.now(), code.toString('utf8'), JSON.stringify(m.meta), cover, icon, wide);
+      return 'published';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

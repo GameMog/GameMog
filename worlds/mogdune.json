@@ -1,0 +1,14 @@
+{
+  "title": "MogDune",
+  "tagline": "The deep desert of Arrakis, under a long eclipse. Walk it with a staff.",
+  "blurb": "Muse is a felt wanderer in a stillsuit and a tattered cloak, and his staff is his sword. Explore the dunes of Arrakis past a sietch, the wreck of a spice harvester, a downed ornithopter and the bones of an old worm. The Harkonnen hunt him first, then the sandtrout and stalkers that live under the sand, then the Emperor's Sardaukar with their lasguns, and at every third heat Shai-Hulud rises out of the dune. No GM, no finish line: the desert only gets harder. How long can you last?",
+  "genre": "Open World",
+  "cast": [
+    { "name": "Muse", "color": "#E8C89A", "role": "player" },
+    { "name": "Harkonnen troopers", "color": "#141416", "role": "rival" },
+    { "name": "Sandtrout and stalkers", "color": "#B88A5C", "role": "rival" },
+    { "name": "Sardaukar", "color": "#3C3C3E", "role": "rival" },
+    { "name": "Shai-Hulud", "color": "#7C5636", "role": "rival" }
+  ],
+  "palette": { "sky": "#CF6A30", "ground": "#C8844E", "accent": "#FFB04A" }
+}
