@@ -80,6 +80,8 @@ function open() {
   add('scores', 'score', 'score INTEGER');
   add('scores', 'level', 'level INTEGER');
   add('scores', 'gm', 'gm INTEGER');
+  // an open world's takedowns (1 Oct): what a world with no GM ranks after the time
+  add('scores', 'kos', 'kos INTEGER');
   db.exec(`
     CREATE TABLE IF NOT EXISTS drafts (
       id          TEXT PRIMARY KEY,
@@ -187,6 +189,7 @@ export type ScoreRow = {
   score: number | null;
   level: number | null;
   gm: number | null;
+  kos: number | null;
   player: string;
   time_ms: number;
   place: number;
@@ -385,7 +388,7 @@ export const bumpPlays = (id: string) =>
 
 /** Best runs. Race worlds and 'time' games rank by time; 'score' by points; 'place' by finish. */
 export function topScores(gameId: string, limit = 10, by: 'time' | 'score' | 'place' | 'level' | 'survival' = 'time') {
-  const order = by === 'survival' ? 'time_ms DESC, gm DESC'
+  const order = by === 'survival' ? 'time_ms DESC, gm DESC, kos DESC'
     : by === 'level' ? 'level DESC, gm DESC, time_ms ASC'
     : by === 'score' ? 'score DESC, time_ms ASC'
     : by === 'place' ? 'CASE WHEN place > 0 THEN place ELSE 99 END ASC, time_ms ASC'
@@ -412,11 +415,12 @@ export function insertScore(s: {
   score?: number | null;
   level?: number | null;
   gm?: number | null;
+  kos?: number | null;
 }) {
   db.prepare(
-    `INSERT INTO scores (game_id, player, time_ms, place, tempo_reached, locks, best_streak, created_at, score, level, gm)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(s.gameId, s.player, s.timeMs, s.place, s.tempoReached, s.locks, s.bestStreak, Date.now(), s.score ?? null, s.level ?? null, s.gm ?? null);
+    `INSERT INTO scores (game_id, player, time_ms, place, tempo_reached, locks, best_streak, created_at, score, level, gm, kos)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(s.gameId, s.player, s.timeMs, s.place, s.tempoReached, s.locks, s.bestStreak, Date.now(), s.score ?? null, s.level ?? null, s.gm ?? null, s.kos ?? null);
 }
 
 /* ----------------------------------------------------------------- votes -- */

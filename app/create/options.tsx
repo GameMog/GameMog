@@ -11,6 +11,7 @@ const Chevron = () => (
  * obstacles each lap, and music (off unless ticked). The runtime enforces
  * them, whatever the world's code says. "Open world" (27 Sep) builds a place
  * to roam and survive in instead of a lap race; the obstacles do not apply.
+ * "No GM" (1 Oct) takes the coins and the goal out of an open world.
  */
 /** `lockOpen`: a Mog keeps its original's kind, an open world or a race (the owner, 1 Oct: no "Open world" box on a Mog). */
 export function WorldOptionsFields({ value, onChange, disabled, lockOpen }: { value: WorldOptions; onChange: (o: WorldOptions) => void; disabled?: boolean; lockOpen?: boolean }) {
@@ -29,6 +30,12 @@ export function WorldOptionsFields({ value, onChange, disabled, lockOpen }: { va
         <label className="ccheck">
           <input type="checkbox" checked={!!value.open} disabled={disabled} onChange={(e) => onChange({ ...value, open: e.target.checked })} />
           <span>Open world</span>
+        </label>
+      )}
+      {value.open && (
+        <label className="ccheck">
+          <input type="checkbox" checked={!value.coins} disabled={disabled} onChange={(e) => onChange({ ...value, coins: !e.target.checked })} />
+          <span>No GM</span>
         </label>
       )}
       <label className="ccheck">

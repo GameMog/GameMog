@@ -623,6 +623,25 @@ true), melee (also fight up close, default true) }` gives a crew kind a shot: a 
 spit or a beam, aimed a little ahead of the player. A jump clears a low one; a wall stops it. The
 hero fights hand to hand and with what they find.
 
+**Ground, GM, the hero's weapon and the hero's body** (all optional):
+
+- `ground: function (x, z) { return height; }`: without a map, the walkable ground's height in
+  metres (dunes, hills, a crater). Everyone walks on it and the camera stays above it. It runs
+  for every person every frame, so keep it a cheap sum of curves, and build the ground mesh from
+  the same function so the feet meet it.
+- `coins: false`: no GM at all (also the creator's "No GM" option): no coins, no goal, no outro,
+  no `hud.gm`. The run is survival and the board ranks the time survived, then the takedowns.
+- `hero: { weapon: 'staff' }`: the hero's own weapon, always in hand and never worn out, swung
+  in its three blows (`staff`: the longest reach, the third blow a sweep; also `sword`, `knife`,
+  `bat`, `pipe`, `baton`, `chain`). Pair it with `weapons: false` when nothing else fits the world.
+  The crew may carry `staff` and `knife` (a long curved knife) too.
+- `words: { kos: 'Takedowns', kod: 'taken down', down: 'Fallen', by: ' brought you down.', won:
+  'The desert won.' }`: the HUD's and the end screen's words, in the world's voice.
+- A hero who is not a person (a plush, a robot, an animal): `player()` may return its own `{
+  object, animate(t, dt, s), height, radius, timing }`, animated from the same state as a crew
+  body (`s.speed`, `s.brawl.stance`, `s.brawl.action`, `s.brawl.ko`, and `s.air` while jumping);
+  its moves are timed like a creature's.
+
 Hidden weapons are on unless `weapons: false`: `count` street weapons (bat, pipe, chain, baton,
 or a rare katana, `sword`, weighted by `kinds`) lie in the map's hiding places (in alleys, on
 bins, by the lifeguard towers, against fences) and glint now and then. Walking over one takes it,

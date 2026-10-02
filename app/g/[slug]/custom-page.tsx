@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { SiteHeader, SiteFooter } from '../../header';
 import { Tile } from '../../tile';
 import { topScores, listGames, bestTimes, voteCounts, playerStats, type GameRow } from '@/lib/db';
-import { worldControls, worldMode, MODE_PAGE, type GameMeta } from '@/lib/custom-game';
+import { worldControls, worldMode, MODE_PAGE, NO_GM_HOW, type GameMeta } from '@/lib/custom-game';
+import { optionsOf } from '@/lib/world-options';
 import { PlayFrame } from './play-frame';
 import { YouLine } from './you-line';
 import { GameActions } from './actions';
@@ -26,6 +27,8 @@ export function CustomGamePage({ game }: { game: GameRow }) {
   const controls = world && game.code ? worldControls(game.code) : meta.controls;
   // a lap race, an open world or a derby (1 Oct): read from the code, so an open world's page never talks laps
   const mode = world ? worldMode(game.code, game.meta) : null, page = mode ? MODE_PAGE[mode] : null;
+  // an open world with no GM ranks the takedowns after the time
+  const noGm = mode === 'survival' && !optionsOf(game).coins;
   // an open world ranks the time survived; a race the level reached
   const by = mode ? (mode === 'race' ? 'level' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
@@ -46,12 +49,12 @@ export function CustomGamePage({ game }: { game: GameRow }) {
     : by === 'level' ? `Level ${s.level ?? 0}` : by === 'score' ? `${(s.score ?? 0).toLocaleString()} pts` : by === 'place' ? `${s.place || '-'}` : `${(s.time_ms / 1000).toFixed(2)}s`;
   const leaderboard = scores.length ? (
     <table className="bd">
-      <thead><tr><th /><th>Player</th><th>{by === 'survival' ? 'Survived' : by === 'level' ? 'Level' : by === 'score' ? 'Score' : by === 'place' ? 'Place' : 'Time'}</th>{(by === 'level' || by === 'survival') && <th>GM</th>}<th>{by === 'survival' ? 'Heat' : 'Time'}</th></tr></thead>
+      <thead><tr><th /><th>Player</th><th>{by === 'survival' ? 'Survived' : by === 'level' ? 'Level' : by === 'score' ? 'Score' : by === 'place' ? 'Place' : 'Time'}</th>{(by === 'level' || by === 'survival') && <th>{noGm ? 'Takedowns' : 'GM'}</th>}<th>{by === 'survival' ? 'Heat' : 'Time'}</th></tr></thead>
       <tbody>
         {scores.map((s, i) => (
           <tr key={s.id}>
             <td>{i + 1}</td><td>{s.player}</td><td>{by === 'level' ? s.level : fmt(s)}</td>
-            {(by === 'level' || by === 'survival') && <td>{s.gm ?? 0}</td>}
+            {(by === 'level' || by === 'survival') && <td>{noGm ? s.kos ?? 0 : s.gm ?? 0}</td>}
             <td>{by === 'survival' ? s.level ?? 1 : s.time_ms ? `${(s.time_ms / 1000).toFixed(1)}s` : '-'}</td>
           </tr>
         ))}
@@ -118,7 +121,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
                   {page && (
                     <>
                       <h2 style={{ marginTop: 26, marginBottom: 6 }}>How it works</h2>
-                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{page.how}</p>
+                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{noGm ? NO_GM_HOW : page.how}</p>
                     </>
                   )}
                 </div>

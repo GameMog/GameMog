@@ -88,6 +88,8 @@ export const MODE_PAGE: Record<WorldMode, { label: string; rivals: string; how: 
     how: 'A car combat arena. Ram rivals, spin them out and open up with the roof guns; every spin and every wreck pays GM, and more cars come as the heat rises. Get your car wrecked and the run is over. The leaderboard ranks the time survived, then GM.',
   },
 };
+/** An open world with no GM (the creator's option, or open.coins: false) explains itself without coins. */
+export const NO_GM_HOW = 'An open world to roam, with no GM to chase. Crews come for you, more of them and tougher as the heat rises: it climbs with time and with every few knockouts, and a boss arrives at every third heat. Get knocked out and the run is over. The leaderboard ranks the time survived, then the takedowns.';
 export function worldControls(code: string) {
   const mode = worldMode(code);
   if (mode !== 'race') return mode === 'derby' ? DERBY_CONTROLS : OPEN_CONTROLS;

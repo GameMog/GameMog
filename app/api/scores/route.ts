@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   // The runtime marks a run that used its test autopilot or time controls, and
   // those never reach a leaderboard.
   if (row.format === 'world') {
-    const level = Number(b.level) || 0, gm = Number(b.gm) || 0, timeMs = Number(b.timeMs) || 0;
+    const level = Number(b.level) || 0, gm = Number(b.gm) || 0, timeMs = Number(b.timeMs) || 0, kos = Math.max(0, Math.round(Number(b.kos) || 0));
     if (b.assisted) return NextResponse.json({ error: 'Assisted runs are not ranked.' }, { status: 422 });
     // an open world ranks the time survived: the heat reached rises with time
     // (at most a level every few seconds, even knocking people out) and GM comes
@@ -33,13 +33,13 @@ export async function POST(req: Request) {
     if (survival) {
       const secs = timeMs / 1000;
       // (a world with a goal pays big: Zombie Beach's 10,000 GM vaccine; no run makes more than 60 GM a second)
-      if (!Number.isInteger(level) || level < 1 || level > 2 + secs / 4 || gm < 0 || gm > 60 + secs * 60 || timeMs < 1000 || timeMs > 6 * 60 * 60 * 1000) {
+      if (!Number.isInteger(level) || level < 1 || level > 2 + secs / 4 || gm < 0 || gm > 60 + secs * 60 || kos > 5 + secs || timeMs < 1000 || timeMs > 6 * 60 * 60 * 1000) {
         return NextResponse.json({ error: 'Result outside plausible range' }, { status: 422 });
       }
       insertScore({
         gameId: row.id,
         player: String(b.player ?? 'anon').slice(0, 16).replace(/[^\w \-.]/g, '') || 'anon',
-        timeMs: Math.round(timeMs), place: 0, score: Math.round(timeMs), level, gm,
+        timeMs: Math.round(timeMs), place: 0, score: Math.round(timeMs), level, gm, kos,
         tempoReached: 0, locks: 0, bestStreak: 0,
       });
       return NextResponse.json({ ok: true });
