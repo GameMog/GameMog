@@ -289,6 +289,22 @@
       "license": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "homepage": "https://opengameart.org/content/liquid-flame"
+    },
+    "spiderbench-city": {
+      "title": "Spiderbench city textures",
+      "author": "Shikhar",
+      "license": "LicenseRef-Spiderbench-Permission",
+      "licenseUrl": "https://github.com/GameMog/GameMog/blob/main/lib/runtime/maps/city/LICENSE",
+      "licenseText": "Used with the written permission of its author (2 Oct 2026), for GameMog only and non-commercial use; not under GameMog's MIT licence.",
+      "homepage": "https://github.com/xikhar/spiderbench"
+    },
+    "spiderbench-city-props": {
+      "title": "Spiderbench city props",
+      "author": "Shikhar",
+      "license": "LicenseRef-Spiderbench-Permission",
+      "licenseUrl": "https://github.com/GameMog/GameMog/blob/main/lib/runtime/maps/city/LICENSE",
+      "licenseText": "Used with the written permission of its author (2 Oct 2026), for GameMog only and non-commercial use; not under GameMog's MIT licence.",
+      "homepage": "https://github.com/xikhar/spiderbench"
     }
   },
   "assets": {
@@ -1922,6 +1938,138 @@
         }
       },
       "bytes": 2045814
+    },
+    "city-midtown": {
+      "kind": "city",
+      "title": "City district textures",
+      "description": "Asphalt, sidewalks, curbs, road markings, facades (16 wall layers with their normals and weathering), roofs, building interiors seen through the windows, grass and leaves, and the street furniture and rooftop clutter: what the city map builds its streets and blocks from.",
+      "sources": [
+        "spiderbench-city",
+        "spiderbench-city-props"
+      ],
+      "derived": "Recompressed for the web (colour to WebP, the layer atlases to JPEG, normals to 1024 px). The shop-sign atlas is GameMog’s own, drawn in the original’s layout with invented names.",
+      "meta": {
+        "files": 28
+      },
+      "files": {
+        "asphalt_col.webp": {
+          "sha256": "fc401e17b7be7db708f0f67177f917d3e219027ca13c5349ed1060fe749b2f1f",
+          "bytes": 709404
+        },
+        "asphalt_decals.webp": {
+          "sha256": "bbfb0aa109a9ed2f76909d564d71f7f50cd6aaa73510d988610c4e372ab02d46",
+          "bytes": 158012
+        },
+        "asphalt_macro.webp": {
+          "sha256": "35a09f8d90eca774c98e7ac6d0bffc718db3c0266c12700f143174aee51a59b1",
+          "bytes": 246420
+        },
+        "asphalt_nrm.webp": {
+          "sha256": "cb1301ce634de4cd90d442d7daba86e84fc41ff3a64be8a07ff64bf145dcd8b6",
+          "bytes": 436522
+        },
+        "asset.json": {
+          "sha256": "aaffe7450f3020d8df4228c4b7b347af6c1a442fa54d40f6ae20ffc73c2df827",
+          "bytes": 882
+        },
+        "bark_col.webp": {
+          "sha256": "efcc3134419429039610fa7b31271e6f96e0bec78a2344073d04cb7300141d21",
+          "bytes": 285282
+        },
+        "bark_nrm.webp": {
+          "sha256": "5821b4fa69a2745d494fe689153dcf9174813de517c4e5173b22a4f8f5f59e58",
+          "bytes": 280760
+        },
+        "curb_col.webp": {
+          "sha256": "3587bd6842bb19631bddae83aa980fcda807765e9f13fd79c76aff010e5716a9",
+          "bytes": 139238
+        },
+        "detail_nrm.webp": {
+          "sha256": "a522166e5946514cd4849d46bbb9e88141cefdffc1e8089b10591b34a0ccaba1",
+          "bytes": 134712
+        },
+        "grass_col.webp": {
+          "sha256": "a2ea02665fc4c60928116620ac0c3829e46e014c51600fe78a94945b3e406868",
+          "bytes": 255890
+        },
+        "grass_nrm.webp": {
+          "sha256": "f8ed9439b30205e11e78adb7ba9356069dd86f8702546c911eb8fd5798b0c111",
+          "bytes": 492078
+        },
+        "interiors.webp": {
+          "sha256": "1c85ea5685a4006c73cb16e7cc64208d03b0cf3d86c35fc91550b5045bd90af5",
+          "bytes": 332576
+        },
+        "leaves.webp": {
+          "sha256": "371ae99e9a0e4d326ff11b69b249aba2fbff4972e72a8d1184c7612e70294d12",
+          "bytes": 161086
+        },
+        "markings.json": {
+          "sha256": "87a1758f51aaecf758880612f025637749f964442bb4581c6f45a510e5feb067",
+          "bytes": 636
+        },
+        "markings.webp": {
+          "sha256": "cf0ed280fbbca04c6492e86f269fe05e7346a1d04dcfa425364170c1052aa3df",
+          "bytes": 342128
+        },
+        "noise.webp": {
+          "sha256": "0b95a652ba1720b24fa8e3cdb8a57c4d98aeed793dac9f3e97acf54200e204f5",
+          "bytes": 717202
+        },
+        "props.glb": {
+          "sha256": "f580cbc4f006838d89ae5f0569f69cf55b952f2ee7f0cc612e722eb57991b1f2",
+          "bytes": 818648
+        },
+        "roof_col.jpg": {
+          "sha256": "6ec0d0077e9f14086a15fb8f03f73f2028048e992a13181c25dade87f2b2da21",
+          "bytes": 696591
+        },
+        "roof_nrm.webp": {
+          "sha256": "672b319443143a4b4d235b38731692a703b63c5ed23c4a3e7fddc56b058ad9ae",
+          "bytes": 338940
+        },
+        "roofplants.webp": {
+          "sha256": "822f16ccd3fb74d5869b5840ce205daff07295aef79750d44cfe6c5ef593e227",
+          "bytes": 404838
+        },
+        "sidewalk_col.webp": {
+          "sha256": "986a0d00fa314aa52e68e44cde9934daba21ce3e9c3fdb0fc9045e889154cbf4",
+          "bytes": 265534
+        },
+        "sidewalk_nrm.webp": {
+          "sha256": "07b14a70da94cefb8271f637e488c0b2970d9fc4df9c6fb8c851866ed31b47e1",
+          "bytes": 326228
+        },
+        "signs.webp": {
+          "sha256": "9665dfa817bd7a5bd6403c80d633ea82e728918e69207d97cb5fa97ab3324acb",
+          "bytes": 90904
+        },
+        "tree_leaves_col.webp": {
+          "sha256": "61fece05b913efda7f493178415d4a53a637b8b0a0664beaf029b7a77d919cfa",
+          "bytes": 123994
+        },
+        "tree_leaves_nrm.webp": {
+          "sha256": "0d14a331af8153545c47458bb928e2ae51045ef339762e4c9923b8fa8ebb2752",
+          "bytes": 131416
+        },
+        "walls_col.jpg": {
+          "sha256": "5e8539144803e4dbd6fa67e9f3336df6dadf705d4b959e4ec6af8d7d29eabf8a",
+          "bytes": 1761462
+        },
+        "walls_hao.jpg": {
+          "sha256": "88769a0e1d9861026dc3c2c061106c48b467bbdeb1ee9225399c1bf838c6f1a2",
+          "bytes": 1700261
+        },
+        "walls_nrm.webp": {
+          "sha256": "f9e2d9ebfa781b95cac6c4375691d51bfc6376c01c1f2d0b876d7f96487d47d0",
+          "bytes": 1535158
+        },
+        "water_nrm.webp": {
+          "sha256": "45c9568578a9a109e39cc3b7ff2d5f358d0c78b7bc35d37afe6551aeb161620b",
+          "bytes": 147704
+        }
+      },
+      "bytes": 13034506
     }
   }
 }

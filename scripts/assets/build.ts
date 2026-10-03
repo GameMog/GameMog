@@ -197,6 +197,55 @@ if (want('music-dance-field')) {
   console.log(`${id}: ${m.bpm} BPM, loop ${m.loop.start.toFixed(2)}-${m.loop.end.toFixed(2)} s (${m.loop.bars} bars), ${m.lufs} LUFS`);
 }
 
+/* ---------------- the city map's textures (lib/runtime/maps/city), from Spiderbench ---------------- */
+// Recompressed for the web (57 MB of PNGs to a fraction): colour maps to WebP, the tall layer atlases to
+// JPEG (WebP stops at 16383 px), normals at 1024 px, the noise lossless. The shop-sign atlas is GameMog's
+// own, drawn here in the original's layout with invented names (the original carried real brands).
+if (want('city-midtown')) {
+  const sharp = (await import('sharp')).default;
+  const id = 'city-midtown', dir = join(OUT, id), src = 'assets-src/cache/spiderbench-city/';
+  mkdirSync(dir, { recursive: true });
+  const files: Record<string, string> = {};
+  const webp = async (name: string, from: string, o: { width?: number; q?: number; lossless?: boolean } = {}) => {
+    let im = sharp(src + from); if (o.width) im = im.resize({ width: o.width });
+    await im.webp({ quality: o.q ?? 82, lossless: !!o.lossless, alphaQuality: 90, effort: 6 }).toFile(join(dir, name + '.webp')); files[name] = name + '.webp';
+  };
+  const jpeg = async (name: string, from: string, o: { width?: number; q?: number } = {}) => {
+    let im = sharp(src + from); if (o.width) im = im.resize({ width: o.width });
+    await im.jpeg({ quality: o.q ?? 82, mozjpeg: true }).toFile(join(dir, name + '.jpg')); files[name] = name + '.jpg';
+  };
+  await webp('asphalt_col', 'asphalt_col.png', { q: 80 }); await webp('asphalt_nrm', 'asphalt_nrm.png', { width: 1024, q: 88 });
+  await webp('asphalt_macro', 'asphalt_macro.png', { q: 85 });
+  await webp('sidewalk_col', 'sidewalk_col.png', { q: 80 }); await webp('sidewalk_nrm', 'sidewalk_nrm.png', { q: 88 });
+  await jpeg('walls_col', 'walls_col.jpg', { width: 768, q: 82 }); await webp('walls_nrm', 'walls_nrm.webp', { q: 88 }); await jpeg('walls_hao', 'walls_hao.jpg', { q: 84 });
+  await webp('interiors', 'interiors.png', { q: 78 }); await webp('markings', 'markings.png', { q: 88 }); await webp('leaves', 'leaves.png', { q: 85 });
+  await webp('grass_col', 'grass_col.png', { q: 80 }); await webp('grass_nrm', 'grass_nrm.png', { q: 88 }); await webp('water_nrm', 'water_nrm.png', { q: 90 });
+  await webp('noise', 'noise.png', { lossless: true }); await webp('detail_nrm', 'detail_nrm.png', { q: 90 });
+  await jpeg('roof_col', 'roof_col.png', { q: 82 }); await webp('roof_nrm', 'roof_nrm.png', { q: 88 });
+  for (const f of ['curb_col', 'asphalt_decals', 'roofplants', 'bark_col', 'bark_nrm']) { copyFileSync(src + f + '.webp', join(dir, f + '.webp')); files[f] = f + '.webp'; }
+  copyFileSync(src + 'markings.json', join(dir, 'markings.json')); files.markings_rects = 'markings.json';
+  // street furniture and rooftop clutter (vertex-coloured, no images) and the street trees' leaf cards
+  const psrc = 'assets-src/cache/spiderbench-city-props/';
+  copyFileSync(psrc + 'props.glb', join(dir, 'props.glb')); files.props = 'props.glb';
+  await sharp(psrc + 'props/leaves_col.png').webp({ quality: 85, alphaQuality: 90, effort: 6 }).toFile(join(dir, 'tree_leaves_col.webp')); files.tree_leaves_col = 'tree_leaves_col.webp';
+  await sharp(psrc + 'props/leaves_nrm.png').webp({ quality: 88, effort: 6 }).toFile(join(dir, 'tree_leaves_nrm.webp')); files.tree_leaves_nrm = 'tree_leaves_nrm.webp';
+  // the shop signs: 16 bands of 1024 x 128, the original's colours, names of our own
+  const SIGNS: [string, string, string, boolean][] = [
+    ['DELI &amp; GROCERY', '#1F6B36', '#F4EFC8', false], ['PIZZA', '#B3191C', '#F2C14E', true], ['CORNER PHARMACY', '#EEF1F4', '#B8202C', false],
+    ['BAGELS &amp; CAFE', '#2A211C', '#D9AE6A', true], ['CITY SAVINGS BANK', '#1B3F8C', '#FFFFFF', false], ['NAILS  SPA', '#F1CFD8', '#5A1F3A', false],
+    ['WINE &amp; LIQUOR', '#5E1424', '#F1E2C4', true], ['HARDWARE', '#E3A21D', '#1A1A1A', false], ['SUB SHOP', '#1D7A3A', '#F7E21C', false],
+    ['DINER', '#1E3A7A', '#F2C14E', true], ['SHOES', '#0E0E0E', '#F4F4F4', false], ['THAI KITCHEN', '#9A6A1E', '#2A1A0A', true],
+    ['DRY CLEANERS', '#3F8FC8', '#FFFFFF', false], ['OPTICAL', '#EEF1F4', '#1A2A5A', false], ['COFFEE', '#5A3A24', '#F2E6D2', true], ['HALAL GYRO', '#C8321C', '#FFFFFF', false],
+  ];
+  const bands = SIGNS.map(([t, bg, fg, serif], i) => `<g transform="translate(0 ${i * 128})"><rect width="1024" height="128" fill="${bg}"/><rect x="5" y="5" width="1014" height="118" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="6"/>` +
+    `<text x="515" y="86" font-family="${serif ? 'Georgia, Times New Roman, serif' : 'Arial Black, Helvetica, Arial, sans-serif'}" font-weight="900" font-size="66" text-anchor="middle" fill="rgba(0,0,0,0.45)">${t}</text>` +
+    `<text x="512" y="83" font-family="${serif ? 'Georgia, Times New Roman, serif' : 'Arial Black, Helvetica, Arial, sans-serif'}" font-weight="900" font-size="66" text-anchor="middle" fill="${fg}">${t}</text></g>`).join('');
+  await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="2048">${bands}</svg>`)).webp({ quality: 88 }).toFile(join(dir, 'signs.webp')); files.signs = 'signs.webp';
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'city', files }));
+  library[id] = { kind: 'city', title: 'City district textures', description: 'Asphalt, sidewalks, curbs, road markings, facades (16 wall layers with their normals and weathering), roofs, building interiors seen through the windows, grass and leaves, and the street furniture and rooftop clutter: what the city map builds its streets and blocks from.',
+    sources: ['spiderbench-city', 'spiderbench-city-props'], derived: 'Recompressed for the web (colour to WebP, the layer atlases to JPEG, normals to 1024 px). The shop-sign atlas is GameMog’s own, drawn in the original’s layout with invented names.', meta: { files: Object.keys(files).length }, files: {}, bytes: 0 };
+}
+
 /* ---------------- skies: photographed, for light, reflections and the visible sky ---------------- */
 // view: for a photograph with land in it, where across the picture (0..1 of its
 // width) the thing a world lines up with lies: the sea off the beach, the

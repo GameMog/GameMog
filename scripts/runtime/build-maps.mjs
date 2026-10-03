@@ -15,6 +15,7 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const MAPS = [
   { id: 'ocean-drive', global: 'GameMogOceanDrive', dir: 'lib/runtime/maps/ocean-drive', what: 'a GameMog runtime map' },
   { id: 'traversal', global: 'GameMogTraversal', dir: 'lib/runtime/traversal', what: 'the GameMog runtime\'s traversal (open.traversal)' },
+  { id: 'city', global: 'GameMogCity', dir: 'lib/runtime/maps/city', what: 'a GameMog runtime map' },
 ];
 for (const m of MAPS) {
   const licence = readFileSync(`${root}${m.dir}/LICENSE`, 'utf8').trim();

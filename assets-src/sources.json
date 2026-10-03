@@ -841,6 +841,55 @@
       "urls": {
         "ofdn-liquid-flame.wav": "https://opengameart.org/sites/default/files/Of%20Far%20Different%20Nature%20-%20Liquid%20Flame%20%28CC0%29_0.wav"
       }
+    },
+    "spiderbench-city": {
+      "title": "Spiderbench city textures",
+      "author": "Shikhar",
+      "license": "LicenseRef-Spiderbench-Permission",
+      "licenseUrl": "https://github.com/GameMog/GameMog/blob/main/lib/runtime/maps/city/LICENSE",
+      "licenseText": "Used with the written permission of its author (2 Oct 2026), for GameMog only and non-commercial use; not under GameMog's MIT licence.",
+      "homepage": "https://github.com/xikhar/spiderbench",
+      "base": "https://raw.githubusercontent.com/xikhar/spiderbench/64d957f92f005a1c1870070079351e30b2395661/public/assets/city/tex/",
+      "files": [
+        "asphalt_col.png",
+        "asphalt_nrm.png",
+        "asphalt_macro.png",
+        "sidewalk_col.png",
+        "sidewalk_nrm.png",
+        "walls_col.jpg",
+        "walls_nrm.webp",
+        "walls_hao.jpg",
+        "curb_col.webp",
+        "asphalt_decals.webp",
+        "interiors.png",
+        "markings.png",
+        "markings.json",
+        "leaves.png",
+        "grass_col.png",
+        "grass_nrm.png",
+        "water_nrm.png",
+        "noise.png",
+        "detail_nrm.png",
+        "roof_col.png",
+        "roof_nrm.png",
+        "roofplants.webp",
+        "bark_col.webp",
+        "bark_nrm.webp"
+      ]
+    },
+    "spiderbench-city-props": {
+      "title": "Spiderbench city props",
+      "author": "Shikhar",
+      "license": "LicenseRef-Spiderbench-Permission",
+      "licenseUrl": "https://github.com/GameMog/GameMog/blob/main/lib/runtime/maps/city/LICENSE",
+      "licenseText": "Used with the written permission of its author (2 Oct 2026), for GameMog only and non-commercial use; not under GameMog's MIT licence.",
+      "homepage": "https://github.com/xikhar/spiderbench",
+      "base": "https://raw.githubusercontent.com/xikhar/spiderbench/64d957f92f005a1c1870070079351e30b2395661/public/assets/city/",
+      "files": [
+        "props.glb",
+        "props/leaves_col.png",
+        "props/leaves_nrm.png"
+      ]
     }
   }
 }

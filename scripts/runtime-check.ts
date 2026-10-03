@@ -836,6 +836,51 @@ try {
     }, { timeoutMs: 120_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(twid); }
 
+  // the city map (the owner, 2 Oct: Spiderbench's city, with its author's permission): a midtown district with its
+  // buildings, rooftops, street furniture and trees, lit at night by its own lamps and windows, with the traversal
+  console.log('\nthe city map: a midtown district at night, with the traversal');
+  const cwid = randomUUID();
+  insertDraft({ id: cwid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../lib/runtime/open-city-world.js', import.meta.url), 'utf8'),
+    meta: { title: 'City Check', tagline: 'Night', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#0A1022', ground: '#555555', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' } });
+  try {
+    await withBrowser(async (page) => {
+      type CO = { ready: boolean; map: string; colliders: { boxes: number; circles: number }; player: { x: number; z: number } };
+      const co = () => page.eval<CO>('window.__gmRuntime.state().open');
+      const M = 'window.__gmRuntime.debug.open().map()', O = 'window.__gmRuntime.debug.open()', T = O + '.traversal';
+      const t0 = Date.now();
+      await page.goto(`${BASE}/d/${cwid}/play`);
+      for (let i = 0; i < 400; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__gmRuntime.state().open && window.__gmRuntime.state().open.ready)').catch(() => false)) break; await sleep(250); }
+      const secs = (Date.now() - t0) / 1000, o = await co(), e0 = await page.eval<string[]>('window.__gm.errors');
+      const info = await page.eval<{ buildings: number; time: string; fill: number; exposure: number }>(`(function(){var m=${M};return {buildings:m.buildings,time:m.time,fill:m.fill,exposure:m.exposure}})()`);
+      ok('the district builds, with its buildings, rooftop clutter and street furniture as colliders, and no errors', o.ready && o.map === 'city' && info.buildings > 500 && o.colliders.boxes > 3000 && o.colliders.circles > 300 && e0.length === 0,
+        `${secs.toFixed(1)} s, ${info.buildings} buildings, ${o.colliders.boxes} boxes, ${o.colliders.circles} circles${e0.length ? ' ' + e0.join(' | ') : ''}`);
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(1500);
+      await page.eval(`window.__gmRuntime.debug.invincible(true); ${O}.clear()`);
+      const st = await page.eval<{ lights: number }>(`${M}.stats()`);
+      ok('at night it lights itself: lamps, lit shops and signs as real lights, the exposure raised for them', info.time === 'night' && st.lights > 100 && info.exposure > 3 && info.fill < 0.1, `${st.lights} lights near the camera, exposure x${info.exposure}`);
+      const ad = await page.eval<number>(`(function(){var c=${M}.debug.root;var n=0;c.traverse(function(m){if(m.material&&m.material.map&&m.material.map.isCanvasTexture)n++;});return n})()`);
+      ok('its billboards and blade signs carry GameMog\'s own drawn atlases', ad > 0, `${ad} meshes`);
+      // into a building's wall on the avenue's sidewalk: stopped at its face
+      // west from 6th Avenue's west sidewalk into the block's frontage (about x = -16)
+      await page.eval(`${O}.place(-13, -300, Math.PI / 2, 0.15, false, -Math.PI / 2)`); await sleep(300);
+      let p1 = (await co()).player, wallUp = await page.eval<{ mode: string; feet: number }>(`${T}.state()`), deepest = p1.x;
+      await page.key('KeyW', 'keyDown');
+      for (let i = 0; i < 25; i++) { await sleep(100); p1 = (await co()).player; wallUp = await page.eval(`${T}.state()`); deepest = Math.min(deepest, p1.x); if (wallUp.mode === 'wall') break; }
+      await page.key('KeyW', 'keyUp'); await sleep(200);
+      ok('the buildings are solid: walking at a frontage stops you at its face, or takes you up it', wallUp.mode === 'wall' || (deepest > -17.5 && deepest < -14), `furthest x ${deepest.toFixed(2)}, ${wallUp.mode}`);
+      await page.eval(`${O}.place(0, -280, 0, 0.15)`); await sleep(400);
+      await page.key('KeyW', 'keyDown'); await sleep(900); await page.eval(`${T}.tap('Space', 150)`); await sleep(300); await page.eval(`${T}.press('MouseRight')`);
+      let sw: { mode: string; anchor: number[] | null } = { mode: '', anchor: null };
+      for (let i = 0; i < 20 && sw.mode !== 'swing'; i++) { await sleep(100); sw = await page.eval(`${T}.state()`); }
+      await page.eval(`${T}.release('MouseRight')`); await page.key('KeyW', 'keyUp');
+      ok('the line bites on a real building\'s edge, high over the street', sw.mode === 'swing' && !!sw.anchor && sw.anchor[1] > 10, JSON.stringify(sw.anchor));
+      const fps = await page.eval<number>('(async () => { let n = 0; const t0 = performance.now(); await new Promise((r) => { const f = () => { n++; if (performance.now() - t0 < 3000) requestAnimationFrame(f); else r(0); }; requestAnimationFrame(f); }); return n / 3; })()');
+      ok('a night city with the cinematic renderer holds its frame rate', fps >= 40, `${Math.round(fps)} fps`);
+      const e1 = await page.eval<string[]>('window.__gm.errors');
+      ok('no errors', e1.length === 0 && page.errors.length === 0, e1.concat(page.errors).join(' | '));
+    }, { timeoutMs: 180_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(cwid); }
+
   // light (1 Oct): presets are opt-in, so a world without one is drawn exactly as before; under
   // one, a photographed sky is exposed to the preset's brightness whatever the photograph; lamps
   // in physical units are told about, never changed; and the look measures the player and the glare

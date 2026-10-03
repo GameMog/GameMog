@@ -717,6 +717,30 @@ streets go 20 m back (to x = -50) to walls and roadblocks, both ends are fenced,
 wade into the sea to the swim-area buoys (x = 104, about mid-thigh). `def.onMap(ctx, map)` runs
 once it is built; `map.hideouts` lists the hiding places and `map.water.depthAt(x, z)` the sea's depth.
 
+The library map `city` is a midtown district of a procedural Manhattan (from Spiderbench, used with its
+author's permission): 500 by 400 m of avenues, cross streets and the Broadway diagonal, about 1,100 buildings
+with lit rooms behind their windows, water towers and plant on the roofs, shop fronts, street lamps, signals,
+hydrants, trash cans, newsstands, sidewalk sheds and street trees, and the city's skyline round it. It brings
+its own light for the time of day, its own night lights (every street lamp and lit shop window lights the
+street and the people in it) and its colliders, so add no lights or sky of your own. `+x` is east, `-z`
+north; the district runs from x = -250 to 250 (8th, 6th and 5th Avenues at x = -250, 0 and 250, each 22 m
+wide with 5 m sidewalks) and z = -480 to -80 (cross streets every 80 m at z = -480, -400, ..., -80, 10 m wide, 18 m at
+z = -480, with 4 m sidewalks); spawn on a sidewalk or in a street. It suits `traversal` (every building is a wall to
+run up and a roof edge to swing from).
+
+```js
+open: {
+  map: 'city',
+  city: {
+    time: 'night',                 // 'day', 'dusk' or 'night' (lit windows, lamps, glowing shops)
+    ads: [['QUARANTINE ZONE', 'STAY INDOORS', '#101014', '#2A2A30', '#F4F1E8', '#D11F1F']],   // the billboards' copy: title, line, colours (optional)
+    signs: [['PHARMACY', '#EEF1F4', '#B8202C']],                                               // the shop signs: name, board, letters (optional)
+  },
+  traversal: {},
+},
+graphics: { preset: 'moonlit', exposure: 0.55 },   // at night: dark streets, the city's own lights carrying the picture
+```
+
 ## Never
 
 Build a 2D game, move or replace the camera, create a renderer, call `requestAnimationFrame`, `setTimeout` or `setInterval`, add event

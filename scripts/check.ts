@@ -173,7 +173,9 @@ console.log('\nthe asset library: every file licensed, listed and unchanged');
   const { readFileSync, readdirSync, statSync } = await import('node:fs');
   const { createHash } = await import('node:crypto');
   const lib = JSON.parse(readFileSync('public/assets/library.json', 'utf8'));
-  const ALLOWED = new Set(['CC0-1.0', 'LicenseRef-CMU-Mocap']);
+  // and Spiderbench's city textures, used with its author's written permission (the owner's go-ahead, 2 Oct 2026;
+  // lib/runtime/maps/city/LICENSE): GameMog only, non-commercial
+  const ALLOWED = new Set(['CC0-1.0', 'LicenseRef-CMU-Mocap', 'LicenseRef-Spiderbench-Permission']);
   const dirs = readdirSync('public/assets').filter((d) => statSync(`public/assets/${d}`).isDirectory());
   ok('every folder in public/assets is a listed asset', dirs.every((d) => lib.assets[d]), dirs.filter((d) => !lib.assets[d]).join(', '));
   for (const [id, a] of Object.entries<any>(lib.assets)) {
