@@ -459,6 +459,78 @@
     "sha256": "dc0db7dd8a13802f02303ca7e49844b219e09db134471b7061538a8af8f7c7fb",
     "bytes": 4817185
   },
+  "makehuman-system/hair/bob01/bob01.mhclo": {
+    "sha256": "a295b11ab6c7808afa1e01d0c79fb595bbbd7885f65252766486c9fcf6d158c5",
+    "bytes": 352019
+  },
+  "makehuman-system/hair/bob01/bob01.obj": {
+    "sha256": "d7fb73806f47ee37ba3c37bcfadff40a91ba99635d08c3e02d94b4acbf97c231",
+    "bytes": 396190
+  },
+  "makehuman-system/hair/bob01/bob01_diffuse.png": {
+    "sha256": "2b38bc7a028e06e8e633accb7fe2dd1b2bacbb9d32463df73f39f82e63ef9009",
+    "bytes": 4243598
+  },
+  "makehuman-system/hair/bob02/bob02.mhclo": {
+    "sha256": "a48dcf87c6a618f9c6e90fcb00eed07cd59ab024d8d994606fa1b070da515b96",
+    "bytes": 112326
+  },
+  "makehuman-system/hair/bob02/bob02.obj": {
+    "sha256": "30d44038836d786364eb4134a9259cf93ca0c707f883861b0135ebfb149caa08",
+    "bytes": 109498
+  },
+  "makehuman-system/hair/bob02/bob02_diffuse.png": {
+    "sha256": "38c88e6f71631356591f09b1f17a1bb5a99c3bb095b1a29003f1dc3d3e839b0d",
+    "bytes": 3373723
+  },
+  "makehuman-system/hair/braid01/braid01.mhclo": {
+    "sha256": "e350614dab32230c47d67e7747079b89859d36e62a890ca47890f068eca4f7a9",
+    "bytes": 305086
+  },
+  "makehuman-system/hair/braid01/braid01.obj": {
+    "sha256": "ad0b449c80244452bc8d437f5d59c25ec2ac17b2eb35e1ae2d9531fc00b73b0a",
+    "bytes": 302165
+  },
+  "makehuman-system/hair/braid01/braid01_diffuse.png": {
+    "sha256": "24c0d2a639f04704734c3e38af97d110777c1b203e5a10c66a5c89563643a018",
+    "bytes": 2615248
+  },
+  "makehuman-system/hair/long01/long01.mhclo": {
+    "sha256": "94ecbebfd834da2cbee2ce90b730972590eb22a252ecd9592038ea736e063646",
+    "bytes": 220891
+  },
+  "makehuman-system/hair/long01/long01.obj": {
+    "sha256": "7f1d6dadbdf9e96435251955d6657e77ea5433c9bc7c85a5c5f5e4eae0cb9a8c",
+    "bytes": 215324
+  },
+  "makehuman-system/hair/long01/long01_diffuse.png": {
+    "sha256": "e8dc25d90f8f62467e8630420e1240a400d070054fb7c3f1d3f7bf3e457d6c2c",
+    "bytes": 2915253
+  },
+  "makehuman-system/hair/ponytail01/ponytail01.mhclo": {
+    "sha256": "97fc50b12bcb3b1c7b33edddd8d427a2604ffb06fe79b31132bf47f82d7afbac",
+    "bytes": 252080
+  },
+  "makehuman-system/hair/ponytail01/ponytail01.obj": {
+    "sha256": "d9f5fe96fbedbc8006220d87aad0e4a33d15286eb6b21f5929661cdc490ebf5a",
+    "bytes": 264384
+  },
+  "makehuman-system/hair/ponytail01/ponytail01_diffuse.png": {
+    "sha256": "dcb364300cac06ce8bef91b2f7c0970baf310898bbdd06b0c6b884ee9306eb97",
+    "bytes": 3910782
+  },
+  "makehuman-system/hair/short01/short01.mhclo": {
+    "sha256": "ae1ffaa98da5753b803b3a173bede4895d2215e6bb94763f3765a71f0e984f35",
+    "bytes": 201588
+  },
+  "makehuman-system/hair/short01/short01.obj": {
+    "sha256": "d998d8416f9b5d5591f1d756f4d292288d000a6951bc0f4d2e8e72727bbc44fa",
+    "bytes": 194450
+  },
+  "makehuman-system/hair/short01/short01_diffuse.png": {
+    "sha256": "f34a0957184e3d1e911ed59245f874f8d4843f61ee44ff49f43edb4be0196949",
+    "bytes": 2354146
+  },
   "makehuman-system/hair/short02/short02.mhclo": {
     "sha256": "625736cdb73e6d094df6e5a2df18f371781f1d2cd37b0ae15795c5d7051c3ec2",
     "bytes": 119240
@@ -474,6 +546,18 @@
   "makehuman-system/hair/short02/short02_normal.png": {
     "sha256": "2cfac7619f8eec77dd90df979d912415058f4f0fc16940cba40a8eb1ae6d74b5",
     "bytes": 1626745
+  },
+  "makehuman-system/hair/short03/short03.mhclo": {
+    "sha256": "d80bbb8fd9b06721c481756fb3e1d6dce04fcfc9ca8a379edd4ea3c0d81ed17f",
+    "bytes": 69048
+  },
+  "makehuman-system/hair/short03/short03.obj": {
+    "sha256": "4a9fc385718f2c46fb328ab99d33e3a946cecdb717987c8b324cf2466b59bd9c",
+    "bytes": 74766
+  },
+  "makehuman-system/hair/short03/short03_diffuse.png": {
+    "sha256": "fe6ed0bb14498a48a2e8fc07e80e2a6f62c8b67686fcd0a7a570d345faec97da",
+    "bytes": 2392930
   },
   "makehuman-system/hair/short04/short04.mhclo": {
     "sha256": "d60640aa4c4ffce1aa269647ba436b6ee0bb21bb948f927b84e27a48d2107157",
@@ -527,25 +611,49 @@
     "sha256": "0f3641d651ae3d00ad6b4ccee43142edb109d3bd909d27d9e4139ef1beed8625",
     "bytes": 897521
   },
+  "makehuman/targets/macrodetails/african-female-old.target": {
+    "sha256": "c165e7caf01aaf45511ebc78a441c8c73ead13231af1a8c6666941345f088b61",
+    "bytes": 408823
+  },
   "makehuman/targets/macrodetails/african-female-young.target": {
     "sha256": "92d61eeb3c164b421fd5a7c3537ee45e7e1a51de4d49bf312e19c3df2be1d8fc",
     "bytes": 411735
+  },
+  "makehuman/targets/macrodetails/african-male-old.target": {
+    "sha256": "59ec94956b3525dbb30238d1239b2bce52adc3bfae091f12cd85d2570aa1933c",
+    "bytes": 411367
   },
   "makehuman/targets/macrodetails/african-male-young.target": {
     "sha256": "894abc1fbb3d28543a51fef16f89d5d4bdf9aa2e1534413339811a3d47818b7d",
     "bytes": 406170
   },
+  "makehuman/targets/macrodetails/asian-female-old.target": {
+    "sha256": "1a90cb281df640df55fbce3acd6588f27b28affeb96a7f693f6f038aefc204d8",
+    "bytes": 426301
+  },
   "makehuman/targets/macrodetails/asian-female-young.target": {
     "sha256": "095fe79694fa19e1fe98d93009ec116199bd524e081c640351a10eccf2cca1eb",
     "bytes": 435553
+  },
+  "makehuman/targets/macrodetails/asian-male-old.target": {
+    "sha256": "36dc5a3a135ded33885e814806b0e3668ca5bf44bddcebdee48ae75ae68bc3d3",
+    "bytes": 427966
   },
   "makehuman/targets/macrodetails/asian-male-young.target": {
     "sha256": "ed2e8c191cb6b87b4a2d97c80486acb2604fa549316c7aa2a738a5d5a14334dc",
     "bytes": 421040
   },
+  "makehuman/targets/macrodetails/caucasian-female-old.target": {
+    "sha256": "6560982486c4b1a7a0b1d82b0ad3f09770c16b4f87c8f949537dc9cfc941a0b0",
+    "bytes": 408930
+  },
   "makehuman/targets/macrodetails/caucasian-female-young.target": {
     "sha256": "118379f6e8ba9266247fdb8788a20e1df40a239f97ced0b9905bcbcc74f6e820",
     "bytes": 420559
+  },
+  "makehuman/targets/macrodetails/caucasian-male-old.target": {
+    "sha256": "b0d2b1d58cba0358af59833740e70229265f7da1c20a11240f4123b7192cfd6d",
+    "bytes": 400125
   },
   "makehuman/targets/macrodetails/caucasian-male-young.target": {
     "sha256": "70e228ba7164737dae664454394536fc5935fa48d333c1a97d77e2dc6eacc5f5",
@@ -575,6 +683,18 @@
     "sha256": "d9452857903d18a2100ca26105d5a61083e7064fbe16f035863446728755ec20",
     "bytes": 164317
   },
+  "makehuman/targets/macrodetails/universal-female-old-averagemuscle-maxweight.target": {
+    "sha256": "c7ff884ece15a4ea161bf9843c9668261e486135aa4c408ecc88dd7e5bc366b2",
+    "bytes": 157586
+  },
+  "makehuman/targets/macrodetails/universal-female-old-minmuscle-averageweight.target": {
+    "sha256": "89c2756e3abacf3d2fb9fae1cc05e68c3e0a244ba2ff244a1f3831da5897a26b",
+    "bytes": 103383
+  },
+  "makehuman/targets/macrodetails/universal-female-young-averagemuscle-maxweight.target": {
+    "sha256": "3648e7f9b34d947726161b563b90ba92b29860bac4c4f82aea3cec37bad2bb4e",
+    "bytes": 124481
+  },
   "makehuman/targets/macrodetails/universal-female-young-averagemuscle-minweight.target": {
     "sha256": "e53a4afc87ac2703460a59e8290b1111478aeee5c02ece6735328c1f8c62eb63",
     "bytes": 147131
@@ -587,6 +707,22 @@
     "sha256": "05351f0063429f4e1e484501b73997a6fb129b93939db355d108f98d5479fb10",
     "bytes": 147219
   },
+  "makehuman/targets/macrodetails/universal-female-young-minmuscle-maxweight.target": {
+    "sha256": "66600ccaea3d4c54b1427c81f49160a7cbb2794fbcb7a695ec6e6a4743d72364",
+    "bytes": 202635
+  },
+  "makehuman/targets/macrodetails/universal-male-old-averagemuscle-maxweight.target": {
+    "sha256": "ac49086cf6a33f38fa3e0208c3036d335a70529e22f15f0836244b7c7448c10b",
+    "bytes": 154294
+  },
+  "makehuman/targets/macrodetails/universal-male-old-minmuscle-averageweight.target": {
+    "sha256": "761fbb7b920b2ebf0d00c94b5743709bc90a5a2a0410fe3d57dea34c99715751",
+    "bytes": 156099
+  },
+  "makehuman/targets/macrodetails/universal-male-young-averagemuscle-maxweight.target": {
+    "sha256": "3e77ff5a07a9b870db5226507e1cf8a295f0e09c109fb72142770f5f50427b5e",
+    "bytes": 155861
+  },
   "makehuman/targets/macrodetails/universal-male-young-averagemuscle-minweight.target": {
     "sha256": "fac0d53b7051f4d1f06230d0b419e916eb5bae5ce67c031a9998fdde05229755",
     "bytes": 147071
@@ -598,6 +734,10 @@
   "makehuman/targets/macrodetails/universal-male-young-maxmuscle-minweight.target": {
     "sha256": "5873f11edc96fde72a79ec35fa1d292a6a1a594b5eadfd82d59faf48834561de",
     "bytes": 150179
+  },
+  "makehuman/targets/macrodetails/universal-male-young-minmuscle-maxweight.target": {
+    "sha256": "14580444f1480b1c6b396973f8c040cc36e5ca8914addf17d11c5a023a958de2",
+    "bytes": 235752
   },
   "ofdn-funky-house/ofdn-funky-house.wav": {
     "sha256": "63e07cb24cbed4681eb760067f7109c190eb0b16ec14ca8e5aeb2727ebb28034",

@@ -29,7 +29,21 @@
         "targets/macrodetails/proportions/female-young-maxmuscle-averageweight-idealproportions.target",
         "targets/macrodetails/proportions/female-young-maxmuscle-minweight-idealproportions.target",
         "targets/macrodetails/height/male-young-maxmuscle-averageweight-maxheight.target",
-        "targets/macrodetails/height/female-young-maxmuscle-averageweight-maxheight.target"
+        "targets/macrodetails/height/female-young-maxmuscle-averageweight-maxheight.target",
+        "targets/macrodetails/african-male-old.target",
+        "targets/macrodetails/african-female-old.target",
+        "targets/macrodetails/asian-male-old.target",
+        "targets/macrodetails/asian-female-old.target",
+        "targets/macrodetails/caucasian-male-old.target",
+        "targets/macrodetails/caucasian-female-old.target",
+        "targets/macrodetails/universal-male-young-averagemuscle-maxweight.target",
+        "targets/macrodetails/universal-male-young-minmuscle-maxweight.target",
+        "targets/macrodetails/universal-female-young-averagemuscle-maxweight.target",
+        "targets/macrodetails/universal-female-young-minmuscle-maxweight.target",
+        "targets/macrodetails/universal-male-old-averagemuscle-maxweight.target",
+        "targets/macrodetails/universal-male-old-minmuscle-averageweight.target",
+        "targets/macrodetails/universal-female-old-averagemuscle-maxweight.target",
+        "targets/macrodetails/universal-female-old-minmuscle-averageweight.target"
       ]
     },
     "makehuman-system": {
@@ -71,7 +85,28 @@
         "eyes/high-poly/high-poly.mhclo",
         "eyes/materials/brown_eye.png",
         "eyes/materials/brownlight_eye.png",
-        "eyes/materials/blue_eye.png"
+        "eyes/materials/blue_eye.png",
+        "hair/bob01/bob01.obj",
+        "hair/bob01/bob01.mhclo",
+        "hair/bob01/bob01_diffuse.png",
+        "hair/bob02/bob02.obj",
+        "hair/bob02/bob02.mhclo",
+        "hair/bob02/bob02_diffuse.png",
+        "hair/braid01/braid01.obj",
+        "hair/braid01/braid01.mhclo",
+        "hair/braid01/braid01_diffuse.png",
+        "hair/long01/long01.obj",
+        "hair/long01/long01.mhclo",
+        "hair/long01/long01_diffuse.png",
+        "hair/ponytail01/ponytail01.obj",
+        "hair/ponytail01/ponytail01.mhclo",
+        "hair/ponytail01/ponytail01_diffuse.png",
+        "hair/short01/short01.obj",
+        "hair/short01/short01.mhclo",
+        "hair/short01/short01_diffuse.png",
+        "hair/short03/short03.obj",
+        "hair/short03/short03.mhclo",
+        "hair/short03/short03_diffuse.png"
       ]
     },
     "cmu-mocap": {

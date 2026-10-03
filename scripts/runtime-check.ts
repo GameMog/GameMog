@@ -915,6 +915,29 @@ try {
   // light (1 Oct): presets are opt-in, so a world without one is drawn exactly as before; under
   // one, a photographed sky is exposed to the preset's brightness whatever the photograph; lamps
   // in physical units are told about, never changed; and the look measures the player and the glare
+  // the wardrobe (the owner, 3 Oct: widen the human kit): every shirt, trousers, coat, glove, boot and piece of
+  // gear the runtime paints or hangs on a person, worn by two rows of seven in an opening scene
+  console.log('\nthe wardrobe: hoodies to hazmat suits, on people');
+  const wdid = randomUUID();
+  insertDraft({ id: wdid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../lib/runtime/wardrobe-world.js', import.meta.url), 'utf8'),
+    meta: { title: 'Wardrobe Check', tagline: 'Clothes', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#BFD6EE', ground: '#B9B4A8', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' } });
+  try {
+    await withBrowser(async (page) => {
+      const O = 'window.__gmRuntime.debug.open()';
+      await page.goto(`${BASE}/d/${wdid}/play`);
+      for (let i = 0; i < 300; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__gmRuntime.state().open && window.__gmRuntime.state().open.ready)').catch(() => false)) break; await sleep(250); }
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(300);
+      await page.eval(`${O}.intro()`); await sleep(2500);
+      const a = await page.eval<{ cast: string[] } | null>(`${O}.introState()`);
+      for (let i = 0; i < 80; i++) { const st = await page.eval<{ shot: number } | null>(`${O}.introState()`); if (st && st.shot === 1) break; await sleep(500); }
+      await sleep(2000);
+      const b = await page.eval<{ cast: string[] } | null>(`${O}.introState()`);
+      const e = await page.eval<string[]>('window.__gm.errors');
+      ok('every garment and piece of gear builds on a person, and every shader compiles', !!a && !!b && a.cast.length === 7 && b.cast.length === 14 && e.length === 0 && page.errors.length === 0,
+        `${a ? a.cast.length : 0} then ${b ? b.cast.length : 0} dressed${e.length || page.errors.length ? ': ' + e.concat(page.errors).join(' | ') : ''}`);
+    }, { timeoutMs: 120_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(wdid); }
+
   console.log('\nlight: opt-in presets, light units, and what the look measures');
   const solidSrc = readFileSync(new URL('../lib/runtime/open-solid-world.js', import.meta.url), 'utf8');
   const lit = (extra: string, graphics: string) => solidSrc

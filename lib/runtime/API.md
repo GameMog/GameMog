@@ -222,18 +222,25 @@ shorts come off, its `shoes` stay) and small things worn (`gear`):
 ctx.assets.human('human-athlete-male', {
   skin: 'caucasian2', hair: 'short04', height: 1.86, build: { muscle: 0.9, lean: 0.35 }, outfit: { shoes: '#F7F7F7' },
   clothes: {
-    shirt: { kind: 'tank', color: '#F4F1EA' },   // kind: tank, tee, long, open, polo, uniform (a police shirt: badge, patches); print: plain, floral, stripes, camo, check; color2: the print's colour
-    pants: { kind: 'jeans', color: '#4A6A92' },  // kind: jeans, trousers, shorts
-    jacket: { kind: 'vest', color: '#121012' },  // vest (leather, open) or jacket (open, long sleeves)
+    shirt: { kind: 'tank', color: '#F4F1EA' },   // kind: tank, tee, long, open, polo, uniform (a police shirt: badge, patches), hoodie (pouch, drawstrings),
+                                                 // sweater (knit), shirt (collar, buttons; tie: '#8C1C1C' adds a tie), scrubs (V-neck), turtleneck,
+                                                 // dress (to the knee: with pants: 'none'); print: plain, floral, stripes, camo, check; color2: the print's colour
+    pants: { kind: 'jeans', color: '#4A6A92' },  // kind: jeans, trousers, shorts, cargo (thigh pockets), joggers, track (side stripes in color2), leggings, none
+    jacket: { kind: 'vest', color: '#121012' },  // vest (leather, open), jacket (open, long sleeves), coat (to the knee), puffer (quilted),
+                                                 // blazer (lapels), hazmat (a whole suit, neck to ankles: add gloves, boots, a mask)
     belt: '#2A1C12',                             // false for none
+    gloves: '#1A1A1C', boots: '#2A1D14',         // optional: gloves on the hands, boots up the shins
     tattoos: { arms: true, chest: false, neck: true, color: '#1C2A38' },   // ink where the skin shows
     beard: 'full',                               // stubble, full, goatee
   },
-  gear: { chain: '#D4AF37', shades: '#0E0F12', cap: { color: '#101012', backwards: true }, bandana: '#8C1C1C', police: '#111827' },
+  gear: { chain: '#D4AF37', shades: '#0E0F12', glasses: '#1A1A1C', cap: { color: '#101012', backwards: true }, beanie: { color: '#B8302A', pom: '#F2F2EE' },
+          bandana: '#8C1C1C', police: '#111827', mask: '#9CCBE6', backpack: '#2D4F7E' },
 })
 ```
 
-Hats hide the hair under them. A weapon for a street fight: `weapon: { kind: 'bat' }` (also
+Mix them so a crowd reads as people, not a uniform: a city's commuters in coats, blazers and
+puffers, a hospital's scrubs, an outbreak's hazmat suits, a park's hoodies, joggers and track
+pants. Hats and beanies hide the hair under them. A weapon for a street fight: `weapon: { kind: 'bat' }` (also
 `baton`, `pipe`, `chain`, or a sword), carried in the right hand.
 
 `ctx.assets.car(options)` builds a racing car for `player()` or `rival()` in a world with

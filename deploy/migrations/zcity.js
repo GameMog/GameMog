@@ -149,15 +149,16 @@
             };
           },
         },
-        // quarantine troopers: hazard yellow, masks, batons
+        // quarantine troopers: hazmat suits in hazard yellow, gloves and boots, respirators, batons (the owner, 3 Oct)
         cop: {
           gm: 90,
           names: ['Trooper Vance', 'Trooper Okafor', 'Trooper Lind', 'Sergeant Hale', 'Trooper Cruz', 'Trooper Moss'],
           look: function (ctx, i) {
             return {
               skin: pick(SKIN, i + 2), hair: 'short02', height: 1.8, outfit: { shoes: '#0C0C0E' },
-              clothes: { shirt: { kind: 'uniform', color: '#D9C22E', color2: '#2B2B2B', badge: '#E8E8E8' }, pants: { kind: 'trousers', color: '#C9B22A' }, belt: '#0B0B0C', beard: 'none' },
-              gear: { mask: '#E8F0EA', police: '#1A1A1A' }, weapon: { kind: 'baton' },
+              clothes: { shirt: { kind: 'tee', color: '#D9C22E' }, pants: { kind: 'trousers', color: '#D9C22E' }, jacket: { kind: 'hazmat', color: '#D9C22E' },
+                gloves: '#141416', boots: '#141416', belt: false, beard: 'none' },
+              gear: { beanie: '#C9B22A', respirator: '#1E1E22', glasses: '#141416' }, weapon: { kind: 'baton' },
             };
           },
         },

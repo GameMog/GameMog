@@ -70,6 +70,8 @@ own, with invented names.
   Central's crowd spots are empty stand-ins. `createCrowd` takes a `density` (1 as made).
 - `npc/traffic.js`: drivers stop for the world's own people on foot (`yieldTo`, as for the player).
 - `npc/crowd.js`: `quiet(x, z, r)` keeps everyone out of sight round a scene staged there (`entry.js` `stage`).
+- `world/tilebatch.js`: the pre-upload helper keeps a fixed bounding sphere (three.js computed one from whichever
+  buffer was bound there as `position`, and from normals or packed data it came out NaN).
 - `world/vehicles.js` `vehicle(type, color)` builds one of the traffic's vehicles as a single mesh for the world to drive
   (the police's patrol car); `npc/traffic.js` keeps such bodies solid (`addExtra` / `removeExtra` in `collideDynamic`).
 - three r157: `world/vehicles.js` and `world/water.js` use `inverseTransformDirection` (r157's name), and the

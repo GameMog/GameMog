@@ -106,6 +106,19 @@ const MIGRATIONS = [
       return 'published, a Mog of ' + m.mogOf;
     },
   },
+  {
+    // the owner, 3 Oct: Zcity's quarantine troopers in the runtime's new hazmat suits (gloves, boots, respirators).
+    // Republished on the Mac (playtested), its art reshot; the files above are that version
+    id: '2026-10-03-zcity-troopers',
+    run(db) {
+      const code = file('zcity.js'), meta = file('zcity.meta.json');
+      if (!code || !meta) return 'files missing';
+      const m = JSON.parse(meta.toString('utf8'));
+      const r = db.prepare("UPDATE games SET code = ?, meta = ?, cover = ?, art_icon = ?, art_wide = ? WHERE slug = 'zcity'")
+        .run(code.toString('utf8'), JSON.stringify(m.meta), file('zcity-cover.jpg'), file('zcity-icon.jpg'), file('zcity-wide.jpg'));
+      return r.changes ? 'updated' : 'no zcity';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
