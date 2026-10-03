@@ -965,6 +965,30 @@ try {
       ok('fourteen people dressed from the pack: garments and hair on each body\'s own skeleton', !!b && b.cast.length === 14 && m.pack === 14 && m.worn === 14 && e.length === 0 && page.errors.length === 0,
         `${b ? b.cast.length : 0} cast, ${m.pack} pack meshes, ${m.worn} dressed${e.length || page.errors.length ? ': ' + e.concat(page.errors).join(' | ') : ''}`);
       ok('the bodies gain the pack\'s two shapes, age and weight, and the old are aged', m.shaped >= 14 && m.aged === 4, `${m.shaped} bodies with 7 shapes, ${m.aged} aged past 0.5`);
+      // the eyes (3 Oct): every human's eyes had rendered blank white, the cornea's opaque white over the iris. Seen
+      // from the front, the front-most point of each eye must be see-through and the front-most point drawn the pupil
+      const eyes = await page.eval<{ eyes: number; bad: string[] }>(`(() => { let eyes = 0; const bad = [], T = window.__gmRuntime.debug.internals().THREE;
+        window.__gmRuntime.debug.internals().scene.traverse((o) => {
+          if (!o.isSkinnedMesh || o.name === 'pack' || !Array.isArray(o.material)) return;
+          const mi = o.material.findIndex((x) => x.clearcoat === 1 && x.map); if (mi < 0) return;
+          const g = o.geometry, grp = g.groups.find((x) => x.materialIndex === mi), m = o.material[mi], img = m.map.image;
+          if (!img.getContext) { bad.push('the eye texture is not cut'); return; }
+          const W = img.width, H = img.height, px = img.getContext('2d').getImageData(0, 0, W, H).data, P = g.attributes.position, U = g.attributes.uv, I = g.index;
+          m.map.updateMatrix(); const uv = new T.Vector2(), fr = (x) => x - Math.floor(x);
+          for (const side of [1, -1]) {
+            let a0 = -1, z0 = -9, lum = -1, z1 = -9;
+            for (let i = grp.start; i < grp.start + grp.count; i++) {
+              const v = I.getX(i); if (Math.sign(P.getX(v)) !== side) continue;
+              uv.set(U.getX(v), U.getY(v)).applyMatrix3(m.map.matrix);
+              const k = (Math.min(H - 1, Math.floor(fr(uv.y) * H)) * W + Math.min(W - 1, Math.floor(fr(uv.x) * W))) * 4, z = P.getZ(v);
+              if (z > z0) { z0 = z; a0 = px[k + 3]; }
+              if (px[k + 3] > 127 && z > z1) { z1 = z; lum = (px[k] + px[k + 1] + px[k + 2]) / 3; }
+            }
+            eyes++; if (a0 > 127) bad.push('cornea drawn'); if (!(lum >= 0 && lum < 100)) bad.push('front of the eye ' + Math.round(lum));
+          }
+        });
+        return { eyes, bad }; })()`);
+      ok('every eye shows its iris: the cornea is see-through and the front of the eye is the pupil', eyes.eyes >= 30 && eyes.bad.length === 0, `${eyes.eyes} eyes${eyes.bad.length ? ': ' + [...new Set(eyes.bad)].join(', ') : ''}`);
     }, { timeoutMs: 120_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(ppid); }
 
