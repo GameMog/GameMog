@@ -130,13 +130,16 @@ the track never shrinks to a sliver.
 
 **The asset library** (`public/assets`, browsable at `/library`) gives worlds realistic people and
 real skies. `npm run assets:fetch` downloads the pinned, licensed sources in
-`assets-src/sources.json` (MakeHuman's CC0 body, skins, hair and eyes; CMU motion capture; a
+`assets-src/sources.json` (MakeHuman's CC0 body, skins, hair, clothes and eyes; CMU motion capture; a
 Poly Haven CC0 sky), locking each file's SHA-256 in `sources.lock.json`, so a source that changes
 upstream stops the build. `npm run assets:build` turns them into compact assets: MakeHuman's base
 mesh shaped into athletes with five runtime morphs, its 163-bone rig reduced to 66, proxies
 fitted and skinned, a kit layer with position and normal maps so the runtime can paint any kit
 and bib in body space, and CMU captures retargeted by bone direction into a run, a sprint, an
-idle, a standing start and a fall. `library.json` lists every file's hash and every asset's
+idle, a standing start and a fall. A people pack per body, loaded only by worlds that list it,
+fits MakeHuman's garments, shoes, hats and seven more hairstyles to that body on its own skeleton,
+with the middle-aged and old skins and two more shapes, age and weight; the logos printed on some
+source garments are covered at build time. `library.json` lists every file's hash and every asset's
 licences. A world names ids in `assets`; the runtime fetches them from `/assets/` (the only
 network a world's CSP allows), refuses any file whose hash does not match, and hands
 `ctx.assets.human(...)` to the world. `npm run check` fails on any file without a licensed

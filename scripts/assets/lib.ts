@@ -58,15 +58,25 @@ export function applyTarget(pos: Float64Array, t: Map<number, [number, number, n
  * each of its vertices is a weighted sum of three body vertices plus an
  * offset scaled by the body's current size along each axis.
  */
-export type Mhclo = { refs: { v: [number, number, number]; w: [number, number, number]; o: [number, number, number] }[]; scale: Record<'x' | 'y' | 'z', [number, number, number]> };
+export type Mhclo = { refs: { v: [number, number, number]; w: [number, number, number]; o: [number, number, number] }[]; scale: Record<'x' | 'y' | 'z', [number, number, number]>; del: Set<number>; obj: string; weights: string; zDepth: number };
 export function parseMhclo(text: string): Mhclo {
-  const refs: Mhclo['refs'] = [], scale = {} as Mhclo['scale'];
-  let inVerts = false;
+  const refs: Mhclo['refs'] = [], scale = {} as Mhclo['scale'], del = new Set<number>();
+  let inVerts = false, inDel = false, obj = '', weights = '', zDepth = 0;
   for (const line of text.split('\n')) {
     const p = line.trim().split(/\s+/);
     if (!p[0] || p[0][0] === '#') continue;
     if (/^[xyz]_scale$/.test(p[0])) { scale[p[0][0] as 'x'] = [+p[1], +p[2], +p[3]]; continue; }
-    if (p[0] === 'verts') { inVerts = true; continue; }
+    if (p[0] === 'obj_file') { obj = p[1]; continue; }
+    if (p[0] === 'vertexboneweights_file') { weights = p[1]; continue; }
+    if (p[0] === 'z_depth') { zDepth = +p[1]; continue; }
+    if (p[0] === 'verts') { inVerts = true; inDel = false; continue; }
+    if (p[0] === 'delete_verts') { inDel = true; inVerts = false; continue; }
+    // the body vertices a garment covers, hidden when it is worn: single indices and "a - b" ranges
+    if (inDel) {
+      if (!/^\d/.test(p[0])) { inDel = false; continue; }
+      for (let i = 0; i < p.length; i++) { if (p[i + 1] === '-') { for (let v = +p[i]; v <= +p[i + 2]; v++) del.add(v); i += 2; } else if (/^\d+$/.test(p[i])) del.add(+p[i]); }
+      continue;
+    }
     if (inVerts) {
       // other keywords can sit inside the block (short04 has its material there); only a new block ends it
       if (!/^-?\d/.test(p[0])) { if (/^(delete_verts|weights|verts)/.test(p[0])) inVerts = false; continue; }
@@ -74,7 +84,7 @@ export function parseMhclo(text: string): Mhclo {
       else if (p.length >= 9) refs.push({ v: [+p[0], +p[1], +p[2]], w: [+p[3], +p[4], +p[5]], o: [+p[6], +p[7], +p[8]] });
     }
   }
-  return { refs, scale };
+  return { refs, scale, del, obj, weights, zDepth };
 }
 export function fitMhclo(m: Mhclo, body: Float64Array): Float64Array {
   const s = (axis: 'x' | 'y' | 'z', k: number) => {

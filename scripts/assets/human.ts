@@ -15,8 +15,9 @@
  *   stripes and a bib with a name and number, in body space.
  */
 import { join } from 'node:path';
+import { readdirSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
-import { applyTarget, convertImage, fitMhclo, Packer, parseMhclo, parseObj, parseTarget, read, writeOut, type Obj } from './lib.ts';
+import { applyTarget, CACHE, convertImage, fitMhclo, Packer, parseMhclo, parseObj, parseTarget, read, writeOut, type Obj } from './lib.ts';
 
 type Gender = 'male' | 'female';
 const DM = 0.1; // MakeHuman works in decimetres
@@ -34,7 +35,16 @@ export type HumanBuild = {
   files: string[];
 };
 
-export function buildHuman(opts: { id: string; gender: Gender; outDir: string; hair: string[]; brows: string; skins: Record<string, string> }): HumanBuild {
+// the optional pack (the owner, 3 Oct): more hairstyles, real clothes and shoes and hats, and two more ways to shape the
+// body (age, weight), fitted to the same body in the same build, so the base files stay exactly as they were
+export type PackBuild = {
+  buffer: Buffer; layout: Record<string, { offset: number; length: number; type: string; itemSize: number }>;
+  vertexCount: number; groups: { name: string; start: number; count: number }[]; morphs: Record<string, number>; base: { vertexCount: number; morphs: Record<string, number>; bodyTriangles: number };
+  hair: Record<string, { group: number; texture: string }>;
+  outfits: Record<string, { group: number; slot: 'suit' | 'shoes' | 'hat'; zDepth: number; hide: string; dir: string; diffuse: string; normal: string | null; ao: string | null }>;
+};
+
+export function buildHuman(opts: { id: string; gender: Gender; outDir: string; hair: string[]; brows: string; skins: Record<string, string>; pack?: { hair: string[]; outfits: string[] } }): HumanBuild & { pack?: PackBuild } {
   const { gender, outDir } = opts;
   const base = parseObj(read('makehuman/3dobjs/base.obj'));
   const P0 = new Float64Array(base.v.flat());
@@ -64,6 +74,15 @@ export function buildHuman(opts: { id: string; gender: Gender; outDir: string; h
     caucasian: delta((q) => { applyTarget(q, eth.caucasian, 2 / 3); applyTarget(q, eth.asian, -1 / 3); applyTarget(q, eth.african, -1 / 3); }),
   };
   const morphNames = Object.keys(morphs);
+  // the pack's two more: age (the ethnic blends grown old) and weight (heavier, a little less muscle)
+  const extra: Record<string, Float64Array> = {};
+  if (opts.pack) {
+    const old = Object.fromEntries(ETH.map((e) => [e, T(`${e}-${g}-old`)]));
+    extra.age = delta((q) => { for (const e of ETH) { applyTarget(q, old[e], 1 / 3); applyTarget(q, eth[e], -1 / 3); } });
+    const heavy = T(`universal-${g}-young-averagemuscle-maxweight`);
+    extra.weight = delta((q) => { applyTarget(q, heavy, 1); applyTarget(q, maxMuscle, -0.25); });
+  }
+  const extraNames = Object.keys(extra);
 
   // body faces, and where the floor is
   const bodyFaces = base.faces.filter((f) => f.group === 'body');
@@ -114,17 +133,20 @@ export function buildHuman(opts: { id: string; gender: Gender; outDir: string; h
   /* ------------------------------------------------ assemble parts -- */
   const pos: number[] = [], nor: number[] = [], uv: number[] = [], si: number[] = [], sw: number[] = [];
   const morphOut: number[][] = morphNames.map(() => []);
+  const extraOut: number[][] = extraNames.map(() => []); // the pack's morphs of the base's own vertices (not in the base files)
   const idx: number[] = [];
   const groups: { name: string; start: number; count: number }[] = [];
-  const push = (p: number[], n: number[], t: number[], w: [number, number][], md: number[][]) => {
+  type VertexData = { p: number[]; n: number[]; w: [number, number][]; md: number[][]; xd: number[][] };
+  const push = (p: number[], n: number[], t: number[], w: [number, number][], md: number[][], xd: number[][]) => {
     pos.push(...p); nor.push(...n); uv.push(t[0], t[1]);
     for (let k = 0; k < 4; k++) { si.push(w[k]?.[0] ?? 0); sw.push(w[k]?.[1] ?? 0); }
     md.forEach((d, m) => morphOut[m].push(...d));
+    xd.forEach((d, m) => extraOut[m].push(...d));
     return pos.length / 3 - 1;
   };
-  function addPart(name: string, faces: { v: number[]; t: number[] }[], vt: number[][], vertex: (v: number) => { p: number[]; n: number[]; w: [number, number][]; md: number[][] }) {
+  function addPart(name: string, faces: { v: number[]; t: number[] }[], vt: number[][], vertex: (v: number) => VertexData) {
     const start = idx.length, seen = new Map<string, number>();
-    const id = (v: number, t: number) => { const key = v + '/' + t; let i = seen.get(key); if (i === undefined) { const d = vertex(v); i = push(d.p, d.n, vt[t] ?? [0, 0], d.w, d.md); seen.set(key, i); } return i; };
+    const id = (v: number, t: number) => { const key = v + '/' + t; let i = seen.get(key); if (i === undefined) { const d = vertex(v); i = push(d.p, d.n, vt[t] ?? [0, 0], d.w, d.md, d.xd); seen.set(key, i); } return i; };
     for (const f of faces) {
       const tri = f.v.length === 4 ? [[0, 1, 2], [0, 2, 3]] : f.v.length === 3 ? [[0, 1, 2]] : [];
       for (const [a, b, c] of tri) idx.push(id(f.v[a], f.t[a]), id(f.v[b], f.t[b]), id(f.v[c], f.t[c]));
@@ -133,7 +155,8 @@ export function buildHuman(opts: { id: string; gender: Gender; outDir: string; h
   }
   const bodyVertex = (v: number, offset = 0) => {
     const p = W(S, v), n = [bodyNormal[v * 3], bodyNormal[v * 3 + 1], bodyNormal[v * 3 + 2]];
-    return { p: [p[0] + n[0] * offset, p[1] + n[1] * offset, p[2] + n[2] * offset], n, w: top4(weightsOf(v)), md: morphNames.map((m) => [morphs[m][v * 3] * DM, morphs[m][v * 3 + 1] * DM, morphs[m][v * 3 + 2] * DM]) };
+    return { p: [p[0] + n[0] * offset, p[1] + n[1] * offset, p[2] + n[2] * offset], n, w: top4(weightsOf(v)), md: morphNames.map((m) => [morphs[m][v * 3] * DM, morphs[m][v * 3 + 1] * DM, morphs[m][v * 3 + 2] * DM]),
+      xd: extraNames.map((m) => [extra[m][v * 3] * DM, extra[m][v * 3 + 1] * DM, extra[m][v * 3 + 2] * DM]) };
   };
   addPart('body', bodyFaces, base.vt, (v) => bodyVertex(v));
 
@@ -173,9 +196,21 @@ export function buildHuman(opts: { id: string; gender: Gender; outDir: string; h
 
   // proxies: eyes, eyebrows, eyelashes, hair
   const proxy = (name: string, dir: string) => {
-    const obj: Obj = parseObj(read(`makehuman-system/${dir}/${name}.obj`));
     const m = parseMhclo(read(`makehuman-system/${dir}/${name}.mhclo`));
+    const obj: Obj = parseObj(read(`makehuman-system/${dir}/${m.obj || name + '.obj'}`));
     const fit = fitMhclo(m, S), fitM = morphNames.map((mn) => { const q = new Float64Array(S); for (let i = 0; i < q.length; i++) q[i] += morphs[mn][i]; return fitMhclo(m, q); });
+    const fitX = extraNames.map((mn) => { const q = new Float64Array(S); for (let i = 0; i < q.length; i++) q[i] += extra[mn][i]; return fitMhclo(m, q); });
+    // a garment may carry its own weights (shoes: stiff soles), by MakeHuman's bone names
+    let own: Map<number, Map<number, number>> | null = null;
+    if (m.weights) {
+      own = new Map();
+      const wj = JSON.parse(read(`makehuman-system/${dir}/${m.weights}`)).weights as Record<string, [number, number][]>;
+      for (const [bone, list] of Object.entries(wj)) {
+        if (!mh.bones[bone]) continue;
+        const k = index.get(collapse(bone))!;
+        for (const [v, w] of list) { let mm = own.get(v); if (!mm) own.set(v, (mm = new Map())); mm.set(k, (mm.get(k) ?? 0) + w); }
+      }
+    }
     // welded normals of the proxy
     const pn = new Float64Array(fit.length);
     for (const f of obj.faces) {
@@ -187,15 +222,18 @@ export function buildHuman(opts: { id: string; gender: Gender; outDir: string; h
         for (const i of [ia, ib, ic]) for (let k = 0; k < 3; k++) pn[i * 3 + k] += n[k];
       }
     }
-    return { obj, vertex: (v: number) => {
-      const r = m.refs[v], acc = new Map<number, number>();
-      r.v.forEach((bv, k) => { for (const [b, w] of weightsOf(bv)) acc.set(b, (acc.get(b) ?? 0) + w * r.w[k]); });
+    return { obj, mhclo: m, vertex: (v: number): VertexData => {
+      const r = m.refs[v];
+      let acc = new Map<number, number>();
+      if (own && own.get(v)) acc = own.get(v)!;
+      else r.v.forEach((bv, k) => { for (const [b, w] of weightsOf(bv)) acc.set(b, (acc.get(b) ?? 0) + w * r.w[k]); });
       const l = Math.hypot(pn[v * 3], pn[v * 3 + 1], pn[v * 3 + 2]) || 1;
       return {
         p: [fit[v * 3] * DM, (fit[v * 3 + 1] - minY) * DM, fit[v * 3 + 2] * DM],
         n: [pn[v * 3] / l, pn[v * 3 + 1] / l, pn[v * 3 + 2] / l],
         w: top4(acc),
         md: fitM.map((q) => [(q[v * 3] - fit[v * 3]) * DM, (q[v * 3 + 1] - fit[v * 3 + 1]) * DM, (q[v * 3 + 2] - fit[v * 3 + 2]) * DM]),
+        xd: fitX.map((q) => [(q[v * 3] - fit[v * 3]) * DM, (q[v * 3 + 1] - fit[v * 3 + 1]) * DM, (q[v * 3 + 2] - fit[v * 3 + 2]) * DM]),
       };
     } };
   };
@@ -203,6 +241,67 @@ export function buildHuman(opts: { id: string; gender: Gender; outDir: string; h
   const brows = proxy(opts.brows, `eyebrows/${opts.brows}`); addPart('brows', brows.obj.faces, brows.obj.vt, brows.vertex);
   const lashes = proxy('eyelashes01', 'eyelashes/eyelashes01'); addPart('lashes', lashes.obj.faces, lashes.obj.vt, lashes.vertex);
   for (const h of opts.hair) { const hp = proxy(h, `hair/${h}`); addPart(`hair:${h}`, hp.obj.faces, hp.obj.vt, hp.vertex); }
+
+  /* ------------------------------------------------------- the pack -- */
+  let pack: PackBuild | undefined;
+  if (opts.pack) {
+    const allNames = [...morphNames, ...extraNames];
+    const qp: number[] = [], qn: number[] = [], qt: number[] = [], qsi: number[] = [], qsw: number[] = [], qidx: number[] = [], qm: number[][] = allNames.map(() => []);
+    const qgroups: { name: string; start: number; count: number }[] = [];
+    const addPackPart = (name: string, faces: { v: number[]; t: number[] }[], vt: number[][], vertex: (v: number) => VertexData) => {
+      const start = qidx.length, seen = new Map<string, number>();
+      const id = (v: number, t: number) => {
+        const key = v + '/' + t; let i = seen.get(key);
+        if (i === undefined) {
+          const d = vertex(v); qp.push(...d.p); qn.push(...d.n); const tt = vt[t] ?? [0, 0]; qt.push(tt[0], tt[1]);
+          // MakeHuman's fitting can blend with a negative weight; kept in, a vertex is pulled twice over (a spike)
+          for (let k = 0; k < 4; k++) { qsi.push(d.w[k]?.[0] ?? 0); qsw.push(Math.max(0, d.w[k]?.[1] ?? 0)); }
+          [...d.md, ...d.xd].forEach((dd, k) => qm[k].push(...dd));
+          i = qp.length / 3 - 1; seen.set(key, i);
+        }
+        return i;
+      };
+      for (const f of faces) {
+        const tri = f.v.length === 4 ? [[0, 1, 2], [0, 2, 3]] : f.v.length === 3 ? [[0, 1, 2]] : [];
+        for (const [a, b, c] of tri) qidx.push(id(f.v[a], f.t[a]), id(f.v[b], f.t[b]), id(f.v[c], f.t[c]));
+      }
+      qgroups.push({ name, start, count: qidx.length - start });
+      return qgroups.length - 1;
+    };
+    // the body's triangles in the order the base's body group draws them, for what a garment hides
+    const bodyTris: number[][] = [];
+    for (const f of bodyFaces) { const tri = f.v.length === 4 ? [[0, 1, 2], [0, 2, 3]] : f.v.length === 3 ? [[0, 1, 2]] : []; for (const [a, b, c] of tri) bodyTris.push([f.v[a], f.v[b], f.v[c]]); }
+    const hairOut: PackBuild['hair'] = {}, outfitOut: PackBuild['outfits'] = {}, hides: [string, Uint8Array][] = [];
+    for (const h of opts.pack.hair) { const hp = proxy(h, `hair/${h}`); hairOut[h] = { group: addPackPart(`hair:${h}`, hp.obj.faces, hp.obj.vt, hp.vertex), texture: `hair/${h}/${h}_diffuse.png` }; }
+    for (const o of opts.pack.outfits) {
+      const dir = `clothes/${o}`, hp = proxy(o, dir), m = hp.mhclo;
+      const mat = read(`makehuman-system/${dir}/${(readdirSync(join(CACHE, 'makehuman-system', dir)).find((f) => f.endsWith('.mhmat')))!}`);
+      const texOf = (k: string) => { const r = mat.split('\n').find((l) => l.trim().startsWith(k)); return r ? `${dir}/${r.trim().split(/\s+/)[1]}` : null; };
+      // a triangle of skin is hidden when the garment covers any of its corners
+      const bits = new Uint8Array(Math.ceil(bodyTris.length / 8));
+      bodyTris.forEach((t, i) => { if (m.del.has(t[0]) || m.del.has(t[1]) || m.del.has(t[2])) bits[i >> 3] |= 1 << (i & 7); });
+      hides.push([`hide:${o}`, bits]);
+      outfitOut[o] = { group: addPackPart(`outfit:${o}`, hp.obj.faces, hp.obj.vt, hp.vertex), slot: /shoes/.test(o) ? 'shoes' : /fedora/.test(o) ? 'hat' : 'suit', zDepth: m.zDepth, hide: `hide:${o}`, dir,
+        diffuse: texOf('diffuseTexture')!, normal: texOf('normalmapTexture'), ao: texOf('aomapTexture') };
+    }
+    const qk = new Packer();
+    qk.add('position', new Float32Array(qp), 3);
+    qk.add('normal', new Int8Array(qn.map((v) => Math.round(Math.max(-1, Math.min(1, v)) * 127))), 3);
+    qk.add('uv', new Uint16Array(qt.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 65535))), 2);
+    qk.add('skinIndex', new Uint8Array(qsi), 4);
+    const qw = new Uint8Array(qsw.length);
+    for (let i = 0; i < qsw.length; i += 4) { const t = qsw[i] + qsw[i + 1] + qsw[i + 2] + qsw[i + 3] || 1; let rest = 255; for (let k = 0; k < 3; k++) { qw[i + k] = Math.round(qsw[i + k] / t * 255); rest -= qw[i + k]; } qw[i + 3] = Math.max(0, rest); }
+    qk.add('skinWeight', qw, 4);
+    const qmeta: Record<string, number> = {}, bmeta: Record<string, number> = {};
+    const absMax = (d: number[]) => { let m = 1e-6; for (const v of d) if (Math.abs(v) > m) m = Math.abs(v); return m; };
+    allNames.forEach((mn, k) => { const d = qm[k], max = absMax(d); qmeta[mn] = max / 32767; qk.add(`morph:${mn}`, new Int16Array(d.map((v) => Math.round(v / max * 32767))), 3); });
+    // the base's own vertices, aged and weighted (the runtime adds these to the base body when the pack is loaded)
+    extraNames.forEach((mn, k) => { const d = extraOut[k], max = absMax(d); bmeta[mn] = max / 32767; qk.add(`base:${mn}`, new Int16Array(d.map((v) => Math.round(v / max * 32767))), 3); });
+    for (const [k, b] of hides) qk.add(k, b, 1);
+    const qv = qp.length / 3;
+    qk.add('index', qv < 65536 ? new Uint16Array(qidx) : new Uint32Array(qidx), 1);
+    pack = { buffer: qk.buffer(), layout: qk.layout, vertexCount: qv, groups: qgroups, morphs: qmeta, base: { vertexCount: pos.length / 3, morphs: bmeta, bodyTriangles: bodyTris.length }, hair: hairOut, outfits: outfitOut };
+  }
 
   /* ----------------------------------------------- the kit's paint maps -- */
   // every texel of the kit gets its body-space position, normal and region
@@ -289,5 +388,5 @@ export function buildHuman(opts: { id: string; gender: Gender; outDir: string; h
     kit: { file: 'kit.bin.z', size: N, rect: rect.map((v) => +v.toFixed(4)), bounds: { min: bbMin.map((v) => +v.toFixed(4)), max: bbMax.map((v) => +v.toFixed(4)) }, regions: { top: 60, shorts: 120, shoes: 180 }, vertices: [kitStart, kitEnd] },
     textures: { skins, hair: hairTex, brows: 'brows.png', lashes: 'lashes.png', eyes: eyes2 },
   };
-  return { id: opts.id, gender, dir: outDir, skeleton, asset, files };
+  return { id: opts.id, gender, dir: outDir, skeleton, asset, files, pack };
 }

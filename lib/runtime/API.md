@@ -123,6 +123,7 @@ world uses (up to 24); it all loads before `build()` runs.
 |---|---|
 | `human-athlete-male` | a realistic male athlete: skins `african`, `caucasian`, `caucasian2`, `asian`; hair `short02`, `short04`, `afro01`; motion-captured idle, standing start, run, sprint and fall, and sword motion (a guard, three cuts, a hit and a death) |
 | `human-athlete-female` | the same for a female athlete: skins `african`, `caucasian`, `asian` |
+| `human-pack-male`, `human-pack-female` | the people pack for that body (list it with the body): real garments, shoes and hats fitted to it, seven more hairstyles, the middle-aged and old skins, and two more shapes, `age` and `weight` (below) |
 | `hdri-sunset-city` | a golden-hour city sky for `graphics.environment.hdri` |
 | `sky-noon`, `sky-partly-cloudy`, `sky-sunset`, `sky-dusk`, `sky-night`, `sky-overcast` | photographed skies, open all round, full dynamic range, for `ctx.sky({ hdri })` |
 | `sky-beach` | a photographed Mediterranean beach at midday: sand, pines, a headland, the sea to the horizon (`face` turns its sea) |
@@ -242,6 +243,34 @@ Mix them so a crowd reads as people, not a uniform: a city's commuters in coats,
 puffers, a hospital's scrubs, an outbreak's hazmat suits, a park's hoodies, joggers and track
 pants. Hats and beanies hide the hair under them. A weapon for a street fight: `weapon: { kind: 'bat' }` (also
 `baton`, `pipe`, `chain`, or a sword), carried in the right hand.
+
+**The people pack**: real clothes, more hair and older people. List the pack next to its body
+(`assets: ['human-athlete-male', 'human-pack-male', 'human-athlete-female', 'human-pack-female']`);
+a world that leaves it out downloads none of it (11 MB for the male pack, 8.5 MB for the female):
+
+```js
+ctx.assets.human('human-athlete-male', {
+  skin: 'caucasian-old',                    // african-, asian- or caucasian- with middle or old: the face stays that ethnicity's
+  hair: 'short01', hairColor: '#C8C4BC',    // short01, short03, bob01, bob02, braid01, long01, ponytail01 (either body)
+  build: { age: 0.8, weight: 0.4 },         // 0 to 1, with muscle and lean: age (an older frame), weight (a heavier body)
+  wear: ['male_casualsuit03', { name: 'shoes02', color: '#3A2A1E' }, 'fedora01'],   // one per slot: suit, shoes, hat; color tints it
+})
+```
+
+Suits for `human-athlete-male`: `male_casualsuit01` (navy shirt, grey jeans), `male_casualsuit02`
+(blue long-sleeved top, jeans), `male_casualsuit03` (striped shirt, jeans), `male_casualsuit04`
+(blue tee, jeans), `male_casualsuit05` (olive jacket over a shirt, jeans), `male_casualsuit06`
+(white tee, jeans), `male_elegantsuit01` (black suit, shirt and tie), `male_worksuit01` (denim
+overalls over a white tee). For `human-athlete-female`: `female_casualsuit01` (blue tee, jeans),
+`female_casualsuit02` (blue tee, denim shorts), `female_elegantsuit01` (striped blouse, dark
+skirt), `female_sportsuit01` (crop top, leggings). For both: `shoes01` (tan leather), `shoes02`
+(worn boots), `shoes03` (black dress shoes), `shoes04` (black leather), `shoes05` (white
+trainers), `shoes06` (blue trainers), and the hats `fedora01` and `fedora_cocked`.
+
+A suit replaces the kit and any painted `clothes` (a beard, tattoos and gloves stay); shoes
+replace the kit's shoes and painted boots; a hat, like a cap, a beanie or a hood, hides the hair.
+Mix pack and painted people in one crowd. Without the pack, its names fall back: `caucasian-old`
+is the young `caucasian`, an unknown hair is the body's first, and `wear` is ignored.
 
 `ctx.assets.car(options)` builds a racing car for `player()` or `rival()` in a world with
 `play.vehicle` and returns `{ object, animate, name, color, vehicle }`: return it as it is (set

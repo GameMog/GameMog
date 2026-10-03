@@ -10,7 +10,7 @@
       "homepage": "http://www.makehumancommunity.org"
     },
     "makehuman-system": {
-      "title": "MakeHuman system assets (skins, hair, eyebrows, eyelashes, eyes)",
+      "title": "MakeHuman system assets (skins, hair, clothes, eyebrows, eyelashes, eyes)",
       "author": "The MakeHuman team",
       "license": "CC0-1.0",
       "licenseUrl": "https://github.com/makehumancommunity/makehuman/blob/master/LICENSE.ASSETS.md",
@@ -2103,6 +2103,468 @@
         }
       },
       "bytes": 21660875
+    },
+    "human-pack-male": {
+      "kind": "human-pack",
+      "title": "People pack (male)",
+      "description": "What a world adds to the male human by listing it: 7 more hairstyles, 16 garments (8 outfits, shoes and hats) fitted to the body, the middle-aged and old skins of each tone, and two more body shapes, age and weight.",
+      "sources": [
+        "makehuman",
+        "makehuman-system"
+      ],
+      "derived": "Fitted to the base human in the same build (its rig, its morphs); each garment hides the skin under it; colours with their ambient occlusion baked in; hair at 512 px, garments at 1024 px.",
+      "meta": {
+        "hair": [
+          "bob01",
+          "bob02",
+          "braid01",
+          "long01",
+          "ponytail01",
+          "short01",
+          "short03"
+        ],
+        "outfits": [
+          "male_casualsuit01",
+          "male_casualsuit02",
+          "male_casualsuit03",
+          "male_casualsuit04",
+          "male_casualsuit05",
+          "male_casualsuit06",
+          "male_elegantsuit01",
+          "male_worksuit01",
+          "shoes01",
+          "shoes02",
+          "shoes03",
+          "shoes04",
+          "shoes05",
+          "shoes06",
+          "fedora01",
+          "fedora_cocked"
+        ],
+        "skins": [
+          "african-middle",
+          "asian-middle",
+          "caucasian-middle",
+          "african-old",
+          "asian-old",
+          "caucasian-old"
+        ],
+        "morphs": [
+          "age",
+          "weight"
+        ],
+        "vertices": 73698
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "aca3ae87fefb4d79516ab7f12788094b6ff8bf39ad57881a33de17b08ac81210",
+          "bytes": 7504
+        },
+        "fedora01-normal.jpg": {
+          "sha256": "a2496375650240a8266de0a48b1526269698684813cbf2abbf065f7eaebfa56d",
+          "bytes": 70360
+        },
+        "fedora01.jpg": {
+          "sha256": "1e31c34425fd0ab96b155170e1b979830147b7a39951db79bad0775f486b149b",
+          "bytes": 190615
+        },
+        "fedora_cocked-normal.jpg": {
+          "sha256": "a2496375650240a8266de0a48b1526269698684813cbf2abbf065f7eaebfa56d",
+          "bytes": 70360
+        },
+        "fedora_cocked.jpg": {
+          "sha256": "1e31c34425fd0ab96b155170e1b979830147b7a39951db79bad0775f486b149b",
+          "bytes": 190615
+        },
+        "hair-bob01.png": {
+          "sha256": "db83e577ea5d3f96a8373bf2aa6d9063fd68630748ec0f837ea4a18eb58238db",
+          "bytes": 377465
+        },
+        "hair-bob02.png": {
+          "sha256": "7a2560975e998b8018ac329ccebdebaa62d0dc8df899c5ef7073bdfb80eadb43",
+          "bytes": 317549
+        },
+        "hair-braid01.png": {
+          "sha256": "fd92c99c9b8aafaf9fba496c0742051cba123cd63efd8ad0766b4c61cd2a447c",
+          "bytes": 342144
+        },
+        "hair-long01.png": {
+          "sha256": "93ef7bde83ee757fb654bc43192a38ecbc501ec4ce5fb549b142ecda3125f041",
+          "bytes": 388904
+        },
+        "hair-ponytail01.png": {
+          "sha256": "69f604fe4e4a1f5e10a6dbef9a413dfa7237cae14140e26e7fd936de8356f357",
+          "bytes": 491833
+        },
+        "hair-short01.png": {
+          "sha256": "aa0e521d7ce6b0fd2cd6a4d8f1d029eb60420d85e4ea3e860e298639d67fbf17",
+          "bytes": 276456
+        },
+        "hair-short03.png": {
+          "sha256": "08949946d872fc930c5d198e50dd89f1101fc6c8c88f171975dd95679827ca02",
+          "bytes": 346103
+        },
+        "male_casualsuit01-normal.jpg": {
+          "sha256": "8b22efb378b38ef3a00528477cdecb1b2f7464d12dfb47f34dd53495572493d6",
+          "bytes": 90114
+        },
+        "male_casualsuit01.jpg": {
+          "sha256": "bc917780a12de4cfc17abf7eff1d9e2273053e931fe18ae56141190a113d2ffe",
+          "bytes": 63173
+        },
+        "male_casualsuit02-normal.jpg": {
+          "sha256": "0b4e3e4a468d7a901ac9249114f00ccd4f9b7a25b780539e7566ad3193905336",
+          "bytes": 49220
+        },
+        "male_casualsuit02.jpg": {
+          "sha256": "84f713322333fe37f1a2d97ea0e9f82bcd964b698856d9b2184d810ad71cf4ad",
+          "bytes": 67250
+        },
+        "male_casualsuit03-normal.jpg": {
+          "sha256": "3d0cb79ca721c3781021fe29f4a4803e1c248798e4da30ab01f7a4dceaae9916",
+          "bytes": 161106
+        },
+        "male_casualsuit03.jpg": {
+          "sha256": "625eb6035d9a838a6a323b9c6991454aa154fbf89b3e3a0db8969fa3b645b872",
+          "bytes": 119399
+        },
+        "male_casualsuit04-normal.jpg": {
+          "sha256": "d651058b110331a2e15800d0ea0c1211c0f1cc2066ef787c2b41e01dcdedfd16",
+          "bytes": 49905
+        },
+        "male_casualsuit04.jpg": {
+          "sha256": "327c70d5150477c5d2ba086ee13b493eac645a3ae44e3cedd9df8cabca7b12da",
+          "bytes": 67947
+        },
+        "male_casualsuit05-normal.jpg": {
+          "sha256": "89ff87f4f82cf5c36e466c09cf9ae232aba08a0bcb757ca42668e0f48cb07545",
+          "bytes": 64330
+        },
+        "male_casualsuit05.jpg": {
+          "sha256": "b8255f54da8f0b3e0af824784e7adf18cbb089c175fb39c79588b1f0c1ae5dec",
+          "bytes": 56781
+        },
+        "male_casualsuit06-normal.jpg": {
+          "sha256": "225c5dd69b0ae8391035ba2707f9b3bac3676b4a137a50f78f5c7c2b1db34bae",
+          "bytes": 67985
+        },
+        "male_casualsuit06.jpg": {
+          "sha256": "88adda2c97f747657a318a834f11a28e8f683e61cfa0be6282021a0fb78ff5a1",
+          "bytes": 58009
+        },
+        "male_elegantsuit01.jpg": {
+          "sha256": "c8c58e6817b6e84f00856f8024d323e96d8af7bc350da30fbae1f18e5f8d8c34",
+          "bytes": 25911
+        },
+        "male_worksuit01-normal.jpg": {
+          "sha256": "8eae40a3f547cbba9bb64db3ea1571a6da106036ef4391300ddebd29b789db57",
+          "bytes": 85613
+        },
+        "male_worksuit01.jpg": {
+          "sha256": "72a67f93fe3c04a9d83771681ab31ea288fe42a06396dafd4e109b085699a61f",
+          "bytes": 98431
+        },
+        "pack.bin.z": {
+          "sha256": "b6383c3bbb50afc024f5f2b614deacd7d29791df50f23a38739d4630240ccf95",
+          "bytes": 3943797
+        },
+        "shoes01-normal.jpg": {
+          "sha256": "8c3b5a946675234e682dc687fdd2bce67a6418e3f9c1b654ac77a21a22353e89",
+          "bytes": 146094
+        },
+        "shoes01.jpg": {
+          "sha256": "e13ab3cbf8353219bdad362d61016709aa64e97cf89988ad0ad37bbb4c949d25",
+          "bytes": 114403
+        },
+        "shoes02.jpg": {
+          "sha256": "041a97a8b8bf75ccc967fdbeb78e42f34079dd05a73de777c7b2947d620c3280",
+          "bytes": 110562
+        },
+        "shoes03.jpg": {
+          "sha256": "f593d17c576fde8b6acaa649a49b57d0ddda0472cb8d0d491a391958dbf08216",
+          "bytes": 36854
+        },
+        "shoes04-normal.jpg": {
+          "sha256": "8c3b5a946675234e682dc687fdd2bce67a6418e3f9c1b654ac77a21a22353e89",
+          "bytes": 146094
+        },
+        "shoes04.jpg": {
+          "sha256": "87aa3e2063d607d9f51541a0f00031f68483b8358f9efbe22d89aeb1f39beef4",
+          "bytes": 76173
+        },
+        "shoes05.jpg": {
+          "sha256": "539bfb2e074835ab87fbca08acbae0cf814c17bbf150e6095aff9fca1c3e3ba9",
+          "bytes": 121728
+        },
+        "shoes06.jpg": {
+          "sha256": "170b2978cc0905f7848bee10035cd35a67a4e335e04fd9b21ef7631f40402308",
+          "bytes": 141263
+        },
+        "skin-african-middle-lo.jpg": {
+          "sha256": "b87518e81d61801b11a09481461000b5827ed34701304ddd0f2d703d04058ca4",
+          "bytes": 44304
+        },
+        "skin-african-middle.jpg": {
+          "sha256": "f9f8763cd8791f9bb58374271a0258f0d72ce06e9b17fbf85727e154d1171533",
+          "bytes": 183752
+        },
+        "skin-african-old-lo.jpg": {
+          "sha256": "f620b1f39e7747e4314df44d9d65c3d13b8479d0f835794d92644db0319da4e9",
+          "bytes": 52376
+        },
+        "skin-african-old.jpg": {
+          "sha256": "b7502a50a14d953f719c53f2f698aa854a9f2bbb42aca7152855bb559b9f8920",
+          "bytes": 227083
+        },
+        "skin-asian-middle-lo.jpg": {
+          "sha256": "a5d1f280bb0083cf233a22ddeff3b3c82301e7c798b827474b7479a82a8b7d4c",
+          "bytes": 61190
+        },
+        "skin-asian-middle.jpg": {
+          "sha256": "bc09cd301309e7cbe90939c938bbb23815bd05705e4ad09c2b004f585d5af7bf",
+          "bytes": 258668
+        },
+        "skin-asian-old-lo.jpg": {
+          "sha256": "a2478b3ab687e7c7a127ac2706a43acd817b18618b9c800cee55aa14b3985fb6",
+          "bytes": 73597
+        },
+        "skin-asian-old.jpg": {
+          "sha256": "04c0c13f23b88c3ad95dbb3afcb15963dcac2ae5c1081e4ed5576112a3da9d51",
+          "bytes": 313312
+        },
+        "skin-caucasian-middle-lo.jpg": {
+          "sha256": "efc83a75f672463c4f4c18424e0dcb1bbe9a8840c40df8179a80d68a8cbf47d2",
+          "bytes": 57915
+        },
+        "skin-caucasian-middle.jpg": {
+          "sha256": "72526109dfa4f3cbf0b1bebef6f2ef41a559e36b3a3f2fcb14cfa1e9319ac502",
+          "bytes": 243747
+        },
+        "skin-caucasian-old-lo.jpg": {
+          "sha256": "1b4238877186dc382b3a74dacadf6ef81d350fbe9ba9fa7bd6c60a77c820489d",
+          "bytes": 86671
+        },
+        "skin-caucasian-old.jpg": {
+          "sha256": "277e7cffe5786ec590dc36934e4621e632a120091823bdf342ee25a45e16ffff",
+          "bytes": 368671
+        }
+      },
+      "bytes": 11003336
+    },
+    "human-pack-female": {
+      "kind": "human-pack",
+      "title": "People pack (female)",
+      "description": "What a world adds to the female human by listing it: 7 more hairstyles, 12 garments (4 outfits, shoes and hats) fitted to the body, the middle-aged and old skins of each tone, and two more body shapes, age and weight.",
+      "sources": [
+        "makehuman",
+        "makehuman-system"
+      ],
+      "derived": "Fitted to the base human in the same build (its rig, its morphs); each garment hides the skin under it; colours with their ambient occlusion baked in; hair at 512 px, garments at 1024 px.",
+      "meta": {
+        "hair": [
+          "bob01",
+          "bob02",
+          "braid01",
+          "long01",
+          "ponytail01",
+          "short01",
+          "short03"
+        ],
+        "outfits": [
+          "female_casualsuit01",
+          "female_casualsuit02",
+          "female_elegantsuit01",
+          "female_sportsuit01",
+          "shoes01",
+          "shoes02",
+          "shoes03",
+          "shoes04",
+          "shoes05",
+          "shoes06",
+          "fedora01",
+          "fedora_cocked"
+        ],
+        "skins": [
+          "african-middle",
+          "asian-middle",
+          "caucasian-middle",
+          "african-old",
+          "asian-old",
+          "caucasian-old"
+        ],
+        "morphs": [
+          "age",
+          "weight"
+        ],
+        "vertices": 47130
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "407032d28ea87e1ae195e73d82382c11375bdc6753dd8bbf15073b9658179ada",
+          "bytes": 6301
+        },
+        "fedora01-normal.jpg": {
+          "sha256": "a2496375650240a8266de0a48b1526269698684813cbf2abbf065f7eaebfa56d",
+          "bytes": 70360
+        },
+        "fedora01.jpg": {
+          "sha256": "1e31c34425fd0ab96b155170e1b979830147b7a39951db79bad0775f486b149b",
+          "bytes": 190615
+        },
+        "fedora_cocked-normal.jpg": {
+          "sha256": "a2496375650240a8266de0a48b1526269698684813cbf2abbf065f7eaebfa56d",
+          "bytes": 70360
+        },
+        "fedora_cocked.jpg": {
+          "sha256": "1e31c34425fd0ab96b155170e1b979830147b7a39951db79bad0775f486b149b",
+          "bytes": 190615
+        },
+        "female_casualsuit01-normal.jpg": {
+          "sha256": "68884f3574510f68fa22e63b6f02d2917aff149abca0214f3f93adf28ac9128d",
+          "bytes": 46257
+        },
+        "female_casualsuit01.jpg": {
+          "sha256": "6228659af57a2fe447aa936d2567a9f900dd856df37eb5ec14516e1432c71a8b",
+          "bytes": 85670
+        },
+        "female_casualsuit02-normal.jpg": {
+          "sha256": "b4d1fa9836668018743c626d62aed2c32c8d8dec51b9e21a0e1b51fff9cc2def",
+          "bytes": 31886
+        },
+        "female_casualsuit02.jpg": {
+          "sha256": "1c9dd1233fe6485ef7059a13708fa78c4ad1362055d13717f17aba819baa82ae",
+          "bytes": 122072
+        },
+        "female_elegantsuit01-normal.jpg": {
+          "sha256": "0abd0c366a7cedf35d2028fe7446c1202cacaa2fe3bbc947c4094df10121c94f",
+          "bytes": 55783
+        },
+        "female_elegantsuit01.jpg": {
+          "sha256": "1f81287cf9cb1c0ae826da75f81b3262e7eb69e1b78180b6ed0cf3d12afd6c87",
+          "bytes": 84652
+        },
+        "female_sportsuit01-normal.jpg": {
+          "sha256": "e3eee65d8efa380fd1e980179b4a13be0c38342ecbbc74224f5b8083cb07006c",
+          "bytes": 22423
+        },
+        "female_sportsuit01.jpg": {
+          "sha256": "6eaddbfcba4969c6cabee6a45c2c761fbdd3010ad13bc9efb155f692e74b0850",
+          "bytes": 57020
+        },
+        "hair-bob01.png": {
+          "sha256": "db83e577ea5d3f96a8373bf2aa6d9063fd68630748ec0f837ea4a18eb58238db",
+          "bytes": 377465
+        },
+        "hair-bob02.png": {
+          "sha256": "7a2560975e998b8018ac329ccebdebaa62d0dc8df899c5ef7073bdfb80eadb43",
+          "bytes": 317549
+        },
+        "hair-braid01.png": {
+          "sha256": "fd92c99c9b8aafaf9fba496c0742051cba123cd63efd8ad0766b4c61cd2a447c",
+          "bytes": 342144
+        },
+        "hair-long01.png": {
+          "sha256": "93ef7bde83ee757fb654bc43192a38ecbc501ec4ce5fb549b142ecda3125f041",
+          "bytes": 388904
+        },
+        "hair-ponytail01.png": {
+          "sha256": "69f604fe4e4a1f5e10a6dbef9a413dfa7237cae14140e26e7fd936de8356f357",
+          "bytes": 491833
+        },
+        "hair-short01.png": {
+          "sha256": "aa0e521d7ce6b0fd2cd6a4d8f1d029eb60420d85e4ea3e860e298639d67fbf17",
+          "bytes": 276456
+        },
+        "hair-short03.png": {
+          "sha256": "08949946d872fc930c5d198e50dd89f1101fc6c8c88f171975dd95679827ca02",
+          "bytes": 346103
+        },
+        "pack.bin.z": {
+          "sha256": "67a9660ae57121c8f1f60c07bacd208a5e990427d353fccab0b302b8b67a8cb6",
+          "bytes": 2311955
+        },
+        "shoes01-normal.jpg": {
+          "sha256": "8c3b5a946675234e682dc687fdd2bce67a6418e3f9c1b654ac77a21a22353e89",
+          "bytes": 146094
+        },
+        "shoes01.jpg": {
+          "sha256": "e13ab3cbf8353219bdad362d61016709aa64e97cf89988ad0ad37bbb4c949d25",
+          "bytes": 114403
+        },
+        "shoes02.jpg": {
+          "sha256": "041a97a8b8bf75ccc967fdbeb78e42f34079dd05a73de777c7b2947d620c3280",
+          "bytes": 110562
+        },
+        "shoes03.jpg": {
+          "sha256": "f593d17c576fde8b6acaa649a49b57d0ddda0472cb8d0d491a391958dbf08216",
+          "bytes": 36854
+        },
+        "shoes04-normal.jpg": {
+          "sha256": "8c3b5a946675234e682dc687fdd2bce67a6418e3f9c1b654ac77a21a22353e89",
+          "bytes": 146094
+        },
+        "shoes04.jpg": {
+          "sha256": "87aa3e2063d607d9f51541a0f00031f68483b8358f9efbe22d89aeb1f39beef4",
+          "bytes": 76173
+        },
+        "shoes05.jpg": {
+          "sha256": "539bfb2e074835ab87fbca08acbae0cf814c17bbf150e6095aff9fca1c3e3ba9",
+          "bytes": 121728
+        },
+        "shoes06.jpg": {
+          "sha256": "170b2978cc0905f7848bee10035cd35a67a4e335e04fd9b21ef7631f40402308",
+          "bytes": 141263
+        },
+        "skin-african-middle-lo.jpg": {
+          "sha256": "3581131403261ad02181de3ce9fa31188732aba5fa68f7b50d53724cc0901954",
+          "bytes": 38170
+        },
+        "skin-african-middle.jpg": {
+          "sha256": "914de8ee19fe345935b395ab99ca1568bd7e5b2903717f5a285bf97004bf3d3b",
+          "bytes": 169118
+        },
+        "skin-african-old-lo.jpg": {
+          "sha256": "4105a6a8c7074a4e2c6641345c9a9d5a4f4e78970cd17c09a968a03770a06fcb",
+          "bytes": 41667
+        },
+        "skin-african-old.jpg": {
+          "sha256": "57cac06a65e470749de16da5ff9c5845342392f13dd3bcb33387d6958c56b6fa",
+          "bytes": 182157
+        },
+        "skin-asian-middle-lo.jpg": {
+          "sha256": "542e2ddc138be4bfc8fbc34c743bd1ec9fbc7e937af40e35124a713bccab532b",
+          "bytes": 46262
+        },
+        "skin-asian-middle.jpg": {
+          "sha256": "9f7272a4da2a363ffe120cfb364b0d73344eda05a9d9d389abe34af007bc8cde",
+          "bytes": 197916
+        },
+        "skin-asian-old-lo.jpg": {
+          "sha256": "52943f16d092ae407e247cb75be527c8ffc74a56f2f231ee4afee7e1384d1576",
+          "bytes": 71688
+        },
+        "skin-asian-old.jpg": {
+          "sha256": "2e18e0d2423d1abcce195e1d4273240be17c632cfc9cb8a1988fe3f6176cb5de",
+          "bytes": 316741
+        },
+        "skin-caucasian-middle-lo.jpg": {
+          "sha256": "e9d49f8efa4fa35e085f51334cff89320f94fb5c4eafa78a15d801d990fbe3fe",
+          "bytes": 53481
+        },
+        "skin-caucasian-middle.jpg": {
+          "sha256": "237d13c58d9fa07ac9d71e01deb1952cf15d1e32fe064b3f955a3f1f38813d9e",
+          "bytes": 228380
+        },
+        "skin-caucasian-old-lo.jpg": {
+          "sha256": "de0586c0315db587ec05f69007ed59c48adca0912df5d996d3d128010b8db260",
+          "bytes": 70139
+        },
+        "skin-caucasian-old.jpg": {
+          "sha256": "f57a90e0f5b234fc6c5886a292271c104324e3f63cb7284c7cbe97a9d878086f",
+          "bytes": 312201
+        }
+      },
+      "bytes": 8507514
     }
   }
 }

@@ -938,6 +938,36 @@ try {
     }, { timeoutMs: 120_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(wdid); }
 
+  // the people pack (the owner, 3 Oct: humans that look like people, not zombies): garments fitted to the body, more
+  // hair, the middle-aged and old skins and the age and weight shapes, from two assets only the worlds that list them load
+  console.log('\nthe people pack: clothes, hair and older people');
+  const ppid = randomUUID();
+  insertDraft({ id: ppid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../lib/runtime/people-pack-world.js', import.meta.url), 'utf8'),
+    meta: { title: 'People Pack Check', tagline: 'People', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#BFD6EE', ground: '#B9B4A8', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' } });
+  try {
+    await withBrowser(async (page) => {
+      const O = 'window.__gmRuntime.debug.open()';
+      await page.goto(`${BASE}/d/${ppid}/play`);
+      for (let i = 0; i < 300; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__gmRuntime.state().open && window.__gmRuntime.state().open.ready)').catch(() => false)) break; await sleep(250); }
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(300);
+      await page.eval(`${O}.intro()`); await sleep(2500);
+      for (let i = 0; i < 80; i++) { const st = await page.eval<{ shot: number } | null>(`${O}.introState()`); if (st && st.shot === 1) break; await sleep(500); }
+      await sleep(2000);
+      const b = await page.eval<{ cast: string[] } | null>(`${O}.introState()`);
+      const m = await page.eval<{ pack: number; worn: number; shaped: number; aged: number }>(`(() => { let pack = 0, worn = 0, shaped = 0, aged = 0;
+        window.__gmRuntime.debug.internals().scene.traverse((o) => {
+          if (!o.isSkinnedMesh) return;
+          if (o.name === 'pack') { pack++; if (o.material.some((x) => x.visible && x.map)) worn++; }
+          else if (o.morphTargetInfluences && o.morphTargetInfluences.length === 7) { shaped++; if (o.morphTargetInfluences[5] > 0.5) aged++; }
+        });
+        return { pack, worn, shaped, aged }; })()`);
+      const e = await page.eval<string[]>('window.__gm.errors');
+      ok('fourteen people dressed from the pack: garments and hair on each body\'s own skeleton', !!b && b.cast.length === 14 && m.pack === 14 && m.worn === 14 && e.length === 0 && page.errors.length === 0,
+        `${b ? b.cast.length : 0} cast, ${m.pack} pack meshes, ${m.worn} dressed${e.length || page.errors.length ? ': ' + e.concat(page.errors).join(' | ') : ''}`);
+      ok('the bodies gain the pack\'s two shapes, age and weight, and the old are aged', m.shaped >= 14 && m.aged === 4, `${m.shaped} bodies with 7 shapes, ${m.aged} aged past 0.5`);
+    }, { timeoutMs: 120_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(ppid); }
+
   console.log('\nlight: opt-in presets, light units, and what the look measures');
   const solidSrc = readFileSync(new URL('../lib/runtime/open-solid-world.js', import.meta.url), 'utf8');
   const lit = (extra: string, graphics: string) => solidSrc

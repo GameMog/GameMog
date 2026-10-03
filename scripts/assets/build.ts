@@ -9,6 +9,7 @@
  */
 import { copyFileSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { deflateSync, gzipSync } from 'node:zlib';
 import { buildHuman } from './human.ts';
 import { retargetClip, sprintFrom, type Clip } from './mocap.ts';
@@ -115,10 +116,49 @@ const cmuCut = (skel: Parameters<typeof retargetClip>[0], [trial0, name, kind, f
   return retargetClip(skel, { asf: `${sub}/${sub}.asf`, amc: `${sub}/${trial}.amc` }, { name, kind, start: from == null ? undefined : Math.round(from * fps), end: to == null ? undefined : Math.round(to * fps), face: o?.face, srcFps: fps, contact: o?.contact, period: o?.period, fist: o?.fist, inPlace: kind === 'once' });
 };
 
-function human(id: string, gender: 'male' | 'female', title: string, skins: Record<string, string>, hair: string[], brows: string) {
-  if (!want(id)) return;
+// the people pack (the owner, 3 Oct): what a world adds to a base human by listing human-pack-<gender> in its assets
+const PACK_HAIR = ['bob01', 'bob02', 'braid01', 'long01', 'ponytail01', 'short01', 'short03'];
+const PACK_OUTFITS = {
+  male: ['male_casualsuit01', 'male_casualsuit02', 'male_casualsuit03', 'male_casualsuit04', 'male_casualsuit05', 'male_casualsuit06', 'male_elegantsuit01', 'male_worksuit01'],
+  female: ['female_casualsuit01', 'female_casualsuit02', 'female_elegantsuit01', 'female_sportsuit01'],
+};
+const PACK_SHARED = ['shoes01', 'shoes02', 'shoes03', 'shoes04', 'shoes05', 'shoes06', 'fedora01', 'fedora_cocked'];
+// MakeHuman's own logo and name printed on some of its garments and a sports brand's marks on two of its trainers:
+// covered with the same garment's plain cloth (at: the 1024 px rect to cover; from: where its patch is taken, as an
+// offset). The web address in the textures' corners is left: it is outside every part's UVs, as in the base's skins
+type Scrub = { at: [number, number, number, number]; from: [number, number]; round?: boolean };
+const SCRUB: Record<string, Scrub[]> = {
+  male_casualsuit02: [{ at: [505, 105, 642, 241], from: [-410, 0], round: true }],
+  male_casualsuit04: [{ at: [505, 105, 642, 241], from: [-400, 0], round: true }],
+  male_casualsuit06: [{ at: [450, 112, 646, 210], from: [0, 170] }, { at: [196, 108, 304, 172], from: [0, 170] }, { at: [748, 148, 782, 192], from: [0, 80] }],
+  female_casualsuit01: [{ at: [728, 158, 892, 314], from: [-170, 0], round: true }],
+  female_casualsuit02: [{ at: [728, 158, 892, 314], from: [-170, 0], round: true }],
+  shoes05: [{ at: [456, 512, 548, 568], from: [-100, 0], round: true }],
+  shoes06: [{ at: [474, 814, 534, 846], from: [0, 36] }, { at: [480, 398, 570, 448], from: [-150, -20] }],
+};
+// each patch covers its rect completely and fades out over a few pixels around it
+async function scrub(sharp: any, img: Buffer, ops: Scrub[]) {
+  const comps = [], f = 8, cl = (v: number) => Math.max(0, Math.min(1024, v));
+  for (const o of ops) {
+    const x0 = cl(o.at[0] - f), y0 = cl(o.at[1] - f), w = cl(o.at[2] + f) - x0, h = cl(o.at[3] + f) - y0;
+    const patch = await sharp(img).extract({ left: Math.max(0, Math.min(1024 - w, x0 + o.from[0])), top: Math.max(0, Math.min(1024 - h, y0 + o.from[1])), width: w, height: h }).png().toBuffer();
+    const [l, t, r, b] = [o.at[0] - x0 - f / 2, o.at[1] - y0 - f / 2, o.at[2] - x0 + f / 2, o.at[3] - y0 + f / 2];
+    const shape = o.round ? `<ellipse cx="${(l + r) / 2}" cy="${(t + b) / 2}" rx="${(r - l) / 2}" ry="${(b - t) / 2}"/>` : `<rect x="${l}" y="${t}" width="${r - l}" height="${b - t}"/>`;
+    const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><defs><filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${f / 4}"/></filter></defs><g fill="#fff" filter="url(#b)">${shape}</g></svg>`);
+    comps.push({ input: await sharp(patch).ensureAlpha().composite([{ input: await sharp(mask).png().toBuffer(), blend: 'dest-in' }]).png().toBuffer(), left: x0, top: y0 });
+  }
+  return comps.length ? sharp(img).composite(comps).png().toBuffer() : img;
+}
+
+async function human(id: string, gender: 'male' | 'female', title: string, skins: Record<string, string>, hair: string[], brows: string) {
+  const packId = `human-pack-${gender}`;
+  if (!want(id) && !want(packId)) return;
   const dir = join(OUT, id);
-  const h = buildHuman({ id, gender, outDir: dir, hair, brows, skins: Object.fromEntries(Object.entries(skins).map(([k, v]) => [k, `makehuman-system/skins/${v}`])) });
+  // a pack-only build writes the base's files somewhere else: the base stays exactly as it is
+  const h = buildHuman({ id, gender, outDir: want(id) ? dir : join(tmpdir(), `gamemog-human-${gender}`), hair, brows, skins: Object.fromEntries(Object.entries(skins).map(([k, v]) => [k, `makehuman-system/skins/${v}`])),
+    pack: want(packId) ? { hair: PACK_HAIR, outfits: [...PACK_OUTFITS[gender], ...PACK_SHARED] } : undefined });
+  if (h.pack) await humanPack(packId, id, gender, h.pack);
+  if (!want(id)) return;
 
   // motion, retargeted onto this skeleton
   let best: Clip | null = null, bestTrial = '';
@@ -159,13 +199,50 @@ function human(id: string, gender: 'male' | 'female', title: string, skins: Reco
   console.log(`${id}: ${h.asset.vertexCount} vertices, ${h.skeleton.length} bones, run from ${bestTrial} at ${run.speed.toFixed(2)} m/s over ${(run.frames / run.fps).toFixed(2)}s`);
 }
 
-human('human-athlete-male', 'male', 'Athlete (male)', {
+// the pack's files: its geometry (deflated), hair at 512 px, each garment's colour with its ambient occlusion baked in
+// and its normal map at 1024 px, and the middle-aged and old skins as the base's (2048 px and a 1024 px low)
+async function humanPack(id: string, base: string, gender: 'male' | 'female', p: NonNullable<ReturnType<typeof buildHuman>['pack']>) {
+  const sharp = (await import('sharp')).default, dir = join(OUT, id), src = (f: string) => join('assets-src/cache/makehuman-system', f);
+  rmSync(dir, { recursive: true, force: true }); mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'pack.bin.z'), deflateSync(p.buffer, { level: 9 }));
+  const hair: Record<string, { group: number; texture: string }> = {};
+  for (const [h, v] of Object.entries(p.hair)) { await sharp(src(v.texture)).resize({ width: 512 }).png({ compressionLevel: 9, palette: false }).toFile(join(dir, `hair-${h}.png`)); hair[h] = { group: v.group, texture: `hair-${h}.png` }; }
+  const outfits: Record<string, unknown> = {};
+  for (const [o, v] of Object.entries(p.outfits)) {
+    // logos are covered on the flat diffuse: plain cloth matches there, before the AO's folds are multiplied in
+    const at1024 = (f: string) => sharp(src(f)).resize(1024, 1024, { fit: 'fill' }).removeAlpha();
+    let img = sharp(await scrub(sharp, await at1024(v.diffuse).png().toBuffer(), SCRUB[o] || []));
+    if (v.ao) img = img.composite([{ input: await at1024(v.ao).grayscale().toColorspace('srgb').toBuffer(), blend: 'multiply' }]);
+    await img.jpeg({ quality: 84, mozjpeg: true }).toFile(join(dir, `${o}.jpg`));
+    if (v.normal) await at1024(v.normal).jpeg({ quality: 90, mozjpeg: true }).toFile(join(dir, `${o}-normal.jpg`));
+    outfits[o] = { group: v.group, slot: v.slot, zDepth: v.zDepth, hide: v.hide, diffuse: `${o}.jpg`, normal: v.normal ? `${o}-normal.jpg` : null };
+  }
+  const skins: Record<string, { hi: string; lo: string }> = {};
+  for (const age of ['middleage', 'old']) for (const eth of ['african', 'asian', 'caucasian']) {
+    const sd = `skins/${age}_${eth}_${gender}`, png = readdirSync(src(sd)).find((f) => f.endsWith('.png'))!, name = `${eth}-${age === 'old' ? 'old' : 'middle'}`;
+    await sharp(src(`${sd}/${png}`)).resize({ width: 2048 }).removeAlpha().jpeg({ quality: 84, mozjpeg: true }).toFile(join(dir, `skin-${name}.jpg`));
+    await sharp(src(`${sd}/${png}`)).resize({ width: 1024 }).removeAlpha().jpeg({ quality: 80, mozjpeg: true }).toFile(join(dir, `skin-${name}-lo.jpg`));
+    skins[name] = { hi: `skin-${name}.jpg`, lo: `skin-${name}-lo.jpg` };
+  }
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'human-pack', for: base, gender, file: 'pack.bin.z', layout: p.layout, vertexCount: p.vertexCount,
+    groups: p.groups, morphs: p.morphs, base: p.base, hair, outfits, skins }));
+  library[id] = {
+    kind: 'human-pack', title: `People pack (${gender})`,
+    description: `What a world adds to the ${gender} human by listing it: ${Object.keys(hair).length} more hairstyles, ${Object.keys(outfits).length} garments (${Object.keys(outfits).filter((o) => /suit/.test(o)).length} outfits, shoes and hats) fitted to the body, the middle-aged and old skins of each tone, and two more body shapes, age and weight.`,
+    sources: ['makehuman', 'makehuman-system'],
+    derived: 'Fitted to the base human in the same build (its rig, its morphs); each garment hides the skin under it; colours with their ambient occlusion baked in; hair at 512 px, garments at 1024 px.',
+    meta: { hair: Object.keys(hair), outfits: Object.keys(outfits), skins: Object.keys(skins), morphs: Object.keys(p.base.morphs), vertices: p.vertexCount }, files: {}, bytes: 0,
+  };
+  console.log(`${id}: ${p.vertexCount} vertices, ${Object.keys(hair).length} hairstyles, ${Object.keys(outfits).length} garments, ${Object.keys(skins).length} skins`);
+}
+
+await human('human-athlete-male', 'male', 'Athlete (male)', {
   african: 'young_african_male/young_darkskinned_male_diffuse.png',
   caucasian: 'young_caucasian_male/young_lightskinned_male_diffuse.png',
   caucasian2: 'young_caucasian_male2/young_lightskinned_male_diffuse2.png',
   asian: 'young_asian_male/young_lightskinned_male_diffuse3.png',
 }, ['short02', 'short04', 'afro01'], 'eyebrow001');
-human('human-athlete-female', 'female', 'Athlete (female)', {
+await human('human-athlete-female', 'female', 'Athlete (female)', {
   african: 'young_african_female/young_darkskinned_female_diffuse.png',
   caucasian: 'young_caucasian_female/young_lightskinned_female_diffuse.png',
   asian: 'young_asian_female/young_lightskinned_female_diffuse3.png',
