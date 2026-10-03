@@ -54,7 +54,7 @@ const slug = existing ? base : slugify(meta.title);
 if (existing) {
   db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = (SELECT meta FROM drafts WHERE id = ?), cover = ?, art_icon = ?, art_wide = ?, format = ? WHERE id = ?')
     .run(meta.title, meta.tagline, meta.blurb, code, draftId, cover ?? null, artIcon ?? null, artWide ?? null, 'world', existing.id);
-  if (parent) db.prepare('UPDATE games SET parent_id = ?, root_id = ?, generation = ?, mog_prompt = ? WHERE id = ?').run(parent.id, parent.root_id ?? parent.id, parent.generation + 1, mogPrompt, existing.id);
+  if (parent) db.prepare('UPDATE games SET parent_id = ?, root_id = ?, generation = ?, mog_prompt = ? WHERE id = ?').run(parent.id, parent.root_id ?? parent.id, parent.generation + 1, mogPrompt ?? null, existing.id);
   console.log(`updated ${BASE}/g/${slug}`);
 } else {
   publishDraft(draftId, slug, randomUUID());
