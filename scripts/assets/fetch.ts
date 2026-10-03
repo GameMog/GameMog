@@ -26,7 +26,10 @@ const sha = (b: Uint8Array) => createHash('sha256').update(b).digest('hex');
 async function get(url: string, range?: [number, number]): Promise<Uint8Array> {
   for (let attempt = 1; ; attempt++) {
     try {
-      const res = await fetch(url, { headers: range ? { Range: `bytes=${range[0]}-${range[1]}` } : {} });
+      // GitHub's blob API (a file by its hash, no path in the address) answers with the raw bytes when asked to
+      const headers: Record<string, string> = range ? { Range: `bytes=${range[0]}-${range[1]}` } : {};
+      if (url.startsWith('https://api.github.com/')) headers.Accept = 'application/vnd.github.raw';
+      const res = await fetch(url, { headers });
       if (!res.ok) throw new Error(`${res.status} ${url}`);
       return new Uint8Array(await res.arrayBuffer());
     } catch (e) { if (attempt >= 3) throw e; await new Promise((r) => setTimeout(r, 1500 * attempt)); }

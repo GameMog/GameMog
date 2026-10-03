@@ -582,6 +582,16 @@ try {
       await page.eval('window.__gmRuntime.debug.invincible(true)');
       for (let i = 0; i < 60 && (o.kos < 1 || o.gm < 1); i++) { await page.eval('window.__gmRuntime.debug.open().punch()'); await sleep(260); o = await os(); }
       ok('punches knock them out, and their GM comes to you', o.kos >= 1 && o.gm >= 1, `${o.kos} knockouts, ${o.gm} GM`);
+      // freeflow (the owner, 3 Oct: Spiderbench's combat, "more style and speed, including kicks"): bare-handed, the hero
+      // dashes at a man 4.6 m off and the blow is the leaping kick
+      {
+        const pp = (await os()).player;
+        await page.eval(`(() => { const O = window.__gmRuntime.debug.open(); O.clear(); O.place(${pp.x}, ${pp.z}, null, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 4.6}); return true; })()`);
+        await sleep(150); await page.eval('window.__gmRuntime.debug.open().punch()');
+        let dashed = false, blow = '';
+        for (let i = 0; i < 14; i++) { await sleep(80); const f = await page.eval<{ dash: unknown; last: string | null }>('window.__gmRuntime.debug.open().flow()'); dashed = dashed || !!f.dash; if (f.last) blow = f.last; }
+        ok('bare-handed, the hero dashes at a man 4.6 m off and throws the leaping kick', dashed && blow === 'leap', `dash ${dashed}, blow ${blow || 'none'}`);
+      }
       // hidden weapons (the owner, 28 Sep): about the map, taken by walking over one, worn down by use
       type OW2 = OS & { weapon: { kind: string; hits: number; max: number } | null; pickups: { kind: string; dropped: boolean }[]; player: { x: number; z: number; wet: number; stance: string } };
       const ow2 = () => page.eval<OW2>('window.__gmRuntime.state().open');

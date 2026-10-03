@@ -102,10 +102,29 @@ for (const [s, c] of [['L', 'l'], ['R', 'r']]) {
   });
   FINGER.forEach((f, k) => { for (let j = 1; j <= 3; j++) MAP[`finger${k + 1}-${j}.${s}`] = `${f}_0${j}_${c}`; });
 }
+// which Spiderbench bone drives each library bone (its hero's rig, built in Blender like Quaternius's: every bone along
+// its own +y; the forearm's twist bone carries the turn of the wrist)
+const SBMAP: Record<string, string> = {
+  root: 'hips', spine05: 'spine', spine04: 'spine', spine03: 'spine1', spine02: 'spine2', spine01: 'spine2',
+  neck01: 'neck', neck02: 'neck', neck03: 'neck', head: 'head',
+};
+for (const s of ['L', 'R']) {
+  Object.assign(SBMAP, {
+    [`clavicle.${s}`]: `shoulder.${s}`, [`shoulder01.${s}`]: `shoulder.${s}`, [`upperarm01.${s}`]: `upperArm.${s}`, [`upperarm02.${s}`]: `upperArm.${s}`,
+    [`lowerarm01.${s}`]: `forearm.${s}`, [`lowerarm02.${s}`]: `forearmTwist.${s}`, [`wrist.${s}`]: `hand.${s}`,
+    [`upperleg01.${s}`]: `thigh.${s}`, [`upperleg02.${s}`]: `thigh.${s}`, [`lowerleg01.${s}`]: `shin.${s}`, [`lowerleg02.${s}`]: `shin.${s}`, [`foot.${s}`]: `foot.${s}`,
+  });
+  FINGER.forEach((f, k) => { for (let j = 1; j <= 3; j++) SBMAP[`finger${k + 1}-${j}.${s}`] = `${f}${j}.${s}`; });
+}
+type Rig = { map: Record<string, string>; pelvis: string; thighL: string; thighR: string; footL: string };
+const RIGS: Record<'quaternius' | 'spiderbench', Rig> = {
+  quaternius: { map: MAP, pelvis: 'pelvis', thighL: 'thigh_l', thighR: 'thigh_r', footL: 'foot_l' },
+  spiderbench: { map: SBMAP, pelvis: 'hips', thighL: 'thigh.L', thighR: 'thigh.R', footL: 'foot.L' },
+};
 export function sourcePose(path: string, clip: string) { return source(path, clip); }
 
-export function retargetGltf(skel: Skeleton, path: string, clip: string, opts: { name: string; loop?: boolean; fps?: number; start?: number; end?: number; anchor?: 'start' | 'mean' }): Clip {
-  const S = source(path, clip), fps = opts.fps ?? 30;
+export function retargetGltf(skel: Skeleton, path: string, clip: string, opts: { name: string; loop?: boolean; fps?: number; start?: number; end?: number; anchor?: 'start' | 'mean'; rig?: 'quaternius' | 'spiderbench'; contact?: number; inPlace?: boolean }): Clip {
+  const S = source(path, clip), fps = opts.fps ?? 30, R = RIGS[opts.rig ?? 'quaternius'], MAP = R.map;
   const idx = (n: string) => { const i = S.byName.get(n); if (i === undefined) throw new Error(`${path}: no bone ${n}`); return i; };
   // each source bone points along its own +y at rest (Quaternius's rig, like
   // Blender's); the head in particular stands straighter than its neck, and
@@ -121,16 +140,16 @@ export function retargetGltf(skel: Skeleton, path: string, clip: string, opts: {
   const n = Math.max(2, Math.round((t1 - t0) * fps) + (loop ? 0 : 1));
   const first = S.pose(t0);
   // face +Z: the hips' own forward in the first frame
-  const l = first.p[idx('thigh_l')], r = first.p[idx('thigh_r')];
+  const l = first.p[idx(R.thighL)], r = first.p[idx(R.thighR)];
   const heading = arc(norm(cross([l[0] - r[0], 0, l[2] - r[2]], [0, 1, 0])), [0, 0, 1]);
   const J = (nm: string) => skel.find((b) => b.name === nm)!;
   const tLeg = J('upperleg01.L').head[1] - J('foot.L').head[1];
-  const sLeg = S.rest.p[idx('thigh_l')][1] - S.rest.p[idx('foot_l')][1];
+  const sLeg = S.rest.p[idx(R.thighL)][1] - S.rest.p[idx(R.footL)][1];
   const k = tLeg / sLeg;
 
   const bones = skel.map((b) => b.name), nb = bones.length, m = loop ? n + 1 : n;
   const quats = new Float32Array(m * nb * 4), root = new Float32Array(m * 3), world: Q[] = new Array(nb), rootRest = skel[0].head;
-  const p0 = first.p[idx('pelvis')];
+  const p0 = first.p[idx(R.pelvis)];
   for (let f = 0; f < m; f++) {
     const time = t0 + (loop ? f / n : f / (n - 1)) * (t1 - t0);
     const P = S.pose(loop && f === n ? t0 : time);
@@ -140,13 +159,15 @@ export function retargetGltf(skel: Skeleton, path: string, clip: string, opts: {
       const local = b.parent < 0 ? world[bi] : qmul(qinv(world[b.parent]), world[bi]);
       quats.set(local, (f * nb + bi) * 4);
     });
-    const hp = P.p[idx('pelvis')], rel = qrot(heading, [hp[0] - p0[0], hp[1], hp[2] - p0[2]]);
+    const hp = P.p[idx(R.pelvis)], rel = qrot(heading, [hp[0] - p0[0], hp[1], hp[2] - p0[2]]);
     root.set([rel[0] * k + rootRest[0], rel[1] * k, rel[2] * k + rootRest[2]], f * 3);
   }
   if (opts.anchor === 'mean') {
     let cx = 0, cz = 0; for (let f = 0; f < m; f++) { cx += root[f * 3] / m; cz += root[f * 3 + 2] / m; }
     for (let f = 0; f < m; f++) { root[f * 3] += rootRest[0] - cx; root[f * 3 + 2] += rootRest[2] - cz; }
   }
+  // in place: the runtime moves the body itself (a dash, a lunge), so the clip keeps only its rise and fall
+  if (opts.inPlace) for (let f = 0; f < m; f++) { root[f * 3] = rootRest[0]; root[f * 3 + 2] = rootRest[2]; }
   if (loop) closeLoop(quats, root, n, nb);
   // the lowest the feet go over the clip is standing height
   const ankle = J('foot.L').head[1];
@@ -161,5 +182,7 @@ export function retargetGltf(skel: Skeleton, path: string, clip: string, opts: {
     if (prev) { const sp = Math.hypot(w[0] - prev[0], w[1] - prev[1], w[2] - prev[2]); if (sp > fastest) { fastest = sp; contact = (f - 0.5) / fps; } }
     prev = w;
   }
+  // a source that knows its own moment of contact (a kick lands with a foot, not the sword hand) says so
+  if (opts.contact != null) contact = Math.max(0, opts.contact - t0);
   return { name: opts.name, fps, frames: n, loop, speed: 0, bones, quats: quats.slice(0, n * nb * 4), root: root.slice(0, n * 3), contact: +contact.toFixed(3) };
 }

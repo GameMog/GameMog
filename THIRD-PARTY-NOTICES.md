@@ -25,7 +25,10 @@ animation state machine, the rig, the chase camera, the line rendering and the i
 generator and its street network, its street furniture and trees, the night city's lights, and the
 traffic, its vehicles, the pedestrians and their animation clips. The asset library's `city-midtown` textures,
 props model, vehicles and people (sources `spiderbench-city`, `spiderbench-city-props`, `spiderbench-city-npc`
-in `assets-src/sources.json`) are Shikhar's too, under the same permission. Spiderbench is
+in `assets-src/sources.json`) are Shikhar's too, under the same permission, and so are the freeflow moves in
+the library humans' clips (`ffJab`, `ffCross`, `ffHook`, `ffKick`, `ffRiser`, `ffLeap`, retargeted from its hero
+rig's combat clips, source `spiderbench-hero-moves`; no model, suit or texture is taken), under his second
+permission (3 October 2026: the combat system, and the hero's body and rig with the suit stripped). Spiderbench is
 source-available and view-only; its author gave GameMog written permission (2 October 2026) to use
 these parts in the GameMog runtime, on gamemog.com and in this repository, for non-commercial use, with
 no Marvel, Sony or Insomniac references. **These files are not covered by GameMog's MIT licence**, and
@@ -42,7 +45,7 @@ The asset library in `public/assets` is built from the pinned sources listed in
 [CMU Graphics Lab Motion Capture Database](http://mocap.cs.cmu.edu), which Carnegie Mellon
 University provides free for all uses: it may be included in products, but the data itself may
 not be resold (the database was created with funding from NSF EIA-0196217), and the `city-midtown` textures,
-props model, vehicles and people, which are Spiderbench's (above), not CC0.
+props model, vehicles and people and the humans' freeflow moves, which are Spiderbench's (above), not CC0.
 
 ## Names and likenesses
 

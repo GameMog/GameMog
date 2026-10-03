@@ -5,7 +5,10 @@ Spiderbench is published under a source-available, view-only licence. Its author
 permission (2 October 2026) to use its traversal physics and animation state machine, procedural city
 generator and street network, vehicle and pedestrian models and animation clips, and rendering pipeline
 code, integrated into the GameMog runtime, hosted on gamemog.com and published in GameMog's repository,
-for non-commercial use, with no Marvel, Sony or Insomniac references.
+for non-commercial use, with no Marvel, Sony or Insomniac references. A second permission (3 October 2026)
+added the combat system, and the hero's body and rig with the suit stripped: the library humans' freeflow
+moves (ffJab, ffCross, ffHook, ffKick, ffRiser, ffLeap) are retargeted from its combat clips, under the same
+terms.
 
 That permission is GameMog's alone. Anyone else who wants to use these files, in a fork of GameMog or
 anywhere else, needs the author's own permission. The changes GameMog made are listed in NOTICE.md.

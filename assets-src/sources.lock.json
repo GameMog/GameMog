@@ -1898,5 +1898,9 @@
   "spiderbench-city/water_nrm.png": {
     "sha256": "9dd9ef0ca10c50211e36f1f776ab72a70d73472b92dd8747fd652aa6a9edd134",
     "bytes": 545868
+  },
+  "spiderbench-hero-moves/hero-rig.glb": {
+    "sha256": "e366b385fee0dbe7bc06c1b3a121483d507a661cc1c5f76ff0fca9d8dae591c3",
+    "bytes": 10338708
   }
 }

@@ -74,6 +74,15 @@ const BRAWL: [string, string, string, boolean, number?, number?][] = [
   ['UAL1_Standard.glb', 'PickUp_Table', 'pickup', false],
 ];
 
+// the freeflow moves (Spiderbench's combat, with its author's written permission, 3 Oct 2026; the owner: "more style
+// and speed when fighting, including kicks"): three punches, a kick, a rising uppercut and a leaping kick, built in
+// Blender on its hero's rig and retargeted here (no model, suit or texture is taken).
+// [source clip, library name, moment of contact s, from s]
+const FREEFLOW: [string, string, number, number?][] = [
+  ['punch1', 'ffJab', 0.2], ['punch2', 'ffCross', 0.23], ['punch3', 'ffHook', 0.3], ['kick', 'ffKick', 0.3],
+  ['uppercut', 'ffRiser', 0.33], ['webStrike', 'ffLeap', 0.57, 0.36],
+];
+
 // the street fight and the street's own life, captured (CMU, the owner, 28 Sep:
 // "everyone is a zombie with zombie movements when fighting"): a boxer's guard
 // and footwork, single punches from the guard, everyday and styled walks,
@@ -179,6 +188,7 @@ async function human(id: string, gender: 'male' | 'female', title: string, skins
     ...COMBAT.map(([file, clip, name, loop]) => retargetGltf(h.skeleton, `quaternius-ual/${file}`, clip, { name, loop })),
     ...BRAWL.map(([file, clip, name, loop, start, end]) => retargetGltf(h.skeleton, `quaternius-ual/${file}`, clip, { name, loop, start, end })),
     ...CMU_STREET.map((c) => cmuCut(h.skeleton, c, gender)),
+    ...FREEFLOW.map(([clip, name, contact, start]) => retargetGltf(h.skeleton, 'spiderbench-hero-moves/hero-rig.glb', clip, { name, rig: 'spiderbench', start, contact, inPlace: true })),
   ];
   const packed = packClips(clips);
   writeFileSync(join(dir, 'clips.bin.z'), deflateSync(packed.buffer, { level: 9 }));
@@ -186,13 +196,13 @@ async function human(id: string, gender: 'male' | 'female', title: string, skins
   const body = readFileSync(join(dir, 'body.bin'));
   writeFileSync(join(dir, 'body.bin.z'), deflateSync(body, { level: 9 }));
   rmSync(join(dir, 'body.bin'));
-  const asset = { ...h.asset, body: 'body.bin.z', clips: { file: 'clips.bin.z', layout: packed.layout, list: packed.meta, credits: { run: `CMU ${bestTrial}`, sprint: `derived from CMU ${bestTrial}`, idle: 'CMU 90_16 (standing)', start: 'CMU 104_53', fall: 'CMU 90_16', ...Object.fromEntries([...COMBAT, ...BRAWL].map(([file, clip, name]) => [name, `Quaternius ${file.replace('_Standard.glb', '')} ${clip}`])), ...Object.fromEntries(CMU_STREET.map(([trial, name, , , , o]) => [name, o?.female ? `CMU ${trial} (men), ${o.female[0]} (women)` : `CMU ${trial}`])) } } };
+  const asset = { ...h.asset, body: 'body.bin.z', clips: { file: 'clips.bin.z', layout: packed.layout, list: packed.meta, credits: { run: `CMU ${bestTrial}`, sprint: `derived from CMU ${bestTrial}`, idle: 'CMU 90_16 (standing)', start: 'CMU 104_53', fall: 'CMU 90_16', ...Object.fromEntries([...COMBAT, ...BRAWL].map(([file, clip, name]) => [name, `Quaternius ${file.replace('_Standard.glb', '')} ${clip}`])), ...Object.fromEntries(CMU_STREET.map(([trial, name, , , , o]) => [name, o?.female ? `CMU ${trial} (men), ${o.female[0]} (women)` : `CMU ${trial}`])), ...Object.fromEntries(FREEFLOW.map(([clip, name]) => [name, `Spiderbench ${clip}`])) } } };
   writeFileSync(join(dir, 'asset.json'), JSON.stringify(asset));
   library[id] = {
     kind: 'human', title,
     description: `A realistic ${gender === 'male' ? 'male' : 'female'} athlete: MakeHuman body shaped for sprinting, ${Object.keys(skins).length} skin tones, ${hair.length} hairstyles, eyes, eyebrows and eyelashes, a paintable kit (${gender === 'male' ? 'singlet' : 'crop top'}, shorts and spikes), five body morphs and a 66-bone rig with motion-captured run, sprint, idle, standing start and fall, and sword motion: a guard, three cuts, a lunge, a hit and a death.`,
-    sources: ['makehuman', 'makehuman-system', 'cmu-mocap', 'quaternius-ual'],
-    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); the street fight (a boxer\'s guard and footwork, jab, cross, hook) and street life (casual, cool, heavyset and women\'s walks, walking backwards, a jog, shifting weight, arguing, a shrug, a wave) retargeted from CMU captures; sword motion, hits, a roll, getting up, a phone call, folded arms, talking, dancing, sitting and picking something up retargeted from Quaternius\'s Universal Animation Library.',
+    sources: ['makehuman', 'makehuman-system', 'cmu-mocap', 'quaternius-ual', 'spiderbench-hero-moves'],
+    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); the street fight (a boxer\'s guard and footwork, jab, cross, hook) and street life (casual, cool, heavyset and women\'s walks, walking backwards, a jog, shifting weight, arguing, a shrug, a wave) retargeted from CMU captures; sword motion, hits, a roll, getting up, a phone call, folded arms, talking, dancing, sitting and picking something up retargeted from Quaternius\'s Universal Animation Library; freeflow punches, a kick, a rising uppercut and a leaping kick retargeted from Spiderbench\'s hero rig (the clips only).',
     meta: { skins: Object.keys(skins), hair, morphs: Object.keys(h.asset.morphs as object), clips: packed.meta.map((c) => c.name), vertices: h.asset.vertexCount, bones: h.skeleton.length },
     files: {}, bytes: 0,
   };

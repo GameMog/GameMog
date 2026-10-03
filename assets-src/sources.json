@@ -1078,6 +1078,17 @@
         "npc/people_bake.webp",
         "tex/peds_atlas.webp"
       ]
+    },
+    "spiderbench-hero-moves": {
+      "title": "Spiderbench hero motion (the combat moves, on its rig; no model, suit or texture is built)",
+      "author": "Shikhar",
+      "license": "LicenseRef-Spiderbench-Permission",
+      "licenseUrl": "https://github.com/GameMog/GameMog/blob/main/lib/runtime/traversal/LICENSE",
+      "licenseText": "Used with the written permission of its author (3 Oct 2026: the combat system, and the hero's body and rig with the suit stripped), for GameMog only and non-commercial use; not under GameMog's MIT licence. Only animation clips are taken from this file, retargeted onto the library's own humans.",
+      "homepage": "https://github.com/xikhar/spiderbench",
+      "urls": {
+        "hero-rig.glb": "https://api.github.com/repos/xikhar/spiderbench/git/blobs/f24f667a050a86fc6ea584f4232b7b5cc999ccf4"
+      }
     }
   }
 }
