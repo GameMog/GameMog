@@ -63,6 +63,24 @@ export function buildHuman(opts: { id: string; gender: Gender; outDir: string; h
   applyTarget(S, maxMuscle, 0.5);
   applyTarget(S, ideal, 0.8);
   applyTarget(S, tall, g === 'male' ? 0.15 : 0.1);
+  // shorter fingers (the owner, 3 Oct: the hands' long fingers read as claws): each finger a fifth shorter, the thumb a
+  // tenth, drawn in toward its own knuckle along its length. The skin moves by its weight to the finger, so the
+  // knuckle blends; the helper vertices the finger's joints are the means of move with it, so the skeleton follows
+  {
+    const sk = JSON.parse(read('makehuman/rigs/default.mhskel')), wts = JSON.parse(read('makehuman/rigs/default_weights.mhw')).weights as Record<string, [number, number][]>;
+    const mean = (ids: number[]) => { const p = [0, 0, 0]; ids.forEach((i) => { p[0] += S[i * 3]; p[1] += S[i * 3 + 1]; p[2] += S[i * 3 + 2]; }); return p.map((v) => v / ids.length); };
+    for (const s of ['L', 'R']) for (let f = 1; f <= 5; f++) {
+      const k = f === 1 ? 0.1 : 0.2, R = mean(sk.joints[`finger${f}-1.${s}____head`]), E = mean(sk.joints[`finger${f}-3.${s}____tail`]);
+      const L = Math.hypot(E[0] - R[0], E[1] - R[1], E[2] - R[2]), D = [(E[0] - R[0]) / L, (E[1] - R[1]) / L, (E[2] - R[2]) / L];
+      const on = new Map<number, number>();
+      for (let j = 1; j <= 3; j++) for (const [v, w] of wts[`finger${f}-${j}.${s}`] || []) on.set(v, Math.min(1, (on.get(v) ?? 0) + w));
+      for (let j = 1; j <= 3; j++) for (const end of ['head', 'tail']) for (const v of sk.joints[`finger${f}-${j}.${s}____${end}`]) on.set(v, 1);
+      for (const [v, w] of on) {
+        const t = (S[v * 3] - R[0]) * D[0] + (S[v * 3 + 1] - R[1]) * D[1] + (S[v * 3 + 2] - R[2]) * D[2];
+        if (t > 0) for (let c = 0; c < 3; c++) S[v * 3 + c] -= k * w * t * D[c];
+      }
+    }
+  }
 
   // morph targets, as deltas from S
   const delta = (fn: (p: Float64Array) => void) => { const q = new Float64Array(S); fn(q); for (let i = 0; i < q.length; i++) q[i] -= S[i]; return q; };
@@ -109,6 +127,15 @@ export function buildHuman(opts: { id: string; gender: Gender; outDir: string; h
   for (const [bone, list] of Object.entries(mhw)) {
     const k = index.get(collapse(bone))!;
     for (const [v, w] of list) { let m = vw.get(v); if (!m) vw.set(v, (m = new Map())); m.set(k, (m.get(k) ?? 0) + w); }
+  }
+  // a finger's skin follows its own bone more firmly (weights cubed, then renormalised): MakeHuman blends each one
+  // across its neighbours, and a fist's deep bends collapsed that blend into thin wire arches, a cage, not a fist
+  const FINGER = new Set(order.map((b, i) => (/^finger/.test(b) ? i : -1)).filter((i) => i >= 0));
+  for (const m of vw.values()) {
+    let fw = 0; for (const [b, w] of m) if (FINGER.has(b)) fw += w;
+    if (fw < 0.5) continue;
+    let sum = 0; for (const [b, w] of m) { const x = w ** 3; m.set(b, x); sum += x; }
+    for (const [b, w] of m) m.set(b, w / sum);
   }
   const weightsOf = (v: number) => vw.get(v) ?? new Map([[0, 1]]);
   const top4 = (m: Map<number, number>) => {

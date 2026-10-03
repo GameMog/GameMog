@@ -240,7 +240,8 @@ export function forward(skel: Skeleton, quats: Float32Array, root: Float32Array,
 // a relaxed, loosely closed hand: each finger joint curls toward the palm, a little more toward the little finger,
 // and the fingers lie together with the thumb alongside (the library hand rests splayed: index and little finger
 // 16 degrees off the middle one, the thumb 61; captures without fingers left that splay, a claw)
-// (a fist for a fighter: the fingers rolled in tight and together, the thumb across)
+// (a fist for a fighter: about 85 degrees at the knuckle, 105 at the middle joint, 65 at the tip with the rest bend,
+// so the fingertips tuck into the palm instead of looping a hollow cage; together; the thumb across)
 function fingerCurl(skel: Skeleton, fist = false): Record<number, Q> {
   const out: Record<number, Q> = {};
   const dirOf = (b: Skeleton[number]) => norm([b.tail[0] - b.head[0], b.tail[1] - b.head[1], b.tail[2] - b.head[2]]);
@@ -257,7 +258,7 @@ function fingerCurl(skel: Skeleton, fist = false): Record<number, Q> {
     for (let f = 1; f <= 5; f++) for (let j = 1; j <= 3; j++) {
       const bi = B(`finger${f}-${j}.${s}`); if (bi < 0) continue;
       const b = skel[bi], dir = dirOf(b);
-      const ang = fist ? (f === 1 ? [0.75, 0.6, 0.5][j - 1] : [1.55, 1.72, 1.15][j - 1]) : (f === 1 ? [0.18, 0.3, 0.26][j - 1] : [0.4, 0.55, 0.32][j - 1] * [0, 0, 0.85, 1, 1.1, 1.2][f]);
+      const ang = fist ? (f === 1 ? [0.75, 0.6, 0.5][j - 1] : [1.15, 1.75, 1.0][j - 1]) : (f === 1 ? [0.18, 0.3, 0.26][j - 1] : [0.4, 0.55, 0.32][j - 1] * [0, 0, 0.85, 1, 1.1, 1.2][f]);
       let q: Q;
       if (f === 1) {
         // the thumb folds across the palm; choose the sign that brings its tip toward the palm's side

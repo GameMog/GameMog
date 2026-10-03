@@ -594,6 +594,17 @@ try {
       const h0 = w2.weapon?.hits ?? 0;
       for (let i = 0; i < 40 && ((w2 = await ow2()).weapon?.hits ?? 0) >= h0; i++) { await page.eval('window.__gmRuntime.debug.open().punch()'); await sleep(260); }
       ok('an armed swing lands and wears the weapon down', (w2.weapon?.hits ?? 0) < h0, `${h0} -> ${w2.weapon?.hits}`);
+      // a weapon hits like one (the owner, 3 Oct: "the weapons should pack way more punch and destruction"): a swing
+      // drops a street thug and sends him flying, into the man behind him
+      {
+        const pp = (await ow2()).player;
+        await page.eval(`(() => { const O = window.__gmRuntime.debug.open(); O.clear(); O.place(${pp.x}, ${pp.z}, null, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 1.2}); O.spawn('thug', ${pp.x + 0.1}, ${pp.z + 3.4}); return true; })()`);
+        type FL = { flown: number[]; bowled: number };
+        let fl = await page.eval<FL>('window.__gmRuntime.debug.open().flown()');
+        for (let i = 0; i < 8 && !fl.flown.length; i++) { await page.eval('window.__gmRuntime.debug.open().punch()'); await sleep(380); fl = await page.eval<FL>('window.__gmRuntime.debug.open().flown()'); }
+        await sleep(1000); fl = await page.eval<FL>('window.__gmRuntime.debug.open().flown()');
+        ok('an armed knockout sends him flying, and down goes the man behind him', fl.flown.some((d) => d > 2) && fl.bowled >= 1, `flew ${fl.flown.join(', ')} m, bowled ${fl.bowled}`);
+      }
       // the edges are walls: an alley runs back to one; the sea is yours to the buoys
       const walk = async (x: number, z: number, yaw: number, ms: number) => { await page.eval(`window.__gmRuntime.debug.open().place(${x}, ${z}, ${yaw}, 0.3)`); await page.key('KeyW', 'keyDown'); await sleep(ms); await page.key('KeyW', 'keyUp'); return (await ow2()).player; };
       await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.open().clear()');

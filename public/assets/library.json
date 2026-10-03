@@ -399,20 +399,20 @@
       },
       "files": {
         "asset.json": {
-          "sha256": "decffec0d0cff5dc655227621b20b5fcddb81bc42782b274350733127643f3b9",
-          "bytes": 21721
+          "sha256": "ea78d287f8ca2b641de0bb16d13ea0e1bf030dbf5e23eacffad4edc8b0c4304d",
+          "bytes": 21722
         },
         "body.bin.z": {
-          "sha256": "b0220b57797ab352f72c350ffc6a514a155110aff50d527aeb1b04d01f883f0b",
-          "bytes": 977933
+          "sha256": "638f95c388229981aaab692f2f7dfee8bd13ee3d2439dcd20bfb2d419d2ce948",
+          "bytes": 976742
         },
         "brows.png": {
           "sha256": "877a2f8ed6e66a99491fe21e5b618f8b96cd6a16e26c175b396d084dbcc38c77",
           "bytes": 100121
         },
         "clips.bin.z": {
-          "sha256": "417cf1ec719ecec5bb968bf6d30637c3625ca3b5fa036c2f8b26db1f9f3a7c22",
-          "bytes": 481678
+          "sha256": "ed7182c8ccfdc85afff8c5e565d3943103d985b186adb6f065caa709712f41af",
+          "bytes": 480904
         },
         "eye-blue.jpg": {
           "sha256": "92b1ad1b2907b403f73b1acb2ce9bb8144075f88c6cbce4e7b24c9cfcbe46429",
@@ -439,8 +439,8 @@
           "bytes": 929670
         },
         "kit.bin.z": {
-          "sha256": "8ee11e0c0c1369dc2170a2be0ee4a3edeec8a860e700b0acac430e26b755fb82",
-          "bytes": 718922
+          "sha256": "e186ded9ae8a37bcab03f4e80c909075480edd4dbd173eb46ea0bcd54f2eca05",
+          "bytes": 722067
         },
         "lashes.png": {
           "sha256": "f0f548905a89da8d29defa9cbad953e61e44bff1bc048f6aea27b9e4d243b9f1",
@@ -479,7 +479,7 @@
           "bytes": 637106
         }
       },
-      "bytes": 9049659
+      "bytes": 9050840
     },
     "human-athlete-female": {
       "kind": "human",
@@ -563,20 +563,20 @@
       },
       "files": {
         "asset.json": {
-          "sha256": "581d6126a7a382eae27804a58cc5bdccfad357cab5f122ca5391f4cbd26a1657",
-          "bytes": 21655
+          "sha256": "331c92d58a56c1ae4a0023efc77d9cbb6a8edd3b12f656b246f8a35ecc7a7459",
+          "bytes": 21645
         },
         "body.bin.z": {
-          "sha256": "54779f519bc926a7eb78844043882bf2c7a04ad33ba645c1200989e431a4c1e7",
-          "bytes": 949837
+          "sha256": "3f2fc56742d7ef7bfdf1904968435c55f9be3cf93dd9652ef08e8433fe47d538",
+          "bytes": 948153
         },
         "brows.png": {
           "sha256": "a3b689c97e49a1c9c4ba3247bd4eff3bd82b7fcffcf8823b9e4eb519c44cc95b",
           "bytes": 81643
         },
         "clips.bin.z": {
-          "sha256": "4f22abb0a689017663d6dd7849780a00e387a1807b64edeae6dabe7a860c1fe5",
-          "bytes": 480725
+          "sha256": "3c375555e7cf03fcc2d64aef14ffd7703d96f40852633427a910d178a714353e",
+          "bytes": 480656
         },
         "eye-blue.jpg": {
           "sha256": "92b1ad1b2907b403f73b1acb2ce9bb8144075f88c6cbce4e7b24c9cfcbe46429",
@@ -603,8 +603,8 @@
           "bytes": 929670
         },
         "kit.bin.z": {
-          "sha256": "d6a3821d03c709d0e52d1e95a24707f5ab75a2bcd64668f62500254f7afde055",
-          "bytes": 506535
+          "sha256": "9ca4e97cd5f71f25f7d377c4b9f5d884dd29d7437739f9c31ae7ad2355f32a72",
+          "bytes": 507733
         },
         "lashes.png": {
           "sha256": "f0f548905a89da8d29defa9cbad953e61e44bff1bc048f6aea27b9e4d243b9f1",
@@ -635,7 +635,7 @@
           "bytes": 711060
         }
       },
-      "bytes": 8137849
+      "bytes": 8137284
     },
     "hdri-sunset-city": {
       "kind": "hdri",
