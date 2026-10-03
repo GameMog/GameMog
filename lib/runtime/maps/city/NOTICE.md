@@ -69,6 +69,9 @@ own, with invented names.
   `createPigeons`' `clip` drop the promenade, park and riverside people and flocks; Times Square's and Grand
   Central's crowd spots are empty stand-ins. `createCrowd` takes a `density` (1 as made).
 - `npc/traffic.js`: drivers stop for the world's own people on foot (`yieldTo`, as for the player).
+- `npc/crowd.js`: `quiet(x, z, r)` keeps everyone out of sight round a scene staged there (`entry.js` `stage`).
+- `world/vehicles.js` `vehicle(type, color)` builds one of the traffic's vehicles as a single mesh for the world to drive
+  (the police's patrol car); `npc/traffic.js` keeps such bodies solid (`addExtra` / `removeExtra` in `collideDynamic`).
 - three r157: `world/vehicles.js` and `world/water.js` use `inverseTransformDirection` (r157's name), and the
   cars' baked AO scales r157's single clearcoat term; the shim's update ranges also cover interleaved buffers.
 - Everything runs on the runtime's three.js (r157) through `lib/runtime/maps/three-shim.cjs`.

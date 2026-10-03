@@ -6,6 +6,9 @@
  * the static check, then a real-Chrome playtest on the runtime. Only a world
  * that passes is published. Publishing again updates the game in place, so
  * its URL and leaderboard survive.
+ *
+ * A first-party Mog joins its parent's family as a creator's Mog does:
+ * `npm run publish:world -- zcity --mog zombie-beach --prompt "what it changes"`
  */
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -16,7 +19,12 @@ import { codeHash, testStatus } from '../lib/test-drive.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3939';
 const name = process.argv[2];
-if (!name) { console.error('usage: npm run publish:world -- <name>'); process.exit(1); }
+if (!name) { console.error('usage: npm run publish:world -- <name> [--mog <parent slug> --prompt "<what the Mog changes>"]'); process.exit(1); }
+const flag = (f: string) => { const i = process.argv.indexOf(f); return i > 2 ? process.argv[i + 1] : undefined; };
+const mogOf = flag('--mog'), mogPrompt = flag('--prompt');
+const parent = mogOf ? db.prepare('SELECT id, root_id, generation FROM games WHERE slug = ?').get(mogOf) as { id: string; root_id: string | null; generation: number } | undefined : undefined;
+if (mogOf && !parent) { console.error(`--mog: no game with the slug ${mogOf}`); process.exit(1); }
+if (mogOf && !mogPrompt) { console.error('--mog needs --prompt: what the Mog changes, as its family shows it'); process.exit(1); }
 const code = readFileSync(`worlds/${name}.js`, 'utf8');
 const parsed = WorldMetaSchema.safeParse(JSON.parse(readFileSync(`worlds/${name}.json`, 'utf8')));
 if (!parsed.success) { console.error('meta:', parsed.error.issues); process.exit(1); }
@@ -28,7 +36,7 @@ console.log(`static check: clean (${Math.round(code.length / 1000)}KB)`);
 
 const draftId = randomUUID();
 const stored = { ...meta, mode: worldMode(code), controls: worldControls(code), scoring: isOpenWorld(code) ? 'survival' : 'level', runtime: 1 };
-insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world', report: { pending: true }, code, meta: stored });
+insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world', report: { pending: true }, code, meta: stored, parentId: parent?.id ?? null, mogPrompt: parent ? mogPrompt : null });
 console.log('playtesting in Chrome...');
 const report = await playtestWorld(`${BASE}/d/${draftId}/play`);
 const { cover, artIcon, artWide, ...rest } = report;
@@ -46,6 +54,7 @@ const slug = existing ? base : slugify(meta.title);
 if (existing) {
   db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = (SELECT meta FROM drafts WHERE id = ?), cover = ?, art_icon = ?, art_wide = ?, format = ? WHERE id = ?')
     .run(meta.title, meta.tagline, meta.blurb, code, draftId, cover ?? null, artIcon ?? null, artWide ?? null, 'world', existing.id);
+  if (parent) db.prepare('UPDATE games SET parent_id = ?, root_id = ?, generation = ?, mog_prompt = ? WHERE id = ?').run(parent.id, parent.root_id ?? parent.id, parent.generation + 1, mogPrompt, existing.id);
   console.log(`updated ${BASE}/g/${slug}`);
 } else {
   publishDraft(draftId, slug, randomUUID());

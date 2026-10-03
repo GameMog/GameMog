@@ -187,9 +187,13 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
       const open = await page.eval<OpenState | null>('window.__gmRuntime.state().open').catch(() => null);
       if (open) {
         const os = () => page.eval<OpenState>('window.__gmRuntime.state().open');
+        // a library map (the city) builds after the page is ready: drive the world it makes, not the build
+        for (let i = 0; i < 150 && !(await os()).ready; i++) await sleep(200);
         await page.eval('window.__gmRuntime.debug.start()');
-        await sleep(1500);
         await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true)');
+        // the frame rate of play once it has settled: the first seconds build the first people and let the runtime
+        // find the resolution the card holds (v1.js adapt), and a big map (the city) is still sending itself over
+        await sleep(4000);
         const f0 = await page.eval<number>('window.__frames');
         await sleep(2500);
         const fps = Math.round(((await page.eval<number>('window.__frames')) - f0) / 2.5);

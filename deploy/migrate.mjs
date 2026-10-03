@@ -82,6 +82,30 @@ const MIGRATIONS = [
       return 'published';
     },
   },
+  {
+    // the owner, 2 Oct: Zcity, "a showcase MOG of Zombie Beach based on Spiderbench": the OG at night in the city map,
+    // running up the towers and swinging between them. Published on the Mac by `npm run publish:world -- zcity --mog
+    // zombie-beach --prompt ...`, which playtested it and shot its art; it joins Zombie Beach's family, one generation down
+    id: '2026-10-02-zcity',
+    run(db) {
+      const code = file('zcity.js'), meta = file('zcity.meta.json');
+      if (!code || !meta) return 'files missing';
+      const m = JSON.parse(meta.toString('utf8')), cover = file('zcity-cover.jpg'), icon = file('zcity-icon.jpg'), wide = file('zcity-wide.jpg');
+      const parent = db.prepare('SELECT id, root_id, generation FROM games WHERE slug = ?').get(m.mogOf);
+      if (!parent) return `no ${m.mogOf} to Mog`;
+      const fam = [parent.id, parent.root_id ?? parent.id, parent.generation + 1, m.mogPrompt];
+      const g = db.prepare("SELECT id FROM games WHERE slug = 'zcity'").get();
+      if (g) {
+        db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = ?, cover = ?, art_icon = ?, art_wide = ?, format = ?, parent_id = ?, root_id = ?, generation = ?, mog_prompt = ? WHERE id = ?')
+          .run(m.title, m.tagline, m.blurb, code.toString('utf8'), JSON.stringify(m.meta), cover, icon, wide, 'world', ...fam, g.id);
+        return 'updated';
+      }
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+        VALUES (?, 'zcity', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: zcity', Date.now(), code.toString('utf8'), JSON.stringify(m.meta), cover, icon, wide, ...fam);
+      return 'published, a Mog of ' + m.mogOf;
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

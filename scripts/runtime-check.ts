@@ -870,8 +870,10 @@ try {
         var cs=sim.cars().filter(function(c){return !c.parked&&!c.conn&&c.v>5&&c.link&&!c.link.clipEdge&&(c.link.len-c.s)>40;});
         cs.sort(function(a,b){return Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z);});var c=cs[0];if(!c)return null;
         var fx=Math.cos(c.ry),fz=-Math.sin(c.ry);window.__lifeCar=c;return {x:c.x+fx*22,z:c.z+fz*22,yaw:Math.atan2(-fx,-fz)};})()`);
-      if (lane) { await page.eval(`${O}.place(${lane.x}, ${lane.z}, ${lane.yaw}, 0.1, true)`); await sleep(3500); }
-      const car = lane ? await page.eval<{ v: number; gap: number; dead: boolean }>(`(function(){var c=window.__lifeCar,p=window.__gmRuntime.state().open.player;return {v:c.v,gap:Math.hypot(c.x-p.x,c.z-p.z),dead:!!c.dead}})()`) : null;
+      if (lane) await page.eval(`${O}.place(${lane.x}, ${lane.z}, ${lane.yaw}, 0.1, true)`);
+      // braking from its speed takes a few seconds (faster cars longer): watched until it stands, up to 8 s
+      let car: { v: number; gap: number; dead: boolean } | null = null;
+      for (let i = 0; lane && i < 16; i++) { await sleep(500); car = await page.eval(`(function(){var c=window.__lifeCar,p=window.__gmRuntime.state().open.player;return {v:c.v,gap:Math.hypot(c.x-p.x,c.z-p.z),dead:!!c.dead}})()`); if (car && (car.dead || car.v < 0.3)) break; }
       ok('a car in its lane stops short of the player standing in its path', !!car && !car.dead && car.v < 1 && car.gap > 4, car ? `${car.v.toFixed(2)} m/s, ${car.gap.toFixed(1)} m away` : 'no moving car found');
       // into a building's wall on the avenue's sidewalk: stopped at its face
       // west from 6th Avenue's west sidewalk into the block's frontage (about x = -16)
@@ -887,8 +889,24 @@ try {
       for (let i = 0; i < 20 && sw.mode !== 'swing'; i++) { await sleep(100); sw = await page.eval(`${T}.state()`); }
       await page.eval(`${T}.release('MouseRight')`); await page.key('KeyW', 'keyUp');
       ok('the line bites on a real building\'s edge, high over the street', sw.mode === 'swing' && !!sw.anchor && sw.anchor[1] > 10, JSON.stringify(sw.anchor));
+      // an opening scene staged on a roof (a mark with a height): the hero stands up there, and the run begins there
+      await page.eval(`${O}.intro()`); await sleep(1200);
+      const upIn = (await co()).player as unknown as { y: number };
+      await page.key('Enter'); await sleep(900);
+      const upRun = (await co()).player as unknown as { y: number }, upTrav = await page.eval<{ feet: number; level: string }>(`${T}.state()`);
+      ok('an opening scene can stand the hero on a roof, and the run starts up there', upIn.y > 30 && upRun.y > 30 && upTrav.feet > 30, `scene ${upIn.y.toFixed(1)} m, run ${upRun.y.toFixed(1)} m, ${upTrav.level}`);
       const fps = await page.eval<number>('(async () => { let n = 0; const t0 = performance.now(); await new Promise((r) => { const f = () => { n++; if (performance.now() - t0 < 3000) requestAnimationFrame(f); else r(0); }; requestAnimationFrame(f); }); return n / 3; })()');
       ok('a night city with the cinematic renderer holds its frame rate', fps >= 40, `${Math.round(fps)} fps`);
+      // the police (the owner, 3 Oct: a patrol car for Zcity's troopers): one of the street's own vehicles comes down
+      // the avenue's centre line with its bar flashing, parks short of the player, and its officers get out
+      await page.eval(`${O}.place(-12.2, -292, 0, 0.15)`); await sleep(300);
+      await page.eval(`${O}.police()`);
+      let pat: { state: string; x: number; z: number; vehicle: boolean }[] = [];
+      for (let i = 0; i < 70; i++) { await sleep(300); pat = await page.eval(`${O}.patrol()`); if (pat[0] && pat[0].state === 'parked') break; }
+      await sleep(2500);
+      const cops = (await page.eval<{ kind: string; ko: boolean }[]>('window.__gmRuntime.state().open.enemies')).filter((e) => e.kind === 'cop' && !e.ko).length;
+      ok('a patrol car brings the officers down the avenue and parks short of the player', !!pat[0] && pat[0].vehicle && pat[0].state === 'parked' && Math.abs(pat[0].x) < 0.5 && Math.abs(pat[0].z + 292) < 20 && cops >= 2,
+        `${JSON.stringify(pat[0])}, ${cops} officers`);
       const e1 = await page.eval<string[]>('window.__gm.errors');
       ok('no errors', e1.length === 0 && page.errors.length === 0, e1.concat(page.errors).join(' | '));
     }, { timeoutMs: 180_000 });

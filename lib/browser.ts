@@ -148,7 +148,9 @@ export async function withBrowser<T>(
       },
       async key(name, type) {
         const k = KEYS[name] ?? { code: name, keyCode: 0, key: name };
-        const base = { code: k.code, key: k.key, windowsVirtualKeyCode: k.keyCode, nativeVirtualKeyCode: k.keyCode };
+        // no nativeVirtualKeyCode: these are Windows key codes, and on a Mac Chrome reads a native 13 (Enter) as the W
+        // key, so a test's Enter arrived as a KeyW press that its key-up never cleared
+        const base = { code: k.code, key: k.key, windowsVirtualKeyCode: k.keyCode };
         if (!type || type === 'keyDown') await s('Input.dispatchKeyEvent', { type: 'keyDown', ...base, text: k.key.length === 1 ? k.key : undefined });
         if (!type || type === 'keyUp') await s('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
       },

@@ -523,7 +523,10 @@ When the creator ticks "Open world", the world is not a lap race: ignore the lap
 the player roams on foot, seen over the shoulder, and the game is survival: people come for the
 player, the player knocks them out (jab, cross, hook, a jump clear of a blow; in a big fight, the boss close or four or more at once, the camera comes in over the shoulder and the combo runs to five with body shots and uppercuts), their GM spills on the ground, and
 the heat rises with time and knockouts. More come at once, each takes more punches, bikers join
-at heat 2, the police arrive by patrol car from heat 3, and a boss comes at every third level.
+at heat 2, the police arrive by patrol car from heat 3, and a boss comes at every third level. On the city map the
+patrol car is one of the street's own vehicles, down the nearest avenue with its bar flashing (it lights the street
+round it at night); `patrol: { car: 'suv' | 'sedan' | 'van' | 'pickup', color: '#ECEBE4', lights: ['#FFB020', '#2E6BFF'] }`
+dresses it (a quarantine's white SUV, amber and blue).
 The runtime runs the fight, the people's movement and routes round walls, the crowd, the heat,
 the HUD (health, heat stars, a radar, the time survived) and the scores (the time survived). The
 world says where it happens and who they are:
@@ -580,7 +583,10 @@ at: [x,z] (placed at the cut), to: [x,z] or path: [[x,z], ...], speed, gait, sta
 'og' | 'cam' | [x,z] | a cast id, act: [['shrug', atSeconds, rate]], stay: true }]`; text:
 `place` and `time` (a location card), `say` (a subtitle), `title` and `tagline` (the title card);
 `fade: 'in' | 'out' | 'both'`. Whoever is marked `stay` is there when the run begins and comes
-for you; the run begins where the scene leaves the hero. The closing scene (`outro`) takes the
+for you; the run begins where the scene leaves the hero. With `traversal` on, a mark may take a
+height, `at: [x, z, y]`: they stand on the roof (or ledge) at or just below `y`, and a run that
+begins there begins up on it. On the city map the street's own people keep out of a shot played at
+street level, round its cast and camera. The closing scene (`outro`) takes the
 same shots when the `goal` is reached, then the win. A cast member may bring its own `look` (any
 human options, e.g. a doctor: white `jacket`, `gear: { mask: '#9CCBE6' }`, `weapon: { kind:
 'syringe' }`), walk through walls with `ghost: true` (out of a doorway), and `act: [['heal', at,

@@ -1,0 +1,43 @@
+{
+  "title": "Zcity",
+  "tagline": "The virus reached the city. Climb it, swing it, and stack 10,000 GM for the vaccine.",
+  "blurb": "The virus left the beach, and now it has the whole city. The OG still has it, and the only vaccine in midtown is behind a clinic door on Sixth Avenue, at 10,000 GM. So he takes the high road: up the walls, along them, and across the avenues on a line, over the traffic and the crowd. Knock out whoever comes for you and their GM spills where they fall: the infected, who climb after you, looters, quarantine troopers, and a brute with a name at every third level of heat. Weapons are hidden about the streets. Stack 10,000 GM before the virus takes you, and Dr. Reyes will be waiting.",
+  "genre": "Open World",
+  "cast": [
+    {
+      "name": "The OG",
+      "color": "#FF3D7F",
+      "role": "player"
+    },
+    {
+      "name": "Dr. Reyes",
+      "color": "#9CCBE6",
+      "role": "rival"
+    },
+    {
+      "name": "The infected",
+      "color": "#8CFF6B",
+      "role": "rival"
+    },
+    {
+      "name": "Looters",
+      "color": "#141417",
+      "role": "rival"
+    },
+    {
+      "name": "Quarantine troopers",
+      "color": "#D9C22E",
+      "role": "rival"
+    },
+    {
+      "name": "Patient Zero",
+      "color": "#D8D4C8",
+      "role": "rival"
+    }
+  ],
+  "palette": {
+    "sky": "#0A1022",
+    "ground": "#3A3D44",
+    "accent": "#8CFF6B"
+  }
+}
