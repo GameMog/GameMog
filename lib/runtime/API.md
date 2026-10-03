@@ -726,7 +726,11 @@ street and the people in it) and its colliders, so add no lights or sky of your 
 north; the district runs from x = -250 to 250 (8th, 6th and 5th Avenues at x = -250, 0 and 250, each 22 m
 wide with 5 m sidewalks) and z = -480 to -80 (cross streets every 80 m at z = -480, -400, ..., -80, 10 m wide, 18 m at
 z = -480, with 4 m sidewalks); spawn on a sidewalk or in a street. It suits `traversal` (every building is a wall to
-run up and a roof edge to swing from).
+run up and a roof edge to swing from). Its streets are alive: cars, cabs, vans, trucks and buses drive them,
+stop at the lights, come in from beyond the district and drive off into it, and stop for the player and for
+your own people on foot; a crowd walks the sidewalks and crosses at the crosswalks, and it turns to look at the
+player, films a landing and steps back from it. `traffic: false` / `people: false` empties the streets; a
+number thins or fills them (1 as made, up to 2).
 
 ```js
 open: {
@@ -735,6 +739,8 @@ open: {
     time: 'night',                 // 'day', 'dusk' or 'night' (lit windows, lamps, glowing shops)
     ads: [['QUARANTINE ZONE', 'STAY INDOORS', '#101014', '#2A2A30', '#F4F1E8', '#D11F1F']],   // the billboards' copy: title, line, colours (optional)
     signs: [['PHARMACY', '#EEF1F4', '#B8202C']],                                               // the shop signs: name, board, letters (optional)
+    traffic: 1,                    // the cars: false for none, 0.5 for half (optional)
+    people: 1,                     // the crowd on the sidewalks: false for none, 0.5 for half (optional)
   },
   traversal: {},
 },

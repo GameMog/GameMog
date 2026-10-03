@@ -1083,6 +1083,30 @@
     "sha256": "cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724",
     "bytes": 15904933
   },
+  "spiderbench-city-npc/npc/people.bin": {
+    "sha256": "b421b653fb7b049fce2fb5ae584a60d7e3392b58dce8df8a2b339dcb47b11369",
+    "bytes": 10426684
+  },
+  "spiderbench-city-npc/npc/people.json": {
+    "sha256": "78382b068a612dc18abcb6e52957f46c5bb80bad1d2ba6673b39fae430df4428",
+    "bytes": 32759
+  },
+  "spiderbench-city-npc/npc/people_bake.webp": {
+    "sha256": "dd20647d2353efea42da17e412379b274cea4aef422b9df28790fca449b3b2cf",
+    "bytes": 1962656
+  },
+  "spiderbench-city-npc/tex/peds_atlas.webp": {
+    "sha256": "b6c094c7135861168f8723391803bcf61c2f4f70797523d4fb6bd7ed5eb46c36",
+    "bytes": 278790
+  },
+  "spiderbench-city-npc/tex/vehicles_atlas2.webp": {
+    "sha256": "79749e3c92d4c52d62dd307eab62b188f326eb014d22a49d06918aac27ac2243",
+    "bytes": 598766
+  },
+  "spiderbench-city-npc/vehicles.glb": {
+    "sha256": "a4525166d155d104ef5b2dd02fbc1bc527d709182a130e84c392dcd9ffdb1d3d",
+    "bytes": 8447076
+  },
   "spiderbench-city-props/props.glb": {
     "sha256": "f580cbc4f006838d89ae5f0569f69cf55b952f2ee7f0cc612e722eb57991b1f2",
     "bytes": 818648

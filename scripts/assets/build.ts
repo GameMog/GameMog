@@ -9,7 +9,7 @@
  */
 import { copyFileSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { deflateSync } from 'node:zlib';
+import { deflateSync, gzipSync } from 'node:zlib';
 import { buildHuman } from './human.ts';
 import { retargetClip, sprintFrom, type Clip } from './mocap.ts';
 import { retargetGltf } from './gltf.ts';
@@ -241,9 +241,53 @@ if (want('city-midtown')) {
     `<text x="515" y="86" font-family="${serif ? 'Georgia, Times New Roman, serif' : 'Arial Black, Helvetica, Arial, sans-serif'}" font-weight="900" font-size="66" text-anchor="middle" fill="rgba(0,0,0,0.45)">${t}</text>` +
     `<text x="512" y="83" font-family="${serif ? 'Georgia, Times New Roman, serif' : 'Arial Black, Helvetica, Arial, sans-serif'}" font-weight="900" font-size="66" text-anchor="middle" fill="${fg}">${t}</text></g>`).join('');
   await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="2048">${bands}</svg>`)).webp({ quality: 88 }).toFile(join(dir, 'signs.webp')); files.signs = 'signs.webp';
+
+  // traffic and pedestrians. The geometry ships gzipped (the asset server sends bytes as they are; gzip takes 18.9 MB to
+  // ~6 MB) after rounding its floats to what can be seen: positions to 1 part in 4096, normals to 1 in 512, uvs to 1 in 8192
+  const nsrc = 'assets-src/cache/spiderbench-city-npc/';
+  const round = (f: Float32Array, bits: number) => {
+    const u = new Uint32Array(f.buffer, f.byteOffset, f.length), m = ~((1 << bits) - 1) >>> 0, h = 1 << (bits - 1);
+    for (let i = 0; i < u.length; i++) if (((u[i] >>> 23) & 255) !== 255) u[i] = ((u[i] + h) & m) >>> 0;
+  };
+  const owned = (b: Buffer) => { const a = new ArrayBuffer(b.length); new Uint8Array(a).set(b); return a; };
+  {
+    const g = readFileSync(nsrc + 'vehicles.glb'), ab = owned(g), jl = g.readUInt32LE(12), j = JSON.parse(g.subarray(20, 20 + jl).toString()), b0 = 20 + jl + 8;
+    const BITS: Record<string, number> = { POSITION: 11, NORMAL: 14, TEXCOORD_0: 10 }; // TEXCOORD_1 holds whole part ids
+    for (const m of j.meshes) for (const p of m.primitives) for (const [k, ai] of Object.entries(p.attributes) as [string, number][]) {
+      const a = j.accessors[ai], bv = j.bufferViews[a.bufferView];
+      if (a.componentType === 5126 && BITS[k]) round(new Float32Array(ab, b0 + (bv.byteOffset || 0) + (a.byteOffset || 0), a.count * ({ VEC2: 2, VEC3: 3, VEC4: 4 } as any)[a.type]), BITS[k]);
+    }
+    writeFileSync(join(dir, 'vehicles.glb.gz'), gzipSync(new Uint8Array(ab), { level: 9 })); files.vehicles = 'vehicles.glb.gz';
+  }
+  {
+    const meta = JSON.parse(readFileSync(nsrc + 'npc/people.json', 'utf8')), ab = owned(readFileSync(nsrc + 'npc/people.bin'));
+    for (const L of [...meta.variants.flatMap((v: any) => v.lods), ...(meta.dog ? meta.dog.lods : [])]) { round(new Float32Array(ab, L.pos, L.nv * 3), 11); round(new Float32Array(ab, L.nrm, L.nv * 3), 14); }
+    round(new Float32Array(ab, meta.anim, meta.frames * meta.nb * 12), 10); // the baked bone matrices
+    writeFileSync(join(dir, 'people.bin.gz'), gzipSync(new Uint8Array(ab), { level: 9 })); files.people = 'people.bin.gz';
+    copyFileSync(nsrc + 'npc/people.json', join(dir, 'people.json')); files.people_meta = 'people.json';
+  }
+  copyFileSync(nsrc + 'tex/peds_atlas.webp', join(dir, 'peds_atlas.webp')); files.peds_atlas = 'peds_atlas.webp';
+  copyFileSync(nsrc + 'npc/people_bake.webp', join(dir, 'people_bake.webp')); files.people_bake = 'people_bake.webp';
+  // the vehicle atlas, repainted where it carried other people's marks: the three Marvel taxi-topper ads (8 tiles of
+  // 512 x 170 at the top right), the taxi commission's NYC badge and the transit authority's route and fleet names
+  const topper = (x: number, y: number, [t, tag, bg, bg2, fg, acc]: string[]) => `<g transform="translate(${x} ${y})">
+    <defs><linearGradient id="g${x}${y}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${bg}"/><stop offset="1" stop-color="${bg2}"/></linearGradient></defs>
+    <rect width="512" height="170" fill="url(#g${x}${y})"/><rect x="8" y="8" width="496" height="154" fill="none" stroke="${acc}" stroke-width="4" opacity="0.8"/>
+    <text x="256" y="92" font-family="Arial Black, Helvetica, Arial, sans-serif" font-weight="900" font-size="${Math.min(62, Math.floor(460 / (t.length * 0.78)))}" text-anchor="middle" fill="${fg}">${t}</text>
+    <text x="256" y="136" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="${Math.min(24, Math.floor(460 / (tag.length * 0.74)))}" letter-spacing="1" text-anchor="middle" fill="${acc}">${tag}</text></g>`;
+  const label = (x: number, y: number, w: number, h: number, bg: string, fg: string, t: string, size: number) =>
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${bg}"/><text x="${x + w / 2}" y="${y + h / 2 + size * 0.36}" font-family="Arial Black, Helvetica, Arial, sans-serif" font-weight="900" font-size="${size}" text-anchor="middle" fill="${fg}">${t}</text>`;
+  const paint = `<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="2048">
+    ${topper(1536, 0, ['THE EVENING LEDGER', 'THE CITY, EVERY NIGHT', '#101014', '#2A2A30', '#F4F1E8', '#D11F1F'])}
+    ${topper(1536, 170, ['VERIDIAN', 'CLEAN POWER FOR FIVE BOROUGHS', '#0D3B2E', '#1F7A58', '#E9FFF4', '#9DF0C8'])}
+    ${topper(1536, 340, ['NOVA LABS', 'THE FUTURE IS PERSONAL', '#1B2F6B', '#3D62C9', '#FFFFFF', '#FFCF33'])}
+    ${label(768, 1024, 256, 128, '#F4A900', '#111111', 'TAXI', 64)}
+    ${label(0, 1215, 512, 65, '#080808', '#F7A21B', '15  CROSSTOWN  LOCAL', 36)}
+    ${label(512, 1248, 512, 64, '#F5F5F2', '#1F4FA8', 'CITY  TRANSIT', 40)}</svg>`;
+  await sharp(nsrc + 'tex/vehicles_atlas2.webp').composite([{ input: Buffer.from(paint) }]).webp({ quality: 88, effort: 6 }).toFile(join(dir, 'vehicles_atlas.webp')); files.vehicles_atlas = 'vehicles_atlas.webp';
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'city', files }));
-  library[id] = { kind: 'city', title: 'City district textures', description: 'Asphalt, sidewalks, curbs, road markings, facades (16 wall layers with their normals and weathering), roofs, building interiors seen through the windows, grass and leaves, and the street furniture and rooftop clutter: what the city map builds its streets and blocks from.',
-    sources: ['spiderbench-city', 'spiderbench-city-props'], derived: 'Recompressed for the web (colour to WebP, the layer atlases to JPEG, normals to 1024 px). The shop-sign atlas is GameMog’s own, drawn in the original’s layout with invented names.', meta: { files: Object.keys(files).length }, files: {}, bytes: 0 };
+  library[id] = { kind: 'city', title: 'City district', description: 'Asphalt, sidewalks, curbs, road markings, facades (16 wall layers with their normals and weathering), roofs, building interiors seen through the windows, grass and leaves, the street furniture and rooftop clutter, and the life on the streets: 13 kinds of car, van, truck and bus at three levels of detail, and 24 kinds of pedestrian (and their dogs) with 27 baked animations. What the city map builds its streets and blocks from.',
+    sources: ['spiderbench-city', 'spiderbench-city-props', 'spiderbench-city-npc'], derived: 'Recompressed for the web (colour to WebP, the layer atlases to JPEG, normals to 1024 px). The shop-sign atlas is GameMog’s own, drawn in the original’s layout with invented names. On the vehicle atlas the three taxi-topper ads, the taxi badge and the bus names are repainted with GameMog’s own. Car and people geometry rounded to well under a millimetre and gzipped.', meta: { files: Object.keys(files).length }, files: {}, bytes: 0 };
 }
 
 /* ---------------- skies: photographed, for light, reflections and the visible sky ---------------- */

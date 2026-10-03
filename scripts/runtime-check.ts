@@ -838,7 +838,7 @@ try {
 
   // the city map (the owner, 2 Oct: Spiderbench's city, with its author's permission): a midtown district with its
   // buildings, rooftops, street furniture and trees, lit at night by its own lamps and windows, with the traversal
-  console.log('\nthe city map: a midtown district at night, with the traversal');
+  console.log('\nthe city map: a midtown district at night, with its traffic and people, and the traversal');
   const cwid = randomUUID();
   insertDraft({ id: cwid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../lib/runtime/open-city-world.js', import.meta.url), 'utf8'),
     meta: { title: 'City Check', tagline: 'Night', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#0A1022', ground: '#555555', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' } });
@@ -860,6 +860,19 @@ try {
       ok('at night it lights itself: lamps, lit shops and signs as real lights, the exposure raised for them', info.time === 'night' && st.lights > 100 && info.exposure > 3 && info.fill < 0.1, `${st.lights} lights near the camera, exposure x${info.exposure}`);
       const ad = await page.eval<number>(`(function(){var c=${M}.debug.root;var n=0;c.traverse(function(m){if(m.material&&m.material.map&&m.material.map.isCanvasTexture)n++;});return n})()`);
       ok('its billboards and blade signs carry GameMog\'s own drawn atlases', ad > 0, `${ad} meshes`);
+      // its life (2 Oct): Spiderbench's traffic and crowd, kept to the district (cars come in from beyond it and drive off
+      // into it), stopping at its lights and for the player
+      await sleep(1500);
+      const life = await page.eval<{ cars: number; edge: number; people: number; drawn: number }>(`(function(){var m=${M},s=m.stats(),e=0;m.life.traffic.cars().forEach(function(c){if(!c.parked&&c.link&&c.link.clipEdge)e++;});return {cars:s.cars,edge:e,people:s.people,drawn:s.peopleDrawn}})()`);
+      ok('its streets are alive: cars on them and in from beyond the district, people on the sidewalks', life.cars > 150 && life.edge > 0 && life.people > 800 && life.drawn > 100,
+        `${life.cars} cars (${life.edge} coming or going at the edge), ${life.people} people, ${life.drawn} drawn`);
+      const lane = await page.eval<{ x: number; z: number; yaw: number } | null>(`(function(){var sim=${M}.life.traffic,p=window.__gmRuntime.state().open.player;
+        var cs=sim.cars().filter(function(c){return !c.parked&&!c.conn&&c.v>5&&c.link&&!c.link.clipEdge&&(c.link.len-c.s)>40;});
+        cs.sort(function(a,b){return Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z);});var c=cs[0];if(!c)return null;
+        var fx=Math.cos(c.ry),fz=-Math.sin(c.ry);window.__lifeCar=c;return {x:c.x+fx*22,z:c.z+fz*22,yaw:Math.atan2(-fx,-fz)};})()`);
+      if (lane) { await page.eval(`${O}.place(${lane.x}, ${lane.z}, ${lane.yaw}, 0.1, true)`); await sleep(3500); }
+      const car = lane ? await page.eval<{ v: number; gap: number; dead: boolean }>(`(function(){var c=window.__lifeCar,p=window.__gmRuntime.state().open.player;return {v:c.v,gap:Math.hypot(c.x-p.x,c.z-p.z),dead:!!c.dead}})()`) : null;
+      ok('a car in its lane stops short of the player standing in its path', !!car && !car.dead && car.v < 1 && car.gap > 4, car ? `${car.v.toFixed(2)} m/s, ${car.gap.toFixed(1)} m away` : 'no moving car found');
       // into a building's wall on the avenue's sidewalk: stopped at its face
       // west from 6th Avenue's west sidewalk into the block's frontage (about x = -16)
       await page.eval(`${O}.place(-13, -300, Math.PI / 2, 0.15, false, -Math.PI / 2)`); await sleep(300);

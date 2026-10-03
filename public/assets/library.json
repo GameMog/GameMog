@@ -305,6 +305,14 @@
       "licenseUrl": "https://github.com/GameMog/GameMog/blob/main/lib/runtime/maps/city/LICENSE",
       "licenseText": "Used with the written permission of its author (2 Oct 2026), for GameMog only and non-commercial use; not under GameMog's MIT licence.",
       "homepage": "https://github.com/xikhar/spiderbench"
+    },
+    "spiderbench-city-npc": {
+      "title": "Spiderbench city vehicles and pedestrians",
+      "author": "Shikhar",
+      "license": "LicenseRef-Spiderbench-Permission",
+      "licenseUrl": "https://github.com/GameMog/GameMog/blob/main/lib/runtime/maps/city/LICENSE",
+      "licenseText": "Used with the written permission of its author (2 Oct 2026), for GameMog only and non-commercial use; not under GameMog's MIT licence.",
+      "homepage": "https://github.com/xikhar/spiderbench"
     }
   },
   "assets": {
@@ -1941,15 +1949,16 @@
     },
     "city-midtown": {
       "kind": "city",
-      "title": "City district textures",
-      "description": "Asphalt, sidewalks, curbs, road markings, facades (16 wall layers with their normals and weathering), roofs, building interiors seen through the windows, grass and leaves, and the street furniture and rooftop clutter: what the city map builds its streets and blocks from.",
+      "title": "City district",
+      "description": "Asphalt, sidewalks, curbs, road markings, facades (16 wall layers with their normals and weathering), roofs, building interiors seen through the windows, grass and leaves, the street furniture and rooftop clutter, and the life on the streets: 13 kinds of car, van, truck and bus at three levels of detail, and 24 kinds of pedestrian (and their dogs) with 27 baked animations. What the city map builds its streets and blocks from.",
       "sources": [
         "spiderbench-city",
-        "spiderbench-city-props"
+        "spiderbench-city-props",
+        "spiderbench-city-npc"
       ],
-      "derived": "Recompressed for the web (colour to WebP, the layer atlases to JPEG, normals to 1024 px). The shop-sign atlas is GameMog’s own, drawn in the original’s layout with invented names.",
+      "derived": "Recompressed for the web (colour to WebP, the layer atlases to JPEG, normals to 1024 px). The shop-sign atlas is GameMog’s own, drawn in the original’s layout with invented names. On the vehicle atlas the three taxi-topper ads, the taxi badge and the bus names are repainted with GameMog’s own. Car and people geometry rounded to well under a millimetre and gzipped.",
       "meta": {
-        "files": 28
+        "files": 34
       },
       "files": {
         "asphalt_col.webp": {
@@ -1969,8 +1978,8 @@
           "bytes": 436522
         },
         "asset.json": {
-          "sha256": "aaffe7450f3020d8df4228c4b7b347af6c1a442fa54d40f6ae20ffc73c2df827",
-          "bytes": 882
+          "sha256": "5d65e824a815c9df7b4b845c5110f1e7131779c36740992327813042ebde6f46",
+          "bytes": 1067
         },
         "bark_col.webp": {
           "sha256": "efcc3134419429039610fa7b31271e6f96e0bec78a2344073d04cb7300141d21",
@@ -2016,6 +2025,22 @@
           "sha256": "0b95a652ba1720b24fa8e3cdb8a57c4d98aeed793dac9f3e97acf54200e204f5",
           "bytes": 717202
         },
+        "peds_atlas.webp": {
+          "sha256": "b6c094c7135861168f8723391803bcf61c2f4f70797523d4fb6bd7ed5eb46c36",
+          "bytes": 278790
+        },
+        "people.bin.gz": {
+          "sha256": "f866258ab9983dec2b629cf9bf7d6e62a68e2d06cddd1a0fc5f2ade316f64b8d",
+          "bytes": 3998405
+        },
+        "people.json": {
+          "sha256": "78382b068a612dc18abcb6e52957f46c5bb80bad1d2ba6673b39fae430df4428",
+          "bytes": 32759
+        },
+        "people_bake.webp": {
+          "sha256": "dd20647d2353efea42da17e412379b274cea4aef422b9df28790fca449b3b2cf",
+          "bytes": 1962656
+        },
         "props.glb": {
           "sha256": "f580cbc4f006838d89ae5f0569f69cf55b952f2ee7f0cc612e722eb57991b1f2",
           "bytes": 818648
@@ -2052,6 +2077,14 @@
           "sha256": "0d14a331af8153545c47458bb928e2ae51045ef339762e4c9923b8fa8ebb2752",
           "bytes": 131416
         },
+        "vehicles.glb.gz": {
+          "sha256": "a1fa97995f5ba62603f20d82125045cd931369102baf128c00ae7e0bf35bd0b7",
+          "bytes": 1818340
+        },
+        "vehicles_atlas.webp": {
+          "sha256": "83c375242effaeb538d0870a38aeb24186805b6847f22a3390ba1ce7f8bf5d6f",
+          "bytes": 535234
+        },
         "walls_col.jpg": {
           "sha256": "5e8539144803e4dbd6fa67e9f3336df6dadf705d4b959e4ec6af8d7d29eabf8a",
           "bytes": 1761462
@@ -2069,7 +2102,7 @@
           "bytes": 147704
         }
       },
-      "bytes": 13034506
+      "bytes": 21660875
     }
   }
 }

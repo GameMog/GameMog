@@ -68,12 +68,13 @@ export default function Library() {
         <h2>Runtime code</h2>
         <p>
           The traversal (swinging on a line, running up and along walls, perching, zipping and diving,
-          and the animation that moves the body through it) is Shikhar&apos;s{' '}
-          <a href="https://github.com/xikhar/spiderbench">Spiderbench</a>, used with his permission.
+          and the animation that moves the body through it) and the city (its streets and buildings, its
+          night lights, its traffic and the people on its sidewalks) are Shikhar&apos;s{' '}
+          <a href="https://github.com/xikhar/spiderbench">Spiderbench</a>, used with the author&apos;s permission.
           Thank you, Shikhar. The Miami district is Prasenjit&apos;s{' '}
           <a href="https://github.com/StarKnightt/ocean-drive">Ocean Drive</a>; the cyclist&apos;s pedalling
-          follows his <a href="https://github.com/StarKnightt/summer-cycle">Summer Cycle</a> and the Great
-          Wall&apos;s look and sound his <a href="https://github.com/StarKnightt/shinobi-duel">Shinobi Duel</a>;
+          follows Prasenjit&apos;s <a href="https://github.com/StarKnightt/summer-cycle">Summer Cycle</a> and the Great
+          Wall&apos;s look and sound <a href="https://github.com/StarKnightt/shinobi-duel">Shinobi Duel</a>, also Prasenjit&apos;s;
           Tideline&apos;s coast follows Dan Greenheck&apos;s <a href="https://github.com/dgreenheck/tidewater">Tidewater</a>,
           and the derby&apos;s rules Patrick Hable&apos;s{' '}
           <a href="https://github.com/drcollect/demolition-derby">demolition-derby</a>, all under the MIT licence.

@@ -426,8 +426,8 @@ GameMog is open source under the [MIT licence](LICENSE). The code and assets of 
 uses keep their own licences, listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). One
 exception to the MIT licence: the open worlds' traversal (`lib/runtime/traversal/src/`) and the city map
 (`lib/runtime/maps/city/src/`, with the `city-midtown` assets) are from Shikhar's
-[Spiderbench](https://github.com/xikhar/spiderbench), used with his permission for GameMog only; they are not
-MIT, and reusing them needs his permission.
+[Spiderbench](https://github.com/xikhar/spiderbench), used with the author's permission for GameMog only; they are not
+MIT, and reusing them needs the author's permission.
 
 ## What is not built yet
 
