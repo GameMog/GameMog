@@ -34,7 +34,7 @@ creativity: it decides what the world is, who lives in it, and how it looks, mov
   controls in every world: a stick wherever the left thumb lands (steer, and push up or down for
   the pace), and round buttons on the right, the main one biggest and furthest right (SLOW,
   SPRINT and JUMP, BRAKE, GAS and JUMP in a car, SPRINT, JUMP and SLASH with the sword; an open
-  world has RUN, JUMP and PUNCH).
+  world has RUN, JUMP, DODGE and PUNCH).
 - **The jump.** The hero (and every rival) jumps anything lower than nine tenths of the hero's
   height: hurdles, barriers, logs, crates, cones. The runtime sizes the jump to the world's
   tallest such obstacle, so it always clears with room to spare; anything taller is steered
@@ -557,7 +557,7 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
 When the creator ticks "Open world", the world is not a lap race: ignore the lap rules above
 (track, laps, rivals joining at the line, obstacles, coins along a lap). An open world is a place
 the player roams on foot, seen over the shoulder, and the game is survival: people come for the
-player, the player knocks them out bare-handed in freeflow (a four-blow chain of punches and a kick that ends on a roundhouse, a rising uppercut or a leaping kick, and a dash at whoever he goes for up to 5 m off, the leaping kick from 3.5 m; `fight: 'boxing'` keeps a boxer's jab, cross and hook, which in a big fight run to five with body shots and uppercuts) or with a weapon picked up, a jump clears a blow, their GM spills on the ground, and
+player, the player knocks them out bare-handed in freeflow (a four-blow chain of punches and a kick that ends on a roundhouse, a rising uppercut or a leaping kick, and a dash at whoever he goes for up to 5 m off, the leaping kick from 3.5 m; `fight: 'boxing'` keeps a boxer's jab, cross and hook, which in a big fight run to five with body shots and uppercuts) or with a weapon picked up; a man about to land a blow shows a warning over his head, and a dodge (C or L, DODGE on a touch screen: a back flip, or a side flip the way the stick points) takes no harm, and done as the warning flares is perfect: time slows and the next blow is a counter; a jump clears a blow too, their GM spills on the ground, and
 the heat rises with time and knockouts. More come at once, each takes more punches, bikers join
 at heat 2, the police arrive by patrol car from heat 3, and a boss comes at every third level. On the city map the
 patrol car is one of the street's own vehicles, down the nearest avenue with its bar flashing (it lights the street

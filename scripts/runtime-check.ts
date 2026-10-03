@@ -592,6 +592,32 @@ try {
         for (let i = 0; i < 14; i++) { await sleep(80); const f = await page.eval<{ dash: unknown; last: string | null }>('window.__gmRuntime.debug.open().flow()'); dashed = dashed || !!f.dash; if (f.last) blow = f.last; }
         ok('bare-handed, the hero dashes at a man 4.6 m off and throws the leaping kick', dashed && blow === 'leap', `dash ${dashed}, blow ${blow || 'none'}`);
       }
+      // dodge, counter and the warning (stage 2 of Spiderbench's combat): a man winds up and the warning shows; a dodge in
+      // the last 0.3 s before his blow takes no harm, is perfect, and the next blow is a counter; a dodge long before is plain
+      {
+        type FW = { warn: { r: number; shown: boolean } | null; counter: boolean; countered: number; last: string | null; power: number };
+        const flow = () => page.eval<FW>('window.__gmRuntime.debug.open().flow()');
+        const stand = async () => { const pp = (await os()).player; await page.eval(`(() => { const O = window.__gmRuntime.debug.open(); O.clear(); O.place(${pp.x}, ${pp.z}, null, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 1.25}); return true; })()`); await sleep(450); };
+        await page.eval('window.__gmRuntime.debug.invincible(false)');
+        await stand();
+        const hp0 = (await os()).player.hp; await page.eval('window.__gmRuntime.debug.open().attack()');
+        let f = await flow(), shown = false, dodged: { perfect: boolean } | null = null;
+        for (let i = 0; i < 80 && !dodged; i++) { f = await flow(); shown = shown || !!(f.warn && f.warn.shown); if (f.warn && f.warn.r <= 0.22) dodged = await page.eval<{ perfect: boolean } | null>('window.__gmRuntime.debug.open().dodge()'); else await sleep(20); }
+        // the counter thrown at once, out of the flip (as a player does when the slow motion says so): the dodged blow
+        // still finds nobody to hurt
+        f = await flow(); const ready = f.counter;
+        for (let i = 0; i < 25 && !f.countered; i++) { await sleep(80); await page.eval('window.__gmRuntime.debug.open().punch()'); f = await flow(); }
+        await sleep(900); f = await flow(); const hp1 = (await os()).player.hp;
+        ok('a man winding up shows the warning, and a dodge as it flares is perfect and takes no harm', shown && !!dodged?.perfect && ready && hp1 >= hp0, `warning ${shown}, dodge ${JSON.stringify(dodged)}, counter ready ${ready}, hp ${hp0} -> ${hp1}`);
+        ok('the blow out of the flip is a counter: an ender, 1.6 times as hard', f.countered >= 1 && f.power >= 4.7, `blow ${f.last}, power ${f.power}`);
+        await stand();
+        await page.eval('window.__gmRuntime.debug.open().attack()');
+        let plain: { perfect: boolean } | null = null;
+        for (let i = 0; i < 80 && !plain; i++) { f = await flow(); if (f.warn && f.warn.r <= 0.7) plain = await page.eval<{ perfect: boolean } | null>('window.__gmRuntime.debug.open().dodge()'); else await sleep(20); }
+        await sleep(900); f = await flow();
+        ok('a dodge long before the blow is a plain one: no counter', !!plain && !plain.perfect && !f.counter, `dodge ${JSON.stringify(plain)}, counter ${f.counter}`);
+        await page.eval('window.__gmRuntime.debug.invincible(true)');
+      }
       // hidden weapons (the owner, 28 Sep): about the map, taken by walking over one, worn down by use
       type OW2 = OS & { weapon: { kind: string; hits: number; max: number } | null; pickups: { kind: string; dropped: boolean }[]; player: { x: number; z: number; wet: number; stance: string } };
       const ow2 = () => page.eval<OW2>('window.__gmRuntime.state().open');

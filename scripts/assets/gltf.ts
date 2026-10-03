@@ -116,10 +116,12 @@ for (const s of ['L', 'R']) {
   });
   FINGER.forEach((f, k) => { for (let j = 1; j <= 3; j++) SBMAP[`finger${k + 1}-${j}.${s}`] = `${f}${j}.${s}`; });
 }
-type Rig = { map: Record<string, string>; pelvis: string; thighL: string; thighR: string; footL: string };
+// faceSource: the rig already faces +Z (its left thigh at +X), and its clips start in a bladed fight stance; turning
+// each clip till the hips face +Z put every blow 15 to 28 degrees off the way the body faces
+type Rig = { map: Record<string, string>; pelvis: string; thighL: string; thighR: string; footL: string; faceSource?: boolean };
 const RIGS: Record<'quaternius' | 'spiderbench', Rig> = {
   quaternius: { map: MAP, pelvis: 'pelvis', thighL: 'thigh_l', thighR: 'thigh_r', footL: 'foot_l' },
-  spiderbench: { map: SBMAP, pelvis: 'hips', thighL: 'thigh.L', thighR: 'thigh.R', footL: 'foot.L' },
+  spiderbench: { map: SBMAP, pelvis: 'hips', thighL: 'thigh.L', thighR: 'thigh.R', footL: 'foot.L', faceSource: true },
 };
 export function sourcePose(path: string, clip: string) { return source(path, clip); }
 
@@ -141,7 +143,7 @@ export function retargetGltf(skel: Skeleton, path: string, clip: string, opts: {
   const first = S.pose(t0);
   // face +Z: the hips' own forward in the first frame
   const l = first.p[idx(R.thighL)], r = first.p[idx(R.thighR)];
-  const heading = arc(norm(cross([l[0] - r[0], 0, l[2] - r[2]], [0, 1, 0])), [0, 0, 1]);
+  const heading: Q = R.faceSource ? [0, 0, 0, 1] : arc(norm(cross([l[0] - r[0], 0, l[2] - r[2]], [0, 1, 0])), [0, 0, 1]);
   const J = (nm: string) => skel.find((b) => b.name === nm)!;
   const tLeg = J('upperleg01.L').head[1] - J('foot.L').head[1];
   const sLeg = S.rest.p[idx(R.thighL)][1] - S.rest.p[idx(R.footL)][1];

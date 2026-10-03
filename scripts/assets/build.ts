@@ -77,10 +77,13 @@ const BRAWL: [string, string, string, boolean, number?, number?][] = [
 // the freeflow moves (Spiderbench's combat, with its author's written permission, 3 Oct 2026; the owner: "more style
 // and speed when fighting, including kicks"): three punches, a kick, a rising uppercut and a leaping kick, built in
 // Blender on its hero's rig and retargeted here (no model, suit or texture is taken).
+// Stage 2: a back flip and a side flip to dodge with (their "contact" is the moment the dodge's safety ends: 0.55 s at
+// the rate the runtime plays them, 1.45 and 1.35).
 // [source clip, library name, moment of contact s, from s]
 const FREEFLOW: [string, string, number, number?][] = [
   ['punch1', 'ffJab', 0.2], ['punch2', 'ffCross', 0.23], ['punch3', 'ffHook', 0.3], ['kick', 'ffKick', 0.3],
   ['uppercut', 'ffRiser', 0.33], ['webStrike', 'ffLeap', 0.57, 0.36],
+  ['dodge', 'ffDodge', 0.8], ['dodgeSide', 'ffDodgeSide', 0.74],
 ];
 
 // the street fight and the street's own life, captured (CMU, the owner, 28 Sep:
@@ -202,7 +205,7 @@ async function human(id: string, gender: 'male' | 'female', title: string, skins
     kind: 'human', title,
     description: `A realistic ${gender === 'male' ? 'male' : 'female'} athlete: MakeHuman body shaped for sprinting, ${Object.keys(skins).length} skin tones, ${hair.length} hairstyles, eyes, eyebrows and eyelashes, a paintable kit (${gender === 'male' ? 'singlet' : 'crop top'}, shorts and spikes), five body morphs and a 66-bone rig with motion-captured run, sprint, idle, standing start and fall, and sword motion: a guard, three cuts, a lunge, a hit and a death.`,
     sources: ['makehuman', 'makehuman-system', 'cmu-mocap', 'quaternius-ual', 'spiderbench-hero-moves'],
-    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); the street fight (a boxer\'s guard and footwork, jab, cross, hook) and street life (casual, cool, heavyset and women\'s walks, walking backwards, a jog, shifting weight, arguing, a shrug, a wave) retargeted from CMU captures; sword motion, hits, a roll, getting up, a phone call, folded arms, talking, dancing, sitting and picking something up retargeted from Quaternius\'s Universal Animation Library; freeflow punches, a kick, a rising uppercut and a leaping kick retargeted from Spiderbench\'s hero rig (the clips only).',
+    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); the street fight (a boxer\'s guard and footwork, jab, cross, hook) and street life (casual, cool, heavyset and women\'s walks, walking backwards, a jog, shifting weight, arguing, a shrug, a wave) retargeted from CMU captures; sword motion, hits, a roll, getting up, a phone call, folded arms, talking, dancing, sitting and picking something up retargeted from Quaternius\'s Universal Animation Library; freeflow punches, a kick, a rising uppercut, a leaping kick, a back flip and a side flip retargeted from Spiderbench\'s hero rig (the clips only).',
     meta: { skins: Object.keys(skins), hair, morphs: Object.keys(h.asset.morphs as object), clips: packed.meta.map((c) => c.name), vertices: h.asset.vertexCount, bones: h.skeleton.length },
     files: {}, bytes: 0,
   };
