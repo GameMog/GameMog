@@ -1,0 +1,11 @@
+The files in lib/runtime/traversal/src/ come from Spiderbench (https://github.com/xikhar/spiderbench),
+Copyright (c) 2026 Shikhar. All rights reserved. They are NOT covered by GameMog's MIT licence.
+
+Spiderbench is published under a source-available, view-only licence. Its author gave GameMog written
+permission (2 October 2026) to use its traversal physics and animation state machine, procedural city
+generator and street network, vehicle and pedestrian models and animation clips, and rendering pipeline
+code, integrated into the GameMog runtime, hosted on gamemog.com and published in GameMog's repository,
+for non-commercial use, with no Marvel, Sony or Insomniac references.
+
+That permission is GameMog's alone. Anyone else who wants to use these files, in a fork of GameMog or
+anywhere else, needs the author's own permission. The changes GameMog made are listed in NOTICE.md.

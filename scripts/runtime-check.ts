@@ -754,6 +754,71 @@ try {
     }, { timeoutMs: 120_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(swid); }
 
+  // the traversal (the owner, 2 Oct: Spiderbench's, with its author's permission): a library hero
+  // swings, zips, runs up walls and dives on a crowd; his clips play through its animation; the
+  // crews climb after him; a knockout hands him back to the open world
+  console.log('\nthe traversal: swinging, zips, wall runs, dives, and the crews who climb');
+  const twid = randomUUID();
+  insertDraft({ id: twid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../lib/runtime/open-traversal-world.js', import.meta.url), 'utf8'),
+    meta: { title: 'Traversal Check', tagline: 'Swing', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#8FB4D8', ground: '#7E7A74', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' } });
+  try {
+    await withBrowser(async (page) => {
+      type TS = { live: boolean; mode: string; sub: string; feet: number; speed: number; anchor: number[] | null; zipTarget: string | null };
+      const O = 'window.__gmRuntime.debug.open()', T = O + '.traversal';
+      const ts = () => page.eval<TS>(`${T}.state()`);
+      const kos = async () => (await page.eval<{ kos: number }>('window.__gmRuntime.state().open')).kos;
+      const until = async (f: (s: TS) => boolean, ms: number) => { let s = await ts(); for (const t0 = Date.now(); !f(s) && Date.now() - t0 < ms; s = await ts()) await sleep(100); return s; };
+      await page.goto(`${BASE}/d/${twid}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      const loaded = await page.eval<boolean>('!!window.GameMogTraversal');
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(1200);
+      await page.eval(`window.__gmRuntime.debug.invincible(true); ${O}.clear()`);
+      const s0 = await ts(), a0 = await page.eval<{ clips: number }>(`${T}.anim()`);
+      ok('the traversal loads and takes the hero, with his own clips, when the run starts', loaded && s0.live && s0.mode === 'ground' && a0.clips > 20, `${JSON.stringify(s0)} ${JSON.stringify(a0)}`);
+      await page.eval(`${O}.place(0, 30, 0, 0.15)`); await sleep(400);
+      await page.key('KeyW', 'keyDown'); await sleep(1200);
+      const run = await ts(), ra = await page.eval<{ clip: string }>(`${T}.anim()`);
+      ok('he runs on the street, on the motion-capture run', run.mode === 'ground' && run.speed > 6 && /run|jog|sprint/.test(ra.clip), `${run.speed} m/s, ${ra.clip}`);
+      await page.eval(`${T}.tap('Space', 150)`); await sleep(350); await page.eval(`${T}.press('MouseRight')`);
+      const sw = await until((s) => s.mode === 'swing', 2000);
+      ok('a held line swings him from a roof edge', sw.mode === 'swing' && !!sw.anchor && sw.anchor[1] > 6, JSON.stringify(sw));
+      await sleep(1200); await page.eval(`${T}.release('MouseRight')`); await page.key('KeyW', 'keyUp');
+      await until((s) => s.mode === 'ground', 6000);
+      await page.eval(`${O}.place(0, -30, 0, 0.2)`); await sleep(300); await page.eval(`${T}.look(0, -260)`); await sleep(700);
+      const aim = await ts(); await page.eval(`${T}.tap('KeyE', 150)`);
+      const perch = await until((s) => s.mode === 'perch' || (s.mode === 'ground' && s.feet > 20), 3000);
+      ok('looking up marks a roof edge, and E zips him up to it', !!aim.zipTarget && perch.feet > 20, `${aim.zipTarget} -> ${perch.mode} at ${perch.feet} m`);
+      await page.eval(`${O}.place(3, 7, -Math.PI / 2, 0.2)`); await sleep(400);
+      await page.key('ShiftLeft', 'keyDown'); await page.key('KeyW', 'keyDown');
+      const wall = await until((s) => s.mode === 'wall', 3000), top = await until((s) => s.mode === 'ground' && s.feet > 15, 6000);
+      await page.key('KeyW', 'keyUp'); await page.key('ShiftLeft', 'keyUp');
+      ok('running at a wall runs him up it and onto the roof', wall.mode === 'wall' && top.feet > 17.5, `${wall.mode} -> ${top.feet} m`);
+      await page.eval(`${O}.clear(); ${O}.place(0, -50, Math.PI, 0.3)`); await sleep(200);
+      await page.eval(`${O}.spawn("biker"); ${O}.spawn("biker"); ${O}.spawn("biker")`); await sleep(1200);
+      const k0 = await kos();
+      await page.eval(`${O}.place(0, -56.8, Math.PI, 0.45)`); await sleep(300);
+      await page.key('KeyW', 'keyDown'); await sleep(450); await page.key('KeyW', 'keyUp'); await sleep(200);
+      await page.eval(`${T}.press('KeyC')`); await until((s) => s.mode === 'ground', 3000); await page.eval(`${T}.release('KeyC')`); await sleep(400);
+      const k1 = await kos();
+      ok('a dive off the tower lands on the crowd below as a takedown', k1 - k0 >= 2, `${k1 - k0} knocked out`);
+      await page.eval(`${O}.clear(); ${O}.place(0, 20, 0, 0.2); ${O}.spawn("thug")`); await sleep(1200);
+      for (let i = 0; i < 40 && (await kos()) === k1; i++) { await page.key('KeyJ', 'keyDown'); await sleep(60); await page.key('KeyJ', 'keyUp'); await sleep(300); }
+      const shot = await page.eval<{ shot: string | null }>(`${T}.anim()`);
+      ok('and on the ground he still fights, his punches played over the traversal', (await kos()) > k1, `${(await kos()) - k1} knocked out, last move ${shot.shot}`);
+      await page.eval(`${O}.clear(); ${O}.place(4, -31, Math.PI / 2, 0.35); ${O}.spawn("thug"); ${O}.spawn("thug")`); await sleep(300);
+      await page.eval(`${O}.place(10.5, -31, Math.PI / 2, 0.35)`);
+      let fs: Array<{ y: number }> = [];
+      // (the two placed beside the wall; the director may send more meanwhile, from further off)
+      for (let i = 0; i < 40; i++) { await sleep(250); fs = await page.eval<Array<{ y: number }>>(`${O}.foes()`); if (fs.filter((f) => f.y > 11).length >= 2) break; }
+      ok('crews who climb come up the wall after him onto his 12 m roof', fs.filter((f) => f.y > 11).length >= 2, fs.map((f) => f.y.toFixed(1)).join(' '));
+      await page.eval('window.__gmRuntime.debug.invincible(false)'); await page.eval(`${O}.hurt(1000)`); await sleep(1200);
+      const end = await ts(), st = await page.eval<string>('window.__gmRuntime.state().state');
+      ok('a knockout ends the run and hands him back to the open world', !end.live && st === 'crashed', `${st}, live ${end.live}`);
+      const e1 = await page.eval<string[]>('window.__gm.errors');
+      ok('no errors', e1.length === 0 && page.errors.length === 0, e1.concat(page.errors).join(' | '));
+    }, { timeoutMs: 180_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(twid); }
+
   // light (1 Oct): presets are opt-in, so a world without one is drawn exactly as before; under
   // one, a photographed sky is exposed to the preset's brightness whatever the photograph; lamps
   // in physical units are told about, never changed; and the look measures the player and the glare

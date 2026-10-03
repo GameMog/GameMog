@@ -243,8 +243,8 @@ function runtimeSource(version: number) {
     // the platform's score engine and car kit ride in front of the runtime that uses them
     const read = (f: string) => readFileSync(join(process.cwd(), 'lib', 'runtime', f), 'utf8');
     // open worlds (open.js) run inside the runtime's own closure, at its marker
-    // and a derby (derby.js) inside the open world's, at its own
-    const core = read(`v${version}.js`).replace('/*@include open.js*/', () => read('open.js').replace('/*@include derby.js*/', () => read('derby.js')));
+    // and a derby (derby.js), climbing (climb.js) and the traversal (trav.js) inside the open world's, at their own
+    const core = read(`v${version}.js`).replace('/*@include open.js*/', () => read('open.js').replace('/*@include derby.js*/', () => read('derby.js')).replace('/*@include climb.js*/', () => read('climb.js')).replace('/*@include trav.js*/', () => read('trav.js')));
     RUNTIMES[version] = [read('music.js'), read('vehicle.js'), read('creature.js'), core].join('\n');
   }
   return RUNTIMES[version];
@@ -252,11 +252,12 @@ function runtimeSource(version: number) {
 
 /**
  * The runtime's library maps (lib/runtime/maps, built by scripts/runtime/build-maps.mjs):
- * a world that asks for one (open: { map: 'ocean-drive' }) gets its script ahead of the runtime.
+ * a world that asks for one (open: { map: 'ocean-drive' }) gets its script ahead of the runtime,
+ * and a world that asks for the traversal (open: { traversal: ... }) gets that one.
  */
 const MAPS: Record<string, string> = {};
 function mapScripts(world: string) {
-  const ids = [...new Set([...world.matchAll(/\bmap\s*:\s*['"]([a-z0-9-]{2,40})['"]/g)].map((m) => m[1]))];
+  const ids = [...new Set([...world.matchAll(/\bmap\s*:\s*['"]([a-z0-9-]{2,40})['"]/g)].map((m) => m[1]).concat(/\btraversal\s*:/.test(world) ? ['traversal'] : []))];
   return ids.map((id) => {
     const f = join(process.cwd(), 'lib', 'runtime', 'maps', `${id}.js`);
     if (!MAPS[id] || process.env.NODE_ENV !== 'production') { try { MAPS[id] = readFileSync(f, 'utf8'); } catch { MAPS[id] = ''; } }

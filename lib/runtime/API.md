@@ -676,6 +676,32 @@ A crew kind's `car` is the car kit's options (or a function returning them); `bo
 own and return the car (a light bar on a cruiser). `hp` counts as armour (30 a point). The intro
 and outro cast cars the same way: `kind` brings a crew car, `speed` up to 30 m/s.
 
+**Traversal: a hero who swings, climbs and runs on walls.** `open.traversal` gives a library
+human hero a grapple line and the moves of a free-running hero (the runtime's traversal, from
+Spiderbench, used with its author's permission): swinging from the edges of roofs, running up and
+along walls and crawling on them, perching on edges, zipping to a marked point, flips off a
+release, and a dive that lands as a takedown on everyone close. Keys: W A S D, the mouse looks
+(a click locks it), Space jumps (hold for higher), the right button held swings, E zips to the
+marked point (in the air with none, a dash), C dives, Shift runs up and along walls, Q is a boost in
+the air; J, X, F or a click punch on the ground, G picks up a weapon. Touch: JUMP, SWING (held),
+ZIP, PUNCH, RUN, GRAB.
+
+```js
+open: {
+  traversal: { line: '#1C1E22' },     // the grapple cable's colour; {} or true for the default
+  crew: { thug: { climb: 0.5 } },     // the share of a crew who climb walls after you (0 to 1)
+}
+```
+
+It needs something to swing from: buildings, towers and walls with colliders
+(`ctx.solid({ min: { x, y: 0, z }, max: { x, y: height, z } })`, the `y` of `max` the roof). Every
+box collider is a building: its roof is ground to stand and fight on, its walls are climbed, its
+edges are anchors and zip points. Lines bite on edges 6 m up or more; streets 10 to 20 m wide
+between blocks 15 to 60 m tall swing best. Everyone stands on what is under them: a crew member
+who walks off a roof falls, the climbers come up the wall after a hero on a roof, the rest wait at
+its foot, and shooters shoot up at him. The hero must be a library human (`ctx.assets.human`);
+coins that drop on a roof stay on it.
+
 Where the walkable ground ends, something you can see ends it: on a library map the runtime
 builds it; without one, build a wall, fence or barrier at every edge of `bounds` and give it a
 collider. People move like people: a guard held up while stepping, sidesteps and backpedals

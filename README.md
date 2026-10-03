@@ -423,7 +423,10 @@ latency) so generation quality can actually be measured rather than guessed at.
 ## License
 
 GameMog is open source under the [MIT licence](LICENSE). The code and assets of others that it
-uses keep their own licences, listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+uses keep their own licences, listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). One
+exception to the MIT licence: the open worlds' traversal (`lib/runtime/traversal/src/`) is from
+Shikhar's [Spiderbench](https://github.com/xikhar/spiderbench), used with his permission for GameMog
+only; it is not MIT, and reusing it needs his permission.
 
 ## What is not built yet
 

@@ -16,6 +16,17 @@ or the notice beside it says so as well.
 | [Shinobi Duel](https://github.com/StarKnightt/shinobi-duel) by Prasenjit Nayak (StarKnightt): the look and the synthesized sound (its Mixamo fighters are not used) | `worlds/greatwall.js` | MIT; the notice is in the world's header |
 | npm packages (three.js, Next.js, React and the rest of `package.json`) | `node_modules`, not committed | each under its own licence |
 
+### Spiderbench (not MIT)
+
+`lib/runtime/traversal/src/` (bundled into `lib/runtime/maps/traversal.js`) comes from Shikhar's
+[Spiderbench](https://github.com/xikhar/spiderbench), commit 64d957f: the traversal physics and
+animation state machine, the rig, the chase camera, the line rendering and the input. Spiderbench is
+source-available and view-only; its author gave GameMog written permission (2 October 2026) to use
+these parts in the GameMog runtime, on gamemog.com and in this repository, for non-commercial use, with
+no Marvel, Sony or Insomniac references. **These files are not covered by GameMog's MIT licence**, and
+the permission is GameMog's alone: anyone else, in a fork or elsewhere, needs the author's own. See
+`lib/runtime/traversal/LICENSE` and `NOTICE.md` (what was taken and what GameMog changed).
+
 ## Assets
 
 The asset library in `public/assets` is built from the pinned sources listed in
