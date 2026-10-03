@@ -817,6 +817,23 @@ try {
       const e1 = await page.eval<string[]>('window.__gm.errors');
       ok('no errors', e1.length === 0 && page.errors.length === 0, e1.concat(page.errors).join(' | '));
     }, { timeoutMs: 180_000 });
+    // the attract demo shows him off on his own, and on a phone a finger turns the camera
+    await withBrowser(async (page) => {
+      await page.emulate({ width: 390, height: 844, mobile: true, dpr: 3 });
+      await page.goto(`${BASE}/d/${twid}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      const seen = new Set<string>(); let top = 0;
+      for (let i = 0; i < 60 && !(seen.has('swing') && top > 8); i++) { await sleep(250); const s = await page.eval<{ mode: string; feet: number } | null>('window.__gmRuntime.debug.open().traversal.state()'); if (s) { seen.add(s.mode); top = Math.max(top, s.feet); } }
+      ok('the attract demo shows him off: off the street on the line, high over it', seen.has('swing') && top > 8, `${[...seen].join(', ')}; ${top.toFixed(1)} m up`);
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(1200);
+      const yaw = () => page.eval<number>('window.__ctx.player.cam.yaw');
+      const y0 = await yaw();
+      await page.touch('touchStart', [{ x: 330, y: 200 }]);
+      for (let i = 1; i <= 10; i++) { await page.touch('touchMove', [{ x: 330 - i * 26, y: 200 }]); await sleep(16); }
+      await page.touch('touchEnd', []); await sleep(400);
+      const y1 = await yaw();
+      ok('on a phone, a finger dragged across the screen turns the camera', Math.abs(y1 - y0) > 1, `${(y1 - y0).toFixed(2)} rad for a 260 px swipe`);
+    }, { timeoutMs: 120_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(twid); }
 
   // light (1 Oct): presets are opt-in, so a world without one is drawn exactly as before; under

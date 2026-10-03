@@ -50,7 +50,11 @@ export type Page = {
   key(key: string, type?: 'keyDown' | 'keyUp'): Promise<void>;
   click(x: number, y: number): Promise<void>;
   /** Override the viewport exactly, including widths Chrome's window will not accept. */
-  emulate(viewport: { width: number; height: number; mobile?: boolean }): Promise<void>;
+  emulate(viewport: { width: number; height: number; mobile?: boolean; dpr?: number }): Promise<void>;
+  /** Slow the CPU down by this factor (4 is a mid-range phone, 6 a cheap one); 1 is full speed. */
+  throttle(rate: number): Promise<void>;
+  /** A touch: start, move or end, at CSS pixels. */
+  touch(type: 'touchStart' | 'touchMove' | 'touchEnd', points: { x: number; y: number }[]): Promise<void>;
   /** Block matching network requests, useful for read-only presentation captures. */
   blockRequests(patterns: string[]): Promise<void>;
   /** A JPEG of the viewport, or of `clip` (CSS pixels) within it. */
@@ -156,12 +160,15 @@ export async function withBrowser<T>(
         await s('Emulation.setDeviceMetricsOverride', {
           width: viewport.width,
           height: viewport.height,
-          deviceScaleFactor: 1,
+          deviceScaleFactor: viewport.dpr ?? 1,
           mobile: viewport.mobile ?? false,
           screenWidth: viewport.width,
           screenHeight: viewport.height,
         });
+        if (viewport.mobile) await s('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
       },
+      async throttle(rate) { await s('Emulation.setCPUThrottlingRate', { rate }); },
+      async touch(type, points) { await s('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : points.map((p, i) => ({ x: p.x, y: p.y, id: i })) }); },
       async blockRequests(patterns) {
         await s('Fetch.enable', { patterns: patterns.map((urlPattern) => ({ urlPattern, requestStage: 'Request' })) });
       },
