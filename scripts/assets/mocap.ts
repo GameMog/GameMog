@@ -237,22 +237,44 @@ export function forward(skel: Skeleton, quats: Float32Array, root: Float32Array,
   return wp;
 }
 
-// a relaxed, loosely closed hand: each finger joint curls toward the palm
-// (a fist for a fighter: the fingers rolled in tight, the thumb across)
+// a relaxed, loosely closed hand: each finger joint curls toward the palm, a little more toward the little finger,
+// and the fingers lie together with the thumb alongside (the library hand rests splayed: index and little finger
+// 16 degrees off the middle one, the thumb 61; captures without fingers left that splay, a claw)
+// (a fist for a fighter: the fingers rolled in tight and together, the thumb across)
 function fingerCurl(skel: Skeleton, fist = false): Record<number, Q> {
   const out: Record<number, Q> = {};
+  const dirOf = (b: Skeleton[number]) => norm([b.tail[0] - b.head[0], b.tail[1] - b.head[1], b.tail[2] - b.head[2]]);
   for (const s of ['L', 'R']) {
     const B = (n: string) => skel.findIndex((b) => b.name === n);
-    const idx = skel[B(`finger2-1.${s}`)], pinky = skel[B(`finger5-1.${s}`)], thumb = skel[B(`finger1-1.${s}`)];
+    const idx = skel[B(`finger2-1.${s}`)], pinky = skel[B(`finger5-1.${s}`)], thumb = skel[B(`finger1-1.${s}`)], mid = skel[B(`finger3-1.${s}`)];
     const across = norm([pinky.head[0] - idx.head[0], pinky.head[1] - idx.head[1], pinky.head[2] - idx.head[2]]);
+    const middle = dirOf(mid), index = dirOf(idx);
+    // the palm's normal, on the side the fingers close to: the side that brings the middle fingertip nearer the
+    // thumb's root
+    let palm = norm(cross(across, middle));
+    const reach = (n: V3) => { const d = qrot(qaxis(norm(cross(middle, n)), 0.5), middle); return Math.hypot(mid.head[0] + d[0] * 0.05 - thumb.head[0], mid.head[1] + d[1] * 0.05 - thumb.head[1], mid.head[2] + d[2] * 0.05 - thumb.head[2]); };
+    if (reach([-palm[0], -palm[1], -palm[2]]) < reach(palm)) palm = [-palm[0], -palm[1], -palm[2]];
     for (let f = 1; f <= 5; f++) for (let j = 1; j <= 3; j++) {
       const bi = B(`finger${f}-${j}.${s}`); if (bi < 0) continue;
-      const b = skel[bi], dir = norm([b.tail[0] - b.head[0], b.tail[1] - b.head[1], b.tail[2] - b.head[2]]);
-      const axis = f === 1 ? norm(cross(dir, across)) : across;
-      const ang = fist ? (f === 1 ? 0.55 : [1.35, 1.5, 1.05][j - 1]) : (f === 1 ? 0.18 : [0.5, 0.62, 0.45][j - 1]);
-      // choose the sign that brings the fingertip toward the thumb's root: toward the palm
-      const tip = (sg: number) => { const d = qrot(qaxis(axis, sg * ang), dir); const t: V3 = [b.head[0] + d[0] * 0.05, b.head[1] + d[1] * 0.05, b.head[2] + d[2] * 0.05]; return Math.hypot(t[0] - thumb.head[0], t[1] - thumb.head[1], t[2] - thumb.head[2]); };
-      out[bi] = qaxis(axis, tip(1) < tip(-1) ? ang : -ang);
+      const b = skel[bi], dir = dirOf(b);
+      const ang = fist ? (f === 1 ? [0.75, 0.6, 0.5][j - 1] : [1.55, 1.72, 1.15][j - 1]) : (f === 1 ? [0.18, 0.3, 0.26][j - 1] : [0.4, 0.55, 0.32][j - 1] * [0, 0, 0.85, 1, 1.1, 1.2][f]);
+      let q: Q;
+      if (f === 1) {
+        // the thumb folds across the palm; choose the sign that brings its tip toward the palm's side
+        const axis = norm(cross(dir, across));
+        const tip = (sg: number) => { const d = qrot(qaxis(axis, sg * ang), dir); return d[0] * palm[0] + d[1] * palm[1] + d[2] * palm[2]; };
+        q = qaxis(axis, tip(1) > tip(-1) ? ang : -ang);
+      } else {
+        // a finger bends square to itself, in toward the palm (about the knuckle line instead, the splayed fingers
+        // twisted sideways as they closed: a claw)
+        q = qaxis(norm(cross(dir, palm)), ang);
+      }
+      // the splay closes at the knuckles: the fingers swing in toward the middle one, the thumb toward the index
+      if (j === 1 && f !== 3) {
+        const to = f === 1 ? index : middle, gap = Math.acos(Math.min(1, Math.max(-1, dir[0] * to[0] + dir[1] * to[1] + dir[2] * to[2])));
+        if (gap > 1e-3) q = qmul(qaxis(norm(cross(dir, to)), gap * (f === 1 ? 0.4 : fist ? 0.8 : 0.65)), q);
+      }
+      out[bi] = q;
     }
   }
   return out;

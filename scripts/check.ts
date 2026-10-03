@@ -188,6 +188,48 @@ console.log('\nthe asset library: every file licensed, listed and unchanged');
   }
 }
 
+// the owner, 3 Oct: hands looked like claws. Motion capture has no fingers, so the build poses them: a relaxed hand
+// with its fingers together (the library hand rests splayed, 16 degrees between index and middle finger), a fighter's
+// hand closed into a fist
+console.log('\nthe library humans\' hands: together when relaxed, closed in a fist');
+{
+  const { readFileSync } = await import('node:fs');
+  const { inflateSync } = await import('node:zlib');
+  type Q4 = [number, number, number, number]; type V = [number, number, number];
+  const qmul = (a: Q4, b: Q4): Q4 => [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0], a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];
+  const qrot = (q: Q4, v: V): V => { const p = qmul(qmul(q, [v[0], v[1], v[2], 0]), [-q[0], -q[1], -q[2], q[3]]); return [p[0], p[1], p[2]]; };
+  const unit = (a: V): V => { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+  const deg = (a: V, b: V) => Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) * 180 / Math.PI;
+  const FISTS = new Set(['fight', 'guardF', 'guardB', 'guardL', 'guardR', 'jab', 'cross', 'hook', 'upperL', 'uppercut', 'body']);
+  for (const id of ['human-athlete-male', 'human-athlete-female']) {
+    const J = JSON.parse(readFileSync(`public/assets/${id}/asset.json`, 'utf8')), buf = inflateSync(readFileSync(`public/assets/${id}/${J.clips.file}`));
+    const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length), sk = J.skeleton as { name: string; parent: number; head: V; tail: V }[];
+    const bi = (n: string) => sk.findIndex((b) => b.name === n), dir = (n: string) => { const b = sk[bi(n)]; return unit([b.tail[0] - b.head[0], b.tail[1] - b.head[1], b.tail[2] - b.head[2]]); };
+    const splayed: string[] = [], open: string[] = [];
+    for (const c of J.clips.list as { name: string; frames: number }[]) {
+      if (!/CMU/.test(J.clips.credits[c.name] || '')) continue;           // the captures without fingers
+      const L = J.clips.layout[`${c.name}:q`], q16 = new Int16Array(ab, L.offset, L.length), f = Math.floor(c.frames / 2), W: Q4[] = [];
+      sk.forEach((b, i) => { const o = (f * sk.length + i) * 4, q: Q4 = [q16[o] / 32767, q16[o + 1] / 32767, q16[o + 2] / 32767, q16[o + 3] / 32767]; W[i] = b.parent < 0 ? q : qmul(W[b.parent], q); });
+      const world = (n: string) => qrot(W[bi(n)], dir(n));
+      for (const s of ['L', 'R']) {
+        const gap = Math.max(deg(world(`finger2-1.${s}`), world(`finger3-1.${s}`)), deg(world(`finger5-1.${s}`), world(`finger3-1.${s}`)));
+        if (gap > (FISTS.has(c.name) ? 7 : 10)) splayed.push(`${c.name}.${s} ${gap.toFixed(0)}°`);
+        // a fist: the middle fingertip folded in near the middle of the palm (under half its open distance)
+        if (FISTS.has(c.name)) {
+          const chain = [`wrist.${s}`, `finger3-1.${s}`, `finger3-2.${s}`, `finger3-3.${s}`].map(bi), P: V[] = [[0, 0, 0]];
+          for (let k = 1; k < chain.length; k++) { const a = sk[chain[k - 1]], b = sk[chain[k]], r = qrot(W[chain[k - 1]], [b.head[0] - a.head[0], b.head[1] - a.head[1], b.head[2] - a.head[2]]); P.push([P[k - 1][0] + r[0], P[k - 1][1] + r[1], P[k - 1][2] + r[2]]); }
+          const last = sk[chain[3]], t = qrot(W[chain[3]], [last.tail[0] - last.head[0], last.tail[1] - last.head[1], last.tail[2] - last.head[2]]), tip: V = [P[3][0] + t[0], P[3][1] + t[1], P[3][2] + t[2]];
+          const w = sk[chain[0]].head, m1 = sk[chain[1]].head, rest = Math.hypot(last.tail[0] - (w[0] + m1[0]) / 2, last.tail[1] - (w[1] + m1[1]) / 2, last.tail[2] - (w[2] + m1[2]) / 2);
+          const now = Math.hypot(tip[0] - P[1][0] / 2, tip[1] - P[1][1] / 2, tip[2] - P[1][2] / 2);
+          if (now / rest > 0.5) open.push(`${c.name}.${s} ${(now / rest).toFixed(2)}`);
+        }
+      }
+    }
+    ok(`${id}: relaxed fingers lie together, a fighter's too (the library hand rests 16 degrees apart)`, splayed.length === 0, splayed.slice(0, 6).join(', '));
+    ok(`${id}: a fighter's hand is closed in a fist`, open.length === 0, open.slice(0, 6).join(', '));
+  }
+}
+
 runDifficultyChecks(ok);
 runDesignChecks(ok);
 
