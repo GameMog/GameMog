@@ -583,14 +583,14 @@ try {
       for (let i = 0; i < 60 && (o.kos < 1 || o.gm < 1); i++) { await page.eval('window.__gmRuntime.debug.open().punch()'); await sleep(260); o = await os(); }
       ok('punches knock them out, and their GM comes to you', o.kos >= 1 && o.gm >= 1, `${o.kos} knockouts, ${o.gm} GM`);
       // freeflow (the owner, 3 Oct: Spiderbench's combat, "more style and speed, including kicks"): bare-handed, the hero
-      // dashes at a man 4.6 m off and the blow is the leaping kick
+      // dashes at a man 4.9 m off (the leaping kick is for the longest dashes, from 4.4 m) and the blow is the leaping kick
       {
         const pp = (await os()).player;
-        await page.eval(`(() => { const O = window.__gmRuntime.debug.open(); O.clear(); O.place(${pp.x}, ${pp.z}, null, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 4.6}); return true; })()`);
+        await page.eval(`(() => { const O = window.__gmRuntime.debug.open(); O.clear(); O.place(${pp.x}, ${pp.z}, null, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 4.9}); return true; })()`);
         await sleep(150); await page.eval('window.__gmRuntime.debug.open().punch()');
         let dashed = false, blow = '';
         for (let i = 0; i < 14; i++) { await sleep(80); const f = await page.eval<{ dash: unknown; last: string | null }>('window.__gmRuntime.debug.open().flow()'); dashed = dashed || !!f.dash; if (f.last) blow = f.last; }
-        ok('bare-handed, the hero dashes at a man 4.6 m off and throws the leaping kick', dashed && blow === 'leap', `dash ${dashed}, blow ${blow || 'none'}`);
+        ok('bare-handed, the hero dashes at a man 4.9 m off and throws the leaping kick', dashed && blow === 'leap', `dash ${dashed}, blow ${blow || 'none'}`);
       }
       // dodge and counter (stage 2 of Spiderbench's combat; no icon over his head since 3 Oct): a man winds up; a dodge in
       // the last 0.3 s before his blow takes no harm, is perfect, and the next blow is a counter; a dodge long before is plain
@@ -651,6 +651,25 @@ try {
         const hpA = (await os()).player.hp; await page.eval(`${O3}.focus(1)`); const healed = await page.eval<boolean>(`${O3}.heal()`); const hpB = (await os()).player.hp; g = await f3();
         await page.eval('window.__gmRuntime.debug.invincible(true)');
         ok('a heal spends a bar of focus on 35 health', healed && hpB - hpA >= 34 && g.focus < 0.05, `hp ${hpA} -> ${hpB}, focus ${g.focus}`);
+      }
+      // fewer kicks (the owner, 3 Oct: "it should kick much less"): over a run of chains a kick is the odd blow; and a fight
+      // one on one brings the camera in close over the shoulder ("more close up fighting")
+      {
+        type FK = { thrown: Record<string, number>; duel: number; camD: number };
+        const fk = () => page.eval<FK>('window.__gmRuntime.debug.open().flow()');
+        const O4 = 'window.__gmRuntime.debug.open()';
+        const pp = (await os()).player;
+        await page.eval(`(() => { const O = ${O4}; O.clear(); O.place(${pp.x}, ${pp.z}, 0, null, false, 0); return true; })()`); await sleep(2600);
+        const far = (await fk()).camD, t0 = (await fk()).thrown;
+        let near = 99, duel = 0;
+        for (let r = 0; r < 9; r++) {
+          await page.eval(`(() => { const O = ${O4}; O.clear(); O.spawn('thug', ${pp.x}, ${pp.z + 1.2}); return true; })()`); await sleep(250);
+          for (let i = 0; i < 14; i++) { await page.eval(`${O4}.punch()`); await sleep(120); if (i > 8) { const f = await fk(); near = Math.min(near, f.camD); duel = Math.max(duel, f.duel); } }
+        }
+        const t1 = (await fk()).thrown, n = (k: string) => (t1[k] || 0) - (t0[k] || 0);
+        const all = Object.keys(t1).reduce((m, k) => m + n(k), 0), kicks = n('kick') + n('roundhouse') + n('leap');
+        ok('kicks are the odd blow: one in five or fewer, over many chains', all >= 36 && kicks / all <= 0.2, `${kicks} kicks in ${all} blows (${JSON.stringify(Object.fromEntries(Object.keys(t1).map((k) => [k, n(k)])))})`);
+        ok('a fight one on one brings the camera in close', duel > 0.6 && near < far * 0.8, `camera ${far.toFixed(2)} m off alone, ${near.toFixed(2)} m in the fight (duel ${duel})`);
       }
       // hidden weapons (the owner, 28 Sep): about the map, taken by walking over one, worn down by use
       type OW2 = OS & { weapon: { kind: string; hits: number; max: number } | null; pickups: { kind: string; dropped: boolean }[]; player: { x: number; z: number; wet: number; stance: string } };
