@@ -592,23 +592,23 @@ try {
         for (let i = 0; i < 14; i++) { await sleep(80); const f = await page.eval<{ dash: unknown; last: string | null }>('window.__gmRuntime.debug.open().flow()'); dashed = dashed || !!f.dash; if (f.last) blow = f.last; }
         ok('bare-handed, the hero dashes at a man 4.6 m off and throws the leaping kick', dashed && blow === 'leap', `dash ${dashed}, blow ${blow || 'none'}`);
       }
-      // dodge, counter and the warning (stage 2 of Spiderbench's combat): a man winds up and the warning shows; a dodge in
+      // dodge and counter (stage 2 of Spiderbench's combat; no icon over his head since 3 Oct): a man winds up; a dodge in
       // the last 0.3 s before his blow takes no harm, is perfect, and the next blow is a counter; a dodge long before is plain
       {
-        type FW = { warn: { r: number; shown: boolean } | null; counter: boolean; countered: number; last: string | null; power: number };
+        type FW = { warn: { r: number } | null; counter: boolean; countered: number; last: string | null; power: number };
         const flow = () => page.eval<FW>('window.__gmRuntime.debug.open().flow()');
         const stand = async () => { const pp = (await os()).player; await page.eval(`(() => { const O = window.__gmRuntime.debug.open(); O.clear(); O.place(${pp.x}, ${pp.z}, null, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 1.25}); return true; })()`); await sleep(450); };
         await page.eval('window.__gmRuntime.debug.invincible(false)');
         await stand();
         const hp0 = (await os()).player.hp; await page.eval('window.__gmRuntime.debug.open().attack()');
-        let f = await flow(), shown = false, dodged: { perfect: boolean } | null = null;
-        for (let i = 0; i < 80 && !dodged; i++) { f = await flow(); shown = shown || !!(f.warn && f.warn.shown); if (f.warn && f.warn.r <= 0.22) dodged = await page.eval<{ perfect: boolean } | null>('window.__gmRuntime.debug.open().dodge()'); else await sleep(20); }
+        let f = await flow(), seen = false, dodged: { perfect: boolean } | null = null;
+        for (let i = 0; i < 80 && !dodged; i++) { f = await flow(); seen = seen || !!f.warn; if (f.warn && f.warn.r <= 0.22) dodged = await page.eval<{ perfect: boolean } | null>('window.__gmRuntime.debug.open().dodge()'); else await sleep(20); }
         // the counter thrown at once, out of the flip (as a player does when the slow motion says so): the dodged blow
         // still finds nobody to hurt
         f = await flow(); const ready = f.counter;
         for (let i = 0; i < 25 && !f.countered; i++) { await sleep(80); await page.eval('window.__gmRuntime.debug.open().punch()'); f = await flow(); }
         await sleep(900); f = await flow(); const hp1 = (await os()).player.hp;
-        ok('a man winding up shows the warning, and a dodge as it flares is perfect and takes no harm', shown && !!dodged?.perfect && ready && hp1 >= hp0, `warning ${shown}, dodge ${JSON.stringify(dodged)}, counter ready ${ready}, hp ${hp0} -> ${hp1}`);
+        ok('a man winds up, and a dodge just before his blow lands is perfect and takes no harm', seen && !!dodged?.perfect && ready && hp1 >= hp0, `wind-up seen ${seen}, dodge ${JSON.stringify(dodged)}, counter ready ${ready}, hp ${hp0} -> ${hp1}`);
         ok('the blow out of the flip is a counter: an ender, 1.6 times as hard', f.countered >= 1 && f.power >= 4.7, `blow ${f.last}, power ${f.power}`);
         await stand();
         await page.eval('window.__gmRuntime.debug.open().attack()');
@@ -617,6 +617,40 @@ try {
         await sleep(900); f = await flow();
         ok('a dodge long before the blow is a plain one: no counter', !!plain && !plain.perfect && !f.counter, `dodge ${JSON.stringify(plain)}, counter ${f.counter}`);
         await page.eval('window.__gmRuntime.debug.invincible(true)');
+      }
+      // focus, the finisher and the heal, and the air game (stage 3 of Spiderbench's combat): the finisher needs focus and
+      // with it puts a man down for good; a held attack launches him, the hero rises with him, two blows in the air and a
+      // slam, whose landing knocks down the man close by; a heal spends focus on health
+      {
+        type F3 = { focus: number; fin: unknown; hang: { seg: number; t: number; air: number } | null; slamDown: boolean; launches: number; heals: number; knocked: number };
+        const f3 = () => page.eval<F3>('window.__gmRuntime.debug.open().flow()');
+        const O3 = 'window.__gmRuntime.debug.open()';
+        const pp = (await os()).player;
+        await page.eval(`(() => { const O = ${O3}; O.clear(); O.place(${pp.x}, ${pp.z}, null, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 2.5}); O.focus(0); return true; })()`); await sleep(400);
+        const none = await page.eval(`${O3}.finisher()`);
+        await page.eval(`${O3}.focus(1.1)`);
+        const k0 = (await os()).kos, fin = await page.eval(`${O3}.finisher()`);
+        let g = await f3(); for (let i = 0; i < 50 && g.fin; i++) { await sleep(100); g = await f3(); }
+        const k1 = (await os()).kos;
+        ok('the finisher needs focus, and with it the man goes down for good', none === null && !!fin && k1 - k0 === 1 && g.focus < 0.2, `without focus ${JSON.stringify(none)}, with ${JSON.stringify(fin)}: ${k1 - k0} down, focus left ${g.focus}`);
+        const two = await page.eval<boolean>(`(() => { const O = ${O3}; O.clear(); O.place(${pp.x}, ${pp.z}, 0, null, false, 0); return O.spawn('thug', ${pp.x}, ${pp.z + 1.3}) && O.spawn('thug', ${pp.x + 1.6}, ${pp.z + 1.9}); })()`); await sleep(400);
+        // a real held J: the press throws a jab, the hold (past 220 ms) the launcher
+        const k2 = (await os()).kos, l0 = (await f3()).launches, n0 = (await f3()).knocked;
+        // (held until the launch shows: the hold is timed in real time, and a slow frame must not let go of it first)
+        await page.key('KeyJ', 'keyDown'); await sleep(240);
+        for (let i = 0; i < 40 && (g = await f3()).launches === l0; i++) await sleep(30);
+        await page.key('KeyJ', 'keyUp');
+        const la = g.launches - l0 === 1, segs = new Set<number>(); let slam = false, high = 0;
+        for (let i = 0; i < 45; i++) { await sleep(90); g = await f3(); if (g.hang) { segs.add(g.hang.seg); high = Math.max(high, g.hang.air); if (g.hang.t > 0.42) await page.eval(`${O3}.punch()`); } if (g.slamDown) slam = true; if (slam && !g.slamDown && !g.hang) break; }
+        await sleep(600);
+        const st3 = (await os()).enemies as unknown as { ko: boolean; hp: number; max: number }[], by = st3.filter((q) => !q.ko), k3 = (await os()).kos;
+        ok('a held attack launches him and the hero rises with him: two blows in the air, then a slam', two && la && segs.has(0) && segs.has(1) && segs.has(2) && slam && high > 1.5, `launched ${la}, blows ${[...segs].join(',')}, slam ${slam}, up to ${high.toFixed(2)} m`);
+        const n1 = (await f3()).knocked;
+        ok('the slam puts him down, and its landing knocks down the man close by', k3 - k2 === 1 && by.length === 1 && by[0].hp <= by[0].max - 1.4 && n1 - n0 === 1, `${k3 - k2} out, ${n1 - n0} knocked down, standing ${JSON.stringify(by.map((q) => [q.hp, q.max]))}`);
+        await page.eval('window.__gmRuntime.debug.invincible(false)'); await page.eval(`${O3}.clear()`); await page.eval('window.__gmRuntime.debug.open().hurt(40)');
+        const hpA = (await os()).player.hp; await page.eval(`${O3}.focus(1)`); const healed = await page.eval<boolean>(`${O3}.heal()`); const hpB = (await os()).player.hp; g = await f3();
+        await page.eval('window.__gmRuntime.debug.invincible(true)');
+        ok('a heal spends a bar of focus on 35 health', healed && hpB - hpA >= 34 && g.focus < 0.05, `hp ${hpA} -> ${hpB}, focus ${g.focus}`);
       }
       // hidden weapons (the owner, 28 Sep): about the map, taken by walking over one, worn down by use
       type OW2 = OS & { weapon: { kind: string; hits: number; max: number } | null; pickups: { kind: string; dropped: boolean }[]; player: { x: number; z: number; wet: number; stance: string } };

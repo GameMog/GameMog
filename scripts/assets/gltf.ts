@@ -125,7 +125,7 @@ const RIGS: Record<'quaternius' | 'spiderbench', Rig> = {
 };
 export function sourcePose(path: string, clip: string) { return source(path, clip); }
 
-export function retargetGltf(skel: Skeleton, path: string, clip: string, opts: { name: string; loop?: boolean; fps?: number; start?: number; end?: number; anchor?: 'start' | 'mean'; rig?: 'quaternius' | 'spiderbench'; contact?: number; inPlace?: boolean }): Clip {
+export function retargetGltf(skel: Skeleton, path: string, clip: string, opts: { name: string; loop?: boolean; fps?: number; start?: number; end?: number; anchor?: 'start' | 'mean'; rig?: 'quaternius' | 'spiderbench'; contact?: number; inPlace?: boolean; floor?: 'clip' | 'source' }): Clip {
   const S = source(path, clip), fps = opts.fps ?? 30, R = RIGS[opts.rig ?? 'quaternius'], MAP = R.map;
   const idx = (n: string) => { const i = S.byName.get(n); if (i === undefined) throw new Error(`${path}: no bone ${n}`); return i; };
   // each source bone points along its own +y at rest (Quaternius's rig, like
@@ -171,10 +171,11 @@ export function retargetGltf(skel: Skeleton, path: string, clip: string, opts: {
   // in place: the runtime moves the body itself (a dash, a lunge), so the clip keeps only its rise and fall
   if (opts.inPlace) for (let f = 0; f < m; f++) { root[f * 3] = rootRest[0]; root[f * 3 + 2] = rootRest[2]; }
   if (loop) closeLoop(quats, root, n, nb);
-  // the lowest the feet go over the clip is standing height
+  // the lowest the feet go over the clip is standing height; a move posed in the air keeps its source's own floor (the
+  // one its rest pose stands on), or this rule pulls it down till a foot touches (the air combo 0.24 m, a dive 0.88 m)
   const ankle = J('foot.L').head[1];
-  let low = Infinity;
-  for (let f = 0; f < n; f++) { const hp = forward(skel, quats, root, f); for (const side of ['foot.L', 'foot.R']) low = Math.min(low, hp[bones.indexOf(side)][1]); }
+  let low = opts.floor === 'source' ? S.rest.p[idx(R.footL)][1] * k : Infinity;
+  if (opts.floor !== 'source') for (let f = 0; f < n; f++) { const hp = forward(skel, quats, root, f); for (const side of ['foot.L', 'foot.R']) low = Math.min(low, hp[bones.indexOf(side)][1]); }
   for (let f = 0; f < m; f++) root[f * 3 + 1] += ankle - low;
   // the moment of contact: where the sword hand moves fastest, so the runtime
   // can land a cut on it whatever speed it plays the clip at

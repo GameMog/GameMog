@@ -26,7 +26,7 @@ generator and its street network, its street furniture and trees, the night city
 traffic, its vehicles, the pedestrians and their animation clips. The asset library's `city-midtown` textures,
 props model, vehicles and people (sources `spiderbench-city`, `spiderbench-city-props`, `spiderbench-city-npc`
 in `assets-src/sources.json`) are Shikhar's too, under the same permission, and so are the freeflow moves in
-the library humans' clips (`ffJab`, `ffCross`, `ffHook`, `ffKick`, `ffRiser`, `ffLeap`, `ffDodge`, `ffDodgeSide`, retargeted from its hero
+the library humans' clips (`ffJab`, `ffCross`, `ffHook`, `ffKick`, `ffRiser`, `ffLeap`, `ffDodge`, `ffDodgeSide`, `ffLaunch`, `ffAirHold`, `ffAir1`, `ffAir2`, `ffAirSlam`, `ffSlamLand`, `ffFinisher`, retargeted from its hero
 rig's combat clips, source `spiderbench-hero-moves`; no model, suit or texture is taken), under his second
 permission (3 October 2026: the combat system, and the hero's body and rig with the suit stripped). Spiderbench is
 source-available and view-only; its author gave GameMog written permission (2 October 2026) to use

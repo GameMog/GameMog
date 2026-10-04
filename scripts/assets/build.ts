@@ -79,11 +79,21 @@ const BRAWL: [string, string, string, boolean, number?, number?][] = [
 // Blender on its hero's rig and retargeted here (no model, suit or texture is taken).
 // Stage 2: a back flip and a side flip to dodge with (their "contact" is the moment the dodge's safety ends: 0.55 s at
 // the rate the runtime plays them, 1.45 and 1.35).
-// [source clip, library name, moment of contact s, from s]
-const FREEFLOW: [string, string, number, number?][] = [
+// Stage 3: the air game and the finisher: a launcher (the uppercut cut at the top of its hop), the hold between air
+// blows, the air combo's three blows (the third a slam), the slam's touchdown, and the finisher (a flying kick, then a
+// fist to the ground). Moves posed in the air keep their source's own floor.
+// [source clip, library name, moment of contact s, from s, { to s, loop, floor }]
+const FREEFLOW: [string, string, number, number?, { end?: number; loop?: boolean; floor?: 'source' }?][] = [
   ['punch1', 'ffJab', 0.2], ['punch2', 'ffCross', 0.23], ['punch3', 'ffHook', 0.3], ['kick', 'ffKick', 0.3],
   ['uppercut', 'ffRiser', 0.33], ['webStrike', 'ffLeap', 0.57, 0.36],
   ['dodge', 'ffDodge', 0.8], ['dodgeSide', 'ffDodgeSide', 0.74],
+  ['uppercut', 'ffLaunch', 0.33, 0, { end: 14 / 30, floor: 'source' }],
+  ['airApex', 'ffAirHold', 0, 0, { loop: true, floor: 'source' }],
+  ['airCombo', 'ffAir1', 0.13, 0, { end: 7 / 30, floor: 'source' }],
+  ['airCombo', 'ffAir2', 0.27, 6 / 30, { end: 13 / 30, floor: 'source' }],
+  ['airCombo', 'ffAirSlam', 0.6, 13 / 30, { floor: 'source' }],
+  ['finisher', 'ffSlamLand', 1.0, 27 / 30, { floor: 'source' }],
+  ['finisher', 'ffFinisher', 0.567, 0, { floor: 'source' }],
 ];
 
 // the street fight and the street's own life, captured (CMU, the owner, 28 Sep:
@@ -191,7 +201,7 @@ async function human(id: string, gender: 'male' | 'female', title: string, skins
     ...COMBAT.map(([file, clip, name, loop]) => retargetGltf(h.skeleton, `quaternius-ual/${file}`, clip, { name, loop })),
     ...BRAWL.map(([file, clip, name, loop, start, end]) => retargetGltf(h.skeleton, `quaternius-ual/${file}`, clip, { name, loop, start, end })),
     ...CMU_STREET.map((c) => cmuCut(h.skeleton, c, gender)),
-    ...FREEFLOW.map(([clip, name, contact, start]) => retargetGltf(h.skeleton, 'spiderbench-hero-moves/hero-rig.glb', clip, { name, rig: 'spiderbench', start, contact, inPlace: true })),
+    ...FREEFLOW.map(([clip, name, contact, start, o]) => retargetGltf(h.skeleton, 'spiderbench-hero-moves/hero-rig.glb', clip, { name, rig: 'spiderbench', start, end: o?.end, loop: o?.loop, floor: o?.floor, contact, inPlace: true })),
   ];
   const packed = packClips(clips);
   writeFileSync(join(dir, 'clips.bin.z'), deflateSync(packed.buffer, { level: 9 }));
@@ -205,7 +215,7 @@ async function human(id: string, gender: 'male' | 'female', title: string, skins
     kind: 'human', title,
     description: `A realistic ${gender === 'male' ? 'male' : 'female'} athlete: MakeHuman body shaped for sprinting, ${Object.keys(skins).length} skin tones, ${hair.length} hairstyles, eyes, eyebrows and eyelashes, a paintable kit (${gender === 'male' ? 'singlet' : 'crop top'}, shorts and spikes), five body morphs and a 66-bone rig with motion-captured run, sprint, idle, standing start and fall, and sword motion: a guard, three cuts, a lunge, a hit and a death.`,
     sources: ['makehuman', 'makehuman-system', 'cmu-mocap', 'quaternius-ual', 'spiderbench-hero-moves'],
-    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); the street fight (a boxer\'s guard and footwork, jab, cross, hook) and street life (casual, cool, heavyset and women\'s walks, walking backwards, a jog, shifting weight, arguing, a shrug, a wave) retargeted from CMU captures; sword motion, hits, a roll, getting up, a phone call, folded arms, talking, dancing, sitting and picking something up retargeted from Quaternius\'s Universal Animation Library; freeflow punches, a kick, a rising uppercut, a leaping kick, a back flip and a side flip retargeted from Spiderbench\'s hero rig (the clips only).',
+    derived: 'Body shaped with MakeHuman targets; rig reduced from 163 to 66 bones; running motion retargeted from CMU captures (the sprint clip amplifies the captured run); the street fight (a boxer\'s guard and footwork, jab, cross, hook) and street life (casual, cool, heavyset and women\'s walks, walking backwards, a jog, shifting weight, arguing, a shrug, a wave) retargeted from CMU captures; sword motion, hits, a roll, getting up, a phone call, folded arms, talking, dancing, sitting and picking something up retargeted from Quaternius\'s Universal Animation Library; freeflow punches, a kick, a rising uppercut, a leaping kick, a back flip, a side flip, a launcher, air blows, a slam and a finisher retargeted from Spiderbench\'s hero rig (the clips only).',
     meta: { skins: Object.keys(skins), hair, morphs: Object.keys(h.asset.morphs as object), clips: packed.meta.map((c) => c.name), vertices: h.asset.vertexCount, bones: h.skeleton.length },
     files: {}, bytes: 0,
   };

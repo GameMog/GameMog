@@ -74,6 +74,7 @@ const KEYS: Record<string, { code: string; keyCode: number; key: string }> = {
   KeyA: { code: 'KeyA', keyCode: 65, key: 'a' },
   KeyS: { code: 'KeyS', keyCode: 83, key: 's' },
   KeyD: { code: 'KeyD', keyCode: 68, key: 'd' },
+  KeyJ: { code: 'KeyJ', keyCode: 74, key: 'j' },
 };
 
 export async function withBrowser<T>(
