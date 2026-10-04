@@ -1725,6 +1725,56 @@
       "urls": {
         "hero-rig.glb": "https://api.github.com/repos/xikhar/spiderbench/git/blobs/f24f667a050a86fc6ea584f4232b7b5cc999ccf4"
       }
+    },
+    "kenney-impact-sounds": {
+      "title": "Impact Sounds (1.0)",
+      "author": "Kenney (www.kenney.nl)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://kenney.nl/assets/impact-sounds",
+      "zip": "https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip",
+      "zipBytes": 800850,
+      "files": [
+        "License.txt",
+        "Audio/impactPunch_medium_000.ogg",
+        "Audio/impactPunch_medium_001.ogg",
+        "Audio/impactPunch_medium_002.ogg",
+        "Audio/impactPunch_medium_003.ogg",
+        "Audio/impactPunch_heavy_000.ogg",
+        "Audio/impactPunch_heavy_001.ogg",
+        "Audio/impactPunch_heavy_002.ogg",
+        "Audio/impactPunch_heavy_003.ogg",
+        "Audio/impactSoft_medium_000.ogg",
+        "Audio/impactSoft_medium_001.ogg",
+        "Audio/impactSoft_medium_002.ogg",
+        "Audio/impactSoft_medium_004.ogg",
+        "Audio/impactSoft_heavy_000.ogg",
+        "Audio/impactSoft_heavy_001.ogg",
+        "Audio/impactSoft_heavy_003.ogg",
+        "Audio/impactSoft_heavy_004.ogg",
+        "Audio/impactWood_heavy_000.ogg",
+        "Audio/impactWood_heavy_002.ogg",
+        "Audio/impactWood_heavy_003.ogg",
+        "Audio/impactWood_heavy_004.ogg",
+        "Audio/impactWood_medium_000.ogg",
+        "Audio/impactWood_medium_001.ogg",
+        "Audio/impactWood_medium_002.ogg",
+        "Audio/impactWood_medium_003.ogg",
+        "Audio/impactMetal_heavy_000.ogg",
+        "Audio/impactMetal_heavy_002.ogg",
+        "Audio/impactMetal_heavy_004.ogg",
+        "Audio/impactMetal_light_001.ogg",
+        "Audio/impactMetal_light_002.ogg",
+        "Audio/impactMetal_light_004.ogg",
+        "Audio/impactMining_000.ogg",
+        "Audio/impactMining_002.ogg",
+        "Audio/impactMining_004.ogg",
+        "Audio/impactPlate_heavy_001.ogg",
+        "Audio/impactPlate_heavy_003.ogg",
+        "Audio/impactPlank_medium_000.ogg",
+        "Audio/impactPlank_medium_002.ogg",
+        "Audio/impactPlank_medium_003.ogg"
+      ]
     }
   }
 }

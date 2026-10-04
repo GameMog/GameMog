@@ -16,6 +16,7 @@ import { retargetClip, sprintFrom, type Clip } from './mocap.ts';
 import { retargetGltf } from './gltf.ts';
 import { buildHdri } from './hdri.ts';
 import { buildMusic } from './music.ts';
+import { buildSfx } from './sfx.ts';
 import { buildModel } from './model.ts';
 import { sha256, Packer } from './lib.ts';
 
@@ -295,6 +296,29 @@ if (want('music-dance-field')) {
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'music', ...m }));
   library[id] = { kind: 'music', title: 'Dance Field', description: `Upbeat retro electro, ${m.bpm} BPM: the opening once, then ${m.loop.bars} bars that loop seamlessly.`, sources: ['centurion-dance-field'], derived: 'Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.', meta: { bpm: m.bpm, duration: m.duration, loop: m.loop, lufs: m.lufs }, files: {}, bytes: 0 };
   console.log(`${id}: ${m.bpm} BPM, loop ${m.loop.start.toFixed(2)}-${m.loop.end.toFixed(2)} s (${m.loop.bars} bars), ${m.lufs} LUFS`);
+}
+
+/* ---------------- the fight's impact sounds (the owner, 3 Oct: Kenney's CC0 impacts) ---------------- */
+// families the runtime picks from (open.js): a variant at random, never the same twice running
+const IMPACTS: Record<string, string[]> = {
+  punch: ['impactPunch_medium_000', 'impactPunch_medium_001', 'impactPunch_medium_002', 'impactPunch_medium_003'],
+  heavy: ['impactPunch_heavy_000', 'impactPunch_heavy_001', 'impactPunch_heavy_002', 'impactPunch_heavy_003'],
+  body: ['impactSoft_medium_000', 'impactSoft_medium_001', 'impactSoft_medium_002', 'impactSoft_medium_004'],
+  fall: ['impactSoft_heavy_000', 'impactSoft_heavy_001', 'impactSoft_heavy_003', 'impactSoft_heavy_004'],
+  wood: ['impactWood_heavy_000', 'impactWood_heavy_002', 'impactWood_heavy_003', 'impactWood_heavy_004'],
+  staff: ['impactWood_medium_000', 'impactWood_medium_001', 'impactWood_medium_002', 'impactWood_medium_003'],
+  metal: ['impactMetal_heavy_000', 'impactMetal_heavy_002', 'impactMetal_heavy_004'],
+  blade: ['impactMetal_light_001', 'impactMetal_light_002', 'impactMetal_light_004'],
+  slam: ['impactMining_000', 'impactMining_002', 'impactMining_004'],
+  boom: ['impactPlate_heavy_001', 'impactPlate_heavy_003'],
+  clatter: ['impactPlank_medium_000', 'impactPlank_medium_002', 'impactPlank_medium_003'],
+};
+if (want('sfx-impacts')) {
+  const id = 'sfx-impacts', dir = join(OUT, id);
+  const s = buildSfx('kenney-impact-sounds', IMPACTS, dir, { kbps: 96 });
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'sfx', file: s.file, sampleRate: s.sampleRate, channels: s.channels, frames: s.frames, duration: s.duration, sounds: s.sounds }));
+  library[id] = { kind: 'sfx', title: 'Impact sounds', description: `Recorded impacts for the fight, ${s.count} sounds in ${Object.keys(IMPACTS).length} families (${Object.keys(IMPACTS).join(', ')}): punches, kicks, weapons by material, falls, a slam. The runtime plays them itself in open worlds; no world lists them.`, sources: ['kenney-impact-sounds'], derived: 'Decoded from Ogg Vorbis, made mono (the pack is dual-mono), DC blocked, the silence before each hit and its tail under -50 dB cut, brought to the same peak, joined into one sprite and encoded as AAC.', meta: { families: Object.fromEntries(Object.entries(s.sounds).map(([k, v]) => [k, v.length])), duration: s.duration }, files: {}, bytes: 0 };
+  console.log(`${id}: ${s.count} sounds, ${s.duration} s`);
 }
 
 /* ---------------- the city map's textures (lib/runtime/maps/city), from Spiderbench ---------------- */

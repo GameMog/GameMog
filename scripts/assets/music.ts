@@ -41,7 +41,7 @@ export function readWav(path: string): Pcm {
   return { sr: fmt.sr, ch };
 }
 
-function writeWav(path: string, pcm: Pcm) {
+export function writeWav(path: string, pcm: Pcm) {
   const n = pcm.ch[0].length, C = pcm.ch.length, b = Buffer.alloc(44 + n * C * 2);
   b.write('RIFF', 0, 'ascii'); b.writeUInt32LE(36 + n * C * 2, 4); b.write('WAVE', 8, 'ascii');
   b.write('fmt ', 12, 'ascii'); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(C, 22); b.writeUInt32LE(pcm.sr, 24);

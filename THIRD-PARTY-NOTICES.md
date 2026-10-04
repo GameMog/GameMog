@@ -41,7 +41,7 @@ and what GameMog changed).
 The asset library in `public/assets` is built from the pinned sources listed in
 `assets-src/sources.json`, which records each source's title, author, licence and link;
 `public/assets/library.json` records every built file's hash. All of them are CC0-1.0
-(MakeHuman, Poly Haven, Quaternius, OpenGameArt) except the motion capture from the
+(MakeHuman, Poly Haven, Quaternius, OpenGameArt, and Kenney's Impact Sounds for the fight) except the motion capture from the
 [CMU Graphics Lab Motion Capture Database](http://mocap.cs.cmu.edu), which Carnegie Mellon
 University provides free for all uses: it may be included in products, but the data itself may
 not be resold (the database was created with funding from NSF EIA-0196217), and the `city-midtown` textures,
