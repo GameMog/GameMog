@@ -439,7 +439,8 @@ for (const [id, slug, title, size, description] of SURFACES) {
 }
 
 /* ---------------- models: scanned, cut to a game budget ---------------- */
-const MODELS: [string, string, string, number, string][] = [
+// [id, Poly Haven slug, title, triangle budget, description, options: parts kept, centring (model.ts)]
+const MODELS: [string, string, string, number, string, { parts?: (name: string) => boolean; centre?: 'parts' | 'model'; group?: (name: string) => string; unrotate?: (name: string) => boolean }?][] = [
   ['model-boulder', 'boulder_01', 'Boulder', 6000, 'A weathered boulder about 1.8 m tall.'],
   ['model-mossy-rocks', 'rock_moss_set_01', 'Mossy rocks', 9000, 'Six mossy rocks, each its own part (rock01 to rock06).'],
   ['model-coastal-cliff', 'coastal_cliff_04', 'Coastal cliff', 40000, 'A sea cliff 87 m long and 11 m high.'],
@@ -450,11 +451,40 @@ const MODELS: [string, string, string, number, string][] = [
   ['model-concrete-barrier', 'concrete_road_barrier', 'Concrete barrier', 3000, 'A concrete road barrier 1.5 m long.'],
   ['model-fire-hydrant', 'fire_hydrant', 'Fire hydrant', 8000, 'A fire hydrant, new and aged (parts fire_hydrant and fire_hydrant_aged).'],
   ['model-street-seating', 'modular_street_seating', 'Street seating', 8000, 'Modular street benches: legs, seats, backs and connectors as parts.'],
+  // the CC0 batch (the owner, 3 Oct: Poly Haven street, industrial, furniture and building pieces)
+  ['model-trash-cans', 'metal_trash_can', 'Trash cans', 6000, 'Two galvanised steel trash cans 0.91 m tall, one bright, one rusted, each with its handles, and their two lids as parts of their own.', { group: (n) => n.replace(/_handle_(left|right)$/, ''), centre: 'parts', unrotate: (n) => /_lid$/.test(n) }],
+  ['model-cardboard-box', 'cardboard_box_01', 'Cardboard box', 2000, 'A battered, taped cardboard box 0.52 by 0.39 m and 0.34 m tall, printed with handling marks.'],
+  ['model-wooden-chest', 'wooden_crate_01', 'Wooden chest', 3000, 'A weathered lidded wooden chest 0.83 m long and 0.35 m tall with rope handles and an iron hasp.'],
+  ['model-plastic-crate', 'plastic_crate_02', 'Plastic crate', 4000, 'A stackable vented plastic crate in amber, 0.51 m long and 0.25 m tall.'],
+  ['model-red-drum', 'Barrel_01', 'Red drum', 2700, 'A red steel oil drum 0.88 m tall with a hazard pictogram.'],
+  ['model-blue-drum', 'barrel_03', 'Blue drum', 1500, 'A blue steel drum 0.93 m tall.'],
+  ['model-burn-barrel', 'barrel_stove', 'Burn barrel', 3000, 'A rusted, fire-blackened burn barrel 0.86 m tall, open at the top.'],
+  ['model-old-tyre', 'old_tyre', 'Old tyre', 2900, 'A worn car tyre 0.6 m across, standing on its tread.', { centre: 'model' }],
+  ['model-wheel-rim', 'rusted_wheel_rim_01', 'Rusted wheel rim', 4000, 'A rusted steel car wheel rim 0.4 m across, standing on its edge.', { centre: 'model' }],
+  ['model-covered-car', 'covered_car', 'Covered car', 5000, 'A saloon car under a dusty fabric cover, 4.4 m long and 1.4 m tall, its four wheels parts of their own.'],
+  ['model-concrete-block', 'concrete_road_barrier_02', 'Concrete block', 5000, 'A chipped concrete barrier block 1.6 m long and 1.1 m tall.'],
+  ['model-door-shutter', 'rollershutter_door', 'Door shutter', 1200, 'A closed steel roller shutter for a doorway, 1.1 m wide and 2.4 m tall, its housing 0.3 m deep.', { parts: (n) => !/graffiti/.test(n) }],
+  ['model-shop-shutter', 'rollershutter_window_01', 'Shop shutter', 1200, 'A closed steel roller shutter for a shop window, 2.1 m wide and 1.85 m tall, its housing 0.3 m deep.', { parts: (n) => !/graffiti/.test(n) }],
+  ['model-wall-lantern', 'street_lamp_02', 'Wall lantern', 6000, 'A black wrought-iron wall lantern on a bracket reaching 0.8 m from the wall, with its glass and bulb.'],
+  ['model-plastic-chair', 'plastic_monobloc_chair_01', 'Plastic chair', 3400, 'A white plastic patio chair 0.88 m tall.'],
+  ['model-cafe-set', 'outdoor_table_chair_set_01', 'Cafe set', 6000, 'A folding cafe table and two folding chairs in slatted wood on black steel, 0.86 m tall, each its own part.', { centre: 'parts' }],
+  ['model-fire-escape', 'modular_fire_escape', 'Fire escape', 11400, 'A black steel fire-escape kit: landings, railings, a stair flight and a ladder, each its own part.', { centre: 'parts' }],
+  ['model-drainpipes', 'modular_metal_gutter', 'Gutters and drainpipes', 8000, 'A galvanised gutter kit: gutter runs, a corner, downpipe sections, a bend, a hopper, couplers and brackets, each its own part.', { centre: 'parts' }],
+  ['model-air-ducts', 'modular_airduct_circular_01', 'Air ducts', 7000, 'A round sheet-metal air-duct kit: straight runs, bends, a fan, vents and braces, each its own part.', { centre: 'parts' }],
+  ['model-industrial-pipes', 'modular_industrial_pipes_01', 'Industrial pipes', 6000, 'A painted steel pipe kit up to 1.95 m long: straight runs, elbows, tees and a valve with a gauge, each its own part.', { centre: 'parts' }],
+  ['model-wooden-pier', 'modular_wooden_pier', 'Wooden pier', 24000, 'A weathered wooden pier 12 m long and 2.5 m wide on its pilings, with a rope-hoist frame.', { parts: (n) => /section/.test(n), centre: 'model' }],
+  ['model-fort', 'modular_fort_01', 'Stone fort', 28500, 'A weathered stone fort kit: wall sections, corners, ramparts with stairs, a round tower and an arched gate, each its own part.', { centre: 'parts' }],
+  ['model-castle-door', 'large_castle_door', 'Castle door', 5000, 'An arched, iron-strapped wooden double door 2 m wide and 3 m tall in its frame; each leaf its own part.'],
+  ['model-fire-pit', 'stone_fire_pit', 'Fire pit', 3900, 'A ring of stones round a sooty fire bed, 1.45 m across.', { centre: 'model' }],
+  ['model-wine-barrel', 'wine_barrel_01', 'Wooden barrel', 4000, 'An iron-hooped oak barrel 0.87 m tall.'],
+  ['model-sea-marker', 'lateral_sea_marker', 'Sea marker', 5000, 'A weathered red channel-marker buoy 6.8 m tall with a daymark and a handrail.'],
+  ['model-dead-trunk', 'dead_tree_trunk_02', 'Dead tree trunk', 4000, 'A fallen dead tree trunk 4 m long, bark and lichen.', { centre: 'model' }],
+  ['model-cannon', 'cannon_01', 'Cannon', 5000, 'An old ship cannon on a wooden carriage, 2.3 m long, with three cannonballs; the barrel, wheels and balls are parts.'],
 ];
-for (const [id, slug, title, budget, description] of MODELS) {
+for (const [id, slug, title, budget, description, o] of MODELS) {
   if (!want(id)) continue;
   const dir = join(OUT, id);
-  const m = await buildModel(`ph-model-${slug}`, dir, { budget });
+  const m = await buildModel(`ph-model-${slug}`, dir, { budget, ...(o ?? {}) });
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'model', ...m }));
   library[id] = { kind: 'model', title, description: `${description} Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; ${m.triangles.kept} triangles.`, sources: [`ph-model-${slug}`], derived: `Cut from ${m.triangles.source} to ${m.triangles.kept} triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.`, meta: { parts: Object.keys(m.parts), triangles: m.triangles.kept }, files: {}, bytes: 0 };
   console.log(`${id}: ${m.triangles.source} -> ${m.triangles.kept} triangles, parts ${Object.keys(m.parts).join(', ')}`);

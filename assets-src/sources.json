@@ -973,6 +973,642 @@
         "modular_street_seating.bin": "5c0426b5068d5d41f0a301035ecac9ab"
       }
     },
+    "ph-model-metal_trash_can": {
+      "title": "Metal Trash Can (model)",
+      "author": "GurJas Studios, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/metal_trash_can",
+      "urls": {
+        "metal_trash_can_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/metal_trash_can/metal_trash_can_1k.gltf",
+        "textures/metal_trash_can_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_trash_can/metal_trash_can_diff_1k.jpg",
+        "textures/metal_trash_can_rust_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_trash_can/metal_trash_can_rust_diff_1k.jpg",
+        "textures/metal_trash_can_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_trash_can/metal_trash_can_arm_1k.jpg",
+        "textures/metal_trash_can_rust_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_trash_can/metal_trash_can_rust_nor_gl_1k.jpg",
+        "textures/metal_trash_can_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_trash_can/metal_trash_can_nor_gl_1k.jpg",
+        "metal_trash_can.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/metal_trash_can/metal_trash_can.bin",
+        "textures/metal_trash_can_rust_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_trash_can/metal_trash_can_rust_arm_1k.jpg"
+      },
+      "md5": {
+        "metal_trash_can_1k.gltf": "c322802832a61ad7b17711dfbbc52e6b",
+        "textures/metal_trash_can_diff_1k.jpg": "55d375d8d51b268b6ed8a4308155959c",
+        "textures/metal_trash_can_rust_diff_1k.jpg": "8b90447d250cb790ca537748a2b16691",
+        "textures/metal_trash_can_arm_1k.jpg": "af676572c13fae2bb584538f03175efc",
+        "textures/metal_trash_can_rust_nor_gl_1k.jpg": "25187818d1236815d4a34fd743cadc29",
+        "textures/metal_trash_can_nor_gl_1k.jpg": "fa6db04e021f6335ae2d9ad501120cae",
+        "metal_trash_can.bin": "fbde1679a66ea644223b97ebc8336a77",
+        "textures/metal_trash_can_rust_arm_1k.jpg": "ed9f635917cde411f235d4585c90b310"
+      }
+    },
+    "ph-model-cardboard_box_01": {
+      "title": "Cardboard Box 01 (model)",
+      "author": "Rahul Chaudhary, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/cardboard_box_01",
+      "urls": {
+        "cardboard_box_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/cardboard_box_01/cardboard_box_01_1k.gltf",
+        "textures/cardboard_box_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/cardboard_box_01/cardboard_box_01_arm_1k.jpg",
+        "cardboard_box_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/cardboard_box_01/cardboard_box_01.bin",
+        "textures/cardboard_box_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/cardboard_box_01/cardboard_box_01_diff_1k.jpg",
+        "textures/cardboard_box_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/cardboard_box_01/cardboard_box_01_nor_gl_1k.jpg"
+      },
+      "md5": {
+        "cardboard_box_01_1k.gltf": "84572b118cc3640acdd9e978869bb3ee",
+        "textures/cardboard_box_01_arm_1k.jpg": "39ea452f95d71ec1362e47dff453c706",
+        "cardboard_box_01.bin": "64bea3a77434981017b8a06da4ccb0df",
+        "textures/cardboard_box_01_diff_1k.jpg": "a306e586325d1759ba3225d2b6ad5121",
+        "textures/cardboard_box_01_nor_gl_1k.jpg": "24768abd73f71cfdd7f5be92b18634a7"
+      }
+    },
+    "ph-model-wooden_crate_01": {
+      "title": "Wooden Crate 01 (model)",
+      "author": "James Ray Cock, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/wooden_crate_01",
+      "urls": {
+        "wooden_crate_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/wooden_crate_01/wooden_crate_01_1k.gltf",
+        "textures/wooden_crate_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/wooden_crate_01/wooden_crate_01_diff_1k.jpg",
+        "textures/wooden_crate_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/wooden_crate_01/wooden_crate_01_nor_gl_1k.jpg",
+        "wooden_crate_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/wooden_crate_01/wooden_crate_01.bin",
+        "textures/wooden_crate_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/wooden_crate_01/wooden_crate_01_arm_1k.jpg"
+      },
+      "md5": {
+        "wooden_crate_01_1k.gltf": "33df4d2ae00186d4b64e878466c9e22e",
+        "textures/wooden_crate_01_diff_1k.jpg": "266e0462d06e77c5745f66e89820544f",
+        "textures/wooden_crate_01_nor_gl_1k.jpg": "e31626a1fcf6f7062c2ffd9fc982b942",
+        "wooden_crate_01.bin": "8318f76b0c24b5538ce23051dbcb79a0",
+        "textures/wooden_crate_01_arm_1k.jpg": "67c4aeb1154af98f95516b21ef62291c"
+      }
+    },
+    "ph-model-plastic_crate_02": {
+      "title": "Plastic Crate 02 (model)",
+      "author": "Fabi_G, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/plastic_crate_02",
+      "urls": {
+        "plastic_crate_02_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/plastic_crate_02/plastic_crate_02_1k.gltf",
+        "textures/plastic_crate_02_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_crate_02/plastic_crate_02_nor_gl_1k.jpg",
+        "textures/plastic_crate_02_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_crate_02/plastic_crate_02_diff_1k.jpg",
+        "textures/plastic_crate_02_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_crate_02/plastic_crate_02_arm_1k.jpg",
+        "plastic_crate_02.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/plastic_crate_02/plastic_crate_02.bin",
+        "textures/plastic_crate_02_alpha_1k.png": "https://dl.polyhaven.org/file/ph-assets/Models/png/1k/plastic_crate_02/plastic_crate_02_alpha_1k.png"
+      },
+      "md5": {
+        "plastic_crate_02_1k.gltf": "ab133a1d655e004fa2f22f039e24efbe",
+        "textures/plastic_crate_02_nor_gl_1k.jpg": "3fd1bb590ead064e6b7cf6eb3cd46fa6",
+        "textures/plastic_crate_02_diff_1k.jpg": "55ddafcf50ffebdb2806e6b863e9b254",
+        "textures/plastic_crate_02_arm_1k.jpg": "032b8738359d2423f7bf8dd0aa6f3e5b",
+        "plastic_crate_02.bin": "a91c131589eae7242c162782cff0290a",
+        "textures/plastic_crate_02_alpha_1k.png": "a99e55e98100f7bef687672696715a64"
+      }
+    },
+    "ph-model-Barrel_01": {
+      "title": "Barrel_01 (model)",
+      "author": "Jorge Camacho, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/Barrel_01",
+      "urls": {
+        "Barrel_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/Barrel_01/Barrel_01_1k.gltf",
+        "Barrel_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/Barrel_01/Barrel_01.bin",
+        "textures/Barrel_01_explosive_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/Barrel_01/Barrel_01_explosive_diff_1k.jpg",
+        "textures/Barrel_01_explosive_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/Barrel_01/Barrel_01_explosive_nor_gl_1k.jpg",
+        "textures/Barrel_01_explosive_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/Barrel_01/Barrel_01_explosive_arm_1k.jpg"
+      },
+      "md5": {
+        "Barrel_01_1k.gltf": "45c109401126ea3e5df2fe2c6b6f6d39",
+        "Barrel_01.bin": "e9f1036a183a1747aea6d40c556d7410",
+        "textures/Barrel_01_explosive_diff_1k.jpg": "a36cd738a17cab52dc4c264a03b2848b",
+        "textures/Barrel_01_explosive_nor_gl_1k.jpg": "f49be8d1ab465c944380b9d565c6ab47",
+        "textures/Barrel_01_explosive_arm_1k.jpg": "ccfe5da162b909fe98f4780e41cc1233"
+      }
+    },
+    "ph-model-barrel_03": {
+      "title": "Barrel 03 (model)",
+      "author": "Serhii Khromov, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/barrel_03",
+      "urls": {
+        "barrel_03_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/barrel_03/barrel_03_1k.gltf",
+        "textures/barrel_03_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/barrel_03/barrel_03_diff_1k.jpg",
+        "barrel_03.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/barrel_03/barrel_03.bin",
+        "textures/barrel_03_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/barrel_03/barrel_03_nor_gl_1k.jpg",
+        "textures/barrel_03_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/barrel_03/barrel_03_arm_1k.jpg"
+      },
+      "md5": {
+        "barrel_03_1k.gltf": "204eec2159a38a1dc4b826ef255f9468",
+        "textures/barrel_03_diff_1k.jpg": "6e77dc1af60c48787fd80dbbcf125040",
+        "barrel_03.bin": "6993587e3ef8e0603334e615ab292288",
+        "textures/barrel_03_nor_gl_1k.jpg": "fd181365eb7397d55773987d145f0420",
+        "textures/barrel_03_arm_1k.jpg": "3520338e30b4d257745db34848098688"
+      }
+    },
+    "ph-model-barrel_stove": {
+      "title": "Barrel Stove (model)",
+      "author": "MP, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/barrel_stove",
+      "urls": {
+        "barrel_stove_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/barrel_stove/barrel_stove_1k.gltf",
+        "textures/barrel_stove_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/barrel_stove/barrel_stove_diff_1k.jpg",
+        "textures/barrel_stove_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/barrel_stove/barrel_stove_nor_gl_1k.jpg",
+        "textures/barrel_stove_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/barrel_stove/barrel_stove_arm_1k.jpg",
+        "barrel_stove.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/barrel_stove/barrel_stove.bin"
+      },
+      "md5": {
+        "barrel_stove_1k.gltf": "a8d7092ddb16690f467e282e5615645f",
+        "textures/barrel_stove_diff_1k.jpg": "3f20af89cf63352537c3c875dbc61f1e",
+        "textures/barrel_stove_nor_gl_1k.jpg": "500cf0890066f4223d324131d5672d1c",
+        "textures/barrel_stove_arm_1k.jpg": "17ee54647d1f2e9b4e43fe700c17fad0",
+        "barrel_stove.bin": "6f152ba1f02c40efc326247416d18a51"
+      }
+    },
+    "ph-model-old_tyre": {
+      "title": "Old Tyre (model)",
+      "author": "MP, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/old_tyre",
+      "urls": {
+        "old_tyre_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/old_tyre/old_tyre_1k.gltf",
+        "textures/old_tyre_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/old_tyre/old_tyre_diff_1k.jpg",
+        "textures/old_tyre_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/old_tyre/old_tyre_arm_1k.jpg",
+        "old_tyre.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/old_tyre/old_tyre.bin",
+        "textures/old_tyre_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/old_tyre/old_tyre_nor_gl_1k.jpg"
+      },
+      "md5": {
+        "old_tyre_1k.gltf": "e29d7aee130a850f2224ac0dd103617b",
+        "textures/old_tyre_diff_1k.jpg": "f52b712b8373b1d1a7c46702613f76cb",
+        "textures/old_tyre_arm_1k.jpg": "c9256d0d7cac005512cba4744ab29ab4",
+        "old_tyre.bin": "e29bd9703ad64da8883d8389b0cfb797",
+        "textures/old_tyre_nor_gl_1k.jpg": "e5eb6dd2cf7a8e80813bbc1bc21a6d3d"
+      }
+    },
+    "ph-model-rusted_wheel_rim_01": {
+      "title": "Rusted Wheel Rim 01 (model)",
+      "author": "John Hutcheson, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/rusted_wheel_rim_01",
+      "urls": {
+        "rusted_wheel_rim_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/rusted_wheel_rim_01/rusted_wheel_rim_01_1k.gltf",
+        "textures/rusted_wheel_rim_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rusted_wheel_rim_01/rusted_wheel_rim_01_arm_1k.jpg",
+        "rusted_wheel_rim_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/rusted_wheel_rim_01/rusted_wheel_rim_01.bin",
+        "textures/rusted_wheel_rim_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rusted_wheel_rim_01/rusted_wheel_rim_01_nor_gl_1k.jpg",
+        "textures/rusted_wheel_rim_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rusted_wheel_rim_01/rusted_wheel_rim_01_diff_1k.jpg"
+      },
+      "md5": {
+        "rusted_wheel_rim_01_1k.gltf": "13e65525a3bc47d86dd004882a05ed38",
+        "textures/rusted_wheel_rim_01_arm_1k.jpg": "bb7c0076656eaa5d357ca753d4048c3a",
+        "rusted_wheel_rim_01.bin": "57c16c9c67031ec1b10e24a2f8ceebc1",
+        "textures/rusted_wheel_rim_01_nor_gl_1k.jpg": "a9c25d4ee4e79e2c968519dc3d417315",
+        "textures/rusted_wheel_rim_01_diff_1k.jpg": "07ed02f15027a1d937f257ea638ebc1f"
+      }
+    },
+    "ph-model-covered_car": {
+      "title": "Covered Car (model)",
+      "author": "MP, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/covered_car",
+      "urls": {
+        "covered_car_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/covered_car/covered_car_1k.gltf",
+        "covered_car.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/covered_car/covered_car.bin",
+        "textures/covered_car_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/covered_car/covered_car_nor_gl_1k.jpg",
+        "textures/covered_car_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/covered_car/covered_car_arm_1k.jpg",
+        "textures/covered_car_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/covered_car/covered_car_diff_1k.jpg"
+      },
+      "md5": {
+        "covered_car_1k.gltf": "c38cd2ddf3fe2abe7ed8df2fd6020b84",
+        "covered_car.bin": "38f16c2c092dff1191ac5383acaf2ca0",
+        "textures/covered_car_nor_gl_1k.jpg": "afc43e8dd74213483a454cdb00f0f541",
+        "textures/covered_car_arm_1k.jpg": "62f9a8c8719ce46ee5464462ec6ed6fc",
+        "textures/covered_car_diff_1k.jpg": "61c107225ca1cbd523d6d6e9c1775f22"
+      }
+    },
+    "ph-model-concrete_road_barrier_02": {
+      "title": "Concrete Road Barrier 02 (model)",
+      "author": "Amal Kumar, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/concrete_road_barrier_02",
+      "urls": {
+        "concrete_road_barrier_02_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/concrete_road_barrier_02/concrete_road_barrier_02_1k.gltf",
+        "concrete_road_barrier_02.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/concrete_road_barrier_02/concrete_road_barrier_02.bin",
+        "textures/concrete_road_barrier_02_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_road_barrier_02/concrete_road_barrier_02_arm_1k.jpg",
+        "textures/concrete_road_barrier_02_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_road_barrier_02/concrete_road_barrier_02_nor_gl_1k.jpg",
+        "textures/concrete_road_barrier_02_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/concrete_road_barrier_02/concrete_road_barrier_02_diff_1k.jpg"
+      },
+      "md5": {
+        "concrete_road_barrier_02_1k.gltf": "4e6ba4903224a56a2dc3ce4126529c1e",
+        "concrete_road_barrier_02.bin": "205f6effdf30936bd1db4ea7d56e179c",
+        "textures/concrete_road_barrier_02_arm_1k.jpg": "1da1c5b70aacf06c2aef3f7fe72d3bda",
+        "textures/concrete_road_barrier_02_nor_gl_1k.jpg": "473dc2f984640804503c500ccf677ae4",
+        "textures/concrete_road_barrier_02_diff_1k.jpg": "f2f6eea94258691bc344441b9e6a15fc"
+      }
+    },
+    "ph-model-rollershutter_door": {
+      "title": "Rollershutter Door (model)",
+      "author": "MP, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/rollershutter_door",
+      "urls": {
+        "rollershutter_door_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/rollershutter_door/rollershutter_door_1k.gltf",
+        "rollershutter_door.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/rollershutter_door/rollershutter_door.bin",
+        "textures/rollershutter_door_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rollershutter_door/rollershutter_door_arm_1k.jpg",
+        "textures/rollershutter_door_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rollershutter_door/rollershutter_door_diff_1k.jpg",
+        "textures/rollershutter_door_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rollershutter_door/rollershutter_door_nor_gl_1k.jpg",
+        "textures/rollershutter_door_graffiti_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rollershutter_door/rollershutter_door_graffiti_diff_1k.jpg"
+      },
+      "md5": {
+        "rollershutter_door_1k.gltf": "e8ad4c4ea26db990d32301cd1f7481cf",
+        "rollershutter_door.bin": "9df2ea3372b84dca7959d81cd5818d29",
+        "textures/rollershutter_door_arm_1k.jpg": "5fc759f9776f232e6039ec5f847073df",
+        "textures/rollershutter_door_diff_1k.jpg": "2903cbe74c5d9d434951ec8625725458",
+        "textures/rollershutter_door_nor_gl_1k.jpg": "bd6f336490c10bdb6ca1a527981054a3",
+        "textures/rollershutter_door_graffiti_diff_1k.jpg": "1985c43406b33a7a874ea78041dd44db"
+      }
+    },
+    "ph-model-rollershutter_window_01": {
+      "title": "Rollershutter Window 01 (model)",
+      "author": "MP, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/rollershutter_window_01",
+      "urls": {
+        "rollershutter_window_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/rollershutter_window_01/rollershutter_window_01_1k.gltf",
+        "textures/rollershutter_window_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rollershutter_window_01/rollershutter_window_01_arm_1k.jpg",
+        "rollershutter_window_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/rollershutter_window_01/rollershutter_window_01.bin",
+        "textures/rollershutter_window_01_graffiti_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rollershutter_window_01/rollershutter_window_01_graffiti_diff_1k.jpg",
+        "textures/rollershutter_window_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rollershutter_window_01/rollershutter_window_01_nor_gl_1k.jpg",
+        "textures/rollershutter_window_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rollershutter_window_01/rollershutter_window_01_diff_1k.jpg"
+      },
+      "md5": {
+        "rollershutter_window_01_1k.gltf": "5228a7253b40de720ad8247757d218f1",
+        "textures/rollershutter_window_01_arm_1k.jpg": "4ab04fd28873a76e2d84e47147eae6b0",
+        "rollershutter_window_01.bin": "54837c166c34e1a1ca7f6495a82ab6d9",
+        "textures/rollershutter_window_01_graffiti_diff_1k.jpg": "10d15a7029c107af920b8f758e96a384",
+        "textures/rollershutter_window_01_nor_gl_1k.jpg": "ce48690b51f8e17ab3567878158055f1",
+        "textures/rollershutter_window_01_diff_1k.jpg": "0800d21822ec7199c825caafda90427a"
+      }
+    },
+    "ph-model-street_lamp_02": {
+      "title": "Street Lamp 02 (model)",
+      "author": "Josh Dean, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/street_lamp_02",
+      "urls": {
+        "street_lamp_02_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/street_lamp_02/street_lamp_02_1k.gltf",
+        "textures/street_lamp_02_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/street_lamp_02/street_lamp_02_diff_1k.jpg",
+        "textures/street_lamp_02_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/street_lamp_02/street_lamp_02_arm_1k.jpg",
+        "street_lamp_02.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/street_lamp_02/street_lamp_02.bin",
+        "textures/street_lamp_02_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/street_lamp_02/street_lamp_02_nor_gl_1k.jpg"
+      },
+      "md5": {
+        "street_lamp_02_1k.gltf": "94023fbd7e6392d9276d91ca36c00144",
+        "textures/street_lamp_02_diff_1k.jpg": "381097a4c700b86b1c8f7e0d115b1a0a",
+        "textures/street_lamp_02_arm_1k.jpg": "d4d49b0153762ebe5ccde8e87af87dd5",
+        "street_lamp_02.bin": "5c89269a65d65cdb33d018012f003ef7",
+        "textures/street_lamp_02_nor_gl_1k.jpg": "39389c9a5c2c467ea559ac3ad3a03218"
+      }
+    },
+    "ph-model-plastic_monobloc_chair_01": {
+      "title": "Plastic Monobloc Chair 01 (model)",
+      "author": "Kuutti Siitonen, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/plastic_monobloc_chair_01",
+      "urls": {
+        "plastic_monobloc_chair_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/plastic_monobloc_chair_01/plastic_monobloc_chair_01_1k.gltf",
+        "plastic_monobloc_chair_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/plastic_monobloc_chair_01/plastic_monobloc_chair_01.bin",
+        "textures/plastic_monobloc_chair_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_monobloc_chair_01/plastic_monobloc_chair_01_arm_1k.jpg",
+        "textures/plastic_monobloc_chair_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_monobloc_chair_01/plastic_monobloc_chair_01_diff_1k.jpg",
+        "textures/plastic_monobloc_chair_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_monobloc_chair_01/plastic_monobloc_chair_01_nor_gl_1k.jpg"
+      },
+      "md5": {
+        "plastic_monobloc_chair_01_1k.gltf": "b0ac94e52b406e1815af47d9d84eadb4",
+        "plastic_monobloc_chair_01.bin": "cff97136a9c4bb57c62937cbb7d33a79",
+        "textures/plastic_monobloc_chair_01_arm_1k.jpg": "ce9271797fd8893a6c84f639f952d0b9",
+        "textures/plastic_monobloc_chair_01_diff_1k.jpg": "c36dfe0f38d6ca1632ba426c598e6764",
+        "textures/plastic_monobloc_chair_01_nor_gl_1k.jpg": "387f81f09c0754416298398277fb2a6d"
+      }
+    },
+    "ph-model-outdoor_table_chair_set_01": {
+      "title": "Outdoor Table Chair Set 01 (model)",
+      "author": "James Ray Cock, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/outdoor_table_chair_set_01",
+      "urls": {
+        "outdoor_table_chair_set_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/outdoor_table_chair_set_01/outdoor_table_chair_set_01_1k.gltf",
+        "textures/outdoor_table_chair_set_01_table_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/outdoor_table_chair_set_01/outdoor_table_chair_set_01_table_nor_gl_1k.jpg",
+        "textures/outdoor_table_chair_set_01_chair_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/outdoor_table_chair_set_01/outdoor_table_chair_set_01_chair_arm_1k.jpg",
+        "textures/outdoor_table_chair_set_01_table_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/outdoor_table_chair_set_01/outdoor_table_chair_set_01_table_arm_1k.jpg",
+        "textures/outdoor_table_chair_set_01_table_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/outdoor_table_chair_set_01/outdoor_table_chair_set_01_table_diff_1k.jpg",
+        "outdoor_table_chair_set_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/outdoor_table_chair_set_01/outdoor_table_chair_set_01.bin",
+        "textures/outdoor_table_chair_set_01_chair_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/outdoor_table_chair_set_01/outdoor_table_chair_set_01_chair_nor_gl_1k.jpg",
+        "textures/outdoor_table_chair_set_01_chair_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/outdoor_table_chair_set_01/outdoor_table_chair_set_01_chair_diff_1k.jpg"
+      },
+      "md5": {
+        "outdoor_table_chair_set_01_1k.gltf": "e5f81fc86b52135f5a5897a51b859b07",
+        "textures/outdoor_table_chair_set_01_table_nor_gl_1k.jpg": "d284647b39e4ecda93b3ea85f40dc2d7",
+        "textures/outdoor_table_chair_set_01_chair_arm_1k.jpg": "52352847c3ce824803a9d500eec5614d",
+        "textures/outdoor_table_chair_set_01_table_arm_1k.jpg": "cf5aa95ce8b83991eaf5048eacea0611",
+        "textures/outdoor_table_chair_set_01_table_diff_1k.jpg": "afd8871dffcad88170a27b5fce6e3c7d",
+        "outdoor_table_chair_set_01.bin": "8596ca40855bc417ac5248a54bd85990",
+        "textures/outdoor_table_chair_set_01_chair_nor_gl_1k.jpg": "ac08f5c3335c94e1dca986383265c23a",
+        "textures/outdoor_table_chair_set_01_chair_diff_1k.jpg": "cb6d4004ad957a6b89aabe4c8dddd6fd"
+      }
+    },
+    "ph-model-modular_fire_escape": {
+      "title": "Modular Fire Escape (model)",
+      "author": "Juniix, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_fire_escape",
+      "urls": {
+        "modular_fire_escape_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/modular_fire_escape/modular_fire_escape_1k.gltf",
+        "textures/modular_fire_escape_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fire_escape/modular_fire_escape_01_arm_1k.jpg",
+        "textures/modular_fire_escape_02_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fire_escape/modular_fire_escape_02_nor_gl_1k.jpg",
+        "textures/modular_fire_escape_02_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fire_escape/modular_fire_escape_02_arm_1k.jpg",
+        "modular_fire_escape.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/modular_fire_escape/modular_fire_escape.bin",
+        "textures/modular_fire_escape_02_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fire_escape/modular_fire_escape_02_diff_1k.jpg",
+        "textures/modular_fire_escape_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fire_escape/modular_fire_escape_01_diff_1k.jpg",
+        "textures/modular_fire_escape_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fire_escape/modular_fire_escape_01_nor_gl_1k.jpg"
+      },
+      "md5": {
+        "modular_fire_escape_1k.gltf": "498464ece6337d8a5fad13b2c52b9a8f",
+        "textures/modular_fire_escape_01_arm_1k.jpg": "db6c25c26dbbd9d1d3aa35b12cd13fe2",
+        "textures/modular_fire_escape_02_nor_gl_1k.jpg": "573666c02d0db273726be7d48b94d32c",
+        "textures/modular_fire_escape_02_arm_1k.jpg": "049d55eebf33b1070d189f35e4efaabd",
+        "modular_fire_escape.bin": "2aec399d6248cb657cd26eaee303e778",
+        "textures/modular_fire_escape_02_diff_1k.jpg": "41d01ed76f372f9671d4bee951c740f7",
+        "textures/modular_fire_escape_01_diff_1k.jpg": "b84d59c223b8eae20a322f45304b4096",
+        "textures/modular_fire_escape_01_nor_gl_1k.jpg": "84dc137a2781b2b3e8b6287e20cd70a6"
+      }
+    },
+    "ph-model-modular_metal_gutter": {
+      "title": "Modular Metal Gutter (model)",
+      "author": "Maxim Domnin, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_metal_gutter",
+      "urls": {
+        "modular_metal_gutter_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/modular_metal_gutter/modular_metal_gutter_1k.gltf",
+        "textures/modular_metal_gutter_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_metal_gutter/modular_metal_gutter_arm_1k.jpg",
+        "textures/modular_metal_gutter_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_metal_gutter/modular_metal_gutter_diff_1k.jpg",
+        "textures/modular_metal_gutter_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_metal_gutter/modular_metal_gutter_nor_gl_1k.jpg",
+        "modular_metal_gutter.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/modular_metal_gutter/modular_metal_gutter.bin"
+      },
+      "md5": {
+        "modular_metal_gutter_1k.gltf": "fda9803bb7b7f2d639efa8633469439b",
+        "textures/modular_metal_gutter_arm_1k.jpg": "b93541cc697f67e1b7bc2ea3f006696f",
+        "textures/modular_metal_gutter_diff_1k.jpg": "94f55c016d2c4d26d8584ac59254583f",
+        "textures/modular_metal_gutter_nor_gl_1k.jpg": "e1747c2ff94bf6d0f13b209d894f80a0",
+        "modular_metal_gutter.bin": "61175678f23d8247a3b2db3926654b03"
+      }
+    },
+    "ph-model-modular_airduct_circular_01": {
+      "title": "Modular Airduct Circular 01 (model)",
+      "author": "Riley Queen, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_airduct_circular_01",
+      "urls": {
+        "modular_airduct_circular_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/modular_airduct_circular_01/modular_airduct_circular_01_1k.gltf",
+        "textures/modular_airduct_circular_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_airduct_circular_01/modular_airduct_circular_01_arm_1k.jpg",
+        "textures/modular_airduct_circular_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_airduct_circular_01/modular_airduct_circular_01_diff_1k.jpg",
+        "textures/modular_airduct_circular_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_airduct_circular_01/modular_airduct_circular_01_nor_gl_1k.jpg",
+        "modular_airduct_circular_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/modular_airduct_circular_01/modular_airduct_circular_01.bin"
+      },
+      "md5": {
+        "modular_airduct_circular_01_1k.gltf": "b4612872c97a576c1f2a3351c68d3514",
+        "textures/modular_airduct_circular_01_arm_1k.jpg": "fcf6c5d505bd8291412bf6f607980ce4",
+        "textures/modular_airduct_circular_01_diff_1k.jpg": "832ee18e84ea80eab47b042e3440336a",
+        "textures/modular_airduct_circular_01_nor_gl_1k.jpg": "b9c78219a302fece6630135ef581bcd6",
+        "modular_airduct_circular_01.bin": "89ddfff523c9edf478aa7441b69d1491"
+      }
+    },
+    "ph-model-modular_industrial_pipes_01": {
+      "title": "Modular Industrial Pipes 01 (model)",
+      "author": "Jorge Camacho, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_industrial_pipes_01",
+      "urls": {
+        "modular_industrial_pipes_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/modular_industrial_pipes_01/modular_industrial_pipes_01_1k.gltf",
+        "textures/modular_industrial_pipes_01_group02_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_industrial_pipes_01/modular_industrial_pipes_01_group02_arm_1k.jpg",
+        "textures/modular_industrial_pipes_01_group01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_industrial_pipes_01/modular_industrial_pipes_01_group01_diff_1k.jpg",
+        "textures/modular_industrial_pipes_01_group02_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_industrial_pipes_01/modular_industrial_pipes_01_group02_nor_gl_1k.jpg",
+        "modular_industrial_pipes_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/modular_industrial_pipes_01/modular_industrial_pipes_01.bin",
+        "textures/modular_industrial_pipes_01_group01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_industrial_pipes_01/modular_industrial_pipes_01_group01_nor_gl_1k.jpg",
+        "textures/modular_industrial_pipes_01_group01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_industrial_pipes_01/modular_industrial_pipes_01_group01_arm_1k.jpg",
+        "textures/modular_industrial_pipes_01_group02_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_industrial_pipes_01/modular_industrial_pipes_01_group02_diff_1k.jpg"
+      },
+      "md5": {
+        "modular_industrial_pipes_01_1k.gltf": "cb30fdf4d471374ba439bfd5a0c8105d",
+        "textures/modular_industrial_pipes_01_group02_arm_1k.jpg": "088f90ba0d60c13ff0d6fc43cf734372",
+        "textures/modular_industrial_pipes_01_group01_diff_1k.jpg": "28678434837d64476cb8d75d0314166e",
+        "textures/modular_industrial_pipes_01_group02_nor_gl_1k.jpg": "282735667b3cd6e2d0ef058f2c260740",
+        "modular_industrial_pipes_01.bin": "a18d063dc719e19b9c20d2f8c0a8bec4",
+        "textures/modular_industrial_pipes_01_group01_nor_gl_1k.jpg": "a5d4deb3ea6772c0af1275edeab7dc94",
+        "textures/modular_industrial_pipes_01_group01_arm_1k.jpg": "2ab8f10dc9ca832af70cd48183281f97",
+        "textures/modular_industrial_pipes_01_group02_diff_1k.jpg": "d3d951f471cfcd15e89cedcd43d28606"
+      }
+    },
+    "ph-model-modular_wooden_pier": {
+      "title": "Modular Wooden Pier (model)",
+      "author": "Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_wooden_pier",
+      "urls": {
+        "modular_wooden_pier_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/modular_wooden_pier/modular_wooden_pier_1k.gltf",
+        "textures/modular_wooden_pier_poles_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_wooden_pier/modular_wooden_pier_poles_arm_1k.jpg",
+        "modular_wooden_pier.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/modular_wooden_pier/modular_wooden_pier.bin",
+        "textures/modular_wooden_pier_planks_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_wooden_pier/modular_wooden_pier_planks_arm_1k.jpg",
+        "textures/modular_wooden_pier_planks_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_wooden_pier/modular_wooden_pier_planks_diff_1k.jpg",
+        "textures/modular_wooden_pier_poles_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_wooden_pier/modular_wooden_pier_poles_diff_1k.jpg",
+        "textures/modular_wooden_pier_poles_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_wooden_pier/modular_wooden_pier_poles_nor_gl_1k.jpg",
+        "textures/modular_wooden_pier_planks_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_wooden_pier/modular_wooden_pier_planks_nor_gl_1k.jpg"
+      },
+      "md5": {
+        "modular_wooden_pier_1k.gltf": "5a5c75c7711b8804c680970a60bd382f",
+        "textures/modular_wooden_pier_poles_arm_1k.jpg": "feb305e6fc0f59f48c57e0e5e591b637",
+        "modular_wooden_pier.bin": "dbdbeca4676a3012a64b4daa75d1f97c",
+        "textures/modular_wooden_pier_planks_arm_1k.jpg": "e6ffdf7314cc015aaa5c0899326b42a7",
+        "textures/modular_wooden_pier_planks_diff_1k.jpg": "f3fef39b0ec16e4006678c846d3601ab",
+        "textures/modular_wooden_pier_poles_diff_1k.jpg": "7aade157e5892017ee86a6e13074b727",
+        "textures/modular_wooden_pier_poles_nor_gl_1k.jpg": "2a6f536ed9057bb8e2a813b7755cc534",
+        "textures/modular_wooden_pier_planks_nor_gl_1k.jpg": "b752108fe7504d5dd4ae0f4701b1218b"
+      }
+    },
+    "ph-model-modular_fort_01": {
+      "title": "Modular Fort 01 (model)",
+      "author": "Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_fort_01",
+      "urls": {
+        "modular_fort_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/modular_fort_01/modular_fort_01_1k.gltf",
+        "modular_fort_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/modular_fort_01/modular_fort_01.bin",
+        "textures/modular_fort_01_plaster_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fort_01/modular_fort_01_plaster_diff_1k.jpg",
+        "textures/modular_fort_01_wall_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fort_01/modular_fort_01_wall_nor_gl_1k.jpg",
+        "textures/modular_fort_01_trim_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fort_01/modular_fort_01_trim_nor_gl_1k.jpg",
+        "textures/modular_fort_01_plaster_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fort_01/modular_fort_01_plaster_nor_gl_1k.jpg",
+        "textures/modular_fort_01_wall_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fort_01/modular_fort_01_wall_arm_1k.jpg",
+        "textures/modular_fort_01_plaster_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fort_01/modular_fort_01_plaster_arm_1k.jpg",
+        "textures/modular_fort_01_trim_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fort_01/modular_fort_01_trim_diff_1k.jpg",
+        "textures/modular_fort_01_wall_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fort_01/modular_fort_01_wall_diff_1k.jpg",
+        "textures/modular_fort_01_trim_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/modular_fort_01/modular_fort_01_trim_arm_1k.jpg"
+      },
+      "md5": {
+        "modular_fort_01_1k.gltf": "340e7883860599c6b17ab73a893ff9b3",
+        "modular_fort_01.bin": "49bfa2a55e65c997840799099ad6ffa5",
+        "textures/modular_fort_01_plaster_diff_1k.jpg": "c2b8f298926cb63a8d926cffcab863c8",
+        "textures/modular_fort_01_wall_nor_gl_1k.jpg": "2164dad0582c2ec60e757e6565b1f257",
+        "textures/modular_fort_01_trim_nor_gl_1k.jpg": "4e87ba7c3ac854d64a6d0de56362f76a",
+        "textures/modular_fort_01_plaster_nor_gl_1k.jpg": "b76724f4bb1ec196728c1a4d704f322c",
+        "textures/modular_fort_01_wall_arm_1k.jpg": "9e667ae75549188caa03da56aa276fdb",
+        "textures/modular_fort_01_plaster_arm_1k.jpg": "a367aa0d7b6307df5b961f4d339c593c",
+        "textures/modular_fort_01_trim_diff_1k.jpg": "1e5e6e32e599ebaa6471c4c1ce3023fd",
+        "textures/modular_fort_01_wall_diff_1k.jpg": "c3958a33d456a5f2b776dde465024072",
+        "textures/modular_fort_01_trim_arm_1k.jpg": "2ad72ca33693932204ffe68ee7232120"
+      }
+    },
+    "ph-model-large_castle_door": {
+      "title": "Large Castle Door (model)",
+      "author": "Tina, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/large_castle_door",
+      "urls": {
+        "large_castle_door_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/large_castle_door/large_castle_door_1k.gltf",
+        "large_castle_door.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/large_castle_door/large_castle_door.bin",
+        "textures/large_castle_door_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/large_castle_door/large_castle_door_nor_gl_1k.jpg",
+        "textures/large_castle_door_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/large_castle_door/large_castle_door_arm_1k.jpg",
+        "textures/large_castle_door_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/large_castle_door/large_castle_door_diff_1k.jpg"
+      },
+      "md5": {
+        "large_castle_door_1k.gltf": "40c7debfb0e9f51826b294d642bc0bfe",
+        "large_castle_door.bin": "ed0cee2626677b1a520de7bd868d09cc",
+        "textures/large_castle_door_nor_gl_1k.jpg": "4a0e452157d95c0d18a2f79429ec471d",
+        "textures/large_castle_door_arm_1k.jpg": "e742bcceba429ca946edc788dac922ff",
+        "textures/large_castle_door_diff_1k.jpg": "641c090895f68f3be02f8db278385174"
+      }
+    },
+    "ph-model-stone_fire_pit": {
+      "title": "Stone Fire Pit (model)",
+      "author": "Sebastian Platen, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/stone_fire_pit",
+      "urls": {
+        "stone_fire_pit_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/stone_fire_pit/stone_fire_pit_1k.gltf",
+        "stone_fire_pit.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/stone_fire_pit/stone_fire_pit.bin",
+        "textures/stone_fire_pit_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/stone_fire_pit/stone_fire_pit_diff_1k.jpg",
+        "textures/stone_fire_pit_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/stone_fire_pit/stone_fire_pit_nor_gl_1k.jpg",
+        "textures/stone_fire_pit_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/stone_fire_pit/stone_fire_pit_arm_1k.jpg"
+      },
+      "md5": {
+        "stone_fire_pit_1k.gltf": "f3a23e45ee66802ccc7a5462a9371ae3",
+        "stone_fire_pit.bin": "1652ba5fb374b6c15cddb64445a0bb5b",
+        "textures/stone_fire_pit_diff_1k.jpg": "a7ec1828062280c20e265d2c99497d1d",
+        "textures/stone_fire_pit_nor_gl_1k.jpg": "75923471613207e5c9f309a1df752753",
+        "textures/stone_fire_pit_arm_1k.jpg": "506392ebeef9bb696f907a972fc185c6"
+      }
+    },
+    "ph-model-wine_barrel_01": {
+      "title": "Wine Barrel 01 (model)",
+      "author": "James Ray Cock, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/wine_barrel_01",
+      "urls": {
+        "wine_barrel_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/wine_barrel_01/wine_barrel_01_1k.gltf",
+        "wine_barrel_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/wine_barrel_01/wine_barrel_01.bin",
+        "textures/wine_barrel_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/wine_barrel_01/wine_barrel_01_diff_1k.jpg",
+        "textures/wine_barrel_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/wine_barrel_01/wine_barrel_01_arm_1k.jpg",
+        "textures/wine_barrel_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/wine_barrel_01/wine_barrel_01_nor_gl_1k.jpg"
+      },
+      "md5": {
+        "wine_barrel_01_1k.gltf": "5397e6d959dd3ef20d1fc14436d0eb70",
+        "wine_barrel_01.bin": "84f578460020912056a1e3fbe3ec1b97",
+        "textures/wine_barrel_01_diff_1k.jpg": "fdea9538acf01a04a61626919a84b3fb",
+        "textures/wine_barrel_01_arm_1k.jpg": "2f0cc81ac07fdbe8c22927feac722927",
+        "textures/wine_barrel_01_nor_gl_1k.jpg": "6b3ce558fa74d3760fa0192dfc4564a3"
+      }
+    },
+    "ph-model-lateral_sea_marker": {
+      "title": "Lateral Sea Marker (model)",
+      "author": "James Ray Cock and Kuutti Siitonen, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/lateral_sea_marker",
+      "urls": {
+        "lateral_sea_marker_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/lateral_sea_marker/lateral_sea_marker_1k.gltf",
+        "textures/lateral_sea_marker_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/lateral_sea_marker/lateral_sea_marker_diff_1k.jpg",
+        "textures/lateral_sea_marker_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/lateral_sea_marker/lateral_sea_marker_nor_gl_1k.jpg",
+        "textures/lateral_sea_marker_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/lateral_sea_marker/lateral_sea_marker_arm_1k.jpg",
+        "lateral_sea_marker.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/lateral_sea_marker/lateral_sea_marker.bin"
+      },
+      "md5": {
+        "lateral_sea_marker_1k.gltf": "befeb928f149deed3fba97a028683950",
+        "textures/lateral_sea_marker_diff_1k.jpg": "40624517f4f94d7944804580f859eb9e",
+        "textures/lateral_sea_marker_nor_gl_1k.jpg": "9c1423e9ee0509878d498247c2c00d81",
+        "textures/lateral_sea_marker_arm_1k.jpg": "559c64af29206d0ffda647d0f95ccf6f",
+        "lateral_sea_marker.bin": "f6ed9426a3ac79b5f48c3a7b295c5a6f"
+      }
+    },
+    "ph-model-dead_tree_trunk_02": {
+      "title": "Dead Tree Trunk 02 (model)",
+      "author": "Jenelle van Heerden and Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/dead_tree_trunk_02",
+      "urls": {
+        "dead_tree_trunk_02_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/dead_tree_trunk_02/dead_tree_trunk_02_1k.gltf",
+        "textures/dead_tree_trunk_02_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/dead_tree_trunk_02/dead_tree_trunk_02_diff_1k.jpg",
+        "textures/dead_tree_trunk_02_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/dead_tree_trunk_02/dead_tree_trunk_02_arm_1k.jpg",
+        "textures/dead_tree_trunk_02_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/dead_tree_trunk_02/dead_tree_trunk_02_nor_gl_1k.jpg",
+        "dead_tree_trunk_02.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/dead_tree_trunk_02/dead_tree_trunk_02.bin"
+      },
+      "md5": {
+        "dead_tree_trunk_02_1k.gltf": "c16595a5951634914898e1eb6bb0ed3d",
+        "textures/dead_tree_trunk_02_diff_1k.jpg": "c1d318584b077b9350477f8873821b45",
+        "textures/dead_tree_trunk_02_arm_1k.jpg": "ce5e467040435895862245a39e295504",
+        "textures/dead_tree_trunk_02_nor_gl_1k.jpg": "941c7d88f2eaffd771807b3bc7f4a01f",
+        "dead_tree_trunk_02.bin": "7848170c88b67d9e1d5e7d111db7b7ff"
+      }
+    },
+    "ph-model-cannon_01": {
+      "title": "Cannon 01 (model)",
+      "author": "Yann Kervran and James Ray Cock, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/cannon_01",
+      "urls": {
+        "cannon_01_1k.gltf": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/cannon_01/cannon_01_1k.gltf",
+        "cannon_01.bin": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/cannon_01/cannon_01.bin",
+        "textures/cannon_01_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/cannon_01/cannon_01_diff_1k.jpg",
+        "textures/cannon_01_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/cannon_01/cannon_01_nor_gl_1k.jpg",
+        "textures/cannon_01_arm_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/cannon_01/cannon_01_arm_1k.jpg"
+      },
+      "md5": {
+        "cannon_01_1k.gltf": "d3bcf94fab5dceb2154281349fe53db1",
+        "cannon_01.bin": "5c16dc75d966b2b44cb22a76e15f09d7",
+        "textures/cannon_01_diff_1k.jpg": "2845d37ac880ccecd5ee30c002f19892",
+        "textures/cannon_01_nor_gl_1k.jpg": "ae9e065ce9a6c0bce628e8db822952d5",
+        "textures/cannon_01_arm_1k.jpg": "90d1561dc9722f21cf1fc09ac57f4692"
+      }
+    },
     "ofdn-funky-house": {
       "title": "Funky House",
       "author": "Of Far Different Nature (OpenGameArt)",

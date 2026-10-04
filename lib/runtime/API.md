@@ -137,8 +137,32 @@ world uses (up to 24); it all loads before `build()` runs.
 | `model-fern`, `model-shrub`, `model-grass` | scanned plants: four ferns, a shrub 2.6 m across, seventeen clumps of grass (each its own part) |
 | `model-street-lamp` | a scanned 3.9 m cast-iron street lamp |
 | `model-concrete-barrier` | a scanned concrete road barrier 1.5 m long |
-| `model-fire-hydrant` | a scanned fire hydrant, new (`fire_hydrant`) and aged (`fire_hydrant_aged`) |
-| `model-street-seating` | scanned modular street benches (legs, seats, backs as parts) |
+| `model-fire-hydrant` | a scanned fire hydrant, new (`fire_hydrant`) and aged (`fire_hydrant_aged`). Two map sets (heavy) |
+| `model-street-seating` | scanned modular street benches (legs, seats, backs as parts). Four map sets (the heaviest model, about 112 MB) |
+| `model-trash-cans` | two galvanised trash cans 0.91 m tall, `metal_trash_can` (bright) and `metal_trash_can_rust`, each with its handles, and their lids `metal_trash_can_lid` and `metal_trash_can_rust_lid`, lying flat (to cap a can, set its lid at y = 0.9); every part stands on its own spot: place parts. Two map sets (heavy) |
+| `model-cardboard-box` | a battered, taped cardboard box 0.52 by 0.39 m and 0.34 m tall, handling marks printed on it |
+| `model-wooden-chest` | a weathered lidded wooden chest 0.83 m long and 0.35 m tall, rope handles (parts `wooden_crate_01`, `wooden_crate_01_lid`, `wooden_crate_01_latch`) |
+| `model-plastic-crate` | a stackable vented plastic crate in amber, 0.51 m long and 0.25 m tall (the vents are cut out) |
+| `model-red-drum`, `model-blue-drum`, `model-burn-barrel` | a red steel oil drum 0.88 m tall with a hazard pictogram; a blue steel drum 0.93 m tall; a rusted, fire-blackened burn barrel 0.86 m tall, open at the top |
+| `model-old-tyre`, `model-wheel-rim` | a worn car tyre 0.6 m across and a rusted wheel rim 0.4 m across, each standing on its edge across x (a tyre wall or pile is one `instanced()` call) |
+| `model-covered-car` | a saloon car under a dusty fabric cover, 4.4 m long along z and 1.4 m tall; the body `covered_car`, wheels `covered_car_wheel_01` to `_04` |
+| `model-concrete-block` | a chipped concrete barrier block 1.6 m long and 1.1 m tall |
+| `model-door-shutter`, `model-shop-shutter` | closed steel roller shutters, plain: a doorway's 1.1 m wide and 2.4 m tall, a shop window's 2.1 m wide and 1.85 m tall; the back (the wall) is at z = 0 and the shutter faces +z, its housing 0.3 m deep |
+| `model-wall-lantern` | a black wrought-iron wall lantern with its glass and bulb, standing on its bracket: the wall plate is at z = 0 and the lantern stands about 0.6 m out along +z; y = 0 is the bracket arm, the lantern rises 1.3 m above it (the glass 0.55 to 0.9 m) and a thin brace reaches 0.4 m below it on the wall, so set y = 0 about 2 m up a wall, with 1.3 m of room above |
+| `model-plastic-chair` | a white plastic patio chair 0.88 m tall |
+| `model-cafe-set` | a folding cafe table `outdoor_table_chair_set_01_table` (0.73 m tall) and two folding chairs `outdoor_table_chair_set_01_chair_01` and `_chair_02`, slatted wood on black steel; each stands on its own spot: place the parts, as many as a terrace wants. Two map sets (heavy) |
+| `model-fire-escape` | a black steel fire-escape kit, each part standing on its own spot: landings `modular_fire_escape_platform_bottom` and `_platform_middle` (4.8 by 1.4 m, 0.77 m deep), their railings `_railing_bottom` and `_railing_middle` (sit them on a landing's edge), a short landing rail `_platform_railing`, a stair flight `_stairs` (3 m long, climbing 4 m) and a ladder `_ladder_bottom` (6.5 m). Heavy |
+| `model-drainpipes` | a galvanised gutter kit, each part on its own spot, all named `modular_metal_gutter` plus: (nothing: a gutter run 1.5 m), `_section` (a downpipe section 1 m), `_corner`, `_bend`, `_outlet`, `_funnel` (the hopper), `_coupler`, `_gutter_coupler`, `_gutter_plug`, `_bracing`, `_gutter_bracing`, `_shower_receiver` |
+| `model-air-ducts` | a round sheet-metal air-duct kit lying along z (0.38 m round), each part on its own spot, named `modular_airduct_circular_` plus `single`, `double`, `triple` (straight runs), `bend_half`, `bend_quater`, `smooth_single`, `smooth_double`, `smooth_triple`, `smooth_bend_half`, `smooth_bend_quater`, `fan`, `brace`, `brace_extention`, `brace_extention_wires`, and `modular_airduct_rectangular_converter`, `modular_airduct_rectangular_vent_fan` |
+| `model-industrial-pipes` | a painted steel pipe kit standing upright, up to 1.95 m: `modular_industrial_pipes_01_pipe01` to `_pipe08` (straight runs, elbows, tees, a valve with a gauge), each on its own spot. Heavy |
+| `model-wooden-pier` | a weathered wooden pier 12.4 m long along z and 2.5 m wide on its pilings, with a rope-hoist frame; y = 0 is its lowest piling foot and the deck is about 3.6 m above it, so sink it into the water to set the deck where it should be. Parts `modular_wooden_pier_section_01` to `_05` (`_05` is the hoist). Heavy |
+| `model-fort` | a weathered stone fort kit, each part on its own spot (never place the whole object): walls 8.5 m tall, all named `modular_fort_01_` plus `wall_thick_straight_01`/`_02` (14.6 m), `wall_thick_corner_01`/`_02`, `wall_thick_end_01`/`_02`, `wall_thick_thin_transition_01`, `wall_thin_straight_01` to `_04`, `wall_thin_corner_01` to `_03`, `wall_thin_gate_01` (an arched gate), `wall_walkway_straight_01`/`_02`, `wall_walkway_corner_01`/`_02`, `wall_walkway_end_01`, `wall_stairs_straight_01`, and `tower_round` (13.5 m tall, 15.8 m across). Three map sets (about 84 MB) |
+| `model-castle-door` | an arched, iron-strapped wooden double door 2 m wide and 3 m tall in its frame: `large_castle_door_frame`, leaves `large_castle_door_left` and `_right` |
+| `model-fire-pit` | a ring of stones round a sooty fire bed, 1.45 m across (the fire is the world's own) |
+| `model-wine-barrel` | an iron-hooped oak barrel 0.87 m tall |
+| `model-sea-marker` | a weathered red channel-marker buoy 6.8 m tall with a daymark and a handrail; y = 0 is its waterline (1.3 m of it floats below) |
+| `model-dead-trunk` | a fallen dead tree trunk 4 m long along x, bark and lichen |
+| `model-cannon` | an old ship cannon on its wooden carriage, 2.3 m long along z: `cannon_01_barrel`, `cannon_01_frame`, `cannon_01_pusherblock`, wheels `cannon_01_wheel_01` to `_04`, and three cannonballs `cannon_01_ball_01` to `_03` beside it |
 
 `ctx.assets.human(id, options)` returns `{ object, animate, name, color }`: return it straight
 from `player()` or `rival()`. It idles when standing, plays a standing start when it first moves,
@@ -351,7 +375,16 @@ keep a material of your own.
 set, a fern), `size` its bounding box in metres. Scenery repeated along the track goes in one
 `instanced(count, (i, dummy) => { dummy.position.set(...); dummy.rotation.y = ...; dummy.scale.setScalar(...) }, parts)`
 call: every copy of every part in a handful of draw calls. Models are at true scale and stand on
-y = 0: place them, never stretch them into something else.
+y = 0: place them, never stretch them into something else. A kit (the table says so) has each part
+centred on its own spot at y = 0, so its `object` is not a layout: place its parts.
+
+Every map of every model a world lists stays in graphics memory for the whole run, whether the
+world places it once, a thousand times or not at all; more copies cost nothing, another model does.
+On a phone each set of maps costs about 28 MB: most models have one, a heavy one two (about 56 MB), the
+fort three, the street seating four (about 112 MB); a plant or the plastic crate, cut out, about 37 MB.
+Keep a world's models to about 160 MB in all (five or six models), less when it also lists people,
+a city map or more than one sky: a phone that runs out reloads the page. List only the models the
+world places, and prefer one kit's parts to several separate models.
 
 ```js
 var lamps = ctx.assets.model('model-street-lamp');

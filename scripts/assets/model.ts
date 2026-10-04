@@ -33,7 +33,11 @@ function trs(n: { matrix?: number[]; translation?: number[]; rotation?: number[]
   ];
 }
 
-type Opts = { budget: number; parts?: (name: string) => boolean; errors?: number };
+// centre: a kit laid out on a sheet ('parts': each part stands at x = z = 0 on y = 0, its place on the sheet kept as
+// its origin) or a model off its own origin ('model': the whole of it, once)
+// group: nodes that make one part (a can and its handles) under one name; unrotate: nodes whose scanned rotation is
+// dropped (a lid scanned leaning on its can lies flat)
+type Opts = { budget: number; parts?: (name: string) => boolean; errors?: number; centre?: 'parts' | 'model'; group?: (name: string) => string; unrotate?: (name: string) => boolean };
 
 /**
  * Vertex clustering, for scans the careful cut cannot simplify: vertices in
@@ -91,10 +95,10 @@ export async function buildModel(srcDir: string, outDir: string, opts: Opts) {
   type Prim = { part: string; material: number; pos: Float32Array; nor: Float32Array; uv: Float32Array; idx: Uint32Array };
   const prims: Prim[] = [];
   const walk = (ni: number, parent: Mat4) => {
-    const n = g.nodes[ni], m = mul(parent, trs(n));
+    const n0 = g.nodes[ni], n = opts.unrotate && opts.unrotate(String(n0.name ?? '')) ? { ...n0, rotation: undefined, matrix: undefined } : n0, m = mul(parent, trs(n));
     if (n.mesh !== undefined) {
-      const part = String(n.name ?? `part${ni}`).replace(/_LOD\d+$/, '');
-      if (!opts.parts || opts.parts(part)) for (const p of g.meshes[n.mesh].primitives) {
+      const node = String(n.name ?? `part${ni}`).replace(/_LOD\d+$/, ''), part = opts.group ? opts.group(node) : node;
+      if (!opts.parts || opts.parts(node)) for (const p of g.meshes[n.mesh].primitives) {
         const P = acc(p.attributes.POSITION), N = acc(p.attributes.NORMAL), U = acc(p.attributes.TEXCOORD_0), X = acc(p.indices);
         const pos = new Float32Array(P.count * 3), nor = new Float32Array(P.count * 3), uv = new Float32Array(P.count * 2);
         for (let v = 0; v < P.count; v++) {
@@ -112,9 +116,23 @@ export async function buildModel(srcDir: string, outDir: string, opts: Opts) {
   };
   for (const r of g.scenes[g.scene ?? 0].nodes) walk(r, I4);
 
+  // centred on request: the footprint's middle to x = z = 0, the lowest point to y = 0
+  const origins: Record<string, number[]> = {};
+  if (opts.centre) {
+    const groups = new Map<string, Prim[]>();
+    for (const p of prims) { const k = opts.centre === 'parts' ? p.part : ''; if (!groups.has(k)) groups.set(k, []); groups.get(k)!.push(p); }
+    for (const [k, ps] of groups) {
+      const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+      for (const p of ps) for (let v = 0; v < p.pos.length; v += 3) for (let c = 0; c < 3; c++) { lo[c] = Math.min(lo[c], p.pos[v + c]); hi[c] = Math.max(hi[c], p.pos[v + c]); }
+      const o = [(lo[0] + hi[0]) / 2, lo[1], (lo[2] + hi[2]) / 2];
+      for (const p of ps) for (let v = 0; v < p.pos.length; v += 3) for (let c = 0; c < 3; c++) p.pos[v + c] -= o[c];
+      for (const p of ps) origins[p.part] = o.map((x) => +x.toFixed(3));
+    }
+  }
+
   // cut to the budget, shared across the model by each primitive's share of it
   const total = prims.reduce((s, p) => s + p.idx.length / 3, 0);
-  const pk = new Packer(), parts: Record<string, { subs: { material: number; key: string; vertices: number; triangles: number }[]; min: number[]; max: number[] }> = {};
+  const pk = new Packer(), parts: Record<string, { subs: { material: number; key: string; vertices: number; triangles: number }[]; min: number[]; max: number[]; origin?: number[] }> = {};
   let kept = 0;
   prims.forEach((p, i) => {
     let idx = p.idx;
@@ -138,7 +156,7 @@ export async function buildModel(srcDir: string, outDir: string, opts: Opts) {
     for (let k = 0; k < idx.length; k++) ix[k] = remap[idx[k]];
     const key = `p${i}`;
     pk.add(`${key}:pos`, pos, 3); pk.add(`${key}:nor`, nor, 3); pk.add(`${key}:uv`, uv, 2); pk.add(`${key}:idx`, ix, 1);
-    const P = (parts[p.part] ??= { subs: [], min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] });
+    const P = (parts[p.part] ??= { subs: [], min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity], ...(origins[p.part] ? { origin: origins[p.part] } : {}) });
     P.subs.push({ material: p.material, key, vertices: nv, triangles: idx.length / 3 });
     for (let v = 0; v < nv; v++) for (let c = 0; c < 3; c++) { P.min[c] = Math.min(P.min[c], pos[v * 3 + c]); P.max[c] = Math.max(P.max[c], pos[v * 3 + c]); }
     kept += idx.length / 3;
@@ -158,11 +176,14 @@ export async function buildModel(srcDir: string, outDir: string, opts: Opts) {
     }
     return copied.get(uri)!;
   };
-  // a cut-out plant's mask ships beside its textures (Poly Haven's glTF colour is a JPEG)
+  // only the materials the kept parts use carry maps: a part left out (a shutter's graffiti) ships none of its files
+  const used = new Set(prims.map((p) => p.material));
+  // a cut-out plant's mask ships beside its textures (Poly Haven's glTF colour is a JPEG), when a kept material cuts out
   const slug = srcDir.replace(/^ph-model-/, '');
-  const alphaFile = ['png', 'jpg'].map((x) => `textures/${slug}_alpha_1k.${x}`).find((f) => { try { readFileSync(join(dir, f)); return true; } catch { return false; } });
+  const cuts = (g.materials ?? []).some((m: any, i: number) => used.has(i) && m.alphaMode && m.alphaMode !== 'OPAQUE');
+  const alphaFile = cuts ? ['png', 'jpg'].map((x) => `textures/${slug}_alpha_1k.${x}`).find((f) => { try { readFileSync(join(dir, f)); return true; } catch { return false; } }) : undefined;
   const alphaName = alphaFile ? (copyFileSync(join(dir, alphaFile), join(outDir, 'alpha' + alphaFile.slice(-4))), 'alpha' + alphaFile.slice(-4)) : null;
-  const materials = (g.materials ?? [{}]).map((m: any) => ({
+  const materials = (g.materials ?? [{}]).map((m: any, i: number) => !used.has(i) ? { name: m.name, map: null, normalMap: null, armMap: null, alphaMap: null, color: [1, 1, 1, 1], roughness: 1, metalness: 0, alpha: null, doubleSided: false, emissive: null } : ({
     alphaMap: m.alphaMode && m.alphaMode !== 'OPAQUE' ? alphaName : null,
     name: m.name, map: tex(m.pbrMetallicRoughness?.baseColorTexture), normalMap: tex(m.normalTexture), armMap: tex(m.pbrMetallicRoughness?.metallicRoughnessTexture),
     color: m.pbrMetallicRoughness?.baseColorFactor ?? [1, 1, 1, 1], roughness: m.pbrMetallicRoughness?.roughnessFactor ?? 1, metalness: m.pbrMetallicRoughness?.metallicFactor ?? 1,

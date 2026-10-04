@@ -262,6 +262,202 @@
       "licenseUrl": "https://polyhaven.com/license",
       "homepage": "https://polyhaven.com/a/modular_street_seating"
     },
+    "ph-model-metal_trash_can": {
+      "title": "Metal Trash Can (model)",
+      "author": "GurJas Studios, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/metal_trash_can"
+    },
+    "ph-model-cardboard_box_01": {
+      "title": "Cardboard Box 01 (model)",
+      "author": "Rahul Chaudhary, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/cardboard_box_01"
+    },
+    "ph-model-wooden_crate_01": {
+      "title": "Wooden Crate 01 (model)",
+      "author": "James Ray Cock, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/wooden_crate_01"
+    },
+    "ph-model-plastic_crate_02": {
+      "title": "Plastic Crate 02 (model)",
+      "author": "Fabi_G, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/plastic_crate_02"
+    },
+    "ph-model-Barrel_01": {
+      "title": "Barrel_01 (model)",
+      "author": "Jorge Camacho, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/Barrel_01"
+    },
+    "ph-model-barrel_03": {
+      "title": "Barrel 03 (model)",
+      "author": "Serhii Khromov, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/barrel_03"
+    },
+    "ph-model-barrel_stove": {
+      "title": "Barrel Stove (model)",
+      "author": "MP, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/barrel_stove"
+    },
+    "ph-model-old_tyre": {
+      "title": "Old Tyre (model)",
+      "author": "MP, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/old_tyre"
+    },
+    "ph-model-rusted_wheel_rim_01": {
+      "title": "Rusted Wheel Rim 01 (model)",
+      "author": "John Hutcheson, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/rusted_wheel_rim_01"
+    },
+    "ph-model-covered_car": {
+      "title": "Covered Car (model)",
+      "author": "MP, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/covered_car"
+    },
+    "ph-model-concrete_road_barrier_02": {
+      "title": "Concrete Road Barrier 02 (model)",
+      "author": "Amal Kumar, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/concrete_road_barrier_02"
+    },
+    "ph-model-rollershutter_door": {
+      "title": "Rollershutter Door (model)",
+      "author": "MP, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/rollershutter_door"
+    },
+    "ph-model-rollershutter_window_01": {
+      "title": "Rollershutter Window 01 (model)",
+      "author": "MP, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/rollershutter_window_01"
+    },
+    "ph-model-street_lamp_02": {
+      "title": "Street Lamp 02 (model)",
+      "author": "Josh Dean, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/street_lamp_02"
+    },
+    "ph-model-plastic_monobloc_chair_01": {
+      "title": "Plastic Monobloc Chair 01 (model)",
+      "author": "Kuutti Siitonen, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/plastic_monobloc_chair_01"
+    },
+    "ph-model-outdoor_table_chair_set_01": {
+      "title": "Outdoor Table Chair Set 01 (model)",
+      "author": "James Ray Cock, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/outdoor_table_chair_set_01"
+    },
+    "ph-model-modular_fire_escape": {
+      "title": "Modular Fire Escape (model)",
+      "author": "Juniix, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_fire_escape"
+    },
+    "ph-model-modular_metal_gutter": {
+      "title": "Modular Metal Gutter (model)",
+      "author": "Maxim Domnin, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_metal_gutter"
+    },
+    "ph-model-modular_airduct_circular_01": {
+      "title": "Modular Airduct Circular 01 (model)",
+      "author": "Riley Queen, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_airduct_circular_01"
+    },
+    "ph-model-modular_industrial_pipes_01": {
+      "title": "Modular Industrial Pipes 01 (model)",
+      "author": "Jorge Camacho, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_industrial_pipes_01"
+    },
+    "ph-model-modular_wooden_pier": {
+      "title": "Modular Wooden Pier (model)",
+      "author": "Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_wooden_pier"
+    },
+    "ph-model-modular_fort_01": {
+      "title": "Modular Fort 01 (model)",
+      "author": "Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/modular_fort_01"
+    },
+    "ph-model-large_castle_door": {
+      "title": "Large Castle Door (model)",
+      "author": "Tina, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/large_castle_door"
+    },
+    "ph-model-stone_fire_pit": {
+      "title": "Stone Fire Pit (model)",
+      "author": "Sebastian Platen, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/stone_fire_pit"
+    },
+    "ph-model-wine_barrel_01": {
+      "title": "Wine Barrel 01 (model)",
+      "author": "James Ray Cock, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/wine_barrel_01"
+    },
+    "ph-model-lateral_sea_marker": {
+      "title": "Lateral Sea Marker (model)",
+      "author": "James Ray Cock and Kuutti Siitonen, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/lateral_sea_marker"
+    },
+    "ph-model-dead_tree_trunk_02": {
+      "title": "Dead Tree Trunk 02 (model)",
+      "author": "Jenelle van Heerden and Rico Cilliers, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/dead_tree_trunk_02"
+    },
+    "ph-model-cannon_01": {
+      "title": "Cannon 01 (model)",
+      "author": "Yann Kervran and James Ray Cock, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/cannon_01"
+    },
     "ofdn-funky-house": {
       "title": "Funky House",
       "author": "Of Far Different Nature (OpenGameArt)",
@@ -2605,6 +2801,1247 @@
         }
       },
       "bytes": 8507514
+    },
+    "model-trash-cans": {
+      "kind": "model",
+      "title": "Trash cans",
+      "description": "Two galvanised steel trash cans 0.91 m tall, one bright, one rusted, each with its handles, and their two lids as parts of their own. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 5994 triangles.",
+      "sources": [
+        "ph-model-metal_trash_can"
+      ],
+      "derived": "Cut from 13960 to 5994 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "metal_trash_can",
+          "metal_trash_can_lid",
+          "metal_trash_can_rust",
+          "metal_trash_can_rust_lid"
+        ],
+        "triangles": 5994
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "3cc269c1e32eba63d15166373f0a4c764e1dbe3064de8bc5d1721b5a4020ccd3",
+          "bytes": 4420
+        },
+        "metal_trash_can_arm.jpg": {
+          "sha256": "b23dcdb2ed40c1c6cfbd2d2779c6f075025b7269bfbbed2a70c6bdb7167e47fb",
+          "bytes": 731776
+        },
+        "metal_trash_can_diff.jpg": {
+          "sha256": "920c895a31b1cd2c000123c0592c70c33d46562752987da98070e7e0eebb662f",
+          "bytes": 551939
+        },
+        "metal_trash_can_nor_gl.jpg": {
+          "sha256": "b977f17aa9d4718ffc91a62868b7171b4479578b8cffd1d32001d92552af81a4",
+          "bytes": 842945
+        },
+        "metal_trash_can_rust_arm.jpg": {
+          "sha256": "31a6269e98a3a8b2a2d6db8f58724e0151d5312b5137e6d59b5a2ba873989159",
+          "bytes": 620549
+        },
+        "metal_trash_can_rust_diff.jpg": {
+          "sha256": "51c44248305b111d978f7e0cbfe4a71ab7f49549968ce37c54b635d74c2cfba1",
+          "bytes": 768161
+        },
+        "metal_trash_can_rust_nor_gl.jpg": {
+          "sha256": "a5497588e00e5e56db72e701457fc8a46d3a1fa7d9dd7bf9d79e02cada09e84b",
+          "bytes": 1085844
+        },
+        "model.bin.z": {
+          "sha256": "e2862e72be62b99b1a65923ab8638049bfea2f6946e0ff2f5e8f4eea1ccc49f5",
+          "bytes": 89133
+        }
+      },
+      "bytes": 4694767
+    },
+    "model-cardboard-box": {
+      "kind": "model",
+      "title": "Cardboard box",
+      "description": "A battered, taped cardboard box 0.52 by 0.39 m and 0.34 m tall, printed with handling marks. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 2000 triangles.",
+      "sources": [
+        "ph-model-cardboard_box_01"
+      ],
+      "derived": "Cut from 16952 to 2000 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "cardboard_box_01"
+        ],
+        "triangles": 2000
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "7858b2cc121f1549b569f93fe8ca04d5c72c29a6c2d466125edc4d29811e37c6",
+          "bytes": 902
+        },
+        "cardboard_box_01_arm.jpg": {
+          "sha256": "5db63828d0f904c6a8d9c83afc912260b2a27261c15a28d06360519384574d2b",
+          "bytes": 398433
+        },
+        "cardboard_box_01_diff.jpg": {
+          "sha256": "122c7ba8c5935e289804a730b480677a4bffdf74a45c91970cba682df92e171c",
+          "bytes": 567741
+        },
+        "cardboard_box_01_nor_gl.jpg": {
+          "sha256": "d2d1f529a851966b65411b5094510dd9eba03cd5c0a89921f79325c377a8e8eb",
+          "bytes": 817424
+        },
+        "model.bin.z": {
+          "sha256": "38f9db5873bf54ab648d0a0762fcbb58b727fb942516c27e5731686a185654f5",
+          "bytes": 30791
+        }
+      },
+      "bytes": 1815291
+    },
+    "model-wooden-chest": {
+      "kind": "model",
+      "title": "Wooden chest",
+      "description": "A weathered lidded wooden chest 0.83 m long and 0.35 m tall with rope handles and an iron hasp. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 2996 triangles.",
+      "sources": [
+        "ph-model-wooden_crate_01"
+      ],
+      "derived": "Cut from 6576 to 2996 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "wooden_crate_01_lid",
+          "wooden_crate_01",
+          "wooden_crate_01_latch"
+        ],
+        "triangles": 2996
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "837e21f0d3af617ae7641614aa9a1aab994470867d39499a063d9bc291e74b19",
+          "bytes": 1928
+        },
+        "model.bin.z": {
+          "sha256": "a21d776017d948dafe933ec9f0fa7245cb0ec870fd949438b589de8bc1b34f3a",
+          "bytes": 45127
+        },
+        "wooden_crate_01_arm.jpg": {
+          "sha256": "cd0b031c3924905e16ffd78ead062c2cc274148c4104d09635310097738b4679",
+          "bytes": 776699
+        },
+        "wooden_crate_01_diff.jpg": {
+          "sha256": "16653f4abaf4c1d9bca94bde3bd8c54d0ea9a5298d1648abcf57de1f7ecc34cc",
+          "bytes": 711292
+        },
+        "wooden_crate_01_nor_gl.jpg": {
+          "sha256": "f4ea44c7dc1686123d337039cb713d74e8a2dbc6d1bd2beeac276d06f5df3fab",
+          "bytes": 594076
+        }
+      },
+      "bytes": 2129122
+    },
+    "model-plastic-crate": {
+      "kind": "model",
+      "title": "Plastic crate",
+      "description": "A stackable vented plastic crate in amber, 0.51 m long and 0.25 m tall. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 4000 triangles.",
+      "sources": [
+        "ph-model-plastic_crate_02"
+      ],
+      "derived": "Cut from 5840 to 4000 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "plastic_crate_02"
+        ],
+        "triangles": 4000
+      },
+      "files": {
+        "alpha.png": {
+          "sha256": "baf9e32f262722aa2d2c0e8c7ea79ca8ef4fdcf25feb929c78082ab11651de62",
+          "bytes": 16549
+        },
+        "asset.json": {
+          "sha256": "b77d3789e8337a81524599d866cdd02b004bfb40bd4397d2479ee8f76b42ba63",
+          "bytes": 942
+        },
+        "model.bin.z": {
+          "sha256": "1f8d47d551e94b060b842d394d408ac4ac208eb7f795560606067d02259304d9",
+          "bytes": 49075
+        },
+        "plastic_crate_02_arm.jpg": {
+          "sha256": "f0c667358c7afd46be37b40c30435b63ae3dba8432b45c507f3298fc6f163418",
+          "bytes": 597561
+        },
+        "plastic_crate_02_diff.jpg": {
+          "sha256": "f153478d5f44f39ab27a967850caac27b35ee8f04185d0d4eaf7ad501742fb15",
+          "bytes": 492862
+        },
+        "plastic_crate_02_nor_gl.jpg": {
+          "sha256": "492b4cb03b043fb30a21b5de1cdf91dfbcd9bb7d080957af69a333d622050f30",
+          "bytes": 558561
+        }
+      },
+      "bytes": 1715550
+    },
+    "model-red-drum": {
+      "kind": "model",
+      "title": "Red drum",
+      "description": "A red steel oil drum 0.88 m tall with a hazard pictogram. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 2682 triangles.",
+      "sources": [
+        "ph-model-Barrel_01"
+      ],
+      "derived": "Cut from 2682 to 2682 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "Barrel_01"
+        ],
+        "triangles": 2682
+      },
+      "files": {
+        "Barrel_01_explosive_arm.jpg": {
+          "sha256": "eab507df7719f0e7a3615bd22bb7bc0c09fed83bfc44e72a51451f8069c2d374",
+          "bytes": 243594
+        },
+        "Barrel_01_explosive_diff.jpg": {
+          "sha256": "a7e5a7b03bbe0c9c56bf1ac09b24121a5d19148428e9e6eac326c803fc297098",
+          "bytes": 179308
+        },
+        "Barrel_01_explosive_nor_gl.jpg": {
+          "sha256": "fa4750d64c6f568c8de3e36bc631348710329cf2d6d9c8c87bd2e47a96bc4fcb",
+          "bytes": 185578
+        },
+        "asset.json": {
+          "sha256": "2de5031abfbe93315f4aa733a0bb9f041b56a5c6438bec36767a55b4329f8c3e",
+          "bytes": 896
+        },
+        "model.bin.z": {
+          "sha256": "4f809f3c48518600f018eb7daad1c3e1bc58ef516ad7b1a88f82f9286e81700a",
+          "bytes": 37139
+        }
+      },
+      "bytes": 646515
+    },
+    "model-blue-drum": {
+      "kind": "model",
+      "title": "Blue drum",
+      "description": "A blue steel drum 0.93 m tall. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 1473 triangles.",
+      "sources": [
+        "ph-model-barrel_03"
+      ],
+      "derived": "Cut from 1473 to 1473 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "barrel_03"
+        ],
+        "triangles": 1473
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "798a4898c17ecd9f49fd6226069a1f6a6f1c7d975756dc74e2d6972d4b30d74f",
+          "bytes": 866
+        },
+        "barrel_03_arm.jpg": {
+          "sha256": "2cec2338b36d7322bef55e6a1d0884b223c5ed383cf986a58bfa461478c64c7e",
+          "bytes": 249922
+        },
+        "barrel_03_diff.jpg": {
+          "sha256": "62feb27dfa9a0daf3f323fdc1ddc2d8e4a5996cf2c72fe50197b55c2b9cba7f3",
+          "bytes": 149997
+        },
+        "barrel_03_nor_gl.jpg": {
+          "sha256": "ade97c52985047858a4f38226a9b8a888e3a766ba0434700b4618fb25424c4b6",
+          "bytes": 126707
+        },
+        "model.bin.z": {
+          "sha256": "b45d95693345c5c6d33bcc78cf207f43f34e895f1ffa9fd8c11c6221e8374424",
+          "bytes": 19892
+        }
+      },
+      "bytes": 547384
+    },
+    "model-burn-barrel": {
+      "kind": "model",
+      "title": "Burn barrel",
+      "description": "A rusted, fire-blackened burn barrel 0.86 m tall, open at the top. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 3000 triangles.",
+      "sources": [
+        "ph-model-barrel_stove"
+      ],
+      "derived": "Cut from 9216 to 3000 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "barrel_stove"
+        ],
+        "triangles": 3000
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "7a06d3c7a1240eb5fefa4139b2ba4dc948c381e49eaec94ed7229da3a3143b92",
+          "bytes": 860
+        },
+        "barrel_stove_arm.jpg": {
+          "sha256": "f0ec5ddee6660953cad654e883e641f60e0c814afcbab2fa7c90a75843790145",
+          "bytes": 789380
+        },
+        "barrel_stove_diff.jpg": {
+          "sha256": "7661395a02b37db8dde222dd16947e41fa3b06d2ee9a198c57b6d015222afaeb",
+          "bytes": 858608
+        },
+        "barrel_stove_nor_gl.jpg": {
+          "sha256": "533b75cb95ae236aab74c3a5b8ccbeff567b4a402c5bc3373c20c9afea48d680",
+          "bytes": 228496
+        },
+        "model.bin.z": {
+          "sha256": "d35aa97eaeccc0f36b0d7a784e77478f39f30425a6e149350a41b3a3787e2e4c",
+          "bytes": 48427
+        }
+      },
+      "bytes": 1925771
+    },
+    "model-old-tyre": {
+      "kind": "model",
+      "title": "Old tyre",
+      "description": "A worn car tyre 0.6 m across, standing on its tread. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 2880 triangles.",
+      "sources": [
+        "ph-model-old_tyre"
+      ],
+      "derived": "Cut from 2880 to 2880 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "old_tyre"
+        ],
+        "triangles": 2880
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9f71f44cee2f9e399005673a8e11179f24d6bea086800ca5023e0530516d68e3",
+          "bytes": 862
+        },
+        "model.bin.z": {
+          "sha256": "f9c4ae0a2d39ed161ed4148c4da4bed3bca127625559e676ed6c028996485547",
+          "bytes": 36569
+        },
+        "old_tyre_arm.jpg": {
+          "sha256": "3bcf192f5b99a7a574f9e21e75927043e6726c601a5da15e3210a31db05e12d4",
+          "bytes": 776823
+        },
+        "old_tyre_diff.jpg": {
+          "sha256": "0e34ce658c0844c0c94022233226d495930d514c917a5fa15ffee4760567439e",
+          "bytes": 650708
+        },
+        "old_tyre_nor_gl.jpg": {
+          "sha256": "34b716e140408985ddbab7d4bf1d8d430edf834cd2fd4639d82b14cb393fa73e",
+          "bytes": 722778
+        }
+      },
+      "bytes": 2187740
+    },
+    "model-wheel-rim": {
+      "kind": "model",
+      "title": "Rusted wheel rim",
+      "description": "A rusted steel car wheel rim 0.4 m across, standing on its edge. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 4000 triangles.",
+      "sources": [
+        "ph-model-rusted_wheel_rim_01"
+      ],
+      "derived": "Cut from 16440 to 4000 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "rusted_wheel_rim_01"
+        ],
+        "triangles": 4000
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "8b16cca76d1a9db6809e942fa06a99fb99ec6c552cdadf2780a90d2e8e83c748",
+          "bytes": 942
+        },
+        "model.bin.z": {
+          "sha256": "d54532f58ca8d7841e40ab96a91d6ffa0a7dba24089edd819ec2e1b2b9221ffe",
+          "bytes": 59461
+        },
+        "rusted_wheel_rim_01_arm.jpg": {
+          "sha256": "e3c5ec3531901f2b9901d232afb512bd0922289ba64cc9b9f975d1b4ed46da27",
+          "bytes": 606086
+        },
+        "rusted_wheel_rim_01_diff.jpg": {
+          "sha256": "e533e5d6b7d1526218f3795f5e3694541d3a87e428242645d04783bc3e416e61",
+          "bytes": 517042
+        },
+        "rusted_wheel_rim_01_nor_gl.jpg": {
+          "sha256": "6ec1550711bf462579f27237fab6fa77141dadc2b21dc13e6a37c59f185e7ecd",
+          "bytes": 816565
+        }
+      },
+      "bytes": 2000096
+    },
+    "model-covered-car": {
+      "kind": "model",
+      "title": "Covered car",
+      "description": "A saloon car under a dusty fabric cover, 4.4 m long and 1.4 m tall, its four wheels parts of their own. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 4996 triangles.",
+      "sources": [
+        "ph-model-covered_car"
+      ],
+      "derived": "Cut from 12592 to 4996 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "covered_car_wheel_01",
+          "covered_car_wheel_02",
+          "covered_car_wheel_03",
+          "covered_car_wheel_04",
+          "covered_car"
+        ],
+        "triangles": 4996
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "a472c1fcc96dc94516b16395506f46bd1dcecd8a03ee7f559335f6b279c18cd0",
+          "bytes": 3180
+        },
+        "covered_car_arm.jpg": {
+          "sha256": "e77f73234311701dd8088ec572e61d4ec7838bd28e9ea13ffe5e28f79da8e085",
+          "bytes": 745781
+        },
+        "covered_car_diff.jpg": {
+          "sha256": "c4616a5c7c1327e4bc127b600e59d9dcb2123f8926f1570a1ca4a068d97f4d34",
+          "bytes": 558004
+        },
+        "covered_car_nor_gl.jpg": {
+          "sha256": "6769694abe28c53e5c35ad1cefdd462b56416e7d89a6bcf5a9d9f6c922b46d05",
+          "bytes": 641340
+        },
+        "model.bin.z": {
+          "sha256": "e505b12ba13eb3e07503d60786f5f24bdb2859c7ce24171004c8025a19240b28",
+          "bytes": 75716
+        }
+      },
+      "bytes": 2024021
+    },
+    "model-concrete-block": {
+      "kind": "model",
+      "title": "Concrete block",
+      "description": "A chipped concrete barrier block 1.6 m long and 1.1 m tall. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 4998 triangles.",
+      "sources": [
+        "ph-model-concrete_road_barrier_02"
+      ],
+      "derived": "Cut from 23822 to 4998 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "concrete_road_barrier_02"
+        ],
+        "triangles": 4998
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "72195a6373eaff3c4b6cbf7f806f19f0172b0e7228c9ad79f45a1eb9456bb484",
+          "bytes": 941
+        },
+        "concrete_road_barrier_02_arm.jpg": {
+          "sha256": "6fb282f242ce86a3e44663678c2e0366c37de8244b08acc003d99771cb780e53",
+          "bytes": 717138
+        },
+        "concrete_road_barrier_02_diff.jpg": {
+          "sha256": "9329260ebfc8632a5d47d9b344ab6f916e26604e73ebd2c495fee544df4bdefa",
+          "bytes": 741673
+        },
+        "concrete_road_barrier_02_nor_gl.jpg": {
+          "sha256": "42ec702843df209f0aef1d247c76dfb91385f0bf3b226b752d22a4c0e3780a31",
+          "bytes": 923479
+        },
+        "model.bin.z": {
+          "sha256": "803e1845cce175464d2bdd11f7f9266b6bfe9fe50b9c83f814b5d14219412056",
+          "bytes": 78318
+        }
+      },
+      "bytes": 2461549
+    },
+    "model-door-shutter": {
+      "kind": "model",
+      "title": "Door shutter",
+      "description": "A closed steel roller shutter for a doorway, 1.1 m wide and 2.4 m tall, its housing 0.3 m deep. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 552 triangles.",
+      "sources": [
+        "ph-model-rollershutter_door"
+      ],
+      "derived": "Cut from 552 to 552 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "rollershutter_door"
+        ],
+        "triangles": 552
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9386b2a9773da29a48586e4df0b33343368f87346c500f95df751c4ae22effa5",
+          "bytes": 1102
+        },
+        "model.bin.z": {
+          "sha256": "20b3604751a62a43ada8983f0bc0c6986c594f7a93194419b5142a6ecec15a54",
+          "bytes": 8251
+        },
+        "rollershutter_door_arm.jpg": {
+          "sha256": "0a45cf8585a339ae542ef891f3aa697258079b98f1755b2d6716ea542d3de14a",
+          "bytes": 626069
+        },
+        "rollershutter_door_diff.jpg": {
+          "sha256": "b8cd7ad14fe5c691484fe240213c379bf18f21336afe6622bfa20c731eca010d",
+          "bytes": 600354
+        },
+        "rollershutter_door_nor_gl.jpg": {
+          "sha256": "3eaad465ac23e4b3d5fbf2e315b738f8d3039cd244a69ab8adcc7a0e786cdffb",
+          "bytes": 381716
+        }
+      },
+      "bytes": 1617492
+    },
+    "model-shop-shutter": {
+      "kind": "model",
+      "title": "Shop shutter",
+      "description": "A closed steel roller shutter for a shop window, 2.1 m wide and 1.85 m tall, its housing 0.3 m deep. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 552 triangles.",
+      "sources": [
+        "ph-model-rollershutter_window_01"
+      ],
+      "derived": "Cut from 552 to 552 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "rollershutter_window_01"
+        ],
+        "triangles": 552
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9d205dcdb4dc27e6764637becfdee79b3c969e4a56b150e0f8c1abec9836778c",
+          "bytes": 1129
+        },
+        "model.bin.z": {
+          "sha256": "6f273c95c9c443543d81f915640e1cc49a95ba2c614b30f2627d9be5a2c94603",
+          "bytes": 8750
+        },
+        "rollershutter_window_01_arm.jpg": {
+          "sha256": "2b13244dbcfa52dde2475bc6a5b088789ec96600e980d2048504a16cc302844b",
+          "bytes": 592481
+        },
+        "rollershutter_window_01_diff.jpg": {
+          "sha256": "485d89e887227324c40479a7f759d733cfa4206493f3bbe2170e8dfbc69ae1dd",
+          "bytes": 563314
+        },
+        "rollershutter_window_01_nor_gl.jpg": {
+          "sha256": "3acc1e7a93e2dcc8b64fac3a8d6342e4af7ca67b2823178460418a535812ebeb",
+          "bytes": 360410
+        }
+      },
+      "bytes": 1526084
+    },
+    "model-wall-lantern": {
+      "kind": "model",
+      "title": "Wall lantern",
+      "description": "A black wrought-iron wall lantern on a bracket reaching 0.8 m from the wall, with its glass and bulb. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 5986 triangles.",
+      "sources": [
+        "ph-model-street_lamp_02"
+      ],
+      "derived": "Cut from 20338 to 5986 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "street_lamp_02"
+        ],
+        "triangles": 5986
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "e60f258283955c237714c39d892739e2bca1a2cb60ce16f732cbd4302b5bfebc",
+          "bytes": 2097
+        },
+        "model.bin.z": {
+          "sha256": "5f1413c5a315638b8cce9e6af2f369681e078728b29f44f65b5d4195b40230af",
+          "bytes": 93573
+        },
+        "street_lamp_02_arm.jpg": {
+          "sha256": "a1e2d654e7d5d48a1fdfbf720840192d171df54e5ea5f055145d0472d617eede",
+          "bytes": 657710
+        },
+        "street_lamp_02_diff.jpg": {
+          "sha256": "19882567313dd43fef60f9fa41a4c55f81a957f9fee539e931fc36a32e386b6c",
+          "bytes": 303714
+        },
+        "street_lamp_02_nor_gl.jpg": {
+          "sha256": "fdd9fb26ca853020ed156fdd84e90ce3f9a68bf94edf71c0ffe72add67e316c6",
+          "bytes": 372301
+        }
+      },
+      "bytes": 1429395
+    },
+    "model-plastic-chair": {
+      "kind": "model",
+      "title": "Plastic chair",
+      "description": "A white plastic patio chair 0.88 m tall. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 3356 triangles.",
+      "sources": [
+        "ph-model-plastic_monobloc_chair_01"
+      ],
+      "derived": "Cut from 3356 to 3356 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "plastic_monobloc_chair_01"
+        ],
+        "triangles": 3356
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "d67f53cafb13f96fca2e98f54dde702c33d67c6f265bd35d034ab0db547911df",
+          "bytes": 945
+        },
+        "model.bin.z": {
+          "sha256": "a2f0b8188b8a46f04e7f05942241ebb6e67c65e4d94239c0f0b004154463403e",
+          "bytes": 62552
+        },
+        "plastic_monobloc_chair_01_arm.jpg": {
+          "sha256": "78a67659a19a9df9efc0ef71789de0c949a727db62ade4c4c8887cd2c803c1a2",
+          "bytes": 634320
+        },
+        "plastic_monobloc_chair_01_diff.jpg": {
+          "sha256": "fdd1255a02bf684cfcff2eae75c0e3eea0db1fb5ecbfbd8c4f9beab8fd83ff6c",
+          "bytes": 560823
+        },
+        "plastic_monobloc_chair_01_nor_gl.jpg": {
+          "sha256": "9ffa876b37d72ae1c0aed84d4dc1f62c956c844b3efec1f786f9080c10f63c9e",
+          "bytes": 630024
+        }
+      },
+      "bytes": 1888664
+    },
+    "model-cafe-set": {
+      "kind": "model",
+      "title": "Cafe set",
+      "description": "A folding cafe table and two folding chairs in slatted wood on black steel, 0.86 m tall, each its own part. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 6285 triangles.",
+      "sources": [
+        "ph-model-outdoor_table_chair_set_01"
+      ],
+      "derived": "Cut from 9828 to 6285 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "outdoor_table_chair_set_01_chair_01",
+          "outdoor_table_chair_set_01_table",
+          "outdoor_table_chair_set_01_chair_02"
+        ],
+        "triangles": 6285
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "e7bc273400f66dfa2b040c2c1ea4dc5355a4ff5857f68f9e7264e6bf2bd9914d",
+          "bytes": 2410
+        },
+        "model.bin.z": {
+          "sha256": "258733fcb39ba9f2db22ce2f6ee0183f5b27fc60264ce3830519a0cee9cd0ec3",
+          "bytes": 119819
+        },
+        "outdoor_table_chair_set_01_chair_arm.jpg": {
+          "sha256": "71ac20bb124af45c3ff2fc5eee11d7c9d277ac245ac14ee4ba87291bb768937d",
+          "bytes": 179920
+        },
+        "outdoor_table_chair_set_01_chair_diff.jpg": {
+          "sha256": "60ed02a2c36098069235ad82937b2602e8940346f1d6a75c6386e78e03dbacb3",
+          "bytes": 155372
+        },
+        "outdoor_table_chair_set_01_chair_nor_gl.jpg": {
+          "sha256": "9b57cd67775146b0865f3e5409b54661080625789042846569f7f65ab37258b3",
+          "bytes": 46772
+        },
+        "outdoor_table_chair_set_01_table_arm.jpg": {
+          "sha256": "fecbe0e42db83d6f0ee8186afece1fd5c3a5834ff07926c00ac18468757d4377",
+          "bytes": 201642
+        },
+        "outdoor_table_chair_set_01_table_diff.jpg": {
+          "sha256": "7743a55a3a646ebdd9969e72594cb8b94e318d38956f2172a5e6934609a68bf4",
+          "bytes": 151897
+        },
+        "outdoor_table_chair_set_01_table_nor_gl.jpg": {
+          "sha256": "e30e3f639bea22013149e73bcbaeb95805bf831c7b93b80ab83a33e42672b044",
+          "bytes": 43095
+        }
+      },
+      "bytes": 900927
+    },
+    "model-fire-escape": {
+      "kind": "model",
+      "title": "Fire escape",
+      "description": "A black steel fire-escape kit: landings, railings, a stair flight and a ladder, each its own part. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 11322 triangles.",
+      "sources": [
+        "ph-model-modular_fire_escape"
+      ],
+      "derived": "Cut from 11322 to 11322 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "modular_fire_escape_railing_middle",
+          "modular_fire_escape_platform_railing",
+          "modular_fire_escape_platform_middle",
+          "modular_fire_escape_stairs",
+          "modular_fire_escape_ladder_bottom",
+          "modular_fire_escape_railing_bottom",
+          "modular_fire_escape_platform_bottom"
+        ],
+        "triangles": 11322
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "5f726a803f0a1d298ed11c272215951fcc6b2dc124f86599801b61a80839f516",
+          "bytes": 4797
+        },
+        "model.bin.z": {
+          "sha256": "bc9fc810abf361e3ac9b33ef12187969c3af95c9b0268f62e7c2d85f18ff7394",
+          "bytes": 158581
+        },
+        "modular_fire_escape_01_arm.jpg": {
+          "sha256": "ca4ada942209b9b880b180f0646e1bf7c86f46b7599b12ff56b4ef6ad533c44d",
+          "bytes": 711858
+        },
+        "modular_fire_escape_01_diff.jpg": {
+          "sha256": "50b15363269bee95c4c4aeb54a4a4df31a3e52680877fe286259c92885c17b74",
+          "bytes": 591379
+        },
+        "modular_fire_escape_01_nor_gl.jpg": {
+          "sha256": "2db2bfc1d9d487cec32f68a846883ded440a1d10a328d81d8dcc522be45e7734",
+          "bytes": 685951
+        },
+        "modular_fire_escape_02_arm.jpg": {
+          "sha256": "b4b65ebcd05e6c4502240a46eebd6535e9f83c0c65e0baaebaf25dae207c7c95",
+          "bytes": 732941
+        },
+        "modular_fire_escape_02_diff.jpg": {
+          "sha256": "9e969f5912b61aee6a6aa6dac3d98a4be3a4c92bf3b8f71e80fedc068493aa18",
+          "bytes": 615280
+        },
+        "modular_fire_escape_02_nor_gl.jpg": {
+          "sha256": "d9024407844f8baf514d005354ea4a729aff3659753e36cbab92fb09d0df3565",
+          "bytes": 939689
+        }
+      },
+      "bytes": 4440476
+    },
+    "model-drainpipes": {
+      "kind": "model",
+      "title": "Gutters and drainpipes",
+      "description": "A galvanised gutter kit: gutter runs, a corner, downpipe sections, a bend, a hopper, couplers and brackets, each its own part. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 7986 triangles.",
+      "sources": [
+        "ph-model-modular_metal_gutter"
+      ],
+      "derived": "Cut from 16490 to 7986 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "modular_metal_gutter_outlet",
+          "modular_metal_gutter_coupler",
+          "modular_metal_gutter_funnel",
+          "modular_metal_gutter_bend",
+          "modular_metal_gutter_bracing",
+          "modular_metal_gutter_gutter_plug",
+          "modular_metal_gutter",
+          "modular_metal_gutter_gutter_bracing",
+          "modular_metal_gutter_corner",
+          "modular_metal_gutter_shower_receiver",
+          "modular_metal_gutter_gutter_coupler",
+          "modular_metal_gutter_section"
+        ],
+        "triangles": 7986
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "acda809c9b12270cd9b9c3caa0dd1dc0f708ac015299dc47ee0bc31a812e574c",
+          "bytes": 7200
+        },
+        "model.bin.z": {
+          "sha256": "e172298edb0d57f119aafb331286e816a51b66ef80dada0dd26b7575b34d3989",
+          "bytes": 126259
+        },
+        "modular_metal_gutter_arm.jpg": {
+          "sha256": "8501be1fc4f6092caed475fc08a31f69699f44fb28760734fd69ae2df2818277",
+          "bytes": 651054
+        },
+        "modular_metal_gutter_diff.jpg": {
+          "sha256": "458152e55e2256477b62088515e40fa17e5cc7dd050e99f959535943b9ba2b58",
+          "bytes": 532828
+        },
+        "modular_metal_gutter_nor_gl.jpg": {
+          "sha256": "83bd6f51d1ed46991f4cfffae0e7f73b683b3f49daf1456831b7f2d47e637c19",
+          "bytes": 538980
+        }
+      },
+      "bytes": 1856321
+    },
+    "model-air-ducts": {
+      "kind": "model",
+      "title": "Air ducts",
+      "description": "A round sheet-metal air-duct kit: straight runs, bends, a fan, vents and braces, each its own part. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 7135 triangles.",
+      "sources": [
+        "ph-model-modular_airduct_circular_01"
+      ],
+      "derived": "Cut from 14280 to 7135 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "modular_airduct_rectangular_vent_fan",
+          "modular_airduct_rectangular_converter",
+          "modular_airduct_circular_single",
+          "modular_airduct_circular_smooth_single",
+          "modular_airduct_circular_smooth_bend_half",
+          "modular_airduct_circular_smooth_bend_quater",
+          "modular_airduct_circular_fan",
+          "modular_airduct_circular_brace_extention_wires",
+          "modular_airduct_circular_brace",
+          "modular_airduct_circular_brace_extention",
+          "modular_airduct_circular_triple",
+          "modular_airduct_circular_double",
+          "modular_airduct_circular_smooth_double",
+          "modular_airduct_circular_smooth_triple",
+          "modular_airduct_circular_bend_half",
+          "modular_airduct_circular_bend_quater"
+        ],
+        "triangles": 7135
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "0c39ae0c57d3295d8381d83b2f10595d6ab6da7c4613583bed68ac7d58c4ebce",
+          "bytes": 9614
+        },
+        "model.bin.z": {
+          "sha256": "9a4404595f5f2d39831f55d3180b1b6a52d9e01f7d08f0f9546c0d4cf35d82bf",
+          "bytes": 119751
+        },
+        "modular_airduct_circular_01_arm.jpg": {
+          "sha256": "98bf68e4768aafc6303ddd1fa69cacad153a074c1b8af189356b41152793f0d6",
+          "bytes": 620251
+        },
+        "modular_airduct_circular_01_diff.jpg": {
+          "sha256": "cff727bb5d96a91e955cc62f800d30d6f717092232358962dcf3ce803ba6cf01",
+          "bytes": 542554
+        },
+        "modular_airduct_circular_01_nor_gl.jpg": {
+          "sha256": "209c47b9e18cd62bc08780a6c684c228d87201e5c2e35809f600c38e40934332",
+          "bytes": 317118
+        }
+      },
+      "bytes": 1609288
+    },
+    "model-industrial-pipes": {
+      "kind": "model",
+      "title": "Industrial pipes",
+      "description": "A painted steel pipe kit up to 1.95 m long: straight runs, elbows, tees and a valve with a gauge, each its own part. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 6619 triangles.",
+      "sources": [
+        "ph-model-modular_industrial_pipes_01"
+      ],
+      "derived": "Cut from 12340 to 6619 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "modular_industrial_pipes_01_pipe01",
+          "modular_industrial_pipes_01_pipe02",
+          "modular_industrial_pipes_01_pipe03",
+          "modular_industrial_pipes_01_pipe05",
+          "modular_industrial_pipes_01_pipe06",
+          "modular_industrial_pipes_01_pipe07",
+          "modular_industrial_pipes_01_pipe08",
+          "modular_industrial_pipes_01_pipe04"
+        ],
+        "triangles": 6619
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9542051655e89eaec6d9775fbe5e40626d88218a5c7d044fafeb3e93ca3f4401",
+          "bytes": 5175
+        },
+        "model.bin.z": {
+          "sha256": "55e6b58e5ba40542a956463b593350423a4e8dd80905d365450ba022fac0ee2a",
+          "bytes": 94066
+        },
+        "modular_industrial_pipes_01_group01_arm.jpg": {
+          "sha256": "7fff7d4604491eeb7531ad5f7520517015c72ec7316d1e865d62f23f976dfed6",
+          "bytes": 860825
+        },
+        "modular_industrial_pipes_01_group01_diff.jpg": {
+          "sha256": "c0233f66b18e3374dfbbb8c8078a41f6571a0809d3eb14dd9d3c332265cfde7b",
+          "bytes": 553576
+        },
+        "modular_industrial_pipes_01_group01_nor_gl.jpg": {
+          "sha256": "ed4728fde567efe420e3a6e1bdc4238b26c2782218737c7e2de88eeca1e91fb2",
+          "bytes": 674568
+        },
+        "modular_industrial_pipes_01_group02_arm.jpg": {
+          "sha256": "4c65dcb651a3d345517fa93ad7c6e48f2388f4e8bb347446f70317c16049867b",
+          "bytes": 898932
+        },
+        "modular_industrial_pipes_01_group02_diff.jpg": {
+          "sha256": "ef8a75c402a8871903dcaa147b023d57c640d0de4c7a8acdfdee822861656a92",
+          "bytes": 580676
+        },
+        "modular_industrial_pipes_01_group02_nor_gl.jpg": {
+          "sha256": "84a43ca11a4f1ac84f7fc8336a4e9b7b333d30c13e540f3ff42e662dc6f91b53",
+          "bytes": 725187
+        }
+      },
+      "bytes": 4393005
+    },
+    "model-wooden-pier": {
+      "kind": "model",
+      "title": "Wooden pier",
+      "description": "A weathered wooden pier 12 m long and 2.5 m wide on its pilings, with a rope-hoist frame. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 23986 triangles.",
+      "sources": [
+        "ph-model-modular_wooden_pier"
+      ],
+      "derived": "Cut from 76808 to 23986 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "modular_wooden_pier_section_01",
+          "modular_wooden_pier_section_02",
+          "modular_wooden_pier_section_03",
+          "modular_wooden_pier_section_05",
+          "modular_wooden_pier_section_04"
+        ],
+        "triangles": 23986
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "5aba975a68d59e96643c3f183ccbbddd23a165140429e8b7e82313ceeb34a8d0",
+          "bytes": 5295
+        },
+        "model.bin.z": {
+          "sha256": "7d9d40bad0517396de808f9989a9c7aa87cd1f1558634167890de89b47a978c3",
+          "bytes": 389163
+        },
+        "modular_wooden_pier_planks_arm.jpg": {
+          "sha256": "4c03bcee7d0fb9708be5e5ebc4dd5fd73789f4eb24b6391dff6167f11c3ce95d",
+          "bytes": 722511
+        },
+        "modular_wooden_pier_planks_diff.jpg": {
+          "sha256": "2670a7eae2a3104e8537e61d90a8d8b169c7eb0f69b51622bec10e9472dc4573",
+          "bytes": 764066
+        },
+        "modular_wooden_pier_planks_nor_gl.jpg": {
+          "sha256": "b23d7b0c23c9a41d50b7e1691e183902765aa4c21ac6ca6da678e874c4ddfb04",
+          "bytes": 1055218
+        },
+        "modular_wooden_pier_poles_arm.jpg": {
+          "sha256": "dacaff86f936bef10220aa60843efadae53039f064ad1a6fad735b912f1ba285",
+          "bytes": 813524
+        },
+        "modular_wooden_pier_poles_diff.jpg": {
+          "sha256": "da9e017b41e052d5e47558bb98e61b577f66e9d44eb2d26dc9b085e317bede9e",
+          "bytes": 836152
+        },
+        "modular_wooden_pier_poles_nor_gl.jpg": {
+          "sha256": "9b2d7ca04642e249428969fa32189f36fcea8577a282dbccca1ac15d59dce18e",
+          "bytes": 978238
+        }
+      },
+      "bytes": 5564167
+    },
+    "model-fort": {
+      "kind": "model",
+      "title": "Stone fort",
+      "description": "A weathered stone fort kit: wall sections, corners, ramparts with stairs, a round tower and an arched gate, each its own part. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 28218 triangles.",
+      "sources": [
+        "ph-model-modular_fort_01"
+      ],
+      "derived": "Cut from 28218 to 28218 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "modular_fort_01_wall_thick_corner_02",
+          "modular_fort_01_tower_round",
+          "modular_fort_01_wall_thick_straight_01",
+          "modular_fort_01_wall_thick_end_02",
+          "modular_fort_01_wall_thick_corner_01",
+          "modular_fort_01_wall_thick_thin_transition_01",
+          "modular_fort_01_wall_thin_straight_01",
+          "modular_fort_01_wall_thin_corner_01",
+          "modular_fort_01_wall_thin_corner_02",
+          "modular_fort_01_wall_thin_straight_02",
+          "modular_fort_01_wall_thin_straight_04",
+          "modular_fort_01_wall_thick_end_01",
+          "modular_fort_01_wall_thin_gate_01",
+          "modular_fort_01_wall_thin_corner_03",
+          "modular_fort_01_wall_thin_straight_03",
+          "modular_fort_01_wall_walkway_straight_01",
+          "modular_fort_01_wall_walkway_corner_01",
+          "modular_fort_01_wall_stairs_straight_01",
+          "modular_fort_01_wall_walkway_corner_02",
+          "modular_fort_01_wall_thick_straight_02",
+          "modular_fort_01_wall_walkway_straight_02",
+          "modular_fort_01_wall_walkway_end_01"
+        ],
+        "triangles": 28218
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "8fb8488335cf5ff1b38133657c13b2943f3f55e3e49069e4cbef55d2856e1329",
+          "bytes": 21180
+        },
+        "model.bin.z": {
+          "sha256": "c501f4ac0a38bb7321c4e5556e3a7c14782c4ae2762172b1dfe46187a1ac5c10",
+          "bytes": 420185
+        },
+        "modular_fort_01_plaster_arm.jpg": {
+          "sha256": "d51902ce06084dd828cf82d60fcbc733160cc27ada41d5e57b38bafbe5d12327",
+          "bytes": 872242
+        },
+        "modular_fort_01_plaster_diff.jpg": {
+          "sha256": "d453b45cec06da3da9e67b38d016f6358c7c310a99db9b066e07e3a494731f4d",
+          "bytes": 995332
+        },
+        "modular_fort_01_plaster_nor_gl.jpg": {
+          "sha256": "567953f0b7da39f6d4f173cc98ff948d31e07b516c8d2e0e0b0ec69de35cab3e",
+          "bytes": 1478355
+        },
+        "modular_fort_01_trim_arm.jpg": {
+          "sha256": "d6a9e67be3f171857bb06af436ebaefedd1fd3ca4e1212c8ad42be7ef6038c91",
+          "bytes": 807245
+        },
+        "modular_fort_01_trim_diff.jpg": {
+          "sha256": "fe5811560cf0471321fe6af08114f279a7f957412b8aa6e2c224112990760556",
+          "bytes": 945345
+        },
+        "modular_fort_01_trim_nor_gl.jpg": {
+          "sha256": "c5a21bd71f1ed0186fedaad18edb74713527a9426f5d136a5b21c3e09a71e1c3",
+          "bytes": 1070875
+        },
+        "modular_fort_01_wall_arm.jpg": {
+          "sha256": "6d3327658794a90fc1b52c19dfbb57059b7ea9801f59abd13417e4be7bf40a34",
+          "bytes": 936858
+        },
+        "modular_fort_01_wall_diff.jpg": {
+          "sha256": "8bdefadca0688e9b3fd91b4d12f341918b0a3670c25537c18a777fa51bb90bea",
+          "bytes": 978641
+        },
+        "modular_fort_01_wall_nor_gl.jpg": {
+          "sha256": "6e8b0e1abac9c6ab0f9a36c04300ea3d0ca83dede3b49485c969a71494ce8d53",
+          "bytes": 1194253
+        }
+      },
+      "bytes": 9720511
+    },
+    "model-castle-door": {
+      "kind": "model",
+      "title": "Castle door",
+      "description": "An arched, iron-strapped wooden double door 2 m wide and 3 m tall in its frame; each leaf its own part. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 4998 triangles.",
+      "sources": [
+        "ph-model-large_castle_door"
+      ],
+      "derived": "Cut from 12640 to 4998 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "large_castle_door_frame",
+          "large_castle_door_right",
+          "large_castle_door_left"
+        ],
+        "triangles": 4998
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "219223d24204b91c1c80fd8f42de65e36ed79caaed339e18c04bc76044f466c6",
+          "bytes": 1959
+        },
+        "large_castle_door_arm.jpg": {
+          "sha256": "2b1e832840d7393ac8a4d058630f8a8378254ad56f6601da08f1135851861955",
+          "bytes": 1016111
+        },
+        "large_castle_door_diff.jpg": {
+          "sha256": "06b9640df9702ceee23cfd042e858ca03b8c68818a691c55d4ea2a65258db97a",
+          "bytes": 803253
+        },
+        "large_castle_door_nor_gl.jpg": {
+          "sha256": "297929524f3a2e6634543ec1c6f0278369d3649a2eba888fa3bf9caf72ab2af1",
+          "bytes": 1023095
+        },
+        "model.bin.z": {
+          "sha256": "dcaaf21cb391a9bd0a36310dbca41feace5fe04e9eedcc5cd98efa7dfcf26a6e",
+          "bytes": 92243
+        }
+      },
+      "bytes": 2936661
+    },
+    "model-fire-pit": {
+      "kind": "model",
+      "title": "Fire pit",
+      "description": "A ring of stones round a sooty fire bed, 1.45 m across. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 3887 triangles.",
+      "sources": [
+        "ph-model-stone_fire_pit"
+      ],
+      "derived": "Cut from 3887 to 3887 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "stone_fire_pit"
+        ],
+        "triangles": 3887
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "15ccfcb30cfd57fe32af9c2a497d404f6362ccf6b8c9bf48423421805b955051",
+          "bytes": 899
+        },
+        "model.bin.z": {
+          "sha256": "bf7c1f118e3841fa9dffc13335e57d9d3a2eb56f478ac26c3fe712204f02eca5",
+          "bytes": 63451
+        },
+        "stone_fire_pit_arm.jpg": {
+          "sha256": "9812f7511ccbddcb8340fd47a6fffcf3897820fad31004241639d6d2ea523e2c",
+          "bytes": 681441
+        },
+        "stone_fire_pit_diff.jpg": {
+          "sha256": "3f2a2340a7dc7207d5b24deb7697c11c43bbd1963533b8f7c41644d32872d1ff",
+          "bytes": 785670
+        },
+        "stone_fire_pit_nor_gl.jpg": {
+          "sha256": "6ba240fbdc1ab6dac4b06ac342e7fca9fa6064c7d4f98e75cfccad44214c533a",
+          "bytes": 969822
+        }
+      },
+      "bytes": 2501283
+    },
+    "model-wine-barrel": {
+      "kind": "model",
+      "title": "Wooden barrel",
+      "description": "An iron-hooped oak barrel 0.87 m tall. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 3986 triangles.",
+      "sources": [
+        "ph-model-wine_barrel_01"
+      ],
+      "derived": "Cut from 10820 to 3986 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "wine_barrel_01_Lid",
+          "wine_barrel_01_bung",
+          "wine_barrel_01",
+          "wine_barrel_01_base"
+        ],
+        "triangles": 3986
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c5e55a11244a8d5f2f409b3b96d2e48f7bd30646dcb96f16c748e4f7791f74d",
+          "bytes": 2434
+        },
+        "model.bin.z": {
+          "sha256": "67399e987e586f5d5229ed2d888fd0592e573d3595e62bbb75b4abaea8df2007",
+          "bytes": 87314
+        },
+        "wine_barrel_01_arm.jpg": {
+          "sha256": "be658e1389dbe8669e847b8fc7df8affdce46d6582f01ac701555b6446a40b9d",
+          "bytes": 172531
+        },
+        "wine_barrel_01_diff.jpg": {
+          "sha256": "6bea25b4fadda0636b6b7e46e0cc15153eda21ef62c823d5ee2e06a5a7589214",
+          "bytes": 195980
+        },
+        "wine_barrel_01_nor_gl.jpg": {
+          "sha256": "86cdb0729b44d1687c75d895e6d0ef650f7580d70f3bcb52bce6fedc5fd79b6f",
+          "bytes": 163587
+        }
+      },
+      "bytes": 621846
+    },
+    "model-sea-marker": {
+      "kind": "model",
+      "title": "Sea marker",
+      "description": "A weathered red channel-marker buoy 6.8 m tall with a daymark and a handrail. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 5000 triangles.",
+      "sources": [
+        "ph-model-lateral_sea_marker"
+      ],
+      "derived": "Cut from 13014 to 5000 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "lateral_sea_marker"
+        ],
+        "triangles": 5000
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "65cc07d05b8bbc4df9f488591060e8a24dda1861a558835c6e38d657b899bf48",
+          "bytes": 910
+        },
+        "lateral_sea_marker_arm.jpg": {
+          "sha256": "1790ee10cf493a01c777e2471f46baaddb59bb33a539f333383d2e82988aeede",
+          "bytes": 782484
+        },
+        "lateral_sea_marker_diff.jpg": {
+          "sha256": "0a0a82d1f34e4556c4f0380424792b76a87a341148d7ea784b4e987a73f4ba27",
+          "bytes": 687389
+        },
+        "lateral_sea_marker_nor_gl.jpg": {
+          "sha256": "a3493b79b2db9cf4e2831778e319458db2edea9c39bbf326a323db43d4957139",
+          "bytes": 549623
+        },
+        "model.bin.z": {
+          "sha256": "c5e334e880bef9521f8e7e59d53d1e33b31bbfa2a15112de8ed0dbb4efc157ee",
+          "bytes": 84116
+        }
+      },
+      "bytes": 2104522
+    },
+    "model-dead-trunk": {
+      "kind": "model",
+      "title": "Dead tree trunk",
+      "description": "A fallen dead tree trunk 4 m long, bark and lichen. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 3993 triangles.",
+      "sources": [
+        "ph-model-dead_tree_trunk_02"
+      ],
+      "derived": "Cut from 83128 to 3993 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "dead_tree_trunk_02"
+        ],
+        "triangles": 3993
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "290d21b85cef83f6c5c5c9534fb5b9ddef8b99797daa67d7fd422f9410ce5a09",
+          "bytes": 939
+        },
+        "dead_tree_trunk_02_arm.jpg": {
+          "sha256": "ea15561ce36572ebd0db3c997f70d68a76d4bcbfef7efb4f91c8fd3b5f766e62",
+          "bytes": 805609
+        },
+        "dead_tree_trunk_02_diff.jpg": {
+          "sha256": "fac23e81ab5639dcde93db605e5dd94c65e0aa2b1fb4a303f37de9afbb9af5b4",
+          "bytes": 932059
+        },
+        "dead_tree_trunk_02_nor_gl.jpg": {
+          "sha256": "9b26c29b89afced0ddb91dbe6f917e59038bed5ba6076dfceb8d1b4b00ca04f7",
+          "bytes": 1192056
+        },
+        "model.bin.z": {
+          "sha256": "ad88a385e9024191f66761625018189dcc596d377da7531be920558ae3d193b2",
+          "bytes": 72098
+        }
+      },
+      "bytes": 3002761
+    },
+    "model-cannon": {
+      "kind": "model",
+      "title": "Cannon",
+      "description": "An old ship cannon on a wooden carriage, 2.3 m long, with three cannonballs; the barrel, wheels and balls are parts. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 4933 triangles.",
+      "sources": [
+        "ph-model-cannon_01"
+      ],
+      "derived": "Cut from 41444 to 4933 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "cannon_01_frame",
+          "cannon_01_pusherblock",
+          "cannon_01_barrel",
+          "cannon_01_wheel_04",
+          "cannon_01_ball_01",
+          "cannon_01_ball_02",
+          "cannon_01_ball_03",
+          "cannon_01_wheel_01",
+          "cannon_01_wheel_02",
+          "cannon_01_wheel_03"
+        ],
+        "triangles": 4933
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "43314d9188147d99ee0b73c8251471f9b6e720172809d63f61ab402b689d8530",
+          "bytes": 5536
+        },
+        "cannon_01_arm.jpg": {
+          "sha256": "0489a9dd0dd1d8c081a83ff75bc7810968bbfed13a8c665b36c61c11d481e9d0",
+          "bytes": 842022
+        },
+        "cannon_01_diff.jpg": {
+          "sha256": "92023ea18cb0a6f17e159f296cfee243f6f1f41be4bb94ac67706b77366779e5",
+          "bytes": 734461
+        },
+        "cannon_01_nor_gl.jpg": {
+          "sha256": "7ac515f52de88198f5a1c00b0f0757d3ce003e41a80a4bf509db8deba32727c7",
+          "bytes": 766757
+        },
+        "model.bin.z": {
+          "sha256": "4410047da91e1ef8cd67391d457c665f5ef9ea241da7085404c57554048a19eb",
+          "bytes": 110953
+        }
+      },
+      "bytes": 2459729
     }
   }
 }
