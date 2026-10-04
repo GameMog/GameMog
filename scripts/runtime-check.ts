@@ -654,20 +654,6 @@ try {
         await page.eval('window.__gmRuntime.debug.invincible(true)');
         ok('a heal spends a bar of focus on 35 health', healed && hpB - hpA >= 34 && g.focus < 0.05, `hp ${hpA} -> ${hpB}, focus ${g.focus}`);
       }
-      // the fight's recorded impacts (the owner, 3 Oct: Kenney's CC0 sounds): an open world on foot loads the bank by
-      // itself (no world lists it), and a blow plays from it
-      {
-        type SB = { ready: boolean; families: string[]; shift: number | null; played: Record<string, number> };
-        const sb = () => page.eval<SB>('window.__gmRuntime.debug.sounds()');
-        await page.eval('window.__gmRuntime.debug.audio()');
-        let b = await sb(); for (let i = 0; i < 40 && !b.ready; i++) { await sleep(150); b = await sb(); }
-        const pp = (await os()).player;
-        await page.eval(`(() => { const O = window.__gmRuntime.debug.open(); O.clear(); O.place(${pp.x}, ${pp.z}, 0, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 1.2}); return true; })()`); await sleep(300);
-        for (let i = 0; i < 6; i++) { await page.eval('window.__gmRuntime.debug.open().punch()'); await sleep(260); }
-        const b2 = await sb();
-        const blows = (x: Record<string, number>) => (x.punch || 0) + (x.heavy || 0) + (x.body || 0);
-        ok('the fight\'s recorded impacts load by themselves, and a blow plays one', b.ready && b.families.length === 11 && blows(b2.played) > blows(b.played), `ready ${b.ready}, ${b.families.length} families, shift ${b.shift}, played ${JSON.stringify(b.played)} -> ${JSON.stringify(b2.played)}`);
-      }
       // fewer kicks (the owner, 3 Oct: "it should kick much less"): over a run of chains a kick is the odd blow; and a fight
       // one on one brings the camera in close over the shoulder ("more close up fighting")
       {

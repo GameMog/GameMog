@@ -517,13 +517,6 @@
       "licenseUrl": "https://github.com/GameMog/GameMog/blob/main/lib/runtime/traversal/LICENSE",
       "licenseText": "Used with the written permission of its author (3 Oct 2026: the combat system, and the hero's body and rig with the suit stripped), for GameMog only and non-commercial use; not under GameMog's MIT licence. Only animation clips are taken from this file, retargeted onto the library's own humans.",
       "homepage": "https://github.com/xikhar/spiderbench"
-    },
-    "kenney-impact-sounds": {
-      "title": "Impact Sounds (1.0)",
-      "author": "Kenney (www.kenney.nl)",
-      "license": "CC0-1.0",
-      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
-      "homepage": "https://kenney.nl/assets/impact-sounds"
     }
   },
   "assets": {
@@ -4049,42 +4042,6 @@
         }
       },
       "bytes": 2459729
-    },
-    "sfx-impacts": {
-      "kind": "sfx",
-      "title": "Impact sounds",
-      "description": "Recorded impacts for the fight, 38 sounds in 11 families (punch, heavy, body, fall, wood, staff, metal, blade, slam, boom, clatter): punches, kicks, weapons by material, falls, a slam. The runtime plays them itself in open worlds; no world lists them.",
-      "sources": [
-        "kenney-impact-sounds"
-      ],
-      "derived": "Decoded from Ogg Vorbis, made mono (the pack is dual-mono), DC blocked, the silence before each hit and its tail under -50 dB cut, brought to the same peak, joined into one sprite and encoded as AAC.",
-      "meta": {
-        "families": {
-          "punch": 4,
-          "heavy": 4,
-          "body": 4,
-          "fall": 4,
-          "wood": 4,
-          "staff": 4,
-          "metal": 3,
-          "blade": 3,
-          "slam": 3,
-          "boom": 2,
-          "clatter": 3
-        },
-        "duration": 13.785
-      },
-      "files": {
-        "asset.json": {
-          "sha256": "817df56cc49dda12888a41548098b9826701614e512ba7be7dfba4ffb896da45",
-          "bytes": 917
-        },
-        "impacts.m4a": {
-          "sha256": "a19eb147aad2f09690e4c36e0b24a87dbbe7cee1c016a27d9c08e316d1bbc55c",
-          "bytes": 140087
-        }
-      },
-      "bytes": 141004
     }
   }
 }
