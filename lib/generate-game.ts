@@ -7,6 +7,7 @@ import type { CharacterImage } from './character';
 import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, worldControls, isOpenWorld, worldMode, type WorldMeta } from './custom-game';
 import { playtestWorld, type WorldReport } from './playtest-runtime';
 import { drivesInBrowser, waitForDrive, codeHash, testStatus } from './test-drive';
+import { lookAdvisories, pickPass, type Pass } from './look';
 import { insertDraft, db, type GameRow } from './db';
 
 /**
@@ -36,7 +37,8 @@ export type GameEvent =
   | { type: 'problems'; attempt: number; problems: string[] }
   // the page drives the draft itself and posts the report (lib/test-drive.ts)
   | { type: 'drive'; draftId: string; token: string; attempt: number }
-  | { type: 'done'; draftId: string; meta: WorldMeta; runtime: Omit<WorldReport, 'cover'>; attempts: number; ms: number }
+  // kept: the world that ships is an earlier pass, because the repair of its notes was worse (lib/look.ts pickPass)
+  | { type: 'done'; draftId: string; meta: WorldMeta; runtime: Omit<WorldReport, 'cover'>; attempts: number; ms: number; kept?: { attempt: number; why: string } }
   | { type: 'error'; error: string; problems?: string[] };
 
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8');
@@ -131,6 +133,19 @@ function firstTurn(prompt: string, image?: CharacterImage, mog?: MogInput, optio
   return parts;
 }
 
+/**
+ * The turn that answers a world's notes (5 Oct, the first Mog of AI Alps: "it
+ * was looking good the first few passes, then the third pass screwed up the
+ * lightening to way overexposed"): the world already passed, so the notes ask
+ * for the smallest change, one thing each, the light kept unless a note is
+ * about it, and then within the runtime's ranges; a Mog keeps its original's
+ * light. The repair is driven again and ships only if it is no worse
+ * (lib/look.ts pickPass).
+ */
+function notesTurn(mog: boolean) {
+  return `Your world passed: it was checked and test-driven on the runtime in a real browser, and it plays. These notes came back. Answer each with the smallest change that does it, one thing per note, and keep everything else exactly as it is: above all the graphics (preset, exposure, bloom) and the lights, unless a note is about the light, and then one step within the runtime's ranges (exposure usually 0.8 to 1.3 and never above 1.5, a sun 2 to 4, a sky light 0.4 to 1.5, a lamp 0.5 to 4 with a distance).${mog ? " This is a Mog: unless the challenger's idea asks for a new look, keep the original's graphics and the strength of its lights; a note is never a reason to relight the world." : ''} Your repair is test-driven again, and if it looks worse than this world, this world ships. Reply with the complete world again, both blocks:`;
+}
+
 export async function generateGame(
   input: { prompt: string; image?: CharacterImage; origin: string; mog?: MogInput; options?: WorldOptions },
   emit: (e: GameEvent) => void
@@ -141,12 +156,23 @@ export async function generateGame(
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: firstTurn(input.prompt, input.image, input.mog, input.options) }];
   const draftId = randomUUID();
   let lastProblems: string[] = [];
-  let advisedOnce = false;
   // the latest pictures any pass's test drive took (cover and key art)
   const shots: { cover?: Uint8Array; artIcon?: Uint8Array; artWide?: Uint8Array; hash?: string } = {};
+  // a pass that passed and went back once, only for its notes: everything it would ship with, so it still can
+  type Kept = Pass & { attempt: number; meta: WorldMeta; stored: unknown; code: string; report: Omit<WorldReport, 'cover' | 'artIcon' | 'artWide'>; shots: typeof shots };
+  let kept: Kept | null = null;
+  /** Ships the kept pass: its draft (code, meta, report, cover and key art) back in the row the page publishes from. */
+  const keep = (k: Kept, why: string, attempts: number) => {
+    db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
+    insertDraft({ id: draftId, prompt: input.prompt, meta: k.stored, code: k.code, report: k.report, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
+    db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ? WHERE id = ?').run(k.shots.cover ?? null, k.shots.artIcon ?? null, k.shots.artWide ?? null, draftId);
+    return emit({ type: 'done', draftId, meta: k.meta, runtime: k.report, attempts, ms: Date.now() - started, kept: { attempt: k.attempt, why } });
+  };
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     emit({ type: 'stage', stage: attempt === 1 ? 'thinking' : 'repairing', attempt });
+    // this pass is the repair of a world that already passed
+    const prior = kept;
 
     let final: Anthropic.Beta.BetaMessage;
     try {
@@ -178,13 +204,17 @@ export async function generateGame(
       });
       final = await stream.finalMessage();
     } catch (e) {
-      if (e instanceof Anthropic.RateLimitError) return emit({ type: 'error', error: 'The model is rate limited right now. Try again in a minute.' });
-      if (e instanceof Anthropic.AuthenticationError) return emit({ type: 'error', error: 'The Anthropic API key was rejected. Check ANTHROPIC_API_KEY in .env.local.' });
-      if (e instanceof Anthropic.APIError) return emit({ type: 'error', error: `The Anthropic API returned ${e.status}: ${e.message}` });
-      return emit({ type: 'error', error: (e as Error).message });
+      const error = e instanceof Anthropic.RateLimitError ? 'The model is rate limited right now. Try again in a minute.'
+        : e instanceof Anthropic.AuthenticationError ? 'The Anthropic API key was rejected. Check ANTHROPIC_API_KEY in .env.local.'
+        : e instanceof Anthropic.APIError ? `The Anthropic API returned ${e.status}: ${e.message}`
+        : (e as Error).message;
+      // a world that already passed is never lost to a repair that could not be written
+      if (prior) return keep(prior, `the repair could not be written: ${error}`, attempt);
+      return emit({ type: 'error', error });
     }
 
     if (final.stop_reason === 'refusal') {
+      if (prior) return keep(prior, 'the model declined the repair', attempt);
       return emit({ type: 'error', error: 'The model declined this request. Try describing the world differently.' });
     }
 
@@ -195,6 +225,7 @@ export async function generateGame(
     if (code) problems.push(...staticCheckWorld(code));
 
     let report: WorldReport | undefined;
+    let notes = false;
     if (!problems.length && meta && code) {
       emit({ type: 'stage', stage: 'playtesting', attempt });
       const openWorld = isOpenWorld(code);
@@ -216,12 +247,21 @@ export async function generateGame(
       if (cover) { shots.cover = cover; shots.hash = hash; } if (artIcon) shots.artIcon = artIcon; if (artWide) shots.artWide = artWide;
       if (shots.cover) rest.coverHash = shots.hash;
       db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ? WHERE id = ?').run(shots.cover ?? null, shots.artIcon ?? null, shots.artWide ?? null, JSON.stringify(rest), draftId);
-      // the runtime's repairs are not failures, but the model hears about
-      // them once, so the world it ships is the one it meant
-      if (!problems.length && report.advisories.length && !advisedOnce && attempt < MAX_ATTEMPTS) {
-        advisedOnce = true;
-        problems.push(...report.advisories.map((a) => `The runtime had to repair this: ${a}`));
+      // the runtime's repairs and the look's notes are not failures, but the
+      // model hears about them once, so the world it ships is the one it
+      // meant; this pass is kept in case the repair is worse
+      if (!prior && !problems.length && report.advisories.length && attempt < MAX_ATTEMPTS) {
+        kept = { attempt, meta, stored, code, report: { ...rest }, shots: { ...shots }, problems: [], status: report.status, look: report.look, notes: report.advisories };
+        const look = new Set(report.look ? lookAdvisories(report.look) : []);
+        problems.push(...report.advisories.map((a) => look.has(a) ? `The test drive noted: ${a}` : `The runtime had to repair this: ${a}`));
+        notes = true;
       }
+    }
+
+    // a repair of a world that already passed ships only if it is no worse
+    if (prior) {
+      const pick = pickPass(prior, { problems, status: report?.status, look: report?.look, notes: report?.advisories });
+      if (pick.keep === 'prev') return keep(prior, pick.why, attempt);
     }
 
     if (!problems.length && meta && report) {
@@ -235,7 +275,7 @@ export async function generateGame(
     messages.push({ role: 'assistant', content: final.content as Anthropic.Beta.BetaContentBlockParam[] });
     messages.push({
       role: 'user',
-      content: `Your world was checked and playtested on the runtime in a real browser. Fix every one of these and reply with the complete world again, both blocks:\n\n${problems.map((p) => `- ${p}`).join('\n')}`,
+      content: `${notes ? notesTurn(!!input.mog) : 'Your world was checked and playtested on the runtime in a real browser. Fix every one of these and reply with the complete world again, both blocks:'}\n\n${problems.map((p) => `- ${p}`).join('\n')}`,
     });
   }
 

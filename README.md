@@ -104,7 +104,9 @@ life and sound, and the HUD's colours and font. The API it writes against is
 rather than trusted. An obstacle row that closes the whole track is thinned. Scenery inside
 the racing corridor is hidden, so nothing can block the chase camera; that was the start gate
 whose banner filled the screen in an earlier game. Every repair is reported, and the model is
-told once so it can do better.
+told once so it can do better, with how the test drive's frames looked (`lib/look.ts`); that
+repair is driven again and ships only if it is no worse, or the world it was asked to improve
+ships instead (`pickPass`).
 
 **Every world is raced before it can be published** (`playtestWorld` in
 `lib/playtest-runtime.ts`): real Chrome boots it, starts a run, drives several laps of rivals

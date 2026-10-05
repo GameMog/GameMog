@@ -234,6 +234,66 @@ console.log('\nthe library humans\' hands: together when relaxed, closed in a fi
   }
 }
 
+// 5 Oct, the first Mog of AI Alps: "it was looking good the first few passes, then the third pass screwed up the
+// lightening to way overexposed". A world that passed with notes goes back once; the repair ships only if it is no
+// worse (lib/look.ts pickPass, used by lib/generate-game.ts). The frames are the saloon's own, driven on the local
+// server on 5 Oct: with its original's light (moonlit, exposure 1), as it shipped (golden, exposure 1.7), and between.
+console.log('\nthe build keeps the better pass: a repair of a passing world\'s notes ships only if it is no worse');
+{
+  const { pickPass, lookNotes, lookAdvisories, lookScore } = await import('../lib/look.ts');
+  type L = Parameters<typeof lookScore>[0];
+  const MOONLIT: L = { entropy: 6.8, dominant: 0.048, edges: 0.134, contrast: 131, mean: 83, clipped: 0, floor: 16, player: 0.0283, seen: 0.79, apart: 14 };
+  const MOONLIT2: L = { entropy: 6.8, dominant: 0.053, edges: 0.145, contrast: 114, mean: 76, clipped: 0, floor: 17, player: 0.0365, seen: 1, apart: 31 };
+  const SHIPPED: L = { entropy: 7.14, dominant: 0.051, edges: 0.193, contrast: 178, mean: 155, clipped: 0.005, floor: 57, player: 0.0422, seen: 1, apart: 53 };
+  const SHIPPED2: L = { entropy: 7.12, dominant: 0.049, edges: 0.17, contrast: 172, mean: 156, clipped: 0.001, floor: 59, player: 0.0369, seen: 0.55, apart: 98 };
+  const EXP1: L = { entropy: 6.97, dominant: 0.048, edges: 0.147, contrast: 190, mean: 137, clipped: 0, floor: 41, player: 0.0378, seen: 0.99, apart: 94 };
+  const EXP1B: L = { entropy: 7.19, dominant: 0.038, edges: 0.199, contrast: 184, mean: 129, clipped: 0, floor: 34, player: 0.0272, seen: 1, apart: 71 };
+  const pass = (look: L, notes = lookAdvisories(look), status = 'passed') => ({ status, look, notes });
+  const kinds = (m: L) => lookNotes(m).map((n) => n.kind).join(',');
+
+  const saloon = pickPass(pass(MOONLIT), pass(SHIPPED));
+  ok('the over-lit saloon does not ship over the pass before it (a note about the player, answered by relighting the world)', saloon.keep === 'prev' && /brightened/.test(saloon.why), saloon.why);
+  ok('which a better score alone would have shipped: washed out is not blown out', lookScore(SHIPPED) > lookScore(MOONLIT) && kinds(SHIPPED) === '', `${lookScore(MOONLIT).toFixed(2)} to ${lookScore(SHIPPED).toFixed(2)}`);
+  ok('the moonlit saloon\'s note is about the player, not the light', kinds(MOONLIT) === 'blends', kinds(MOONLIT));
+  for (const [name, a, b] of [['moonlit', MOONLIT, MOONLIT2], ['as shipped', SHIPPED, SHIPPED2], ['exposure 1', EXP1, EXP1B], ['exposure 1, the other way', EXP1B, EXP1]] as const) {
+    const p = pickPass(pass(a), pass(b));
+    ok(`the same code driven twice is never refused as worse (${name})`, p.keep === 'next', p.why);
+  }
+
+  const lit = (mean: number, more: Partial<L> = {}): L => ({ ...EXP1, mean, ...more });
+  const p1 = pickPass(pass(lit(18)), pass(lit(70)));
+  ok('a nearly black world lifted, as its note asked, ships', kinds(lit(18)).startsWith('dark') && p1.keep === 'next', p1.why);
+  const p2 = pickPass(pass(lit(18)), pass(lit(215)));
+  ok('a nearly black world over-corrected to blown out does not', p2.keep === 'prev' && /blown out/.test(p2.why), p2.why);
+  const p3 = pickPass(pass(lit(215)), pass(lit(140)));
+  ok('a blown-out world dimmed, as its note asked, ships', p3.keep === 'next', p3.why);
+  const p4 = pickPass(pass(EXP1), pass(lit(130, { clipped: 0.08 })));
+  ok('a repair that turns the view glare white does not', p4.keep === 'prev' && /glare/.test(p4.why), p4.why);
+  const p5 = pickPass(pass(EXP1), pass(lit(80)));
+  ok('a repair that darkens the whole view unasked does not', p5.keep === 'prev' && /darkened/.test(p5.why), p5.why);
+  const LOUD = 'A PointLight has intensity 80. The runtime uses legacy light units: a sun of 2 to 4, a sky light of 0.4 to 1.5, a lamp of 0.5 to 4 with a distance (it fades to nothing there; without one it never fades). Values over 12 wash the picture out white.';
+  const p6 = pickPass(pass(EXP1, [LOUD]), pass(lit(80)));
+  ok('the runtime\'s light-units warning asks for less light: dimmed, it ships', p6.keep === 'next', p6.why);
+  const p7 = pickPass(pass(EXP1), pass(lit(130, { entropy: 5.4, edges: 0.06 })));
+  ok('a repair that looks worse by more than a drive\'s noise does not ship', p7.keep === 'prev' && /looks worse/.test(p7.why), p7.why);
+  const p8 = pickPass(pass(EXP1, ['one note']), pass(EXP1B, ['one note', 'and another']));
+  ok('nor one that ends with more notes than it was given', p8.keep === 'prev' && /more notes/.test(p8.why), p8.why);
+  const p9 = pickPass(pass(EXP1), { problems: ['Runtime error: x is not defined'], status: 'failed' });
+  const p10 = pickPass(pass(EXP1), { status: 'unverified', notes: [] });
+  ok('a repair with problems, or one never driven, never ships over a pass', p9.keep === 'prev' && p10.keep === 'prev', `${p9.why}; ${p10.why}`);
+  const p11 = pickPass({ status: 'passed', notes: ['a note'] }, { status: 'passed', notes: [] });
+  ok('with no frames to compare, a passing repair ships', p11.keep === 'next', p11.why);
+
+  const all: L = { entropy: 3, dominant: 0.4, edges: 0.03, contrast: 40, mean: 20, clipped: 0.08, floor: 0, player: 0.03, seen: 0.3, apart: 10 };
+  const notes = lookNotes(all);
+  ok('the advisories are the notes\' words', JSON.stringify(lookAdvisories(all)) === JSON.stringify(notes.map((n) => n.text)));
+  const light = notes.filter((n) => ['dark', 'blown', 'murky', 'glare'].includes(n.kind)).concat(lookNotes({ ...all, mean: 230, edges: 0.2 }).filter((n) => n.kind === 'blown' || n.kind === 'murky'));
+  ok('every light note gives the runtime\'s ranges and asks for one change, one step', light.length === 4 && light.every((n) => /never above 1\.5/.test(n.text) && /Change one thing, one step/.test(n.text)), light.map((n) => n.kind).join(','));
+  const frame = notes.filter((n) => ['one-colour', 'empty', 'hidden', 'blends'].includes(n.kind));
+  ok('every note about what is in the frame says to leave the light as it is', frame.length === 4 && frame.every((n) => /Leave the graphics, the exposure and the lights as they are/.test(n.text)), frame.map((n) => n.kind).join(','));
+  ok('the player\'s note changes the hero, not the world\'s light', /Change the hero, not the world's light/.test(notes.find((n) => n.kind === 'blends')?.text ?? ''));
+}
+
 runDifficultyChecks(ok);
 runDesignChecks(ok);
 

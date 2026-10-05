@@ -960,15 +960,17 @@ move away, and the controls card and the game page name only what is left:
 - `kicks: false`: he only punches. No roundhouse, no leaping kick (out of reach he charges in and
   throws a punch), no air game; the chain runs jab, cross, hook, body shot, lead uppercut, and ends
   on a rear uppercut or a haymaker, never one motion twice running. A held attack throws a haymaker
-  with everything behind it (the boxer's own looping hook, the camera kicked). Thrown back to back
-  (within 2.4 s, no other blow landing between them) each is wilder: 5, then 3, then 2 of power, and
-  the next is wound up only once the last is done; a blow of the chain landing makes the next a full
-  one again, so a combo ending on a held haymaker is the strongest way to fight. The finisher is a
-  punch: a haymaker drops the man, faster than a knockout falls, and the hero's fist comes straight
-  down on his head as it reaches the ground. With the motion pack listed for the hero's body
-  (`human-moves-<gender>`), that second blow is the pack's `crush`: he drops to one knee beside the
-  man, the fist high overhead, and drives it down onto his head once he is on the ground, holds it
-  there and rises back into his guard (the finisher takes 2.1 s of game time, against the slam's 1.3).
+  with everything behind it (the boxer's own looping hook, slow, the camera kicked), never the
+  motion just thrown: with `impact` (below) a hold straight after a hook throws the rear uppercut
+  instead, with the same power, falloff and rest. Thrown back to back (within 2.4 s, no other blow
+  landing between them) each is wilder: 5, then 3, then 2 of power, and the next is wound up only
+  once the last is done; a blow of the chain landing makes the next a full one again, so a combo
+  ending on a held haymaker is the strongest way to fight. The finisher is a punch: a haymaker drops
+  the man, faster than a knockout falls, and the hero's fist comes straight down on his head as it
+  reaches the ground. With the motion pack listed for the hero's body (`human-moves-<gender>`), that
+  second blow is the pack's `crush`: he drops to one knee beside the man, the fist high overhead,
+  and drives it down onto his head once he is on the ground, holds it there and rises back into his
+  guard (the finisher takes 2.1 s of game time, against the slam's 1.3).
 - `jump: false`: he never leaves the ground. Space, K and JUMP do nothing (no JUMP button), and the
   air game is off. Space still skips a scene and starts a run. (With `traversal`, Space is the
   traversal's, so this changes nothing there.)
@@ -980,6 +982,22 @@ move away, and the controls card and the game page name only what is left:
   back up) lands on his forearms for `block` of its harm (0 to 1, default 0.4), his guard up, with
   sparks off his forearms and a clank of metal. A heavy blow (a boss's, or one of 14 or more before
   the heat adds to it) still rocks him back; the heat never makes an ordinary man's blow heavy.
+- `impact: true` (on by itself with `kicks: false`; `impact: false` keeps it off): every landed
+  punch connects. In the last 0.12 s before a blow lands the hero closes (or opens) the gap so his
+  fist lands on the face (the chin for an uppercut, the ribs for a body shot), turned so a hook's
+  fist comes onto it and leaning in over a shorter man; the man stops and squares up. Only a man the
+  blow would have reached anyway is pulled in (by the very reach and cone it lands by, nothing
+  added), so nothing that missed now lands. On the frame it lands the man's head, neck and upper
+  back snap away from it the way the fist went (a hook turns his head, an uppercut lifts his chin, a
+  body shot folds him), over his own flinch; a short true hit-stop holds both of them (55 ms for a
+  jab to 120 ms for a knockout, eased out) while he shudders; the camera is kicked along the blow
+  with a touch of roll and a narrower lens for an instant; a small flash, a ring and a spray of
+  sweat leave the fist; and the hit is synthesised clean: a 2-6 kHz crack, a short body thump and,
+  only on a heavy blow, a sub. A big blow near the world's crowd (`civilians` as an object) draws an
+  "ooh"; a knockout stops longest and falls in a moment of slow motion. The chain's hook and
+  haymaker and the finisher's haymaker are the boxer's looping hook (the freeflow hook's fist never
+  reaches a man standing in front of him), so a held haymaker thrown after a hook (the same clip) is
+  the boxer's rear uppercut. Every other world fights as before.
 
 Hidden weapons are on unless `weapons: false`: `count` street weapons (bat, pipe, chain, baton,
 or a rare katana, `sword`, weighted by `kinds`) lie in the map's hiding places (in alleys, on

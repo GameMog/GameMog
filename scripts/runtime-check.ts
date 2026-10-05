@@ -867,7 +867,7 @@ try {
   try {
     await withBrowser(async (page) => {
       type TF = { thrown: Record<string, number>; can: { kicks: boolean; jump: boolean; dodge: boolean; tank: number | null }; finPlayed: string[] | null; blocked: number; heavies: number; act: string | null; fin: unknown;
-        focus: number; dash: { leap: boolean } | null; dashes: number; last: string | null; launches: number; dodges: number; slow: number; power: number; repeats: number; punching: number };
+        focus: number; dash: { leap: boolean } | null; dashes: number; last: string | null; launches: number; dodges: number; slow: number; power: number; repeats: number; punching: number; clip: string | null; heldAfter: string | null };
       type TS = { kos: number; player: { x: number; z: number; y: number; hp: number; max: number; act: string | null; stance: string }; enemies: { ko: boolean; hp: number }[] };
       const O = 'window.__gmRuntime.debug.open()';
       const tf = () => page.eval<TF>(`${O}.flow()`), ts = () => page.eval<TS>('window.__gmRuntime.state().open');
@@ -908,7 +908,8 @@ try {
       ok('no kicks, just an array of punches: over many chains not one kick, five kinds of punch or more, and never one motion twice running (the hook and the haymaker are one)',
         all >= 36 && kicks === 0 && kinds.length >= 5 && twice === 0, `${all} blows, ${kicks} kicks, ${twice} motions twice running (${JSON.stringify(Object.fromEntries(Object.keys(t1).map((k) => [k, n(k)])))})`);
       ok('a man out of reach is charged and punched, never leapt at with a kick', charged === 3 && leapt === 0 && !/leap/.test(charges), `${charged} charges, ${leapt} leaps, blows ${charges.trim()}`);
-      // a held attack: the haymaker with everything behind it, and nobody launched
+      // a held attack: the haymaker with everything behind it, and nobody launched (open.impact, on here: the boxer's slow
+      // hook, or after a hook, the chain's or a held one, his rear uppercut, so never the motion just thrown)
       {
         await page.eval(`(() => { const O = ${O}; O.clear(); O.place(${pp.x}, ${pp.z}, 0, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 1.3}); return true; })()`); await sleep(400);
         const h0 = await tf();
@@ -916,8 +917,9 @@ try {
         let g = await tf(); for (let i = 0; i < 40 && g.heavies === h0.heavies; i++) { await sleep(30); g = await tf(); }
         await page.key('KeyJ', 'keyUp'); await sleep(900);
         const g2 = await tf();
-        ok('a held attack throws the haymaker with everything behind it (the boxer\'s own hook, not the chain\'s), and launches nobody', g.heavies - h0.heavies === 1 && g.last === 'heavy' && g.act === 'hook' && g.power >= 5 && g2.launches === h0.launches && (await page.eval(`${O}.launch()`)) === null,
-          `heavies ${h0.heavies} -> ${g.heavies}, blow ${g.last} (${g.act}) at ${g.power}, launches ${h0.launches} -> ${g2.launches}`);
+        ok('a held attack throws the haymaker with everything behind it (the boxer\'s slow hook, or after a hook his rear uppercut: never the motion just thrown), and launches nobody',
+          g.heavies - h0.heavies === 1 && g.last === 'heavy' && !!g.heldAfter && g.act === (g.heldAfter === 'hook' ? 'uppercut' : 'hook') && g.act !== g.heldAfter && g.power >= 5 && g2.launches === h0.launches && (await page.eval(`${O}.launch()`)) === null,
+          `heavies ${h0.heavies} -> ${g.heavies}, blow ${g.last} (${g.act}) after ${g.heldAfter} at ${g.power}, launches ${h0.launches} -> ${g2.launches}`);
       }
       // no jumping: Space, K and the jump itself leave him on the ground
       {
@@ -961,7 +963,9 @@ try {
         // the longest he stands still (no blow playing) inside the finisher, and the nearest his fist comes to the head in the slam
         let still = 0, run0 = -1; fr.forEach((q, i) => { if (!q.act) { if (run0 < 0) run0 = i; still = Math.max(still, q.ms - fr[run0].ms + (fr[i + 1] ? fr[i + 1].ms - q.ms : 0)); } else run0 = -1; });
         const fist = Math.min(...fr.filter((q) => q.act === 'ffSlamLand').map((q) => q.fist));
-        ok('the finisher is a punch: a haymaker drops him and the fist comes down on him, down for good', !!fin && k1 - k0 === 1 && JSON.stringify(g.finPlayed) === JSON.stringify(['ffHook', 'ffSlamLand']) && !clips.has('ffFinisher') && g.focus < 0.2,
+        // (open.kicks: false brings the impact, whose haymaker is the boxer's looping hook: the freeflow hook's fist never
+        // reached the face)
+        ok('the finisher is a punch: a haymaker drops him and the fist comes down on him, down for good', !!fin && k1 - k0 === 1 && JSON.stringify(g.finPlayed) === JSON.stringify(['hook', 'ffSlamLand']) && !clips.has('ffFinisher') && g.focus < 0.2,
           `${k1 - k0} down, finisher played ${JSON.stringify(g.finPlayed)}, seen ${[...clips].join(',')}, focus left ${g.focus}`);
         ok('the fist comes down straight out of the haymaker, with no beat stood still between them, and lands on his head', fr.length > 20 && still < 200 && fist < 0.4,
           `${fr.length} frames, stood still ${Math.round(still)} ms at most, the fist ${fist.toFixed(2)} m from his head at the nearest`);
@@ -1055,7 +1059,7 @@ try {
         const over = before.length ? Math.max(...before.map((q) => q.over)) : 0;
         let still = 0, run0 = -1; fr.forEach((q, i) => { if (!q.act) { if (run0 < 0) run0 = i; still = Math.max(still, q.ms - fr[run0].ms + (fr[i + 1] ? fr[i + 1].ms - q.ms : 0)); } else run0 = -1; });
         ok('with the motion pack, the finisher\'s fist comes down from overhead, on one knee, onto the head of the man on the ground: down for good',
-          k1 - k0 === 1 && JSON.stringify(g.finPlayed) === JSON.stringify(['ffHook', 'crush']) && !!at && at.act === 'crush' && over > 0.15 && at.hips < 0.65 && at.fist < 0.25 && at.y > 0.12 && at.y < 0.32 && still < 200,
+          k1 - k0 === 1 && JSON.stringify(g.finPlayed) === JSON.stringify(['hook', 'crush']) && !!at && at.act === 'crush' && over > 0.15 && at.hips < 0.65 && at.fist < 0.25 && at.y > 0.12 && at.y < 0.32 && still < 200,
           `${k1 - k0} down, played ${JSON.stringify(g.finPlayed)}; before it lands the fist rises ${over.toFixed(2)} m over his own head; as it lands: ${at ? `${at.act}, the fist ${at.fist.toFixed(2)} m from the middle of the man's skull, ${at.y.toFixed(2)} m up, his hips ${at.hips.toFixed(2)} m up` : 'never'}; stood still ${Math.round(still)} ms at most`);
         const e = await page.eval<string[]>('window.__gm.errors');
         ok('a finisher with the motion pack raises no error', e.length === 0, e.join(' | '));
@@ -2029,6 +2033,159 @@ try {
           `${sp.map((r) => `dice ${r.seed}: held haymakers ${r.hold.harm} (${r.hold.heavies} thrown), the chain ${r.tap.harm} (${r.tap.blows} blows)`).join('; ')}${er.length ? '; ' + er.join(' | ') : ''}`);
       }, { timeoutMs: 120_000 });
     } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(spid); }
+  }
+
+  // Every punch lands (open.impact; the owner, 5 Oct, on the first Mog of AI Alps: "punches don't feel satisfying like are
+  // connecting and giving me the feeling of a hit"). On for a hero who only punches (open.kicks: false) or a world that
+  // asks, off everywhere else. On its own fixture: every blow of a chain lands with the fist on the face (the chin, the
+  // ribs), the man's head turned on the frame it lands, a stop held and eased, the camera kicked and its lens narrowed, a
+  // flash, a ring and sweat at the fist; a hook and then a hold are two motions (the held haymaker after the boxer's hook
+  // is his rear uppercut), both landing; the hit is a sharp crack and little under 200 Hz, a sub only on a heavy blow; a
+  // knockout lands harder and the crowd near it lets out an "ooh". Then as a boxer (the Typson Mog's fight), where a man
+  // out of reach is still missed; with impact: false (the runtime as it was); and Zombie Beach (it kicks: none of it)
+  console.log('\nopen worlds: every punch lands (open.impact): the magnetism, the snap, the stop, the camera, the flash and the hit');
+  {
+    const imcode = readFileSync(new URL('../lib/runtime/impact-world.js', import.meta.url), 'utf8');
+    const immeta = { title: 'Impact Check', tagline: 'Every punch lands', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#1A2236', ground: '#8E8676', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' };
+    type IL = { clip: string | null; kind: string; power: number; ko: boolean; gap: number | null; on: string | null; magnet: boolean | null; moved: number; aim: number; pitch: number; d: number | null;
+      stop: number[]; fx: boolean; react: number | null; reactAfter: number | null; froze: { real: number; game: number; held: number } | null; lens: number; time: number };
+    type IS = { on: boolean; H: number; hits: number; blow: { clip: string; magnet: boolean | null; moved: number; done: boolean } | null; snaps: number; sounds: number; oohs: number; last: IL | null; stop: number | null; camera: unknown; fx: { flashes: number; rings: number; sweat: number; made: boolean } | null; snapping: number; lean: number };
+    const IO = 'window.__gmRuntime.debug.open()';
+    const imp = (p: { eval<T>(e: string): Promise<T> }) => p.eval<IS>(`${IO}.impact()`);
+    // the sound measured: RBJ biquads for the bands (under 200 Hz; 2 to 6 kHz), shares of the energy, when it reaches half
+    // its peak (the attack) and when its crack peaks
+    const bq = (x: ArrayLike<number>, sr: number, hp: boolean, f: number) => {
+      const w = 2 * Math.PI * f / sr, c = Math.cos(w), al = Math.sin(w) / (2 * Math.SQRT1_2), b0 = hp ? (1 + c) / 2 : (1 - c) / 2, b1 = hp ? -(1 + c) : 1 - c, a0 = 1 + al, a1 = -2 * c, a2 = 1 - al, y = new Float64Array(x.length);
+      let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < x.length; i++) { const v = (b0 * x[i] + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2) / a0; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; } return y;
+    };
+    const hear = (r: { sr: number; at: number; samples: number[] }) => {
+      const s = r.samples, lo = bq(bq(s, r.sr, false, 200), r.sr, false, 200), hi = bq(bq(bq(bq(s, r.sr, true, 2000), r.sr, true, 2000), r.sr, false, 6000), r.sr, false, 6000);
+      let E = 0, El = 0, pk = 0; for (let i = 0; i < s.length; i++) { E += s[i] * s[i]; El += lo[i] * lo[i]; pk = Math.max(pk, Math.abs(s[i])); }
+      let half = 0; for (let i = 0; i < s.length; i++) if (Math.abs(s[i]) >= pk * 0.5) { half = i; break; }
+      let end = 0; for (let i = s.length - 1; i >= 0; i--) if (Math.abs(s[i]) > pk * 0.01) { end = i; break; }
+      const ms = (i: number) => +((i / r.sr - r.at) * 1000).toFixed(2), i0 = Math.round(r.at * r.sr);
+      // (the crack: its energy in the first 5 ms against the first 40, and its RMS over the first 10 ms)
+      const e = (m0: number, m1: number) => { let v = 0; for (let i = i0 + Math.round(m0 * r.sr / 1000); i < Math.min(s.length, i0 + Math.round(m1 * r.sr / 1000)); i++) v += hi[i] * hi[i]; return v; };
+      return { attackMs: ms(half), front: +(e(0, 5) / (e(0, 40) || 1)).toFixed(3), crack10: +Math.sqrt(e(0, 10) / (r.sr / 100)).toFixed(4), peak: +pk.toFixed(3), low: +(El / (E || 1)).toFixed(3), ms: ms(end) };
+    };
+    // a chain thrown at a man (a thug, who takes it) dist metres in front, and what each blow that landed did; while
+    // each lands, whether the flash, the ring, the sweat and the camera's kick were seen
+    const CHAIN = (dist: number, n: number) => `(async () => { const O = ${IO}, wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      const p = window.__gmRuntime.state().open.player; O.clear(); O.place(p.x, p.z, Math.PI, 0.12, false); O.spawn('thug', p.x, p.z + ${dist}); await wait(250);
+      const out = [], seen = { flash: 0, ring: 0, sweat: 0, camera: 0, snapping: 0, lean: 0 }; let t = O.impact().last ? O.impact().last.time : -1;
+      for (let i = 0; i < ${n}; i++) { O.punch();
+        for (let k = 0; k < 11; k++) { await wait(30); const s = O.impact(); if (s.fx) { seen.flash = Math.max(seen.flash, s.fx.flashes); seen.ring = Math.max(seen.ring, s.fx.rings); seen.sweat = Math.max(seen.sweat, s.fx.sweat); }
+          if (s.camera) seen.camera++; seen.snapping = Math.max(seen.snapping, s.snapping); seen.lean = Math.max(seen.lean, Math.abs(s.lean)); }
+        const l = O.impact().last; if (l && l.time !== t) { t = l.time; out.push(l); } }
+      await wait(400); const l = O.impact().last; if (out.length && l && l.time === out[out.length - 1].time) out[out.length - 1] = l;
+      return { blows: out, seen, flow: O.flow() }; })()`;
+    type CH = { blows: IL[]; seen: { flash: number; ring: number; sweat: number; camera: number; snapping: number; lean: number }; flow: { last: string | null } };
+    const boot = async (page: { goto(u: string): Promise<void>; eval<T>(e: string): Promise<T>; key(k: string, t?: 'keyDown' | 'keyUp'): Promise<void> }, id: string) => {
+      await page.goto(`${BASE}/d/${id}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      await page.key('Enter'); await sleep(400);
+      await page.eval('window.__gmRuntime.debug.audio(); window.__gmRuntime.debug.start()'); await sleep(700);
+      await page.eval('window.__gmRuntime.debug.invincible(true)');
+    };
+    const imid = randomUUID();
+    insertDraft({ id: imid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: imcode, meta: immeta });
+    try {
+      await withBrowser(async (page) => {
+        await boot(page, imid);
+        const s0 = await imp(page);
+        ok('a hero who only punches (open.kicks: false) has the impact on, its flash, ring and sweat made with the world', s0.on && !!s0.fx && s0.fx.made && s0.hits === 0, JSON.stringify({ on: s0.on, fx: s0.fx }));
+        const c = await page.eval<CH>(CHAIN(1.45, 5));
+        const B = c.blows, fmt = (l: IL) => `${l.clip} gap ${l.gap} m (${l.on}), pulled ${l.moved} m, aim ${l.aim}°, lean ${l.pitch}°, head ${l.react}° after ${l.reactAfter} s`;
+        // (the face and the chin are aimed at a little over the head's joint; the ribs at the spine, deeper in him)
+        ok('every blow of a chain lands: the fist within a quarter metre of what it was aimed at (the face, the chin; 0.3 m of the spine for the ribs), the two pulled together no more than they needed',
+          B.length >= 4 && B.every((l) => l.magnet === true && l.gap != null && l.gap <= (l.on === 'body' ? 0.3 : 0.25) && l.moved <= 0.95) && new Set(B.map((l) => l.clip)).size >= 3, B.map(fmt).join('; '));
+        ok('the man reacts on the frame it lands: his head turned 8 degrees or more on the first frame drawn after it, over his own flinch',
+          B.length >= 4 && B.every((l) => l.react != null && l.react >= 8 && l.reactAfter != null && l.reactAfter <= 0.02) && c.seen.snapping >= 1, B.map((l) => `${l.clip} ${l.react}° after ${l.reactAfter} s`).join(', '));
+        ok('the stop is held and eased (the game at under a third of its pace through it), the camera kicked, its lens narrowed, and a flash, a ring and sweat at the fist',
+          B.every((l) => !!l.froze && l.froze.real >= 0.06 && l.froze.held >= 2 && l.froze.game / l.froze.real <= 0.34 && l.lens >= 0.8) && c.seen.flash >= 1 && c.seen.ring >= 1 && c.seen.sweat > 0 && c.seen.camera > 0,
+          `${B.map((l) => `${l.clip}: ${l.froze ? `${l.froze.game} s of game in ${l.froze.real} s, ${l.froze.held} frames still` : 'no stop'}, lens -${l.lens}°`).join('; ')}; seen ${JSON.stringify(c.seen)}`);
+        // a hook and then a hold (J pressed as the chain's hook is thrown, and kept down): the hook is the boxer's here
+        // (FFPI), and so is the held haymaker, so the hold throws his rear uppercut instead; both land with the man's
+        // reaction (a fresh man, in reach, for each blow until the chain throws its hook)
+        const hh = await page.eval<{ blows: IL[]; after: string | null; act: string | null; heavies: number; tries: number }>(`(async () => { const O = ${IO}, wait = (ms) => new Promise((r) => setTimeout(r, ms));
+          const S = () => window.__gmRuntime.state().open, key = (t) => window.dispatchEvent(new KeyboardEvent(t, { code: 'KeyJ', bubbles: true })), h0 = O.flow().heavies;
+          let tries = 0;
+          for (; tries < 14; tries++) {
+            const p = S().player, f0 = O.foes()[0];
+            if (!f0 || f0.ko || f0.hp < 30 || Math.hypot(f0.x - p.x, f0.z - p.z) > 1.7) { O.clear(); O.place(p.x, p.z, Math.PI, 0.12, false); O.spawn('thug', p.x, p.z + 1.45); await wait(250); }
+            // tap only when nothing is playing, so the tap is thrown at once and not queued behind a blow
+            for (let w = 0; w < 80 && (O.flow().punching > 0 || O.flow().dash); w++) await wait(25);
+            O.punch(); const f = O.flow(); if (f.last === 'hook' && f.clip === 'hook' && f.punching > 0) break; await wait(450);
+          }
+          const t0 = S().time; key('keydown');
+          const seen = new Map(); let act = null;
+          for (let i = 0; i < 80; i++) { await wait(20); const l = O.impact().last; if (l && l.time >= t0) seen.set(l.time, l); const f = O.flow(); if (f.heavies > h0 && f.last === 'heavy' && f.act) act = act || f.act; }
+          key('keyup'); await wait(200); const l = O.impact().last; if (l && seen.has(l.time)) seen.set(l.time, l);
+          const f = O.flow(); return { blows: [...seen.values()], after: f.heldAfter, act, heavies: f.heavies - h0, tries }; })()`);
+        const [hk, hv] = hh.blows, lands = (l: IL | undefined) => !!l && l.magnet === true && l.gap != null && l.gap <= 0.25 && (l.react || 0) >= 8 && l.reactAfter != null && l.reactAfter <= 0.02;
+        ok('a hook and then a hold are two blows: the held haymaker after the chain\'s hook (the boxer\'s, as the held one is) is his rear uppercut, and both land with the man\'s reaction',
+          hh.tries < 14 && hh.heavies === 1 && hh.after === 'hook' && hh.act === 'uppercut' && hh.blows.length === 2 && hk.clip === 'hook' && hk.kind !== 'heavy' && hv.clip === 'uppercut' && hv.kind === 'heavy' && hv.power >= 5 && lands(hk) && lands(hv),
+          `${hh.tries + 1} taps to the hook; the hold threw ${hh.act} after ${hh.after}; ${hh.blows.map((l) => `${l.clip} (${l.kind}, ${l.power}) gap ${l.gap} m, head ${l.react}° after ${l.reactAfter} s`).join('; ')}`);
+        // the hit, as heard: rendered offline as the game plays it
+        const kinds: [string, number, boolean][] = [['jab', 1, false], ['cross', 1, false], ['hook', 1.5, false], ['upper', 1, false], ['body', 1.5, false], ['heavy', 3, false], ['heavy', 5, true]];
+        const H: Record<string, ReturnType<typeof hear>> = {};
+        for (const [k, p, ko] of kinds) H[k + (ko ? 'KO' : '')] = hear(await page.eval<{ sr: number; at: number; samples: number[] }>(`${IO}.impactAudio('${k}', ${p}, ${ko})`));
+        const blows = ['jab', 'cross', 'hook', 'upper'].map((k) => H[k]), s1 = await imp(page);
+        // (the old thud, measured the same way: half its peak at 6 ms, 1% of its 2-6 kHz energy in its first 5 ms, a crack
+        // RMS of 0.01 over its first 10 ms, 60-69% of its energy under 200 Hz)
+        ok('the hit is a sharp crack and clean: half its peak within 1.5 ms, its 2-6 kHz crack front-loaded (45% or more of it in the first 5 ms) and loud, under half its energy below 200 Hz, over in a sixth of a second; the sub only on a heavy blow; one sound for every blow landed',
+          blows.every((h) => h.attackMs <= 1.5 && h.front >= 0.45 && h.crack10 >= 0.035 && h.low <= 0.5 && h.ms <= 160) && H.heavy.low > H.jab.low && H.heavyKO.low > H.jab.low && H.heavy.low <= 0.7 && H.heavy.crack10 >= 0.06 && H.heavy.ms <= 200 && H.body.ms <= 180 && s1.sounds === s1.hits,
+          `${Object.entries(H).map(([k, h]) => `${k}: attack ${h.attackMs} ms, crack ${h.crack10} (${Math.round(h.front * 100)}% in 5 ms), low ${h.low}, ${h.ms} ms`).join('; ')}; ${s1.sounds} sounds for ${s1.hits} blows`);
+        // a knockout: a man who drops at the first blow, the crowd at the bar ten metres off (the "ooh" is at most one
+        // every 1.6 s: the chain's uppercut may have had one)
+        await sleep(1800);
+        const k0 = await imp(page);
+        await page.eval(`(() => { const O = ${IO}, p = window.__gmRuntime.state().open.player; O.clear(); O.place(p.x, p.z, Math.PI, 0.12, false); O.spawn('biker', p.x, p.z + 1.4); return true; })()`); await sleep(300);
+        await page.key('KeyJ', 'keyDown'); await sleep(260);
+        let ko: IL | null = null, slow = 0;
+        for (let i = 0; i < 40; i++) { await sleep(25); const s = await imp(page); if (s.last && s.last.ko && (!k0.last || s.last.time !== k0.last.time)) ko = s.last; slow = Math.max(slow, (await page.eval<{ slow: number }>(`${IO}.flow()`)).slow); if (ko && i > 20) break; }
+        await page.key('KeyJ', 'keyUp'); await sleep(500);
+        const k1 = await imp(page);
+        ok('a knockout lands harder: a longer stop, a moment of slow motion as he goes down, and the crowd near him lets out an "ooh"',
+          !!ko && ko.stop[0] >= 0.1 && slow > 0 && k1.oohs > k0.oohs, `${ko ? `${ko.clip} at ${ko.power}, stop ${ko.stop.join('+')} s, gap ${ko.gap}` : 'no knockout'}, slow motion ${slow} s, oohs ${k0.oohs} -> ${k1.oohs}`);
+        const e = await page.eval<string[]>('window.__gm.errors');
+        ok('the impact raises no error', e.length === 0, e.join(' | '));
+      }, { timeoutMs: 150_000 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(imid); }
+    // as a boxer (fight: 'boxing', the Typson Mog's): the jab, the cross and the hook land; a man out of reach is missed
+    const bxid = randomUUID();
+    insertDraft({ id: bxid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: imcode.replace('kicks: false, jump: false,', "fight: 'boxing', kicks: false, jump: false,"), meta: immeta });
+    try {
+      await withBrowser(async (page) => {
+        await boot(page, bxid);
+        const c = await page.eval<CH>(CHAIN(1.45, 3));
+        ok('a boxer (the Typson Mog\'s fight): the jab, the cross and the hook land on the face, and the man reacts on the frame',
+          c.blows.length === 3 && c.blows.every((l) => l.gap != null && l.gap <= 0.25 && (l.react || 0) >= 8) && c.blows.map((l) => l.clip).join() === 'jab,cross,hook', c.blows.map((l) => `${l.clip} gap ${l.gap} m, head ${l.react}°`).join('; '));
+        const m0 = await imp(page);
+        const far = await page.eval<{ hp0: number; hp1: number; d0: number; d1: number }>(`(async () => { const O = ${IO}, p = window.__gmRuntime.state().open.player; O.clear(); O.place(p.x, p.z, Math.PI, 0.12, false); O.spawn('thug', p.x, p.z + 2.7);
+          await new Promise((r) => setTimeout(r, 200)); const f0 = O.foes()[0], d0 = Math.hypot(f0.x - p.x, f0.z - p.z); O.punch(); await new Promise((r) => setTimeout(r, 650));
+          const q = window.__gmRuntime.state().open.player, f1 = O.foes()[0]; return { hp0: f0.hp, hp1: f1.hp, d0, d1: Math.hypot(f1.x - q.x, f1.z - q.z) }; })()`);
+        const m1 = await imp(page);
+        ok('a man out of reach is not pulled in: the blow still misses him', far.hp1 === far.hp0 && m1.hits === m0.hits && !!m1.blow && m1.blow.magnet !== true && m1.blow.moved === 0,
+          `hp ${far.hp0} -> ${far.hp1}, ${far.d0.toFixed(2)} m away when thrown, hits ${m0.hits} -> ${m1.hits}, the blow ${JSON.stringify(m1.blow)}`);
+      }, { timeoutMs: 120_000 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(bxid); }
+    // impact: false (the runtime as it was), and Zombie Beach (a hero who kicks): none of it
+    const ofid = randomUUID(), zbid2 = randomUUID();
+    insertDraft({ id: ofid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: imcode.replace('kicks: false, jump: false,', 'kicks: false, jump: false, impact: false,'), meta: immeta });
+    insertDraft({ id: zbid2, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../worlds/zombie-beach.js', import.meta.url), 'utf8'), meta: { ...immeta, title: 'Open Check' } });
+    try {
+      await withBrowser(async (page) => {
+        await boot(page, ofid);
+        const c = await page.eval<CH & { hp: number }>(`(async () => { const r = await ${CHAIN(1.45, 4)}; r.hp = window.__gmRuntime.state().open.enemies[0].hp; return r; })()`);
+        const s = await imp(page);
+        ok('open.impact: false keeps the runtime as it was: blows land as they did (the freeflow hook), with no snap, no stop curve, no flash and no new sound', !s.on && s.fx === null && s.hits === 0 && s.snaps === 0 && s.sounds === 0 && c.blows.length === 0 && c.hp < 40,
+          `${JSON.stringify({ on: s.on, fx: s.fx, hits: s.hits, sounds: s.sounds })}, his hp ${c.hp}`);
+        await boot(page, zbid2);
+        const z = await imp(page);
+        ok('Zombie Beach (a hero who kicks): no impact, and nothing of it made', !z.on && z.fx === null, JSON.stringify({ on: z.on, fx: z.fx }));
+      }, { timeoutMs: 150_000 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ? OR id = ?').run(ofid, zbid2); }
   }
 
   // the traversal (the owner, 2 Oct: Spiderbench's, with its author's permission): a library hero
