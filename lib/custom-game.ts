@@ -53,6 +53,55 @@ export const WORLD_CONTROLS = 'Arrow keys or WASD: left and right steer, up is f
 /** An open world (open: {...} in GameMog.world): free roam and survival, ranked by the time survived. */
 export function isOpenWorld(code?: string) { return !!code && /\bopen\s*:\s*\{/.test(code); }
 export const OPEN_CONTROLS = 'W A S D or the arrow keys: move. Shift: run. J, F or a click: punch (jab, cross, hook). Space: jump. Drag: look around. P: pause. On touch screens, a stick and buttons.';
+/**
+ * An open world whose hero has fewer moves (AI Alps, the owner 4 Oct: "no kicks. just an array of punches", "no
+ * jumping", "He never flips or rolls. He walks through hits and blocks with his forearms"): open.kicks, open.jump or
+ * open.dodge: false, or open.tank. Its page names only what he can do, from these lines; any other open world keeps
+ * OPEN_CONTROLS word for word. (With open.traversal, Space is the traversal's, so jump: false changes nothing there.)
+ */
+export const OPEN_HERO_CONTROLS = {
+  move: 'W A S D or the arrow keys: move. Shift: run.',
+  punch: 'J, F or a click: punch (jab, cross, hook).',
+  punches: 'J, F or a click: punch (jab, cross, hook, body shot, uppercut; hold: a haymaker).',
+  jump: 'Space: jump.',
+  tank: 'Blows from in front land on his forearms.',
+  rest: 'Drag: look around. P: pause. On touch screens, a stick and buttons.',
+};
+/**
+ * The open: { ... } object's own keys, as text: what its top level says, with everything nested in it (a crew, a
+ * hazard, a helper object), every string and every comment left out, so `jump: false` said of anything but the hero
+ * is not read as his. Found the way isOpenWorld finds an open world.
+ */
+function openTop(code: string) {
+  const m = /\bopen\s*:\s*\{/.exec(code);
+  if (!m) return '';
+  let out = '', depth = 1, i = m.index + m[0].length;
+  while (i < code.length && depth > 0) {
+    const c = code[i], n = code[i + 1];
+    if (c === '/' && n === '/') { const e = code.indexOf('\n', i); i = e < 0 ? code.length : e; continue; }
+    if (c === '/' && n === '*') { const e = code.indexOf('*/', i + 2); i = e < 0 ? code.length : e + 2; continue; }
+    if (c === '"' || c === "'" || c === '`') {
+      let j = i + 1; while (j < code.length && code[j] !== c) j += code[j] === '\\' ? 2 : 1;
+      if (depth === 1) out += c + c;
+      i = j + 1; continue;
+    }
+    if (c === '{' || c === '[' || c === '(') { if (depth === 1) out += c; depth++; i++; continue; }
+    if (c === '}' || c === ']' || c === ')') { depth--; if (depth === 1) out += c; i++; continue; }
+    if (depth === 1) out += c;
+    i++;
+  }
+  return out;
+}
+function openControls(code: string) {
+  // (the hero's options are read where the runtime reads them, the open object's own keys; and a tank is true or an
+  // object, as the runtime takes it)
+  const top = openTop(code);
+  const kicks = !/\bkicks\s*:\s*false\b/.test(top), dodge = !/\bdodge\s*:\s*false\b/.test(top), tank = /\btank\s*:\s*(true\b|\{)/.test(top);
+  const jump = /\btraversal\s*:/.test(top) || !/\bjump\s*:\s*false\b/.test(top);
+  if (kicks && jump && dodge && !tank) return OPEN_CONTROLS;
+  const L = OPEN_HERO_CONTROLS;
+  return [L.move, kicks ? L.punch : L.punches, jump ? L.jump : '', tank ? L.tank : '', L.rest].filter(Boolean).join(' ');
+}
 // a derby (open.vehicle): car combat in an arena
 export const DERBY_CONTROLS = 'W A S D or the arrow keys: drive (S brakes, then reverses). Space: handbrake. Shift: boost. J, F or a held click: the roof guns. Drag: look around. P: pause. On touch screens, a stick to drive and BOOST, BRAKE and FIRE.';
 /**
@@ -92,7 +141,7 @@ export const MODE_PAGE: Record<WorldMode, { label: string; rivals: string; how: 
 export const NO_GM_HOW = 'An open world to roam, with no GM to chase. Crews come for you, more of them and tougher as the heat rises: it climbs with time and with every few knockouts, and a boss arrives at every third heat. Get knocked out and the run is over. The leaderboard ranks the time survived, then the takedowns.';
 export function worldControls(code: string) {
   const mode = worldMode(code);
-  if (mode !== 'race') return mode === 'derby' ? DERBY_CONTROLS : OPEN_CONTROLS;
+  if (mode !== 'race') return mode === 'derby' ? DERBY_CONTROLS : openControls(code);
   return /\bplay\s*:\s*\{[\s\S]{0,400}?\bcombat\s*:/.test(code)
     ? 'Arrow keys or WASD: left and right steer, up is faster, down is slower. X (or J) swings your sword. Space: jump. P: pause. On-screen buttons, a JUMP and a sword button, on touch screens.'
     : WORLD_CONTROLS;
@@ -265,6 +314,17 @@ function mapScripts(world: string) {
   }).join('\n');
 }
 
+/**
+ * The endoskeleton a library person can be (lib/runtime/endo.js, ctx.assets.human(id, { endo: ... })): only a world
+ * whose source asks for one gets its script, ahead of the runtime like a map, so no other world carries or parses it.
+ */
+let ENDO = '';
+function endoScript(world: string) {
+  if (!/\bendo['"]?\s*:/.test(world)) return '';
+  if (!ENDO || process.env.NODE_ENV !== 'production') { try { ENDO = readFileSync(join(process.cwd(), 'lib', 'runtime', 'endo.js'), 'utf8'); } catch { ENDO = ''; } }
+  return ENDO ? `<script>\n${inert(ENDO)}\n</script>\n` : '';
+}
+
 /** The test drive that runs in the creator's browser (lib/runtime/drive.js). */
 let DRIVE = '';
 function driveSource() {
@@ -288,7 +348,7 @@ ${inert(driveSource())}
 <script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.js"><\\/script>');</script>
 </head>
 <body>
-${mapScripts(world)}
+${mapScripts(world)}${endoScript(world)}
 <script>
 ${inert(runtimeSource(runtime))}
 </script>
@@ -379,10 +439,15 @@ const WORLD_FORBIDDEN: [RegExp, string][] = [
     'The camera belongs to the runtime: every world is 3D, seen from behind the player. Read ctx.camera (for example its position, to face a billboard at it) but never move, re-aim, re-project or attach things to it.'],
 ];
 
-export function staticCheckWorld(code: string): string[] {
-  const problems: string[] = [];
+// The most code a world module may hold. Worlds the builder writes keep to
+// 260KB; the owner's first-party worlds in worlds/ may run to 360KB (owner,
+// 5 Oct 2026), so a world as large as AI Alps can ship as readable code.
+export const WORLD_MAX = 260_000, FIRST_PARTY_MAX = 360_000;
+
+export function staticCheckWorld(code: string, opts: { max?: number } = {}): string[] {
+  const problems: string[] = [], max = opts.max ?? WORLD_MAX;
   if (code.length < 1500) problems.push('The world module is too short to be a real world. Build the whole thing.');
-  if (code.length > 260_000) problems.push(`The world module is ${Math.round(code.length / 1000)}KB; keep it under 260KB.`);
+  if (code.length > max) problems.push(`The world module is ${Math.round(code.length / 1000)}KB; keep it under ${Math.round(max / 1000)}KB.`);
   if (!/GameMog\.world\s*\(/.test(code)) problems.push('The module never calls GameMog.world({...}).');
   for (const [re, why] of [...FORBIDDEN, ...WORLD_FORBIDDEN]) if (re.test(code)) problems.push(why);
   try { new Script(code, { filename: 'world.js' }); }

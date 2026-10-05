@@ -106,6 +106,21 @@ play: {
   chosen on the page and enforced by the runtime. Do not set them; build for the one you are
   told, and never compose or synthesise music yourself.
 
+**Where the music plays from** (optional): a world with a place the music comes from (a DJ's
+booth, a stage, a bandstand) may say where it is, `music: { source: { at: [0, 1.5, 9], near: 8,
+far: 140, floor: 0.12, boost: 1.6, sub: 0.8, crowd: 0.6, keep: true, rooms: [{ min: [x, z], max:
+[x, z] }] } }`, and when the music is on it is heard from there: loud and full within `near`
+metres (`boost`, 0.5 to 2.5, times the platform's level), falling with distance and losing its top
+end to the air until by `far` it is muffled at `floor` (0 to 1), panned to the side it is on, with
+the bass you feel by the speakers (`sub`, 0 to 2) and, far off, a slap back off the valley. `crowd`
+(0 to 1.5, 0 for none) is a crowd on the floor heard with it (and with the music off), cheering on
+the drop and when a man is knocked out within 18 m of `at`. `keep: true` lets it play on through scenes, a knockout and the
+results instead of falling away. `rooms` are boxes on the ground (up to 16): heard from inside one
+when the source is outside it (or the other way round), it is duller and quieter, as through a wall.
+In an open world it is heard from the hero (from the camera in a scene), and a blow he lands near
+it cuts through it a little (at most every 0.4 s; the blows he takes do not). Every field but `at`
+is optional. Without `source` the music plays as it always has.
+
 ### theme
 `{ sky, fog, ink, panel, accent, font }`. Colours are `#RRGGBB`. The HUD, screens and touch
 controls are the platform's and look the same in every world (frosted glass, white type in
@@ -124,6 +139,7 @@ world uses (up to 24); it all loads before `build()` runs.
 | `human-athlete-male` | a realistic male athlete: skins `african`, `caucasian`, `caucasian2`, `asian`; hair `short02`, `short04`, `afro01`; motion-captured idle, standing start, run, sprint and fall, and sword motion (a guard, three cuts, a hit and a death) |
 | `human-athlete-female` | the same for a female athlete: skins `african`, `caucasian`, `asian` |
 | `human-pack-male`, `human-pack-female` | the people pack for that body (list it with the body): real garments, shoes and hats fitted to it, seven more hairstyles, the middle-aged and old skins, and two more shapes, `age` and `weight` (below) |
+| `human-moves-male`, `human-moves-female` | the motion pack for that body (list it with the body, 0.20 MB): thirteen more clips by name: for a party, the dances `danceTwist`, `danceCabbage`, `danceLambada`, `danceMacarena`; a drunk's `drunkIdle`, `drunkWalk` (a gait) and `drink`; `cheer`, `toast`, `smash` (a bottle over the head); `leanBar`, `sitTalk`; and `crush`, an overhead punch down onto a man on the ground (the punch finisher's, below) |
 | `hdri-sunset-city` | a golden-hour city sky for `graphics.environment.hdri` |
 | `sky-noon`, `sky-partly-cloudy`, `sky-sunset`, `sky-dusk`, `sky-night`, `sky-overcast` | photographed skies, open all round, full dynamic range, for `ctx.sky({ hdri })` |
 | `sky-beach` | a photographed Mediterranean beach at midday: sand, pines, a headland, the sea to the horizon (`face` turns its sea) |
@@ -163,6 +179,15 @@ world uses (up to 24); it all loads before `build()` runs.
 | `model-sea-marker` | a weathered red channel-marker buoy 6.8 m tall with a daymark and a handrail; y = 0 is its waterline (1.3 m of it floats below) |
 | `model-dead-trunk` | a fallen dead tree trunk 4 m long along x, bark and lichen |
 | `model-cannon` | an old ship cannon on its wooden carriage, 2.3 m long along z: `cannon_01_barrel`, `cannon_01_frame`, `cannon_01_pusherblock`, wheels `cannon_01_wheel_01` to `_04`, and three cannonballs `cannon_01_ball_01` to `_03` beside it |
+| `sky-winter-square` | a photographed small-town square on a snowy, overcast night (1024 x 512): warm street lamps, festive lights, houses all round. A light, not a sky: use it as `graphics.environment.hdri` (warm lamplight in glass, metal and snow) behind a sky of your own, never in `ctx.sky` (its brightest pixel is a street lamp, which the environment turns to the world's key light; as a visible sky it would also count as day). 1.75 MB |
+| `texture-snow-aerial` | a snowfield photographed from the air, one tile 80 m across: patchy snow over dark soil and scrub, for mountain slopes and ground seen from far off (`ctx.assets.surface`), where a 2 m snow tile repeats |
+| `texture-snow-trodden` (2 m), `texture-chalet-planks` (1.57 m), `texture-roof-slates` (3 m), `texture-stone-wall` (1.5 m), `texture-dark-rock` (2 m) | scanned surfaces for an Alpine resort: snow trodden into paths with boot prints; dark weathered horizontal plank siding (chalet walls); a weathered roof of small grey-brown slates; dry-laid flat stacked stone (chalet bases, terraces); dark layered rock with fractured ledges (outcrops, with `project: 'box'`) |
+| `texture-fir-cards` | not a surface: an atlas of three conifer branch sprays on green, colour, normal and an `alpha` cut-out map, for alpha-tested branch cards on firs and spruces. `ctx.assets.texture` gives `alphaMap` and `cards`, each spray's rectangle (below) |
+| `model-lantern` | an antique brass hurricane lantern 0.29 m tall (0.12 m across) with a carry handle; its smoky glass globe, 0.06 to 0.13 m up, is a part of its own (`Lantern_01`, `Lantern_01_glass`). Nothing glows: the flame and its light are the world's |
+| `model-lounge-chair` | a mid-century swivel lounge chair 1.17 m tall, 1.01 m wide and 1.19 m deep: a bent-wood shell with worn brown leather cushions on a five-star base; it faces +z |
+| `model-bar-stool` | a vintage wooden bar stool 0.75 m tall with a round seat 0.48 m across, beaded trim and a ring footrest |
+| `model-coffee-table` | a round coffee table 1.3 m across and 0.49 m tall, a white marble top on looping black metal legs |
+| `heightfield-massif` | not a surface: a terrain, a snow-capped mountain massif on a square 5 km a side (1024 x 1024 heights, 16-bit, about 4.9 m apart), about 4.5 km across and rising from 1.3 m on the flat plain at its edges to a summit of 1988 m a little east and south of the middle: sharp rocky ridges run west and south from the summit with cliffs on their flanks, a broad snow bowl opens to the north below them, and eroded spurs and gullies fall away all round. Its `colorMap` (1024 px) is the snow cover with bare grey rock on the steep faces. For mountains round a valley, seen from afar: `ctx.assets.heightfield` (below). 1.92 MB |
 
 `ctx.assets.human(id, options)` returns `{ object, animate, name, color }`: return it straight
 from `player()` or `rival()`. It idles when standing, plays a standing start when it first moves,
@@ -182,6 +207,12 @@ ctx.assets.human('human-athlete-male', {
 
 `tone: '#RRGGBB'` in place of `skin` and `skinTint` picks the nearest skin texture and tints it
 to that colour.
+
+`hairColor` tints the style's own hair, which is dark: it can warm it or darken it, never lighten
+it (a white `hairColor` on most styles is still dark hair). For grey, silver, white, blond or dyed
+hair add `hairDye: true`: the hair is then drawn in `hairColor` itself, its strands' light and
+shade kept (`hairColor: '#E4E1DA', hairDye: true` is silver-white). It works on every style, the
+people pack's too; the brows and lashes keep the tint.
 
 For a world with the sword on: `weapon: { blade, grip, trail }` (colours, or `true`) puts a katana
 in the right hand, carried back along the forearm while running and brought round for a cut,
@@ -296,6 +327,74 @@ replace the kit's shoes and painted boots; a hat, like a cap, a beanie or a hood
 Mix pack and painted people in one crowd. Without the pack, its names fall back: `caucasian-old`
 is the young `caucasian`, an unknown hair is the body's first, and `wear` is ignored.
 
+**The motion pack**: party motion, and the punch finisher's last blow. List `human-moves-male` or `human-moves-female` next to its
+body (`assets: ['human-athlete-male', 'human-moves-male']`); a world that leaves it out gets none
+of it, and the body itself is the same file either way. Its clips join the body's own
+(`ctx.assets.info(id).clips` lists them) and play wherever a person's stance, gait or move is
+named: in an open world a cast member's `stance`, `gait` and `act`, a crew look's `gait`, and
+`s.brawl` for a body of your own. The times are at rate 1:
+
+| clip | plays | what it is |
+|---|---|---|
+| `danceTwist` | loop, 1.33 s | the Twist: hips and heels swung one way and back, the arms with them |
+| `danceCabbage` | loop, 2.5 s | the Cabbage Patch: the fists together, stirred round twice in front of the chest, bobbing |
+| `danceLambada` | loop, 1 s | a partner's hold (left hand raised, right at the chest), the hips and a step out and back |
+| `danceMacarena` | loop, 5.27 s | a whole Macarena: hands behind the head, on the hips, a hop, arms out, palms over, hands to the shoulders (the dance's quarter turn is a hop on the spot) |
+| `drunkIdle` | loop, 8 s | swaying, a stagger, a hand to the head |
+| `drunkWalk` | gait, 0.76 m/s (0.67 the female) | lurching steps: `gait: 'drunkWalk'`, paced to the speed like the walks |
+| `drink` | once, 6.5 s, contact 2.5 s | a drunk's long drink: a mug in both hands, up to the mouth in the right (at `contact`), the head tipped back, down again |
+| `toast` | once, 1.37 s, contact 0.4 s | a glass raised high in the left hand (at `contact`) and lowered |
+| `cheer` | once, 1.13 s | a jump for joy, the arms flung up, landing a step forward |
+| `smash` | once, 1.57 s, contact 0.38 s | the right hand up over the head and down in a lunge (a bottle over someone's head), from a crouch; `contact` is the downswing |
+| `leanBar` | loop, 2.5 s | leaning forward on the forearms on a rail or bar top 1.05 m high (0.93 m the female), its edge 0.3 to 0.6 m in front of the feet |
+| `sitTalk` | loop, 2.93 s | seated, talking with the hands: hips 0.58 m up (0.53 m the female), a seat about 0.48 m high |
+| `crush` | once, 1.5 s, contact 0.56 s | from the fight guard: a step in and down onto the right knee (hips 0.5 m up), the right fist high overhead (elbow up, the shoulder turned back), then driven straight down onto a head on the ground: at `contact` the knuckles are 0.21 m over the floor, 0.56 m ahead of the body's spot and 0.26 m to its right; held there a beat, then back up into the guard. Keyed by hand (the fists the guard's). A hero who only punches throws it as his finisher (`open.kicks: false`, below) |
+
+Heights are at the bodies' own heights (1.87 m and 1.70 m) and scale with `height`. The dances and
+`drunkIdle` keep their hips' own sway over the spot (the Twist 0.27 m, the drunk 0.38 m, the
+others about 0.1 m): stand dancers a metre apart. `drink`, `toast` and `smash` thrown while walking
+play on the arms over the walking legs. Nothing is held: put the glass, mug or bottle on the hand
+bone, `person.object.getObjectByName('wrist_R')` (the drink and the smash; `wrist_L` for the
+toast). Motion capture has no fingers, so the captured clips' hands rest loosely closed.
+
+**An endoskeleton** (optional): `endo` draws the person as a machine of warm, grimy nickel chrome
+in place of the skin, kit, clothes, garments, hair and eyes: a heavy machine, its outline close
+to the person's own at full muscle. A satin chrome skull with red optics on a thick ringed neck
+between rods and cables, pistons out from the base of the neck and from behind it to big
+ball-housed shoulders under domed caps, a Y plate over a deep cage of curved rib plates (chevrons
+from the front, an open arch under the sternum) crowded with cylinders, shoulder-blade plates and a
+backbone behind, a thick segmented spine between pistons and hoses, a wide pelvic girdle with
+iliac plates and a drum on each hip, limbs that are bundles of big hydraulic cylinders round a
+strut, heavy domed knees and hinged elbows, big five-fingered hands and four-toed plated feet,
+with grime and dark rust stains. It moves on the person's own skeleton, so every clip, the fights, the finisher
+and the pick-ups work as they do for anyone; standing still, its feet are set on the ground (on
+the move, the capture is as it is):
+
+```js
+ctx.assets.human('human-athlete-male', {
+  endo: true,                      // or { metal: '#D3C6AF', eyes: '#FF2A12', glow: 1, rim: 0.12, rimColor: '#FFDCB4' }: the chrome's tint, the optics' colour, their glow 0 to 4,
+                                   // a faint rim 0 to 1 at its edges (0: none) and, optional, the rim's own colour (below)
+  height: 1.95, build: { muscle: 1 },   // height and build as for anyone (a heavier build is a little heavier metal)
+  weapon: { kind: 'bat' },         // a weapon or gear still goes on
+})
+```
+
+The rim is the metal's own colour unless `rimColor` gives it one: then it is a light on the
+machine's edges (dimmed where the part is grimy or rusted), which carries its outline where the
+chrome reflects much the same colours as the ground round it, a night of cool snow, ice and a dark
+deck. Use it with a `rim` of 0.6 to 1, and pick a colour away from the world's: warm (`#FFDCB4`)
+against a cool night, cool against a warm one. A warmer `metal` does the same for the body: AI
+Alps' hero is `{ metal: '#E6C89A', rim: 0.8, rimColor: '#FFDCB4', glow: 2 }`.
+
+Write it as `endo: ...` in the world's source: the page carries the endoskeleton's script only for
+a world whose source says so (a body given `endo` without it warns and is drawn as the person). It
+returns what any person returns, and `bones` besides: the skeleton's bones by name (`head`,
+`wrist_R`, `foot_L`, `finger2-3_L` ...), for hanging things on it. Chrome shows what it reflects:
+give the world a `graphics.environment` with its own light in it (bright `extras`: lit ground,
+windows, lamps, signs), or at night the machine is a dark shape with red eyes. A body that cannot
+be built warns and is drawn as the person instead. About 155,000 triangles (72,000 on phones),
+built once per body.
+
 `ctx.assets.car(options)` builds a racing car for `player()` or `rival()` in a world with
 `play.vehicle` and returns `{ object, animate, name, color, vehicle }`: return it as it is (set
 `name` and `color` on it for a rival). It needs no library asset. Five kinds, each built from its
@@ -370,6 +469,40 @@ keep a material of your own.
 (`size`: metres one tile covers), for geometry with its own UVs: set `repeat` on the maps to match
 (a `ribbon` of width w spans u 0 to 1 across and v one unit per w metres along).
 
+An atlas with a cut-out (`texture-fir-cards`) also gives `alphaMap` and `cards`: one
+`{ uv: [u0, v0, u1, v1], stem: 'right' }` per spray, v measured up from the image's foot as three.js
+samples it, the cut stem at u1. Build a card from a plane whose UVs span one rectangle, with
+`alphaMap`, `alphaTest: 0.5` and `side: THREE.DoubleSide`, set the maps' `wrapS`/`wrapT` to
+`THREE.ClampToEdgeWrapping`, and fix the stem end to the trunk; instance the cards along each tier.
+`size` (1) is nominal: the publisher gives no scale, so size the cards yourself (a fir branch is
+about 0.5 to 1.5 m).
+
+`ctx.assets.heightfield(id)` returns a terrain listed in `assets` (kind `heightfield`:
+`heightfield-massif`): `{ width, height, data, size, range, sample(u, v), heightAt(x, z), colorMap }`.
+`data` holds `width` x `height` heights from 0 to 1, row by row from the image's top; `size` is the
+metres a side covers and `range` the `[lowest, highest]` metres 0 and 1 stand for. `sample(u, v)`
+reads it bilinearly, u west to east (x) and v north to south (z), both 0 to 1 and clamped;
+`heightAt(x, z)` gives metres with the field centred on x = z = 0, ready for `open.ground`.
+`colorMap`, when the terrain has one, lines up with a plane laid flat (`rotation.x = -Math.PI / 2`).
+It returns `null` when the id is not loaded. The massif's 5 km and 2 km are its publisher's scale for
+the series (the source holds heights 0 to 1), and the camera sees 1800 m: shrink the mesh to fit,
+the same in x, y and z.
+
+```js
+var hf = ctx.assets.heightfield('heightfield-massif');
+if (hf) {
+  var geo = new THREE.PlaneGeometry(hf.size, hf.size, 255, 255);   // 256 x 256 points: plenty far off
+  geo.rotateX(-Math.PI / 2);
+  var p = geo.attributes.position;
+  for (var i = 0; i < p.count; i++) p.setY(i, hf.heightAt(p.getX(i), p.getZ(i)));
+  geo.computeVertexNormals();
+  var massif = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: hf.colorMap, roughness: 0.9 }));
+  massif.scale.setScalar(0.3);                                      // 1.5 km a side, peaks 600 m up
+  massif.position.set(0, -20, -950);                                // north of the play area, inside 1800 m
+  ctx.scene.add(massif);
+}
+```
+
 `ctx.assets.model(id)` returns a scanned model: `{ object, parts, size, part(name), instanced(count, fn, parts) }`.
 `object` is the whole model (a new copy each call), `part(name)` one of its parts (a rock of the
 set, a fern), `size` its bounding box in metres. Scenery repeated along the track goes in one
@@ -430,6 +563,9 @@ graphics: {
   `emissive` colours with `emissiveIntensity` of 2 to 12. Ordinary surfaces never glow.
 - The shadow map follows the player, so the one shadow-casting `DirectionalLight` needs no
   shadow camera of its own. Scenery far away does not need to cast shadows.
+- In an open world on its own ground (no `map`), `shadows: { follow: 'hero' }` (optional) keeps
+  the shadow map on the hero, a little ahead of him where the camera looks (ahead of the camera in
+  a scene), and `reflections: 'hero'` (optional) films the live cube from his chest, for his chrome.
 - `reflections` renders the world round the player into a cube, a face a frame, for the paint,
   glass and chrome of `ctx.assets.car` (not on phones). Use it in a world of cars.
 - `motion` blurs the edges of the picture outward with speed, keeping the middle sharp. Use it
@@ -582,7 +718,13 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
   always keep a screen picture of your own.
 - `ctx.play`: the platform options as the runtime read them
 - `ctx.on(name, fn)`: moments to stage in the world: `'lap'` (`{ lap, level, bounty, gm }`),
-  `'swing'` (`{ n }`), `'slay'` (`{ name, slain }`), `'crash'` (`{ into }`), `'start'`
+  `'swing'` (`{ n }`), `'slay'` (`{ name, slain }`), `'crash'` (`{ into }`), `'start'`; and, in an
+  open world that asks for them with `open.events: true` (optional) or tells a `story`, its own:
+  `'knockout'` (`{ kind, name, kos, heat, x, z }`), `'heat'` (`{ heat }`), `'goal'` (`{ gm, time
+  }`), `'chapter'` (`{ chapter, beat, gm, objective }`, a story's beat beginning), `'weapon'` (`{
+  kind }`, one picked up), `'intro'` (a scene beginning), `'finisher'` (`{ name, kind }`), `'heal'`
+  (`{ hp }`) and `'shatter'` (`{ kind }`, a bottle or glass broken). Without either, those names
+  are not heard.
 - `ctx.audio` (inside `ambient`)
 
 ## Open worlds
@@ -607,14 +749,16 @@ GameMog.world({
     map: 'ocean-drive',            // optional: a library map (below); without one, build the place yourself
     bounds: { x: [-80, 80], z: [-120, 120] },   // without a map: the walkable area
     spawn: [-4, 30, 180],          // x, z, facing in degrees
-    heat: { every: 40 },           // seconds a level of heat lasts (15 to 180)
-    health: 100, maxEnemies: 12, civilians: 12,
+    heat: { every: 40 },           // seconds a level of heat lasts (15 to 180); kos, max, bosses, police, escort, room below
+    health: 100, maxEnemies: 12, civilians: 12,   // optional: civilians as { count, look, zones, ... }, a crowd the world places (below); steps: 'snow'
     weapons: { count: 8, kinds: { bat: 3, pipe: 3, chain: 2, baton: 2, sword: 1 }, drops: true },   // or false: fists only
     gait: 'walkCool',              // the hero's walk: walk, walkCool, walkHeavy, walkF
     hud: { gm: 'Club fund', banner: 'Stack GM for the club. Survive.' },   // what the story calls the GM, and the first banner
     intro: { shots: [ /* the opening scene, below */ ] },
     goal: { gm: 10000, title: 'Cured', text: 'a line for the win' },   // always: 10,000 unless the creator names an amount
     outro: { shots: [ /* the closing scene, played when the goal is reached */ ] },
+    story: { every: 1500, beats: [ /* optional: a scene and a new objective as the GM comes in, below */ ] },
+    events: true,                  // optional: hear this open world's moments with ctx.on (a story turns them on too)
     keyArt: { at: [x, z], look: 107, tilt: 0.15 },   // where the thumbnail is shot: the player there, the camera looking along `look` degrees
     crew: {                        // who comes for you; every field optional
       thug:  { names: ['Hustler', 'Enforcer'], look: function (ctx, i, heat) { return { /* human options: clothes, gear, weapon */ }; }, hp: 3, damage: 7 },
@@ -643,10 +787,74 @@ People move on captured motion (CMU): a crew look may set `gait` (`walk` everyda
 `walkCool` the street's cool walk, `walkHeavy` a big man's confident walk, `walkF` a woman's);
 by default thugs walk cool, bikers and bosses heavy, women their own walk. Fighters stand in a
 boxer's guard and move on his footwork; stances for standing about: `shift` (weight shifting),
-`argue`, `phone`, `arms`, `dance`; one-off moves: `shrug`, `wave`.
+`argue`, `phone`, `arms`, `dance`; one-off moves: `shrug`, `wave`. With the motion pack listed,
+its clips are stances, a gait and moves too (a party: `stance: 'danceMacarena'`, `gait:
+'drunkWalk'`, `act: [['cheer', 1.5], ['drink', 4]]`).
+
+**A crowd the world dresses and places** (optional; `civilians: 12`, a plain number, is the
+street's people as they always were: beachwear, walking about at random). `civilians` may be an
+object instead: `{ count: 18, look: function (ctx, i) { return { /* human options: body, clothes,
+gear */ }; }, stances: { dance: 5, talk: 2, phone: 1, arms: 1, shift: 1 }, zones: [{ x: 0, z: 2,
+r: 4.5, count: 10, stance: 'dance', face: [0, 9] }, { x: -11, z: 2, r: 2.5 }], wander: false,
+turn: { kind: 'thug', share: 0.5 } }`. Every field is optional. `count` is how many (0 to 24).
+`look` dresses each one from a plain body (the street's mix of skin, hair and height unless the
+look sets them; nothing of the beach's clothes); without one, `crew.civ.look` is used if the
+world gives it. `zones` are where they stand: each person gets a spot of their own in a zone
+(`r` metres round `x, z`), the zones that give a `count` take theirs first, the rest are shared
+among the zones that give none, and any left over walk about as the street's people do. At
+their spot they do the zone's `stance` (a dance floor dances) or one picked by the `stances`
+weights (`dance`, `talk`, `phone`, `arms`, `shift`, `argue`, or a motion pack's), and face the
+zone's `face` point (dancers facing the DJ's booth), whoever they are talking to, or the zone's
+middle. Dancers never move in step: each has a pace of their own, now and then steps off the
+floor to talk or fold their arms, and with the motion pack listed may dance any of its dances.
+They back off from a fight (a blow, a knockout near them): clear of the hero (8 m), for two
+seconds at most, then they watch it, and walk briskly back to their spots, so a fight never
+empties the floor for long; `wander: false` keeps them there, otherwise they move to another spot now and then. `turn`: when
+the heat sends one more of the crew and someone of a zone is 6 to 30 m from the hero, by its
+`share` (0 to 1) that party-goer turns on him (as `kind`, `thug`, `biker` or `cop`, in the clothes
+they wore, with that crew's weapon if it has one) instead of one
+arriving out of sight; a newcomer takes their spot a while later. With no zones nobody turns.
+
+**Footsteps** (optional): `steps: 'snow'` crunches packed snow under the hero at his stride
+(faster as he runs), and more quietly under anyone walking within 8 m of him. A world without
+it hears nothing underfoot.
+
+**A warm-up** (optional): `warm: true` compiles every material in the world and sends its
+textures to the graphics card before the world is ready (a library map's always are), so a
+glint, a beam or a bottle's shards do not stall a frame the first time they are seen. It costs a
+little loading time, never the look. Use it in a world on its own ground with custom shaders or
+party weapons. (What the world keeps hidden until it is used is compiled too.)
+
+**The heat's own pace and what it sends** (all optional; each left out is as it always was).
+`heat: { every: 180, kos: 0, max: 7, bosses: false, police: false, escort: 1, room: true }`:
+
+- `kos`: the takedowns that raise the heat a level (default 8; `0`, by the clock alone).
+- `max`: the highest the clock and the takedowns take it (1 to 99; none by default). A story's
+  beat may still set it higher.
+- `bosses: false`: the heat sends no boss at its third levels (a story's beats bring them). The
+  publish playtest, whose autopilot plays no beat, then asks for a boss directly to see one come.
+- `police: false`: no police at heat 3 and up (no patrol car; without a map, no officers on foot).
+- `escort`: the most men a boss brings (0 to 3; default 3, one at his first, more later).
+- `room: true`: a boss's men and the police's officers come only while `maxEnemies` has room for
+  them, counting those already on their way; the boss himself always comes. Without it they
+  come on top of `maxEnemies`.
+
+Pace a long run with these: a 15 to 25 minute run wants the heat by the clock (`kos: 0`), a top
+(`max`) and the bosses from the story, so the stakes rise chapter by chapter, never all at once.
+
+**Coins that keep out of the way** (optional): `coinFly: 'low'`. A knockout's coins come a quarter
+of a second after he drops, out low along the ground (under knee height) on the far side of him
+from the camera, and fly to the hero at his waist, never between him and the camera. Without it
+they spill up in an arc from his chest, as they always have.
+
+**Faces far off** (optional): `lod: true` (or the metres from which, 4 to 80; `true` is 12):
+people further from the camera than that, as far as the lens makes it (a scene's long lens sees
+them from further off), are drawn without the face's small parts, the eyeballs, brows and lashes,
+which are a pixel or two there and a draw call each (twice with shadows). Use it in a world with a
+crowd; nearer, they are drawn whole.
 
 The opening scene, `intro.shots`, plays letterboxed before the first run of a visit (Enter,
-Space, Esc or Skip skips it). Each shot: `t` seconds; `cam: { from: [x,y,z], to, look: [x,y,z] |
+Space, Esc or Skip skips it; on a touch screen the pad is put away for any scene). Each shot: `t` seconds; `cam: { from: [x,y,z], to, look: [x,y,z] |
 'og' | a cast id, lookTo, fov, fovTo }`; `cast: [{ id: 'og' | a name, kind: 'thug' (a new person),
 at: [x,z] (placed at the cut), to: [x,z] or path: [[x,z], ...], speed, gait, stance, face: degrees |
 'og' | 'cam' | [x,z] | a cast id, act: [['shrug', atSeconds, rate]], stay: true }]`; text:
@@ -668,6 +876,35 @@ ticket home, the fuel for a ship), and `goal.gm` is how much: 10,000 unless the 
 amount. The HUD shows it as "of 10,000". Write the opening scene (`intro`) that introduces the
 hero, the place and the mission, and what the GM is for (`hud.gm` names it), and the closing scene
 (`outro`) where the hero gets it. A world with no goal gets 10,000 and a plain win.
+
+**A story told as the GM comes in** (optional; a world without `story` plays no scene between its
+intro and its outro). `story: { objective: 'Get to the party', every: 1500, wait: 20, beats: [...] }`: each
+beat plays a scene once the GM reaches its `gm` (or, with `every`, the beats in order at 1,500,
+3,000, ...), as soon as no blow is in the air, and then the run goes on where it was: the GM, the
+heat, the knockouts, the time and the hero's health are kept. A beat: `{ gm: 1500, shots: [ /* the
+intro's shots */ ], banner: 'Chapter 2', objective: 'Find the DJ', heat: 3, boss: true | 'Name' }`.
+The scene clears the fight it cuts away from (any coins on the ground are banked first) and
+whoever it marks `stay` is there when the run goes on; Enter, Space, Esc or Skip skips it as the
+intro's. Then the `banner` (default "Chapter N") with the objective under it, the objective in a
+line under the GM board (`story.objective` is the first, shown from the start), the heat raised to
+at least `heat` (tougher people), and with `boss` a boss on his way (by that name if it is one). A
+beat at or past `goal.gm` never plays: the goal comes first. Beats never play while the autopilot
+drives, nor in a run made invincible or sped up (the attract demo, the playtest, films). While a
+boss is on the hero or on his way a beat waits for him to go down, but only `story.wait` seconds of
+the fight (0 to 120, default 20); then it plays all the same. A boss still standing then is set
+aside for the scene and comes back after it, a few metres off and as hurt as he was, unless the
+beat brings a boss of its own: then he goes with the scene, one boss at a time. The heat a beat raises brings what the heat brings as it climbs: a boss if it passes a
+third level (the beat's own, if it names one) and, from heat 3, the police. A beat breaks into a
+fight, so a skip is not taken for its first 0.7 s (a punch still being mashed), and on a touch
+screen the pad is put away and Skip moves to the top right for it. Keep a story in one place with
+rising stakes: the scene says what changed and what to do next.
+
+**Through a machine's eyes** (optional, any shot of an intro, an outro or a beat): `vision: {
+tint: '#FF1A1A', lines: ['TARGET: DJ VOLT', 'THREAT: LOW'], track: 'dj' }` washes the frame in
+`tint` (its colour over the frame's light and dark), with fine scanlines, types the `lines` out one
+by one in a monospace face (up to 10, 60 characters each), and holds a box on the head of the cast
+member `track` names ('og' for the hero) wherever the camera goes. For a robot's, a cyborg's or a
+drone's point of view; a shot without `vision` is the ordinary frame.
 
 **Enemies can be anything the creator asks for.** When they are not people (aliens, robots,
 monsters, animals, ghosts), they must not be people in costume: give the crew kind a `body`.
@@ -717,11 +954,65 @@ hero fights hand to hand and with what they find.
   body (`s.speed`, `s.brawl.stance`, `s.brawl.action`, `s.brawl.ko`, and `s.air` while jumping);
   its moves are timed like a creature's.
 
+**A hero with fewer moves** (all optional; leave them out and he fights as above). Each takes a
+move away, and the controls card and the game page name only what is left:
+
+- `kicks: false`: he only punches. No roundhouse, no leaping kick (out of reach he charges in and
+  throws a punch), no air game; the chain runs jab, cross, hook, body shot, lead uppercut, and ends
+  on a rear uppercut or a haymaker, never one motion twice running. A held attack throws a haymaker
+  with everything behind it (the boxer's own looping hook, the camera kicked). Thrown back to back
+  (within 2.4 s, no other blow landing between them) each is wilder: 5, then 3, then 2 of power, and
+  the next is wound up only once the last is done; a blow of the chain landing makes the next a full
+  one again, so a combo ending on a held haymaker is the strongest way to fight. The finisher is a
+  punch: a haymaker drops the man, faster than a knockout falls, and the hero's fist comes straight
+  down on his head as it reaches the ground. With the motion pack listed for the hero's body
+  (`human-moves-<gender>`), that second blow is the pack's `crush`: he drops to one knee beside the
+  man, the fist high overhead, and drives it down onto his head once he is on the ground, holds it
+  there and rises back into his guard (the finisher takes 2.1 s of game time, against the slam's 1.3).
+- `jump: false`: he never leaves the ground. Space, K and JUMP do nothing (no JUMP button), and the
+  air game is off. Space still skips a scene and starts a run. (With `traversal`, Space is the
+  traversal's, so this changes nothing there.)
+- `dodge: false`: he never flips or rolls. C and L do nothing (no DODGE button, no counter), and no
+  warning slows time to say "Dodge".
+- `tank: true` (or `{ block: 0.4 }`): he walks through blows. An ordinary blow neither shoves him
+  nor makes him flinch nor stops his punch; one from in front of him (within 70 degrees of where he
+  faces) while he is not throwing a punch (its wind-up and strike: once it has landed his guard is
+  back up) lands on his forearms for `block` of its harm (0 to 1, default 0.4), his guard up, with
+  sparks off his forearms and a clank of metal. A heavy blow (a boss's, or one of 14 or more before
+  the heat adds to it) still rocks him back; the heat never makes an ordinary man's blow heavy.
+
 Hidden weapons are on unless `weapons: false`: `count` street weapons (bat, pipe, chain, baton,
 or a rare katana, `sword`, weighted by `kinds`) lie in the map's hiding places (in alleys, on
 bins, by the lifeguard towers, against fences) and glint now and then. Walking over one takes it,
 E (or GRAB) swaps it for the one in hand; it swings harder and further than a fist and breaks
 after its hits. With `drops`, an armed enemy put down may drop his. The hero has no gun.
+
+**A party's weapons and the world's own places for them** (all optional; a world that names none
+of these gets the street's weapons above, hidden as above):
+
+- Four more kinds for `weapons.kinds` (or a spot's `kind`), each turning up only where a world
+  names it: `bottle` (a dark green wine bottle, held by the neck), `magnum` (a champagne magnum in
+  gold foil), `glass` (a heavy cut tumbler of whisky) and `bucket` (a polished steel ice bucket).
+  Short reach, thrown with the right hand as punches are, from a boxer's stance (not the sword's
+  guard). A bottle or a glass breaks over the head of the first man it hits: it shatters there,
+  shards of its glass and a spray of what was in it flying off his head, with the smash; a magnum
+  takes two blows; the ice bucket dents and clangs on two heads and gives out on the third, its ice
+  spilling. A bottle drops a man where he stands (no flight), his GM flying a moment after the
+  shards, and the line says both ("The bottle shattered. Knockout +2 GM"); the magnum and bucket
+  throw him a little. E.g. `weapons: { count: 30, kinds: { bottle: 4, glass: 3, magnum: 1, bucket: 1 } }`.
+- `spots: [{ x, z, y, kind, stand, lean, yaw }]`: the world's own places for them, and then only
+  there (no random hiding places): a bar top, a table, a shelf. `y` is the surface's height (the
+  ground's without it), `stand: true` stands the prop upright on it (it does not glint: it is in
+  plain sight), `kind` puts that kind there (otherwise one from `kinds`), `lean` (radians) leans it
+  against a wall instead, `yaw` turns it. Every spot is filled when a run starts; walking within
+  about a metre of one takes it, so set them near the front edge of a bar. With spots, `count` may
+  be up to 60, and is every spot unless the world says.
+- `every`: seconds before a taken one is replaced (3 to 600, default 30): somewhere out of sight in
+  the street; on the world's own spots, back on an empty spot once the hero is out of arm's reach of
+  it (2.5 m), so a bar restocks while the fight stays at the party.
+- The crew may carry one: `crew.biker: { weapon: 'bottle', moves: ['ffCross', 'cross'] }` (or `{
+  kind: 'bottle' }` in a look). It squares up as a boxer does and swings it with the right hand;
+  theirs never breaks.
 
 **A derby: an open world on wheels.** `open.vehicle` turns the fight into car combat in an
 arena (Mog Derby, worlds/mog-derby.js): the hero drives the car `player()` returns (W/S
@@ -832,4 +1123,8 @@ or make GM coins. The runtime does all of it.
 ## Performance
 
 60 fps on a laptop. Under 300 draw calls: instance anything repeated, merge small static
-props, at most one shadow-casting light.
+props, at most one shadow-casting light. In an open world the runtime keeps its people cheap: a
+person other than the hero is drawn only where some of them could be in view (or cast a shadow
+into it), a person's gear is one draw per material, and a person removed frees what they held on
+the graphics card; a crowd may add `lod` (above). The scenery is the world's: at heat 3 a party of
+22 costs about 140 draw calls in view, so keep the place itself near 150.

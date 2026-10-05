@@ -14,10 +14,12 @@ import { deflateSync, gzipSync } from 'node:zlib';
 import { buildHuman } from './human.ts';
 import { retargetClip, sprintFrom, type Clip } from './mocap.ts';
 import { retargetGltf } from './gltf.ts';
+import { keyedClip, CRUSH } from './keyed.ts';
 import { buildHdri } from './hdri.ts';
 import { buildMusic } from './music.ts';
 import { buildModel } from './model.ts';
-import { sha256, Packer } from './lib.ts';
+import { buildHeightfield } from './heightfield.ts';
+import { sha256, Packer, decodeImage } from './lib.ts';
 
 const OUT = 'public/assets';
 const sources = JSON.parse(readFileSync('assets-src/sources.json', 'utf8')).sources as Record<string, any>;
@@ -102,7 +104,7 @@ const FREEFLOW: [string, string, number, number?, { end?: number; loop?: boolean
 // standing about. Chosen with a scan of each trial (hands, guard, travel).
 // [trial, library name, kind, from s, to s, options]
 // (a woman's body takes a woman's capture where one is given: [trial, from, to])
-type CmuCut = [string, string, 'cycle' | 'idle' | 'once' | 'move', number?, number?, { face?: 'hips'; srcFps?: number; contact?: number; period?: number; fist?: boolean; female?: [string, number, number] }?];
+type CmuCut = [string, string, 'cycle' | 'idle' | 'once' | 'move', number?, number?, { face?: 'hips'; srcFps?: number; contact?: number; period?: number; fist?: boolean; female?: [string, number, number]; unturn?: [number, number] }?];
 const CMU_STREET: CmuCut[] = [
   // the guard: the window of each trial where the fists sit at the chin, the feet
   // apart, standing (a scan scored every 1.2 s of the fight trials for it)
@@ -135,7 +137,8 @@ const CMU_STREET: CmuCut[] = [
 const cmuCut = (skel: Parameters<typeof retargetClip>[0], [trial0, name, kind, from0, to0, o]: CmuCut, gender: 'male' | 'female') => {
   const [trial, from, to] = gender === 'female' && o?.female ? o.female : [trial0, from0, to0];
   const sub = trial.split('_')[0], fps = /^(79|80)_/.test(trial) ? 60 : o?.srcFps ?? 120;
-  return retargetClip(skel, { asf: `${sub}/${sub}.asf`, amc: `${sub}/${trial}.amc` }, { name, kind, start: from == null ? undefined : Math.round(from * fps), end: to == null ? undefined : Math.round(to * fps), face: o?.face, srcFps: fps, contact: o?.contact, period: o?.period, fist: o?.fist, inPlace: kind === 'once' });
+  return retargetClip(skel, { asf: `${sub}/${sub}.asf`, amc: `${sub}/${trial}.amc` }, { name, kind, start: from == null ? undefined : Math.round(from * fps), end: to == null ? undefined : Math.round(to * fps), face: o?.face, srcFps: fps, contact: o?.contact, period: o?.period, fist: o?.fist, inPlace: kind === 'once',
+    unturn: o?.unturn && trial === trial0 ? [Math.round(o.unturn[0] * fps), Math.round(o.unturn[1] * fps)] : undefined });
 };
 
 // the people pack (the owner, 3 Oct): what a world adds to a base human by listing human-pack-<gender> in its assets
@@ -271,6 +274,70 @@ await human('human-athlete-female', 'female', 'Athlete (female)', {
   asian: 'young_asian_female/young_lightskinned_female_diffuse3.png',
 }, ['short02', 'short04', 'afro01'], 'eyebrow010');
 
+/* ---------------- party motion: a pack of clips a world adds to a human by listing it ---------------- */
+// human-moves-<gender> (AI Alps, the owner, 4 Oct): more clips only, retargeted by the same code as the human's own
+// (mocap.ts, gltf.ts) onto the skeleton its asset.json ships, so the base human every live world loads is not rebuilt.
+// Each clip's loop flag, travel and moment of contact ride in the pack's asset.json and the runtime merges the clips into
+// that human's own (upper: the arms may play it over walking legs). The windows were chosen by a scan of each trial (how
+// the last frame runs into the first, the hips' drift that the loop takes out and the feet slide by, the turn), then
+// looked at on a body. [trial, library name, kind, from s, to s, options] as CMU_STREET; unturn: the seconds of a turn
+// on the spot, taken out as it happens
+const MOVES_CMU: CmuCut[] = [
+  ['141_12', 'danceTwist', 'idle', 1.93, 3.27],              // the Twist: hips and heels swung one way and back
+  ['15_04', 'danceCabbage', 'idle', 118.63, 121.13],         // the Cabbage Patch: two turns of the joined fists, bobbing
+  ['55_02', 'danceLambada', 'idle', 16.13, 17.13],           // the lambada's hold and hips and a step out and back (its
+                                                              // steps forward, looped on the spot, slid the feet 9 cm/s)
+  ['143_35', 'danceMacarena', 'idle', 3.4, 8.67, { unturn: [4.95, 5.6] }], // a whole Macarena; its quarter-turn jump a hop
+  ['137_15', 'drunkIdle', 'idle', 4.5, 12.5],                // swaying, a stagger, a hand to the head
+  ['137_16', 'drunkWalk', 'move', 8.87, 10.3],               // two lurching steps
+  ['142_09', 'cheer', 'once', 1.75, 2.85],                   // a jump for joy, the arms flung up
+  ['137_13', 'drink', 'once', 12.3, 18.8, { face: 'hips', contact: 2.5 }], // a drunk's drink: the mug in both hands, up to
+                                                              // the mouth (contact), the head back, down again
+];
+// Quaternius (CC0), from the files already pinned: [file, clip, library name, loops, contact s]
+const MOVES_UAL: [string, string, string, boolean, number?][] = [
+  // (Consume, asked for as the drink, holds the left hand up 0.4 m in front of the face at brow height on this body: a
+  // glass raised, not drunk from, so it ships as the toast and the drink is CMU's)
+  ['UAL2_Standard.glb', 'Consume', 'toast', false, 0.4],     // a glass raised in the left hand (contact: at the top) and down
+  ['UAL1_Standard.glb', 'Sword_Attack', 'smash', false],     // the right hand up over the head and down: contact where it
+                                                              // moves fastest, on the downswing
+  ['UAL2_Standard.glb', 'Idle_Rail_Loop', 'leanBar', true],  // forearms on a rail or a bar about 1.05 m high
+  ['UAL1_Standard.glb', 'Sitting_Talking_Loop', 'sitTalk', true],
+];
+// upper: the arms may throw it over walking legs; sway: an in-place loop whose hips keep their own sway (pinned over the
+// spot as the runtime pins every other clip's, the planted feet slid by it: the Cabbage Patch 34 cm/s against 9); a
+// loop's contact (gltf.ts measures one for every clip) means nothing and is left out
+const MOVES_UPPER = new Set(['drink', 'toast', 'smash']), MOVES_SWAY = new Set(MOVES_CMU.filter((c) => c[2] === 'idle').map((c) => c[1]));
+function humanMoves(gender: 'male' | 'female') {
+  const id = `human-moves-${gender}`, base = `human-athlete-${gender}`;
+  if (!want(id)) return;
+  const B = JSON.parse(readFileSync(join(OUT, base, 'asset.json'), 'utf8')), skel = B.skeleton as Parameters<typeof retargetClip>[0];
+  const clips = [
+    ...MOVES_CMU.map((c) => cmuCut(skel, c, gender)),
+    ...MOVES_UAL.map(([file, clip, name, loop, contact]) => retargetGltf(skel, `quaternius-ual/${file}`, clip, { name, loop, contact })),
+    // the punch finisher's blow to a man on the ground (AI Alps, the owner 4 Oct: "a skull-crushing overhead punch"):
+    // hand-keyed (keyed.ts), from the fight guard and back to it, the guard's fists kept
+    keyedClip(skel, cmuCut(skel, CMU_STREET.find((c) => c[1] === 'fight')!, gender), CRUSH),
+  ];
+  const packed = packClips(clips), dir = join(OUT, id), names = clips.map((c) => c.name);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'clips.bin.z'), deflateSync(packed.buffer, { level: 9 }));
+  const credits = { ...Object.fromEntries(MOVES_CMU.map(([trial, name]) => [name, `CMU ${trial}`])), ...Object.fromEntries(MOVES_UAL.map(([file, clip, name]) => [name, `Quaternius ${file.replace('_Standard.glb', '')} ${clip}`])), crush: 'GameMog, hand-keyed (from the CMU 15_13 guard; 144_21 the female)' };
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'human-moves', for: base, gender,
+    base: { bones: (B.skeleton as { name: string }[]).map((b) => b.name), vertexCount: B.vertexCount },
+    clips: { file: 'clips.bin.z', layout: packed.layout, list: packed.meta.map(({ contact, ...c }) => ({ ...c, ...(contact != null && !c.loop ? { contact } : {}), ...(MOVES_UPPER.has(c.name) ? { upper: true } : {}), ...(MOVES_SWAY.has(c.name) ? { sway: true } : {}) })), credits } }));
+  library[id] = {
+    kind: 'human-moves', title: `Party moves (${gender})`,
+    description: `What a world adds to the ${gender} human by listing it: ${names.length} more clips: four dances (the Twist, the Cabbage Patch, the lambada, the Macarena), a drunk's idle, walk and drink, a cheer, a toast, a smash over the head, leaning on a bar, talking seated, and an overhead punch down onto a man on the ground (the punch finisher's).`,
+    sources: ['cmu-mocap', 'quaternius-ual'],
+    derived: 'Retargeted onto the base human\'s rig (its asset.json skeleton) by the same code as its own clips: the dances, the drunk\'s idle, walk and drink and the cheer from CMU captures (the loops cut on a repeating phrase and played in place; the Macarena\'s quarter turn taken out), the toast, the smash, leaning on a rail and talking seated from Quaternius\'s Universal Animation Library 1 and 2. The crush (the overhead punch down) is GameMog\'s own, keyed by hand on the same rig: a few key poses, each limb solved by two-bone IK, from the CMU fight guard and back to it.',
+    meta: { for: base, clips: names }, files: {}, bytes: 0,
+  };
+  console.log(`${id}: ${names.length} clips for ${base} (${clips.map((c) => `${c.name} ${(c.frames / c.fps).toFixed(2)}s${c.loop ? ' loop' : ''}`).join(', ')})`);
+}
+humanMoves('male');
+humanMoves('female');
+
 if (want('hdri-sunset-city')) {
   const id = 'hdri-sunset-city', dir = join(OUT, id);
   const sky = buildHdri('polyhaven/sunset_jhbcentral_1k.hdr', dir);
@@ -394,7 +461,8 @@ if (want('city-midtown')) {
 // view: for a photograph with land in it, where across the picture (0..1 of its
 // width) the thing a world lines up with lies: the sea off the beach, the
 // skyline across the river. ctx.sky({ hdri, face }) turns that way.
-const SKIES: [string, string, string, string, number?][] = [
+// a sixth column { half: true } builds a light at half the photograph's size (hdri.ts)
+const SKIES: [string, string, string, string, number?, { half?: boolean }?][] = [
   ['sky-noon', 'qwantani_noon_puresky', 'Noon', 'A clear noon sky over open country (2048 x 1024, full dynamic range).'],
   ['sky-partly-cloudy', 'kloofendal_48d_partly_cloudy_puresky', 'Partly cloudy', 'A bright day with drifting cumulus (2048 x 1024).'],
   ['sky-sunset', 'qwantani_sunset_puresky', 'Sunset', 'The sun on the horizon, a warm sky (2048 x 1024).'],
@@ -403,17 +471,20 @@ const SKIES: [string, string, string, string, number?][] = [
   ['sky-overcast', 'kloofendal_overcast_puresky', 'Overcast', 'A soft grey overcast day (2048 x 1024).'],
   ['sky-beach', 'spiaggia_di_mondello', 'Beach', 'A Mediterranean beach at midday: the sea to the horizon, bright sand (2048 x 1024).', 0.058],
   ['sky-city-night', 'shanghai_bund', 'City at night', 'A waterfront city at night: towers, neon and river light (2048 x 1024).', 0.59],
+  // AI Alps (the owner, 4 Oct): a light for a snowy night, not a sky to look at (the square, its houses and lamps are in it)
+  ['sky-winter-square', 'blaubeuren_church_square', 'Winter square at night', 'A small town square on a snowy, overcast night: warm street lamps and festive lights, snow on the ground, houses all round (1024 x 512, full dynamic range). It has land and lamps in it, so it is a light for graphics.environment.hdri (warm lamplight in glass, metal and snow), shown behind a sky of its own; its brightest pixel is a lamp, not a sun.', undefined, { half: true }],
 ];
-for (const [id, slug, title, description, view] of SKIES) {
+for (const [id, slug, title, description, view, so] of SKIES) {
   if (!want(id)) continue;
   const dir = join(OUT, id), src = `ph-sky-${slug}`;
-  const sky = buildHdri(`${src}/${slug}_2k.hdr`, dir);
+  const sky = buildHdri(`${src}/${slug}_2k.hdr`, dir, so);
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'hdri', ...sky, encoding: 'rgbe', ...(view != null ? { view } : {}) }));
-  library[id] = { kind: 'hdri', title, description, sources: [src], meta: { width: sky.width, height: sky.height }, files: {}, bytes: 0 };
+  library[id] = { kind: 'hdri', title, description, sources: [src], ...(so?.half ? { derived: 'Halved from 2048 x 1024: each 2 x 2 block averaged in linear light and encoded again as RGBE.' } : {}), meta: { width: sky.width, height: sky.height }, files: {}, bytes: 0 };
 }
 
 /* ---------------- surfaces: scanned colour, normal and roughness ---------------- */
-const SURFACES: [string, string, string, number, string][] = [
+// a sixth column names Poly Haven's colour file where it is not `_diff` (the aerial snow's is `_col`)
+const SURFACES: [string, string, string, number, string, { color?: string }?][] = [
   ['texture-sand', 'sand_01', 'Sand', 2, 'Fine beach sand, rippled.'],
   ['texture-grass', 'leafy_grass', 'Grass', 2, 'A leafy lawn.'],
   ['texture-plaster', 'white_plaster_02', 'White plaster', 2, 'Painted plaster and stucco, for walls.'],
@@ -426,16 +497,72 @@ const SURFACES: [string, string, string, number, string][] = [
   ['texture-cobblestone', 'cobblestone_floor_04', 'Cobblestones', 2, 'A cobbled street.'],
   ['texture-bark', 'bark_brown_02', 'Bark', 1, 'Brown tree bark, for trunks.'],
   ['texture-corrugated-metal', 'corrugated_iron', 'Corrugated metal', 2, 'Corrugated iron sheeting.'],
+  // AI Alps (the owner, 4 Oct): snow, the chalet (planks, slate roof, stone base) and mountain rock
+  ['texture-snow-aerial', 'snow_field_aerial', 'Snow field (aerial)', 80, 'A snowfield photographed from the air: patchy snow over dark soil and scrub, crusted and uneven, one tile covering 80 m, for mountain slopes and ground seen from far off, where a 2 m tile would repeat.', { color: 'col' }],
+  ['texture-snow-trodden', 'snow_01', 'Trodden snow', 2, 'Snow trodden into paths: boot prints (plain treads) and scuffs, for walks, terraces and around doors.'],
+  ['texture-chalet-planks', 'weathered_plank_siding', 'Chalet planks', 1.57, 'Dark weathered horizontal plank siding, for chalet and cabin walls.'],
+  ['texture-roof-slates', 'roof_slates_02', 'Roof slates', 3, 'A weathered roof of small, uneven overlapping slates in grey-brown, chipped and stained, for chalet roofs.'],
+  ['texture-stone-wall', 'rustic_stone_wall_02', 'Stone wall', 1.5, 'A dry-laid wall of flat, stacked stone in warm grey and ochre, for chalet bases, terraces and retaining walls.'],
+  ['texture-dark-rock', 'dark_rock_02', 'Dark rock', 2, 'Dark brown-black layered rock with fractured ledges, for mountain outcrops and cliffs.'],
 ];
-for (const [id, slug, title, size, description] of SURFACES) {
+for (const [id, slug, title, size, description, so] of SURFACES) {
   if (!want(id)) continue;
   const dir = join(OUT, id), src = `assets-src/cache/ph-tex-${slug}/`;
   mkdirSync(dir, { recursive: true });
-  copyFileSync(src + `${slug}_diff_1k.jpg`, join(dir, 'color.jpg'));
+  copyFileSync(src + `${slug}_${so?.color ?? 'diff'}_1k.jpg`, join(dir, 'color.jpg'));
   copyFileSync(src + `${slug}_nor_gl_1k.jpg`, join(dir, 'normal.jpg'));
   copyFileSync(src + `${slug}_rough_1k.jpg`, join(dir, 'roughness.jpg'));
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'texture', size, maps: { color: 'color.jpg', normal: 'normal.jpg', roughness: 'roughness.jpg' } }));
   library[id] = { kind: 'texture', title, description: `${description} Scanned colour, normal and roughness maps, 1024 px for ${size} m.`, sources: [`ph-tex-${slug}`], meta: { size, maps: ['color', 'normal', 'roughness'] }, files: {}, bytes: 0 };
+}
+
+// AI Alps (the owner, 4 Oct): ambientCG's atlas of three conifer branch sprays, for alpha-tested fir cards. Colour,
+// normal (OpenGL) and opacity are copied as they are; the opacity map ships as the texture's `alpha` map (a texture
+// asset with no `alpha` key is unchanged). Each spray's rectangle is measured from the opacity map and listed as
+// `cards`: uv [u0, v0, u1, v1] with v up from the image's foot, as three.js samples it; each cut stem is at u1 (right)
+if (want('texture-fir-cards')) {
+  const id = 'texture-fir-cards', dir = join(OUT, id), src = 'assets-src/cache/acg-leafset019/LeafSet019_1K-JPG_';
+  mkdirSync(dir, { recursive: true });
+  copyFileSync(src + 'Color.jpg', join(dir, 'color.jpg'));
+  copyFileSync(src + 'NormalGL.jpg', join(dir, 'normal.jpg'));
+  copyFileSync(src + 'Opacity.jpg', join(dir, 'alpha.jpg'));
+  const op = decodeImage('acg-leafset019/LeafSet019_1K-JPG_Opacity.jpg'), solid = (x: number, y: number) => op.data[(y * op.w + x) * 4] > 127;
+  // the sprays lie one above another: bands of rows with leaf in them, split where a gap of empty rows runs
+  const rowHas = Array.from({ length: op.h }, (_, y) => { for (let x = 0; x < op.w; x++) if (solid(x, y)) return true; return false; });
+  const bands: [number, number][] = [];
+  for (let y = 0; y < op.h; y++) if (rowHas[y]) { if (bands.length && y - bands[bands.length - 1][1] <= 3) bands[bands.length - 1][1] = y; else bands.push([y, y]); }
+  const cards = bands.filter(([a, b]) => b - a > 16).map(([y0, y1]) => {
+    let x0 = op.w, x1 = 0;
+    for (let y = y0; y <= y1; y++) for (let x = 0; x < op.w; x++) if (solid(x, y)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
+    const r = (v: number) => +v.toFixed(4);
+    return { uv: [r(Math.max(0, x0 - 2) / op.w), r(1 - Math.min(op.h, y1 + 3) / op.h), r(Math.min(op.w, x1 + 3) / op.w), r(1 - Math.max(0, y0 - 2) / op.h)], stem: 'right' };
+  });
+  if (cards.length !== 3) throw new Error(`${id}: expected 3 sprays on the atlas, measured ${cards.length}`);
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'texture', size: 1, maps: { color: 'color.jpg', normal: 'normal.jpg', alpha: 'alpha.jpg' }, cards }));
+  library[id] = { kind: 'texture', title: 'Fir branch cards', description: 'An atlas of three conifer branch sprays on green, with colour, normal and an opacity (alpha) map, 1024 px, for alpha-tested branch cards on firs and spruces. Not a tiling surface: asset.json lists each spray\'s uv rectangle as cards (cut stem at the right), and the size (1) is nominal; the publisher gives no scale.', sources: ['acg-leafset019'], derived: 'Copied as published; the three sprays\' rectangles measured from the opacity map.', meta: { maps: ['color', 'normal', 'alpha'], cards: cards.length }, files: {}, bytes: 0 };
+}
+
+/* ---------------- heightfields: a terrain's height as 16-bit samples ---------------- */
+// kind 'heightfield' (ctx.assets.heightfield): [id, source image, title, metres a side, [low, high] metres the
+// source's own scale stands for (an EXR's 0 and 1, a PNG's black and white), description, colour image?]. The source
+// is a greyscale PNG read at 16 bits or an OpenEXR read as floats (heightfield.ts); asset.json's heightRange is the
+// span of heights actually present.
+// AI Alps (the owner, 4 Oct: "Approve all", then "Approve the EXR"): ambientCG's Terrain005, a Gaea-made massif. Its
+// EXR (ZIP-compressed, 32-bit float, R = G = B, A = 1) holds heights normalised 0 to 1 and no scale of its own, and
+// Terrain005's own dimension fields are unset (0); its siblings Terrain001-003 are listed at 500000 x 500000 x 200000
+// cm, so it is taken as 5 km a side and 2 km from 0 to 1. Its colour map is a snow cover (white) with bare grey rock
+// on the steep faces, lined up with the heights (rock sits on 58 degree ground on average, snow on 27).
+const HEIGHTFIELDS: [string, string, string, number, [number, number], string, string?][] = [
+  ['heightfield-massif', 'acg-terrain005/Terrain005_2K.exr', 'Mountain massif', 5000, [0, 2000], 'A snow-capped mountain massif about 4.5 km across, rising from a flat plain at its edges to a summit near the middle (east and south of the centre) about 2 km up: sharp rocky ridges run west and south from the summit with cliffs on their flanks, a broad snow bowl opens to the north below them, and eroded spurs and gullies fall away all round. Its colour is a snow cover with bare grey rock on the steep faces, for far mountains round a valley.', 'acg-terrain005/Terrain005_1K_Color.png'],
+];
+for (const [id, srcPath, title, metres, range, description, colour] of HEIGHTFIELDS) {
+  if (!want(id)) continue;
+  const dir = join(OUT, id), src = srcPath.split('/')[0];
+  const { asset: hf, derived } = await buildHeightfield(srcPath, dir, { metres, range, colour });
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'heightfield', ...hf }));
+  const [lo, hi] = hf.heightRange;
+  library[id] = { kind: 'heightfield', title, description: `${description} ${hf.width} x ${hf.height} heights (16-bit) over ${metres} m a side, ${lo} to ${hi} m${hf.maps ? ', with its colour at 1024 px' : ''}.`, sources: [src], derived, meta: { width: hf.width, height: hf.height, metres, heightRange: hf.heightRange, ...(hf.maps ? { maps: Object.keys(hf.maps) } : {}) }, files: {}, bytes: 0 };
+  console.log(`${id}: ${hf.width} x ${hf.height}, ${metres} m a side, ${lo} to ${hi} m`);
 }
 
 /* ---------------- models: scanned, cut to a game budget ---------------- */
@@ -480,6 +607,11 @@ const MODELS: [string, string, string, number, string, { parts?: (name: string) 
   ['model-sea-marker', 'lateral_sea_marker', 'Sea marker', 5000, 'A weathered red channel-marker buoy 6.8 m tall with a daymark and a handrail.'],
   ['model-dead-trunk', 'dead_tree_trunk_02', 'Dead tree trunk', 4000, 'A fallen dead tree trunk 4 m long, bark and lichen.', { centre: 'model' }],
   ['model-cannon', 'cannon_01', 'Cannon', 5000, 'An old ship cannon on a wooden carriage, 2.3 m long, with three cannonballs; the barrel, wheels and balls are parts.'],
+  // AI Alps (the owner, 4 Oct): the terrace bar and the VIP lounge
+  ['model-lantern', 'Lantern_01', 'Hurricane lantern', 6000, 'An antique brass hurricane lantern with a carry handle and a glass globe.'],
+  ['model-lounge-chair', 'mid_century_lounge_chair', 'Lounge chair', 6000, 'A mid-century lounge chair: a wooden shell with worn brown leather cushions on a swivel base.'],
+  ['model-bar-stool', 'bar_chair_round_01', 'Bar stool', 6000, 'A vintage wooden bar stool with a round seat, beaded trim, turned legs and a ring footrest.'],
+  ['model-coffee-table', 'coffee_table_round_01', 'Coffee table', 4000, 'A round coffee table with a white marble top on looping black metal legs.'],
 ];
 for (const [id, slug, title, budget, description, o] of MODELS) {
   if (!want(id)) continue;

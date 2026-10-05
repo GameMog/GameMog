@@ -108,6 +108,13 @@
       "licenseUrl": "https://polyhaven.com/license",
       "homepage": "https://polyhaven.com/a/shanghai_bund"
     },
+    "ph-sky-blaubeuren_church_square": {
+      "title": "Blaubeuren Church Square (HDRI)",
+      "author": "Andreas Mischok, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/blaubeuren_church_square"
+    },
     "ph-tex-sand_01": {
       "title": "Sand 01 (textures)",
       "author": "Rob Tuytel, Poly Haven",
@@ -191,6 +198,48 @@
       "license": "CC0-1.0",
       "licenseUrl": "https://polyhaven.com/license",
       "homepage": "https://polyhaven.com/a/corrugated_iron"
+    },
+    "ph-tex-snow_field_aerial": {
+      "title": "Snow Field Aerial (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/snow_field_aerial"
+    },
+    "ph-tex-snow_01": {
+      "title": "Snow 01 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/snow_01"
+    },
+    "ph-tex-weathered_plank_siding": {
+      "title": "Weathered Plank Siding (textures)",
+      "author": "Dimitrios Savva, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/weathered_plank_siding"
+    },
+    "ph-tex-roof_slates_02": {
+      "title": "Roof Slates 02 (textures)",
+      "author": "Rob Tuytel, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/roof_slates_02"
+    },
+    "ph-tex-rustic_stone_wall_02": {
+      "title": "Rustic Stone Wall 02 (textures)",
+      "author": "Amal Kumar, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/rustic_stone_wall_02"
+    },
+    "ph-tex-dark_rock_02": {
+      "title": "Dark Rock 02 (textures)",
+      "author": "Amal Kumar, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/dark_rock_02"
     },
     "ph-model-boulder_01": {
       "title": "Boulder 01 (model)",
@@ -457,6 +506,48 @@
       "license": "CC0-1.0",
       "licenseUrl": "https://polyhaven.com/license",
       "homepage": "https://polyhaven.com/a/cannon_01"
+    },
+    "ph-model-Lantern_01": {
+      "title": "Lantern 01 (model)",
+      "author": "Rajil Jose Macatangay, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/Lantern_01"
+    },
+    "ph-model-mid_century_lounge_chair": {
+      "title": "Mid Century Lounge Chair (model)",
+      "author": "Kuutti Siitonen, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/mid_century_lounge_chair"
+    },
+    "ph-model-bar_chair_round_01": {
+      "title": "Bar Chair Round 01 (model)",
+      "author": "Dairon Sanchez, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/bar_chair_round_01"
+    },
+    "ph-model-coffee_table_round_01": {
+      "title": "Coffee Table Round 01 (model)",
+      "author": "Ulan Cabanilla, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/coffee_table_round_01"
+    },
+    "acg-leafset019": {
+      "title": "Leaf Set 019 (conifer branch atlas)",
+      "author": "ambientCG",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://docs.ambientcg.com/license/",
+      "homepage": "https://ambientcg.com/view?id=LeafSet019"
+    },
+    "acg-terrain005": {
+      "title": "Terrain 005 (snow-capped mountain massif, height map and colour)",
+      "author": "ambientCG",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://docs.ambientcg.com/license/",
+      "homepage": "https://ambientcg.com/view?id=Terrain005"
     },
     "ofdn-funky-house": {
       "title": "Funky House",
@@ -4042,6 +4133,543 @@
         }
       },
       "bytes": 2459729
+    },
+    "sky-winter-square": {
+      "kind": "hdri",
+      "title": "Winter square at night",
+      "description": "A small town square on a snowy, overcast night: warm street lamps and festive lights, snow on the ground, houses all round (1024 x 512, full dynamic range). It has land and lamps in it, so it is a light for graphics.environment.hdri (warm lamplight in glass, metal and snow), shown behind a sky of its own; its brightest pixel is a lamp, not a sun.",
+      "sources": [
+        "ph-sky-blaubeuren_church_square"
+      ],
+      "derived": "Halved from 2048 x 1024: each 2 x 2 block averaged in linear light and encoded again as RGBE.",
+      "meta": {
+        "width": 1024,
+        "height": 512
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "5eb2d330b6a2487dd2c3ceecf482282847f7f01d6e54be94baaea301eaa8c33a",
+          "bytes": 100
+        },
+        "sky.rgbe.z": {
+          "sha256": "c79bda56a87adde40b0fddc8855ec3c8ba2b6172eee810fe1b4f1e8d249b417e",
+          "bytes": 1747131
+        }
+      },
+      "bytes": 1747231
+    },
+    "texture-snow-aerial": {
+      "kind": "texture",
+      "title": "Snow field (aerial)",
+      "description": "A snowfield photographed from the air: patchy snow over dark soil and scrub, crusted and uneven, one tile covering 80 m, for mountain slopes and ground seen from far off, where a 2 m tile would repeat. Scanned colour, normal and roughness maps, 1024 px for 80 m.",
+      "sources": [
+        "ph-tex-snow_field_aerial"
+      ],
+      "meta": {
+        "size": 80,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "43017536ac9789fb39ef7d3169cc145ddeb554fc667d2006b138c9a5e7e89391",
+          "bytes": 128
+        },
+        "color.jpg": {
+          "sha256": "902e1fef8f1bcc2f158fbb118239e29159978fd7b8e241d2d0f404b8dbecf718",
+          "bytes": 754873
+        },
+        "normal.jpg": {
+          "sha256": "2037817e0166673e68039c4dd2c56fa014d6999e1d6d492e2e3e7e3cfec3862b",
+          "bytes": 640692
+        },
+        "roughness.jpg": {
+          "sha256": "f791ddb130aa9342afd91e4b988382674e58b180e403f25a34cf67c1fa78ee92",
+          "bytes": 497955
+        }
+      },
+      "bytes": 1893648
+    },
+    "texture-snow-trodden": {
+      "kind": "texture",
+      "title": "Trodden snow",
+      "description": "Snow trodden into paths: boot prints (plain treads) and scuffs, for walks, terraces and around doors. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-snow_01"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "bf71d93b7e47fe29bfb6ae11626439535b647da041b979ba5303ce8b0a862d53",
+          "bytes": 356249
+        },
+        "normal.jpg": {
+          "sha256": "ce806bc45cae729a211b16c94239018d58570b9a796a8cc890cf8cbce2c8f050",
+          "bytes": 1370735
+        },
+        "roughness.jpg": {
+          "sha256": "c008cd329bda1127d8c6ff2ed8772e563419fbfb836648b2f05e07ab893be1aa",
+          "bytes": 195503
+        }
+      },
+      "bytes": 1922614
+    },
+    "texture-chalet-planks": {
+      "kind": "texture",
+      "title": "Chalet planks",
+      "description": "Dark weathered horizontal plank siding, for chalet and cabin walls. Scanned colour, normal and roughness maps, 1024 px for 1.57 m.",
+      "sources": [
+        "ph-tex-weathered_plank_siding"
+      ],
+      "meta": {
+        "size": 1.57,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "f5d4404494d14789f7bfff229da7fb2087e0b93f2c8259cba0d165b8c18216dd",
+          "bytes": 130
+        },
+        "color.jpg": {
+          "sha256": "dad0442114f1efd9a25195f2e2ac480693c2a6199f3987f4cfac4002b2820fbd",
+          "bytes": 567956
+        },
+        "normal.jpg": {
+          "sha256": "229440bb21992d7f97bbbe03f6488e21cc061119ab3774ad0c30e352c9690a74",
+          "bytes": 609905
+        },
+        "roughness.jpg": {
+          "sha256": "1f4707c748102d1faf275d35dea798e2e51dcc0d425ddd2121643b08d2b3af3e",
+          "bytes": 381425
+        }
+      },
+      "bytes": 1559416
+    },
+    "texture-roof-slates": {
+      "kind": "texture",
+      "title": "Roof slates",
+      "description": "A weathered roof of small, uneven overlapping slates in grey-brown, chipped and stained, for chalet roofs. Scanned colour, normal and roughness maps, 1024 px for 3 m.",
+      "sources": [
+        "ph-tex-roof_slates_02"
+      ],
+      "meta": {
+        "size": 3,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "6d3f8e26c20998df20a198a2943ae8fbcd438cb8957630e434b03db2bb31d60f",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "de3d2729ab385c5f7dd7106d3b435c737f6d2c3ea8883cea37de53cec2a34867",
+          "bytes": 515626
+        },
+        "normal.jpg": {
+          "sha256": "32be0c0ba1565856156a315dc98a773d72f1a03415930657b8a8ad62bf60c1bf",
+          "bytes": 763206
+        },
+        "roughness.jpg": {
+          "sha256": "737f95fdbb09e49670cbce09a78fe75c18bbaed597524db832f0227df0dce2cd",
+          "bytes": 307076
+        }
+      },
+      "bytes": 1586035
+    },
+    "texture-stone-wall": {
+      "kind": "texture",
+      "title": "Stone wall",
+      "description": "A dry-laid wall of flat, stacked stone in warm grey and ochre, for chalet bases, terraces and retaining walls. Scanned colour, normal and roughness maps, 1024 px for 1.5 m.",
+      "sources": [
+        "ph-tex-rustic_stone_wall_02"
+      ],
+      "meta": {
+        "size": 1.5,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "2ebc7d31d40012e1fdb0093edf526b1da89cf711428bc5586ccc13babffd9aea",
+          "bytes": 129
+        },
+        "color.jpg": {
+          "sha256": "a091e04d73ddf7485d1b99a66d6cfe270e9ba36cdc26f98dbc17934427e43bc9",
+          "bytes": 794327
+        },
+        "normal.jpg": {
+          "sha256": "a7e5c96b8ba3ab3d066c673c4da9b1b7735f176ed6b6b2b9f74216fc151225f7",
+          "bytes": 1191033
+        },
+        "roughness.jpg": {
+          "sha256": "7a8fb2fd4870fc599eeed319b52382c546c3e481f7bf39c2f3d4476b9fb6a54c",
+          "bytes": 517126
+        }
+      },
+      "bytes": 2502615
+    },
+    "texture-dark-rock": {
+      "kind": "texture",
+      "title": "Dark rock",
+      "description": "Dark brown-black layered rock with fractured ledges, for mountain outcrops and cliffs. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-dark_rock_02"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "09cf66947bfe49fa1278ff341159063a43d96aae0bdf9f21536ff94feddef322",
+          "bytes": 592452
+        },
+        "normal.jpg": {
+          "sha256": "011bec5690fa6bba771e745603cbd400d4cbe21ae254af0330680b3a1a7d9a92",
+          "bytes": 1028835
+        },
+        "roughness.jpg": {
+          "sha256": "ab2645db4a2fa7120d7d14063cfa2d0b3b3c8cb37736eaf115d5924871eb7040",
+          "bytes": 503425
+        }
+      },
+      "bytes": 2124839
+    },
+    "texture-fir-cards": {
+      "kind": "texture",
+      "title": "Fir branch cards",
+      "description": "An atlas of three conifer branch sprays on green, with colour, normal and an opacity (alpha) map, 1024 px, for alpha-tested branch cards on firs and spruces. Not a tiling surface: asset.json lists each spray's uv rectangle as cards (cut stem at the right), and the size (1) is nominal; the publisher gives no scale.",
+      "sources": [
+        "acg-leafset019"
+      ],
+      "derived": "Copied as published; the three sprays' rectangles measured from the opacity map.",
+      "meta": {
+        "maps": [
+          "color",
+          "normal",
+          "alpha"
+        ],
+        "cards": 3
+      },
+      "files": {
+        "alpha.jpg": {
+          "sha256": "81eb93064509f8f0be67c4988488c172cee69784eb8da9d962f4653ceb959895",
+          "bytes": 380804
+        },
+        "asset.json": {
+          "sha256": "9eb266f3f518fcf82175aeefe81ee9a47caec27382a868d60280982892a8d39b",
+          "bytes": 285
+        },
+        "color.jpg": {
+          "sha256": "106f26456e5dd12061216b84963ee792132297c3fdc499c87bd770cd9861bc92",
+          "bytes": 648963
+        },
+        "normal.jpg": {
+          "sha256": "cedcd6fe1367d009375aae4a9908e2c8a366999ef9f9a3d620559f0fc5b6837b",
+          "bytes": 1236859
+        }
+      },
+      "bytes": 2266911
+    },
+    "model-lantern": {
+      "kind": "model",
+      "title": "Hurricane lantern",
+      "description": "An antique brass hurricane lantern with a carry handle and a glass globe. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 5998 triangles.",
+      "sources": [
+        "ph-model-Lantern_01"
+      ],
+      "derived": "Cut from 33902 to 5998 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "Lantern_01",
+          "Lantern_01_glass"
+        ],
+        "triangles": 5998
+      },
+      "files": {
+        "Lantern_01_brass_arm.jpg": {
+          "sha256": "479e7105b170713373fdcca0c2f7dcce81913990f60cd4cfba1631f80f550191",
+          "bytes": 229054
+        },
+        "Lantern_01_brass_diff.jpg": {
+          "sha256": "d19d4c9417719a89ad824ce3a142f38f5e58c47b8640edca5eacca66918b608e",
+          "bytes": 140998
+        },
+        "Lantern_01_brass_nor_gl.jpg": {
+          "sha256": "95f89554c659712c7591a2a3d61178c9c0c0ef2c26e133005f24e2366a10f9b8",
+          "bytes": 180646
+        },
+        "asset.json": {
+          "sha256": "5ab1906548c26fb98754701b48d9e26856e7bfd7dbf6cddab740a1edea766620",
+          "bytes": 1668
+        },
+        "model.bin.z": {
+          "sha256": "6eb3bce99b5267e6e8cee9009255f002a9f14364412e5a1ebb1a26f67e52b93c",
+          "bytes": 85311
+        }
+      },
+      "bytes": 637677
+    },
+    "model-lounge-chair": {
+      "kind": "model",
+      "title": "Lounge chair",
+      "description": "A mid-century lounge chair: a wooden shell with worn brown leather cushions on a swivel base. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 6000 triangles.",
+      "sources": [
+        "ph-model-mid_century_lounge_chair"
+      ],
+      "derived": "Cut from 6148 to 6000 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "mid_century_lounge_chair"
+        ],
+        "triangles": 6000
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9a4190e0d056810b0117835af931cdb500994060e8defc49166dee0e2283514e",
+          "bytes": 940
+        },
+        "mid_century_lounge_chair_arm.jpg": {
+          "sha256": "9fa5fa4af5306576a3a27886767feec5431f41d94df9119f2ccced8f0b024f1a",
+          "bytes": 636493
+        },
+        "mid_century_lounge_chair_diff.jpg": {
+          "sha256": "ae1f80e964426b49f70b402403c444a655bdaa363d8d43fee5b57fcb3b492c54",
+          "bytes": 627298
+        },
+        "mid_century_lounge_chair_nor_gl.jpg": {
+          "sha256": "4bb4b325e4478f5d9063e4e061cf34bc6ccc3067abda608c1548c4a367f50397",
+          "bytes": 648960
+        },
+        "model.bin.z": {
+          "sha256": "f5aa33b61887131dd71b4beff7b4dbfc6fc9336bf567c40bb963849522056c47",
+          "bytes": 96812
+        }
+      },
+      "bytes": 2010503
+    },
+    "model-bar-stool": {
+      "kind": "model",
+      "title": "Bar stool",
+      "description": "A vintage wooden bar stool with a round seat, beaded trim, turned legs and a ring footrest. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 5330 triangles.",
+      "sources": [
+        "ph-model-bar_chair_round_01"
+      ],
+      "derived": "Cut from 14373 to 5330 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "bar_chair_round_01"
+        ],
+        "triangles": 5330
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "bf258553445476cce337aa44525d65eac7e015fbf989e7b508cf73912b67fe46",
+          "bytes": 909
+        },
+        "bar_chair_round_01_arm.jpg": {
+          "sha256": "9f34b279bdd1527ec19fc3a3bb0ce374f0c0ba2dc05dfbd58f561bc317bd36c7",
+          "bytes": 751149
+        },
+        "bar_chair_round_01_diff.jpg": {
+          "sha256": "1b3912fe1102b4082d7421aeb2e2717d3ebe914d261700f8710c0fdb7d7463bb",
+          "bytes": 599006
+        },
+        "bar_chair_round_01_nor_gl.jpg": {
+          "sha256": "91e4310863002228003d100be83e0524832e532d05f27ef8ed62675b116f0bd1",
+          "bytes": 442193
+        },
+        "model.bin.z": {
+          "sha256": "df0df329a48f85da633b6df418ee4d187209e30e5dc0b87db823bc4663bc0799",
+          "bytes": 82701
+        }
+      },
+      "bytes": 1875958
+    },
+    "model-coffee-table": {
+      "kind": "model",
+      "title": "Coffee table",
+      "description": "A round coffee table with a white marble top on looping black metal legs. Scanned, with colour, normal and ambient-occlusion/roughness/metal maps; 4000 triangles.",
+      "sources": [
+        "ph-model-coffee_table_round_01"
+      ],
+      "derived": "Cut from 4044 to 4000 triangles with meshoptimizer; transforms baked; parts named after the scan's nodes.",
+      "meta": {
+        "parts": [
+          "coffee_table_round_01"
+        ],
+        "triangles": 4000
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "569eb4d356d7c15340e7b61859927e49c08097427f594e1f34c5ca628caefdde",
+          "bytes": 925
+        },
+        "coffee_table_round_01_arm.jpg": {
+          "sha256": "7221b03af475555092abd650798facbb945bf4acf02e48f8697f012d8515bf52",
+          "bytes": 721708
+        },
+        "coffee_table_round_01_diff.jpg": {
+          "sha256": "422b4a24a4459e1fd6d121aae4f1097dd3e467c7a8036bb1d003f955302f1d28",
+          "bytes": 447037
+        },
+        "coffee_table_round_01_nor_gl.jpg": {
+          "sha256": "a5912db1918b1ec925efb19179675cafc8832b082f80b2ea35c3a58b45e1aec4",
+          "bytes": 260520
+        },
+        "model.bin.z": {
+          "sha256": "acf34ac928917752050f3e72393c7ba5867d7f51837704e13589ffa27b9c2f57",
+          "bytes": 57917
+        }
+      },
+      "bytes": 1488107
+    },
+    "human-moves-male": {
+      "kind": "human-moves",
+      "title": "Party moves (male)",
+      "description": "What a world adds to the male human by listing it: 13 more clips: four dances (the Twist, the Cabbage Patch, the lambada, the Macarena), a drunk's idle, walk and drink, a cheer, a toast, a smash over the head, leaning on a bar, talking seated, and an overhead punch down onto a man on the ground (the punch finisher's).",
+      "sources": [
+        "cmu-mocap",
+        "quaternius-ual"
+      ],
+      "derived": "Retargeted onto the base human's rig (its asset.json skeleton) by the same code as its own clips: the dances, the drunk's idle, walk and drink and the cheer from CMU captures (the loops cut on a repeating phrase and played in place; the Macarena's quarter turn taken out), the toast, the smash, leaning on a rail and talking seated from Quaternius's Universal Animation Library 1 and 2. The crush (the overhead punch down) is GameMog's own, keyed by hand on the same rig: a few key poses, each limb solved by two-bone IK, from the CMU fight guard and back to it.",
+      "meta": {
+        "for": "human-athlete-male",
+        "clips": [
+          "danceTwist",
+          "danceCabbage",
+          "danceLambada",
+          "danceMacarena",
+          "drunkIdle",
+          "drunkWalk",
+          "cheer",
+          "drink",
+          "toast",
+          "smash",
+          "leanBar",
+          "sitTalk",
+          "crush"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "29b2ef62dbb157eecd1723b03fd1da3ad07fc57ae8b018603ff736749aedaa6a",
+          "bytes": 4793
+        },
+        "clips.bin.z": {
+          "sha256": "a3d80c07626855f4eeb14f8205efca388eeec02f966b6ef39e595b564afc12b8",
+          "bytes": 192258
+        }
+      },
+      "bytes": 197051
+    },
+    "human-moves-female": {
+      "kind": "human-moves",
+      "title": "Party moves (female)",
+      "description": "What a world adds to the female human by listing it: 13 more clips: four dances (the Twist, the Cabbage Patch, the lambada, the Macarena), a drunk's idle, walk and drink, a cheer, a toast, a smash over the head, leaning on a bar, talking seated, and an overhead punch down onto a man on the ground (the punch finisher's).",
+      "sources": [
+        "cmu-mocap",
+        "quaternius-ual"
+      ],
+      "derived": "Retargeted onto the base human's rig (its asset.json skeleton) by the same code as its own clips: the dances, the drunk's idle, walk and drink and the cheer from CMU captures (the loops cut on a repeating phrase and played in place; the Macarena's quarter turn taken out), the toast, the smash, leaning on a rail and talking seated from Quaternius's Universal Animation Library 1 and 2. The crush (the overhead punch down) is GameMog's own, keyed by hand on the same rig: a few key poses, each limb solved by two-bone IK, from the CMU fight guard and back to it.",
+      "meta": {
+        "for": "human-athlete-female",
+        "clips": [
+          "danceTwist",
+          "danceCabbage",
+          "danceLambada",
+          "danceMacarena",
+          "drunkIdle",
+          "drunkWalk",
+          "cheer",
+          "drink",
+          "toast",
+          "smash",
+          "leanBar",
+          "sitTalk",
+          "crush"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "b238ce7c51770da0da813196780f72642cde448dfd92a1a793b8558614c687f9",
+          "bytes": 4797
+        },
+        "clips.bin.z": {
+          "sha256": "9d403f05f99588249fee6cbb8ec16c8e082fce46d523607755e027c842041ab0",
+          "bytes": 192262
+        }
+      },
+      "bytes": 197059
+    },
+    "heightfield-massif": {
+      "kind": "heightfield",
+      "title": "Mountain massif",
+      "description": "A snow-capped mountain massif about 4.5 km across, rising from a flat plain at its edges to a summit near the middle (east and south of the centre) about 2 km up: sharp rocky ridges run west and south from the summit with cliffs on their flanks, a broad snow bowl opens to the north below them, and eroded spurs and gullies fall away all round. Its colour is a snow cover with bare grey rock on the steep faces, for far mountains round a valley. 1024 x 1024 heights (16-bit) over 5000 m a side, 1.3 to 1988.1 m, with its colour at 1024 px.",
+      "sources": [
+        "acg-terrain005"
+      ],
+      "derived": "Heights read from the EXR's R channel as ZIP-compressed 32-bit floats, averaged 2 x 2 to 1024 x 1024, stored deflated as little-endian 16-bit samples.",
+      "meta": {
+        "width": 1024,
+        "height": 1024,
+        "metres": 5000,
+        "heightRange": [
+          1.3,
+          1988.1
+        ],
+        "maps": [
+          "color"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "26c9436b025ce2037328085831be00a7682296ed37314f6de35ddb498f6cd91a",
+          "bytes": 181
+        },
+        "color.jpg": {
+          "sha256": "cf92259bafa7e510afb7db0054e35288146479ae7389ae8fbd12964dea1f1597",
+          "bytes": 107701
+        },
+        "height.u16.z": {
+          "sha256": "8c53384b4ae2d5032baa0ebd001c24c6ae3950818d50531d81894a2fb8180ec5",
+          "bytes": 1810673
+        }
+      },
+      "bytes": 1918555
     }
   }
 }

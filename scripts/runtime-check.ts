@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { withBrowser } from '../lib/browser.ts';
 import { insertDraft, db } from '../lib/db.ts';
 import { meFragment, sanitizeMe } from '../lib/me.ts';
+import { worldControls, OPEN_CONTROLS } from '../lib/custom-game.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3939';
 let failures = 0;
@@ -856,6 +857,1180 @@ try {
     }, { timeoutMs: 120_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(swid); }
 
+  // the punches-only tank (AI Alps, the owner 4 Oct: "no kicks. just an array of punches", "no jumping", and the choice
+  // "Tank: no dodge. He never flips or rolls. He walks through hits and blocks with his forearms. The finisher is a
+  // skull-crushing overhead punch."): open.kicks, open.jump and open.dodge: false and open.tank, on their own fixture
+  console.log('\nopen worlds: a hero who only punches, never jumps or dodges, and walks through blows');
+  const tkid = randomUUID(), tkcode = readFileSync(new URL('../lib/runtime/tank-world.js', import.meta.url), 'utf8');
+  insertDraft({ id: tkid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: tkcode,
+    meta: { title: 'Tank Check', tagline: 'Punches only', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#9CB4D0', ground: '#A79C88', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' } });
+  try {
+    await withBrowser(async (page) => {
+      type TF = { thrown: Record<string, number>; can: { kicks: boolean; jump: boolean; dodge: boolean; tank: number | null }; finPlayed: string[] | null; blocked: number; heavies: number; act: string | null; fin: unknown;
+        focus: number; dash: { leap: boolean } | null; dashes: number; last: string | null; launches: number; dodges: number; slow: number; power: number; repeats: number; punching: number };
+      type TS = { kos: number; player: { x: number; z: number; y: number; hp: number; max: number; act: string | null; stance: string }; enemies: { ko: boolean; hp: number }[] };
+      const O = 'window.__gmRuntime.debug.open()';
+      const tf = () => page.eval<TF>(`${O}.flow()`), ts = () => page.eval<TS>('window.__gmRuntime.state().open');
+      const key = (code: string) => page.eval(`window.dispatchEvent(new KeyboardEvent('keydown', { code: '${code}', bubbles: true })); window.dispatchEvent(new KeyboardEvent('keyup', { code: '${code}', bubbles: true }))`);
+      await page.goto(`${BASE}/d/${tkid}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      const e0 = await page.eval<string[]>('window.__gm.errors');
+      // the title card, and the page: only what he can do
+      await page.key('Enter'); await sleep(500);
+      const card = await page.eval<string>('(document.querySelector("#gm .screen .how") || {}).textContent || ""');
+      const pageLine = worldControls(tkcode), zbLine = worldControls(readFileSync(new URL('../worlds/zombie-beach.js', import.meta.url), 'utf8'));
+      ok('the controls (the card and the game page) name only what he can do: punches, a haymaker, no kick, jump or dodge',
+        e0.length === 0 && /haymaker/.test(card) && /forearms/.test(card) && !/kick|jump|dodge/i.test(card) && /haymaker/.test(pageLine) && !/kick|jump|dodge/i.test(pageLine) && zbLine === OPEN_CONTROLS,
+        `card "${card.slice(0, 220)}…", page "${pageLine}"${e0.length ? ', ' + e0.join(' | ') : ''}`);
+      await page.eval('window.__gmRuntime.debug.audio(); window.__gmRuntime.debug.start()'); await sleep(600);
+      const btns = await page.eval<string[]>('[...document.querySelectorAll("#gm .tpad button")].map((b) => b.textContent)');
+      await page.eval('window.__gmRuntime.debug.invincible(true)');
+      // no kicks: many chains on a man in front, and charges at a man out of reach
+      const pp = (await ts()).player, t0 = (await tf()).thrown, r0 = (await tf()).repeats;
+      for (let r = 0; r < 9; r++) {
+        await page.eval(`(() => { const O = ${O}; O.clear(); O.place(${pp.x}, ${pp.z}, 0, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 1.2}); return true; })()`); await sleep(250);
+        for (let i = 0; i < 14; i++) { await page.eval(`${O}.punch()`); await sleep(120); }
+      }
+      let leapt = 0, charges = '';
+      const c0 = (await tf()).dashes;
+      for (let r = 0; r < 3; r++) {
+        await sleep(700);
+        await page.eval(`(() => { const O = ${O}; O.clear(); O.place(${pp.x}, ${pp.z}, null, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 4.9}); return true; })()`);
+        await sleep(150); await page.eval(`${O}.punch()`);
+        let blow = '';
+        for (let i = 0; i < 14; i++) { await sleep(80); const f = await tf(); if (f.dash && f.dash.leap) leapt++; if (f.last) blow = f.last; }
+        charges += `${blow} `;
+      }
+      const charged = (await tf()).dashes - c0;
+      const t1 = (await tf()).thrown, n = (k: string) => (t1[k] || 0) - (t0[k] || 0);
+      const all = Object.keys(t1).reduce((m, k) => m + n(k), 0), kicks = n('kick') + n('roundhouse') + n('leap') + n('riser');
+      const kinds = ['jab', 'cross', 'hook', 'body', 'upperL', 'uppercut', 'haymaker'].filter((k) => n(k) > 0), twice = (await tf()).repeats - r0;
+      ok('no kicks, just an array of punches: over many chains not one kick, five kinds of punch or more, and never one motion twice running (the hook and the haymaker are one)',
+        all >= 36 && kicks === 0 && kinds.length >= 5 && twice === 0, `${all} blows, ${kicks} kicks, ${twice} motions twice running (${JSON.stringify(Object.fromEntries(Object.keys(t1).map((k) => [k, n(k)])))})`);
+      ok('a man out of reach is charged and punched, never leapt at with a kick', charged === 3 && leapt === 0 && !/leap/.test(charges), `${charged} charges, ${leapt} leaps, blows ${charges.trim()}`);
+      // a held attack: the haymaker with everything behind it, and nobody launched
+      {
+        await page.eval(`(() => { const O = ${O}; O.clear(); O.place(${pp.x}, ${pp.z}, 0, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 1.3}); return true; })()`); await sleep(400);
+        const h0 = await tf();
+        await page.key('KeyJ', 'keyDown'); await sleep(240);
+        let g = await tf(); for (let i = 0; i < 40 && g.heavies === h0.heavies; i++) { await sleep(30); g = await tf(); }
+        await page.key('KeyJ', 'keyUp'); await sleep(900);
+        const g2 = await tf();
+        ok('a held attack throws the haymaker with everything behind it (the boxer\'s own hook, not the chain\'s), and launches nobody', g.heavies - h0.heavies === 1 && g.last === 'heavy' && g.act === 'hook' && g.power >= 5 && g2.launches === h0.launches && (await page.eval(`${O}.launch()`)) === null,
+          `heavies ${h0.heavies} -> ${g.heavies}, blow ${g.last} (${g.act}) at ${g.power}, launches ${h0.launches} -> ${g2.launches}`);
+      }
+      // no jumping: Space, K and the jump itself leave him on the ground
+      {
+        await page.eval(`${O}.clear()`); await sleep(300);
+        const y0 = (await ts()).player.y;
+        let top = 0;
+        for (const how of ['space', 'k', 'jump']) {
+          if (how === 'space') await page.key('Space'); else if (how === 'k') await key('KeyK'); else await page.eval(`${O}.jump()`);
+          for (let i = 0; i < 12; i++) { await sleep(40); top = Math.max(top, Math.abs((await ts()).player.y - y0)); }
+        }
+        ok('no jumping: Space, K and the jump itself leave him on the ground, and there is no JUMP button', top < 0.02 && !btns.includes('JUMP') && btns.includes('PUNCH'), `rose ${top.toFixed(3)} m, buttons ${btns.join(' ')}`);
+      }
+      // no dodge: C, L and the dodge itself do nothing (not even a jump), the warning never says to dodge
+      {
+        await page.eval(`(() => { const O = ${O}; O.clear(); O.place(${pp.x}, ${pp.z}, 0, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 1.25}); return true; })()`); await sleep(450);
+        const d0 = await tf(), y0 = (await ts()).player.y, p0 = (await ts()).player;
+        const r1 = await page.eval(`${O}.dodge()`); await key('KeyC'); await key('KeyL');
+        await page.eval(`${O}.attack()`);
+        let slow = 0, top = 0, said = '';
+        for (let i = 0; i < 30; i++) { await sleep(40); const f = await tf(); slow = Math.max(slow, f.slow); const s = await ts(); top = Math.max(top, Math.abs(s.player.y - y0)); said = said || await page.eval<string>('(document.querySelector("#gm .feed") || {}).textContent || ""'); }
+        const d1 = await tf(), p1 = (await ts()).player;
+        ok('no dodge: C, L and the dodge do nothing (not a jump either), no warning slows time or says to dodge, and no DODGE button',
+          r1 === null && d1.dodges === d0.dodges && top < 0.02 && slow === 0 && !/dodge/i.test(said) && !btns.includes('DODGE') && Math.hypot(p1.x - p0.x, p1.z - p0.z) < 0.3,
+          `dodge ${JSON.stringify(r1)}, dodges ${d0.dodges} -> ${d1.dodges}, rose ${top.toFixed(3)}, slow ${slow}, feed "${said}"`);
+      }
+      // the finisher is a punch: the haymaker drops him and the fist comes down on him, straight out of the haymaker (no
+      // beat stood still between them) and onto his head (read every frame in the page: the fists against his head)
+      {
+        await page.eval(`(() => { const O = ${O}; O.clear(); O.place(${pp.x}, ${pp.z}, null, null, false, 0); O.spawn('thug', ${pp.x}, ${pp.z + 2.5}); O.focus(1.1); return true; })()`); await sleep(400);
+        const k0 = (await ts()).kos;
+        const fin = await page.eval(`(() => {
+          const I = window.__gmRuntime.debug.internals(), O = ${O}, v = new I.THREE.Vector3(), me = window.__gmRuntime.state().open.player, heads = [];
+          I.scene.traverse((o) => { if (o.isBone && o.name === 'head') { let r = o; while (r.parent && r.parent !== I.scene) r = r.parent; r.getWorldPosition(v); heads.push({ bone: o, root: r, d: Math.hypot(v.x - me.x, v.z - me.z) }); } });
+          heads.sort((a, b) => a.d - b.d);
+          const hero = heads[0].root, foe = heads[1], wr = [hero.getObjectByName('wrist_R'), hero.getObjectByName('wrist_L')], at = (o) => o.getWorldPosition(new I.THREE.Vector3());
+          const F = { frames: [] }; window.__finRec = F;
+          const step = () => { const f = O.flow(); if (!f.fin) return; const h = at(foe.bone); F.frames.push({ ms: performance.now(), act: f.act, fist: Math.min(...wr.map((w) => at(w).distanceTo(h))) }); requestAnimationFrame(step); };
+          const r = O.finisher(); requestAnimationFrame(step); return r; })()`);
+        let g = await tf(); const clips = new Set<string>(); for (let i = 0; i < 60 && g.fin; i++) { await sleep(60); g = await tf(); if (g.act) clips.add(g.act); }
+        const k1 = (await ts()).kos, fr = await page.eval<{ ms: number; act: string | null; fist: number }[]>('window.__finRec.frames');
+        // the longest he stands still (no blow playing) inside the finisher, and the nearest his fist comes to the head in the slam
+        let still = 0, run0 = -1; fr.forEach((q, i) => { if (!q.act) { if (run0 < 0) run0 = i; still = Math.max(still, q.ms - fr[run0].ms + (fr[i + 1] ? fr[i + 1].ms - q.ms : 0)); } else run0 = -1; });
+        const fist = Math.min(...fr.filter((q) => q.act === 'ffSlamLand').map((q) => q.fist));
+        ok('the finisher is a punch: a haymaker drops him and the fist comes down on him, down for good', !!fin && k1 - k0 === 1 && JSON.stringify(g.finPlayed) === JSON.stringify(['ffHook', 'ffSlamLand']) && !clips.has('ffFinisher') && g.focus < 0.2,
+          `${k1 - k0} down, finisher played ${JSON.stringify(g.finPlayed)}, seen ${[...clips].join(',')}, focus left ${g.focus}`);
+        ok('the fist comes down straight out of the haymaker, with no beat stood still between them, and lands on his head', fr.length > 20 && still < 200 && fist < 0.4,
+          `${fr.length} frames, stood still ${Math.round(still)} ms at most, the fist ${fist.toFixed(2)} m from his head at the nearest`);
+      }
+      // the tank: a blow from in front lands on his forearms, one from behind does its full harm; neither shoves him or
+      // makes him flinch; a heavy one rocks him
+      {
+        await page.eval('window.__gmRuntime.debug.invincible(false)');
+        const blow = async (face: number) => {
+          await page.eval(`(() => { const O = ${O}; O.clear(); O.pose('fight'); O.place(${pp.x}, ${pp.z}, 0, null, false, ${face}); O.spawn('thug', ${pp.x}, ${pp.z + 1.25}); return true; })()`); await sleep(600);
+          const s0 = (await ts()).player, b0 = (await tf()).blocked; await page.eval(`${O}.attack()`);
+          let s1 = s0, acts = new Set<string>();
+          for (let i = 0; i < 40 && s1.hp >= s0.hp; i++) { await sleep(30); s1 = (await ts()).player; }
+          for (let i = 0; i < 8; i++) { await sleep(30); const f = await tf(); if (f.act) acts.add(f.act); }
+          const s2 = (await ts()).player, b1 = (await tf()).blocked;
+          await page.eval(`${O}.clear()`); await page.eval(`${O}.pose(null)`);
+          return { lost: s0.hp - s1.hp, moved: Math.hypot(s2.x - s0.x, s2.z - s0.z), acts: [...acts], blocked: b1 - b0 };
+        };
+        const front = await blow(0), back = await blow(Math.PI);
+        ok('a blow from in front lands on his forearms: 45% of its harm or less, no shove, no flinch', front.lost > 0 && back.lost > 0 && front.lost <= back.lost * 0.45 && front.blocked === 1 && front.moved < 0.15 && !front.acts.some((a) => /^hit/.test(a)),
+          `front ${JSON.stringify(front)}, behind ${JSON.stringify(back)}`);
+        ok('a blow from behind does its full harm, and still neither shoves him nor makes him flinch', back.blocked === 0 && back.moved < 0.15 && !back.acts.some((a) => /^hit/.test(a)), JSON.stringify(back));
+        const hp0 = (await ts()).player.hp; await page.eval(`${O}.hurt(16, 0)`); await sleep(60);
+        const hv = await tf(), hp1 = (await ts()).player.hp;
+        ok('a heavy blow (a boss\'s) is still blocked in part, and still rocks him', hv.act === 'hitChest' && hp0 - hp1 <= 16 * 0.45, `${hp0.toFixed(1)} -> ${hp1.toFixed(1)}, act ${hv.act}`);
+      }
+      // heavy by who struck, not by what the heat has made of it: at heat 8 a biker's blow (10, 14.9 with the heat) from in
+      // front neither rocks him nor cuts off the punch he is throwing
+      {
+        await page.eval(`${O}.heat(8)`);
+        // (a man told to strike now and then circles off instead: up to three tries for one blow that lands)
+        let s0 = (await ts()).player, s1 = s0, s2 = s0, b0 = 0, b1 = 0; const acts = new Set<string>();
+        for (let r = 0; r < 3 && !(s1.hp < s0.hp); r++) {
+          await page.eval(`(() => { const O = ${O}; O.clear(); O.pose('fight'); O.place(${pp.x}, ${pp.z}, 0, null, false, 0); O.spawn('biker', ${pp.x}, ${pp.z + 1.4}); return true; })()`); await sleep(600);
+          s0 = (await ts()).player; s1 = s0; b0 = (await tf()).blocked; await page.eval(`${O}.attack()`);
+          for (let i = 0; i < 50 && s1.hp >= s0.hp; i++) { await sleep(30); s1 = (await ts()).player; }
+          for (let i = 0; i < 8; i++) { await sleep(30); const f = await tf(); if (f.act) acts.add(f.act); }
+          s2 = (await ts()).player; b1 = (await tf()).blocked;
+        }
+        await page.eval(`${O}.clear(); ${O}.pose(null)`); await sleep(400);
+        // the same harm landing while he punches the air: 0.06 s in (its wind-up, full harm) and 0.3 s in (its strike is
+        // past and his guard is back up: on his forearms); the punch goes on through both
+        const into = (ms: number) => page.eval<{ blocked: number; punching: number; act: string | null; lost: number }>(`new Promise((done) => { const O = ${O}; O.punch();
+          setTimeout(() => { const b = O.flow().blocked, hp = window.__gmRuntime.state().open.player.hp; O.hurt(14.9, 0); const f = O.flow();
+            done({ blocked: f.blocked - b, punching: f.punching, act: f.act, lost: +(hp - window.__gmRuntime.state().open.player.hp).toFixed(2) }); }, ${ms}); })`);
+        const early = await into(60); await sleep(900); const late = await into(300); await sleep(600);
+        ok('at heat 8 a biker\'s blow from in front neither rocks him nor cuts off his punch', s1.hp < s0.hp && b1 - b0 === 1 && !acts.has('hitChest') && Math.hypot(s2.x - s0.x, s2.z - s0.z) < 0.15
+          && early.punching > 0 && late.punching > 0 && early.act !== 'hitChest' && late.act !== 'hitChest',
+          `biker ${(s0.hp - s1.hp).toFixed(1)} harm, blocked ${b1 - b0}, acts ${[...acts].join(',')}, moved ${Math.hypot(s2.x - s0.x, s2.z - s0.z).toFixed(2)}; mid-punch ${JSON.stringify({ early, late })}`);
+        ok('a blow from in front while he punches lands on his forearms once his punch has struck, and in full while he winds it up',
+          early.blocked === 0 && late.blocked === 1 && late.lost > 0 && late.lost <= early.lost * 0.45, JSON.stringify({ early, late }));
+      }
+      const e1 = await page.eval<string[]>('window.__gm.errors');
+      ok('a run with the punches-only tank raises no error', e1.length === 0, e1.join(' | '));
+    }, { timeoutMs: 200_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(tkid); }
+  // the finisher's overhead punch (the owner 4 Oct: "a skull-crushing overhead punch"; 5 Oct, the slam's touchdown read
+  // as a dive onto him): the same hero with the motion pack listed, as AI Alps lists it, follows the haymaker with the
+  // pack's crush: down on one knee, the right fist high overhead, then driven straight down onto the head of the man on
+  // the ground (without the pack, the slam above). Read every frame in the page: the fist, the man's skull, the hips
+  {
+    const crid = randomUUID(), crcode = tkcode.replace("assets: ['human-athlete-male'],", "assets: ['human-athlete-male', 'human-moves-male'],");
+    insertDraft({ id: crid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: crcode,
+      meta: { title: 'Crush Check', tagline: 'Punches only', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#9CB4D0', ground: '#A79C88', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' } });
+    try {
+      await withBrowser(async (page) => {
+        const O = 'window.__gmRuntime.debug.open()';
+        await page.goto(`${BASE}/d/${crid}/play`);
+        for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+        await page.eval('window.__gmRuntime.debug.start(); window.__gmRuntime.debug.invincible(true)'); await sleep(700);
+        await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, 0, null, null, false, 0); O.spawn('thug', 0, 2.2); O.focus(1.1); return true; })()`); await sleep(600);
+        const k0 = await page.eval<number>('window.__gmRuntime.state().open.kos');
+        await page.eval(`(() => {
+          const I = window.__gmRuntime.debug.internals(), O = ${O}, V = I.THREE.Vector3, me = window.__gmRuntime.state().open.player, heads = [];
+          I.scene.traverse((o) => { if (o.isBone && o.name === 'head') { let r = o; while (r.parent && r.parent !== I.scene) r = r.parent; const p = r.getWorldPosition(new V()); heads.push({ bone: o, root: r, d: Math.hypot(p.x - me.x, p.z - me.z) }); } });
+          heads.sort((a, b) => a.d - b.d);
+          const hero = heads[0].root, foe = heads[1].root, at = (o) => o.getWorldPosition(new V());
+          const fist = hero.getObjectByName('finger3-1_R'), myHead = hero.getObjectByName('head'), hips = hero.getObjectByName('root'), head = foe.getObjectByName('head'), neck = foe.getObjectByName('neck03');
+          const F = { frames: [] }; window.__crushRec = F;
+          const step = () => { const f = O.flow(); if (!f.fin) return;
+            // (the middle of his skull: 9 cm on from the head bone, the way his neck runs into it)
+            const h = at(head), s = h.clone().add(h.clone().sub(at(neck)).setLength(0.09)), k = at(fist);
+            F.frames.push({ ms: performance.now(), act: f.act, fist: +k.distanceTo(s).toFixed(3), y: +k.y.toFixed(3), over: +(k.y - at(myHead).y).toFixed(3), hips: +at(hips).y.toFixed(3), kos: window.__gmRuntime.state().open.kos });
+            requestAnimationFrame(step); };
+          O.finisher(); requestAnimationFrame(step); return true; })()`);
+        let g = await page.eval<{ fin: unknown; finPlayed: string[] | null }>(`${O}.flow()`);
+        for (let i = 0; i < 80 && g.fin; i++) { await sleep(60); g = await page.eval(`${O}.flow()`); }
+        const k1 = await page.eval<number>('window.__gmRuntime.state().open.kos');
+        const fr = await page.eval<{ ms: number; act: string | null; fist: number; y: number; over: number; hips: number; kos: number }[]>('window.__crushRec.frames');
+        const ko = fr.findIndex((q) => q.kos > k0), at = ko >= 0 ? fr[ko] : null, before = fr.slice(0, Math.max(0, ko)).filter((q) => q.act === 'crush');
+        const over = before.length ? Math.max(...before.map((q) => q.over)) : 0;
+        let still = 0, run0 = -1; fr.forEach((q, i) => { if (!q.act) { if (run0 < 0) run0 = i; still = Math.max(still, q.ms - fr[run0].ms + (fr[i + 1] ? fr[i + 1].ms - q.ms : 0)); } else run0 = -1; });
+        ok('with the motion pack, the finisher\'s fist comes down from overhead, on one knee, onto the head of the man on the ground: down for good',
+          k1 - k0 === 1 && JSON.stringify(g.finPlayed) === JSON.stringify(['ffHook', 'crush']) && !!at && at.act === 'crush' && over > 0.15 && at.hips < 0.65 && at.fist < 0.25 && at.y > 0.12 && at.y < 0.32 && still < 200,
+          `${k1 - k0} down, played ${JSON.stringify(g.finPlayed)}; before it lands the fist rises ${over.toFixed(2)} m over his own head; as it lands: ${at ? `${at.act}, the fist ${at.fist.toFixed(2)} m from the middle of the man's skull, ${at.y.toFixed(2)} m up, his hips ${at.hips.toFixed(2)} m up` : 'never'}; stood still ${Math.round(still)} ms at most`);
+        const e = await page.eval<string[]>('window.__gm.errors');
+        ok('a finisher with the motion pack raises no error', e.length === 0, e.join(' | '));
+      }, { timeoutMs: 120_000 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(crid); }
+  }
+
+  // a party's weapons (AI Alps, the owner 4 Oct: "he can pick up bottles, glasses and beat club goers over the head"):
+  // the bottle, magnum, glass and bucket kinds and open.weapons.spots (stand, every), on their own fixture; then the
+  // fixture again without them, for the street's mix
+  console.log('\nopen worlds: bottles, glasses and an ice bucket on a table, broken over heads');
+  const btid = randomUUID(), btcode = readFileSync(new URL('../lib/runtime/bottles-world.js', import.meta.url), 'utf8');
+  const btmeta = { title: 'Bottles Check', tagline: 'Glass', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#3A4660', ground: '#8E8678', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' };
+  insertDraft({ id: btid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: btcode, meta: btmeta });
+  try {
+    await withBrowser(async (page) => {
+      type TG = { shards: number; drops: number; junk: number; smashes: number; knocks: number; clangs: number; shattered: number; last: { kind: string; x: number; y: number; z: number; on: number | null } | null;
+        dent: number | null; stance: string; stood: { kind: string; x: number; foot: number; tall: number; glint: boolean }[]; armed: { kind: string; held: string | null; stance: string; act: string | null; state: string; d: number }[] };
+      type TS = { kos: number; weapon: { kind: string; hits: number; max: number } | null; player: { x: number; z: number; y: number; hp: number }; pickups: { kind: string; x: number; z: number; dropped: boolean }[]; enemies: { ko: boolean; hp: number; state: string }[] };
+      const O = 'window.__gmRuntime.debug.open()';
+      const gl = () => page.eval<TG>(`${O}.glass()`), ts = () => page.eval<TS>('window.__gmRuntime.state().open');
+      const feed = () => page.eval<string>('(document.querySelector("#gm .feed") || {}).textContent || ""');
+      await page.goto(`${BASE}/d/${btid}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      await page.eval('window.__gmRuntime.debug.audio(); window.__gmRuntime.debug.start()'); await sleep(800);
+      await page.eval(`window.__gmRuntime.debug.invincible(true); ${O}.clear()`);
+      // the table: each spot its own kind (two left to the world's mix), stood upright on the top, not glinting
+      const g0 = await gl(), named = ['bottle', 'magnum', 'glass', 'bottle', 'glass', 'bucket'], xs = [-2.1, -1.4, -0.7, 0, 0.7, 1.4, 2.1, 2.8];
+      const at = (x: number) => g0.stood.find((q) => Math.abs(q.x - x) < 0.01);
+      ok('the table holds what the world put on it: each spot its own kind, the rest from its mix, all stood upright on the top and none glinting',
+        g0.stood.length === 8 && named.every((k, i) => at(xs[i])?.kind === k) && g0.stood.every((q) => ['bottle', 'magnum', 'glass', 'bucket'].includes(q.kind) && Math.abs(q.foot - 0.76) < 0.01 && !q.glint)
+          && ['bottle', 'magnum'].every((k) => g0.stood.filter((q) => q.kind === k).every((q) => q.tall > 3)),
+        JSON.stringify(g0.stood));
+      // bare hands take a bottle off the table
+      const take = async (x: number, kind: string) => {
+        await page.eval(`${O}.place(${x}, 5.05, null, null, false, 0)`);
+        let s = await ts(); for (let i = 0; i < 40 && !(s.weapon && s.weapon.kind === kind); i++) { await sleep(60); s = await ts(); }
+        return s;
+      };
+      const n0 = (await ts()).pickups.length, tb = await take(-2.1, 'bottle'); await sleep(300);
+      ok('bare hands take a bottle off the table', !!tb.weapon && tb.weapon.kind === 'bottle' && tb.weapon.hits === 1 && tb.pickups.length === n0 - 1,
+        `${JSON.stringify(tb.weapon)}, pickups ${n0} -> ${tb.pickups.length}`);
+      // one blow: it breaks on his head
+      const swing = async () => {
+        await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, -8, null, null, false, 0); O.spawn('thug', 0, -6.9); return true; })()`); await sleep(350);
+        const a = await gl(), s0 = await ts(); await page.eval(`${O}.punch()`);
+        let s = await ts(); const hit = () => s.weapon === null || (s0.weapon && s.weapon && s.weapon.hits < s0.weapon.hits);
+        for (let i = 0; i < 30 && !hit(); i++) { await sleep(40); s = await ts(); }
+        await sleep(80);
+        return { a, b: await gl(), s0, s: await ts(), said: await feed() };
+      };
+      const h = await swing();
+      const foe = h.s.enemies[0], last = h.b.last;
+      ok('with a man in front of him he squares up with the bottle as a boxer does, not in the sword\'s guard', h.a.stance === 'fight', `stance ${h.a.stance}`);
+      ok('one bottle over a man\'s head: it shatters on his head as the blow lands, shards and a spray of wine in the air, the smash heard, and his hand is empty',
+        h.s.weapon === null && h.b.shattered - h.a.shattered === 1 && h.b.smashes - h.a.smashes === 1 && h.b.shards >= 12 && h.b.drops > 0 && !!last && last.kind === 'bottle' && last.y > 1.4 && last.y < 2.1 && last.z > -8 && Math.hypot(last.x, last.z + 8) < 2.4 && /bottle shattered/i.test(h.said),
+        `weapon ${JSON.stringify(h.s.weapon)}, ${JSON.stringify({ shattered: h.b.shattered - h.a.shattered, smashes: h.b.smashes - h.a.smashes, shards: h.b.shards, drops: h.b.drops, last })}, feed "${h.said}"`);
+      ok('the man it broke on goes down (or reels), and a knockout is said in the same line as the smash', !!foe && (h.s.kos - h.s0.kos === 1 || foe.ko || foe.hp < 3) && (h.s.kos === h.s0.kos || /bottle shattered\. Knockout \+\d+ GM/i.test(h.said)),
+        `kos ${h.s0.kos} -> ${h.s.kos}, ${JSON.stringify(foe)}, feed "${h.said}"`);
+      // the ice bucket: it dents and clangs on two heads and gives out on the third
+      await sleep(400);
+      const tk = await take(1.4, 'bucket');
+      const rounds: { hits: number | null; dent: number | null; clangs: number; junk: number; smashes: number; shattered: number }[] = [];
+      for (let r = 0; r < 3; r++) { const w = await swing(); rounds.push({ hits: w.s.weapon ? w.s.weapon.hits : null, dent: w.b.dent, clangs: w.b.clangs - w.a.clangs, junk: w.b.junk, smashes: w.b.smashes - w.a.smashes, shattered: w.b.shattered - w.a.shattered }); await sleep(250); }
+      const said = await feed();
+      ok('the ice bucket dents and clangs on each of two heads and gives out on the third (its ice spills, it lies crumpled), never shattering like glass',
+        !!tk.weapon && tk.weapon.kind === 'bucket' && rounds[0].hits === 2 && rounds[1].hits === 1 && rounds[2].hits === null && rounds[0].dent! < 1 && rounds[1].dent! < rounds[0].dent!
+          && rounds.every((q) => q.clangs === 1 && q.smashes === 0) && rounds[2].shattered === 1 && rounds[2].junk === 1 && /ice bucket gave out/i.test(said),
+        `${JSON.stringify(tk.weapon)}, ${JSON.stringify(rounds)}, feed "${said}"`);
+      // a biker carries a bottle: in his right hand, a boxer's stance, and he swings it
+      {
+        await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, -8, null, null, false, 0); O.spawn('biker', 0, -6.8); return true; })()`); await sleep(500);
+        await page.eval(`${O}.attack()`);
+        let g = await gl(), acts = new Set<string>(); for (let i = 0; i < 30; i++) { await sleep(40); g = await gl(); if (g.armed[0] && g.armed[0].act) acts.add(g.armed[0].act); }
+        const b = g.armed[0];
+        ok('a biker carries his bottle in his right hand, squares up as a boxer does and swings it', !!b && b.kind === 'bottle' && b.held === 'bottle' && b.stance === 'fight' && (acts.has('ffCross') || acts.has('cross')),
+          `${JSON.stringify(g.armed)}, moves ${[...acts].join(',')}`);
+      }
+      // the table restocked while he stays at the party: one taken, and he stands 3 m from the table
+      {
+        await page.eval(`${O}.clear()`); await sleep(300);
+        const g0 = await gl(), q = g0.stood[0], tq = q ? await take(q.x, q.kind) : null, n1 = (await gl()).stood.length;
+        await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0.35, 2.75, null, null, false, 0); return true; })()`);
+        const t0 = Date.now(); let n2 = n1;
+        while (Date.now() - t0 < 13_000 && n2 < g0.stood.length) { await sleep(500); await page.eval(`${O}.clear()`); n2 = (await gl()).stood.length; }
+        const waited = (Date.now() - t0) / 1000;
+        ok('a bottle taken off the table is put back within every (12 s) and a second, while he stands 3 m from the table',
+          !!tq && !!tq.weapon && n1 === g0.stood.length - 1 && n2 === g0.stood.length && waited <= 13.5, `${g0.stood.length} stood, took a ${tq && tq.weapon ? tq.weapon.kind : 'nothing'}: ${n1}, then ${n2} after ${waited.toFixed(1)} s`);
+      }
+      const e1 = await page.eval<string[]>('window.__gm.errors');
+      ok('a run with bottles, glasses and an ice bucket raises no error', e1.length === 0, e1.join(' | '));
+    }, { timeoutMs: 200_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(btid); }
+  // the same world naming none of them: the street's own mix, hidden about
+  {
+    const bsid = randomUUID(), bscode = btcode.replace(/weapons: \{[\s\S]*?\] \},/, 'weapons: { count: 8 },');
+    insertDraft({ id: bsid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: bscode, meta: btmeta });
+    try {
+      await withBrowser(async (page) => {
+        await page.goto(`${BASE}/d/${bsid}/play`);
+        for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+        await page.eval('window.__gmRuntime.debug.start()'); await sleep(800);
+        const p = await page.eval<{ kind: string }[]>('window.__gmRuntime.state().open.pickups'), street = ['bat', 'pipe', 'chain', 'baton', 'sword'];
+        ok('a world that names none of them keeps the street\'s weapons: eight about the place, every one a bat, pipe, chain, baton or katana', bscode !== btcode && p.length === 8 && p.every((q) => street.includes(q.kind)),
+          p.map((q) => q.kind).join(','));
+      }, { timeoutMs: 90_000 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(bsid); }
+  }
+
+  // a story told as the GM comes in (AI Alps, the owner 4 Oct: "with a Cut scene explaining the next level mission every
+  // 1500 GM", and "One party, rising stakes"): open.story's beats on their own fixture (a goal of 400, beats at 100 and
+  // 200), the machine's view a shot may set (shot.vision), the run going on after a beat, and none of it while the
+  // autopilot drives; then the fixture without a story, and Zombie Beach, for the GM as it was
+  console.log('\nopen worlds: a story scene at each beat of GM, the run going on after it, and a machine\'s view');
+  const sgid = randomUUID(), sgcode = readFileSync(new URL('../lib/runtime/story-world.js', import.meta.url), 'utf8');
+  const sgmeta = { title: 'Story Check', tagline: 'Beats', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#1C2234', ground: '#6E7480', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' };
+  insertDraft({ id: sgid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: sgcode, meta: sgmeta });
+  type SS = { chapter: number; next: number | null; objective: string; due: boolean; beats: number } | null;
+  type SO = { state: string; heat: number; time: number; kos: number; gm: number; boss: { name: string } | null; player: { x: number; z: number; hp: number; max: number }; enemies: { kind: string; name: string; ko: boolean }[]; story: SS };
+  type SV = { on: boolean; tint: string; text: string; track: string | null; box: { x: number; y: number; size: number } | null } | null;
+  // what is on the screen: the machine's layers over the canvas and its overlay, the objective line, the banner
+  type SD = { layers: { cls: string; shown: boolean; blend: string }[]; overlay: boolean; objective: string | null; banner: string };
+  const SD_JS = `(() => { const v = (e) => !!e && getComputedStyle(e).display !== 'none'; const o = document.querySelector('#gm .owo'), w = document.querySelector('#gm .owv');
+    return { layers: [...document.querySelectorAll('body > .gmvis')].map((e) => ({ cls: e.className, shown: v(e), blend: getComputedStyle(e).mixBlendMode })), overlay: v(w),
+      objective: v(o) ? o.textContent : null, banner: [...document.querySelectorAll('#gm .banner b, #gm .banner span')].map((e) => e.textContent).join(' / ') }; })()`;
+  try {
+    await withBrowser(async (page) => {
+      const O = 'window.__gmRuntime.debug.open()';
+      const so = async () => { const s = await page.eval<{ state: string; open: Omit<SO, 'state'> }>('window.__gmRuntime.state()'); return { ...s.open, state: s.state } as SO; };
+      const sd = () => page.eval<SD>(SD_JS), sv = () => page.eval<SV>(`${O}.vision()`), ix = () => page.eval<{ shot: number; cast: string[] } | null>(`${O}.introState()`);
+      await page.goto(`${BASE}/d/${sgid}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      await page.eval('window.__gmRuntime.debug.audio(); window.__gmRuntime.debug.start()'); await sleep(900);
+      const d0 = await sd(), s0 = await so();
+      ok('a story world shows its first objective under the GM board, and nothing of the machine\'s view exists before a shot asks for it',
+        d0.objective === 'ObjectiveGet 100 GM' && d0.layers.length === 0 && !d0.overlay && !!s0.story && s0.story.chapter === 1 && s0.story.next === 100,
+        `${JSON.stringify(d0)}, ${JSON.stringify(s0.story)}`);
+      // a fight first, so there is something to keep: a knockout, the heat at 2, a blow taken
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, -8, null, null, false, 0); O.spawn('thug', 0, -6.9); return true; })()`); await sleep(350);
+      let s1 = await so();
+      for (let i = 0; i < 30 && s1.kos < 1; i++) { await page.eval(`${O}.punch()`); await sleep(220); s1 = await so(); }
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.heat(2); O.hurt(150); return true; })()`);
+      await sleep(1600);
+      // past 100 GM, as coins would bring it, with nobody driving: the scene plays as soon as the fight allows
+      const pre = await so(), gIn = await page.eval<number>(`${O}.gm(${Math.max(1, 100 - pre.gm + 10)})`);
+      let x0 = await ix(); for (let i = 0; i < 20 && !x0; i++) { await sleep(50); x0 = await ix(); }
+      const sIn = await so();
+      ok('passing 100 GM plays the first beat\'s scene as soon as the fight allows: the run stops for it, letterboxed, the next chapter begun',
+        s1.kos >= 1 && gIn >= 100 && !!x0 && sIn.state === 'intro' && !!sIn.story && sIn.story.chapter === 2 && sIn.story.objective === 'Find the DJ',
+        `kos ${s1.kos}, gm ${pre.gm} -> ${gIn}, ${JSON.stringify(x0)}, ${sIn.state}, ${JSON.stringify(sIn.story)}`);
+      // its first shot through the machine's eyes
+      await sleep(1500);
+      const v1 = await sv(), d1 = await sd(), vw = await page.eval<{ w: number; h: number }>('({ w: innerWidth, h: innerHeight })');
+      ok('a shot that sets vision is seen through the machine\'s eyes: its colour blended over the frame, the overlay with its lines typed out, and a box on the DJ\'s head in the frame',
+        !!v1 && v1.on && v1.tint === '#FF1A1A' && /TARGET: DJ VOLT\nTHREAT: LOW/.test(v1.text) && v1.track === 'dj' && !!v1.box && v1.box.x > 0 && v1.box.x < vw.w && v1.box.y > 0 && v1.box.y < vw.h && v1.box.size >= 26 && v1.box.size < vw.h / 2
+          && d1.layers.length === 3 && d1.layers.every((l) => l.shown) && ['color', 'multiply', 'screen'].every((b) => d1.layers.some((l) => l.blend === b)) && d1.overlay,
+        `${JSON.stringify(v1)}, ${JSON.stringify(d1.layers)}, overlay ${d1.overlay}`);
+      // the next shot sets none
+      let x1 = await ix(); for (let i = 0; i < 40 && !(x1 && x1.shot === 1); i++) { await sleep(60); x1 = await ix(); }
+      await sleep(200);
+      const v2 = await sv(), d2 = await sd();
+      ok('the next shot, which sets no vision, is the ordinary frame again', !!x1 && x1.shot === 1 && !!v2 && !v2.on && !v2.box && d2.layers.every((l) => !l.shown) && !d2.overlay,
+        `${JSON.stringify(x1)}, ${JSON.stringify(v2)}, ${JSON.stringify(d2.layers)}`);
+      const sMid = await so();
+      await page.key('Enter'); await sleep(350);
+      const x2 = await ix(), s2 = await so(), d3 = await sd();
+      const dj = s2.enemies.find((e) => e.name === 'DJ Volt' && !e.ko);
+      ok('Enter skips it, and the run goes on as it was: the GM, the heat, the knockouts, the time and his health kept, the DJ there to fight, the chapter\'s banner and its objective under the GM board',
+        !x2 && s2.state === 'race' && s2.gm === sMid.gm && s2.gm >= gIn && s2.heat === 2 && s2.kos === pre.kos && Math.abs(s2.player.hp - pre.player.hp) < 0.5 && s2.player.hp < s2.player.max
+          && s2.time >= pre.time && s2.time < pre.time + 1.5 && !!dj && /Chapter 2/.test(d3.banner) && /Find the DJ/.test(d3.banner) && d3.objective === 'ObjectiveFind the DJ' && !!s2.story && s2.story.next === 200,
+        `gm ${pre.gm}/${sMid.gm} -> ${s2.gm}, heat ${pre.heat} -> ${s2.heat}, kos ${pre.kos} -> ${s2.kos}, hp ${pre.player.hp} -> ${s2.player.hp}, time ${pre.time} -> ${s2.time}, DJ ${!!dj}, banner "${d3.banner}", objective "${d3.objective}"`);
+      const heard = await page.eval<{ chapter: number[]; knockout: number; heat: number }>('self.__story');
+      ok('a world that tells a story hears the open world\'s moments through ctx.on: the chapter begun, the knockout, the heat',
+        JSON.stringify(heard.chapter) === '[2]' && heard.knockout >= 1 && heard.heat >= 1, JSON.stringify(heard));
+      // the autopilot passes the next beat's GM: no scene
+      await page.eval(`window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true); ${O}.gm(100)`);
+      let seen = false; for (let i = 0; i < 25; i++) { await sleep(80); if (await ix()) seen = true; }
+      const s3 = await so();
+      ok('with the autopilot driving, passing the next beat\'s GM plays no scene: the fight (and a playtest\'s boss) goes on, the beat waiting',
+        !seen && s3.state === 'race' && s3.gm >= 200 && !!s3.story && s3.story.chapter === 2 && s3.story.due, `scene ${seen}, ${s3.state}, gm ${s3.gm}, ${JSON.stringify(s3.story)}`);
+      // a check may still ask for it; Esc skips it
+      const forced = await page.eval<boolean>(`${O}.beat(1)`); await sleep(900);
+      const v4 = await sv(), x4 = await ix();
+      await page.key('Escape'); await sleep(300);
+      const s4 = await so(), x5 = await ix();
+      let boss = s4.boss; for (let i = 0; i < 30 && !boss; i++) { await sleep(150); boss = (await so()).boss; }
+      ok('a check can still ask for a beat; Esc skips it, the heat is at least the beat\'s, and its boss, by name, is on his way',
+        forced && !!x4 && !!v4 && v4.on && v4.tint === '#22E0FF' && !x5 && s4.state === 'race' && s4.heat === 3 && !!s4.story && s4.story.chapter === 3 && s4.story.next === 300 && !!boss && boss.name === 'The Promoter',
+        `forced ${forced}, ${JSON.stringify(x4)}, vision ${v4 && v4.tint}, ${s4.state}, heat ${s4.heat}, ${JSON.stringify(s4.story)}, boss ${JSON.stringify(boss)}`);
+      // the third beat takes the heat from 3 to 6 and names no boss: what the heat brings as it rises comes all the same
+      await page.eval(`${O}.clear()`);
+      const forced2 = await page.eval<boolean>(`${O}.beat(2)`); await sleep(900); await page.key('Escape'); await sleep(300);
+      let s4b = await so(); for (let i = 0; i < 30 && !(s4b.boss && s4b.boss.name === 'Big Lou'); i++) { await sleep(150); s4b = await so(); }
+      ok('a beat that takes the heat past a third level brings that level\'s boss though it names none, and from heat 3 the police',
+        forced2 && s4b.heat === 6 && !!s4b.story && s4b.story.chapter === 4 && s4b.story.next === null && !!s4b.boss && s4b.boss.name === 'Big Lou' && s4b.enemies.some((e) => e.kind === 'cop'),
+        `forced ${forced2}, heat ${s4b.heat}, ${JSON.stringify(s4b.story)}, boss ${JSON.stringify(s4b.boss)}, ${s4b.enemies.map((e) => e.kind).join(',')}`);
+      // a new run is chapter 1 again; a beat's GM and the goal passed at once end the run won, the goal first
+      await page.eval('window.__gmRuntime.debug.invincible(false); window.__gmRuntime.debug.autopilot(false)');
+      await page.eval(`${O}.hurt(99999)`); await sleep(3300); await page.key('Enter'); await sleep(900);
+      const s5 = await so(), d5 = await sd();
+      await page.eval(`${O}.gm(450)`); await sleep(400);
+      const s6 = await so(), x6 = await ix(), res = await page.eval<{ won?: boolean; goal?: boolean; gm: number }[]>('window.__gm.results || []'), won = res[res.length - 1];
+      ok('a new run is the story\'s first chapter again; passing a beat\'s GM and the goal at once ends the run won, with no beat\'s scene: the goal comes first',
+        s5.state === 'race' && !!s5.story && s5.story.chapter === 1 && s5.story.objective === 'Get 100 GM' && d5.objective === 'ObjectiveGet 100 GM'
+          && !x6 && s6.state === 'results' && !!won && won.won === true && won.goal === true && won.gm >= 400 && !!s6.story && s6.story.chapter === 1,
+        `${s5.state}, ${JSON.stringify(s5.story)}, "${d5.objective}" -> ${s6.state}, ${JSON.stringify(s6.story)}, ${JSON.stringify(won)}`);
+      // only invincible, into a new run (which counts it unassisted for the board): still no scene; then, in a run nobody
+      // has driven, a boss on him: the beat waits for him; with him gone, it plays
+      await page.eval('window.__gmRuntime.debug.invincible(true)'); await page.key('Enter'); await sleep(900);
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.gm(150); return true; })()`);
+      let seen7 = false; for (let i = 0; i < 15; i++) { await sleep(80); if (await ix()) seen7 = true; }
+      const s7 = await so();
+      ok('a run that is only invincible plays no beat, a new run too (the drivers themselves are asked, not the board\'s flag)',
+        !seen7 && s7.state === 'race' && !!s7.story && s7.story.chapter === 1 && s7.story.due, `scene ${seen7}, ${s7.state}, ${JSON.stringify(s7.story)}`);
+      await page.eval('window.__gmRuntime.debug.invincible(false)'); await page.eval(`${O}.hurt(99999)`); await sleep(3300); await page.key('Enter'); await sleep(900);
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.boss(); return true; })()`);
+      let s8 = await so(); for (let i = 0; i < 20 && !s8.boss; i++) { await sleep(100); s8 = await so(); }
+      await page.eval(`${O}.gm(150)`);
+      let seen8 = false; for (let i = 0; i < 18; i++) { await sleep(80); if (await ix()) seen8 = true; }
+      const s9 = await so();
+      await page.eval(`${O}.clear()`);
+      let x9 = await ix(); for (let i = 0; i < 20 && !x9; i++) { await sleep(60); x9 = await ix(); }
+      ok('a beat waits while a boss is on him (the scene would take him away), and plays once he is gone',
+        !!s8.boss && !seen8 && s9.state === 'race' && !!s9.boss && !!s9.story && s9.story.due && !!x9,
+        `boss ${JSON.stringify(s8.boss)}, scene while he was on ${seen8}, ${s9.state}, ${JSON.stringify(s9.story)}, then ${JSON.stringify(x9)}`);
+      await page.key('Escape'); await sleep(300);
+      const e1 = await page.eval<string[]>('window.__gm.errors');
+      ok('a run told as a story, with its scenes and the machine\'s view, raises no error', e1.length === 0, e1.join(' | '));
+    }, { timeoutMs: 180_000 });
+    // on a phone held sideways (touch): a beat breaks into a fight, so a thumb still on PUNCH must not skip it; the pad
+    // is put away for the scene and Skip is not under the thumb; and the objective clears the boss's bar and the pause
+    await withBrowser(async (page) => {
+      const O = 'window.__gmRuntime.debug.open()', W = 844, H = 390;
+      await page.emulate({ width: W, height: H, mobile: true, dpr: 1 });
+      await page.goto(`${BASE}/d/${sgid}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(900);
+      const rect = (sel: string) => `(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+        return { x: r.x, y: r.y, w: r.width, h: r.height, vis: cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0 && +cs.opacity > 0.05 && !!e.offsetParent }; })()`;
+      type RB = { x: number; y: number; w: number; h: number; vis: boolean } | null;
+      const over = (a: RB, b: RB) => !!a && !!b && a.vis && b.vis && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      const punch = await page.eval<RB>(`(() => { const b = [...document.querySelectorAll('#gm .tpad button')].find((x) => x.textContent === 'PUNCH'); if (!b) return null; const r = b.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, vis: true }; })()`);
+      // a boss on him and the objective up: neither under the other, nor under the pause button
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.boss(); return true; })()`);
+      for (let i = 0; i < 30 && !(await page.eval('window.__gmRuntime.state().open.boss')); i++) await sleep(150);
+      await sleep(2800);
+      const ob = await page.eval<RB>(rect('#gm .owo')), bb = await page.eval<RB>(rect('#gm .boss')), pb = await page.eval<RB>(rect('#gm .pause'));
+      // the beat, with the thumb on PUNCH a fifth of a second in
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.gm(110); return true; })()`);
+      let x0 = null; for (let i = 0; i < 40 && !x0; i++) { await sleep(25); x0 = await page.eval(`${O}.introState()`); }
+      await sleep(150);
+      const at = { x: punch ? punch.x + punch.w / 2 : W - 66, y: punch ? punch.y + punch.h / 2 : H - 70 };
+      const under = await page.eval<string>(`(() => { const e = document.elementFromPoint(${at.x}, ${at.y}); return e ? (e.className || e.tagName) : 'none'; })()`);
+      await page.touch('touchStart', [at]); await sleep(40); await page.touch('touchEnd', []); await sleep(250);
+      const x1 = await page.eval(`${O}.introState()`), pad = await page.eval<RB>(rect('#gm .tpad')), sk = await page.eval<RB>(rect('#gm .owi .skip'));
+      // after the grace, Skip is a tap away
+      await sleep(600);
+      await page.touch('touchStart', [{ x: sk ? sk.x + sk.w / 2 : 0, y: sk ? sk.y + sk.h / 2 : 0 }]); await sleep(40); await page.touch('touchEnd', []); await sleep(400);
+      const x2 = await page.eval(`${O}.introState()`), st2 = await page.eval<string>('window.__gmRuntime.state().state'), pad2 = await page.eval<RB>(rect('#gm .tpad'));
+      ok('on a phone a tap on the PUNCH spot 0.2 s into a beat does not end the scene: the pad is put away, Skip is not under the thumb, and a tap on Skip later ends it',
+        !!punch && !!x0 && !!x1 && !pad?.vis && !!sk && sk.vis && !over(sk, punch) && !/skip/.test(under) && !x2 && st2 === 'race' && !!pad2 && pad2.vis,
+        `PUNCH ${JSON.stringify(punch)}, under the thumb "${under}", scene ${JSON.stringify(x0)} -> after the tap ${JSON.stringify(x1)}, pad ${JSON.stringify(pad)}, skip ${JSON.stringify(sk)}, after Skip ${JSON.stringify(x2)} ${st2}, pad ${pad2 && pad2.vis}`);
+      ok('on a phone held sideways the objective clears the boss\'s bar and the pause button', !!ob && ob.vis && !!bb && bb.vis && !over(ob, bb) && !over(ob, pb),
+        `objective ${JSON.stringify(ob)}, boss ${JSON.stringify(bb)}, pause ${JSON.stringify(pb)}`);
+      const e2 = await page.eval<string[]>('window.__gm.errors');
+      ok('a story told on a phone raises no error', e2.length === 0, e2.join(' | '));
+    }, { timeoutMs: 120_000, width: 844, height: 390 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(sgid); }
+  // the same world without its story, and Zombie Beach: GM comes in as it did, no scene, no objective, no machine's view
+  {
+    const nsid = randomUUID(), a = sgcode.indexOf('      story: {'), b = sgcode.indexOf('      crew: {'), nscode = sgcode.slice(0, a) + sgcode.slice(b);
+    insertDraft({ id: nsid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: nscode, meta: sgmeta });
+    try {
+      await withBrowser(async (page) => {
+        const O = 'window.__gmRuntime.debug.open()';
+        await page.goto(`${BASE}/d/${nsid}/play`);
+        for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+        await page.eval('window.__gmRuntime.debug.start()'); await sleep(800);
+        await page.eval(`${O}.gm(150)`); await sleep(300); await page.eval(`${O}.gm(100)`);
+        let seen = false; for (let i = 0; i < 12; i++) { await sleep(80); if (await page.eval(`${O}.introState()`)) seen = true; }
+        const s = await page.eval<{ gm: number; story: unknown }>('window.__gmRuntime.state().open'), d = await page.eval<SD>(SD_JS);
+        ok('a world without a story plays no scene as its GM passes 100 and 200, and has no objective line and no machine\'s view',
+          a > 0 && b > a && !seen && s.gm === 250 && s.story === null && d.objective === null && d.layers.length === 0 && !d.overlay, `scene ${seen}, gm ${s.gm}, story ${JSON.stringify(s.story)}, ${JSON.stringify(d)}`);
+        // (and, asking for none, it hears none of the open world's moments through ctx.on, as no world did before)
+        await page.eval(`${O}.heat(2)`); await sleep(200);
+        const heard = await page.eval<{ chapter: number[]; knockout: number; heat: number }>('self.__story'), hs = await page.eval<number>('window.__gmRuntime.state().open.heat');
+        ok('a world that tells no story (and sets no open.events) hears none of the open world\'s moments through ctx.on, as before', hs === 2 && heard.heat === 0 && heard.chapter.length === 0,
+          `heat ${hs}, heard ${JSON.stringify(heard)}`);
+      }, { timeoutMs: 90_000 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(nsid); }
+    const zbid = randomUUID();
+    insertDraft({ id: zbid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../worlds/zombie-beach.js', import.meta.url), 'utf8'),
+      meta: { title: 'Open Check', tagline: 'Survive', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'OG', color: '#FF3D7F' }], palette: { sky: '#F2A36B', ground: '#C8B48A', accent: '#FF3D7F' }, runtime: 1, scoring: 'survival' } });
+    try {
+      await withBrowser(async (page) => {
+        const O = 'window.__gmRuntime.debug.open()';
+        await page.goto(`${BASE}/d/${zbid}/play`);
+        for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+        for (let i = 0; i < 150; i++) { if (await page.eval<boolean>('!!(window.__gmRuntime.state().open || {}).ready').catch(() => false)) break; await sleep(200); }
+        await page.eval('window.__gmRuntime.debug.start()'); await sleep(700);
+        const p = await page.eval<{ x: number; z: number }>('window.__gmRuntime.state().open.player');
+        await page.eval(`(() => { const O = ${O}; window.__gmRuntime.debug.invincible(true); O.clear(); O.place(${p.x}, ${p.z}, null, null, false, 0); O.spawn('thug', ${p.x}, ${p.z + 1.1}); return true; })()`); await sleep(300);
+        let o = await page.eval<{ kos: number; gm: number; story: unknown }>('window.__gmRuntime.state().open');
+        for (let i = 0; i < 60 && (o.kos < 1 || o.gm < 1); i++) { await page.eval(`${O}.punch()`); await sleep(240); o = await page.eval('window.__gmRuntime.state().open'); }
+        const d = await page.eval<SD>(SD_JS), e = await page.eval<string[]>('window.__gm.errors');
+        ok('Zombie Beach, which tells no story: a knockout\'s GM still comes to you by the coin, with no scene, no objective line and no error',
+          o.kos >= 1 && o.gm >= 1 && o.story === null && d.objective === null && d.layers.length === 0 && e.length === 0, `${o.kos} knockouts, ${o.gm} GM, ${JSON.stringify(d)}${e.length ? ', ' + e.join(' | ') : ''}`);
+      }, { timeoutMs: 120_000 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(zbid); }
+  }
+
+  {
+    // a dressed party crowd that dances where the world puts it (AI Alps, the owner 4 Oct: "he can pick up bottles, glasses
+    // and beat club goers over the head", and "One party, rising stakes: all the action stays at the DJ party"):
+    // open.civilians as an object on its own fixture (a dance floor facing the booth, a bar and a lounge, a party look, the
+    // crowd turning on him, snow underfoot); then the fixture with `civilians: 12`, the street's people as they always
+    // were, and with a crowd that names no look of its own (crew.civ's) and does not turn
+    console.log('\nopen worlds: a party crowd dressed and placed by the world, dancing out of step, turning on him, and snow underfoot');
+    const cwSrc = readFileSync(new URL('../lib/runtime/crowd-world.js', import.meta.url), 'utf8');
+    type CP = { kind: string; state: string; turned: boolean; ko: boolean; x: number; z: number; yaw: number; speed: number; flee: number; d: number; body: string; stance: string;
+      zone: number | null; home: [number, number] | null; rate: number | null; rest: boolean | null; late: boolean | null; dress: { shirt: number; jacket: number; pants: number; color: string; coat: string } | null;
+      asked: { body: string | null; clothes: { jacket?: { kind: string } } | null; gear: unknown } | null; arm: number[] | null; hip: number[] | null };
+    type CR = { on: boolean; turned: number; refills: number; breaks: number; waiting: number; people: CP[] };
+    type CO = { state: string; civilians: number; player: { x: number; z: number }; enemies: { kind: string; name: string; ko: boolean; state: string }[] };
+    const CZ = [{ x: 0, z: 2, r: 4.5 }, { x: -11, z: 2, r: 2.5 }, { x: 11, z: 2, r: 2.5 }], BOOTH = [0, 9];
+    const cwWorld = async <T>(code: string, drive: (page: Parameters<Parameters<typeof withBrowser>[0]>[0], O: string) => Promise<T>): Promise<T> => {
+      const cid = randomUUID();
+      insertDraft({ id: cid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code,
+        meta: { title: 'Crowd Check', tagline: 'A party', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#141A2A', ground: '#E6EAF0', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' } });
+      try {
+        return await withBrowser(async (page) => {
+          await page.goto(`${BASE}/d/${cid}/play`);
+          for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__gmRuntime.state().open && window.__gmRuntime.state().open.ready)').catch(() => false)) break; await sleep(200); }
+          await page.eval('window.__gmRuntime.debug.audio(); window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.start()');
+          return await drive(page, 'window.__gmRuntime.debug.open()');
+        }, { timeoutMs: 150_000 });
+      } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(cid); }
+    };
+    // the turn between two of a bone's poses, in degrees
+    const turnOf = (a: number[] | null, b: number[] | null) => !a || !b ? NaN : 2 * Math.acos(Math.min(1, Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]))) * 180 / Math.PI;
+    const inZone = (p: CP) => p.zone != null && p.zone >= 0 && Math.hypot(p.x - CZ[p.zone].x, p.z - CZ[p.zone].z) <= CZ[p.zone].r + 0.6;
+    const yawGap = (a: number, b: number) => { let d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return Math.abs(d); };
+    const party = (c: CR) => c.people.filter((p) => p.kind === 'civ' && !p.ko);
+
+    await cwWorld(cwSrc, async (page, O) => {
+      const cr = () => page.eval<CR>(`${O}.crowd()`), co = () => page.eval<CO>('window.__gmRuntime.state().open');
+      // far from the party (no one within 30 m of him, so nobody turns yet), with nobody else about
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, -36, null, null, false, 0); return true; })()`);
+      await sleep(2200);
+      const c0 = await cr(), p0 = party(c0);
+      const byZone = [0, 1, 2].map((z) => p0.filter((p) => p.zone === z).length);
+      ok('a crowd stands where the world puts it: all 18 in their zones (10 on the dance floor, 4 at the bar, the lounge the rest), the floor facing the booth',
+        c0.on && p0.length === 18 && byZone.join() === '10,4,4' && p0.every(inZone) && p0.filter((p) => p.zone === 0 && /^dance/.test(p.stance)).every((p) => yawGap(p.yaw, Math.atan2(BOOTH[0] - p.x, BOOTH[1] - p.z)) < 0.6),
+        `${p0.length} people, by zone ${byZone.join('/')}, out of their zone ${p0.filter((p) => !inZone(p)).length}, floor facing off ${p0.filter((p) => p.zone === 0).map((p) => yawGap(p.yaw, Math.atan2(BOOTH[0] - p.x, BOOTH[1] - p.z)).toFixed(2)).join(' ')}`);
+      ok('they wear what the world\'s look gives them, puffers over turtlenecks (not crew.civ\'s coat, nor the beach\'s tees and shorts), on men and women',
+        p0.every((p) => !!p.dress && p.dress.jacket === 4 && p.dress.shirt === 11 && p.dress.pants === 2 && p.asked?.clothes?.jacket?.kind === 'puffer') && p0.some((p) => /female/.test(p.body)) && p0.some((p) => !/female/.test(p.body)),
+        p0.map((p) => p.dress ? `${p.dress.shirt}/${p.dress.jacket}/${p.dress.pants}` : 'none').join(' '));
+      // the dance floor, a quarter of a second apart: everyone dancing, and no two of a body in the same pose at once
+      const fl0 = p0.filter((p) => p.zone === 0 && p.stance === 'dance');
+      await sleep(250);
+      const fl1 = party(await cr()).filter((p) => p.zone === 0 && p.stance === 'dance');
+      const moved = fl1.map((p) => { const q = fl0.find((r) => r.home && p.home && r.home[0] === p.home[0] && r.home[1] === p.home[1]); return q ? turnOf(q.arm, p.arm) + turnOf(q.hip, p.hip) : NaN; }).filter((n) => !isNaN(n));
+      // two of a body in step would hold the same pose at both moments; a chance likeness at one of them is not a step
+      const same = (p: CP) => fl0.find((r) => r.home && p.home && r.home[0] === p.home[0] && r.home[1] === p.home[1]);
+      const pairs: number[] = []; let inStep = 0;
+      for (let i = 0; i < fl1.length; i++) for (let j = i + 1; j < fl1.length; j++) {
+        if (fl1[i].body !== fl1[j].body) continue;
+        const d1 = turnOf(fl1[i].arm, fl1[j].arm) + turnOf(fl1[i].hip, fl1[j].hip), a = same(fl1[i]), b = same(fl1[j]);
+        pairs.push(d1);
+        if (a && b && d1 < 2 && turnOf(a.arm, b.arm) + turnOf(a.hip, b.hip) < 2) inStep++;
+      }
+      pairs.sort((a, b) => a - b);
+      const rates = p0.map((p) => p.rate ?? 0), med = pairs.length ? pairs[pairs.length >> 1] : 0;
+      ok('the floor dances out of step: each at a pace of their own (0.85 to 1.15), every dancer moving, and no two of a body in the same pose',
+        fl1.length >= 5 && rates.every((r) => r >= 0.85 && r <= 1.15) && Math.max(...rates) - Math.min(...rates) > 0.1 && new Set(rates.map((r) => r.toFixed(2))).size >= rates.length * 0.6
+          && moved.length >= 4 && moved.every((m) => m > 2) && pairs.length >= 3 && med > 8 && inStep === 0,
+        `${fl1.length} dancing, paces ${Math.min(...rates).toFixed(2)} to ${Math.max(...rates).toFixed(2)}, moved in 0.25 s ${moved.map((m) => m.toFixed(0)).join(' ')} deg, pairs apart ${pairs.map((d) => d.toFixed(0)).join(' ')} deg, ${inStep} in step`);
+      // twenty seconds of the party (at four times), with nobody about
+      await page.eval('window.__gmRuntime.debug.timeScale(4)');
+      const seen = new Map<string, Set<string>>();
+      for (let i = 0; i < 12; i++) {
+        await sleep(450); await page.eval(`${O}.clear()`);
+        party(await cr()).filter((p) => p.zone === 0 && p.home).forEach((p) => { const k = p.home!.join(); if (!seen.has(k)) seen.set(k, new Set()); seen.get(k)!.add(p.stance); });
+      }
+      await page.eval('window.__gmRuntime.debug.timeScale(1)');
+      const c1 = await cr(), p1 = party(c1), stepped = [...seen.values()].filter((s) => [...s].some((n) => /^dance/.test(n)) && [...s].some((n) => ['talk', 'arms', 'shift'].includes(n))).length;
+      ok('now and then a dancer steps off the floor to talk, fold their arms or shift their weight, and back; and with wander: false nobody leaves their zone',
+        c1.breaks >= 1 && stepped >= 1 && p1.length === 18 && p1.every(inZone),
+        `${c1.breaks} breaks, ${stepped} dancers seen off the floor and on it, ${p1.filter((p) => !inZone(p)).length} out of their zone`);
+      // ten metres from the floor, with nobody after him: the next one the director wants comes out of the crowd
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, -8, null, null, false, 0); return true; })()`);
+      let c2 = await cr();
+      for (let i = 0; i < 40 && c2.turned < 1; i++) { await sleep(250); c2 = await cr(); }
+      await sleep(600);
+      c2 = await cr();
+      const s2 = await co(), tn = c2.people.filter((p) => p.turned && !p.ko);
+      ok('the next one the director wants turns from the party near him (dressed as they were, coming at him) instead of arriving out of sight',
+        c2.turned >= 1 && tn.length >= 1 && tn.every((p) => p.kind === 'thug' && p.state !== 'idle' && !!p.dress && p.dress.jacket === 4 && p.dress.shirt === 11) && s2.enemies.filter((e) => !e.ko).length === tn.length,
+        `${c2.turned} turned, ${JSON.stringify(tn.map((p) => ({ kind: p.kind, state: p.state, d: p.d, dress: p.dress })))}, enemies ${s2.enemies.filter((e) => !e.ko).length}`);
+      // one of them knocked out on the dance floor, the hero in the middle of it: those near back off from the fight and
+      // watch it (never run off to the edge of the map, as the street's people do), then come back to their spots: half
+      // the floor within 8 s with him gone (38 m off, too far for anyone to turn on him); then all of them (at four times)
+      await page.eval(`${O}.place(0, 0.4, null, null, false, 0)`);
+      let s3 = await co(), kos0 = s3.enemies.filter((e) => e.ko).length;
+      for (let i = 0; i < 80 && s3.enemies.filter((e) => e.ko).length <= kos0; i++) { await page.eval(`${O}.punch()`); await sleep(200); s3 = await co(); }
+      await sleep(700);
+      const c3 = await cr(), fled = party(c3).filter((p) => p.flee > 0 && p.home), off = fled.map((p) => Math.hypot(p.x - p.home![0], p.z - p.home![1]));
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, -36, null, null, false, 0); return true; })()`);
+      for (let i = 0; i < 8; i++) { await sleep(1000); await page.eval(`${O}.clear()`); }
+      const c8 = await cr(), fl8 = party(c8).filter((p) => p.zone === 0 && p.home), back8 = fl8.filter((p) => Math.hypot(p.x - p.home![0], p.z - p.home![1]) < 1.0).length;
+      await page.eval('window.__gmRuntime.debug.timeScale(4)');
+      let c4 = await cr();
+      for (let i = 0; i < 60; i++) { await sleep(500); await page.eval(`${O}.clear()`); c4 = await cr(); if (party(c4).every((p) => p.home && Math.hypot(p.x - p.home[0], p.z - p.home[1]) < 1.0 && p.flee === 0)) break; }
+      await page.eval('window.__gmRuntime.debug.timeScale(1)');
+      const p4 = party(c4).filter((p) => p.zone != null && p.zone >= 0), home4 = p4.map((p) => Math.hypot(p.x - p.home![0], p.z - p.home![1]));
+      ok('a knockout on the floor sends the party near it backing off from the fight, and then they come back to their own spots',
+        s3.enemies.some((e) => e.ko) && fled.length >= 4 && off.filter((d) => d > 1.5).length >= 3 && Math.max(...off) < 12 && p4.length >= 15 && home4.every((d) => d < 1.0) && p4.every(inZone),
+        `${fled.length} backed off (${off.map((d) => d.toFixed(1)).join(' ')} m off their spots), then ${p4.length} back, furthest ${Math.max(...home4).toFixed(2)} m`);
+      ok('after a knockout on the floor, at least half the dancers are back on their spots within 8 s', fl8.length >= 6 && back8 >= fl8.length / 2,
+        `${back8} of ${fl8.length} on the floor back on their spots 8 s after`);
+      const late = p4.filter((p) => p.late);
+      ok('a spot left by one who turned is taken again by a newcomer, dressed for the party, who walks in to it from out of sight',
+        c4.refills >= 1 && late.length >= 1 && late.every((p) => !!p.dress && p.dress.jacket === 4 && inZone(p)) && p4.every((p) => !!p.dress && p.dress.jacket === 4),
+        `${c4.refills} came in, ${late.length} of them at their spots, ${p4.length} at their spots in all, ${c4.waiting} spots waiting`);
+      // snow underfoot: two seconds walking, then the steps heard
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, -25, 0, null, false); return true; })()`); await sleep(300);
+      const f0 = await page.eval<{ kind: string; hero: number; near: number }>(`${O}.steps()`), a0 = (await co()).player;
+      await page.key('KeyW', 'keyDown'); await sleep(2400); await page.key('KeyW', 'keyUp');
+      const f1 = await page.eval<{ kind: string; hero: number; near: number }>(`${O}.steps()`), a1 = (await co()).player;
+      const walked = Math.hypot(a1.x - a0.x, a1.z - a0.z), v = walked / 2.4, want = walked / Math.min(1.9, Math.max(0.7, 0.55 + 0.2 * v)), heard = f1.hero - f0.hero;
+      ok('snow underfoot: his steps crunch at the stride for his pace, and others\' near him are heard too',
+        f1.kind === 'snow' && walked > 2 && heard >= 3 && heard >= want * 0.6 && heard <= want * 1.4 + 1 && f1.near >= 1,
+        `${walked.toFixed(1)} m walked (${v.toFixed(2)} m/s), ${heard} steps heard for about ${want.toFixed(1)}, ${f1.near} near him`);
+      const e = await page.eval<string[]>('window.__gm.errors');
+      ok('a party crowd raises no error', e.concat(page.errors).length === 0, e.concat(page.errors).join(' | '));
+    });
+
+    // a plain number: the street's people as they always were (crew.civ's look is not theirs), and nothing underfoot
+    const ring = cwSrc.replace('civilians: CROWD,', 'civilians: 12,').replace("steps: 'snow',", '');
+    await cwWorld(ring, async (page, O) => {
+      const sp = await page.eval<{ x: number; z: number }>('window.__gmRuntime.state().open.player');
+      const c = await page.eval<CR>(`${O}.crowd()`), civ = c.people.filter((p) => p.kind === 'civ');
+      const steps = await page.eval<unknown>(`${O}.steps()`), e = await page.eval<string[]>('window.__gm.errors');
+      ok('a world with civilians: 12 still has the street\'s 12 people about the place, 8 m or more from him, in the beach\'s clothes, and hears no steps',
+        !c.on && civ.length === 12 && ring !== cwSrc && civ.every((p) => p.zone === null && p.rate === null && Math.hypot(p.x - sp.x, p.z - sp.z) > 7.5) && civ.every((p) => !!p.dress && p.dress.jacket === 0 && [1, 2, 4, 6].includes(p.dress.shirt)) && steps === null && e.length === 0,
+        `${civ.length} people, nearest ${Math.min(...civ.map((p) => Math.hypot(p.x - sp.x, p.z - sp.z))).toFixed(1)} m, ${civ.map((p) => p.dress ? `${p.dress.shirt}/${p.dress.jacket}` : 'none').join(' ')}, steps ${JSON.stringify(steps)}`);
+    });
+
+    // a crowd with no look of its own and no turn, the motion pack listed: crew.civ's look dresses it, the floor dances the
+    // pack's dances as well as the library's, and the trouble arrives out of sight
+    const own = cwSrc.replace('civilians: CROWD,', 'civilians: { count: 6, zones: CROWD.zones, wander: false },')
+      .replace("assets: ['human-athlete-male', 'human-athlete-female'],", "assets: ['human-athlete-male', 'human-athlete-female', 'human-moves-male', 'human-moves-female'],");
+    await cwWorld(own, async (page, O) => {
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, -8, null, null, false, 0); return true; })()`);
+      await sleep(500);
+      const c0 = await page.eval<CR>(`${O}.crowd()`), p0 = party(c0), danced = new Set(p0.map((p) => p.stance));
+      let s = await page.eval<CO>('window.__gmRuntime.state().open');
+      for (let i = 0; i < 40 && s.enemies.length < 1; i++) { await sleep(250); s = await page.eval<CO>('window.__gmRuntime.state().open'); party(await page.eval<CR>(`${O}.crowd()`)).forEach((p) => danced.add(p.stance)); }
+      const c1 = await page.eval<CR>(`${O}.crowd()`), e = await page.eval<string[]>('window.__gm.errors');
+      ok('a crowd that names no look wears crew.civ\'s (a camel coat), and without turn the trouble arrives from out of sight, nobody from the party',
+        c0.on && own.includes('human-moves-female') && p0.length === 6 && p0.every(inZone) && p0.every((p) => !!p.dress && p.dress.jacket === 3 && p.dress.shirt === 8) && s.enemies.length >= 1 && c1.turned === 0 && party(c1).length === 6,
+        `${p0.length} people, ${p0.map((p) => p.dress ? `${p.dress.shirt}/${p.dress.jacket}` : 'none').join(' ')}, ${s.enemies.length} enemies, ${c1.turned} turned`);
+      ok('with the motion pack listed, the dance floor dances its dances too', [...danced].some((n) => /^dance[A-Z]/.test(n)) && e.concat(page.errors).length === 0,
+        `${[...danced].join(', ')}${e.length ? ': ' + e.join(' | ') : ''}`);
+    });
+  }
+
+  {
+    // a DJ set heard from the booth (music.source; AI Alps, the owner 4 Oct, picking "Funky House": "It would play from
+    // the DJ booth: loud and full at the party, muffled and distant across the rest of the resort"), with, for a world
+    // on its own ground, shadows and live reflections that follow the hero (graphics.shadows.follow / reflections:
+    // 'hero') and everything compiled before it is ready (open.warm), on its own fixture; then the fixture without the
+    // source, with plain follow and reflections and without the warm-up, which must be as every world was before
+    console.log('\nopen worlds: a DJ set heard from the booth, shadows that follow the hero on his own ground, and a warm-up');
+    const vnSrc = readFileSync(new URL('../lib/runtime/venue-world.js', import.meta.url), 'utf8');
+    type VN = { at: number[]; on: boolean; d: number; gain: number; cutoff: number; pan: number; sub: number; wet: number; inside: boolean; crowd: number; cheers: number; close: boolean; hero: boolean; from: number[]; echo: boolean } | null;
+    type VT = { id: string; lufs: number; playing: boolean; energy: number | null; gain: number; position: number | null; duck: number | null } | null;
+    type VS = { state: string; venue: VN; track: VT; open: { player: { x: number; z: number; y: number; hp: number } } };
+    type VM = { db: number; hi: number };
+    const vnWorld = async (code: string, drive: (page: Parameters<Parameters<typeof withBrowser>[0]>[0], O: string) => Promise<void>) => {
+      const vid = randomUUID();
+      insertDraft({ id: vid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code,
+        meta: { title: 'Venue Check', tagline: 'A set', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#141A2A', ground: '#E6EAF0', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' } });
+      try {
+        await withBrowser(async (page) => {
+          await page.goto(`${BASE}/d/${vid}/play`);
+          for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__gmRuntime.state().open && window.__gmRuntime.state().open.ready)').catch(() => false)) break; await sleep(200); }
+          await page.eval('window.__gmRuntime.debug.audio()');
+          // a meter on the master (before the limiter): the level in dB over a stretch, and the share of it above 3 kHz
+          await page.eval(`window.__vnMeter = function (ms) {
+            const A = window.__gmRuntime.debug.internals().audio, ac = A.ctx;
+            if (!window.__vnAn) { const an = ac.createAnalyser(); an.fftSize = 4096; an.smoothingTimeConstant = 0; const z = ac.createGain(); z.gain.value = 0; A.master.connect(an); an.connect(z); z.connect(ac.destination); window.__vnAn = an; }
+            const an = window.__vnAn, td = new Float32Array(an.fftSize), fd = new Float32Array(an.frequencyBinCount), hz = ac.sampleRate / an.fftSize;
+            return new Promise((res) => { let n = 0, ss = 0, hi = 0, all = 0; const t = setInterval(() => {
+              an.getFloatTimeDomainData(td); let s = 0; for (let i = 0; i < td.length; i++) s += td[i] * td[i]; ss += s / td.length;
+              an.getFloatFrequencyData(fd); for (let i = 1; i < fd.length; i++) { const p = Math.pow(10, fd[i] / 10); all += p; if (i * hz > 3000) hi += p; }
+              if (++n >= ms / 50) { clearInterval(t); res({ db: +(10 * Math.log10(ss / n + 1e-12)).toFixed(1), hi: +(hi / (all || 1)).toFixed(5) }); } }, 50); });
+          }; true`);
+          await drive(page, 'window.__gmRuntime.debug.open()');
+        }, { timeoutMs: 180_000 });
+      } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(vid); }
+    };
+    const vst = (page: Parameters<Parameters<typeof withBrowser>[0]>[0]) => page.eval<VS>('(() => { const s = window.__gmRuntime.state(); return { state: s.state, venue: s.venue, track: s.track, open: s.open }; })()');
+    const meter = (page: Parameters<Parameters<typeof withBrowser>[0]>[0], ms = 1200) => page.eval<VM>(`window.__vnMeter(${ms})`);
+    // the shadow-casting sun's target, its shadow map's drawn share, the live cube's camera, and the shader programs built
+    const SUNQ = `(() => { const I = window.__gmRuntime.debug.internals(); let sun = null; I.scene.traverse((o) => { if (!sun && o.isDirectionalLight && o.castShadow) sun = o; });
+      const sm = sun && sun.shadow.map; let drawn = null;
+      if (sm) { const w = sm.width, h = sm.height, b = new Uint8Array(w * h * 4); I.renderer.readRenderTargetPixels(sm, 0, 0, w, h, b); let n = 0; for (let i = 0; i < w * h; i++) if (b[i * 4] < 250 || b[i * 4 + 1] < 250 || b[i * 4 + 2] < 250) n++; drawn = n / (w * h); }
+      return { target: sun ? sun.target.position.toArray() : null, extent: sun ? sun.shadow.camera.right : null, drawn: drawn, live: I.live ? I.live.cam.position.toArray() : null, programs: I.renderer.info.programs.length }; })()`;
+    type SQ = { target: number[] | null; extent: number | null; drawn: number | null; live: number[] | null; programs: number };
+    // a bottle taken and broken over a man's head (the first in the run): the shader programs built before and after
+    const smashOne = async (page: Parameters<Parameters<typeof withBrowser>[0]>[0], O: string) => {
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, -8, null, null, false, 0); O.weapon('bottle'); return true; })()`);
+      let s = await page.eval<{ weapon: { kind: string } | null }>('window.__gmRuntime.state().open');
+      for (let i = 0; i < 40 && !s.weapon; i++) { await sleep(60); s = await page.eval('window.__gmRuntime.state().open'); }
+      await sleep(600);
+      const before = (await page.eval<SQ>(SUNQ)).programs, held = s.weapon ? s.weapon.kind : null;
+      for (let k = 0; k < 6 && s.weapon; k++) {
+        await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, -8, null, null, false, 0); O.spawn('thug', 0, -6.9); return true; })()`); await sleep(350);
+        await page.eval(`${O}.punch()`);
+        for (let i = 0; i < 30 && s.weapon; i++) { await sleep(40); s = await page.eval('window.__gmRuntime.state().open'); }
+      }
+      await sleep(800);
+      const g = await page.eval<{ shattered: number; shards: number }>(`${O}.glass()`);
+      return { held, before, after: (await page.eval<SQ>(SUNQ)).programs, shattered: g.shattered, shards: g.shards };
+    };
+
+    await vnWorld(vnSrc, async (page, O) => {
+      // the demo is silent; a key brings the start screen, and the set starts behind it from its intro, quietly
+      const s0 = await vst(page);
+      await page.key('Enter'); await sleep(1200);
+      const s1 = await vst(page);
+      ok('a set heard from the booth starts behind the start screen from its intro, quietly, the crowd under it; the demo before it was silent',
+        !!s0.venue && !s0.track!.playing && s0.venue.crowd === 0 && s1.state === 'title' && s1.track!.playing && s1.track!.energy === 0 && s1.venue!.crowd === 0.4 && s1.venue!.on,
+        `demo: playing ${s0.track!.playing}, crowd ${s0.venue?.crowd}; ${s1.state}: playing ${s1.track!.playing}, energy ${s1.track!.energy}, crowd ${s1.venue!.crowd}`);
+      // the opening scene: shot by the booth, then from down the valley (the set heard from the camera)
+      await page.key('Enter'); await sleep(2600);
+      const i1 = await vst(page), m1 = await meter(page, 1000);
+      await sleep(6400);
+      const i2 = await vst(page), m2 = await meter(page, 1000);
+      ok('in the opening scene the set plays on (keep), heard from the camera: loud by the booth, then quieter and duller from down the valley',
+        i1.state === 'intro' && i2.state === 'intro' && i1.track!.playing && i2.track!.playing && i1.track!.energy === 1 && !i1.venue!.hero && !i2.venue!.hero
+          && i1.venue!.d < 16 && i2.venue!.d > 90 && i1.venue!.gain > 0.9 && i2.venue!.gain < 0.2 && i2.venue!.cutoff < 1500 && m2.db < m1.db - 10,
+        `${i1.state} ${i1.venue!.d} m: gain ${i1.venue!.gain}, ${m1.db} dB; ${i2.state} ${i2.venue!.d} m: gain ${i2.venue!.gain}, cutoff ${i2.venue!.cutoff} Hz, ${m2.db} dB; playing ${i1.track!.playing}/${i2.track!.playing}`);
+      // the run: the set came out of its intro into the body of the track on the way (the drop)
+      let r = await vst(page);
+      for (let i = 0; i < 40 && (r.state !== 'race' || (r.track!.position ?? 0) < 17.6); i++) { await sleep(250); r = await vst(page); }
+      ok('the floor cheers on the drop, the set coming out of its intro, and the set was never stopped on the way into the run',
+        r.state === 'race' && r.track!.playing && (r.track!.position ?? 0) > 16.5 && r.venue!.cheers >= 1,
+        `${r.state}, position ${r.track!.position} s, cheers ${r.venue!.cheers}`);
+      await page.eval(`window.__gmRuntime.debug.invincible(true); ${O}.clear(); ${O}.place(0, 5, null, null, false, 0)`); await sleep(1500);
+      const near = await vst(page), mn = await meter(page);
+      await page.eval(`${O}.place(0, -91, null, null, false, 0)`); await sleep(1800);
+      const far = await vst(page), mf = await meter(page);
+      ok('by the booth it is loud and full: the booth\'s level (1.6 over the platform\'s), all its top end and the sub, on the master',
+        near.venue!.hero && near.venue!.d < 5 && near.venue!.gain === 1.6 && near.venue!.cutoff === 20000 && near.venue!.sub > 0.4 && mn.db > -22,
+        `${near.venue!.d} m: gain ${near.venue!.gain}, cutoff ${near.venue!.cutoff} Hz, sub ${near.venue!.sub}; ${mn.db} dB, ${(mn.hi * 100).toFixed(2)}% above 3 kHz`);
+      ok('100 m off it is quiet and muffled: a tenth of the level, the top gone under 1.5 kHz, no sub, the valley\'s slap on it, and measured on the master 15 dB down with its top end gone',
+        far.venue!.d > 99 && far.venue!.gain < 0.2 && far.venue!.cutoff < 1500 && far.venue!.sub === 0 && far.venue!.wet > 0 && far.venue!.echo && mf.db < mn.db - 15 && mf.hi < mn.hi / 10,
+        `${far.venue!.d} m: gain ${far.venue!.gain}, cutoff ${far.venue!.cutoff} Hz, wet ${far.venue!.wet}; ${mf.db} dB, ${(mf.hi * 100).toFixed(3)}% above 3 kHz`);
+      // a chalet's room, against the open at the same distance on the other side
+      await page.eval(`${O}.place(-36, -15, null, null, false, 0)`); await sleep(1500);
+      const rin = await vst(page), mi = await meter(page);
+      await page.eval(`${O}.place(36, -15, null, null, false, 0)`); await sleep(1500);
+      const rout = await vst(page), mo = await meter(page);
+      ok('through a chalet\'s walls it is duller and quieter than in the open the same distance away',
+        rin.venue!.inside && !rout.venue!.inside && Math.abs(rin.venue!.d - rout.venue!.d) < 0.1 && rin.venue!.gain < rout.venue!.gain * 0.5 && mi.db < mo.db - 4,
+        `in ${rin.venue!.gain} (${mi.db} dB), out ${rout.venue!.gain} (${mo.db} dB) at ${rin.venue!.d} m`);
+      // the side it is on: the camera turned round, the pan turns over
+      const side = `(() => { const I = window.__gmRuntime.debug.internals(), v = window.__gmRuntime.state().venue, f = I.camera.getWorldDirection(new I.THREE.Vector3());
+        return { pan: v.pan, side: Math.sign((v.at[0] - v.from[0]) * -f.z + (v.at[2] - v.from[2]) * f.x) }; })()`;
+      await page.eval(`${O}.place(30, 9, 0, null, false, 0)`); await sleep(900);
+      const pa = await page.eval<{ pan: number; side: number }>(side);
+      await page.eval(`${O}.place(30, 9, ${Math.PI}, null, false, 0)`); await sleep(900);
+      const pb = await page.eval<{ pan: number; side: number }>(side);
+      ok('it is heard on the side of him the booth is on, from the camera\'s right: turn the camera round and it moves to the other ear',
+        Math.abs(pa.pan) > 0.3 && Math.abs(pb.pan) > 0.3 && Math.sign(pa.pan) === pa.side && Math.sign(pb.pan) === pb.side && pa.side !== pb.side,
+        `pan ${pa.pan} (booth to the ${pa.side > 0 ? 'right' : 'left'}), turned round ${pb.pan} (${pb.side > 0 ? 'right' : 'left'})`);
+      // a man knocked out by the booth: the floor cheers, and the blow ducks the set a little
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, 3, null, null, false, 0); O.spawn('thug', 0, 4.2); return true; })()`); await sleep(400);
+      const c0 = (await vst(page)).venue!.cheers;
+      let duck = 1, k = await vst(page);
+      for (let i = 0; i < 6 && k.venue!.cheers === c0; i++) {
+        await page.eval(`${O}.punch()`);
+        for (let j = 0; j < 14; j++) { await sleep(35); k = await vst(page); duck = Math.min(duck, k.track!.duck ?? 1); }
+        if (k.venue!.cheers === c0) { await page.eval(`(() => { const O = ${O}; O.clear(); O.place(0, 3, null, null, false, 0); O.spawn('thug', 0, 4.2); return true; })()`); await sleep(350); }
+      }
+      ok('a man knocked out by the booth draws a cheer from the floor, and the blow cuts through the set a little (ducked, not stopped)',
+        k.venue!.cheers > c0 && duck < 0.92 && duck > 0.5 && k.track!.playing, `cheers ${c0} -> ${k.venue!.cheers}, duck ${duck.toFixed(3)}`);
+      // a blow he takes by the booth leaves the set alone (only his own duck it, at most every 0.4 s: a fight's every blow
+      // kept it pumping)
+      {
+        // (away from the knockout's coins: a coin taken ducks the set too)
+        await page.eval(`(() => { const O = ${O}; O.clear(); O.place(-7, 6, null, null, false, 0); return true; })()`); await sleep(1400);
+        const k0 = await vst(page); await page.eval(`window.__gmRuntime.debug.invincible(false); ${O}.hurt(3)`);
+        let dk = 1; for (let j = 0; j < 10; j++) { await sleep(30); dk = Math.min(dk, (await vst(page)).track!.duck ?? 1); }
+        const k1 = await vst(page); await page.eval('window.__gmRuntime.debug.invincible(true)');
+        ok('a blow he takes by the booth does not cut through the set', k1.open.player.hp < k0.open.player.hp && !!k1.venue && k1.venue.close && (k0.track!.duck ?? 1) > 0.97 && dk > 0.97,
+          `hp ${k0.open.player.hp} -> ${k1.open.player.hp}, by the booth ${k1.venue && k1.venue.close}, duck ${(k0.track!.duck ?? 1).toFixed(3)} -> ${dk.toFixed(3)}`);
+      }
+      // the shadows and the live cube round the hero, on his own ground
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.place(20, -40, 0, null, false, 0); return true; })()`); await sleep(900);
+      const sq = await page.eval<SQ>(SUNQ), hp = (await vst(page)).open.player;
+      const off = sq.target ? Math.hypot(sq.target[0] - hp.x, sq.target[2] - hp.z) : 99;
+      ok('with shadows.follow: \'hero\' the sun\'s shadows follow the hero on his own ground: the shadow camera a few metres ahead of him at his height, and drawn into',
+        !!sq.target && off < sq.extent! * 0.5 && Math.abs(sq.target[1] - hp.y) < 2 && (sq.drawn ?? 0) > 0.0002,
+        `target ${sq.target?.map((v) => v.toFixed(1)).join(', ')} against the hero at ${hp.x}, ${hp.y}, ${hp.z} (${off.toFixed(1)} m, extent ${sq.extent}); drawn ${((sq.drawn ?? 0) * 100).toFixed(2)}%`);
+      ok('with reflections: \'hero\' the live cube is filmed from his chest', !!sq.live && Math.hypot(sq.live[0] - hp.x, sq.live[1] - hp.y - 1.1, sq.live[2] - hp.z) < 0.6,
+        `cube at ${sq.live?.map((v) => v.toFixed(2)).join(', ')}`);
+      // open.warm: the first bottle broken compiles nothing new
+      const w = await smashOne(page, O);
+      ok('with open.warm everything is compiled before the world is ready: the first bottle broken over a head (its shards and its spray) builds no new shader',
+        w.held === 'bottle' && w.shattered === 1 && w.shards > 0 && w.after === w.before, `programs ${w.before} -> ${w.after}, shattered ${w.shattered}, shards ${w.shards}`);
+      // knocked out, and the results: the set plays on
+      await page.eval(`${O}.clear(); window.__gmRuntime.debug.invincible(false); ${O}.hurt(9999)`); await sleep(400);
+      const kd = await vst(page); await sleep(3200);
+      const rs = await vst(page), e = await page.eval<string[]>('window.__gm.errors');
+      ok('it plays on through his knockout and the results (keep)', kd.state === 'crashed' && rs.state === 'results' && kd.track!.playing && rs.track!.playing && rs.track!.energy === 1,
+        `${kd.state}: playing ${kd.track!.playing}; ${rs.state}: playing ${rs.track!.playing}, energy ${rs.track!.energy}`);
+      ok('no errors in the venue world', e.length === 0 && page.errors.length === 0, e.concat(page.errors).join(' | '));
+    });
+
+    // the same world without the source, with plain follow and reflections, and no warm-up: as every world was before
+    const plain = vnSrc.replace(/music: \{ track: 'music-funky-house', source: .*\n/, "music: { track: 'music-funky-house' },\n").replace("shadows: { follow: 'hero', extent: 30 }, reflections: 'hero'", 'shadows: { extent: 30 }, reflections: true').replace('      warm: true,\n', '');
+    await vnWorld(plain, async (page, O) => {
+      await page.eval(`window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.start()`); await sleep(1500);
+      const s = await vst(page), noVenue = await page.eval<boolean>('!window.__gmRuntime.debug.internals().audio.venue');
+      await page.eval(`(() => { const O = ${O}; O.clear(); O.place(20, -40, 0, null, false, 0); return true; })()`); await sleep(900);
+      const sq = await page.eval<SQ>(SUNQ);
+      ok('a world whose music names no source plays it as it always has: no venue, straight to the master, opened up for the run at the platform\'s loudness',
+        !/source: \{/.test(plain) && s.venue === null && noVenue && s.state === 'race' && s.track!.playing && s.track!.energy === 1 && Math.abs(s.track!.lufs + 20 * Math.log10(s.track!.gain) + 16) < 0.2,
+        `venue ${JSON.stringify(s.venue)}, ${s.state}: ${JSON.stringify(s.track)}`);
+      ok('plain shadows.follow and reflections are unchanged: they keep to the lap the runtime keeps under the ground',
+        plain.includes('shadows: { extent: 30 }, reflections: true') && !!sq.target && sq.target[1] < -2000 && !!sq.live && sq.live[1] < -2000, `sun target y ${sq.target?.[1].toFixed(0)}, cube y ${sq.live?.[1].toFixed(0)}`);
+      const w = await smashOne(page, O);
+      ok('without open.warm the first bottle broken builds its shaders then, as before', !/warm: true/.test(plain) && w.shattered === 1 && w.after > w.before,
+        `programs ${w.before} -> ${w.after}, shattered ${w.shattered}`);
+      await page.eval(`${O}.clear(); ${O}.intro()`); await sleep(2400);
+      const i = await vst(page), e = await page.eval<string[]>('window.__gm.errors');
+      ok('and its music falls away in a scene, as it always has', i.state === 'intro' && !i.track!.playing && e.length === 0 && page.errors.length === 0,
+        `${i.state}: playing ${i.track!.playing}${e.length ? '; ' + e.join(' | ') : ''}`);
+    });
+  }
+
+  // AI Alps' polish (5 Oct; the tune pass: the heat ran away with the takedowns and two bosses came at once at heat 12, a
+  // boss nobody could put down held the story back for good, holding J out-hit every combo, the coins flew up into the
+  // camera as a man dropped, the touch pad stood over the scenes' subtitles, and 437 draw calls at heat 3): open.heat's
+  // kos, max, bosses, police, escort and room, story.wait, the held haymaker back to back, open.coinFly, the pad put away
+  // in any scene, and the people culled, merged, freed and (open.lod) simplified far off, on their own fixture; then the
+  // tank fixture and Zombie Beach without the options, as they were
+  console.log('\nopen worlds: the heat held, a beat that waits only so long for a boss, the haymaker, low coins, the pad in a scene, and the people\'s cost');
+  const plid = randomUUID(), plcode = readFileSync(new URL('../lib/runtime/polish-world.js', import.meta.url), 'utf8');
+  const plmeta = { title: 'Polish Check', tagline: 'Polish', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#1C2234', ground: '#6E7480', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' };
+  insertDraft({ id: plid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: plcode, meta: plmeta });
+  type PP = { kind: string; hero: boolean; ko: boolean; fade: number; x: number; z: number; cam: number; skinned: { culled: boolean; r: number | null }[]; gear: number; face: boolean | null; weapon: { kind: string; opacity: number; transparent: boolean } | null };
+  type PS = { state: string; heat: number; time: number; kos: number; gm: number; boss: { name: string; hp: number; max: number } | null; bosses?: boolean; player: { x: number; z: number; y: number; hp: number }; police: string[];
+    enemies: { kind: string; name: string; hp: number; max: number; ko: boolean; d: number }[]; story: { chapter: number; due: boolean; waiting: number; waited: number; held: string | null; next: number | null } | null };
+  const PO = 'window.__gmRuntime.debug.open()';
+  // the coins as drawn: each live one's place (the coin mesh is the 80-instance mesh of three materials)
+  const COINS = `(() => { const I = window.__gmRuntime.debug.internals(); let cm = null; I.scene.traverse((m) => { if (!cm && m.isInstancedMesh && m.count === 80 && Array.isArray(m.material) && m.material.length === 3) cm = m; });
+    const a = cm.instanceMatrix.array, out = []; for (let i = 0; i < 80; i++) if (a[i * 16 + 13] > -900) out.push([a[i * 16 + 12], a[i * 16 + 13], a[i * 16 + 14]]);
+    const c = I.camera.position; return { coins: out, cam: [c.x, c.y, c.z] }; })()`;
+  try {
+    await withBrowser(async (page) => {
+      const so = async () => { const s = await page.eval<{ state: string; open: Omit<PS, 'state'> }>('window.__gmRuntime.state()'); return { ...s.open, state: s.state } as PS; };
+      const people = () => page.eval<PP[]>(`${PO}.people()`);
+      await page.goto(`${BASE}/d/${plid}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      // no person's body is skinned on the CPU to bound it as the run starts (a party of 22 stalled AI Alps' first frame
+      // 140 ms): count three.js's own bounding of a skinned mesh through the start
+      await page.eval('window.__cbs = 0; (() => { const SM = THREE.SkinnedMesh.prototype, f = SM.computeBoundingSphere; SM.computeBoundingSphere = function () { window.__cbs++; return f.apply(this, arguments); }; })(); true');
+      await page.eval('window.__gmRuntime.debug.audio(); window.__gmRuntime.debug.start()'); await sleep(1500);
+      const cbs = await page.eval<number>('window.__cbs'), pp0 = await people();
+      const others = pp0.filter((p) => !p.hero), hero = pp0.find((p) => p.hero);
+      ok('every person but the hero is drawn only where some of them could be seen: a bound round the whole body on each of their skinned meshes, and none of them skinned on the CPU as the run starts',
+        cbs === 0 && others.length >= 9 && others.every((p) => p.skinned.length > 0 && p.skinned.every((k) => k.culled && (k.r || 0) > 1.6)) && !!hero && hero.skinned.every((k) => !k.culled),
+        `${cbs} bounded on the CPU, ${others.length} people: ${JSON.stringify(others.slice(0, 2).map((p) => p.skinned))}, hero ${JSON.stringify(hero && hero.skinned)}`);
+      const shades = others.filter((p) => p.kind === 'civ' && p.gear === 2), beanies = others.filter((p) => p.kind === 'civ' && p.gear === 3);
+      ok('a person\'s gear is a draw per material: sunglasses are two (the lenses, the frame), not seven; a beanie with its pom three', shades.length >= 3 && beanies.length >= 3 && others.filter((p) => p.kind === 'civ').every((p) => p.gear === 2 || p.gear === 3),
+        others.filter((p) => p.kind === 'civ').map((p) => p.gear).join(','));
+      // every clip of both bodies, lying knocked out too, inside the bound
+      const bm = await page.eval<{ worst: number; clip: string; clips: number; body: string }>(`${PO}.bound('thug', 9)`), bf = await page.eval<{ worst: number; clip: string; clips: number; body: string }>(`(() => { const O = ${PO}; let r = null; for (let i = 0; i < 4 && !(r && r.body === 'human-athlete-female'); i++) r = O.bound('civ', 9); return r; })()`);
+      ok('every clip of the library\'s bodies, man and woman, and lying knocked out, keeps every vertex inside that bound', !!bm && !!bf && bm.clips > 40 && bf.body === 'human-athlete-female' && bm.worst < 0.95 && bf.worst < 0.95,
+        `${JSON.stringify(bm)}, ${JSON.stringify(bf)}`);
+      // the same picture with the culling as without it: rendered twice in one moment, nothing moving between
+      await page.eval(`(() => { const O = ${PO}; O.clear(); O.place(0, 9, Math.PI, 0.15, false, 0); return true; })()`); await sleep(1200);
+      const px = await page.eval<{ diff: number; a: number; b: number; lit: number; culled: number }>(`(() => {
+        const I = window.__gmRuntime.debug.internals(), R = I.renderer, sc = I.scene, cam = I.camera, W = 480, H = 270;
+        const rt = new THREE.WebGLRenderTarget(W, H), shoot = () => { R.setRenderTarget(rt); R.shadowMap.needsUpdate = true; R.info.reset(); const au = R.info.autoReset; R.info.autoReset = false; R.render(sc, cam); const n = R.info.render.calls; R.info.autoReset = au; const p = new Uint8Array(W * H * 4); R.readRenderTargetPixels(rt, 0, 0, W, H, p); R.setRenderTarget(null); return { p, n }; };
+        const A = shoot(), flip = []; sc.traverse((m) => { if (m.isMesh && m.frustumCulled && m.isSkinnedMesh) { m.frustumCulled = false; flip.push(m); } });
+        const F = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+        const out = flip.filter((m) => !F.intersectsObject(m)).length;
+        const B = shoot(); flip.forEach((m) => { m.frustumCulled = true; }); rt.dispose();
+        let diff = 0, lit = 0; for (let i = 0; i < A.p.length; i += 4) { if (Math.abs(A.p[i] - B.p[i]) + Math.abs(A.p[i + 1] - B.p[i + 1]) + Math.abs(A.p[i + 2] - B.p[i + 2]) > 0) diff++; if (A.p[i] + A.p[i + 1] + A.p[i + 2] > 30) lit++; }
+        return { diff, a: A.n, b: B.n, lit, culled: out }; })()`);
+      ok('culling draws the same picture: rendered with it and without it at the same moment, not a pixel differs, in fewer draws', px.diff === 0 && px.culled >= 2 && px.a < px.b && px.lit > 1000, JSON.stringify(px));
+      // open.lod: far off, no eyeballs, brows or lashes; near, all of them
+      await page.eval(`(() => { const O = ${PO}; O.place(0, -6, Math.PI, 0.15, false, 0); return true; })()`); await sleep(800);
+      const far = (await people()).filter((p) => p.kind === 'civ' && p.cam > 12);
+      await page.eval(`(() => { const O = ${PO}; O.place(0, 18.5, Math.PI, 0.15, false, 0); return true; })()`); await sleep(800);
+      const near = (await people()).filter((p) => p.kind === 'civ' && p.cam < 8);
+      ok('with open.lod a person far from the camera is drawn without the face\'s small parts, one near with them', far.length >= 3 && far.every((p) => p.face === false) && near.length >= 2 && near.every((p) => p.face === true),
+        `far ${far.map((p) => `${p.cam}:${p.face}`).join(' ')}, near ${near.map((p) => `${p.cam}:${p.face}`).join(' ')}`);
+      // open.heat.kos: 0, ten takedowns raise nothing
+      await page.eval(`(() => { const O = ${PO}; O.clear(); O.place(0, 0, Math.PI, 0.2, false, 0); for (let i = 0; i < 10; i++) O.spawn('thug', -3 + (i % 5) * 1.5, 4 + Math.floor(i / 5) * 1.5); return true; })()`); await sleep(400);
+      const h0 = await so(); const tk = await page.eval<number>(`${PO}.takedown(10)`); await sleep(500); const h1 = await so();
+      ok('with open.heat.kos: 0 the heat rises by the clock alone: ten takedowns raise none', tk === 10 && h1.kos - h0.kos === 10 && h1.heat === h0.heat && h0.heat === 1, `takedowns ${tk}, kos ${h0.kos} -> ${h1.kos}, heat ${h0.heat} -> ${h1.heat}`);
+      // open.coinFly: 'low': out low, away from the camera, then to him at his waist, never between him and the camera
+      // (their coins taken first: he walks over them)
+      await page.eval(`${PO}.place(0, 4.7, Math.PI, 0.2, false, 0)`); await sleep(3000);
+      await page.eval(`(() => { const O = ${PO}; O.clear(); O.place(0, 0, Math.PI, 0.2, false, 0); O.spawn('thug', 0, 3.2); return true; })()`); await sleep(900);
+      const g0 = (await so()).gm, foe = (await so()).enemies.find((e) => !e.ko), vp = (await people()).find((p) => p.kind === 'thug' && !p.ko);
+      await page.eval(`${PO}.takedown(1)`);
+      const stale = (await page.eval<{ coins: number[][] }>(COINS)).coins.length;
+      let maxY = 0, worstDot = 1, nearer = 0, waist: number[] = [], firstSeen = -1; const t0 = Date.now();
+      for (let i = 0; i < 40; i++) {
+        const c = await page.eval<{ coins: number[][]; cam: number[] }>(COINS), hp = (await so()).player, at = Date.now() - t0;
+        const fx = (vp?.x ?? 0) - c.cam[0], fz = (vp?.z ?? 3.2) - c.cam[2], fn = Math.hypot(fx, fz) || 1, heroD = Math.hypot(hp.x - c.cam[0], hp.z - c.cam[2]);
+        if (c.coins.length && firstSeen < 0) firstSeen = at;
+        c.coins.forEach(([x, y, z]) => {
+          const dh = Math.hypot(x - hp.x, z - hp.z), ox = x - (vp?.x ?? 0), oz = z - (vp?.z ?? 3.2), on = Math.hypot(ox, oz);
+          // the burst (before they are pulled to him, 0.45 s after they fly): low, and out the far side of him from the camera
+          if (at - firstSeen < 420) { maxY = Math.max(maxY, y); if (on > 0.25) worstDot = Math.min(worstDot, (ox * fx + oz * fz) / (on * fn)); }
+          else if (dh < 1.6) waist.push(y - hp.y);
+          if (Math.hypot(x - c.cam[0], z - c.cam[2]) < heroD - 0.3) nearer++;
+        });
+        await sleep(45);
+      }
+      await sleep(1200); const g1 = (await so()).gm;
+      ok('with open.coinFly: \'low\' a knockout\'s coins come a quarter second after he drops, out low along the ground away from the camera, then to the hero at his waist, never between him and the camera, and the GM is his',
+        !!foe && stale === 0 && firstSeen >= 200 && maxY < 0.9 && worstDot > -0.05 && nearer === 0 && waist.length > 0 && Math.min(...waist) > 0.55 && Math.max(...waist) < 1.45 && g1 - g0 >= 6,
+        `${stale} coins about before, first seen ${firstSeen} ms, highest ${maxY.toFixed(2)} m, worst heading ${worstDot.toFixed(2)}, ${nearer} nearer the camera than him, at him ${waist.length ? Math.min(...waist).toFixed(2) + '-' + Math.max(...waist).toFixed(2) : '-'} m, gm ${g0} -> ${g1}`);
+      // the held haymaker back to back: 5, 3, 2, 2; a chain blow landing makes the next a full one
+      await page.eval(`(() => { const O = ${PO}; O.clear(); O.place(0, 0, Math.PI, 0.2, false, 0); O.spawn('boss', 0, 1.3); return true; })()`); await sleep(500);
+      type FL = { heavies: number; heavyK: number | null; power: number; last: string | null; act: string | null };
+      const fl = () => page.eval<FL>(`${PO}.flow()`);
+      const hold = async () => { const h = (await fl()).heavies; await page.key('KeyJ', 'keyDown'); let f = await fl(); for (let i = 0; i < 70 && f.heavies === h; i++) { await sleep(30); f = await fl(); } await page.key('KeyJ', 'keyUp'); return f; };
+      const pw: number[] = [];
+      for (let i = 0; i < 4; i++) { const f = await hold(); pw.push(+(f.power).toFixed(2)); await sleep(150); }
+      await sleep(900); await page.key('KeyJ'); await sleep(900);
+      const f5 = await hold(); await sleep(900);
+      ok('a held haymaker thrown back to back hits for less each time (5, 3, 2, 2), and one after a blow of the chain has landed is a full 5 again', JSON.stringify(pw) === '[5,3,2,2]' && f5.power === 5, `${JSON.stringify(pw)}, then ${f5.power}`);
+      // (over six seconds on a boss, holding J again and again against the chain: in the game's own time, on a sparring
+      // ground of its own, after Zombie Beach below)
+      // a man fading out after a knockout fades alone: another's baton stays solid
+      await page.eval(`(() => { const O = ${PO}; O.clear(); O.place(0, 0, Math.PI, 0.2, false, 0); O.spawn('cop', 1.6, 2.4); O.spawn('cop', -9, 9); return true; })()`); await sleep(500);
+      await page.eval(`${PO}.takedown(1)`);
+      let fading: PP | undefined, other: PP | undefined;
+      for (let i = 0; i < 60; i++) { await sleep(150); const pl = await people(); fading = pl.find((p) => p.kind === 'cop' && p.ko); other = pl.find((p) => p.kind === 'cop' && !p.ko); if (fading && fading.fade < 0.6) break; }
+      ok('a man fading out after a knockout fades alone: the baton in another man\'s hand stays solid (it shared his baton\'s material, and faded with it to nothing)',
+        !!fading && fading.fade < 0.6 && !!fading.weapon && fading.weapon.opacity < 0.7 && !!other && !!other.weapon && other.weapon.opacity === 1 && !other.weapon.transparent,
+        `fading ${JSON.stringify(fading && { fade: fading.fade, w: fading.weapon })}, other ${JSON.stringify(other && other.weapon)}`);
+      // what people leave on the graphics card when they go: nothing
+      const MEM = `(() => { const r = window.__gmRuntime.debug.internals().renderer; return { geo: r.info.memory.geometries, tex: r.info.memory.textures }; })()`;
+      await page.eval(`${PO}.clear()`); await sleep(9000);
+      const m0 = await page.eval<{ geo: number; tex: number }>(MEM);
+      for (let r = 0; r < 3; r++) { await page.eval(`(() => { const O = ${PO}; O.clear(); for (let i = 0; i < 10; i++) O.spawn(['thug', 'cop', 'boss', 'biker'][i % 4], 8 + (i % 5), 8 + Math.floor(i / 5)); return true; })()`); await sleep(1200); await page.eval(`${PO}.clear()`); await sleep(400); }
+      const m1 = await page.eval<{ geo: number; tex: number }>(MEM);
+      ok('thirty people made and removed leave nothing behind on the graphics card (each took four shapes and a texture for good)', m1.geo - m0.geo <= 2 && m1.tex - m0.tex <= 1, `geometries ${m0.geo} -> ${m1.geo}, textures ${m0.tex} -> ${m1.tex}`);
+      // open.heat.max: 4, the clock never takes it past; bosses and police: false, the heat sends neither
+      await page.eval(`(() => { const O = ${PO}; O.clear(); O.heat(4); window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.timeScale(8); return true; })()`); await sleep(5000);
+      const hm = await so();
+      await page.eval(`(() => { const O = ${PO}; window.__gmRuntime.debug.timeScale(1); O.clear(); O.heat(6); return true; })()`); await sleep(2500);
+      const h6 = await so();
+      ok('with open.heat.max: 4 the clock never takes the heat past 4; with bosses and police: false, heat 6 sends no boss and no police',
+        hm.heat === 4 && hm.time > 30 && h6.heat === 6 && !h6.boss && !h6.enemies.some((e) => (e.kind === 'boss' || e.kind === 'cop') && !e.ko) && h6.police.length === 0,
+        `heat ${hm.heat} at ${hm.time.toFixed(0)} s, then ${h6.heat}: boss ${JSON.stringify(h6.boss)}, ${h6.enemies.filter((e) => !e.ko).map((e) => e.kind).join(',')}, police ${h6.police.length}`);
+      // the publish gate's autopilot plays no beat, so a world whose heat sends no boss is asked for one directly: the state
+      // says the heat sends none, and debug boss() still sends one (lib/playtest-runtime.ts)
+      ok('a world whose heat sends no boss says so (state().open.bosses false), for the publish gate to ask for its boss directly',
+        h6.bosses === false, `bosses ${JSON.stringify(h6.bosses)}`);
+      // escort 1, room: a boss's men only into room under maxEnemies (3)
+      await page.eval(`(() => { const O = ${PO}; O.clear(); O.spawn('thug', 6, 6); O.boss(); return true; })()`); await sleep(3500);
+      const e1 = await so(), live1 = e1.enemies.filter((e) => !e.ko);
+      await page.eval(`${PO}.boss()`); await sleep(3500);
+      const e2 = await so(), live2 = e2.enemies.filter((e) => !e.ko);
+      ok('with open.heat.escort: 1 and room: true a boss brings one man, and only into room under maxEnemies: with the house full, the next comes alone',
+        live1.length === 3 && live1.filter((e) => e.kind === 'boss').length === 1 && live2.filter((e) => e.kind === 'boss').length === 2 && live2.length === 4,
+        `${live1.map((e) => e.kind).join(',')} then ${live2.map((e) => e.kind).join(',')}`);
+      const er = await page.eval<string[]>('window.__gm.errors');
+      ok('a run with the polish options raises no error', er.length === 0, er.join(' | '));
+    }, { timeoutMs: 300_000 });
+    // story.wait: a beat waits 3 s for a boss on him, then plays; he is set aside for a scene that brings no boss of its
+    // own and is back after it as hurt as he was, and goes with one that brings its own
+    await withBrowser(async (page) => {
+      const so = async () => { const s = await page.eval<{ state: string; open: Omit<PS, 'state'> }>('window.__gmRuntime.state()'); return { ...s.open, state: s.state } as PS; };
+      await page.goto(`${BASE}/d/${plid}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(1000);
+      await page.eval(`(() => { const O = ${PO}; O.clear(); O.place(0, 0, Math.PI, 0.2, false, 0); O.boss(); return true; })()`);
+      // (he comes to the hero, and takes a few blows first, so his hurt can be seen to last)
+      let s = await so(); for (let i = 0; i < 80 && !(s.boss && s.enemies.some((e) => e.kind === 'boss' && e.d < 2.4)); i++) { await sleep(250); s = await so(); }
+      for (let i = 0; i < 6; i++) { await page.key('KeyJ'); await sleep(260); }
+      await sleep(400);
+      await page.eval(`${PO}.gm(110)`); await sleep(1500);
+      const w1 = await so(), x1 = await page.eval(`${PO}.introState()`);
+      let x2 = null, s2 = w1; for (let i = 0; i < 40 && !x2; i++) { await sleep(100); x2 = await page.eval(`${PO}.introState()`); s2 = await so(); }
+      const lou = w1.boss;
+      await sleep(900); await page.key('Enter'); await sleep(600);
+      const s3 = await so(), back = s3.enemies.find((e) => e.kind === 'boss' && !e.ko);
+      ok('a beat due with a boss on him waits for him only so long (story.wait 3 s) and then plays; a beat that brings no boss of its own sets him aside for the scene, and he is back after it, as hurt as he was, after the hero again',
+        !!lou && lou.name === 'Big Lou' && lou.hp < lou.max && !x1 && !!w1.story && w1.story.due && w1.story.waiting > 0.5 && !!x2 && !!s2.story && s2.story.held === 'Big Lou'
+          && s3.state === 'race' && !!s3.boss && s3.boss.name === 'Big Lou' && Math.abs(s3.boss.hp - lou.hp) < 0.01 && !!back && back.d < 16 && !!s3.story && s3.story.chapter === 2 && s3.story.held === null && s3.story.waited === 1,
+        `boss ${JSON.stringify(lou)}, after 1.5 s ${JSON.stringify(x1)} waiting ${w1.story && w1.story.waiting}, scene ${JSON.stringify(x2)} held ${s2.story && s2.story.held}, after: ${s3.state} boss ${JSON.stringify(s3.boss)} at ${back && back.d} m, ${JSON.stringify(s3.story)}`);
+      // the next names its own boss: Big Lou goes with the scene, the Promoter comes
+      await page.eval(`${PO}.gm(100)`);
+      let x4 = null; for (let i = 0; i < 60 && !x4; i++) { await sleep(100); x4 = await page.eval(`${PO}.introState()`); }
+      await sleep(900); await page.key('Enter'); await sleep(400);
+      let s4 = await so(); for (let i = 0; i < 30 && !(s4.boss && s4.boss.name === 'The Promoter'); i++) { await sleep(200); s4 = await so(); }
+      ok('a beat that brings its own boss takes the one still standing away with its scene: one boss at a time',
+        !!x4 && s4.state === 'race' && !!s4.boss && s4.boss.name === 'The Promoter' && !s4.enemies.some((e) => e.name === 'Big Lou' && !e.ko) && !!s4.story && s4.story.chapter === 3 && s4.story.waited === 2,
+        `scene ${JSON.stringify(x4)}, ${s4.state}, boss ${JSON.stringify(s4.boss)}, ${s4.enemies.filter((e) => !e.ko).map((e) => e.name).join(',')}, ${JSON.stringify(s4.story)}`);
+      const er = await page.eval<string[]>('window.__gm.errors');
+      ok('a story whose beats wait for a boss raises no error', er.length === 0, er.join(' | '));
+    }, { timeoutMs: 120_000 });
+    // a phone: the touch pad put away in the intro and the outro, back for the run
+    await withBrowser(async (page) => {
+      const W = 390, H = 844;
+      await page.emulate({ width: W, height: H, mobile: true, dpr: 1 });
+      await page.goto(`${BASE}/d/${plid}/play`);
+      for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+      await page.eval('window.__gmRuntime.debug.start()'); await sleep(800);
+      const vis = (sel: string) => `(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return false; const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0; })()`;
+      const run0 = await page.eval<boolean>(vis('#gm .tpad'));
+      await page.eval(`${PO}.intro()`); await sleep(1600);
+      const inIntro = { pad: await page.eval<boolean>(vis('#gm .tpad')), stick: await page.eval<boolean>(vis('#gm .stick')), say: await page.eval<boolean>(vis('#gm .owi .say')), state: await page.eval<string>('window.__gmRuntime.state().state') };
+      await page.key('Enter'); await sleep(700);
+      const run1 = { pad: await page.eval<boolean>(vis('#gm .tpad')), state: await page.eval<string>('window.__gmRuntime.state().state') };
+      await page.eval(`${PO}.ending()`); await sleep(1200);
+      const inOutro = { pad: await page.eval<boolean>(vis('#gm .tpad')), state: await page.eval<string>('window.__gmRuntime.state().state') };
+      ok('on a phone the touch pad is put away for the intro and the outro (nothing on it works in a scene, and it stood over the subtitles), and is back for the run',
+        run0 && inIntro.state === 'intro' && !inIntro.pad && !inIntro.stick && inIntro.say && run1.state === 'race' && run1.pad && inOutro.state === 'intro' && !inOutro.pad,
+        `run ${run0}, intro ${JSON.stringify(inIntro)}, run ${JSON.stringify(run1)}, outro ${JSON.stringify(inOutro)}`);
+    }, { timeoutMs: 90_000, width: 390, height: 844 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(plid); }
+  // without the options (the tank fixture): the heat by every 8 takedowns, the coins' old arc, a boss's men on top of
+  // maxEnemies, every face drawn however far, as they were
+  {
+    const tdid = randomUUID();
+    insertDraft({ id: tdid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../lib/runtime/tank-world.js', import.meta.url), 'utf8'), meta: { ...plmeta, title: 'Tank Check' } });
+    try {
+      await withBrowser(async (page) => {
+        const so = async () => { const s = await page.eval<{ state: string; open: Omit<PS, 'state'> }>('window.__gmRuntime.state()'); return { ...s.open, state: s.state } as PS; };
+        await page.goto(`${BASE}/d/${tdid}/play`);
+        for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+        await page.eval('window.__gmRuntime.debug.start()'); await sleep(800);
+        await page.eval(`(() => { const O = ${PO}; O.clear(); O.place(0, 0, Math.PI, 0.2, false, 0); for (let i = 0; i < 8; i++) O.spawn('thug', -3 + (i % 4) * 2, 5 + Math.floor(i / 4) * 2); return true; })()`); await sleep(300);
+        const h0 = await so(); await page.eval(`${PO}.takedown(8)`); await sleep(400); const h1 = await so();
+        await sleep(1500);
+        await page.eval(`(() => { const O = ${PO}; O.clear(); O.place(0, 0, Math.PI, 0.2, false, 0); O.spawn('thug', 0, 3.2); return true; })()`); await sleep(700);
+        await page.eval(`${PO}.takedown(1)`);
+        let maxY = 0, first = -1; const t0 = Date.now();
+        for (let i = 0; i < 25; i++) { const c = await page.eval<{ coins: number[][] }>(COINS); c.coins.forEach(([, y]) => { maxY = Math.max(maxY, y); if (first < 0) first = Date.now() - t0; }); await sleep(40); }
+        await page.eval(`(() => { const O = ${PO}; O.clear(); O.spawn('thug', 6, 6); O.boss(); return true; })()`); await sleep(3000); await page.eval(`${PO}.boss()`); await sleep(3500);
+        const e2 = await so(), live = e2.enemies.filter((e) => !e.ko);
+        await page.eval(`(() => { const O = ${PO}; O.spawn('thug', 0, 26); return true; })()`); await sleep(600);
+        const faces = (await page.eval<PP[]>(`${PO}.people()`)).filter((p) => !p.hero);
+        ok('without the options (the tank fixture) it is as it was: 8 takedowns raise the heat, a knockout\'s coins arc up high at once, a boss\'s men come on top of maxEnemies, and every face is drawn however far (and its heat sends bosses, so the publish gate waits for its own)',
+          h0.bosses === true && h1.heat === h0.heat + 1 && maxY > 1.5 && first < 200 && live.filter((e) => e.kind === 'boss').length === 2 && live.length > 3 && faces.some((p) => p.cam > 20) && faces.every((p) => p.face !== false),
+          `bosses ${h0.bosses}, heat ${h0.heat} -> ${h1.heat}, coins up to ${maxY.toFixed(2)} m, first at ${first} ms, ${live.map((e) => e.kind).join(',')}, faces ${faces.map((p) => `${p.cam}:${p.face}`).join(' ')}`);
+        const er = await page.eval<string[]>('window.__gm.errors');
+        ok('the tank fixture raises no error', er.length === 0, er.join(' | '));
+      }, { timeoutMs: 120_000 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(tdid); }
+  }
+  // Zombie Beach on a phone: its intro without the pad over it too (a bug fix for every world), and its people culled
+  {
+    const zpid = randomUUID();
+    insertDraft({ id: zpid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: readFileSync(new URL('../worlds/zombie-beach.js', import.meta.url), 'utf8'),
+      meta: { title: 'Open Check', tagline: 'Survive', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'OG', color: '#FF3D7F' }], palette: { sky: '#F2A36B', ground: '#C8B48A', accent: '#FF3D7F' }, runtime: 1, scoring: 'survival' } });
+    try {
+      await withBrowser(async (page) => {
+        await page.emulate({ width: 844, height: 390, mobile: true, dpr: 1 });
+        await page.goto(`${BASE}/d/${zpid}/play`);
+        for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+        for (let i = 0; i < 150; i++) { if (await page.eval<boolean>('!!(window.__gmRuntime.state().open || {}).ready').catch(() => false)) break; await sleep(200); }
+        const vis = (sel: string) => `(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return false; const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0; })()`;
+        await page.eval(`${PO}.intro()`); await sleep(2500);
+        const st = await page.eval<string>('window.__gmRuntime.state().state'), pad = await page.eval<boolean>(vis('#gm .tpad'));
+        await page.key('Enter'); await sleep(900);
+        const st2 = await page.eval<string>('window.__gmRuntime.state().state'), pad2 = await page.eval<boolean>(vis('#gm .tpad'));
+        const pl = (await page.eval<PP[]>(`${PO}.people()`)).filter((p) => !p.hero);
+        const er = await page.eval<string[]>('window.__gm.errors');
+        ok('Zombie Beach on a phone: its intro plays without the touch pad over it, the pad is back for the run, its people are culled by their bounds, and nothing errs',
+          st === 'intro' && !pad && st2 === 'race' && pad2 && pl.length >= 6 && pl.every((p) => p.skinned.every((k) => k.culled)) && er.length === 0,
+          `intro ${st} pad ${pad}, run ${st2} pad ${pad2}, ${pl.length} people culled ${pl.every((p) => p.skinned.every((k) => k.culled))}${er.length ? ', ' + er.join(' | ') : ''}`);
+      }, { timeoutMs: 150_000, width: 844, height: 390 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(zpid); }
+  }
+  // Over six seconds on a boss, J held again and again against the chain, in the game's own time: the check holds the
+  // page's clock (performance.now, and every frame asked for, with debug fixedStep 60: each frame is 1/60 s however long
+  // it took to draw) and its dice (Math.random, seeded afresh every frame and every key press, so nothing drawn elsewhere
+  // shifts the fight's), and presses J as key events between frames, so a busy machine changes nothing (it timed 6 s of
+  // real time, with taps 110 ms apart, and the chain came out 21.5 to 23 against a bar of 22.1). On a sparring ground of
+  // its own: the punches-only tank (open.kicks: false), a boss of 55 who barely hits back, nobody else about (a crowd's
+  // moods draw on the same dice as the boss) and the heat held at 1. Three rolls of the dice, each fought both ways: held,
+  // J kept down until the haymaker comes, let go, and pressed again the next frame; the chain, J tapped every 7 frames.
+  {
+    const SPARRING = `(function () {
+      GameMog.world({
+        assets: ['human-athlete-male'],
+        theme: { sky: '#1C2234', fog: '#3A4258', ink: '#FFFFFF', accent: '#FF7A3D', font: 'Oxanium' },
+        camera: { distance: 5.2, height: 1.6, fov: 54 },
+        open: {
+          bounds: { x: [-40, 40], z: [-40, 40] }, spawn: [0, 0, 0],
+          health: 1000, maxEnemies: 2, weapons: false, civilians: 0,
+          kicks: false, jump: false, dodge: false, tank: true,
+          heat: { kos: 0, max: 1, bosses: false, police: false },
+          crew: { boss: { hp: 60, damage: 1, names: ['Big Lou'] } },
+          hud: { gm: 'Fund', banner: 'A spar.' },
+        },
+        build: function (ctx) {
+          var T = ctx.THREE;
+          ctx.scene.add(new T.HemisphereLight('#C8D4EC', '#3A3630', 1.2));
+          ctx.scene.add(new T.Mesh(new T.PlaneGeometry(90, 90).rotateX(-Math.PI / 2), new T.MeshStandardMaterial({ color: '#6E7480', roughness: 0.9 })));
+        },
+        player: function (ctx) {
+          return ctx.assets.human('human-athlete-male', { name: 'Tester', color: '#FF7A3D', skin: 'caucasian', hair: 'short04', height: 1.95, build: { muscle: 1, lean: 0.4 } });
+        },
+      });
+    })();`;
+    type BOUT = { harm: number | null; heavies: number; blows: number; ko: boolean };
+    const SEEDS = [1, 2, 3];
+    const SPAR = `(async () => {
+      const R = window.__gmRuntime, O = ${PO}, now0 = performance.now.bind(performance), raf0 = window.requestAnimationFrame, rnd0 = Math.random;
+      const DT = 1000 / 60, SETTLE = 90, W = 360, TAIL = 36, TAP = 7, SEEDS = ${JSON.stringify(SEEDS)}, V = { t: 0, q: [], f: 0, n: 0, seed: 0 }, out = [];
+      R.debug.fixedStep(60);
+      window.requestAnimationFrame = (cb) => { V.q.push(cb); return 0; };
+      // (the frame already asked for comes, and asks for the next: from here every frame is the check's)
+      await new Promise((r) => setTimeout(r, 150));
+      // (the page's clock runs behind the real one, so it never runs backwards when it is handed back)
+      V.t = now0() - SEEDS.length * 2 * (SETTLE + W + TAIL) * DT - 5000; performance.now = () => V.t;
+      let s = 0; Math.random = () => { s = (s + 0x6D2B79F5) >>> 0; let x = s; x = Math.imul(x ^ (x >>> 15), x | 1); x ^= x + Math.imul(x ^ (x >>> 7), x | 61); return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
+      const dice = () => { s = (Math.imul(V.seed, 0x9E3779B1) ^ Math.imul(++V.f, 0x85EBCA77)) >>> 0; };
+      const J = (type) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent(type, { code: 'KeyJ', key: 'j', keyCode: 74, bubbles: true, cancelable: true }));
+      const key = (type) => { dice(); J(type); };
+      const step = async (k) => { for (let i = 0; i < k; i++) { dice(); V.t += DT; const q = V.q; V.q = []; q.forEach((cb) => cb(V.t)); if (++V.n % 40 === 0) await new Promise((r) => setTimeout(r, 0)); } };
+      const sum = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0), boss = () => R.state().open.enemies.find((e) => e.kind === 'boss');
+      const bout = async (how) => {
+        V.f = 0;
+        O.clear(); O.place(0, 0, Math.PI, 0.2, false, 0); O.spawn('boss', 0, 1.3);
+        await step(SETTLE);
+        const b0 = boss(), h0 = O.flow().heavies, n0 = sum(O.flow().thrown);
+        if (how === 'hold') for (let i = 0; i < W;) { const h = O.flow().heavies; key('keydown'); while (i < W && O.flow().heavies === h) { await step(1); i++; } key('keyup'); if (i < W) { await step(1); i++; } }
+        else for (let i = 0; i < W; i += TAP) { key('keydown'); key('keyup'); await step(Math.min(TAP, W - i)); }
+        await step(TAIL);
+        const b1 = boss(), f1 = O.flow();
+        return { harm: b0 && b1 ? +(b0.hp - b1.hp).toFixed(2) : null, heavies: f1.heavies - h0, blows: sum(f1.thrown) - n0, ko: !b1 || b1.ko };
+      };
+      try { for (const sd of SEEDS) { V.seed = sd; out.push({ seed: sd, hold: await bout('hold'), tap: await bout('tap') }); } }
+      finally {
+        J('keyup'); Math.random = rnd0;
+        delete performance.now; if (typeof performance.now !== 'function') performance.now = now0;
+        window.requestAnimationFrame = raf0; R.debug.fixedStep(0);
+        const q = V.q; V.q = []; q.forEach((cb) => raf0.call(window, cb));
+      }
+      return out;
+    })()`;
+    const spid = randomUUID();
+    insertDraft({ id: spid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: SPARRING, meta: { ...plmeta, title: 'Spar Check' } });
+    try {
+      await withBrowser(async (page) => {
+        await page.goto(`${BASE}/d/${spid}/play`);
+        for (let i = 0; i < 200; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)) break; await sleep(200); }
+        await page.eval('window.__gmRuntime.debug.audio(); window.__gmRuntime.debug.start()');
+        for (let i = 0; i < 60 && (await page.eval<string>('window.__gmRuntime.state().state')) !== 'race'; i++) await sleep(100);
+        const sp = await page.eval<{ seed: number; hold: BOUT; tap: BOUT }[]>(SPAR);
+        const er = (await page.eval<string[]>('window.__gm.errors')).concat(page.errors);
+        ok('over six seconds on a boss, holding J again and again does clearly less harm than the chain',
+          sp.length === SEEDS.length && sp.every((r) => r.hold.harm != null && r.tap.harm != null && r.hold.harm > 0 && r.hold.heavies >= 4 && r.tap.heavies === 0 && r.tap.harm > r.hold.harm * 1.3 && !r.hold.ko && !r.tap.ko) && er.length === 0,
+          `${sp.map((r) => `dice ${r.seed}: held haymakers ${r.hold.harm} (${r.hold.heavies} thrown), the chain ${r.tap.harm} (${r.tap.blows} blows)`).join('; ')}${er.length ? '; ' + er.join(' | ') : ''}`);
+      }, { timeoutMs: 120_000 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(spid); }
+  }
+
   // the traversal (the owner, 2 Oct: Spiderbench's, with its author's permission): a library hero
   // swings, zips, runs up walls and dives on a crowd; his clips play through its animation; the
   // crews climb after him; a knockout hands him back to the open world
@@ -1091,8 +2266,66 @@ try {
         });
         return { eyes, bad }; })()`);
       ok('every eye shows its iris: the cornea is see-through and the front of the eye is the pupil', eyes.eyes >= 30 && eyes.bad.length === 0, `${eyes.eyes} eyes${eyes.bad.length ? ': ' + [...new Set(eyes.bad)].join(', ') : ''}`);
+      // hairDye (AI Alps, 5 Oct: Vasseur's silver-white hair drew black, a white tint over a near-black texture): the
+      // fixture's old man (hairColor '#C8C4BC', hairDye) has his hair in that colour itself, its shading from the
+      // texture over the texture's own mean; every other head of hair keeps the tint (hairColor x 2.2 over the texture)
+      const hair = await page.eval<{ all: number; dyed: { pack: boolean; hex: string; k: number }[] }>(`(() => { const out = { all: 0, dyed: [] };
+        window.__gmRuntime.debug.internals().scene.traverse((o) => {
+          if (!o.isSkinnedMesh || !Array.isArray(o.material)) return;
+          o.material.forEach((m) => { if (!m.visible || !m.map || !m.alphaToCoverage) return; out.all++;
+            if (m.customProgramCacheKey && m.customProgramCacheKey() === 'gm-hair-dye') out.dyed.push({ pack: o.name === 'pack', hex: m.color.getHexString(), k: +(m.map.userData.gmDyeK || 0).toFixed(1) }); });
+        });
+        return out; })()`);
+      const dy = hair.dyed[0];
+      ok('a person given hairDye draws the hair in hairColor itself; every other keeps the tint', hair.dyed.length === 1 && !!dy && dy.pack && dy.hex === 'c8c4bc' && dy.k > 4 && hair.all >= 10,
+        `${hair.all} heads of hair, ${hair.dyed.length} dyed${dy ? ` (#${dy.hex}, the texture's mean brightness 1/${dy.k})` : ''}`);
     }, { timeoutMs: 120_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(ppid); }
+
+  // the motion pack (AI Alps, 4 Oct): human-moves-<gender> adds its clips to its human, played by the runtime under
+  // their own names, only in a world that lists it; the base human is the same file either way
+  console.log('\nthe motion pack: dances, a drunk and a bar, only where it is listed');
+  const movesSrc = readFileSync(new URL('../lib/runtime/moves-world.js', import.meta.url), 'utf8');
+  const PACK = (JSON.parse(readFileSync(new URL('../public/assets/human-moves-male/asset.json', import.meta.url), 'utf8')).clips.list as { name: string }[]).map((c) => c.name);
+  type Body = { x: number; z: number; hips: number; head: number };
+  type Moves = { clips: string[]; bodies: Body[]; errors: string[] };
+  const movesOf = async (code: string) => {
+    const mid = randomUUID();
+    insertDraft({ id: mid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code,
+      meta: { title: 'Moves Check', tagline: 'Moves', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#BFD6EE', ground: '#B9B4A8', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' } });
+    try {
+      return await withBrowser(async (page) => {
+        const O = 'window.__gmRuntime.debug.open()';
+        await page.goto(`${BASE}/d/${mid}/play`);
+        for (let i = 0; i < 300; i++) { if (await page.eval<boolean>('!!(window.__gm && window.__gm.ready && window.__gmRuntime.state().open && window.__gmRuntime.state().open.ready)').catch(() => false)) break; await sleep(250); }
+        await page.eval('window.__gmRuntime.debug.start()'); await sleep(300);
+        await page.eval(`${O}.intro()`);
+        for (let i = 0; i < 80; i++) { const st = await page.eval<{ shot: number } | null>(`${O}.introState()`); if (st && st.shot === 0) break; await sleep(250); }
+        await sleep(4000);
+        // every person's hips and head (the root and head bones, in the world)
+        const bodies = await page.eval<Body[]>(`(() => { const I = window.__gmRuntime.debug.internals(), T = I.THREE, seen = new Set(), out = [];
+          I.scene.updateMatrixWorld(true);
+          I.scene.traverse((o) => {
+            if (!o.isSkinnedMesh || seen.has(o.skeleton)) return; seen.add(o.skeleton);
+            const r = o.skeleton.bones.find((b) => b.name === 'root'), h = o.skeleton.bones.find((b) => b.name === 'head'); if (!r || !h) return;
+            const p = r.getWorldPosition(new T.Vector3()), q = h.getWorldPosition(new T.Vector3());
+            out.push({ x: +p.x.toFixed(2), z: +p.z.toFixed(2), hips: +p.y.toFixed(2), head: +q.y.toFixed(2) });
+          });
+          return out; })()`);
+        const e = await page.eval<string[]>('window.__gm.errors');
+        return { clips: await page.eval<string[]>('(self.__moves && self.__moves.clips) || []'), bodies, errors: e.concat(page.errors) };
+      }, { timeoutMs: 120_000 });
+    } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(mid); }
+  };
+  const at = (m: Moves, x: number) => m.bodies.filter((b) => Math.abs(b.z) < 0.8).sort((a, b) => Math.abs(a.x - x) - Math.abs(b.x - x))[0] ?? { x, z: 0, hips: NaN, head: NaN };
+  const listed = await movesOf(movesSrc), unlisted = await movesOf(movesSrc.replace("assets: ['human-athlete-male', 'human-moves-male'],", "assets: ['human-athlete-male'],"));
+  const ls = at(listed, 0), ll = at(listed, 2), us = at(unlisted, 0), ul = at(unlisted, 2);
+  ok('listed, the pack\'s clips join the human\'s own (the base keeps every one of its own)', PACK.length >= 12 && PACK.every((n) => listed.clips.includes(n)) && listed.clips.length === unlisted.clips.length + PACK.length && listed.errors.length === 0,
+    `${listed.clips.length} clips with it, ${unlisted.clips.length} without${listed.errors.length ? ': ' + listed.errors.join(' | ') : ''}`);
+  ok('and the runtime plays them by name: the talker sits, the drinker leans on the bar', ls.hips < 0.72 && ll.head < 1.55 && at(listed, -4).hips > 0.6,
+    `sitTalk hips ${ls.hips} m, leanBar head ${ll.head} m, the Macarena's hips ${at(listed, -4).hips} m`);
+  ok('not listed, none of them is there, and those stances stand as the plain idle', PACK.every((n) => !unlisted.clips.includes(n)) && us.hips > 0.85 && ul.head > 1.6 && unlisted.errors.length === 0,
+    `hips ${us.hips} m, head ${ul.head} m${unlisted.errors.length ? ': ' + unlisted.errors.join(' | ') : ''}`);
 
   console.log('\nlight: opt-in presets, light units, and what the look measures');
   const solidSrc = readFileSync(new URL('../lib/runtime/open-solid-world.js', import.meta.url), 'utf8');

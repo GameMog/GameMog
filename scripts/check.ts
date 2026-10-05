@@ -150,7 +150,7 @@ for (const n of [2, 3, 4, 5, 6, 7]) {
 
 console.log('\nworlds are 3D: the camera is the runtime\'s');
 {
-  const { staticCheckWorld } = await import('../lib/custom-game.ts');
+  const { staticCheckWorld, FIRST_PARTY_MAX } = await import('../lib/custom-game.ts');
   const { readFileSync, readdirSync } = await import('node:fs');
   const ref = readFileSync('lib/runtime/reference-world.js', 'utf8');
   const cam = (line: string) => staticCheckWorld(ref.replace('update(ctx, t) {', `update(ctx, t) {\n    ${line}`)).some((p) => /camera/i.test(p));
@@ -162,8 +162,12 @@ console.log('\nworlds are 3D: the camera is the runtime\'s');
   for (const line of ['const p = ctx.camera.position.clone();', 'sprite.lookAt(ctx.camera.position);', 'if (ctx.camera.fov > 60) {}']) {
     ok(`allowed (reading the camera): ${line}`, !cam(line));
   }
+  // the size limit: 260KB for a world the builder writes, 360KB for the owner's own (owner, 5 Oct 2026)
+  const big = ref + '\n' + '//'.padEnd(340_000, '.');
+  ok('a builder world over 260KB is refused', staticCheckWorld(big).some((p) => /under 260KB/.test(p)));
+  ok('a first-party world up to 360KB passes the size check', !staticCheckWorld(big, { max: FIRST_PARTY_MAX }).some((p) => /KB/.test(p)));
   for (const f of readdirSync('worlds').filter((f) => f.endsWith('.js'))) {
-    const problems = staticCheckWorld(readFileSync(`worlds/${f}`, 'utf8'));
+    const problems = staticCheckWorld(readFileSync(`worlds/${f}`, 'utf8'), { max: FIRST_PARTY_MAX });
     ok(`first-party world ${f} passes the static check`, problems.length === 0, problems.join(' | '));
   }
 }

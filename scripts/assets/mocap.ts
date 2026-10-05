@@ -113,7 +113,8 @@ export type Clip = { name: string; fps: number; frames: number; loop: boolean; s
 // face 'hips' turns the clip to face where the hips face, not where it goes
 // (a sidestep, a backpedal). srcFps is the capture's rate (most CMU trials 120).
 // contact: seconds from start to the moment a blow lands.
-export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, opts: { name: string; kind: 'cycle' | 'idle' | 'once' | 'move'; start?: number; end?: number; fps?: number; inPlace?: boolean; face?: 'travel' | 'hips'; srcFps?: number; contact?: number; period?: number; fist?: boolean }): Clip {
+// unturn: source frames [from, to] of a turn on the spot to take out (see below).
+export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, opts: { name: string; kind: 'cycle' | 'idle' | 'once' | 'move'; start?: number; end?: number; fps?: number; inPlace?: boolean; face?: 'travel' | 'hips'; srcFps?: number; contact?: number; period?: number; fist?: boolean; unturn?: [number, number] }): Clip {
   const asf = parseAsf(read(`cmu-mocap/${src.asf}`)), frames = parseAmc(read(`cmu-mocap/${src.amc}`));
   const poses = frames.map((f) => fk(asf, f));
   const FPS = opts.srcFps ?? 120, fps = opts.fps ?? 30;
@@ -143,10 +144,23 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
     else { a = Math.round((lo + hi - T) / 2); z = a + T; }
   }
   const n = Math.max(2, Math.round(((z - a) / FPS) * fps) + (opts.kind === 'once' ? 1 : 0));
+  // unturn (source frames u0..u1): a turn on the spot inside the clip, taken out as it happens, so the clip ends facing
+  // the way it began (a dance's quarter-turn jump becomes a hop on the spot); spin(f) is that correction at frame f, a
+  // turn about the upright through the root where the turn starts
+  let spin: ((f: number) => Q) | null = null, pivot: V3 = [0, 0, 0];
+  if (opts.unturn) {
+    const [u0, u1] = opts.unturn, ys: number[] = [];
+    const hipYaw = (i: number) => { const l = poses[i].get('lfemur')!.head, r = poses[i].get('rfemur')!.head; return Math.atan2(-(l[2] - r[2]), l[0] - r[0]); };
+    for (let i = u0; i <= u1; i++) { let y = hipYaw(i); const p = ys.length ? ys[ys.length - 1] : y; while (y - p > Math.PI) y -= 2 * Math.PI; while (y - p < -Math.PI) y += 2 * Math.PI; ys.push(y); }
+    const turned = (f: number) => { if (f <= u0) return 0; if (f >= u1) return ys[ys.length - 1] - ys[0]; const i = Math.floor(f) - u0, u = f - Math.floor(f); return ys[i] + (ys[Math.min(ys.length - 1, i + 1)] - ys[i]) * u - ys[0]; };
+    spin = (f) => qaxis([0, 1, 0], -turned(f));
+    pivot = poses[u0].get('root')!.head;
+  }
+  const unspun = (p: V3, f: number): V3 => { if (!spin) return p; const d = qrot(spin(f), [p[0] - pivot[0], 0, p[2] - pivot[2]]); return [pivot[0] + d[0], p[1], pivot[2] + d[2]]; };
   // heading: face +Z along the direction of travel (or of the hips, standing still)
-  const r0 = poses[a].get('root')!.head, r1 = poses[z].get('root')!.head;
+  const r0 = poses[a].get('root')!.head, r1 = unspun(poses[z].get('root')!.head, z);
   let fwd: V3 = [r1[0] - r0[0], 0, r1[2] - r0[2]];
-  const hipsFwd = (): V3 => { let sx = 0, sz = 0; for (let i = a; i <= z; i++) { const l = poses[i].get('lfemur')!.head, r = poses[i].get('rfemur')!.head; const c = cross([l[0] - r[0], 0, l[2] - r[2]], [0, 1, 0]); const cl = Math.hypot(c[0], c[2]) || 1; sx += c[0] / cl; sz += c[2] / cl; } return [sx, 0, sz]; };
+  const hipsFwd = (): V3 => { let sx = 0, sz = 0; for (let i = a; i <= z; i++) { const l = poses[i].get('lfemur')!.head, r = poses[i].get('rfemur')!.head; let c = cross([l[0] - r[0], 0, l[2] - r[2]], [0, 1, 0]); if (spin) c = qrot(spin(i), c); const cl = Math.hypot(c[0], c[2]) || 1; sx += c[0] / cl; sz += c[2] / cl; } return [sx, 0, sz]; };
   if (opts.face === 'hips' || opts.kind === 'move' || Math.hypot(fwd[0], fwd[2]) < 0.3) fwd = hipsFwd();
   const heading = arc(norm(fwd), [0, 0, 1]);
   const travel = Math.hypot(r1[0] - r0[0], r1[2] - r0[2]), duration = (z - a) / FPS;
@@ -165,7 +179,7 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
     const A = poses[i], B = poses[i + 1];
     const q = (nm: string) => slerp(A.get(nm)!.q, B.get(nm)!.q, u);
     const rp = A.get('root')!.head.map((v, j) => v + (B.get('root')!.head[j] - v) * u) as V3;
-    return { q, rp };
+    return { q, rp: unspun(rp, f), f };
   };
   const bones = skel.map((b) => b.name), nb = bones.length, loop = opts.kind !== 'once';
   // loops sample one extra frame (the start of the next cycle) to close the seam
@@ -175,10 +189,10 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
   const curl = fingerCurl(skel, !!opts.fist), rootRest = skel[0].head;
   for (let fI = 0; fI < m; fI++) {
     const t = loop ? fI / n : fI / (n - 1);
-    const s = sample(t);
+    const s = sample(t), H = spin ? qmul(heading, spin(s.f)) : heading;
     skel.forEach((b, bi) => {
       const src = MAP[b.name];
-      world[bi] = src ? qmul(qmul(heading, s.q(src)), align[bi]) : qmul(world[b.parent], curl[bi] ?? [0, 0, 0, 1]);
+      world[bi] = src ? qmul(qmul(H, s.q(src)), align[bi]) : qmul(world[b.parent], curl[bi] ?? [0, 0, 0, 1]);
       const local = b.parent < 0 ? world[bi] : qmul(qinv(world[b.parent]), world[bi]);
       quats.set(local, (fI * nb + bi) * 4);
     });

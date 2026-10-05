@@ -12,7 +12,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { WorldMetaSchema, worldControls, staticCheckWorld, isOpenWorld, worldMode } from '../lib/custom-game.ts';
+import { WorldMetaSchema, worldControls, staticCheckWorld, isOpenWorld, worldMode, FIRST_PARTY_MAX } from '../lib/custom-game.ts';
 import { playtestWorld } from '../lib/playtest-runtime.ts';
 import { insertDraft, publishDraft, slugify, db } from '../lib/db.ts';
 import { codeHash, testStatus } from '../lib/test-drive.ts';
@@ -30,7 +30,7 @@ const parsed = WorldMetaSchema.safeParse(JSON.parse(readFileSync(`worlds/${name}
 if (!parsed.success) { console.error('meta:', parsed.error.issues); process.exit(1); }
 const meta = parsed.data;
 
-const problems = staticCheckWorld(code);
+const problems = staticCheckWorld(code, { max: FIRST_PARTY_MAX });   // a first-party world: the owner's larger limit
 if (problems.length) { console.error('static check:\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log(`static check: clean (${Math.round(code.length / 1000)}KB)`);
 

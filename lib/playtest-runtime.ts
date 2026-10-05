@@ -183,7 +183,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
       // an open world: no laps. It must run at speed, its people must come and
       // fight and go down, the heat must bring the police and a boss, and a
       // knockout of the player must end the run with a result.
-      type OpenState = { heat: number; time: number; kos: number; gm: number; boss: { name: string } | null; player: { hp: number; ko: boolean } | null; enemies: { ko: boolean }[]; civilians: number; police: string[]; ready: boolean };
+      type OpenState = { heat: number; time: number; kos: number; gm: number; boss: { name: string } | null; bosses?: boolean; player: { hp: number; ko: boolean } | null; enemies: { ko: boolean }[]; civilians: number; police: string[]; ready: boolean };
       const open = await page.eval<OpenState | null>('window.__gmRuntime.state().open').catch(() => null);
       if (open) {
         const os = () => page.eval<OpenState>('window.__gmRuntime.state().open');
@@ -205,6 +205,12 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         await page.eval('window.__gmRuntime.debug.open().heat(3)');
         let sawBoss = false, sawPolice = false;
         for (let i = 0; i < 40; i++) { await sleep(300); o = await os(); sawBoss = sawBoss || !!o.boss; sawPolice = sawPolice || o.police.length > 0; if (sawBoss && sawPolice) break; }
+        // a world whose heat sends no boss (open.heat.bosses: false: its story's beats bring them, and no beat plays under
+        // the autopilot) is asked for one directly, so its boss is still seen to come
+        if (!sawBoss && o.bosses === false) {
+          await page.eval('window.__gmRuntime.debug.open().boss()');
+          for (let i = 0; i < 40 && !sawBoss; i++) { await sleep(300); o = await os(); sawBoss = !!o.boss; }
+        }
         await page.eval('window.__gmRuntime.debug.timeScale(1)');
         await sleep(1500);
         const art = await captureWorldKeyArt(page);
@@ -221,7 +227,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         for (const e of errors) problems.push(`Runtime error: ${e}`);
         if (fps < 30) problems.push(`The open world ran at ${fps} fps on a laptop GPU. Instance repeated scenery, cut draw calls and lights, keep the crowd modest, until it holds 60.`);
         if (kos < 2) problems.push(`In the time a few fights should take, only ${kos} people were knocked out. Check that the map leaves open ground to stand and fight on, and that nothing blocks the people from reaching the player.`);
-        if (!sawBoss) problems.push('Raising the heat to 3 brought no boss. Check open.crew.boss.');
+        if (!sawBoss) problems.push(o.bosses === false ? 'Asked for a boss (the heat sends none: open.heat.bosses is false), none came. Check open.crew.boss.' : 'Raising the heat to 3 brought no boss. Check open.crew.boss.');
         if (!results.length) problems.push('A knockout of the player did not end the run with a result.');
         if (cover.length < 14_000) problems.push('The screen is nearly a flat colour in the open world. Check the map or the ground, the lights and the camera.');
         return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: o.heat, cover, artIcon: art?.icon, artWide: art?.wide, open: { kos, heat: o.heat, boss: sawBoss, police: sawPolice }, look } as WorldReport;

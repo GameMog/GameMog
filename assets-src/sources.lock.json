@@ -1,4 +1,24 @@
 {
+  "acg-leafset019/LeafSet019_1K-JPG_Color.jpg": {
+    "sha256": "106f26456e5dd12061216b84963ee792132297c3fdc499c87bd770cd9861bc92",
+    "bytes": 648963
+  },
+  "acg-leafset019/LeafSet019_1K-JPG_NormalGL.jpg": {
+    "sha256": "cedcd6fe1367d009375aae4a9908e2c8a366999ef9f9a3d620559f0fc5b6837b",
+    "bytes": 1236859
+  },
+  "acg-leafset019/LeafSet019_1K-JPG_Opacity.jpg": {
+    "sha256": "81eb93064509f8f0be67c4988488c172cee69784eb8da9d962f4653ceb959895",
+    "bytes": 380804
+  },
+  "acg-terrain005/Terrain005_1K_Color.png": {
+    "sha256": "0b5c0ae14991197e6fddcd4073f727bfd4b050a60ba0d18d42cde0c106cfb1f5",
+    "bytes": 582457
+  },
+  "acg-terrain005/Terrain005_2K.exr": {
+    "sha256": "ad4b0c36fe705c8a4ee161f996b7c3165104f4e728ffa0a860d1aaf1c667c1ff",
+    "bytes": 16814374
+  },
   "centurion-dance-field/dance_field_2.wav": {
     "sha256": "1147a7de995b65ea3d55daa512fe589471e94e06dc0a8f77226c10fdc6e96e0e",
     "bytes": 19353746
@@ -107,6 +127,22 @@
     "sha256": "081917e7e8bf01cc3c9893cbfd82f15c9cb386321e10e7464d09c7cf76f2fe3f",
     "bytes": 1440285
   },
+  "cmu-mocap/137/137.asf": {
+    "sha256": "01c47f541b92d94621575a5e093b6949bef4444be7402e05babac5f09d92f260",
+    "bytes": 7272
+  },
+  "cmu-mocap/137/137_13.amc": {
+    "sha256": "751829a5cd9c473638748af7c334a8514f84a242271d205097b68454eddd5689",
+    "bytes": 2363449
+  },
+  "cmu-mocap/137/137_15.amc": {
+    "sha256": "835ff0218052ff4cf186f873555b5d7de85b1ff01c047ea4267295146aa9ddac",
+    "bytes": 4300280
+  },
+  "cmu-mocap/137/137_16.amc": {
+    "sha256": "39a6cd60955062d5955a6f4dca9e9695f1e83c8b7d99c5e11033d44739be4624",
+    "bytes": 1227444
+  },
   "cmu-mocap/139/139.asf": {
     "sha256": "c72f244092c214c2c4fd496d214a20ec7bb58dbb626458dda2a2b953a465ae85",
     "bytes": 7260
@@ -175,6 +211,10 @@
     "sha256": "e32993b8079c0914ed4d865ad53f7b9646398808855233e6f650d4f4417df2bb",
     "bytes": 7269
   },
+  "cmu-mocap/141/141_12.amc": {
+    "sha256": "f3dc6f547373714baaa3b158de3d3a13400373a10b903022fefd8230f893ab77",
+    "bytes": 453881
+  },
   "cmu-mocap/141/141_16.amc": {
     "sha256": "755f065106adb3b40ba6bd118d6aa6f66858e2553851fa40b530705b12dee1ca",
     "bytes": 238731
@@ -195,6 +235,14 @@
     "sha256": "e008a287501a30a377e3f99fa748bc45494b9e420e3a9881d3e6e73f97de7071",
     "bytes": 848992
   },
+  "cmu-mocap/142/142.asf": {
+    "sha256": "da749e99841fcbcf09b8a58bc40b21c79bc20b4f7f9eae67c81fa9090f9d74bf",
+    "bytes": 7269
+  },
+  "cmu-mocap/142/142_09.amc": {
+    "sha256": "2f079f038cf72acf717351a4546b776e4b573da93061426f890d20aa56581fcd",
+    "bytes": 2125515
+  },
   "cmu-mocap/143/143.asf": {
     "sha256": "6d7207da3bb9eceeaa32f23fb641b69f5836d11242b00c052e7d64f0cbe20a35",
     "bytes": 7264
@@ -202,6 +250,10 @@
   "cmu-mocap/143/143_23.amc": {
     "sha256": "972ce9032d7990826df0364de474832396c4aae508596f1925d3a270fa130046",
     "bytes": 648121
+  },
+  "cmu-mocap/143/143_35.amc": {
+    "sha256": "13a166d4d67cca0fa4e577c680ea109d91ab6c87556ce3db3dccd4257dd9690b",
+    "bytes": 1017792
   },
   "cmu-mocap/143/143_39.amc": {
     "sha256": "eb7689a55c369a52a2461f083d1d246d2f0517163305ef3b56843f68935a7f64",
@@ -230,6 +282,10 @@
   "cmu-mocap/15/15.asf": {
     "sha256": "70693bac5f31e3b0892c398fb08b52da7b4c00003f55ce57e36ab58e63d93960",
     "bytes": 7258
+  },
+  "cmu-mocap/15/15_04.amc": {
+    "sha256": "b32fa0654dce9db467aecfdd3bb730f33e6cc0c60b3ac5aa14da90ed576ca05e",
+    "bytes": 18073373
   },
   "cmu-mocap/15/15_13.amc": {
     "sha256": "8fab4f693b1777cf7778b5971bce12a8d6a468ee494df1a9aa2bf9a0da2fae8b",
@@ -274,6 +330,14 @@
   "cmu-mocap/35/35_22.amc": {
     "sha256": "00d8356c0ce02a2b75b7dcda190a69a27e1623c84a331c3ba9b09c61f1849cc1",
     "bytes": 133592
+  },
+  "cmu-mocap/55/55.asf": {
+    "sha256": "fd9bc721979964c2ab0723437bc881e5cabf4b0a1f1eef001f91a21c11600a32",
+    "bytes": 7270
+  },
+  "cmu-mocap/55/55_02.amc": {
+    "sha256": "8c5267b81b22ea3511eafdcfe2e277f3b754a97038ec0e86ff70c3a905ff2f4c",
+    "bytes": 1740582
   },
   "cmu-mocap/76/76.asf": {
     "sha256": "d2b2764a1a1cc2a6ee312255764d52c73a320418265fa5a36b595d9695d7936d",
@@ -1315,6 +1379,46 @@
     "sha256": "fa4750d64c6f568c8de3e36bc631348710329cf2d6d9c8c87bd2e47a96bc4fcb",
     "bytes": 185578
   },
+  "ph-model-Lantern_01/Lantern_01.bin": {
+    "sha256": "cb0c7eaaea361546201ba1c4324581ac7147c221851657b6e23d2f854beabe49",
+    "bytes": 864852
+  },
+  "ph-model-Lantern_01/Lantern_01_1k.gltf": {
+    "sha256": "d3f8d7a7afec96d55d3b7f20c3e329c909d19d37047902a826bc157f77c27819",
+    "bytes": 4866
+  },
+  "ph-model-Lantern_01/textures/Lantern_01_brass_arm_1k.jpg": {
+    "sha256": "479e7105b170713373fdcca0c2f7dcce81913990f60cd4cfba1631f80f550191",
+    "bytes": 229054
+  },
+  "ph-model-Lantern_01/textures/Lantern_01_brass_diff_1k.jpg": {
+    "sha256": "d19d4c9417719a89ad824ce3a142f38f5e58c47b8640edca5eacca66918b608e",
+    "bytes": 140998
+  },
+  "ph-model-Lantern_01/textures/Lantern_01_brass_nor_gl_1k.jpg": {
+    "sha256": "95f89554c659712c7591a2a3d61178c9c0c0ef2c26e133005f24e2366a10f9b8",
+    "bytes": 180646
+  },
+  "ph-model-bar_chair_round_01/bar_chair_round_01.bin": {
+    "sha256": "2bda85d89beb91097998b25293f10e72686b972aecffd2c14d1b5412cc1da276",
+    "bytes": 1017152
+  },
+  "ph-model-bar_chair_round_01/bar_chair_round_01_1k.gltf": {
+    "sha256": "6a8f92123245268cbb69fc96f305ee710b32a7a06761b143d3049eaabfcbdd32",
+    "bytes": 2833
+  },
+  "ph-model-bar_chair_round_01/textures/bar_chair_round_01_arm_1k.jpg": {
+    "sha256": "9f34b279bdd1527ec19fc3a3bb0ce374f0c0ba2dc05dfbd58f561bc317bd36c7",
+    "bytes": 751149
+  },
+  "ph-model-bar_chair_round_01/textures/bar_chair_round_01_diff_1k.jpg": {
+    "sha256": "1b3912fe1102b4082d7421aeb2e2717d3ebe914d261700f8710c0fdb7d7463bb",
+    "bytes": 599006
+  },
+  "ph-model-bar_chair_round_01/textures/bar_chair_round_01_nor_gl_1k.jpg": {
+    "sha256": "91e4310863002228003d100be83e0524832e532d05f27ef8ed62675b116f0bd1",
+    "bytes": 442193
+  },
   "ph-model-barrel_03/barrel_03.bin": {
     "sha256": "10f3202e9ac9acf8dd896f1562c64db58311ffef89efb402d8433e03ad486427",
     "bytes": 44872
@@ -1434,6 +1538,26 @@
   "ph-model-coastal_cliff_04/textures/coastal_cliff_04_nor_gl_1k.jpg": {
     "sha256": "6b1937ab6c8e8084ef69a492272c2d6aadc11b667bb5278c58d00a360c9c7d9b",
     "bytes": 1190406
+  },
+  "ph-model-coffee_table_round_01/coffee_table_round_01.bin": {
+    "sha256": "9605a0c156bff4ec87e8717a79978d85d4e750d21b3193a3d08bed16e8666035",
+    "bytes": 131112
+  },
+  "ph-model-coffee_table_round_01/coffee_table_round_01_1k.gltf": {
+    "sha256": "58fe785584f8999f760e590b04ce74f83962d42c9440ab9415910f63a31165dc",
+    "bytes": 2776
+  },
+  "ph-model-coffee_table_round_01/textures/coffee_table_round_01_arm_1k.jpg": {
+    "sha256": "7221b03af475555092abd650798facbb945bf4acf02e48f8697f012d8515bf52",
+    "bytes": 721708
+  },
+  "ph-model-coffee_table_round_01/textures/coffee_table_round_01_diff_1k.jpg": {
+    "sha256": "422b4a24a4459e1fd6d121aae4f1097dd3e467c7a8036bb1d003f955302f1d28",
+    "bytes": 447037
+  },
+  "ph-model-coffee_table_round_01/textures/coffee_table_round_01_nor_gl_1k.jpg": {
+    "sha256": "a5912db1918b1ec925efb19179675cafc8832b082f80b2ea35c3a58b45e1aec4",
+    "bytes": 260520
   },
   "ph-model-concrete_road_barrier/concrete_road_barrier.bin": {
     "sha256": "64a4f9bc6e4af64d714a252c3c13428c430a60569deba3d52ca6b7dd3aa70d8c",
@@ -1666,6 +1790,26 @@
   "ph-model-metal_trash_can/textures/metal_trash_can_rust_nor_gl_1k.jpg": {
     "sha256": "a5497588e00e5e56db72e701457fc8a46d3a1fa7d9dd7bf9d79e02cada09e84b",
     "bytes": 1085844
+  },
+  "ph-model-mid_century_lounge_chair/mid_century_lounge_chair.bin": {
+    "sha256": "26346cdc548ad74b1b6db5734c8c231c3c740656b012de2cc3bbc2b3b975200c",
+    "bytes": 171384
+  },
+  "ph-model-mid_century_lounge_chair/mid_century_lounge_chair_1k.gltf": {
+    "sha256": "47c5769ee4dfa350e2506a6a76d8ef58a1e1060344acda35c503ddff46645d26",
+    "bytes": 2884
+  },
+  "ph-model-mid_century_lounge_chair/textures/mid_century_lounge_chair_arm_1k.jpg": {
+    "sha256": "9fa5fa4af5306576a3a27886767feec5431f41d94df9119f2ccced8f0b024f1a",
+    "bytes": 636493
+  },
+  "ph-model-mid_century_lounge_chair/textures/mid_century_lounge_chair_diff_1k.jpg": {
+    "sha256": "ae1f80e964426b49f70b402403c444a655bdaa363d8d43fee5b57fcb3b492c54",
+    "bytes": 627298
+  },
+  "ph-model-mid_century_lounge_chair/textures/mid_century_lounge_chair_nor_gl_1k.jpg": {
+    "sha256": "4bb4b325e4478f5d9063e4e061cf34bc6ccc3067abda608c1548c4a367f50397",
+    "bytes": 648960
   },
   "ph-model-modular_airduct_circular_01/modular_airduct_circular_01.bin": {
     "sha256": "80418c8aed92c97b6149b51124d47ccfa0619a77234449687f29377833293f2d",
@@ -2211,6 +2355,10 @@
     "sha256": "fd9c6073acfc671e12b64666053f2805ae33aff5d3dbbcfe5c97c08c06644927",
     "bytes": 5612
   },
+  "ph-sky-blaubeuren_church_square/blaubeuren_church_square_2k.hdr": {
+    "sha256": "d5cc9f34423ee23082754fe4be348dd830669c70e012de6916902685db11163e",
+    "bytes": 6969970
+  },
   "ph-sky-kloofendal_48d_partly_cloudy_puresky/kloofendal_48d_partly_cloudy_puresky_2k.hdr": {
     "sha256": "5244534e9cf5b606f2ff513aa00ddb161b0a4826ffd88a0d3bd03ac29247d198",
     "bytes": 5451493
@@ -2291,6 +2439,18 @@
     "sha256": "1addcfc0210fc101f9f12c8e4dbd7a7d2642a5ef76699a8a485f00b5476af357",
     "bytes": 455677
   },
+  "ph-tex-dark_rock_02/dark_rock_02_diff_1k.jpg": {
+    "sha256": "09cf66947bfe49fa1278ff341159063a43d96aae0bdf9f21536ff94feddef322",
+    "bytes": 592452
+  },
+  "ph-tex-dark_rock_02/dark_rock_02_nor_gl_1k.jpg": {
+    "sha256": "011bec5690fa6bba771e745603cbd400d4cbe21ae254af0330680b3a1a7d9a92",
+    "bytes": 1028835
+  },
+  "ph-tex-dark_rock_02/dark_rock_02_rough_1k.jpg": {
+    "sha256": "ab2645db4a2fa7120d7d14063cfa2d0b3b3c8cb37736eaf115d5924871eb7040",
+    "bytes": 503425
+  },
   "ph-tex-forrest_ground_01/forrest_ground_01_diff_1k.jpg": {
     "sha256": "3dd6875cb3908e022a3c45ebbffa5e84c670ff2691fbbb6dc9ea4bff88523800",
     "bytes": 833711
@@ -2339,6 +2499,30 @@
     "sha256": "9e3d9a2fd75244892e7acb6bab2eaed1279299510a7970672c0ee27ff1c19fea",
     "bytes": 638904
   },
+  "ph-tex-roof_slates_02/roof_slates_02_diff_1k.jpg": {
+    "sha256": "de3d2729ab385c5f7dd7106d3b435c737f6d2c3ea8883cea37de53cec2a34867",
+    "bytes": 515626
+  },
+  "ph-tex-roof_slates_02/roof_slates_02_nor_gl_1k.jpg": {
+    "sha256": "32be0c0ba1565856156a315dc98a773d72f1a03415930657b8a8ad62bf60c1bf",
+    "bytes": 763206
+  },
+  "ph-tex-roof_slates_02/roof_slates_02_rough_1k.jpg": {
+    "sha256": "737f95fdbb09e49670cbce09a78fe75c18bbaed597524db832f0227df0dce2cd",
+    "bytes": 307076
+  },
+  "ph-tex-rustic_stone_wall_02/rustic_stone_wall_02_diff_1k.jpg": {
+    "sha256": "a091e04d73ddf7485d1b99a66d6cfe270e9ba36cdc26f98dbc17934427e43bc9",
+    "bytes": 794327
+  },
+  "ph-tex-rustic_stone_wall_02/rustic_stone_wall_02_nor_gl_1k.jpg": {
+    "sha256": "a7e5c96b8ba3ab3d066c673c4da9b1b7735f176ed6b6b2b9f74216fc151225f7",
+    "bytes": 1191033
+  },
+  "ph-tex-rustic_stone_wall_02/rustic_stone_wall_02_rough_1k.jpg": {
+    "sha256": "7a8fb2fd4870fc599eeed319b52382c546c3e481f7bf39c2f3d4476b9fb6a54c",
+    "bytes": 517126
+  },
   "ph-tex-sand_01/sand_01_diff_1k.jpg": {
     "sha256": "a73b90eaa6d675ef57e7d48a8cf23e1f412e353ab2e29cf73930b8ecd4e76875",
     "bytes": 485088
@@ -2350,6 +2534,18 @@
   "ph-tex-sand_01/sand_01_rough_1k.jpg": {
     "sha256": "ccb179b12c56a9032d60e4f4e2da690b3612a58e1784eb14576372690cdcd1cb",
     "bytes": 189667
+  },
+  "ph-tex-snow_01/snow_01_diff_1k.jpg": {
+    "sha256": "bf71d93b7e47fe29bfb6ae11626439535b647da041b979ba5303ce8b0a862d53",
+    "bytes": 356249
+  },
+  "ph-tex-snow_01/snow_01_nor_gl_1k.jpg": {
+    "sha256": "ce806bc45cae729a211b16c94239018d58570b9a796a8cc890cf8cbce2c8f050",
+    "bytes": 1370735
+  },
+  "ph-tex-snow_01/snow_01_rough_1k.jpg": {
+    "sha256": "c008cd329bda1127d8c6ff2ed8772e563419fbfb836648b2f05e07ab893be1aa",
+    "bytes": 195503
   },
   "ph-tex-snow_02/snow_02_diff_1k.jpg": {
     "sha256": "523a4e69c90b96d787dd69b897f29a2b3761a017024405c60aa630d1e8e9009a",
@@ -2363,6 +2559,18 @@
     "sha256": "b6dea8039ac2a5beaed6fd41834fb55540cc76b492edd1d48ba2da2f30f1cb75",
     "bytes": 146089
   },
+  "ph-tex-snow_field_aerial/snow_field_aerial_col_1k.jpg": {
+    "sha256": "902e1fef8f1bcc2f158fbb118239e29159978fd7b8e241d2d0f404b8dbecf718",
+    "bytes": 754873
+  },
+  "ph-tex-snow_field_aerial/snow_field_aerial_nor_gl_1k.jpg": {
+    "sha256": "2037817e0166673e68039c4dd2c56fa014d6999e1d6d492e2e3e7e3cfec3862b",
+    "bytes": 640692
+  },
+  "ph-tex-snow_field_aerial/snow_field_aerial_rough_1k.jpg": {
+    "sha256": "f791ddb130aa9342afd91e4b988382674e58b180e403f25a34cf67c1fa78ee92",
+    "bytes": 497955
+  },
   "ph-tex-weathered_brown_planks/weathered_brown_planks_diff_1k.jpg": {
     "sha256": "94833feda44e025a9139f7b5723ea84e4f0258d3b54939a79e1013c133085e29",
     "bytes": 226049
@@ -2374,6 +2582,18 @@
   "ph-tex-weathered_brown_planks/weathered_brown_planks_rough_1k.jpg": {
     "sha256": "b80c45969d8299ca5f21de969f0269138a5e3e78e51fc911af809683d99c5bc9",
     "bytes": 234672
+  },
+  "ph-tex-weathered_plank_siding/weathered_plank_siding_diff_1k.jpg": {
+    "sha256": "dad0442114f1efd9a25195f2e2ac480693c2a6199f3987f4cfac4002b2820fbd",
+    "bytes": 567956
+  },
+  "ph-tex-weathered_plank_siding/weathered_plank_siding_nor_gl_1k.jpg": {
+    "sha256": "229440bb21992d7f97bbbe03f6488e21cc061119ab3774ad0c30e352c9690a74",
+    "bytes": 609905
+  },
+  "ph-tex-weathered_plank_siding/weathered_plank_siding_rough_1k.jpg": {
+    "sha256": "1f4707c748102d1faf275d35dea798e2e51dcc0d425ddd2121643b08d2b3af3e",
+    "bytes": 381425
   },
   "ph-tex-white_plaster_02/white_plaster_02_diff_1k.jpg": {
     "sha256": "a1ebbe091bd1ae93d2abd5de8d69f9003a8d0ee6532bcf9a87c2492c97051f23",
