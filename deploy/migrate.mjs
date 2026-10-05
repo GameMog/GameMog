@@ -8,6 +8,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 
 const DIR = 'deploy/migrations';
 const file = (name) => { const p = join(DIR, name); return existsSync(p) ? readFileSync(p) : null; };
@@ -139,6 +140,35 @@ const MIGRATIONS = [
         VALUES (?, 'ai-alps', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
         .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: ai-alps', Date.now(), code.toString('utf8'), JSON.stringify(m.meta), cover, icon, wide);
       return 'published';
+    },
+  },
+  {
+    // the owner, 5 Oct, of the first Mog of AI Alps: "the third pass screwed up the lightening to way
+    // overexposed". Typson: Honky Tonk Havoc relit on the Mac: its lighting, fog and graphics values only
+    // (exposure 1.7 -> 1.45 under far gentler lights: the photographed dusk drawn dark above the rafters
+    // and barely lighting the room, the hemisphere 1.5 -> 1.35, the sun 2.8 -> 1.3, warm lamps, a dark
+    // warm haze), playtested as a local draft, its art reshot from that code. Only the version this
+    // repairs is replaced: if the creator has rebuilt it since, it is left as it is
+    id: '2026-10-05-typson-light',
+    run(db) {
+      const code = file('typson-honky-tonk-havoc.js');
+      if (!code) return 'files missing';
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'typson-honky-tonk-havoc'").get();
+      if (!g) return 'no such game';
+      const next = code.toString('utf8'), sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
+      // the published code, as it was on 5 Oct (sha256 of its text, without the blank lines at either end)
+      const WAS = 'b42d0d8a40e14a6635c93a90b3fbbd63e49293940f41fe3a2a4722a364bed137';
+      if (g.code === next) return 'already relit';
+      if (sha(String(g.code ?? '').trim()) !== WAS) return 'left alone: its code has changed since 5 Oct, so this repair no longer fits it';
+      // the test record follows the code it describes (lib/test-drive.ts codeHash), and the cover is now of this code
+      let meta = g.meta, hash = '';
+      try {
+        const m = JSON.parse(g.meta ?? 'null');
+        if (m && m.test && typeof m.test === 'object') { hash = sha(next).slice(0, 16); m.test = { ...m.test, codeHash: hash, cover: 'current' }; meta = JSON.stringify(m); }
+      } catch { meta = g.meta; }
+      db.prepare('UPDATE games SET code = ?, meta = ?, cover = COALESCE(?, cover), art_icon = COALESCE(?, art_icon), art_wide = COALESCE(?, art_wide) WHERE id = ?')
+        .run(next, meta, file('typson-honky-tonk-havoc-cover.jpg'), file('typson-honky-tonk-havoc-icon.jpg'), file('typson-honky-tonk-havoc-wide.jpg'), g.id);
+      return `relit (${hash ? 'test codeHash ' + hash : 'no test record'}), new cover and key art`;
     },
   },
 ];
