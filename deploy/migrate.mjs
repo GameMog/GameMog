@@ -119,6 +119,28 @@ const MIGRATIONS = [
       return r.changes ? 'updated' : 'no zcity';
     },
   },
+  {
+    // the owner, 4 Oct: AI Alps, an official open world: a chrome endoskeleton (the owner's reference,
+    // replicated) at a Courchevel ski-resort DJ party, punches and bottles only, 10,000 GM to buy a name,
+    // a story scene every 1,500 GM. Published on the Mac by `npm run publish:world -- ai-alps`, which
+    // playtested it and shot its art
+    id: '2026-10-05-ai-alps',
+    run(db) {
+      const code = file('ai-alps.js'), meta = file('ai-alps.meta.json');
+      if (!code || !meta) return 'files missing';
+      const m = JSON.parse(meta.toString('utf8')), cover = file('ai-alps-cover.jpg'), icon = file('ai-alps-icon.jpg'), wide = file('ai-alps-wide.jpg');
+      const g = db.prepare("SELECT id FROM games WHERE slug = 'ai-alps'").get();
+      if (g) {
+        db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = ?, cover = ?, art_icon = ?, art_wide = ?, format = ? WHERE id = ?')
+          .run(m.title, m.tagline, m.blurb, code.toString('utf8'), JSON.stringify(m.meta), cover, icon, wide, 'world', g.id);
+        return 'updated';
+      }
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+        VALUES (?, 'ai-alps', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
+        .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: ai-alps', Date.now(), code.toString('utf8'), JSON.stringify(m.meta), cover, icon, wide);
+      return 'published';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

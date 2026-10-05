@@ -1,0 +1,68 @@
+{
+  "id": "d7625caf-7e78-41f2-af35-08cd4fb63dac",
+  "title": "AI Alps",
+  "tagline": "A chrome machine crashes a Courchevel ski party at midnight. It will pay 10,000 GM for one name.",
+  "blurb": "It walked down out of the trees at midnight, looking for a boy. Lucien Vasseur owns the mountain and sells every name on it, and his price is 10,000 GM. So the machine takes it out of his party: punches only, no jumping, no dodging, and every bottle, glass and ice bucket on the bars is a weapon. Guests turn on it, then the door staff, the ski patrol and Vasseur's own guard, with a scene every 1,500 GM as the stakes rise. Névé keeps the Funky House playing from the booth.",
+  "meta": {
+    "title": "AI Alps",
+    "tagline": "A chrome machine crashes a Courchevel ski party at midnight. It will pay 10,000 GM for one name.",
+    "blurb": "It walked down out of the trees at midnight, looking for a boy. Lucien Vasseur owns the mountain and sells every name on it, and his price is 10,000 GM. So the machine takes it out of his party: punches only, no jumping, no dodging, and every bottle, glass and ice bucket on the bars is a weapon. Guests turn on it, then the door staff, the ski patrol and Vasseur's own guard, with a scene every 1,500 GM as the stakes rise. Névé keeps the Funky House playing from the booth.",
+    "genre": "Open World",
+    "cast": [
+      {
+        "name": "The machine",
+        "color": "#D3C6AF",
+        "role": "player"
+      },
+      {
+        "name": "Lucien Vasseur",
+        "color": "#4A1020",
+        "role": "rival"
+      },
+      {
+        "name": "Névé",
+        "color": "#F2F0EA",
+        "role": "rival"
+      },
+      {
+        "name": "Party guests",
+        "color": "#B3122E",
+        "role": "rival"
+      },
+      {
+        "name": "Door staff",
+        "color": "#0B0B0D",
+        "role": "rival"
+      },
+      {
+        "name": "Ski patrol",
+        "color": "#C1121F",
+        "role": "rival"
+      },
+      {
+        "name": "Vasseur's guard",
+        "color": "#3A3A40",
+        "role": "rival"
+      },
+      {
+        "name": "Le Géant",
+        "color": "#E9E4DA",
+        "role": "rival"
+      }
+    ],
+    "palette": {
+      "sky": "#0B1424",
+      "ground": "#E8EEF6",
+      "accent": "#FF2A1A"
+    },
+    "mode": "survival",
+    "controls": "W A S D or the arrow keys: move. Shift: run. J, F or a click: punch (jab, cross, hook, body shot, uppercut; hold: a haymaker). Blows from in front land on his forearms. Drag: look around. P: pause. On touch screens, a stick and buttons.",
+    "scoring": "survival",
+    "runtime": 1,
+    "test": {
+      "status": "passed",
+      "codeHash": "f3dbb1dd7732cb8b",
+      "cover": "current"
+    }
+  }
+}
