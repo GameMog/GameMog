@@ -23,8 +23,7 @@ AI generates, humans select, winners reproduce. Platform first; movement second.
 | "mobile controls and desktop spacebar is pause, navigation is arrow keys" | Arrows or WASD steer and change speed, Space pauses, touch buttons on phones. | controls checks |
 | "2D should not be allowed" | Every world is 3D, seen through the runtime's chase camera; worlds cannot create, move or re-project cameras. | `check` "worlds are 3D" |
 | "goal is to get to highest level without getting killed" | Leaderboard ranks level, then GM. | score route |
-| "can we raise this? 260 KB limit" then "let's do 360 KB for first party worlds" (5 Oct 2026) | A world module the builder writes (Create, Mog) stays under 260KB; a first-party world published from `worlds/` may hold up to 360KB (`FIRST_PARTY_MAX`, `staticCheckWorld(code, { max })`). | `check` "a builder world over 260KB is refused", "a first-party world up to 360KB passes the size check" |
-| (no owner's words; follows from the row above) | A Mog starts from its parent's whole module, so a Mog may be as large as its parent plus 10%, never over 360KB (`lib/generate-game.ts`); a new world still keeps to 260KB. | code review |
+| "can we raise this? 260 KB limit", then "keep things simple, raise everything to 500 KB" (5 Oct 2026) | Every world module, whoever writes it (Create, Mog, the owner's own in `worlds/`), may hold up to 500KB (`WORLD_MAX` in `lib/custom-game.ts`). A world much past ~300KB is hard to Mog, because a Mog rewrites the whole module within one reply. | `check` "a world over 500KB is refused", "a world up to 500KB passes the size check" |
 
 ### Cars (platform option `play.vehicle`, 25 Sep 2026)
 

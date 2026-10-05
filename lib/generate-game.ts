@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CharacterImage } from './character';
-import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, worldControls, isOpenWorld, worldMode, WORLD_MAX, FIRST_PARTY_MAX, type WorldMeta } from './custom-game';
+import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, worldControls, isOpenWorld, worldMode, type WorldMeta } from './custom-game';
 import { playtestWorld, type WorldReport } from './playtest-runtime';
 import { drivesInBrowser, waitForDrive, codeHash, testStatus } from './test-drive';
 import { insertDraft, db, type GameRow } from './db';
@@ -192,10 +192,7 @@ export async function generateGame(
     emit({ type: 'stage', stage: 'checking', attempt });
     const { meta, code, problems } = parseGameResponse(text, WorldMetaSchema);
     if (final.stop_reason === 'max_tokens') problems.push('The reply was cut off at the length limit. Write a more compact world module that still does everything.');
-    // a Mog starts from its parent's whole module, so it may be as large as the
-    // parent (and a little more), up to the first-party limit; a new world keeps to 260KB
-    const parentLen = input.mog && input.mog.parent.format === 'world' && input.mog.parent.code ? input.mog.parent.code.length : 0;
-    if (code) problems.push(...staticCheckWorld(code, { max: Math.min(FIRST_PARTY_MAX, Math.max(WORLD_MAX, Math.round(parentLen * 1.1))) }));
+    if (code) problems.push(...staticCheckWorld(code));
 
     let report: WorldReport | undefined;
     if (!problems.length && meta && code) {

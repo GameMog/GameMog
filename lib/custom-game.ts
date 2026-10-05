@@ -439,10 +439,10 @@ const WORLD_FORBIDDEN: [RegExp, string][] = [
     'The camera belongs to the runtime: every world is 3D, seen from behind the player. Read ctx.camera (for example its position, to face a billboard at it) but never move, re-aim, re-project or attach things to it.'],
 ];
 
-// The most code a world module may hold. Worlds the builder writes keep to
-// 260KB; the owner's first-party worlds in worlds/ may run to 360KB (owner,
-// 5 Oct 2026), so a world as large as AI Alps can ship as readable code.
-export const WORLD_MAX = 260_000, FIRST_PARTY_MAX = 360_000;
+// The most code a world module may hold, the same for every world: the
+// builder's, a Mog and the owner's own (the owner, 5 Oct 2026: "keep things
+// simple, raise everything to 500 KB").
+export const WORLD_MAX = 500_000;
 
 export function staticCheckWorld(code: string, opts: { max?: number } = {}): string[] {
   const problems: string[] = [], max = opts.max ?? WORLD_MAX;
