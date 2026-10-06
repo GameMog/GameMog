@@ -219,6 +219,37 @@ const MIGRATIONS = [
       return `renamed Country Box${icon && wide ? ', new key art' : ''}${cover && same ? ' and cover' : ', cover kept (its code is not the relit one)'}${card ? ', title card COUNTRY BOX' : ''}`;
     },
   },
+  {
+    // the owner, 6 Oct: Country Box's fighter, "Iron Mike Typson", is renamed Cash Callahan ("Cash" for short), so no
+    // real boxer's name or nickname is left in the game: in its code (intro, outro, a heat line, the win line, the
+    // player's name), its tagline, blurb and cast, and the Mog idea shown on its page (its last line, "This is peak
+    // Mike Tyson", becomes "This is a heavyweight in his prime"). The code is changed only while it is the version
+    // published by the two migrations above; a rebuild by its creator is left as it is
+    id: '2026-10-06-cash-callahan',
+    run(db) {
+      const g = db.prepare("SELECT id, code, meta, tagline, blurb, mog_prompt FROM games WHERE slug IN ('country-box', 'typson-honky-tonk-havoc') ORDER BY slug = 'country-box' DESC").get();
+      if (!g) return 'no such game';
+      const name = (t) => (typeof t === 'string' ? t.split('Iron Mike Typson').join('Cash Callahan').split('Iron Mike').join('Cash') : t);
+      const idea = (t) => (typeof t === 'string' ? name(t).split('This is peak Mike Tyson').join('This is a heavyweight in his prime').split('Mike Tyson').join('a heavyweight legend') : t);
+      const sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
+      const relit = file('typson-honky-tonk-havoc.js');
+      const known = relit ? [relit.toString('utf8'), relit.toString('utf8').split("title: 'HONKY TONK HAVOC'").join("title: 'COUNTRY BOX'")].map((c) => sha(c.trim())) : [];
+      const ours = known.includes(sha(String(g.code ?? '').trim()));
+      const code = ours ? name(String(g.code)) : g.code;
+      let meta = g.meta;
+      try {
+        const m = JSON.parse(g.meta ?? 'null');
+        if (m && typeof m === 'object' && !Array.isArray(m)) {
+          const was = JSON.stringify(m), m2 = JSON.parse(name(was));
+          if (ours && m2.test && typeof m2.test === 'object' && code !== g.code) m2.test = { ...m2.test, codeHash: sha(code).slice(0, 16) };
+          if (JSON.stringify(m2) !== was) meta = JSON.stringify(m2);
+        }
+      } catch { meta = g.meta; }
+      const r = db.prepare('UPDATE games SET code = ?, meta = ?, tagline = ?, blurb = ?, mog_prompt = ? WHERE id = ?')
+        .run(code, meta, name(g.tagline), name(g.blurb), idea(g.mog_prompt), g.id);
+      return `${r.changes ? 'renamed the fighter Cash Callahan' : 'unchanged'}${ours ? '' : ' (code left as it is: not the published version)'}`;
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
