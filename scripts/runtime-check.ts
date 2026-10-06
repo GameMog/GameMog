@@ -1796,11 +1796,14 @@ try {
       await page.eval(`(() => { const O = ${PO}; O.clear(); O.place(0, 0, Math.PI, 0.2, false, 0); O.spawn('boss', 0, 1.3); return true; })()`); await sleep(500);
       type FL = { heavies: number; heavyK: number | null; power: number; last: string | null; act: string | null };
       const fl = () => page.eval<FL>(`${PO}.flow()`);
-      const hold = async () => { const h = (await fl()).heavies; await page.key('KeyJ', 'keyDown'); let f = await fl(); for (let i = 0; i < 70 && f.heavies === h; i++) { await sleep(30); f = await fl(); } await page.key('KeyJ', 'keyUp'); return f; };
+      // thrown through the debug hook (a hold of J, without the key timing: a press during a blow is queued as a chain
+      // blow, and a landed chain blow rightly resets the run), each as soon as the last is over
+      const idle = async () => { for (let i = 0; i < 160; i++) { const f = await fl() as FL & { punching?: number; dash?: unknown }; if (!(f.punching! > 0) && !f.dash) return; await sleep(20); } };
+      const heavy = async () => { await idle(); const h = (await fl()).heavies; await page.eval(`${PO}.heavy()`); const f = await fl(); return f.heavies === h + 1 ? f : { ...f, power: NaN }; };
       const pw: number[] = [];
-      for (let i = 0; i < 4; i++) { const f = await hold(); pw.push(+(f.power).toFixed(2)); await sleep(150); }
-      await sleep(900); await page.key('KeyJ'); await sleep(900);
-      const f5 = await hold(); await sleep(900);
+      for (let i = 0; i < 4; i++) { const f = await heavy(); pw.push(+(f.power).toFixed(2)); }
+      await idle(); await page.eval(`${PO}.punch()`); await sleep(100); await idle();
+      const f5 = await heavy(); await idle();
       ok('a held haymaker thrown back to back hits for less each time (5, 3, 2, 2), and one after a blow of the chain has landed is a full 5 again', JSON.stringify(pw) === '[5,3,2,2]' && f5.power === 5, `${JSON.stringify(pw)}, then ${f5.power}`);
       // (over six seconds on a boss, holding J again and again against the chain: in the game's own time, on a sparring
       // ground of its own, after Zombie Beach below)
@@ -2040,34 +2043,59 @@ try {
   // asks, off everywhere else. On its own fixture: every blow of a chain lands with the fist on the face (the chin, the
   // ribs), the man's head turned on the frame it lands, a stop held and eased, the camera kicked and its lens narrowed, a
   // flash, a ring and sweat at the fist; a hook and then a hold are two motions (the held haymaker after the boxer's hook
-  // is his rear uppercut), both landing; the hit is a sharp crack and little under 200 Hz, a sub only on a heavy blow; a
-  // knockout lands harder and the crowd near it lets out an "ooh". Then as a boxer (the Typson Mog's fight), where a man
-  // out of reach is still missed; with impact: false (the runtime as it was); and Zombie Beach (it kicks: none of it)
+  // is his rear uppercut), both landing; the hit is the prior thud, louder (the owner, 5 Oct, of a crack that replaced it:
+  // "u downgraded punch sound effect to sound like a tap, go back to prior sound effect just make it louder and
+  // experience more dramatic"), a sub under a heavy blow and a dark room after a knockout; a heavy blow stops longer and
+  // kicks the camera harder, a knockout longer still, in a longer slow motion, the camera punched in, and the crowd near
+  // it lets out an "ooh"; the jab, the cross and the hook stop as they did. Then as a boxer (the Typson Mog's fight),
+  // where a man out of reach is still missed; with impact: false (the runtime as it was); and Zombie Beach (it kicks:
+  // none of it)
   console.log('\nopen worlds: every punch lands (open.impact): the magnetism, the snap, the stop, the camera, the flash and the hit');
   {
     const imcode = readFileSync(new URL('../lib/runtime/impact-world.js', import.meta.url), 'utf8');
     const immeta = { title: 'Impact Check', tagline: 'Every punch lands', blurb: 'Runtime check.', genre: 'Open World', cast: [{ name: 'Tester', color: '#FF7A3D' }], palette: { sky: '#1A2236', ground: '#8E8676', accent: '#FF7A3D' }, runtime: 1, scoring: 'survival' };
     type IL = { clip: string | null; kind: string; power: number; ko: boolean; gap: number | null; on: string | null; magnet: boolean | null; moved: number; aim: number; pitch: number; d: number | null;
-      stop: number[]; fx: boolean; react: number | null; reactAfter: number | null; froze: { real: number; game: number; held: number } | null; lens: number; time: number };
+      stop: number[]; fx: boolean; react: number | null; reactAfter: number | null; froze: { real: number; game: number; held: number } | null; lens: number; time: number; kick: number; slow: number; push: number };
     type IS = { on: boolean; H: number; hits: number; blow: { clip: string; magnet: boolean | null; moved: number; done: boolean } | null; snaps: number; sounds: number; oohs: number; last: IL | null; stop: number | null; camera: unknown; fx: { flashes: number; rings: number; sweat: number; made: boolean } | null; snapping: number; lean: number };
     const IO = 'window.__gmRuntime.debug.open()';
     const imp = (p: { eval<T>(e: string): Promise<T> }) => p.eval<IS>(`${IO}.impact()`);
-    // the sound measured: RBJ biquads for the bands (under 200 Hz; 2 to 6 kHz), shares of the energy, when it reaches half
-    // its peak (the attack) and when its crack peaks
+    // the sound measured: RBJ biquads for the bands (under 400 Hz, over 2 kHz, under 60 Hz, over 1 kHz), shares of the
+    // energy, the peak (dB), the loudest 50 ms (dB), the tone's pitch (zero crossings of the part under 400 Hz, 5-30 ms and
+    // 60-110 ms after the blow), the sub (RMS under 60 Hz 0.2-0.4 s after it, when the tone is over), the room (RMS 0.3-0.8 s
+    // after it, and its share over 1 kHz)
     const bq = (x: ArrayLike<number>, sr: number, hp: boolean, f: number) => {
       const w = 2 * Math.PI * f / sr, c = Math.cos(w), al = Math.sin(w) / (2 * Math.SQRT1_2), b0 = hp ? (1 + c) / 2 : (1 - c) / 2, b1 = hp ? -(1 + c) : 1 - c, a0 = 1 + al, a1 = -2 * c, a2 = 1 - al, y = new Float64Array(x.length);
       let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < x.length; i++) { const v = (b0 * x[i] + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2) / a0; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; } return y;
     };
+    const dB = (v: number) => +(20 * Math.log10(Math.max(1e-9, v))).toFixed(2);
     const hear = (r: { sr: number; at: number; samples: number[] }) => {
-      const s = r.samples, lo = bq(bq(s, r.sr, false, 200), r.sr, false, 200), hi = bq(bq(bq(bq(s, r.sr, true, 2000), r.sr, true, 2000), r.sr, false, 6000), r.sr, false, 6000);
-      let E = 0, El = 0, pk = 0; for (let i = 0; i < s.length; i++) { E += s[i] * s[i]; El += lo[i] * lo[i]; pk = Math.max(pk, Math.abs(s[i])); }
-      let half = 0; for (let i = 0; i < s.length; i++) if (Math.abs(s[i]) >= pk * 0.5) { half = i; break; }
-      let end = 0; for (let i = s.length - 1; i >= 0; i--) if (Math.abs(s[i]) > pk * 0.01) { end = i; break; }
-      const ms = (i: number) => +((i / r.sr - r.at) * 1000).toFixed(2), i0 = Math.round(r.at * r.sr);
-      // (the crack: its energy in the first 5 ms against the first 40, and its RMS over the first 10 ms)
-      const e = (m0: number, m1: number) => { let v = 0; for (let i = i0 + Math.round(m0 * r.sr / 1000); i < Math.min(s.length, i0 + Math.round(m1 * r.sr / 1000)); i++) v += hi[i] * hi[i]; return v; };
-      return { attackMs: ms(half), front: +(e(0, 5) / (e(0, 40) || 1)).toFixed(3), crack10: +Math.sqrt(e(0, 10) / (r.sr / 100)).toFixed(4), peak: +pk.toFixed(3), low: +(El / (E || 1)).toFixed(3), ms: ms(end) };
+      const s = r.samples, sr = r.sr, i0 = Math.round(r.at * sr), lp = (f: number) => bq(bq(s, sr, false, f), sr, false, f), hp = (f: number) => bq(bq(s, sr, true, f), sr, true, f);
+      const lo = lp(400), hi = hp(2000), sub = lp(60), hk = hp(1000);
+      let E = 0, El = 0, Eh = 0, pk = 0; for (let i = 0; i < s.length; i++) { E += s[i] * s[i]; El += lo[i] * lo[i]; Eh += hi[i] * hi[i]; pk = Math.max(pk, Math.abs(s[i])); }
+      const n50 = Math.round(0.05 * sr); let e = 0, m = 0; for (let i = 0; i < s.length; i++) { e += s[i] * s[i]; if (i >= n50) e -= s[i - n50] * s[i - n50]; m = Math.max(m, e); }
+      const win = (a: ArrayLike<number>, m0: number, m1: number) => { let v = 0, n = 0; for (let i = i0 + Math.round(m0 * sr); i < Math.min(a.length, i0 + Math.round(m1 * sr)); i++) { v += a[i] * a[i]; n++; } return Math.sqrt(v / Math.max(1, n)); };
+      const zc = (m0: number, m1: number) => { let n = 0; for (let i = i0 + Math.round(m0 * sr) + 1; i < i0 + Math.round(m1 * sr); i++) if ((lo[i - 1] < 0) !== (lo[i] < 0)) n++; return Math.round(n / 2 / (m1 - m0)); };
+      const room = win(s, 0.3, 0.8);
+      return { peak: dB(pk), rms50: dB(Math.sqrt(m / n50)), low: +(El / (E || 1)).toFixed(3), bright: +(Eh / (E || 1)).toFixed(4), pitch: [zc(0.005, 0.03), zc(0.06, 0.11)], sub: dB(win(sub, 0.2, 0.4)), room: dB(room), roomBright: +((win(hk, 0.3, 0.8) / (room || 1)) ** 2).toFixed(3) };
     };
+    // the prior thud, as open.js plays it on a punch where the impact is off (thud(min(4, power)): a sine falling from
+    // 120 + 30 x power Hz to 45 Hz and noiseBand(0.09, 0.35 + 0.2 x power, 2400, 500)), rendered as impactAudio renders
+    // the impact's (raw, or through a copy of the game's master)
+    const PRIOR = (power: number, chain: boolean) => `((power, chain) => {
+      const A = window.__gmRuntime.debug.internals().audio, sr = 48000, at = chain ? 0.5 : 0.01, oc = new OfflineAudioContext(1, Math.round(sr * (at + 1)), sr), out = oc.createGain(); let end = out;
+      if (chain) { const mg = oc.createGain(), lim = oc.createDynamicsCompressor(); mg.gain.value = A.master.gain.value; for (const k of ['threshold', 'knee', 'ratio', 'attack', 'release']) lim[k].value = A.limiter[k].value; out.connect(mg); mg.connect(lim); end = lim; }
+      end.connect(oc.destination);
+      const o = oc.createOscillator(), g = oc.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(120 + power * 30, at); o.frequency.exponentialRampToValueAtTime(45, at + 0.16);
+      g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.5 + power * 0.25, at + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.2);
+      o.connect(g); g.connect(out); o.start(at); o.stop(at + 0.22);
+      const dur = 0.09, n = Math.floor(sr * dur), buf = oc.createBuffer(1, n, sr), ch = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) { const u = i / n; ch[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * u) * (1 - u); }
+      const s = oc.createBufferSource(), ng = oc.createGain(), f = oc.createBiquadFilter();
+      f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(2400, at); f.frequency.exponentialRampToValueAtTime(500, at + dur);
+      ng.gain.value = 0.35 + power * 0.2; s.buffer = buf; s.connect(f); f.connect(ng); ng.connect(out); s.start(at);
+      return oc.startRendering().then((b) => ({ sr, at, samples: Array.from(b.getChannelData(0)) }));
+    })(${Math.min(4, power)}, ${chain})`;
     // a chain thrown at a man (a thug, who takes it) dist metres in front, and what each blow that landed did; while
     // each lands, whether the flash, the ring, the sweat and the camera's kick were seen
     const CHAIN = (dist: number, n: number) => `(async () => { const O = ${IO}, wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -2104,6 +2132,11 @@ try {
         ok('the stop is held and eased (the game at under a third of its pace through it), the camera kicked, its lens narrowed, and a flash, a ring and sweat at the fist',
           B.every((l) => !!l.froze && l.froze.real >= 0.06 && l.froze.held >= 2 && l.froze.game / l.froze.real <= 0.34 && l.lens >= 0.8) && c.seen.flash >= 1 && c.seen.ring >= 1 && c.seen.sweat > 0 && c.seen.camera > 0,
           `${B.map((l) => `${l.clip}: ${l.froze ? `${l.froze.game} s of game in ${l.froze.real} s, ${l.froze.held} frames still` : 'no stop'}, lens -${l.lens}°`).join('; ')}; seen ${JSON.stringify(c.seen)}`);
+        // (the drama raised on a heavy blow and a knockout only: the chain's blows stop and kick as they did, so it stays quick)
+        const lite = B.filter((l) => !l.ko && l.power < 3);
+        ok('the chain\'s blows stop and kick the camera as they did (a jab or a cross 55 ms, a hook or a body shot 70 ms, eased 35 ms; the kick 0.048 m, 0.06 m for the hook), so it stays quick',
+          lite.length >= 3 && lite.every((l) => l.stop[0] === (l.power >= 1.5 ? 0.07 : 0.055) && l.stop[1] === 0.035 && Math.abs(l.kick - (l.power >= 1.5 ? 0.06 : 0.048)) < 1e-4 && l.slow === 0 && l.push === 0),
+          lite.map((l) => `${l.clip} (${l.power}): stop ${l.stop.join('+')} s, kick ${l.kick} m`).join('; '));
         // a hook and then a hold (J pressed as the chain's hook is thrown, and kept down): the hook is the boxer's here
         // (FFPI), and so is the held haymaker, so the hold throws his rear uppercut instead; both land with the man's
         // reaction (a fresh man, in reach, for each blow until the chain throws its hook)
@@ -2126,16 +2159,34 @@ try {
         ok('a hook and then a hold are two blows: the held haymaker after the chain\'s hook (the boxer\'s, as the held one is) is his rear uppercut, and both land with the man\'s reaction',
           hh.tries < 14 && hh.heavies === 1 && hh.after === 'hook' && hh.act === 'uppercut' && hh.blows.length === 2 && hk.clip === 'hook' && hk.kind !== 'heavy' && hv.clip === 'uppercut' && hv.kind === 'heavy' && hv.power >= 5 && lands(hk) && lands(hv),
           `${hh.tries + 1} taps to the hook; the hold threw ${hh.act} after ${hh.after}; ${hh.blows.map((l) => `${l.clip} (${l.kind}, ${l.power}) gap ${l.gap} m, head ${l.react}° after ${l.reactAfter} s`).join('; ')}`);
-        // the hit, as heard: rendered offline as the game plays it
-        const kinds: [string, number, boolean][] = [['jab', 1, false], ['cross', 1, false], ['hook', 1.5, false], ['upper', 1, false], ['body', 1.5, false], ['heavy', 3, false], ['heavy', 5, true]];
-        const H: Record<string, ReturnType<typeof hear>> = {};
-        for (const [k, p, ko] of kinds) H[k + (ko ? 'KO' : '')] = hear(await page.eval<{ sr: number; at: number; samples: number[] }>(`${IO}.impactAudio('${k}', ${p}, ${ko})`));
-        const blows = ['jab', 'cross', 'hook', 'upper'].map((k) => H[k]), s1 = await imp(page);
-        // (the old thud, measured the same way: half its peak at 6 ms, 1% of its 2-6 kHz energy in its first 5 ms, a crack
-        // RMS of 0.01 over its first 10 ms, 60-69% of its energy under 200 Hz)
-        ok('the hit is a sharp crack and clean: half its peak within 1.5 ms, its 2-6 kHz crack front-loaded (45% or more of it in the first 5 ms) and loud, under half its energy below 200 Hz, over in a sixth of a second; the sub only on a heavy blow; one sound for every blow landed',
-          blows.every((h) => h.attackMs <= 1.5 && h.front >= 0.45 && h.crack10 >= 0.035 && h.low <= 0.5 && h.ms <= 160) && H.heavy.low > H.jab.low && H.heavyKO.low > H.jab.low && H.heavy.low <= 0.7 && H.heavy.crack10 >= 0.06 && H.heavy.ms <= 200 && H.body.ms <= 180 && s1.sounds === s1.hits,
-          `${Object.entries(H).map(([k, h]) => `${k}: attack ${h.attackMs} ms, crack ${h.crack10} (${Math.round(h.front * 100)}% in 5 ms), low ${h.low}, ${h.ms} ms`).join('; ')}; ${s1.sounds} sounds for ${s1.hits} blows`);
+        ok('a held haymaker lands with more drama: its stop held 110 ms (90 before), the camera kicked 30% harder (0.0975 m, from 0.075)',
+          !!hv && (hv.ko ? hv.stop[0] === 0.15 : hv.stop[0] === 0.11 && hv.stop[1] === 0.05) && Math.abs(hv.kick - (hv.ko ? 0.1248 : 0.0975)) < 1e-4 && !!hv.froze && hv.froze.real >= 0.11,
+          hv ? `${hv.clip} (${hv.power}${hv.ko ? ', a knockout' : ''}): stop ${hv.stop.join('+')} s, ${hv.froze ? `${hv.froze.game} s of game in ${hv.froze.real} s` : 'no stop'}, kick ${hv.kick} m` : 'no held blow');
+        // the hit, as heard: rendered offline as the game plays it (raw, into the effects' bus, and through a copy of the
+        // master: its gain and its limiter), against the prior thud at the same power rendered the same way
+        const kinds: [string, number, boolean][] = [['jab', 1, false], ['cross', 1, false], ['hook', 1.5, false], ['upper', 1, false], ['body', 1.5, false], ['heavy', 3, false], ['heavy', 5, false], ['heavy', 5, true]];
+        const H: Record<string, ReturnType<typeof hear>> = {}, HC: Record<string, ReturnType<typeof hear>> = {}, P: Record<string, ReturnType<typeof hear>> = {}, PC: Record<string, ReturnType<typeof hear>> = {};
+        for (const [k, p, ko] of kinds) {
+          const n = k + (k === 'heavy' ? p : '') + (ko ? 'KO' : '');
+          H[n] = hear(await page.eval<{ sr: number; at: number; samples: number[] }>(`${IO}.impactAudio('${k}', ${p}, ${ko}, false, false)`));
+          HC[n] = hear(await page.eval<{ sr: number; at: number; samples: number[] }>(`${IO}.impactAudio('${k}', ${p}, ${ko}, false, true)`));
+          P[n] = hear(await page.eval<{ sr: number; at: number; samples: number[] }>(PRIOR(p, false)));
+          PC[n] = hear(await page.eval<{ sr: number; at: number; samples: number[] }>(PRIOR(p, true)));
+        }
+        const s1 = await imp(page), light = ['jab', 'cross', 'hook', 'upper', 'body'], all = Object.keys(H), up = (n: string, k: 'peak' | 'rms50', C = false) => +((C ? HC : H)[n][k] - (C ? PC : P)[n][k]).toFixed(2);
+        // (the prior thud, measured the same way: 83-94% of its energy under 400 Hz, about 1% over 2 kHz, its tone falling
+        // from about 120-200 Hz to 80-100 Hz; the crack it was replaced by had half its energy or more over 2 kHz)
+        ok('the hit is the prior thud: its energy mostly low (80% or more under 400 Hz), nothing bright (3% or less over 2 kHz, no crack), its tone falling (at least a fifth lower 60-110 ms after the blow than in its first 30 ms); one sound for every blow landed',
+          all.every((n) => H[n].low >= 0.8 && H[n].bright <= 0.03 && H[n].pitch[1] > 0 && H[n].pitch[0] >= H[n].pitch[1] * 1.2) && s1.sounds === s1.hits,
+          `${all.map((n) => `${n}: ${Math.round(H[n].low * 100)}% low, ${(H[n].bright * 100).toFixed(1)}% bright, ${H[n].pitch[0]} -> ${H[n].pitch[1]} Hz (the prior ${Math.round(P[n].low * 100)}%, ${(P[n].bright * 100).toFixed(1)}%, ${P[n].pitch[0]} -> ${P[n].pitch[1]} Hz)`).join('; ')}; ${s1.sounds} sounds for ${s1.hits} blows`);
+        // (the prior heavy blow, thud(4), already reached the master's limiter: a higher peak there would only be squashed,
+        // so a heavy blow's peak is held at it and it is louder by its weight: a fuller, longer tone and the sub)
+        ok('louder than the prior thud: 4 dB or more at its peak for the chain\'s blows (a heavy blow 1.5 dB or more, its peak held at the limiter\'s ceiling, 1 dB over full scale at most), and through the game\'s master every blow 4 dB or more louder over its loudest 50 ms',
+          light.every((n) => up(n, 'peak') >= 4) && all.every((n) => up(n, 'peak') >= 1.5 && up(n, 'rms50', true) >= 4 && HC[n].peak <= 1),
+          all.map((n) => `${n}: peak ${up(n, 'peak') >= 0 ? '+' : ''}${up(n, 'peak')} dB, through the master peak ${HC[n].peak} dBFS (the prior ${PC[n].peak}), loudest 50 ms +${up(n, 'rms50', true)} dB (${HC[n].rms50} dBFS)`).join('; '));
+        ok('a heavy blow and a knockout carry a sub (20 dB or more over a jab\'s under 60 Hz, 0.2-0.4 s after the blow); a knockout a room after it, dark (5% or less of it over 1 kHz), and no other blow one',
+          ['heavy3', 'heavy5', 'heavy5KO'].every((n) => H[n].sub >= H.jab.sub + 20) && light.every((n) => H[n].sub < H.heavy3.sub - 20) && H.heavy5KO.room >= H.heavy5.room + 30 && H.heavy5KO.room >= -40 && H.heavy5KO.roomBright <= 0.05 && all.filter((n) => n !== 'heavy5KO').every((n) => H[n].room < -60),
+          `sub (dB): ${all.map((n) => `${n} ${H[n].sub}`).join(', ')}; room (dB): ${all.map((n) => `${n} ${H[n].room}`).join(', ')}; the knockout's room ${Math.round(H.heavy5KO.roomBright * 100)}% over 1 kHz`);
         // a knockout: a man who drops at the first blow, the crowd at the bar ten metres off (the "ooh" is at most one
         // every 1.6 s: the chain's uppercut may have had one)
         await sleep(1800);
@@ -2146,8 +2197,9 @@ try {
         for (let i = 0; i < 40; i++) { await sleep(25); const s = await imp(page); if (s.last && s.last.ko && (!k0.last || s.last.time !== k0.last.time)) ko = s.last; slow = Math.max(slow, (await page.eval<{ slow: number }>(`${IO}.flow()`)).slow); if (ko && i > 20) break; }
         await page.key('KeyJ', 'keyUp'); await sleep(500);
         const k1 = await imp(page);
-        ok('a knockout lands harder: a longer stop, a moment of slow motion as he goes down, and the crowd near him lets out an "ooh"',
-          !!ko && ko.stop[0] >= 0.1 && slow > 0 && k1.oohs > k0.oohs, `${ko ? `${ko.clip} at ${ko.power}, stop ${ko.stop.join('+')} s, gap ${ko.gap}` : 'no knockout'}, slow motion ${slow} s, oohs ${k0.oohs} -> ${k1.oohs}`);
+        ok('a knockout lands harder: its stop held 150 ms (120 before), 0.7 s of slow motion as he goes down (0.5 before), the camera kicked 30% harder and punched in toward him a moment, and the crowd near him lets out an "ooh"',
+          !!ko && ko.stop[0] === 0.15 && ko.slow === 0.7 && slow >= 0.55 && Math.abs(ko.kick - 0.1248) < 1e-4 && ko.push >= 0.15 && k1.oohs > k0.oohs,
+          `${ko ? `${ko.clip} at ${ko.power}, stop ${ko.stop.join('+')} s, gap ${ko.gap}, kick ${ko.kick} m, punched in ${ko.push} m` : 'no knockout'}, slow motion ${slow} s, oohs ${k0.oohs} -> ${k1.oohs}`);
         const e = await page.eval<string[]>('window.__gm.errors');
         ok('the impact raises no error', e.length === 0, e.join(' | '));
       }, { timeoutMs: 150_000 });

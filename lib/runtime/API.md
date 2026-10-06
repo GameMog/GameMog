@@ -990,11 +990,15 @@ move away, and the controls card and the game page name only what is left:
   added), so nothing that missed now lands. On the frame it lands the man's head, neck and upper
   back snap away from it the way the fist went (a hook turns his head, an uppercut lifts his chin, a
   body shot folds him), over his own flinch; a short true hit-stop holds both of them (55 ms for a
-  jab to 120 ms for a knockout, eased out) while he shudders; the camera is kicked along the blow
-  with a touch of roll and a narrower lens for an instant; a small flash, a ring and a spray of
-  sweat leave the fist; and the hit is synthesised clean: a 2-6 kHz crack, a short body thump and,
-  only on a heavy blow, a sub. A big blow near the world's crowd (`civilians` as an object) draws an
-  "ooh"; a knockout stops longest and falls in a moment of slow motion. The chain's hook and
+  jab or a cross, 70 ms for a hook, 110 ms for a heavy blow, 150 ms for a knockout, eased out) while
+  he shudders; the camera is kicked along the blow with a touch of roll and a narrower lens for an
+  instant (a heavy blow and a knockout 30% harder); a small flash, a ring and a spray of sweat leave
+  the fist; and the hit is the fist's thud, louder: its tone falling from 120 + 30 x power Hz to 45
+  Hz and its band of noise, twice as loud and held fuller as it falls, a little longer on a heavy
+  blow, which (its peak held at the master's limiter) adds a sub, a sine falling from 70 to 32 Hz;
+  a knockout a short, dark room after it. Nothing bright: no crack. A big blow near the world's
+  crowd (`civilians` as an object) draws an "ooh"; a knockout stops longest, punches the camera in
+  toward him a moment and falls in 0.7 s of slow motion. The chain's hook and
   haymaker and the finisher's haymaker are the boxer's looping hook (the freeflow hook's fist never
   reaches a man standing in front of him), so a held haymaker thrown after a hook (the same clip) is
   the boxer's rear uppercut. Every other world fights as before.
