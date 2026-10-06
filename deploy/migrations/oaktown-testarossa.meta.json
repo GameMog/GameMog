@@ -1,0 +1,45 @@
+{
+  "tagline": "Broad daylight, a red Testarossa at the curb, 10,000 GM to go.",
+  "blurb": "The virus has reached Oaktown, and in full daylight the OG runs the walls and swings the avenues for the vaccine fund. His red Testarossa waits at the curb on Sixth Avenue while the patrol rolls the streets.",
+  "cast": [
+    {
+      "name": "The OG",
+      "color": "#FF3D7F",
+      "role": "player"
+    },
+    {
+      "name": "Infected courier",
+      "color": "#2C4A63",
+      "role": "rival"
+    },
+    {
+      "name": "Crowbar",
+      "color": "#1F1F24",
+      "role": "rival"
+    },
+    {
+      "name": "Trooper Vance",
+      "color": "#D9C22E",
+      "role": "rival"
+    },
+    {
+      "name": "Patient Zero",
+      "color": "#D8D4C8",
+      "role": "rival"
+    }
+  ],
+  "genre": "Open-world city survival",
+  "palette": {
+    "sky": "#7FB6E8",
+    "ground": "#55585E",
+    "accent": "#E4202C"
+  },
+  "mode": "survival",
+  "scoring": "survival",
+  "controls": "W A S D or the arrow keys: move. Shift: run. J, F or a click: punch (jab, cross, hook). Space: jump. Drag: look around. P: pause. On touch screens, a stick and buttons.",
+  "test": {
+    "status": "passed",
+    "codeHash": "d37706db0d309392",
+    "cover": "current"
+  }
+}

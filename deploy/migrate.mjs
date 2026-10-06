@@ -249,6 +249,31 @@ const MIGRATIONS = [
         .run(code, meta, name(g.tagline), name(g.blurb), idea(g.mog_prompt), g.id);
       return `${r.changes ? 'renamed the fighter Cash Callahan' : 'unchanged'}${ours ? '' : ' (code left as it is: not the published version)'}`;
     },
+  },  {
+    // the owner, 6 Oct: "Oaktown is supposed to be a MOG, not a newly created city". Their Mog of Zcity ("set it at
+    // daytime driving around in a red ferrari testarossa GTA 5 style. city is called Oaktown") had come back as a
+    // car-derby arena with none of Zcity in it. Rebuilt on the Mac with the Mog fixes (lib/mog-dna.ts: the parent's
+    // DNA kept unless the idea replaces it): Zcity's city in daylight, named Oaktown, the OG on foot, the crews, the
+    // patrol and the vaccine story kept, a red Testarossa at the curb; test-driven (56 fps), its art shot then. Only
+    // the derby that was published is replaced: if its creator has rebuilt it since, it is left as it is
+    id: '2026-10-06-oaktown-mog',
+    run(db) {
+      const code = file('oaktown-testarossa.js'), metaFile = file('oaktown-testarossa.meta.json');
+      if (!code || !metaFile) return 'files missing';
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'oaktown-testarossa'").get();
+      if (!g) return 'no such game';
+      const next = code.toString('utf8'), sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
+      // the derby as it was published on 5 Oct (sha256 of its text, without the blank lines at either end)
+      const WAS = 'e96a4a726414faa118c4c4a19fcb2401e3e7f531408bf2d0e475675e9eb42fc9';
+      if (String(g.code ?? '').trim() === next.trim()) return 'already the Mog';
+      if (sha(String(g.code ?? '').trim()) !== WAS) return 'left alone: its code has changed since 5 Oct';
+      const add = JSON.parse(metaFile.toString('utf8'));
+      let meta = g.meta;
+      try { const m = JSON.parse(g.meta ?? 'null'); meta = JSON.stringify({ ...(m && typeof m === 'object' && !Array.isArray(m) ? m : {}), ...add }); } catch { meta = JSON.stringify(add); }
+      db.prepare('UPDATE games SET code = ?, meta = ?, tagline = ?, blurb = ?, cover = COALESCE(?, cover), art_icon = COALESCE(?, art_icon), art_wide = COALESCE(?, art_wide) WHERE id = ?')
+        .run(next, meta, add.tagline, add.blurb, file('oaktown-testarossa-cover.jpg'), file('oaktown-testarossa-icon.jpg'), file('oaktown-testarossa-wide.jpg'), g.id);
+      return 'the Mog of Zcity (daylight Oaktown), new art';
+    },
   },
 ];
 
