@@ -9,6 +9,7 @@ import { playtestWorld, type WorldReport } from './playtest-runtime';
 import { drivesInBrowser, waitForDrive, codeHash, testStatus } from './test-drive';
 import { lookAdvisories, pickPass, type Pass } from './look';
 import { insertDraft, db, type GameRow } from './db';
+import { dna, compareDna, describeDna, askedKind, dnaReport, pickMogPass, KIND_SAID } from './mog-dna';
 
 /**
  * A world, written by Claude Opus 5.5 on the GameMog Runtime.
@@ -107,6 +108,13 @@ function mogTurn(m: MogInput): string {
     : p.format === 'custom' && p.code
       ? `It was written before the runtime existed, as a whole game. Rebuild it as a world on the runtime, keeping what made it itself. Its code, for reference:\n\n\`\`\`javascript\n${p.code}\n\`\`\``
       : `It runs on the old rhythm-race engine, so there is no world module to start from. Rebuild it as a world on the runtime, keeping its look, cast and feel. What it was built from:\n\n\`\`\`json\n${p.spec}\n\`\`\``;
+  // what makes the original itself, read from its module (lib/mog-dna.ts), and the kind of game it stays: an open world
+  // stays open whatever the request says (app/api/generate/route.ts); on foot or a derby only the idea can switch
+  const d = p.format === 'world' && p.code ? dna(p.code) : null;
+  const asked = askedKind(m.instruction);
+  const kind = !d ? '' : asked && asked !== d.kind && d.kind !== 'race' && asked !== 'race'
+    ? `The idea asks for ${KIND_SAID[asked]}: make it one, and keep the rest.`
+    : `It stays ${KIND_SAID[d.kind]}: the idea does not ask for another kind of game.`;
   return `This is a Mog: a challenger wants to beat an existing GameMog game with a better variation of it. Players will play both and pick the better one.
 
 The original: "${p.title}"${meta.genre ? ` (${meta.genre})` : ''}, generation ${p.generation}. ${p.tagline}
@@ -117,9 +125,34 @@ The challenger's idea for how to make it better:
 
 ${m.instruction}
 
-A Mog inherits. Start from the original's module and change what the idea asks for; do not write a new world from scratch. Everything the idea does not replace stays: its library assets and kits (every ctx.assets call and the assets list), its graphics, camera and platform options, its track if the place stays, its music, and the level of detail and realism of its scenery. If the idea moves the world somewhere new, rebuild the place at least as detailed and as real as the original. If the idea asks for something a kit cannot do exactly (a model of car, a costume), get as close as the kit allows, with its nearest kind, colours and options, rather than replacing it with something drawn by hand.
+A Mog inherits: start from the original's module and change what the idea asks for, and nothing else; do not write a new world from scratch. A Mog is the exception to "never feel like reskins": it must be recognisably "${p.title}", with the idea carried out in it.
 
-Write the complete world module. Carry the challenger's idea out boldly and fix anything weak you notice. It should be recognisably a variation of "${p.title}" and different enough that a player would have a real choice between them. Give it its own title and tagline, never the original's.`;
+- Keep everything the idea does not replace: the original's place (its map, or the place it builds), its hero, its crews or rivals and their names, its story (the opening scene, the goal and what the GM is for, the story beats, the closing scene and their cast), its look (graphics, light, camera), its kind of game and platform options, its library assets and kits (every ctx.assets call and the assets list), its track if the place stays, its music, and the detail and realism of its scenery.
+- Renaming a place is not moving it: "the city is called X" keeps the city and puts X on its signs, billboards and title cards. Only an idea that names a new place moves the world, and then rebuild the place at least as detailed and as real as the original.
+- If the idea asks for something the runtime cannot do, keep the original and do the nearest thing the runtime can; the blurb tells players what the world is, in the world's own words (never the runtime, kits or rules). Driving a car around the city map, for one: an open world's hero is on foot, and only a derby arena or a lap race drives, so keep the city and the hero on foot, put the car in the street (parked, or the patrol car restyled as it), and give the city the idea's time of day and name.
+- If the idea asks for something a kit cannot do exactly (a model of car, a costume), get as close as the kit allows, with its nearest kind, colours and options, rather than replacing it with something drawn by hand.
+${d ? `\nWhat makes "${p.title}" itself, read from its module; your Mog keeps each of these unless the idea replaces it, and is checked against them:\n\n${describeDna(d).map((l) => `- ${l}`).join('\n')}\n\n${kind}\n` : ''}
+Write the complete world module. Carry the idea out fully within these rules and fix anything weak you notice, so a player has a real choice between the two. Give it its own title and tagline, never the original's.`;
+}
+
+/**
+ * The turn for a Mog that passed but lost its parent (the owner, 6 Oct 2026: "if the map, hero, crews, story or game
+ * type disappear and the idea didn't ask for that, the builder gets a repair note to put them back"): what it dropped
+ * (lib/mog-dna.ts compareDna), and the look's notes too if it had any. Sent once; the repair ships only if it keeps more
+ * of the parent (pickMogPass).
+ */
+function dnaTurn(title: string, drops: string[], notes: string[]) {
+  return `Your world passed: it was checked and test-driven on the runtime in a real browser, and it plays. But a Mog must be recognisably a variation of "${title}", and next to the original this one dropped or changed what the challenger's idea does not ask for:
+
+${drops.map((d) => `- ${d}`).join('\n')}
+
+Put each back as the original has it, unless the idea really replaces it: go back to the original's module and change only what the idea asks for. Renaming a place is not moving it. If the runtime cannot do part of the idea, keep the original there and do the nearest thing the runtime can (the blurb speaks in the world's own words, never of the runtime). Keep what this world got right of the idea.${notes.length ? `
+
+The test drive also noted these. Answer each with the smallest change that does it, one thing per note. Keep the original's graphics and the strength of its lights unless the idea asks for a new look; a note about the light is answered one step within the runtime's ranges (exposure usually 0.8 to 1.3 and never above 1.5, a sun 2 to 4, a sky light 0.4 to 1.5, a lamp 0.5 to 4 with a distance):
+
+${notes.map((n) => `- ${n}`).join('\n')}` : ''}
+
+Your repair is checked and test-driven again, and it ships only if it keeps more of the original than this world does. Reply with the complete world again, both blocks:`;
 }
 
 function firstTurn(prompt: string, image?: CharacterImage, mog?: MogInput, options: WorldOptions = DEFAULT_OPTIONS): Anthropic.Beta.BetaContentBlockParam[] {
@@ -158,15 +191,20 @@ export async function generateGame(
   let lastProblems: string[] = [];
   // the latest pictures any pass's test drive took (cover and key art)
   const shots: { cover?: Uint8Array; artIcon?: Uint8Array; artWide?: Uint8Array; hash?: string } = {};
-  // a pass that passed and went back once, only for its notes: everything it would ship with, so it still can
-  type Kept = Pass & { attempt: number; meta: WorldMeta; stored: unknown; code: string; report: Omit<WorldReport, 'cover' | 'artIcon' | 'artWide'>; shots: typeof shots };
+  // a Mog's parent, read from its module (lib/mog-dna.ts): every pass that passes is compared with it, and one that
+  // dropped what the idea does not ask for goes back once to put it back (the owner, 6 Oct: "Mogs keep their parent")
+  const parentDna = input.mog?.parent.format === 'world' && input.mog.parent.code ? dna(input.mog.parent.code) : null;
+  // a pass that passed and went back once, for its notes or its parent's DNA: everything it would ship with, so it still can
+  type Kept = Pass & { attempt: number; meta: WorldMeta; stored: unknown; code: string; report: Omit<WorldReport, 'cover' | 'artIcon' | 'artWide'>; shots: typeof shots; dropped: number };
   let kept: Kept | null = null;
   /** Ships the kept pass: its draft (code, meta, report, cover and key art) back in the row the page publishes from. */
   const keep = (k: Kept, why: string, attempts: number) => {
+    // a pass that went back for its parent's DNA says so in its report, and why it shipped all the same
+    const report = k.dropped && k.report.dna ? { ...k.report, dna: { ...k.report.dna, repair: `sent back once to put the parent back; this pass ships: ${why}` } } : k.report;
     db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
-    insertDraft({ id: draftId, prompt: input.prompt, meta: k.stored, code: k.code, report: k.report, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
+    insertDraft({ id: draftId, prompt: input.prompt, meta: k.stored, code: k.code, report, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
     db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ? WHERE id = ?').run(k.shots.cover ?? null, k.shots.artIcon ?? null, k.shots.artWide ?? null, draftId);
-    return emit({ type: 'done', draftId, meta: k.meta, runtime: k.report, attempts, ms: Date.now() - started, kept: { attempt: k.attempt, why } });
+    return emit({ type: 'done', draftId, meta: k.meta, runtime: report, attempts, ms: Date.now() - started, kept: { attempt: k.attempt, why } });
   };
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -223,9 +261,12 @@ export async function generateGame(
     const { meta, code, problems } = parseGameResponse(text, WorldMetaSchema);
     if (final.stop_reason === 'max_tokens') problems.push('The reply was cut off at the length limit. Write a more compact world module that still does everything.');
     if (code) problems.push(...staticCheckWorld(code));
+    // a Mog's pass next to its parent: what it dropped that the idea does not ask for
+    const verdict = parentDna && code ? compareDna(parentDna, code, input.mog!.instruction) : undefined;
 
     let report: WorldReport | undefined;
-    let notes = false;
+    // what goes back to the model with a pass that passed: the look's and the runtime's notes, and what it dropped of its parent
+    let notes: string[] = [], drops: string[] = [];
     if (!problems.length && meta && code) {
       emit({ type: 'stage', stage: 'playtesting', attempt });
       const openWorld = isOpenWorld(code);
@@ -241,6 +282,8 @@ export async function generateGame(
       // the verdict, and the code it is about: a skipped drive is unverified, never a pass
       const hash = codeHash(code);
       report = { ...report, status: testStatus(report), codeHash: hash };
+      // a Mog's DNA verdict goes in its report, so it is there to see later (and, for a repair, what it repaired)
+      if (verdict) report.dna = dnaReport(verdict, prior?.dropped ? `the repair of pass ${prior.attempt}, which dropped ${prior.dropped} of the parent` : undefined);
       const { cover, artIcon, artWide, ...rest } = report;
       // a pass whose drive took no pictures (skipped) keeps the last pass's: a world never ships without a cover it had,
       // and the report says which code that cover shows
@@ -249,19 +292,28 @@ export async function generateGame(
       db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ? WHERE id = ?').run(shots.cover ?? null, shots.artIcon ?? null, shots.artWide ?? null, JSON.stringify(rest), draftId);
       // the runtime's repairs and the look's notes are not failures, but the
       // model hears about them once, so the world it ships is the one it
-      // meant; this pass is kept in case the repair is worse
-      if (!prior && !problems.length && report.advisories.length && attempt < MAX_ATTEMPTS) {
-        kept = { attempt, meta, stored, code, report: { ...rest }, shots: { ...shots }, problems: [], status: report.status, look: report.look, notes: report.advisories };
+      // meant; so does a Mog that dropped its parent's DNA against the idea;
+      // this pass is kept in case the repair is worse
+      // (only the owner's list sends a pass back: the map, the hero, the crews, the story, the game type and what goes
+      // with them; a dropped kit rides along in that repair's notes, and is in the report either way)
+      const dropped = verdict?.dropped ?? [], major = dropped.filter((d) => !d.minor);
+      if (!prior && !problems.length && (report.advisories.length || major.length) && attempt < MAX_ATTEMPTS) {
+        kept = { attempt, meta, stored, code, report: { ...rest }, shots: { ...shots }, problems: [], status: report.status, look: report.look, notes: report.advisories, dropped: major.length };
         const look = new Set(report.look ? lookAdvisories(report.look) : []);
-        problems.push(...report.advisories.map((a) => look.has(a) ? `The test drive noted: ${a}` : `The runtime had to repair this: ${a}`));
-        notes = true;
+        notes = report.advisories.map((a) => look.has(a) ? `The test drive noted: ${a}` : `The runtime had to repair this: ${a}`);
+        drops = major.length ? dropped.map((d) => d.note) : [];
+        problems.push(...drops, ...notes);
       }
     }
 
-    // a repair of a world that already passed ships only if it is no worse
+    // a repair of a world that already passed ships only if it is no worse; a Mog's, only if it keeps more of its
+    // parent (lib/mog-dna.ts pickMogPass). A repair of the parent's DNA that broke the world gets the build's passes
+    // that are left to fix it, and is then held to the same choice
     if (prior) {
-      const pick = pickPass(prior, { problems, status: report?.status, look: report?.look, notes: report?.advisories });
-      if (pick.keep === 'prev') return keep(prior, pick.why, attempt);
+      const next = { problems, status: report?.status, look: report?.look, notes: report?.advisories };
+      const pick = parentDna ? pickMogPass(prior, { ...next, dropped: verdict?.dropped.filter((d) => !d.minor).length }) : pickPass(prior, next);
+      const retry = prior.dropped > 0 && problems.length > 0 && attempt < MAX_ATTEMPTS;
+      if (pick.keep === 'prev' && !retry) return keep(prior, pick.why, attempt);
     }
 
     if (!problems.length && meta && report) {
@@ -275,7 +327,8 @@ export async function generateGame(
     messages.push({ role: 'assistant', content: final.content as Anthropic.Beta.BetaContentBlockParam[] });
     messages.push({
       role: 'user',
-      content: `${notes ? notesTurn(!!input.mog) : 'Your world was checked and playtested on the runtime in a real browser. Fix every one of these and reply with the complete world again, both blocks:'}\n\n${problems.map((p) => `- ${p}`).join('\n')}`,
+      content: drops.length ? dnaTurn(input.mog!.parent.title, drops, notes)
+        : `${notes.length ? notesTurn(!!input.mog) : 'Your world was checked and playtested on the runtime in a real browser. Fix every one of these and reply with the complete world again, both blocks:'}\n\n${problems.map((p) => `- ${p}`).join('\n')}`,
     });
   }
 

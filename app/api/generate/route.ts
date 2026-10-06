@@ -77,7 +77,10 @@ export async function POST(req: Request) {
         const beat = setInterval(() => send({ type: 'tick' }), 10_000);
         let result: GameEvent | undefined;
         try {
-          // a Mog keeps its original's kind, whatever the request says
+          // a Mog keeps its original's kind, whatever the request says: an open world stays open and a lap race a lap
+          // race (the owner, 1 Oct). Within an open world, on foot or a derby (the owner, 6 Oct: "a tighter game-type
+          // lock"), the builder is told the original's kind and keeps it unless the idea names the other
+          // (lib/mog-dna.ts askedKind), and a pass that changed it unasked goes back once (lib/generate-game.ts)
           const options = readOptions(body.options);
           if (parent) options.open = parent.format === 'world' && !!parent.code && isOpenWorld(parent.code);
           await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options }, (e) => {

@@ -1,6 +1,7 @@
 import { withBrowser, chromePath, HostSlept } from './browser';
 import { lookScore, lookAdvisories, isLook, type Look } from './look';
 import { captureWorldKeyArt } from './key-art';
+import type { DnaReport } from './mog-dna';
 
 /**
  * Playtest a game by playing it.
@@ -133,7 +134,9 @@ export async function runtimePlaytest(url: string): Promise<RuntimeReport> {
  */
 export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: number; artIcon?: Uint8Array; artWide?: Uint8Array; open?: { kos: number; heat: number; boss: boolean; police: boolean }; look?: Look;
   /** What the test drive found (1 Oct): a drive that never ran is unverified, never a pass; and the code it drove, and the code its cover shows. */
-  status?: TestStatus; codeHash?: string; coverHash?: string };
+  status?: TestStatus; codeHash?: string; coverHash?: string;
+  /** A Mog's DNA against its parent (6 Oct, lib/mog-dna.ts): what it dropped that the idea did not ask for, and what became of the repair. */
+  dna?: DnaReport };
 export type TestStatus = 'passed' | 'failed' | 'unverified';
 
 /** The cover: the best of three frames by how they look (lib/look.ts), and how that frame measured. */
