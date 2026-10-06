@@ -16,6 +16,8 @@ const config: NextConfig = {
       { source: '/:section(g|mog)/miami-og/:rest*', destination: '/:section/zombie-beach/:rest*', permanent: true },
       // MarioMog Canyon GP became Mog Kart Canyon GP (the owner, 1 Oct; deploy/migrate.mjs)
       { source: '/:section(g|mog)/mariomog-canyon-gp/:rest*', destination: '/:section/mog-kart-canyon-gp/:rest*', permanent: true },
+      // Typson: Honky Tonk Havoc became Country Box (the owner, 5 Oct; deploy/migrate.mjs)
+      { source: '/:section(g|mog)/typson-honky-tonk-havoc/:rest*', destination: '/:section/country-box/:rest*', permanent: true },
     ];
   },
   // Caching (the owner, 1 Oct: faster loads). Render's edge cache is OFF: with it

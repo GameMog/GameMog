@@ -153,7 +153,8 @@ const MIGRATIONS = [
     run(db) {
       const code = file('typson-honky-tonk-havoc.js');
       if (!code) return 'files missing';
-      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'typson-honky-tonk-havoc'").get();
+      // by either address: the game is renamed Country Box after this (2026-10-05-country-box, below); the old one first
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug IN ('typson-honky-tonk-havoc', 'country-box') ORDER BY slug = 'typson-honky-tonk-havoc' DESC").get();
       if (!g) return 'no such game';
       const next = code.toString('utf8'), sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
       // the published code, as it was on 5 Oct (sha256 of its text, without the blank lines at either end)
@@ -169,6 +170,53 @@ const MIGRATIONS = [
       db.prepare('UPDATE games SET code = ?, meta = ?, cover = COALESCE(?, cover), art_icon = COALESCE(?, art_icon), art_wide = COALESCE(?, art_wide) WHERE id = ?')
         .run(next, meta, file('typson-honky-tonk-havoc-cover.jpg'), file('typson-honky-tonk-havoc-icon.jpg'), file('typson-honky-tonk-havoc-wide.jpg'), g.id);
       return `relit (${hash ? 'test codeHash ' + hash : 'no test record'}), new cover and key art`;
+    },
+  },
+  {
+    // the owner, 5 Oct: "let's change name "Typson: Honky Tonk Havoc" to "Country Box"". Renamed in place, as Miami OG
+    // became Zombie Beach: its title, its address and its meta's title (what the play page and the runtime show), and
+    // the old name wherever its tagline or blurb says it. Its code, its family, its plays and its scores stay as they
+    // are (the world inside still calls its fighter Iron Mike Typson). /g and /mog/typson-honky-tonk-havoc redirect
+    // (next.config.ts). The key art carries the title in the picture: shot on the Mac from the relit code above
+    // (typson-honky-tonk-havoc.js), titled Country Box. After 2026-10-05-typson-light, which finds it by either address
+    id: '2026-10-05-country-box',
+    run(db) {
+      const OLD = 'Typson: Honky Tonk Havoc', NEW = 'Country Box';
+      const g = db.prepare("SELECT id, title, tagline, blurb, meta, code FROM games WHERE slug = 'typson-honky-tonk-havoc'").get();
+      const taken = db.prepare("SELECT id FROM games WHERE slug = 'country-box'").get();
+      if (!g) return taken ? 'already Country Box' : 'no such game';
+      if (taken) return 'left alone: another game already has the address country-box';
+      const swap = (s) => (typeof s === 'string' ? s.split(OLD).join(NEW) : s);
+      // the meta is rewritten only where the name is in it; anything else in it, the test record included, as it was
+      let meta = g.meta;
+      try {
+        const m = JSON.parse(g.meta ?? 'null');
+        if (m && typeof m === 'object' && !Array.isArray(m)) {
+          const was = JSON.stringify(m);
+          if (typeof m.title === 'string') m.title = NEW;
+          if (typeof m.tagline === 'string') m.tagline = swap(m.tagline);
+          if (typeof m.blurb === 'string') m.blurb = swap(m.blurb);
+          if (JSON.stringify(m) !== was) meta = JSON.stringify(m);
+        }
+      } catch { meta = g.meta; }
+      db.prepare('UPDATE games SET slug = ?, title = ?, tagline = ?, blurb = ?, meta = ? WHERE id = ?')
+        .run('country-box', NEW, swap(g.tagline), swap(g.blurb), meta, g.id);
+      // the icon and the wide carry the name, so they are always the new ones; the cover (no title) is replaced only
+      // while the code is the one it was shot from, so the test record's "cover: current" stays true
+      const icon = file('country-box-icon.jpg'), wide = file('country-box-wide.jpg'), cover = file('country-box-cover.jpg');
+      const shot = file('typson-honky-tonk-havoc.js'), same = !!shot && String(g.code ?? '').trim() === shot.toString('utf8').trim();
+      if (icon && wide) db.prepare('UPDATE games SET art_icon = ?, art_wide = ? WHERE id = ?').run(icon, wide, g.id);
+      if (cover && same) db.prepare('UPDATE games SET cover = ? WHERE id = ?').run(cover, g.id);
+      // the intro's title card says the name too (the only place in the world's code that does): only in the relit
+      // code, the test record following it (lib/test-drive.ts codeHash)
+      let card = false;
+      if (same && String(g.code).includes("title: 'HONKY TONK HAVOC'")) {
+        const code = String(g.code).split("title: 'HONKY TONK HAVOC'").join("title: 'COUNTRY BOX'");
+        let m2 = meta;
+        try { const m = JSON.parse(meta ?? 'null'); if (m && m.test && typeof m.test === 'object') { m.test = { ...m.test, codeHash: createHash('sha256').update(code).digest('hex').slice(0, 16) }; m2 = JSON.stringify(m); } } catch { m2 = meta; }
+        db.prepare('UPDATE games SET code = ?, meta = ? WHERE id = ?').run(code, m2, g.id); card = true;
+      }
+      return `renamed Country Box${icon && wide ? ', new key art' : ''}${cover && same ? ' and cover' : ', cover kept (its code is not the relit one)'}${card ? ', title card COUNTRY BOX' : ''}`;
     },
   },
 ];
