@@ -289,7 +289,7 @@ const MIGRATIONS = [
       const code = file('meme-kart.js'), meta = file('meme-kart.meta.json');
       if (!code || !meta) return 'files missing';
       // (and its score, 8 Oct: lib/runtime/kart-score.js, which the runtime, the scores route and the page share)
-      if (!['kart.js', 'kart-roster.js', 'kart-items.js', 'kart-music.js', 'kart-score.js'].every((f) => existsSync(join('lib', 'runtime', f)))) throw new Error('the kart kit (lib/runtime/kart.js) is not in this build');
+      if (!['kart.js', 'kart-roster.js', 'kart-items.js', 'kart-music.js', 'kart-score.js', 'kart-guard.js'].every((f) => existsSync(join('lib', 'runtime', f)))) throw new Error('the kart kit (lib/runtime/kart.js) is not in this build');
       const m = JSON.parse(meta.toString('utf8')), cover = file('meme-kart-cover.jpg'), icon = file('meme-kart-icon.jpg'), wide = file('meme-kart-wide.jpg');
       const g = db.prepare("SELECT id FROM games WHERE slug = 'meme-kart'").get();
       if (g) {
@@ -304,6 +304,24 @@ const MIGRATIONS = [
     },
   },
   {
+    // the owner, 8 Oct: Meme Kart crashed while loading on their phone; the crowd's people were built and filmed on the
+    // device at every load (six human packs, 96 images decoded, 22 people), so the crowd is now baked once into
+    // picture sheets and the world loads those ("pre-bake the crowd ... the pre-baked goes on website for Mog and
+    // general use"). Brings the live row up to the shipped world (code and meta: its perfect times and
+    // fingerprints); art, plays and scores are kept
+    id: '2026-10-08-meme-kart-prebaked',
+    run(db) {
+      const code = file('meme-kart.js'), meta = file('meme-kart.meta.json');
+      if (!code || !meta) return 'files missing';
+      if (!['kart.js', 'kart-roster.js', 'kart-items.js', 'kart-music.js', 'kart-score.js', 'kart-guard.js'].every((f) => existsSync(join('lib', 'runtime', f)))) throw new Error('the kart kit (lib/runtime/kart.js) is not in this build');
+      const m = JSON.parse(meta.toString('utf8'));
+      const g = db.prepare("SELECT id FROM games WHERE slug = 'meme-kart'").get();
+      if (!g) return 'no meme-kart yet';
+      db.prepare('UPDATE games SET blurb = ?, code = ?, meta = ? WHERE id = ?').run(m.blurb, code.toString('utf8'), JSON.stringify(m.meta), g.id);
+      return 'updated';
+    },
+  },
+  {
     // the owner, 8 Oct: "let's preserve the current NON pre-baked game setup ... with a separate and special URL i
     // won't publish or share but have access to play for myself ... it will be The Original", then "open it up ... it
     // should be open to anyone I share the link". The world exactly as it went live on 8 Oct (a10c246, the crowd built
@@ -313,7 +331,7 @@ const MIGRATIONS = [
     run(db) {
       const code = file('meme-kart-original.js'), meta = file('meme-kart.meta.json');
       if (!code || !meta) return 'files missing';
-      if (!['kart.js', 'kart-roster.js', 'kart-items.js', 'kart-music.js', 'kart-score.js'].every((f) => existsSync(join('lib', 'runtime', f)))) throw new Error('the kart kit (lib/runtime/kart.js) is not in this build');
+      if (!['kart.js', 'kart-roster.js', 'kart-items.js', 'kart-music.js', 'kart-score.js', 'kart-guard.js'].every((f) => existsSync(join('lib', 'runtime', f)))) throw new Error('the kart kit (lib/runtime/kart.js) is not in this build');
       if (db.prepare("SELECT id FROM games WHERE slug = 'meme-kart-original'").get()) return 'already there';
       const m = JSON.parse(meta.toString('utf8')), cover = file('meme-kart-cover.jpg'), icon = file('meme-kart-icon.jpg'), wide = file('meme-kart-wide.jpg');
       const title = 'Meme Kart: The Original';

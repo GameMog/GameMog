@@ -4670,6 +4670,96 @@
         }
       },
       "bytes": 1918555
+    },
+    "crowd-meme-kart": {
+      "kind": "texture",
+      "title": "Meme Kart crowd",
+      "description": "Meme Kart's crowd in its stands, filmed: 22 looks (the library's people in race-day clothes, and four aliens) through 12 frames each of a cheer or a dance, 96 x 216 px a frame, 24 across, 2304 x 2376 px. Colour kept as its square root (decode c * c * 2), carried past each figure's edge; alpha is coverage. Not a tiling surface.",
+      "sources": [
+        "makehuman",
+        "makehuman-system",
+        "cmu-mocap",
+        "quaternius-ual",
+        "spiderbench-hero-moves"
+      ],
+      "derived": "Filmed in Chrome by the kart kit (lib/runtime/kart.js kartImpostors) from worlds/meme-kart.js FAN_LOOKS, read back byte for byte (scripts/kart-crowd-bake.ts).",
+      "meta": {
+        "maps": [
+          "color"
+        ],
+        "crowd": {
+          "looks": 22,
+          "frames": 12,
+          "cell": [
+            96,
+            216
+          ],
+          "cols": 24,
+          "rows": 11,
+          "size": [
+            1.24,
+            2.8
+          ],
+          "foot": 0.06,
+          "from": "4ec59379efab2322"
+        }
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "06d6cb5d19333de49a6c8bbf5386371b184b4fd5c69cdc543fda963d767011fe",
+          "bytes": 202
+        },
+        "sheet.png": {
+          "sha256": "aa03bbefb56106ccf4da4736bc131a34a5ea914d6a40af0024387d60f383fce6",
+          "bytes": 2667107
+        }
+      },
+      "bytes": 2667309
+    },
+    "crowd-meme-kart-lo": {
+      "kind": "texture",
+      "title": "Meme Kart crowd (phone)",
+      "description": "Meme Kart's crowd in its stands, filmed: 22 looks (the library's people in race-day clothes, and four aliens) through 10 frames each of a cheer or a dance, 64 x 144 px a frame, 20 across, 1280 x 1584 px, at a phone's size. Colour kept as its square root (decode c * c * 2), carried past each figure's edge; alpha is coverage. Not a tiling surface.",
+      "sources": [
+        "makehuman",
+        "makehuman-system",
+        "cmu-mocap",
+        "quaternius-ual",
+        "spiderbench-hero-moves"
+      ],
+      "derived": "Filmed in Chrome by the kart kit (lib/runtime/kart.js kartImpostors) from worlds/meme-kart.js FAN_LOOKS, read back byte for byte (scripts/kart-crowd-bake.ts).",
+      "meta": {
+        "maps": [
+          "color"
+        ],
+        "crowd": {
+          "looks": 22,
+          "frames": 10,
+          "cell": [
+            64,
+            144
+          ],
+          "cols": 20,
+          "rows": 11,
+          "size": [
+            1.24,
+            2.8
+          ],
+          "foot": 0.06,
+          "from": "4ec59379efab2322"
+        }
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "d04e9123aff0cd7866c1b838869b9f35ef277d76aeb78406f41cef5e70f5a24e",
+          "bytes": 202
+        },
+        "sheet.png": {
+          "sha256": "c089a059e477ea8e2419223036e766bfa175fa5bcfa113648a1f233b4d48c804",
+          "bytes": 1272945
+        }
+      },
+      "bytes": 1273147
     }
   }
 }

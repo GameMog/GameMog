@@ -12,7 +12,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
+import { withBrowser } from '../lib/browser.ts';
+import { RATE } from '../lib/kart-report.ts';
 import { insertDraft, db, getGameBySlug, family, mogOff, topScores, rescoreKart } from '../lib/db.ts';
 import { KartScore, kartConstants, type KartConstants } from '../lib/kart-score.ts';
 import { runKartScoreTests } from './kart-score/test-score.mjs';
@@ -173,12 +175,71 @@ try {
   // its score (the owner, 8 Oct: lib/runtime/kart-score.js, time 80 / place 10 / GM 5 / hits 5, 10,000 never
   // reached): the formula's own properties first (scripts/kart-score/test-score.mjs, no server needed), then the route
   // and the board
+  // its guard (8 Oct, lib/runtime/kart-guard.js): a lost graphics context or a race that throws shows a card instead
+  // of a black frame, and the page sends a small report on to /api/kart-report, which only the owner can read
+  console.log('\nKart guard and crash reports');
+  {
+    const kRt = runtimeSource(1, true), pRt = runtimeSource(1, false);
+    ok('kart guard: a kart race\'s runtime opens with the guard; no other world\'s carries it', kRt.startsWith(readFileSync(new URL('../lib/runtime/kart-guard.js', import.meta.url), 'utf8')) && !pRt.includes('KartGuard'));
+    const UA = 'Mozilla/5.0 (Linux; Android 14; SM-F946B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36 gamemog-platform-check';
+    const ip = `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
+    const send = (body: string, from = ip) => fetch(`${BASE}/api/kart-report`, { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': UA, 'x-forwarded-for': from }, body });
+    const good = { kind: 'context-lost', slug: kg.slug, step: 'decoding images (48)', t: 9123, tier: 'low', mem: 8, screen: '904x2316', view: '412x915', dpr: 2.63, gpu: 'Adreno (TM) 740', heap: { used: 210, limit: 4096 }, lost: true,
+      message: 'boom at https://gamemog.com/g/x/play#me=secret-look', email: 'someone@example.com' };
+    const r1 = await send(JSON.stringify(good));
+    const row = db.prepare('SELECT * FROM kart_reports WHERE slug = ? ORDER BY id DESC LIMIT 1').get(kg.slug) as { kind: string; device: string; step: string; message: string; data: string } | undefined;
+    const data = row ? JSON.parse(row.data) as Record<string, unknown> : {};
+    ok('kart report: a report is accepted and kept field by field (device from the browser, no fragment, nothing unasked)', r1.status === 204 && !!row && row.kind === 'context-lost' && row.device === 'phone' && row.step === 'decoding images (48)'
+      && data.gpu === 'Adreno (TM) 740' && data.mem === 8 && data.screen === '904x2316' && data.lost === true && !row.message.includes('secret') && !JSON.stringify(row).includes('example.com'), JSON.stringify(row));
+    const big = await send(JSON.stringify({ ...good, stack: 'x'.repeat(5000) }), `${ip}9`);
+    const junk = await send(JSON.stringify({ kind: 'anything', slug: kg.slug }), `${ip}8`);
+    ok('kart report: a body over 4 KB is refused (413), and one that is not a report (400)', big.status === 413 && junk.status === 400, `${big.status} ${junk.status}`);
+    const codes: number[] = [];
+    for (let i = 0; i < RATE; i++) codes.push((await send(JSON.stringify({ ...good, kind: 'error', message: `rate ${i}` }))).status);
+    ok(`kart report: one address sends at most ${RATE} in ten minutes, then 429`, codes.slice(0, RATE - 1).every((c) => c === 204) && codes[RATE - 1] === 429, codes.join(','));
+    const anon = await fetch(`${BASE}/api/kart-report`);
+    const forgedRead = await fetch(`${BASE}/api/kart-report`, { headers: { cookie: `gm_admin=v1.9999999999.${'a'.repeat(64)}` } });
+    ok('kart report: reading them needs the owner\'s session (none, or a forged one: not found)', anon.status === 404 && forgedRead.status === 404 && !(await anon.text()).includes(kg.slug), `${anon.status} ${forgedRead.status}`);
+    let pw = process.env.ADMIN_PASSWORD ?? '';
+    if (!pw) try { pw = /^ADMIN_PASSWORD=(.*)$/m.exec(readFileSync(new URL('../.env.local', import.meta.url), 'utf8'))?.[1]?.trim().replace(/^['"]|['"]$/g, '') ?? ''; } catch {}
+    if (pw.length >= 12) {
+      const exp = Math.floor(Date.now() / 1000) + 600, sig = createHmac('sha256', `gamemog-admin:${pw}`).update(`v1.${exp}`).digest('hex');
+      const own = await fetch(`${BASE}/api/kart-report`, { headers: { cookie: `gm_admin=v1.${exp}.${sig}` } });
+      const j = own.ok ? await own.json() as { reports: { slug: string; kind: string }[] } : { reports: [] };
+      ok('kart report: the owner reads them, newest first', own.status === 200 && j.reports.some((x) => x.slug === kg.slug && x.kind === 'context-lost'), String(own.status));
+    }
+    // and in a real browser: the kart race's graphics context lost (WEBGL_lose_context) shows the card and reports it
+    const seen = await withBrowser(async (pg) => {
+      await pg.preload("addEventListener('message', function (e) { (window.__msgs = window.__msgs || []).push(e.data); });");
+      await pg.goto(`${BASE}/g/${kg.slug}/play?preview=1`);
+      const until = async (js: string, ms: number) => { for (const t0 = Date.now(); Date.now() - t0 < ms; await new Promise((r) => setTimeout(r, 200))) if (await pg.eval<boolean>(js).catch(() => false)) return true; return false; };
+      const gl = await until("!!window.KartGuard && !!document.querySelector('canvas') && KartGuard.state().step !== 'runtime'", 30000);
+      const before = await pg.eval<boolean>('KartGuard.state().card');
+      await pg.eval("(function () { var c = [].slice.call(document.querySelectorAll('canvas')).map(function (c) { return c.getContext('webgl2') || c.getContext('webgl'); }).filter(Boolean)[0]; c.getExtension('WEBGL_lose_context').loseContext(); return true; })()");
+      const card = await until("KartGuard.state().card && /Graphics reset/.test(document.body.innerText) && /Tap to reload/.test(document.body.innerText)", 5000);
+      const msgs = await pg.eval<{ type: string; step?: string; report?: { kind: string; lost: boolean; gpu: string | null } }[]>('window.__msgs || []');
+      return { gl, before, card, steps: msgs.filter((m) => m && m.type === 'kart-step').map((m) => m.step), rep: msgs.find((m) => m && m.type === 'kart-report')?.report };
+    }, { width: 412, height: 800, timeoutMs: 90000 });
+    ok('kart guard: losing the graphics context shows "Graphics reset, tap to reload" instead of a black frame, and reports it with the step reached', seen.gl && !seen.before && seen.card && seen.rep?.kind === 'context-lost' && seen.rep.lost === true && seen.steps.includes('graphics'),
+      JSON.stringify({ ...seen, steps: seen.steps.slice(0, 6) }));
+    db.prepare("DELETE FROM kart_reports WHERE slug = ? OR data LIKE '%gamemog-platform-check%'").run(kg.slug);
+  }
+
   console.log('\nKart score');
   const ks = runKartScoreTests((l: string) => { if (l.startsWith('FAIL')) failures++; console.log(l); });
   void ks;
   const kartRuntime = runtimeSource(1, true), plainRuntime = runtimeSource(1, false);
   ok('kart score: a kart world\'s runtime carries the score (KartScore), every other world\'s runtime is untouched', kartRuntime.includes('var KartScore = (function') && !plainRuntime.includes('KartScore') && createHash('sha256').update(plainRuntime).digest('hex').slice(0, 16) === '55de5bf8cd23555c',
     createHash('sha256').update(plainRuntime).digest('hex').slice(0, 16));
+  // Meme Kart's crowd, baked (scripts/kart-crowd-bake.ts, 8 Oct): both sheets in the library, filmed from the looks the
+  // world has now (FAN_WORDS ... CROWD_SHEETS), in the layout the world reads them by
+  {
+    const mkCode = readFileSync(new URL('../worlds/meme-kart.js', import.meta.url), 'utf8'), libJ = JSON.parse(readFileSync(new URL('../public/assets/library.json', import.meta.url), 'utf8'));
+    const a0 = mkCode.indexOf('var FAN_WORDS = ['), b0 = mkCode.indexOf('var CROWD_SHEETS'), from = createHash('sha256').update(mkCode.slice(a0, b0)).digest('hex').slice(0, 16);
+    const sheets = [['crowd-meme-kart', 12, 96, 216, 24], ['crowd-meme-kart-lo', 10, 64, 144, 20]] as const;
+    const bad = sheets.filter(([id, f, px, py, cols]) => { const c = libJ.assets[id]?.meta?.crowd; return !c || c.from !== from || c.frames !== f || c.cell[0] !== px || c.cell[1] !== py || c.cols !== cols || !mkCode.includes(`id: '${id}', frames: ${f}, cell: [${px}, ${py}], cols: ${cols}`); });
+    ok('kart: Meme Kart\'s baked crowd sheets are in the library, filmed from the world\'s looks as they are now (else: npm run bake:crowd)', a0 > 0 && b0 > a0 && bad.length === 0 && /lowAssets: \['crowd-meme-kart-lo'\]/.test(mkCode), bad.map((x) => x[0]).join(', ') || from);
+  }
   type Posted = { ok?: boolean; score?: number; tier?: { id: string; name: string }; parts?: Record<string, number>; rank?: number | null; best?: boolean; review?: boolean; source?: string; error?: string };
   const score = async (b: Record<string, unknown>, player = 'kartcheck') => { const r = await post('/api/scores', { gameId: kg.id, player, laps: 3, level: 3, ...b }); return { status: r.status, j: await r.json() as Posted }; };
   // (a world published from the site has no measurement yet: the course fallback, flagged, from its written-out lap)

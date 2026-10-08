@@ -23,8 +23,12 @@ import { sha256, Packer, decodeImage } from './lib.ts';
 
 const OUT = 'public/assets';
 const sources = JSON.parse(readFileSync('assets-src/sources.json', 'utf8')).sources as Record<string, any>;
+// pictures baked in Chrome from other assets, not built here (scripts/kart-crowd-bake.mts: Meme Kart's crowd, filmed
+// once from the library's people): every build keeps them, their folders and their library entries, as they are
+const BAKED = ['crowd-meme-kart', 'crowd-meme-kart-lo'];
+const bakedBefore = (() => { try { return JSON.parse(readFileSync(join(OUT, 'library.json'), 'utf8')).assets as Record<string, any>; } catch { return {} as Record<string, any>; } })();
 // a full build starts clean; ONLY (below) clears just the assets it rebuilds
-if (!process.env.ONLY) rmSync(OUT, { recursive: true, force: true });
+if (!process.env.ONLY) { try { for (const d of readdirSync(OUT)) if (!BAKED.includes(d)) rmSync(join(OUT, d), { recursive: true, force: true }); } catch { /* (no library yet) */ } }
 else for (const id of process.env.ONLY.split(',')) rmSync(join(OUT, id), { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
@@ -648,6 +652,7 @@ for (const [id, e] of Object.entries(library)) {
 // with ONLY, everything not rebuilt stays as the library had it
 const previous = ONLY ? (JSON.parse(readFileSync(join(OUT, 'library.json'), 'utf8')).assets as typeof library) : {};
 const assets = ONLY ? Object.fromEntries(Object.keys({ ...previous, ...library }).map((id) => [id, library[id] ?? previous[id]])) : library;
+for (const id of BAKED) if (!assets[id] && bakedBefore[id]) (assets as Record<string, any>)[id] = bakedBefore[id];
 const manifest = {
   format: 'gamemog-library/1',
   note: 'Every file here is listed with its SHA-256; every asset names the sources it was built from and their licences. Built by scripts/assets/build.ts from assets-src/sources.json.',

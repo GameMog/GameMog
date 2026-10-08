@@ -345,7 +345,9 @@ export function runtimeSource(version: number, kart = false) {
     // open worlds (open.js) run inside the runtime's own closure, at its marker
     // and a derby (derby.js), climbing (climb.js) and the traversal (trav.js) inside the open world's, at their own
     const core = own.replace('/*@include open.js*/', () => read('open.js').replace('/*@include derby.js*/', () => read('derby.js')).replace('/*@include climb.js*/', () => read('climb.js')).replace('/*@include trav.js*/', () => read('trav.js')));
-    RUNTIMES[key] = [read('music.js'), read('vehicle.js'), read('creature.js'), ...(kart && !scoreAt ? [read('kart-score.js')] : []), core].join('\n');
+    // (and a kart race's guard, 8 Oct: lib/runtime/kart-guard.js, first of all, so it sees every error the race throws
+    // and the graphics context it makes)
+    RUNTIMES[key] = [...(kart ? [read('kart-guard.js')] : []), read('music.js'), read('vehicle.js'), read('creature.js'), ...(kart && !scoreAt ? [read('kart-score.js')] : []), core].join('\n');
   }
   return RUNTIMES[key];
 }

@@ -345,6 +345,13 @@
       body: { build: 0.3 }, suit: { color: '#14121F', sleeves: false } }, m: 'hail', hold: { foam: 15, c: '#5CFFC0' } },
   ];
 
+  // the crowd's film, baked (scripts/kart-crowd-bake.mts, from FAN_WORDS and FAN_LOOKS above: bake again when they
+  // change): a library picture a tier, its looks' frames in cells, cols across, the first row at the bottom
+  var CROWD_SHEETS = {
+    high: { id: 'crowd-meme-kart', frames: 12, cell: [96, 216], cols: 24 },
+    low: { id: 'crowd-meme-kart-lo', frames: 10, cell: [64, 144], cols: 20 },
+  };
+
   /* ------------------------------------------------- the world's look -- */
   var SUN = [-0.55, 0.15, -0.82];                    // low in the north-west: behind you on the line and up the chart
   var KEY = [-0.5, 0.46, -0.73];                     // the light itself stands higher than the sun's disc, so the road is lit
@@ -359,9 +366,9 @@
   var W = { t: 0, space: 0 };
 
   GameMog.world({
-    // the people in the stands (the crowd, above): the library's two bodies, their people packs (clothes, hair, older
-    // people) and their motion packs (the cheer, the dances)
-    assets: ['human-athlete-male', 'human-athlete-female', 'human-pack-male', 'human-pack-female', 'human-moves-male', 'human-moves-female'],
+    // the people in the stands (the crowd, above): the crowd's baked film, and for a laptop's people by the grid the
+    // library's two bodies, their people packs (clothes, hair, older people) and their motion packs (the cheer, the dances)
+    assets: ['crowd-meme-kart', 'human-athlete-male', 'human-athlete-female', 'human-pack-male', 'human-pack-female', 'human-moves-male', 'human-moves-female'],
     theme: { sky: '#1B1446', fog: '#FF8E6B', ink: '#1B1446', panel: '#F6F2FF', accent: '#5CFFC0', font: 'Bungee' },
     // the runtime's 'kart' preset (the racers graded as their sheets were drawn, the neutral curve, the speed blur),
     // with the twilight's own exposure, bloom and grade over it
@@ -375,7 +382,9 @@
     track: { width: 16, points: POINTS },
     // the score is the race's own (kart.score): the jazz-funk kart theme, Bb at 160 BPM, a layer more each lap and
     // up a semitone to 168 for the last, so no music of the platform's here
-    kart: { laps: 3, class: 'normal', course: COURSE, score: true },
+    kart: { laps: 3, class: 'normal', course: COURSE, score: true,
+      // (a phone: the crowd's film baked at its size, and nothing else: no people packs, no people built, 8 Oct)
+      lowAssets: ['crowd-meme-kart-lo'] },
 
     build: function (ctx) {
       var THREE = ctx.THREE, scene = ctx.scene, scenery = ctx.scenery, track = ctx.track, random = ctx.random, low = ctx.quality === 'low';
@@ -981,36 +990,58 @@
       // Nothing of it is made in a race
       function crowd() {
         var AS = ctx.assets, REN = ctx.renderer, MB = 'human-athlete-male', FB = 'human-athlete-female';
-        if (!AS || !AS.human || !REN || !ctx.kart || !ctx.kart.impostors || !AS.ready(MB) || !AS.ready(FB)) return false;
+        if (!AS || !REN || !ctx.kart) return false;
+        if (ctx.kart.step) ctx.kart.step('crowd');
         var t0 = performance.now(), RF = mulberryLike(4417), V3 = THREE.Vector3;
         // what each look does: its cycle (s), and how (1: the clip thrown once a cycle; 0: looped; 2: an alien's own)
         var MOVE = { cheer: [1.15, 1], danceTwist: [4 / 3, 0], danceLambada: [1, 0], danceCabbage: [1.25, 0], pump: [0.9, 2], hail: [1.1, 2] };
-        var kit = propKit();
-        var cast = [];
-        FAN_LOOKS.forEach(function (lk) {
+        var people0 = AS.human && AS.ready(MB) && AS.ready(FB), kit = null, cast = [], CW = 1.24, CH = 2.8, FOOT = 0.06, n, F, PX, PY, COLS, ROWS, atlas = null, atlasTex = null;
+        // a look of the library's built: a person (or, filmed live, an alien) in its race-day things, its moves
+        function make(lk) {
           var p = null;
           try { p = lk.alien ? AS.creature(lk.alien) : AS.human(lk.f ? FB : MB, lk.o); } catch (e) { p = null; }
-          if (!p || !p.object) return;
+          if (!p || !p.object) return null;
           p.look = lk; p.rig = lk.alien ? alienRig(p.object) : null;
           if (lk.hold) kit.hold(p, lk.hold);
           p.object.traverse(function (o) { if (o.isMesh) { o.castShadow = o.receiveShadow = false; o.userData.gmKart = true; } });
-          cast.push(p);
-        });
-        if (cast.length < 4) return false;
-        var n = cast.length, F = low ? 10 : 12, PX = low ? 64 : 96, PY = low ? 144 : 216, CW = 1.24, CH = 2.8, FOOT = 0.06, COLS = 2 * F;
-
-        // each look's moves (settled into its stance in the studio, before the film rolls)
-        cast.forEach(function (p) {
-          var mv = MOVE[p.look.m] || MOVE.cheer, clk = 0, c0 = 0, B = { stance: mv[1] === 0 ? p.look.m : 'idle', action: null }, S = { speed: 0, brawl: B };
+          // (settled into its stance in the studio, or in its seat, before it is seen)
+          var mv = MOVE[lk.m] || MOVE.cheer, clk = 0, c0 = 0, B = { stance: mv[1] === 0 ? lk.m : 'idle', action: null }, S = { speed: 0, brawl: B };
           p.cycle = mv[0];
-          p.step = function (dt, sub) { for (var k = 0; k < sub; k++) { clk += dt / sub; p.animate(clk, dt / sub, S); if (p.rig) alienPose(p.rig, p.look.m, (clk - c0) / mv[0]); } if (p.fix) p.fix(); };
-          p.settle = function () { p.step(1.6, 48); c0 = clk; if (mv[1] === 1) B.action = { name: p.look.m, id: 1, rate: 1 }; };
-        });
-        // the film: the kart kit's (ctx.kart.impostors), each of the cast alone through F frames of its cycle, in a studio
-        // lit as the stands are at dusk, into the sheet (look i's frame f at cell i * F + f, 2F across)
-        var sheet = ctx.kart.impostors({ cast: cast.map(function (p) { return { object: p.object, cycle: p.cycle, settle: p.settle, step: function (dt) { p.step(dt, 3); } }; }), frames: F, cell: [PX, PY], size: [CW, CH], foot: FOOT, cols: COLS });
-        if (!sheet) return false;
-        var atlas = sheet.target, ROWS = sheet.rows;
+          p.step = function (dt, sub) { for (var k = 0; k < sub; k++) { clk += dt / sub; p.animate(clk, dt / sub, S); if (p.rig) alienPose(p.rig, lk.m, (clk - c0) / mv[0]); } if (p.fix) p.fix(); };
+          p.settle = function () { p.step(1.6, 48); c0 = clk; if (mv[1] === 1) B.action = { name: lk.m, id: 1, rate: 1 }; };
+          return p;
+        }
+        // The film, baked (8 Oct): the sheet below was filmed once, by scripts/kart-crowd-bake.mts, from these very looks
+        // (CROWD_SHEETS: a laptop's, and a phone's at its smaller cells), and is a library picture now: a phone loads it
+        // alone (kart.lowAssets), not the six people packs and 22 people to film, which took its tab down while loading
+        var SH = CROWD_SHEETS[low ? 'low' : 'high'], bk = AS.ready(SH.id) && AS.texture ? AS.texture(SH.id) : null, bt = bk && bk.map;
+        var bROWS = Math.ceil(FAN_LOOKS.length * SH.frames / SH.cols);
+        if (bt && bt.image && bt.image.width === SH.cols * SH.cell[0] && bt.image.height === bROWS * SH.cell[1]) {
+          n = FAN_LOOKS.length; F = SH.frames; PX = SH.cell[0]; PY = SH.cell[1]; COLS = SH.cols; ROWS = bROWS;
+          // (as the film left it: the colour kept as its square root, no colour space, clamped, mipmapped)
+          bt.colorSpace = THREE.NoColorSpace; bt.wrapS = bt.wrapT = THREE.ClampToEdgeWrapping; bt.anisotropy = 1;
+          bt.minFilter = THREE.LinearMipmapLinearFilter; bt.magFilter = THREE.LinearFilter; bt.generateMipmaps = true; bt.needsUpdate = true;
+          atlasTex = bt;
+          cast = FAN_LOOKS.map(function (lk) { return { look: lk, cycle: (MOVE[lk.m] || MOVE.cheer)[0] }; });
+          // (a laptop's people by the grid are still the people themselves: their packs load on a laptop only)
+          if (!low && people0) {
+            kit = propKit();
+            FAN_LOOKS.forEach(function (lk, i) { if (lk.alien) return; var p = make(lk); if (p) { p.settle(); cast[i] = p; } });
+          }
+        } else {
+          // the film, live (no baked sheet: the bake itself, or a library without it): each look built and filmed by the
+          // kart kit (ctx.kart.impostors) before the first frame, through F frames of what it does, into the sheet
+          if (!people0 || !ctx.kart.impostors) return false;
+          kit = propKit();
+          FAN_LOOKS.forEach(function (lk) { var p = make(lk); if (p) cast.push(p); });
+          if (cast.length < 4) return false;
+          n = cast.length; F = low ? 10 : 12; PX = low ? 64 : 96; PY = low ? 144 : 216; COLS = 2 * F;
+          // the film: each of the cast alone through F frames of its cycle, in a studio lit as the stands are at dusk,
+          // into the sheet (look i's frame f at cell i * F + f, 2F across)
+          var sheet = ctx.kart.impostors({ cast: cast.map(function (p) { return { object: p.object, cycle: p.cycle, settle: p.settle, step: function (dt) { p.step(dt, 3); } }; }), frames: F, cell: [PX, PY], size: [CW, CH], foot: FOOT, cols: COLS });
+          if (!sheet) return false;
+          atlas = sheet.target; atlasTex = atlas.texture; ROWS = sheet.rows;
+        }
 
         // the cards: one a fan (a phone fills its wider rows in between), of a look (none twice running), a phase, a
         // pace, and either way round unless it holds words
@@ -1020,7 +1051,7 @@
           FANS.push([P.x, P.y, P.z, Math.atan2(-f.right.x * F0[8], -f.right.z * F0[8]) + (RF() - 0.5) * 0.6, 0.85 + RF() * 0.3, RF(), F0[6], dj, F0[8]]);
         });
         var NFAN = FANS.length, look = new Int16Array(NFAN), lastK = -1, lastK2 = -1, people = [];
-        cast.forEach(function (p, i) { if (!p.rig) people.push(i); });
+        cast.forEach(function (p, i) { if (p.object && !p.look.alien) people.push(i); });
         // (the laptop's people, one of each, in the front row by the grid, both sides)
         var realAt = {};
         if (!low) [-1, 1].forEach(function (sd, h) {
@@ -1043,7 +1074,7 @@
           aDim[q * 2] = 0.84 + RF() * 0.16; aDim[q * 2 + 1] = realAt[q] == null && RF() < 0.55 ? HUES[Math.floor(RF() * HUES.length)] : 0;
         });
         quad.setAttribute('aFan', new THREE.InstancedBufferAttribute(aFan, 4)); quad.setAttribute('aDim', new THREE.InstancedBufferAttribute(aDim, 2));
-        var U = { uAtlas: { value: atlas.texture }, uT: { value: 0 }, uHop: { value: 0 }, uF: { value: F }, uCols: { value: COLS }, uRows: { value: ROWS }, uTint: { value: new THREE.Color(1, 1, 1) } };
+        var U = { uAtlas: { value: atlasTex }, uT: { value: 0 }, uHop: { value: 0 }, uF: { value: F }, uCols: { value: COLS }, uRows: { value: ROWS }, uTint: { value: new THREE.Color(1, 1, 1) } };
         var cardMat = new THREE.ShaderMaterial({
           uniforms: Object.assign(THREE.UniformsUtils.clone(THREE.UniformsLib.fog), U), fog: true,
           vertexShader: [
@@ -1099,20 +1130,20 @@
             act: null, stance: mv[1] === 0 ? p.look.m : 'idle', move: 'cheer', hold: !!p.look.hold });
         });
         cast.forEach(function (p) {
-          if (p.real) return;
+          if (p.real || !p.object) return;
           // (an alien's parts are its own; a person's body is the library's: a phone lets its textures go too)
           p.object.traverse(function (o) {
             if (!o.isMesh) return;
-            if (p.rig && o.material !== kit.mat) o.geometry.dispose();
+            if (p.rig && (!kit || o.material !== kit.mat)) o.geometry.dispose();
             (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (m) {
-              if (!m || m === kit.mat) return;
+              if (!m || (kit && m === kit.mat)) return;
               if (low || p.rig) ['map', 'normalMap', 'bumpMap', 'roughnessMap', 'emissiveMap', 'alphaMap'].forEach(function (k) { if (m[k] && m[k].dispose) m[k].dispose(); });
               m.dispose();
             });
           });
         });
         W.crowd = { U: U, t: 0, cheer: 0, real: real, mesh: cards, zero: new THREE.Matrix4().makeScale(0, 0, 0), pv: new THREE.Matrix4(), fr: new THREE.Frustum(), sph: new THREE.Sphere(new V3(), 1.6), rnd: RF };
-        cards.userData.crowd = { cards: NFAN, looks: n, people: real.length, frames: F, atlas: [COLS * PX, ROWS * PY], ms: Math.round(performance.now() - t0) };
+        cards.userData.crowd = { cards: NFAN, looks: n, people: real.length, frames: F, atlas: [COLS * PX, ROWS * PY], baked: !atlas, ms: Math.round(performance.now() - t0) };
         var up = function () { var C = W.crowd; C.cheer = 1; C.real.forEach(function (h) { h.next = Math.min(h.next, h.clock + RF() * 0.4); }); };
         ctx.on('start', up); ctx.on('lap', up); ctx.on('finish', up);
         return true;

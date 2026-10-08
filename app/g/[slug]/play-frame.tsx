@@ -60,6 +60,8 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
   const [loaded, setLoaded] = useState(false);
   const [live, setLive] = useState(false);
   const [stalled, setStalled] = useState(false);
+  // a kart race's boot step (8 Oct, lib/runtime/kart-guard.js), for the stall line to say where it got to
+  const [bootStep, setBootStep] = useState<string | null>(null);
   // the leaderboard asks for your name; your character already has one
   useEffect(() => { if (you && me) setName((n) => n || me.name); }, [you, me]);
   // a change of look while playing: the runtime rebuilds you in place
@@ -99,6 +101,23 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
     return () => clearTimeout(t);
   }, [live]);
 
+  // A kart race's boot that took the whole tab down (8 Oct): its last step is kept here while it runs and dropped when
+  // the page is left; still here the next time a game page opens means the page died, and that is reported once
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(BOOT_KEY);
+      if (raw) {
+        localStorage.removeItem(BOOT_KEY);
+        const b = JSON.parse(raw) as { at?: number; slug?: string; step?: string; info?: Record<string, unknown>; hidden?: boolean };
+        if (b && typeof b.at === 'number' && Date.now() - b.at < 86400_000) sendKartReport({ ...(b.info ?? {}), kind: 'crash', slug: b.slug, step: b.step, hidden: !!b.hidden });
+      }
+    } catch {}
+    const leave = () => { try { localStorage.removeItem(BOOT_KEY); } catch {} };
+    const hide = () => { if (document.hidden) try { const raw = localStorage.getItem(BOOT_KEY); if (raw) localStorage.setItem(BOOT_KEY, JSON.stringify({ ...JSON.parse(raw), hidden: true })); } catch {} };
+    addEventListener('pagehide', leave); document.addEventListener('visibilitychange', hide);
+    return () => { leave(); removeEventListener('pagehide', leave); document.removeEventListener('visibilitychange', hide); };
+  }, []);
+
   useEffect(() => {
     try { setName(localStorage.getItem('gamemog:name') ?? ''); } catch {}
     function onMessage(e: MessageEvent) {
@@ -106,6 +125,15 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
       const d = e.data;
       if (!d || d.source !== 'gamemog' || d.gameId !== gameId) return;
       if (d.type === 'ready') { setLive(true); setLoaded(true); return; }
+      // a kart race's guard: how far its boot got, and what went wrong (the frame has no network: sent on from here)
+      if (d.type === 'kart-step') {
+        if (typeof d.step !== 'string') return;
+        const step = d.step.slice(0, 60);
+        setBootStep(step);
+        try { localStorage.setItem(BOOT_KEY, JSON.stringify({ at: Date.now(), slug, step, info: d.info && typeof d.info === 'object' ? d.info : null })); } catch {}
+        return;
+      }
+      if (d.type === 'kart-report') { if (d.report && typeof d.report === 'object') sendKartReport({ ...d.report, slug }); return; }
       if (d.type === 'kart-racer') { if (typeof d.racer === 'string' && /^[A-Za-z][A-Za-z .'-]{0,23}$/.test(d.racer)) try { localStorage.setItem('gamemog:kart:racer', d.racer); } catch {} return; }
       // a kart race asking, as it boots, for the racer kept here: a draft's preview (7 Oct) is not told it holds a
       // kart race, so it answers the race itself, the same as a published one
@@ -142,7 +170,7 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
     }
     addEventListener('message', onMessage);
     return () => removeEventListener('message', onMessage);
-  }, [gameId, scores]);
+  }, [gameId, scores, slug]);
 
   async function submit() {
     if (!result) return;
@@ -184,6 +212,7 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
         {!live && stalled && (
           <p className="stall" role="status">
             {loaded ? 'The game has not started yet.' : 'The game has not loaded in this frame.'}{' '}
+            {bootStep && `It got as far as: ${bootStep}.`}{' '}
             <a href={src ?? base} target="_blank" rel="noreferrer">Open it in its own tab</a>.
           </p>
         )}
@@ -248,4 +277,13 @@ function KartPanel({ result, score, tier, gmOn, children }: { result: Result; sc
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 2 }}>{children}</div>
     </div>
   );
+}
+
+/** Where a kart race's running boot is kept (see the crash effect in PlayFrame), and the one way a report leaves. */
+const BOOT_KEY = 'gamemog:kart:boot';
+function sendKartReport(r: Record<string, unknown>) {
+  try {
+    const body = JSON.stringify(r);
+    if (body.length <= 4096) fetch('/api/kart-report', { method: 'POST', headers: { 'content-type': 'application/json' }, body, keepalive: true }).catch(() => {});
+  } catch {}
 }

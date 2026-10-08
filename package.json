@@ -21,7 +21,8 @@
     "brand:icons": "node --import ./scripts/ts-resolve.mjs scripts/brand-icons.ts",
     "publish:world": "node --import ./scripts/ts-resolve.mjs scripts/publish-world.ts",
     "assets:fetch": "node --import ./scripts/ts-resolve.mjs scripts/assets/fetch.ts",
-    "assets:build": "node --import ./scripts/ts-resolve.mjs scripts/assets/build.ts"
+    "assets:build": "node --import ./scripts/ts-resolve.mjs scripts/assets/build.ts",
+    "bake:crowd": "node --import ./scripts/ts-resolve.mjs scripts/kart-crowd-bake.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",

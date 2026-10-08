@@ -899,7 +899,57 @@ async function kartChecks() {
     await kartScoreRaceChecks();
     await kartScoreAheadChecks();
     await kartFeelChecks();
+    await kartPhoneLoadChecks();
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(kid); }
+}
+
+/* ------------------------------------------------------ kart: a phone's load -- */
+// Meme Kart crashed while loading on the owner's Galaxy Z Fold 5 (8 Oct): its crowd was built and filmed on the device
+// (six people packs, 96 pictures decoded, ~350 MB of textures). The crowd is baked now (scripts/kart-crowd-bake.ts):
+// on the phone path (Android, a touch screen, the Fold's cover screen) the world must load only its baked sheet, start
+// without the multisampled target and with a 1024 shadow map, let its decoded pictures go once they are up, and send
+// up no more than 120 MB of textures by the end of the start screen's preparations
+async function kartPhoneLoadChecks() {
+  const code = readFileSync(new URL('../worlds/meme-kart.js', import.meta.url), 'utf8'), meta = JSON.parse(readFileSync(new URL('../worlds/meme-kart.json', import.meta.url), 'utf8'));
+  const id = randomUUID();
+  insertDraft({ id, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code, meta: { ...meta, mode: 'kart', runtime: 1 } } as never);
+  console.log('\nkart: a phone\'s load (Meme Kart, as a Fold 5\'s cover screen)');
+  const PRE = `(() => {
+    try { Object.defineProperty(Navigator.prototype, 'userAgent', { get: () => 'Mozilla/5.0 (Linux; Android 14; SM-F946B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36' }); } catch (e) {}
+    const mm = window.matchMedia.bind(window); window.matchMedia = (q) => { const r = mm(q); if (/pointer:\\s*coarse/.test(q)) return Object.assign(Object.create(r), { matches: true, media: q }); return r; };
+    const P = window.__load = { tex: 0, bm: 0, urls: [] };
+    const f0 = window.fetch; window.fetch = function (u) { P.urls.push(String(u && u.url || u).replace(/^.*\\/assets\\//, '').replace(/\\?.*$/, '')); return f0.apply(this, arguments); };
+    const cib = window.createImageBitmap; window.createImageBitmap = function () { return cib.apply(this, arguments).then((b) => { P.bm += b.width * b.height * 4; return b; }); };
+    const px = (internal, type) => (type === 0x140B || internal === 0x881A || internal === 0x8C3A ? 8 : type === 0x1406 || internal === 0x8814 ? 16 : 4);
+    [WebGL2RenderingContext.prototype, WebGLRenderingContext.prototype].forEach((pr) => {
+      const tI = pr.texImage2D, tS = pr.texStorage2D, tS3 = pr.texStorage3D;
+      pr.texImage2D = function (t, l, internal, a, b, c, d, e) { if (l === 0) { let w, h, ty; if (arguments.length >= 8) { w = a; h = b; ty = e; } else { const src = d || c; w = src && src.width || 0; h = src && src.height || 0; ty = b; } P.tex += w * h * px(internal, ty); } return tI.apply(this, arguments); };
+      if (tS) pr.texStorage2D = function (t, lv, internal, w, h) { P.tex += w * h * px(internal) * (lv > 1 ? 1.33 : 1) * (t === 0x8513 ? 6 : 1); return tS.apply(this, arguments); };
+      if (tS3) pr.texStorage3D = function (t, lv, internal, w, h, dd) { P.tex += w * h * dd * px(internal); return tS3.apply(this, arguments); };
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+      const T = window.THREE; if (!T) return; const R0 = T.WebGLRenderer;
+      T.WebGLRenderer = function (o) { const r = new R0(o); const rd = r.render; r.render = function (sc) { if (sc && sc.isScene && sc.fog && !window.__scene) window.__scene = sc; return rd.apply(this, arguments); }; return r; };
+      T.WebGLRenderer.prototype = R0.prototype;
+    });
+  })();`;
+  try {
+    await withBrowser(async (page) => {
+      await page.emulate({ width: 344, height: 882, mobile: true, dpr: 2.625 });
+      await page.preload(PRE);
+      await page.goto(`${BASE}/d/${id}/play?preview=1`);
+      for (let i = 0; i < 300 && !(await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)); i++) await sleep(200);
+      let st: any = null;
+      for (let i = 0; i < 300 && !(st && st.kart && st.kart.prep && st.kart.prep.done); i++) { await sleep(100); st = await page.eval<any>('window.__gmRuntime.state()').catch(() => null); }
+      const L = await page.eval<{ tex: number; bm: number; urls: string[] }>('window.__load');
+      const crowd = await page.eval<any>('(() => { let c = null, sh = 0; window.__scene.traverse((q) => { if (q.userData && q.userData.crowd) c = q.userData.crowd; if (q.isDirectionalLight && q.castShadow) sh = q.shadow.mapSize.x; }); return c && Object.assign({ shadow: sh }, c); })()').catch(() => null);
+      const libs = [...new Set(L.urls.filter((u) => /\//.test(u)).map((u) => u.split('/')[0]))];
+      const texMB = Math.round(L.tex / 1048576), bmMB = Math.round(L.bm / 1048576);
+      ok('kart: a phone loads Meme Kart\'s crowd as its one baked sheet (crowd-meme-kart-lo), and not a human pack or body', libs.length === 1 && libs[0] === 'crowd-meme-kart-lo' && crowd && crowd.baked === true, `${libs.join(', ')}${crowd ? `; crowd ${JSON.stringify(crowd)}` : ''}`);
+      ok('kart: a phone starts without the multisampled target, with a 1024 shadow map, and lets its decoded pictures go once they are up', st && st.render && st.render.quality === 'low' && st.render.msaa === false && crowd && crowd.shadow === 1024 && st.kart.prep.closed >= 1, JSON.stringify({ msaa: st?.render?.msaa, shadow: crowd?.shadow, quality: st?.render?.quality, closed: st?.kart?.prep?.closed }));
+      ok('kart: a phone sends up at most 120 MB of textures by the end of the start screen\'s preparations (it was 351 MB when the crowd was filmed on it)', texMB <= 120 && bmMB <= 16, `${texMB} MB of textures, ${bmMB} MB of pictures decoded`);
+    }, { width: 1280, height: 800, timeoutMs: 180_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(id); }
 }
 
 /* -------------------------------------------------------- kart: enemies hit -- */

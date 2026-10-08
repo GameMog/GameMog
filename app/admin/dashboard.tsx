@@ -7,16 +7,17 @@ import { setScore, setWorld, signOut } from './actions';
 import { LineChart } from './chart';
 import { Bar, BlurIn, MorphButton, Num, Segmented, Toasts, Toggle, useToast, type Busy } from './motion';
 import { Palette, type Command } from './palette';
+import type { KartReportRow } from '@/lib/kart-report';
 
-type Tab = 'overview' | 'worlds' | 'builds' | 'names' | 'traffic';
+type Tab = 'overview' | 'worlds' | 'builds' | 'names' | 'traffic' | 'reports';
 const TABS = [
   { id: 'overview', label: 'Overview' }, { id: 'worlds', label: 'Worlds' }, { id: 'builds', label: 'Builds' },
-  { id: 'names', label: 'Names' }, { id: 'traffic', label: 'Traffic' },
+  { id: 'names', label: 'Names' }, { id: 'traffic', label: 'Traffic' }, { id: 'reports', label: 'Crashes' },
 ] as const satisfies readonly { id: Tab; label: string }[];
 const RANGE_ITEMS = [{ id: '24h', label: '24h' }, { id: '7d', label: '7 days' }, { id: '30d', label: '30 days' }] as const satisfies readonly { id: Range; label: string }[];
 const RANGE_WORDS: Record<Range, string> = { '24h': 'the day before', '7d': 'the week before', '30d': 'the 30 days before' };
 
-export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number };
+export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[] };
 
 export function Dashboard(props: AdminData) {
   return <Toasts><Board {...props} /></Toasts>;
@@ -33,7 +34,7 @@ export function ago(at: number) {
   return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active }: AdminData) {
+function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports }: AdminData) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('overview');
@@ -105,6 +106,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
           {tab === 'builds' && <Builds builds={builds} titles={new Map(worlds.map((w) => [w.slug, w.title]))} />}
           {tab === 'names' && <Names scores={scores} setScores={setScores} />}
           {tab === 'traffic' && <Traffic s={s} />}
+          {tab === 'reports' && <Reports reports={reports} />}
         </BlurIn>
       </main>
 
@@ -257,6 +259,35 @@ function Builds({ builds, titles }: { builds: AdminBuild[]; titles: Map<string, 
           </li>
         ))}
         {!list.length && <li className="none">No builds here.</li>}
+      </ul>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------- crashes -- */
+// what kart races reported from players' devices (lib/kart-report.ts): the newest first, the device and how far it got
+const KIND_WORDS: Record<string, string> = { error: 'Error', rejection: 'Error', 'context-lost': 'Graphics lost', crash: 'Page died' };
+function Reports({ reports }: { reports: KartReportRow[] }) {
+  return (
+    <section className="card flush">
+      <div className="tools"><p className="tools-t">What kart races reported from players' devices, newest first. No names or addresses are kept. Also as JSON at /api/kart-report.</p></div>
+      <ul className="rows">
+        {reports.map((r) => {
+          const d = r.data as { ua?: string; tier?: string; mem?: number; screen?: string; dpr?: number; gpu?: string; heap?: { used: number; limit: number } | null; t?: number; stack?: string; hidden?: boolean };
+          return (
+            <li key={r.id} className="build">
+              <p className="build-h">
+                <span className={r.kind === 'context-lost' || r.kind === 'crash' ? 'chip bad' : 'chip'}>{KIND_WORDS[r.kind] ?? r.kind}</span>
+                <span className="chip">{r.device}{d.tier ? ` · ${d.tier}` : ''}</span>
+                <span className="dim">{ago(r.at)}{r.slug ? <> · <Link href={`/g/${r.slug}`} target="_blank">{r.slug}</Link></> : null}{r.step ? ` · at ${r.step}` : ''}{d.t != null ? ` · ${(d.t / 1000).toFixed(1)} s in` : ''}{d.hidden ? ' · was in the background' : ''}</span>
+              </p>
+              <p className="build-p">{[d.gpu, d.mem ? `${d.mem} GB` : '', d.screen ? `${d.screen} @${d.dpr ?? 1}x` : '', d.heap ? `heap ${d.heap.used}/${d.heap.limit} MB` : ''].filter(Boolean).join(' · ') || 'No device details'}</p>
+              {r.message && <p className="build-x">{r.message}</p>}
+              {(d.stack || d.ua) && <p className="build-of dim" style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{d.stack ? `${d.stack}\n` : ''}{d.ua}</p>}
+            </li>
+          );
+        })}
+        {!reports.length && <li className="none">No crash reports. Good.</li>}
       </ul>
     </section>
   );
