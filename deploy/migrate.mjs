@@ -275,6 +275,34 @@ const MIGRATIONS = [
       return 'the Mog of Zcity (daylight Oaktown), new art';
     },
   },
+  {
+    // the owner, 6 Oct: Meme Kart, the first kart race and the kart kind's showcase, "Meme Kart starring Pepe.
+    // featuring Doge, Shibu Inu & Bike Tyson": three laps of To The Moon, eight karts, contact never ends the run.
+    // Published on the Mac by `npm run publish:world -- meme-kart`, which playtested it (60 fps, three laps, the
+    // podium and a result); the key art is Pepe at the head of the pack under the start arch, shot on the Mac from
+    // its own code with the platform's title. It races on the kart kit (lib/runtime/kart.js, kart-roster.js,
+    // kart-items.js, and its score, kart-music.js), which only this release's code carries: on a build without it the
+    // world would be served as an endless race (or race in silence), so it waits (unrecorded, tried again at the next
+    // boot) until the kit is there
+    id: '2026-10-07-meme-kart',
+    run(db) {
+      const code = file('meme-kart.js'), meta = file('meme-kart.meta.json');
+      if (!code || !meta) return 'files missing';
+      // (and its score, 8 Oct: lib/runtime/kart-score.js, which the runtime, the scores route and the page share)
+      if (!['kart.js', 'kart-roster.js', 'kart-items.js', 'kart-music.js', 'kart-score.js'].every((f) => existsSync(join('lib', 'runtime', f)))) throw new Error('the kart kit (lib/runtime/kart.js) is not in this build');
+      const m = JSON.parse(meta.toString('utf8')), cover = file('meme-kart-cover.jpg'), icon = file('meme-kart-icon.jpg'), wide = file('meme-kart-wide.jpg');
+      const g = db.prepare("SELECT id FROM games WHERE slug = 'meme-kart'").get();
+      if (g) {
+        db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = ?, cover = ?, art_icon = ?, art_wide = ?, format = ? WHERE id = ?')
+          .run(m.title, m.tagline, m.blurb, code.toString('utf8'), JSON.stringify(m.meta), cover, icon, wide, 'world', g.id);
+        return 'updated';
+      }
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+        VALUES (?, 'meme-kart', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
+        .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: meme-kart', Date.now(), code.toString('utf8'), JSON.stringify(m.meta), cover, icon, wide);
+      return 'published';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

@@ -1,0 +1,17 @@
+{
+  "title": "Meme Kart",
+  "tagline": "Pepe takes on Doge, Shiba and Bike Tyson: three laps from the swamp at dusk, up the green candles, to the moon and back.",
+  "blurb": "Meme Kart, starring Pepe, featuring Doge, Shiba and Bike Tyson; race as any of the eight. One track, To The Moon: past rolling logs and swamp gas, grind up the Candle Climb's chart line, launch into space through the hoops, dodge meteors on the moon, take the crater shortcut, buy the dip as the red candles topple, then grind the Gator Rail over the bayou home. Drift for Green Candle, Gold and MOG boosts, charge-jump the gaps, trick off every bump, crack Airdrops and bash rivals for their GM. Three laps, eight karts, and a knock never ends your race.",
+  "genre": "Kart racing",
+  "cast": [
+    { "name": "Pepe", "color": "#4FA03A", "role": "player" },
+    { "name": "Doge", "color": "#F2DDB4", "role": "rival" },
+    { "name": "Shiba", "color": "#C9622A", "role": "rival" },
+    { "name": "Bike Tyson", "color": "#D7263D", "role": "rival" },
+    { "name": "Bull Run", "color": "#1FB86A", "role": "rival" },
+    { "name": "Big Bear", "color": "#B23A48", "role": "rival" },
+    { "name": "The Whale", "color": "#2E7BEA", "role": "rival" },
+    { "name": "Moon Cat", "color": "#9B5DE5", "role": "rival" }
+  ],
+  "palette": { "sky": "#1B1446", "ground": "#3E4256", "accent": "#5CFFC0" }
+}

@@ -1,0 +1,102 @@
+{
+  "id": "88cd2bad-86fb-45a0-87ce-d312e1acb244",
+  "title": "Meme Kart",
+  "tagline": "Pepe takes on Doge, Shiba and Bike Tyson: three laps from the swamp at dusk, up the green candles, to the moon and back.",
+  "blurb": "Meme Kart, starring Pepe, featuring Doge, Shiba and Bike Tyson; race as any of the eight. One track, To The Moon: past rolling logs and swamp gas, grind up the Candle Climb's chart line, launch into space through the hoops, dodge meteors on the moon, take the crater shortcut, buy the dip as the red candles topple, then grind the Gator Rail over the bayou home. Drift for Green Candle, Gold and MOG boosts, charge-jump the gaps, trick off every bump, crack Airdrops and bash rivals for their GM. Three laps, eight karts, and a knock never ends your race.",
+  "meta": {
+    "title": "Meme Kart",
+    "tagline": "Pepe takes on Doge, Shiba and Bike Tyson: three laps from the swamp at dusk, up the green candles, to the moon and back.",
+    "blurb": "Meme Kart, starring Pepe, featuring Doge, Shiba and Bike Tyson; race as any of the eight. One track, To The Moon: past rolling logs and swamp gas, grind up the Candle Climb's chart line, launch into space through the hoops, dodge meteors on the moon, take the crater shortcut, buy the dip as the red candles topple, then grind the Gator Rail over the bayou home. Drift for Green Candle, Gold and MOG boosts, charge-jump the gaps, trick off every bump, crack Airdrops and bash rivals for their GM. Three laps, eight karts, and a knock never ends your race.",
+    "genre": "Kart racing",
+    "cast": [
+      {
+        "name": "Pepe",
+        "color": "#4FA03A",
+        "role": "player"
+      },
+      {
+        "name": "Doge",
+        "color": "#F2DDB4",
+        "role": "rival"
+      },
+      {
+        "name": "Shiba",
+        "color": "#C9622A",
+        "role": "rival"
+      },
+      {
+        "name": "Bike Tyson",
+        "color": "#D7263D",
+        "role": "rival"
+      },
+      {
+        "name": "Bull Run",
+        "color": "#1FB86A",
+        "role": "rival"
+      },
+      {
+        "name": "Big Bear",
+        "color": "#B23A48",
+        "role": "rival"
+      },
+      {
+        "name": "The Whale",
+        "color": "#2E7BEA",
+        "role": "rival"
+      },
+      {
+        "name": "Moon Cat",
+        "color": "#9B5DE5",
+        "role": "rival"
+      }
+    ],
+    "palette": {
+      "sky": "#1B1446",
+      "ground": "#3E4256",
+      "accent": "#5CFFC0"
+    },
+    "mode": "kart",
+    "controls": "W or the up arrow: gas (hit it as the 1 lands for a Moon Launch). S or the down arrow: brake, then reverse. A D or the left and right arrows: steer. Space: hop, and hold it through a turn to drift (let go for a boost); off a ramp, a trick. X (or J, K, Shift): use your item, held to drag a Rug Pull or Laser Eyes behind you as a shield; E throws it ahead; with S or the down arrow, behind. C: look back. P: pause. On touch screens, a stick to steer and DRIFT, ITEM and BRAKE buttons (the gas is automatic; hold DRIFT on the grid to launch; the stick up or down aims an item); a gamepad works too.",
+    "scoring": "score",
+    "runtime": 1,
+    "test": {
+      "status": "passed",
+      "codeHash": "9fb004d6c1c5fc6f",
+      "cover": "current"
+    },
+    "kartScore": {
+      "version": 1,
+      "source": "measured",
+      "tStar": {
+        "pepe": 105.975,
+        "doge": 107.533,
+        "shiba": 107.01,
+        "bike": 107.527,
+        "bull": 104.495,
+        "bear": 104.511,
+        "whale": 105.004,
+        "mooncat": 107.003
+      },
+      "tFloor": {
+        "pepe": 92.066,
+        "doge": 92.066,
+        "shiba": 92.066,
+        "bike": 92.066,
+        "bull": 91.276,
+        "bear": 91.276,
+        "whale": 91.728,
+        "mooncat": 92.066
+      },
+      "karts": 8,
+      "laps": 3,
+      "gmCap": 134,
+      "gmMax": 197,
+      "hitsCap": 30,
+      "hitsMax": 64,
+      "lap": 1574.9,
+      "physics": "1cf13c79e4c7",
+      "world": "6a3456c3d2fb",
+      "at": "2026-10-08T17:33:54.325Z"
+    }
+  }
+}
