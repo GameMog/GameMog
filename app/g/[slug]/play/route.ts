@@ -1,4 +1,5 @@
-import { getGameBySlug, bumpPlays } from '@/lib/db';
+import { getGameBySlug, getUnlistedGameBySlug, getGameBySlugForOwner, bumpPlays } from '@/lib/db';
+import { COOKIE, validSession } from '../../../admin/session';
 import { renderGame, GAME_CSP } from '@/lib/engine/shell';
 import { renderCustomGame, renderWorldGame, CUSTOM_CSP, worldCsp, publicOrigin } from '@/lib/custom-game';
 import { withKartScore } from '@/lib/kart-play';
@@ -11,7 +12,10 @@ import type { WorldSpec } from '@/lib/worldspec';
  */
 export async function GET(req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
-  const game = getGameBySlug(slug);
+  // an unlisted game plays for anyone with its link; any other hidden game only for the owner's session (the
+  // frame's request carries the site's cookie)
+  const owner = () => validSession(req.headers.get('cookie')?.match(new RegExp(`(?:^|; )${COOKIE}=([^;]+)`))?.[1]);
+  const game = getGameBySlug(slug) ?? getUnlistedGameBySlug(slug) ?? (owner() ? getGameBySlugForOwner(slug) : undefined);
   if (!game) return new Response('Not found', { status: 404 });
 
   // a play is someone opening the game to play it; the character preview on

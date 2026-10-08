@@ -256,19 +256,30 @@ export function insertGame(args: {
 export const getGameBySlug = (slug: string) =>
   db.prepare(`SELECT ${ROW} FROM games WHERE slug = ? AND hidden = 0`).get(slug) as GameRow | undefined;
 
+/* An unlisted game: hidden from every list, feed, Mog and board, but anyone with its link can play it (the owner, 8
+   Oct, on "Meme Kart: The Original": "it isn't published to not confuse users or crash their phones but it should be
+   open to anyone I share the link"). A hidden game is unlisted only when its meta says so. */
+export const getUnlistedGameBySlug = (slug: string) =>
+  db.prepare(`SELECT ${ROW} FROM games WHERE slug = ? AND hidden = 1 AND json_extract(meta, '$.unlisted') = 1`).get(slug) as GameRow | undefined;
+
+/* The owner's own way to any hidden game, only for a request that carries the owner's session (the caller checks). */
+export const getGameBySlugForOwner = (slug: string) =>
+  db.prepare(`SELECT ${ROW} FROM games WHERE slug = ?`).get(slug) as GameRow | undefined;
+
 export const listGames = (limit = 40) =>
   db
     .prepare(`SELECT ${ROW} FROM games WHERE hidden = 0 ORDER BY featured DESC, created_at DESC LIMIT ?`)
     .all(limit) as GameRow[];
 
 export function gameCover(slug: string): Uint8Array | undefined {
-  const r = db.prepare('SELECT cover FROM games WHERE slug = ? AND hidden = 0').get(slug) as { cover: Uint8Array | null } | undefined;
+  // (an unlisted game's cover is served too: its own page shows it)
+  const r = db.prepare("SELECT cover FROM games WHERE slug = ? AND (hidden = 0 OR json_extract(meta, '$.unlisted') = 1)").get(slug) as { cover: Uint8Array | null } | undefined;
   return r?.cover ?? undefined;
 }
 
 export function gameArt(slug: string, shape: 'square' | 'wide'): Uint8Array | undefined {
   const column = shape === 'square' ? 'art_icon' : 'art_wide';
-  const r = db.prepare(`SELECT ${column} AS art FROM games WHERE slug = ? AND hidden = 0`).get(slug) as { art: Uint8Array | null } | undefined;
+  const r = db.prepare(`SELECT ${column} AS art FROM games WHERE slug = ? AND (hidden = 0 OR json_extract(meta, '$.unlisted') = 1)`).get(slug) as { art: Uint8Array | null } | undefined;
   return r?.art ?? undefined;
 }
 

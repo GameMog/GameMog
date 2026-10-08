@@ -303,6 +303,26 @@ const MIGRATIONS = [
       return 'published';
     },
   },
+  {
+    // the owner, 8 Oct: "let's preserve the current NON pre-baked game setup ... with a separate and special URL i
+    // won't publish or share but have access to play for myself ... it will be The Original", then "open it up ... it
+    // should be open to anyone I share the link". The world exactly as it went live on 8 Oct (a10c246, the crowd built
+    // and filmed at load), as an UNLISTED game at /g/meme-kart-original: hidden from every list, feed, Mog and board,
+    // never indexed, but anyone with the link can play it (meta.unlisted; app/g/[slug]/page.tsx and play/route.ts)
+    id: '2026-10-08-meme-kart-original',
+    run(db) {
+      const code = file('meme-kart-original.js'), meta = file('meme-kart.meta.json');
+      if (!code || !meta) return 'files missing';
+      if (!['kart.js', 'kart-roster.js', 'kart-items.js', 'kart-music.js', 'kart-score.js'].every((f) => existsSync(join('lib', 'runtime', f)))) throw new Error('the kart kit (lib/runtime/kart.js) is not in this build');
+      if (db.prepare("SELECT id FROM games WHERE slug = 'meme-kart-original'").get()) return 'already there';
+      const m = JSON.parse(meta.toString('utf8')), cover = file('meme-kart-cover.jpg'), icon = file('meme-kart-icon.jpg'), wide = file('meme-kart-wide.jpg');
+      const title = 'Meme Kart: The Original';
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt, hidden)
+        VALUES (?, 'meme-kart-original', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL, 1)`)
+        .run('28d5cacb-e063-4433-9279-79a78c45ceda', title, m.tagline, m.blurb, 'first-party world: meme-kart (the original, unlisted)', Date.now(), code.toString('utf8'), JSON.stringify({ ...m.meta, title, unlisted: true }), cover, icon, wide);
+      return 'kept, unlisted';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

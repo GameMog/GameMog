@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 import { SiteHeader, SiteFooter } from '../../header';
 import { Tile } from '../../tile';
 import { Cover } from '../../cover';
-import { getGameBySlug, topScores, listGames, bestTimes, voteCounts, playerStats } from '@/lib/db';
+import { getGameBySlug, getUnlistedGameBySlug, getGameBySlugForOwner, topScores, listGames, bestTimes, voteCounts, playerStats } from '@/lib/db';
+import { isAdmin } from '../../admin/session';
 import { LADDERS } from '@/lib/worldspec';
 import type { WorldSpec } from '@/lib/worldspec';
 import { PlayFrame } from './play-frame';
@@ -21,6 +22,9 @@ export const dynamic = 'force-dynamic';
 /** A shared game link unfurls with the game's own cover, name and pitch. */
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
+  const owned = getGameBySlug(slug) ? undefined : getUnlistedGameBySlug(slug) ?? ((await isAdmin()) ? getGameBySlugForOwner(slug) : undefined);
+  // (an unlisted game, or a hidden one opened by the owner: never indexed)
+  if (owned) return { title: `${owned.title} | GameMog`, robots: { index: false, follow: false } };
   const game = getGameBySlug(slug);
   if (!game) return { title: 'Not found | GameMog' };
   const parent = game.parent_id ? getGameById(game.parent_id) : null;
@@ -44,7 +48,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
  */
 export default async function GamePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const game = getGameBySlug(slug);
+  // an unlisted game plays for anyone with its link; any other hidden game only for the owner's session
+  const game = getGameBySlug(slug) ?? getUnlistedGameBySlug(slug) ?? ((await isAdmin()) ? getGameBySlugForOwner(slug) : undefined);
   if (!game) notFound();
   if (game.format === 'custom' || game.format === 'world') return <CustomGamePage game={game} />;
 
