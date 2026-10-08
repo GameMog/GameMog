@@ -236,6 +236,53 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: o.heat, cover, artIcon: art?.icon, artWide: art?.wide, open: { kos, heat: o.heat, boss: sawBoss, police: sawPolice }, look } as WorldReport;
       }
 
+      // a kart race (6 Oct): no endless lap and no crash to end it. Eight karts must race three laps on the
+      // autopilot (at 3x) with the laps going by and nobody stuck, at a real frame rate, and the finish must bring
+      // the podium and a result; the cover is taken mid-drift
+      type KartSt = { state: string; lapsDone: number; laps: number; place: number; drift: { dir: number; tier: number; charge: number; most?: { tier: number; charge: number } }; karts: { name: string; stuck: number; lapsDone: number; fin: boolean }[] };
+      const kart = await page.eval<KartSt | null>('window.__gmRuntime.state().kart').catch(() => null);
+      if (kart) {
+        const ks = () => page.eval<KartSt>('window.__gmRuntime.state().kart');
+        const K = (js: string) => page.eval(`(() => { const K = window.__gmRuntime.debug.kart(); ${js} })()`);
+        await page.eval('window.__gmRuntime.debug.start()');
+        await K('K.autopilot(true); K.go();');
+        await sleep(2500);
+        const f0 = await page.eval<number>('window.__frames');
+        await sleep(2500);
+        const fps = Math.round(((await page.eval<number>('window.__frames')) - f0) / 2.5);
+        // the cover: mid-drift, at real speed (a drift well under way, its first tier reached or near it, looked for ten
+        // times a second). Whether your kart drifted at all is the race's own count, step by step (drift.most: the most
+        // charge and tier any drift of yours reached this race), read after the race: 8 Oct, judged from the looks
+        // alone, a drift through a short bend could reach its tier and end between two of them, and the check failed now
+        // and then on a track that drifts every lap
+        let k = await ks(), drifting = false;
+        const drifted = (q: KartSt) => !!q.drift.most && (q.drift.most.tier >= 1 || q.drift.most.charge >= 0.4);
+        for (let i = 0; i < 300 && !drifting; i++) { await sleep(100); k = await ks(); drifting = k.drift.tier >= 1 || (k.drift.dir !== 0 && k.drift.charge >= 0.4); }
+        await page.eval('window.__gmRuntime.debug.cinematic(true)');
+        const picked = await bestCover(page);
+        await page.eval('window.__gmRuntime.debug.cinematic(false)');
+        await K('K.timeScale(3);');
+        for (let i = 0; i < 260 && k.state !== 'finish' && k.state !== 'podium' && k.state !== 'results'; i++) { await sleep(400); k = await ks(); }
+        const stuck = Math.max(...k.karts.map((q) => q.stuck)), laps = k.lapsDone, drifts = drifting || drifted(k);
+        // the key art, from in front of your kart (the platform's title over it)
+        await K('K.timeScale(1); K.film({ mode: "front", distance: 7.5, height: 1.5, fov: 46 });');
+        const art = await captureWorldKeyArt(page).catch(() => undefined);
+        await K('K.film(null); K.timeScale(8);');
+        for (let i = 0; i < 60 && k.state !== 'results'; i++) { await sleep(300); k = await ks(); }
+        const results = await page.eval<unknown[]>('window.__gm.results').catch(() => []);
+        const errors = await errs();
+        const advisories: string[] = await page.eval<string[]>('window.__gm.warnings || []').catch(() => []);
+        if (picked.look) advisories.push(...lookAdvisories(picked.look));
+        for (const e of errors) problems.push(`Runtime error: ${e}`);
+        if (fps < 30) problems.push(`The kart race ran at ${fps} fps on a laptop GPU with eight karts. Instance repeated scenery with ctx.instanced, merge the karts' meshes by material, keep one shadow-casting light, until it holds 60.`);
+        if (laps < k.laps) problems.push(`On the autopilot your kart finished only ${laps} of ${k.laps} laps in the time a race takes. Check the track: a loop the karts can drive (no hairpin tighter than 14 m on the racing line), nothing in update() or animate() stalling the game.`);
+        if (stuck > 3) problems.push(`A kart was stuck for ${stuck.toFixed(1)} s. Check that nothing the world builds stands on the road or between the walls (kart.course.shoulder).`);
+        if (!drifts) problems.push('Your kart never drifted on the autopilot. Give the track at least one hairpin (16 to 22 m) and two sweepers.');
+        if (!results.length) problems.push('The race did not end in the results: the finish, the podium and the result never came.');
+        if (picked.cover.length < 14_000) problems.push('The screen is nearly a flat colour while racing. Check that build() adds the ground, the road and lights, and that the sky and fog do not swallow everything.');
+        return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: laps, cover: picked.cover, artIcon: art?.icon, artWide: art?.wide, look: picked.look };
+      }
+
       await page.eval('window.__gmRuntime.debug.start()');
       await sleep(3600);
       // real speed, driven, collisions off: the frame rate a player would get

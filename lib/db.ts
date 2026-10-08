@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { WorldSpec } from './worldspec';
+import { KartScore, type KartConstants } from './kart-score';
 
 /**
  * SQLite via Node's built-in driver — no native module, no build step.
@@ -136,6 +137,15 @@ function open() {
   // served to anyone.
   add('games', 'hidden', 'hidden INTEGER NOT NULL DEFAULT 0');
   add('scores', 'hidden', 'hidden INTEGER NOT NULL DEFAULT 0');
+  // a kart race's score (the owner, 8 Oct; lib/runtime/kart-score.js): score holds the total the server computed,
+  // kos the enemies hit, level the laps; beside them whether the race was called before the finish (est) and the share
+  // of it driven, the racer (its own perfect time), the formula's version and the tier the total landed in
+  add('scores', 'est', 'est INTEGER NOT NULL DEFAULT 0');
+  add('scores', 'progress', 'progress REAL');
+  add('scores', 'racer', 'racer TEXT');
+  add('scores', 'score_v', 'score_v INTEGER');
+  add('scores', 'tier', 'tier TEXT');
+  db.exec('CREATE INDEX IF NOT EXISTS scores_by_game_score ON scores(game_id, score DESC)');
   // First-party analytics (lib/analytics.ts): a page view or a press of Play,
   // against the random id the browser made for itself. No IP address, no
   // cookie, no third party.
@@ -190,6 +200,11 @@ export type ScoreRow = {
   level: number | null;
   gm: number | null;
   kos: number | null;
+  est?: number | null;
+  progress?: number | null;
+  racer?: string | null;
+  score_v?: number | null;
+  tier?: string | null;
   player: string;
   time_ms: number;
   place: number;
@@ -387,13 +402,46 @@ export const bumpPlays = (id: string) =>
   db.prepare('UPDATE games SET plays = plays + 1 WHERE id = ?').run(id);
 
 /** Best runs. Race worlds and 'time' games rank by time; 'score' by points; 'place' by finish. */
-export function topScores(gameId: string, limit = 10, by: 'time' | 'score' | 'place' | 'level' | 'survival' = 'time') {
+export function topScores(gameId: string, limit = 10, by: 'time' | 'score' | 'place' | 'level' | 'survival' | 'kart' = 'time') {
+  // a kart race (the owner, 8 Oct): its score (lib/runtime/kart-score.js), then the time, then who posted first; and
+  // each player once, by their best run (a name, as typed, any case)
+  if (by === 'kart') {
+    return db.prepare(`SELECT * FROM (SELECT s.*, ROW_NUMBER() OVER (PARTITION BY lower(trim(player)) ORDER BY ${KART_ORDER}) AS rn
+      FROM scores s WHERE game_id = ? AND hidden = 0) WHERE rn = 1 ORDER BY ${KART_ORDER} LIMIT ?`).all(gameId, limit) as ScoreRow[];
+  }
   const order = by === 'survival' ? 'time_ms DESC, gm DESC, kos DESC'
     : by === 'level' ? 'level DESC, gm DESC, time_ms ASC'
     : by === 'score' ? 'score DESC, time_ms ASC'
     : by === 'place' ? 'CASE WHEN place > 0 THEN place ELSE 99 END ASC, time_ms ASC'
     : 'CASE WHEN time_ms > 0 THEN time_ms ELSE 1e12 END ASC';
   return db.prepare(`SELECT * FROM scores WHERE game_id = ? AND hidden = 0 ORDER BY ${order} LIMIT ?`).all(gameId, limit) as ScoreRow[];
+}
+
+const KART_ORDER = 'score DESC, time_ms ASC, created_at ASC, id ASC';
+/**
+ * Where a player stands on a kart board after a run (one row a player): the board shows their best run, so the rank is
+ * that run's (this one, or a better one already there): 1 + the players other than this one whose best run beats it.
+ * best: whether this run is the one the board now shows.
+ */
+export function kartRank(gameId: string, player: string, score: number, timeMs: number) {
+  const b = db.prepare(`SELECT score, time_ms FROM scores WHERE game_id = ? AND hidden = 0 AND lower(trim(player)) = lower(trim(?)) ORDER BY ${KART_ORDER} LIMIT 1`)
+    .get(gameId, player) as { score: number; time_ms: number } | undefined;
+  const best = !b || score > b.score || (score === b.score && timeMs <= b.time_ms);
+  const s = best ? score : b.score, t = best ? timeMs : b.time_ms;
+  const r = db.prepare(`SELECT COUNT(DISTINCT lower(trim(player))) AS n FROM scores WHERE game_id = ? AND hidden = 0 AND lower(trim(player)) <> lower(trim(?))
+    AND (score > ? OR (score = ? AND time_ms < ?))`).get(gameId, player, s, s, t) as { n: number };
+  return { rank: r.n + 1, best };
+}
+/** Every kart row of a game scored again under its constants (after they are measured, or the formula changes); idempotent. */
+export function rescoreKart(gameId: string, C: KartConstants) {
+  const rows = db.prepare('SELECT id, time_ms, place, gm, kos, est, progress, racer FROM scores WHERE game_id = ?').all(gameId) as
+    { id: number; time_ms: number; place: number; gm: number | null; kos: number | null; est: number | null; progress: number | null; racer: string | null }[];
+  const up = db.prepare('UPDATE scores SET score = ?, score_v = ?, tier = ? WHERE id = ?');
+  for (const r of rows) {
+    const p = KartScore.score({ timeMs: r.time_ms, place: r.place, gm: r.gm ?? 0, hits: r.kos ?? 0, estimated: !!r.est, progress: r.progress, racer: r.racer }, C);
+    up.run(p.total, KartScore.V, p.tier.id, r.id);
+  }
+  return rows.length;
 }
 
 /** Fastest run per game, for the shelf metric. */
@@ -416,7 +464,18 @@ export function insertScore(s: {
   level?: number | null;
   gm?: number | null;
   kos?: number | null;
+  /** a kart race's (8 Oct): see the columns above; hidden holds a run for review */
+  kart?: { est: boolean; progress: number | null; racer: string | null; scoreV: number; tier: string; hidden: boolean };
 }) {
+  if (s.kart) {
+    const k = s.kart;
+    db.prepare(
+      `INSERT INTO scores (game_id, player, time_ms, place, tempo_reached, locks, best_streak, created_at, score, level, gm, kos, est, progress, racer, score_v, tier, hidden)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(s.gameId, s.player, s.timeMs, s.place, s.tempoReached, s.locks, s.bestStreak, Date.now(), s.score ?? null, s.level ?? null, s.gm ?? null, s.kos ?? null,
+      k.est ? 1 : 0, k.progress, k.racer, k.scoreV, k.tier, k.hidden ? 1 : 0);
+    return;
+  }
   db.prepare(
     `INSERT INTO scores (game_id, player, time_ms, place, tempo_reached, locks, best_streak, created_at, score, level, gm, kos)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`

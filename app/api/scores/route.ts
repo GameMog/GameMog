@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getGameBySlug, insertScore, db } from '@/lib/db';
+import { getGameBySlug, insertScore, kartRank, db } from '@/lib/db';
 import { playtest } from '@/lib/playtest';
 import type { WorldSpec } from '@/lib/worldspec';
 import { worldMode } from '@/lib/custom-game';
+import { dna } from '@/lib/mog-dna';
+import { KartScore, kartConstants, checkKartRun } from '@/lib/kart-score';
 
 export const runtime = 'nodejs';
 
@@ -26,6 +28,28 @@ export async function POST(req: Request) {
   if (row.format === 'world') {
     const level = Number(b.level) || 0, gm = Number(b.gm) || 0, timeMs = Number(b.timeMs) || 0, kos = Math.max(0, Math.round(Number(b.kos) || 0));
     if (b.assisted) return NextResponse.json({ error: 'Assisted runs are not ranked.' }, { status: 422 });
+    // a kart race (the owner, 8 Oct): one score, 0 to 10,000, that the server works out itself from the run's parts
+    // (lib/runtime/kart-score.js, the file the game carries) and the world's measured constants (meta.kartScore); the
+    // score the game sent is never read. Then the board shows each player's best run, by score, then time
+    if (worldMode(row.code, row.meta) === 'kart') {
+      const k = row.code ? dna(row.code).kart : null, C = kartConstants(row.meta, row.code, k);
+      const c = checkKartRun(b, C, k?.laps ?? null);
+      if (!c.ok) return NextResponse.json({ error: c.error }, { status: 422 });
+      const r = c.run, p = KartScore.score(r, C), player = String(b.player ?? 'anon').slice(0, 16).replace(/[^\w \-.]/g, '') || 'anon';
+      insertScore({
+        gameId: row.id, player, timeMs: r.timeMs, place: r.place, score: p.total, level: r.laps, gm: r.gm, kos: r.hits,
+        tempoReached: 0, locks: 0, bestStreak: 0,
+        kart: { est: r.estimated, progress: r.progress, racer: r.racer, scoreV: KartScore.V, tier: p.tier.id, hidden: c.review },
+      });
+      // (a run held for review is not on the board yet, so it has no rank there; otherwise the player's rank, by their
+      // best run, and whether this run is it)
+      const at = c.review ? null : kartRank(row.id, player, p.total, r.timeMs);
+      return NextResponse.json({
+        ok: true, score: p.total, tier: { id: p.tier.id, name: p.tier.name, color: p.tier.color, bar: p.tier.bar },
+        parts: { time: p.time, finish: p.finish, gm: p.gm, hits: p.hits },
+        rank: at ? at.rank : null, best: at ? at.best : false, review: c.review, source: C.source,
+      });
+    }
     // an open world ranks the time survived: the heat reached rises with time
     // (at most a level every few seconds, even knocking people out) and GM comes
     // a few coins a knockout

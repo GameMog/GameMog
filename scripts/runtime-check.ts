@@ -8,11 +8,15 @@
  * crash. Needs the dev server (BASE, default http://localhost:3939).
  */
 import { readFileSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
-import { withBrowser } from '../lib/browser.ts';
+import { randomUUID, createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { withBrowser, type Page } from '../lib/browser.ts';
 import { insertDraft, db } from '../lib/db.ts';
 import { meFragment, sanitizeMe } from '../lib/me.ts';
-import { worldControls, OPEN_CONTROLS } from '../lib/custom-game.ts';
+import { worldControls, OPEN_CONTROLS, runtimeSource, isKartWorld } from '../lib/custom-game.ts';
+import { playtestWorld } from '../lib/playtest-runtime.ts';
+import { KartScore, kartConstants, checkKartRun, type KartConstants } from '../lib/kart-score.ts';
+import { dna } from '../lib/mog-dna.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3939';
 let failures = 0;
@@ -21,6 +25,1602 @@ const ok = (name: string, cond: boolean, detail = '') => {
   if (!cond) failures++;
 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/* ------------------------------------------------------------ kart items -- */
+// The items (mechanics.md section 6; lib/runtime/kart-items.js for their looks), on the kart fixture: each one given
+// straight to a kart (debug.kart().give) and used, stepped exactly, with its counterplay; the roulette, the odds by
+// bucket, the limits, the rivals using them; then the slot, the keys, the touch kit and the FUD splat in real time.
+async function kartItemChecks(page: Page, K: <T>(js: string) => Promise<T>, ks: () => Promise<KartState>) {
+  const TOP = 31, STEP = 1 / 120;
+  // a fresh race, the rivals off the track, the count skipped
+  const fresh = (seed = 5) => `K.solo(true); K.seed(${seed}); K.restart(); K.go(); K.solo(true); K.run(0.05, { gas: true });`;
+  // stepped one step at a time, the events read every step: E(name, kart) the step it first happened (or -1)
+  const stepper = `const EV = []; const step = (inp, n) => { for (let i = 0; i < (n || 1); i++) { K.run(1 / 120, inp); for (const e of K.events(true)) EV.push([S, ...e]); S++; } }; let S = 0;
+    const E = (name, k) => { const e = EV.find((x) => x[1] === name && (k === undefined || x[2] === k)); return e ? e[0] : -1; };`;
+
+  console.log('\nkart: the items');
+  // the crates: three rows from the course, driven through: the roulette spins 1.2 s and lands; the crate is back 1.5 s after
+  const cr = await K<{ n: number; rows: number; spin: number; back: number; item: string | null; slot: string | null }>(`${fresh()} ${stepper} const I0 = K.items(), c = I0.crates[0];
+    K.place(c.d - 8, c.x, 20, 0, 0); K.events(true); step({ gas: true }, 600); const r = E('roll', 0), g = E('got', 0), took = EV.find((x) => x[1] === 'crate' && x[3] === 0);
+    return { n: I0.crates.length, rows: new Set(I0.crates.map((q) => q.row)).size, spin: (g - r) / 120, took: took ? took[0] : -1, item: EV.find((x) => x[1] === 'got') ? EV.find((x) => x[1] === 'got')[3] : null, slot: K.items().karts[0].item };`);
+  const crBack = await K<number>(`${fresh()} const c = K.items().crates[0]; K.place(c.d - 4, c.x, 20, 0, 0); let off = -1, on = -1; for (let s = 0; s < 400; s++) { K.run(1 / 120, { gas: true }); const q = K.items().crates[0].on; if (!q && off < 0) off = s; if (off >= 0 && q && on < 0) on = s; } return (on - off) / 120;`);
+  ok('kart: Airdrop crates stand in rows across the road, from the course (three rows, 14 crates); one driven through spins the roulette 1.2 s, and it lands in the slot', cr.n === 14 && cr.rows === 3 && Math.abs(cr.spin - 1.2) <= STEP * 1.5 && !!cr.item && cr.slot === cr.item, JSON.stringify(cr));
+  // (1.5 s until the owner's "more chaotic fun", 7 Oct: items flying all race)
+  ok('kart: a crate taken is back 1 s later', Math.abs(crBack - 1.0) <= STEP * 2, `${crBack.toFixed(3)} s`);
+  // a tap stops the roulette: at 0.5 s at the soonest (a tap at 0.2 s), at once after it (a tap at 0.8 s)
+  const tap = (at: number) => K<number>(`${fresh()} ${stepper} const c = K.items().crates[0]; K.place(c.d - 4, c.x, 20, 0, 0); K.events(true); let r = -1;
+    for (let i = 0; i < 300; i++) { const rolling = r >= 0; step({ gas: true, item: rolling && S - r === ${Math.round(at * 120)} }); if (r < 0) r = E('roll', 0); } return (E('got', 0) - r) / 120;`);
+  const [t2, t8] = [await tap(0.2), await tap(0.8)];
+  ok('kart: a tap stops the roulette: tapped at 0.2 s it lands at 0.5 s; at 0.8 s, there and then', Math.abs(t2 - 0.5) <= STEP * 1.5 && Math.abs(t8 - 0.8) <= STEP * 1.5, `${t2.toFixed(3)} s, ${t8.toFixed(3)} s`);
+
+  // the odds: 6,000 rolls from each bucket against mechanics.md's table (past 20 s, so the WHALE DUMP may come)
+  const TABLE = [[30, 35, 20, 10, 5, 0, 0, 0, 0, 0], [15, 25, 15, 25, 15, 0, 5, 0, 0, 0], [8, 18, 10, 28, 22, 6, 8, 0, 0, 0], [4, 12, 6, 26, 26, 14, 10, 2, 0, 0], [0, 8, 2, 24, 22, 22, 10, 4, 8, 0], [0, 4, 0, 16, 18, 29, 10, 5, 12, 6], [0, 0, 0, 12, 12, 28, 9, 5, 18, 16], [0, 0, 0, 8, 8, 27, 6, 5, 22, 24]];
+  const IDS = ['gmbag', 'rug', 'wallet', 'laser', 'pump', 'wow', 'fud', 'whale', 'diamond', 'moon'];
+  const odds = await K<Record<string, number>[]>(`${fresh()} K.run(20.5, {}); return [1, 2, 3, 4, 5, 6, 7, 8].map((b) => K.odds(b, 6000));`);
+  let worst = 0, worstAt = '';
+  odds.forEach((o, b) => IDS.forEach((id, i) => { const d = Math.abs(o[id] / 60 - TABLE[b][i]); if (d > worst) { worst = d; worstAt = `bucket ${b + 1} ${id}: ${(o[id] / 60).toFixed(1)}% for ${TABLE[b][i]}%`; } }));
+  const zeros = odds.every((o, b) => IDS.every((id, i) => TABLE[b][i] > 0 || o[id] === 0));
+  ok('kart: the odds by bucket are the table\'s (6,000 rolls a bucket, within 2.5 points), and what the table never gives never comes', worst < 2.5 && zeros, `worst ${worstAt}`);
+  const bk = await K<number[]>(`${fresh()} K.place(200, 0, 0, 0, 0); K.place(260, 2, 0, 0, 1); const a = K.items().karts[0].bucket; K.place(340, 2, 0, 0, 1); const b = K.items().karts[0].bucket; K.place(520, 2, 0, 0, 1); const c = K.items().karts[0].bucket;
+    K.place(210, 2, 0, 0, 2); K.place(220, -2, 0, 0, 3); const d = K.items().karts[0].bucket; return [a, b, c, d];`);
+  ok('kart: the bucket is your place, one on more than 120 m behind the leader, two more than 300 m', bk.join() === '2,3,4,6', bk.join());
+  const w = await K<{ x2: number; base: number; few: unknown }>(`${fresh()} K.run(20.5, {}); const base = K.odds(4, 6000).laser; K.weights({ 'Laser Eyes': 60 }); const x2 = K.odds(4, 6000).laser; const few = K.weights({ gmbag: 30, rug: 30, wallet: 30, laser: 0, pump: 0, wow: 0, fud: 0, whale: 0, diamond: 0, moon: 0 }); K.weights(null); return { base, x2, few };`);
+    // (bucket 4: Laser Eyes 26 of 100; weighed double, 52 of 126)
+  ok('kart: a world weighs the items (kart.items.weights, 0 to 60 each, 30 as they come): Laser Eyes at 60 in bucket 4 is 52 of 126 (41%, from 26%); fewer than five kinds left in, the weights are not used', Math.abs(w.x2 / 60 - 5200 / 126) < 2.5 && Math.abs(w.base / 60 - 26) < 2.5 && w.few === null, JSON.stringify(w));
+
+  // the limits
+  const lim = await K<Record<string, unknown>>(`${fresh()} const early = K.limit('whale').blocked; K.run(20.5, {}); const late = K.limit('whale').blocked;
+    K.place(100, 0, 20, 0, 0); K.place(60, 2, 20, 0, 3); K.give('whale', 3); K.use(3); const one = K.limit('whale').blocked; K.run(4, {}); const after = K.limit('whale').blocked; const gone = K.items().whale === null; K.run(26.5, {}); const gap = K.limit('whale').blocked;
+    K.give('diamond', 1); K.give('diamond', 2); const d2 = K.limit('diamond'); K.give(null, 2); const d1 = K.limit('diamond');
+    K.give('laser', 1); K.give('laser', 2); K.give('laser', 3); const l3 = K.limit('laser'); const noLaser = K.odds(5, 3000).laser; K.give(null, 1); K.give(null, 2); K.give(null, 3);
+    K.give('moon', 1); K.give('moon', 2); const m2 = K.limit('moon').blocked; K.give(null, 1); K.give(null, 2); const m0 = K.limit('moon').blocked; K.lap(2); K.place(K.state().L - 150, 0, 0, 0, 0); K.lap(2); const mEnd = K.limit('moon').blocked; const noMoon = K.odds(8, 3000).moon;
+    return { early, late, one, after, gone, gap, d2: d2.blocked, d1: d1.blocked, l3: l3.blocked, noLaser, m2, m0, mEnd, noMoon };`);
+  ok('kart: no WHALE DUMP in the first 20 s, one at a time, and 30 s between', lim.early === true && lim.late === false && lim.one === true && lim.after === true && lim.gone === true && lim.gap === false, JSON.stringify(lim));
+  ok('kart: two Diamond Hands, two To The Moon and three Laser Eyes out at once at most (a roll that would break it rolls again), and no To The Moon within 200 m of the finish', lim.d2 === true && lim.d1 === false && lim.l3 === true && lim.noLaser === 0 && lim.m2 === true && lim.m0 === false && lim.mEnd === true && lim.noMoon === 0, JSON.stringify(lim));
+
+  // GM Bag
+  const bag = await K<number>(`${fresh()} K.place(100, 0, 20, 0, 0); K.gm(2); K.give('GM Bag'); K.run(1 / 120, { gas: true, item: true }); K.run(1 / 120, { gas: true }); return K.kart(0).gm;`);
+  ok('kart: GM Bag: +3 GM (X uses it)', bag === 5, `${bag} GM`);
+
+  // Rug Pull: dropped behind by a rival, driven onto: a second's spin at 0.35 of the speed, a GM gone, then a second untouchable
+  const rug = await K<Record<string, any>>(`${fresh()} ${stepper} K.place(100, 0, 20, 0, 1); K.give('rug', 1); K.use(1, 0); const tr = K.items().traps[0]; K.place(tr.d - 12, tr.x, 20, 0, 0); K.gm(3); K.events(true);
+    let v0 = 0, hitAt = -1, after = null; for (let i = 0; i < 300; i++) { const b = K.kart(0).v; step({ gas: true }); if (hitAt < 0 && E('hit', 0) >= 0) { hitAt = S; v0 = b; after = K.kart(0); } }
+    const ik = K.items().karts[0]; return { trap: tr, hitAt, ratio: after ? after.v / v0 : 0, stun: after ? after.stun : 0, gm: K.kart(0).gm, kind: (EV.find((e) => e[1] === 'hit') || [])[3], left: K.items().traps.length };`);
+  ok('kart: Rug Pull: a rug left on the road (1.6 m wide), driven onto: a second\'s spin, the speed to 0.35, a GM gone, and the rug gone', rug.trap && rug.hitAt > 0 && rug.kind === 'rug' && Math.abs(rug.ratio - 0.35) < 0.02 && Math.abs(rug.stun - 1.0) < 0.02 && rug.gm === 2 && rug.left === 0, JSON.stringify(rug));
+  const hop = await K<Record<string, any>>(`${fresh()} ${stepper} K.place(100, 0, 20, 0, 1); K.give('rug', 1); K.use(1, 0); const tr = K.items().traps[0]; K.place(tr.d - 12, tr.x, 20, 0, 0); K.events(true); let hopped = false;
+    for (let i = 0; i < 200; i++) { const r = tr.d - K.kart(0).d; const go = !hopped && r < 1.3 + 20 * 0.04; if (go) hopped = true; step({ gas: true, drift: go }); }
+    return { hit: E('hit', 0), left: K.items().traps.length, past: K.kart(0).d > tr.d + 3 };`);
+  ok('kart: counterplay: hop it (the hop clears it as it passes under) and it stays for the next kart', hop.hit < 0 && hop.left === 1 && hop.past, JSON.stringify(hop));
+  // (at the top speed, steady: a kart still gathering speed covers more than its speed at the throw said)
+  const lob = await K<Record<string, any>>(`${fresh()} K.place(100, 0, ${TOP}, 0, 0); K.give('rug'); K.use(0, 1); const t0 = K.items().traps[0]; K.run(0.6, { gas: true }); const t1 = K.items().traps[0]; return { fly: t0.fly, ahead: t1.d - K.kart(0).d, landed: t1.fly === 0 };`);
+  ok('kart: pushed up (E, or the stick up) it is lobbed, to land 20 m ahead of you', lob.landed && Math.abs(lob.ahead - 20) < 1.5 && lob.fly > 0.5, JSON.stringify(lob));
+  const three = await K<Record<string, any>>(`${fresh()} K.place(100, 0, 20, 0, 0); for (let i = 0; i < 4; i++) { K.give('rug'); K.use(0, 0); K.run(0.5, { gas: true }); } const n = K.items().traps.length; K.run(31, {}); return { n, after: K.items().traps.length };`);
+  ok('kart: three rugs an owner on the road at most (a fourth takes up the oldest), and each lasts 30 s', three.n === 3 && three.after === 0, JSON.stringify(three));
+
+  // Laser Eyes: at the next kart ahead, fast, homing: a tumble, the speed to 0.30, 3 GM spilled on the road
+  const laserRun = (pre: string, during = 'false') => K<Record<string, any>>(`${fresh()} ${stepper} K.place(120, 0, 20, 0, 0); K.gm(5); ${pre} K.place(90, 1.5, 20, 0, 1); K.give('laser', 1); K.events(true); K.use(1, 0);
+    const sh = K.items().shots[0]; let v0 = 0, after = null, minGap = 99, hopped = false, gmAt = null;
+    for (let i = 0; i < 360; i++) { const s0 = K.items().shots[0], k = K.kart(0); if (s0) minGap = Math.min(minGap, Math.abs(s0.d - k.d)); const b = k.v; const near = !!s0 && k.d - s0.d < 3 && k.d - s0.d > 0;
+      const go = ${during} && near && !hopped; if (go) hopped = true; step({ gas: true, drift: go }); if (!after && E('hit', 0) >= 0) { after = K.kart(0); v0 = b; gmAt = K.items().spill; } }
+    return { shot: sh, hit: E('hit', 0), ratio: after ? after.v / v0 : 0, stun: after ? after.stun : 0, gm: after ? after.gm : K.kart(0).gm, spill: gmAt === null ? K.items().spill : gmAt, blocked: E('blocked', 0), dodged: E('dodge', 0), shielded: E('shielded', 0), slot: K.items().karts[0].item, shield: K.items().karts[0].shield, end: (EV.find((e) => e[1] === 'laserEnd') || [])[3] };`);
+  const lz = await laserRun('');
+  ok('kart: Laser Eyes: fired at the next kart ahead at 46.8 m/s at least (40 until 7 Oct\'s faster race), it homes in: a tumble of 0.9 s, the speed to 0.30, and 3 GM spilled on the road for anyone', lz.shot && lz.shot.target === 0 && lz.shot.v >= 46.7 && lz.hit > 0 && Math.abs(lz.ratio - 0.3) < 0.02 && Math.abs(lz.stun - 0.9) < 0.02 && lz.gm === 2 && lz.spill === 3, JSON.stringify(lz));
+  const lzW = await laserRun("K.give('wallet'); K.use(0);");
+  ok('kart: counterplay: a Cold Wallet blocks a laser (and is spent)', lzW.blocked > 0 && lzW.hit < 0 && lzW.gm === 5 && lzW.shield === 0, JSON.stringify(lzW));
+  const lzH = await laserRun('', 'true');
+  ok('kart: counterplay: hop as it closes (inside 3 m: 2.5 until the faster laser, 7 Oct) and it passes underneath', lzH.dodged > 0 && lzH.hit < 0, JSON.stringify(lzH));
+  // (a laser at a rival twenty times round the lap: a Normal rival hops 35% of them, up as it closes)
+  const aiLz = await K<Record<string, any>>(`${fresh(9)} ${stepper} let hits = 0, dodged = 0, passes = 0; for (let i = 0; i < 20; i++) { K.place(150 + i * 50, 0, 22, 0, 1); K.place(120 + i * 50, 0, 22, 0, 2); K.give('laser', 2); K.events(true); EV.length = 0; K.use(2, 0);
+    const id = K.items().shots[0].id; for (let s = 0; s < 480 && K.items().shots.length; s++) step({ gas: true }); passes++;
+    const e = EV.find((x) => (x[1] === 'hit' && x[2] === 1 && x[3] === 'laser') || (x[1] === 'dodge' && x[2] === 1 && x[3] === id)); if (e && e[1] === 'hit') hits++; else if (e) dodged++; K.place(10, 0, 0, 0, 1); K.place(30, 0, 0, 0, 2); } return { hits, dodged, passes };`);
+  ok('kart: a rival with a laser homing on it hops it as it closes when it has the nerve (Normal: 35%), and most are hit (the rest end on what it carries: a rug dragged, a Wallet)', aiLz.dodged >= 3 && aiLz.hits > aiLz.dodged && aiLz.hits + aiLz.dodged >= 12, JSON.stringify(aiLz));
+  const drag = await K<Record<string, any>>(`${fresh()} ${stepper} K.place(120, 0, 20, 0, 0); K.give('rug'); step({ gas: true, item: true }); const dragging = K.items().karts[0].drag; K.place(90, 1.5, 20, 0, 1); K.give('laser', 1); K.use(1, 0);
+    for (let i = 0; i < 300; i++) step({ gas: true, item: true }); return { dragging, shielded: E('shielded', 0), hit: E('hit', 0), slot: K.items().karts[0].item };`);
+  ok('kart: counterplay: something dragged behind (the item button held) takes a laser from behind', drag.dragging && drag.shielded > 0 && drag.hit < 0 && drag.slot === null, JSON.stringify(drag));
+  const back = await K<Record<string, any>>(`${fresh()} K.place(100, 0, 20, 0, 0); K.place(140, 0, 20, 0, 1); K.give('laser'); K.use(0, -1); const s0 = K.items().shots[0]; K.run(0.3, { gas: true }); const s1 = K.items().shots[0]; return { dir: s0.dir, target: s0.target, from: s0.d, to: s1 ? s1.d : null };`);
+  ok('kart: pulled back (↓, C or the stick down) it is fired behind, straight', back.dir === -1 && back.target === -1 && back.to !== null && back.to < back.from - 8, JSON.stringify(back));
+  const wall = await K<Record<string, any>>(`${fresh()} ${stepper} K.place(100, 0, 0, 60, 0); K.give('laser'); K.events(true); K.use(0, -1); step({}, 120); const e = EV.find((x) => x[1] === 'laserEnd'); return { end: e ? e[3] : null, at: e ? e[0] / 120 : -1, left: K.items().shots.length };`);
+  ok('kart: a laser fired into a wall ends there', wall.end === 'wall' && wall.at > 0 && wall.at < 0.6 && wall.left === 0, JSON.stringify(wall));
+
+  // Pump and Much Wow
+  const pump = await K<Record<string, any>>(`${fresh()} K.place(100, 0, ${TOP}, 0, 0); K.give('pump'); K.use(0); const a = K.kart(0); const tr = K.run(1.5, { gas: true }, 1 / 120); return { src: a.src, cap: a.cap, T: tr.filter((s) => s.src === 'pump' && s.boost > 0).length / 120, peak: Math.max(...tr.map((s) => s.v)) };`);
+  ok('kart: Pump: one boost, +32% for 1.2 s', pump.src === 'pump' && pump.cap === 0.32 && Math.abs(pump.T - 1.2) <= STEP * 2 && pump.peak > TOP * 1.25, JSON.stringify(pump));
+  const wow = await K<Record<string, any>>(`${fresh()} K.place(100, 0, ${TOP}, 0, 0); K.give('Much Wow'); const c0 = K.items().karts[0].charges; const out = [];
+    for (let i = 0; i < 3; i++) { K.run(1 / 120, { gas: true, item: true }); const a = K.kart(0); out.push([a.src, a.cap, K.items().karts[0].charges]); K.run(1.4, { gas: true }); } return { c0, out, slot: K.items().karts[0].item };`);
+  ok('kart: Much Wow: three charges, each its own boost (+32% for 1.0 s), the slot empty after the third', wow.c0 === 3 && wow.out.map((o: any[]) => o.join(':')).join() === 'wow:0.32:2,wow:0.32:1,wow:0.32:0' && wow.slot === null, JSON.stringify(wow));
+
+  // FUD Cloud: on everyone ahead: a rival's pace 8% down and its line shaken for 2.5 s; you 8% slower for 2.5 s (a boost
+  // clears it twice as fast). (Until the owner's third review, 7 Oct: 3 s on a rival, and on you an ink splat over the
+  // middle of your screen for 3.5 s, "it blocks entire view")
+  const fud = await K<Record<string, any>>(`${fresh()} K.place(100, 0, 20, 0, 1); K.place(140, 0, 20, 0, 2); K.place(120, 0, 20, 0, 0); K.give('fud'); K.use(0); K.run(0.5, { gas: true }); const r = K.items().karts; const p1 = K.kart(1).pace, p2 = K.kart(2).pace; return { ahead: r[2].fudAI, behind: r[1].fudAI, p1, p2 };`);
+  ok('kart: FUD Cloud: everyone ahead of you: a rival\'s pace down 8% and its line shaken, for 2.5 s; nobody behind', fud.ahead > 2.3 && fud.ahead <= 2.5 && fud.behind === 0 && Math.abs(fud.p2 / fud.p1 - 0.92) < 0.06, JSON.stringify(fud));
+  const fudMe = await K<Record<string, any>>(`${fresh()} K.place(140, 0, 20, 0, 0); K.place(100, 0, 20, 0, 1); K.give('fud', 1); K.use(1); K.run(0.36, { gas: true }); const t0 = K.items().karts[0].fud; K.run(1, { gas: true }); const plain = K.items().karts[0].fud;
+    K.place(140, 0, 20, 0, 0); K.place(100, 0, 20, 0, 1); K.give('fud', 1); K.use(1); K.run(0.36, { gas: true }); K.give('pump'); K.use(0); K.run(1, { gas: true }); const boosted = K.items().karts[0].fud;
+    K.place(140, 0, ${TOP}, 0, 0); K.place(100, 0, 20, 0, 1); K.give('fud', 1); K.use(1); K.run(2.2, { gas: true }); const slowed = K.kart(0).v; K.run(1.5, { gas: true }); return { t0, plain, boosted, slowed: +(slowed / ${TOP}).toFixed(3), after: +(K.kart(0).v / ${TOP}).toFixed(3) };`);
+  ok('kart: on you, 2.5 s of it, 8% off your speed (a boost clears it twice as fast), then back to the top', Math.abs(fudMe.t0 - 2.5) < 0.05 && Math.abs(fudMe.t0 - fudMe.plain - 1) < 0.03 && Math.abs(fudMe.t0 - fudMe.boosted - 2) < 0.05 && fudMe.slowed < 0.95 && fudMe.slowed > 0.9 && fudMe.after > 0.97, JSON.stringify(fudMe));
+
+  // WHALE DUMP: on the leader; the shadow 2.5 s, the aim locked 0.25 s before; a flip of 1.6 s, the speed to 0.20, 3 GM spilled
+  const whale = (pre: string, at = -1) => K<Record<string, any>>(`${fresh()} ${stepper} K.run(20.5, {}); K.place(100, 0, ${TOP}, 0, 0); K.gm(5); ${pre} K.place(40, 2, 20, 0, 3); K.give('whale', 3); K.events(true); K.use(3); const w0 = K.items().whale;
+    let v0 = 0, after = null; for (let i = 0; i < 420; i++) { const b = K.kart(0).v; step({ gas: true, item: S === ${Math.round(at * 120)} }); if (!after && E('hit', 0) >= 0) { after = K.kart(0); v0 = b; } }
+    return { target: w0.target, lock: E('whaleLock') / 120, slam: E('slam') / 120, hit: E('hit', 0), ratio: after ? after.v / v0 : 0, stun: after ? after.stun : 0, gm: K.kart(0).gm, kind: (EV.find((e) => e[1] === 'hit' && e[2] === 0) || [])[3] };`);
+  const wh = await whale('');
+  ok('kart: WHALE DUMP: on the leader as it is fired (at the top speed); the aim locks at 2.25 s, the slam at 2.5 s, 8.2 m round it (7 until the faster race, 7 Oct): a 1.6 s flip, the speed to 0.20, 3 GM spilled', wh.target === 0 && Math.abs(wh.lock - 2.25) <= STEP * 1.5 && Math.abs(wh.slam - 2.5) <= STEP * 1.5 && wh.kind === 'whale' && Math.abs(wh.ratio - 0.2) < 0.02 && Math.abs(wh.stun - 1.6) < 0.02 && wh.gm === 2, JSON.stringify(wh));
+  const whB = await whale("K.give('pump');", 2.12);
+  ok('kart: counterplay: a boost (+20% or more) at the lock and you are out of the 8.2 m before it lands', whB.hit < 0 && whB.slam > 0, JSON.stringify(whB));
+  const whW = await whale("K.give('wallet'); K.use(0);");
+  ok('kart: and a Cold Wallet does not stop the Whale', whW.kind === 'whale', JSON.stringify(whW));
+  const whD = await whale("K.give('diamond'); K.use(0);");
+  ok('kart: Diamond Hands does', whD.hit < 0, JSON.stringify(whD));
+
+  // Diamond Hands: 6 s untouchable, +12%, off the road as on it, and it spins whoever it touches
+  const dia = await K<Record<string, any>>(`${fresh()} ${stepper} K.place(100, 9.5, 22, 0, 0); K.give('diamond'); K.use(0); const a = K.kart(0); const tr = []; for (let i = 0; i < 120; i++) { step({ gas: true }); tr.push(K.kart(0)); }
+    K.place(200, 0, 22, 0, 0); K.place(200, 1.25, 22, 0, 1); K.give('diamond'); K.use(0); K.events(true); EV.length = 0; step({ gas: true }, 30); const touched = (EV.find((e) => e[1] === 'hit' && e[2] === 1) || [])[3];
+    K.run(5.5, { gas: true }); const left = K.items().karts[0].diamond; K.run(0.6, { gas: true });
+    return { src: a.src, cap: a.cap, off: tr.some((s) => s.off), minV: Math.min(...tr.slice(60).map((s) => s.v)), touched, left, after: K.items().karts[0].diamond };`);
+  ok('kart: Diamond Hands: 6 s, +12%, held up by nothing off the road, and whoever it touches spins', dia.src === 'diamond' && dia.cap === 0.12 && dia.off && dia.minV > TOP && dia.touched === 'touch' && dia.left > 0 && dia.after === 0, JSON.stringify(dia));
+
+  // To The Moon: 3.5 s on rails at 40 m/s at least, nothing touches it, over the rugs, then 0.8 s untouchable
+  const moon = await K<Record<string, any>>(`${fresh()} ${stepper} K.place(60, 0, 20, 0, 1); K.give('rug', 1); K.use(1, 0); K.place(40, 0, 20, 0, 0); K.give('moon'); K.use(0); const tr = [];
+    for (let i = 0; i < 480; i++) { step({ gas: false, steer: -1 }); tr.push(K.kart(0)); if (i === 120) K.hit('laser', 0); }
+    // (on the road for the 3.5 s it rides: after it, the stick still hard over at 40 m/s turns the kart off it, since 7 Oct's turn)
+    const ik = K.items().karts[0]; return { top: Math.max(...tr.map((s) => s.v)), lat: Math.max(...tr.slice(0, 420).map((s) => Math.abs(s.x))), hit: E('hit', 0), rug: K.items().traps.length, moon: ik.moon, iframe: ik.iframe, end: E('moonEnd', 0) / 120 };`);
+  ok('kart: To The Moon: 3.5 s on the rocket at 46.8 m/s and more (40 until 7 Oct\'s faster race), on the road whatever the stick says, over rugs, untouchable, then 0.8 s more untouchable', moon.top >= 46.7 && moon.lat < 8 && moon.hit < 0 && moon.rug === 1 && Math.abs(moon.end - 3.5) <= STEP * 2 && moon.iframe > 0.2 && moon.iframe <= 0.8, JSON.stringify(moon));
+
+  // a second untouchable after every item hit
+  const ifr = await K<string[]>(`${fresh()} K.place(100, 0, 20, 0, 0); const a = K.hit('rug', 0); K.run(1.9, { gas: true }); const b = K.hit('laser', 0); K.run(0.2, { gas: true }); const c = K.hit('laser', 0); return [a, b, c];`);
+  ok('kart: every item hit is followed by a second untouchable (a rug\'s spin is 1 s: a laser 1.9 s on misses, 2.1 s on hits)', ifr.join() === 'hit,iframe,hit', ifr.join());
+
+  // the rivals: every kind of item used in a race, at karts, with hits, and the race still finishes inside 3:30
+  // (four races: the Whale rolls only from mid-pack, 2 to 5% a roll, and the 7 Oct pace and tiers left 3, 17 and 42
+  // without a slam between them)
+  const races = await K<{ times: (number | null)[]; items: { got: Record<string, number>; used: Record<string, number>; hits: Record<string, number>; blocked: number; dodged: number; crates: number; slams: number } }[]>('return [3, 17, 42, 5].map((s) => K.headless(s, 300, true));');
+  const used: Record<string, number> = {}, hits: Record<string, number> = {};
+  races.forEach((r) => { for (const [k, v] of Object.entries(r.items.used)) used[k] = (used[k] || 0) + v; for (const [k, v] of Object.entries(r.items.hits)) hits[k] = (hits[k] || 0) + v; });
+  ok('kart: the rivals use their items (four races: nine kinds or more used, items hitting karts, a Whale slam), and every race still finishes inside 3:30', Object.keys(used).length >= 9 && Object.values(hits).reduce((a, b) => a + b, 0) >= 10 && races.some((r) => r.items.slams > 0) && races.every((r) => r.times.every((x) => x !== null && x <= 210)),
+    `used ${JSON.stringify(used)}, hits ${JSON.stringify(hits)}`);
+  // (a rug every 50 m round the lap, each met once, by a rival coming up on it from 34 m)
+  const aiHop = await K<Record<string, any>>(`${fresh(9)} ${stepper} let hits = 0, passes = 0; for (let i = 0; i < 20; i++) { K.place(150 + i * 50, 0, 22, 0, 2); K.give('rug', 2); K.use(2, 0); const tr = K.items().traps.slice(-1)[0]; K.place(tr.d - 34, tr.x + 0.3, 22, 0, 1); K.events(true); EV.length = 0;
+    step({ gas: true }, 220); passes++; if (EV.some((e) => e[1] === 'hit' && e[2] === 1)) hits++; K.place(10, 0, 0, 0, 1); K.place(30, 0, 0, 0, 2); } return { hits, passes };`);
+  ok('kart: a rival meeting a rug on its line mostly gets round it or hops it (Normal: hops 35%)', aiHop.hits < aiHop.passes * 0.5, JSON.stringify(aiHop));
+
+  // the HUD, in real time: the roulette in the slot, X uses it, the touch kit's ITEM, the FUD Cloud on you
+  await K(`${fresh()} const c = K.items().crates[1]; K.place(c.d - 30, c.x, 20, 0, 0); K.hold({ gas: true }); return 1;`);
+  const seen: { icon: string | null; rolling: boolean; slot: string | null; shown: boolean }[] = [];
+  for (let i = 0; i < 70; i++) { const st = await ks(); seen.push({ icon: st.hud.item.icon, rolling: st.hud.item.rolling, slot: st.item.slot, shown: st.hud.item.shown }); await sleep(40); }
+  await K('K.hold(null); return 1;');
+  const spun = new Set(seen.filter((q) => q.rolling).map((q) => q.icon)), last = seen[seen.length - 1];
+  ok('kart: the slot (under the lap) spins the roulette through the items, then shows what landed', seen.every((q) => q.shown) && spun.size >= 4 && !last.rolling && !!last.slot && last.icon === last.slot, `${spun.size} icons spun, landed ${last.slot} (${last.icon})`);
+  await K(`K.place(100, 0, 20, 0, 0); K.give('pump'); return 1;`);
+  await page.key('KeyX', 'keyDown'); await sleep(120); await page.key('KeyX', 'keyUp'); await sleep(80);
+  const kx = await ks();
+  ok('kart: X uses the item (Pump: the boost on)', kx.item.slot === null && kx.src === 'pump', `${kx.item.slot} ${kx.src}`);
+  // the real keys with a Rug Pull: a tap of E lobs it ahead (E is the button and the aim at once), a tap of X drops it behind
+  const rugKey = async (code: string) => {
+    await K(`K.place(100, 0, 20, 0, 0); K.give('rug'); return 1;`);
+    await page.key(code, 'keyDown'); await sleep(150); await page.key(code, 'keyUp'); await sleep(40);
+    const a = await K<{ fly: number; from: number } | null>(`const t = K.items().traps.filter((q) => q.owner === 0).slice(-1)[0]; return t ? { fly: t.fly, from: K.kart(0).d } : null;`);
+    await sleep(800);
+    const b = await K<{ fly: number; d: number; slot: string | null } | null>(`const t = K.items().traps.filter((q) => q.owner === 0).slice(-1)[0]; return t ? { fly: t.fly, d: t.d, slot: K.items().karts[0].item } : null;`);
+    return { fly: a ? a.fly : -1, landed: b ? b.fly === 0 : false, ahead: a && b ? +(b.d - a.from).toFixed(1) : null, slot: b ? b.slot : 'none' };
+  };
+  const [keE, keX] = [await rugKey('KeyE'), await rugKey('KeyX')];
+  ok('kart: keys: a tap of E lobs a Rug Pull ahead (it lands 15 m or more on), a tap of X drops it behind', keE.fly > 0.3 && keE.landed && keE.ahead !== null && keE.ahead > 15 && keE.slot === null && keX.fly === 0 && keX.ahead !== null && keX.ahead < 0, `E ${JSON.stringify(keE)}, X ${JSON.stringify(keX)}`);
+  const tk = await page.eval<{ buttons: string[]; itemAbove: boolean; used: string | null }>(`(async () => { const r = document.querySelector('#gm'), had = r.classList.contains('touch'); r.classList.add('touch'); const b = [...document.querySelectorAll('#gm .tpad button')];
+    const it = b.find((x) => x.textContent === 'ITEM'), dr = b.find((x) => x.textContent === 'DRIFT'), a = it.getBoundingClientRect(), d = dr.getBoundingClientRect();
+    const K = window.__gmRuntime.debug.kart(); K.give('gmbag'); const g0 = K.state().gm; it.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await new Promise((q) => setTimeout(q, 120)); it.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); await new Promise((q) => setTimeout(q, 80));
+    const used = K.state().gm - g0 === 3 ? 'gmbag' : null; if (!had) r.classList.remove('touch');
+    return { buttons: b.map((x) => x.textContent), itemAbove: a.bottom <= d.top + 2 && Math.abs((a.left + a.right) / 2 - (d.left + d.right) / 2) < 4 && a.width === 76, used }; })()`);
+  ok('kart: touch: ITEM (76 px) above DRIFT, and a tap on it uses the item', tk.buttons.join() === 'BRAKE,ITEM,DRIFT' && tk.itemAbove && tk.used === 'gmbag', JSON.stringify(tk));
+  await K(`K.place(160, 0, 20, 0, 0); K.place(120, 0, 20, 0, 1); K.give('fud', 1); K.use(1); return 1;`);
+  await sleep(700);
+  const fs = await K<{ mid: number; edge: number; opacity: number; cloud: number[] | null; top: number; clouds: string[] } | null>('return K.fud();');
+  ok('kart: the FUD Cloud on you hangs high over your kart (in the middle, its foot above a quarter of the way down the screen) and the edges of the screen darken a little, never the middle: nothing of it over the road ahead (7 Oct: an ink splat over the middle 35%, "it blocks entire view")',
+    !!fs && !!fs.cloud && fs.cloud[0] > 0.3 && fs.cloud[1] < 0.7 && fs.cloud[3] <= 0.3 && fs.mid <= 0.02 && fs.edge > 0.05 && fs.opacity > 0.9 && fs.clouds.some((c) => c.startsWith('me:0')), JSON.stringify(fs));
+  await sleep(2400);
+  const gone = await ks();
+  ok('kart: and is gone 2.5 s later', gone.hud.fud === 0 && gone.item.fud === 0, `${gone.hud.fud} ${gone.item.fud}`);
+  // the WHALE DUMP on your own kart, seen from your camera: it fades as the camera comes inside it (the road stays on
+  // the screen), solid while it is far; and it was made ahead, on the start screen
+  const warm = await K<number>('return K.items().warm;');
+  await K(`${fresh()} K.run(20.5, {}); K.place(300, 0, 20, 0, 0); K.place(240, 2, 20, 0, 3); K.give('whale', 3); K.use(3); K.hold({ gas: true }); return 1;`);
+  const whTarget = await K<number>('return K.items().whale.target;'), wop: number[] = [];
+  for (let i = 0; i < 75; i++) { const w = await K<{ opacity: number; shown: boolean; t: number } | null>('return K.items().whale;'); if (w && w.shown) wop.push(w.opacity); await sleep(40); }
+  await K('K.hold(null); return 1;');
+  ok('kart: the WHALE DUMP slammed on you fades for your camera (to 0.15 or less; 0.3 until 7 Oct) and is solid up in the sky; it and a FUD Cloud were made before the race', warm === 2 && wop.length > 20 && Math.max(...wop.slice(0, 5)) > 0.95 && Math.min(...wop) <= 0.15 && whTarget === 0, `target ${whTarget}, warm ${warm}, opacity ${Math.max(...wop).toFixed(2)} .. ${Math.min(...wop).toFixed(2)} (${wop.length} frames)`);
+}
+
+/* ------------------------------------------------------------ kart chaos -- */
+// The owner's review (7 Oct): "needs more chaotic fun, in terms of roads, breaks, jumps and players interacting with
+// each other in terms of bumps, road rage etc." On the fixture's chaos (lib/runtime/kart-world.js: three rollers, a
+// break with a lip before it and two linked rails over it, a rolling coin, a toppling candle and meteors): the charge
+// jump, the rails, the bumps, the break, weight in a bump, the hop-bash and the GM it knocks loose, a rival's rage, the
+// hazards and no stun-lock, stepped exactly as the rest; then what it all looks like, in real time.
+async function kartChaosChecks(page: Page, K: <T>(js: string) => Promise<T>, ks: () => Promise<KartState>) {
+  const STEP = 1 / 120, TOP = 31;
+  const fresh = (seed = 5) => `K.solo(true); K.seed(${seed}); K.restart(); K.go(); K.solo(true); K.run(0.05, { gas: true });`;
+  const stepper = `const EV = []; const step = (inp, n) => { for (let i = 0; i < (n || 1); i++) { K.run(1 / 120, inp); for (const e of K.events(true)) EV.push([S, ...e]); S++; } }; let S = 0;
+    const E = (name, k) => { const e = EV.find((x) => x[1] === name && (k === undefined || x[2] === k)); return e ? e[0] : -1; };`;
+  type CS = Sample & { cj: number; cjAir: boolean; grind: number; grindT: number; pit: boolean; airT: number; vy: number; mad: number; madAt: number; calm: number; bashI: number; hit: string; iframe: number };
+  console.log('\nkart: the chaos (7 Oct)');
+  const C = await K<{ breaks: { d0: number; len: number }[]; rails: { d0: number; len: number; pts: number[][]; next: number; h: number }[]; bumps: { d0: number; kind: string; n: number; len: number }[]; hazards: { kind: string; d: number; every: number; off: number; side: number }[] }>('return K.course();');
+  ok('kart: the course reads its chaos (kart.course): a break of 8 m, two rails the first linked to the second, three rollers and a lip, and three hazards (a rolling coin, a candle, meteors)',
+    C.breaks.length === 1 && Math.abs(C.breaks[0].len - 8) < 0.01 && C.rails.length === 2 && C.rails[0].next === 1 && C.bumps.length === 2 && C.bumps[0].n === 3 && C.bumps[1].kind === 'lip' && C.hazards.map((h) => h.kind).join() === 'crossing,topple,meteor',
+    `break ${C.breaks[0]?.len} m at ${C.breaks[0]?.d0.toFixed(0)}, rails ${C.rails.map((r) => `${r.d0.toFixed(0)}+${r.len.toFixed(0)}`).join(' > ')}, ${C.hazards.map((h) => h.kind).join(', ')}`);
+  const B = C.breaks[0], R = C.rails[0];
+
+  // the charge jump: Space held through the hop's landing, no steer, charges; let go, it jumps
+  const cj = await K<{ y: number; air: number; hop: number; hopCj: boolean; yHalf: number; drift: boolean }>(`${fresh()} K.place(40, 0, 20); const tr = K.run(1.8, function (t) { return { gas: true, drift: t < 0.95 }; }, 1 / 120);
+    K.place(40, 0, 20); const hp = K.run(0.6, function (t) { return { gas: true, drift: t < 0.03 }; }, 1 / 120);
+    K.place(40, 0, 20); const half = K.run(1.6, function (t) { return { gas: true, drift: t < 0.58 }; }, 1 / 120);
+    return { y: Math.max(...tr.map((s) => s.y)), air: tr.filter((s) => s.cjAir).length / 120, hop: Math.max(...hp.map((s) => s.y)), hopCj: hp.some((s) => s.cjAir), yHalf: Math.max(...half.map((s) => s.y)), drift: tr.some((s) => s.drift) };`);
+  ok('kart: Space held driving straight (the stick under a quarter) charges a charge jump once the hop lands: let go after 0.25 s and the kart jumps, 0.63 m at a full charge (0.6 s; twice a hop), less on less, 0.6 s or more in the air (the hang at the top)',
+    Math.abs(cj.y - 0.63) < 0.03 && cj.y / cj.hop > 1.85 && cj.y / cj.hop < 2.1 && cj.yHalf > 0.4 && cj.yHalf < cj.y - 0.1 && cj.air >= 0.6 && cj.air < 0.75 && !cj.hopCj && !cj.drift, JSON.stringify(cj));
+  const cjD = await K<CS[]>(`K.place(40, 0, 20); return K.run(1.2, function (t) { return { gas: true, drift: true, steer: t > 0.5 ? 1 : 0 }; }, 1 / 120);`);
+  ok('kart: and a steer while it charges is a drift that way, as before (no jump)', cjD.some((s) => s.drift === 1) && !cjD.some((s) => s.cjAir), `drift ${[...new Set(cjD.map((s) => s.drift))].join(',')}`);
+
+  // the break: fallen into, the Claw (30 m before it); a charge jump at its edge, over it; the lip, over it
+  const brk = await K<{ fall: CS[]; jump: CS[]; lip: CS[] }>(`K.gm(5); K.place(${B.d0 - 30}, 0, 24); const fall = K.run(4.5, { gas: true }, 1 / 120);
+    K.place(${B.d0 - 26}, 0, 24); const jump = K.run(2.5, function (t, k) { return { gas: true, drift: k.d < ${B.d0 - 1.2} }; }, 1 / 120);
+    K.place(${B.d0 - 30}, 4.5, 24); const lip = K.run(2.5, function (t, k) { return { gas: true, drift: k.air && k.lipT < 0.3 && !k.trick }; }, 1 / 120);
+    return { fall, jump, lip };`);
+  const called = brk.fall.findIndex((s) => s.rescue >= 0), down = brk.fall.findIndex((s, i) => i > called && s.rescue < 0), dn = brk.fall[down];
+  ok('kart: a break in the road: driven into, the kart falls (3 m down) and the Rescue Claw sets it down 30 m before the break, 2 GM lighter',
+    brk.fall.some((s) => s.pit) && called > 0 && !!dn && B.d0 - dn.d >= 29.5 && B.d0 - dn.d < 31 && dn.gm === 3, dn ? `fell, the Claw at ${(called / 120).toFixed(2)} s, set down ${(B.d0 - dn.d).toFixed(1)} m before it, GM 5 -> ${dn.gm}` : 'never set down');
+  ok('kart: a charge jump at its edge clears it (and the lip before it on the right throws you over it with no Space at all, a trick\'s window open: +15% for 0.5 s)',
+    !brk.jump.some((s) => s.pit) && brk.jump[brk.jump.length - 1].d > B.d0 + B.len + 8 && !brk.lip.some((s) => s.pit) && brk.lip.some((s) => s.air) && brk.lip[brk.lip.length - 1].d > B.d0 + B.len + 8 && brk.lip.some((s) => s.src === 'trick' && s.cap === 0.15),
+    `jump: ${brk.jump[brk.jump.length - 1].d.toFixed(0)} m, lip: ${brk.lip.filter((s) => s.air).length / 120} s up, ${[...new Set(brk.lip.map((s) => `${s.src}:${s.cap}`))].join(' ')}`);
+
+  // the rails
+  const rl = await K<{ tr: CS[]; ev: unknown[][] }>(`K.events(true); K.gm(0); K.place(${R.d0 - 24}, ${R.pts[0][1]}, 23); const tr = K.run(4.5, function (t, k) { return { gas: true, drift: k.d < ${R.d0 - 7} }; }, 1 / 120); return { tr, ev: K.events(true).filter((e) => e[0] === 'grind' || e[0] === 'grindEnd') };`);
+  const g0 = rl.tr.findIndex((s) => s.grind === 0), gEnd = rl.tr.findIndex((s, i) => i > g0 && s.grind < 0), onR = rl.tr.filter((s) => s.grind >= 0), after = rl.tr.slice(Math.max(0, gEnd));
+  const peakG = onR.length ? Math.max(...onR.map((s) => s.v)) : 0, paid = after.filter((s) => s.src === 'grind' && s.boost > 0).length / 120;
+  ok('kart: a charge jump onto a rail grinds it: on across the link to the next rail, the speed rising to +12% over the top (1.03 s; 1.2 until the faster race, 7 Oct), and off the end up into the air (a trick\'s window), the grind paid: +20% for up to 1 s; nothing falls into the break under it',
+    g0 > 0 && rl.tr.some((s) => s.grind === 1) && peakG > TOP * 1.1 && peakG < TOP * 1.13 && gEnd > g0 && after.some((s) => s.air) && Math.abs(paid - 1.0) <= STEP * 3 && after.some((s) => s.cap === 0.2) && !rl.tr.some((s) => s.pit) && rl.ev.some((e) => e[0] === 'grindEnd' && e[3] === 1),
+    `on at ${(g0 / 120).toFixed(2)} s, rails ${[...new Set(onR.map((s) => s.grind))].join('>')}, ${(onR.length / 120).toFixed(2)} s on them, peak ${(peakG / TOP).toFixed(3)}x, paid ${paid.toFixed(3)} s`);
+  const hopOff = await K<{ tr: CS[]; ev: unknown[][] }>(`K.events(true); K.place(${R.d0 - 24}, ${R.pts[0][1]}, 23); const tr = K.run(3, function (t, k) { const off = k.grind >= 0 && k.d > ${R.d0 + R.len + 2}; return { gas: true, drift: k.d < ${R.d0 - 7} || off, steer: off ? -1 : 0 }; }, 1 / 120); return { tr, ev: K.events(true).filter((e) => e[0] === 'grindEnd') };`);
+  const ho = hopOff.tr.findIndex((s, i) => i > 0 && hopOff.tr[i - 1].grind >= 0 && s.grind < 0), hoS = hopOff.tr[Math.min(hopOff.tr.length - 1, ho + 72)];
+  ok('kart: Space on a rail hops off it, to the side the stick says (out past the rail\'s reach), paid as off its end',
+    ho > 0 && hopOff.ev.length === 1 && hopOff.ev[0][2] === -1 && !!hoS && hoS.grind < 0 && !hopOff.tr.slice(ho).some((s) => s.grind >= 0) && hopOff.tr.slice(ho).some((s) => s.src === 'grind') && !hopOff.tr.some((s) => s.pit),
+    `off at ${(ho / 120).toFixed(2)} s, ${JSON.stringify(hopOff.ev[0])}, 0.6 s on at x ${hoS?.x}`);
+  const rw = await K<CS[]>(`K.place(${R.d0 + 3}, ${R.pts[0][1] + 2.2}, 10, -30); return K.run(0.7, { gas: true, steer: -0.6 }, 1 / 120);`);
+  ok('kart: on the ground a rail is a wall: driven into from the side, the kart glances or scrapes along it, never through it, never a bonk',
+    rw.every((s) => s.x > R.pts[0][1] + 0.6) && rw.some((s) => s.x < R.pts[0][1] + 0.75) && rw.every((s) => s.stun === 0), `nearest ${Math.min(...rw.map((s) => s.x)).toFixed(2)} (the rail at ${R.pts[0][1]})`);
+  const Bm = C.bumps[0];
+  const rol = await K<{ fast: CS[]; slow: CS[] }>(`K.place(${Bm.d0 - 20}, 0, 31); const fast = K.run(2.2, function (t, k) { return { gas: true, drift: k.air && k.lipT < 0.3 && !k.trick }; }, 1 / 120);
+    K.place(${Bm.d0 - 6}, 0, 14); const slow = K.run(1.6, function (t, k) { return { gas: k.v < 14 }; }, 1 / 120); return { fast, slow };`);
+  const ups = (q: CS[]) => q.filter((s, i) => i > 0 && s.air && !q[i - 1].air).length;
+  ok('kart: rollers throw the kart up off their crests (at the top speed clean over the rest, slower off each one); Space up there is a trick, +15% for 0.5 s on landing', ups(rol.fast) >= 1 && ups(rol.slow) >= 2 && rol.fast.some((s) => s.src === 'trick' && s.cap === 0.15),
+    `${ups(rol.fast)} times up at 31 m/s, ${ups(rol.slow)} at 14; ${[...new Set(rol.fast.map((s) => `${s.src}:${s.cap}`))].join(' ')}`);
+
+  // karts against karts: weight, the hop-bash, the GM it knocks loose, no chain
+  const wt = await K<{ bear: number; doge: number }>(`K.place(10, 0, 0, 0, 0); K.place(200, 0.55, 20, 0, 5); K.place(200, -0.55, 20, 0, 1); K.run(1 / 120, { gas: false }); const a = K.kart(5), b = K.kart(1); K.solo(true); return { bear: a.push, doge: b.push };`);
+  ok('kart: weight in a bump: side by side, Big Bear (1.35) shoves Doge (0.88) off his line 2.35 times as hard as Doge shoves him (a kart\'s mass squared)',
+    Math.abs(wt.doge / wt.bear) > 2.25 && Math.abs(wt.doge / wt.bear) < 2.45, `${wt.doge.toFixed(2)} / ${wt.bear.toFixed(2)} m/s`);
+  const bash = await K<Record<string, any>>(`${fresh()} ${stepper} K.place(200, 0, 20, 0, 0); K.place(200, 1.5, 20, 0, 1); K.gm(0); const g0 = K.kart(1).gm; let vic = null;
+    for (let i = 0; i < 40; i++) { step({ gas: true, drift: S < 2, steer: 1 }); if (!vic && E('bash') >= 0) vic = K.kart(1); }
+    const e = EV.find((x) => x[1] === 'bash'), g1 = K.kart(1).gm;
+    // (again, at once: kart 0 alongside it once more and a second hop, inside its 1.2 s)
+    const v2 = K.kart(1); K.place(v2.d, v2.x - 1.5, v2.v, 0, 0); for (let i = 0; i < 40; i++) step({ gas: true, drift: i < 2, steer: 1 });
+    const again = EV.filter((x) => x[1] === 'bash' && x[2] === 0 && x[3] === 1).length;
+    // (and a heavy one: into Big Bear)
+    K.place(400, 0, 20, 0, 0); K.place(400, 1.5, 20, 0, 5); for (let i = 0; i < 40; i++) step({ gas: true, drift: i < 2, steer: 1 });
+    const bashes = EV.filter((x) => x[1] === 'bash' && x[2] === 0), sn = EV.find((x) => x[1] === 'snatch' && x[2] === 0 && x[3] === 1), took = EV.find((x) => x[1] === 'coin' && x[2] === 0 && x[4] === 1);
+    return { e, bashes: bashes.map((x) => x.slice(2)), wob: vic ? vic.wob : 0, bashI: vic ? vic.bashI : 0, g0, g1, again, snatch: sn ? sn[0] : -1, took: took ? took[0] : -1, light: bashes[0] ? bashes[0][4] : 0, heavy: bashes.length > 1 ? bashes[bashes.length - 1][4] : 0 };`);
+  ok('kart: a hop-bash (a hop sideways into a kart) shoves it 6.5 m/s across times your mass over its (Pepe on Doge 7.4, on Big Bear 4.8), wobbles it 0.5 s, and knocks a GM out of it, which the basher takes on the way',
+    !!bash.e && bash.e[2] === 0 && bash.e[3] === 1 && Math.abs(bash.light - 6.5 / 0.88) < 0.05 && Math.abs(bash.heavy - 6.5 / 1.35) < 0.05 && bash.wob > 0.45 && bash.g1 === bash.g0 - 1 && bash.snatch > 0 && bash.took > bash.snatch && bash.took - bash.snatch < 60,
+    JSON.stringify({ bashes: bash.bashes, gm: [bash.g0, bash.g1], wob: bash.wob, snatch: bash.snatch, took: bash.took }));
+  ok('kart: no chain: a kart just bashed cannot be bashed again for 1.2 s (nor lose another GM for 2 s)', bash.again === 1 && bash.bashI > 1.1, `${bash.again} bash of Doge in 0.7 s, then ${bash.bashI} s untouchable`);
+  const rage = await K<Record<string, any>>(`${fresh()} ${stepper} K.place(200, 0, 20, 0, 0); K.place(200, 1.5, 20, 0, 4);
+    for (let i = 0; i < 30; i++) step({ gas: true, drift: S < 2, steer: 1 });
+    const ang = EV.find((x) => x[1] === 'angry'); const a0 = S; let near = 0, gap = 0, meet = 0;
+    for (let i = 0; i < 600; i++) { step('auto'); const a = K.kart(0), b = K.kart(4); if (Math.abs(a.d - b.d) < 12) { near++; gap += Math.abs(a.x - b.x); } }
+    meet = EV.filter((x) => x[0] > a0 && ((x[1] === 'bump' && (x[3] === 0 || x[2] === 0) && (x[3] === 4 || x[2] === 4)) || (x[1] === 'bash' && x[2] === 4))).length;
+    const calm = EV.find((x) => x[1] === 'calm' && x[2] === 4);
+    // (and bashed again at once, after it calmed: not angry again for 6 s)
+    const b = K.kart(4); K.place(b.d, b.x - 1.5, b.v, 0, 0); for (let i = 0; i < 30; i++) step({ gas: true, drift: i < 2, steer: 1 });
+    return { ang: ang ? ang.slice(1) : null, at: ang ? ang[0] : -1, calm: calm ? (calm[0] - ang[0]) / 120 : -1, again: EV.filter((x) => x[1] === 'angry').length, meet, gap: near ? gap / near : 99, near: near / 120 };`);
+  ok('kart: a rival bashed (or bumped hard, or hit by your item) is angry at you for 4 s (steam off its head, a honk): it hunts you, onto your line and into you, then calms, and is not angry again for 6 s',
+    !!rage.ang && rage.ang[1] === 4 && rage.ang[2] === 0 && Math.abs(rage.calm - 4) <= STEP * 2 && rage.again === 1 && (rage.meet >= 1 || rage.gap < 1.6), JSON.stringify(rage));
+
+  // the hazards: each on its clock; and no stun-lock
+  const H = C.hazards, hz = (k: string) => H.find((h) => h.kind === k)!;
+  const at = (h: { every: number; off: number }, u: number) => 3 * h.every + u - h.off;
+  const met = await K<Record<string, any>>(`${fresh()} K.clock(${at(hz('meteor'), 1.5)}); K.run(1 / 120, {}); const h = K.hazards()[2]; K.place(h.d, h.x, 0, 0, 0); const before = K.hazards()[2].phase; const tr = K.run(0.3, {}, 1 / 120); const s = tr.find((q) => q.hit === 'spin');
+    return { before, s, rug: K.hit('rug', 0), after: K.hazards()[2].phase, hits: K.hazards()[2].hits };`);
+  ok('kart: a meteor: its ring on the road for 1.6 s, then the strike: whoever is in it spins (0.8 s, its speed to 0.45) and goes up; a second untouchable after (a rug then finds it untouchable)',
+    met.before === 'warn' && !!met.s && Math.abs(met.s.stun - 0.8) < 0.02 && met.s.vy > 3 && met.rug === 'iframe' && met.hits === 1, JSON.stringify({ before: met.before, stun: met.s?.stun, vy: met.s?.vy, rug: met.rug, hits: met.hits }));
+  // (the owner's review drives, 7 Oct: meteors hit somebody once in three races; every other strike is now aimed at
+  // where the racer furthest on in its stretch will be when it lands, a few metres either way)
+  const mh = hz('meteor'), aimAt = (c: number) => c * mh.every - mh.off + 1 / 240;
+  const aim = await K<{ dd: number; dx: number; phase: string }>(`${fresh()} K.place(${mh.d} - 20, 1.5, 20, 0, 0); K.clock(${aimAt(4)}); K.run(1 / 120, { gas: true }); const k = K.kart(0), h = K.hazards()[2];
+    const L = K.state().L; let dd = (h.d - (k.d + k.v * 1.6)) % L; if (dd > L / 2) dd -= L; if (dd < -L / 2) dd += L; return { dd: +dd.toFixed(2), dx: +(h.x - k.x).toFixed(2), phase: h.phase };`);
+  ok('kart: a meteor\'s every other strike is aimed where the racer furthest on in its stretch will be when it lands (within 3 m along, 1.5 across), its ring up the 1.6 s before',
+    aim.phase === 'warn' && Math.abs(aim.dd) <= 3.2 && Math.abs(aim.dx) <= 1.6, JSON.stringify(aim));
+  const roll = await K<Record<string, any>>(`${fresh()} const h0 = K.course().hazards[0]; K.clock(${at(hz('crossing'), 2.5)}); K.run(1 / 120, {}); K.place(h0.d, 0, 0, 0, 0); const tr = K.run(0.6, {}, 1 / 120); const s = tr.find((q) => q.hit === 'bonk');
+    return { s, side: K.hazards()[0].side, x: tr[tr.length - 1].x };`);
+  ok('kart: the rolling GM coin bonks whoever it meets: 0.35 s, its speed to 0.4, and shoved the way it rolls', !!roll.s && Math.abs(roll.s.stun - 0.35) < 0.02 && Math.sign(roll.x) === -Math.sign(roll.side) && Math.abs(roll.x) > 0.3,
+    JSON.stringify({ stun: roll.s?.stun, side: roll.side, x: roll.x }));
+  // (8 Oct: the warning's second swept it across the road too, three times as fast and touching nobody; a world that
+  // draws its own, the swamp's log, flew across the road and under the lens before every roll)
+  const cw = await K<[string, number, number][]>(`${fresh()} const out = []; for (const t of [0.1, 0.5, 0.95, 2.5, ${hz('crossing').every - 0.05}]) { K.clock(${at(hz('crossing'), 0)} + t); K.run(1 / 120, {}); const h = K.hazards()[0]; out.push([h.phase, +h.x.toFixed(2), h.side]); } return out;`);
+  ok('kart: the rolling GM coin waits at its side of the road through its warning (where it then rolls from), and stays at the far side once across',
+    cw.slice(0, 3).every((q) => q[0] === 'warn' && Math.sign(q[1]) === Math.sign(q[2]) && Math.abs(q[1] - cw[0][1]) < 0.01) && cw[3][0] === 'roll' && cw[4][0] === 'idle' && Math.sign(cw[4][1]) === -Math.sign(cw[4][2]),
+    JSON.stringify(cw));
+  const tp = await K<Record<string, any>>(`${fresh()} ${stepper} const h1 = K.course().hazards[1]; K.clock(${at(hz('topple'), 1.3)}); step({}); const warn = K.hazards()[1].phase; K.place(h1.d, 0, 0, 0, 0); step({}, 60);
+    const s = K.kart(0), slam = E('topple'); K.clock(${at(hz('topple'), 2.2)}); K.place(h1.d - 14, 0, 20, 0, 0); const tr = K.run(1.2, { gas: true }, 1 / 120); return { warn, s, slam, lie: K.hazards()[1].phase, air: tr.some((q) => q.air) };`);
+  ok('kart: the candle warns 1.4 s (its shadow across the road), falls, spins whoever is under it, and lies across the road 2.5 s, a log a kart jumps off',
+    tp.warn === 'warn' && tp.slam > 0 && tp.s.hit === 'spin' && tp.lie === 'lie' && tp.air, JSON.stringify({ warn: tp.warn, slam: tp.slam, hit: tp.s.hit, lie: tp.lie, air: tp.air }));
+  const sl = await K<string[]>(`${fresh()} K.place(100, 0, 20); const r = [K.hit('spin', 0), K.hit('rug', 0), K.hit('laser', 0), K.hit('bonk', 0)]; K.run(1.7, { gas: true }); r.push(K.hit('whale', 0)); K.run(0.15, { gas: true }); r.push(K.hit('rug', 0)); return r;`);
+  ok('kart: no stun-lock: a meteor\'s spin, then a rug, a laser and the coin at once, land once (the rest find the kart untouchable until 1.8 s on); then it can be hit again',
+    sl.join() === 'hit,iframe,iframe,iframe,iframe,hit', sl.join());
+
+  // what it looks like: the charge's glow and the pill, a grind's sparks and its rail lit, an angry rival's steam, the
+  // speed lines on a boost
+  await K(`K.solo(true); K.place(40, 0, 20, 0, 0); K.hold({ gas: true, drift: true, steer: 0 });`); await sleep(650);
+  const v1 = await ks(); await K('K.hold({ gas: true });'); await sleep(200);
+  await K(`K.place(${R.d0 - 24}, ${R.pts[0][1]}, 23, 0, 0); K.hold({ gas: true, drift: true, steer: 0 });`); await sleep(780); await K('K.hold({ gas: true });'); await sleep(450);
+  const v2 = await ks(); const k2 = await K<CS>('return K.kart(0);');
+  await K('K.hold(null); K.place(150, 0, 18, 0, 0); K.place(160, 1, 18, 0, 4); K.rage(4, 0);'); await sleep(500);
+  const v3 = await ks(); await K('K.rage(4, -1); K.place(60, 0, 31, 0, 0); K.give("pump"); K.use(0); K.hold({ gas: true, steer: 0 });'); await sleep(450);
+  const v4 = await ks(); await K('K.hold(null); K.solo(true);');
+  type FX = { charging: number; grinding: number; steaming: number; steam: number; lines: number; rails: number[] };
+  const f = (v: KartState) => v.fx as unknown as FX;
+  ok('kart: shown: a charge glows under the kart (and the pill says Jump); a grind lights its rail and showers sparks; an angry rival steams; a boost streams speed lines past the camera',
+    f(v1).charging >= 1 && /jump/i.test(v1.hud.tier) && k2.grind >= 0 && f(v2).grinding >= 1 && Math.max(...f(v2).rails) > 1 && v2.hud.tier === 'Grind' && f(v3).steaming >= 1 && f(v3).steam > 5 && f(v4).lines > 0.3,
+    `charge ${f(v1).charging} "${v1.hud.tier}"; grind ${f(v2).grinding} rails ${f(v2).rails.join('/')} "${v2.hud.tier}"; steam ${f(v3).steaming}/${f(v3).steam}; lines ${f(v4).lines}`);
+}
+
+/* ---------------------------------------------------------------- kart -- */
+// A kart race (lib/runtime/kart.js; Meme Kart, the owner 6 Oct: "3 laps, 8 karts ... bumping + items (contact never
+// ends the run)"), on its fixture (lib/runtime/kart-world.js). Checked first; ONLY=kart runs this section alone.
+// The driving is checked twice: through the real keys in real time, and stepped exactly through debug.kart().run(),
+// 120 steps a second, so a timing is a timing and not a guess at a frame rate. The numbers are the plan's picks
+// (mechanics.md, 6 Oct): a top speed of 26.5 m/s (31 since the owner's third review, 7 Oct), a hop of 0.28 s; tiers at a charge of 0.6, 1.6 and 2.2 (the playtest, 7 Oct).
+type KartRow = { n: number; name: string; place: number; lap: number; lapsDone: number; prog: number; v: number; d: number; x: number; fin: boolean; finT: number | null; stuck: number; cap: number; top: number; maxPace: number; parked: boolean; slot: number; visible: boolean; racer: string | null; detail: string; level: string | null };
+type KartState = { ready: boolean; phase: string; state: string; demo: boolean; laps: number; lap: number; lapsDone: number; place: number; time: number; count: number; speed: number; top: number; drift: { dir: number; charge: number; tier: number; hop: boolean; name: string | null; most?: { tier: number; charge: number } }; assisted?: boolean; helped?: boolean;
+  boost: number; y: number; d: number; x: number; finished: boolean; est: boolean; gm: number; back: boolean; missed: boolean; L: number; hw: number; wall: number; karts: KartRow[]; coins: { laid: number; left: number };
+  final: { n: number; name: string; time: number; est: boolean }[] | null; podium: number[] | null; camera: { fov: number; x: number; y: number; z: number };
+  fx: { sparks: number; skids: number; flames: number; embers: number; mog: number; smoke: number; confetti: number }; hud: { tier: string; tierColor: string; mog: boolean; launch: boolean; gm: string | null; slip: boolean; item: { shown: boolean; icon: string | null; rolling: boolean; drag: boolean; badge: string }; fud: number };
+  src: string; item: { on: boolean; slot: string | null; charges: number; roll: number; drag: boolean; shield: number; diamond: number; moon: number; iframe: number; hit: string; fud: number };
+  theme?: { mode: string; playing?: boolean; stopping?: boolean; lap?: number; bar?: number; section?: string; tempo?: number; key?: string; nextBar?: number; duck?: number; stings?: [string, number, string][]; goAt?: number | null; go?: number | null; now?: number | null } | null;
+  music: { swapped: boolean; tempo: number; lifted: number; at: { bar: number; nextBar: number; now: number; barDur: number; barDur2: number } | null; energy: number | null; bar: number | null; nextBar: number | null; playing: boolean; ready: boolean } | null;
+  pick: { index: number; racer: string | null; name: string; cast: string[]; portraits: number }; roster: { built: number; waiting: number } };
+type Sample = { t: number; v: number; d: number; x: number; y: number; h: number; steer: number; w: number; drift: number; charge: number; tier: number; boost: number; mul: number; src: string; cap: number; stun: number; off: boolean; surf: number; wrong: boolean; lap: number; place: number; hop: boolean;
+  air: boolean; trick: boolean; push: number; prog: number; gate: number; missed: boolean; gm: number; rescue: number; ghost: number; wet: number; slip: number; lane: number; wob: number; spin: number; launch: string; pace: number; fin: boolean };
+async function kartChecks() {
+  const sha = (s: string) => createHash('sha256').update(s).digest('hex').slice(0, 16);
+  const rt = (f: string) => readFileSync(new URL(`../lib/runtime/${f}`, import.meta.url), 'utf8');
+  const assemble = (v1: string) => [rt('music.js'), rt('vehicle.js'), rt('creature.js'), v1.replace('/*@include open.js*/', () => rt('open.js').replace('/*@include derby.js*/', () => rt('derby.js')).replace('/*@include climb.js*/', () => rt('climb.js')).replace('/*@include trav.js*/', () => rt('trav.js')))].join('\n');
+  const fixture = rt('kart-world.js');
+
+  console.log('\nkart: the runtime each world receives');
+  const plain = runtimeSource(1), kart = runtimeSource(1, true);
+  const cut = rt('v1.js').replace(/\/\*@kart\*\/[\s\S]*?\/\*@\/kart\*\//g, '');
+  ok('kart: every other world gets the runtime it got before the kart kit, byte for byte (the kart parts cut out whole)', plain === assemble(cut) && !/@kart|kartWorld|\bKART\b/.test(plain), `${sha(plain)}, ${plain.length} bytes`);
+  let head = '';
+  try { head = execFileSync('git', ['show', 'HEAD:lib/runtime/v1.js'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }); } catch { head = ''; }
+  if (head && !head.includes('/*@kart*/')) ok('kart: and it is the committed runtime (HEAD), byte for byte', plain === assemble(head), `${sha(plain)} vs ${sha(assemble(head))}`);
+  const nested = 'GameMog.world({ track: { points: [] }, crew: { kart: { paint: 1 } }, build() { const o = { kart: {} }; } });';
+  const both = 'GameMog.world({ open: { map: "city" }, kart: { laps: 3 } });';
+  ok('kart: only a world that names kart: {...} among its own keys (and is not an open world) gets the kart kit', isKartWorld(fixture) && !isKartWorld(rt('reference-world.js')) && !isKartWorld(nested) && !isKartWorld(both) && kart.includes('function kartWorld') && !kart.includes('/*@kart*/'),
+    `${Math.abs(kart.length - plain.length)} bytes ${kart.length < plain.length ? 'fewer' : 'more'} than another world's (the kit in, the open world stubbed out)`);
+  // (its roster, the eight racers' recipes, and its items' models and effects are the kart runtime's own weight: the
+  // rest is less than another world's)
+  // (and its score, kart-music.js, 7 Oct: the race's own, for a world that asks for it; and the race's points,
+  // kart-score.js, 8 Oct. Since 8 Oct the measure is the runtime without the kit's own files, the race (kart.js)
+  // included, against another world's without open.js: the kit grows with the race, the stub is what is checked)
+  const roster = rt('kart-roster.js'), itemsLib = rt('kart-items.js'), theme = rt('kart-music.js'), points = rt('kart-score.js'), kitJs = rt('kart.js'), openJs = rt('open.js');
+  ok('kart: a kart world gets a stub for the open world (no open.js, derby, climbing or traversal to parse)', /var OW = null;\n\s*function openWorld\(\) \{\}/.test(kart) && !kart.includes('function derbyWorld') && !kart.includes(rt('open.js').slice(0, 400)) && kart.includes(roster) && kart.includes(itemsLib) && kart.includes(theme) && kart.includes(points) && !plain.includes('kartMusic') && !plain.includes('var KartScore') && kart.length - kitJs.length - roster.length - itemsLib.length - theme.length - points.length < plain.length - openJs.length,
+    `${Math.round((kart.length - kitJs.length - roster.length - itemsLib.length - theme.length - points.length) / 1000)} KB without the kit (the race's ${Math.round(kitJs.length / 1000)} KB, the roster's ${Math.round(roster.length / 1000)} KB, the items' ${Math.round(itemsLib.length / 1000)} KB, the score's ${Math.round(theme.length / 1000)} KB, the points' ${Math.round(points.length / 1000)} KB), against ${Math.round((plain.length - openJs.length) / 1000)} KB for another world's without open.js`);
+  ok('kart: the kart page names its own controls', worldControls(fixture).includes('drift') && worldControls(fixture).includes('Moon Launch'));
+
+  const kid = randomUUID();
+  insertDraft({ id: kid, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code: fixture,
+    meta: { title: 'Greybox Ring', tagline: 'The kart fixture', blurb: 'Runtime check.', genre: 'Racing', cast: [{ name: 'Pepe', color: '#4FA03A' }], palette: { sky: '#A9D3F2', ground: '#86B05A', accent: '#7CFF4F' }, runtime: 1 } });
+  try {
+    await withBrowser(async (page) => {
+      await page.preload('window.__frames=0;(function t(){window.__frames++;requestAnimationFrame(t)})();window.__kartTold=[];addEventListener("message",function(e){var d=e.data;if(d&&d.source==="gamemog"&&d.type==="kart-racer")window.__kartTold.push({racer:d.racer});});');
+      await page.goto(`${BASE}/d/${kid}/play`);
+      let ready = false;
+      for (let i = 0; i < 100 && !ready; i++) { ready = await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false); if (!ready) await sleep(200); }
+      const ks = () => page.eval<KartState>('window.__gmRuntime.state().kart');
+      const K = <T>(js: string) => page.eval<T>(`(() => { const K = window.__gmRuntime.debug.kart(), D = window.__gmRuntime.debug; ${js} })()`);
+      const errs = () => page.eval<string[]>('window.__gm.errors');
+      // (31 m/s since the owner's third review, 7 Oct: "karting is slightly too slow"; 26.5 until then. P: the share
+      // every speed and turn rate went up by (PACE), so a check of a bend or a drift at a speed is made at the same share
+      // of the top speed as before, and comes out as it did)
+      const TOP = 31, PACE = 31 / 26.5;
+
+      console.log('\nkart: boot');
+      ok('kart: the fixture boots with no errors', ready && (await errs()).length === 0 && page.errors.length === 0, [...(await errs()), ...page.errors].join(' | '));
+      const s0 = await ks(); await sleep(2000); const s1 = await ks();
+      const moved = s1.karts.map((q, i) => q.prog - s0.karts[i].prog);
+      ok('kart: until someone plays, eight karts race the demo by themselves, silent and unscored', s0.demo && s1.demo && s1.karts.length === 8 && moved.every((m) => m > 10) && (await page.eval<unknown[]>('window.__gm.results')).length === 0, moved.map((m) => m.toFixed(0)).join(' '));
+      const f0 = await page.eval<number>('window.__frames'); await sleep(2000); const fps = ((await page.eval<number>('window.__frames')) - f0) / 2;
+      let batt = ''; try { batt = (execFileSync('pmset', ['-g', 'batt'], { encoding: 'utf8' }).match(/(\d+)%/) ?? [])[1] ?? ''; } catch { batt = ''; }
+      ok('kart: the demo holds the frame rate (desktop, eight karts)', fps >= 55, `${Math.round(fps)} fps${batt ? `, battery ${batt}%` : ''}`);
+      const line = await K<{ minRadius: number; slowest: number; length: number }>('return K.line();');
+      ok('kart: the racing line bends as little as it can (no radius under 14 m on a 20 m hairpin), on a lap of 1,050 to 1,300 m', line.minRadius >= 14 && line.length >= 1050 && line.length <= 1300, JSON.stringify(line));
+      const course = await K<{ pads: unknown[]; ramps: { h: number }[]; off: { kind: string; mul: number }[]; gaps: { water: boolean }[]; gm: number }>('return K.course();');
+      ok('kart: the course is read from kart.course: two pads, a ramp, mud, a gap in the wall over water, and eight lines of GM', course.pads.length === 2 && course.ramps.length === 1 && course.off.length === 1 && course.off[0].mul === 0.4 && course.gaps.length === 1 && course.gaps[0].water && course.gm === 8 && s1.coins.laid === 40,
+      `${JSON.stringify(course).slice(0, 160)}...`);
+
+      // the racers: the roster's eight (lib/runtime/kart-roster.js), each at three levels of detail
+      console.log('\nkart: the racers');
+      type Build = { id: string; level: string; tris: number; draws: number; ms: number; nan: number };
+      const ros = await K<{ ms: number; builds: Build[]; near: string }>('return K.roster();');
+      const IDS = ['pepe', 'doge', 'shiba', 'bike', 'bull', 'bear', 'whale', 'mooncat'];
+      // (the plan's budgets, a racer and its kart: near 30k triangles on a desktop, 15k on a phone; 6k mid; 1.5k far)
+      const BUD: Record<string, [number, number]> = { desktop: [30000, 11], phone: [15000, 11], mid: [6000, 5], far: [1500, 2] };
+      const every = IDS.every((id) => ['far', 'mid', ros.near].every((lv) => ros.builds.some((b) => b.id === id && b.level === lv)));
+      const over = ros.builds.filter((b) => b.nan || !BUD[b.level] || b.tris > BUD[b.level][0] || b.draws > BUD[b.level][1]);
+      const sumBy = (lv: string) => ros.builds.filter((b) => b.level === lv).reduce((a, b) => a + b.ms, 0);
+      ok('kart: all eight racers build at every level of detail (near, mid, far), no NaN, each within its budget of triangles and draw calls', every && over.length === 0 && ros.builds.length === 24,
+        over.length ? JSON.stringify(over) : IDS.map((id) => `${id} ${ros.builds.filter((b) => b.id === id).map((b) => `${b.level[0]}${(b.tris / 1000).toFixed(1)}k/${b.draws}`).join(' ')}`).join('; '));
+      const total = ros.builds.reduce((a, b) => a + b.ms, 0), slowB = ros.builds.reduce((a, b) => (b.ms > a.ms ? b : a));
+      ok('kart: and all eight, every level, are built in under 0.9 s (a racer\'s level at a time, between frames)', total < 900,
+        `${total} ms: near ${sumBy(ros.near)}, mid ${sumBy('mid')}, far ${sumBy('far')}; the slowest ${slowB.id} ${slowB.level} ${slowB.ms} ms`);
+      // levels of detail: from 400 m up, only the kart the camera follows is near, the rest far; from the chase camera,
+      // each racer drawn at the level its distance asks for
+      await K('K.film({ mode: "free", k: 2, at: [0, 400, 1], look: [0, 0, 0] });'); await sleep(400);
+      const high = await ks();
+      await K('K.film({ mode: "chase", k: 0 });'); await sleep(400);
+      const low = await ks(); await K('K.film(null);');
+      const lvOf = (d: string | null) => (d === 'near' ? ros.near : d);
+      ok('kart: each racer is drawn at the level its distance asks: from 400 m up, the one followed near and the rest far; behind a kart, it near', high.karts[2].detail === 'near' && high.karts[2].level === ros.near && high.karts.every((q, n) => n === 2 || (q.detail === 'far' && q.level === 'far'))
+        && low.karts[0].detail === 'near' && low.karts.every((q) => q.level === lvOf(q.detail)) && low.karts.filter((q) => q.detail === 'near').length <= 3,
+        `${high.karts.map((q) => q.detail).join(',')} / ${low.karts.map((q) => `${q.detail}:${q.level}`).join(',')}`);
+      // what the race says moves them: the steering, a drift, a hit, a look back, the podium; Bike Tyson leans and pulls
+      // a wheelie
+      type Pose = { racer: string; level: string; face: Record<string, number>; head: { yaw: number; roll: number } | null; seat: number; rig: { lean: number; wheelie: number } | null };
+      const P = await K<Record<string, Pose>>(`const P = (s, f) => K.pose(0, s, f);
+        return { right: P({ steer: 1, speed: 20 }, 40), left: P({ steer: -1, speed: 20 }, 40), drift: P({ drift: 1, tier: 2, steer: 0.5, speed: 20 }, 40), hit: P({ hit: true, speed: 10 }, 25), back: P({ back: true, speed: 20 }, 40), cheer: P({ celebrate: true }, 30), calm: P({ speed: 20 }, 60) };`);
+      ok('kart: steering turns the racer\'s head into the turn and leans it in its seat (right one way, left the other)', P.right.head!.yaw < -0.1 && P.left.head!.yaw > 0.1 && P.right.seat > 0.02 && P.left.seat < -0.02,
+        `head ${P.right.head!.yaw} / ${P.left.head!.yaw}, seat ${P.right.seat} / ${P.left.seat}`);
+      ok('kart: a drift rolls the body into it and puts on its drift face; a hit the hit face; C turns the head to look back; the podium a celebration',
+        P.drift.seat > 0.1 && (P.drift.face.smug ?? 0) > 0.8 && (P.hit.face.sad ?? 0) > 0.8 && P.back.head!.yaw > 0.8 && (P.cheer.face.celebrate ?? 0) > 0.8 && (P.calm.face.sad ?? 0) < 0.05,
+        `drift ${P.drift.seat} ${JSON.stringify(P.drift.face)}; hit ${JSON.stringify(P.hit.face)}; back ${P.back.head!.yaw}; cheer ${JSON.stringify(P.cheer.face)}`);
+      const bki = (await ks()).karts.findIndex((q) => q.racer === 'bike');
+      const B = await K<Record<string, Pose>>(`return { lean: K.pose(${bki}, { steer: 1, speed: 22 }, 90), drift: K.pose(${bki}, { steer: 1, drift: 1, tier: 1, speed: 22 }, 90), cheer: K.pose(${bki}, { celebrate: true, speed: 0 }, 20), hit: K.pose(${bki}, { hit: true, speed: 12 }, 20) };`);
+      ok('kart: Bike Tyson leans his bike 30 degrees into a turn (35 in a drift), and on the podium pulls a wheelie, punching the sky', bki > 0 && Math.abs(Math.abs(B.lean.rig!.lean) - 30 * Math.PI / 180) < 0.06 && Math.abs(Math.abs(B.drift.rig!.lean) - 35 * Math.PI / 180) < 0.06 && Math.sign(B.lean.rig!.lean) === Math.sign(B.drift.rig!.lean)
+        && B.cheer.rig!.wheelie > 0.3 && (B.cheer.face.celebrate ?? 0) > 0.8 && (B.hit.face.hit ?? 0) > 0.8,
+        `lean ${B.lean.rig?.lean} drift ${B.drift.rig?.lean} wheelie ${B.cheer.rig?.wheelie}`);
+
+      console.log('\nkart: the start');
+      await page.eval(`window.postMessage({ source: 'gamemog-host', type: 'play' }, '*')`); await sleep(500);
+      const g = await ks();
+      const slots = g.karts.slice().sort((a, b) => a.slot - b.slot);
+      const onGrid = slots.every((q, s) => Math.abs(Math.abs(q.x) - 1.6) < 0.05 && Math.abs(q.prog + (5 + Math.floor(s / 2) * 6 + (s % 2) * 3)) < 0.15 && (s % 2 ? q.x < 0 : q.x > 0));
+      ok('kart: Play brings up the start screen: eight karts on a staggered grid, two columns, you sixth', !g.demo && g.state === 'title' && g.phase === 'grid' && (await page.eval<number>('document.querySelectorAll("#gm .screen").length')) === 1 && onGrid && g.karts[0].slot === 5 && g.place === 6,
+        slots.map((q) => `${q.prog.toFixed(1)}/${q.x}`).join(' '));
+      // the racer pick: the eight in a row, yours lit; right picks the next, a tap any, and it is remembered
+      const row = () => page.eval<{ n: number; on: number; imgs: number; names: string[] }>('(() => { const b = [...document.querySelectorAll("#gm .kpick button")]; return { n: b.length, on: b.findIndex((x) => x.classList.contains("on")), imgs: b.filter((x) => x.querySelector("img")).length, names: b.map((x) => x.textContent) }; })()');
+      await sleep(300); const r0 = await row();
+      ok('kart: the start screen has the eight racers in a row, each with its portrait, yours (Pepe) lit', r0.n === 8 && r0.on === 0 && r0.imgs === 8 && r0.names[0] === 'Pepe' && r0.names[3] === 'Bike Tyson', JSON.stringify(r0));
+      await page.key('ArrowRight'); await page.key('ArrowRight', 'keyUp'); await sleep(250);
+      const pk1 = await ks(), rw1 = await row();
+      ok('kart: right picks the next racer: Doge drives your kart (sixth on the grid, his handling), and Pepe one of the others', pk1.state === 'title' && pk1.pick.racer === 'doge' && pk1.karts[0].racer === 'doge' && pk1.karts[0].slot === 5 && pk1.karts.some((q) => q.racer === 'pepe') && Math.abs(pk1.top - TOP * 0.985) < 0.01 && rw1.on === 1,
+        `${pk1.karts.map((q) => q.racer).join(',')}, top ${pk1.top}`);
+      const box = await page.eval<{ x: number; y: number }>('(() => { const r = document.querySelectorAll("#gm .kpick button")[3].getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()');
+      await page.click(box.x, box.y); await sleep(250);
+      const pk2 = await ks();
+      ok('kart: a tap on a racer picks it (and does not start the race)', pk2.state === 'title' && pk2.pick.racer === 'bike' && pk2.karts[0].racer === 'bike', `${pk2.state} ${pk2.pick.racer}`);
+      await page.eval(`navigator.getGamepads = () => [{ connected: true, axes: [-0.9, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }]`); await sleep(250);
+      await page.eval('navigator.getGamepads = () => []'); await sleep(100);
+      const pk3 = await ks();
+      ok('kart: and the pad\'s stick picks too (left: back one)', pk3.state === 'title' && pk3.pick.racer === 'shiba', String(pk3.pick.racer));
+      // remembered: the game runs on an opaque origin (it may keep nothing), so it hands each pick to the page round
+      // it, which keeps it and hands it back when the game is up (app/g/[slug]/play-frame.tsx); here, this page is both
+      const told = await page.eval<{ racer: string }[]>('window.__kartTold');
+      await page.goto(`${BASE}/d/${kid}/play`);
+      for (let i = 0; i < 100 && !(await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)); i++) await sleep(200);
+      await page.eval(`window.postMessage({ source: 'gamemog-host', type: 'play' }, '*')`); await sleep(400);
+      const pk4a = await ks();
+      await page.eval(`window.postMessage({ source: 'gamemog-host', type: 'kart-racer', racer: ${JSON.stringify(told[told.length - 1]?.racer ?? '')} }, '*')`); await sleep(400);
+      const pk4 = await ks(), r4 = await row();
+      ok('kart: the pick is remembered: each is told to the page round the game, and the one it hands back on a new load is yours', told.map((m) => m.racer).join() === 'doge,bike,shiba' && pk4a.pick.racer === 'pepe'
+        && pk4.state === 'title' && pk4.pick.racer === 'shiba' && pk4.karts[0].racer === 'shiba' && r4.on === 2, `told ${told.map((m) => m.racer).join()}; then ${pk4.pick.racer}, lit ${r4.on}`);
+      await page.key('ArrowLeft'); await page.key('ArrowLeft', 'keyUp'); await page.key('ArrowLeft'); await page.key('ArrowLeft', 'keyUp'); await sleep(250);
+      const pk5 = await ks();
+      ok('kart: and left goes back down the row, to Pepe', pk5.pick.racer === 'pepe' && pk5.karts[0].racer === 'pepe' && pk5.top === TOP, String(pk5.pick.racer));
+      // (the camera's distance from your kart, and how high over it)
+      const camOff = () => page.eval<{ dist: number; up: number }>(`(() => { const R = window.__gmRuntime, I = R.debug.internals(), o = I.scene.getObjectByName('racer-' + R.state().kart.karts[0].racer).parent, c = I.camera.position; const p = new THREE.Vector3(); o.getWorldPosition(p); return { dist: +c.distanceTo(p).toFixed(2), up: +(c.y - p.y).toFixed(2) }; })()`);
+      await page.key('Enter'); await sleep(400);
+      const fly = await ks(), flyCam0 = await camOff();
+      const flyUi = await page.eval<{ hint: string; hud: boolean }>('(() => { const e = document.querySelector("#gm .kskip span"); return { hint: e && getComputedStyle(e).display !== "none" ? e.textContent : "", hud: getComputedStyle(document.querySelector("#gm .kpl")).display !== "none" }; })()');
+      await sleep(500); const flyCam1 = await camOff();
+      ok('kart: Enter first flies the camera down the last of the lap toward the grid, high over the road (the karts waiting, no count, the HUD away, how to skip it at the bottom)', fly.state === 'flyover' && fly.phase === 'grid' && fly.count === 0 && flyCam0.dist > 60 && flyCam0.up > 8 && flyCam1.dist < flyCam0.dist - 10 && !flyUi.hud && /skip/i.test(flyUi.hint),
+        `${fly.state}: ${flyCam0.dist} m off, ${flyCam0.up} m up; 0.5 s later ${flyCam1.dist} m; "${flyUi.hint}", HUD ${flyUi.hud}`);
+      await page.key('Space'); await page.key('Space', 'keyUp'); await sleep(120);
+      const skipped = await ks();
+      ok('kart: a key skips the flyover: the count at once', skipped.state === 'countdown' && skipped.count > 2.7, `${skipped.state} ${skipped.count}`);
+      const seen = new Set<string>(); let phase = '', tGo = 0, meter = false; const t0 = Date.now();
+      for (let i = 0; i < 60; i++) { const c = await page.eval<string>('document.querySelector("#gm .count").textContent'); if (c) seen.add(c); const st = await ks(); phase = st.phase; meter = meter || st.hud.launch; if (phase === 'race' && !tGo) tGo = Date.now() - t0; if (tGo && seen.has('GO')) break; await sleep(80); }
+      ok('kart: Enter counts 3, 2, 1, GO, then the race, with the Moon Launch needle across the count', ['3', '2', '1', 'GO'].every((c) => seen.has(c)) && phase === 'race' && tGo > 2600 && tGo < 3600 && meter, `${[...seen].join(',')} after ${tGo} ms, needle ${meter}`);
+
+      console.log('\nkart: driving, through the keys');
+      await page.key('KeyW', 'keyDown'); await sleep(1500);
+      const a1 = await ks();
+      ok('kart: W is the gas', a1.speed > 15, `${a1.speed} m/s after 1.5 s`);
+      const hd = () => K<Sample>('return K.kart(0);').then((q) => q.h);
+      const h1 = await hd(); await page.key('KeyD', 'keyDown'); await sleep(500); const h2 = await hd(); await page.key('KeyD', 'keyUp');
+      await page.key('KeyA', 'keyDown'); await sleep(900); const h3 = await hd(); await page.key('KeyA', 'keyUp');
+      ok('kart: D steers right and A left', h2 < h1 - 0.05 && h3 > h2 + 0.05, `heading ${h1.toFixed(2)} -> ${h2.toFixed(2)} -> ${h3.toFixed(2)} rad`);
+      await page.key('Space', 'keyDown'); let air = 0; for (let i = 0; i < 6; i++) { air = Math.max(air, (await ks()).y); await sleep(25); } await page.key('Space', 'keyUp');
+      ok('kart: Space hops', air > 0.05, `${air} m`);
+      const cb0 = await ks(); await page.key('KeyC', 'keyDown'); await sleep(150); const cb1 = await ks(); await page.key('KeyC', 'keyUp'); await sleep(150);
+      ok('kart: C looks back (the camera goes round to the front of the kart while it is held)', cb1.back && !cb0.back && Math.hypot(cb1.camera.x - cb0.camera.x, cb1.camera.z - cb0.camera.z) > 6, `camera moved ${Math.hypot(cb1.camera.x - cb0.camera.x, cb1.camera.z - cb0.camera.z).toFixed(1)} m`);
+      await page.key('KeyW', 'keyUp');
+      await page.key('KeyP'); await sleep(200); const p1 = await ks(); await sleep(600); const p2 = await ks();
+      ok('kart: P pauses the race', p1.state === 'paused' && p2.time === p1.time, `${p1.state} ${p1.time} ${p2.time}`);
+      await page.key('KeyP'); await sleep(200);
+      ok('kart: and P carries on', (await ks()).state === 'race');
+      const kit = await page.eval<{ buttons: string[]; bigLast: boolean; stick: number }>(`(() => { const b = [...document.querySelectorAll('#gm .tpad button')]; return { buttons: b.map((x) => x.textContent), bigLast: !!b.length && b[b.length - 1].classList.contains('big'), stick: document.querySelectorAll('#gm .stick').length }; })()`);
+      ok('kart: touch: the stick, BRAKE, ITEM, and DRIFT big and last', kit.stick === 1 && kit.buttons.join(',') === 'BRAKE,ITEM,DRIFT' && kit.bigLast, JSON.stringify(kit));
+      await K('K.place(40, 0, 12);'); await sleep(50);
+      const b0 = await ks(), g0 = await hd();
+      await page.eval(`navigator.getGamepads = () => [{ connected: true, axes: [0.8, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === 0, value: i === 0 ? 1 : 0 })) }]`);
+      await sleep(700); const b1 = await ks(), g1 = await hd();
+      await page.eval('navigator.getGamepads = () => []'); await sleep(100);
+      ok('kart: a gamepad drives: A is the gas, the stick steers', b1.speed > b0.speed + 1 && g1 < g0 - 0.05, `${b0.speed} -> ${b1.speed} m/s, heading ${g0.toFixed(2)} -> ${g1.toFixed(2)} rad`);
+
+      console.log('\nkart: the physics, stepped exactly (120 steps a second, the rivals off the track)');
+      // (and no GM in your pocket: since 7 Oct a bump from a rival in the race above can knock one of its own loose
+      // for you to take, and each one is 0.6% more top speed)
+      await K('K.solo(true); K.gm(0);');
+      const run = (setup: string, sec: number, inp: string) => K<Sample[]>(`${setup}; return K.run(${sec}, ${inp}, 1 / 120);`);
+      const at = (tr: Sample[], tt: number) => tr.reduce((p, q) => (Math.abs(q.t - tt) < Math.abs(p.t - tt) ? q : p));
+      const first = (tr: Sample[], f: (s: Sample) => boolean) => tr.find(f);
+      const peak = (tr: Sample[]) => Math.max(...tr.map((s) => s.v));
+      const STEP = 1 / 120 + 1e-6;
+      let tr = await run('K.place(10, 0, 0)', 6, '{ gas: true }');
+      const t95 = first(tr, (s) => s.v >= 0.95 * TOP)?.t ?? 99;
+      ok('kart: the gas reaches 95% of top speed in 1.9 s (rate 1.6), and the top is 31 m/s (26.5 until the owner\'s "slightly too slow", 7 Oct)', Math.abs(t95 - Math.log(20) / 1.6) <= STEP && Math.abs(at(tr, 6).v - TOP) <= 0.25, `95% at ${t95.toFixed(3)} s, ${at(tr, 6).v} m/s at 6 s`);
+      tr = await run('K.place(10, 0, 31)', 3, '{ brake: true }');
+      const tStop = first(tr, (s) => s.v <= 0.5)?.t ?? 99;
+      ok('kart: the brake pulls toward 8 m/s in reverse (rate 3): stopped from top speed in half a second, then reversing at 8 m/s', tStop > 0.44 && tStop < 0.52 && Math.abs(at(tr, 3).v + 8) < 0.05, `stopped at ${tStop.toFixed(3)} s, ${at(tr, 3).v} m/s at 3 s`);
+      tr = await run('K.place(10, 0, 20)', 0.6, 'function (t) { return { gas: true, drift: t < 0.03 }; }');
+      const airT = tr.filter((s) => s.hop).length / 120, top = Math.max(...tr.map((s) => s.y));
+      ok('kart: Space is a hop of 0.28 s, 0.32 m high, and a tap is no drift', Math.abs(airT - 0.28) <= STEP * 1.5 && Math.abs(top - 0.32) <= 0.05 && tr.every((s) => !s.drift), `${airT.toFixed(3)} s, ${top} m`);
+      // a drift: steer in, hold Space through the landing, keep steering in (the kart circles on the road at 15.9 m/s,
+      // over the 0.45 of top speed a drift needs; a light steer before it, since 7 Oct's turn: full lock there turns
+      // the kart so far before the hop that its circle runs off the road). (13.6 m/s and 1.0 a second until the faster
+      // race, 7 Oct: the same share of the top, and the same circle)
+      const vd = +(13.6 * PACE).toFixed(2), pre = `K.place(20, -7.6, ${vd}); K.run(0.4, function (t, k) { return { gas: k.v < ${vd}, steer: 0.3 }; })`;
+      tr = await run(pre, 3.2, `function (t, k) { return { gas: k.v < ${vd}, drift: true, steer: 1 }; }`);
+      const d0 = first(tr, (s) => s.drift === 1)?.t ?? 99;
+      const tiers = [1, 2, 3].map((n) => (first(tr, (s) => s.tier >= n)?.t ?? 99) - d0);
+      ok('kart: steering into a drift (1.17 a second), its tiers come at a charge of 0.6, 1.6 and 2.2 (0.51, 1.37 and 1.88 s): Green Candle, Gold, MOG', d0 < 0.35 && tiers.every((x, i) => Math.abs(x - [0.6, 1.6, 2.2][i] / PACE) <= STEP * 1.5) && tr.every((s) => !s.off),
+        `drift from ${d0.toFixed(3)} s, tiers at ${tiers.map((x) => x.toFixed(3)).join(', ')}`);
+      // the most of your drifts, kept by the race step by step (the platform playtest's "your kart drifted": 8 Oct, judged
+      // from looks ten times a second of real time, it now and then missed a drift that reached its tier between two)
+      const most = await K<{ tier: number; charge: number }>('return K.state().drift.most;');
+      ok('kart: the race keeps the most of your drifts, step by step: after that one, MOG and its charge (2.2 and more)', most.tier === 3 && most.charge >= 2.2, JSON.stringify(most));
+      // (from the left edge: the neutral drift's circle, 14 m at 16.4 m/s since 7 Oct, kept on the road)
+      const vn = +(14 * PACE).toFixed(2);
+      tr = await run(`K.place(20, -7.6, ${vn}); K.run(0.3, function (t, k) { return { gas: k.v < ${vn} }; })`, 1.5, `function (t, k) { return { gas: k.v < ${vn}, drift: true, steer: t < 0.1 ? 1 : t < 0.7 ? 0 : -1 }; }`);
+      const slope = (a: number, b: number) => (at(tr, b).charge - at(tr, a).charge) / (b - a);
+      const neutral = slope(0.4, 0.65), outside = slope(0.95, 1.25);
+      ok('kart: neutral, a drift charges 0.88 a second; counter-steered, 0.64 (0.75 and 0.55 at the old speed)', Math.abs(neutral - 0.75 * PACE) < 0.02 && Math.abs(outside - 0.55 * PACE) < 0.03 && tr.every((s) => !s.off), `${neutral.toFixed(3)}, ${outside.toFixed(3)}`);
+      ok('kart: the direction is locked at the hop: counter-steering never flips it', tr.filter((s) => s.t > 0.35).every((s) => s.drift === 1), [...new Set(tr.map((s) => s.drift))].join(','));
+      tr = await run(pre, 0.8, `function (t, k) { return { gas: k.v < ${vd}, drift: t < 0.55, steer: 1 }; }`);
+      ok('kart: let go before Green Candle and there is no boost', tr.some((s) => s.drift === 1) && tr.every((s) => s.tier === 0 && s.boost === 0), `max charge ${Math.max(...tr.map((s) => s.charge)).toFixed(2)}`);
+      tr = await run(`K.place(20, 0, ${vn}); K.setDrift(1, 0.5)`, 0.6, '{ brake: true, drift: true }');
+      const cancel = first(tr, (s) => s.drift === 0);
+      ok('kart: a drift ends below 0.35 of top speed (0.40 until 7 Oct), with no boost', !!cancel && (cancel?.v ?? 0) < 0.35 * TOP && (cancel?.v ?? 0) > 0.35 * TOP - 1.0 && tr.every((s) => s.boost === 0), `ended at ${cancel?.v} m/s`);
+      const lens: string[] = []; let boostOk = true;
+      for (const [n, ch, len] of [[1, 0.8, 0.6], [2, 1.7, 1.1], [3, 2.8, 1.8]] as const) {
+        tr = await run(`K.place(20, 0, 31); K.setDrift(1, ${ch})`, 2.6, '{ gas: true }');
+        const on = tr.filter((s) => s.boost > 0), last = on.length ? on[on.length - 1].t : 0, pk = peak(tr);
+        lens.push(`tier ${n}: ${(last + 1 / 120).toFixed(3)} s, ${pk.toFixed(1)} m/s`);
+        if (Math.abs(last + 1 / 120 - len) > STEP * 1.5 || pk > 1.2 * TOP + 0.01 || (n === 3 && pk < 1.19 * TOP) || on[0]?.src !== 'drift') boostOk = false;
+      }
+      ok('kart: released, the drift fires a boost of +20% for 0.6, 1.1 and 1.8 s by tier', boostOk, lens.join('; '));
+      // boosts never add up: a pad (+28%) under a running drift boost (+20%) is +28%, never +48%
+      // (the boost's own multiplier: a GM line on the pad's line, taken on the way, would lift the speed 0.6% a coin)
+      tr = await run('K.gm(0); K.place(154, -2.5, 31); K.setDrift(1, 2.8)', 2.4, '{ gas: true }');
+      const both = Math.max(...tr.map((s) => s.mul)), bothV = peak(tr) / TOP / (1 + 0.006 * Math.min(10, tr[tr.length - 1].gm));
+      ok('kart: boosts never add up: a pad under a running drift boost tops out at +28%', both > 1.25 && both < 1.2805 && bothV < 1.2805 && tr.some((s) => s.src === 'pad'), `${both.toFixed(3)}x boost, ${bothV.toFixed(3)}x the top (GM ${tr[tr.length - 1].gm} taken)`);
+
+      // the handling (the owner, 7 Oct: "the handling of kart could DRAMATICALLY improve. when doing corners it is too
+      // stiff ... turning is tough to control", "turning is SOOO tough and not smooth"): until then a key reached full
+      // lock 0.25 s behind it and the kart turned no tighter than 31 m at the top speed. Every speed held each step
+      console.log('\nkart: the handling (7 Oct)');
+      const keyRun = (v: number, f: string, sec: number, setup = 'K.place(60, -6, 0)') => run(setup, sec, `function (t, k) { k.v = ${v}; const I = (${f})(t); I.gas = true; return I; }`);
+      tr = await keyRun(25, '(t) => ({ steer: t < 0.4 ? 1 : 0, analog: false })', 0.6);
+      const kIn = tr[0].steer, k90 = first(tr, (s) => s.steer >= 0.9)?.t ?? 9, k95 = first(tr, (s) => s.steer >= 0.95)?.t ?? 9, kOut = (first(tr, (s) => s.t > 0.4 && s.steer <= 0.05)?.t ?? 9) - 0.4;
+      const fl = await keyRun(25, '(t) => ({ steer: t < 0.3 ? 1 : -1, analog: false })', 0.45), kFlip = (first(fl, (s) => s.t > 0.3 && s.steer < 0)?.t ?? 9) - 0.3;
+      ok('kart: a key steers at once: nearly half lock (0.45) the step it goes down, 90% by 0.15 s and all of it by 0.2 s; let go, straight in 0.12 s; the other key, the other way inside 0.08 s (until 7 Oct: 0.25 s behind the key, half again after it was let go)',
+        kIn >= 0.45 && k90 <= 0.15 && k95 <= 0.2 && kOut <= 0.12 && kFlip <= 0.08, `first step ${kIn}, 90% at ${k90.toFixed(3)} s, 95% at ${k95.toFixed(3)} s, straight ${kOut.toFixed(3)} s after, the other way ${kFlip.toFixed(3)} s after`);
+      tr = await keyRun(25, '(t) => ({ steer: 1, analog: true })', 0.3);
+      const s90 = first(tr, (s) => s.steer >= 0.9)?.t ?? 9;
+      ok('kart: a stick (touch, a pad) is followed closely: 90% of a step in 0.15 s (10 a second until 7 Oct: 0.23 s)', s90 <= 0.15, `${s90.toFixed(3)} s`);
+      // the turn: full lock, the speed held, its radius once the steer is all in
+      const radius = async (kmh: number, drift = 0, steer = 1) => {
+        const v = kmh / 3.6, q = await keyRun(v, `(t) => ({ steer: ${steer}, drift: ${drift ? 'true' : 'false'}, analog: true })`, 0.5, `K.place(60, -6, ${v}); ${drift ? `K.setDrift(${drift}, 0)` : ''}`);
+        return v / Math.abs(q[q.length - 1].w);
+      };
+      // (7 Oct, round 3: each at the same share of the new top speed as before, 1.17 times the speed: the same radius)
+      const Rs = [await radius(30 * PACE), await radius(60 * PACE), await radius(90 * PACE), await radius(110 * PACE)], Rwant = [3.9, 8.7, 16.5, 23.4];
+      ok('kart: full lock turns tight at every speed: a radius of 3.9 m at 35 km/h, 8.7 at 70, 16.5 at 105 and 23.4 at 129 (within 6%; until 7 Oct 16, 21, 31 and 40 at 30, 60, 90 and 110, then these at those speeds; the race 1.17 times as fast since the owner\'s third review)', Rs.every((r, i) => Math.abs(r / Rwant[i] - 1) < 0.06), Rs.map((r) => `${r.toFixed(1)} m`).join(', '));
+      const Rd = [await radius(90 * PACE, 1, 1), await radius(90 * PACE, 1, 0), await radius(90 * PACE, 1, -1)], Rdw = [12.5, 25, 75];
+      ok('kart: a drift at 105 km/h runs 12.5 m steering in, 25 m neutral and 75 m counter-steering, smoothly between (within 6%; until 7 Oct 13, 22 and 78 at 90 km/h, a key\'s three states and nothing between)', Rd.every((r, i) => Math.abs(r / Rdw[i] - 1) < 0.06), Rd.map((r) => `${r.toFixed(1)} m`).join(', '));
+      tr = await keyRun(25 * PACE, '(t) => ({ steer: t < 0.2 ? 1 : 0, drift: true, analog: false })', 0.3, `K.place(60, -6, ${25 * PACE}); K.setDrift(1, 0)`);
+      ok('kart: in a drift a key moves the steer 4.1 a second either way (3.5 at the old speed), so a tap tightens the line a little (0.2 s: 0.82 of the way in) and the kart is never thrown wide', Math.abs(at(tr, 0.2).steer - 0.7 * PACE) < 0.03 && tr.every((s) => s.drift === 1), `${at(tr, 0.2).steer} at 0.2 s`);
+      // a tap at 105 km/h (90 at the old speed): how far it turns the kart, and how much of that comes after the key is up
+      tr = await keyRun(25 * PACE, '(t) => ({ steer: t < 0.1 ? 1 : 0, analog: false })', 1.0);
+      const yawAll = Math.abs(tr[tr.length - 1].h - tr[0].h) * 180 / Math.PI, yawOn = Math.abs(at(tr, 0.1).h - tr[0].h) * 180 / Math.PI, after = 1 - yawOn / Math.max(1e-6, yawAll);
+      ok('kart: a 0.1 s tap of a key at 105 km/h turns the kart 5 to 10 degrees, no more than 35% of it after the key is up (until 7 Oct 4.7 degrees, 78% after)', yawAll >= 5 && yawAll <= 10 && after <= 0.35, `${yawAll.toFixed(1)} degrees, ${(after * 100).toFixed(0)}% after`);
+      // full lock at the top speed scrubs a little of it (toward 6% off, at the rate a boost fades; 0.6 s of it from the
+      // left edge, before the circle meets the right-hand wall)
+      // (with an empty pocket: GM picked up by the runs before raise the top speed it is measured against)
+      tr = await run('K.gm(0); K.place(60, -6, 31)', 0.6, '{ gas: true, steer: 1 }');
+      ok('kart: full lock at the top speed scrubs a little of it (toward 6% off; nothing until 7 Oct, when holding the gas through a bend braked only on the walls)', tr[tr.length - 1].v > 0.95 * TOP && tr[tr.length - 1].v < 0.985 * TOP && tr.every((s) => !s.off), `${tr[tr.length - 1].v} m/s after 0.6 s (${tr[tr.length - 1].gm} GM)`);
+      // a wall met badly, then steered away from as a person does (the gas held, the far key): one bonk at most, never a
+      // second (until 7 Oct: up to 4, a crawl that could not turn off the wall it had just met)
+      const rec: number[] = [];
+      for (const ang of [45, 60, 75]) {
+        // (a person: 0.18 s to react, then the key away from the wall until the kart points down the road again, and
+        // straight; the road's heading here read first)
+        const q = await run(`const H0 = K.place(60, 9.5, 15, 0).h; K.place(60, 9.5, 15, ${ang})`, 3, 'function (t, k) { const e = Math.atan2(Math.sin(k.h - H0), Math.cos(k.h - H0)); return { gas: true, steer: t < 0.18 ? 0 : e < -0.15 ? -1 : e > 0.15 ? 1 : 0, analog: false }; }');
+        rec.push(q.filter((s, i) => i > 0 && s.stun > 0 && q[i - 1].stun === 0).length);
+      }
+      ok('kart: into a wall at 45, 60 and 75 degrees (15 m/s) and steered away: one bonk at most, never a second', rec.every((b) => b <= 1), rec.join(', '));
+
+      console.log('\nkart: the course');
+      tr = await run('K.place(150, -2.5, 31)', 2, '{ gas: true }');
+      ok('kart: a Green Candle pad is +28% for a second (at least 1.27x top speed)', peak(tr) / TOP >= 1.27 && tr.some((s) => s.src === 'pad'), `${(peak(tr) / TOP).toFixed(3)}x`);
+      tr = await run('K.place(700, 0, 31)', 3, 'function (t, k) { return { gas: true, drift: k.air && k.y > 0.4 }; }');
+      const airS = tr.filter((s) => s.air).length / 120, landed = tr.findIndex((s, i) => i > 0 && tr[i - 1].air && !s.air), trickB = tr.slice(Math.max(0, landed)).filter((s) => s.src === 'trick' && s.boost > 0).length / 120;
+      ok('kart: off the small ramp\'s lip, over 0.6 s in the air; Space in the air is a trick, +20% for 0.7 s on landing', airS >= 0.6 && tr.some((s) => s.trick) && Math.abs(trickB - 0.7) <= STEP * 2, `${airS.toFixed(3)} s up, trick boost ${trickB.toFixed(3)} s`);
+      tr = await run('K.place(700, 0, 31)', 2.2, 'function (t, k) { return { gas: true, drift: k.air && k.vy < -4 }; }');
+      ok('kart: a press after the 0.35 s window is no trick', !tr.some((s) => s.trick || s.src === 'trick'), `${tr.some((s) => s.air)}`);
+      tr = await run('K.place(60, 10, 31)', 3, '{ gas: true }');
+      ok('kart: on the grass past the kerb it settles at 0.55 of top speed', tr[tr.length - 1].off && Math.abs(tr[tr.length - 1].v - 0.55 * TOP) < 0.3, `${tr[tr.length - 1].v} m/s`);
+      tr = await run('K.place(540, -6, 20)', 2, '{ gas: true }');
+      ok('kart: in the mud, 0.40', tr[tr.length - 1].surf === 0.4 && Math.abs(tr[tr.length - 1].v - 0.4 * TOP) < 0.3, `${tr[tr.length - 1].v} m/s`);
+      tr = await run('K.place(60, 10, 17.05); K.setDrift(1, 1.7)', 1.0, '{ gas: true }');
+      ok('kart: a drift\'s boost halves the grass\'s penalty (0.775 of top speed)', Math.abs(peak(tr) - 0.775 * TOP) < 0.5, `${peak(tr).toFixed(2)} m/s`);
+      // the walls stand 12 m out (8 m of road and 4 of grass); a kart's edge meets them at 11.35
+      tr = await run('K.place(60, 8, 22, 10)', 1.2, '{ gas: true }');
+      let hi = tr.findIndex((s) => s.x >= 11.34);
+      ok('kart: a wall met at a glance (10 degrees) keeps over 90% of the speed, and slides along it', hi > 0 && tr[hi].v / tr[hi - 1].v > 0.9 && tr.every((s) => s.stun === 0) && tr.slice(hi + 20).every((s) => Math.abs(s.x - 11.35) < 0.06),
+        hi > 0 ? `${tr[hi - 1].v.toFixed(2)} -> ${tr[hi].v.toFixed(2)} m/s (${(tr[hi].v / tr[hi - 1].v).toFixed(3)})` : 'never met');
+      tr = await run('K.place(60, 10.9, 22, 3); K.setDrift(1, 1.0)', 0.8, '{ gas: true, drift: true }');
+      hi = tr.findIndex((s) => s.x >= 11.34);
+      ok('kart: and a drift that glances a wall keeps going, its charge kept', hi > 0 && tr.every((s) => s.stun === 0) && tr[tr.length - 1].drift === 1 && tr[tr.length - 1].charge >= tr[hi].charge && tr[hi].charge >= 1,
+        hi > 0 ? `charge ${tr[hi].charge} -> ${tr[tr.length - 1].charge}, drift ${tr[tr.length - 1].drift}` : 'never met');
+      tr = await run('K.place(60, 8, 22, 40)', 1.0, '{ gas: true }');
+      hi = tr.findIndex((s) => s.x >= 11.34);
+      const ratio = hi > 0 ? tr[hi].v / tr[hi - 1].v : 0;
+      ok('kart: met at 30 to 60 degrees it scrapes: 0.85 along the wall and a quarter off it (0.67 of the speed at 40), no stun (7 Oct: 25 to 55, 0.8)', Math.abs(ratio - Math.hypot(0.85 * Math.cos(40 * Math.PI / 180), 0.25 * Math.sin(40 * Math.PI / 180))) < 0.03 && tr.every((s) => s.stun === 0) && tr[tr.length - 1].x < 11.3,
+        `${ratio.toFixed(3)} kept, away to ${tr[tr.length - 1].x}`);
+      tr = await run('K.place(60, 8, 22, 70); K.setDrift(1, 1.0)', 1.2, '{ gas: true, drift: true }');
+      const bi = tr.findIndex((s) => s.stun > 0), bk = tr.findIndex((s, i) => i > bi && s.stun === 0);
+      // (the nose turned toward the wall's line the step it bonks: 70 degrees off it, turned 25)
+      const turned = bi > 0 ? Math.abs(Math.atan2(Math.sin(tr[bi].h - tr[bi - 1].h), Math.cos(tr[bi].h - tr[bi - 1].h))) * 180 / Math.PI : 0;
+      ok('kart: square on (over 60 degrees) it bonks: back at 0.3 of the speed (6 m/s at most), its nose turned 25 degrees toward the wall\'s line, the drift lost, control again after 0.25 s (7 Oct: over 55, a quarter, 7 m/s, no turn, 0.4 s)',
+        bi > 0 && Math.abs(-tr[bi].v - Math.min(6, 0.3 * tr[bi - 1].v)) < 0.25 && Math.abs(turned - 25) < 1.5 && tr[bi].drift === 0 && Math.abs((bk - bi) / 120 - 0.25) <= STEP * 1.5,
+        bi > 0 ? `${tr[bi - 1].v.toFixed(2)} -> ${tr[bi].v.toFixed(2)} m/s, turned ${turned.toFixed(1)} degrees, ${((bk - bi) / 120).toFixed(3)} s` : 'never met');
+      // wedged against a wall head on, the gas held: each bounce takes the control away, so steering alone never
+      // got out; after 1.2 s it is nudged back onto the road (a wall is never sticky), you and the rivals alike
+      const freed = (q: Sample[]) => q.find((s) => s.x > -7 && s.v > 5)?.t ?? 99;
+      const wedge = await Promise.all([1, 0].map(async (steer) => freed(await run('K.place(150, -10, 6, -60)', 2.5, `{ gas: true, steer: ${steer} }`))));
+      const rival = await K<Sample[]>('K.place(150, -10, 6, -85, 1); K.place(10, 0, 0, 0, 0); const out = []; for (let s = 0; s < 25; s++) { K.run(0.1, {}); out.push(K.kart(1)); } K.solo(true); return out;');
+      const rt0 = freed(rival.map((s, i) => ({ ...s, t: (i + 1) / 10 })));
+      ok('kart: wedged at a wall with the gas held, you or a rival is nudged back onto the road and rolling inside 2 s', wedge.every((t) => t < 2) && rt0 < 2,
+        `you (steering away, and not) out at ${wedge.map((t) => t.toFixed(2)).join(' and ')} s, a rival at ${rt0.toFixed(1)} s`);
+      // the Rescue Claw: into the pond past the gap in the wall (after the ramp), with 5 GM
+      const claw: { tr: Sample[]; line?: { off: number } } = await K<{ tr: Sample[] }>('K.place(772, -9, 14, -40); K.gm(5); return { tr: K.run(3.5, { gas: true }, 1 / 120) };');
+      const called = claw.tr.findIndex((s) => s.rescue >= 0), down = claw.tr.findIndex((s, i) => i > called && s.rescue < 0), wetT = claw.tr.filter((s) => s.wet > 0 && s.rescue < 0).length / 120, dn = claw.tr[down];
+      Object.assign(claw, { line: dn ? await K<{ off: number }>(`return K.lineAt(${dn.d});`) : { off: 99 } });
+      ok('kart: in the deep water 0.4 s and the Rescue Claw comes: set down on the racing line, 12 m back or more, inside 2 s, rolling at 0.4 of top speed, a ghost for a second, 2 GM lighter',
+        called > 0 && down > called && (down - called) / 120 <= 2 && Math.abs(wetT - 0.4) <= STEP * 1.5 && !!dn && Math.abs(dn.v - 0.4 * TOP) < 0.4 && dn.ghost > 0.9 && dn.gm === 3 && claw.tr[called].d - dn.d >= 12 && Math.abs(dn.x - (claw.line?.off ?? 99)) < 0.6,
+        dn ? `wet ${wetT.toFixed(3)} s, claw ${((down - called) / 120).toFixed(2)} s, back ${(claw.tr[called].d - dn.d).toFixed(1)} m, x ${dn.x} (line ${claw.line?.off}), ${dn.v} m/s, GM 5 -> ${dn.gm}` : 'never set down');
+      // GM: the pocket, and the coins
+      const pocket = await Promise.all([3, 25].map(async (n) => { const q = await run(`K.place(10, 0, 0); K.gm(${n})`, 8, '{ gas: true }'); return q[q.length - 1].v / TOP; }));
+      await K('K.gm(0);');
+      ok('kart: each GM in your pocket is +0.6% top speed, capped at +6%', Math.abs(pocket[0] - 1.018) < 0.002 && Math.abs(pocket[1] - 1.06) < 0.002, pocket.map((x) => x.toFixed(4)).join(', '));
+      const coin = await K<{ before: number; after: number; line: { d: number; x: number; on: boolean }[] }>(`const C = K.coins(); let l = 0; while (l < C.length - 5 && !C.slice(l, l + 5).every((c) => c.on)) l += 5;
+        const c = C[l]; K.place(c.d - 6, c.x, 20); K.gm(0); K.run(1.2, { gas: true }); const after = K.kart(0).gm; return { before: 0, after, line: K.coins().slice(l, l + 5) };`);
+      ok('kart: a line of five GM, driven through, is five GM', coin.after === 5 && coin.line.every((c) => !c.on), `${coin.after} GM`);
+
+      console.log('\nkart: the race rules');
+      // places, the moment you pass
+      const pass = await K<{ when: number; wrong: number; then: number[] }>(`const r = K.kart(1); K.place(60, K.lineAt(60).off + r.lane, 8, 0, 1); const b0 = K.kart(1); K.place(50, b0.x + (b0.x > 0 ? -3 : 3), 26.5, 0, 0); let when = -1, wrong = 0, then = [];
+        for (let s = 0; s < 240; s++) { K.run(1 / 120, { gas: true }); const a = K.kart(0), b = K.kart(1); if (Math.abs(a.prog - b.prog) > 0.02 && (a.prog > b.prog) !== (a.place < b.place)) wrong++; if (when < 0 && a.prog > b.prog + 0.02) { when = s; then = [a.place, b.place]; } } K.solo(true); return { when, wrong, then };`);
+      ok('kart: places are right the step you pass (every step, the one further on is placed ahead)', pass.when > 0 && pass.wrong === 0 && pass.then[0] < pass.then[1], JSON.stringify(pass));
+      tr = await run('K.place(60, 0, 10, 180)', 1.6, '{ gas: true }');
+      const tr2 = await run('K.place(60, 0, 10, 100)', 1.6, '{ gas: true }');
+      ok('kart: facing more than 110 degrees off the track for a second is wrong way (100 is not)', !at(tr, 0.6).wrong && tr[tr.length - 1].wrong && tr2.every((s) => !s.wrong));
+      // a checkpoint skipped (a warp 150 m on, two of sixteen) voids the lap: past the line, no lap
+      const skip = await K<Sample>(`K.solo(true); K.seed(7); K.restart(); K.go(); K.run(3, 'auto'); K.warp(150); K.run(45, 'auto'); return K.kart(0);`);
+      ok('kart: skip a checkpoint and the lap is void: past the line, no lap, and the banner says go back', skip.lap === 0 && skip.prog > 1150 && skip.missed && (await ks()).missed, `lap ${skip.lap} at ${skip.prog} m, missed ${skip.missed}`);
+      const back2 = await K<{ a: Sample; d: Sample; xs0: string; xs1: string; on: number }>(`K.seed(8); K.restart(); K.go(); const xs = () => K.coins().filter((c, i) => i % 5 === 0).map((c) => c.x).join(','); const xs0 = xs();
+        K.run(3, 'auto'); K.warp(150); K.run(0.1, 'auto'); const a = K.kart(0); K.warp(-150); for (let i = 0; i < 400 && K.kart(0).lap < 1; i++) K.run(0.1, 'auto'); const d = K.kart(0); return { a, d, xs0, xs1: xs(), on: K.coins().filter((c) => c.on).length };`);
+      ok('kart: go back through the checkpoint and the lap counts again', back2.a.missed && back2.d.lap === 1 && !back2.d.missed, `missed ${back2.a.missed}, then lap ${back2.d.lap} at ${back2.d.prog} m`);
+      ok('kart: the GM lines are laid again for each lap you start (all forty, in new places)', back2.on === 40 && back2.xs0 !== back2.xs1, `${back2.xs0} -> ${back2.xs1}`);
+      // the slipstream: 9 m behind a rival on its line
+      const draft = await K<{ fill: number; first: number; boost: number; peak: number }>(`const ln = K.lineAt(20).off + K.kart(1).lane; K.place(20, ln, 20, 0, 1); K.place(11, ln, 20, 0, 0); let first = -1, fill = 0, boost = 0, peak = 0;
+        for (let s = 0; s < 300; s++) { const r = K.kart(1); K.run(1 / 120, function (t, k) { return { gas: true, analog: true, steer: Math.max(-1, Math.min(1, (r.x - k.lat) * 0.35 + (k.h - Math.PI / 2) * 3)) }; }); const a = K.kart(0);
+          if (s === 60) fill = a.slip; if (first < 0 && a.src === 'draft') { first = s; boost = a.cap; } peak = Math.max(peak, a.v / 31); }
+        K.solo(true); return { fill, first: (first + 1) / 120, boost, peak };`);
+      ok('kart: 4 to 14 m behind a kart on its line, the slipstream fills in 1.1 s, then fires +15% for a second', Math.abs(draft.first - 1.1) <= STEP * 2 && draft.boost === 0.15 && draft.fill > 0.45, JSON.stringify(draft));
+      const bump = await K<{ a0: Sample; b0: Sample; a: Sample; b: Sample }>('K.place(60, 0, 26.5, 0, 0); K.place(63, 0, 14, 0, 1); const a0 = K.kart(0), b0 = K.kart(1); K.run(0.4, { gas: true }); const a = K.kart(0), b = K.kart(1); K.solo(true); return { a0, b0, a, b };');
+      const gap = Math.hypot(bump.a.d - bump.b.d, bump.a.x - bump.b.x);
+      ok('kart: karts bump: the one behind slows, the one ahead is shoved on, and neither run ends', bump.a.v < 24 && bump.b.v > 16 && gap >= 1.3 && bump.a.stun === 0 && bump.b.stun === 0, `behind ${bump.a0.v} -> ${bump.a.v}, ahead ${bump.b0.v} -> ${bump.b.v} m/s, ${gap.toFixed(2)} m apart`);
+      const side = await K<{ wob: number[]; yaw: number[]; apart: number; ev: unknown[] }>(`K.events(true); K.place(60, 2, 20, 0, 1); K.place(59.5, -1, 20, 32, 0); let wob = [0, 0]; const h0 = [K.kart(0).h, K.kart(1).h];
+        for (let s = 0; s < 36; s++) { K.run(1 / 120, { gas: true }); wob = [Math.max(wob[0], K.kart(0).wob), Math.max(wob[1], K.kart(1).wob)]; }
+        const a = K.kart(0), b = K.kart(1), ev = K.events(true).filter((e) => e[0] === 'bump'); K.solo(true); return { wob, yaw: [a.h - h0[0], b.h - h0[1]], apart: Math.abs(a.x - b.x), ev };`);
+      ok('kart: a hard knock from the side (over 8 m/s across) wobbles both for 0.35 s, and spins nobody', side.wob.every((w) => Math.abs(w - 0.35) < 0.02) && side.yaw.every((y) => Math.abs(y) < 0.8) && side.ev.length >= 1, JSON.stringify(side));
+      const shove = await K<{ push: number; apart: number }>('K.place(60, 0.55, 20, 0, 1); K.place(60, -0.55, 20, 0, 0); K.run(1 / 120, { gas: true }); const a = K.kart(0), b = K.kart(1); K.run(0.3, { gas: true }); const a2 = K.kart(0), b2 = K.kart(1); K.solo(true); return { push: +(b.push - a.push).toFixed(2), apart: +(b2.x - a2.x).toFixed(2) };');
+      ok('kart: side by side and touching, they are shoved apart at 3 m/s at least, never riding along locked', Math.abs(shove.push) >= 2.95 && Math.abs(shove.apart) > 1.3, `${shove.push} m/s across between them, ${shove.apart} m apart 0.3 s on`);
+      // a rival comes up behind a slow kart on its own line: it goes round, by its side, without touching
+      const avoid = await K<{ passed: boolean; minGap: number; slowest: number; bumps: number; lat: number }>(`K.events(true); const L0 = K.lineAt(100).off; K.place(100, L0, 6, 0, 0); K.place(70, K.lineAt(70).off, 25, 0, 1); let minGap = 99, slowest = 99, lat = 0;
+        for (let s = 0; s < 480; s++) { K.run(1 / 120, { gas: false }); const a = K.kart(0), b = K.kart(1); const g = Math.hypot(a.d - b.d, a.x - b.x); if (g < minGap) { minGap = g; lat = Math.abs(a.x - b.x); } slowest = Math.min(slowest, b.v); }
+        const bumps = K.events(true).filter((e) => e[0] === 'bump').length; const passed = K.kart(1).d > K.kart(0).d + 5; K.solo(true); return { passed, minGap: +minGap.toFixed(2), slowest: +slowest.toFixed(1), bumps, lat: +lat.toFixed(2) };`);
+      ok('kart: a rival closing on a slow kart swerves round it (not only its lane), and gets by without a bump', avoid.passed && avoid.bumps === 0 && avoid.lat >= 1.4 && avoid.slowest > 18, JSON.stringify(avoid));
+
+      console.log('\nkart: the Moon Launch');
+      const launch = (press: string, touch = false) => K<Sample[]>(`K.solo(true); K.restart(); K.solo(true); return K.run(4.4, function (t) { return { gas: ${press}, touch: ${touch} }; }, 1 / 120);`);
+      tr = await launch('t >= 2.25');
+      const lp = tr[tr.length - 1], lbo = tr.filter((s) => s.src === 'launch' && s.boost > 0).length / 120;
+      ok('kart: the gas going down as the 1 lands (0.75 s before GO) is a perfect Moon Launch: +20% for 1.2 s', lp.launch === 'perfect' && Math.abs(lbo - 1.2) <= STEP * 2 && peak(tr) > TOP, `${lp.launch}, ${lbo.toFixed(3)} s of boost, ${peak(tr).toFixed(1)} m/s`);
+      tr = await launch('t >= 2.55');
+      ok('kart: 0.45 s before GO, a good one: +20% for 0.5 s', tr[tr.length - 1].launch === 'good' && Math.abs(tr.filter((s) => s.src === 'launch' && s.boost > 0).length / 120 - 0.5) <= STEP * 2, tr[tr.length - 1].launch);
+      tr = await launch('true');
+      const gi = tr.findIndex((s) => s.spin > 0), moving = tr.findIndex((s, i) => i > gi && s.v > 0.05);
+      ok('kart: held since before 1.4 s floods it: a stall puff and 0.6 s of wheelspin', tr[tr.length - 1].launch === 'flood' && gi >= 0 && Math.abs((moving - gi) / 120 - 0.6) <= STEP * 2.5, `${tr[tr.length - 1].launch}, still for ${((moving - gi) / 120).toFixed(3)} s`);
+      const [early, earlyTouch] = [await launch('t >= 2.05'), await launch('t >= 2.05', true)];
+      ok('kart: on touch the windows are half again as wide (0.95 s before GO: nothing on keys, perfect on touch)', early[early.length - 1].launch === '' && earlyTouch[earlyTouch.length - 1].launch === 'perfect', `${early[early.length - 1].launch || 'none'} / ${earlyTouch[earlyTouch.length - 1].launch}`);
+
+      await kartItemChecks(page, K, ks);
+      await K('K.hold(null); K.timeScale(1); K.solo(false); K.weights(null);');
+      await kartChaosChecks(page, K, ks);
+      await K('K.hold(null); K.timeScale(1); K.solo(false); K.film(null);');
+      await kartHitsChecks(K);
+      await K('K.hold(null); K.timeScale(1); K.solo(false); K.film(null);');
+
+      console.log('\nkart: the same race twice');
+      const r1 = await K<{ hash: string; times: (number | null)[] }>('return K.headless(11, 300);'), r2 = await K<{ hash: string }>('return K.headless(11, 300);');
+      ok('kart: a race run again from the same seed ends the same', r1.hash === r2.hash && r1.times.every((x) => x !== null), `${r1.hash} ${r2.hash}`);
+      const rep = await K<{ live: string; replay: string; steps: number; bytes: number }>(`K.solo(false); K.seed(99); K.restart(); K.run(3.5, function (t) { return { gas: t > 2.3 }; });
+        K.run(40, function (t, k) { return { gas: true, steer: Math.sin(t * 0.9) * 0.8 + (k.lat > 5 ? -0.6 : k.lat < -5 ? 0.6 : 0), drift: (t % 4) > 2.6, analog: true }; }); return K.replay();`);
+      ok('kart: a race run again from its seed and your logged inputs (2 bytes a step) ends the same, to the bit', rep.live === rep.replay && rep.steps > 5000, `${rep.live} / ${rep.replay}, ${rep.steps} steps, ${rep.bytes} bytes`);
+
+      console.log('\nkart: the field (eight rivals alone, stepped, from three seeds)');
+      const fields = await K<{ time: number; times: (number | null)[]; stuck: number; pace: number; spread: [number, number][]; chaos: Record<string, number[]> }[]>('return [3, 17, 42].map((s) => K.headless(s, 300, true));');
+      const slowest = Math.max(...fields.flatMap((f) => f.times.map((x) => x ?? Infinity))), spreads = fields.map((f) => Math.max(...f.times.map((x) => x ?? 0)) - Math.min(...f.times.map((x) => x ?? 0)));
+      ok('kart: all eight finish three laps inside 3:30 of race time, nobody stuck for 3 s', fields.every((f) => f.times.every((x) => x !== null)) && slowest <= 210 && fields.every((f) => f.stuck < 3), fields.map((f) => `${f.times.map((x) => x?.toFixed(0)).join('/')} stuck ${f.stuck}`).join('; '));
+      ok('kart: a real field: finishes spread over more than a second, and no rival ever past 1.06x its top speed without an item', spreads.every((s) => s > 1) && fields.every((f) => f.pace <= 1.06 + 1e-9), `spreads ${spreads.map((s) => s.toFixed(1)).join(', ')} s, highest pace ${Math.max(...fields.map((f) => f.pace))}`);
+      // the pack and the chaos (7 Oct): the field held together mid-race, and the rivals in the thick of it
+      const mids = fields.map((f) => f.spread.filter((p) => p[0] > 0.12 && p[0] < 0.75).map((p) => p[1])), midMax = mids.map((m) => Math.max(...m)), midMean = mids.map((m) => m.reduce((a, b) => a + b, 0) / m.length);
+      ok('kart: the pack: from 12% to 75% of the race the field is 140 m first to last on average (250 at the most: a fall into the break and the Claw\'s run-up), three races of it (the playtest of 7 Oct: 100 to 280 m)', midMax.every((m) => m < 250) && midMean.every((m) => m < 140),
+        `most ${midMax.map((m) => m.toFixed(0)).join(', ')} m, on average ${midMean.map((m) => m.toFixed(0)).join(', ')} m`);
+      const sum = (k: string) => fields.reduce((a, f) => a + f.chaos[k].reduce((x, y) => x + y, 0), 0), worstFalls = Math.max(...fields.flatMap((f) => f.chaos.fall));
+      ok('kart: the rivals race the chaos: they grind the rails and charge-jump the break (falling in seldom: under 1.5 times a kart a race, 4 at most), bash, and get angry; and still all finish',
+        sum('grind') >= 6 && sum('cjump') >= 10 && sum('fall') / 24 < 1.5 && worstFalls <= 4 && sum('bash') >= 15 && sum('angry') >= 10 && sum('snatch') >= 3,
+        ['grind', 'cjump', 'fall', 'bash', 'angry', 'snatch'].map((k) => `${k} ${sum(k)}`).join(', ') + `; the most falls a kart ${worstFalls}`);
+
+      console.log('\nkart: a whole race (you on autopilot with seven rivals, at 4x), to the podium and the results');
+      // (the score's lap stings counted, on the song as it is and the faster one it hands the last lap to)
+      await page.eval('(() => { const A = window.__gmRuntime.debug.internals().audio; window.__stings = []; if (A && A.music) { const f = A.music.sting; A.music.sting = function (k) { window.__stings.push([k, this === A.music ? 1 : 0]); return f.apply(this, arguments); }; } return 1; })()');
+      const most0 = await K<{ tier: number; charge: number }>('K.solo(false); K.autopilot(true); K.seed(1234); K.restart(); const m = K.state().drift.most; K.go(); K.timeScale(4); return m;');
+      let s = await ks(), placesOk = true, placeNote = '', lapsSeen = 0, sawFinish = false, sawPodium: KartState | null = null;
+      const energies: number[] = []; let lifted: KartState['music'] = null, before: KartState['music'] = null;
+      const wall0 = Date.now();
+      while (Date.now() - wall0 < 120_000) {
+        await sleep(250); s = await ks();
+        lapsSeen = Math.max(lapsSeen, s.lapsDone);
+        // (the energy each lap settles at: a change lands on the next bar line)
+        if (s.state === 'race' && s.music && s.music.energy != null) energies[s.lapsDone] = s.music.energy;
+        if (s.state === 'race' && s.music && !s.music.swapped) before = s.music;
+        if (s.state === 'race' && s.music && s.music.swapped && !lifted) lifted = s.music;
+        if (s.state === 'race') {
+          const racing = s.karts.filter((q) => !q.fin).sort((a, b) => a.place - b.place);
+          for (let i = 1; i < racing.length; i++) if (racing[i].prog > racing[i - 1].prog + 0.5) { placesOk = false; placeNote = `${racing[i - 1].name} ${racing[i - 1].prog} ahead of ${racing[i].name} ${racing[i].prog}`; }
+        }
+        if (s.state === 'finish') sawFinish = true;
+        if (s.state === 'podium' && !sawPodium) { await sleep(300); sawPodium = await ks(); }
+        if (s.state === 'results') break;
+      }
+      await K('K.timeScale(1);');
+      ok('kart: the laps go by, and the places always agree with how far each kart has got', lapsSeen === 3 && placesOk, placeNote || `${lapsSeen} laps`);
+      ok('kart: and the most of your drifts is the race\'s own: none at the start of a race, a tier or more by its end on the autopilot (what the playtest asks)', most0.tier === 0 && most0.charge === 0 && !!s.drift.most && s.drift.most.tier >= 1, `${JSON.stringify(most0)} at the start, ${JSON.stringify(s.drift.most)} at the end`);
+      const fin = s.final ?? [];
+      // (a rival home in the same step as you, a dead heat, finished too: placed after you, its time yours; 7 Oct)
+      const meFin = fin.findIndex((r) => r.n === 0) + 1;
+      ok('kart: your finish: the rest\'s times estimated where they are, in order', sawFinish && fin.length === 8 && fin.every((r, i) => i === 0 || r.time >= fin[i - 1].time - 1e-6) && fin.slice(meFin).every((r) => r.est || r.time <= fin[meFin - 1].time + 1e-6),
+        fin.map((r) => `${r.name} ${r.time}${r.est ? '*' : ''}`).join(', '));
+      ok('kart: then the podium: the top three on the blocks, the rest away, confetti', !!sawPodium && JSON.stringify(sawPodium.podium) === JSON.stringify(fin.slice(0, 3).map((r) => r.n)) && sawPodium.karts.filter((q) => q.visible).map((q) => q.n).sort().join() === fin.slice(0, 3).map((r) => r.n).sort().join() && sawPodium.fx.confetti > 20,
+        sawPodium ? `podium ${JSON.stringify(sawPodium.podium)}, ${sawPodium.fx.confetti} confetti` : 'no podium');
+      const res = await page.eval<{ place?: number; won?: boolean; assisted?: boolean; timeMs?: number; gm?: number; level?: number }[]>('window.__gm.results || []'), last = res[res.length - 1];
+      ok('kart: then the results bar, and the result: your place, time and GM, the laps as the level, marked assisted', s.state === 'results' && !!last && last.place === meFin && last.won === (meFin === 1) && Math.abs((last.timeMs ?? 0) / 1000 - (s.karts[0].finT ?? 0)) < 0.01 && last.gm === ((s as unknown as { run?: { gm: number } }).run?.gm ?? s.gm) && last.level === 3 && last.assisted === true && (await page.eval<number>('document.querySelectorAll("#gm .screen.bar").length')) === 1,
+        JSON.stringify(last));
+      // the score: louder each lap, a sting on each new lap, and the last lap the same song at 168 BPM from the next bar
+      const score = await K<{ same: boolean; bars: number; tempo: number[]; at: { nextBar: number; barDur: number; barDur2: number } | null } | null>('return K.score();');
+      const stings = await page.eval<[string, number][]>('window.__stings || []');
+      ok('kart: the score follows the laps: energy 1, 2, then 3 on the final lap, with a sting as each new lap starts', energies.join() === '1,2,3' && stings.filter((x) => x[0] === 'lap').length === 2, `energy ${energies.join(' -> ')}, stings ${JSON.stringify(stings)}`);
+      const barsOn = lifted && lifted.at && lifted.nextBar != null ? (lifted.nextBar - lifted.at.nextBar) / lifted.at.barDur2 : -1;
+      ok('kart: the final lap speeds the score up, 160 to 168 BPM: the same notes, handed over on the next bar line, in time', !!before && before.tempo === 160 && !!lifted && lifted.tempo === 168 && !!score && score.same && score.tempo.join() === '160,168' && barsOn >= 0 && Math.abs(barsOn - Math.round(barsOn)) < 1e-3,
+        `${before?.tempo} -> ${lifted?.tempo} BPM at bar ${lifted?.at?.nextBar}, ${barsOn.toFixed(3)} bars of ${lifted?.at?.barDur2} s on; same notes ${score?.same}`);
+      // the race's score (8 Oct): the result carries the parts the scores route scores; the results screen counts up to
+      // the score kart-score.js gives them against the constants the host handed the game, which are the route's for
+      // this world (here the course's, the fixture being unmeasured), and the route's own recompute agrees
+      await sleep(2000);
+      const R = await page.eval<{ C: KartConstants | null; total: string | null; tier: string | null; shown: string | null; on: number; chip: boolean; st: { score: { total: number; done: boolean } | null; hits: number } }>(`(() => { const q = (s) => document.querySelector(s), k = q('#gm .kscore');
+        return { C: window.GameMog.kartScore || null, total: k ? k.dataset.total : null, tier: k ? k.dataset.tier : null, shown: q('#gm .ksn') ? q('#gm .ksn').textContent : null, on: document.querySelectorAll('#gm .ksparts div.on').length, chip: !!q('#gm .ktier.on'), st: window.__gmRuntime.state().kart }; })()`);
+      const lr = last as Record<string, unknown> | undefined, Cw = kartConstants({}, fixture, dna(fixture).kart);
+      const lib = R.C && lr ? KartScore.score({ timeMs: Number(lr.timeMs), place: Number(lr.place), gm: Number(lr.gm), hits: Number(lr.hits), estimated: lr.estimated === true, progress: lr.progress as number, racer: lr.racer as string }, R.C) : null;
+      const chk = R.C && lr ? checkKartRun({ ...lr, assisted: false }, R.C, 3) : null, route = chk && chk.ok ? KartScore.score(chk.run, R.C!) : null;
+      ok('kart: the result carries the score\'s parts: your enemies hit (as the race counted them), the share of the race driven (1, home), your racer, the karts and the score\'s version',
+        !!lr && lr.kart === true && lr.hits === R.st.hits && typeof lr.hits === 'number' && lr.progress === 1 && lr.estimated === false && typeof lr.racer === 'string' && lr.karts === 8 && lr.scoreV === 1 && lr.laps === 3,
+        JSON.stringify({ hits: lr?.hits, progress: lr?.progress, racer: lr?.racer, karts: lr?.karts, scoreV: lr?.scoreV, estimated: lr?.estimated }));
+      ok('kart: the results count up to the score (kart-score.js on the result, against the constants the host gave the game: the route\'s own for this world) and the route\'s recompute is the same; every part lit, the tier stamped',
+        !!R.C && JSON.stringify(R.C) === JSON.stringify(Cw) && !!lib && !!route && Number(R.total) === lib.total && route.total === lib.total && R.tier === lib.tier.id && R.shown === lib.total.toLocaleString('en-US') && R.on === 4 && R.chip && !!R.st.score?.done,
+        `shown ${R.shown}, lib ${lib?.total} (${lib?.time}/${lib?.finish}/${lib?.gm}/${lib?.hits}, ${lib?.tier.name}), route ${route?.total}, constants ${R.C?.source}`);
+      const e1 = [...(await errs()), ...page.errors];
+      ok('kart: a whole kart race raises no error', e1.length === 0, e1.join(' | '));
+    }, { timeoutMs: 420_000 });
+
+    console.log('\nkart: the platform\'s playtest drives it');
+    const report = await playtestWorld(`${BASE}/d/${kid}/play`);
+    ok('kart: the playtest races it on the autopilot: three laps, nobody stuck, at speed, a cover mid-drift, and a result', report.ok && report.levelReached === 3 && (report.fps ?? 0) >= 30 && !!report.cover && report.cover.length > 14_000,
+      `${report.fps} fps, ${report.levelReached} laps${report.problems.length ? `: ${report.problems.join(' | ')}` : ''}`);
+    // assisted (8 Oct: the flag was set afresh at each count from the autopilot and the time scale as they stood then, so
+    // a slow motion switched on and off again before the race went unmarked): any test control used at any point of a
+    // session marks that race and every later one, until the page is loaded again
+    console.log('\nkart: a test control marks the session, until a reload');
+    await withBrowser(async (page) => {
+      const ks = () => page.eval<KartState>('window.__gmRuntime.state().kart');
+      const K = <T>(js: string) => page.eval<T>(`(() => { const K = window.__gmRuntime.debug.kart(); ${js} })()`);
+      const fresh = async () => {
+        await page.goto(`${BASE}/d/${kid}/play`);
+        for (let i = 0; i < 100 && !(await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)); i++) await sleep(200);
+        await page.eval(`window.postMessage({ source: 'gamemog-host', type: 'play' }, '*')`); await sleep(400);
+      };
+      // (a race begun the player's way: Enter, and a key past the flyover)
+      const begin = async () => { let q = await ks(); for (let i = 0; i < 8 && q.state !== 'flyover' && q.state !== 'countdown'; i++) { await page.key('Enter'); await sleep(450); q = await ks(); } await page.key('Space'); await sleep(250); return ks(); };
+      await fresh(); const clean = await begin();
+      await fresh();
+      await page.eval('window.__gmRuntime.debug.timeScale(4); window.__gmRuntime.debug.timeScale(1); 1');
+      const slowed = await begin();
+      // (on to that race's results, by test controls: the session is marked already; then the next race the player's way)
+      await K('K.go(); K.lap(2); K.place(K.state().L - 6, 0, 30, 0, 0); return 1;');
+      let q = await ks(); for (let i = 0; i < 200 && q.state !== 'results'; i++) { await sleep(200); q = await ks(); }
+      const res = await page.eval<{ assisted?: boolean }[]>('window.__gm.results || []'), first = res[res.length - 1];
+      const next = await begin();
+      ok('kart: a test control used at any point marks every later race as assisted, until a reload: a race begun on the keys on a fresh page is not; a slow motion switched on and off again before the race marks it (8 Oct: unmarked), its result too; and the next race begun on the keys after it is marked as well',
+        clean.state === 'countdown' && clean.assisted === false && slowed.state === 'countdown' && slowed.assisted === true && q.state === 'results' && first?.assisted === true && next.state === 'countdown' && next.assisted === true,
+        `fresh: ${clean.state}, assisted ${clean.assisted}; slowed and let go before it: ${slowed.state}, assisted ${slowed.assisted}, result assisted ${first?.assisted}; the next race: ${next.state}, assisted ${next.assisted}`);
+    }, { timeoutMs: 180_000 });
+    await kartPolishChecks(kid);
+    await kartThemeChecks(fixture);
+    await kartScoreRaceChecks();
+    await kartScoreAheadChecks();
+    await kartFeelChecks();
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(kid); }
+}
+
+/* -------------------------------------------------------- kart: enemies hit -- */
+// The race's score counts the enemies you hit (the owner, 8 Oct; lib/runtime/kart-score.js): every bash you land and
+// every item or trap of yours that lands on a rival (a laser, a rug, the WHALE DUMP, a touch of Diamond Hands or To
+// The Moon); never one a rival shrugs off (a Cold Wallet, its second untouchable), never your own. In the sim, so a
+// race run again counts the same.
+async function kartHitsChecks(K: <T>(js: string) => Promise<T>) {
+  const fresh = (seed = 5) => `K.solo(true); K.seed(${seed}); K.restart(); K.go(); K.solo(true); K.run(0.05, { gas: true });`;
+  const stepper = `const EV = []; const step = (inp, n) => { for (let i = 0; i < (n || 1); i++) { K.run(1 / 120, inp); for (const e of K.events(true)) EV.push([S, ...e]); S++; } }; let S = 0;
+    const mine = () => EV.filter((x) => (x[1] === 'bash' && x[2] === 0) || (x[1] === 'hit' && x[4] === 0 && x[2] !== 0)).length;`;
+  console.log('\nkart: enemies hit (the score\'s hits)');
+  const sc = await K<Record<string, { dealt: number; events: number; hits: string[] }>>(`const out = {};
+    const done = (name, d0, EV, n) => { out[name] = { dealt: K.kart(0).dealt - d0, events: n, hits: EV.filter((x) => x[1] === 'hit').map((x) => x[3] + '>' + x[2] + ' by ' + x[4]) }; };
+    { ${fresh()} ${stepper} K.place(120, 0, 20, 0, 1); K.place(90, 1.5, 20, 0, 0); const d0 = K.kart(0).dealt; K.give('laser', 0); K.events(true); K.use(0, 0); step({ gas: true }, 360); done('laser', d0, EV, mine()); }
+    { ${fresh()} ${stepper} K.place(120, 0, 20, 0, 1); K.give('wallet', 1); K.use(1); K.place(90, 1.5, 20, 0, 0); const d0 = K.kart(0).dealt; K.give('laser', 0); K.events(true); K.use(0, 0); step({ gas: true }, 360); done('laserWallet', d0, EV, mine()); }
+    { ${fresh()} ${stepper} K.place(100, 0, 20, 0, 0); const d0 = K.kart(0).dealt; K.give('rug', 0); K.use(0, 0); const tr = K.items().traps[0]; K.place(300, 0, 20, 0, 0); K.place(tr.d - 3, tr.x, 25, 0, 1); K.events(true); step({ gas: true }, 300); done('rug', d0, EV, mine()); }
+    { ${fresh()} ${stepper} K.run(20.5, {}); K.place(100, 0, 31, 0, 1); K.place(101, 2.5, 31, 0, 2); K.place(40, 2, 20, 0, 0); const d0 = K.kart(0).dealt; K.give('whale', 0); K.events(true); K.use(0); step({ gas: true }, 420); done('whale', d0, EV, mine()); }
+    { ${fresh()} ${stepper} K.place(200, 0, 20, 0, 0); K.place(200, 1.5, 20, 0, 1); const d0 = K.kart(0).dealt; K.events(true); step({ gas: true, drift: true, steer: 1 }, 2); step({ gas: true, steer: 1 }, 38); done('bash', d0, EV, mine()); }
+    { ${fresh()} ${stepper} K.place(200, 0, 20, 0, 0); K.place(203, 0.3, 12, 0, 1); const d0 = K.kart(0).dealt; K.give('diamond', 0); K.use(0); K.events(true); step({ gas: true }, 240); done('touch', d0, EV, mine()); }
+    { ${fresh()} ${stepper} K.place(100, 0, 20, 0, 0); const d0 = K.kart(0).dealt; K.give('rug', 0); K.use(0, 0); const tr = K.items().traps[0]; K.run(2, {}); K.place(tr.d - 12, tr.x, 20, 0, 0); K.events(true); step({ gas: true }, 300); done('ownRug', d0, EV, mine()); }
+    return out;`);
+  const want: Record<string, number> = { laser: 1, laserWallet: 0, rug: 1, whale: 2, bash: 1, touch: 1, ownRug: 0 };
+  ok('kart: enemies hit: one for a laser of yours that lands, none when a Cold Wallet blocks it; one for your rug a rival drives onto, none for your own; one for each kart your WHALE DUMP flips (two); one for a bash; one for a touch of Diamond Hands; and the count is the events\', bash and hit by you, exactly',
+    Object.entries(want).every(([k, n]) => sc[k] && sc[k].dealt === n && sc[k].events === n), Object.entries(sc).map(([k, v]) => `${k} ${v.dealt}/${v.events} (${v.hits.join(', ') || 'no hit'})`).join('; '));
+  // whole races of the field (the rivals bash and use every item at each other): each kart's count is its bashes and
+  // its hits on rivals, read off the events; and the same seed counts the same
+  const races = await K<{ dealt: number[]; byEv: number[]; kinds: Record<string, number> }[]>('return [21, 22, 23, 24].map((s) => { const r = K.headless(s, 300, true); return { dealt: r.dealt, byEv: r.hitsByEvents, kinds: r.hitKinds }; });');
+  const again = await K<number[]>('return K.headless(21, 300, true).dealt;');
+  const kinds: Record<string, number> = {}; races.forEach((r) => Object.entries(r.kinds).forEach(([k, n]) => { kinds[k] = (kinds[k] ?? 0) + n; }));
+  ok('kart: in four whole races of eight karts every kart\'s enemies hit equals its bashes and its hits on rivals in the events, and a race run again from its seed counts the same',
+    races.every((r) => r.dealt.join() === r.byEv.join()) && races.flatMap((r) => r.dealt).reduce((a, b) => a + b, 0) > 40 && again.join() === races[0].dealt.join() && Object.keys(kinds).length >= 4,
+    `${races.map((r) => r.dealt.join(' ')).join(' | ')}; by kind ${JSON.stringify(kinds)}; again ${again.join(' ')}`);
+}
+
+/* ----------------------------------------------------------- kart score -- */
+// The race's own score (kart.score, lib/runtime/kart-music.js; the owner, 7 Oct: "music is too generic, needs to feel
+// upbeat and FUN"): the fixture again with kart.score and no music. The start screen's groove, the intro under the count
+// landing its downbeat on GO, the laps lifting it, the final lap in B at 168 BPM with its sting, the finish's sting, the
+// podium's fanfare or shrug, the groove again on the results; the engines under it and a hit ducking it.
+async function kartThemeChecks(fixture: string) {
+  const code = fixture.replace(/\n\s*music: \{[^\n]*\},\n/, '\n').replace(/kart: \{ laps: 3,/, 'kart: { score: true, laps: 3,');
+  const id = randomUUID();
+  insertDraft({ id, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code,
+    meta: { title: 'Greybox Ring', tagline: 'The kart fixture, its own score', blurb: 'Runtime check.', genre: 'Racing', cast: [{ name: 'Pepe', color: '#4FA03A' }], palette: { sky: '#A9D3F2', ground: '#86B05A', accent: '#7CFF4F' }, runtime: 1 } });
+  try {
+    await withBrowser(async (page) => {
+      await page.goto(`${BASE}/d/${id}/play`);
+      for (let i = 0; i < 100 && !(await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)); i++) await sleep(200);
+      const ks = () => page.eval<KartState>('window.__gmRuntime.state().kart');
+      const K = <T>(js: string) => page.eval<T>(`(() => { const K = window.__gmRuntime.debug.kart(), D = window.__gmRuntime.debug; ${js} })()`);
+      const errs = async () => [...(await page.eval<string[]>('window.__gm.errors')), ...page.errors];
+      console.log('\nkart: the race\'s own score (kart.score)');
+      ok('kart: kart.score asks for the race\'s own score, and only the kart runtime carries it', !code.includes('music: {') && code.includes('score: true') && (await ks()).music === null && (await errs()).length === 0, (await errs()).join(' | '));
+      // the start screen: its groove, the drums thinned and quieter, as soon as there is sound
+      await page.eval(`window.postMessage({ source: 'gamemog-host', type: 'play' }, '*')`); await sleep(400);
+      await K('D.audio();'); await sleep(1200);
+      const t0 = (await ks()).theme;
+      ok('kart: kart.score plays the race\'s own score: the start screen hears its groove (lap 0, Bb, 160 BPM), standing in for the platform\'s player',
+        !!t0 && t0.mode === 'groove' && !!t0.playing && t0.lap === 0 && t0.key === 'Bb' && t0.tempo === 160 && (await page.eval<boolean>('!!window.__gmRuntime.debug.internals().audio.music.kart')), JSON.stringify(t0));
+      // the count: the intro, its last bar line GO
+      await K('K.seed(7); K.restart();'); await sleep(200);
+      const tc = (await ks()).theme;
+      for (let i = 0; i < 100 && (await ks()).phase !== 'race'; i++) await sleep(50);
+      await sleep(300);
+      const tg = (await ks()).theme;
+      ok('kart: the count is the score\'s intro, two bars, so the verse\'s first downbeat lands on GO (within 60 ms), with the go sting on it',
+        tc?.mode === 'count' && tc.section === 'intro' && tg?.goAt != null && tg.go != null && Math.abs(tg.go - tg.goAt) < 0.06 && !!tg.stings?.some((x) => x[0] === 'go'),
+        `count ${tc?.mode}/${tc?.section}; GO heard at ${tg?.go}, the downbeat at ${tg?.goAt}: ${tg?.go != null && tg?.goAt != null ? ((tg.go - tg.goAt) * 1000).toFixed(0) : '?'} ms; ${JSON.stringify(tg?.stings)}`);
+      // the mix: the engines under it, a hit ducks it
+      await K('K.autopilot(true);'); await sleep(1500);
+      const mix = await page.eval<{ master: number; peak: number; eng: number; duck: number }>(`new Promise((res) => {
+        const A = window.__gmRuntime.debug.internals().audio, ac = A.ctx, tap = (n) => { const a = ac.createAnalyser(); a.fftSize = 2048; n.connect(a); return a; }, m = tap(A.master), e = tap(A.engines), b = new Float32Array(2048);
+        let sm = 0, se = 0, n = 0, pk = 0, duck = 1;
+        const t = setInterval(() => { m.getFloatTimeDomainData(b); for (let i = 0; i < b.length; i++) { sm += b[i] * b[i]; pk = Math.max(pk, Math.abs(b[i])); } e.getFloatTimeDomainData(b); for (let i = 0; i < b.length; i++) se += b[i] * b[i] * 0.3025; n += b.length; duck = Math.min(duck, A.music.duckLevel()); }, 50);
+        window.__gmRuntime.debug.kart().hit('laser', 0);
+        setTimeout(() => { clearInterval(t); res({ master: 10 * Math.log10(sm / n), peak: 20 * Math.log10(pk), eng: 10 * Math.log10(se / n), duck }); }, 4000); })`);
+      ok('kart: and under it the engines (at least 4 dB under the master), the master\'s peaks under -3 dBFS before its limiter, the score ducked for a hit', mix.eng < mix.master - 4 && mix.peak < -3 && mix.duck < 0.9,
+        `master ${mix.master.toFixed(1)} dB RMS, engines ${mix.eng.toFixed(1)}, peak ${mix.peak.toFixed(1)} dBFS, duck ${mix.duck.toFixed(2)}`);
+      // the race on, at 4x: the laps lift it, the final lap in B at 168, then the finish, the podium, the results
+      await K('K.timeScale(4);');
+      const laps: number[] = []; let fin: KartState['theme'] = null, pod: KartState['theme'] = null, res: KartState['theme'] = null, s = await ks();
+      const wall0 = Date.now();
+      while (Date.now() - wall0 < 150_000) {
+        await sleep(250); s = await ks();
+        if (s.state === 'race' && s.theme?.lap != null && laps[laps.length - 1] !== s.theme.lap) laps.push(s.theme.lap);
+        // (the finish, the podium and the results at 1x, as they are heard)
+        if (s.state === 'finish' && !fin) { await K('K.timeScale(1);'); await sleep(400); fin = (await ks()).theme; }
+        if (s.state === 'podium' && !pod) { await sleep(400); pod = (await ks()).theme; }
+        if (s.state === 'results') { await sleep(1500); res = (await ks()).theme; break; }
+      }
+      await K('K.timeScale(1);');
+      const st = res?.stings ?? [], names = st.map((x) => x[0]);
+      ok('kart: the laps lift it (1, 2, then 3), a lap sting, and the final lap\'s: up a semitone to B at 168 BPM', laps.join() === '1,2,3' && names.filter((n) => n === 'lap').length === 1 && names.includes('final') && !!fin && fin.key === 'B' && fin.tempo === 168,
+        `laps ${laps.join(' -> ')}; at the finish ${fin?.key} ${fin?.tempo} BPM; ${names.join(', ')}`);
+      ok('kart: your finish has its sting over the score, the podium a fanfare or a shrug over the score faded out (then the start screen\'s groove as it ends), and the results that groove on',
+        names.includes('finish') && !!fin?.playing && (names.includes('win') || names.includes('lose')) && !!pod && (pod.duck ?? 1) < 0.1 && !!res && res.mode === 'results' && !!res.playing && res.lap === 0,
+        `finish ${fin?.mode} playing ${fin?.playing}; podium ${pod?.mode} duck ${pod?.duck}; results ${res?.mode} playing ${res?.playing} lap ${res?.lap}`);
+      const e = await errs();
+      ok('kart: a whole race to its own score raises no error', e.length === 0, e.join(' | '));
+    }, { timeoutMs: 300_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(id); }
+}
+
+/* ------------------------------------------------------ kart score race -- */
+// The owner, 7 Oct (round 3): "does the music stop randomly around 0:44". The score's notes are made on the page's
+// main thread ahead of the audio clock, and a main thread busy for longer than what was scheduled ahead left it silent,
+// then played every missed note at once. A whole race's score rendered offline (kart-music.js alone, 24 kHz), driven
+// the way the race drives it: the start screen's groove, the count's intro, GO, three laps of 44 s with the lap and
+// final stings and the lifts on their bar lines, a duck for a hit every 2.3 s, the finish's sting, the podium (the score
+// stopped under its sting, by design, and the groove back in as it ends), the results' groove; and the page "stalled" (no update(), so nothing scheduled)
+// for 0.9 s mid-lap, 0.8 s across lap 1's line and 2 s on the final lap. A dropout is a 50 ms slot 18 dB under the
+// race's median (the plate's tail alone). (In an OfflineAudioContext the score plays note by note, its old way: the mix
+// and the form are checked here; rendered ahead, as a page plays it, at real time in kartScoreAheadChecks.)
+async function kartScoreRaceChecks() {
+  const theme = readFileSync(new URL('../lib/runtime/kart-music.js', import.meta.url), 'utf8');
+  const GO = 9, LAP = 44, FIN = GO + 3 * LAP, POD = FIN + 2.5, RES = POD + 5.5, LONG: [number, number] = [GO + 2 * LAP + 12, 2];
+  type Race = { median: number; dropouts: [number, number][]; burst: number[]; skipped: number; laps: number[]; end: { lap: number; key: string; playing: boolean } };
+  const r = await withBrowser(async (page) => {
+    await page.goto('about:blank');
+    return page.eval<Race>(`(async () => {
+      ${theme}
+      const sr = 24000, END = 160, ac = new OfflineAudioContext(2, END * sr, sr), M = kartMusic.create(ac, ac.destination, { timer: false, seed: 1607 });
+      const GO = ${GO}, LAP = ${LAP}, FIN = ${FIN}, POD = ${POD}, RES = ${RES}, STALLS = [[GO + 21, 0.9], [GO + LAP - 0.05, 0.8], ${JSON.stringify(LONG)}];
+      const DUCKS = [[4, 0.25], [9, 0.12], [6, 0.25], [3, 0.12], [3, 0.25], [4, 0.25]], ev = [], laps = [];
+      const at = (t, f) => ev.push([t, f]);
+      at(0.05, () => { M.setLap(0); M.start(0.05, 'loop'); });
+      at(GO - 3, () => { M.setLap(1); M.start(GO - 3, 'intro'); });
+      at(GO, () => M.sting('go'));
+      at(GO + LAP, () => { M.sting('lap'); M.setLap(2); });
+      at(GO + 2 * LAP, () => { M.setLap(3); M.sting('final'); });
+      for (let t = GO + 1.3, i = 0; t < FIN - 0.5; t += 2.3, i++) at(t, () => M.duck(DUCKS[i % 6][0], DUCKS[i % 6][1]));
+      at(FIN, () => M.sting('finish'));
+      let after = 0;
+      at(POD, () => { M.stop(0.5); after = POD + M.sting('lose'); M.setLap(0); M.start(after, 'loop'); });
+      at(RES, () => { M.setLap(0); if (!M.state.playing || M.state.stopping) M.start(Math.max(RES + 0.05, after), 'loop'); });
+      ev.sort((a, b) => a[0] - b[0]);
+      const stalled = (t) => STALLS.some(([s, d]) => t >= s && t < s + d);
+      for (let t = 0.05; t < END - 0.1; t = +(t + 0.05).toFixed(3)) (function (tt) {
+        ac.suspend(tt).then(() => {
+          // (in a stall nothing on the page runs: what the race asks waits for its end, as a frame does)
+          if (!stalled(tt)) { while (ev.length && ev[0][0] <= tt + 1e-6) ev.shift()[1](); M.update(null); if (laps[laps.length - 1] !== M.state.lap) laps.push(M.state.lap); }
+          ac.resume();
+        });
+      })(+t.toFixed(3));
+      const buf = await ac.startRendering(), L = buf.getChannelData(0), R = buf.getChannelData(1), n = sr / 20, slots = [];
+      for (let i = 0; i + n <= L.length; i += n) { let s = 0; for (let j = i; j < i + n; j++) s += L[j] * L[j] + R[j] * R[j]; slots.push(10 * Math.log10(Math.max(1e-20, s / (2 * n)))); }
+      const race = slots.filter((x, i) => i * 0.05 > GO && i * 0.05 < FIN).sort((a, b) => a - b), med = race[race.length >> 1], runs = [];
+      let cur = null;
+      slots.forEach((db, i) => { const t = i * 0.05; if (db < med - 18) { if (!cur) cur = [t, t + 0.05]; else cur[1] = t + 0.05; } else if (cur) { runs.push(cur); cur = null; } });
+      if (cur) runs.push(cur);
+      // (the loudest slot in the 2 s after each stall, over the median: the missed notes played at once is a burst)
+      const burst = STALLS.map(([s, d]) => { let m = -200; for (let i = Math.floor((s + d) / 0.05); i < Math.floor((s + d + 2) / 0.05); i++) m = Math.max(m, slots[i]); return +(m - med).toFixed(1); });
+      return { median: +med.toFixed(1), dropouts: runs.filter((x) => x[1] - x[0] > 0.4).map((x) => [+x[0].toFixed(2), +x[1].toFixed(2)]), burst, skipped: M.state.skipped, laps, end: { lap: M.state.lap, key: M.state.key, playing: M.state.playing } };
+    })()`);
+  }, { width: 400, height: 300, timeoutMs: 240_000 });
+  console.log('\nkart: the score through a whole race (owner round 3: "does the music stop randomly around 0:44")');
+  const inLong = (x: [number, number]) => x[0] >= LONG[0] && x[1] <= LONG[0] + LONG[1] + 0.3;
+  const bad = r.dropouts.filter((x) => !inLong(x)), long = r.dropouts.filter(inLong);
+  ok('kart: the score never drops out for over 0.4 s from the start screen to the results (the count, GO, three laps and the 48 s loop\'s wrap, the lap and final stings, a duck every 2.3 s, the finish, the podium\'s sting and the groove back in after it), not through the page busy for 0.9 s mid-lap or 0.8 s across lap 1\'s line either',
+    bad.length === 0 && r.laps.join() === '0,1,2,3,0' && r.end.playing, `dropouts ${JSON.stringify(r.dropouts)} (median ${r.median} dB); laps ${r.laps.join(' -> ')}`);
+  ok('kart: played note by note (the way it plays in an OfflineAudioContext, or where a page has none), the page busy for 2 s: the score holds a second of it, then comes back in on the beat it has reached (the missed steps skipped, not played at once: no slot over 6 dB above the median after any stall)',
+    r.skipped > 0 && long.every((x) => x[1] - x[0] <= 1.1) && r.burst.every((b) => b < 6), `${r.skipped} steps skipped; dropout ${JSON.stringify(long)}; after each stall the loudest slot ${r.burst.join(', ')} dB over the median`);
+}
+
+/* ------------------------------------------------------ kart score ahead -- */
+// The owner, 8 Oct, after a longer lookahead: "music fix isn't working. music stops randomly in game" (his Mac busy with
+// other Chrome sessions). On a page the score is now rendered ahead (kart-music.js: each bar made into an AudioBuffer by
+// an OfflineAudioContext from a graph built a few milliseconds at a time, started on the audio clock seconds before it
+// sounds; the plate, the tone, the duck and the limiter live after it). Here kart-music.js alone in a real-time
+// AudioContext, at real time, driven the way the race drives it (the start screen's groove, the count's intro, GO, three
+// laps with the lap and final stings, a duck every couple of seconds, the finish, the podium's stop, sting and groove back
+// in), with the page's main thread held busy on purpose: 1.5 s mid-lap, 3 s just after the lap changes, 0.4 s six times
+// on the final lap. Its output is tapped after its limiter (with copies through delays, so a stall loses nothing); a
+// dropout is a 50 ms slot 18 dB under the race's median, for over 0.3 s.
+async function kartScoreAheadChecks() {
+  const theme = readFileSync(new URL('../lib/runtime/kart-music.js', import.meta.url), 'utf8');
+  type Ahead = { mode: string; low: number | null; skipped: number; late: number; renders: number; laps: number[]; end: { key: string; tempo: number }; go: number; fin: number; slots: [number, number][]; nodes: number; secs: number; p99: number; worst: number; mb: number };
+  const r = await withBrowser(async (page) => {
+    await page.goto('about:blank');
+    return page.eval<Ahead>(`(async () => {
+      ${theme}
+      const ac = new AudioContext(); await ac.resume();
+      // (every node made on the page's context from here on counted: the score's live load)
+      let nodes = 0; const P = BaseAudioContext.prototype;
+      ['createOscillator', 'createGain', 'createBiquadFilter', 'createBufferSource', 'createConstantSource', 'createStereoPanner'].forEach((m) => { const f = P[m]; P[m] = function () { if (this === ac) nodes++; return f.apply(this, arguments); }; });
+      const out = ac.createGain(); out.connect(ac.destination);
+      const taps = [0, 0.8, 1.6, 2.4, 3.2].map((d) => { const an = ac.createAnalyser(); an.fftSize = 32768; if (d) { const dl = ac.createDelay(4); dl.delayTime.value = d; out.connect(dl); dl.connect(an); } else out.connect(an); return { d, an, buf: new Float32Array(32768) }; });
+      const rms = {}, n = Math.round(ac.sampleRate * 0.05);
+      const poll = () => { const now = ac.currentTime; taps.forEach((A) => { A.an.getFloatTimeDomainData(A.buf); for (let b = 0; b < Math.floor(A.buf.length / n); b++) { const end = A.buf.length - b * n; let s = 0; for (let i = end - n; i < end; i++) s += A.buf[i] * A.buf[i]; const k = Math.round((now - A.d - b * 0.05) / 0.05); if (!A.d || !(k in rms)) rms[k] = Math.sqrt(s / n); } }); };
+      const pt = setInterval(poll, 100);
+      const M = kartMusic.create(ac, out, { seed: 1607 }), S = M.state, laps = [], cost = [];
+      let raf = true; (function fr() { if (!raf) return; const t = performance.now(); M.update(null); cost.push(performance.now() - t); if (laps[laps.length - 1] !== S.lap) laps.push(S.lap); requestAnimationFrame(fr); })();
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms)), busy = (ms) => { const e = performance.now() + ms; while (performance.now() < e) {} };
+      M.setLap(0); M.start(null, 'loop'); await sleep(3000);
+      M.setLap(1); const go = ac.currentTime + 3.1; M.start(go - M.introSeconds, 'intro'); await sleep(3100); M.sting('go');
+      const n0 = nodes, t0 = ac.currentTime;
+      await sleep(4000); busy(1500); await sleep(6000);
+      M.sting('lap'); M.setLap(2); await sleep(200); busy(3000); await sleep(8000);
+      M.setLap(3); M.sting('final'); await sleep(1500);
+      for (let i = 0; i < 6; i++) { await sleep(1700); M.duck(4, 0.25); busy(400); }
+      const fin = ac.currentTime, end = { key: S.key, tempo: S.tempo }; M.sting('finish'); await sleep(2000);
+      const secs = ac.currentTime - t0, made = nodes - n0;
+      M.stop(0.5); const after = ac.currentTime + M.sting('lose'); M.setLap(0); M.start(after, 'loop'); await sleep(6000);
+      raf = false; poll(); clearInterval(pt);
+      const res = { mode: S.mode, low: S.low, skipped: S.skipped, late: S.late, renders: S.renders, laps, end, go, fin, nodes: made, secs: +secs.toFixed(1), mb: +(S.bytes / 1048576).toFixed(1),
+        slots: Object.keys(rms).map((k) => [+(k * 0.05).toFixed(2), +(20 * Math.log10(Math.max(1e-9, rms[k]))).toFixed(1)]).sort((a, b) => a[0] - b[0]) };
+      cost.sort((a, b) => a - b); res.p99 = +cost[Math.floor(cost.length * 0.99)].toFixed(2); res.worst = +cost[cost.length - 1].toFixed(2);
+      M.stop(0.2); await sleep(300); await ac.close();
+      return res;
+    })()`);
+  }, { width: 400, height: 300, timeoutMs: 180_000 });
+  console.log('\nkart: the score rendered ahead, at real time, through a busy page (owner, 8 Oct: "music stops randomly in game")');
+  const race = r.slots.filter(([t]) => t > r.go + 0.5 && t < r.fin + 1.5), med = race.map((x) => x[1]).sort((a, b) => a - b)[race.length >> 1];
+  const runs: [number, number][] = []; let cur: [number, number] | null = null;
+  for (const [t, db] of r.slots) { if (t < r.go - 3 || t > r.fin + 12) continue; if (db < med - 18) { if (!cur) cur = [t, t + 0.05]; else cur[1] = t + 0.05; } else if (cur) { runs.push(cur); cur = null; } }
+  if (cur) runs.push(cur);
+  const holes = runs.filter((x) => x[1] - x[0] > 0.3);
+  ok('kart: on a page the score is rendered ahead, and never drops out for over 0.3 s from the count to the podium\'s groove, through the page held busy 1.5 s mid-lap, 3 s just after a lap is asked for and 0.4 s six times on the final lap (no step skipped, no bar started late)',
+    r.mode === 'render' && holes.length === 0 && race.length > 400 && r.skipped === 0 && r.late === 0,
+    `${r.mode}; dropouts ${JSON.stringify(holes)} (race median ${med} dB over ${race.length} slots); skipped ${r.skipped}, late ${r.late}, ${r.renders} renders`);
+  ok('kart: the score kept made and started at least 2.5 s ahead of the audio clock all race (its floor), the laps landing (1, 2, then the final lap in B at 168)',
+    r.low != null && r.low >= 2.5 && r.laps.join().includes('1,2,3') && r.end.key === 'B' && r.end.tempo === 168,
+    `the least ahead ${r.low?.toFixed(2)} s; laps ${r.laps.join(' -> ')}; at the finish ${r.end.key} ${r.end.tempo}`);
+  ok('kart: and light on the page: a frame\'s update() 4 ms at most at the 99th percentile, the audio thread\'s live nodes under 15 a second (it was about 290), the bars kept under 40 MB',
+    r.p99 <= 4 && r.nodes / r.secs < 15 && r.mb < 40, `update() p99 ${r.p99} ms, worst ${r.worst} ms; ${(r.nodes / r.secs).toFixed(1)} live nodes a second; ${r.mb} MB of bars`);
+}
+
+/* ---------------------------------------------------------- kart polish -- */
+// The 7 Oct pass (Meme Kart M8): the GM at a kart's scale, the race graded the way the racers were drawn, nothing made
+// once Play is pressed, levels of detail that hold, a phone at 1.25 pixels a point, the pick asked for by the race,
+// the rocket on its kart, the engines and the crowd under the score, and the look back over the shoulder.
+async function kartPolishChecks(kid: string) {
+  type Audio = { voices: { kart: number; rpm: number; thr: number; level: number }[]; drift: number; crowd: number; cheer: number } | null;
+  await withBrowser(async (page) => {
+    // (frame times kept; and, as the page round a draft's preview does, the race's "kart-hello" answered with a racer)
+    await page.preload('window.__ftl=[];(function t(n){window.__ftl.push(n);if(window.__ftl.length>3000)window.__ftl.shift();requestAnimationFrame(t)})(0);window.__hello=0;addEventListener("message",function(e){var d=e.data;if(d&&d.source==="gamemog"&&d.type==="kart-hello"){window.__hello++;postMessage({source:"gamemog-host",type:"kart-racer",racer:"shiba"},"*");}});');
+    await page.goto(`${BASE}/d/${kid}/play`);
+    for (let i = 0; i < 100 && !(await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)); i++) await sleep(200);
+    const ks = () => page.eval<KartState & { prep: { done: boolean; inRace: number; programs: number; ms: number; of: number }; grade: { preset: string | null; curve: string } | null }>('window.__gmRuntime.state().kart');
+    const K = <T>(js: string) => page.eval<T>(`(() => { const K = window.__gmRuntime.debug.kart(), D = window.__gmRuntime.debug; ${js} })()`);
+    let st = await ks();
+    for (let i = 0; i < 150 && !(st.prep.done && st.roster.waiting === 0); i++) { await sleep(100); st = await ks(); }
+
+    console.log('\nkart: polish (7 Oct)');
+    ok('kart: the race asks the page round it for the racer it kept ("kart-hello", so a draft\'s preview remembers too), and the one handed back is yours', (await page.eval<number>('window.__hello')) === 1 && st.pick.racer === 'shiba' && st.karts[0].racer === 'shiba',
+      `${await page.eval<number>('window.__hello')} asked; ${st.pick.racer}`);
+    await K('K.pick("pepe");');
+    // the grade: a kart world gets the neutral curve (the fixture names the toy preset and no curve)
+    ok('kart: a kart world is graded with the Khronos PBR Neutral curve where it names no other (and its own preset kept)', st.grade?.curve === 'neutral' && st.grade.preset === 'toy', JSON.stringify(st.grade));
+    const plain = runtimeSource(1), kartRt = runtimeSource(1, true);
+    ok('kart: the kart preset and the neutral curve ride only in the kart runtime', !plain.includes('vec3 neutral(') && !/kart: \{ exposure/.test(plain) && kartRt.includes('vec3 neutral(') && /kart: \{ exposure: 1\.05/.test(kartRt));
+    // made ahead: everything a race shows, in the demo
+    ok('kart: in the demo, everything a race shows is made ahead (the roster\'s levels, the items on every racer, the pools, the programs, the portraits, the sound)', st.prep.done && st.roster.waiting === 0 && st.pick.portraits === 8 && !!(await page.eval('window.__gmRuntime.debug.internals().audio')),
+      `${st.prep.of} pieces in ${st.prep.ms} ms; ${st.roster.built} levels; ${st.pick.portraits} portraits`);
+
+    // the To The Moon rocket on every racer's kart: its front strap's bracket on the deck (within 4 cm)
+    const gaps = await K<Record<string, number | null>>('return K.mountGaps();');
+    ok('kart: the To The Moon rocket sits on every racer\'s kart: its front bracket within 4 cm of the deck, the bed, the cage or the wing under it (Bike Tyson\'s saddle, his legs pedalling under it: 6 cm)', Object.keys(gaps).length === 8 && Object.entries(gaps).every(([r, g]) => g !== null && Math.abs(g) <= (r === 'bike' ? 0.06 : 0.04)), JSON.stringify(gaps));
+
+    // a race: Play, Enter, and the frames from Enter to 6 s into the race; nothing made in it
+    await page.eval(`window.postMessage({ source: 'gamemog-host', type: 'play' }, '*')`); await sleep(600);
+    await K('K.seed(99);');
+    const tEnter = await page.eval<number>('performance.now()');
+    await page.key('Enter');
+    // (the flyover, left to run: about 4 s, and the count begins where it lands, behind your kart)
+    let fs = await ks(); const tFly = Date.now();
+    for (let i = 0; i < 300 && fs.state === 'flyover'; i++) { await sleep(20); fs = await ks(); }
+    const flyMs = Date.now() - tFly, landed = await page.eval<{ dist: number; up: number }>(`(() => { const R = window.__gmRuntime, I = R.debug.internals(), o = I.scene.getObjectByName('racer-' + R.state().kart.karts[0].racer).parent, c = I.camera.position; const p = new THREE.Vector3(); o.getWorldPosition(p); return { dist: +c.distanceTo(p).toFixed(2), up: +(c.y - p.y).toFixed(2) }; })()`);
+    ok('kart: left alone, the flyover lasts about 4 s and lands where the race\'s camera stands behind your kart, then the count', fs.state === 'countdown' && flyMs > 3500 && flyMs < 4700 && landed.dist > 4 && landed.dist < 7.5 && landed.up > 1 && landed.up < 3,
+      `${(flyMs / 1000).toFixed(2)} s, then ${fs.state}; the camera ${landed.dist} m from your kart, ${landed.up} m up`);
+    for (let i = 0; i < 200 && (await ks()).phase !== 'race'; i++) await sleep(30);
+    const p0 = (await ks()).prep;
+    await K('K.autopilot(true);'); await sleep(6000);
+    const ft = await page.eval<number[]>(`window.__ftl.filter((n) => n >= ${tEnter})`);
+    const dts = ft.slice(1).map((n, i) => n - ft[i]), worst = Math.max(...dts);
+    const p1 = (await ks()).prep;
+    ok('kart: from Enter (the flyover, the count) to 6 s into the race nothing is made (no racer level, no item model), and no frame takes over 50 ms', p1.inRace === 0 && worst < 50,
+      `${dts.length} frames, the longest ${worst.toFixed(1)} ms, ${dts.filter((x) => x > 33.4).length} over 33 ms; programs ${p0.programs} -> ${p1.programs}`);
+
+    // the mix, measured at the master for 4 s: the score on top, nothing near clipping, the score ducked under a hit
+    const mix = await page.eval<{ master: number; peak: number; eng: number; duck: number }>(`new Promise((res) => {
+      const A = window.__gmRuntime.debug.internals().audio, ac = A.ctx, tap = (n) => { const a = ac.createAnalyser(); a.fftSize = 2048; n.connect(a); return a; }, m = tap(A.master), e = tap(A.engines), b = new Float32Array(2048);
+      let sm = 0, se = 0, n = 0, pk = 0, duck = 1;
+      const t = setInterval(() => { m.getFloatTimeDomainData(b); for (let i = 0; i < b.length; i++) { sm += b[i] * b[i]; pk = Math.max(pk, Math.abs(b[i])); } e.getFloatTimeDomainData(b); for (let i = 0; i < b.length; i++) se += b[i] * b[i] * 0.3025; n += b.length; duck = Math.min(duck, A.music ? A.music.duckLevel() : 1); }, 50);
+      window.__gmRuntime.debug.kart().hit('laser', 0);
+      setTimeout(() => { clearInterval(t); res({ master: 10 * Math.log10(sm / n), peak: 20 * Math.log10(pk), eng: 10 * Math.log10(se / n), duck }); }, 4000); })`);
+    ok('kart: the mix: the engines under the score (at least 4 dB under the master), the master\'s peaks under -3 dBFS before its limiter, the score ducked for a hit', mix.eng < mix.master - 4 && mix.peak < -3 && mix.duck < 0.9,
+      `master ${mix.master.toFixed(1)} dB RMS, engines ${mix.eng.toFixed(1)}, peak ${mix.peak.toFixed(1)} dBFS, duck ${mix.duck.toFixed(2)}`);
+
+    // the engines and the crowd: your voice and the two nearest, revs from the speed; a boost revs, a hit drops it
+    await sleep(1500);
+    const a0 = await K<Audio>('return K.audio();'), sp0 = (await ks()).speed;
+    const others = a0 ? a0.voices.slice(1).map((v) => v.kart) : [];
+    await K('K.place(400, 0, 14, 0, 0);'); await sleep(300);
+    const ab = await K<Audio>('return K.audio();');
+    await K('K.give("pump"); K.use(0);'); await sleep(300);
+    const a1 = await K<Audio>('return K.audio();');
+    await K('K.hit("rug", 0);'); await sleep(450);
+    const a2 = await K<Audio>('return K.audio();');
+    ok('kart: the engines: yours (its revs from the speed: over 9,000 at 20 m/s) and the two karts nearest it, each heard; a boost revs it, a hit drops it toward idle',
+      !!a0 && a0.voices[0].kart === 0 && a0.voices[0].level > 0.3 && (sp0 < 20 || a0.voices[0].rpm > 9000) && others.every((n) => n > 0) && new Set(others).size === 2 && !!ab && !!a1 && a1.voices[0].rpm > ab.voices[0].rpm + 1000 && !!a2 && a2.voices[0].rpm < 5000,
+      `${sp0} m/s: ${JSON.stringify(a0?.voices)}; pump ${ab?.voices[0].rpm} -> ${a1?.voices[0].rpm} rpm; hit ${a2?.voices[0].rpm} rpm`);
+    // the look back: over the racer's right shoulder, ahead of it, looking back down the road
+    // (the hits above spun the kart: the look is judged once it is straight again, on its heading)
+    await sleep(1200); await K('K.hold({ steer: "auto", gas: true, back: true });'); await sleep(300);
+    const lb = await page.eval<{ ahead: number; side: number; look: number }>(`(() => { const R = window.__gmRuntime, I = R.debug.internals(), o = I.scene.getObjectByName('racer-' + R.state().kart.karts[0].racer).parent, c = I.camera; const y = R.debug.kart().kart(0).h, fx = Math.sin(y), fz = Math.cos(y), dx = c.position.x - o.position.x, dz = c.position.z - o.position.z; const v = new THREE.Vector3(); c.getWorldDirection(v); return { ahead: dx * fx + dz * fz, side: -(dx * Math.cos(y) - dz * Math.sin(y)), look: v.x * fx + v.z * fz }; })()`);
+    await K('K.hold(null);');
+    ok('kart: C looks back over the racer\'s shoulder: the camera ahead of the kart and out to its right, looking back down the road (no longer square in front, face to face)', lb.ahead > 1 && lb.ahead < 4 && lb.side > 1 && lb.look < -0.7, JSON.stringify(lb));
+
+    // the GM: 0.45 of the lap's coin, half a metre up; driven past with the kart's middle 1.2 m from the line, still taken
+    const cm = await page.eval<{ s: number; y: number } | null>(`(() => { const I = window.__gmRuntime.debug.internals(); let cm = null; I.scene.traverse((o) => { if (o.isInstancedMesh && Array.isArray(o.material) && o.material.length === 3 && o.geometry.type === 'CylinderGeometry') cm = o; }); if (!cm || !cm.count) return null; const M = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); cm.getMatrixAt(0, M); M.decompose(p, q, s); return { s: +s.x.toFixed(3), y: +p.y.toFixed(3) }; })()`);
+    // (two lines of five, untouched, well along the lap: one for each pass)
+    // (and clear of the meteors' stretches: since 7 Oct a strike is aimed at a racer in its stretch, and a lone kart is the one)
+    const mz = (await K<{ kind: string; d: number; zone: number }[]>('return K.course().hazards;')).filter((h) => h.kind === 'meteor');
+    const lines = (await K<{ d: number; x: number; on: boolean }[]>('return K.coins();')).filter((c, i) => i % 5 === 0 && c.on && c.d > 100 && c.d < 900 && mz.every((h) => Math.abs(c.d - h.d) > h.zone + 40));
+    const [c0, c1] = lines;
+    // (driven along the line, held off it by the steering)
+    const pass = async (c: { d: number; x: number }, off: number) => K<number>(`K.solo(true); K.autopilot(false); K.place(${c.d - 12}, ${c.x + off}, 14, 0, 0); const g0 = K.kart(0).gm; K.run(2.2, (t, k) => ({ gas: true, steer: Math.max(-1, Math.min(1, (${c.x + off} - k.lat) * 0.8)) })); return K.kart(0).gm - g0;`);
+    const near = await pass(c0, 1.2), wide = await pass(c1, -1.5);
+    ok('kart: GM coins are 0.45 of the lap\'s (0.56 m across), floating about half a metre up, and a kart whose middle passes 1.2 m from a line still takes it (1.5 m: no)', !!cm && Math.abs(cm.s - 0.45) < 0.01 && near === 5 && wide === 0,
+      `scale ${cm?.s}, ${near} GM at 1.2 m, ${wide} at 1.5 m`);
+    await K('K.solo(false);');
+
+    // levels of detail held: a rival moved back and forth across the near line every 0.2 s for 3 s never goes from
+    // one level to another and back inside a second
+    await K('K.solo(true); K.autopilot(false); K.hold({ gas: false }); K.place(300, 0, 0, 0, 0); K.lodLog(true);');
+    for (let i = 0; i < 15; i++) { await K(`K.place(${i % 2 ? 315 : 307}, 3, 0, 0, 3);`); await sleep(200); }
+    const lg = (await K<[number, number, string, string][]>('return K.lodLog();')).filter((r) => r[1] === 3);
+    const back = lg.filter((r, i) => i > 0 && r[3] === lg[i - 1][2] && r[0] - lg[i - 1][0] < 1);
+    ok('kart: a racer\'s level of detail is held a second at least (and by 3 m across the near line): moved across it five times a second, it changes at most once a second, never there and back inside one', lg.length >= 1 && lg.length <= 4 && back.length === 0,
+      lg.map((r) => `${r[0]}:${r[2]}>${r[3]}`).join(' '));
+    await K('K.hold(null); K.solo(false);');
+    const e1 = [...(await page.eval<string[]>('window.__gm.errors')), ...page.errors];
+    ok('kart: the polish raises no error', e1.length === 0, e1.join(' | '));
+  }, { timeoutMs: 240_000 });
+
+  // a phone: 1.25 pixels a point at most
+  await withBrowser(async (page) => {
+    await page.emulate({ width: 390, height: 844, mobile: true, dpr: 3 });
+    await page.goto(`${BASE}/d/${kid}/play`);
+    for (let i = 0; i < 100 && !(await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)); i++) await sleep(200);
+    await sleep(1500);
+    const r = await page.eval<{ quality: string; pixelRatio: number }>('window.__gmRuntime.state().render');
+    ok('kart: on a phone (390 x 844 at 3x) a kart race draws at 1.25 pixels a point at most', r.quality === 'low' && r.pixelRatio <= 1.25 && r.pixelRatio >= 1, JSON.stringify(r));
+  }, { width: 390, height: 844, timeoutMs: 120_000 });
+}
+/* ------------------------------------------------------------ kart feel -- */
+// The owner's second review (7 Oct: "the camera view loses the rider and kart when he drops and dips down on the
+// course", "turning is SOOO tough and not smooth"), on Meme Kart's own To The Moon (worlds/meme-kart.js, a local
+// draft): a person on the keys (binary keys, 0.18 or 0.25 s to react, steering at the racing line ahead, round the
+// mud, the rails and the holes, never braking) over flying laps, stepped exactly; and the race's camera, frame by
+// frame in real time, the kart's box (its visible meshes, carried by its own matrix) projected through it on a
+// desktop and on a phone held upright, down Buy the Dip, over Gap Up, up the Candle Climb and through a Claw.
+const KART_DRIVER = String.raw`(function () {
+  var D = window.__gmRuntime.debug.kart(), S0 = D.state(), L = S0.L, top = S0.top, RU = D.rules(), HD = RU.hd, CO = D.course();
+  var N = Math.ceil(L), HE = new Float64Array(N), OFF = new Float64Array(N), RAD = new Float64Array(N);
+  for (var i = 0; i < N; i++) { HE[i] = D.place(i, 0, 0, 0, 7).h; var ln = D.lineAt(i); OFF[i] = ln.off; RAD[i] = ln.r; }
+  D.solo(true);
+  function wrap(a) { a = (a + Math.PI) % (2 * Math.PI); return (a < 0 ? a + 2 * Math.PI : a) - Math.PI; }
+  function md(d) { return ((d % L) + L) % L; }
+  function at(T, d) { d = md(d); var i = Math.floor(d) % N, j = (i + 1) % N, u = d - Math.floor(d); return T[i] + (T[j] - T[i]) * u; }
+  function hAt(d) { d = md(d); var i = Math.floor(d) % N, j = (i + 1) % N, u = d - Math.floor(d); return HE[i] + wrap(HE[j] - HE[i]) * u; }
+  function rAt(d) { return RAD[Math.round(md(d)) % N]; }
+  function railX(R0, d) { var u = md(d - R0.d0); if (u > R0.len) return NaN; var P = R0.pts; for (var q = 1; q < P.length; q++) if (u <= P[q][0]) { var f = (u - P[q - 1][0]) / Math.max(1e-6, P[q][0] - P[q - 1][0]); return P[q - 1][1] + (P[q][1] - P[q - 1][1]) * f; } return P[P.length - 1][1]; }
+  function wmax(v) { return Math.max(0.2, Math.min(HD.wPeak, v / (HD.R0 + HD.Rc * v * v))); }
+  function round(target, d, la) {
+    var f, F, lo, hi;
+    for (f = 0; f < CO.off.length; f++) { F = CO.off[f]; var rd = md(d + la - F.d0); if (rd > F.len + 4 && rd < L - 8) continue; if (target < F.x0 - 1.2 || target > F.x1 + 1.2) continue; lo = F.x0 - 1.4; hi = F.x1 + 1.4; target = (Math.abs(target - lo) < Math.abs(target - hi) && lo > -S0.hw + 0.8) || hi > S0.hw - 0.8 ? lo : hi; }
+    for (f = 0; f < CO.rails.length; f++) { var xr = railX(CO.rails[f], d + la); if (xr !== xr) xr = railX(CO.rails[f], d + 4); if (xr !== xr || Math.abs(target - xr) > 1.6) continue; target = xr + (Math.abs(xr) > 0.5 ? -Math.sign(xr) : 1) * 1.7; }
+    for (f = 0; f < CO.breaks.length; f++) { var B = CO.breaks[f]; if (B.x0 <= -S0.hw && B.x1 >= S0.hw) continue; var rb = md(B.d0 - d); if (rb > 40 && rb < L - B.len - 2) continue; if (target < B.x0 - 1.6 || target > B.x1 + 1.6) continue; lo = B.x0 - 1.8; hi = B.x1 + 1.8; target = (Math.abs(target - lo) < Math.abs(target - hi) && lo > -S0.hw + 0.8) || hi > S0.hw - 0.8 ? lo : hi; }
+    return target;
+  }
+  // the person on the keys, reacting in react seconds: a function of the time and the live kart (lapsDone, lat, hop
+  // -1 when not hopping) to its controls; st counts its reversals out of a stall (revs) and its key changes
+  function person(react, st) {
+    var Q = [], key = 0, P = { rev: 0, slow: 0 };
+    return function (t, k) {
+      var v = Math.max(0, k.v), d = k.d, la = Math.max(8, Math.min(22, 0.65 * v));
+      var target = round(Math.max(-S0.hw + 1.2, Math.min(S0.hw - 1.2, at(OFF, d + la))), d, la);
+      if (P.rev > 0) { P.rev -= 1 / 120; return { steer: P.revS, brake: true, analog: false }; }
+      if (v < 2 && k.stun <= 0 && k.rescue < 0 && t > 2) { P.slow += 1 / 120; if (P.slow > 1) { P.slow = 0; P.rev = 0.8; P.revS = k.lat > 0 ? 1 : -1; st.revs++; } } else P.slow = 0;
+      var e = wrap(k.h - hAt(d)), ed = -Math.atan2(target - k.lat, la), rl = rAt(d + 0.15 * v), ff = Math.abs(rl) < 5e5 ? v / rl : 0;
+      var want = Math.max(-1.5, Math.min(1.5, -(ff + 2.6 * (ed - e)) / (wmax(v) * (k.hop >= 0 ? RU.hopTurn : 1))));
+      var dec = want > 0.4 ? 1 : want < -0.4 ? -1 : Math.abs(want) < 0.2 ? 0 : key;
+      Q.push([t, dec]); var out = null; while (Q.length && t - Q[0][0] >= react - 1e-9) out = Q.shift();
+      if (out && out[1] !== key) { key = out[1]; st.changes++; }
+      return { steer: key, gas: true, analog: false };
+    };
+  }
+  // opt: { mode: 'keys' | 'auto', react, laps, secs }: flying laps (all but the first), the walls met, the key changes
+  window.__drv = function (opt) {
+    var react = opt.react || 0.18, laps = opt.laps || 3, st = { lapT: [], lapStart: 0, done: 0, revs: 0, changes: 0 }, drive = person(react, st);
+    D.place(4, at(OFF, 4), 0.85 * top, 0, 0); D.lap(0); D.events(true);
+    // (the walls counted up to the last lap's line: after it the kart brakes and backs off down the road, and at the
+    // longer lap of 8 Oct (To The Moon at 1,570 m) the seconds left over were a minute of reversing into walls)
+    var walls = { glance: 0, scrape: 0, bonk: 0 }, t1 = 0, counted = false, claws = [], inR = false;
+    function count() { D.events(true).forEach(function (x) { if (x[1] === 0 && walls[x[0]] != null) walls[x[0]]++; }); counted = true; }
+    D.run(opt.secs || 200, function (t, k) {
+      if (k.lapsDone > st.done) { st.lapT.push(t - st.lapStart); st.lapStart = t; st.done = k.lapsDone; if (st.done === 1) { D.events(true); t1 = t; } }
+      // (every Claw up to the last lap's line, the time it came, off the kart itself)
+      if (k.rescue >= 0 && !inR && st.done < laps) claws.push(t); inR = k.rescue >= 0;
+      if (st.done >= laps) { if (!counted) count(); return { brake: true, analog: true }; }
+      if (opt.mode === 'auto') return 'auto';
+      return drive(t, k);
+    }, 60);
+    if (!counted) count();
+    var fly = Math.max(1, st.done - 1);
+    return { laps: st.lapT.map(function (x) { return +x.toFixed(2); }), done: st.done, walls: +((walls.glance + walls.scrape + walls.bonk) / fly).toFixed(2), bonks: +(walls.bonk / fly).toFixed(2), revs: st.revs, keys: +(st.changes / Math.max(1, st.done)).toFixed(0),
+      claws: claws.length, claw3: claws.reduce(function (m, t0) { return Math.max(m, claws.filter(function (t2) { return t2 >= t0 && t2 < t0 + 20; }).length); }, 0) };
+  };
+  // a whole race from the grid (just after GO), the field racing, you on the keys reacting in opt.react s (or on the
+  // autopilot), opt.secs of it a quarter second at a time: every Rescue Claw, [kart, the race's time to a quarter
+  // second, where], read off the race's own events, and who finished
+  window.__field = function (opt) {
+    var st = { revs: 0, changes: 0 }, drive = opt.react ? person(opt.react, st) : null, T = 0, claws = [];
+    D.events(true);
+    for (var c = 0; c < (opt.secs || 240) * 4; c++) {
+      D.run(0.25, function (t, k) { return k.fin ? 'auto' : drive ? drive(T + t, k) : 'auto'; }, 0.25); T += 0.25;
+      D.events(true).forEach(function (x) { if (x[0] === 'rescue') claws.push([x[1], T, Math.round(D.kart(x[1]).d)]); });
+    }
+    var S1 = D.state();
+    return { claws: claws, fin: S1.karts.map(function (q) { return q.fin; }), revs: st.revs };
+  };
+  return { L: L, top: top };
+})()`;
+// the kart's box on the screen, every rendered frame (page side): [t, x0, x1, y0, y1, on-screen share, kart d, air,
+// rescue, the kart's height, the camera's height over the road behind and its lag behind the road under the kart,
+// the kart's height over the road (and 1 more hopping or on a rail)]
+const KART_FRAME = String.raw`(function () {
+  var R = window.__gmRuntime, I = R.debug.internals(), D = R.debug.kart(), THREE = I.THREE, cam = I.camera, obj = I.player.object;
+  var p0 = obj.position.clone(), r0 = obj.rotation.clone(); obj.position.set(0, 0, 0); obj.rotation.set(0, 0, 0); obj.updateMatrixWorld(true);
+  var LB = new THREE.Box3(), tmp = new THREE.Box3();
+  obj.traverseVisible(function (o) { if (o.isMesh && o.geometry) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); tmp.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); LB.union(tmp); } });
+  obj.position.copy(p0); obj.rotation.copy(r0); obj.updateMatrixWorld(true);
+  var C8 = []; for (var c = 0; c < 8; c++) C8.push(new THREE.Vector3(c & 1 ? LB.max.x : LB.min.x, c & 2 ? LB.max.y : LB.min.y, c & 4 ? LB.max.z : LB.min.z));
+  var V = new THREE.Vector3(), P = window.__kf = { rows: [], on: false, pad: 1 };
+  P.pad = Array.prototype.reduce.call(document.querySelectorAll('#gm .tpad button'), function (m, b) { var r = b.getBoundingClientRect(); return r.width > 2 && getComputedStyle(b).display !== 'none' ? Math.min(m, r.top / innerHeight) : m; }, 1);
+  (function frame(now) {
+    requestAnimationFrame(frame);
+    if (!P.on) return;
+    var st = D.state(); if (st.state !== 'race') return;
+    var k = D.kart(0); obj.updateMatrixWorld(true); cam.updateMatrixWorld(true);
+    var x0 = 9, x1 = -9, y0 = 9, y1 = -9;
+    for (var c = 0; c < 8; c++) { V.copy(C8[c]).applyMatrix4(obj.matrixWorld).project(cam); var sx = (V.x + 1) / 2, sy = (1 - V.y) / 2; x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy); }
+    var area = Math.max(1e-6, (x1 - x0) * (y1 - y0)), vis = Math.max(0, Math.min(1, x1) - Math.max(0, x0)) * Math.max(0, Math.min(1, y1) - Math.max(0, y0)) / area;
+    P.rows.push([now / 1000, x0, x1, y0, y1, vis, k.d, k.air ? 1 : 0, k.rescue, obj.position.y, st.camera.over, st.camera.lag, k.y + (k.hop ? 1 : 0) + (k.grind >= 0 ? 1 : 0)]);
+  })(0);
+  return [LB.min.toArray(), LB.max.toArray()];
+})()`;
+// the crates (the owner's second review, 7 Oct: "before or shortly after grabbing the box, the kart starts to suddenly
+// and unexplainably stutter"): your kart steered at a crate (page side, a frame at a time, through K.hold), and every
+// rendered frame of it as drawn: [frame time, x, y, z, v, d, air, hop, stun, the item rolling or held, its y on the
+// screen]. Until 7 Oct it was drawn on the nearest metre of road (a 11 to 65 cm staircase up the Candle Climb and down
+// Buy the Dip, where two of the six Airdrop rows are), moved on by when the runtime's callback came and not by the
+// frame's own time (4 to 8% too far or too short a frame), and shaken by a fresh random offset every frame
+// the effects against the picture (the owner's third review, 7 Oct: "sometimes a giant blue cloud appears with red down
+// arrows, not sure why but it blocks entire view, that shouldn't happen"): every rendered frame (page side), what
+// debug.kart().cover() says the effects hide (all but what a racer carries, the Cold Wallet's dome round your kart
+// see-through glass you are seen in, 12 s of it, not an effect in the way; a kart's own boost flame and the glow under
+// it, the kart's exhaust, a hand's width out of its tail; and the speed lines, hairlines a pixel across that the small
+// picture cover() draws makes eight times as wide as they are): [frame time, the share of the road-ahead band (x 0.2 to 0.8, y 0.3 down
+// to the kart's foot) and of your kart's own box the effects change past a quarter of the full scale, and the screen's
+// overlay over the band]
+const KART_COVER = String.raw`(function () {
+  var D = window.__gmRuntime.debug.kart(), P = window.__kcov = { rows: [], on: false };
+  // (a frame where something hides the picture: which kinds of effect, each hidden alone, give back most of it)
+  var KINDS = ['sparks', 'flames', 'smoke', 'confetti', 'flash', 'ifx', 'clouds', 'bags', 'whale', 'claw', 'shots', 'rugs', 'meteor'];
+  (function frame(now) {
+    requestAnimationFrame(frame); if (!P.on || D.state().state !== 'race') return;
+    var c = D.cover('-kit,lines,boost'), who = '';
+    if (c.band > 0.1 || c.kart > 0.25) who = KINDS.filter(function (q) { var r = D.cover(q); return r.band > c.band * 0.4 || r.kart > c.kart * 0.4; }).join('+');
+    P.rows.push([now / 1000, c.band, c.kart, c.overlay, who]);
+  })(0);
+  return 1;
+})()`;
+// each effect set going, from your own camera, the rivals left out unless the effect needs one: [name, setup, ms]
+// (the hazards and the crates on the way are met as they come: an effect of theirs counts as much as the item's)
+const KART_COVER_TAKES: [string, string, number][] = [
+  ['a FUD Cloud sent at you from 38 m behind (it flies up the road over the camera, then hangs over you)', 'K.place(300, 0, 31, 0, 0); K.place(262, 0, 31, 0, 1); K.give("fud", 1); K.use(1);', 3200],
+  ['a FUD Cloud you send at a rival 9 m ahead', 'K.place(300, 0, 31, 0, 0); K.place(309, 1, 29, 0, 1); K.give("fud", 0); K.use(0);', 3000],
+  ['the WHALE DUMP slammed on you', 'K.clock(40); K.place(300, 0, 31, 0, 0); K.place(250, 0, 28, 0, 1); K.give("whale", 1); K.use(1);', 3800],
+  ['the WHALE DUMP slammed on a rival 10 m ahead', 'K.clock(80); K.place(300, 0, 31, 0, 0); K.place(310, 0, 29, 0, 1); K.give("whale", 0); K.use(0);', 3800],
+  ['a hop-bash into a rival beside you', 'K.place(300, -1.6, 31, 0, 0); K.place(300.5, 1.0, 31, 0, 1); K.hold({ gas: true, steer: 1, drift: true }); setTimeout(() => K.hold({ gas: true, steer: 0 }), 400);', 1600],
+  ['Laser Eyes on you', 'K.place(300, 0, 31, 0, 0); K.place(280, 0, 31, 0, 1); K.give("laser", 1); K.use(1);', 2500],
+  // (8 Oct, the review film: a laser from behind and to the left as you went over Buy the Dip's first drop, the lens
+  // low behind you, its beam laid back past the lens across the left of the road for 0.3 s)
+  ['Laser Eyes on you from behind and to the left, over Buy the Dip\'s first drop', 'K.place(800, 1.5, 33, 0, 0); K.place(782, -3.5, 33, 0, 1); K.give("laser", 1); K.use(1);', 2500],
+  ['To The Moon, and a Cold Wallet', 'K.place(300, 0, 31, 0, 0); K.give("moon", 0); K.use(0); setTimeout(() => { K.give("wallet", 0); K.use(0); }, 1500);', 4000],
+  ['into the break, and the Rescue Claw', 'const B = K.course().breaks.filter((b) => b.x1 - b.x0 > 6)[0] || K.course().breaks[0]; K.place(B.d0 - 30, (B.x0 + B.x1) / 2, 31, 0, 0);', 3800],
+];
+const KART_CRATES = String.raw`(function () {
+  var R = window.__gmRuntime, I = R.debug.internals(), D = R.debug.kart(), cam = I.camera, obj = I.player.object, V = new I.THREE.Vector3();
+  var S0 = D.state(), L = S0.L, HD = D.rules().hd, N = Math.ceil(L), HE = new Float64Array(N);
+  for (var i = 0; i < N; i++) HE[i] = D.place(i, 0, 0, 0, 7).h;
+  D.solo(true);
+  function wrap(a) { a = (a + Math.PI) % (2 * Math.PI); return (a < 0 ? a + 2 * Math.PI : a) - Math.PI; }
+  function hAt(d) { d = ((d % L) + L) % L; var i = Math.floor(d) % N, j = (i + 1) % N, u = d - Math.floor(d); return HE[i] + wrap(HE[j] - HE[i]) * u; }
+  function wmax(v) { return Math.max(0.2, Math.min(HD.wPeak, v / (HD.R0 + HD.Rc * v * v))); }
+  var P = window.__kc = { rows: [], on: false, x: 0, err: null };
+  (function frame(now) {
+    requestAnimationFrame(frame);
+    if (!P.on) return;
+    try {
+      var k = D.kart(0), v = Math.max(0, k.v), la = Math.max(4, Math.min(14, 0.5 * v)), e = wrap(k.h - hAt(k.d)), ed = -Math.atan2(P.x - k.x, la);
+      D.hold({ steer: Math.max(-1, Math.min(1, -2.6 * (ed - e) / wmax(v))), gas: true, analog: true });
+      var it = D.items().karts[0]; V.copy(obj.position).project(cam);
+      P.rows.push([now, obj.position.x, obj.position.y, obj.position.z, v, k.d, k.air ? 1 : 0, k.hop ? 1 : 0, k.stun, it.roll > 0 || it.item ? 1 : 0, (1 - V.y) / 2]);
+    } catch (err) { P.err = String(err && err.message || err); }
+  })(0);
+  return D.items().crates.map(function (c) { return [c.row, c.d, c.x]; });
+})()`;
+async function kartFeelChecks() {
+  const code = readFileSync(new URL('../worlds/meme-kart.js', import.meta.url), 'utf8'), meta = JSON.parse(readFileSync(new URL('../worlds/meme-kart.json', import.meta.url), 'utf8'));
+  const id = randomUUID();
+  insertDraft({ id, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code, meta: { ...meta, mode: 'kart', runtime: 1 } } as never);
+  type Frame = [number, number, number, number, number, number, number, number, number, number, number, number, number];
+  const boot = async (page: Page) => {
+    await page.goto(`${BASE}/d/${id}/play?preview=1`);
+    for (let i = 0; i < 300 && !(await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)); i++) await sleep(200);
+    const ks = () => page.eval<KartState & { prep: { done: boolean } }>('window.__gmRuntime.state().kart');
+    let st = await ks();
+    for (let i = 0; i < 600 && !(st.prep.done && st.roster.waiting === 0); i++) { await sleep(100); st = await ks(); }
+    const K = <T>(js: string) => page.eval<T>(`(() => { const K = window.__gmRuntime.debug.kart(); ${js} })()`);
+    await page.eval(`window.postMessage({ source: 'gamemog-host', type: 'play' }, '*')`); await sleep(400);
+    await K('K.seed(7); K.restart(); return 1;');
+    for (let i = 0; i < 100 && (await ks()).state !== 'countdown'; i++) await sleep(50);
+    await K('K.go(); return 1;');
+    for (let i = 0; i < 200 && (await ks()).state !== 'race'; i++) await sleep(30);
+    return { K, ks };
+  };
+  // the camera through the places it lost the kart: real time, the autopilot driving; each place skipped 0.6 s in
+  const camera = async (page: Page, K: <T>(js: string) => Promise<T>) => {
+    await page.eval(KART_FRAME);
+    await K('K.autopilot(true); return 1;');
+    const out: { name: string; rows: Frame[] }[] = [];
+    for (const [name, setup, ms] of [['Buy the Dip', 'K.place(745, 0, 26)', 12_000], ['Gap Up', 'K.place(330, 0, 28)', 6000], ['the Candle Climb', 'K.place(262, 0, 22)', 5000],
+      ['a Claw at the brink', 'K.hold({ gas: false }); K.place(756, 0, 3)', 4000]] as const) {
+      await K(`${setup}; return 1;`); await sleep(600);
+      await page.eval('window.__kf.rows.length = 0; window.__kf.on = true; 1'); await sleep(ms);
+      out.push({ name, rows: await page.eval<Frame[]>('(window.__kf.on = false, window.__kf.rows.slice())') });
+      await K('K.hold(null); return 1;');
+    }
+    return { scen: out, pad: await page.eval<number>('window.__kf.pad') };
+  };
+  const judge = (lay: string, R: { scen: { name: string; rows: Frame[] }[]; pad: number }, H: number, foot: number, mid: number) => {
+    const all = R.scen.flatMap((q) => q.rows), race = all;
+    const outs = R.scen.map((q) => `${q.name} ${q.rows.filter((r) => r[1] < 0.05 || r[2] > 0.95 || r[3] < 0.10 || r[4] > foot).length}/${q.rows.length}`);
+    const inside = race.every((r) => r[1] >= 0.05 && r[2] <= 0.95 && r[3] >= 0.10 && r[4] <= foot), worst = Math.min(...race.map((r) => r[5]));
+    ok(`kart: ${lay}: the kart and its rider stay in the frame (x 0.05 to 0.95, y 0.10 to ${foot.toFixed(2)}) every race frame down Buy the Dip, over Gap Up, up the Candle Climb and through a Claw, all of the box on the screen (7 Oct: off the frame's foot down every drop, gone for up to 0.9 s)`,
+      inside && worst >= 0.999 && race.length > 600, `${race.length} frames; outside ${outs.join(', ')}; the least on screen ${(worst * 100).toFixed(1)}%; foot at most ${Math.max(...race.map((r) => r[4])).toFixed(3)}, top at least ${Math.min(...race.map((r) => r[3])).toFixed(3)}`);
+    // on the flat (the kart's height steady half a second either side, on the ground): where it sits, as before
+    const flat = all.filter((r, i) => r[7] === 0 && r[8] < 0 && all.slice(Math.max(0, i - 30), i + 30).every((q) => Math.abs(q[9] - r[9]) < 0.2 && q[7] === 0)).map((r) => (r[3] + r[4]) / 2).sort((a, b) => a - b);
+    const med = flat[Math.floor(flat.length / 2)] ?? 0;
+    ok(`kart: ${lay}: on the flat the view is as it was, the kart's box centred ${mid} of the way down the screen (within 0.03)`, flat.length > 60 && Math.abs(med - mid) <= 0.03, `${med.toFixed(3)} over ${flat.length} frames`);
+    // (on the ground, within a metre of its usual height over the road under the kart, unless the road behind it
+    // rises: down a drop the lens is held a metre over the road under it, as it should be)
+    const grounded = all.filter((r) => r[7] === 0 && r[8] < 0), over = Math.min(...all.filter((r) => r[8] < 0).map((r) => r[10])), lag = Math.max(...grounded.filter((r) => r[10] > 1.05).map((r) => Math.abs(r[11])));
+    ok(`kart: ${lay}: the lens 0.6 m over the road under it at least, and on the ground within 1.25 m of its usual height over the road under the kart wherever the road behind lets it be (7 Oct: 0.45 m over it up the climb, 6.5 m too high down the Dip)`, over >= 0.6 && lag <= 1.25, `${over.toFixed(2)} m over at least, ${lag.toFixed(2)} m off at most`);
+    // the climb: the kart steady on the screen (until 7 Oct it stepped 11 to 25 cm a metre: the stutter at the crates)
+    // (on the road: the autopilot's hops and the rail on the way move it, as they should)
+    const cl = R.scen.find((q) => q.name === 'the Candle Climb')!.rows, dy = cl.slice(1).map((r, i) => [r, cl[i]]).filter(([r, q]) => r[12] === 0 && q[12] === 0).map(([r, q]) => Math.abs((r[3] + r[4]) / 2 - (q[3] + q[4]) / 2) * H).sort((x, y) => x - y), p95 = dy[Math.floor(dy.length * 0.95)] ?? 99;
+    ok(`kart: ${lay}: up the Candle Climb the kart holds still on the screen, frame to frame 2 px at most (95% of the frames it is on the road; 7 Oct: 16 to 18, the road read a metre at a time)`, dy.length >= 60 && p95 <= 2, `${p95.toFixed(2)} px over ${dy.length} frames`);
+  };
+  // each take, from your camera: the longest the effects hide a tenth of the road-ahead band or a quarter of your kart
+  // (in seconds of frames running), and the most of either they hide at once; then a lap and a half of the race
+  // (the field, the hazards, the crates, the items as they come, you on the autopilot)
+  const cover = async (page: Page, K: <T>(js: string) => Promise<T>) => {
+    await page.eval(KART_COVER);
+    const out: { name: string; band: number; kart: number; longest: number; over: number; frames: number; who: string }[] = [];
+    const takes: [string, string, number][] = [...KART_COVER_TAKES, ['a lap and a half of the race, the field and its items about you (you on the autopilot)', 'K.solo(false); K.autopilot(true); K.clock(30); K.place(40, 0, 25, 0, 0);', 45_000]];
+    for (const [name, setup, ms] of takes) {
+      await K('K.hold(null); K.give(null); K.give(null, 1); K.solo(true); K.autopilot(false); K.clock(30); K.place(200, 0, 31, 0, 0); return 1;'); await sleep(500);
+      await K(`${setup} ${setup.includes('autopilot') || setup.includes('K.hold(') ? '' : 'K.hold({ gas: true, steer: 0 });'} return 1;`);
+      await page.eval('window.__kcov.rows.length = 0; window.__kcov.on = true; 1'); await sleep(ms);
+      const rows = await page.eval<[number, number, number, number, string][]>('(window.__kcov.on = false, window.__kcov.rows.slice())');
+      let longest = 0, from = -1;
+      for (const r of rows) { const hid = r[1] > 0.1 || r[2] > 0.25; if (hid && from < 0) from = r[0]; if (!hid) from = -1; if (from >= 0) longest = Math.max(longest, r[0] - from + 1 / 60); }
+      out.push({ name, band: Math.max(0, ...rows.map((r) => r[1])), kart: Math.max(0, ...rows.map((r) => r[2])), longest, over: Math.max(0, ...rows.map((r) => r[3])), frames: rows.length, who: [...new Set(rows.map((r) => r[4]).filter(Boolean))].join(', ') });
+    }
+    await K('K.hold(null); K.autopilot(false); K.solo(true); return 1;');
+    return out;
+  };
+  const judgeCover = (lay: string, R: { name: string; band: number; kart: number; longest: number; over: number; frames: number; who: string }[]) => {
+    ok(`kart: ${lay}: no effect hides the road ahead or your kart for more than a few frames: a tenth of the road-ahead band (x 0.2 to 0.8, y 0.3 to the kart's foot) or a quarter of your kart's box, 0.12 s at the longest, and no overlay over the band at all, through a FUD Cloud on you and on a rival ahead, a WHALE DUMP on you and on a rival ahead, a bash, Laser Eyes, To The Moon and a Cold Wallet, the Claw, and a lap and a half of the race (7 Oct: an ink splat over the middle 35% of the screen for 3.5 s, and a cloud through the lens)`,
+      R.every((r) => r.frames >= 20 && r.longest <= 0.12 && r.over === 0), R.map((r) => `${r.name.split(' (')[0]}: ${r.longest.toFixed(3)} s, most ${(r.band * 100).toFixed(0)}% of the band / ${(r.kart * 100).toFixed(0)}% of the kart (${r.frames} frames${r.who ? `; ${r.who}` : ''})`).join('; '));
+  };
+  try {
+    await withBrowser(async (page) => {
+      await page.emulate({ width: 1600, height: 900, dpr: 1 });
+      const { K } = await boot(page);
+      console.log('\nkart: the feel on To The Moon (the owner\'s second review, 7 Oct)');
+      await page.eval(KART_DRIVER);
+      const auto = await page.eval<{ laps: number[]; done: number; walls: number; bonks: number }>('window.__drv({ mode: "auto", laps: 4, secs: 260 })');
+      // (four laps each, three flying: two flying laps a driver let one wall more or less swing a check; 7 Oct, round 3,
+      // the faster race: 0.12, 0.15 and 0.18 s at 5, 5.3 and 6 walls a lap, the same drivers on the round-2 runtime 4.7,
+      // 5.7 and 5.7; at 0.25 s 8.3, against 9)
+      // (and 0.22 and 0.28 s, after them: 8 Oct, from 0.22 to 0.28 s each one stuck in the Claw's loop at the crater
+      // gap or the bayou's channel, set down where it fell straight back in)
+      type Drv = { laps: number[]; done: number; walls: number; bonks: number; revs: number; keys: number; claws: number; claw3: number };
+      const drivers: Drv[] = [], RX = [0.12, 0.15, 0.18, 0.25, 0.22, 0.28];
+      // (the two after them given 400 s: at 0.28 s a lap is 70 to 80 s)
+      for (const react of RX) drivers.push(await page.eval(`window.__drv({ mode: 'keys', react: ${react}, laps: 4, secs: ${drivers.length < 4 ? 300 : 400} })`));
+      const fly = (r: { laps: number[] }) => r.laps.slice(1), med = (a: number[]) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)], autoLap = med(fly(auto));
+      const quick = drivers.slice(0, 3), slow = drivers[3], quickLap = med(quick.flatMap(fly)), quickWalls = quick.reduce((a, r) => a + r.walls, 0) / quick.length;
+      ok('kart: a person on the keys laps To The Moon cleanly: reacting in 0.12 to 0.18 s, their flying laps within 1.15 times the autopilot\'s, 6 walls a lap on average (7 at most) and half a bonk; in 0.25 s, 12 walls and half a bonk; nobody stuck, and 0.22 and 0.28 s too: four laps (in 400 s), never reversing out of a stall, never the Claw three times in 20 s (7 Oct, the 0.18 s driver: 60.5 s against 48.3, 27 walls a lap, 13 bonks, three of seven drivers stuck; 8 Oct, 0.22 to 0.28 s: set down where they fell, back in, 59 times running)',
+        drivers.every((r) => r.done >= 4 && r.revs === 0 && r.claw3 < 3) && drivers.slice(0, 4).every((r) => r.bonks <= 0.5) && quickWalls <= 6 && quick.every((r) => r.walls <= 7) && slow.walls <= 12 && quickLap <= 1.15 * autoLap,
+        `autopilot ${fly(auto).join(', ')} s; ${drivers.map((r, i) => `${RX[i]} s: ${fly(r).join(', ')} s, ${r.walls} walls and ${r.bonks} bonks a lap, ${r.keys} key changes a lap, the Claw ${r.claws} times (${r.claw3} in 20 s at most)`).join('; ')}`);
+      ok('kart: and the autopilot (the rivals\' driving) laps it with no bonk (7 Oct: the chicane\'s exit wall twice a lap, hopping the wrong way)', auto.done >= 4 && auto.bonks === 0, `${auto.walls} walls and ${auto.bonks} bonks a lap`);
+      // the Claw never loops (8 Oct: a person on the keys reacting in 0.22 to 0.28 s was set down 30 m before the crater
+      // gap, the key held from the fall still held, and fell straight back in, 59 times running): whole races from the
+      // grid, the field racing, eight seeds, you on the autopilot and on the keys reacting in 0.18, 0.25 and 0.28 s, every
+      // Claw read off the race's own events; and twenty more races off screen, the rivals and you on the autopilot
+      {
+        let worst = 0, races = 0, claws = 0, mine = 0, unfinished = 0, at = '';
+        for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) for (const react of [0, 0.18, 0.25, 0.28]) {
+          await K(`K.solo(false); K.seed(${seed}); K.restart(); return 1;`);
+          for (let i = 0; i < 100 && (await page.eval<string>('window.__gmRuntime.state().kart.state')) !== 'countdown'; i++) await sleep(50);
+          await K('K.go(); return 1;');
+          const r = await page.eval<{ claws: [number, number, number][]; fin: boolean[] }>(`window.__field({ react: ${react}, secs: 240 })`);
+          races++; claws += r.claws.length; mine += r.claws.filter((q) => q[0] === 0).length; unfinished += r.fin.filter((f) => !f).length;
+          for (const [n, t, d] of r.claws) { const c = r.claws.filter((q) => q[0] === n && q[1] >= t && q[1] < t + 20).length; if (c > worst) { worst = c; at = `seed ${seed}, ${react ? `you on the keys at ${react} s` : 'you on the autopilot'}, kart ${n} from ${t} s at ${d} m`; } }
+        }
+        const off = await K<{ claw3: number[]; times: (number | null)[] }[]>('const out = []; for (let s = 101; s <= 120; s++) { const h = K.headless(s, 300, true); out.push({ claw3: h.claw3, times: h.times }); } return out;');
+        const offWorst = Math.max(...off.flatMap((h) => h.claw3)), offOut = off.reduce((a, h) => a + h.times.filter((x) => x === null).length, 0);
+        ok('kart: the Rescue Claw never loops: no kart is set down by it three times in 20 s, in 32 whole races (eight seeds; you on the autopilot and on the keys reacting in 0.18, 0.25 and 0.28 s) and 20 more off screen, and every kart finishes every race (8 Oct: 59 times running at the crater gap)',
+          races === 32 && worst < 3 && offWorst < 3 && unfinished === 0 && offOut === 0,
+          `${claws} Claws in ${races} races (${mine} of them yours), ${worst} in 20 s at most${at ? ` (${at})` : ''}; off screen ${offWorst} in 20 s at most; unfinished ${unfinished} and ${offOut}`);
+      }
+      await K('K.solo(false); K.seed(7); K.restart(); return 1;');
+      for (let i = 0; i < 100 && (await page.eval<string>('window.__gmRuntime.state().kart.state')) !== 'countdown'; i++) await sleep(50);
+      await K('K.go(); return 1;'); await sleep(300);
+      judge('desktop', await camera(page, K), 900, 0.88, 0.62);
+      // the crates on the climb (row 1, 11 to 25% up) and at the foot of the first drop (row 4): a crate taken in each,
+      // and the kart as drawn through them steady
+      {
+        const crates = await page.eval<[number, number, number][]>(KART_CRATES);
+        await K('K.autopilot(false); return 1;');
+        type CR = [number, number, number, number, number, number, number, number, number, number, number];
+        const runs: { row: number; rows: CR[] }[] = [];
+        for (const row of [1, 4]) {
+          const inRow = crates.filter((c) => c[0] === row), c = inRow.sort((a, b) => Math.abs(a[2]) - Math.abs(b[2]))[0];
+          await K(`K.give(null); K.place(${c[1] - 34}, ${c[2]}, 24); return 1;`);
+          await page.eval(`window.__kc.x = ${c[2]}; window.__kc.rows.length = 0; window.__kc.on = true; 1`); await sleep(2800);
+          // (the first 0.6 s left out: the camera settling after the kart is put down)
+          const got = await page.eval<CR[]>('(window.__kc.on = false, window.__kc.rows.slice())');
+          runs.push({ row, rows: got.filter((r) => r[0] >= got[0][0] + 600) });
+          await K('K.hold(null); return 1;');
+        }
+        const q95 = (a: number[]) => [...a].sort((x, y) => x - y)[Math.floor(a.length * 0.95)] ?? 99;
+        const yy: number[] = [], adv: number[] = [], sy: number[] = [];
+        for (const { rows } of runs) for (let i = 2; i < rows.length; i++) {
+          const [a, b, c] = [rows[i - 2], rows[i - 1], rows[i]], d1 = b[0] - a[0], d2 = c[0] - b[0];
+          if (c[4] > 5 && d2 > 0 && !c[8] && !b[8]) adv.push(Math.hypot(c[1] - b[1], c[3] - b[3]) / (((b[4] + c[4]) / 2) * d2 / 1000));
+          // (on the ground, nothing lifting it, two equal frames)
+          if ([a, b, c].some((r) => r[6] || r[7] || r[8] > 0) || Math.abs(d1 - d2) > 2) continue;
+          yy.push(Math.abs(c[2] - 2 * b[2] + a[2])); sy.push(Math.abs(c[10] - 2 * b[10] + a[10]) * 900);
+        }
+        adv.sort((x, y) => x - y);
+        const took = runs.map((r) => r.rows.some((x) => x[9])), err = await page.eval<string | null>('window.__kc.err');
+        ok('kart: through the crates on the Candle Climb and at the foot of Buy the Dip\'s first drop, a crate taken in each, the kart drawn steady: its height frame to frame 3 cm off a straight line at most (95% of frames on the ground), its advance each frame its speed times the frame\'s own time within 3% (5 to 95%), and steady on the screen (7 Oct: steps of 11 to 65 cm a metre, 4 to 8% a frame either way, a camera shaken at random every frame: "the kart starts to suddenly and unexplainably stutter")',
+          took.every(Boolean) && !err && yy.length >= 120 && q95(yy) <= 0.03 && adv.length >= 200 && adv[Math.floor(adv.length * 0.05)] >= 0.97 && adv[Math.floor(adv.length * 0.95)] <= 1.03 && q95(sy) <= 3,
+          `crates taken ${took.join(', ')}; height off a line p95 ${q95(yy).toFixed(4)} m, max ${Math.max(...yy).toFixed(3)} over ${yy.length} frames; advance against v x the frame ${adv[Math.floor(adv.length * 0.05)]?.toFixed(3)} to ${adv[Math.floor(adv.length * 0.95)]?.toFixed(3)} over ${adv.length}; on the screen p95 ${q95(sy).toFixed(2)} px a frame's change of step${err ? `; ${err}` : ''}`);
+        await K('K.solo(false); return 1;');
+      }
+      console.log('\nkart: the effects against the picture (the owner\'s third review, 7 Oct)');
+      judgeCover('desktop', await cover(page, K));
+      // the breaks, fair (8 Oct: in the integration's real-key races a kart that had fallen into the crater gap was set
+      // down on the line square behind it, and a driver holding the gas fell in nine times running; and To The Moon run
+      // out 2 to 15 m short of a break dropped its kart in, 9 times in 30): the Claw sets a kart down clear of a break
+      // across part of the road (holding that lane, it is past), and the rocket never runs out over a break or short of it
+      {
+        type Brk = { sets: { at: number; x: number[]; full: boolean; setX: number | null; fell: boolean }[]; moon: [number, number, number | null][] };
+        const r = await K<Brk>(`K.hold(null); K.autopilot(false); K.solo(true); K.give(null);
+          const S0 = K.state(), L = S0.L, CO = K.course(), N = Math.ceil(L), md = (d) => ((d % L) + L) % L, HE = [];
+          for (let i = 0; i < N; i++) HE.push(K.place(i, 0, 0, 0, 7).h);
+          const wrap = (a) => { a = (a + Math.PI) % (2 * Math.PI); return (a < 0 ? a + 2 * Math.PI : a) - Math.PI; };
+          const sets = [], moon = [];
+          for (const B of CO.breaks) {
+            const full = B.x0 <= -S0.hw && B.x1 >= S0.hw, mid = full ? 0 : Math.max(-S0.hw + 1, Math.min(S0.hw - 1, (B.x0 + B.x1) / 2));
+            K.place(md(B.d0 + B.len / 2), mid, 20, 0, 0);
+            const tr = K.run(4, { gas: false }, 1 / 120), dn = tr.find((q, i) => i > 0 && tr[i - 1].rescue >= 0 && q.rescue < 0);
+            let fell = true;
+            if (dn) { const x0 = dn.x, keep = (t, k) => { const la = 6 + Math.max(0, k.v) * 0.35, u = -Math.atan2(x0 - k.lat, la) - wrap(k.h - HE[Math.floor(md(k.d)) % N]); return { gas: true, steer: u < -0.03 ? 1 : u > 0.03 ? -1 : 0 }; };
+              K.place(dn.d, dn.x, dn.v, 0, 0); fell = K.run(3, keep, 0.25).some((q) => q.rescue >= 0); }
+            sets.push({ at: +B.d0.toFixed(1), x: [B.x0, B.x1], full, setX: dn ? dn.x : null, fell });
+            for (const short of [2, 8, 14]) {
+              const d0 = md(B.d0 - short - 3.5 * 1.5 * S0.top); K.place(d0, K.lineAt(d0).off, S0.top, 0, 0); K.give('moon'); K.use(0);
+              const f = K.run(4.5, { gas: true, steer: 0 }, 1 / 120).find((q) => q.rescue >= 0); let fd = f ? f.d - B.d0 : null; if (fd !== null) fd = ((fd + L / 2) % L + L) % L - L / 2;
+              moon.push([+B.d0.toFixed(0), short, fd !== null && fd > -6 && fd < B.len + 6 ? +fd.toFixed(1) : null]);
+            }
+          }
+          K.give(null); K.solo(false); return { sets, moon };`);
+        const part = r.sets.filter((q) => !q.full), dropped = r.moon.filter((m) => m[2] !== null);
+        ok('kart: the breaks are fair: after a fall into a break across part of the road the Claw sets the kart down clear of it (1.3 m or more), and holding that lane it is past; and To The Moon never runs out over a break or just short of it (2, 8 or 14 m: none dropped in) (8 Oct: set down square behind the crater gap, a kart holding the gas fell in nine times running; a rocket out short of a break dropped its kart in 9 times in 30)',
+          part.length > 0 && part.every((q) => q.setX !== null && (q.setX < q.x[0] - 1.3 || q.setX > q.x[1] + 1.3)) && r.sets.every((q) => !q.fell) && r.moon.length >= 3 * r.sets.length && dropped.length === 0,
+          `set down ${r.sets.map((q) => `${q.at} ${q.full ? 'full' : `[${q.x.join(', ')}]`} at x ${q.setX}${q.fell ? ' FELL' : ''}`).join('; ')}; rockets dropped in ${dropped.length ? JSON.stringify(dropped) : 'none'} of ${r.moon.length}`);
+      }
+      const e = [...(await page.eval<string[]>('window.__gm.errors')), ...page.errors];
+      ok('kart: the feel checks raise no error', e.length === 0, e.join(' | '));
+    }, { width: 1600, height: 900, timeoutMs: 420_000 });
+    await withBrowser(async (page) => {
+      await page.emulate({ width: 390, height: 844, mobile: true, dpr: 3 });
+      const { K } = await boot(page);
+      const R = await camera(page, K);
+      judge('a phone held upright', R, 844, Math.min(0.88, R.pad - 0.02), 0.57);
+      judgeCover('a phone held upright', await cover(page, K));
+    }, { width: 390, height: 844, timeoutMs: 320_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(id); }
+}
+// (ONLY=kart-feel: the feel on To The Moon alone, a few minutes)
+if (process.env.ONLY === 'kart-feel') {
+  await kartFeelChecks();
+  console.log(`\n${failures ? `${failures} FAILED` : 'all kart feel checks passed'}\n`);
+  process.exit(failures ? 1 : 0);
+}
+await kartChecks();
+if (process.env.ONLY === 'kart') {
+  console.log(`\n${failures ? `${failures} FAILED` : 'all kart checks passed'}\n`);
+  process.exit(failures ? 1 : 0);
+}
 
 const id = randomUUID();
 insertDraft({

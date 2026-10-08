@@ -1,6 +1,7 @@
 import { getGameBySlug, bumpPlays } from '@/lib/db';
 import { renderGame, GAME_CSP } from '@/lib/engine/shell';
 import { renderCustomGame, renderWorldGame, CUSTOM_CSP, worldCsp, publicOrigin } from '@/lib/custom-game';
+import { withKartScore } from '@/lib/kart-play';
 import type { WorldSpec } from '@/lib/worldspec';
 
 /**
@@ -21,7 +22,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   const html = !custom
     ? renderGame(JSON.parse(game.spec) as WorldSpec, game.id)
     : game.format === 'world'
-      ? renderWorldGame(game.code!, meta, game.id, meta.runtime ?? 1)
+      ? renderWorldGame(game.code!, withKartScore(game.code!, meta), game.id, meta.runtime ?? 1)
       : renderCustomGame(game.code!, meta, game.id);
 
   return new Response(html, {

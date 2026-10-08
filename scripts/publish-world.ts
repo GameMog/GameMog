@@ -14,7 +14,10 @@ import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { WorldMetaSchema, worldControls, staticCheckWorld, isOpenWorld, worldMode } from '../lib/custom-game.ts';
 import { playtestWorld } from '../lib/playtest-runtime.ts';
-import { insertDraft, publishDraft, slugify, db } from '../lib/db.ts';
+import { insertDraft, publishDraft, slugify, db, rescoreKart } from '../lib/db.ts';
+import { courseConstants, kartConstants, type KartConstants } from '../lib/kart-score.ts';
+import { dna } from '../lib/mog-dna.ts';
+import { measure, courseFromSim } from './kart-score/measure.mjs';
 import { codeHash, testStatus } from '../lib/test-drive.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3939';
@@ -34,8 +37,23 @@ const problems = staticCheckWorld(code);
 if (problems.length) { console.error('static check:\n- ' + problems.join('\n- ')); process.exit(1); }
 console.log(`static check: clean (${Math.round(code.length / 1000)}KB)`);
 
+// a kart race's score constants (8 Oct; docs/RULES.md "Kart score"): the perfect time of each racer and the floor
+// under it, measured on this world's own track with the kit's own rules (scripts/kart-score/measure.mjs, ~15 s), so
+// a Mog gets its own and never its parent's; if the measurement fails, the course fallback (every number low)
+let kartScore: KartConstants | undefined;
+if (worldMode(code) === 'kart') {
+  console.log('measuring the kart score\'s constants...');
+  try { kartScore = await measure({ world: `worlds/${name}.js` }) as KartConstants; }
+  catch (e) {
+    console.warn(`kart score: the measurement failed (${(e as Error).message}); storing the course fallback`);
+    try { const c = courseFromSim({ world: `worlds/${name}.js` }); kartScore = courseConstants({ L: c.L, laps: c.laps, cls: c.cls, gmLines: c.gmLines }); }
+    catch { kartScore = kartConstants(null, code, dna(code).kart); }
+  }
+  console.log(`kart score: ${kartScore.source}, T* ${JSON.stringify(kartScore.tStar)}, floor ${JSON.stringify(kartScore.tFloor)}, GM cap ${kartScore.gmCap}`);
+}
+
 const draftId = randomUUID();
-const stored = { ...meta, mode: worldMode(code), controls: worldControls(code), scoring: isOpenWorld(code) ? 'survival' : 'level', runtime: 1 };
+const stored = { ...meta, mode: worldMode(code), controls: worldControls(code), scoring: worldMode(code) === 'kart' ? 'score' : isOpenWorld(code) ? 'survival' : 'level', runtime: 1, ...(kartScore ? { kartScore } : {}) };
 insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world', report: { pending: true }, code, meta: stored, parentId: parent?.id ?? null, mogPrompt: parent ? mogPrompt : null });
 console.log('playtesting in Chrome...');
 const report = await playtestWorld(`${BASE}/d/${draftId}/play`);
@@ -55,6 +73,8 @@ if (existing) {
   db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = (SELECT meta FROM drafts WHERE id = ?), cover = ?, art_icon = ?, art_wide = ?, format = ? WHERE id = ?')
     .run(meta.title, meta.tagline, meta.blurb, code, draftId, cover ?? null, artIcon ?? null, artWide ?? null, 'world', existing.id);
   if (parent) db.prepare('UPDATE games SET parent_id = ?, root_id = ?, generation = ?, mog_prompt = ? WHERE id = ?').run(parent.id, parent.root_id ?? parent.id, parent.generation + 1, mogPrompt ?? null, existing.id);
+  // (its board scored again under the constants just measured)
+  if (kartScore) console.log(`kart score: rescored ${rescoreKart(existing.id, kartScore)} runs`);
   console.log(`updated ${BASE}/g/${slug}`);
 } else {
   publishDraft(draftId, slug, randomUUID());

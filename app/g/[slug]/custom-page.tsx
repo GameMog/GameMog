@@ -13,6 +13,9 @@ import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
 import { Lineage, MogOffPanel, MogsPanel } from './mog';
 import { mogsOf, tileStats } from '@/lib/db';
+import { kartConstants } from '@/lib/kart-score';
+import { dna } from '@/lib/mog-dna';
+import { KartBoard } from './kart-score-ui';
 
 /**
  * The page for a game Opus wrote: the same grid as a race world, with what
@@ -29,9 +32,11 @@ export function CustomGamePage({ game }: { game: GameRow }) {
   const mode = world ? worldMode(game.code, game.meta) : null, page = mode ? MODE_PAGE[mode] : null;
   // an open world with no GM ranks the takedowns after the time
   const noGm = mode === 'survival' && !optionsOf(game).coins;
-  // an open world ranks the time survived; a race the level reached
-  const by = mode ? (mode === 'race' ? 'level' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
+  // an open world ranks the time survived; a race the level reached; a kart race its score (8 Oct), each player once
+  const by = mode ? (mode === 'race' ? 'level' : mode === 'kart' ? 'kart' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
+  // (a kart race's constants: the perfect time of each racer, for the post panel's score, the same as the route's)
+  const kartC = mode === 'kart' ? kartConstants(game.meta, game.code, game.code ? dna(game.code).kart : null) : null;
   const best = bestTimes();
   // worlds recommend worlds; Classic races live on /classic
   const others = listGames(120).filter((g) => g.id !== game.id && g.format !== 'race').slice(0, 16);
@@ -47,7 +52,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
   const fmt = (s: (typeof scores)[number]) =>
     by === 'survival' ? clock(s.time_ms)
     : by === 'level' ? `Level ${s.level ?? 0}` : by === 'score' ? `${(s.score ?? 0).toLocaleString()} pts` : by === 'place' ? `${s.place || '-'}` : `${(s.time_ms / 1000).toFixed(2)}s`;
-  const leaderboard = scores.length ? (
+  const leaderboard = scores.length && kartC ? <KartBoard rows={scores} gmOn={kartC.gmCap > 0} provisional={kartC.source !== 'measured'} /> : scores.length ? (
     <table className="bd">
       <thead><tr><th /><th>Player</th><th>{by === 'survival' ? 'Survived' : by === 'level' ? 'Level' : by === 'score' ? 'Score' : by === 'place' ? 'Place' : 'Time'}</th>{(by === 'level' || by === 'survival') && <th>{noGm ? 'Takedowns' : 'GM'}</th>}<th>{by === 'survival' ? 'Heat' : 'Time'}</th></tr></thead>
       <tbody>
@@ -73,7 +78,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
         </nav>
         <div className="gtop">
           <div className="gstage">
-            <PlayFrame slug={game.slug} gameId={game.id} you={game.format === 'world'}
+            <PlayFrame slug={game.slug} gameId={game.id} you={game.format === 'world'} kart={mode === 'kart'} kartScore={kartC}
               // eslint-disable-next-line @next/next/no-img-element
               poster={<img src={`/g/${game.slug}/cover`} alt="" />} />
           </div>

@@ -75,6 +75,10 @@ const KEYS: Record<string, { code: string; keyCode: number; key: string }> = {
   KeyS: { code: 'KeyS', keyCode: 83, key: 's' },
   KeyD: { code: 'KeyD', keyCode: 68, key: 'd' },
   KeyJ: { code: 'KeyJ', keyCode: 74, key: 'j' },
+  // a kart race's item (X), look back (C) and pause (P)
+  KeyX: { code: 'KeyX', keyCode: 88, key: 'x' },
+  KeyC: { code: 'KeyC', keyCode: 67, key: 'c' },
+  KeyP: { code: 'KeyP', keyCode: 80, key: 'p' },
 };
 
 export async function withBrowser<T>(

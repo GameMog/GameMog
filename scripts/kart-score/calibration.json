@@ -1,0 +1,1444 @@
+{
+ "at": "2026-10-08T15:27:16.549Z",
+ "weights": {
+  "time": 8000,
+  "finish": 1000,
+  "gm": 500,
+  "hits": 500
+ },
+ "constants": {
+  "version": 1,
+  "source": "measured",
+  "tStar": {
+   "pepe": 105.975,
+   "doge": 107.533,
+   "shiba": 107.01,
+   "bike": 107.527,
+   "bull": 104.495,
+   "bear": 104.511,
+   "whale": 105.004,
+   "mooncat": 107.003
+  },
+  "tFloor": {
+   "pepe": 92.066,
+   "doge": 92.066,
+   "shiba": 92.066,
+   "bike": 92.066,
+   "bull": 91.276,
+   "bear": 91.276,
+   "whale": 91.728,
+   "mooncat": 92.066
+  },
+  "karts": 8,
+  "laps": 3,
+  "gmCap": 134,
+  "gmMax": 197,
+  "hitsCap": 30,
+  "hitsMax": 64,
+  "lap": 1574.9,
+  "physics": "731ad3373ecb",
+  "world": "4e55c962922a",
+  "at": "2026-10-08T15:12:09.894Z"
+ },
+ "ceiling": {
+  "pepe": 9975,
+  "doge": 9975,
+  "shiba": 9975,
+  "bike": 9975,
+  "bull": 9975,
+  "bear": 9975,
+  "whale": 9975,
+  "mooncat": 9975
+ },
+ "ceilingNoGm": 9998,
+ "tiers": [
+  {
+   "id": "mog",
+   "name": "MOG",
+   "color": "#FF3EA5",
+   "bar": "#E0288C",
+   "anchorTime": 119,
+   "anchorScore": 9447,
+   "proposed": 9450,
+   "inFile": 9450
+  },
+  {
+   "id": "moon",
+   "name": "Moonshot",
+   "color": "#FFC93C",
+   "bar": "#E5A91A",
+   "anchorTime": 127.54,
+   "anchorScore": 9155,
+   "proposed": 9150,
+   "inFile": 9150
+  },
+  {
+   "id": "diamond",
+   "name": "Diamond Hands",
+   "color": "#7FE7FF",
+   "bar": "#2FB8D6",
+   "anchorTime": 133.17,
+   "anchorScore": 8764,
+   "proposed": 8750,
+   "inFile": 8750
+  },
+  {
+   "id": "candle",
+   "name": "Green Candle",
+   "color": "#5CFFC0",
+   "bar": "#19C98A",
+   "anchorTime": 143.02,
+   "anchorScore": 7687,
+   "proposed": 7700,
+   "inFile": 7700
+  },
+  {
+   "id": "hodl",
+   "name": "HODL",
+   "color": "#FFF4C8",
+   "bar": "#D9C27A",
+   "anchorTime": 152.77,
+   "anchorScore": 6347,
+   "proposed": 6350,
+   "inFile": 6350
+  },
+  {
+   "id": "paper",
+   "name": "Paper Hands",
+   "color": "#C9CDD3",
+   "bar": "#9AA0AA",
+   "anchorTime": 167.95,
+   "anchorScore": 4474,
+   "proposed": 4450,
+   "inFile": 4450
+  },
+  {
+   "id": "rekt",
+   "name": "Rekt",
+   "color": "#FF6B6B",
+   "bar": "#E04848",
+   "anchorTime": null,
+   "anchorScore": 0,
+   "proposed": 0,
+   "inFile": 0
+  }
+ ],
+ "refs": [
+  {
+   "label": "theoretical perfect (pepe): T*, 1st, GM cap, hits cap",
+   "total": 9975,
+   "time": 8000,
+   "finish": 1000,
+   "gm": 477,
+   "hits": 498,
+   "tier": "mog"
+  },
+  {
+   "label": "near-perfect: T* +2%, 1st, 120 GM, 20 hits",
+   "total": 9958,
+   "time": 7999,
+   "finish": 1000,
+   "gm": 469,
+   "hits": 490,
+   "tier": "mog"
+  },
+  {
+   "label": "near-perfect: T* +5%, 1st, 100 GM, 10 hits",
+   "total": 9876,
+   "time": 7996,
+   "finish": 1000,
+   "gm": 451,
+   "hits": 429,
+   "tier": "mog"
+  },
+  {
+   "label": "lucky items: the floor, 1st, gmMax, hitsMax",
+   "total": 9975,
+   "time": 8000,
+   "finish": 1000,
+   "gm": 477,
+   "hits": 498,
+   "tier": "mog"
+  },
+  {
+   "label": "oracle pepe 115.375 s, 46 GM, solo, 0 hits",
+   "total": 9305,
+   "time": 7977,
+   "finish": 1000,
+   "gm": 328,
+   "hits": 0,
+   "tier": "moon"
+  },
+  {
+   "label": "  + 3 bashes in passing (+0.6 s)",
+   "total": 9522,
+   "time": 7972,
+   "finish": 1000,
+   "gm": 328,
+   "hits": 222,
+   "tier": "mog"
+  },
+  {
+   "label": "  complete: + the coin lines (+3.2 s, 91 GM) + 5 bashes (+1 s)",
+   "total": 9673,
+   "time": 7922,
+   "finish": 1000,
+   "gm": 439,
+   "hits": 312,
+   "tier": "mog"
+  },
+  {
+   "label": "oracle doge 116.583 s, 41 GM, solo, 0 hits",
+   "total": 9288,
+   "time": 7981,
+   "finish": 1000,
+   "gm": 307,
+   "hits": 0,
+   "tier": "moon"
+  },
+  {
+   "label": "  + 3 bashes in passing (+0.6 s)",
+   "total": 9505,
+   "time": 7976,
+   "finish": 1000,
+   "gm": 307,
+   "hits": 222,
+   "tier": "mog"
+  },
+  {
+   "label": "  complete: + the coin lines (+3.2 s, 91 GM) + 5 bashes (+1 s)",
+   "total": 9683,
+   "time": 7932,
+   "finish": 1000,
+   "gm": 439,
+   "hits": 312,
+   "tier": "mog"
+  },
+  {
+   "label": "oracle shiba 116.558 s, 33 GM, solo, 0 hits",
+   "total": 9245,
+   "time": 7977,
+   "finish": 1000,
+   "gm": 268,
+   "hits": 0,
+   "tier": "moon"
+  },
+  {
+   "label": "  + 3 bashes in passing (+0.6 s)",
+   "total": 9462,
+   "time": 7972,
+   "finish": 1000,
+   "gm": 268,
+   "hits": 222,
+   "tier": "mog"
+  },
+  {
+   "label": "  complete: + the coin lines (+3.2 s, 91 GM) + 5 bashes (+1 s)",
+   "total": 9672,
+   "time": 7921,
+   "finish": 1000,
+   "gm": 439,
+   "hits": 312,
+   "tier": "mog"
+  },
+  {
+   "label": "oracle bike 116.517 s, 41 GM, solo, 0 hits",
+   "total": 9288,
+   "time": 7981,
+   "finish": 1000,
+   "gm": 307,
+   "hits": 0,
+   "tier": "moon"
+  },
+  {
+   "label": "  + 3 bashes in passing (+0.6 s)",
+   "total": 9506,
+   "time": 7977,
+   "finish": 1000,
+   "gm": 307,
+   "hits": 222,
+   "tier": "mog"
+  },
+  {
+   "label": "  complete: + the coin lines (+3.2 s, 91 GM) + 5 bashes (+1 s)",
+   "total": 9684,
+   "time": 7933,
+   "finish": 1000,
+   "gm": 439,
+   "hits": 312,
+   "tier": "mog"
+  },
+  {
+   "label": "oracle bull 113.8 s, 30 GM, solo, 0 hits",
+   "total": 9228,
+   "time": 7977,
+   "finish": 1000,
+   "gm": 251,
+   "hits": 0,
+   "tier": "moon"
+  },
+  {
+   "label": "  + 3 bashes in passing (+0.6 s)",
+   "total": 9445,
+   "time": 7972,
+   "finish": 1000,
+   "gm": 251,
+   "hits": 222,
+   "tier": "moon"
+  },
+  {
+   "label": "  complete: + the coin lines (+3.2 s, 91 GM) + 5 bashes (+1 s)",
+   "total": 9671,
+   "time": 7920,
+   "finish": 1000,
+   "gm": 439,
+   "hits": 312,
+   "tier": "mog"
+  },
+  {
+   "label": "oracle bear 114.158 s, 32 GM, solo, 0 hits",
+   "total": 9236,
+   "time": 7974,
+   "finish": 1000,
+   "gm": 262,
+   "hits": 0,
+   "tier": "moon"
+  },
+  {
+   "label": "  + 3 bashes in passing (+0.6 s)",
+   "total": 9452,
+   "time": 7968,
+   "finish": 1000,
+   "gm": 262,
+   "hits": 222,
+   "tier": "mog"
+  },
+  {
+   "label": "  complete: + the coin lines (+3.2 s, 91 GM) + 5 bashes (+1 s)",
+   "total": 9664,
+   "time": 7913,
+   "finish": 1000,
+   "gm": 439,
+   "hits": 312,
+   "tier": "mog"
+  },
+  {
+   "label": "oracle whale 114.342 s, 52 GM, solo, 0 hits",
+   "total": 9327,
+   "time": 7977,
+   "finish": 1000,
+   "gm": 350,
+   "hits": 0,
+   "tier": "moon"
+  },
+  {
+   "label": "  + 3 bashes in passing (+0.6 s)",
+   "total": 9544,
+   "time": 7972,
+   "finish": 1000,
+   "gm": 350,
+   "hits": 222,
+   "tier": "mog"
+  },
+  {
+   "label": "  complete: + the coin lines (+3.2 s, 91 GM) + 5 bashes (+1 s)",
+   "total": 9672,
+   "time": 7921,
+   "finish": 1000,
+   "gm": 439,
+   "hits": 312,
+   "tier": "mog"
+  },
+  {
+   "label": "oracle mooncat 116.292 s, 36 GM, solo, 0 hits",
+   "total": 9262,
+   "time": 7979,
+   "finish": 1000,
+   "gm": 283,
+   "hits": 0,
+   "tier": "moon"
+  },
+  {
+   "label": "  + 3 bashes in passing (+0.6 s)",
+   "total": 9479,
+   "time": 7974,
+   "finish": 1000,
+   "gm": 283,
+   "hits": 222,
+   "tier": "mog"
+  },
+  {
+   "label": "  complete: + the coin lines (+3.2 s, 91 GM) + 5 bashes (+1 s)",
+   "total": 9677,
+   "time": 7926,
+   "finish": 1000,
+   "gm": 439,
+   "hits": 312,
+   "tier": "mog"
+  },
+  {
+   "label": "GM-chasing oracle bull s1 117.108 s, 95 GM, + 5 bashes (+1 s)",
+   "total": 9675,
+   "time": 7918,
+   "finish": 1000,
+   "gm": 445,
+   "hits": 312,
+   "tier": "mog"
+  },
+  {
+   "label": "GM-chasing oracle bull s1 117.042 s, 94 GM, + 5 bashes (+1 s)",
+   "total": 9674,
+   "time": 7919,
+   "finish": 1000,
+   "gm": 443,
+   "hits": 312,
+   "tier": "mog"
+  },
+  {
+   "label": "GM-chasing oracle bull s2 117.025 s, 91 GM, + 5 bashes (+1 s)",
+   "total": 9670,
+   "time": 7919,
+   "finish": 1000,
+   "gm": 439,
+   "hits": 312,
+   "tier": "mog"
+  },
+  {
+   "label": "GM-chasing oracle bull s3 117.85 s, 101 GM, + 5 bashes (+1 s)",
+   "total": 9666,
+   "time": 7902,
+   "finish": 1000,
+   "gm": 452,
+   "hits": 312,
+   "tier": "mog"
+  }
+ ],
+ "oracle": {
+  "pepe": {
+   "T": 115.375,
+   "gm": 46
+  },
+  "doge": {
+   "T": 116.583,
+   "gm": 41
+  },
+  "shiba": {
+   "T": 116.558,
+   "gm": 33
+  },
+  "bike": {
+   "T": 116.517,
+   "gm": 41
+  },
+  "bull": {
+   "T": 113.8,
+   "gm": 30
+  },
+  "bear": {
+   "T": 114.158,
+   "gm": 32
+  },
+  "whale": {
+   "T": 114.342,
+   "gm": 52
+  },
+  "mooncat": {
+   "T": 116.292,
+   "gm": 36
+  }
+ },
+ "gmChasing": [
+  {
+   "id": "bull",
+   "seed": 1,
+   "T": 117.108,
+   "gm": 95
+  },
+  {
+   "id": "bull",
+   "seed": 1,
+   "T": 117.042,
+   "gm": 94
+  },
+  {
+   "id": "bull",
+   "seed": 2,
+   "T": 117.025,
+   "gm": 91
+  },
+  {
+   "id": "bull",
+   "seed": 3,
+   "T": 117.85,
+   "gm": 101
+  }
+ ],
+ "archetypes": {
+  "expert": {
+   "runs": [
+    [
+     124.567,
+     1,
+     52,
+     4,
+     0,
+     null
+    ],
+    [
+     131.283,
+     1,
+     42,
+     5,
+     0,
+     null
+    ],
+    [
+     127.192,
+     1,
+     51,
+     2,
+     0,
+     null
+    ],
+    [
+     128.975,
+     1,
+     41,
+     2,
+     0,
+     null
+    ],
+    [
+     129.2,
+     1,
+     32,
+     3,
+     0,
+     null
+    ],
+    [
+     129.642,
+     1,
+     33,
+     0,
+     0,
+     null
+    ],
+    [
+     127.292,
+     1,
+     30,
+     5,
+     0,
+     null
+    ],
+    [
+     131.233,
+     1,
+     49,
+     8,
+     0,
+     null
+    ],
+    [
+     125.633,
+     1,
+     31,
+     2,
+     0,
+     null
+    ],
+    [
+     125.417,
+     1,
+     40,
+     5,
+     0,
+     null
+    ],
+    [
+     126.058,
+     1,
+     32,
+     3,
+     0,
+     null
+    ],
+    [
+     131.35,
+     1,
+     29,
+     4,
+     0,
+     null
+    ],
+    [
+     123.375,
+     1,
+     27,
+     3,
+     0,
+     null
+    ],
+    [
+     129.958,
+     1,
+     38,
+     3,
+     0,
+     null
+    ],
+    [
+     124.792,
+     1,
+     47,
+     1,
+     0,
+     null
+    ]
+   ],
+   "mean": 9125,
+   "p10": 8912,
+   "p50": 9153,
+   "p90": 9357,
+   "min": 8782,
+   "max": 9400,
+   "tiers": {
+    "Moonshot": 8,
+    "Diamond Hands": 7
+   }
+  },
+  "clean": {
+   "runs": [
+    [
+     131.808,
+     1,
+     37,
+     1,
+     0,
+     null
+    ],
+    [
+     125.267,
+     1,
+     36,
+     1,
+     0,
+     null
+    ],
+    [
+     127.783,
+     1,
+     71,
+     0,
+     0,
+     null
+    ],
+    [
+     129.733,
+     1,
+     41,
+     0,
+     0,
+     null
+    ],
+    [
+     125.917,
+     1,
+     34,
+     0,
+     0,
+     null
+    ],
+    [
+     130.467,
+     1,
+     29,
+     1,
+     0,
+     null
+    ],
+    [
+     129.992,
+     1,
+     35,
+     2,
+     0,
+     null
+    ],
+    [
+     125.742,
+     1,
+     27,
+     1,
+     0,
+     null
+    ],
+    [
+     130.525,
+     1,
+     30,
+     2,
+     0,
+     null
+    ],
+    [
+     127.45,
+     1,
+     53,
+     0,
+     0,
+     null
+    ],
+    [
+     127.008,
+     1,
+     43,
+     1,
+     0,
+     null
+    ],
+    [
+     129.75,
+     1,
+     21,
+     0,
+     0,
+     null
+    ],
+    [
+     126.25,
+     1,
+     38,
+     0,
+     0,
+     null
+    ],
+    [
+     129.358,
+     1,
+     44,
+     1,
+     0,
+     null
+    ],
+    [
+     129.375,
+     1,
+     32,
+     0,
+     0,
+     null
+    ]
+   ],
+   "mean": 8923,
+   "p10": 8737,
+   "p50": 8942,
+   "p90": 9073,
+   "min": 8700,
+   "max": 9122,
+   "tiers": {
+    "Green Candle": 2,
+    "Diamond Hands": 13
+   }
+  },
+  "average": {
+   "runs": [
+    [
+     148.075,
+     6,
+     32,
+     2,
+     0,
+     null
+    ],
+    [
+     144.867,
+     1,
+     48,
+     3,
+     0,
+     null
+    ],
+    [
+     147,
+     2,
+     40,
+     6,
+     0,
+     null
+    ],
+    [
+     150.142,
+     6,
+     51,
+     3,
+     0,
+     null
+    ],
+    [
+     142.808,
+     2,
+     25,
+     4,
+     0,
+     null
+    ],
+    [
+     148.575,
+     2,
+     48,
+     2,
+     0,
+     null
+    ],
+    [
+     145.75,
+     3,
+     51,
+     5,
+     0,
+     null
+    ],
+    [
+     145.55,
+     2,
+     42,
+     4,
+     0,
+     null
+    ],
+    [
+     152.408,
+     8,
+     39,
+     3,
+     0,
+     null
+    ],
+    [
+     143.742,
+     3,
+     49,
+     1,
+     0,
+     null
+    ],
+    [
+     147.3,
+     8,
+     46,
+     6,
+     0,
+     null
+    ],
+    [
+     147.475,
+     3,
+     45,
+     6,
+     0,
+     null
+    ],
+    [
+     145.842,
+     1,
+     49,
+     5,
+     0,
+     null
+    ],
+    [
+     148.542,
+     6,
+     50,
+     9,
+     0,
+     null
+    ],
+    [
+     148.683,
+     4,
+     17,
+     2,
+     0,
+     null
+    ]
+   ],
+   "mean": 6667,
+   "p10": 5876,
+   "p50": 6777,
+   "p90": 7448,
+   "min": 5403,
+   "max": 7486,
+   "tiers": {
+    "Paper Hands": 6,
+    "HODL": 9
+   }
+  },
+  "novice": {
+   "runs": [
+    [
+     158.475,
+     8,
+     17,
+     3,
+     0,
+     null
+    ],
+    [
+     149.917,
+     8,
+     49,
+     4,
+     0,
+     null
+    ],
+    [
+     160.05,
+     8,
+     44,
+     0,
+     0,
+     null
+    ],
+    [
+     152.233,
+     7,
+     30,
+     9,
+     0,
+     null
+    ],
+    [
+     151.858,
+     7,
+     29,
+     5,
+     0,
+     null
+    ],
+    [
+     151.725,
+     1,
+     51,
+     2,
+     0,
+     null
+    ],
+    [
+     154.767,
+     8,
+     29,
+     2,
+     0,
+     null
+    ],
+    [
+     155.75,
+     8,
+     35,
+     4,
+     0,
+     null
+    ],
+    [
+     150.067,
+     6,
+     23,
+     4,
+     0,
+     null
+    ],
+    [
+     152.858,
+     8,
+     33,
+     1,
+     0,
+     null
+    ],
+    [
+     158.5,
+     8,
+     30,
+     3,
+     0,
+     null
+    ],
+    [
+     158.175,
+     8,
+     41,
+     2,
+     0,
+     null
+    ],
+    [
+     154.383,
+     8,
+     40,
+     3,
+     0,
+     null
+    ],
+    [
+     154.758,
+     8,
+     33,
+     6,
+     0,
+     null
+    ],
+    [
+     157.083,
+     8,
+     38,
+     0,
+     0,
+     null
+    ]
+   ],
+   "mean": 5131,
+   "p10": 4447,
+   "p50": 5133,
+   "p90": 5843,
+   "min": 4181,
+   "max": 6487,
+   "tiers": {
+    "Rekt": 2,
+    "Paper Hands": 12,
+    "HODL": 1
+   }
+  },
+  "aggressor": {
+   "runs": [
+    [
+     145.725,
+     6,
+     40,
+     22,
+     0,
+     null
+    ],
+    [
+     152.708,
+     8,
+     62,
+     23,
+     0,
+     null
+    ],
+    [
+     149.317,
+     4,
+     37,
+     27,
+     0,
+     null
+    ],
+    [
+     152.267,
+     8,
+     41,
+     26,
+     0,
+     null
+    ],
+    [
+     145.358,
+     7,
+     58,
+     22,
+     0,
+     null
+    ],
+    [
+     150.508,
+     7,
+     30,
+     25,
+     0,
+     null
+    ],
+    [
+     144.842,
+     6,
+     39,
+     17,
+     0,
+     null
+    ],
+    [
+     147.492,
+     6,
+     48,
+     22,
+     0,
+     null
+    ],
+    [
+     143.983,
+     2,
+     64,
+     29,
+     0,
+     null
+    ],
+    [
+     149.683,
+     3,
+     39,
+     27,
+     0,
+     null
+    ],
+    [
+     150.883,
+     6,
+     42,
+     15,
+     0,
+     null
+    ],
+    [
+     150.383,
+     6,
+     58,
+     18,
+     0,
+     null
+    ],
+    [
+     150.267,
+     7,
+     26,
+     24,
+     0,
+     null
+    ],
+    [
+     144.683,
+     3,
+     60,
+     29,
+     0,
+     null
+    ],
+    [
+     148.417,
+     5,
+     41,
+     21,
+     0,
+     null
+    ]
+   ],
+   "mean": 6450,
+   "p10": 5716,
+   "p50": 6457,
+   "p90": 7362,
+   "min": 5705,
+   "max": 7681,
+   "tiers": {
+    "HODL": 9,
+    "Paper Hands": 6
+   }
+  }
+ },
+ "rates": [
+  {
+   "label": "oracle",
+   "T": 115.4,
+   "perSecond": 9,
+   "next10GM": 36,
+   "next10GMsec": 4,
+   "nextHit": 89,
+   "nextHitSec": 9.89
+  },
+  {
+   "label": "expert",
+   "T": 126.8,
+   "perSecond": 53,
+   "next10GM": 43,
+   "next10GMsec": 0.81,
+   "nextHit": 50,
+   "nextHitSec": 0.94
+  },
+  {
+   "label": "clean",
+   "T": 129.7,
+   "perSecond": 69,
+   "next10GM": 39,
+   "next10GMsec": 0.57,
+   "nextHit": 89,
+   "nextHitSec": 1.29
+  },
+  {
+   "label": "average",
+   "T": 148.7,
+   "perSecond": 140,
+   "next10GM": 42,
+   "next10GMsec": 0.3,
+   "nextHit": 40,
+   "nextHitSec": 0.29
+  },
+  {
+   "label": "novice",
+   "T": 156.7,
+   "perSecond": 133,
+   "next10GM": 47,
+   "next10GMsec": 0.35,
+   "nextHit": 40,
+   "nextHitSec": 0.3
+  },
+  {
+   "label": "slow",
+   "T": 175,
+   "perSecond": 80,
+   "next10GM": 51,
+   "next10GMsec": 0.64,
+   "nextHit": 50,
+   "nextHitSec": 0.63
+  }
+ ],
+ "tradeoffs": [
+  {
+   "label": "expert circles a rival for 5 more bashes (+8 s: 1.2 s untouchable each, plus the turn)",
+   "before": 9164,
+   "after": 8709,
+   "delta": -455
+  },
+  {
+   "label": "expert circles for 10 more bashes (+15 s)",
+   "before": 9164,
+   "after": 7966,
+   "delta": -1198
+  },
+  {
+   "label": "expert stays in the pack for hits (expert mean -> aggressor mean)",
+   "before": 9164,
+   "after": 6366,
+   "delta": -2798
+  },
+  {
+   "label": "average driver bashes the pack (average mean -> aggressor mean)",
+   "before": 6565,
+   "after": 6366,
+   "delta": -199
+  },
+  {
+   "label": "novice circles for 5 more bashes (+8 s)",
+   "before": 5110,
+   "after": 4249,
+   "delta": -861
+  },
+  {
+   "label": "expert turns back for a missed coin line (+6 s, +5 GM)",
+   "before": 9164,
+   "after": 8757,
+   "delta": -407
+  },
+  {
+   "label": "expert chases every coin (+6.2 s, +37 GM)",
+   "before": 9164,
+   "after": 8836,
+   "delta": -328
+  },
+  {
+   "label": "novice chases every coin (+6.2 s, +37 GM)",
+   "before": 5110,
+   "after": 4428,
+   "delta": -682
+  },
+  {
+   "label": "oracle (bull) waits 20 s for the pack and bashes all 7 (keeps 1st)",
+   "before": 9228,
+   "after": 8641,
+   "delta": -587
+  },
+  {
+   "label": "oracle (bull) circles for 5 bashes (+8 s)",
+   "before": 9228,
+   "after": 9380,
+   "delta": 152
+  },
+  {
+   "label": "oracle (bull) takes 3 bashes in passing (+0.6 s)",
+   "before": 9228,
+   "after": 9445,
+   "delta": 217
+  },
+  {
+   "label": "oracle (bull) takes the coin lines on its way (30 -> 91 GM, +3.2 s)",
+   "before": 9228,
+   "after": 9377,
+   "delta": 149
+  },
+  {
+   "label": "luck: the best GM Bags (+63 GM) on an expert run",
+   "before": 9164,
+   "after": 9322,
+   "delta": 158
+  },
+  {
+   "label": "luck: a Pump, 1.5 s faster, on an expert run",
+   "before": 9164,
+   "after": 9240,
+   "delta": 76
+  },
+  {
+   "label": "luck: WHALE DUMP, +4 hits at once, on an expert run",
+   "before": 9164,
+   "after": 9305,
+   "delta": 141
+  }
+ ],
+ "breakEven": [
+  {
+   "T": 113.8,
+   "bash1": 40,
+   "bash5": 56,
+   "coinLine": -49,
+   "chaseAll": 39
+  },
+  {
+   "T": 115.4,
+   "bash1": 35,
+   "bash5": 18,
+   "coinLine": -74,
+   "chaseAll": 13
+  },
+  {
+   "T": 118,
+   "bash1": 25,
+   "bash5": -57,
+   "coinLine": -126,
+   "chaseAll": -41
+  },
+  {
+   "T": 120,
+   "bash1": 15,
+   "bash5": -124,
+   "coinLine": -174,
+   "chaseAll": -91
+  },
+  {
+   "T": 123,
+   "bash1": -3,
+   "bash5": -240,
+   "coinLine": -257,
+   "chaseAll": -177
+  },
+  {
+   "T": 126.8,
+   "bash1": -32,
+   "bash5": -402,
+   "coinLine": -377,
+   "chaseAll": -302
+  },
+  {
+   "T": 130,
+   "bash1": -58,
+   "bash5": -541,
+   "coinLine": -482,
+   "chaseAll": -411
+  },
+  {
+   "T": 140,
+   "bash1": -132,
+   "bash5": -874,
+   "coinLine": -750,
+   "chaseAll": -686
+  },
+  {
+   "T": 150,
+   "bash1": -160,
+   "bash5": -921,
+   "coinLine": -808,
+   "chaseAll": -742
+  },
+  {
+   "T": 160,
+   "bash1": -136,
+   "bash5": -741,
+   "coinLine": -682,
+   "chaseAll": -612
+  },
+  {
+   "T": 175,
+   "bash1": -69,
+   "bash5": -389,
+   "coinLine": -416,
+   "chaseAll": -337
+  }
+ ],
+ "tierTimes": [
+  {
+   "tier": "MOG",
+   "min": 9450,
+   "first": 118.87,
+   "eighth": 0
+  },
+  {
+   "tier": "Moonshot",
+   "min": 9150,
+   "first": 127.64,
+   "eighth": 0
+  },
+  {
+   "tier": "Diamond Hands",
+   "min": 8750,
+   "first": 133.34,
+   "eighth": 0
+  },
+  {
+   "tier": "Green Candle",
+   "min": 7700,
+   "first": 142.92,
+   "eighth": 134
+  },
+  {
+   "tier": "HODL",
+   "min": 6350,
+   "first": 152.75,
+   "eighth": 145.62
+  },
+  {
+   "tier": "Paper Hands",
+   "min": 4450,
+   "first": 168.19,
+   "eighth": 159.53
+  }
+ ],
+ "mix": {
+  "expert": 0.03,
+  "clean": 0.07,
+  "average": 0.4,
+  "novice": 0.4,
+  "aggressor": 0.1
+ },
+ "shares": {
+  "MOG": 0,
+  "Moonshot": 1.6,
+  "Diamond Hands": 7.5,
+  "Green Candle": 0.9,
+  "HODL": 32.7,
+  "Paper Hands": 52,
+  "Rekt": 5.3
+ },
+ "dnf": [
+  {
+   "progress": 0.5,
+   "score": 1302
+  },
+  {
+   "progress": 0.8,
+   "score": 2084
+  },
+  {
+   "progress": 0.95,
+   "score": 2475
+  }
+ ]
+}

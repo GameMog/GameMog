@@ -57,9 +57,16 @@ function filmFor(name: string): Film | null {
   return has('wide') && has('4x3') ? { wide: `${base}-wide`, narrow: `${base}-4x3` } : null;
 }
 
-/** A world's record for its card: the time survived in an open world, the lap reached in a lap world. */
+/** A world's record for its card: the time survived in an open world, the lap reached in a lap world, the best finish in a kart race. */
 function RecordStat({ game }: { game: GameRow }) {
-  const survival = worldMode(game.code, game.meta) !== 'race';
+  const mode = worldMode(game.code, game.meta);
+  if (mode === 'kart') {
+    const best = topScores(game.id, 1, 'kart')[0];
+    if (!best?.time_ms) return null;
+    const t = best.time_ms / 1000;
+    return <span><b>{Math.floor(t / 60)}:{(t % 60).toFixed(1).padStart(4, '0')}</b> race record</span>;
+  }
+  const survival = mode !== 'race';
   const record = topScores(game.id, 1, survival ? 'survival' : 'level')[0];
   if (survival) {
     if (!record?.time_ms) return null;

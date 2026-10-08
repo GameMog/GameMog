@@ -75,7 +75,11 @@ export const OPEN_HERO_CONTROLS = {
 function openTop(code: string) {
   const m = /\bopen\s*:\s*\{/.exec(code);
   if (!m) return '';
-  let out = '', depth = 1, i = m.index + m[0].length;
+  return topOf(code, m.index + m[0].length);
+}
+/** An object literal's own top level, as text, from just inside its opening brace (strings emptied, comments and everything nested left out). */
+function topOf(code: string, from: number) {
+  let out = '', depth = 1, i = from;
   while (i < code.length && depth > 0) {
     const c = code[i], n = code[i + 1];
     if (c === '/' && n === '/') { const e = code.indexOf('\n', i); i = e < 0 ? code.length : e; continue; }
@@ -102,6 +106,20 @@ function openControls(code: string) {
   const L = OPEN_HERO_CONTROLS;
   return [L.move, kicks ? L.punch : L.punches, jump ? L.jump : '', tank ? L.tank : '', L.rest].filter(Boolean).join(' ');
 }
+/**
+ * A kart race (Meme Kart, the owner 6 Oct: "3 laps, 8 karts ... bumping + items"): kart: { ... } among
+ * GameMog.world's own top-level keys, read the way openTop reads the open object, so a kart named inside a crew, a
+ * helper or a string is not one. Its runtime carries the kart kit (lib/runtime/kart.js); no other world's does.
+ */
+export function isKartWorld(code?: string | null) {
+  if (!code) return false;
+  const m = /\bGameMog\s*\.\s*world\s*\(\s*\{/.exec(code);
+  if (!m) return false;
+  // (an open world that also names a kart is an open world, as the runtime reads it: KART needs !OPEN)
+  const top = topOf(code, m.index + m[0].length);
+  return /(?:^|[\s,{])kart\s*:\s*\{/.test(top) && !/(?:^|[\s,{])open\s*:\s*\{/.test(top);
+}
+export const KART_CONTROLS = 'W or the up arrow: gas (hit it as the 1 lands for a Moon Launch). S or the down arrow: brake, then reverse. A D or the left and right arrows: steer. Space: hop, and hold it through a turn to drift (let go for a boost); off a ramp, a trick. X (or J, K, Shift): use your item, held to drag a Rug Pull or Laser Eyes behind you as a shield; E throws it ahead; with S or the down arrow, behind. C: look back. P: pause. On touch screens, a stick to steer and DRIFT, ITEM and BRAKE buttons (the gas is automatic; hold DRIFT on the grid to launch; the stick up or down aims an item); a gamepad works too.';
 // a derby (open.vehicle): car combat in an arena
 export const DERBY_CONTROLS = 'W A S D or the arrow keys: drive (S brakes, then reverses). Space: handbrake. Shift: boost. J, F or a held click: the roof guns. Drag: look around. P: pause. On touch screens, a stick to drive and BOOST, BRAKE and FIRE.';
 /**
@@ -110,10 +128,12 @@ export const DERBY_CONTROLS = 'W A S D or the arrow keys: drive (S brakes, then 
  * truth; meta.mode records it when a world is stored, and a game stored before that
  * is read from what it did store (scoring 'survival', options.open).
  */
-export const WORLD_MODES = ['race', 'survival', 'derby'] as const;
+export const WORLD_MODES = ['race', 'survival', 'derby', 'kart'] as const;
 export type WorldMode = (typeof WORLD_MODES)[number];
 export function worldMode(code?: string | null, meta?: string | null | Record<string, unknown>): WorldMode {
-  if (code) return isOpenWorld(code) ? (/\bvehicle\s*:\s*\{/.test(code) ? 'derby' : 'survival') : 'race';
+  // (a kart race, 6 Oct: kart: {...} among GameMog.world's own keys; read first, so a kart world that names a
+  // vehicle or an "open" anywhere inside it stays a kart race)
+  if (code) return isKartWorld(code) ? 'kart' : isOpenWorld(code) ? (/\bvehicle\s*:\s*\{/.test(code) ? 'derby' : 'survival') : 'race';
   let m: { mode?: unknown; scoring?: unknown; options?: { open?: unknown } } = {};
   try { m = (typeof meta === 'string' ? JSON.parse(meta) : meta) ?? {}; } catch { /* a race */ }
   if (WORLD_MODES.includes(m.mode as WorldMode)) return m.mode as WorldMode;
@@ -131,6 +151,11 @@ export const MODE_PAGE: Record<WorldMode, { label: string; rivals: string; how: 
     rivals: 'More as the heat rises',
     how: 'An open world to roam. Crews come for you, more of them and tougher as the heat rises: it climbs with time and with every few knockouts, and a boss arrives at every third heat. Fight them off and collect the GM they drop. Get knocked out and the run is over. The leaderboard ranks the time survived, then GM.',
   },
+  kart: {
+    label: 'Kart race',
+    rivals: 'Seven on the grid',
+    how: 'A kart race: three laps, eight karts. Hit the gas as the 1 lands for a Moon Launch, hop into a drift to charge a boost (Green Candle, Gold, then MOG), tail a rival for the slipstream, and trick off the ramps. Drive through the Airdrop crates for an item: Rug Pull, Laser Eyes, Cold Wallet, Pump, Much Wow, FUD Cloud, WHALE DUMP, Diamond Hands, To The Moon or a GM Bag. Bump all you like: contact never ends your run, and the Rescue Claw puts you back if you fall. Each GM you grab adds a little top speed. The leaderboard ranks your score out of 10,000 (the time most, then your place, GM and enemies hit), each player by their best run.',
+  },
   derby: {
     label: 'Car combat arena',
     rivals: 'More cars as the heat rises',
@@ -140,6 +165,7 @@ export const MODE_PAGE: Record<WorldMode, { label: string; rivals: string; how: 
 /** An open world with no GM (the creator's option, or open.coins: false) explains itself without coins. */
 export const NO_GM_HOW = 'An open world to roam, with no GM to chase. Crews come for you, more of them and tougher as the heat rises: it climbs with time and with every few knockouts, and a boss arrives at every third heat. Get knocked out and the run is over. The leaderboard ranks the time survived, then the takedowns.';
 export function worldControls(code: string) {
+  if (isKartWorld(code)) return KART_CONTROLS;
   const mode = worldMode(code);
   if (mode !== 'race') return mode === 'derby' ? DERBY_CONTROLS : openControls(code);
   return /\bplay\s*:\s*\{[\s\S]{0,400}?\bcombat\s*:/.test(code)
@@ -198,7 +224,7 @@ export function publicOrigin(req: Request) {
  * hidden. That guarantee lives here rather than in each game, because the one
  * time it lived in a game it was forgotten.
  */
-function hostScript(id: string, title: string, tagline = '', options?: WorldOptions) {
+function hostScript(id: string, title: string, tagline = '', options?: WorldOptions, kartScore?: unknown) {
   return `(function () {
   var id = ${JSON.stringify(id)}, isReady = false, finished = 0;
   var gm = window.__gm = { ready: false, results: [], errors: [] };
@@ -226,7 +252,10 @@ function hostScript(id: string, title: string, tagline = '', options?: WorldOpti
     title: ${JSON.stringify(title)},
     meta: { title: ${JSON.stringify(title)}, tagline: ${JSON.stringify(tagline)} },
     // the creator's platform options (lib/world-options.ts), enforced by the runtime
-    options: ${JSON.stringify(options ?? null)},
+    options: ${JSON.stringify(options ?? null)},${kartScore ? `
+    // a kart race's score constants (meta.kartScore, or the course's when it has none; lib/kart-score.ts): the results
+    // screen scores the race with them exactly as the scores route will
+    kartScore: ${JSON.stringify(kartScore).replace(/</g, '\\u003c')},` : ''}
     ready: function () {
       if (isReady) return;
       isReady = gm.ready = true;
@@ -246,6 +275,13 @@ function hostScript(id: string, title: string, tagline = '', options?: WorldOpti
         survival: !!r.survival, kos: Math.max(0, Math.round(Number(r.kos) || 0)), goal: !!r.goal,
         assisted: !!r.assisted,
       };
+      // a kart race's own parts (8 Oct, the race's score): what the scores route scores, passed on as they are
+      if (r.kart) {
+        out.kart = true; out.laps = Math.max(0, Math.round(Number(r.laps) || 0));
+        out.hits = Math.max(0, Math.round(Number(r.hits) || 0)); out.karts = Math.max(0, Math.round(Number(r.karts) || 0));
+        out.estimated = r.estimated === true; out.progress = r.progress == null || !isFinite(Number(r.progress)) ? null : Math.max(0, Math.min(1, Number(r.progress)));
+        out.racer = typeof r.racer === 'string' ? r.racer.slice(0, 24) : null; out.scoreV = Math.round(Number(r.scoreV) || 0);
+      }
       gm.results.push(out);
       post(out);
     }
@@ -286,17 +322,32 @@ ${inert(code)}
  * runtime version the world was written against, so a later runtime can change
  * without changing a game that already shipped.
  */
-const RUNTIMES: Record<number, string> = {};
-function runtimeSource(version: number) {
-  if (!RUNTIMES[version] || process.env.NODE_ENV !== 'production') {
+const RUNTIMES: Record<string, string> = {};
+// the kart race's parts of the runtime (between /*@kart*/ and /*@/kart*/ in v1.js): kept, markers and all removed,
+// for a kart world; cut out whole for every other, which then gets exactly the text it always did
+const KART_PART = /\/\*@kart\*\/[\s\S]*?\/\*@\/kart\*\//g, KART_MARK = /\/\*@\/?kart\*\//g;
+const OPEN_STUB = '    var OW = null;\n    function openWorld() {}\n';
+export function runtimeSource(version: number, kart = false) {
+  const key = `${version}${kart ? ':kart' : ''}`;
+  if (!RUNTIMES[key] || process.env.NODE_ENV !== 'production') {
     // the platform's score engine and car kit ride in front of the runtime that uses them
     const read = (f: string) => readFileSync(join(process.cwd(), 'lib', 'runtime', f), 'utf8');
+    const v = read(`v${version}.js`);
+    // (a kart world runs no open world: a stub stands in for open.js and the derby, climbing and traversal it
+    // carries, 389 KB a phone does not parse)
+    // (and the kart kit carries the roster, the eight racers a kart world names: lib/runtime/kart-roster.js; the
+    // items, the race's own: lib/runtime/kart-items.js; and the race's own score, for a world that asks for it:
+    // lib/runtime/kart-music.js)
+    // (and the race's score, 8 Oct: lib/runtime/kart-score.js, the file the scores route and the page also load; at
+    // kart.js's /*@include kart-score.js*/ if it has one, else in front of the runtime, a global KartScore either way)
+    const kartSrc = kart ? read('kart.js') : '', scoreAt = kartSrc.includes('/*@include kart-score.js*/');
+    const own = kart ? v.replace('/*@include kart.js*/', () => kartSrc.replace('/*@include kart-roster.js*/', () => read('kart-roster.js')).replace('/*@include kart-items.js*/', () => read('kart-items.js')).replace('/*@include kart-music.js*/', () => read('kart-music.js')).replace('/*@include kart-score.js*/', () => read('kart-score.js'))).replace(KART_MARK, '').replace('/*@include open.js*/', () => OPEN_STUB) : v.replace(KART_PART, '');
     // open worlds (open.js) run inside the runtime's own closure, at its marker
     // and a derby (derby.js), climbing (climb.js) and the traversal (trav.js) inside the open world's, at their own
-    const core = read(`v${version}.js`).replace('/*@include open.js*/', () => read('open.js').replace('/*@include derby.js*/', () => read('derby.js')).replace('/*@include climb.js*/', () => read('climb.js')).replace('/*@include trav.js*/', () => read('trav.js')));
-    RUNTIMES[version] = [read('music.js'), read('vehicle.js'), read('creature.js'), core].join('\n');
+    const core = own.replace('/*@include open.js*/', () => read('open.js').replace('/*@include derby.js*/', () => read('derby.js')).replace('/*@include climb.js*/', () => read('climb.js')).replace('/*@include trav.js*/', () => read('trav.js')));
+    RUNTIMES[key] = [read('music.js'), read('vehicle.js'), read('creature.js'), ...(kart && !scoreAt ? [read('kart-score.js')] : []), core].join('\n');
   }
-  return RUNTIMES[version];
+  return RUNTIMES[key];
 }
 
 /**
@@ -332,7 +383,7 @@ function driveSource() {
   return DRIVE;
 }
 
-export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 'tagline'> & { options?: unknown }, id: string, runtime = 1, drive = false) {
+export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 'tagline'> & { options?: unknown; kartScore?: unknown }, id: string, runtime = 1, drive = false) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -340,7 +391,7 @@ export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 't
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>${escapeHtml(meta.title)}</title>
 <style>html,body{margin:0;height:100%;overflow:hidden;background:#000;touch-action:none;-webkit-user-select:none;user-select:none}canvas{display:block}</style>
-<script>${hostScript(id, meta.title, meta.tagline, meta.options === undefined ? undefined : readOptions(meta.options))}</script>
+<script>${hostScript(id, meta.title, meta.tagline, meta.options === undefined ? undefined : readOptions(meta.options), isKartWorld(world) ? meta.kartScore : undefined)}</script>
 ${drive ? `<script>
 ${inert(driveSource())}
 </script>` : ''}
@@ -350,7 +401,7 @@ ${inert(driveSource())}
 <body>
 ${mapScripts(world)}${endoScript(world)}
 <script>
-${inert(runtimeSource(runtime))}
+${inert(runtimeSource(runtime, isKartWorld(world)))}
 </script>
 <script>
 ${inert(world)}
@@ -450,6 +501,11 @@ export function staticCheckWorld(code: string, opts: { max?: number } = {}): str
   if (code.length > max) problems.push(`The world module is ${Math.round(code.length / 1000)}KB; keep it under ${Math.round(max / 1000)}KB.`);
   if (!/GameMog\.world\s*\(/.test(code)) problems.push('The module never calls GameMog.world({...}).');
   for (const [re, why] of [...FORBIDDEN, ...WORLD_FORBIDDEN]) if (re.test(code)) problems.push(why);
+  // a kart race is known by the text kart: { among GameMog.world's own keys, which is how its runtime gets the kart
+  // kit; a kart: named any other way (a const, a call, the shorthand) would be served without it and race the endless laps
+  const m = /\bGameMog\s*\.\s*world\s*\(\s*\{/.exec(code), top = m ? topOf(code, m.index + m[0].length) : '';
+  if (/(?:^|[\s,{])kart\s*(?::\s*(?!(?:false|null|undefined)\b)[\w$(]|,|$)/.test(top) && !isKartWorld(code) && !/(?:^|[\s,{])open\s*:\s*\{/.test(top))
+    problems.push('Write the kart race inline, kart: { ... }, among GameMog.world\'s own keys (not kart: SOME_CONST): only then is it served as a kart race.');
   try { new Script(code, { filename: 'world.js' }); }
   catch (e) { problems.push(`Syntax error: ${(e as Error).message}`); }
   return problems;

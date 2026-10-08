@@ -12,8 +12,13 @@
  */
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { insertDraft, db, getGameBySlug, family, mogOff } from '../lib/db.ts';
+import { createHash } from 'node:crypto';
+import { insertDraft, db, getGameBySlug, family, mogOff, topScores, rescoreKart } from '../lib/db.ts';
+import { KartScore, kartConstants, type KartConstants } from '../lib/kart-score.ts';
+import { runKartScoreTests } from './kart-score/test-score.mjs';
 import { setWorldHidden } from '../lib/analytics.ts';
+import { worldMode, worldControls, MODE_PAGE, isKartWorld, staticCheckWorld, runtimeSource } from '../lib/custom-game.ts';
+import { dna, compareDna, askedKind, describeDna } from '../lib/mog-dna.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3939';
 let failures = 0;
@@ -25,9 +30,9 @@ const code = readFileSync(new URL('../lib/runtime/reference-world.js', import.me
 const tag = `Mogcheck ${randomUUID().slice(0, 6)}`;
 const made: string[] = [];
 
-async function publish(title: string, parentId: string | null, idea: string | null) {
+async function publish(title: string, parentId: string | null, idea: string | null, world = code) {
   const id = randomUUID();
-  insertDraft({ id, prompt: idea ?? 'platform check', format: 'world', code, report: { ok: true, ran: true }, parentId, mogPrompt: idea,
+  insertDraft({ id, prompt: idea ?? 'platform check', format: 'world', code: world, report: { ok: true, ran: true }, parentId, mogPrompt: idea,
     meta: { title, tagline: 'A platform check.', blurb: 'Made by the platform check and removed after it.', genre: 'Test', cast: [{ name: 'Pip', color: '#F2E3C4' }], palette: { sky: '#9CCBEB', ground: '#7DB356', accent: '#F28C28' }, runtime: 1 } });
   const r = await fetch(`${BASE}/api/games`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draftId: id }) });
   const j = await r.json() as { slug: string };
@@ -137,6 +142,91 @@ try {
   await hit({ v, k: 'download', p: '/' });
   ok('link unfurlers, the admin pages and junk are not counted', (db.prepare('SELECT COUNT(*) AS n FROM events WHERE visitor = ?').get(v) as { n: number }).n === 1);
   db.prepare('DELETE FROM events WHERE visitor = ?').run(v);
+
+  // a kart race (Meme Kart, the owner 6 Oct: "3 laps, 8 karts ... bumping + items (contact never ends the run)", its
+  // own kind): its mode everywhere, its Mog DNA, and its scores (place, then time, then GM)
+  console.log('\nKart races');
+  const kartCode = readFileSync(new URL('../lib/runtime/kart-world.js', import.meta.url), 'utf8');
+  ok('kart: a world naming kart: {...} among its own keys is a kart race, with its own page and controls', worldMode(kartCode) === 'kart' && worldMode(null, { mode: 'kart' }) === 'kart' && isKartWorld(kartCode) && worldMode(code) === 'race'
+    && MODE_PAGE.kart.label === 'Kart race' && /score out of 10,000 \(the time most, then your place, GM and enemies hit\)/.test(MODE_PAGE.kart.how) && worldControls(kartCode).includes('Moon Launch'), MODE_PAGE.kart.label);
+  const kd = dna(kartCode);
+  ok('kart: its DNA reads the kind, the laps and the racers, the first four the stars', kd.kind === 'kart' && kd.kart?.laps === 3 && kd.kart.roster.slice(0, 4).join() === 'Pepe,Doge,Shiba,Bike Tyson' && kd.kart.roster.length === 8 && describeDna(kd).some((l) => l.includes('3 laps')),
+    JSON.stringify(kd.kart));
+  // (Meme Kart itself names its racers through a helper, racer(ctx, k), that reads ROSTER: read through it)
+  const mk = dna(readFileSync(new URL('../worlds/meme-kart.js', import.meta.url), 'utf8'));
+  ok('kart: and Meme Kart\'s, read through its racer() helper', mk.kart?.roster.join() === 'Pepe,Doge,Shiba,Bike Tyson,Bull Run,Big Bear,The Whale,Moon Cat', JSON.stringify(mk.kart));
+  ok('kart: "kart race" and "karting" ask for a kart race, no longer the endless lap', askedKind('make it a kart race on the moon') === 'kart' && askedKind('karting in the city') === 'kart' && askedKind('a race with karts') === 'kart' && askedKind('make it a night race through the swamp') === 'race');
+  const keys = (v: ReturnType<typeof compareDna>) => v.dropped.map((d) => d.key).join(',');
+  const renamed = kartCode.replace("['pepe', 'Pepe']", "['pepe', 'Kermito']").replace("['doge', 'Doge']", "['doge', 'Biscuit']");
+  ok('kart: a Mog that drops the stars is flagged, unless the idea names new racers', keys(compareDna(kartCode, renamed, 'make it rain')).includes('kart') && !keys(compareDna(kartCode, renamed, 'replace the rivals with Biscuit and Kermito as the hero')).includes('kart'), keys(compareDna(kartCode, renamed, 'make it rain')));
+  ok('kart: laps outside 2 to 4 are flagged, whatever the idea', keys(compareDna(kartCode, kartCode.replace('laps: 3', 'laps: 6'), 'six laps please')) === 'kart' && compareDna(kartCode, kartCode.replace('laps: 3', 'laps: 4'), 'make it rain').dropped.length === 0);
+  ok('kart: and a Mog that turns it into another kind is flagged, unless the idea asks for that kind', keys(compareDna(kartCode, code, 'make it rain')).split(',').includes('kind') && !keys(compareDna(kartCode, code, 'make it an endless lap race')).split(',').includes('kind'));
+  const kg = await publish(`${tag} Kart`, null, null, kartCode);
+  const kp = await page(`/g/${kg.slug}`);
+  ok('kart: its page says "Kart race" and how it plays', kp.status === 200 && kp.html.includes('Kart race') && kp.html.includes('Moon Launch'));
+  // (the panel under the frame, where a finished race is posted, says the place and the time, not the endless race's
+  // "Level 3": the frame is told it holds a kart race, and a lap race's page is told it does not)
+  ok('kart: and its post-your-score panel speaks of a place and a time, a lap race\'s of its level', kp.html.includes('\\"kart\\":true') && po.html.includes('\\"kart\\":false'));
+  // (a kart: that is not written out among GameMog.world's own keys would be served without the kit: refused)
+  const viaConst = kartCode.replace('kart: { laps: 3, course: COURSE }', 'kart: KART_CFG');
+  ok('kart: a kart: given as a const (served without the kart kit) is refused by the static check', viaConst !== kartCode && staticCheckWorld(viaConst).some((p) => /kart: \{ \.\.\. \}/.test(p)) && !staticCheckWorld(kartCode).some((p) => /kart/.test(p)));
+  // its score (the owner, 8 Oct: lib/runtime/kart-score.js, time 80 / place 10 / GM 5 / hits 5, 10,000 never
+  // reached): the formula's own properties first (scripts/kart-score/test-score.mjs, no server needed), then the route
+  // and the board
+  console.log('\nKart score');
+  const ks = runKartScoreTests((l: string) => { if (l.startsWith('FAIL')) failures++; console.log(l); });
+  void ks;
+  const kartRuntime = runtimeSource(1, true), plainRuntime = runtimeSource(1, false);
+  ok('kart score: a kart world\'s runtime carries the score (KartScore), every other world\'s runtime is untouched', kartRuntime.includes('var KartScore = (function') && !plainRuntime.includes('KartScore') && createHash('sha256').update(plainRuntime).digest('hex').slice(0, 16) === '55de5bf8cd23555c',
+    createHash('sha256').update(plainRuntime).digest('hex').slice(0, 16));
+  type Posted = { ok?: boolean; score?: number; tier?: { id: string; name: string }; parts?: Record<string, number>; rank?: number | null; best?: boolean; review?: boolean; source?: string; error?: string };
+  const score = async (b: Record<string, unknown>, player = 'kartcheck') => { const r = await post('/api/scores', { gameId: kg.id, player, laps: 3, level: 3, ...b }); return { status: r.status, j: await r.json() as Posted }; };
+  // (a world published from the site has no measurement yet: the course fallback, flagged, from its written-out lap)
+  const Cmin = kartConstants(getGameBySlug(kg.slug)!.meta, kartCode, dna(kartCode).kart);
+  const good = await score({ place: 2, timeMs: 141_000, gm: 20, hits: 4, racer: 'pepe' });
+  ok('kart score: an unmeasured kart world scores against the course fallback, flagged minimal, the same as the library', good.status === 200 && good.j.source === 'minimal' && Cmin.source === 'minimal' && good.j.score === KartScore.score({ timeMs: 141_000, place: 2, gm: 20, hits: 4, racer: 'pepe' }, Cmin).total, JSON.stringify(good.j));
+  const refused = await Promise.all([{ place: 9, timeMs: 141_000, gm: 3 }, { place: 1, timeMs: Cmin.tFloor as number * 1000 - 1, gm: 3 }, { place: 1, timeMs: 141_000, gm: 3, laps: 4, level: 4 }, { place: 1, timeMs: 141_000, gm: 400 }, { place: 1, timeMs: 141_000, gm: 3, hits: 65 }, { place: 1, timeMs: 141_000, gm: 3, assisted: true }, { place: 1, timeMs: 141_000, gm: 3, estimated: true, progress: 1.2 }].map((b) => score(b)));
+  ok('kart score: the route refuses a 9th place, a time under the floor, the wrong laps, too much GM, too many hits, an assisted run, a bad progress', refused.every((r) => r.status === 422), refused.map((r) => r.status).join(' '));
+  db.prepare('DELETE FROM scores WHERE game_id = ?').run(kg.id);
+  // (then measured: Meme Kart's own constants, as publish-world stores them)
+  const C = JSON.parse(readFileSync(new URL('../deploy/migrations/meme-kart.meta.json', import.meta.url), 'utf8')).meta.kartScore as KartConstants;
+  const km = JSON.parse(getGameBySlug(kg.slug)!.meta ?? '{}');
+  db.prepare('UPDATE games SET meta = ? WHERE id = ?').run(JSON.stringify({ ...km, kartScore: C }), kg.id);
+  const lib = (b: { timeMs: number; place: number; gm?: number; hits?: number; racer?: string; estimated?: boolean; progress?: number }) => KartScore.score(b, C);
+  const ka = await score({ place: 1, timeMs: 126_800, gm: 38, hits: 3, racer: 'pepe', score: 9999 }, 'kc-ana');
+  ok('kart score: the server works the score out from the parts (a posted 9,999 is ignored) and equals the library, breakdown and tier', ka.status === 200 && ka.j.score === lib({ timeMs: 126_800, place: 1, gm: 38, hits: 3, racer: 'pepe' }).total && ka.j.score !== 9999
+    && ka.j.tier?.id === KartScore.tier(ka.j.score!).id && Object.values(ka.j.parts ?? {}).reduce((x: number, y: number) => x + y, 0) === ka.j.score && ka.j.rank === 1 && ka.j.source === 'measured', JSON.stringify(ka.j));
+  const stored = db.prepare('SELECT score, kos, racer, est, score_v, tier, level FROM scores WHERE game_id = ? AND player = ?').get(kg.id, 'kc-ana') as { score: number; kos: number; racer: string; est: number; score_v: number; tier: string; level: number };
+  ok('kart score: and stores the score, the hits, the racer, the version and the tier with the run', stored.score === ka.j.score && stored.kos === 3 && stored.racer === 'pepe' && stored.est === 0 && stored.score_v === KartScore.V && stored.tier === ka.j.tier?.id && stored.level === 3, JSON.stringify(stored));
+  const bull = await score({ place: 1, timeMs: 126_800, gm: 38, hits: 3, racer: 'bull' }, 'kc-bo');
+  ok('kart score: each racer has its own perfect time (the same time in the fastest kart scores less)', bull.status === 200 && bull.j.score! < ka.j.score! && bull.j.score === lib({ timeMs: 126_800, place: 1, gm: 38, hits: 3, racer: 'bull' }).total && bull.j.rank === 2, `${bull.j.score} < ${ka.j.score}`);
+  const fast = await score({ place: 1, timeMs: (C.tStar as Record<string, number>).pepe * 1000 - 500, gm: 38, hits: 3, racer: 'pepe' }, 'kc-zoom');
+  const floor = await score({ place: 1, timeMs: (C.tFloor as Record<string, number>).pepe * 1000 - 1, gm: 38, hits: 3, racer: 'pepe' }, 'kc-zoom');
+  ok('kart score: a run under its racer\'s perfect time is held for review (off the board), one under the floor refused', fast.status === 200 && fast.j.review === true && fast.j.rank === null && floor.status === 422
+    && (db.prepare('SELECT hidden FROM scores WHERE game_id = ? AND player = ?').get(kg.id, 'kc-zoom') as { hidden: number }).hidden === 1);
+  const dnf = await score({ place: 8, timeMs: 178_000, gm: 30, hits: 4, racer: 'pepe', estimated: true, progress: 0.8 }, 'kc-late');
+  ok('kart score: a race called before the finish counts the share driven, and is Rekt', dnf.status === 200 && dnf.j.score === lib({ timeMs: 178_000, place: 8, gm: 30, hits: 4, racer: 'pepe', estimated: true, progress: 0.8 }).total && dnf.j.tier?.id === 'rekt', JSON.stringify(dnf.j));
+  // best per player: a worse run, then a better one, from the same name in another case; and a tie on score goes by time
+  const worse = await score({ place: 3, timeMs: 140_000, gm: 20, hits: 1, racer: 'pepe' }, 'kc-ana');
+  const better = await score({ place: 1, timeMs: 120_000, gm: 60, hits: 8, racer: 'pepe' }, 'KC-Ana');
+  // (two runs a second apart, set to the same score: the faster ranks first)
+  const t1 = await score({ place: 2, timeMs: 150_000, gm: 10, hits: 0, racer: 'pepe' }, 'kc-tie-slow');
+  await score({ place: 2, timeMs: 149_000, gm: 10, hits: 0, racer: 'pepe' }, 'kc-tie-fast');
+  db.prepare('UPDATE scores SET score = ? WHERE game_id = ? AND player = ?').run(t1.j.score ?? 0, kg.id, 'kc-tie-fast');
+  const board = topScores(kg.id, 10, 'kart').map((r) => `${r.player}:${r.score}`);
+  ok('kart score: the board shows each player once, by their best run (any case), by score, a tie by time', board.length === 5 && board[0] === `KC-Ana:${better.j.score}` && board.filter((b) => /^kc-ana:|^KC-Ana:/i.test(b)).length === 1
+    && board.indexOf(`kc-tie-fast:${t1.j.score}`) === board.indexOf(`kc-tie-slow:${t1.j.score}`) - 1 && !board.some((b) => b.startsWith('kc-zoom')), board.join(' '));
+  ok('kart score: the rank the route gives is the board\'s (a worse run than your best: your best\'s rank, flagged)', better.j.rank === 1 && better.j.best === true && worse.j.rank === 1 && worse.j.best === false, `${worse.j.rank}/${worse.j.best}`);
+  const kp2 = await page(`/g/${kg.slug}`);
+  // (the board is a tab's panel, sent with the page for the client to show: its rows are in the page's data)
+  ok('kart score: the page shows the board by score with its tiers, each player once', kp2.html.includes('Leaderboard (5)') && kp2.html.includes('Ranked by score, out of 10,000') && kp2.html.includes('\\"children\\":\\"KC-Ana\\"') && kp2.html.includes(KartScore.tier(better.j.score!).name) && kp2.html.includes('DNF'));
+  // a rescore (after a measurement) puts back what the route stored (the tie's hand-set score included), and is idempotent
+  const all = () => JSON.stringify(db.prepare("SELECT id, score, tier FROM scores WHERE game_id = ? AND player <> 'kc-tie-fast' ORDER BY id").all(kg.id));
+  const rows0 = all();
+  rescoreKart(kg.id, C); const rows1 = all(), fastRow = db.prepare("SELECT score FROM scores WHERE game_id = ? AND player = 'kc-tie-fast'").get(kg.id) as { score: number };
+  rescoreKart(kg.id, C);
+  ok('kart score: rescoring a board under its constants gives the route\'s scores again, and is idempotent', rows0 === rows1 && rows1 === all() && fastRow.score === lib({ timeMs: 149_000, place: 2, gm: 10, hits: 0, racer: 'pepe' }).total);
+  db.prepare('DELETE FROM scores WHERE game_id = ?').run(kg.id);
 } finally {
   for (const id of made.reverse()) {
     db.prepare('DELETE FROM mog_picks WHERE child_id = ? OR parent_id = ?').run(id, id);

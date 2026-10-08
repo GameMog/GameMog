@@ -42,10 +42,16 @@ export type Dna = {
   /** a lap world's platform options, and its track (control points and width, when the module gives them as numbers) */
   play: { vehicle: boolean; combat: boolean; bounty: boolean };
   track: { points: number | null; width: number | null } | null;
+  /**
+   * a kart race's own (6 Oct, kart: {...}): its laps and class, its racers' names (yours first, then the rivals', as
+   * player() and rival() give them: the stars are the first four), and its items (kart.items: each id, and the name
+   * the world gives it, "id=Name")
+   */
+  kart: { laps: number | null; class: string | null; roster: string[]; items: string[] } | null;
   /** every word the module uses, comments and names included (a world that builds its own place says what it is) */
   words: string[];
 };
-export type DnaKey = 'kind' | 'map' | 'time' | 'traversal' | 'patrol' | 'hero' | 'moves' | 'crews' | 'intro' | 'outro' | 'story' | 'places' | 'kits' | 'scenery' | 'track' | 'play';
+export type DnaKey = 'kind' | 'map' | 'time' | 'traversal' | 'patrol' | 'hero' | 'moves' | 'crews' | 'intro' | 'outro' | 'story' | 'places' | 'kits' | 'scenery' | 'track' | 'play' | 'kart';
 /**
  * One thing the child dropped. A minor one (a library kit, the scenery's kits, a lap's track) is recorded and said in
  * a repair, but never sends a pass back on its own: the owner's list is the map, the hero, the crews, the story and the
@@ -195,6 +201,25 @@ function scene(code: string, v: string | undefined): Dna['intro'] {
   return { shots: count(shots), cast };
 }
 
+/**
+ * A kart race's racers, by name: the names player() and rival() give (name: '...'), and the names in the tables they
+ * read them from (ROSTER[k - 1], or a table of colours and names inside rival()), in order; a name is a capitalised
+ * word or few, not a colour, an asset or a sentence.
+ */
+function rosterOf(code: string, world: Map<string, string>): string[] {
+  const out: string[] = [];
+  const add = (n: string) => { if (/^[A-Z][A-Za-z0-9'.-]*(?: [A-Za-z0-9'.-]+){0,2}$/.test(n) && n.length <= 24 && !out.includes(n)) out.push(n); };
+  for (const key of ['player', 'rival']) {
+    const fn = resolve(code, world.get(key) ?? ''), self = body(fn) || fn;
+    // (and the helpers they call: Meme Kart's player() and rival() both return racer(ctx, k), which reads ROSTER)
+    const called = [...new Set([...self.matchAll(/(?<![.\w$])([A-Za-z_$][\w$]*)\s*\(/g)].map((m) => m[1]))].filter((n) => !/^(function|return|if|for|while|switch|new|typeof)$/.test(n));
+    const own = [self, ...called.map((n) => resolve(code, n)).filter((t) => t.startsWith('function')).map((t) => body(t))].join('\n');
+    for (const m of own.matchAll(/\bname\s*:\s*(['"])((?:\\.|(?!\1).)+)\1/g)) add(unescape(m[2]));
+    const tables = [...new Set([...own.matchAll(/\b([A-Z_][A-Z0-9_]{2,})\b/g)].map((m) => m[1]))].map((id) => resolve(code, id)).filter((t) => t.startsWith('['));
+    for (const t of [own, ...tables]) for (const n of strings(t)) add(n);
+  }
+  return out;
+}
 /** A world's DNA, read from its module. */
 export function dna(source: string): Dna {
   const code = uncomment(source);
@@ -232,6 +257,11 @@ export function dna(source: string): Dna {
   const play = entries(resolve(code, world.get('play')));
   const track = world.has('track') ? entries(resolve(code, world.get('track'))) : null;
   const points = track ? resolve(code, track.get('points')) : '', width = track ? Number(resolve(code, track.get('width'))) : NaN;
+  const kartObj = kind === 'kart' ? entries(resolve(code, world.get('kart'))) : null;
+  const itemsObj = kartObj ? entries(resolve(code, kartObj.get('items'))) : null;
+  const itemNames = itemsObj ? entries(resolve(code, itemsObj.get('names'))) : new Map<string, string>();
+  const itemIds = itemsObj ? [...new Set(['weights', 'looks', 'names'].flatMap((k) => [...entries(resolve(code, itemsObj.get(k))).keys()]))].sort() : [];
+  const lapsN = kartObj ? Number(resolve(code, kartObj.get('laps') ?? '3')) : NaN;
 
   return {
     kind,
@@ -252,6 +282,8 @@ export function dna(source: string): Dna {
     assets,
     play: { vehicle: on(play.get('vehicle')), combat: on(play.get('combat')), bounty: on(play.get('bounty')) },
     track: track ? { points: points.startsWith('[') ? count(points) || null : null, width: Number.isFinite(width) ? width : null } : null,
+    kart: kartObj ? { laps: Number.isFinite(lapsN) ? lapsN : null, class: str(kartObj.get('class')), roster: rosterOf(code, world),
+      items: itemIds.map((id) => (str(resolve(code, itemNames.get(id))) ? `${id}=${str(resolve(code, itemNames.get(id)))}` : id)) } : null,
     words: [...new Set(source.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().match(/[a-z]{3,}/g) ?? [])].sort(),
   };
 }
@@ -272,8 +304,10 @@ export type Idea = {
 
 const words = (list: string[]) => new RegExp(`\\b(?:${list.join('|')})\\b`, 'i');
 const KIND: Record<WorldMode, RegExp> = {
+  // (a kart race, 6 Oct: its own kind; "kart race" and "karting" no longer read as the endless lap)
+  kart: words(['karts?', 'karting', 'go-?karts?', 'kart rac(?:e|es|ing|er|ers)', 'kart racer', 'meme kart']),
   derby: words(['derby', 'demolition', 'car combat', 'vehicular combat', 'car battles?', 'car fights?', 'car wars?', 'bumper cars?', 'twisted metal', 'smash-?up derby', 'ram(?:ming)? (?:them|the other cars|other cars|rivals)']),
-  race: words(['race', 'races', 'racing', 'lap race', 'laps', 'circuit', 'grand prix', 'time trial', 'karting', 'kart race', 'formula (?:one|1)', 'f1', 'nascar', 'marathon']),
+  race: words(['race', 'races', 'racing', 'lap race', 'laps', 'circuit', 'grand prix', 'time trial', 'formula (?:one|1)', 'f1', 'nascar', 'marathon']),
   survival: words(['open world', 'on foot', 'survival', 'survive', 'brawler', 'brawl', 'beat[- ]?(?:\'?em|them)[- ]?up', 'fist ?fights?', 'melee', 'street fights?', 'kung fu', 'martial arts']),
 };
 /**
@@ -317,7 +351,9 @@ const NO_COMBAT = NO(['sword', 'combat', 'fighting']);
 
 /** The kind of game an idea asks for by name, when it names exactly one (a Mog keeps its parent's otherwise). */
 export function askedKind(idea: string): WorldMode | null {
-  const asked = (Object.keys(KIND) as WorldMode[]).filter((k) => KIND[k].test(idea));
+  let asked = (Object.keys(KIND) as WorldMode[]).filter((k) => KIND[k].test(idea));
+  // (a kart race is a race: "a race with karts" asks for the kart race, not for both)
+  if (asked.includes('kart')) asked = asked.filter((k) => k !== 'race');
   return asked.length === 1 ? asked[0] : null;
 }
 
@@ -357,6 +393,7 @@ export function readIdea(idea: string, parent?: Pick<Dna, 'map' | 'places'> & { 
 
 export const KIND_SAID: Record<WorldMode, string> = {
   race: 'an endless-lap race', survival: 'an open world on foot, surviving the crews', derby: 'a car combat arena (a derby)',
+  kart: 'a kart race (kart: {...}: laps, eight karts, places)',
 };
 const list = (xs: string[], n = 3) => xs.length > n ? `${xs.slice(0, n).join(', ')} and more` : xs.join(', ');
 const patrolSaid = (car: string) => (car === 'on' ? 'a patrol car' : `${/^[aeiou]|^suv$/i.test(car) ? 'an' : 'a'} ${car === 'suv' ? 'SUV' : car}`);
@@ -395,6 +432,10 @@ export function describeDna(d: Dna): string[] {
     const p = [d.play.vehicle ? 'cars (play.vehicle)' : '', d.play.combat ? 'the sword (play.combat)' : '', d.play.bounty ? 'a lap bounty (play.bounty)' : ''].filter(Boolean);
     if (p.length) out.push(`The platform options: ${p.join(', ')}.`);
   }
+  if (d.kind === 'kart' && d.kart) {
+    out.push(`The race: ${d.kart.laps ?? 3} laps (kart.laps, 2 to 4), eight karts${d.kart.class ? `, the ${d.kart.class} class` : ''}; the racers: ${d.kart.roster.length ? list(d.kart.roster, 8) : 'unnamed'} (the first four are the stars).`);
+    if (d.kart.items.length) out.push(`The items (kart.items, their names fixed): ${d.kart.items.map((i) => i.replace('=', ': ')).join(', ')}.`);
+  }
   if (d.assets.length) out.push(`The library kits: ${d.assets.filter((a) => !a.startsWith('music-')).join(', ')}.`);
   return out;
 }
@@ -422,6 +463,8 @@ const same = (a: string | null | undefined, b: string | null | undefined) => (a 
  * - intro, outro: a scene went. The idea says no scenes (and with GM off there is no outro to keep).
  * - places: a world of its own whose places all went. The place moved, or the idea renames it.
  * - play: a lap world's cars, sword or bounty went (or cars came). The idea asks for that.
+ * - kart: a kart race's stars (its first four racers) went, its laps left 2 to 4, or an item was renamed. New racers
+ *   are allowed when the idea names a hero or the rivals; the laps and the item names never move.
  * Minor (recorded, said in a repair, never a reason for one on their own):
  * - kits: a people kit (human-*) went while there are still people. Nothing lets it pass.
  * - scenery: more than half the scenery kits went while the place stayed.
@@ -507,6 +550,20 @@ export function compareDna(parent: Dna | string, child: Dna | string, ideaText: 
     rule('play', changes.length > 0, false, () => `The platform options: ${changes.join('; ')}.`);
     const a = p.track, b = c.track;
     rule('track', !!a?.points && !!b?.points && a.points !== b.points, moved, () => `The track: the original's loop has ${a!.points} control points and this one's ${b!.points}, while the place stays.`, true);
+  }
+  if (p.kind === 'kart' && c.kind === 'kart' && p.kart && c.kart) {
+    const a = p.kart, b = c.kart;
+    const stars = a.roster.slice(0, 4).filter((n) => !b.roster.some((m) => same(n, m)));
+    const lapsOut = b.laps != null && (b.laps < 2 || b.laps > 4) && b.laps !== a.laps;
+    const named = new Map(b.items.filter((i) => i.includes('=')).map((i) => i.split('=') as [string, string]));
+    const renamed = a.items.filter((i) => i.includes('=')).filter((i) => { const [id, nm] = i.split('='); return named.has(id) && !same(named.get(id), nm); });
+    const changes = [
+      stars.length ? `its stars ${stars.join(', ')} are gone` : '',
+      lapsOut ? `the race is ${b.laps} laps (a kart race is 2 to 4)` : '',
+      renamed.length ? `the items ${renamed.map((i) => i.split('=')[1]).join(', ')} were renamed (their names are fixed)` : '',
+    ].filter(Boolean);
+    rule('kart', changes.length > 0, !lapsOut && !renamed.length && (idea.hero || idea.enemies) && 'the idea names new racers',
+      () => `The kart race: ${changes.join('; ')}. Keep ${list(a.roster.slice(0, 4), 4)} on the grid, ${a.laps ?? 3} laps${a.items.length ? ', and the item names' : ''}.`);
   }
   return { dropped, allowed, idea };
 }
