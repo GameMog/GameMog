@@ -22,7 +22,7 @@ import { KartBoard } from './kart-score-ui';
  * the model declared about its own game (controls, cast, how it scores) in
  * place of the race engine's laps and windows.
  */
-export function CustomGamePage({ game }: { game: GameRow }) {
+export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: string | null }) {
   const meta = JSON.parse(game.meta ?? '{}') as Omit<GameMeta, 'scoring'> & { scoring?: GameMeta['scoring'] | 'level' | 'survival' };
   const world = game.format === 'world';
   // a framework world's controls are the runtime's, read from its code, so a change to them
@@ -78,7 +78,7 @@ export function CustomGamePage({ game }: { game: GameRow }) {
         </nav>
         <div className="gtop">
           <div className="gstage">
-            <PlayFrame slug={game.slug} gameId={game.id} you={game.format === 'world'} kart={mode === 'kart'} kartScore={kartC}
+            <PlayFrame slug={game.slug} gameId={game.id} you={game.format === 'world'} kart={mode === 'kart'} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
               // eslint-disable-next-line @next/next/no-img-element
               poster={<img src={`/g/${game.slug}/cover`} alt="" />} />
           </div>

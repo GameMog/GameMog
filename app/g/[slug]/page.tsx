@@ -46,12 +46,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
  * row, and everything else below a full-width tab bar. The page used to run
  * edge to edge, which made the media 1060px wide and the tabs span the screen.
  */
-export default async function GamePage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function GamePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { slug } = await params;
+  // a kart race's diagnostic switches (?kdiag=nomusic,noitems, or info: the owner's phone, 8 Oct), for its play frame
+  const kd = (await searchParams).kdiag, kdiag = typeof kd === 'string' ? kd : null;
   // an unlisted game plays for anyone with its link; any other hidden game only for the owner's session
   const game = getGameBySlug(slug) ?? getUnlistedGameBySlug(slug) ?? ((await isAdmin()) ? getGameBySlugForOwner(slug) : undefined);
   if (!game) notFound();
-  if (game.format === 'custom' || game.format === 'world') return <CustomGamePage game={game} />;
+  if (game.format === 'custom' || game.format === 'world') return <CustomGamePage game={game} kdiag={kdiag} />;
 
   const spec = JSON.parse(game.spec) as WorldSpec;
   const scores = topScores(game.id);

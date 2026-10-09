@@ -6,6 +6,7 @@ import { meFragment, YOU_IN_GAMES } from '@/lib/me';
 import { useRouter } from 'next/navigation';
 import { KartScore, ordinal, raceClock, type KartConstants, type KartTier } from '@/lib/kart-score';
 import { TierChip, ScoreBar } from './kart-score-ui';
+import { KartDiagCard, readKdiag, KART_BOOT_KEY as BOOT_KEY, KART_LAST_KEY as LAST_KEY } from './kart-diag';
 
 type Result = {
   place: number; timeMs: number; finished: boolean; score: number; won: boolean; level: number; gm: number; assisted: boolean;
@@ -27,7 +28,7 @@ type Posted = { score: number; tier: KartTier; rank: number | null; review: bool
  *
  * A result posted from a frame is a claim, not a fact. It is stored as one.
  */
-export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`, scores = true, you: wantsYou = false, kart = false, kartScore = null }: {
+export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`, scores = true, you: wantsYou = false, kart = false, kartScore = null, kdiag = null }: {
   slug: string; gameId: string; poster: React.ReactNode; src?: string;
   /** Off for drafts: a run in a preview has no leaderboard to post to. */
   scores?: boolean;
@@ -44,7 +45,16 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
   kart?: boolean;
   /** A kart race's score constants (meta.kartScore, or the course fallback): the panel scores the run as the route will. */
   kartScore?: KartConstants | null;
+  /**
+   * A kart race's diagnostic switches, from the page's own ?kdiag= (the owner's phone, 8 Oct; ./kart-diag.tsx): the
+   * race's are passed on to the frame's address (lib/runtime/kart-guard.js reads them there), and 'info' holds the race
+   * back behind a card of what this device is and how the last race on it ended.
+   */
+  kdiag?: string | null;
 }) {
+  const diag = kart ? readKdiag(kdiag) : { info: false, switches: [] as string[] };
+  const base = diag.switches.length ? `${base0}?kdiag=${diag.switches.join(',')}` : base0;
+  const [held, setHeld] = useState(diag.info);
   const ref = useRef<HTMLIFrameElement>(null);
   const you = wantsYou && YOU_IN_GAMES;
   const me = useMe();
@@ -96,10 +106,10 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
   // browsers refuse frames outright, and a broken game never boots. After a
   // generous wait we say so plainly and offer the direct link.
   useEffect(() => {
-    if (live) return;
+    if (live || held) return;
     const t = setTimeout(() => setStalled(true), 15000);
     return () => clearTimeout(t);
-  }, [live]);
+  }, [live, held]);
 
   // A kart race's boot that took the whole tab down (8 Oct): its last step is kept here while it runs and dropped when
   // the page is left; still here the next time a game page opens means the page died, and that is reported once
@@ -109,7 +119,11 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
       if (raw) {
         localStorage.removeItem(BOOT_KEY);
         const b = JSON.parse(raw) as { at?: number; slug?: string; step?: string; info?: Record<string, unknown>; hidden?: boolean };
-        if (b && typeof b.at === 'number' && Date.now() - b.at < 86400_000) sendKartReport({ ...(b.info ?? {}), kind: 'crash', slug: b.slug, step: b.step, hidden: !!b.hidden });
+        if (b && typeof b.at === 'number' && Date.now() - b.at < 86400_000) {
+          sendKartReport({ ...(b.info ?? {}), kind: 'crash', slug: b.slug, step: b.step, hidden: !!b.hidden });
+          // (and kept, for ?kdiag=info to show: the last way a race on this device ended badly)
+          localStorage.setItem(LAST_KEY, JSON.stringify({ ...b, kind: 'crash', seen: Date.now() }));
+        }
       }
     } catch {}
     const leave = () => { try { localStorage.removeItem(BOOT_KEY); } catch {} };
@@ -133,7 +147,12 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
         try { localStorage.setItem(BOOT_KEY, JSON.stringify({ at: Date.now(), slug, step, info: d.info && typeof d.info === 'object' ? d.info : null })); } catch {}
         return;
       }
-      if (d.type === 'kart-report') { if (d.report && typeof d.report === 'object') sendKartReport({ ...d.report, slug }); return; }
+      if (d.type === 'kart-report') {
+        if (!d.report || typeof d.report !== 'object') return;
+        sendKartReport({ ...d.report, slug });
+        try { localStorage.setItem(LAST_KEY, JSON.stringify({ at: Date.now(), slug, kind: String(d.report.kind ?? ''), step: String(d.report.step ?? ''), message: String(d.report.message ?? '').slice(0, 300), info: d.report })); } catch {}
+        return;
+      }
       if (d.type === 'kart-racer') { if (typeof d.racer === 'string' && /^[A-Za-z][A-Za-z .'-]{0,23}$/.test(d.racer)) try { localStorage.setItem('gamemog:kart:racer', d.racer); } catch {} return; }
       // a kart race asking, as it boots, for the racer kept here: a draft's preview (7 Oct) is not told it holds a
       // kart race, so it answers the race itself, the same as a published one
@@ -199,8 +218,9 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
       {/* The world's own cover art holds the frame until the engine has drawn,
           the way Roblox shows a thumbnail before its video. A grey box here
           was the first thing every game page showed. */}
+      {held && <KartDiagCard slug={slug} switches={diag.switches} onStart={() => setHeld(false)} />}
       <div id="play" className="gframe">
-        {src !== null && <iframe
+        {src !== null && !held && <iframe
           ref={ref}
           src={src}
           sandbox="allow-scripts"
@@ -217,6 +237,7 @@ export function PlayFrame({ slug, gameId, poster, src: base = `/g/${slug}/play`,
           </p>
         )}
       </div>
+      {diag.switches.length > 0 && <p className="t-meta dim" style={{ marginTop: 6 }}>Diagnostics on: {diag.switches.join(', ')}. <a href={`/g/${slug}?kdiag=info`}>Device info</a></p>}
       {scores && kart && result && result.finished && !result.assisted && (preview || posted) && (
         <KartPanel result={result} score={posted?.score ?? preview!.total} tier={posted?.tier ?? preview!.tier} gmOn={(kartScore?.gmCap ?? 1) > 0}>
           {posted
@@ -279,8 +300,7 @@ function KartPanel({ result, score, tier, gmOn, children }: { result: Result; sc
   );
 }
 
-/** Where a kart race's running boot is kept (see the crash effect in PlayFrame), and the one way a report leaves. */
-const BOOT_KEY = 'gamemog:kart:boot';
+/** The one way a kart race's report leaves (where its running boot is kept: ./kart-diag.tsx, KART_BOOT_KEY). */
 function sendKartReport(r: Record<string, unknown>) {
   try {
     const body = JSON.stringify(r);

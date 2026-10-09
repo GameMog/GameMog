@@ -44,6 +44,9 @@ export function cleanReport(b: unknown, ua: string) {
     mem: num(r.mem, 0, 1024), cores: num(r.cores, 0, 256), screen: dims(r.screen), view: dims(r.view), dpr: num(r.dpr, 0, 10),
     gpu: str(r.gpu, 120), heap, t: num(r.t, 0, 864e5), ready: r.ready === true, lost: r.lost === true, hidden: r.hidden === true,
     downloads: num(r.downloads, 0, 1e5), decodes: num(r.decodes, 0, 1e5), stack: str(r.stack, 600),
+    // (the switches the run was opened with, ?kdiag=, and its last steps, each 'step @ms heapM': the guard's trail)
+    diag: typeof r.diag === 'string' && /^[a-z,]{1,120}$/.test(r.diag) ? r.diag : null,
+    trail: Array.isArray(r.trail) ? r.trail.slice(-14).map((x) => str(x, 80, /[^\w .:/()+@-]/g)).filter(Boolean) : null,
   };
   return { kind, slug, device: deviceOf(ua), step: str(r.step, 60, /[^\w .:/()-]/g), message: str(r.message, 300), data };
 }

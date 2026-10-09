@@ -900,7 +900,81 @@ async function kartChecks() {
     await kartScoreAheadChecks();
     await kartFeelChecks();
     await kartPhoneLoadChecks();
+    await kartDiagChecks();
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(kid); }
+}
+
+/* ------------------------------------------------------ kart: the diagnostic switches -- */
+// Chrome for Android still crashed on the owner's Fold 5 where Firefox ran (8 Oct): ?kdiag= switches on the game page
+// (app/g/[slug]/kart-diag.tsx) ride into the play frame, where lib/runtime/kart-guard.js reads them and each takes a part
+// of the race out whole. Each one here, on Meme Kart as a phone loads it: the race boots, races, throws nothing, and the
+// part is not there (what the page made, counted underneath it: the sound contexts, the shaders' defines, the
+// multisampled buffers); and the guard's trail of steps reaches the page
+async function kartDiagChecks() {
+  const code = readFileSync(new URL('../worlds/meme-kart.js', import.meta.url), 'utf8'), meta = JSON.parse(readFileSync(new URL('../worlds/meme-kart.json', import.meta.url), 'utf8'));
+  const id = randomUUID();
+  insertDraft({ id, prompt: 'runtime check', format: 'world', report: { runtimeCheck: true }, code, meta: { ...meta, mode: 'kart', runtime: 1 } } as never);
+  console.log('\nkart: the diagnostic switches (?kdiag=, Meme Kart as a phone loads it)');
+  const PRE = `(() => {
+    const mm = window.matchMedia.bind(window); window.matchMedia = (q) => { const r = mm(q); if (!/pointer:\\s*coarse/.test(q)) return r; const o = Object.create(r); Object.defineProperty(o, 'matches', { value: true }); Object.defineProperty(o, 'media', { value: q }); return o; };
+    const D = window.__diag = { ac: 0, oac: 0, shadow: 0, morph: 0, msaa: 0, steps: [], frames: 0 };
+    ['AudioContext', 'webkitAudioContext', 'OfflineAudioContext'].forEach((n) => { const C = window[n]; if (!C) return; window[n] = class extends C { constructor(...a) { super(...a); D[n === 'OfflineAudioContext' ? 'oac' : 'ac']++; } }; });
+    const ss = WebGL2RenderingContext.prototype.shaderSource;
+    WebGL2RenderingContext.prototype.shaderSource = function (sh, src) { if (/#define USE_SHADOWMAP/.test(src)) D.shadow++; if (/#define USE_MORPHTARGETS/.test(src)) D.morph++; return ss.apply(this, arguments); };
+    const rm = WebGL2RenderingContext.prototype.renderbufferStorageMultisample;
+    WebGL2RenderingContext.prototype.renderbufferStorageMultisample = function (t, n) { if (n > 0) D.msaa++; return rm.apply(this, arguments); };
+    addEventListener('message', (e) => { if (e.data && e.data.type === 'kart-step') D.steps.push(e.data.step); });
+    (function t() { D.frames++; requestAnimationFrame(t); })();
+  })();`;
+  type Got = { ready: boolean; errors: string[]; state: string | null; frames: number; ac: number; oac: number; shadow: number; morph: number; msaa: number; theme: unknown; items: boolean; prep: { done: boolean; of: number };
+    levels: string[]; built: number; cinematic: boolean; pr: number; ka: boolean; gpu: string | null; native: boolean; diag: string | null; steps: string[]; trail: string[] };
+  const boot = async (page: Page, sw: string): Promise<Got> => {
+    await page.goto(`${BASE}/d/${id}/play?preview=1${sw ? `&kdiag=${sw}` : ''}`);
+    let ready = false;
+    for (let i = 0; i < 300 && !ready; i++) { ready = await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false); if (!ready) await sleep(200); }
+    // (the start screen's preparations done, or none to do; then a key, which wakes the sound, and a race)
+    for (let i = 0; i < 200 && ready; i++) { const d = await page.eval<boolean>('!!window.__gmRuntime.state().kart.prep.done').catch(() => false); if (d) break; await sleep(100); }
+    await page.key('Enter'); await sleep(300);
+    await page.eval('(() => { const K = window.__gmRuntime.debug.kart(); K.restart(); K.go(); return 1; })()').catch(() => 0);
+    const f0 = await page.eval<number>('window.__diag.frames').catch(() => 0);
+    await sleep(3000);
+    return page.eval<Got>(`(() => {
+      const s = window.__gmRuntime.state(), k = s.kart, D = window.__diag, K = window.__gmRuntime.debug.kart(), g = window.KartGuard ? window.KartGuard.state() : {};
+      return { ready: !!window.__gm.ready, errors: window.__gm.errors.slice(), state: k ? k.state : null, frames: D.frames - ${f0}, ac: D.ac, oac: D.oac, shadow: D.shadow, morph: D.morph, msaa: D.msaa,
+        theme: k.theme, items: k.item.on, prep: { done: k.prep.done, of: k.prep.of }, levels: k.karts.map((q) => q.level), built: k.roster.built, cinematic: s.render.cinematic, pr: s.render.pixelRatio,
+        ka: !!K.audio(), gpu: g.gpu || null, native: /native code/.test(String(window.fetch)), diag: g.diag || null, steps: D.steps.slice(), trail: g.trail || [] };
+    })()`);
+  };
+  try {
+    await withBrowser(async (page) => {
+      await page.emulate({ width: 390, height: 844, mobile: true, dpr: 2.625 });
+      await page.preload(PRE);
+      const base = await boot(page, '');
+      const races = (g: Got) => g.ready && g.errors.length === 0 && g.state === 'race' && g.frames > 20;
+      const sum = (g: Got) => `${g.state}, ${g.frames} frames, ${g.errors.length} errors; ac ${g.ac}, oac ${g.oac}, theme ${g.theme ? 'on' : 'off'}, sfx ${g.ka}, items ${g.items}, prep ${g.prep.done}/${g.prep.of}, levels ${[...new Set(g.levels)].join('/')} (${g.built} built), post ${g.cinematic}, msaa ${g.msaa}, shadow ${g.shadow}, morph ${g.morph}, dpr ${g.pr}, gpu ${g.gpu ? 'read' : 'none'}, fetch ${g.native ? 'native' : 'wrapped'}, switches ${g.diag}${g.errors.length ? `; ${g.errors.join(' | ')}` : ''}`;
+      ok('kart diag: with no switch, the race has every part: score (offline renders), engines, items, preparations, near levels, post, shadows, expressions, the guard', races(base) && base.oac > 0 && !!base.theme && base.ka && base.items && base.prep.of > 0 && base.levels.some((l) => l !== 'far') && base.cinematic && base.shadow > 0 && base.morph > 0 && !!base.gpu && !base.native && base.diag === null, sum(base));
+      ok('kart diag: the guard\'s steps reach the page, boot phase by phase (renderer, world, racers, race, prep, first frame), and its trail keeps the last ones with their times', ['renderer: making', 'world: building', 'race: made', 'first frame'].every((s) => base.steps.some((x) => x.startsWith(s))) && base.steps.some((x) => /^racer \w+ far: built/.test(x)) && base.steps.some((x) => /^prep: (next )?compile/.test(x)) && base.trail.length >= 8 && base.trail.every((x) => / @\d+/.test(x)), `${base.steps.length} steps; trail: ${base.trail.slice(-4).join(' | ')}`);
+      const want: [string, string, (g: Got) => boolean][] = [
+        ['nomusic', 'no score and no OfflineAudioContext', (g) => !g.theme && g.oac === 0 && g.ka],
+        ['nosfx', 'no engines or effects, the score still on', (g) => !g.ka && !!g.theme && g.ac > 0],
+        ['noaudio', 'no AudioContext and no OfflineAudioContext at all', (g) => g.ac === 0 && g.oac === 0 && !g.theme && !g.ka],
+        ['noprep', 'nothing prepared on the start screen', (g) => g.prep.done && g.prep.of === 0],
+        ['noitems', 'no items', (g) => !g.items],
+        ['lowlod', 'every racer at its far level, nothing else built', (g) => g.levels.every((l) => l === 'far') && g.built === 8],
+        ['nopost', 'no post target, no multisampled buffer', (g) => !g.cinematic && g.msaa === 0],
+        ['noshadow', 'no shadow-mapped shader', (g) => g.shadow === 0],
+        ['nomorph', 'no morph-target shader', (g) => g.morph === 0],
+        ['noguard', 'none of the guard\'s wrappers (its steps still reach the page)', (g) => g.native && !g.gpu && g.steps.includes('first frame') && g.trail.length > 0],
+        ['lowdpr', 'one pixel a point', (g) => g.pr === 1],
+      ];
+      for (const [sw, what, gone] of want) {
+        const g = await boot(page, sw);
+        ok(`kart diag: ?kdiag=${sw} boots and races with ${what}`, races(g) && gone(g) && g.diag === sw, sum(g));
+      }
+      const all = await boot(page, 'noaudio,noprep,noitems,lowlod,nopost,noshadow,nomorph,lowdpr');
+      ok('kart diag: every switch at once still boots and races', races(all) && all.ac === 0 && !all.items && all.levels.every((l) => l === 'far') && !all.cinematic && all.shadow === 0 && all.morph === 0 && all.pr === 1, sum(all));
+    }, { width: 1280, height: 800, timeoutMs: 400_000 });
+  } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(id); }
 }
 
 /* ------------------------------------------------------ kart: a phone's load -- */
@@ -1659,6 +1733,12 @@ async function kartFeelChecks() {
       judgeCover('a phone held upright', await cover(page, K));
     }, { width: 390, height: 844, timeoutMs: 320_000 });
   } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(id); }
+}
+// (ONLY=kart-diag: the diagnostic switches alone, a few minutes)
+if (process.env.ONLY === 'kart-diag') {
+  await kartDiagChecks();
+  console.log(`\n${failures ? `${failures} FAILED` : 'all kart diag checks passed'}\n`);
+  process.exit(failures ? 1 : 0);
 }
 // (ONLY=kart-feel: the feel on To The Moon alone, a few minutes)
 if (process.env.ONLY === 'kart-feel') {
