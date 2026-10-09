@@ -341,6 +341,24 @@ const MIGRATIONS = [
       return 'kept, unlisted';
     },
   },
+  {
+    // the owner's Fold 5, 8 Oct: Chrome for Android closed itself a few seconds into Meme Kart's load (Firefox ran it).
+    // Read over USB: Android killed Chrome for memory, with the graphics memory at 8 GB, all of it while the world
+    // painted its four noise textures (moss, moon dust, bank, bark): ~10,700 shapes each drawn through a canvas blur on
+    // its own, which Chrome for Android paints on the graphics card, a layer each. Now drawn sharp and blurred once a
+    // pass (worlds/meme-kart.js noiseTex): the same textures to the eye, and the score's constants unchanged
+    id: '2026-10-08-meme-kart-noise',
+    run(db) {
+      const code = file('meme-kart.js'), meta = file('meme-kart.meta.json');
+      if (!code || !meta) return 'files missing';
+      if (!['kart.js', 'kart-roster.js', 'kart-items.js', 'kart-music.js', 'kart-score.js', 'kart-guard.js'].every((f) => existsSync(join('lib', 'runtime', f)))) throw new Error('the kart kit (lib/runtime/kart*.js) is missing: the world needs it');
+      const m = JSON.parse(meta.toString('utf8'));
+      const g = db.prepare("SELECT id FROM games WHERE slug = 'meme-kart'").get();
+      if (!g) return 'no meme-kart yet';
+      db.prepare('UPDATE games SET blurb = ?, code = ?, meta = ? WHERE id = ?').run(m.blurb, code.toString('utf8'), JSON.stringify(m.meta), g.id);
+      return 'updated';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

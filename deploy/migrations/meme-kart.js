@@ -1924,15 +1924,18 @@
       // a soft mottle: round smudges of two tones, blurred, then a fine speck over them (no square pixels up close)
       function noiseTex(c0, c1, c2, seed) {
         var t = ctx.textures.canvas(256, 256, function (g, w, h) {
+          // (the blobs and the specks drawn sharp, then the whole picture blurred ONCE per pass, by drawing it onto
+          // itself through the filter. Until 8 Oct each of the ~10,700 shapes was drawn through blur() on its own:
+          // Chrome for Android paints a canvas on the graphics card and gave every one of them a layer of its own,
+          // about 8 GB for the four of these, and Android closed Chrome; a CPU canvas took 6 s a texture)
           var R = mulberryLike(seed); g.fillStyle = c0; g.fillRect(0, 0, w, h);
-          g.filter = 'blur(2px)';
           for (var q = 0; q < 900; q++) {
             var x = R() * w, y = R() * h, r = 2 + Math.pow(R(), 2) * 12; g.fillStyle = R() < 0.6 ? c1 : c2; g.globalAlpha = 0.18 + R() * 0.4;
             [-w, 0, w].forEach(function (ox) { [-h, 0, h].forEach(function (oy) { g.beginPath(); g.ellipse(x + ox, y + oy, r, r * (0.6 + R() * 0.4), R() * 3, 0, 6.28); g.fill(); }); });
           }
-          g.filter = 'blur(0.6px)';
+          g.globalAlpha = 1; g.filter = 'blur(2px)'; g.drawImage(g.canvas, 0, 0); g.filter = 'none';
           for (q = 0; q < 2600; q++) { g.fillStyle = R() < 0.5 ? c1 : c2; g.globalAlpha = 0.3 + R() * 0.4; g.beginPath(); g.arc(R() * w, R() * h, 0.7 + R() * 1.1, 0, 6.28); g.fill(); }
-          g.filter = 'none'; g.globalAlpha = 1;
+          g.globalAlpha = 1; g.filter = 'blur(0.6px)'; g.drawImage(g.canvas, 0, 0); g.filter = 'none';
         });
         return t;
       }
