@@ -613,7 +613,8 @@ tens or hundreds wash the whole picture out white.
 - Keep the racing corridor clear: nothing taller than 0.8m within the track's half width plus
   1.2m of the centre line, below 7m. Use `ctx.track.clear(x, z, margin)` before placing
   scenery. Overhead arches and banners must clear 7m. The runtime hides anything that
-  intrudes, because the chase camera would be inside it.
+  intrudes, because the chase camera would be inside it, and names the first few it hid: where along the lap, which
+  side of the centre line and how high, so you can move exactly those.
 - Put scenery in `ctx.scenery` (a Group) or straight into `ctx.scene`.
 - Anything repeated more than a dozen times goes through `ctx.instanced(geometry, material,
   count, (i, dummy) => { dummy.position.set(...); dummy.scale.set(...); })`.
@@ -677,6 +678,10 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
   `g.filter = 'blur(2px)'; g.drawImage(g.canvas, 0, 0); g.filter = 'none';`. Keep a canvas to 1024 x 1024 or less
   (less on 'low'), a few that size at most, drawn once in build; one redrawn in update stays small, is redrawn only when
   what it shows changes, and sets `generateMipmaps = false`.
+  Words on a sign must read the right way round for the racers coming up to it: a plane's text reads right from the
+  side its front faces, and a basis built with `makeBasis(X, Y, Z)` must be right-handed (X cross Y = Z), or every word
+  it places comes out mirrored. A two-sided sign (`side: DoubleSide`) shows its back mirrored, so the runtime gives
+  every two-sided sign with words a back of its own that reads right too (a Mog's cover is often shot from beyond the line).
 - `ctx.textures.normal(width, height, (g, w, h) => { ...draw heights in greys... }, strength)`:
   a normal map from a height field (white is high): grain, weave, cracks, pores
 - `ctx.sky({ top, horizon, bottom, sun: [x, y, z], sunColor, sunSize, glow, haze, curve })`: a sky

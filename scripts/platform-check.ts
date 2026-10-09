@@ -238,9 +238,10 @@ try {
   // Kart: scripts/kart-score/test-mog.mjs, no server needed; the route and the browser's signature below)
   runKartMogTests((l: string) => { if (l.startsWith('FAIL')) failures++; console.log(l); });
   const kartRuntime = runtimeSource(1, true), plainRuntime = runtimeSource(1, false);
-  // (the plain runtime as of 9 Oct: the soundtrack choice, v1.js soundOf/ownSound, which every world's runtime carries;
-  // each world plays as it did, scripts/soundtrack-check.ts. It was 55de5bf8cd23555c from the kart score to then)
-  ok('kart score: a kart world\'s runtime carries the score (KartScore), every other world\'s runtime is untouched', kartRuntime.includes('var KartScore = (function') && !plainRuntime.includes('KartScore') && createHash('sha256').update(plainRuntime).digest('hex').slice(0, 16) === '55a34dcde8f56327',
+  // (the plain runtime as of 9 Oct, evening: two-sided signs with words get a readable back and the corridor guard names
+  // what it hid (v1.js signsBothWays, guardCorridor), which every world's runtime carries; each world boots as it did.
+  // It was 55a34dcde8f56327 from the soundtrack choice that morning, and 55de5bf8cd23555c from the kart score to then)
+  ok('kart score: a kart world\'s runtime carries the score (KartScore), every other world\'s runtime is untouched', kartRuntime.includes('var KartScore = (function') && !plainRuntime.includes('KartScore') && createHash('sha256').update(plainRuntime).digest('hex').slice(0, 16) === '06b99cdbcd3a03f7',
     createHash('sha256').update(plainRuntime).digest('hex').slice(0, 16));
   // Meme Kart's crowd, baked (scripts/kart-crowd-bake.ts, 8 Oct): both sheets in the library, filmed from the looks the
   // world has now (FAN_WORDS ... CROWD_SHEETS), in the layout the world reads them by

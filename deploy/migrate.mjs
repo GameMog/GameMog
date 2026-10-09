@@ -476,6 +476,21 @@ export const MIGRATIONS = [
       return 'published';
     },
   },
+  {
+    // (9 Oct) the Qatar GP test Mog of Aspen GP shipped with the cover its build took, which looked at the back of its
+    // start banner: mirrored. The runtime now gives a two-sided sign with words a readable back (lib/runtime/v1.js
+    // signsBothWays), and this is its cover and key art retaken on that runtime by the platform's own playtest
+    id: '2026-10-09-qatar-gp-cover',
+    run(db) {
+      const cover = file('qatar-gp-cover.jpg'), icon = file('qatar-gp-icon.jpg'), wide = file('qatar-gp-wide.jpg');
+      if (!cover || !icon || !wide) throw new Error('deploy/migrations/qatar-gp-*.jpg are not in this build');
+      const g = db.prepare("SELECT g.id FROM games g JOIN games p ON p.id = g.parent_id WHERE p.slug = 'aspen-gp' AND g.title = 'Qatar GP: Golden Dunes' ORDER BY g.created_at LIMIT 1").get();
+      // (not recorded until the Mog is published: it runs again at the next boot)
+      if (!g) throw new Error('Qatar GP: Golden Dunes is not published yet');
+      db.prepare('UPDATE games SET cover = ?, art_icon = ?, art_wide = ? WHERE id = ?').run(cover, icon, wide, g.id);
+      return 'cover retaken';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
