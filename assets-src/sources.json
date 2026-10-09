@@ -1035,7 +1035,7 @@
     },
     "ph-model-fire_hydrant": {
       "title": "Fire Hydrant (model)",
-      "author": "Gon\u00e7alo Fel\u00edcio, Poly Haven",
+      "author": "Gonçalo Felício, Poly Haven",
       "license": "CC0-1.0",
       "licenseUrl": "https://polyhaven.com/license",
       "homepage": "https://polyhaven.com/a/fire_hydrant",
@@ -1964,6 +1964,114 @@
       "urls": {
         "hero-rig.glb": "https://api.github.com/repos/xikhar/spiderbench/git/blobs/f24f667a050a86fc6ea584f4232b7b5cc999ccf4"
       }
+    },
+    "junkala-retro-level-1": {
+      "title": "Level 1 (5 Chiptunes: Action)",
+      "author": "Juhani Junkala (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/5-chiptunes-action",
+      "download": {
+        "5 Action Chiptunes By Juhani Junkala.zip": "https://opengameart.org/sites/default/files/5%20Action%20Chiptunes%20By%20Juhani%20Junkala.zip"
+      },
+      "prepared": "junkala-retro-level-1.wav is \"Juhani Junkala [Retro Game Music Pack] Level 1.wav\" taken unchanged from the zip. Prepared by hand; the build reads the WAV from assets-src/cache/junkala-retro-level-1/ and its SHA-256 is pinned in sources.lock.json."
+    },
+    "junkala-epic-boss-battle": {
+      "title": "Epic Boss Battle",
+      "author": "Juhani Junkala (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/boss-battle-music",
+      "urls": {
+        "junkala-epic-boss-battle.wav": "https://opengameart.org/sites/default/files/Juhani%20Junkala%20-%20Epic%20Boss%20Battle%20%5BSeamlessly%20Looping%5D.wav"
+      }
+    },
+    "randommind-old-tower-inn": {
+      "title": "Medieval: The Old Tower Inn (loop)",
+      "author": "RandomMind (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/medieval-the-old-tower-inn",
+      "urls": {
+        "randommind-old-tower-inn.wav": "https://opengameart.org/sites/default/files/Loop_The_Old_Tower_Inn.wav"
+      }
+    },
+    "qubodup-chill-lofi-loop": {
+      "title": "Chill Lofi Inspired (loop edit)",
+      "author": "omfgdude, loop edit by qubodup (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/chill-lofi-inspired-loop-edit",
+      "download": {
+        "chilllofir-loop.ogg": "https://opengameart.org/sites/default/files/chilllofir-loop.ogg"
+      },
+      "prepared": "qubodup-chill-lofi-loop.wav is the OGG decoded to 16-bit PCM WAV. Prepared by hand; the build reads the WAV from assets-src/cache/qubodup-chill-lofi-loop/ and its SHA-256 is pinned in sources.lock.json."
+    },
+    "memoraphile-gone-fishin": {
+      "title": "Gone Fishin'",
+      "author": "Memoraphile (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/gone-fishin",
+      "download": {
+        "gone_fishin_by_memoraphile_CC0.mp3": "https://opengameart.org/sites/default/files/gone_fishin_by_memoraphile_CC0_0.mp3"
+      },
+      "prepared": "memoraphile-gone-fishin.wav is the MP3 decoded to 16-bit PCM WAV. Prepared by hand; the build reads the WAV from assets-src/cache/memoraphile-gone-fishin/ and its SHA-256 is pinned in sources.lock.json."
+    },
+    "cynicmusic-hyper-ultra-racing": {
+      "title": "Hyper Ultra-Racing",
+      "author": "cynicmusic (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/hyper-ultra-racing",
+      "urls": {
+        "cynicmusic-hyper-ultra-racing.wav": "https://opengameart.org/sites/default/files/AugustUltraAmbience.wav"
+      }
+    },
+    "kauffman-shop-theme": {
+      "title": "Shop Theme",
+      "author": "Cleyton Kauffman (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/shop-theme",
+      "download": {
+        "shop_theme.zip": "https://opengameart.org/sites/default/files/shop_theme.zip"
+      },
+      "prepared": "kauffman-shop-theme.wav is \"Buy Something!.mp3\" from the zip, decoded to 16-bit PCM WAV. Prepared by hand; the build reads the WAV from assets-src/cache/kauffman-shop-theme/ and its SHA-256 is pinned in sources.lock.json."
+    },
+    "nene-unchained-destiny": {
+      "title": "Unchained Destiny (Rock)",
+      "author": "nene (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/unchained-destiny-rock",
+      "download": {
+        "unchained_destiny_opening.wav": "https://opengameart.org/sites/default/files/unchained_destiny_opening.wav",
+        "unchained_destiny_loop.wav": "https://opengameart.org/sites/default/files/unchained_destiny_loop.wav"
+      },
+      "prepared": "nene-unchained-destiny.wav is the opening followed by the loop, joined end to end. Prepared by hand; the build reads the WAV from assets-src/cache/nene-unchained-destiny/ and its SHA-256 is pinned in sources.lock.json."
+    },
+    "zanelittle-midnight-cruiser": {
+      "title": "Midnight Cruiser",
+      "author": "Zane Little (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/midnight-cruiser",
+      "download": {
+        "midnight_cruiser.mp3": "https://opengameart.org/sites/default/files/midnight_cruiser_0.mp3"
+      },
+      "prepared": "zanelittle-midnight-cruiser.wav is the MP3 decoded to 16-bit PCM WAV. Prepared by hand; the build reads the WAV from assets-src/cache/zanelittle-midnight-cruiser/ and its SHA-256 is pinned in sources.lock.json."
+    },
+    "springspring-spaghetti-western": {
+      "title": "Spaghetti Western",
+      "author": "Spring Spring (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/spaghetti-western",
+      "download": {
+        "spagetti western.ogg": "https://opengameart.org/sites/default/files/spagetti%20western_0.ogg"
+      },
+      "prepared": "springspring-spaghetti-western.wav is the OGG decoded to 16-bit PCM WAV. Prepared by hand; the build reads the WAV from assets-src/cache/springspring-spaghetti-western/ and its SHA-256 is pinned in sources.lock.json."
     }
   }
 }

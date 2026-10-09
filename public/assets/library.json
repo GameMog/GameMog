@@ -608,6 +608,76 @@
       "licenseUrl": "https://github.com/GameMog/GameMog/blob/main/lib/runtime/traversal/LICENSE",
       "licenseText": "Used with the written permission of its author (3 Oct 2026: the combat system, and the hero's body and rig with the suit stripped), for GameMog only and non-commercial use; not under GameMog's MIT licence. Only animation clips are taken from this file, retargeted onto the library's own humans.",
       "homepage": "https://github.com/xikhar/spiderbench"
+    },
+    "junkala-retro-level-1": {
+      "title": "Level 1 (5 Chiptunes: Action)",
+      "author": "Juhani Junkala (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/5-chiptunes-action"
+    },
+    "junkala-epic-boss-battle": {
+      "title": "Epic Boss Battle",
+      "author": "Juhani Junkala (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/boss-battle-music"
+    },
+    "randommind-old-tower-inn": {
+      "title": "Medieval: The Old Tower Inn (loop)",
+      "author": "RandomMind (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/medieval-the-old-tower-inn"
+    },
+    "qubodup-chill-lofi-loop": {
+      "title": "Chill Lofi Inspired (loop edit)",
+      "author": "omfgdude, loop edit by qubodup (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/chill-lofi-inspired-loop-edit"
+    },
+    "memoraphile-gone-fishin": {
+      "title": "Gone Fishin'",
+      "author": "Memoraphile (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/gone-fishin"
+    },
+    "cynicmusic-hyper-ultra-racing": {
+      "title": "Hyper Ultra-Racing",
+      "author": "cynicmusic (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/hyper-ultra-racing"
+    },
+    "kauffman-shop-theme": {
+      "title": "Shop Theme",
+      "author": "Cleyton Kauffman (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/shop-theme"
+    },
+    "nene-unchained-destiny": {
+      "title": "Unchained Destiny (Rock)",
+      "author": "nene (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/unchained-destiny-rock"
+    },
+    "zanelittle-midnight-cruiser": {
+      "title": "Midnight Cruiser",
+      "author": "Zane Little (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/midnight-cruiser"
+    },
+    "springspring-spaghetti-western": {
+      "title": "Spaghetti Western",
+      "author": "Spring Spring (OpenGameArt)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://opengameart.org/content/spaghetti-western"
     }
   },
   "assets": {
@@ -4760,6 +4830,326 @@
         }
       },
       "bytes": 1273147
+    },
+    "music-retro-level": {
+      "kind": "music",
+      "title": "Retro Level",
+      "description": "Chiptune, 120.63 BPM: the opening once, then 16 bars that loop seamlessly.",
+      "sources": [
+        "junkala-retro-level-1"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 120.63,
+        "duration": 54.7303,
+        "loop": {
+          "start": 22.89739,
+          "end": 54.73027,
+          "bars": 16,
+          "introBars": 11,
+          "similarity": 1.843
+        },
+        "lufs": -7.27
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "612f3580394fe1110a19b7f31a693cbfbec21f17a1acfafdc5f7c31e394ffa48",
+          "bytes": 287
+        },
+        "track.m4a": {
+          "sha256": "87c7dbf74a3c794777812f5ba77a66441b3b687d298953753d2dbf0a571e6666",
+          "bytes": 1320887
+        }
+      },
+      "bytes": 1321174
+    },
+    "music-epic-boss-battle": {
+      "kind": "music",
+      "title": "Epic Boss Battle",
+      "description": "Orchestral epic, 91.92 BPM: the opening once, then 24 bars that loop seamlessly.",
+      "sources": [
+        "junkala-epic-boss-battle"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 91.92,
+        "duration": 66.3165,
+        "loop": {
+          "start": 3.65332,
+          "end": 66.31651,
+          "bars": 24,
+          "introBars": 1,
+          "similarity": 1.743
+        },
+        "lufs": -6.96
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "fb4c5ab0b8dc6e74665ded77211202a236f49c9cce0b52f9278663e226055a0b",
+          "bytes": 284
+        },
+        "track.m4a": {
+          "sha256": "c14a7cd494c393172e315e6f6363dbd6627c87c43ee7a0aacee98d3d124963db",
+          "bytes": 1639316
+        }
+      },
+      "bytes": 1639600
+    },
+    "music-old-tower-inn": {
+      "kind": "music",
+      "title": "The Old Tower Inn",
+      "description": "Celtic folk, 172.99 BPM: the opening once, then 16 bars that loop seamlessly.",
+      "sources": [
+        "randommind-old-tower-inn"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 172.99,
+        "duration": 44.3981,
+        "loop": {
+          "start": 22.20032,
+          "end": 44.39814,
+          "bars": 16,
+          "introBars": 16,
+          "similarity": 1.428
+        },
+        "lufs": -17.41
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "b819eb9f65ee46274d621c46e6d787ecd3514dd07013f030a0fb28aaae10efd5",
+          "bytes": 288
+        },
+        "track.m4a": {
+          "sha256": "0504828dcd6e2bb2cef951d71b7a518e336c788b2a77842aa383a1c8c959597d",
+          "bytes": 1081309
+        }
+      },
+      "bytes": 1081597
+    },
+    "music-chill-lofi": {
+      "kind": "music",
+      "title": "Chill Lofi",
+      "description": "Lo-fi hip-hop, 79 BPM: the opening once, then 16 bars that loop seamlessly.",
+      "sources": [
+        "qubodup-chill-lofi-loop"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 79,
+        "duration": 66.3357,
+        "loop": {
+          "start": 17.72812,
+          "end": 66.33571,
+          "bars": 16,
+          "introBars": 5,
+          "similarity": 1.81
+        },
+        "lufs": -15.89
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "7f960e0644d576ffca2daca5acecda422d2a2fd16d696062d761b1575a9de935",
+          "bytes": 282
+        },
+        "track.m4a": {
+          "sha256": "8fecf36d2ab6fd78cbdfe087b9f3622db35430e0e17d0492c2cdea69b68e51aa",
+          "bytes": 1586521
+        }
+      },
+      "bytes": 1586803
+    },
+    "music-gone-fishin": {
+      "kind": "music",
+      "title": "Gone Fishin'",
+      "description": "Bluegrass banjo, 107.02 BPM: the opening once, then 24 bars that loop seamlessly.",
+      "sources": [
+        "memoraphile-gone-fishin"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 107.02,
+        "duration": 90.5529,
+        "loop": {
+          "start": 36.73114,
+          "end": 90.55286,
+          "bars": 24,
+          "introBars": 16,
+          "similarity": 1.796
+        },
+        "lufs": -14.49
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9a2a6dbf912d45a746b7667e6f8b6efec09745c684e63c221788835f2293f931",
+          "bytes": 286
+        },
+        "track.m4a": {
+          "sha256": "a4afd0e1bde56ab3e3a27447b2346c65ac761f11791a82cc0cab200785670909",
+          "bytes": 2189155
+        }
+      },
+      "bytes": 2189441
+    },
+    "music-hyper-ultra-racing": {
+      "kind": "music",
+      "title": "Hyper Ultra-Racing",
+      "description": "Drum and bass, 168.04 BPM: the opening once, then 32 bars that loop seamlessly.",
+      "sources": [
+        "cynicmusic-hyper-ultra-racing"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 168.04,
+        "duration": 64.8718,
+        "loop": {
+          "start": 19.16837,
+          "end": 64.87177,
+          "bars": 32,
+          "introBars": 13,
+          "similarity": 1.81
+        },
+        "lufs": -8.9
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "131b3e03e64cd27e8a205a5afc0b0c50c7fad820977f58bdb5a473636b2dfe27",
+          "bytes": 285
+        },
+        "track.m4a": {
+          "sha256": "893bbda90ce33afd8909fb5e9b731fab89ca24bc2cfb0afac5c6d5e65c495444",
+          "bytes": 1600975
+        }
+      },
+      "bytes": 1601260
+    },
+    "music-shop-theme": {
+      "kind": "music",
+      "title": "Shop Theme",
+      "description": "Bossa nova, 120.03 BPM: the opening once, then 24 bars that loop seamlessly.",
+      "sources": [
+        "kauffman-shop-theme"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 120.03,
+        "duration": 74.8485,
+        "loop": {
+          "start": 26.86046,
+          "end": 74.84847,
+          "bars": 24,
+          "introBars": 13,
+          "similarity": 1.741
+        },
+        "lufs": -14.92
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "ff452731afdc40c09ae1908a6617b12400de047677ca8f5992a4486bd2e3c77b",
+          "bytes": 286
+        },
+        "track.m4a": {
+          "sha256": "5df8ff2bba283d91bf1b24f1a9f0b883ea85798fd471402927ed1b18ec863ab4",
+          "bytes": 1837404
+        }
+      },
+      "bytes": 1837690
+    },
+    "music-unchained-destiny": {
+      "kind": "music",
+      "title": "Unchained Destiny",
+      "description": "Driving rock, 127.03 BPM: the opening once, then 16 bars that loop seamlessly.",
+      "sources": [
+        "nene-unchained-destiny"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 127.03,
+        "duration": 62.1269,
+        "loop": {
+          "start": 31.89786,
+          "end": 62.12694,
+          "bars": 16,
+          "introBars": 16,
+          "similarity": 1.463
+        },
+        "lufs": -11.88
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "5b3bef0c10697d7b5364d28a486569ebc480ad7bf2cc5cbc9ae9c99d9f6b1a7f",
+          "bytes": 288
+        },
+        "track.m4a": {
+          "sha256": "2b212494761b8cc5461cf5cbb1a618b7b3efd65b5ee163452ebd0819557eab7f",
+          "bytes": 1538390
+        }
+      },
+      "bytes": 1538678
+    },
+    "music-midnight-cruiser": {
+      "kind": "music",
+      "title": "Midnight Cruiser",
+      "description": "Jazz-funk, 101 BPM: the opening once, then 24 bars that loop seamlessly.",
+      "sources": [
+        "zanelittle-midnight-cruiser"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 101,
+        "duration": 89.5933,
+        "loop": {
+          "start": 32.56359,
+          "end": 89.59329,
+          "bars": 24,
+          "introBars": 13,
+          "similarity": 1.915
+        },
+        "lufs": -12.96
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "40dd6ef158ac2c66c5ecb78aa15daf111a88e6e0a95ec71d82b006faaecccc51",
+          "bytes": 285
+        },
+        "track.m4a": {
+          "sha256": "d5962c3d387b5ad08e051d7f07ae5a95a85cbb0c2dd41961732c2f9fcc98be6e",
+          "bytes": 1909467
+        }
+      },
+      "bytes": 1909752
+    },
+    "music-spaghetti-western": {
+      "kind": "music",
+      "title": "Spaghetti Western",
+      "description": "Western, 140.03 BPM: the opening once, then 16 bars that loop seamlessly.",
+      "sources": [
+        "springspring-spaghetti-western"
+      ],
+      "derived": "Measured for loudness (BS.1770) and tempo; brought under full scale; cut to loop on a phrase with a crossfaded join; encoded to AAC.",
+      "meta": {
+        "bpm": 140.03,
+        "duration": 53.1565,
+        "loop": {
+          "start": 25.73383,
+          "end": 53.15653,
+          "bars": 16,
+          "introBars": 15,
+          "similarity": 1.842
+        },
+        "lufs": -12.17
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "36e8abd62f39ec0c8f93596d0f2f413f74eaca0132ef14114d18d07d484d2f77",
+          "bytes": 288
+        },
+        "track.m4a": {
+          "sha256": "d4af91e2ac9bdaff3dc605bec7bb16d530941226c1675fea0ef192384fbc1d3d",
+          "bytes": 1310836
+        }
+      },
+      "bytes": 1311124
     }
   }
 }

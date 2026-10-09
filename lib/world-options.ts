@@ -18,6 +18,16 @@ export const MUSIC_TRACKS = [
   { id: 'music-slampe', label: 'Slampe', style: 'Synthwave house' },
   { id: 'music-vengeance-electro', label: 'Vengeance Electro', style: 'Electro' },
   { id: 'music-liquid-flame', label: 'Liquid Flame', style: 'Electronic' },
+  { id: 'music-retro-level', label: 'Retro Level', style: 'Chiptune' },
+  { id: 'music-epic-boss-battle', label: 'Epic Boss Battle', style: 'Orchestral epic' },
+  { id: 'music-old-tower-inn', label: 'The Old Tower Inn', style: 'Celtic folk' },
+  { id: 'music-chill-lofi', label: 'Chill Lofi', style: 'Lo-fi hip-hop' },
+  { id: 'music-gone-fishin', label: "Gone Fishin'", style: 'Bluegrass banjo' },
+  { id: 'music-hyper-ultra-racing', label: 'Hyper Ultra-Racing', style: 'Drum and bass' },
+  { id: 'music-shop-theme', label: 'Shop Theme', style: 'Bossa nova' },
+  { id: 'music-unchained-destiny', label: 'Unchained Destiny', style: 'Driving rock' },
+  { id: 'music-midnight-cruiser', label: 'Midnight Cruiser', style: 'Jazz-funk' },
+  { id: 'music-spaghetti-western', label: 'Spaghetti Western', style: 'Western' },
 ] as const;
 export type MusicTrack = (typeof MUSIC_TRACKS)[number]['id'];
 

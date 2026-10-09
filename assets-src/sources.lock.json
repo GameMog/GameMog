@@ -2778,5 +2778,45 @@
   "spiderbench-hero-moves/hero-rig.glb": {
     "sha256": "e366b385fee0dbe7bc06c1b3a121483d507a661cc1c5f76ff0fca9d8dae591c3",
     "bytes": 10338708
+  },
+  "junkala-retro-level-1/junkala-retro-level-1.wav": {
+    "sha256": "6f79ae4c6f2b59baa62c46bcd264c9d157f5dca2c30845fabc3c5be4e2b64a43",
+    "bytes": 13098822
+  },
+  "junkala-epic-boss-battle/junkala-epic-boss-battle.wav": {
+    "sha256": "35f75b4381dfbb053992876f7dfc567d9fd959d61b73954d5b1cd519753e7df1",
+    "bytes": 21773152
+  },
+  "randommind-old-tower-inn/randommind-old-tower-inn.wav": {
+    "sha256": "e18b497fb0edde74a745c4b5a0b90b3fc346c44555f33e3a1485411bbcc171bc",
+    "bytes": 8811712
+  },
+  "qubodup-chill-lofi-loop/qubodup-chill-lofi-loop.wav": {
+    "sha256": "d1d790a3c768a66fd70f3a2fd87d5f945dc6b0911b9e3bbbbab7e3f4c6943efc",
+    "bytes": 17148956
+  },
+  "memoraphile-gone-fishin/memoraphile-gone-fishin.wav": {
+    "sha256": "16ef16c9dce9db6d994fdb7e6f8e9e0b7c68936d633e6b8037f150453911dacd",
+    "bytes": 20675496
+  },
+  "cynicmusic-hyper-ultra-racing/cynicmusic-hyper-ultra-racing.wav": {
+    "sha256": "5657d8b3cc0a5cd5d8a6919ee6c9fdc1c8e23d5727f3e2bdeb7f18d902747a3b",
+    "bytes": 14063104
+  },
+  "kauffman-shop-theme/kauffman-shop-theme.wav": {
+    "sha256": "945287e13ff51737a54d231c579b66141150ed152af560e7e7737f812626a521",
+    "bytes": 15533056
+  },
+  "nene-unchained-destiny/nene-unchained-destiny.wav": {
+    "sha256": "ba9d58e7a3e040127480119a8ded0456e05617e187de1166544f18fae1264e95",
+    "bytes": 13334220
+  },
+  "zanelittle-midnight-cruiser/zanelittle-midnight-cruiser.wav": {
+    "sha256": "9fdccc7037c05e77ac241a8bd9437084dc08d5664ac8a1915f81a45b25476be4",
+    "bytes": 27730432
+  },
+  "springspring-spaghetti-western/springspring-spaghetti-western.wav": {
+    "sha256": "1eb6f02d15c9d66e212edaaeb6a1546a449ea074103b5af6dd6ea1820dfbde9b",
+    "bytes": 21772844
   }
 }

@@ -632,6 +632,16 @@ const TRACKS: [string, string, string, string, [number, number]][] = [
   ['music-slampe', 'fupi-slampe', 'Slampe', 'Synthwave house', [100, 140]],
   ['music-vengeance-electro', 'ofdn-vengeance-electro', 'Vengeance Electro', 'Electro', [110, 150]],
   ['music-liquid-flame', 'ofdn-liquid-flame', 'Liquid Flame', 'Electronic', [100, 180]],
+  ['music-retro-level', 'junkala-retro-level-1', 'Retro Level', 'Chiptune', [120, 200]],
+  ['music-epic-boss-battle', 'junkala-epic-boss-battle', 'Epic Boss Battle', 'Orchestral epic', [80, 180]],
+  ['music-old-tower-inn', 'randommind-old-tower-inn', 'The Old Tower Inn', 'Celtic folk', [90, 180]],
+  ['music-chill-lofi', 'qubodup-chill-lofi-loop', 'Chill Lofi', 'Lo-fi hip-hop', [70, 110]],
+  ['music-gone-fishin', 'memoraphile-gone-fishin', "Gone Fishin'", 'Bluegrass banjo', [80, 160]],
+  ['music-hyper-ultra-racing', 'cynicmusic-hyper-ultra-racing', 'Hyper Ultra-Racing', 'Drum and bass', [150, 190]],
+  ['music-shop-theme', 'kauffman-shop-theme', 'Shop Theme', 'Bossa nova', [90, 150]],
+  ['music-unchained-destiny', 'nene-unchained-destiny', 'Unchained Destiny', 'Driving rock', [100, 190]],
+  ['music-midnight-cruiser', 'zanelittle-midnight-cruiser', 'Midnight Cruiser', 'Jazz-funk', [90, 140]],
+  ['music-spaghetti-western', 'springspring-spaghetti-western', 'Spaghetti Western', 'Western', [80, 160]],
 ];
 for (const [id, src, title, style, [lo, hi]] of TRACKS) {
   if (!want(id)) continue;
