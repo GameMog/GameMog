@@ -179,10 +179,19 @@ function notesTurn(mog: boolean) {
   return `Your world passed: it was checked and test-driven on the runtime in a real browser, and it plays. These notes came back. Answer each with the smallest change that does it, one thing per note, and keep everything else exactly as it is: above all the graphics (preset, exposure, bloom) and the lights, unless a note is about the light, and then one step within the runtime's ranges (exposure usually 0.8 to 1.3 and never above 1.5, a sun 2 to 4, a sky light 0.4 to 1.5, a lamp 0.5 to 4 with a distance).${mog ? " This is a Mog: unless the challenger's idea asks for a new look, keep the original's graphics and the strength of its lights; a note is never a reason to relight the world." : ''} Your repair is test-driven again, and if it looks worse than this world, this world ships. Reply with the complete world again, both blocks:`;
 }
 
+/**
+ * The build's two safety hooks (the owner, 9 Oct; lib/build-limits.ts). `signal` aborts when the creator has left
+ * (app/api/generate/route.ts): the pass being written is cut off at the model, a test drive being waited for is let
+ * go, and no further pass runs; the build just ends, with nothing more to say to a page that is gone. `usage` hears
+ * what each pass used, as the model reported it (a pass cut short: as much as it had reported, `partial`).
+ */
+export type BuildHooks = { signal?: AbortSignal; usage?: (pass: { attempt: number; model: string; usage: Anthropic.Beta.BetaUsage; partial?: boolean }) => void };
+
 export async function generateGame(
-  input: { prompt: string; image?: CharacterImage; origin: string; mog?: MogInput; options?: WorldOptions },
+  input: { prompt: string; image?: CharacterImage; origin: string; mog?: MogInput; options?: WorldOptions } & BuildHooks,
   emit: (e: GameEvent) => void
 ) {
+  const stopped = () => !!input.signal?.aborted;
   const started = Date.now();
   const client = new Anthropic();
   const SYSTEM = system();
@@ -208,13 +217,16 @@ export async function generateGame(
   };
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (stopped()) return;
     emit({ type: 'stage', stage: attempt === 1 ? 'thinking' : 'repairing', attempt });
     // this pass is the repair of a world that already passed
     const prior = kept;
 
     let final: Anthropic.Beta.BetaMessage;
+    // (the pass's stream, for what it had counted if it is cut short)
+    let live: { currentMessage: Anthropic.Beta.BetaMessage | undefined } | undefined;
     try {
-      const stream = client.beta.messages.stream({
+      const stream = live = client.beta.messages.stream({
         model: GAME_MODEL,
         max_tokens: 128_000,
         system: SYSTEM,
@@ -233,7 +245,7 @@ export async function generateGame(
         // than failing the creator's request outright
         betas: ['server-side-fallback-2026-07-01'],
         fallbacks: 'default',
-      });
+      }, { signal: input.signal });
       let chars = 0, last = 0, writing = false;
       stream.on('text', (delta) => {
         if (!writing) { writing = true; emit({ type: 'stage', stage: 'writing', attempt }); }
@@ -242,6 +254,11 @@ export async function generateGame(
       });
       final = await stream.finalMessage();
     } catch (e) {
+      // a pass cut short still used what the model had counted when it started (its input; its output is counted only
+      // at its end), and the creator who left needs no word of it
+      const cut = live?.currentMessage;
+      if (cut) input.usage?.({ attempt, model: cut.model, usage: cut.usage, partial: true });
+      if (stopped()) return;
       const error = e instanceof Anthropic.RateLimitError ? 'The model is rate limited right now. Try again in a minute.'
         : e instanceof Anthropic.AuthenticationError ? 'The Anthropic API key was rejected. Check ANTHROPIC_API_KEY in .env.local.'
         : e instanceof Anthropic.APIError ? `The Anthropic API returned ${e.status}: ${e.message}`
@@ -250,6 +267,7 @@ export async function generateGame(
       if (prior) return keep(prior, `the repair could not be written: ${error}`, attempt);
       return emit({ type: 'error', error });
     }
+    input.usage?.({ attempt, model: final.model, usage: final.usage });
 
     if (final.stop_reason === 'refusal') {
       if (prior) return keep(prior, 'the model declined the repair', attempt);
@@ -278,8 +296,9 @@ export async function generateGame(
       if (drivesInBrowser()) {
         const token = randomUUID();
         emit({ type: 'drive', draftId, token, attempt });
-        report = await waitForDrive(draftId, token);
+        report = await waitForDrive(draftId, token, undefined, input.signal);
       } else report = await playtestWorld(`${input.origin}/d/${draftId}/play`);
+      if (stopped()) return;
       problems.push(...report.problems);
       // the verdict, and the code it is about: a skipped drive is unverified, never a pass
       const hash = codeHash(code);

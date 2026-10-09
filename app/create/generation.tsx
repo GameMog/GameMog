@@ -33,13 +33,21 @@ export function useGeneration() {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [busy]);
+  // The build this page is reading. A creator who leaves it within the site (a link, Back: the page goes, the
+  // document stays, and a read nobody shows would go on) lets it go, as a new build does: its request is aborted,
+  // the connection closes, and the server stops the build (lib/build-limits.ts, the owner's limit 1, 9 Oct).
+  // Closing the tab or reloading closes the connection by itself.
+  const reading = useRef<AbortController | null>(null);
+  useEffect(() => () => { reading.current?.abort(); reading.current = null; }, []);
 
   /** Streams a written world; any other response comes back as JSON for the caller. */
   async function run(body: Record<string, unknown>): Promise<unknown | null> {
+    reading.current?.abort();
+    const stop = (reading.current = new AbortController());
     setBusy(true); setError(''); setDraft(null); setRounds([]); setStage(null); setDrive(null);
     setStartedAt(Date.now()); setNow(Date.now());
     try {
-      const res = await fetch('/api/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await fetch('/api/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: stop.signal });
       if (res.ok && res.body && (res.headers.get('content-type') ?? '').includes('ndjson')) {
         const reader = res.body.getReader(), dec = new TextDecoder();
         let buf = '', ended = false;
@@ -73,9 +81,13 @@ export function useGeneration() {
       if (!res.ok) setError(data.error ?? 'Generation failed');
       return data;
     } catch (e) {
-      setError((e as Error).message);
+      // a build let go (the page left, or a new build began) says nothing: nobody is here to read it
+      if (!stop.signal.aborted) setError((e as Error).message);
       return null;
-    } finally { setBusy(false); setDrive(null); }
+    } finally {
+      // the show is this build's only while it is the one being read
+      if (reading.current === stop) { reading.current = null; setBusy(false); setDrive(null); }
+    }
   }
 
   async function publish() {
@@ -215,6 +227,8 @@ function scrub(text: string) {
   return out.charAt(0).toUpperCase() + out.slice(1);
 }
 function friendlyError(e: string) {
+  // every one of the site's build slots is taken (lib/build-limits.ts BUSY): nothing was started or spent, said as it is
+  if (/^GameMog is busy building/.test(e)) return 'GameMog is busy building other worlds. Try again in a minute.';
   if (/rate limit|overload|529|capacity|busy/i.test(e)) return 'The world builder is very busy right now. Give it a minute, then try again.';
   if (/key|authentication|unauthori[sz]ed|401|403|needs the model/i.test(e)) return 'The world builder isn\'t connected right now, so nothing could be built.';
   if (/network|failed to fetch|load failed|aborted|terminated/i.test(e)) return 'The connection dropped while your world was being built. Please try again.';

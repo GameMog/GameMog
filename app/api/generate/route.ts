@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { generateWorld, offlineWorld, readCatalogue, MODEL } from '@/lib/generate';
 import { generateGame, GAME_MODEL, type GameEvent } from '@/lib/generate-game';
 import { playtest } from '@/lib/playtest';
-import { logGeneration, recentSpecs, getGameBySlug } from '@/lib/db';
+import { logGeneration, recentSpecs, getGameBySlug, startBuild, setBuildUsage, endBuild } from '@/lib/db';
+import { takeSlot, priceBuild, BUSY, type PassUsage } from '@/lib/build-limits';
 
 import { ImageSchema, type Character, type CharacterImage } from '@/lib/character';
 import { readOptions } from '@/lib/world-options';
@@ -62,20 +63,44 @@ export async function POST(req: Request) {
   // The default: Opus writes the whole game. Progress streams back as NDJSON,
   // one event per line, because a game takes minutes and the creator should
   // see it being written, checked and played rather than a spinner.
+  //
+  // The owner's safety limits (9 Oct, lib/build-limits.ts): a build takes one of the site's slots for as long as its
+  // stream runs, test drive included, or is told at once that GameMog is busy, before any model is called, so nothing
+  // is spent; it stops when the creator leaves; and it is logged from its start, with what each pass really cost.
   if (body.kind !== 'race' && hasKey) {
+    const slot = takeSlot();
+    if (!slot) return NextResponse.json({ error: BUSY, busy: true }, { status: 503, headers: { 'retry-after': '60' } });
     const origin = new URL(req.url).origin;
     const started = Date.now();
     const enc = new TextEncoder();
+    // the creator has left: Next aborts the request's signal when its connection closes, and the stream is cancelled;
+    // either stops the build (lib/generate-game.ts BuildHooks). A tab in the background is still connected: it builds on
+    const stop = new AbortController();
+    const leave = () => stop.abort();
+    if (req.signal.aborted) leave(); else req.signal.addEventListener('abort', leave, { once: true });
+    const model = GAME_MODEL + (image ? '+vision' : '') + (parent ? '+mog' : '');
     const stream = new ReadableStream({
       async start(controller) {
         let closed = false;
         const send = (e: GameEvent | { type: 'tick' }) => {
-          if (!closed) try { controller.enqueue(enc.encode(JSON.stringify(e) + '\n')); } catch { closed = true; }
+          // (a stream that takes no more was cancelled: nobody is reading it)
+          if (!closed) try { controller.enqueue(enc.encode(JSON.stringify(e) + '\n')); } catch { closed = true; leave(); }
         };
         // the model can think for minutes before its first word; keep the
         // connection visibly alive
         const beat = setInterval(() => send({ type: 'tick' }), 10_000);
-        let result: GameEvent | undefined;
+        let result: GameEvent | undefined, thrown: string | undefined, draftId: string | null = null, attempts = 0, row: number | null = null;
+        const passes: PassUsage[] = [];
+        // the build's row, from its start (lib/db.ts startBuild): a log that cannot be written never stops a build
+        try {
+          row = slot.slot.row = startBuild({ prompt: parent ? `[mog of ${parent.slug}] ${text}` : text, model, kind: parent ? 'mog' : 'create',
+            parentSlug: parent?.slug ?? null, parentChars: parent?.code?.length ?? null, promptChars: text.length, photo: !!image }, started);
+        } catch (e) { console.error('builds: the start of a build could not be logged', e); }
+        // what each pass used, priced and kept as it ends, so a build the server stops under still shows its spend
+        const usage = (p: PassUsage) => {
+          passes.push(p);
+          if (row !== null) try { const c = priceBuild(passes); setBuildUsage(row, c.usage, c.usd, p.attempt); } catch (e) { console.error('builds: a pass\'s usage could not be logged', e); }
+        };
         try {
           // a Mog keeps its original's kind, whatever the request says: an open world stays open and a lap race a lap
           // race (the owner, 1 Oct). Within an open world, on foot or a derby (the owner, 6 Oct: "a tighter game-type
@@ -83,24 +108,35 @@ export async function POST(req: Request) {
           // (lib/mog-dna.ts askedKind), and a pass that changed it unasked goes back once (lib/generate-game.ts)
           const options = readOptions(body.options);
           if (parent) options.open = parent.format === 'world' && !!parent.code && isOpenWorld(parent.code);
-          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options }, (e) => {
+          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options, signal: stop.signal, usage }, (e) => {
+            if (e.type === 'stage') attempts = Math.max(attempts, e.attempt);
+            if (e.type === 'drive' || e.type === 'done') draftId = e.draftId;
             if (e.type === 'done' || e.type === 'error') result = e;
             send(e);
           });
         } catch (e) {
-          send({ type: 'error', error: (e as Error).message });
+          thrown = (e as Error).message;
+          if (!stop.signal.aborted) send({ type: 'error', error: thrown });
         } finally {
           clearInterval(beat);
-          logGeneration({
-            gameId: null, prompt: parent ? `[mog of ${parent.slug}] ${text}` : text, model: GAME_MODEL + (image ? '+vision' : '') + (parent ? '+mog' : ''),
-            attempts: result?.type === 'done' ? result.attempts : 0, ok: result?.type === 'done',
-            findings: result?.type === 'error' ? result.problems ?? [result.error] : [],
-            ms: Date.now() - started,
-          });
+          // the slot is the next build's however this one ended
+          slot.release();
+          req.signal.removeEventListener('abort', leave);
+          // how it ended came first: a world or an error, even to a creator who left as it came; else abandoned if they left
+          if (row !== null) try {
+            const c = passes.length ? priceBuild(passes) : null;
+            endBuild(row, {
+              status: result ? (result.type === 'done' ? 'done' : 'error') : stop.signal.aborted ? 'abandoned' : 'error',
+              attempts: result?.type === 'done' ? result.attempts : attempts,
+              findings: result?.type === 'error' ? result.problems ?? [result.error] : thrown && !stop.signal.aborted ? [thrown] : [],
+              ms: Date.now() - started, draftId, usage: c?.usage, usd: c?.usd,
+            });
+          } catch (e) { console.error('builds: the end of a build could not be logged', e); }
           closed = true;
-          controller.close();
+          try { controller.close(); } catch { /* cancelled: nobody is reading */ }
         }
       },
+      cancel() { leave(); },
     });
     return new Response(stream, {
       headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no' },
@@ -124,9 +160,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ spec, report, character, adjustments, offline: true });
   }
 
-  // Balance against what is already on the shelf, not against nothing.
-  const catalogue = readCatalogue(recentSpecs(24));
-  const out = await generateWorld({ prompt: text, image, hintFur, catalogue });
+  // The race brief: no page sends it since every world became a written one (app/create/page.tsx), but a request
+  // still can, and its calls are the owner's key's too, so it takes one of the same slots or is told GameMog is busy
+  // (lib/build-limits.ts 2), and gives it back however it ends
+  const slot = takeSlot();
+  if (!slot) return NextResponse.json({ error: BUSY, busy: true }, { status: 503, headers: { 'retry-after': '60' } });
+  let out: Awaited<ReturnType<typeof generateWorld>>;
+  try {
+    // Balance against what is already on the shelf, not against nothing.
+    const catalogue = readCatalogue(recentSpecs(24));
+    out = await generateWorld({ prompt: text, image, hintFur, catalogue });
+  } finally { slot.release(); }
   logGeneration({
     gameId: null,
     prompt: text,

@@ -24,6 +24,23 @@ export const MEME_KART_TRACKS = [
   { slug: 'meme-kart-original', file: 'meme-kart-original.js', code: '2e55c9d5c9e61b85e218eb0379a03f0af00e73b4ff80a7df8a2f8824958aef63', sig: 'd90450e9fd3eddee', laps: 3, lap: 1574.9 },
 ];
 
+/**
+ * The live games with a soundtrack of their own (9 Oct; lib/world-options.ts Soundtrack): each as the runtime plays it,
+ * read in headless Chrome on the Mac from the very code the row carries (lib/runtime/v1.js state().soundtrack, the
+ * page against the dev server), and named for the Mog page (the runtime's own name is the title's: "Great Wall Shinobi
+ * score", "Meme Kart: The Original theme"); a score carries its seed, the title it was composed from, so a Mog plays
+ * the very notes. Code: sha256 of the row's code without the blank lines at either end. Every other live world plays
+ * none of its own: none of the rest defines music or asks for kart.score, and a world built with options plays its
+ * creator's choice. scripts/soundtrack-check.ts reads each again from the files.
+ */
+export const OWN_SOUNDTRACKS = [
+  { slug: 'meme-kart', file: 'deploy/migrations/meme-kart.js', code: '6242e421a0e8435697013100c728f94a7836859527a7c6cdb29e8229ad987212', soundtrack: { kart: true, label: 'Meme Kart theme' } },
+  { slug: 'meme-kart-original', file: 'deploy/migrations/meme-kart-original.js', code: '2e55c9d5c9e61b85e218eb0379a03f0af00e73b4ff80a7df8a2f8824958aef63', soundtrack: { kart: true, label: 'Meme Kart theme' } },
+  { slug: 'great-wall-shinobi', file: 'worlds/greatwall.js', code: 'a53999fe09f0aa6e605ff5655c7a424b24b4bda991b81624104d83a2a89f1ad2', soundtrack: { music: { style: 'taiko', key: 'D', mode: 'in', tempo: 100, seed: 'Great Wall Shinobi' }, label: 'Great Wall score' } },
+  { slug: 'las-vegas-night-gp', file: 'worlds/vegas.js', code: '133b1b26c767d2fccc9b5dc7910d2b866c8980e8db12df9283f8f5a6e196eecc', soundtrack: { track: 'music-dance-field', label: 'Dance Field' } },
+  { slug: 'ai-alps', file: 'deploy/migrations/ai-alps.js', code: 'dec24fca424105680a9f6e49641b015a1e2fcf57f38c91afaff3262d07e50bcd', soundtrack: { track: 'music-funky-house', label: 'Funky House' } },
+];
+
 // (exported for the checks: scripts/kart-score/test-mog.mjs runs one on a database of its own)
 export const MIGRATIONS = [
   {
@@ -400,6 +417,33 @@ export const MIGRATIONS = [
         if (JSON.stringify(rest) !== was) throw new Error(`${T.slug}: the constants would change`);
         db.prepare('UPDATE games SET meta = ? WHERE id = ?').run(JSON.stringify(m), g.id);
         notes.push(`${T.slug}: signed ${T.sig}`);
+      }
+      return notes.join('; ');
+    },
+  },
+  {
+    // 9 Oct, the owner: "On a Mog of a game with its own soundtrack, the music choice starts on 'Original soundtrack
+    // (Meme Kart theme)', with 'No music' and the library tracks as alternatives". The Mog page finds a game's own
+    // soundtrack in its meta (meta.soundtrack); this writes it for the live games that have one (OWN_SOUNDTRACKS) and
+    // changes nothing else: they play exactly as they did (a world without options plays its own music whatever its
+    // meta says). Only to a row whose code is the code it was read from, built without options, with none yet; and only
+    // these rows (Meme Kart: Midnight Mog, built with no music, is left as it is: the owner, "leave as is")
+    id: '2026-10-09-own-soundtracks',
+    run(db) {
+      const notes = [];
+      for (const S of OWN_SOUNDTRACKS) {
+        const g = db.prepare('SELECT id, code, meta FROM games WHERE slug = ?').get(S.slug);
+        if (!g) { notes.push(`${S.slug}: no such game`); continue; }
+        if (createHash('sha256').update(String(g.code ?? '').trim()).digest('hex') !== S.code) { notes.push(`${S.slug}: left alone (its code is not the one read)`); continue; }
+        let m = null;
+        try { m = JSON.parse(g.meta ?? 'null'); } catch { m = null; }
+        if (!m || typeof m !== 'object' || Array.isArray(m)) { notes.push(`${S.slug}: left alone (no meta)`); continue; }
+        if (m.options !== undefined) { notes.push(`${S.slug}: left alone (built with options: it plays its creator's choice)`); continue; }
+        if (JSON.stringify(m.soundtrack) === JSON.stringify(S.soundtrack)) { notes.push(`${S.slug}: already`); continue; }
+        if (m.soundtrack != null) { notes.push(`${S.slug}: left alone (it has another)`); continue; }
+        // (every other field as it was, in its order)
+        db.prepare('UPDATE games SET meta = ? WHERE id = ?').run(JSON.stringify({ ...m, soundtrack: S.soundtrack }), g.id);
+        notes.push(`${S.slug}: ${S.soundtrack.label}`);
       }
       return notes.join('; ');
     },

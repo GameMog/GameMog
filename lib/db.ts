@@ -162,6 +162,22 @@ function open() {
     );
     CREATE INDEX IF NOT EXISTS events_by_time ON events(at);
   `);
+  // every build from the moment it starts (the owner's safety limits, 9 Oct; lib/build-limits.ts): 'running' until it
+  // ends 'done', 'error' or 'abandoned' (the creator left), or is found 'interrupted' (the server stopped under it).
+  // Rows from before have no status: they were written as their build ended. Beside it the kind (create or mog), a
+  // Mog's parent and the size of its code, the request's length and whether a photo came with it; at the end the
+  // draft, and the tokens the passes used and what they cost (usage, cost_usd), kept up to date pass by pass, where an
+  // older row has only an estimate (lib/analytics.ts buildCost). Nullable columns: added in place on the live disk
+  add('generations', 'status', 'status TEXT');
+  add('generations', 'started_at', 'started_at INTEGER');
+  add('generations', 'kind', 'kind TEXT');
+  add('generations', 'parent_slug', 'parent_slug TEXT');
+  add('generations', 'parent_chars', 'parent_chars INTEGER');
+  add('generations', 'prompt_chars', 'prompt_chars INTEGER');
+  add('generations', 'photo', 'photo INTEGER');
+  add('generations', 'draft_id', 'draft_id TEXT');
+  add('generations', 'usage', 'usage TEXT');
+  add('generations', 'cost_usd', 'cost_usd REAL');
   return db;
 }
 
@@ -546,4 +562,37 @@ export function logGeneration(g: {
     `INSERT INTO generations (game_id, prompt, model, attempts, ok, findings, ms, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(g.gameId, g.prompt, g.model, g.attempts, g.ok ? 1 : 0, JSON.stringify(g.findings), g.ms, Date.now());
+}
+
+/**
+ * A written world's build, logged as it starts (the owner's safety limits, 9 Oct; lib/build-limits.ts): 'running',
+ * with what it was asked for. The prompt and model read as logGeneration's always have ("[mog of <slug>] ..." and
+ * "+vision" / "+mog"). Returns the row, which the build's usage and end update.
+ */
+export function startBuild(b: { prompt: string; model: string; kind: 'create' | 'mog'; parentSlug?: string | null; parentChars?: number | null; promptChars: number; photo: boolean }, at = Date.now()) {
+  const r = db.prepare(
+    `INSERT INTO generations (game_id, prompt, model, attempts, ok, findings, ms, created_at, status, started_at, kind, parent_slug, parent_chars, prompt_chars, photo)
+     VALUES (NULL, ?, ?, 0, 0, '[]', 0, ?, 'running', ?, ?, ?, ?, ?, ?)`
+  ).run(b.prompt, b.model, at, at, b.kind, b.parentSlug ?? null, b.parentChars ?? null, b.promptChars, b.photo ? 1 : 0);
+  return Number(r.lastInsertRowid);
+}
+/** What a build's passes have used so far, priced (lib/build-limits.ts priceBuild): kept as each pass ends, so a
+ *  build the server stops under still shows what it spent. */
+export function setBuildUsage(id: number, usage: unknown, usd: number, attempts: number) {
+  db.prepare('UPDATE generations SET usage = ?, cost_usd = ?, attempts = MAX(attempts, ?) WHERE id = ?').run(JSON.stringify(usage), usd, attempts, id);
+}
+export type BuildEnd = 'done' | 'error' | 'abandoned';
+/** The build's end: how it ended, its passes, what was found, how long it took, its draft and its cost. */
+export function endBuild(id: number, e: { status: BuildEnd; attempts: number; findings: unknown; ms: number; draftId?: string | null; usage?: unknown; usd?: number | null }) {
+  db.prepare('UPDATE generations SET status = ?, ok = ?, attempts = ?, findings = ?, ms = ?, draft_id = ?, usage = COALESCE(?, usage), cost_usd = COALESCE(?, cost_usd) WHERE id = ?')
+    .run(e.status, e.status === 'done' ? 1 : 0, e.attempts, JSON.stringify(e.findings), e.ms, e.draftId ?? null, e.usage == null ? null : JSON.stringify(e.usage), e.usd ?? null, id);
+}
+/**
+ * Builds left 'running' by a server that has stopped (a deploy or a crash stops the builds in flight) are
+ * 'interrupted'; `live` are the builds this server is running (lib/build-limits.ts runningRows), which are left alone.
+ * deploy/boot.mjs does the same for every row as the server starts.
+ */
+export function interruptBuilds(live: number[] = []) {
+  const keep = live.length ? ` AND id NOT IN (${live.map(() => '?').join(', ')})` : '';
+  return Number(db.prepare(`UPDATE generations SET status = 'interrupted' WHERE status = 'running'${keep}`).run(...live).changes);
 }

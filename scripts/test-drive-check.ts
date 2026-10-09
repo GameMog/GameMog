@@ -122,7 +122,8 @@ export async function browserDriveChecks(ok: Ok, base: string) {
       } else {
         // the lap and open drives report what they always have: no kind, no kart, and the same keys
         const keys = Object.keys(f.raw).sort().join();
-        const want = w.kind === 'lap' ? 'advisories,errors,fps,hidden,levelReached,looks,mobile,open,ready,readyMs,results,runtime' : 'advisories,boss,errors,fps,heat,hidden,kos,levelReached,looks,mobile,open,police,ready,readyMs,results,runtime';
+        // (and, 9 Oct, the world's own soundtrack as the runtime plays it, for a Mog's publish: scripts/soundtrack-check.ts)
+        const want = w.kind === 'lap' ? 'advisories,errors,fps,hidden,levelReached,looks,mobile,open,ready,readyMs,results,runtime,soundtrack' : 'advisories,boss,errors,fps,heat,hidden,kos,levelReached,looks,mobile,open,police,ready,readyMs,results,runtime,soundtrack';
         ok(`drive: the ${w.kind === 'lap' ? 'endless lap (the reference world)' : 'open world (Zombie Beach)'} is driven and judged as before: it passes, and reports what it always did`,
           st === 'passed' && keys === want && !r.kind && !r.kart && (w.kind === 'lap' ? f.raw.open === false && r.levelReached >= 4 : f.raw.open === true && !!r.open?.boss), `${said}; ${keys}`);
       }

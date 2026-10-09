@@ -7,6 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { migrate } from './migrate.mjs';
+import { interruptBuilds } from './builds.mjs';
 
 const DB = 'data/gamemog.db', SEED = 'deploy/seed.db.gz';
 mkdirSync('data', { recursive: true });
@@ -20,3 +21,7 @@ if (existsSync(DB)) {
 
 // what has changed in the published content since (deploy/migrate.mjs)
 migrate(DB);
+
+// the builds the last server was running when it stopped are 'interrupted' (deploy/builds.mjs)
+const interrupted = interruptBuilds(DB);
+if (interrupted) console.log(`boot: ${interrupted} build${interrupted === 1 ? '' : 's'} the last server was running marked interrupted`);

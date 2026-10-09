@@ -17,7 +17,8 @@ const TABS = [
 const RANGE_ITEMS = [{ id: '24h', label: '24h' }, { id: '7d', label: '7 days' }, { id: '30d', label: '30 days' }] as const satisfies readonly { id: Range; label: string }[];
 const RANGE_WORDS: Record<Range, string> = { '24h': 'the day before', '7d': 'the week before', '30d': 'the 30 days before' };
 
-export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[] };
+// slots: the builds running now, of the site's cap (lib/build-limits.ts BUILD_SLOTS)
+export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: { held: number; max: number } };
 
 export function Dashboard(props: AdminData) {
   return <Toasts><Board {...props} /></Toasts>;
@@ -34,7 +35,7 @@ export function ago(at: number) {
   return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports }: AdminData) {
+function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, slots }: AdminData) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('overview');
@@ -101,7 +102,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
 
       <main className="adm-main">
         <BlurIn k={tab === 'overview' || tab === 'traffic' ? `${tab}-${range}` : tab}>
-          {tab === 'overview' && <Overview s={s} />}
+          {tab === 'overview' && <Overview s={s} slots={slots} />}
           {tab === 'worlds' && <Worlds worlds={worlds} hidden={hiddenCount} publish={publish} />}
           {tab === 'builds' && <Builds builds={builds} titles={new Map(worlds.map((w) => [w.slug, w.title]))} />}
           {tab === 'names' && <Names scores={scores} setScores={setScores} />}
@@ -139,7 +140,7 @@ function Kpi({ label, k, s, format, hint }: { label: string; k: keyof Kpis; s: S
   );
 }
 
-function Overview({ s }: { s: Stats }) {
+function Overview({ s, slots }: { s: Stats; slots: AdminData['slots'] }) {
   const n = s.now;
   const funnel = [
     { label: 'Visited', value: n.visitors },
@@ -157,7 +158,7 @@ function Overview({ s }: { s: Stats }) {
         <Kpi label="Builds" k="builds" s={s} hint="Worlds and Mogs the builder finished, pass or fail" />
         <Kpi label="Published" k="published" s={s} hint="New games on the site, Mogs included" />
         <Kpi label="Avg build" k="buildMinutes" s={s} format={(v) => `${v.toFixed(1)} min`} hint="Time to a playable draft" />
-        <Kpi label="Est. API spend" k="spend" s={s} format={money} hint="Estimated from counted builds; the Anthropic Console has the exact figure" />
+        <Kpi label="API spend" k="spend" s={s} format={money} hint="The tokens every pass used, priced, since 9 Oct; builds before then estimated from their time. The Anthropic Console has the bill" />
       </section>
 
       <section className="card">
@@ -188,9 +189,13 @@ function Overview({ s }: { s: Stats }) {
             <div><dt>Builds finished</dt><dd><Num value={n.builds} /></dd></div>
             <div><dt>Built cleanly</dt><dd>{n.builds ? `${Math.round((n.buildsOk / n.builds) * 100)}%` : 'None yet'}</dd></div>
             <div><dt>Published</dt><dd><Num value={n.published} />{n.mogs ? <small> incl. {n.mogs} Mog{n.mogs === 1 ? '' : 's'}</small> : null}</dd></div>
-            <div><dt>Est. spend per build</dt><dd>{n.builds ? money(n.spend / n.builds) : '$0.00'}</dd></div>
+            <div><dt>Building now</dt><dd>{slots.held} of {slots.max}<small> at once, site-wide</small></dd></div>
+            <div><dt>Left before the end</dt><dd><Num value={n.abandoned} /><small> stopped when the creator left</small></dd></div>
+            <div><dt>Stopped by a restart</dt><dd><Num value={n.interrupted} /></dd></div>
+            {/* every build the spend counts, those still running included (their passes so far are in it) */}
+            <div><dt>Spend per build</dt><dd>{n.builds + n.abandoned + n.interrupted + n.running ? money(n.spend / (n.builds + n.abandoned + n.interrupted + n.running)) : '$0.00'}</dd></div>
           </dl>
-          <p className="fine">Spend is estimated from how long each build wrote for, calibrated on builds whose tokens were counted: about $0.11 a minute for a world and $0.17 for a Mog. Your Anthropic Console has the exact bill.</p>
+          <p className="fine">Since 9 Oct spend is what each pass of each build really used, priced per token{n.spendEstimated > 0 ? `; ${money(n.spendEstimated)} of it is from older builds, estimated from how long they wrote for (about $0.11 a minute for a world and $0.17 for a Mog)` : ''}. A build the creator left stops at once, and costs only what it had written. Your Anthropic Console has the exact bill.</p>
         </section>
       </div>
     </>
@@ -234,24 +239,28 @@ function Thumb({ slug }: { slug: string }) {
 }
 
 /* -------------------------------------------------------------- builds -- */
+// how a build stands (lib/analytics.ts BuildStatus): abandoned, the creator left and it stopped; interrupted, the server did
+const STATUS_WORDS: Record<AdminBuild['status'], string> = { running: 'Building', done: 'Built', error: 'Failed', abandoned: 'Abandoned', interrupted: 'Interrupted' };
 function Builds({ builds, titles }: { builds: AdminBuild[]; titles: Map<string, string> }) {
-  const [show, setShow] = useState<'all' | 'worlds' | 'mogs' | 'failed'>('all');
-  const list = builds.filter((b) => show === 'all' || (show === 'failed' ? !b.ok : show === 'mogs' ? b.mog : !b.mog));
-  const spend = list.reduce((a, b) => a + b.cost, 0);
+  const [show, setShow] = useState<'all' | 'worlds' | 'mogs' | 'failed' | 'stopped'>('all');
+  const list = builds.filter((b) => show === 'all' || (show === 'failed' ? b.status === 'error' : show === 'stopped' ? b.status === 'abandoned' || b.status === 'interrupted' : show === 'mogs' ? b.mog : !b.mog));
+  const spend = list.reduce((a, b) => a + b.cost, 0), estimated = list.filter((b) => b.estimated).length, running = builds.filter((b) => b.status === 'running').length;
   return (
     <section className="card flush">
       <div className="tools">
-        <p className="tools-t">{list.length} builds, about {money(spend)}</p>
+        <p className="tools-t">{list.length} builds, {money(spend)}{estimated ? ` (${estimated} from before 9 Oct estimated)` : ''}{running ? ` · ${running} building now` : ''}</p>
         <Segmented label="Show" pill value={show} onChange={setShow}
-          items={[{ id: 'all', label: 'All' }, { id: 'worlds', label: 'Worlds' }, { id: 'mogs', label: 'Mogs' }, { id: 'failed', label: 'Failed' }] as const} />
+          items={[{ id: 'all', label: 'All' }, { id: 'worlds', label: 'Worlds' }, { id: 'mogs', label: 'Mogs' }, { id: 'failed', label: 'Failed' }, { id: 'stopped', label: 'Stopped' }] as const} />
       </div>
       <ul className="rows">
         {list.map((b) => (
           <li key={b.id} className="build">
             <p className="build-h">
-              <span className={b.ok ? 'chip' : 'chip bad'}>{b.ok ? 'Built' : 'Failed'}</span>
+              <span className={b.status === 'error' ? 'chip bad' : 'chip'}>{STATUS_WORDS[b.status]}</span>
               <span className="chip">{b.mog ? 'Mog' : 'World'}{b.photo ? ' + photo' : ''}</span>
-              <span className="dim">{ago(b.at)} · {b.minutes.toFixed(0)} min · {b.passes || 0} pass{b.passes === 1 ? '' : 'es'} · {money(b.cost)}</span>
+              <span className="dim">
+                {ago(b.at)}{b.status === 'interrupted' ? '' : ` · ${b.minutes.toFixed(0)} min${b.status === 'running' ? ' so far' : ''}`} · {b.passes || 0} pass{b.passes === 1 ? '' : 'es'} · <span title={b.estimated ? 'Estimated from build time: built before tokens were recorded' : b.floor ? 'At least: a pass was cut short before its output was counted' : 'The tokens its passes used, priced'}>{b.estimated ? 'est. ' : ''}{money(b.cost)}{b.floor ? '+' : ''}</span>
+              </span>
             </p>
             {b.mogOf && <p className="build-of">Mog of <Link href={`/g/${b.mogOf}`} target="_blank">{titles.get(b.mogOf) ?? b.mogOf}</Link></p>}
             <p className="build-p">{b.prompt}</p>

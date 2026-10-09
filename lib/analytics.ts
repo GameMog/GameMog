@@ -1,4 +1,5 @@
-import { db } from './db';
+import { db, interruptBuilds } from './db';
+import { runningRows } from './build-limits';
 
 /**
  * First-party analytics for the pilot, and everything /admin reads.
@@ -37,12 +38,14 @@ const one = (sql: string, ...args: number[]) => Number((db.prepare(sql).get(...a
 
 /* ----------------------------------------------------------------- spend -- */
 /**
- * GameMog does not record tokens, so spend is estimated from how long a build
- * wrote for, calibrated on builds whose tokens were counted (25 Sep): about
- * $0.11 a minute for a world and $0.17 for a Mog, which also reads the
- * original's code, and never more than a full pass ($0.84 and $1.35) per
- * pass. A quick race spec from the first days costs cents; a stalled build is
- * capped. The exact figure is in the Anthropic Console.
+ * Before 9 Oct GameMog did not record tokens, so an older build's spend is
+ * estimated from how long it wrote for, calibrated on builds whose tokens were
+ * counted (25 Sep): about $0.11 a minute for a world and $0.17 for a Mog, which
+ * also reads the original's code, and never more than a full pass ($0.84 and
+ * $1.35) per pass. A quick race spec from the first days costs cents; a
+ * stalled build is capped. Since the owner's safety limits (9 Oct) a build
+ * records what each pass really used, priced in lib/build-limits.ts
+ * (cost_usd), and that is what buildSpend reads; the Console has the bill.
  */
 const RATE = { world: { minute: 0.11, pass: 0.84 }, mog: { minute: 0.17, pass: 1.35 } };
 export function buildCost(b: { model: string; attempts: number; ms: number }) {
@@ -55,17 +58,39 @@ export function buildCost(b: { model: string; attempts: number; ms: number }) {
   return Math.min((b.ms / 60_000) * r.minute, passes * r.pass * price);
 }
 
+/** How a build stands (lib/db.ts): a row from before 9 Oct has no status, and ended as its ok says. */
+export type BuildStatus = 'running' | 'done' | 'error' | 'abandoned' | 'interrupted';
+type BuildRow = { model: string; attempts: number; ok: number; ms: number; status: string | null; cost_usd: number | null; usage: string | null };
+const statusOf = (b: BuildRow): BuildStatus => (b.status as BuildStatus | null) ?? (b.ok ? 'done' : 'error');
+/**
+ * What a build cost: its passes' real cost when it has one, else (a build from before 9 Oct) the estimate. `floor`:
+ * a pass was cut short before its output was counted (the creator left, or the server stopped under it), so it cost
+ * at least this. A build logged since with no cost never reached the model.
+ */
+export function buildSpend(b: BuildRow): { usd: number; estimated: boolean; floor: boolean } {
+  let partial = false;
+  try { partial = !!b.usage && !!(JSON.parse(b.usage) as { partial?: boolean }).partial; } catch { /* keep false */ }
+  if (b.cost_usd != null) return { usd: b.cost_usd, estimated: false, floor: partial || b.status === 'interrupted' };
+  if (b.status != null) return { usd: 0, estimated: false, floor: b.status === 'interrupted' };
+  return { usd: buildCost(b), estimated: true, floor: false };
+}
+
 /* -------------------------------------------------------------- overview -- */
 export type Kpis = {
   visitors: number; views: number; gameViewers: number; starters: number; starts: number; finishers: number;
   createViewers: number; builds: number; buildsOk: number; buildMinutes: number; published: number; mogs: number; spend: number;
+  // builds the creator left before the end, builds a restart stopped, and builds running now (their spend so far is in
+  // spend, so each is a build to share it by); and how much of the spend is estimated
+  abandoned: number; interrupted: number; running: number; spendEstimated: number;
 };
 
 function kpis(from: number, to: number): Kpis {
   const views = (extra = '') => `FROM events WHERE kind = 'view' ${extra} AND at >= ? AND at < ?`;
-  const builds = db.prepare("SELECT model, attempts, ok, ms FROM generations WHERE model != 'offline' AND created_at >= ? AND created_at < ?").all(from, to) as { model: string; attempts: number; ok: number; ms: number }[];
+  const builds = db.prepare("SELECT model, attempts, ok, ms, status, cost_usd, usage FROM generations WHERE model != 'offline' AND created_at >= ? AND created_at < ?").all(from, to) as BuildRow[];
   const pub = db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(parent_id IS NOT NULL), 0) AS mogs FROM games WHERE featured = 0 AND created_at >= ? AND created_at < ?').get(from, to) as { n: number; mogs: number };
-  const done = builds.filter((b) => b.ok);
+  // a build counts as built once it ended with a world or without one; one still running, left or stopped is counted apart
+  const ended = builds.filter((b) => ['done', 'error'].includes(statusOf(b))), done = ended.filter((b) => b.ok);
+  const spent = builds.map(buildSpend);
   return {
     visitors: one(`SELECT COUNT(DISTINCT visitor) AS n ${views()}`, from, to),
     views: one(`SELECT COUNT(*) AS n ${views()}`, from, to),
@@ -74,12 +99,16 @@ function kpis(from: number, to: number): Kpis {
     starts: one("SELECT COUNT(*) AS n FROM events WHERE kind = 'play' AND at >= ? AND at < ?", from, to),
     finishers: one('SELECT COUNT(DISTINCT player) AS n FROM plays WHERE last_at >= ? AND last_at < ?', from, to),
     createViewers: one(`SELECT COUNT(DISTINCT visitor) AS n ${views("AND path = '/create'")}`, from, to),
-    builds: builds.length,
+    builds: ended.length,
     buildsOk: done.length,
     buildMinutes: done.length ? done.reduce((s, b) => s + b.ms, 0) / done.length / 60_000 : 0,
     published: pub.n,
     mogs: pub.mogs,
-    spend: builds.reduce((s, b) => s + buildCost(b), 0),
+    spend: spent.reduce((s, c) => s + c.usd, 0),
+    abandoned: builds.filter((b) => b.status === 'abandoned').length,
+    interrupted: builds.filter((b) => b.status === 'interrupted').length,
+    running: builds.filter((b) => b.status === 'running').length,
+    spendEstimated: spent.reduce((s, c) => s + (c.estimated ? c.usd : 0), 0),
   };
 }
 
@@ -156,18 +185,27 @@ export const adminWorlds = () => db.prepare(`
     (SELECT COUNT(*) FROM games c WHERE c.parent_id = g.id) AS mogs
   FROM games g ORDER BY g.created_at DESC`).all().map((r) => ({ ...r })) as AdminWorld[];
 
-export type AdminBuild = { id: number; at: number; prompt: string; mogOf: string | null; photo: boolean; mog: boolean; passes: number; ok: boolean; minutes: number; cost: number; problem: string | null };
-export function adminBuilds(limit = 80): AdminBuild[] {
-  const rows = db.prepare("SELECT id, prompt, model, attempts, ok, findings, ms, created_at FROM generations WHERE model != 'offline' ORDER BY id DESC LIMIT ?").all(limit) as { id: number; prompt: string; model: string; attempts: number; ok: number; findings: string; ms: number; created_at: number }[];
+/** A build on the Builds tab: how it stands, and what it cost (`estimated` before 9 Oct; `floor`: at least this). */
+export type AdminBuild = {
+  id: number; at: number; prompt: string; mogOf: string | null; photo: boolean; mog: boolean; passes: number; ok: boolean; minutes: number; cost: number; problem: string | null;
+  status: BuildStatus; estimated: boolean; floor: boolean;
+};
+export function adminBuilds(limit = 80, now = Date.now()): AdminBuild[] {
+  // a row still 'running' that this server is not running was left by one that stopped (deploy/boot.mjs marks them as
+  // the server starts; this catches a server started without it, as on the Mac)
+  interruptBuilds(runningRows());
+  const rows = db.prepare("SELECT id, prompt, model, attempts, ok, findings, ms, created_at, status, cost_usd, usage FROM generations WHERE model != 'offline' ORDER BY id DESC LIMIT ?").all(limit) as (BuildRow & { id: number; prompt: string; findings: string; created_at: number })[];
   return rows.map((r) => {
     const m = r.prompt.match(/^\[mog of ([a-z0-9-]+)\] ([\s\S]*)$/);
     let problem: string | null = null;
-    if (!r.ok) {
+    const status = statusOf(r), spend = buildSpend(r);
+    if (status === 'error') {
       try { const f = JSON.parse(r.findings) as unknown[]; const x = f[0]; problem = typeof x === 'string' ? x : x && typeof x === 'object' && 'message' in x ? String((x as { message: unknown }).message) : null; } catch { /* keep null */ }
     }
     return {
       id: r.id, at: r.created_at, prompt: m ? m[2] : r.prompt, mogOf: m ? m[1] : null, photo: r.model.includes('+vision'), mog: r.model.includes('+mog'),
-      passes: r.attempts, ok: !!r.ok, minutes: r.ms / 60_000, cost: buildCost(r), problem,
+      passes: r.attempts, ok: !!r.ok, minutes: (status === 'running' ? now - r.created_at : r.ms) / 60_000, cost: spend.usd, problem,
+      status, estimated: spend.estimated, floor: spend.floor,
     };
   });
 }

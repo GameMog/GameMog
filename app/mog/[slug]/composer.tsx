@@ -16,7 +16,9 @@ export function MogComposer({ slug, title, inherited }: { slug: string; title: s
   const gen = useGeneration();
   const [idea, setIdea] = useState('');
   // a Mog starts from the original's options; the challenger can change them,
-  // all but its kind (an open world stays one, a race stays a race)
+  // all but its kind (an open world stays one, a race stays a race); and on
+  // the original's own soundtrack when it has one (lib/world-options.ts
+  // optionsOf, 9 Oct), to keep, take out or swap for a library track
   const [options, setOptions] = useState<WorldOptions>(inherited);
   const go = () => gen.run({ mogOf: slug, prompt: idea.trim(), options });
   return (

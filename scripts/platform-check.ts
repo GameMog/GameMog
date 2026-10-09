@@ -25,6 +25,8 @@ import { setWorldHidden } from '../lib/analytics.ts';
 import { worldMode, worldControls, MODE_PAGE, isKartWorld, staticCheckWorld, runtimeSource } from '../lib/custom-game.ts';
 import { dna, compareDna, askedKind, describeDna } from '../lib/mog-dna.ts';
 import { testDriveChecks } from './test-drive-check.ts';
+import { buildLimitsChecks } from './build-limits-check.ts';
+import { soundtrackChecks } from './soundtrack-check.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3939';
 let failures = 0;
@@ -236,7 +238,9 @@ try {
   // Kart: scripts/kart-score/test-mog.mjs, no server needed; the route and the browser's signature below)
   runKartMogTests((l: string) => { if (l.startsWith('FAIL')) failures++; console.log(l); });
   const kartRuntime = runtimeSource(1, true), plainRuntime = runtimeSource(1, false);
-  ok('kart score: a kart world\'s runtime carries the score (KartScore), every other world\'s runtime is untouched', kartRuntime.includes('var KartScore = (function') && !plainRuntime.includes('KartScore') && createHash('sha256').update(plainRuntime).digest('hex').slice(0, 16) === '55de5bf8cd23555c',
+  // (the plain runtime as of 9 Oct: the soundtrack choice, v1.js soundOf/ownSound, which every world's runtime carries;
+  // each world plays as it did, scripts/soundtrack-check.ts. It was 55de5bf8cd23555c from the kart score to then)
+  ok('kart score: a kart world\'s runtime carries the score (KartScore), every other world\'s runtime is untouched', kartRuntime.includes('var KartScore = (function') && !plainRuntime.includes('KartScore') && createHash('sha256').update(plainRuntime).digest('hex').slice(0, 16) === '55a34dcde8f56327',
     createHash('sha256').update(plainRuntime).digest('hex').slice(0, 16));
   // Meme Kart's crowd, baked (scripts/kart-crowd-bake.ts, 8 Oct): both sheets in the library, filmed from the looks the
   // world has now (FAN_WORDS ... CROWD_SHEETS), in the layout the world reads them by
@@ -385,6 +389,14 @@ try {
   // (three laps to the results, judged by the server's kart rules) and the lap and open worlds exactly as before
   console.log('\nThe test drive in the creator\'s browser');
   await testDriveChecks(ok, BASE);
+  // the owner's four safety limits on builds (9 Oct, scripts/build-limits-check.ts): stop when the creator leaves, one
+  // site-wide cap on builds at once, every build logged from its start, and its real cost; in this process, no paid call;
+  // and the Create page in Chrome letting its build go when the creator leaves it within the site (its fetch stubbed)
+  await buildLimitsChecks(ok, BASE);
+  // the soundtrack choice (9 Oct, scripts/soundtrack-check.ts): a Mog keeps, removes or swaps its original's own
+  // soundtrack and plays exactly that, every world built before plays as it did, and the live worlds' own are named
+  console.log('\nThe soundtrack choice');
+  await soundtrackChecks(ok, BASE);
 } finally {
   for (const id of made.reverse()) {
     db.prepare('DELETE FROM mog_picks WHERE child_id = ? OR parent_id = ?').run(id, id);

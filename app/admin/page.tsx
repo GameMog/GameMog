@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { RANGES, activeNow, adminBuilds, adminScores, adminWorlds, stats, type Range, type Stats } from '@/lib/analytics';
 import { kartReports } from '@/lib/kart-report';
+import { buildSlots, slotsHeld } from '@/lib/build-limits';
 import { adminEnabled, isAdmin } from './session';
 import { Dashboard } from './dashboard';
 import { Login } from './login';
@@ -20,6 +21,8 @@ export default async function AdminPage() {
   if (!adminEnabled()) notFound();
   if (!(await isAdmin())) return <Login />;
   const now = Date.now();
+  // (the builds first: reading them marks any a stopped server left running as interrupted, before the counts are taken)
+  const builds = adminBuilds(80, now);
   const all = Object.fromEntries(RANGES.map((r) => [r, stats(r, now)])) as Record<Range, Stats>;
-  return <Dashboard stats={all} worlds={adminWorlds()} builds={adminBuilds()} scores={adminScores()} active={activeNow()} reports={kartReports()} />;
+  return <Dashboard stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} slots={{ held: slotsHeld(), max: buildSlots() }} />;
 }

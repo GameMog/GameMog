@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { chromePath } from './browser';
 import type { WorldReport, TestStatus, KartDrive } from './playtest-runtime';
 import { lookScore, lookAdvisories, isLook, type Look } from './look';
+import { readSoundtrack } from './world-options';
 
 /**
  * The test drive in the creator's browser (the owner, 30 Sep). A server with no
@@ -33,16 +34,23 @@ export const testStatus = (r: { ok?: boolean; ran?: boolean }): TestStatus => (!
 // a creator who has switched tabs is waited for, a minute and a half at a time, never longer than this
 const HOLD_MAX = 15 * 60_000;
 
-/** Waits for the creator's page to drive the draft; skipped after `ms`, unless the page asks to hold. */
-export function waitForDrive(draftId: string, token: string, ms = 240_000): Promise<WorldReport> {
+/**
+ * Waits for the creator's page to drive the draft; skipped after `ms`, unless the page asks to hold. `signal`: the
+ * build's own (app/api/generate/route.ts), which aborts when the creator has left: nobody is there to drive it, so the
+ * wait ends at once, skipped, and the build stops (the owner's safety limits, 9 Oct).
+ */
+export function waitForDrive(draftId: string, token: string, ms = 240_000, signal?: AbortSignal): Promise<WorldReport> {
   return new Promise((resolve) => {
+    const done = () => { clearTimeout(p.timer); signal?.removeEventListener('abort', p.skip); if (pending.get(draftId) === p) pending.delete(draftId); };
     const p: Pending = {
       token, until: Date.now() + HOLD_MAX,
-      skip: () => { pending.delete(draftId); resolve(SKIPPED); },
-      resolve: (r) => { clearTimeout(p.timer); pending.delete(draftId); resolve(r); },
+      skip: () => { done(); resolve(SKIPPED); },
+      resolve: (r) => { done(); resolve(r); },
     };
+    if (signal?.aborted) return p.skip();
     p.timer = setTimeout(p.skip, ms);
     pending.set(draftId, p);
+    signal?.addEventListener('abort', p.skip, { once: true });
   });
 }
 
@@ -156,6 +164,9 @@ export function judge(raw: Record<string, unknown>, images: { cover?: unknown; c
 export function submitDrive(draftId: string, token: string, raw: Record<string, unknown>, images: { cover?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown }) {
   const p = pending.get(draftId);
   if (!p || p.token !== token) return false;
-  p.resolve(judge(raw && typeof raw === 'object' ? raw : {}, images));
+  const r = raw && typeof raw === 'object' ? raw : {}, report = judge(r, images);
+  // and what it heard the world play as its own (9 Oct, lib/runtime/drive.js), read for what it must be: kept with the
+  // draft for its publish (lib/world-options.ts publishedSoundtrack); a report without one says nothing either way
+  p.resolve('soundtrack' in r ? { ...report, soundtrack: readSoundtrack(r.soundtrack) } as WorldReport : report);
   return true;
 }

@@ -223,6 +223,10 @@ export function publicOrigin(req: Request) {
  * Every AudioContext the game creates is tracked and suspended while the tab is
  * hidden. That guarantee lives here rather than in each game, because the one
  * time it lived in a game it was forgotten.
+ *
+ * The options (9 Oct) can carry the original's soundtrack, read for what it
+ * must be (lib/world-options.ts readSoundtrack); like the kart score, no '<'
+ * in them can end this script (no other option has one, so no other page changes).
  */
 function hostScript(id: string, title: string, tagline = '', options?: WorldOptions, kartScore?: unknown) {
   return `(function () {
@@ -252,7 +256,7 @@ function hostScript(id: string, title: string, tagline = '', options?: WorldOpti
     title: ${JSON.stringify(title)},
     meta: { title: ${JSON.stringify(title)}, tagline: ${JSON.stringify(tagline)} },
     // the creator's platform options (lib/world-options.ts), enforced by the runtime
-    options: ${JSON.stringify(options ?? null)},${kartScore ? `
+    options: ${JSON.stringify(options ?? null).replace(/</g, '\\u003c')},${kartScore ? `
     // a kart race's score constants (meta.kartScore, or the course's when it has none; lib/kart-score.ts): the results
     // screen scores the race with them exactly as the scores route will
     kartScore: ${JSON.stringify(kartScore).replace(/</g, '\\u003c')},` : ''}
