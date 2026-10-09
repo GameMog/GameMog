@@ -8,7 +8,8 @@
 //
 // The track table (TR) is built as v1.js builds it (three's CatmullRomCurve3 through track.points, 2400 samples,
 // the frame's tangent from the samples 4 on and 3 back), and the course as kartWorld() reads it (its code extracted
-// and run as is). The roster's racer stats come from kart-roster.js (the world's ROSTER only where it has none).
+// and run as is). The cast is the world's (its player() and rival() asked, 9 Oct; the roster's eight in order if that
+// cannot be read), each racer's stats the world's or kart-roster.js's.
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -111,27 +112,63 @@ export function load(o = {}) {
     helpers + '\n' + simSrc + '\n' + courseSrc + '\nreturn { kartSim: kartSim, kartRules: kartRules, hashStr: hashStr, mulberry: mulberry };')(TR, KC, L, hw, TN, wrapD, shoulder, cls, (m) => warns.push(m));
   const rules = kit.kartRules(cls);
 
-  // ---- the racers: the roster's stats (kart-roster.js RACERS), by id, in the world's cast order ----
-  const ids = ['pepe', 'doge', 'shiba', 'bike', 'bull', 'bear', 'whale', 'mooncat'];
+  // ---- the racers: the roster's stats (kart-roster.js RACERS, and Aspen GP's five in its ASPEN table), by id, in the
+  // world's cast order ----
+  // (every racer the roster has, kartIds(); each one's line in the roster: its name, its stats, an added one's persona)
+  const idsM = /function kartIds\(\) \{ return \[([^\]]*)\]/.exec(roster);
+  const ALL_IDS = idsM ? idsM[1].replace(/['\s]/g, '').split(',').filter(Boolean) : [];
+  const EIGHT = ['pepe', 'doge', 'shiba', 'bike', 'bull', 'bear', 'whale', 'mooncat'];
   const rosterStats = {};
-  for (const id of ids) {
-    const m = roster.match(new RegExp('\\n\\s*' + id + ": \\{ name: '([^']+)'[^\\n]*?stats: (ALL|\\{[^}]*\\})"));
-    if (m) rosterStats[id] = { name: m[1], stats: m[2] === 'ALL' ? {} : new Function('return ' + m[2])() };
+  for (const id of new Set(EIGHT.concat(ALL_IDS))) {
+    const m = roster.match(new RegExp('\\n\\s*' + id + ": \\{ name: '([^']+)'[^\\n]*?stats: (ALL|\\{[^}]*\\})([^\\n]*?persona: '([a-z]+)')?"));
+    if (m) rosterStats[id] = { name: m[1], stats: m[2] === 'ALL' ? {} : new Function('return ' + m[2])(), persona: m[4] || null };
   }
   const statsOf = (s) => ({ top: num(s.top, 1, 0.95, 1.05), accel: num(s.accel, 1, 0.85, 1.2), handling: num(s.handling, 1, 0.9, 1.1), mass: num(s.mass, 1, 0.8, 1.4), drift: num(s.drift, 1, 0.9, 1.15) });
+  const PERSONAS = { ram: 1, block: 1, bully: 1, items: 1, draft: 1, punch: 1, risky: 1 };
   const PERSONA_OF = { bull: 'ram', bear: 'block', whale: 'bully', doge: 'items', shiba: 'draft', bike: 'punch', mooncat: 'risky' };
-  const cast = ids.map((id) => ({ id, name: rosterStats[id] ? rosterStats[id].name : id, stats: statsOf(rosterStats[id] ? rosterStats[id].stats : {}), persona: KD.rage === false ? 'clean' : PERSONA_OF[id] || '' }));
+  // (9 Oct) the cast as the world builds it: its player() and rival(ctx, 1..7) run against a stand-in ctx.kart that
+  // only notes which racer each asks for (kart.js's id rules: letters only, the long names, Pepe for one it lacks) and
+  // the stats it gives (kart.js: the world's, else the roster's); an added racer's road manner its own (kartRacer), the
+  // rest the roster's by id. A world that needs more of ctx than that, or races a greybox, races the roster's eight in
+  // order, as every world did before (Meme Kart's own cast is exactly that)
+  const ALIAS = { biketyson: 'bike', bigbear: 'bear', thewhale: 'whale', bullrun: 'bull' };
+  function castOf() {
+    try {
+      const got = [], kart = {
+        racers: ALL_IDS.slice(),
+        racer(id, ro) {
+          ro = ro || {};
+          id = String(id || '').toLowerCase().replace(/[^a-z]/g, ''); id = ALIAS[id] || id;
+          if (!rosterStats[id]) id = 'pepe';
+          got.push({ id, name: typeof ro.name === 'string' && ro.name.trim() ? ro.name : rosterStats[id].name, stats: ro.stats && typeof ro.stats === 'object' ? ro.stats : rosterStats[id].stats, persona: rosterStats[id].persona });
+          return { object: {}, name: ro.name, racer: id };
+        },
+        greybox() { got.push(null); return { object: {} }; },
+      };
+      const ctx = { kart, THREE, quality: 'high', random: () => 0.5 };
+      for (let k = 0; k < 8; k++) { const n = got.length; (k ? def.rival(ctx, k) : def.player(ctx)); if (got.length !== n + 1) return null; }
+      return got.every(Boolean) ? got : null;
+    } catch { return null; }
+  }
+  const asked = typeof def.player === 'function' && typeof def.rival === 'function' ? castOf() : null;
+  const cast = (asked || EIGHT.map((id) => ({ id, name: rosterStats[id] ? rosterStats[id].name : id, stats: rosterStats[id] ? rosterStats[id].stats : {}, persona: null })))
+    .map((c) => ({ id: c.id, name: c.name, stats: statsOf(c.stats || {}), persona: KD.rage === false ? 'clean' : c.persona && PERSONAS[c.persona] ? c.persona : PERSONA_OF[c.id] || '' }));
+  const ids = cast.map((c) => c.id);
   const GRID = [5, 0, 1, 2, 3, 4, 6, 7];
   const ITEMS_ON = KD.items !== false && TR.course.drops.length !== 0;
   const title = (def.meta && def.meta.title) || 'To The Moon';
 
   // a race: the picked racer is kart 0 (yours), the rest in cast order (as assign() orders them)
   function make(m = {}) {
-    const p = typeof m.pick === 'number' ? m.pick : Math.max(0, ids.indexOf(m.pick || 'pepe'));
+    const p = typeof m.pick === 'number' ? m.pick : Math.max(0, ids.indexOf(m.pick || ids[0]));   // (yours: the world's player, as on the start screen)
     const order = [p].concat(ids.map((_, n) => n).filter((n) => n !== p));
     const C = order.map((n) => cast[n]);
     const S = kit.kartSim(TR, { laps: m.laps || laps, cls, seed: (m.seed == null ? 1 : m.seed) >>> 0, stats: C.map((c) => c.stats), human: m.human == null ? 0 : m.human, grid: GRID,
-      items: m.items == null ? ITEMS_ON : m.items && ITEMS_ON, weights: null, eager: C.map((c) => (c.id === 'doge' ? 2.2 : 1)), persona: C.map((c) => c.persona) });
+      items: m.items == null ? ITEMS_ON : m.items && ITEMS_ON, weights: null, eager: C.map((c) => (c.id === 'doge' ? 2.2 : 1)), persona: C.map((c) => c.persona),
+      // (kart.driftAssist, 9 Oct: your kart's tap drifts; m.driftAssist overrides the world's)
+      driftAssist: m.driftAssist != null ? m.driftAssist === true : KD.driftAssist === true,
+      // (kart.driftCharge, 9 Oct: as kartWorld() reads it, num(KD.driftCharge, 1, 1, 1.6))
+      driftCharge: m.driftCharge != null ? m.driftCharge : num(KD.driftCharge, 1, 1, 1.6) });
     if (m.solo) S.karts.forEach((k, n) => { if (n) k.parked = true; });
     S.cast = C;
     return S;

@@ -69,6 +69,25 @@ export function readSoundtrack(raw: unknown): Soundtrack | null {
 export const soundtrackKey = (s: Soundtrack | null) => !s ? '' : 'track' in s ? `track:${s.track}` : 'music' in s ? `music:${JSON.stringify(s.music)}` : 'kart';
 
 /**
+ * A first-party world's own soundtrack, read from its GameMog.world({...}) definition as the runtime plays a world
+ * without options (lib/runtime/v1.js soundOf and ownSound, kart.js KSC.on): a kart race's theme when it asks for
+ * kart.score and names no track, else its library track, else the score composed from its music (seeded with the
+ * title unless it names a seed), else none. scripts/publish-world.ts stores it as meta.soundtrack (9 Oct, Aspen GP:
+ * a new first-party world gets it at publish as the live ones got it by migration), so its Mog page starts on
+ * "Original soundtrack (...)". `def`: the definition the module passed to GameMog.world; `kart`: its kind is kart.
+ */
+export function ownSoundtrack(def: unknown, title: string, kart: boolean): Soundtrack | null {
+  if (!def || typeof def !== 'object') return null;
+  const d = def as { music?: unknown; kart?: { score?: unknown } };
+  const m = d.music && typeof d.music === 'object' && !Array.isArray(d.music) ? d.music as Record<string, unknown> : null;
+  const track = m && typeof m.track === 'string' ? m.track : null;
+  if (kart && d.kart && typeof d.kart === 'object' && d.kart.score && !track) return readSoundtrack({ kart: true, label: `${title} theme` });
+  if (track) return readSoundtrack({ track });
+  if (m) return readSoundtrack({ music: { ...m, ...(m.seed === undefined ? { seed: title } : {}) }, label: `${title} score` });
+  return null;
+}
+
+/**
  * The creator's music: the original's own soundtrack ('original', a Mog of a game that has one, played from
  * `soundtrack`), none ('none'), or a library track; null is no music as well, as it was for every world built before
  * 9 Oct.

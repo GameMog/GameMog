@@ -670,7 +670,13 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
   `pointAt(d, x, y)`, `nearest(x, z)` (returns `{ d, distance, lateral }`), `clear(x, z, margin)`,
   `ribbon(opts)`
 - `ctx.textures.canvas(width, height, (g, w, h) => { ...draw with 2D canvas... }, { linear })`:
-  colour maps by default; pass `{ linear: true }` for roughness and other data maps
+  colour maps by default; pass `{ linear: true }` for roughness and other data maps.
+  Draw every shape sharp: never set `g.filter` or `g.shadowBlur` inside a loop or per shape (Chrome for Android paints
+  a canvas on the graphics card and gives each filtered or shadowed shape a layer of its own: a texture blurred shape
+  by shape once reached 8 GB and Android closed Chrome). To soften a picture, blur it once a pass:
+  `g.filter = 'blur(2px)'; g.drawImage(g.canvas, 0, 0); g.filter = 'none';`. Keep a canvas to 1024 x 1024 or less
+  (less on 'low'), a few that size at most, drawn once in build; one redrawn in update stays small, is redrawn only when
+  what it shows changes, and sets `generateMipmaps = false`.
 - `ctx.textures.normal(width, height, (g, w, h) => { ...draw heights in greys... }, strength)`:
   a normal map from a height field (white is high): grain, weave, cracks, pores
 - `ctx.sky({ top, horizon, bottom, sun: [x, y, z], sunColor, sunSize, glow, haze, curve })`: a sky
@@ -1150,16 +1156,16 @@ podium and the scores (place, then time, then GM). You give the track, the cours
 const COURSE = {
   shoulder: 4,                                        // grass between the road's edge and the walls, metres
   pads: [{ at: 0.15, x: -2.5 }],                      // Green Candle pads: +28% for 1 s (at: a fraction of the lap, or metres)
-  ramps: [{ at: 0.64, x: 0, width: 8, size: 'small' }],   // at: the lip; 'small' or 'big'; Space in the air is a trick
+  ramps: [{ at: 0.64, x: 0, width: 8, size: 'small' }],   // at: the lip; 'small' or 'big'; Space in the air is a trick (up to 4; width 3 m to the road's)
   offroad: [{ from: 0.47, to: 0.5, side: 'outside', width: 5, kind: 'mud' }],   // side: left, right, inside, outside (or x: [a, b]); mud, grass, shoulder
   walls: { gaps: [{ from: 0.67, to: 0.7, side: 'left', water: true }] },          // no wall here: water past it (or water: false, a void)
   airdrops: [{ at: 0.24, x: 0, n: 5 }, { at: 0.42, n: 4 }, { at: 0.82 }],        // rows of Airdrop crates (n 4 or 5, up to 12 rows); 'auto' (or left out): four a lap; false: none
   gm: 'auto',                                         // eight lines of five GM a lap; a number a lap, or false
   // the chaos (below): bumps to fly off, a break to jump, rails to grind, hazards on their clocks
-  bumps: [{ at: 0.52, size: 'roller', n: 3 }, { at: 0.574, x: 4.5, width: 6, size: 'lip' }],   // 'roller' (n humps), 'bump', 'lip'; at: where it begins (a lip: its edge)
-  breaks: [{ from: 0.576, len: 8 }],                  // the road gone, 3 to 14 m (to: instead of len; x: [a, b] or side and width for part of it; water: true; guard: true, a kerb along its side)
-  rails: [{ points: [[0.562, -5], [0.585, -5]] }, { points: [[0.585, -5], [0.6, -2.5]] }],   // [at, x] on down the lap (or from, to, x), h 0.5; an end at another's start links them
-  hazards: [{ kind: 'crossing', at: 0.72 }, { kind: 'topple', at: 0.79, side: 'right' }, { kind: 'meteor', from: 0.87, to: 0.95 }],   // every, offset (seconds), model: false
+  bumps: [{ at: 0.52, size: 'roller', n: 3 }, { at: 0.574, x: 4.5, width: 6, size: 'lip' }],   // 'roller' (n humps, 1 to 6), 'bump', 'lip'; at: where it begins (a lip: its edge); h 0.1 to 0.6 m; up to 12
+  breaks: [{ from: 0.576, len: 8 }],                  // the road gone, 3 to 14 m (to: instead of len, 2 to 20 m; up to 8; x: [a, b] or side and width for part of it; water: true; guard: true, a kerb along its side; look, clear: below)
+  rails: [{ points: [[0.562, -5], [0.585, -5]] }, { points: [[0.585, -5], [0.6, -2.5]] }],   // [at, x] on down the lap (or from, to, x), h 0.3 to 1.2 (0.5); up to 8; an end at another's start links them
+  hazards: [{ kind: 'crossing', at: 0.72 }, { kind: 'topple', at: 0.79, side: 'right' }, { kind: 'meteor', from: 0.87, to: 0.95 }],   // up to 8; every (4 to 30 s; a topple 6 to 30), offset (seconds), model: false
 };
 GameMog.world({
   theme: { sky: '#A9D3F2', fog: '#CFE6F6', accent: '#5CFFC0', font: 'Oxanium' },
@@ -1168,6 +1174,7 @@ GameMog.world({
   kart: { laps: 3, class: 'normal', course: COURSE }, // laps 1 to 5 (2 to 4 in a Mog); class 'chill', 'normal' or 'degen' (top speeds 27.3, 31, 35 m/s)
   // kart.items: { weights: { 'Laser Eyes': 45, 'WHALE DUMP': 0 } } (0 to 60 each, 30 as it comes, five kinds left in at least), or false
   music: { style: 'tropical', key: 'F', mode: 'major', tempo: 160, seed: 'Meme Kart 92' },   // the score: it builds with the laps, and the last lap goes 5% faster
+  // or music: { track: 'music-hyper-ultra-racing' }: a library track (any music- id), loaded with the assets
   // or kart.score: true (and no music): the race's own kart theme, as Meme Kart races to (below)
   build(ctx) { /* the ground, the road (ctx.track.ribbon), kerbs, the walls (leave the gaps), the water past a gap, scenery */ },
   player(ctx) { return ctx.kart.racer('pepe'); },
@@ -1179,7 +1186,7 @@ GameMog.world({
   kart, built in code and driven by the race: `'pepe'` (Pepe, the Swamp Skimmer), `'doge'` (Doge, the Wow Wagon),
   `'shiba'` (Shiba, the Sakura Dart), `'bike'` (Bike Tyson, whose body is the bike), `'bull'` (Bull Run, the
   Stampede), `'bear'` (Big Bear, the Sell-Off), `'whale'` (The Whale, the Bubble Sub) and `'mooncat'` (Moon Cat, the
-  Crater Hopper); `ctx.kart.racers` is that list. Pick any racer by its id, as often as you like; `jersey` and `paint`
+  Crater Hopper); `ctx.kart.racers` lists them first (and the five sled racers below). Pick any racer by its id, as often as you like; `jersey` and `paint`
   (hex) turn the racer's own colours (its outfit, its kart's paintwork) to yours, shading and all; `name` and `stats`
   replace its own (each has its handling: the light ones quick off the line, the heavies faster flat out and hard to
   shove). Each is drawn near, mid and far by its distance (only the kart the camera follows and the two nearest
@@ -1189,6 +1196,21 @@ GameMog.world({
   leans his bike 30 degrees through a turn, 35 drifting, and pedals at the wheels' speed). On the start screen the
   player picks one of the eight karts the world built (left and right, a tap, the pad's stick); the pick drives your
   kart, the other seven the rest, and the platform remembers it.
+  `ride: 'sled'` puts any of them but Bike Tyson (his body is his bike: he keeps it, with a warning) on the snow sled
+  instead of its kart: a wide-stance sport snowmobile built in code (front A-arms and shocks out to the skis, about 1.4 m
+  across them, a low cowl over the legs, a smoked windscreen, a short
+  handlebar under the racer's own hands, two skis that steer, a rubber track whose cleats run with the speed, twin
+  headlamps, a tail light), painted `paint` (the body), `accent` (hex: the stripe, the skis, the number roundel) and
+  `number` (0 to 99, on both flanks); as they come, each racer's sled has its own colours and number. Its items sit on
+  the sled (the rocket on the tunnel behind the seat, the Pump on the running board, Diamond Hands' trails off the
+  track), Laser Eyes still fire from the racer's eyes, and its entry carries `ride: 'sled'` and `emit` (where its snow
+  comes from, in the sled's frame, metres: `track` [x, y, z] behind the track, `rear` [[x, z], [x, z]] the track's
+  back corners on the ground, `skis` [[x, y, z], [x, y, z]] the ski tips).
+  Five more ride only the snow sled (they have no kart of their own): `'whitewhale'` (White Whale, a sperm whale in a
+  scarf and goggles), `'lux'` (Lux, a penguin in a gold puffer vest), `'lordblackdiamond'` (Lord Black Diamond, caped,
+  with the black-diamond ski sign), `'whiteoutone'` and `'whiteouttwo'` (Whiteout One and Two, white-armoured ski racers,
+  orange and teal); `ctx.kart.racers` lists all thirteen, the eight first. Each has its own handling, road manner,
+  faces and sled (paint, trim and number, which `paint`, `accent` and `number` replace).
 - **Your own racers.** `player(ctx)` and `rival(ctx, k)` may instead return `{ object, name, color, stats, animate }`,
   built facing +Z on y = 0, about 1.3 m wide and 2.4 long; `ctx.kart.greybox({ paint, driver, helmet, name, stats })`
   is a stand-in kart of boxes. `stats` is the racer's handling, each about 1: `top` (0.95 to 1.05), `accel` (0.85 to
@@ -1213,6 +1235,8 @@ GameMog.world({
   null: nothing to film, or a sheet larger than the screen allows) and leaves each model where it was, out of the studio
   and shown, to use or let go. Draw your cards with your own material from `texture`, e.g.
   `const s = ctx.kart.impostors({ cast: fans.map((p) => ({ object: p.object, cycle: 1.2, step: (dt) => p.animate(dt) })), frames: 12 });`
+- `ctx.kart.step(name)` (optional): names the next step of your build (`ctx.kart.step('crowd')` before a long one) in
+  the boot trail a phone that loses its graphics or throws reports, so the report says where; it does nothing else.
 - **The chaos** (the owner, 7 Oct: "more chaotic fun, in terms of roads, breaks, jumps and players interacting with each
   other in terms of bumps, road rage etc."). All of it the runtime's, every kart world's, a Mog's too:
   - *Charge jump.* Space held driving straight (the stick under a quarter) after the hop lands charges it (a glow under
@@ -1235,6 +1259,28 @@ GameMog.world({
     never a bonk), its front left open, so whoever drives into it, or hops or jumps over the kerb, still falls in. Meme
     Kart guards its crater gap and the bayou's channel (8 Oct: a person on the keys reacting in 0.25 s swung off the
     line into the channel from the side, lap after lap).
+    A break's `look` (or `course.breakLook` for every break): `'void'` (the stars, as it comes), `'ice'` (a daylight
+    crevasse: blue-ice walls from a snow-white lip down to deep cobalt, `kart.fx.iceDepth` m deep (9; 2 to 30), closed
+    at its sides, the corridor wide, seen from inside only; `kart.fx.ice: [lip, upper, lower, floor]` hex to recolour
+    it; close your ground round it) or `'none'` (nothing drawn: model the chasm yourself). Leave your road
+    open over it either way.
+    `clear: true` on a break (or `course.breakClear: true` for all of them; `clear: false` opts one back out): every
+    kart flies it. At its edge any kart on the ground, anywhere across the corridor (shoulders too), pops up (a
+    trick's window, +15%; a drift is let go with its boost, as at a ramp's lip); any flight that would come down in it
+    (a ramp, a bump, a charge jump, a rail, the pop) is carried: turned square to the road, at 0.55 of the top speed
+    along it at least, high enough (up to 11 m/s up) to land 2.5 m past its far edge, a kart hit in the air included.
+    No kart falls into one (Aspen GP, 9 Oct: 0 in 768 race passes and 2,000 placed trials, slow, wide and hit); the
+    rivals drive at it as at the road (still lining up on a ramp before it); a ramp's jump keeps its own arc where that
+    clears it. A course with a clear break is another track to the score (the track's signature counts it).
+    **Bigger air** (Aspen GP, 9 Oct; off unless named): `course.air: 1.4` (the lift) or `course.air: { lift, hang }`:
+    `lift` (1 to 2) times every ramp's lip throw (6 m/s up a small one, 9 a big one), every bump's, roller's and lip's
+    pop (2.6, 3.2, 4.0 m/s at the top speed) and a clear break's pop (3.4 m/s at least); `hang` (0.25 to 0.55, 0.55 as
+    it comes) is the gravity near the top of a flight (within 2.6 m/s of it, with `air` named; 2 without), lower is
+    floatier. A ramp's or a bump's own `lift` (1 to 2.2: `ramps: [{ at, size: 'big', lift: 1.7 }]`) beats the course's
+    for that one. On Aspen GP's lap `{ lift: 1.4, hang: 0.42 }` took the longest air from 1.25 s to 1.85 s and the
+    highest from 3.1 m over the road to 5.4 m, with 0 falls (`clear` still carries every flight over its break; a longer
+    natural one is left alone). Walls act in the air and turning there is half: put long flights on straights. Another
+    race to the score (the track's signature counts `air` and each `lift`).
   - *The Rescue Claw* (a fall into a break, 0.4 s in deep water past a gap in the wall, 3 m down a void, off the course):
     0.5 s more of the fall, then 1.0 s on the claw down onto the road, square to it, rolling at 0.4 of the top speed, a
     ghost for a second, 2 GM lighter; 12 m back on the racing line (back past any gap in the wall), or before a break
@@ -1287,18 +1333,87 @@ GameMog.world({
   the rivals plan theirs at 85% of full lock. Every kart is drawn on the road between its samples and moved on by
   the frame's own time, so a slope, a crate row or a drop never shakes it.
 - **The track.** A lap of 1,350 to 1,600 m (at 31 m/s, a session of about 2:25 to 2:50 from Play to the results;
-  the runtime takes 800 to 1,800) and 13 to 18 m wide (14 to 28). The
+  the runtime takes 800 to 1,800) and 13 to 18 m wide (14 to 28); `kart.laps` 1 to 5 (Aspen GP races four on a
+  1,270 m lap; the game page says the count). The
   walls stand `shoulder` metres past the road's edge on both sides; build yours there, and leave the course's gaps.
   Anything the course puts on the road (pads, ramps, mud) the runtime draws; give your own walls and props
   `userData.gmKart = true` if they stand inside the corridor, or they are hidden from the camera.
+- **Drift assist** (`kart.driftAssist: true`; Aspen GP, 9 Oct: the owner taps Space for 0.04 to 0.21 s). Your kart only:
+  a tap of Space (or DRIFT) with a steer (at the tap, through the hop, or 0.2 s after it lands) drifts without holding
+  it, the drift latched on; it charges the tiers as a held one does, and ends and fires what it earned at the next tap,
+  where the corner opens out (the rivals' own test: no bend of the racing line under 50 m its way just ahead), or when
+  it can no longer hold the line (turned in 0.3 rad past the road, counter-steering, for 0.25 s); a tap in the 0.45 s
+  after one ended on its own, unless steered the other way into a bend that way just ahead (an S-bend's next drift),
+  is the tap that meant to end it. A tap's drift latches only toward a bend that way within 16 m (or 1.2 s at the
+  speed) ahead: on a straight a tap with a steer is a hop, as without the assist. A latched drift turning in onto the
+  wall on the inside of the turn, steered against past half, lets go there (firing what it earned) as a holder lets
+  go of Space: on Aspen GP's lap the tappers' walls fell from 1.2 (keys) and 1.5 (touch) a lap to 0.2 and 0.8, under
+  the holders' 0.7 and 1.4, MOG still about 0.4 a lap on the keys and 0.9 on touch (at `driftCharge: 1.6`). Held, it is the drift as ever, step for step; the rivals and
+  the autopilot drive as ever.
+- **Drift charge** (`kart.driftCharge`, 1 to 1.6; 1 as it comes; Aspen GP, 9 Oct): every kart's drift (yours and the
+  rivals', held or tapped) charges this many times as fast, so a track of short, tight bends still reaches Gold and MOG
+  (the tiers' thresholds and boosts are as ever). On Aspen GP's 1,273 m lap at 1.6, taps with the assist reach Gold
+  and MOG about once a lap each, where at 1 nobody reaches Gold. It is another race to the score (the track's signature
+  counts it).
+- **Looks a world may opt into** (`kart.fx`, each off unless named; the race is the same): `skids` (hex) and
+  `skidOpacity` (0.1 to 0.9, 0.45): the skid marks' colour, pale ruts on snow; `offroad: { mud, grass, shoulder }`
+  (hex): the course's off-road patches in your colours; `powder: true`: snow powder (its own particle pool, one draw
+  call) thrown out of every drift and off a kart at speed, a puff on every landing, in `powderColor` ('#D6E2F2'),
+  faded near the lens and capped so the chase camera is never in a cloud of it (a racer's `emit.rear` points, `[[x,
+  z], [x, z]]` in its frame, set where it sprays and where its ruts are drawn); `rush: true`: down a drop at speed
+  the field of view opens up to 6 degrees more and the speed lines stream harder (4% to 22% down over the next 24 m),
+  the picture's only; `wind: true`: the same rush heard, a soft gust of air under the engines rising with it (yours
+  only); `smoke` (hex): the colour of the smoke and dust puffs (a flooded start's, a landing's, a toppled or rolling
+  hazard's, a strike's), and with `powder: true` and no `smoke` named a light snow white-blue, a little thinner, so
+  nothing rises like soot over a winter field. Over a `clear: true` break the chase camera rides up (up to 3 m, eased)
+  from the take-off until it has crossed the hole, so the foot of the screen looks past the far lip rather than down
+  the far wall; no clear break, no lift. A hazard's `look: 'snow'` (or `course.hazardLook: 'snow'`): a meteor's
+  warning ring and its shockwave in ice blue and white, its strike a burst of powder (the powder's own pool, where
+  `fx.powder` is on) and a white flash, no flames: draw your own falling block with `model: false`.
+  `impacts: true` (with `powder: true`; Aspen GP, 9 Oct, "kicking the snow up on impact"): every impact throws the snow
+  up as hard as it was. A landing, by its air time, the flight's top over the road and how far it came down (a
+  drop-off's): a burst of powder out in a ring, big soft clouds, chunks of snow thrown up and a soft ring across the
+  snow; yours, past about 0.8 s, also kicks the camera down, thumps (a deep, soft sine and noise, the score ducking 3
+  dB) and opens the field a moment with a burst of speed lines. A wall met: snow off the bank thrown back into the road
+  (a glance a little, a bonk a lot), and a spray along it while scraping; two karts bumping, an item's or a hazard's
+  hit: a puff with chunks; a drift's first bite: a rooster tail up and out of the turn; the brake held hard at speed: a
+  spray off the front. In the air the chase camera rises (0.9 m) and drops back (1.6 m), eased, so a big jump reads big.
+  The powder's pool grows to 400 (a phone's 200); two more draw calls (the chunks, the clouds) and one a ring while it
+  shows (three at most, half a second each). Your own snow is thrown forward and out, never back at the lens, and
+  everything fades near the lens as the powder does, the rivals' capped while the pools are busy: the chase camera is
+  never whited out. `hype: true` (the owner's "dopamine and adrenaline"; picture and sound only, no slow motion): a
+  near miss (a rival passing or passed within a car's width, no contact, closing over 2 m/s) whooshes and streams the
+  lens; a boost of yours bursts the speed lines and the field; a trick's landing flashes the screen's edges gold and a
+  big landing (with `impacts`) white. No draw calls (the edge is the page's).
+- **The crowd** (Aspen GP, 9 Oct; off unless named): `kart.crowd: [{ id, pos: { x, y, z } }, ...]` (or `[x, y, z]`, or
+  `{ id, d, x, y }` along the lap: d in metres or a fraction, x across, y up; `r` its reach, 60 m; up to 32), or
+  `ctx.kart.crowd(groups)` from your `update()`: where your spectators stand. The crowd is then heard from the group
+  nearest the camera as well as the line, and it roars and whistles when a big take-off, a big landing, a trick (any
+  kart's within 60 m of yours) or a pass of yours happens within a group's reach, or you fly past one at speed: as
+  loud as the moment and as near that group is to the camera, panned to it. Your world hears every kart's moments, to
+  make its crowd jump: `ctx.kart.on(name, fn)` with `'air'` (`{ kart (0 is yours), you, id (the racer), d, x, pos: { x,
+  y, z }, kind: 'pop' | 'ramp' | 'bigramp' | 'gap' | 'cjump', big, group, near }`), `'land'` (the same with `air` s,
+  `h` m (the flight's top over the road), `drop` m (how far it came down), `trick`, `big`), `'trick'`, `'pass'`
+  (yours: `place`, `from`) and `'cheer'` (`{ id (the group), k (0 to 1), kind, kart, pos }`: the crowd audio cheering;
+  animate that group). `ctx.kart.cheer(id, k)` makes group `id` cheer (and its `'cheer'` comes back);
+  `ctx.kart.cheer()` is `{ k (now, easing out), id, kind, t (s since) }` to read each frame. ctx.kart.on and
+  ctx.kart.crowd exist from your first `update()` (the race is made after `build()`): register once there. A handler
+  that throws is dropped with a warning. No groups: the crowd is the line's murmur, as ever.
+- `kart.lowAssets` (library ids, up to 24): what a phone loads in place of `assets`, used only when the library has
+  every one (else `assets` loads). Build for both: ask `ctx.assets.ready(id)` before using a kit that only one list has.
 - **Fixed.** The hop and drift timing and the tiers (Green Candle, Gold and MOG at a charge of 0.6, 1.6 and 2.2; a
   drift charges 1.17 a second steering into it, 0.88 neutral, 0.64 counter-steering), the charge jump, the grind, the
   hazards' timings, the rivals' manners, the boost sizes, the physics,
   the controls, the flyover to the grid (4 s, skippable), the 3-2-1 and the Moon Launch, the camera and the HUD are
   the runtime's; a Mog keeps the kind, the first four racers (the stars), the
-  laps (2 to 4) and the items' names.
+  laps (2 to 4) and the items' names, and keeps whatever its original opts into (`driftAssist`, `driftCharge`,
+  `kart.fx` (`impacts` and `hype` too), `kart.crowd` and its `ctx.kart.on` / `ctx.kart.crowd` calls, `lowAssets`,
+  `course.air` and each ramp's and bump's `lift`, each break's `clear` and `look`, `breakLook`, `hazardLook`, each
+  racer's `ride`, `paint`, `accent` and `number`) unless the idea asks otherwise: dropping `clear`, `air`, a `lift` or
+  `driftCharge` also makes it another track to the score.
 - **Events.** `ctx.on('lap', ({ lap, place, gm }) => ...)`, `ctx.on('start', ...)` and `ctx.on('finish', ({ place,
-  time, gm }) => ...)`.
+  time, gm }) => ...)`; every kart's take-offs, landings, tricks, your passes and the crowd's cheers through
+  `ctx.kart.on` (**The crowd**, above).
 - **Assisted.** A race driven with help is never ranked: any of the runtime's test controls (`debug.kart()`'s, the
   autopilot, the time scale and fixed step, invincibility) used at any point of a session, before a race or during an
   earlier one, a slow motion switched on and off again included, marks that race and every later one as assisted until
@@ -1367,6 +1482,13 @@ is the perfect race no run reaches (the most any input scores is 9,975). Time is
 perfect time), the place 10%, GM 5% and enemies hit 5%; the board shows each player's best run. A world does nothing
 for it: its constants (`meta.kartScore`: each racer's perfect time and floor, the GM and hit caps) are measured from
 its track when it is published (docs/RULES.md "Kart score").
+
+A Mog races against its parent's measured perfect times only while its track's signature, its laps and its class
+are its parent's. The signature is the centre line, the road's width and `shoulder`, and every course item's place
+and size (pads, ramps, off-road, wall gaps, GM lines, Airdrops, breaks with `clear`, rails, bumps, hazards with
+`side`, `every` and `offset`), `course.air` and each ramp's and bump's `lift`, and `kart.driftCharge`. Looks (`look`,
+`breakLook`, `hazardLook`, `model`, `kart.fx`), `kart.crowd`, `driftAssist`, the racers, the items and the music are
+not in it: change those freely.
 
 ```js
 KartScore.score({ timeMs, place, karts, gm, hits, estimated, progress, racer }, C)

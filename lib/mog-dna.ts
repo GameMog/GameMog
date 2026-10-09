@@ -253,7 +253,17 @@ export function dna(source: string): Dna {
   // the library kits: the assets list, and the lists it is built from (AI Alps joins MAIN_ASSETS, LAND_ASSETS, ...)
   const listed = resolve(code, world.get('assets'));
   const lists = [listed, ...[...listed.matchAll(/\b[A-Z_][A-Z0-9_]*\b/g)].map((m) => resolve(code, m[0]))];
-  const assets = [...new Set(lists.flatMap(strings).filter((s) => ASSET.test(s)))];
+  let assets = [...new Set(lists.flatMap(strings).filter((s) => ASSET.test(s)))];
+  // (a list that starts empty and is filled as the module runs, 9 Oct, Aspen GP: `var ASSETS = []`, and the parts push
+  // onto it, themselves or through a helper, aspenAssets([...], [...]): the ids in those calls, and on those lines)
+  const listId = (world.get('assets') ?? '').trim();
+  if (!assets.length && listed.trim() === '[]' && /^[A-Z_][A-Z0-9_]*$/.test(listId)) {
+    const push = new RegExp(`(?<![\\w$.])${listId}\\.push\\s*\\(`);
+    const fns = [...code.matchAll(/\bfunction\s+([A-Za-z_$][\w$]*)\s*\(/g)].map((m) => m[1]).filter((n) => push.test(body(resolve(code, n))));
+    const call = fns.length ? new RegExp(`(?<![\\w$.])(?:${fns.map((n) => n.replace(/\$/g, '\\$')).join('|')})\\s*\\(`, 'g') : null;
+    const args = call ? [...code.matchAll(call)].map((m) => bracket(code, m.index! + m[0].length - 1)) : [];
+    assets = [...new Set([...args, ...code.split('\n').filter((l) => push.test(l))].flatMap(strings).filter((s) => ASSET.test(s)))];
+  }
   const play = entries(resolve(code, world.get('play')));
   const track = world.has('track') ? entries(resolve(code, world.get('track'))) : null;
   const points = track ? resolve(code, track.get('points')) : '', width = track ? Number(resolve(code, track.get('width'))) : NaN;

@@ -41,8 +41,11 @@ export const KART_SCORE_VERSION = 1;
 // drift) and the most a racer's stats can add (statsOf: top 0.95 to 1.05)
 export const KART_CLASS_TOP: Record<string, number> = { chill: 27.3, normal: 31, degen: 35 };
 const TOP_STAT_MAX = 1.05, PAD = 1.28, POCKET = 1.06, HARD = 1.45, LAP_MIN = 800, LAP_MAX = 1800;
-/** The roster's racers, by id (kart-roster.js RACERS, which measure.mjs measures every one of; the score check reads them there). */
-export const KART_RACER_IDS = ['pepe', 'doge', 'shiba', 'bike', 'bull', 'bear', 'whale', 'mooncat'] as const;
+/**
+ * The roster's racers, by id (kart-roster.js kartIds(): the eight, then Aspen GP's five, 9 Oct; measure.mjs measures every
+ * one a world races; the score check reads them there).
+ */
+export const KART_RACER_IDS = ['pepe', 'doge', 'shiba', 'bike', 'bull', 'bear', 'whale', 'mooncat', 'whitewhale', 'lux', 'lordblackdiamond', 'whiteoutone', 'whiteouttwo'] as const;
 /**
  * A lap a test drive reports is held to 760 to 1890 m: the runtime keeps every kart lap 800 to 1800 m (v1.js scales
  * the loop's ground plan into it and measures the curve after, heights and all, so a hilly lap can end a few metres

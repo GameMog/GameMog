@@ -7,7 +7,8 @@
 //        runs the world's code in node, so only for a world you trust: first-party worlds and Mogs, or one you read)
 //   import { measure } from './measure.mjs';  const C = await measure({ world: 'worlds/meme-kart.js' });
 //
-// For every racer (the eight of kart-roster.js), on a worker each:
+// For every racer of the world's cast (sim.mjs: its player() and rival(); the roster's eight in order if that cannot
+// be read; 9 Oct, Aspen GP's five among them), on a worker each:
 //  - tStar: the relaxed kart's minimum time (dp.mjs; see bound.mjs in scripts/.scratch/kart/score for the
 //    relaxations, every one of which only makes it faster): a lower bound on any run without items or slipstream.
 //    10,000 is anchored there, per racer (the owner, 8 Oct), so a racer's score is about the driving, not the pick
@@ -46,7 +47,8 @@ if (!isMainThread && workerData && workerData.job === 'racer') parentPort.postMe
 export async function measure({ world = null, code = null, ds = 4, dy = 0.2 } = {}) {
   const t0 = Date.now();
   const W = load({ world: world ?? undefined, code: code ?? undefined, hooks: false }), K = W.rules, CO = W.TR.course;
-  const ids = W.cast.map((c) => c.id);
+  // (each racer once: a world may race two karts of one racer)
+  const ids = [...new Set(W.cast.map((c) => c.id))];
   const out = await Promise.all(ids.map((id) => new Promise((ok, no) => {
     const w = new Worker(fileURLToPath(import.meta.url), { workerData: { job: 'racer', world, code, id, ds, dy } });
     w.once('message', ok); w.once('error', no); w.once('exit', (n) => { if (n) no(new Error(`racer ${id}: worker exit ${n}`)); });

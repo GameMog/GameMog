@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { SiteHeader, SiteFooter } from '../../header';
 import { Tile } from '../../tile';
 import { topScores, listGames, bestTimes, voteCounts, playerStats, type GameRow } from '@/lib/db';
-import { worldControls, worldMode, MODE_PAGE, NO_GM_HOW, type GameMeta } from '@/lib/custom-game';
+import { worldControls, worldMode, MODE_PAGE, NO_GM_HOW, kartHow, type GameMeta } from '@/lib/custom-game';
 import { optionsOf } from '@/lib/world-options';
 import { PlayFrame } from './play-frame';
 import { YouLine } from './you-line';
@@ -36,7 +36,9 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
   const by = mode ? (mode === 'race' ? 'level' : mode === 'kart' ? 'kart' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
   // (a kart race's constants: the perfect time of each racer, for the post panel's score, the same as the route's)
-  const kartC = mode === 'kart' ? kartConstants(game.meta, game.code, game.code ? dna(game.code).kart : null) : null;
+  // (and its laps for the page's text: kartHow, 9 Oct; Meme Kart's three laps read word for word as before)
+  const kartDna = mode === 'kart' && game.code ? dna(game.code).kart : null;
+  const kartC = mode === 'kart' ? kartConstants(game.meta, game.code, kartDna) : null;
   const best = bestTimes();
   // worlds recommend worlds; Classic races live on /classic
   const others = listGames(120).filter((g) => g.id !== game.id && g.format !== 'race').slice(0, 16);
@@ -126,7 +128,7 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
                   {page && (
                     <>
                       <h2 style={{ marginTop: 26, marginBottom: 6 }}>How it works</h2>
-                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{noGm ? NO_GM_HOW : page.how}</p>
+                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{noGm ? NO_GM_HOW : mode === 'kart' ? kartHow(kartDna?.laps) : page.how}</p>
                     </>
                   )}
                 </div>

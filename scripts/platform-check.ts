@@ -319,7 +319,9 @@ try {
     const postTo = async (g: { id: string }, player: string) => { const r = await post('/api/scores', { gameId: g.id, player, laps: 3, level: 3, ...run }); return { status: r.status, j: await r.json() as Posted }; };
     const drove = { L: C.lap, trackSig: C.trackSig, laps: 3, lapsDone: 3, place: 2, finished: true, drifted: true, stuck: 0, fps: 60, results: 1 };
     const same = await mogKart(`${tag} Kart Rain`, drove), sp = await postTo(same.g, 'kc-mog');
-    const strip = (c: KartConstants | null) => { if (!c) return null; const { source: _s, from: _f, ...rest } = c; return JSON.stringify(rest); };
+    // (the parent's racers as its table has them: since 9 Oct the five Aspen ids are filled with the course's time)
+    const own = (t: KartConstants['tStar']) => typeof t === 'number' ? t : Object.fromEntries(Object.keys(C.tStar as Record<string, number>).map((r) => [r, t[r]]));
+    const strip = (c: KartConstants | null) => { if (!c) return null; const { source: _s, from: _f, ...rest } = c; return JSON.stringify({ ...rest, tStar: own(rest.tStar), tFloor: own(rest.tFloor) }); };
     ok('kart Mog: a Mog whose drive raced its parent\'s track (the signature, laps and class) publishes with its parent\'s measured constants, inherited, and scores a run exactly as the parent does',
       same.C?.source === 'inherited' && same.C.from === kg.id && strip(same.C) === strip(C) && same.status === 'passed' && sp.status === 200 && sp.j.source === 'inherited' && sp.j.score === KartScore.score(run, C).total && sp.j.score === 6334,
       `${same.C?.source}, ${sp.j.score} (the parent's ${KartScore.score(run, C).total})`);

@@ -19,6 +19,7 @@ import { courseConstants, kartConstants, type KartConstants } from '../lib/kart-
 import { dna } from '../lib/mog-dna.ts';
 import { measure, courseFromSim } from './kart-score/measure.mjs';
 import { codeHash, testStatus } from '../lib/test-drive.ts';
+import { ownSoundtrack } from '../lib/world-options.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3939';
 const name = process.argv[2];
@@ -52,8 +53,17 @@ if (worldMode(code) === 'kart') {
   console.log(`kart score: ${kartScore.source}, T* ${JSON.stringify(kartScore.tStar)}, floor ${JSON.stringify(kartScore.tFloor)}, GM cap ${kartScore.gmCap}`);
 }
 
+// the world's own soundtrack (9 Oct, lib/world-options.ts ownSoundtrack): its kart theme, library track or score, read
+// from its definition as the runtime plays a world without options, so its Mog page starts on "Original soundtrack
+// (...)" and a Mog keeps it by default (the live first-party worlds got theirs by migration 2026-10-09-own-soundtracks)
+let def: unknown = null;
+try { new Function('GameMog', 'window', code)({ world: (d: unknown) => { def = d; } }, { devicePixelRatio: 1 }); }
+catch (e) { console.warn(`soundtrack: the module could not be read here (${(e as Error).message}); none stored`); }
+const soundtrack = ownSoundtrack(def, meta.title, worldMode(code) === 'kart');
+console.log(`soundtrack: ${soundtrack ? JSON.stringify(soundtrack) : 'none of its own'}`);
+
 const draftId = randomUUID();
-const stored = { ...meta, mode: worldMode(code), controls: worldControls(code), scoring: worldMode(code) === 'kart' ? 'score' : isOpenWorld(code) ? 'survival' : 'level', runtime: 1, ...(kartScore ? { kartScore } : {}) };
+const stored = { ...meta, mode: worldMode(code), controls: worldControls(code), scoring: worldMode(code) === 'kart' ? 'score' : isOpenWorld(code) ? 'survival' : 'level', runtime: 1, ...(kartScore ? { kartScore } : {}), ...(soundtrack ? { soundtrack } : {}) };
 insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world', report: { pending: true }, code, meta: stored, parentId: parent?.id ?? null, mogPrompt: parent ? mogPrompt : null });
 console.log('playtesting in Chrome...');
 const report = await playtestWorld(`${BASE}/d/${draftId}/play`);

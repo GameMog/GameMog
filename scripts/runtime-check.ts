@@ -387,6 +387,123 @@ type KartState = { ready: boolean; phase: string; state: string; demo: boolean; 
   pick: { index: number; racer: string | null; name: string; cast: string[]; portraits: number }; roster: { built: number; waiting: number } };
 type Sample = { t: number; v: number; d: number; x: number; y: number; h: number; steer: number; w: number; drift: number; charge: number; tier: number; boost: number; mul: number; src: string; cap: number; stun: number; off: boolean; surf: number; wrong: boolean; lap: number; place: number; hop: boolean;
   air: boolean; trick: boolean; push: number; prog: number; gate: number; missed: boolean; gm: number; rescue: number; ghost: number; wet: number; slip: number; lane: number; wob: number; spin: number; launch: string; pace: number; fin: boolean };
+/* -------------------------------------------------------- kart opt-ins -- */
+// Aspen GP's opt-ins (9 Oct; lib/runtime/API.md "Kart races": breaks look and clear, kart.driftAssist, kart.fx, four
+// laps), each off unless a world names it: checked in node on the race's own sim (scripts/kart-score/sim.mjs reads
+// lib/runtime/kart.js), Meme Kart's race first: its track's signature and a seeded race as they were.
+async function kartOptInChecks() {
+  // @ts-ignore (plain JS module)
+  const { load } = await import('./kart-score/sim.mjs');
+  const { kartHow, MODE_PAGE } = await import('../lib/custom-game.ts');
+  console.log('\nkart: the opt-ins (Aspen GP), and Meme Kart as it was');
+  const rd = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+  const mk = load({ world: 'worlds/meme-kart.js', hooks: false });
+  const race = (W: any, o: any) => { const S = W.make(o); if (o.human === 0) S.karts[0].auto = true; S.start(3); for (let i = 0; i < 120 * 400 && S.finishers < 8; i++) { S.step(); S.events.length = 0; } return S; };
+  const R = race(mk, { seed: 42, pick: 'doge', human: 0, items: true });
+  ok('kart: Meme Kart names none of the opt-ins: its track\'s signature is d90450e9fd3eddee, its breaks void and not cleared, and a seeded race (42, Doge, items on) ends as it did before them (e8957f6, 18,642 steps)',
+    R.trackSig === 'd90450e9fd3eddee' && (mk.TR.course as any).breaks.every((B: any) => B.look === 'void' && B.clear === false) && R.hash() === 'e8957f6' && R.steps === 18642 && !/driftAssist|\bfx\s*:|breakLook|breakClear|clear\s*:\s*true/.test(rd('worlds/meme-kart.js')),
+    `${R.trackSig}, ${R.hash()}, ${R.steps} steps`);
+  // the fixture with its break cleared (and iced), and with it as it is
+  const fx0 = rd('lib/runtime/kart-world.js'), fxC = fx0.replace("breaks: [{ from: 0.576, len: 8 }]", "breaks: [{ from: 0.576, len: 8, clear: true, look: 'ice' }]");
+  const W0 = load({ code: fx0, hooks: false }), WC = load({ code: fxC, hooks: false }), BC = (WC.TR.course as any).breaks[0], wrap = (d: number) => ((d % WC.L) + WC.L) % WC.L;
+  ok('kart: a break with clear: true (and look: \'ice\') is read as such, and the track\'s signature counts the clear (not the look)', BC.clear === true && BC.look === 'ice' && (W0.TR.course as any).breaks[0].clear === false
+    && WC.make({}).trackSig !== W0.make({}).trackSig && load({ code: fx0.replace("breaks: [{ from: 0.576, len: 8 }]", "breaks: [{ from: 0.576, len: 8, look: 'ice' }]"), hooks: false }).make({}).trackSig === W0.make({}).trackSig, `${WC.make({}).trackSig} vs ${W0.make({}).trackSig}`);
+  // every kart over it: placed 0.5 to 30 m before it anywhere across the corridor, shoulders too, 2 to 42 m/s, turned
+  // up to 29 degrees, some hit before the edge and some in the air
+  let rnd = 7; const rand = () => ((rnd = (rnd * 1103515245 + 12345) >>> 0) / 4294967296);
+  const S = WC.make({ seed: 5, pick: 0, human: 0, items: false }); S.start(0);
+  let tr = 0, falls = 0, cleared = 0;
+  for (let t = 0; t < 400; t++) {
+    S.karts.forEach((q: any, n: number) => { if (n) { q.parked = true; S.putOn(q, BC.d0 + 300, 0, 0); } });
+    const k = S.karts[0]; Object.assign(k, { auto: true, human: true, rescue: -1, air: false, y: 0, vy: 0, hop: -1, ramp: -1, grind: -1, pit: false, abyss: false, stun: 0, clr: -1, dDir: 0, iframe: 0, ghost: 0, cj: -1 });
+    S.putOn(k, BC.d0 - 0.5 - rand() * 30, (rand() * 2 - 1) * (WC.TR.wall - 0.8), (rand() * 2 - 1) * 0.5); k.v = 2 + rand() * 40;
+    const mode = t % 3; if (mode === 1) S.hit(k, rand() < 0.5 ? 'whale' : 'laser');
+    let fell = false, hit = false, done = false;
+    for (let s = 0; s < 120 * 8 && !done && !fell; s++) {
+      if (mode === 2 && !hit && k.air && k.airT > 0.15) { k.iframe = 0; S.hit(k, 'whale'); hit = true; }
+      S.step(); for (const e of S.events) if (e[0] === 'fall' && e[1] === 0) fell = true; S.events.length = 0;
+      const past = wrap(k.d - (BC.d0 + BC.len)); if (!k.air && past > 0.3 && past < 30) done = true;
+    }
+    tr++; if (fell) falls++; else if (done) cleared++;
+  }
+  ok('kart: no kart falls into a clear break: 400 placed (0.5 to 30 m before it, anywhere across the corridor, 2 to 42 m/s, a third hit before the edge and a third in the air), all past it and none fallen',
+    falls === 0 && cleared === tr, `${cleared}/${tr} past, ${falls} fell`);
+  const races = [1, 2, 3].map((seed) => { const Sx = WC.make({ seed, human: 0, items: true }); Sx.karts[0].auto = true; Sx.start(3); let f = 0; for (let i = 0; i < 120 * 400 && Sx.finishers < 8; i++) { Sx.step(); for (const e of Sx.events) if (e[0] === 'fall') f++; Sx.events.length = 0; } return [Sx.finishers, f]; });
+  ok('kart: three whole races on it (items on): every kart home, no falls', races.every((r) => r[0] === 8 && r[1] === 0), JSON.stringify(races));
+  // a break without it: a kart driven in slowly falls, and the Claw comes (as ever)
+  const S0 = W0.make({ seed: 3, pick: 0, human: 0, items: false }); S0.start(0); S0.karts.forEach((q: any, n: number) => { if (n) q.parked = true; });
+  const k0 = S0.karts[0], B0 = (W0.TR.course as any).breaks[0]; S0.putOn(k0, B0.d0 - 3, 0, 0); k0.v = 6; k0.inp.gas = true;
+  const ev0: string[] = []; for (let i = 0; i < 120 * 2; i++) { S0.step(); for (const e of S0.events) if (e[1] === 0 && (e[0] === 'fall' || e[0] === 'rescue')) ev0.push(e[0]); S0.events.length = 0; }
+  ok('kart: a break without clear still drops a kart driven into it, and the Rescue Claw comes', ev0[0] === 'fall' && ev0.includes('rescue'), ev0.join(' '));
+  // the drift assist: on the fixture's hairpin, a driver holding the racing line (an analog stick on its heading and
+  // offset), Space tapped for 0.1 s as the bend begins (the steer at least half into it through the hop) and again
+  // 1.9 s on; against the same driver holding Space those 1.9 s, with the assist and without
+  const wrapA = (a: number) => { a = (a + Math.PI) % (2 * Math.PI); return (a < 0 ? a + 2 * Math.PI : a) - Math.PI; };
+  const tap = (assist: boolean, held: boolean) => {
+    const Sd = W0.make({ seed: 1, pick: 0, human: 0, items: false, solo: true, driftAssist: assist }); Sd.start(0);
+    const k = Sd.karts[0], T = W0.TR; k.auto = false; Sd.putOn(k, 290, Sd.line.off[290], 0); k.v = 24;
+    const out = { drift: 0, tier: 0, fired: 0, walls: 0 }; let t0 = -1;
+    for (let i = 0; i < 120 * 4; i++) {
+      const j = (Math.max(0, k.i) + 5) % T.n, hD = Math.atan2(T.tx[j], T.tz[j]) - 0.08 * (Sd.line.off[Math.max(0, k.i)] - k.lat);
+      let st = Math.max(-1, Math.min(1, -2.5 * wrapA(hD - k.h)));
+      if (t0 < 0 && k.d >= 318) t0 = i / 120;
+      const u = t0 < 0 ? -1 : i / 120 - t0;
+      if (u >= 0 && u < 0.3 && Math.abs(st) < 0.5) st = Math.sign(st || 1) * 0.5;
+      k.inp.gas = true; k.inp.analog = true; k.inp.steer = st;
+      k.inp.drift = held ? u >= 0 && u < 1.9 : (u >= 0 && u < 0.1) || (u >= 1.9 && u < 2.0);
+      Sd.step(); for (const e of Sd.events) if (e[1] === 0) { if (e[0] === 'drift') out.drift++; if (e[0] === 'tier') out.tier = Math.max(out.tier, e[2]); if (e[0] === 'boost' && e[2] === 'drift') out.fired = e[3]; if (e[0] === 'bonk' || e[0] === 'scrape') out.walls++; } Sd.events.length = 0;
+    }
+    return { ...out, hash: Sd.hash() };
+  };
+  const on = tap(true, false), off = tap(false, false), h1 = tap(true, true), h0 = tap(false, true);
+  ok('kart: kart.driftAssist: two 0.1 s taps of Space 1.9 s apart, the steer into the hairpin, drift between them as Space held those 1.9 s does, step for step (Green Candle charged and fired, no wall); without it the taps are hops and no drift; held, the same with it or without',
+    on.drift === 1 && on.tier >= 1 && on.fired >= 1 && on.walls === 0 && on.hash === h1.hash && off.drift === 0 && h1.hash === h0.hash,
+    `taps+assist ${JSON.stringify(on)}, taps ${JSON.stringify(off)}, held ${h1.hash}/${h0.hash}`);
+  // (11:40, the tappers' walls) a tap with a steer on the straight is a hop, no bend that way ahead to drift into
+  // (assist.need); a latched drift turning in onto the inside wall with the steer held against it lets go short of it
+  // (assist.wall); each against the same input with that rule off
+  const assistRun = (o: { need?: boolean, wall?: boolean, d0: number, steer: (u: number) => number, T: number }) => {
+    const Sd = W0.make({ seed: 1, pick: 0, human: 0, items: false, solo: true, driftAssist: true }); Sd.start(0);
+    if (o.need === false) Sd.rules.assist.need = 0; if (o.wall === false) Sd.rules.assist.wall = null;
+    const k = Sd.karts[0]; k.auto = false; Sd.putOn(k, o.d0, 0, 0); k.v = 24;
+    const ev: string[] = []; let endAt = -1;
+    for (let i = 0; i < 120 * o.T; i++) {
+      const u = i / 120, had = k.dDir; k.inp.gas = true; k.inp.analog = true; k.inp.steer = o.steer(u); k.inp.drift = u < 0.1;
+      Sd.step(); if (had && !k.dDir && endAt < 0) endAt = u;
+      for (const e of Sd.events) if (e[1] === 0 && ['hop', 'drift', 'bonk', 'scrape'].includes(e[0])) ev.push(e[0] === 'bonk' || e[0] === 'scrape' ? (k.lat * (had || 1) > 0 ? 'in' : 'out') + '-' + e[0] : e[0]); Sd.events.length = 0;
+    }
+    return { ev: ev.join(' '), endAt: +endAt.toFixed(2) };
+  };
+  const st1 = assistRun({ d0: 100, steer: (u) => (u < 0.33 ? 0.6 : 0), T: 1.5 }), st0 = assistRun({ need: false, d0: 100, steer: (u) => (u < 0.33 ? 0.6 : 0), T: 1.5 });
+  const in1 = assistRun({ need: false, d0: 60, steer: (u) => (u < 0.35 ? 1 : -1), T: 1.2 }), in0 = assistRun({ need: false, wall: false, d0: 60, steer: (u) => (u < 0.35 ? 1 : -1), T: 1.2 });
+  ok('kart: kart.driftAssist and the tappers\' walls: a 0.1 s tap with a steer on the straight is a hop (no bend that way ahead; with that rule off it latched a drift); a latched drift turning in onto the inside wall, the steer held against it, lets go short of the wall (with that rule off it ran into it)',
+    st1.ev === 'hop' && /^hop drift/.test(st0.ev) && !/in-/.test(in1.ev) && in1.endAt > 0 && in1.endAt < 0.75 && /drift.*in-(scrape|bonk)/.test(in0.ev),
+    `straight ${st1.ev} / rule off ${st0.ev}; inside wall: let go at ${in1.endAt} s, ${in1.ev} / rule off ${in0.ev}`);
+  // a faster drift charge (kart.driftCharge): every kart's drift, and another track to the score; and a snowy hazard
+  const WD = load({ code: fx0.replace('kart: { laps: 3, course: COURSE }', 'kart: { laps: 3, course: COURSE, driftCharge: 1.5 }'), hooks: false });
+  const charged = (W: any) => { const Sx = W.make({ seed: 1, human: 0, solo: true, items: false }); Sx.karts[0].auto = true; Sx.start(0); let most = 0; for (let i = 0; i < 120 * 60; i++) { Sx.step(); Sx.events.length = 0; most = Math.max(most, Sx.karts[0].charge); } return most; };
+  const c1 = charged(W0), c15 = charged(WD);
+  const WS = load({ code: fx0.replace("{ kind: 'meteor', from: 0.87, to: 0.95 }", "{ kind: 'meteor', from: 0.87, to: 0.95, look: 'snow' }"), hooks: false });
+  ok('kart: kart.driftCharge: 1.5 charges a drift half as fast again (the most a lap of the autopilot\'s drifts reached, against the fixture as it is) and signs another track; a hazard\'s look: \'snow\' is read, and is the picture\'s only (the same signature)',
+    WD.make({}).trackSig !== W0.make({}).trackSig && c15 > c1 * 1.2 && W0.make({}).dcMul === 1 && (WS.TR.course as any).hazards.some((H: any) => H.look === 'snow') && WS.make({}).trackSig === W0.make({}).trackSig,
+    `most charge ${c1.toFixed(2)} -> ${c15.toFixed(2)}`);
+  // (engine v2, 9 Oct) bigger air: course.air lifts every ramp, bump and clear pop and floats the top; a ramp's own lift
+  // beats it; both sign another track; clear breaks still never let a kart fall; the land event carries the flight's
+  // top over the road and how far it came down; Meme Kart's course has none of it (air null, every ramp's lift 1)
+  const airOf = (W: any, seeds: number[]) => { let most = 0, top = 0, falls = 0, fin = 0, fields = true; for (const seed of seeds) { const Sx = W.make({ seed, human: 0, items: true }); Sx.karts[0].auto = true; Sx.start(3); for (let i = 0; i < 120 * 400 && Sx.finishers < 8; i++) { Sx.step(); for (const e of Sx.events) { if (e[0] === 'fall') falls++; if (e[0] === 'land' && e.length > 3) { most = Math.max(most, e[2]); top = Math.max(top, e[4]); if (typeof e[4] !== 'number' || typeof e[5] !== 'number') fields = false; } } Sx.events.length = 0; } fin += Sx.finishers; } return { most: +most.toFixed(2), top: +top.toFixed(2), falls, fin, fields }; };
+  const fxA = fxC.replace("breaks: [{ from: 0.576, len: 8, clear: true, look: 'ice' }]", "breaks: [{ from: 0.576, len: 8, clear: true, look: 'ice' }], air: { lift: 1.5, hang: 0.4 }");
+  const WA = load({ code: fxA, hooks: false }), WL = load({ code: fxC.replace("size: 'small' }]", "size: 'small', lift: 1.8 }]"), hooks: false });
+  const aC = airOf(WC, [1, 2]), aA = airOf(WA, [1, 2]);
+  ok('kart: course.air { lift: 1.5, hang: 0.4 } flies higher and longer (the longest air and the highest top over the road, two races, against the same course without it), every kart home and none fallen into the clear break; it and a ramp\'s own lift: 1.8 each sign another track; the land event says the top and the drop; Meme Kart names none of it',
+    aA.most > aC.most * 1.15 && aA.top > aC.top * 1.3 && aA.falls === 0 && aA.fin === 16 && aA.fields && (WA.TR.course as any).air && (WA.TR.course as any).air.lift === 1.5 && (WL.TR.course as any).ramps[0].lift === 1.8
+    && WA.make({}).trackSig !== WC.make({}).trackSig && WL.make({}).trackSig !== WC.make({}).trackSig && (mk.TR.course as any).air === null && (mk.TR.course as any).ramps.every((q: any) => q.lift === 1) && !/\bair\s*:|lift\s*:/.test(rd('worlds/meme-kart.js')),
+    `air ${aC.most} s / top ${aC.top} m -> ${aA.most} s / ${aA.top} m, falls ${aA.falls}, ${aA.fin}/16 home`);
+  // four laps: the race, the signature and the page say four
+  const W4 = load({ code: fx0.replace('kart: { laps: 3, course: COURSE }', 'kart: { laps: 4, course: COURSE }'), hooks: false });
+  ok('kart: kart.laps: 4 races four (the sim, its signature) and the page says "four laps"; three laps is the page as it was', W4.laps === 4 && W4.make({}).trackSig !== W0.make({}).trackSig
+    && kartHow(4).startsWith('A kart race: four laps, eight karts.') && kartHow(3) === MODE_PAGE.kart.how && kartHow(null) === MODE_PAGE.kart.how, kartHow(4).slice(0, 40));
+}
+
 async function kartChecks() {
   const sha = (s: string) => createHash('sha256').update(s).digest('hex').slice(0, 16);
   const rt = (f: string) => readFileSync(new URL(`../lib/runtime/${f}`, import.meta.url), 'utf8');
@@ -1746,6 +1863,13 @@ if (process.env.ONLY === 'kart-feel') {
   console.log(`\n${failures ? `${failures} FAILED` : 'all kart feel checks passed'}\n`);
   process.exit(failures ? 1 : 0);
 }
+// (ONLY=kart-optin: the opt-ins alone, in node, a few seconds)
+if (process.env.ONLY === 'kart-optin') {
+  await kartOptInChecks();
+  console.log(`\n${failures ? `${failures} FAILED` : 'all kart opt-in checks passed'}\n`);
+  process.exit(failures ? 1 : 0);
+}
+await kartOptInChecks();
 await kartChecks();
 if (process.env.ONLY === 'kart') {
   console.log(`\n${failures ? `${failures} FAILED` : 'all kart checks passed'}\n`);

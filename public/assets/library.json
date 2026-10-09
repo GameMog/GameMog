@@ -5150,6 +5150,96 @@
         }
       },
       "bytes": 1311124
+    },
+    "crowd-aspen-gp": {
+      "kind": "texture",
+      "title": "Aspen GP crowd",
+      "description": "Aspen GP's crowd in its stands, filmed in daylight: 18 looks (the library's people in ski wear: puffers, beanies, shades, scarves; signs and foam hands for the racers) through 12 frames each of a cheer or a dance, 96 x 216 px a frame, 24 across, 2304 x 1944 px. Colour kept as its square root (decode c * c * 2), carried past each figure's edge; alpha is coverage. Not a tiling surface.",
+      "sources": [
+        "makehuman",
+        "makehuman-system",
+        "cmu-mocap",
+        "quaternius-ual",
+        "spiderbench-hero-moves"
+      ],
+      "derived": "Filmed in Chrome by the kart kit (lib/runtime/kart.js kartImpostors) from the Aspen GP village part (VIL_FAN_LOOKS, worlds/aspen-gp.js), read back byte for byte (scripts/.scratch/aspen/village/crowd-bake.mts).",
+      "meta": {
+        "maps": [
+          "color"
+        ],
+        "crowd": {
+          "looks": 18,
+          "frames": 12,
+          "cell": [
+            96,
+            216
+          ],
+          "cols": 24,
+          "rows": 9,
+          "size": [
+            1.24,
+            2.8
+          ],
+          "foot": 0.06,
+          "from": "f84f3c65b43af631"
+        }
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "8ee66fd7d332d343433914688841bacd93b5df0776a4792b0dbcc7413576fc7f",
+          "bytes": 201
+        },
+        "sheet.png": {
+          "sha256": "272f911036290b5516dca8adc8a0fd05cda8c36bae8749eb4427dfd5c5e3efa2",
+          "bytes": 2309904
+        }
+      },
+      "bytes": 2310105
+    },
+    "crowd-aspen-gp-lo": {
+      "kind": "texture",
+      "title": "Aspen GP crowd (phone)",
+      "description": "Aspen GP's crowd in its stands, filmed in daylight: 18 looks (the library's people in ski wear: puffers, beanies, shades, scarves; signs and foam hands for the racers) through 10 frames each of a cheer or a dance, 64 x 144 px a frame, 20 across, 1280 x 1296 px, at a phone's size. Colour kept as its square root (decode c * c * 2), carried past each figure's edge; alpha is coverage. Not a tiling surface.",
+      "sources": [
+        "makehuman",
+        "makehuman-system",
+        "cmu-mocap",
+        "quaternius-ual",
+        "spiderbench-hero-moves"
+      ],
+      "derived": "Filmed in Chrome by the kart kit (lib/runtime/kart.js kartImpostors) from the Aspen GP village part (VIL_FAN_LOOKS, worlds/aspen-gp.js), read back byte for byte (scripts/.scratch/aspen/village/crowd-bake.mts).",
+      "meta": {
+        "maps": [
+          "color"
+        ],
+        "crowd": {
+          "looks": 18,
+          "frames": 10,
+          "cell": [
+            64,
+            144
+          ],
+          "cols": 20,
+          "rows": 9,
+          "size": [
+            1.24,
+            2.8
+          ],
+          "foot": 0.06,
+          "from": "f84f3c65b43af631"
+        }
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "4f4be18870dde8b4047979255fd4bd7a19f6b038caa15094471d8a57ca0e73a9",
+          "bytes": 201
+        },
+        "sheet.png": {
+          "sha256": "b8eb2dd7c5be6cf9fc9f2b38434735a71ecdcea7797bcebec28dac28a5b8bed9",
+          "bytes": 1104369
+        }
+      },
+      "bytes": 1104570
     }
   }
 }

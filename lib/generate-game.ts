@@ -101,6 +101,22 @@ A strong world module is usually 600 to 1,400 lines. Spend effort on the world, 
  * idea, and writes a complete new world that should beat it.
  */
 export type MogInput = { parent: GameRow; instruction: string };
+/**
+ * A long original whose code still fits a reply once its comments are left out (9 Oct, Aspen GP: 233 KB, about 125k
+ * tokens with its comments against the reply's 128k, about 105k without; up to about 112k leaves room to think). The
+ * model drops comments anyway; told nothing, a module that long reads as "600 to 1,400 lines" and gets shortened, and
+ * a reply cut off at the limit is asked for "a more compact world", which is how a Mog of AI Alps lost its scenery.
+ * Such an original's Mog is told to copy its code and leave the comments out. Below 200 KB (Meme Kart, every other
+ * world) and above what can fit (AI Alps) nothing changes. Tokens are estimated at 1.72 characters each, as counted
+ * for world code on the build model (count_tokens, 9 Oct).
+ */
+export const LONG_MOG = { minChars: 200_000, maxCodeTokens: 112_000, charsPerToken: 1.72 };
+export function longMogParent(code: string | null | undefined): { kb: number; codeTokens: number } | null {
+  if (!code || code.length <= LONG_MOG.minChars) return null;
+  const bare = code.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) => !/^\s*\/\//.test(l)).map((l) => l.replace(/\s+\/\/ .*$/, '')).join('\n');
+  const codeTokens = Math.round(bare.length / LONG_MOG.charsPerToken);
+  return codeTokens <= LONG_MOG.maxCodeTokens ? { kb: Math.round(code.length / 1000), codeTokens } : null;
+}
 function mogTurn(m: MogInput): string {
   const p = m.parent, meta = JSON.parse(p.meta ?? '{}') as { title?: string; genre?: string };
   const original = p.format === 'world' && p.code
@@ -111,6 +127,7 @@ function mogTurn(m: MogInput): string {
   // what makes the original itself, read from its module (lib/mog-dna.ts), and the kind of game it stays: an open world
   // stays open whatever the request says (app/api/generate/route.ts); on foot or a derby only the idea can switch
   const d = p.format === 'world' && p.code ? dna(p.code) : null;
+  const long = p.format === 'world' ? longMogParent(p.code) : null;
   const asked = askedKind(m.instruction);
   const kind = !d ? '' : asked && asked !== d.kind && d.kind !== 'race' && asked !== 'race'
     ? `The idea asks for ${KIND_SAID[asked]}: make it one, and keep the rest.`
@@ -131,7 +148,7 @@ A Mog inherits: start from the original's module and change what the idea asks f
 - Renaming a place is not moving it: "the city is called X" keeps the city and puts X on its signs, billboards and title cards. Only an idea that names a new place moves the world, and then rebuild the place at least as detailed and as real as the original.
 - If the idea asks for something the runtime cannot do, keep the original and do the nearest thing the runtime can; the blurb tells players what the world is, in the world's own words (never the runtime, kits or rules). Driving a car around the city map, for one: an open world's hero is on foot, and only a derby arena or a lap race drives, so keep the city and the hero on foot, put the car in the street (parked, or the patrol car restyled as it), and give the city the idea's time of day and name.
 - If the idea asks for something a kit cannot do exactly (a model of car, a costume), get as close as the kit allows, with its nearest kind, colours and options, rather than replacing it with something drawn by hand.
-${d ? `\nWhat makes "${p.title}" itself, read from its module; your Mog keeps each of these unless the idea replaces it, and is checked against them:\n\n${describeDna(d).map((l) => `- ${l}`).join('\n')}\n\n${kind}\n` : ''}
+${long ? `- The original's module is long (${long.kb} KB), and your Mog may be as long as its code: the line count in your instructions does not apply. Your reply has room for its code but not its comments, so leave the comments out and copy the code that builds its place and scenery as it is (change only what the idea changes); never make it shorter by leaving scenery out.\n` : ''}${d ? `\nWhat makes "${p.title}" itself, read from its module; your Mog keeps each of these unless the idea replaces it, and is checked against them:\n\n${describeDna(d).map((l) => `- ${l}`).join('\n')}\n\n${kind}\n` : ''}
 Write the complete world module. Carry the idea out fully within these rules and fix anything weak you notice, so a player has a real choice between the two. Give it its own title and tagline, never the original's.`;
 }
 
@@ -277,7 +294,10 @@ export async function generateGame(
     const text = final.content.filter((b) => b.type === 'text').map((b) => (b as Anthropic.Beta.BetaTextBlock).text).join('\n');
     emit({ type: 'stage', stage: 'checking', attempt });
     const { meta, code, problems } = parseGameResponse(text, WorldMetaSchema);
-    if (final.stop_reason === 'max_tokens') problems.push('The reply was cut off at the length limit. Write a more compact world module that still does everything.');
+    // (a Mog of a long original, 9 Oct: compact by its comments and repeats, never by its scenery; else as it was)
+    if (final.stop_reason === 'max_tokens') problems.push(input.mog && longMogParent(input.mog.parent.code)
+      ? 'The reply was cut off at the length limit. Write the complete world again within it: leave out every comment and shorten repeated code (a loop over a table in place of lines written out), keeping all of the original\'s scenery and everything a player sees.'
+      : 'The reply was cut off at the length limit. Write a more compact world module that still does everything.');
     if (code) problems.push(...staticCheckWorld(code));
     // a Mog's pass next to its parent: what it dropped that the idea does not ask for
     const verdict = parentDna && code ? compareDna(parentDna, code, input.mog!.instruction) : undefined;

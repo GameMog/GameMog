@@ -448,6 +448,34 @@ export const MIGRATIONS = [
       return notes.join('; ');
     },
   },
+  {
+    // the owner, 9 Oct: Aspen GP, a first-party kart race in the snow (eight racers on snowmobiles, four laps), built so
+    // it can be mogged once it is live: published on the Mac by `npm run publish:world -- aspen-gp` (its kart score
+    // measured on its own track with its signature, its own soundtrack, meta.soundtrack, so its Mog page starts on the
+    // original's music; playtested; art shot), its files written by scripts/.scratch/aspen/mog/ship.mts. Only inserted:
+    // a row already at /g/aspen-gp is never overwritten (the same code: already there; another: left alone). It needs
+    // this release's kart kit, the five racers it brings (kart-roster.js) and the sled; on a build without them it
+    // waits (unrecorded, tried again at the next boot)
+    id: '2026-10-09-aspen-gp',
+    run(db) {
+      const code = file('aspen-gp.js'), meta = file('aspen-gp.meta.json');
+      // (not recorded without its files: written by ship.mts after the final assemble, they may come in a later deploy)
+      if (!code || !meta) throw new Error('deploy/migrations/aspen-gp.js or aspen-gp.meta.json is not in this build');
+      const kit = ['kart.js', 'kart-roster.js', 'kart-items.js', 'kart-music.js', 'kart-score.js', 'kart-guard.js'];
+      if (!kit.every((f) => existsSync(join('lib', 'runtime', f)))) throw new Error('the kart kit (lib/runtime/kart*.js) is not in this build');
+      const roster = readFileSync(join('lib', 'runtime', 'kart-roster.js'), 'utf8');
+      if (!['whitewhale', 'lux', 'lordblackdiamond', 'whiteoutone', 'whiteouttwo'].every((id) => roster.includes(`'${id}'`)) || !/SnowSled/.test(roster)) throw new Error('the kart roster has no Aspen GP racers or sled in this build');
+      const m = JSON.parse(meta.toString('utf8')), src = code.toString('utf8');
+      const g = db.prepare("SELECT id, code FROM games WHERE slug = 'aspen-gp'").get();
+      if (g) return String(g.code ?? '').trim() === src.trim() ? 'already there' : 'left alone (another aspen-gp)';
+      if (db.prepare('SELECT id FROM games WHERE id = ?').get(m.id)) return 'left alone (its id is taken)';
+      const cover = file('aspen-gp-cover.jpg'), icon = file('aspen-gp-icon.jpg'), wide = file('aspen-gp-wide.jpg');
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+        VALUES (?, 'aspen-gp', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
+        .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: aspen-gp', Date.now(), src, JSON.stringify(m.meta), cover, icon, wide);
+      return 'published';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

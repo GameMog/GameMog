@@ -1,0 +1,53 @@
+{
+  "title": "Aspen GP",
+  "tagline": "White Whale takes on Lux, Pepe and Doge: four laps on snowmobiles down a bluebird mountain, off cornices and over crevasses.",
+  "blurb": "Aspen GP, starring White Whale, featuring Lux, Pepe and Doge; race as any of the eight on a snowmobile. One mountain, four laps, a hundred metres of drop: fly the Crevasse, leap the Twins, fall off the Cornice, plunge down the Icefall, jump the Bergschrund, slalom the chicanes past rolling snowballs, a toppling ice pillar and an avalanche, then launch Big Air over the ravine while the crowd goes wild. Every sled clears every gap. Drift for Green Candle, Gold and MOG boosts, crack Airdrops and bash rivals for their GM. Four laps, eight sleds, and a knock never ends your race.",
+  "genre": "Kart racing",
+  "cast": [
+    {
+      "name": "White Whale",
+      "color": "#1FB5C9",
+      "role": "player"
+    },
+    {
+      "name": "Lux",
+      "color": "#E8B830",
+      "role": "rival"
+    },
+    {
+      "name": "Pepe",
+      "color": "#4FA03A",
+      "role": "rival"
+    },
+    {
+      "name": "Doge",
+      "color": "#F2DDB4",
+      "role": "rival"
+    },
+    {
+      "name": "Lord Black Diamond",
+      "color": "#FF2E3A",
+      "role": "rival"
+    },
+    {
+      "name": "Whiteout One",
+      "color": "#FF6A1A",
+      "role": "rival"
+    },
+    {
+      "name": "Whiteout Two",
+      "color": "#18B8A8",
+      "role": "rival"
+    },
+    {
+      "name": "Moon Cat",
+      "color": "#9B5DE5",
+      "role": "rival"
+    }
+  ],
+  "palette": {
+    "sky": "#1F4FA8",
+    "ground": "#EEF2F7",
+    "accent": "#FF3B5C"
+  }
+}

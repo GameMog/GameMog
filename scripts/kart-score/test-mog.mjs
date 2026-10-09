@@ -41,8 +41,12 @@ export function runKartMogTests(log = console.log) {
   const k = dna(mkCode).kart, parent = { id: 'mk', meta, kart: k }, run = { timeMs: 150_000, place: 3, gm: 23, hits: 7, racer: 'pepe' };
   const same = publishedKartConstants({ code: mkCode, kart: k, drive: { L: 1574.9, trackSig: mk, laps: 3 }, parent });
   const strip = (C) => { const { source, from, ...rest } = C; return JSON.stringify(rest); };
+  // (the racers the parent's table measured, as it has them: since 9 Oct the roster has five more than Meme Kart's
+  // eight, and each of those the course's time for the lap, as any racer a parent's table lacks; see below)
+  const own8 = (C) => { if (!C) return C; const pick = (t) => Object.fromEntries(Object.keys(M.tStar).map((r) => [r, t[r]])); return { ...C, tStar: pick(C.tStar), tFloor: pick(C.tFloor) }; };
+  const ccM = courseConstants({ L: M.lap, laps: M.laps, cls: 'normal' });
   ok('a Mog racing its parent\'s track (the drive\'s signature, laps and class the parent\'s) stores the parent\'s measured constants, flagged inherited, from the parent',
-    !!same && same.source === 'inherited' && same.from === 'mk' && strip(same) === strip(M) && kartMeasured(same), same ? `${same.source} from ${same.from}` : 'none');
+    !!same && same.source === 'inherited' && same.from === 'mk' && strip(own8(same)) === strip(M) && KART_RACER_IDS.filter((r) => !(r in M.tStar)).every((r) => same.tStar[r] === ccM.tStar && same.tFloor[r] === ccM.tFloor) && kartMeasured(same), same ? `${same.source} from ${same.from}` : 'none');
   ok('and scores a run exactly as its parent does (150 s, 3rd, 23 GM, 7 hits as Pepe)', !!same && K.score(run, same).total === K.score(run, M).total && K.score(run, M).total === 6334, `${same && K.score(run, same).total} = ${K.score(run, M).total}`);
   const lacks = { ...meta, kartScore: { ...M, tStar: { ...M.tStar }, tFloor: { ...M.tFloor } } }; delete lacks.kartScore.tStar.mooncat; delete lacks.kartScore.tFloor.mooncat;
   const filled = publishedKartConstants({ code: mkCode, kart: k, drive: { L: 1574.9, trackSig: mk, laps: 3 }, parent: { ...parent, meta: lacks } });
@@ -62,7 +66,7 @@ export function runKartMogTests(log = console.log) {
     notParent.every(([, C]) => C && C.source === 'course' && !kartMeasured(C)), notParent.map(([w, C]) => `${w}: ${C && C.source}`).join('; '));
   const c = course({ L: 1574.9, trackSig: 'aaaaaaaaaaaaaaaa', laps: 3 }), min = kartConstants(null, mkCode, k);
   ok('the course constants come from the lap the drive measured, every one under the measured (and the 800 m minimum\'s 48.9 s gone)',
-    !!c && c.lap === 1574.9 && c.tStar === courseConstants({ L: 1574.9, laps: 3, cls: 'normal' }).tStar && KART_RACER_IDS.every((r) => c.tStar < M.tStar[r] && c.tFloor < M.tFloor[r]) && c.tStar > min.tStar * 1.9 && c.gmCap === M.gmCap && c.trackSig === 'aaaaaaaaaaaaaaaa',
+    !!c && c.lap === 1574.9 && c.tStar === courseConstants({ L: 1574.9, laps: 3, cls: 'normal' }).tStar && Object.keys(M.tStar).length === 8 && Object.keys(M.tStar).every((r) => c.tStar < M.tStar[r] && c.tFloor < M.tFloor[r]) && c.tStar > min.tStar * 1.9 && c.gmCap === M.gmCap && c.trackSig === 'aaaaaaaaaaaaaaaa',
     c ? `Pepe T* ${c.tStar} (measured ${M.tStar.pepe}, minimal ${min.tStar})` : 'none');
   const lo = course({ L: 120, laps: 3 }, null), hi = course({ L: 99999, laps: 3 }, null), mid = course({ L: 1200, laps: 3 }, null);
   ok(`a reported lap is held to ${KART_REPORTED_LAP[0]} to ${KART_REPORTED_LAP[1]} m (the runtime's 800 to 1800, a little either side for hills)`, lo?.lap === KART_REPORTED_LAP[0] && hi?.lap === KART_REPORTED_LAP[1] && mid?.lap === 1200, `${lo?.lap} / ${mid?.lap} / ${hi?.lap}`);
@@ -70,8 +74,9 @@ export function runKartMogTests(log = console.log) {
   ok('no drive (or a junk lap, or a drive whose laps are not the code\'s): nothing stored, the route\'s fallback as before (minimal, provisional)', none.every((x) => x === null) && min.source === 'minimal' && !kartMeasured(min));
   ok('an inherited table counts as measured; course and minimal are provisional', kartMeasured({ source: 'measured' }) && kartMeasured({ source: 'inherited' }) && !kartMeasured({ source: 'course' }) && !kartMeasured({ source: 'minimal' }) && !kartMeasured(null));
   ok('and the route takes stored inherited and course constants as they are', kartConstants({ kartScore: same }, mkCode, k) === same && kartConstants({ kartScore: c }, mkCode, k) === c);
-  const ids = /const IDS = \[([^\]]*)\]/.exec(rd('lib/runtime/kart-roster.js'));
-  ok('the racers filled in are the roster\'s eight (kart-roster.js IDS, as measure.mjs measures them)', !!ids && ids[1].replace(/['\s]/g, '') === KART_RACER_IDS.join(','), ids ? ids[1] : 'IDS not found');
+  // (9 Oct: the roster's eight, then Aspen GP's five, kartRosterAddons; kartIds() lists all of them before the library is built)
+  const ids = /const IDS = \[([^\]]*)\]/.exec(rd('lib/runtime/kart-roster.js')), all = /function kartIds\(\) \{ return \[([^\]]*)\]/.exec(rd('lib/runtime/kart-roster.js'));
+  ok('the racers filled in are the roster\'s (kart-roster.js kartIds(): its eight IDS first, then the five added; as measure.mjs measures them)', !!ids && !!all && all[1].replace(/['\s]/g, '') === KART_RACER_IDS.join(',') && KART_RACER_IDS.slice(0, 8).join(',') === ids[1].replace(/['\s]/g, '') && KART_RACER_IDS.length === 13, all ? all[1] : 'kartIds not found');
   ok('the results screen keeps the next-tier hint for measured constants only (kart.js: measured or inherited)', /var measured = C\.source === 'measured' \|\| C\.source === 'inherited';/.test(rd('lib/runtime/kart.js')) && /else if \(!measured\) hint = /.test(rd('lib/runtime/kart.js')));
 
   // 3. the migration that signs Meme Kart's live rows: on a database of its own

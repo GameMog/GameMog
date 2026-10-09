@@ -24,7 +24,8 @@ import { withBrowser } from '../lib/browser.ts';
 import { db, insertDraft } from '../lib/db.ts';
 import { waitForDrive, submitDrive } from '../lib/test-drive.ts';
 import { renderWorldGame } from '../lib/custom-game.ts';
-import { MUSIC_TRACKS, WorldOptionsSchema, DEFAULT_OPTIONS, readOptions, readSoundtrack, soundtrackKey, optionsOf, optionsBrief, publishedSoundtrack, type WorldOptions } from '../lib/world-options.ts';
+import { MUSIC_TRACKS, WorldOptionsSchema, DEFAULT_OPTIONS, readOptions, readSoundtrack, soundtrackKey, optionsOf, optionsBrief, publishedSoundtrack, ownSoundtrack, type WorldOptions } from '../lib/world-options.ts';
+import { worldMode } from '../lib/custom-game.ts';
 import { OWN_SOUNDTRACKS, MIGRATIONS } from '../deploy/migrate.mjs';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
@@ -150,9 +151,40 @@ export async function soundtrackUnitChecks(ok: Ok) {
 
   // 8. the migration: the live worlds' own, by code, and nothing else
   const ownWorlds = readdirSync(new URL('../worlds/', import.meta.url)).filter((f) => f.endsWith('.js')).filter((f) => { const c = file(`worlds/${f}`); return /\bmusic\s*:/.test(c) || /\bscore\s*:\s*true/.test(c); });
-  const missing = ownWorlds.filter((f) => !OWN_SOUNDTRACKS.some((s) => s.code === sha(file(`worlds/${f}`))));
-  ok('soundtrack: every first-party world with music or kart.score in its code is named, by the hash of the very code it carries (and each named file is that code)',
-    missing.length === 0 && OWN_SOUNDTRACKS.every((s) => sha(file(s.file)) === s.code), `${ownWorlds.join(', ')}${missing.length ? `; not named: ${missing.join(', ')}` : ''}`);
+  // (a first-party world published after the migration, Aspen GP the first (9 Oct), gets its own at publish instead:
+  // scripts/publish-world.ts reads it from its definition, lib/world-options.ts ownSoundtrack, as the runtime plays it)
+  const defOf = (code: string) => { let d: unknown = null; try { new Function('GameMog', 'window', code)({ world: (x: unknown) => { d = x; } }, { devicePixelRatio: 1 }); } catch { d = null; } return d; };
+  const titleOf = (f: string) => { try { return String(JSON.parse(file(`worlds/${f.replace(/\.js$/, '.json')}`)).title); } catch { return 'GameMog'; } };
+  const ownOf = (f: string) => { const c = file(`worlds/${f}`); return ownSoundtrack(defOf(c), titleOf(f), worldMode(c) === 'kart'); };
+  const unnamed = ownWorlds.filter((f) => !OWN_SOUNDTRACKS.some((s) => s.code === sha(file(`worlds/${f}`))));
+  const missing = unnamed.filter((f) => !ownOf(f));
+  ok('soundtrack: every first-party world with music or kart.score in its code is named, by the hash of the very code it carries (and each named file is that code), or gets its own at publish',
+    missing.length === 0 && OWN_SOUNDTRACKS.every((s) => sha(file(s.file)) === s.code), `${ownWorlds.join(', ')}${unnamed.length ? `; at publish: ${unnamed.map((f) => `${f} ${soundtrackKey(ownOf(f))}`).join(', ')}` : ''}${missing.length ? `; NONE: ${missing.join(', ')}` : ''}`);
+  // what publish reads from a world's code is what the runtime reported for every live one (the migration's, read from
+  // state().soundtrack in Chrome), and none for a world with no music of its own
+  const named = OWN_SOUNDTRACKS.map((s) => { const c = file(s.file), title = (db.prepare('SELECT title FROM games WHERE slug = ?').get(s.slug) as { title: string } | undefined)?.title ?? (s.slug === 'great-wall-shinobi' ? 'Great Wall Shinobi' : s.slug); return { slug: s.slug, read: soundtrackKey(ownSoundtrack(defOf(c), title, worldMode(c) === 'kart')), was: soundtrackKey(s.soundtrack as never) }; });
+  const silent = readdirSync(new URL('../worlds/', import.meta.url)).filter((f) => f.endsWith('.js') && !ownWorlds.includes(f)).filter((f) => ownOf(f) !== null);
+  ok('soundtrack: publish reads a world\'s own from its code exactly as the runtime played each live one (the theme, the score with its seed, the track), and none from a world without music',
+    named.every((n) => n.read === n.was) && silent.length === 0, J(named.filter((n) => n.read !== n.was)) + (silent.length ? ` silent with one: ${silent.join(', ')}` : ''));
+  // Aspen GP (9 Oct): the first new first-party world with its own music, a kart race on a library track. It publishes
+  // with meta.soundtrack = its track, so its Mog page starts on the original's, and a Mog that keeps it publishes it
+  if (ownWorlds.includes('aspen-gp.js')) {
+    const asp = file('worlds/aspen-gp.js'), st = ownOf('aspen-gp.js'), HYPER = { track: 'music-hyper-ultra-racing', label: 'Hyper Ultra-Racing' };
+    const starts = optionsOf({ meta: J({ title: 'Aspen GP', soundtrack: st }), code: asp });
+    const kept = publishedSoundtrack({ options: { ...starts }, parentMeta: J({ title: 'Aspen GP', soundtrack: st }), kart: true, drive: { soundtrack: { track: 'music-hyper-ultra-racing', label: 'Hyper Ultra-Racing' } } });
+    const swapped = publishedSoundtrack({ options: { ...starts, music: 'none' }, parentMeta: J({ title: 'Aspen GP', soundtrack: st }), kart: true, drive: { soundtrack: null } });
+    // (its migration ships the row as published on the Mac: deploy/migrations/aspen-gp.meta.json, once written)
+    let migSt: ReturnType<typeof readSoundtrack> | undefined;
+    try { migSt = readSoundtrack(JSON.parse(file('deploy/migrations/aspen-gp.meta.json')).meta?.soundtrack); } catch { migSt = undefined; }
+    ok('soundtrack: Aspen GP publishes with its own (its library track), its Mog starts on "Original soundtrack (Hyper Ultra-Racing)", a Mog that keeps it publishes it and one that removes it is silent; its migration carries it',
+      J(st) === J(HYPER) && starts.music === 'original' && J(starts.soundtrack) === J(HYPER) && J(kept.soundtrack) === J(HYPER) && swapped.soundtrack === null && (migSt === undefined || J(migSt) === J(HYPER)),
+      J({ st, starts: { music: starts.music, soundtrack: starts.soundtrack }, kept: kept.soundtrack, migration: migSt === undefined ? 'not written yet' : migSt }));
+    // (the files the migration ships are the world as it stands: after any change to it, run ship.mts again)
+    let shipped: string | null = null;
+    try { shipped = file('deploy/migrations/aspen-gp.js'); } catch { shipped = null; }
+    if (shipped !== null) ok('soundtrack: the Aspen GP that ships (deploy/migrations/aspen-gp.js) is worlds/aspen-gp.js as it stands (else: node --import ./scripts/ts-resolve.mjs scripts/.scratch/aspen/mog/ship.mts)',
+      sha(shipped) === sha(asp), `${sha(shipped).slice(0, 12)} / ${sha(asp).slice(0, 12)}`);
+  }
   const dir = mkdtempSync(join(tmpdir(), 'gamemog-soundtrack-'));
   try {
     const t = new DatabaseSync(join(dir, 'm.db'));
