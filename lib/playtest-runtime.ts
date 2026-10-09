@@ -136,8 +136,22 @@ export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: 
   /** What the test drive found (1 Oct): a drive that never ran is unverified, never a pass; and the code it drove, and the code its cover shows. */
   status?: TestStatus; codeHash?: string; coverHash?: string;
   /** A Mog's DNA against its parent (6 Oct, lib/mog-dna.ts): what it dropped that the idea did not ask for, and what became of the repair. */
-  dna?: DnaReport };
+  dna?: DnaReport;
+  /** A kart race's drive (8 Oct): what the race counted. It is stored with the draft's report, beside status and codeHash. */
+  kind?: 'kart'; kart?: KartDrive };
 export type TestStatus = 'passed' | 'failed' | 'unverified';
+/**
+ * What a kart race's test drive counted (8 Oct): the creator's browser (lib/runtime/drive.js kartDrive, checked in
+ * lib/test-drive.ts judge) or the server's (below), the same fields either way. Publishing a kart world reads it from
+ * the draft's report, for the code its codeHash names, to set the score's constants: L, the lap's length in metres as
+ * the race built it, and trackSig, the race's signature of its track (kart.js SIM.trackSig; null from a runtime
+ * without one). The rest is the race: its laps and how many of them your kart finished, your place, finished
+ * (estimated: the race was called before you were home), whether you drifted, the longest any kart was stuck (s), the
+ * frame rate, the results reported, the race clock (s) and the share of the race you drove when the drive stopped
+ * watching, the time scale it ended at, and cut: the drive ran out of its own time before the race was over.
+ */
+export type KartDrive = { L: number | null; trackSig: string | null; laps: number; lapsDone: number; place: number | null; finished: boolean; estimated: boolean; drifted: boolean;
+  stuck: number; fps: number | null; results: number; time: number | null; share: number; scale: number | null; cut: boolean };
 
 /** The cover: the best of three frames by how they look (lib/look.ts), and how that frame measured. */
 async function bestCover(page: Parameters<Parameters<typeof withBrowser>[0]>[0]) {
@@ -239,7 +253,8 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
       // a kart race (6 Oct): no endless lap and no crash to end it. Eight karts must race three laps on the
       // autopilot (at 3x) with the laps going by and nobody stuck, at a real frame rate, and the finish must bring
       // the podium and a result; the cover is taken mid-drift
-      type KartSt = { state: string; lapsDone: number; laps: number; place: number; drift: { dir: number; tier: number; charge: number; most?: { tier: number; charge: number } }; karts: { name: string; stuck: number; lapsDone: number; fin: boolean }[] };
+      type KartSt = { state: string; lapsDone: number; laps: number; place: number; drift: { dir: number; tier: number; charge: number; most?: { tier: number; charge: number } }; karts: { name: string; stuck: number; lapsDone: number; fin: boolean; prog: number }[];
+        L: number; trackSig?: string; time: number; finished: boolean; est: boolean };
       const kart = await page.eval<KartSt | null>('window.__gmRuntime.state().kart').catch(() => null);
       if (kart) {
         const ks = () => page.eval<KartSt>('window.__gmRuntime.state().kart');
@@ -280,7 +295,10 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         if (!drifts) problems.push('Your kart never drifted on the autopilot. Give the track at least one hairpin (16 to 22 m) and two sweepers.');
         if (!results.length) problems.push('The race did not end in the results: the finish, the podium and the result never came.');
         if (picked.cover.length < 14_000) problems.push('The screen is nearly a flat colour while racing. Check that build() adds the ground, the road and lights, and that the sky and fog do not swallow everything.');
-        return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: laps, cover: picked.cover, artIcon: art?.icon, artWide: art?.wide, look: picked.look };
+        // what the race counted, as the browser's drive reports it (KartDrive): publishing reads the lap and the track's signature
+        const all = k.laps * k.L, kartDrive: KartDrive = { L: k.L, trackSig: typeof k.trackSig === 'string' ? k.trackSig : null, laps: k.laps, lapsDone: laps, place: k.place, finished: !!k.finished, estimated: !!k.est,
+          drifted: drifts, stuck: +stuck.toFixed(2), fps, results: results.length, time: k.time, share: all > 0 ? +Math.max(0, Math.min(1, (k.karts[0]?.prog ?? 0) / all)).toFixed(3) : 0, scale: 3, cut: false };
+        return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: laps, cover: picked.cover, artIcon: art?.icon, artWide: art?.wide, look: picked.look, kind: 'kart', kart: kartDrive };
       }
 
       await page.eval('window.__gmRuntime.debug.start()');

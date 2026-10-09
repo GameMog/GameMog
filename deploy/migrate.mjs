@@ -13,7 +13,19 @@ import { createHash } from 'node:crypto';
 const DIR = 'deploy/migrations';
 const file = (name) => { const p = join(DIR, name); return existsSync(p) ? readFileSync(p) : null; };
 
-const MIGRATIONS = [
+/**
+ * Meme Kart's track signature (8 Oct; lib/runtime/kart.js kartTrackSig), worked out on the Mac with the node sim for the
+ * code each row carries (sha256 of the code without the blank lines at either end): the live world's
+ * (deploy/migrations/meme-kart.js) and The Original's (meme-kart-original.js, the same track). Its lap and laps are
+ * the constants' own. `node scripts/kart-score/test-mog.mjs` works each signature out again from those files.
+ */
+export const MEME_KART_TRACKS = [
+  { slug: 'meme-kart', file: 'meme-kart.js', code: '6242e421a0e8435697013100c728f94a7836859527a7c6cdb29e8229ad987212', sig: 'd90450e9fd3eddee', laps: 3, lap: 1574.9 },
+  { slug: 'meme-kart-original', file: 'meme-kart-original.js', code: '2e55c9d5c9e61b85e218eb0379a03f0af00e73b4ff80a7df8a2f8824958aef63', sig: 'd90450e9fd3eddee', laps: 3, lap: 1574.9 },
+];
+
+// (exported for the checks: scripts/kart-score/test-mog.mjs runs one on a database of its own)
+export const MIGRATIONS = [
   {
     // the owner, 1 Oct: "IP fixes, just do Mario Kart to Mog Kart, that is all"
     id: '2026-10-01-mog-kart',
@@ -357,6 +369,39 @@ const MIGRATIONS = [
       if (!g) return 'no meme-kart yet';
       db.prepare('UPDATE games SET blurb = ?, code = ?, meta = ? WHERE id = ?').run(m.blurb, code.toString('utf8'), JSON.stringify(m.meta), g.id);
       return 'updated';
+    },
+  },
+  {
+    // 8 Oct, a Mog's score (the owner's "ok do #1 and #2"): a Mog of Meme Kart that races Meme Kart's track to the
+    // centimetre scores against Meme Kart's measured perfect times, matched at publish by the track's signature (kart.js
+    // kartTrackSig: the string the race gives in the browser and measure.mjs records; lib/kart-score.ts
+    // publishedKartConstants). This adds that signature to the live rows' meta.kartScore and changes nothing else: no
+    // perfect time, floor, cap or fingerprint, no score. It was worked out on the Mac with the node sim
+    // (scripts/kart-score/sim.mjs, the same string headless Chrome gives) from the very code each row carries, so it is
+    // added only to a row whose code is that code (sha256, without the blank lines at either end) and whose constants
+    // were measured on that track (its lap, its laps); a row rebuilt since, or with another signature, is left alone
+    id: '2026-10-09-meme-kart-track-sig',
+    run(db) {
+      const notes = [];
+      for (const T of MEME_KART_TRACKS) {
+        const g = db.prepare('SELECT id, code, meta FROM games WHERE slug = ?').get(T.slug);
+        if (!g) { notes.push(`${T.slug}: no such game`); continue; }
+        if (createHash('sha256').update(String(g.code ?? '').trim()).digest('hex') !== T.code) { notes.push(`${T.slug}: left alone (its code is not the one signed)`); continue; }
+        let m = null;
+        try { m = JSON.parse(g.meta ?? 'null'); } catch { m = null; }
+        const C = m && typeof m === 'object' && !Array.isArray(m) ? m.kartScore : null;
+        if (!C || typeof C !== 'object' || C.source !== 'measured' || C.laps !== T.laps || C.lap !== T.lap) { notes.push(`${T.slug}: left alone (no constants measured on this track)`); continue; }
+        if (C.trackSig === T.sig) { notes.push(`${T.slug}: already signed`); continue; }
+        if (C.trackSig != null) { notes.push(`${T.slug}: left alone (signed ${C.trackSig})`); continue; }
+        const was = JSON.stringify(C);
+        m.kartScore = { ...C, trackSig: T.sig };
+        // (every other field as it was, in its order: the constants are not touched)
+        const { trackSig: _t, ...rest } = m.kartScore;
+        if (JSON.stringify(rest) !== was) throw new Error(`${T.slug}: the constants would change`);
+        db.prepare('UPDATE games SET meta = ? WHERE id = ?').run(JSON.stringify(m), g.id);
+        notes.push(`${T.slug}: signed ${T.sig}`);
+      }
+      return notes.join('; ');
     },
   },
 ];

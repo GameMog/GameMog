@@ -16,11 +16,15 @@ import { createHash, createHmac } from 'node:crypto';
 import { withBrowser } from '../lib/browser.ts';
 import { RATE } from '../lib/kart-report.ts';
 import { insertDraft, db, getGameBySlug, family, mogOff, topScores, rescoreKart } from '../lib/db.ts';
-import { KartScore, kartConstants, type KartConstants } from '../lib/kart-score.ts';
+import { KartScore, kartConstants, courseConstants, type KartConstants } from '../lib/kart-score.ts';
 import { runKartScoreTests } from './kart-score/test-score.mjs';
+import { runKartMogTests } from './kart-score/test-mog.mjs';
+import { load as loadKartSim } from './kart-score/sim.mjs';
+import { codeHash } from '../lib/test-drive.ts';
 import { setWorldHidden } from '../lib/analytics.ts';
 import { worldMode, worldControls, MODE_PAGE, isKartWorld, staticCheckWorld, runtimeSource } from '../lib/custom-game.ts';
 import { dna, compareDna, askedKind, describeDna } from '../lib/mog-dna.ts';
+import { testDriveChecks } from './test-drive-check.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3939';
 let failures = 0;
@@ -228,6 +232,9 @@ try {
   console.log('\nKart score');
   const ks = runKartScoreTests((l: string) => { if (l.startsWith('FAIL')) failures++; console.log(l); });
   void ks;
+  // (a kart Mog's constants, 8 Oct: the track's signature, what a site publish stores, the migration that signs Meme
+  // Kart: scripts/kart-score/test-mog.mjs, no server needed; the route and the browser's signature below)
+  runKartMogTests((l: string) => { if (l.startsWith('FAIL')) failures++; console.log(l); });
   const kartRuntime = runtimeSource(1, true), plainRuntime = runtimeSource(1, false);
   ok('kart score: a kart world\'s runtime carries the score (KartScore), every other world\'s runtime is untouched', kartRuntime.includes('var KartScore = (function') && !plainRuntime.includes('KartScore') && createHash('sha256').update(plainRuntime).digest('hex').slice(0, 16) === '55de5bf8cd23555c',
     createHash('sha256').update(plainRuntime).digest('hex').slice(0, 16));
@@ -288,6 +295,96 @@ try {
   rescoreKart(kg.id, C);
   ok('kart score: rescoring a board under its constants gives the route\'s scores again, and is idempotent', rows0 === rows1 && rows1 === all() && fastRow.score === lib({ timeMs: 149_000, place: 2, gm: 10, hits: 0, racer: 'pepe' }).total);
   db.prepare('DELETE FROM scores WHERE game_id = ?').run(kg.id);
+  // a kart Mog's constants at publish (8 Oct: a Mog of Meme Kart was 'Rekt' on every honest run; lib/kart-score.ts
+  // publishedKartConstants): from the creator's test drive of exactly the code published (report.kart: its track's
+  // signature, laps and lap), the parent's from its row; the server never runs the code. The parent here is the
+  // fixture with Meme Kart's measured (and signed) constants, as set above
+  {
+    const mogKart = async (title: string, drive: Record<string, unknown> | null, o: { drove?: string; meta?: Record<string, unknown> } = {}) => {
+      const id = randomUUID();
+      insertDraft({ id, prompt: 'make it rain', format: 'world', code: kartCode, parentId: kg.id, mogPrompt: 'make it rain',
+        report: { ok: true, ran: true, status: 'passed', codeHash: codeHash(o.drove ?? kartCode), errors: [], problems: [], advisories: [], levelReached: 3, ...(drive ? { kind: 'kart', kart: drive } : {}) },
+        meta: { title, tagline: 'A platform check.', blurb: 'Made by the platform check and removed after it.', genre: 'Test', cast: [{ name: 'Pip', color: '#F2E3C4' }], palette: { sky: '#9CCBEB', ground: '#7DB356', accent: '#F28C28' }, runtime: 1, ...o.meta } });
+      const r = await post('/api/games', { draftId: id }), j = await r.json() as { slug: string };
+      db.prepare('DELETE FROM drafts WHERE id = ?').run(id);
+      const g = getGameBySlug(j.slug)!; made.push(g.id);
+      const m = JSON.parse(g.meta ?? '{}') as { kartScore?: KartConstants; test?: { status: string } };
+      return { g, C: m.kartScore ?? null, status: m.test?.status };
+    };
+    const run = { place: 3, timeMs: 150_000, gm: 23, hits: 7, racer: 'pepe' };
+    const postTo = async (g: { id: string }, player: string) => { const r = await post('/api/scores', { gameId: g.id, player, laps: 3, level: 3, ...run }); return { status: r.status, j: await r.json() as Posted }; };
+    const drove = { L: C.lap, trackSig: C.trackSig, laps: 3, lapsDone: 3, place: 2, finished: true, drifted: true, stuck: 0, fps: 60, results: 1 };
+    const same = await mogKart(`${tag} Kart Rain`, drove), sp = await postTo(same.g, 'kc-mog');
+    const strip = (c: KartConstants | null) => { if (!c) return null; const { source: _s, from: _f, ...rest } = c; return JSON.stringify(rest); };
+    ok('kart Mog: a Mog whose drive raced its parent\'s track (the signature, laps and class) publishes with its parent\'s measured constants, inherited, and scores a run exactly as the parent does',
+      same.C?.source === 'inherited' && same.C.from === kg.id && strip(same.C) === strip(C) && same.status === 'passed' && sp.status === 200 && sp.j.source === 'inherited' && sp.j.score === KartScore.score(run, C).total && sp.j.score === 6334,
+      `${same.C?.source}, ${sp.j.score} (the parent's ${KartScore.score(run, C).total})`);
+    const moved = await mogKart(`${tag} Kart Moved`, { ...drove, trackSig: 'ffffffffffffffff' }), mp = await postTo(moved.g, 'kc-mog');
+    const cc = courseConstants({ L: C.lap!, laps: 3, cls: 'normal' });
+    ok('kart Mog: one whose track is another publishes with the course constants from the lap its drive measured (not the 800 m minimum), scored by them',
+      moved.C?.source === 'course' && moved.C.tStar === cc.tStar && moved.C.lap === C.lap && mp.status === 200 && mp.j.source === 'course' && mp.j.score === KartScore.score(run, moved.C).total,
+      `T* ${moved.C?.tStar} (measured ${(C.tStar as Record<string, number>).pepe}, minimal ${kartConstants(null, kartCode, dna(kartCode).kart).tStar}), ${mp.j.score}`);
+    const other = await mogKart(`${tag} Kart Other`, drove, { drove: kartCode + '\n// another pass', meta: { kartScore: { ...C, tStar: 999, tFloor: 1 } } }), op = await postTo(other.g, 'kc-mog');
+    ok('kart Mog: a drive of other code says nothing about this one (nothing stored, the fallback, unverified), and constants the draft brought are never kept',
+      other.C === null && other.status === 'unverified' && op.status === 200 && op.j.source === 'minimal', `${JSON.stringify(other.C)}, ${other.status}, ${op.j.source}`);
+    const [pSame, pMoved] = await Promise.all([page(`/g/${same.g.slug}`), page(`/g/${moved.g.slug}`)]);
+    ok('kart Mog: the board says provisional where the constants were not measured, and not where they were inherited', pMoved.html.includes('its scores are provisional') && !pSame.html.includes('its scores are provisional') && pSame.html.includes('Ranked by score, out of 10,000'));
+    for (const g of [same.g, moved.g, other.g]) db.prepare('DELETE FROM scores WHERE game_id = ?').run(g.id);
+  }
+  // and the browser's signature for Meme Kart itself (the race in headless Chrome, kartState()) is the node sim's
+  // (scripts/kart-score/sim.mjs, the same text on the same table), and the one its measured constants carry
+  {
+    const mkRow = getGameBySlug('meme-kart');
+    if (mkRow?.code) {
+      const node = loadKartSim({ code: mkRow.code, hooks: false }).make({}).trackSig as string;
+      const br = await withBrowser(async (pg) => {
+        await pg.goto(`${BASE}/g/meme-kart/play?preview=1`);
+        for (let i = 0; i < 300; i++) {
+          const k = await pg.eval<{ trackSig?: string; L?: number } | null>('window.__gmRuntime && window.__gmRuntime.state().kart').catch(() => null);
+          if (k && k.trackSig) return k;
+          await new Promise((r) => setTimeout(r, 200));
+        }
+        return null;
+      }, { width: 960, height: 540, timeoutMs: 120_000 });
+      const shipped = JSON.parse(readFileSync(new URL('../deploy/migrations/meme-kart.meta.json', import.meta.url), 'utf8')).meta.kartScore.trackSig;
+      ok('kart Mog: Meme Kart\'s track signature in the browser (kartState().trackSig) is the node sim\'s for the same code, and its constants\'', !!br && br.trackSig === node && node === shipped && br.L === (C.lap as number),
+        `browser ${br?.trackSig} (L ${br?.L}), node ${node}, shipped ${shipped}`);
+    } else console.log('  (no meme-kart here: the browser\'s signature is not checked)');
+  }
+  // the results screen (kart.js): the next tier and how much faster it needs only against constants measured on the
+  // track (its own or its parent's); against the course's or the code's, which are low by design and could ask for a
+  // time no kart can drive, the score is said to be provisional instead. A draft of the fixture, the race finished by
+  // the test controls (so marked assisted), under each kind of constants
+  {
+    const hintFor = async (C: KartConstants | null) => {
+      const id = randomUUID();
+      insertDraft({ id, prompt: 'platform check', format: 'world', code: kartCode, report: { ok: true, ran: true },
+        meta: { title: `${tag} Hint`, tagline: 'A platform check.', blurb: 'Made by the platform check and removed after it.', genre: 'Test', cast: [{ name: 'Pip', color: '#F2E3C4' }], palette: { sky: '#9CCBEB', ground: '#7DB356', accent: '#F28C28' }, runtime: 1, ...(C ? { kartScore: C } : {}) } });
+      try {
+        return await withBrowser(async (pg) => {
+          const st = () => pg.eval<string>('window.__gmRuntime.state().kart.state').catch(() => '');
+          await pg.goto(`${BASE}/d/${id}/play`);
+          for (let i = 0; i < 150 && !(await pg.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false)); i++) await new Promise((r) => setTimeout(r, 200));
+          await pg.eval(`window.postMessage({ source: 'gamemog-host', type: 'play' }, '*')`); await new Promise((r) => setTimeout(r, 500));
+          for (let i = 0; i < 8 && !['flyover', 'countdown'].includes(await st()); i++) { await pg.key('Enter'); await new Promise((r) => setTimeout(r, 450)); }
+          await pg.key('Space'); await new Promise((r) => setTimeout(r, 300));
+          await pg.eval('(() => { const K = window.__gmRuntime.debug.kart(); K.go(); K.lap(2); K.place(K.state().L - 6, 0, 30, 0, 0); return 1; })()');
+          for (let i = 0; i < 300 && (await st()) !== 'results'; i++) await new Promise((r) => setTimeout(r, 200));
+          await new Promise((r) => setTimeout(r, 2200));
+          return pg.eval<{ measured: string | null; hint: string }>(`(() => { const k = document.querySelector('#gm .kscore'), h = document.querySelector('#gm .kshint'); return { measured: k ? k.dataset.measured : null, hint: h ? h.textContent : '' }; })()`);
+        }, { width: 960, height: 540, timeoutMs: 120_000 });
+      } finally { db.prepare('DELETE FROM drafts WHERE id = ?').run(id); }
+    };
+    const [hm, hi, hc, hn] = [await hintFor(C), await hintFor({ ...C, source: 'inherited', from: kg.id }), await hintFor({ ...courseConstants({ L: 1142.8, laps: 3, cls: 'normal' }), lap: 1142.8 }), await hintFor(null)];
+    const tierHint = (h: { hint: string }) => /^(Moonshot|Diamond Hands|Green Candle|HODL|Paper Hands|MOG) at [\d,]+: /.test(h.hint) || /^MOG: /.test(h.hint);
+    ok('kart Mog: the results screen names the next tier only against measured constants (its own or inherited); against the course\'s or none, the score is said to be provisional',
+      hm.measured === '1' && tierHint(hm) && hi.measured === '1' && tierHint(hi) && hc.measured === '0' && hn.measured === '0' && [hc, hn].every((h) => h.hint.startsWith('This track\'s perfect times are still estimated, so its scores are provisional.') && !/ at [\d,]+:/.test(h.hint)),
+      [hm, hi, hc, hn].map((h) => `${h.measured}: ${h.hint.slice(0, 48)}`).join(' | '));
+  }
+  // the test drive in the creator's browser (8 Oct, scripts/test-drive-check.ts): a kart race is driven as a kart race
+  // (three laps to the results, judged by the server's kart rules) and the lap and open worlds exactly as before
+  console.log('\nThe test drive in the creator\'s browser');
+  await testDriveChecks(ok, BASE);
 } finally {
   for (const id of made.reverse()) {
     db.prepare('DELETE FROM mog_picks WHERE child_id = ? OR parent_id = ?').run(id, id);

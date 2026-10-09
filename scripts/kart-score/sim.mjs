@@ -61,13 +61,17 @@ export function load(o = {}) {
   new Function('GameMog', 'window', worldSrc)({ world: (d) => { def = d; } }, { devicePixelRatio: 1 });
   if (!def) throw new Error('world did not call GameMog.world');
   const KD = def.kart || {};
-  const laps = Math.round(Math.max(1, Math.min(5, KD.laps || 3))), cls = KD.class === 'chill' || KD.class === 'degen' ? KD.class : 'normal';
+  // (the laps as kartWorld() reads them, num(KD.laps, 3, 1, 5), so a world that writes laps: 0 or '3' races the laps
+  // here it races in the browser: the track's signature counts them, and node and the browser must give the same one)
+  const lapsN = KD.laps == null || KD.laps === '' ? 3 : Number(KD.laps);
+  const laps = Math.round(isFinite(lapsN) ? Math.max(1, Math.min(5, lapsN)) : 3), cls = KD.class === 'chill' || KD.class === 'degen' ? KD.class : 'normal';
 
   // ---- the track, as v1.js builds it (kart limits: lap 800 to 1800 m, half width 7 to 14) ----
   const R = { lapMin: 800, lapMax: 1800, halfWidthMin: 7, halfWidthMax: 14 };
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const raw = def.track.points;
-  let pts = raw.filter((p) => Array.isArray(p) && p.length >= 2).map((p) => (p.length === 2 ? new THREE.Vector3(p[0], 0, p[1]) : new THREE.Vector3(p[0], p[1], p[2])));
+  // (the points v1.js keeps: arrays of two or more finite numbers)
+  let pts = raw.filter((p) => Array.isArray(p) && p.length >= 2 && p.every((v) => typeof v === 'number' && isFinite(v))).map((p) => (p.length === 2 ? new THREE.Vector3(p[0], 0, p[1]) : new THREE.Vector3(p[0], p[1], p[2])));
   if (pts.length > 80) pts = pts.slice(0, 80);
   const hw = clamp((Number(def.track.width) || 12) / 2, R.halfWidthMin, R.halfWidthMax);
   let curve = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.5);

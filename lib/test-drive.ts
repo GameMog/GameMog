@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { chromePath } from './browser';
-import type { WorldReport, TestStatus } from './playtest-runtime';
+import type { WorldReport, TestStatus, KartDrive } from './playtest-runtime';
 import { lookScore, lookAdvisories, isLook, type Look } from './look';
 
 /**
@@ -69,12 +69,26 @@ function jpeg(v: unknown): Uint8Array | undefined {
   return b.length > 2000 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff ? new Uint8Array(b) : undefined;
 }
 
+/** A kart race's count from the drive (lib/runtime/drive.js kartDrive), each field read for what it must be: it is stored with the draft. */
+function kartOf(v: unknown): KartDrive {
+  const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  const real = (x: unknown, lo: number, hi: number, dp: number) => { const n = Number(x); return x !== null && x !== '' && Number.isFinite(n) ? +Math.max(lo, Math.min(hi, n)).toFixed(dp) : null; };
+  return { L: real(o.L, 0, 100_000, 1), trackSig: typeof o.trackSig === 'string' && /^[0-9a-f]{8,64}$/.test(o.trackSig) ? o.trackSig : null,
+    laps: num(o.laps, 0, 99) ?? 0, lapsDone: num(o.lapsDone, 0, 99) ?? 0, place: num(o.place, 1, 99), finished: o.finished === true, estimated: o.estimated === true, drifted: o.drifted === true,
+    stuck: real(o.stuck, 0, 100_000, 2) ?? 0, fps: num(o.fps, 0, 500), results: num(o.results, 0, 99) ?? 0, time: real(o.time, 0, 100_000, 1), share: real(o.share, 0, 1, 3) ?? 0,
+    scale: num(o.scale, 1, 8), cut: o.cut === true };
+}
+
 /** What the drive measured, judged as the server's own test drive would. */
 export function judge(raw: Record<string, unknown>, images: { cover?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown }): WorldReport {
   if (raw.timedOut) return SKIPPED;
   const errors = strs(raw.errors, 12), advisories = strs(raw.advisories, 12), problems: string[] = [];
   const readyMs = num(raw.readyMs, 0, 600_000);
   if (raw.crashed) return { ...SKIPPED, ok: false, ran: true, readyMs, errors, problems: [`The world could not be playtested: ${String(raw.crashed).slice(0, 300)}`] };
+  // (a kart race that has not loaded in the minute its drive waits, with nothing thrown, is unverified, not failed:
+  // it downloads its racers over the creator's own line, about 40 MB inside the frame, which caches nothing, and a
+  // failure here would pay for repairs of a fault the world does not have. Anything thrown still fails it)
+  if (!raw.ready && raw.kind === 'kart' && !errors.length) return { ...SKIPPED, errors, advisories: ['The kart race took longer than a minute to load in this browser, so the test drive did not judge it.'] };
   if (!raw.ready) {
     problems.push('The world never finished loading.' + (errors.length ? ' Errors: ' + errors.join(' | ') : ' GameMog.world() may never have been called.'));
     return { ...SKIPPED, ok: false, ran: true, errors, problems };
@@ -98,6 +112,30 @@ export function judge(raw: Record<string, unknown>, images: { cover?: unknown; c
   // not the laptop the frame-rate rule was written for
   const timed = !raw.hidden, fpsCounts = timed && !raw.mobile;
   for (const e of errors) problems.push(`Runtime error: ${e}`);
+  // a kart race (8 Oct): three laps to a finish, never the endless lap's levels, judged by the server's kart rules and
+  // words (lib/playtest-runtime.ts). A hidden tab stops the race's clock, and a drive out of its own time before the
+  // race was home (cut: a machine too slow for the 200 s the page gives it) never saw the race end: neither is the
+  // world's fault and neither is a pass. What threw still fails it, and a cut drive's frame rate and cover (taken at
+  // real speed before the race ran on) still count; with nothing found, the drive is unverified (ran: false). Only
+  // dropping the level rule would have passed a kart that never left the grid.
+  if (raw.kind === 'kart') {
+    const kart = kartOf(raw.kart), seen = { levelReached: kart.lapsDone, cover, artIcon, artWide, look, kind: 'kart' as const, kart };
+    const slow = fpsCounts && fps !== null && fps < 30, flat = timed && (!cover || cover.length < 14_000);
+    const SLOW = `The kart race ran at ${fps} fps on a laptop GPU with eight karts. Instance repeated scenery with ctx.instanced, merge the karts' meshes by material, keep one shadow-casting light, until it holds 60.`;
+    const FLAT = 'The screen is nearly a flat colour while racing. Check that build() adds the ground, the road and lights, and that the sky and fog do not swallow everything.';
+    if (!timed || kart.cut) {
+      if (slow) problems.push(SLOW);
+      if (flat) problems.push(FLAT);
+      return { ok: problems.length === 0, ran: problems.length > 0, readyMs, fps, errors, problems, advisories, ...seen };
+    }
+    if (slow) problems.push(SLOW);
+    if (!kart.laps || kart.lapsDone < kart.laps) problems.push(`On the autopilot your kart finished only ${kart.lapsDone} of ${kart.laps || 'its'} laps in the time a race takes. Check the track: a loop the karts can drive (no hairpin tighter than 14 m on the racing line), nothing in update() or animate() stalling the game.`);
+    if (kart.stuck > 3) problems.push(`A kart was stuck for ${kart.stuck.toFixed(1)} s. Check that nothing the world builds stands on the road or between the walls (kart.course.shoulder).`);
+    if (!kart.drifted) problems.push('Your kart never drifted on the autopilot. Give the track at least one hairpin (16 to 22 m) and two sweepers.');
+    if (!results) problems.push('The race did not end in the results: the finish, the podium and the result never came.');
+    if (flat) problems.push(FLAT);
+    return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, ...seen };
+  }
   if (raw.open) {
     const kos = num(raw.kos, 0, 999) ?? 0;
     if (fpsCounts && fps !== null && fps < 30) problems.push(`The open world ran at ${fps} fps on a laptop GPU. Instance repeated scenery, cut draw calls and lights, keep the crowd modest, until it holds 60.`);

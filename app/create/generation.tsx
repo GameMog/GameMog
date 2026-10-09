@@ -115,8 +115,8 @@ const STAGES: Record<StageKey, { title: string; mogTitle: string; lines: string[
   },
   playtesting: {
     title: 'Test drive', mogTitle: 'Test drive',
-    lines: ['A test driver is racing it in a real browser', 'Rivals are joining, lap after lap', 'Checking it runs smoothly', 'Crashing on purpose, to be sure a crash ends the run'],
-    mogLines: ['A test driver is racing your Mog in a real browser', 'Rivals are joining, lap after lap', 'Checking it runs smoothly', 'Crashing on purpose, to be sure a crash ends the run'],
+    lines: ['A test driver is playing it in a real browser', 'Checking it runs smoothly', 'Playing it through to a result'],
+    mogLines: ['A test driver is playing your Mog in a real browser', 'Checking it runs smoothly', 'Playing it through to a result'],
   },
   repairing: {
     title: 'Polishing', mogTitle: 'Polishing',
@@ -469,7 +469,7 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note }: { 
       <p className="t-meta dim" style={{ marginBottom: 16 }}>
         {draft.runtime.ran
           ? `Test-driven in a real browser: it loads in ${secs < 1 ? 'under a second' : `${secs.toFixed(1)} seconds`}, runs smoothly at ${draft.runtime.fps} fps, and ${draft.runtime.open ? `held up through ${draft.runtime.open.kos} knockouts to heat ${draft.runtime.open.heat}${draft.runtime.open.boss ? ' and a boss' : ''}` : `held up through ${draft.runtime.levelReached ?? 0} laps of rivals`}.`
-          : 'It passed the safety check, but the test drive did not get to run in this tab, so nobody has played it yet. Give it a run above before you publish.'}
+          : 'It passed the safety check, but the test drive did not get to finish in this tab, so nobody has played it through yet. Give it a run above before you publish.'}
         {' '}Built in {Math.max(1, Math.round(draft.ms / 60000))} minutes.
       </p>
       {note}

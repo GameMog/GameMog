@@ -302,13 +302,16 @@ export function draftArt(id: string, shape: 'square' | 'wide'): Uint8Array | und
   return r?.art ?? undefined;
 }
 
-/** Publish a draft as a custom game. The draft row is what was playtested. */
-export function publishDraft(draftId: string, slug: string, id: string, test?: Record<string, unknown>): boolean {
+/**
+ * Publish a draft as a custom game. The draft row is what was playtested. `add`: what publishing works out for the
+ * game's meta besides the test record (a kart race's score constants, 8 Oct: app/api/games/route.ts).
+ */
+export function publishDraft(draftId: string, slug: string, id: string, test?: Record<string, unknown>, add?: Record<string, unknown>): boolean {
   const d = db.prepare('SELECT * FROM drafts WHERE id = ?').get(draftId) as (DraftRow & { cover: Uint8Array | null }) | undefined;
   if (!d) return false;
   const meta = JSON.parse(d.meta) as { title: string; tagline: string; blurb: string };
   // what the test drive found, kept with the game (1 Oct): never a gate, a record
-  if (test) d.meta = JSON.stringify({ ...meta, test });
+  if (test || add) d.meta = JSON.stringify({ ...meta, ...add, ...(test ? { test } : {}) });
   // a Mog joins its parent's family, one generation down
   const parent = d.parent_id ? db.prepare('SELECT id, root_id, generation FROM games WHERE id = ?').get(d.parent_id) as { id: string; root_id: string | null; generation: number } | undefined : undefined;
   db.prepare(

@@ -13,7 +13,7 @@ import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
 import { Lineage, MogOffPanel, MogsPanel } from './mog';
 import { mogsOf, tileStats } from '@/lib/db';
-import { kartConstants } from '@/lib/kart-score';
+import { kartConstants, kartMeasured } from '@/lib/kart-score';
 import { dna } from '@/lib/mog-dna';
 import { KartBoard } from './kart-score-ui';
 
@@ -52,7 +52,7 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
   const fmt = (s: (typeof scores)[number]) =>
     by === 'survival' ? clock(s.time_ms)
     : by === 'level' ? `Level ${s.level ?? 0}` : by === 'score' ? `${(s.score ?? 0).toLocaleString()} pts` : by === 'place' ? `${s.place || '-'}` : `${(s.time_ms / 1000).toFixed(2)}s`;
-  const leaderboard = scores.length && kartC ? <KartBoard rows={scores} gmOn={kartC.gmCap > 0} provisional={kartC.source !== 'measured'} /> : scores.length ? (
+  const leaderboard = scores.length && kartC ? <KartBoard rows={scores} gmOn={kartC.gmCap > 0} provisional={!kartMeasured(kartC)} /> : scores.length ? (
     <table className="bd">
       <thead><tr><th /><th>Player</th><th>{by === 'survival' ? 'Survived' : by === 'level' ? 'Level' : by === 'score' ? 'Score' : by === 'place' ? 'Place' : 'Time'}</th>{(by === 'level' || by === 'survival') && <th>{noGm ? 'Takedowns' : 'GM'}</th>}<th>{by === 'survival' ? 'Heat' : 'Time'}</th></tr></thead>
       <tbody>

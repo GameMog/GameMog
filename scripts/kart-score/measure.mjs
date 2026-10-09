@@ -52,7 +52,10 @@ export async function measure({ world = null, code = null, ds = 4, dy = 0.2 } = 
     w.once('message', ok); w.once('error', no); w.once('exit', (n) => { if (n) no(new Error(`racer ${id}: worker exit ${n}`)); });
   })));
   const karts = 8, laps = W.laps, lines = CO.gm || 0, coins = lines * K.gm.line * laps;
-  const gmCap = coins ? coins + (karts - 1) * K.purse : 0, rows = Array.isArray(CO.drops) ? CO.drops.length : 0;
+  // (the Airdrop rows a lap: the course's, or the four 'auto' lays (kart.js layCrates); none with items off. Only the
+  // route's ceiling (gmMax) reads them, so the generous side is the safe one: an honest run's GM Bags are never refused)
+  const itemsOn = W.KD.items !== false, gmCap = coins ? coins + (karts - 1) * K.purse : 0;
+  const rows = !itemsOn ? 0 : Array.isArray(CO.drops) ? CO.drops.length : CO.drops === 'auto' || CO.drops == null ? 4 : 0;
   const kartSrc = readFileSync(resolve(ROOT, 'lib/runtime/kart.js'), 'utf8'), worldSrc = code ?? readFileSync(resolve(ROOT, world), 'utf8');
   const sha = (s) => createHash('sha1').update(s).digest('hex').slice(0, 12);
   return {
@@ -63,6 +66,9 @@ export async function measure({ world = null, code = null, ds = 4, dy = 0.2 } = 
     gmMax: gmCap ? gmCap + BAG_GM * rows * laps : 0,
     hitsCap: HITS_CAP, hitsMax: HITS_MAX,
     lap: +W.TR.L.toFixed(1),
+    // the track's signature (kart.js kartTrackSig, the same string the race gives in the browser): a Mog whose drive
+    // reports this one races this track, and inherits these constants at publish (lib/kart-score.ts)
+    trackSig: W.make({}).trackSig,
     physics: sha(kartSrc), world: sha(worldSrc), at: new Date().toISOString(), ms: Date.now() - t0,
   };
 }
@@ -71,7 +77,7 @@ export async function measure({ world = null, code = null, ds = 4, dy = 0.2 } = 
 /** @param {{ world?: string | null, code?: string | null }} [o] */
 export function courseFromSim({ world = null, code = null } = {}) {
   const W = load({ world: world ?? undefined, code: code ?? undefined, hooks: false });
-  return { L: W.TR.L, laps: W.laps, cls: W.cls, gmLines: W.TR.course.gm || 0, top: Math.max(...W.cast.map((c) => c.stats.top)) };
+  return { L: W.TR.L, laps: W.laps, cls: W.cls, gmLines: W.TR.course.gm || 0, top: Math.max(...W.cast.map((c) => c.stats.top)), trackSig: W.make({}).trackSig };
 }
 
 if (isMainThread && process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

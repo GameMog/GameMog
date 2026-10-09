@@ -4,7 +4,7 @@ import { playerId } from '../../anon';
 import { useMe } from '../../me-store';
 import { meFragment, YOU_IN_GAMES } from '@/lib/me';
 import { useRouter } from 'next/navigation';
-import { KartScore, ordinal, raceClock, type KartConstants, type KartTier } from '@/lib/kart-score';
+import { KartScore, kartMeasured, ordinal, raceClock, type KartConstants, type KartTier } from '@/lib/kart-score';
 import { TierChip, ScoreBar } from './kart-score-ui';
 import { KartDiagCard, readKdiag, KART_BOOT_KEY as BOOT_KEY, KART_LAST_KEY as LAST_KEY } from './kart-diag';
 
@@ -239,7 +239,7 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
       </div>
       {diag.switches.length > 0 && <p className="t-meta dim" style={{ marginTop: 6 }}>Diagnostics on: {diag.switches.join(', ')}. <a href={`/g/${slug}?kdiag=info`}>Device info</a></p>}
       {scores && kart && result && result.finished && !result.assisted && (preview || posted) && (
-        <KartPanel result={result} score={posted?.score ?? preview!.total} tier={posted?.tier ?? preview!.tier} gmOn={(kartScore?.gmCap ?? 1) > 0}>
+        <KartPanel result={result} score={posted?.score ?? preview!.total} tier={posted?.tier ?? preview!.tier} gmOn={(kartScore?.gmCap ?? 1) > 0} provisional={!!kartScore && !kartMeasured(kartScore)}>
           {posted
             ? <span className="t-meta dim" role="status">{posted.review ? 'Posted, under review: faster than this track\'s perfect-run time.' : posted.rank ? (posted.best ? `Posted. Ranked #${posted.rank} on the leaderboard.` : `Posted. Your best run keeps you #${posted.rank} on the leaderboard.`) : 'Posted.'}</span>
             : <>
@@ -282,7 +282,8 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
  * its tier and the bar toward 10,000, then the name and the post button (or, once posted, where it landed). Static:
  * the count-up is the game's own results screen.
  */
-function KartPanel({ result, score, tier, gmOn, children }: { result: Result; score: number; tier: KartTier; gmOn: boolean; children: React.ReactNode }) {
+// (provisional: the track's perfect times are not measured yet, as the board says: lib/kart-score.ts kartMeasured)
+function KartPanel({ result, score, tier, gmOn, provisional = false, children }: { result: Result; score: number; tier: KartTier; gmOn: boolean; provisional?: boolean; children: React.ReactNode }) {
   const est = !!result.estimated;
   const run = [est ? 'Race called' : result.place === 1 ? 'You won' : result.place ? `${ordinal(result.place)} place` : 'Race over', `${est ? '~' : ''}${raceClock(result.timeMs)}`,
     gmOn ? `${result.gm} GM` : '', `${result.hits ?? 0} ${result.hits === 1 ? 'hit' : 'hits'}`].filter(Boolean).join(' · ');
@@ -292,7 +293,7 @@ function KartPanel({ result, score, tier, gmOn, children }: { result: Result; sc
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <b style={{ fontSize: 34, fontWeight: 800, lineHeight: '36px', fontVariantNumeric: 'tabular-nums', letterSpacing: '-.01em' }}>{score.toLocaleString('en-US')}</b>
         <TierChip tier={tier} dnf={est} size={13} />
-        <span className="t-meta dim-2">out of 10,000</span>
+        <span className="t-meta dim-2">out of 10,000{provisional ? ' · provisional' : ''}</span>
       </div>
       <div style={{ maxWidth: 420 }}><ScoreBar score={score} tier={tier} height={6} /></div>
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 2 }}>{children}</div>
