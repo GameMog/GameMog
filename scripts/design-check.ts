@@ -8,6 +8,11 @@
  *
  * Scope is the presentation layer only. app/cover.tsx is exempt from the
  * gradient rule because it draws a sky, and a sky is a gradient.
+ *
+ * Glass is the one scoped exception (the owner, 10 Oct 2026, "A": glassmorphism
+ * ONLY on the dare surfaces and the game surfaces). It lives in one stylesheet,
+ * app/glass.css, and only the files in GLASS may use it: everything else under
+ * app/ is held to every rule here, glass included.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -27,6 +32,28 @@ function walk(dir: string, out: string[] = []): string[] {
 type Ok = (name: string, cond: boolean, detail?: string) => void;
 
 /**
+ * The glass surfaces, by exact path: the stylesheet, the Oxanium link and community pill (app/discord-pill.tsx), the
+ * dare landing and the family page. They may use the glass recipe (gradients, backdrop blur, the HUD's own shadows,
+ * Oxanium from Google Fonts); em dashes, emoji and motion are still checked in them. A file joins only by name here.
+ */
+export const GLASS = [
+  'app/glass.css',
+  'app/discord-pill.tsx',
+  'app/g/[slug]/dare/[id]/page.tsx',
+  'app/g/[slug]/dare/[id]/landing.tsx',
+  'app/g/[slug]/family/page.tsx',
+];
+/**
+ * Files that show a glass surface inside a flat page (the send-the-dare panel, the results overlay): they may load
+ * app/glass.css (or the pill, which loads it) and use its classes, but are still held to every inline rule.
+ */
+export const GLASS_HOSTS = [
+  'app/create/generation.tsx',
+  'app/g/[slug]/dare-overlay.tsx',
+  'app/g/[slug]/share-dare.tsx',
+];
+
+/**
  * Lines matching `re`, as "file:line" strings.
  *
  * `code` blanks out comments first, keeping line numbers intact, because a
@@ -38,7 +65,8 @@ function hits(files: string[], re: RegExp, opts: { exempt?: string[]; code?: boo
   const found: string[] = [];
   for (const f of files) {
     const rel = relative(ROOT, f);
-    if (exempt.some((e) => rel.includes(e))) continue;
+    // (a glass file is exempt by its exact path, never by a part of one)
+    if (exempt.some((e) => (GLASS.includes(e) ? rel === e : rel.includes(e)))) continue;
     let text = readFileSync(f, 'utf8');
     if (code) {
       text = text
@@ -73,17 +101,23 @@ export function runDesignChecks(ok: Ok) {
   console.log('\ndesign contract: surfaces');
   // GameStop's soft elevation, by the owner's call (23 Sep, docs/design/premium.md):
   // a shadow may come only from the three elevation tokens, never ad hoc
-  none('shadows only from the elevation tokens', hits(files, /box-shadow\s*:\s*(?!none|var\(--elev(?:-hover|-hair)?\))/i, { code: true }));
+  none('shadows only from the elevation tokens', hits(files, /box-shadow\s*:\s*(?!none|var\(--elev(?:-hover|-hair)?\))/i, { code: true, exempt: GLASS }));
   ok('the elevation tokens are GameStop\'s soft card shadows', /--elev:0 1px 6px rgba\(0,0,0,\.15\)/.test(css) && /--elev-hover:0 6px 18px rgba\(0,0,0,\.16\)/.test(css));
-  none('no gradients in chrome', hits(files, /(linear|radial|conic)-gradient\s*\(/i, { code: true, exempt: ['app/cover.tsx'] }));
-  // the one exception: the beta's "Coming soon" pop-up, glass at the owner's request
-  none('no frosted glass', hits(files, /backdrop-filter|backdropFilter/i, { code: true, exempt: ['app/coming-soon.tsx'] }));
+  none('no gradients in chrome', hits(files, /(linear|radial|conic)-gradient\s*\(/i, { code: true, exempt: ['app/cover.tsx', ...GLASS] }));
+  // the exceptions: the beta's "Coming soon" pop-up, glass at the owner's request, and the dare surfaces (GLASS)
+  none('no frosted glass outside the dare surfaces', hits(files, /backdrop-filter|backdropFilter/i, { code: true, exempt: ['app/coming-soon.tsx', ...GLASS] }));
   none('no transitions or animations', hits(files, /\b(transition|animation)\s*:|@keyframes/i, { code: true }));
-  none('no dot-grid or orb backgrounds', hits(files, /repeating-(linear|radial)-gradient|radial-gradient\(circle/i, { code: true, exempt: ['app/cover.tsx'] }));
+  none('no dot-grid or orb backgrounds', hits(files, /repeating-(linear|radial)-gradient|radial-gradient\(circle/i, { code: true, exempt: ['app/cover.tsx', ...GLASS] }));
+  // glass stays on its surfaces: only they and the named hosts load the stylesheet (directly, or through the pill)
+  none('glass.css loaded only by the glass surfaces and their hosts',
+    hits(files, /['"][^'"\n]*\/(?:glass\.css|discord-pill(?:\.tsx)?)['"]/, { code: true, exempt: [...GLASS, ...GLASS_HOSTS] }));
+  // (an entry for a file that is gone would quietly exempt whatever is made at that path next)
+  ok('every glass exemption names a file that exists', [...GLASS, ...GLASS_HOSTS].every((f) => existsSync(join(ROOT, f))), [...GLASS, ...GLASS_HOSTS].filter((f) => !existsSync(join(ROOT, f))).join(', '));
 
   console.log('\ndesign contract: type and colour');
   none('no Inter, Geist or Space Grotesk', hits(files, /\b(Inter|Geist|Space\s*Grotesk)\b/, { code: true }));
-  none('no webfont fetch', hits(files, /fonts\.(googleapis|gstatic)\.com/));
+  // (Oxanium, the face of the game's HUD, on the glass surfaces only)
+  none('no webfont fetch outside the glass surfaces', hits(files, /fonts\.(googleapis|gstatic)\.com/, { exempt: GLASS }));
   none('no em dash in the presentation layer', hits(files, /—/));
   none('no emoji', hits(files, /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/u));
 

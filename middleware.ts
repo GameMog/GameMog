@@ -19,7 +19,8 @@ export function middleware(req: NextRequest) {
   const to = req.nextUrl.clone();
   const mog = pathname.match(/^\/mog\/([^/]+)/);
   to.pathname = mog ? `/g/${mog[1]}` : '/';
-  to.search = '?soon=1';
+  // (the address's own query goes along, so a dare's ?dare=<id> survives the trip)
+  to.searchParams.set('soon', '1');
   return NextResponse.redirect(to);
 }
 

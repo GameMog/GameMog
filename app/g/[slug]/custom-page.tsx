@@ -7,6 +7,7 @@ import { topScores, listGames, bestTimes, voteCounts, playerStats, type GameRow 
 import { worldControls, worldMode, MODE_PAGE, NO_GM_HOW, kartHow, type GameMeta } from '@/lib/custom-game';
 import { optionsOf } from '@/lib/world-options';
 import { PlayFrame } from './play-frame';
+import { playSrc } from '@/lib/play-page';
 import { YouLine } from './you-line';
 import { GameActions } from './actions';
 import { Tabs } from './tabs';
@@ -80,14 +81,14 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
         </nav>
         <div className="gtop">
           <div className="gstage">
-            <PlayFrame slug={game.slug} gameId={game.id} you={game.format === 'world'} kart={mode === 'kart'} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
+            <PlayFrame slug={game.slug} gameId={game.id} src={playSrc(game)} you={game.format === 'world'} kart={mode === 'kart'} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
               // eslint-disable-next-line @next/next/no-img-element
               poster={<img src={`/g/${game.slug}/cover`} alt="" />} />
           </div>
           <div className="gbar">
             <div className="gtitle">
               <h1>{game.title}</h1>
-              <p className="by">By <b>a GameMog creator</b> <span className="maturity">· {page ? `${page.label} · GameMog Runtime` : 'Written by GameMog'}</span></p>
+              <p className="by">{game.creator ? <>Created by <b>{game.creator}</b></> : <>By <b>a GameMog creator</b></>} <span className="maturity">· {page ? `${page.label} · GameMog Runtime` : 'Written by GameMog'}</span></p>
               <Lineage game={game} />
               {world && <YouLine slug={game.slug} />}
             </div>

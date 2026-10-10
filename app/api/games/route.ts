@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { insertGame, slugify, listGames, getDraft, publishDraft, db } from '@/lib/db';
+import { insertGame, slugify, listGames, getDraft, publishDraft, publishedGame, nameCreator, db } from '@/lib/db';
+import { cleanName } from '@/lib/names';
+import { validPlayer } from '@/lib/dare';
 import { playtest } from '@/lib/playtest';
 import { codeHash, testStatus } from '@/lib/test-drive';
 import { isKartWorld } from '@/lib/custom-game';
@@ -16,13 +18,25 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const body = (await req.json()) as { spec?: unknown; prompt?: string; draftId?: string };
+  const body = (await req.json()) as { spec?: unknown; prompt?: string; draftId?: string; creator?: unknown; player?: unknown };
 
   // A written game publishes from its draft: exactly the code that passed the
   // runtime playtest, never code resent by the client.
   if (body.draftId) {
     const d = getDraft(body.draftId);
     if (!d) return NextResponse.json({ error: 'That draft no longer exists.' }, { status: 404 });
+    // who made it (10 Oct, the dare loop; no accounts): the name they gave (public, "Created by") and their browser's
+    // id (app/anon.ts playerId; private, never served). Both optional; a name that does not pass is said so before
+    // anything is published
+    const name = body.creator == null || body.creator === '' ? null : cleanName(body.creator);
+    if (name && !name.ok) return NextResponse.json({ error: name.error, field: 'creator' }, { status: 400 });
+    const creator = name?.ok ? name.value : null, player = validPlayer(body.player) ? body.player : null;
+    // once only: a second publish of the same draft (a double tap, a retry) is the first game, named now if it was not
+    const done = publishedGame(d.id);
+    if (done) {
+      if (creator && !done.creator && nameCreator(done.id, creator, player)) done.creator = creator;
+      return NextResponse.json({ id: done.id, slug: done.slug, creator: done.creator, again: true });
+    }
     const report = JSON.parse(d.report) as { ok?: boolean; ran?: boolean; status?: string; codeHash?: string; coverHash?: string; kart?: KartDriveTrack; soundtrack?: unknown };
     if (!report.ok) return NextResponse.json({ error: 'This game did not pass playtesting.' }, { status: 400 });
     // a drive that never ran, or ran on other code, publishes as unverified: honest, not held back
@@ -51,8 +65,12 @@ export async function POST(req: Request) {
     }
     const id = randomUUID();
     const slug = slugify(dm.title);
-    publishDraft(d.id, slug, id, test, add);
-    return NextResponse.json({ id, slug });
+    if (!publishDraft(d.id, slug, id, test, add, { creator, player })) {
+      const first = publishedGame(d.id);
+      if (first) return NextResponse.json({ id: first.id, slug: first.slug, creator: first.creator, again: true });
+      return NextResponse.json({ error: 'That draft no longer exists.' }, { status: 404 });
+    }
+    return NextResponse.json({ id, slug, creator });
   }
 
   // Publishing revalidates. A client can send anything; nothing reaches the

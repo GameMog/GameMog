@@ -183,6 +183,64 @@ function open() {
 
 export const db: DatabaseSync = globalThis.__gamemogDb ?? (globalThis.__gamemogDb = open());
 
+/**
+ * The dare loop (10 Oct), run on every load of this module rather than only in open(): the dev server keeps its
+ * connection across hot reloads (globalThis), and every step here is idempotent.
+ *  - games.creator: the name a creator gave their game at publish (public, in ROW); games.creator_player: the browser
+ *    id that published it (PRIVATE: a bearer id, never in ROW or any JSON). drafts.published_id: the game a draft
+ *    became, so a second publish of the same draft returns the first game.
+ *  - dares: a link that dares someone to beat a run on a game (lib/dare.ts). sender is the sender's browser id
+ *    (PRIVATE); the run's parts are kept, not its score, so the target is worked out again from the game's constants
+ *    of the day. card: the 1200x630 JPEG the sender's browser drew (lib/dare-card.ts), served as the link's preview.
+ *  - dare_events: the funnel, one row per dare, visitor and step.
+ */
+function dareSchema(d: DatabaseSync) {
+  const cols = (t: string) => (d.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name);
+  const add = (t: string, c: string, ddl: string) => { if (!cols(t).includes(c)) d.exec(`ALTER TABLE ${t} ADD COLUMN ${ddl}`); };
+  add('games', 'creator', 'creator TEXT');
+  add('games', 'creator_player', 'creator_player TEXT');
+  add('drafts', 'published_id', 'published_id TEXT');
+  d.exec(`
+    CREATE TABLE IF NOT EXISTS dares (
+      id          TEXT PRIMARY KEY,
+      game_id     TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      parent_dare TEXT,
+      sender      TEXT NOT NULL,
+      name        TEXT,
+      message     TEXT,
+      board       TEXT NOT NULL,
+      has_run     INTEGER NOT NULL DEFAULT 0,
+      time_ms     INTEGER,
+      place       INTEGER,
+      laps        INTEGER,
+      gm          INTEGER,
+      hits        INTEGER,
+      est         INTEGER,
+      progress    REAL,
+      racer       TEXT,
+      level       INTEGER,
+      kos         INTEGER,
+      survival    INTEGER,
+      score       INTEGER,
+      created_at  INTEGER NOT NULL,
+      hidden      INTEGER NOT NULL DEFAULT 0,
+      card        BLOB
+    );
+    CREATE INDEX IF NOT EXISTS dares_by_game ON dares(game_id, created_at);
+    CREATE INDEX IF NOT EXISTS dares_by_parent ON dares(parent_dare);
+    CREATE INDEX IF NOT EXISTS dares_by_time ON dares(created_at);
+    CREATE TABLE IF NOT EXISTS dare_events (
+      dare_id  TEXT NOT NULL REFERENCES dares(id) ON DELETE CASCADE,
+      visitor  TEXT NOT NULL,
+      kind     TEXT NOT NULL CHECK (kind IN ('sent', 'opened', 'played', 'finished', 'beaten', 'mogged_back', 'shared')),
+      at       INTEGER NOT NULL,
+      PRIMARY KEY (dare_id, visitor, kind)
+    );
+    CREATE INDEX IF NOT EXISTS dare_events_by_time ON dare_events(at);
+  `);
+}
+dareSchema(db);
+
 /* ------------------------------------------------------------------ rows -- */
 export type GameRow = {
   id: string;
@@ -205,10 +263,13 @@ export type GameRow = {
   root_id: string | null;
   generation: number;
   mog_prompt: string | null;
+  /** the name its creator gave it at publish (10 Oct), shown as "Created by"; null for older games and unnamed ones */
+  creator: string | null;
 };
 
-/** Columns that are large or binary stay out of list queries. */
-const ROW = 'id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, plays, created_at, format, code, meta, parent_id, root_id, generation, mog_prompt';
+/** Columns that are large or binary stay out of list queries, and so do private ones (creator_player): ROW is served
+ *  whole by GET /api/games. */
+const ROW = 'id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, plays, created_at, format, code, meta, parent_id, root_id, generation, mog_prompt, creator';
 
 export type ScoreRow = {
   id: number;
@@ -320,23 +381,55 @@ export function draftArt(id: string, shape: 'square' | 'wide'): Uint8Array | und
 
 /**
  * Publish a draft as a custom game. The draft row is what was playtested. `add`: what publishing works out for the
- * game's meta besides the test record (a kart race's score constants, 8 Oct: app/api/games/route.ts).
+ * game's meta besides the test record (a kart race's score constants, 8 Oct: app/api/games/route.ts). `who` (10 Oct):
+ * the creator's name (public) and browser id (private), both optional.
+ * Once only (10 Oct): a draft that already became a game is not published again (false; publishedGame says which).
  */
-export function publishDraft(draftId: string, slug: string, id: string, test?: Record<string, unknown>, add?: Record<string, unknown>): boolean {
-  const d = db.prepare('SELECT * FROM drafts WHERE id = ?').get(draftId) as (DraftRow & { cover: Uint8Array | null }) | undefined;
+export function publishDraft(draftId: string, slug: string, id: string, test?: Record<string, unknown>, add?: Record<string, unknown>, who?: { creator?: string | null; player?: string | null }): boolean {
+  const d = db.prepare('SELECT * FROM drafts WHERE id = ?').get(draftId) as (DraftRow & { cover: Uint8Array | null; published_id: string | null }) | undefined;
   if (!d) return false;
+  if (d.published_id && db.prepare('SELECT 1 FROM games WHERE id = ?').get(d.published_id)) return false;
   const meta = JSON.parse(d.meta) as { title: string; tagline: string; blurb: string };
   // what the test drive found, kept with the game (1 Oct): never a gate, a record
   if (test || add) d.meta = JSON.stringify({ ...meta, ...add, ...(test ? { test } : {}) });
   // a Mog joins its parent's family, one generation down
   const parent = d.parent_id ? db.prepare('SELECT id, root_id, generation FROM games WHERE id = ?').get(d.parent_id) as { id: string; root_id: string | null; generation: number } | undefined : undefined;
-  db.prepare(
-    `INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
-     VALUES (?, ?, ?, ?, ?, 'endless', '{}', ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, slug, meta.title, meta.tagline, meta.blurb, d.prompt, Date.now(), d.format === 'world' ? 'world' : 'custom', d.code, d.meta, d.cover,
-    d.art_icon, d.art_wide, parent?.id ?? null, parent ? parent.root_id ?? parent.id : null, parent ? parent.generation + 1 : 0, parent ? d.mog_prompt : null);
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    // (claimed in the same transaction as the insert, so two publishes of one draft can never both insert)
+    const claim = db.prepare('UPDATE drafts SET published_id = ? WHERE id = ? AND (published_id IS NULL OR published_id NOT IN (SELECT id FROM games))').run(id, draftId);
+    if (!Number(claim.changes)) { db.exec('ROLLBACK'); return false; }
+    db.prepare(
+      `INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt, creator, creator_player)
+       VALUES (?, ?, ?, ?, ?, 'endless', '{}', ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, slug, meta.title, meta.tagline, meta.blurb, d.prompt, Date.now(), d.format === 'world' ? 'world' : 'custom', d.code, d.meta, d.cover,
+      d.art_icon, d.art_wide, parent?.id ?? null, parent ? parent.root_id ?? parent.id : null, parent ? parent.generation + 1 : 0, parent ? d.mog_prompt : null,
+      who?.creator ?? null, who?.player ?? null);
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
   return true;
 }
+
+/** The game a draft was published as, if it was (any state: a hidden one is still that draft's game). */
+export const publishedGame = (draftId: string) =>
+  db.prepare('SELECT g.id, g.slug, g.creator FROM drafts d JOIN games g ON g.id = d.published_id WHERE d.id = ?').get(draftId) as
+    { id: string; slug: string; creator: string | null } | undefined;
+
+/**
+ * Name a game whose creator had not named it yet (10 Oct): only by the browser that published it, or, for a game
+ * published before creators were kept, by whoever holds its draft (the caller checks). True when it was named.
+ */
+export function nameCreator(gameId: string, creator: string, player: string | null): boolean {
+  const r = db.prepare('UPDATE games SET creator = ?, creator_player = COALESCE(creator_player, ?) WHERE id = ? AND creator IS NULL AND (creator_player IS NULL OR creator_player = ?)')
+    .run(creator, player, gameId, player ?? '');
+  return Number(r.changes) > 0;
+}
+/** Whether this browser id published this game (never served: the caller only learns yes or no). */
+export const isCreator = (gameId: string, player: string) =>
+  !!db.prepare('SELECT 1 FROM games WHERE id = ? AND creator_player = ?').get(gameId, player);
 
 /* -------------------------------------------------------------------- mog -- */
 /**
@@ -348,6 +441,9 @@ export function publishDraft(draftId: string, slug: string, id: string, test?: R
  */
 export const getGameById = (id: string) =>
   db.prepare(`SELECT ${ROW} FROM games WHERE id = ? AND hidden = 0`).get(id) as GameRow | undefined;
+/** A game anyone can play: listed, or unlisted (hidden, but open to anyone with its link). */
+export const getPlayableGameById = (id: string) =>
+  db.prepare(`SELECT ${ROW} FROM games WHERE id = ? AND (hidden = 0 OR json_extract(meta, '$.unlisted') = 1)`).get(id) as GameRow | undefined;
 export const mogsOf = (id: string) =>
   db.prepare(`SELECT ${ROW} FROM games WHERE parent_id = ? AND hidden = 0 ORDER BY created_at DESC`).all(id) as GameRow[];
 
@@ -397,7 +493,13 @@ export type FamilyMember = GameRow & { elo: number; wins: number; losses: number
 export function family(gameId: string): FamilyMember[] {
   const g = getGameById(gameId);
   if (!g) return [];
-  const root = g.root_id ?? g.id;
+  return familyByRoot(g.root_id ?? g.id);
+}
+/**
+ * A family by its root's id (10 Oct): the same ranking, and it works when the root itself is hidden (an unlisted
+ * original such as Meme Kart: The Original), where its listed Mogs are the family. Hidden games never appear in it.
+ */
+export function familyByRoot(root: string): FamilyMember[] {
   const members = db.prepare(`SELECT ${ROW} FROM games WHERE (id = ? OR root_id = ?) AND hidden = 0 ORDER BY generation, created_at`).all(root, root) as GameRow[];
   const elo = new Map(members.map((m) => [m.id, 1000])), wins = new Map(members.map((m) => [m.id, 0])), losses = new Map(members.map((m) => [m.id, 0]));
   const ids = members.map((m) => m.id);

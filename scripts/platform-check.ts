@@ -65,7 +65,8 @@ try {
 
   console.log('\nMog: the pages');
   const pm = await page(`/g/${mog.slug}`), po = await page(`/g/${original.slug}`), pc = await page(`/mog/${original.slug}`), p2 = await page(`/g/${mog2.slug}`);
-  ok('a Mog\'s page credits the game it mogged', pm.html.includes('Mogged from') && pm.html.includes(original.title));
+  ok('a Mog\'s page credits the game it mogged', pm.html.includes('Remixed from') && pm.html.includes(original.title));
+  ok('a Mog\'s page links its family page', pm.html.includes(`href="/g/${mog.slug}/family"`));
   ok('a Mog of a Mog also credits the original', p2.html.includes('Original:') && p2.html.includes(original.title));
   ok('a Mog\'s page has a Mog-off against its parent', pm.html.includes('aria-label="Mog-off"'));
   ok('the original\'s page lists its challengers', po.html.includes('Challenged by 1 Mog') && po.html.includes('Mogs (1)'));
@@ -111,9 +112,12 @@ try {
   const playsOf = (id: string) => (db.prepare('SELECT plays FROM games WHERE id = ?').get(id) as { plays: number }).plays;
   const before = playsOf(original.id);
   await fetch(`${BASE}/g/${original.slug}/play?preview=1`);
-  ok('a preview of a world (the /me start line, films, key art) is not a play', playsOf(original.id) === before);
   await fetch(`${BASE}/g/${original.slug}/play`);
-  ok('opening the game to play it is', playsOf(original.id) === before + 1);
+  ok('loading the game\'s document is not a play (it may come from memory, a browser cache or an edge; a preview sends no beacon)', playsOf(original.id) === before);
+  const pv = `platformcheck${randomUUID().replace(/-/g, '')}`;
+  await fetch(`${BASE}/api/hit`, { method: 'POST', headers: { 'content-type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15' }, body: JSON.stringify({ v: pv, k: 'view', p: `/g/${original.slug}` }) });
+  ok('opening the game\'s page to play it is (its view beacon)', playsOf(original.id) === before + 1);
+  db.prepare('DELETE FROM events WHERE visitor = ?').run(pv);
   const me = await page('/me');
   ok('the character page opens on the line', me.status === 200 && me.html.includes('You are the main character'));
   const selfie = (body: unknown) => post('/api/me/selfie', body);

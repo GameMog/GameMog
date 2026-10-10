@@ -115,6 +115,8 @@ const PATHS: Record<string, React.ReactNode> = {
   remix: <path d="M15.6 5.2A7.2 7.2 0 003 8.1l2 .6a5.1 5.1 0 019-2L12 8.8h6.2V2.6zM4.4 14.8A7.2 7.2 0 0017 11.9l-2-.6a5.1 5.1 0 01-9 2L8 11.2H1.8v6.2z" />,
   library: <path d="M3 3.2h3.2v13.6H3zM7.6 3.2h3.2v13.6H7.6zM12.3 4.1l3-.8 3.5 13.1-3 .8z" />,
   plus: <path d="M9 3.5h2v5.5h5.5v2H11v5.5H9V11H3.5V9H9z" />,
+  // a paper plane: the game page's Dare (send a dare)
+  share: <path d="M17.6 2.2a.9.9 0 011.2 1.2l-5.3 13.9a.9.9 0 01-1.6.2l-2.7-4.5 4.2-5.6-5.6 4.2-4.5-2.7a.9.9 0 01.2-1.6z" />,
 };
 
 export function Icon({ name, size = 14 }: { name: keyof typeof PATHS | string; size?: number }) {

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { playSrc } from '@/lib/play-page';
 import { SiteHeader, SiteFooter } from '../../header';
 import { Tile } from '../../tile';
 import { Cover } from '../../cover';
@@ -94,13 +95,13 @@ export default async function GamePage({ params, searchParams }: { params: Promi
         </nav>
         <div className="gtop">
           <div className="gstage">
-            <PlayFrame slug={game.slug} gameId={game.id} poster={<Cover spec={spec} seed={900} wide />} />
+            <PlayFrame slug={game.slug} gameId={game.id} src={playSrc(game)} poster={<Cover spec={spec} seed={900} wide />} />
           </div>
           <div className="gbar">
             <div className="gtitle">
               <span className="tag solid classic-label">Classic</span>
               <h1>{game.title}</h1>
-              <p className="by">By <b>{game.featured ? 'GameMog' : 'a GameMog creator'}</b> <span className="maturity">· Difficulty: {difficulty}</span></p>
+              <p className="by">{game.creator ? <>Created by <b>{game.creator}</b></> : <>By <b>{game.featured ? 'GameMog' : 'a GameMog creator'}</b></>} <span className="maturity">· Difficulty: {difficulty}</span></p>
               <Lineage game={game} />
             </div>
             <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />

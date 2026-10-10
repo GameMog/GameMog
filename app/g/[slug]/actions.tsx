@@ -1,9 +1,14 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Icon } from '../../header';
 import { playerId } from '../../anon';
-import { track } from '../../beacon';
+import { startPlay } from './play-frame';
+
+// "Dare someone" (./share-dare.tsx, glass): loaded the first time it is opened
+const ShareDare = dynamic(() => import('./share-dare').then((m) => m.ShareDare), { ssr: false });
+type Sheet = { parent: string | null; run: Record<string, unknown> | null; n: number };
 
 /**
  * The play button and the row under it, laid out the way Roblox lays out its
@@ -33,25 +38,26 @@ export function GameActions({ gameId, slug, title, initial }: {
   const [counts, setCounts] = useState(initial);
   const [mine, setMine] = useState<-1 | 0 | 1>(0);
   const [fav, setFav] = useState(false);
+  const [sheet, setSheet] = useState<Sheet | null>(null);
 
   useEffect(() => {
     setMine(read<Record<string, -1 | 1>>('gamemog:votes', {})[gameId] ?? 0);
     setFav(read<string[]>('gamemog:favorites', []).includes(gameId));
   }, [gameId]);
 
+  // the results overlay's "Send it back" (./play-frame.tsx) opens the same sheet, answering its dare
+  useEffect(() => {
+    const open = (e: Event) => {
+      const d = (e as CustomEvent<Partial<Sheet>>).detail ?? {};
+      setSheet({ parent: typeof d.parent === 'string' ? d.parent : null, run: d.run ?? null, n: Date.now() });
+    };
+    addEventListener('gamemog:dare', open);
+    return () => removeEventListener('gamemog:dare', open);
+  }, []);
+
   /* Play takes the embedded game full screen and asks it for its start
-     screen: until then the world only races itself, with nothing over it.
-     The frame stays in this page, so the finished race can still post its
-     result to the leaderboard. */
-  function play() {
-    const box = document.getElementById('play');
-    const frame = box?.querySelector('iframe');
-    frame?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'play' }, '*');
-    track('play');
-    if (box?.requestFullscreen) box.requestFullscreen().catch(() => box.scrollIntoView({ block: 'center' }));
-    else box?.scrollIntoView({ block: 'center' });
-    frame?.focus();
-  }
+     screen (./play-frame.tsx startPlay). */
+  const play = startPlay;
 
   async function vote(v: -1 | 1) {
     const next = mine === v ? 0 : v;
@@ -100,6 +106,9 @@ export function GameActions({ gameId, slug, title, initial }: {
         <Link className="act" href={`/mog/${slug}`}>
           <Icon name="remix" size={24} /><span>Mog</span>
         </Link>
+        <button className="act" onClick={() => setSheet({ parent: null, run: null, n: Date.now() })} aria-haspopup="dialog">
+          <Icon name="share" size={24} /><span>Dare</span>
+        </button>
         <div className="votes">
           <button className="act" onClick={() => vote(1)} aria-pressed={mine === 1} aria-label="Like">
             <Icon name="thumbUp" size={24} /><span>{short(counts.up)}</span>
@@ -112,6 +121,7 @@ export function GameActions({ gameId, slug, title, initial }: {
           </button>
         </div>
       </div>
+      {sheet && <ShareDare key={sheet.n} gameId={gameId} slug={slug} title={title} parent={sheet.parent} run={sheet.run} onClose={() => setSheet(null)} />}
     </div>
   );
 }

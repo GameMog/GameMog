@@ -8,16 +8,19 @@ import { MogOff } from './mog-off';
  */
 export function Lineage({ game }: { game: GameRow }) {
   const parent = game.parent_id ? getGameById(game.parent_id) : null;
+  // (the original is always credited, docs/RULES.md: a Mog of a Mog names it too)
   const root = game.root_id && game.root_id !== game.parent_id ? getGameById(game.root_id) : null;
   const fam = family(game.id), mogs = mogsOf(game.id).length;
   const leads = fam.length > 1 && fam[0].id === game.id && fam[0].wins > 0;
   if (!parent && !mogs) return null;
+  // (the dare loop, 10 Oct: "Remixed from X", the words of the dare card and landing, and the whole family one tap away)
   return (
     <p className="by">
-      {parent ? <>Mogged from <Link href={`/g/${parent.slug}`}><b>{parent.title}</b></Link>, generation {game.generation}</> : null}
+      {parent ? <>Remixed from <Link href={`/g/${parent.slug}`}><b>{parent.title}</b></Link></> : null}
       {root ? <>. Original: <Link href={`/g/${root.slug}`}><b>{root.title}</b></Link></> : null}
       {!parent && mogs ? <>Challenged by {mogs} Mog{mogs === 1 ? '' : 's'}</> : null}
       {leads ? <>. <b>Leads its family</b></> : null}
+      {fam.length > 1 ? <> · <Link href={`/g/${game.slug}/family`}>See the family</Link></> : null}
     </p>
   );
 }
@@ -63,7 +66,10 @@ export function MogsPanel({ game }: { game: GameRow }) {
 
       {fam.length > 1 && (
         <>
-          <h2 style={{ marginBottom: 8 }}>The family, ranked</h2>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
+            <h2>The family, ranked</h2>
+            <Link href={`/g/${game.slug}/family`}>See the whole family</Link>
+          </div>
           <table className="bd">
             <thead><tr><th /><th>Game</th><th>Generation</th><th>Rating</th><th>Mog-offs</th><th>Players</th></tr></thead>
             <tbody>

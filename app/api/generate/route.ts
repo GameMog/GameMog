@@ -3,7 +3,7 @@ import { generateWorld, offlineWorld, readCatalogue, MODEL } from '@/lib/generat
 import { generateGame, GAME_MODEL, type GameEvent } from '@/lib/generate-game';
 import { playtest } from '@/lib/playtest';
 import { logGeneration, recentSpecs, getGameBySlug, startBuild, setBuildUsage, endBuild } from '@/lib/db';
-import { takeSlot, priceBuild, BUSY, type PassUsage } from '@/lib/build-limits';
+import { admit, takeSlot, resting, priceBuild, BUSY, RESTING, type Lease, type PassUsage } from '@/lib/build-limits';
 
 import { ImageSchema, type Character, type CharacterImage } from '@/lib/character';
 import { readOptions } from '@/lib/world-options';
@@ -64,28 +64,54 @@ export async function POST(req: Request) {
   // one event per line, because a game takes minutes and the creator should
   // see it being written, checked and played rather than a spinner.
   //
-  // The owner's safety limits (9 Oct, lib/build-limits.ts): a build takes one of the site's slots for as long as its
-  // stream runs, test drive included, or is told at once that GameMog is busy, before any model is called, so nothing
-  // is spent; it stops when the creator leaves; and it is logged from its start, with what each pass really cost.
+  // The owner's safety limits (9 and 10 Oct, lib/build-limits.ts): no build starts once the day's spend is at its
+  // ceiling; a build takes one of the site's slots for as long as its stream runs, test drive included, or waits in
+  // line for one, told its place as it moves, or (the line full) is told at once that GameMog is busy; nothing is spent
+  // before its slot; it stops when the creator leaves, in line or building; and it is logged from its start, with what
+  // each pass really cost.
   if (body.kind !== 'race' && hasKey) {
-    const slot = takeSlot();
-    if (!slot) return NextResponse.json({ error: BUSY, busy: true }, { status: 503, headers: { 'retry-after': '60' } });
+    let moved = () => {};
+    const door = admit(() => moved());
+    if (door.kind === 'resting') return NextResponse.json({ error: RESTING, resting: true }, { status: 503 });
+    if (door.kind === 'busy') return NextResponse.json({ error: BUSY, busy: true }, { status: 503, headers: { 'retry-after': '60' } });
     const origin = new URL(req.url).origin;
-    const started = Date.now();
     const enc = new TextEncoder();
     // the creator has left: Next aborts the request's signal when its connection closes, and the stream is cancelled;
-    // either stops the build (lib/generate-game.ts BuildHooks). A tab in the background is still connected: it builds on
+    // either takes them out of the line, or stops the build (lib/generate-game.ts BuildHooks). A tab in the background
+    // is still connected: it waits, and builds, on
     const stop = new AbortController();
     const leave = () => stop.abort();
+    if (door.kind === 'queued') stop.signal.addEventListener('abort', door.ticket.leave, { once: true });
     if (req.signal.aborted) leave(); else req.signal.addEventListener('abort', leave, { once: true });
     const model = GAME_MODEL + (image ? '+vision' : '') + (parent ? '+mog' : '');
+    type Line = { type: 'tick' } | { type: 'queued'; position: number; etaMin: number } | { type: 'admitted' } | { type: 'error'; error: string; resting: true };
     const stream = new ReadableStream({
       async start(controller) {
         let closed = false;
-        const send = (e: GameEvent | { type: 'tick' }) => {
+        const send = (e: GameEvent | Line) => {
           // (a stream that takes no more was cancelled: nobody is reading it)
           if (!closed) try { controller.enqueue(enc.encode(JSON.stringify(e) + '\n')); } catch { closed = true; leave(); }
         };
+        const end = () => { closed = true; req.signal.removeEventListener('abort', leave); try { controller.close(); } catch { /* cancelled: nobody is reading */ } };
+        // in line: where, and the wait, now, on every move and every few seconds (which keeps the connection alive),
+        // until a slot is free; a creator who left, or a line let go at the day's ceiling, ends here, nothing spent
+        let slot: Lease;
+        if (door.kind === 'queued') {
+          const t = door.ticket;
+          moved = () => { const position = t.position(); if (position) send({ type: 'queued', position, etaMin: t.etaMin() }); };
+          moved();
+          const turn = await t.turn;
+          moved = () => {};
+          stop.signal.removeEventListener('abort', t.leave);
+          if ('refused' in turn) {
+            if (turn.refused === 'resting') send({ type: 'error', error: RESTING, resting: true });
+            return end();
+          }
+          slot = turn.lease;
+          if (stop.signal.aborted) { slot.release(); return end(); }
+          send({ type: 'admitted' });
+        } else slot = door.lease;
+        const started = Date.now();
         // the model can think for minutes before its first word; keep the
         // connection visibly alive
         const beat = setInterval(() => send({ type: 'tick' }), 10_000);
@@ -119,7 +145,7 @@ export async function POST(req: Request) {
           if (!stop.signal.aborted) send({ type: 'error', error: thrown });
         } finally {
           clearInterval(beat);
-          // the slot is the next build's however this one ended
+          // the slot is the next build's (the line's first) however this one ended
           slot.release();
           req.signal.removeEventListener('abort', leave);
           // how it ended came first: a world or an error, even to a creator who left as it came; else abandoned if they left
@@ -161,8 +187,9 @@ export async function POST(req: Request) {
   }
 
   // The race brief: no page sends it since every world became a written one (app/create/page.tsx), but a request
-  // still can, and its calls are the owner's key's too, so it takes one of the same slots or is told GameMog is busy
-  // (lib/build-limits.ts 2), and gives it back however it ends
+  // still can, and its calls are the owner's key's too, so it is held to the day's ceiling, and takes one of the same
+  // slots or is told GameMog is busy (it does not wait in line; lib/build-limits.ts), and gives it back however it ends
+  if (resting()) return NextResponse.json({ error: RESTING, resting: true }, { status: 503 });
   const slot = takeSlot();
   if (!slot) return NextResponse.json({ error: BUSY, busy: true }, { status: 503, headers: { 'retry-after': '60' } });
   let out: Awaited<ReturnType<typeof generateWorld>>;

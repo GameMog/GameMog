@@ -355,6 +355,8 @@ button.tag:hover{border-color:var(--ink)}
 .votes{display:flex;align-items:flex-start;gap:8px;margin-left:auto}
 .votebar{width:58px;height:4px;margin-top:10px;border-radius:2px;overflow:hidden;background:var(--line)}
 .votebar i{display:block;height:100%;background:var(--ink)}
+/* (10 Oct: the Dare action is a fourth in the row; under 420px it tightens and drops the ratio bar so no phone scrolls sideways) */
+@media (max-width:420px){.arow{gap:8px}.votes{gap:6px}.votebar{display:none}}
 .gstats{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));margin-top:22px;padding:16px 0;
   background:var(--surface);border-radius:var(--r);box-shadow:var(--elev)}
 .gstats div{text-align:center;padding:0 6px;min-width:0;border-left:1px solid var(--line-2)}

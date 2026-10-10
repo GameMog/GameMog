@@ -8,6 +8,7 @@ import type { Metadata } from 'next';
 import { MogComposer } from './composer';
 import { optionsOf } from '@/lib/world-options';
 import { clip, pageMeta } from '../../seo';
+import { getDare } from '@/lib/dare';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,10 +27,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
  * line how to beat it; GameMog gets the original whole and writes the
  * variation; it is raced before it can publish; the original stays credited.
  */
-export default async function MogPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function MogPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ dare?: string | string[] }> }) {
   const { slug } = await params;
   const game = getGameBySlug(slug);
   if (!game) notFound();
+  // a dare's "Mog it back" (/mog/<slug>?dare=<id>): kept only when it is a live dare on this very game
+  const asked = (await searchParams).dare;
+  const dare = typeof asked === 'string' && getDare(asked)?.game_id === game.id ? asked : null;
   const root = game.root_id ? getGameById(game.root_id) : null;
   const mogs = mogsOf(game.id).length;
   return (
@@ -60,7 +64,7 @@ export default async function MogPage({ params }: { params: Promise<{ slug: stri
             </p>
           </div>
         </div>
-        <MogComposer slug={game.slug} title={game.title} inherited={optionsOf(game)} />
+        <MogComposer slug={game.slug} title={game.title} inherited={optionsOf(game)} dare={dare} />
       </main>
       <SiteFooter />
     </>

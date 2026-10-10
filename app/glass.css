@@ -1,0 +1,261 @@
+/*
+ * Glass: the game's own HUD language (lib/runtime/v1.js GLASS), for the dare surfaces ONLY (the owner, 10 Oct: "A"):
+ * the dare landing, the send-the-dare panel, the results overlay and the family page. The rest of the site keeps the
+ * premium flat rules; scripts/design-check.ts exempts this file and the few files that load it, nothing else.
+ *
+ * Every class is prefixed gl- so nothing here can touch the flat site (globals.css has its own .pill, .cap, .chip).
+ * Put .gl on a surface's root for the face, the ink and the colours; the parts work under it.
+ *
+ *   .gl-glass            the pane: white sheen over smoked glass, blurred, 1px light rim, lit top edge
+ *     + .gl-deep         darker and blurrier, for the main card
+ *     + .gl-light        lighter, for a quote inside a card
+ *     + .gl-lit          a short gold bar on the top edge (the card that matters)
+ *   .gl-cap              Oxanium caps label, tracked
+ *   .gl-ttl              display-face title
+ *   .gl-shout / .gl-prize    the big Oxanium headline; .gl-prize makes it gold
+ *   .gl-ox               Oxanium figures (scores)
+ *   .gl-coin             the GM coin
+ *   .gl-pill + .gl-gold  the one primary action (gold); + .gl-clear a glass secondary; + .gl-acc gold-rimmed glass
+ *   .gl-field            a glass input or textarea
+ *   .gl-chip             a small glass pill (labels, the logo); + .gl-discord the community pill (app/discord-pill.tsx)
+ *   .gl-art / .gl-blurart    a full-bleed cover; the blurred one is a backdrop
+ *   .gl-fill             a frame that fills the screen while the document is full screen (the dare's PLAY);
+ *     + .gl-pseudo       the same without full screen (an iPhone)
+ *
+ * Then each surface's own layout, under its own prefix: dl- the dare landing (app/g/[slug]/dare/[id]/page.tsx), fp- the
+ * family page (app/g/[slug]/family/page.tsx), dv- the results overlay and dare sheet (app/g/[slug]/dare-overlay.tsx,
+ * share-dare.tsx), sd- the send-the-dare panel (app/create/generation.tsx).
+ *
+ * The face is Oxanium, loaded only on these pages (app/discord-pill.tsx GlassFont).
+ */
+.gl{--gl-gold:#F6C33B;--gl-acc:#FFB020;--gl-accg:rgba(255,176,32,.85);--gl-ink:#F4F6FA;--gl-dim:rgba(244,246,250,.72);--gl-warm:#FFD27A;
+  font-family:var(--ui);color:var(--gl-ink);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+.gl a{color:inherit}
+.gl-ox{font-family:Oxanium,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+
+.gl-glass{position:relative;background:linear-gradient(150deg,rgba(255,255,255,.15),rgba(255,255,255,.03) 62%) rgba(10,12,18,.34);
+  -webkit-backdrop-filter:blur(16px) saturate(170%);backdrop-filter:blur(16px) saturate(170%);
+  border:1px solid rgba(255,255,255,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 12px 32px rgba(0,0,0,.22)}
+.gl-glass.gl-deep{background-color:rgba(12,14,22,.48);-webkit-backdrop-filter:blur(24px) saturate(170%);backdrop-filter:blur(24px) saturate(170%)}
+.gl-glass.gl-light{background:linear-gradient(150deg,rgba(255,255,255,.22),rgba(255,255,255,.06) 62%) rgba(255,255,255,.06)}
+.gl-lit::before{content:"";position:absolute;left:24px;top:-1px;width:30px;height:2px;border-radius:2px;background:var(--gl-acc,#FFB020);box-shadow:0 0 12px var(--gl-accg,rgba(255,176,32,.85))}
+/* (no blur in this browser, or the viewer asked for less see-through: the same panes, solid enough to read on) */
+@supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+  .gl-glass{background-color:rgba(12,14,22,.82)}
+  .gl-glass.gl-deep{background-color:rgba(12,14,22,.9)}
+}
+@media (prefers-reduced-transparency:reduce){
+  .gl-glass,.gl-glass.gl-deep,.gl-glass.gl-light{background:rgba(14,16,24,.94);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
+
+.gl-cap{font:500 11px/1.2 Oxanium,system-ui,sans-serif;letter-spacing:.28em;text-transform:uppercase;color:var(--gl-dim,rgba(244,246,250,.72))}
+.gl-ttl{font-family:var(--display);font-weight:800;letter-spacing:-.02em;color:#fff;margin:0}
+.gl-shout{font:600 44px/.98 Oxanium,system-ui,sans-serif;letter-spacing:.01em;text-transform:uppercase;color:#fff;margin:0;
+  text-shadow:0 0 30px rgba(255,176,32,.35),0 2px 18px rgba(0,0,0,.45)}
+.gl-prize{background:linear-gradient(180deg,#FFF6D0,#F6C33B 55%,#C98A18);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;
+  filter:drop-shadow(0 0 22px rgba(246,195,59,.5)) drop-shadow(0 2px 10px rgba(0,0,0,.4))}
+
+.gl-coin{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:700 11px Oxanium,system-ui,sans-serif;color:#5E3B00;
+  background:radial-gradient(circle at 36% 32%,#FFF4C2,#F6C33B 52%,#B97A12);border:1px solid rgba(255,226,150,.9);box-shadow:0 0 16px rgba(246,195,59,.5)}
+
+.gl-pill{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:54px;padding:0 22px;border-radius:999px;
+  font:600 14px/1 Oxanium,system-ui,sans-serif;letter-spacing:.24em;text-transform:uppercase;white-space:nowrap;text-decoration:none;cursor:pointer;
+  -webkit-appearance:none;appearance:none;margin:0;color:#fff;background:none;border:1px solid rgba(255,255,255,.32)}
+.gl-pill.gl-gold{color:#2A1A00;background:linear-gradient(180deg,#FFE9A8,#F6C33B 55%,#E0A223);border:1px solid rgba(255,238,180,.95);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 0 28px rgba(246,195,59,.45),0 10px 26px rgba(0,0,0,.3)}
+.gl-pill.gl-gold:hover{filter:brightness(1.05)}
+.gl-pill.gl-clear{border-color:rgba(255,255,255,.32)}
+.gl-pill.gl-clear:hover{border-color:rgba(255,255,255,.6)}
+.gl-pill.gl-acc{color:#fff;background:rgba(255,176,32,.16);border:1px solid rgba(255,176,32,.85);box-shadow:0 0 22px rgba(255,176,32,.3),inset 0 1px 0 rgba(255,255,255,.2)}
+.gl-pill:focus-visible,.gl-chip:focus-visible,.gl-field:focus-visible{outline:2px solid var(--gl-warm,#FFD27A);outline-offset:3px}
+.gl-pill:disabled{opacity:.55;cursor:default}
+
+/* (the class three times over: globals.css styles textarea and input[type=text], focus included, at up to 0,2,1) */
+.gl-field.gl-field.gl-field{display:block;width:100%;height:auto;box-sizing:border-box;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08);padding:13px 14px;font:500 16px/1.4 var(--ui);color:#fff;margin:0}
+.gl-field.gl-field.gl-field:focus{border-color:rgba(255,210,122,.8)}
+.gl-field::placeholder{color:rgba(244,246,250,.45)}
+
+.gl-chip{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;text-decoration:none;
+  font:500 12px/1 Oxanium,system-ui,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#fff}
+.gl-discord{height:40px;padding:0 16px 0 13px;gap:10px;font-size:11px;letter-spacing:.2em;color:rgba(244,246,250,.86)}
+.gl-discord:hover{border-color:rgba(255,255,255,.42);color:#fff}
+.gl-discord svg{flex:none;display:block}
+.gl-wm{font:800 19px/1 var(--display);letter-spacing:-.03em;color:#fff;text-transform:none}
+
+.gl-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.gl-blurart{position:absolute;inset:-60px;width:calc(100% + 120px);height:calc(100% + 120px);object-fit:cover;filter:blur(34px) saturate(1.3) brightness(.55)}
+
+/* The dare's PLAY makes the whole document full screen and moves to the game page (one tap, one document): there the
+   frame takes the screen. Only while the document itself is full screen; the game page's own Play still takes the
+   frame full screen, where html is not the full-screen element and this never applies. */
+html:fullscreen .gl-fill{position:fixed;inset:0;z-index:2147483000;width:100%;height:100%;max-width:none;margin:0;border-radius:0;background:#000}
+html:-webkit-full-screen .gl-fill{position:fixed;inset:0;z-index:2147483000;width:100%;height:100%;max-width:none;margin:0;border-radius:0;background:#000}
+/* (an iPhone has no element full screen: the game page may add .gl-pseudo to the same frame to take the screen this
+   way instead, with its own way out) */
+.gl-fill.gl-pseudo{position:fixed;inset:0;z-index:2147483000;width:100%;height:100%;height:100dvh;max-width:none;margin:0;border-radius:0;background:#000}
+
+/* ------------------------------------------------------------------------------------------------ the dare landing */
+.dl{position:relative;min-height:100vh;min-height:100svh;background:#07080C;overflow:hidden;isolation:isolate}
+.dl-bg{position:fixed;inset:0;z-index:-1;background:#07080C}
+/* (a phone shows the cover's top two thirds, less cropped, fading into the card; a wide screen shows all of it) */
+.dl-bg .gl-art{height:68%;object-position:50% 40%}
+.dl-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,8,12,.05) 0%,rgba(7,8,12,.1) 34%,rgba(7,8,12,.86) 62%,#07080C 70%)}
+.dl-top{position:absolute;left:14px;right:14px;top:14px;display:flex;justify-content:space-between;align-items:center;z-index:1}
+.dl-col{display:flex;flex-direction:column;justify-content:flex-end;min-height:100vh;min-height:100svh;box-sizing:border-box;padding:84px 14px 18px;gap:14px;max-width:520px;margin:0 auto}
+.dl-card{border-radius:26px;padding:22px 18px 18px;display:flex;flex-direction:column}
+/* (sized to the card on narrow phones, so "I MOGGED THIS." stays one line down to 320px) */
+.dl-card .gl-shout{font-size:min(42px,calc((100vw - 64px) * .128))}
+.dl-card .gl-shout+.gl-shout{font-size:min(46px,calc((100vw - 64px) * .14));margin-top:2px}
+.dl-from{color:var(--gl-warm)}
+.dl-title{font-size:21px;line-height:1.2;margin-top:16px}
+.dl-credit{margin:5px 0 0;font:500 13.5px/1.4 var(--ui);color:rgba(244,246,250,.78)}
+.dl-credit b{color:#fff;font-weight:700}
+.dl-credit a{color:#fff;font-weight:700;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.5)}
+.dl-quote{margin:14px 0 0;border-radius:18px;padding:12px 15px;font:500 15px/1.45 var(--ui);color:rgba(255,255,255,.94);overflow-wrap:anywhere}
+.dl-quote q{quotes:none}
+.dl-quote i{color:var(--gl-warm);font:700 24px/0 Oxanium,system-ui,sans-serif;font-style:normal;vertical-align:-7px;margin-right:4px}
+.dl-score{margin-top:10px;border-radius:20px;padding:13px 16px;display:flex;align-items:center;gap:14px}
+.dl-score .gl-ox{font-size:31px;line-height:1.05;color:#fff;letter-spacing:.02em;margin-top:4px;font-weight:400}
+.dl-sub{text-align:right;font:500 12px/1.7 Oxanium,system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(244,246,250,.72)}
+.dl-acts{display:grid;gap:10px;margin-top:16px}
+.dl-acts .gl-gold{height:60px;font-size:16px}
+.dl-acts .gl-clear{height:50px}
+.dl-under{display:flex;justify-content:center}
+/* (a 320px phone: the score to beat alone, so its label holds one line; the place and time are extra) */
+@media (max-width:359px){.dl-sub{display:none}}
+@media (min-width:900px){
+  .dl-bg::after{background:linear-gradient(90deg,rgba(6,8,14,.08) 0%,rgba(6,8,14,.2) 45%,rgba(6,8,14,.74) 100%)}
+  .dl-bg .gl-art{height:100%;object-position:50% 50%}
+  .dl-top{left:32px;right:32px;top:24px}
+  .dl-col{max-width:none;margin:0;align-items:flex-end;justify-content:center;padding:96px 48px 32px}
+  .dl-card,.dl-under{width:460px}
+  .dl-card{padding:30px 30px 28px;border-radius:28px}
+  .dl-card .gl-shout{font-size:50px}
+  .dl-card .gl-shout+.gl-shout{font-size:56px}
+  .dl-title{font-size:24px;margin-top:18px}
+  .dl-credit{font-size:14px}
+}
+
+/* ------------------------------------------------------------------------------------------------ the family page */
+.fp{position:relative;min-height:100vh;min-height:100svh;background:#0A0C12;overflow:hidden;isolation:isolate}
+.fp-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:#0A0C12}
+.fp-bar{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-width:0 0 1px;border-radius:0}
+.fp-main{max-width:1080px;margin:0 auto;padding:26px 14px 40px}
+.fp-h{font-size:30px;line-height:1.12;margin-top:10px}
+.fp-stats{margin:10px 0 0;font:500 14px/1.4 var(--ui);color:rgba(244,246,250,.78)}
+.fp-list{list-style:none;margin:22px 0 0;padding:0;display:grid;gap:10px}
+.fp-row{border-radius:20px;padding:10px;display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:12px;align-items:center}
+.fp-row.fp-here{border-color:rgba(255,176,32,.9);box-shadow:0 0 0 1px rgba(255,176,32,.5),0 0 30px rgba(255,176,32,.25),inset 0 1px 0 rgba(255,255,255,.24)}
+.fp-row img{width:96px;height:54px;object-fit:cover;border-radius:12px;border:1px solid rgba(255,255,255,.18);display:block;background:#11131A}
+.fp-name{font-size:17px;line-height:1.25;overflow-wrap:anywhere}
+.fp-name a{text-decoration:none}
+.fp-meta{margin:6px 0 0;font:500 13px/1.45 var(--ui);color:rgba(244,246,250,.78)}
+.fp-meta b{color:#fff;font-weight:700}
+.fp-here-tag{display:block;margin-top:4px;color:var(--gl-warm);font-size:10px}
+.fp-acts{display:flex;gap:8px}
+.fp-acts .gl-pill{height:44px;font-size:12px;padding:0 12px}
+.fp-acts .gl-clear,.fp-mo{display:none}
+.fp-acts .gl-gold{width:44px;padding:0}
+.fp-acts .gl-gold span{display:none}
+.fp-acts .gl-gold svg{margin-left:2px}
+.fp-row[data-depth="1"]{margin-left:16px}
+.fp-row[data-depth="2"]{margin-left:32px}
+.fp-row[data-depth="3"]{margin-left:48px}
+@media (min-width:760px){
+  .fp-bar{height:68px;padding:0 32px}
+  .fp-main{padding:34px 32px 56px}
+  .fp-h{font-size:40px}
+  .fp-row{grid-template-columns:150px 1fr auto;gap:18px}
+  .fp-row img{width:150px;height:84px;border-radius:14px}
+  .fp-name{font-size:19px}
+  .fp-acts{display:grid;grid-template-columns:110px 110px;padding-right:6px}
+  .fp-acts .gl-clear{display:flex}
+  .fp-mo{display:inline}
+  .fp-acts .gl-gold{width:100%;padding:0 12px}
+  .fp-acts .gl-gold span{display:inline}
+  .fp-acts .gl-gold svg{margin-left:0}
+  .fp-row[data-depth="1"]{margin-left:60px}
+  .fp-row[data-depth="2"]{margin-left:120px}
+  .fp-row[data-depth="3"]{margin-left:180px}
+}
+
+/* ------------------------------------------------- the results overlay and the "Dare someone" sheet (results-share) */
+.dv-over{position:absolute;inset:0;z-index:4;display:grid;place-items:center;padding:16px;overflow:auto;background:radial-gradient(ellipse at center,rgba(6,8,14,.2),rgba(6,8,14,.62))}
+/* (the card, then the community pill under it, as on every dare surface: the card keeps only its three actions) */
+.dv-stack{display:flex;flex-direction:column;align-items:center;gap:12px;width:min(600px,100%);max-height:100%}
+.dv-card{border-radius:26px;padding:28px 32px 18px;text-align:center;width:min(600px,100%);box-sizing:border-box;container-type:inline-size}
+.dv-stack .dv-card{width:100%}
+.dv-over .dv-card{max-height:100%;overflow:auto}
+.dv-card[tabindex="-1"]:focus{outline:none}
+.dv-sheet{margin-top:10px}
+.dv-sheet .dv-card{width:100%;padding:22px 18px 12px;background-color:rgba(12,14,22,.94)}
+.dv-shout{margin-top:12px;font-size:min(50px,13cqi)}
+.dv-win{font-size:min(80px,22cqi);color:#FFD45E;text-shadow:0 0 28px rgba(246,195,59,.6),0 2px 16px rgba(0,0,0,.45)}
+.dv-sub{margin:8px 0 0;font:500 15px/1.4 var(--ui);color:rgba(244,246,250,.8)}
+.dv-bars{display:grid;gap:12px;margin-top:22px;text-align:left}
+.dv-bar{display:grid;grid-template-columns:minmax(0,96px) 1fr auto;align-items:center;gap:14px}
+@container (min-width:480px){.dv-bar{grid-template-columns:minmax(0,136px) 1fr auto}}
+.dv-bar .gl-cap{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dv-track{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+.dv-track i{display:block;height:100%;background:#fff;box-shadow:0 0 10px rgba(255,255,255,.5)}
+.dv-val{font-size:26px;line-height:1;color:#fff;text-align:right;min-width:64px}
+.dv-hi .gl-cap,.dv-hi .dv-val{color:var(--gl-warm,#FFD27A)}
+.dv-hi .dv-track i{background:var(--gl-gold,#F6C33B);box-shadow:0 0 12px rgba(246,195,59,.9)}
+.dv-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px}
+.dv-quiet{display:inline-block;margin-top:14px;padding:6px 8px;background:none;border:0;cursor:pointer;text-decoration:none;font-size:10px}
+.dv-quiet:hover{color:#fff}
+.dv-foot{display:flex;justify-content:center}
+/* (under the frame on the flat page there is no art to frost: the pill is as solid as the sheet's card) */
+.dv-sheet .gl-discord{background-color:rgba(12,14,22,.94)}
+.dv-compact .dv-foot{display:none}
+.dv-start{position:absolute;inset:0;z-index:4;display:grid;place-content:center;justify-items:center;gap:12px;padding:12px;background:radial-gradient(ellipse at center,rgba(6,8,14,.12),rgba(6,8,14,.6))}
+.dv-start .gl-pill{width:auto;min-width:200px;height:58px;font-size:16px}
+.dv-start .gl-chip{display:block;height:auto;max-width:100%;box-sizing:border-box;padding:10px 18px;line-height:1.6;text-align:center}
+.dv-nb{white-space:nowrap}
+/* (a phone: who dared you, then what to beat on a line of its own, never a dot left at a line's end) */
+@media (max-width:600px){.dv-start .dv-sep{display:none}.dv-start .dv-nb{display:block}}
+.dv-compact .dv-card{padding:16px 20px 8px}
+.dv-compact .dv-shout{font-size:min(34px,11cqi);margin-top:8px}
+.dv-compact .dv-win{font-size:min(50px,18cqi)}
+.dv-compact .dv-bars{margin-top:12px;gap:8px}
+.dv-compact .dv-val{font-size:20px}
+.dv-compact .dv-btns{margin-top:14px}
+.dv-compact .gl-pill{height:44px;font-size:13px}
+.dv-compact .dv-quiet{margin-top:6px}
+.dv-sheet .dv-shout{font-size:38px}
+.dv-sheet .dv-win{font-size:58px}
+.dv-sheet .dv-val{font-size:22px}
+.dv-sheet .dv-btns{grid-template-columns:1fr}
+.dv-sheet .gl-pill{height:50px}
+.dv-modal{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:14px;overflow:auto;background:rgba(6,8,14,.68);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.dv-modal.dv-in{position:absolute;z-index:6}
+.dv-modal .dv-card{width:min(420px,100%);padding:22px 20px 18px;text-align:left}
+.dv-modal .dv-under{display:flex;justify-content:center;margin-top:12px}
+.dv-x{position:absolute;right:10px;top:10px;padding:10px;background:none;border:0;cursor:pointer;font-size:10px}
+.dv-ttl{font-size:27px;line-height:31px;padding-right:56px}
+.dv-preview{display:block;width:100%;aspect-ratio:1200/630;object-fit:cover;margin-top:16px;border-radius:16px;border:1px solid rgba(255,255,255,.22);box-shadow:0 10px 28px rgba(0,0,0,.4);background:#0B0B0F}
+.dv-modal .gl-field.gl-field.gl-field{margin-top:10px}
+.dv-modal .dv-preview+.gl-field.gl-field.gl-field{margin-top:14px}
+.dv-modal .gl-pill{margin-top:16px}
+.dv-err{margin:6px 2px 0;font:500 13px/1.4 var(--ui);color:#FFB4A8}
+.dv-note{margin:10px 0 0;font:500 13px/1.4 var(--ui);text-align:center;color:rgba(244,246,250,.66)}
+
+/* --------------------------------------------- send the dare: the step after Publish (publish-flow, generation.tsx) */
+.sd{position:fixed;inset:0;z-index:100;overflow-y:auto;overscroll-behavior:contain;background:#07080C}
+.sd-bg{position:fixed;inset:0;overflow:hidden;pointer-events:none}
+.sd-in{position:relative;min-height:100%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px 14px 28px}
+.sd-card{width:100%;max-width:440px;box-sizing:border-box;border-radius:26px;padding:20px}
+.sd-live{display:block;color:var(--gl-warm,#FFD27A)}
+.sd-live i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gl-acc,#FFB020);box-shadow:0 0 8px rgba(255,176,32,.9);margin-right:10px;vertical-align:2px}
+.sd-ttl{font-size:27px;line-height:31px;margin-top:10px}
+.sd-preview{display:block;width:100%;aspect-ratio:1200/630;object-fit:cover;margin-top:16px;border-radius:16px;border:1px solid rgba(255,255,255,.22);box-shadow:0 10px 28px rgba(0,0,0,.4);background:#07080C}
+.sd label.gl-cap{display:block;margin:18px 0 8px}
+.sd textarea.gl-field{resize:none}
+.sd .gl-gold{margin-top:20px}
+.sd .gl-clear{margin-top:10px;height:48px}
+.sd-err{margin:8px 0 0;font:500 13px/1.4 var(--ui);color:#FFB4A8}
+/* (the quiet way on, in the same tracked caps as every quiet action on the dare surfaces: Race again, Send it back, Close) */
+.sd .sd-go{display:block;width:max-content;margin:10px auto 0;padding:8px;font:500 11px/1.2 Oxanium,system-ui,sans-serif;letter-spacing:.28em;text-transform:uppercase;color:rgba(244,246,250,.72);text-decoration:none}
+.sd .sd-go:hover{color:#fff}
+@media (max-width:420px){.sd-in{justify-content:flex-start;padding-top:14px}.sd-ttl{font-size:25px;line-height:29px}}

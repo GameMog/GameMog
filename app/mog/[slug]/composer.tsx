@@ -12,7 +12,11 @@ const IDEAS = [
   'Make it look like a toy set on a kitchen table',
 ];
 
-export function MogComposer({ slug, title, inherited }: { slug: string; title: string; inherited: WorldOptions }) {
+/**
+ * `dare`: the dare this Mog answers, when the challenger came from a dare's "Mog it back" (/mog/<slug>?dare=<id>);
+ * carried to the publish and to the dare they send next, so the dare's funnel counts it mogged back.
+ */
+export function MogComposer({ slug, title, inherited, dare }: { slug: string; title: string; inherited: WorldOptions; dare?: string | null }) {
   const gen = useGeneration();
   const [idea, setIdea] = useState('');
   // a Mog starts from the original's options; the challenger can change them,
@@ -37,7 +41,7 @@ export function MogComposer({ slug, title, inherited }: { slug: string; title: s
         </button>
       </div>
       <GenerationProgress gen={gen} mode="mog" subject={idea} open={options.open} />
-      <DraftResult gen={gen} publishLabel="Publish your Mog" againLabel="Try another take" onAgain={go}
+      <DraftResult gen={gen} mode="mog" parentTitle={title} dare={dare} publishLabel="Publish your Mog" againLabel="Try another take" onAgain={go}
         note={<p className="t-meta dim" style={{ marginBottom: 16 }}>Published, it is listed as a Mog of {title}, and anyone who has played both can pick the better one.</p>} />
     </>
   );

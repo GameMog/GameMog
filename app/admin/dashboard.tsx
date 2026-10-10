@@ -8,17 +8,21 @@ import { LineChart } from './chart';
 import { Bar, BlurIn, MorphButton, Num, Segmented, Toasts, Toggle, useToast, type Busy } from './motion';
 import { Palette, type Command } from './palette';
 import type { KartReportRow } from '@/lib/kart-report';
+import type { DareLoop, LoopWindow } from '@/lib/funnel';
 
-type Tab = 'overview' | 'worlds' | 'builds' | 'names' | 'traffic' | 'reports';
+type Tab = 'overview' | 'dares' | 'worlds' | 'builds' | 'names' | 'traffic' | 'reports';
 const TABS = [
-  { id: 'overview', label: 'Overview' }, { id: 'worlds', label: 'Worlds' }, { id: 'builds', label: 'Builds' },
+  { id: 'overview', label: 'Overview' }, { id: 'dares', label: 'Dares' }, { id: 'worlds', label: 'Worlds' }, { id: 'builds', label: 'Builds' },
   { id: 'names', label: 'Names' }, { id: 'traffic', label: 'Traffic' }, { id: 'reports', label: 'Crashes' },
 ] as const satisfies readonly { id: Tab; label: string }[];
 const RANGE_ITEMS = [{ id: '24h', label: '24h' }, { id: '7d', label: '7 days' }, { id: '30d', label: '30 days' }] as const satisfies readonly { id: Range; label: string }[];
 const RANGE_WORDS: Record<Range, string> = { '24h': 'the day before', '7d': 'the week before', '30d': 'the 30 days before' };
 
-// slots: the builds running now, of the site's cap (lib/build-limits.ts BUILD_SLOTS)
-export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: { held: number; max: number } };
+// slots: capacity now (lib/build-limits.ts): the builds running, of the site's cap (BUILD_SLOTS); the builds waiting in
+// line, of its length (BUILD_QUEUE_MAX); and the day's spend (Los Angeles's day, running builds at their estimate) against
+// its ceiling (BUILD_DAILY_USD)
+export type Capacity = { held: number; max: number; queue: number; queueMax: number; spent: number; inFlight: number; perBuild: number; ceiling: number };
+export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: Capacity; loop: DareLoop };
 
 export function Dashboard(props: AdminData) {
   return <Toasts><Board {...props} /></Toasts>;
@@ -35,7 +39,7 @@ export function ago(at: number) {
   return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, slots }: AdminData) {
+function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, slots, loop }: AdminData) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('overview');
@@ -103,6 +107,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
       <main className="adm-main">
         <BlurIn k={tab === 'overview' || tab === 'traffic' ? `${tab}-${range}` : tab}>
           {tab === 'overview' && <Overview s={s} slots={slots} />}
+          {tab === 'dares' && <Dares loop={loop} />}
           {tab === 'worlds' && <Worlds worlds={worlds} hidden={hiddenCount} publish={publish} />}
           {tab === 'builds' && <Builds builds={builds} titles={new Map(worlds.map((w) => [w.slug, w.title]))} />}
           {tab === 'names' && <Names scores={scores} setScores={setScores} />}
@@ -161,6 +166,8 @@ function Overview({ s, slots }: { s: Stats; slots: AdminData['slots'] }) {
         <Kpi label="API spend" k="spend" s={s} format={money} hint="The tokens every pass used, priced, since 9 Oct; builds before then estimated from their time. The Anthropic Console has the bill" />
       </section>
 
+      <CapacityCard c={slots} />
+
       <section className="card">
         <div className="card-h">
           <h2>Visitors and page views</h2>
@@ -189,13 +196,107 @@ function Overview({ s, slots }: { s: Stats; slots: AdminData['slots'] }) {
             <div><dt>Builds finished</dt><dd><Num value={n.builds} /></dd></div>
             <div><dt>Built cleanly</dt><dd>{n.builds ? `${Math.round((n.buildsOk / n.builds) * 100)}%` : 'None yet'}</dd></div>
             <div><dt>Published</dt><dd><Num value={n.published} />{n.mogs ? <small> incl. {n.mogs} Mog{n.mogs === 1 ? '' : 's'}</small> : null}</dd></div>
-            <div><dt>Building now</dt><dd>{slots.held} of {slots.max}<small> at once, site-wide</small></dd></div>
             <div><dt>Left before the end</dt><dd><Num value={n.abandoned} /><small> stopped when the creator left</small></dd></div>
             <div><dt>Stopped by a restart</dt><dd><Num value={n.interrupted} /></dd></div>
             {/* every build the spend counts, those still running included (their passes so far are in it) */}
             <div><dt>Spend per build</dt><dd>{n.builds + n.abandoned + n.interrupted + n.running ? money(n.spend / (n.builds + n.abandoned + n.interrupted + n.running)) : '$0.00'}</dd></div>
           </dl>
           <p className="fine">Since 9 Oct spend is what each pass of each build really used, priced per token{n.spendEstimated > 0 ? `; ${money(n.spendEstimated)} of it is from older builds, estimated from how long they wrote for (about $0.11 a minute for a world and $0.17 for a Mog)` : ''}. A build the creator left stops at once, and costs only what it had written. Your Anthropic Console has the exact bill.</p>
+        </section>
+      </div>
+    </>
+  );
+}
+
+/** Builds now and today's spend, at a glance: what the build limits are holding (lib/build-limits.ts). */
+function CapacityCard({ c }: { c: Capacity }) {
+  const share = c.ceiling > 0 ? Math.min(1, c.spent / c.ceiling) : 1;
+  const resting = c.spent >= c.ceiling;
+  return (
+    <section className="card">
+      <div className="card-h"><h2>Capacity now</h2></div>
+      <dl className="facts">
+        <div><dt>Building</dt><dd>{c.held} of {c.max}<small> slots in use</small></dd></div>
+        <div><dt>In line</dt><dd>{c.queue}<small> waiting, up to {c.queueMax}</small></dd></div>
+        <div><dt>Spent today</dt><dd>{money(c.spent)} of {money(c.ceiling)}<small>{resting ? ' resting until midnight, Los Angeles time' : ` ${money(Math.max(0, c.ceiling - c.spent))} left`}</small></dd></div>
+      </dl>
+      <div className="track" aria-hidden style={{ marginTop: 12 }}><Bar share={share} /></div>
+      <p className="fine">Los Angeles day. Running builds count {money(c.perBuild)} each until they cost more{c.inFlight > 0 ? ` (${money(c.inFlight)} now)` : ''}. At the ceiling no new build starts and the line is let go; running builds finish.</p>
+    </section>
+  );
+}
+
+/* --------------------------------------------------------------- dares -- */
+// the dare loop (lib/funnel.ts): the owner's success numbers and the dare funnel, today (Los Angeles) beside the last 7
+// days, and the dares most opened this week. Read-only; a % is of the row above
+const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : '');
+const STEPS: { label: string; n: (w: LoopWindow) => number; of?: (w: LoopWindow) => string; hint?: string }[] = [
+  { label: 'Dares sent', n: (w) => w.sent },
+  { label: 'Opened', n: (w) => w.opened, of: (w) => pct(w.sentOpened, w.sent), hint: 'People who opened a dare; the % is of the dares sent that someone opened' },
+  { label: 'Pressed Play', n: (w) => w.played, of: (w) => pct(w.played, w.opened) },
+  { label: 'Finished', n: (w) => w.finished, of: (w) => pct(w.finished, w.played) },
+  { label: 'Beat the dare', n: (w) => w.beaten, of: (w) => pct(w.beaten, w.finished) },
+  { label: 'Mogged back', n: (w) => w.moggedBack, hint: 'Dared players who answered with a dare on their own Mog of the game' },
+  { label: 'Shared', n: (w) => w.shared, hint: 'Dare links shared or copied, the sender\'s included' },
+  { label: 'Sent their own', n: (w) => w.passedOn, of: (w) => pct(w.passedOn, w.recipients), hint: 'People who opened a dare and then sent one of their own; the % is of everyone who opened one' },
+];
+
+function Tile({ label, hint, value, format, sub }: { label: string; hint: string; value: number; format?: (n: number) => string; sub: string }) {
+  return (
+    <div className="kpi" title={hint}>
+      <p className="kpi-l">{label}</p>
+      <p className="kpi-n"><Num value={value} format={format} /></p>
+      <p className="kpi-d">{sub}</p>
+    </div>
+  );
+}
+
+function Dares({ loop }: { loop: DareLoop }) {
+  const { today: t, week: w, top } = loop;
+  const raced = (x: LoopWindow) => (x.recipients ? (x.racers / x.recipients) * 100 : 0);
+  return (
+    <>
+      <section className="kpis five">
+        <Tile label="First races" value={w.firstRaces} sub={`${t.firstRaces} today`} hint="Players whose first finished run ever was in the last 7 days" />
+        <Tile label="Replayed" value={w.replayers} sub={`${t.replayers} today`} hint="Players who finished a game they had already finished" />
+        <Tile label="Mogs published" value={w.mogs} sub={`${t.mogs} today`} hint="Mogs players published" />
+        <Tile label="Links shared" value={w.shared} sub={`${t.shared} today`} hint="Dare links shared or copied, once per person and dare" />
+        <Tile label="Dared players who raced" value={raced(w)} format={(v) => (w.recipients ? `${Math.round(v)}%` : 'None yet')}
+          sub={w.recipients ? `${w.racers} of ${w.recipients}${t.recipients ? ` · ${pct(t.racers, t.recipients)} today` : ''}` : 'No one opened a dare yet'}
+          hint="People who opened a dare and pressed Play on it" />
+      </section>
+      <p className="fine">Last 7 days, with today below each number.</p>
+
+      <div className="two">
+        <section className="card">
+          <div className="card-h"><h2>Dare loop</h2></div>
+          <table className="lt">
+            <thead><tr><th scope="col" aria-label="Step" /><th scope="col">Today</th><th scope="col">7 days</th></tr></thead>
+            <tbody>
+              {STEPS.map((s) => (
+                <tr key={s.label} title={s.hint}>
+                  <th scope="row">{s.label}</th>
+                  {[t, w].map((x, i) => <td key={i}><b>{s.n(x).toLocaleString('en-US')}</b><small>{s.of?.(x) ?? ''}</small></td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="fine">From the people who opened a dare in each window, and how far they got. A % is of the row above; Sent their own is of everyone who opened one. Senders&apos; own plays are not counted.</p>
+        </section>
+        <section className="card flush">
+          <div className="tools"><p className="tools-t">Most opened dares, last 7 days</p></div>
+          <ul className="rows">
+            {top.map((d) => (
+              <li key={d.id} className={d.hidden ? 'row off' : 'row'}>
+                <div className="row-m">
+                  <p className="row-t"><Link href={d.url} target="_blank">{d.title}</Link>{d.hidden ? <span className="chip">Hidden</span> : null}</p>
+                  <p className="row-s">{d.name ?? 'No name'}{d.message ? `: ${d.message}` : ''}</p>
+                  <p className="row-n">{d.opened} opened · {d.played} pressed Play · {d.beaten} beat it · sent {ago(d.createdAt)}</p>
+                </div>
+              </li>
+            ))}
+            {!top.length && <li className="none">No dares opened in the last 7 days.</li>}
+          </ul>
         </section>
       </div>
     </>

@@ -21,16 +21,19 @@ export function clip(text: string, max = 158) {
   return t.slice(0, t.lastIndexOf(' ', max - 3)).replace(/[,.;:]$/, '') + '...';
 }
 
-export function pageMeta({ name, description, path, image, noindex }: {
+export function pageMeta({ name, description, path, image, noindex, canonical }: {
   /** The page's own name; the tab reads "name | GameMog". */
   name?: string; description: string; path: string; image?: Image; noindex?: boolean;
+  /** The page this one is a copy of, when it is not itself (a dare's link unfurls as the dare: og:url is the dare's
+   *  own address, while search engines are pointed at the game's page). Defaults to `path`. */
+  canonical?: string;
 }): Metadata {
   const title = name ? `${name} | GameMog` : 'GameMog';
   const img = image ?? CARD;
   return {
     title,
     description,
-    alternates: { canonical: path },
+    alternates: { canonical: canonical ?? path },
     openGraph: { type: 'website', siteName: 'GameMog', locale: 'en_US', title: name ?? 'GameMog', description, url: path, images: [img] },
     twitter: { card: 'summary_large_image', title: name ?? 'GameMog', description, images: [img.url] },
     ...(noindex ? { robots: { index: false, follow: false } } : {}),

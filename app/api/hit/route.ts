@@ -1,12 +1,17 @@
 import { cookies } from 'next/headers';
 import { deviceOf, isBot, recordEvent } from '@/lib/analytics';
+import { countPagePlay } from '@/lib/play-page';
 import { COOKIE, validSession } from '../../admin/session';
 
 export const runtime = 'nodejs';
 
 const none = () => new Response(null, { status: 204 });
 
-/** One page view or press of Play from app/beacon.tsx. Anything odd is dropped quietly. */
+/**
+ * One page view or press of Play from app/beacon.tsx. Anything odd is dropped quietly. A view of a game's page is also
+ * its play (it loads the play frame): counted here since 10 Oct, not where the frame's document is served, which is
+ * now kept in memory and may be kept at the edge (lib/play-page.ts countPagePlay).
+ */
 export async function POST(req: Request) {
   const ua = req.headers.get('user-agent') ?? '';
   const site = req.headers.get('sec-fetch-site');
@@ -22,5 +27,6 @@ export async function POST(req: Request) {
   const ref = typeof b.r === 'string' && /^[a-z0-9.-]{1,100}(:\d+)?$/i.test(b.r) ? b.r.replace(/^www\./i, '').toLowerCase() : null;
   const source = typeof b.s === 'string' ? b.s.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 60) || null : null;
   recordEvent({ visitor, kind, path, ref, source, device: deviceOf(ua) });
+  if (kind === 'view') countPagePlay(path);
   return none();
 }
