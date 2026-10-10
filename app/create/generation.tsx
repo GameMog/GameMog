@@ -637,7 +637,7 @@ function SendDare({ game, title, mode, parentTitle, name: name0, answering }: {
   const making = useRef<{ key: string; p: Promise<ReadyDare | null> } | null>(null);
   const chain = useRef<Promise<unknown>>(Promise.resolve());
   const head = useRef<HTMLHeadingElement>(null);
-  const cover = `/g/${game.slug}/cover`;
+  const cover = `/g/${game.slug}/cover?plain`;
 
   /** What the fields say, cleaned as the server will; null (and the reason shown) when one will not pass. */
   function fields(): { name: string; message: string } | null {

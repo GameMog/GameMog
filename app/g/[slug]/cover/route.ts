@@ -9,7 +9,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   const shape = new URL(req.url).searchParams.get('shape') === 'square' ? 'square' : 'wide';
   const suffix = shape === 'square' ? 'icon' : 'wide';
   const path = join(process.cwd(), 'public', 'media', 'art', `${slug}-${suffix}.jpg`);
-  const jpg = existsSync(path) ? readFileSync(path) : gameArt(slug, shape) ?? gameCover(slug);
+  // ?plain (10 Oct, the dare card and the dare pages): the playtest's own frame first, never key art with the title baked in
+  const plain = new URL(req.url).searchParams.has('plain');
+  const jpg = plain ? gameCover(slug) ?? (existsSync(path) ? readFileSync(path) : gameArt(slug, shape))
+    : existsSync(path) ? readFileSync(path) : gameArt(slug, shape) ?? gameCover(slug);
   if (jpg) {
     return new Response(Buffer.from(jpg), {
       headers: { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=3600' },

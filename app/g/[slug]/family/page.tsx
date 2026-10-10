@@ -69,7 +69,7 @@ export default async function FamilyPage({ params }: Params) {
   return (
     <main className="gl fp">
       <GlassFont />
-      <div className="fp-bg"><img className="gl-blurart" src={`/g/${f.root?.slug ?? f.game.slug}/cover`} alt="" /></div>
+      <div className="fp-bg"><img className="gl-blurart" src={`/g/${f.root?.slug ?? f.game.slug}/cover?plain`} alt="" /></div>
       <header className="gl-glass fp-bar">
         <Link href="/" className="gl-wm" style={{ textDecoration: 'none' }} aria-label="GameMog home">GameMog</Link>
         <Link href={`/g/${f.game.slug}`} className="gl-glass gl-chip" style={{ height: 34 }}>Back</Link>
@@ -85,7 +85,7 @@ export default async function FamilyPage({ params }: Params) {
             const fought = m.wins + m.losses;
             return (
               <li key={m.id} className={`gl-glass fp-row${here ? ' gl-lit fp-here' : ''}`} data-depth={Math.min(depth, 3)} aria-current={here ? true : undefined}>
-                <Link href={`/g/${m.slug}`} tabIndex={-1} aria-hidden><img src={`/g/${m.slug}/cover`} alt="" loading="lazy" /></Link>
+                <Link href={`/g/${m.slug}`} tabIndex={-1} aria-hidden><img src={`/g/${m.slug}/cover?plain`} alt="" loading="lazy" /></Link>
                 <div style={{ minWidth: 0 }}>
                   <h2 className="gl-ttl fp-name"><Link href={`/g/${m.slug}`}>{m.title}</Link></h2>
                   <p className="fp-meta">

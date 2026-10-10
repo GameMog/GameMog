@@ -88,7 +88,7 @@ export function ShareDare({ gameId, slug, title, parent = null, run, onClose }: 
     try {
       const v = await fetch(`/api/dares/${m.id}`).then((r) => (r.ok ? (r.json() as Promise<DareView>) : null)).catch(() => null);
       const blob = await renderDareCard({
-        cover: `/g/${slug}/cover`, title, from: nm || null, creator: v?.game.creator ?? null, parentTitle: v?.game.parent?.title ?? null,
+        cover: `/g/${slug}/cover?plain`, title, from: nm || null, creator: v?.game.creator ?? null, parentTitle: v?.game.parent?.title ?? null,
         scoreText: m.target?.text ?? null, scoreSub: m.target?.sub ?? null, scoreLabel: m.target?.label ?? null,
       });
       if (mine === seq.current) setCard(URL.createObjectURL(blob));
@@ -167,7 +167,7 @@ export function ShareDare({ gameId, slug, title, parent = null, run, onClose }: 
           <button type="button" className="gl-cap dv-x" onClick={onClose}>Close</button>
           <h2 id="dv-ttl" className="gl-ttl dv-ttl">{parent ? 'Send it back' : 'Dare someone'}</h2>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="dv-preview" src={card ?? `/g/${slug}/cover`} alt={card ? 'Your dare card' : ''} />
+          <img className="dv-preview" src={card ?? `/g/${slug}/cover?plain`} alt={card ? 'Your dare card' : ''} />
           <input className="gl-field" value={name} onChange={(e) => setName(e.target.value.slice(0, 24))} placeholder="Your name" aria-label="Your name" autoComplete="nickname" maxLength={24} />
           {error?.field === 'name' && <p className="dv-err" role="alert">{error.text}</p>}
           <input className="gl-field" value={message} onChange={(e) => setMessage(e.target.value.slice(0, 140))} placeholder="Add a message (optional)" aria-label="Your message" maxLength={140}

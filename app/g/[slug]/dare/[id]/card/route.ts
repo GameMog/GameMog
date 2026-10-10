@@ -17,5 +17,5 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string; 
       headers: { 'content-type': 'image/jpeg', 'content-length': String(d.card.length), 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' },
     });
   }
-  return new Response(null, { status: 302, headers: { location: `/g/${slug}/cover`, 'cache-control': 'public, max-age=300' } });
+  return new Response(null, { status: 302, headers: { location: `/g/${slug}/cover?plain`, 'cache-control': 'public, max-age=300' } });
 }

@@ -249,7 +249,7 @@ async function run() {
   const c200 = await get(kart.slug, k1.j.id);
   ok('the card route serves the card for good', c200.status === 200 && c200.headers.get('content-type') === 'image/jpeg' && /immutable/.test(c200.headers.get('cache-control') ?? '') && Buffer.from(await c200.arrayBuffer()).equals(Buffer.from(OG)));
   const c302 = await get(test.slug, wrongCard.j.id);
-  ok('...and the game\'s cover for a dare with none', c302.status === 302 && c302.headers.get('location') === `/g/${test.slug}/cover` && !/immutable/.test(c302.headers.get('cache-control') ?? ''));
+  ok('...and the game\'s cover for a dare with none', c302.status === 302 && c302.headers.get('location') === `/g/${test.slug}/cover?plain` && !/immutable/.test(c302.headers.get('cache-control') ?? ''));
   ok('...only under its own game', (await get(test.slug, k1.j.id)).status === 404 && (await get('../x', k1.j.id)).status === 404);
   const later = await send({ gameId: test.id, sender: P2 }, { 'x-forwarded-for': '10.0.0.8' });
   const put = async (id: string, body: unknown) => { const r = await upload.POST(req(`/api/dares/${id}/card`, body), ctx(id)); return { status: r.status, j: await r.json() as { card?: boolean } }; };

@@ -228,7 +228,7 @@ export function dareView(id: string, slug?: string): DareView | null {
   return {
     id: d.id, url: dareUrl(g.slug, d.id), card: dareCardUrl(g.slug, d.id), hasCard: !!d.has_card, createdAt: d.created_at,
     name: d.name, message: d.message, board: d.board, target: target(d, g), parent: d.parent_dare,
-    game: { id: g.id, slug: g.slug, title: g.title, tagline: g.tagline, cover: `/g/${g.slug}/cover`, creator: g.creator, parent: p ? { slug: p.slug, title: p.title } : null },
+    game: { id: g.id, slug: g.slug, title: g.title, tagline: g.tagline, cover: `/g/${g.slug}/cover?plain`, creator: g.creator, parent: p ? { slug: p.slug, title: p.title } : null },
   };
 }
 
