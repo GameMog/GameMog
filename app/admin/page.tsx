@@ -15,12 +15,16 @@ export const metadata: Metadata = { title: 'Admin | GameMog', robots: { index: f
 /**
  * The owner's screen: numbers, the worlds with a switch to take each one
  * down, every build prompt, and every name typed onto a leaderboard. It does
- * not exist unless ADMIN_PASSWORD is set, and shows only a sign-in without
- * the session cookie.
+ * not exist unless ADMIN_PASSWORD is set.
+ *
+ * (the owner, 12 Oct: open to read without signing in, for now. Every change
+ * still needs the session: each action in actions.ts checks it first, so a
+ * switch flipped without signing in is refused and put back)
  */
+const OPEN_TO_READ = true;
 export default async function AdminPage() {
   if (!adminEnabled()) notFound();
-  if (!(await isAdmin())) return <Login />;
+  if (!OPEN_TO_READ && !(await isAdmin())) return <Login />;
   const now = Date.now();
   // (the builds first: reading them marks any a stopped server left running as interrupted, before the counts are taken)
   const builds = adminBuilds(80, now);
