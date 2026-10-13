@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { family, getGameById, mogsOf, type GameRow } from '@/lib/db';
+import { canMog, MOG_SOON } from '@/lib/custom-game';
 import { MogOff } from './mog-off';
 
 /**
@@ -41,7 +42,10 @@ export function MogsPanel({ game }: { game: GameRow }) {
           A Mog challenges a game with a better variation. Players who have finished a run in both pick the
           better one, and the family is ranked by those picks.
         </p>
-        <Link className="btn" href={`/mog/${game.slug}`}>Mog this game</Link>
+        {/* (a game that cannot be mogged yet says so, 12 Oct: a penalty shootout) */}
+        {canMog(game)
+          ? <Link className="btn" href={`/mog/${game.slug}`}>Mog this game</Link>
+          : <p className="dim" style={{ fontSize: 14, lineHeight: 1.5, maxWidth: 320 }}>{MOG_SOON}</p>}
       </div>
 
       <h2 style={{ marginBottom: 8 }}>Mogs of this game</h2>
@@ -62,7 +66,7 @@ export function MogsPanel({ game }: { game: GameRow }) {
             })}
           </tbody>
         </table>
-      ) : <p className="dim" style={{ marginBottom: 24 }}>Nobody has mogged this game yet. Be the first.</p>}
+      ) : <p className="dim" style={{ marginBottom: 24 }}>{canMog(game) ? 'Nobody has mogged this game yet. Be the first.' : 'Nobody has mogged this game yet.'}</p>}
 
       {fam.length > 1 && (
         <>

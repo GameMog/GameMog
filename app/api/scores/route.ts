@@ -50,6 +50,21 @@ export async function POST(req: Request) {
         rank: at ? at.rank : null, best: at ? at.best : false, review: c.review, source: C.source,
       });
     }
+    // a penalty shootout (12 Oct): the goals scored in one sitting (score), from that many kicks (level), after each
+    // kick; the board ranks the goals (the 'score' board). No kick is shorter than its run-up and flight
+    if (worldMode(row.code, row.meta) === 'shootout') {
+      const goals = Number(b.score) || 0;
+      if (!Number.isInteger(level) || level < 1 || level > 999 || !Number.isInteger(goals) || goals < 0 || goals > level || timeMs < 500 || timeMs > 30 * 60 * 1000) {
+        return NextResponse.json({ error: 'Result outside plausible range' }, { status: 422 });
+      }
+      insertScore({
+        gameId: row.id,
+        player: String(b.player ?? 'anon').slice(0, 16).replace(/[^\w \-.]/g, '') || 'anon',
+        timeMs: Math.round(timeMs), place: 0, score: goals, level, gm: 0,
+        tempoReached: 0, locks: 0, bestStreak: 0,
+      });
+      return NextResponse.json({ ok: true });
+    }
     // an open world ranks the time survived: the heat reached rises with time
     // (at most a level every few seconds, even knocking people out) and GM comes
     // a few coins a knockout

@@ -39,7 +39,7 @@ type Posted = { score: number; tier: KartTier; rank: number | null; review: bool
  *
  * A result posted from a frame is a claim, not a fact. It is stored as one.
  */
-export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`, scores = true, you: wantsYou = false, kart = false, kartScore = null, kdiag = null }: {
+export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`, scores = true, you: wantsYou = false, kart = false, shootout = false, kartScore = null, kdiag = null }: {
   slug: string; gameId: string; poster: React.ReactNode; src?: string;
   /** Off for drafts: a run in a preview has no leaderboard to post to. */
   scores?: boolean;
@@ -54,6 +54,8 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
    * panel says that, not the endless race's level. (The result still carries `level`, its laps, for the score route.)
    */
   kart?: boolean;
+  /** A penalty shootout (12 Oct): its result is the goals scored in this sitting (score) from its kicks (level). */
+  shootout?: boolean;
   /** A kart race's score constants (meta.kartScore, or the course fallback): the panel scores the run as the route will. */
   kartScore?: KartConstants | null;
   /**
@@ -368,6 +370,8 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
           <b style={{ fontSize: 20, fontWeight: 700, lineHeight: '28px' }}>
             {kart
               ? `${result.won ? 'You won' : result.place ? `${result.place}${['st','nd','rd'][result.place - 1] ?? 'th'} place` : 'Race over'} · ${raceClock(result.timeMs)}${result.gm ? ` · ${result.gm} GM` : ''}`
+              : shootout
+              ? `${result.score} ${result.score === 1 ? 'goal' : 'goals'} from ${result.level} ${result.level === 1 ? 'kick' : 'kicks'}`
               : result.level
               ? `Level ${result.level} · ${result.gm} GM`
               : <>

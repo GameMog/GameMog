@@ -32,8 +32,10 @@ const voterId = playerId;
 const short = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K` : String(n);
 
-export function GameActions({ gameId, slug, title, initial }: {
+export function GameActions({ gameId, slug, title, initial, mog = true }: {
   gameId: string; slug: string; title: string; initial: Counts;
+  /** false for a game that cannot be mogged yet (a penalty shootout, lib/custom-game.ts canMog): no Mog action */
+  mog?: boolean;
 }) {
   const [counts, setCounts] = useState(initial);
   const [mine, setMine] = useState<-1 | 0 | 1>(0);
@@ -103,9 +105,11 @@ export function GameActions({ gameId, slug, title, initial }: {
         <button className="act" onClick={favourite} aria-pressed={fav}>
           <Icon name="star" size={24} /><span>{fav ? 'Favorited' : 'Favorite'}</span>
         </button>
-        <Link className="act" href={`/mog/${slug}`}>
-          <Icon name="remix" size={24} /><span>Mog</span>
-        </Link>
+        {mog && (
+          <Link className="act" href={`/mog/${slug}`}>
+            <Icon name="remix" size={24} /><span>Mog</span>
+          </Link>
+        )}
         <button className="act" onClick={() => setSheet({ parent: null, run: null, n: Date.now() })} aria-haspopup="dialog">
           <Icon name="share" size={24} /><span>Dare</span>
         </button>

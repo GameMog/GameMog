@@ -119,7 +119,21 @@ export function isKartWorld(code?: string | null) {
   const top = topOf(code, m.index + m[0].length);
   return /(?:^|[\s,{])kart\s*:\s*\{/.test(top) && !/(?:^|[\s,{])open\s*:\s*\{/.test(top);
 }
+/**
+ * A penalty shootout (SHOOTOUT, the owner 11 Oct 2026): shootout: { ... } among GameMog.world's own top-level keys, read
+ * as isKartWorld reads a kart, and never with open or kart there. Its runtime carries the shootout (lib/runtime/shootout.js)
+ * and no other world's does.
+ */
+export function isShootoutWorld(code?: string | null) {
+  if (!code) return false;
+  const m = /\bGameMog\s*\.\s*world\s*\(\s*\{/.exec(code);
+  if (!m) return false;
+  const top = topOf(code, m.index + m[0].length);
+  return /(?:^|[\s,{])shootout\s*:\s*\{/.test(top) && !/(?:^|[\s,{])(?:open|kart)\s*:\s*\{/.test(top);
+}
 export const KART_CONTROLS = 'W or the up arrow: gas (hit it as the 1 lands for a Moon Launch). S or the down arrow: brake, then reverse. A D or the left and right arrows: steer. Space: hop, and hold it through a turn to drift (let go for a boost); off a ramp, a trick. X (or J, K, Shift): use your item, held to drag a Rug Pull or Laser Eyes behind you as a shield; E throws it ahead; with S or the down arrow, behind. C: look back. P: pause. On touch screens, a stick to steer and DRIFT, ITEM and BRAKE buttons (the gas is automatic; hold DRIFT on the grid to launch; the stick up or down aims an item); a gamepad works too.';
+// a penalty shootout (12 Oct): the owner's mechanic, TAP, aim, HOLD and RELEASE (lib/runtime/shootout.js)
+export const SHOOTOUT_CONTROLS = 'Space or a click: tap to run up (tap faster for more power). The arrow keys or W A S D: aim. Hold the last tap when the ring glows and let go as the gold ring closes. Enter: start, skip the replay and kick again. P: pause. On touch screens, a stick to aim and a KICK button; a gamepad works too (A to tap, the left stick to aim).';
 // a derby (open.vehicle): car combat in an arena
 export const DERBY_CONTROLS = 'W A S D or the arrow keys: drive (S brakes, then reverses). Space: handbrake. Shift: boost. J, F or a held click: the roof guns. Drag: look around. P: pause. On touch screens, a stick to drive and BOOST, BRAKE and FIRE.';
 /**
@@ -128,12 +142,13 @@ export const DERBY_CONTROLS = 'W A S D or the arrow keys: drive (S brakes, then 
  * truth; meta.mode records it when a world is stored, and a game stored before that
  * is read from what it did store (scoring 'survival', options.open).
  */
-export const WORLD_MODES = ['race', 'survival', 'derby', 'kart'] as const;
+export const WORLD_MODES = ['race', 'survival', 'derby', 'kart', 'shootout'] as const;
 export type WorldMode = (typeof WORLD_MODES)[number];
 export function worldMode(code?: string | null, meta?: string | null | Record<string, unknown>): WorldMode {
   // (a kart race, 6 Oct: kart: {...} among GameMog.world's own keys; read first, so a kart world that names a
   // vehicle or an "open" anywhere inside it stays a kart race)
-  if (code) return isKartWorld(code) ? 'kart' : isOpenWorld(code) ? (/\bvehicle\s*:\s*\{/.test(code) ? 'derby' : 'survival') : 'race';
+  // (a penalty shootout, 12 Oct: shootout: {...} among its own keys, read first; it never has open or kart there)
+  if (code) return isShootoutWorld(code) ? 'shootout' : isKartWorld(code) ? 'kart' : isOpenWorld(code) ? (/\bvehicle\s*:\s*\{/.test(code) ? 'derby' : 'survival') : 'race';
   let m: { mode?: unknown; scoring?: unknown; options?: { open?: unknown } } = {};
   try { m = (typeof meta === 'string' ? JSON.parse(meta) : meta) ?? {}; } catch { /* a race */ }
   if (WORLD_MODES.includes(m.mode as WorldMode)) return m.mode as WorldMode;
@@ -156,6 +171,11 @@ export const MODE_PAGE: Record<WorldMode, { label: string; rivals: string; how: 
     rivals: 'Seven on the grid',
     how: 'A kart race: three laps, eight karts. Hit the gas as the 1 lands for a Moon Launch, hop into a drift to charge a boost (Green Candle, Gold, then MOG), tail a rival for the slipstream, and trick off the ramps. Drive through the Airdrop crates for an item: Rug Pull, Laser Eyes, Cold Wallet, Pump, Much Wow, FUD Cloud, WHALE DUMP, Diamond Hands, To The Moon or a GM Bag. Bump all you like: contact never ends your run, and the Rescue Claw puts you back if you fall. Each GM you grab adds a little top speed. The leaderboard ranks your score out of 10,000 (the time most, then your place, GM and enemies hit), each player by their best run.',
   },
+  shootout: {
+    label: 'Penalty shootout',
+    rivals: 'One keeper',
+    how: 'A penalty in a night final, one kick at a time. Tap to run up: the faster you tap, the faster he runs and the harder he strikes it, and the gauge climbs from COLD through WARM and HOT to ON FIRE. Steer the aim with the stick or the arrow keys: aim anywhere you like, but over the bar or past a post is a miss. Hold the last tap as the ring glows, and let go as the gold ring closes on the plant foot: early scuffs it, late leans back and can sail it over. Then the keeper\'s guess and his reach decide. Score, kick again, and every goal counts. The leaderboard ranks the goals you score in a sitting.',
+  },
   derby: {
     label: 'Car combat arena',
     rivals: 'More cars as the heat rises',
@@ -174,6 +194,7 @@ export function kartHow(laps?: number | null) {
 /** An open world with no GM (the creator's option, or open.coins: false) explains itself without coins. */
 export const NO_GM_HOW = 'An open world to roam, with no GM to chase. Crews come for you, more of them and tougher as the heat rises: it climbs with time and with every few knockouts, and a boss arrives at every third heat. Get knocked out and the run is over. The leaderboard ranks the time survived, then the takedowns.';
 export function worldControls(code: string) {
+  if (isShootoutWorld(code)) return SHOOTOUT_CONTROLS;
   if (isKartWorld(code)) return KART_CONTROLS;
   const mode = worldMode(code);
   if (mode !== 'race') return mode === 'derby' ? DERBY_CONTROLS : openControls(code);
@@ -181,6 +202,16 @@ export function worldControls(code: string) {
     ? 'Arrow keys or WASD: left and right steer, up is faster, down is slower. X (or J) swings your sword. Space: jump. P: pause. On-screen buttons, a JUMP and a sword button, on touch screens.'
     : WORLD_CONTROLS;
 }
+
+/**
+ * Whether a game can be mogged yet (12 Oct). A penalty shootout cannot: the builder has no shootout docs yet (M3), so
+ * a Mog of one would be a paid build that fails. Its page, its dares and /mog/<slug> say so (MOG_SOON), and the build
+ * route refuses it before anything is spent. Every other game can, as before.
+ */
+export function canMog(game: { format: string; code?: string | null; meta?: string | null }) {
+  return !(game.format === 'world' && worldMode(game.code, game.meta) === 'shootout');
+}
+export const MOG_SOON = 'Mogs of a penalty shootout are coming soon. Play it free in the meantime.';
 
 export const CUSTOM_CSP = [
   "default-src 'none'",
@@ -339,13 +370,29 @@ const RUNTIMES: Record<string, string> = {};
 // the kart race's parts of the runtime (between /*@kart*/ and /*@/kart*/ in v1.js): kept, markers and all removed,
 // for a kart world; cut out whole for every other, which then gets exactly the text it always did
 const KART_PART = /\/\*@kart\*\/[\s\S]*?\/\*@\/kart\*\//g, KART_MARK = /\/\*@\/?kart\*\//g;
+// the shootout's parts (between /*@shootout*/ and /*@/shootout*/ in v1.js, 11 Oct): kept, markers removed, for a
+// shootout world; cut out whole, before anything else, for every other world (a kart race's too), which then gets
+// exactly the text it always did
+const SHOOT_PART = /\/\*@shootout\*\/[\s\S]*?\/\*@\/shootout\*\//g, SHOOT_MARK = /\/\*@\/?shootout\*\//g;
 const OPEN_STUB = '    var OW = null;\n    function openWorld() {}\n';
-export function runtimeSource(version: number, kart = false) {
-  const key = `${version}${kart ? ':kart' : ''}`;
+export function runtimeSource(version: number, kart = false, shootout = false) {
+  const key = `${version}${kart ? ':kart' : shootout ? ':shootout' : ''}`;
   if (!RUNTIMES[key] || process.env.NODE_ENV !== 'production') {
     // the platform's score engine and car kit ride in front of the runtime that uses them
     const read = (f: string) => readFileSync(join(process.cwd(), 'lib', 'runtime', f), 'utf8');
-    const v = read(`v${version}.js`);
+    const v0 = read(`v${version}.js`);
+    // (a shootout runs no kart race and no open world: the kart parts cut out, a stub for open.js, as a kart race has,
+    // and lib/runtime/shootout.js at its own marker, inside the runtime's closure)
+    // (and shootout.js's own parts, one file a part, pasted in place at its /*@include shootout-<name>.js*/ markers, so
+    // in the same closure; a part not on disk yet is a warning in the console, not a failed page: M1 is built in
+    // parallel, and the director stands in for a part whose binding is undefined)
+    if (shootout && !kart) {
+      const part = (f: string) => { try { return read(f); } catch { return `/* ${f}: not in this tree */ console.warn('[shoot] lib/runtime/${f} is not in this tree');\n`; } };
+      const shoot = read('shootout.js').replace(/\/\*@include (shootout-[a-z]+\.js)\*\//g, (_: string, f: string) => part(f));
+      const core = v0.replace(KART_PART, '').replace(SHOOT_MARK, '').replace('/*@include open.js*/', () => OPEN_STUB).replace('/*@include shootout.js*/', () => shoot);
+      return (RUNTIMES[key] = [read('music.js'), read('vehicle.js'), read('creature.js'), core].join('\n'));
+    }
+    const v = v0.replace(SHOOT_PART, '');
     // (a kart world runs no open world: a stub stands in for open.js and the derby, climbing and traversal it
     // carries, 389 KB a phone does not parse)
     // (and the kart kit carries the roster, the eight racers a kart world names: lib/runtime/kart-roster.js; the
@@ -416,7 +463,7 @@ ${inert(driveSource())}
 <body>
 ${mapScripts(world)}${endoScript(world)}
 <script>
-${inert(runtimeSource(runtime, isKartWorld(world)))}
+${inert(runtimeSource(runtime, isKartWorld(world), isShootoutWorld(world)))}
 </script>
 <script>
 ${inert(world)}
@@ -521,6 +568,9 @@ export function staticCheckWorld(code: string, opts: { max?: number } = {}): str
   const m = /\bGameMog\s*\.\s*world\s*\(\s*\{/.exec(code), top = m ? topOf(code, m.index + m[0].length) : '';
   if (/(?:^|[\s,{])kart\s*(?::\s*(?!(?:false|null|undefined)\b)[\w$(]|,|$)/.test(top) && !isKartWorld(code) && !/(?:^|[\s,{])open\s*:\s*\{/.test(top))
     problems.push('Write the kart race inline, kart: { ... }, among GameMog.world\'s own keys (not kart: SOME_CONST): only then is it served as a kart race.');
+  // (and a penalty shootout the same way, 12 Oct: shootout: { ... } inline is what gets it its runtime)
+  if (/(?:^|[\s,{])shootout\s*(?::\s*(?!(?:false|null|undefined)\b)[\w$(]|,|$)/.test(top) && !isShootoutWorld(code) && !/(?:^|[\s,{])(?:open|kart)\s*:\s*\{/.test(top))
+    problems.push('Write the penalty shootout inline, shootout: { ... }, among GameMog.world\'s own keys (not shootout: SOME_CONST): only then is it served as a shootout.');
   try { new Script(code, { filename: 'world.js' }); }
   catch (e) { problems.push(`Syntax error: ${(e as Error).message}`); }
   return problems;

@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { deviceOf, isBot, recordEvent } from '@/lib/analytics';
 import { countPagePlay } from '@/lib/play-page';
+import { isOwnerPath } from '@/lib/owner-path';
 import { COOKIE, validSession } from '../../admin/session';
 
 export const runtime = 'nodejs';
@@ -24,6 +25,8 @@ export async function POST(req: Request) {
   const kind = b.k === 'view' || b.k === 'play' ? b.k : null;
   const path = typeof b.p === 'string' && /^\/[\w\-/.%]{0,200}$/.test(b.p) ? b.p.replace(/\/+$/, '') || '/' : null;
   if (!visitor || !kind || !path || path.startsWith('/admin') || path.startsWith('/api')) return none();
+  // (nor are visits to the owner's screen at its own address)
+  if (await isOwnerPath(path)) return none();
   const ref = typeof b.r === 'string' && /^[a-z0-9.-]{1,100}(:\d+)?$/i.test(b.r) ? b.r.replace(/^www\./i, '').toLowerCase() : null;
   const source = typeof b.s === 'string' ? b.s.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 60) || null : null;
   recordEvent({ visitor, kind, path, ref, source, device: deviceOf(ua) });

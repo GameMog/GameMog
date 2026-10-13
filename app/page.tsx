@@ -66,6 +66,11 @@ function RecordStat({ game }: { game: GameRow }) {
     const t = best.time_ms / 1000;
     return <span><b>{Math.floor(t / 60)}:{(t % 60).toFixed(1).padStart(4, '0')}</b> race record</span>;
   }
+  // (a penalty shootout, 12 Oct: the most goals in a sitting)
+  if (mode === 'shootout') {
+    const best = topScores(game.id, 1, 'score')[0];
+    return best?.score ? <span><b>{best.score}</b> {best.score === 1 ? 'goal' : 'goals'} record</span> : null;
+  }
   const survival = mode !== 'race';
   const record = topScores(game.id, 1, survival ? 'survival' : 'level')[0];
   if (survival) {

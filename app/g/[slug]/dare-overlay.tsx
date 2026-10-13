@@ -105,7 +105,7 @@ export function DareResult({ view, outcome, mode, compact, onAgain, onSendBack }
             {big
               ? <button type="button" className="gl-pill gl-gold" onClick={onSendBack}>Send it back <Arrow /></button>
               : <button type="button" className="gl-pill gl-gold" onClick={onAgain}>{again}</button>}
-            <a className="gl-pill gl-acc" href={mogHref}>Mog it back</a>
+            {view.game.mog && <a className="gl-pill gl-acc" href={mogHref}>Mog it back</a>}
           </div>
           {big
             ? <button type="button" className="gl-cap dv-quiet" onClick={onAgain}>{again}</button>

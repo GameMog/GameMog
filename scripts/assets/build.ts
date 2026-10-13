@@ -7,26 +7,40 @@
  * sources it was built from. The runtime refuses a file whose hash does not
  * match, and `npm run check` refuses a library with a file no licence covers.
  */
-import { copyFileSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { deflateSync, gzipSync } from 'node:zlib';
 import { buildHuman } from './human.ts';
-import { retargetClip, sprintFrom, type Clip } from './mocap.ts';
+import { retargetClip, sprintFrom, mirrorClip, forwardQ, type Clip, type Skeleton } from './mocap.ts';
 import { retargetGltf } from './gltf.ts';
 import { keyedClip, CRUSH } from './keyed.ts';
+import { kickCut, KICKS, getupCut, GETUP } from './kick.ts';
 import { buildHdri } from './hdri.ts';
 import { buildMusic } from './music.ts';
+import { buildCrowdAudio, CROWD_SOURCES } from './crowd-audio.ts';
 import { buildModel } from './model.ts';
 import { buildHeightfield } from './heightfield.ts';
 import { sha256, Packer, decodeImage } from './lib.ts';
 
-const OUT = 'public/assets';
+const LIVE = 'public/assets';
+// OUT=<folder> builds into another folder instead (a scratch copy to compare with the live one, byte for byte): what a
+// build reads from the library as it stands (the previous library.json, a base human's skeleton for a motion pack) comes
+// from OUT when it is there and from the live folder when it is not, and nothing is written to the live folder
+const OUT = process.env.OUT || LIVE;
+const fromLibrary = (p: string) => readFileSync(existsSync(join(OUT, p)) ? join(OUT, p) : join(LIVE, p), 'utf8');
+if (OUT !== LIVE && !process.env.ONLY && existsSync(OUT) && readdirSync(OUT).length && !existsSync(join(OUT, 'library.json'))) throw new Error(`OUT=${OUT}: a full build empties its folder, and this one is not a library`);
 const sources = JSON.parse(readFileSync('assets-src/sources.json', 'utf8')).sources as Record<string, any>;
-// pictures baked in Chrome from other assets, not built here (scripts/kart-crowd-bake.mts: Meme Kart's crowd, filmed
-// once from the library's people): every build keeps them, their folders and their library entries, as they are
-const BAKED = ['crowd-meme-kart', 'crowd-meme-kart-lo'];
-const bakedBefore = (() => { try { return JSON.parse(readFileSync(join(OUT, 'library.json'), 'utf8')).assets as Record<string, any>; } catch { return {} as Record<string, any>; } })();
+// (the shootout's recorded crowd names its two CC0 Freesound packs itself, in crowd-audio.ts; sources.json wins if it
+// ever lists them)
+for (const [k, v] of Object.entries(CROWD_SOURCES)) sources[k] ??= v;
+const bakedBefore = (() => { try { return JSON.parse(fromLibrary('library.json')).assets as Record<string, any>; } catch { return {} as Record<string, any>; } })();
+// pictures baked in Chrome from other assets, not built here (scripts/kart-crowd-bake.mts: Meme Kart's crowd, then
+// Aspen GP's, filmed once from the library's people): every build keeps them, their folders and their library entries,
+// as they are. Named here, and any other the library lists as a crowd filmed in Chrome is kept the same way (a full build
+// once deleted Aspen GP's two because only Meme Kart's were named)
+const BAKED = [...new Set(['crowd-meme-kart', 'crowd-meme-kart-lo', 'crowd-aspen-gp', 'crowd-aspen-gp-lo',
+  ...Object.entries(bakedBefore).filter(([, e]) => /^Filmed in Chrome/.test(e?.derived ?? '') && e?.meta?.crowd).map(([id]) => id)])];
 // a full build starts clean; ONLY (below) clears just the assets it rebuilds
 if (!process.env.ONLY) { try { for (const d of readdirSync(OUT)) if (!BAKED.includes(d)) rmSync(join(OUT, d), { recursive: true, force: true }); } catch { /* (no library yet) */ } }
 else for (const id of process.env.ONLY.split(',')) rmSync(join(OUT, id), { recursive: true, force: true });
@@ -45,7 +59,8 @@ function packClips(clips: Clip[]) {
   const meta = clips.map((c) => {
     pk.add(`${c.name}:q`, new Int16Array(Array.from(c.quats, (v) => Math.round(Math.max(-1, Math.min(1, v)) * 32767))), 4);
     pk.add(`${c.name}:root`, c.root, 3);
-    return { name: c.name, fps: c.fps, frames: c.frames, loop: c.loop, speed: +c.speed.toFixed(3), duration: +(c.frames / c.fps).toFixed(4), ...(c.contact != null ? { contact: c.contact } : {}), ...(c.dir != null ? { dir: c.dir } : {}) };
+    // (a clip's own meta, a kick's timings, rides along as it is)
+    return { name: c.name, fps: c.fps, frames: c.frames, loop: c.loop, speed: +c.speed.toFixed(3), duration: +(c.frames / c.fps).toFixed(4), ...(c.contact != null ? { contact: c.contact } : {}), ...(c.dir != null ? { dir: c.dir } : {}), ...(c.meta ?? {}) };
   });
   return { buffer: pk.buffer(), layout: pk.layout, meta };
 }
@@ -108,7 +123,8 @@ const FREEFLOW: [string, string, number, number?, { end?: number; loop?: boolean
 // standing about. Chosen with a scan of each trial (hands, guard, travel).
 // [trial, library name, kind, from s, to s, options]
 // (a woman's body takes a woman's capture where one is given: [trial, from, to])
-type CmuCut = [string, string, 'cycle' | 'idle' | 'once' | 'move', number?, number?, { face?: 'hips'; srcFps?: number; contact?: number; period?: number; fist?: boolean; female?: [string, number, number]; unturn?: [number, number] }?];
+// travel: a 'once' clip keeps where it goes (not pinned in place); fps: the output rate (30 unless given)
+type CmuCut = [string, string, 'cycle' | 'idle' | 'once' | 'move', number?, number?, { face?: 'hips'; srcFps?: number; contact?: number; period?: number; fist?: boolean; female?: [string, number, number]; unturn?: [number, number]; travel?: boolean; fps?: number }?];
 const CMU_STREET: CmuCut[] = [
   // the guard: the window of each trial where the fists sit at the chin, the feet
   // apart, standing (a scan scored every 1.2 s of the fight trials for it)
@@ -141,8 +157,8 @@ const CMU_STREET: CmuCut[] = [
 const cmuCut = (skel: Parameters<typeof retargetClip>[0], [trial0, name, kind, from0, to0, o]: CmuCut, gender: 'male' | 'female') => {
   const [trial, from, to] = gender === 'female' && o?.female ? o.female : [trial0, from0, to0];
   const sub = trial.split('_')[0], fps = /^(79|80)_/.test(trial) ? 60 : o?.srcFps ?? 120;
-  return retargetClip(skel, { asf: `${sub}/${sub}.asf`, amc: `${sub}/${trial}.amc` }, { name, kind, start: from == null ? undefined : Math.round(from * fps), end: to == null ? undefined : Math.round(to * fps), face: o?.face, srcFps: fps, contact: o?.contact, period: o?.period, fist: o?.fist, inPlace: kind === 'once',
-    unturn: o?.unturn && trial === trial0 ? [Math.round(o.unturn[0] * fps), Math.round(o.unturn[1] * fps)] : undefined });
+  return retargetClip(skel, { asf: `${sub}/${sub}.asf`, amc: `${sub}/${trial}.amc` }, { name, kind, start: from == null ? undefined : Math.round(from * fps), end: to == null ? undefined : Math.round(to * fps), face: o?.face, srcFps: fps, contact: o?.contact, period: o?.period, fist: o?.fist, inPlace: kind === 'once' && !o?.travel,
+    unturn: o?.unturn && trial === trial0 ? [Math.round(o.unturn[0] * fps), Math.round(o.unturn[1] * fps)] : undefined, ...(o?.travel ? { keepTravel: true } : {}), ...(o?.fps ? { fps: o.fps } : {}) });
 };
 
 // the people pack (the owner, 3 Oct): what a world adds to a base human by listing human-pack-<gender> in its assets
@@ -312,35 +328,70 @@ const MOVES_UAL: [string, string, string, boolean, number?][] = [
 // spot as the runtime pins every other clip's, the planted feet slid by it: the Cabbage Patch 34 cm/s against 9); a
 // loop's contact (gltf.ts measures one for every clip) means nothing and is left out
 const MOVES_UPPER = new Set(['drink', 'toast', 'smash']), MOVES_SWAY = new Set(MOVES_CMU.filter((c) => c[2] === 'idle').map((c) => c[1]));
-function humanMoves(gender: 'male' | 'female') {
-  const id = `human-moves-${gender}`, base = `human-athlete-${gender}`;
-  if (!want(id)) return;
-  const B = JSON.parse(readFileSync(join(OUT, base, 'asset.json'), 'utf8')), skel = B.skeleton as Parameters<typeof retargetClip>[0];
-  const clips = [
+// a motion pack: clips retargeted onto the skeleton a base human's asset.json ships (read from the library as it
+// stands, so the base is not rebuilt), listed with the base's bones and vertex count (the runtime's fit check)
+type MovesPack = { id: string; gender: 'male' | 'female'; clips: (skel: Skeleton) => Clip[]; upper?: Set<string>; sway?: Set<string>; credits: Record<string, string>; title: string; description: (names: string[]) => string; derived: string; sources: string[] };
+function movesPack(p: MovesPack) {
+  const base = `human-athlete-${p.gender}`;
+  if (!want(p.id)) return;
+  const B = JSON.parse(fromLibrary(join(base, 'asset.json'))), skel = B.skeleton as Skeleton;
+  const clips = p.clips(skel);
+  const packed = packClips(clips), dir = join(OUT, p.id), names = clips.map((c) => c.name);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'clips.bin.z'), deflateSync(packed.buffer, { level: 9 }));
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'human-moves', for: base, gender: p.gender,
+    base: { bones: (B.skeleton as { name: string }[]).map((b) => b.name), vertexCount: B.vertexCount },
+    clips: { file: 'clips.bin.z', layout: packed.layout, list: packed.meta.map(({ contact, ...c }) => ({ ...c, ...(contact != null && !c.loop ? { contact } : {}), ...(p.upper?.has(c.name) ? { upper: true } : {}), ...(p.sway?.has(c.name) ? { sway: true } : {}) })), credits: p.credits } }));
+  library[p.id] = { kind: 'human-moves', title: p.title, description: p.description(names), sources: p.sources, derived: p.derived, meta: { for: base, clips: names }, files: {}, bytes: 0 };
+  console.log(`${p.id}: ${names.length} clips for ${base} (${clips.map((c) => `${c.name} ${(c.frames / c.fps).toFixed(2)}s${c.loop ? ' loop' : ''}`).join(', ')})`);
+}
+for (const gender of ['male', 'female'] as const) movesPack({
+  id: `human-moves-${gender}`, gender, upper: MOVES_UPPER, sway: MOVES_SWAY,
+  clips: (skel) => [
     ...MOVES_CMU.map((c) => cmuCut(skel, c, gender)),
     ...MOVES_UAL.map(([file, clip, name, loop, contact]) => retargetGltf(skel, `quaternius-ual/${file}`, clip, { name, loop, contact })),
     // the punch finisher's blow to a man on the ground (AI Alps, the owner 4 Oct: "a skull-crushing overhead punch"):
     // hand-keyed (keyed.ts), from the fight guard and back to it, the guard's fists kept
     keyedClip(skel, cmuCut(skel, CMU_STREET.find((c) => c[1] === 'fight')!, gender), CRUSH),
-  ];
-  const packed = packClips(clips), dir = join(OUT, id), names = clips.map((c) => c.name);
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'clips.bin.z'), deflateSync(packed.buffer, { level: 9 }));
-  const credits = { ...Object.fromEntries(MOVES_CMU.map(([trial, name]) => [name, `CMU ${trial}`])), ...Object.fromEntries(MOVES_UAL.map(([file, clip, name]) => [name, `Quaternius ${file.replace('_Standard.glb', '')} ${clip}`])), crush: 'GameMog, hand-keyed (from the CMU 15_13 guard; 144_21 the female)' };
-  writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'human-moves', for: base, gender,
-    base: { bones: (B.skeleton as { name: string }[]).map((b) => b.name), vertexCount: B.vertexCount },
-    clips: { file: 'clips.bin.z', layout: packed.layout, list: packed.meta.map(({ contact, ...c }) => ({ ...c, ...(contact != null && !c.loop ? { contact } : {}), ...(MOVES_UPPER.has(c.name) ? { upper: true } : {}), ...(MOVES_SWAY.has(c.name) ? { sway: true } : {}) })), credits } }));
-  library[id] = {
-    kind: 'human-moves', title: `Party moves (${gender})`,
-    description: `What a world adds to the ${gender} human by listing it: ${names.length} more clips: four dances (the Twist, the Cabbage Patch, the lambada, the Macarena), a drunk's idle, walk and drink, a cheer, a toast, a smash over the head, leaning on a bar, talking seated, and an overhead punch down onto a man on the ground (the punch finisher's).`,
-    sources: ['cmu-mocap', 'quaternius-ual'],
-    derived: 'Retargeted onto the base human\'s rig (its asset.json skeleton) by the same code as its own clips: the dances, the drunk\'s idle, walk and drink and the cheer from CMU captures (the loops cut on a repeating phrase and played in place; the Macarena\'s quarter turn taken out), the toast, the smash, leaning on a rail and talking seated from Quaternius\'s Universal Animation Library 1 and 2. The crush (the overhead punch down) is GameMog\'s own, keyed by hand on the same rig: a few key poses, each limb solved by two-bone IK, from the CMU fight guard and back to it.',
-    meta: { for: base, clips: names }, files: {}, bytes: 0,
-  };
-  console.log(`${id}: ${names.length} clips for ${base} (${clips.map((c) => `${c.name} ${(c.frames / c.fps).toFixed(2)}s${c.loop ? ' loop' : ''}`).join(', ')})`);
-}
-humanMoves('male');
-humanMoves('female');
+  ],
+  credits: { ...Object.fromEntries(MOVES_CMU.map(([trial, name]) => [name, `CMU ${trial}`])), ...Object.fromEntries(MOVES_UAL.map(([file, clip, name]) => [name, `Quaternius ${file.replace('_Standard.glb', '')} ${clip}`])), crush: 'GameMog, hand-keyed (from the CMU 15_13 guard; 144_21 the female)' },
+  title: `Party moves (${gender})`,
+  description: (names) => `What a world adds to the ${gender} human by listing it: ${names.length} more clips: four dances (the Twist, the Cabbage Patch, the lambada, the Macarena), a drunk's idle, walk and drink, a cheer, a toast, a smash over the head, leaning on a bar, talking seated, and an overhead punch down onto a man on the ground (the punch finisher's).`,
+  derived: 'Retargeted onto the base human\'s rig (its asset.json skeleton) by the same code as its own clips: the dances, the drunk\'s idle, walk and drink and the cheer from CMU captures (the loops cut on a repeating phrase and played in place; the Macarena\'s quarter turn taken out), the toast, the smash, leaning on a rail and talking seated from Quaternius\'s Universal Animation Library 1 and 2. The crush (the overhead punch down) is GameMog\'s own, keyed by hand on the same rig: a few key poses, each limb solved by two-bone IK, from the CMU fight guard and back to it.',
+  sources: ['cmu-mocap', 'quaternius-ual'],
+});
+
+/* ---------------- football motion (SHOOTOUT, M1): the penalty taker's kick, and the keeper's get-up ---------------- */
+// human-moves-football-<gender>: CMU captures only (M1 uses no Mesh2Motion, Eyes JAPAN or Rocketbox file). The kicks
+// (kick.ts): 60 fps so contact is a captured frame the game can freeze on, the run-up's travel kept, the shot along +Z,
+// the strike point at contact on the origin, the timings in the clip's `kick` meta. The rest at 30 fps:
+const FOOTBALL_CMU: CmuCut[] = [
+  ['79_74', 'fbUpset', 'once', 4.2, 5.4],     // both hands up onto the head: a miss, a save (upper: over standing legs)
+  ['142_09', 'fbCheer', 'once', 1.75, 2.85],  // a jump for joy, the arms flung up: the party pack's cheer, for a world that
+                                              // lists only this pack
+];
+for (const gender of ['male', 'female'] as const) movesPack({
+  id: `human-moves-football-${gender}`, gender, upper: new Set(['fbUpset']),
+  clips: (skel) => {
+    const src = (trial: string) => { const sub = trial.split('_')[0]; return { asf: `${sub}/${sub}.asf`, amc: `${sub}/${trial}.amc` }; };
+    const kicks = KICKS.map((k) => kickCut(skel, src(k.trial), { name: k.name, from: k.from, to: k.to, at: k.at }).clip);
+    // the keeper's get-up from either side; meta: the side it lies on, when the hips are up (0.85 of standing) to stay,
+    // and where they end
+    const getup = (c: Clip, side: 'L' | 'R'): Clip => {
+      const hipsY = (f: number) => forwardQ(skel, c.quats, c.root, f).p[0][1], up = skel[0].head[1] * 0.85;
+      let f = c.frames - 1; while (f > 0 && hipsY(f - 1) >= up) f--;
+      const e = (c.frames - 1) * 3;
+      return { ...c, meta: { getup: { side, up: +(f / c.fps).toFixed(4), end: [+c.root[e].toFixed(3), +c.root[e + 2].toFixed(3)] } } };
+    };
+    const gl = getupCut(skel, src(GETUP.trial), { name: 'gkGetupL', from: GETUP.from, to: GETUP.to });
+    return [...kicks, ...FOOTBALL_CMU.map((c) => cmuCut(skel, c, gender)), getup(gl, 'L'), getup(mirrorClip(skel, gl, 'gkGetupR'), 'R')];
+  },
+  credits: { ...Object.fromEntries(KICKS.map((k) => [k.name, `CMU ${k.trial}`])), ...Object.fromEntries(FOOTBALL_CMU.map(([trial, name]) => [name, `CMU ${trial}`])), gkGetupL: `CMU ${GETUP.trial}`, gkGetupR: `CMU ${GETUP.trial} (mirrored)` },
+  title: `Football moves (${gender})`,
+  description: (names) => `What a world adds to the ${gender} human by listing it: ${names.length} football clips: a penalty taker's run-up and side-foot kick (two takes, at 60 fps, with the moment of contact, the plant and every footfall in their meta), hands on the head in dismay, a jump for joy, and a goalkeeper getting up off the ground from either side.`,
+  derived: 'Retargeted onto the base human\'s rig (its asset.json skeleton) from CMU captures by the same code as its own clips. The kicks keep their run-up\'s travel, are sampled at 60 fps with contact on a captured frame, turned so the shot runs along +Z and moved so the strike point at contact is at the origin; their contact, plant, footfalls, strike point and foot angles are measured on the retargeted body (scripts/assets/kick.ts). The get-up is placed by the hips, set on the floor frame by frame, laid along +X, and mirrored for the other side.',
+  sources: ['cmu-mocap'],
+});
 
 if (want('hdri-sunset-city')) {
   const id = 'hdri-sunset-city', dir = join(OUT, id);
@@ -652,6 +703,17 @@ for (const [id, src, title, style, [lo, hi]] of TRACKS) {
   console.log(`${id}: ${m.bpm} BPM, loop ${m.loop.start.toFixed(1)}-${m.loop.end.toFixed(1)} s (${m.loop.bars} bars, similarity ${m.loop.similarity}), ${m.lufs} LUFS`);
 }
 
+/* ---------------- the penalty shootout's recorded crowd ---------------- */
+if (want('audio-crowd-shootout')) {
+  // CC0 takes cut, levelled and encoded as two AAC sheets with a cue table (see crowd-audio.ts); the runtime's
+  // shootout-audio.js plays its crowd from them, and its own synthesised crowd when they are missing
+  const id = 'audio-crowd-shootout', dir = join(OUT, id);
+  const c = buildCrowdAudio(dir);
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify(c.asset));
+  library[id] = { kind: 'sound', title: 'Stadium crowd for a penalty', description: `A night final's crowd, recorded: a murmur, the shushing and the whistling at the taker (loops), a group inhale, a roar of "Gol!" and a wordless cheer, a groan, a let-down, sighs, gasps and coughs; ${c.meta.takes.length} takes in two sheets with a cue for each.`, sources: Object.keys(CROWD_SOURCES), derived: 'Cut from the original WAVs, high-passed at 45 Hz, brought to 32 kHz, levelled to -20 dBFS (RMS over the loudest half second, or the whole of a loop) under a -1 dBFS peak; loops crossfaded at their joins; one-shots folded to mono; encoded to AAC (stereo 128 kbps, mono 64 kbps) and decoded again to check every cue.', meta: c.meta, files: {}, bytes: 0 };
+  for (const l of c.checks) console.log(`${id}: ${l}`);
+}
+
 // hash every file, and record which licences cover each asset
 for (const [id, e] of Object.entries(library)) {
   for (const f of readdirSync(join(OUT, id)).sort()) {
@@ -660,7 +722,7 @@ for (const [id, e] of Object.entries(library)) {
   }
 }
 // with ONLY, everything not rebuilt stays as the library had it
-const previous = ONLY ? (JSON.parse(readFileSync(join(OUT, 'library.json'), 'utf8')).assets as typeof library) : {};
+const previous = ONLY ? (JSON.parse(fromLibrary('library.json')).assets as typeof library) : {};
 const assets = ONLY ? Object.fromEntries(Object.keys({ ...previous, ...library }).map((id) => [id, library[id] ?? previous[id]])) : library;
 for (const id of BAKED) if (!assets[id] && bakedBefore[id]) (assets as Record<string, any>)[id] = bakedBefore[id];
 const manifest = {

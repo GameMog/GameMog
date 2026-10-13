@@ -137,6 +137,15 @@ async function run() {
   ok('a kart run held for review is refused', !X.checkRun(kg, kRun(tStar * 0.97, 1)).ok && (X.checkRun(kg, kRun(tStar * 0.97, 1)) as { error: string }).error === 'That run is being checked.');
   ok('an assisted run is refused', !X.checkRun(kg, { ...slow, assisted: true }).ok && !X.checkRun(test, { level: 3, gm: 10, timeMs: 60000, assisted: true }).ok);
   ok('a run out of range is refused', !X.checkRun(kg, kRun(tStar * 1.2, 99)).ok && !X.checkRun(test, { level: 900, gm: 10, timeMs: 1000 }).ok && !X.checkRun(kg, null).ok);
+  // a penalty shootout (12 Oct): the score board, its run the goals (score) from the kicks (level), read as goals
+  {
+    const { readFileSync: read } = await import('node:fs');
+    const sg = { format: 'world' as const, code: read(new URL('worlds/shootout.js', ROOT), 'utf8'), meta: '{"mode":"shootout"}' };
+    const c = X.checkRun(sg, { score: 3, level: 4, timeMs: 9000, won: true, place: 1 }), t = c.ok ? X.describeRun(sg, c.run) : null;
+    ok('a shootout ranks its goals on the score board: "Goals to beat", from that many kicks', X.boardOf(sg) === 'score' && !!t && t.label === 'Goals to beat' && t.text === '3' && t.sub === 'from 4 kicks' && t.value === 3, t ?? c);
+    ok('...and more goals than kicks, no kick, or an assisted run is refused', !X.checkRun(sg, { score: 5, level: 4, timeMs: 9000 }).ok && !X.checkRun(sg, { score: 0, level: 0, timeMs: 9000 }).ok && !X.checkRun(sg, { score: 1, level: 1, timeMs: 9000, assisted: true }).ok);
+    ok('...and every other world keeps its board', X.boardOf(test) === 'level' && X.boardOf(kg) === 'kart');
+  }
   const R = (p: Partial<import('../lib/dare.ts').DareRun>): import('../lib/dare.ts').DareRun => ({ timeMs: 60000, place: 0, laps: null, gm: 0, hits: 0, est: false, progress: null, racer: null, level: 1, kos: 0, survival: false, score: null, ...p });
   ok('better: kart by score, then time', X.better('kart', R({ score: 9000, timeMs: 99 }), R({ score: 8000, timeMs: 1 })) && X.better('kart', R({ score: 8000, timeMs: 1 }), R({ score: 8000, timeMs: 2 })) && !X.better('kart', R({ score: 8000 }), R({ score: 8000 })));
   ok('better: survival by time, then GM, then takedowns', X.better('survival', R({ timeMs: 70000 }), R({ timeMs: 60000, gm: 999 })) && X.better('survival', R({ gm: 5 }), R({ gm: 4 })) && X.better('survival', R({ kos: 2 }), R({ kos: 1 })));

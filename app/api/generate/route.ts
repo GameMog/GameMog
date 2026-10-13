@@ -7,7 +7,7 @@ import { admit, takeSlot, resting, priceBuild, BUSY, RESTING, type Lease, type P
 
 import { ImageSchema, type Character, type CharacterImage } from '@/lib/character';
 import { readOptions } from '@/lib/world-options';
-import { isOpenWorld } from '@/lib/custom-game';
+import { isOpenWorld, canMog, MOG_SOON } from '@/lib/custom-game';
 
 export const runtime = 'nodejs';
 // Opus writing a whole game, a real-browser playtest and up to two repairs
@@ -28,6 +28,8 @@ export async function POST(req: Request) {
   // a Mog: the game it challenges, and one line on how to beat it
   const parent = typeof body.mogOf === 'string' ? getGameBySlug(body.mogOf) : undefined;
   if (body.mogOf && !parent) return NextResponse.json({ error: 'The game you are mogging no longer exists.' }, { status: 404 });
+  // (a penalty shootout cannot be mogged yet, 12 Oct: refused before a slot is taken or anything is spent)
+  if (parent && !canMog(parent)) return NextResponse.json({ error: MOG_SOON }, { status: 409 });
   if (parent && (text.length < 4 || text.length > 600)) {
     return NextResponse.json({ error: 'Say in a line how your Mog should beat the original.' }, { status: 400 });
   }

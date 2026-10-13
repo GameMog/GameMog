@@ -319,6 +319,9 @@ const KIND: Record<WorldMode, RegExp> = {
   derby: words(['derby', 'demolition', 'car combat', 'vehicular combat', 'car battles?', 'car fights?', 'car wars?', 'bumper cars?', 'twisted metal', 'smash-?up derby', 'ram(?:ming)? (?:them|the other cars|other cars|rivals)']),
   race: words(['race', 'races', 'racing', 'lap race', 'laps', 'circuit', 'grand prix', 'time trial', 'formula (?:one|1)', 'f1', 'nascar', 'marathon']),
   survival: words(['open world', 'on foot', 'survival', 'survive', 'brawler', 'brawl', 'beat[- ]?(?:\'?em|them)[- ]?up', 'fist ?fights?', 'melee', 'street fights?', 'kung fu', 'martial arts']),
+  // (a penalty shootout, 12 Oct: not one an idea can ask for yet, the builder has no shootout docs, so this matches
+  // nothing and every idea reads as it did before; a shootout cannot be mogged at all yet: lib/custom-game.ts canMog)
+  shootout: /(?!)/,
 };
 /**
  * Settings a world can be moved to (a rename's clause is taken out before these are looked for). The words that also
@@ -404,6 +407,7 @@ export function readIdea(idea: string, parent?: Pick<Dna, 'map' | 'places'> & { 
 export const KIND_SAID: Record<WorldMode, string> = {
   race: 'an endless-lap race', survival: 'an open world on foot, surviving the crews', derby: 'a car combat arena (a derby)',
   kart: 'a kart race (kart: {...}: laps, eight karts, places)',
+  shootout: 'a penalty shootout (shootout: {...}: one taker, one keeper, kick after kick)',
 };
 const list = (xs: string[], n = 3) => xs.length > n ? `${xs.slice(0, n).join(', ')} and more` : xs.join(', ');
 const patrolSaid = (car: string) => (car === 'on' ? 'a patrol car' : `${/^[aeiou]|^suv$/i.test(car) ? 'an' : 'a'} ${car === 'suv' ? 'SUV' : car}`);

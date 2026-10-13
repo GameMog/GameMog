@@ -38,14 +38,24 @@ and what GameMog changed).
 
 ## Assets
 
-The asset library in `public/assets` is built from the pinned sources listed in
-`assets-src/sources.json`, which records each source's title, author, licence and link;
-`public/assets/library.json` records every built file's hash. All of them are CC0-1.0
-(MakeHuman, Poly Haven, Quaternius, OpenGameArt, ambientCG) except the motion capture from the
+The asset library in `public/assets` is built from pinned sources: those listed in
+`assets-src/sources.json`, and the penalty shootout crowd's two Freesound packs, which are listed, with each
+take pinned by its hash, in `scripts/assets/crowd-audio.ts`. `public/assets/library.json` records every
+source's title, author, licence and link, and every built file's hash. All of them are CC0-1.0
+(MakeHuman, Poly Haven, Quaternius, OpenGameArt, ambientCG, Freesound) except the motion capture from the
 [CMU Graphics Lab Motion Capture Database](http://mocap.cs.cmu.edu), which Carnegie Mellon
 University provides free for all uses: it may be included in products, but the data itself may
 not be resold (the database was created with funding from NSF EIA-0196217), and the `city-midtown` textures,
 props model, vehicles and people and the humans' freeflow moves, which are Spiderbench's (above), not CC0.
+The CMU acknowledgement covers every clip built from that database, the football moves
+(`human-moves-football-male` and `-female`: the penalty kicks, the reactions and the keeper's get-up) included.
+
+The penalty shootout's recorded crowd (`audio-crowd-shootout`) is cut from two CC0-1.0 packs on
+[Freesound](https://freesound.org), credited with thanks though CC0 does not require it:
+["La audiencia disponible"](https://freesound.org/people/freesound/packs/1563/) (pack 1563, an audience
+recorded at CaixaForum Barcelona, by Freesound's own account), and the
+[GameSoundCon 2024 walla](https://freesound.org/people/ShangusBurger/packs/42098/) (pack 42098) by
+Shane Vincent, uploaded by ShangusBurger. Each take used is listed, with its link, under the asset in `public/assets/library.json`.
 
 ## Names and likenesses
 

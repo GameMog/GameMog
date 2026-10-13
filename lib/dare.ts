@@ -13,7 +13,7 @@ import { randomBytes } from 'node:crypto';
 import { db, getGameById, getPlayableGameById, type GameRow } from './db';
 import { isBot } from './analytics';
 import { COOKIE, validSession } from '../app/admin/session';
-import { worldMode } from './custom-game';
+import { worldMode, canMog } from './custom-game';
 import { optionsOf } from './world-options';
 import { dna } from './mog-dna';
 import { KartScore, kartConstants, checkKartRun, raceClock, ordinal, type KartConstants } from './kart-score';
@@ -26,7 +26,8 @@ type GameLike = Pick<GameRow, 'format' | 'code' | 'meta'>;
 export function boardOf(game: GameLike): Board {
   if (game.format === 'world') {
     const mode = worldMode(game.code, game.meta);
-    return mode === 'kart' ? 'kart' : mode === 'race' ? 'level' : 'survival';
+    // (a penalty shootout, 12 Oct: the goals scored, on the score board)
+    return mode === 'kart' ? 'kart' : mode === 'race' ? 'level' : mode === 'shootout' ? 'score' : 'survival';
   }
   if (game.format === 'custom') {
     let s: unknown;
@@ -49,7 +50,9 @@ function contextOf(game: GameLike) {
   const C: KartConstants | null = board === 'kart' ? kartConstants(game.meta, game.code, kart) : null;
   let cast = 8;
   try { cast = (JSON.parse(game.meta ?? '{}') as { cast?: unknown[] }).cast?.length ?? 8; } catch { /* the default */ }
-  return { board, C, laps: kart?.laps ?? null, coins: game.format === 'world' ? !!optionsOf(game).coins : true, cast };
+  // (a penalty shootout's run is its goals, from that many kicks)
+  const shootout = game.format === 'world' && board === 'score';
+  return { board, C, laps: kart?.laps ?? null, coins: game.format === 'world' ? !!optionsOf(game).coins : true, cast, shootout };
 }
 
 const int = (v: unknown) => Math.round(Number(v) || 0);
@@ -90,6 +93,14 @@ export function checkRun(game: GameLike, input: unknown): { ok: true; run: DareR
       return no('Result outside plausible range');
     }
     return { ok: true, run: { ...base, timeMs: Math.round(timeMs), place: 0, gm: Math.round(gm), level, kos, score: level * 1000 + Math.round(gm) } };
+  }
+  // (a penalty shootout, 12 Oct: as app/api/scores/route.ts checks it; its score is the goals, its level the kicks)
+  if (x.shootout) {
+    const goals = Number(b.score) || 0;
+    if (!Number.isInteger(level) || level < 1 || level > 999 || !Number.isInteger(goals) || goals < 0 || goals > level || timeMs < 500 || timeMs > 30 * 60 * 1000) {
+      return no('Result outside plausible range');
+    }
+    return { ok: true, run: { ...base, timeMs: Math.round(timeMs), place: 0, gm: 0, level, kos: 0, score: goals } };
   }
   if (game.format === 'custom') {
     const score = Number(b.score) || 0, place = Number(b.place) || 0;
@@ -158,8 +169,9 @@ export function marginText(by: Board, m: number): string {
 export type Target = { board: Board; value: number; text: string; label: string; sub: string; run: DareRun };
 function describe(game: GameLike, run: DareRun): Target {
   const x = contextOf(game), by = x.board;
-  const label = by === 'kart' || by === 'score' ? 'Score to beat' : by === 'level' ? 'Level to beat' : by === 'place' ? 'Place to beat' : 'Time to beat';
-  const sub = by === 'kart' ? `${ordinal(run.place)} of ${x.C?.karts ?? 8} · ${raceClock(run.timeMs)}`
+  const label = x.shootout ? 'Goals to beat' : by === 'kart' || by === 'score' ? 'Score to beat' : by === 'level' ? 'Level to beat' : by === 'place' ? 'Place to beat' : 'Time to beat';
+  const sub = x.shootout ? `from ${plural(run.level, 'kick')}`
+    : by === 'kart' ? `${ordinal(run.place)} of ${x.C?.karts ?? 8} · ${raceClock(run.timeMs)}`
     : by === 'survival' ? (x.coins ? `${n(run.gm)} GM` : plural(run.kos, 'takedown'))
     : by === 'level' ? `${n(run.gm)} GM · ${clock(run.timeMs)}`
     : by === 'score' ? (run.timeMs > 0 ? clock(run.timeMs) : '')
@@ -218,7 +230,9 @@ export function target(dare: DareRow, game?: GameLike | null): Target | null {
 export type DareView = {
   id: string; url: string; card: string; hasCard: boolean; createdAt: number;
   name: string | null; message: string | null; board: Board; target: Target | null; parent: string | null;
-  game: { id: string; slug: string; title: string; tagline: string; cover: string; creator: string | null; parent: { slug: string; title: string } | null };
+  game: { id: string; slug: string; title: string; tagline: string; cover: string; creator: string | null; parent: { slug: string; title: string } | null;
+    /** whether it can be mogged back (lib/custom-game.ts canMog: a penalty shootout cannot yet) */
+    mog: boolean };
 };
 export function dareView(id: string, slug?: string): DareView | null {
   const d = getDare(id);
@@ -228,7 +242,7 @@ export function dareView(id: string, slug?: string): DareView | null {
   return {
     id: d.id, url: dareUrl(g.slug, d.id), card: dareCardUrl(g.slug, d.id), hasCard: !!d.has_card, createdAt: d.created_at,
     name: d.name, message: d.message, board: d.board, target: target(d, g), parent: d.parent_dare,
-    game: { id: g.id, slug: g.slug, title: g.title, tagline: g.tagline, cover: `/g/${g.slug}/cover?plain`, creator: g.creator, parent: p ? { slug: p.slug, title: p.title } : null },
+    game: { id: g.id, slug: g.slug, title: g.title, tagline: g.tagline, cover: `/g/${g.slug}/cover?plain`, creator: g.creator, parent: p ? { slug: p.slug, title: p.title } : null, mog: canMog(g) },
   };
 }
 

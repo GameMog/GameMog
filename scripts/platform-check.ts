@@ -22,7 +22,7 @@ import { runKartMogTests } from './kart-score/test-mog.mjs';
 import { load as loadKartSim } from './kart-score/sim.mjs';
 import { codeHash } from '../lib/test-drive.ts';
 import { setWorldHidden } from '../lib/analytics.ts';
-import { worldMode, worldControls, MODE_PAGE, isKartWorld, staticCheckWorld, runtimeSource } from '../lib/custom-game.ts';
+import { worldMode, worldControls, MODE_PAGE, isKartWorld, isShootoutWorld, staticCheckWorld, runtimeSource, canMog, MOG_SOON, SHOOTOUT_CONTROLS } from '../lib/custom-game.ts';
 import { dna, compareDna, askedKind, describeDna } from '../lib/mog-dna.ts';
 import { testDriveChecks } from './test-drive-check.ts';
 import { buildLimitsChecks } from './build-limits-check.ts';
@@ -137,7 +137,14 @@ try {
 
   console.log('\nOwner only');
   const admin = await page('/admin');
-  ok('/admin without a session is a sign-in (or absent), never the numbers', (admin.status === 404 || admin.html.includes('Owner sign in')) && !admin.html.includes('Est. API spend'));
+  // (the owner, 12 Oct: open to read without signing in, for now: app/admin/page.tsx OPEN_TO_READ; every change still
+  // checks the session first, app/admin/actions.ts must())
+  const openToRead = /const OPEN_TO_READ = true/.test(readFileSync(new URL('../app/admin/page.tsx', import.meta.url), 'utf8'));
+  const acts = readFileSync(new URL('../app/admin/actions.ts', import.meta.url), 'utf8');
+  const changes = [...acts.matchAll(/export async function (\w+)\([^)]*\)[^{]*\{\s*([^\n]*)/g)].filter(([, n]) => !/^sign(In|Out)$/.test(n));
+  const guarded = changes.length > 0 && changes.every(([, , first]) => /^await must\(\);/.test(first));
+  ok(openToRead ? '/admin is open to read without a session (the owner, 12 Oct, for now), and every change still needs one' : '/admin without a session is a sign-in (or absent), never the numbers',
+    openToRead ? (admin.status === 404 || admin.status === 200) && guarded : (admin.status === 404 || admin.html.includes('Owner sign in')) && !admin.html.includes('Est. API spend'), changes.map(([, n]) => n).join(', '));
   const forged = await fetch(`${BASE}/admin`, { headers: { cookie: `gm_admin=v1.9999999999.${'a'.repeat(64)}` } });
   ok('a forged session cookie is only a sign-in too', !(await forged.text()).includes('Est. API spend'));
   ok('the admin page asks search engines to stay out', /noindex/.test(admin.html) || admin.status === 404);
@@ -187,6 +194,42 @@ try {
   // and the board
   // its guard (8 Oct, lib/runtime/kart-guard.js): a lost graphics context or a race that throws shows a card instead
   // of a black frame, and the page sends a small report on to /api/kart-report, which only the owner can read
+  // a penalty shootout (SHOOTOUT, the owner 11 and 12 Oct): its own kind, page and controls; the goals scored on the
+  // score board; and no Mog yet (the builder has no shootout docs, lib/custom-game.ts canMog), refused before a build
+  console.log('\nPenalty shootouts');
+  {
+    const shootCode = readFileSync(new URL('../worlds/shootout.js', import.meta.url), 'utf8');
+    ok('shootout: a world naming shootout: {...} among its own keys is a penalty shootout, with its own page and controls', worldMode(shootCode) === 'shootout' && worldMode(null, { mode: 'shootout' }) === 'shootout'
+      && isShootoutWorld(shootCode) && !isKartWorld(shootCode) && worldMode(code) === 'race' && worldMode(kartCode) === 'kart' && MODE_PAGE.shootout.label === 'Penalty shootout'
+      && worldControls(shootCode) === SHOOTOUT_CONTROLS && staticCheckWorld(shootCode).length === 0, MODE_PAGE.shootout.label);
+    const pad = (w: string) => `${w}\n${'// padding'.padEnd(1600, '.')}`;
+    ok('shootout: one given as a const (served without its runtime) is refused by the static check', staticCheckWorld(pad('GameMog.world({ shootout: SHOOT_CFG, build: function () {} });')).some((p) => /shootout: \{ \.\.\. \}/.test(p))
+      && !staticCheckWorld(pad('GameMog.world({ shootout: false, build: function () {} });')).some((p) => /shootout/.test(p)));
+    ok('shootout: no idea asks for one yet, so every idea reads as it did', askedKind('make it a penalty shootout') === null && askedKind('a shootout at night') === null && askedKind('make it a kart race on the moon') === 'kart');
+    ok('shootout: it cannot be mogged yet; every other game can', !canMog({ format: 'world', code: shootCode }) && !canMog({ format: 'world', code: null, meta: '{"mode":"shootout"}' })
+      && canMog({ format: 'world', code }) && canMog({ format: 'world', code: kartCode }) && canMog({ format: 'race', code: null }) && canMog({ format: 'custom', code: 'x' }));
+    const sg = await publish(`${tag} Shootout`, null, null, shootCode);
+    const sp = await page(`/g/${sg.slug}`), mp = await page(`/mog/${sg.slug}`);
+    ok('shootout: its page says "Penalty shootout" and how it plays, its frame knows, and it offers no Mog but says why', sp.status === 200 && sp.html.includes('Penalty shootout') && sp.html.includes('gold ring')
+      && sp.html.includes('\\"shootout\\":true') && !sp.html.includes(`href="/mog/${sg.slug}"`) && sp.html.includes(MOG_SOON));
+    ok('shootout: and every other game still offers its Mog', po.html.includes(`href="/mog/${original.slug}"`) && kp.html.includes(`href="/mog/${kg.slug}"`) && kp.html.includes('\\"shootout\\":false'));
+    ok('shootout: /mog/<slug> refuses cleanly: the note and Play, no composer', mp.status === 200 && mp.html.includes(MOG_SOON) && !/<textarea/.test(mp.html) && mp.html.includes(`href="/g/${sg.slug}"`));
+    const gen = await post('/api/generate', { prompt: 'make the keeper taller', mogOf: sg.slug });
+    ok('shootout: and the build route refuses a Mog of it before anything is spent', gen.status === 409 && ((await gen.json()) as { error?: string }).error === MOG_SOON, String(gen.status));
+    // the board: the goals scored in a sitting, from that many kicks, after each kick
+    const r1 = await post('/api/scores', { gameId: sg.id, player: 'Keeperbane', score: 3, level: 4, timeMs: 9000, won: true, place: 1 });
+    const r2 = await post('/api/scores', { gameId: sg.id, player: 'Cheat', score: 5, level: 4, timeMs: 9000 });
+    const r3 = await post('/api/scores', { gameId: sg.id, player: 'Cheat', score: 1, level: 1, timeMs: 9000, assisted: true });
+    const board = topScores(sg.id, 10, 'score');
+    ok('shootout: a run posts its goals and kicks; more goals than kicks, or an assisted run, is refused', r1.status === 200 && r2.status === 422 && r3.status === 422 && board.length === 1 && board[0].score === 3 && board[0].level === 4,
+      `${r1.status} ${r2.status} ${r3.status} ${board.length}`);
+    const sp2 = await page(`/g/${sg.slug}`);
+    // (the board is a tab: in the page's own data, its headings as children)
+    ok('shootout: and its leaderboard shows the goals and the kicks', sp2.html.includes('\\"children\\":\\"Goals\\"') && sp2.html.includes('\\"children\\":\\"Kicks\\"') && sp2.html.includes('Keeperbane') && sp2.html.includes('Leaderboard (1)'));
+    // (a dare on it, read as goals: scripts/dare-check.ts)
+    db.prepare('DELETE FROM scores WHERE game_id = ?').run(sg.id);
+  }
+
   console.log('\nKart guard and crash reports');
   {
     const kRt = runtimeSource(1, true), pRt = runtimeSource(1, false);

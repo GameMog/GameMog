@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { SiteHeader, SiteFooter } from '../../header';
 import { Tile } from '../../tile';
 import { topScores, listGames, bestTimes, voteCounts, playerStats, type GameRow } from '@/lib/db';
-import { worldControls, worldMode, MODE_PAGE, NO_GM_HOW, kartHow, type GameMeta } from '@/lib/custom-game';
+import { worldControls, worldMode, MODE_PAGE, NO_GM_HOW, kartHow, canMog, type GameMeta } from '@/lib/custom-game';
 import { optionsOf } from '@/lib/world-options';
 import { PlayFrame } from './play-frame';
 import { playSrc } from '@/lib/play-page';
@@ -33,8 +33,10 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
   const mode = world ? worldMode(game.code, game.meta) : null, page = mode ? MODE_PAGE[mode] : null;
   // an open world with no GM ranks the takedowns after the time
   const noGm = mode === 'survival' && !optionsOf(game).coins;
-  // an open world ranks the time survived; a race the level reached; a kart race its score (8 Oct), each player once
-  const by = mode ? (mode === 'race' ? 'level' : mode === 'kart' ? 'kart' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
+  // an open world ranks the time survived; a race the level reached; a kart race its score (8 Oct), each player once;
+  // a penalty shootout (12 Oct) the goals scored in a sitting, on the score board, with the kicks they took
+  const shootout = mode === 'shootout';
+  const by = mode ? (mode === 'race' ? 'level' : mode === 'kart' ? 'kart' : shootout ? 'score' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
   // (a kart race's constants: the perfect time of each racer, for the post panel's score, the same as the route's)
   // (and its laps for the page's text: kartHow, 9 Oct; Meme Kart's three laps read word for word as before)
@@ -55,7 +57,14 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
   const fmt = (s: (typeof scores)[number]) =>
     by === 'survival' ? clock(s.time_ms)
     : by === 'level' ? `Level ${s.level ?? 0}` : by === 'score' ? `${(s.score ?? 0).toLocaleString()} pts` : by === 'place' ? `${s.place || '-'}` : `${(s.time_ms / 1000).toFixed(2)}s`;
-  const leaderboard = scores.length && kartC ? <KartBoard rows={scores} gmOn={kartC.gmCap > 0} provisional={!kartMeasured(kartC)} /> : scores.length ? (
+  const leaderboard = scores.length && kartC ? <KartBoard rows={scores} gmOn={kartC.gmCap > 0} provisional={!kartMeasured(kartC)} /> : scores.length && shootout ? (
+    <table className="bd">
+      <thead><tr><th /><th>Player</th><th>Goals</th><th>Kicks</th></tr></thead>
+      <tbody>
+        {scores.map((s, i) => <tr key={s.id}><td>{i + 1}</td><td>{s.player}</td><td>{s.score ?? 0}</td><td>{s.level ?? 0}</td></tr>)}
+      </tbody>
+    </table>
+  ) : scores.length ? (
     <table className="bd">
       <thead><tr><th /><th>Player</th><th>{by === 'survival' ? 'Survived' : by === 'level' ? 'Level' : by === 'score' ? 'Score' : by === 'place' ? 'Place' : 'Time'}</th>{(by === 'level' || by === 'survival') && <th>{noGm ? 'Takedowns' : 'GM'}</th>}<th>{by === 'survival' ? 'Heat' : 'Time'}</th></tr></thead>
       <tbody>
@@ -81,7 +90,7 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
         </nav>
         <div className="gtop">
           <div className="gstage">
-            <PlayFrame slug={game.slug} gameId={game.id} src={playSrc(game)} you={game.format === 'world'} kart={mode === 'kart'} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
+            <PlayFrame slug={game.slug} gameId={game.id} src={playSrc(game)} you={game.format === 'world'} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
               // eslint-disable-next-line @next/next/no-img-element
               poster={<img src={`/g/${game.slug}/cover`} alt="" />} />
           </div>
@@ -92,7 +101,7 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
               <Lineage game={game} />
               {world && <YouLine slug={game.slug} />}
             </div>
-            <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />
+            <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} mog={canMog(game)} />
           </div>
         </div>
 

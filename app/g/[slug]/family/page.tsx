@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { familyByRoot, getGameBySlug, getUnlistedGameBySlug, getPlayableGameById, type FamilyMember, type GameRow } from '@/lib/db';
+import { canMog, MOG_SOON } from '@/lib/custom-game';
 import { pageMeta } from '../../../seo';
 import { GlassFont } from '../../../discord-pill';
 import '../../../glass.css';
@@ -100,13 +101,13 @@ export default async function FamilyPage({ params }: Params) {
                     <svg width="11" height="13" viewBox="0 0 14 16" aria-hidden><path d="M1 1.2v13.6a.7.7 0 0 0 1.05.6l11.2-6.8a.7.7 0 0 0 0-1.2L2.05.6A.7.7 0 0 0 1 1.2Z" fill="currentColor" /></svg>
                     <span>Play</span>
                   </Link>
-                  <Link className="gl-pill gl-clear" href={`/mog/${m.slug}`} aria-label={`Mog ${m.title}`}>Mog it</Link>
+                  {canMog(m) && <Link className="gl-pill gl-clear" href={`/mog/${m.slug}`} aria-label={`Mog ${m.title}`}>Mog it</Link>}
                 </div>
               </li>
             );
           })}
         </ol>
-        {rows.length <= 1 ? <p className="fp-meta" style={{ marginTop: 16 }}>No Mogs yet. Make the first one.</p> : null}
+        {rows.length <= 1 ? <p className="fp-meta" style={{ marginTop: 16 }}>{f.root && !canMog(f.root) ? MOG_SOON : 'No Mogs yet. Make the first one.'}</p> : null}
       </div>
     </main>
   );

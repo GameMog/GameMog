@@ -105,7 +105,8 @@ for (const [s, c] of [['L', 'l'], ['R', 'r']]) Object.assign(MAP, {
 });
 
 export type Skeleton = { name: string; parent: number; head: number[]; tail: number[] }[];
-export type Clip = { name: string; fps: number; frames: number; loop: boolean; speed: number; bones: string[]; quats: Float32Array; root: Float32Array; contact?: number; dir?: number };
+// meta: extra fields the pack writes into the clip's entry as they are (a kick's timings and placement, kick.ts)
+export type Clip = { name: string; fps: number; frames: number; loop: boolean; speed: number; bones: string[]; quats: Float32Array; root: Float32Array; contact?: number; dir?: number; meta?: Record<string, unknown> };
 
 // kinds: 'cycle' one gait cycle found by the left foot's strikes; 'idle' a loop
 // in place; 'once' a move in place; 'move' a loop cut at start..end that keeps
@@ -114,7 +115,13 @@ export type Clip = { name: string; fps: number; frames: number; loop: boolean; s
 // (a sidestep, a backpedal). srcFps is the capture's rate (most CMU trials 120).
 // contact: seconds from start to the moment a blow lands.
 // unturn: source frames [from, to] of a turn on the spot to take out (see below).
-export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, opts: { name: string; kind: 'cycle' | 'idle' | 'once' | 'move'; start?: number; end?: number; fps?: number; inPlace?: boolean; face?: 'travel' | 'hips'; srcFps?: number; contact?: number; period?: number; fist?: boolean; unturn?: [number, number] }): Clip {
+// keepTravel (a 'once' clip): the root keeps where it goes, from where it starts (a run-up and a kick), instead of being
+// centred over the spot. alignAt: a source frame that must be an output frame (a kick's contact, so the pose the game
+// freezes on is a captured one): the window grows outward to whole steps of the source rate over the output rate.
+// rootAt 'hips': the body is placed by the source's hip joints (their midpoint) instead of its root, which sits above
+// them (CMU's hipjoint bones run down from it): upright the difference is a constant the feet-on-the-floor step takes
+// out, but a clip that goes from lying to standing (a get-up) would otherwise stand 0.2 m off the floor
+export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, opts: { name: string; kind: 'cycle' | 'idle' | 'once' | 'move'; start?: number; end?: number; fps?: number; inPlace?: boolean; face?: 'travel' | 'hips'; srcFps?: number; contact?: number; period?: number; fist?: boolean; unturn?: [number, number]; keepTravel?: boolean; alignAt?: number; rootAt?: 'hips' }): Clip {
   const asf = parseAsf(read(`cmu-mocap/${src.asf}`)), frames = parseAmc(read(`cmu-mocap/${src.amc}`));
   const poses = frames.map((f) => fk(asf, f));
   const FPS = opts.srcFps ?? 120, fps = opts.fps ?? 30;
@@ -143,6 +150,14 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
     if (pairs.length) { const pick = pairs[Math.floor((pairs.length - 1) / 2)]; a = pick[0]; z = pick[1]; }
     else { a = Math.round((lo + hi - T) / 2); z = a + T; }
   }
+  if (opts.alignAt != null && opts.kind !== 'cycle') {
+    const step = FPS / (opts.fps ?? 30);
+    if (!Number.isInteger(step)) throw new Error(`${src.amc}: alignAt needs the source rate (${FPS}) a whole multiple of the output rate`);
+    a = opts.alignAt - step * Math.ceil((opts.alignAt - a) / step);
+    z = a + step * Math.ceil((z - a) / step);
+    while (z > poses.length - 1) z -= step;
+    if (a < 0 || z <= opts.alignAt) throw new Error(`${src.amc}: alignAt ${opts.alignAt} does not fit the trial`);
+  }
   const n = Math.max(2, Math.round(((z - a) / FPS) * fps) + (opts.kind === 'once' ? 1 : 0));
   // unturn (source frames u0..u1): a turn on the spot inside the clip, taken out as it happens, so the clip ends facing
   // the way it began (a dance's quarter-turn jump becomes a hop on the spot); spin(f) is that correction at frame f, a
@@ -158,7 +173,8 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
   }
   const unspun = (p: V3, f: number): V3 => { if (!spin) return p; const d = qrot(spin(f), [p[0] - pivot[0], 0, p[2] - pivot[2]]); return [pivot[0] + d[0], p[1], pivot[2] + d[2]]; };
   // heading: face +Z along the direction of travel (or of the hips, standing still)
-  const r0 = poses[a].get('root')!.head, r1 = unspun(poses[z].get('root')!.head, z);
+  const rootOf = (p: Pose): V3 => { if (opts.rootAt !== 'hips') return p.get('root')!.head; const l = p.get('lfemur')!.head, r = p.get('rfemur')!.head; return [(l[0] + r[0]) / 2, (l[1] + r[1]) / 2, (l[2] + r[2]) / 2]; };
+  const r0 = rootOf(poses[a]), r1 = unspun(rootOf(poses[z]), z);
   let fwd: V3 = [r1[0] - r0[0], 0, r1[2] - r0[2]];
   const hipsFwd = (): V3 => { let sx = 0, sz = 0; for (let i = a; i <= z; i++) { const l = poses[i].get('lfemur')!.head, r = poses[i].get('rfemur')!.head; let c = cross([l[0] - r[0], 0, l[2] - r[2]], [0, 1, 0]); if (spin) c = qrot(spin(i), c); const cl = Math.hypot(c[0], c[2]) || 1; sx += c[0] / cl; sz += c[2] / cl; } return [sx, 0, sz]; };
   if (opts.face === 'hips' || opts.kind === 'move' || Math.hypot(fwd[0], fwd[2]) < 0.3) fwd = hipsFwd();
@@ -178,7 +194,7 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
     const f = a + t * (z - a), i = Math.min(poses.length - 2, Math.floor(f)), u = f - i;
     const A = poses[i], B = poses[i + 1];
     const q = (nm: string) => slerp(A.get(nm)!.q, B.get(nm)!.q, u);
-    const rp = A.get('root')!.head.map((v, j) => v + (B.get('root')!.head[j] - v) * u) as V3;
+    const ra = rootOf(A), rb = rootOf(B), rp = ra.map((v, j) => v + (rb[j] - v) * u) as V3;
     return { q, rp: unspun(rp, f), f };
   };
   const bones = skel.map((b) => b.name), nb = bones.length, loop = opts.kind !== 'once';
@@ -187,6 +203,7 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
   const quats = new Float32Array(m * nb * 4), root = new Float32Array(m * 3);
   const world: Q[] = new Array(nb);
   const curl = fingerCurl(skel, !!opts.fist), rootRest = skel[0].head;
+  const hipOff: V3 | null = opts.rootAt === 'hips' ? (() => { const l = J('upperleg01.L').head, r = J('upperleg01.R').head; return [(l[0] + r[0]) / 2 - rootRest[0], (l[1] + r[1]) / 2 - rootRest[1], (l[2] + r[2]) / 2 - rootRest[2]] as V3; })() : null;
   for (let fI = 0; fI < m; fI++) {
     const t = loop ? fI / n : fI / (n - 1);
     const s = sample(t), H = spin ? qmul(heading, spin(s.f)) : heading;
@@ -200,8 +217,10 @@ export function retargetClip(skel: Skeleton, src: { asf: string; amc: string }, 
     // a moving clip plays on the spot: its travel is taken out as it goes
     const ax = moves ? tv[0] * t : 0, az = moves ? tv[2] * t : 0;
     root.set([(rel[0] - ax) * k + rootRest[0], rel[1] * k, (rel[2] - az) * k + rootRest[2]], fI * 3);
+    // placed by the hips: the library root sits hipOff from its own hip joints' midpoint; turned with the pelvis
+    if (hipOff) { const d = qrot(world[0], hipOff); root[fI * 3] += hipOff[0] - d[0]; root[fI * 3 + 1] += hipOff[1] - d[1]; root[fI * 3 + 2] += hipOff[2] - d[2]; }
   }
-  if (!moves) {
+  if (!moves && !opts.keepTravel) {
     // in place: take out the drift of the hips over the clip
     let cx = 0, cz = 0; for (let fI = 0; fI < m; fI++) { cx += root[fI * 3] / m; cz += root[fI * 3 + 2] / m; }
     const z0 = root[2];
@@ -249,6 +268,17 @@ export function forward(skel: Skeleton, quats: Float32Array, root: Float32Array,
     const r = qrot(wq[b.parent], off); wq[i] = qmul(wq[b.parent], q); wp[i] = [wp[b.parent][0] + r[0], wp[b.parent][1] + r[1], wp[b.parent][2] + r[2]];
   });
   return wp;
+}
+/** As forward(), with each bone's world rotation (rest: identity) as well as its head. */
+export function forwardQ(skel: Skeleton, quats: Float32Array, root: Float32Array, f: number): { p: V3[]; q: Q[] } {
+  const nb = skel.length, wq: Q[] = [], wp: V3[] = [];
+  skel.forEach((b, i) => {
+    const q = Array.from(quats.subarray((f * nb + i) * 4, (f * nb + i) * 4 + 4)) as Q;
+    if (b.parent < 0) { wq[i] = q; wp[i] = [root[f * 3], root[f * 3 + 1], root[f * 3 + 2]]; return; }
+    const p = skel[b.parent], off: V3 = [b.head[0] - p.head[0], b.head[1] - p.head[1], b.head[2] - p.head[2]];
+    const r = qrot(wq[b.parent], off); wq[i] = qmul(wq[b.parent], q); wp[i] = [wp[b.parent][0] + r[0], wp[b.parent][1] + r[1], wp[b.parent][2] + r[2]];
+  });
+  return { p: wp, q: wq };
 }
 
 // a relaxed, loosely closed hand: each finger joint curls toward the palm, a little more toward the little finger,
@@ -343,4 +373,23 @@ export function sprintFrom(run: Clip, skel: Skeleton, name = 'sprint'): Clip {
   for (let f = 0; f < n; f++) { const hp = forward(skel, quats, root, f); for (const side of ['foot.L', 'foot.R']) low = Math.min(low, hp[run.bones.indexOf(side)][1]); }
   for (let f = 0; f < n; f++) root[f * 3 + 1] += ankle - low;
   return { ...run, name, quats, root };
+}
+
+/**
+ * A clip mirrored left for right (a dive's landing on the other side): each X.L bone takes its X.R twin's track and
+ * the reverse, every local rotation is reflected through the body's mid plane (x, y, z, w -> x, -y, -z, w) and the
+ * root's x is negated. Exact because the library skeleton is left-right symmetric (checked here).
+ */
+export function mirrorClip(skel: Skeleton, clip: Clip, name = clip.name): Clip {
+  const nb = skel.length, twin = skel.map((b) => { const t = b.name.replace(/\.(L|R)$/, (_, s) => (s === 'L' ? '.R' : '.L')); return skel.findIndex((c) => c.name === t); });
+  skel.forEach((b, i) => {
+    const t = skel[twin[i]];
+    if (!t || Math.max(Math.abs(b.head[0] + t.head[0]), Math.abs(b.head[1] - t.head[1]), Math.abs(b.head[2] - t.head[2]), Math.abs(b.tail[0] + t.tail[0])) > 1e-4) throw new Error(`mirrorClip: ${b.name} has no mirror twin`);
+  });
+  const quats = new Float32Array(clip.quats.length), root = new Float32Array(clip.root);
+  for (let f = 0; f < clip.frames; f++) {
+    for (let i = 0; i < nb; i++) { const s = (f * nb + twin[i]) * 4, d = (f * nb + i) * 4; quats[d] = clip.quats[s]; quats[d + 1] = -clip.quats[s + 1]; quats[d + 2] = -clip.quats[s + 2]; quats[d + 3] = clip.quats[s + 3]; }
+    root[f * 3] = -root[f * 3];
+  }
+  return { ...clip, name, quats, root, ...(clip.dir != null ? { dir: -clip.dir } : {}) };
 }

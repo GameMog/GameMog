@@ -10,7 +10,7 @@ type Source = { title: string; author: string; license: string; licenseUrl: stri
 type Asset = { kind: string; title: string; description: string; sources: string[]; derived?: string; meta?: Record<string, unknown>; files: Record<string, { sha256: string; bytes: number }>; bytes: number };
 
 const LICENCE: Record<string, string> = { 'CC0-1.0': 'CC0 1.0 (public domain dedication)', 'LicenseRef-CMU-Mocap': 'Free for all uses (CMU Graphics Lab)', 'LicenseRef-Spiderbench-Permission': 'Used with the author’s permission, for GameMog only' };
-const KIND: Record<string, string> = { human: 'Character', 'human-pack': 'People pack', 'human-moves': 'Motion pack', hdri: 'Sky', texture: 'Surface', heightfield: 'Terrain', music: 'Music', city: 'City' };
+const KIND: Record<string, string> = { human: 'Character', 'human-pack': 'People pack', 'human-moves': 'Motion pack', hdri: 'Sky', texture: 'Surface', heightfield: 'Terrain', music: 'Music', sound: 'Sound', city: 'City' };
 const mb = (b: number) => `${(b / 1e6).toFixed(1)} MB`;
 
 /**
@@ -58,7 +58,9 @@ export default function Library() {
           funding from NSF EIA-0196217; the run is subject 9, trial 1, the standing start subject 104,
           trial 53, and the idle and fall subject 90, trial 16. The sprint is our own amplification of
           the captured run. Sky: Joburg Central Sunset by Dimitrios Savva and Greg Zaal, Poly Haven,
-          CC0. None of these require credit; we give it anyway.
+          CC0. The penalty shootout&apos;s crowd: Freesound&apos;s own &ldquo;La audiencia disponible&rdquo; (pack 1563,
+          recorded at CaixaForum Barcelona) and the GameSoundCon 2024 walla by Shane Vincent (ShangusBurger), both CC0.
+          None of these require credit; we give it anyway.
         </p>
         <p className="dim">
           The raw data is not sold or offered for download as a product. It is converted into these

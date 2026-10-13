@@ -678,6 +678,20 @@
       "license": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "homepage": "https://opengameart.org/content/spaghetti-western"
+    },
+    "freesound-1563": {
+      "title": "freesoundATcaixaforum, \"La audiencia disponible\" (Freesound pack 1563)",
+      "author": "freesound (Freesound's own account; an audience of 300 recorded at CaixaForum Barcelona, 30 Aug 2006)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://freesound.org/people/freesound/packs/1563/"
+    },
+    "freesound-gsc24-xy": {
+      "title": "GameSoundCon2024 Walla XY-AKG214-96k (Freesound pack 42098)",
+      "author": "ShangusBurger (Shane Vincent, the GameSoundCon 2024 walla session)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://freesound.org/people/ShangusBurger/packs/42098/"
     }
   },
   "assets": {
@@ -5240,6 +5254,248 @@
         }
       },
       "bytes": 1104570
+    },
+    "human-moves-football-male": {
+      "kind": "human-moves",
+      "title": "Football moves (male)",
+      "description": "What a world adds to the male human by listing it: 6 football clips: a penalty taker's run-up and side-foot kick (two takes, at 60 fps, with the moment of contact, the plant and every footfall in their meta), hands on the head in dismay, a jump for joy, and a goalkeeper getting up off the ground from either side.",
+      "sources": [
+        "cmu-mocap"
+      ],
+      "derived": "Retargeted onto the base human's rig (its asset.json skeleton) from CMU captures by the same code as its own clips. The kicks keep their run-up's travel, are sampled at 60 fps with contact on a captured frame, turned so the shot runs along +Z and moved so the strike point at contact is at the origin; their contact, plant, footfalls, strike point and foot angles are measured on the retargeted body (scripts/assets/kick.ts). The get-up is placed by the hips, set on the floor frame by frame, laid along +X, and mirrored for the other side.",
+      "meta": {
+        "for": "human-athlete-male",
+        "clips": [
+          "fbKick",
+          "fbKick2",
+          "fbUpset",
+          "fbCheer",
+          "gkGetupL",
+          "gkGetupR"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "4d854282b14fa3383357cac80599657c041210e3909be04c2bec1ca3f6aaef16",
+          "bytes": 4516
+        },
+        "clips.bin.z": {
+          "sha256": "fa2603dd588d1a66deda107e1af4cf2f97d8596819ed12410ff6ce58736d9be5",
+          "bytes": 116579
+        }
+      },
+      "bytes": 121095
+    },
+    "human-moves-football-female": {
+      "kind": "human-moves",
+      "title": "Football moves (female)",
+      "description": "What a world adds to the female human by listing it: 6 football clips: a penalty taker's run-up and side-foot kick (two takes, at 60 fps, with the moment of contact, the plant and every footfall in their meta), hands on the head in dismay, a jump for joy, and a goalkeeper getting up off the ground from either side.",
+      "sources": [
+        "cmu-mocap"
+      ],
+      "derived": "Retargeted onto the base human's rig (its asset.json skeleton) from CMU captures by the same code as its own clips. The kicks keep their run-up's travel, are sampled at 60 fps with contact on a captured frame, turned so the shot runs along +Z and moved so the strike point at contact is at the origin; their contact, plant, footfalls, strike point and foot angles are measured on the retargeted body (scripts/assets/kick.ts). The get-up is placed by the hips, set on the floor frame by frame, laid along +X, and mirrored for the other side.",
+      "meta": {
+        "for": "human-athlete-female",
+        "clips": [
+          "fbKick",
+          "fbKick2",
+          "fbUpset",
+          "fbCheer",
+          "gkGetupL",
+          "gkGetupR"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "e2c697dc627e89b6223b6cb1de47f78f4c8255bb68c36ba790983a60f8bb35ce",
+          "bytes": 4492
+        },
+        "clips.bin.z": {
+          "sha256": "e8022286cf4ba2cff5ce3775f8947d7651536eacbd1fb2dcaf5479cdfcbe2bce",
+          "bytes": 117046
+        }
+      },
+      "bytes": 121538
+    },
+    "audio-crowd-shootout": {
+      "kind": "sound",
+      "title": "Stadium crowd for a penalty",
+      "description": "A night final's crowd, recorded: a murmur, the shushing and the whistling at the taker (loops), a group inhale, a roar of \"Gol!\" and a wordless cheer, a groan, a let-down, sighs, gasps and coughs; 17 takes in two sheets with a cue for each.",
+      "sources": [
+        "freesound-1563",
+        "freesound-gsc24-xy"
+      ],
+      "derived": "Cut from the original WAVs, high-passed at 45 Hz, brought to 32 kHz, levelled to -20 dBFS (RMS over the loudest half second, or the whole of a loop) under a -1 dBFS peak; loops crossfaded at their joins; one-shots folded to mono; encoded to AAC (stereo 128 kbps, mono 64 kbps) and decoded again to check every cue.",
+      "meta": {
+        "slots": [
+          "bedAmbient",
+          "bedHush",
+          "whistleTaker",
+          "roar",
+          "inhale",
+          "groan",
+          "letdown",
+          "sigh",
+          "gasp",
+          "cough"
+        ],
+        "sampleRate": 32000,
+        "ref": -20,
+        "duration": 85.6,
+        "takes": [
+          {
+            "id": 25288,
+            "title": "walla_ses1",
+            "author": "freesound",
+            "pack": "freesound-1563",
+            "url": "https://freesound.org/s/25288/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 25320,
+            "title": "shhhh_ses2",
+            "author": "freesound",
+            "pack": "freesound-1563",
+            "url": "https://freesound.org/s/25320/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 763903,
+            "title": "whsthmn_crowd-whistling-near-e-01",
+            "author": "ShangusBurger",
+            "pack": "freesound-gsc24-xy",
+            "url": "https://freesound.org/s/763903/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 763904,
+            "title": "whsthmn_crowd-whistling-near-e-02",
+            "author": "ShangusBurger",
+            "pack": "freesound-gsc24-xy",
+            "url": "https://freesound.org/s/763904/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 763905,
+            "title": "whsthmn_crowd-whistling-near-e-03",
+            "author": "ShangusBurger",
+            "pack": "freesound-gsc24-xy",
+            "url": "https://freesound.org/s/763905/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 25304,
+            "title": "gol_ses2",
+            "author": "freesound",
+            "pack": "freesound-1563",
+            "url": "https://freesound.org/s/25304/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 763828,
+            "title": "crwdcele_large-crowd-unison-surprise-cheering",
+            "author": "ShangusBurger",
+            "pack": "freesound-gsc24-xy",
+            "url": "https://freesound.org/s/763828/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 763855,
+            "title": "crwdmisc_group-inhale-mouth",
+            "author": "ShangusBurger",
+            "pack": "freesound-gsc24-xy",
+            "url": "https://freesound.org/s/763855/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 763877,
+            "title": "crwdreac_crowd-groan-in-disagreement",
+            "author": "ShangusBurger",
+            "pack": "freesound-gsc24-xy",
+            "url": "https://freesound.org/s/763877/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 763881,
+            "title": "crwdreac_excitement-build-up-let-down",
+            "author": "ShangusBurger",
+            "pack": "freesound-gsc24-xy",
+            "url": "https://freesound.org/s/763881/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 763880,
+            "title": "crwdreac_crowd-sigh-in-disappointment",
+            "author": "ShangusBurger",
+            "pack": "freesound-gsc24-xy",
+            "url": "https://freesound.org/s/763880/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 25283,
+            "title": "sighs_ses1",
+            "author": "freesound",
+            "pack": "freesound-1563",
+            "url": "https://freesound.org/s/25283/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 763870,
+            "title": "crwdreac_crowd-gasping-in-surprise-quick-04",
+            "author": "ShangusBurger",
+            "pack": "freesound-gsc24-xy",
+            "url": "https://freesound.org/s/763870/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 763871,
+            "title": "crwdreac_crowd-gasping-in-surprise-quick-05",
+            "author": "ShangusBurger",
+            "pack": "freesound-gsc24-xy",
+            "url": "https://freesound.org/s/763871/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 763876,
+            "title": "crwdreac_crowd-gasping-in-surprise-voiced-02",
+            "author": "ShangusBurger",
+            "pack": "freesound-gsc24-xy",
+            "url": "https://freesound.org/s/763876/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 763869,
+            "title": "crwdreac_crowd-gasping-in-surprise-quick-03",
+            "author": "ShangusBurger",
+            "pack": "freesound-gsc24-xy",
+            "url": "https://freesound.org/s/763869/",
+            "license": "CC0-1.0"
+          },
+          {
+            "id": 25301,
+            "title": "coughs_ses2",
+            "author": "freesound",
+            "pack": "freesound-1563",
+            "url": "https://freesound.org/s/25301/",
+            "license": "CC0-1.0"
+          }
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "91d97c9265b2fbe828f25d0bc520c7b385213da2f9f8040fc0adcddbbb653453",
+          "bytes": 2966
+        },
+        "crowd.m4a": {
+          "sha256": "646b8bad223c8c147f462b2f41230d8ada48a949c7d3a1a49e3d3c3f329a6916",
+          "bytes": 892619
+        },
+        "shots.m4a": {
+          "sha256": "c8bb7239b1ec5103e24a4cd9fb1a15dbc42a8a11c7cfe4093a4f6d3db779f2fd",
+          "bytes": 238895
+        }
+      },
+      "bytes": 1134480
     }
   }
 }

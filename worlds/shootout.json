@@ -1,0 +1,28 @@
+{
+  "title": "SHOOTOUT",
+  "tagline": "One kick. Everything on the line.",
+  "blurb": "A night final under the floodlights, the stadium on its feet, and it all comes down to one kick. Tap to run up, faster and faster, from COLD to ON FIRE. Aim anywhere you dare: the corners, the middle, or over the bar if you get it wrong. Hold the last tap and let go as the gold ring closes on your plant foot. Then the keeper guesses, waits, dives and reaches. The crowd hushes for the whistle and erupts for the net, every kick gets its replay, and then you step up again.",
+  "genre": "Penalty shootout",
+  "cast": [
+    {
+      "name": "D. Arroyo",
+      "color": "#74BDE8",
+      "role": "player"
+    },
+    {
+      "name": "The Keeper",
+      "color": "#B8E336",
+      "role": "rival"
+    },
+    {
+      "name": "The Referee",
+      "color": "#1A1B20",
+      "role": "referee"
+    }
+  ],
+  "palette": {
+    "sky": "#0B1220",
+    "ground": "#2E6A22",
+    "accent": "#E9C46A"
+  }
+}

@@ -9,6 +9,7 @@ import { MogComposer } from './composer';
 import { optionsOf } from '@/lib/world-options';
 import { clip, pageMeta } from '../../seo';
 import { getDare } from '@/lib/dare';
+import { canMog, MOG_SOON } from '@/lib/custom-game';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,16 +37,21 @@ export default async function MogPage({ params, searchParams }: { params: Promis
   const dare = typeof asked === 'string' && getDare(asked)?.game_id === game.id ? asked : null;
   const root = game.root_id ? getGameById(game.root_id) : null;
   const mogs = mogsOf(game.id).length;
+  // (a game that cannot be mogged yet, 12 Oct: a penalty shootout; the page says so and offers no build, and
+  // app/api/generate/route.ts refuses one too)
+  const open = canMog(game);
   return (
     <>
       <SiteHeader />
       <main className="wrap" style={{ paddingBottom: 80, maxWidth: 820 }}>
         <h1 style={{ marginTop: 24, marginBottom: 6 }}>Mog {game.title}</h1>
-        <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
-          Challenge it with a better variation. Say how to beat it; GameMog gets the original&apos;s
-          code and your idea and writes the variation, and it is raced in a real browser before it can
-          publish. Players who have played both pick the better one, and the original is always credited.
-        </p>
+        {open ? (
+          <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
+            Challenge it with a better variation. Say how to beat it; GameMog gets the original&apos;s
+            code and your idea and writes the variation, and it is raced in a real browser before it can
+            publish. Players who have played both pick the better one, and the original is always credited.
+          </p>
+        ) : <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>{MOG_SOON}</p>}
         <div className="panel" style={{ marginBottom: 16, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ width: 200, aspectRatio: '16 / 9', borderRadius: 8, overflow: 'hidden', background: 'var(--fill)', flex: '0 0 auto' }}>
             {game.format === 'race'
@@ -64,7 +70,9 @@ export default async function MogPage({ params, searchParams }: { params: Promis
             </p>
           </div>
         </div>
-        <MogComposer slug={game.slug} title={game.title} inherited={optionsOf(game)} dare={dare} />
+        {open
+          ? <MogComposer slug={game.slug} title={game.title} inherited={optionsOf(game)} dare={dare} />
+          : <Link className="btn big" href={`/g/${game.slug}`}>Play {game.title}</Link>}
       </main>
       <SiteFooter />
     </>

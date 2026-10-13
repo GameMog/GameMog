@@ -491,6 +491,40 @@ export const MIGRATIONS = [
       return 'cover retaken';
     },
   },
+  {
+    // the owner, 11 and 12 Oct: SHOOTOUT, one penalty in a night final, kicked again and again (tap to run up, aim,
+    // hold the last tap and let go as the gold ring closes; then the keeper's guess and his reach decide), "I'll test
+    // in production". The first world of its kind: a world that writes shootout: {...} among its own keys is served
+    // the shootout runtime (lib/runtime/shootout*.js at v1.js's /*@include shootout.js*/; lib/custom-game.ts
+    // isShootoutWorld), with the football moves and the recorded crowd from the asset library; its board is the goals
+    // scored ('score'), and it cannot be mogged yet (lib/custom-game.ts canMog). Its files are worlds/shootout.{js,json}
+    // as written, and its cover and key art were shot from the game in headless Chrome. Only inserted: a row already at
+    // /g/shootout is never overwritten (the same code: already there; another: left alone). On a build without the
+    // runtime, the hooks or the packs it waits (unrecorded, tried again at the next boot)
+    id: '2026-10-12-shootout',
+    run(db) {
+      const code = file('shootout.js'), meta = file('shootout.meta.json');
+      if (!code || !meta) throw new Error('deploy/migrations/shootout.js or shootout.meta.json is not in this build');
+      const kit = ['shootout.js', 'shootout-sim.js', 'shootout-brain.js', 'shootout-goal.js', 'shootout-people.js', 'shootout-keeper.js', 'shootout-camera.js', 'shootout-audio.js', 'shootout-hud.js'];
+      if (!kit.every((f) => existsSync(join('lib', 'runtime', f)))) throw new Error('the shootout runtime (lib/runtime/shootout*.js) is not in this build');
+      if (!readFileSync(join('lib', 'runtime', 'v1.js'), 'utf8').includes('/*@include shootout.js*/')) throw new Error('the runtime has no shootout hooks in this build');
+      const packs = ['human-moves-football-male', 'human-moves-football-female', 'audio-crowd-shootout'];
+      if (!packs.every((p) => existsSync(join('public', 'assets', p, 'asset.json')))) throw new Error('the football moves or the shootout crowd (public/assets) are not in this build');
+      let lib = null;
+      try { lib = JSON.parse(readFileSync(join('public', 'assets', 'library.json'), 'utf8')); } catch { lib = null; }
+      if (!lib || !packs.every((p) => lib.assets && lib.assets[p])) throw new Error('the asset library does not list the football moves and the shootout crowd in this build');
+      const m = JSON.parse(meta.toString('utf8')), src = code.toString('utf8');
+      if (!m.meta || m.meta.mode !== 'shootout' || m.meta.scoring !== 'score') throw new Error('shootout.meta.json is not a shootout scored by its goals');
+      const g = db.prepare("SELECT id, code FROM games WHERE slug = 'shootout'").get();
+      if (g) return String(g.code ?? '').trim() === src.trim() ? 'already there' : 'left alone (another shootout)';
+      if (db.prepare('SELECT id FROM games WHERE id = ?').get(m.id)) return 'left alone (its id is taken)';
+      const cover = file('shootout-cover.jpg'), icon = file('shootout-icon.jpg'), wide = file('shootout-wide.jpg');
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+        VALUES (?, 'shootout', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
+        .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: shootout', Date.now(), src, JSON.stringify(m.meta), cover, icon, wide);
+      return 'published';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

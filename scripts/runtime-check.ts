@@ -512,7 +512,8 @@ async function kartChecks() {
 
   console.log('\nkart: the runtime each world receives');
   const plain = runtimeSource(1), kart = runtimeSource(1, true);
-  const cut = rt('v1.js').replace(/\/\*@kart\*\/[\s\S]*?\/\*@\/kart\*\//g, '');
+  // (and the shootout's parts, 11 Oct: cut out whole as the server cuts them, lib/custom-game.ts SHOOT_PART)
+  const cut = rt('v1.js').replace(/\/\*@shootout\*\/[\s\S]*?\/\*@\/shootout\*\//g, '').replace(/\/\*@kart\*\/[\s\S]*?\/\*@\/kart\*\//g, '');
   ok('kart: every other world gets the runtime it got before the kart kit, byte for byte (the kart parts cut out whole)', plain === assemble(cut) && !/@kart|kartWorld|\bKART\b/.test(plain), `${sha(plain)}, ${plain.length} bytes`);
   let head = '';
   try { head = execFileSync('git', ['show', 'HEAD:lib/runtime/v1.js'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }); } catch { head = ''; }

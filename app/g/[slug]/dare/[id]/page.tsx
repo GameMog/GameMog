@@ -91,7 +91,7 @@ export default async function DareLanding({ params }: Params) {
           ) : null}
           <div className="dl-acts">
             <DarePlay href={`/g/${g.slug}?dare=${d.id}&play=1`} />
-            <Link className="gl-pill gl-clear" href={`/mog/${g.slug}?dare=${d.id}`}>Mog it back</Link>
+            {g.mog && <Link className="gl-pill gl-clear" href={`/mog/${g.slug}?dare=${d.id}`}>Mog it back</Link>}
           </div>
         </section>
         <div className="dl-under"><DiscordPill /></div>
