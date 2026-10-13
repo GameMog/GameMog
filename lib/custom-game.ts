@@ -174,7 +174,7 @@ export const MODE_PAGE: Record<WorldMode, { label: string; rivals: string; how: 
   shootout: {
     label: 'Penalty shootout',
     rivals: 'One keeper',
-    how: 'A penalty in a night final, one kick at a time. Tap to run up: the faster you tap, the faster he runs and the harder he strikes it, and the gauge climbs from COLD through WARM and HOT to ON FIRE. Steer the aim with the stick or the arrow keys: aim anywhere you like, but over the bar or past a post is a miss. Hold the last tap as the ring glows, and let go as the gold ring closes on the plant foot: early scuffs it, late leans back and can sail it over. Then the keeper\'s guess and his reach decide. Score, kick again, and every goal counts. The leaderboard ranks the goals you score in a sitting.',
+    how: 'A penalty in a final, one kick at a time. Tap to run up: the faster you tap, the faster he runs and the harder he strikes it, and the gauge climbs from COLD through WARM and HOT to ON FIRE. Steer the aim with the stick or the arrow keys: aim anywhere you like, but over the bar or past a post is a miss. Hold the last tap as the ring glows, and let go as the gold ring closes on the plant foot: early scuffs it, late leans back and can sail it over. Then the keeper\'s guess and his reach decide. Score, kick again, and every goal counts. The leaderboard ranks the goals you score in a sitting.',
   },
   derby: {
     label: 'Car combat arena',
@@ -204,14 +204,17 @@ export function worldControls(code: string) {
 }
 
 /**
- * Whether a game can be mogged yet (12 Oct). A penalty shootout cannot: the builder has no shootout docs yet (M3), so
- * a Mog of one would be a paid build that fails. Its page, its dares and /mog/<slug> say so (MOG_SOON), and the build
- * route refuses it before anything is spent. Every other game can, as before.
+ * Which kinds of world can be mogged (12 Oct: a penalty shootout could not until the builder had its docs; 13 Oct, M3:
+ * it can, with its chapter in lib/runtime/API.md, its Mog DNA, its test drive and its static check). One entry closes a
+ * kind again: its page, its dares and /mog/<slug> then say so (MOG_SOON), and the build route refuses a Mog of it
+ * before anything is spent.
  */
+export const MOGGABLE: Record<WorldMode, boolean> = { race: true, survival: true, derby: true, kart: true, shootout: true };
+/** Whether a game can be mogged: every game but a world of a kind MOGGABLE closes. */
 export function canMog(game: { format: string; code?: string | null; meta?: string | null }) {
-  return !(game.format === 'world' && worldMode(game.code, game.meta) === 'shootout');
+  return game.format !== 'world' || MOGGABLE[worldMode(game.code, game.meta)];
 }
-export const MOG_SOON = 'Mogs of a penalty shootout are coming soon. Play it free in the meantime.';
+export const MOG_SOON = 'Mogs of this kind of game are coming soon. Play it free in the meantime.';
 
 export const CUSTOM_CSP = [
   "default-src 'none'",
@@ -444,7 +447,18 @@ function driveSource() {
   if (!DRIVE || process.env.NODE_ENV !== 'production') DRIVE = readFileSync(join(process.cwd(), 'lib', 'runtime', 'drive.js'), 'utf8');
   return DRIVE;
 }
+/** A penalty shootout's sight lines from the lenses behind the goal (lib/runtime/shoot-lens.js), read by both test drives. */
+let LENS = '';
+export function shootLensSource() {
+  if (!LENS || process.env.NODE_ENV !== 'production') LENS = readFileSync(join(process.cwd(), 'lib', 'runtime', 'shoot-lens.js'), 'utf8');
+  return LENS;
+}
 
+/**
+ * A world's play document. A test drive's (`drive`, the creator's browser) also carries drive.js and, ahead of it, the
+ * world's kind as window.__gmKind (13 Oct: the drive waits longer for a shootout's 28 MB, as for a kart race's), and a
+ * shootout's the check of its lenses behind the goal (lib/runtime/shoot-lens.js); every other page is exactly as it was.
+ */
 export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 'tagline'> & { options?: unknown; kartScore?: unknown }, id: string, runtime = 1, drive = false) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -454,7 +468,11 @@ export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 't
 <title>${escapeHtml(meta.title)}</title>
 <style>html,body{margin:0;height:100%;overflow:hidden;background:#000;touch-action:none;-webkit-user-select:none;user-select:none}canvas{display:block}</style>
 <script>${hostScript(id, meta.title, meta.tagline, meta.options === undefined ? undefined : readOptions(meta.options), isKartWorld(world) ? meta.kartScore : undefined)}</script>
-${drive ? `<script>
+${drive ? `<script>window.__gmKind = ${JSON.stringify(worldMode(world))};</script>
+${isShootoutWorld(world) ? `<script>
+${inert(shootLensSource())}
+</script>
+` : ''}<script>
 ${inert(driveSource())}
 </script>` : ''}
 <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
@@ -552,6 +570,200 @@ const WORLD_FORBIDDEN: [RegExp, string][] = [
     'The camera belongs to the runtime: every world is 3D, seen from behind the player. Read ctx.camera (for example its position, to face a billboard at it) but never move, re-aim, re-project or attach things to it.'],
 ];
 
+/* ------------------------------------------------- a penalty shootout's own check (13 Oct, SHOOTOUT Mogs, M3) -- */
+/**
+ * A shootout is moggable only if the builder cannot hand the runtime something it cannot run: a second kind beside it,
+ * sides it cannot read, a body without its football moves, a sound or a pitch of the world's own, or a real
+ * competition's or player's name. These are refused here, so the builder is told and fixes it before a test drive is
+ * spent on it. They read only a world whose shootout: { ... } is written among GameMog.world's own keys (isShootoutWorld),
+ * and SC2 any world that writes one beside open or kart; no other world is touched. The messages are the platform
+ * check's (scripts/platform-check.ts).
+ */
+export const SHOOTOUT_CHECK = {
+  SC2: 'A world is one kind: shootout: { ... } never sits beside open: { ... } or kart: { ... }.',
+  SC3: 'A penalty shootout lists \'human-moves-football-male\' and \'human-moves-football-female\' in its assets, with its body (\'human-athlete-male\' or \'human-athlete-female\'): the run-up, the strike and the keeper\'s dives are in them.',
+  SC4: 'Write shootout.teams out inline as exactly two sides, each { name: \'...\', short: \'ABC\' (2 to 4 capitals), color: \'#RRGGBB\' }: the HUD\'s chips and tally read them.',
+  SC5: 'shootout.taker is 0 or 1: the side taking the kicks.',
+  body: 'shootout.body is written out as \'human-athlete-male\' or \'human-athlete-female\': the match\'s body, which the taker, the keeper and the referee are built on and rigged for.',
+  SC7: 'ctx.broadcast() and ctx.kart are not for a penalty shootout: draw your own screen picture.',
+  mirror: 'ctx.mirror() is not for a penalty shootout: it draws the whole bowl a second time every frame. Give a wet pitch its shine with a lower roughness and the floodlights in graphics.environment.extras.',
+  owned: 'A penalty shootout\'s sound and pitch are the runtime\'s: write no music, no ambient() and no track among GameMog.world\'s keys (the crowd is its sound; draw the pitch and its lines in build()).',
+  people: 'A penalty shootout writes player(ctx) (the taker) and rival(ctx, k, o) (k 1 the keeper, k 2 the referee) among GameMog.world\'s own keys, each returning a library human (ctx.assets.human(...)) as it comes: the runtime rigs them to kick and to dive.',
+} as const;
+/** SC6, with the name it found. */
+export const shootoutDeniedSaid = (word: string) => `A penalty shootout names no real competition, federation, league or player (found: "${word}"): give the match, the boards and the people names of the world's own. Country names and colours are fine.`;
+// competitions, federations, leagues and players a shootout never names (word-bounded, any case; a word next to a
+// letter of any alphabet is not one, so "café" is not CAF); the short acronyms only in capitals, as a board writes them
+const DENY_ANY = new RegExp(`(?<![\\p{L}\\p{N}])(?:${[
+  'fifa', 'f\\.i\\.f\\.a\\.?', 'world[ -]?cup', 'uefa', 'conmebol', 'concacaf', 'champions league', 'europa league', 'conference league', 'nations league',
+  'copa am[eé]rica', 'copa libertadores', 'libertadores', 'copa del rey', 'copa del mundo', 'copa do mundo', 'coupe du monde', 'weltmeisterschaft', 'mundial',
+  'euro[ -]?20\\d\\d', 'the euros', 'afcon', 'africa cup of nations', 'asian cup', 'gold cup', 'jules rimet', 'olympics?', 'olympiad', 'socceroos',
+  'premier league', 'la ?liga', 'bundesliga', 'serie a', 'ligue 1', 'eredivisie', 'ballon d[\'’]or',
+  'messi', 'ronaldo', 'ronaldinho', 'cristiano', 'cr7', 'mbapp[eé]', 'neymar', 'haaland', 'modri[cć]', 'lewandowski', 'bellingham',
+  'vin[ií]cius', 'yamal', 'pelé', 'maradona', 'zidane', 'beckham', 'buffon', 'courtois', 'lloris', 'de bruyne', 'griezmann',
+  'son heung', 'yashin', 'ibrahimovi[cć]', 'zlatan', 'totti', 'cantona', 'cruyff', 'puskas', 'kroos',
+  // (the shootouts' own, 13 Oct review: the famous takers and keepers of famous shootouts)
+  'baggio', 'southgate', 'rashford', 'trezeguet', 'montiel', 'dybala', 'casillas', 'pirlo', 'dibu', 'emiliano mart[ií]nez',
+  // (Iceland's and Norway's, 13 Oct: the integration Mog's taker was named after one; the Mog page offers Reykjavik)
+  'sigur[dð]sson', 'halld[oó]rsson', 'gu[dð]johnsen', 'finnbogason', '[oø]degaard', 'solskj[aæ]e?r',
+  // (the sponsors a final's boards are hung with: the boards speak the world's own words)
+  'adidas', 'nike', 'fly emirates', 'qatar airways', 'coca[ -]?cola', 'heineken', 'mastercard', 'pepsi',
+].join('|')})(?![\\p{L}\\p{N}])`, 'iu');
+const DENY_CAPS = /(?<![\p{L}\p{N}])(?:CAF|AFC|MLS)(?![\p{L}\p{N}])/u;
+// players' names that are also everyday words (German "neuer", Portuguese "pele", Malay "salah", Italian "grosso"): refused
+// only where they name someone (a name: in the code, the title and the cast), never on a board that means the word
+const DENY_NAMES = new RegExp(`(?<![\\p{L}\\p{N}])(?:${['neuer', 'pele', 'salah', 'kane', 'saka', 'pearce', 'waddle', 'sancho', 'grosso', 'panenka'].join('|')})(?![\\p{L}\\p{N}])`, 'iu');
+/**
+ * The real competition, federation, league or player a text names (as a penalty shootout may not), or null. `named`: the
+ * text names someone (a name: in the code, the title or the cast), where the players' names that are everyday words count too.
+ */
+export function shootoutDenied(text: string, named = false): string | null {
+  const m = DENY_ANY.exec(text) ?? DENY_CAPS.exec(text) ?? (named ? DENY_NAMES.exec(text) : null);
+  return m ? m[0] : null;
+}
+
+/**
+ * The code with its comments blanked, and the insides of its strings and regular expressions, index for index: its
+ * brackets and keys are read from this, and a string's own text from the code at the same place. With every string
+ * literal's span and text.
+ */
+function maskCode(code: string) {
+  const b = code.split(''), strings: { s: number; e: number; text: string }[] = [];
+  const blank = (s: number, e: number) => { for (let k = s; k < e && k < b.length; k++) if (b[k] !== '\n') b[k] = ' '; };
+  // (a slash starts a regular expression where a value is expected: after an operator, an opening bracket or a keyword)
+  const valueAt = (i: number) => {
+    let p = i - 1; while (p >= 0 && /\s/.test(code[p])) p--;
+    if (p < 0) return true;
+    if (/[(,=:[!&|?{};~+\-*%<>^]/.test(code[p])) return true;
+    if (!/[\w$]/.test(code[p])) return false;
+    let q = p; while (q >= 0 && /[\w$]/.test(code[q])) q--;
+    return /^(?:return|typeof|case|in|of|void|delete|new|else|do|throw|yield|await)$/.test(code.slice(q + 1, p + 1));
+  };
+  let i = 0;
+  while (i < code.length) {
+    const c = code[i], n = code[i + 1];
+    if (c === '/' && n === '/') { const e = code.indexOf('\n', i), end = e < 0 ? code.length : e; blank(i, end); i = end; continue; }
+    if (c === '/' && n === '*') { const e = code.indexOf('*/', i + 2), end = e < 0 ? code.length : e + 2; blank(i, end); i = end; continue; }
+    if (c === '"' || c === "'" || c === '`') {
+      let j = i + 1; while (j < code.length && code[j] !== c) j += code[j] === '\\' ? 2 : 1;
+      strings.push({ s: i, e: Math.min(j + 1, code.length), text: code.slice(i + 1, Math.min(j, code.length)).replace(/\\(.)/g, '$1') });
+      blank(i + 1, j); i = j + 1; continue;
+    }
+    if (c === '/' && valueAt(i)) {
+      let j = i + 1, cls = false, ok = false;
+      while (j < code.length && code[j] !== '\n') {
+        const d = code[j];
+        if (d === '\\') { j += 2; continue; }
+        if (d === '[') cls = true; else if (d === ']') cls = false; else if (d === '/' && !cls) { ok = true; break; }
+        j++;
+      }
+      if (ok) { blank(i + 1, j); i = j + 1; continue; }
+    }
+    i++;
+  }
+  return { bare: b.join(''), strings };
+}
+/**
+ * An object literal's own entries, read from the masked code from just inside its opening brace: each key with the
+ * span of its value (after the colon; a method's or a shorthand's, the text after its name), and the object's end.
+ */
+function entriesOf(bare: string, code: string, from: number) {
+  const out = new Map<string, { s: number; e: number; colon: boolean }>();
+  let depth = 1, i = from, start = from;
+  const take = (end: number) => {
+    let k = start; while (k < end && /\s/.test(bare[k])) k++;
+    if (k >= end) return;
+    let key = '', after = k;
+    if (bare[k] === '"' || bare[k] === "'") { const z = bare.indexOf(bare[k], k + 1); if (z < 0 || z >= end) return; key = code.slice(k + 1, z); after = z + 1; }
+    else { const id = /^[A-Za-z_$][\w$]*/.exec(bare.slice(k, end)); if (!id) return; key = id[0]; after = k + id[0].length; }
+    let v = after; while (v < end && /\s/.test(bare[v])) v++;
+    const colon = bare[v] === ':';
+    out.set(key, { s: colon ? v + 1 : v, e: end, colon });
+  };
+  while (i < bare.length) {
+    const c = bare[i];
+    if (c === '{' || c === '[' || c === '(') depth++;
+    else if (c === '}' || c === ']' || c === ')') { if (--depth === 0) break; }
+    else if (c === ',' && depth === 1) { take(i); start = i + 1; }
+    i++;
+  }
+  take(i);
+  return { entries: out, end: i };
+}
+/** An array literal's items, read from the masked code from just inside its opening bracket: each item's span. */
+function itemsOf(bare: string, from: number) {
+  const out: { s: number; e: number }[] = [];
+  let depth = 1, i = from, start = from;
+  const take = (end: number) => { if (bare.slice(start, end).trim()) out.push({ s: start, e: end }); };
+  while (i < bare.length) {
+    const c = bare[i];
+    if (c === '{' || c === '[' || c === '(') depth++;
+    else if (c === '}' || c === ']' || c === ')') { if (--depth === 0) break; }
+    else if (c === ',' && depth === 1) { take(i); start = i + 1; }
+    i++;
+  }
+  take(i);
+  return out;
+}
+/** A value written as one string literal (its text), or null. */
+function literalOf(bare: string, code: string, span: { s: number; e: number }) {
+  const t = bare.slice(span.s, span.e), lead = t.length - t.trimStart().length, body = t.trim();
+  const q = body[0];
+  if (!body || !(q === '"' || q === "'" || q === '`') || body[body.length - 1] !== q || body.length < 2) return null;
+  const raw = code.slice(span.s + lead + 1, span.s + lead + body.length - 1);
+  if (bare.slice(span.s + lead + 1, span.s + lead + body.length - 1).includes(q) || (q === '`' && raw.includes('${'))) return null;
+  return raw.replace(/\\(.)/g, '$1');
+}
+const falsy = (bare: string, span: { s: number; e: number }) => /^(?:false|null|undefined|0)?$/.test(bare.slice(span.s, span.e).trim());
+
+/** What a world that writes shootout: { ... } among GameMog.world's own keys gets wrong for its runtime (none for any other). */
+function shootoutProblems(code: string, from: number): string[] {
+  const top = topOf(code, from);
+  if (!/(?:^|[\s,{])shootout\s*:\s*\{/.test(top)) return [];
+  const { bare, strings } = maskCode(code), W = entriesOf(bare, code, from).entries;
+  const so = W.get('shootout');
+  // SC2: the runtime reads open first, then kart; a shootout beside either is not served or not run as one
+  const other = ['open', 'kart'].some((k) => { const v = W.get(k); return v && (!v.colon || !falsy(bare, v)); });
+  if (other) return [SHOOTOUT_CHECK.SC2];
+  if (!so || !isShootoutWorld(code)) return [];
+  const problems: string[] = [];
+  const brace = bare.indexOf('{', so.s);
+  const S = entriesOf(bare, code, brace + 1).entries;
+  // SC3: the match's body and both football packs among its assets (the list as written, or every string when the
+  // list is a name)
+  const assets = W.get('assets'), listed = assets && bare.slice(assets.s, assets.e).trim().startsWith('[')
+    ? strings.filter((x) => x.s >= assets.s && x.e <= assets.e).map((x) => x.text) : strings.map((x) => x.text);
+  const bodySpan = S.get('body'), body = bodySpan ? literalOf(bare, code, bodySpan) : 'human-athlete-male';
+  const bodies = ['human-athlete-male', 'human-athlete-female'];
+  if (!listed.includes('human-moves-football-male') || !listed.includes('human-moves-football-female')
+    || (body && bodies.includes(body) ? !listed.includes(body) : !bodies.some((b) => listed.includes(b)))) problems.push(SHOOTOUT_CHECK.SC3);
+  if (bodySpan && !(body && bodies.includes(body))) problems.push(SHOOTOUT_CHECK.body);
+  // SC4: exactly two sides, written out, each a name, a short name in capitals and a colour; two different sides
+  const teams = S.get('teams'), tt = teams ? bare.slice(teams.s, teams.e) : '', open = teams ? teams.s + tt.indexOf('[') : -1;
+  const sides = teams && /^\s*\[/.test(tt) && /\]\s*$/.test(tt) ? itemsOf(bare, open + 1).map((it) => {
+    const t = bare.slice(it.s, it.e).trim();
+    if (!t.startsWith('{') || !t.endsWith('}')) return null;
+    const E = entriesOf(bare, code, bare.indexOf('{', it.s) + 1).entries, f = (k: string) => { const v = E.get(k); return v ? literalOf(bare, code, v) : null; };
+    const name = f('name')?.trim() ?? '', short = f('short') ?? '', color = f('color') ?? '';
+    return name.length >= 1 && name.length <= 24 && /^[A-Z]{2,4}$/.test(short) && /^#[0-9a-fA-F]{6}$/.test(color) ? { name: name.toLowerCase(), short } : null;
+  }) : [];
+  if (sides.length !== 2 || !sides[0] || !sides[1] || sides[0].name === sides[1].name || sides[0].short === sides[1].short) problems.push(SHOOTOUT_CHECK.SC4);
+  // SC5: the side taking the kicks, as the number the runtime reads (taker === 1, else 0)
+  const taker = S.get('taker');
+  if (taker && !/^[01]$/.test(bare.slice(taker.s, taker.e).trim())) problems.push(SHOOTOUT_CHECK.SC5);
+  // SC6: never a real competition, federation, league or player, in any string (never a comment)
+  // (a string that is a name: name: '...', or .name = '...')
+  for (const x of strings) { const w = shootoutDenied(x.text, /(?:\bname\s*:|\.name\s*=)\s*$/.test(bare.slice(Math.max(0, x.s - 32), x.s))); if (w) { problems.push(shootoutDeniedSaid(w)); break; } }
+  // SC7, and the mirror: the TV picture is v1's lap camera, a kart's kit is not there, a mirror is a second render
+  if (/\b\w*ctx\w*\s*\.\s*(?:broadcast\s*\(|kart\b)/i.test(bare)) problems.push(SHOOTOUT_CHECK.SC7);
+  if (/\b\w*ctx\w*\s*\.\s*mirror\s*\(/i.test(bare)) problems.push(SHOOTOUT_CHECK.mirror);
+  // the runtime's: the sound (no score, no world sound) and the pitch (a lap's track would hide the stands it crosses)
+  if (['music', 'ambient', 'track'].some((k) => { const v = W.get(k); return v && (!v.colon || !falsy(bare, v)); })) problems.push(SHOOTOUT_CHECK.owned);
+  // the taker, the keeper and the referee, as library humans
+  if (!W.has('player') || !W.has('rival') || !/\bassets\s*\.\s*human\s*\(/.test(bare)) problems.push(SHOOTOUT_CHECK.people);
+  return problems;
+}
+
 // The most code a world module may hold, the same for every world: the
 // builder's, a Mog and the owner's own (the owner, 5 Oct 2026: "keep things
 // simple, raise everything to 500 KB").
@@ -571,6 +783,8 @@ export function staticCheckWorld(code: string, opts: { max?: number } = {}): str
   // (and a penalty shootout the same way, 12 Oct: shootout: { ... } inline is what gets it its runtime)
   if (/(?:^|[\s,{])shootout\s*(?::\s*(?!(?:false|null|undefined)\b)[\w$(]|,|$)/.test(top) && !isShootoutWorld(code) && !/(?:^|[\s,{])(?:open|kart)\s*:\s*\{/.test(top))
     problems.push('Write the penalty shootout inline, shootout: { ... }, among GameMog.world\'s own keys (not shootout: SOME_CONST): only then is it served as a shootout.');
+  // (and a shootout is one kind, written as its runtime reads it, 13 Oct: lib/runtime/API.md "Penalty shootouts")
+  if (m) problems.push(...shootoutProblems(code, m.index + m[0].length));
   try { new Script(code, { filename: 'world.js' }); }
   catch (e) { problems.push(`Syntax error: ${(e as Error).message}`); }
   return problems;

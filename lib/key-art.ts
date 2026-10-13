@@ -25,6 +25,14 @@ export async function captureWorldKeyArt(page: Page): Promise<WorldKeyArt> {
     window.__gmRuntime.debug.cinematic(true);`);
   await sleep(700);
 
+  const { wide, icon } = await titled(page);
+  await page.eval(`document.getElementById('gm-key-art-title')?.remove();
+    window.__gmRuntime.debug.film(null); window.__gmRuntime.debug.cinematic(false);`);
+  return { icon, wide };
+}
+
+/** The platform's title over the frame as it stands, shot wide and as the icon's square; the title is left on the page. */
+async function titled(page: Page): Promise<WorldKeyArt> {
   await page.eval(`(() => {
     const art = window.__gmRuntime.debug.art();
     const old = document.getElementById('gm-key-art-title'); if (old) old.remove();
@@ -51,7 +59,33 @@ export async function captureWorldKeyArt(page: Page): Promise<WorldKeyArt> {
   })()`);
   await sleep(100);
   const icon = await page.screenshot(85, { x: 384, y: 104, width: 512, height: 512 });
-  await page.eval(`document.getElementById('gm-key-art-title')?.remove();
-    window.__gmRuntime.debug.film(null); window.__gmRuntime.debug.cinematic(false);`);
   return { icon, wide };
 }
+
+/**
+ * A penalty shootout's key art (13 Oct), shot in the kick it is called in, at its strike: the runtime's own lens from
+ * behind the goal (REVERSE, the replay's), the HUD hidden (debug.shootout().film), the keeper diving as the ball comes,
+ * the platform's title over it, as SHOOTOUT's own was made. The director owns the camera, so none of v1's film or
+ * cinematic is used (they move v1's chase camera, which a shootout never draws through). The kick runs at a quarter of
+ * its speed while it is shot, so the wide and the icon are the same moment of the dive; its outcome is the same at
+ * any speed (the ball's flight is the runtime's own steps). Speed and the HUD come back after, whatever happened.
+ */
+export async function captureShootoutKeyArt(page: Page): Promise<WorldKeyArt> {
+  const D = (js: string) => page.eval(`(() => { const D = window.__gmRuntime.debug.shootout(); ${js} })()`);
+  try {
+    await D(`D.shot('REVERSE'); D.film(true); D.timeScale(0.25); return 1;`);
+    // the dive: the ball most of the way from the spot (z -41.5) to the goal line (z -52.5), or the outcome, whichever comes first
+    for (let i = 0; i < 80; i++) {
+      const at = await page.eval<{ z: number | null; out: boolean }>(`(() => { const s = window.__gmRuntime.state().shootout || {};
+        return { z: s.ball && s.ball.p ? s.ball.p[2] : null, out: !!s.outcome }; })()`).catch(() => ({ z: null, out: true }));
+      if (at.out || (at.z !== null && at.z <= SHOOT_ART_Z)) break;
+      await sleep(50);
+    }
+    return await titled(page);
+  } finally {
+    await page.eval(`document.getElementById('gm-key-art-title')?.remove();`).catch(() => undefined);
+    await D(`D.timeScale(1); D.film(false); return 1;`).catch(() => undefined);
+  }
+}
+/** Where the ball is (its z, metres) when a shootout's key art is shot: two thirds of the way from the spot to the goal line. */
+export const SHOOT_ART_Z = -48.5;

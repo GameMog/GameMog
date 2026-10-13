@@ -34,7 +34,7 @@ const short = (n: number) =>
 
 export function GameActions({ gameId, slug, title, initial, mog = true }: {
   gameId: string; slug: string; title: string; initial: Counts;
-  /** false for a game that cannot be mogged yet (a penalty shootout, lib/custom-game.ts canMog): no Mog action */
+  /** false for a game whose kind cannot be mogged yet (lib/custom-game.ts canMog; every kind can today, a penalty shootout too since 13 Oct): no Mog action */
   mog?: boolean;
 }) {
   const [counts, setCounts] = useState(initial);

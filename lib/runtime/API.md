@@ -1506,6 +1506,193 @@ The result a kart race reports (`GameMog.finish`) is scored from its parts, neve
 `laps`, `gm`, `hits` (enemies hit: your bashes and your items that landed), `estimated` and `progress` (a race called
 before you finished: the share of it you drove, 0 to 1) and `racer` (its id, e.g. `pepe`).
 
+## Penalty shootouts
+
+A penalty shootout (SHOOTOUT, the owner 11 Oct 2026: "One Kick") is its own kind of world: name `shootout: {...}` among
+`GameMog.world`'s own keys (never with `open` or `kart`), written out there as an object (`shootout: SHOOT` or a
+shorthand `shootout` is not seen, and the world races the endless laps). Ignore the rules above (laps, rivals joining,
+obstacles, GM, the chase camera, the jump): a taker, a keeper and a referee meet at the penalty spot of a final, and the
+player kicks again and again. The runtime runs all of it: the walk to the spot, the whistle, the run-up (tap to run,
+faster for more power, the heat climbing from COLD through WARM and HOT to ON FIRE), the aim, the gold ring that closes
+on the plant foot (hold the last tap, let go as it closes), the strike, the ball's flight and spin, the goal it is shot
+at (posts, bar, stanchions and net), the keeper (his read, his wait, his dive, his reach and his get-up), the net's
+bulge, the result, the replay, every camera shot, the HUD, the controls (keys, touch, a pad), the crowd's sound and the
+board (the goals scored in a sitting, posted after every kick). You give the place and how the people look: the stadium
+and the pitch, the sky, the light and the weather, the crowd and how it moves, the boards and the banners, the far goal,
+the two sides, and the taker, the keeper and the referee in their kits. A shootout is made only as a Mog of one, and a
+Mog of one stays one, whatever its idea says.
+
+```js
+GameMog.world({
+  shootout: {
+    teams: [{ name: 'Uruguay', short: 'URU', color: '#74BDE8' }, { name: 'Spain', short: 'ESP', color: '#B3122E' }],  // exactly two
+    taker: 0,                                     // the side taking the kicks (0 or 1): its fans fill the end behind the goal
+    body: 'human-athlete-male',                   // the match's body when nobody plays as themselves ('human-athlete-female')
+    goal: { frame: '#F6F6F4', net: '#F2F2F2' },   // the goal shot at: the frame's colour and the net's
+    floods: [[-38, 44, -60], [38, 44, -60], [0, 44, 10]],   // up to three floodlights [x, y, z]: the people's soft shadows
+  },
+  play: { coins: false },
+  assets: ['human-athlete-male', 'human-pack-male', 'human-moves-football-male', 'human-moves-football-female',
+    'texture-grass', 'sky-night', 'audio-crowd-shootout'],
+  theme: { sky: '#0B1220', fog: '#141C2C', ink: '#FFFFFF', accent: '#E9C46A', font: 'Oxanium' },   // ink, accent, font: the key art's title
+  graphics: {
+    exposure: 1.0, environment: { hdri: 'sky-night', intensity: 0.5, extras: () => LAMP_RING },   // the floodlights, seen in chrome and paint
+    bloom: { strength: 0.42, threshold: 1.0, radius: 0.55 },
+    grade: { contrast: 1.08, saturation: 1.0, warmth: -0.04, vignette: 0.26, grain: 0.012 },
+    shadows: { follow: 'hero', extent: 22, mapSize: 2048 },   // the shadow map held on the penalty box in every shot
+  },
+  build(ctx) { /* sky and lights, the turf and its lines, the far goal, the bowl, the boards, the lamps, the crowd and its moods */ },
+  player(ctx) { return ctx.assets.human('human-athlete-male', TAKER); },            // the taker, in his side's kit
+  rival(ctx, k, o) {                                                                 // k 1: o.role 'keeper'; k 2: o.role 'referee'
+    const body = ctx.assets.ready(o.body) ? o.body : 'human-athlete-male';
+    return ctx.assets.human(body, o.role === 'keeper' ? KEEPER : REFEREE);
+  },
+  update(ctx, t, dt) { /* the crowd's hop, the tape and the flashes after a goal */ },
+});
+```
+
+- **The pitch** is the runtime's, in metres, and yours is drawn on it: y = 0 is the turf, 105 by 68 m centred on the
+  origin, its length along z, the goal lines at z = -52.5 and 52.5 and the touchlines at x = -34 and 34. The goal shot at
+  stands on z = -52.5 (posts at x = -3.66 and 3.66, the bar 2.44 m up, its net back to about z = -54.8) and the ball on
+  the penalty spot at (0, -41.5): the runtime builds both, and fits the camera, the keeper and the ball's flight to them,
+  so never build a goal or a ball there. Mark the turf to it in white, 0.12 m wide and a few millimetres up, merged into
+  one mesh: the touchlines, the goal lines and the halfway line, the centre circle (9.15 m) and its spot; at each end the
+  penalty area (40.32 m across, 16.5 m deep), the goal area (18.32 by 5.5 m), the penalty spot (11 m out, 0.11 m round)
+  and the arc (9.15 m round the spot, outside the area); the corner arcs (1 m) and four corner flags. The goal at the far
+  end (on z = 52.5, facing back down the pitch) is yours, as scenery. The taker starts his run-up about 4.75 m behind the
+  ball and to its left, near (-3.7, -38.6): wear the grass from there to the ball, and round the spot, if you like.
+- **Keep the lenses clear.** The runtime films every kick from its own places and cuts between them; a world never moves
+  the camera, and a `camera` key changes none of its shots. Its lenses: behind the taker (about 9 m behind the spot, 1.6
+  to 1.8 m up, within 2 m of the middle), low beside the ball, about 25 m out on the right for the walk to the spot, and
+  behind the goal shot at (3.5 to 5.5 m behind its line, 1.25 to 1.4 m up, within 1.3 m of the middle) for the keeper
+  and the replay. So nothing stands on the pitch but the lines, the corner flags and the far goal, and behind the goal
+  shot at nothing is taller than 1 m from its line back to 6 m behind it, 5 m either side of the middle (SHOOTOUT's
+  boards there are 0.9 m tall, 4.2 m behind the line). Boards round the pitch stand 4 m or more off the lines, the
+  stands' front wall 8 to 10 m. The test drive draws the sight lines from the lenses behind the goal to the goal mouth
+  and the spot through the world you built, and fails a world that stands anything in them, naming it.
+- **The sides** (`shootout.teams`): exactly two different sides, written out there, each `{ name, short, color }`:
+  `name` (a country, or a side of the world's own; up to 24 letters), `short` (2 to 4 capitals: the HUD's chip and its
+  tally of that side's kicks) and `color` (`#RRGGBB`: the chip, and the kits, flags and scarves you dress the side in).
+  `shootout.taker` (0 or 1, written as the number; 0 as it comes) is the side taking the kicks: the stands behind the
+  goal shot at are its end and wear its colours, the other side's fans fill the far end, and both mix along the sides.
+  Countries and their colours are fine; never a real player, a federation, a league or a competition (no FIFA, no World
+  Cup, no UEFA, no Copa America, no Champions League), their crests or a sponsor: the boards, the banners, the kits and
+  the title speak the world's own words (its title, its city, THE FINAL).
+- **The people.** The taker is you when you play as yourself (your body, your kit); otherwise `player(ctx)`, built on
+  `shootout.body` (`'human-athlete-male'` or `'human-athlete-female'`, written out). `rival(ctx, k, o)` is asked twice:
+  k 1 with `o.role` `'keeper'`, k 2 with `'referee'`; `o.body` is the match's body (yours when you play as yourself, so
+  a woman taking the kicks meets a woman in goal): build both on it when `ctx.assets.ready(o.body)`. All three must be
+  library humans (`ctx.assets.human`), returned as they come: the runtime rigs the taker to walk up and kick (the
+  football moves' captured run-up and strike), the keeper to read, dive, reach and get up, and stands the referee by the
+  box; one that is not a library human is moved as a box, with no kick or dive, and fails the test drive. Dress them as
+  a match: the taker in his side's shirt, shorts, socks and boots (painted `clothes: { shirt: { kind: 'tee', color },
+  pants: { kind: 'shorts', color }, belt: false }` with `outfit: { shoes }`; SHOOTOUT recolours the people pack's tee
+  and jeans into its kit and cuts the jeans into shorts: keep its helpers as they are and change their colours), the
+  keeper in long sleeves (`kind: 'long'`) and gloves, in a colour apart from both sides and the referee, the referee in
+  black or another colour apart from all of them. No numbers or names on the shirts.
+  **Their names** (`name` on each, and the cast) are invented: the taker a first name or initial and a surname made
+  up for the world (SHOOTOUT's is D. Arroyo), the keeper and the referee a role or a nickname ('Keeper', 'Chrome
+  Keeper', 'Referee'). A Mog keeps its original's names unless its idea names new sides or a new taker; only then is a
+  new one invented. Never a real footballer's name, past or present: the surnames that first come to mind for a
+  country's side (a captain, a scorer, a famous keeper of that country) are real players', so pass over them and invent
+  one no footballer is known by.
+  **The keeper's size** is the runtime's: his reach, and so how many he saves, is his body's, so he always stands as
+  SHOOTOUT's keeper does (1.90 m, or 1.74 m on the female body) whatever `height` or scale he is given. Leave his height
+  as SHOOTOUT's and never scale him; an idea for a small or a giant keeper is his look (a kid's kit, a robot), never his
+  size.
+  **A robot keeper** is `endo` on the keeper (an endoskeleton, above, written `endo:` in the source): it moves on the
+  person's own skeleton, so it reads, dives and gets up as a man does (checked 13 Oct: every part of the shootout its
+  own, nothing thrown). Light it for chrome: the floodlights' ring in `graphics.environment.extras` and a rim (`rim` 0.6
+  to 1 and a `rimColor` away from the night's colours). It is about 155,000 triangles (72,000 on phones): pay for it on
+  `'low'` (Phone, below).
+- **The crowd** (`ctx.shootout.impostors`) films people off screen before play, one at a time (a phone holds one
+  person's textures at once), into one sheet of pictures for cards that stand in for them by the thousand in a few draw
+  calls: `ctx.shootout.impostors({ count, make(i), frames, cell, cols, size, foot, light, pose(h, f) })`. `make(i)`
+  builds look `i` (a library human, built facing +Z on y = 0, or `{ object, cycle, step(dt), settle() }`), and the kit
+  lets it go once it is filmed; `settle()` (optional, on what `make` returns) brings it into its stance once it stands
+  in the studio; `pose(h, f)` (optional) poses picture `f` (else its `step`, else its `animate`). `frames` 1 to 32 (12),
+  `cell` `[wide, high]` pixels (96 x 216; filmed at twice that and halved), `size` `[wide, high]` metres through the
+  lens (1.24 x 2.8), `foot` metres (0), `cols` (2 x `frames`), and `light: { sky, ground, hemi, key: [colour,
+  intensity, [x, y, z]], rim: [...] }` for the studio. Picture `f` of look `i` is cell `i * frames + f`, `cols` cells
+  across, the first row at the bottom (v = 0); each figure's colour is carried out past its edge and kept as its square
+  root (decode with `c * c * 2`). It returns `{ texture, target, cols, rows, frames, looks, cell, ms }`, or null (nothing
+  to film, or a sheet larger than the screen allows): keep a fallback of your own (figures drawn on a canvas). `cast:
+  [...]` in place of `make` (people already built, each left where it was, as `ctx.kart.impostors` takes them) works
+  too. A world never makes a camera: the film is the kit's. SHOOTOUT films 16 looks (eight a side, in its colours: tees,
+  hoodies, jackets, caps, beanies, a bandana, shades) in three poses (standing, both arms up, hands on the head) at 128 x
+  288 (six looks at 64 x 144 on `'low'`), and seats 56,000 of them as one `InstancedMesh` a side of the bowl (eight draw
+  calls), each card turned to the camera about its upright in its own shader, each seat with a side, a look and a shade
+  by its tier and row.
+- **Its moods** (`ctx.on`): the runtime's moments, to move the crowd and anything else of yours: `'walk'` (`{ kick }`:
+  the taker walks up), `'whistle'` (`{ kick }`: the referee's whistle; the hush), `'kick'` (`{ kick, grade, errMs, kmh,
+  band }`: the strike, `band` its heat, `'COLD'`, `'WARM'`, `'HOT'` or `'ON FIRE'`), `'woodwork'` (`{ kick, part, in }`:
+  the ball rang off a post or the bar, before the outcome), `'goal'` (`{ kick, woodwork, keeperTouched }`), `'save'` (`{
+  kick, held }`), `'miss'` (`{ kick, kind }`: `'over'`, `'wide'`, `'short'`, `'post'` or `'bar'`), `'replay'` (`{ kick,
+  on }`) and `'finish'` (`{ kicks, goals }`: the kick is over and on the board). The demo's kicks are silent: no kick,
+  woodwork, goal, save, miss or finish is heard from them. Register in `build()`. A handler that throws is an error the
+  test drive fails, and it is called again at the next moment: keep each handler's work inside its own `try`, as
+  SHOOTOUT does. SHOOTOUT's stands hush at the whistle, gasp at the woodwork (for 0.6 s), erupt on their own side's goal
+  or save while the other side holds its head, hop slower in the replay, and throw ticker tape over the end behind the
+  goal and camera flashes among the taking side for six seconds after a goal (eight after one struck ON FIRE).
+  `update(ctx, t, dt)` runs every frame (`t` game time) for the hop, the tape and the flashes.
+- **The stadium** (SHOOTOUT's recipe; build it as fully, wherever the idea puts it): a bowl round the pitch, a rounded
+  rectangle (its front wall 8.5 m off the touchlines and 9 m off the goal lines, corners of 12 m), each part swept round
+  it from a profile, so a whole ring is one mesh: a lower tier of 30 rows (0.82 m deep, rising 0.40 m), a band of
+  hospitality boxes (a strip of lit windows: one emissive canvas), an upper tier of 28 rows (0.86 m, 0.55 m) over its
+  soffit, a back wall, and a roof ring 41 to 43.5 m up with a bright fascia under its edge; flat-shaded stand materials,
+  no stand texture (a phone's memory), so the people and the boards bring the colour. Two LED ribbons, the upper tier's
+  fascia and the boards round the pitch, their words drawn once on canvases (2048 by 64 to 96 pixels), repeated so a word
+  keeps its shape (one copy for every 40 to 64 m), emissive at 1.25 to 1.45 under floodlights. The floodlights a ring of
+  instanced emissive lamps (`emissiveIntensity` about 5) under the roof's edge, and the same ring in
+  `graphics.environment.extras`. Flags among the seats in each side's colours (instanced, about four hundred). The tape
+  and the flashes instanced and moved in their own vertex shaders, so no matrices are written a frame, hidden until a goal.
+- **Light, sky and weather.** A floodlit night: `sky-night` (`ctx.sky({ hdri: 'sky-night', exposure: 0.35, light: 0.3
+  })`), a `HemisphereLight` of 0.5 to 0.8, one shadow-casting `DirectionalLight` of 2.5 to 3 high over a stand and aimed
+  at the box, a fill and a back light without shadows (0.7 to 1), and `graphics.shadows.follow: 'hero'` (the runtime
+  keeps the shadow map on the penalty box in every shot). A day final: `graphics.preset: 'daylight'` with `sky-noon` or
+  `sky-partly-cloudy`, the sun the one shadow-casting light, the roof's shadow over the stands; dusk: `'golden'` with
+  `sky-sunset` or `sky-dusk`; a grey afternoon: `sky-overcast`. Snow: flakes as one instanced mesh moved in its vertex
+  shader (as the tape), each a soft round flake (a small disc, or a square cut round and feathered in its fragment
+  shader: never a bare square), in a box over the pitch and the near stands, fewer on `'low'`; snow lying on the roof,
+  the steps and the surrounds (`texture-snow`); the pitch kept green and cleared, its lines reading; a white haze (fog)
+  that still leaves the far stands in view; the crowd in puffers, beanies and scarves. Rain: streaks the same way, a
+  wetter turf (roughness down to about 0.6) catching the floodlights, hoods and umbrellas in the stands. Fog never hides
+  the stands: they are 60 to 110 m from the lenses. The lenses look level at the goal from inside the bowl, so the stands
+  and the roof fill the top of every shot and the open sky is hardly seen: a sky the idea asks for (an aurora, a moon,
+  fireworks) reaches the player as light, in `graphics.environment.extras` (the chrome and the paint catch it), on the
+  roof's fascia, the stands and the snow, and as a glow hung just under the roof's edge, never only high overhead.
+- **The sound** is the runtime's: the recorded crowd (`audio-crowd-shootout` in `assets`; without it the runtime makes a
+  crowd of its own), the whistles at the taker as his heat rises, the referee's whistle, the strike, the net, the
+  woodwork, the heartbeat. Write no `music`, no `ambient()` and no crowd noise of your own; a shootout plays no music.
+- **The assets** (up to 24): the match's body, both football motion packs (`human-moves-football-male` and
+  `human-moves-football-female`: the run-up, the strike, the keeper's dives and get-ups, the referee's stance; both, so
+  a player of either body can kick), `audio-crowd-shootout`, `human-pack-male` for SHOOTOUT's garment kits, and your sky
+  and surfaces. A shootout that does not list both football packs and its body is refused.
+- **Phone** (`ctx.quality === 'low'`): SHOOTOUT films six crowd looks at 64 x 144 and drops its tape to 900 pieces, and
+  draws at 50 to 57 calls and 274,000 to 313,000 triangles a frame on a phone, the people, the goal and the ball
+  included (60 fps on a laptop at 51 to 54 calls and 280,000 to 286,000 triangles). Hold a shootout to 150 draw calls and
+  350,000 triangles on `'low'`: a robot keeper is 72,000 more there, so drop crowd looks, flags or tape to pay for him.
+  Keep canvases to 2048 x 96 for ribbons and 1024 or less otherwise; the crowd's sheet is the one big texture. The test
+  drive loads the world a second time as a phone does, on `'low'`, and kicks once there: code that runs only on
+  `'low'` must work there (a name it uses declared and set on `'low'` too), and that load's count is the one held to
+  the phone's budget.
+- **Fixed.** The kick (the tap, the heat and its bands), the aim's range (7 m either side of the middle, up to 4.5 m),
+  the release ring and its timing, the keeper's skill, reach and size, the ball (an original panel design of the runtime's
+  own) and its flight, the goal shot at, the camera's shots, the HUD (frosted glass, each side's chip and tally), the
+  sound and the board are the runtime's, the same in every shootout. A world, and a Mog, cannot make the keeper better
+  or worse, change the ball, move the spot or the goal, or add a second taker; an idea that asks for one gets the nearest
+  thing the world can do (the keeper's look, the crowd, the night).
+- **A Mog of a shootout** keeps the kind; the stadium it builds (unless the idea moves it: then a stadium as full and as
+  detailed, on the runtime's pitch); the two sides (unless the idea names others: then the kits, the flags and the
+  stands' colours follow the new sides, and the taker gets a new name, invented as above; otherwise he keeps his
+  name); the taker, the keeper and the referee as library humans on `o.body`; the crowd filmed with
+  `ctx.shootout.impostors` and its moods on `ctx.on`; and the floodlit look, unless the idea names a time of day or
+  the weather.
+- **Never, in a shootout:** build the goal shot at, a ball, a keeper's dive or a second taker; put anything on the pitch
+  or in the lenses' room behind the goal; write a `track`, `music`, `ambient()`, GM or crowd noise, or obstacles
+  (SHOOTOUT's `obstacles` returns none); call `ctx.broadcast()`, `ctx.mirror()` or `ctx.kart`; name a real federation,
+  league or competition, or give anyone a real footballer's name; put numbers on the shirts.
+
 ## Never
 
 Build a 2D game, move or replace the camera, create a renderer, call `requestAnimationFrame`, `setTimeout` or `setInterval`, add event

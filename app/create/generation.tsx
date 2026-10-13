@@ -5,6 +5,7 @@ import { playerId } from '../anon';
 import { cleanName, cleanMessage } from '@/lib/names';
 import { renderDareCard, cardBase64 } from '@/lib/dare-card';
 import { DiscordPill } from '../discord-pill';
+import type { WorldMode } from '@/lib/custom-game';
 
 /**
  * Writing a world, shared by Create and Mog: the request and the events the
@@ -18,7 +19,9 @@ import { DiscordPill } from '../discord-pill';
 export type Draft = {
   draftId: string; attempts: number; ms: number;
   meta: { title: string; tagline: string; blurb: string; genre: string; cast: { name: string; color: string; role?: string }[] };
-  runtime: { ran: boolean; readyMs: number | null; fps: number | null; levelReached?: number; advisories?: string[]; open?: { kos: number; heat: number; boss: boolean } };
+  runtime: { ran: boolean; readyMs: number | null; fps: number | null; levelReached?: number; advisories?: string[]; open?: { kos: number; heat: number; boss: boolean };
+    /** a penalty shootout's drive (13 Oct, lib/playtest-runtime.ts ShootDrive): the kicks it took and how many reached a result */
+    kind?: string; shootout?: { kicks?: number; results?: number; goals?: number } };
 };
 
 export function useGeneration() {
@@ -131,6 +134,8 @@ export type Published = { id: string; slug: string; creator: string | null };
 export type PublishOutcome = { ok: true; game: Published } | { ok: false; error: string; field?: 'creator' };
 
 type Mode = 'create' | 'mog';
+/** The kind of world being built, when it is known (a Mog's is its original's): a penalty shootout has its own show. */
+type Kind = WorldMode | undefined;
 type StageKey = 'thinking' | 'writing' | 'checking' | 'playtesting' | 'repairing';
 
 /** What each stage is called, and what is going on in it, in the creator's words. */
@@ -185,6 +190,31 @@ const OPEN_TIPS = [
   'The leaderboard ranks the time survived, then the GM you collect.',
   'W A S D moves, Shift runs, J or a click punches, and Space jumps.',
   'Before anything goes live, a test player plays it in a real browser.',
+];
+
+/** A penalty shootout's build, in its own words (13 Oct): no track, no laps, no rivals, no GM. */
+const SHOOT_LINES: Partial<Record<StageKey, { lines: string[]; mogLines: string[] }>> = {
+  thinking: {
+    lines: ['Picking the stadium, the light and the weather', 'Choosing the two sides and their kits', 'Dressing the taker, the keeper and the referee', 'Deciding who fills the stands'],
+    mogLines: ['Taking the original apart, piece by piece', 'Working your idea in', 'Keeping the kick, the keeper and the roar', 'Deciding what changes and what stays'],
+  },
+  writing: {
+    lines: ['Raising the stadium', 'Laying the pitch and its lines', 'Dressing the two sides', 'Filling the stands', 'Hanging the floodlights', 'Lighting the sky'],
+    mogLines: ['Rebuilding the stadium your way', 'Dressing the sides in their kits', 'Filling the stands with their fans', 'Restyling the keeper', 'Relighting the stadium'],
+  },
+  playtesting: {
+    lines: ['A test player is taking penalties in a real browser', 'The keeper is reading the kick', 'Checking it runs smoothly', 'Playing every kick through to a result'],
+    mogLines: ['A test player is taking penalties in your Mog in a real browser', 'The keeper is reading the kick', 'Checking it runs smoothly', 'Playing every kick through to a result'],
+  },
+};
+const SHOOT_TIPS = [
+  'Tap to run up: the faster you tap, the harder the strike, from COLD through WARM and HOT to ON FIRE.',
+  'Once your Mog is live, anyone can Mog it with a better version.',
+  'Hold the last tap as the ring glows, and let go as the gold ring closes on the plant foot.',
+  'Players who have played both games pick the better Mog.',
+  'Aim anywhere you like, but over the bar or past a post is a miss.',
+  'The leaderboard ranks the goals you score in a sitting.',
+  'Before anything goes live, a test player takes penalties in it in a real browser.',
 ];
 
 /** Things worth knowing while you wait. */
@@ -244,6 +274,21 @@ function friendlyFix(problem: string) {
   if (/track|lap|loop|points/.test(p)) return 'Smoothing out the track';
   if (/threw|error|exception|undefined|not a function|syntax|refus|crash/.test(p)) return 'Fixing a bug the test drive ran into';
   return 'Polishing a few details';
+}
+/** A penalty shootout's fixes, in its own words; anything else as any world's. */
+function friendlyShootFix(problem: string) {
+  const p = problem.toLowerCase();
+  if (/^the kind of game/.test(p)) return 'Keeping it a penalty shootout';
+  if (/^the match|shootout\.teams|shootout\.taker/.test(p)) return 'Keeping the two sides right';
+  if (/keeper|rival\(/.test(p)) return 'Getting the keeper set up properly';
+  if (/taker|player\(/.test(p)) return 'Getting the taker set up properly';
+  if (/fps|draw call|triangle/.test(p)) return 'Making it run smoothly';
+  if (/flat colou?r/.test(p)) return 'Bringing the stadium into view';
+  if (/kick \d|did not end with a result/.test(p)) return 'Making every kick play through to a result';
+  if (/human-moves-football/.test(p)) return 'Packing the run-up, the strike and the dives';
+  if (/crowd|impostors/.test(p)) return 'Filling the stands';
+  if (/lens|on the pitch|behind the goal/.test(p)) return 'Clearing the camera\'s view';
+  return friendlyFix(problem);
 }
 /** Technical notes for the curious, without naming the builder behind GameMog. */
 function scrub(text: string) {
@@ -325,13 +370,68 @@ function TrackArt({ stage, built, t }: { stage: StageKey | 'done'; built: number
 }
 
 /**
+ * A penalty shootout's show (13 Oct): the goal draws itself as the world is written and its net fills in, the ball
+ * waits on the spot and the keeper on his line, a scanner runs the frame during the safety check, and during the test
+ * drive the kicks go in, past the keeper and over the bar. The frame is straight lines, so its points are worked out.
+ */
+const GOAL = 'M 170 192 L 170 58 L 430 58 L 430 192';
+const GOAL_LEN = 528;
+function goalAt(f: number) {
+  const d = (((f % 1) + 1) % 1) * GOAL_LEN;
+  return d < 134 ? { x: 170, y: 192 - d } : d < 394 ? { x: 36 + d, y: 58 } : { x: 430, y: d - 336 };
+}
+const KICKS = [{ x: 212, y: 92, dive: 1 }, { x: 392, y: 152, dive: -1 }, { x: 330, y: 30, dive: 1 }, { x: 238, y: 166, dive: -1 }];
+function GoalArt({ stage, built, t }: { stage: StageKey | 'done'; built: number; t: number }) {
+  const racing = stage === 'playtesting' || stage === 'done';
+  // the net follows the frame: a column once the bar has passed it, a row once the far post has come down to it
+  const cols = Array.from({ length: 13 }, (_, i) => (i + 1) / 14), rows = Array.from({ length: 7 }, (_, i) => (i + 1) / 8);
+  const col = (f: number) => (134 + 260 * f) / GOAL_LEN <= built, row = (f: number) => (394 + 134 * f) / GOAL_LEN <= built;
+  // a kick every 2.6 s: the ball flies from the spot to its corner (or over the bar), the keeper dives one way
+  const k = KICKS[Math.floor(t / 2.6) % KICKS.length], u = (t % 2.6) / 2.6;
+  const fly = racing ? Math.min(1, Math.max(0, (u - 0.18) / 0.3)) : 0, dive = racing ? Math.min(1, Math.max(0, (u - 0.24) / 0.22)) * k.dive : 0;
+  const ball = { x: 300 + (k.x - 300) * fly, y: 207 + (k.y - 207) * fly - Math.sin(fly * Math.PI) * 16, r: 7 - 2.4 * fly };
+  return (
+    <svg className="bs-art" viewBox="0 0 600 220" role="img" aria-label="Your shootout's goal being built">
+      <line x1="60" y1="192" x2="540" y2="192" stroke="rgba(255,255,255,.12)" strokeWidth="2" />
+      <path d={GOAL} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="12" strokeLinejoin="round" />
+      {cols.map((f) => col(f) ? <line key={`v${f}`} x1={170 + 260 * f} y1="58" x2={170 + 260 * f} y2="192" stroke="rgba(255,255,255,.16)" strokeWidth="1" /> : null)}
+      {rows.map((f) => row(f) ? <line key={`h${f}`} x1="170" y1={58 + 134 * f} x2="430" y2={58 + 134 * f} stroke="rgba(255,255,255,.16)" strokeWidth="1" /> : null)}
+      <path d={GOAL} fill="none" stroke="#FFFFFF" strokeWidth="10" strokeLinejoin="round" strokeLinecap="round"
+        strokeDasharray={`${GOAL_LEN * built} ${GOAL_LEN}`} opacity={built < 0.005 ? 0 : stage === 'repairing' ? 0.55 : 0.92} />
+      {(racing || built >= 0.6) && (
+        <g transform={`translate(${dive * 58} ${Math.abs(dive) * 14}) rotate(${dive * 64} 300 192)`}>
+          <rect x="292" y="148" width="16" height="44" rx="8" fill="#2FA36B" stroke="#0B0B0F" strokeWidth="1.5" />
+          <circle cx="300" cy="138" r="7" fill="#2FA36B" stroke="#0B0B0F" strokeWidth="1.5" />
+        </g>
+      )}
+      <ellipse cx="300" cy="213" rx="7" ry="1.6" fill="rgba(255,255,255,.4)" />
+      {(racing ? u < 0.9 : built >= 0.3) && <circle cx={ball.x} cy={ball.y} r={ball.r} fill="#F5B82E" stroke="#0B0B0F" strokeWidth="1.5" />}
+      {stage === 'checking' && [0, 0.02, 0.04, 0.06].map((d, i) => {
+        const p = goalAt(t * 0.45 - d);
+        return <circle key={`s${i}`} cx={p.x} cy={p.y} r={9 - i * 2} fill="#4F7BFF" opacity={0.9 - i * 0.2} />;
+      })}
+      {(stage === 'thinking' || stage === 'repairing') && (() => {
+        const p = goalAt(t * 0.08);
+        return <circle cx={p.x} cy={p.y} r="6" fill="#F5B82E" />;
+      })()}
+    </svg>
+  );
+}
+
+/**
  * The test drive, played here (the owner, 30 Sep): the draft at 1280x720,
  * scaled to the show, driven by its own autopilot (lib/runtime/drive.js).
  * What it measured goes to the builder; a drive that never reports is let go.
+ * A penalty shootout (13 Oct) is then loaded once more as a phone loads it
+ * (#phone: built on 'low', where no drive ran before), for up to 100 s, and
+ * both reports go together (raw.phone); a phone load that never reports goes
+ * as timedOut, and the drive is judged without it.
  */
+const PHONE_MS = 100;
 function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string; attempt: number }; onDone: () => void }) {
   const box = useRef<HTMLDivElement>(null), frame = useRef<HTMLIFrameElement>(null);
   const [scale, setScale] = useState(0.5);
+  const [phone, setPhone] = useState(false);
   // A tab in the background draws nothing, so a drive there can never run (1 Oct:
   // a Mog built in a background tab published with no cover). The drive starts
   // when this tab is in front; its clock runs only while it is; while it is not,
@@ -348,6 +448,8 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
   }, []);
   useEffect(() => {
     let sent = false, shown = 0, away = 0;
+    // (the drive's own report, held while the phone load runs)
+    let first: { raw: Record<string, unknown>; covers?: unknown; artIcon?: unknown; artWide?: unknown } | null = null;
     const title = document.title;
     const post = (payload: Record<string, unknown>) => fetch('/api/generate/drive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draftId: drive.draftId, token: drive.token, ...payload }) });
     const send = (payload: Record<string, unknown>) => {
@@ -358,6 +460,10 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
       if (e.source !== frame.current?.contentWindow) return;
       const d = e.data as { gm?: string; type?: string; raw?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown };
       if (d?.gm !== 'drive' || d.type !== 'report') return;
+      if (first) { send({ ...first, raw: { ...first.raw, phone: d.raw } }); return; }
+      const raw = (d.raw && typeof d.raw === 'object' ? d.raw : {}) as Record<string, unknown>;
+      // a penalty shootout that loaded, driven in front: now its phone load, in a fresh frame
+      if (raw.kind === 'shootout' && raw.ready === true && !raw.hidden) { first = { raw, covers: d.covers, artIcon: d.artIcon, artWide: d.artWide }; shown = 0; setPhone(true); return; }
       send({ raw: d.raw, covers: d.covers, artIcon: d.artIcon, artWide: d.artWide });
     };
     const onVis = () => { if (!document.hidden) { setGo(true); document.title = title; } else if (!sent) document.title = 'Your world is ready to test-drive'; };
@@ -367,6 +473,7 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
     const tick = setInterval(() => {
       if (sent) return;
       if (document.hidden) { if (away++ % 30 === 0) post({ hold: true }).catch(() => {}); return; }
+      if (first) { if (++shown >= PHONE_MS) send({ ...first, raw: { ...first.raw, phone: { timedOut: true } } }); return; }
       if (++shown >= 200) send({ raw: { timedOut: true } });
     }, 1000);
     return () => { window.removeEventListener('message', onMsg); document.removeEventListener('visibilitychange', onVis); clearInterval(tick); document.title = title; };
@@ -374,10 +481,10 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
   return (
     <div className="bs-drive" ref={box} style={{ height: 720 * scale }}>
       {go ? (
-        <iframe ref={frame} src={`/d/${drive.draftId}/play?drive=1`} sandbox="allow-scripts" title="Test drive"
+        <iframe key={phone ? 'phone' : 'drive'} ref={frame} src={`/d/${drive.draftId}/play?drive=1${phone ? '#phone' : ''}`} sandbox="allow-scripts" title="Test drive"
           width={1280} height={720} tabIndex={-1} style={{ transform: `scale(${scale})` }} />
       ) : <p className="bs-drivewait">Your world is ready for its test drive. It runs as soon as this tab is in front.</p>}
-      <span className="bs-drivetag">Live test drive</span>
+      <span className="bs-drivetag">{phone ? 'Live test drive: as a phone' : 'Live test drive'}</span>
     </div>
   );
 }
@@ -386,7 +493,7 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
  * The show while a world or a Mog is built: what it is, where it has got to,
  * how long is left, and a track drawing itself as it happens.
  */
-function BuildShow({ gen, mode, subject, open }: { gen: Generation; mode: Mode; subject?: string; open?: boolean }) {
+function BuildShow({ gen, mode, subject, open, kind }: { gen: Generation; mode: Mode; subject?: string; open?: boolean; kind?: Kind }) {
   const { stage, rounds, now, startedAt } = gen;
   const key = (stage?.stage ?? 'thinking') as StageKey;
   const attempt = stage?.attempt ?? 1;
@@ -403,11 +510,12 @@ function BuildShow({ gen, mode, subject, open }: { gen: Generation; mode: Mode; 
   const overall = polishing ? ((attempt - 1) + p) / segments : p;
   // how much of the track is drawn: none while dreaming, the written share while building, all of it after
   const built = key === 'thinking' ? 0 : key === 'writing' ? Math.min(1, (stage?.chars ?? 0) / TARGET_CHARS) : 1;
-  const info = STAGES[key], own = open ? OPEN_LINES[key] : undefined;
+  const shootout = kind === 'shootout';
+  const info = STAGES[key], own = shootout ? SHOOT_LINES[key] : open ? OPEN_LINES[key] : undefined;
   const lines = mode === 'mog' ? (own ?? info).mogLines : (own ?? info).lines;
   const line = lines[Math.floor(t / 7) % lines.length];
-  const tips = open ? OPEN_TIPS : TIPS, tip = tips[Math.floor(t / 11) % tips.length];
-  const fixes = [...new Set(rounds.flatMap((r) => r.problems.map(friendlyFix)))];
+  const tips = shootout ? SHOOT_TIPS : open ? OPEN_TIPS : TIPS, tip = tips[Math.floor(t / 11) % tips.length];
+  const fixes = [...new Set(rounds.flatMap((r) => r.problems.map(shootout ? friendlyShootFix : friendlyFix)))];
   const steps: { key: StageKey | 'polish'; label: string }[] = [
     { key: 'thinking', label: mode === 'mog' ? 'Study' : 'Imagine' }, { key: 'writing', label: 'Build' },
     { key: 'checking', label: 'Check' }, { key: 'playtesting', label: 'Test drive' },
@@ -425,7 +533,7 @@ function BuildShow({ gen, mode, subject, open }: { gen: Generation; mode: Mode; 
       </div>
       <h2 className="bs-title">{mode === 'mog' ? info.mogTitle : info.title}{polishing ? `, pass ${attempt} of 3` : ''}</h2>
       <p className="bs-line">{line}{key === 'writing' && (stage?.chars ?? 0) > 0 ? `  ·  ${Math.round(Math.min(0.98, (stage?.chars ?? 0) / TARGET_CHARS) * 100)}% built` : ''}</p>
-      {gen.drive ? <TestDrive key={gen.drive.token} drive={gen.drive} onDone={gen.endDrive} /> : <TrackArt stage={key} built={built} t={t} />}
+      {gen.drive ? <TestDrive key={gen.drive.token} drive={gen.drive} onDone={gen.endDrive} /> : shootout ? <GoalArt stage={key} built={built} t={t} /> : <TrackArt stage={key} built={built} t={t} />}
       <div className="bs-bar" aria-hidden>
         {Array.from({ length: segments }, (_, i) => {
           const fill = Math.max(0, Math.min(1, overall * segments - i));
@@ -470,7 +578,7 @@ function ordinal(n: number) {
  * Waiting for a slot (lib/build-limits.ts): the place in line, the wait, and why the tab must stay open, in as few
  * words as it takes. The track waits with a single runner on it; the build show takes over at the build's turn.
  */
-function InLine({ gen, mode, subject }: { gen: Generation; mode: Mode; subject?: string }) {
+function InLine({ gen, mode, subject, kind }: { gen: Generation; mode: Mode; subject?: string; kind?: Kind }) {
   const t = useFrameTime(true);
   const q = gen.queue!;
   const what = mode === 'mog' ? 'Mog' : 'world';
@@ -479,7 +587,7 @@ function InLine({ gen, mode, subject }: { gen: Generation; mode: Mode; subject?:
       <div className="bs-top"><span className="bs-kicker">{q.position <= 1 ? 'You\'re next in line' : `You're ${ordinal(q.position)} in line`}</span></div>
       <h2 className="bs-title">{q.etaMin <= 1 ? 'About a minute' : `About ${q.etaMin} minutes`}</h2>
       <p className="bs-line">Keep this tab open: your browser test-drives your {what}.</p>
-      <TrackArt stage="thinking" built={0} t={t} />
+      {kind === 'shootout' ? <GoalArt stage="thinking" built={0} t={t} /> : <TrackArt stage="thinking" built={0} t={t} />}
       {subject ? <div className="bs-foot"><p className="bs-idea"><span>{mode === 'mog' ? 'Your idea' : 'Your world'}</span>{subject.length > 220 ? subject.slice(0, 217) + '...' : subject}</p></div> : null}
     </section>
   );
@@ -497,7 +605,7 @@ function LimitNote({ error }: { error: string }) {
   );
 }
 
-export function GenerationProgress({ gen, mode = 'create', subject, open }: { gen: Generation; mode?: Mode; subject?: string; open?: boolean }) {
+export function GenerationProgress({ gen, mode = 'create', subject, open, kind }: { gen: Generation; mode?: Mode; subject?: string; open?: boolean; kind?: Kind }) {
   const { busy, error, rounds } = gen;
   const limit = /^(GameMog is busy building|Building is resting)/.test(error);
   const ref = useRef<HTMLDivElement>(null);
@@ -505,7 +613,7 @@ export function GenerationProgress({ gen, mode = 'create', subject, open }: { ge
   useEffect(() => { if (busy) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [busy]);
   return (
     <div ref={ref} style={{ scrollMarginTop: 96 }}>
-      {busy && (gen.queue ? <InLine gen={gen} mode={mode} subject={subject} /> : <BuildShow gen={gen} mode={mode} subject={subject} open={open} />)}
+      {busy && (gen.queue ? <InLine gen={gen} mode={mode} subject={subject} kind={kind} /> : <BuildShow gen={gen} mode={mode} subject={subject} open={open} kind={kind} />)}
       {!busy && error && limit && <LimitNote error={error} />}
       {!busy && error && !limit && (
         <div className="bs-error" role="alert">
@@ -532,9 +640,9 @@ function rememberName(v: string) { try { if (v) localStorage.setItem(CREATOR_KEY
  * (SendDare) instead of going straight to the game. `dare`: the dare this Mog answers (the dare landing's "Mog it
  * back", carried here as ?dare=), so the funnel counts it mogged back. `parentTitle`: the game a Mog was made from.
  */
-export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode = 'create', parentTitle, dare }: {
+export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode = 'create', parentTitle, dare, kind }: {
   gen: Generation; publishLabel: string; againLabel: string; onAgain: () => void; note?: React.ReactNode;
-  mode?: Mode; parentTitle?: string; dare?: string | null;
+  mode?: Mode; parentTitle?: string; dare?: string | null; kind?: Kind;
 }) {
   const { draft, publishing, publish, busy } = gen;
   const [name, setName] = useState('');
@@ -559,6 +667,9 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode
     setLive(r.game);
   }
   const secs = (draft.runtime.readyMs ?? 0) / 1000;
+  // (a penalty shootout's drive, 13 Oct: the kicks that reached a result, not laps)
+  const so = draft.runtime.shootout;
+  const shot = kind === 'shootout' || draft.runtime.kind === 'shootout' ? { n: so?.results ?? so?.kicks ?? draft.runtime.levelReached ?? 0 } : null;
   return (
     <div className="panel bs-ready">
       <p className="bs-readylbl">Ready to play</p>
@@ -580,7 +691,7 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode
       </div>
       <p className="t-meta dim" style={{ marginBottom: 16 }}>
         {draft.runtime.ran
-          ? `Test-driven in a real browser: it loads in ${secs < 1 ? 'under a second' : `${secs.toFixed(1)} seconds`}, runs smoothly at ${draft.runtime.fps} fps, and ${draft.runtime.open ? `held up through ${draft.runtime.open.kos} knockouts to heat ${draft.runtime.open.heat}${draft.runtime.open.boss ? ' and a boss' : ''}` : `held up through ${draft.runtime.levelReached ?? 0} laps of rivals`}.`
+          ? `Test-driven in a real browser: it loads in ${secs < 1 ? 'under a second' : `${secs.toFixed(1)} seconds`}, runs smoothly at ${draft.runtime.fps} fps, and ${shot ? `played ${shot.n} kick${shot.n === 1 ? '' : 's'} through to a result` : draft.runtime.open ? `held up through ${draft.runtime.open.kos} knockouts to heat ${draft.runtime.open.heat}${draft.runtime.open.boss ? ' and a boss' : ''}` : `held up through ${draft.runtime.levelReached ?? 0} laps of rivals`}.`
           : 'It passed the safety check, but the test drive did not get to finish in this tab, so nobody has played it through yet. Give it a run above before you publish.'}
         {' '}Built in {Math.max(1, Math.round(draft.ms / 60000))} minutes.
       </p>

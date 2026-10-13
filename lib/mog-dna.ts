@@ -10,7 +10,8 @@ import { pickPass, type Pass, type Pick as PassPick } from './look';
  *
  * dna(code) reads what makes a world itself from its module's text: its kind of game, its place (a library map, the
  * city's time of day, the places its scenes name), the traversal, its hero, its crews and their names, the patrol car,
- * its scenes and their cast, its goal and story, its library kits, and a lap world's platform options.
+ * its scenes and their cast, its goal and story, its library kits, and a lap world's platform options; and a penalty
+ * shootout's own (13 Oct): its two sides and who takes the kicks, its keeper, its filmed crowd and the moods it answers.
  * compareDna(parent, child, idea) lists what the child dropped or changed that the idea does not ask for, each as a
  * short note the builder can act on. Pure (no I/O) and deterministic; every rule is a line of compareDna, and the
  * idea is read by readIdea's word lists, so a verdict can always be explained. Tested on real worlds by npm run check.
@@ -48,10 +49,36 @@ export type Dna = {
    * the world gives it, "id=Name")
    */
   kart: { laps: number | null; class: string | null; roster: string[]; items: string[] } | null;
+  /** a penalty shootout's own (shootout: {...}; null for every other kind) */
+  shootout: ShootDna | null;
   /** every word the module uses, comments and names included (a world that builds its own place says what it is) */
   words: string[];
 };
-export type DnaKey = 'kind' | 'map' | 'time' | 'traversal' | 'patrol' | 'hero' | 'moves' | 'crews' | 'intro' | 'outro' | 'story' | 'places' | 'kits' | 'scenery' | 'track' | 'play' | 'kart';
+/**
+ * A penalty shootout's own (13 Oct, shootout: {...}): what a Mog of one keeps besides its stadium. The runtime owns the
+ * kick, the keeper's dive, the camera, the HUD and the sound, so a Mog changes only the world's side of it.
+ */
+export type ShootDna = {
+  /** shootout.teams, in order, as written: the HUD's chips and tally */
+  teams: { name: string; short: string | null; color: string | null }[];
+  /** shootout.taker: the side taking the kicks (0 unless it says 1) */
+  taker: 0 | 1;
+  /** shootout.body: the match's body when nobody plays as themselves */
+  body: string | null;
+  /** rival() (k 1 the keeper, k 2 the referee), read as player() is: a library human, and whether he is a chrome endoskeleton */
+  keeper: { kind: HeroKind; endo: boolean };
+  /** the crowd filmed with ctx.shootout.impostors */
+  crowd: boolean;
+  /** the runtime's moments it answers with ctx.on, in the runtime's order (walk, whistle, kick, woodwork, goal, ...) */
+  moods: string[];
+  goal: { frame: string | null; net: string | null } | null;
+  /** shootout.floods: how many floodlights cast the people's shadows */
+  floods: number;
+  /** its sky-* and hdri-* kits */
+  sky: string[];
+};
+export type DnaKey = 'kind' | 'map' | 'time' | 'traversal' | 'patrol' | 'hero' | 'moves' | 'crews' | 'intro' | 'outro' | 'story' | 'places' | 'kits' | 'scenery' | 'track' | 'play' | 'kart'
+  | 'match' | 'keeper' | 'crowd';
 /**
  * One thing the child dropped. A minor one (a library kit, the scenery's kits, a lap's track) is recorded and said in
  * a repair, but never sends a pass back on its own: the owner's list is the map, the hero, the crews, the story and the
@@ -159,7 +186,8 @@ function str(v: string | undefined): string | null {
 }
 const on = (v: string | undefined) => v !== undefined && !/^(false|null|undefined|0)$/.test(v.trim());
 const count = (v: string) => (v.startsWith('[') ? parts(v).length : 0);
-const ASSET = /^(human|texture|sky|model|hdri|heightfield|music|city|car|creature|motion)-[a-z0-9-]+$/;
+// (audio-, 13 Oct: a shootout's recorded crowd, audio-crowd-shootout; no other world lists an audio kit)
+const ASSET = /^(human|texture|sky|model|hdri|heightfield|music|city|car|creature|motion|audio)-[a-z0-9-]+$/;
 const CREWS: CrewKind[] = ['thug', 'biker', 'cop', 'boss'];
 
 /** The text inside a function, its body's braces included ('' when it is not one). */
@@ -168,17 +196,21 @@ function body(fnText: string) {
   return at < 0 ? '' : bracket(fnText, at);
 }
 
-function heroOf(code: string, player: string): Dna['hero'] {
-  const fn = resolve(code, player), own = body(fn) || fn;
-  const kindOf = (t: string): HeroKind | null =>
-    /\.assets\.car\s*\(/.test(t) ? 'car' : /\.assets\.(?:human|cyclist|skater)\s*\(/.test(t) ? 'human' : /\.assets\.creature\s*\(/.test(t) ? 'creature' : null;
-  // the hero's own function, then the helpers it calls and the objects it passes them (fighter(ctx, PLAYER, 0))
+const kindOf = (t: string): HeroKind | null =>
+  /\.assets\.car\s*\(/.test(t) ? 'car' : /\.assets\.(?:human|cyclist|skater)\s*\(/.test(t) ? 'human' : /\.assets\.creature\s*\(/.test(t) ? 'creature' : null;
+/** A world function's own text, then the helpers it calls and the objects it passes them (fighter(ctx, PLAYER, 0)). */
+function reach(code: string, ref: string) {
+  const fn = resolve(code, ref), own = body(fn) || fn;
   const called = [...own.matchAll(/(?<![.\w$])([A-Za-z_$][\w$]*)\s*\(/g)].map((m) => m[1]).filter((n) => !/^(function|return|if|for|while|switch|new|typeof)$/.test(n));
   const passed = [...own.matchAll(/[(,]\s*([A-Za-z_$][\w$]*)\s*(?=[,)])/g)].map((m) => m[1]).filter((n) => n !== 'ctx');
   const helpers = [...new Set(called)].map((n) => resolve(code, n)).filter((t) => t.startsWith('function'));
   const args = [...new Set(passed)].map((n) => resolve(code, n)).filter((t) => t.startsWith('{'));
+  return { own, helpers, args, kind: kindOf(own) ?? helpers.map(kindOf).find(Boolean) ?? 'own' as HeroKind };
+}
+
+function heroOf(code: string, player: string): Dna['hero'] {
+  const { own, helpers, args, kind } = reach(code, player);
   const all = [own, ...helpers, ...args].join('\n');
-  const kind = kindOf(own) ?? helpers.map(kindOf).find(Boolean) ?? 'own';
   const name = /\bname\s*:\s*(['"])((?:\\.|(?!\1).)+)\1/.exec([own, ...args].join('\n'));
   // the body: named in the hero's own function, else the gender of the kit it passes, else the one body its helpers name
   const named = (t: string) => [...new Set([...t.matchAll(/['"]human-athlete-(male|female)['"]/g)].map((m) => m[1]))];
@@ -219,6 +251,39 @@ function rosterOf(code: string, world: Map<string, string>): string[] {
     for (const t of [own, ...tables]) for (const n of strings(t)) add(n);
   }
   return out;
+}
+
+const MOODS = ['walk', 'whistle', 'kick', 'woodwork', 'goal', 'save', 'miss', 'replay', 'finish'];
+/**
+ * A penalty shootout's own, from its inline shootout: {...} (read through its variables, as the rest is) and the
+ * module's text: rival() as player() is read (its own text, the helpers it calls and the objects it passes them), the
+ * crowd's filming call, and the moments it answers: on('goal', ...) on ctx or on a wrapper of its own (SHOOTOUT's
+ * `on`), and, when a handler is registered by a name it holds (ctx.on(n, ...)), the moments it names as strings or
+ * as the keys of a table; in the runtime's order.
+ */
+function shootOf(code: string, world: Map<string, string>, assets: string[]): ShootDna {
+  const so = entries(resolve(code, world.get('shootout')));
+  const teams = parts(resolve(code, so.get('teams')) || '[]').map((t) => entries(resolve(code, t)))
+    .map((t) => ({ name: str(resolve(code, t.get('name'))) ?? '', short: str(resolve(code, t.get('short'))), color: str(resolve(code, t.get('color'))) }));
+  const goal = so.has('goal') ? entries(resolve(code, so.get('goal'))) : null;
+  const k = reach(code, world.get('rival') ?? '');
+  const moods = new Set([...code.matchAll(/\bon\s*\(\s*(['"])(\w+)\1/g)].map((m) => m[2]).filter((m) => MOODS.includes(m)));
+  if (/\bon\s*\(\s*[A-Za-z_$]/.test(code)) {
+    for (const s of strings(code)) if (MOODS.includes(s)) moods.add(s);
+    // (and a table of handlers by moment, { goal: function () {...}, ... }, registered in a loop)
+    for (const m of code.matchAll(/(?:^|[{,\s])(walk|whistle|kick|woodwork|goal|save|miss|replay|finish)\s*:/g)) moods.add(m[1]);
+  }
+  return {
+    teams,
+    taker: resolve(code, so.get('taker')) === '1' ? 1 : 0,
+    body: str(resolve(code, so.get('body'))),
+    keeper: { kind: k.kind, endo: /\bendo\s*:/.test([k.own, ...k.helpers, ...k.args].join('\n')) },
+    crowd: /\.shootout\s*\.\s*impostors\s*\(/.test(code),
+    moods: MOODS.filter((m) => moods.has(m)),
+    goal: goal ? { frame: str(resolve(code, goal.get('frame'))), net: str(resolve(code, goal.get('net'))) } : null,
+    floods: count(resolve(code, so.get('floods'))),
+    sky: assets.filter((a) => /^(?:sky|hdri)-/.test(a)),
+  };
 }
 /** A world's DNA, read from its module. */
 export function dna(source: string): Dna {
@@ -294,6 +359,7 @@ export function dna(source: string): Dna {
     track: track ? { points: points.startsWith('[') ? count(points) || null : null, width: Number.isFinite(width) ? width : null } : null,
     kart: kartObj ? { laps: Number.isFinite(lapsN) ? lapsN : null, class: str(kartObj.get('class')), roster: rosterOf(code, world),
       items: itemIds.map((id) => (str(resolve(code, itemNames.get(id))) ? `${id}=${str(resolve(code, itemNames.get(id)))}` : id)) } : null,
+    shootout: kind === 'shootout' ? shootOf(code, world, assets) : null,
     words: [...new Set(source.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().match(/[a-z]{3,}/g) ?? [])].sort(),
   };
 }
@@ -310,6 +376,8 @@ export type Idea = {
   rename: string | null;
   time: boolean; hero: boolean; enemies: boolean; story: boolean; amount: boolean; cars: boolean; foot: boolean; fight: boolean;
   noScenes: boolean; noTraversal: boolean; noPolice: boolean; noCombat: boolean;
+  /** a penalty shootout's (13 Oct): it names the sides (two nations, "X v Y", the teams), the keeper, the taker, an empty stadium, the weather */
+  teams: boolean; keeper: boolean; taker: boolean; noCrowd: boolean; weather: boolean;
 };
 
 const words = (list: string[]) => new RegExp(`\\b(?:${list.join('|')})\\b`, 'i');
@@ -319,8 +387,10 @@ const KIND: Record<WorldMode, RegExp> = {
   derby: words(['derby', 'demolition', 'car combat', 'vehicular combat', 'car battles?', 'car fights?', 'car wars?', 'bumper cars?', 'twisted metal', 'smash-?up derby', 'ram(?:ming)? (?:them|the other cars|other cars|rivals)']),
   race: words(['race', 'races', 'racing', 'lap race', 'laps', 'circuit', 'grand prix', 'time trial', 'formula (?:one|1)', 'f1', 'nascar', 'marathon']),
   survival: words(['open world', 'on foot', 'survival', 'survive', 'brawler', 'brawl', 'beat[- ]?(?:\'?em|them)[- ]?up', 'fist ?fights?', 'melee', 'street fights?', 'kung fu', 'martial arts']),
-  // (a penalty shootout, 12 Oct: not one an idea can ask for yet, the builder has no shootout docs, so this matches
-  // nothing and every idea reads as it did before; a shootout cannot be mogged at all yet: lib/custom-game.ts canMog)
+  // (a penalty shootout, 12 Oct: no idea asks for one by name, so this matches nothing and every idea reads as it did
+  // before. 13 Oct, Mogs of shootouts: the kind is held by a lock, not by words: a shootout is made only as a Mog of
+  // one, and a Mog of one stays one whatever its idea says ("a North London derby" still reads as a derby here, and
+  // compareDna's kind rule refuses it); lib/generate-game.ts says so in the Mog turn)
   shootout: /(?!)/,
 };
 /**
@@ -361,6 +431,19 @@ const NO_SCENES = NO(['intro', 'opening', 'cut-?scenes?', 'scenes?', 'story', 'c
 const NO_TRAVERSAL = NO(['swing(?:ing)?', 'climb(?:ing)?', 'traversal', 'webs?', 'grappl\\w*', 'wall-?running', 'parkour']);
 const NO_POLICE = NO(['police', 'cops', 'patrol(?: car)?']);
 const NO_COMBAT = NO(['sword', 'combat', 'fighting']);
+// a penalty shootout's words (13 Oct): the sides (two names either side of "v", the teams, or a nation), the keeper
+// (a robot keeper is endo on him), the taker, an empty stadium, and the weather (with a time of day, a new sky)
+const NATIONS = ['iceland', 'norway', 'brazil', 'argentina', 'france', 'england', 'scotland', 'wales', 'ireland', 'northern ireland', 'spain', 'portugal', 'germany', 'italy',
+  'netherlands', 'holland', 'belgium', 'croatia', 'serbia', 'poland', 'denmark', 'sweden', 'finland', 'switzerland', 'austria', 'greece', 'turkey', 'ukraine', 'czechia',
+  'hungary', 'romania', 'russia', 'japan', 'korea', 'south korea', 'china', 'india', 'australia', 'new zealand', 'usa', 'united states', 'america', 'canada', 'mexico',
+  'jamaica', 'costa rica', 'panama', 'colombia', 'chile', 'peru', 'ecuador', 'uruguay', 'paraguay', 'venezuela', 'bolivia', 'morocco', 'senegal', 'nigeria', 'ghana', 'egypt',
+  'cameroon', 'south africa', 'ivory coast', 'tunisia', 'algeria', 'mali', 'saudi arabia', 'qatar', 'iran', 'iraq', 'uae', 'uzbekistan', 'indonesia', 'vietnam',
+  'thailand', 'philippines'];
+const TEAMS = new RegExp(`\\b[A-Za-z][\\w'-]*\\s+(?:v|vs\\.?|versus)\\s+[A-Za-z]|\\b(?:teams?|sides?|nations?|countr(?:y|ies)|national (?:team|side)s?)\\b|\\b(?:${NATIONS.join('|')})\\b`, 'i');
+const KEEPER = words(['keepers?', 'goalkeepers?', 'goalies?', 'robots?', 'cyborgs?', 'androids?', 'chrome', 'endoskeletons?', 'machines?', 'mechs?']);
+const TAKER = words(['takers?', 'penalty takers?', 'strikers?', 'kickers?', 'shooters?', 'captain']);
+const NO_CROWD = /\b(?:no (?:crowd|fans)|empty (?:stadium|stands|bowl|seats)|behind closed doors|without (?:a |the )?(?:crowd|fans))\b/i;
+const WEATHER = words(['snow\\w*', 'rain\\w*', 'storm\\w*', 'thunder\\w*', 'lightning', 'fog\\w*', 'mist\\w*', 'blizzard', 'sleet', 'hail', 'monsoon', 'wind\\w*', 'sun\\w*', 'heat ?wave', 'overcast', 'cloud\\w*', 'grey', 'gray']);
 
 /** The kind of game an idea asks for by name, when it names exactly one (a Mog keeps its parent's otherwise). */
 export function askedKind(idea: string): WorldMode | null {
@@ -398,6 +481,7 @@ export function readIdea(idea: string, parent?: Pick<Dna, 'map' | 'places'> & { 
     time: TIME.test(idea), hero: HERO.test(idea) || HERO_NAMED.test(idea), enemies: ENEMIES.test(idea), story: STORY.test(idea), amount: AMOUNT.test(idea),
     cars: CARS.test(idea), foot: FOOT.test(idea), fight: FIGHT.test(idea),
     noScenes: NO_SCENES.test(idea), noTraversal: NO_TRAVERSAL.test(idea), noPolice: NO_POLICE.test(idea), noCombat: NO_COMBAT.test(idea),
+    teams: TEAMS.test(idea), keeper: KEEPER.test(idea), taker: TAKER.test(idea), noCrowd: NO_CROWD.test(idea), weather: WEATHER.test(idea),
   };
 }
 
@@ -433,8 +517,31 @@ function storySaid(d: Dna) {
   ].filter(Boolean).join(', ');
 }
 
+const sideSaid = (t: ShootDna['teams'][number]) => `${t.name || 'a side'}${t.short || t.color ? ` (${[t.short, t.color].filter(Boolean).join(', ')})` : ''}`;
+const matchSaid = (s: ShootDna) => `${s.teams.map(sideSaid).join(' v ') || 'no sides'}; ${s.teams[s.taker]?.name || `side ${s.taker}`} take the kicks`;
+const keeperSaid = (k: ShootDna['keeper']) => (k.kind === 'human' ? `a library human${k.endo ? ', a chrome endoskeleton' : ''}` : heroSaid({ kind: k.kind, name: null, body: null, traits: [] }));
+/** A penalty shootout's keep-list (13 Oct), in place of the place and hero lines of the other kinds. */
+function describeShootout(d: Dna, s: ShootDna): string[] {
+  const her = /female/.test(s.body ?? '') ? 'her' : 'his';
+  const goal = s.goal && (s.goal.frame || s.goal.net) ? `; the goal shot at is the runtime's, in its colours (shootout.goal: ${[s.goal.frame ? `frame ${s.goal.frame}` : '', s.goal.net ? `net ${s.goal.net}` : ''].filter(Boolean).join(', ')})` : '';
+  const out = [
+    `The kind of game: ${KIND_SAID.shootout}.`,
+    `The place: the stadium it builds itself (its bowl, stands, roof, boards and floodlights round the runtime's pitch${d.places.length ? `, named ${list(d.places)}` : ''})${goal}.`,
+    `The match: ${matchSaid(s)} (shootout.teams, shootout.taker).`,
+    d.hero.kind === 'human'
+      ? `The taker: ${d.hero.name ? `${d.hero.name}, ` : ''}a library human (player(), on shootout.body${s.body ? ` ${s.body}` : ''})${d.hero.traits.length ? `, ${d.hero.traits.join(', ')}` : ''}; ${her} kit follows ${her} side. Keep ${d.hero.name ? `${her} name (${d.hero.name})` : `${her} name`} unless the idea names new sides or a new taker; only then invent a new one for ${her === 'her' ? 'her' : 'him'}, a name no footballer is known by, never a real footballer's.`
+      : `The taker: ${heroSaid(d.hero)} (player()).`,
+    `The keeper and the referee: ${s.keeper.kind === 'human' ? `library humans on o.body (rival(ctx, k, o): k 1 the keeper, k 2 the referee)${s.keeper.endo ? ', the keeper a chrome endoskeleton' : ''}` : `${keeperSaid(s.keeper)} (rival(ctx, k, o))`}.`,
+    s.crowd ? `The crowd: filmed with ctx.shootout.impostors${s.moods.length ? `, its moods on ctx.on (${s.moods.join(', ')})` : ''}.` : 'The crowd: none filmed (empty stands).',
+    `The light: ${s.sky.length ? s.sky.join(', ') : 'a sky of its own'}${s.floods ? `, ${s.floods} floodlight${s.floods === 1 ? '' : 's'} (shootout.floods)` : ''}.`,
+  ];
+  if (d.assets.length) out.push(`The library kits: ${d.assets.filter((a) => !a.startsWith('music-')).join(', ')}.`);
+  return out;
+}
+
 /** The parent's DNA as the Mog prompt states it: the things a Mog keeps unless the idea replaces them. */
 export function describeDna(d: Dna): string[] {
+  if (d.kind === 'shootout' && d.shootout) return describeShootout(d, d.shootout);
   const out = [`The kind of game: ${KIND_SAID[d.kind]}.`, `The place: ${placeSaid(d)}.`];
   if (d.traversal) out.push('The traversal: the hero runs up walls and swings between the buildings (open.traversal).');
   out.push(`The hero: ${heroSaid(d.hero)}${d.moves.length ? `; his moves: ${d.moves.join(', ')}` : ''}.`);
@@ -479,10 +586,19 @@ const same = (a: string | null | undefined, b: string | null | undefined) => (a 
  * - play: a lap world's cars, sword or bounty went (or cars came). The idea asks for that.
  * - kart: a kart race's stars (its first four racers) went, its laps left 2 to 4, or an item was renamed. New racers
  *   are allowed when the idea names a hero or the rivals; the laps and the item names never move.
+ * A penalty shootout (13 Oct) is held by a lock: it never becomes another kind and nothing becomes one, whatever the
+ * idea says (kind). Then, for a shootout:
+ * - hero: the taker changed. The idea names a new hero, the taker or the sides, and he is still a library human.
+ * - match: the sides' names, or the side taking the kicks, changed, or there are not two. The idea names the sides.
+ * - keeper: rival() no longer builds a library human (the runtime rigs him to dive). Nothing lets it pass.
+ * - crowd: the filmed crowd went, or it no longer answers the whistle, a goal, a save or a miss. The idea empties the stands.
  * Minor (recorded, said in a repair, never a reason for one on their own):
  * - kits: a people kit (human-*) went while there are still people. Nothing lets it pass.
- * - scenery: more than half the scenery kits went while the place stayed.
+ * - scenery: more than half the scenery kits went while the place stayed (in a shootout, while the weather and the
+ *   time of day stayed too).
  * - track: a lap world's track has another number of control points while the place stayed.
+ * - keeper: a shootout's keeper became, or stopped being, a chrome endoskeleton. The idea names the keeper.
+ * - crowd: a shootout's recorded crowd (audio-crowd-shootout) went. The idea empties the stands.
  */
 export function compareDna(parent: Dna | string, child: Dna | string, ideaText: string): DnaVerdict {
   const p = typeof parent === 'string' ? dna(parent) : parent, c = typeof child === 'string' ? dna(child) : child;
@@ -493,7 +609,9 @@ export function compareDna(parent: Dna | string, child: Dna | string, ideaText: 
     if (ok) allowed.push({ key, why: ok });
     else dropped.push({ key, note: note(), ...(minor ? { minor: true as const } : {}) });
   };
-  const kindOk = p.kind !== c.kind && idea.kind === c.kind;
+  // (a penalty shootout, 13 Oct: a Mog of one stays one, and nothing becomes one, whatever the idea says)
+  const shoot = p.kind === 'shootout' || c.kind === 'shootout';
+  const kindOk = p.kind !== c.kind && idea.kind === c.kind && !shoot;
   const moved = idea.place ? `the idea names a new place (${idea.place})` : false;
   const kindWhy = kindOk ? `the idea asks for ${KIND_SAID[c.kind]}` : false;
   const renamed = idea.rename
@@ -501,7 +619,11 @@ export function compareDna(parent: Dna | string, child: Dna | string, ideaText: 
     : '';
 
   rule('kind', p.kind !== c.kind, kindWhy,
-    () => `The kind of game: the original is ${KIND_SAID[p.kind]}, this is ${KIND_SAID[c.kind]}, and the idea does not ask for that. Keep ${KIND_SAID[p.kind]}.`);
+    () => p.kind === 'shootout'
+      ? `The kind of game: the original is ${KIND_SAID.shootout}, this is ${KIND_SAID[c.kind]}. A Mog of a penalty shootout stays one, whatever its idea says: keep shootout: {...} among GameMog.world's own keys (the runtime runs the kick, the keeper and the camera) and carry the idea out in the world.`
+      : c.kind === 'shootout'
+        ? `The kind of game: the original is ${KIND_SAID[p.kind]}, this is a penalty shootout, which is made only as a Mog of one. Keep ${KIND_SAID[p.kind]}.`
+        : `The kind of game: the original is ${KIND_SAID[p.kind]}, this is ${KIND_SAID[c.kind]}, and the idea does not ask for that. Keep ${KIND_SAID[p.kind]}.`);
   rule('map', p.map !== c.map, moved || kindWhy,
     () => `The place: the original is on ${placeSaid(p)}; this ${c.map ? `moved it to the library map '${c.map}'` : 'builds a place of its own instead'}.${renamed}`);
   if (p.map === 'city' && c.map === 'city') {
@@ -516,8 +638,16 @@ export function compareDna(parent: Dna | string, child: Dna | string, ideaText: 
   const heroChanged = p.hero.kind !== c.hero.kind || (!!p.hero.name && !!c.hero.name && !same(p.hero.name, c.hero.name))
     || (!!p.hero.body && !!c.hero.body && p.hero.body !== c.hero.body) || p.hero.traits.includes('a chrome endoskeleton') !== c.hero.traits.includes('a chrome endoskeleton');
   const toCar = c.hero.kind === 'car' && ((kindOk && c.kind === 'derby') || (c.kind === 'race' && idea.cars));
-  rule('hero', heroChanged, (idea.hero && 'the idea names a new hero') || (toCar && 'the idea asks for cars'),
-    () => `The hero: the original's is ${heroSaid(p.hero)}; this one's is ${heroSaid(c.hero)}.`);
+  if (p.kind === 'shootout') {
+    // (a shootout's taker: renamed with his side, or a robot when the idea says so, but always a library human: the
+    // runtime rigs him to walk up and kick)
+    const human = c.hero.kind === 'human' || p.hero.kind !== 'human';
+    rule('hero', heroChanged, human && ((idea.hero && 'the idea names a new hero') || (idea.taker && 'the idea names the taker') || (idea.teams && 'the idea names the sides')),
+      () => `The taker: the original's is ${heroSaid(p.hero)}; this one's is ${heroSaid(c.hero)}.${human ? '' : ' The taker must stay a library human (ctx.assets.human, on shootout.body): the runtime rigs him to walk up and kick.'}`);
+  } else {
+    rule('hero', heroChanged, (idea.hero && 'the idea names a new hero') || (toCar && 'the idea asks for cars'),
+      () => `The hero: the original's is ${heroSaid(p.hero)}; this one's is ${heroSaid(c.hero)}.`);
+  }
   if (p.kind === 'survival' && c.kind === 'survival' && !heroChanged) {
     const a = [...p.moves].sort().join(', '), b = [...c.moves].sort().join(', ');
     rule('moves', a !== b, idea.fight && 'the idea talks of fighting',
@@ -549,9 +679,11 @@ export function compareDna(parent: Dna | string, child: Dna | string, ideaText: 
   const people = c.hero.kind === 'human' || Object.values(c.crews).some((k) => k.as === 'people');
   const kits = p.assets.filter((a) => a.startsWith('human-') && !c.assets.includes(a));
   rule('kits', people && kits.length > 0, false, () => `The library's people kits: ${kits.join(', ')} (in the original's assets list).`, true);
-  const scenery = p.assets.filter((a) => !a.startsWith('human-') && !a.startsWith('music-'));
+  const scenery = p.assets.filter((a) => !a.startsWith('human-') && !a.startsWith('music-') && !a.startsWith('audio-'));
   const goneScenery = scenery.filter((a) => !c.assets.includes(a));
-  rule('scenery', scenery.length > 0 && goneScenery.length * 2 > scenery.length, moved || kindWhy,
+  // (a shootout's new sky and surfaces are the weather or the time of day the idea names: snow, a sunny afternoon)
+  const newSky = p.kind === 'shootout' && (idea.weather || idea.time) && 'the idea names the weather or the time of day';
+  rule('scenery', scenery.length > 0 && goneScenery.length * 2 > scenery.length, moved || kindWhy || newSky,
     () => `The scenery kits: ${goneScenery.join(', ')} (the original's assets list), while the place stays.`, true);
 
   if (p.kind === 'race' && c.kind === 'race') {
@@ -578,6 +710,23 @@ export function compareDna(parent: Dna | string, child: Dna | string, ideaText: 
     ].filter(Boolean);
     rule('kart', changes.length > 0, !lapsOut && !renamed.length && (idea.hero || idea.enemies) && 'the idea names new racers',
       () => `The kart race: ${changes.join('; ')}. Keep ${list(a.roster.slice(0, 4), 4)} on the grid, ${a.laps ?? 3} laps${a.items.length ? ', and the item names' : ''}.`);
+  }
+  if (p.shootout && c.shootout) {
+    const a = p.shootout, b = c.shootout;
+    const names = (s: ShootDna) => s.teams.map((t) => t.name.trim().toLowerCase()).sort().join('|');
+    const taking = (s: ShootDna) => (s.teams[s.taker]?.name ?? '').trim().toLowerCase();
+    rule('match', b.teams.length !== 2 || names(a) !== names(b) || taking(a) !== taking(b), b.teams.length === 2 && idea.teams && 'the idea names the sides',
+      () => `The match: the original's is ${matchSaid(a)}; this one's is ${b.teams.length === 2 ? matchSaid(b) : `${b.teams.length} sides (a shootout has exactly two)`}. Keep the two sides and the side taking the kicks (shootout.teams, shootout.taker) unless the idea names others.`);
+    rule('keeper', a.keeper.kind === 'human' && b.keeper.kind !== 'human', false,
+      () => `The keeper: rival(ctx, 1, o) must stay a library human built on o.body (ctx.assets.human(o.body, ...)), returned as it comes: the runtime rigs him to read, dive and get up. This one's is ${keeperSaid(b.keeper)}.`);
+    rule('keeper', a.keeper.endo !== b.keeper.endo, idea.keeper && 'the idea names the keeper',
+      () => `The keeper: the original's ${a.keeper.endo ? 'is a chrome endoskeleton (endo on the keeper)' : 'is a man in a keeper\'s kit'}; this one's ${b.keeper.endo ? 'is a chrome endoskeleton' : 'is not'}.`, true);
+    const lostMoods = ['whistle', 'goal', 'save', 'miss'].filter((m) => a.moods.includes(m) && !b.moods.includes(m));
+    const empty = idea.noCrowd && 'the idea empties the stands';
+    rule('crowd', (a.crowd && !b.crowd) || lostMoods.length > 0, empty,
+      () => `The crowd: the original films its fans with ctx.shootout.impostors and moves them on ctx.on (${a.moods.join(', ') || 'none'}); this one ${!b.crowd && a.crowd ? 'films no crowd' : `no longer answers ${lostMoods.join(', ')}`}.`);
+    rule('crowd', p.assets.includes('audio-crowd-shootout') && !c.assets.includes('audio-crowd-shootout'), empty,
+      () => 'The recorded crowd: audio-crowd-shootout (in the original\'s assets list), the sound the runtime plays for the stands.', true);
   }
   return { dropped, allowed, idea };
 }

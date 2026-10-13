@@ -231,7 +231,7 @@ export type DareView = {
   id: string; url: string; card: string; hasCard: boolean; createdAt: number;
   name: string | null; message: string | null; board: Board; target: Target | null; parent: string | null;
   game: { id: string; slug: string; title: string; tagline: string; cover: string; creator: string | null; parent: { slug: string; title: string } | null;
-    /** whether it can be mogged back (lib/custom-game.ts canMog: a penalty shootout cannot yet) */
+    /** whether it can be mogged back (lib/custom-game.ts canMog: every kind can today, a penalty shootout too since 13 Oct) */
     mog: boolean };
 };
 export function dareView(id: string, slug?: string): DareView | null {

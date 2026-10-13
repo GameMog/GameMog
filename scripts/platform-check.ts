@@ -195,7 +195,10 @@ try {
   // its guard (8 Oct, lib/runtime/kart-guard.js): a lost graphics context or a race that throws shows a card instead
   // of a black frame, and the page sends a small report on to /api/kart-report, which only the owner can read
   // a penalty shootout (SHOOTOUT, the owner 11 and 12 Oct): its own kind, page and controls; the goals scored on the
-  // score board; and no Mog yet (the builder has no shootout docs, lib/custom-game.ts canMog), refused before a build
+  // score board; and Mogs (the owner's go, 13 Oct): the builder has the kind's chapter, the static check refuses what
+  // would break the shootout, a Mog stays a shootout, and every Mog door is open. The build route is probed only with a
+  // Mog prompt too short to build (400, past the gate and before any slot, key or model): never one that would start a
+  // paid build
   console.log('\nPenalty shootouts');
   {
     const shootCode = readFileSync(new URL('../worlds/shootout.js', import.meta.url), 'utf8');
@@ -205,17 +208,64 @@ try {
     const pad = (w: string) => `${w}\n${'// padding'.padEnd(1600, '.')}`;
     ok('shootout: one given as a const (served without its runtime) is refused by the static check', staticCheckWorld(pad('GameMog.world({ shootout: SHOOT_CFG, build: function () {} });')).some((p) => /shootout: \{ \.\.\. \}/.test(p))
       && !staticCheckWorld(pad('GameMog.world({ shootout: false, build: function () {} });')).some((p) => /shootout/.test(p)));
-    ok('shootout: no idea asks for one yet, so every idea reads as it did', askedKind('make it a penalty shootout') === null && askedKind('a shootout at night') === null && askedKind('make it a kart race on the moon') === 'kart');
-    ok('shootout: it cannot be mogged yet; every other game can', !canMog({ format: 'world', code: shootCode }) && !canMog({ format: 'world', code: null, meta: '{"mode":"shootout"}' })
+    // (nothing becomes a shootout and a shootout becomes nothing else: held by the kind lock, lib/mog-dna.ts compareDna
+    // and lib/generate-game.ts, not by words, so every other world's ideas read as they did)
+    ok('shootout: no idea asks for one, so every idea reads as it did', askedKind('make it a penalty shootout') === null && askedKind('a shootout at night') === null && askedKind('make it a kart race on the moon') === 'kart');
+    ok('shootout: it can be mogged, like every other game', canMog({ format: 'world', code: shootCode }) && canMog({ format: 'world', code: null, meta: '{"mode":"shootout"}' })
       && canMog({ format: 'world', code }) && canMog({ format: 'world', code: kartCode }) && canMog({ format: 'race', code: null }) && canMog({ format: 'custom', code: 'x' }));
+    // the static check on a shootout (lib/custom-game.ts staticCheckWorld): what would break it is refused with the rule
+    // that says why. Each case is the shipped world with one thing changed ('' if the shipped world no longer has the
+    // text a case changes, which fails it)
+    const swap = (from: string, to: string, w = shootCode) => (w.includes(from) ? w.replace(from, to) : '');
+    const says = (w: string, re: RegExp) => !!w && staticCheckWorld(w).some((p) => re.test(p));
+    const TEAMS = "teams: [{ name: 'Uruguay', short: 'URU', color: '#74BDE8' }, { name: 'Spain', short: 'ESP', color: '#B3122E' }],";
+    const SC = {
+      kind: /A world is one kind: shootout: \{ \.\.\. \} never sits beside open: \{ \.\.\. \} or kart: \{ \.\.\. \}/,
+      packs: /A penalty shootout lists 'human-moves-football-male' and 'human-moves-football-female' in its assets/,
+      teams: /Write shootout\.teams out inline as exactly two sides/,
+      taker: /shootout\.taker is 0 or 1/,
+      names: /A penalty shootout names no real competition, federation, league or player \(found: "world cup"\)/i,
+      broadcast: /ctx\.broadcast\(\) and ctx\.kart are not for a penalty shootout/,
+    };
+    ok('shootout: the static check refuses one beside a kart race or an open world', says(swap('    shootout: {\n', '    kart: { laps: 3 },\n    shootout: {\n'), SC.kind)
+      && says(swap('    shootout: {\n', '    open: { map: \'city\' },\n    shootout: {\n'), SC.kind));
+    ok('shootout: ...one without the football moves (the run-up, the strike and the dives)', says(swap("'human-moves-football-male', 'human-moves-football-female', ", ''), SC.packs));
+    ok('shootout: ...teams that are not two written out inline (a const, or three sides)', says(swap("var BODY = 'human-athlete-male';", `var BODY = 'human-athlete-male';\n  var TEAMS = ${TEAMS.slice(7, -1)};`, swap(TEAMS, 'teams: TEAMS,')), SC.teams)
+      && says(swap(TEAMS, TEAMS.replace('}],', "}, { name: 'Chile', short: 'CHI', color: '#D52B1E' }],")), SC.teams));
+    ok('shootout: ...a taker that is not side 0 or 1', says(swap('      taker: 0,\n', '      taker: 2,\n'), SC.taker));
+    ok('shootout: ...a real competition on its boards, in its strings only (a comment, or another kind of world, may say it)', says(swap("'THE FINAL'", "'WORLD CUP FINAL'"), SC.names)
+      && !says(swap('    shootout: {\n', '    // not the World Cup: the world\'s own final\n    shootout: {\n'), SC.names) && !says(code.replace('theme: { sky:', "label: 'World Cup', theme: { sky:"), SC.names));
+    ok('shootout: ...and ctx.broadcast(), which is not for a shootout', says(swap('build: function (ctx) {', "build: function (ctx) {\n      ctx.broadcast({ title: 'LIVE' });"), SC.broadcast));
     const sg = await publish(`${tag} Shootout`, null, null, shootCode);
-    const sp = await page(`/g/${sg.slug}`), mp = await page(`/mog/${sg.slug}`);
-    ok('shootout: its page says "Penalty shootout" and how it plays, its frame knows, and it offers no Mog but says why', sp.status === 200 && sp.html.includes('Penalty shootout') && sp.html.includes('gold ring')
-      && sp.html.includes('\\"shootout\\":true') && !sp.html.includes(`href="/mog/${sg.slug}"`) && sp.html.includes(MOG_SOON));
+    // the builder's Mog turn (lib/generate-game.ts mogTurn): a shootout stays one whatever the idea says, "derby" or "kart"
+    // included (read through a dynamic import, so a tree without the export fails here, not at load)
+    const G = await import('../lib/generate-game.ts') as unknown as { mogTurn?: (m: { parent: typeof sg; instruction: string }) => string };
+    const turn = (idea: string) => (typeof G.mogTurn === 'function' ? G.mogTurn({ parent: sg, instruction: idea }) : '');
+    ok('shootout: a Mog of one is told it stays a penalty shootout, even when the idea says "derby" or "kart"', ['a North London derby under the lights', 'make it a kart race on the moon'].every((i) => { const t = turn(i); return t.includes('It stays a penalty shootout') && !t.includes('make it one, and keep the rest'); }),
+      typeof G.mogTurn === 'function' ? turn('a North London derby under the lights').split('\n').find((l) => /It stays|make it one/.test(l))?.slice(0, 120) ?? '' : 'mogTurn is not exported');
+    const sp = await page(`/g/${sg.slug}`), mp = await page(`/mog/${sg.slug}`), fp = await page(`/g/${sg.slug}/family`);
+    ok('shootout: its page says "Penalty shootout" and how it plays, its frame knows, and it offers its Mog', sp.status === 200 && sp.html.includes('Penalty shootout') && sp.html.includes('gold ring')
+      && sp.html.includes('\\"shootout\\":true') && sp.html.includes(`href="/mog/${sg.slug}"`) && !sp.html.includes(MOG_SOON));
     ok('shootout: and every other game still offers its Mog', po.html.includes(`href="/mog/${original.slug}"`) && kp.html.includes(`href="/mog/${kg.slug}"`) && kp.html.includes('\\"shootout\\":false'));
-    ok('shootout: /mog/<slug> refuses cleanly: the note and Play, no composer', mp.status === 200 && mp.html.includes(MOG_SOON) && !/<textarea/.test(mp.html) && mp.html.includes(`href="/g/${sg.slug}"`));
-    const gen = await post('/api/generate', { prompt: 'make the keeper taller', mogOf: sg.slug });
-    ok('shootout: and the build route refuses a Mog of it before anything is spent', gen.status === 409 && ((await gen.json()) as { error?: string }).error === MOG_SOON, String(gen.status));
+    ok('shootout: /mog/<slug> opens the composer, with ideas for a shootout', mp.status === 200 && /<textarea/.test(mp.html) && mp.html.includes(`Mog ${sg.title}`) && mp.html.includes('Make the keeper a chrome robot') && !mp.html.includes(MOG_SOON));
+    ok('shootout: and its family page offers "Mog it"', fp.status === 200 && fp.html.includes(`href="/mog/${sg.slug}"`) && !fp.html.includes(MOG_SOON));
+    const gen = await post('/api/generate', { mogOf: sg.slug, prompt: 'ab' });
+    const genError = ((await gen.json().catch(() => ({}))) as { error?: string }).error ?? '';
+    ok('shootout: the build route lets a Mog of it past its gate (probed with a prompt too short to build: 400, nothing spent)', gen.status === 400 && genError === 'Say in a line how your Mog should beat the original.', `${gen.status} ${genError}`);
+    // (the options a shootout's Mog is built with, read from the route's source: its stream is a paid build, never run here)
+    const routeSrc = readFileSync(new URL('../app/api/generate/route.ts', import.meta.url), 'utf8');
+    const quiet = routeSrc.indexOf("options.hazards = 'same'; options.music = null; delete options.soundtrack;");
+    ok('shootout: and its Mog is built with no music and the same obstacles, whatever the page sent', quiet > routeSrc.indexOf('readOptions(body.options)') && quiet < routeSrc.indexOf('await generateGame(')
+      && /worldMode\(parent\.code, parent\.meta\) === 'shootout'\) \{\s*$/.test(routeSrc.slice(0, quiet)));
+    // a dare on it (scripts/dare-check.ts reads its run as goals): its landing offers "Mog it back", to this game's composer
+    const ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
+    const dr = await fetch(`${BASE}/api/dares`, { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': ua, 'sec-fetch-site': 'same-origin', 'x-forwarded-for': `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}` },
+      body: JSON.stringify({ gameId: sg.id, sender: voter(), name: 'Keeperbane', run: { type: 'result', finished: true, score: 3, level: 4, timeMs: 9000, won: true, place: 1 } }) });
+    const dj = (await dr.json().catch(() => ({}))) as { id?: string; target?: { label?: string } | null };
+    const dl = dj.id ? await page(`/g/${sg.slug}/dare/${dj.id}`) : { status: 0, html: '' };
+    ok('shootout: a dare on it reads "Goals to beat", and its landing offers "Mog it back"', dr.status === 200 && dj.target?.label === 'Goals to beat' && dl.status === 200 && dl.html.includes('Goals to beat') && dl.html.includes('Mog it back')
+      && dl.html.includes(`href="/mog/${sg.slug}?dare=${dj.id}"`), `${dr.status} ${dl.status}`);
+    if (dj.id) db.prepare('DELETE FROM dares WHERE id = ?').run(dj.id);
     // the board: the goals scored in a sitting, from that many kicks, after each kick
     const r1 = await post('/api/scores', { gameId: sg.id, player: 'Keeperbane', score: 3, level: 4, timeMs: 9000, won: true, place: 1 });
     const r2 = await post('/api/scores', { gameId: sg.id, player: 'Cheat', score: 5, level: 4, timeMs: 9000 });

@@ -42,7 +42,8 @@ export function MogsPanel({ game }: { game: GameRow }) {
           A Mog challenges a game with a better variation. Players who have finished a run in both pick the
           better one, and the family is ranked by those picks.
         </p>
-        {/* (a game that cannot be mogged yet says so, 12 Oct: a penalty shootout) */}
+        {/* (a kind of game that cannot be mogged yet says so: lib/custom-game.ts canMog. A penalty shootout can be,
+            13 Oct, and its Mogs are listed, picked and ranked here as any game's) */}
         {canMog(game)
           ? <Link className="btn" href={`/mog/${game.slug}`}>Mog this game</Link>
           : <p className="dim" style={{ fontSize: 14, lineHeight: 1.5, maxWidth: 320 }}>{MOG_SOON}</p>}

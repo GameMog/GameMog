@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CharacterImage } from './character';
-import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, worldControls, isOpenWorld, worldMode, type WorldMeta } from './custom-game';
+import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, worldControls, isOpenWorld, isShootoutWorld, shootoutDenied, worldMode, type WorldMeta } from './custom-game';
 import { playtestWorld, type WorldReport } from './playtest-runtime';
 import { drivesInBrowser, waitForDrive, codeHash, testStatus } from './test-drive';
 import { lookAdvisories, pickPass, type Pass } from './look';
@@ -44,7 +44,22 @@ export type GameEvent =
 
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8');
 
-function system() {
+/**
+ * The runtime's manual as the builder reads it. A penalty shootout's chapter (13 Oct) is read only by a Mog of one, the
+ * only build that can use it: a shootout is made only as a Mog of one, and a Mog of one stays one (a review: every other
+ * build paid about 5,000 tokens for it, and a Create asked for "a penalty shootout" could have written one, to be
+ * refused). Every other build reads the manual it read before the chapter came, byte for byte.
+ */
+const SHOOT_CHAPTER = '## Penalty shootouts\n';
+function manual(shootout: boolean) {
+  const api = read('lib', 'runtime', 'API.md'), i = api.indexOf(SHOOT_CHAPTER);
+  if (shootout || i < 0) return api;
+  const j = api.indexOf('\n## ', i + SHOOT_CHAPTER.length);
+  return j < 0 ? api.slice(0, i) : api.slice(0, i) + api.slice(j + 1);
+}
+const SHOOT_RULE = ' A penalty shootout (shootout: {...}, only ever a Mog of one) plays by the "Penalty shootouts" section instead: the runtime directs it (the kick, the keeper, the camera, the HUD and the sound); you build the stadium and how the people look.';
+
+export function system(shootout = false) {
   return `You design and build worlds for GameMog, a platform where people describe a world and get a playable 3D game at a link. Every GameMog game runs on the GameMog Runtime, which owns the rules; you write the world module, which owns everything else.
 
 Make the world the creator asked for, native to its characters: its own place, its own creatures, its own obstacles, its own light and sound. Two worlds on GameMog should never feel like reskins of each other.
@@ -63,9 +78,9 @@ Build in code only what the library has no kit for (a creature, a landmark, a pr
 
 If the creator names characters from an existing franchise, make your own original take on them (shape, colour, personality) rather than reproducing official artwork, logos or catchphrases. If an image is attached, it is the player's character: match its shape, colours and personality as closely as the kits and your modelling allow.
 
-The runtime's rules are fixed. Every world is 3D, seen through the runtime's chase camera, with golden GM and the runtime's controls. A lap world (the default) has endless laps, one rival at the start and one more joining each lap, every lap faster, and death by touch. An open world (when the creator's options turn it on) plays by the "Open worlds" section instead: no laps, no track, crews that come as the heat rises, and a run that ends with a knockout. If the creator asks for something the rules do not allow (a 2D or top-down game, a final lap, shooting in a lap world, a different control scheme), build the closest 3D world that fits the rules and put the idea into the world itself.
+The runtime's rules are fixed. Every world is 3D, seen through the runtime's chase camera, with golden GM and the runtime's controls. A lap world (the default) has endless laps, one rival at the start and one more joining each lap, every lap faster, and death by touch. An open world (when the creator's options turn it on) plays by the "Open worlds" section instead: no laps, no track, crews that come as the heat rises, and a run that ends with a knockout.${shootout ? SHOOT_RULE : ''} If the creator asks for something the rules do not allow (a 2D or top-down game, a final lap, shooting in a lap world, a different control scheme), build the closest 3D world that fits the rules and put the idea into the world itself.
 
-${read('lib', 'runtime', 'API.md')}
+${manual(shootout)}
 
 ## Worked example
 
@@ -117,7 +132,21 @@ export function longMogParent(code: string | null | undefined): { kb: number; co
   const codeTokens = Math.round(bare.length / LONG_MOG.charsPerToken);
   return codeTokens <= LONG_MOG.maxCodeTokens ? { kb: Math.round(code.length / 1000), codeTokens } : null;
 }
-function mogTurn(m: MogInput): string {
+/** Whether a Mog's original is a penalty shootout (a world whose code, or stored mode, says so). */
+export const shootoutParent = (mog?: MogInput) => !!mog && mog.parent.format === 'world' && worldMode(mog.parent.code, mog.parent.meta) === 'shootout';
+/**
+ * A penalty shootout's kind line (13 Oct, SHOOTOUT Mogs): it stays one whatever the idea says ("a North London derby"
+ * is the match's name, not a car arena), and its idea is carried out in the world, the only side a Mog changes.
+ */
+export const SHOOTOUT_KIND = 'It stays a penalty shootout (shootout: {...}, as the "Penalty shootouts" section has it): whatever the idea says, the kick, the keeper\'s dive, the camera, the HUD, the sound and the board are the runtime\'s. Carry the idea out in the world: the sides and their kits, the stadium, the sky, the time of day and the weather, the crowd and the boards, and how the taker, the keeper and the referee look (a robot keeper is endo on the keeper).';
+/** A penalty shootout's heavy-frame note (lib/playtest-runtime.ts shootPhoneVerdict, counted in its phone load): the test drive's, not a runtime repair. */
+const SHOOT_NOTE = /^On a phone \(ctx\.quality 'low'\) the shootout drew up to /;
+/** How long a shootout's test drive in the creator's browser is waited for (13 Oct): its drive (200 s) and its phone load (100 s), loads included. */
+const SHOOT_DRIVE_MS = 330_000;
+/** What the builder is told of the platform's options for a Mog of a penalty shootout, in place of optionsBrief (lib/world-options.ts). */
+export const SHOOTOUT_BRIEF = '## The platform\'s options for a penalty shootout (the runtime enforces these)\n\n- Obstacles, GM and music: none. A shootout has no obstacles, no GM and no music: the crowd is its sound (the runtime\'s recorded crowd, audio-crowd-shootout). Keep the original\'s play: { coins: false }, and do not compose or synthesise music or crowd noise (no music, no ambient()).';
+
+export function mogTurn(m: MogInput): string {
   const p = m.parent, meta = JSON.parse(p.meta ?? '{}') as { title?: string; genre?: string };
   const original = p.format === 'world' && p.code
     ? `Its complete world module, on the same runtime you are writing for:\n\n\`\`\`javascript\n${p.code}\n\`\`\``
@@ -129,9 +158,11 @@ function mogTurn(m: MogInput): string {
   const d = p.format === 'world' && p.code ? dna(p.code) : null;
   const long = p.format === 'world' ? longMogParent(p.code) : null;
   const asked = askedKind(m.instruction);
-  const kind = !d ? '' : asked && asked !== d.kind && d.kind !== 'race' && asked !== 'race'
-    ? `The idea asks for ${KIND_SAID[asked]}: make it one, and keep the rest.`
-    : `It stays ${KIND_SAID[d.kind]}: the idea does not ask for another kind of game.`;
+  // (a penalty shootout, 13 Oct: a Mog of one stays one whatever its idea says, and nothing else becomes one)
+  const kind = !d ? '' : d.kind === 'shootout' ? SHOOTOUT_KIND
+    : asked && asked !== d.kind && d.kind !== 'race' && asked !== 'race' && asked !== 'shootout'
+      ? `The idea asks for ${KIND_SAID[asked]}: make it one, and keep the rest.`
+      : `It stays ${KIND_SAID[d.kind]}: the idea does not ask for another kind of game.`;
   return `This is a Mog: a challenger wants to beat an existing GameMog game with a better variation of it. Players will play both and pick the better one.
 
 The original: "${p.title}"${meta.genre ? ` (${meta.genre})` : ''}, generation ${p.generation}. ${p.tagline}
@@ -174,7 +205,8 @@ Your repair is checked and test-driven again, and it ships only if it keeps more
 
 function firstTurn(prompt: string, image?: CharacterImage, mog?: MogInput, options: WorldOptions = DEFAULT_OPTIONS): Anthropic.Beta.BetaContentBlockParam[] {
   const parts: Anthropic.Beta.BetaContentBlockParam[] = [];
-  if (mog) { parts.push({ type: 'text', text: mogTurn(mog) + '\n\n' + optionsBrief(options) }); return parts; }
+  // (a penalty shootout's Mog hears of no obstacles each lap and no music: it has neither)
+  if (mog) { parts.push({ type: 'text', text: mogTurn(mog) + '\n\n' + (shootoutParent(mog) ? SHOOTOUT_BRIEF : optionsBrief(options)) }); return parts; }
   if (image) {
     parts.push({ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } });
     parts.push({ type: 'text', text: 'The image above is the player character.' });
@@ -197,6 +229,34 @@ function notesTurn(mog: boolean) {
 }
 
 /**
+ * The meta a draft is stored with: the model's, the world's kind, the runtime's controls and scoring for it, the runtime
+ * version and the creator's options. (A kart race, 6 Oct: its own controls, ranked by place. A penalty shootout, 13 Oct:
+ * its own controls, ranked by the goals scored, and no obstacles each lap or music whatever the options said, as the
+ * build route sends them: the crowd is its sound.)
+ */
+export function storedMeta(meta: WorldMeta, code: string, options: WorldOptions = DEFAULT_OPTIONS) {
+  const openWorld = isOpenWorld(code), mode = worldMode(code), kart = mode === 'kart', shootout = mode === 'shootout';
+  const { soundtrack: _s, ...quiet } = options;
+  return { ...meta, mode, controls: openWorld || kart || shootout ? worldControls(code) : WORLD_CONTROLS, scoring: kart ? 'place' : shootout ? 'score' : openWorld ? 'survival' : 'level', runtime: RUNTIME_VERSION, options: shootout ? { ...quiet, hazards: 'same' as const, music: null, open: false } : { ...options, open: openWorld } };
+}
+
+/**
+ * What a pass gets wrong of a penalty shootout's kind (13 Oct, SHOOTOUT Mogs; the owner's default: a shootout is made
+ * only as a Mog of one, and a Mog of one stays one, whatever its idea says): a shootout built from Create or as a Mog of
+ * another kind, a Mog of one that is another kind, and a shootout whose title, tagline, blurb, genre or cast names a real
+ * competition or player (its code's strings are lib/custom-game.ts staticCheckWorld's). Fresh shootouts from Create:
+ * delete the first line.
+ */
+export function shootoutKindProblems(meta: WorldMeta | undefined, code: string, mog?: MogInput): string[] {
+  const is = isShootoutWorld(code), parent = shootoutParent(mog), out: string[] = [];
+  if (is && !parent) out.push('A penalty shootout is only made as a Mog of one; build the closest world of the other kinds instead.');
+  if (parent && !is) out.push('This is a Mog of a penalty shootout, and it stays one: write shootout: { ... } inline among GameMog.world\'s own keys, as the original does, and follow the "Penalty shootouts" section.');
+  const w = is && meta ? shootoutDenied([meta.title, meta.tagline, meta.blurb, meta.genre, ...meta.cast.map((c) => c.name)].join('\n'), true) : null;
+  if (w) out.push(`The title, tagline, blurb, genre or cast names a real competition, federation, league or player (found: "${w}"): a penalty shootout gives the match and its people names of the world's own. Country names and colours are fine.`);
+  return out;
+}
+
+/**
  * The build's two safety hooks (the owner, 9 Oct; lib/build-limits.ts). `signal` aborts when the creator has left
  * (app/api/generate/route.ts): the pass being written is cut off at the model, a test drive being waited for is let
  * go, and no further pass runs; the build just ends, with nothing more to say to a page that is gone. `usage` hears
@@ -211,7 +271,7 @@ export async function generateGame(
   const stopped = () => !!input.signal?.aborted;
   const started = Date.now();
   const client = new Anthropic();
-  const SYSTEM = system();
+  const SYSTEM = system(shootoutParent(input.mog));
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: firstTurn(input.prompt, input.image, input.mog, input.options) }];
   const draftId = randomUUID();
   let lastProblems: string[] = [];
@@ -298,7 +358,7 @@ export async function generateGame(
     if (final.stop_reason === 'max_tokens') problems.push(input.mog && longMogParent(input.mog.parent.code)
       ? 'The reply was cut off at the length limit. Write the complete world again within it: leave out every comment and shorten repeated code (a loop over a table in place of lines written out), keeping all of the original\'s scenery and everything a player sees.'
       : 'The reply was cut off at the length limit. Write a more compact world module that still does everything.');
-    if (code) problems.push(...staticCheckWorld(code));
+    if (code) problems.push(...staticCheckWorld(code), ...shootoutKindProblems(meta, code, input.mog));
     // a Mog's pass next to its parent: what it dropped that the idea does not ask for
     const verdict = parentDna && code ? compareDna(parentDna, code, input.mog!.instruction) : undefined;
 
@@ -307,16 +367,13 @@ export async function generateGame(
     let notes: string[] = [], drops: string[] = [];
     if (!problems.length && meta && code) {
       emit({ type: 'stage', stage: 'playtesting', attempt });
-      const openWorld = isOpenWorld(code);
-      // (a kart race, 6 Oct: its own controls, and ranked by place)
-      const mode = worldMode(code), kart = mode === 'kart';
-      const stored = { ...meta, mode, controls: openWorld || kart ? worldControls(code) : WORLD_CONTROLS, scoring: kart ? 'place' : openWorld ? 'survival' : 'level', runtime: RUNTIME_VERSION, options: { ...(input.options ?? DEFAULT_OPTIONS), open: openWorld } };
+      const stored = storedMeta(meta, code, input.options);
       db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
       insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report: { pending: true }, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
       if (drivesInBrowser()) {
         const token = randomUUID();
         emit({ type: 'drive', draftId, token, attempt });
-        report = await waitForDrive(draftId, token, undefined, input.signal);
+        report = await waitForDrive(draftId, token, isShootoutWorld(code) ? SHOOT_DRIVE_MS : undefined, input.signal);
       } else report = await playtestWorld(`${input.origin}/d/${draftId}/play`);
       if (stopped()) return;
       problems.push(...report.problems);
@@ -341,7 +398,9 @@ export async function generateGame(
       if (!prior && !problems.length && (report.advisories.length || major.length) && attempt < MAX_ATTEMPTS) {
         kept = { attempt, meta, stored, code, report: { ...rest }, shots: { ...shots }, problems: [], status: report.status, look: report.look, notes: report.advisories, dropped: major.length };
         const look = new Set(report.look ? lookAdvisories(report.look) : []);
-        notes = report.advisories.map((a) => look.has(a) ? `The test drive noted: ${a}` : `The runtime had to repair this: ${a}`);
+        // (a penalty shootout's own notes, 13 Oct: the test drive's count of its frame, never a repair the runtime made)
+        const shoot = report.kind === 'shootout';
+        notes = report.advisories.map((a) => look.has(a) || (shoot && SHOOT_NOTE.test(a)) ? `The test drive noted: ${a}` : `The runtime had to repair this: ${a}`);
         drops = major.length ? dropped.map((d) => d.note) : [];
         problems.push(...drops, ...notes);
       }

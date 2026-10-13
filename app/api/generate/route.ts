@@ -7,7 +7,7 @@ import { admit, takeSlot, resting, priceBuild, BUSY, RESTING, type Lease, type P
 
 import { ImageSchema, type Character, type CharacterImage } from '@/lib/character';
 import { readOptions } from '@/lib/world-options';
-import { isOpenWorld, canMog, MOG_SOON } from '@/lib/custom-game';
+import { isOpenWorld, worldMode, canMog, MOG_SOON } from '@/lib/custom-game';
 
 export const runtime = 'nodejs';
 // Opus writing a whole game, a real-browser playtest and up to two repairs
@@ -28,7 +28,8 @@ export async function POST(req: Request) {
   // a Mog: the game it challenges, and one line on how to beat it
   const parent = typeof body.mogOf === 'string' ? getGameBySlug(body.mogOf) : undefined;
   if (body.mogOf && !parent) return NextResponse.json({ error: 'The game you are mogging no longer exists.' }, { status: 404 });
-  // (a penalty shootout cannot be mogged yet, 12 Oct: refused before a slot is taken or anything is spent)
+  // (a kind of game that cannot be mogged yet, lib/custom-game.ts canMog, is refused here, before a slot is taken or
+  // anything is spent; every kind can be today, a penalty shootout too since 13 Oct)
   if (parent && !canMog(parent)) return NextResponse.json({ error: MOG_SOON }, { status: 409 });
   if (parent && (text.length < 4 || text.length > 600)) {
     return NextResponse.json({ error: 'Say in a line how your Mog should beat the original.' }, { status: 400 });
@@ -136,6 +137,11 @@ export async function POST(req: Request) {
           // (lib/mog-dna.ts askedKind), and a pass that changed it unasked goes back once (lib/generate-game.ts)
           const options = readOptions(body.options);
           if (parent) options.open = parent.format === 'world' && !!parent.code && isOpenWorld(parent.code);
+          // a Mog of a penalty shootout (13 Oct) has no obstacles to add or clear and no music, whatever the page sent: the
+          // crowd is its sound (the shootout's recorded crowd), and no track or score is laid over it
+          if (parent && parent.format === 'world' && worldMode(parent.code, parent.meta) === 'shootout') {
+            options.hazards = 'same'; options.music = null; delete options.soundtrack;
+          }
           await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options, signal: stop.signal, usage }, (e) => {
             if (e.type === 'stage') attempts = Math.max(attempts, e.attempt);
             if (e.type === 'drive' || e.type === 'done') draftId = e.draftId;

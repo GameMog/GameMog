@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { chromePath } from './browser';
-import type { WorldReport, TestStatus, KartDrive } from './playtest-runtime';
+import { shootVerdict, readLens, readPhone, type WorldReport, type TestStatus, type KartDrive, type ShootDrive } from './playtest-runtime';
 import { lookScore, lookAdvisories, isLook, type Look } from './look';
 import { readSoundtrack } from './world-options';
 
@@ -87,6 +87,18 @@ function kartOf(v: unknown): KartDrive {
     scale: num(o.scale, 1, 8), cut: o.cut === true };
 }
 
+/** A penalty shootout's count from the drive (lib/runtime/drive.js shootDrive), each field read for what it must be: it is stored with the draft. */
+function shootOf(v: unknown): ShootDrive {
+  const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  const word = (x: unknown) => typeof x === 'string' && /^[a-z][a-z .-]{0,23}$/i.test(x) ? x : null;
+  const parts: Record<string, string> = {};
+  if (o.parts && typeof o.parts === 'object' && !Array.isArray(o.parts)) for (const [k, x] of Object.entries(o.parts as Record<string, unknown>).slice(0, 24)) { const a = word(k), b = word(x); if (a && b) parts[a] = b; }
+  return { kicks: num(o.kicks, 0, 99) ?? 0, results: num(o.results, 0, 99) ?? 0, goals: num(o.goals, 0, 99) ?? 0,
+    outcomes: (Array.isArray(o.outcomes) ? o.outcomes : []).slice(0, 12).map((x) => word(x) ?? 'none'),
+    parts, failed: (Array.isArray(o.failed) ? o.failed : []).map(word).filter((x): x is string => !!x).slice(0, 24),
+    calls: num(o.calls, 0, 100_000), tris: num(o.tris, 0, 100_000_000), fps: num(o.fps, 0, 500), cut: o.cut === true, lens: readLens(o.lens) };
+}
+
 /** What the drive measured, judged as the server's own test drive would. */
 export function judge(raw: Record<string, unknown>, images: { cover?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown }): WorldReport {
   if (raw.timedOut) return SKIPPED;
@@ -97,6 +109,8 @@ export function judge(raw: Record<string, unknown>, images: { cover?: unknown; c
   // it downloads its racers over the creator's own line, about 40 MB inside the frame, which caches nothing, and a
   // failure here would pay for repairs of a fault the world does not have. Anything thrown still fails it)
   if (!raw.ready && raw.kind === 'kart' && !errors.length) return { ...SKIPPED, errors, advisories: ['The kart race took longer than a minute to load in this browser, so the test drive did not judge it.'] };
+  // (a penalty shootout likewise, 13 Oct: about 28 MB of people, sky and crowd down the creator's line)
+  if (!raw.ready && raw.kind === 'shootout' && !errors.length) return { ...SKIPPED, errors, advisories: ['The penalty shootout took longer than a minute to load in this browser, so the test drive did not judge it.'] };
   if (!raw.ready) {
     problems.push('The world never finished loading.' + (errors.length ? ' Errors: ' + errors.join(' | ') : ' GameMog.world() may never have been called.'));
     return { ...SKIPPED, ok: false, ran: true, errors, problems };
@@ -115,10 +129,22 @@ export function judge(raw: Record<string, unknown>, images: { cover?: unknown; c
     const m = isLook(looks[i]) ? looks[i] as Look : undefined, sc = m ? lookScore(m) : -1e9;
     if (sc > best) { best = sc; cover = img; look = m; }
   });
-  if (look) advisories.push(...lookAdvisories(look));
   // a hidden tab stops the world's clock, so only what threw counts; a phone is
   // not the laptop the frame-rate rule was written for
   const timed = !raw.hidden, fpsCounts = timed && !raw.mobile;
+  // a penalty shootout (13 Oct): kicks at the spot, never laps or a crash, judged by the server's own rules and words
+  // (lib/playtest-runtime.ts shootVerdict, one function for both drives). A hidden tab, or a drive out of its time
+  // before its second kick (cut), judges only what threw, the people and (when timed) the frame rate and the cover,
+  // and is unverified when they find nothing. Its look notes leave out 'hidden' and 'blends' (the runtime frames the
+  // taker; his kit is his stands' colour by design), so a clean shootout does not pay for a repair of its cover
+  // Its phone load (13 Oct, raw.phone: the creator's page loads the draft again as a phone, app/create/generation.tsx
+  // TestDrive) is judged with it, as the server judges its own phone load
+  if (raw.kind === 'shootout') {
+    const so: ShootDrive = { ...shootOf(raw.shootout), ...('phone' in raw ? { phone: readPhone(raw.phone) } : {}) }, v = shootVerdict(so, { errors, fps, fpsCounts, timed, cover, look });
+    return { ok: v.problems.length === 0, ran: v.judged || v.problems.length > 0, readyMs, fps, errors, problems: v.problems, advisories: [...advisories, ...v.advisories],
+      levelReached: so.kicks, cover, artIcon, artWide, look, kind: 'shootout', shootout: so };
+  }
+  if (look) advisories.push(...lookAdvisories(look));
   for (const e of errors) problems.push(`Runtime error: ${e}`);
   // a kart race (8 Oct): three laps to a finish, never the endless lap's levels, judged by the server's kart rules and
   // words (lib/playtest-runtime.ts). A hidden tab stops the race's clock, and a drive out of its own time before the

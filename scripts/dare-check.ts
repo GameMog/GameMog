@@ -221,6 +221,23 @@ async function run() {
   const noParent = await send({ gameId: test.id, sender: P2, parent: 'ZZZZZZZZZZ' }, { 'x-forwarded-for': '10.0.0.2' });
   ok('a parent that does not exist is dropped', noParent.status === 200 && (db.prepare('SELECT parent_dare FROM dares WHERE id = ?').get(noParent.j.id) as { parent_dare: string | null }).parent_dare === null);
 
+  // a penalty shootout (13 Oct, its Mogs on): a dare on one reads as goals and can be mogged back, as a dare on any game can
+  {
+    const sid = randomUUID();
+    D.insertDraft({ id: sid, prompt: 'dare check', meta: { ...META, title: 'Dare Check Shootout' }, code: readFileSync(new URL('worlds/shootout.js', ROOT), 'utf8'), report: { ok: true, ran: true }, format: 'world', parentId: null });
+    const sp = await publish({ draftId: sid });
+    const sd = await send({ gameId: sp.j.id, sender: P2, name: 'Keeperbane', run: { type: 'result', finished: true, score: 3, level: 4, timeMs: 9000, won: true, place: 1 } }, { 'x-forwarded-for': '10.0.0.9' });
+    const sv = sd.status === 200 ? X.dareView(sd.j.id) : null;
+    ok('a dare on a penalty shootout reads "Goals to beat", and can be mogged back', sp.status === 200 && sd.status === 200 && sv?.board === 'score' && sv.target?.label === 'Goals to beat' && sv.target.text === '3' && sv.game.mog === true, sv ?? sd);
+    ok('...as a dare on every other game can', X.dareView(k1.j.id)?.game.mog === true && X.dareView(back.j.id)?.game.mog === true);
+    // (the dare landing and the results card show "Mog it back" on game.mog and nothing else; the landing as the dev
+    // server draws it is scripts/platform-check.ts's "a dare on it ...")
+    const landing = readFileSync(new URL('app/g/[slug]/dare/[id]/page.tsx', ROOT), 'utf8'), overlay = readFileSync(new URL('app/g/[slug]/dare-overlay.tsx', ROOT), 'utf8');
+    ok('...and the dare landing and the results card offer "Mog it back" whenever the game can be mogged',
+      /\{g\.mog && <Link [^>]*href=\{`\/mog\/\$\{g\.slug\}\?dare=\$\{d\.id\}`\}>Mog it back<\/Link>\}/.test(landing) && /\{view\.game\.mog && <a [^>]*href=\{mogHref\}>Mog it back<\/a>\}/.test(overlay)
+      && (landing.match(/Mog it back/g) ?? []).length === 1 && (overlay.match(/Mog it back/g) ?? []).length === 1);
+  }
+
   // naming the creator from a dare: only the browser that published it
   const d4 = draft(); const g4 = await publish({ draftId: d4, player: P3 });
   await send({ gameId: g4.j.id, sender: P2, name: 'NotTheCreator' }, { 'x-forwarded-for': '10.0.0.3' });

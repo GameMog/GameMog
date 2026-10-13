@@ -379,6 +379,78 @@ console.log('\na Mog keeps its parent: the DNA check, on real worlds');
 
   const said = describeDna(z).join(' ');
   ok('the Mog prompt\'s keep-list names Zcity\'s place, hero, crews, patrol and story', /library map 'city' \(midtown, at night\)/.test(said) && /The OG/.test(said) && /Infected courier/.test(said) && /an SUV/.test(said) && /Dr\. Reyes/.test(said), said);
+
+  // Mogs of a penalty shootout (13 Oct): a Mog changes only the world's side (the sides and their kits, the stadium,
+  // the sky and the weather, the crowd, how the keeper looks); the kind is locked both ways
+  const SHOOT = R('worlds/shootout.js'), s = dna(SHOOT);
+  ok('SHOOTOUT\'s DNA: the sides, the side taking the kicks, the body, the keeper, the filmed crowd and its moods, the goal, the floodlights, the sky',
+    s.kind === 'shootout' && s.shootout?.teams.map((t) => `${t.name}/${t.short}/${t.color}`).join() === 'Uruguay/URU/#74BDE8,Spain/ESP/#B3122E' && s.shootout.taker === 0
+    && s.shootout.body === 'human-athlete-male' && s.shootout.keeper.kind === 'human' && !s.shootout.keeper.endo && s.shootout.crowd
+    && s.shootout.moods.join() === 'walk,whistle,kick,woodwork,goal,save,miss,replay,finish' && s.shootout.goal?.frame === '#F6F6F4' && s.shootout.floods === 3
+    && s.shootout.sky.join() === 'sky-night' && s.hero.kind === 'human' && s.hero.name === 'D. Arroyo' && s.assets.includes('audio-crowd-shootout'), JSON.stringify({ hero: s.hero, shootout: s.shootout }));
+  ok('every other kind of world has no shootout DNA', readdirSync('worlds').filter((f) => f.endsWith('.js') && f !== 'shootout.js').every((f) => dna(R(`worlds/${f}`)).shootout === null));
+  const shootSaid = describeDna(s).join('\n');
+  ok('its keep-list names the match, the taker, the keeper, the crowd and the light',
+    shootSaid.includes('The match: Uruguay (URU, #74BDE8) v Spain (ESP, #B3122E); Uruguay take the kicks') && shootSaid.includes('ctx.shootout.impostors')
+    && /The taker: D\. Arroyo, a library human \(player\(\), on shootout\.body human-athlete-male\)/.test(shootSaid) && /rival\(ctx, k, o\)/.test(shootSaid) && /sky-night, 3 floodlights/.test(shootSaid), shootSaid);
+  // the integration Mog, by hand: new sides, the taker renamed with his side, a chrome robot keeper, a grey sky
+  const KEEPER_LINE = 'person(id, KEEPER_LOOK, KEEPER_KIT, false) : person(id, REF_LOOK, REF_KIT, false)';
+  const ICE = SHOOT.replace(/'Uruguay'/g, "'Iceland'").replace(/'URU'/g, "'ISL'").replace(/#74BDE8/g, '#02529C').replace(/'Spain'/g, "'Norway'").replace(/'ESP'/g, "'NOR'").replace(/#B3122E/g, '#BA0C2F')
+    .replace(/'D\. Arroyo'/g, "'K. Jonsson'").replace(KEEPER_LINE, "ctx.assets.human(id, { endo: { metal: '#D9DEE6', eyes: '#FF2A12' }, height: 1.95, name: 'Keeper', color: '#B8E336' }) : person(id, REF_LOOK, REF_KIT, false)")
+    .replace(/'sky-night'/g, "'sky-overcast'");
+  const ICE_IDEA = 'a snowy night final in Reykjavik, Iceland v Norway, a chrome robot keeper';
+  const iv = compareDna(SHOOT, ICE, ICE_IDEA), allowedKeys = iv.allowed.map((d) => d.key).sort().join();
+  ok('a shootout Mog with new sides, a renamed taker and a robot keeper, as its idea asks, drops nothing', SHOOT.includes(KEEPER_LINE) && dna(ICE).shootout?.keeper.endo === true
+    && iv.dropped.length === 0 && allowedKeys === 'hero,keeper,match', `${keys(iv)} | ${iv.allowed.map((d) => `${d.key}: ${d.why}`).join('; ')}`);
+  const rain = compareDna(SHOOT, ICE, 'make it rain');
+  ok('the same Mog for an idea that names none of it: the sides and the taker are dropped, the robot keeper is minor', keys(rain) === 'hero, match, keeper'
+    && rain.dropped.find((d) => d.key === 'keeper')?.minor === true && rain.dropped.filter((d) => d.key !== 'keeper').every((d) => !d.minor), rain.dropped.map((d) => d.note).join(' | '));
+  const boxKeeper = SHOOT.replace(/rival: function \(ctx, k, o\) \{[\s\S]*?\n {4}\},\n {4}obstacles/, 'rival: function (ctx) { return { object: new ctx.THREE.Group() }; },\n    obstacles');
+  const bk = compareDna(SHOOT, boxKeeper, 'make the keeper a robot');
+  ok('a keeper that is not a library human is dropped whatever the idea (the runtime rigs him to dive)', boxKeeper !== SHOOT && keys(bk) === 'keeper' && !bk.dropped[0].minor && /must stay a library human/.test(bk.dropped[0].note), keys(bk));
+  const quiet = SHOOT.replace(/ctx\.shootout\.impostors\(/g, 'nobody(');
+  ok('a Mog without the filmed crowd is dropped, unless the idea empties the stands', quiet !== SHOOT && keys(compareDna(SHOOT, quiet, 'make it rain')) === 'crowd'
+    && compareDna(SHOOT, quiet, 'play it behind closed doors').dropped.length === 0);
+  // the crowd's moods, however the Mog registers them: its own on('goal', ...) calls, or a table of handlers in a loop
+  const [m0, m1] = [SHOOT.indexOf("      on('walk'"), SHOOT.indexOf('\n', SHOOT.indexOf("      on('finish'"))];
+  const table = SHOOT.slice(0, m0) + "      var H = { walk: function () {}, whistle: function () {}, goal: function () {}, save: function () {}, miss: function () {} };\n      Object.keys(H).forEach(function (n) { on(n, H[n]); });" + SHOOT.slice(m1);
+  ok('a crowd that answers the whistle, goals, saves and misses from a table of handlers keeps its moods; one that answers nothing is dropped',
+    m0 > 0 && compareDna(SHOOT, table, 'make it rain').dropped.length === 0 && keys(compareDna(SHOOT, SHOOT.slice(0, m0) + SHOOT.slice(m1), 'make it rain')) === 'crowd');
+  const swapped = SHOOT.replace('taker: 0,\n      body', 'taker: 1,\n      body');
+  ok('the side taking the kicks changes only when the idea names the sides', swapped !== SHOOT && keys(compareDna(SHOOT, swapped, 'make it rain')) === 'match' && compareDna(SHOOT, swapped, 'Spain take the kicks').dropped.length === 0);
+  const sunny = SHOOT.replace(/'sky-night'/g, "'sky-noon'").replace(/'texture-grass'/g, "'texture-snow'");
+  ok('a new sky and surface are the weather or the time of day the idea names', keys(compareDna(SHOOT, sunny, 'more fans')) === 'scenery' && compareDna(SHOOT, sunny, 'a sunny afternoon final').dropped.length === 0);
+  // the kind is locked both ways: "a North London derby" still reads as a derby, and the lock refuses it
+  const ld = compareDna(SHOOT, OAKTOWN, 'a North London derby penalty shootout');
+  ok('a shootout never becomes another kind, whatever its idea says', askedKind('a North London derby penalty shootout') === 'derby' && ld.dropped.some((d) => d.key === 'kind' && /stays one, whatever its idea says/.test(d.note)), keys(ld));
+  ok('and nothing becomes a shootout', compareDna(ZCITY, SHOOT, 'make it a penalty shootout').dropped.some((d) => d.key === 'kind' && /made only as a Mog of one/.test(d.note)));
+  ok('the idea\'s shootout words', ((i) => i.teams && i.keeper && i.weather && !i.noCrowd && !i.taker)(readIdea(ICE_IDEA)) && readIdea('Swap the sides: Brazil v Japan').teams
+    && readIdea('an empty stadium').noCrowd && readIdea('make the taker a robot').taker && !readIdea('make it rain').teams);
+  // (13 Oct review) the taker keeps his name unless the idea names new sides or a new taker, as compareDna allows: a
+  // keep-line that always asked for a new name sent four of the Mog page's five ideas to a paid repair
+  ok('its keep-list keeps the taker\'s name unless the idea names new sides or a new taker, and then asks for an invented one',
+    shootSaid.includes('Keep his name (D. Arroyo) unless the idea names new sides or a new taker; only then invent a new one for him, a name no footballer is known by, never a real footballer\'s.')
+    && !/a new name for him is invented/.test(shootSaid), shootSaid.split('\n').find((l) => l.startsWith('The taker')) ?? '');
+  const renamed = SHOOT.replace(/'D\. Arroyo'/g, "'K. Jonsson'");
+  ok('...and that is what compareDna allows: the taker renamed for an idea that keeps the sides is a drop; for new sides or a new taker it is not',
+    renamed !== SHOOT && ['A snowy night final in Reykjavik', 'Make the keeper a chrome robot', 'A sunny afternoon final in an old bowl', 'A thunderstorm under the floodlights'].every((i) => keys(compareDna(SHOOT, renamed, i)) === 'hero')
+      && ['Swap the sides: Brazil v Japan', 'a new penalty taker'].every((i) => compareDna(SHOOT, renamed, i).dropped.length === 0));
+  // (13 Oct review) the shootout chapter is read only by a Mog of a shootout: every other build reads the manual it read
+  // before, and a Create cannot be steered into writing a shootout the static check then refuses
+  const { system } = await import('../lib/generate-game.ts');
+  const sysPlain = system(false), sysShoot = system(true), api = R('lib/runtime/API.md'), at = api.indexOf('## Penalty shootouts\n'), next = api.indexOf('\n## ', at + 5);
+  ok('the builder\'s manual: a shootout Mog reads the "Penalty shootouts" chapter and its rule; every other build reads the manual without them, every other chapter whole',
+    at > 0 && next > at && sysShoot.includes(api) && sysShoot.includes('plays by the "Penalty shootouts" section instead') && !sysPlain.includes('## Penalty shootouts') && !sysPlain.includes('Penalty shootouts" section')
+      && sysPlain.includes(api.slice(0, at) + api.slice(next + 1)) && sysShoot.length - sysPlain.length > 15_000, `${sysPlain.length} / ${sysShoot.length}`);
+  // (13 Oct review) the real-names list: the famous shootout names, sponsors and the Olympics refused anywhere; the players'
+  // names that are everyday words (neuer, pele, salah) only where they name someone, never on a board meaning the word
+  const { shootoutDenied, staticCheckWorld: staticCheck } = await import('../lib/custom-game.ts');
+  ok('a shootout names no famous shootout taker or keeper, sponsor or other competition; an everyday word that is a player\'s name is refused only as a name',
+    ['BAGGIO', 'Southgate', 'Montiel', 'Dibu', 'CR7', 'Zlatan', 'Adidas', 'NIKE', 'Fly Emirates', 'Olympic', 'Copa del Rey', 'Jules Rimet', 'F.I.F.A.', 'Socceroos', 'Pelé'].every((w) => shootoutDenied(w) !== null)
+      && ['NEUER REKORD', 'PELE', 'salah', 'United Arab Emirates', 'OLYMPIAKOS', 'THE FINAL', 'D. Arroyo'].every((w) => shootoutDenied(w) === null)
+      && ['Neuer', 'Pele', 'Salah', 'Kane', 'Saka'].every((w) => shootoutDenied(w, true) !== null)
+      && staticCheck(SHOOT.replace("name: 'Keeper' }", "name: 'Neuer' }")).some((p) => /found: "Neuer"/.test(p)) && !staticCheck(SHOOT.replace("'THE FINAL'", "'NEUER REKORD'")).some((p) => /real competition/.test(p))
+      && staticCheck(SHOOT).length === 0);
 }
 
 runDifficultyChecks(ok);

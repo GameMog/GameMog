@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { withBrowser, chromePath, HostSlept } from './browser';
-import { lookScore, lookAdvisories, isLook, type Look } from './look';
-import { captureWorldKeyArt } from './key-art';
+import { lookScore, lookAdvisories, lookNotes, isLook, type Look } from './look';
+import { captureWorldKeyArt, captureShootoutKeyArt } from './key-art';
 import type { DnaReport } from './mog-dna';
 
 /**
@@ -138,7 +140,9 @@ export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: 
   /** A Mog's DNA against its parent (6 Oct, lib/mog-dna.ts): what it dropped that the idea did not ask for, and what became of the repair. */
   dna?: DnaReport;
   /** A kart race's drive (8 Oct): what the race counted. It is stored with the draft's report, beside status and codeHash. */
-  kind?: 'kart'; kart?: KartDrive };
+  kind?: 'kart' | 'shootout'; kart?: KartDrive;
+  /** A penalty shootout's drive (13 Oct): what its kicks counted (levelReached is the kicks driven). Stored the same way. */
+  shootout?: ShootDrive };
 export type TestStatus = 'passed' | 'failed' | 'unverified';
 /**
  * What a kart race's test drive counted (8 Oct): the creator's browser (lib/runtime/drive.js kartDrive, checked in
@@ -152,6 +156,123 @@ export type TestStatus = 'passed' | 'failed' | 'unverified';
  */
 export type KartDrive = { L: number | null; trackSig: string | null; laps: number; lapsDone: number; place: number | null; finished: boolean; estimated: boolean; drifted: boolean;
   stuck: number; fps: number | null; results: number; time: number | null; share: number; scale: number | null; cut: boolean };
+
+/**
+ * What a penalty shootout's test drive counted (13 Oct): the creator's browser (lib/runtime/drive.js shootDrive, read in
+ * lib/test-drive.ts) or the server's (below), the same fields either way. kicks: the kicks driven (each a real kick at
+ * the spot: the walk, the whistle, the run-up, the strike, the flight); results: the results the runtime posted for
+ * them (GameMog.finish, one a kick); goals: the runtime's own tally; outcomes: each kick's ('goal', 'saved', 'over',
+ * 'wide', 'post', 'bar', 'miss', or 'none' when it never came to one); parts: the director's parts and whose they were
+ * ('own', or 'stand-in': the director's plain stand-in, e.g. a keeper that is no library human); failed: the parts that
+ * threw; calls and tris: the most draw calls and triangles a frame seen; the frame rate; and cut: the drive ran out of
+ * its own time before its last kick. keys (the server's only): its first kick was a player's keys, not the tapper.
+ * lens: the sight lines from the lenses behind the goal to the goal mouth (lib/runtime/shoot-lens.js). phone: the world
+ * loaded again as a phone loads it (ctx.quality 'low'), one kick there.
+ */
+export type ShootDrive = { kicks: number; results: number; goals: number; outcomes: string[]; parts: Record<string, string>; failed: string[];
+  calls: number | null; tris: number | null; fps: number | null; cut: boolean; keys?: boolean; lens?: ShootLens | null; phone?: ShootPhone | null };
+/**
+ * The lenses behind the goal (13 Oct, lib/runtime/shoot-lens.js): `rays` sight lines (each lens to each point of the goal
+ * mouth and the spot), `worst` the most blocked from one lens, and the world's objects in the way (`by`: a name, how
+ * many lines it blocks, its centre and size in metres). `over`: the room held more than the check reads.
+ */
+export type ShootLens = { rays: number; targets: number; worst: number; by: { name: string; rays: number; at: number[]; size: number[] }[]; over: boolean };
+/**
+ * A shootout's phone load (13 Oct): the draft loaded again on ctx.quality 'low' (the server's Chrome as a phone, the
+ * creator's frame with a touch screen's pointer), its demo and one kick. loaded: it became ready; errors: what threw
+ * there; calls and tris: the most draw calls and triangles a frame seen there; parts and failed as the drive's;
+ * kicked and ended: its one kick began, and came to a result; timedOut: the load never reported (unjudged); hidden: the
+ * tab went to the background (only what threw is judged).
+ */
+export type ShootPhone = { loaded: boolean; timedOut: boolean; hidden: boolean; errors: string[]; calls: number | null; tris: number | null;
+  parts: Record<string, string>; failed: string[]; kicked: boolean; ended: boolean; results: number };
+
+/**
+ * The kicks a shootout's test drive takes, the same on both paths: [aim x, aim y (m, at the goal), taps a second]. A warm
+ * low corner, a hot high one (the key art's), and one aimed over the bar (a miss). The first is a player's on the server
+ * (its keys), the director's own scripted tapper otherwise (debug.shootout().tap: the press and release a player's keys
+ * run). Where each ends is the runtime's (the ball and the keeper are its own); only that each ends, and posts, is judged.
+ */
+export const SHOOT_KICKS: [number, number, number][] = [[-2.6, 0.5, 8], [2.9, 1.9, 11], [-0.4, 3.6, 9]];
+
+/**
+ * The draw calls and triangles a frame on a phone (ctx.quality 'low', counted in the phone load) past which a shootout is
+ * told to build lighter (13 Oct): the manual's budget. (Counted on a laptop until a review: the note asked for changes
+ * on 'low' that a laptop never draws, and a robot keeper's Mog paid for a repair that could not move it.)
+ */
+export const SHOOT_HEAVY = { calls: 150, tris: 350_000 };
+/** A lens behind the goal with this many of its sight lines blocked is blocked (13 Oct: a thin pole is not). */
+export const LENS_BLOCKED = 3;
+const PHONE_SAID = 'On a phone (ctx.quality \'low\')';
+
+/** The look notes a shootout's cover is judged by: not 'hidden' or 'blends' (the runtime frames the taker, and his kit is his stands' colour by design). */
+export function shootLookNotes(m: Look): string[] {
+  return lookNotes(m).filter((n) => n.kind !== 'hidden' && n.kind !== 'blends').map((n) => n.text);
+}
+
+/**
+ * A penalty shootout's verdict (13 Oct), one function for both test drives, so the model hears the same words either
+ * way. The runtime directs the shootout (the kick, the keeper, the ball, the camera, the HUD, the sound, the board), so
+ * what is judged is the world round it: that nothing it does throws, that the taker and the keeper are library humans
+ * the runtime could rig (the parts it made of them are its own, not its stand-ins), that every kick driven ends with a
+ * result, that it runs at speed on a laptop, and that the cover is a scene. Where the ball goes is never judged.
+ * timed: the drive's clock ran (not a background tab); a drive cut short before its second kick (`so.cut`), or untimed,
+ * judges only what does not need the kicks (what threw, the people, and when timed the frame rate and the cover), and
+ * is unverified when that finds nothing (`judged` false). The look notes leave out 'hidden' and 'blends'
+ * (shootLookNotes). The lenses behind the goal must see the goal mouth (so.lens), and the phone load is judged by
+ * shootPhoneVerdict (so.phone), where a heavy frame is a note, never a failure.
+ */
+export function shootVerdict(so: ShootDrive, m: { errors: string[]; fps: number | null; fpsCounts: boolean; timed: boolean; cover?: Uint8Array; look?: Look }) {
+  const problems: string[] = [], advisories: string[] = [];
+  for (const e of m.errors) problems.push(`Runtime error: ${e}`);
+  const read = Object.keys(so.parts).length > 0, own = (k: string) => so.parts[k] === 'own';
+  if (read && !own('people')) problems.push('player() must return the library human itself (ctx.assets.human(...)), as it comes: the taker was moved as a box, with no run-up and no kick. Build him on shootout.body and return him.');
+  if (read && (!own('keeper rig') || !own('keeper'))) problems.push('rival(ctx, 1, o) must return a library human built on o.body (ctx.assets.human(o.body, ...)), as it comes: the keeper was moved as a box, with no dive.');
+  const judged = m.timed && !(so.cut && so.kicks < 2);
+  if (judged && so.results < so.kicks) problems.push(`Kick ${so.results + 1} of ${so.kicks} did not end with a result. Nothing in update() or a ctx.on handler may stall or throw; the runtime ends every kick and posts it.`);
+  if (m.fpsCounts && m.fps !== null && m.fps < 30) problems.push(`The shootout ran at ${m.fps} fps on a laptop GPU. The stadium is the cost: seat the crowd as one InstancedMesh a side, merge the boards, the lines and the stands by material, keep one shadow-casting light, until it holds 60.`);
+  if (m.timed && (!m.cover || m.cover.length < BLANK_BYTES)) problems.push('The screen is nearly a flat colour at the penalty spot. Check that build() lays the turf and its lines, the stands and the lights at the runtime\'s pitch (the goal line at z = -52.5) and that fog does not swallow them.');
+  const lens = lensProblem(so.lens);
+  if (lens) problems.push(lens);
+  if (m.look) advisories.push(...shootLookNotes(m.look));
+  const ph = shootPhoneVerdict(so.phone, m.errors, so.parts);
+  problems.push(...ph.problems); advisories.push(...ph.advisories);
+  return { problems, advisories, judged: judged || ph.problems.length > 0 };
+}
+
+/** What stands in the lenses' sight lines behind the goal, as the builder is told it (null when they see the goal mouth). */
+export function lensProblem(l: ShootLens | null | undefined): string | null {
+  if (!l || !(l.worst >= LENS_BLOCKED)) return null;
+  const who = l.by.length ? l.by.map((b) => `'${b.name}' (${b.size[1]} m tall, ${b.size[0]} m wide, centred at x ${b.at[0]}, y ${b.at[1]}, z ${b.at[2]})`).join(', ') : 'something the world built';
+  return `The runtime's cameras behind the goal (the keeper's shot, every replay and the key art) cannot see the goal: ${who} stands in the way, blocking ${l.worst} of the ${l.targets} sight lines from one of them to the goal mouth and the spot. Behind the goal shot at nothing may be taller than 1 m from its line (z = -52.5) back to 6 m behind it, 5 m either side of the middle: move it back or lower it.`;
+}
+
+/**
+ * A shootout's phone load, judged (13 Oct), one function for both drives: what threw there (a world that throws only on
+ * 'low' never loads on a phone), the taker and the keeper still the runtime's own there, and the frame's cost there
+ * against the phone's budget (a note, never a failure). `seen`: what the drive itself already reported as thrown, and
+ * `desk` its parts (what it already said was a stand-in is not said twice). A load that never reported, or one in a
+ * background tab that threw nothing, is not judged.
+ */
+export function shootPhoneVerdict(ph: ShootPhone | null | undefined, seen: string[] = [], desk: Record<string, string> = {}) {
+  const problems: string[] = [], advisories: string[] = [];
+  if (!ph || ph.timedOut || (ph.hidden && !ph.errors.length)) return { problems, advisories };
+  // (each error as the builder reads it: its first line, without the console's and the runtime's prefixes, once)
+  const said = (e: string) => e.replace(/^console\.error: /, '').replace(/^\[gamemog\] /, '').split(/\n| \| /)[0].trim();
+  const was = new Set(seen.map(said)), all = [...new Set(ph.errors.map(said))].filter(Boolean), errors = all.filter((e) => !was.has(e));
+  if (!ph.loaded) {
+    if (all.length) problems.push(`${PHONE_SAID} the world never finished loading: ${all.join(' | ')}. Check the code that runs only on 'low' (fewer crowd looks, flags, tape or flakes, a lighter keeper): every name it uses must be declared and set there too.`);
+    return { problems, advisories };
+  }
+  for (const e of errors) problems.push(`${PHONE_SAID}, a runtime error: ${e}`);
+  // (a taker or a keeper the drive already found a box is said there, once)
+  const read = Object.keys(ph.parts).length > 0, own = (k: string) => ph.parts[k] === 'own', deskRead = Object.keys(desk).length > 0, deskOwn = (k: string) => desk[k] === 'own';
+  const deskTaker = deskRead && !deskOwn('people'), deskKeeper = deskRead && (!deskOwn('keeper rig') || !deskOwn('keeper'));
+  if (read && !own('people') && !deskTaker) problems.push(`${PHONE_SAID} the taker was moved as a box: player() must return the library human itself on 'low' too.`);
+  if (read && (!own('keeper rig') || !own('keeper')) && !deskKeeper) problems.push(`${PHONE_SAID} the keeper was moved as a box: rival(ctx, 1, o) must return a library human built on o.body on 'low' too.`);
+  if ((ph.calls ?? 0) > SHOOT_HEAVY.calls || (ph.tris ?? 0) > SHOOT_HEAVY.tris) advisories.push(`${PHONE_SAID} the shootout drew up to ${ph.calls} draw calls and ${(ph.tris ?? 0).toLocaleString('en-US')} triangles a frame. Hold it to ${SHOOT_HEAVY.calls} calls and ${SHOOT_HEAVY.tris.toLocaleString('en-US')} triangles there: fewer crowd looks, flags and tape on 'low', the stands, boards and lines merged by material.`);
+  return { problems, advisories };
+}
 
 /** The cover: the best of three frames by how they look (lib/look.ts), and how that frame measured. */
 async function bestCover(page: Parameters<Parameters<typeof withBrowser>[0]>[0]) {
@@ -168,11 +289,188 @@ async function bestCover(page: Parameters<Parameters<typeof withBrowser>[0]>[0])
 
 type RtState = { state: string; level: number; gm: number; alive: boolean; rivals: { ahead: number; x: number }[]; lap: number; obstacles: number; coins: number; crashedInto: string };
 
+type Pg = Parameters<Parameters<typeof withBrowser>[0]>[0];
+type ShootSt = { phase: string; outcome: { kind: string } | null; tally: { kicks: number; goals: number } | null; render: { calls: number; tris: number } | null;
+  parts: Record<string, string> | null; failed: Record<string, string> | null };
+const SHOOT_ST = `(() => { const s = window.__gmRuntime.state().shootout; return s ? { phase: s.phase, outcome: s.outcome, tally: s.tally, render: s.render, parts: s.parts, failed: s.failed } : null; })()`;
+/** The phases a kick has reached its outcome in: the result, its replay, and Kick again. */
+const SHOOT_DONE = new Set(['result', 'replay', 'retry']);
+/** What the shootout's parts and failures say, as plain strings (stored with the draft). */
+const partsOf = (p: unknown) => Object.fromEntries(Object.entries(p && typeof p === 'object' ? p as Record<string, unknown> : {}).slice(0, 24).map(([k, v]) => [String(k).slice(0, 24), String(v).slice(0, 24)]));
+
+/** lib/runtime/shoot-lens.js, as the creator's drive page carries it (read fresh outside production). */
+let LENS_JS = '';
+const lensJs = () => (LENS_JS && process.env.NODE_ENV === 'production' ? LENS_JS : (LENS_JS = readFileSync(join(process.cwd(), 'lib', 'runtime', 'shoot-lens.js'), 'utf8')));
+/** The lens check in this page: the world as built, the runtime's people left out (they are not the world's). */
+const LENS_RUN = () => `(() => { ${lensJs()}
+  const I = window.__gmRuntime.debug.internals(), P = window.__gmRuntime.debug.shootout().people() || {};
+  return window.GameMogShootLens(I.THREE || window.THREE, I.scene, [P.taker, P.keeper, P.ref].filter(Boolean).map((e) => e.object)); })()`;
+
+const real = (x: unknown, lo: number, hi: number, dp = 2) => { const n = Number(x); return x !== null && x !== '' && Number.isFinite(n) ? +Math.max(lo, Math.min(hi, n)).toFixed(dp) : null; };
+const int = (x: unknown, lo: number, hi: number) => { const n = real(x, lo, hi, 0); return n === null ? null : Math.round(n); };
+/** A lens check's report (lib/runtime/shoot-lens.js), each field read for what it must be (it comes from a page). */
+export function readLens(v: unknown): ShootLens | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>, rays = int(o.rays, 0, 10_000), targets = int(o.targets, 0, 1000), worst = int(o.worst, 0, 1000);
+  if (rays === null || targets === null || worst === null) return null;
+  const xyz = (a: unknown) => (Array.isArray(a) ? a.slice(0, 3).map((x) => real(x, -1e4, 1e4) ?? 0) : [0, 0, 0]);
+  const by = (Array.isArray(o.by) ? o.by : []).slice(0, 4).filter((b): b is Record<string, unknown> => !!b && typeof b === 'object')
+    .map((b) => ({ name: String(b.name ?? 'a mesh').replace(/[^\w .:/'()-]/g, '').slice(0, 80) || 'a mesh', rays: int(b.rays, 0, 10_000) ?? 0, at: xyz(b.at), size: xyz(b.size) }));
+  return { rays, targets, worst, by, over: o.over === true };
+}
+/** A phone load's report (the creator's frame, lib/runtime/drive.js phoneDrive), each field read for what it must be. */
+export function readPhone(v: unknown): ShootPhone | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>, word = (x: unknown) => typeof x === 'string' && /^[a-z][a-z .-]{0,23}$/i.test(x) ? x : null;
+  const parts: Record<string, string> = {};
+  if (o.parts && typeof o.parts === 'object' && !Array.isArray(o.parts)) for (const [k, x] of Object.entries(o.parts as Record<string, unknown>).slice(0, 24)) { const a = word(k), b = word(x); if (a && b) parts[a] = b; }
+  return { loaded: o.ready === true && o.runtime !== false && o.shootout !== false, timedOut: o.timedOut === true, hidden: o.hidden === true,
+    errors: (Array.isArray(o.errors) ? o.errors : []).filter((x): x is string => typeof x === 'string').slice(0, 12).map((x) => x.slice(0, 400)),
+    calls: int(o.calls, 0, 100_000), tris: int(o.tris, 0, 100_000_000), parts, failed: (Array.isArray(o.failed) ? o.failed : []).map(word).filter((x): x is string => !!x).slice(0, 24),
+    kicked: o.kicked === true, ended: o.ended === true, results: int(o.results, 0, 99) ?? 0 };
+}
+
+/**
+ * A shootout's phone load on the server (13 Oct): the same page in a Chrome of its own as a phone (844 x 390, a touch
+ * screen, so the runtime builds the world on 'low'), the demo for four seconds and one kick through the director's
+ * tapper to its result, as the creator's frame does it (lib/runtime/drive.js phoneDrive). Its own browser and time
+ * (the drive's has 90 s and is spent); a load the browser gave up on is unjudged (timedOut).
+ */
+export async function shootPhoneLoad(url: string): Promise<ShootPhone> {
+  const none: ShootPhone = { loaded: false, timedOut: true, hidden: false, errors: [], calls: null, tris: null, parts: {}, failed: [], kicked: false, ended: false, results: 0 };
+  try {
+    return await awake(() => withBrowser(async (page) => {
+      await page.emulate({ width: 844, height: 390, mobile: true, dpr: 2 });
+      await page.goto(url);
+      let ready = false;
+      // (a world that failed to build never will: said at once, not after the minute)
+      for (let i = 0; i < 300 && !ready; i++) {
+        ready = await page.eval<boolean>('!!(window.__gm && window.__gm.ready)').catch(() => false);
+        if (!ready && i >= 10 && await page.eval<boolean>('!!(window.__gm && (window.__gm.errors || []).some((e) => /failed to build/.test(e)))').catch(() => false)) break;
+        if (!ready) await sleep(200);
+      }
+      const errs = async () => [...new Set([...page.errors, ...(await page.eval<string[]>('(window.__gm && window.__gm.errors) || []').catch(() => []))])].slice(0, 12);
+      if (!ready) return { ...none, timedOut: false, errors: await errs() };
+      const S = () => page.eval<ShootSt | null>(SHOOT_ST).catch(() => null);
+      const D = (js: string) => page.eval(`(() => { const D = window.__gmRuntime.debug.shootout(); ${js} })()`).catch(() => null);
+      let calls = 0, tris = 0, kicked = false, ended = false, s = await S();
+      const see = (q: ShootSt | null) => { if (q && q.render) { calls = Math.max(calls, Math.round(+q.render.calls) || 0); tris = Math.max(tris, Math.round(+q.render.tris) || 0); } return q; };
+      for (let i = 0; i < 16; i++) { await sleep(250); s = see(await S()); }
+      if (s) {
+        await D('return D.start();');
+        for (let i = 0; i < 250; i++) { s = see(await S()); if (!s || s.phase === 'set') break; await sleep(100); }
+        if (s && s.phase === 'set') {
+          kicked = true;
+          await sleep(400); see(await S());
+          await D(`D.aim(${SHOOT_KICKS[0][0]}, ${SHOOT_KICKS[0][1]}); return D.tap(${SHOOT_KICKS[0][2]}, 1.6, { releaseMs: 0 });`);
+          for (let i = 0; i < 300; i++) { s = see(await S()); if (s && SHOOT_DONE.has(s.phase)) { ended = true; break; } if (i >= 40 && s && s.phase === 'set' && !s.outcome) break; await sleep(100); }
+          for (let i = 0; i < 150 && ended && s && s.phase !== 'retry'; i++) { if (s.phase === 'result' || s.phase === 'replay') await D('D.skip(); return 1;'); await sleep(150); s = see(await S()); }
+        }
+      }
+      await sleep(300); s = see(await S());
+      const results = await page.eval<unknown[]>('window.__gm.results || []').catch(() => []);
+      return { loaded: true, timedOut: false, hidden: false, errors: await errs(), calls: calls || null, tris: tris || null, parts: partsOf(s?.parts), failed: Object.keys(partsOf(s?.failed)),
+        kicked, ended, results: results.length };
+    }, { width: 844, height: 390, timeoutMs: 120_000 }));
+  } catch { return none; }
+}
+
+/** A shootout's report with its phone load judged in (the server's: its drive judged first, its phone load after). */
+export function withPhone(r: WorldReport, phone: ShootPhone): WorldReport {
+  if (!r.shootout) return r;
+  const v = shootPhoneVerdict(phone, r.errors, r.shootout.parts), problems = [...r.problems, ...v.problems];
+  return { ...r, ok: problems.length === 0, problems, advisories: [...r.advisories, ...v.advisories], shootout: { ...r.shootout, phone } };
+}
+
+/**
+ * A penalty shootout, played (13 Oct): no laps, no rivals and no crash to end it. The runtime's director runs the
+ * shootout (lib/runtime/shootout.js), so this drives it as a player would and judges the world round it (shootVerdict).
+ * The demo's frame rate at real speed; then three kicks (SHOOT_KICKS). The first is a player's: Enter (and Enter again
+ * on the rules), the walk to the spot and the whistle, the cover from the set (the taker on his mark, the keeper on his
+ * line, the ball on the spot; HUD hidden), then Space tapped fourteen times and the last tap held, the auto strike, its
+ * result and its replay, to Kick again. The other two through the director's own scripted tapper (the same press and
+ * release), the second shot for the key art at its strike (captureShootoutKeyArt), their results and replays skipped.
+ * A kick the keys did not start (back at the set with nothing kicked) is taken again by the tapper, so the drive's own
+ * keys never fail a world.
+ */
+async function shootPlaytest(page: Pg, readyMs: number, errs: () => Promise<string[]>): Promise<WorldReport> {
+  const S = () => page.eval<ShootSt>(SHOOT_ST);
+  const D = (js: string) => page.eval(`(() => { const D = window.__gmRuntime.debug.shootout(); ${js} })()`);
+  let calls = 0, tris = 0, s = await S();
+  const see = (q: ShootSt) => { if (q && q.render) { calls = Math.max(calls, Math.round(+q.render.calls) || 0); tris = Math.max(tris, Math.round(+q.render.tris) || 0); } return q; };
+  see(s);
+  // the title's face, ready before the key art
+  await page.eval(`(() => { const t = window.__gmRuntime.debug.art().theme || {}; return document.fonts ? document.fonts.load('900 100px ' + (t.font || 'Figtree')).then(() => 1, () => 0) : 0; })()`).catch(() => 0);
+  // the frame rate: the demo at real speed, once it has settled
+  await sleep(2500);
+  const f0 = await page.eval<number>('window.__frames');
+  await sleep(2500);
+  const fps = Math.round(((await page.eval<number>('window.__frames')) - f0) / 2.5);
+  see(await S());
+  // the lenses behind the goal (lib/runtime/shoot-lens.js, as the creator's drive reads them)
+  const lens = readLens(await page.eval(LENS_RUN()).catch(() => null));
+  const outcomes: string[] = [];
+  let kicks = 0, keys = false, picked: Awaited<ReturnType<typeof bestCover>> | undefined, art: { icon: Uint8Array; wide: Uint8Array } | undefined;
+  const tapped = (k: number) => D(`D.aim(${SHOOT_KICKS[k][0]}, ${SHOOT_KICKS[k][1]}); return D.tap(${SHOOT_KICKS[k][2]}, 1.6, { releaseMs: 0 });`);
+  // to the kick's outcome (the key art at the second kick's strike); back at the set with nothing kicked, false
+  const toOutcome = async (k: number) => {
+    for (let i = 0; i < 300; i++) {
+      s = see(await S());
+      if (k === 1 && !art && (s.phase === 'strike' || s.phase === 'flight')) { art = await captureShootoutKeyArt(page).catch(() => undefined); s = see(await S()); }
+      if (SHOOT_DONE.has(s.phase)) return true;
+      if (i >= 40 && s.phase === 'set' && !s.outcome) return false;
+      await sleep(100);
+    }
+    return false;
+  };
+  for (let k = 0; k < SHOOT_KICKS.length; k++) {
+    if (k === 0) {
+      await page.key('Enter'); await sleep(700);
+      if ((await S()).phase === 'start') { await page.key('Enter'); await sleep(500); }
+      // (keys that did not start it, the drive's and not the world's fault: the director's own start)
+      if (/^(demo|start)$/.test((await S()).phase)) await D('return D.start();');
+    } else await D('return D.start();');
+    s = await S();
+    for (let i = 0; i < 250 && s.phase !== 'set'; i++) { await sleep(100); s = await S(); }
+    kicks++;
+    if (s.phase !== 'set') { outcomes.push('none'); break; }
+    see(s);
+    let done: boolean;
+    if (k === 0) {
+      await D('D.film(true); return 1;'); await sleep(120);
+      picked = await bestCover(page);
+      await D('D.film(false); return 1;');
+      for (let i = 0; i < 14; i++) { await page.key('Space', 'keyDown'); await sleep(45); await page.key('Space', 'keyUp'); await sleep(65); }
+      await page.key('Space', 'keyDown');
+      done = keys = await toOutcome(k);
+      await page.key('Space', 'keyUp');
+      if (!done && (await S()).phase === 'set') { await tapped(k); done = await toOutcome(k); }
+    } else { await tapped(k); done = await toOutcome(k); }
+    outcomes.push(s.outcome && typeof s.outcome.kind === 'string' ? s.outcome.kind.slice(0, 12) : 'none');
+    if (!done) break;
+    // the first kick's result and replay play out; the others are skipped. Kick again is where its result is posted
+    for (let i = 0; i < 150 && s.phase !== 'retry'; i++) {
+      if (k > 0 && (s.phase === 'result' || s.phase === 'replay')) await D('D.skip(); return 1;');
+      await sleep(150); s = see(await S());
+    }
+  }
+  await sleep(300);
+  s = see(await S());
+  const results = await page.eval<unknown[]>('window.__gm.results').catch(() => []);
+  const errors = await errs();
+  const advisories: string[] = await page.eval<string[]>('window.__gm.warnings || []').catch(() => []);
+  const so: ShootDrive = { kicks, results: results.length, goals: Math.max(0, Math.round(Number(s?.tally?.goals) || 0)), outcomes, parts: partsOf(s?.parts), failed: Object.keys(partsOf(s?.failed)),
+    calls: calls || null, tris: tris || null, fps, cut: false, keys, lens };
+  const v = shootVerdict(so, { errors, fps, fpsCounts: true, timed: true, cover: picked?.cover, look: picked?.look });
+  return { ok: v.problems.length === 0, ran: true, readyMs, fps, errors, problems: v.problems, advisories: [...advisories, ...v.advisories], levelReached: kicks,
+    cover: picked?.cover, artIcon: art?.icon, artWide: art?.wide, look: picked?.look, kind: 'shootout', shootout: so };
+}
+
 export async function playtestWorld(url: string): Promise<WorldReport> {
   const empty = { ok: true, ran: false, readyMs: null, fps: null, errors: [], problems: [], advisories: [], levelReached: 0 };
   if (!chromePath()) return empty;
   try {
-    return await awake(() => withBrowser(async (page) => {
+    const report: WorldReport = await awake(() => withBrowser(async (page) => {
       await page.emulate({ width: 1280, height: 720 });
       await page.preload('window.__frames = 0; (function tick() { window.__frames++; requestAnimationFrame(tick); })();');
       const t0 = Date.now();
@@ -249,6 +547,9 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         if (cover.length < 14_000) problems.push('The screen is nearly a flat colour in the open world. Check the map or the ground, the lights and the camera.');
         return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: o.heat, cover, artIcon: art?.icon, artWide: art?.wide, open: { kos, heat: o.heat, boss: sawBoss, police: sawPolice }, look } as WorldReport;
       }
+
+      // a penalty shootout (13 Oct): kicks at the spot, not laps (shootPlaytest)
+      if (await page.eval<ShootSt | null>(SHOOT_ST).catch(() => null)) return await shootPlaytest(page, readyMs, errs);
 
       // a kart race (6 Oct): no endless lap and no crash to end it. Eight karts must race three laps on the
       // autopilot (at 3x) with the laps going by and nobody stuck, at a real frame rate, and the finish must bring
@@ -351,6 +652,8 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
 
       return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover, artIcon: art?.icon, artWide: art?.wide, look: picked.look };
     }, { width: 1280, height: 807, timeoutMs: 90_000 }));
+    // a penalty shootout that loaded (13 Oct): then its phone load, in a Chrome of its own, judged in
+    return report.kind === 'shootout' && report.shootout && report.readyMs !== null ? withPhone(report, await shootPhoneLoad(url)) : report;
   } catch (e) {
     return { ...empty, ok: false, ran: true, problems: [`The world could not be playtested: ${(e as Error).message}`] };
   }
