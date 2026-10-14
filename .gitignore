@@ -11,3 +11,25 @@ data/*.db-*
 # third-party source downloads for the asset library (rebuild with npm run assets:fetch)
 assets-src/cache/
 data/backups/
+
+# local work that never ships (the repo is public)
+# Claude Code: only shared rules and skills are committed, never a session's own files
+/.claude/*
+!/.claude/rules/
+!/.claude/skills/
+# scratch scripts, test rigs and renders
+/scripts/.scratch/
+/scripts/kart-steer/
+# trailers, stills and mockups made for review and marketing (the repo root holds no media of its own)
+/*.mp4
+/*.mov
+/*.png
+/*.jpg
+/*.jpeg
+/shootout-look/
+/shootout-m1/
+/meme-kart-doge/
+/aspen-gp-lord-black-diamond/
+/gamemog-dare-mockups/
+# private planning notes (dated: strategy, go-to-market, capital); the product docs are undated
+/docs/*-20[0-9][0-9]-[0-9][0-9]-[0-9][0-9].md
