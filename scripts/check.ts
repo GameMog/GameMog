@@ -172,6 +172,19 @@ console.log('\nworlds are 3D: the camera is the runtime\'s');
   }
 }
 
+// (the builder's manual is the whole of what a world builder is told: a name in it the runtime lacks is a world that
+// throws, an option that does nothing, and a paid repair pass; the live half, the examples run as worlds: npm run check:api)
+console.log('\nthe builder\'s manual matches the runtime (lib/runtime/API.md, scripts/api-doc-check.ts)');
+{
+  const { checkManual } = await import('./api-doc-check.ts');
+  const { readFileSync } = await import('node:fs');
+  const r = checkManual(readFileSync('lib/runtime/API.md', 'utf8')), s = r.stats;
+  const show = (ps: typeof r.problems) => ps.slice(0, 8).map((p) => `${p.where ?? `API.md:${p.line}`} ${p.name}: ${p.why}`).join(' | ') + (ps.length > 8 ? ` (and ${ps.length - 8} more)` : '');
+  const names = r.problems.filter((p) => p.name !== 'example'), ex = r.problems.filter((p) => p.name === 'example');
+  ok(`every name it promises is the runtime's, read where the runtime reads it (${s.names} names, ${s.scoped} of them on their own object or key; ${s.ctx} ctx paths, ${s.assets} ids, ${s.never} forbidden names, by kind of world)`, !names.length, show(names));
+  ok(`its ${s.examples} code examples parse as worlds and define what they use (${s.fragments} known fragments not run)`, !ex.length, show(ex));
+}
+
 console.log('\nthe asset library: every file licensed, listed and unchanged');
 {
   const { readFileSync, readdirSync, statSync } = await import('node:fs');

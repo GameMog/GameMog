@@ -469,7 +469,7 @@ keep a material of your own.
 (`size`: metres one tile covers), for geometry with its own UVs: set `repeat` on the maps to match
 (a `ribbon` of width w spans u 0 to 1 across and v one unit per w metres along).
 
-An atlas with a cut-out (`texture-fir-cards`) also gives `alphaMap` and `cards`: one
+An atlas with a cut-out (`texture-fir-cards`) has no `roughnessMap` and gives `alphaMap` and `cards`: one
 `{ uv: [u0, v0, u1, v1], stem: 'right' }` per spray, v measured up from the image's foot as three.js
 samples it, the cut stem at u1. Build a card from a plane whose UVs span one rectangle, with
 `alphaMap`, `alphaTest: 0.5` and `side: THREE.DoubleSide`, set the maps' `wrapS`/`wrapT` to

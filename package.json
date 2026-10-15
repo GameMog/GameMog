@@ -14,6 +14,7 @@
     "check": "node --import ./scripts/ts-resolve.mjs scripts/check.ts",
     "check:runtime": "node --import ./scripts/ts-resolve.mjs scripts/runtime-check.ts",
     "check:platform": "node --import ./scripts/ts-resolve.mjs scripts/platform-check.ts",
+    "check:api": "node --import ./scripts/ts-resolve.mjs scripts/api-live-check.ts",
     "media:hero": "node --import ./scripts/ts-resolve.mjs scripts/media/record-hero.ts",
     "media:art": "node --import ./scripts/ts-resolve.mjs scripts/media/key-art.ts",
     "media:og": "node --import ./scripts/ts-resolve.mjs scripts/media/og-card.ts",

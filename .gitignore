@@ -17,6 +17,7 @@ data/backups/
 /.claude/*
 !/.claude/rules/
 !/.claude/skills/
+/CLAUDE.local.md
 # scratch scripts, test rigs and renders
 /scripts/.scratch/
 /scripts/kart-steer/
