@@ -560,6 +560,34 @@ export const MIGRATIONS = [
       return 'published';
     },
   },
+  {
+    // the owner, 18 Oct: MOGATRON, a first-party kart race of eight lightbikes through the neon tunnels of Voltline
+    // Circuit (three laps, hazards on, no item weapons), written by a cloud build from the owner's brief and published
+    // on the Mac by `npm run publish:world -- mogatron` (its kart score measured on its own track, its soundtrack read
+    // from its definition, the Chrome playtest passed, cover and key art shot), its files written by
+    // scripts/.scratch/mogpub/ship.mts. Only inserted: a row already at /g/mogatron is never overwritten (the same code:
+    // already there; another: left alone). On a build without the kart kit or its soundtrack it waits (unrecorded,
+    // tried again at the next boot)
+    id: '2026-10-18-mogatron',
+    run(db) {
+      const code = file('mogatron.js'), meta = file('mogatron.meta.json');
+      if (!code || !meta) throw new Error('deploy/migrations/mogatron.js or mogatron.meta.json is not in this build');
+      const kit = ['kart.js', 'kart-roster.js', 'kart-items.js', 'kart-music.js', 'kart-score.js', 'kart-guard.js'];
+      if (!kit.every((f) => existsSync(join('lib', 'runtime', f)))) throw new Error('the kart kit (lib/runtime/kart*.js) is not in this build');
+      if (!existsSync(join('public', 'assets', 'music-vengeance-electro', 'asset.json'))) throw new Error('the soundtrack (music-vengeance-electro) is not in this build');
+      const m = JSON.parse(meta.toString('utf8')), src = code.toString('utf8');
+      if (!m.meta || m.meta.mode !== 'kart' || m.meta.scoring !== 'score' || m.meta.kartScore?.source !== 'measured') throw new Error('mogatron.meta.json is not a kart race with its score measured on its track');
+      const g = db.prepare("SELECT id, code FROM games WHERE slug = 'mogatron'").get();
+      if (g) return String(g.code ?? '').trim() === src.trim() ? 'already there' : 'left alone (another mogatron)';
+      if (db.prepare('SELECT id FROM games WHERE id = ?').get(m.id)) return 'left alone (its id is taken)';
+      const cover = file('mogatron-cover.jpg'), icon = file('mogatron-icon.jpg'), wide = file('mogatron-wide.jpg');
+      if (!cover || !icon || !wide) throw new Error('deploy/migrations/mogatron-{cover,icon,wide}.jpg are not in this build');
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+        VALUES (?, 'mogatron', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
+        .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: mogatron', Date.now(), src, JSON.stringify(m.meta), cover, icon, wide);
+      return 'published';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

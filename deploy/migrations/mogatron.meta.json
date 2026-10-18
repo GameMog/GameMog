@@ -1,0 +1,108 @@
+{
+  "id": "496b5d90-4bc2-4362-b531-1194e0b154a6",
+  "title": "MOGATRON",
+  "tagline": "Eight lightbikes, three laps: down the Helix, through the esses, over the gap above the night city and home in a blaze of light.",
+  "blurb": "MOGATRON: ride Cryo Vector against seven rivals on lightbikes that stream ribbons of light. One circuit, Voltline: blast out of the Ignition Bore, drop down the banked Helix Drain as data cubes crash through its roof, thread the Splitwire Esses past rolling plasma wheels, jump the gap on the Overclock Span above the neon city, sweep round the Dynamo Drum under toppling pylons, then flat out down the Last Light Straight. Drift for boosts and hit the pads; no weapons, no pickups, just the line. Three laps, eight bikes, and a knock never ends your race.",
+  "meta": {
+    "title": "MOGATRON",
+    "tagline": "Eight lightbikes, three laps: down the Helix, through the esses, over the gap above the night city and home in a blaze of light.",
+    "blurb": "MOGATRON: ride Cryo Vector against seven rivals on lightbikes that stream ribbons of light. One circuit, Voltline: blast out of the Ignition Bore, drop down the banked Helix Drain as data cubes crash through its roof, thread the Splitwire Esses past rolling plasma wheels, jump the gap on the Overclock Span above the neon city, sweep round the Dynamo Drum under toppling pylons, then flat out down the Last Light Straight. Drift for boosts and hit the pads; no weapons, no pickups, just the line. Three laps, eight bikes, and a knock never ends your race.",
+    "genre": "Kart racing",
+    "cast": [
+      {
+        "name": "Cryo Vector",
+        "color": "#21E6FF",
+        "role": "player"
+      },
+      {
+        "name": "Ember Torque",
+        "color": "#FF7A1A",
+        "role": "rival"
+      },
+      {
+        "name": "Fuchsia Glitch",
+        "color": "#FF2BD6",
+        "role": "rival"
+      },
+      {
+        "name": "Acid Sprint",
+        "color": "#9DFF2E",
+        "role": "rival"
+      },
+      {
+        "name": "Violet Vortex",
+        "color": "#9A5BFF",
+        "role": "rival"
+      },
+      {
+        "name": "Aurum Dash",
+        "color": "#FFC93C",
+        "role": "rival"
+      },
+      {
+        "name": "Redline Rook",
+        "color": "#FF2E4A",
+        "role": "rival"
+      },
+      {
+        "name": "Cobalt Drift",
+        "color": "#2E6BFF",
+        "role": "rival"
+      }
+    ],
+    "palette": {
+      "sky": "#04051A",
+      "ground": "#0A0E1A",
+      "accent": "#21E6FF"
+    },
+    "mode": "kart",
+    "controls": "W or the up arrow: gas (hit it as the 1 lands for a Moon Launch). S or the down arrow: brake, then reverse. A D or the left and right arrows: steer. Space: hop, and hold it through a turn to drift (let go for a boost); off a ramp, a trick. X (or J, K, Shift): use your item, held to drag a Rug Pull or Laser Eyes behind you as a shield; E throws it ahead; with S or the down arrow, behind. C: look back. P: pause. On touch screens, a stick to steer and DRIFT, ITEM and BRAKE buttons (the gas is automatic; hold DRIFT on the grid to launch; the stick up or down aims an item); a gamepad works too.",
+    "scoring": "score",
+    "runtime": 1,
+    "kartScore": {
+      "version": 1,
+      "source": "measured",
+      "tStar": {
+        "pepe": 94.913,
+        "doge": 96.353,
+        "shiba": 95.869,
+        "bike": 96.353,
+        "bull": 93.512,
+        "bear": 93.512,
+        "whale": 93.975,
+        "mooncat": 95.868
+      },
+      "tFloor": {
+        "pepe": 83.994,
+        "doge": 83.994,
+        "shiba": 83.994,
+        "bike": 83.994,
+        "bull": 83.273,
+        "bear": 83.273,
+        "whale": 83.685,
+        "mooncat": 83.994
+      },
+      "karts": 8,
+      "laps": 3,
+      "gmCap": 134,
+      "gmMax": 134,
+      "hitsCap": 30,
+      "hitsMax": 64,
+      "lap": 1381,
+      "trackSig": "6a304dd23aa0cd4c",
+      "physics": "bcad04a2df6b",
+      "world": "6fba749d9b72",
+      "at": "2026-10-18T18:11:10.460Z",
+      "ms": 4343
+    },
+    "soundtrack": {
+      "track": "music-vengeance-electro",
+      "label": "Vengeance Electro"
+    },
+    "test": {
+      "status": "passed",
+      "codeHash": "c5061a61a972cba1",
+      "cover": "current"
+    }
+  }
+}
