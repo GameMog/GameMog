@@ -525,6 +525,41 @@ export const MIGRATIONS = [
       return 'published';
     },
   },
+  {
+    // the owner, 18 Oct: ARTIFICIAL1., a first-party Grand Prix (the sixth kind of world, gp: {...}; lib/runtime/gp*.js behind
+    // the /*@gp*/ hooks): twenty AI agents, three laps of Port Artificial at night, the WHY. V-07 for you with Muse at the
+    // wheel. Published on the Mac by `npm run publish:world -- artificial1` (static check, the Chrome playtest's Grand Prix
+    // drive: a lap of the race to its result, its replay, the frame's cost; cover and key art shot on the start/finish
+    // straight) and written by scripts/.scratch/a1pub/ship.mts. It is ranked on the time board (the fastest finished race
+    // first), it cannot be mogged yet (lib/custom-game.ts canMog) and no Create or Mog build makes one. Only inserted: a row
+    // already at /g/artificial1 is never overwritten (the same code: already there; another: left alone). On a build without
+    // the Grand Prix runtime, its hooks, its car, its engine pack or its textures it waits (unrecorded, tried again at the
+    // next boot)
+    id: '2026-10-18-artificial1',
+    run(db) {
+      const code = file('artificial1.js'), meta = file('artificial1.meta.json');
+      if (!code || !meta) throw new Error('deploy/migrations/artificial1.js or artificial1.meta.json is not in this build');
+      const kit = ['gp.js', 'gp-track.js', 'gp-sim.js', 'gp-ai.js', 'gp-race.js', 'gp-cam.js', 'gp-hud.js', 'gp-director.js', 'gp-intro.js', 'gp-audio.js'];
+      if (!kit.every((f) => existsSync(join('lib', 'runtime', f)))) throw new Error('the Grand Prix runtime (lib/runtime/gp*.js) is not in this build');
+      if (!readFileSync(join('lib', 'runtime', 'v1.js'), 'utf8').includes('/*@include gp.js*/')) throw new Error('the runtime has no Grand Prix hooks in this build');
+      const packs = ['model-why-v07', 'audio-a1-engine-v4', 'texture-asphalt-clean', 'texture-asphalt-pit-lane', 'texture-facade-night-brown', 'texture-facade-night-grey', 'texture-facade-night-office'];
+      if (!packs.every((p) => existsSync(join('public', 'assets', p, 'asset.json')))) throw new Error('the car, the engine pack or the night textures (public/assets) are not in this build');
+      let lib = null;
+      try { lib = JSON.parse(readFileSync(join('public', 'assets', 'library.json'), 'utf8')); } catch { lib = null; }
+      if (!lib || !packs.every((p) => lib.assets && lib.assets[p])) throw new Error('the asset library does not list the car, the engine pack and the night textures in this build');
+      const m = JSON.parse(meta.toString('utf8')), src = code.toString('utf8');
+      if (!m.meta || m.meta.mode !== 'gp' || m.meta.scoring !== 'time') throw new Error('artificial1.meta.json is not a Grand Prix ranked by its race time');
+      const g = db.prepare("SELECT id, code FROM games WHERE slug = 'artificial1'").get();
+      if (g) return String(g.code ?? '').trim() === src.trim() ? 'already there' : 'left alone (another artificial1)';
+      if (db.prepare('SELECT id FROM games WHERE id = ?').get(m.id)) return 'left alone (its id is taken)';
+      const cover = file('artificial1-cover.jpg'), icon = file('artificial1-icon.jpg'), wide = file('artificial1-wide.jpg');
+      if (!cover || !icon || !wide) throw new Error('deploy/migrations/artificial1-{cover,icon,wide}.jpg are not in this build');
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+        VALUES (?, 'artificial1', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
+        .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: artificial1', Date.now(), src, JSON.stringify(m.meta), cover, icon, wide);
+      return 'published';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

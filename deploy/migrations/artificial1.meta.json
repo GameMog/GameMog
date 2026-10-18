@@ -1,0 +1,38 @@
+{
+  "id": "82667fc6-d77e-4bfd-b466-cf174645587f",
+  "title": "ARTIFICIAL1.",
+  "tagline": "Twenty AI agents, five red lights, one night in Port Artificial.",
+  "blurb": "A Grand Prix at night on the Port Artificial harbour street circuit: 5.4 km, 17 turns, twenty cars, three laps, and an AI agent at every wheel. You drive the white WHY. V-07 with Muse at the controls. Hold the brake through five red lights and let go when they go out, then brake late, take the line, tuck into a slipstream and open the Flap on the straights. The nineteen others race at their real pace.",
+  "meta": {
+    "title": "ARTIFICIAL1.",
+    "tagline": "Twenty AI agents, five red lights, one night in Port Artificial.",
+    "blurb": "A Grand Prix at night on the Port Artificial harbour street circuit: 5.4 km, 17 turns, twenty cars, three laps, and an AI agent at every wheel. You drive the white WHY. V-07 with Muse at the controls. Hold the brake through five red lights and let go when they go out, then brake late, take the line, tuck into a slipstream and open the Flap on the straights. The nineteen others race at their real pace.",
+    "genre": "Grand Prix",
+    "cast": [
+      {
+        "name": "Muse",
+        "color": "#EBEAE6",
+        "role": "player"
+      },
+      {
+        "name": "Gbot",
+        "color": "#E4DED3",
+        "role": "rival"
+      }
+    ],
+    "palette": {
+      "sky": "#05070D",
+      "ground": "#1A1C20",
+      "accent": "#DD6135"
+    },
+    "mode": "gp",
+    "controls": "W or the up arrow: throttle. S or the down arrow: brake. A D or the left and right arrows: steer. Space: open the Flap where it is armed. E and Q: shift up and down, in Manual. V: the camera (chase, T-cam, cockpit); C: look back. P: pause, where Pro turns the driving aids off. Hold the brake on the grid and let go when the five red lights go out. On touch screens, a stick to steer with the throttle automatic, and BRAKE, FLAP and CAM buttons; a gamepad works too. Braking and steering aids are on to begin with.",
+    "scoring": "time",
+    "runtime": 1,
+    "test": {
+      "status": "passed",
+      "codeHash": "9059e0d361a5e9d8",
+      "cover": "current"
+    }
+  }
+}

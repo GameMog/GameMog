@@ -89,3 +89,25 @@ export async function captureShootoutKeyArt(page: Page): Promise<WorldKeyArt> {
 }
 /** Where the ball is (its z, metres) when a shootout's key art is shot: two thirds of the way from the spot to the goal line. */
 export const SHOOT_ART_Z = -48.5;
+
+/**
+ * A Grand Prix's key art (18 Oct), shot as the player's car comes down the start/finish straight at the end of a lap:
+ * the runtime's own chase camera, the HUD off (v1's cinematic), the gantry, the grandstand and the harbour city round
+ * the car, the platform's title over it. The caller has a race running at speed (debug.gp().go); this slows it to real
+ * time for the last metres, waits for the straight and leaves the frame ready (gpArtSpot), then shoots it (captureGpKeyArt).
+ * A race over before the straight is reached leaves the frame as it is.
+ */
+export const GP_ART_D = 5300;
+export async function gpArtSpot(page: Page): Promise<boolean> {
+  const dist = () => page.eval<number | null>(`(() => { const g = window.__gmRuntime.state().gp, c = g && g.cars && g.cars[g.you]; return c ? c.d : null; })()`).catch(() => null);
+  await page.eval('window.__gmRuntime.debug.timeScale(1)');
+  let d = await dist();
+  for (let i = 0; i < 150 && d !== null && d < GP_ART_D; i++) { await sleep(60); d = await dist(); }
+  await page.eval('window.__gmRuntime.debug.cinematic(true)');
+  await sleep(450);
+  return d !== null && d >= GP_ART_D - 40;
+}
+export async function captureGpKeyArt(page: Page): Promise<WorldKeyArt> {
+  try { return await titled(page); }
+  finally { await page.eval(`document.getElementById('gm-key-art-title')?.remove(); window.__gmRuntime.debug.cinematic(false);`).catch(() => undefined); }
+}

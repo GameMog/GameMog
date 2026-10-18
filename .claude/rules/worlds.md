@@ -12,7 +12,7 @@ paths:
 
 - **three.js r157 only, as the page's global `THREE`.** `lib/custom-game.ts` loads `three@0.157.0` from jsdelivr. A world has no imports, network, storage, timers, event listeners, DOM access, renderer or camera of its own: the static check refuses all of these. `## Never` in `lib/runtime/API.md` has the full list.
 - **Size and budget.**
-  - A world is at most 500,000 characters (`WORLD_MAX`).
+  - A world is at most 750,000 characters (`WORLD_MAX`; 500,000 until 15 Oct 2026).
   - On a laptop: 60 fps, under 300 draw calls, at most one shadow-casting light.
   - A kart race or a shootout on a phone: about 150 draw calls and 350k triangles a frame, shadows included (`API.md`, the "Kart races" performance bullet and the "Penalty shootouts" chapter; a shootout's test drive reports going over, `SHOOT_HEAVY` in `lib/playtest-runtime.ts`).
   - Count draw calls and triangles in Chrome. If you have not measured them, write NOT ASSESSED.

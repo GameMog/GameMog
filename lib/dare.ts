@@ -13,7 +13,7 @@ import { randomBytes } from 'node:crypto';
 import { db, getGameById, getPlayableGameById, type GameRow } from './db';
 import { isBot } from './analytics';
 import { COOKIE, validSession } from '../app/admin/session';
-import { worldMode, canMog } from './custom-game';
+import { worldMode, canMog, gpLaps, GP_MIN_LAP_MS } from './custom-game';
 import { optionsOf } from './world-options';
 import { dna } from './mog-dna';
 import { KartScore, kartConstants, checkKartRun, raceClock, ordinal, type KartConstants } from './kart-score';
@@ -27,7 +27,8 @@ export function boardOf(game: GameLike): Board {
   if (game.format === 'world') {
     const mode = worldMode(game.code, game.meta);
     // (a penalty shootout, 12 Oct: the goals scored, on the score board)
-    return mode === 'kart' ? 'kart' : mode === 'race' ? 'level' : mode === 'shootout' ? 'score' : 'survival';
+    // (a Grand Prix, 18 Oct: the fastest race first)
+    return mode === 'kart' ? 'kart' : mode === 'race' ? 'level' : mode === 'shootout' ? 'score' : mode === 'gp' ? 'time' : 'survival';
   }
   if (game.format === 'custom') {
     let s: unknown;
@@ -52,7 +53,8 @@ function contextOf(game: GameLike) {
   try { cast = (JSON.parse(game.meta ?? '{}') as { cast?: unknown[] }).cast?.length ?? 8; } catch { /* the default */ }
   // (a penalty shootout's run is its goals, from that many kicks)
   const shootout = game.format === 'world' && board === 'score';
-  return { board, C, laps: kart?.laps ?? null, coins: game.format === 'world' ? !!optionsOf(game).coins : true, cast, shootout };
+  const gp = game.format === 'world' && worldMode(game.code, game.meta) === 'gp';
+  return { board, C, laps: kart?.laps ?? null, coins: game.format === 'world' ? !!optionsOf(game).coins : true, cast, shootout, gp };
 }
 
 const int = (v: unknown) => Math.round(Number(v) || 0);
@@ -101,6 +103,16 @@ export function checkRun(game: GameLike, input: unknown): { ok: true; run: DareR
       return no('Result outside plausible range');
     }
     return { ok: true, run: { ...base, timeMs: Math.round(timeMs), place: 0, gm: 0, level, kos: 0, score: goals } };
+  }
+  // (a Grand Prix, 18 Oct: the race time, over its laps, and the place it finished in; the same bounds as app/api/scores/route.ts)
+  if (x.gp) {
+    const place = Number(b.place) || 0;
+    // (only a race run to the flag counts: a car classified without finishing, or short of the world's own laps, is not a time)
+    if (b.classified === true || level !== gpLaps(game.code)) return no('Only a finished race counts.');
+    if (!Number.isInteger(level) || level < 1 || level > 5 || !Number.isInteger(place) || place < 1 || place > 20 || timeMs < level * GP_MIN_LAP_MS || timeMs > 60 * 60 * 1000) {
+      return no('Result outside plausible range');
+    }
+    return { ok: true, run: { ...base, timeMs: Math.round(timeMs), place, gm: 0, level, kos: 0 } };
   }
   if (game.format === 'custom') {
     const score = Number(b.score) || 0, place = Number(b.place) || 0;

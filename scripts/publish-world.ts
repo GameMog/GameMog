@@ -63,7 +63,7 @@ const soundtrack = ownSoundtrack(def, meta.title, worldMode(code) === 'kart');
 console.log(`soundtrack: ${soundtrack ? JSON.stringify(soundtrack) : 'none of its own'}`);
 
 const draftId = randomUUID();
-const stored = { ...meta, mode: worldMode(code), controls: worldControls(code), scoring: worldMode(code) === 'kart' || worldMode(code) === 'shootout' ? 'score' : isOpenWorld(code) ? 'survival' : 'level', runtime: 1, ...(kartScore ? { kartScore } : {}), ...(soundtrack ? { soundtrack } : {}) };
+const stored = { ...meta, mode: worldMode(code), controls: worldControls(code), scoring: worldMode(code) === 'kart' || worldMode(code) === 'shootout' ? 'score' : worldMode(code) === 'gp' ? 'time' : isOpenWorld(code) ? 'survival' : 'level', runtime: 1, ...(kartScore ? { kartScore } : {}), ...(soundtrack ? { soundtrack } : {}) };
 insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world', report: { pending: true }, code, meta: stored, parentId: parent?.id ?? null, mogPrompt: parent ? mogPrompt : null });
 console.log('playtesting in Chrome...');
 const report = await playtestWorld(`${BASE}/d/${draftId}/play`);

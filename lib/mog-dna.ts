@@ -392,6 +392,9 @@ const KIND: Record<WorldMode, RegExp> = {
   // one, and a Mog of one stays one whatever its idea says ("a North London derby" still reads as a derby here, and
   // compareDna's kind rule refuses it); lib/generate-game.ts says so in the Mog turn)
   shootout: /(?!)/,
+  // (a Grand Prix, 14 Oct: the same never-matching form, so every idea reads exactly as before; a Grand Prix cannot be
+  // mogged until its M3, lib/custom-game.ts MOGGABLE)
+  gp: /(?!)/,
 };
 /**
  * Settings a world can be moved to (a rename's clause is taken out before these are looked for). The words that also
@@ -492,6 +495,7 @@ export const KIND_SAID: Record<WorldMode, string> = {
   race: 'an endless-lap race', survival: 'an open world on foot, surviving the crews', derby: 'a car combat arena (a derby)',
   kart: 'a kart race (kart: {...}: laps, eight karts, places)',
   shootout: 'a penalty shootout (shootout: {...}: one taker, one keeper, kick after kick)',
+  gp: 'a Grand Prix (gp: {...}: a 3 to 7 km lap, twenty cars, places)',
 };
 const list = (xs: string[], n = 3) => xs.length > n ? `${xs.slice(0, n).join(', ')} and more` : xs.join(', ');
 const patrolSaid = (car: string) => (car === 'on' ? 'a patrol car' : `${/^[aeiou]|^suv$/i.test(car) ? 'an' : 'a'} ${car === 'suv' ? 'SUV' : car}`);

@@ -1,6 +1,6 @@
 import { readOptions, type WorldOptions } from './world-options';
 import { z } from 'zod';
-import { Script } from 'node:vm';
+import { Script, runInNewContext } from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -131,9 +131,33 @@ export function isShootoutWorld(code?: string | null) {
   const top = topOf(code, m.index + m[0].length);
   return /(?:^|[\s,{])shootout\s*:\s*\{/.test(top) && !/(?:^|[\s,{])(?:open|kart)\s*:\s*\{/.test(top);
 }
+/**
+ * A Grand Prix (ARTIFICIAL1, the owner 14 Oct 2026: "all recommended"): gp: { ... } among GameMog.world's own top-level
+ * keys, read as isShootoutWorld reads a shootout, and never with open, kart or shootout there. Its runtime carries the
+ * Grand Prix (lib/runtime/gp.js and its parts, gp-*.js) and no other world's does.
+ */
+export function isGpWorld(code?: string | null) {
+  if (!code) return false;
+  const m = /\bGameMog\s*\.\s*world\s*\(\s*\{/.exec(code);
+  if (!m) return false;
+  const top = topOf(code, m.index + m[0].length);
+  return /(?:^|[\s,{])gp\s*:\s*\{/.test(top) && !/(?:^|[\s,{])(?:open|kart|shootout)\s*:\s*\{/.test(top);
+}
 export const KART_CONTROLS = 'W or the up arrow: gas (hit it as the 1 lands for a Moon Launch). S or the down arrow: brake, then reverse. A D or the left and right arrows: steer. Space: hop, and hold it through a turn to drift (let go for a boost); off a ramp, a trick. X (or J, K, Shift): use your item, held to drag a Rug Pull or Laser Eyes behind you as a shield; E throws it ahead; with S or the down arrow, behind. C: look back. P: pause. On touch screens, a stick to steer and DRIFT, ITEM and BRAKE buttons (the gas is automatic; hold DRIFT on the grid to launch; the stick up or down aims an item); a gamepad works too.';
 // a penalty shootout (12 Oct): the owner's mechanic, TAP, aim, HOLD and RELEASE (lib/runtime/shootout.js)
 export const SHOOTOUT_CONTROLS = 'Space or a click: tap to run up (tap faster for more power). The arrow keys or W A S D: aim. Hold the last tap when the ring glows and let go as the gold ring closes. Enter: start, skip the replay and kick again. P: pause. On touch screens, a stick to aim and a KICK button; a gamepad works too (A to tap, the left stick to aim).';
+// a Grand Prix (14 Oct): the player's car is the same car the AI drives; braking and steering assists are on by default
+// on every screen and Pro (in the pause menu) turns them off; one launch on every device (lib/runtime/gp.js)
+// (18 Oct) the shortest lap a Grand Prix's race can plausibly be run in, for the scores route and the dares: the circuit's
+// 5.36 km in 50 s is a 386 km/h average, past anything its cars do (the AI laps it in about 1:29)
+export const GP_MIN_LAP_MS = 50_000;
+// (18 Oct) the laps a Grand Prix races, as its own gp: { laps: N } says (1 to 5, three when it names none): a time is only
+// a time over all of them
+export function gpLaps(code?: string | null) {
+  const m = code ? /(?:^|[\s,{])gp\s*:\s*\{[^}]*?\blaps\s*:\s*(\d+)/.exec(code) : null, n = m ? Number(m[1]) : 3;
+  return n >= 1 && n <= 5 ? n : 3;
+}
+export const GP_CONTROLS = 'W or the up arrow: throttle. S or the down arrow: brake. A D or the left and right arrows: steer. Space: open the Flap where it is armed. E and Q: shift up and down, in Manual. V: the camera (chase, T-cam, cockpit); C: look back. P: pause, where Pro turns the driving aids off. Hold the brake on the grid and let go when the five red lights go out. On touch screens, a stick to steer with the throttle automatic, and BRAKE, FLAP and CAM buttons; a gamepad works too. Braking and steering aids are on to begin with.';
 // a derby (open.vehicle): car combat in an arena
 export const DERBY_CONTROLS = 'W A S D or the arrow keys: drive (S brakes, then reverses). Space: handbrake. Shift: boost. J, F or a held click: the roof guns. Drag: look around. P: pause. On touch screens, a stick to drive and BOOST, BRAKE and FIRE.';
 /**
@@ -142,13 +166,14 @@ export const DERBY_CONTROLS = 'W A S D or the arrow keys: drive (S brakes, then 
  * truth; meta.mode records it when a world is stored, and a game stored before that
  * is read from what it did store (scoring 'survival', options.open).
  */
-export const WORLD_MODES = ['race', 'survival', 'derby', 'kart', 'shootout'] as const;
+export const WORLD_MODES = ['race', 'survival', 'derby', 'kart', 'shootout', 'gp'] as const;
 export type WorldMode = (typeof WORLD_MODES)[number];
 export function worldMode(code?: string | null, meta?: string | null | Record<string, unknown>): WorldMode {
   // (a kart race, 6 Oct: kart: {...} among GameMog.world's own keys; read first, so a kart world that names a
   // vehicle or an "open" anywhere inside it stays a kart race)
   // (a penalty shootout, 12 Oct: shootout: {...} among its own keys, read first; it never has open or kart there)
-  if (code) return isShootoutWorld(code) ? 'shootout' : isKartWorld(code) ? 'kart' : isOpenWorld(code) ? (/\bvehicle\s*:\s*\{/.test(code) ? 'derby' : 'survival') : 'race';
+  // (a Grand Prix, 14 Oct: gp: {...} among its own keys, read first of all; it never has open, kart or shootout there)
+  if (code) return isGpWorld(code) ? 'gp' : isShootoutWorld(code) ? 'shootout' : isKartWorld(code) ? 'kart' : isOpenWorld(code) ? (/\bvehicle\s*:\s*\{/.test(code) ? 'derby' : 'survival') : 'race';
   let m: { mode?: unknown; scoring?: unknown; options?: { open?: unknown } } = {};
   try { m = (typeof meta === 'string' ? JSON.parse(meta) : meta) ?? {}; } catch { /* a race */ }
   if (WORLD_MODES.includes(m.mode as WorldMode)) return m.mode as WorldMode;
@@ -176,6 +201,11 @@ export const MODE_PAGE: Record<WorldMode, { label: string; rivals: string; how: 
     rivals: 'One keeper',
     how: 'A penalty in a final, one kick at a time. Tap to run up: the faster you tap, the faster he runs and the harder he strikes it, and the gauge climbs from COLD through WARM and HOT to ON FIRE. Steer the aim with the stick or the arrow keys: aim anywhere you like, but over the bar or past a post is a miss. Hold the last tap as the ring glows, and let go as the gold ring closes on the plant foot: early scuffs it, late leans back and can sail it over. Then the keeper\'s guess and his reach decide. Score, kick again, and every goal counts. The leaderboard ranks the goals you score in a sitting.',
   },
+  gp: {
+    label: 'Grand Prix',
+    rivals: 'Nineteen on the grid',
+    how: 'A Grand Prix at night: twenty cars, three laps of a harbour street circuit, five red lights and a random hold before they go out. Race nineteen AI drivers at their real pace: brake late, take the line, tuck into a slipstream and open the Flap on the straights once you are close enough to arm it. Contact never ends your race. Cut a corner and that lap is deleted from your times; three strikes add five seconds. The race ends a minute after the winner crosses the line.',
+  },
   derby: {
     label: 'Car combat arena',
     rivals: 'More cars as the heat rises',
@@ -194,6 +224,7 @@ export function kartHow(laps?: number | null) {
 /** An open world with no GM (the creator's option, or open.coins: false) explains itself without coins. */
 export const NO_GM_HOW = 'An open world to roam, with no GM to chase. Crews come for you, more of them and tougher as the heat rises: it climbs with time and with every few knockouts, and a boss arrives at every third heat. Get knocked out and the run is over. The leaderboard ranks the time survived, then the takedowns.';
 export function worldControls(code: string) {
+  if (isGpWorld(code)) return GP_CONTROLS;
   if (isShootoutWorld(code)) return SHOOTOUT_CONTROLS;
   if (isKartWorld(code)) return KART_CONTROLS;
   const mode = worldMode(code);
@@ -209,7 +240,8 @@ export function worldControls(code: string) {
  * kind again: its page, its dares and /mog/<slug> then say so (MOG_SOON), and the build route refuses a Mog of it
  * before anything is spent.
  */
-export const MOGGABLE: Record<WorldMode, boolean> = { race: true, survival: true, derby: true, kart: true, shootout: true };
+// (a Grand Prix, 14 Oct: closed until its M3, when the builder gets its chapter, its DNA, its test drive and its check)
+export const MOGGABLE: Record<WorldMode, boolean> = { race: true, survival: true, derby: true, kart: true, shootout: true, gp: false };
 /** Whether a game can be mogged: every game but a world of a kind MOGGABLE closes. */
 export function canMog(game: { format: string; code?: string | null; meta?: string | null }) {
   return game.format !== 'world' || MOGGABLE[worldMode(game.code, game.meta)];
@@ -271,7 +303,7 @@ export function publicOrigin(req: Request) {
  * must be (lib/world-options.ts readSoundtrack); like the kart score, no '<'
  * in them can end this script (no other option has one, so no other page changes).
  */
-function hostScript(id: string, title: string, tagline = '', options?: WorldOptions, kartScore?: unknown) {
+function hostScript(id: string, title: string, tagline = '', options?: WorldOptions, kartScore?: unknown, gp = false) {
   return `(function () {
   var id = ${JSON.stringify(id)}, isReady = false, finished = 0;
   var gm = window.__gm = { ready: false, results: [], errors: [] };
@@ -328,10 +360,28 @@ function hostScript(id: string, title: string, tagline = '', options?: WorldOpti
         out.hits = Math.max(0, Math.round(Number(r.hits) || 0)); out.karts = Math.max(0, Math.round(Number(r.karts) || 0));
         out.estimated = r.estimated === true; out.progress = r.progress == null || !isFinite(Number(r.progress)) ? null : Math.max(0, Math.min(1, Number(r.progress)));
         out.racer = typeof r.racer === 'string' ? r.racer.slice(0, 24) : null; out.scoreV = Math.round(Number(r.scoreV) || 0);
-      }
+      }${gp ? `
+      // a Grand Prix's own parts (15 Oct, the owner's D3): the driving aids are tagged aids 'on', 'off' or 'pro' and are
+      // never 'assisted' (which stays the test controls' and is refused), so an aided run reaches the board and dares;
+      // and the race's facts, passed on as they are (the board that ranks them is M3's)
+      if (r.gp) {
+        out.gp = true; out.aids = r.aids === 'off' || r.aids === 'pro' ? r.aids : 'on'; out.field = r.field === 'club' ? 'club' : 'real';
+        var gi = function (v, hi) { return Math.max(0, Math.min(hi, Math.round(Number(v) || 0))); };
+        out.grid = gi(r.grid, 99); out.laps = gi(r.laps, 99); out.of = gi(r.of, 99); out.bestLapMs = gi(r.bestLapMs, 3600000);
+        out.strikes = gi(r.strikes, 999); out.penaltyMs = gi(r.penaltyMs, 3600000); out.contacts = gi(r.contacts, 9999); out.passes = gi(r.passes, 9999);
+        out.seed = gi(r.seed, 4294967295); out.classified = r.classified === true;
+      }` : ''}
       gm.results.push(out);
       post(out);
-    }
+    }${gp ? `,
+    // a Grand Prix's moments for the page (INTERFACES 8, the M2 amendment): { type: 'gp', e, ... }, plain values only;
+    // the page forwards them to first-party analytics in M3 and ignores them until then
+    gpEvent: function (m) {
+      if (!m || typeof m.e !== 'string') return;
+      var o = { type: 'gp' };
+      for (var k in m) { var v = m[k]; if (k !== 'type' && k !== 'source' && k !== 'gameId' && (v == null || typeof v === 'number' || typeof v === 'boolean' || (typeof v === 'string' && v.length <= 40))) o[k] = v; }
+      post(o);
+    }` : ''}
   };
 })();`;
 }
@@ -378,12 +428,30 @@ const KART_PART = /\/\*@kart\*\/[\s\S]*?\/\*@\/kart\*\//g, KART_MARK = /\/\*@\/?
 // exactly the text it always did
 const SHOOT_PART = /\/\*@shootout\*\/[\s\S]*?\/\*@\/shootout\*\//g, SHOOT_MARK = /\/\*@\/?shootout\*\//g;
 const OPEN_STUB = '    var OW = null;\n    function openWorld() {}\n';
-export function runtimeSource(version: number, kart = false, shootout = false) {
-  const key = `${version}${kart ? ':kart' : shootout ? ':shootout' : ''}`;
+// the Grand Prix's parts (between /*@gp*/ and /*@/gp*/ in v1.js, 14 Oct): kept, markers removed, for a Grand Prix; cut
+// out whole, FIRST, for every other world, which then gets exactly the text it always did
+const GP_PART = /\/\*@gp\*\/[\s\S]*?\/\*@\/gp\*\//g, GP_MARK = /\/\*@\/?gp\*\//g;
+// (its parts, in gp.js's /*@include*/ order, one file and one binding each: ARTIFICIAL1 INTERFACES.md 1.2 and its M2
+// amendment, EXPERIENCE.md 6.1. The ones the director cannot race without: missing, a console warning and its stand-in;
+// the rest are later parts (or stubs), missing quietly until they are built. An include of any other name is a comment)
+const GP_PARTS = ['gp-track.js', 'gp-sim.js', 'gp-ai.js', 'gp-race.js', 'gp-cam.js', 'gp-director.js', 'gp-car.js', 'gp-stage.js', 'gp-kit.js', 'gp-hud.js', 'gp-intro.js', 'gp-audio.js'];
+const GP_REQUIRED = new Set(['gp-track.js', 'gp-sim.js', 'gp-ai.js', 'gp-race.js', 'gp-cam.js', 'gp-hud.js']);
+export function runtimeSource(version: number, kart = false, shootout = false, gp = false) {
+  const key = `${version}${kart ? ':kart' : shootout ? ':shootout' : gp ? ':gp' : ''}`;
   if (!RUNTIMES[key] || process.env.NODE_ENV !== 'production') {
     // the platform's score engine and car kit ride in front of the runtime that uses them
     const read = (f: string) => readFileSync(join(process.cwd(), 'lib', 'runtime', f), 'utf8');
-    const v0 = read(`v${version}.js`);
+    const v1src = read(`v${version}.js`);
+    // (a Grand Prix runs no kart race, no shootout and no open world: their parts cut out, a stub for open.js, and
+    // lib/runtime/gp.js at its own marker inside the runtime's closure, its parts pasted at its /*@include gp-<name>.js*/
+    // markers, one file a part)
+    if (gp && !kart && !shootout) {
+      const part = (f: string) => { if (!GP_PARTS.includes(f)) return `/* ${f}: not a Grand Prix part */\n`; try { return read(f); } catch { return GP_REQUIRED.has(f) ? `/* ${f}: not in this tree */ console.warn('[gp] lib/runtime/${f} is not in this tree');\n` : `/* ${f}: not in this tree */\n`; } };
+      const gpSrc = read('gp.js').replace(/\/\*@include (gp-[a-z]+\.js)\*\//g, (_: string, f: string) => part(f));
+      const core = v1src.replace(KART_PART, '').replace(SHOOT_PART, '').replace(GP_MARK, '').replace('/*@include open.js*/', () => OPEN_STUB).replace('/*@include gp.js*/', () => gpSrc);
+      return (RUNTIMES[key] = [read('music.js'), read('vehicle.js'), read('creature.js'), core].join('\n'));
+    }
+    const v0 = v1src.replace(GP_PART, '');
     // (a shootout runs no kart race and no open world: the kart parts cut out, a stub for open.js, as a kart race has,
     // and lib/runtime/shootout.js at its own marker, inside the runtime's closure)
     // (and shootout.js's own parts, one file a part, pasted in place at its /*@include shootout-<name>.js*/ markers, so
@@ -467,7 +535,7 @@ export function renderWorldGame(world: string, meta: Pick<GameMeta, 'title' | 't
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>${escapeHtml(meta.title)}</title>
 <style>html,body{margin:0;height:100%;overflow:hidden;background:#000;touch-action:none;-webkit-user-select:none;user-select:none}canvas{display:block}</style>
-<script>${hostScript(id, meta.title, meta.tagline, meta.options === undefined ? undefined : readOptions(meta.options), isKartWorld(world) ? meta.kartScore : undefined)}</script>
+<script>${hostScript(id, meta.title, meta.tagline, meta.options === undefined ? undefined : readOptions(meta.options), isKartWorld(world) ? meta.kartScore : undefined, isGpWorld(world))}</script>
 ${drive ? `<script>window.__gmKind = ${JSON.stringify(worldMode(world))};</script>
 ${isShootoutWorld(world) ? `<script>
 ${inert(shootLensSource())}
@@ -481,7 +549,7 @@ ${inert(driveSource())}
 <body>
 ${mapScripts(world)}${endoScript(world)}
 <script>
-${inert(runtimeSource(runtime, isKartWorld(world), isShootoutWorld(world)))}
+${inert(runtimeSource(runtime, isKartWorld(world), isShootoutWorld(world), isGpWorld(world)))}
 </script>
 <script>
 ${inert(world)}
@@ -764,10 +832,126 @@ function shootoutProblems(code: string, from: number): string[] {
   return problems;
 }
 
+/* ------------------------------------------------------- a Grand Prix's own check (14 Oct, ARTIFICIAL1 M1) -- */
+/**
+ * A Grand Prix is served only if its runtime can run it: one kind, its lap written as a literal the runtime's own track
+ * code accepts (the check runs lib/runtime/gp-track.js on it, so the check and the game judge the same lap), no real
+ * series' marks, its cars and sound left to the runtime, and a field it can line up. Read only for a world whose gp: {...}
+ * is among GameMog.world's own keys, and GP2 for any world that writes one beside another kind; no other world is touched.
+ */
+export const GP_CHECK = {
+  GP1: 'Write the Grand Prix inline, gp: { ... }, among GameMog.world\'s own keys (not gp: SOME_CONST): only then is it served as a Grand Prix.',
+  GP2: 'A world is one kind: gp: { ... } never sits beside open: { ... }, kart: { ... } or shootout: { ... }, and a Grand Prix writes no play.vehicle (its cars are the runtime\'s).',
+  GP3: 'A Grand Prix writes its lap inline as track: { start, width, segments, elevation, widths, bank, verge, runoff }, in numbers, strings, true, false, null, arrays and objects only (no names, calls, sums or template strings), so the check and the game build the same lap.',
+  GP5: 'A Grand Prix\'s cars and sound are the runtime\'s: write no player(), rival() or music among GameMog.world\'s keys (ambient() is fine).',
+  GP6: 'ctx.broadcast(), ctx.mirror(), ctx.kart and ctx.shootout are not for a Grand Prix: its cameras are the runtime\'s, and a mirror draws the whole lap a second time every frame.',
+  GP7: 'gp.laps is 1 to 5 and gp.field 2 to 20; gp.teams and gp.drivers are written inline, at least gp.field drivers, each with its own id, a team listed in gp.teams (by id) and a tla of 3 capitals.',
+} as const;
+/** GP4, with the name it found. */
+export const gpDeniedSaid = (word: string) => `A Grand Prix never names a real racing series, its governing body or its marks (found: "${word}"): the race, its teams, its drivers, its circuit and its overtake aid (the Flap) have names of the world's own.`;
+// a series' and its governing body's names and marks (word-bounded: a hex colour's F1 is not one); the acronyms that are
+// everyday letters elsewhere only in capitals, as a board writes them
+const GP_DENY_ANY = /(?<![\p{L}\p{N}])(?:f1|formula[ -]?(?:one|1)|formula|paddock club|f1 ?studio|f1\.glb)(?![\p{L}\p{N}])/iu;
+const GP_DENY_CAPS = /(?<![\p{L}\p{N}])(?:FIA|FOM|DRS)(?![\p{L}\p{N}])/u;
+/** The series' name or mark a text uses (as a Grand Prix may not), or null. */
+export function gpDenied(text: string): string | null {
+  const m = GP_DENY_ANY.exec(text) ?? GP_DENY_CAPS.exec(text);
+  return m ? m[0] : null;
+}
+// lib/runtime/gp-track.js, loaded once per file version into a realm of its own: the runtime's own lap builder
+let GP_TRACK: { src: string; fn: ((src: unknown, lim: unknown, warn: (m: string) => void) => unknown) | null } = { src: '', fn: null };
+function gpTrackFn() {
+  let src = '';
+  try { src = readFileSync(join(process.cwd(), 'lib', 'runtime', 'gp-track.js'), 'utf8'); } catch { return null; }
+  if (src !== GP_TRACK.src) GP_TRACK = { src, fn: runInNewContext(`${src}\n;gpTrack`, {}, { timeout: 2000 }) as typeof GP_TRACK.fn };
+  return GP_TRACK.fn;
+}
+/** Whether a value, read from the masked code, is a plain literal: objects, arrays, numbers, strings, true, false, null, unary minus. */
+function plainLiteral(bare: string, code: string, s: number, e: number) {
+  if (code.slice(s, e).includes('`')) return false;
+  let i = s;
+  while (i < e) {
+    const c = bare[i];
+    if (/\s/.test(c)) { i++; continue; }
+    if ('{}[],:'.includes(c)) { i++; continue; }
+    if (c === '"' || c === "'") { const z = bare.indexOf(c, i + 1); if (z < 0 || z >= e) return false; i = z + 1; continue; }
+    const num = /^-?\s*(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/.exec(bare.slice(i, Math.min(e, i + 64)));
+    if (num) { i += num[0].length; continue; }
+    const id = /^[A-Za-z_$][\w$]*/.exec(bare.slice(i, Math.min(e, i + 64)));
+    if (!id) return false;
+    let k = i + id[0].length; while (k < e && /\s/.test(bare[k])) k++;
+    if (bare[k] !== ':' && !/^(?:true|false|null)$/.test(id[0])) return false;
+    i += id[0].length;
+  }
+  return true;
+}
+/** What a world that writes gp: { ... } among GameMog.world's own keys gets wrong for its runtime (none for any other). */
+function gpProblems(code: string, from: number): string[] {
+  const top = topOf(code, from);
+  if (!/(?:^|[\s,{])gp\s*:\s*\{/.test(top)) return [];
+  const { bare, strings } = maskCode(code), W = entriesOf(bare, code, from).entries;
+  // GP2: one kind (the runtime reads open, then kart, then shootout, and a Grand Prix only without all three)
+  const other = ['open', 'kart', 'shootout'].some((k) => { const v = W.get(k); return v && (!v.colon || !falsy(bare, v)); });
+  const play = W.get('play'), playBrace = play && play.colon ? bare.indexOf('{', play.s) : -1;
+  const vehicle = playBrace >= 0 && playBrace < play!.e ? entriesOf(bare, code, playBrace + 1).entries.get('vehicle') : undefined;
+  if (other || (vehicle && (!vehicle.colon || !falsy(bare, vehicle)))) return [GP_CHECK.GP2];
+  const gpE = W.get('gp');
+  if (!gpE || !isGpWorld(code)) return [];
+  const problems: string[] = [];
+  // GP3: the lap, a literal, then built by the runtime's own code: every refusal and every issue it raises
+  const tr = W.get('track');
+  const trText = tr ? bare.slice(tr.s, tr.e) : '', lead = trText.length - trText.trimStart().length;
+  if (!tr || !tr.colon || !/^\s*\{/.test(trText) || !/\}\s*$/.test(trText) || !plainLiteral(bare, code, tr.s, tr.e)) problems.push(GP_CHECK.GP3);
+  else {
+    const fn = gpTrackFn();
+    if (!fn) problems.push('The Grand Prix runtime (lib/runtime/gp-track.js) is not in this tree, so the lap cannot be checked.');
+    else {
+      try {
+        // (from its opening brace to its closing one, so a comment after it cannot swallow the bracket around it)
+        const value = runInNewContext(`(${code.slice(tr.s + lead, tr.s + trText.lastIndexOf('}') + 1)})`, Object.create(null), { timeout: 500 });
+        const issues: string[] = [];
+        // (built under a time limit of its own as well: the lap code bounds its work, and a lap it cannot build in a second
+        // and a half is refused, never left to hold the server)
+        runInNewContext('fn(value, null, warn)', { fn, value, warn: (m: string) => { if (!issues.includes(m)) issues.push(m); } }, { timeout: 1500 });
+        problems.push(...issues);
+      } catch (e) { problems.push(`The lap (track): ${String((e as Error)?.message ?? e)}`); }
+    }
+  }
+  // GP4: no series' name or mark in any string (never a comment)
+  for (const x of strings) { const w = gpDenied(x.text); if (w) { problems.push(gpDeniedSaid(w)); break; } }
+  // GP5: the cars and the sound are the runtime's
+  if (['player', 'rival', 'music'].some((k) => W.has(k))) problems.push(GP_CHECK.GP5);
+  // GP6: no TV picture, no mirror, no other kind's kit
+  if (/\b\w*ctx\w*\s*\.\s*(?:broadcast\s*\(|mirror\s*\(|kart\b|shootout\b)/i.test(bare)) problems.push(GP_CHECK.GP6);
+  // GP7: the field it lines up
+  const gpBrace = gpE.colon ? bare.indexOf('{', gpE.s) : -1;
+  const G = gpBrace >= 0 ? entriesOf(bare, code, gpBrace + 1).entries : new Map<string, { s: number; e: number; colon: boolean }>();
+  const numOf = (k: string, d: number) => { const v = G.get(k); if (!v) return d; const t = bare.slice(v.s, v.e).trim(); return /^-?\d+(?:\.\d+)?$/.test(t) ? Number(t) : NaN; };
+  const listOf = (k: string) => {
+    const v = G.get(k), t = v ? bare.slice(v.s, v.e) : '';
+    if (!v || !/^\s*\[/.test(t) || !/\]\s*$/.test(t)) return null;
+    return itemsOf(bare, v.s + t.indexOf('[') + 1).map((it) => {
+      const s = bare.slice(it.s, it.e).trim();
+      if (!s.startsWith('{') || !s.endsWith('}')) return null;
+      const E = entriesOf(bare, code, bare.indexOf('{', it.s) + 1).entries, f = (key: string) => { const x = E.get(key); return x ? literalOf(bare, code, x) : null; };
+      return { id: f('id'), team: f('team'), tla: f('tla') };
+    });
+  };
+  const laps = numOf('laps', 3), field = numOf('field', 20), teams = listOf('teams'), drivers = listOf('drivers');
+  const teamIds = new Set((teams ?? []).map((x) => x?.id).filter(Boolean));
+  const ids = (drivers ?? []).map((x) => x?.id);
+  const ok7 = Number.isInteger(laps) && laps >= 1 && laps <= 5 && Number.isInteger(field) && field >= 2 && field <= 20 && !!teams && !!drivers
+    && teams.every((x) => !!x?.id) && drivers.length >= field && drivers.every((x) => !!x && !!x.id && !!x.team && teamIds.has(x.team) && /^[A-Z]{3}$/.test(x.tla ?? ''))
+    && new Set(ids).size === ids.length;
+  if (!ok7) problems.push(GP_CHECK.GP7);
+  return problems;
+}
+
 // The most code a world module may hold, the same for every world: the
 // builder's, a Mog and the owner's own (the owner, 5 Oct 2026: "keep things
-// simple, raise everything to 500 KB").
-export const WORLD_MAX = 500_000;
+// simple, raise everything to 500 KB"; 15 Oct 2026, for Artificial1: "raise
+// to 750 KB").
+export const WORLD_MAX = 750_000;
 
 export function staticCheckWorld(code: string, opts: { max?: number } = {}): string[] {
   const problems: string[] = [], max = opts.max ?? WORLD_MAX;
@@ -785,6 +969,11 @@ export function staticCheckWorld(code: string, opts: { max?: number } = {}): str
     problems.push('Write the penalty shootout inline, shootout: { ... }, among GameMog.world\'s own keys (not shootout: SOME_CONST): only then is it served as a shootout.');
   // (and a shootout is one kind, written as its runtime reads it, 13 Oct: lib/runtime/API.md "Penalty shootouts")
   if (m) problems.push(...shootoutProblems(code, m.index + m[0].length));
+  // (and a Grand Prix the same way, 14 Oct: gp: { ... } inline is what gets it its runtime, and it is one kind, written as
+  // its runtime reads it, its lap judged by the runtime's own track code)
+  if (/(?:^|[\s,{])gp\s*(?::\s*(?!(?:false|null|undefined)\b)[\w$(]|,|$)/.test(top) && !isGpWorld(code) && !/(?:^|[\s,{])(?:open|kart|shootout)\s*:\s*\{/.test(top))
+    problems.push(GP_CHECK.GP1);
+  if (m) problems.push(...gpProblems(code, m.index + m[0].length));
   try { new Script(code, { filename: 'world.js' }); }
   catch (e) { problems.push(`Syntax error: ${(e as Error).message}`); }
   return problems;

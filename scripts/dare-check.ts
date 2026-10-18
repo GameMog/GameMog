@@ -146,6 +146,19 @@ async function run() {
     ok('...and more goals than kicks, no kick, or an assisted run is refused', !X.checkRun(sg, { score: 5, level: 4, timeMs: 9000 }).ok && !X.checkRun(sg, { score: 0, level: 0, timeMs: 9000 }).ok && !X.checkRun(sg, { score: 1, level: 1, timeMs: 9000, assisted: true }).ok);
     ok('...and every other world keeps its board', X.boardOf(test) === 'level' && X.boardOf(kg) === 'kart');
   }
+  // a Grand Prix (18 Oct): the fastest finished race first, on the time board; a time counts only over the world's own laps
+  {
+    const { readFileSync: read } = await import('node:fs');
+    const gpw = { format: 'world' as const, code: read(new URL('worlds/artificial1.js', ROOT), 'utf8'), meta: '{"mode":"gp","scoring":"time"}' };
+    const gr = (o: Record<string, unknown> = {}) => X.checkRun(gpw, { level: 3, timeMs: 275000, place: 4, gm: 0, kos: 0, gp: true, laps: 3, of: 3, ...o });
+    const fast = gr({ timeMs: 260500, place: 1 }), slow = gr(), td = slow.ok ? X.describeRun(gpw, slow.run) : null;
+    ok('a Grand Prix ranks the fastest race first, on the time board, not as a survival run', X.boardOf(gpw) === 'time' && fast.ok && slow.ok && X.better('time', fast.run, slow.run) && !X.better('time', slow.run, fast.run), td ?? slow);
+    ok('...a run over its three laps counts, with the place it finished in', slow.ok && slow.run.timeMs === 275000 && slow.run.place === 4 && slow.run.level === 3 && slow.run.gm === 0);
+    ok('...a run short of its laps, classified without finishing, faster than a lap can be run, outside 1 to 20 or assisted is refused',
+      [gr({ level: 1, timeMs: 90000 }), gr({ classified: true }), gr({ timeMs: 100000 }), gr({ place: 21 }), gr({ place: 0 }), gr({ assisted: true }), gr({ timeMs: 4 * 3600 * 1000 })].every((r) => !r.ok));
+    const { gpLaps } = await import('../lib/custom-game.ts');
+    ok('...and its laps are the ones its own gp: { laps } names (three when it names none)', gpLaps(gpw.code) === 3 && gpLaps('GameMog.world({ gp: { laps: 2, field: 20 } })') === 2 && gpLaps('GameMog.world({ kart: { laps: 4 } })') === 3 && gpLaps(null) === 3);
+  }
   const R = (p: Partial<import('../lib/dare.ts').DareRun>): import('../lib/dare.ts').DareRun => ({ timeMs: 60000, place: 0, laps: null, gm: 0, hits: 0, est: false, progress: null, racer: null, level: 1, kos: 0, survival: false, score: null, ...p });
   ok('better: kart by score, then time', X.better('kart', R({ score: 9000, timeMs: 99 }), R({ score: 8000, timeMs: 1 })) && X.better('kart', R({ score: 8000, timeMs: 1 }), R({ score: 8000, timeMs: 2 })) && !X.better('kart', R({ score: 8000 }), R({ score: 8000 })));
   ok('better: survival by time, then GM, then takedowns', X.better('survival', R({ timeMs: 70000 }), R({ timeMs: 60000, gm: 999 })) && X.better('survival', R({ gm: 5 }), R({ gm: 4 })) && X.better('survival', R({ kos: 2 }), R({ kos: 1 })));

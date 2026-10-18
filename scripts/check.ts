@@ -162,10 +162,10 @@ console.log('\nworlds are 3D: the camera is the runtime\'s');
   for (const line of ['const p = ctx.camera.position.clone();', 'sprite.lookAt(ctx.camera.position);', 'if (ctx.camera.fov > 60) {}']) {
     ok(`allowed (reading the camera): ${line}`, !cam(line));
   }
-  // the size limit: 500KB for every world (owner, 5 Oct 2026)
-  const big = ref + '\n' + '//'.padEnd(480_000, '.'), huge = ref + '\n' + '//'.padEnd(520_000, '.');
-  ok('a world over 500KB is refused', staticCheckWorld(huge).some((p) => /under 500KB/.test(p)));
-  ok('a world up to 500KB passes the size check', !staticCheckWorld(big).some((p) => /KB/.test(p)));
+  // the size limit: 750KB for every world (owner, 5 Oct 2026: 500KB; 15 Oct 2026: "raise to 750 KB")
+  const big = ref + '\n' + '//'.padEnd(730_000, '.'), huge = ref + '\n' + '//'.padEnd(770_000, '.');
+  ok('a world over 750KB is refused', staticCheckWorld(huge).some((p) => /under 750KB/.test(p)));
+  ok('a world up to 750KB passes the size check', !staticCheckWorld(big).some((p) => /KB/.test(p)));
   for (const f of readdirSync('worlds').filter((f) => f.endsWith('.js'))) {
     const problems = staticCheckWorld(readFileSync(`worlds/${f}`, 'utf8'));
     ok(`first-party world ${f} passes the static check`, problems.length === 0, problems.join(' | '));

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withBrowser, chromePath, HostSlept } from './browser';
 import { lookScore, lookAdvisories, lookNotes, isLook, type Look } from './look';
-import { captureWorldKeyArt, captureShootoutKeyArt } from './key-art';
+import { captureWorldKeyArt, captureShootoutKeyArt, gpArtSpot, captureGpKeyArt } from './key-art';
 import type { DnaReport } from './mog-dna';
 
 /**
@@ -140,10 +140,22 @@ export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: 
   /** A Mog's DNA against its parent (6 Oct, lib/mog-dna.ts): what it dropped that the idea did not ask for, and what became of the repair. */
   dna?: DnaReport;
   /** A kart race's drive (8 Oct): what the race counted. It is stored with the draft's report, beside status and codeHash. */
-  kind?: 'kart' | 'shootout'; kart?: KartDrive;
+  kind?: 'kart' | 'shootout' | 'gp'; kart?: KartDrive;
   /** A penalty shootout's drive (13 Oct): what its kicks counted (levelReached is the kicks driven). Stored the same way. */
-  shootout?: ShootDrive };
+  shootout?: ShootDrive;
+  /** A Grand Prix's drive (18 Oct): one lap of the race on the autopilot, to its result (levelReached is the laps run). Stored the same way. */
+  gp?: GpDrive };
 export type TestStatus = 'passed' | 'failed' | 'unverified';
+/**
+ * What a Grand Prix's test drive counted (18 Oct): the race's first lap on the autopilot at six times speed (debug.gp().go,
+ * the lights skipped, the field of twenty racing it) to the result the race posts (GameMog.finish): whether it came and
+ * was the player's (a gp result), the place and time, whether the race replays to the same hash (the sim is
+ * deterministic: debug.gp().replay()), the parts the runtime built (sim, ai, race, cam, hud, director, intro, audio, and
+ * the stage and the car view, which are stand-ins at this release), the longest any car was stuck, the draw calls and
+ * triangles of a frame (the 95th percentile of the race's), the frame rate of the demo, and cut: it ran out of its own time.
+ */
+export type GpDrive = { laps: number; results: number; won: boolean; place: number | null; timeMs: number | null; replayEqual: boolean | null; parts: Record<string, boolean>;
+  maxStuck: number; calls: number | null; tris: number | null; fps: number | null; cut: boolean };
 /**
  * What a kart race's test drive counted (8 Oct): the creator's browser (lib/runtime/drive.js kartDrive, checked in
  * lib/test-drive.ts judge) or the server's (below), the same fields either way. Publishing a kart world reads it from
@@ -287,6 +299,12 @@ async function bestCover(page: Parameters<Parameters<typeof withBrowser>[0]>[0])
   return best!;
 }
 
+type GpSt = { phase: string | null; done: boolean; you: number; parts: Record<string, boolean> | null; cars: { d: number; lap: number; fin: boolean; place: number; stuck: number }[] };
+const GP_ST = `(() => { const g = window.__gmRuntime.state().gp; return g && g.ready ? { phase: g.phase, done: !!g.done, you: g.you, parts: g.parts,
+  cars: (g.cars || []).map((c) => ({ d: +c.d || 0, lap: c.lap | 0, fin: !!c.fin, place: c.place | 0, stuck: +c.stuck || 0 })) } : null; })()`;
+/** The parts a Grand Prix cannot race without; the rest (the stage, the car view, the kit) may be stand-ins. */
+const GP_NEEDED = ['sim', 'ai', 'race', 'cam', 'hud'];
+
 type RtState = { state: string; level: number; gm: number; alive: boolean; rivals: { ahead: number; x: number }[]; lap: number; obstacles: number; coins: number; crashedInto: string };
 
 type Pg = Parameters<Parameters<typeof withBrowser>[0]>[0];
@@ -393,6 +411,66 @@ export function withPhone(r: WorldReport, phone: ShootPhone): WorldReport {
  * A kick the keys did not start (back at the set with nothing kicked) is taken again by the tapper, so the drive's own
  * keys never fail a world.
  */
+/**
+ * A Grand Prix's drive (18 Oct): the demo's frame rate, then lap one of the race on the autopilot at six times speed to its
+ * result, the key art and cover shot as the car comes down the start/finish straight (gpArtSpot), then the race's replay
+ * (the same hash: the sim is deterministic) and the frame's cost. It never plays the whole race: a lap shows the kit,
+ * the field, the rules and the result in the drive's time (a 3-lap race at six times is the checks' own).
+ */
+async function gpPlaytest(page: Pg, readyMs: number, errs: () => Promise<string[]>): Promise<WorldReport> {
+  const S = () => page.eval<GpSt | null>(GP_ST).catch(() => null);
+  const D = (js: string) => page.eval<any>(`(() => { const d = window.__gmRuntime.debug.gp(); return ${js}; })()`);
+  await page.eval(`(() => { const t = window.__gmRuntime.debug.art().theme || {}; return document.fonts ? document.fonts.load('900 100px ' + (t.font || 'Figtree')).then(() => 1, () => 0) : 0; })()`).catch(() => 0);
+  // the frame rate: the demo at real speed, once it has settled
+  await sleep(2500);
+  const f0 = await page.eval<number>('window.__frames');
+  await sleep(2500);
+  const fps = Math.round(((await page.eval<number>('window.__frames')) - f0) / 2.5);
+  const parts = ((await S())?.parts ?? {}) as Record<string, boolean>;
+  await D("d.go({ seed: 11, you: 'muse', autopilot: true, skipLights: true, laps: 1 })");
+  await page.eval('window.__gmRuntime.debug.timeScale(6)');
+  let s = await S(), maxStuck = 0, picked: Awaited<ReturnType<typeof bestCover>> | undefined, art: { icon: Uint8Array; wide: Uint8Array } | undefined, cut = true;
+  for (let i = 0; i < 400; i++) {
+    s = await S();
+    if (s) maxStuck = Math.max(maxStuck, ...s.cars.map((c) => c.stuck));
+    if (s?.done) { cut = false; break; }
+    // the last stretch of the lap at real speed, the frame shot on the straight, then back to speed
+    if (!art && s && s.cars[s.you] && s.cars[s.you].d >= 4950 && s.cars[s.you].lap === 0) {
+      if (await gpArtSpot(page)) { picked = await bestCover(page); art = await captureGpKeyArt(page).catch(() => undefined); }
+      else await page.eval('window.__gmRuntime.debug.cinematic(false)').catch(() => undefined);
+      await page.eval('window.__gmRuntime.debug.timeScale(6)');
+    }
+    await sleep(150);
+  }
+  await page.eval('window.__gmRuntime.debug.timeScale(1)');
+  await sleep(500);
+  const results = await page.eval<any[]>('window.__gm.results').catch(() => []);
+  const rep = await D('d.replay()').catch(() => null) as { equal?: boolean } | null;
+  const rend = await D('d.render()').catch(() => null) as { p95?: { calls?: number; tris?: number } } | null;
+  if (!picked) picked = await bestCover(page);
+  const errors = await errs();
+  const advisories: string[] = await page.eval<string[]>('window.__gm.warnings || []').catch(() => []);
+  if (picked.look) advisories.push(...lookAdvisories(picked.look));
+  const first = results[0] ?? null, me = s && s.cars[s.you] ? s.cars[s.you] : null;
+  const gd: GpDrive = { laps: me ? me.lap : 0, results: results.length, won: !!(first && first.gp === true), place: first && Number.isFinite(+first.place) ? Math.round(+first.place) : null,
+    timeMs: first && Number.isFinite(+first.timeMs) ? Math.round(+first.timeMs) : null, replayEqual: rep && typeof rep.equal === 'boolean' ? rep.equal : null, parts,
+    maxStuck: Math.round(maxStuck * 10) / 10, calls: int(rend?.p95?.calls, 0, 100_000), tris: int(rend?.p95?.tris, 0, 100_000_000), fps, cut };
+  const problems: string[] = [];
+  for (const e of errors) problems.push(`Runtime error: ${e}`);
+  if (fps < 30) problems.push(`The Grand Prix ran at ${fps} fps on a laptop GPU. Cut draw calls and lights until it holds 60.`);
+  const missing = GP_NEEDED.filter((p) => !parts[p]);
+  if (missing.length) problems.push(`The Grand Prix's runtime parts did not all start (missing: ${missing.join(', ')}).`);
+  if (cut) problems.push('The first lap of the race was not finished in the time it should take at six times speed.');
+  else if (!first || first.gp !== true) problems.push('The race ended without a Grand Prix result for the player.');
+  if (gd.replayEqual === false) problems.push('The race did not replay to the same hash: the sim is not deterministic.');
+  if (maxStuck > 8) problems.push(`A car was stuck for ${gd.maxStuck} s in the race.`);
+  if (picked.cover.length < 14_000) problems.push('The screen is nearly a flat colour in the Grand Prix. Check the circuit, the lights and the camera.');
+  if (!art) advisories.push('No key art could be shot on the start/finish straight (the race was over before the car reached it).');
+  const stand = Object.keys(parts).filter((p) => !parts[p]).filter((p) => !GP_NEEDED.includes(p));
+  if (stand.length) advisories.push(`Stand-ins in this Grand Prix: ${stand.join(', ')}.`);
+  return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: gd.laps, cover: picked.cover, artIcon: art?.icon, artWide: art?.wide, look: picked.look, kind: 'gp', gp: gd };
+}
+
 async function shootPlaytest(page: Pg, readyMs: number, errs: () => Promise<string[]>): Promise<WorldReport> {
   const S = () => page.eval<ShootSt>(SHOOT_ST);
   const D = (js: string) => page.eval(`(() => { const D = window.__gmRuntime.debug.shootout(); ${js} })()`);
@@ -550,6 +628,8 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
 
       // a penalty shootout (13 Oct): kicks at the spot, not laps (shootPlaytest)
       if (await page.eval<ShootSt | null>(SHOOT_ST).catch(() => null)) return await shootPlaytest(page, readyMs, errs);
+      // a Grand Prix (18 Oct): one lap of the race to its result (gpPlaytest)
+      if (await page.eval<GpSt | null>(GP_ST).catch(() => null)) return await gpPlaytest(page, readyMs, errs);
 
       // a kart race (6 Oct): no endless lap and no crash to end it. Eight karts must race three laps on the
       // autopilot (at 3x) with the laps going by and nobody stuck, at a real frame rate, and the finish must bring

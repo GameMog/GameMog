@@ -36,7 +36,8 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
   // an open world ranks the time survived; a race the level reached; a kart race its score (8 Oct), each player once;
   // a penalty shootout (12 Oct) the goals scored in a sitting, on the score board, with the kicks they took
   const shootout = mode === 'shootout';
-  const by = mode ? (mode === 'race' ? 'level' : mode === 'kart' ? 'kart' : shootout ? 'score' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
+  // (a Grand Prix, 18 Oct: the fastest race first, on the time board; it was read as an open world's survival board, slowest on top)
+  const by = mode ? (mode === 'race' ? 'level' : mode === 'kart' ? 'kart' : shootout ? 'score' : mode === 'gp' ? 'time' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
   // (a kart race's constants: the perfect time of each racer, for the post panel's score, the same as the route's)
   // (and its laps for the page's text: kartHow, 9 Oct; Meme Kart's three laps read word for word as before)
@@ -57,11 +58,20 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
   const fmt = (s: (typeof scores)[number]) =>
     by === 'survival' ? clock(s.time_ms)
     : by === 'level' ? `Level ${s.level ?? 0}` : by === 'score' ? `${(s.score ?? 0).toLocaleString()} pts` : by === 'place' ? `${s.place || '-'}` : `${(s.time_ms / 1000).toFixed(2)}s`;
+  // (a Grand Prix's race time as m:ss.cc)
+  const gpClock = (ms: number) => { const c = Math.round(ms / 10), s = Math.floor(c / 100); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}.${String(c % 100).padStart(2, '0')}`; };
   const leaderboard = scores.length && kartC ? <KartBoard rows={scores} gmOn={kartC.gmCap > 0} provisional={!kartMeasured(kartC)} /> : scores.length && shootout ? (
     <table className="bd">
       <thead><tr><th /><th>Player</th><th>Goals</th><th>Kicks</th></tr></thead>
       <tbody>
         {scores.map((s, i) => <tr key={s.id}><td>{i + 1}</td><td>{s.player}</td><td>{s.score ?? 0}</td><td>{s.level ?? 0}</td></tr>)}
+      </tbody>
+    </table>
+  ) : scores.length && mode === 'gp' ? (
+    <table className="bd">
+      <thead><tr><th /><th>Player</th><th>Time</th><th>Place</th></tr></thead>
+      <tbody>
+        {scores.map((s, i) => <tr key={s.id}><td>{i + 1}</td><td>{s.player}</td><td>{gpClock(s.time_ms)}</td><td>{s.place ? `P${s.place}` : '-'}</td></tr>)}
       </tbody>
     </table>
   ) : scores.length ? (

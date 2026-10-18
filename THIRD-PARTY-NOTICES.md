@@ -57,6 +57,19 @@ recorded at CaixaForum Barcelona, by Freesound's own account), and the
 [GameSoundCon 2024 walla](https://freesound.org/people/ShangusBurger/packs/42098/) (pack 42098) by
 Shane Vincent, uploaded by ShangusBurger. Each take used is listed, with its link, under the asset in `public/assets/library.json`.
 
+The WHY. V-07 race car (`model-why-v07`) is the GameMog owner's own work, built from the model
+[why.com/A1](https://why.com/A1/) serves, and dedicated by the owner to the public domain under
+[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (14 Oct 2026). CC0 does not license trademarks: the
+WHY. name and wordmark painted on the car remain the owner's trademarks.
+
+The Grand Prix engine sound (`audio-a1-engine-v4`) is GameMog's own work, dedicated to the public domain under
+[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/): renders of our own engine script and impulse response,
+made with [engine-sim](https://github.com/ange-yaghi/engine-sim) by AngeTheGreat (Ange Yaghi), which is MIT-licensed;
+the program is credited with thanks, as its licence covers the program and not what it renders. Its overrun bangs and
+blow-off are cut from CC0-1.0 recordings on Freesound by [Dominik_W](https://freesound.org/s/350673/) (350673),
+[richwise](https://freesound.org/s/478756/) (478756) and [EwanPenman11](https://freesound.org/s/659544/) (659544),
+from Freesound's previews, credited with thanks though CC0 does not require it.
+
 ## Names and likenesses
 
 Worlds use invented names and look-alikes with no logos. No trademark or likeness of anyone else

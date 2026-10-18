@@ -19,7 +19,9 @@ import { kickCut, KICKS, getupCut, GETUP } from './kick.ts';
 import { buildHdri } from './hdri.ts';
 import { buildMusic } from './music.ts';
 import { buildCrowdAudio, CROWD_SOURCES } from './crowd-audio.ts';
+import { buildEngineAudio, ENGINE_ID, ENGINE_SOURCE, ENGINE_SHOT_SOURCES } from './engine-audio.ts';
 import { buildModel } from './model.ts';
+import { buildRaceCar } from './racecar.ts';
 import { buildHeightfield } from './heightfield.ts';
 import { sha256, Packer, decodeImage } from './lib.ts';
 
@@ -559,6 +561,9 @@ const SURFACES: [string, string, string, number, string, { color?: string }?][] 
   ['texture-roof-slates', 'roof_slates_02', 'Roof slates', 3, 'A weathered roof of small, uneven overlapping slates in grey-brown, chipped and stained, for chalet roofs.'],
   ['texture-stone-wall', 'rustic_stone_wall_02', 'Stone wall', 1.5, 'A dry-laid wall of flat, stacked stone in warm grey and ochre, for chalet bases, terraces and retaining walls.'],
   ['texture-dark-rock', 'dark_rock_02', 'Dark rock', 2, 'Dark brown-black layered rock with fractured ledges, for mountain outcrops and cliffs.'],
+  // Artificial1 (the owner, 15 Oct: the night look's asphalt scans): the racing line and the fresh-laid patches
+  ['texture-asphalt-pit-lane', 'asphalt_pit_lane', 'Pit-lane asphalt', 2, 'Dark, fine-grained circuit asphalt with faint stains, for race tracks and pit lanes.'],
+  ['texture-asphalt-clean', 'clean_asphalt', 'Clean asphalt', 2.1, 'Smooth, even, dark grey new asphalt, for freshly laid roads and run-off.'],
 ];
 for (const [id, slug, title, size, description, so] of SURFACES) {
   if (!want(id)) continue;
@@ -595,6 +600,50 @@ if (want('texture-fir-cards')) {
   if (cards.length !== 3) throw new Error(`${id}: expected 3 sprays on the atlas, measured ${cards.length}`);
   writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'texture', size: 1, maps: { color: 'color.jpg', normal: 'normal.jpg', alpha: 'alpha.jpg' }, cards }));
   library[id] = { kind: 'texture', title: 'Fir branch cards', description: 'An atlas of three conifer branch sprays on green, with colour, normal and an opacity (alpha) map, 1024 px, for alpha-tested branch cards on firs and spruces. Not a tiling surface: asset.json lists each spray\'s uv rectangle as cards (cut stem at the right), and the size (1) is nominal; the publisher gives no scale.', sources: ['acg-leafset019'], derived: 'Copied as published; the three sprays\' rectangles measured from the opacity map.', meta: { maps: ['color', 'normal', 'alpha'], cards: cards.length }, files: {}, bytes: 0 };
+}
+
+// Artificial1 (the owner, 15 Oct: the night look's building fronts): ambientCG's procedural night facades, a square grid of
+// window cells (one storey by one bay), each window across the top half of its cell. The colour map only (the look draws
+// walls and glass in its own shader), with every window lit: a cell whose room reads dark (luminance under 0.13) takes a
+// copy of a lit room from the same picture (seeded, half of them mirrored); walls, mullions and spandrels are untouched,
+// so a world can switch each window on or off itself. The same recipe and seeds as the look-dev rig's facade layers.
+// asset.json's `windows`: cells a side, and a window's x and y span as fractions of its cell from the cell's top left.
+// Only runtime kits read it (ASSETS[id].json): ctx.assets.texture() and info() do not return it, so a world script takes
+// the same numbers from the description.
+// [id, ambientCG id, title, cells a side, window x from, to, description]
+const FACADES: [string, string, string, number, number, number, string][] = [
+  ['texture-facade-night-brown', 'Facade013', 'Night facade (brown)', 32, 0.125, 0.875, 'A tower\'s face at night: small windows in brown panels.'],
+  ['texture-facade-night-grey', 'Facade015', 'Night facade (grey)', 32, 0.125, 0.875, 'A tower\'s face at night: small windows in grey concrete.'],
+  ['texture-facade-night-office', 'Facade017', 'Night facade (office)', 12, 0.117, 0.867, 'An office tower\'s face at night: large windows between grey stone piers.'],
+];
+const STOREY = 3.5; // metres a cell is taken to stand for: the publisher gives no scale
+for (let li = 0; li < FACADES.length; li++) {
+  const [id, acg, title, N, x0, x1, description] = FACADES[li];
+  if (!want(id)) continue;
+  const sharp = (await import('sharp')).default, dir = join(OUT, id), src = `acg-${acg.toLowerCase()}`;
+  mkdirSync(dir, { recursive: true });
+  const { data, info } = await sharp(`assets-src/cache/${src}/${acg}_1K-JPG_Color.jpg`).raw().toBuffer({ resolveWithObject: true });
+  const W = info.width, ch = info.channels, P = W / N, out = Buffer.from(data);
+  const rect = (cx: number, cy: number) => ({ ax: Math.round(cx * P + x0 * P), bx: Math.round(cx * P + x1 * P), ay: Math.round(cy * P), by: Math.round(cy * P + 0.49 * P) });
+  const lit: [number, number][] = [], dark: [number, number][] = [];
+  for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++) {
+    const r = rect(cx, cy); let s = 0, n = 0;
+    for (let y = r.ay + 2; y < r.by - 2; y++) for (let x = r.ax + 2; x < r.bx - 2; x++) { const i = (y * W + x) * ch; s += 0.3 * data[i] + 0.55 * data[i + 1] + 0.15 * data[i + 2]; n++; }
+    (s / n / 255 > 0.13 ? lit : dark).push([cx, cy]);
+  }
+  if (!lit.length) throw new Error(`${id}: no lit window to copy from`);
+  let seed = (77 + li) >>> 0;
+  const rnd = () => { seed = (seed + 0x6d2b79f5) >>> 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  for (const [cx, cy] of dark) {
+    const [sx, sy] = lit[Math.floor(rnd() * lit.length)], a = rect(cx, cy), b = rect(sx, sy), flip = rnd() < 0.5;
+    const w = Math.min(a.bx - a.ax, b.bx - b.ax), h = Math.min(a.by - a.ay, b.by - b.ay);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const di = ((a.ay + y) * W + a.ax + x) * ch, si = ((b.ay + y) * W + b.ax + (flip ? w - 1 - x : x)) * ch; for (let k = 0; k < 3; k++) out[di + k] = data[si + k]; }
+  }
+  await sharp(out, { raw: { width: W, height: info.height, channels: ch } }).jpeg({ quality: 88, mozjpeg: true }).toFile(join(dir, 'color.jpg'));
+  const size = N * STOREY;
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify({ format: 'gmasset/1', kind: 'texture', size, maps: { color: 'color.jpg' }, windows: { cells: N, x: [x0, x1], y: [0, 0.5] } }));
+  library[id] = { kind: 'texture', title, description: `${description} Every window a lit room; ${N} x ${N} window cells a tile, each window across ${x0} to ${x1} of its cell's width and the top half of its height. Colour only, 1024 px for ${size} m (a window cell taken as a ${STOREY} m storey; the publisher gives no scale).`, sources: [src], derived: `Colour map only. Each window cell whose room read dark (${dark.length} of ${N * N}) was overwritten with a lit room copied from the same picture (seeded, half mirrored); re-encoded as JPEG.`, meta: { size, maps: ['color'] }, files: {}, bytes: 0 };
+  console.log(`${id}: ${N * N} windows, ${lit.length} lit, ${dark.length} filled`);
 }
 
 /* ---------------- heightfields: a terrain's height as 16-bit samples ---------------- */
@@ -677,6 +726,22 @@ for (const [id, slug, title, budget, description, o] of MODELS) {
   console.log(`${id}: ${m.triangles.source} -> ${m.triangles.kept} triangles, parts ${Object.keys(m.parts).join(', ')}`);
 }
 
+/* ---------------- the WHY. V-07: the owner's race car, given away under CC0 ---------------- */
+// the owner, 14 Oct 2026: "give away V-07. WHY. wordmark is confirmed." (docs/RULES.md §1f): the model is CC0-1.0, and the
+// WHY. wordmark stays on it as the owner's mark. What the build does: scripts/assets/racecar.ts
+if (want('model-why-v07')) {
+  const id = 'model-why-v07', dir = join(OUT, id);
+  const { asset, log } = await buildRaceCar('why-v07', dir);
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify(asset));
+  const L = asset.lods, S = asset.car.size, k = (n: number) => `${Math.round(n / 100) / 10}k`;
+  library[id] = { kind: 'model', title: 'WHY. V-07',
+    description: `The WHY. V-07, an open-wheel single-seater race car ${S.length.toFixed(2)} m long and ${S.width.toFixed(2)} m wide, in its pearl white, black and vermilion livery with the WHY. wordmark. Its parts move on their own pivots: the body, four wheels that spin, the two front brake drums that steer, and the steering wheel. ${L.length - 2} levels of detail (${L.slice(0, -2).map((l) => k(l.triangles)).join(', ')} triangles) and two one-draw proxies (${L.slice(-2).map((l) => k(l.triangles)).join(', ')}); a livery mask recolours it for any team. The WHY. name and wordmark are the owner's trademarks.`,
+    sources: ['why-v07'],
+    derived: 'Decoded from the owner\'s GLB; each tyre\'s flattened contact patch made round again; turned to face +Z; cut into moving parts on their pivots and merged by material; levels of detail cut with meshoptimizer (attribute-aware), the tyres resampled on their own lathe grid; proxies by quadric edge collapse with the wheels on their lathe grids; the livery unmixed into a mask in linear light; the tyre and carbon maps resized; the source\'s names and extras dropped.',
+    meta: { parts: Object.keys(asset.parts), triangles: asset.triangles.kept, lods: L.map((l) => ({ name: l.name, triangles: l.triangles, draws: l.draws })) }, files: {}, bytes: 0 };
+  for (const l of log) console.log(`${id}: ${l}`);
+}
+
 /* ---------------- more music for the creator's picker ---------------- */
 const TRACKS: [string, string, string, string, [number, number]][] = [
   ['music-funky-house', 'ofdn-funky-house', 'Funky House', 'Funky house', [110, 135]],
@@ -712,6 +777,21 @@ if (want('audio-crowd-shootout')) {
   writeFileSync(join(dir, 'asset.json'), JSON.stringify(c.asset));
   library[id] = { kind: 'sound', title: 'Stadium crowd for a penalty', description: `A night final's crowd, recorded: a murmur, the shushing and the whistling at the taker (loops), a group inhale, a roar of "Gol!" and a wordless cheer, a groan, a let-down, sighs, gasps and coughs; ${c.meta.takes.length} takes in two sheets with a cue for each.`, sources: Object.keys(CROWD_SOURCES), derived: 'Cut from the original WAVs, high-passed at 45 Hz, brought to 32 kHz, levelled to -20 dBFS (RMS over the loudest half second, or the whole of a loop) under a -1 dBFS peak; loops crossfaded at their joins; one-shots folded to mono; encoded to AAC (stereo 128 kbps, mono 64 kbps) and decoded again to check every cue.', meta: c.meta, files: {}, bytes: 0 };
   for (const l of c.checks) console.log(`${id}: ${l}`);
+}
+
+/* ---------------- the Grand Prix engine sound (ARTIFICIAL1, the owner's 15 Oct choice: "v4") ---------------- */
+if (want(ENGINE_ID)) {
+  // our own engine renders (CC0, made with engine-sim, MIT) and three CC0 Freesound recordings' previews for the bangs
+  // and the blow-off, all prepared by the sound lane and pinned (see engine-audio.ts); lib/runtime/gp-audio.js plays them
+  const id = ENGINE_ID, dir = join(OUT, id);
+  const e = buildEngineAudio(dir);
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify(e.asset));
+  library[id] = { kind: 'engine', title: 'Grand Prix engine: 1.6 L V6 turbo hybrid',
+    description: `A racing car's engine voice for the Grand Prix: our own 1.6 L 90-degree V6 turbo hybrid, rendered as seamless whole-cycle loops at ${e.meta.rpms} rpm points from 3,500 to 11,375 on and off the throttle (48 kHz, and 32 kHz for phones), six overrun bangs and a turbo blow-off, and the garage set: the fire-up, the idle, the revs, the pit limiter and the pull-away.`,
+    sources: [ENGINE_SOURCE, ...Object.values(ENGINE_SHOT_SOURCES).map((s) => s.source)],
+    derived: 'Rendered with engine-sim (MIT) from our own engine script and impulse response, shaped to our own order targets and cut into loops; each loop 16-bit with TPDF dither at a -1 dBFS peak (its gain back recorded), resampled circularly to 32 kHz for phones, and encoded to FLAC (lossless, checked sample for sample). The bangs and the blow-off are cut from Freesound\'s previews of three CC0 recordings. The fire-up\'s cranking spikes are cleaned.',
+    meta: e.meta, files: {}, bytes: 0 };
+  for (const l of e.checks) console.log(`${id}: ${l}`);
 }
 
 // hash every file, and record which licences cover each asset

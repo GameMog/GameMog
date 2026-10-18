@@ -907,6 +907,40 @@
         "dark_rock_02_rough_1k.jpg": "8751b2c4ca67b2d8defa15f5ab9ce396"
       }
     },
+    "ph-tex-asphalt_pit_lane": {
+      "title": "Asphalt Pit Lane (textures)",
+      "author": "Dimitrios Savva, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/asphalt_pit_lane",
+      "urls": {
+        "asphalt_pit_lane_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_pit_lane/asphalt_pit_lane_diff_1k.jpg",
+        "asphalt_pit_lane_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_pit_lane/asphalt_pit_lane_nor_gl_1k.jpg",
+        "asphalt_pit_lane_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_pit_lane/asphalt_pit_lane_rough_1k.jpg"
+      },
+      "md5": {
+        "asphalt_pit_lane_diff_1k.jpg": "4052f5d5ad91124fd3feb855acdb3f89",
+        "asphalt_pit_lane_nor_gl_1k.jpg": "714a48991ba60f76b5414e654797d935",
+        "asphalt_pit_lane_rough_1k.jpg": "aac430d67b0dea3acb853060060afec5"
+      }
+    },
+    "ph-tex-clean_asphalt": {
+      "title": "Clean Asphalt (textures)",
+      "author": "Dimitrios Savva, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/clean_asphalt",
+      "urls": {
+        "clean_asphalt_diff_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/clean_asphalt/clean_asphalt_diff_1k.jpg",
+        "clean_asphalt_nor_gl_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/clean_asphalt/clean_asphalt_nor_gl_1k.jpg",
+        "clean_asphalt_rough_1k.jpg": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/clean_asphalt/clean_asphalt_rough_1k.jpg"
+      },
+      "md5": {
+        "clean_asphalt_diff_1k.jpg": "7edccb95cbf72e63889baade8455f9e5",
+        "clean_asphalt_nor_gl_1k.jpg": "24dadd366637a722b59c19a672cbbcf6",
+        "clean_asphalt_rough_1k.jpg": "4238f2eab76530f4b0c66ddb929b142d"
+      }
+    },
     "ph-model-boulder_01": {
       "title": "Boulder 01 (model)",
       "author": "Rico Cilliers, Poly Haven",
@@ -1896,6 +1930,42 @@
         "Terrain005_1K_Color.png"
       ]
     },
+    "acg-facade013": {
+      "title": "Facade 013 (night facade)",
+      "author": "ambientCG",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://docs.ambientcg.com/license/",
+      "homepage": "https://ambientcg.com/view?id=Facade013",
+      "zip": "https://ambientcg.com/get?file=Facade013_1K-JPG.zip",
+      "zipBytes": 9090659,
+      "files": [
+        "Facade013_1K-JPG_Color.jpg"
+      ]
+    },
+    "acg-facade015": {
+      "title": "Facade 015 (night facade)",
+      "author": "ambientCG",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://docs.ambientcg.com/license/",
+      "homepage": "https://ambientcg.com/view?id=Facade015",
+      "zip": "https://ambientcg.com/get?file=Facade015_1K-JPG.zip",
+      "zipBytes": 8052938,
+      "files": [
+        "Facade015_1K-JPG_Color.jpg"
+      ]
+    },
+    "acg-facade017": {
+      "title": "Facade 017 (night facade)",
+      "author": "ambientCG",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://docs.ambientcg.com/license/",
+      "homepage": "https://ambientcg.com/view?id=Facade017",
+      "zip": "https://ambientcg.com/get?file=Facade017_1K-JPG.zip",
+      "zipBytes": 6674264,
+      "files": [
+        "Facade017_1K-JPG_Color.jpg"
+      ]
+    },
     "ofdn-funky-house": {
       "title": "Funky House",
       "author": "Of Far Different Nature (OpenGameArt)",
@@ -2120,6 +2190,71 @@
         "spagetti western.ogg": "https://opengameart.org/sites/default/files/spagetti%20western_0.ogg"
       },
       "prepared": "springspring-spaghetti-western.wav is the OGG decoded to 16-bit PCM WAV. Prepared by hand; the build reads the WAV from assets-src/cache/springspring-spaghetti-western/ and its SHA-256 is pinned in sources.lock.json."
+    },
+    "why-v07": {
+      "title": "WHY. V-07 race car (model and textures)",
+      "author": "WHY. (GameMog's owner)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseText": "Dedicated to the public domain under CC0 1.0 by its owner, GameMog's owner (14 Oct 2026): anyone may copy, change and reuse the model and its textures. CC0 does not license trademarks: the WHY. name and wordmark painted on the car remain the owner's trademarks.",
+      "homepage": "https://why.com/A1/",
+      "urls": {
+        "v07.glb": "https://why.com/A1/assets/f1.glb",
+        "textures/livery_tub.png": "https://why.com/A1/assets/textures/livery_tub.png",
+        "textures/livery_pod.png": "https://why.com/A1/assets/textures/livery_pod.png",
+        "textures/carbon_color.png": "https://why.com/A1/assets/textures/carbon_color.png",
+        "textures/carbon_normal.png": "https://why.com/A1/assets/textures/carbon_normal.png",
+        "textures/carbon_rough.png": "https://why.com/A1/assets/textures/carbon_rough.png",
+        "textures/tyre_front_color.png": "https://why.com/A1/assets/textures/tyre_front_color.png",
+        "textures/tyre_front_normal.png": "https://why.com/A1/assets/textures/tyre_front_normal.png",
+        "textures/tyre_front_rough.png": "https://why.com/A1/assets/textures/tyre_front_rough.png",
+        "textures/tyre_rear_color.png": "https://why.com/A1/assets/textures/tyre_rear_color.png",
+        "textures/tyre_rear_normal.png": "https://why.com/A1/assets/textures/tyre_rear_normal.png",
+        "textures/tyre_rear_rough.png": "https://why.com/A1/assets/textures/tyre_rear_rough.png"
+      },
+      "note": "The owner's own car, made with the owner's own procedural modeler (no third-party content in it), as why.com/A1 serves it: a meshoptimizer-compressed GLB, kept in the cache as v07.glb, and the textures the build uses (the carbon anisotropy map is not used)."
+    },
+    "a1-engine-v4": {
+      "title": "Artificial1 engine v4: GameMog's own engine renders (loops, garage stems, derived renders)",
+      "author": "GameMog (own work, rendered with engine-sim by AngeTheGreat, MIT)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseText": "GameMog's own work, dedicated to the public domain under CC0 1.0: renders of our own engine script and impulse response, made with engine-sim (https://github.com/ange-yaghi/engine-sim, MIT, by AngeTheGreat), which is credited with thanks; its licence covers the program, not what it renders.",
+      "homepage": "https://github.com/ange-yaghi/engine-sim",
+      "prepared": "Prepared by the Grand Prix sound lane's derive script (scripts/.scratch/gp/m2/audio/derive.mjs, git-ignored) from the v4 loop bank and the garage stems we rendered: 16-bit WAVs (each loop brought to a -1 dBFS peak, its gain recorded in bank.json, TPDF dither), the phone loops resampled to 32 kHz (circularly, so they stay seamless), the one-shots as float WAVs byte for byte, the fire-up's cranking spikes cleaned, and the derived renders the runtime's own sound code made from them. The build reads them from assets-src/cache/a1-engine-v4/ and each SHA-256 is pinned in sources.lock.json; assets-src/cache/a1-engine-v4/SOURCE.txt says how they were made, and a1-engine-v4-inputs/ beside it keeps the script and its inputs."
+    },
+    "freesound-350673": {
+      "title": "Racing cars accelerating, with backfires (Freesound sound 350673)",
+      "author": "Dominik_W (Freesound)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://freesound.org/s/350673/",
+      "urls": {
+        "350673__Dominik_W-hq.mp3": "https://cdn.freesound.org/previews/350/350673_4162229-hq.mp3"
+      },
+      "prepared": "Freesound's lossy preview of the sound (the original WAV needs a Freesound login, not used yet); five of the engine sound's six overrun bangs (audio-a1-engine-v4) were cut from it by the engine lane and ship as prepared files. Swapping in the original later is a lock change and an ONLY= rebuild."
+    },
+    "freesound-478756": {
+      "title": "Supercar rev (Freesound sound 478756)",
+      "author": "richwise (Freesound)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://freesound.org/s/478756/",
+      "urls": {
+        "478756__richwise-hq.mp3": "https://cdn.freesound.org/previews/478/478756_1481531-hq.mp3"
+      },
+      "prepared": "Freesound's lossy preview of the sound (the original WAV needs a Freesound login, not used yet); one of the engine sound's six overrun bangs (audio-a1-engine-v4) were cut from it by the engine lane and ship as prepared files. Swapping in the original later is a lock change and an ONLY= rebuild."
+    },
+    "freesound-659544": {
+      "title": "Turbo Spooling and Blow Off (Freesound sound 659544)",
+      "author": "EwanPenman11 (Freesound)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://freesound.org/s/659544/",
+      "urls": {
+        "659544__EwanPenman11-hq.mp3": "https://cdn.freesound.org/previews/659/659544_13241413-hq.mp3"
+      },
+      "prepared": "Freesound's lossy preview of the sound (the original WAV needs a Freesound login, not used yet); the engine sound's turbo blow-off (audio-a1-engine-v4) were cut from it by the engine lane and ship as prepared files. Swapping in the original later is a lock change and an ONLY= rebuild."
     }
   }
 }

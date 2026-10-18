@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CharacterImage } from './character';
-import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, worldControls, isOpenWorld, isShootoutWorld, shootoutDenied, worldMode, type WorldMeta } from './custom-game';
+import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, worldControls, isOpenWorld, isShootoutWorld, isGpWorld, shootoutDenied, worldMode, type WorldMeta } from './custom-game';
 import { playtestWorld, type WorldReport } from './playtest-runtime';
 import { drivesInBrowser, waitForDrive, codeHash, testStatus } from './test-drive';
 import { lookAdvisories, pickPass, type Pass } from './look';
@@ -257,6 +257,15 @@ export function shootoutKindProblems(meta: WorldMeta | undefined, code: string, 
 }
 
 /**
+ * A Grand Prix is not made by a build yet (ARTIFICIAL1, 14 Oct: its test drive, dares, key art and scores come with M3):
+ * a Create or a Mog that writes gp: { ... } among GameMog.world's own keys is sent back for the nearest other kind. Open
+ * it in M3 together with the Grand Prix test drive: delete this rule.
+ */
+export function gpKindProblems(code: string): string[] {
+  return isGpWorld(code) ? ['A Grand Prix (gp: { ... }) is not made by a build yet; build the closest world of the other kinds instead (a lap race or a kart race).'] : [];
+}
+
+/**
  * The build's two safety hooks (the owner, 9 Oct; lib/build-limits.ts). `signal` aborts when the creator has left
  * (app/api/generate/route.ts): the pass being written is cut off at the model, a test drive being waited for is let
  * go, and no further pass runs; the build just ends, with nothing more to say to a page that is gone. `usage` hears
@@ -358,7 +367,7 @@ export async function generateGame(
     if (final.stop_reason === 'max_tokens') problems.push(input.mog && longMogParent(input.mog.parent.code)
       ? 'The reply was cut off at the length limit. Write the complete world again within it: leave out every comment and shorten repeated code (a loop over a table in place of lines written out), keeping all of the original\'s scenery and everything a player sees.'
       : 'The reply was cut off at the length limit. Write a more compact world module that still does everything.');
-    if (code) problems.push(...staticCheckWorld(code), ...shootoutKindProblems(meta, code, input.mog));
+    if (code) problems.push(...staticCheckWorld(code), ...shootoutKindProblems(meta, code, input.mog), ...gpKindProblems(code));
     // a Mog's pass next to its parent: what it dropped that the idea does not ask for
     const verdict = parentDna && code ? compareDna(parentDna, code, input.mog!.instruction) : undefined;
 

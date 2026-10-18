@@ -241,6 +241,20 @@
       "licenseUrl": "https://polyhaven.com/license",
       "homepage": "https://polyhaven.com/a/dark_rock_02"
     },
+    "ph-tex-asphalt_pit_lane": {
+      "title": "Asphalt Pit Lane (textures)",
+      "author": "Dimitrios Savva, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/asphalt_pit_lane"
+    },
+    "ph-tex-clean_asphalt": {
+      "title": "Clean Asphalt (textures)",
+      "author": "Dimitrios Savva, Poly Haven",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "homepage": "https://polyhaven.com/a/clean_asphalt"
+    },
     "ph-model-boulder_01": {
       "title": "Boulder 01 (model)",
       "author": "Rico Cilliers, Poly Haven",
@@ -549,6 +563,27 @@
       "licenseUrl": "https://docs.ambientcg.com/license/",
       "homepage": "https://ambientcg.com/view?id=Terrain005"
     },
+    "acg-facade013": {
+      "title": "Facade 013 (night facade)",
+      "author": "ambientCG",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://docs.ambientcg.com/license/",
+      "homepage": "https://ambientcg.com/view?id=Facade013"
+    },
+    "acg-facade015": {
+      "title": "Facade 015 (night facade)",
+      "author": "ambientCG",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://docs.ambientcg.com/license/",
+      "homepage": "https://ambientcg.com/view?id=Facade015"
+    },
+    "acg-facade017": {
+      "title": "Facade 017 (night facade)",
+      "author": "ambientCG",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://docs.ambientcg.com/license/",
+      "homepage": "https://ambientcg.com/view?id=Facade017"
+    },
     "ofdn-funky-house": {
       "title": "Funky House",
       "author": "Of Far Different Nature (OpenGameArt)",
@@ -678,6 +713,43 @@
       "license": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "homepage": "https://opengameart.org/content/spaghetti-western"
+    },
+    "why-v07": {
+      "title": "WHY. V-07 race car (model and textures)",
+      "author": "WHY. (GameMog's owner)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseText": "Dedicated to the public domain under CC0 1.0 by its owner, GameMog's owner (14 Oct 2026): anyone may copy, change and reuse the model and its textures. CC0 does not license trademarks: the WHY. name and wordmark painted on the car remain the owner's trademarks.",
+      "homepage": "https://why.com/A1/"
+    },
+    "a1-engine-v4": {
+      "title": "Artificial1 engine v4: GameMog's own engine renders (loops, garage stems, derived renders)",
+      "author": "GameMog (own work, rendered with engine-sim by AngeTheGreat, MIT)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseText": "GameMog's own work, dedicated to the public domain under CC0 1.0: renders of our own engine script and impulse response, made with engine-sim (https://github.com/ange-yaghi/engine-sim, MIT, by AngeTheGreat), which is credited with thanks; its licence covers the program, not what it renders.",
+      "homepage": "https://github.com/ange-yaghi/engine-sim"
+    },
+    "freesound-350673": {
+      "title": "Racing cars accelerating, with backfires (Freesound sound 350673)",
+      "author": "Dominik_W (Freesound)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://freesound.org/s/350673/"
+    },
+    "freesound-478756": {
+      "title": "Supercar rev (Freesound sound 478756)",
+      "author": "richwise (Freesound)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://freesound.org/s/478756/"
+    },
+    "freesound-659544": {
+      "title": "Turbo Spooling and Blow Off (Freesound sound 659544)",
+      "author": "EwanPenman11 (Freesound)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://freesound.org/s/659544/"
     },
     "freesound-1563": {
       "title": "freesoundATcaixaforum, \"La audiencia disponible\" (Freesound pack 1563)",
@@ -5496,6 +5568,690 @@
         }
       },
       "bytes": 1134480
+    },
+    "model-why-v07": {
+      "kind": "model",
+      "title": "WHY. V-07",
+      "description": "The WHY. V-07, an open-wheel single-seater race car 5.57 m long and 2.00 m wide, in its pearl white, black and vermilion livery with the WHY. wordmark. Its parts move on their own pivots: the body, four wheels that spin, the two front brake drums that steer, and the steering wheel. 4 levels of detail (73.5k, 45.2k, 29.7k, 11.5k triangles) and two one-draw proxies (5k, 1.5k); a livery mask recolours it for any team. The WHY. name and wordmark are the owner's trademarks.",
+      "sources": [
+        "why-v07"
+      ],
+      "derived": "Decoded from the owner's GLB; each tyre's flattened contact patch made round again; turned to face +Z; cut into moving parts on their pivots and merged by material; levels of detail cut with meshoptimizer (attribute-aware), the tyres resampled on their own lathe grid; proxies by quadric edge collapse with the wheels on their lathe grids; the livery unmixed into a mask in linear light; the tyre and carbon maps resized; the source's names and extras dropped.",
+      "meta": {
+        "parts": [
+          "body",
+          "steer-fl",
+          "steer-fr",
+          "steering-wheel",
+          "wheel-fl",
+          "wheel-fr",
+          "wheel-rl",
+          "wheel-rr"
+        ],
+        "triangles": 73454,
+        "lods": [
+          {
+            "name": "lod0",
+            "triangles": 73454,
+            "draws": 22
+          },
+          {
+            "name": "lod1",
+            "triangles": 45232,
+            "draws": 22
+          },
+          {
+            "name": "mid",
+            "triangles": 29730,
+            "draws": 20
+          },
+          {
+            "name": "far",
+            "triangles": 11536,
+            "draws": 20
+          },
+          {
+            "name": "proxy-mid",
+            "triangles": 5000,
+            "draws": 1
+          },
+          {
+            "name": "proxy-far",
+            "triangles": 1499,
+            "draws": 1
+          }
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "28d64d49da50da25295441afd40a6ac45f5c264bd8e0cde9ffab7def5f426f4d",
+          "bytes": 62877
+        },
+        "carbon-arm.jpg": {
+          "sha256": "34a9f3726ceabfd6b1595f2423013689040b72f1b337f4ed04429b38602ebe72",
+          "bytes": 68857
+        },
+        "carbon-normal.jpg": {
+          "sha256": "11f32a5b0d3914d48628f44d6cc0210ceef686f230f11b868f47815d25f8bb78",
+          "bytes": 57091
+        },
+        "carbon.jpg": {
+          "sha256": "4f7895341c26efd508c5f28ba15d1e354154f5c434143d690559314febe5e276",
+          "bytes": 16198
+        },
+        "mask.png": {
+          "sha256": "009403ca596f22a0d922908ce904879001b605971f74bad9caffb101e628833f",
+          "bytes": 61344
+        },
+        "model.bin.z": {
+          "sha256": "d44a4107390e5f17068742a194606c475867c75d0bc5d5b915693b36f34b3fed",
+          "bytes": 1787705
+        },
+        "tyre-front-arm.jpg": {
+          "sha256": "f4caef0dad66b6633709875ddff02d62cce18ca0637c4da73eb93905ee50b102",
+          "bytes": 29426
+        },
+        "tyre-front-normal.jpg": {
+          "sha256": "2baf317d15b28f0f939c73d4235252cbd1575dac3e0e12163739cdf9a69d2915",
+          "bytes": 7912
+        },
+        "tyre-front.jpg": {
+          "sha256": "87c8a852298310dcea18edd568f3967d5f818e81de85c8365a82e603f52ac7fc",
+          "bytes": 29986
+        },
+        "tyre-rear-arm.jpg": {
+          "sha256": "9e1112ec19c2122b005193691c90070dedc755d82739872865be3a4835a83cc2",
+          "bytes": 29426
+        },
+        "tyre-rear-normal.jpg": {
+          "sha256": "bb8b6f54c289a5a3a80f3e5a53af7d5717f3f4b4e43b702c20fb8ef3a729ab3c",
+          "bytes": 7908
+        },
+        "tyre-rear.jpg": {
+          "sha256": "559b710c7ec2e355dfb48c9ed7597d4bbaa72c0beb6a107a66d4d6cf7c70ddfe",
+          "bytes": 29939
+        }
+      },
+      "bytes": 2188669
+    },
+    "texture-asphalt-pit-lane": {
+      "kind": "texture",
+      "title": "Pit-lane asphalt",
+      "description": "Dark, fine-grained circuit asphalt with faint stains, for race tracks and pit lanes. Scanned colour, normal and roughness maps, 1024 px for 2 m.",
+      "sources": [
+        "ph-tex-asphalt_pit_lane"
+      ],
+      "meta": {
+        "size": 2,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "9c95f6c5e9affb2cf9f27abdcd66d67f74841f7d85610bb4ab0a3f471f43249a",
+          "bytes": 127
+        },
+        "color.jpg": {
+          "sha256": "8aad5097f6de913aebc33f2b9b9271834b55c6942359955722db3196a9ce9bca",
+          "bytes": 1015369
+        },
+        "normal.jpg": {
+          "sha256": "a215356a1180664fbbf94076f3720a4620a1121e137780ce98059621bf8b444e",
+          "bytes": 1066208
+        },
+        "roughness.jpg": {
+          "sha256": "c6341db99340082f93b5f5252e9b0d320379d48783984618812feb238b940b67",
+          "bytes": 443992
+        }
+      },
+      "bytes": 2525696
+    },
+    "texture-asphalt-clean": {
+      "kind": "texture",
+      "title": "Clean asphalt",
+      "description": "Smooth, even, dark grey new asphalt, for freshly laid roads and run-off. Scanned colour, normal and roughness maps, 1024 px for 2.1 m.",
+      "sources": [
+        "ph-tex-clean_asphalt"
+      ],
+      "meta": {
+        "size": 2.1,
+        "maps": [
+          "color",
+          "normal",
+          "roughness"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "d8f2d1eb4123d9136e043c12ce3c932a8f0ed088859840c006d9c99ceaa8d2da",
+          "bytes": 129
+        },
+        "color.jpg": {
+          "sha256": "ddf9224e9cfa3eb2998d9097e4cd34bd3630c85e0e6798e5a0a000415a684083",
+          "bytes": 697630
+        },
+        "normal.jpg": {
+          "sha256": "99cdf6b6f0b8a319d206e1d561bf2a5d9933d8d33e1d685f8e25388101d21310",
+          "bytes": 776360
+        },
+        "roughness.jpg": {
+          "sha256": "2280be133c104eb04370b625ebcc7f6709d2173b43ae2cd15a0074c26f492bf9",
+          "bytes": 641634
+        }
+      },
+      "bytes": 2115753
+    },
+    "texture-facade-night-brown": {
+      "kind": "texture",
+      "title": "Night facade (brown)",
+      "description": "A tower's face at night: small windows in brown panels. Every window a lit room; 32 x 32 window cells a tile, each window across 0.125 to 0.875 of its cell's width and the top half of its height. Colour only, 1024 px for 112 m (a window cell taken as a 3.5 m storey; the publisher gives no scale).",
+      "sources": [
+        "acg-facade013"
+      ],
+      "derived": "Colour map only. Each window cell whose room read dark (219 of 1024) was overwritten with a lit room copied from the same picture (seeded, half mirrored); re-encoded as JPEG.",
+      "meta": {
+        "size": 112,
+        "maps": [
+          "color"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "17edcbeb1f2521b0507af84486bc3d1e30ef948d7ea5627b1ae48e83de9effd9",
+          "bytes": 132
+        },
+        "color.jpg": {
+          "sha256": "a21229e91ca140f74dc80daec3182556580af570dfafa981d62e68edb1976fe7",
+          "bytes": 348660
+        }
+      },
+      "bytes": 348792
+    },
+    "texture-facade-night-grey": {
+      "kind": "texture",
+      "title": "Night facade (grey)",
+      "description": "A tower's face at night: small windows in grey concrete. Every window a lit room; 32 x 32 window cells a tile, each window across 0.125 to 0.875 of its cell's width and the top half of its height. Colour only, 1024 px for 112 m (a window cell taken as a 3.5 m storey; the publisher gives no scale).",
+      "sources": [
+        "acg-facade015"
+      ],
+      "derived": "Colour map only. Each window cell whose room read dark (644 of 1024) was overwritten with a lit room copied from the same picture (seeded, half mirrored); re-encoded as JPEG.",
+      "meta": {
+        "size": 112,
+        "maps": [
+          "color"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "17edcbeb1f2521b0507af84486bc3d1e30ef948d7ea5627b1ae48e83de9effd9",
+          "bytes": 132
+        },
+        "color.jpg": {
+          "sha256": "b041eb3753bec04a76b883167746d9d7267172bb92b8a54c42c19c4764b72b17",
+          "bytes": 382822
+        }
+      },
+      "bytes": 382954
+    },
+    "texture-facade-night-office": {
+      "kind": "texture",
+      "title": "Night facade (office)",
+      "description": "An office tower's face at night: large windows between grey stone piers. Every window a lit room; 12 x 12 window cells a tile, each window across 0.117 to 0.867 of its cell's width and the top half of its height. Colour only, 1024 px for 42 m (a window cell taken as a 3.5 m storey; the publisher gives no scale).",
+      "sources": [
+        "acg-facade017"
+      ],
+      "derived": "Colour map only. Each window cell whose room read dark (41 of 144) was overwritten with a lit room copied from the same picture (seeded, half mirrored); re-encoded as JPEG.",
+      "meta": {
+        "size": 42,
+        "maps": [
+          "color"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "300b3941eeb04a2345043dac92d6245cb2f83e7f47ba969f766ed4f8d2b28df3",
+          "bytes": 131
+        },
+        "color.jpg": {
+          "sha256": "3804b689299db67f29a5533f920af5efebc7ca700efd955218c6b3ecfad59a40",
+          "bytes": 300355
+        }
+      },
+      "bytes": 300486
+    },
+    "audio-a1-engine-v4": {
+      "kind": "engine",
+      "title": "Grand Prix engine: 1.6 L V6 turbo hybrid",
+      "description": "A racing car's engine voice for the Grand Prix: our own 1.6 L 90-degree V6 turbo hybrid, rendered as seamless whole-cycle loops at 16 rpm points from 3,500 to 11,375 on and off the throttle (48 kHz, and 32 kHz for phones), six overrun bangs and a turbo blow-off, and the garage set: the fire-up, the idle, the revs, the pit limiter and the pull-away.",
+      "sources": [
+        "a1-engine-v4",
+        "freesound-350673",
+        "freesound-478756",
+        "freesound-659544"
+      ],
+      "derived": "Rendered with engine-sim (MIT) from our own engine script and impulse response, shaped to our own order targets and cut into loops; each loop 16-bit with TPDF dither at a -1 dBFS peak (its gain back recorded), resampled circularly to 32 kHz for phones, and encoded to FLAC (lossless, checked sample for sample). The bangs and the blow-off are cut from Freesound's previews of three CC0 recordings. The fire-up's cranking spikes are cleaned.",
+      "meta": {
+        "voice": "v4",
+        "rpms": 16,
+        "loops": {
+          "hi": 48,
+          "lo": 32
+        },
+        "seconds": {
+          "hi": 187.24,
+          "lo": 100.85
+        },
+        "shots": 7,
+        "garage": [
+          "fireup",
+          "idle",
+          "revs",
+          "limiter",
+          "pullaway"
+        ],
+        "derived": [
+          "field"
+        ],
+        "previews": [
+          "https://freesound.org/s/350673/",
+          "https://freesound.org/s/478756/",
+          "https://freesound.org/s/659544/"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "7c3aa92dbf165dbe0585e5c584f1a25a1df74b26bea7fcadfe6abe97d1bbabec",
+          "bytes": 25223
+        },
+        "field-hi.flac": {
+          "sha256": "1b3a10e84170e74a20bb55020fcb2ab18368ae876c16543d0b886770c313df3a",
+          "bytes": 246512
+        },
+        "field-lo.flac": {
+          "sha256": "8d82752ebeebfed581e38805c681c452af507a099050a48f23f0900336b1fd03",
+          "bytes": 199496
+        },
+        "fireup-hi.flac": {
+          "sha256": "2ee81c591a7c006aa453b53ac3c86f71f70f0e1a7984a82d6d19b2715d0f4b26",
+          "bytes": 197982
+        },
+        "fireup-lo.flac": {
+          "sha256": "a1ef37e4cb5332475dca1258ee9e36e598a75b7215c04dea6c72aa16f0c8ec00",
+          "bytes": 155437
+        },
+        "hi-r10063-off.flac": {
+          "sha256": "10ebbd4fceb3c94dbe26e9cf596a346274ec9b6e52ac824ce0bb2d177f8664de",
+          "bytes": 153729
+        },
+        "hi-r10063-on.flac": {
+          "sha256": "e9833e6ec0051032d237d760c8593d66420b0d27d81256604fd3d95586e9bf38",
+          "bytes": 611264
+        },
+        "hi-r10063-part.flac": {
+          "sha256": "c53dcf353a5053ed8a6b6d61cc5a744467d50e1721bbcb143ac6b82dee2b2094",
+          "bytes": 153240
+        },
+        "hi-r10500-off.flac": {
+          "sha256": "41f47a82da158562f7c38c923bbaa729c52f54af717eb686ef93ffdc258aac2d",
+          "bytes": 158459
+        },
+        "hi-r10500-on.flac": {
+          "sha256": "5aa00ab4869d605a90ff71a5c8ef5e5b0042bc2ffe18068bcf8106b34defd5ea",
+          "bytes": 620682
+        },
+        "hi-r10500-part.flac": {
+          "sha256": "2d8fa24426846a3c62eaea659a83de52e29f46a91201d69661dbde9eba341e98",
+          "bytes": 158333
+        },
+        "hi-r10938-off.flac": {
+          "sha256": "4bccba40b14bce1a747cbf384ee80e272e6752f99736ee634c8b689b5b579d1f",
+          "bytes": 156269
+        },
+        "hi-r10938-on.flac": {
+          "sha256": "cbf85a1e246ad69a3c924a54d03792a57dc65cfdc61ec64b186a8c606a206c16",
+          "bytes": 611339
+        },
+        "hi-r10938-part.flac": {
+          "sha256": "103501ce7327507faf319df94253af6735f31dd69846cd001ee19a2403ac5884",
+          "bytes": 154484
+        },
+        "hi-r11375-off.flac": {
+          "sha256": "ed34dac476eb4cb72263864543e0ab2228e617e51f096a4844117107d489882c",
+          "bytes": 162147
+        },
+        "hi-r11375-on.flac": {
+          "sha256": "48f213ed2643798dbff5824c31f693fdb330f72357511397922f39eabbb29b10",
+          "bytes": 641099
+        },
+        "hi-r11375-part.flac": {
+          "sha256": "003275f56e9060e808cef75c5d4e94baa4d7356f4b2e490b290700958eeb9b9c",
+          "bytes": 158749
+        },
+        "hi-r3500-off.flac": {
+          "sha256": "e9b145c108c26d2b9ab20b03505e5a4627fe61b5b2181bb5689a50a9d2017cea",
+          "bytes": 142289
+        },
+        "hi-r3500-on.flac": {
+          "sha256": "0f5543d9ca0ca64bd227f2f93496e72c5a734af9df35d5ee1fbaa8faf842dc5e",
+          "bytes": 144727
+        },
+        "hi-r3500-part.flac": {
+          "sha256": "02c4318fbcce04e4ab66eba95dc4edf28da7476db60e3677eab886e6cdbbb958",
+          "bytes": 145414
+        },
+        "hi-r4156-off.flac": {
+          "sha256": "7acc46d6ddfe552a287e0e3a03f79b9e750e09f9e39cc7b0f55b3824c03c32dc",
+          "bytes": 142819
+        },
+        "hi-r4156-on.flac": {
+          "sha256": "c403b1541f6d7c2e292e518c9f2d7bf27066790fa617244c7d5ac725b0e7cecd",
+          "bytes": 145033
+        },
+        "hi-r4156-part.flac": {
+          "sha256": "26a3f0bfc335ed093b1431c7fa1ebe0c2f26643b790bead4ca1e1797f2e902bb",
+          "bytes": 144243
+        },
+        "hi-r4813-off.flac": {
+          "sha256": "63d72af2e5d2810442de063712441bfe2c75656db292b6372a76995e3399bf00",
+          "bytes": 148748
+        },
+        "hi-r4813-on.flac": {
+          "sha256": "19b1ce9dea5ea23eb7c4aeccb6543b59a4fc86decdfdc11a4785aab5e5f2c0fa",
+          "bytes": 148476
+        },
+        "hi-r4813-part.flac": {
+          "sha256": "96b6c94b0665e8d9ed644d76dca2380b761a5fcdda5ddbe88f95a4651d055a68",
+          "bytes": 147806
+        },
+        "hi-r5469-off.flac": {
+          "sha256": "0be62b461dff0ffd639d77e1741cfe5f8b9f3db5f18f3bb14e9d41fdcb08c7c9",
+          "bytes": 153162
+        },
+        "hi-r5469-on.flac": {
+          "sha256": "690c9e55b86ebc37b9314298b2f48d0c6ee0ea1dd095c4626588e007f7830c26",
+          "bytes": 151926
+        },
+        "hi-r5469-part.flac": {
+          "sha256": "90aa797c1efa2ae282b69fa7ae7d7d82b4b2648a76c2b073a7f8e3d47a1f0518",
+          "bytes": 149850
+        },
+        "hi-r6125-off.flac": {
+          "sha256": "067204f64f6b7a1e375a3a000333d1253ee7c6280a45ce0083cfef5b475fd8b4",
+          "bytes": 156465
+        },
+        "hi-r6125-on.flac": {
+          "sha256": "41fcdddf8a18cb97e4ac701b6145fa19a9b4ba16947a6819e1cf1f0b8ea5387f",
+          "bytes": 151129
+        },
+        "hi-r6125-part.flac": {
+          "sha256": "f13f2ea4aec44f8fee4b6bd340aac7a1abcd2d8031ab4af6a7299d3a35cc0724",
+          "bytes": 149389
+        },
+        "hi-r6781-off.flac": {
+          "sha256": "ec00aa6cdce1b1149416cf003c1300a5efee5121f415aa2efb46239f8d7c91d1",
+          "bytes": 155474
+        },
+        "hi-r6781-on.flac": {
+          "sha256": "ffdce72103ec0bde366f680e5ed55790805fdd94b8ed55bb531185168ac14fe2",
+          "bytes": 148682
+        },
+        "hi-r6781-part.flac": {
+          "sha256": "dc3f99a985f02752987479257915da11431126374e621272dd94c270d9987c5b",
+          "bytes": 148296
+        },
+        "hi-r7438-off.flac": {
+          "sha256": "89107f6d6bec0281654c6dcf011d96326b7917e00af44cb7bf50c049d0c48b2d",
+          "bytes": 152770
+        },
+        "hi-r7438-on.flac": {
+          "sha256": "6cb0247f0e4faa573601faa680eab7d996e3f26252e32bfcaf2e382c7de051ad",
+          "bytes": 591966
+        },
+        "hi-r7438-part.flac": {
+          "sha256": "825c8f8078147373ffcfaa5a155f540e0f4b49e09bf73f95497dd08deddd2938",
+          "bytes": 148256
+        },
+        "hi-r7875-off.flac": {
+          "sha256": "9ba946ec19dea6c0c1ef4390addf7345a2ddf8a1ffc9f8cc2aa8fb79d9c49239",
+          "bytes": 158040
+        },
+        "hi-r7875-on.flac": {
+          "sha256": "35f6b686cc5706590a71f4ae9d3ce3ae36f22cfa87fc3deb9f02d61d736a2528",
+          "bytes": 600939
+        },
+        "hi-r7875-part.flac": {
+          "sha256": "4ab7f985844ca6e6896a4c76de18ed1a5b390e1c8ab756f6a674621b18058042",
+          "bytes": 151250
+        },
+        "hi-r8313-off.flac": {
+          "sha256": "04d174f21e5c83eb9c3fa1be2d5b0f04e642c58fc942b1332bafcdde05d21c6d",
+          "bytes": 154451
+        },
+        "hi-r8313-on.flac": {
+          "sha256": "f130f2e53ba03aa369fb14a9f9e113c271da524f543d4d10fbd308a1ec74b2a4",
+          "bytes": 588287
+        },
+        "hi-r8313-part.flac": {
+          "sha256": "7f673ae05cf009a01ba3a3825212d0c8c1363be3c30a93110fbccea9ca498def",
+          "bytes": 145661
+        },
+        "hi-r8750-off.flac": {
+          "sha256": "64b83fec445a5cb57190823bc1f2b3aabbec342924b431c6a5f16bbbeb761c7f",
+          "bytes": 155843
+        },
+        "hi-r8750-on.flac": {
+          "sha256": "15a2a921cfb579874fb05fb4df0b79f428fc62d81b89bc26f29eb19a57a9e8ce",
+          "bytes": 617924
+        },
+        "hi-r8750-part.flac": {
+          "sha256": "a5797b092f60e0dde669d9289b3dc9cddc8dc8a54b0f78eca18cc72bdc9f047a",
+          "bytes": 155037
+        },
+        "hi-r9188-off.flac": {
+          "sha256": "0a99e2f02eaa269fea4fa7ba8014c5b0912f07c58bdd9a2e495aa5d76bc64215",
+          "bytes": 156193
+        },
+        "hi-r9188-on.flac": {
+          "sha256": "921ca4e9b6770a1e88f5deb5c68513f020b8d1eca67c5e1c7792955be59f48c3",
+          "bytes": 604559
+        },
+        "hi-r9188-part.flac": {
+          "sha256": "93482982e8155ee5dc398ca3382a53e0cb7a943deaa71496a3657844b1c1d8c4",
+          "bytes": 150483
+        },
+        "hi-r9625-off.flac": {
+          "sha256": "e8f5f079fc88554498d8625a9680a9a08c7ec8f33825db8bb88dc21cb7ed971c",
+          "bytes": 158198
+        },
+        "hi-r9625-on.flac": {
+          "sha256": "99e07a958ce24b4ff79d0a4ea2d7e188656d1da18881d6631084701b05a58f74",
+          "bytes": 626218
+        },
+        "hi-r9625-part.flac": {
+          "sha256": "ffe47b1ae78dffd0fbaddaa6831f4465237bad7230161e16a05b37104f7adfdb",
+          "bytes": 153866
+        },
+        "idle-hi.flac": {
+          "sha256": "51c21cfa65b32158a20a0f3b7e42c31de4b17a9f8a1a114ef85fdc68063c7d86",
+          "bytes": 470714
+        },
+        "idle-lo.flac": {
+          "sha256": "d9ca3f9f91658c841a7e7c50e04dca6a13794e8fb7517c199f765f281d5b98ea",
+          "bytes": 378616
+        },
+        "limiter-hi.flac": {
+          "sha256": "8c87e7b999957ce5465cf2f546bc0f3411d2c92b8862b41f123aa27ab786f777",
+          "bytes": 228388
+        },
+        "lo-r10063-off.flac": {
+          "sha256": "57228220b4fb14c548a4aa01e051667a5945e1b319a386b3781445ff77e97a71",
+          "bytes": 117265
+        },
+        "lo-r10063-on.flac": {
+          "sha256": "6cea5a3071214dd174b1cfa82fe0a2140c9261dab49c911e9ed85ac299d28c82",
+          "bytes": 236027
+        },
+        "lo-r10500-off.flac": {
+          "sha256": "6652675d8448e67be74074a274b44c40f67c3afca2e7572751adeb9138d2adbf",
+          "bytes": 120927
+        },
+        "lo-r10500-on.flac": {
+          "sha256": "6369e1eb83e2e468cb982a26e6a0377c5e4bff2bf5cffe7d1f20ba3a0f44087e",
+          "bytes": 244690
+        },
+        "lo-r10938-off.flac": {
+          "sha256": "4ffb96f5550538533ec258435b054ebc21a84ba778c7126aa9af7f8a96ce227e",
+          "bytes": 119648
+        },
+        "lo-r10938-on.flac": {
+          "sha256": "975b7966abda234113b821a2c7dcb637c3ebda80bc29b4e3794c1754f5d70cdf",
+          "bytes": 234708
+        },
+        "lo-r11375-off.flac": {
+          "sha256": "fa1047f0665477ecb884e969e11c980008020464ef06b1ef815c41c5ec1faeb4",
+          "bytes": 122629
+        },
+        "lo-r11375-on.flac": {
+          "sha256": "e2d4839af436d534e7c86a914ed6993982d672a25ac0314507b3993961965cdc",
+          "bytes": 244237
+        },
+        "lo-r3500-off.flac": {
+          "sha256": "b3dc92e29c0964baac9123b62ec7c98f818448618283e269fc1830ee20748b83",
+          "bytes": 109055
+        },
+        "lo-r3500-on.flac": {
+          "sha256": "f9fc178772dcb6334ab35e47e8febcea815471465edf81b928574b9cf9dd451c",
+          "bytes": 107499
+        },
+        "lo-r4156-off.flac": {
+          "sha256": "c4860b825db8bff71024eb9b2b2c608494ddbb0a0fcf563c90821aeacf9c71ed",
+          "bytes": 111125
+        },
+        "lo-r4156-on.flac": {
+          "sha256": "f4077874f0135927d8fa82b4b19141a3f992f7e15a408c5ed280271b0bb1d3bb",
+          "bytes": 109731
+        },
+        "lo-r4813-off.flac": {
+          "sha256": "b6db6b56a49ce39d4b2ead413a221fafaa6d976162c1320ca36baf17563f02ce",
+          "bytes": 114443
+        },
+        "lo-r4813-on.flac": {
+          "sha256": "83e25346b5ff0c4299470d6054e81ee4c02d04a73683ab2640461905d80adf40",
+          "bytes": 112669
+        },
+        "lo-r5469-off.flac": {
+          "sha256": "2ccdf2a036b7d2b3d75703dda320b55b33f60084edc62961008457569330a8d8",
+          "bytes": 117732
+        },
+        "lo-r5469-on.flac": {
+          "sha256": "67b101a4b565874cb314b156f31782dd3e15caac753a0baf9dee70df5bdfbe2b",
+          "bytes": 115446
+        },
+        "lo-r6125-off.flac": {
+          "sha256": "534a17607832de092c0839742592727bb6e8c9d4ee3bcc8b6e2caf735d052740",
+          "bytes": 120737
+        },
+        "lo-r6125-on.flac": {
+          "sha256": "945828cdb57c172ead199d863b5926f5ca18728235450bbeaae672be9faa6f96",
+          "bytes": 115866
+        },
+        "lo-r6781-off.flac": {
+          "sha256": "37da9410ed6f5bc68d0cdd07d5e9ee663e44726a19787007c2f6f7d27deb38e9",
+          "bytes": 119694
+        },
+        "lo-r6781-on.flac": {
+          "sha256": "22937d06ac1ecbc5bc2784529958474de4b23f6bf8db31e67e96a85224952d8b",
+          "bytes": 115034
+        },
+        "lo-r7438-off.flac": {
+          "sha256": "f5dfd7dbf8ccb77fb6d1991fd3f22fa3bdb78ca801dd3e290f26bad2eeac7736",
+          "bytes": 117305
+        },
+        "lo-r7438-on.flac": {
+          "sha256": "8705543508a1eafae985011ea8715d52ac1e30da4a39d7929facc6dc361593a9",
+          "bytes": 230189
+        },
+        "lo-r7875-off.flac": {
+          "sha256": "2808b2c9b4ae06aa3bce9fa6ec185ea5105e3ad05267d1911e64fff18fc2e1a7",
+          "bytes": 122206
+        },
+        "lo-r7875-on.flac": {
+          "sha256": "18696877ee32ea468f67edf9b342d9fe17f8ee3e15b3c93e76f5f67fc27151c5",
+          "bytes": 232862
+        },
+        "lo-r8313-off.flac": {
+          "sha256": "5f102d0cb8b20eb67e3099cf3763e53eb85146bb3470175ed1dc09c2db855cac",
+          "bytes": 118597
+        },
+        "lo-r8313-on.flac": {
+          "sha256": "027a463b2eea1f79b0c0e9e6d0a7b4a69d42ee93a1b5737adcf8134fd33dc4db",
+          "bytes": 229704
+        },
+        "lo-r8750-off.flac": {
+          "sha256": "7fe1bce143d2145e6497090f787a9a465caa013841a4bde71f6e5b80f08b361d",
+          "bytes": 119777
+        },
+        "lo-r8750-on.flac": {
+          "sha256": "0a7211ce8936f58d92d252942f0b3d9bdb2930052e446f447b0350e50cb5601d",
+          "bytes": 239280
+        },
+        "lo-r9188-off.flac": {
+          "sha256": "1fd764a7c3c17ec0cfc77f3ed108d12abe60203317ea7a9af217ab52e2bd448f",
+          "bytes": 119278
+        },
+        "lo-r9188-on.flac": {
+          "sha256": "be05cb252cb61553643330a9444e36302c71057700f72375bbb95931de116cdd",
+          "bytes": 234295
+        },
+        "lo-r9625-off.flac": {
+          "sha256": "951f91d7d9e37e2caf23c2550ee31d8d4e3997207a68ff91316ecf683dbccc23",
+          "bytes": 121347
+        },
+        "lo-r9625-on.flac": {
+          "sha256": "a42a1ae6e878ff546b089db160e667b2991baa9e557b884530111a026a0f1f7a",
+          "bytes": 243229
+        },
+        "pullaway-hi.flac": {
+          "sha256": "c1860f9b961ba87905726f35689301dea208ad0b8a9a6909f9739f0f14423267",
+          "bytes": 652774
+        },
+        "revs-hi.flac": {
+          "sha256": "aa93785566913a4ae5e96f748de0024f532d5daeb89a97f592838bcab034c902",
+          "bytes": 237125
+        },
+        "shot-bang-01.wav": {
+          "sha256": "16c9192d998ac449595cfa79d52b6bcd727ee0206a16b386632856e560a21dfc",
+          "bytes": 19448
+        },
+        "shot-bang-02.wav": {
+          "sha256": "4cb5b3f219ddfc9026b64ed8d913921263e4825c8400c0c6c70bfb7b316d3ff1",
+          "bytes": 19448
+        },
+        "shot-bang-03.wav": {
+          "sha256": "5c4258969e4cc0228aa67f02541fe580c20d624b674f6844051626ca18db0033",
+          "bytes": 19448
+        },
+        "shot-bang-04.wav": {
+          "sha256": "68af9959eea0741bf3819cd7fffbeb92b6eaf3e0aa70cc5895f76578888ed318",
+          "bytes": 19448
+        },
+        "shot-bang-05.wav": {
+          "sha256": "b74171cea6038dfb53a1799cc40fa7423abb355f25403cc376f8161f57da6c4d",
+          "bytes": 19448
+        },
+        "shot-bang-06.wav": {
+          "sha256": "ef2e6a3c1eec574861270bdc56a78fffb7a5f8cc523a3f959123c4ae7a20585d",
+          "bytes": 21164
+        },
+        "shot-whoosh.wav": {
+          "sha256": "61442ac4201a1425ba9868484abfc5331cc2c8310f2c5cbc5eed616cc2c30260",
+          "bytes": 109412
+        }
+      },
+      "bytes": 19840977
     }
   }
 }

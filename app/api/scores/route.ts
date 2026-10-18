@@ -4,6 +4,7 @@ import { playtest } from '@/lib/playtest';
 import type { WorldSpec } from '@/lib/worldspec';
 import { worldMode } from '@/lib/custom-game';
 import { dna } from '@/lib/mog-dna';
+import { checkRun } from '@/lib/dare';
 import { KartScore, kartConstants, checkKartRun } from '@/lib/kart-score';
 
 export const runtime = 'nodejs';
@@ -49,6 +50,19 @@ export async function POST(req: Request) {
         parts: { time: p.time, finish: p.finish, gm: p.gm, hits: p.hits },
         rank: at ? at.rank : null, best: at ? at.best : false, review: c.review, source: C.source,
       });
+    }
+    // a Grand Prix (18 Oct): the race time over its laps, the fastest first, the place it finished in; checked as a dare's
+    // run is (lib/dare.ts checkRun), a car that did not finish the race is not a time
+    if (worldMode(row.code, row.meta) === 'gp') {
+      const c = checkRun({ format: 'world', code: row.code, meta: row.meta }, b);
+      if (!c.ok) return NextResponse.json({ error: c.error }, { status: 422 });
+      insertScore({
+        gameId: row.id,
+        player: String(b.player ?? 'anon').slice(0, 16).replace(/[^\w \-.]/g, '') || 'anon',
+        timeMs: c.run.timeMs, place: c.run.place, score: 0, level: c.run.level, gm: 0,
+        tempoReached: 0, locks: 0, bestStreak: 0,
+      });
+      return NextResponse.json({ ok: true });
     }
     // a penalty shootout (12 Oct): the goals scored in one sitting (score), from that many kicks (level), after each
     // kick; the board ranks the goals (the 'score' board). No kick is shorter than its run-up and flight
