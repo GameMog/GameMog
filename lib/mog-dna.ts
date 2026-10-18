@@ -48,7 +48,7 @@ export type Dna = {
    * player() and rival() give them: the stars are the first four), and its items (kart.items: each id, and the name
    * the world gives it, "id=Name")
    */
-  kart: { laps: number | null; class: string | null; roster: string[]; items: string[] } | null;
+  kart: { laps: number | null; class: string | null; roster: string[]; items: string[]; itemsOn: boolean } | null;
   /** a penalty shootout's own (shootout: {...}; null for every other kind) */
   shootout: ShootDna | null;
   /** every word the module uses, comments and names included (a world that builds its own place says what it is) */
@@ -358,7 +358,10 @@ export function dna(source: string): Dna {
     play: { vehicle: on(play.get('vehicle')), combat: on(play.get('combat')), bounty: on(play.get('bounty')) },
     track: track ? { points: points.startsWith('[') ? count(points) || null : null, width: Number.isFinite(width) ? width : null } : null,
     kart: kartObj ? { laps: Number.isFinite(lapsN) ? lapsN : null, class: str(kartObj.get('class')), roster: rosterOf(code, world),
-      items: itemIds.map((id) => (str(resolve(code, itemNames.get(id))) ? `${id}=${str(resolve(code, itemNames.get(id)))}` : id)) } : null,
+      items: itemIds.map((id) => (str(resolve(code, itemNames.get(id))) ? `${id}=${str(resolve(code, itemNames.get(id)))}` : id)),
+      // (whether the race has items at all, as the runtime's ITEMS_ON reads it: kart.items: false, or a course with
+      // airdrops: false, and there are none)
+      itemsOn: resolve(code, kartObj.get('items')) !== 'false' && entries(resolve(code, kartObj.get('course'))).get('airdrops') !== 'false' } : null,
     shootout: kind === 'shootout' ? shootOf(code, world, assets) : null,
     words: [...new Set(source.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().match(/[a-z]{3,}/g) ?? [])].sort(),
   };

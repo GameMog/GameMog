@@ -588,6 +588,37 @@ export const MIGRATIONS = [
       return 'published';
     },
   },
+  {
+    // the owner, 18 Oct, of WONDERWAKE: Skywhale Rally (build 94, a creator's kart race on a flying whale): its whale was
+    // never on screen and its light was pale and flat. A postmortem in Chrome found why and repaired only this world's
+    // module: the sky drawn without a second gamma, the sun's direction set in build (the runtime keeps the first one),
+    // the environment light at 0.5 and bloom only over 2; the escort whales placed on their orbit at build (the corridor
+    // guard had hidden all six at the origin) and six times larger, a curved tail and flukes over the horizon, the breach
+    // out past the lawn and the head and eye 18 m higher; the start banner's title fitted to its canvas; Pip's head, ears
+    // and ringed tail closer to the creator's picture. The track and its score constants are unchanged. Only the code this
+    // repairs is replaced: if the creator has rebuilt it since, it is left as it is
+    id: '2026-10-18-wonderwake-repair',
+    run(db) {
+      const code = file('wonderwake-skywhale-rally.js');
+      if (!code) throw new Error('deploy/migrations/wonderwake-skywhale-rally.js is not in this build');
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'wonderwake-skywhale-rally'").get();
+      if (!g) return 'no such game';
+      const next = code.toString('utf8'), sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
+      // the published code, as it was on 18 Oct (sha256 of its text, without the blank lines at either end)
+      const WAS = '9b3f64c0402bafd9e761fe25b7fd191bc5a0cca31f8181aef4420e1372ddce0a';
+      if (g.code === next) return 'already repaired';
+      if (sha(String(g.code ?? '').trim()) !== WAS) return 'left alone: its code has changed since 18 Oct, so this repair no longer fits it';
+      // the test record follows the code it describes (lib/test-drive.ts codeHash), and the cover is now of this code
+      let meta = g.meta, hash = '';
+      try {
+        const m = JSON.parse(g.meta ?? 'null');
+        if (m && m.test && typeof m.test === 'object') { hash = sha(next).slice(0, 16); m.test = { ...m.test, codeHash: hash, cover: 'current' }; meta = JSON.stringify(m); }
+      } catch { meta = g.meta; }
+      db.prepare('UPDATE games SET code = ?, meta = ?, cover = COALESCE(?, cover), art_icon = COALESCE(?, art_icon), art_wide = COALESCE(?, art_wide) WHERE id = ?')
+        .run(next, meta, file('wonderwake-skywhale-rally-cover.jpg'), file('wonderwake-skywhale-rally-icon.jpg'), file('wonderwake-skywhale-rally-wide.jpg'), g.id);
+      return `repaired (${hash ? 'test codeHash ' + hash : 'no test record'})`;
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

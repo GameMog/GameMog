@@ -144,6 +144,15 @@ export function isGpWorld(code?: string | null) {
   return /(?:^|[\s,{])gp\s*:\s*\{/.test(top) && !/(?:^|[\s,{])(?:open|kart|shootout)\s*:\s*\{/.test(top);
 }
 export const KART_CONTROLS = 'W or the up arrow: gas (hit it as the 1 lands for a Moon Launch). S or the down arrow: brake, then reverse. A D or the left and right arrows: steer. Space: hop, and hold it through a turn to drift (let go for a boost); off a ramp, a trick. X (or J, K, Shift): use your item, held to drag a Rug Pull or Laser Eyes behind you as a shield; E throws it ahead; with S or the down arrow, behind. C: look back. P: pause. On touch screens, a stick to steer and DRIFT, ITEM and BRAKE buttons (the gas is automatic; hold DRIFT on the grid to launch; the stick up or down aims an item); a gamepad works too.';
+/**
+ * A kart race's controls as its own race has them (18 Oct, Wonderwake: kart.items: false, and the page still told of
+ * an item key, an ITEM button and aiming an item): with the items off (kart.items: false, or a course with
+ * airdrops: false, which leaves no crates, as the runtime's ITEMS_ON reads it), none of the item's keys or buttons.
+ */
+export function kartControls(items = true) {
+  if (items) return KART_CONTROLS;
+  return KART_CONTROLS.replace(/ X \(or J, K, Shift\): use your item[^.]*\./, '').replace('DRIFT, ITEM and BRAKE buttons', 'DRIFT and BRAKE buttons').replace('; the stick up or down aims an item', '');
+}
 // a penalty shootout (12 Oct): the owner's mechanic, TAP, aim, HOLD and RELEASE (lib/runtime/shootout.js)
 export const SHOOTOUT_CONTROLS = 'Space or a click: tap to run up (tap faster for more power). The arrow keys or W A S D: aim. Hold the last tap when the ring glows and let go as the gold ring closes. Enter: start, skip the replay and kick again. P: pause. On touch screens, a stick to aim and a KICK button; a gamepad works too (A to tap, the left stick to aim).';
 // a Grand Prix (14 Oct): the player's car is the same car the AI drives; braking and steering assists are on by default
@@ -217,16 +226,18 @@ export const MODE_PAGE: Record<WorldMode, { label: string; rivals: string; how: 
  * 5, three when it names none; the page passes dna(code).kart.laps), in words. Three laps is MODE_PAGE.kart.how, word
  * for word.
  */
-export function kartHow(laps?: number | null) {
+export function kartHow(laps?: number | null, items = true) {
   const n = laps == null || !Number.isFinite(laps) ? 3 : Math.max(1, Math.min(5, Math.round(laps)));
-  return MODE_PAGE.kart.how.replace('three laps', n === 1 ? 'one lap' : `${['two', 'three', 'four', 'five'][n - 2]} laps`);
+  const how = MODE_PAGE.kart.how.replace('three laps', n === 1 ? 'one lap' : `${['two', 'three', 'four', 'five'][n - 2]} laps`);
+  // (and no crates or items named when the race has none: kartControls)
+  return items ? how : how.replace(/ Drive through the Airdrop crates for an item:[^.]*\./, '');
 }
 /** An open world with no GM (the creator's option, or open.coins: false) explains itself without coins. */
 export const NO_GM_HOW = 'An open world to roam, with no GM to chase. Crews come for you, more of them and tougher as the heat rises: it climbs with time and with every few knockouts, and a boss arrives at every third heat. Get knocked out and the run is over. The leaderboard ranks the time survived, then the takedowns.';
-export function worldControls(code: string) {
+export function worldControls(code: string, o: { kartItems?: boolean } = {}) {
   if (isGpWorld(code)) return GP_CONTROLS;
   if (isShootoutWorld(code)) return SHOOTOUT_CONTROLS;
-  if (isKartWorld(code)) return KART_CONTROLS;
+  if (isKartWorld(code)) return kartControls(o.kartItems !== false);
   const mode = worldMode(code);
   if (mode !== 'race') return mode === 'derby' ? DERBY_CONTROLS : openControls(code);
   return /\bplay\s*:\s*\{[\s\S]{0,400}?\bcombat\s*:/.test(code)

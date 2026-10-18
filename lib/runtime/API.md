@@ -562,7 +562,8 @@ graphics: {
 - Bloom catches colours brighter than white: give lamps, floodlights, neon, lava and the sun
   `emissive` colours with `emissiveIntensity` of 2 to 12. Ordinary surfaces never glow.
 - The shadow map follows the player, so the one shadow-casting `DirectionalLight` needs no
-  shadow camera of its own. Scenery far away does not need to cast shadows.
+  shadow camera of its own. Set its `position` (its direction) in `build`: the runtime reads it once, after `build`, and
+  keeps it (unless `shadows: { follow: false }`); moving the light in `update` does not turn it. Scenery far away does not need to cast shadows.
 - In an open world on its own ground (no `map`), `shadows: { follow: 'hero' }` (optional) keeps
   the shadow map on the hero, a little ahead of him where the camera looks (ahead of the camera in
   a scene), and `reflections: 'hero'` (optional) films the live cube from his chest, for his chrome.
@@ -614,7 +615,8 @@ tens or hundreds wash the whole picture out white.
   1.2m of the centre line, below 7m. Use `ctx.track.clear(x, z, margin)` before placing
   scenery. Overhead arches and banners must clear 7m. The runtime hides anything that
   intrudes, because the chase camera would be inside it, and names the first few it hid: where along the lap, which
-  side of the centre line and how high, so you can move exactly those.
+  side of the centre line and how high, so you can move exactly those. It checks once, after `build`: build moving
+  scenery (a whale that circles, a breach) where it first shows, never at the origin, which is on the track.
 - Put scenery in `ctx.scenery` (a Group) or straight into `ctx.scene`.
 - Anything repeated more than a dozen times goes through `ctx.instanced(geometry, material,
   count, (i, dummy) => { dummy.position.set(...); dummy.scale.set(...); })`.
@@ -682,6 +684,8 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
   side its front faces, and a basis built with `makeBasis(X, Y, Z)` must be right-handed (X cross Y = Z), or every word
   it places comes out mirrored. A two-sided sign (`side: DoubleSide`) shows its back mirrored, so the runtime gives
   every two-sided sign with words a back of its own that reads right too (a Mog's cover is often shot from beyond the line).
+  Fit every line of text to its canvas: `g.fillText(text, x, y, w - 64)` (the 4th argument is the widest it may draw).
+  The theme font is not loaded yet while `build` runs, so a canvas drawn there letters in a fallback face of another width.
 - `ctx.textures.normal(width, height, (g, w, h) => { ...draw heights in greys... }, strength)`:
   a normal map from a height field (white is high): grain, weave, cracks, pores
 - `ctx.sky({ top, horizon, bottom, sun: [x, y, z], sunColor, sunSize, glow, haze, curve })`: a sky
@@ -1224,7 +1228,8 @@ GameMog.world({
   place, finished, roll, detail ('near', 'mid' or 'far'), back, gaze ([x, y] toward the nearest kart, or null),
   celebrate, sad, angry (0 to 1: road rage), grind (on a rail), charge (0 to 1: a charge jump charging) }`; never move
   `object` yourself. A racer's road manner is its persona (below): the roster's by its id, a greybox's
-  `ctx.kart.greybox({ persona: 'ram' })`, or your own model's `object.userData.kartRacer = { stats, persona }`.
+  `ctx.kart.greybox({ persona: 'ram' })`, or your own model's `object.userData.kartRacer = { stats, persona }`. The start
+  screen draws each racer's portrait from its `object`, so model the face.
 - **Impostors.** `ctx.kart.impostors({ cast, frames, cell, size, foot, cols, across, light })` films animated models,
   off screen and before the race, into one sheet of pictures, for cards that stand in for them by the hundred in one
   draw (Meme Kart's crowd in its stands). A world never makes a camera; the film is the kit's, through its own lens into

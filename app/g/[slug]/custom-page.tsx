@@ -28,7 +28,9 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
   const world = game.format === 'world';
   // a framework world's controls are the runtime's, read from its code, so a change to them
   // (the jump, 1 Oct) reaches every published world; a written game keeps the ones it declared
-  const controls = world && game.code ? worldControls(game.code) : meta.controls;
+  // (a kart race's with its own items or none, 18 Oct: read from its code, as its laps are)
+  const kartDna = world && game.code && worldMode(game.code, game.meta) === 'kart' ? dna(game.code).kart : null;
+  const controls = world && game.code ? worldControls(game.code, { kartItems: kartDna?.itemsOn }) : meta.controls;
   // a lap race, an open world or a derby (1 Oct): read from the code, so an open world's page never talks laps
   const mode = world ? worldMode(game.code, game.meta) : null, page = mode ? MODE_PAGE[mode] : null;
   // an open world with no GM ranks the takedowns after the time
@@ -41,7 +43,6 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
   const scores = topScores(game.id, 10, by);
   // (a kart race's constants: the perfect time of each racer, for the post panel's score, the same as the route's)
   // (and its laps for the page's text: kartHow, 9 Oct; Meme Kart's three laps read word for word as before)
-  const kartDna = mode === 'kart' && game.code ? dna(game.code).kart : null;
   const kartC = mode === 'kart' ? kartConstants(game.meta, game.code, kartDna) : null;
   const best = bestTimes();
   // worlds recommend worlds; Classic races live on /classic
@@ -148,7 +149,7 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
                   {page && (
                     <>
                       <h2 style={{ marginTop: 26, marginBottom: 6 }}>How it works</h2>
-                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{noGm ? NO_GM_HOW : mode === 'kart' ? kartHow(kartDna?.laps) : page.how}</p>
+                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{noGm ? NO_GM_HOW : mode === 'kart' ? kartHow(kartDna?.laps, kartDna?.itemsOn) : page.how}</p>
                     </>
                   )}
                 </div>

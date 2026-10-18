@@ -292,6 +292,10 @@ export async function generateGame(
   // a pass that passed and went back once, for its notes or its parent's DNA: everything it would ship with, so it still can
   type Kept = Pass & { attempt: number; meta: WorldMeta; stored: unknown; code: string; report: Omit<WorldReport, 'cover' | 'artIcon' | 'artWide'>; shots: typeof shots; dropped: number };
   let kept: Kept | null = null;
+  // every pass's own account, kept with the report that ships (drafts.report.trail): what stopped it, how long its
+  // reply was, what it was sent back with, its verdict and its best frame; and why the pass that shipped did
+  const trail: { attempt: number; stop: string | null; replyChars: number; sentBack: string[]; status?: string; look?: unknown; advisories?: string[]; codeHash?: string }[] = [];
+  const keepTrail = (extra: Record<string, unknown> = {}) => db.prepare("UPDATE drafts SET report = json_set(report, '$.trail', json(?)) WHERE id = ?").run(JSON.stringify({ passes: trail, ...extra }), draftId);
   /** Ships the kept pass: its draft (code, meta, report, cover and key art) back in the row the page publishes from. */
   const keep = (k: Kept, why: string, attempts: number) => {
     // a pass that went back for its parent's DNA says so in its report, and why it shipped all the same
@@ -299,6 +303,7 @@ export async function generateGame(
     db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
     insertDraft({ id: draftId, prompt: input.prompt, meta: k.stored, code: k.code, report, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
     db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ? WHERE id = ?').run(k.shots.cover ?? null, k.shots.artIcon ?? null, k.shots.artWide ?? null, draftId);
+    keepTrail({ shipped: k.attempt, why });
     return emit({ type: 'done', draftId, meta: k.meta, runtime: report, attempts, ms: Date.now() - started, kept: { attempt: k.attempt, why } });
   };
 
@@ -415,18 +420,22 @@ export async function generateGame(
       }
     }
 
+    trail.push({ attempt, stop: final.stop_reason ?? null, replyChars: text.length, sentBack: problems.slice(0, 20).map((p) => p.slice(0, 400)), status: report?.status, look: report?.look, advisories: report?.advisories, codeHash: report?.codeHash });
     // a repair of a world that already passed ships only if it is no worse; a Mog's, only if it keeps more of its
     // parent (lib/mog-dna.ts pickMogPass). A repair of the parent's DNA that broke the world gets the build's passes
     // that are left to fix it, and is then held to the same choice
+    let pickWhy = '';
     if (prior) {
       const next = { problems, status: report?.status, look: report?.look, notes: report?.advisories };
       const pick = parentDna ? pickMogPass(prior, { ...next, dropped: verdict?.dropped.filter((d) => !d.minor).length }) : pickPass(prior, next);
+      pickWhy = pick.why;
       const retry = prior.dropped > 0 && problems.length > 0 && attempt < MAX_ATTEMPTS;
       if (pick.keep === 'prev' && !retry) return keep(prior, pick.why, attempt);
     }
 
     if (!problems.length && meta && report) {
       const { cover: _c, artIcon: _i, artWide: _w, ...rest } = report;
+      keepTrail({ shipped: attempt, why: pickWhy || 'it passed' });
       return emit({ type: 'done', draftId, meta, runtime: rest, attempts: attempt, ms: Date.now() - started });
     }
 
@@ -445,6 +454,7 @@ export async function generateGame(
   const d = db.prepare('SELECT report FROM drafts WHERE id = ?').get(draftId) as { report: string } | undefined;
   const last = d ? JSON.parse(d.report) as Omit<WorldReport, 'cover'> : null;
   if (last && last.ok) {
+    keepTrail({ shipped: MAX_ATTEMPTS, why: 'the last pass\'s report was ok' });
     const m = db.prepare('SELECT meta FROM drafts WHERE id = ?').get(draftId) as { meta: string };
     return emit({ type: 'done', draftId, meta: JSON.parse(m.meta), runtime: last, attempts: MAX_ATTEMPTS, ms: Date.now() - started });
   }
