@@ -619,6 +619,31 @@ export const MIGRATIONS = [
       return `repaired (${hash ? 'test codeHash ' + hash : 'no test record'})`;
     },
   },
+  {
+    // the owner, 18 Oct, after the repair above went live: its tail's two flukes, twisted ellipsoids, read as a propeller
+    // on the horizon, and its cover and key art were still of the old world. Now one crescent fluke with its notch, face
+    // on to the track, and art shot by the playtest from this code. Only the repaired code is replaced
+    id: '2026-10-18-wonderwake-fluke-art',
+    run(db) {
+      const code = file('wonderwake-skywhale-rally-v2.js');
+      if (!code) throw new Error('deploy/migrations/wonderwake-skywhale-rally-v2.js is not in this build');
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'wonderwake-skywhale-rally'").get();
+      if (!g) return 'no such game';
+      const next = code.toString('utf8'), sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
+      // the code 2026-10-18-wonderwake-repair put live (sha256 of its text, without the blank lines at either end)
+      const WAS = '014cdabe5c571bfa86fb689f19d0ce201b73b75269e92fdd419ba91e93f86386';
+      if (g.code === next) return 'already done';
+      if (sha(String(g.code ?? '').trim()) !== WAS) return 'left alone: its code is not the repaired code';
+      let meta = g.meta, hash = '';
+      try {
+        const m = JSON.parse(g.meta ?? 'null');
+        if (m && m.test && typeof m.test === 'object') { hash = sha(next).slice(0, 16); m.test = { ...m.test, codeHash: hash, cover: 'current' }; meta = JSON.stringify(m); }
+      } catch { meta = g.meta; }
+      db.prepare('UPDATE games SET code = ?, meta = ?, cover = COALESCE(?, cover), art_icon = COALESCE(?, art_icon), art_wide = COALESCE(?, art_wide) WHERE id = ?')
+        .run(next, meta, file('wonderwake-skywhale-rally-v2-cover.jpg'), file('wonderwake-skywhale-rally-v2-icon.jpg'), file('wonderwake-skywhale-rally-v2-wide.jpg'), g.id);
+      return `new fluke and art (${hash ? 'test codeHash ' + hash : 'no test record'})`;
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
