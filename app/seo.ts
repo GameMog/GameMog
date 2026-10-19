@@ -12,7 +12,7 @@ export const DEFAULT_DESCRIPTION =
   'Make a 3D game from one sentence, play it in your browser, and Mog any world into a better one. Speed skating, cycling, kart racing and more.';
 
 type Image = { url: string; width?: number; height?: number; alt?: string };
-const CARD: Image = { url: '/og.jpg', width: 1200, height: 630, alt: 'GameMog: one game, endless mogs' };
+const CARD: Image = { url: '/og.jpg', width: 1200, height: 630, alt: 'GameMog: one game, infinite mogs' };
 
 /** Keep a description to one unfurl's length, cut at a word. */
 export function clip(text: string, max = 158) {

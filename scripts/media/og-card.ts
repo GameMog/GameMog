@@ -29,7 +29,7 @@ h1{font:800 62px/1.02 D;letter-spacing:-.02em}
 p{margin-top:22px;font:500 24px/1.35 U;color:#3A3F47}
 .art{flex:1;background:url(data:image/jpeg;base64,${b64(STILL)}) 58% 0/auto 800px no-repeat}
 </style></head><body><div class="card">
-<div class="copy"><div class="mark">GameMog</div><div><h1>One game.<br>Endless mogs.</h1><p>Make a 3D game from one sentence, play it in your browser, then Mog it.</p></div></div>
+<div class="copy"><div class="mark">GameMog</div><div><h1>One game.<br>Infinite mogs.</h1><p>Make a 3D game from one sentence, play it in your browser, then Mog it.</p></div></div>
 <div class="art"></div></div></body></html>`;
 
 await withBrowser(async (page) => {
