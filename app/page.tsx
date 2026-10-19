@@ -7,9 +7,8 @@ import { Tile, short } from './tile';
 import { HeroFilm, type Film } from './hero-film';
 import { HeroReel, type ReelClip } from './hero-reel';
 import { Rail as Shelf } from './rail';
-import { GenreFilter } from './genre-filter';
 import { listGames, bestTimes, topScores, tileStats, type GameRow, type TileStats } from '@/lib/db';
-import { CHARTS, genreOf, sortGames, type ChartSort } from '@/lib/catalog';
+import { CHARTS, sortGames, type ChartSort } from '@/lib/catalog';
 import { Cover } from './cover';
 import type { WorldSpec } from '@/lib/worldspec';
 import { worldMode } from '@/lib/custom-game';
@@ -121,16 +120,16 @@ function Reel({ worlds, stats }: { worlds: GameRow[]; stats: Record<string, Tile
 
 /**
  * A chart as a GameStop section (docs/design/premium.md): the title and a grey
- * subtitle, arrows, any tab chips, the rail of cards, "View all" under it.
+ * subtitle, arrows, the rail of cards, "View all" under it. (No genre chips here, the owner, 19 Oct: "unnecessary"
+ * on the homepage; the Charts pages keep their filter.)
  */
-function Section({ sort, games, best, stats, seed, controls, genre }: {
-  sort: ChartSort; games: GameRow[]; best: Record<string, number>; stats: Record<string, TileStats>; seed: number; controls?: React.ReactNode; genre: string;
+function Section({ sort, games, best, stats, seed }: {
+  sort: ChartSort; games: GameRow[]; best: Record<string, number>; stats: Record<string, TileStats>; seed: number;
 }) {
   const chart = CHARTS[sort];
-  const query = genre === 'All' ? '' : `?genre=${encodeURIComponent(genre)}`;
   return (
-    <Shelf title={chart.title} sub={chart.caption ?? chart.explanation} controls={controls}
-      more={{ href: `/charts/${sort}${query}`, label: `View all ${chart.title}` }}>
+    <Shelf title={chart.title} sub={chart.caption ?? chart.explanation}
+      more={{ href: `/charts/${sort}`, label: `View all ${chart.title}` }}>
       {games.map((g, i) => <Tile key={g.id} g={g} i={seed + i} best={best[g.id]} stats={stats[g.id]} />)}
     </Shelf>
   );
@@ -223,7 +222,7 @@ function Billboard({ game, film, stats }: { game: GameRow; film: Film | null; st
   );
 }
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ genre?: string }> }) {
+export default async function Home() {
   const games = listGames(120);
   const best = bestTimes();
 
@@ -249,23 +248,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ g
   // the platform's rules, so it is not ranked with worlds that do
   const worlds = games.filter((g) => g.format !== 'race');
   const hero = worlds.find((g) => g.slug === HERO) ?? worlds.find((g) => g.format === 'world') ?? worlds[0] ?? games[0];
-  const genres = [...new Set(worlds.map(genreOf))].sort();
-  const requested = (await searchParams).genre;
-  const genre = requested && genres.includes(requested) ? requested : 'All';
-  const filtered = genre === 'All' ? worlds : worlds.filter((g) => genreOf(g) === genre);
   const charts: { sort: ChartSort; all: GameRow[] }[] = [
-    { sort: 'trending', all: sortGames(filtered, 'trending', stats) },
-    { sort: 'up-and-coming', all: sortGames(filtered, 'up-and-coming', stats) },
-    { sort: 'top-rated', all: sortGames(filtered.filter((g) => (stats[g.id]?.up ?? 0) + (stats[g.id]?.down ?? 0) > 0), 'top-rated', stats) },
-    { sort: 'most-mogged', all: sortGames(filtered.filter((g) => (stats[g.id]?.mogs ?? 0) > 0), 'most-mogged', stats) },
-    { sort: 'new-mogs', all: sortGames(filtered, 'new-mogs', stats) },
+    { sort: 'trending', all: sortGames(worlds, 'trending', stats) },
+    { sort: 'up-and-coming', all: sortGames(worlds, 'up-and-coming', stats) },
+    { sort: 'top-rated', all: sortGames(worlds.filter((g) => (stats[g.id]?.up ?? 0) + (stats[g.id]?.down ?? 0) > 0), 'top-rated', stats) },
+    { sort: 'most-mogged', all: sortGames(worlds.filter((g) => (stats[g.id]?.mogs ?? 0) > 0), 'most-mogged', stats) },
+    { sort: 'new-mogs', all: sortGames(worlds, 'new-mogs', stats) },
   ];
-  // unfiltered, a chart needs four worlds to be worth a row; filtered, every
-  // match is shown, or picking a genre that exists would empty the page.
-  // The two Mog rows wait for 25 (the owner, 25 Sep), with or without a
-  // genre; until then they live on the Charts pages. Counted before a row is
-  // cut to its 16 cards.
-  const least = (sort: ChartSort) => sort === 'most-mogged' || sort === 'new-mogs' ? MOG_ROW_MIN : genre === 'All' ? 4 : 1;
+  // a chart needs four worlds to be worth a row. The two Mog rows wait for 25
+  // (the owner, 25 Sep); until then they live on the Charts pages. Counted
+  // before a row is cut to its 16 cards.
+  const least = (sort: ChartSort) => sort === 'most-mogged' || sort === 'new-mogs' ? MOG_ROW_MIN : 4;
   const candidates = charts.filter((c) => c.all.length >= least(c.sort)).map((c) => ({ sort: c.sort, games: c.all.slice(0, 16) }));
   const seen = new Set<string>();
   const rails = candidates.filter((rail) => {
@@ -283,12 +276,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ g
       <main className="wrap" style={{ paddingTop: 24 }}>
 
         {rails.map((rail, i) => (
-          <Section key={rail.sort} sort={rail.sort} games={rail.games} best={best} stats={stats} seed={i * 40} genre={genre}
-            controls={i === 0 && genres.length > 1 ? <GenreFilter genres={genres} value={genre} /> : undefined} />
+          <Section key={rail.sort} sort={rail.sort} games={rail.games} best={best} stats={stats} seed={i * 40} />
         ))}
         {!rails.length && (
           <section className="sec">
-            {genres.length > 1 && <div className="seccontrols"><GenreFilter genres={genres} value={genre} /></div>}
             <div className="empty"><h2>No worlds here yet</h2><p>Charts appear when at least four worlds qualify.</p></div>
           </section>
         )}
