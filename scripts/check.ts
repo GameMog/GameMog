@@ -166,6 +166,17 @@ console.log('\nworlds are 3D: the camera is the runtime\'s');
   const big = ref + '\n' + '//'.padEnd(730_000, '.'), huge = ref + '\n' + '//'.padEnd(770_000, '.');
   ok('a world over 750KB is refused', staticCheckWorld(huge).some((p) => /under 750KB/.test(p)));
   ok('a world up to 750KB passes the size check', !staticCheckWorld(big).some((p) => /KB/.test(p)));
+  // a Grand Prix (14-18 Oct, ARTIFICIAL1.; docs/RULES.md 1f): a sixth kind of world with static rules of its own, never made by a
+  // Create or Mog build and never moggable, ranked by its race time
+  {
+    const cg = await import('../lib/custom-game.ts'), gen = await import('../lib/generate-game.ts');
+    const gp = readFileSync('worlds/artificial1.js', 'utf8'), kart = readFileSync('worlds/aspen-gp.js', 'utf8');
+    ok('a world naming gp: { ... } among its own keys is a Grand Prix, and no other first-party world is', cg.isGpWorld(gp) && cg.worldMode(gp) === 'gp' && !cg.isGpWorld(kart) && !cg.isGpWorld(ref));
+    ok('a Grand Prix is never moggable, and a Create or Mog build that writes one is sent back', !cg.canMog({ format: 'world', code: gp, meta: '{"mode":"gp"}' }) && gen.gpKindProblems(gp).length === 1 && gen.gpKindProblems(kart).length === 0);
+    ok('a Grand Prix never names a real racing series, its body or its marks (GP4), and its own words pass', ['Formula 1', 'F1 ', 'the FIA', 'DRS zone'].every((w) => cg.gpDenied(w) !== null) && cg.gpDenied('the Flap on the harbour straight') === null);
+    ok('a Grand Prix that sits beside another kind of world is refused (GP2)', cg.staticCheckWorld(gp.replace('GameMog.world({', 'GameMog.world({\n  kart: { laps: 3 },')).some((p) => /one kind/.test(p)));
+    ok('a Grand Prix reads its laps from its own gp: { laps } and bounds a plausible lap (the board and the dares)', cg.gpLaps(gp) === 3 && cg.gpLaps('GameMog.world({ gp: { laps: 2 } })') === 2 && cg.GP_MIN_LAP_MS === 50_000);
+  }
   for (const f of readdirSync('worlds').filter((f) => f.endsWith('.js'))) {
     const problems = staticCheckWorld(readFileSync(`worlds/${f}`, 'utf8'));
     ok(`first-party world ${f} passes the static check`, problems.length === 0, problems.join(' | '));
