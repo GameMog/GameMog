@@ -39,7 +39,7 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
   // a penalty shootout (12 Oct) the goals scored in a sitting, on the score board, with the kicks they took
   const shootout = mode === 'shootout';
   // (a Grand Prix, 18 Oct: the fastest race first, on the time board; it was read as an open world's survival board, slowest on top)
-  const by = mode ? (mode === 'race' ? 'level' : mode === 'kart' ? 'kart' : shootout ? 'score' : mode === 'gp' ? 'time' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
+  const by = mode ? (mode === 'race' ? 'level' : mode === 'kart' ? 'kart' : shootout ? 'score' : mode === 'gp' ? 'gp' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
   // (a kart race's constants: the perfect time of each racer, for the post panel's score, the same as the route's)
   // (and its laps for the page's text: kartHow, 9 Oct; Meme Kart's three laps read word for word as before)
@@ -72,7 +72,7 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
     <table className="bd">
       <thead><tr><th /><th>Player</th><th>Time</th><th>Place</th></tr></thead>
       <tbody>
-        {scores.map((s, i) => <tr key={s.id}><td>{i + 1}</td><td>{s.player}</td><td>{gpClock(s.time_ms)}</td><td>{s.place ? `P${s.place}` : '-'}</td></tr>)}
+        {scores.map((s, i) => <tr key={s.id}><td>{i + 1}</td><td>{s.player}{s.aids === 'pro' ? <span className="t-meta"> PRO</span> : s.aids === 'on' ? <span className="t-meta dim"> AIDS</span> : null}</td><td>{gpClock(s.time_ms)}</td><td>{s.place ? `P${s.place}` : '-'}</td></tr>)}
       </tbody>
     </table>
   ) : scores.length ? (

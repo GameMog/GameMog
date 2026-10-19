@@ -60,7 +60,7 @@ export async function POST(req: Request) {
         gameId: row.id,
         player: String(b.player ?? 'anon').slice(0, 16).replace(/[^\w \-.]/g, '') || 'anon',
         timeMs: c.run.timeMs, place: c.run.place, score: 0, level: c.run.level, gm: 0,
-        tempoReached: 0, locks: 0, bestStreak: 0,
+        tempoReached: 0, locks: 0, bestStreak: 0, aids: typeof b.aids === 'string' ? b.aids : null,
       });
       return NextResponse.json({ ok: true });
     }

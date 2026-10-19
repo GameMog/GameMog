@@ -144,6 +144,8 @@ function open() {
   add('scores', 'progress', 'progress REAL');
   add('scores', 'racer', 'racer TEXT');
   add('scores', 'score_v', 'score_v INTEGER');
+  // (a Grand Prix, 19 Oct: the driving aids a race was run with, 'on', 'off' or 'pro': the board's AIDS or PRO chip)
+  add('scores', 'aids', 'aids TEXT');
   add('scores', 'tier', 'tier TEXT');
   db.exec('CREATE INDEX IF NOT EXISTS scores_by_game_score ON scores(game_id, score DESC)');
   // First-party analytics (lib/analytics.ts): a page view or a press of Play,
@@ -273,6 +275,7 @@ const ROW = 'id, slug, title, tagline, blurb, difficulty, spec, prompt, featured
 
 export type ScoreRow = {
   id: number;
+  aids?: string | null;
   score: number | null;
   level: number | null;
   gm: number | null;
@@ -534,7 +537,12 @@ export const bumpPlays = (id: string) =>
   db.prepare('UPDATE games SET plays = plays + 1 WHERE id = ?').run(id);
 
 /** Best runs. Race worlds and 'time' games rank by time; 'score' by points; 'place' by finish. */
-export function topScores(gameId: string, limit = 10, by: 'time' | 'score' | 'place' | 'level' | 'survival' | 'kart' = 'time') {
+export function topScores(gameId: string, limit = 10, by: 'time' | 'score' | 'place' | 'level' | 'survival' | 'kart' | 'gp' = 'time') {
+  // a Grand Prix (19 Oct): the fastest race first, each player once by their best (a name, as typed, any case)
+  if (by === 'gp') {
+    return db.prepare(`SELECT * FROM (SELECT s.*, ROW_NUMBER() OVER (PARTITION BY lower(trim(player)) ORDER BY time_ms ASC, created_at ASC, id ASC) AS rn
+      FROM scores s WHERE game_id = ? AND hidden = 0 AND time_ms > 0) WHERE rn = 1 ORDER BY time_ms ASC, created_at ASC, id ASC LIMIT ?`).all(gameId, limit) as ScoreRow[];
+  }
   // a kart race (the owner, 8 Oct): its score (lib/runtime/kart-score.js), then the time, then who posted first; and
   // each player once, by their best run (a name, as typed, any case)
   if (by === 'kart') {
@@ -596,6 +604,8 @@ export function insertScore(s: {
   level?: number | null;
   gm?: number | null;
   kos?: number | null;
+  /** a Grand Prix's (19 Oct): the driving aids the race was run with ('on' | 'off' | 'pro') */
+  aids?: string | null;
   /** a kart race's (8 Oct): see the columns above; hidden holds a run for review */
   kart?: { est: boolean; progress: number | null; racer: string | null; scoreV: number; tier: string; hidden: boolean };
 }) {
@@ -609,9 +619,10 @@ export function insertScore(s: {
     return;
   }
   db.prepare(
-    `INSERT INTO scores (game_id, player, time_ms, place, tempo_reached, locks, best_streak, created_at, score, level, gm, kos)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(s.gameId, s.player, s.timeMs, s.place, s.tempoReached, s.locks, s.bestStreak, Date.now(), s.score ?? null, s.level ?? null, s.gm ?? null, s.kos ?? null);
+    `INSERT INTO scores (game_id, player, time_ms, place, tempo_reached, locks, best_streak, created_at, score, level, gm, kos, aids)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(s.gameId, s.player, s.timeMs, s.place, s.tempoReached, s.locks, s.bestStreak, Date.now(), s.score ?? null, s.level ?? null, s.gm ?? null, s.kos ?? null,
+    s.aids === 'on' || s.aids === 'off' || s.aids === 'pro' ? s.aids : null);
 }
 
 /* ----------------------------------------------------------------- votes -- */

@@ -25,6 +25,8 @@ type Result = {
   laps?: number; hits?: number; estimated?: boolean; progress?: number | null; racer?: string | null;
   // an open world's run (its time survived ranks, the takedowns beside it; a goal reached), and a kart race's field size
   kos: number; survival: boolean; goal: boolean; karts?: number;
+  // a Grand Prix's (19 Oct): the driving aids the race was run with, tagged on the board (never 'assisted', which the test controls are)
+  aids?: 'on' | 'off' | 'pro';
 };
 /** What the scores route said of a posted kart run: the score it worked out, where it landed, or that it is held. */
 type Posted = { score: number; tier: KartTier; rank: number | null; review: boolean; best: boolean };
@@ -213,6 +215,7 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
         progress: d.progress == null ? null : Number(d.progress), racer: typeof d.racer === 'string' ? d.racer : null,
         kos: Math.max(0, Math.round(Number(d.kos) || 0)), survival: !!d.survival, goal: !!d.goal,
         ...(d.karts != null ? { karts: Math.max(0, Math.round(Number(d.karts) || 0)) } : {}),
+        ...(d.gp === true ? { aids: d.aids === 'off' || d.aids === 'pro' ? d.aids : 'on' } : {}),
       });
       setSaved(false); setPosted(null);
       if (dareRef.current && d.finished) setEnded(true);

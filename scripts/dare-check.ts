@@ -156,6 +156,16 @@ async function run() {
     ok('...a run over its three laps counts, with the place it finished in', slow.ok && slow.run.timeMs === 275000 && slow.run.place === 4 && slow.run.level === 3 && slow.run.gm === 0);
     ok('...a run short of its laps, classified without finishing, faster than a lap can be run, outside 1 to 20 or assisted is refused',
       [gr({ level: 1, timeMs: 90000 }), gr({ classified: true }), gr({ timeMs: 100000 }), gr({ place: 21 }), gr({ place: 0 }), gr({ assisted: true }), gr({ timeMs: 4 * 3600 * 1000 })].every((r) => !r.ok));
+    // the board (19 Oct): the fastest race first, each player once by their best, the aids tag kept; a score route run through a scratch game id
+    {
+      const D2 = await import('../lib/db.ts'), gid = `gp-board-check-${randomUUID()}`;
+      const put = (player: string, timeMs: number, place: number, aids: string | null) => D2.insertScore({ gameId: gid, player, timeMs, place, tempoReached: 0, locks: 0, bestStreak: 0, score: 0, level: 3, gm: 0, kos: 0, aids });
+      put('Ana', 281000, 6, 'on'); put('ana ', 262000, 2, 'pro'); put('Bo', 270500, 4, 'on'); put('Cy', 262000, 3, 'off'); put('Di', 300000, 11, 'bogus');
+      const rows = D2.topScores(gid, 10, 'gp');
+      ok('a Grand Prix board: the fastest race first, each player once by their best run (a name in any case), the aids tag kept (only on, off or pro)',
+        rows.map((r) => `${r.player.trim()}:${r.time_ms}:${r.aids ?? '-'}`).join(' ') === 'ana:262000:pro Cy:262000:off Bo:270500:on Di:300000:-', rows.map((r) => `${r.player}:${r.time_ms}:${r.aids}`));
+      D2.db.prepare('DELETE FROM scores WHERE game_id = ?').run(gid);
+    }
     const { gpLaps } = await import('../lib/custom-game.ts');
     ok('...and its laps are the ones its own gp: { laps } names (three when it names none)', gpLaps(gpw.code) === 3 && gpLaps('GameMog.world({ gp: { laps: 2, field: 20 } })') === 2 && gpLaps('GameMog.world({ kart: { laps: 4 } })') === 3 && gpLaps(null) === 3);
   }

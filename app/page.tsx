@@ -65,6 +65,13 @@ function RecordStat({ game }: { game: GameRow }) {
     const t = best.time_ms / 1000;
     return <span><b>{Math.floor(t / 60)}:{(t % 60).toFixed(1).padStart(4, '0')}</b> race record</span>;
   }
+  // (a Grand Prix, 19 Oct: the fastest race)
+  if (mode === 'gp') {
+    const best = topScores(game.id, 1, 'gp')[0];
+    if (!best?.time_ms) return null;
+    const c = Math.round(best.time_ms / 10), s = Math.floor(c / 100);
+    return <span><b>{Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}.{String(c % 100).padStart(2, '0')}</b> race record</span>;
+  }
   // (a penalty shootout, 12 Oct: the most goals in a sitting)
   if (mode === 'shootout') {
     const best = topScores(game.id, 1, 'score')[0];
