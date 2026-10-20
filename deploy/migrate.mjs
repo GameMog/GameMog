@@ -767,6 +767,35 @@ export const MIGRATIONS = [
       return `grounded (${hash ? 'test codeHash ' + hash : 'no test record'})`;
     },
   },
+  {
+    // Magma Crown, flat across (the owner, 20 Oct: "still feel below, review again"; and "H-bot car is missing a back
+    // fender wing"). The kart kit stands a kart at the road's centre-line height wherever it is across the road
+    // (kart.js, k.ground), but this track's points banked its far side up to 22 degrees and the road and ground were
+    // drawn tilted: on the raised side they stood up to 4.5 m over a kart, along 626-740 m and 824-1090 m of the lap.
+    // The banks are gone (the track's signature, lap and score constants are unchanged: the kit never read them);
+    // checked every 2 m at every metre across at the kit's own height: nothing drawn over a kart. B-Hot's night-racer
+    // has a rear wing, and the cover and key art are of it.
+    id: '2026-10-20-magma-crown-flat',
+    run(db) {
+      const code = file('magma-crown-v5.js');
+      if (!code) throw new Error('deploy/migrations/magma-crown-v5.js is not in this build');
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'magma-crown'").get();
+      if (!g) return 'no such game';
+      const next = code.toString('utf8'), sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
+      // the code 2026-10-20-magma-crown-ground put live (sha256 of its text, without the blank lines at either end)
+      const WAS = 'f6d9cbdb573da94de020b05b166255d597e747453b988a715456897a2f90b8ea';
+      if (g.code === next) return 'already flat';
+      if (sha(String(g.code ?? '').trim()) !== WAS) return 'left alone: its code is not the grounded code';
+      let meta = g.meta, hash = '';
+      try {
+        const m = JSON.parse(g.meta ?? 'null');
+        if (m && m.test && typeof m.test === 'object') { hash = sha(next).slice(0, 16); m.test = { ...m.test, codeHash: hash, cover: 'current' }; meta = JSON.stringify(m); }
+      } catch { meta = g.meta; }
+      db.prepare('UPDATE games SET code = ?, meta = ?, cover = COALESCE(?, cover), art_icon = COALESCE(?, art_icon), art_wide = COALESCE(?, art_wide) WHERE id = ?')
+        .run(next, meta, file('magma-crown-v5-cover.jpg'), file('magma-crown-v5-icon.jpg'), file('magma-crown-v5-wide.jpg'), g.id);
+      return `flat (${hash ? 'test codeHash ' + hash : 'no test record'})`;
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
