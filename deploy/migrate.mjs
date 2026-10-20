@@ -675,6 +675,37 @@ export const MIGRATIONS = [
       return `relit (${hash ? 'test codeHash ' + hash : 'no test record'})`;
     },
   },
+  {
+    // the owner, 20 Oct, after the relight above: "still seeing overexposure everywhere, needs more polishing": the side
+    // glow, the podium, the distant mountains ("all look the same and like tee pees") and the lava ("doesn't look real or
+    // flowing"). Now the kerbs, wall tops and tunnel strips are dark rails with a glowing core (about 1, not pale paint
+    // glowing at 1.6 to 3); the bloom only on what is truly hot (0.45 over 1.35); the sunset photograph a step down; the
+    // sun, sky light, crater light and the light that rides with the camera a step down. The lava is drawn: a flow that
+    // moves, dark crust plates over it with glowing edges, cooler banks and hot spots, emissive only, on the channels and
+    // the crater lakes. The forty copies of one cone on the horizon are three ranges of jagged ridges (nearer darker,
+    // the far one in the haze) and two volcanoes with lava running down them. Only the code the relight put live is
+    // replaced
+    id: '2026-10-20-magma-crown-polish',
+    run(db) {
+      const code = file('magma-crown-v2.js');
+      if (!code) throw new Error('deploy/migrations/magma-crown-v2.js is not in this build');
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'magma-crown'").get();
+      if (!g) return 'no such game';
+      const next = code.toString('utf8'), sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
+      // the code 2026-10-20-magma-crown-light put live (sha256 of its text, without the blank lines at either end)
+      const WAS = '805cb7cd90da527537fbb7eb6a911d9c59b06c2017c116b9fde410639ec2dcd5';
+      if (g.code === next) return 'already polished';
+      if (sha(String(g.code ?? '').trim()) !== WAS) return 'left alone: its code is not the relit code';
+      let meta = g.meta, hash = '';
+      try {
+        const m = JSON.parse(g.meta ?? 'null');
+        if (m && m.test && typeof m.test === 'object') { hash = sha(next).slice(0, 16); m.test = { ...m.test, codeHash: hash, cover: 'current' }; meta = JSON.stringify(m); }
+      } catch { meta = g.meta; }
+      db.prepare('UPDATE games SET code = ?, meta = ?, cover = COALESCE(?, cover), art_icon = COALESCE(?, art_icon), art_wide = COALESCE(?, art_wide) WHERE id = ?')
+        .run(next, meta, file('magma-crown-v2-cover.jpg'), file('magma-crown-v2-icon.jpg'), file('magma-crown-v2-wide.jpg'), g.id);
+      return `polished (${hash ? 'test codeHash ' + hash : 'no test record'})`;
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
