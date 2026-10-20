@@ -397,6 +397,7 @@ table.bd td:nth-child(2){font-weight:600}
 .fcols a.wordmark{display:inline-flex;line-height:1;color:var(--ink)}
 .fcols a.wordmark:hover{text-decoration:none}
 .fcols .wordmark b{font-size:24px}
+.wm-icon{width:28px;height:28px;border-radius:5px;margin-right:10px;flex:0 0 auto}
 .fbrand p{font-size:14px;line-height:22px;color:var(--ink-3);max-width:300px;margin-top:14px}
 .flegal{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;padding-top:18px;padding-bottom:30px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3)}
 .flegal nav{display:flex;gap:20px}
