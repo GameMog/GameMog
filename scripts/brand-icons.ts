@@ -8,6 +8,8 @@
  *   app/apple-icon.png   180 pixels, square corners (the iPhone rounds them itself)
  *   public/favicon.ico   16, 32 and 48 pixels, for anything that asks for
  *                        /favicon.ico by name
+ *   public/favicon.jpg   512 pixels, square corners: the icon as a picture
+ *                        to download (gamemog.com/favicon.jpg)
  *
  * Next.js links app/icon.png with a hash of its contents in the URL, so a new
  * icon is a new address and no browser can keep showing a cached old one (or
@@ -66,7 +68,7 @@ await withBrowser(async (page) => {
   })()`);
 
   /** One PNG at `size` pixels: the tile, and the letter centred on its ink. */
-  const draw = (size: number, bleed = false) => page.eval<string>(`(() => {
+  const draw = (size: number, bleed = false, type = 'image/png') => page.eval<string>(`(() => {
     const size = ${size}, c = document.createElement('canvas');
     c.width = c.height = size;
     const x = c.getContext('2d');
@@ -82,8 +84,8 @@ await withBrowser(async (page) => {
     x.fillText(letter,
       size / 2 - (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2,
       size / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
-    return c.toDataURL('image/png').split(',')[1];
-  })()`).then((b64) => stamp(Buffer.from(b64, 'base64')));
+    return c.toDataURL(${JSON.stringify(type)}, 0.95).split(',')[1];
+  })()`).then((b64) => type === 'image/png' ? stamp(Buffer.from(b64, 'base64')) : Buffer.from(b64, 'base64'));
 
   const sizes = [16, 32, 48];
   const pngs = [];
@@ -91,5 +93,6 @@ await withBrowser(async (page) => {
   writeFileSync(join(PUBLIC, 'favicon.ico'), ico(pngs));
   writeFileSync(join(APP, 'icon.png'), pngs.find((p) => p.size === 32)!.png);
   writeFileSync(join(APP, 'apple-icon.png'), await draw(180, true));
-  console.log(`wrote app/icon.png (32), app/apple-icon.png (180) and public/favicon.ico (${sizes.join(', ')})`);
+  writeFileSync(join(PUBLIC, 'favicon.jpg'), await draw(512, true, 'image/jpeg'));
+  console.log(`wrote app/icon.png (32), app/apple-icon.png (180), public/favicon.ico (${sizes.join(', ')}) and public/favicon.jpg (512)`);
 });
