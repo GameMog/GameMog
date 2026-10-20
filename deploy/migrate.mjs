@@ -706,6 +706,40 @@ export const MIGRATIONS = [
       return `polished (${hash ? 'test codeHash ' + hash : 'no test record'})`;
     },
   },
+  {
+    // Magma Crown, race pass (the owner, 20 Oct: "competition seems lacking ... Aspen GP seems much more challenging ...
+    // lava flow needs to be more dramatic, course more chaotic, competitors more challenging, and let's do 4 laps not 3.
+    // last lap should be insanely fun!"; and "B-hot kart is too basic"). The same runtime as Aspen GP; the difference
+    // was the course: 4 laps, the degen class, the void gap that dropped karts into the trench closed, five lava
+    // rivers to jump, three more ramps, rollers, a rail, meteor showers and boulder crossings, and a final lap that
+    // turns the mountain red. B-Hot rides a new armoured night-racer. Its score constants are measured on this code
+    // (scripts/kart-score/measure.mjs, 4 laps); runs already on the board keep the score they earned on 3 laps.
+    id: '2026-10-20-magma-crown-race',
+    run(db) {
+      const code = file('magma-crown-v3.js');
+      if (!code) throw new Error('deploy/migrations/magma-crown-v3.js is not in this build');
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'magma-crown'").get();
+      if (!g) return 'no such game';
+      const next = code.toString('utf8'), sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
+      // the code 2026-10-20-magma-crown-polish put live (sha256 of its text, without the blank lines at either end)
+      const WAS = '77ec926a42b7f4ba146297b2c6f55ac80aa5daf123346c50b7e1d6817e058522';
+      if (g.code === next) return 'already raced';
+      if (sha(String(g.code ?? '').trim()) !== WAS) return 'left alone: its code is not the polished code';
+      const KART = {"version":1,"source":"measured","tStar":{"pepe":115.789,"doge":117.217,"shiba":116.755,"bike":117.169,"bull":114.367,"bear":114.433,"whale":114.905,"mooncat":116.702},"tFloor":{"pepe":99.237,"doge":100.748,"shiba":100.239,"bike":100.748,"bull":97.77,"bear":97.77,"whale":98.254,"mooncat":100.239},"karts":8,"laps":4,"gmCap":174,"gmMax":246,"hitsCap":30,"hitsMax":64,"lap":1496.3,"trackSig":"5065a07514360483","physics":"e92b00755e19","world":"5e9d28dc32cb","at":"2026-10-20T17:10:26.579Z"};
+      let meta = g.meta, hash = '';
+      try {
+        const m = JSON.parse(g.meta ?? 'null');
+        if (m && typeof m === 'object' && !Array.isArray(m)) {
+          m.kartScore = KART;
+          if (m.test && typeof m.test === 'object') { hash = sha(next).slice(0, 16); m.test = { ...m.test, codeHash: hash, cover: 'current' }; }
+          meta = JSON.stringify(m);
+        }
+      } catch { meta = g.meta; }
+      db.prepare('UPDATE games SET code = ?, meta = ?, cover = COALESCE(?, cover), art_icon = COALESCE(?, art_icon), art_wide = COALESCE(?, art_wide) WHERE id = ?')
+        .run(next, meta, file('magma-crown-v3-cover.jpg'), file('magma-crown-v3-icon.jpg'), file('magma-crown-v3-wide.jpg'), g.id);
+      return `raced: 4 laps (${hash ? 'test codeHash ' + hash : 'no test record'})`;
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
