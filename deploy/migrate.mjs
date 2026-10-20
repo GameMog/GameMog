@@ -740,6 +740,33 @@ export const MIGRATIONS = [
       return `raced: 4 laps (${hash ? 'test codeHash ' + hash : 'no test record'})`;
     },
   },
+  {
+    // Magma Crown, the ground under the road (the owner, 20 Oct: "players are still falling into the game", a kart on
+    // the right shoulder buried to its shell). The world's terrain is a 4.4 m grid; on the climbs and tight bends a
+    // cell took a corner from the hillside or another stretch of road and stood up to 2.7 m over the drivable
+    // corridor, in 13 places a lap. Now every corner of a cell the corridor crosses is held 0.6 m under the road there;
+    // checked every 2 m of the lap at every metre across: no point of the terrain over the road. The track, its score
+    // constants and the art are unchanged.
+    id: '2026-10-20-magma-crown-ground',
+    run(db) {
+      const code = file('magma-crown-v4.js');
+      if (!code) throw new Error('deploy/migrations/magma-crown-v4.js is not in this build');
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'magma-crown'").get();
+      if (!g) return 'no such game';
+      const next = code.toString('utf8'), sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
+      // the code 2026-10-20-magma-crown-race put live (sha256 of its text, without the blank lines at either end)
+      const WAS = '421fbe722248e72e344461bb46f5a28265f9a9aabb6646ff2efa45f8199adb62';
+      if (g.code === next) return 'already grounded';
+      if (sha(String(g.code ?? '').trim()) !== WAS) return 'left alone: its code is not the race code';
+      let meta = g.meta, hash = '';
+      try {
+        const m = JSON.parse(g.meta ?? 'null');
+        if (m && m.test && typeof m.test === 'object') { hash = sha(next).slice(0, 16); m.test = { ...m.test, codeHash: hash }; meta = JSON.stringify(m); }
+      } catch { meta = g.meta; }
+      db.prepare('UPDATE games SET code = ?, meta = ? WHERE id = ?').run(next, meta, g.id);
+      return `grounded (${hash ? 'test codeHash ' + hash : 'no test record'})`;
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
