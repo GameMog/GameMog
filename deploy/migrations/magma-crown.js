@@ -351,7 +351,7 @@ function bhot(ctx) {
   var sph = new T.SphereGeometry(1, 20, 14), cone = new T.ConeGeometry(1, 1, 12), cyl = new T.CylinderGeometry(1, 1, 1, 16), box = new T.BoxGeometry(1, 1, 1);
   function add(geo, m, x, y, z, sx, sy, sz, par) { var o = new T.Mesh(geo, m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.castShadow = true; (par || g).add(o); return o; }
   function limb(a, b, r, m, par) { var d = new T.Vector3().subVectors(b, a), len = d.length(); var o = new T.Mesh(cyl, m); o.scale.set(r, len, r); o.position.copy(a).addScaledVector(d, 0.5); o.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()); o.castShadow = true; par.add(o); return o; }
-  var black = mat('#17110F', 0.4, 0.6), red = mat('#B3221A', 0.35, 0.3), skin = mat('#F2A81D', 0.55), cream = mat('#F1D6A2', 0.6), ivory = mat('#F3E7C4', 0.5), green = mat('#3C7B2B', 0.5), silver = mat('#C9CDD2', 0.25, 0.9), hairM = mat('#D7281C', 0.6);
+  var black = mat('#17110F', 0.4, 0.6), red = mat('#B3221A', 0.35, 0.3), skin = mat('#D98F12', 0.55), cream = mat('#D4B37E', 0.6), ivory = mat('#D8C8A2', 0.5), green = mat('#3C7B2B', 0.5), silver = mat('#C9CDD2', 0.25, 0.9), hairM = mat('#D7281C', 0.6);
   var flame = mat('#FFB040', 0.4, 0, '#FF5A14', 3);
   // kart
   add(box, black, 0, 0.38, -0.05, 1.0, 0.3, 1.7);

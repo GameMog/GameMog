@@ -650,8 +650,9 @@ export const MIGRATIONS = [
     // lap: its bloom (strength 0.85 over 1) was the largest cause, and its lava walls and lake were painted in bright
     // orange and yellow, lit by the sun as paint and then glowing at 2.2 to 2.4 on top, so the tone curve took them to a
     // pink white. Now the golden preset's own bloom (0.5 over 1.1), the lava and the lake dark crust with the same
-    // picture glowing at 1.25 to 1.3, the road's cracks at 1 and its kerbs at 1.6; its lights, track and racers as they
-    // were. Only the code this repairs is replaced: if the creator has rebuilt it since, it is left as it is
+    // picture glowing at 1.25 to 1.3, the road's cracks at 1 and its kerbs at 1.6, and B-Hot's skin, cream and ivory a
+    // step darker (filmed from the front, as its icon is, they went past white in the low sun); its lights, track and the
+    // rivals as they were, with cover and key art shot from this code. Only the code this repairs is replaced: if the creator has rebuilt it since, it is left as it is
     id: '2026-10-20-magma-crown-light',
     run(db) {
       const code = file('magma-crown.js');
