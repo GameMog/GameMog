@@ -721,6 +721,14 @@ synthesised. Keep it quiet; the runtime plays the coin, level and crash sounds.
   along the whole shore, foam and wet sand. One water per world. Keep the sea close to the road
   and in the camera's view: a coast world the player cannot see the sea from is not a coast.
 - `ctx.instanced(geometry, material, count, fn)`
+- `ctx.lava({ flow, scale, glow, bank, width, pulse, side })`: a material for anything molten (lava,
+  molten metal): a flowing crust with glowing edges, emissive only, along the mesh's uv (u across, v
+  downstream; `scale` multiplies it). Lay it on `ctx.track.ribbon` for a river beside the road:
+  `ctx.track.ribbon({ width: 8, offset: ctx.track.halfWidth + 9, material: ctx.lava({ bank: true }) })`.
+- `ctx.ranges({ radius, rings, height, y, colors: [foot, summit], snow, volcanoes })`: jagged
+  mountain ridgelines round the horizon (1 to 4 rings from `radius` out), and volcanoes
+  `[{ angle, distance, height, radius }]` with lava down their flanks. Returns a Group to add to
+  `ctx.scenery`; use it instead of repeated cones.
 - `ctx.mirror(material, { y, strength, blur, distortion })`: makes a `MeshStandardMaterial` or
   `MeshPhysicalMaterial` on a level surface a live mirror of the world: ice, still water, a
   polished floor. The runtime renders the scene again from under the plane every frame; the

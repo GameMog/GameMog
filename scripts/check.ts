@@ -166,6 +166,14 @@ console.log('\nworlds are 3D: the camera is the runtime\'s');
   const big = ref + '\n' + '//'.padEnd(730_000, '.'), huge = ref + '\n' + '//'.padEnd(770_000, '.');
   ok('a world over 750KB is refused', staticCheckWorld(huge).some((p) => /under 750KB/.test(p)));
   ok('a world up to 750KB passes the size check', !staticCheckWorld(big).some((p) => /KB/.test(p)));
+  // the nature helpers (20 Oct, gap 7 of the overexposure review): ctx.lava and ctx.ranges ride only in the runtime of a
+  // world that calls them (lib/runtime/nature.js, v1.js's /*@nature*/ parts), so every other world's page is unchanged
+  {
+    const cg = await import('../lib/custom-game.ts');
+    const plain = cg.runtimeSource(1), kart = cg.runtimeSource(1, true), withN = cg.runtimeSource(1, false, false, false, true);
+    ok('a world without them carries none of the nature helpers, a world that calls them does', !/GameMogNature|@nature/.test(plain) && !/GameMogNature|@nature/.test(kart) && withN.includes('var GameMogNature') && withN.includes('ctx.lava = NAT.lava') && !withN.includes('/*@nature*/'));
+    ok('the helpers are asked for by the call, and no first-party world asks', cg.usesNature('build(ctx) { ctx.scenery.add(ctx.ranges({ radius: 600 })); }') && cg.usesNature('const m = ctx.lava({ bank: true });') && readdirSync('worlds').filter((f) => f.endsWith('.js')).every((f) => !cg.usesNature(readFileSync(`worlds/${f}`, 'utf8'))));
+  }
   // a Grand Prix (14-18 Oct, ARTIFICIAL1.; docs/RULES.md 1f): a sixth kind of world with static rules of its own, never made by a
   // Create or Mog build and never moggable, ranked by its race time
   {

@@ -59,6 +59,9 @@ const ATLAS = { expr: "ctx.assets.texture('texture-fir-cards')", has: ['map', 'n
 // the ctx, handed to the check as the world builds; and the first frame's update and ambient() counted (a shootout
 // writes no ambient())
 const CAPTURE = 'window.__api = { ctx: ctx, updates: 0, ambient: 0 };';
+// (20 Oct) the race probe calls the nature helpers, as a world that uses them does, so its runtime carries them
+// (lib/custom-game.ts usesNature) and the manual's ctx.lava and ctx.ranges are checked on a live ctx that has them
+const NATURE = ' window.__api.nature = [ctx.lava({ bank: true }), ctx.ranges({ rings: 1 })];';
 const HOOKS = 'update: function (ctx) { if (window.__api) window.__api.updates++; },\n  ambient: function (ctx) { if (window.__api) window.__api.ambient++; },';
 
 const made: string[] = [];
@@ -123,7 +126,7 @@ try {
     await page.emulate({ width: 1280, height: 720 });
     console.log(`\nthe manual's ctx, on the live ctx of each kind of world (${FILE})`);
     for (const kind of ['race', 'open', 'kart', 'shootout'] as Kind[]) {
-      const world = hostWorld(HOST_OF[kind], { capture: CAPTURE, props: kind === 'shootout' ? HOOKS.split('\n')[0] : HOOKS, assets: kind === 'race' ? PROBE_ASSETS : [] });
+      const world = hostWorld(HOST_OF[kind], { capture: kind === 'race' ? CAPTURE + NATURE : CAPTURE, props: kind === 'shootout' ? HOOKS.split('\n')[0] : HOOKS, assets: kind === 'race' ? PROBE_ASSETS : [] });
       const e0 = page.errors.length;
       const L = await load(page, world, `API check ${kind}`);
       if (!L.ready) { ok(`a ${kind} world boots`, false, L.errors.join(' | ') || 'never ready'); continue; }

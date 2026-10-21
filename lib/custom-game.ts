@@ -447,7 +447,20 @@ const GP_PART = /\/\*@gp\*\/[\s\S]*?\/\*@\/gp\*\//g, GP_MARK = /\/\*@\/?gp\*\//g
 // the rest are later parts (or stubs), missing quietly until they are built. An include of any other name is a comment)
 const GP_PARTS = ['gp-track.js', 'gp-sim.js', 'gp-ai.js', 'gp-race.js', 'gp-cam.js', 'gp-director.js', 'gp-car.js', 'gp-stage.js', 'gp-kit.js', 'gp-hud.js', 'gp-intro.js', 'gp-audio.js'];
 const GP_REQUIRED = new Set(['gp-track.js', 'gp-sim.js', 'gp-ai.js', 'gp-race.js', 'gp-cam.js', 'gp-hud.js']);
-export function runtimeSource(version: number, kart = false, shootout = false, gp = false) {
+// (20 Oct) the nature helpers, ctx.lava and ctx.ranges (lib/runtime/nature.js and v1.js's /*@nature*/ parts): in a world's
+// runtime only when its code calls them, so every other world's page stays byte-identical
+const NATURE_PART = /\/\*@nature\*\/[\s\S]*?\/\*@\/nature\*\//g, NATURE_MARK = /\/\*@\/?nature\*\//g;
+export function usesNature(code?: string | null) { return !!code && /\.\s*(?:lava|ranges)\s*\(/.test(code); }
+const NATURED: Record<string, string> = {};
+export function runtimeSource(version: number, kart = false, shootout = false, gp = false, nature = false) {
+  const key = `${version}:${kart}:${shootout}:${gp}:${nature}`;
+  if (!NATURED[key] || process.env.NODE_ENV !== 'production') {
+    const base = runtimeBase(version, kart, shootout, gp);
+    NATURED[key] = nature ? readFileSync(join(process.cwd(), 'lib', 'runtime', 'nature.js'), 'utf8') + '\n' + base.replace(NATURE_MARK, '') : base.replace(NATURE_PART, '');
+  }
+  return NATURED[key];
+}
+function runtimeBase(version: number, kart = false, shootout = false, gp = false) {
   const key = `${version}${kart ? ':kart' : shootout ? ':shootout' : gp ? ':gp' : ''}`;
   if (!RUNTIMES[key] || process.env.NODE_ENV !== 'production') {
     // the platform's score engine and car kit ride in front of the runtime that uses them
@@ -560,7 +573,7 @@ ${inert(driveSource())}
 <body>
 ${mapScripts(world)}${endoScript(world)}
 <script>
-${inert(runtimeSource(runtime, isKartWorld(world), isShootoutWorld(world), isGpWorld(world)))}
+${inert(runtimeSource(runtime, isKartWorld(world), isShootoutWorld(world), isGpWorld(world), usesNature(world)))}
 </script>
 <script>
 ${inert(world)}

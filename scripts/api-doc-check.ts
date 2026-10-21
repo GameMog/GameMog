@@ -410,7 +410,7 @@ export function known(): Known {
   // the runtime as each kind of world is served it (a race and an open world share one); and the endoskeleton, a
   // script any world gets ahead of it when it asks (a shootout's robot keeper too)
   // (and a test drive's scripts, which read some of the world's options too: open.keyArt's look and tilt)
-  const plainSrc = runtimeSource(1), drive = `\n${read('lib/runtime/drive.js')}`, lens = `\n${read('lib/runtime/shoot-lens.js')}`;
+  const plainSrc = runtimeSource(1, false, false, false, true), drive = `\n${read('lib/runtime/drive.js')}`, lens = `\n${read('lib/runtime/shoot-lens.js')}`;
   const plain = readSource(plainSrc + drive, 'runtime.js'), kart = readSource(runtimeSource(1, true) + drive, 'runtime-kart.js');
   const shoot = readSource(runtimeSource(1, false, true) + lens + drive, 'runtime-shootout.js');
   // a library map's options, as its build() reads them (open.city: the city map's district, time, ads, ...)
