@@ -796,6 +796,31 @@ export const MIGRATIONS = [
       return `flat (${hash ? 'test codeHash ' + hash : 'no test record'})`;
     },
   },
+  {
+    // the owner, 21 Oct: ARTIFICIAL1. "more futuristic, higher contrast and feel like the future of agentic racing", the race
+    // starting in the cockpit (pass 1): the cockpit the start camera, a higher-contrast night grade, neon lines along every
+    // barrier, and light trails behind the agents' cars (gp.trails, lib/runtime/gp.js). Only the code this updates is
+    // replaced: if it has changed since 18 Oct, it is left as it is; the key art stays (the same straight, the same night)
+    id: '2026-10-21-artificial1-look',
+    run(db) {
+      const code = file('artificial1-v2.js');
+      if (!code) throw new Error('deploy/migrations/artificial1-v2.js is not in this build');
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'artificial1'").get();
+      if (!g) return 'no such game';
+      const next = code.toString('utf8'), sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
+      // the code 2026-10-18-artificial1 put live (sha256 of its text, without the blank lines at either end)
+      const WAS = 'db60f056a144493175b33ab134966a563d49d9d8bd015ed5ae7fa0d481517de2';
+      if (g.code === next) return 'already there';
+      if (sha(String(g.code ?? '').trim()) !== WAS) return 'left alone: its code has changed since 18 Oct';
+      let meta = g.meta, hash = '';
+      try {
+        const m = JSON.parse(g.meta ?? 'null');
+        if (m && m.test && typeof m.test === 'object') { hash = sha(next).slice(0, 16); m.test = { ...m.test, codeHash: hash }; meta = JSON.stringify(m); }
+      } catch { meta = g.meta; }
+      db.prepare('UPDATE games SET code = ?, meta = ? WHERE id = ?').run(next, meta, g.id);
+      return `updated (${hash ? 'test codeHash ' + hash : 'no test record'})`;
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

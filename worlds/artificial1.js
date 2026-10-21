@@ -508,9 +508,45 @@ uniform vec4 uAgInk, uAgGold; uniform float uAgIri, uAgRim;`),m=m.replace("uInk 
 `)[1]))}if(l&&at.gate)try{at.gate(l)}catch(m){Me.gwarn||(Me.gwarn=!0,Mt("cockpit gate: "+m.message+" "+(m.stack||"").split(`
 `)[1]))}}}}(),Ct.tier&&Ct.tier(t0?"phone":"desktop"),{state:function(){return{art:Tt.state,artMs:Tt.ms,cockpitBuilt:!!(at.built&&!at.built.dead),ck:Me.ckStats||null,frames:Me.frames,built:Me.built,buildMs:Me.ms,seated:Me.seated,cockpit:Me.cockpit,errors:e0.slice(),hasGroup:!!Me.group,helmets:!!Me.helmets}},cost:function(){var r={draws:0,tris:0,by:{}};return Object.keys(xt).forEach(function(n){var i=xt[n],u=0,l=0;if(i.where==="park"||!i.obj.visible){r.by[n]=[0,0];return}(function s(m){if(m.visible){if(m.isMesh&&m.geometry){u++;var F=m.geometry;l+=(F.index?F.index.count:F.attributes.position.count)/3*(m.isInstancedMesh?Math.max(1,m.count):1)}for(var x=0;x<m.children.length;x++)s(m.children[x])}})(i.obj),r.draws+=u,r.tris+=Math.round(l),r.by[n]=[u,Math.round(l)]}),r},agent:Zt,errors:e0,roster:lt}}
 
+
+/* ============================================================================================================
+   LOOK v2 (21 Oct 2026, the owner: "more futuristic, higher contrast and feel like the future of agentic racing").
+   Section prefix L_. A higher-contrast night grade over the scenery's, and neon lines along the circuit: a line at
+   the foot and one along the top of every barrier, in the circuit's two neon colours, glowing at 1.3 (large or long
+   glowing parts glow at 1 to 1.5: lib/runtime/API.md), one draw call a line.
+   ============================================================================================================ */
+var L_NEON = { left: '#19E0FF', right: '#FF2E9A', glow: 1.3 };
+var L_GRAPHICS = Object.assign({}, S_GRAPHICS, {
+  exposure: 1.0,
+  bloom: { strength: 0.42, threshold: 1.35, radius: 0.55 },
+  grade: { contrast: 1.18, saturation: 1.3, warmth: -0.05, vignette: 0.36, grain: 0.008, split: 0.16 },
+});
+function L_strip(ctx, G, side, up, w, color) {
+  var T = ctx.THREE, tab = G.table, L = tab.L, step = ctx.quality === 'low' ? 4 : 2, n = Math.ceil(L / step), pos = [], idx = [], wl = {};
+  for (var i = 0; i <= n; i++) {
+    var d = (i * step) % L, W = tab.wallsAt(d, wl), lat = side * ((side < 0 ? W.left : W.right) - 0.12);
+    var a = tab.posAt(d, lat - side * w / 2, up, {}), b = tab.posAt(d, lat + side * w / 2, up, {});
+    pos.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    if (i) { var k = (i - 1) * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  }
+  var g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  var m = new T.Mesh(g, new T.MeshStandardMaterial({ color: '#05060A', emissive: color, emissiveIntensity: L_NEON.glow, roughness: 0.5, side: T.DoubleSide }));
+  m.frustumCulled = false; m.userData.gpFurniture = true; m.name = 'a1-neon';
+  return m;
+}
+function L_build(ctx, G) {
+  var grp = new ctx.THREE.Group(); grp.name = 'a1-look-v2'; grp.userData.gpFurniture = true;
+  [[-1, L_NEON.left], [1, L_NEON.right]].forEach(function (s) {
+    grp.add(L_strip(ctx, G, s[0], 0.12, 0.16, s[1]));   // at the barrier's foot
+    grp.add(L_strip(ctx, G, s[0], 1.13, 0.08, s[1]));   // along its top
+  });
+  ctx.scene.add(grp);
+  return grp;
+}
 GameMog.world({
   gp: {
     laps: 3, field: 20, you: 'muse', youTag: 'DRIVEN BY YOU', grid: 'quali', endAfter: 60,
+    trails: { length: 22, height: 0.42, apart: 0.72, glow: 0.9 },   // light trails behind every agent's car, in its own colour (21 Oct)
     car: 'model-why-v07',
     // the racing line, baked: minimum curvature over the lap at 1,500 sweeps (the design lap model's own count), in whole
     // centimetres (lib/runtime/gp-ai.js encode); the runtime computes it again (600 sweeps) if the lap ever changes
@@ -525,7 +561,7 @@ GameMog.world({
     // the Black Box. The tunnel's exposure (ev -1) waits for the look kit's lit tunnel. The kerb-height lenses (C4, C7, C8,
     // C12, C18) stand 1.4 m up and on the road side of the barrier (the greybox's walls are 1.1 m): lower, or behind it,
     // they saw the wall (the director also checks every lens's sightline past the walls, gp.cameras.wallTop, default 1.1)
-    cameras: { start: 'chase', allow: ['chase', 'tcam', 'cockpit'], glass: true, tunnelEv: -0.5,
+    cameras: { start: 'cockpit', allow: ['chase', 'tcam', 'cockpit'], glass: true, tunnelEv: -0.5,
       tv: [
         { id: 'C1', kind: 'overhead', d: 0, lat: 0, up: 8.8, range: 300, name: 'start gantry, back down the grid' },
         { id: 'C2', kind: 'fixed', d: 60, lat: 8, up: 40, range: 460, name: 'main grandstand roof, high' },
@@ -670,11 +706,12 @@ GameMog.world({
   // the look: the scenery part (S_, scenery.part.js) replaces the M1 greybox, lamps, road light bake, harbour and sky; the agents part
   // (A_, agents.part.js) puts the twenty agents in their cars, draws the glass cockpit and the liveries (it needs the scenery's
   // lit-material wrapper, so it installs second). endo: the Couloir skull's chrome comes from the runtime's endo.js kit (endoScript)
-  graphics: S_GRAPHICS,
+  graphics: L_GRAPHICS,
   theme: S_THEME,
   assets: ['model-why-v07', 'audio-a1-engine-v4', 'audio-crowd-shootout'].concat(S_ASSETS),
   build(ctx) {
     var SC = S_build(ctx, ctx.gp), AG = null;
+    try { L_build(ctx, ctx.gp); } catch (e) { try { console.warn('[look v2] ' + e.message); } catch (x) {} }
     try { AG = A_install(ctx, { lit: SC && SC.lit }); window.__A_AG = AG; } catch (e) { try { console.warn('[agents] install failed: ' + e.message + ' ' + String(e.stack || '').split('\n').slice(0, 3).join(' | ')); window.__A_FAIL = String(e.stack || e); } catch (x) { /* */ } }
   },
   update(ctx, t, dt) { S_update(ctx, t, dt); },
