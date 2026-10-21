@@ -17,14 +17,15 @@ export const metadata: Metadata = { title: 'Admin | GameMog', robots: { index: f
  * down, every build prompt, and every name typed onto a leaderboard. It does
  * not exist unless ADMIN_PASSWORD is set.
  *
- * (the owner, 12 Oct: open to read without signing in, for now. Every change
- * still needs the session: each action in actions.ts checks it first, so a
- * switch flipped without signing in is refused and put back)
+ * (the owner, 12 Oct: open to read without signing in, for now. 21 Oct: "let's make it password reachable by a password
+ * i pick": the owner sets ADMIN_PASSWORD on the Render service, and nothing but the sign-in is shown until then; the
+ * sign-in keeps one line, the build slots in use and the line, so a release can still check nothing is building
+ * before it pushes, without the password. Every change also checks the session in actions.ts)
  */
-const OPEN_TO_READ = true;
+const OPEN_TO_READ = false;
 export default async function AdminPage() {
   if (!adminEnabled()) notFound();
-  if (!OPEN_TO_READ && !(await isAdmin())) return <Login />;
+  if (!OPEN_TO_READ && !(await isAdmin())) return <Login capacity={{ held: slotsHeld(), max: buildSlots(), queue: queueLength() }} />;
   const now = Date.now();
   // (the builds first: reading them marks any a stopped server left running as interrupted, before the counts are taken)
   const builds = adminBuilds(80, now);

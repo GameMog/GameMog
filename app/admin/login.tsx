@@ -4,8 +4,11 @@ import { useState } from 'react';
 import { signIn } from './actions';
 import { BlurIn, MorphButton, type Busy } from './motion';
 
-/** The owner's door: one password, and the button becomes the answer. */
-export function Login() {
+/**
+ * The owner's door: one password, and the button becomes the answer. Under it, only the builds' capacity (slots in use,
+ * the line), the one thing a release reads before it pushes (a push stops any build in flight).
+ */
+export function Login({ capacity }: { capacity?: { held: number; max: number; queue: number } }) {
   const router = useRouter();
   const [pw, setPw] = useState('');
   const [state, setState] = useState<Busy>('idle');
@@ -34,6 +37,7 @@ export function Login() {
         <input id="pw" type="password" autoComplete="current-password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} />
         <MorphButton type="submit" state={state}>Sign in</MorphButton>
         <BlurIn k={error} className="login-e">{error && <p role="alert">{error}</p>}</BlurIn>
+        {capacity ? <p className="login-cap">Building {capacity.held} of {capacity.max} slots in use · In line {capacity.queue} waiting</p> : null}
       </form>
     </div>
   );

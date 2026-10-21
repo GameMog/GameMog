@@ -214,3 +214,6 @@
   .facts dd{font-size:20px}
   .lt td small{display:block;width:auto;margin-top:2px}
 }
+
+/* the builds' capacity under the sign-in (21 Oct) */
+.adm .login-cap { margin-top: 18px; font-size: 12px; opacity: 0.55; letter-spacing: 0.01em; }
