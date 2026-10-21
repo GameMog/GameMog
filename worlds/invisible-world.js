@@ -11,10 +11,11 @@
 
 (function () {
   /* ------------------------------------------------------------ the lap -- */
-  // 1,216 m, closed exactly (designed as pieces: the start straight, the Sweeper (180 degrees left, banked 34, climbing),
-  // the Jump straight, the S, the Dive, the Hairpin (150 left, banked 38, walled), the Climb, the Kink, the Home bend,
-  // the run-in); [x, y, z, bank]. Its pieces as fractions of the lap, for the course below
-  var LAP = [[0.0,30.0,0.0,0],[25.7,30.0,0.0,0],[51.4,30.0,0.0,0],[77.1,30.0,0.0,0],[102.8,30.0,0.0,0],[128.5,30.0,0.0,0],[154.3,30.0,0.0,0],[180.0,30.0,0.0,0],[205.7,30.0,0.0,11.9],[218.5,30.6,-1.3,6.4],[230.9,31.2,-5.0,12.8],[242.3,31.9,-11.1,19.1],[252.3,32.5,-19.3,25.5],[260.5,33.1,-29.3,31.9],[266.6,33.8,-40.7,34],[270.4,34.4,-53.1,34],[271.7,35.0,-66.0,34],[270.4,35.6,-78.9,34],[266.6,36.2,-91.3,34],[260.5,36.9,-102.7,31.9],[252.3,37.5,-112.7,25.5],[242.3,38.1,-120.9,19.1],[230.9,38.8,-127.0,12.8],[218.5,39.4,-130.7,6.4],[205.7,40.0,-132.0,0],[180.7,39.0,-132.0,0],[155.7,38.0,-132.0,0],[130.7,37.0,-132.0,0],[105.7,36.0,-132.0,0],[80.7,35.0,-132.0,0],[55.7,34.0,-132.0,-8.4],[43.2,33.4,-133.6,-14.4],[31.7,32.8,-138.4,-24],[21.7,32.2,-146.1,-24],[14.1,31.6,-156.0,-14.4],[9.3,31.0,-167.6,8.4],[4.5,30.4,-179.2,14.4],[-3.1,29.8,-189.1,24],[-13.1,29.2,-196.7,24],[-24.6,28.6,-201.5,14.4],[-37.1,28.0,-203.2,0],[-63.7,25.7,-203.2,0],[-90.4,23.3,-203.2,0],[-117.1,21.0,-203.2,0],[-143.7,18.7,-203.2,0],[-170.4,16.3,-203.2,0],[-197.1,14.0,-203.2,13.3],[-208.9,14.0,-200.5,19.0],[-218.5,14.0,-193.2,38],[-224.1,14.0,-182.4,38],[-224.6,14.0,-170.3,38],[-220.0,14.0,-159.1,19.0],[-211.1,14.0,-150.9,0],[-191.5,16.5,-139.6,0],[-172.0,19.0,-128.4,-7.7],[-161.7,19.8,-121.2,-11.0],[-152.8,20.7,-112.3,-22],[-145.6,21.5,-102.0,-22],[-140.3,22.3,-90.6,-22],[-137.1,23.2,-78.5,-11.0],[-136.0,24.0,-66.0,10.5],[-134.7,24.5,-53.1,11.2],[-131.0,25.0,-40.7,22.5],[-124.9,25.5,-29.3,30],[-116.7,26.0,-19.3,30],[-106.7,26.5,-11.1,30],[-95.3,27.0,-5.0,22.5],[-82.9,27.5,-1.3,11.2],[-70.0,28.0,0.0,0],[-46.7,28.7,0.0,0],[-23.3,29.3,-0.0,0]];
+  // 1,216 m, closed exactly (designed as pieces: the start straight, the Sweeper (180 degrees left, climbing), the Jump
+  // straight, the S, the Dive, the Hairpin (150 left, walled), the Climb, the Kink, the Home bend, the run-in); [x, y, z,
+  // bank]. Every bank is 0 (21 Oct, the owner's screenshot: a kart under the glass on a banked bend): the kart kit rides
+  // the centre line's height across the whole road, so a tilted road and its karts part by up to hw x sin(bank)
+  var LAP = [[0.0,30.0,0.0,0],[25.7,30.0,0.0,0],[51.4,30.0,0.0,0],[77.1,30.0,0.0,0],[102.8,30.0,0.0,0],[128.5,30.0,0.0,0],[154.3,30.0,0.0,0],[180.0,30.0,0.0,0],[205.7,30.0,0.0,0],[218.5,30.6,-1.3,0],[230.9,31.2,-5.0,0],[242.3,31.9,-11.1,0],[252.3,32.5,-19.3,0],[260.5,33.1,-29.3,0],[266.6,33.8,-40.7,0],[270.4,34.4,-53.1,0],[271.7,35.0,-66.0,0],[270.4,35.6,-78.9,0],[266.6,36.2,-91.3,0],[260.5,36.9,-102.7,0],[252.3,37.5,-112.7,0],[242.3,38.1,-120.9,0],[230.9,38.8,-127.0,0],[218.5,39.4,-130.7,0],[205.7,40.0,-132.0,0],[180.7,39.0,-132.0,0],[155.7,38.0,-132.0,0],[130.7,37.0,-132.0,0],[105.7,36.0,-132.0,0],[80.7,35.0,-132.0,0],[55.7,34.0,-132.0,0],[43.2,33.4,-133.6,0],[31.7,32.8,-138.4,0],[21.7,32.2,-146.1,0],[14.1,31.6,-156.0,0],[9.3,31.0,-167.6,0],[4.5,30.4,-179.2,0],[-3.1,29.8,-189.1,0],[-13.1,29.2,-196.7,0],[-24.6,28.6,-201.5,0],[-37.1,28.0,-203.2,0],[-63.7,25.7,-203.2,0],[-90.4,23.3,-203.2,0],[-117.1,21.0,-203.2,0],[-143.7,18.7,-203.2,0],[-170.4,16.3,-203.2,0],[-197.1,14.0,-203.2,0],[-208.9,14.0,-200.5,0],[-218.5,14.0,-193.2,0],[-224.1,14.0,-182.4,0],[-224.6,14.0,-170.3,0],[-220.0,14.0,-159.1,0],[-211.1,14.0,-150.9,0],[-191.5,16.5,-139.6,0],[-172.0,19.0,-128.4,0],[-161.7,19.8,-121.2,0],[-152.8,20.7,-112.3,0],[-145.6,21.5,-102.0,0],[-140.3,22.3,-90.6,0],[-137.1,23.2,-78.5,0],[-136.0,24.0,-66.0,0],[-134.7,24.5,-53.1,0],[-131.0,25.0,-40.7,0],[-124.9,25.5,-29.3,0],[-116.7,26.0,-19.3,0],[-106.7,26.5,-11.1,0],[-95.3,27.0,-5.0,0],[-82.9,27.5,-1.3,0],[-70.0,28.0,0.0,0],[-46.7,28.7,0.0,0],[-23.3,29.3,-0.0,0]];
   var ROAD = 16;
   // start 0-0.169, Sweeper 0.169-0.34, Jump 0.34-0.463, S 0.463-0.566, Dive 0.566-0.698, Hairpin 0.698-0.758,
   // Climb 0.758-0.795, Kink 0.795-0.857, Home 0.857-0.942, run-in 0.942-1
@@ -43,7 +44,7 @@
     airdrops: [{ at: 0.09, n: 5 }, { at: 0.3, n: 4 }, { at: 0.52, n: 5 }, { at: 0.82, n: 4 }],
     gm: 'auto',
     air: { lift: 1.45, hang: 0.4 },
-    hazards: [{ kind: 'meteor', from: 0.57, to: 0.69, every: 7 }, { kind: 'topple', at: 0.345, side: 'right', every: 11 }, { kind: 'crossing', at: 0.83, every: 9 }],
+    hazards: [{ kind: 'meteor', from: 0.57, to: 0.69, every: 7 }, { kind: 'topple', at: 0.345, side: 'right', every: 11, model: false }, { kind: 'crossing', at: 0.83, every: 9 }],
   };
 
   /* -------------------------------------------------------- the friends -- */
@@ -77,266 +78,484 @@
   ];
 
   /* ------------------------------------------------------- the modelling -- */
-  // a vinyl toy's materials: soft, a little clearcoat, the colours of the renders
-  var T = null, MATS = {};
+  // (21 Oct, the owner: "the entire experience should feel like a PIXAR movie") a toy studio's way: every form turned
+  // (lathe) or swept (tube) from a smooth profile, finely divided so no silhouette facets; fabric with a velvet sheen,
+  // vinyl with a soft clearcoat, glass with an iridescent film; arms that bend at the elbow and follow the wheel, a head
+  // that lags on a spring, a body that squashes on landing and cheers on the podium. Each racer's still parts are merged
+  // by material into a handful of draw calls (bake), the moving ones kept apart
+  var T = null, MATS = {}, LOWQ = false;
+  function cached(k, make) { if (!MATS[k]) MATS[k] = make(); return MATS[k]; }
+  function lighter(c, k) { return new T.Color(c).lerp(new T.Color('#FFFFFF'), k); }
+  function fabric(c) { return cached('fab|' + c, function () { return new T.MeshPhysicalMaterial({ color: c, roughness: 0.78, sheen: 1, sheenRoughness: 0.42, sheenColor: lighter(c, 0.55), clearcoat: 0 }); }); }
   function vinyl(c, o) {
     o = o || {};
-    var k = c + '|' + (o.r || 0.5) + '|' + (o.e || '') + '|' + (o.m || 0) + '|' + (o.t || '');
-    if (MATS[k]) return MATS[k];
-    var m = new T.MeshPhysicalMaterial({ color: c, roughness: o.r != null ? o.r : 0.5, metalness: o.m || 0, clearcoat: o.cc != null ? o.cc : 0.35, clearcoatRoughness: 0.4 });
-    if (o.e) { m.emissive = new T.Color(o.e); m.emissiveIntensity = o.ei || 1.2; }
-    if (o.t) { m.transparent = true; m.opacity = o.t; }
-    MATS[k] = m; return m;
+    return cached('vin|' + c + '|' + (o.r != null ? o.r : 0.34) + '|' + (o.e || '') + '|' + (o.ei || '') + '|' + (o.m || 0) + '|' + (o.t || ''), function () {
+      var m = new T.MeshPhysicalMaterial({ color: c, roughness: o.r != null ? o.r : 0.34, metalness: o.m || 0, clearcoat: o.cc != null ? o.cc : 0.7, clearcoatRoughness: 0.22 });
+      if (o.e) { m.emissive = new T.Color(o.e); m.emissiveIntensity = o.ei || 1; }
+      if (o.t) { m.transparent = true; m.opacity = o.t; }
+      return m;
+    });
   }
-  // (a part turned before it is added: Object3D.add returns the parent, so add(part).rotation turns the parent)
-  function rot(o, ax, v) { o.rotation[ax] = v; return o; }
-  function rotS(o, x, y, z) { o.rotation.set(x, y, z); return o; }
-  function mesh(g, m, x, y, z) { var o = new T.Mesh(g, m); o.position.set(x || 0, y || 0, z || 0); o.castShadow = true; return o; }
-  function sph(r, m, x, y, z, sx, sy, sz) { var o = mesh(new T.SphereGeometry(r, 20, 14), m, x, y, z); o.scale.set(sx || 1, sy || 1, sz || 1); return o; }
-  function cap(r, len, m, x, y, z) { return mesh(new T.CapsuleGeometry(r, len, 6, 14), m, x, y, z); }
-  function cyl(r0, r1, h, m, x, y, z, seg) { return mesh(new T.CylinderGeometry(r0, r1, h, seg || 18), m, x, y, z); }
-  function box(w, h, d, m, x, y, z) { return mesh(new T.BoxGeometry(w, h, d), m, x, y, z); }
-  function tor(r, t, m, x, y, z, arc) { return mesh(new T.TorusGeometry(r, t, 10, 28, arc || Math.PI * 2), m, x, y, z); }
-  // a tube between two points (a sleeve, a leg, a stick)
-  function limb(a, b, r0, r1, m) {
-    var A = new T.Vector3(a[0], a[1], a[2]), B = new T.Vector3(b[0], b[1], b[2]), len = A.distanceTo(B);
-    var o = cyl(r1, r0, len, m, 0, 0, 0, 14); o.position.copy(A).add(B).multiplyScalar(0.5);
-    o.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), B.clone().sub(A).normalize()); return o;
+  function rubber(c) { return cached('rub|' + c, function () { return new T.MeshPhysicalMaterial({ color: c, roughness: 0.62, clearcoat: 0.15, clearcoatRoughness: 0.6 }); }); }
+  function chrome(c) { return cached('chr|' + c, function () { return new T.MeshPhysicalMaterial({ color: c, roughness: 0.18, metalness: 0.9, clearcoat: 1, clearcoatRoughness: 0.1 }); }); }
+  function light(c, k) { return cached('lit|' + c + '|' + k, function () { return new T.MeshBasicMaterial({ color: new T.Color(c).multiplyScalar(k), toneMapped: true }); }); }
+  function glassOf(c) {
+    return cached('glass|' + c, function () {
+      return new T.MeshPhysicalMaterial({ color: c, roughness: 0.04, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03, iridescence: 1, iridescenceIOR: 1.33, iridescenceThicknessRange: [180, 640],
+        emissive: c, emissiveIntensity: 0.12, transparent: true, opacity: 0.5, side: T.DoubleSide, depthWrite: false });
+    });
+  }
+  // geometry, finely divided (a phone a step coarser)
+  function SEG(n) { return LOWQ ? Math.max(8, Math.round(n * 0.6)) : n; }
+  function put(parent, geo, m, x, y, z, rx, ry, rz, sx, sy, sz) {
+    var o = new T.Mesh(geo, m); o.position.set(x || 0, y || 0, z || 0); o.rotation.set(rx || 0, ry || 0, rz || 0);
+    if (sx != null) o.scale.set(sx, sy != null ? sy : sx, sz != null ? sz : sx);
+    o.castShadow = true; o.receiveShadow = true; if (parent) parent.add(o); return o;
+  }
+  function ball(r) { return new T.SphereGeometry(r, SEG(40), SEG(28)); }
+  function pill(r, len) { return new T.CapsuleGeometry(r, len, SEG(10), SEG(24)); }
+  function ringG(r, t) { return new T.TorusGeometry(r, t, SEG(14), SEG(48)); }
+  // a smooth solid of turning: a profile [[radius, height], ...] through Catmull-Rom, closed at its ends where the radius is 0
+  function lathe(pro, n) {
+    var pts = [], k, s;
+    for (k = 0; k < pro.length - 1; k++) {
+      var p0 = pro[Math.max(0, k - 1)], p1 = pro[k], p2 = pro[k + 1], p3 = pro[Math.min(pro.length - 1, k + 2)];
+      for (s = 0; s < 6; s++) {
+        var t = s / 6, t2 = t * t, t3 = t2 * t;
+        var cr = function (a, b, c, d) { return 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3); };
+        pts.push(new T.Vector2(Math.max(0, cr(p0[0], p1[0], p2[0], p3[0])), cr(p0[1], p1[1], p2[1], p3[1])));
+      }
+    }
+    pts.push(new T.Vector2(pro[pro.length - 1][0], pro[pro.length - 1][1]));
+    return new T.LatheGeometry(pts, SEG(n || 44));
+  }
+  // a swept tube through points, with round ends
+  function tube(parent, pts, r, m) {
+    var curve = new T.CatmullRomCurve3(pts.map(function (p) { return new T.Vector3(p[0], p[1], p[2]); }));
+    put(parent, new T.TubeGeometry(curve, SEG(40), r, SEG(14), false), m);
+    put(parent, ball(r), m, pts[0][0], pts[0][1], pts[0][2]); var e = pts[pts.length - 1]; put(parent, ball(r), m, e[0], e[1], e[2]);
+  }
+  // a rounded slab: a rounded rectangle extruded with a soft bevel
+  function slab(w, d, h, r, bev) {
+    var s = new T.Shape(), x = -w / 2, y = -d / 2;
+    s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + d - r); s.quadraticCurveTo(x + w, y + d, x + w - r, y + d);
+    s.lineTo(x + r, y + d); s.quadraticCurveTo(x, y + d, x, y + d - r); s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+    var g = new T.ExtrudeGeometry(s, { depth: Math.max(0.001, h - 2 * bev), bevelEnabled: true, bevelSize: bev, bevelThickness: bev, bevelSegments: SEG(5), curveSegments: SEG(12) });
+    g.translate(0, 0, -(h - 2 * bev) / 2); g.rotateX(-Math.PI / 2); return g;
+  }
+  // a part that moves on its own: kept out of the bake
+  function live(o) { o.userData.iwLive = true; return o; }
+  // the bake: a group's still meshes merged by material into one mesh each (their places folded in), the moving parts
+  // (iwLive) and anything under them left as they are
+  function bake(group) {
+    group.updateMatrixWorld(true);
+    var inv = new T.Matrix4().copy(group.matrixWorld).invert(), buckets = {}, drop = [];
+    (function walk(o) {
+      for (var i = 0; i < o.children.length; i++) {
+        var c = o.children[i]; if (c.userData.iwLive) continue;
+        if (c.isMesh && !c.isInstancedMesh && !Array.isArray(c.material)) {
+          var key = c.material.uuid, g = c.geometry.index ? c.geometry.toNonIndexed() : c.geometry.clone();
+          g.applyMatrix4(new T.Matrix4().multiplyMatrices(inv, c.matrixWorld));
+          if (!g.attributes.uv) g.setAttribute('uv', new T.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+          (buckets[key] = buckets[key] || { m: c.material, gs: [] }).gs.push(g); drop.push(c);
+        }
+        walk(c);
+      }
+    })(group);
+    drop.forEach(function (c) { if (c.parent) c.parent.remove(c); });
+    Object.keys(buckets).forEach(function (k) {
+      var B = buckets[k], n = 0; B.gs.forEach(function (g) { n += g.attributes.position.count; });
+      var P = new Float32Array(n * 3), N = new Float32Array(n * 3), U = new Float32Array(n * 2), o = 0;
+      B.gs.forEach(function (g) { P.set(g.attributes.position.array, o * 3); N.set(g.attributes.normal.array, o * 3); U.set(g.attributes.uv.array, o * 2); o += g.attributes.position.count; g.dispose(); });
+      var G = new T.BufferGeometry(); G.setAttribute('position', new T.BufferAttribute(P, 3)); G.setAttribute('normal', new T.BufferAttribute(N, 3)); G.setAttribute('uv', new T.BufferAttribute(U, 2));
+      var m = new T.Mesh(G, B.m); m.castShadow = !B.m.transparent; m.receiveShadow = true; group.add(m);
+    });
   }
 
-  // the cartoon glove: a round palm, four chunky fingers curled round the wheel, a thumb, a rolled cuff
+  // ---- the glove: a plump cartoon glove, four fingers curled round the wheel, a thumb on top, a rolled cuff
   function glove(side) {
-    var g = new T.Group(), w = vinyl('#F7F5F0', { r: 0.42 });
-    g.add(sph(0.085, w, 0, 0, 0, 1.05, 0.9, 0.85));
-    for (var i = 0; i < 4; i++) { var f = cap(0.028, 0.05, w, -0.045 + i * 0.03, 0.02, 0.07); f.rotation.x = 1.2; g.add(f); }
-    var th = cap(0.03, 0.05, w, side * 0.075, 0.03, 0.02); th.rotation.z = side * 0.9; g.add(th);
-    var cuff = tor(0.072, 0.024, w, 0, -0.02, -0.07); g.add(cuff);
+    var g = new T.Group(), w = vinyl('#ECE8E2', { r: 0.55, cc: 0.3 });
+    put(g, ball(0.075), w, 0, 0, 0, 0, 0, 0, 1.12, 0.92, 0.95);
+    for (var i = 0; i < 4; i++) {
+      var x = -0.05 + i * 0.033, fl = 0.034 - (i === 0 || i === 3 ? 0.006 : 0);
+      tube(g, [[x, 0.015, 0.05], [x, 0.03, 0.095], [x, -0.005, 0.125], [x, -0.04, 0.105]], fl * 0.62, w);
+    }
+    tube(g, [[side * 0.06, 0.02, 0.0], [side * 0.085, 0.05, 0.05], [side * 0.06, 0.055, 0.085]], 0.024, w);
+    put(g, lathe([[0.06, -0.02], [0.078, 0], [0.084, 0.03], [0.07, 0.05], [0.058, 0.045]], 32), w, 0, 0, -0.065, Math.PI / 2, 0, 0);
     return g;
   }
-  // shoes: big rounded toes, a thick sole; flip-flops and slippers lower
+  // ---- the shoes: chunky, round-toed, a fat sole, laces on a sneaker, a shaft on a boot, a strap on a flip-flop
   function shoe(o, side) {
-    var g = new T.Group(), up = vinyl(o.color, { r: 0.55 }), sole = vinyl(o.sole || '#EDEDED', { r: 0.7 });
+    var g = new T.Group(), up = vinyl(o.color, { r: 0.42, cc: 0.4 }), sole = rubber(o.sole || '#F2F2EE');
     if (o.kind === 'flipflop') {
-      g.add(box(0.15, 0.03, 0.3, up, 0, 0.015, 0.02));
-      g.add(limb([0, 0.03, 0.08], [side * 0.05, 0.09, -0.02], 0.012, 0.012, vinyl('#E8E8E8')));
+      put(g, slab(0.16, 0.32, 0.04, 0.07, 0.012), rubber(o.color), 0, 0.02, 0.03);
+      tube(g, [[-0.05, 0.04, 0.02], [0, 0.07, 0.1], [0.05, 0.04, 0.02]], 0.011, vinyl('#F7F3EA'));
+      put(g, ball(0.02), vinyl('#F7F3EA'), 0, 0.06, 0.1);
       return g;
     }
-    var h = o.kind === 'boot' ? 0.2 : o.kind === 'slipper' ? 0.08 : 0.13;
-    g.add(sph(0.11, up, 0, h * 0.5, 0.05, 0.85, h * 6, 1.45));
-    g.add(box(0.2, 0.045, 0.36, sole, 0, 0.02, 0.03));
-    if (o.kind === 'sneaker') { g.add(tor(0.07, 0.012, vinyl('#FFFFFF'), 0, h * 0.95, -0.03)); }
-    if (o.slime) { g.add(sph(0.05, vinyl('#9BE34A', { r: 0.2, cc: 0.9 }), side * 0.06, h * 0.9, 0.12, 1, 0.6, 1)); g.add(sph(0.035, vinyl('#9BE34A', { r: 0.2, cc: 0.9 }), -side * 0.04, h, -0.02, 1, 0.5, 1)); }
+    var tall = o.kind === 'boot' ? 0.16 : o.kind === 'slipper' ? 0.05 : 0.1;
+    put(g, slab(0.2, 0.36, 0.06, 0.09, 0.02), sole, 0, 0.03, 0.035);
+    put(g, ball(0.1), up, 0, 0.07 + tall * 0.25, 0.07, 0, 0, 0, 1, 0.8 + tall, 1.45);
+    if (o.kind === 'boot') put(g, lathe([[0, 0], [0.085, 0.01], [0.09, 0.12], [0.085, 0.24], [0, 0.245]], 36), up, 0, 0.06, -0.035);
+    if (o.kind === 'sneaker') {
+      put(g, lathe([[0.075, 0], [0.085, 0.03], [0.07, 0.06]], 32), vinyl('#FFFFFF', { r: 0.5 }), 0, 0.15, -0.03, 0.25, 0, 0);
+      for (var l = 0; l < 3; l++) put(g, pill(0.008, 0.07), vinyl('#FFFFFF', { r: 0.5 }), 0, 0.165 - l * 0.012, 0.03 + l * 0.04, 0, 0, Math.PI / 2);
+      put(g, ball(0.05), vinyl('#FFFFFF', { r: 0.4 }), 0, 0.075, 0.2, 0, 0, 0, 1.3, 0.55, 0.7);   // the toe cap
+    }
+    if (o.slime) { var sl = vinyl('#9BE34A', { r: 0.15, cc: 1 }); put(g, ball(0.045), sl, side * 0.07, 0.14, 0.12, 0, 0, 0, 1, 0.55, 1.2); put(g, ball(0.03), sl, -side * 0.05, 0.17, 0.0, 0, 0, 0, 1, 0.5, 1); put(g, pill(0.012, 0.05), sl, side * 0.09, 0.1, 0.13); }
     return g;
   }
-  // what floats where the head would be: the hat, the glasses, the mouth's and the ear's props. y 0 is the head's middle
+
+  // ---- the head's things: nobody's head, its hat, its glasses, its mouth's and ear's things. y 0 is the head's middle
   function head(F) {
     var g = new T.Group(), H = F.hat || {}, E = F.eyes || {};
     if (F.top.hood === 'up') {
-      // the hood standing up round an invisible head, a glimpse of pink inside (#4958's face)
-      var hood = mesh(new T.SphereGeometry(0.2, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.62), vinyl(F.top.color), 0, 0.02, -0.02); hood.scale.set(1, 1.15, 1.05); hood.rotation.x = -0.35; g.add(hood);
-      g.add(sph(0.15, vinyl(F.top.face, { r: 0.6 }), 0, -0.01, 0.05, 1, 1.15, 0.6));
+      var hm = fabric(F.top.color);
+      put(g, lathe([[0.0, 0.25], [0.12, 0.23], [0.2, 0.15], [0.23, 0.0], [0.21, -0.12], [0.16, -0.19]], 48), hm, 0, -0.01, -0.03, -0.25, 0, 0, 1, 1, 1.05);
+      put(g, ball(0.16), vinyl(F.top.face, { r: 0.6, cc: 0.2 }), 0, -0.02, 0.06, 0, 0, 0, 0.95, 1.08, 0.55);
+      put(g, ringG(0.15, 0.03), hm, 0, -0.02, 0.1, 0, 0, 0, 1, 1.12, 1);
     }
     if (H.kind === 'cap') {
-      g.add(mesh(new T.SphereGeometry(0.17, 22, 12, 0, Math.PI * 2, 0, Math.PI / 2), vinyl(H.color), 0, 0.08, 0));
-      var br = cyl(0.13, 0.13, 0.025, vinyl(H.brim), 0, 0.09, H.back ? -0.17 : 0.17); br.scale.set(1, 1, 0.75); g.add(br);
-      g.add(box(0.12, 0.03, 0.01, vinyl('#3A6FD8'), 0, 0.13, 0.16));
+      var cm = fabric(H.color);
+      put(g, lathe([[0, 0.2], [0.09, 0.19], [0.155, 0.13], [0.18, 0.04], [0.18, 0.0]], 48), cm, 0, 0.05, 0);
+      put(g, ball(0.02), cm, 0, 0.255, 0);
+      var brim = put(g, slab(0.22, 0.17, 0.022, 0.08, 0.008), vinyl(H.brim, { r: 0.5 }), 0, 0.07, H.back ? -0.2 : 0.2, H.back ? 0.12 : -0.12, 0, 0);
+      put(g, slab(0.08, 0.05, 0.012, 0.02, 0.004), vinyl('#3A6FD8'), 0, 0.17, 0.155, -0.9, 0, 0);
     } else if (H.kind === 'bucket') {
-      g.add(cyl(0.15, 0.17, 0.14, vinyl(H.color, { r: 0.75 }), 0, 0.14, 0));
-      g.add(cyl(0.26, 0.26, 0.02, vinyl(H.color, { r: 0.75 }), 0, 0.07, 0));
+      put(g, lathe([[0, 0.2], [0.11, 0.19], [0.15, 0.13], [0.165, 0.04], [0.2, 0.0], [0.27, -0.04], [0.28, -0.05]], 48), fabric(H.color), 0, 0.05, 0);
+      put(g, ringG(0.165, 0.012), fabric('#C9B67E'), 0, 0.08, 0, Math.PI / 2, 0, 0);
     } else if (H.kind === 'beanie') {
-      g.add(mesh(new T.SphereGeometry(0.175, 22, 12, 0, Math.PI * 2, 0, Math.PI / 2), vinyl(H.color, { r: 0.8 }), 0, 0.06, 0));
-      g.add(rot(tor(0.165, 0.035, vinyl(H.color, { r: 0.8 }), 0, 0.07, 0), 'x', Math.PI / 2));
+      var bm = fabric(H.color);
+      put(g, lathe([[0, 0.25], [0.1, 0.235], [0.16, 0.17], [0.18, 0.06], [0.18, 0.0]], 48), bm, 0, 0.03, 0);
+      put(g, ringG(0.178, 0.04), bm, 0, 0.05, 0, Math.PI / 2, 0, 0);
     } else if (H.kind === 'helmet') {
-      g.add(sph(0.21, vinyl(H.color, { r: 0.3, cc: 0.9 }), 0, 0.05, -0.01, 1, 1, 1.05));
-      var cage = vinyl('#E9E9E9');
-      for (var b = 0; b < 3; b++) g.add(limb([-0.14, -0.06 + b * 0.05, 0.17], [0.14, -0.06 + b * 0.05, 0.17], 0.012, 0.012, cage));
-      g.add(sph(0.12, vinyl('#5A3A26', { r: 0.6 }), 0, -0.02, 0.06, 1, 1, 0.5));
+      var hel = vinyl(H.color, { r: 0.18, cc: 1 });
+      put(g, ball(0.19), hel, 0, 0.04, -0.01, 0, 0, 0, 1, 1.02, 1.08);
+      put(g, pill(0.022, 0.32), vinyl('#FFFFFF', { r: 0.3 }), 0, 0.2, -0.02, Math.PI / 2, 0, 0);
+      var cage = chrome('#E8E8EC');
+      tube(g, [[-0.16, -0.02, 0.15], [0, -0.03, 0.24], [0.16, -0.02, 0.15]], 0.012, cage);
+      tube(g, [[-0.15, -0.09, 0.13], [0, -0.1, 0.22], [0.15, -0.09, 0.13]], 0.012, cage);
+      tube(g, [[0, 0.02, 0.2], [0, -0.1, 0.22]], 0.012, cage);
+      put(g, ball(0.12), vinyl('#5A3A26', { r: 0.6, cc: 0.1 }), 0, -0.04, 0.08, 0, 0, 0, 1, 1, 0.45);
     } else if (H.kind === 'headband') {
-      var hb = tor(0.165, 0.035, vinyl(H.color), 0, 0.09, 0); hb.rotation.x = Math.PI / 2; g.add(hb);
-      g.add(mesh(new T.SphereGeometry(0.16, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), vinyl(H.color), 0, 0.12, 0));
+      put(g, ringG(0.17, 0.045), fabric(H.color), 0, 0.08, 0, Math.PI / 2, 0, 0, 1, 1, 0.7);
+      put(g, lathe([[0, 0.2], [0.1, 0.19], [0.155, 0.13], [0.17, 0.06]], 40), fabric(H.color), 0, 0.03, 0);
     } else if (H.kind === 'captain') {
-      g.add(cyl(0.2, 0.15, 0.1, vinyl(H.color), 0, 0.16, 0));
-      g.add(cyl(0.14, 0.14, 0.05, vinyl('#151515'), 0, 0.1, 0));
-      var vz = cyl(0.13, 0.13, 0.02, vinyl('#151515', { r: 0.2, cc: 1 }), 0, 0.09, 0.1); vz.scale.set(1, 1, 0.6); g.add(vz);
-      g.add(sph(0.035, vinyl('#F2C230', { m: 0.6, r: 0.3 }), 0, 0.15, 0.15));
+      var wt = fabric(H.color), bl = vinyl('#141418', { r: 0.2, cc: 1 });
+      put(g, lathe([[0, 0.2], [0.17, 0.2], [0.23, 0.18], [0.22, 0.15], [0.16, 0.1], [0.155, 0.04]], 48), wt, 0, 0.06, 0);
+      put(g, lathe([[0.15, 0], [0.16, 0.02], [0.16, 0.06], [0.15, 0.065]], 44), bl, 0, 0.05, 0);
+      put(g, slab(0.22, 0.12, 0.018, 0.06, 0.006), bl, 0, 0.065, 0.17, -0.3, 0, 0);
+      put(g, ball(0.035), chrome('#F2C230'), 0, 0.16, 0.17, 0, 0, 0, 1, 1, 0.4);
+      tube(g, [[-0.15, 0.09, 0.08], [0, 0.1, 0.17], [0.15, 0.09, 0.08]], 0.008, chrome('#F2C230'));
     }
-    // the eyes
-    var fr = vinyl(E.color || '#151515', { r: 0.35 });
+    // the eyes: frames swept round their lenses, glass that catches the light
+    var fr = vinyl(E.color || '#151515', { r: 0.25, cc: 0.9 });
+    function frame(x, rx, ry, m) { var pts = []; for (var k = 0; k <= 24; k++) { var a = k / 24 * Math.PI * 2; pts.push([x + Math.cos(a) * rx, Math.sin(a) * ry, 0.175 + 0.01 * Math.cos(a)]); } tube(g, pts, 0.013, m); }
     if (E.kind === 'shades') {
-      [-1, 1].forEach(function (s) { g.add(sph(0.07, vinyl('#0A0A0A', { r: 0.1, cc: 1 }), s * 0.075, 0.0, 0.17, 1.15, 0.85, 0.35)); });
-      g.add(box(0.06, 0.018, 0.02, fr, 0, 0.02, 0.18));
+      [-1, 1].forEach(function (s) { put(g, ball(0.068), vinyl('#0B0B10', { r: 0.05, cc: 1 }), s * 0.078, -0.005, 0.175, 0, 0, 0, 1.2, 0.85, 0.3); frame(s * 0.078, 0.082, 0.058, fr); });
+      tube(g, [[-0.012, 0.01, 0.185], [0.012, 0.01, 0.185]], 0.012, fr);
     } else if (E.kind === 'nerd') {
-      [-1, 1].forEach(function (s) { g.add(tor(0.06, 0.018, fr, s * 0.075, 0.0, 0.17)); g.add(sph(0.055, vinyl('#DDEBF5', { t: 0.35, r: 0.05 }), s * 0.075, 0, 0.165, 1, 1, 0.15)); });
-      g.add(box(0.04, 0.016, 0.016, fr, 0, 0.01, 0.17));
+      [-1, 1].forEach(function (s) { frame(s * 0.078, 0.064, 0.058, fr); put(g, ball(0.062), vinyl('#E8F4FF', { r: 0.02, cc: 1, t: 0.28 }), s * 0.078, 0, 0.172, 0, 0, 0, 1, 0.95, 0.18); });
+      tube(g, [[-0.015, 0.012, 0.18], [0, 0.02, 0.185], [0.015, 0.012, 0.18]], 0.012, fr);
     } else if (E.kind === 'rainbow') {
-      var cols = ['#E8423A', '#F4A13A', '#F7E04A', '#53C26B', '#3D86E8', '#8A5BE0'];
-      [-1, 1].forEach(function (s) { for (var c = 0; c < cols.length; c++) { var r = tor(0.065 - c * 0.01, 0.007, vinyl(cols[c], { e: cols[c], ei: 0.35 }), s * 0.08, 0, 0.17 + c * 0.002); g.add(r); } });
-      g.add(box(0.04, 0.016, 0.016, vinyl('#F0F0F0'), 0, 0.01, 0.17));
+      var cols = ['#FF4A5C', '#FF9A3A', '#FFE24A', '#4ADB7A', '#3A9BFF', '#9A5BFF'];
+      [-1, 1].forEach(function (s) { frame(s * 0.08, 0.07, 0.07, vinyl('#F6F6F2')); for (var c = 0; c < cols.length; c++) put(g, ringG(0.058 - c * 0.0095, 0.0052), light(cols[c], 1.1), s * 0.08, 0, 0.176); });
+      tube(g, [[-0.012, 0.01, 0.185], [0.012, 0.01, 0.185]], 0.012, vinyl('#F6F6F2'));
     } else if (E.kind === 'vr') {
-      g.add(box(0.3, 0.1, 0.12, vinyl('#F4F4F4', { r: 0.3, cc: 0.8 }), 0, 0, 0.12));
-      g.add(box(0.2, 0.035, 0.01, vinyl('#E2453A', { e: '#FF3A2A', ei: 1.4 }), 0, 0, 0.185));
-      // the moon on the visor's screen, floating beside it (the render's panel)
-      var scr = box(0.32, 0.3, 0.015, vinyl('#EEF6FA', { t: 0.85, r: 0.1 }), 0.42, 0.12, 0.05); scr.rotation.y = -0.4; g.add(scr);
-      g.add(rot(tor(0.05, 0.01, vinyl('#E2453A', { e: '#FF3A2A', ei: 1.2 }), 0.42, 0.14, 0.065), 'y', -0.4));
-    } else if (E.kind === 'white') {
-      [-1, 1].forEach(function (s) { g.add(tor(0.058, 0.016, vinyl('#F4F4F4'), s * 0.075, 0, 0.17)); });
+      put(g, slab(0.3, 0.12, 0.1, 0.045, 0.02), vinyl('#F6F6F4', { r: 0.25, cc: 1 }), 0, -0.05, 0.13, Math.PI / 2, 0, 0);
+      put(g, slab(0.2, 0.04, 0.012, 0.018, 0.005), light('#FF4A3A', 1.6), 0, 0.0, 0.185, Math.PI / 2, 0, 0);
+      put(g, ringG(0.2, 0.014), fabric('#3A3A44'), 0, 0, 0.02, Math.PI / 2, 0, 0, 1, 1, 0.9);
+      // its screen, floating beside it with the moon and a target on it
+      var scr = live(new T.Group()); scr.position.set(0.44, 0.1, 0.04); scr.rotation.y = -0.45; g.add(scr);
+      put(scr, slab(0.3, 0.3, 0.02, 0.05, 0.008), vinyl('#F2F8FF', { r: 0.05, cc: 1, t: 0.72 }), 0, 0, 0, Math.PI / 2, 0, 0);
+      put(scr, ringG(0.05, 0.009), light('#FF3A2A', 1.4), -0.03, 0.03, 0.015); put(scr, ball(0.012), light('#FF3A2A', 1.6), -0.03, 0.03, 0.015);
+      put(scr, ball(0.05), vinyl('#9ED8C8', { r: 0.4 }), 0.07, -0.07, 0.012, 0, 0, 0, 1, 1, 0.2);
     }
     // the mouth
-    if (F.mouth === 'cigar') { var cg = cyl(0.022, 0.022, 0.16, vinyl('#7A4A2A', { r: 0.7 }), 0.03, -0.12, 0.2); cg.rotation.x = Math.PI / 2 - 0.25; g.add(cg); g.add(sph(0.022, vinyl('#FF5A1A', { e: '#FF4A10', ei: 2.2 }), 0.03, -0.14, 0.28)); }
-    if (F.mouth === 'stick') { var st = cyl(0.012, 0.012, 0.14, vinyl('#F7F3EA'), 0.04, -0.12, 0.2); st.rotation.x = Math.PI / 2 - 0.2; st.rotation.z = -0.3; g.add(st); g.add(sph(0.014, vinyl('#E2453A', { e: '#FF4A20', ei: 1.5 }), 0.07, -0.135, 0.27)); }
-    if (F.mouth === 'bandana') { var bd = mesh(new T.ConeGeometry(0.17, 0.22, 3), vinyl('#E2352F', { r: 0.8 }), 0, -0.13, 0.08); bd.rotation.set(Math.PI, 0, 0); bd.scale.set(1, 1, 0.45); g.add(bd); }
-    if (F.ear === 'pencil') { var pc = cyl(0.014, 0.014, 0.22, vinyl('#F2C230'), 0.17, 0.05, 0.02); pc.rotation.z = 1.2; g.add(pc); }
-    if (F.ear === 'buds') { [-1, 1].forEach(function (s) { g.add(sph(0.03, vinyl('#F7F7F7', { cc: 1 }), s * 0.18, -0.02, 0.02)); }); }
-    return g;
-  }
-  // the body: what is worn, shaped round nobody. Seated: the torso upright over the seat, the arms out to the wheel
-  function body(F) {
-    var g = new T.Group(), O = F.top, c = vinyl(O.color, { r: 0.6 });
-    // the torso: a soft barrel, open at the neck
-    var tor0 = mesh(new T.CylinderGeometry(0.2, 0.25, 0.42, 22, 1, true), c, 0, 0.21, 0); tor0.material = c; g.add(tor0);
-    g.add(sph(0.25, c, 0, 0.0, 0, 1, 0.35, 0.95));
-    var neck = O.kind === 'turtleneck' ? 0.11 : 0.04;
-    g.add(rot(tor(0.13, 0.05 + neck * 0.3, vinyl(O.kind === 'jacket' ? O.collar : O.kind === 'vest' ? O.shirt : O.color, { r: 0.6 }), 0, 0.43, 0), 'x', Math.PI / 2));
-    if (O.kind === 'turtleneck') g.add(cyl(0.12, 0.13, 0.12, c, 0, 0.48, 0));
-    if (O.kind === 'jacket') { g.add(box(0.12, 0.36, 0.02, vinyl(O.inner), 0, 0.22, 0.235)); }
-    if (O.kind === 'hoodie') { g.add(box(0.26, 0.1, 0.04, vinyl(O.color, { r: 0.7 }), 0, 0.12, 0.22)); if (O.hood === 'down') g.add(sph(0.17, vinyl(O.color, { r: 0.7 }), 0, 0.42, -0.16, 1.2, 0.6, 0.8)); g.add(limb([-0.05, 0.4, 0.2], [-0.06, 0.25, 0.24], 0.01, 0.01, vinyl('#F4F4F4'))); g.add(limb([0.05, 0.4, 0.2], [0.06, 0.25, 0.24], 0.01, 0.01, vinyl('#F4F4F4'))); }
-    if (O.kind === 'varsity') { g.add(box(0.03, 0.38, 0.02, vinyl('#F4F1EA'), 0, 0.22, 0.24)); g.add(rot(tor(0.21, 0.025, vinyl('#F4F1EA'), 0, 0.02, 0), 'x', Math.PI / 2)); }
-    if (O.kind === 'coat') {
-      g.add(box(0.1, 0.36, 0.02, vinyl(O.under), 0, 0.22, 0.235)); g.add(box(0.035, 0.26, 0.015, vinyl(O.tie), 0, 0.24, 0.25));
-      var skirt = mesh(new T.CylinderGeometry(0.27, 0.34, 0.24, 22, 1, true), c, 0, -0.1, 0); skirt.material = c; g.add(skirt);
+    if (F.mouth === 'cigar') { put(g, pill(0.021, 0.12), vinyl('#7A4A2A', { r: 0.7, cc: 0.1 }), 0.04, -0.13, 0.22, Math.PI / 2 - 0.25, 0, 0.1); put(g, ball(0.021), light('#FF6A20', 2.4), 0.046, -0.16, 0.29); put(g, ringG(0.022, 0.006), vinyl('#C8A14A'), 0.042, -0.14, 0.255, -0.25, 0, 0); }
+    if (F.mouth === 'stick') { put(g, pill(0.011, 0.12), vinyl('#F7F3EA', { r: 0.5 }), 0.05, -0.13, 0.22, Math.PI / 2 - 0.2, 0, -0.35); put(g, ball(0.013), light('#FF5A30', 1.8), 0.075, -0.15, 0.285); }
+    if (F.mouth === 'bandana') {
+      var bdm = fabric('#E2352F');
+      put(g, lathe([[0.0, -0.2], [0.07, -0.17], [0.15, -0.09], [0.185, -0.02], [0.19, 0.0]], 44), bdm, 0, 0, 0.0, 0, 0, 0, 1, 1, 1.05);
+      put(g, ball(0.035), bdm, 0, -0.03, -0.18);
+      for (var dt = 0; dt < 7; dt++) put(g, ball(0.01), vinyl('#FFFFFF'), Math.cos(dt) * 0.13, -0.07 - (dt % 3) * 0.03, 0.12 + 0.02 * Math.sin(dt * 2), 0, 0, 0, 1, 1, 0.4);
     }
-    if (O.kind === 'vest') { var sh = vinyl(O.shirt, { r: 0.6 }); g.add(rotS(mesh(new T.ConeGeometry(0.1, 0.22, 3), sh, 0, 0.33, 0.21), Math.PI, 0, 0)); g.add(rot(tor(0.235, 0.02, vinyl('#F4F4F4'), 0, 0.42, 0), 'x', Math.PI / 2)); }
-    if (F.fanny) { var fp = box(0.26, 0.09, 0.07, vinyl(F.fanny, { r: 0.6 }), 0.0, 0.02, 0.24); fp.rotation.x = -0.1; g.add(fp); g.add(rot(tor(0.255, 0.012, vinyl('#2A2A2A'), 0, 0.03, 0), 'x', Math.PI / 2)); }
+    if (F.ear === 'pencil') {
+      var pc = new T.Group(); pc.position.set(0.18, 0.04, 0.02); pc.rotation.set(0, 0, 1.25); g.add(pc);
+      put(pc, new T.CylinderGeometry(0.014, 0.014, 0.17, 6), vinyl('#F4C430', { r: 0.4 }), 0, 0, 0);
+      put(pc, new T.ConeGeometry(0.014, 0.04, 6), vinyl('#E9D2A6', { r: 0.7 }), 0, 0.105, 0);
+      put(pc, pill(0.015, 0.012), vinyl('#F08AA0', { r: 0.6 }), 0, -0.095, 0);
+    }
+    if (F.ear === 'buds') { [-1, 1].forEach(function (s) { put(g, ball(0.028), vinyl('#FBFBFB', { cc: 1 }), s * 0.19, -0.03, 0.03); tube(g, [[s * 0.19, -0.05, 0.03], [s * 0.17, -0.18, 0.02], [0, -0.3, 0.05]], 0.004, vinyl('#FBFBFB')); }); }
     return g;
   }
-  // the props each one carries, set about the kart (a racer's hands are on the wheel)
-  function props(F, kart, drv) {
-    var live = [];
+
+  // ---- the body: what is worn, round nobody. y 0 is the hips; the collar is open (there is no one inside)
+  function torso(F) {
+    var g = new T.Group(), O = F.top, c = fabric(O.color), inside = fabric(new T.Color(O.color).multiplyScalar(0.55).getStyle());
+    var wide = O.kind === 'shirt' ? 1.08 : 1;
+    // the garment: a soft barrel from the hem to the shoulders, curling in to an open collar
+    var pro = [[0, -0.02], [0.2, -0.01], [0.245, 0.06], [0.262, 0.2], [0.25, 0.34], [0.2, 0.43], [0.13, 0.475], [0.11, 0.48]];
+    if (O.kind === 'coat') pro = [[0, -0.16], [0.3, -0.15], [0.29, 0.0], [0.27, 0.18], [0.26, 0.34], [0.2, 0.43], [0.13, 0.475], [0.11, 0.48]];
+    put(g, lathe(pro, 48), c, 0, 0, 0, 0, 0, 0, wide, 1, 0.86);
+    // the inside of the collar, darker: you look into the empty clothes
+    put(g, lathe([[0.105, 0.48], [0.1, 0.4], [0.06, 0.3], [0, 0.28]], 36), inside, 0, 0, 0, 0, 0, 0, 1, 1, 0.86);
+    var collarC = O.kind === 'jacket' ? O.collar : O.kind === 'vest' ? O.shirt : O.color;
+    put(g, ringG(0.112, O.kind === 'turtleneck' ? 0.045 : 0.026), fabric(collarC), 0, 0.48, 0, Math.PI / 2, 0, 0, 1, 0.86, 1);
+    if (O.kind === 'turtleneck') { put(g, lathe([[0.12, 0.47], [0.125, 0.53], [0.118, 0.6], [0.11, 0.62]], 40), c, 0, 0, 0, 0, 0, 0, 1, 1, 0.86); put(g, ringG(0.115, 0.03), c, 0, 0.6, 0, Math.PI / 2, 0, 0, 1, 0.86, 1); }
+    // the hem
+    put(g, ringG(0.2, 0.022), c, 0, -0.005, 0, Math.PI / 2, 0, 0, wide, 0.86, 1);
+    if (O.kind === 'jacket') {
+      // open down the front: the shirt inside, the lapels folded back, a zip
+      put(g, slab(0.12, 0.012, 0.36, 0.03, 0.004), fabric(O.inner), 0, 0.24, 0.222, Math.PI / 2, 0, 0);
+      [-1, 1].forEach(function (s) { put(g, pill(0.03, 0.16), fabric(O.collar), s * 0.075, 0.38, 0.19, 0.5, 0, s * 0.45); });
+      put(g, pill(0.008, 0.32), chrome('#D8D8DC'), 0.07, 0.22, 0.222);
+    }
+    if (O.kind === 'hoodie') {
+      put(g, slab(0.26, 0.02, 0.12, 0.05, 0.01), c, 0, 0.12, 0.215, Math.PI / 2 - 0.05, 0, 0);
+      [-1, 1].forEach(function (s) { tube(g, [[s * 0.05, 0.45, 0.17], [s * 0.055, 0.36, 0.215], [s * 0.06, 0.28, 0.222]], 0.007, vinyl('#FFFFFF', { r: 0.5 })); put(g, pill(0.011, 0.02), vinyl('#F0F0F0'), s * 0.06, 0.26, 0.225); });
+      if (O.hood === 'down') put(g, lathe([[0, 0.0], [0.13, 0.03], [0.17, 0.1], [0.14, 0.16], [0, 0.17]], 40), c, 0, 0.42, -0.16, -0.5, 0, 0, 1.05, 0.8, 0.85);
+    }
+    if (O.kind === 'varsity') {
+      put(g, ringG(0.245, 0.025), fabric('#F4F1EA'), 0, 0.03, 0, Math.PI / 2, 0, 0, 1, 0.86, 1);
+      for (var b = 0; b < 4; b++) put(g, ball(0.016), vinyl('#F4F1EA'), 0, 0.12 + b * 0.08, 0.226);
+      put(g, slab(0.1, 0.01, 0.09, 0.02, 0.003), fabric('#F4F1EA'), -0.12, 0.3, 0.205, Math.PI / 2, 0.45, 0);
+    }
+    if (O.kind === 'coat') {
+      put(g, slab(0.11, 0.012, 0.36, 0.03, 0.004), fabric(O.under), 0, 0.25, 0.222, Math.PI / 2, 0, 0);
+      put(g, lathe([[0, 0.0], [0.03, 0.02], [0.022, 0.2], [0, 0.24]], 12), fabric(O.tie), 0, 0.16, 0.232, 0, 0, 0, 1, 1, 0.3);
+      [-1, 1].forEach(function (s) { put(g, pill(0.035, 0.2), c, s * 0.085, 0.33, 0.2, 0.35, 0, s * 0.35); });
+      [0.15, 0.06].forEach(function (y) { put(g, ball(0.018), vinyl('#F2C230', { m: 0.5 }), 0.17, y, 0.225); });
+    }
+    if (O.kind === 'vest') {
+      put(g, lathe([[0, 0.22], [0.07, 0.3], [0.095, 0.42]], 12), fabric(O.shirt), 0, 0.03, 0.17, 0, 0, 0, 1, 1, 0.5);
+      put(g, ringG(0.245, 0.022), fabric('#F4F4F4'), 0, 0.05, 0, Math.PI / 2, 0, 0, 1, 0.86, 1);
+      tube(g, [[-0.12, 0.43, 0.15], [0, 0.26, 0.225], [0.12, 0.43, 0.15]], 0.012, fabric('#F4F4F4'));
+    }
+    if (F.fanny) {
+      var fm = fabric(F.fanny);
+      put(g, slab(0.24, 0.08, 0.1, 0.035, 0.02), fm, 0.0, 0.04, 0.235, Math.PI / 2 - 0.15, 0, 0);
+      put(g, pill(0.006, 0.18), chrome('#D0D0D0'), 0, 0.08, 0.275, 0, 0, Math.PI / 2);
+      put(g, ringG(0.255, 0.012), rubber('#26262A'), 0, 0.05, 0, Math.PI / 2, 0, 0, 1, 0.86, 1);
+    }
+    return g;
+  }
+
+  // ---- the props, set about the kart and the driver; the ones that move are live
+  function props(F, kartG, drv, liveFns) {
     F.props.forEach(function (p) {
       if (p === 'candle') {
-        var cd = new T.Group(); cd.add(cyl(0.05, 0.05, 0.03, vinyl('#E9C46A', { m: 0.5, r: 0.3 }), 0, 0, 0)); cd.add(cyl(0.025, 0.025, 0.11, vinyl('#FBF6EC'), 0, 0.07, 0));
-        var fl = sph(0.022, new T.MeshBasicMaterial({ color: new T.Color('#FFB43A').multiplyScalar(2.2) }), 0, 0.15, 0, 1, 1.7, 1); cd.add(fl);
-        cd.position.set(F.props.length > 2 ? -0.4 : 0.42, 0.62, 0.68); kart.add(cd); live.push(function (t) { fl.scale.set(1 + 0.15 * Math.sin(t * 31), 1.7 + 0.35 * Math.sin(t * 23), 1); });
+        var cd = new T.Group(); cd.position.set(F.props.length > 2 ? -0.42 : 0.44, 0.6, 0.62); kartG.add(cd);
+        put(cd, lathe([[0, 0], [0.07, 0.005], [0.075, 0.02], [0.03, 0.03], [0.028, 0.04]], 32), chrome('#E9C46A'), 0, 0, 0);
+        put(cd, lathe([[0, 0.03], [0.027, 0.032], [0.026, 0.13], [0.02, 0.145], [0, 0.146]], 28), vinyl('#FBF6EC', { r: 0.6 }), 0, 0, 0);
+        var fl = live(put(cd, ball(0.022), light('#FFB43A', 2.6), 0, 0.18, 0, 0, 0, 0, 1, 1.8, 1));
+        liveFns.push(function (t) { fl.scale.set(1 + 0.15 * Math.sin(t * 31), 1.8 + 0.4 * Math.sin(t * 23), 1); });
       } else if (p === 'float') {
-        // a pool float round the waist with a duck's head
-        var fr = tor(0.3, 0.09, vinyl('#F7D23A', { r: 0.3, cc: 0.9 }), 0, 0.02, 0); fr.rotation.x = Math.PI / 2; drv.add(fr);
-        var dk = new T.Group(); dk.add(sph(0.09, vinyl('#F7D23A', { r: 0.3, cc: 0.9 }), 0, 0, 0)); dk.add(sph(0.04, vinyl('#F28A2A'), 0, -0.01, 0.09, 1.3, 0.6, 1)); dk.position.set(0.22, 0.12, 0.22); drv.add(dk);
+        var ym = vinyl('#FFD43A', { r: 0.16, cc: 1 });
+        put(drv, ringG(0.31, 0.1), ym, 0, 0.05, 0, Math.PI / 2, 0, 0, 1, 0.86, 1);
+        var dk = new T.Group(); dk.position.set(0.24, 0.16, 0.2); drv.add(dk);
+        put(dk, ball(0.1), ym, 0, 0, 0); put(dk, ball(0.035), vinyl('#F28A2A'), 0, -0.01, 0.1, 0, 0, 0, 1.3, 0.55, 1.2);
+        [-1, 1].forEach(function (s) { put(dk, ball(0.016), vinyl('#141414', { r: 0.1 }), s * 0.04, 0.03, 0.085); });
       } else if (p === 'bucket') {
-        var bk = new T.Group(); bk.add(cyl(0.11, 0.08, 0.18, vinyl('#F4F4F4'), 0, 0, 0)); bk.add(sph(0.05, vinyl('#E2453A'), 0, 0.12, 0)); bk.position.set(-0.62, 0.42, -0.35); kart.add(bk);
+        var bk = new T.Group(); bk.position.set(-0.64, 0.46, -0.32); kartG.add(bk);
+        put(bk, lathe([[0, -0.09], [0.08, -0.09], [0.11, 0.09], [0.115, 0.095]], 32), vinyl('#F4F4F4', { r: 0.4 }), 0, 0, 0);
+        put(bk, ringG(0.11, 0.01), vinyl('#E2453A'), 0, 0.085, 0, Math.PI / 2, 0, 0);
+        tube(bk, [[-0.1, 0.09, 0], [0, 0.2, 0], [0.1, 0.09, 0]], 0.008, vinyl('#E2453A'));
+        put(bk, ball(0.05), vinyl('#E2453A'), 0.02, 0.1, 0.02, 0, 0, 0, 1, 0.8, 1);
       } else if (p === 'stick') {
-        var hs = limb([0.3, 0.3, -0.7], [0.55, 1.6, -0.9], 0.02, 0.02, vinyl('#A26A3A', { r: 0.7 })); kart.add(hs); kart.add(sph(0.04, vinyl('#E2453A'), 0.55, 1.62, -0.9));
+        tube(kartG, [[0.36, 0.42, -0.72], [0.48, 1.0, -0.82], [0.6, 1.6, -0.92]], 0.022, vinyl('#A86E3C', { r: 0.6 }));
+        put(kartG, ball(0.045), rubber('#2A2A2A'), 0.36, 0.4, -0.72);
+        put(kartG, pill(0.03, 0.08), rubber('#E2453A'), 0.6, 1.62, -0.92);
       } else if (p === 'ball') {
-        var bb = new T.Group(), bm = sph(0.16, vinyl('#E07A2A', { r: 0.6 }), 0, 0, 0); bb.add(bm); [0, 1].forEach(function (k) { var l = tor(0.162, 0.006, vinyl('#3A1E10'), 0, 0, 0); l.rotation.y = k * Math.PI / 2; bb.add(l); });
-        bb.position.set(F.props.indexOf('ball') === 0 ? 0 : 0.45, 0.75, -1.05); kart.add(bb); live.push(function (t, dt, s) { bb.rotation.x += dt * (2 + s.speed * 0.4); });
+        var bb = live(new T.Group()); bb.position.set(F.props.indexOf('ball') === 0 ? 0 : 0.42, 0.82, -1.0); kartG.add(bb);
+        put(bb, ball(0.16), rubber('#E57A2E'), 0, 0, 0);
+        [0, 1, 2].forEach(function (k) { put(bb, ringG(0.161, 0.005), rubber('#3A1E10'), 0, 0, 0, k === 2 ? Math.PI / 2 : 0, k * Math.PI / 2, 0); });
+        liveFns.push(function (t, dt, s) { bb.rotation.x += dt * (2 + (s.speed || 0) * 0.4); });
       } else if (p === 'board') {
-        var sk = new T.Group(); sk.add(box(0.22, 0.03, 0.8, vinyl('#F4E1C1'), 0, 0, 0)); [-0.28, 0.28].forEach(function (z) { [-1, 1].forEach(function (s) { sk.add(rot(cyl(0.035, 0.035, 0.03, vinyl('#E2453A'), s * 0.09, -0.04, z), 'z', Math.PI / 2)); }); });
-        sk.position.set(0, 0.85, -1.08); sk.rotation.x = -1.35; kart.add(sk);
+        var sk = new T.Group(); sk.position.set(0, 0.92, -1.06); sk.rotation.x = -1.3; kartG.add(sk);
+        put(sk, slab(0.22, 0.8, 0.025, 0.1, 0.008), vinyl('#F4E1C1', { r: 0.5 }), 0, 0, 0);
+        put(sk, slab(0.2, 0.7, 0.004, 0.09, 0.001), vinyl('#E2453A', { r: 0.5 }), 0, 0.016, 0);
+        [-0.27, 0.27].forEach(function (z) { [-1, 1].forEach(function (s) { put(sk, new T.CylinderGeometry(0.035, 0.035, 0.03, 24), rubber('#F7E04A'), s * 0.085, -0.04, z, 0, 0, Math.PI / 2); }); });
       } else if (p === 'wand') {
-        var wd = limb([0.55, 0.5, -0.9], [0.62, 1.55, -1.0], 0.012, 0.012, vinyl('#1A1A1A')); kart.add(wd);
-        var star = mesh(new T.OctahedronGeometry(0.08), new T.MeshBasicMaterial({ color: new T.Color('#FFE86A').multiplyScalar(2) }), 0.62, 1.6, -1.0); kart.add(star); live.push(function (t) { star.rotation.y = t * 3; });
+        tube(kartG, [[0.56, 0.45, -0.88], [0.6, 1.0, -0.95], [0.63, 1.5, -1.0]], 0.013, vinyl('#151515'));
+        var star = live(new T.Mesh(STAR_G(), light('#FFE86A', 2.2))); star.position.set(0.63, 1.58, -1.0); star.scale.setScalar(0.09); kartG.add(star);
+        liveFns.push(function (t) { star.rotation.y = t * 3; });
       } else if (p === 'pack') {
-        var pk = new T.Group(); pk.add(box(0.36, 0.42, 0.18, vinyl('#4D8A55', { r: 0.7 }), 0, 0, 0)); var mat = cyl(0.08, 0.08, 0.42, vinyl('#E8913A', { r: 0.7 }), 0, 0.27, 0); mat.rotation.z = Math.PI / 2; pk.add(mat);
-        pk.add(cyl(0.05, 0.05, 0.2, vinyl('#E85AB0'), 0.22, 0.08, 0)); pk.position.set(0, 0.25, -0.23); drv.add(pk);
+        var pk = new T.Group(); pk.position.set(0, 0.26, -0.25); drv.add(pk);
+        put(pk, slab(0.36, 0.18, 0.42, 0.07, 0.03), fabric('#4D8A55'), 0, 0, 0, Math.PI / 2, 0, 0);
+        put(pk, pill(0.075, 0.32), fabric('#E8913A'), 0, 0.27, -0.02, 0, 0, Math.PI / 2);
+        put(pk, pill(0.045, 0.12), vinyl('#E85AB0'), 0.21, 0.08, 0);
       } else if (p === 'flask') {
-        var fk = new T.Group(); fk.add(sph(0.1, vinyl('#E6F4EA', { t: 0.45, r: 0.05, cc: 1 }), 0, 0, 0)); fk.add(sph(0.08, vinyl('#7BE34A', { e: '#6AF03A', ei: 0.9, r: 0.2 }), 0, -0.02, 0, 1, 0.7, 1)); fk.add(cyl(0.03, 0.03, 0.1, vinyl('#E6F4EA', { t: 0.45 }), 0, 0.12, 0));
-        fk.position.set(-0.42, 0.66, 0.66); kart.add(fk);
+        var fk = new T.Group(); fk.position.set(-0.44, 0.62, 0.62); kartG.add(fk);
+        put(fk, lathe([[0, -0.08], [0.09, -0.075], [0.11, -0.02], [0.08, 0.05], [0.03, 0.08], [0.028, 0.15]], 36), vinyl('#E8F6EE', { r: 0.03, cc: 1, t: 0.4 }), 0, 0, 0);
+        put(fk, lathe([[0, -0.075], [0.085, -0.07], [0.1, -0.02], [0.075, 0.03], [0, 0.03]], 32), light('#7BEA4A', 1.15), 0, 0, 0);
+        put(fk, pill(0.03, 0.02), vinyl('#B87A4A', { r: 0.7 }), 0, 0.17, 0);
       } else if (p === 'rod') {
-        // the fishing pole over the bonnet with its fish dangling ahead, swinging with the speed (the carrot on a stick)
-        var rod = limb([0.25, 0.75, 0.1], [0.15, 1.35, 1.6], 0.018, 0.01, vinyl('#B87A3A', { r: 0.6 })); kart.add(rod);
-        var line = limb([0.15, 1.35, 1.6], [0.15, 0.95, 1.6], 0.004, 0.004, vinyl('#F4F4F4')); kart.add(line);
-        var fish = new T.Group(); fish.add(sph(0.13, vinyl('#43C9C2', { r: 0.4 }), 0, 0, 0, 1, 1, 1.25)); fish.add(rot(mesh(new T.ConeGeometry(0.09, 0.14, 3), vinyl('#43C9C2'), 0, 0, -0.18), 'x', Math.PI / 2));
-        fish.add(sph(0.035, vinyl('#FFFFFF'), 0.08, 0.05, 0.1)); fish.add(sph(0.03, vinyl('#E85AB0'), 0, 0.12, 0, 1.6, 0.5, 1));
-        var hang = new T.Group(); hang.position.set(0.15, 0.95, 1.6); fish.position.set(0, -0.12, 0); hang.add(fish); kart.add(hang);
-        live.push(function (t, dt, s) { hang.rotation.x = -0.25 * Math.min(1, s.speed / 30) + 0.12 * Math.sin(t * 5.3); hang.rotation.z = -s.steer * 0.4 + 0.08 * Math.sin(t * 4.1); });
+        tube(kartG, [[0.26, 0.74, 0.08], [0.22, 1.1, 0.8], [0.15, 1.38, 1.62]], 0.016, vinyl('#B87A3A', { r: 0.5 }));
+        put(kartG, new T.CylinderGeometry(0.05, 0.05, 0.04, 24), chrome('#C8C8CC'), 0.28, 0.8, 0.18, 0, 0, Math.PI / 2);
+        var hang = live(new T.Group()); hang.position.set(0.15, 1.38, 1.62); kartG.add(hang);
+        put(hang, new T.CylinderGeometry(0.003, 0.003, 0.42, 6), vinyl('#F4F4F4'), 0, -0.21, 0);
+        var fish = new T.Group(); fish.position.set(0, -0.5, 0); hang.add(fish);
+        var fm = vinyl('#4ACFC6', { r: 0.3, cc: 0.9 });
+        put(fish, ball(0.13), fm, 0, 0, 0, 0, 0, 0, 0.9, 1, 1.3);
+        put(fish, lathe([[0, 0], [0.09, 0.06], [0.11, 0.13], [0, 0.11]], 24), fm, 0, 0, -0.17, -Math.PI / 2, 0, 0, 1, 1, 0.35);
+        put(fish, ball(0.04), vinyl('#FFFFFF', { r: 0.1 }), 0.075, 0.04, 0.1); put(fish, ball(0.022), vinyl('#141414', { r: 0.1 }), 0.095, 0.045, 0.12);
+        put(fish, ball(0.05), vinyl('#F27AB0'), 0, 0.12, 0, 0, 0, 0, 1.4, 0.5, 1);
+        liveFns.push(function (t, dt, s) { hang.rotation.x = -0.3 * Math.min(1, (s.speed || 0) / 30) + 0.12 * Math.sin(t * 5.3); hang.rotation.z = -(s.steer || 0) * 0.45 + 0.08 * Math.sin(t * 4.1); fish.rotation.y = 0.3 * Math.sin(t * 3); });
       } else if (p === 'dizzy') {
-        var halo = new T.Group(); for (var i = 0; i < 5; i++) { var sp = mesh(new T.OctahedronGeometry(0.045), new T.MeshBasicMaterial({ color: new T.Color('#FFE14D').multiplyScalar(1.8) }), Math.cos(i * 1.256) * 0.22, 0, Math.sin(i * 1.256) * 0.22); halo.add(sp); }
-        halo.add(rot(tor(0.22, 0.008, new T.MeshBasicMaterial({ color: '#FFFFFF' }), 0, 0, 0), 'x', Math.PI / 2));
-        halo.position.set(0, 1.75, -0.15); kart.add(halo); live.push(function (t) { halo.rotation.y = t * 2.2; halo.position.y = 1.75 + 0.03 * Math.sin(t * 3); });
+        var halo = live(new T.Group()); halo.position.set(0, 1.72, -0.16); kartG.add(halo);
+        for (var i = 0; i < 5; i++) { var sp = new T.Mesh(STAR_G(), light('#FFE14D', 2)); sp.position.set(Math.cos(i * 1.256) * 0.24, 0, Math.sin(i * 1.256) * 0.24); sp.scale.setScalar(0.055); halo.add(sp); }
+        put(halo, ringG(0.24, 0.006), light('#FFFFFF', 1.2), 0, 0, 0, Math.PI / 2, 0, 0);
+        liveFns.push(function (t) { halo.rotation.y = t * 2.2; halo.position.y = 1.72 + 0.03 * Math.sin(t * 3); });
       }
     });
-    return live;
   }
-  // the kart's glass: tinted in the racer's colour, an iridescent film, a little glow of its own (glassmorphism)
-  function glassOf(c) {
-    var k = 'glass|' + c; if (MATS[k]) return MATS[k];
-    var m = new T.MeshPhysicalMaterial({ color: c, roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05, iridescence: 0.9, iridescenceIOR: 1.35, emissive: c, emissiveIntensity: 0.35, transparent: true, opacity: 0.46, iridescenceThicknessRange: [180, 620] });
-    MATS[k] = m; return m;
+  var STAR_GEO = null;
+  function STAR_G() {
+    if (STAR_GEO) return STAR_GEO;
+    var sh = new T.Shape(); for (var k = 0; k < 10; k++) { var a = k / 10 * Math.PI * 2 + Math.PI / 2, r = k % 2 ? 0.45 : 1; if (k) sh.lineTo(Math.cos(a) * r, Math.sin(a) * r); else sh.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+    STAR_GEO = new T.ExtrudeGeometry(sh, { depth: 0.35, bevelEnabled: true, bevelSize: 0.12, bevelThickness: 0.12, bevelSegments: 3 }); STAR_GEO.center();
+    return STAR_GEO;
   }
-  // the kart: a rounded tub in the racer's colour, side pods, a spoiler, four fat wheels, a wheel to steer
+
+  // ---- the kart: a bubble of tinted glass on a pearl chassis, soft side pods, fat round tyres, twin thrusters behind
   var GLOW_TEX = null;
   function glowTex(ctx) {
     if (GLOW_TEX) return GLOW_TEX;
     GLOW_TEX = ctx.textures.canvas(128, 128, function (g, W, H) { var rg = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W / 2); rg.addColorStop(0, 'rgba(255,255,255,0.9)'); rg.addColorStop(0.5, 'rgba(255,255,255,0.35)'); rg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = rg; g.fillRect(0, 0, W, H); });
     return GLOW_TEX;
   }
-  function kart(F) {
-    var g = new T.Group(), p = glassOf(F.kart), tr = vinyl(F.trim, { r: 0.3, cc: 0.8, e: F.trim, ei: 0.35 }), dk = vinyl('#1C1D22', { r: 0.6 });
-    var tub = sph(0.62, p, 0, 0.42, 0.05, 1.0, 0.42, 1.85); g.add(tub);
-    g.add(box(1.0, 0.12, 1.5, dk, 0, 0.3, 0.1));
-    g.add(sph(0.3, p, 0, 0.42, 1.05, 1.5, 0.6, 1.1));
-    [-1, 1].forEach(function (s) { g.add(rot(cap(0.13, 0.9, tr, s * 0.62, 0.36, 0), 'x', Math.PI / 2)); });
-    // the seat back, glass; a ring of light round the tub's rim
-    g.add(box(0.5, 0.36, 0.08, p, 0, 0.62, -0.42));
-    var rimL = tor(0.6, 0.025, new T.MeshBasicMaterial({ color: new T.Color(F.trim).multiplyScalar(1.3) }), 0, 0.6, 0.05); rimL.rotation.x = Math.PI / 2; rimL.scale.set(1, 1.75, 1); g.add(rimL);
-    // the underglow: a pool of the racer's colour on the road under it
-    var glow = new T.Mesh(new T.PlaneGeometry(2.2, 3.4), new T.MeshBasicMaterial({ map: GLOW_TEX, color: new T.Color(F.kart).multiplyScalar(1.6), transparent: true, depthWrite: false, blending: T.AdditiveBlending }));
-    glow.rotation.x = -Math.PI / 2; glow.position.y = 0.06; glow.renderOrder = 3; g.add(glow);
-    // the number roundel on the nose
-    g.add(rot(cyl(0.16, 0.16, 0.02, vinyl('#FFFFFF'), 0, 0.66, 0.98), 'x', 1.25));
-    var wheels = [], wr = 0.27, tyre = vinyl('#16171B', { r: 0.85, cc: 0 }), rim = vinyl(F.trim, { r: 0.25, m: 0.4 });
-    [[-0.68, 0.72], [0.68, 0.72], [-0.7, -0.78], [0.7, -0.78]].forEach(function (q, i) {
-      var hub = new T.Group(); hub.position.set(q[0], wr, q[1]);
-      var w = new T.Group(); var t0 = cyl(wr, wr, i < 2 ? 0.26 : 0.34, tyre, 0, 0, 0, 22); t0.rotation.z = Math.PI / 2; w.add(t0);
-      var r0 = cyl(wr * 0.6, wr * 0.6, (i < 2 ? 0.26 : 0.34) + 0.02, rim, 0, 0, 0, 12); r0.rotation.z = Math.PI / 2; w.add(r0);
-      hub.add(w); g.add(hub); wheels.push({ hub: hub, spin: w, front: i < 2 });
+  function kart(F, liveFns) {
+    var g = new T.Group(), gl = glassOf(F.kart), pearl = vinyl('#DCD6E2', { r: 0.25, cc: 1 }), trim = vinyl(F.trim, { r: 0.25, cc: 1 }), tl = light(F.trim, 0.85);
+    // the chassis: a rounded pearl slab, a soft nose bumper, a tail
+    put(g, slab(1.05, 2.1, 0.12, 0.42, 0.05), pearl, 0, 0.27, 0.05);
+    put(g, pill(0.11, 0.86), trim, 0, 0.3, 1.13, 0, 0, Math.PI / 2);
+    // the bubble: the lower half of a glass egg, open on top, with a ring of light round its rim
+    var bub = new T.SphereGeometry(1, SEG(56), SEG(30), 0, Math.PI * 2, Math.PI * 0.47, Math.PI * 0.53);
+    put(g, bub, gl, 0, 0.62, 0.05, 0, 0, 0, 0.62, 0.36, 1.18);
+    put(g, ringG(1, 0.022), tl, 0, 0.655, 0.05, Math.PI / 2, 0, 0, 0.62, 1.18, 1);
+    // the nose: a glass dome over the front with the racer's number roundel behind it
+    put(g, ball(0.3), gl, 0, 0.42, 0.95, 0, 0, 0, 1.15, 0.6, 1.0);
+    put(g, new T.CylinderGeometry(0.13, 0.13, 0.02, SEG(36)), pearl, 0, 0.6, 0.98, 1.2, 0, 0);
+    // the side pods: soft glass capsules on pearl rails
+    [-1, 1].forEach(function (s) {
+      put(g, pill(0.15, 0.82), gl, s * 0.6, 0.38, -0.02, Math.PI / 2, 0, 0);
+      put(g, pill(0.05, 0.9), trim, s * 0.6, 0.27, -0.02, Math.PI / 2, 0, 0);
     });
-    var wheelG = new T.Group(); wheelG.position.set(0, 0.86, 0.5); wheelG.rotation.x = -0.55;
-    var ring = tor(0.17, 0.028, dk, 0, 0, 0); wheelG.add(ring); wheelG.add(box(0.3, 0.03, 0.03, dk, 0, 0, 0));
-    g.add(wheelG);
-    return { g: g, wheels: wheels, wheelG: wheelG, wr: wr };
+    // the seat: a plump cushion and a back, in the trim colour
+    put(g, slab(0.5, 0.42, 0.12, 0.14, 0.05), trim, 0, 0.46, -0.22);
+    put(g, slab(0.5, 0.12, 0.26, 0.1, 0.04), trim, 0, 0.62, -0.46, -0.2, 0, 0);
+    // the thrusters: two pearl cans behind, their glow live (it grows with the speed and the boost)
+    var flames = live(new T.Group()); flames.position.set(0, 0.42, -1.2); g.add(flames);
+    var fm = new T.MeshBasicMaterial({ color: new T.Color(F.kart).lerp(new T.Color('#FFFFFF'), 0.4).multiplyScalar(1.4), transparent: true, opacity: 0.4, depthWrite: false, blending: T.AdditiveBlending });
+    [-0.28, 0.28].forEach(function (x) {
+      put(g, lathe([[0, 0], [0.11, 0.0], [0.13, 0.1], [0.12, 0.2], [0.09, 0.22]], 32), pearl, x, 0.42, -1.0, -Math.PI / 2, 0, 0);
+      put(g, ringG(0.1, 0.018), trim, x, 0.42, -1.2);
+      put(flames, new T.ConeGeometry(0.085, 0.5, SEG(24), 1, true), fm, x, 0, -0.25, -Math.PI / 2, 0, 0);
+    });
+    bake(flames);
+    liveFns.push(function (t, dt, s) { var k = 0.6 + Math.min(1, (s.speed || 0) / 30) * 0.7 + (s.boost ? 0.9 : 0), w = k * (0.92 + 0.12 * Math.sin(t * 40)); flames.scale.set(1, 1, w); flames.visible = s.detail !== 'far'; });
+    // the wheels: fat round tyres (a torus), pearl hubs with a light at their middle
+    var wheels = [], wr = 0.26;
+    [[0.66, 0.76, 1], [0.68, -0.74, 1.25]].forEach(function (ax, i) {
+      var hub = live(new T.Group()); hub.position.set(0, wr, ax[1]); g.add(hub);
+      var spin = new T.Group(); hub.add(spin);
+      [-1, 1].forEach(function (sd) {
+        var x = sd * ax[0];
+        put(spin, ringG(wr - 0.085, 0.085), rubber('#1E1F25'), x, 0, 0, 0, Math.PI / 2, 0, 1, 1, ax[2]);
+        put(spin, ball(0.13), trim, x + sd * 0.03, 0, 0, 0, 0, 0, 0.55, 1, 1);
+        put(spin, ball(0.05), tl, x + sd * 0.1, 0, 0, 0, 0, 0, 0.5, 1, 1);
+        for (var k = 0; k < 5; k++) put(spin, pill(0.022, 0.1), trim, x + sd * 0.06, Math.cos(k * 1.2566) * 0.08, Math.sin(k * 1.2566) * 0.08, k * 1.2566, 0, 0);
+      });
+      bake(spin);
+      wheels.push({ hub: hub, spin: spin, front: i === 0 });
+    });
+    // the steering wheel: a rim and a hub on a short column
+    var wheelG = live(new T.Group()); wheelG.position.set(0, 0.9, 0.34); wheelG.rotation.x = -0.6; g.add(wheelG);
+    put(wheelG, ringG(0.16, 0.026), rubber('#24242A'), 0, 0, 0);
+    put(wheelG, ball(0.05), trim, 0, 0, 0, 0, 0, 0, 1, 1, 0.5);
+    [0, 2.1, 4.2].forEach(function (a) { put(wheelG, pill(0.014, 0.12), rubber('#24242A'), Math.sin(a) * 0.08, Math.cos(a) * 0.08, 0, 0, 0, -a); });
+    bake(wheelG);
+    put(g, pill(0.025, 0.3), pearl, 0, 0.74, 0.5, 0.9, 0, 0);
+    // a soft contact shadow under it, tinted with the kart's colour (it grounds the kart on the glass)
+    var glow = live(new T.Mesh(new T.PlaneGeometry(2.0, 3.2), new T.MeshBasicMaterial({ map: GLOW_TEX, color: new T.Color(F.kart).multiplyScalar(0.18), transparent: true, opacity: 0.6, depthWrite: false })));
+    glow.rotation.x = -Math.PI / 2; glow.position.y = 0.05; glow.renderOrder = 3; g.add(glow);
+    return { g: g, wheels: wheels, wheelG: wheelG, wr: wr, glow: glow };
   }
+
+  // ---- a racer: the kart, the empty clothes at its wheel, their head's things, their props, and how they move
   function friend(ctx, F) {
-    T = ctx.THREE; glowTex(ctx);
-    var root = new T.Group(), K = kart(F), D = new T.Group();
+    T = ctx.THREE; LOWQ = ctx.quality === 'low'; glowTex(ctx);
+    var liveFns = [], root = new T.Group(), K = kart(F, liveFns);
     root.add(K.g);
-    // the driver: hips on the seat, the torso up, the head's things floating over it
-    D.position.set(0, 0.55, -0.18); D.scale.setScalar(1.35); K.g.add(D);
-    var B = body(F); D.add(B);
-    var Hd = head(F); Hd.position.set(0, 0.68, 0.02); D.add(Hd);
-    // the legs out to the pedals (thighs and shins in the trousers), the shoes up at the front for the toy look
-    var lg = vinyl(F.legs, { r: 0.65 });
+    // the driver: hips on the seat; everything in the driver's frame (y 0 at the hips)
+    var D = live(new T.Group()); D.position.set(0, 0.52, -0.2); K.g.add(D);
+    var body = torso(F); body.scale.setScalar(1.36); D.add(body);
+    var Hd = live(head(F)); var HEAD_Y = 0.94; Hd.position.set(0, HEAD_Y, 0.02); Hd.scale.setScalar(1.3); D.add(Hd);
+    // the legs: thighs out to the knees, shins down to the pedals, the shoes up on the toe board for the toy look
+    var lg = fabric(F.legs);
     [-1, 1].forEach(function (s) {
-      D.add(limb([s * 0.12, 0.0, 0.05], [s * 0.15, 0.08, 0.55], 0.1, 0.09, lg));
-      var sh = shoe(F.shoes, s); sh.position.set(s * 0.17, -0.05, 0.62); sh.rotation.x = -0.3; D.add(sh);
+      tube(D, [[s * 0.13, 0.06, 0.02], [s * 0.15, 0.14, 0.38], [s * 0.16, 0.07, 0.6]], 0.078, lg);
+      put(D, ringG(0.075, 0.02), lg, s * 0.16, 0.06, 0.63, 0, 0, 0);
+      var sh = shoe(F.shoes, s); sh.position.set(s * 0.17, -0.06, 0.66); sh.rotation.x = -0.25; sh.scale.setScalar(1.15); D.add(sh);
     });
-    // the arms: the sleeves from the shoulders to the gloves on the wheel; the gloves ride the wheel
-    var sl = vinyl(F.top.kind === 'varsity' ? F.top.sleeves : F.top.kind === 'vest' ? F.top.shirt : F.top.color, { r: 0.6 });
-    var gl = [], arms = [];
-    [-1, 1].forEach(function (s) {
-      var gv = glove(s); gv.position.set(s * 0.17, 0.0, 0.03); gv.rotation.x = 0.5; K.wheelG.add(gv); gl.push(gv);
-      var short = F.sleeve === 'short';
-      var arm = limb([s * 0.24, 0.38, 0.02], [s * 0.2, 0.22, 0.48], 0.075, short ? 0.06 : 0.07, sl); D.add(arm); arms.push(arm);
+    props(F, K.g, D, liveFns);
+    // the arms: two-bone, from the shoulders to the gloves, which hold the wheel (or go up on the podium)
+    var slC = F.top.kind === 'varsity' ? F.top.sleeves : F.top.kind === 'vest' ? F.top.shirt : F.top.color, slM = fabric(slC);
+    var UPPER = 0.31, LOWER = 0.3, AR = F.sleeve === 'short' ? 0.06 : 0.068;
+    var arms = [-1, 1].map(function (s) {
+      var up = live(put(D, pill(AR, UPPER), slM)), lo = live(put(D, pill(AR * 0.92, LOWER), F.sleeve === 'short' ? vinyl('#ECE8E2', { r: 0.55, cc: 0.3 }) : slM));
+      var cuff = live(put(D, ringG(AR * 0.95, 0.018), slM)); var gv = live(glove(s)); bake(gv); gv.scale.setScalar(1.3); D.add(gv);
+      return { s: s, up: up, lo: lo, cuff: cuff, gv: gv, sh: new T.Vector3(s * 0.31, 0.56, 0.0) };
     });
-    var live = props(F, K.g, D);
-    // the far kart: the props and the small parts go (detail 'far')
-    var small = [Hd]; live.forEach(function () {});
+    // the still parts, merged by material: the kart, the driver, the head's things
+    bake(K.g); bake(D); bake(Hd);
     root.userData.kartRacer = { stats: F.stats, persona: F.persona || undefined };
-    root.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    var bob = 0;
+    // what moves: the wheels and the wheel, the arms (IK), the head on a spring, the body's lean, squash and cheer
+    var v3 = new T.Vector3(), v4 = new T.Vector3(), Y = new T.Vector3(0, 1, 0), E = new T.Vector3(), P0 = new T.Vector3(), dir = new T.Vector3(), pole = new T.Vector3();
+    var spring = { x: 0, z: 0, vx: 0, vz: 0 }, lastV = 0, wasAir = false, squash = 0, cheer = 0;
+    function seg(m, a, b) { m.position.copy(a).add(b).multiplyScalar(0.5); dir.copy(b).sub(a).normalize(); m.quaternion.setFromUnitVectors(Y, dir); }
+    function solve(arm, target) {
+      var S = arm.sh, d = v3.copy(target).sub(S), L = Math.min(UPPER + LOWER - 0.002, Math.max(0.05, d.length())); d.normalize();
+      var x = (UPPER * UPPER - LOWER * LOWER + L * L) / (2 * L), h = Math.sqrt(Math.max(0, UPPER * UPPER - x * x));
+      pole.set(arm.s * 0.8, -0.6, -0.2); pole.sub(v4.copy(d).multiplyScalar(pole.dot(d))).normalize();
+      E.copy(S).addScaledVector(d, x).addScaledVector(pole, h); P0.copy(S).addScaledVector(d, L);
+      seg(arm.up, S, E); seg(arm.lo, E, P0); arm.cuff.position.copy(P0).addScaledVector(dir, -0.02); arm.cuff.quaternion.setFromUnitVectors(new T.Vector3(0, 0, 1), dir);
+      arm.gv.position.copy(P0).addScaledVector(dir, 0.06);
+    }
+    var grip = [new T.Vector3(-0.15, 0, 0.02), new T.Vector3(0.15, 0, 0.02)], tgt = new T.Vector3();
     return {
       object: root, name: F.name, color: F.kart, stats: F.stats,
       animate: function (t, dt, s) {
-        s = s || {};
-        var v = s.speed || 0, st = s.steer || 0;
-        K.wheels.forEach(function (w) { w.spin.rotation.x += dt * v / K.wr; if (w.front) w.hub.rotation.y = st * 0.38; });
-        K.wheelG.rotation.z = -st * 1.1;
-        // the body leans into the bend and the drift, bounces on the road, squashes on a landing, cheers on the podium
-        bob += dt * (6 + v * 0.3);
-        D.rotation.z = -st * 0.14 - (s.drift || 0) * 0.12; D.position.y = 0.55 + 0.012 * Math.sin(bob) + (s.hop ? 0.05 : 0);
-        Hd.rotation.y = s.gaze ? Math.max(-0.6, Math.min(0.6, s.gaze[0] * 0.6)) : (s.back ? 2.6 : st * 0.25);
-        Hd.position.y = 0.68 + (s.celebrate ? 0.12 * Math.abs(Math.sin(t * 8)) : 0) + (s.boost ? 0.03 : 0);
-        if (s.hit || s.spun) Hd.rotation.z = 0.3 * Math.sin(t * 30); else Hd.rotation.z = 0;
-        var far = s.detail === 'far'; for (var i = 0; i < live.length; i++) live[i](t, dt, s, far);
+        s = s || {}; dt = Math.min(0.05, dt || 0);
+        var v = s.speed || 0, st = s.steer || 0, air = !!(s.air || s.hop);
+        K.wheels.forEach(function (w) { w.spin.rotation.x += dt * v / K.wr; if (w.front) w.hub.rotation.y = st * 0.2; });
+        K.wheelG.rotation.z = -st * 1.2;
+        // the head's spring: it lags the turns and the throttle, and settles
+        var acc = dt > 0 ? (v - lastV) / dt : 0; lastV = v;
+        var tx = -st * Math.min(1, v / 28) * 0.07, tz = -Math.max(-25, Math.min(25, acc)) * 0.0022;
+        spring.vx += ((tx - spring.x) * 90 - spring.vx * 9) * dt; spring.vz += ((tz - spring.z) * 90 - spring.vz * 9) * dt; spring.x += spring.vx * dt; spring.z += spring.vz * dt;
+        // a landing squashes the driver, then it springs back
+        if (wasAir && !air) squash = 1; wasAir = air; squash = Math.max(0, squash - dt * 4.5);
+        var sq = Math.sin(squash * Math.PI) * 0.14;
+        cheer = Math.max(0, Math.min(1, cheer + (s.celebrate ? dt * 3 : -dt * 3)));
+        D.rotation.z = -st * 0.13 - (s.drift || 0) * 0.1 + spring.x * 0.6;
+        D.scale.set(1 + sq * 0.5, 1 - sq, 1 + sq * 0.5);
+        D.position.y = 0.52 + 0.01 * Math.sin(t * 9 + v * 0.1) + (air ? 0.04 : 0) + cheer * 0.08 * Math.abs(Math.sin(t * 8));
+        Hd.position.set(spring.x, HEAD_Y + spring.z * 0.4 + cheer * 0.1 * Math.abs(Math.sin(t * 8 + 0.6)) + sq * 0.05, 0.02 + spring.z);
+        Hd.rotation.y = s.gaze ? Math.max(-0.7, Math.min(0.7, s.gaze[0] * 0.7)) : (s.back ? 2.5 : st * 0.3);
+        Hd.rotation.z = (s.hit || s.spun) ? 0.35 * Math.sin(t * 28) : -spring.x * 2.2;
+        Hd.rotation.x = spring.z * 2;
+        // the arms: to the wheel's grips, or up in a cheer
+        K.wheelG.updateMatrixWorld(true); D.updateMatrixWorld(true);
+        arms.forEach(function (a, i) {
+          if (cheer > 0.01) { tgt.set(a.s * 0.32, 0.95 + 0.06 * Math.sin(t * 9 + i), 0.12); }
+          if (cheer < 0.99) { v3.copy(grip[i]); K.wheelG.localToWorld(v3); D.worldToLocal(v3); tgt.lerpVectors(v3, tgt.set(a.s * 0.32, 0.95 + 0.06 * Math.sin(t * 9 + i), 0.12), cheer); }
+          solve(a, tgt);
+          a.gv.rotation.set(-0.5 - cheer * 1.2, 0, -st * 1.0 * (1 - cheer));
+        });
+        K.glow.material.opacity = air ? 0.3 : 0.6;
+        for (var i = 0; i < liveFns.length; i++) liveFns[i](t, dt, s);
       },
     };
   }
@@ -383,23 +602,79 @@
   // the star rings: hoops of iridescent glass the road runs through, studded with stars of light, turning slowly
   function starRings(ctx) {
     var T0 = ctx.THREE, L = ctx.track.length, grp = new T0.Group(); grp.name = 'iw-rings';
-    var at = [0.03, 0.12, 0.2, 0.27, 0.36, 0.5, 0.58, 0.64, 0.8, 0.9, 0.97], R = ctx.track.halfWidth + 3.5;
-    var glass = new T0.MeshPhysicalMaterial({ color: '#FFFFFF', roughness: 0.05, iridescence: 1, iridescenceIOR: 1.4, clearcoat: 1, emissive: '#B98CFF', emissiveIntensity: 0.55, transparent: true, opacity: 0.7 });
+    var at = [0.03, 0.12, 0.2, 0.27, 0.36, 0.5, 0.58, 0.64, 0.8, 0.9, 0.97], R = ctx.track.halfWidth + 3.5, NS = 8;
+    var glass = new T0.MeshPhysicalMaterial({ color: '#FFFFFF', roughness: 0.05, iridescence: 1, iridescenceIOR: 1.4, clearcoat: 1, emissive: '#B98CFF', emissiveIntensity: 0.45, transparent: true, opacity: 0.7 });
     var shape = new T0.Shape(); for (var k = 0; k < 10; k++) { var a = k / 10 * Math.PI * 2 + Math.PI / 2, r = k % 2 ? 0.42 : 1; if (k) shape.lineTo(Math.cos(a) * r, Math.sin(a) * r); else shape.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
-    var starG = new T0.ExtrudeGeometry(shape, { depth: 0.3, bevelEnabled: true, bevelSize: 0.08, bevelThickness: 0.08, bevelSegments: 2 }); starG.center();
-    var pal = ['#FFE14D', '#FF8AD8', '#8AE8FF', '#B8FF8A', '#FFB46A'], spin = [];
-    at.forEach(function (f, i) {
-      var d = f * L, F = ctx.track.frameAt(d), c = ctx.track.pointAt(d, 0, 2.5), hoop = new T0.Group();
-      hoop.position.set(c.x, c.y, c.z); hoop.lookAt(c.x + F.tan.x, c.y + F.tan.y, c.z + F.tan.z);
-      var ring = new T0.Mesh(new T0.TorusGeometry(R, 0.32, 12, 72), glass); hoop.add(ring);
-      var inner = new T0.Mesh(new T0.TorusGeometry(R - 0.55, 0.08, 6, 72), new T0.MeshBasicMaterial({ color: new T0.Color('#FFFFFF').multiplyScalar(1.5) })); hoop.add(inner);
-      var stars = new T0.Group();
-      for (var k2 = 0; k2 < 8; k2++) { var a2 = k2 / 8 * Math.PI * 2, st = new T0.Mesh(starG, new T0.MeshBasicMaterial({ color: new T0.Color(pal[(k2 + i) % pal.length]).multiplyScalar(1.7) })); st.position.set(Math.cos(a2) * R, Math.sin(a2) * R, 0); st.scale.setScalar(0.85); stars.add(st); }
-      hoop.add(stars); grp.add(hoop); spin.push({ s: stars, w: (i % 2 ? 1 : -1) * 0.35 });
+    var starG = new T0.ExtrudeGeometry(shape, { depth: 0.3, bevelEnabled: true, bevelSize: 0.1, bevelThickness: 0.1, bevelSegments: 3 }); starG.center();
+    var pal = ['#FFE14D', '#FF8AD8', '#8AE8FF', '#B8FF8A', '#FFB46A'];
+    // the hoops: every ring's glass torus and its inner line of light, merged (two draw calls for all of them)
+    var tor = [], inn = [], hoops = [], m4 = new T0.Matrix4(), o3 = new T0.Object3D();
+    at.forEach(function (f) {
+      var d = f * L, F = ctx.track.frameAt(d), c = ctx.track.pointAt(d, 0, 2.5);
+      o3.position.set(c.x, c.y, c.z); o3.lookAt(c.x + F.tan.x, c.y + F.tan.y, c.z + F.tan.z); o3.updateMatrix();
+      tor.push(new T0.TorusGeometry(R, 0.32, 14, 96).applyMatrix4(o3.matrix)); inn.push(new T0.TorusGeometry(R - 0.55, 0.08, 6, 96).applyMatrix4(o3.matrix));
+      hoops.push(o3.matrix.clone());
     });
-    // (hoops round the road, never across it: the runtime's corridor guard reads their boxes, which do cross it)
-    grp.traverse(function (o) { if (o.isMesh) o.userData.gmTrack = true; });
-    return { group: grp, update: function (t) { for (var i = 0; i < spin.length; i++) { spin[i].s.rotation.z = t * spin[i].w; for (var q = 0; q < spin[i].s.children.length; q++) spin[i].s.children[q].rotation.z = -t * 1.5; } } };
+    function merged(list, mat, name) {
+      var n = 0; list = list.map(function (g) { var q = g.toNonIndexed(); g.dispose(); n += q.attributes.position.count; return q; });
+      var P = new Float32Array(n * 3), N = new Float32Array(n * 3), o = 0;
+      list.forEach(function (g) { P.set(g.attributes.position.array, o * 3); N.set(g.attributes.normal.array, o * 3); o += g.attributes.position.count; g.dispose(); });
+      var G = new T0.BufferGeometry(); G.setAttribute('position', new T0.BufferAttribute(P, 3)); G.setAttribute('normal', new T0.BufferAttribute(N, 3));
+      var me = new T0.Mesh(G, mat); me.name = name; me.userData.gmTrack = true; me.frustumCulled = false; grp.add(me); return me;
+    }
+    merged(tor, glass, 'iw-ring-glass'); merged(inn, new T0.MeshBasicMaterial({ color: new T0.Color('#FFFFFF').multiplyScalar(1.4) }), 'iw-ring-light');
+    // the stars: one instanced mesh for every star on every ring, turned round its ring each frame
+    var stars = new T0.InstancedMesh(starG, new T0.MeshBasicMaterial({ color: '#FFFFFF' }), at.length * NS);
+    for (var q = 0; q < at.length * NS; q++) stars.setColorAt(q, new T0.Color(pal[(q + Math.floor(q / NS)) % pal.length]).multiplyScalar(1.6));
+    stars.instanceColor.needsUpdate = true; stars.userData.gmTrack = true; stars.frustumCulled = false; stars.name = 'iw-ring-stars'; grp.add(stars);
+    var loc = new T0.Matrix4(), sc = new T0.Vector3(0.85, 0.85, 0.85), qq = new T0.Quaternion(), zz = new T0.Vector3(0, 0, 1), pp = new T0.Vector3();
+    return { group: grp, update: function (t) {
+      for (var h = 0; h < hoops.length; h++) {
+        var w = (h % 2 ? 1 : -1) * 0.35;
+        for (var k2 = 0; k2 < NS; k2++) {
+          var a2 = k2 / NS * Math.PI * 2 + t * w; pp.set(Math.cos(a2) * R, Math.sin(a2) * R, 0); qq.setFromAxisAngle(zz, -t * 1.5);
+          loc.compose(pp, qq, sc); m4.multiplyMatrices(hoops[h], loc); stars.setMatrixAt(h * NS + k2, m4);
+        }
+      }
+      stars.instanceMatrix.needsUpdate = true;
+    } };
+  }
+  // the toppling candle (the course's 'topple' hazard, drawn by the world: model false): a giant birthday candle of
+  // striped glass on a gold flower base, its flame alive; it stands where the runtime's does (hw + 0.6 out, 17.6 m long)
+  // and falls across the road on the hazard's own clock (ctx.kart.hazards(), the runtime's angles)
+  function candle(ctx) {
+    glowTex(ctx);
+    var T0 = ctx.THREE, H = null, cfg = COURSE.hazards.filter(function (h) { return h.kind === 'topple'; })[0]; if (!cfg) return null;
+    var side = cfg.side === 'left' ? -1 : 1, foot = ctx.track.halfWidth + Math.max(0.6, Math.min(2, COURSE.shoulder - 0.6)), len = 2 * ctx.track.halfWidth + Math.max(0.6, Math.min(2, COURSE.shoulder - 0.6)) + 1;
+    var d = cfg.at * ctx.track.length, F = ctx.track.frameAt(d), p0 = ctx.track.pointAt(d, side * foot, 0);
+    var base = new T0.Group(); base.position.set(p0.x, p0.y, p0.z);
+    var X = new T0.Vector3(F.right.x, F.right.y, F.right.z), Y = new T0.Vector3(F.up.x, F.up.y, F.up.z), Z = new T0.Vector3().crossVectors(X, Y);
+    base.quaternion.setFromRotationMatrix(new T0.Matrix4().makeBasis(X, Y, Z));
+    var pivot = new T0.Group(); base.add(pivot);
+    var stripes = ctx.textures.canvas(128, 512, function (g, W, H2) {
+      var cols = ['#FFB3D9', '#FFFFFF', '#B3E5FF', '#FFFFFF', '#FFF0A8', '#FFFFFF', '#C8B3FF', '#FFFFFF'];
+      for (var y = -W; y < H2 + W; y += 32) { g.fillStyle = cols[((y / 32) % cols.length + cols.length) % cols.length]; g.beginPath(); g.moveTo(0, y); g.lineTo(W, y - W * 0.6); g.lineTo(W, y - W * 0.6 + 32); g.lineTo(0, y + 32); g.closePath(); g.fill(); }
+    });
+    stripes.wrapS = stripes.wrapT = T0.RepeatWrapping; stripes.repeat.set(1, 4);
+    var wax = new T0.MeshPhysicalMaterial({ map: stripes, roughness: 0.12, clearcoat: 1, transmission: 0, iridescence: 0.6, transparent: true, opacity: 0.88, emissive: '#FFFFFF', emissiveMap: stripes, emissiveIntensity: 0.25 });
+    var bodyLen = len - 1.6;
+    var body = new T0.Mesh(new T0.CylinderGeometry(0.62, 0.66, bodyLen, 48, 1), wax); body.position.y = 0.9 + bodyLen / 2; pivot.add(body);
+    var top = new T0.Mesh(new T0.TorusGeometry(0.58, 0.1, 12, 48), wax); top.rotation.x = Math.PI / 2; top.position.y = 0.9 + bodyLen; pivot.add(top);
+    var wick = new T0.Mesh(new T0.CylinderGeometry(0.05, 0.05, 0.5, 8), new T0.MeshStandardMaterial({ color: '#2A2430', roughness: 0.7 })); wick.position.y = 0.9 + bodyLen + 0.25; pivot.add(wick);
+    var flame = new T0.Mesh(new T0.SphereGeometry(0.32, 24, 16), new T0.MeshBasicMaterial({ color: new T0.Color('#FFC14A').multiplyScalar(2.2) })); flame.scale.set(1, 2, 1); flame.position.y = 0.9 + bodyLen + 0.95; pivot.add(flame);
+    var halo = new T0.Mesh(new T0.PlaneGeometry(3.4, 3.4), new T0.MeshBasicMaterial({ map: GLOW_TEX, color: new T0.Color('#FFB14A').multiplyScalar(1.4), transparent: true, depthWrite: false, blending: T0.AdditiveBlending })); halo.position.y = flame.position.y; pivot.add(halo);
+    var gold = new T0.MeshPhysicalMaterial({ color: '#F2C24A', metalness: 0.85, roughness: 0.22, clearcoat: 1 });
+    for (var k = 0; k < 6; k++) { var pet = new T0.Mesh(new T0.SphereGeometry(0.6, 24, 12), gold); pet.scale.set(1, 0.25, 0.55); pet.position.set(Math.cos(k * 1.047) * 0.75, 0.3, Math.sin(k * 1.047) * 0.75); pet.rotation.y = -k * 1.047; pivot.add(pet); }
+    var cup = new T0.Mesh(new T0.CylinderGeometry(0.8, 0.7, 0.8, 40), gold); cup.position.y = 0.45; pivot.add(cup);
+    pivot.traverse(function (o) { if (o.isMesh) { o.castShadow = o.material !== halo.material; o.userData.gmKart = true; } });
+    var q = COURSE.hazards.indexOf(cfg);
+    return { group: base, update: function (ctx2, t) {
+      var hz = ctx2.kart && ctx2.kart.hazards ? ctx2.kart.hazards() : null, h = hz && hz[q];
+      var ph = h ? h.phase : 'idle', u = h ? h.u : 0, PI = Math.PI;
+      var ang = ph === 'fall' ? u * u * PI / 2 : ph === 'lie' ? PI / 2 : ph === 'rise' ? (1 - (u * u * (3 - 2 * u))) * PI / 2 : ph === 'warn' ? (Math.sin(t * 24) * 0.035 + 0.05 * u) * u : 0;
+      pivot.rotation.z = side * ang;
+      flame.scale.set(1 + 0.12 * Math.sin(t * 27), 2 + 0.3 * Math.sin(t * 19), 1); halo.quaternion.copy(ctx2.camera.quaternion); halo.quaternion.premultiply(new T0.Quaternion().copy(pivot.getWorldQuaternion(new T0.Quaternion())).invert());
+    } };
   }
   // the walls where they stand: low glass rails of light (the Hairpin, the Sweeper's and the Home bend's outsides)
   function rails(ctx) {
@@ -461,8 +736,8 @@
       for (var y = 0; y < H; y++) { var k = y / H, b = Math.sin(k * 23) * 0.5 + Math.sin(k * 61 + 1) * 0.25; g.fillStyle = 'hsl(' + (275 + b * 40) + ',65%,' + (48 + b * 14) + '%)'; g.fillRect(0, y, W, 1); }
       g.fillStyle = 'rgba(255,170,230,0.35)'; g.beginPath(); g.ellipse(W * 0.62, H * 0.58, 46, 20, 0, 0, 7); g.fill();
     });
-    var planet = new T0.Mesh(new T0.SphereGeometry(140, 48, 32), new T0.MeshStandardMaterial({ map: ptex, roughness: 0.8, emissive: '#3A1660', emissiveIntensity: 0.35, fog: false }));
-    planet.position.set(620, 160, -560); planet.rotation.z = 0.35; grp.add(planet);
+    var planet = new T0.Mesh(new T0.SphereGeometry(170, 64, 40), new T0.MeshStandardMaterial({ map: ptex, roughness: 0.8, emissive: '#3A1660', emissiveIntensity: 0.35, fog: false }));
+    planet.position.set(900, 330, -820); planet.rotation.z = 0.35; grp.add(planet);
     var rtex = ctx.textures.canvas(512, 32, function (g, W, H) { for (var x = 0; x < W; x++) { var k = x / W; g.fillStyle = 'rgba(' + Math.round(220 + 30 * Math.sin(k * 40)) + ',' + Math.round(170 + 60 * Math.sin(k * 17)) + ',255,' + (0.15 + 0.6 * Math.abs(Math.sin(k * 9 + 1)) * (k > 0.05 && k < 0.95 ? 1 : 0)).toFixed(2) + ')'; g.fillRect(x, 0, 1, H); } });
     var ringG = new T0.RingGeometry(190, 330, 96, 1), ruv = ringG.attributes.uv, rp = ringG.attributes.position;
     for (var q = 0; q < rp.count; q++) { var rr = Math.hypot(rp.getX(q), rp.getY(q)); ruv.setXY(q, (rr - 190) / 140, 0.5); }
@@ -532,7 +807,7 @@
   GameMog.world({
     theme: { sky: '#0A0820', fog: '#140B30', ink: '#FFFFFF', panel: '#0B0A1A', accent: '#FFE13A', font: 'Oxanium' },
     // the kart preset, a night of neon: the road and the stars carry the light, the karts lit by a cool key and a warm rim
-    graphics: { preset: 'kart', exposure: 1.05, bloom: { strength: 0.55, threshold: 1.3, radius: 0.6 }, grade: { contrast: 1.04, saturation: 1.18, warmth: -0.02, vignette: 0.22 }, shadows: { extent: 30, mapSize: 2048 } },
+    graphics: { preset: 'kart', exposure: 1.05, bloom: { strength: 0.42, threshold: 1.4, radius: 0.55 }, grade: { contrast: 1.04, saturation: 1.18, warmth: -0.02, vignette: 0.22 }, shadows: { extent: 30, mapSize: 2048 } },
     track: { width: ROAD, points: LAP },
     kart: { laps: 3, class: 'normal', course: COURSE, driftAssist: true,
       fx: { skids: '#FFFFFF', skidOpacity: 0.3, rush: true, hype: true, smoke: '#B9A8FF' } },
@@ -542,14 +817,15 @@
       ctx.scene.background = new T0.Color('#0A0820');
       ctx.scene.fog = new T0.FogExp2('#140B30', 0.0011);
       // the light: a cool key from above the planet's side (the one shadow), a violet sky light, a warm fill from below
-      var key = new T0.DirectionalLight('#E8EEFF', 2.6); key.position.set(0.5, 1, 0.35); key.castShadow = true; ctx.scene.add(key);
-      ctx.scene.add(new T0.HemisphereLight('#B9A4FF', '#3A1E5A', 1.25));
+      var key = new T0.DirectionalLight('#FFF1E6', 2.2); key.position.set(0.5, 1, 0.35); key.castShadow = true; ctx.scene.add(key);
+      ctx.scene.add(new T0.HemisphereLight('#B9A4FF', '#3A1E5A', 0.9));
       var fill = new T0.DirectionalLight('#FF9AD6', 0.7); fill.position.set(-0.4, -0.3, -0.6); ctx.scene.add(fill);
       var R = rainbowRoad(ctx); ctx.scene.add(R.group);
       ctx.scene.add(rails(ctx));
       var S = space(ctx); ctx.scene.add(S.group);
       var RG = starRings(ctx); ctx.scene.add(RG.group);
-      LIVE = { road: R, space: S, rings: RG };
+      var CD = candle(ctx); if (CD) ctx.scene.add(CD.group);
+      LIVE = { road: R, space: S, rings: RG, candle: CD };
     },
     update: function (ctx, t) {
       if (!LIVE) return;
@@ -557,6 +833,7 @@
       LIVE.road.uniforms.uT.value = t;
       LIVE.space.update(t, ctx.camera);
       LIVE.rings.update(t);
+      if (LIVE.candle) LIVE.candle.update(ctx, t);
     },
     player: function (ctx) { return friend(ctx, FRIENDS[0]); },
     rival: function (ctx, k) { return friend(ctx, FRIENDS[k % FRIENDS.length]); },
