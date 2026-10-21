@@ -866,6 +866,34 @@ export const MIGRATIONS = [
       return `updated (${hash ? 'test codeHash ' + hash : 'no test record'})`;
     },
   },
+  {
+    // the owner, 21 Oct: SUPERINTELLIGENCE SPRINT, a first-party Grand Prix by day on a 2.27 km street lap round the city
+    // map's midtown blocks, five laps, the twenty agents racing as a pack round the player (gp.pack), with grandstands,
+    // crowds and the teams' boards; published on the Mac by `npm run publish:world -- superintelligence-sprint` (the
+    // Chrome playtest passed, cover and key art shot) and its row written out here. Only inserted: a row already at
+    // /g/superintelligence-sprint is never overwritten. On a build without the Grand Prix kit's pack, the city map or its
+    // assets it waits (unrecorded, tried again at the next boot)
+    id: '2026-10-21-superintelligence-sprint',
+    run(db) {
+      const code = file('superintelligence-sprint.js'), meta = file('superintelligence-sprint.meta.json');
+      if (!code || !meta) throw new Error('deploy/migrations/superintelligence-sprint.js or its meta.json is not in this build');
+      if (!readFileSync(join('lib', 'runtime', 'gp-ai.js'), 'utf8').includes('PK = o.pack')) throw new Error('the Grand Prix kit has no pack in this build');
+      if (!['city.js', 'port-artificial.js'].every((f) => existsSync(join('lib', 'runtime', 'maps', f)))) throw new Error('the city or port-artificial map is not in this build');
+      const packs = ['city-midtown', 'model-why-v07', 'audio-a1-engine-v4', 'sky-partly-cloudy', 'texture-asphalt-clean', 'texture-concrete'];
+      if (!packs.every((p) => existsSync(join('public', 'assets', p, 'asset.json')))) throw new Error('the city, the car, the engine pack, the sky or the surfaces (public/assets) are not in this build');
+      const m = JSON.parse(meta.toString('utf8')), src = code.toString('utf8');
+      if (!m.meta || m.meta.mode !== 'gp' || m.meta.scoring !== 'time') throw new Error('superintelligence-sprint.meta.json is not a Grand Prix ranked by its race time');
+      const g = db.prepare("SELECT id, code FROM games WHERE slug = 'superintelligence-sprint'").get();
+      if (g) return String(g.code ?? '').trim() === src.trim() ? 'already there' : 'left alone (another superintelligence-sprint)';
+      if (db.prepare('SELECT id FROM games WHERE id = ?').get(m.id)) return 'left alone (its id is taken)';
+      const cover = file('superintelligence-sprint-cover.jpg'), icon = file('superintelligence-sprint-icon.jpg'), wide = file('superintelligence-sprint-wide.jpg');
+      if (!cover || !icon || !wide) throw new Error('deploy/migrations/superintelligence-sprint-{cover,icon,wide}.jpg are not in this build');
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+        VALUES (?, 'superintelligence-sprint', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
+        .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: superintelligence-sprint', Date.now(), src, JSON.stringify(m.meta), cover, icon, wide);
+      return 'published';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

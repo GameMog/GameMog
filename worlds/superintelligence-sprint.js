@@ -39,8 +39,166 @@ function SS_tick(ctx, mesh) {
   mesh.onBeforeRender = function (r, sc, cam) {
     var f = r.info.render.frame; if (f === last) return; last = f;
     var now = performance.now(), dt = Math.min(0.1, (now - t0) / 1000); t0 = now;
+    if (SS_LIVE && SS_LIVE.side) SS_LIVE.side.userData.live.t.value = now / 1000;
     if (SS_LIVE && SS_LIVE.map) try { SS_LIVE.map.update(dt, cam); } catch (e) { SS_LIVE.map = null; try { console.warn('[sprint] city update: ' + e.message); } catch (x) {} }
   };
+}
+
+
+/* ============================================================================================================
+   TRACKSIDE (21 Oct, the owner: "add crowds, grandstands and sponsor boards"). Section prefix SS_. Laid out from the lap's
+   own corners (ctx.gp.corners: each straight runs from one corner's d1 to the next one's d0) and from the room between
+   the barrier (7.5 m from the centre line) and the buildings on each street: the wide north street's fronts are 13 m
+   out, the avenues' 16 m and the narrow streets' 9 m. Grandstands where there is room (the Skyline straight both sides,
+   Fifth and Eighth), a standing row of fans on the pavements elsewhere, the teams' boards on every straight's barriers,
+   and the start gantry. The fans are painted sprites, one instanced mesh per look, cheering by a shader (no matrices
+   written per frame); the stands are plain boxes.
+   ============================================================================================================ */
+var SS_TEAMS = [['WHY.', '#EBEAE6', '#1D1D1E', '#DD6135'], ['FIREWALL', '#3B3F45', '#F4F4F2', '#E5322B'], ['MARGIN', '#5C1A28', '#C7CBD1', '#C7CBD1'],
+  ['CORPUS', '#EFB021', '#2C3E50', '#2C3E50'], ['ROLLOUT', '#9FB1AC', '#2E3B40', '#2E3B40'], ['UPTIME', '#8B5A2B', '#FFB000', '#FFB000'],
+  ['COMMIT', '#4E7A2F', '#E9E1CC', '#E9E1CC'], ['PARALLAX', '#B3195B', '#F4F4F2', '#F4F4F2'], ['VIRAL', '#6B2FD6', '#F4F4F2', '#F4F4F2'],
+  ['GIMBAL', '#1E56C8', '#FFC400', '#FFC400'], ['SUPERINTELLIGENCE SPRINT', '#0B1E3A', '#FFFFFF', '#FFC23A']];
+// the straights in lap order from the Skyline (after T10): the room behind each side's barrier, and what stands there
+// ('stand': a grandstand of that many rows, 'fans': a standing row on the pavement)
+var SS_STRAIGHTS = [
+  { name: 'skyline', left: { stand: 3, room: 13 }, right: { stand: 3, room: 13, roof: true } },
+  { name: 'fifth-dive', left: { stand: 5, room: 16 }, right: { stand: 5, room: 16 } },
+  { name: 'crosstown', left: { fans: 1 }, right: { fans: 1 } },
+  { name: 'sixth-drop', left: { stand: 4, room: 16 }, right: { fans: 1 } },
+  { name: 'low-street', left: { fans: 1 }, right: { fans: 1 } },
+  { name: 'eighth-climb', left: { stand: 5, room: 16 }, right: { stand: 5, room: 16 } },
+  { name: 'bypass', left: { fans: 1 }, right: { fans: 1 } },
+  { name: 'needle', left: { fans: 1 }, right: { fans: 1 } },
+  { name: 'backstreet', left: { fans: 1 }, right: { fans: 1 } },
+  { name: 'kink', left: { fans: 1 }, right: { fans: 1 } },
+];
+var SS_SKIN = ['#F1C9A5', '#E0AC86', '#C68863', '#8D5A3B', '#5E3A24', '#F6D7BF'];
+function SS_fans(ctx) {
+  // eight looks: a seated fan from the chest up, in a team's shirt, some with arms up, a scarf or a flag; on a 1024 x 256 atlas
+  return ctx.textures.canvas(1024, 256, function (g, W, H) {
+    g.clearRect(0, 0, W, H);
+    for (var k = 0; k < 8; k++) {
+      var x = k * 128, t = SS_TEAMS[(k * 3) % 10], skin = SS_SKIN[k % SS_SKIN.length], up = k % 3 === 0, flag = k % 4 === 1, scarf = k % 4 === 2;
+      g.fillStyle = t[1];
+      // the body and shoulders
+      g.beginPath(); g.moveTo(x + 30, 256); g.lineTo(x + 34, 150); g.quadraticCurveTo(x + 64, 128, x + 94, 150); g.lineTo(x + 98, 256); g.closePath(); g.fill();
+      // the arms: up and cheering, or down
+      g.strokeStyle = t[1]; g.lineWidth = 16; g.lineCap = 'round';
+      g.beginPath();
+      if (up) { g.moveTo(x + 38, 160); g.lineTo(x + 22, 92); g.moveTo(x + 90, 160); g.lineTo(x + 106, 92); }
+      else { g.moveTo(x + 36, 162); g.lineTo(x + 30, 230); g.moveTo(x + 92, 162); g.lineTo(x + 98, 230); }
+      g.stroke();
+      if (up) { g.fillStyle = skin; g.beginPath(); g.arc(x + 22, 86, 8, 0, 6.3); g.arc(x + 106, 86, 8, 0, 6.3); g.fill(); }
+      // the head and hair
+      g.fillStyle = skin; g.beginPath(); g.arc(x + 64, 116, 22, 0, 6.3); g.fill();
+      g.fillStyle = ['#2A1E14', '#4A3420', '#111111', '#8A6A3A', '#C9C9C9', '#6B2B14'][k % 6]; g.beginPath(); g.arc(x + 64, 108, 23, 3.3, 6.1); g.fill();
+      // a scarf in the team's colours, or a flag on a pole
+      if (scarf) { g.fillStyle = t[3]; g.fillRect(x + 40, 140, 48, 12); g.fillStyle = t[2]; g.fillRect(x + 40, 152, 48, 6); }
+      if (flag) { g.strokeStyle = '#DDDDDD'; g.lineWidth = 4; g.beginPath(); g.moveTo(x + 100, 230); g.lineTo(x + 110, 20); g.stroke(); g.fillStyle = t[1]; g.fillRect(x + 110, 20, 16, 34); g.fillStyle = t[3]; g.fillRect(x + 110, 54, 16, 10); }
+    }
+  });
+}
+function SS_trackside(ctx) {
+  var T = ctx.THREE, gp = ctx.gp, low = ctx.quality === 'low', cor = (gp.corners || []).slice().sort(function (a, b) { return a.d0 - b.d0; }), L = gp.table.L;
+  if (cor.length !== SS_STRAIGHTS.length) return null;
+  var grp = new T.Group(); grp.name = 'ss-trackside';
+  var P = function (d, lat, up) { return gp.posAt(((d % L) + L) % L, lat, up); };
+  var dirAt = function (d) { var a = P(d, 0, 0), b = P(d + 2, 0, 0), dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1; return { x: dx / l, z: dz / l }; };
+  // ---- the fans: one instanced quad mesh per look, the quad 0.62 m wide and 1.24 m tall, standing on its foot
+  var fanTex = SS_fans(ctx), seats = [[], [], [], [], [], [], [], []], m4 = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(1, 1, 1), up = new T.Vector3(0, 1, 0), pos = new T.Vector3();
+  function fan(x, y, z, yaw, k) { seats[k % 8].push([x, y, z, yaw]); }
+  // ---- the stands: tiers as boxes, one merged geometry by material
+  var steel = [], seatG = [], roofG = [], boardQ = [];
+  function box(list, cx, cy, cz, len, h, dep, yaw) { var g = new T.BoxGeometry(len, h, dep); g.rotateY(yaw); g.translate(cx, cy, cz); list.push(g); }
+  var fanStep = low ? 1.6 : 0.85, nFan = 0;
+  for (var si = 0; si < SS_STRAIGHTS.length; si++) {
+    var st = SS_STRAIGHTS[si], a = cor[(si + cor.length - 1) % cor.length].d1, b = cor[si].d0;
+    if (b < a) b += L;
+    var d0 = a + 12, d1 = b - 12, len = d1 - d0; if (len < 20) continue;
+    var dm = (d0 + d1) / 2, dir = dirAt(dm), yaw = Math.atan2(-dir.z, dir.x);   // a box's length (local x) along the straight
+    [[-1, st.left], [1, st.right]].forEach(function (sd) {
+      var side = sd[0], o = sd[1]; if (!o) return;
+      // the boards on this side's barrier face, one team every 6 m
+      for (var bd = d0; bd + 6 <= d1; bd += 6.2) boardQ.push([bd, side, Math.floor(bd / 6.2) % SS_TEAMS.length]);
+      if (o.stand) {
+        var rows = o.stand, room = o.room - 0.8, inner = 8.6, step = Math.min(1.0, (room - inner) / rows), rise = 0.55;
+        for (var r = 0; r < rows; r++) {
+          var lat = side * (inner + step * (r + 0.5)), hgt = 0.4 + r * rise, p = P(dm, lat, 0);
+          box(r % 2 ? seatG : steel, p.x, hgt / 2, p.z, len, hgt, step, yaw);
+          for (var fd = d0 + 0.5; fd < d1 - 0.5; fd += fanStep) { if (((fd * 7.3 + r * 3.1) % 1) < 0.12) continue; var fp = P(fd, lat, 0); fan(fp.x, hgt, fp.z, yaw + (side > 0 ? -Math.PI / 2 : Math.PI / 2), Math.floor(fd * 1.7 + r * 5)); nFan++; }
+        }
+        // the back wall, and a roof on a main stand
+        var back = P(dm, side * (inner + step * rows + 0.15), 0), top = 0.4 + rows * rise + 1.8;
+        box(steel, back.x, top / 2, back.z, len, top, 0.3, yaw);
+        if (o.roof) { var rp = P(dm, side * (inner + step * rows / 2), 0); box(roofG, rp.x, top + 0.9, rp.z, len, 0.25, step * rows + 1.2, yaw); }
+      } else if (o.fans && !low) {
+        for (var fd2 = d0 + 0.5; fd2 < d1 - 0.5; fd2 += fanStep * 1.4) { if (((fd2 * 5.1) % 1) < 0.3) continue; var fp2 = P(fd2, side * 8.3, 0); fan(fp2.x, 0.6, fp2.z, yaw + (side > 0 ? -Math.PI / 2 : Math.PI / 2), Math.floor(fd2 * 2.3)); nFan++; }
+      }
+    });
+  }
+  var merge = function (list, mat, name) {
+    if (!list.length) return;
+    var parts = list.map(function (g) { return g.toNonIndexed(); }), n = 0; parts.forEach(function (g) { n += g.attributes.position.count; });
+    var P0 = new Float32Array(n * 3), N0 = new Float32Array(n * 3), o = 0;
+    parts.forEach(function (g) { P0.set(g.attributes.position.array, o * 3); N0.set(g.attributes.normal.array, o * 3); o += g.attributes.position.count; g.dispose(); });
+    var G = new T.BufferGeometry(); G.setAttribute('position', new T.BufferAttribute(P0, 3)); G.setAttribute('normal', new T.BufferAttribute(N0, 3));
+    var m = new T.Mesh(G, mat); m.name = name; m.castShadow = !low; m.receiveShadow = true; grp.add(m);
+  };
+  merge(steel, new T.MeshStandardMaterial({ color: '#4A5058', roughness: 0.55, metalness: 0.4 }), 'ss-stand-steel');
+  merge(seatG, new T.MeshStandardMaterial({ color: '#1E56C8', roughness: 0.6 }), 'ss-stand-seats');
+  merge(roofG, new T.MeshStandardMaterial({ color: '#3A3F46', roughness: 0.5, metalness: 0.5 }), 'ss-stand-roof');
+  // the fans: a quad each, cheering in the vertex shader (each its own phase from where it sits)
+  var quad = new T.PlaneGeometry(0.62, 1.24); quad.translate(0, 0.62, 0);
+  var live = { t: { value: 0 } };
+  seats.forEach(function (list, k) {
+    if (!list.length) return;
+    var g = quad.clone(), uv = g.attributes.uv; for (var i = 0; i < uv.count; i++) uv.setX(i, (k + uv.getX(i)) / 8);
+    var mat = new T.MeshLambertMaterial({ map: fanTex, alphaTest: 0.5, side: T.DoubleSide });
+    mat.onBeforeCompile = function (sh) {
+      sh.uniforms.uSsT = live.t;
+      // an upright billboard: the quad's height stays the world's up, its width turns to the camera; and the cheer, each
+    // fan its own phase from where it sits (a third of them sit it out)
+    sh.vertexShader = 'uniform float uSsT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat ssPh = instanceMatrix[3].x * 1.7 + instanceMatrix[3].z * 1.3;\ntransformed.y += 0.09 * max(0.0, sin(uSsT * 7.0 + ssPh)) * step(0.33, fract(ssPh * 0.13));')
+      .replace('#include <project_vertex>', 'vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(0.0, transformed.y, 0.0, 1.0);\nmvPosition.x += transformed.x;\ngl_Position = projectionMatrix * mvPosition;');
+    };
+    mat.customProgramCacheKey = function () { return 'ss-fan'; };
+    var im = new T.InstancedMesh(g, mat, list.length);
+    list.forEach(function (s, i) { pos.set(s[0], s[1], s[2]); m4.makeTranslation(pos.x, pos.y, pos.z); im.setMatrixAt(i, m4); });
+    im.instanceMatrix.needsUpdate = true; im.frustumCulled = false; im.name = 'ss-fans-' + k; grp.add(im);
+  });
+  // the boards: the barrier's road-side face, 1 m tall from the road up, 6 m each, one atlas of the teams
+  var atlas = ctx.textures.canvas(1024, 1408, function (g, W, H) {
+    for (var k = 0; k < SS_TEAMS.length; k++) {
+      var t = SS_TEAMS[k], y = k * 128;
+      g.fillStyle = t[1]; g.fillRect(0, y, W, 128); g.fillStyle = t[3]; g.fillRect(0, y + 116, W, 12);
+      g.fillStyle = t[2]; g.textAlign = 'center'; g.textBaseline = 'middle';
+      var size = 86; g.font = '800 ' + size + 'px Oxanium, Arial, sans-serif'; while (g.measureText(t[0]).width > 900 && size > 30) { size -= 4; g.font = '800 ' + size + 'px Oxanium, Arial, sans-serif'; }
+      g.fillText(t[0], W / 2, y + 60);
+    }
+  });
+  var bp = [], bu = [], bi = [];
+  boardQ.forEach(function (bq) {
+    var d = bq[0], side = bq[1], k = bq[2], lat = side * (7.5 - 0.03), v0 = 1 - (k + 1) * 128 / 1408, v1 = 1 - k * 128 / 1408, base = bp.length / 3;
+    var a0 = P(d, lat, 0.05), a1 = P(d + 6, lat, 0.05), b0 = P(d, lat, 1.05), b1 = P(d + 6, lat, 1.05);
+    // read from the road: left to right as a driver sees it
+    bp.push(a0.x, a0.y, a0.z, a1.x, a1.y, a1.z, b1.x, b1.y, b1.z, b0.x, b0.y, b0.z);
+    bu.push(side < 0 ? 0 : 1, v0, side < 0 ? 1 : 0, v0, side < 0 ? 1 : 0, v1, side < 0 ? 0 : 1, v1);
+    bi.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  });
+  if (bp.length) {
+    var BG = new T.BufferGeometry(); BG.setAttribute('position', new T.Float32BufferAttribute(bp, 3)); BG.setAttribute('uv', new T.Float32BufferAttribute(bu, 2)); BG.setIndex(bi); BG.computeVertexNormals();
+    var bm = new T.Mesh(BG, new T.MeshStandardMaterial({ map: atlas, roughness: 0.5, side: T.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 })); bm.name = 'ss-boards'; bm.receiveShadow = true; grp.add(bm);
+  }
+  // the start gantry across the Skyline: two posts and a beam, the race's name on its banner
+  var gl = [], g0 = P(0, -8.3, 0), g1 = P(0, 8.3, 0), gc = P(0, 0, 0), gd = dirAt(0), gy = Math.atan2(-gd.z, gd.x);
+  box(gl, g0.x, 3.6, g0.z, 0.5, 7.2, 0.5, gy); box(gl, g1.x, 3.6, g1.z, 0.5, 7.2, 0.5, gy);
+  var gm = new T.MeshStandardMaterial({ color: '#2A2E35', roughness: 0.5, metalness: 0.6 }); var mg0 = gl.slice(); gl.length = 0; merge(mg0, gm, 'ss-gantry');
+  var ban = ctx.textures.canvas(1024, 128, function (g, W, H) { g.fillStyle = '#0B1E3A'; g.fillRect(0, 0, W, H); g.fillStyle = '#FFC23A'; g.fillRect(0, H - 10, W, 10); g.fillStyle = '#FFFFFF'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '800 64px Oxanium, Arial, sans-serif'; g.fillText('SUPERINTELLIGENCE SPRINT', W / 2, 58); });
+  var bn = new T.Mesh(new T.BoxGeometry(17.2, 1.5, 0.4), [gm, gm, gm, gm, new T.MeshStandardMaterial({ map: ban, roughness: 0.5 }), new T.MeshStandardMaterial({ map: ban, roughness: 0.5 })]);
+  bn.position.set(gc.x, 6.8, gc.z); bn.rotation.y = gy + Math.PI / 2;   // across the road bn.name = 'ss-banner'; grp.add(bn);
+  grp.userData.gpFurniture = true; grp.userData.fans = nFan; grp.userData.live = live;
+  ctx.scene.add(grp);
+  return grp;
 }
 
 GameMog.world({
@@ -213,6 +371,7 @@ GameMog.world({
     G.traverse(function (o) { if (o.isMesh && /wall|barrier/i.test(o.name || '')) { var cm = ctx.assets.surface('texture-concrete', { project: 'box', color: '#D8DADE' }); cm.side = T.DoubleSide; o.material = cm; } });
     var kerbs = G.getObjectByName('gp-kerbs'); if (kerbs) SS_tick(ctx, kerbs);
     SS_city(ctx);
+    try { SS_LIVE.side = SS_trackside(ctx); } catch (e) { try { console.warn('[trackside] ' + e.message); } catch (x) {} }
     try { window.__SS_AG = A_install(ctx, { drivers: this.gp && this.gp.drivers }); } catch (e) { try { console.warn('[agents] ' + e.message); } catch (x) {} }
   },
 });

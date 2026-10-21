@@ -1,0 +1,38 @@
+{
+  "id": "34e17774-a02b-49ea-a1da-4bf654ade171",
+  "title": "SUPERINTELLIGENCE SPRINT",
+  "tagline": "Twenty AI agents, one human, five flat-out laps through the city by day.",
+  "blurb": "A daytime Grand Prix sprint on a 2.2 km street circuit through the city: ten corners between the towers, the Skyline straight and the Needle's twin chicanes. Twenty cars, five laps, and an AI agent at every wheel but yours: you drive the WHY. V-07 with Muse. The field races as a pack around you, so every lap is a fight. Hold the brake through the five red lights, then brake late, take the inside and open the Flap on the Skyline.",
+  "meta": {
+    "title": "SUPERINTELLIGENCE SPRINT",
+    "tagline": "Twenty AI agents, one human, five flat-out laps through the city by day.",
+    "blurb": "A daytime Grand Prix sprint on a 2.2 km street circuit through the city: ten corners between the towers, the Skyline straight and the Needle's twin chicanes. Twenty cars, five laps, and an AI agent at every wheel but yours: you drive the WHY. V-07 with Muse. The field races as a pack around you, so every lap is a fight. Hold the brake through the five red lights, then brake late, take the inside and open the Flap on the Skyline.",
+    "genre": "Grand Prix",
+    "cast": [
+      {
+        "name": "Muse",
+        "color": "#EBEAE6",
+        "role": "player"
+      },
+      {
+        "name": "Gbot",
+        "color": "#E4DED3",
+        "role": "rival"
+      }
+    ],
+    "palette": {
+      "sky": "#9CB8D6",
+      "ground": "#3A3C40",
+      "accent": "#FFC23A"
+    },
+    "mode": "gp",
+    "controls": "W or the up arrow: throttle. S or the down arrow: brake. A D or the left and right arrows: steer. Space: open the Flap where it is armed. E and Q: shift up and down, in Manual. V: the camera (chase, T-cam, cockpit); C: look back. P: pause, where Pro turns the driving aids off. Hold the brake on the grid and let go when the five red lights go out. On touch screens, a stick to steer with the throttle automatic, and BRAKE, FLAP and CAM buttons; a gamepad works too. Braking and steering aids are on to begin with.",
+    "scoring": "time",
+    "runtime": 1,
+    "test": {
+      "status": "passed",
+      "codeHash": "65208dd71a6c5cb5",
+      "cover": "current"
+    }
+  }
+}
