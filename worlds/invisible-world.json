@@ -1,0 +1,17 @@
+{
+  "title": "INVISIBLE WORLD",
+  "tagline": "Eight Invisible Friends, three laps, one road of light across deep space.",
+  "blurb": "A kart race on a ribbon of rainbow light 1.2 km round, floating through deep space past a ringed planet. Race eight Invisible Friends, each in their own kart: no bodies, only what they wear and carry. Most of the road is open to space, so drive off the edge and you fall. Bank through the Sweeper, launch off the big ramp over the gap, dive under the meteors, grind the rails up the Climb, and use every crate's item to stay in front.",
+  "genre": "Kart race",
+  "cast": [
+    { "name": "Slime #2211", "color": "#2E7BFF", "role": "player" },
+    { "name": "Floaty #4958", "color": "#FF6FB5", "role": "rival" },
+    { "name": "Bucket #3057", "color": "#7E5BEF", "role": "rival" },
+    { "name": "Moon #3074", "color": "#22C8F0", "role": "rival" },
+    { "name": "Wizard #2443", "color": "#FFC93C", "role": "rival" },
+    { "name": "Lab #4915", "color": "#22B45E", "role": "rival" },
+    { "name": "Fisher #4732", "color": "#FF3B30", "role": "rival" },
+    { "name": "Captain #4370", "color": "#1E2A5A", "role": "rival" }
+  ],
+  "palette": { "sky": "#0A0820", "ground": "#141026", "accent": "#FFE13A" }
+}
