@@ -296,6 +296,17 @@ console.log('\nthe build keeps the better pass: a repair of a passing world\'s n
   const p5 = pickPass(pass(EXP1), pass(lit(80)));
   ok('a repair that darkens the whole view unasked does not', p5.keep === 'prev' && /darkened/.test(p5.why), p5.why);
   const LOUD = 'A PointLight has intensity 80. The runtime uses legacy light units: a sun of 2 to 4, a sky light of 0.4 to 1.5, a lamp of 0.5 to 4 with a distance (it fades to nothing there; without one it never fades). Values over 12 wash the picture out white.';
+  // (20 Oct) a burnt hero and washed key art, at the lines calibrated that day (lib/look.ts header): Magma Crown with the
+  // bloom it shipped with burnt its hero 62 to 64%; every published world stays under 30%, snow and neon included
+  {
+    const { artBlown, artBadness, artFair } = await import('../lib/look.ts');
+    const burnt = lit(78, { burnt: 0.63, white: 0.012 }), snow = lit(160, { burnt: 0.3, white: 0.29 }), neon = lit(45, { burnt: 0.29, white: 0.002 });
+    ok('a hero burnt out past 45% gets a note and weighs on the cover; a white hero on snow and neon lightbikes do not', kinds(burnt).includes('burnt') && !kinds(snow).includes('burnt') && !kinds(neon).includes('burnt') && lookScore(burnt) < lookScore(lit(78, { burnt: 0.2, white: 0.012 })), kinds(burnt));
+    const pb = pickPass(pass(EXP1), pass(lit(140, { burnt: 0.6 })));
+    ok('a repair that newly burns the player out does not ship', pb.keep === 'prev' && /burn/.test(pb.why), pb.why);
+    ok('the key art: washed (near-white over 6%) or burnt is judged blown; the published worlds\' front shots are not', artBlown({ ...EXP1, white: 0.112 }) && artBlown({ ...EXP1, white: 0.01, burnt: 0.5 }) && !artBlown({ ...EXP1, white: 0.019, burnt: 0.174 }) && !artBlown({ ...EXP1, white: 0.004, burnt: 0.033 }));
+    ok('a second key-art angle wins only if less washed and it still shows the hero with the frame\'s detail', artBadness({ ...EXP1, white: 0.02 }) < artBadness({ ...EXP1, white: 0.11 }) && artFair(EXP1, { ...EXP1, white: 0.02 }) && !artFair(EXP1, { ...EXP1, seen: 0.2 }) && !artFair(EXP1, { ...EXP1, player: 0.005 }) && !artFair(EXP1, { ...EXP1, entropy: 2.8, edges: 0.011 }));
+  }
   const p6 = pickPass(pass(EXP1, [LOUD]), pass(lit(80)));
   ok('the runtime\'s light-units warning asks for less light: dimmed, it ships', p6.keep === 'next', p6.why);
   const p7 = pickPass(pass(EXP1), pass(lit(130, { entropy: 5.4, edges: 0.06 })));

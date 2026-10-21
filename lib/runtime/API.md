@@ -559,8 +559,11 @@ graphics: {
 - The environment is baked from `ctx.sky(...)` if the world built one, otherwise from the theme.
   Metal, wet skin, glass and paint only look real with it on: use `MeshStandardMaterial` or
   `MeshPhysicalMaterial` with honest `roughness` and `metalness`.
-- Bloom catches colours brighter than white: give lamps, floodlights, neon, lava and the sun
-  `emissive` colours with `emissiveIntensity` of 2 to 12. Ordinary surfaces never glow.
+- Bloom catches colours brighter than white: give small light sources (lamps, bulbs, neon tubes,
+  the sun disc) `emissive` colours with `emissiveIntensity` of 2 to 12. Anything large or long that
+  glows (lava, molten metal, glowing water, kerb and edge strips, panels) glows at 1 to 1.5. Whatever
+  glows gets a dark base `color` and no bright `map`: the glow comes from `emissive`/`emissiveMap`.
+  Ordinary surfaces never glow. Keep the preset's bloom, or a `threshold` of at least 1.3.
 - The shadow map follows the player, so the one shadow-casting `DirectionalLight` needs no
   shadow camera of its own. Set its `position` (its direction) in `build`: the runtime reads it once, after `build`, and
   keeps it (unless `shadows: { follow: false }`); moving the light in `update` does not turn it. Scenery far away does not need to cast shadows.

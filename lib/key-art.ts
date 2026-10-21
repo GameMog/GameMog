@@ -1,4 +1,5 @@
 import type { Page } from './browser';
+import { artBlown, artBadness, artFair, artNote, type Look } from './look';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -8,7 +9,7 @@ export type WorldKeyArt = { icon: Uint8Array; wide: Uint8Array };
  * Photograph a running Runtime world as designed key art. The world remains
  * unchanged: the camera and title are recording-only and removed afterwards.
  */
-export async function captureWorldKeyArt(page: Page): Promise<WorldKeyArt> {
+export async function captureWorldKeyArt(page: Page, opts: { kart?: boolean } = {}): Promise<WorldKeyArt> {
   // an open world may name its shot: where the player stands and which way the
   // camera looks (open.keyArt: { at: [x, z], look: degrees, tilt }); the fight
   // is brought to him there
@@ -24,6 +25,7 @@ export async function captureWorldKeyArt(page: Page): Promise<WorldKeyArt> {
     window.__gmRuntime.debug.film({ target: 'player', distance: -9.5, height: 2.35, fov: 46, side: -0.8, look: 1.35 });
     window.__gmRuntime.debug.cinematic(true);`);
   await sleep(700);
+  await judged(page, !!opts.kart);
 
   const { wide, icon } = await titled(page);
   await page.eval(`document.getElementById('gm-key-art-title')?.remove();
@@ -31,8 +33,48 @@ export async function captureWorldKeyArt(page: Page): Promise<WorldKeyArt> {
   return { icon, wide };
 }
 
+/**
+ * The key art judged before it is shot (20 Oct, Magma Crown's thumbnail: a front-lit hero washed to a cream blob). The
+ * frame is measured (debug.look, lib/look.ts artBlown); washed or burnt, a second angle is tried, a higher one that
+ * trades bright sky for the road (a kart race's front lens raised to 3.2 m; any other world's chase lens from the other side), and the
+ * better of the two kept (artBadness). Still washed, the builder is told once through the runtime's own warnings, which
+ * every drive reports with its advisories.
+ */
+async function judged(page: Page, kart: boolean): Promise<void> {
+  const look = () => page.eval<Look | null>('window.__gmRuntime.debug.look ? window.__gmRuntime.debug.look() : null').catch(() => null);
+  let m = await look();
+  if (!artBlown(m)) return;
+  const first = kart ? `window.__gmRuntime.debug.kart().film({ mode: 'front', distance: 7.5, height: 1.5, fov: 46 })`
+    : `window.__gmRuntime.debug.film({ target: 'player', distance: -9.5, height: 2.35, fov: 46, side: -0.8, look: 1.35 })`;
+  const second = kart ? `window.__gmRuntime.debug.kart().film({ mode: 'front', distance: 8.5, height: 3.2, fov: 44 })`
+    : `window.__gmRuntime.debug.film({ target: 'player', distance: -9.5, height: 2.35, fov: 46, side: 0.8, look: 1.35 })`;
+  await page.eval(second).catch(() => null); await sleep(700);
+  const m2 = await look();
+  if (m && m2 && artFair(m, m2) && artBadness(m2) < artBadness(m)) m = m2; else { await page.eval(first).catch(() => null); await sleep(700); }
+  if (m && artBlown(m)) {
+    const note = artNote(m);
+    await page.eval(`(() => { const g = window.__gm; if (g) (g.warnings = g.warnings || []).push(${JSON.stringify(note)}); })()`).catch(() => null);
+  }
+}
+
+/**
+ * Whether the page can be photographed (20 Oct): a lost WebGL context, or the kart guard's "Graphics reset" card over the
+ * frame, would be shot as the game's thumbnail. The guard keeps a lost context's textures gone, so there is nothing to
+ * wait for: the art is refused, and the callers' "no key art" path applies.
+ */
+export async function artBlocked(page: Page): Promise<string | null> {
+  return page.eval<string | null>(`(() => {
+    try { const r = window.__gmRuntime && window.__gmRuntime.debug.internals().renderer; if (r && r.getContext().isContextLost()) return 'the graphics context was lost'; } catch (e) {}
+    if (window.KartGuard && window.KartGuard.state && window.KartGuard.state().card) return 'the graphics reset card is up';
+    const a = Array.from(document.querySelectorAll('[role=alert]')).find((e) => /Graphics reset/.test(e.textContent || ''));
+    return a ? 'the graphics reset card is up' : null;
+  })()`).catch(() => null);
+}
+
 /** The platform's title over the frame as it stands, shot wide and as the icon's square; the title is left on the page. */
 async function titled(page: Page): Promise<WorldKeyArt> {
+  const blocked = await artBlocked(page);
+  if (blocked) throw new Error(`No key art: ${blocked}.`);
   await page.eval(`(() => {
     const art = window.__gmRuntime.debug.art();
     const old = document.getElementById('gm-key-art-title'); if (old) old.remove();

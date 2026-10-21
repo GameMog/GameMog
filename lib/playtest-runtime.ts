@@ -606,7 +606,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         }
         await page.eval('window.__gmRuntime.debug.timeScale(1)');
         await sleep(1500);
-        const art = await captureWorldKeyArt(page);
+        const art = await captureWorldKeyArt(page).catch(() => undefined);
         await page.eval('window.__gmRuntime.debug.cinematic(true); window.__gmRuntime.debug.film(null)');
         await sleep(600);
         const { cover, look } = await bestCover(page);
@@ -662,7 +662,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         const stuck = Math.max(...k.karts.map((q) => q.stuck)), laps = k.lapsDone, drifts = drifting || drifted(k);
         // the key art, from in front of your kart (the platform's title over it)
         await K('K.timeScale(1); K.film({ mode: "front", distance: 7.5, height: 1.5, fov: 46 });');
-        const art = await captureWorldKeyArt(page).catch(() => undefined);
+        const art = await captureWorldKeyArt(page, { kart: true }).catch(() => undefined);
         await K('K.film(null); K.timeScale(8);');
         for (let i = 0; i < 60 && k.state !== 'results'; i++) { await sleep(300); k = await ks(); }
         const results = await page.eval<unknown[]>('window.__gm.results').catch(() => []);
@@ -695,7 +695,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
       await page.eval('window.__gmRuntime.debug.timeScale(6)');
       let s = await st();
       for (let i = 0; i < 70 && s.level < 3; i++) { await sleep(400); s = await st(); }
-      const art = s.level >= 3 ? await captureWorldKeyArt(page) : undefined;
+      const art = s.level >= 3 ? await captureWorldKeyArt(page).catch(() => undefined) : undefined;
 
       // Continue through several laps to exercise rival joins and world code.
       await page.eval('window.__gmRuntime.debug.timeScale(6)');

@@ -37,10 +37,25 @@
  * gives it away is the whole frame's light moving when no note asked for it.
  * The notes now give the runtime's ranges and say to change one thing, and
  * pickPass keeps the earlier pass when the repair made the world worse.
+ *
+ * Burnt heroes and washed key art (20 Oct, Magma Crown: "the thumbnail was overexposed", "B-Hot was
+ * overexposed"). Pure white missed both: a hero burns out to a maxed channel or a near-white cream, not to 255,
+ * 255, 255. Measured that day on the 16 first-party worlds, live Wonderwake and three Magma Crowns, mid-race,
+ * three frames each, and from the kart key art's front camera: the share of the player that is burnt (a channel
+ * over 250 or brightness over 230) runs 0 to 30% in every published world, a white whale on snow and neon
+ * lightbikes included, and 62 to 64% in Magma Crown with the bloom it shipped with (0.85 over 1); the share of a
+ * frame that is near-white (every channel over 217) runs to 29% in snow and ice worlds, so across a frame it is
+ * measured and weighed lightly, never a note; in the key art's front view it runs 0 to 1.9% in every published
+ * world and 7.8 to 11.2% in Magma Crown before its polish.
  */
 export type Look = { entropy: number; dominant: number; edges: number; contrast: number; mean: number;
   /** 1 Oct: the share of the frame that is pure white, the brightness of its darkest 5%, and the player: the share of the frame it fills, how much of it scenery leaves showing, and how far its colour stands from what is round it (0 to 441). */
-  clipped?: number; floor?: number; player?: number; seen?: number; apart?: number };
+  clipped?: number; floor?: number; player?: number; seen?: number; apart?: number;
+  /** 20 Oct: the share of the frame that is near-white (every channel over 217), and of the player, where it shows, that is burnt out (a channel over 250 or brightness over 230). */
+  white?: number; burnt?: number };
+
+/** 20 Oct: the lines (see above): a burnt hero mid-race, and a washed or burnt key art. */
+export const BURNT = 0.45, ART_WHITE = 0.06;
 
 export function isLook(v: unknown): v is Look {
   const o = v as Look;
@@ -52,11 +67,13 @@ export function lookScore(m: Look) {
   const dark = m.mean < 35 ? (35 - m.mean) / 8 : 0, blown = m.mean > 200 ? (m.mean - 200) / 8 : 0;
   // and the cover should show the player, clear of the scenery and of the background, without glare
   const glare = (m.clipped ?? 0) * 20, hidden = m.seen != null && m.seen < 0.5 ? (0.5 - m.seen) * 6 : 0, blend = m.apart != null && m.apart < 25 ? (25 - m.apart) / 25 : 0;
-  return m.entropy + Math.min(m.edges, 0.35) * 10 + Math.min(m.contrast, 180) / 60 - m.dominant * 4 - dark - blown - glare - hidden - blend;
+  // (20 Oct: a burnt hero weighs past the published worlds' 30%, a near-white wash past snow's 30%)
+  const burn = Math.max(0, (m.burnt ?? 0) - 0.3) * 10, wash = Math.max(0, (m.white ?? 0) - 0.3) * 5;
+  return m.entropy + Math.min(m.edges, 0.35) * 10 + Math.min(m.contrast, 180) / 60 - m.dominant * 4 - dark - blown - glare - hidden - blend - burn - wash;
 }
 
 /** What a note is about: the first four are the light (the exposure, the lights, fog and bloom), the rest what is in the frame. */
-export type LookKind = 'dark' | 'blown' | 'murky' | 'glare' | 'one-colour' | 'few-tones' | 'empty' | 'hidden' | 'blends';
+export type LookKind = 'dark' | 'blown' | 'murky' | 'glare' | 'burnt' | 'one-colour' | 'few-tones' | 'empty' | 'hidden' | 'blends';
 export type LookNote = { kind: LookKind; text: string };
 
 // 5 Oct: bounded, so a note is answered with a step and not a relight (lib/runtime/API.md: the lights are legacy units; the presets' own exposures are 0.95 to 1.1)
@@ -73,6 +90,7 @@ export function lookNotes(m: Look): LookNote[] {
   if (m.edges < 0.04) out.push({ kind: 'empty', text: `The test drive's view has little detail (edge density ${m.edges}; the published worlds have 0.058 or more). It reads as empty or primitive: add authored props, silhouettes and set dressing near the camera. ${KEEP_LIGHT}` });
   else if (m.contrast < 60) out.push({ kind: 'murky', text: `The test drive's view is murky (contrast ${m.contrast}): fog, darkness or bloom is flattening it. Thin the fog, add a key light with a direction, or lower the bloom, and let darks and lights separate. ${RANGES}` });
   if ((m.clipped ?? 0) > 0.05) out.push({ kind: 'glare', text: `${Math.round((m.clipped ?? 0) * 100)}% of the test drive's view is blown out to pure white (the published worlds stay under 3%). Lamps are usually the cause: the runtime's lights are legacy units, so bring any light over 12 into its range first, and only then, if it is still white, the bloom or the exposure. ${RANGES}` });
+  if ((m.burnt ?? 0) > BURNT && m.player != null && m.player > 0) out.push({ kind: 'burnt', text: `${Math.round((m.burnt ?? 0) * 100)}% of the player is burnt out to white or a maxed colour (the published worlds stay under 30%). Bloom is the usual cause: keep the graphics preset's bloom, or a threshold of 1.3 or more, never a threshold of 1 with a stronger strength. Then the hero itself: its lightest materials (cream, ivory, white skin and paint) a step darker, and any glow on the hero under 1. ${RANGES}` });
   if (m.seen != null && m.player != null && m.player > 0 && m.seen < 0.5) out.push({ kind: 'hidden', text: `Scenery hides ${Math.round((1 - m.seen) * 100)}% of the player from the chase camera. Keep tall props, walls and overhangs out of the space between the camera and the player's path, or make them low or see-through there. ${KEEP_LIGHT}` });
   if (m.apart != null && m.player != null && m.player > 0 && m.apart < 25) out.push({ kind: 'blends', text: `The player is hard to tell from what is round them (colour distance ${m.apart} of 441; most published worlds are 40 or more). Change the hero, not the world's light: colours or a material on the hero that stand out from the ground and scenery behind them, or a rim light on the hero alone (a lamp of 0.5 to 2 with a distance of a few metres). ${KEEP_LIGHT}` });
   return out;
@@ -96,7 +114,7 @@ export const SCORE_SLACK = 1;
 export type Pass = { problems?: string[]; status?: string; look?: Look; notes?: string[] };
 export type Pick = { keep: 'prev' | 'next'; why: string };
 
-const SAID: Record<'dark' | 'blown' | 'murky' | 'glare', string> = { dark: 'nearly black', blown: 'blown out', murky: 'murky', glare: 'glare white' };
+const SAID: Record<'dark' | 'blown' | 'murky' | 'glare' | 'burnt', string> = { dark: 'nearly black', blown: 'blown out', murky: 'murky', glare: 'glare white', burnt: 'burn the player out' };
 
 /**
  * Which pass ships when the second (`next`) was written only to answer the
@@ -115,12 +133,12 @@ export function pickPass(prev: Pass, next: Pass): Pick {
   const a = prev.look, b = next.look;
   const before = a ? lookNotes(a).map((n) => n.kind) : [], after = b ? lookNotes(b).map((n) => n.kind) : [];
   if (a && b) {
-    for (const k of ['blown', 'glare', 'dark', 'murky'] as const) {
+    for (const k of ['blown', 'glare', 'burnt', 'dark', 'murky'] as const) {
       if (after.includes(k) && !before.includes(k)) return { keep: 'prev', why: `the repair made the view ${SAID[k]}` };
     }
     const lights = (prev.notes ?? []).some((s) => /legacy light units/i.test(s));
     const brighter = before.includes('dark') || before.includes('murky');
-    const dimmer = before.includes('blown') || before.includes('glare') || before.includes('murky') || lights;
+    const dimmer = before.includes('blown') || before.includes('glare') || before.includes('burnt') || before.includes('murky') || lights;
     const shift = b.mean - a.mean;
     if (shift > LIGHT_SHIFT && !brighter) return { keep: 'prev', why: `the repair brightened the whole view (${a.mean} to ${b.mean} of 255) when no note asked for more light` };
     if (shift < -LIGHT_SHIFT && !dimmer) return { keep: 'prev', why: `the repair darkened the whole view (${a.mean} to ${b.mean} of 255) when no note asked for less light` };
@@ -131,4 +149,19 @@ export function pickPass(prev: Pass, next: Pass): Pick {
   const was = prev.notes ? prev.notes.length : before.length, now = next.notes ? next.notes.length : after.length;
   if (now > was) return { keep: 'prev', why: `the repair ended with more notes (${now}) than it was given (${was})` };
   return { keep: 'next', why: a && b ? `the repair looks no worse (brightness ${a.mean} to ${b.mean}, score ${lookScore(a).toFixed(1)} to ${lookScore(b).toFixed(1)})` : 'the repair passed and there was no frame to compare' };
+}
+
+/**
+ * The key art (20 Oct): judged by the same measures, with its own lines (see the header). artBadness orders two
+ * candidate shots (lower is better); artNote is the builder's note when even the better one is washed or burnt.
+ * lib/runtime/drive.js keeps the same lines and the same order for the creator's browser.
+ */
+export function artBlown(m: Look | null | undefined) { return !!m && ((m.white ?? 0) > ART_WHITE || (m.burnt ?? 0) > BURNT); }
+/** A second angle may replace the first only if it still shows the hero (at least half as large, half of it unhidden) and keeps the frame's detail: a less washed frame of a wall is no key art. */
+export function artFair(first: Look, second: Look) {
+  return (second.player ?? 0) >= 0.5 * (first.player ?? 0) && (second.seen ?? 1) >= 0.5 && second.entropy >= first.entropy - 0.5 && second.edges >= first.edges * 0.6;
+}
+export function artBadness(m: Look | null | undefined) { return m ? (m.white ?? 0) * 10 + Math.max(0, (m.burnt ?? 0) - 0.3) * 5 : 0; }
+export function artNote(m: Look) {
+  return `The key art (the hero from the front, as the thumbnail shows it) is washed out: ${Math.round((m.white ?? 0) * 100)}% of it near-white and ${Math.round((m.burnt ?? 0) * 100)}% of the hero burnt out (the published worlds stay under 2% and 30%). A low sun on the hero's front and pale materials are the usual cause: the hero's lightest materials (cream, ivory, white skin and paint) a step darker, any glow on the hero under 1, and the preset's bloom. ${RANGES}`;
 }
