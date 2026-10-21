@@ -1386,7 +1386,8 @@ GameMog.world({
   the picture's only; `wind: true`: the same rush heard, a soft gust of air under the engines rising with it (yours
   only); `smoke` (hex): the colour of the smoke and dust puffs (a flooded start's, a landing's, a toppled or rolling
   hazard's, a strike's), and with `powder: true` and no `smoke` named a light snow white-blue, a little thinner, so
-  nothing rises like soot over a winter field. Over a `clear: true` break the chase camera rides up (up to 3 m, eased)
+  nothing rises like soot over a winter field; `engine` (0.2 to 1, 1 as it comes): how loud the engines are, yours and
+  the rivals', under your music. Over a `clear: true` break the chase camera rides up (up to 3 m, eased)
   from the take-off until it has crossed the hole, so the foot of the screen looks past the far lip rather than down
   the far wall; no clear break, no lift. A hazard's `look: 'snow'` (or `course.hazardLook: 'snow'`): a meteor's
   warning ring and its shockwave in ice blue and white, its strike a burst of powder (the powder's own pool, where
