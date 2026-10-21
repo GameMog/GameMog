@@ -433,54 +433,128 @@
     return STAR_GEO;
   }
 
-  // ---- the kart: a bubble of tinted glass on a pearl chassis, soft side pods, fat round tyres, twin thrusters behind
+  // ---- the kart: a cumulus cloud you sit in, its undersides in the racer's colour and its tops white in the sun, on
+  // rolling cloud tyres, a star on its nose, little puffs out of its tail
   var GLOW_TEX = null;
   function glowTex(ctx) {
     if (GLOW_TEX) return GLOW_TEX;
     GLOW_TEX = ctx.textures.canvas(128, 128, function (g, W, H) { var rg = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W / 2); rg.addColorStop(0, 'rgba(255,255,255,0.9)'); rg.addColorStop(0.5, 'rgba(255,255,255,0.35)'); rg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = rg; g.fillRect(0, 0, W, H); });
     return GLOW_TEX;
   }
+  // the cloud's material, one for every racer (their colours are in the puffs' vertex colours): soft as felt, a velvet
+  // sheen at its edges and a silver lining, its own colour lit up where it turns away from you (light through a cloud's
+  // edge), so that it looks soft all the way out to its outline; and a glow of its own colour from within, so that its
+  // shadows stay light and coloured (and its sunlit side short of white, where the bumps would be lost)
+  function cloudMat() {
+    return cached('cloud', function () {
+      var m = new T.MeshPhysicalMaterial({ color: '#D2D7E3', vertexColors: true, roughness: 0.9, metalness: 0, sheen: 0.7, sheenRoughness: 0.3, sheenColor: new T.Color('#E4EAF6'),
+        emissive: new T.Color('#000000') });
+      // (and small billows all over it, a cauliflower of bumps from a noise, fading out with distance so they never shimmer)
+      m.onBeforeCompile = function (sh) {
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vIwP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvIwP = position;');
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', ['#include <common>', 'varying vec3 vIwP;',
+          'float iwH3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }',
+          'float iwN(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);',
+          '  return mix(mix(mix(iwH3(i), iwH3(i + vec3(1, 0, 0)), f.x), mix(iwH3(i + vec3(0, 1, 0)), iwH3(i + vec3(1, 1, 0)), f.x), f.y),',
+          '             mix(mix(iwH3(i + vec3(0, 0, 1)), iwH3(i + vec3(1, 0, 1)), f.x), mix(iwH3(i + vec3(0, 1, 1)), iwH3(i + vec3(1, 1, 1)), f.x), f.y), f.z); }',
+          'vec3 iwBump(vec3 sp, vec3 sn, float h) { vec3 sx = dFdx(sp), sy = dFdy(sp), r1 = cross(sy, sn), r2 = cross(sn, sx); float det = dot(sx, r1);',
+          '  vec3 gr = sign(det) * (dFdx(h) * r1 + dFdy(h) * r2); return normalize(abs(det) * sn - gr); }'].join('\n'))
+          .replace('#include <normal_fragment_maps>', ['#include <normal_fragment_maps>',
+          'float iwFade = 1.0 - smoothstep(7.0, 22.0, length(vViewPosition));',
+          'if (iwFade > 0.0) normal = iwBump(-vViewPosition, normal, (iwN(vIwP * 11.0) * 0.65 + iwN(vIwP * 23.0 + 7.0) * 0.35) * 0.02 * iwFade);'].join('\n'))
+          .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n' +
+          'float iwFr = pow(1.0 - abs(dot(normal, normalize(vViewPosition))), 2.4);\n' +
+          'totalEmissiveRadiance += diffuseColor.rgb * 0.1 + mix(diffuseColor.rgb, vec3(1.0), 0.3) * iwFr * 0.26;');
+      };
+      return m;
+    });
+  }
+  // a puff of cloud: a ball whose colour runs from the cloud's tint underneath to white on top (by its height in the
+  // cloud), its normals bent toward the whole cloud's so that the puffs shade as one soft body and not a pile of balls
+  // (cl: lo, hi, the heights the colour runs between; under, top, its colours; c, r, the cloud's centre and radii, or
+  // ring, a tyre's radius about the x axis through c; bend)
+  function puff(parent, cl, r, x, y, z) {
+    var n0 = cl.seg || 22, geo = new T.SphereGeometry(r, SEG(n0), SEG(Math.round(n0 * 0.72))), P = geo.attributes.position, N = geo.attributes.normal;
+    var col = new Float32Array(P.count * 3), p = new T.Vector3(), n = new T.Vector3(), e = new T.Vector3(), c = new T.Color();
+    for (var i = 0; i < P.count; i++) {
+      p.set(P.getX(i) + x, P.getY(i) + y, P.getZ(i) + z);
+      var k = Math.min(1, Math.max(0, (p.y - cl.lo) / (cl.hi - cl.lo))); k = k * k * (3 - 2 * k);
+      c.copy(cl.under).lerp(cl.top, k); col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+      if (cl.ring) { var rl = Math.hypot(p.y, p.z) || 1; e.set(p.x - cl.c[0], p.y - p.y / rl * cl.ring, p.z - p.z / rl * cl.ring).normalize(); }
+      else e.set((p.x - cl.c[0]) / (cl.r[0] * cl.r[0]), (p.y - cl.c[1]) / (cl.r[1] * cl.r[1]), (p.z - cl.c[2]) / (cl.r[2] * cl.r[2])).normalize();
+      n.set(N.getX(i), N.getY(i), N.getZ(i)).lerp(e, cl.bend).normalize(); N.setXYZ(i, n.x, n.y, n.z);
+    }
+    geo.setAttribute('color', new T.BufferAttribute(col, 3));
+    return put(parent, geo, cloudMat(), x, y, z);
+  }
+  // the same small numbers every time for a racer (its puffs land in the same places)
+  function seeded(n) { var v = n % 2147483647 || 1; return function () { v = v * 16807 % 2147483647; return (v - 1) / 2147483646; }; }
   function kart(F, liveFns) {
-    var g = new T.Group(), gl = glassOf(F.kart), pearl = vinyl('#DCD6E2', { r: 0.25, cc: 1 }), trim = vinyl(F.trim, { r: 0.25, cc: 1 }), tl = light(F.trim, 0.85);
-    // the chassis: a rounded pearl slab, a soft nose bumper, a tail
-    put(g, slab(1.05, 2.1, 0.12, 0.42, 0.05), pearl, 0, 0.27, 0.05);
-    put(g, pill(0.11, 0.86), trim, 0, 0.3, 1.13, 0, 0, Math.PI / 2);
-    // the bubble: the lower half of a glass egg, open on top, with a ring of light round its rim
-    var bub = new T.SphereGeometry(1, SEG(56), SEG(30), 0, Math.PI * 2, Math.PI * 0.47, Math.PI * 0.53);
-    put(g, bub, gl, 0, 0.62, 0.05, 0, 0, 0, 0.62, 0.36, 1.18);
-    put(g, ringG(1, 0.022), tl, 0, 0.655, 0.05, Math.PI / 2, 0, 0, 0.62, 1.18, 1);
-    // the nose: a glass dome over the front with the racer's number roundel behind it
-    put(g, ball(0.3), gl, 0, 0.42, 0.95, 0, 0, 0, 1.15, 0.6, 1.0);
-    put(g, new T.CylinderGeometry(0.13, 0.13, 0.02, SEG(36)), pearl, 0, 0.6, 0.98, 1.2, 0, 0);
-    // the side pods: soft glass capsules on pearl rails
+    var g = new T.Group(), pearl = vinyl('#DCD6E2', { r: 0.25, cc: 1 }), trim = vinyl(F.trim, { r: 0.25, cc: 1 }), tl = light(F.trim, 0.85);
+    var R = seeded(F.id * 7919), J = function (a) { return (R() - 0.5) * 2 * a; };
+    var cl = { lo: 0.14, hi: 0.86, under: lighter(F.kart, 0.14), top: lighter(F.kart, 0.66), c: [0, 0.42, -0.05], r: [0.8, 0.48, 1.35], bend: 0.72 };
+    // the cushion: a bed of broad puffs the driver sinks into, their feet in it too
+    [[-0.3, -0.62], [0.3, -0.62], [0, -0.38], [-0.32, -0.12], [0.32, -0.12], [0, 0.08], [-0.3, 0.34], [0.3, 0.34], [0, 0.62]].forEach(function (q) {
+      puff(g, cl, 0.22 + J(0.025), q[0] + J(0.03), 0.28 + J(0.02), q[1] + J(0.03));
+    });
+    // its sides: plump rolls of cloud, tucked in over the tyres and bulging out between them
     [-1, 1].forEach(function (s) {
-      put(g, pill(0.15, 0.82), gl, s * 0.6, 0.38, -0.02, Math.PI / 2, 0, 0);
-      put(g, pill(0.05, 0.9), trim, s * 0.6, 0.27, -0.02, Math.PI / 2, 0, 0);
+      [[0.38, -0.82, 0.2], [0.5, -0.46, 0.23], [0.55, -0.1, 0.25], [0.53, 0.26, 0.24], [0.4, 0.6, 0.21]].forEach(function (q) {
+        puff(g, cl, q[2] + J(0.02), s * (q[0] + J(0.02)), 0.47 + J(0.04), q[1] + J(0.04));
+      });
+      puff(g, cl, 0.12 + J(0.02), s * (0.5 + J(0.04)), 0.68 + J(0.03), -0.3 + J(0.12));
+      puff(g, cl, 0.1 + J(0.02), s * (0.48 + J(0.04)), 0.66 + J(0.03), 0.22 + J(0.12));
     });
-    // the seat: a plump cushion and a back, in the trim colour
-    put(g, slab(0.5, 0.42, 0.12, 0.14, 0.05), trim, 0, 0.46, -0.22);
-    put(g, slab(0.5, 0.12, 0.26, 0.1, 0.04), trim, 0, 0.62, -0.46, -0.2, 0, 0);
-    // the thrusters: two pearl cans behind, their glow live (it grows with the speed and the boost)
-    var flames = live(new T.Group()); flames.position.set(0, 0.42, -1.2); g.add(flames);
-    var fm = new T.MeshBasicMaterial({ color: new T.Color(F.kart).lerp(new T.Color('#FFFFFF'), 0.4).multiplyScalar(1.4), transparent: true, opacity: 0.4, depthWrite: false, blending: T.AdditiveBlending });
-    [-0.28, 0.28].forEach(function (x) {
-      put(g, lathe([[0, 0], [0.11, 0.0], [0.13, 0.1], [0.12, 0.2], [0.09, 0.22]], 32), pearl, x, 0.42, -1.0, -Math.PI / 2, 0, 0);
-      put(g, ringG(0.1, 0.018), trim, x, 0.42, -1.2);
-      put(flames, new T.ConeGeometry(0.085, 0.5, SEG(24), 1, true), fm, x, 0, -0.25, -Math.PI / 2, 0, 0);
-    });
+    // the nose: a big round billow, smaller ones at its cheeks and one on top
+    puff(g, cl, 0.29, 0, 0.4, 1.02);
+    [-1, 1].forEach(function (s) { puff(g, cl, 0.21 + J(0.02), s * 0.3, 0.34, 0.96 + J(0.03)); });
+    puff(g, cl, 0.17, J(0.04), 0.62, 0.9);
+    // the back: a tall soft backrest, the highest part of the cloud, and a tail below it
+    puff(g, cl, 0.28, 0, 0.66, -0.74);
+    [-1, 1].forEach(function (s) { puff(g, cl, 0.23 + J(0.02), s * 0.3, 0.56, -0.8 + J(0.03)); puff(g, cl, 0.19 + J(0.02), s * 0.28, 0.34, -1.0); });
+    puff(g, cl, 0.26, 0, 0.38, -1.02);
+    puff(g, cl, 0.15, 0.1 + J(0.05), 0.9, -0.76);
+    puff(g, cl, 0.11, -0.16 + J(0.05), 0.84, -0.72);
+    // a star on the nose, in the racer's second colour
+    put(g, STAR_G(), vinyl(F.trim, { r: 0.3, cc: 1, e: F.trim, ei: 0.35 }), 0, 0.46, 1.32, 0, 0, 0, 0.12, 0.12, 0.1);
+    // the thrusters' glow, live, out of the cloud's tail on a boost (cruising, only the puffs: a glow over white cloud
+    // straight into the chase camera burns it out)
+    var flames = live(new T.Group()); flames.position.set(0, 0.42, -1.22); g.add(flames);
+    var fm = new T.MeshBasicMaterial({ color: new T.Color(F.kart).lerp(new T.Color('#FFFFFF'), 0.4), transparent: true, opacity: 0.22, depthWrite: false, blending: T.AdditiveBlending });
+    [-0.24, 0.24].forEach(function (x) { put(flames, new T.ConeGeometry(0.085, 0.5, SEG(24), 1, true), fm, x, 0, -0.25, -Math.PI / 2, 0, 0); });
+    fm.opacity = 0.32;
     bake(flames);
-    liveFns.push(function (t, dt, s) { var k = 0.6 + Math.min(1, (s.speed || 0) / 30) * 0.7 + (s.boost ? 0.9 : 0), w = k * (0.92 + 0.12 * Math.sin(t * 40)); flames.scale.set(1, 1, w); flames.visible = s.detail !== 'far'; });
-    // the wheels: fat round tyres (a torus), pearl hubs with a light at their middle
+    var fl = 0; liveFns.push(function (t, dt, s) { fl = Math.max(0, Math.min(1, fl + (s.boost ? dt * 8 : -dt * 4))); var w = fl * (1.0 + 0.5 * Math.min(1, (s.speed || 0) / 30)) * (0.92 + 0.12 * Math.sin(t * 40)); flames.scale.set(fl, fl, Math.max(0.001, w)); flames.visible = fl > 0.01 && s.detail !== 'far'; });
+    // and its puffs: little clouds that leave the tail, swell and melt away (longer and bigger with speed and boost)
+    var TN = 12, tg = new T.SphereGeometry(1, SEG(16), SEG(12)), tc = new Float32Array(tg.attributes.position.count * 3), tw = lighter(F.kart, 0.72), j;
+    for (j = 0; j < tc.length; j += 3) { tc[j] = tw.r; tc[j + 1] = tw.g; tc[j + 2] = tw.b; }
+    tg.setAttribute('color', new T.BufferAttribute(tc, 3));
+    var tmat = cached('cloudPuff', function () { return new T.MeshStandardMaterial({ color: '#FFFFFF', vertexColors: true, roughness: 1, transparent: true, opacity: 0.42, depthWrite: false }); });
+    var trail = live(new T.InstancedMesh(tg, tmat, TN)); trail.frustumCulled = false; trail.castShadow = false; g.add(trail);
+    var ages = [], tM = new T.Matrix4(), tQ = new T.Quaternion(), tP = new T.Vector3(), tS = new T.Vector3();
+    for (j = 0; j < TN; j++) ages.push(j / TN);
+    liveFns.push(function (t, dt, s) {
+      var sp = Math.min(1, (s.speed || 0) / 30), bo = s.boost ? 1 : 0;
+      trail.visible = s.detail !== 'far' && sp > 0.04; if (!trail.visible) return;
+      for (var i = 0; i < TN; i++) {
+        var a = ages[i] = (ages[i] + dt / 0.45) % 1, sd = i % 2 ? 1 : -1, sw = Math.sin(i * 2.3 + t * 3) * 0.04;
+        tP.set(sd * (0.22 + a * 0.12) + sw, 0.4 + a * 0.18, -1.25 - a * (0.5 + 1.1 * sp + 0.6 * bo));
+        var r = (0.05 + 0.07 * sp + 0.06 * bo) * Math.pow(Math.sin(Math.PI * a), 0.6);
+        tS.set(r, r * 0.9, r); tM.compose(tP, tQ, tS); trail.setMatrixAt(i, tM);
+      }
+      trail.instanceMatrix.needsUpdate = true;
+    });
+    // the wheels: cloud tyres, a ring of puffs, deep on one side and pale on the other (so you see them roll), round a hub
     var wheels = [], wr = 0.26;
-    [[0.66, 0.76, 1], [0.68, -0.74, 1.25]].forEach(function (ax, i) {
+    [[0.66, 0.76], [0.68, -0.74]].forEach(function (ax, i) {
       var hub = live(new T.Group()); hub.position.set(0, wr, ax[1]); g.add(hub);
       var spin = new T.Group(); hub.add(spin);
       [-1, 1].forEach(function (sd) {
         var x = sd * ax[0];
-        put(spin, ringG(wr - 0.085, 0.085), rubber('#1E1F25'), x, 0, 0, 0, Math.PI / 2, 0, 1, 1, ax[2]);
-        put(spin, ball(0.13), trim, x + sd * 0.03, 0, 0, 0, 0, 0, 0.55, 1, 1);
-        put(spin, ball(0.05), tl, x + sd * 0.1, 0, 0, 0, 0, 0, 0.5, 1, 1);
-        for (var k = 0; k < 5; k++) put(spin, pill(0.022, 0.1), trim, x + sd * 0.06, Math.cos(k * 1.2566) * 0.08, Math.sin(k * 1.2566) * 0.08, k * 1.2566, 0, 0);
+        var cw = { lo: -0.26, hi: 0.26, under: lighter(F.kart, 0.22), top: lighter(F.kart, 0.8), c: [x, 0, 0], ring: 0.158, bend: 0.55, seg: 16 };
+        for (var k = 0; k < 10; k++) { var an = k / 10 * Math.PI * 2; puff(spin, cw, 0.098 + (k % 2) * 0.01, x, Math.cos(an) * 0.158, Math.sin(an) * 0.158); }
+        put(spin, ball(0.1), trim, x + sd * 0.04, 0, 0, 0, 0, 0, 0.55, 1, 1);
+        put(spin, ball(0.045), tl, x + sd * 0.09, 0, 0, 0, 0, 0, 0.5, 1, 1);
       });
       bake(spin);
       wheels.push({ hub: hub, spin: spin, front: i === 0 });
@@ -491,7 +565,7 @@
     put(wheelG, ball(0.05), trim, 0, 0, 0, 0, 0, 0, 1, 1, 0.5);
     [0, 2.1, 4.2].forEach(function (a) { put(wheelG, pill(0.014, 0.12), rubber('#24242A'), Math.sin(a) * 0.08, Math.cos(a) * 0.08, 0, 0, 0, -a); });
     bake(wheelG);
-    put(g, pill(0.025, 0.3), pearl, 0, 0.74, 0.5, 0.9, 0, 0);
+    tube(g, [[0, 0.88, 0.37], [0, 0.68, 0.45], [0, 0.46, 0.5]], 0.024, pearl);
     // a soft contact shadow under it, tinted with the kart's colour (it grounds the kart on the glass)
     var glow = live(new T.Mesh(new T.PlaneGeometry(2.0, 3.2), new T.MeshBasicMaterial({ map: GLOW_TEX, color: new T.Color(F.kart).multiplyScalar(0.18), transparent: true, opacity: 0.6, depthWrite: false })));
     glow.rotation.x = -Math.PI / 2; glow.position.y = 0.05; glow.renderOrder = 3; g.add(glow);
@@ -741,6 +815,33 @@
     { name: 'LUCID DREAM', top: '#04081F', mid: '#1B2266', glow: '#FF7BD8', low: '#2A1C5E', fog: '#21185A', fogD: 0.0012, neb: 0.9, stars: 1,
       key: ['#E2D6FF', 1.6], hemi: ['#9A88FF', '#1E1038', 0.85], fill: ['#FF8AD8', 0.7], clouds: ['#8A6CE0', '#C27AE8', '#6A7EF0', '#E07AC8', '#7A9CF0', '#A06AE8'], road: 2 },
   ];
+  // the phase's title card: its name rising in front of you as a lap begins, then gone (drawn when first wanted: the
+  // theme's face is not loaded while build runs)
+  var CARD_WORDS = [['DAYDREAM', 'the sky wakes up'], ['DEEP DREAM', 'the lanterns rise'], ['LUCID DREAM', 'the stars are yours']];
+  function phaseCard(ctx) {
+    var T0 = ctx.THREE, tex = [], mat = new T0.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, fog: false, opacity: 0 });
+    var card = new T0.Mesh(new T0.PlaneGeometry(9, 2.25), mat); card.renderOrder = 999; card.frustumCulled = false; card.visible = false; card.userData.gmTrack = true;
+    function draw(i) {
+      if (tex[i]) return tex[i];
+      tex[i] = ctx.textures.canvas(1024, 256, function (g, W, H) {
+        g.clearRect(0, 0, W, H); g.textAlign = 'center'; g.textBaseline = 'middle';
+        var cols = [['#FFFFFF', '#7FE6FF'], ['#E6FFF8', '#7BFFE0'], ['#FFE6FA', '#FF8AD8']][i];
+        g.font = '900 104px Oxanium, Arial, sans-serif'; g.lineJoin = 'round';
+        g.strokeStyle = 'rgba(10,30,60,0.55)'; g.lineWidth = 14; g.strokeText(CARD_WORDS[i][0], W / 2, 112, W - 60);
+        var gr = g.createLinearGradient(0, 50, 0, 170); gr.addColorStop(0, cols[0]); gr.addColorStop(1, cols[1]); g.fillStyle = gr; g.fillText(CARD_WORDS[i][0], W / 2, 112, W - 60);
+        g.font = '600 40px Oxanium, Arial, sans-serif'; g.fillStyle = 'rgba(255,255,255,0.92)'; g.fillText(CARD_WORDS[i][1].toUpperCase(), W / 2, 205, W - 120);
+      });
+      return tex[i];
+    }
+    var t0 = -99, shown = -1, fwd = new T0.Vector3(), up = new T0.Vector3();
+    return { mesh: card, show: function (i, t) { shown = i; t0 = t; mat.map = draw(i); mat.needsUpdate = true; }, update: function (t, cam) {
+      var a = t - t0; card.visible = a >= 0 && a < 3.2 && !!cam; if (!card.visible) return;
+      var o = a < 0.45 ? a / 0.45 : a > 2.5 ? Math.max(0, 1 - (a - 2.5) / 0.7) : 1; mat.opacity = o;
+      cam.getWorldDirection(fwd); up.set(0, 1, 0).applyQuaternion(cam.quaternion);
+      card.position.copy(cam.position).addScaledVector(fwd, 12).addScaledVector(up, 2.2 + (1 - Math.min(1, a / 0.45)) * -0.8);
+      card.quaternion.copy(cam.quaternion); card.scale.setScalar(0.9 + 0.1 * pop(Math.min(1, a / 0.45)));
+    } };
+  }
   function phaseW(ph, i) { var w = Math.max(0, 1 - Math.abs(ph - i)); return w * w * (3 - 2 * w); }
   function pop(w) { if (w <= 0) return 0; var c = 1.70158, x = w - 1; return 1 + (c + 1) * x * x * x + c * x * x; }   // ease out, a little overshoot
 
@@ -1046,16 +1147,19 @@
       var RG = starRings(ctx); ctx.scene.add(RG.group);
       var LN = lanterns(ctx); ctx.scene.add(LN.group);
       var CD = COURSE.hazards.filter(function (h) { return h.kind === 'topple'; }).map(function (h) { var c = candle(ctx, h); ctx.scene.add(c.group); return c; });
-      var PH = { ph: 0, target: 0, raced: false };
+      var PH = { ph: 0, target: 0, raced: false, card: -1 };
+      var CARD = phaseCard(ctx); ctx.scene.add(CARD.mesh);
       // the dream's phase: the title cycles the three; the race starts in the first, and each lap crossing the line goes on
       ctx.on('start', function () { PH.raced = true; PH.target = 0; });
       ctx.on('lap', function (e) { PH.raced = true; PH.target = Math.max(0, Math.min(2, (e && e.lap ? e.lap : 1) - 1)); });
-      LIVE = { road: R, sky: SKY, clouds: CLOUD, tower: TOWER, day: DAY, deep: DEEP, lucid: LUCID, rings: RG, lanterns: LN, candle: CD, key: key, hemi: hemi, fill: fill, PH: PH, c: [new T0.Color(), new T0.Color(), new T0.Color()] };
+      LIVE = { road: R, sky: SKY, clouds: CLOUD, tower: TOWER, day: DAY, deep: DEEP, lucid: LUCID, rings: RG, lanterns: LN, candle: CD, card: CARD, key: key, hemi: hemi, fill: fill, PH: PH, c: [new T0.Color(), new T0.Color(), new T0.Color()] };
     },
     update: function (ctx, t, dt) {
       if (!LIVE) return;
       var PH = LIVE.PH;
       if (!PH.raced) PH.target = Math.floor(t / 9) % 3;
+      else if (PH.card !== PH.target) { PH.card = PH.target; LIVE.card.show(PH.target, t); }
+      LIVE.card.update(t, ctx.camera);
       var step = Math.min(0.1, dt || 0.016) * 0.38; PH.ph += Math.max(-step, Math.min(step, PH.target - PH.ph));
       var w = [phaseW(PH.ph, 0), phaseW(PH.ph, 1), phaseW(PH.ph, 2)], sum = w[0] + w[1] + w[2] || 1;
       w = w.map(function (v) { return v / sum; });
