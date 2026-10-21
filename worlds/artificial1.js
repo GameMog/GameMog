@@ -534,12 +534,107 @@ function L_strip(ctx, G, side, up, w, color) {
   m.frustumCulled = false; m.userData.gpFurniture = true; m.name = 'a1-neon';
   return m;
 }
+/* LOOK v2, pass 2 (21 Oct): the futuristic city. Neon on the towers (corner lines and a crown band on the tall box towers,
+   in the circuit's neon, one instanced draw call), holographic billboards of the agents round the lap (their tag, number,
+   name and team, flickering like a projection, one draw call), and searchlights sweeping over the main straight (one draw
+   call). The phone tier keeps a third of the tower neon and half the billboards. */
+var L_PAL = ['#19E0FF', '#FF2E9A', '#19E0FF', '#B44DFF', '#FF2E9A', '#FFB020', '#22FF9A'];
+function L_hash(n) { var s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
+function L_towers(ctx) {
+  var T = ctx.THREE, low = ctx.quality === 'low', src = [], m4 = new T.Matrix4(), b = new T.Box3(), v = new T.Vector3();
+  ctx.scene.traverse(function (o) { if (o.isInstancedMesh && /^city-box[123]$/.test(o.name || '')) src.push(o); });
+  var lines = [];
+  src.forEach(function (o, oi) {
+    o.updateWorldMatrix(true, false); if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    for (var i = 0; i < o.count; i++) {
+      o.getMatrixAt(i, m4); b.copy(o.geometry.boundingBox).applyMatrix4(m4).applyMatrix4(o.matrixWorld); b.getSize(v);
+      if (v.y < 60 || v.x > 90 || v.z > 90) continue;
+      var h = L_hash(oi * 1000 + i); if (low && h > 0.33) continue; if (h > 0.8) continue;
+      var c = new T.Color(L_PAL[Math.floor(L_hash(i * 7 + oi) * L_PAL.length)]), y0 = b.min.y, y1 = b.max.y, H = y1 - y0;
+      // two vertical corner lines from a quarter up to the roof, and a crown band just under it
+      lines.push([b.min.x, y0 + H * 0.25 + H * 0.375, b.min.z, 0.45, H * 0.75, 0.45, c]);
+      lines.push([b.max.x, y0 + H * 0.25 + H * 0.375, b.max.z, 0.45, H * 0.75, 0.45, c]);
+      var cy = y1 - Math.min(6, H * 0.06), w = v.x + 0.6, d = v.z + 0.6, cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2;
+      lines.push([cx, cy, b.min.z - 0.3, w, 0.7, 0.4, c], [cx, cy, b.max.z + 0.3, w, 0.7, 0.4, c], [b.min.x - 0.3, cy, cz, 0.4, 0.7, d, c], [b.max.x + 0.3, cy, cz, 0.4, 0.7, d, c]);
+    }
+  });
+  if (!lines.length) return null;
+  var im = new T.InstancedMesh(new T.BoxGeometry(1, 1, 1), new T.MeshBasicMaterial({ color: '#FFFFFF' }), lines.length), o3 = new T.Object3D();
+  lines.forEach(function (l, i) { o3.position.set(l[0], l[1], l[2]); o3.scale.set(l[3], l[4], l[5]); o3.updateMatrix(); im.setMatrixAt(i, o3.matrix); im.setColorAt(i, l[6]); });
+  im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  im.frustumCulled = false; im.userData.gpFurniture = true; im.name = 'a1-tower-neon';
+  return im;
+}
+function L_billboards(ctx, G) {
+  var T = ctx.THREE, tab = G.table, L = tab.L, low = ctx.quality === 'low', ds = (A_ROSTER.drivers || []).slice(0, 8);
+  if (!ds.length) return null;
+  var tex = ctx.textures.canvas(2048, 1024, function (g, W, H) {
+    g.clearRect(0, 0, W, H);
+    ds.forEach(function (d, k) {
+      var x = (k % 4) * 512, y = Math.floor(k / 4) * 512, col = d.upper && d.upper.toUpperCase() !== '#EBEAE6' ? d.upper : '#19E0FF';
+      var gr = g.createLinearGradient(x, y, x, y + 512); gr.addColorStop(0, 'rgba(255,255,255,0.02)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.10)'); gr.addColorStop(1, 'rgba(255,255,255,0.03)');
+      g.fillStyle = gr; g.fillRect(x + 16, y + 16, 480, 480); g.globalAlpha = 0.16; g.fillStyle = col; g.fillRect(x + 16, y + 16, 480, 480); g.globalAlpha = 1;
+      g.strokeStyle = col; g.lineWidth = 10; g.strokeRect(x + 22, y + 22, 468, 468);
+      for (var sl = 0; sl < 480; sl += 6) { g.fillStyle = 'rgba(255,255,255,0.035)'; g.fillRect(x + 16, y + 16 + sl, 480, 2); }
+      g.textAlign = 'center'; g.fillStyle = col;
+      var fit = function (txt, size, maxW) { g.font = '800 ' + size + 'px Oxanium, Arial, sans-serif'; while (g.measureText(txt).width > maxW && size > 20) { size -= 4; g.font = '800 ' + size + 'px Oxanium, Arial, sans-serif'; } };
+      fit(d.tla || '', 190, 420); g.fillText(d.tla || '', x + 256, y + 250);
+      g.fillStyle = '#FFFFFF'; fit('#' + (d.num || ''), 64, 420); g.fillText('#' + (d.num || ''), x + 256, y + 330);
+      fit(String(d.name || '').toUpperCase(), 46, 420); g.fillText(String(d.name || '').toUpperCase(), x + 256, y + 390);
+      g.fillStyle = col; fit('AGENT ONLINE · ' + String(d.team || '').toUpperCase(), 30, 430); g.fillText('AGENT ONLINE · ' + String(d.team || '').toUpperCase(), x + 256, y + 450);
+    });
+  });
+  var n = low ? 6 : 12, pos = [], uv = [], idx = [], wl = {}, S = 18;
+  for (var i = 0; i < n; i++) {
+    var d0 = ((i + 0.37) / n) * L, side = i % 2 ? 1 : -1, W = tab.wallsAt(d0, wl), lat = side * ((side < 0 ? W.left : W.right) + 8);
+    var c = tab.posAt(d0, lat, 13, {}), a = tab.posAt(d0 - S / 2, lat, 13, {}), e = tab.posAt(d0 + S / 2, lat, 13, {});
+    var tx = (e.x - a.x) / S, tz = (e.z - a.z) / S, k = i % ds.length, u0 = (k % 4) / 4, v0 = 1 - (Math.floor(k / 4) + 1) / 2, base = pos.length / 3;
+    // the panel faces the road: its left edge downstream on the left of the road, upstream on the right
+    var sx = side < 0 ? tx : -tx, sz = side < 0 ? tz : -tz;
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (q) { pos.push(c.x + sx * q[0] * S / 2, c.y + q[1] * S / 2, c.z + sz * q[0] * S / 2); uv.push(u0 + (q[0] + 1) / 8, v0 + (q[1] + 1) / 4); });
+    idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  }
+  var geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2)); geo.setIndex(idx);
+  var m = new T.Mesh(geo, new T.MeshBasicMaterial({ map: tex, transparent: true, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide, color: new T.Color('#FFFFFF').multiplyScalar(1.7) }));
+  m.frustumCulled = false; m.userData.gpFurniture = true; m.name = 'a1-holo-billboards';
+  return m;
+}
+function L_beams(ctx, G) {
+  var T = ctx.THREE, tab = G.table, n = ctx.quality === 'low' ? 4 : 8, wl = {};
+  var cone = new T.CylinderGeometry(12, 1.6, 240, 16, 1, true); cone.translate(0, 120, 0);
+  // the fade is baked into vertex colours (additive, so black is clear): bright at the lamp, gone by two-thirds up
+  var cp = cone.attributes.position, cc = [];
+  for (var q = 0; q < cp.count; q++) { var f = Math.max(0, 1 - cp.getY(q) / 170); f = f * f; cc.push(f, f, f); }
+  cone.setAttribute('color', new T.Float32BufferAttribute(cc, 3));
+  var im = new T.InstancedMesh(cone, new T.MeshBasicMaterial({ color: '#FFFFFF', vertexColors: true, transparent: true, opacity: 0.24, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide, fog: false }), n);
+  var bases = [];
+  for (var i = 0; i < n; i++) { var d0 = ((i + 0.15) / n) * tab.L, sd = i % 2 ? 1 : -1, W = tab.wallsAt(d0, wl), p = tab.posAt(d0, sd * ((sd < 0 ? W.left : W.right) + 48), 26, {}); bases.push([p.x, p.y, p.z, i]); im.setColorAt(i, new T.Color(L_PAL[i % L_PAL.length]).multiplyScalar(1.6)); }
+  if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  im.frustumCulled = false; im.userData.gpFurniture = true; im.name = 'a1-searchlights'; im.userData.bases = bases;
+  return im;
+}
+var L_LIVE = null;
+function L_update(ctx, t) {
+  if (!L_LIVE) return;
+  var o3 = L_LIVE.o3;
+  if (L_LIVE.beams) {
+    var im = L_LIVE.beams;
+    im.userData.bases.forEach(function (b, i) { o3.position.set(b[0], b[1], b[2]); o3.rotation.set(0.35 * Math.sin(t * 0.42 + i * 1.3), i * 0.8, 0.5 * Math.sin(t * 0.31 + i * 0.9)); o3.scale.set(1, 1, 1); o3.updateMatrix(); im.setMatrixAt(i, o3.matrix); });
+    im.instanceMatrix.needsUpdate = true;
+  }
+  if (L_LIVE.boards) L_LIVE.boards.material.opacity = 0.78 + 0.1 * Math.sin(t * 9.1) * Math.sin(t * 2.3) + (Math.sin(t * 0.7) > 0.985 ? -0.4 : 0);
+}
 function L_build(ctx, G) {
   var grp = new ctx.THREE.Group(); grp.name = 'a1-look-v2'; grp.userData.gpFurniture = true;
   [[-1, L_NEON.left], [1, L_NEON.right]].forEach(function (s) {
     grp.add(L_strip(ctx, G, s[0], 0.12, 0.16, s[1]));   // at the barrier's foot
     grp.add(L_strip(ctx, G, s[0], 1.13, 0.08, s[1]));   // along its top
   });
+  var tw = L_towers(ctx), bb = L_billboards(ctx, G), be = L_beams(ctx, G);
+  [tw, bb, be].forEach(function (m) { if (m) grp.add(m); });
+  L_LIVE = { o3: new ctx.THREE.Object3D(), beams: be, boards: bb };
+  // a gp world's update() is not called by the race loop, so the sweep runs when the beams are drawn (once per frame)
+  if (be) { var lastF = -1; be.onBeforeRender = function (r) { var f = r.info.render.frame; if (f === lastF) return; lastF = f; try { L_update(ctx, performance.now() / 1000); } catch (e) { be.onBeforeRender = function () {}; } }; }
   ctx.scene.add(grp);
   return grp;
 }
@@ -714,5 +809,5 @@ GameMog.world({
     try { L_build(ctx, ctx.gp); } catch (e) { try { console.warn('[look v2] ' + e.message); } catch (x) {} }
     try { AG = A_install(ctx, { lit: SC && SC.lit }); window.__A_AG = AG; } catch (e) { try { console.warn('[agents] install failed: ' + e.message + ' ' + String(e.stack || '').split('\n').slice(0, 3).join(' | ')); window.__A_FAIL = String(e.stack || e); } catch (x) { /* */ } }
   },
-  update(ctx, t, dt) { S_update(ctx, t, dt); },
+  update(ctx, t, dt) { S_update(ctx, t, dt); try { L_update(ctx, t); } catch (e) { L_LIVE = null; } },
 });

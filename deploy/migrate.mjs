@@ -821,6 +821,28 @@ export const MIGRATIONS = [
       return `updated (${hash ? 'test codeHash ' + hash : 'no test record'})`;
     },
   },
+  {
+    // Artificial1 look pass 2: the futuristic city (neon up the towers, holographic agent billboards, searchlights over the stands)
+    id: '2026-10-21-artificial1-city',
+    run(db) {
+      const code = file('artificial1-v3.js');
+      if (!code) throw new Error('deploy/migrations/artificial1-v3.js is not in this build');
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'artificial1'").get();
+      if (!g) return 'no such game';
+      const next = code.toString('utf8'), sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
+      // the code 2026-10-21-artificial1-look put live (sha256 of its text, without the blank lines at either end)
+      const WAS = '449cefe320a85dd382832df6033c8e14e79776bb13ece12d2abb347978c2f142';
+      if (g.code === next) return 'already there';
+      if (sha(String(g.code ?? '').trim()) !== WAS) return 'left alone: its code has changed since look pass 1';
+      let meta = g.meta, hash = '';
+      try {
+        const m = JSON.parse(g.meta ?? 'null');
+        if (m && m.test && typeof m.test === 'object') { hash = sha(next).slice(0, 16); m.test = { ...m.test, codeHash: hash }; meta = JSON.stringify(m); }
+      } catch { meta = g.meta; }
+      db.prepare('UPDATE games SET code = ?, meta = ? WHERE id = ?').run(next, meta, g.id);
+      return `updated (${hash ? 'test codeHash ' + hash : 'no test record'})`;
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
