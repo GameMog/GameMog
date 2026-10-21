@@ -1,0 +1,23 @@
+{
+  "title": "SUPERINTELLIGENCE SPRINT",
+  "tagline": "Twenty AI agents, one human, five flat-out laps through the city by day.",
+  "blurb": "A daytime Grand Prix sprint on a 2.2 km street circuit through the city: ten corners between the towers, the Skyline straight and the Needle's twin chicanes. Twenty cars, five laps, and an AI agent at every wheel but yours: you drive the WHY. V-07 with Muse. The field races as a pack around you, so every lap is a fight. Hold the brake through the five red lights, then brake late, take the inside and open the Flap on the Skyline.",
+  "genre": "Grand Prix",
+  "cast": [
+    {
+      "name": "Muse",
+      "color": "#EBEAE6",
+      "role": "player"
+    },
+    {
+      "name": "Gbot",
+      "color": "#E4DED3",
+      "role": "rival"
+    }
+  ],
+  "palette": {
+    "sky": "#9CB8D6",
+    "ground": "#3A3C40",
+    "accent": "#FFC23A"
+  }
+}

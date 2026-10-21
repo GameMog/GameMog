@@ -13,7 +13,7 @@ import { randomBytes } from 'node:crypto';
 import { db, getGameById, getPlayableGameById, type GameRow } from './db';
 import { isBot } from './analytics';
 import { COOKIE, validSession } from '../app/admin/session';
-import { worldMode, canMog, gpLaps, GP_MIN_LAP_MS } from './custom-game';
+import { worldMode, canMog, gpLaps, gpMinLapMs } from './custom-game';
 import { optionsOf } from './world-options';
 import { dna } from './mog-dna';
 import { KartScore, kartConstants, checkKartRun, raceClock, ordinal, type KartConstants } from './kart-score';
@@ -109,7 +109,7 @@ export function checkRun(game: GameLike, input: unknown): { ok: true; run: DareR
     const place = Number(b.place) || 0;
     // (only a race run to the flag counts: a car classified without finishing, or short of the world's own laps, is not a time)
     if (b.classified === true || level !== gpLaps(game.code)) return no('Only a finished race counts.');
-    if (!Number.isInteger(level) || level < 1 || level > 5 || !Number.isInteger(place) || place < 1 || place > 20 || timeMs < level * GP_MIN_LAP_MS || timeMs > 60 * 60 * 1000) {
+    if (!Number.isInteger(level) || level < 1 || level > 5 || !Number.isInteger(place) || place < 1 || place > 20 || timeMs < level * gpMinLapMs(game.code) || timeMs > 60 * 60 * 1000) {
       return no('Result outside plausible range');
     }
     return { ok: true, run: { ...base, timeMs: Math.round(timeMs), place, gm: 0, level, kos: 0 } };

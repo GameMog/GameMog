@@ -160,6 +160,37 @@ export const SHOOTOUT_CONTROLS = 'Space or a click: tap to run up (tap faster fo
 // (18 Oct) the shortest lap a Grand Prix's race can plausibly be run in, for the scores route and the dares: the circuit's
 // 5.36 km in 50 s is a 386 km/h average, past anything its cars do (the AI laps it in about 1:29)
 export const GP_MIN_LAP_MS = 50_000;
+/**
+ * (21 Oct, Superintelligence Sprint: a 2.3 km lap) the shortest plausible lap of this world's own circuit: its length at
+ * 107 m/s (385 km/h, ARTIFICIAL1.'s 50 s floor over its 5.36 km), from the lap the runtime itself builds (gpLapMetres);
+ * GP_MIN_LAP_MS when it cannot be built here
+ */
+export function gpMinLapMs(code?: string | null) {
+  const L = gpLapMetres(code);
+  return L ? Math.round(L / 107 * 1000) : GP_MIN_LAP_MS;
+}
+const LAP_M = new Map<string, number | null>();
+/** The length of a Grand Prix's lap in metres, as lib/runtime/gp-track.js builds it (the static check's own way), or null. */
+export function gpLapMetres(code?: string | null): number | null {
+  if (!code) return null;
+  if (LAP_M.has(code)) return LAP_M.get(code)!;
+  let L: number | null = null;
+  try {
+    const m = /\bGameMog\s*\.\s*world\s*\(\s*\{/.exec(code), fn = gpTrackFn();
+    if (m && fn) {
+      const { bare } = maskCode(code), tr = entriesOf(bare, code, m.index + m[0].length).entries.get('track');
+      const trText = tr && tr.colon ? bare.slice(tr.s, tr.e) : '', lead = trText.length - trText.trimStart().length;
+      if (tr && /^\s*\{/.test(trText) && plainLiteral(bare, code, tr.s, tr.e)) {
+        const value = runInNewContext(`(${code.slice(tr.s + lead, tr.s + trText.lastIndexOf('}') + 1)})`, Object.create(null), { timeout: 500 });
+        const t = runInNewContext('fn(value, null, null)', { fn, value }, { timeout: 1500 }) as { L?: number } | null;
+        L = t && typeof t.L === 'number' && isFinite(t.L) ? t.L : null;
+      }
+    }
+  } catch { L = null; }
+  if (LAP_M.size > 64) LAP_M.clear();
+  LAP_M.set(code, L);
+  return L;
+}
 // (18 Oct) the laps a Grand Prix races, as its own gp: { laps: N } says (1 to 5, three when it names none): a time is only
 // a time over all of them
 export function gpLaps(code?: string | null) {
