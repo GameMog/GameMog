@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CharacterImage } from './character';
-import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, worldControls, isOpenWorld, isShootoutWorld, isGpWorld, shootoutDenied, worldMode, type WorldMeta } from './custom-game';
+import { parseGameResponse, staticCheckWorld, WorldMetaSchema, WORLD_CONTROLS, worldControls, isOpenWorld, isShootoutWorld, isGpWorld, shootoutDenied, gpDenied, gpDeniedSaid, worldMode, type WorldMeta } from './custom-game';
 import { playtestWorld, type WorldReport } from './playtest-runtime';
 import { drivesInBrowser, waitForDrive, codeHash, testStatus } from './test-drive';
 import { lookAdvisories, pickPass, type Pass } from './look';
@@ -51,15 +51,22 @@ const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8')
  * refused). Every other build reads the manual it read before the chapter came, byte for byte.
  */
 const SHOOT_CHAPTER = '## Penalty shootouts\n';
-function manual(shootout: boolean) {
-  const api = read('lib', 'runtime', 'API.md'), i = api.indexOf(SHOOT_CHAPTER);
-  if (shootout || i < 0) return api;
-  const j = api.indexOf('\n## ', i + SHOOT_CHAPTER.length);
-  return j < 0 ? api.slice(0, i) : api.slice(0, i) + api.slice(j + 1);
+/** The builder's manual: the "Penalty shootouts" chapter only for a Mog of one, and the "Grand Prix" chapter only for a Mog of a Grand Prix (21 Oct). */
+function manual(kind?: 'shootout' | 'gp') {
+  let api = read('lib', 'runtime', 'API.md');
+  for (const [chapter, k] of [[SHOOT_CHAPTER, 'shootout'], [GP_CHAPTER, 'gp']] as const) {
+    const i = api.indexOf(chapter);
+    if (kind === k || i < 0) continue;
+    const j = api.indexOf('\n## ', i + chapter.length);
+    api = j < 0 ? api.slice(0, i) : api.slice(0, i) + api.slice(j + 1);
+  }
+  return api;
 }
+const GP_CHAPTER = '## Grand Prix\n';
+const GP_RULE = ' A Grand Prix (gp: {...}, only ever a Mog of one) plays by the "Grand Prix" section instead: the runtime races it (the cars, the AI agents, the lights, the laps, the cameras, the HUD and the sound); you build the place, the cast and how it all looks.';
 const SHOOT_RULE = ' A penalty shootout (shootout: {...}, only ever a Mog of one) plays by the "Penalty shootouts" section instead: the runtime directs it (the kick, the keeper, the camera, the HUD and the sound); you build the stadium and how the people look.';
 
-export function system(shootout = false) {
+export function system(kind?: 'shootout' | 'gp') {
   return `You design and build worlds for GameMog, a platform where people describe a world and get a playable 3D game at a link. Every GameMog game runs on the GameMog Runtime, which owns the rules; you write the world module, which owns everything else.
 
 Make the world the creator asked for, native to its characters: its own place, its own creatures, its own obstacles, its own light and sound. Two worlds on GameMog should never feel like reskins of each other.
@@ -78,9 +85,9 @@ Build in code only what the library has no kit for (a creature, a landmark, a pr
 
 If the creator names characters from an existing franchise, make your own original take on them (shape, colour, personality) rather than reproducing official artwork, logos or catchphrases. If an image is attached, it is the player's character: match its shape, colours and personality as closely as the kits and your modelling allow.
 
-The runtime's rules are fixed. Every world is 3D, seen through the runtime's chase camera, with golden GM and the runtime's controls. A lap world (the default) has endless laps, one rival at the start and one more joining each lap, every lap faster, and death by touch. An open world (when the creator's options turn it on) plays by the "Open worlds" section instead: no laps, no track, crews that come as the heat rises, and a run that ends with a knockout.${shootout ? SHOOT_RULE : ''} If the creator asks for something the rules do not allow (a 2D or top-down game, a final lap, shooting in a lap world, a different control scheme), build the closest 3D world that fits the rules and put the idea into the world itself.
+The runtime's rules are fixed. Every world is 3D, seen through the runtime's chase camera, with golden GM and the runtime's controls. A lap world (the default) has endless laps, one rival at the start and one more joining each lap, every lap faster, and death by touch. An open world (when the creator's options turn it on) plays by the "Open worlds" section instead: no laps, no track, crews that come as the heat rises, and a run that ends with a knockout.${kind === 'shootout' ? SHOOT_RULE : kind === 'gp' ? GP_RULE : ''} If the creator asks for something the rules do not allow (a 2D or top-down game, a final lap, shooting in a lap world, a different control scheme), build the closest 3D world that fits the rules and put the idea into the world itself.
 
-${manual(shootout)}
+${manual(kind)}
 
 ## Worked example
 
@@ -134,6 +141,8 @@ export function longMogParent(code: string | null | undefined): { kb: number; co
 }
 /** Whether a Mog's original is a penalty shootout (a world whose code, or stored mode, says so). */
 export const shootoutParent = (mog?: MogInput) => !!mog && mog.parent.format === 'world' && worldMode(mog.parent.code, mog.parent.meta) === 'shootout';
+/** Whether a Mog's original is a Grand Prix (21 Oct: a Grand Prix is made only as a Mog of one). */
+export const gpParent = (mog?: MogInput) => !!mog && mog.parent.format === 'world' && worldMode(mog.parent.code, mog.parent.meta) === 'gp';
 /**
  * A penalty shootout's kind line (13 Oct, SHOOTOUT Mogs): it stays one whatever the idea says ("a North London derby"
  * is the match's name, not a car arena), and its idea is carried out in the world, the only side a Mog changes.
@@ -143,6 +152,13 @@ export const SHOOTOUT_KIND = 'It stays a penalty shootout (shootout: {...}, as t
 const SHOOT_NOTE = /^On a phone \(ctx\.quality 'low'\) the shootout drew up to /;
 /** How long a shootout's test drive in the creator's browser is waited for (13 Oct): its drive (200 s) and its phone load (100 s), loads included. */
 const SHOOT_DRIVE_MS = 330_000;
+/**
+ * A Grand Prix's kind line (21 Oct, ARTIFICIAL1. Mogs): it stays one whatever the idea says, and the idea is carried out
+ * in what the world owns: the place, the cast, the liveries, the words and the look.
+ */
+export const GP_KIND = 'It stays a Grand Prix (gp: {...}, as the "Grand Prix" section has it): whatever the idea says, the cars\' driving, the AI agents\' racing, the start lights, the laps, the cameras, the HUD and the sound are the runtime\'s. Carry the idea out in what the world owns: its place and scenery, the cast (gp.drivers and gp.teams: names, codes, colours, voices and radio lines), the liveries, the words (title, intro, corners, Flap zones), the light, the grade and the neon.';
+/** What the builder is told of the platform's options for a Mog of a Grand Prix, in place of optionsBrief (lib/world-options.ts). */
+export const GP_BRIEF = '## The platform\'s options for a Grand Prix (the runtime enforces these)\n\n- Obstacles, GM and music: none. A Grand Prix has no obstacles, no GM and no music: its engines and its crowd are its sound (the runtime\'s). Do not compose or synthesise music (no music, no ambient() score).';
 /** What the builder is told of the platform's options for a Mog of a penalty shootout, in place of optionsBrief (lib/world-options.ts). */
 export const SHOOTOUT_BRIEF = '## The platform\'s options for a penalty shootout (the runtime enforces these)\n\n- Obstacles, GM and music: none. A shootout has no obstacles, no GM and no music: the crowd is its sound (the runtime\'s recorded crowd, audio-crowd-shootout). Keep the original\'s play: { coins: false }, and do not compose or synthesise music or crowd noise (no music, no ambient()).';
 
@@ -159,8 +175,8 @@ export function mogTurn(m: MogInput): string {
   const long = p.format === 'world' ? longMogParent(p.code) : null;
   const asked = askedKind(m.instruction);
   // (a penalty shootout, 13 Oct: a Mog of one stays one whatever its idea says, and nothing else becomes one)
-  const kind = !d ? '' : d.kind === 'shootout' ? SHOOTOUT_KIND
-    : asked && asked !== d.kind && d.kind !== 'race' && asked !== 'race' && asked !== 'shootout'
+  const kind = !d ? '' : d.kind === 'shootout' ? SHOOTOUT_KIND : d.kind === 'gp' ? GP_KIND
+    : asked && asked !== d.kind && d.kind !== 'race' && asked !== 'race' && asked !== 'shootout' && asked !== 'gp'
       ? `The idea asks for ${KIND_SAID[asked]}: make it one, and keep the rest.`
       : `It stays ${KIND_SAID[d.kind]}: the idea does not ask for another kind of game.`;
   return `This is a Mog: a challenger wants to beat an existing GameMog game with a better variation of it. Players will play both and pick the better one.
@@ -206,7 +222,7 @@ Your repair is checked and test-driven again, and it ships only if it keeps more
 function firstTurn(prompt: string, image?: CharacterImage, mog?: MogInput, options: WorldOptions = DEFAULT_OPTIONS): Anthropic.Beta.BetaContentBlockParam[] {
   const parts: Anthropic.Beta.BetaContentBlockParam[] = [];
   // (a penalty shootout's Mog hears of no obstacles each lap and no music: it has neither)
-  if (mog) { parts.push({ type: 'text', text: mogTurn(mog) + '\n\n' + (shootoutParent(mog) ? SHOOTOUT_BRIEF : optionsBrief(options)) }); return parts; }
+  if (mog) { parts.push({ type: 'text', text: mogTurn(mog) + '\n\n' + (shootoutParent(mog) ? SHOOTOUT_BRIEF : gpParent(mog) ? GP_BRIEF : optionsBrief(options)) }); return parts; }
   if (image) {
     parts.push({ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } });
     parts.push({ type: 'text', text: 'The image above is the player character.' });
@@ -235,9 +251,10 @@ function notesTurn(mog: boolean) {
  * build route sends them: the crowd is its sound.)
  */
 export function storedMeta(meta: WorldMeta, code: string, options: WorldOptions = DEFAULT_OPTIONS) {
-  const openWorld = isOpenWorld(code), mode = worldMode(code), kart = mode === 'kart', shootout = mode === 'shootout';
+  const openWorld = isOpenWorld(code), mode = worldMode(code), kart = mode === 'kart', shootout = mode === 'shootout', gp = mode === 'gp';
   const { soundtrack: _s, ...quiet } = options;
-  return { ...meta, mode, controls: openWorld || kart || shootout ? worldControls(code) : WORLD_CONTROLS, scoring: kart ? 'place' : shootout ? 'score' : openWorld ? 'survival' : 'level', runtime: RUNTIME_VERSION, options: shootout ? { ...quiet, hazards: 'same' as const, music: null, open: false } : { ...options, open: openWorld } };
+  // (a Grand Prix, 21 Oct: its own controls, ranked by its race time, and no obstacles or music, as a shootout's)
+  return { ...meta, mode, controls: openWorld || kart || shootout || gp ? worldControls(code) : WORLD_CONTROLS, scoring: kart ? 'place' : shootout ? 'score' : gp ? 'time' : openWorld ? 'survival' : 'level', runtime: RUNTIME_VERSION, options: shootout || gp ? { ...quiet, hazards: 'same' as const, music: null, open: false } : { ...options, open: openWorld } };
 }
 
 /**
@@ -257,12 +274,19 @@ export function shootoutKindProblems(meta: WorldMeta | undefined, code: string, 
 }
 
 /**
- * A Grand Prix is not made by a build yet (ARTIFICIAL1, 14 Oct: its test drive, dares, key art and scores come with M3):
- * a Create or a Mog that writes gp: { ... } among GameMog.world's own keys is sent back for the nearest other kind. Open
- * it in M3 together with the Grand Prix test drive: delete this rule.
+ * What a pass gets wrong of a Grand Prix's kind (21 Oct, ARTIFICIAL1. Mogs; as a penalty shootout's, 13 Oct): a Grand
+ * Prix is made only as a Mog of one, and a Mog of one stays one, whatever its idea says. A Create, or a Mog of another
+ * kind, that writes gp: { ... } is sent back for the nearest other kind; a Mog of a Grand Prix that is not one is sent
+ * back to write it as its original does. The race's words are staticCheckWorld's (GP4); its title, tagline, blurb and
+ * cast are read here the same way.
  */
-export function gpKindProblems(code: string): string[] {
-  return isGpWorld(code) ? ['A Grand Prix (gp: { ... }) is not made by a build yet; build the closest world of the other kinds instead (a lap race or a kart race).'] : [];
+export function gpKindProblems(code: string, mog?: MogInput, meta?: WorldMeta): string[] {
+  const is = isGpWorld(code), parent = gpParent(mog), out: string[] = [];
+  if (is && !parent) out.push('A Grand Prix (gp: { ... }) is only made as a Mog of one; build the closest world of the other kinds instead (a lap race or a kart race).');
+  if (parent && !is) out.push('This is a Mog of a Grand Prix, and it stays one: write gp: { ... } inline among GameMog.world\'s own keys, as the original does, and follow the "Grand Prix" section.');
+  const w = is && meta ? gpDenied([meta.title, meta.tagline, meta.blurb, meta.genre, ...meta.cast.map((c) => c.name)].join('\n')) : null;
+  if (w) out.push(gpDeniedSaid(w));
+  return out;
 }
 
 /**
@@ -280,7 +304,7 @@ export async function generateGame(
   const stopped = () => !!input.signal?.aborted;
   const started = Date.now();
   const client = new Anthropic();
-  const SYSTEM = system(shootoutParent(input.mog));
+  const SYSTEM = system(shootoutParent(input.mog) ? 'shootout' : gpParent(input.mog) ? 'gp' : undefined);
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: firstTurn(input.prompt, input.image, input.mog, input.options) }];
   const draftId = randomUUID();
   let lastProblems: string[] = [];
@@ -372,7 +396,7 @@ export async function generateGame(
     if (final.stop_reason === 'max_tokens') problems.push(input.mog && longMogParent(input.mog.parent.code)
       ? 'The reply was cut off at the length limit. Write the complete world again within it: leave out every comment and shorten repeated code (a loop over a table in place of lines written out), keeping all of the original\'s scenery and everything a player sees.'
       : 'The reply was cut off at the length limit. Write a more compact world module that still does everything.');
-    if (code) problems.push(...staticCheckWorld(code), ...shootoutKindProblems(meta, code, input.mog), ...gpKindProblems(code));
+    if (code) problems.push(...staticCheckWorld(code), ...shootoutKindProblems(meta, code, input.mog), ...gpKindProblems(code, input.mog, meta));
     // a Mog's pass next to its parent: what it dropped that the idea does not ask for
     const verdict = parentDna && code ? compareDna(parentDna, code, input.mog!.instruction) : undefined;
 

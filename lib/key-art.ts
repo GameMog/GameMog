@@ -139,15 +139,20 @@ export const SHOOT_ART_Z = -48.5;
  * time for the last metres, waits for the straight and leaves the frame ready (gpArtSpot), then shoots it (captureGpKeyArt).
  * A race over before the straight is reached leaves the frame as it is.
  */
-export const GP_ART_D = 5300;
+export const GP_ART_D = 5300, GP_ART_BACK = 62;
 export async function gpArtSpot(page: Page): Promise<boolean> {
   const dist = () => page.eval<number | null>(`(() => { const g = window.__gmRuntime.state().gp, c = g && g.cars && g.cars[g.you]; return c ? c.d : null; })()`).catch(() => null);
+  // (21 Oct, its Mogs: the spot is the lap's own, GP_ART_BACK before the line, so a Mog's circuit gets its straight too)
+  const L = await page.eval<number | null>('(() => { const g = window.__gmRuntime.state().gp; return g && g.L ? +g.L : null; })()').catch(() => null);
+  const at = L ? Math.max(0, L - GP_ART_BACK) : GP_ART_D;
   await page.eval('window.__gmRuntime.debug.timeScale(1)');
   let d = await dist();
-  for (let i = 0; i < 150 && d !== null && d < GP_ART_D; i++) { await sleep(60); d = await dist(); }
+  for (let i = 0; i < 150 && d !== null && d < at; i++) { await sleep(60); d = await dist(); }
+  // (the car in the picture, 21 Oct: the chase camera, whatever view the race starts in)
+  await page.eval("window.__gmRuntime.debug.gp().cam('chase')").catch(() => undefined);
   await page.eval('window.__gmRuntime.debug.cinematic(true)');
   await sleep(450);
-  return d !== null && d >= GP_ART_D - 40;
+  return d !== null && d >= at - 40;
 }
 export async function captureGpKeyArt(page: Page): Promise<WorldKeyArt> {
   try { return await titled(page); }

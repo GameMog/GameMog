@@ -139,7 +139,8 @@ export async function POST(req: Request) {
           if (parent) options.open = parent.format === 'world' && !!parent.code && isOpenWorld(parent.code);
           // a Mog of a penalty shootout (13 Oct) has no obstacles to add or clear and no music, whatever the page sent: the
           // crowd is its sound (the shootout's recorded crowd), and no track or score is laid over it
-          if (parent && parent.format === 'world' && worldMode(parent.code, parent.meta) === 'shootout') {
+          // (and a Grand Prix's, 21 Oct: its engines and its crowd are its sound)
+          if (parent && parent.format === 'world' && (worldMode(parent.code, parent.meta) === 'shootout' || worldMode(parent.code, parent.meta) === 'gp')) {
             options.hazards = 'same'; options.music = null; delete options.soundtrack;
           }
           await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options, signal: stop.signal, usage }, (e) => {

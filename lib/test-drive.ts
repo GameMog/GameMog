@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { chromePath } from './browser';
-import { shootVerdict, readLens, readPhone, type WorldReport, type TestStatus, type KartDrive, type ShootDrive } from './playtest-runtime';
+import { shootVerdict, gpVerdict, readLens, readPhone, type WorldReport, type TestStatus, type KartDrive, type ShootDrive, type GpDrive } from './playtest-runtime';
 import { lookScore, lookAdvisories, isLook, type Look } from './look';
 import { readSoundtrack } from './world-options';
 
@@ -87,6 +87,15 @@ function kartOf(v: unknown): KartDrive {
     scale: num(o.scale, 1, 8), cut: o.cut === true };
 }
 
+/** A Grand Prix's drive as the creator's browser reported it (lib/runtime/drive.js gpDrive), bounded. */
+function gpOf(v: unknown): GpDrive {
+  const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>, parts: Record<string, boolean> = {};
+  const word = (x: unknown) => typeof x === 'string' && /^[a-z][a-z0-9-]{0,23}$/i.test(x) ? x : null;
+  if (o.parts && typeof o.parts === 'object' && !Array.isArray(o.parts)) for (const [k, x] of Object.entries(o.parts as Record<string, unknown>).slice(0, 24)) { const a = word(k); if (a) parts[a] = x === true; }
+  return { laps: num(o.laps, 0, 99) ?? 0, results: num(o.results, 0, 99) ?? 0, won: o.won === true, place: num(o.place, 1, 99), timeMs: num(o.timeMs, 0, 3_600_000),
+    replayEqual: typeof o.replayEqual === 'boolean' ? o.replayEqual : null, parts, maxStuck: Number.isFinite(+(o.maxStuck as number)) ? Math.max(0, Math.min(9999, Math.round(+(o.maxStuck as number) * 10) / 10)) : 0,
+    calls: num(o.calls, 0, 100_000), tris: num(o.tris, 0, 100_000_000), fps: num(o.fps, 0, 500), cut: o.cut === true };
+}
 /** A penalty shootout's count from the drive (lib/runtime/drive.js shootDrive), each field read for what it must be: it is stored with the draft. */
 function shootOf(v: unknown): ShootDrive {
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
@@ -111,6 +120,8 @@ export function judge(raw: Record<string, unknown>, images: { cover?: unknown; c
   if (!raw.ready && raw.kind === 'kart' && !errors.length) return { ...SKIPPED, errors, advisories: ['The kart race took longer than a minute to load in this browser, so the test drive did not judge it.'] };
   // (a penalty shootout likewise, 13 Oct: about 28 MB of people, sky and crowd down the creator's line)
   if (!raw.ready && raw.kind === 'shootout' && !errors.length) return { ...SKIPPED, errors, advisories: ['The penalty shootout took longer than a minute to load in this browser, so the test drive did not judge it.'] };
+  // (a Grand Prix likewise, 21 Oct: its twenty cars, agents and night city down the creator's line)
+  if (!raw.ready && raw.kind === 'gp' && !errors.length) return { ...SKIPPED, errors, advisories: ['The Grand Prix took longer than a minute to load in this browser, so the test drive did not judge it.'] };
   if (!raw.ready) {
     problems.push('The world never finished loading.' + (errors.length ? ' Errors: ' + errors.join(' | ') : ' GameMog.world() may never have been called.'));
     return { ...SKIPPED, ok: false, ran: true, errors, problems };
@@ -143,6 +154,15 @@ export function judge(raw: Record<string, unknown>, images: { cover?: unknown; c
     const so: ShootDrive = { ...shootOf(raw.shootout), ...('phone' in raw ? { phone: readPhone(raw.phone) } : {}) }, v = shootVerdict(so, { errors, fps, fpsCounts, timed, cover, look });
     return { ok: v.problems.length === 0, ran: v.judged || v.problems.length > 0, readyMs, fps, errors, problems: v.problems, advisories: [...advisories, ...v.advisories],
       levelReached: so.kicks, cover, artIcon, artWide, look, kind: 'shootout', shootout: so };
+  }
+  // a Grand Prix (21 Oct, its Mogs): lap one of the race to its result, judged by the server's own rules and words
+  // (lib/playtest-runtime.ts gpVerdict, one function for both drives); a hidden tab or a drive out of its time with
+  // nothing found is unverified
+  if (raw.kind === 'gp') {
+    if (look) advisories.push(...lookAdvisories(look));
+    const gd = gpOf(raw.gp), v = gpVerdict(gd, { errors, fps, cover, art: !!artWide, timed, fpsCounts });
+    return { ok: v.problems.length === 0, ran: v.judged, readyMs, fps, errors, problems: v.problems, advisories: [...advisories, ...v.advisories],
+      levelReached: gd.laps, cover, artIcon, artWide, look, kind: 'gp', gp: gd };
   }
   if (look) advisories.push(...lookAdvisories(look));
   for (const e of errors) problems.push(`Runtime error: ${e}`);

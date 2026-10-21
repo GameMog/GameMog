@@ -174,13 +174,18 @@ console.log('\nworlds are 3D: the camera is the runtime\'s');
     ok('a world without them carries none of the nature helpers, a world that calls them does', !/GameMogNature|@nature/.test(plain) && !/GameMogNature|@nature/.test(kart) && withN.includes('var GameMogNature') && withN.includes('ctx.lava = NAT.lava') && !withN.includes('/*@nature*/'));
     ok('the helpers are asked for by the call, and no first-party world asks', cg.usesNature('build(ctx) { ctx.scenery.add(ctx.ranges({ radius: 600 })); }') && cg.usesNature('const m = ctx.lava({ bank: true });') && readdirSync('worlds').filter((f) => f.endsWith('.js')).every((f) => !cg.usesNature(readFileSync(`worlds/${f}`, 'utf8'))));
   }
-  // a Grand Prix (14-18 Oct, ARTIFICIAL1.; docs/RULES.md 1f): a sixth kind of world with static rules of its own, never made by a
-  // Create or Mog build and never moggable, ranked by its race time
+  // a Grand Prix (14-18 Oct, ARTIFICIAL1.; docs/RULES.md 1f): a sixth kind of world with static rules of its own, ranked by its
+  // race time; made only as a Mog of one, and a Mog of one stays one (21 Oct)
   {
     const cg = await import('../lib/custom-game.ts'), gen = await import('../lib/generate-game.ts');
     const gp = readFileSync('worlds/artificial1.js', 'utf8'), kart = readFileSync('worlds/aspen-gp.js', 'utf8');
     ok('a world naming gp: { ... } among its own keys is a Grand Prix, and no other first-party world is', cg.isGpWorld(gp) && cg.worldMode(gp) === 'gp' && !cg.isGpWorld(kart) && !cg.isGpWorld(ref));
-    ok('a Grand Prix is never moggable, and a Create or Mog build that writes one is sent back', !cg.canMog({ format: 'world', code: gp, meta: '{"mode":"gp"}' }) && gen.gpKindProblems(gp).length === 1 && gen.gpKindProblems(kart).length === 0);
+    const mogOf = (code: string) => ({ parent: { format: 'world', code, meta: null }, instruction: 'gold liveries' }) as unknown as Parameters<typeof gen.gpKindProblems>[1];
+    ok('a Grand Prix can be mogged, but is made only as a Mog of one: a Create or a Mog of another kind that writes one is sent back, and a Mog of one that is not one is sent back',
+      cg.canMog({ format: 'world', code: gp, meta: '{"mode":"gp"}' }) && gen.gpKindProblems(gp).length === 1 && gen.gpKindProblems(kart).length === 0
+        && gen.gpKindProblems(gp, mogOf(gp)).length === 0 && gen.gpKindProblems(gp, mogOf(kart)).length === 1 && gen.gpKindProblems(kart, mogOf(gp)).length === 1);
+    ok('the Grand Prix\'s place is a runtime map its gp.map asks for, served ahead of the world (lib/runtime/maps/port-artificial.js), and its module fits a Mog\'s reply',
+      /\bmap\s*:\s*'port-artificial'/.test(gp) && readdirSync('lib/runtime/maps').includes('port-artificial.js') && cg.renderWorldGame(gp, { title: 'A', tagline: 'b' }, 'x').includes('function A_install(') && gp.length < 120_000);
     ok('a Grand Prix never names a real racing series, its body or its marks (GP4), and its own words pass', ['Formula 1', 'F1 ', 'the FIA', 'DRS zone'].every((w) => cg.gpDenied(w) !== null) && cg.gpDenied('the Flap on the harbour straight') === null);
     ok('a Grand Prix that sits beside another kind of world is refused (GP2)', cg.staticCheckWorld(gp.replace('GameMog.world({', 'GameMog.world({\n  kart: { laps: 3 },')).some((p) => /one kind/.test(p)));
     ok('a Grand Prix reads its laps from its own gp: { laps } and bounds a plausible lap (the board and the dares)', cg.gpLaps(gp) === 3 && cg.gpLaps('GameMog.world({ gp: { laps: 2 } })') === 2 && cg.GP_MIN_LAP_MS === 50_000);
@@ -481,10 +486,14 @@ console.log('\na Mog keeps its parent: the DNA check, on real worlds');
   // (13 Oct review) the shootout chapter is read only by a Mog of a shootout: every other build reads the manual it read
   // before, and a Create cannot be steered into writing a shootout the static check then refuses
   const { system } = await import('../lib/generate-game.ts');
-  const sysPlain = system(false), sysShoot = system(true), api = R('lib/runtime/API.md'), at = api.indexOf('## Penalty shootouts\n'), next = api.indexOf('\n## ', at + 5);
-  ok('the builder\'s manual: a shootout Mog reads the "Penalty shootouts" chapter and its rule; every other build reads the manual without them, every other chapter whole',
-    at > 0 && next > at && sysShoot.includes(api) && sysShoot.includes('plays by the "Penalty shootouts" section instead') && !sysPlain.includes('## Penalty shootouts') && !sysPlain.includes('Penalty shootouts" section')
-      && sysPlain.includes(api.slice(0, at) + api.slice(next + 1)) && sysShoot.length - sysPlain.length > 15_000, `${sysPlain.length} / ${sysShoot.length}`);
+  // (21 Oct) and the Grand Prix chapter likewise, only by a Mog of a Grand Prix
+  const sysPlain = system(), sysShoot = system('shootout'), sysGp = system('gp'), api = R('lib/runtime/API.md');
+  const cut = (text: string, head: string) => { const a = text.indexOf(head), b = text.indexOf('\n## ', a + 5); return a < 0 || b < 0 ? text : text.slice(0, a) + text.slice(b + 1); };
+  const at = api.indexOf('## Penalty shootouts\n'), gpAt = api.indexOf('## Grand Prix\n');
+  ok('the builder\'s manual: a shootout Mog reads the "Penalty shootouts" chapter and its rule, a Grand Prix Mog the "Grand Prix" chapter and its rule; every other build reads the manual without them, every other chapter whole',
+    at > 0 && gpAt > 0 && sysShoot.includes(cut(api, '## Grand Prix\n')) && sysShoot.includes('plays by the "Penalty shootouts" section instead') && !sysPlain.includes('## Penalty shootouts') && !sysPlain.includes('Penalty shootouts" section')
+      && sysGp.includes(cut(api, '## Penalty shootouts\n')) && sysGp.includes('plays by the "Grand Prix" section instead') && !sysPlain.includes('## Grand Prix') && !sysShoot.includes('## Grand Prix') && !sysGp.includes('## Penalty shootouts')
+      && sysPlain.includes(cut(cut(api, '## Penalty shootouts\n'), '## Grand Prix\n')) && sysShoot.length - sysPlain.length > 15_000, `${sysPlain.length} / ${sysShoot.length} / ${sysGp.length}`);
   // (13 Oct review) the real-names list: the famous shootout names, sponsors and the Olympics refused anywhere; the players'
   // names that are everyday words (neuer, pele, salah) only where they name someone, never on a board meaning the word
   const { shootoutDenied, staticCheckWorld: staticCheck } = await import('../lib/custom-game.ts');

@@ -51,6 +51,11 @@ export type Dna = {
   kart: { laps: number | null; class: string | null; roster: string[]; items: string[]; itemsOn: boolean } | null;
   /** a penalty shootout's own (shootout: {...}; null for every other kind) */
   shootout: ShootDna | null;
+  /**
+   * a Grand Prix's own (21 Oct, gp: {...}; null for every other kind): its laps, its cast (each driver's id and name,
+   * the player's first), the lap's segments counted, and its place is map (gp.map, a runtime map such as 'port-artificial')
+   */
+  gp: { laps: number | null; you: string | null; drivers: string[]; names: string[]; segments: number | null } | null;
   /** every word the module uses, comments and names included (a world that builds its own place says what it is) */
   words: string[];
 };
@@ -78,7 +83,7 @@ export type ShootDna = {
   sky: string[];
 };
 export type DnaKey = 'kind' | 'map' | 'time' | 'traversal' | 'patrol' | 'hero' | 'moves' | 'crews' | 'intro' | 'outro' | 'story' | 'places' | 'kits' | 'scenery' | 'track' | 'play' | 'kart'
-  | 'match' | 'keeper' | 'crowd';
+  | 'match' | 'keeper' | 'crowd' | 'cast' | 'laps';
 /**
  * One thing the child dropped. A minor one (a library kit, the scenery's kits, a lap's track) is recorded and said in
  * a repair, but never sends a pass back on its own: the owner's list is the map, the hero, the crews, the story and the
@@ -337,10 +342,15 @@ export function dna(source: string): Dna {
   const itemNames = itemsObj ? entries(resolve(code, itemsObj.get('names'))) : new Map<string, string>();
   const itemIds = itemsObj ? [...new Set(['weights', 'looks', 'names'].flatMap((k) => [...entries(resolve(code, itemsObj.get(k))).keys()]))].sort() : [];
   const lapsN = kartObj ? Number(resolve(code, kartObj.get('laps') ?? '3')) : NaN;
+  // (a Grand Prix, 21 Oct: its place is gp.map, its cast gp.drivers, its lap track.segments)
+  const gpObj = kind === 'gp' ? entries(resolve(code, world.get('gp'))) : null;
+  const gpDrivers = gpObj ? parts(resolve(code, gpObj.get('drivers')) || '[]').map((t) => entries(resolve(code, t))) : [];
+  const gpLapsN = gpObj ? Number(resolve(code, gpObj.get('laps') ?? '3')) : NaN;
+  const segs = gpObj && track ? resolve(code, track.get('segments')) : '';
 
   return {
     kind,
-    map: str(open.get('map')),
+    map: gpObj ? str(gpObj.get('map')) : str(open.get('map')),
     city: city ? { time: str(city.get('time')), district: str(city.get('district')) } : null,
     traversal: on(open.get('traversal')),
     hero: heroOf(code, world.get('player') ?? ''),
@@ -363,6 +373,9 @@ export function dna(source: string): Dna {
       // airdrops: false, and there are none)
       itemsOn: resolve(code, kartObj.get('items')) !== 'false' && entries(resolve(code, kartObj.get('course'))).get('airdrops') !== 'false' } : null,
     shootout: kind === 'shootout' ? shootOf(code, world, assets) : null,
+    gp: gpObj ? { laps: Number.isFinite(gpLapsN) ? gpLapsN : null, you: str(gpObj.get('you')),
+      drivers: gpDrivers.map((d) => str(d.get('id'))).filter((x): x is string => !!x), names: gpDrivers.map((d) => str(d.get('name'))).filter((x): x is string => !!x),
+      segments: segs.startsWith('[') ? count(segs) || null : null } : null,
     words: [...new Set(source.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().match(/[a-z]{3,}/g) ?? [])].sort(),
   };
 }
@@ -549,6 +562,14 @@ function describeShootout(d: Dna, s: ShootDna): string[] {
 /** The parent's DNA as the Mog prompt states it: the things a Mog keeps unless the idea replaces them. */
 export function describeDna(d: Dna): string[] {
   if (d.kind === 'shootout' && d.shootout) return describeShootout(d, d.shootout);
+  if (d.kind === 'gp' && d.gp) {
+    const g = d.gp, you = g.you ? g.names[g.drivers.indexOf(g.you)] ?? g.you : null;
+    const out = [`The kind of game: ${KIND_SAID.gp}.`, `The place: ${placeSaid(d)}${d.map ? ' (gp.map), and its lap as track gives it' : ''}${g.segments ? ` (${g.segments} segments)` : ''}.`,
+      `The cast: ${g.drivers.length} agents in gp.drivers${you ? `, the player's ${you} (gp.you)` : ''}: ${list(g.names, 6)}; each keeps its id, row, family and form.`,
+      `The race: ${g.laps ?? 3} laps (gp.laps).`];
+    if (d.assets.length) out.push(`The library kits: ${d.assets.join(', ')}.`);
+    return out;
+  }
   const out = [`The kind of game: ${KIND_SAID[d.kind]}.`, `The place: ${placeSaid(d)}.`];
   if (d.traversal) out.push('The traversal: the hero runs up walls and swings between the buildings (open.traversal).');
   out.push(`The hero: ${heroSaid(d.hero)}${d.moves.length ? `; his moves: ${d.moves.join(', ')}` : ''}.`);
@@ -617,7 +638,8 @@ export function compareDna(parent: Dna | string, child: Dna | string, ideaText: 
     else dropped.push({ key, note: note(), ...(minor ? { minor: true as const } : {}) });
   };
   // (a penalty shootout, 13 Oct: a Mog of one stays one, and nothing becomes one, whatever the idea says)
-  const shoot = p.kind === 'shootout' || c.kind === 'shootout';
+  // (a Grand Prix too, 21 Oct)
+  const shoot = p.kind === 'shootout' || c.kind === 'shootout' || p.kind === 'gp' || c.kind === 'gp';
   const kindOk = p.kind !== c.kind && idea.kind === c.kind && !shoot;
   const moved = idea.place ? `the idea names a new place (${idea.place})` : false;
   const kindWhy = kindOk ? `the idea asks for ${KIND_SAID[c.kind]}` : false;
@@ -628,8 +650,10 @@ export function compareDna(parent: Dna | string, child: Dna | string, ideaText: 
   rule('kind', p.kind !== c.kind, kindWhy,
     () => p.kind === 'shootout'
       ? `The kind of game: the original is ${KIND_SAID.shootout}, this is ${KIND_SAID[c.kind]}. A Mog of a penalty shootout stays one, whatever its idea says: keep shootout: {...} among GameMog.world's own keys (the runtime runs the kick, the keeper and the camera) and carry the idea out in the world.`
-      : c.kind === 'shootout'
-        ? `The kind of game: the original is ${KIND_SAID[p.kind]}, this is a penalty shootout, which is made only as a Mog of one. Keep ${KIND_SAID[p.kind]}.`
+      : p.kind === 'gp'
+        ? `The kind of game: the original is ${KIND_SAID.gp}, this is ${KIND_SAID[c.kind]}. A Mog of a Grand Prix stays one, whatever its idea says: keep gp: {...} among GameMog.world's own keys (the runtime races the cars and the agents) and carry the idea out in the world.`
+      : c.kind === 'shootout' || c.kind === 'gp'
+        ? `The kind of game: the original is ${KIND_SAID[p.kind]}, this is ${c.kind === 'gp' ? 'a Grand Prix' : 'a penalty shootout'}, which is made only as a Mog of one. Keep ${KIND_SAID[p.kind]}.`
         : `The kind of game: the original is ${KIND_SAID[p.kind]}, this is ${KIND_SAID[c.kind]}, and the idea does not ask for that. Keep ${KIND_SAID[p.kind]}.`);
   rule('map', p.map !== c.map, moved || kindWhy,
     () => `The place: the original is on ${placeSaid(p)}; this ${c.map ? `moved it to the library map '${c.map}'` : 'builds a place of its own instead'}.${renamed}`);
@@ -642,6 +666,16 @@ export function compareDna(parent: Dna | string, child: Dna | string, ideaText: 
   rule('patrol', !!p.patrol && !c.patrol, (p.map !== c.map && moved) || kindWhy || (idea.noPolice && 'the idea asks for no police'),
     () => `The patrol car: the original sends ${patrolSaid(p.patrol!)} down the avenue (open.patrol); this has none.`);
 
+  if (p.gp && c.gp) {
+    // (a Grand Prix, 21 Oct: its cast, by id, and its lap while the place stays; its laps when the idea does not name them)
+    const kept = p.gp.drivers.filter((id) => c.gp!.drivers.includes(id)).length;
+    rule('cast', kept * 2 < p.gp.drivers.length, (idea.teams && 'the idea names the teams') || (idea.enemies && 'the idea names the rivals') || (idea.hero && 'the idea names a new cast'),
+      () => `The cast: the original races ${p.gp!.drivers.length} agents (gp.drivers: ${list(p.gp!.names, 4)}); this keeps ${kept} of their ids. Rename and recolour them as the idea asks, but keep each one's id, row, family and form: the figures in the cars are the place's.`);
+    rule('track', p.map === c.map && !!p.map && p.gp.segments !== c.gp.segments, moved,
+      () => `The lap: the original's has ${p.gp!.segments} segments; this one's ${c.gp!.segments ?? 'is gone'}, while the place ('${p.map}') stays, and its city is built for its own lap. Keep track as it is.`);
+    rule('laps', p.gp.laps !== c.gp.laps, /\blaps?\b/i.test(ideaText) && 'the idea talks of laps',
+      () => `The race: the original is ${p.gp!.laps} laps (gp.laps); this is ${c.gp!.laps}.`, true);
+  }
   const heroChanged = p.hero.kind !== c.hero.kind || (!!p.hero.name && !!c.hero.name && !same(p.hero.name, c.hero.name))
     || (!!p.hero.body && !!c.hero.body && p.hero.body !== c.hero.body) || p.hero.traits.includes('a chrome endoskeleton') !== c.hero.traits.includes('a chrome endoskeleton');
   const toCar = c.hero.kind === 'car' && ((kindOk && c.kind === 'derby') || (c.kind === 'race' && idea.cars));

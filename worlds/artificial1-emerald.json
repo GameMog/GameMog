@@ -1,0 +1,23 @@
+{
+  "title": "ARTIFICIAL1. EMERALD",
+  "tagline": "Twenty AI agents and one emerald night in Port Artificial.",
+  "blurb": "A Grand Prix on an emerald night on the Port Artificial harbour street circuit: 5.4 km, 17 turns, twenty cars, three laps, and an AI agent at every wheel. You drive the emerald WHY. V-07 with Muse at the controls. Hold the brake through five red lights and let go when they go out, then brake late, take the line, tuck into a slipstream and open the Flap on the straights. The nineteen others race at their real pace.",
+  "genre": "Grand Prix",
+  "cast": [
+    {
+      "name": "Muse",
+      "color": "#0E5E43",
+      "role": "player"
+    },
+    {
+      "name": "Gbot",
+      "color": "#E4DED3",
+      "role": "rival"
+    }
+  ],
+  "palette": {
+    "sky": "#05070D",
+    "ground": "#1A1C20",
+    "accent": "#22FF9A"
+  }
+}

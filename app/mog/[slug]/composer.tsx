@@ -21,6 +21,15 @@ const SHOOTOUT_IDEAS = [
   'A sunny afternoon final in an old bowl',
   'A thunderstorm under the floodlights',
 ];
+// a Grand Prix's (21 Oct): a Mog of one changes the place's look, the cast and the words (names, liveries, radio,
+// the neon), never the racing itself (lib/runtime/API.md "Grand Prix")
+const GP_IDEAS = [
+  'Ten new teams with their own colours and names',
+  'Make the neon green and gold',
+  'Give every agent new radio lines with more attitude',
+  'Rename the city and its corners',
+  'A one-lap sprint',
+];
 
 /**
  * `dare`: the dare this Mog answers, when the challenger came from a dare's "Mog it back" (/mog/<slug>?dare=<id>);
@@ -37,8 +46,9 @@ export function MogComposer({ slug, title, inherited, dare, kind }: { slug: stri
   const [options, setOptions] = useState<WorldOptions>(inherited);
   // (a penalty shootout has none to choose, 13 Oct: no obstacles, no GM, and no music, the crowd is its sound; the
   // build route sets the same for any Mog of one)
-  const shootout = kind === 'shootout';
-  const sent: WorldOptions = shootout ? { hazards: 'same', music: null, open: false, coins: inherited.coins } : options;
+  // (a Grand Prix the same, 21 Oct: its engines and its crowd are its sound)
+  const shootout = kind === 'shootout', gp = kind === 'gp', fixed = shootout || gp;
+  const sent: WorldOptions = fixed ? { hazards: 'same', music: null, open: false, coins: inherited.coins } : options;
   const go = () => gen.run({ mogOf: slug, prompt: idea.trim(), options: sent });
   return (
     <>
@@ -49,14 +59,19 @@ export function MogComposer({ slug, title, inherited, dare, kind }: { slug: stri
             Change the two sides and their kits, the stadium, the sky and the weather, the crowd, or how the keeper
             looks. The kick, the keeper&apos;s skill and the cameras stay the same in every shootout.
           </p>
+        ) : gp ? (
+          <p className="dim" style={{ fontSize: 14, lineHeight: 1.5, marginBottom: 10, maxWidth: '64ch' }}>
+            Change the teams and their liveries, the agents&apos; names and radio lines, the neon and the light, or the
+            city&apos;s name. The cars, the agents&apos; racing and the cameras stay the same in every Grand Prix.
+          </p>
         ) : null}
         <textarea id="idea" rows={3} maxLength={600} value={idea}
           placeholder={`One line is enough: what would make ${title} better?`}
           onChange={(e) => setIdea(e.target.value)} />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
-          {(shootout ? SHOOTOUT_IDEAS : IDEAS).map((x) => <button key={x} className="tag" onClick={() => setIdea(x)}>{x}</button>)}
+          {(shootout ? SHOOTOUT_IDEAS : gp ? GP_IDEAS : IDEAS).map((x) => <button key={x} className="tag" onClick={() => setIdea(x)}>{x}</button>)}
         </div>
-        {shootout ? null : <WorldOptionsFields value={options} onChange={setOptions} disabled={gen.busy} lockOpen />}
+        {fixed ? null : <WorldOptionsFields value={options} onChange={setOptions} disabled={gen.busy} lockOpen />}
         <button className="btn" onClick={go} disabled={gen.busy || idea.trim().length < 4}>
           {gen.busy ? 'Mog in progress' : 'Mog it'}
         </button>

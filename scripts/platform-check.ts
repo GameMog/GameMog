@@ -255,8 +255,9 @@ try {
     // (the options a shootout's Mog is built with, read from the route's source: its stream is a paid build, never run here)
     const routeSrc = readFileSync(new URL('../app/api/generate/route.ts', import.meta.url), 'utf8');
     const quiet = routeSrc.indexOf("options.hazards = 'same'; options.music = null; delete options.soundtrack;");
-    ok('shootout: and its Mog is built with no music and the same obstacles, whatever the page sent', quiet > routeSrc.indexOf('readOptions(body.options)') && quiet < routeSrc.indexOf('await generateGame(')
-      && /worldMode\(parent\.code, parent\.meta\) === 'shootout'\) \{\s*$/.test(routeSrc.slice(0, quiet)));
+    // (and a Grand Prix's, 21 Oct: the same condition names both)
+    ok('shootout: and its Mog is built with no music and the same obstacles, whatever the page sent (a Grand Prix\'s too)', quiet > routeSrc.indexOf('readOptions(body.options)') && quiet < routeSrc.indexOf('await generateGame(')
+      && /worldMode\(parent\.code, parent\.meta\) === 'shootout' \|\| worldMode\(parent\.code, parent\.meta\) === 'gp'\)\) \{\s*$/.test(routeSrc.slice(0, quiet)));
     // a dare on it (scripts/dare-check.ts reads its run as goals): its landing offers "Mog it back", to this game's composer
     const ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
     const dr = await fetch(`${BASE}/api/dares`, { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': ua, 'sec-fetch-site': 'same-origin', 'x-forwarded-for': `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}` },

@@ -1709,6 +1709,47 @@ GameMog.world({
   (SHOOTOUT's `obstacles` returns none); call `ctx.broadcast()`, `ctx.mirror()` or `ctx.kart`; name a real federation,
   league or competition, or give anyone a real footballer's name; put numbers on the shirts.
 
+## Grand Prix
+
+A Grand Prix (ARTIFICIAL1., the owner 14 Oct 2026) is its own kind of world, made only as a Mog of one: a 3-lap race of
+twenty cars, every one driven by an AI agent, with the player at the wheel of one of them. Ignore the rules above (endless
+laps, rivals joining, obstacles, GM, death by touch, the jump). The runtime races all of it: the cars and how they drive,
+the agents' racing, the five start lights, the laps, the overtake aid (the Flap, on its zones), track limits and their
+penalties, the places, the result, the replay, every camera (the chase, the T-cam and the cockpit for the player; the TV
+lenses in the intro, the demo and the replays), the HUD, the radio's delivery, the engines and the crowd, and the board,
+ranked by race time. You own the place, the cast and how it all looks.
+
+Start from the original's module and keep its shape: the Grand Prix is written inline as gp among GameMog.world's own
+keys, never beside open, kart or shootout and never as a name (only then is it served as one), and its lap inline as
+track, in numbers, strings, true, false, null, arrays and objects only. Write no player, rival or music key and no
+play.vehicle (the cars and the sound are the runtime's), and never call the broadcast, mirror, kart or shootout parts of
+ctx. The runtime builds the lap into a table every half metre and gives build it as ctx.gp: its table's posAt(d, lat, up)
+is a point d metres along the lap, lat metres across it (left negative) and up metres over the road, and its wallsAt(d)
+the barriers' distances to the left and to the right.
+
+What a Mog changes, and how:
+
+- The cast. gp.teams and gp.drivers are data: each driver's name, its code (tla, three capitals), its number, its team
+  (by id, from gp.teams), its colours (upper, lower, coach, number, tcam) and its helmet colour, its voice and its radio
+  lines; each team's name, colours and letters. Keep every driver's id, row (how it races), family and form (its figure),
+  and give every driver its own helmet colour: the helmet is how a car finds its agent. gp.field drivers at least, and
+  gp.field is 2 to 20; gp.you is the player's driver and gp.youTag the words under its name.
+- The words. The title and tagline, gp.intro (its sub, tagline and kicker), the corners' names (gp.corners), the Flap
+  zones' names, gp.radio (the pit engineer's lines, with the race's {name}, {side}, {gap}, {where}, {place} and {tla},
+  and each agent's lines by moment). Give everything names of the world's own: never a real racing series, its
+  governing body, its marks or its overtake aid's name.
+- The race. gp.laps (1 to 5). Keep gp.limits, gp.lights, gp.gearbox, gp.grid and gp.endAfter unless the idea is about them.
+- The look. graphics (the night grade: exposure, bloom, grade), the neon along the barriers and up the towers, the light
+  trails (gp.trails), the holographic boards, the searchlights, and the theme. Keep the original's light unless the idea
+  asks for a new one, and keep anything large that glows between 1 and 1.5.
+- The place. ARTIFICIAL1. races in Port Artificial, a runtime map: gp.map names it (port-artificial), and the page loads
+  it ahead of the world, declaring the S_ names (the scenery: road, kerbs, barriers, city, harbour, stands, crowd, pits,
+  the tunnel, the night light) and the A_ names (the agents in their cars, the cockpit, the liveries) that build calls.
+  Keep gp.map and those calls while the place stays: renaming the city or its corners is not moving it. The map is built
+  for its own lap, so keep track as it is with it. Only an idea that names a new place drops gp.map and builds the place
+  in build along ctx.gp.table, as real and as detailed (and then the lap may change: drop gp.line, which the runtime
+  then works out again, and gp.cameras' TV lenses, whose places are along the old lap).
+
 ## Never
 
 Build a 2D game, move or replace the camera, create a renderer, call `requestAnimationFrame`, `setTimeout` or `setInterval`, add event

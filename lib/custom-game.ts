@@ -251,8 +251,8 @@ export function worldControls(code: string, o: { kartItems?: boolean } = {}) {
  * kind again: its page, its dares and /mog/<slug> then say so (MOG_SOON), and the build route refuses a Mog of it
  * before anything is spent.
  */
-// (a Grand Prix, 14 Oct: closed until its M3, when the builder gets its chapter, its DNA, its test drive and its check)
-export const MOGGABLE: Record<WorldMode, boolean> = { race: true, survival: true, derby: true, kart: true, shootout: true, gp: false };
+// (a Grand Prix, 14 Oct: closed until it had its chapter, its DNA, its test drive and its check; opened 21 Oct)
+export const MOGGABLE: Record<WorldMode, boolean> = { race: true, survival: true, derby: true, kart: true, shootout: true, gp: true };
 /** Whether a game can be mogged: every game but a world of a kind MOGGABLE closes. */
 export function canMog(game: { format: string; code?: string | null; meta?: string | null }) {
   return game.format !== 'world' || MOGGABLE[worldMode(game.code, game.meta)];

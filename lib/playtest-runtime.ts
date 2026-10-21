@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withBrowser, chromePath, HostSlept } from './browser';
 import { lookScore, lookAdvisories, lookNotes, isLook, type Look } from './look';
-import { captureWorldKeyArt, captureShootoutKeyArt, gpArtSpot, captureGpKeyArt } from './key-art';
+import { captureWorldKeyArt, captureShootoutKeyArt, gpArtSpot, captureGpKeyArt, GP_ART_BACK } from './key-art';
 import type { DnaReport } from './mog-dna';
 
 /**
@@ -427,7 +427,9 @@ async function gpPlaytest(page: Pg, readyMs: number, errs: () => Promise<string[
   await sleep(2500);
   const fps = Math.round(((await page.eval<number>('window.__frames')) - f0) / 2.5);
   const parts = ((await S())?.parts ?? {}) as Record<string, boolean>;
-  await D("d.go({ seed: 11, you: 'muse', autopilot: true, skipLights: true, laps: 1 })");
+  const L = await page.eval<number | null>('(() => { const g = window.__gmRuntime.state().gp; return g && g.L ? +g.L : null; })()').catch(() => null);
+  const near = L ? L - GP_ART_BACK - 350 : 4950;
+  await D("d.go({ seed: 11, autopilot: true, skipLights: true, laps: 1 })");
   await page.eval('window.__gmRuntime.debug.timeScale(6)');
   let s = await S(), maxStuck = 0, picked: Awaited<ReturnType<typeof bestCover>> | undefined, art: { icon: Uint8Array; wide: Uint8Array } | undefined, cut = true;
   for (let i = 0; i < 400; i++) {
@@ -435,7 +437,7 @@ async function gpPlaytest(page: Pg, readyMs: number, errs: () => Promise<string[
     if (s) maxStuck = Math.max(maxStuck, ...s.cars.map((c) => c.stuck));
     if (s?.done) { cut = false; break; }
     // the last stretch of the lap at real speed, the frame shot on the straight, then back to speed
-    if (!art && s && s.cars[s.you] && s.cars[s.you].d >= 4950 && s.cars[s.you].lap === 0) {
+    if (!art && s && s.cars[s.you] && s.cars[s.you].d >= near && s.cars[s.you].lap === 0) {
       if (await gpArtSpot(page)) { picked = await bestCover(page); art = await captureGpKeyArt(page).catch(() => undefined); }
       else await page.eval('window.__gmRuntime.debug.cinematic(false)').catch(() => undefined);
       await page.eval('window.__gmRuntime.debug.timeScale(6)');
@@ -455,20 +457,34 @@ async function gpPlaytest(page: Pg, readyMs: number, errs: () => Promise<string[
   const gd: GpDrive = { laps: me ? me.lap : 0, results: results.length, won: !!(first && first.gp === true), place: first && Number.isFinite(+first.place) ? Math.round(+first.place) : null,
     timeMs: first && Number.isFinite(+first.timeMs) ? Math.round(+first.timeMs) : null, replayEqual: rep && typeof rep.equal === 'boolean' ? rep.equal : null, parts,
     maxStuck: Math.round(maxStuck * 10) / 10, calls: int(rend?.p95?.calls, 0, 100_000), tris: int(rend?.p95?.tris, 0, 100_000_000), fps, cut };
-  const problems: string[] = [];
-  for (const e of errors) problems.push(`Runtime error: ${e}`);
-  if (fps < 30) problems.push(`The Grand Prix ran at ${fps} fps on a laptop GPU. Cut draw calls and lights until it holds 60.`);
+  const v = gpVerdict(gd, { errors, fps, cover: picked.cover, art: !!art, cutFails: true });
+  return { ok: v.problems.length === 0, ran: true, readyMs, fps, errors, problems: v.problems, advisories: [...advisories, ...v.advisories], levelReached: gd.laps, cover: picked.cover, artIcon: art?.icon, artWide: art?.wide, look: picked.look, kind: 'gp', gp: gd };
+}
+
+/**
+ * A Grand Prix's drive, judged (21 Oct): one function for the server's drive (gpPlaytest) and the creator's
+ * (lib/runtime/drive.js gpDrive, judged in lib/test-drive.ts), so the builder hears the same notes either way. `timed`
+ * false (a background tab) judges only what threw; a drive out of its time before the lap was home (cut) is not the
+ * world's fault when nothing else is wrong, and is unverified.
+ */
+export function gpVerdict(gd: GpDrive, o: { errors: string[]; fps: number | null; cover?: Uint8Array; art: boolean; timed?: boolean; fpsCounts?: boolean; cutFails?: boolean }) {
+  const timed = o.timed !== false, fpsCounts = o.fpsCounts !== false && timed, parts = gd.parts;
+  const problems: string[] = o.errors.map((e) => `Runtime error: ${e}`), advisories: string[] = [];
   const missing = GP_NEEDED.filter((p) => !parts[p]);
   if (missing.length) problems.push(`The Grand Prix's runtime parts did not all start (missing: ${missing.join(', ')}).`);
-  if (cut) problems.push('The first lap of the race was not finished in the time it should take at six times speed.');
-  else if (!first || first.gp !== true) problems.push('The race ended without a Grand Prix result for the player.');
   if (gd.replayEqual === false) problems.push('The race did not replay to the same hash: the sim is not deterministic.');
-  if (maxStuck > 8) problems.push(`A car was stuck for ${gd.maxStuck} s in the race.`);
-  if (picked.cover.length < 14_000) problems.push('The screen is nearly a flat colour in the Grand Prix. Check the circuit, the lights and the camera.');
-  if (!art) advisories.push('No key art could be shot on the start/finish straight (the race was over before the car reached it).');
+  if (timed) {
+    if (fpsCounts && o.fps !== null && o.fps < 30) problems.push(`The Grand Prix ran at ${o.fps} fps on a laptop GPU. Cut draw calls and lights until it holds 60.`);
+    if (gd.cut && o.cutFails) problems.push('The first lap of the race was not finished in the time it should take at six times speed.');
+    else if (gd.cut) { if (!problems.length) advisories.push('The test drive ran out of time before the first lap of the race was home, so it did not judge the race.'); }
+    else if (!gd.won) problems.push('The race ended without a Grand Prix result for the player.');
+    if ((gd.maxStuck ?? 0) > 8) problems.push(`A car was stuck for ${gd.maxStuck} s in the race.`);
+    if (!o.cover || o.cover.length < 14_000) problems.push('The screen is nearly a flat colour in the Grand Prix. Check the circuit, the lights and the camera.');
+    if (!o.art) advisories.push('No key art could be shot on the start/finish straight (the race was over before the car reached it).');
+  }
   const stand = Object.keys(parts).filter((p) => !parts[p]).filter((p) => !GP_NEEDED.includes(p));
   if (stand.length) advisories.push(`Stand-ins in this Grand Prix: ${stand.join(', ')}.`);
-  return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: gd.laps, cover: picked.cover, artIcon: art?.icon, artWide: art?.wide, look: picked.look, kind: 'gp', gp: gd };
+  return { problems, advisories, judged: problems.length > 0 || (timed && (!gd.cut || !!o.cutFails)) };
 }
 
 async function shootPlaytest(page: Pg, readyMs: number, errs: () => Promise<string[]>): Promise<WorldReport> {

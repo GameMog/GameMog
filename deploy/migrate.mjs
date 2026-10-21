@@ -843,6 +843,29 @@ export const MIGRATIONS = [
       return `updated (${hash ? 'test codeHash ' + hash : 'no test record'})`;
     },
   },
+  {
+    // Artificial1 made moggable (21 Oct): the same world, its scenery and agents parts moved out unchanged into the runtime
+    // map port-artificial (lib/runtime/maps/port-artificial.js), so its module is about 43 KB and a Mog can rewrite it
+    id: '2026-10-21-artificial1-kit',
+    run(db) {
+      const code = file('artificial1-v4.js');
+      if (!code) throw new Error('deploy/migrations/artificial1-v4.js is not in this build');
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'artificial1'").get();
+      if (!g) return 'no such game';
+      const next = code.toString('utf8'), sha = (s) => createHash('sha256').update(String(s ?? '')).digest('hex');
+      // the code 2026-10-21-artificial1-city put live (sha256 of its text, without the blank lines at either end)
+      const WAS = 'ff5ffc5e4f6736d7f77b86e95971f2f8571225dbf623bd34667cf4f076244d50';
+      if (g.code === next) return 'already there';
+      if (sha(String(g.code ?? '').trim()) !== WAS) return 'left alone: its code has changed since look pass 2';
+      let meta = g.meta, hash = '';
+      try {
+        const m = JSON.parse(g.meta ?? 'null');
+        if (m && m.test && typeof m.test === 'object') { hash = sha(next).slice(0, 16); m.test = { ...m.test, codeHash: hash }; meta = JSON.stringify(m); }
+      } catch { meta = g.meta; }
+      db.prepare('UPDATE games SET code = ?, meta = ? WHERE id = ?').run(next, meta, g.id);
+      return `updated (${hash ? 'test codeHash ' + hash : 'no test record'})`;
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
