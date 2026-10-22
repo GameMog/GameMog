@@ -938,6 +938,51 @@ export const MIGRATIONS = [
       return 'updated';
     },
   },
+  {
+    // the owner, 21 Oct: INVISIBLE WORLD's thumbnail shot again with the kart as it now is (the white cloud, the fat
+    // cloud tyres): the same head-on angle in the Deep Dream, the owner's pick of two (the pictures above, replaced)
+    id: '2026-10-21-invisible-world-art-2',
+    run(db) {
+      const meta = file('invisible-world.meta.json'), cover = file('invisible-world-cover.jpg'), icon = file('invisible-world-icon.jpg'), wide = file('invisible-world-wide.jpg');
+      if (!meta || !cover || !icon || !wide) throw new Error('deploy/migrations/invisible-world-{cover,icon,wide}.jpg or its meta.json are not in this build');
+      const id = JSON.parse(meta.toString('utf8')).id;
+      const g = db.prepare("SELECT id FROM games WHERE slug = 'invisible-world' AND id = ?").get(id);
+      if (!g) throw new Error('INVISIBLE WORLD is not published yet');
+      db.prepare('UPDATE games SET cover = ?, art_icon = ?, art_wide = ? WHERE id = ?').run(cover, icon, wide, id);
+      return 'updated';
+    },
+  },
+  {
+    // the owner, 21 Oct: ARTIFICIAL1's thumbnail "a cockpit city night glassmorphism view": from the cockpit at night,
+    // the neon-lined towers and searchlights over Port Artificial, an agent's car ahead on the racing line and the
+    // race's glass tags and speed pane in the air (the HUD's flat panels left out). Shot from the code
+    // 2026-10-21-artificial1-kit put live; if it has changed since, its pictures are left as they are
+    id: '2026-10-21-artificial1-cockpit-art',
+    run(db) {
+      const code = file('artificial1-v4.js'), cover = file('artificial1-cockpit-cover.jpg'), icon = file('artificial1-cockpit-icon.jpg'), wide = file('artificial1-cockpit-wide.jpg');
+      if (!code || !cover || !icon || !wide) throw new Error('deploy/migrations/artificial1-v4.js or artificial1-cockpit-{cover,icon,wide}.jpg are not in this build');
+      const g = db.prepare("SELECT id, code FROM games WHERE slug = 'artificial1'").get();
+      if (!g) return 'no such game';
+      if (String(g.code ?? '').trim() !== code.toString('utf8').trim()) return 'left alone: its code has changed since the kit';
+      db.prepare('UPDATE games SET cover = ?, art_icon = ?, art_wide = ? WHERE id = ?').run(cover, icon, wide, g.id);
+      return 'updated';
+    },
+  },
+  {
+    // the owner, 21 Oct: MAGMA CROWN's thumbnail, "a semi side view of B-Hot": B-Hot on the night-racer from three
+    // quarters to its side, the cracked lava road and the low sun behind. Shot from the code 2026-10-20-magma-crown-flat
+    // put live; if the creator has rebuilt it since, its pictures are left as they are
+    id: '2026-10-21-magma-crown-side-art',
+    run(db) {
+      const code = file('magma-crown-v5.js'), cover = file('magma-crown-side-cover.jpg'), icon = file('magma-crown-side-icon.jpg'), wide = file('magma-crown-side-wide.jpg');
+      if (!code || !cover || !icon || !wide) throw new Error('deploy/migrations/magma-crown-v5.js or magma-crown-side-{cover,icon,wide}.jpg are not in this build');
+      const g = db.prepare("SELECT id, code FROM games WHERE slug = 'magma-crown'").get();
+      if (!g) return 'no such game';
+      if (String(g.code ?? '').trim() !== code.toString('utf8').trim()) return 'left alone: its code is not the flat code';
+      db.prepare('UPDATE games SET cover = ?, art_icon = ?, art_wide = ? WHERE id = ?').run(cover, icon, wide, g.id);
+      return 'updated';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
