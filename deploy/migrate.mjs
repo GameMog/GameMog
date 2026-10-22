@@ -923,6 +923,21 @@ export const MIGRATIONS = [
       return 'published';
     },
   },
+  {
+    // the owner, 21 Oct: INVISIBLE WORLD's thumbnail, the frame the owner chose (Slime #2211 head-on in the Deep Dream,
+    // lap 2) with the race's HUD cropped away: the key art (wide and icon, the platform's title over it) and the plain
+    // cover. Only the first-party row (its id) is changed; on a build without the pictures it waits
+    id: '2026-10-21-invisible-world-art',
+    run(db) {
+      const meta = file('invisible-world.meta.json'), cover = file('invisible-world-cover.jpg'), icon = file('invisible-world-icon.jpg'), wide = file('invisible-world-wide.jpg');
+      if (!meta || !cover || !icon || !wide) throw new Error('deploy/migrations/invisible-world-{cover,icon,wide}.jpg or its meta.json are not in this build');
+      const id = JSON.parse(meta.toString('utf8')).id;
+      const g = db.prepare("SELECT id FROM games WHERE slug = 'invisible-world' AND id = ?").get(id);
+      if (!g) throw new Error('INVISIBLE WORLD is not published yet');
+      db.prepare('UPDATE games SET cover = ?, art_icon = ?, art_wide = ? WHERE id = ?').run(cover, icon, wide, id);
+      return 'updated';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
