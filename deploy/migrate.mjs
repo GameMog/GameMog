@@ -894,6 +894,35 @@ export const MIGRATIONS = [
       return 'published';
     },
   },
+  {
+    // the owner, 21 Oct: INVISIBLE WORLD, a first-party kart race on a road of rainbow glass over a sea of clouds: eight of
+    // the owner's 3D Invisible Friends on cloud karts, three laps that each enter a new phase of the dream, the Daybreak
+    // cliff, the Skyfall's three cliffs and Big Air; published on the Mac by `npm run publish:world -- invisible-world`
+    // (its kart score measured on its own track, its soundtrack read from its definition, the Chrome playtest passed,
+    // cover and key art shot) and its row written out here. Only inserted: a row already at /g/invisible-world is never
+    // overwritten. On a build without the kart kit's engine level (kart.fx.engine) and its Claw fix (a kart that fell
+    // at a wall gap past a break was set down at NaN), or without its soundtrack, it waits (unrecorded, tried again at
+    // the next boot)
+    id: '2026-10-21-invisible-world',
+    run(db) {
+      const code = file('invisible-world.js'), meta = file('invisible-world.meta.json');
+      if (!code || !meta) throw new Error('deploy/migrations/invisible-world.js or its meta.json is not in this build');
+      const kart = readFileSync(join('lib', 'runtime', 'kart.js'), 'utf8');
+      if (!kart.includes('FX.engine') || !kart.includes('G.d0 + G.len')) throw new Error('the kart kit has no engine level or Claw fix in this build');
+      if (!existsSync(join('public', 'assets', 'music-slampe', 'asset.json'))) throw new Error('the soundtrack (music-slampe) is not in this build');
+      const m = JSON.parse(meta.toString('utf8')), src = code.toString('utf8');
+      if (!m.meta || m.meta.mode !== 'kart' || m.meta.scoring !== 'score' || m.meta.kartScore?.source !== 'measured') throw new Error('invisible-world.meta.json is not a kart race with its score measured on its track');
+      const g = db.prepare("SELECT id, code FROM games WHERE slug = 'invisible-world'").get();
+      if (g) return String(g.code ?? '').trim() === src.trim() ? 'already there' : 'left alone (another invisible-world)';
+      if (db.prepare('SELECT id FROM games WHERE id = ?').get(m.id)) return 'left alone (its id is taken)';
+      const cover = file('invisible-world-cover.jpg'), icon = file('invisible-world-icon.jpg'), wide = file('invisible-world-wide.jpg');
+      if (!cover || !icon || !wide) throw new Error('deploy/migrations/invisible-world-{cover,icon,wide}.jpg are not in this build');
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+        VALUES (?, 'invisible-world', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
+        .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: invisible-world', Date.now(), src, JSON.stringify(m.meta), cover, icon, wide);
+      return 'published';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

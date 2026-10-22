@@ -18,7 +18,7 @@
   // Crest 0.236-0.283, Switchback (two hairpins) 0.283-0.403, Slalom 0.403-0.481, Whale Run 0.481-0.615 (up 17 m),
   // Dream Tower 0.615-0.822 (up 30 m), Skyfall 0.822-0.922 (down 30 m), Home 0.922-0.974, run-in. Every bank is 0 (the
   // kart kit rides the centre line's height across the road: a banked road and its karts part)
-  var LAP = [[0.0,40.0,0.0,0],[27.5,40.0,0.0,0],[55.0,40.0,0.0,0],[82.5,40.0,0.0,0],[110.0,40.0,0.0,0],[140.0,34.5,0.0,0],[170.0,29.0,0.0,0],[200.0,23.5,0.0,0],[230.0,18.0,0.0,0],[249.1,18.8,-3.8,0],[265.4,19.5,-14.6,0],[276.2,20.2,-30.9,0],[280.0,21.0,-50.0,0],[280.0,23.0,-74.5,0],[280.0,25.0,-99.0,0],[276.6,24.5,-116.2,0],[266.8,24.0,-130.8,0],[252.2,23.5,-140.6,0],[235.0,23.0,-144.0,0],[218.0,23.0,-151.0,0],[211.0,23.0,-168.0,0],[218.0,23.0,-185.0,0],[235.0,23.0,-192.0,0],[265.0,23.0,-192.0,0],[282.0,23.0,-199.0,0],[289.0,23.0,-216.0,0],[282.0,23.0,-233.0,0],[265.0,23.0,-240.0,0],[235.0,23.0,-240.0,0],[227.7,23.0,-240.7,0],[220.7,23.0,-242.9,0],[214.4,23.0,-246.5,0],[201.0,23.0,-252.3,0],[186.4,23.0,-252.3,0],[173.1,23.0,-246.5,0],[166.7,23.0,-242.9,0],[159.7,23.0,-240.7,0],[152.4,23.0,-240.0,0],[123.5,25.4,-240.0,0],[94.6,27.9,-240.0,0],[65.7,30.3,-240.0,0],[36.7,32.7,-240.0,0],[7.8,35.1,-240.0,0],[-21.1,37.6,-240.0,0],[-50.0,40.0,-240.0,0],[-68.9,41.9,-235.3,0],[-83.3,43.8,-222.2,0],[-89.8,45.6,-203.9,0],[-87.0,47.5,-184.7,0],[-75.4,49.4,-169.1,0],[-57.8,51.2,-160.8,0],[-38.4,53.1,-161.7,0],[-21.7,55.0,-171.7,0],[-11.7,56.9,-188.4,0],[-10.8,58.8,-207.8,0],[-19.1,60.6,-225.4,0],[-34.7,62.5,-237.0,0],[-53.9,64.4,-239.8,0],[-72.2,66.2,-233.3,0],[-85.3,68.1,-218.9,0],[-90.0,70.0,-200.0,0],[-90.0,64.0,-170.0,0],[-90.0,58.0,-140.0,0],[-90.0,52.0,-110.0,0],[-90.0,46.0,-80.0,0],[-90.0,40.0,-50.0,0],[-86.2,40.0,-30.9,0],[-75.4,40.0,-14.6,0],[-59.1,40.0,-3.8,0],[-40.0,40.0,-0.0,0]];
+  var LAP = [[0.0,40.0,0.0,0],[27.5,40.0,0.0,0],[55.0,40.0,0.0,0],[82.5,40.0,0.0,0],[110.0,40.0,0.0,0],[123.0,39.4,0.0,0],[136.0,30.5,0.0,0],[151.0,25.5,0.0,0],[171.0,22.0,0.0,0],[200.0,19.6,0.0,0],[230.0,18.0,0.0,0],[249.1,18.8,-3.8,0],[265.4,19.5,-14.6,0],[276.2,20.2,-30.9,0],[280.0,21.0,-50.0,0],[280.0,23.0,-74.5,0],[280.0,25.0,-99.0,0],[276.6,24.5,-116.2,0],[266.8,24.0,-130.8,0],[252.2,23.5,-140.6,0],[235.0,23.0,-144.0,0],[218.0,23.0,-151.0,0],[211.0,23.0,-168.0,0],[218.0,23.0,-185.0,0],[235.0,23.0,-192.0,0],[265.0,23.0,-192.0,0],[282.0,23.0,-199.0,0],[289.0,23.0,-216.0,0],[282.0,23.0,-233.0,0],[265.0,23.0,-240.0,0],[235.0,23.0,-240.0,0],[227.7,23.0,-240.7,0],[220.7,23.0,-242.9,0],[214.4,23.0,-246.5,0],[201.0,23.0,-252.3,0],[186.4,23.0,-252.3,0],[173.1,23.0,-246.5,0],[166.7,23.0,-242.9,0],[159.7,23.0,-240.7,0],[152.4,23.0,-240.0,0],[123.5,25.4,-240.0,0],[94.6,27.9,-240.0,0],[65.7,30.3,-240.0,0],[36.7,32.7,-240.0,0],[7.8,35.1,-240.0,0],[-21.1,37.6,-240.0,0],[-50.0,40.0,-240.0,0],[-68.9,41.9,-235.3,0],[-83.3,43.8,-222.2,0],[-89.8,45.6,-203.9,0],[-87.0,47.5,-184.7,0],[-75.4,49.4,-169.1,0],[-57.8,51.2,-160.8,0],[-38.4,53.1,-161.7,0],[-21.7,55.0,-171.7,0],[-11.7,56.9,-188.4,0],[-10.8,58.8,-207.8,0],[-19.1,60.6,-225.4,0],[-34.7,62.5,-237.0,0],[-53.9,64.4,-239.8,0],[-72.2,66.2,-233.3,0],[-85.3,68.1,-218.9,0],[-90.0,70.0,-200.0,0],[-90.0,69.4,-185.0,0],[-90.0,62.5,-170.0,0],[-90.0,59.5,-155.0,0],[-90.0,58.6,-140.0,0],[-90.0,57.8,-125.0,0],[-90.0,51.0,-110.0,0],[-90.0,49.6,-95.0,0],[-90.0,49.2,-80.0,0],[-90.0,42.5,-65.0,0],[-90.0,40.0,-50.0,0],[-86.2,40.0,-30.9,0],[-75.4,40.0,-14.6,0],[-59.1,40.0,-3.8,0],[-40.0,40.0,-0.0,0]];
   var ROAD = 16;
   // start 0-0.169, Sweeper 0.169-0.34, Jump 0.34-0.463, S 0.463-0.566, Dive 0.566-0.698, Hairpin 0.698-0.758,
   // Climb 0.758-0.795, Kink 0.795-0.857, Home 0.857-0.942, run-in 0.942-1
@@ -30,13 +30,39 @@
   // Sweeper's exit, a rolling coin on the Kink
   var COURSE = {
     shoulder: 0.6,
-    pads: [{ at: 0.03, x: -3 }, { at: 0.03, x: 3 }, { at: 0.21, x: 0 }, { at: 0.42, x: -3 }, { at: 0.5, x: 3 }, { at: 0.72, x: -4 }, { at: 0.8, x: -4 }, { at: 0.95, x: 0 }],
-    // the Daybreak Drop: a big ramp at the lip and a gap the flight carries you over, a long fall to the bottom
-    ramps: [{ at: 0.077, x: 0, width: 14, size: 'big', lift: 1.75 }, { at: 0.837, x: 0, width: 12, size: 'small', lift: 1.6 }],
-    breaks: [{ from: 0.081, len: 14, clear: true }, { from: 0.841, len: 12, clear: true }, { from: 0.885, len: 10, clear: true }],
+    // (21 Oct, the owner: "Meme Kart has more obstacles and action ... ASPEN GP is more fun due to drops and flying")
+    // Something on every piece, and a forgiving line through all of it: every gap is clear (every kart flies it), the
+    // Skyfall is three cliffs, ledge to ledge, the last one Big Air; rollers and lips to pop off, rails to grind, coins
+    // rolling across, candles toppling, meteors on the tower and the cliffs, crates on every piece
+    pads: [{ at: 0.03, x: -3 }, { at: 0.03, x: 3 }, { at: 0.2065, x: 0 }, { at: 0.42, x: -3 }, { at: 0.5, x: 3 }, { at: 0.72, x: -4 }, { at: 0.8, x: -4 }, { at: 0.889, x: 0 }, { at: 0.95, x: 0 }],
+    // the Daybreak Drop (a cliff: 9 m down under the gap, then a steep landing), the Bubbles hop, the Skyfall's first
+    // cliff and its last, Big Air (20 m of nothing and 9 m down)
+    ramps: [
+      { at: 0.077, x: 0, width: 14, size: 'big', lift: 1.6 },
+      { at: 0.2105, x: 0, width: 14, size: 'small', lift: 1.5 },
+      { at: 0.8267, x: 0, width: 14, size: 'small', lift: 1.7 },
+      { at: 0.8989, x: 0, width: 14, size: 'big', lift: 1.85 },
+    ],
+    breaks: [
+      { from: 0.081, len: 14, clear: true },
+      { from: 0.2112, len: 9, clear: true },
+      { from: 0.4877, len: 9, clear: true },
+      { from: 0.8278, len: 14, clear: true },
+      { from: 0.8695, len: 12, clear: true },
+      { from: 0.9, to: 0.9131, clear: true },
+    ],
     breakLook: 'none',   // (no pit drawn: the gap in the glass shows the clouds below)
-    bumps: [{ at: 0.5, size: 'roller', n: 4 }, { at: 0.882, size: 'lip' }],   // (lips only on straights: a lip in a bend throws the kart off the open edge)
-    rails: [{ points: [[0.52, -5.5], [0.6, -5.5]] }, { points: [[0.52, 5.5], [0.6, 5.5]] }],
+    // (lips only on straights: a lip in a bend throws the kart off the open edge)
+    bumps: [
+      { at: 0.036, size: 'roller', n: 3 },
+      { at: 0.338, size: 'roller', n: 2 },
+      { at: 0.407, size: 'roller', n: 2 },
+      { at: 0.487, size: 'lip' },
+      { at: 0.5, size: 'roller', n: 4 },
+      { at: 0.8684, size: 'lip' },
+    ],
+    // the Whale Run's two rails, and one down the left of the Skyfall's middle ledge, off its lip
+    rails: [{ points: [[0.52, -5.5], [0.6, -5.5]] }, { points: [[0.52, 5.5], [0.6, 5.5]] }, { from: 0.851, to: 0.866, x: -5.5, h: 0.5 }],
     // the walls: round the Sweeper's and Home's outsides, both sides of the Switchback, the Dream Tower's inside; open
     // to the sky everywhere else (a gap with no water is a void: fall, and the Claw puts you back)
     walls: { gaps: [
@@ -47,7 +73,7 @@
       { from: 0.6, to: 0.822, side: 'right', water: false },
       { from: 0.822, to: 0.922, side: 'both', water: false },
     ] },
-    airdrops: [{ at: 0.05, n: 5 }, { at: 0.22, n: 4 }, { at: 0.56, n: 5 }, { at: 0.7, n: 4 }, { at: 0.95, n: 5 }],
+    airdrops: [{ at: 0.055, n: 5 }, { at: 0.2335, n: 4 }, { at: 0.3, n: 4 }, { at: 0.447, n: 5 }, { at: 0.56, n: 5 }, { at: 0.7, n: 4 }, { at: 0.79, n: 4 }, { at: 0.857, n: 5 }, { at: 0.95, n: 5 }],
     gm: 'auto',
     air: { lift: 1.6, hang: 0.36 },
     hazards: [
@@ -55,7 +81,10 @@
       { kind: 'topple', at: 0.465, side: 'right', every: 9, offset: 4.5, model: false },
       { kind: 'crossing', at: 0.343, every: 7 },
       { kind: 'crossing', at: 0.57, every: 8, offset: 3 },
-      { kind: 'meteor', from: 0.83, to: 0.92, every: 5 },
+      { kind: 'meteor', from: 0.85, to: 0.92, every: 4.5 },
+      { kind: 'crossing', at: 0.226, every: 6, offset: 1.5 },
+      { kind: 'meteor', from: 0.66, to: 0.78, every: 4, offset: 2 },
+      { kind: 'topple', at: 0.985, side: 'left', every: 8, offset: 2, model: false },
     ],
   };
 
@@ -447,7 +476,7 @@
   // shadows stay light and coloured (and its sunlit side short of white, where the bumps would be lost)
   function cloudMat() {
     return cached('cloud', function () {
-      var m = new T.MeshPhysicalMaterial({ color: '#D2D7E3', vertexColors: true, roughness: 0.9, metalness: 0, sheen: 0.7, sheenRoughness: 0.3, sheenColor: new T.Color('#E4EAF6'),
+      var m = new T.MeshPhysicalMaterial({ color: '#E6EAF2', vertexColors: true, roughness: 0.9, metalness: 0, sheen: 0.7, sheenRoughness: 0.3, sheenColor: new T.Color('#E4EAF6'),
         emissive: new T.Color('#000000') });
       // (and small billows all over it, a cauliflower of bumps from a noise, fading out with distance so they never shimmer)
       m.onBeforeCompile = function (sh) {
@@ -492,7 +521,7 @@
   function kart(F, liveFns) {
     var g = new T.Group(), pearl = vinyl('#DCD6E2', { r: 0.25, cc: 1 }), trim = vinyl(F.trim, { r: 0.25, cc: 1 }), tl = light(F.trim, 0.85);
     var R = seeded(F.id * 7919), J = function (a) { return (R() - 0.5) * 2 * a; };
-    var cl = { lo: 0.14, hi: 0.86, under: lighter(F.kart, 0.14), top: lighter(F.kart, 0.66), c: [0, 0.42, -0.05], r: [0.8, 0.48, 1.35], bend: 0.72 };
+    var cl = { lo: 0.14, hi: 0.86, under: lighter(F.kart, 0.45), top: lighter(F.kart, 0.93), c: [0, 0.42, -0.05], r: [0.8, 0.48, 1.35], bend: 0.72 };
     // the cushion: a bed of broad puffs the driver sinks into, their feet in it too
     [[-0.3, -0.62], [0.3, -0.62], [0, -0.38], [-0.32, -0.12], [0.32, -0.12], [0, 0.08], [-0.3, 0.34], [0.3, 0.34], [0, 0.62]].forEach(function (q) {
       puff(g, cl, 0.22 + J(0.025), q[0] + J(0.03), 0.28 + J(0.02), q[1] + J(0.03));
@@ -545,16 +574,19 @@
       trail.instanceMatrix.needsUpdate = true;
     });
     // the wheels: cloud tyres, a ring of puffs, deep on one side and pale on the other (so you see them roll), round a hub
-    var wheels = [], wr = 0.26;
-    [[0.66, 0.76], [0.68, -0.74]].forEach(function (ax, i) {
+    var wheels = [], wr = 0.29;
+    [[0.74, 0.76, 0], [0.76, -0.74, 0.012]].forEach(function (ax, i) {
       var hub = live(new T.Group()); hub.position.set(0, wr, ax[1]); g.add(hub);
       var spin = new T.Group(); hub.add(spin);
       [-1, 1].forEach(function (sd) {
         var x = sd * ax[0];
-        var cw = { lo: -0.26, hi: 0.26, under: lighter(F.kart, 0.22), top: lighter(F.kart, 0.8), c: [x, 0, 0], ring: 0.158, bend: 0.55, seg: 16 };
-        for (var k = 0; k < 10; k++) { var an = k / 10 * Math.PI * 2; puff(spin, cw, 0.098 + (k % 2) * 0.01, x, Math.cos(an) * 0.158, Math.sin(an) * 0.158); }
-        put(spin, ball(0.1), trim, x + sd * 0.04, 0, 0, 0, 0, 0, 0.55, 1, 1);
-        put(spin, ball(0.045), tl, x + sd * 0.09, 0, 0, 0, 0, 0, 0.5, 1, 1);
+        var cw = { lo: -0.3, hi: 0.3, under: lighter(F.kart, 0.4), top: lighter(F.kart, 0.94), c: [x, 0, 0], ring: 0.165, bend: 0.55, seg: 13 };
+        // two rings of puffs side by side, a fat wide tyre (the rear ones a little fatter still)
+        [-0.075, 0.075].forEach(function (w, j) {
+          for (var k = 0; k < 10; k++) { var an = (k + j * 0.5) / 10 * Math.PI * 2; puff(spin, cw, 0.112 + (k % 2) * 0.01 + ax[2], x + w, Math.cos(an) * 0.165, Math.sin(an) * 0.165); }
+        });
+        put(spin, ball(0.13), trim, x + sd * 0.12, 0, 0, 0, 0, 0, 0.5, 1, 1);
+        put(spin, ball(0.06), tl, x + sd * 0.18, 0, 0, 0, 0, 0, 0.5, 1, 1);
       });
       bake(spin);
       wheels.push({ hub: hub, spin: spin, front: i === 0 });

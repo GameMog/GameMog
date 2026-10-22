@@ -1,0 +1,108 @@
+{
+  "id": "3a646312-8002-4cbc-9386-0be572a2a5b4",
+  "title": "INVISIBLE WORLD",
+  "tagline": "Eight Invisible Friends on cloud karts, three laps through a dream that changes every lap.",
+  "blurb": "A kart race on a road of rainbow glass 1.5 km round, high over a sea of clouds. Race eight Invisible Friends, each driving their own cloud: no bodies, only what they wear and carry. Every lap the dream changes, from Daydream to Deep Dream to Lucid Dream. Fly off the Daybreak cliff, dodge the rolling coins and toppling candles, grind the Whale Run rails, climb the Dream Tower, then drop down the Skyfall's three cliffs into Big Air. Most of the road is open to the sky, so drive off the edge and you fall.",
+  "meta": {
+    "title": "INVISIBLE WORLD",
+    "tagline": "Eight Invisible Friends on cloud karts, three laps through a dream that changes every lap.",
+    "blurb": "A kart race on a road of rainbow glass 1.5 km round, high over a sea of clouds. Race eight Invisible Friends, each driving their own cloud: no bodies, only what they wear and carry. Every lap the dream changes, from Daydream to Deep Dream to Lucid Dream. Fly off the Daybreak cliff, dodge the rolling coins and toppling candles, grind the Whale Run rails, climb the Dream Tower, then drop down the Skyfall's three cliffs into Big Air. Most of the road is open to the sky, so drive off the edge and you fall.",
+    "genre": "Kart race",
+    "cast": [
+      {
+        "name": "Slime #2211",
+        "color": "#2E7BFF",
+        "role": "player"
+      },
+      {
+        "name": "Floaty #4958",
+        "color": "#FF6FB5",
+        "role": "rival"
+      },
+      {
+        "name": "Bucket #3057",
+        "color": "#7E5BEF",
+        "role": "rival"
+      },
+      {
+        "name": "Moon #3074",
+        "color": "#22C8F0",
+        "role": "rival"
+      },
+      {
+        "name": "Wizard #2443",
+        "color": "#FFC93C",
+        "role": "rival"
+      },
+      {
+        "name": "Lab #4915",
+        "color": "#22B45E",
+        "role": "rival"
+      },
+      {
+        "name": "Fisher #4732",
+        "color": "#FF3B30",
+        "role": "rival"
+      },
+      {
+        "name": "Captain #4370",
+        "color": "#1E2A5A",
+        "role": "rival"
+      }
+    ],
+    "palette": {
+      "sky": "#79D3F2",
+      "ground": "#E8F1FF",
+      "accent": "#FFE13A"
+    },
+    "mode": "kart",
+    "controls": "W or the up arrow: gas (hit it as the 1 lands for a Moon Launch). S or the down arrow: brake, then reverse. A D or the left and right arrows: steer. Space: hop, and hold it through a turn to drift (let go for a boost); off a ramp, a trick. X (or J, K, Shift): use your item, held to drag a Rug Pull or Laser Eyes behind you as a shield; E throws it ahead; with S or the down arrow, behind. C: look back. P: pause. On touch screens, a stick to steer and DRIFT, ITEM and BRAKE buttons (the gas is automatic; hold DRIFT on the grid to launch; the stick up or down aims an item); a gamepad works too.",
+    "scoring": "score",
+    "runtime": 1,
+    "kartScore": {
+      "version": 1,
+      "source": "measured",
+      "tStar": {
+        "pepe": 98.534,
+        "doge": 99.975,
+        "shiba": 99.492,
+        "bike": 99.966,
+        "bull": 97.114,
+        "bear": 97.12,
+        "whale": 97.592,
+        "mooncat": 99.485
+      },
+      "tFloor": {
+        "pepe": 87.459,
+        "doge": 87.459,
+        "shiba": 87.459,
+        "bike": 87.459,
+        "bull": 86.708,
+        "bear": 86.708,
+        "whale": 87.137,
+        "mooncat": 87.459
+      },
+      "karts": 8,
+      "laps": 3,
+      "gmCap": 134,
+      "gmMax": 215,
+      "hitsCap": 30,
+      "hitsMax": 64,
+      "lap": 1522.9,
+      "trackSig": "9705f3bc7e48497b",
+      "physics": "b1205f7e69b3",
+      "world": "5d0b1a59977b",
+      "at": "2026-10-22T00:45:36.307Z",
+      "ms": 3631
+    },
+    "soundtrack": {
+      "track": "music-slampe",
+      "label": "Slampe"
+    },
+    "test": {
+      "status": "passed",
+      "codeHash": "51a860a8fab19398",
+      "cover": "current"
+    }
+  }
+}

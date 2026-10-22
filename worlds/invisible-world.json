@@ -1,7 +1,7 @@
 {
   "title": "INVISIBLE WORLD",
-  "tagline": "Eight Invisible Friends, three laps, one road of light across deep space.",
-  "blurb": "A kart race on a ribbon of rainbow light 1.2 km round, floating through deep space past a ringed planet. Race eight Invisible Friends, each in their own kart: no bodies, only what they wear and carry. Most of the road is open to space, so drive off the edge and you fall. Bank through the Sweeper, launch off the big ramp over the gap, dive under the meteors, grind the rails up the Climb, and use every crate's item to stay in front.",
+  "tagline": "Eight Invisible Friends on cloud karts, three laps through a dream that changes every lap.",
+  "blurb": "A kart race on a road of rainbow glass 1.5 km round, high over a sea of clouds. Race eight Invisible Friends, each driving their own cloud: no bodies, only what they wear and carry. Every lap the dream changes, from Daydream to Deep Dream to Lucid Dream. Fly off the Daybreak cliff, dodge the rolling coins and toppling candles, grind the Whale Run rails, climb the Dream Tower, then drop down the Skyfall's three cliffs into Big Air. Most of the road is open to the sky, so drive off the edge and you fall.",
   "genre": "Kart race",
   "cast": [
     { "name": "Slime #2211", "color": "#2E7BFF", "role": "player" },
@@ -13,5 +13,5 @@
     { "name": "Fisher #4732", "color": "#FF3B30", "role": "rival" },
     { "name": "Captain #4370", "color": "#1E2A5A", "role": "rival" }
   ],
-  "palette": { "sky": "#0A0820", "ground": "#141026", "accent": "#FFE13A" }
+  "palette": { "sky": "#79D3F2", "ground": "#E8F1FF", "accent": "#FFE13A" }
 }
