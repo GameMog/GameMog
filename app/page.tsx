@@ -46,12 +46,13 @@ const HERO_COPY = {
  * The flagship (the owner, 27 Oct): Mog City's short trailer (the car, the
  * boost, the helicopter, Jane and the Suits) is the whole hero, on a loop, in
  * place of the reel. The game and its film live at mc.gamemog.com; the film is
- * cut from the trailer's frames without its letterbox. Set to null for the reel.
+ * cut from the trailer's frames without its letterbox or its title card. Its
+ * words are the headline and Play, nothing else (the owner, 27 Oct). Set to
+ * null for the reel.
  */
-const FLAGSHIP: { title: string; tagline: string; lead: string; href: string; film: Film } | null = {
+const FLAGSHIP: { title: string; headline: string[]; href: string; film: Film } | null = {
   title: 'Mog City',
-  tagline: 'Unfinished Business. They framed the wrong guy.',
-  lead: 'Mog City: Unfinished Business. They framed the wrong guy. Play free in your browser.',
+  headline: ['One city.', 'Infinite mogs.'],
   href: 'https://mc.gamemog.com',
   film: { wide: 'https://mc.gamemog.com/media/hero-trailer', narrow: 'https://mc.gamemog.com/media/hero-trailer' },
 };
@@ -104,24 +105,20 @@ function RecordStat({ game }: { game: GameRow }) {
 /** The flagship's film as the hero: one clip, so it loops; Play leaves for its own site. */
 function Flagship({ f }: { f: NonNullable<typeof FLAGSHIP> }) {
   const lead = (
-    <Fragment key="lead">
-      <p>{f.lead}</p>
-      <div className="acts">
-        <a href={f.href} className="btn play" aria-label={`Play ${f.title}`}>Play</a>
-      </div>
-    </Fragment>
+    <div key="lead" className="acts">
+      <a href={f.href} className="btn play" aria-label={`Play ${f.title}`}>Play</a>
+    </div>
   );
+  // phones: the same two lines over Play
   const card = (
     <Fragment key="card">
-      <span className="kicker">Featured game</span>
-      <h1>{f.title}</h1>
-      <p className="tagline">{f.tagline}</p>
+      <h1>{f.headline.map((l, k) => <Fragment key={l}>{k ? <br /> : null}{l}</Fragment>)}</h1>
       <div className="acts">
         <a href={f.href} className="btn big light" aria-label={`Play ${f.title}`}><Icon name="play" size={20} />Play</a>
       </div>
     </Fragment>
   );
-  return <HeroReel clips={[{ film: f.film, href: f.href, title: f.title }]} headline={<h1>{HERO_COPY.headline.map((l) => <span key={l}>{l}</span>)}</h1>} leads={[lead]} cards={[card]} />;
+  return <HeroReel clips={[{ film: f.film, href: f.href, title: f.title }]} headline={<h1>{f.headline.map((l) => <span key={l}>{l}</span>)}</h1>} leads={[lead]} cards={[card]} />;
 }
 
 /** The reel's worlds that are published and filmed, with each one's copy for the desktop and the phone card. */
