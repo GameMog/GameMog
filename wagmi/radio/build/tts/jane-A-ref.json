@@ -1,0 +1,7 @@
+{
+ "design": "Female, mid 20s, Latina New Yorker, a calm low mezzo-alto, a grown woman's voice, warm and steady, talks fast but never rushed, dry humour, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 3213,
+ "refText": "Okay, I pulled the logs, and honestly, it's a mess. Three logins, same machine, all after midnight. I'm sending you the screenshots now. Read them first, then call me, okay?",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

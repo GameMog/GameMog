@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mog City: Dan studio</title>
+  <style>html, body { margin: 0; height: 100%; background: #15171c; overflow: hidden; } canvas { display: block; }
+    #lab { position: fixed; left: 12px; bottom: 10px; color: #fff; font: 600 13px system-ui; opacity: 0.8; }</style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/webgpu": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/tsl": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.tsl.js",
+        "three/addons/": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+<div id="lab"></div>
+<script type="module">
+// Dan (assets/characters/dan.glb) beside the car, playing a clip: ?clip=fight&t=0.4 (a frozen frame), ?view=front|side|close|duo|photo
+// (photo: standing in front of the car's nose, framed like the reference photo; face: head and shoulders,
+// the camera put on the head bone); ?glb= another file to compare
+import * as THREE from 'three/webgpu';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { buildRoadster } from '../wagmi/roadster.js';
+
+const q = new URLSearchParams(location.search), view = q.get('view') || 'duo', clipName = q.get('clip') || (view === 'photo' ? 'idle' : 'fight'), freeze = q.get('t');
+const renderer = new THREE.WebGPURenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0; renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement); await renderer.init();
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#1A1D23');
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.03).texture;
+const key = new THREE.DirectionalLight('#FFFFFF', 2.2); key.position.set(3, 6, 5); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 20 }); scene.add(key);
+scene.add(new THREE.HemisphereLight('#DDE6FF', '#202024', 0.5));
+const floor = new THREE.Mesh(new THREE.CircleGeometry(14, 96), new THREE.MeshStandardMaterial({ color: '#2A2D33', roughness: 0.5, metalness: 0.1 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(q.get('glb') || '../assets/characters/dan.glb');
+const hero = gltf.scene; hero.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+scene.add(hero);
+const mixer = new THREE.AnimationMixer(hero), clips = gltf.animations;
+const clip = THREE.AnimationClip.findByName(clips, clipName) || clips[0];
+const act = mixer.clipAction(clip); act.play();
+document.getElementById('lab').textContent = `${clips.length} clips · playing ${clip.name}`;
+window.__clips = clips.map((c) => c.name);
+
+let car = null;
+if (view === 'duo') { car = buildRoadster(THREE, { paint: q.get('paint') || '#8E0B14' }); car.group.position.set(1.7, 0, -0.6); car.group.rotation.y = -0.5; scene.add(car.group); hero.position.set(-0.6, 0, 0.6); hero.rotation.y = 0.5; }
+// the photo: he stands just ahead of the nose, the car behind him running off to the left, seen from a phone's height
+if (view === 'photo') { car = buildRoadster(THREE, { paint: q.get('paint') || '#141416', matte: true }); car.group.position.set(-1.2, 0, -2.0); car.group.rotation.y = 1.2; scene.add(car.group); }
+const camera = new THREE.PerspectiveCamera(view === 'close' || view === 'face' ? 28 : view === 'photo' ? 38 : 34, innerWidth / innerHeight, 0.1, 100);
+const at = { duo: [[-1.6, 1.5, 6.6], [0.4, 0.8, 0]], front: [[0.6, 1.3, 3.6], [0, 0.95, 0]], side: [[3.6, 1.2, 0.4], [0, 0.95, 0]], close: [[0.35, 1.55, 1.5], [0, 1.45, 0]], face: [[0.12, 1.58, 0.9], [0, 1.55, 0]], photo: [[0.3, 1.75, 4.4], [0.0, 0.8, -0.3]] }[view] || [[-1.6, 1.5, 6.6], [0.4, 0.8, 0]];
+camera.position.set(...at[0]);
+const controls = new OrbitControls(camera, renderer.domElement); controls.target.set(...at[1]); controls.update();
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+if (freeze != null) { mixer.setTime(+freeze); }
+// (face: the camera a little in front of the head bone where the frame has it)
+if (view === 'face') {
+  mixer.update(0); hero.updateMatrixWorld(true);
+  let hb = null; hero.traverse((o) => { if (!hb && o.isBone && o.name === 'head') hb = o; });
+  if (hb) { const h = hb.getWorldPosition(new THREE.Vector3()); camera.position.set(h.x + 0.14, h.y + 0.03, h.z + 0.85); controls.target.set(h.x, h.y - 0.02, h.z); controls.update(); }
+}
+let last = performance.now(), frames = 0;
+renderer.setAnimationLoop(() => {
+  const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (freeze == null) mixer.update(dt); if (car) car.update(dt, 0, 0);
+  controls.update(); renderer.render(scene, camera);
+  if (++frames === 20) window.__ready = true;
+});
+</script>
+</body>
+</html>

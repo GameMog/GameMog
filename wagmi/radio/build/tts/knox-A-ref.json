@@ -1,0 +1,7 @@
+{
+ "design": "Male, early 30s, American, low-pitched mid baritone, relaxed swagger, cocky and amused, sing-song teasing delivery, grinning through every word, a grown man's chest voice, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 2101,
+ "refText": "Yo, listen, listen. Best week of my whole life, okay? Lost it all on Monday, got it back on Tuesday, lost it again by lunch. Still smiling. That's a talent.",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

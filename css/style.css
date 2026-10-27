@@ -1,0 +1,1617 @@
+/* css/style.css */
+/* NYC HUD design system: quiet graphite glass in the corners of the screen, taxi yellow for whatever is active,
+   NYC DOT green for street names, so that the city itself stays the star */
+
+:root {
+  /* Surfaces */
+  --glass: rgba(18, 19, 22, 0.62);
+  --glass-strong: rgba(16, 17, 20, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.045 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --hover: rgba(255, 255, 255, 0.08);
+  --divider: rgba(255, 255, 255, 0.1);
+
+  /* Text */
+  --text: #f6f5f2;
+  --text-2: rgba(246, 245, 242, 0.68);
+  --text-3: rgba(246, 245, 242, 0.44);
+
+  /* Accents */
+  --taxi: #ffc21a;
+  --taxi-ink: #17140a;
+  --sign-green: #0b6a46;
+  --highway: #c08a3e;
+  --ok: #5ee08f;
+  --warn: #ffc857;
+  --bad: #ff7a6b;
+
+  /* Shape & motion */
+  --edge: 20px;
+  --bar-h: 50px;
+  --r-panel: 16px;
+  --r-ctl: 10px;
+  --shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.2);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  --font-sign: 'Overpass', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #0a0b0d;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 2px;
+}
+
+.icon-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-sm {
+  width: 14px;
+  height: 14px;
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 5px;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+#canvas-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  /* (a phone's visible height, the browser's own bars left out: 100vh is the tallest the page can be) */
+  height: 100dvh;
+  z-index: 1;
+  cursor: grab;
+}
+
+#canvas-container:active {
+  cursor: grabbing;
+}
+
+/* Soft scrims behind the HUD: keep small type legible over a bright midday street */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+body::before {
+  top: 0;
+  height: 120px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0));
+}
+
+body::after {
+  bottom: 0;
+  height: 210px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.36), rgba(0, 0, 0, 0));
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   Glass panel
+   ------------------------------------------------------------------------------------------------------------------ */
+.panel {
+  background: var(--grain), var(--glass);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-panel);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   Loading screen
+   ------------------------------------------------------------------------------------------------------------------ */
+#loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(120% 90% at 50% 38%, #1b1e24 0%, #0c0d10 55%, #060607 100%);
+  transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+
+#loading-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: rise-in 0.8s var(--ease-out) both;
+}
+
+.mta-bullet.loader-bullet {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 22px;
+  font-size: 21px;
+}
+
+.loader-title {
+  font-size: 34px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.loader-track {
+  position: relative;
+  width: 240px;
+  height: 3px;
+  margin: 26px 0 14px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.loader-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--taxi);
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+/* While the city is being built (main thread busy) the bar sweeps on the compositor; it fills once shaders compile */
+.loader-track.is-indeterminate .loader-fill {
+  width: 35%;
+  transform: translateX(-100%);
+  transition: none;
+  animation: loader-sweep 1.5s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  will-change: transform;
+}
+
+#loading-status {
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes loader-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(290%); }
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   HUD layout: four corners plus the bottom centre, the middle of the screen stays clear
+   ------------------------------------------------------------------------------------------------------------------ */
+.hud {
+  position: fixed;
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.4s var(--ease-out);
+}
+
+.hud > * {
+  pointer-events: auto;
+}
+
+.hud-top-left {
+  top: max(var(--edge), env(safe-area-inset-top));
+  left: max(var(--edge), env(safe-area-inset-left));
+}
+
+.hud-top-right {
+  top: var(--edge);
+  right: var(--edge);
+}
+
+.hud-bottom-left {
+  left: var(--edge);
+  bottom: var(--edge);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.hud-bottom-center {
+  left: 50%;
+  bottom: var(--edge);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-bottom-right {
+  right: var(--edge);
+  bottom: var(--edge);
+}
+
+/* Clean view [H]: everything but the toggle itself steps out of the way */
+body.hud-minimized::before,
+body.hud-minimized::after {
+  opacity: 0;
+}
+
+body.hud-minimized .hud:not(.hud-top-right) {
+  opacity: 0;
+}
+
+body.hud-minimized .hud:not(.hud-top-right),
+body.hud-minimized .hud:not(.hud-top-right) > * {
+  pointer-events: none;
+}
+
+body.hud-minimized .hud-top-left { transform: translateY(-10px); }
+body.hud-minimized .hud-bottom-left,
+body.hud-minimized .hud-bottom-right { transform: translateY(12px); }
+body.hud-minimized .hud-bottom-center { transform: translate(-50%, 12px); }
+
+body.hud-minimized .toolbar > :not(#btn-toggle-hud) {
+  display: none;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   Top left: brand
+   ------------------------------------------------------------------------------------------------------------------ */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: var(--bar-h);
+  padding: 0 18px 0 9px;
+}
+
+.mta-bullet {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--taxi);
+  color: var(--taxi-ink);
+  font-weight: 800;
+  font-size: 12.5px;
+  letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+
+.brand-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-titles h1 {
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.repo-link {
+  flex: none;
+  padding: 3px 0;
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.repo-link:hover,
+.repo-link:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.brand-subtitle {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#hud-fps {
+  font-weight: 650;
+  color: var(--text-2);
+}
+
+#hud-fps.fps-ok { color: var(--ok); }
+#hud-fps.fps-warn { color: var(--warn); }
+#hud-fps.fps-bad { color: var(--bad); }
+
+/* ------------------------------------------------------------------------------------------------------------------
+   Top right: toolbar (time of day, teleport, map, clean view)
+   ------------------------------------------------------------------------------------------------------------------ */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--bar-h);
+  padding: 0 5px;
+}
+
+.toolbar-divider {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  margin: 0 5px;
+  background: var(--divider);
+}
+
+.time-switch {
+  display: flex;
+  gap: 2px;
+}
+
+.time-btn {
+  height: 36px;
+  padding: 0 9px;
+  border-radius: var(--r-ctl);
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  color: var(--text-2);
+  transition: background-color 0.2s ease, color 0.2s ease, gap 0.35s var(--ease-out), padding 0.35s var(--ease-out);
+}
+
+.time-btn:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+/* The active time of day spells out its name */
+.time-btn .seg-label {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  transition: max-width 0.4s var(--ease-out), opacity 0.25s ease;
+}
+
+.time-btn.active,
+.time-btn.active:hover {
+  gap: 7px;
+  padding: 0 12px 0 10px;
+  background: var(--text);
+  color: #121314;
+}
+
+.time-btn.active .seg-label {
+  max-width: 120px;
+  opacity: 1;
+}
+
+.tool-btn {
+  height: 36px;
+  padding: 0 11px;
+  border-radius: var(--r-ctl);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text);
+  transition: background-color 0.2s ease;
+}
+
+.tool-btn:hover,
+.tool-btn.is-open {
+  background: var(--hover);
+}
+
+.tool-btn .icon-sm {
+  margin-left: -2px;
+  color: var(--text-3);
+  transition: transform 0.3s var(--ease-out);
+}
+
+.tool-btn.is-open .icon-sm {
+  transform: rotate(180deg);
+}
+
+.tool-btn.icon-only {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+}
+
+.icon-show {
+  display: none;
+}
+
+body.hud-minimized .icon-hide {
+  display: none;
+}
+
+body.hud-minimized .icon-show {
+  display: block;
+}
+
+.tool-btn:active,
+.time-btn:active,
+.icon-btn:active,
+.mode-btn:active,
+.camera-current:active,
+.pop-item:active {
+  transform: scale(0.97);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   Popovers (teleport destinations, cameras)
+   ------------------------------------------------------------------------------------------------------------------ */
+.popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 6px;
+  min-width: 264px;
+  max-height: calc(100vh - 2 * var(--edge) - 64px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  color: var(--text);
+  background: var(--grain), var(--glass-strong);
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  backdrop-filter: blur(26px) saturate(170%);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 28px 60px -22px rgba(0, 0, 0, 0.8), 0 4px 14px rgba(0, 0, 0, 0.3);
+  transform-origin: top right;
+  transition: opacity 0.18s ease, transform 0.26s var(--ease-out), overlay 0.26s allow-discrete, display 0.26s allow-discrete;
+}
+
+.popover[data-side='above'] {
+  transform-origin: bottom right;
+}
+
+.popover:not(:popover-open) {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
+
+.popover[data-side='above']:not(:popover-open) {
+  transform: translateY(4px) scale(0.98);
+}
+
+@starting-style {
+  .popover:popover-open {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  .popover[data-side='above']:popover-open {
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+.pop-title {
+  padding: 9px 10px 6px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.pop-title:not(:first-child) {
+  margin-top: 5px;
+  padding-top: 12px;
+  border-top: 1px solid var(--divider);
+}
+
+.pop-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--text);
+  transition: background-color 0.15s ease;
+}
+
+.pop-item:hover {
+  background: var(--hover);
+}
+
+.pop-item.active,
+.pop-item.active:hover {
+  background: var(--text);
+  color: #121314;
+}
+
+.pop-item.active kbd {
+  color: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.08);
+  box-shadow: none;
+}
+
+.tp-btn {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.pop-sub {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   Bottom left: NYC street-name signs over the GPS radar
+   ------------------------------------------------------------------------------------------------------------------ */
+.location {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.location-place {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7), 0 0 14px rgba(0, 0, 0, 0.4);
+  animation: rise-in 0.4s var(--ease-out) both;
+}
+
+.location-signs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: rise-in 0.4s var(--ease-out) both;
+}
+
+.location-near {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* Green blade, white inset border, Highway Gothic lettering: the sign on every Manhattan corner */
+.street-sign {
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 9px 13px 7px;
+  font-family: var(--font-sign);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 55%), var(--sign-green);
+  border-radius: 6px;
+  outline: 1.5px solid rgba(255, 255, 255, 0.92);
+  outline-offset: -4px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35), 0 10px 22px -10px rgba(0, 0, 0, 0.75);
+}
+
+.radar {
+  position: relative;
+  width: 288px;
+  height: 184px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #0a1118;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  cursor: pointer;
+  transition: transform 0.35s var(--ease-out);
+}
+
+.radar:hover {
+  transform: translateY(-2px);
+}
+
+/* Inner rim: a soft vignette so the map sinks into the frame */
+.radar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 0 30px rgba(0, 0, 0, 0.55);
+}
+
+#minimap-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.radar-north {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: rgba(10, 12, 15, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+}
+
+.radar-key {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  z-index: 1;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(10, 12, 15, 0.6);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.radar:hover .radar-key {
+  color: var(--taxi-ink);
+  background: var(--taxi);
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   Bottom centre: travel mode switcher & keyboard guide
+   ------------------------------------------------------------------------------------------------------------------ */
+.controls-hint {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 16px;
+  max-width: 600px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+}
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  animation: rise-in 0.35s var(--ease-out) both;
+}
+
+.hint kbd {
+  color: #ffffff;
+  background: rgba(12, 13, 15, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  text-shadow: none;
+}
+
+.hint-label {
+  margin-left: 4px;
+}
+
+.mode-switch {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  padding: 5px;
+}
+
+/* The taxi-yellow pill glides to the selected mode (positioned by main.js) */
+.mode-indicator {
+  position: absolute;
+  z-index: 0;
+  top: 5px;
+  bottom: 5px;
+  left: 0;
+  width: var(--ind-w, 0px);
+  transform: translateX(var(--ind-x, 0px));
+  border-radius: 12px;
+  background: var(--taxi);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 0 rgba(0, 0, 0, 0.12), 0 4px 12px -4px rgba(0, 0, 0, 0.5);
+  transition: transform 0.45s var(--ease-out), width 0.45s var(--ease-out);
+}
+
+.mode-switch.no-anim .mode-indicator {
+  transition: none;
+}
+
+.mode-btn {
+  position: relative;
+  z-index: 1;
+  height: 42px;
+  padding: 0 12px 0 11px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-2);
+  transition: color 0.25s ease, background-color 0.2s ease;
+}
+
+.mode-btn:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.mode-btn.active,
+.mode-btn.active:hover {
+  color: var(--taxi-ink);
+  background: transparent;
+}
+
+.mode-btn .icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.7;
+}
+
+.mode-btn kbd {
+  margin-left: 2px;
+  transition: color 0.25s ease, background-color 0.25s ease;
+}
+
+.mode-btn.active kbd {
+  color: rgba(23, 20, 10, 0.62);
+  background: rgba(23, 20, 10, 0.1);
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   Bottom right: speed cluster & camera switcher
+   ------------------------------------------------------------------------------------------------------------------ */
+.cluster {
+  width: 272px;
+  overflow: hidden;
+}
+
+.gauge {
+  padding: 13px 16px 15px;
+}
+
+.gauge-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.gauge-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.gauge-alt {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+body[data-mode='helicopter'] .gauge-alt {
+  opacity: 1;
+}
+
+.gauge-alt-label {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.gauge-speed {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+#hud-speed {
+  font-size: 42px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+
+.gauge-unit {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.gauge-meter {
+  position: relative;
+  height: 4px;
+  margin-top: 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+/* Speed as a share of the mode's top speed; it turns taxi yellow on boost */
+#hud-speed-meter {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--text);
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 0.25s linear, background-color 0.2s ease;
+}
+
+body.is-boosting #hud-speed-meter {
+  background: var(--taxi);
+}
+
+.camera-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-top: 1px solid var(--divider);
+}
+
+.icon-btn {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-ctl);
+  display: inline-grid;
+  place-items: center;
+  color: var(--text-2);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.icon-btn:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.camera-current {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: var(--r-ctl);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color 0.15s ease;
+}
+
+.camera-current:hover,
+.camera-current.is-open {
+  background: var(--hover);
+}
+
+.camera-current .icon {
+  color: var(--text-3);
+}
+
+#hud-active-camera {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   Full-screen interactive street map ([M])
+   ------------------------------------------------------------------------------------------------------------------ */
+.fullmap-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: #0a1118;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+.fullmap-modal.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.fullmap-canvas-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.fullmap-canvas-wrap.is-panning {
+  cursor: grabbing;
+}
+
+#fullmap-canvas {
+  touch-action: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fullmap-header {
+  position: absolute;
+  top: var(--edge);
+  left: var(--edge);
+  right: var(--edge);
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.fullmap-header > * {
+  pointer-events: auto;
+}
+
+.fullmap-modal:not(.hidden) .fullmap-header,
+.fullmap-modal:not(.hidden) .map-controls,
+.fullmap-modal:not(.hidden) .fullmap-footer {
+  animation: rise-in 0.45s var(--ease-out) both;
+}
+
+.fullmap-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 9px 20px 9px 11px;
+}
+
+.fullmap-title h2 {
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.fullmap-subtitle {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fullmap-search-wrap {
+  flex: 0 1 440px;
+  min-width: 180px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  color: var(--text-3);
+  cursor: text;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.fullmap-search-wrap:focus-within {
+  color: var(--text-2);
+  border-color: rgba(255, 255, 255, 0.24);
+  background: var(--grain), var(--glass-strong);
+}
+
+.fullmap-search {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: none;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  user-select: text;
+}
+
+.fullmap-search::placeholder {
+  color: var(--text-3);
+}
+
+.fullmap-close {
+  margin-left: auto;
+  height: auto;
+  padding: 0 14px 0 12px;
+  border-radius: var(--r-panel);
+}
+
+.fullmap-close:hover {
+  background: var(--grain), var(--glass-strong);
+}
+
+/* (centred with `translate`, which the rise-in entrance animation on `transform` leaves alone) */
+.map-controls {
+  position: absolute;
+  top: 50%;
+  right: var(--edge);
+  translate: 0 -50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.map-compass {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.map-compass svg {
+  width: 44px;
+  height: 44px;
+}
+
+.map-compass text {
+  font: 800 7.5px var(--font-sans);
+  fill: #ffffff;
+}
+
+.map-zoom {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 14px;
+}
+
+.fullmap-footer {
+  position: absolute;
+  left: 50%;
+  bottom: var(--edge);
+  translate: -50% 0;
+  display: flex;
+  max-width: min(560px, calc(100% - 2 * var(--edge) - 2 * 200px));
+}
+
+.fullmap-status {
+  min-width: 0;
+  padding: 10px 16px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fullmap-legend {
+  position: absolute;
+  right: var(--edge);
+  bottom: var(--edge);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.fullmap-modal:not(.hidden) .fullmap-legend {
+  animation: rise-in 0.45s var(--ease-out) both;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.legend-swatch {
+  flex: none;
+  display: inline-block;
+}
+
+.player-swatch {
+  width: 10px;
+  height: 11px;
+  background: #ffffff;
+  clip-path: polygon(50% 0, 100% 100%, 50% 78%, 0 100%);
+}
+
+.landmark-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px #0b0f14, 0 0 0 3px rgba(255, 255, 255, 0.35);
+}
+
+.gps-swatch,
+.bridge-swatch {
+  width: 16px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.gps-swatch { background: var(--taxi); }
+.bridge-swatch { background: var(--highway); }
+
+.legend-counts {
+  padding-left: 14px;
+  border-left: 1px solid var(--divider);
+  color: var(--text-3);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------------------------------------------------------------ */
+@media (max-width: 1800px) {
+  .legend-counts { display: none; }
+}
+
+@media (max-width: 1360px) {
+  .fullmap-legend { display: none; }
+}
+
+@media (max-width: 1240px) {
+  .controls-hint { display: none; }
+  .mode-btn kbd { display: none; }
+}
+
+@media (max-width: 1080px) {
+  .mode-label,
+  .tool-label,
+  .tool-btn kbd { display: none; }
+  .mode-btn { padding: 0 12px; }
+  .tool-btn:not(.icon-only):not(.fullmap-close) { gap: 4px; padding: 0 9px; }
+}
+
+@media (max-width: 820px) {
+  :root { --edge: 12px; }
+  .hud-top-left { top: calc(max(var(--edge), env(safe-area-inset-top)) + 62px); }
+  .brand > .mta-bullet,
+  .brand-heading h1,
+  .brand-subtitle { display: none; }
+  .brand { height: 44px; padding: 0 12px; }
+  .repo-link { display: flex; align-items: center; gap: 4px; min-height: 44px; font-size: 12px; }
+  .radar { width: 220px; height: 148px; }
+  .cluster { width: 220px; }
+  #hud-speed { font-size: 34px; }
+  .fullmap-title > div { display: none; }
+  .fullmap-title { padding: 9px; }
+  .fullmap-footer { max-width: calc(100% - 2 * var(--edge)); bottom: calc(var(--edge) + 34px); }
+  .map-controls { top: auto; bottom: calc(var(--edge) + 96px); translate: none; }
+}
+
+@media (max-width: 620px) {
+  .time-btn.active .seg-label { display: none; }
+  .time-btn.active { padding: 0 9px; gap: 0; }
+  .radar { display: none; }
+  .hud-bottom-right { bottom: calc(var(--edge) + 64px); }
+  .gauge { display: none; }
+  .camera-switch { border-top: 0; }
+}
+
+/* Touch controls reserve the bottom corners; mode and camera selection remain within reach. */
+#touch-controls {
+  position: fixed;
+  z-index: 12;
+  left: max(var(--edge), env(safe-area-inset-left));
+  right: max(var(--edge), env(safe-area-inset-right));
+  bottom: calc(max(var(--edge), env(safe-area-inset-bottom)) + 72px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  pointer-events: none;
+  -webkit-touch-callout: none;
+}
+
+#touch-controls[hidden],
+.touch-action[hidden] { display: none; }
+
+.touch-movement { text-align: center; }
+
+#touch-stick {
+  position: relative;
+  width: 136px;
+  height: 136px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 32%, transparent 33%), var(--glass);
+  box-shadow: var(--shadow), inset 0 0 0 12px rgba(255, 255, 255, 0.025);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch-stick-axis::before,
+.touch-stick-axis::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.12);
+}
+.touch-stick-axis::before { top: 16px; bottom: 16px; width: 1px; left: 50%; }
+.touch-stick-axis::after { left: 16px; right: 16px; height: 1px; top: 50%; }
+
+#touch-stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(246, 245, 242, 0.8);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transform: translate(calc(-50% + var(--stick-x, 0px)), calc(-50% + var(--stick-y, 0px)));
+  pointer-events: none;
+}
+
+#touch-stick.is-pressed #touch-stick-knob { background: var(--taxi); border-color: var(--taxi); }
+
+.touch-caption,
+.touch-look-hint {
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 550;
+  text-shadow: 0 1px 5px #000;
+}
+.touch-caption { display: block; margin-top: 8px; }
+.touch-look-hint {
+  position: fixed;
+  top: calc(max(var(--edge), env(safe-area-inset-top)) + 120px);
+  right: max(var(--edge), env(safe-area-inset-right));
+  padding: 4px;
+}
+
+.touch-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 64px);
+  gap: 10px;
+  padding-bottom: 22px;
+}
+.touch-action {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: var(--glass-strong);
+  box-shadow: var(--shadow);
+  font-size: 11px;
+  font-weight: 650;
+  pointer-events: auto;
+  touch-action: none;
+}
+.touch-action > [aria-hidden] { font-size: 23px; line-height: 1; }
+.touch-boost { grid-column: 2; border-color: rgba(255, 194, 26, 0.65); color: var(--taxi); }
+.touch-action.is-pressed { color: var(--taxi-ink); background: var(--taxi); border-color: var(--taxi); }
+
+body.touch-enabled .controls-hint,
+body.touch-enabled .radar,
+body.touch-enabled .gauge,
+body.touch-enabled kbd,
+body.touch-enabled .toolbar-divider,
+body.touch-enabled .seg-label { display: none; }
+
+body.touch-enabled .hud-top-right { top: max(var(--edge), env(safe-area-inset-top)); right: max(var(--edge), env(safe-area-inset-right)); }
+body.touch-enabled .toolbar { gap: 2px; padding: 4px; }
+body.touch-enabled .time-btn,
+body.touch-enabled .time-btn.active { height: 44px; min-width: 44px; padding: 0 8px; gap: 0; }
+body.touch-enabled .tool-btn { min-width: 44px; min-height: 44px; }
+body.touch-enabled .tool-label { display: none; }
+body.touch-enabled .hud-bottom-center { bottom: max(var(--edge), env(safe-area-inset-bottom)); }
+body.touch-enabled .mode-label { display: block; font-size: 10px; }
+body.touch-enabled .mode-btn { width: 62px; height: 48px; padding: 0; flex-direction: column; justify-content: center; gap: 3px; }
+body.touch-enabled .hud-bottom-right { top: calc(max(var(--edge), env(safe-area-inset-top)) + 62px); right: max(var(--edge), env(safe-area-inset-right)); bottom: auto; }
+body.touch-enabled .cluster { width: 230px; }
+body.touch-enabled .camera-switch { border: 0; }
+body.touch-enabled .camera-switch .icon-btn { width: 44px; height: 44px; }
+body.touch-enabled .hud-bottom-left { left: max(var(--edge), env(safe-area-inset-left)); bottom: calc(max(var(--edge), env(safe-area-inset-bottom)) + 254px); max-width: calc(100% - 2 * var(--edge)); }
+body.touch-enabled .fullmap-header { top: max(var(--edge), env(safe-area-inset-top)); left: max(var(--edge), env(safe-area-inset-left)); right: max(var(--edge), env(safe-area-inset-right)); }
+body.touch-enabled .map-controls .icon-btn { width: 44px; height: 44px; }
+body.touch-enabled .pop-item { min-height: 44px; }
+
+@media (max-width: 360px) {
+  body.touch-enabled .toolbar { width: 194px; height: auto; flex-wrap: wrap; justify-content: center; }
+  body.touch-enabled .hud-bottom-right { top: calc(max(var(--edge), env(safe-area-inset-top)) + 114px); }
+  .touch-look-hint { top: calc(max(var(--edge), env(safe-area-inset-top)) + 172px); }
+}
+
+@media (max-height: 500px) {
+  body.touch-enabled .hud-bottom-left { display: none; }
+  body.touch-enabled .hud-bottom-right { top: calc(max(var(--edge), env(safe-area-inset-top)) + 58px); }
+  #touch-controls { bottom: max(var(--edge), env(safe-area-inset-bottom)); }
+}
+
+/* ---- Mog City on a phone (touch only: body.touch-enabled; played upright and sideways alike). The screen's zones,
+   shared with wagmi/touch.js's buttons: the stick bottom-left, the button cluster bottom-right, the toolbar (Map, Pause,
+   Clean) top-right with the car's pills under it when sideways; the radar top-left, its help and the objective beside
+   it (sideways) or under it (upright); the objective and subtitle line in the free band between the thumbs (sideways)
+   or above them (upright). Every edge kept inside the safe area (the notch, the island, the home bar) ---- */
+body.touch-enabled {
+  --wg-l: max(12px, env(safe-area-inset-left));
+  --wg-r: max(12px, env(safe-area-inset-right));
+  --wg-t: max(12px, env(safe-area-inset-top));
+  --wg-b: max(12px, env(safe-area-inset-bottom));
+  --wg-radar: 104px;
+  --wg-toolbar: 156px;  /* the toolbar's width (Map, Pause, Clean) and a gap */
+  --wg-stick: 172px;    /* the stick's zone, wide (its ring and caption, and a margin) */
+  --wg-pad: 274px;      /* the button cluster's zone, wide */
+  --wg-thumbs: 268px;   /* how far up from the bottom the thumbs' zones reach when upright */
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (max-height: 500px), (max-width: 500px) {
+  body.touch-enabled { --edge: 12px; }
+}
+body.touch-enabled .hud-top-right { top: var(--wg-t); right: var(--wg-r); }
+/* (the city's speed panel: on touch its gauge is hidden and in story mode its camera picker too; nothing left of it but
+   an empty strip under the toolbar) */
+body.touch-enabled.wg-story .hud-bottom-right { display: none !important; }
+/* the radar: top-left, small; the tracker (the objective, kept) beside it sideways, under it upright; the street signs
+   away. (Its canvas sizes itself from the card and redraws while it shows: js/nyc-map.js; the health bar in a fight
+   hangs under it: wagmi/combat/hud.js) */
+body.touch-enabled.wg-story .hud-bottom-left {
+  display: flex; flex-direction: row; align-items: flex-start; gap: 16px;
+  top: var(--wg-t); left: var(--wg-l); bottom: auto; right: auto;
+  max-width: calc(100vw - var(--wg-l) - var(--wg-r) - var(--wg-toolbar));
+}
+body.touch-enabled.wg-story .hud-bottom-left .location { display: none; }
+body.touch-enabled.wg-story .radar { display: block; order: -2; flex: none; width: var(--wg-radar); height: var(--wg-radar); border-radius: 14px; }
+body.touch-enabled.wg-story .radar:hover { transform: none; }
+body.touch-enabled.wg-story .radar-north { top: 5px; }
+body.touch-enabled.wg-story .wg-track { max-width: min(300px, calc(100vw - var(--wg-l) - var(--wg-r) - var(--wg-toolbar) - var(--wg-radar) - 16px));
+  max-height: calc(100vh - var(--wg-t) - 212px); max-height: calc(100dvh - var(--wg-t) - 212px); overflow-y: auto; overscroll-behavior: contain; }
+/* (the help or an offer takes the tracker's place for its few seconds; a call, the top of the screen) */
+body.touch-enabled.wg-story.wg-helpon .wg-track,
+body.touch-enabled.wg-story.wg-offering .wg-track,
+body.touch-enabled.wg-story.wg-calling .wg-track,
+body.touch-enabled.wg-story.wg-dmon .wg-track { visibility: hidden; }
+@media (orientation: portrait) {
+  body.touch-enabled.wg-story .hud-bottom-left { flex-direction: column; gap: 24px; max-width: calc(100vw - var(--wg-l) - var(--wg-r)); }
+  body.touch-enabled.wg-story .wg-track { max-width: calc(100vw - var(--wg-l) - var(--wg-r)); max-height: calc(100dvh - var(--wg-t) - var(--wg-radar) - var(--wg-thumbs) - 150px); }
+  body.touch-enabled.wg-story.wg-calling:not(.wg-helpon):not(.wg-offering):not(.wg-dmon) .wg-track { visibility: visible; }
+  /* (in the car, the car's pills are a column down the right edge: wagmi/touch.js) */
+  body.touch-enabled.wg-story[data-mode='car'] .wg-track { max-width: calc(100vw - var(--wg-l) - var(--wg-r) - 128px); }
+}
+/* (upright, the look hint goes under the toolbar: the help has the place under the radar) */
+@media (orientation: portrait) {
+  body.touch-enabled.wg-story .touch-look-hint { top: calc(var(--wg-t) + 60px); right: var(--wg-r); }
+}
+/* the full map: its controls and status line inside the safe area too (the home bar, a notch on the side) */
+body.touch-enabled .map-controls { right: var(--wg-r); }
+body.touch-enabled .fullmap-footer { bottom: calc(var(--wg-b) + 34px); }
+@media (max-height: 500px) {
+  body.touch-enabled .fullmap-footer { bottom: var(--wg-b); }
+  body.touch-enabled .map-controls { top: calc(var(--wg-t) + 56px); bottom: auto; translate: none; flex-direction: row; align-items: flex-start; }
+}
+/* the radio's card: sideways, top right beside the toolbar (out from under the help); upright, under the toolbar.
+   A call takes the place while it is on */
+body.touch-enabled .wr-card { left: auto; right: calc(var(--wg-r) + var(--wg-toolbar)); top: var(--wg-t); max-width: 260px; transform: translateY(-8px); text-align: right; }
+body.touch-enabled .wr-card.on { transform: none; }
+body.touch-enabled .wr-card .nm { font-size: 30px; }
+body.touch-enabled.wg-calling .wr-card { opacity: 0; }
+@media (orientation: portrait) {
+  body.touch-enabled .wr-card { right: var(--wg-r); top: calc(var(--wg-t) + 58px); max-width: calc(100vw - var(--wg-l) - var(--wg-r) - var(--wg-radar) - 16px); }
+}
+/* (a fight's hit count: sideways, out of the button cluster, under the toolbar where the car's pills are when driving) */
+@media (orientation: landscape) {
+  body.touch-enabled #wf .wf-combo { top: calc(var(--wg-t) + 64px); right: calc(var(--wg-r) + 8px); }
+}
+/* (the thrusters' cooldown chips: out of the button cluster; sideways under the top band, between the help's column
+   and the car's pills; upright above the objective line) */
+body.touch-enabled #wg-thr { left: calc(var(--wg-l) + var(--wg-radar) + 16px); right: calc(var(--wg-r) + var(--wg-pad)); top: calc(var(--wg-t) + 112px); bottom: auto; justify-content: center; flex-wrap: wrap; }
+@media (orientation: portrait) {
+  body.touch-enabled #wg-thr { left: var(--wg-l); right: var(--wg-r); top: auto; bottom: calc(var(--wg-b) + var(--wg-thumbs) + 120px); }
+  body.touch-enabled[data-mode='car'] #wg-thr { right: calc(var(--wg-r) + 128px); }
+}
+/* (sideways: the 'Hit and run' note (wagmi/street, its own inline place) under the car's pills; the radio card one
+   line shorter, its track name away, so it ends above them) */
+@media (orientation: landscape) {
+  body.touch-enabled #wg-tick { top: calc(var(--wg-t) + 128px) !important; right: var(--wg-r) !important; }
+  body.touch-enabled .wr-card .tr { display: none; }
+}
+/* (the radio's card gives way: upright, or sideways on a small phone, to the help, an offer or a DM, which share its
+   corner there; and always to a chase's heat) */
+@media (orientation: portrait), (max-width: 760px) {
+  body.touch-enabled.wg-helpon .wr-card, body.touch-enabled.wg-offering .wr-card, body.touch-enabled.wg-dmon .wr-card { opacity: 0 !important; }
+}
+body.touch-enabled:has(#wg-heat.on) .wr-card { opacity: 0 !important; }
+/* (the chase's heat, wagmi/pursuit/hud.js, which places itself inline beside the toolbar (hence !important): sideways,
+   under the radar, since the top band beside the toolbar is the help's, the call's and the radio's; upright, under the
+   toolbar on the right edge, a call moved down below it and its message) */
+@media (orientation: landscape) {
+  body.touch-enabled #wg-heat { top: calc(var(--wg-t) + var(--wg-radar) + 10px) !important; left: var(--wg-l) !important; right: auto !important; }
+  body.touch-enabled #wg-heat .msg { left: 0; right: auto; }
+  body.touch-enabled:has(#wg .wg-count.on) #wg-heat { top: calc(var(--wg-t) + var(--wg-radar) + 64px) !important; }
+  /* (the thrusters' chips step right of it) */
+  body.touch-enabled:has(#wg-heat.on) #wg-thr { left: calc(var(--wg-l) + 224px); }
+}
+@media (orientation: portrait) {
+  body.touch-enabled #wg-heat { top: calc(var(--wg-t) + 58px) !important; right: var(--wg-r) !important; left: auto !important; }
+  body.touch-enabled:has(#wg-heat.on) #wg .wg-caller { top: calc(var(--wg-t) + 140px); }
+  /* (a fight's short message, 'He's done': over the stick's top at 21vh on a small phone; up above it. The hit count
+     down from 36vh, where it met the objective line over the thumbs on a small phone, to below the help's place) */
+  body.touch-enabled #wf .wf-msg { bottom: calc(var(--wg-b) + 200px); }
+  body.touch-enabled #wf .wf-combo { top: calc(var(--wg-t) + 200px); right: calc(var(--wg-r) + 8px); }
+}
+/* (upright, story mode: the stick down at the bottom edge beside the buttons; the sandbox's mode bar it made room for
+   is hidden in the story) */
+@media (orientation: portrait) {
+  body.touch-enabled.wg-story #touch-controls { bottom: var(--wg-b); }
+  body.touch-enabled #wg-tick { top: calc(var(--wg-t) + 210px) !important; right: auto !important; left: 50% !important; transform: translateX(-50%); }
+  body.touch-enabled:has(.wr-card.on) .touch-look-hint { opacity: 0 !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- Mog City: a game pad's buttons in place of the key caps (wagmi/pad.js: kbd.wgp, while a pad is the last
+   thing used, body.wg-pad). Sized from the key cap's own font, so they fit wherever a key cap was ---- */
+#wg-prompt kbd:not(.wgp) { all: unset; }
+kbd.wgp {
+  display: inline-flex !important; align-items: center; justify-content: center; vertical-align: middle; flex: none; box-sizing: border-box;
+  height: max(17px, 1.5em) !important; min-width: max(17px, 1.5em) !important; width: auto !important; padding: 0 .38em !important; margin: 0 .12em !important;
+  border: 0 !important; border-radius: 999px !important; font-family: var(--font-sans), system-ui, sans-serif !important; font-weight: 800 !important;
+  line-height: 1 !important; letter-spacing: 0 !important; text-transform: none !important; text-shadow: none !important; text-align: center;
+  color: #fff !important; background: #16191F !important; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.42), 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+kbd.wgp > span { font-size: .72em; }
+kbd.wgp svg { width: 72% !important; height: 72% !important; flex: none; transform: none !important; }
+/* (a ring's own svg rules where a key cap sits in it, the hold ring's and the skip's: not the button's) */
+kbd.wgp svg circle, kbd.wgp svg rect, kbd.wgp svg path { stroke-width: inherit !important; }
+kbd.wgp.wgp-dup { display: none !important; }
+/* face buttons: a dark disc, Xbox's letters in their colours (and any other pad's), PlayStation's shapes */
+kbd.wgp-face { width: max(17px, 1.5em) !important; padding: 0 !important; }
+kbd.wgp-face > span { font-size: .86em; }
+kbd.wgp-a { color: #6BD84E !important; box-shadow: inset 0 0 0 1.5px #6BD84E, 0 1px 3px rgba(0, 0, 0, 0.5) !important; }
+kbd.wgp-b { color: #FF5B52 !important; box-shadow: inset 0 0 0 1.5px #FF5B52, 0 1px 3px rgba(0, 0, 0, 0.5) !important; }
+kbd.wgp-x { color: #4FA9FF !important; box-shadow: inset 0 0 0 1.5px #4FA9FF, 0 1px 3px rgba(0, 0, 0, 0.5) !important; }
+kbd.wgp-y { color: #FFD23F !important; box-shadow: inset 0 0 0 1.5px #FFD23F, 0 1px 3px rgba(0, 0, 0, 0.5) !important; }
+kbd.wgp-ps.wgp-a { color: #8FB8FF !important; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.42), 0 1px 3px rgba(0, 0, 0, 0.5) !important; }
+kbd.wgp-ps.wgp-b { color: #FF6E78 !important; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.42), 0 1px 3px rgba(0, 0, 0, 0.5) !important; }
+kbd.wgp-ps.wgp-x { color: #FF8FD8 !important; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.42), 0 1px 3px rgba(0, 0, 0, 0.5) !important; }
+kbd.wgp-ps.wgp-y { color: #3FE3B4 !important; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.42), 0 1px 3px rgba(0, 0, 0, 0.5) !important; }
+kbd.wgp-ps svg { fill: none; stroke: currentColor; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
+kbd.wgp-sys svg { fill: none; stroke: #fff; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+/* shoulders (a pill) and triggers (squarer below); sticks and their clicks (a ring); the D-pad (its pressed arm lit) */
+kbd.wgp-sh { border-radius: .42em !important; padding: 0 .42em !important; }
+kbd.wgp-tr { border-radius: .7em .7em .32em .32em !important; }
+kbd.wgp-word > span { font-size: .56em; letter-spacing: .06em; }
+kbd.wgp-st { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.42), inset 0 0 0 3.5px #16191F, inset 0 0 0 5px rgba(255, 255, 255, 0.16), 0 1px 3px rgba(0, 0, 0, 0.5) !important; padding: 0 .3em !important; }
+kbd.wgp-st > span { font-size: .6em; }
+kbd.wgp-st.wgp-click > span { color: #FFC93C; }
+kbd.wgp-dp { border-radius: .32em !important; padding: 0 !important; width: max(17px, 1.5em) !important; }
+kbd.wgp-dp svg { width: 86% !important; height: 86% !important; }
+kbd.wgp-dp .b { fill: rgba(255, 255, 255, 0.3); }
+kbd.wgp-dp .o { fill: #FFC93C; }
+/* (a line that says one thing for the keyboard and another for a pad) */
+body:not(.wg-pad) .wg-padonly, body.wg-pad .wg-nopad { display: none !important; }

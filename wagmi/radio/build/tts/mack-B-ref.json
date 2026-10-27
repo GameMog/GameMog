@@ -1,0 +1,7 @@
+{
+ "design": "Male, late 30s, American, nasal mid-range voice in a normal adult male range, a fast-talking hustler, anxious and excitable, every sentence rises like a sales pitch, slightly out of breath, close-mic, clean dry studio audio, a real person in the moment, not a radio announcer.",
+ "seed": 2212,
+ "refText": "Okay, everybody, listen to me. This is a once in a lifetime opportunity. I say that every week, but this week I mean it. Ten times, minimum. Don't ask me how.",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

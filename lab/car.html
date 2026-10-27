@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mog City: car studio</title>
+  <style>html, body { margin: 0; height: 100%; background: #15171c; overflow: hidden; } canvas { display: block; }</style>
+  <script>window.__errs = []; addEventListener('error', (e) => window.__errs.push(String(e.message || e))); addEventListener('unhandledrejection', (e) => window.__errs.push(String(e.reason && e.reason.stack || e.reason)));</script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/webgpu": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/tsl": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.tsl.js",
+        "three/addons/": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+<script type="module">
+// The car in a studio. ?view=
+//   side    long-lens side profile on white, nose to the right (orthographic: 5.2 m across the frame, ground 0.9 m under
+//           the middle), to lay over the reference's profile
+//   ref5    low rear three-quarter on a salt flat, like the reference photo
+//   front34 | end (low front three-quarter) | rear34 | front | rear | top | thrust (rear, firing) | night (rear, firing, dark)
+//   tail    straight behind, close, at bumper height (the thrusters and the diffuser)
+//   hero    high behind, in a dark studio, like the maker's rear shot (the trough between the sails)
+//   mfront  straight ahead from just over the roof, in a dark studio, like the maker's front shot
+//   doors | doorsRear | doorsSide | doorIn  the driver's door open (?door=0..1, ?doorL / ?doorR one of them)
+//   driver | climb  Dan at the wheel, and getting in and out on a loop (?k=0..1 a pose on the way in, ?play=1 the
+//           loop, ?scale= the car scaled as the game does)
+// and ?paint=#hex, ?matte=1, ?cold=0..1, ?burn=0..1, ?spin=1, ?steer=-1..1, ?floor=#hex, ?cam=x,y,z&at=x,y,z&fov=deg (a
+// camera of your own), ?id=1 (the materials recoloured, to tell the parts apart), ?bg=#hex
+import * as THREE from 'three/webgpu';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { buildRoadster, createDriver } from '../wagmi/roadster.js';
+
+const q = new URLSearchParams(location.search), view = q.get('view') || 'front34';
+const firing = view === 'thrust' || view === 'night';
+const V = {
+  front34: { cam: [4.4, 1.25, 5.6], at: [0, 0.5, 0.2], fov: 30 },
+  rear34: { cam: [-4.4, 1.5, -5.6], at: [0, 0.55, -0.2], fov: 30 },
+  front: { cam: [0, 2.1, 14], at: [0, 0.5, 0], fov: 13 },
+  end: { cam: [3.3, 0.8, 6.6], at: [0.35, 0.5, 0.7], fov: 30 },   // (low front three-quarter, like the maker's closing shot)
+  rear: { cam: [0, 2.6, -11], at: [0, 0.55, -0.6], fov: 15 },
+  top: { cam: [0.01, 12, 0], at: [0, 0, 0], fov: 26 },
+  ref5: { cam: [4.93, 0.503, -5.512], at: [0.089, -0.151, 0.824], fov: 43.3, bg: '#D5DEE6', floor: '#B9A184', env: 1.1 },   // (fitted to the photo, at 3:2)
+  thrust: { cam: [-3.4, 1.3, -7.6], at: [0, 0.5, -2.2], fov: 38 },
+  night: { cam: [-3.6, 1.2, -7.4], at: [0, 0.5, -2.2], fov: 38, bg: '#07080C', floor: '#15161A', env: 0.2, key: 0.3 },
+  tail: { cam: [0, 0.62, -6.2], at: [0, 0.5, -2.1], fov: 22 },
+  hero: { cam: [0.2, 2.5, -8.2], at: [0, 0.6, -1.0], fov: 26, bg: '#101114', floor: '#222326' },
+  mfront: { cam: [0, 1.45, 9.5], at: [0, 0.5, 0], fov: 19, bg: '#101114', floor: '#222326' },
+  side: { ortho: 5.2, cam: [-30, 0.9, 0], at: [0, 0.9, 0], bg: '#FFFFFF', floor: '#FFFFFF', env: 1.0, key: 1.6 },
+  // the doors (open unless ?door= says otherwise): the driver's side at three quarters from the front, from behind, its
+  // profile (the driver's side, nose to the left), and into the open door
+  doors: { cam: [5.2, 1.6, 3.6], at: [0.3, 0.75, 0.1], fov: 34, door: 1 },
+  doorsRear: { cam: [5.0, 1.9, -4.2], at: [0.3, 0.8, 0.2], fov: 34, door: 1 },
+  doorsSide: { ortho: 5.6, cam: [30, 1.1, 0], at: [0, 1.1, 0], door: 1 },
+  doorIn: { cam: [2.6, 1.25, -0.9], at: [0.2, 0.55, 0.1], fov: 40, door: 1 },
+  // Dan: at the wheel seen through the open door, and getting in and out on a loop from behind his shoulder
+  driver: { cam: [2.6, 1.25, -0.9], at: [0.2, 0.55, 0.1], fov: 40, door: 1, k: 1 },
+  climb: { cam: [4.4, 1.4, -1.6], at: [0.7, 0.75, -0.1], fov: 36, door: 1, play: true },
+}[view] || { cam: [4.4, 1.25, 5.6], at: [0, 0.5, 0.2], fov: 30 };
+const vec = (k) => (q.get(k) || '').split(',').map(Number);
+if (q.has('cam')) V.cam = vec('cam'); if (q.has('at')) V.at = vec('at'); if (q.has('fov')) V.fov = +q.get('fov');
+
+const renderer = new THREE.WebGPURenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = view === 'night' ? 0.8 : 1.0;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+await renderer.init();
+
+const scene = new THREE.Scene(); scene.background = new THREE.Color(V.bg || '#1A1D23');
+if (view === 'side') scene.background.setScalar(3);   // (white after tone mapping)
+if (q.get('bg')) scene.background = new THREE.Color(q.get('bg'));
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.03).texture;
+scene.environmentIntensity = V.env ?? 0.55;
+const key = new THREE.DirectionalLight('#FFFFFF', V.key ?? 3.2); key.position.set(view === 'ref5' ? -3 : -3, 7, view === 'ref5' ? -6 : 4); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 24 }); scene.add(key);
+scene.add(new THREE.HemisphereLight('#DDE6FF', '#202024', view === 'night' ? 0.1 : 0.5));
+const floor = new THREE.Mesh(new THREE.CircleGeometry(40, 96), new THREE.MeshStandardMaterial({ color: q.get('floor') || V.floor || '#2A2D33', roughness: 0.6, metalness: 0.05 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+const num = (k, d) => (q.has(k) ? +q.get(k) : d);
+const car = buildRoadster(THREE, { ...(q.get('paint') ? { paint: q.get('paint') } : {}), ...(q.has('hax') ? { hingeAxis: vec('hax') } : {}), ...(q.has('hinge') ? { hinge: vec('hinge') } : {}), ...(q.has('hang') ? { hingeAngle: +q.get('hang') } : {}), matte: q.get('matte') === '1', cold: num('cold', firing ? 1 : 0), burn: num('burn', firing ? 0.85 : 0) });
+scene.add(car.group);
+window.car = car;
+// (?scale=: the car scaled up whole as the game does it, a driver in it staying his own size)
+if (q.has('scale')) { const S = +q.get('scale'); car.group.scale.setScalar(S); car.anchor.scale.setScalar(1 / S); car.scale = S; for (const k of Object.keys(car.seat)) car.seat[k] = car.seat[k].map((v) => v * S); }
+// (?door= both doors, ?doorL= / ?doorR= one: 0 shut, 1 up)
+for (const sd of ['L', 'R']) car.setDoor(sd, num('door' + sd, num('door', V.door ?? 0)));
+// Dan (?k=0..1: on his way in, 0 standing at the driver's door, 1 at the wheel; ?play=1 in and out on a loop, ?steer)
+let driver = null, kPlay = 0;
+if (q.has('k') || q.has('play') || V.k != null || V.play) {
+  const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync('../assets/characters/dan.glb');
+  const body = gltf.scene; body.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+  scene.add(body);
+  const mixer = new THREE.AnimationMixer(body), A = {}, bones = {};
+  body.traverse((o) => { if (o.isBone) bones[o.name] = o; });
+  const act = (n) => A[n] || (A[n] = mixer.clipAction(THREE.AnimationClip.findByName(gltf.animations, n)));
+  act('idle').play();
+  driver = createDriver(THREE, car, { body, bones, mixer, act }, { fade: 0 });
+  driver.attach(0);
+  window.driver = driver;
+}
+if (q.get('id') === '1') { const M = car.materials; M.glass.color.set('#00C040'); M.lower.color.set('#C000C0'); M.under.color.set('#00A0C0'); M.trim.color.set('#E0E000'); M.seam.color.set('#FF6000'); }
+
+const aspect = innerWidth / innerHeight;
+const camera = V.ortho ? new THREE.OrthographicCamera(-V.ortho / 2, V.ortho / 2, V.ortho / 2 / aspect, -V.ortho / 2 / aspect, 0.1, 100) : new THREE.PerspectiveCamera(V.fov, aspect, 0.1, 200);
+camera.position.set(...V.cam);
+const controls = new OrbitControls(camera, renderer.domElement); controls.target.set(...V.at); controls.update();
+addEventListener('resize', () => { if (camera.isPerspectiveCamera) { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); } renderer.setSize(innerWidth, innerHeight); });
+let last = performance.now(), frames = 0;
+renderer.setAnimationLoop(() => {
+  const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
+  car.update(dt, q.get('spin') ? 6 : 0, num('steer', 0));
+  if (driver) { kPlay += dt / 2.4; const k = q.has('play') || V.play ? 1 - Math.abs(1 - (kPlay % 2)) : num('k', V.k ?? 1); driver.pose(dt, k); }
+  controls.update(); renderer.render(scene, camera);
+  if (++frames === 20) { window.__ready = true; window.__info = renderer.info.render; }
+});
+</script>
+</body>
+</html>

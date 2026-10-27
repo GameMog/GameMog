@@ -1,0 +1,7 @@
+{
+ "design": "Female, early 30s, American, bright powerful mezzo voice, a party host working a crowd, loud and high energy, everything is the best thing ever, a big smile in the voice, close-mic, clean dry studio audio, a real person in the moment, not a radio announcer.",
+ "seed": 2401,
+ "refText": "Hi, everybody! Oh my gosh, look at all of you! This is the best crowd ever, I'm not even kidding. Phones up, smiles on, and let me hear some noise!",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

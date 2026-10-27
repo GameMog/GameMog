@@ -1,0 +1,30 @@
+name: Bug report
+description: Something in the game is broken or behaves wrongly.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you see or hear, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How do we make it happen?
+      description: The steps, where in the game (a mission and checkpoint, or a street), and the URL you used (for example https://mc.gamemog.com/?m2=yard).
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      description: For example "Galaxy Fold, Chrome 130, landscape" or "MacBook Air, Safari 18".
+    validations:
+      required: true
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots, a clip or console errors
+      description: Anything that helps. Drag files in here.

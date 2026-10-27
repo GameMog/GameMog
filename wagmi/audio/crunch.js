@@ -1,0 +1,159 @@
+// Mog City: a crash's metal. Ported from Slop New York by Mr.doob (MIT), commit 7772c09 (js/audio-events.js:
+// crashBody, crashMetal, crashDebris and the crash in playEvent), three takes of each layer baked once:
+//   body    the bumper and body taking it: band-limited noise, a broad damped thump and a second contact just after
+//   metal   the sheet metal buckling: uneven creases driving four inharmonic panel modes, under a crushed scrape
+//   debris  bits flying off and landing: short ringing grains (only in a hard one)
+// crunch(M, out, t, severity 0..1, rate): harder is lower and has more metal in it. (sounds.js carHit plays it, with our
+// glass on top when it is hard.) Each buffer bakes the first time it is wanted (a few ms), or before in idle time
+// (warmCrunch, one at a time).
+const TAU = Math.PI * 2;
+const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
+const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, finite(value)));
+
+function randomSource(seed) {
+  let state = (finite(seed, 1) * 2654435761) >>> 0;
+  state = Math.imul(state ^ (state >>> 16), 0x7feb352d);
+  state = Math.imul(state ^ (state >>> 15), 0x846ca68b);
+  state ^= state >>> 16;
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+function makeBuffer(ctx, duration, synthesize, peak = 0.6) {
+  const buffer = ctx.createBuffer(1, Math.ceil(duration * ctx.sampleRate), ctx.sampleRate);
+  const samples = buffer.getChannelData(0);
+  let maximum = 0, mean = 0;
+  for (let i = 0; i < samples.length; i++) {
+    samples[i] = synthesize(i / ctx.sampleRate, i);
+    mean += samples[i];
+  }
+  mean /= samples.length;
+  for (let i = 0; i < samples.length; i++) {
+    // A short endpoint fade removes clicks even when a pitched component ends between zero crossings.
+    const fade = Math.min(1, i / (ctx.sampleRate * 0.002), (samples.length - 1 - i) / (ctx.sampleRate * 0.012));
+    samples[i] = (samples[i] - mean) * fade;
+    maximum = Math.max(maximum, Math.abs(samples[i]));
+  }
+  const scale = maximum > 0 ? peak / maximum : 0;
+  for (let i = 0; i < samples.length; i++) samples[i] *= scale;
+  return buffer;
+}
+
+function crashBody(ctx, seed) {
+  const random = randomSource(seed);
+  const coefficients = [45, 240 + random() * 70, 950].map((frequency) => 1 - Math.exp(-TAU * frequency / ctx.sampleRate));
+  const bands = [0, 0, 0];
+  const rebound = 0.018 + random() * 0.018;
+  const decay = 0.026 + random() * 0.012;
+  return makeBuffer(ctx, 0.28, (t) => {
+    const noise = random() * 2 - 1;
+    for (let i = 0; i < bands.length; i++) bands[i] += (noise - bands[i]) * coefficients[i];
+    const contact = (1 - Math.exp(-t * 1600)) * Math.exp(-t / decay);
+    const second = Math.max(0, t - rebound);
+    const compression = (1 - Math.exp(-second * 700)) * Math.exp(-second / 0.034);
+    // Broad, damped bumper/body pressure with a second contact; there is no pitched kick or falling oscillator.
+    return (bands[1] - bands[0]) * (contact * 1.8 + compression * 0.65)
+      + (bands[2] - bands[1]) * (contact * 0.6 + compression * 0.18);
+  }, 0.7);
+}
+
+function crashMetal(ctx, seed) {
+  const random = randomSource(seed);
+  const creases = Array.from({ length: 7 }, () => ({
+    time: 0.008 + random() ** 2 * 0.19,
+    decay: 0.009 + random() * 0.020,
+    level: 0.25 + random() * 0.65,
+  }));
+  const modes = [430, 790, 1370, 2380].map((frequency, i) => {
+    const radius = Math.exp(-1 / (ctx.sampleRate * (0.012 + random() * 0.016)));
+    return { a: 2 * radius * Math.cos(TAU * frequency * (0.88 + random() * 0.24) / ctx.sampleRate),
+      b: radius * radius, gain: (1 - radius) * [1, 0.85, 0.6, 0.3][i], y1: 0, y2: 0 };
+  });
+  const lowCoefficient = 1 - Math.exp(-TAU * 550 / ctx.sampleRate);
+  const highCoefficient = 1 - Math.exp(-TAU * 4800 / ctx.sampleRate);
+  let low = 0, high = 0;
+  return makeBuffer(ctx, 0.43, (t) => {
+    const noise = random() * 2 - 1;
+    low += (noise - low) * lowCoefficient;
+    high += (noise - high) * highCoefficient;
+    let pressure = (1 - Math.exp(-t * 1800)) * Math.exp(-t / 0.018);
+    for (const crease of creases) {
+      const local = t - crease.time;
+      if (local > 0) pressure += (1 - Math.exp(-local * 2200)) * Math.exp(-local / crease.decay) * crease.level;
+    }
+    const excitation = noise * pressure;
+    let panel = 0;
+    for (const mode of modes) {
+      const y = excitation + mode.a * mode.y1 - mode.b * mode.y2;
+      mode.y2 = mode.y1;
+      mode.y1 = y;
+      panel += y * mode.gain;
+    }
+    // Inharmonic sheet-metal resonances are driven by uneven buckles, underneath a short crushed/scraped texture.
+    return panel * 1.7 + (high - low) * pressure * 0.22;
+  }, 0.65);
+}
+
+function crashDebris(ctx, seed) {
+  const random = randomSource(seed);
+  const grains = Array.from({ length: 14 }, () => {
+    const time = 0.015 + random() ** 1.7 * 0.51;
+    return { time, frequency: 1400 + random() * 4300, decay: 0.003 + random() * 0.010,
+      level: (0.25 + random() * 0.75) * (1 - time * 0.9) };
+  });
+  const coefficient = 1 - Math.exp(-TAU * 1100 / ctx.sampleRate);
+  let low = 0;
+  return makeBuffer(ctx, 0.67, (t) => {
+    const noise = random() * 2 - 1;
+    low += (noise - low) * coefficient;
+    let fragments = 0;
+    for (const grain of grains) {
+      const local = t - grain.time;
+      if (local <= 0 || local > grain.decay * 7) continue;
+      const envelope = (1 - Math.exp(-local * 3500)) * Math.exp(-local / grain.decay) * grain.level;
+      const ring = Math.sin(TAU * grain.frequency * local) + Math.sin(TAU * grain.frequency * 1.71 * local) * 0.3;
+      fragments += ((noise - low) * 0.7 + ring * 0.16) * envelope;
+    }
+    return fragments;
+  }, 0.55);
+}
+
+// (per context: the nine buffers, each baked the first time it is wanted, or before that in idle time: warmCrunch)
+const BANKS = new WeakMap();
+const MAKE = { body: [crashBody, 301], metal: [crashMetal, 401], debris: [crashDebris, 501] };
+function bank(ctx) {
+  let b = BANKS.get(ctx);
+  if (!b) BANKS.set(ctx, (b = { body: [], metal: [], debris: [] }));
+  return b;
+}
+const take = (ctx, layer, i) => { const b = bank(ctx)[layer]; return b[i] || (b[i] = MAKE[layer][0](ctx, MAKE[layer][1] + i)); };
+export function warmCrunch(M) {
+  const todo = [];
+  for (const layer of Object.keys(MAKE)) for (let i = 0; i < 3; i++) todo.push([layer, i]);
+  const idle = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 400 }) : (f) => setTimeout(f, 20);
+  const ms = (M.crunchMs = []);
+  const pump = () => { const j = todo.shift(); if (!j) return; const t0 = performance.now(); take(M.ctx, j[0], j[1]); ms.push(+(performance.now() - t0).toFixed(1)); if (todo.length) idle(pump); };
+  if (M.live === false) while (todo.length) pump(); else idle(pump);
+}
+
+// one crash into `out` at t: severity 0..1 (how hard), rate a pitch on top (1 = as baked); returns how long it rings
+export function crunch(M, out, t, severity, rate = 1) {
+  const ctx = M.ctx, sev = clamp(severity);
+  const variant = Math.floor(M.R() * 3);
+  const r = (1.16 - sev * 0.24) * (0.96 + M.R() * 0.08) * rate;
+  let end = t;
+  const play = (buffer, when, volume) => {
+    const s = ctx.createBufferSource(), g = ctx.createGain();
+    s.buffer = buffer; s.playbackRate.value = r; g.gain.value = volume;
+    s.connect(g); g.connect(out);
+    s.start(when); s.stop(when + buffer.duration / r);
+    s.onended = () => { try { s.disconnect(); g.disconnect(); } catch {} };
+    end = Math.max(end, when + buffer.duration / r);
+  };
+  play(take(ctx, 'body', variant), t, 0.7 + sev * 0.3);
+  play(take(ctx, 'metal', variant), t + 0.003, 0.08 + sev * 0.72);
+  if (sev > 0.45) play(take(ctx, 'debris', variant), t + 0.012, (sev - 0.45) / 0.55 * 0.55);
+  return end - t;
+}

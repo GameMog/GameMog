@@ -1,0 +1,7 @@
+{
+ "design": "Male, early 30s, American, low gravelly voice, a big bouncer's chest voice, short barked phrases, restless and jumpy, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 2601,
+ "refText": "Let's go, let's go! Hands up, phones out, nobody past the rope! You, back up. You, you're good. Everybody else, keep that energy up!",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

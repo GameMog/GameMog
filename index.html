@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <script>
+    // (sound on a phone: every audio context the page makes is kept, and a tap's release, a click or a key wakes any
+    // the browser left suspended. A finger's pointerdown or touchstart, which is all the game's own unlocks listen to,
+    // doesn't count as a gesture on iPhone; touchend, pointerup and click do. Not while paused or hidden: the game
+    // holds its sound then on purpose)
+    // (a tap on the title before the game has made a context of its own: one is made and woken in that tap (__wgWarmAudio)
+    // and handed to the first the game makes with the same options, so a start tapped while the city still loads is
+    // heard when the trailer plays, on a phone that only lets a tap start sound as well)
+    (() => {
+      const list = (window.__wgCtx = []);
+      let pre = null;
+      for (const k of ['AudioContext', 'webkitAudioContext']) {
+        const C = window[k];
+        if (typeof C !== 'function') continue;
+        try {
+          const Kept = class extends C { constructor(...a) {
+            const o = a[0], p = pre;
+            if (p && p.k === k && (!o || (Object.keys(o).length === 1 && o.latencyHint === p.hint))) { pre = null; return p.ctx; }
+            super(...a); list.push(this); } };
+          Object.defineProperty(Kept, 'name', { value: C.name || k });
+          window[k] = Kept;
+        } catch (e) {}
+      }
+      const wake = (e) => {
+        if (!e.isTrusted || document.hidden || (window.WAGMI && window.WAGMI.paused)) return;
+        for (const c of list) if (c.state === 'suspended' || c.state === 'interrupted') { try { c.resume().catch(() => {}); } catch (err) {} }
+      };
+      for (const t of ['touchend', 'pointerup', 'click', 'keydown']) addEventListener(t, wake, { capture: true, passive: true });
+      // (the options wagmi/audio/index.js makes its mixer's context with: a bigger buffer on a touch-first device)
+      window.__wgWarmAudio = () => {
+        if (list.length || /[?&]noaudio\b/.test(location.search)) return;
+        const k = typeof window.AudioContext === 'function' ? 'AudioContext' : typeof window.webkitAudioContext === 'function' ? 'webkitAudioContext' : null;
+        if (!k) return;
+        let hint = 'interactive';
+        try { if (matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches) hint = 'playback'; } catch (e) {}
+        try {
+          const ctx = new window[k]({ latencyHint: hint });
+          pre = { ctx, hint, k };
+          const r = ctx.resume(); if (r && r.catch) r.catch(() => {});
+          const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1, 1, 22050); s.connect(ctx.destination); s.start(0);
+        } catch (e) {}
+      };
+    })();
+  </script>
+  <script>
+    // (Mog City: the instant title, #wg-boot in the body. On every start that shows the start gate the first thing
+    // on screen is the gate itself, its title over a still of its own aerial, while the city loads behind it; the
+    // other starts (?nointro, ?nogate, ?fight, ?m1=, ?m2=, ?m3=) keep the loading screen. wg-t-save: a saved game,
+    // whose gate asks CONTINUE or NEW GAME. The still asked for first, ahead of the scripts)
+    (() => {
+      const Q = new URLSearchParams(location.search), H = document.documentElement;
+      if (Q.has('nointro') || Q.has('nogate') || Q.has('fight') || Q.get('m1') || Q.get('m2') || Q.get('m3')) return;
+      H.classList.add('wg-t');
+      try { const s = JSON.parse(localStorage.getItem('wagmi.save.v1') || 'null'); if (s && Array.isArray(s.done) && s.done.length) H.classList.add('wg-t-save'); } catch (e) {}
+      const l = document.createElement('link');
+      l.rel = 'preload'; l.as = 'image'; l.setAttribute('fetchpriority', 'high');
+      l.href = 'assets/ui/gate-aerial-' + (matchMedia('(max-aspect-ratio: 3/4)').matches ? 'port' : matchMedia('(min-aspect-ratio: 2/1)').matches ? 'wide' : 'land') + '.webp';
+      document.head.appendChild(l);
+    })();
+  </script>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>MOG CITY: Unfinished Business</title>
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#0b0b0c" />
+  <meta name="description" content="MOG CITY: Unfinished Business, an open-world mission game in the browser. Dan, a first-year banker at JPBank, has been fired and charged with insider trading, and the bank's security just took the laptop that proves he was set up. Get it back. Built on Slop New York (three.js WebGPU + TSL)." />
+  <link rel="canonical" href="https://mc.gamemog.com/" />
+  <!-- Link previews: the poster (wide, then square for apps that crop square) and the trailer -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="MOG CITY" />
+  <meta property="og:url" content="https://mc.gamemog.com/" />
+  <meta property="og:title" content="MOG CITY: Unfinished Business" />
+  <meta property="og:description" content="MOG CITY: Unfinished Business. Dan was fired and framed for insider trading by his own bank, and its security team has the laptop that proves it: drive, fight and hurdle across Manhattan to clear his name, free in your browser." />
+  <meta property="og:image" content="https://mc.gamemog.com/og.jpg" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="MOG CITY: Unfinished Business. Dan stands by his white supercar on a Manhattan avenue at dusk, the Empire State Building behind" />
+  <meta property="og:image" content="https://mc.gamemog.com/og-square.jpg" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="1080" />
+  <meta property="og:image:height" content="1080" />
+  <meta property="og:video" content="https://mc.gamemog.com/trailer.mp4" />
+  <meta property="og:video:secure_url" content="https://mc.gamemog.com/trailer.mp4" />
+  <meta property="og:video:type" content="video/mp4" />
+  <meta property="og:video:width" content="1280" />
+  <meta property="og:video:height" content="720" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="MOG CITY: Unfinished Business" />
+  <meta name="twitter:description" content="MOG CITY: Unfinished Business. Dan was fired and framed for insider trading by his own bank, and its security team has the laptop that proves it: drive, fight and hurdle across Manhattan to clear his name, free in your browser." />
+  <meta name="twitter:image" content="https://mc.gamemog.com/og.jpg" />
+  <meta name="twitter:image:alt" content="MOG CITY: Unfinished Business. Dan stands by his white supercar on a Manhattan avenue at dusk, the Empire State Building behind" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <!-- Mog City's overlay type (objectives, titles, health, subtitles); display=block: the instant title (#wg-boot)
+       waits for its own face rather than showing in a fallback that jumps when the face arrives -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&display=block" />
+  <script>
+    // Download the city scripts while Three.js loads; execute them only after its imports are ready below.
+    const nycAppScripts = (() => {
+      const assetVersion = '20261024-g';
+      return [
+        './js/nyc-geodata.js',
+        './js/city-config.js',
+        './js/tsl-materials.js',
+        './js/trees.js',
+        './js/actor-models.js',
+        './js/vehicle-lights.js',
+        './js/pedestrians.js',
+        './js/lighting.js',
+        './js/city-grid.js',
+        './js/boroughs.js',
+        './js/buildings.js',
+        './js/landmarks.js',
+        './js/street-details.js',
+        './js/road-network.js',
+        './js/road-paint.js',
+        './js/traffic.js',
+        './js/controllers.js',
+        './js/touch-controls.js',
+        './js/gamepad-controls.js',
+        './js/cameras.js',
+        './js/nyc-map.js',
+        './js/scene-culling.js',
+        './js/post-processing.js',
+        './js/main.js'
+      ].map((src) => `${src}?v=${assetVersion}`);
+    })();
+    for (const src of nycAppScripts) {
+      const preload = document.createElement('link');
+      preload.rel = 'preload';
+      preload.as = 'script';
+      preload.href = src;
+      document.head.appendChild(preload);
+    }
+  </script>
+  <!-- Inter (UI) & Overpass (street-name signs: modelled on Highway Gothic, the US road sign typeface) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&amp;family=Overpass:wght@600;700&amp;display=swap" />
+  <link rel="stylesheet" href="./css/style.css?v=20261024-g" />
+  <!-- three.js pinned to dev commit bc7d0b3c38 (22 Oct 2026, the build Slop New York last ran on), served by jsDelivr -->
+  <style>
+    /* (Mog City's boot veil, #wg-boot below. Off the gate's paths: the key art over the city until the mission is up.
+       On them (html.wg-t): the instant title, the start gate as wagmi/mission/ui.js draws it (its bars, its veil, the
+       logo, 'Tap to start', the small print, in the same places, so the gate takes over without a jump) over a still of
+       the gate's own aerial, shot in the game at three shapes (16:9; 2.4:1, a phone on its side; 0.475, upright) so
+       the live frame that replaces it is the same picture. Its rules are kept the same as ui.js's .wg-gate and .wg-gtitle) */
+    #wg-boot { position: fixed; inset: 0; z-index: 29; pointer-events: none; color: #fff; font-family: 'Barlow Condensed', system-ui, sans-serif; transition: opacity .8s;
+      background: radial-gradient(70% 55% at 50% 30%, rgba(255,170,60,.18), rgba(255,170,60,0) 70%), linear-gradient(#262a33, #0d0e12 62%, #060709); --bar: min(11vh, 9.5vw); }
+    #wg-boot.off { opacity: 0; }
+    #wg-boot > div { position: absolute; }
+    #wg-boot .wg-boot-pic, #wg-boot .wg-boot-bar, #wg-boot .wg-boot-veil, #wg-boot .wg-boot-go, #wg-boot .wg-boot-fine { display: none; }
+    #wg-boot .wg-boot-title { left: 0; right: 0; top: 20%; text-align: center; z-index: 3; animation: wgBootIn .5s ease-out both; }
+    #wg-boot .wg-boot-logo { position: relative; font: italic 800 clamp(52px, 10vw, 136px)/0.9 'Barlow Condensed', system-ui, sans-serif; letter-spacing: 1px; white-space: nowrap; }
+    #wg-boot .wg-boot-logo b { color: #FFC93C; font-weight: 800; }
+    #wg-boot .wg-boot-rule { width: 140px; height: 3px; background: #FFC93C; margin: 14px auto 0; }
+    #wg-boot .wg-boot-tag { display: inline-block; margin-top: 12px; padding: 7px 18px 6px; font: 700 clamp(13px, 1.5vw, 19px)/1 'Barlow Condensed', system-ui, sans-serif; letter-spacing: clamp(3px, .5vw, 6px); text-transform: uppercase; color: #fff;
+      background: radial-gradient(closest-side, rgba(6,8,12,.62), rgba(6,8,12,.38) 70%, rgba(6,8,12,0)); text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+    /* (the lockup letter by letter, for its arrival: each letter a box of its own, set where the one line set it (a pair
+       kerned by hand, .k, as the face kerns it: U-n in the tag), the logo's shadow one layer under all of them (data-t: the line
+       itself; painted as the one line's shadow was, over the rule and under the letters and the tag), so the settled
+       title is the one-line title to the pixel; --x: a letter's place from the middle. CITY's
+       glint (.g): a soft skewed band swept across the word with a bright copy of it inside, moved the other way so the
+       copy stays put: transform only, like all of it, so it runs smooth while the city is built under it) */
+    #wg-boot .wg-boot-logo::before { content: attr(data-t); content: attr(data-t) / ""; position: absolute; left: 0; right: 0; top: 0; color: transparent; text-shadow: 0 6px 30px rgba(0,0,0,.55), 0 2px 4px rgba(0,0,0,.4); }
+    #wg-boot .wg-boot-logo span, #wg-boot .wg-boot-logo b, #wg-boot .wg-boot-tag, #wg-boot .wg-boot-tag span { display: inline-block; position: relative; }
+    #wg-boot .wg-boot-logo .k { margin-left: -.0171em; } #wg-boot .wg-boot-tag .k { margin-left: -.007em; }
+    #wg-boot .wg-boot-logo .g { position: absolute; left: 0; top: -.25em; width: .75em; height: 1.4em; overflow: hidden; font-style: inherit; transform-origin: 0 0; transform: translateX(-.9em) skewX(-18deg);
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 42%, #000 58%, transparent); mask-image: linear-gradient(90deg, transparent, #000 42%, #000 58%, transparent); }
+    #wg-boot .wg-boot-logo .g > i { position: absolute; left: 0; top: 0; padding-top: .25em; font-style: inherit; transform-origin: 0 0; transform: skewX(18deg) translateX(.9em); color: #FFF6DC; text-shadow: 0 0 .12em rgba(255,214,120,.85); }
+    @keyframes wgBootIn { from { opacity: 0; } }
+    /* the arrival (on the title's paths): MOG slammed in letter by letter, CITY landing in gold a beat later with the
+       glint across it (grown from its own left, by the gap, so it never runs over the G), the rule drawn out from the middle, UNFINISHED BUSINESS tracked in, then the line; the name read
+       by 0.6 s, all of it in by 1.6 s; then the glint again every 4.6 s. Held (html.wg-type) until the type is in (3 s
+       at most), rather than run unseen while the face is still on its way. A start: .punch (the logo punched, the glint
+       across CITY at once). wagmi/mission/ui.js draws the gate's logo the same (wgG_*) on this one's clock */
+    html.wg-t #wg-boot .wg-boot-logo::before { animation: wgT_fade .5s .42s backwards; }
+    html.wg-t #wg-boot .wg-boot-logo > span { animation: wgT_slam .38s calc((var(--x) + 5) * 60ms) backwards; }
+    html.wg-t #wg-boot .wg-boot-logo > b { transform-origin: 10% 58%; animation: wgT_land .46s .3s backwards; }
+    html.wg-t #wg-boot .wg-boot-logo .g { animation: wgT_glint 4.6s .6s infinite both; } html.wg-t #wg-boot .wg-boot-logo .g > i { animation: wgT_glintIn 4.6s .6s infinite both; }
+    html.wg-t #wg-boot .wg-boot-rule { animation: wgT_rule .52s .52s cubic-bezier(.2,.7,.2,1) backwards; }
+    html.wg-t #wg-boot .wg-boot-tag { animation: wgT_fade .5s .64s backwards; }
+    html.wg-t #wg-boot .wg-boot-tag > span { animation: wgT_track .7s .64s cubic-bezier(.16,.7,.2,1) backwards; }
+    html.wg-t #wg-boot .wg-boot-go span, html.wg-t #wg-boot .wg-boot-fine { animation: wgT_fade .45s 1.15s backwards; }
+    html.wg-t #wg-boot .wg-boot-title.punch .wg-boot-logo { animation: wgT_punch .36s backwards; }
+    html.wg-t #wg-boot .wg-boot-title.punch .g { animation: wgT_shing .5s cubic-bezier(.4,0,.25,1) backwards; } html.wg-t #wg-boot .wg-boot-title.punch .g > i { animation: wgT_shingIn .5s cubic-bezier(.4,0,.25,1) backwards; }
+    html.wg-t:not(.wg-type) #wg-boot .wg-boot-title, html.wg-t:not(.wg-type) #wg-boot .wg-boot-title *, html.wg-t:not(.wg-type) #wg-boot .wg-boot-logo::before,
+    html.wg-t:not(.wg-type) #wg-boot .wg-boot-go span, html.wg-t:not(.wg-type) #wg-boot .wg-boot-fine { animation-play-state: paused !important; }
+    @keyframes wgT_fade { from { opacity: 0; } }
+    @keyframes wgT_slam { 0% { opacity: 0; transform: scale(1.34); animation-timing-function: cubic-bezier(.2,.6,.35,1); } 30% { opacity: 1; } 60% { transform: scale(.982); animation-timing-function: cubic-bezier(.4,0,.4,1); } 100% { opacity: 1; transform: none; } }
+    @keyframes wgT_land { 0% { opacity: 0; transform: scale(1.45); animation-timing-function: cubic-bezier(.2,.6,.3,1); } 28% { opacity: 1; } 62% { transform: scale(.975); animation-timing-function: cubic-bezier(.4,0,.4,1); } 100% { opacity: 1; transform: none; } }
+    /* (a screen too narrow for CITY to land from x1.45 without running off its right edge (a 280 px fold): from x1.2) */
+    @media (max-width: 340px) { html.wg-t #wg-boot .wg-boot-logo > b { animation-name: wgT_landN; } }
+    @keyframes wgT_landN { 0% { opacity: 0; transform: scale(1.2); animation-timing-function: cubic-bezier(.2,.6,.3,1); } 28% { opacity: 1; } 62% { transform: scale(.975); animation-timing-function: cubic-bezier(.4,0,.4,1); } 100% { opacity: 1; transform: none; } }
+    @keyframes wgT_rule { from { transform: scaleX(0); } }
+    @keyframes wgT_track { 0% { opacity: 0; transform: translateX(calc(var(--x) * .3em)); } 55% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+    @keyframes wgT_glint { 0% { transform: translateX(-.9em) skewX(-18deg); animation-timing-function: cubic-bezier(.45,.05,.35,1); } 13%, 100% { transform: translateX(3.3em) skewX(-18deg); } }
+    @keyframes wgT_glintIn { 0% { transform: skewX(18deg) translateX(.9em); animation-timing-function: cubic-bezier(.45,.05,.35,1); } 13%, 100% { transform: skewX(18deg) translateX(-3.3em); } }
+    @keyframes wgT_shing { from { transform: translateX(-.9em) skewX(-18deg); } to { transform: translateX(3.3em) skewX(-18deg); } }
+    @keyframes wgT_shingIn { from { transform: skewX(18deg) translateX(.9em); } to { transform: skewX(18deg) translateX(-3.3em); } }
+    @keyframes wgT_punch { 0% { transform: none; animation-timing-function: cubic-bezier(.2,.8,.3,1); } 24% { transform: scale(1.065); animation-timing-function: cubic-bezier(.4,0,.3,1); } 100% { transform: none; } }
+    html.wg-t #loading-overlay { display: none; }
+    html.wg-t #wg-boot { background: #0a0b0d; }
+    html.wg-t #wg-boot .wg-boot-pic { display: block; inset: 0; background: #0a0b0d url(assets/ui/gate-aerial-land.webp) 50% 50% / cover no-repeat; }
+    @media (max-aspect-ratio: 3/4) { html.wg-t #wg-boot .wg-boot-pic { background-image: url(assets/ui/gate-aerial-port.webp); } }
+    @media (min-aspect-ratio: 2/1) { html.wg-t #wg-boot .wg-boot-pic { background-image: url(assets/ui/gate-aerial-wide.webp); } }
+    html.wg-t #wg-boot .wg-boot-bar { display: block; left: 0; right: 0; height: var(--bar); background: #000; z-index: 1; }
+    #wg-boot .wg-boot-bar.top { top: 0; } #wg-boot .wg-boot-bar.bot { bottom: 0; }
+    html.wg-t #wg-boot .wg-boot-veil { display: block; inset: 0; z-index: 2;
+      background: radial-gradient(70% 55% at 50% 30%, rgba(255,170,60,.16), rgba(255,170,60,0) 70%), linear-gradient(rgba(5,6,9,.5), rgba(5,6,9,.18) 45%, rgba(5,6,9,.8)); }
+    html.wg-t #wg-boot .wg-boot-title { animation: none; }
+    html.wg-t #wg-boot .wg-boot-go { display: block; z-index: 3; left: 50%; top: 66%; transform: translateX(-50%); max-width: calc(100% - 32px); padding: 10px 26px; text-align: center;
+      font: 700 clamp(13px, 2vw, 26px)/1.25 'Barlow Condensed', system-ui, sans-serif; letter-spacing: clamp(1px, .4vw, 5px); text-transform: uppercase; animation: wgBlink 1.6s ease-in-out infinite;
+      text-shadow: 0 2px 10px rgba(0,0,0,.7); background: radial-gradient(closest-side, rgba(6,8,12,.55), rgba(6,8,12,0)); white-space: nowrap; }
+    #wg-boot .wg-boot-go span { display: none; }
+    html.wg-t #wg-boot .wg-boot-go .k-key { display: inline; }
+    html.wg-t-save #wg-boot .wg-boot-go { visibility: hidden; }
+    html.wg-t #wg-boot .wg-boot-fine { display: block; z-index: 3; bottom: calc(var(--bar) + 2.6vh); left: 16px; right: 16px; text-align: center; font: 600 clamp(12px, 1.2vw, 15px)/1.5 'Barlow Condensed', system-ui, sans-serif;
+      letter-spacing: 2px; color: rgba(255,255,255,.72); text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+    @media (max-width: 560px) { html.wg-t #wg-boot .wg-boot-go { font-size: 4.3vw; padding: 8px 12px; top: 60%; } html.wg-t #wg-boot .wg-boot-fine { letter-spacing: 1px; } }
+    /* (a phone, as body.touch-enabled sets the gate on one: the tap's words, the thumbs' sizes, the safe edges) */
+    @media (pointer: coarse) { html.wg-t #wg-boot .wg-boot-go .k-key { display: none; } html.wg-t #wg-boot .wg-boot-go .k-tap { display: inline; } }
+    @media (any-pointer: coarse) {
+      html.wg-t #wg-boot .wg-boot-go { font-size: 20px; letter-spacing: 3px; padding: 12px 26px; }
+      html.wg-t #wg-boot .wg-boot-fine { left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); bottom: calc(var(--bar) + 2.6vh + env(safe-area-inset-bottom)); }
+    }
+    @media (any-pointer: coarse) and (min-aspect-ratio: 2/1) { html #wg-boot, html #wg-load { --bar: min(6vh, 9.5vw); } }
+    /* started before the city is ready: 'Starting…', calm, where the line was (the gate's .wait the same) */
+    html.wg-t-start #wg-boot .wg-boot-go { animation: none; opacity: .9; visibility: visible; }
+    html.wg-t-start #wg-boot .wg-boot-go span { display: none !important; }
+    html.wg-t-start #wg-boot .wg-boot-go .k-wait { display: inline !important; }
+    html.wg-t-start #wg-boot .wg-boot-go .k-wait { animation: none; }
+    /* the gate has taken over (its own type and veil over this still, which stays until the live city is ready under
+       it); then the still fades out under the gate */
+    #wg-boot.handed .wg-boot-veil, #wg-boot.handed .wg-boot-title, #wg-boot.handed .wg-boot-go, #wg-boot.handed .wg-boot-fine { visibility: hidden; }
+    #wg-boot.live { opacity: 0; transition: opacity .9s ease; }
+    /* the progress, a thin gold line along the picture's foot (over the gate: one line from the first paint to the
+       city's first frame): a sweep while the city is built, then filled as its shaders compile (js/main.js sets
+       --wg-load and html.wg-load-fill), gone when it is ready */
+    #wg-load { position: fixed; left: 0; right: 0; bottom: var(--bar); height: 2px; z-index: 31; overflow: hidden; pointer-events: none; opacity: .5; transition: opacity .6s; --bar: min(11vh, 9.5vw); }
+    html:not(.wg-t) #wg-load { display: none; }
+    html.wg-t-start #wg-load { opacity: .85; }
+    html.wg-load-done #wg-load { opacity: 0; }
+    #wg-load i { position: absolute; inset: 0; background: #FFC93C; transform-origin: 0 50%; transform: scaleX(var(--wg-load, 0)); transition: transform .3s ease; }
+    html:not(.wg-load-fill) #wg-load i { right: auto; width: 24%; background: linear-gradient(90deg, rgba(255,201,60,0), #FFC93C, rgba(255,201,60,0)); transition: none; animation: wgLoadSweep 1.8s cubic-bezier(.45,0,.25,1) infinite; }
+    @keyframes wgLoadSweep { from { transform: translateX(-100%); } to { transform: translateX(420%); } }
+    @keyframes wgBlink { 0%,100% { opacity: .6; } 50% { opacity: 1; } }
+    /* (asked for less motion: no movement, the lockup faded in, then the line; the glint left out; a
+       start still heard. Their own durations kept against css/style.css's every-animation-to-0.01ms: a fade isn't motion) */
+    @media (prefers-reduced-motion: reduce) {
+      html.wg-t #wg-boot .wg-boot-title { animation: wgT_fade .7s backwards; animation-duration: .7s !important; }
+      html.wg-t #wg-boot .wg-boot-title *, html.wg-t #wg-boot .wg-boot-logo::before { animation: none !important; }
+      html.wg-t #wg-boot .wg-boot-go span, html.wg-t #wg-boot .wg-boot-fine { animation: wgT_fade .5s .5s backwards; animation-duration: .5s !important; }
+      #wg-boot .wg-boot-logo .g { display: none; }
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/webgpu": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/tsl": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.tsl.js",
+        "three/addons/": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Icon sprite (24 × 24 stroke icons, drawn in currentColor) -->
+  <svg class="icon-sprite" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-walk" viewBox="0 0 24 24"><circle cx="13" cy="4.4" r="2"/><path d="M12.3 8.2 10.8 13.8M10.8 13.8 9.2 17.2 7.2 20.5M10.8 13.8l2.4 3 1.6 3.8M12.3 8.6 9.6 10.2l-.8 2.6M12.3 8.6l2.1 2.4 2.4.8"/></symbol>
+      <symbol id="i-car" viewBox="0 0 24 24"><path d="M9.6 4.8V3.4a.6.6 0 0 1 .6-.6h3.6a.6.6 0 0 1 .6.6v1.4"/><path d="m5.2 10.5 1.4-4.1A2.2 2.2 0 0 1 8.7 4.8h6.6a2.2 2.2 0 0 1 2.1 1.6l1.4 4.1"/><rect x="3" y="10.5" width="18" height="6.5" rx="2"/><path d="M6 17v2.6M18 17v2.6M6.6 13.8h1.6M15.8 13.8h1.6"/></symbol>
+      <symbol id="i-bike" viewBox="0 0 24 24"><circle cx="5.5" cy="16.5" r="3.6"/><circle cx="18.5" cy="16.5" r="3.6"/><path d="M5.5 16.5 9.3 9.6h6.3M11.6 16.5 9.3 9.6M11.6 16.5l4-6.9M5.5 16.5h6.1M15.6 9.6l2.9 6.9M15.6 9.6 14.8 7h2.4M8 8.4h2.8"/></symbol>
+      <symbol id="i-heli" viewBox="0 0 24 24"><path d="M3.5 4h15M11 4v3.2"/><path d="M6 12.2a5 5 0 0 1 5-5h1.6a4.4 4.4 0 0 1 4.4 4.4V15H8.8A2.8 2.8 0 0 1 6 12.2z"/><path d="M17 11h4.2M21.2 8.8v4.4M7 19h10.5M9.5 15v4M15 15v4"/></symbol>
+      <symbol id="i-golden" viewBox="0 0 24 24"><path d="M3 17.5h18M7 17.5a5 5 0 0 1 10 0M12 5v3M5.6 9.6l2 1.6M18.4 9.6l-2 1.6M7.5 21h9"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.1M12 19.1v2.1M2.8 12h2.1M19.1 12h2.1M5.5 5.5 7 7M17 17l1.5 1.5M5.5 18.5 7 17M17 7l1.5-1.5"/></symbol>
+      <symbol id="i-twilight" viewBox="0 0 24 24"><path d="M3 15.5h18M7.5 19h9M8 15.5a4 4 0 0 1 8 0M17.5 4v3.2M15.9 5.6h3.2M7 7.4v1.8M6.1 8.3h1.8"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1z"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21.2s-6.6-5.7-6.6-11.2a6.6 6.6 0 0 1 13.2 0c0 5.5-6.6 11.2-6.6 11.2z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+      <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 4.5 3.5 6.6v13l5.5-2.1 6 2.1 5.5-2.1v-13L15 6.6 9 4.5zM9 4.5v13M15 6.6v13"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+      <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3.5 3.5l17 17M10.6 5.6c.5-.1.9-.1 1.4-.1 6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-2.4 3.2M6.6 6.6A15.6 15.6 0 0 0 2.5 12s3.5 6.5 9.5 6.5c1.6 0 3.1-.4 4.4-1.1M9.9 9.9a2.8 2.8 0 0 0 4.2 4.2"/></symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m7 9.5 5 5 5-5"/></symbol>
+      <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M14.5 6.5 9 12l5.5 5.5"/></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9.5 6.5 5.5 5.5-5.5 5.5"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24"><rect x="2.8" y="6.5" width="12.4" height="11" rx="2.4"/><path d="m15.2 10.4 6-3.4v10l-6-3.4"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5.5 12h13"/></symbol>
+      <symbol id="i-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.4"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><path d="M12 2.5v3.1M12 18.4v3.1M2.5 12h3.1M18.4 12h3.1"/></symbol>
+      <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m20 20-4.6-4.6"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m6.5 6.5 11 11M17.5 6.5l-11 11"/></symbol>
+    </defs>
+  </svg>
+
+  <!-- Loading Screen -->
+  <div id="loading-overlay" role="status" aria-live="polite">
+    <div class="loader">
+      <span class="mta-bullet loader-bullet" aria-hidden="true">M</span>
+      <div class="loader-title">MOG CITY</div>
+      <div class="loader-track is-indeterminate" aria-hidden="true"><span id="loading-progress" class="loader-fill"></span></div>
+      <div id="loading-status">Loading Manhattan…</div>
+    </div>
+  </div>
+
+  <!-- 3D WebGPU Viewport Container -->
+  <main id="canvas-container" aria-label="MOG CITY"></main>
+  <!-- (Mog City: the instant title on the start gate's paths, the key art over the loading screen on the others: held
+       over the city until the gate (or the mission) is up, so the sandbox's own camera and HUD never show first. On the
+       gate's paths a start made on it is kept: the start gate (wagmi/mission/ui.js) adopts it, takes its place, and
+       fades its still out over the live city once that is ready. It goes by itself 25 s after the city is up if
+       nothing took it) -->
+  <div id="wg-boot" aria-hidden="true"><div class="wg-boot-pic"></div><div class="wg-boot-bar top"></div><div class="wg-boot-bar bot"></div><div class="wg-boot-veil"></div>
+    <div class="wg-boot-title"><div class="wg-boot-logo" data-t="MOG CITY"><span style="--x:-3">M</span><span style="--x:-2">O</span><span style="--x:-1">G</span> <b><span style="--x:1">C</span><span style="--x:2">I</span><span style="--x:3">T</span><span style="--x:4">Y</span><i class="g" aria-hidden="true"><i><span>C</span><span>I</span><span>T</span><span>Y</span></i></i></b></div><div class="wg-boot-rule"></div><div class="wg-boot-tag"><span style="--x:-9">U</span><span class="k" style="--x:-8">n</span><span style="--x:-7">f</span><span style="--x:-6">i</span><span style="--x:-5">n</span><span style="--x:-4">i</span><span style="--x:-3">s</span><span style="--x:-2">h</span><span style="--x:-1">e</span><span style="--x:0">d</span> <span style="--x:2">B</span><span style="--x:3">u</span><span style="--x:4">s</span><span style="--x:5">i</span><span style="--x:6">n</span><span style="--x:7">e</span><span style="--x:8">s</span><span style="--x:9">s</span></div></div>
+    <div class="wg-boot-go"><span class="k-key">Click or press any key to start</span><span class="k-tap">Tap to start</span><span class="k-wait">Starting…</span></div>
+    <div class="wg-boot-fine">Community entertainment project. Have fun!</div></div>
+  <div id="wg-load" aria-hidden="true"><i></i></div>
+  <script>
+    (() => {
+      const H = document.documentElement, boot = document.getElementById('wg-boot'), load = document.getElementById('wg-load');
+      if (/[?&](nointro|nogate|fight)\b/.test(location.search)) { boot.remove(); load.remove(); return; }
+      const T = (window.__wgTitle = { adopted: false, started: null, typeAt: 0 });
+      const t = setInterval(() => {
+        if (!window.__NYC_APP || !window.__NYC_APP.ready) return;
+        clearInterval(t); H.classList.add('wg-load-done'); setTimeout(() => load.remove(), 900);
+        setTimeout(() => { if (!T.adopted) boot.remove(); }, 25000);
+      }, 100);
+      if (!H.classList.contains('wg-t')) { load.remove(); return; }
+      // (the title's type asked for at once; when it is in, for the timings, and the lettering's arrival let go: html.wg-type,
+      // 3 s on at the latest, so it doesn't run unseen while the face is still on its way. The name's face alone: the tag's
+      // and the line's come in on their own, display=block, by the time they are drawn)
+      const typed = () => { if (H.classList.contains('wg-type')) return; H.classList.add('wg-type'); T.typeAt = Math.round(performance.now()); };
+      try { document.fonts.load('italic 800 64px "Barlow Condensed"').then(typed, typed); } catch (e) { typed(); }
+      setTimeout(typed, 3000);
+      // ('Tap to start' blinks on the page's clock: the gate's own line is set to the same, so neither flickers at the
+      // hand-over)
+      try { for (const a of boot.querySelector('.wg-boot-go').getAnimations()) a.startTime = 0; } catch (e) {}
+      // a start made here, before the gate itself is up: kept for it (a key, a click, a finger's release, as the gate's).
+      // Each gesture wakes the sound for the trailer (the shim above); with a save, the gate itself asks which
+      const EVS = ['keydown', 'pointerdown', 'pointerup', 'touchend', 'click'];
+      const off = () => { for (const k of EVS) removeEventListener(k, on, true); };
+      function on(e) {
+        if (!e.isTrusted) return;
+        // (who plays with a finger, kept as wagmi/touch.js keeps it once it is in: body.wg-touchlast, so the trailer's
+        // and the game's prompts read as a phone's after a start made here)
+        const B = document.body.classList;
+        if (e.pointerType === 'touch' || e.type === 'touchend') { if (!B.contains('wg-pad')) B.add('wg-touchlast'); }
+        else if (e.pointerType === 'mouse' || e.type === 'keydown') B.remove('wg-touchlast');
+        if (e.type === 'keydown' && (e.metaKey || e.ctrlKey || e.altKey || e.repeat)) return;
+        if (e.type === 'pointerdown' && e.pointerType === 'touch') return;
+        if (window.__wgWarmAudio) window.__wgWarmAudio();
+        if (e.type === 'pointerup' && e.pointerType !== 'touch') return;
+        if (H.classList.contains('wg-t-save')) return;
+        e.stopImmediatePropagation(); if (e.type === 'keydown') e.preventDefault();
+        T.started = { t: Math.round(performance.now()), type: e.type }; H.classList.add('wg-t-start'); off(); punch();
+      }
+      // the start seen and heard at once, in the tap: the logo punched, a glint across CITY, a low knock and a metal
+      // shing; the game's own sounds once it has them (mission/audio.js thunk and shing), made the same here before that,
+      // in the context the tap has just woken (the shim above)
+      const title = boot.querySelector('.wg-boot-title');
+      function punch() {
+        title.classList.remove('punch'); void title.offsetWidth; title.classList.add('punch');
+        if (/[?&]noaudio\b/.test(location.search)) return;
+        const S = window.WAGMI && window.WAGMI.sfx;
+        if (S) { try { S.unlock(); S.play('thunk', { gain: 0.5, f: 58, ring: false }); S.play('shing', { gain: 0.3 }); } catch (err) {} return; }
+        const L = window.__wgCtx || [], c = L[L.length - 1];
+        if (!c) return;
+        // (at the player's own volume, the pause menu's Master (mission/pause.js): none at 0)
+        let vol = 1; try { const m = JSON.parse(localStorage.getItem('wagmi.volume') || '{}').master; if (m != null && isFinite(+m)) vol = Math.max(0, Math.min(1, +m)); } catch (err) {}
+        if (!vol) return;
+        try {
+          const t = c.currentTime + 0.01, out = c.createGain(); out.gain.value = 0.9 * vol; out.connect(c.destination);
+          const env = (g, a, p, d) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(p, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); };
+          const node = (n, ...to) => { let a = n; for (const b of to) { a.connect(b); a = b; } a.connect(out); return n; };
+          const gain = () => c.createGain(), filt = (type, f) => { const b = c.createBiquadFilter(); b.type = type; b.frequency.value = f; return b; };
+          const nb = c.createBuffer(1, Math.floor(c.sampleRate * 0.4), c.sampleRate), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+          const noise = () => { const s = c.createBufferSource(); s.buffer = nb; return s; };
+          // (the knock: a sine falling 104 to 58 Hz, a dull tap of noise on it)
+          const o = c.createOscillator(), og = gain(); o.frequency.setValueAtTime(104, t); o.frequency.exponentialRampToValueAtTime(58, t + 0.12); node(o, og); env(og, 0.004, 0.5, 0.3); o.start(t); o.stop(t + 0.45);
+          const k = noise(), kg = gain(); node(k, filt('lowpass', 900), kg); env(kg, 0.002, 0.35, 0.09); k.start(t); k.stop(t + 0.15);
+          // (the shing: four bright partials ringing out, a breath of high noise sweeping up)
+          for (const [f, a, d] of [[2637, 1, 0.9], [3951, 0.6, 0.7], [5274, 0.45, 0.5], [6645, 0.3, 0.35]]) { const p = c.createOscillator(), pg = gain(); p.frequency.value = f; node(p, pg); env(pg, 0.002, 0.15 * a, d); p.start(t); p.stop(t + d + 0.1); }
+          const h = noise(), hp = filt('highpass', 3500), hg = gain(); hp.frequency.setValueAtTime(3500, t); hp.frequency.exponentialRampToValueAtTime(9000, t + 0.25); node(h, hp, hg); env(hg, 0.008, 0.1, 0.28); h.start(t); h.stop(t + 0.4);
+        } catch (err) {}
+      }
+      for (const k of EVS) addEventListener(k, on, true);
+      // the gate takes it: its start, if one was made; then handover() (the gate's own type over the still) and live()
+      // (the still faded out over the live city)
+      T.adopt = () => { if (T.adopted) return null; T.adopted = true; off(); return T; };
+      T.handover = () => boot.classList.add('handed');
+      T.live = () => { boot.classList.add('live'); setTimeout(() => boot.remove(), 1000); };
+    })();
+  </script>
+
+  <!-- Top-Left: Brand & Renderer Telemetry -->
+  <header class="hud hud-top-left">
+    <div class="panel brand">
+      <span class="mta-bullet" aria-hidden="true">M</span>
+      <div class="brand-titles">
+        <div class="brand-heading">
+          <h1>MOG CITY</h1>
+          <!-- (Mog City is built on mrdoob's Slop New York, MIT: the credit stays) -->
+          <a class="repo-link" href="https://github.com/mrdoob/slop-newyork/" target="_blank" rel="noopener noreferrer" aria-label="Built on Slop New York, on GitHub (opens in a new tab)">Built on Slop New York <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="brand-subtitle">three.js · WebGPU · TSL · <span id="hud-fps" class="fps-ok">60</span> fps</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Top-Right Toolbar: Time of Day, Teleport, Map & Clean View -->
+  <div class="hud hud-top-right">
+    <div id="hud-toolbar" class="panel toolbar">
+      <div class="time-switch" role="group" aria-label="Atmosphere &amp; time of day">
+        <button id="time-golden" class="time-btn active" data-time="golden" type="button" title="Golden Hour">
+          <svg class="icon" aria-hidden="true"><use href="#i-golden"/></svg><span class="seg-label">Golden Hour</span>
+        </button>
+        <button id="time-midday" class="time-btn" data-time="midday" type="button" title="Sunny Midday">
+          <svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg><span class="seg-label">Midday</span>
+        </button>
+        <button id="time-twilight" class="time-btn" data-time="twilight" type="button" title="Blue Hour">
+          <svg class="icon" aria-hidden="true"><use href="#i-twilight"/></svg><span class="seg-label">Blue Hour</span>
+        </button>
+        <button id="time-midnight" class="time-btn" data-time="midnight" type="button" title="Night 23:00">
+          <svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg><span class="seg-label">Night</span>
+        </button>
+      </div>
+      <span class="toolbar-divider" aria-hidden="true"></span>
+      <button id="btn-teleport" class="tool-btn" type="button" popovertarget="teleport-popover" title="Teleport the active player">
+        <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg><span class="tool-label">Teleport</span><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </button>
+      <button id="btn-open-map" class="tool-btn" type="button" title="Full New York City street map [M]">
+        <svg class="icon" aria-hidden="true"><use href="#i-map"/></svg><span class="tool-label">Map</span><kbd>M</kbd>
+      </button>
+      <span class="toolbar-divider" aria-hidden="true"></span>
+      <button id="btn-toggle-hud" class="tool-btn icon-only" type="button" title="Clean view: hide the HUD [H]" aria-label="Hide HUD" aria-pressed="false">
+        <svg class="icon icon-hide" aria-hidden="true"><use href="#i-eye"/></svg><svg class="icon icon-show" aria-hidden="true"><use href="#i-eye-off"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Teleport Destinations (native popover: light-dismiss & Esc) -->
+  <div id="teleport-popover" class="popover" popover data-side="below" data-anchor="hud-toolbar" aria-label="Teleport the active player">
+    <div class="pop-title">Teleport to</div>
+    <button id="tp-empire" class="pop-item tp-btn" data-teleport="empire" type="button"><span class="pop-name">Empire State Building</span><span class="pop-sub">5th Ave · Midtown</span></button>
+    <button id="tp-timessq" class="pop-item tp-btn" data-teleport="timessq" type="button"><span class="pop-name">Times Square</span><span class="pop-sub">7th Ave · Theater District</span></button>
+    <button id="tp-chrysler" class="pop-item tp-btn" data-teleport="chrysler" type="button"><span class="pop-name">Chrysler Building</span><span class="pop-sub">Lexington Ave · Midtown East</span></button>
+    <button id="tp-grandcentral" class="pop-item tp-btn" data-teleport="grandcentral" type="button"><span class="pop-name">Grand Central Terminal</span><span class="pop-sub">Park Ave · Midtown East</span></button>
+    <button id="tp-bryant" class="pop-item tp-btn" data-teleport="bryant" type="button"><span class="pop-name">Bryant Park</span><span class="pop-sub">6th Ave · Midtown</span></button>
+    <button id="tp-flatiron" class="pop-item tp-btn" data-teleport="flatiron" type="button"><span class="pop-name">Flatiron Building</span><span class="pop-sub">5th Ave · Flatiron District</span></button>
+    <button id="tp-centralpark" class="pop-item tp-btn" data-teleport="centralpark" type="button"><span class="pop-name">Central Park</span><span class="pop-sub">6th Ave · Central Park South</span></button>
+    <button id="tp-owtc" class="pop-item tp-btn" data-teleport="owtc" type="button"><span class="pop-name">One World Trade Center</span><span class="pop-sub">Vesey St · Financial District</span></button>
+  </div>
+
+  <!-- Bottom-Left: Street-Name Signs & Live GPS Radar Minimap -->
+  <div class="hud hud-bottom-left">
+    <div id="hud-location" class="location" aria-live="off"></div>
+    <aside id="minimap-card" class="panel radar" aria-label="Live NYC Street Radar Minimap" title="Open the full New York City street map [M]">
+      <canvas id="minimap-canvas"></canvas>
+      <span class="radar-north" aria-hidden="true">N</span>
+      <kbd class="radar-key">M</kbd>
+    </aside>
+  </div>
+
+  <!-- Bottom-Center: Third-Person Mode Switcher & Controls Guide -->
+  <footer class="hud hud-bottom-center">
+    <div id="hud-controls-hint" class="controls-hint"></div>
+    <!-- (Mog City: the sandbox's walk / drive / cycle / fly switcher is put away for players; F gets in and out of the car) -->
+    <nav id="mode-switch" class="panel mode-switch" aria-label="Third-Person Navigation Mode" hidden style="display: none">
+      <span class="mode-indicator" aria-hidden="true"></span>
+      <button id="mode-person" class="mode-btn" data-mode="person" type="button" title="Person [1]">
+        <svg class="icon" aria-hidden="true"><use href="#i-walk"/></svg><span class="mode-label">Walk</span><kbd>1</kbd>
+      </button>
+      <button id="mode-car" class="mode-btn active" data-mode="car" type="button" title="Car · Yellow Cab [2]">
+        <svg class="icon" aria-hidden="true"><use href="#i-car"/></svg><span class="mode-label">Drive</span><kbd>2</kbd>
+      </button>
+      <button id="mode-cyclist" class="mode-btn" data-mode="cyclist" type="button" title="Cyclist [3]">
+        <svg class="icon" aria-hidden="true"><use href="#i-bike"/></svg><span class="mode-label">Cycle</span><kbd>3</kbd>
+      </button>
+      <button id="mode-helicopter" class="mode-btn" data-mode="helicopter" type="button" title="Helicopter [4]">
+        <svg class="icon" aria-hidden="true"><use href="#i-heli"/></svg><span class="mode-label">Fly</span><kbd>4</kbd>
+      </button>
+    </nav>
+  </footer>
+
+  <!-- Bottom-Right: Speed Cluster & Camera Switcher -->
+  <div class="hud hud-bottom-right">
+    <section id="hud-cluster" class="panel cluster" aria-label="Vehicle telemetry and camera">
+      <div class="gauge">
+        <div class="gauge-top">
+          <span id="hud-active-mode" class="gauge-label">NYC Yellow Taxi</span>
+          <span class="gauge-alt"><span class="gauge-alt-label">Alt</span> <span id="hud-altitude">0</span> ft</span>
+        </div>
+        <div class="gauge-speed"><span id="hud-speed">0</span><span class="gauge-unit">mph</span></div>
+        <div class="gauge-meter" aria-hidden="true"><span id="hud-speed-meter"></span></div>
+      </div>
+      <div id="camera-switch" class="camera-switch">
+        <button id="cam-prev" class="icon-btn" type="button" title="Previous camera" aria-label="Previous camera">
+          <svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg>
+        </button>
+        <button id="cam-menu-btn" class="camera-current" type="button" popovertarget="camera-popover" title="All cameras [V cycles]">
+          <svg class="icon" aria-hidden="true"><use href="#i-camera"/></svg><span id="hud-active-camera">3rd-Person Chase</span><kbd>V</kbd>
+        </button>
+        <button id="cam-next" class="icon-btn" type="button" title="Next camera [V]" aria-label="Next camera">
+          <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Touch input stays available in clean view; the map temporarily suspends it. -->
+  <section id="touch-controls" aria-label="Touch controls" hidden>
+    <div class="touch-movement">
+      <div id="touch-stick" role="group" aria-label="Movement joystick: push the way to go (in the car: up and down to drive, left and right to steer)">
+        <span class="touch-stick-axis" aria-hidden="true"></span>
+        <span id="touch-stick-knob" aria-hidden="true"></span>
+      </div>
+      <span class="touch-caption">Move &amp; steer</span>
+    </div>
+    <p class="touch-look-hint">Drag to look · Pinch to zoom</p>
+    <div class="touch-actions" role="group" aria-label="Hold to perform an action">
+      <button class="touch-action" data-touch-action="up" type="button" aria-label="Jump" aria-pressed="false" hidden>
+        <span aria-hidden="true">↑</span><span data-touch-label="up">Jump</span>
+      </button>
+      <button class="touch-action" data-touch-action="down" type="button" aria-label="Descend" aria-pressed="false" hidden>
+        <span aria-hidden="true">↓</span><span data-touch-label="down">Descend</span>
+      </button>
+      <button class="touch-action touch-boost" data-touch-action="boost" type="button" aria-label="Boost" aria-pressed="false">
+        <span aria-hidden="true">↟</span><span data-touch-label="boost">Boost</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- All Cameras: 3 Follow Cameras + 7 Iconic NYC Vantage Cameras + Auto-Director Drone -->
+  <div id="camera-popover" class="popover" popover data-side="above" data-anchor="hud-cluster" data-align="hud-cluster" aria-label="Multiple Camera Angles">
+    <div class="pop-title">Follow</div>
+    <button id="cam-chase" class="pop-item cam-btn active" data-camera="chase" type="button"><span class="pop-name">3rd-Person Chase</span><kbd>5</kbd></button>
+    <button id="cam-action" class="pop-item cam-btn" data-camera="action" type="button"><span class="pop-name">Low-Angle Action</span><kbd>6</kbd></button>
+    <button id="cam-pov" class="pop-item cam-btn" data-camera="pov" type="button"><span class="pop-name">First-Person / Cockpit</span><kbd>7</kbd></button>
+    <div class="pop-title">Scenic</div>
+    <button id="cam-centralPark" class="pop-item cam-btn" data-camera="centralPark" type="button"><span class="pop-name">Central Park Oasis</span></button>
+    <button id="cam-fifthAve" class="pop-item cam-btn" data-camera="fifthAve" type="button"><span class="pop-name">5th Ave &amp; Empire State</span><kbd>8</kbd></button>
+    <button id="cam-timesSquare" class="pop-item cam-btn" data-camera="timesSquare" type="button"><span class="pop-name">Times Square Crossroads</span><kbd>9</kbd></button>
+    <button id="cam-chryslerGCT" class="pop-item cam-btn" data-camera="chryslerGCT" type="button"><span class="pop-name">42nd St · Chrysler &amp; GCT</span><kbd>0</kbd></button>
+    <button id="cam-observatory" class="pop-item cam-btn" data-camera="observatory" type="button"><span class="pop-name">Empire State 86th Deck</span></button>
+    <button id="cam-bryantPark" class="pop-item cam-btn" data-camera="bryantPark" type="button"><span class="pop-name">Bryant Park &amp; NYPL</span></button>
+    <button id="cam-waterfront" class="pop-item cam-btn" data-camera="waterfront" type="button"><span class="pop-name">East River &amp; Skyline</span></button>
+    <button id="cam-drone" class="pop-item cam-btn" data-camera="drone" type="button"><span class="pop-name">Auto-Director Aerial</span></button>
+  </div>
+
+  <!-- Full-Screen Interactive New York City Street Map ([M]) -->
+  <section id="fullmap-modal" class="fullmap-modal hidden" role="dialog" aria-modal="true" aria-label="Full New York City Interactive Street Map">
+    <div id="fullmap-canvas-wrap" class="fullmap-canvas-wrap">
+      <canvas id="fullmap-canvas"></canvas>
+    </div>
+
+    <div class="fullmap-header">
+      <div class="panel fullmap-title">
+        <span class="mta-bullet" aria-hidden="true">M</span>
+        <div>
+          <h2>Manhattan Street Atlas</h2>
+          <p id="fullmap-player-info" class="fullmap-subtitle">You are at 5th Ave &amp; 35th St</p>
+        </div>
+      </div>
+      <label class="panel fullmap-search-wrap">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="fullmap-search" class="fullmap-search" type="text" placeholder="Search streets &amp; landmarks — Broadway, Canal, Wall St…" aria-label="Search street or landmark" autocomplete="off" spellcheck="false" />
+      </label>
+      <button id="close-fullmap-btn" class="panel tool-btn fullmap-close" type="button" title="Close map [M / Esc]">
+        <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg><span class="tool-label">Close</span><kbd>Esc</kbd>
+      </button>
+    </div>
+
+    <div class="map-controls">
+      <div class="panel map-compass" title="True north · Manhattan's street grid runs 29° east of it">
+        <svg viewBox="0 0 44 44" aria-hidden="true">
+          <g id="map-compass-needle">
+            <path d="M22 9.5 25.6 22h-7.2z" fill="#f05a4f"/>
+            <path d="M22 34.5 25.6 22h-7.2z" fill="rgba(255,255,255,0.72)"/>
+            <text x="22" y="8" text-anchor="middle">N</text>
+          </g>
+        </svg>
+      </div>
+      <div class="panel map-zoom">
+        <button id="map-zoom-in" class="icon-btn" type="button" title="Zoom in" aria-label="Zoom in"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
+        <button id="map-zoom-out" class="icon-btn" type="button" title="Zoom out" aria-label="Zoom out"><svg class="icon" aria-hidden="true"><use href="#i-minus"/></svg></button>
+      </div>
+      <div class="panel map-zoom">
+        <button id="map-center-player" class="icon-btn" type="button" title="Street view around you" aria-label="Center on player"><svg class="icon" aria-hidden="true"><use href="#i-locate"/></svg></button>
+        <button id="map-view-all" class="icon-btn" type="button" title="All of Manhattan (125th St to Battery Park)" aria-label="Fit all of Manhattan"><svg class="icon" aria-hidden="true"><use href="#i-fit"/></svg></button>
+      </div>
+    </div>
+
+    <div class="fullmap-footer">
+      <div class="panel fullmap-status">
+        <span id="fullmap-hover-info">Click anywhere to teleport &amp; set your GPS route · Drag to pan · Scroll to zoom</span>
+      </div>
+    </div>
+
+    <div class="panel fullmap-legend">
+      <span class="legend-item"><span class="legend-swatch player-swatch"></span>You</span>
+      <span class="legend-item"><span class="legend-swatch landmark-swatch"></span>Landmark</span>
+      <span class="legend-item"><span class="legend-swatch gps-swatch"></span>GPS route</span>
+      <span class="legend-item"><span class="legend-swatch bridge-swatch"></span>Bridge / Hwy</span>
+      <span id="fullmap-counts" class="legend-counts"></span>
+    </div>
+  </section>
+
+  <script type="module">
+    import * as THREE from 'three/webgpu';
+    import * as TSL from 'three/tsl';
+    import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+    import { ssr } from 'three/addons/tsl/display/SSRNode.js';
+    import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+    import { SkyMesh } from 'three/addons/objects/SkyMesh.js';
+    import { SunLight } from 'three/addons/lights/SunLight.js';
+    import { SunLightNode } from 'three/addons/lights/SunLightNode.js';
+    import { ClusteredLighting } from 'three/addons/lighting/ClusteredLighting.js';
+
+    window.NYC = {
+      THREE,
+      TSL,
+      PostFX: { bloom, ssr },
+      Addons: {
+        mergeGeometries,
+        mergeVertices,
+        SkyMesh,
+        SunLight,
+        SunLightNode,
+        ClusteredLighting
+      }
+    };
+
+    for (const src of nycAppScripts) {
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = false;
+      document.head.appendChild(s);
+    }
+  </script>
+  <!-- Mog City: Dan, his car, getting in and out (waits for the city app) -->
+  <script type="module" src="wagmi/game.js"></script>
+  <!-- Mog City on a phone: the touch buttons, and the shell (full screen, pause on leaving, the viewport); each waits
+       for the game itself and does nothing with a mouse and keyboard -->
+  <script type="module" src="wagmi/touch.js"></script>
+  <script type="module" src="wagmi/phone.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+ "design": "Female, 26 years old, a Puerto Rican woman from New York City, a grown woman's warm low alto voice, low-pitched, relaxed and composed, quick and wry, natural New York American English, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 3212,
+ "refText": "Okay, I pulled the logs, and honestly, it's a mess. Three logins, same machine, all after midnight. I'm sending you the screenshots now. Read them first, then call me, okay?",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

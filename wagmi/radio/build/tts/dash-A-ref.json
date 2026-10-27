@@ -1,0 +1,7 @@
+{
+ "design": "Male, mid 20s, American, a grown man's voice, a bit high and whiny, breathless from running, panicky, talks fast, always sure he missed something, close-mic, clean dry studio audio, a real person in the moment, not a radio announcer.",
+ "seed": 2531,
+ "refText": "Sorry, sorry, I'm here, I'm here! The train was late, then my phone died, then I went to the wrong park. Did I miss it? Please tell me I didn't miss it.",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

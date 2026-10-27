@@ -1,0 +1,205 @@
+MOG CITY: Unfinished Business. Notices and credits
+==========================================
+
+All names, companies and events in Mog City are fictional (JPBank and Blimpco included); nobody in
+the game is based on a real person.
+
+Slop New York
+-------------
+The city this game is built on is Slop New York by Mr.doob, under the MIT License (see LICENSE).
+Some city code is ported from Slop New York's newer commits by Mr.doob, under the same MIT License
+(see LICENSE); each ported part names its commit in a short header comment.
+
+
+Map data
+--------
+The city's geography (js/nyc-geodata.js, made by tools/build-geodata.mjs): Central Park's features,
+the piers, the landmarks' footprints and the New Jersey shore are (c) OpenStreetMap contributors,
+available under the Open Database License (ODbL 1.0, https://opendatacommons.org/licenses/odbl/1-0/;
+https://www.openstreetmap.org/copyright). The borough line, the street centrelines and the parks are
+from NYC Open Data (NYC DCP Borough Boundaries, NYC Street Centerline (CSCL), NYC Parks Properties;
+https://opendata.cityofnewyork.us).
+
+
+Spiderbench (street combat)
+---------------------------
+Copyright (c) 2026 Shikhar. Used with the author's permission. These parts are NOT covered by
+the MIT License in LICENSE; they remain under their author's terms.
+
+  - wagmi/combat/: the street fight's design and code are ported from Spiderbench's combat:
+    the enemy behaviour and the director that hands one man at a time the right to attack, the
+    telegraphed swings, hit reactions with root motion, the freeflow strike and dash, the dodge
+    and the counter, hit-stop and slow motion, the combat camera, the particle effects (ported
+    to three.js TSL node materials), and the overlays' design.
+  - assets/characters/thug.glb: Spiderbench's thug (mesh, rig and its own brawler clips), with
+    the same rig's walk, jog, run, sprint, guard, hit-react and turn loops, re-dressed as JPBank's
+    security team, the Suits: dark suits, shirts and ties painted over Spiderbench's own texture
+    (the gun and webbed clips are not included).
+  - The freeflow clips in Dan's model (ffJab, ffCross, ffHook, ffKick, ffRiser, ffLeap,
+    ffDodge, ffDodgeSide, ffLaunch, ffAirHold, ffAir1, ffAir2, ffAirSlam, ffSlamLand,
+    ffFinisher) were retargeted from Spiderbench's clips.
+
+
+Bandai Namco Research Motion Dataset (motion capture)
+----------------------------------------------------
+Motion data: Bandai Namco Research Motion Dataset, (c) 2022 Bandai Namco Research Inc., CC BY-NC 4.0
+(https://creativecommons.org/licenses/by-nc/4.0/; https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset).
+These files are NOT covered by the MIT License in LICENSE; they remain under CC BY-NC 4.0: they may be used and
+shared for non-commercial purposes only, with this credit. The licence's text is in assets/anim/bandai/LICENSE.txt.
+They were changed: retargeted from the dataset's BVH files to this game's rigs (thug.glb's, dan.glb's, fiona.glb's,
+gears.glb's and the city's walkers'), trimmed to loops, their travel taken out (in place) and their feet set on the
+ground; the Suits' standing idle is one short stand from the dataset played forward then back at half speed, Fiona's
+and Gears' idles one standing frame held with breathing added; in the game Dan's steps play on his legs alone, under
+his guard.
+  - assets/anim/bandai/suits.glb: the Suits' standing idle, walks, run, sprint, side-steps, back-step, a "this way"
+    gesture and two wave-offs (dataset-1: call, walk, run, dash, walk-back, walk-left, walk-right, guide, bye,
+    byebye; normal and masculinity styles)
+  - assets/anim/bandai/rally-crowd-ped.json: the rally crowd's dances and cheers (dataset-1: dance-long,
+    dance-short, normal; dataset-2: wave-both-hands, raise-up-both-hands, wave-right-hand; active, youthful)
+  - assets/anim/bandai/dan-footwork.glb: Dan's step forward, back-pedal and side-steps in a fight (dataset-1:
+    walk, walk-back, walk-left, walk-right)
+  - assets/anim/bandai/fiona-moves.glb, gears-moves.glb: Fiona's and Gears' standing idles (dataset-1: bow, its
+    first frame) and Fiona's run (dataset-1: dash, masculinity style); Gears' talk keeps its arms from his CMU talk
+    (see Characters below), over the idle's legs
+
+
+Props (street fight)
+--------------------
+  - assets/props/trash-cans.glb: "Metal Trash Can" by GurJas Studios, from Poly Haven
+    (https://polyhaven.com/a/metal_trash_can), CC0-1.0 (https://polyhaven.com/license). Its triangles
+    cut from 13960 to 5994 and its transforms baked, re-packed as a GLB with its textures reduced
+    to 512 px. Both cans (galvanised, rusted) and their lids.
+  - The bats and bottles are made in code (wagmi/combat/items.js); the fight's sounds are made in
+    code with WebAudio (wagmi/combat/sfx.js). No recorded audio is used.
+
+
+Characters (assets/characters)
+------------------------------
+  - dan.glb, gears.glb, jane.glb, fiona.glb: original characters made for Mog City (invented people;
+    nobody is modelled on a real person), built from MakeHuman's base body, clothes and hair
+    (http://www.makehuman.org, CC0-1.0; Jane from GameMog's CC0 MakeHuman people pack), then shaped,
+    dressed, recoloured and texture-baked for the game. Gears' beard and cap, Fiona's megaphone and
+    shades and the Suits' glasses and earpieces are made in code.
+  - Their walk, idle, talk, phone and similar clips come from the CMU Graphics Lab Motion Capture
+    Database (http://mocap.cs.cmu.edu), which Carnegie Mellon University provides free for all uses:
+    it may be included in products, but the data itself may not be resold. The database was created
+    with funding from NSF EIA-0196217.
+  - Dan's freeflow fight moves (the ff* clips) are Spiderbench's, retargeted to his rig (see
+    Spiderbench above).
+
+
+Music (the car radio: wagmi/radio/stations.js)
+----------------------------------------------
+The same list is in assets/CREDITS.md, and in the game on the pause menu's Credits page
+(wagmi/credits.js). The game's theme is "Pyro Flow" by Kevin MacLeod (WAGMI FM's first track).
+
+  - "We All Gonna Make It", "Number Go Up" and "Fifth Ave Glide" (WAGMI FM;
+    assets/music/wagmi-theme.m4a, wagmi-pump.m4a, wagmi-glide.m4a) are original to this game,
+    composed as code and rendered offline by wagmi/radio/build/music/ (no samples, no loops from
+    anyone else).
+
+  - These tracks are licensed under Creative Commons Attribution. Each was trimmed of leading and
+    trailing silence, levelled to -14 LUFS and re-encoded to AAC (assets/music/<file>.m4a); the music
+    itself is unchanged.
+
+    Kevin MacLeod (incompetech.com), Creative Commons Attribution 4.0 (CC BY 4.0,
+    https://creativecommons.org/licenses/by/4.0/). Credit as the composer asks:
+    "<Title>" Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0
+    License http://creativecommons.org/licenses/by/4.0/
+      assets/music/pyro-flow.m4a          "Pyro Flow" Kevin MacLeod (incompetech.com)
+                                          https://incompetech.com/music/royalty-free/mp3-royaltyfree/Pyro%20Flow.mp3
+      assets/music/basic-implosion.m4a    "Basic Implosion" Kevin MacLeod (incompetech.com)
+                                          https://incompetech.com/music/royalty-free/mp3-royaltyfree/Basic%20Implosion.mp3
+      assets/music/mta.m4a                "MTA" Kevin MacLeod (incompetech.com)
+                                          https://incompetech.com/music/royalty-free/mp3-royaltyfree/MTA.mp3
+      assets/music/lewis-and-dekalb.m4a   "Lewis and Dekalb" Kevin MacLeod (incompetech.com)
+                                          https://incompetech.com/music/royalty-free/mp3-royaltyfree/Lewis%20and%20Dekalb.mp3
+      assets/music/vicious.m4a            "Vicious" Kevin MacLeod (incompetech.com)
+                                          https://incompetech.com/music/royalty-free/mp3-royaltyfree/Vicious.mp3
+      assets/music/got-funk.m4a           "Got Funk" Kevin MacLeod (incompetech.com)
+                                          https://incompetech.com/music/royalty-free/mp3-royaltyfree/Got%20Funk.mp3
+
+    Alexandr Zhelanov, from OpenGameArt, Creative Commons Attribution 4.0 (CC BY 4.0,
+    https://creativecommons.org/licenses/by/4.0/):
+      assets/music/gangstazz.m4a          "Gang$tazz" by Alexandr Zhelanov
+                                          (https://soundcloud.com/alexandr-zhelanov)
+                                          https://opengameart.org/content/gangtazz
+
+    From ccMixter, Creative Commons Attribution 3.0 (CC BY 3.0,
+    https://creativecommons.org/licenses/by/3.0/), with the works each remix samples:
+      assets/music/i-dunno.m4a            "I dunno" by grapes (ft. J.Lang, Morusque)
+                                          https://ccmixter.org/files/grapes/16626
+                                          samples "It's Time {Bootcamp}" by J.Lang
+                                          (https://ccmixter.org/files/djlang59/16366) and "260808 loops
+                                          piano" by Morusque (https://ccmixter.org/files/Nurykabe/16527)
+      assets/music/spheres.m4a            "Spheres (Hip Hop Instrumental)" by Robbero
+                                          https://ccmixter.org/files/Robbero/43483
+                                          samples "Spheres" by Doxent Zsigmond
+                                          (https://ccmixter.org/files/doxent/43475)
+      assets/music/sunbirds.m4a           "SUNBIRDS" by BOCrew (THEDEEPR / THECORNER, feat. FORENSIC)
+                                          https://ccmixter.org/files/BOCrew/38854
+                                          samples "ccmixter promo" by FORENSIC
+                                          (https://ccmixter.org/files/4nsic/22923)
+      assets/music/let-em-have-it.m4a     "Let 'Em Have It (Hip Hop Instrumental)" by Robbero
+                                          https://ccmixter.org/files/Robbero/43749
+
+  - These tracks are CC0-1.0 (https://creativecommons.org/publicdomain/zero/1.0/), their loudness
+    and loop points measured and encoded to AAC for the game; each from OpenGameArt:
+      assets/music/chill-lofi.m4a         "Chill Lofi Inspired (loop edit)" by omfgdude, loop edit by
+                                          qubodup  https://opengameart.org/content/chill-lofi-inspired-loop-edit
+      assets/music/midnight-cruiser.m4a   "Midnight Cruiser" by Zane Little
+                                          https://opengameart.org/content/midnight-cruiser
+      assets/music/funky-house.m4a        "Funky House" by Of Far Different Nature
+                                          https://opengameart.org/content/funky-house
+      assets/music/slampe.m4a             "Slampe (Synthwave House)" by Fupi
+                                          https://opengameart.org/content/slampe-synthwave-house
+      assets/music/vengeance-electro.m4a  "Vengeance Electro" by Of Far Different Nature
+                                          https://opengameart.org/content/vengeance-electro
+      assets/music/dance-field.m4a        "Dance Field" by Centurion_of_war
+                                          https://opengameart.org/content/dance-field
+
+
+Engine sounds
+-------------
+  - assets/sfx/engine/v8-idle.m4a, v8-2000.m4a, v8-2500.m4a, v8-4000.m4a, v8-4900.m4a: loops cut from
+    "Maserati GranTurismo S Exhaust" by lmartins
+      https://freesound.org/people/lmartins/sounds/465453/
+      (via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Maserati_GranTurismo_S_Exhaust.ogg)
+    licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Changed: trimmed, pitch-flattened
+    to constant engine speeds, looped, levelled and re-encoded to AAC.
+  - The gearbox, the shifts, the pops and the mix (wagmi/audio/supercar.js) are original to Mog City.
+  - The traffic's engines and the crash's metal (wagmi/audio/motors.js, wagmi/audio/crunch.js): engine and
+    crash synthesis ported from Slop New York by Mr.doob (MIT), commits 0e5bbfb and 7772c09.
+
+
+Crowd sounds
+------------
+  - assets/sfx/city/crowd-walla.m4a (the street crowd's walla, wagmi/audio/city.js): cut and mixed from five
+    takes of "GameSoundCon2024 Walla XY-AKG214-96k" (Freesound pack 42098) by ShangusBurger (Shane Vincent)
+      https://freesound.org/people/ShangusBurger/packs/42098/
+      Conference Room Walla American English 01            https://freesound.org/s/763895/
+      Conference Room Walla American English 02            https://freesound.org/s/763896/
+      Soft Conference Room Walla American English Library  https://freesound.org/s/763898/
+      Sparse Chatter and Laughter                          https://freesound.org/s/763848/
+      Coughs, Chatter and Laughs                           https://freesound.org/s/763851/
+    dedicated to the public domain under CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/). CC0 needs
+    no credit; we give it anyway. Changed: resampled to 44.1 kHz; the room's reverb tail reduced; equalised to
+    sound outdoors (high-passed at 150 Hz, the room's low boom and the voices' presence lowered, the top softened
+    for distance); levelled; the stereo narrowed; three takes joined into a seamless 37.5 s loop with
+    equal-power crossfades and the two sparse takes mixed under it; re-encoded to AAC.
+
+
+Voices (assets/voice)
+---------------------
+  - Dan, Jane, Knox, Mack, Gears, Fiona, Brick and Dash: synthesised with Qwen3-TTS by the Qwen team,
+    Alibaba Cloud (Apache-2.0, https://github.com/QwenLM/Qwen3-TTS). Each voice was designed once with
+    Qwen3-TTS-12Hz-1.7B-VoiceDesign and every line cloned from it with Qwen3-TTS-12Hz-0.6B-Base, using the
+    mlx-community conversions (Apache-2.0) run with mlx-audio (MIT, https://github.com/Blaizzy/mlx-audio).
+    The voices are invented: no real person's voice was used. Their reference clips are in
+    wagmi/radio/build/tts/.
+  - Mr. Big: synthesised with Kokoro-82M by hexgrad (Apache-2.0, https://huggingface.co/hexgrad/Kokoro-82M),
+    its stock voice bm_lewis, run with kokoro-onnx (MIT); heard as it is (no voice changer). The phonemizer
+    kokoro-onnx uses is GPL-3.0 and was only run, never shipped or vendored.
+  - Any character not yet voiced: placeholders made with the macOS speech voices (the `say` command). They
+    are meant to be replaced by recordings or synthesised voices like the others'. assets/voice/manifest.json records each line's source;
+    docs/VOICE-LINES.md is the line sheet and says how to drop new voices in.

@@ -1,0 +1,7 @@
+{
+ "design": "Male, 24 years old, American, slightly husky low voice, relaxed and confident, quick dry deadpan delivery, tired but sharp, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 3103,
+ "refText": "So here's my week. Monday I had a desk, a badge and a coffee order. Tuesday I had none of those. Today a reporter called my mom. I'm fine. Totally fine. Ask me again tomorrow.",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}
