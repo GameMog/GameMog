@@ -42,6 +42,20 @@ const HERO_COPY = {
  *   HEAT=3 NEAR=3 PLACE=-12,40,1.5708 npm run media:hero -- zombie-beach 4x3
  *   NEAR=3 AHEAD=25 SECONDS=7 NAME=-reel npm run media:hero -- great-wall-shinobi
  */
+/**
+ * The flagship (the owner, 27 Oct): Mog City's short trailer (the car, the
+ * boost, the helicopter, Jane and the Suits) is the whole hero, on a loop, in
+ * place of the reel. The game and its film live at mc.gamemog.com; the film is
+ * cut from the trailer's frames without its letterbox. Set to null for the reel.
+ */
+const FLAGSHIP: { title: string; tagline: string; lead: string; href: string; film: Film } | null = {
+  title: 'Mog City',
+  tagline: 'Unfinished Business. They framed the wrong guy.',
+  lead: 'Mog City: Unfinished Business. They framed the wrong guy. Play free in your browser.',
+  href: 'https://mc.gamemog.com',
+  film: { wide: 'https://mc.gamemog.com/media/hero-trailer', narrow: 'https://mc.gamemog.com/media/hero-trailer' },
+};
+
 const REEL: { slug: string; film: string; seconds?: number }[] = [
   { slug: 'speed-skating-2030', film: 'speed-skating-2030-reel' },
   { slug: 'zombie-beach', film: 'zombie-beach' },
@@ -85,6 +99,29 @@ function RecordStat({ game }: { game: GameRow }) {
     return <span><b>{Math.floor(t / 60)}:{String(t % 60).padStart(2, '0')}</b> survived</span>;
   }
   return record?.level ? <span><b>Lap {record.level}</b> record</span> : null;
+}
+
+/** The flagship's film as the hero: one clip, so it loops; Play leaves for its own site. */
+function Flagship({ f }: { f: NonNullable<typeof FLAGSHIP> }) {
+  const lead = (
+    <Fragment key="lead">
+      <p>{f.lead}</p>
+      <div className="acts">
+        <a href={f.href} className="btn play" aria-label={`Play ${f.title}`}>Play</a>
+      </div>
+    </Fragment>
+  );
+  const card = (
+    <Fragment key="card">
+      <span className="kicker">Featured game</span>
+      <h1>{f.title}</h1>
+      <p className="tagline">{f.tagline}</p>
+      <div className="acts">
+        <a href={f.href} className="btn big light" aria-label={`Play ${f.title}`}><Icon name="play" size={20} />Play</a>
+      </div>
+    </Fragment>
+  );
+  return <HeroReel clips={[{ film: f.film, href: f.href, title: f.title }]} headline={<h1>{HERO_COPY.headline.map((l) => <span key={l}>{l}</span>)}</h1>} leads={[lead]} cards={[card]} />;
 }
 
 /** The reel's worlds that are published and filmed, with each one's copy for the desktop and the phone card. */
@@ -279,7 +316,7 @@ export default async function Home() {
   return (
     <>
       <SiteHeader />
-      {Reel({ worlds, stats }) ?? <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />}
+      {FLAGSHIP ? <Flagship f={FLAGSHIP} /> : Reel({ worlds, stats }) ?? <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />}
       <main className="wrap" style={{ paddingTop: 24 }}>
 
         {rails.map((rail, i) => (

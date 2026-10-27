@@ -48,6 +48,8 @@ export function HeroReel({ clips, headline, leads, cards }: { clips: ReelClip[];
     const end = (v: HTMLVideoElement, c: number) => Math.min(clips[c].seconds ?? Infinity, v.duration || Infinity);
     const fade = (k: number) => { for (const r of [copy.current, card.current]) if (r) r.style.opacity = String(k); };
     layers.forEach((v, k) => { v.style.opacity = k ? '0' : '1'; v.style.zIndex = k ? '1' : '2'; });
+    // a reel of one film (the flagship) plays round and round on its own
+    A.loop = n < 2;
     load(A, 0);
     if (visible) A.play().catch(() => {});
     // the next film loads under this one once it is under way, so each starts at full speed
