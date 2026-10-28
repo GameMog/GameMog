@@ -227,7 +227,8 @@ class LightingSystem {
     const dist = length(toFrag);
     const dir = toFrag.div(max(dist, 0.001));
     const horizonDir = normalize(vec3(dir.x, max(dir.y, 0.015), dir.z));
-    const skyColor = pmremTexture(this.envRenderTarget.texture, horizonDir, float(0.3)).rgb;
+    // (after Slop New York 1ce99d3: the sharp horizon, as the sky draws it, so Blue Hour fog has no seam against it)
+    const skyColor = pmremTexture(this.envRenderTarget.texture, horizonDir, float(0.0)).rgb;
     // Mean haze density exp(-y / H) along the ray between the fragment and the camera
     const H = this.uFogHeight;
     const ya = max(positionWorld.y, 0.0);
