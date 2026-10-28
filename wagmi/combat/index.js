@@ -85,8 +85,14 @@ export async function install(W) {
     const rel = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z).premultiply(inv);
     const box = (w, h, d, x, y, z, ry = 0) => new THREE.BoxGeometry(w, h, d).rotateY(ry).translate(x, y, z);
     // the glasses (as the opening's first pair: two lenses toed in, a brow bar, the arms back over his ears)
-    const glasses = mergeGeometries([box(0.058, 0.034, 0.01, -0.034, 0, 0, -0.18), box(0.058, 0.034, 0.01, 0.034, 0, 0, 0.18), box(0.124, 0.01, 0.01, 0, 0.014, 0),
-      box(0.006, 0.008, 0.11, -0.066, 0.01, -0.055), box(0.006, 0.008, 0.11, 0.066, 0.01, -0.055)]);
+    // (27 Oct: one smooth piece, the size and place of the five boxes it was: each lens a rounded outline a little narrower
+    // at the bottom, its top the brow line, bevelled; a bridge between them; rounded arms)
+    const glasses = ((sh, ex) => mergeGeometries([ex(sh(0.056, 0.032, 0.004, 0.0035, 0.009), 0.0075).rotateY(-0.18).translate(-0.034, 0.002, 0), ex(sh(0.056, 0.032, 0.004, 0.0035, 0.009), 0.0075).rotateY(0.18).translate(0.034, 0.002, 0),
+      ex(sh(0.016, 0.005, 0, 0.0022, 0.0022), 0.005).translate(0, 0.012, 0.0005), ...[-1, 1].map((sx) => ex(sh(0.004, 0.006, 0, 0.0018, 0.0018), 0.108).translate(sx * 0.066, 0.01, -0.055))]))(
+      (w, h, taper, rt, rb) => { const P = [[-w / 2 + taper, -h / 2, rb], [w / 2 - taper, -h / 2, rb], [w / 2, h / 2, rt], [-w / 2, h / 2, rt]], s = new THREE.Shape();
+        P.forEach(([x, y, r], i) => { const [px, py] = P[(i + 3) % 4], [nx, ny] = P[(i + 1) % 4], a = Math.hypot(px - x, py - y), b = Math.hypot(nx - x, ny - y), u = [x + (px - x) * r / a, y + (py - y) * r / a], v = [x + (nx - x) * r / b, y + (ny - y) * r / b]; if (i) s.lineTo(...u); else s.moveTo(...u); s.quadraticCurveTo(x, y, ...v); });
+        s.closePath(); return s; },
+      (s, d) => new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: true, bevelThickness: 0.001, bevelSize: 0.001, bevelSegments: 2, curveSegments: 5 }).translate(0, 0, -d / 2));
     // the earpiece: a bud in the ear, the cord coiled round a line from behind the ear down to the collar
     const path = new THREE.CatmullRomCurve3([[0.083, 0, 0.004], [0.088, -0.035, -0.022], [0.082, -0.09, -0.05], [0.07, -0.15, -0.062]].map((p) => new THREE.Vector3(...p)));
     const pts = [], N = 90;

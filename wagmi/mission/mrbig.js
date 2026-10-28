@@ -6,7 +6,9 @@
 // lamp his key, from his left; a soft warm fill; the window's cool moonlight on his silver hair from behind).
 // His model is assets/characters/mrbig.glb (an original face, nobody's: a CC0 MakeHuman build, .scratch/mrbig); his
 // glasses and his cigar are made here, on his head and his right hand. wagmi/face.js gives his face its morphs: his
-// jaw moves with his lines, he blinks, his eyes are on the lens.
+// jaw moves with his lines, he blinks, his eyes are on the lens. His hands are posed here too (27 Oct): each hand set by
+// its own frame, the cigar held between the index and middle fingers near the knuckles (a relaxed grip at rest, an
+// accusing two-finger point for the demand, its cap in his lips for a puff), the left hand at rest by his glass.
 // It is drawn in place of the city's frame (the full-frame insert) or into a texture (his feed on Dan's phone).
 //   const boss = await createMrBig(W);  boss.pose(t, { lean, tilt, point, puff, stand })  boss.full({ pos, look, fov } | null)
 //   boss.phone(on)  boss.texture (the phone feed)  boss.eye (his eyes in his study: the shots are framed on them)
@@ -131,29 +133,40 @@ export async function createMrBig(W) {
   // (on his nose: the lenses a little in front of his eyes and the bridge on the nose's bridge, a touch low)
   glasses.position.set(eyeMid.x, eyeMid.y - 0.002, Math.max(eyeMid.z + eyeR + 0.017, noseZ + 0.006));
   fix(glasses, bones.head);
+  // (his mouth, in his head's own frame: the lips' parting 75 mm under his eyes, 12 mm in front of them: the cigar's cap
+  // goes there for a puff)
+  const mouthLocal = bones.head.worldToLocal(V(eyeMid.x, eyeMid.y - 0.0753, eyeMid.z + eyeR + 0.012));
+  // (the cigar's cap in his right wrist's frame, once it is in his hand)
+  let capLocal = null;
 
-  // the cigar: a fat robusto, its band burgundy and gold, the lit end a ring of ember under grey ash
+  // the cigar: a corona, its band burgundy and gold near the head, the lit end a glowing ring of ember under a short
+  // grey ash. Held between the first two fingers of his right hand, near the knuckles, across them: the head a few cm
+  // out on the palm's side, the lit end out past the back of his hand (put there below, once his hand is posed)
   const cigar = new THREE.Group(); cigar.name = 'cigar';
   const leaf = new THREE.MeshStandardMaterial({ color: '#5B3920', roughness: 0.82 });
   const ember = new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, 0.9, 0.22) });
   const ashMat = new THREE.MeshStandardMaterial({ color: '#8E8984', roughness: 1 });
+  const CIG = { L: 0.13, R: 0.0082, head: 0.034, at: 0.4, lean: 0.3 };
   {
-    const L = 0.125, R = 0.0095;
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.96, L, 18, 1), leaf); body.position.y = L / 2; cigar.add(body);
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(R * 0.96, 14, 8, 0, PI * 2, PI / 2, PI / 2), leaf); cigar.add(cap);
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.04, R * 1.04, 0.012, 18, 1, true), new THREE.MeshStandardMaterial({ color: '#6E1426', roughness: 0.5, metalness: 0.2 })); band.position.y = 0.02; cigar.add(band);
-    const gilt = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.05, R * 1.05, 0.0025, 18, 1, true), new THREE.MeshStandardMaterial({ color: '#C9A24A', roughness: 0.3, metalness: 0.9 })); gilt.position.y = 0.02; cigar.add(gilt);
-    const glow = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.98, R, 0.004, 18, 1), ember); glow.position.y = L + 0.002; cigar.add(glow);
-    const ash = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.9, R * 0.97, 0.012, 14, 1), ashMat); ash.position.y = L + 0.01; cigar.add(ash);
-    cigar.userData.tip = V(0, L + 0.004, 0); cigar.userData.glow = glow;
-  }
-  {
-    // (held between the first two fingers of his right hand, across them: the lit end out past his index finger)
-    const k2 = wp(bones['finger2-1_R'] || bones.wrist_R), k3 = wp(bones['finger3-1_R'] || bones.wrist_R), k5 = wp(bones['finger5-1_R'] || bones.wrist_R), w0 = wp(bones.wrist_R);
-    const along = k2.clone().sub(k5).normalize(), out = k2.clone().add(k3).multiplyScalar(0.5).sub(w0).normalize();
-    const at = k2.clone().add(k3).multiplyScalar(0.5).addScaledVector(out, 0.028);
-    cigar.position.copy(at).addScaledVector(along, -0.04); cigar.quaternion.setFromUnitVectors(V(0, 1, 0), along);
-    fix(cigar, bones.wrist_R);
+    const { L, R } = CIG;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.97, L, 20, 1), leaf); body.position.y = L / 2; cigar.add(body);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(R * 0.97, 16, 8, 0, PI * 2, PI / 2, PI / 2), leaf); cap.scale.y = 0.7; cigar.add(cap);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.04, R * 1.04, 0.011, 20, 1, true), new THREE.MeshStandardMaterial({ color: '#6E1426', roughness: 0.5, metalness: 0.2 })); band.position.y = 0.019; cigar.add(band);
+    const gilt = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.05, R * 1.05, 0.0022, 20, 1, true), new THREE.MeshStandardMaterial({ color: '#C9A24A', roughness: 0.3, metalness: 0.9 })); gilt.position.y = 0.019; cigar.add(gilt);
+    // (the burning end: a ring of ember round the burn line, the ash past it, a little narrower, its end glowing faintly)
+    const glow = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.0, R * 1.0, 0.0045, 20, 1), ember); glow.position.y = L + 0.0018; cigar.add(glow);
+    const ash = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.86, R * 0.95, 0.008, 16, 1), ashMat); ash.position.y = L + 0.0075; cigar.add(ash);
+    // (the tip end on: the ember glowing through the ash's face, dimmer than the ring, brighter with a puff)
+    const emberTex = (() => {
+      const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+      const g = x.createRadialGradient(32, 32, 2, 32, 32, 32); g.addColorStop(0, '#FFB060'); g.addColorStop(0.35, '#F06018'); g.addColorStop(0.62, '#7A2A10'); g.addColorStop(0.8, '#6E6862'); g.addColorStop(1, '#8E8984');
+      x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+      let r = 7; const R0 = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+      for (let i = 0; i < 90; i++) { const a = R0() * PI * 2, d = 8 + R0() * 22; x.fillStyle = `rgba(${R0() < 0.5 ? '60,56,52' : '150,146,140'},${0.25 + R0() * 0.4})`; x.fillRect(32 + Math.cos(a) * d, 32 + Math.sin(a) * d, 1.5 + R0() * 2, 1.5 + R0() * 2); }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+    })();
+    const face0 = new THREE.Mesh(new THREE.CircleGeometry(R * 0.86, 20), new THREE.MeshBasicMaterial({ map: emberTex, color: new THREE.Color(1.2, 1.2, 1.2) })); face0.rotation.x = -PI / 2; face0.position.y = L + 0.0118; cigar.add(face0);
+    cigar.userData.tip = V(0, L + 0.012, 0); cigar.userData.glow = glow; cigar.userData.face = face0;
   }
   const tipW = () => cigar.localToWorld(cigar.userData.tip.clone());
 
@@ -285,12 +298,68 @@ export async function createMrBig(W) {
   // the seat); his left hand by his glass on the desk, his right raised with the cigar beside his face
   const X = V(1, 0, 0), Y = V(0, 1, 0), Z = V(0, 0, 1);
   const spine = ['spine05', 'spine04', 'spine03', 'spine02', 'spine01'].map((n) => bones[n]).filter(Boolean);
-  const fingers = (side) => ['2', '3', '4', '5'].flatMap((f) => ['1', '2', '3'].map((j) => bones[`finger${f}-${j}_${side}`])).filter(Boolean);
-  function curl(side, k) {
-    // (the fingers bent in toward the palm, about the hand's own across axis (little finger to index), k rad a joint)
-    const a = wp(bones[`finger5-1_${side}`] || bones[`wrist_${side}`]), b = wp(bones[`finger2-1_${side}`] || bones[`wrist_${side}`]);
-    const ax = b.sub(a).normalize(); if (side === 'L') ax.negate();
-    for (const f of fingers(side)) turn(f, ax, k);
+  // the hands (27 Oct, the owner: "Mr. Big hand with cigar are not right": an open claw, the cigar floating in front of
+  // his palm). Each hand is posed in its own frame (frame): F along it (the wrist to the middle knuckle), A across it
+  // (the little finger's knuckle to the index's), N out of the palm. The hand is turned to a wanted F and N (orient: a
+  // share of the turn about the forearm in its twist bone, the rest at the wrist, so the wrist never wrings), then each
+  // finger: its spread in the palm's plane (from F, toward the index side +) and its three joints bent toward the palm
+  const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _m1 = new THREE.Matrix4(), _m2 = new THREE.Matrix4();
+  function frame(s) {
+    const w = wp(bones['wrist_' + s]), k2 = wp(bones['finger2-1_' + s]), k3 = wp(bones['finger3-1_' + s]), k5 = wp(bones['finger5-1_' + s]);
+    const F = k3.sub(w).normalize(), A = k2.sub(k5); A.addScaledVector(F, -A.dot(F)).normalize();
+    const N = s === 'R' ? V().crossVectors(A, F) : V().crossVectors(F, A);
+    return { F, A, N: N.normalize() };
+  }
+  // (a world rotation for a bone, its children with it)
+  function turnQ(b, q) { b.getWorldQuaternion(_q2); _q.copy(q).multiply(_q2); b.parent.getWorldQuaternion(_q2); b.quaternion.copy(_q2.invert().multiply(_q)); b.updateMatrixWorld(true); }
+  // (the rotation taking frame (F, N) to (F2, N2))
+  const between = (F, N, F2, N2, out) => {
+    _m1.makeBasis(F, N, V().crossVectors(F, N)); _m2.makeBasis(F2, N2, V().crossVectors(F2, N2));
+    _qa.setFromRotationMatrix(_m1); _qb.setFromRotationMatrix(_m2); return out.copy(_qb).multiply(_qa.invert());
+  };
+  function orient(s, F2, N2, share = 0.55) {
+    N2 = N2.clone().addScaledVector(F2, -N2.dot(F2)).normalize();
+    const tw = bones['lowerarm02_' + s], wr = bones['wrist_' + s];
+    if (tw) {
+      const ax = wp(wr).sub(wp(bones['lowerarm01_' + s])).normalize(), f = frame(s), q = between(f.F, f.N, F2, N2, new THREE.Quaternion());
+      // (the twist about the forearm: the part of q about ax)
+      const p = V(q.x, q.y, q.z), d = p.dot(ax), ang = 2 * Math.atan2(d, q.w);
+      turn(tw, ax, Math.atan2(Math.sin(ang), Math.cos(ang)) * share);
+    }
+    const f = frame(s); turnQ(wr, between(f.F, f.N, F2, N2, new THREE.Quaternion()));
+  }
+  // a finger (f 2 the index .. 5 the little finger): turned in the palm's plane by spread (rad, toward the index side +)
+  // at its knuckle, then bent toward the palm at its three joints by bends[3] (rad), all about one axis (the finger
+  // stays in its own plane: no joint rolls or kinks sideways)
+  function finger(s, f, spread, bends, fr) {
+    const b = [1, 2, 3].map((j) => bones[`finger${f}-${j}_${s}`]); if (!b[0] || !b[1]) return;
+    const { F, A, N } = fr;
+    if (spread) turn(b[0], V().crossVectors(F, A).normalize(), spread);
+    const d = wp(b[1]).sub(wp(b[0])); d.addScaledVector(N, -d.dot(N)).normalize();
+    const ax = V().crossVectors(d, N).normalize();
+    for (let j = 0; j < 3; j++) if (b[j] && bends[j]) turn(b[j], ax, bends[j]);
+  }
+  // (the thumb: in toward the palm by opp (rad, about the hand's long axis, F), its two outer joints bent by bends)
+  function thumb(s, opp, bends, fr) {
+    const { F, N } = fr, t = [1, 2, 3].map((j) => bones[`finger1-${j}_${s}`]); if (!t[0]) return;
+    if (opp) turn(t[0], F.clone().multiplyScalar(s === 'R' ? -1 : 1), opp);
+    const d = wp(t[2] || t[1]).sub(wp(t[1] || t[0])); d.addScaledVector(N, -d.dot(N)).normalize();
+    const ax = V().crossVectors(d, N).normalize();
+    for (let j = 1; j < 3; j++) if (t[j] && bends[j - 1]) turn(t[j], ax, bends[j - 1]);
+  }
+  // the grips: the right hand round the cigar (index and middle parted round it and gently bent; the ring and little
+  // fingers curled in under them, the thumb relaxed along the index); the left hand resting, loose, the fingers together
+  // (R: at rest; P: the demand, the two fingers round the cigar straighter, at the lens, the others curled in tight)
+  const GRIP = {
+    R: { thumb: [0.1, [0.1, 0.16]], f: [[2, 0.07, [0.2, 0.3, 0.16]], [3, -0.05, [0.24, 0.34, 0.18]], [4, -0.02, [0.55, 0.7, 0.36]], [5, -0.04, [0.62, 0.74, 0.38]]] },
+    P: { thumb: [0.22, [0.22, 0.3]], f: [[2, 0.07, [0.12, 0.1, 0.05]], [3, -0.05, [0.16, 0.12, 0.06]], [4, -0.02, [0.95, 1.05, 0.5]], [5, -0.04, [1.0, 1.05, 0.5]]] },
+    L: { thumb: [0.05, [0.08, 0.12]], f: [[2, 0, [0.14, 0.2, 0.1]], [3, 0, [0.16, 0.22, 0.12]], [4, 0, [0.2, 0.26, 0.14]], [5, 0, [0.24, 0.28, 0.14]]] },
+  };
+  // (k: how far toward the demand's grip, the right hand only)
+  function grip(s, k = 0) {
+    const G = GRIP, g = G[s], h = s === 'R' && k > 0 && G.P ? G.P : null, fr = frame(s), mix = (a, b) => (h ? a + (b - a) * k : a);
+    g.f.forEach(([f, sp, bends], i) => finger(s, f, mix(sp, h?.f[i][1]), bends.map((x, j) => mix(x, h?.f[i][2][j])), fr));
+    thumb(s, mix(g.thumb[0], h?.thumb[0]), g.thumb[1].map((x, j) => mix(x, h?.thumb[1][j])), fr);
   }
   let seated = true;
   function sit(stand) {
@@ -302,6 +371,27 @@ export async function createMrBig(W) {
       const th = bones['upperleg01_' + s], sh = bones['lowerleg01_' + s], ft = bones['foot_' + s], o = s === 'L' ? 1 : -1;
       turn(th, X, -PI / 2 + 0.06); turn(th, Y, o * 0.1); turn(sh, X, PI / 2 - 0.02); turn(ft, X, -0.04);
     }
+  }
+  // the right hand's aim (F along the hand, N out of the palm; world, his study: he faces +z, his right is -x). The cigar
+  // goes out the back of the hand, so where it points follows N:
+  //  rest   the forearm up from the chair's arm, the hand up beside his face, the fingers up and a little out, the palm
+  //         turned in toward him: the cigar out to his right and forward, tilted up, the smoke rising clear of him
+  //  lips   the palm to his mouth, the fingers up and out to his right: the cigar's cap in his lips
+  //  lens   the demand: his arm out at the lens, the fingers toward it, the palm down and turned in a little: the cigar
+  //         stands up out of his fingers, leaning at the lens
+  const AIM = {
+    rest: [V(-0.16, 1, 0.22), V(0.85, 0.05, -0.5)],
+    lips: [V(-0.65, 0.75, 0.1), V(0.12, 0.05, -1)],
+    lens: [V(-0.08, 0.12, 1), V(0.45, -1, 0.05)],
+  };
+  const _qr = new THREE.Quaternion(), _ql = new THREE.Quaternion();
+  const aimQ = (F, N, out) => { const f = F.clone().normalize(), n = N.clone().addScaledVector(f, -N.dot(f)).normalize(); return out.setFromRotationMatrix(_m1.makeBasis(f, n, V().crossVectors(f, n))); };
+  function handAim(puff, point) {
+    const q = aimQ(...AIM.rest, new THREE.Quaternion());
+    q.slerp(aimQ(...AIM.lips, _qr), smooth(puff)).slerp(aimQ(...AIM.lens, _ql), smooth(point));
+    // (back to F and N: the basis' first two columns)
+    const m = _m2.makeRotationFromQuaternion(q).elements;
+    return { F: V(m[0], m[1], m[2]), N: V(m[4], m[5], m[6]) };
   }
   const st = { t: -1, puffT: -9, smokeAcc: 0, tip: V() };
   // (what is drawn: the full-frame insert's camera, the phone's feed, frames left to draw both for the compile)
@@ -322,18 +412,30 @@ export async function createMrBig(W) {
       reach(bones.upperarm01_L, bones.lowerarm01_L, bones.wrist_L, sL.clone().add(V(0.05, -0.56, 0.06)), sL.clone().add(V(0.4, -0.2, -0.6)));
       reach(bones.upperarm01_R, bones.lowerarm01_R, bones.wrist_R, sR.clone().add(V(-0.02, -0.38, 0.26)), sR.clone().add(V(-0.5, -0.4, -0.5)));
     } else {
-      // (his left hand on the desk beside his glass)
-      reach(bones.upperarm01_L, bones.lowerarm01_L, bones.wrist_L, V(glassP.x + 0.02, DT + 0.06 + 0.03 * lean, glassP.z - 0.12 + 0.04 * lean), sL.clone().add(V(0.55, -0.35, -0.45)));
-      // (his right: the elbow down by his side, the cigar up beside his face; to his lips for a puff; out at the lens
-      // for the demand)
-      const head = wp(bones.head), rest = sR.clone().add(V(-0.02, 0.05, 0.2)), lips = head.clone().add(V(-0.04, -0.035, 0.22)), lens = sR.clone().add(V(0.06, 0.02, 0.52));
-      const target = rest.clone().lerp(lips, smooth(puff)).lerp(lens, smooth(point));
-      reach(bones.upperarm01_R, bones.lowerarm01_R, bones.wrist_R, target, sR.clone().add(V(-0.3, -0.8, -0.05)));
+      // (his left hand at rest on the desk beside his glass, palm down, the fingers forward and in)
+      reach(bones.upperarm01_L, bones.lowerarm01_L, bones.wrist_L, V(glassP.x - 0.13, DT + 0.06 + 0.02 * lean, glassP.z - 0.13 + 0.04 * lean), sL.clone().add(V(0.55, -0.35, -0.45)));
+      orient('L', V(-0.35, -0.22, 1).normalize(), V(0.1, -1, 0.15));
+      // (his right: the elbow down by his side on the chair's arm, the cigar hand up beside his face; to his lips for a
+      // puff; out at the lens for the demand)
+      const rest = sR.clone().add(V(-0.05, 0.04, 0.2)), lens = sR.clone().add(V(0.08, 0.04, 0.44));
+      const hand = handAim(puff, point), pole = sR.clone().add(V(-0.35, -0.8, -0.05).lerp(V(-0.4, -0.55, 0.1), smooth(point)));
+      let target = rest.clone().lerp(lens, smooth(point));
+      const kp = smooth(puff);
+      if (kp > 0.001) {
+        // (at his lips: the wrist put where the cigar's cap lands in his lips, found by trying it twice)
+        const mouth = bones.head.localToWorld(mouthLocal.clone()), at = target.clone().lerp(mouth.clone().add(V(-0.07, -0.11, 0.01)), kp);
+        const arm = ['upperarm01_R', 'upperarm02_R', 'lowerarm01_R', 'lowerarm02_R', 'wrist_R'].map((n) => bones[n]).filter(Boolean), q0 = arm.map((b) => b.quaternion.clone());
+        for (let i = 0; i < 2 && capLocal; i++) {
+          reach(bones.upperarm01_R, bones.lowerarm01_R, bones.wrist_R, at, pole); orient('R', hand.F, hand.N);
+          at.addScaledVector(mouth.clone().sub(bones.wrist_R.localToWorld(capLocal.clone())), kp);
+          arm.forEach((b, k) => b.quaternion.copy(q0[k])); root.updateMatrixWorld(true);
+        }
+        target = at;
+      }
+      reach(bones.upperarm01_R, bones.lowerarm01_R, bones.wrist_R, target, pole);
+      orient('R', hand.F, hand.N);
     }
-    // (the wrists turned so the hands sit naturally: the left palm down on the desk, the right hand upright)
-    if (bones.wrist_L && !stand) turn(bones.wrist_L, Z, -0.25);
-    if (bones.wrist_R && !stand) { turn(bones.wrist_R, Y, 0.5); turn(bones.wrist_R, Z, -0.3); }
-    curl('L', 0.32); curl('R', 0.62);
+    grip('L'); grip('R', smooth(point));
     root.updateMatrixWorld(true);
     // his eyes on the lens (the face runs itself: his mouth with his voice, his blinks)
     face.look = state.full ? cam.position : phoneCam.position;
@@ -341,6 +443,7 @@ export async function createMrBig(W) {
     st.tip.copy(tipW());
     const glow = cigar.userData.glow.material.color, k = 0.85 + 0.15 * Math.sin(t * 7.3) * Math.sin(t * 2.1) + 0.6 * smooth(puff);
     glow.setRGB(3.2 * k, 0.9 * k, 0.22 * k);
+    cigar.userData.face?.material.color.setScalar(0.9 + 0.35 * k);
     if (puff > 0.6) st.puffT = t;
     if (dt > 0) {
       st.smokeAcc += dt * 18;
@@ -353,6 +456,18 @@ export async function createMrBig(W) {
 
   // his eyes in his study, seated (the shots are framed on them)
   pose(0);
+  // the cigar into his hand as it is posed: between the index and middle fingers near the knuckles (their first bones,
+  // half way along), across them out of the palm and a little toward the fingertips; its head out on the palm's side,
+  // the lit end out past the back of his hand; then it rides on his wrist (the fingers keep the grip in every gesture)
+  {
+    const p = (f, k) => wp(bones[`finger${f}-1_R`]).lerp(wp(bones[`finger${f}-2_R`]), k);
+    const fr = frame('R'), hold = p(2, CIG.at).add(p(3, CIG.at)).multiplyScalar(0.5);
+    const d = wp(bones['finger2-2_R']).sub(wp(bones['finger2-1_R'])).add(wp(bones['finger3-2_R']).sub(wp(bones['finger3-1_R']))).normalize();
+    const D = fr.N.clone().negate().multiplyScalar(Math.cos(CIG.lean)).addScaledVector(d, Math.sin(CIG.lean)).normalize();
+    scene.add(cigar); cigar.position.copy(hold).addScaledVector(D, -CIG.head); cigar.quaternion.setFromUnitVectors(V(0, 1, 0), D);
+    cigar.updateMatrixWorld(true); bones['finger2-1_R'].attach(cigar); cigar.traverse((k) => { if (k.isMesh) k.frustumCulled = false; });
+    capLocal = bones.wrist_R.worldToLocal(cigar.localToWorld(V(0, -0.004, 0)));
+  }
   const EYE = face.eyes(V()).add(V(0, 0, 0.02));
   phoneCam.position.set(EYE.x + 0.02, EYE.y - 0.02, EYE.z + 1.17); phoneCam.lookAt(EYE.x, EYE.y - 0.13, EYE.z - 0.08);
   // (his face shows, and talks, only while his study is on a screen)

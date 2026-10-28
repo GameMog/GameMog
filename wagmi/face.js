@@ -1,5 +1,5 @@
 // Mog City: talking faces (23 Oct, round 3; the owner, playing: Gears' "lips aren't moving when he talks"). Jane's
-// face (round 2) made general, for every one of the cast built from a MakeHuman human (Dan, Jane, Gears, Floor Price
+// face (round 2) made general, for every one of the cast built from a MakeHuman human (Dan, Jane, Gears,
 // Fiona, Mr. Big; the Suits are not built from one): morphs for the face made from the model's own body before its first draw, and a
 // face that talks with its voice: the jaw with the level of the line playing while it is one of THEIR lines (shut
 // otherwise), a blink every 2-6 s, the eyes on whoever they talk to with small moves of their own.
@@ -16,8 +16,13 @@
 //                                    else null (the voices' log says whose line started and when, their analyser how loud)
 //   mouthFollower() · chatter(t) · subLine()
 // W.faces: the faces built (each one's eyes are where the others look when nobody says otherwise).
+// The Suits (thug.glb: a painted face, no jaw; 27 Oct, the owner: "JPBANK security forces mouths are messed up"): their
+// mouth is painted shut on the skin (level, half way from the eyes to the chin); while one of them talks, an open mouth
+// is drawn over it in the skin's own material, opening with his voice (SUIT_MOUTH, suitTick: found by name in the scene,
+// 'Suit-Knox' talks with Knox's lines; a man with no name in the story, the fight's, takes a Suit's line nobody else is
+// on screen to say).
 import * as THREE from 'three/webgpu';
-import { attribute, materialColor } from 'three/tsl';
+import { attribute, materialColor, uniform, positionGeometry, vec3, float, smoothstep, mix, abs, sqrt, pow, max, min, clamp as tclamp } from 'three/tsl';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -337,13 +342,89 @@ function shadeMouth(m) {
 const _q = new THREE.Quaternion(), _w = new THREE.Quaternion();
 function turnWorld(b, q) { b.getWorldQuaternion(_w); const want = q.clone().multiply(_w); b.parent.getWorldQuaternion(_w); b.quaternion.copy(_w.invert().multiply(want)); b.updateMatrixWorld(true); }
 
-// the faces running themselves, one loop for all of them
+/* ------------------------------------------------------------ the Suits -- */
+// JPBank's security men (thug.glb, a stylised head: painted eyes and mouth, no jaw, no morphs). The mouth on the skin
+// (.scratch/polish/cast/paint.cjs) is drawn in the head's own space, and so is this one: y0 its middle's height, hw half
+// its width, lift its corners' (m, the model's bind space, +z the face's front). Talking, the skin's material draws an
+// open mouth over the painted one (positionGeometry: the body's points before the skinning, so it rides on the face in
+// any pose and fades and flashes with the man): the lower lip dropping with the jaw and the upper lifting a little, dark
+// inside, the upper teeth under the lip, the tongue low at the back, the lips round it a little darker; shut, nothing
+// drawn (the painted mouth as it is).
+export const SUIT_MOUTH = { y0: 1.6025, hw: 0.023, lift: 0.0005 };
+// (whose lines a Suit's mouth says: the story's Suits; a root's name is 'Suit-' and his, the fight's men have numbers)
+const SUIT_NAMES = new Set(['knox', 'hooks', 'tank', 'brick', 'dash', 'mack', 'rook']);
+function suitMouthNode(open) {
+  const { y0, hw, lift } = SUIT_MOUTH, P = positionGeometry, e = float(0.00028);
+  // (the corners pull in a little as it opens)
+  const s = abs(P.x).div(float(hw).mul(open.mul(-0.1).add(1))), s2 = s.mul(s), arc = sqrt(tclamp(s2.oneMinus(), 0, 1));
+  const dy = P.y.sub(float(y0).add(s2.mul(lift)));
+  // the opening: up to 3.4 mm over the line, 10.5 mm under it (the jaw drops), on the face's front, inside the corners
+  const top = pow(arc, 0.9).mul(open).mul(0.0034), bot = pow(arc, 0.7).mul(open).mul(0.0105);
+  const front = smoothstep(0.09, 0.105, P.z);
+  const inside = smoothstep(top.sub(e), top.add(e), dy).oneMinus().mul(smoothstep(bot.negate().sub(e), bot.negate().add(e), dy))
+    .mul(front).mul(smoothstep(0, 0.04, open)).mul(smoothstep(0.93, 1.0, s).oneMinus());
+  const teethH = min(float(0.0021), top.add(bot).mul(0.32));
+  const teeth = smoothstep(top.sub(teethH).sub(e), top.sub(teethH).add(e), dy).mul(smoothstep(0.5, 0.66, s).oneMinus());
+  const tongue = smoothstep(bot.mul(-0.85), bot.mul(-0.45), dy).oneMinus().mul(smoothstep(0.35, 0.75, s).oneMinus());
+  const tooth = vec3(0.34, 0.31, 0.27).mul(smoothstep(0.2, 0.66, s).oneMinus().mul(0.6).add(0.4));
+  const inner = mix(mix(vec3(0.018, 0.006, 0.006), vec3(0.13, 0.03, 0.035), tongue.mul(0.8)), tooth, teeth);
+  const lu = top.add(arc.mul(0.0026)), ll = bot.add(pow(arc, 0.7).mul(0.0034));
+  const lipU = smoothstep(top.sub(e), top.add(e), dy).mul(smoothstep(lu.sub(0.0004), lu.add(0.0006), dy).oneMinus());
+  const lipL = smoothstep(bot.negate().sub(e), bot.negate().add(e), dy).oneMinus().mul(smoothstep(ll.negate().sub(0.0006), ll.negate().add(0.0004), dy));
+  const lip = max(lipU.mul(0.55), lipL.mul(0.4)).mul(smoothstep(0.85, 1.05, s).oneMinus()).mul(smoothstep(0.02, 0.18, open)).mul(front);
+  return mix(mix(materialColor, materialColor.mul(vec3(0.74, 0.6, 0.6)), lip), inner, inside);
+}
+// the Suits found in the scene (root -> { u: the opening's uniform, name, mouth, t, open }, null: not one with a face)
+const SU = { W: null, list: new Map(), scanAt: 0 };
+const shownIn = (o) => { while (o) { if (!o.visible) return false; if (o.isScene) return true; o = o.parent; } return false; };
+const _sp = new THREE.Vector3(), _cp = new THREE.Vector3();
+function suitTick(dt) {
+  const W = SU.W, scene = W?.app?.scene; if (!scene || W.paused) return;
+  const now = performance.now();
+  if (now > SU.scanAt) {
+    SU.scanAt = now + 500;
+    for (const [o] of SU.list) if (!o.parent) SU.list.delete(o);
+    for (const o of scene.children) {
+      if (SU.list.has(o) || !(o.name || '').startsWith('Suit-')) continue;
+      let sk = null; o.traverse((m) => { if (!sk && m.isSkinnedMesh && m.skeleton.bones.some((b) => b.name === 'head')) sk = m; });
+      if (!sk) { SU.list.set(o, null); continue; }
+      // (his own material: each man's is his own clone, the dressing's; the open mouth in it, shut till he talks)
+      const u = uniform(0), mats = new Set();
+      o.traverse((m) => { if (m.isSkinnedMesh && m.geometry === sk.geometry && m.material) mats.add(m.material); });
+      for (const m of mats) { m.colorNode = suitMouthNode(u); m.needsUpdate = true; }
+      const name = o.name.slice(5).toLowerCase();
+      SU.list.set(o, { u, name: SUIT_NAMES.has(name) ? name : null, mouth: mouthFollower(), t: Math.random() * 9, open: 0 });
+    }
+  }
+  // who talks: the subtitle's speaker when he is one of the Suits; his own man if he is on screen, else the nearest of
+  // the men with no name within 18 m of the camera
+  const sub = subLine(), who = sub ? sub.who.toLowerCase() : '', talking = SUIT_NAMES.has(who) ? who : null;
+  let target = null;
+  if (talking) {
+    for (const [o, s] of SU.list) if (s && s.name === talking && shownIn(o)) target = o;
+    if (!target) {
+      const cam = W.app.cameraSystem?.camera; let bd = 18;
+      if (cam) { cam.getWorldPosition(_cp); for (const [o, s] of SU.list) { if (!s || s.name || !shownIn(o)) continue; const d = o.getWorldPosition(_sp).distanceTo(_cp); if (d < bd) { bd = d; target = o; } } }
+    }
+  }
+  for (const [o, s] of SU.list) {
+    if (!s) continue;
+    s.t += dt;
+    let raw = 0;
+    if (o === target) { const v = voiceOf(W, talking), au = W.audio?.ctx?.state === 'running'; raw = v ? v.level : !au || !W.voice?.has?.(talking, sub.text) ? chatter(s.t) : 0; }
+    // (s.force: a fixed opening, for a look at it)
+    s.open = s.mouth(raw, dt) * 0.72; s.u.value = s.force ?? s.open;
+  }
+}
+
+// the faces running themselves, one loop for all of them (and the Suits' mouths)
 const auto = new Set();
 let autoRaf = 0, autoLast = 0;
 function autoLoop(now) {
-  autoRaf = auto.size ? requestAnimationFrame(autoLoop) : 0;
+  autoRaf = auto.size || SU.W ? requestAnimationFrame(autoLoop) : 0;
   const dt = Math.min(0.1, Math.max(0, (now - autoLast) / 1000)); autoLast = now;
   for (const f of auto) { try { f.tick(dt); } catch (e) { console.warn('[face]', f.speaker, e); auto.delete(f); } }
+  try { suitTick(dt); } catch (e) { console.warn('[face] suits', e); SU.W = null; }
 }
 
 // W: the game; speaker: the name the voices' lines have (Dan, Gears, Fiona, Jane); inner: the model (its bones in
@@ -469,7 +550,10 @@ export function createFace(W, { speaker, inner, bones, head = false, open = 0.5,
     found: fm?.found,
   };
   (W.faces || (W.faces = new Set())).add(face);
-  if (ok && runs && typeof requestAnimationFrame !== 'undefined') { auto.add(face); if (!autoRaf) { autoLast = performance.now(); autoRaf = requestAnimationFrame(autoLoop); } }
+  // (the game's: the Suits' mouths run in the same loop)
+  if (!SU.W && W?.app) { SU.W = W; W.suitMouths = SU.list; }
+  if (ok && runs && typeof requestAnimationFrame !== 'undefined') auto.add(face);
+  if ((auto.size || SU.W) && !autoRaf && typeof requestAnimationFrame !== 'undefined') { autoLast = performance.now(); autoRaf = requestAnimationFrame(autoLoop); }
   inner.userData.face = face;
   return face;
 }

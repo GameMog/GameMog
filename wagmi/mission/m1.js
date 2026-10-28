@@ -49,6 +49,7 @@ class Fail extends Error { constructor(reason, ko = false) { super(reason); this
 class Quit extends Error {}
 
 export async function start(W, { at = 'car', fromIntro = false, keep = false } = {}) {
+  window.mcStat?.('mission', 'Bagged');
   if (W.mission) W.mission.stop();
   const M = (W.mission = createMission(W, { keep }));
   return M.run(at, fromIntro);

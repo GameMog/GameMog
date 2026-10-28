@@ -378,9 +378,14 @@ async function buildCast(W) {
     const shades = knox.inner.userData.shades || new THREE.Group();
     if (!knox.inner.userData.shades) {
       const lensMat = new THREE.MeshPhysicalMaterial({ color: '#050506', roughness: 0.05, metalness: 0.6, clearcoat: 1 });
-      for (const sx of [-1, 1]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.034, 0.01), lensMat); l.position.set(sx * 0.034, 0, 0); l.rotation.y = sx * 0.18; shades.add(l); }
-      const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.124, 0.01, 0.01), lensMat); bridge.position.y = 0.014; shades.add(bridge);
-      for (const sx of [-1, 1]) { const t = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.008, 0.11), lensMat); t.position.set(sx * 0.066, 0.01, -0.055); shades.add(t); }
+      // (27 Oct: smooth, as the dressing's pair: rounded lenses narrower at the bottom, a bridge, rounded arms; bevelled)
+      const sh = (w, h, taper, rt, rb) => { const P = [[-w / 2 + taper, -h / 2, rb], [w / 2 - taper, -h / 2, rb], [w / 2, h / 2, rt], [-w / 2, h / 2, rt]], s = new THREE.Shape();
+        P.forEach(([x, y, r], i) => { const [px, py] = P[(i + 3) % 4], [nx, ny] = P[(i + 1) % 4], a = Math.hypot(px - x, py - y), b = Math.hypot(nx - x, ny - y), u = [x + (px - x) * r / a, y + (py - y) * r / a], v = [x + (nx - x) * r / b, y + (ny - y) * r / b]; if (i) s.lineTo(...u); else s.moveTo(...u); s.quadraticCurveTo(x, y, ...v); });
+        s.closePath(); return s; };
+      const ex = (s, d) => new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: true, bevelThickness: 0.001, bevelSize: 0.001, bevelSegments: 2, curveSegments: 5 }).translate(0, 0, -d / 2);
+      for (const sx of [-1, 1]) { const l = new THREE.Mesh(ex(sh(0.056, 0.032, 0.004, 0.0035, 0.009), 0.0075), lensMat); l.position.set(sx * 0.034, 0.002, 0); l.rotation.y = sx * 0.18; shades.add(l); }
+      const bridge = new THREE.Mesh(ex(sh(0.016, 0.005, 0, 0.0022, 0.0022), 0.005), lensMat); bridge.position.set(0, 0.012, 0.0005); shades.add(bridge);
+      for (const sx of [-1, 1]) { const t = new THREE.Mesh(ex(sh(0.004, 0.006, 0, 0.0018, 0.0018), 0.108), lensMat); t.position.set(sx * 0.066, 0.01, -0.055); shades.add(t); }
       shades.position.set(0, knox.top - SHADES.down, hp.z + SHADES.fwd); knox.inner.add(shades); head.attach(shades);
     }
     for (const o of [shades]) o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.frustumCulled = false; } });
@@ -849,8 +854,8 @@ function buildScript(ctx) {
     [13.3, (r = 1.65) => ui.caption('Dan', 'the fall guy', YELLOW, r), 1.65, true],
     [15.0, (r = 1.6) => ui.caption('The laptop', 'the evidence', BLUE, r), 1.6, true],
     [15.3, () => { ui.phone.show('feed', { count: '18.4K', every: 520, items: [
-      ['@deltaneutral', 'delete your account.', '#EF4444', true], ['@pensionpaul', 'you front-ran my pension', '#FFC93C'], ['@retailrick', 'insider trading?? in THIS economy', '#B6FF3B', true],
-      ['@margincall', 'we know where u live', '#EF4444', true], ['@moonfan', 'is moon ok tho', '#6CB8FF']] }); sfx.play('ding', { gain: 0.1 }); }, 2.85, true],
+      ['@rentisdue', 'delete your account.', '#EF4444', true], ['@pensionpaul', 'you front-ran my pension', '#FFC93C'], ['@retailrick', 'insider trading?? in THIS economy', '#B6FF3B', true],
+      ['@hr_department', 'we know where u live', '#EF4444', true], ['@dogpark_dave', 'is moon ok tho', '#6CB8FF']] }); sfx.play('ding', { gain: 0.1 }); }, 2.85, true],
     [16.9, () => sfx.play('thunk', { gain: 0.1, f: 160, ring: false })],
     [18.45, () => ui.phone.hide()],
     [18.4, () => { sound.engine = sfx.engine(); sound.engine.set(0.5, 0); sound.bass = sfx.bass(); sound.bass.fadeTo(0, 0.1); }],

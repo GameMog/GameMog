@@ -3,13 +3,15 @@
 // Sent, against a random id this browser makes for itself (localStorage 'mc.visitor'; nothing else about the player):
 //   land      the page loaded, with the site that linked here (its host only) and ?utm_source= or ?ref=
 //   start     the start gate pressed (intro.js, the gate's onStart)
-//   mission   a mission's title card, its name (mission/ui.js title)
+//   mission   a mission reached, its name: its title card (mission/ui.js title), or Mission 1's start (mission/m1.js
+//             start: the opening skipped, or a replay), sent only when it is not the one already sent
 //   pass      a mission passed, its name (mission/ui.js passed)
 //   fail      '<mission>: <reason>' (mission/ui.js failed; the mission is the last title card's)
 //   time      ms played since the last one, from the start on: only with the tab in view, and not past five minutes
 //             without a key, a click, a touch or the pad. Sent when the tab is hidden or closed, and every 3 minutes
 // No cookie is set and no IP address is kept. Only from mc.gamemog.com, and not from automated browsers or the
-// developer starts (?nointro, ?nogate, ?fight, ?m1= ?m2= ?m3=, ?trailer=only). Anywhere else nothing is sent, unless
+// developer starts and switches (?nointro, ?nogate, ?fight, ?m1= ?m2= ?m3=, ?trailer=only, ?sandbox, ?debug, ?pursuit=,
+// ?police, ?thrusters=, ?fightrules=). Anywhere else nothing is sent, unless
 // ?statsto=<origin> names a local GameMog (http://localhost:<port> or http://127.0.0.1:<port>), for testing.
 // The hooks call window.mcStat?.(kind, detail). Every step is wrapped: the counts never break or slow the game.
 (() => {
@@ -18,7 +20,7 @@
     let to = '';
     if (location.hostname === 'mc.gamemog.com') {
       if (navigator.webdriver) return;
-      if (['nointro', 'nogate', 'fight', 'm1', 'm2', 'm3'].some((k) => Q.has(k)) || Q.get('trailer') === 'only') return;
+      if (['nointro', 'nogate', 'fight', 'fightrules', 'm1', 'm2', 'm3', 'sandbox', 'debug', 'pursuit', 'police', 'thrusters'].some((k) => Q.has(k)) || Q.get('trailer') === 'only') return;
       to = 'https://gamemog.com';
     } else {
       const s = Q.get('statsto') || '';
@@ -80,7 +82,7 @@
       try {
         if (kind === 'start') { playing = true; last = now(); tick(); send({ k: 'start' }); return; }
         const d = String(detail == null ? '' : detail).replace(/\s+/g, ' ').trim().slice(0, 120);
-        if (kind === 'mission' && d) { mission = d; send({ k: 'mission', d }); }
+        if (kind === 'mission' && d) { if (d !== mission) send({ k: 'mission', d }); mission = d; }
         else if (kind === 'pass' && d) send({ k: 'pass', d });
         else if (kind === 'fail') send({ k: 'fail', d: ((mission ? mission + ': ' : '') + (d || 'failed')).slice(0, 160) });
       } catch (e) {}
