@@ -606,7 +606,7 @@ class CameraSystem {
       const ex = Math.abs(cs) * hx + Math.abs(sn) * hz, ez = Math.abs(sn) * hx + Math.abs(cs) * hz;
       o.minX = v.x - ex; o.maxX = v.x + ex; o.minZ = v.z - ez; o.maxZ = v.z + ez;
       o.minY = v.y - 0.3;
-      o.maxY = v.y + (v.c && v.c.kind === 'suv' ? 1.76 : 1.45) + (onFoot ? 0.6 : 0.1);
+      o.maxY = v.y + (v.c ? v.c.roof || (v.c.kind === 'suv' ? 1.76 : 1.45) : 1.45) + (onFoot ? 0.6 : 0.1);
       out.push(o);
     }
     return out;

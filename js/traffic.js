@@ -3018,9 +3018,10 @@ function createHighwayTraffic(scene, lanes) {
       const col = new THREE.Color(hex);
       const spec = BODY_SPECS[kind];
       // (float32 values, so update() can tell whether an instance slot's paint changes by comparing with the buffer)
-      // (Mog City, after 52f84db: its length for the gaps, its engine voice and its style code)
+      // (Mog City, after 52f84db: its length for the gaps, its engine voice and its style code; and its roof, the top of
+      // its cabin or cargo box, for wagmi's crash and the camera, as the town's cars carry it)
       const car = { lane, kind, u, v: lane.speed, acc: 0, seg: 0, col: [Math.fround(col.r), Math.fround(col.g), Math.fround(col.b)],
-        len: spec.zFront - spec.zRear, engine: CAR_KINDS[kind].engine, style };
+        len: spec.zFront - spec.zRear, engine: CAR_KINDS[kind].engine, style, roof: Math.max(...spec.cabin.roofY.map((p) => p[1])) };
       lane.cars.push(car);
       cars.push(car);
       counts[kind]++;

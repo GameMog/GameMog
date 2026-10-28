@@ -292,7 +292,7 @@ export function install(W) {
     if (HW) {
       const x = car.position.x + s * cz, z = car.position.z + c * cz;
       for (const p of HW.near(x, z, 10, hwList)) {
-        if (air > (p.c.kind === 'suv' ? 1.76 : 1.45) * 0.9) continue;
+        if (air > (p.c.roof || (p.c.kind === 'suv' ? 1.76 : 1.45)) * 0.9) continue; // (c.roof: its kind's, js/traffic.js)
         if (!boxes(x, z, car.heading, B.hx, hl, p.x, p.z, p.yaw, p.hw, p.hl, hit)) continue;
         Object.assign(HB, { x: p.x, z: p.z, yaw: p.yaw, vx: Math.sin(p.yaw) * p.c.v, vz: Math.cos(p.yaw) * p.c.v, c: p.c, key: p.c, paint: p.c.col });
         meetBody(HB);
