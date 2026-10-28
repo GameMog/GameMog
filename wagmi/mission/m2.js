@@ -327,6 +327,8 @@ function createMission(W, { keep = false } = {}) {
   }
   // into the car at (x, z), facing h
   function inTheCar(x, z, h) { place(W, { car: [x, z, h] }); P.inVehicle = true; P.mesh.visible = false; P.speed = 0; app.selectMode('car'); }
+  // Dan at the wheel through a scene's frame, in the car (the game lets go of its driver while a scene directs him)
+  function atWheel(dt) { const d = W.ride?.driver; if (!d || cm.activeMode !== 'car') return; if (!d.attached) d.attach(0); d.pose(dt || 0, 1); }
   const blipCar = () => gps.blip('car', { x: car.position.x, z: car.position.z, kind: 'car', edge: true, name: car.label || "Dan's car" });
   const vanDriver = () => createDriver(W, { obj: S.C.van.group, path: VAN_ROUTE, halfW: 1.0, halfL: 2.8, accel: 3.6, onWheels: (dt, v, st) => S.C.van.update(dt, v, st) });
 
@@ -682,6 +684,10 @@ function createMission(W, { keep = false } = {}) {
       holds([{ minX: at.x - 18, maxX: at.x + 18, minZ: at.z - 18, maxZ: at.z + 18 }]);
       const def = crashScene(W, { mackCar: S.L, mack, phone: S.phone, say, at });
       def.setup();
+      // (his car stopped behind the wreck is in its shots: Dan at its wheel through them. The scene leaves him be, and the
+      // game lets go of its driver every frame a scene directs him (game.js), so his seat would show empty: seated again
+      // each frame, as he sits driving (the game's driver: k 1, his hands on the yoke); on foot, left be)
+      { const pose = def.pose; def.pose = (t, dt, ...more) => { atWheel(dt); return pose.call(def, t, dt, ...more); }; }
       await runScene(W, def);
       S.phoneAt = def.drop;
     },

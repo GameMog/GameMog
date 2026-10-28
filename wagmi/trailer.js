@@ -312,6 +312,39 @@ async function play(W, T, borrow, getPage) {
     rs.update(dt, carState.speed, carState.steer);
     if (glowL) glowL.intensity *= glowK;
   };
+  // Dan at the wheel in the car's shots (the owner, 28 Oct: the seat was empty): the game's own driver (WAGMI.ride.driver,
+  // roadster.js createDriver), in his seat with his hands on the yoke as when he drives, the yoke turned by the shot's
+  // steer (the drifts' counter-steer: his hands go with it). The game seats him only while no scene directs him and lets
+  // him go every frame one does (game.js: in the car means at the wheel unless a scene has him), so each of these shots'
+  // frames puts him back in at once. On a cut to the opening's set, Jane, the chopper or the black, and at the end, he is
+  // put back exactly as the opening had him as he got in: his body under the same parent at the same place, turn and
+  // size, every clip as it was (weight, on, time, rate, playing) and every bone (the mixer writes only a bone whose value
+  // changes, so the seat's bends could outlive it in his legs)
+  const CAR_SHOTS = new Set(['ignite', 'launch', 'burn', 'driftA', 'driftB', 'hop', 'birdseye', 'logo']);
+  const drv = W.ride?.driver;
+  let seat0 = null;
+  function seat(dt) {
+    if (!drv) return;
+    const body = Qn.body;
+    if (!seat0) seat0 = { parent: body.parent, pos: body.position.clone(), quat: body.quaternion.clone(), scale: body.scale.clone(), bones: snap(body),
+      acts: Qn.mixer._actions.map((a) => [a, a.weight, a.enabled, a.isScheduled(), a.time, a.timeScale]) };
+    // (let go since the last frame: in again from his own size, not one carried over from the seat)
+    if (!drv.attached) { body.scale.copy(seat0.scale); drv.attach(0); }
+    drv.pose(dt, 1, { steer: carState.steer });
+  }
+  function unseat() {
+    if (!seat0) return;
+    const s = seat0, body = Qn.body; seat0 = null;
+    if (drv.attached) drv.detach(s.parent);
+    if (body.parent !== s.parent) s.parent.add(body);
+    body.position.copy(s.pos); body.quaternion.copy(s.quat); body.scale.copy(s.scale);
+    for (const [a, w, on, run, time, rate] of s.acts) {
+      if (run && !a.isScheduled()) a.play(); else if (!run && a.isScheduled()) a.stop();
+      a.enabled = on; a.time = time; a.timeScale = rate; a.setEffectiveWeight(w);
+    }
+    s.bones();
+    body.updateMatrixWorld(true);
+  }
 
   /* ---- where */
   const ground = (x, z, k = 'person') => cm.getGroundHeight(x, z, k);
@@ -726,6 +759,8 @@ async function play(W, T, borrow, getPage) {
       // a cut: the time of day for it, the opening's set in or out; the last shot's vapour and smoke gone with it; the
       // chopper and Jane's room only in their own shots (the player's chopper out of sight in the chopper's)
       cur = s; puffs.last = -1; smokeAcc = 0; vapor.update(99); smoke.update(99);
+      // (out of the car's shots: Dan out of his seat, as the opening had him, before its set is borrowed or put away)
+      if (!CAR_SHOTS.has(s.kind)) unseat();
       if (s.kind === 'open') { setTime('golden'); borrowed = true; } else { own(); if (dusk(s)) setTime('twilight'); }
       if (heli) heli.root.visible = s.kind === 'heli';
       if (H0?.mesh && h0Vis) H0.mesh.visible = s.kind !== 'heli';
@@ -740,6 +775,8 @@ async function play(W, T, borrow, getPage) {
       look('golden', null);
     } else {
       K[s.kind](u, s, dt);
+      // (the car where the shot put it: Dan in its seat, his hands on the yoke)
+      if (CAR_SHOTS.has(s.kind)) seat(dt);
       if (dusk(s)) look('dusk', EXP[s.kind] ?? 1.45);
     }
     roarAt(s);
@@ -783,7 +820,9 @@ async function play(W, T, borrow, getPage) {
     if (skip) { try { sfx.stopAll?.(0.25); } catch {} }
     heliSound(false);
     await sleep(skip ? 240 : 60);
-    // everything the trailer moved, back
+    // everything the trailer moved, back (Dan out of his seat first, as the opening had him; then its set off and his
+    // bones as they were when the trailer began)
+    unseat();
     borrow.off();
     unsnap();
     W.carIdle = carIdle0; car.mesh.rotation.set(0, car.heading, 0); carState = { speed: 0, cold: 0, burn: 0, steer: 0 }; kick = false;

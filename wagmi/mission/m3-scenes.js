@@ -49,6 +49,16 @@ function poser(W, C) {
     pose(t, h, k = 1) { ub.forEach((b, i) => b.quaternion.copy(ub0[i])); C.qRig.pose(t); ub.forEach((b, i) => ub0[i].copy(b.quaternion)); Q.body.position.y = 0; Q.body.rotation.x = 0; upright(W, h, k); },
   };
 }
+// Dan at the wheel through a scene that leaves him in his car (hero: false; the mission puts him in it first): the game
+// lets go of its driver every frame a scene directs him (game.js: in the car means at the wheel unless a scene has him),
+// so the scene seats him again each frame, as he sits driving (the game's driver, WAGMI.ride.driver: k 1, his hands on
+// the yoke). He is still in it when the scene hands back, and the game carries on with him there. On foot: left be
+export function atWheel(W, dt) {
+  const d = W.ride?.driver;
+  if (!d || W.app.controllerManager.activeMode !== 'car') return;
+  if (!d.attached) d.attach(0);
+  d.pose(dt || 0, 1);
+}
 const _q = new THREE.Quaternion(), _w = new THREE.Quaternion();
 function turnWorld(b, q) { b.getWorldQuaternion(_w); const want = q.clone().multiply(_w); b.parent.getWorldQuaternion(_w); b.quaternion.copy(_w.invert().multiply(want)); b.updateMatrixWorld(true); }
 function armTo(W, side, target, pole, w = 1) {
@@ -486,6 +496,8 @@ export function dumpScene(W, { say, fiona, rally, suv }) {
       [T.back + 0.3, (st) => say([['Dan', WHITE, 'Rook. The guy who wants out.']], st)],
     ],
     pose(t, dt) {
+      // (Dan in his car in Washington Mews, at the wheel for its two shots: 'Take your time.' and his read of Mack's phone)
+      atWheel(W, dt);
       rally.update(dt, W.app.cameraSystem.camera.position);
       // Fiona
       if (t < T.run) { stand(W, fiona, FX, FZ, 0, t, { y: top }); fiona.hype(0, t < T.drop ? 1 : 0, 0, t); }
