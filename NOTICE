@@ -31,10 +31,11 @@ the MIT License in LICENSE; they remain under their author's terms.
     telegraphed swings, hit reactions with root motion, the freeflow strike and dash, the dodge
     and the counter, hit-stop and slow motion, the combat camera, the particle effects (ported
     to three.js TSL node materials), and the overlays' design.
-  - assets/characters/thug.glb: Spiderbench's thug (mesh, rig and its own brawler clips), with
-    the same rig's walk, jog, run, sprint, guard, hit-react and turn loops, re-dressed as JPBank's
-    security team, the Suits: dark suits, shirts and ties painted over Spiderbench's own texture
-    (the gun and webbed clips are not included).
+  - assets/characters/thug.glb: Spiderbench's thug rig and its own brawler clips, with the same
+    rig's walk, jog, run, sprint, guard, hit-react and turn loops (the gun and webbed clips are
+    not included). Since 28 Oct its men, JPBank's security team, the Suits, are no longer
+    Spiderbench's mesh: they are built from MakeHuman's base body, suit, shoes and hair (CC0-1.0,
+    through GameMog's CC0 MakeHuman people pack) and put on that rig.
   - The freeflow clips in Dan's model (ffJab, ffCross, ffHook, ffKick, ffRiser, ffLeap,
     ffDodge, ffDodgeSide, ffLaunch, ffAirHold, ffAir1, ffAir2, ffAirSlam, ffSlamLand,
     ffFinisher) were retargeted from Spiderbench's clips.

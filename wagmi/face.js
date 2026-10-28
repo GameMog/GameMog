@@ -1,6 +1,6 @@
 // Mog City: talking faces (23 Oct, round 3; the owner, playing: Gears' "lips aren't moving when he talks"). Jane's
 // face (round 2) made general, for every one of the cast built from a MakeHuman human (Dan, Jane, Gears,
-// Fiona, Mr. Big; the Suits are not built from one): morphs for the face made from the model's own body before its first draw, and a
+// Fiona, Mr. Big, and since 28 Oct the Suits): morphs for the face made from the model's own body before its first draw, and a
 // face that talks with its voice: the jaw with the level of the line playing while it is one of THEIR lines (shut
 // otherwise), a blink every 2-6 s, the eyes on whoever they talk to with small moves of their own.
 //   faceMorphs(meshes, opt)          the morphs on the body's primitives (they share one list of vertices): jaw, lip,
@@ -16,11 +16,10 @@
 //                                    else null (the voices' log says whose line started and when, their analyser how loud)
 //   mouthFollower() · chatter(t) · subLine()
 // W.faces: the faces built (each one's eyes are where the others look when nobody says otherwise).
-// The Suits (thug.glb: a painted face, no jaw; 27 Oct, the owner: "JPBANK security forces mouths are messed up"): their
-// mouth is painted shut on the skin (level, half way from the eyes to the chin); while one of them talks, an open mouth
-// is drawn over it in the skin's own material, opening with his voice (SUIT_MOUTH, suitTick: found by name in the scene,
+// The Suits (thug.glb; 28 Oct, the owner: "looks like a character not person": now men built from the same MakeHuman
+// male as the cast, each with a face made here, his jaw with his voice; found by name in the scene (suitTick):
 // 'Suit-Knox' talks with Knox's lines; a man with no name in the story, the fight's, takes a Suit's line nobody else is
-// on screen to say).
+// on screen to say. (The old stylised body's painted mouth, drawn open over the skin, SUIT_MOUTH, stays for it.)
 import * as THREE from 'three/webgpu';
 import { attribute, materialColor, uniform, positionGeometry, vec3, float, smoothstep, mix, abs, sqrt, pow, max, min, clamp as tclamp } from 'three/tsl';
 
@@ -190,7 +189,9 @@ export const LOOK = 0.3;
 // under her eyeballs' middles: another opening gets the same 0.21 rad of overlap, its split moved with its middle)
 const LID = { up: 0.74, lo: 0.12, over: 0.21, mid: -0.00055 };
 // (beard: a model's beard shells over the skin, Mr. Big's: they go with the jaw and the upper lip as the skin under them does)
-const MORPHS = { skin: ['jaw', 'lip', 'blink', 'blink2', 'brow'], lashes: ['blink', 'blink2'], brows: ['brow'], eyes: ['lookX', 'lookY'], hair: ['brow'], beard: ['jaw', 'lip'] };
+// (teethLow: Gears' and Fiona's lower teeth and tongue, built into their bodies (cast2, 28 Oct): down with the jaw as the
+// chin's skin goes; their upper row, 'teethUp', stays on the head)
+const MORPHS = { skin: ['jaw', 'lip', 'blink', 'blink2', 'brow'], lashes: ['blink', 'blink2'], brows: ['brow'], eyes: ['lookX', 'lookY'], hair: ['brow'], beard: ['jaw', 'lip'], teethLow: ['jaw'] };
 // opt: fix { parting (m under the eyes' middle), chin (the same), lipZ (m ahead of the eyes' front), lidUp, lidMid }: numbers found by hand, in place of the
 // finder's (Jane keeps her round-2 ones); hair: the fringe goes up with the brows (a model whose hair is in its body)
 export function faceMorphs(meshes, { fix = {}, hair = false } = {}) {
@@ -229,7 +230,7 @@ export function faceMorphs(meshes, { fix = {}, hair = false } = {}) {
   const foreW = (e) => sstep(e.c.y + 0.002, e.c.y + 0.012, p.y) * (1 - sstep(e.c.y + 0.035, e.c.y + 0.058, p.y)) * (1 - sstep(0.056, 0.072, Math.abs(p.x))) * sstep(e.c.z - 0.03, e.c.z - 0.01, p.z);
   const side = lipSides(P, by.skin.geometry.index.array, fmAt, lipZAt);
   let lids = 0, brows = 0;
-  for (const v of by.beard ? new Set([...verts(by.skin), ...verts(by.beard)]) : verts(by.skin)) {
+  for (const v of by.beard || by.teethLow ? new Set([...verts(by.skin), ...verts(by.beard), ...verts(by.teethLow)]) : verts(by.skin)) {
     p.fromBufferAttribute(P, v); const e = eyeOf(p.x); d.copy(p).sub(e.c); const r = d.length();
     // the lids: the upper turned down, all of it near the eye's opening, less out to the crease; the lower up a little
     if (d.z > 0 && r < 0.022) {
@@ -383,11 +384,21 @@ function suitTick(dt) {
   const now = performance.now();
   if (now > SU.scanAt) {
     SU.scanAt = now + 500;
-    for (const [o] of SU.list) if (!o.parent) SU.list.delete(o);
+    for (const [o, s] of SU.list) if (!o.parent) { if (s?.face) dropFace(W, s.face); SU.list.delete(o); }
     for (const o of scene.children) {
       if (SU.list.has(o) || !(o.name || '').startsWith('Suit-')) continue;
       let sk = null; o.traverse((m) => { if (!sk && m.isSkinnedMesh && m.skeleton.bones.some((b) => b.name === 'head')) sk = m; });
       if (!sk) { SU.list.set(o, null); continue; }
+      const nm = o.name.slice(5).toLowerCase();
+      // a man (a MakeHuman body: its skin and eyes): his face's morphs, his jaw driven here (the glasses over his eyes:
+      // no glances of his own)
+      let skinM = null, eyesM = null; o.traverse((m) => { if (m.isSkinnedMesh && m.material?.name === 'skin') skinM = m; if (m.isSkinnedMesh && m.material?.name === 'eyes') eyesM = m; });
+      if (skinM && eyesM) {
+        const head = skinM.skeleton.bones.find((b) => b.name === 'head');
+        const face = createFace(W, { speaker: SUIT_NAMES.has(nm) ? nm : null, inner: o, bones: { head }, auto: false, gaze: 0.1 });
+        SU.list.set(o, { face, name: SUIT_NAMES.has(nm) ? nm : null, mouth: mouthFollower(), t: Math.random() * 9, open: 0, jaw: -1 });
+        continue;
+      }
       // (his own material: each man's is his own clone, the dressing's; the open mouth in it, shut till he talks)
       const u = uniform(0), mats = new Set();
       o.traverse((m) => { if (m.isSkinnedMesh && m.geometry === sk.geometry && m.material) mats.add(m.material); });
@@ -413,7 +424,8 @@ function suitTick(dt) {
     let raw = 0;
     if (o === target) { const v = voiceOf(W, talking), au = W.audio?.ctx?.state === 'running'; raw = v ? v.level : !au || !W.voice?.has?.(talking, sub.text) ? chatter(s.t) : 0; }
     // (s.force: a fixed opening, for a look at it)
-    s.open = s.mouth(raw, dt) * 0.72; s.u.value = s.force ?? s.open;
+    s.open = s.mouth(raw, dt) * 0.72;
+    if (s.face) { const k = s.force ?? s.open * 0.7; if (Math.abs(k - s.jaw) > 0.002) { s.jaw = k; s.face.jaw(k); } } else s.u.value = s.force ?? s.open;
   }
 }
 

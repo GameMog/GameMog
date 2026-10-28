@@ -95,24 +95,131 @@ function hoodieNormals(mesh) {
 export function janeVoice(W = typeof window !== 'undefined' ? window.WAGMI : null) { return voiceOf(W, 'Jane'); }
 export { mouthFollower };
 
-// her teeth (27 Oct, the owner: they read as fangs, gappy, when she talks): the cast template's were a few cusps in a row
-// (42 points; their tips caught the light as a white zigzag across her open mouth). In their place an upper arch of her
-// own, in their frame: a smooth band round the front of her mouth 2.9 cm across, its top up under her lip, its biting
-// edge rising a little to the sides (a smile line), ivory at the front going into the mouth's shade at the sides and up
-// under the lip (vertex colours), soft and a little glossy
-function teethArch() {
-  const N = 24, W = 0.0145, pos = [], nor = [], col = [], idx = [];
-  for (let i = 0; i <= N; i++) {
-    const x = -W + (2 * W * i) / N, z = 0.0174 - 30 * x * x, side = (x / W) ** 2, n = new THREE.Vector3(60 * x, -0.12, 1).normalize();
-    // (rows: up under the lip, the middle of the band, the biting edge: low enough that it shows as one band under the lip's
-    // inner edge (the lip's open edge is a few coarse triangles; a band ending just under it showed only in their notches,
-    // the 'fangs'))
-    for (const [y, k] of [[0.0035, 0.45], [-0.0015, 1], [-0.0058 + 9 * x * x, 0.9]]) { pos.push(x, y, z); nor.push(n.x, n.y, n.z); const c = k * (1 - 0.62 * side); col.push(c, c, c * 0.97); }
+// her teeth, round 3 (27 Oct, the owner: "jane needs teeth"). Measured on her (the lips' opening in the bind space, mm
+// from the parting): talking (jaw 0.3) her lips part from +0.2 down to -6.2, wide (0.58) to -11.6. The band before ran
+// from +0.3 down to -9 and so filled the whole opening: dim, a grey disc; bright, a mouthguard. Now as a mouth has them:
+//  - the upper row: centrals 8.4 mm, laterals 6.4, canines 7.4, a premolar, round an arch 6.3 mm behind her lips' front
+//    (going back 0.03 mm per mm^2 out); their biting edges 2.6 mm under the parting (the laterals' 0.6 higher, the
+//    canines a rounded point): as she talks 2-3 mm of them under her upper lip, the dark of her mouth below. Each tooth
+//    drawn into a texture (teethMap): its own outline, rounded corners and the notches between teeth cut out, a convex
+//    shade across it, a hairline between neighbours; warm off-white, darker up under her lip and round to the sides
+//  - the lower row: 3.3 mm behind the upper, smaller teeth, their tops 1.1 mm under the parting with her mouth shut,
+//    turning down with her jaw (the same turn about the same hinge as her chin's skin, face.js): on a wide vowel a mm of
+//    them over her lower lip, in the upper row's shade
+//  - her tongue, low behind them and going down with them, dark; the mouth's back (the export's ball) dark and moved
+//    back 9 mm so it no longer stands in front of them; the inside of her cheeks darkened past where face.js stops
+// All of it is built in the skin's bind space (face.js's frame: y up, +z her front) and hung on the head bone by its
+// inverse bind (as face.js turns the head)
+const TEETH = {
+  // z: the arch's front (mm from the lips' front), c: its curve, y0..y1: the band (mm from the parting), S: its half
+  // length along the arch; teeth from the middle out: [width, edge, corner radii mesial, distal | 'cusp']
+  up: { z: -6.3, c: 0.03, y0: 4.5, y1: -4.5, S: 26, teeth: [[8.4, -2.6, 0.6, 1.1], [6.4, -2.0, 1.0, 1.6], [7.4, -2.35, 'cusp'], [6.8, -1.7, 1.5, 1.5]] },
+  lo: { z: -9.6, c: 0.036, y0: 0, y1: -8, S: 21, teeth: [[5.3, -1.1, 0.35, 0.6], [5.8, -1.15, 0.6, 0.9], [6.6, -1.45, 'cusp'], [6.8, -0.9, 1.4, 1.4]] },
+};
+function teethMap(T, lower) {
+  const CW = 1024, CH = 256, cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
+  const cx = cv.getContext('2d'), img = cx.createImageData(CW, CH), D = img.data, sg = lower ? -1 : 1;
+  const spans = []; let s0 = 0; for (const t of T.teeth) { spans.push([s0, s0 + t[0], t]); s0 += t[0]; }
+  const cr = (q, r) => (q < r ? r - Math.sqrt(Math.max(0, r * r - (r - q) ** 2)) : 0);
+  for (let i = 0; i < CW; i++) {
+    const s = -T.S + (2 * T.S * (i + 0.5)) / CW, a = Math.abs(s), sp = spans.find((q) => a < q[1]) || spans[spans.length - 1];
+    const w = sp[1] - sp[0], u = Math.min(w, a - sp[0]), t = sp[2];
+    // (the tooth's edge here: the biting edge, raised round its corners; a canine's a soft point)
+    let e;
+    if (t[2] === 'cusp') { const d = Math.abs(u - w / 2) / (w / 2); e = t[1] + sg * (0.75 * (Math.sqrt(d * d + 0.04) - 0.2) + cr(u, 0.9) + cr(w - u, 0.9)); }
+    else e = t[1] + sg * (cr(u, t[2]) + cr(w - u, t[3]));
+    const x = (u / w) * 2 - 1, across = (1 - 0.22 * x * x) * (0.72 + 0.28 * sstep(0, 0.16, Math.min(u, w - u)));
+    for (let j = 0; j < CH; j++) {
+      const y = T.y0 + ((T.y1 - T.y0) * (j + 0.5)) / CH, inn = sg * (y - e), al = clamp(inn / 0.09 + 0.5, 0, 1);
+      // (warm ivory, yellower toward the gum, a touch greyer in the last half mm of the edge)
+      const g = sstep(2.5, 7, inn), k = across * (0.88 + 0.12 * sstep(0, 0.6, inn)), o = (j * CW + i) * 4;
+      D[o] = (242 - 16 * g) * k; D[o + 1] = (234 - 26 * g) * k; D[o + 2] = (216 - 40 * g) * k; D[o + 3] = al * 255;
+    }
   }
-  for (let i = 0; i < N; i++) for (let r = 0; r < 2; r++) { const a = i * 3 + r, b = a + 3; idx.push(a, a + 1, b, b, a + 1, b + 1); }
+  cx.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  return tex;
+}
+// (a row's band round its arch, in the bind space: part the parting's height, lipZ the lips' front)
+function teethBand(T, part, lipZ, lower) {
+  const tab = [[0, 0]]; for (let x = 0, s = 0; s < T.S + 1; ) { const d = 0.02, sl = 2 * T.c * x; s += d * Math.sqrt(1 + sl * sl); x += d; tab.push([s, x]); }
+  const xAt = (s) => { const a = Math.abs(s); let i = 1; while (i < tab.length - 1 && tab[i][0] < a) i++; const [s1, x1] = tab[i - 1], [s2, x2] = tab[i]; return Math.sign(s) * (x1 + ((x2 - x1) * (a - s1)) / Math.max(1e-9, s2 - s1)); };
+  const N = Math.round((2 * T.S) / 0.7), ROWS = [T.y0, (T.y0 * 2 + T.y1) / 3, lower ? -2 : 1.5, lower ? -0.8 : -1, T.y1];
+  if (lower) ROWS.sort((p, q) => q - p);
+  const pos = [], nor = [], uv = [], col = [], idx = [];
+  for (let i = 0; i <= N; i++) {
+    const s = -T.S + (2 * T.S * i) / N, x = xAt(s), n = new THREE.Vector3(2 * T.c * x, lower ? 0.15 : 0.06, 1).normalize();
+    // (round to the sides, into the mouth's corners' shade: by a canine they are in the dark, as a mouth's are)
+    const side = 1 - (lower ? 0.92 * sstep(2.5, 12, Math.abs(s)) : 0.88 * sstep(4.5, 17, Math.abs(s)));
+    for (const y of ROWS) {
+      pos.push(x / 1000, part + y / 1000, lipZ + (T.z - T.c * x * x) / 1000); nor.push(n.x, n.y, n.z); uv.push((s + T.S) / (2 * T.S), (y - T.y1) / (T.y0 - T.y1));
+      const k = side * (lower ? 0.5 * (0.5 + 0.5 * sstep(-4, -0.8, y)) : 0.32 + 0.68 * sstep(3.2, -2, y)); col.push(k, k, k);
+    }
+  }
+  const R = ROWS.length; for (let i = 0; i < N; i++) for (let r = 0; r < R - 1; r++) { const a = i * R + r, b = a + R; idx.push(a, a + 1, b, b, a + 1, b + 1); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
   return g;
+}
+const teethMat = (T, lower) => { const m = new THREE.MeshStandardMaterial({ map: teethMap(T, lower), vertexColors: true, alphaTest: 0.5, roughness: 0.42, metalness: 0, side: THREE.DoubleSide, name: lower ? 'teethLow' : 'teeth' }); m.envMapIntensity = 0.35; return m; };
+// her mouth's inside, built on her face: the rows, the tongue, the back; her jaw's turn given to the lower row and the
+// tongue whenever her face sets it (face.jaw wrapped)
+function janeMouth(inner, face, teeth, back) {
+  let skin = null; inner.traverse((o) => { if (!skin && o.isSkinnedMesh && o.material?.name === 'skin') skin = o; });
+  const fr = face.rig, head = skin && skin.skeleton.bones.find((b) => b.name === 'head');
+  if (!skin || !head || !fr?.eyes || !teeth) return;
+  const BI = skin.skeleton.boneInverses[skin.skeleton.bones.indexOf(head)].clone().multiply(skin.bindMatrix);
+  const e = fr.eyes, ey = (e[0].c.y + e[1].c.y) / 2, front = e[0].c.z + e[0].r, part = ey - JANE_FACE.parting, lipZ = front + JANE_FACE.lipZ;
+  const hn = fr.found?.hinge || [34.6, 84.0], hy = ey - hn[0] / 1000, hz = front - hn[1] / 1000;
+  // the upper row: on the export's teeth node (under the head bone), its frame the bind space
+  teeth.geometry = teethBand(TEETH.up, part, lipZ, false); teeth.material = teethMat(TEETH.up, false);
+  teeth.matrixAutoUpdate = false; teeth.matrix.copy(BI); teeth.castShadow = false; teeth.receiveShadow = false; teeth.renderOrder = 1;
+  // the lower row and the tongue, turning with the jaw
+  const low = new THREE.Group(); low.name = 'janeLowerMouth'; low.matrixAutoUpdate = false; low.matrix.copy(BI); head.add(low);
+  const lt = new THREE.Mesh(teethBand(TEETH.lo, part, lipZ, true), teethMat(TEETH.lo, true)); lt.frustumCulled = false; low.add(lt);
+  const tg = new THREE.SphereGeometry(1, 28, 14), TP = tg.attributes.position, tc = [];
+  // (its top 1 mm under the lower teeth's, its front 2 mm behind them: on a wide vowel a dark hint of it over them)
+  for (let v = 0; v < TP.count; v++) { const x = TP.getX(v), y = TP.getY(v), z = TP.getZ(v), k = 0.05 + 0.42 * sstep(0, 1, y) * (0.35 + 0.65 * sstep(-0.5, 0.9, z)); tc.push(k, k, k);
+    TP.setXYZ(v, x * 0.0158, part - 0.0072 + y * 0.0062, lipZ - 0.0275 + z * 0.0157); }
+  tg.setAttribute('color', new THREE.Float32BufferAttribute(tc, 3)); tg.computeVertexNormals();
+  const tm = new THREE.MeshStandardMaterial({ color: '#a24a4c', vertexColors: true, roughness: 0.5, metalness: 0, name: 'tongue' }); tm.envMapIntensity = 0.15;
+  const tongue = new THREE.Mesh(tg, tm); tongue.frustumCulled = false; low.add(tongue);
+  // the back: dark, moved back 9 mm and down 2 (in the bind space)
+  if (back) {
+    back.updateMatrix(); const Bm = BI.clone().invert().multiply(back.matrix).premultiply(new THREE.Matrix4().makeTranslation(0, -0.002, -0.009));
+    back.matrixAutoUpdate = false; back.matrix.copy(BI).multiply(Bm);
+    back.material = new THREE.MeshStandardMaterial({ color: '#2a0c0a', roughness: 1, metalness: 0, name: 'mouthBack' }); back.material.envMapIntensity = 0;
+  }
+  // (the inside of her cheeks: face.js darkens the mouth's inside 4 cm either side of its middle; past that, seen at
+  // three-quarter through her open mouth, her cheek's inner wall showed lit, a flat orange patch beside her teeth. The
+  // same test out to 6 cm, for her: a point of her skin about the mouth with skin in front of it (a ray to her front) is
+  // inside her mouth, darker the deeper it lies)
+  const g = skin.geometry, sh = g.attributes.mouthShade;
+  if (sh && !g.userData.janeCheeks) {
+    g.userData.janeCheeks = true; const P = g.attributes.position, ix = g.index.array, T = [];
+    const about = (v) => Math.abs(P.getX(v)) < 0.065 && Math.abs(P.getY(v) - part) < 0.03 && P.getZ(v) > lipZ - 0.06;
+    for (let i = 0; i < ix.length; i += 3) if (about(ix[i]) && about(ix[i + 1]) && about(ix[i + 2])) T.push(ix[i], ix[i + 1], ix[i + 2]);
+    let n = 0;
+    for (const v of new Set(T)) {
+      const x = P.getX(v), y = P.getY(v), z = P.getZ(v), ax = Math.abs(x); if (ax < 0.03 || ax > 0.06 || Math.abs(y - part) > 0.02) continue;
+      let top = -Infinity;
+      for (let i = 0; i < T.length; i += 3) {
+        const a = T[i], b = T[i + 1], c = T[i + 2], x1 = P.getX(a), y1 = P.getY(a), x2 = P.getX(b), y2 = P.getY(b), x3 = P.getX(c), y3 = P.getY(c);
+        const det = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3); if (Math.abs(det) < 1e-12) continue;
+        const l1 = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / det, l2 = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / det, l3 = 1 - l1 - l2;
+        if (l1 < 0 || l2 < 0 || l3 < 0) continue; const zh = l1 * P.getZ(a) + l2 * P.getZ(b) + l3 * P.getZ(c); if (zh > top) top = zh;
+      }
+      const deep = top - z; if (deep > 0.002) { const k = 1 - 0.9 * sstep(0.002, 0.009, deep); if (k < sh.array[v]) { sh.array[v] = k; n++; } }
+    }
+    sh.needsUpdate = true; g.userData.janeCheeksN = n;
+  }
+  const H = new THREE.Matrix4(), Rx = new THREE.Matrix4(), Hi = new THREE.Matrix4();
+  // (their tone: off-white, not paper (0.55 of the map: more, and a park lamp took them to paper white); with her lips shut a slit of them showed white along the parting,
+  // so they come up from a third of that as her mouth opens)
+  const set = (k) => { const a = 0.2 * clamp(k, 0, 1); H.makeTranslation(0, hy, hz); Hi.makeTranslation(0, -hy, -hz); Rx.makeRotationX(a); low.matrix.copy(BI).multiply(H).multiply(Rx).multiply(Hi);
+    const f = 0.55 * (0.3 + 0.7 * sstep(0.01, 0.12, k)); teeth.material.color.setScalar(f); lt.material.color.setScalar(f); };
+  const jaw0 = face.jaw; face.jaw = (k) => { jaw0(k); set(k); };
+  set(0);
 }
 
 // her gait: the walk (Bandai Namco Research Motion Dataset, retargeted to her own rig, assets/characters/jane.glb) was
@@ -129,7 +236,7 @@ export async function buildJane(W, { scene = W.app.scene, auto = true } = {}) {
   // her feet. Taken out, as Dan's is (wagmi/game.js); her clips are made for it (her soles on the ground, no lift))
   const armature = inner.getObjectByName('root')?.parent;
   if (armature && armature !== inner) armature.quaternion.identity();
-  let teeth = null;
+  let teeth = null, back = null;
   inner.traverse((o) => {
     if (!o.isMesh) return;
     o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
@@ -138,19 +245,9 @@ export async function buildJane(W, { scene = W.app.scene, auto = true } = {}) {
     if (o.material && o.material.name === 'hair' && !o.material.userData.toned) { o.material.roughness = 0.88; o.material.color.multiplyScalar(0.8); o.material.userData.toned = true; }
     if (o.isSkinnedMesh && o.name === 'hoodie') hoodieNormals(o);
     if (!o.isSkinnedMesh && o.material?.color?.getHexString() === 'e8e2d8') teeth = o;
+    if (!o.isSkinnedMesh && o.material?.color?.getHexString() === '2a0e0c') back = o;
   });
-  // (her top teeth: the export set them under the lips' parting as it had it, 5 mm low, a white bar across her open
-  // mouth; up under her upper lip and a little further in (out of sight with her mouth shut); their shape her own arch
-  // (teethArch). In the mouth's shade, dark (27 Oct): her open lips' inner edges are a few coarse triangles, and any light
-  // band behind them showed only in their notches, a zigzag of points (the owner's 'fangs'; measured on the call's bake:
-  // the zigzag dimmed with the band's tone and kept its shape wherever the band was put); at 0.11 of ivory the open mouth
-  // reads as a mouth, its inside dark)
-  if (teeth && !teeth.userData.set) {
-    inner.updateMatrixWorld(true); const w = teeth.getWorldPosition(V()).add(V(0, 0.0012, -0.0035));
-    teeth.position.copy(teeth.parent.worldToLocal(w)); teeth.geometry = teethArch();
-    teeth.material = new THREE.MeshStandardMaterial({ color: new THREE.Color('#e8e2d8').multiplyScalar(0.11), vertexColors: true, roughness: 0.7, metalness: 0, side: THREE.DoubleSide, name: 'teeth' });
-    teeth.userData.set = true;
-  }
+  // (her teeth, her tongue, the mouth's back: janeMouth, once her face is made)
   const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
   inner.updateMatrixWorld(true);
   const top = new THREE.Box3().setFromObject(inner).max.y;
@@ -165,6 +262,7 @@ export async function buildJane(W, { scene = W.app.scene, auto = true } = {}) {
      little and nodding with her words, her brows up on a question. Between scenes it runs itself (her eyes on whoever
      is nearest); auto: false for the bake, which sets it by hand */
   const face = createFace(W, { speaker: 'Jane', inner, bones, head: true, open: 0.5, fix: JANE_FACE, auto });
+  if (teeth && !teeth.userData.set) { janeMouth(inner, face, teeth, back); teeth.userData.set = true; }
   const P = {
     root, inner, bones, mixer, rig: rig(mixer, clipMap), clips: Object.keys(clipMap), top, face,
     // her mouth, 0 (shut) .. 1 (wide); about 0.35 is talking

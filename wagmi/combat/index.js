@@ -46,6 +46,7 @@
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadGLB } from '../glb.js';
+import { faceMorphs } from '../face.js';
 import { Enemy, BLOWS, prepareClips } from './enemy.js';
 import { createHero } from './hero.js';
 import { createInput } from './input.js';
@@ -70,8 +71,12 @@ export async function install(W) {
   const gltf = await loadGLB('assets/characters/thug.glb');
   // the looks (JP Bank security's suits): a (baked into the model: charcoal, white shirt, black tie), b (black, white
   // shirt), c (grey, black shirt), brute (black, white shirt): textures riding in the same file (asset.extras.looks)
+  // (28 Oct: the Suits are men, seven of them in the file, asset.extras.men: each his own node 'Man-<name>', his own
+  // skin and skeleton (his frame's scale and every bone's rest, set on a copy when it is dressed as him), his eyes for
+  // the glasses; the look is his suit's texture alone)
+  const MEN = gltf.asset?.extras?.men || null;
   const looks = {};
-  gltf.scene.traverse((o) => { if (o.isMesh && !looks.a) looks.a = o.material.map; });
+  gltf.scene.traverse((o) => { if (o.isMesh && !looks.a && (!MEN || o.material?.name === 'clothes')) looks.a = o.material.map; });
   for (const [k, i] of Object.entries(gltf.asset?.extras?.looks || {})) if (k !== 'a') { const t = await gltf.parser.getDependency('texture', i); t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; looks[k] = t; }
   // what every man wears over the suit: dark wrap-round glasses on the bridge of his nose; and, on the men in look b and
   // the brutes, an earpiece in his left ear, its clear coiled cord down behind it to his collar. Measured once on the
@@ -81,7 +86,7 @@ export async function install(W) {
     const sc = gltf.scene; sc.updateMatrixWorld(true);
     let head = null; sc.traverse((o) => { if (o.isBone && o.name === 'head' && !head) head = o; });
     if (!head) return null;
-    const top = new THREE.Box3().setFromObject(sc).max.y, hp = head.getWorldPosition(new THREE.Vector3()), inv = head.matrixWorld.clone().invert();
+    const top = MEN ? 0 : new THREE.Box3().setFromObject(sc).max.y, hp = head.getWorldPosition(new THREE.Vector3()), inv = head.matrixWorld.clone().invert();
     const rel = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z).premultiply(inv);
     const box = (w, h, d, x, y, z, ry = 0) => new THREE.BoxGeometry(w, h, d).rotateY(ry).translate(x, y, z);
     // the glasses (as the opening's first pair: two lenses toed in, a brow bar, the arms back over his ears)
@@ -103,6 +108,8 @@ export async function install(W) {
     const cord = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 260, 0.0019, 5, false);
     const ear = mergeGeometries([cord, new THREE.SphereGeometry(0.0115, 10, 8).scale(0.8, 1, 1).translate(0.081, 0, 0.004)]);
     return { head: head.name, glasses, ear, at: rel(0, top - 0.152, hp.z + 0.11), earAt: rel(0, top - 0.168, hp.z - 0.012) };
+    // (for one of the men: the glasses 12 mm in front of his eyes, the earpiece's bud in his left ear; worked out on his
+    // own copy, dressed as him, in dressSuit)
   })();
   const kitMats = () => ({
     lens: new THREE.MeshPhysicalMaterial({ color: '#050506', roughness: 0.05, metalness: 0.6, clearcoat: 1 }),
@@ -195,19 +202,53 @@ export async function install(W) {
   c.carPush = carPush;
   // dress a thug.glb body as one of JP Bank's security men (the intro's men too): the look's suit on its own material,
   // shadows on, and his glasses (and earpiece) on his head bone (obj.userData.shades: the glasses)
+  // (who he is: a Suit of the story by his root's name, 'Suit-Knox'; a brute the widest of them; the fight's other men
+  // the crew in turn)
+  const CREW = MEN ? Object.keys(MEN).filter((k) => k !== 'knox' && k !== 'mack') : [];
+  let crewN = 0;
   c.dressSuit = (obj, look = 'a', own = true) => {
     const map = looks[look] || looks.a;
+    let man = null;
+    if (MEN && !obj.userData.man) {
+      const nm = (obj.parent?.name || '').replace(/^Suit-/, '').toLowerCase();
+      man = MEN[nm] ? nm : look === 'brute' && MEN.tank ? 'tank' : CREW[crewN++ % CREW.length];
+      for (const [k, m] of Object.entries(MEN)) if (k !== man) obj.getObjectByName(m.node)?.removeFromParent();
+      // (his skeleton: the frame's scale and each bone's rest, as his skin was bound)
+      const M = MEN[man], rig = obj.getObjectByName('ThugRig');
+      if (rig) rig.scale.setScalar(M.rig);
+      obj.traverse((b) => { const t = b.isBone && M.rest[b.name]; if (t) b.position.fromArray(t); });
+      // (his face's morphs made on the file's own copy of him the first time he is dressed (face.js), so every copy made
+      // after has them; this one given them now: a copy drawn from a body whose morphs it doesn't know stops the draw)
+      const src = gltf.scene.getObjectByName(M.node);
+      if (src && !src.userData.faced) {
+        src.userData.faced = true;
+        let sk = null; src.traverse((o) => { if (!sk && o.isSkinnedMesh && o.material?.name === 'skin') sk = o; });
+        const body = []; if (sk) src.traverse((o) => { if (o.isSkinnedMesh && o.geometry.attributes.position === sk.geometry.attributes.position) body.push(o); });
+        try { faceMorphs(body); } catch (e) { console.warn('[combat] face', man, e); }
+        src.traverse((o) => { if (o.isMesh && o.geometry.morphAttributes.position?.length) o.updateMorphTargets(); });
+      }
+      obj.traverse((o) => { if (o.isMesh && o.geometry.morphAttributes.position?.length && !o.morphTargetInfluences) o.updateMorphTargets(); });
+      obj.userData.man = man;
+    }
     obj.traverse((o) => {
       if (!o.isMesh || !o.material) return;
       if (own) o.material = o.material.clone();
-      if (map) { o.material.map = map; o.material.needsUpdate = true; }
+      if (map && (!MEN || o.material.name === 'clothes')) { o.material.map = map; o.material.needsUpdate = true; }
       o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
     });
     let head = null; if (kit && !obj.userData.shades) obj.traverse((o) => { if (o.isBone && o.name === kit.head && !head) head = o; });
     if (head) {
       const M = kitMats(), part = (geo, mat, at) => { const m = new THREE.Mesh(geo, mat); m.applyMatrix4(at); m.castShadow = true; m.frustumCulled = false; head.add(m); return m; };
-      obj.userData.shades = part(kit.glasses, M.lens, kit.at);
-      if (look === 'b' || look === 'brute') obj.userData.earpiece = part(kit.ear, M.cord, kit.earAt);
+      let at = kit.at, earAt = kit.earAt;
+      const E = man && MEN[man].eyes;
+      if (E) {
+        // (his own: a point in his body's frame, in the head bone's as he stands now)
+        obj.updateMatrixWorld(true);
+        const inv = head.matrixWorld.clone().invert(), rel = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z).premultiply(obj.matrixWorld).premultiply(inv);
+        at = rel(0, E[1] + 0.001, E[2] + 0.012); earAt = rel(-0.012, E[1] - 0.026, E[2] - 0.1);
+      }
+      obj.userData.shades = part(kit.glasses, M.lens, at);
+      if (look === 'b' || look === 'brute') obj.userData.earpiece = part(kit.ear, M.cord, earAt);
     }
     return obj;
   };
