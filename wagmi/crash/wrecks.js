@@ -168,7 +168,7 @@ export function createWrecks({ TS, cm, fx, play, props, camera }) {
     v.tx = Math.sin(R.yaw); v.tz = Math.cos(R.yaw);
     // its driver on the horn: once soon after, now and then after that while it stands there
     R.honk -= dt;
-    if (R.honk <= 0 && R.honks < 3) {
+    if (R.honk <= 0 && R.honks < 2) {
       play('horn', { pos: [R.x, 1, R.z], kind: hornKind(v), len: R.honks === 0 ? 'lean' : Math.random() < 0.5 ? 'long' : 'double', vol: 0.9 });
       R.honks++; R.honk = rnd(2.5, 5);
     }

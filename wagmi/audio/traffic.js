@@ -7,9 +7,10 @@
 //    own, playercar.js), nor a wreck, nor the chase's cars (wagmi/pursuit voices its own);
 //  - NYPD cruisers go out on calls: each on its own clock, some of the time its siren on (a wail, a yelp when it is stuck
 //    or pushing through), the nearest two heard, doppler and all; ram one and it yelps at you;
-//  - horns: a car Dan stands or parks in front of honks (and leans on it if he stays), one he cuts off honks, the
-//    drivers around honk while he drives on the sidewalk, one he rams honks after the bang, now and then one at a light
-//    honks at the car ahead that hasn't moved;
+//  - horns (owner, 28 Oct: less honking unless the driver causes an accident): one he rams honks after the bang (and a
+//    wreck's driver: wagmi/crash), one he forces into an emergency stop right in its lane honks; a car he blocks a good
+//    while gives one beep; nothing else (no horns at lights, none for the sidewalk, never more than one every 8 s that
+//    isn't a crash's);
 //  - a bus's air brakes hiss when it comes to a stop.
 import { LOOPS } from './loops.js';
 import { motorLoad } from './motors.js';
@@ -79,12 +80,12 @@ export function createTraffic(M, E) {
     const [vx, vz] = vel(v);
     set(v, M.doppler(v.x, 0.9, v.z, vx, vz));
   }
-  const honk = (v, len, delay = 0) => {
+  const honk = (v, len, delay = 0, crash = false) => {
     const kind = v.bus ? 'bus' : v.isNYPD ? 'police' : v.isTaxi ? 'taxi' : v.isSUV ? 'suv' : 'sedan';
     E.play('horn', { pos: [v.x, 1, v.z], kind, len, bus: 'amb', vol: 0.9, delay });
-    hornCool = 0.35;
+    hornCool = crash ? 0.35 : 8;
   };
-  let hornCool = 0, sidewalkT = 2;
+  let hornCool = 0;
   const call = { v: null, t: 8 + R() * 30, mode: 'wail', sw: 3 };
 
   // per frame. cars / buses: the city's; P: { x, z, inCar, speed, onSidewalk, active (no cutscene), self (Dan's car),
@@ -109,31 +110,22 @@ export function createTraffic(M, E) {
       if (P.active) {
         const inWay = v.pAhead > 0 && v.pAhead < 15 && Math.abs(v.pRight) < 2.1;
         if (inWay && v.speed < 1.2) m.blocked += dt; else m.blocked = Math.max(0, m.blocked - dt * 2);
-        if (m.blocked > 1.4 && m.cool <= 0 && hornCool <= 0) { honk(v, m.blocked > 6 ? 'lean' : m.blocked > 3.5 ? 'long' : R() < 0.5 ? 'double' : 'beep'); m.cool = 2.2 + R() * 2.5; }
-        // cut off: braking hard for the player just ahead
-        if (v.acc < -4.2 && v.speed > 3 && v.pAhead > 0 && v.pAhead < 26 && m.cool <= 0 && hornCool <= 0) { honk(v, R() < 0.6 ? 'long' : 'triple', 0.15); m.cool = 4; }
+        if (m.blocked > 5 && m.cool <= 0 && hornCool <= 0) { honk(v, R() < 0.6 ? 'beep' : 'double'); m.cool = 25 + R() * 15; }
+        // a near miss he forces: an emergency stop for his car right ahead in its lane
+        if (P.inCar && v.acc < -6 && v.speed > 4 && v.pAhead > 0 && v.pAhead < 12 && Math.abs(v.pRight) < 2.1 && m.cool <= 0 && hornCool <= 0) { honk(v, R() < 0.6 ? 'long' : 'double', 0.15); m.cool = 15; }
         // rammed: a kick it didn't make itself
         const kick = Math.hypot(v.vx || 0, v.vz || 0);
         if (kick - m.kick > 1.2 && Math.hypot(v.x - P.x, v.z - P.z) < 12) {
           if (v.isNYPD) { m.siren = { mode: 'yelp', t: 2.5 + R() * 2 }; }
           // (a wreck's driver is wagmi/crash's to honk)
-          if (!v.wreck && (m.cool <= 0 || kick - m.kick > 3)) { honk(v, R() < 0.5 ? 'lean' : 'long', 0.45 + R() * 0.4); m.cool = 3; }
+          if (!v.wreck && (m.cool <= 0 || kick - m.kick > 3)) { honk(v, R() < 0.5 ? 'lean' : 'long', 0.45 + R() * 0.4, true); m.cool = 3; }
         }
         m.kick = kick;
       }
-      // the light's green and the car ahead hasn't gone
-      if (v.speed < 0.3 && v.leaderSpeed > 2.2 && v.gap < 14 && v.gap > 2) { m.light += dt; if (m.light > 0.9 && m.cool <= 0 && hornCool <= 0 && R() < 0.35) { honk(v, R() < 0.5 ? 'tap' : 'double'); m.cool = 8; } }
-      else m.light = 0;
       // a bus stopping: its air brakes
       if (v.bus) { if (v.speed > 2) m.moving = true; else if (m.moving && v.speed < 0.2) { m.moving = false; E.play('airBrake', { pos: [v.x, 1.2, v.z], bus: 'amb', vol: 0.8 }); } }
       m.prev = v.speed;
     }
-    // driving on the sidewalk: the drivers round about lean on their horns
-    if (P.active && P.inCar && P.onSidewalk && P.speed > 4) {
-      sidewalkT -= dt;
-      if (sidewalkT <= 0 && near.length) { const [v] = near[Math.floor(R() * Math.min(4, near.length))]; honk(v, M.pick(['long', 'double', 'lean', 'triple'])); sidewalkT = 1.2 + R() * 2; }
-    } else sidewalkT = Math.min(sidewalkT + dt, 1);
-
     near.sort((a, b) => a[1] - b[1]); nearBus.sort((a, b) => a[1] - b[1]);
     // the engines: the nearest few of the city's and the highways' (only once their sound is made: M.motors)
     // (the highways' cars within reach looked up a few times a second, where they are now every frame)

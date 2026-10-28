@@ -904,7 +904,8 @@ export async function install(W) {
         const cap = Math.sqrt(2 * 6 * Math.max(0, gap));
         if (v.speed > cap) {
           const was = v.speed; v.speed = Math.max(cap, v.speed - 14 * Math.max(dt, 1 / 120));
-          if (was > 4 && hornT <= 0 && !(v.honkT > c.rtime) && hdist(v, q) < 35) { hornT = 1.2; v.honkT = c.rtime + 6; c.sfx('horn', clamp(1 - hdist(v, q) / 40, 0.2, 1)); }
+          // (one horn now and then, from a car that has to stop hard: owner, 28 Oct, less honking)
+          if (was > 6 && hornT <= 0 && !(v.honkT > c.rtime) && hdist(v, q) < 30) { hornT = 12; v.honkT = c.rtime + 30; c.sfx('horn', clamp(1 - hdist(v, q) / 40, 0.2, 1)); }
         }
       }
     }

@@ -4,7 +4,7 @@
 //              idling at the light, pulling away up through a gear, gone, the next one along); the city's air (rooftop
 //              fans and window units, a soft rumble of noise, no tones); a thin grain of tyres; the crowd's walla (real
 //              people talking, recorded: louder and brighter the more people are about, never over the street)
-//   events     distant honks (constant on avenues, rare in a park), a siren a long way off now and then, the subway
+//   events     a distant honk now and then (rarer in a park), a siren a long way off now and then, the subway
 //              rumbling under the avenue, someone calling out down the block, pigeons cooing and taking off, sparrows in
 //              the parks, a building site's clangs, jackhammer and backing truck, a doorman whistling for a cab, a
 //              helicopter going over, the crowd's footfalls
@@ -115,7 +115,9 @@ export function createCity(M, E) {
 
     // events, each on its own clock (faster where it belongs)
     for (const key in T) T[key] -= dt;
-    if (T.honk <= 0) { at('horn', { d: 50 + R() * 220, vol: 0.5 + R() * 0.5, len: M.pick(['tap', 'beep', 'beep', 'double', 'double', 'long', 'triple']), verb: 0.7 }); T.honk = (1 + R() * 3.5) / (0.12 + 0.65 * traffic * city); }
+    // (Mog City, 28 Oct, owner: "way too much honking": a far horn now and then, short and soft; one every 25-70 s on a
+    // busy avenue, a few minutes apart in a park. A horn up close is a crash's: wagmi/audio/traffic.js, wagmi/crash)
+    if (T.honk <= 0) { at('horn', { d: 90 + R() * 200, vol: 0.3 + R() * 0.3, len: M.pick(['tap', 'beep', 'double']), verb: 0.7 }); T.honk = (25 + R() * 45) / (0.3 + 0.7 * traffic * city); }
     if (T.siren <= 0 && !farSiren) {
       // a siren somewhere out there: in, along, away, its pitch sliding as it goes
       const dur = 12 + R() * 14, p0 = R() * 2 - 1, p1 = Math.max(-1, Math.min(1, p0 + (R() - 0.5) * 1.4)), d0 = 220 + R() * 380;

@@ -173,7 +173,7 @@ export function createDriver(W, { obj, path, halfW = 1.0, halfL = 2.8, plow = fa
     // shoving what is in its way)
     if (!plow) {
       if (want > 2 && gap < 14 && D.v < Math.max(0.6, target * 0.45)) D.stuckT += dt; else D.stuckT = Math.max(0, D.stuckT - dt * 2);
-      if (D.stuckT > 1.2 && !D.honked) { D.honked = true; W.audio?.play?.('horn', { pos: [D.pos.x, 1, D.pos.z] }); }
+      if (D.stuckT > 1.2 && !D.honked) { D.honked = true; if ((D.honks = (D.honks || 0) + 1) <= 2) W.audio?.play?.('horn', { pos: [D.pos.x, 1, D.pos.z] }); }
       if (D.stuckT > 2.4) { D.pushT = 3; D.stuckT = 0; D.honked = false; }
       if (D.pushT > 0) { D.pushT -= dt; shoveTraffic(0.35); }
     }
