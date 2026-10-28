@@ -238,14 +238,17 @@ async function initApp() {
   markInit('blocks');
   const allColliders = [...landmarkColliders, ...cityBlocks.colliders, ...boroughs.colliders, ...(cityGrid.colliders || [])];
 
-  const streetDetails = buildStreetDetails(scene);
+  // (Mog City: the buildings' and the bridges' colliders keep the trees clear of them, after Slop New York 565a6c4; not
+  // the parks' fences and lawn hoops, car-only walls the trees stand inside)
+  const streetDetails = buildStreetDetails(scene, allColliders.filter((c) => !c.carOnly));
   markInit('streetDetails');
   // Buildings turned along non-grid streets have oriented colliders whose world bounds reach past their lots: they stay
-  // inside the property line anyway, so the road network (lanes & sidewalks) doesn't need them
+  // inside the property line anyway, so the road network (lanes & sidewalks) doesn't need them.
+  // Elevated building sections that clear even a bus don't obstruct ground traffic (Mog City: after Slop New York 49b2ef2)
   const trafficSystem = createTrafficSystem(scene, cityGrid.sidewalks, [
     ...cityGrid.footprints,
     ...streetDetails.footprints,
-    ...allColliders.filter((c) => !c.obb)
+    ...allColliders.filter((c) => !c.obb && (c.minY ?? 0) < 3.5)
   ]);
   markInit('traffic');
   const highwayTraffic = createHighwayTraffic(scene, cityGrid.highwayLanes);
@@ -265,6 +268,26 @@ async function initApp() {
     .filter(Boolean);
   // (Mog City: no shadow stand-ins on a tier without shadows; the phone tier's props cull nearer, see scene-culling.js)
   const cullingStats = setupSceneCulling(scene, cullingRoots, quality.shadows === false ? null : lightingSystem.sunLight.shadow, quality);
+
+  // (Mog City) The static city's world matrices, once, including the chunks and shadow stand-ins made above: its
+  // buildings, street details, trees, landmarks, boroughs and road markings never move as objects (the tree levels,
+  // the building details' streaming, the tram and the breakables change instance buffers only), so the per-frame
+  // matrix walk skips them. After Slop New York 64ad030, adapted: upstream stops the whole scene's matrix updates and
+  // updates its moving groups by hand, but wagmi adds its characters, sets, effects and cars straight to the scene,
+  // and they must keep moving; only these groups are frozen.
+  const staticCity = [...cullingRoots, scene.getObjectByName('RoadMarkings'), ...scene.children.filter((o) => o.userData.shadowProxy)]
+    .filter(Boolean);
+  scene.updateMatrixWorld(true);
+  let staticObjects = 0;
+  for (const root of staticCity) {
+    root.traverse((o) => {
+      o.matrixAutoUpdate = false;
+      staticObjects++;
+    });
+    root.matrixWorldAutoUpdate = false;
+  }
+  cullingStats.staticRoots = staticCity.length;
+  cullingStats.staticObjects = staticObjects;
   markInit('culling');
 
   // Small InstancedMeshes (<= 1000 instances) keep their matrices in uniform buffers that three.js
@@ -757,19 +780,24 @@ async function initApp() {
 
     // Every visible object with frustum culling off (like the warm-up frame, see the loop). Plain meshes that share
     // a material share its shader, so one job compiles them in turn (the first build serves the rest); every
-    // instanced mesh gets a build of its own
+    // instanced mesh gets a build of its own unless its chunks share a pipeline
+    // (Mog City: the first visible chunk compiles, after Slop New York 539289a)
     const culled = [];
     const jobs = [];
     const jobByMaterial = new Map();
+    const pipelines = new Set();
     scene.traverseVisible((o) => {
       if (o.frustumCulled) {
         culled.push(o);
         o.frustumCulled = false;
       }
       if (!o.isMesh && !o.isLine && !o.isPoints && !o.isSprite) return;
-      // chunks of one mesh share its pipeline (the first one compiles it) and the shadow stand-ins only ever draw in
-      // the shadow maps (the warm-up frame compiles those)
-      if (o.userData.sharesPipelineWith || o.userData.shadowProxy) return;
+      // Use the first visible chunk: the original representative may be in an inactive tree cell. Shadow stand-ins
+      // only draw in the shadow maps (the warm-up frame compiles those).
+      if (o.userData.shadowProxy) return;
+      const pipeline = o.userData.sharesPipelineWith || o;
+      if (pipelines.has(pipeline)) return;
+      pipelines.add(pipeline);
       if (o.isInstancedMesh || Array.isArray(o.material)) {
         jobs.push([o]);
         return;
@@ -863,8 +891,12 @@ async function initApp() {
       // map passes): with frustum culling off, every visible material's pipelines compile now instead of stalling the
       // first time the camera turns towards it (one chunk / shadow stand-in per shared pipeline is enough)
       const culled = [];
-      scene.traverse((o) => {
-        if (o.frustumCulled && !o.userData.sharesPipelineWith) {
+      const pipelines = new Set();
+      scene.traverseVisible((o) => {
+        const pipeline = o.userData.sharesPipelineWith || o;
+        if (pipelines.has(pipeline)) return;
+        pipelines.add(pipeline);
+        if (o.frustumCulled) {
           culled.push(o);
           o.frustumCulled = false;
         }

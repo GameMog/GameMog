@@ -269,10 +269,11 @@ function buildCityBlocks(scene) {
   const toWorld = (x, z) => (xf
     ? [xf.px + (x - xf.px) * xf.cs + (z - xf.pz) * xf.sn, xf.pz - (x - xf.px) * xf.sn + (z - xf.pz) * xf.cs]
     : [x, z]);
-  // Player collider over the rect [x0, x1] x [z0, z1] (of the current frame): an oriented box inside its world AABB
-  function pushCollider(x0, x1, z0, z1, maxY) {
+  // Player collider over the rect [x0, x1] x [z0, z1] (of the current frame), from minY up to maxY: an oriented box
+  // inside its world AABB (Mog City: one per building part, from its own foot, after Slop New York 49b2ef2)
+  function pushCollider(x0, x1, z0, z1, minY, maxY) {
     if (!xf) {
-      colliders.push({ minX: x0, maxX: x1, minZ: z0, maxZ: z1, maxY });
+      colliders.push({ minX: x0, maxX: x1, minZ: z0, maxZ: z1, minY, maxY });
       return;
     }
     const [cx, cz] = toWorld((x0 + x1) * 0.5, (z0 + z1) * 0.5);
@@ -280,7 +281,7 @@ function buildCityBlocks(scene) {
     const hz = (z1 - z0) * 0.5;
     const ex = Math.abs(xf.cs) * hx + Math.abs(xf.sn) * hz;
     const ez = Math.abs(xf.sn) * hx + Math.abs(xf.cs) * hz;
-    colliders.push({ minX: cx - ex, maxX: cx + ex, minZ: cz - ez, maxZ: cz + ez, maxY, obb: { cx, cz, hx, hz, cs: xf.cs, sn: xf.sn } });
+    colliders.push({ minX: cx - ex, maxX: cx + ex, minZ: cz - ez, maxZ: cz + ez, minY, maxY, obb: { cx, cz, hx, hz, cs: xf.cs, sn: xf.sn } });
   }
 
   // Re-seeded from each block's position (see populateBlock), so every block is reproducible on its own
@@ -412,7 +413,6 @@ function buildCityBlocks(scene) {
   // A building is a list of non-overlapping parts { x0, x1, z0, z1, y0, y1 } on one lot: footprints carved into
   // plans, extruded storey by storey, tiers stacked on whole storeys
   // ============================================================================
-  const BLOCK_COLLIDER_TOP = 26; // every block gets one collider up to here; taller parts add their own
 
   // East River bridge approaches on Manhattan: no building may stand under a deck (from its street-level landing out to
   // the first tower) or on a masonry anchorage. Oriented boxes { cx, cz, ux, uz, hl, hw } (u = along the bridge).
@@ -612,7 +612,7 @@ function buildCityBlocks(scene) {
   }
 
   /**
-   * Emits building `b`: facade boxes, map footprints, colliders for parts above the block collider, stone cornices
+   * Emits building `b`: facade boxes, map footprints, colliders matching each part, stone cornices
    * under every masonry roof line, rooftop bulkhead & water tower, fire escapes and avenue storefront awnings.
    * o: { cornice, corniceH, roof: 'mech' | 'prewar' | 'walkup' | 'none', wtP, hvacH, fireEscapes, rearFireEscapes,
    *      awnings, shops: 'all' | 'avenue' | 'none' | probability of 'all' (street fronts with storefronts on the
@@ -641,7 +641,7 @@ function buildCityBlocks(scene) {
       blk.facadeBoxes.push(box);
       blk.footprints.push({ x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, h: p.y1, tone });
       if (p.y1 > blk.maxH) blk.maxH = p.y1;
-      if (p.y1 > BLOCK_COLLIDER_TOP) pushCollider(p.x0, p.x1, p.z0, p.z1, p.y1);
+      pushCollider(p.x0, p.x1, p.z0, p.z1, p.y0, p.y1);
       if (p.y1 > top.y1 + EPS || (p.y1 > top.y1 - EPS && w * d > rectW(top) * rectD(top))) top = p;
     }
 
@@ -1876,11 +1876,8 @@ function buildCityBlocks(scene) {
 
     blockDetail.footprints.sort((a, b) => a.h - b.h);
     if (xf) placeInFrame(blockDetail, bucketMarks);
-    if (blockDetail.maxH > 0) {
-      // (on the property line, where the street walls stand: half a metre inside it let a walker's body sink into
-      // the facade)
-      pushCollider(minX, maxX, minZ, maxZ, Math.min(BLOCK_COLLIDER_TOP, blockDetail.maxH));
-    }
+    // (Mog City: no collider over the whole block any more: the courtyards, gaps and set-back plazas inside it were
+    // invisible walls. Each building part has its own, from commit() above, after Slop New York 49b2ef2)
 
     quadtree.insert(blockDetail);
     allBlocks.push(blockDetail);

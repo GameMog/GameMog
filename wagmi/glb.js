@@ -3,8 +3,21 @@
 // from several places (thug.glb: the fight, the intro's men, Mack) is fetched and parsed once, every caller handed the
 // same result. Callers clone what they change (SkeletonUtils.clone for a body, material.clone() for a look); the clips
 // are shared as they are.
+import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+// (a character's alpha-tested parts, his eyes and lashes, cast no shadow, whoever sets castShadow on his body: the sun's
+// cascades draw every caster with one shared material and copy each caster's `alphaTest` onto it, and each switch
+// between 0 and > 0 makes three.js rebuild every caster's shader key, ~8-15 ms of CPU a frame with Dan in view. After
+// Slop New York 1a1cfd8, which takes the city's own alpha tests off the shadow casters)
+if (!Object.getOwnPropertyDescriptor(THREE.SkinnedMesh.prototype, 'castShadow')) {
+  Object.defineProperty(THREE.SkinnedMesh.prototype, 'castShadow', {
+    get() { return this._castShadow === true && !(this.material && this.material.alphaTest > 0); },
+    set(v) { this._castShadow = v; },
+    configurable: true
+  });
+}
 
 let loader = null;
 const cache = new Map();

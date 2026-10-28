@@ -106,7 +106,7 @@ function createWalkSignalMaterial(clock) {
   return mat;
 }
 
-function buildStreetDetails(scene) {
+function buildStreetDetails(scene, colliders = []) {
   const group = new THREE.Group();
   group.name = 'ManhattanStreetDetails';
 
@@ -162,21 +162,22 @@ function buildStreetDetails(scene) {
       new THREE.CylinderGeometry(LENS_R + 0.03, LENS_R + 0.03, 0.24, 14, 1, true, Math.PI / 2, Math.PI)
         .rotateX(Math.PI / 2).translate(0, ly, HEAD_D / 2 + 0.12)
     ))
-  ].map((g) => g.toNonIndexed()));
+  ]);
   const signalLensGeo = mergeGeometries(LENS_Y.flatMap((ly) => bothFaces(new THREE.CircleGeometry(LENS_R, 18).translate(0, ly, HEAD_D / 2 + 0.004))));
   // Pedestrian signal: housing with the WALK / hand face lit on both sides (+-z, toward the crosswalk's far end)
   const walkHousingGeo = new THREE.BoxGeometry(0.34, 0.4, 0.24);
   const walkPanelGeo = mergeGeometries(bothFaces(new THREE.PlaneGeometry(0.27, 0.31).translate(0, 0, 0.125)));
   // Cobra-head luminaire on the end of the arm: flattened grey housing, flat lens underneath
-  const lampHousingGeo = new THREE.SphereGeometry(1, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2).scale(0.7, 0.2, 0.3);
+  // (Mog City: indexed, and fewer rings on the housing and the globe: after Slop New York be65d0a & 3c8a137)
+  const lampHousingGeo = new THREE.SphereGeometry(1, 14, 4, 0, Math.PI * 2, 0, Math.PI / 2).scale(0.7, 0.2, 0.3);
   const lampLensGeo = new THREE.CircleGeometry(1, 16).rotateX(Math.PI / 2).scale(0.6, 1, 0.24).translate(0, -0.005, 0);
   // Classic NYC cast-iron pedestrian post-top globe lightpole (fluted base + shaft + decorative capital + opal globe)
   const pedLampPostGeo = mergeGeometries([
     new THREE.CylinderGeometry(0.11, 0.16, 0.85, 10).translate(0, 0.425, 0),
     new THREE.CylinderGeometry(0.065, 0.085, 2.75, 10).translate(0, 2.22, 0),
     new THREE.CylinderGeometry(0.14, 0.07, 0.16, 10).translate(0, 3.62, 0)
-  ].map((g) => g.toNonIndexed()));
-  const pedGlobeGeo = new THREE.SphereGeometry(0.23, 12, 10).translate(0, 3.84, 0);
+  ]);
+  const pedGlobeGeo = new THREE.SphereGeometry(0.23, 8, 6).translate(0, 3.84, 0);
 
   // =========================================================================
   // 1. NYC CANTILEVERED TRAFFIC SIGNALS, STREET BLADES & WALK SIGNALS
@@ -503,7 +504,15 @@ function buildStreetDetails(scene) {
   addMatrixArrayInstanced(walkPanelGeo, walkSignalGlow, walkBoxMatrices, false);
   addMatrixArrayInstanced(lampHousingGeo, poleMetalMat, lampHeadMatrices);
   addMatrixArrayInstanced(lampLensGeo, lampBulbGlow, lampHeadMatrices, false);
-  addMatrixArrayInstanced(pedLampPostGeo, poleMetalMat, pedPostMatrices);
+  const pedPosts = addMatrixArrayInstanced(pedLampPostGeo, poleMetalMat, pedPostMatrices);
+  // ~28k posts: they cast as 4-sided base + shaft (16 triangles instead of 120; scene-culling.js shadow stand-ins)
+  // (Mog City: after Slop New York 0630114)
+  if (pedPosts) {
+    pedPosts.userData.shadowStandIn = mergeGeometries([
+      new THREE.CylinderGeometry(0.12, 0.18, 0.85, 4, 1, true).translate(0, 0.425, 0),
+      new THREE.CylinderGeometry(0.072, 0.094, 2.85, 4, 1, true).translate(0, 2.275, 0)
+    ]);
+  }
   addMatrixArrayInstanced(pedGlobeGeo, pedGlobeGlow, pedPostMatrices, false);
 
   // =========================================================================
@@ -954,7 +963,7 @@ function buildStreetDetails(scene) {
   //        laid): along the avenue fronts (w / e edges) and, in the residential neighbourhoods, both curbs of the side
   //        streets (n / s edges) — honey locusts on the narrow streets, planes, locusts & elms on the wider ones, with
   //        random missing trees & the odd unplanted block. Never in plazas or parks.
-  const sidewalkTreePositions = [];
+  let sidewalkTreePositions = [];
   const SIDEWALK_Y = 0.22;
   const swBlocks = window.NYC.sidewalkBlocks || [];
   const onSidewalk = (x, z) => {
@@ -1016,7 +1025,17 @@ function buildStreetDetails(scene) {
       }
     }
   }
-  console.info(`[streetDetails] ${treePositions.length} trees (${sidewalkTreePositions.length} street trees)`);
+  // Procedural trees (js/trees.js): species skeletons with leaf-spray cards, instanced per spatial cell, species,
+  // variant & level of detail, each tree's level following the camera. Only the trees clear of the buildings are
+  // planted (Mog City: after Slop New York 565a6c4), and only they get pits, props kept off them and a trunk to hit
+  const treeField = createTreeField(scene, treePositions, colliders);
+  group.add(treeField.group);
+  const candidateTrees = treePositions.length;
+  const candidateStreetTrees = sidewalkTreePositions.length;
+  sidewalkTreePositions = sidewalkTreePositions.filter((t) => treeField.sites.has(t));
+  const plantedTrees = treePositions.filter((t) => treeField.sites.has(t));
+  console.info(`[streetDetails] ${treeField.stats.trees} trees of ${candidateTrees}, ${treeField.stats.smaller} planted smaller to clear the buildings (${sidewalkTreePositions.length} street trees of ${candidateStreetTrees})`);
+  window.NYC.treeStats = { planted: treeField.stats.trees, candidates: candidateTrees, smaller: treeField.stats.smaller, street: sidewalkTreePositions.length, streetCandidates: candidateStreetTrees };
 
   const grateMat = createTreeGrateMaterial();
   const pitCurbMat = new THREE.MeshStandardNodeMaterial({ color: 0x484642, roughness: 0.88 });
@@ -1064,11 +1083,6 @@ function buildStreetDetails(scene) {
     const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
     return s - Math.floor(s);
   }
-
-  // Procedural trees (js/trees.js): species skeletons with leaf-spray cards, one instanced mesh per species, variant &
-  // level of detail, each tree's level following the camera
-  const treeField = createTreeField(scene, treePositions);
-  group.add(treeField.group);
 
   // =========================================================================
   // 7B. (Mog City) CURBSIDE PROPS, AND WHAT A CAR KNOCKS OVER (window.NYC.breakables, wagmi/crash)
@@ -1209,8 +1223,8 @@ function buildStreetDetails(scene) {
       const [x, z] = posOf(m);
       breakables.push({ kind: 'cart', x, y: 0.22, z, r: 1.0, parts: [...parts(cartBoxMatrices, i), ...parts(umbrellaMatrices, i)] });
     });
-    for (const t of treePositions) {
-      breakables.push({ kind: 'tree', x: t.x, y: t.y, z: t.z, r: ([0.3, 0.19, 0.28][t.species] || 0.25) * (t.scale || 1) * 1.15 + 0.05, solid: true });
+    for (const t of plantedTrees) {
+      breakables.push({ kind: 'tree', x: t.x, y: t.y, z: t.z, r: ([0.3, 0.19, 0.28][t.species] || 0.25) * (t.scale || 1) * (t.fit || 1) * 1.15 + 0.05, solid: true });
     }
     subwayRailMatrices.forEach((m) => {
       const [x, z] = posOf(m);

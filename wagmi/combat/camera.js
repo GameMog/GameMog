@@ -146,11 +146,14 @@ export function createFightCamera(c) {
       // (the game's things in the street: a mission's van, the rally's screen and trusses, a wreck: boxes like the traffic's)
       near.props = blockers(q.x, q.z, 16, null, 'props').map((b) => ({ x: b.obb.cx, z: b.obb.cz, cs: b.obb.cs, sn: b.obb.sn, hx: b.obb.hx, hz: b.obb.hz, top: b.maxY }));
       near.trees = [];
-      c.scene.traverse((o) => {
-        if (!o.isInstancedMesh || !/^Trees_.*lod[01]$/.test(o.name)) return;
-        const a = o.instanceMatrix.array, ceil = leaves(o.geometry);
+      // (the trees are drawn per 200 m cell, js/trees.js: the shown ones only)
+      (treeRoot ||= c.scene.getObjectByName('Trees') || c.scene).traverseVisible((o) => {
+        if (!o.isInstancedMesh || !o.count || !/^Trees_.*lod[01]$/.test(o.name)) return;
+        const a = o.instanceMatrix.array;
+        let ceil = null;
         for (let i = 0; i < o.count; i++) {
           const x = a[i * 16 + 12], z = a[i * 16 + 14]; if (Math.abs(x - q.x) > 22 || Math.abs(z - q.z) > 22) continue;
+          ceil ||= leaves(o.geometry);
           const sx = Math.hypot(a[i * 16], a[i * 16 + 1], a[i * 16 + 2]), sy = Math.hypot(a[i * 16 + 4], a[i * 16 + 5], a[i * 16 + 6]), y = a[i * 16 + 13];
           near.trees.push({ x, z, r: 0.34, y0: -9, y1: y + CROWN * sy, y, sx, sy, ceil });
         }
@@ -160,12 +163,14 @@ export function createFightCamera(c) {
     for (const I of c.items.list) if (I.kind === 'trashcan' && !I.holder && hdist(I.obj.position, q) < 14) near.cans.push({ x: I.obj.position.x, z: I.obj.position.z, r: 0.34, y0: -9, y1: I.obj.position.y + 0.5 });
   }
   // how low a tree's leaves hang, by the distance out from its trunk (its own units, a metre a step), once per model
+  // (keyed by its vertex data, which every cell's mesh of a model shares)
   const ceils = new WeakMap();
+  let treeRoot = null;
   function leaves(g) {
-    let L = ceils.get(g); if (L) return L;
+    let L = ceils.get(g.attributes.position); if (L) return L;
     L = new Array(9).fill(Infinity); const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) { const r = Math.hypot(p.getX(i), p.getZ(i)); if (r < 0.9) continue; const b = Math.min(8, Math.floor(r)), y = p.getY(i); if (y < L[b]) L[b] = y; }
-    ceils.set(g, L); return L;
+    ceils.set(g.attributes.position, L); return L;
   }
   // a point inside a building (the city's collision boxes) or Dan's parked car
   // (pad: m round it; the city's collision boxes sit up to half a metre inside some facades, so the lens keeps that off)
