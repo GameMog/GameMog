@@ -170,7 +170,8 @@ Engine sounds
     to constant engine speeds, looped, levelled and re-encoded to AAC.
   - The gearbox, the shifts, the pops and the mix (wagmi/audio/supercar.js) are original to Mog City.
   - The traffic's engines and the crash's metal (wagmi/audio/motors.js, wagmi/audio/crunch.js): engine and
-    crash synthesis ported from Slop New York by Mr.doob (MIT), commits 0e5bbfb and 7772c09.
+    crash synthesis ported from Slop New York by Mr.doob (MIT), commits 0e5bbfb and 7772c09, with the
+    engine shifts and tyres of 2ff7cc6 and the crash weight of 09ee62d.
 
 
 Crowd sounds
