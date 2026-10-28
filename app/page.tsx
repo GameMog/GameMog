@@ -47,12 +47,13 @@ const HERO_COPY = {
  * boost, the helicopter, Jane and the Suits) is the whole hero, on a loop, in
  * place of the reel. The game and its film live at mc.gamemog.com; the film is
  * cut from the trailer's frames without its letterbox or its title card. Its
- * words are the headline and Play, nothing else (the owner, 27 Oct). Set to
+ * words: the headline, the line under it and Play (the owner, 28 Oct). Set to
  * null for the reel.
  */
-const FLAGSHIP: { title: string; headline: string[]; href: string; film: Film } | null = {
+const FLAGSHIP: { title: string; headline: string[]; lead: string; href: string; film: Film } | null = {
   title: 'Mog City',
   headline: ['One city.', 'Infinite mogs.'],
+  lead: 'Mog City: Unfinished Business. They framed the wrong guy. Play free in your browser.',
   href: 'https://mc.gamemog.com',
   film: { wide: 'https://mc.gamemog.com/media/hero-trailer', narrow: 'https://mc.gamemog.com/media/hero-trailer' },
 };
@@ -105,14 +106,18 @@ function RecordStat({ game }: { game: GameRow }) {
 /** The flagship's film as the hero: one clip, so it loops; Play leaves for its own site. */
 function Flagship({ f }: { f: NonNullable<typeof FLAGSHIP> }) {
   const lead = (
-    <div key="lead" className="acts">
-      <a href={f.href} className="btn play" aria-label={`Play ${f.title}`}>Play</a>
-    </div>
+    <Fragment key="lead">
+      <p>{f.lead}</p>
+      <div className="acts">
+        <a href={f.href} className="btn play" aria-label={`Play ${f.title}`}>Play</a>
+      </div>
+    </Fragment>
   );
-  // phones: the same two lines over Play
+  // phones: the same two lines and the line under them, over Play
   const card = (
     <Fragment key="card">
       <h1>{f.headline.map((l, k) => <Fragment key={l}>{k ? <br /> : null}{l}</Fragment>)}</h1>
+      <p className="tagline">{f.lead}</p>
       <div className="acts">
         <a href={f.href} className="btn big light" aria-label={`Play ${f.title}`}><Icon name="play" size={20} />Play</a>
       </div>
