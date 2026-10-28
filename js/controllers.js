@@ -1362,7 +1362,7 @@ class ThirdPersonControllerManager {
 
     const prevX = c.position.x;
     const prevZ = c.position.z;
-    // In steps of at most half a metre, colliding after each, so a fast car never passes through anything thin (WAGMI
+    // In steps of at most half a metre, colliding after each, so a fast car never passes through anything thin (Mog
     // City: c.crash.step, what else it runs into: the traffic, the street furniture, the trees, wagmi/crash)
     const steps = Math.min(8, Math.max(1, Math.ceil((Math.abs(c.speed) + Math.hypot(c.vx, c.vz)) * dt / 0.5)));
     for (let k = 0; k < steps; k++) {
