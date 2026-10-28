@@ -1931,7 +1931,8 @@ function createRoadSurfaceMaterial() {
   const patchSeal = float(1.0).sub(smoothstep(sealWidth, sealWidth.add(pixelSize), abs(patchDist))).mul(float(0.022).div(sealWidth)).mul(wear.w);
   // Fresh patches are darker & tighter than the roadway, old ones paler & greyer
   const patchFresh = step(0.55, hash2D(floor(positionWorld.xz.div(11.0)).add(vec2(12.9, 6.6))));
-  // Exposed light stone chips in the worn surface, settling to their average where they shrink below a pixel
+  // Exposed light stone chips in the worn surface, settling to their average where they shrink below a pixel (Mog City,
+  // 28 Oct: added at 0.03, not upstream's 0.08: on foot at 1.3 m the 0.08 chips read as a light camo speckle)
   const chips = mix(float(0.035), smoothstep(0.72, 0.8, noise2D(positionWorld.xz.mul(30.0))), smoothstep(0.03, 0.012, pixelSize));
   // Tar-snake crack sealant (none over the newer patches)
   const tarSnake = roadTarSnakes(positionWorld.xz, pixelSize).mul(float(1.0).sub(patchCover));
@@ -1988,7 +1989,7 @@ function createRoadSurfaceMaterial() {
     const patchCol = mix(mix(baseAsphalt, cOldPatch, 0.45).mul(1.08), color(0x2b2e33).mul(0.85), patchFresh);
     const repaired = mix(baseAsphalt, patchCol, patchCover)
       .mul(float(1.0).sub(patchSeal.mul(0.5)))
-      .add(chips.mul(0.08).mul(float(1.0).sub(patchCover.mul(patchFresh))))
+      .add(chips.mul(0.03).mul(float(1.0).sub(patchCover.mul(patchFresh))))
       .mul(float(1.0).sub(tarSnake.mul(0.62)))
       .mul(float(1.0).sub(oilDrip.mul(0.45)))
       .mul(float(1.0).sub(crack.mul(0.65)))
