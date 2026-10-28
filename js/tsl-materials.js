@@ -56,6 +56,8 @@ const {
   normalize,
   reflect,
   pow,
+  log2,
+  exp2,
   sign,
   fwidth,
   texture,
@@ -149,6 +151,27 @@ const filteredPulse = Fn(([x, a, b, w]) => {
   return integral(p.add(hw)).sub(integral(p.sub(hw))).div(hw.mul(2.0));
 });
 
+// (after Slop New York 2a369ca) Keep distant lit windows in 1–2 pixel clusters. Adjacent world-anchored scales cross-fade, and
+// the half-width inset leaves room for filtering at cell edges while preserving mean brightness.
+const distantWindowLight = Fn(([grid, fw, probability, seed, lod]) => {
+  const light = float(probability).toVar();
+  If(cityUniforms.uInteriorGlow.greaterThan(0.5).and(lod.greaterThan(0.0)), () => {
+    const level = log2(max(max(fw.x, fw.y).mul(4.0), 2.0)).toVar();
+    const scale = exp2(floor(level)).toVar();
+    const cluster = (size) => {
+      const p = grid.div(size).toVar();
+      const width = fw.div(size).toVar();
+      const lit = step(float(1.0).sub(probability), hash2D(floor(p).add(vec2(seed, 73.1))));
+      const coverage = filteredPulse(fract(p.x), 0.25, 0.75, width.x)
+        .mul(filteredPulse(fract(p.y), 0.25, 0.75, width.y));
+      return lit.mul(coverage).mul(4.0);
+    };
+    const clustered = mix(cluster(scale), cluster(scale.mul(2.0)), smoothstep(0.0, 1.0, fract(level)));
+    light.assign(mix(probability, clustered, smoothstep(0.5, 1.2, cityUniforms.uInteriorGlow)));
+  });
+  return light;
+});
+
 /**
  * Occlusion-Aware Urban Canyon Sky Visibility (aoNode)
  * Models how Manhattan street canyons occlude overhead sky irradiance near the street floor (y = 0..65m),
@@ -190,8 +213,8 @@ const facadeAlongZ = varying(
  *   set back behind the facade so neighbouring windows look into the same full-sized room.
  * - Includes left & right fabric drapes hung just inside the window frame (`winUV`) from a 6-swatch
  *   domestic palette that block interior glow (`emit = 0.20`) so drapes silhouette against lit rooms.
- * - Once windows shrink to a pixel or two (`fwNode`: pixel footprint in cells) rooms glow at the mean lit level (with
- *   a lit room's tint), drapes at their mean coverage & lamps fade out, so distant towers don't twinkle in motion.
+ * - Once windows shrink to a pixel or two (`fwNode`: pixel footprint in cells), lit rooms merge into filtered
+ *   clusters, drapes settle to their mean coverage & lamps fade out, so distant towers don't twinkle in motion.
  * - Returns `vec4(roomColor, litEmit)`.
  */
 const evaluateApartmentInterior = Fn(([uCoord, vCoord, winUV, cellId, winWNode, floorHNode, seedNode, warmthNode, litProbNode, fwNode]) => {
@@ -347,7 +370,8 @@ const evaluateApartmentInterior = Fn(([uCoord, vCoord, winUV, cellId, winWNode, 
   const roomWarmth = mix(vec3(1.0), lightCol, lit.mul(0.85));
   const finalRoomCol = bestCol.mul(roomWarmth).mul(mix(float(0.85), float(1.35), lit));
 
-  return vec4(finalRoomCol, mix(litRoom, litProbNode, lod).mul(bestEmit));
+  const distantLit = distantWindowLight(vec2(gridU, v.div(fH)), fwNode, litProbNode, seedNode, lod);
+  return vec4(finalRoomCol, mix(litRoom, distantLit, lod).mul(bestEmit));
 });
 
 /**
@@ -1603,24 +1627,35 @@ function createParkWallMaterial() {
 }
 
 /**
- * Black Cast-Iron Park Fence TSL Material for flat fence strips (alpha-tested pickets, posts & rails).
- * uv.x = metres along the fence, uv.y = 0 (ground) .. 1 (top). Sub-pixel pickets fade out with distance.
+ * Black Cast-Iron Park Fence TSL Material for flat fence strips.
+ * uv.x = metres along the fence, uv.y = 0 (ground) .. 1 (top). Filtered coverage keeps sub-pixel ironwork stable.
+ * (after Slop New York 94d2a56: alpha to coverage instead of an alpha test, so distant pickets don't shimmer)
  */
 function createIronFenceMaterial() {
+  // (Mog City) The low tier draws without MSAA, where alpha to coverage does nothing (the fence came out a solid black
+  // band): there it keeps the alpha test it had
+  const msaa = window.NYC.quality?.antialias !== false;
   const mat = new THREE.MeshStandardNodeMaterial({
     metalness: 0.55,
     roughness: 0.5,
-    side: THREE.DoubleSide
+    side: THREE.DoubleSide,
+    alphaToCoverage: msaa
   });
-  mat.alphaTest = 0.5;
+  if (!msaa) mat.alphaTestNode = float(0.5);
 
   mat.colorNode = Fn(() => {
     const u = uv().x;
     const v = uv().y;
-    const picket = lineAA(fract(u.div(0.13)).sub(0.5), 0.1).mul(step(v, 0.985));
-    const post = lineAA(fract(u.div(2.6).add(0.5)).sub(0.5), 0.017);
-    const rails = max(lineAA(v.sub(0.9), 0.028), lineAA(v.sub(0.12), 0.022));
-    const alpha = clamp(max(max(picket, post), rails), 0.0, 1.0);
+    const fw = fwidth(uv()).max(0.0001).toVar();
+    const picketCoord = u.div(0.13);
+    const postCoord = u.div(2.6).add(0.5);
+    const picket = filteredPulse(fract(picketCoord), 0.4, 0.6, fw.x.div(0.13))
+      .mul(clamp(float(0.985).sub(v).div(fw.y).add(0.5), 0.0, 1.0));
+    const post = filteredPulse(fract(postCoord), 0.483, 0.517, fw.x.div(2.6));
+    const rails = filteredPulse(v, 0.872, 0.928, fw.y).add(filteredPulse(v, 0.098, 0.142, fw.y));
+    const vertical = clamp(picket.add(post), 0.0, 1.0);
+    // Keep fractional coverage for the multisampled scene pass; alpha testing would erase distant pickets.
+    const alpha = float(1.0).sub(float(1.0).sub(vertical).mul(float(1.0).sub(rails)));
     return vec4(color(0x171a17), alpha);
   })();
 
@@ -3175,5 +3210,5 @@ function createCarFlareMaterial() {
   return mat;
 }
 
-Object.assign(window.NYC, { cityUniforms, WALL_KINDS, createCurtainWallMaterial, createPreWarBuildingMaterial, createFacadeBoxes, createChryslerCrownMaterial, createCarPaintMaterial, createFoliageMaterial, createTreeBarkMaterial, createTreeMaterial, createParkPavingMaterial, createParkWallMaterial, createIronFenceMaterial, createParkLampGlobeMaterial, createParkLampPoolMaterial, createTunnelShadeMaterial, createTktsStepMaterial, createMarbleAshlarMaterial, createTreeGrateMaterial, createRoadSurfaceMaterial, createRoadPaintMaterial, createSidewalkMaterial, createCurbMaterial, createBillboardMaterial, createWaterMaterial, createParkLawnMaterial, createSteamMaterial, createGodRayMaterial, createContactShadowMaterial, createHeadlightBeamMaterial, createCarFlareMaterial });
+Object.assign(window.NYC, { cityUniforms, WALL_KINDS, filteredPulse, createCurtainWallMaterial, createPreWarBuildingMaterial, createFacadeBoxes, createChryslerCrownMaterial, createCarPaintMaterial, createFoliageMaterial, createTreeBarkMaterial, createTreeMaterial, createParkPavingMaterial, createParkWallMaterial, createIronFenceMaterial, createParkLampGlobeMaterial, createParkLampPoolMaterial, createTunnelShadeMaterial, createTktsStepMaterial, createMarbleAshlarMaterial, createTreeGrateMaterial, createRoadSurfaceMaterial, createRoadPaintMaterial, createSidewalkMaterial, createCurbMaterial, createBillboardMaterial, createWaterMaterial, createParkLawnMaterial, createSteamMaterial, createGodRayMaterial, createContactShadowMaterial, createHeadlightBeamMaterial, createCarFlareMaterial });
 })();
