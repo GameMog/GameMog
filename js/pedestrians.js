@@ -12,6 +12,15 @@
 //   reach them, the pelvis rides as high as the planted legs allow (the inverted pendulum's bob), and the pelvis
 //   rotation & sway, the chest's counter-rotation and the arm swing all follow the feet. It turns on the spot, stops
 //   with its feet together, steps up & down curbs, runs, jumps, and rides a bicycle (feet on the pedals).
+// - (Mog City, 28 Oct) The near level of detail reads as people at 3 to 15 m: a sculpted head (brow, eye sockets, nose,
+//   cheekbones, lips, chin, jaw, ears), fingers in a relaxed curl, and a material that paints a face (eyes with whites
+//   & irises, lids & lashes, brows, lips, nostrils, skin shading, stubble & beards), a soft hairline & strands, fabric
+//   (weave, knit, quilting, folds, seams, stitching, pockets, buttons, ties, belts), palms & nails. The far level, its
+//   cost and the rig are as they were; both levels share the palettes and each person's outfit.
+// - (Mog City, 28 Oct, repair) Undersides lit like the faces round them (no black block under the nose or the jaw), a
+//   domed crown with no disc, hair in locks and masses (a lumpy shell, long hair tapering to uneven ends), hair colour
+//   drawn for the skin tone (grey only on the older ones), the hairline arched over skin-coloured ears, the head
+//   blended into the neck, softer beards (the far level keeps them), dimmer eye whites, rounded palms.
 
 const { THREE } = window.NYC;
 const {
@@ -37,7 +46,13 @@ const {
   mix,
   step,
   smoothstep,
-  length
+  length,
+  dot,
+  sign,
+  atan,
+  fwidth,
+  If,
+  mx_noise_float
 } = window.NYC.TSL;
 const { mergeGeometries } = window.NYC.Addons;
 
@@ -223,7 +238,10 @@ class BodyBuilder {
   // rows: { pts, ptsF (female), ptsH (more hair volume), ptsL (long hair), skin: [boneA, boneB, weightB], axis }
   // flattenBelow: normals of vertices lower than this face less downwards (the crotch of the trousers reads as cloth,
   // not as a dark gap between the legs)
-  loft(rows, part, { capStart = false, capEnd = false, flattenBelow = -1 } = {}) {
+  // lift: { below, k } normals of vertices below `below` that face down turn toward the horizontal (an underside lit like
+  // the surfaces round it; k a number or a function of height); smooth: passes of averaging each normal with its grid
+  // neighbours (no light facets); tweak(y, n): any other change to a normal (n a Vector3, normalised after)
+  loft(rows, part, { capStart = false, capEnd = false, flattenBelow = -1, lift = null, smooth = 0, tweak = null } = {}) {
     const lo = loftRings(rows.map((r) => r.pts), capStart, capEnd);
     const variant = (key) => (rows.some((r) => r[key]) ? loftRings(rows.map((r) => r[key] || r.pts), capStart, capEnd).positions : null);
     const fem = variant('ptsF');
@@ -249,6 +267,44 @@ class BodyBuilder {
       if (lo.positions[v * 3 + 1] >= flattenBelow || normals.getY(v) >= 0) continue;
       _seam.set(normals.getX(v), normals.getY(v) * 0.3, normals.getZ(v)).normalize();
       normals.setXYZ(v, _seam.x, _seam.y, _seam.z);
+    }
+    if (smooth) {
+      const C = lo.per - 1;
+      const at = (i, j) => i * lo.per + ((j + C) % C);
+      for (let it = 0; it < smooth; it++) {
+        const src = Float32Array.from(normals.array);
+        for (let i = 0; i < lo.rows; i++) {
+          for (let j = 0; j < C; j++) {
+            const nb = [[at(i, j), 2], [at(i, j - 1), 1], [at(i, j + 1), 1]];
+            if (i > 0) nb.push([at(i - 1, j), 1]);
+            if (i < lo.rows - 1) nb.push([at(i + 1, j), 1]);
+            _seam.set(0, 0, 0);
+            for (const [k, w] of nb) _seam.x += src[k * 3] * w, _seam.y += src[k * 3 + 1] * w, _seam.z += src[k * 3 + 2] * w;
+            _seam.normalize();
+            normals.setXYZ(at(i, j), _seam.x, _seam.y, _seam.z);
+            if (j === 0) normals.setXYZ(i * lo.per + C, _seam.x, _seam.y, _seam.z);
+          }
+        }
+      }
+    }
+    if (lift) {
+      const shown = long || lo.positions;
+      for (let v = 0; v < normals.count; v++) {
+        const ly = shown[v * 3 + 1];
+        if (ly >= lift.below || normals.getY(v) >= 0) continue;
+        _seam.set(normals.getX(v), normals.getY(v) * (typeof lift.k === 'function' ? lift.k(ly) : lift.k), normals.getZ(v));
+        if (_seam.lengthSq() < 1e-8) continue;
+        _seam.normalize();
+        normals.setXYZ(v, _seam.x, _seam.y, _seam.z);
+      }
+    }
+    if (tweak) {
+      for (let v = 0; v < normals.count; v++) {
+        _seam.set(normals.getX(v), normals.getY(v), normals.getZ(v));
+        if (!tweak(lo.positions[v * 3 + 1], _seam)) continue;
+        _seam.normalize();
+        normals.setXYZ(v, _seam.x, _seam.y, _seam.z);
+      }
     }
 
     // Packed (WebGPU allows 8 vertex buffers): skin = (bone A, bone B, weight of B, part), extra = (girth direction
@@ -297,8 +353,8 @@ const TORSO = {
     [1.615, 0.046, 0.044, 0.048, -0.004, 1],
     [1.575, 0.051, 0.049, 0.053, -0.008, 0],
     [1.53, 0.058, 0.053, 0.057, -0.013, 1],
-    [1.5, 0.1, 0.064, 0.07, -0.018, 0],
-    [1.47, 0.163, 0.08, 0.082, -0.02, 1],
+    [1.5, 0.072, 0.057, 0.064, -0.016, 0],
+    [1.47, 0.146, 0.074, 0.08, -0.02, 1],
     [1.44, 0.188, 0.095, 0.089, -0.018, 1],
     [1.4, 0.186, 0.108, 0.093, -0.014, 0],
     [1.34, 0.177, 0.118, 0.096, -0.01, 1],
@@ -315,8 +371,8 @@ const TORSO = {
     [1.615, 0.042, 0.04, 0.044, -0.004],
     [1.575, 0.045, 0.043, 0.047, -0.008],
     [1.53, 0.051, 0.047, 0.051, -0.012],
-    [1.5, 0.086, 0.056, 0.062, -0.016],
-    [1.47, 0.142, 0.072, 0.074, -0.018],
+    [1.5, 0.064, 0.05, 0.057, -0.015],
+    [1.47, 0.128, 0.066, 0.072, -0.018],
     [1.44, 0.164, 0.085, 0.081, -0.016],
     [1.4, 0.163, 0.1, 0.084, -0.012],
     [1.34, 0.157, 0.122, 0.087, -0.006],
@@ -399,11 +455,11 @@ function legSkin(y, k) {
 
 // [distance along the arm from the shoulder, rx, rz, offset towards the body's side, offset forward, keepInFarLod]
 const ARM = [
-  [-0.022, 0.026, 0.032, -0.024, 0, 1],
-  [-0.008, 0.042, 0.05, -0.014, 0, 0],
-  [0.012, 0.052, 0.057, -0.006, 0, 1],
-  [0.05, 0.055, 0.057, 0.001, 0, 0],
-  [0.1, 0.052, 0.052, 0.003, 0, 1],
+  [-0.022, 0.02, 0.026, -0.045, 0, 1],
+  [-0.008, 0.034, 0.042, -0.03, 0, 0],
+  [0.012, 0.046, 0.052, -0.014, 0, 1],
+  [0.05, 0.049, 0.053, -0.002, 0, 0],
+  [0.1, 0.049, 0.05, 0.002, 0, 1],
   [0.16, 0.048, 0.049, 0.001, 0.003, 0],
   [0.23, 0.044, 0.046, 0, 0, 1],
   [0.272, 0.042, 0.043, 0, -0.003, 0],
@@ -470,21 +526,6 @@ const HEAD = {
   ]
 };
 
-// Nose, brow, cheekbones, chin & ears pushed out of the head's rings
-function headBump(y) {
-  const front = Math.PI / 2;
-  return (a) => {
-    let b = 0;
-    if (Math.abs(y - 1.592) < 0.02) b += 0.017 * lobe(a, front, 0.16); // nose tip
-    if (Math.abs(y - 1.622) < 0.02) b += 0.007 * lobe(a, front, 0.14); // bridge
-    if (Math.abs(y - 1.652) < 0.02) b += 0.004 * lobe(a, front, 0.6); // brow ridge
-    if (Math.abs(y - 1.562) < 0.02) b += 0.004 * lobe(a, front, 0.2) + 0.004 * (lobe(a, front - 0.75, 0.3) + lobe(a, front + 0.75, 0.3));
-    if (Math.abs(y - 1.514) < 0.012) b += 0.006 * lobe(a, front, 0.35); // chin
-    if (y < 1.64 && y > 1.575) b += 0.011 * (lobe(a, -0.12, 0.22) + lobe(a, Math.PI + 0.12, 0.22)); // ears
-    return b;
-  };
-}
-
 // Head profile at any height (for the hair shell)
 function headAt(table, y) {
   if (y >= table[0][0]) return table[0];
@@ -499,34 +540,70 @@ function headAt(table, y) {
   return table[table.length - 1];
 }
 
-const hairlineY = (a) => 1.62 + 0.055 * Math.sin(a) - 0.005 * Math.cos(2 * a);
+// (Mog City, 28 Oct: 1.625 + 0.07, was 1.62 + 0.055: a forehead between the brows & the hairline, the nape lower)
+const hairlineY = (a) => 1.625 + 0.07 * Math.sin(a) - 0.005 * Math.cos(2 * a);
 
-// Hair shell over the scalp, from the crown to the hairline, `t` thick (thinning to a soft edge at the hairline)
-function hairShellRing(table, f, t, n) {
+// (Mog City repair) the near hairline arches over the ears (the shell leaves them bare) and comes down behind them to the
+// nape; the material's hairline (dressNear) follows the same curve
+const EAR_A = 0.18; // the ear's centre, behind the side of the head (radians round from +x toward the back)
+const hairlineNear = (a) => hairlineY(a) + 0.046 * (lobe(a, -EAR_A, 0.34) + lobe(a, Math.PI + EAR_A, 0.34));
+
+// Hair shell over the scalp, from the crown to the hairline, `t` thick (thinning to a soft edge at the hairline);
+// `lump` (near): the hair's thickness varies round the head in locks & masses, so its outline is not one smooth shell
+function hairShellRing(table, f, t, n, xs = 1, line = hairlineY, lump = 0) {
   const crown = table[0][0];
   const out = [];
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2;
-    const y = crown + (hairlineY(a) - crown) * f;
+    const y = crown + (line(a) - crown) * f;
     const [, rx, rzF, rzB, cz] = headAt(table, y);
-    const p = new THREE.Vector3(Math.cos(a) * rx, y, cz + Math.sin(a) * (Math.sin(a) >= 0 ? rzF : rzB));
-    const k = t * (1 - 0.75 * f * f);
+    const p = new THREE.Vector3(Math.cos(a) * rx * xs, y, cz + Math.sin(a) * (Math.sin(a) >= 0 ? rzF : rzB));
+    const lumps = lump * Math.sin(Math.PI * Math.min(1, f * 1.25)) * (0.6 * Math.sin(4 * a + 5.5 * f + 0.7) + 0.4 * Math.sin(7 * a - 3.1 * f + 2.3));
+    const k = t * (1 - 0.9 * f * f) * (1 + lumps); // (Mog City: thinning to a 10% edge, was 25%: no helmet's rim at the hairline)
     const c = new THREE.Vector3(0, 1.635, -0.012);
     out.push(p.sub(c).multiplyScalar(1 + k / Math.max(0.05, p.length())).add(c));
   }
   return out;
 }
+// (repair) the shell's crown: a ring drawn in close round the top, so the shell closes in a dome (no flat disc)
+function crownRing(ring) {
+  const cx = ring.reduce((s, p) => s + p.x, 0) / ring.length;
+  const cz = ring.reduce((s, p) => s + p.z, 0) / ring.length;
+  return ring.map((p) => new THREE.Vector3(cx + (p.x - cx) * 0.14, p.y + 0.0035, cz + (p.z - cz) * 0.14));
+}
 
-// Long hair falling behind the shoulders: [y, rx, rzFront, rzBack, centreZ]
+// Long hair falling behind the shoulders: [y, rx, rzFront, rzBack, centreZ, keepInFarLod]
+// (Mog City repair: rounder, narrowing down the back and tapering to ends that hang lower in the middle than at the
+// sides, in uneven locks; the far level keeps four rows, as before)
+// (its top lies inside the hair shell, meeting it where the shell is widest, so the two read as one head of hair)
 const LONG_HAIR = [
-  [1.635, 0.094, 0.045, 0.108, -0.01],
-  [1.59, 0.098, 0.034, 0.107, -0.015],
-  [1.55, 0.097, 0.03, 0.101, -0.022],
-  [1.5, 0.093, 0.028, 0.09, -0.036],
-  [1.45, 0.096, 0.028, 0.08, -0.05],
-  [1.4, 0.091, 0.026, 0.07, -0.06],
-  [1.36, 0.066, 0.02, 0.052, -0.068]
+  [1.7, 0.079, 0.05, 0.097, -0.012, 0],
+  [1.665, 0.091, 0.05, 0.11, -0.012, 1],
+  [1.62, 0.094, 0.04, 0.112, -0.016, 0],
+  [1.57, 0.093, 0.032, 0.104, -0.026, 0],
+  [1.51, 0.087, 0.03, 0.091, -0.04, 1],
+  [1.46, 0.085, 0.03, 0.081, -0.052, 0],
+  [1.415, 0.082, 0.028, 0.072, -0.06, 1],
+  [1.38, 0.075, 0.025, 0.063, -0.066, 0],
+  [1.355, 0.055, 0.019, 0.047, -0.07, 1]
 ];
+// One ring of the long hair: `t` 0 at the top, 1 at the ends. Locks bulge round it (more toward the ends), the ends hang
+// lower at the back than at the sides, and the last rows are uneven (the tips of the locks)
+function longHairRing([y, rx, rzF, rzB, cz], t, n) {
+  const ring = ringY(y, rx, rzF, rzB, cz, n, 2.05);
+  const h = (i) => { const v = Math.sin(i * 91.7 + 13.1) * 43758.5453; return v - Math.floor(v); };
+  return ring.map((p, i) => {
+    const a = (i / n) * Math.PI * 2;
+    const back = Math.max(0, -Math.sin(a));
+    const lt = Math.max(0, (t - 0.2) / 0.8);
+    const lock = 1 + 0.1 * lt * Math.sin(7 * a + 2.3 * t * 6) + 0.045 * lt * Math.sin(11 * a + 1.7);
+    p.x *= lock;
+    p.z = cz + (p.z - cz) * lock;
+    const tt = Math.max(0, (t - 0.4) / 0.6);
+    p.y += -0.03 * tt * tt * back ** 1.2 + 0.022 * tt * tt * Math.abs(Math.cos(a)) ** 2 + (h(i) - 0.5) * 0.03 * Math.max(0, t - 0.75) / 0.25;
+    return p;
+  });
+}
 
 // [z from the ankle, half width, top, sole, keepInFarLod] (relative to the ankle joint)
 const SHOE = [
@@ -565,10 +642,117 @@ function shoeSkin(z, k) {
   return [toe, toe, 0];
 }
 
+// (Mog City, 28 Oct) The near head: rows through the brows, eyes, nose, lips & chin (fractional rows of HEAD, so the
+// female target lines up), its columns gathered round the face, and a continuous relief: brow ridge, eye sockets & the
+// eyeballs in them, the nose's bridge, tip & wings, cheekbones, lips, chin, the jaw's angle, ears
+const HEAD_NEAR_ROWS = [0, 1, 2, 3, 3.5, 4, 4.25, 4.55, 4.83, 5.1, 5.45, 5.8, 6.05, 6.25, 6.47, 6.72, 7, 7.22, 7.5, 7.75, 8, 8.4, 8.8, 9.2, 9.6, 10];
+const HEAD_NEAR_COLUMNS = 36;
+const HEAD_NEAR_XS = 0.93; // (a head narrower than it is deep, as people's are; its hair shell with it)
+function headRowAt(table, r) {
+  const i = Math.min(Math.floor(r), table.length - 2);
+  const t = r - i;
+  return table[i].map((v, k) => v + (table[i + 1][k] - v) * t);
+}
+function faceRelief(female) {
+  const k = female ? 0.75 : 1;
+  const F = Math.PI / 2;
+  const g = (y, y0, s) => Math.exp(-(((y - y0) / s) ** 2));
+  const pair = (a, d, w) => lobe(a, F - d, w) + lobe(a, F + d, w);
+  return (y) => (a) => {
+    let b = 0;
+    // the nose: its bridge rising to the tip, tucking back under it, wider at the bottom; its wings
+    const nt = Math.min(1, Math.max(0, (1.64 - y) / 0.051));
+    let an = (0.0035 + 0.0155 * nt ** 1.6) * (female ? 0.88 : 1);
+    if (y < 1.589) an *= Math.exp(-(((1.589 - y) / 0.0098) ** 2));
+    if (y > 1.642) an *= Math.exp(-(((y - 1.642) / 0.006) ** 2));
+    b += an * lobe(a, F, 0.095 + 0.07 * nt * nt);
+    b += 0.0062 * g(y, 1.5815, 0.0055) * pair(a, 0.19, 0.075);
+    // the brow ridge & between the brows; the eye sockets, the eyeballs in them; cheekbones & the hollow below
+    b += k * 0.0045 * g(y, 1.6465, 0.0065) * pair(a, 0.33, 0.3) + 0.0018 * g(y, 1.642, 0.006) * lobe(a, F, 0.12);
+    b += -0.0046 * g(y, 1.6285, 0.0075) * pair(a, 0.36, 0.17) + 0.0019 * g(y, 1.627, 0.0042) * pair(a, 0.36, 0.1);
+    b += 0.0055 * g(y, 1.603, 0.012) * pair(a, 0.74, 0.28) - 0.0009 * g(y, 1.566, 0.014) * pair(a, 0.78, 0.3);
+    // the lips (fuller on women), the line between them, the dip under the lower lip, the chin, the jaw's angle
+    b += 0.0048 * g(y, 1.5565, 0.0045) * lobe(a, F, 0.24) - 0.0018 * g(y, 1.5492, 0.0022) * lobe(a, F, 0.24);
+    b += (female ? 0.0052 : 0.0045) * g(y, 1.5428, 0.0045) * lobe(a, F, 0.2) - 0.0018 * g(y, 1.5355, 0.0035) * lobe(a, F, 0.2);
+    b += 0.0066 * g(y, 1.521, 0.009) * lobe(a, F, female ? 0.24 : 0.3);
+    b += k * 0.0042 * g(y, 1.533, 0.012) * pair(a, 1.2, 0.3);
+    // the ears, a little behind the sides, their tops leaning back, the rim standing out more than the lobe
+    const ey = y > 1.646 ? g(y, 1.646, 0.006) : y < 1.576 ? g(y, 1.576, 0.007) : 1;
+    const ea = EAR_A - 0.06 + (y - 1.61) * 1.5;
+    const eh = 0.0128 * (0.72 + 0.28 * Math.min(1, Math.max(0, (y - 1.58) / 0.05)));
+    b += eh * ey * (lobe(a, -ea, 0.19) + lobe(a, Math.PI + ea, 0.19));
+    return b;
+  };
+}
+// A head ring with its columns gathered round the face (the front, a = PI/2): denser there, sparser at the back
+function headRingNear(y, rx, rzF, rzB, cz, n, bump) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const t = (i / n) * Math.PI * 2;
+    const a = t + 0.5 * Math.cos(t);
+    const s = Math.sin(a);
+    let x = Math.cos(a) * rx;
+    let z = s * (s >= 0 ? rzF : rzB);
+    const b = bump(a);
+    if (b) {
+      const r = Math.hypot(x, z) || 1;
+      x += (x / r) * b;
+      z += (z / r) * b;
+    }
+    out.push(new THREE.Vector3(x, y, cz + z));
+  }
+  return out;
+}
+
+// (Mog City, 28 Oct) The near hand: the palm to the knuckles, four fingers in a relaxed curl toward the palm (more in
+// the outer ones), the thumb along the palm's front edge. [distance along the arm, thickness, width, offset forward]
+const PALM_NEAR = [
+  [0.525, 0.02, 0.027, 0],
+  [0.553, 0.0165, 0.032, 0.002],
+  [0.585, 0.0148, 0.039, 0.004],
+  [0.612, 0.0138, 0.042, 0.004],
+  [0.63, 0.0118, 0.041, 0.003],
+  [0.641, 0.0097, 0.038, 0.002],
+  [0.648, 0.0074, 0.031, 0.002],
+  [0.6525, 0.0048, 0.019, 0.002]
+];
+// [offset across the palm (forward, the thumb's side), the knuckle's distance along the arm, length, radius, curl]
+const FINGERS = [
+  [0.025, 0.612, 0.088, 0.0088, 0.32],
+  [0.0085, 0.615, 0.097, 0.0092, 0.4],
+  [-0.0085, 0.613, 0.091, 0.0087, 0.46],
+  [-0.0245, 0.606, 0.073, 0.0076, 0.54]
+];
+// (repair: tapering to the tip, a little fuller over the two joints)
+const FINGER_ROWS = [
+  [0, 0.94],
+  [0.2, 1.0],
+  [0.4, 0.92],
+  [0.47, 0.96],
+  [0.64, 0.84],
+  [0.71, 0.87],
+  [0.88, 0.78],
+  [1, 0.42]
+];
+// One finger's rows from shoulder `sh` down the arm `dir`: across the palm along eZ, curling toward the palm (pN)
+function fingerRows(sh, dir, eZ, pN, [oz, d0, len, r, curl], k, s = 1) {
+  return FINGER_ROWS.map(([t, rr]) => {
+    const c = sh.clone().addScaledVector(dir, d0 * (s < 1 ? 0.985 : 1)).addScaledVector(eZ, oz * s);
+    const steps = 16;
+    for (let i = 0; i < steps; i++) {
+      const phi = curl * 2.2 * Math.max(0, ((i + 0.5) / steps) * t - 0.18) / 0.82;
+      c.addScaledVector(dir, (Math.cos(phi) * len * s * t) / steps).addScaledVector(pN, (Math.sin(phi) * len * s * t) / steps);
+    }
+    const phi = (curl * 2.2 * Math.max(0, t - 0.18)) / 0.82;
+    const fd = dir.clone().multiplyScalar(Math.cos(phi)).addScaledVector(pN, Math.sin(phi)).normalize();
+    return limbRing(c, fd, r * rr * s, r * rr * 1.06 * s, 8);
+  });
+}
+
 const _geometryCache = new Map();
 
 /**
- * The skinned person: detail 1 near (~2000 vertices), 0 far (~600 vertices). Attributes: position & normal (male bind
+ * The skinned person: detail 1 near (~3000 vertices: Mog City's sculpted head & fingers), 0 far (~600 vertices). Attributes: position & normal (male bind
  * pose), skin (two bones & the weight of the second, part id), extra (girth direction, u along the loft) and the
  * femaleDelta & hairDelta morph targets.
  */
@@ -581,7 +765,7 @@ function buildPersonGeometry(detail = 1) {
   const nLeg = hi ? 12 : 6;
   const nArm = hi ? 10 : 6;
   const nHand = hi ? 8 : 4;
-  const nHead = hi ? 20 : 8;
+  const nHead = hi ? 28 : 8; // (the near head has HEAD_NEAR_COLUMNS; this is its hair shell's)
   const nShoe = hi ? 12 : 6;
 
   // Torso & neck: a soft-cornered chest (superellipse), with a hint of bust on the female target
@@ -599,7 +783,12 @@ function buildPersonGeometry(detail = 1) {
       axis: new THREE.Vector3(0, m[0], m[4])
     });
   });
-  B.loft(torsoRows, PART.BODY, { capEnd: true, flattenBelow: 0.95 });
+  B.loft(torsoRows, PART.BODY, {
+    capEnd: true,
+    flattenBelow: 0.95,
+    // (repair, near) the neck where it meets the head: no upward tilt, so it shades as the head's lower side does
+    tweak: hi ? (y, n) => (y > 1.495 && y < 1.62 && n.y > 0 ? ((n.y *= y > 1.52 ? 0.25 : 0.6), true) : false) : null
+  });
 
   // Trouser legs
   SIDES.forEach((side, k) => {
@@ -638,11 +827,15 @@ function buildPersonGeometry(detail = 1) {
         axis: c
       });
     }
-    B.loft(sleeve, PART.ARM, { capStart: true, capEnd: true });
+    B.loft(sleeve, PART.ARM, {
+      capStart: true,
+      capEnd: true,
+      tweak: hi ? (y, n) => (y > 1.4 && n.y > 0 ? ((n.y *= y > 1.425 ? 0.2 : 0.5), true) : false) : null
+    });
 
     const hand = [];
     const twist = -side * HAND_TWIST;
-    for (const r of HAND) {
+    for (const r of hi ? PALM_NEAR : HAND) {
       if (!keep(r, 4)) continue;
       const [d, rx, rz, oz] = r;
       hand.push({
@@ -657,53 +850,89 @@ function buildPersonGeometry(detail = 1) {
     if (hi) {
       // Thumb, along the front edge of the (turned) palm
       const thumb = [
-        [0.565, 0.026, 0.011],
-        [0.605, 0.038, 0.0105],
-        [0.64, 0.044, 0.008]
+        [0.556, 0.022, 0.0122],
+        [0.585, 0.032, 0.0114],
+        [0.612, 0.039, 0.0098],
+        [0.632, 0.043, 0.0091],
+        [0.65, 0.044, 0.0084],
+        [0.665, 0.042, 0.007],
+        [0.676, 0.039, 0.0042]
       ].map(([d, oz, r]) => {
         const off = new THREE.Vector3(side * -0.006, 0, oz).applyAxisAngle(_yAxis, twist);
         return {
-          pts: limbRing(shM.clone().addScaledVector(dir, d).add(off), dir, r, r, 6),
-          ptsF: limbRing(shF.clone().addScaledVector(dir, d * 0.985).addScaledVector(off, 0.9), dir, r * 0.88, r * 0.88, 6),
+          pts: limbRing(shM.clone().addScaledVector(dir, d).add(off), dir, r, r * 0.86, 8),
+          ptsF: limbRing(shF.clone().addScaledVector(dir, d * 0.985).addScaledVector(off, 0.9), dir, r * 0.88, r * 0.86 * 0.88, 8),
           skin: [LIMB.forearm[k], LIMB.forearm[k], 0],
           axis: null
         };
       });
       B.loft(thumb, PART.HAND, { capStart: true, capEnd: true });
+      // (Mog City) the fingers, from the knuckles, curling toward the palm
+      const qArm = new THREE.Quaternion().setFromUnitVectors(_down, dir);
+      const eZ = new THREE.Vector3(0, 0, 1).applyAxisAngle(_yAxis, twist).applyQuaternion(qArm);
+      const pN = new THREE.Vector3(-side, 0, 0).applyAxisAngle(_yAxis, twist).applyQuaternion(qArm);
+      for (const f of FINGERS) {
+        const m = fingerRows(shM, dir, eZ, pN, f, k);
+        const fe = fingerRows(shF, dir, eZ, pN, f, k, 0.9);
+        B.loft(m.map((pts, i) => ({ pts, ptsF: fe[i], skin: [LIMB.forearm[k], LIMB.forearm[k], 0], axis: null })), PART.HAND, { capEnd: true });
+      }
     }
   });
 
-  // Head (nose, brow, cheekbones, chin & ears sculpted into the rings)
+  // Head: near, sculpted (faceRelief, the columns gathered round the face); far, the plain rings
   const headRows = [];
-  HEAD.m.forEach((m, i) => {
-    if (!keep(m, 5)) return;
-    const f = HEAD.f[i];
-    headRows.push({
-      pts: ringY(m[0], m[1], m[2], m[3], m[4], nHead, 2, hi ? headBump(m[0]) : null),
-      ptsF: ringY(f[0], f[1], f[2], f[3], f[4], nHead, 2, hi ? headBump(m[0]) : null),
-      skin: [BONE.HEAD, BONE.HEAD, 0],
-      axis: null
+  if (hi) {
+    const reliefM = faceRelief(false);
+    const reliefF = faceRelief(true);
+    for (const r of HEAD_NEAR_ROWS) {
+      const m = headRowAt(HEAD.m, r);
+      const f = headRowAt(HEAD.f, r);
+      headRows.push({
+        pts: headRingNear(m[0], m[1] * HEAD_NEAR_XS, m[2], m[3], m[4], HEAD_NEAR_COLUMNS, reliefM(m[0])),
+        ptsF: headRingNear(f[0], f[1] * HEAD_NEAR_XS, f[2], f[3], f[4], HEAD_NEAR_COLUMNS, reliefF(m[0])),
+        skin: [BONE.HEAD, BONE.HEAD, 0],
+        axis: null
+      });
+    }
+    // (repair) the crown closes in a dome (a bald head shows it)
+    headRows.unshift({ pts: crownRing(headRows[0].pts), ptsF: crownRing(headRows[0].ptsF), skin: [BONE.HEAD, BONE.HEAD, 0], axis: null });
+  } else {
+    HEAD.m.forEach((m, i) => {
+      if (!keep(m, 5)) return;
+      const f = HEAD.f[i];
+      headRows.push({
+        pts: ringY(m[0], m[1], m[2], m[3], m[4], nHead, 2),
+        ptsF: ringY(f[0], f[1], f[2], f[3], f[4], nHead, 2),
+        skin: [BONE.HEAD, BONE.HEAD, 0],
+        axis: null
+      });
     });
-  });
-  B.loft(headRows, PART.HEAD, { capStart: true, capEnd: true });
+  }
+  B.loft(headRows, PART.HEAD, { capStart: true, capEnd: true, smooth: hi ? 1 : 0, lift: hi ? { below: 1.6, k: (y) => (y < 1.556 ? 0.06 : 0.3) } : null });
 
   // Hair shell (volume morph) & long hair (length morph, folded away inside the head when short)
-  const shell = (hi ? [0.04, 0.22, 0.45, 0.68, 0.86, 1] : [0.04, 0.45, 1]).map((f) => ({
-    pts: hairShellRing(HEAD.m, f, 0.006, nHead),
-    ptsF: hairShellRing(HEAD.f, f, 0.006, nHead),
-    ptsH: hairShellRing(HEAD.m, f, 0.022, nHead),
+  // (repair, near) the shell closes in a dome at the crown, arches over the ears and lies in locks & masses
+  const xs = hi ? HEAD_NEAR_XS : 1;
+  const line = hi ? hairlineNear : hairlineY;
+  const shellRing = (table, f, t, lump) => (f === 0 ? crownRing(hairShellRing(table, 0, t, nHead, xs, line)) : hairShellRing(table, f, t, nHead, xs, line, lump));
+  const shell = (hi ? [0, 0.04, 0.12, 0.25, 0.45, 0.68, 0.86, 1] : [0.04, 0.45, 1]).map((f) => ({
+    pts: shellRing(HEAD.m, f, 0.006, hi ? 0.25 : 0),
+    ptsF: shellRing(HEAD.f, f, 0.006, hi ? 0.25 : 0),
+    ptsH: shellRing(HEAD.m, f, 0.022, hi ? 0.3 : 0),
     skin: [BONE.HEAD, BONE.HEAD, 0],
     axis: null
   }));
   B.loft(shell, PART.HAIR, { capStart: true });
-  const nLong = hi ? 14 : 6;
-  const longRows = (hi ? LONG_HAIR : LONG_HAIR.filter((r, i) => i % 2 === 0)).map(([y, rx, rzF, rzB, cz]) => ({
+  const nLong = hi ? 18 : 6;
+  const longKept = LONG_HAIR.filter((r) => keep(r, 5));
+  const longRows = longKept.map((r, i) => ({
     pts: ringY(1.64, 0.02, 0.02, 0.02, -0.03, nLong),
-    ptsL: ringY(y, rx, rzF, rzB, cz, nLong, 2.2),
-    skin: y > 1.56 ? [BONE.HEAD, BONE.HEAD, 0] : y > 1.47 ? [BONE.HEAD, BONE.CHEST, 0.4] : [BONE.HEAD, BONE.CHEST, 0.8],
+    ptsL: longHairRing(r, LONG_HAIR.indexOf(r) / (LONG_HAIR.length - 1), nLong),
+    skin: r[0] > 1.56 ? [BONE.HEAD, BONE.HEAD, 0] : r[0] > 1.47 ? [BONE.HEAD, BONE.CHEST, 0.4] : [BONE.HEAD, BONE.CHEST, 0.8],
     axis: null
   }));
-  B.loft(longRows, PART.LONG_HAIR, { capEnd: true });
+  // (the inner side, toward the neck, is lit from below too: no dark slab from low cameras)
+  B.loft(longRows, PART.LONG_HAIR, { capEnd: true, lift: hi ? { below: 1.7, k: 0.25 } : null });
 
   // Shoes, heel to toe (the toes bend at the ball of the foot)
   SIDES.forEach((side, k) => {
@@ -724,13 +953,28 @@ function buildPersonGeometry(detail = 1) {
 // ============================================================================
 // 3. TSL MATERIAL: GPU SKINNING + PROCEDURAL CLOTHES
 // ============================================================================
-const COAT_COLORS = [0x2b3a52, 0x33332f, 0x8a6a44, 0x5a2f2f, 0x4f5238, 0x6a6a66, 0x222024, 0x7d3f22];
-const COAT_COLORS_F = [0x7a2630, 0xb89a72, 0x2e3e5c, 0x1f1d22, 0xc9c1b2, 0x5b6b4a, 0x8c5a7a, 0x3c3c40];
-const SHIRT_COLORS = [0xe8e6e0, 0xb8c4d8, 0xcfc8b8, 0x9aa7b8];
-const LEG_COLORS = [0x22242c, 0x35485b, 0x51473d, 0x7c7160, 0x252526];
-const LEG_COLORS_F = [0x1c1c22, 0x2f4a6e, 0x46413b, 0xcfc8bb, 0x5a2a2e];
-const SKIN_COLORS = [0xc68863, 0xa96f4c, 0x8a5535, 0x6b3d24, 0xd9a077];
-const HAIR_COLORS = [0x1a1512, 0x3a2a1a, 0x584022, 0x6e6862, 0x2a2624, 0x8f6d43, 0x5e3020];
+// (Mog City, 28 Oct) The palettes and each person's outfit are shared by both levels of detail, so nobody changes
+// clothes crossing farDistance; the far level keeps its few masks, the near one is dressed in detail (dressNear).
+// Skin tones (sRGB), fair to deep, each nudged warm, olive or rosy per person
+// (Mog City repair: the two fairest a little deeper & rosier, so sunlit faces do not go porcelain-white under ACES)
+const SKIN_COLORS = [0xc39882, 0xbd917b, 0xb68a6e, 0xab7d62, 0x9c6f54, 0x8b5f45, 0x784f38, 0x65402c, 0x513223, 0x3e261a];
+// Hair, drawn for the skin tone (Mog City repair): the fairer third any natural colour (blond & red among them); the
+// middle third black to mid brown; the deeper tones black & near-black browns, an occasional honey-brown dye
+const HAIR_COLORS = [0x17120f, 0x2c2019, 0x3d2c1e, 0x584022, 0x7a5a36, 0xa08050, 0x5e3020, 0x2a2624];
+const HAIR_COLORS_MID = [0x17120f, 0x1b1511, 0x201813, 0x261c16, 0x2c2019, 0x3d2c1e, 0x1a1411, 0x4a3524];
+const HAIR_COLORS_DEEP = [0x15110f, 0x181311, 0x1b1612, 0x201914, 0x16120f, 0x241c16, 0x191411, 0x2a2019, 0x5a3e27];
+const GREY_HAIR = 0x9c968e;
+// New York outerwear: black, navy, charcoal, camel, olive, oxblood, grey, brown (women: black, camel, navy, burgundy,
+// cream, olive, grey, plum); knits, hoodies & tees from TOP_COLORS
+const COAT_COLORS = [0x1c1d21, 0x26324a, 0x37383b, 0x7f6244, 0x4a4d38, 0x4f2a2a, 0x5f605d, 0x5a4636];
+const COAT_COLORS_F = [0x1d1b20, 0xa98b66, 0x2a3854, 0x6e2530, 0xc4bcad, 0x4d5541, 0x7d7b78, 0x5b3646];
+const TOP_COLORS = [0xe4e2dc, 0x1d1d20, 0x88898a, 0x2a3450, 0x5b5f45, 0x6c2a33, 0xb5a993, 0x3b4d5e];
+const SHIRT_COLORS = [0xe9e7e1, 0xbcc8da, 0xd2cbbb, 0x9ba8b9];
+const LEG_COLORS = [0x22242c, 0x2d4767, 0x1e2a40, 0x51473d, 0x7a705f, 0x252526]; // (1 & 2 are denim)
+const LEG_COLORS_F = [0x1c1c22, 0x30496b, 0x22304a, 0x46413b, 0xcbc4b7, 0x4a2a2e]; // (1 & 2 are denim)
+const IRIS_COLORS = [0x2a1a10, 0x3a2414, 0x4b301c, 0x5c4828, 0x4c5846, 0x4b6074];
+const LIP_COLORS = [0x8a2c36, 0x74374a, 0xa86d62, 0x93483f];
+const TIE_COLORS = [0x22304e, 0x5a1f2a, 0x2c3a2e, 0x4a4a52];
 
 // Branchless TSL palette selector from an array of hex colors and a [0..1) hash value
 function pickColorFromPalette(hexArray, tNode) {
@@ -746,13 +990,57 @@ function pickColorFromPalette(hexArray, tNode) {
 // v rotated by unit quaternion q
 const qrot = (q, v) => v.add(cross(q.xyz, cross(q.xyz, v).add(v.mul(q.w))).mul(2.0));
 
+// One person's looks from their seed (info: seed, female, girth, hair): skin, hair, the outfit's colours & kind
+function personLooks(info) {
+  const lane = (salt) => fract(sin(info.x.add(salt).mul(12.9898)).mul(43758.5453));
+  const female = info.y;
+  const under = lane(19.0).sub(0.5).mul(0.08);
+  const skinT = lane(17.0);
+  const skin = pickColorFromPalette(SKIN_COLORS, skinT).mul(vec3(under.add(1.0), float(1.0), float(1.0).sub(under)));
+  // (repair) hair colour for the skin tone; grey only on the older ones (lane 37 < 0.1 are among the lined faces)
+  const hairLane = lane(3.0);
+  const hairBase = mix(
+    mix(pickColorFromPalette(HAIR_COLORS, hairLane), pickColorFromPalette(HAIR_COLORS_MID, hairLane), step(0.3, skinT)),
+    pickColorFromPalette(HAIR_COLORS_DEEP, hairLane),
+    step(0.6, skinT)
+  );
+  const grey = step(lane(37.0), 0.1);
+  const hair = mix(hairBase, color(GREY_HAIR), grey.mul(0.62));
+  // what they wear on top: a casual zip coat (half of them puffers), a tailored jacket, a knit, a hoodie or a tee
+  const st = lane(89.0);
+  const zip = step(st, 0.28);
+  const tailored = step(0.28, st).mul(step(st, 0.6));
+  const knit = step(0.6, st).mul(step(st, 0.8));
+  const hoodie = step(0.8, st).mul(step(st, 0.9));
+  const tee = step(0.9, st);
+  const coat = mix(
+    mix(pickColorFromPalette(COAT_COLORS, lane(29.0)), pickColorFromPalette(COAT_COLORS_F, lane(29.0)), female),
+    pickColorFromPalette(TOP_COLORS, lane(29.0)),
+    knit.add(hoodie).add(tee)
+  );
+  const shirt = pickColorFromPalette(SHIRT_COLORS, lane(71.0));
+  const legLane = lane(47.0);
+  const legs = mix(pickColorFromPalette(LEG_COLORS, legLane), pickColorFromPalette(LEG_COLORS_F, legLane), female);
+  const denim = step(1 / 6, legLane).mul(step(legLane, 0.5));
+  const bald = step(lane(41.0), 0.08).mul(float(1.0).sub(female));
+  const puffer = zip.mul(step(lane(53.0), 0.5));
+  // (repair) a beard or stubble (men), shared by both levels so a beard does not vanish at farDistance
+  const fh = lane(59.0);
+  const beard = step(0.74, fh).mul(float(1.0).sub(female));
+  const stubble = step(0.42, fh).mul(step(fh, 0.74)).mul(float(1.0).sub(female));
+  return { lane, female, skin, skinT, hair, hairBase, grey, coat, shirt, legs, denim, tailored, zip, knit, hoodie, tee, puffer, bald, beard, stubble };
+}
+
 /**
  * Material for one crowd mesh. `pose` is its storage buffer (STRIDE vec4s per instance). The vertex stage morphs the
  * bind pose (girth, female, hair) and skins it with two bones; the fragment stage dresses the person from their seed:
- * skin tone, hair & hairline, eyes, brows & mouth, a tailored jacket (lapels, shirt V) or casual coat (zip, hem,
- * collar), cuffs, trousers, sneakers or leather shoes with soles & laces.
+ * skin tone, hair & hairline, eyes, brows & mouth, a tailored jacket (lapels, shirt V), casual coat (zip, hem,
+ * collar), knit, hoodie or tee, cuffs, trousers, sneakers or leather shoes with soles & laces. `detail` 1 (the near
+ * level, Mog City 28 Oct) adds the face (eye whites & irises, lids & lashes, brows, lips, nostrils, cheek & socket
+ * shading, stubble & beards, a soft hairline, sideburns), hair strands, fabric (weave, knit, heather, folds, seams,
+ * stitching, pockets, buttons, ties, belts), hands (palms, nails) and a per-person jaw & nose.
  */
-function createPersonMaterial(pose) {
+function createPersonMaterial(pose, detail = 1) {
   const mat = new THREE.MeshStandardNodeMaterial({ metalness: 0 });
   const base = int(instanceIndex).mul(STRIDE);
   const info = pose.element(base.add(STRIDE - 1)); // seed, female, girth, hair
@@ -760,12 +1048,30 @@ function createPersonMaterial(pose) {
   mat.positionNode = Fn(() => {
     const skin = attribute('skin', 'vec4');
     const extra = attribute('extra', 'vec3');
-    // hair volume on the shell (part 6), hair length on the long hair (part 7)
-    const hairAmount = mix(clamp(info.w.mul(2.0), 0.0, 1.0), clamp(info.w.mul(2.0).sub(1.0), 0.0, 1.0), step(PART.LONG_HAIR - 0.5, skin.w));
-    const p = attribute('position', 'vec3')
+    const q0 = attribute('position', 'vec3');
+    // hair volume on the shell (part 6), hair length on the long hair (part 7); none on a bald head
+    const laneV = (salt) => fract(sin(info.x.add(salt).mul(12.9898)).mul(43758.5453));
+    const baldV = step(laneV(41.0), 0.08).mul(float(1.0).sub(info.y));
+    const hairAmount = mix(clamp(info.w.mul(2.0), 0.0, 1.0), clamp(info.w.mul(2.0).sub(1.0), 0.0, 1.0), step(PART.LONG_HAIR - 0.5, skin.w))
+      .mul(float(1.0).sub(baldV));
+    const p = q0
       .add(vec3(extra.x, 0.0, extra.y).mul(info.z.sub(1.0)))
       .add(attribute('femaleDelta', 'vec3').mul(info.y))
-      .add(attribute('hairDelta', 'vec3').mul(hairAmount));
+      .add(attribute('hairDelta', 'vec3').mul(hairAmount))
+      .toVar();
+    if (detail) {
+      // (near) each their own face: the jaw wider or narrower (fuller with a heavier build), the nose longer or shorter
+      const head = step(abs(skin.w.sub(PART.HEAD)), 0.25);
+      const lower = smoothstep(1.61, 1.53, q0.y);
+      const jaw = laneV(43.0).sub(0.5).mul(0.08).add(info.z.sub(1.0).mul(0.4));
+      const noseM = smoothstep(0.022, 0.006, abs(q0.x)).mul(smoothstep(1.57, 1.582, q0.y)).mul(smoothstep(1.646, 1.628, q0.y)).mul(smoothstep(0.076, 0.092, q0.z));
+      p.x.assign(p.x.mul(jaw.mul(lower).mul(head).add(1.0)));
+      p.z.assign(p.z.add(noseM.mul(head).mul(laneV(67.0).sub(0.45).mul(0.007))));
+      // (repair) a bald head's thin shell sinks inside the head, so the head's own skin shows (no edge line round it)
+      const sink = step(abs(skin.w.sub(PART.HAIR)), 0.25).mul(baldV);
+      const hc = vec3(0.0, 1.635, -0.012);
+      p.assign(mix(p, p.sub(hc).mul(0.88).add(hc), sink));
+    }
     const n = attribute('normal', 'vec3');
     const w = skin.z;
     const ia = base.add(int(skin.x).mul(2));
@@ -779,26 +1085,33 @@ function createPersonMaterial(pose) {
   })();
 
   const vInfo = varying(info, 'vPersonInfo');
-  const isPart = (partId, id) => step(abs(partId.sub(id)), 0.25);
-  const lane = (salt) => fract(sin(vInfo.x.add(salt).mul(12.9898)).mul(43758.5453));
-  const partOf = () => attribute('skin', 'vec4').w;
+  if (detail) dressNear(mat, vInfo);
+  else dressFar(mat, vInfo);
+  return mat;
+}
 
+const isPart = (partId, id) => step(abs(partId.sub(id)), 0.25);
+const partOf = () => attribute('skin', 'vec4').w;
+
+// The far level (beyond farDistance): a few masks, as Slop New York dressed everyone
+function dressFar(mat, vInfo) {
   mat.colorNode = Fn(() => {
+    const L = personLooks(vInfo);
     const partId = partOf();
-    const female = vInfo.y;
+    const female = L.female;
     const q = attribute('position', 'vec3').toVar();
     const along = attribute('extra', 'vec3').z;
 
-    const skinCol = pickColorFromPalette(SKIN_COLORS, lane(17.0)).toVar();
-    const hairCol = pickColorFromPalette(HAIR_COLORS, lane(3.0)).toVar();
-    const coatCol = mix(pickColorFromPalette(COAT_COLORS, lane(29.0)), pickColorFromPalette(COAT_COLORS_F, lane(29.0)), female).toVar();
-    const shirtCol = pickColorFromPalette(SHIRT_COLORS, lane(71.0)).toVar();
-    const legsCol = mix(pickColorFromPalette(LEG_COLORS, lane(47.0)), pickColorFromPalette(LEG_COLORS_F, lane(47.0)), female);
+    const skinCol = L.skin.toVar();
+    const hairCol = L.hair.toVar();
+    const coatCol = L.coat.toVar();
+    const shirtCol = L.shirt;
+    const legsCol = L.legs;
 
     // Head: skin, hairline (none for the bald), eyes, brows, lips
     const hd = normalize(vec2(q.x, q.z.add(0.01)));
-    const bald = step(lane(41.0), 0.08).mul(float(1.0).sub(female));
-    const hairline = hd.y.mul(0.055).add(1.62).sub(hd.x.mul(hd.x).sub(hd.y.mul(hd.y)).mul(0.005)).add(bald.mul(0.3));
+    const bald = L.bald;
+    const hairline = hd.y.mul(0.07).add(1.625).sub(hd.x.mul(hd.x).sub(hd.y.mul(hd.y)).mul(0.005)).add(bald.mul(0.3));
     const hairMask = smoothstep(hairline.sub(0.004), hairline.add(0.004), q.y);
     const front = smoothstep(0.06, 0.08, q.z);
     const eyeX = abs(abs(q.x).sub(0.031));
@@ -810,13 +1123,16 @@ function createPersonMaterial(pose) {
       skinCol.mul(color(0xb06a5c)).mul(1.15),
       mouth.mul(0.7)
     );
-    const headCol = mix(faceCol, hairCol, hairMask);
+    // (repair) a beard, as the near level draws it (a few masks: below the cheek line, off the lips)
+    const yBf = mix(float(1.566), float(1.604), smoothstep(0.026, 0.078, abs(q.x)));
+    const beardF = smoothstep(yBf.add(0.004), yBf.sub(0.008), q.y).mul(smoothstep(-0.03, -0.005, q.z)).mul(float(1.0).sub(mouth)).mul(L.beard);
+    const headCol = mix(mix(faceCol, hairCol.mul(0.95), beardF.mul(0.8)), hairCol, hairMask);
     const hairStrands = hairCol.mul(sin(q.x.mul(170.0).add(q.z.mul(130.0))).mul(0.06).add(0.97));
     const hairPartCol = mix(hairStrands, skinCol, bald.mul(step(q.y, 1.755)));
 
     // Torso: collar & neck, tailored jacket (lapels, shirt V) or casual coat (zip, collar band), hem, trousers below
-    const tailored = step(0.42, lane(89.0));
-    const hemY = mix(mix(0.955, 1.0, lane(61.0)), mix(0.88, 1.0, lane(61.0)), female);
+    const tailored = L.tailored;
+    const hemY = mix(mix(0.955, 1.0, L.lane(61.0)), mix(0.88, 1.0, L.lane(61.0)), female);
     const chestFront = smoothstep(0.035, 0.075, q.z);
     const opening = q.y.sub(1.33).mul(0.42);
     const shirtV = smoothstep(1.33, 1.35, q.y).mul(smoothstep(0.004, 0.0, abs(q.x).sub(opening))).mul(chestFront).mul(tailored);
@@ -825,9 +1141,9 @@ function createPersonMaterial(pose) {
       .mul(chestFront)
       .mul(tailored)
       .mul(float(1.0).sub(shirtV));
-    const zip = smoothstep(0.006, 0.0025, abs(q.x)).mul(chestFront).mul(float(1.0).sub(tailored));
-    const collarBand = smoothstep(1.455, 1.48, q.y).mul(float(1.0).sub(tailored));
-    const neckLine = mix(1.5, 1.49, tailored);
+    const zip = smoothstep(0.006, 0.0025, abs(q.x)).mul(chestFront).mul(L.zip);
+    const collarBand = smoothstep(1.455, 1.48, q.y).mul(L.zip);
+    const neckLine = mix(1.48, 1.495, L.zip);
     const neck = smoothstep(neckLine.sub(0.004), neckLine.add(0.004), q.y);
     const hem = smoothstep(hemY.sub(0.004), hemY.add(0.004), q.y);
     const hemShade = smoothstep(hemY.add(0.035), hemY, q.y).mul(0.12);
@@ -838,18 +1154,18 @@ function createPersonMaterial(pose) {
     );
     const torsoCol = mix(mix(legsCol, jacketCol, hem), skinCol, neck);
 
-    // Sleeves: cuffs (shirt cuff under a tailored jacket)
+    // Sleeves: cuffs (shirt cuff under a tailored jacket); a tee's bare forearms
     const cuff = smoothstep(0.93, 0.96, along);
-    const sleeveCol = mix(coatCol, mix(coatCol.mul(0.72), shirtCol, tailored), cuff);
+    const sleeveCol = mix(mix(coatCol, mix(coatCol.mul(0.72), shirtCol, tailored), cuff), skinCol, smoothstep(0.3, 0.315, along).mul(L.tee));
 
     // Trousers: subtle front crease
     const crease = smoothstep(0.004, 0.0, abs(abs(q.x).sub(HIP_X))).mul(step(0.0, q.z)).mul(0.08);
     const trouserCol = legsCol.mul(float(1.0).sub(crease));
 
     // Shoes: sneakers or leather, soles, laces over the instep
-    const sneaker = step(0.4, lane(5.0));
-    const leatherCol = mix(color(0x201e1c), color(0x4a3524), lane(23.0));
-    const sneakerCol = mix(color(0x252b32), color(0xc8c3b8), step(0.55, lane(31.0)));
+    const sneaker = step(0.4, L.lane(5.0));
+    const leatherCol = mix(color(0x201e1c), color(0x4a3524), L.lane(23.0));
+    const sneakerCol = mix(color(0x252b32), color(0xc8c3b8), step(0.55, L.lane(31.0)));
     const upperCol = mix(leatherCol, sneakerCol, sneaker);
     const sole = smoothstep(0.024, 0.016, q.y);
     const soleCol = mix(color(0x191816), color(0xd5d1c8), sneaker);
@@ -882,13 +1198,432 @@ function createPersonMaterial(pose) {
   })();
 
   mat.roughnessNode = Fn(() => {
+    const L = personLooks(vInfo);
     const partId = partOf();
     const skin = max(isPart(partId, PART.HAND), isPart(partId, PART.HEAD));
-    const leather = isPart(partId, PART.SHOE).mul(step(lane(5.0), 0.4));
+    const leather = isPart(partId, PART.SHOE).mul(step(L.lane(5.0), 0.4));
     return mix(mix(mix(float(0.86), float(0.55), skin), float(0.74), step(PART.HAIR - 0.5, partId)), float(0.38), leather);
   })();
+}
 
-  return mat;
+// The near level (within farDistance: the 3 to 30 m a player sees people at): a face, hair, fabric and hands
+function dressNear(mat, vInfo) {
+  // exp(-(dx/rx)^2 - (dy/ry)^2): a soft blob
+  const blob = (dx, dy, rx, ry) => {
+    const a = dx.div(rx);
+    const b = dy.div(ry);
+    return a.mul(a).add(b.mul(b)).negate().exp();
+  };
+  // a line of half-width w (soft by aa) at signed distance d
+  const line = (d, w, aa) => smoothstep(aa.add(w), aa.negate().add(w).max(0.0), abs(d));
+  // (repair) the neck's skin: shaded under the jaw, an Adam's apple on men. The head takes the same tone where it meets
+  // the neck, so the line where the two meshes cross does not show
+  const neckTone = (q, skin, female) => {
+    const jawShadow = smoothstep(1.49, 1.535, q.y).mul(smoothstep(0.018, 0.048, q.z)).mul(0.24);
+    const adam = blob(q.x, q.y.sub(1.507), float(0.008), float(0.006)).sub(blob(q.x, q.y.sub(1.494), float(0.009), float(0.005)).mul(0.7)).mul(float(1.0).sub(female)).mul(smoothstep(0.02, 0.05, q.z)).mul(0.08);
+    return skin.mul(float(1.0).sub(jawShadow).add(adam)).mul(mx_noise_float(q.mul(150.0)).mul(0.03).add(1.0));
+  };
+  // (repair) stubble or a beard on colour c at q (men): dense on the chin & lip, thinning toward the cheek line & the
+  // neck, the skin showing through in its soft edge; the same on the head and the neck (the noise is of the position)
+  const withBeard = (c, q, L, lips, fine) => {
+    const ax = abs(q.x);
+    const yB = mix(float(1.566), float(1.604), smoothstep(0.026, 0.078, ax));
+    const fhN = mx_noise_float(q.mul(vec3(700.0, 260.0, 700.0)));
+    const fhM = mx_noise_float(q.mul(vec3(140.0, 90.0, 140.0)));
+    const cheek = smoothstep(yB.add(0.004), yB.sub(0.016), q.y.add(fhM.mul(0.005)));
+    const lip = smoothstep(0.035, 0.02, ax.add(fhM.mul(0.003))).mul(smoothstep(1.5795, 1.5705, q.y.add(ax.mul(0.1)).add(fhM.mul(0.0025)))).mul(smoothstep(1.546, 1.55, q.y.add(ax.mul(0.15))));
+    const neckLine = smoothstep(1.492, 1.515, q.y.add(fhM.mul(0.004)));
+    const region = cheek.max(lip).mul(smoothstep(-0.035, -0.008, q.z)).mul(neckLine).mul(float(1.0).sub(lips));
+    const stub = c.mul(mix(vec3(1.0), vec3(0.74, 0.73, 0.77), region.mul(L.stubble).mul(0.42)));
+    // density: thick where the region is full, sparse (skin between the hairs) at its edges
+    const dens = smoothstep(0.0, 1.0, region).mul(clamp(fhN.mul(0.3).add(0.82), 0.0, 1.0)).mul(L.beard);
+    const beardC = mix(L.hair, L.hair.mul(vec3(1.12, 1.0, 0.92)), 0.4).mul(fhN.mul(0.22).mul(fine.mul(0.6).add(0.4)).add(0.9));
+    return mix(stub, beardC, dens.mul(0.9));
+  };
+
+  mat.colorNode = Fn(() => {
+    const L = personLooks(vInfo);
+    const partId = partOf();
+    const q = attribute('position', 'vec3');
+    const n0 = attribute('normal', 'vec3');
+    const along = attribute('extra', 'vec3').z;
+    // (screen-space derivatives first, in uniform control flow) metres a pixel spans here, and what shows at that size
+    const px = max(fwidth(q.x), fwidth(q.y)).toVar();
+    const aa = max(px.mul(0.7), 0.0002).toVar();
+    const fine = smoothstep(0.003, 0.001, px).toVar(); // stitches, strands, weave: close up only
+    const mid = smoothstep(0.012, 0.004, px).toVar(); // seams, ribs, folds
+    const female = L.female;
+    const skin = L.skin.toVar();
+    const hair = L.hair.toVar();
+    const coat = L.coat.toVar();
+    const legs = L.legs.toVar();
+    const ax = abs(q.x);
+    const y = q.y;
+    const col = vec3(0.0).toVar();
+
+    // trousers' cloth (the legs and the torso below the hem): denim twill, fading & topstitching, or a pressed crease
+    const trousers = (lx, la) => {
+      const tw = sin(q.y.add(lx.mul(0.8)).mul(2300.0)).mul(0.05).mul(fine).mul(L.denim);
+      const fade = smoothstep(1.2, 0.0, abs(la)).mul(blob(float(0.0), q.y.sub(0.68), float(1.0), float(0.14)).add(blob(float(0.0), q.y.sub(0.5), float(1.0), float(0.05)).mul(0.7)))
+        .mul(0.14).mul(L.denim);
+      const heather = mx_noise_float(q.mul(vec3(90.0, 30.0, 90.0))).mul(0.035).mul(mid);
+      const seam = line(abs(la).sub(1.57), float(0.025), aa.mul(8.0)).mul(mid);
+      const stitch = line(abs(la).sub(1.48), float(0.012), aa.mul(8.0)).mul(fine).mul(L.denim);
+      const crease = line(la, float(0.012), aa.mul(8.0)).mul(step(q.y, 0.9)).mul(float(1.0).sub(L.denim)).mul(mid);
+      const knee = sin(q.y.mul(380.0).add(la.mul(2.0))).mul(smoothstep(0.46, 0.49, q.y)).mul(smoothstep(0.55, 0.52, q.y)).mul(smoothstep(2.0, 2.8, abs(la))).mul(0.09).mul(mid);
+      const brk = sin(q.y.mul(230.0).add(la.mul(3.0))).mul(smoothstep(0.11, 0.13, q.y)).mul(smoothstep(0.22, 0.17, q.y)).mul(0.08).mul(mid);
+      const hemB = smoothstep(0.116, 0.108, q.y).mul(0.12);
+      const c = legs.mul(float(1.0).add(tw).add(fade).add(heather).add(knee).add(brk).sub(seam.mul(0.22)).sub(crease.mul(0.07)).sub(hemB));
+      return mix(c, color(0xa8813f), stitch.mul(0.7));
+    };
+
+    If(partId.lessThan(0.5), () => {
+      // ---------------------------------------------------------------- torso & neck
+      const ang = atan(q.x, q.z); // 0 at the front, +-PI at the back
+      const chestFront = smoothstep(0.035, 0.075, q.z);
+      const hemY = mix(mix(mix(0.955, 1.0, L.lane(61.0)), mix(0.88, 1.0, L.lane(61.0)), female), float(0.9), L.tee);
+      const heather = mx_noise_float(q.mul(vec3(70.0, 45.0, 70.0))).mul(0.04).mul(mid);
+      const weave = sin(q.x.add(q.y).mul(2600.0)).mul(0.03).mul(fine).mul(L.tailored);
+      const knitT = sin(ang.mul(210.0)).mul(sin(q.y.mul(880.0))).mul(0.06).mul(fine).mul(L.knit.add(L.hoodie.mul(0.4)));
+      const folds = sin(q.y.mul(26.0).add(ang.mul(2.2)).add(L.lane(13.0).mul(6.0))).mul(sin(ang.mul(5.0).sub(q.y.mul(8.0)))).mul(0.055).mul(mid);
+      const qu = fract(q.y.mul(13.0).add(0.3));
+      const quilt = sin(qu.mul(Math.PI)).mul(0.26).sub(0.17).mul(L.puffer);
+      const sideSeam = line(abs(ang).sub(1.62), float(0.012), aa.mul(7.0)).mul(mid).mul(0.2);
+      const cloth = coat.mul(float(1.0).add(heather).add(weave).add(knitT).add(folds).add(quilt).sub(sideSeam)).toVar();
+
+      // tailored: lapels with a rolled edge, the shirt & its collar points, a tie (some men), two buttons, pockets
+      const opening = q.y.sub(1.33).mul(0.42);
+      const shirtV = smoothstep(1.33, 1.345, q.y).mul(smoothstep(0.003, 0.0, ax.sub(opening))).mul(chestFront).mul(L.tailored);
+      const lapD = ax.sub(opening);
+      const lapel = smoothstep(0.024, 0.02, lapD).mul(smoothstep(1.32, 1.37, q.y)).mul(chestFront).mul(L.tailored).mul(float(1.0).sub(shirtV));
+      const lapEdge = line(lapD.sub(0.0225), float(0.0012), aa).mul(lapel.max(smoothstep(1.32, 1.37, q.y).mul(chestFront).mul(L.tailored)));
+      const lapShade = smoothstep(0.0, 0.022, lapD).mul(lapel).mul(0.12);
+      const closing = line(q.x.sub(0.003), float(0.0008), aa).mul(step(q.y, 1.335)).mul(chestFront).mul(L.tailored);
+      const btn = smoothstep(aa.add(0.0055), float(0.0045), length(vec2(q.x, q.y.sub(1.215))))
+        .add(smoothstep(aa.add(0.0055), float(0.0045), length(vec2(q.x, q.y.sub(1.135)))))
+        .mul(chestFront).mul(L.tailored);
+      const pocketL = line(q.y.sub(1.035), float(0.0011), aa).mul(step(0.07, ax)).mul(step(ax, 0.15)).mul(chestFront).mul(L.tailored);
+      const welt = line(q.y.sub(1.35), float(0.0011), aa).mul(step(0.075, q.x)).mul(step(q.x, 0.125)).mul(chestFront).mul(L.tailored);
+      const tieOn = float(1.0).sub(female).mul(L.tailored).mul(step(L.lane(31.0), 0.55));
+      const tw = q.y.sub(1.47).negate().mul(0.065).add(0.0085);
+      const tie = smoothstep(tw.add(aa), tw.sub(aa), ax).mul(shirtV).mul(tieOn);
+      const tieStripe = step(0.5, fract(q.y.add(q.x).mul(55.0))).mul(step(L.lane(35.0), 0.45)).mul(0.35);
+      const tieCol = pickColorFromPalette(TIE_COLORS, L.lane(33.0)).mul(tieStripe.add(1.0));
+      const collarPt = line(q.y.sub(1.44).sub(ax.sub(0.012).mul(1.15)), float(0.0009), aa).mul(step(0.012, ax)).mul(step(ax, 0.048)).mul(shirtV);
+      const shirtC = L.shirt.mul(float(1.0).sub(collarPt.mul(0.35)).sub(smoothstep(0.02, 0.05, ax).mul(0.08)));
+      cloth.assign(cloth.mul(float(1.0).sub(lapShade).sub(closing.mul(0.45)).sub(pocketL.mul(0.4)).sub(welt.mul(0.35))).mul(float(1.0).add(lapEdge.mul(0.18))));
+      cloth.assign(mix(cloth, coat.mul(0.35), btn));
+      cloth.assign(mix(cloth, mix(shirtC, tieCol, tie), shirtV));
+
+      // casual zip coat: the zip (teeth catching the light), a stand collar, a chest yoke, slash pockets
+      const zipD = abs(q.x);
+      const zipBand = smoothstep(aa.add(0.0045), float(0.0035), zipD).mul(chestFront).mul(L.zip);
+      const teeth = sin(q.y.mul(1800.0)).mul(0.5).add(0.5).mul(fine).mul(smoothstep(0.0025, 0.0008, zipD));
+      const collarZ = smoothstep(1.448, 1.456, q.y).mul(L.zip);
+      const collarEdge = line(q.y.sub(1.45), float(0.001), aa).mul(L.zip);
+      const yoke = line(q.y.sub(1.36), float(0.0009), aa).mul(chestFront).mul(L.zip).mul(float(1.0).sub(L.puffer));
+      const slash = line(ax.sub(0.115).sub(q.y.sub(1.03).mul(0.35)), float(0.0011), aa).mul(step(1.03, q.y)).mul(step(q.y, 1.14)).mul(chestFront).mul(L.zip);
+      cloth.assign(cloth.mul(float(1.0).sub(collarZ.mul(0.1)).sub(collarEdge.mul(0.3)).sub(yoke.mul(0.3)).sub(slash.mul(0.4))));
+      cloth.assign(mix(cloth, mix(coat.mul(0.4), color(0x9a958c), teeth.mul(0.6)), zipBand));
+
+      // knit & hoodie: ribbed neck and hem; the hoodie's hood bunched at the back, drawcords, a kangaroo pocket
+      const ribs = sin(ang.mul(300.0)).mul(0.08).mul(mid);
+      const knitish = L.knit.add(L.hoodie);
+      const neckRib = smoothstep(1.462, 1.468, q.y).mul(knitish.add(L.tee.mul(0.6)));
+      const hemRib = smoothstep(hemY.add(0.052), hemY.add(0.046), q.y).mul(knitish);
+      cloth.assign(cloth.mul(float(1.0).add(ribs.mul(neckRib.add(hemRib))).sub(hemRib.mul(0.05))));
+      const hood = smoothstep(1.405, 1.43, q.y).mul(smoothstep(0.02, -0.03, q.z)).mul(L.hoodie);
+      const hoodFold = sin(ang.mul(9.0).add(q.y.mul(60.0))).mul(0.12).add(sin(q.y.mul(140.0)).mul(0.06)).mul(hood);
+      const cord = line(ax.sub(0.034), float(0.0022), aa).mul(step(1.36, q.y)).mul(step(q.y, 1.47)).mul(chestFront).mul(L.hoodie);
+      const kangaroo = line(q.y.sub(1.13), float(0.0012), aa).mul(step(ax, 0.105)).add(line(ax.sub(0.105).sub(q.y.sub(1.13).mul(-0.3)), float(0.0012), aa).mul(step(q.y, 1.13)).mul(step(hemY.add(0.05), q.y)))
+        .mul(chestFront).mul(L.hoodie);
+      cloth.assign(cloth.mul(float(1.0).add(hoodFold).sub(hood.mul(0.08)).sub(kangaroo.mul(0.35))));
+      cloth.assign(mix(cloth, mix(L.shirt, coat.mul(1.4), 0.4), cord));
+
+      // the hem's shadow over the trousers' waist; a belt (with its buckle) where the jacket stops above it
+      const hem = smoothstep(hemY.sub(0.003), hemY.add(0.003), q.y);
+      const hemShade = smoothstep(hemY.add(0.03), hemY, q.y).mul(0.1);
+      const lx = float(0.0);
+      const tr = trousers(lx, ang);
+      const beltOn = step(L.lane(39.0), 0.65).mul(step(0.958, hemY));
+      const belt = smoothstep(0.926, 0.93, q.y).mul(smoothstep(0.956, 0.952, q.y)).mul(beltOn);
+      const buckle = smoothstep(0.019, 0.016, ax).mul(chestFront).mul(belt);
+      const lower = mix(mix(tr, color(0x221913), belt), color(0x8d877c), buckle);
+      const upper = cloth.mul(float(1.0).sub(hemShade));
+
+      // the neck: shirt collar round it under a jacket, the jaw's shadow under the chin, a crew neck's edge
+      const collarTop = mix(mix(float(1.478), float(1.495), L.zip), float(1.5), L.tailored);
+      const neck = smoothstep(collarTop.sub(0.003), collarTop.add(0.003), q.y);
+      const shirtCollar = smoothstep(1.477, 1.481, q.y).mul(smoothstep(0.068, 0.06, ax)).mul(float(1.0).sub(neck)).mul(L.tailored);
+      const neckSkin = withBeard(neckTone(q, skin, female), q, L, float(0.0), fine);
+      const top = mix(mix(upper, L.shirt.mul(float(1.0).sub(line(q.y.sub(1.478), float(0.0008), aa).mul(0.3))), shirtCollar), neckSkin, neck);
+      col.assign(mix(lower, top, hem.max(neck)));
+    })
+      .ElseIf(partId.lessThan(1.5), () => {
+        // ---------------------------------------------------------------- trouser legs
+        const lx = q.x.sub(sign(q.x).mul(HIP_X));
+        const la = atan(lx.mul(sign(q.x)), q.z); // 0 at the front, +PI/2 the outside of the leg
+        const c = trousers(lx, la).toVar();
+        // denim's back pockets (outlined in topstitching)
+        const pk = step(q.z, -0.02).mul(step(0.83, q.y)).mul(step(q.y, 0.935)).mul(step(0.04, ax)).mul(step(ax, 0.145)).mul(L.denim);
+        const pkLine = line(q.y.sub(0.935), float(0.0012), aa).add(line(ax.sub(0.042), float(0.0012), aa)).add(line(ax.sub(0.143), float(0.0012), aa)).mul(pk).mul(mid);
+        col.assign(mix(c, color(0xa8813f), pkLine.mul(0.6)));
+      })
+      .ElseIf(partId.lessThan(2.5), () => {
+        // ---------------------------------------------------------------- shoes
+        const sneaker = step(0.4, L.lane(5.0));
+        const leatherCol = mix(color(0x201e1c), color(0x4a3524), L.lane(23.0));
+        const sneakerCol = mix(color(0x252b32), color(0xc8c3b8), step(0.55, L.lane(31.0)));
+        const sole = smoothstep(0.024, 0.016, q.y);
+        const soleCol = mix(color(0x191816), color(0xd5d1c8), sneaker);
+        const laces = smoothstep(0.6, 0.75, fract(q.z.mul(80.0)))
+          .mul(step(abs(ax.sub(HIP_X)), 0.016)).mul(step(0.0, q.z)).mul(step(q.z, 0.09)).mul(step(0.075, q.y)).mul(sneaker);
+        const toeCap = line(q.z.sub(0.1), float(0.0012), aa).mul(step(0.045, q.y)).mul(float(1.0).sub(sneaker));
+        const welt = line(q.y.sub(0.027), float(0.0013), aa).mul(float(1.0).sub(sneaker));
+        const mids = smoothstep(0.024, 0.028, q.y).mul(smoothstep(0.036, 0.032, q.y)).mul(sneaker);
+        const heelTab = step(q.z, -0.065).mul(step(0.07, q.y)).mul(sneaker);
+        const upperCol = mix(leatherCol.mul(float(1.0).sub(toeCap.mul(0.4)).add(welt.mul(0.25))), sneakerCol, sneaker);
+        const c = mix(mix(upperCol, mix(soleCol, color(0xe2ded6), mids), sole.max(mids)), color(0xb8b4aa), laces.mul(0.6));
+        col.assign(mix(c, sneakerCol.mul(0.55), heelTab.mul(0.7)));
+      })
+      .ElseIf(partId.lessThan(3.5), () => {
+        // ---------------------------------------------------------------- sleeves (a tee's bare arms)
+        const u = along;
+        const around = atan(n0.x.mul(sign(q.x)), n0.z);
+        const knitish = L.knit.add(L.hoodie);
+        const cuffT = mix(float(0.93), float(0.9), knitish);
+        const cuff = smoothstep(cuffT, cuffT.add(0.025), u);
+        const heather = mx_noise_float(q.mul(vec3(70.0, 45.0, 70.0))).mul(0.04).mul(mid);
+        const inner = smoothstep(-0.2, 0.7, n0.z);
+        const elbow = sin(u.mul(150.0).add(around.mul(1.5))).mul(smoothstep(0.47, 0.53, u)).mul(smoothstep(0.67, 0.6, u)).mul(inner.mul(0.06).add(0.03)).mul(mid);
+        const bunch = sin(u.mul(115.0).add(around.mul(2.0))).mul(smoothstep(0.76, 0.82, u)).mul(smoothstep(0.92, 0.87, u)).mul(0.06).mul(mid);
+        const seamS = line(u.sub(0.07), float(0.0025), aa.mul(2.0)).mul(mid).mul(0.25).mul(float(1.0).sub(L.puffer));
+        const quilt = sin(fract(u.mul(9.0)).mul(Math.PI)).mul(0.26).sub(0.17).mul(L.puffer);
+        const knitT = sin(around.mul(60.0)).mul(sin(u.mul(450.0))).mul(0.05).mul(fine).mul(L.knit);
+        const weave = sin(q.x.add(q.y).mul(2600.0)).mul(0.03).mul(fine).mul(L.tailored);
+        const rib = sin(around.mul(42.0)).mul(0.1).mul(mid).mul(cuff).mul(knitish);
+        const sleeveC = coat.mul(float(1.0).add(heather).add(elbow).add(bunch).add(quilt).add(knitT).add(weave).add(rib).sub(seamS));
+        const cuffC = mix(mix(coat.mul(0.78), L.shirt, L.tailored), coat.mul(0.92), knitish);
+        const c = mix(sleeveC, cuffC, cuff.mul(float(1.0).sub(knitish.mul(0.7))));
+        // a tee: its hem round the upper arm, skin below
+        const bare = smoothstep(0.302, 0.312, u).mul(L.tee);
+        const teeHem = line(u.sub(0.29), float(0.004), aa.mul(2.0)).mul(L.tee).mul(mid);
+        const armSkin = skin.mul(mx_noise_float(q.mul(120.0)).mul(0.03).add(1.0));
+        col.assign(mix(c.mul(float(1.0).sub(teeHem.mul(0.2))), armSkin, bare));
+      })
+      .ElseIf(partId.lessThan(4.5), () => {
+        // ---------------------------------------------------------------- hands: palms lighter, nails, knuckles
+        const sx = sign(q.x);
+        const palmDir = vec3(sx.mul(-0.9), 0.0, -0.43);
+        const pd = dot(n0, palmDir);
+        const palm = smoothstep(0.1, 0.6, pd);
+        const d = ax.sub(0.185).mul(0.1395).add(float(1.43).sub(q.y).mul(0.9902)); // along the arm from the shoulder
+        const nail = smoothstep(0.78, 0.86, along).mul(smoothstep(0.648, 0.662, d)).mul(smoothstep(-0.05, -0.4, pd));
+        const knuckle = line(along.sub(0.5), float(0.02), float(0.02)).add(line(along.sub(0.75), float(0.015), float(0.02)).mul(0.6))
+          .mul(smoothstep(0.645, 0.655, d)).mul(smoothstep(0.1, -0.3, pd)).mul(mid).mul(0.12);
+        const webs = smoothstep(0.32, 0.18, along).mul(smoothstep(0.636, 0.646, d)).mul(0.1);
+        const wrist = line(d.sub(0.532), float(0.002), aa).mul(palm).mul(0.15);
+        const palmC = mix(skin, color(0xd49a83), 0.3).mul(1.06);
+        const c = mix(skin, palmC, palm).mul(float(1.0).sub(knuckle).sub(webs).sub(wrist)).mul(mx_noise_float(q.mul(160.0)).mul(0.03).add(1.0));
+        col.assign(mix(c, mix(skin.mul(1.22), color(0xc7a092), 0.2), nail.mul(0.8)));
+      })
+      .ElseIf(partId.lessThan(5.5), () => {
+        // ---------------------------------------------------------------- the head & face
+        const z = q.z;
+        const front = smoothstep(0.04, 0.066, z);
+        const blotch = mx_noise_float(q.mul(55.0));
+        // (repair) mottled, not porcelain: a slow tone variation and a warmer, rosier cast in the blotches
+        const mottle = mx_noise_float(q.mul(26.0).add(L.lane(23.0).mul(9.0)));
+        const c = skin.mul(mx_noise_float(q.mul(170.0)).mul(0.03).add(1.0)).mul(mottle.mul(0.045).add(1.0))
+          .mul(mix(vec3(1.0), vec3(1.06, 0.94, 0.92), blotch.mul(0.5).add(0.5).mul(0.6))).toVar();
+        // flush on the cheeks, the nose tip & the ears; the eye sockets, under the eyes, the nose's sides, the philtrum,
+        // the fold from nose to mouth, the shadow under the lower lip
+        const warm = vec3(1.07, 0.9, 0.87);
+        const ear = smoothstep(0.074, 0.086, ax).mul(smoothstep(0.012, -0.004, z)).mul(smoothstep(-0.05, -0.036, z)).mul(smoothstep(1.57, 1.583, y)).mul(smoothstep(1.656, 1.64, y));
+        const flush = blob(ax.sub(0.043), y.sub(1.597), float(0.017), float(0.012)).mul(0.55).mul(front)
+          .add(blob(ax, y.sub(1.588), float(0.008), float(0.008)).mul(0.45).mul(front))
+          .add(ear.mul(0.5));
+        c.assign(c.mul(mix(vec3(1.0), warm, clamp(flush, 0.0, 1.0))));
+        const socket = blob(ax.sub(0.031), y.sub(1.63), float(0.019), float(0.012)).mul(front).mul(0.17).add(blob(ax.sub(0.03), y.sub(1.637), float(0.015), float(0.004)).mul(front).mul(0.08));
+        const underEye = blob(ax.sub(0.03), y.sub(1.6185), float(0.012), float(0.0035)).mul(front);
+        const noseSide = blob(ax.sub(0.0125), y.sub(1.603), float(0.0035), float(0.012)).mul(front).mul(0.08);
+        const philtrum = blob(ax, y.sub(1.564), float(0.0028), float(0.006)).mul(front).mul(0.05);
+        const t = clamp(ax.sub(0.0135).mul(0.4626).add(float(1.574).sub(y).mul(0.8866)).div(0.0259), 0.0, 1.0);
+        const nlD = length(vec2(ax.sub(mix(float(0.0135), float(0.0255), t)), y.sub(mix(float(1.574), float(1.551), t))));
+        const nasolab = smoothstep(0.0028, 0.0, nlD).mul(front).mul(mix(float(0.04), float(0.1), step(L.lane(37.0), 0.25)));
+        const underLip = blob(ax, y.sub(1.5355), float(0.012), float(0.0028)).mul(front).mul(0.1);
+        // (repair) the ear's form, painted where it stands out of the head: the rim (helix) catching light, the groove
+        // inside it, the bowl (concha) & canal in shade, so it reads as an ear in profile
+        const earBaseX = y.sub(1.622).mul(0.14).add(0.0781).mul(mix(float(1.0), float(0.94), female));
+        const onEar = smoothstep(earBaseX.add(0.001), earBaseX.add(0.0045), ax).mul(smoothstep(1.568, 1.578, y)).mul(smoothstep(1.662, 1.65, y));
+        const ez = z.add(float(0.0094).add(y.sub(1.61).mul(0.117)));
+        const eR = length(vec2(ez.div(0.0145), y.sub(1.612).div(0.034)));
+        const helix = smoothstep(0.62, 0.8, eR).mul(smoothstep(1.1, 0.9, eR));
+        const scapha = smoothstep(0.45, 0.6, eR).mul(smoothstep(0.78, 0.66, eR));
+        const bowl = blob(ez.sub(0.003), y.sub(1.606), float(0.0062), float(0.0095));
+        const canal = blob(ez.sub(0.0055), y.sub(1.603), float(0.0022), float(0.0028));
+        const concha = onEar.mul(scapha.mul(0.16).add(bowl.mul(0.24)).add(canal.mul(0.35)).sub(helix.mul(0.06)));
+        c.assign(c.mul(float(1.0).sub(socket).sub(noseSide).sub(philtrum).sub(nasolab).sub(underLip).sub(concha)).mul(mix(vec3(1.0), vec3(0.9, 0.86, 0.9), underEye)));
+
+        // lips (worked out before the beard, which keeps off them)
+        const mw = mix(float(0.0218), float(0.0204), female);
+        const mu = ax.div(mw);
+        const lw = clamp(float(1.0).sub(mu.mul(mu)), 0.0, 1.0);
+        const y0 = float(1.5491);
+        const bow = blob(ax, float(0.0), float(0.0035), float(1.0)).mul(0.0009).negate().add(blob(ax.sub(0.0052), float(0.0), float(0.0028), float(1.0)).mul(0.0005));
+        const yUL = y0.add(lw.pow(0.55).mul(0.006)).add(bow);
+        const yLL = y0.sub(lw.pow(0.5).mul(mix(float(0.0072), float(0.0082), female)));
+        const upperL = smoothstep(aa.negate(), aa, yUL.sub(y)).mul(smoothstep(aa.negate(), aa, y.sub(y0))).mul(step(mu, 1.0)).mul(front);
+        const lowerL = smoothstep(aa.negate(), aa, y.sub(yLL)).mul(smoothstep(aa.negate(), aa, y0.sub(y))).mul(step(mu, 1.0)).mul(front);
+        const lips = clamp(upperL.add(lowerL), 0.0, 1.0);
+
+        // (repair) where the head meets the neck (the sides & back below the jaw, under the chin) it takes the neck's tone
+        const toNeck = smoothstep(1.566, 1.538, y).mul(smoothstep(0.064, 0.03, z));
+        c.assign(mix(c, neckTone(q, skin, female), toNeck));
+        // stubble or a beard (men), soft-edged
+        c.assign(withBeard(c, q, L, lips, fine));
+
+        // brows: an arch, thicker inside, tapering out; strands up close
+        const bx = ax.sub(0.0125).div(0.04);
+        const yb = float(1.6458).add(sin(min(bx.mul(1.2), 1.0).mul(Math.PI)).mul(mix(float(0.0026), float(0.0034), female))).sub(bx.mul(0.0012));
+        const th = mix(float(0.0056), float(0.0022), clamp(bx, 0.0, 1.0)).mul(mix(float(1.0), float(0.7), female)).mul(L.lane(7.0).mul(0.4).add(0.8));
+        const brow = smoothstep(th.mul(0.5).add(aa), th.mul(0.5).sub(aa).max(0.0), abs(y.sub(yb)))
+          .mul(smoothstep(0.0, 0.12, bx)).mul(smoothstep(1.0, 0.82, bx)).mul(front)
+          .mul(sin(ax.mul(1100.0).add(y.mul(1700.0))).mul(0.2).mul(fine).add(0.85));
+        const browC = mix(hair, color(0x2a1d16), 0.35).mul(0.7);
+        c.assign(mix(c, browC, brow));
+
+        // eyes: almond lids (outer corners a touch higher), sclera shaded under the lid & toward the corners, an
+        // iris with a dark limbal ring, the pupil; the lash line, the lid's crease, a fainter lower lash line
+        const ex = ax.sub(0.0315);
+        const ey = y.sub(1.6272).sub(ex.mul(0.08));
+        const eu = ex.div(0.0128);
+        const ews = clamp(float(1.0).sub(eu.mul(eu)), 0.0, 1.0).sqrt();
+        const yU = ews.mul(0.005);
+        const yL = ews.mul(-0.0039);
+        const open = smoothstep(aa.negate(), aa, yU.sub(ey)).mul(smoothstep(aa.negate(), aa, ey.sub(yL))).mul(step(abs(eu), 1.0)).mul(front);
+        const ir = length(vec2(ex.add(0.0004), ey.add(0.0004)));
+        const iris = smoothstep(aa.add(0.0056), float(0.0056).sub(aa), ir);
+        const pupil = smoothstep(aa.add(0.0022), float(0.0022).sub(aa).max(0.0), ir);
+        const irisC = pickColorFromPalette(IRIS_COLORS, L.lane(97.0)).mul(mix(float(1.3), float(0.45), smoothstep(0.0022, 0.0056, ir)));
+        const lidShadow = smoothstep(yU.sub(0.0035), yU, ey);
+        const sclera = mix(vec3(0.36, 0.33, 0.31), skin, mix(float(0.3), float(0.55), L.skinT)).mul(float(1.0).sub(eu.mul(eu).mul(0.55))).mul(float(1.0).sub(lidShadow.mul(0.7)));
+        const eyeC = mix(mix(sclera, irisC.mul(float(1.0).sub(lidShadow.mul(0.35))), iris), vec3(0.015, 0.012, 0.012), pupil);
+        c.assign(mix(c, eyeC, open));
+        const lashW = mix(float(0.0009), float(0.0013), female);
+        const lash = smoothstep(lashW.add(aa), lashW.sub(aa).max(0.0), abs(ey.sub(yU).sub(0.0005))).mul(step(abs(eu), mix(float(1.05), float(1.15), female))).mul(front);
+        const lowLash = smoothstep(aa.add(0.0005), float(0.0), abs(ey.sub(yL).add(0.0003))).mul(step(abs(eu), 1.0)).mul(front).mul(0.3);
+        const crease = smoothstep(aa.add(0.0009), float(0.0), abs(ey.sub(yU).sub(0.0042).sub(eu.mul(eu).mul(-0.0015)))).mul(step(abs(eu), 1.1)).mul(front).mul(0.22).mul(mid);
+        c.assign(mix(c, mix(color(0x16100d), hair.mul(0.3), 0.3), lash.mul(0.92)));
+        const lid = smoothstep(0.0, 0.0012, ey.sub(yU)).mul(smoothstep(0.0042, 0.0028, ey.sub(yU))).mul(step(abs(eu), 1.05)).mul(front).mul(0.12);
+        c.assign(c.mul(float(1.0).sub(lowLash).sub(crease).sub(lid)));
+
+        // lips: upper darker, lower fuller & catching the light; lipstick on some women; the line between them
+        const lipBase = skin.mul(vec3(0.95, 0.7, 0.68)).mul(0.92);
+        const stick = female.mul(step(L.lane(77.0), 0.35));
+        const lipC = mix(lipBase, pickColorFromPalette(LIP_COLORS, L.lane(79.0)), stick.mul(0.6));
+        const lipShade = upperL.mul(0.84).add(lowerL.mul(blob(ax, y.sub(1.5448), float(0.009), float(0.0022)).mul(0.14).add(1.04)));
+        c.assign(mix(c, lipC.mul(lipShade), lips));
+        const ml = smoothstep(aa.add(0.0007), float(0.0), abs(y.sub(y0).add(0.0001))).mul(smoothstep(1.08, 0.75, mu)).mul(front);
+        const corners = blob(ax.sub(mw), y.sub(y0), float(0.0024), float(0.0018)).mul(front).mul(0.3);
+        c.assign(mix(c, skin.mul(0.25), ml.mul(0.85)).mul(float(1.0).sub(corners)));
+
+        // the older ones (greying): lines across the forehead, under the eyes
+        const older = step(L.lane(37.0), 0.25).mul(front).mul(mid);
+        const brow3 = sin(y.sub(1.664).mul(Math.PI / 0.0085)).abs().oneMinus().pow(6.0).mul(smoothstep(1.657, 1.662, y)).mul(smoothstep(1.69, 1.682, y)).mul(smoothstep(0.045, 0.02, ax));
+        const bags = smoothstep(aa.add(0.0007), float(0.0), abs(ey.sub(yL).add(0.0042).sub(eu.mul(eu).mul(0.0015)))).mul(step(abs(eu), 0.95));
+        c.assign(c.mul(float(1.0).sub(brow3.add(bags.mul(0.8)).mul(older).mul(0.1))));
+
+        // nostrils
+        const nos = smoothstep(1.0, 0.5, length(vec2(ax.sub(0.0074).div(0.003), y.sub(1.5795).div(0.0017)))).mul(front);
+        c.assign(mix(c, skin.mul(0.42), nos.mul(0.6)));
+
+        // the hairline: soft, broken up by the strands, temples receding on some men, sideburns; none for the bald
+        const hd = normalize(vec2(q.x, z.add(0.01)));
+        const recede = float(1.0).sub(female).mul(L.lane(83.0)).mul(0.016).mul(hd.x.mul(hd.x));
+        const sideburn = float(1.0).sub(female).mul(float(1.0).sub(L.bald)).mul(smoothstep(0.064, 0.074, ax)).mul(smoothstep(-0.004, 0.004, z)).mul(smoothstep(0.022, 0.012, z));
+        // (repair) as hairlineNear: arched over the ear (its centre EAR_A behind the side), down behind it to the nape
+        const cosE = abs(hd.x).mul(Math.cos(EAR_A)).sub(hd.y.mul(Math.sin(EAR_A)));
+        const earArch = float(1.0).sub(cosE).mul(-2.0 / (0.34 * 0.34)).exp().mul(0.046);
+        const hl = hd.y.mul(0.07).add(1.625).sub(hd.x.mul(hd.x).sub(hd.y.mul(hd.y)).mul(0.005)).add(earArch).add(L.bald.mul(0.3)).add(recede).sub(sideburn.mul(0.026));
+        const hn = mx_noise_float(q.mul(vec3(300.0, 90.0, 300.0)));
+        // (the ear stands out of the head's side: skin, never under the hair's colour)
+        const earBase = y.sub(1.622).mul(0.14).add(0.0781).mul(mix(float(1.0), float(0.94), female));
+        const earSkin = smoothstep(earBase.add(0.0025), earBase.add(0.0065), ax).mul(smoothstep(1.57, 1.58, y)).mul(smoothstep(1.66, 1.65, y));
+        const hairMask = smoothstep(hl.add(0.0005), hl.add(0.004), y).mul(float(1.0).sub(earSkin)).mul(float(1.0).sub(sideburn.mul(smoothstep(hl.add(0.022), hl.add(0.004), y)).mul(0.45)));
+        const thin = smoothstep(hl.sub(0.01), hl.add(0.0005), y).mul(sin(atan(q.x, z.add(0.012)).mul(300.0)).mul(0.2).mul(fine).add(0.45)).mul(float(1.0).sub(earSkin));
+        const hairC = hair.mul(hn.mul(0.08).add(0.93));
+        c.assign(mix(c, hairC, hairMask.max(thin)));
+        // (repair) a buzz cut's shadow on some bald men, above their hairline
+        const hl0 = hl.sub(L.bald.mul(0.3));
+        const buzzCut = L.bald.mul(step(L.lane(87.0), 0.5)).mul(smoothstep(hl0.add(0.002), hl0.add(0.012), y)).mul(hn.mul(0.12).add(0.3));
+        c.assign(mix(c, hair.mul(0.85), buzzCut));
+        col.assign(c);
+      })
+      .Else(() => {
+        // ---------------------------------------------------------------- hair (the shell over the scalp, long hair)
+        const isLong = step(PART.LONG_HAIR - 0.5, partId);
+        // strands run from the crown down: round the head on the shell; round its tube (folded ring) on long hair
+        const th0 = mix(atan(q.x, q.z.add(0.012)), atan(q.x, q.z.add(0.03)), isLong);
+        // (repair) hair as streaks along the strands, not stripes: noise stretched along them (round the head on a
+        // circle, so no seam at the back); a slow warp so they wave; clumps & single strands; big soft masses of light
+        // & dark; it all fades to the plain colour toward the crown (no radial fan)
+        const warp = mx_noise_float(vec3(sin(th0).mul(1.3), q.y.mul(16.0), along.mul(1.5)));
+        const th = th0.add(warp.mul(0.14)).add(L.lane(91.0).mul(6.0));
+        const cs = vec2(sin(th), sin(th.add(Math.PI / 2)));
+        const clumpN = mx_noise_float(vec3(cs.x.mul(9.0), cs.y.mul(9.0), along.mul(mix(float(2.2), float(1.6), isLong)).add(L.lane(91.0).mul(5.0))));
+        const strandN = mx_noise_float(vec3(cs.x.mul(44.0), cs.y.mul(44.0), along.mul(mix(float(7.0), float(5.0), isLong))));
+        const crownFade = mix(smoothstep(0.04, 0.34, along), float(1.0), isLong);
+        const mass = mx_noise_float(q.mul(24.0).add(L.lane(91.0).mul(7.0))).mul(0.1);
+        const tint = clumpN.mul(0.17).mul(mid.mul(0.6).add(0.4)).add(strandN.mul(0.09).mul(fine)).mul(crownFade).add(mass).add(1.0);
+        // long hair: lighter, thinner ends; darker on its inner side (toward the neck); the shell's roots in shade
+        const ends = smoothstep(0.55, 1.0, along).mul(isLong).mul(0.1);
+        const inner = smoothstep(0.15, 0.75, n0.z).mul(isLong).mul(0.3);
+        const roots = smoothstep(0.62, 0.95, along).mul(float(1.0).sub(isLong)).mul(0.1);
+        // salt & pepper on the grey ones: grey strands among their own colour
+        const sp = L.grey.mul(clumpN.mul(0.2).add(strandN.mul(0.22).mul(fine)));
+        const hairCol = mix(L.hairBase, color(GREY_HAIR), clamp(L.grey.mul(0.62).add(sp), 0.0, 1.0));
+        const hairC0 = hairCol.mul(tint.add(ends).sub(inner).sub(roots));
+        // the shell's edge thins to the scalp (a soft hairline); temples receding on some men
+        const edge = smoothstep(0.84, 1.0, along).mul(float(1.0).sub(isLong));
+        const temple = blob(abs(th0).sub(0.95), float(0.0), float(0.3), float(1.0)).mul(float(1.0).sub(female)).mul(L.lane(83.0));
+        const nape = smoothstep(0.84, 1.0, along).mul(float(1.0).sub(isLong)).mul(smoothstep(0.02, -0.04, q.z));
+        const hairC = mix(hairC0, skin.mul(0.95), clamp(edge.mul(temple.mul(0.6).add(0.12)).add(nape.mul(0.45)), 0.0, 1.0).mul(strandN.mul(0.3).mul(fine).add(0.85)));
+        // a bald head: the scalp (a buzzed shadow on some)
+        const buzz = step(L.lane(87.0), 0.5).mul(smoothstep(1.7, 1.66, q.y)).mul(0.3);
+        const scalp = mix(skin.mul(1.03), hair.mul(0.9), buzz);
+        col.assign(mix(hairC, scalp, L.bald));
+      });
+    return col;
+  })();
+
+  mat.roughnessNode = Fn(() => {
+    const L = personLooks(vInfo);
+    const partId = partOf();
+    const q = attribute('position', 'vec3');
+    const ax = abs(q.x);
+    const front = smoothstep(0.04, 0.066, q.z);
+    // face: oilier down the T, the lips, the eyes wet; hair & cloth by kind; leather shoes
+    const sq = (v) => v.mul(v);
+    const eye = step(sq(ax.sub(0.0315).div(0.0128)).add(sq(q.y.sub(1.6272).div(0.0052))), 1.0).mul(front);
+    const lipsR = step(sq(ax.div(0.0215)).add(sq(q.y.sub(1.5485).div(0.0068))), 1.0).mul(front);
+    const tzone = smoothstep(0.016, 0.006, ax).mul(smoothstep(1.575, 1.6, q.y)).mul(front);
+    const headR = mix(mix(mix(float(0.56), float(0.45), tzone), float(0.36), lipsR), float(0.44), eye);
+    // (repair) hair: matte, its sheen broken into streaks along the strands (no smooth helmet highlight)
+    const hairR = float(0.62).toVar();
+    If(partId.greaterThan(5.5), () => {
+      const isLong = step(PART.LONG_HAIR - 0.5, partId);
+      const th = mix(atan(q.x, q.z.add(0.012)), atan(q.x, q.z.add(0.03)), isLong).add(L.lane(91.0).mul(6.0));
+      const along = attribute('extra', 'vec3').z;
+      const streak = mx_noise_float(vec3(sin(th).mul(20.0), sin(th.add(Math.PI / 2)).mul(20.0), along.mul(4.0)));
+      hairR.assign(streak.mul(0.16).add(0.56));
+    });
+    const fabric = mix(mix(mix(mix(mix(float(0.86), float(0.8), L.tailored), mix(float(0.72), float(0.44), L.puffer), L.zip), float(0.95), L.knit), float(0.93), L.hoodie), float(0.9), L.tee);
+    const legsR = mix(float(0.85), float(0.93), L.denim);
+    const leather = step(L.lane(5.0), 0.4);
+    const shoeR = mix(float(0.62), float(0.34), leather);
+    return mix(mix(mix(mix(mix(mix(fabric, legsR, isPart(partId, PART.LEG)), shoeR, isPart(partId, PART.SHOE)), fabric, isPart(partId, PART.ARM)), float(0.55), isPart(partId, PART.HAND)), headR, isPart(partId, PART.HEAD)), hairR, step(PART.HAIR - 0.5, partId));
+  })();
 }
 
 // ============================================================================
@@ -907,7 +1642,7 @@ class PersonCrowd {
     const drawable = !(window.NYC.quality && window.NYC.quality.backend === 'webgl2');
     this.lods = [1, 0].map((detail) => {
       const pose = attributeArray(maxCount * STRIDE, 'vec4').toReadOnly();
-      const mesh = new THREE.Mesh(buildPersonGeometry(detail), createPersonMaterial(pose));
+      const mesh = new THREE.Mesh(buildPersonGeometry(detail), createPersonMaterial(pose, detail));
       mesh.name = name + (detail ? 'Near' : 'Far');
       mesh.count = 1; // one (degenerate) person until the first frame, so the pipelines compile up front
       mesh.frustumCulled = false;
