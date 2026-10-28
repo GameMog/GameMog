@@ -1,9 +1,10 @@
 // Mog City: the traffic's engines. Ported from Slop New York by Mr.doob (MIT), commit 0e5bbfb (js/audio-synthesis.js:
-// combustionBuffers, createMotorVoice), the car, SUV and bus voices only, played into whatever the caller gives (our
-// mixer places them, holds them for the pause, muffles them inside the car).
+// combustionBuffers, createMotorVoice), with 2ff7cc6's smoother shifts and softer tyres, the car, SUV and bus voices
+// only, played into whatever the caller gives (our mixer places them, holds them for the pause, muffles them inside the car).
 //   A voice is a real engine's firing: a loop of twenty four-stroke cycles of exhaust pulses (each cylinder its own
 //   strength and timing), a second loop baked at high revs blended in as it revs up, the valve clatter, a 5-gear box
-//   (shifting up through the gears, a dip in the pull at each change), the tyres' broadband swell at speed, doppler.
+//   (shifting up through the gears: the revs drop at once and the pull is cut for a moment, timed on the audio clock),
+//   the tyres' soft hiss that follows the road speed, doppler.
 //   M.motors = createMotors(M); M.motors.ready(kind); M.motors.voice(kind, out) -> { update({ speed, load, doppler,
 //   seed }), dispose() }; motorLoad(speed, acc, kind) the throttle a car's speed and acceleration mean.
 // The buffers are baked a few firings at a time (~4 ms) in the browser's idle moments after the first sound (not all at
@@ -135,14 +136,17 @@ function noiseBuffer(context) {
 
 // Keep only meaningful target changes. Replacing future events bounds the scheduling horizon; setTargetAtTime
 // starts from the value reached by the preceding ramp, including when an update interrupts that ramp.
+// Bring a future target forward even if its value is unchanged (for example, when a shift is interrupted).
+// (after Slop New York 2ff7cc6: a smoothing of its own per call, and the time it was set for)
 function smoothParameter(parameter, timeConstant = 0.07, epsilon = 0.0001, snapInitial = false) {
-  let target = NaN;
-  return (value, now) => {
-    if (Math.abs(value - target) < epsilon) return;
+  let target = NaN, scheduledTime = -Infinity;
+  return (value, now, smoothing = timeConstant) => {
+    if (Math.abs(value - target) < epsilon && now >= scheduledTime) return;
     parameter.cancelScheduledValues(now);
     if (snapInitial && Number.isNaN(target)) parameter.setValueAtTime(value, now);
-    else parameter.setTargetAtTime(value, now, timeConstant);
+    else parameter.setTargetAtTime(value, now, smoothing);
     target = value;
+    scheduledTime = now;
   };
 }
 
@@ -200,8 +204,9 @@ function motorVoice(context, resources, kind, output) {
   const mechanismGain = gain();
   mechanism.connect(mechanismFilter).connect(mechanismGain).connect(mix);
   const road = loop();
-  const roadHighpass = filter('highpass', 260, 0.5);
-  const roadLowpass = filter('lowpass', 3200, 0.5);
+  // (the tyres lower and softer: after Slop New York 2ff7cc6)
+  const roadHighpass = filter('highpass', 120, 0.5);
+  const roadLowpass = filter('lowpass', 1400, 0.5);
   const roadGain = gain();
   road.connect(roadHighpass).connect(roadLowpass).connect(roadGain).connect(mix);
   const exhaustRate = smoothParameter(exhaust.playbackRate, 0.035, 0.0005, true);
@@ -222,6 +227,7 @@ function motorVoice(context, resources, kind, output) {
     previousTime = now;
     throttle = first ? load : throttle + (load - throttle) * (1 - Math.exp(-dt / (load > throttle ? 0.14 : 0.32)));
     const shiftRPM = (bus ? 1700 : 2700) + throttle * (bus ? 950 : 2900);
+    let upshift = false;
     if (speed < 0.6) {
       // A fresh launch starts in first immediately, even after a hard stop from top gear.
       gear = 0;
@@ -236,17 +242,18 @@ function motorVoice(context, resources, kind, output) {
         && (wheelRPM < (bus ? 1000 : 1600) || (throttle > 0.65 && wheelRPM < shiftRPM * 0.55))) gear--;
       if (gear !== oldGear) {
         gearLock = now + 0.65;
-        if (gear > oldGear) shiftUntil = now + 0.14;
+        upshift = gear > oldGear;
+        if (upshift) shiftUntil = now + 0.16;
       }
     }
     // Wheel-coupled RPM, with torque-converter slip at low speed. Coasting retains engine braking rather than
     // dropping straight to idle; hysteresis and a minimum gear dwell prevent hunting around a shift boundary.
     const slip = throttle * (bus ? 600 : 1500) * Math.max(0.12, 1 - speed / 16);
     const targetRPM = clamp(Math.max(idle, speed * ratios[gear]) + slip, idle, bus ? 2900 : 6200);
-    rpm = first ? targetRPM : rpm + (targetRPM - rpm) * (1 - Math.exp(-dt / (targetRPM > rpm ? 0.12 : 0.075)));
+    // The playback-rate ramps provide the short RPM fall on an upshift; do not soften it twice.
+    rpm = first || upshift ? targetRPM : rpm + (targetRPM - rpm) * (1 - Math.exp(-dt / (targetRPM > rpm ? 0.12 : 0.075)));
     const pitch = (0.97 + variation * 0.06) * doppler;
     const effort = Math.min(1, throttle + speed * 0.005);
-    const torque = now < shiftUntil ? 0.52 : 1;
     const rolling = Math.min(1.35, speed / 28);
     exhaustRate(rpm / sound.referenceRPM * pitch, now);
     highExhaustRate(rpm / sound.referenceRPM * pitch * bankRatio, now);
@@ -257,13 +264,28 @@ function motorVoice(context, resources, kind, output) {
     lowBankLevel(Math.cos(blend * Math.PI / 2), now);
     highBankLevel(Math.sin(blend * Math.PI / 2), now);
     mechanicalRate(rpm / sound.referenceRPM * pitch, now);
-    exhaustCutoff((bus ? 480 : 650) + effort * (bus ? 1400 : 1800) + rpm * 0.24, now);
-    exhaustLevel(((bus ? 0.16 : suv ? 0.13 : 0.11) + effort * (bus ? 0.22 : 0.26)) * torque, now);
+    // (an upshift: a clean cut in the exhaust and the clatter, then the pull back, in place of the old dip; after
+    // Slop New York 2ff7cc6)
+    const cutoff = (bus ? 480 : 650) + rpm * 0.24;
+    const exhaustIdle = bus ? 0.16 : suv ? 0.13 : 0.11;
+    const mechanicalIdle = bus ? 0.10 : 0.03;
+    if (upshift) {
+      const unloaded = Math.min(effort, 0.06);
+      exhaustCutoff(cutoff + unloaded * (bus ? 1400 : 1800), now, 0.012);
+      exhaustLevel(exhaustIdle + unloaded * (bus ? 0.22 : 0.26), now, 0.012);
+      mechanicalLevel(mechanicalIdle + unloaded * (bus ? 0.15 : 0.085), now, 0.012);
+    }
+    // Schedule unloading and recovery on the audio clock. Updates during the shift can revise
+    // the recovery target without cancelling the cut, even though controls run at only 10 Hz.
+    const loadTime = Math.max(now, shiftUntil);
+    const recovery = now < shiftUntil ? 0.045 : undefined;
+    exhaustCutoff(cutoff + effort * (bus ? 1400 : 1800), loadTime, recovery);
+    exhaustLevel(exhaustIdle + effort * (bus ? 0.22 : 0.26), loadTime, recovery);
     mechanicalFrequency(((bus ? 1050 : 1250) + rpm * 0.12) * doppler, now);
-    mechanicalLevel(((bus ? 0.10 : 0.03) + effort * (bus ? 0.15 : 0.085)) * torque, now);
-    // Tire contact is broadband and becomes the dominant sound of a car passing at speed off-throttle.
-    roadLevel(Math.pow(rolling, 1.25) * (bus ? 0.44 : 0.36) * (1 - throttle * 0.5), now);
-    roadFrequency((2200 + Math.min(1, rolling) * 2400) * doppler, now);
+    mechanicalLevel(mechanicalIdle + effort * (bus ? 0.15 : 0.085), loadTime, recovery);
+    // Keep tire noise low and soft; its level follows road speed, not throttle release.
+    roadLevel(Math.pow(rolling, 1.25) * (bus ? 0.16 : 0.10), now);
+    roadFrequency((900 + Math.min(1, rolling) * 1000) * doppler, now);
     noiseRate(doppler * (0.96 + variation * 0.08), now);
   };
 
