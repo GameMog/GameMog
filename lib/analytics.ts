@@ -169,6 +169,96 @@ export function stats(range: Range, now = Date.now()): Stats {
 /** People on the site in the last five minutes. */
 export const activeNow = () => one("SELECT COUNT(DISTINCT visitor) AS n FROM events WHERE at >= ?", Date.now() - 5 * 60_000);
 
+/* -------------------------------------------------------------- mog city -- */
+/**
+ * Mog City (mc.gamemog.com; the owner, 27 Oct: "add something to analytics for MOG CITY subdomain"), counted apart in
+ * lib/db.ts mc_events so none of it reaches the numbers above. Its wagmi/stats.js sends app/api/mc a page load (land,
+ * with where it came from), a press of start on the title gate (start), each mission's title card (mission, the name in
+ * detail), a pass, a fail ("<mission>: <reason>") and the time played with the tab in view (time, in ms). The visitor
+ * is the random id that browser made for itself; the owner's own visits are dropped there.
+ */
+export const MC_KINDS = ['land', 'start', 'mission', 'pass', 'fail', 'time'] as const;
+export type McKind = (typeof MC_KINDS)[number];
+
+export function recordMcEvent(e: { visitor: string; kind: McKind; detail?: string | null; ms?: number | null; ref?: string | null; source?: string | null; device: Device }) {
+  db.prepare('INSERT INTO mc_events (at, visitor, kind, detail, ms, ref, source, device) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(Date.now(), e.visitor, e.kind, e.detail ?? null, e.ms ?? null, e.ref ?? null, e.source ?? null, e.device);
+}
+
+/** The story's missions in order, by the names their title cards show; a renamed mission keeps its counts (M3 was KOLs until 27 Oct). */
+export const MC_MISSIONS: { label: string; names: string[] }[] = [
+  { label: 'M1 Bagged', names: ['Bagged'] },
+  { label: 'M2 Burner', names: ['Burner'] },
+  { label: 'M3 Occupied', names: ['Occupied', 'KOLs'] },
+];
+
+export type McKpis = { visitors: number; loads: number; players: number; starts: number; playMs: number };
+export type McMission = { label: string; started: number; passed: number; fails: number };
+export type McPoint = { at: number; visitors: number; players: number };
+export type McStats = {
+  range: Range; now: McKpis; before: McKpis; series: McPoint[]; bucket: 'hour' | 'day';
+  missions: McMission[]; fails: Row[]; sources: Row[]; devices: Row[];
+};
+
+const mcOne = (sql: string, ...args: (string | number)[]) => Number((db.prepare(sql).get(...args) as { n: number | null }).n ?? 0);
+
+function mcKpis(from: number, to: number): McKpis {
+  const span = 'at >= ? AND at < ?';
+  return {
+    // anyone with a moment in the range, so a run that crosses midnight still has its player
+    visitors: mcOne(`SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE ${span}`, from, to),
+    loads: mcOne(`SELECT COUNT(*) AS n FROM mc_events WHERE kind = 'land' AND ${span}`, from, to),
+    players: mcOne(`SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'start' AND ${span}`, from, to),
+    starts: mcOne(`SELECT COUNT(*) AS n FROM mc_events WHERE kind = 'start' AND ${span}`, from, to),
+    playMs: mcOne(`SELECT SUM(ms) AS n FROM mc_events WHERE kind = 'time' AND ${span}`, from, to),
+  };
+}
+
+/** Everything the Mog City tab shows for one range, with the range before it for comparison. */
+export function mcStats(range: Range, now = Date.now()): McStats {
+  const span = SPAN[range], from = now - span;
+
+  // the same buckets as stats(): on the hour for 24h, else from local midnight
+  const hourly = range === '24h', size = hourly ? HOUR : DAY, count = hourly ? 24 : span / DAY;
+  const end = new Date(now);
+  if (hourly) end.setMinutes(0, 0, 0); else end.setHours(0, 0, 0, 0);
+  const first = end.getTime() - (count - 1) * size;
+  const series: McPoint[] = Array.from({ length: count }, (_, i) => ({ at: first + i * size, visitors: 0, players: 0 }));
+  for (const r of db.prepare("SELECT CAST((at - ?) / ? AS INTEGER) AS b, COUNT(DISTINCT visitor) AS visitors, COUNT(DISTINCT CASE WHEN kind = 'start' THEN visitor END) AS players FROM mc_events WHERE at >= ? GROUP BY b").all(first, size, first) as { b: number; visitors: number; players: number }[]) {
+    const p = series[Math.floor(r.b)];
+    if (p) { p.visitors = r.visitors; p.players = r.players; }
+  }
+
+  // the story's missions in order (and any other title card seen, after them): who saw its title, who passed it, and
+  // how many runs of it failed. Names are matched without case; a fail is "<mission>: <reason>"
+  const known = new Set(MC_MISSIONS.flatMap((m) => m.names.map((n) => n.toLowerCase())));
+  const others = (db.prepare("SELECT MIN(detail) AS name, COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'mission' AND detail IS NOT NULL AND at >= ? GROUP BY lower(detail) ORDER BY n DESC LIMIT 6").all(from) as { name: string; n: number }[])
+    .filter((r) => !known.has(r.name.toLowerCase())).map((r) => ({ label: r.name, names: [r.name] }));
+  const missions = [...MC_MISSIONS, ...others].map((m) => {
+    const names = m.names.map((n) => n.toLowerCase()), marks = names.map(() => '?').join(', ');
+    return {
+      label: m.label,
+      started: mcOne(`SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'mission' AND lower(detail) IN (${marks}) AND at >= ?`, ...names, from),
+      passed: mcOne(`SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'pass' AND lower(detail) IN (${marks}) AND at >= ?`, ...names, from),
+      fails: mcOne(`SELECT COUNT(*) AS n FROM mc_events WHERE kind = 'fail' AND (${names.map(() => "substr(lower(detail), 1, length(?) + 2) = ? || ': '").join(' OR ')}) AND at >= ?`, ...names.flatMap((n) => [n, n]), from),
+    };
+  });
+  const fails = (db.prepare("SELECT detail, COUNT(*) AS n, COUNT(DISTINCT visitor) AS v FROM mc_events WHERE kind = 'fail' AND detail IS NOT NULL AND at >= ? GROUP BY detail ORDER BY n DESC LIMIT 8").all(from) as { detail: string; n: number; v: number }[])
+    .map((r) => ({ label: r.detail, value: r.n, sub: r.v }));
+
+  // where a visit came from is sent once, with the page load
+  const landed = mcOne("SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND at >= ?", from);
+  const referred = db.prepare("SELECT COALESCE(source, ref) AS s, COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND at >= ? AND (source IS NOT NULL OR ref IS NOT NULL) GROUP BY s ORDER BY n DESC LIMIT 10").all(from) as { s: string; n: number }[];
+  const withSource = mcOne("SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND at >= ? AND (source IS NOT NULL OR ref IS NOT NULL)", from);
+  const sources: Row[] = [...referred.map((r) => ({ label: r.s, value: r.n })), ...(landed - withSource > 0 ? [{ label: 'Direct or unknown', value: landed - withSource }] : [])]
+    .sort((a, b) => b.value - a.value);
+
+  const devices = (db.prepare("SELECT device, COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND at >= ? GROUP BY device ORDER BY n DESC").all(from) as { device: string; n: number }[])
+    .map((r) => ({ label: r.device[0].toUpperCase() + r.device.slice(1), value: r.n }));
+
+  return { range, now: mcKpis(from, now), before: mcKpis(from - span, from), series, bucket: hourly ? 'hour' : 'day', missions, fails, sources, devices };
+}
+
 /* ------------------------------------------------------------ moderation -- */
 // node:sqlite rows have no prototype; the admin page hands these to the
 // browser, which takes plain objects only, hence the spreads below.

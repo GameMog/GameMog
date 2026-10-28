@@ -217,3 +217,13 @@
 
 /* the builds' capacity under the sign-in (21 Oct) */
 .adm .login-cap { margin-top: 18px; font-size: 12px; opacity: 0.55; letter-spacing: 0.01em; }
+
+/* Mog City's tab (27 Oct): a second, quieter line under a number, and its link to the game. With eight sections the
+   row no longer fits a phone: there it scrolls sideways within itself, never the page */
+.kpi-x{margin-top:4px;font-size:12px;color:var(--ink-3)}
+.fine a{text-decoration:underline;text-underline-offset:2px}
+@media(max-width:640px){
+  .seg.line{overflow-x:auto;scrollbar-width:none;justify-content:flex-start;gap:18px}
+  .seg.line::-webkit-scrollbar{display:none}
+  .seg.line .seg-bar{bottom:0}
+}

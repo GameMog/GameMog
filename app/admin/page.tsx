@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { RANGES, activeNow, adminBuilds, adminScores, adminWorlds, stats, type Range, type Stats } from '@/lib/analytics';
+import { RANGES, activeNow, adminBuilds, adminScores, adminWorlds, mcStats, stats, type McStats, type Range, type Stats } from '@/lib/analytics';
 import { kartReports } from '@/lib/kart-report';
 import { buildSlots, slotsHeld, queueLength, queueMax, spendToday, IN_FLIGHT_USD } from '@/lib/build-limits';
 import { dareLoop } from '@/lib/funnel';
@@ -30,9 +30,11 @@ export default async function AdminPage() {
   // (the builds first: reading them marks any a stopped server left running as interrupted, before the counts are taken)
   const builds = adminBuilds(80, now);
   const all = Object.fromEntries(RANGES.map((r) => [r, stats(r, now)])) as Record<Range, Stats>;
+  // Mog City (mc.gamemog.com), counted apart (lib/analytics.ts mcStats)
+  const mc = Object.fromEntries(RANGES.map((r) => [r, mcStats(r, now)])) as Record<Range, McStats>;
   // capacity now (lib/build-limits.ts): the slots, the line, and the day's spend against its ceiling (Los Angeles's day)
   const day = spendToday(now);
   const slots = { held: slotsHeld(), max: buildSlots(), queue: queueLength(), queueMax: queueMax(), spent: day.total, inFlight: day.inFlight, perBuild: IN_FLIGHT_USD, ceiling: day.ceiling };
   // the dare loop (lib/funnel.ts): today and the last 7 days, read-only
-  return <Dashboard stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} slots={slots} loop={dareLoop(now)} />;
+  return <Dashboard stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} slots={slots} loop={dareLoop(now)} mc={mc} />;
 }

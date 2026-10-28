@@ -9,7 +9,7 @@ export default function Privacy() {
       <SiteHeader on="" />
       <main className="wrap prose" style={{ paddingTop: 24 }}>
         <h1>Privacy Policy</h1>
-        <p className="dim" style={{ marginTop: 6 }}>Last updated 25 September 2026.</p>
+        <p className="dim" style={{ marginTop: 6 }}>Last updated 27 October 2026.</p>
 
         <h2>What we store</h2>
         <p>
@@ -33,6 +33,12 @@ export default function Privacy() {
           a visit we also note the site that linked you here, such as a search engine, and nothing
           more of that site&apos;s address. We do not record your IP address, we set no cookie for
           this, and the counts never leave our server or go to anyone else.
+        </p>
+        <p>
+          Mog City, at mc.gamemog.com, sends the same kind of counts here: a random identifier its
+          own browser makes for itself, each page load and the site that linked to it, presses of
+          start, the missions reached, passed or failed, and how long it was played with its tab in
+          view. It sets no cookie on visitors, and we do not store your IP address.
         </p>
 
         <h2>Uploaded images</h2>

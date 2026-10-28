@@ -4,6 +4,7 @@ import type { Point } from '@/lib/analytics';
 import { DRAW, SNAP, Spring, drive } from './motion';
 
 const H = 240, PAD = { l: 40, r: 14, t: 18, b: 30 };
+const NAMES = { visitors: 'Visitors', views: 'Page views', empty: 'No visits in this range yet.' };
 
 /** 1, 2, 2.5 or 5 times a power of ten, at or above the busiest point. */
 function niceMax(v: number) {
@@ -21,9 +22,11 @@ export const bucketLabel = (at: number, bucket: 'hour' | 'day') =>
 /**
  * Visitors and page views over the range. The lines draw themselves from the
  * left whenever the range changes; hovering (or dragging a finger) rides a
- * hairline and a tooltip along the points on a spring.
+ * hairline and a tooltip along the points on a spring. `names`: what the two
+ * lines stand for on another chart (Mog City: players in the dark line, visitors
+ * in the light one, which must be the larger).
  */
-export function LineChart({ points, bucket, k }: { points: Point[]; bucket: 'hour' | 'day'; k: string }) {
+export function LineChart({ points, bucket, k, names = NAMES }: { points: Point[]; bucket: 'hour' | 'day'; k: string; names?: { visitors: string; views: string; empty?: string } }) {
   const wrap = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
   const [hover, setHover] = useState<number | null>(null);
@@ -93,7 +96,7 @@ export function LineChart({ points, bucket, k }: { points: Point[]; bucket: 'hou
     <div ref={wrap} className="chart">
       {w > 0 && (
         <svg width={w} height={H} onPointerMove={pick} onPointerDown={pick} onPointerLeave={() => setHover(null)} role="img"
-          aria-label={`Visitors and page views by ${bucket}`}>
+          aria-label={`${names.visitors} and ${names.views.toLowerCase()} by ${bucket}`}>
           <defs><clipPath id="chart-reveal"><rect ref={clip} x="0" y="0" width="0" height={H} /></clipPath></defs>
           {[0, max / 2, max].map((v) => (
             <g key={v}>
@@ -111,9 +114,9 @@ export function LineChart({ points, bucket, k }: { points: Point[]; bucket: 'hou
           </g>
         </svg>
       )}
-      {empty && w > 0 && <p className="chart-empty">No visits in this range yet.</p>}
+      {empty && w > 0 && <p className="chart-empty">{names.empty ?? NAMES.empty}</p>}
       <div ref={tip} className="tip" style={{ opacity: 0 }} aria-hidden>
-        {hp && <><b>{bucketLabel(hp.at, bucket)}</b><span><i className="k visitors" />Visitors {hp.visitors.toLocaleString('en-US')}</span><span><i className="k views" />Page views {hp.views.toLocaleString('en-US')}</span></>}
+        {hp && <><b>{bucketLabel(hp.at, bucket)}</b><span><i className="k visitors" />{names.visitors} {hp.visitors.toLocaleString('en-US')}</span><span><i className="k views" />{names.views} {hp.views.toLocaleString('en-US')}</span></>}
       </div>
     </div>
   );

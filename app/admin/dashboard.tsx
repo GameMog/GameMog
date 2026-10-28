@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AdminBuild, AdminScore, AdminWorld, Kpis, Range, Row, Stats } from '@/lib/analytics';
+import type { AdminBuild, AdminScore, AdminWorld, Kpis, McKpis, McStats, Range, Row, Stats } from '@/lib/analytics';
 import { setScore, setWorld, signOut } from './actions';
 import { LineChart } from './chart';
 import { Bar, BlurIn, MorphButton, Num, Segmented, Toasts, Toggle, useToast, type Busy } from './motion';
@@ -10,19 +10,22 @@ import { Palette, type Command } from './palette';
 import type { KartReportRow } from '@/lib/kart-report';
 import type { DareLoop, LoopWindow } from '@/lib/funnel';
 
-type Tab = 'overview' | 'dares' | 'worlds' | 'builds' | 'names' | 'traffic' | 'reports';
+type Tab = 'overview' | 'dares' | 'worlds' | 'builds' | 'names' | 'traffic' | 'mogcity' | 'reports';
 const TABS = [
   { id: 'overview', label: 'Overview' }, { id: 'dares', label: 'Dares' }, { id: 'worlds', label: 'Worlds' }, { id: 'builds', label: 'Builds' },
-  { id: 'names', label: 'Names' }, { id: 'traffic', label: 'Traffic' }, { id: 'reports', label: 'Crashes' },
+  { id: 'names', label: 'Names' }, { id: 'traffic', label: 'Traffic' }, { id: 'mogcity', label: 'Mog City' }, { id: 'reports', label: 'Crashes' },
 ] as const satisfies readonly { id: Tab; label: string }[];
 const RANGE_ITEMS = [{ id: '24h', label: '24h' }, { id: '7d', label: '7 days' }, { id: '30d', label: '30 days' }] as const satisfies readonly { id: Range; label: string }[];
 const RANGE_WORDS: Record<Range, string> = { '24h': 'the day before', '7d': 'the week before', '30d': 'the 30 days before' };
+// the tabs that follow the range switch
+const ranged = (t: Tab) => t === 'overview' || t === 'traffic' || t === 'mogcity';
 
 // slots: capacity now (lib/build-limits.ts): the builds running, of the site's cap (BUILD_SLOTS); the builds waiting in
 // line, of its length (BUILD_QUEUE_MAX); and the day's spend (Los Angeles's day, running builds at their estimate) against
 // its ceiling (BUILD_DAILY_USD)
 export type Capacity = { held: number; max: number; queue: number; queueMax: number; spent: number; inFlight: number; perBuild: number; ceiling: number };
-export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: Capacity; loop: DareLoop };
+// mc: Mog City (mc.gamemog.com), counted apart from everything else here (lib/analytics.ts mcStats)
+export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats> };
 
 export function Dashboard(props: AdminData) {
   return <Toasts><Board {...props} /></Toasts>;
@@ -39,7 +42,7 @@ export function ago(at: number) {
   return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, slots, loop }: AdminData) {
+function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, slots, loop, mc }: AdminData) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('overview');
@@ -74,7 +77,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
 
   const commands = useMemo<Command[]>(() => [
     ...TABS.map((t) => ({ id: `tab-${t.id}`, label: `Go to ${t.label}`, group: 'Tab', always: true, run: () => setTab(t.id) })),
-    ...RANGE_ITEMS.map((r) => ({ id: `range-${r.id}`, label: `Show the last ${r.id === '24h' ? '24 hours' : r.label}`, group: 'Range', always: true, run: () => { setRange(r.id); setTab((t) => (t === 'overview' || t === 'traffic' ? t : 'overview')); } })),
+    ...RANGE_ITEMS.map((r) => ({ id: `range-${r.id}`, label: `Show the last ${r.id === '24h' ? '24 hours' : r.label}`, group: 'Range', always: true, run: () => { setRange(r.id); setTab((t) => (ranged(t) ? t : 'overview')); } })),
     { id: 'refresh', label: 'Refresh the numbers', group: 'Data', always: true, run: () => { router.refresh(); toast('Numbers refreshed'); } },
     ...worlds.flatMap((w) => [
       { id: `pub-${w.id}`, label: `${w.hidden ? 'Restore' : 'Unpublish'} ${w.title}`, group: kindOf(w), run: () => publish(w, !!w.hidden) },
@@ -100,18 +103,19 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
         </div>
         <div className="adm-row adm-nav">
           <Segmented label="Sections" items={TABS} value={tab} onChange={setTab} counts={{ worlds: worlds.length, builds: builds.length }} />
-          {(tab === 'overview' || tab === 'traffic') && <Segmented label="Range" pill items={RANGE_ITEMS} value={range} onChange={setRange} />}
+          {ranged(tab) && <Segmented label="Range" pill items={RANGE_ITEMS} value={range} onChange={setRange} />}
         </div>
       </header>
 
       <main className="adm-main">
-        <BlurIn k={tab === 'overview' || tab === 'traffic' ? `${tab}-${range}` : tab}>
+        <BlurIn k={ranged(tab) ? `${tab}-${range}` : tab}>
           {tab === 'overview' && <Overview s={s} slots={slots} />}
           {tab === 'dares' && <Dares loop={loop} />}
           {tab === 'worlds' && <Worlds worlds={worlds} hidden={hiddenCount} publish={publish} />}
           {tab === 'builds' && <Builds builds={builds} titles={new Map(worlds.map((w) => [w.slug, w.title]))} />}
           {tab === 'names' && <Names scores={scores} setScores={setScores} />}
           {tab === 'traffic' && <Traffic s={s} />}
+          {tab === 'mogcity' && <MogCity m={mc[range]} />}
           {tab === 'reports' && <Reports reports={reports} />}
         </BlurIn>
       </main>
@@ -444,6 +448,9 @@ function Names({ scores, setScores }: { scores: AdminScore[]; setScores: React.D
 }
 
 /* ------------------------------------------------------------- traffic -- */
+// a count's word: one visitor, two visitors (units like "opened" or "pressed Play" stay as they are)
+const per = (n: number | string | undefined, word: string) => (Number(n) === 1 && word.endsWith('s') ? word.slice(0, -1) : word);
+
 function Bars({ rows, unit, sub }: { rows: Row[]; unit: string; sub?: string }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
   if (!rows.length) return <p className="none">Nothing in this range yet.</p>;
@@ -453,7 +460,7 @@ function Bars({ rows, unit, sub }: { rows: Row[]; unit: string; sub?: string }) 
         <li key={`${r.label}-${i}`}>
           <div className="fn-t">
             <span>{r.href ? <Link href={r.href} target="_blank">{r.label}</Link> : r.label}</span>
-            <b>{r.value.toLocaleString('en-US')} <small>{unit}{r.sub !== undefined && sub ? ` · ${r.sub} ${sub}` : ''}</small></b>
+            <b>{r.value.toLocaleString('en-US')} <small>{per(r.value, unit)}{r.sub !== undefined && sub ? ` · ${r.sub} ${per(r.sub, sub)}` : ''}</small></b>
           </div>
           <div className="track"><Bar share={r.value / max} delay={i * 0.04} /></div>
         </li>
@@ -470,5 +477,82 @@ function Traffic({ s }: { s: Stats }) {
       <section className="card"><div className="card-h"><h2>Where visitors came from</h2></div><Bars rows={s.sources} unit="visitors" /></section>
       <section className="card"><div className="card-h"><h2>Devices</h2></div><Bars rows={s.devices} unit="visitors" /></section>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------ mog city -- */
+// Mog City (mc.gamemog.com; the owner, 27 Oct), counted apart (lib/analytics.ts mcStats): who came, who pressed start,
+// how far the story went, and for how long
+const playTime = (ms: number) => {
+  if (ms < 60_000) return `${Math.round(ms / 1000)} s`;
+  const m = Math.round(ms / 60_000);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+};
+
+function McKpi({ label, k, m, format, hint, extra }: { label: string; k: keyof McKpis; m: McStats; format?: (n: number) => string; hint?: string; extra?: string }) {
+  return (
+    <div className="kpi" title={hint}>
+      <p className="kpi-l">{label}</p>
+      <p className="kpi-n"><Num value={m.now[k]} format={format} /></p>
+      <Delta now={m.now[k]} before={m.before[k]} range={m.range} />
+      {extra && <p className="kpi-x">{extra}</p>}
+    </div>
+  );
+}
+
+function MogCity({ m }: { m: McStats }) {
+  const n = m.now;
+  // the story as one funnel: the visit, the start, then each mission's title card and its pass, in story order
+  const steps: { label: string; value: number; fails?: number }[] = [
+    { label: 'Visited', value: n.visitors },
+    { label: 'Pressed start', value: n.players },
+    ...m.missions.flatMap((x) => [{ label: `${x.label} started`, value: x.started }, { label: `${x.label} passed`, value: x.passed, fails: x.fails }]),
+  ];
+  // the chart's dark line is players and its light one visitors (lib/analytics.ts McPoint)
+  const points = m.series.map((p) => ({ at: p.at, visitors: p.players, views: p.visitors }));
+  return (
+    <>
+      <section className="kpis">
+        <McKpi label="Visitors" k="visitors" m={m} hint="Browsers that opened Mog City" extra={`${n.loads.toLocaleString('en-US')} page load${n.loads === 1 ? '' : 's'}`} />
+        <McKpi label="Players" k="players" m={m} hint="Visitors who pressed start on the title" extra={n.visitors ? `${Math.round((n.players / n.visitors) * 100)}% of visitors` : undefined} />
+        <McKpi label="Starts" k="starts" m={m} hint="Presses of start, a player's second visit included" extra={n.players ? `${(n.starts / n.players).toFixed(1)} per player` : undefined} />
+        <McKpi label="Play time" k="playMs" m={m} format={playTime} hint="Time played with the game's tab in view, from the press of start" extra={n.players ? `${playTime(n.playMs / n.players)} per player` : undefined} />
+      </section>
+      <p className="fine">
+        Counted on its own at <a href="https://mc.gamemog.com" target="_blank" rel="noopener noreferrer">mc.gamemog.com</a>: none of it is in the Overview or Traffic numbers,
+        and a browser signed in here is not counted. Play time stops while the tab is hidden or no one has touched a control for five minutes.
+      </p>
+
+      <section className="card">
+        <div className="card-h">
+          <h2>Visitors and players</h2>
+          <p className="legend"><span><i className="k visitors" />Players</span><span><i className="k views" />Visitors</span></p>
+        </div>
+        <LineChart points={points} bucket={m.bucket} k={`mc-${m.range}`} names={{ visitors: 'Players', views: 'Visitors', empty: 'No one on Mog City in this range yet.' }} />
+      </section>
+
+      <div className="two">
+        <section className="card">
+          <div className="card-h"><h2>From visit to the last mission</h2></div>
+          <ol className="funnel">
+            {steps.map((f, i) => (
+              <li key={f.label}>
+                <div className="fn-t"><span>{f.label}</span><b><Num value={f.value} /></b></div>
+                <div className="track"><Bar share={n.visitors ? f.value / n.visitors : 0} delay={i * 0.05} /></div>
+                {i > 0 && (
+                  <p className="fn-c">
+                    {steps[i - 1].value ? `${Math.round((f.value / steps[i - 1].value) * 100)}% of the step before` : 'No one reached the step before'}
+                    {f.fails ? ` · ${f.fails.toLocaleString('en-US')} failed run${f.fails === 1 ? '' : 's'}` : ''}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
+        <section className="card"><div className="card-h"><h2>Why missions were failed</h2></div><Bars rows={m.fails} unit="fails" sub="players" /></section>
+        <section className="card"><div className="card-h"><h2>Where visitors came from</h2></div><Bars rows={m.sources} unit="visitors" /></section>
+        <section className="card"><div className="card-h"><h2>Devices</h2></div><Bars rows={m.devices} unit="visitors" /></section>
+      </div>
+    </>
   );
 }

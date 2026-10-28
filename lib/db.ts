@@ -243,6 +243,34 @@ function dareSchema(d: DatabaseSync) {
 }
 dareSchema(db);
 
+/**
+ * Mog City's own counts (27 Oct; mc.gamemog.com's wagmi/stats.js, app/api/mc, lib/analytics.ts mcStats), in a table of
+ * their own so they never add to GameMog's visitors, views or funnels: one row per moment, against the random id the
+ * game's browser made for itself. kind: land (a page load, with where it came from in ref and source), start (the
+ * start gate pressed), mission (a mission's title card, its name in detail), pass (detail the mission), fail (detail
+ * "<mission>: <reason>") or time (ms of play with the tab in view since the last one). No IP address, no cookie. Run on
+ * every load of this module, as the dare loop's is, so a server already running picks it up; the live disk gets it on
+ * its next boot.
+ */
+function mcSchema(d: DatabaseSync) {
+  d.exec(`
+    CREATE TABLE IF NOT EXISTS mc_events (
+      id       INTEGER PRIMARY KEY AUTOINCREMENT,
+      at       INTEGER NOT NULL,
+      visitor  TEXT NOT NULL,
+      kind     TEXT NOT NULL,
+      detail   TEXT,
+      ms       INTEGER,
+      ref      TEXT,
+      source   TEXT,
+      device   TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS mc_events_by_time ON mc_events(at);
+    CREATE INDEX IF NOT EXISTS mc_events_by_kind ON mc_events(kind, at);
+  `);
+}
+mcSchema(db);
+
 /* ------------------------------------------------------------------ rows -- */
 export type GameRow = {
   id: string;
