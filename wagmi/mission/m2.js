@@ -418,7 +418,9 @@ function createMission(W, { keep = false } = {}) {
       // (its tail lamps up for the tail, brighter when it brakes: a dark van on a dark street stays in sight)
       let lamps = null; C.van.group.traverse((o) => { if (!lamps && o.isMesh && o.material?.emissive?.getHex() === 0xFF2A1A) lamps = o.material; });
       const lamps0 = lamps?.emissiveIntensity ?? 0;
-      let sus = 0, farT = 0, lost = false, helped = false, fallT = 0, onFootT = 0, yardUp = false, lastV = vanD.v, goT = null;
+      let sus = 0, farT = 0, lost = false, helped = false, braked = false, fallT = 0, onFootT = 0, yardUp = false, lastV = vanD.v, goT = null;
+      // (how fast he is gaining on it, m/s, smoothed over 0.3 s: the meter's CLOSING FAST)
+      let dPrev = null, closing = 0;
       const t0 = now();
       // (a tail has no route: the van's blip and the chevron over it, GTA's way)
       const vanTarget = null;
@@ -465,9 +467,17 @@ function createMission(W, { keep = false } = {}) {
             W.calls?.mode('fast'); W.calls?.react('spotted');
           }
         }
-        const zone = d < 12 ? ['TOO CLOSE', '#EF4444'] : d < 18 ? ['CLOSE', '#F59E0B'] : d < 70 ? ['GOOD', '#FFC93C'] : d < 100 ? ['FALLING BEHIND', '#FFFFFF'] : ['LOSING THEM', '#EF4444'];
+        // (off the gas his car rolls on (js/controllers.js driveSpeed's coast) and the van brakes hard for its corners, so
+        // the meter warns while there is still room to brake: gaining on it fast enough to be TOO CLOSE within 2 s,
+        // CLOSING FAST)
+        if (dt > 0 && dPrev != null) closing += ((dPrev - d) / dt - closing) * Math.min(1, dt / 0.3);
+        dPrev = d;
+        const fast = d < 40 && closing > 3 && (d - 12) / closing < 2;
+        const zone = d < 12 ? ['TOO CLOSE', '#EF4444'] : d < 18 ? ['CLOSE', '#F59E0B'] : fast ? ['CLOSING FAST', '#F59E0B'] : d < 70 ? ['GOOD', '#FFC93C'] : d < 100 ? ['FALLING BEHIND', '#FFFFFF'] : ['LOSING THEM', '#EF4444'];
         U.tail.set({ d, sus, note: S.flee ? 'SPOTTED · KEEP UP' : zone[0], color: S.flee ? '#EF4444' : zone[1] });
-        if (!helped && t > 1.5) { helped = true; ui.help('Keep the van in sight. Too close and they spot you, too far and you lose it. Watch the meter.', 9); }
+        if (!helped && t > 1.5) { helped = true; ui.help('Keep the van in sight. Too close and they spot you: brake to drop back. Too far and you lose it. Watch the meter.', 9); }
+        // (the first time the meter warns, the brakes are how to drop back)
+        if (!braked && !S.flee && goT != null && (d < 18 || fast) && inCar()) { braked = true; ui.help('Brake to drop back. Off the gas, your car rolls on.', 7, { mode: 'car' }); }
         // losing it
         if (d > 110) { farT += dt; if (!lost) { lost = true; objective(["Don't lose the ", { van: 'red' }, '.'], vanTarget); } } else { farT = Math.max(0, farT - dt); if (lost && d < 80) { lost = false; say1(); } }
         // (not in its first seconds on the move: he's still making the corner)

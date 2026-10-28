@@ -37,6 +37,30 @@ const FOOT_TURN = 11; // rad/s
 const FOOT_FOLLOW = 0.35; // 1/s
 const _footView = new THREE.Vector3();
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+// (Mog City, after Slop New York f3132b6, 0e92315 and 6ae28ae) a car's speed along its way after dt, from its pace d
+// (speed, boostSpeed, reverse: a share of either, accel, boostAccel) and how it slows (rolling, drag, coast, brake,
+// boostBrake):
+//  - always a steady rolling resistance and the air's drag (drag * v^2), never taking it through zero;
+//  - lifted off, coast more on top (a car rolls on, it doesn't stop dead); against its way of travel, the brakes;
+//  - under power its pull up to its top, net of that resistance, so its pace stays its own (Dan's car: 0-60 mph in
+//    1.7 s); over its top (the boost let go with the throttle held, a shove) the extra dies away instead of snapping
+function driveSpeed(speed, throttle, boost, dt, d) {
+  // (a crawl the wrong way, a turn's slide fed back into speed after braking to a stop, is a stop: changing direction
+  // can't hold the brakes on for ever)
+  if (speed * throttle < 0 && Math.abs(speed) < 0.05) speed = 0;
+  const braking = speed * throttle < 0, magnitude = Math.abs(speed);
+  // (Mog City: the brakes follow the boost the way the pull does, as they always did here: the boost's with the boost
+  // held, or while it is still over its top from the boost (Shift let go at 125 mph, S: hard down to 76, then the
+  // plain brakes))
+  const brake = boost || magnitude > d.speed ? d.boostBrake : d.brake;
+  const deceleration = d.rolling + (!throttle ? d.coast : braking ? Math.abs(throttle) * brake : 0);
+  const coasting = Math.max(0, magnitude - deceleration * dt) / (1 + d.drag * magnitude * dt);
+  if (!throttle || braking) return Math.sign(speed) * coasting;
+  const top = boost ? d.boostSpeed : d.speed, limit = throttle < 0 ? top * d.reverse : top;
+  const pull = Math.abs(throttle) * (boost ? d.boostAccel : d.accel) * dt;
+  return Math.sign(throttle) * Math.min(Math.max(limit, coasting), magnitude + pull);
+}
+const _drive = {};
 // (x, z) inside a ring of { x, z } points (its bounds kept on it)
 function inRing(pts, x, z) {
   let b = pts._b;
@@ -1317,21 +1341,24 @@ class ThirdPersonControllerManager {
 
   updateCar(dt) {
     const c = this.entities.car;
-    // (Mog City: a car may bring its own pace: topSpeed, boostSpeed, accel, boostAccel)
+    // (Mog City: a car may bring its own pace: topSpeed, boostSpeed, accel, boostAccel; and how it slows: rolling, drag,
+    // coast, brake, boostBrake. Its speed from them: driveSpeed, after Slop New York f3132b6, whose numbers are the
+    // defaults; without a boostBrake, its brakes are the same either way)
     const maxSpeed = this.keys.boost ? (c.boostSpeed ?? 36.0) : (c.topSpeed ?? 23.5);
-    const accel = this.keys.boost ? (c.boostAccel ?? 21.0) : (c.accel ?? 14.0);
+    const brake = c.brake ?? 9.0;
+    const drive = Object.assign(_drive, {
+      speed: c.topSpeed ?? 23.5, boostSpeed: c.boostSpeed ?? 36.0, reverse: 0.45, accel: c.accel ?? 14.0, boostAccel: c.boostAccel ?? 21.0,
+      rolling: c.rolling ?? 0.18, drag: c.drag ?? 0.0012, coast: c.coast ?? 0.6, brake, boostBrake: c.boostBrake ?? brake
+    });
 
     let throttle = 0;
     if (this.keys.forward) throttle = this.keys.forward;
     else if (this.keys.backward) throttle = -this.keys.backward;
 
-    if (throttle !== 0) {
-      c.speed += throttle * accel * dt;
-      c.speed = Math.max(-maxSpeed * 0.45, Math.min(maxSpeed, c.speed));
-    } else {
-      c.speed *= Math.max(0, 1 - dt * 2.8);
-      if (Math.abs(c.speed) < 0.08) c.speed = 0;
-    }
+    const speed0 = c.speed;
+    c.speed = driveSpeed(c.speed, throttle, this.keys.boost, dt, drive);
+    // (what the drive did to its speed, m/s^2: the chassis pitches with it, below)
+    const acceleration = dt > 0 ? (c.speed - speed0) / dt : 0;
 
     let steerInput = 0;
     if (this.keys.left) steerInput = this.keys.left;
@@ -1390,7 +1417,9 @@ class ThirdPersonControllerManager {
     }
 
     // 3-DOF Spring-Damper Chassis Suspension (Pitch, Roll & Vertical Heave)
-    const targetPitch = -throttle * 0.026;
+    // (Mog City, after Slop New York f3132b6: nose up as it pulls, down as it slows, level at a steady cruise; full at
+    // its accel)
+    const targetPitch = -Math.max(-1, Math.min(1, acceleration / drive.accel)) * 0.026;
     // (a handled car rolls with its turn's sideways pull: 0.048 rad at 30 m/s², as the old way at its top speed)
     const targetRoll = c.handling ? -c.steerK * yawFull * c.speed * 0.0016 : -c.steerAngle * (c.speed / maxSpeed) * 0.092;
     const springK = 68.0;
