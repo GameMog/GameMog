@@ -40,9 +40,11 @@ installDriveMode(WAGMI);
   Object.assign(car, { label: "Dan's car", topSpeed: 34, boostSpeed: 56, accel: 16, boostAccel: 32, roadster: rs });
   // how it slows (js/controllers.js driveSpeed, after Slop New York f3132b6): rolling 0.5 m/s² and the air (0.004 v²)
   // always, 3 more lifted off (coast: 60 mph to 10 in about 5 s, 72 m, where it used to stop in 0.6 s), the brakes 16
-  // (1.6 g as before: 60 mph to a stop in 20 m). Its pace above is net of them (0-60 mph in 1.7 s, 76 mph, 125 on the
-  // boost); the boost let go with W held, it bleeds back from 125 to 76 mph over about 2.6 s, no longer in one frame
-  Object.assign(car, { rolling: 0.5, drag: 0.004, coast: 3, brake: 16 });
+  // (1.6 g as before: 60 mph to a stop in 20 m), 32 with Shift held (its boostAccel, as the brakes always were on the
+  // boost: 60 mph to a stop in 11 m, 125 mph in 41 m; and from 125 with Shift let go, 32 down to 76 mph, then 16). Its
+  // pace above is net of them (0-60 mph in 1.7 s, 76 mph, 125 on the boost); the boost let go with W held, it bleeds
+  // back from 125 to 76 mph over about 2.6 s, no longer in one frame
+  Object.assign(car, { rolling: 0.5, drag: 0.004, coast: 3, brake: 16, boostBrake: 32 });
   // its steering, for a keyboard (js/controllers.js steerHandled): to full lock in 0.11 s at walking pace, 0.17 s from
   // 34 m/s up, back to the middle in 0.08 s; full lock a 4.6 m circle at walking pace, at most 106 degrees a second, and
   // never more than 48 m/s² sideways: a Manhattan corner taken at 45-55 mph on the key alone (a 11-13 m circle), flat

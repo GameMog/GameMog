@@ -38,7 +38,8 @@ const FOOT_FOLLOW = 0.35; // 1/s
 const _footView = new THREE.Vector3();
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 // (Mog City, after Slop New York f3132b6, 0e92315 and 6ae28ae) a car's speed along its way after dt, from its pace d
-// (speed, boostSpeed, reverse: a share of either, accel, boostAccel) and how it slows (rolling, drag, coast, brake):
+// (speed, boostSpeed, reverse: a share of either, accel, boostAccel) and how it slows (rolling, drag, coast, brake,
+// boostBrake):
 //  - always a steady rolling resistance and the air's drag (drag * v^2), never taking it through zero;
 //  - lifted off, coast more on top (a car rolls on, it doesn't stop dead); against its way of travel, the brakes;
 //  - under power its pull up to its top, net of that resistance, so its pace stays its own (Dan's car: 0-60 mph in
@@ -48,7 +49,11 @@ function driveSpeed(speed, throttle, boost, dt, d) {
   // can't hold the brakes on for ever)
   if (speed * throttle < 0 && Math.abs(speed) < 0.05) speed = 0;
   const braking = speed * throttle < 0, magnitude = Math.abs(speed);
-  const deceleration = d.rolling + (!throttle ? d.coast : braking ? Math.abs(throttle) * d.brake : 0);
+  // (Mog City: the brakes follow the boost the way the pull does, as they always did here: the boost's with the boost
+  // held, or while it is still over its top from the boost (Shift let go at 125 mph, S: hard down to 76, then the
+  // plain brakes))
+  const brake = boost || magnitude > d.speed ? d.boostBrake : d.brake;
+  const deceleration = d.rolling + (!throttle ? d.coast : braking ? Math.abs(throttle) * brake : 0);
   const coasting = Math.max(0, magnitude - deceleration * dt) / (1 + d.drag * magnitude * dt);
   if (!throttle || braking) return Math.sign(speed) * coasting;
   const top = boost ? d.boostSpeed : d.speed, limit = throttle < 0 ? top * d.reverse : top;
@@ -1337,11 +1342,13 @@ class ThirdPersonControllerManager {
   updateCar(dt) {
     const c = this.entities.car;
     // (Mog City: a car may bring its own pace: topSpeed, boostSpeed, accel, boostAccel; and how it slows: rolling, drag,
-    // coast, brake. Its speed from them: driveSpeed, after Slop New York f3132b6, whose numbers are the defaults)
+    // coast, brake, boostBrake. Its speed from them: driveSpeed, after Slop New York f3132b6, whose numbers are the
+    // defaults; without a boostBrake, its brakes are the same either way)
     const maxSpeed = this.keys.boost ? (c.boostSpeed ?? 36.0) : (c.topSpeed ?? 23.5);
+    const brake = c.brake ?? 9.0;
     const drive = Object.assign(_drive, {
       speed: c.topSpeed ?? 23.5, boostSpeed: c.boostSpeed ?? 36.0, reverse: 0.45, accel: c.accel ?? 14.0, boostAccel: c.boostAccel ?? 21.0,
-      rolling: c.rolling ?? 0.18, drag: c.drag ?? 0.0012, coast: c.coast ?? 0.6, brake: c.brake ?? 9.0
+      rolling: c.rolling ?? 0.18, drag: c.drag ?? 0.0012, coast: c.coast ?? 0.6, brake, boostBrake: c.boostBrake ?? brake
     });
 
     let throttle = 0;
