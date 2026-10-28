@@ -9,7 +9,7 @@
 //                   C   G4 . C5 . E5 . G5 . . . E5 . D5 . . .    B   D#5 . . . F#5 . . . B4 . . . . . . .
 import { createSong } from './synth.mjs';
 
-export const meta = { id: 'wagmi-pump', title: 'Fall Guy', bpm: 140,
+export const meta = { id: 'fall-guy', title: 'Fall Guy', bpm: 140,
   sections: [['intro', 0, 8], ['hookA', 8, 24], ['verse', 24, 40], ['build', 40, 48], ['hookB', 48, 64], ['outro', 64, 80]] };
 
 export function build() {

@@ -13,7 +13,7 @@
 //   C   C5 . . E5 G5 . E5 . D5 . C5 . D5 . E5 .     G  D5 . . C5 . . B4 . G4 . . . . . . .
 import { createSong } from './synth.mjs';
 
-export const meta = { id: 'wagmi-theme', title: 'Unfinished Business', bpm: 94,
+export const meta = { id: 'unfinished-business', title: 'Unfinished Business', bpm: 94,
   sections: [['intro', 0, 4], ['hookA', 4, 12], ['verse1', 12, 20], ['build', 20, 24], ['hookB', 24, 32], ['verse2', 32, 40], ['bridge', 40, 44], ['hookC', 44, 52], ['outro', 52, 56]] };
 
 export function build() {

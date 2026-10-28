@@ -10,7 +10,7 @@
 //                      Em9    G4 . B4 . D5 . . . F#5 . . . E5 . . .       A13  E5 . . C#5 A4 . . . C#5 . B4 . A4 . . .
 import { createSong } from './synth.mjs';
 
-export const meta = { id: 'wagmi-glide', title: 'Fifth Ave Glide', bpm: 86,
+export const meta = { id: 'fifth-ave-glide', title: 'Fifth Ave Glide', bpm: 86,
   sections: [['intro', 0, 4], ['A1', 4, 12], ['B1', 12, 20], ['A2', 20, 28], ['break', 28, 32], ['B2', 32, 40], ['A3', 40, 48]] };
 
 export function build() {

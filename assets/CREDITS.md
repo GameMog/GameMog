@@ -48,8 +48,8 @@ under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
 ### Original to this game
 
-"Unfinished Business", "Fall Guy" and "Fifth Ave Glide" play on MOG FM (`wagmi-theme.m4a`, `wagmi-pump.m4a`,
-`wagmi-glide.m4a`). They were composed as code in `wagmi/radio/build/music/` and are MIT-licensed with the rest of the
+"Unfinished Business", "Fall Guy" and "Fifth Ave Glide" play on MOG FM (`unfinished-business.m4a`, `fall-guy.m4a`,
+`fifth-ave-glide.m4a`). They were composed as code in `wagmi/radio/build/music/` and are MIT-licensed with the rest of the
 game.
 
 ## Characters

@@ -95,7 +95,7 @@ The same list is in assets/CREDITS.md, and in the game on the pause menu's Credi
 (wagmi/credits.js). The game's theme is "Pyro Flow" by Kevin MacLeod (MOG FM's first track).
 
   - "Unfinished Business", "Fall Guy" and "Fifth Ave Glide" (MOG FM;
-    assets/music/wagmi-theme.m4a, wagmi-pump.m4a, wagmi-glide.m4a) are original to this game,
+    assets/music/unfinished-business.m4a, fall-guy.m4a, fifth-ave-glide.m4a) are original to this game,
     composed as code and rendered offline by wagmi/radio/build/music/ (no samples, no loops from
     anyone else).
 

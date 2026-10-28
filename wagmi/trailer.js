@@ -1,5 +1,5 @@
 // Mog City: Unfinished Business. The cold open: a 40 s trailer, live in the engine, between "Tap to start" and the opening: cut
-// on the beat of the game's own "Fall Guy" (140 BPM, assets/music/wagmi-pump.m4a, MIT), letterboxed and graded,
+// on the beat of the game's own "Fall Guy" (140 BPM, assets/music/fall-guy.m4a, MIT), letterboxed and graded,
 // then the opening (wagmi/intro.js) from its first frame exactly as before. Hold to skip it at any moment (the
 // cutscenes' own skip: Space or Enter held, a long press anywhere, the pad's A). Its cut is gamemog.com's hero too.
 //   off by default (?trailer=1 puts it back)        ?trailer=only  it alone, held on the title at the end (for looking at it;
@@ -36,7 +36,7 @@ const Q = new URLSearchParams(location.search);
 const PI = Math.PI;
 const BPM = 140, BEAT = 60 / BPM, BAR = 4 * BEAT;
 const B = (b) => b * BAR;
-const MUSIC = 'assets/music/wagmi-pump.m4a', BOSSV = 'assets/voice/intro-mrbig-you-sign-the-confession.m4a';
+const MUSIC = 'assets/music/fall-guy.m4a', BOSSV = 'assets/voice/intro-mrbig-you-sign-the-confession.m4a';
 // the music's edit, on its bar lines (the chord loop kept): [trailer bar, the track's bar, bars]
 // (v2: the drop two bars longer, the hook running on to its bar 58; the silent card after it. v3: one bar more, to 59.
 // v4: three bars out with the mechanic, the fight and the rail: the loop once (48-51, Em Am C B), then from 55, its B

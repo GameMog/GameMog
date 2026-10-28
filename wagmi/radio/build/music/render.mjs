@@ -1,5 +1,5 @@
 // Mog City: render an original track to assets/music/<id>.m4a (Node, macOS afconvert).
-//   node wagmi/radio/build/music/render.mjs theme [pump glide]   (writes the WAV next to the build log in --wav <dir>)
+//   node wagmi/radio/build/music/render.mjs theme [fallguy glide]   (writes the WAV next to the build log in --wav <dir>)
 // Each track is set to -14 LUFS integrated with its peaks under -1 dBTP, and measured: loudness, peak, and the share of
 // energy per band in each section (to see the mix: sub, bass, low-mid, mid, high, air).
 import fs from 'node:fs';

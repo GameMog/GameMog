@@ -19,10 +19,10 @@ export const STATIONS = [
     id: 'wagmi', name: 'MOG FM', freq: '94.0', tag: 'Hip-hop · pop · the city\'s anthem', color: '#FFC93C',
     tracks: [
       { file: 'assets/music/pyro-flow.m4a', title: 'Pyro Flow', artist: 'Kevin MacLeod', dur: 231.97, lufs: -14.04, lic: 'CC BY 4.0', by: MACLEOD('Pyro Flow'), src: INCOMPETECH('Pyro Flow') },
-      { file: 'assets/music/wagmi-theme.m4a', title: 'Unfinished Business', artist: 'Mog City', dur: 142.98, lufs: -14.1, lic: 'original' },
+      { file: 'assets/music/unfinished-business.m4a', title: 'Unfinished Business', artist: 'Mog City', dur: 142.98, lufs: -14.1, lic: 'original' },
       { file: 'assets/music/basic-implosion.m4a', title: 'Basic Implosion', artist: 'Kevin MacLeod', dur: 187.8, lufs: -14.05, lic: 'CC BY 4.0', by: MACLEOD('Basic Implosion'), src: INCOMPETECH('Basic Implosion') },
-      { file: 'assets/music/wagmi-pump.m4a', title: 'Fall Guy', artist: 'Mog City', dur: 137.14, lufs: -14.03, lic: 'original' },
-      { file: 'assets/music/wagmi-glide.m4a', title: 'Fifth Ave Glide', artist: 'Mog City', dur: 133.95, lufs: -14.03, lic: 'original' },
+      { file: 'assets/music/fall-guy.m4a', title: 'Fall Guy', artist: 'Mog City', dur: 137.14, lufs: -14.03, lic: 'original' },
+      { file: 'assets/music/fifth-ave-glide.m4a', title: 'Fifth Ave Glide', artist: 'Mog City', dur: 133.95, lufs: -14.03, lic: 'original' },
     ],
   },
   {
