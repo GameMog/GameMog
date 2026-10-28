@@ -2,7 +2,7 @@
 // on the beat of the game's own "Number Go Up" (140 BPM, assets/music/wagmi-pump.m4a, MIT), letterboxed and graded,
 // then the opening (wagmi/intro.js) from its first frame exactly as before. Hold to skip it at any moment (the
 // cutscenes' own skip: Space or Enter held, a long press anywhere, the pad's A). Its cut is gamemog.com's hero too.
-//   ?trailer=0  without it        ?trailer=only  it alone, held on the title at the end (for looking at it;
+//   off by default (?trailer=1 puts it back)        ?trailer=only  it alone, held on the title at the end (for looking at it;
 //   &trat=<s> starts it s seconds in)        ?nointro, ?nogate and every ?m.. switch leave it out with the opening.
 // The shots (v4: the mechanic, the park fight and the rail vault out, the owner, 24 Oct; v5 the story's, 27 Oct):
 //   1 black, a phone buzzing: FIRST YEAR AT JPBANK.     2 an aerial over Midtown at dusk to the Empire State
@@ -63,10 +63,11 @@ function bossFirst(buf) {
 const WHITE = '#FFFFFF', ACID = '#B6FF3B', GOLD = '#FFC93C';
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 
-// who it plays for: not with ?trailer=0, ?nointro, ?nogate or a mission switch; 'only' for ?trailer=only
+// who it plays for: nobody by default (the owner, 28 Oct: the game opens straight on the opening cutscene); ?trailer=1
+// puts it back before the opening, 'only' for ?trailer=only; never with ?nointro, ?nogate or a mission switch
 export function trailerMode() {
   const v = (Q.get('trailer') || '').toLowerCase();
-  if (v === '0' || v === 'off' || v === 'no' || v === 'false') return null;
+  if (v !== 'only' && v !== '1' && v !== 'on') return null;
   if (Q.has('nointro') || Q.has('nogate') || [...Q.keys()].some((k) => /^m\d/.test(k))) return null;
   return v === 'only' ? 'only' : 'on';
 }
