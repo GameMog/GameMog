@@ -1211,11 +1211,31 @@ export async function buildFiona(W) {
   const eb = new THREE.Box3(), _v = V(); let eyeMesh = null;
   inner.traverse((o) => { if (!o.isSkinnedMesh || !/eyes/.test(o.material?.name || '')) return; eyeMesh = o; const g = o.geometry, pa = g.attributes.position, ix = g.index;
     const n = ix ? ix.count : pa.count; for (let i = 0; i < n; i++) eb.expandByPoint(_v.fromBufferAttribute(pa, ix ? ix.getX(i) : i).applyMatrix4(o.bindMatrix)); });
-  const shades = new THREE.Group(), frame = new THREE.MeshStandardMaterial({ color: '#F4F4F6', roughness: 0.3 }), lens = new THREE.MeshPhysicalMaterial({ color: '#08080A', roughness: 0.05, metalness: 0.5, clearcoat: 1 });
-  for (const sx of [-1, 1]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.038, 0.01), frame); l.position.x = sx * 0.033; l.rotation.y = sx * 0.18; shades.add(l); const k = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.029, 0.007), lens); k.position.set(sx * 0.033, 0, 0.004); k.rotation.y = sx * 0.18; shades.add(k);
-    // (the arms back to her ears)
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.007, 0.1), frame); arm.position.set(sx * 0.064, 0.008, -0.05); arm.rotation.y = sx * -0.06; shades.add(arm); }
-  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.006, 0.008), frame); bridge.position.set(0, 0.009, 0.002); shades.add(bridge);
+  // (28 Oct, the lead: one smooth piece, not stacked boxes, as the Suits' glasses (wagmi/combat/index.js): fashion shades,
+  // a little oversized and a little cat-eye: each side a rounded white frame (its outline flicked up at the outer top
+  // corner, the lens opening cut out of it), bevelled, toed in; a glossy dark lens seated in each; a bridge; rounded arms
+  // back to her ears. The same size and place as the boxes they replace, give or take a few mm)
+  const shades = new THREE.Group(), frame = new THREE.MeshPhysicalMaterial({ color: '#F3F3F1', roughness: 0.28, clearcoat: 0.7, clearcoatRoughness: 0.18 }), lens = new THREE.MeshPhysicalMaterial({ color: '#141216', roughness: 0.03, metalness: 0.45, clearcoat: 1, clearcoatRoughness: 0.02 });
+  {
+    // (a closed outline through points [x, y, corner radius], each corner rounded; sx -1 mirrors it)
+    const outline = (P, sx = 1, s = new THREE.Shape()) => { const Q = P.map(([x, y, r]) => [x * sx, y, r]);
+      Q.forEach(([x, y, r], i) => { const [px, py] = Q[(i + Q.length - 1) % Q.length], [nx, ny] = Q[(i + 1) % Q.length], a = Math.hypot(px - x, py - y), b = Math.hypot(nx - x, ny - y), u = [x + (px - x) * Math.min(0.45, r / a), y + (py - y) * Math.min(0.45, r / a)], v = [x + (nx - x) * Math.min(0.45, r / b), y + (ny - y) * Math.min(0.45, r / b)];
+        if (i) s.lineTo(...u); else s.moveTo(...u); s.quadraticCurveTo(x, y, ...v); });
+      s.closePath(); return s; };
+    const LENS = [[-0.029, 0.015, 0.009], [0.002, 0.0195, 0.03], [0.034, 0.024, 0.005], [0.029, -0.008, 0.013], [0.009, -0.019, 0.014], [-0.024, -0.015, 0.012]];
+    const inner = (k) => LENS.map(([x, y, r]) => [0.002 + (x - 0.002) * k, 0.001 + (y - 0.001) * k, r * k]);
+    const ex = (sh, d, bev) => new THREE.ExtrudeGeometry(sh, { depth: d, bevelEnabled: !!bev, bevelThickness: bev, bevelSize: bev * 0.8, bevelSegments: 3, curveSegments: 10 }).translate(0, 0, -d / 2);
+    const F = [], L = [];
+    for (const sx of [-1, 1]) {
+      const sh = outline(LENS, sx); sh.holes.push(outline(inner(0.83), sx, new THREE.Path()));
+      F.push(ex(sh, 0.0045, 0.0012).rotateY(sx * 0.18).translate(sx * 0.034, 0, 0));
+      L.push(ex(outline(inner(0.865), sx), 0.0012, 0.0004).rotateY(sx * 0.18).translate(sx * 0.034, 0, 0.0004));
+      // (the arm: a rounded bar from the frame's outer top back over her ear, splayed a little)
+      F.push(ex(outline([[-0.0022, -0.004, 0.0018], [0.0022, -0.004, 0.0018], [0.0022, 0.004, 0.0018], [-0.0022, 0.004, 0.0018]]), 0.104, 0.0006).translate(0, 0, -0.052).rotateY(sx * -0.06).translate(sx * 0.066, 0.011, -0.004));
+    }
+    F.push(ex(outline([[-0.009, -0.0022, 0.002], [0.009, -0.0022, 0.002], [0.008, 0.0028, 0.002], [-0.008, 0.0028, 0.002]]), 0.004, 0.0008).translate(0, 0.01, 0.001));
+    shades.add(new THREE.Mesh(mergeGeometries(F), frame), new THREE.Mesh(mergeGeometries(L), lens));
+  }
   const hb = eyeMesh && eyeMesh.skeleton.bones.findIndex((b) => b.name === 'head');
   if (eyeMesh && hb >= 0 && !eb.isEmpty()) {
     const eye = eb.getCenter(V()).setZ(eb.max.z), at = new THREE.Matrix4().makeTranslation(eye.x, eye.y + 0.004, eye.z + 0.016);
