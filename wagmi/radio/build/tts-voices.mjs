@@ -129,12 +129,28 @@ export const VOICES = {
       { voice: 'am_onyx', speed: 1.03, delay: 0.1, gain: -2 }, { voice: 'af_kore', speed: 1.05, delay: 0.08, gain: -3 },
       { voice: 'am_eric', speed: 1.07, delay: 0.12, gain: -3 }, { voice: 'af_jessica', speed: 1.01, delay: 0.05, gain: -4 },
     ] },
+  // B: the same eight voices closer together (half the stagger, 20 ms of jitter, the first voice 2 dB up), so the words
+  // carry: the voice QA of 28 Oct (speech recognition, the owner's go) heard A's 'Free Dan!' as 'Freedom' and 'Banks got
+  // bailed out!' as nonsense; B is heard right but for 'Free Dam' and one muddy middle. In the build since that QA (picked
+  // by speech recognition, not yet by the owner's ear; A stays as the alternate)
+  'camp-B': { speaker: 'Camp', engine: 'crowd', desc: 'kokoro-crowd-of-8-tight', seed: 2801, jitter: 0.02,
+    crowd: [
+      { voice: 'am_michael', speed: 1.04, delay: 0, gain: 2 }, { voice: 'af_sarah', speed: 1.08, delay: 0.02, gain: -1 },
+      { voice: 'am_adam', speed: 1.02, delay: 0.035, gain: -1 }, { voice: 'af_bella', speed: 1.1, delay: 0.01, gain: -2 },
+      { voice: 'am_onyx', speed: 1.03, delay: 0.05, gain: -2 }, { voice: 'af_kore', speed: 1.05, delay: 0.04, gain: -3 },
+      { voice: 'am_eric', speed: 1.07, delay: 0.06, gain: -3 }, { voice: 'af_jessica', speed: 1.01, delay: 0.025, gain: -4 },
+    ] },
 };
 
 // how the synthesised voices should say a few words (on top of cast.mjs SAY; the subtitles keep the spelling)
+// (the voice QA of 28 Oct, by speech recognition: Fiona's 'Hiii' came out 'Hee', 'Ms. Bea' as 'Bee-ah', and the Camp's
+// 'Mic check!' lost its k's in the crowd)
 export const TTS_SAY = [
   [/\bHODL\b/g, 'hoddle'],
   [/^\.\.\./, ''],
+  [/\bHiii\b/g, 'Haaai'],
+  [/\bBea\b(?!')/g, 'Bee'],
+  [/^Mic check!$/, 'Mic, check!'],
 ];
 
 // a source tag for the manifest and NOTICE: what made the line

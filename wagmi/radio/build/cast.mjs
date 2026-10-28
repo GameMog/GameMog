@@ -12,7 +12,10 @@ export const CAST = {
     who: 'the CEO of JPBank, about sixty, the one who set Dan up: a video call from his study, a cigar in his hand, his own voice',
     direction: 'Smug, polished, unhurried; a CEO in his study who has never been told no. Never shouts. Smiles through the threats.' },
   Jane: { voice: 'Samantha', rate: 205, call: 'phone', who: 'Dan\'s girlfriend since their college days at SUNY: a Puerto Rican New Yorker in her mid-20s who works in data and pieces the evidence together; mostly a voice on the phone',
-    direction: 'Quick, warm and wry, composed; her own natural New York voice (no put-on accent); fast because she thinks fast; dry about Dan\'s choices, fully on his side.' },
+    direction: 'Quick, warm and wry, composed; her own natural New York voice (no put-on accent); fast because she thinks fast; dry about Dan\'s choices, fully on his side.',
+    // (the owner, 28 Oct: "Jane should not whisper, does not sound right": the tail call's lines in her own voice, a
+    // little quieter (voices.mjs HUSH_DB), not the LPC whisper)
+    whisper: false },
   Dash: { voice: 'Reed (English (US))', rate: 220, pbas: 52, who: 'one of the Suits, always late, even to fights: tie half-knotted',
     direction: 'Breathless, whiny, a higher pitch; running in late.' },
   Mack: { voice: 'Rocko (English (US))', rate: 178, pbas: 34, who: '"Mack Moneybags", the Suits\' Midtown handler; his phone holds the group chat',
@@ -109,16 +112,30 @@ export const TWEAK = {
   'm2-dan-mack-moneybags-did-his': { take: 8 },
   // (the story pass of 27 Oct: the first clones that drifted more than about 4 semitones off their voice, each given the
   // take of takes 4, 8 and 12 nearest its voice: .scratch/polish/voices/takes.mjs, check/rawf0.mjs)
-  'm2-dan-what-did-she-say': { take: 4 }, 'm2-dan-does-it-still-clank': { take: 12 }, 'm3-dan-why-not-your-place': { take: 4 },
+  'm2-dan-what-did-she-say': { take: 4 }, 'm2-dan-does-it-still-clank': { take: 8 }, 'm3-dan-why-not-your-place': { take: 4 },
   'm3-dan-whos-fiona': { take: 12 }, 'm3-dan-should-i-know-ms': { take: 8 }, 'm3-dan-you-know-the-bailout': { take: 12 },
-  'm3-dan-im-cornering': { take: 4 }, 'm3-dan-ive-never-had-a': { take: 12 }, 'm2-dan-that-haircut-was-a': { take: 12 },
+  'm3-dan-im-cornering': { take: 4 }, 'm3-dan-ive-never-had-a': { take: 16 }, 'm2-dan-that-haircut-was-a': { take: 12 },
   'm2-dan-shes-never-growled-in': { take: 4 }, 'm3-dan-hopping': { take: 12 }, 'm2-dan-that-was-gentle': { take: 12 },
   'm1-jane-so-why-do-they': { take: 4 }, 'm1-jane-how': { take: 4 }, 'm1-jane-then-we-find-one': { take: 12 },
   'm2-jane-hes-got-your-door': { take: 8 }, 'm2-jane-ask-mack': { take: 4 }, 'm3-jane-how-much-was-yours': { take: 12 },
   'm3-jane-on-foot-dan-they': { take: 12 }, 'm3-jane-we-start-tonight-go': { take: 4 }, 'm2-jane-he-signs-his-texts': { take: 8 },
   'm2-jane-it-rhymes': { take: 4 }, 'm3-jane-out-of-sight-keep': { take: 4 },
   'm3-bea-mic-check': { take: 4 }, 'm3-bea-phones-up-everybody-film': { take: 4 }, // (bea-A's first takes: 235-245 Hz against her 164)
-  // (the old tail call, Jane's part, whispered now like the rest of the tail: the writer's optional re-takes, same takes)
+  // (the voice QA of 28 Oct, by signal: the first take held 'Live' on one flat pitch for half a second (a hum), and
+  // read the second 'JPBank' as three drawn-out letters (1.6x the line's length); takes 4, 8 and 12 compared)
+  'm3-jane-live-they-paid-for': { take: 12 }, 'm3-dan-jpbank-broadcast-me-getting': { take: 8 },
+  // (the same QA by speech recognition (Whisper, the owner's go): takes whose words came out wrong, each given the take
+  // of 4, 8, 12 (16) heard right and nearest its voice: 'gu- guys' (a stutter), 'they won an audit', 'It took my laptop',
+  // 'Because he didn't', 'a chance' (twice: 12 and 8 are 'chance'), 'Dears has a room', 'clink' (take 12), 'You look
+  // like that', 'its audits'; and the lines whose spelling changed in TTS_SAY (Ms. Bee, Fiona's 'Haaai', 'Mic, check!'))
+  'm1-dan-they-say-it-to': { take: 8 }, 'm3-jane-forty-one-days-bailouts': { take: 4 }, 'm2-dan-they-took-my-laptop': { take: 4 },
+  'm2-jane-because-you-didnt-pick': { take: 8 }, 'm3-jane-gears-has-a-room': { take: 8 }, 'm1-jane-you-looked-like-that': { take: 4 },
+  'm3-jane-if-the-camp-gets': { take: 8 }, 'm3-dan-yes-ms-bea': { take: 4 }, 'm3-jane-one-more-thing-the': { take: 4 },
+  'm3-jane-bea-got-on-the': { take: 4 },
+  // (the tail lines out of the whisper: two of their takes had drifted low under it, 130-138 Hz against Jane's 179)
+  'm2-jane-leased-everything-mack-has': { take: 8 }, 'm2-jane-dan-back-off': { take: 4 },
+  // (the old tail call, Jane's part, in the tail's register like the rest of it (hushed since 28 Oct, was whispered):
+  // made again in it from the same takes)
   'm2-jane-ive-got-the-van': { redo: true },
   'm2-jane-its-registered-to-a': { redo: true },
   'm2-jane-he-picked-it-he': { redo: true },
