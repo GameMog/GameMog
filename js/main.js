@@ -238,7 +238,9 @@ async function initApp() {
   markInit('blocks');
   const allColliders = [...landmarkColliders, ...cityBlocks.colliders, ...boroughs.colliders, ...(cityGrid.colliders || [])];
 
-  const streetDetails = buildStreetDetails(scene);
+  // (Mog City: the buildings' and the bridges' colliders keep the trees clear of them, after Slop New York 565a6c4; not
+  // the parks' fences and lawn hoops, car-only walls the trees stand inside)
+  const streetDetails = buildStreetDetails(scene, allColliders.filter((c) => !c.carOnly));
   markInit('streetDetails');
   // Buildings turned along non-grid streets have oriented colliders whose world bounds reach past their lots: they stay
   // inside the property line anyway, so the road network (lanes & sidewalks) doesn't need them.

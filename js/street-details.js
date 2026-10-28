@@ -106,7 +106,7 @@ function createWalkSignalMaterial(clock) {
   return mat;
 }
 
-function buildStreetDetails(scene) {
+function buildStreetDetails(scene, colliders = []) {
   const group = new THREE.Group();
   group.name = 'ManhattanStreetDetails';
 
@@ -963,7 +963,7 @@ function buildStreetDetails(scene) {
   //        laid): along the avenue fronts (w / e edges) and, in the residential neighbourhoods, both curbs of the side
   //        streets (n / s edges) — honey locusts on the narrow streets, planes, locusts & elms on the wider ones, with
   //        random missing trees & the odd unplanted block. Never in plazas or parks.
-  const sidewalkTreePositions = [];
+  let sidewalkTreePositions = [];
   const SIDEWALK_Y = 0.22;
   const swBlocks = window.NYC.sidewalkBlocks || [];
   const onSidewalk = (x, z) => {
@@ -1025,7 +1025,17 @@ function buildStreetDetails(scene) {
       }
     }
   }
-  console.info(`[streetDetails] ${treePositions.length} trees (${sidewalkTreePositions.length} street trees)`);
+  // Procedural trees (js/trees.js): species skeletons with leaf-spray cards, instanced per spatial cell, species,
+  // variant & level of detail, each tree's level following the camera. Only the trees clear of the buildings are
+  // planted (Mog City: after Slop New York 565a6c4), and only they get pits, props kept off them and a trunk to hit
+  const treeField = createTreeField(scene, treePositions, colliders);
+  group.add(treeField.group);
+  const candidateTrees = treePositions.length;
+  const candidateStreetTrees = sidewalkTreePositions.length;
+  sidewalkTreePositions = sidewalkTreePositions.filter((t) => treeField.sites.has(t));
+  const plantedTrees = treePositions.filter((t) => treeField.sites.has(t));
+  console.info(`[streetDetails] ${treeField.stats.trees} trees of ${candidateTrees}, ${treeField.stats.smaller} planted smaller to clear the buildings (${sidewalkTreePositions.length} street trees of ${candidateStreetTrees})`);
+  window.NYC.treeStats = { planted: treeField.stats.trees, candidates: candidateTrees, smaller: treeField.stats.smaller, street: sidewalkTreePositions.length, streetCandidates: candidateStreetTrees };
 
   const grateMat = createTreeGrateMaterial();
   const pitCurbMat = new THREE.MeshStandardNodeMaterial({ color: 0x484642, roughness: 0.88 });
@@ -1073,11 +1083,6 @@ function buildStreetDetails(scene) {
     const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
     return s - Math.floor(s);
   }
-
-  // Procedural trees (js/trees.js): species skeletons with leaf-spray cards, one instanced mesh per species, variant &
-  // level of detail, each tree's level following the camera
-  const treeField = createTreeField(scene, treePositions);
-  group.add(treeField.group);
 
   // =========================================================================
   // 7B. (Mog City) CURBSIDE PROPS, AND WHAT A CAR KNOCKS OVER (window.NYC.breakables, wagmi/crash)
@@ -1218,8 +1223,8 @@ function buildStreetDetails(scene) {
       const [x, z] = posOf(m);
       breakables.push({ kind: 'cart', x, y: 0.22, z, r: 1.0, parts: [...parts(cartBoxMatrices, i), ...parts(umbrellaMatrices, i)] });
     });
-    for (const t of treePositions) {
-      breakables.push({ kind: 'tree', x: t.x, y: t.y, z: t.z, r: ([0.3, 0.19, 0.28][t.species] || 0.25) * (t.scale || 1) * 1.15 + 0.05, solid: true });
+    for (const t of plantedTrees) {
+      breakables.push({ kind: 'tree', x: t.x, y: t.y, z: t.z, r: ([0.3, 0.19, 0.28][t.species] || 0.25) * (t.scale || 1) * (t.fit || 1) * 1.15 + 0.05, solid: true });
     }
     subwayRailMatrices.forEach((m) => {
       const [x, z] = posOf(m);
