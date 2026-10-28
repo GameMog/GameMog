@@ -381,7 +381,7 @@ export async function burnerMeet(W, { U, say, van, at = J_AT }) {
       const kb = V(...p(-0.2, 0, 0.8)), type = 0.012 * Math.sin(t * 19), type2 = 0.012 * Math.sin(t * 23 + 1.3);
       const reach = hand != null ? clamp((t - hand) / 0.5) * (1 - clamp((t - hand - 1.2) / 0.5)) : 0;
       const sh = J.bones.upperarm01_R.getWorldPosition(V()), shL = J.bones.upperarm01_L.getWorldPosition(V());
-      const Rv = V(R[0], 0, R[2]), Fv = V(F[0], 0, F[2]);
+      const Rv = V(R[0], 0, R[1]), Fv = V(F[0], 0, F[1]);
       J.arm('L', kb.clone().addScaledVector(Rv, -0.12).add(V(0, type2, 0)), shL.clone().addScaledVector(Rv, -0.5).add(V(0, -0.5, 0)), 0.9);
       J.arm('R', kb.clone().addScaledVector(Rv, 0.12).add(V(0, type, 0)).lerp(V(...p(0.2, -0.2, 0.98)), reach), sh.clone().addScaledVector(Rv, 0.5).add(V(0, -0.5, 0)), 0.9);
       // her face (jane.js face.live): her mouth with her voice, her eyes on him once he's at the table (on her laptop as
