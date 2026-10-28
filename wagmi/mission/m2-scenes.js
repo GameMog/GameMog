@@ -378,16 +378,29 @@ export async function burnerMeet(W, { U, say, van, at = J_AT }) {
       // Jane: seated, typing on the laptop, her mouth with her lines; she reaches for the burner when he holds it out
       J.root.visible = true; J.root.position.set(JX[0], G, JX[2]); J.root.rotation.y = H;
       J.rig.pose(t); J.root.updateMatrixWorld(true);
-      const kb = V(...p(-0.2, 0, 0.8)), type = 0.012 * Math.sin(t * 19), type2 = 0.012 * Math.sin(t * 23 + 1.3);
+      // her typing (28 Oct, the owner: "typing too fast and constant"): bursts of a few keystrokes (3 to 7, four to six a
+      // second, each key one hand's short dip of the wrist and back), a pause of 0.8-2.4 s between bursts, her hands
+      // drifting a little over the keys. She types only while nobody speaks: within 0.35 s of a line starting her hands
+      // settle on the keys and she looks up at Dan through his lines and hers (glancing down at her screen now and then:
+      // face.live's alt). (The lines run back to back, so she types while he walks up and once the last one is done)
+      const hsh = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+      const burst = (i) => [3 + Math.floor(hsh(i, 1) * 5), 4.2 + hsh(i, 2) * 1.8, 0.8 + hsh(i, 3) * 1.6];
+      let bS = 0.4, bi = 0; for (; bi < 400; bi++) { const [n, r, gap] = burst(bi); if (t < bS + n / r + gap) break; bS += n / r + gap; }
+      const [bn, br] = burst(bi), bu = (t - bS) * br, inBurst = bu >= 0 && bu < bn, ud = J.root.userData;
+      ud.typeK = clamp((ud.typeK ?? 1) + (speaking ? -1 : 1) * (dt || 0) / 0.35);
+      const key = Math.floor(bu), press = inBurst ? Math.sin(clamp((bu - key) / 0.4) * PI) * ud.typeK * (0.005 + 0.003 * hsh(bi * 17 + key, 5)) : 0, kL = hsh(bi * 17 + key, 4) < 0.5;
+      const kb = V(...p(-0.2, 0, 0.8)), slide = (s) => 0.008 * Math.sin(t * 0.9 + s) + 0.004 * Math.sin(t * 2.3 + 2 * s);
       const reach = hand != null ? clamp((t - hand) / 0.5) * (1 - clamp((t - hand - 1.2) / 0.5)) : 0;
       const sh = J.bones.upperarm01_R.getWorldPosition(V()), shL = J.bones.upperarm01_L.getWorldPosition(V());
       const Rv = V(R[0], 0, R[1]), Fv = V(F[0], 0, F[1]);
-      J.arm('L', kb.clone().addScaledVector(Rv, -0.12).add(V(0, type2, 0)), shL.clone().addScaledVector(Rv, -0.5).add(V(0, -0.5, 0)), 0.9);
-      J.arm('R', kb.clone().addScaledVector(Rv, 0.12).add(V(0, type, 0)).lerp(V(...p(0.2, -0.2, 0.98)), reach), sh.clone().addScaledVector(Rv, 0.5).add(V(0, -0.5, 0)), 0.9);
-      // her face (jane.js face.live): her mouth with her voice, her eyes on him once he's at the table (on her laptop as
-      // he walks up), glancing down at her screen, blinking; her head following her eyes a little
+      J.arm('L', kb.clone().addScaledVector(Rv, -0.12 + slide(0)).add(V(0, kL ? -press : 0, 0)), shL.clone().addScaledVector(Rv, -0.5).add(V(0, -0.5, 0)), 0.9);
+      J.arm('R', kb.clone().addScaledVector(Rv, 0.12 + slide(1.7)).add(V(0, kL ? 0 : -press, 0)).lerp(V(...p(0.2, -0.2, 0.98)), reach), sh.clone().addScaledVector(Rv, 0.5).add(V(0, -0.5, 0)), 0.9);
+      // her face (jane.js face.live): her mouth with her voice, her eyes on him through the lines (on her laptop as he
+      // walks up and while she types between them), glancing at the other now and then, blinking; her head following
+      // her eyes a little
       const qHead = W.dan?.bones?.head?.getWorldPosition(V()) || V(QM[0], G + 1.6, QM[2]), scr = lap.localToWorld(V(0, 0.13, -0.1));
-      J.face.live(dt, { talking: speaking === 'Jane', text: speaking === 'Jane' ? lineText : '', look: t < T.at - 0.4 ? scr : qHead, alt: scr });
+      const onScreen = !speaking && (t < T.at - 0.4 || (inBurst && ud.typeK > 0.5));
+      J.face.live(dt, { talking: speaking === 'Jane', text: speaking === 'Jane' ? lineText : '', look: onScreen ? scr : qHead, alt: onScreen ? qHead : scr });
       lap.userData.screen(scrMode, t);
       glowL.intensity = scrMode === 'off' ? 0.15 : 0.3 + 0.02 * Math.sin(t * 7.3);
       void Fv; void plug; void dt;
@@ -421,7 +434,10 @@ export async function burnerMeet(W, { U, say, van, at = J_AT }) {
     reachQ(W2, 'R', target, sh.clone().add(V(0, -1, 0)).addScaledVector(V(-R[0], 0, -R[2]), 0.4), k);
   }
   def.setup();
-  return runScene(W, def);
+  // (she is across the table from him here, not on a call: her lines without the phone's sound (the manifest gives
+  // every Jane line 'phone'), and back to it once the meet is over)
+  W.voice?.fx?.('Jane', null);
+  try { return await runScene(W, def); } finally { W.voice?.fx?.('Jane'); }
 }
 
 /* ------------------------------------------------------------- crash -- */

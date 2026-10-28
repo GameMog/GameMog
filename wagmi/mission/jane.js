@@ -243,6 +243,9 @@ export async function buildJane(W, { scene = W.app.scene, auto = true } = {}) {
     if (o.material && o.material.name === 'puff') o.material = curlyPuff();
     // (the short curls under her band: their cards caught a park lamp as white streaks; matte and a shade darker)
     if (o.material && o.material.name === 'hair' && !o.material.userData.toned) { o.material.roughness = 0.88; o.material.color.multiplyScalar(0.8); o.material.userData.toned = true; }
+    // (her hair's cut-out strands (28 Oct): their edges smoothed by the multisampling (alpha to coverage), so the strand
+    // ends, the hairline and the edge of the fall come out soft, not stepped)
+    if (o.material && o.material.name === 'hairStrands' && o.material.alphaTest > 0) o.material.alphaToCoverage = true;
     if (o.isSkinnedMesh && o.name === 'hoodie') hoodieNormals(o);
     if (!o.isSkinnedMesh && o.material?.color?.getHexString() === 'e8e2d8') teeth = o;
     if (!o.isSkinnedMesh && o.material?.color?.getHexString() === '2a0e0c') back = o;
