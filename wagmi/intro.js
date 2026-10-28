@@ -78,7 +78,7 @@ export async function install(W) {
   // (a first visit's start: 'Starting…' stays on the gate until the cold open can run at once, rather than a black
   // screen while its music still comes down: hold, set below once the opening's cast is under way)
   let roll = null;
-  const gateOpts = { when: () => W.app.ready, onStart: () => { W.audio?.unlock?.(); sfx.unlock(); }, hold: () => roll?.() ?? null, fine: 'Community entertainment project. Have fun!' };
+  const gateOpts = { when: () => W.app.ready, onStart: () => { window.mcStat?.('start'); W.audio?.unlock?.(); sfx.unlock(); }, hold: () => roll?.() ?? null, fine: 'Community entertainment project. Have fun!' };
   const gate = Q.has('nogate') ? null : save ? save.saveGate(ui, gateOpts) : ui.gate(gateOpts);
   // the cold open (wagmi/trailer.js; ?trailer=0 leaves it out): its music fetched from when Dan is in (game.js), black
   // on the tap once it can play, played on this set before the opening

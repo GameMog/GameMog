@@ -550,6 +550,7 @@ export function createUI() {
     },
     bootOff() { const b = document.getElementById('wg-boot'); if (!b) return; b.classList.add('off'); setTimeout(() => b.remove(), 900); },
     title(act, name, hold = 2.6) {
+      window.mcStat?.('mission', name);
       titleEl.querySelector('.act').textContent = act || ''; titleEl.querySelector('.name').textContent = name || '';
       titleEl.classList.remove('out'); void titleEl.offsetWidth; titleEl.classList.add('on');
       later('title', (0.4 + hold) * 1000, () => { titleEl.classList.add('out'); later('title2', 700, () => titleEl.classList.remove('on', 'out')); });
@@ -693,6 +694,7 @@ export function createUI() {
       countEl.querySelector('.l').textContent = label; countEl.querySelector('.v').textContent = value; countEl.classList.add('on');
     },
     passed({ title = '', stats = [], reward = '', note = '' } = {}, secs = 6) {
+      window.mcStat?.('pass', title);
       bigEl.innerHTML = `<div class="h" style="color:#FFC93C">MISSION PASSED</div><div class="t">${esc(title)}</div>
         <div class="stats">${stats.map(([a, b]) => `<div class="row"><span>${esc(a)}</span><span>${esc(b)}</span></div>`).join('')}
         ${reward ? `<div class="reward"><span>FOLLOWERS</span><span>${esc(reward)}</span></div>` : ''}${note ? `<div class="note">${esc(note)}</div>` : ''}</div>`;
@@ -702,6 +704,7 @@ export function createUI() {
     // tip: what would have helped, for this reason (objective-style parts); each label 'Main: sub', the sub what the
     // choice does ('Retry: the tail', 'Skip the tail: start at the yard'); none: RETRY, QUIT, SKIP as they were
     failed(reason, { skip = false, tip = null, retryLabel = '', skipLabel = '', quitLabel = '' } = {}) {
+      window.mcStat?.('fail', reason);
       const opts = ['retry', 'quit', ...(skip ? ['skip'] : [])];
       const labels = { retry: retryLabel, quit: quitLabel, skip: skipLabel };
       const choice = (o, i) => {

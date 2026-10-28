@@ -22,6 +22,8 @@ python3 -m http.server 8000
 
 Then open http://localhost:8000. Click, or press any key, for sound.
 
+At mc.gamemog.com the game counts its own visits, first-party, at gamemog.com ([`wagmi/stats.js`](wagmi/stats.js)): a random id the browser makes for itself, page loads, starts, the missions reached, passed or failed, and play time. No cookies, no IP addresses, and a copy you run yourself sends nothing.
+
 ## What's in it
 
 - **Three story missions.** *Bagged*: the opening, then Chelsea Park. *Burner*: Bryant Park, Times Square and the West Side yard. *KOLs*: Gears' garage and Fiona's Blimpco rally at Washington Square.
