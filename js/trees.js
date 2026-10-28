@@ -693,7 +693,7 @@ function swayWeight(b, t) {
   }
 }
 
-// Fine twig cards (lod 0), larger branch cards (lod 1), and a canopy shell shared by all levels (lod 2).
+// Fine twig cards (lod 0), larger branch cards (lod 1), and a canopy shell shared by the far levels (lod 2).
 function placeCards(sp, branches, lod, tileMeters, rng, crown) {
   const R = (a, b) => a + (b - a) * rng();
   const cards = [];
@@ -800,13 +800,18 @@ function buildTreeGeometries(speciesIndex, variant, tileMeters) {
         addTube(gb, b, 3, b.pts.length - 1, aoAt, swayWeight);
       }
     }
+    // (Mog City: the near level keeps every twig card and no canopy shell: within 105 m the shell's whole-crown cards
+    // made each crown a dense blob that filled the follow camera's view under the street trees (?m3=handoff, ?m3=rook),
+    // where the missions were staged with see-through crowns. The shell and the halved cards stay on levels 1 and 2)
+    const near = lod === 0;
     const cards = (lod === 0 ? cards0 : lod === 1 ? placeCards(sp, branches, lod, tileMeters, rng, crown) : [])
       .map((c) => ({ ...c, mirror: rng() < 0.5, random: rng() }))
-      .filter((_, i) => i % 2 === 0);
+      .filter((_, i) => near || i % 2 === 0);
     for (const c of cards) addCard(gb, c.at, c.up, c.face, c.size, c.tile, c.mirror, c.random, crown);
-    for (const c of canopyCards) addCard(gb, c.at, c.up, c.face, c.size, c.tile, c.mirror, c.random, crown);
+    const shell = near ? [] : canopyCards;
+    for (const c of shell) addCard(gb, c.at, c.up, c.face, c.size, c.tile, c.mirror, c.random, crown);
     const g = gb.build();
-    g.userData = { species: sp.name, variant, lod, cards: cards.length + canopyCards.length, triangles: gb.idx.length / 3 };
+    g.userData = { species: sp.name, variant, lod, cards: cards.length + shell.length, triangles: gb.idx.length / 3 };
     geos[lod] = g;
   }
   return geos;
