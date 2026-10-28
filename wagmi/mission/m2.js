@@ -416,7 +416,7 @@ function createMission(W, { keep = false } = {}) {
       // (its tail lamps up for the tail, brighter when it brakes: a dark van on a dark street stays in sight)
       let lamps = null; C.van.group.traverse((o) => { if (!lamps && o.isMesh && o.material?.emissive?.getHex() === 0xFF2A1A) lamps = o.material; });
       const lamps0 = lamps?.emissiveIntensity ?? 0;
-      let sus = 0, farT = 0, lost = false, helped = false, fallT = 0, onFootT = 0, yardUp = false, lastV = vanD.v, goT = null;
+      let sus = 0, farT = 0, lost = false, helped = false, braked = false, fallT = 0, onFootT = 0, yardUp = false, lastV = vanD.v, goT = null;
       const t0 = now();
       // (a tail has no route: the van's blip and the chevron over it, GTA's way)
       const vanTarget = null;
@@ -465,7 +465,10 @@ function createMission(W, { keep = false } = {}) {
         }
         const zone = d < 12 ? ['TOO CLOSE', '#EF4444'] : d < 18 ? ['CLOSE', '#F59E0B'] : d < 70 ? ['GOOD', '#FFC93C'] : d < 100 ? ['FALLING BEHIND', '#FFFFFF'] : ['LOSING THEM', '#EF4444'];
         U.tail.set({ d, sus, note: S.flee ? 'SPOTTED · KEEP UP' : zone[0], color: S.flee ? '#EF4444' : zone[1] });
-        if (!helped && t > 1.5) { helped = true; ui.help('Keep the van in sight. Too close and they spot you, too far and you lose it. Watch the meter.', 9); }
+        if (!helped && t > 1.5) { helped = true; ui.help('Keep the van in sight. Too close and they spot you: brake to drop back. Too far and you lose it. Watch the meter.', 9); }
+        // (off the gas his car rolls on (js/controllers.js driveSpeed's coast) and the van brakes hard for its corners:
+        // the first time he is close, the brakes are how to drop back)
+        if (!braked && !S.flee && goT != null && d < 18 && inCar()) { braked = true; ui.help('Brake to drop back. Off the gas, your car rolls on.', 7, { mode: 'car' }); }
         // losing it
         if (d > 110) { farT += dt; if (!lost) { lost = true; objective(["Don't lose the ", { van: 'red' }, '.'], vanTarget); } } else { farT = Math.max(0, farT - dt); if (lost && d < 80) { lost = false; say1(); } }
         // (not in its first seconds on the move: he's still making the corner)
