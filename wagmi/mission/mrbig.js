@@ -371,6 +371,9 @@ export async function createMrBig(W) {
       const th = bones['upperleg01_' + s], sh = bones['lowerleg01_' + s], ft = bones['foot_' + s], o = s === 'L' ? 1 : -1;
       turn(th, X, -PI / 2 + 0.06); turn(th, Y, o * 0.1); turn(sh, X, PI / 2 - 0.02); turn(ft, X, -0.04);
     }
+    // (standing: the model's rest has the legs splayed 6 degrees out, the feet 41 cm apart; each leg in to a natural
+    // stance, the feet about hip width, the soles kept flat on the floor)
+    else for (const s of ['L', 'R']) { const o = s === 'L' ? 1 : -1; turn(bones['upperleg01_' + s], Z, -o * 0.065); turn(bones['foot_' + s], Z, o * 0.065); }
   }
   // the right hand's aim (F along the hand, N out of the palm; world, his study: he faces +z, his right is -x). The cigar
   // goes out the back of the hand, so where it points follows N:
