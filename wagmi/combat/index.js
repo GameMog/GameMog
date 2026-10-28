@@ -800,7 +800,7 @@ export async function install(W) {
     for (const v of TV) {
       if (!v.edge || Math.abs(v.x - q.x) > 28 || Math.abs(v.z - q.z) > 28) continue;
       const o = vehPool[c.vehs.length] || (vehPool[c.vehs.length] = {});
-      o.x = v.x; o.z = v.z; o.y = 0; o.cs = Math.cos(v.yaw); o.sn = Math.sin(v.yaw); o.hx = v.halfWidth || 0.95; o.hz = v.half || 2.3; o.top = v.bus ? 3.2 : 1.6; o.v = v;
+      o.x = v.x; o.z = v.z; o.y = 0; o.cs = Math.cos(v.yaw); o.sn = Math.sin(v.yaw); o.hx = v.halfWidth || 0.95; o.hz = v.half || 2.3; o.top = v.bus ? 3.2 : Math.max(1.6, (v.roof || 1.45) + 0.1); o.v = v; // (a van stands taller)
       c.vehs.push(o);
     }
   }

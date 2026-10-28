@@ -36,7 +36,8 @@ export function createTraffic(M, E) {
   const vel = (v) => [v.tx * v.speed + (v.vx || 0), v.tz * v.speed + (v.vz || 0)];
   // what an engine needs of a vehicle, the city's or a highway's (h: its place this frame)
   const hw = new Map();
-  const kindOf = (v) => (v.edge ? (v.bus ? 'bus' : v.isSUV ? 'suv' : 'sedan') : v.kind === 'suv' ? 'suv' : 'sedan');
+  // (an engine by the body kind's voice, js/traffic.js CAR_KINDS engine: an SUV's for SUVs, pickups and vans)
+  const kindOf = (v) => (v.bus ? 'bus' : v.engine || (v.edge ? (v.isSUV ? 'suv' : 'sedan') : v.kind === 'suv' ? 'suv' : 'sedan'));
   function state(v) {
     if (v.edge) { const [vx, vz] = vel(v); return { x: v.x, z: v.z, vx, vz, speed: Math.abs(v.speed), acc: v.acc || 0 }; }
     const h = hw.get(v); if (!h) return null;
@@ -80,12 +81,14 @@ export function createTraffic(M, E) {
     const [vx, vz] = vel(v);
     set(v, M.doppler(v.x, 0.9, v.z, vx, vz));
   }
+  const BIG = { suv: 1, minivan: 1, pickup: 1, van: 1 }; // (their horns: an SUV's)
   const honk = (v, len, delay = 0, crash = false) => {
-    const kind = v.bus ? 'bus' : v.isNYPD ? 'police' : v.isTaxi ? 'taxi' : v.isSUV ? 'suv' : 'sedan';
+    const kind = v.bus ? 'bus' : v.isNYPD ? 'police' : v.isTaxi ? 'taxi' : v.isSUV || BIG[v.bodyType] ? 'suv' : 'sedan';
     E.play('horn', { pos: [v.x, 1, v.z], kind, len, bus: 'amb', vol: 0.9, delay });
     hornCool = crash ? 0.35 : 8;
   };
   let hornCool = 0;
+  const horns = { ram: 0, nearMiss: 0, blocked: 0 }; // (for tests: the horns played here, by why; WAGMI.audio.debug())
   const call = { v: null, t: 8 + R() * 30, mode: 'wail', sw: 3 };
 
   // per frame. cars / buses: the city's; P: { x, z, inCar, speed, onSidewalk, active (no cutscene), self (Dan's car),
@@ -110,15 +113,15 @@ export function createTraffic(M, E) {
       if (P.active) {
         const inWay = v.pAhead > 0 && v.pAhead < 15 && Math.abs(v.pRight) < 2.1;
         if (inWay && v.speed < 1.2) m.blocked += dt; else m.blocked = Math.max(0, m.blocked - dt * 2);
-        if (m.blocked > 5 && m.cool <= 0 && hornCool <= 0) { honk(v, R() < 0.6 ? 'beep' : 'double'); m.cool = 25 + R() * 15; }
+        if (m.blocked > 5 && m.cool <= 0 && hornCool <= 0) { honk(v, R() < 0.6 ? 'beep' : 'double'); m.cool = 25 + R() * 15; horns.blocked++; }
         // a near miss he forces: an emergency stop for his car right ahead in its lane
-        if (P.inCar && v.acc < -6 && v.speed > 4 && v.pAhead > 0 && v.pAhead < 12 && Math.abs(v.pRight) < 2.1 && m.cool <= 0 && hornCool <= 0) { honk(v, R() < 0.6 ? 'long' : 'double', 0.15); m.cool = 15; }
+        if (P.inCar && v.acc < -6 && v.speed > 4 && v.pAhead > 0 && v.pAhead < 12 && Math.abs(v.pRight) < 2.1 && m.cool <= 0 && hornCool <= 0) { honk(v, R() < 0.6 ? 'long' : 'double', 0.15); m.cool = 15; horns.nearMiss++; }
         // rammed: a kick it didn't make itself
         const kick = Math.hypot(v.vx || 0, v.vz || 0);
         if (kick - m.kick > 1.2 && Math.hypot(v.x - P.x, v.z - P.z) < 12) {
           if (v.isNYPD) { m.siren = { mode: 'yelp', t: 2.5 + R() * 2 }; }
           // (a wreck's driver is wagmi/crash's to honk)
-          if (!v.wreck && (m.cool <= 0 || kick - m.kick > 3)) { honk(v, R() < 0.5 ? 'lean' : 'long', 0.45 + R() * 0.4, true); m.cool = 3; }
+          if (!v.wreck && (m.cool <= 0 || kick - m.kick > 3)) { honk(v, R() < 0.5 ? 'lean' : 'long', 0.45 + R() * 0.4, true); m.cool = 3; horns.ram++; }
         }
         m.kick = kick;
       }
@@ -166,5 +169,5 @@ export function createTraffic(M, E) {
     assign(sirenV, calling.map((a) => a[0]), dt);
     for (const x of sirenV) sound(x, (v, dop) => x.L.set({ mode: modeOf.get(v) || x.L.mode, dop, vol: x.w * 0.55 }));
   }
-  return { update, get voices() { return { cars: carV, sirens: sirenV }; } };
+  return { update, horns, get voices() { return { cars: carV, sirens: sirenV }; } };
 }

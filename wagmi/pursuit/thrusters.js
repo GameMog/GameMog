@@ -12,7 +12,7 @@
 // 'hop', 'land', 'dash'), hop(), dash(+1 right | -1 left), ready { hop, dash } (0..1 recharged), air (m above the road)
 const HOP = { v: 8.9, g: 16, cool: 1.5 }, DASH = { v: 19, cool: 0.8 };
 // (what clears each car: its roof, by the crash's sizes, a little under it (the roof is shorter than the car's box))
-const ROOF = (v) => (v.bus ? 3.2 : v.isSUV ? 1.76 : 1.45) * 0.9;
+const ROOF = (v) => (v.bus ? 3.2 : v.roof || (v.isSUV ? 1.76 : 1.45)) * 0.9; // (v.roof: its kind's, js/traffic.js)
 const NONE = [];
 
 export function createThrusters(W, vapor) {
