@@ -98,7 +98,7 @@ export function createRadio(W, out) {
   // tune in: the station wherever its clock says
   function tune(secs = 0.25) {
     if (!graph()) return;
-    // (the first time ever: WAGMI FM from the top, the theme)
+    // (the first time ever: MOG FM from the top, the theme)
     if (R.first) { R.first = false; R.idx = 0; stations[0].epoch = performance.now() / 1000 - 0.01; }
     const s = R.station, w = R.where(s);
     const d = g.decks.find((x) => x !== cur) || g.decks[0];
@@ -179,7 +179,7 @@ body.wg-cine .wr-card { display: none; }`;
     const inCar = cm.activeMode === 'car';
     if (!active()) { wasCar = inCar; return; }
     if (inCar && !cut()) been = true;
-    // getting in: the card (the first time ever, WAGMI FM from the top: the theme)
+    // getting in: the card (the first time ever, MOG FM from the top: the theme)
     if (inCar && !wasCar && !cut()) {
       if (R.on && graph()) tune(0.6);
       show();

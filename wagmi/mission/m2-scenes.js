@@ -160,8 +160,8 @@ export function burnerScene(W, { U, say, van }) {
     ['Dan', WHITE, 'You said Bryant Park.'],
     ['Jane', BLUE, "I said bring it to Bryant Park. I'm on the library's wifi. It's free and it has a lion."],
     ['Jane', BLUE, 'Hold the burner up. Okay. It has a twin. Same batch, same buyer.'],
-    ['Jane', BLUE, 'You got tagged in four hundred posts today. Moon has a bigger following than you.'],
-    ['Dan', WHITE, 'Everyone has a bigger following than me. They just hate me.'],
+    ['Jane', BLUE, "Your face is on four front pages today. Moon's jealous."],
+    ['Dan', WHITE, 'Moon can have them. All four.'],
     ['Jane', BLUE, 'The twin pinged twenty minutes ago. A van, idling in Times Square. Seventh and Forty-Seventh.'],
     ['Jane', BLUE, "Don't run up to it. Follow it. It'll take us to the rest of them."],
     ['Dan', WHITE, 'Follow the van. Got it.'],
@@ -458,7 +458,7 @@ export function crashScene(W, { mackCar, mack, phone, say, at = CRASH }) {
       [T.out - 0.2, () => W.audio?.play?.('doorOpen', { pos: [door[0], 1, door[1]] })],
       [T.out + 0.6, (st) => say([['Mack', ACID, 'My car! My beautiful leveraged car!']], st)],
       [T.drop, () => sfx?.play('thunk', { gain: 0.2, f: 300, ring: false })],
-      [T.run + 0.3, (st) => say([['Mack', ACID, "Not financial advice! None of it! Ever!"]], st)],
+      [T.run + 0.3, (st) => say([['Mack', ACID, 'Keep the phone! Call it severance!']], st)],
     ],
     pose(t, dt) {
       mackCar.group.visible = true; mackCar.group.position.set(CX, 0, CZ); mackCar.group.rotation.set(0, CH, 0.04); mackCar.update(dt);

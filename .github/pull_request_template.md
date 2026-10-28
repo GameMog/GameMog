@@ -1,6 +1,6 @@
 ## What changed
 
-<!-- What does this change, and why? Link the issue if there is one (Fixes #123). -->
+<!-- What does this change, and why? Link the issue if there is one (Fixes #123). Start the title with "Mog City:" and open it against the mogcity branch. -->
 
 ## How I tested it
 
@@ -14,5 +14,6 @@
 
 - [ ] No new errors in the browser console
 - [ ] Checked on a phone too, if it touches the UI or controls
-- [ ] Follows the [house rules](https://github.com/GameMog/GameMog/blob/mogcity/CONTRIBUTING.md#house-rules) (no guns or knives, Mr. Big an original face, nothing real, Jane shown with respect, no tool names in the game)
+- [ ] Opened against the `mogcity` branch (not `main`)
+- [ ] Follows the [house rules](https://github.com/GameMog/GameMog/blob/mogcity/CONTRIBUTING.md#house-rules) (no guns or knives, Mr. Big an original face, nothing real, Jane and the camp shown with respect, no tool names in the game)
 - [ ] New assets are CC0 or CC BY (nothing non-commercial) and credited in `assets/CREDITS.md` and `NOTICE`

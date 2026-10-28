@@ -1,0 +1,7 @@
+{
+ "design": "Female, mid 60s, a retired schoolteacher from the Bronx, New York, an older woman's warm, full, low alto voice, commanding and unhurried, kind but firm, a voice that carries across a room without shouting, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 2701,
+ "refText": "Alright, everybody, settle down. I taught science for thirty-one years, so I know what not listening sounds like. Soup is at six. Bring a bowl, bring a friend, and bring some patience.",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

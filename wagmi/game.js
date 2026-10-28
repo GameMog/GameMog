@@ -1078,6 +1078,6 @@ console.log('[wagmi] Dan and the car are in');
 WAGMI.trailerEarly = import('./trailer.js').then((m) => m.createTrailer(WAGMI)).catch((err) => { console.warn('[wagmi] trailer', err); return null; });
 
 // the rest of the game, a module each (one that fails to load leaves the others running)
-for (const m of ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
+for (const m of ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
   try { const mod = await import(m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); }
 }

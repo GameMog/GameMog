@@ -18,8 +18,10 @@ export const CAST = {
   Mack: { voice: 'Rocko (English (US))', rate: 178, pbas: 34, who: '"Mack Moneybags", the Suits\' Midtown handler; his phone holds the group chat',
     direction: 'Big, loud, panicky about his money; every sentence a pitch.' },
   Gears: { voice: 'Reed (English (US))', rate: 165, pbas: 34, who: 'Dan\'s mechanic: a big ex-pit-crew man with a tuning garage in West Chelsea', direction: 'Slow, warm, proud of his work.' },
-  Fiona: { voice: 'Flo (English (US))', rate: 215, who: 'a KOL (an influencer) JPBank pays to pump Blimpco at a rally so its insiders can sell', direction: 'A hype host on a megaphone; everything is the best thing ever.' },
+  Fiona: { voice: 'Flo (English (US))', rate: 215, who: 'JPBank\'s Head of Community: she hosts its "JPBank Loves New York" community day in Washington Square, next to the Occupy camp', direction: 'A hype host on a megaphone; everything is the best thing ever.' },
   Brick: { voice: 'Rocko (English (US))', rate: 198, pbas: 44, who: 'the Suits\' bouncer at Fiona\'s rally: an earpiece cord, a radio', direction: 'Loud, jumpy, a hype man turned bouncer.' },
+  Bea: { voice: 'Samantha', rate: 170, who: 'Ms. Bea: a retired Bronx science teacher in her sixties who runs the Occupy camp\'s kitchen and its people\'s mic; JPBank took her house', direction: 'Warm, unhurried, commanding: a teacher who has never needed a microphone.' },
+  Camp: { voice: 'Reed (English (US))', rate: 180, who: 'the Occupy JPBank camp in Washington Square: forty-odd people answering the people\'s mic', direction: 'A crowd, eight voices together in the build: ragged, outdoors, cheerful and loud.' },
   // (not voiced yet: ready for his lines)
   Rook: { voice: 'Reed (English (US))', rate: 205, pbas: 56, who: 'a junior on JPBank\'s security team who wants out (Mission 4)', direction: 'Nervous, quick, apologetic.' },
   default: { voice: 'Reed (English (US))', rate: 190, who: '', direction: '' },
@@ -28,7 +30,6 @@ export const CAST = {
 // how the speech voices should say a few words (the subtitles keep the spelling)
 export const SAY = [
   [/\bJPBank\b/g, 'J.P. Bank'],
-  [/\bKOL\b/g, 'K.O.L.'],
   [/\bBlimpco\b/g, 'Blimp-co'],
   [/\bDMs\b/g, 'D M\'s'],
   [/\bMOON\b/g, 'Moon'],
@@ -74,18 +75,52 @@ export const DIRECTION = {
   'm2-dan-hi-jane-hi-moon': 'Dry and fond, sitting down.',
   'm2-jane-ram-him-dan-gently': 'Quick, then a beat; "Ish." an afterthought.',
   'm3-gears-go-get-your-name': 'Warm, a hand on the roof of the car.',
-  'm3-jane-the-insiders-never-got': 'Relieved, tired, warm; a small laugh on "for once".',
+  // (the car calls' lines, wagmi/mission/calls.js, get their call and register in the sheet; these are the scenes')
+  'm1-knox-this-is-a-performance': 'HR-speak bark mid-fight, only when no line is up.',
+  'm1-knox-please-stop-hitting-back': 'HR-speak bark mid-fight, wounded.',
+  'm1-knox-okay-im-escalating-this': 'HR-speak bark, losing; a threat he believes in.',
+  'm2-mack-im-too-leveraged-to': 'A bark mid-fight in the yard, panicking.',
+  'm2-mack-shareholder-value-hit-him': 'A bark mid-fight in the yard.',
+  'm2-mack-do-you-know-what': 'A bark mid-fight in the yard, outraged.',
+  'm3-fiona-hiii-new-york-jpbank': 'On the megaphone, the community day\'s host; everything is the best thing ever.',
+  'm3-camp-we-are-the-ninety': 'The camp, across the park, answering her: a chant.',
+  'm3-brick-yo-thats-banker-boy': 'Spotting Dan; into his radio.',
+  'm3-brick-make-it-look-like': 'Into his radio, loud enough for the camp: the planted Suits\' plan, said out loud.',
+  'm3-camp-we-saw-that': 'The camp, all at once: they heard him.',
+  'm3-bea-phones-up-everybody-film': 'Ms. Bea, to the camp, at the first rig down: the footage of the return call.',
+  'm3-bea-mic-check': 'The people\'s mic: she calls, the camp says it back so the back can hear.',
+  'm3-camp-mic-check': 'The people\'s mic: the camp says it back, loud, ragged.',
+  'm3-bea-anybody-the-bank-hates': 'The people\'s mic: the first half, a beat for the echo.',
+  'm3-camp-anybody-the-bank-hates': 'The people\'s mic: said back.',
+  'm3-bea-is-somebody-we-should': 'The people\'s mic: the turn; warm, sure.',
+  'm3-camp-free-dan-free-dan': 'The camp turns it into a chant, facing the bank\'s dead screens.',
 };
 
 // a line said differently from its speaker's default (rate, pbas: the macOS fallback only; gain: any line but a recording;
-// take: a Qwen line made from its takes take..take+3 instead of 0..3, when the first clone drifted off its speaker's pitch)
+// take: a Qwen line made from its takes take..take+3 instead of 0..3, when the first clone drifted off its speaker's pitch;
+// redo: a line made before its call's register changed, made again in it from the same take: whispered, or fast)
 export const TWEAK = {
   'intro-dan-hey': { pbas: 62, rate: 150, gain: 4 }, // a shout
   'm1-dash-wait-did-i-miss': { gain: 2 },
-  'm3-fiona-number-go-up-number': { rate: 230, gain: 2 }, // (on the megaphone)
   // (dan-A's first takes came out 145-200 Hz against Dan's 114: .scratch/voices/takes.mjs)
   'intro-dan-who-is-this': { take: 4 },
   'm2-dan-hi-jane-hi-moon': { take: 4 },
   'm2-dan-rook-the-getting-weird': { take: 4 },
   'm2-dan-mack-moneybags-did-his': { take: 8 },
+  // (the story pass of 27 Oct: the first clones that drifted more than about 4 semitones off their voice, each given the
+  // take of takes 4, 8 and 12 nearest its voice: .scratch/polish/voices/takes.mjs, check/rawf0.mjs)
+  'm2-dan-what-did-she-say': { take: 4 }, 'm2-dan-does-it-still-clank': { take: 12 }, 'm3-dan-why-not-your-place': { take: 4 },
+  'm3-dan-whos-fiona': { take: 12 }, 'm3-dan-should-i-know-ms': { take: 8 }, 'm3-dan-you-know-the-bailout': { take: 12 },
+  'm3-dan-im-cornering': { take: 4 }, 'm3-dan-ive-never-had-a': { take: 12 }, 'm2-dan-that-haircut-was-a': { take: 12 },
+  'm2-dan-shes-never-growled-in': { take: 4 }, 'm3-dan-hopping': { take: 12 }, 'm2-dan-that-was-gentle': { take: 12 },
+  'm1-jane-so-why-do-they': { take: 4 }, 'm1-jane-how': { take: 4 }, 'm1-jane-then-we-find-one': { take: 12 },
+  'm2-jane-hes-got-your-door': { take: 8 }, 'm2-jane-ask-mack': { take: 4 }, 'm3-jane-how-much-was-yours': { take: 12 },
+  'm3-jane-on-foot-dan-they': { take: 12 }, 'm3-jane-we-start-tonight-go': { take: 4 }, 'm2-jane-he-signs-his-texts': { take: 8 },
+  'm2-jane-it-rhymes': { take: 4 }, 'm3-jane-out-of-sight-keep': { take: 4 },
+  'm3-bea-mic-check': { take: 4 }, 'm3-bea-phones-up-everybody-film': { take: 4 }, // (bea-A's first takes: 235-245 Hz against her 164)
+  // (the old tail call, Jane's part, whispered now like the rest of the tail: the writer's optional re-takes, same takes)
+  'm2-jane-ive-got-the-van': { redo: true },
+  'm2-jane-its-registered-to-a': { redo: true },
+  'm2-jane-he-picked-it-he': { redo: true },
+  'm2-jane-hang-back-if-they': { redo: true },
 };

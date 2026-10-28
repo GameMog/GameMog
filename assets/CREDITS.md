@@ -7,7 +7,7 @@ from `wagmi/credits.js`. Each radio track's credit is kept beside the track in `
 
 ## Music
 
-The theme is **"Pyro Flow" by Kevin MacLeod**, the first track on WAGMI FM. The radio plays it from the top the first
+The theme is **"Pyro Flow" by Kevin MacLeod**, the first track on MOG FM. The radio plays it from the top the first
 time you get in the car.
 
 ### Licensed under Creative Commons Attribution
@@ -17,8 +17,8 @@ music itself is unchanged.
 
 | File (`assets/music/`) | Station | Credit | Source | Licence |
 |---|---|---|---|---|
-| `pyro-flow.m4a` | WAGMI FM (theme) | "Pyro Flow" Kevin MacLeod (incompetech.com) | [incompetech](https://incompetech.com/music/royalty-free/mp3-royaltyfree/Pyro%20Flow.mp3) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
-| `basic-implosion.m4a` | WAGMI FM | "Basic Implosion" Kevin MacLeod (incompetech.com) | [incompetech](https://incompetech.com/music/royalty-free/mp3-royaltyfree/Basic%20Implosion.mp3) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `pyro-flow.m4a` | MOG FM (theme) | "Pyro Flow" Kevin MacLeod (incompetech.com) | [incompetech](https://incompetech.com/music/royalty-free/mp3-royaltyfree/Pyro%20Flow.mp3) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `basic-implosion.m4a` | MOG FM | "Basic Implosion" Kevin MacLeod (incompetech.com) | [incompetech](https://incompetech.com/music/royalty-free/mp3-royaltyfree/Basic%20Implosion.mp3) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | `gangstazz.m4a` | BLOCK 99.1 | "Gang$tazz" by Alexandr Zhelanov ([soundcloud.com/alexandr-zhelanov](https://soundcloud.com/alexandr-zhelanov)) | [OpenGameArt](https://opengameart.org/content/gangtazz) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | `mta.m4a` | BLOCK 99.1 | "MTA" Kevin MacLeod (incompetech.com) | [incompetech](https://incompetech.com/music/royalty-free/mp3-royaltyfree/MTA.mp3) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | `spheres.m4a` | BLOCK 99.1 | "Spheres (Hip Hop Instrumental)" by Robbero; samples "Spheres" by Doxent Zsigmond ([ccMixter](https://ccmixter.org/files/doxent/43475)) | [ccMixter](https://ccmixter.org/files/Robbero/43483) | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
@@ -48,7 +48,7 @@ under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
 ### Original to this game
 
-"We All Gonna Make It", "Number Go Up" and "Fifth Ave Glide" play on WAGMI FM (`wagmi-theme.m4a`, `wagmi-pump.m4a`,
+"Unfinished Business", "Fall Guy" and "Fifth Ave Glide" play on MOG FM (`wagmi-theme.m4a`, `wagmi-pump.m4a`,
 `wagmi-glide.m4a`). They were composed as code in `wagmi/radio/build/music/` and are MIT-licensed with the rest of the
 game.
 
@@ -115,9 +115,11 @@ The trash cans in `assets/props/trash-cans.glb` are "Metal Trash Can" by GurJas 
 
 ## Voices
 
-Dan's, Jane's, Knox's, Mack's, Gears', Fiona's, Brick's and Dash's lines are synthesised with
+Dan's, Jane's, Knox's, Mack's, Gears', Fiona's, Brick's, Dash's and Ms. Bea's lines are synthesised with
 [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) by the Qwen team, Alibaba Cloud (Apache-2.0): each voice was designed
 once from a written description and every line cloned from it, run with [mlx-audio](https://github.com/Blaizzy/mlx-audio)
 (MIT). Mr. Big's are synthesised with [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) by hexgrad (Apache-2.0),
-its stock voice bm_lewis, through kokoro-onnx (MIT), heard as it is. The voices are invented. Any character's lines not
+its stock voice bm_lewis, through kokoro-onnx (MIT), heard as it is. The Camp's crowd is eight Kokoro-82M stock voices
+(am_michael, af_sarah, am_adam, af_bella, am_onyx, af_kore, am_eric and af_jessica) saying each line together, mixed into
+one. The voices are invented. Any character's lines not
 yet voiced are placeholders made with the macOS speech voices; `NOTICE` explains their terms, and `docs/VOICE-LINES.md` explains how to replace them.

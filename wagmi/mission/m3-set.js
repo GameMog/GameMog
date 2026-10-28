@@ -1,18 +1,24 @@
 // Mog City: Mission 3's sets and people.
-//   rally   the Blimpco launch at Washington Square: a stage under the arch (the city's own arch, js/city-grid.js), a big
-//           LED screen in front of its opening with the live Blimpco chart (a canvas: pumping green, then the dump in red),
-//           Blimpco's airship logo on a banner over the arch's attic, speaker stacks, crowd barriers, the hype crowd (the city's
-//           PersonCrowd) facing the stage, and three ring-light livestream rigs (tripod, ring light, phone): smashed by
-//           blows, a bat, a thrown can or bottle or the car (a blow glitches the phone's screen and rocks the rig;
-//           rig.onHit for the mission's own), they topple, spark and go dark
+//   rally   JPBank's "JPBank Loves New York" community day at Washington Square, next to the Occupy camp (the story pass
+//           of 27 Oct): a stage under the arch (the city's own arch, js/city-grid.js), a big LED screen in front of its
+//           opening running JPBank's smear reel (a canvas: Dan's badge photo and a caption every 2.4 s, "...ONE BAD
+//           APPLE"; dead: frozen mid-sentence, then NO SIGNAL), JPBANK ♥ LOVES NEW YORK on a banner over the arch's attic,
+//           speaker stacks, crowd barriers, the party crowd (the city's PersonCrowd) facing the stage, and three screen
+//           rigs (an LED panel on a truss stand, the same reel, aimed at the tents): smashed by blows, a bat, a thrown can
+//           or bottle or the car (a blow glitches the reel and rocks the rig; rig.onHit for the mission's own), they
+//           topple, spark and go dark
+//   camp    OCCUPY JPBANK, day 41: tents and tarps on the lawns south of the rigs, cardboard signs (hand-lettered,
+//           originals), the OCCUPY JPBANK banner, Ms. Bea's kitchen tent, the drum circle, the camp's own people (a
+//           second PersonCrowd: drumming, watching, cheering each rig down: R.cheer(); facing the people's mic:
+//           R.camp.mic(on)); R.camp.fallMan() crosses out GREEDY on Dan's sign
 //   garage  Gears' Static Garage on W 22nd St: the frontage on the street (a roll-up door half up, the sign) and the bay
 //           behind it (built inside the building's shell: its walls face out, so from in here only ours are seen):
 //           concrete, a tool wall, a bench, tyres, strip lights and a work lamp, an old couch by the door; its moods
 //           (G.mood('night' | 'dark' | 'morning' | null)) for the night Dan sleeps there
 //   suv     Fiona's black SUV (the city's SUV body, acid-green rims), parked on 5th Ave by the arch
-//   people  Gears (his own model, gears.glb: navy overalls, a beard, a cap: a big gentle mechanic) and Floor Price Fiona (her own
+//   people  Gears (his own model, gears.glb: navy overalls, a beard, a cap: a big gentle mechanic) and Fiona (her own
 //           model, fiona.glb: platinum ponytail, white shades, a megaphone), each posed by its clips (rig) plus an arm to a point
-//   const R = buildRally(W); R.show(true); R.screen.mode('pump' | 'dump'); R.rigs[i].hit(dmg, from); R.update(dt, cam)
+//   const R = buildRally(W); R.show(true); R.screen.mode('reel' | 'dead'); R.rigs[i].hit(dmg, from); R.update(dt, cam)
 //   const G = buildGarage(W); G.show(true); G.inside(true)     const suv = buildSUV(W)
 //   const F = await buildFiona(W); const g = await buildGears(W)   (each { root, inner, bones, mixer, rig, clips, arm(...),
 //           face, jaw(k) }: a talking face, wagmi/face.js: the mouth with their own lines, blinks, eyes on whom they talk to)
@@ -42,24 +48,58 @@ function canvasTex(w, h, draw) {
   return t;
 }
 
-/* ------------------------------------------------- Blimpco's logo -- */
-// Blimpco's mark (an original): a white airship side on, nose to the right, four tail fins and a small gondola, on the
-// circle's own ground (r: the circle it fills)
-export function drawBlimp(x, cx, cy, r, { color = '#F4F6F8', ink = '#0B0D10' } = {}) {
-  x.save(); x.translate(cx, cy);
-  const L = r * 0.78, H = r * 0.34;
-  x.fillStyle = color;
-  // the fins: top and bottom at the tail, and the near side one
-  x.beginPath(); x.moveTo(-L * 0.62, -H * 0.55); x.lineTo(-L * 1.02, -H * 1.35); x.lineTo(-L * 1.08, -H * 0.2); x.closePath(); x.fill();
-  x.beginPath(); x.moveTo(-L * 0.62, H * 0.55); x.lineTo(-L * 1.02, H * 1.35); x.lineTo(-L * 1.08, H * 0.2); x.closePath(); x.fill();
-  // the envelope
-  x.beginPath(); x.ellipse(0, 0, L, H, 0, 0, Math.PI * 2); x.fill();
-  // a seam along it and the gondola under it
-  x.strokeStyle = ink; x.globalAlpha = 0.28; x.lineWidth = Math.max(1, r * 0.035);
-  x.beginPath(); x.ellipse(0, 0, L * 0.98, H * 0.42, 0, Math.PI * 0.05, Math.PI * 0.95); x.stroke(); x.globalAlpha = 1;
-  x.fillStyle = color; x.beginPath(); x.roundRect(-L * 0.22, H * 0.95, L * 0.44, H * 0.42, H * 0.12); x.fill();
-  x.strokeStyle = color; x.lineWidth = Math.max(1, r * 0.03); x.beginPath(); x.moveTo(-L * 0.18, H * 0.82); x.lineTo(-L * 0.14, H * 1.0); x.moveTo(L * 0.18, H * 0.82); x.lineTo(L * 0.14, H * 1.0); x.stroke();
-  x.fillStyle = ink; x.beginPath(); x.ellipse(-L * 0.86, 0, L * 0.05, H * 0.5, 0, 0, Math.PI * 2); x.globalAlpha = 0.18; x.fill(); x.globalAlpha = 1;
+/* ------------------------------------------------------ JPBank's heart -- */
+// the community day's mark (an original): a plain red heart, its tip at the bottom (r: about half its width)
+export function drawHeart(x, cx, cy, r, color = '#E8364F') {
+  x.save(); x.translate(cx, cy); x.fillStyle = color;
+  x.beginPath(); x.moveTo(0, r * 0.95);
+  x.bezierCurveTo(-r * 1.3, r * 0.05, -r * 0.92, -r * 1.02, 0, -r * 0.42);
+  x.bezierCurveTo(r * 0.92, -r * 1.02, r * 1.3, r * 0.05, 0, r * 0.95);
+  x.fill(); x.restore();
+}
+
+/* ------------------------------------------------- Dan's badge photo -- */
+// his JPBank ID card (an original drawing of the game's own Dan: a long jaw, clean-shaven, short dark hair a week past
+// a haircut, tired dark eyes; a navy suit, a white shirt, a dark tie; flat badge-photo light), w x h at (X, Y)
+export function drawBadge(x, X, Y, w, h) {
+  const u = w / 300;
+  x.save(); x.translate(X, Y); x.scale(u, u);
+  // the card, its lanyard slot, the bank's strip
+  x.fillStyle = 'rgba(0,0,0,.35)'; x.beginPath(); x.roundRect(6, 8, 300, 400, 18); x.fill();
+  x.fillStyle = '#F4F6F8'; x.beginPath(); x.roundRect(0, 0, 300, 400, 18); x.fill();
+  x.fillStyle = '#0E2A5C'; x.beginPath(); x.roundRect(0, 0, 300, 64, [18, 18, 0, 0]); x.fill();
+  x.fillStyle = '#C9D0DA'; x.beginPath(); x.roundRect(120, 10, 60, 10, 5); x.fill();
+  drawHeart(x, 34, 44, 13); x.fillStyle = '#fff'; x.font = 'italic 800 30px "Barlow Condensed", sans-serif'; x.textAlign = 'left'; x.fillText('JPBANK', 54, 55);
+  x.fillStyle = 'rgba(255,255,255,.7)'; x.font = '700 13px "Barlow Condensed", sans-serif'; x.fillText('STAFF', 246, 54);
+  // the photo: a pale blue-grey ground, him head and shoulders
+  const px = 40, py = 82, pw = 220, ph = 220;
+  const bg = x.createLinearGradient(0, py, 0, py + ph); bg.addColorStop(0, '#B9C6D6'); bg.addColorStop(1, '#93A3B8'); x.fillStyle = bg; x.fillRect(px, py, pw, ph);
+  x.save(); x.beginPath(); x.rect(px, py, pw, ph); x.clip();
+  const cx = px + pw / 2;
+  // the suit's shoulders, the shirt, the tie
+  x.fillStyle = '#1C2638'; x.beginPath(); x.moveTo(cx - 108, py + ph); x.quadraticCurveTo(cx - 100, py + 176, cx - 34, py + 166); x.lineTo(cx + 34, py + 166); x.quadraticCurveTo(cx + 100, py + 176, cx + 108, py + ph); x.closePath(); x.fill();
+  x.fillStyle = '#F2F3F5'; x.beginPath(); x.moveTo(cx - 30, py + 166); x.lineTo(cx, py + ph); x.lineTo(cx + 30, py + 166); x.closePath(); x.fill();
+  x.fillStyle = '#5A1E26'; x.beginPath(); x.moveTo(cx - 7, py + 172); x.lineTo(cx + 7, py + 172); x.lineTo(cx + 11, py + ph); x.lineTo(cx - 11, py + ph); x.closePath(); x.fill();
+  x.fillStyle = '#141B28'; x.beginPath(); x.moveTo(cx - 34, py + 166); x.lineTo(cx - 12, py + 210); x.lineTo(cx - 40, py + 182); x.closePath(); x.fill(); x.beginPath(); x.moveTo(cx + 34, py + 166); x.lineTo(cx + 12, py + 210); x.lineTo(cx + 40, py + 182); x.closePath(); x.fill();
+  // the neck, the head (long in the jaw), the ears
+  const skin = '#D9A887', shade = '#C08F70';
+  x.fillStyle = shade; x.fillRect(cx - 17, py + 128, 34, 42);
+  x.fillStyle = skin; x.beginPath(); x.ellipse(cx - 41, py + 92, 7, 12, 0, 0, PI * 2); x.ellipse(cx + 41, py + 92, 7, 12, 0, 0, PI * 2); x.fill();
+  x.beginPath(); x.moveTo(cx - 40, py + 70); x.quadraticCurveTo(cx - 42, py + 128, cx - 16, py + 144); x.quadraticCurveTo(cx, py + 152, cx + 16, py + 144); x.quadraticCurveTo(cx + 42, py + 128, cx + 40, py + 70); x.quadraticCurveTo(cx + 38, py + 30, cx, py + 30); x.quadraticCurveTo(cx - 38, py + 30, cx - 40, py + 70); x.fill();
+  // the hair: short and dark, a week past a cut
+  x.fillStyle = '#231A15'; x.beginPath(); x.moveTo(cx - 42, py + 76); x.quadraticCurveTo(cx - 46, py + 26, cx - 6, py + 20); x.quadraticCurveTo(cx + 40, py + 18, cx + 44, py + 74); x.quadraticCurveTo(cx + 34, py + 46, cx + 8, py + 44); x.quadraticCurveTo(cx - 24, py + 42, cx - 36, py + 60); x.closePath(); x.fill();
+  // the brows, the eyes (tired, dark), the nose, the mouth: a straight line, as the photo was taken
+  x.strokeStyle = '#2A1F19'; x.lineWidth = 4; x.lineCap = 'round';
+  x.beginPath(); x.moveTo(cx - 26, py + 76); x.lineTo(cx - 10, py + 74); x.moveTo(cx + 10, py + 74); x.lineTo(cx + 26, py + 76); x.stroke();
+  x.fillStyle = '#2A211C'; x.beginPath(); x.ellipse(cx - 17, py + 87, 4.5, 3.4, 0, 0, PI * 2); x.ellipse(cx + 17, py + 87, 4.5, 3.4, 0, 0, PI * 2); x.fill();
+  x.strokeStyle = 'rgba(120,80,64,.45)'; x.lineWidth = 2; x.beginPath(); x.moveTo(cx - 24, py + 94); x.quadraticCurveTo(cx - 17, py + 97, cx - 10, py + 94); x.moveTo(cx + 10, py + 94); x.quadraticCurveTo(cx + 17, py + 97, cx + 24, py + 94); x.stroke();
+  x.strokeStyle = shade; x.lineWidth = 3; x.beginPath(); x.moveTo(cx + 2, py + 92); x.lineTo(cx + 5, py + 112); x.lineTo(cx - 3, py + 114); x.stroke();
+  x.strokeStyle = '#8E5A4A'; x.lineWidth = 3; x.beginPath(); x.moveTo(cx - 12, py + 128); x.lineTo(cx + 12, py + 127); x.stroke();
+  x.restore();
+  // the name, the title, the number, a barcode
+  x.textAlign = 'center'; x.fillStyle = '#0E2A5C'; x.font = '800 40px "Barlow Condensed", sans-serif'; x.fillText('DAN', 150, 344);
+  x.fillStyle = '#4A5568'; x.font = '700 16px "Barlow Condensed", sans-serif'; x.fillText('ASSOCIATE · FIRST YEAR · ID 0451-7722', 150, 366);
+  x.fillStyle = '#1A1C20'; let bx = 70; for (let i = 0; i < 46; i++) { const bw = 1 + ((i * 7) % 3); if (i % 5 !== 2) x.fillRect(bx, 376, bw, 16); bx += bw + 2; }
   x.restore();
 }
 
@@ -103,70 +143,116 @@ export function drawMoon(x, cx, cy, r, { tongue = true } = {}) {
 }
 
 /* ------------------------------------------------- the big LED screen -- */
-// the Blimpco chart, live: the price pumping (green) with the stream's numbers, a dip for each stream lost, then the dump
+// JPBank's smear reel, live: its header (the heart, JPBANK, COMMUNITY DAY, LIVE, the viewers), Dan's badge photo and a
+// caption every 2.4 s (BAD APPLE stamped over the photo on the worst of them), the ticker; dip() (a rig lost) glitches
+// it and drops viewers; dead: the frame frozen on "...INSIDER TRAD—", glitching, then NO SIGNAL. The rigs run the same
+// texture
+export const REEL = ['MEET DAN.', 'FIRST-YEAR ASSOCIATE.', 'FIRST-CLASS CROOK.', 'HE TRADED BLIMPCO ON INSIDE INFORMATION.', 'DAN: THE FACE OF INSIDER TRADING.',
+  "JPBANK CAUGHT HIM. YOU'RE WELCOME.", "THE BANK ISN'T ROTTEN.", 'IT HAD ONE BAD APPLE.', 'JPBANK LOVES NEW YORK ♥'];
+const STAMPED = new Set([2, 4, 5, 7]);
 function createScreen() {
   const W0 = 1024, H0 = 576;
   const tex = canvasTex(W0, H0, () => {}); const x = tex.canvas.getContext('2d');
-  const S = { mode: 'pump', pts: [], v: 12, t: 0, viewers: 11240, dumpT: 0, lost: 0, tick: 0 };
-  for (let i = 0; i < 90; i++) { S.v += 0.25 + Math.sin(i * 0.7) * 0.6 + (i % 7 === 3 ? -1.2 : 0); S.pts.push(S.v); }
-  const face = document.createElement('canvas'); face.width = face.height = 128; drawBlimp(face.getContext('2d'), 64, 64, 52);
-  function draw() {
-    const red = S.mode === 'dump';
-    const bg = x.createLinearGradient(0, 0, 0, H0); bg.addColorStop(0, '#080B10'); bg.addColorStop(1, red ? '#1A0606' : '#0B1408');
-    x.fillStyle = bg; x.fillRect(0, 0, W0, H0);
-    // the grid
-    x.strokeStyle = 'rgba(255,255,255,.06)'; x.lineWidth = 1;
-    for (let i = 1; i < 8; i++) { x.beginPath(); x.moveTo(40, 120 + i * 46); x.lineTo(W0 - 40, 120 + i * 46); x.stroke(); }
-    for (let i = 1; i < 12; i++) { x.beginPath(); x.moveTo(40 + i * 79, 120); x.lineTo(40 + i * 79, 490); x.stroke(); }
-    // the line and the fill under it
-    const lo = Math.min(...S.pts), hi = Math.max(...S.pts, lo + 1), n = S.pts.length;
-    const px = (i) => 40 + i / (n - 1) * (W0 - 80), py = (v) => 480 - (v - lo) / (hi - lo) * 340;
-    const col = red ? '#EF4444' : '#B6FF3B';
-    const fill = x.createLinearGradient(0, 140, 0, 490); fill.addColorStop(0, red ? 'rgba(239,68,68,.35)' : 'rgba(182,255,59,.35)'); fill.addColorStop(1, 'rgba(0,0,0,0)');
-    x.beginPath(); x.moveTo(px(0), 490); for (let i = 0; i < n; i++) x.lineTo(px(i), py(S.pts[i])); x.lineTo(px(n - 1), 490); x.closePath(); x.fillStyle = fill; x.fill();
-    x.beginPath(); for (let i = 0; i < n; i++) (i ? x.lineTo : x.moveTo).call(x, px(i), py(S.pts[i]));
-    x.strokeStyle = col; x.lineWidth = 6; x.lineJoin = 'round'; x.shadowColor = col; x.shadowBlur = 18; x.stroke(); x.shadowBlur = 0;
-    x.fillStyle = col; x.beginPath(); x.arc(px(n - 1), py(S.pts[n - 1]), 10, 0, PI * 2); x.fill();
-    // the header: Blimpco's logo, the ticker, LIVE, the viewers, the price and the change
-    x.save(); x.beginPath(); x.arc(84, 62, 44, 0, PI * 2); x.fillStyle = '#B6FF3B'; x.fill(); x.beginPath(); x.arc(84, 62, 40, 0, PI * 2); x.clip(); x.fillStyle = '#20262E'; x.fillRect(40, 18, 88, 88); x.drawImage(face, 40, 18, 88, 88); x.restore();
-    x.fillStyle = '#fff'; x.font = 'italic 800 76px "Barlow Condensed", sans-serif'; x.fillText('BLIMPCO', 144, 88);
-    x.font = '700 22px "Barlow Condensed", sans-serif'; x.fillStyle = 'rgba(255,255,255,.6)'; x.fillText('BLIMPCO · THE LAUNCH OF THE CENTURY', 148, 112);
-    const live = !red || S.t % 1 < 0.5;
-    x.fillStyle = live ? '#EF4444' : 'rgba(239,68,68,.35)'; x.beginPath(); x.roundRect(560, 30, 92, 40, 8); x.fill();
-    x.fillStyle = '#fff'; x.font = '800 28px "Barlow Condensed", sans-serif'; x.fillText('LIVE', 584, 60);
-    x.fillStyle = 'rgba(255,255,255,.75)'; x.font = '700 26px "Barlow Condensed", sans-serif'; x.fillText(`${(S.viewers / 1000).toFixed(1)}K WATCHING`, 666, 60);
-    const pct = red ? -99.8 + Math.max(0, 1 - S.dumpT / 2.5) * 60 : 3800 + (S.pts[n - 1] - S.pts[0]) * 9;
-    x.textAlign = 'right';
-    x.fillStyle = '#fff'; x.font = '800 40px "Barlow Condensed", sans-serif'; x.fillText(`$${(red ? 0.0000042 : 0.0042 * (1 + pct / 100)).toFixed(red ? 7 : 4)}`, W0 - 40, 62);
-    x.fillStyle = col; x.font = 'italic 800 34px "Barlow Condensed", sans-serif'; x.fillText(`${pct > 0 ? '+' : ''}${pct.toLocaleString('en-US', { maximumFractionDigits: 1 })}%`, W0 - 40, 100);
-    x.textAlign = 'left';
-    // (the dump: the number across the chart)
-    if (red && S.dumpT > 1.2) { x.textAlign = 'center'; x.fillStyle = 'rgba(239,68,68,.92)'; x.font = 'italic 800 150px "Barlow Condensed", sans-serif'; x.fillText('-99.8%', W0 / 2, 360); x.textAlign = 'left'; }
-    // the ticker along the bottom
-    x.fillStyle = red ? '#EF4444' : '#B6FF3B'; x.fillRect(0, 512, W0, 64);
-    x.fillStyle = '#0A0C10'; x.font = '800 30px "Barlow Condensed", sans-serif';
-    const msg = red ? 'SELL · SELL · SELL · THIS IS FINE · SELL · SELL · NOT FINANCIAL ADVICE · ' : 'NUMBER GO UP · NOT FINANCIAL ADVICE · DIAMOND HANDS ONLY · BLIMPCO SKY HIGH · WAGMI · ';
+  const S = { mode: 'reel', t: 0, viewers: 11240, deadT: 0, lost: 0, tick: 0, glitch: 0 };
+  // (the card drawn once)
+  const card = document.createElement('canvas'); card.width = 312; card.height = 416; drawBadge(card.getContext('2d'), 0, 0, 300, 400);
+  // a caption wrapped to the width w at the largest size that fits two lines (cached by text)
+  const fits = new Map();
+  const wrap = (text, w) => {
+    if (fits.has(text)) return fits.get(text);
+    let out = null;
+    for (let sz = 86; sz >= 40 && !out; sz -= 4) {
+      x.font = `italic 800 ${sz}px "Barlow Condensed", sans-serif`;
+      const words = text.split(' '), lines = []; let cur = '';
+      for (const wd of words) { const tr = cur ? cur + ' ' + wd : wd; if (x.measureText(tr).width > w && cur) { lines.push(cur); cur = wd; } else cur = tr; }
+      lines.push(cur);
+      if (lines.length <= 3 && lines.every((l) => x.measureText(l).width <= w)) out = { sz, lines };
+    }
+    out ||= { sz: 40, lines: [text] };
+    fits.set(text, out); return out;
+  };
+  const header = (dead) => {
+    x.save(); x.beginPath(); x.arc(84, 62, 44, 0, PI * 2); x.fillStyle = '#FFFFFF'; x.fill(); drawHeart(x, 84, 66, 26); x.restore();
+    x.textAlign = 'left'; x.fillStyle = '#fff'; x.font = 'italic 800 76px "Barlow Condensed", sans-serif'; x.fillText('JPBANK', 144, 88);
+    x.font = '700 22px "Barlow Condensed", sans-serif'; x.fillStyle = 'rgba(255,255,255,.62)'; x.fillText('JPBANK LOVES NEW YORK · COMMUNITY DAY', 148, 112);
+    const live = !dead || S.t % 1 < 0.5;
+    x.fillStyle = live ? '#E8364F' : 'rgba(232,54,79,.35)'; x.beginPath(); x.roundRect(W0 - 360, 34, 92, 40, 8); x.fill();
+    x.fillStyle = '#fff'; x.font = '800 28px "Barlow Condensed", sans-serif'; x.fillText('LIVE', W0 - 336, 64);
+    x.fillStyle = 'rgba(255,255,255,.78)'; x.font = '700 26px "Barlow Condensed", sans-serif'; x.fillText(`${(S.viewers / 1000).toFixed(1)}K WATCHING`, W0 - 254, 64);
+  };
+  const ticker = (msg, bg) => {
+    x.fillStyle = bg; x.fillRect(0, 512, W0, 64);
+    x.fillStyle = '#FFFFFF'; x.font = '800 30px "Barlow Condensed", sans-serif'; x.textAlign = 'left';
     const mw = x.measureText(msg).width, off = -((S.t * 120) % mw);
     for (let k = off; k < W0; k += mw) x.fillText(msg, k, 554);
+  };
+  // a caption beside the photo (k: its slide in, 0..1)
+  const caption = (text, k, red) => {
+    const { sz, lines } = wrap(text, 540), lh = sz * 1.02, y0 = 318 - (lines.length - 1) * lh / 2 + sz * 0.34;
+    x.globalAlpha = Math.min(1, k * 1.6);
+    x.fillStyle = red ? '#E8364F' : '#FFFFFF'; x.fillRect(408 + (1 - k) * 60, y0 - sz * 0.8, 8, lh * (lines.length - 1) + sz * 0.92);
+    x.fillStyle = '#FFFFFF'; x.font = `italic 800 ${sz}px "Barlow Condensed", sans-serif`; x.textAlign = 'left';
+    lines.forEach((l, i) => { if (red && /BAD APPLE|CROOK|INSIDER/.test(l)) x.fillStyle = '#FF5A6E'; else x.fillStyle = '#FFFFFF'; x.fillText(l, 432 + (1 - k) * 60, y0 + i * lh); });
+    x.globalAlpha = 1;
+  };
+  const stamp = () => {
+    x.save(); x.translate(212, 300); x.rotate(-0.24); x.strokeStyle = 'rgba(232,54,79,.92)'; x.lineWidth = 7; x.strokeRect(-128, -38, 256, 76);
+    x.fillStyle = 'rgba(232,54,79,.92)'; x.font = '800 58px "Barlow Condensed", sans-serif'; x.textAlign = 'center'; x.fillText('BAD APPLE', 0, 20); x.restore();
+  };
+  // (a glitch: rows of the frame shoved sideways, tinted bars)
+  const glitch = (amt) => {
+    for (let i = 0; i < 9 * amt; i++) {
+      const y = Math.random() * 500, hh = 6 + Math.random() * 34, dx = (Math.random() - 0.5) * 160 * amt;
+      x.drawImage(tex.canvas, 0, y, W0, hh, dx, y, W0, hh);
+      x.fillStyle = ['rgba(232,54,79,.35)', 'rgba(59,216,255,.3)', 'rgba(255,255,255,.25)'][i % 3]; x.fillRect(0, y, W0, Math.random() * 4);
+    }
+  };
+  function frame(text, k, idx) {
+    const bg = x.createLinearGradient(0, 0, 0, H0); bg.addColorStop(0, '#0C1B3A'); bg.addColorStop(1, '#060E1F');
+    x.fillStyle = bg; x.fillRect(0, 0, W0, H0);
+    x.fillStyle = 'rgba(255,255,255,.05)'; for (let i = 0; i < 14; i++) x.fillRect(0, 128 + i * 27, W0, 1);
+    header(S.mode === 'dead');
+    x.drawImage(card, 64, 120, 296 * 0.92, 396 * 0.92);
+    if (STAMPED.has(idx)) stamp();
+    caption(text, k, STAMPED.has(idx));
+  }
+  function draw() {
+    if (S.mode === 'reel') {
+      const n = Math.floor(S.t / 2.4), idx = n % REEL.length, k = Math.min(1, (S.t - n * 2.4) / 0.28);
+      frame(REEL[idx], k * (2 - k), idx);
+      if (S.glitch > 0) glitch(Math.min(1, S.glitch * 2));
+      ticker('JPBANK LOVES NEW YORK · FREE HOT DOGS TILL 4 · ONE BAD APPLE · WE CAUGHT HIM · BANKING IS FOR EVERYONE · ', '#E8364F');
+    } else if (S.deadT < 1.2) {
+      // (frozen mid-sentence, and breaking up)
+      frame('DAN: THE FACE OF INSIDER TRAD—', 1, 4);
+      glitch(0.4 + S.deadT);
+      ticker('TECHNICAL DIFFICULTIES · PLEASE STAND BY · JPBANK LOVES NEW YORK · ', '#E8364F');
+    } else {
+      x.fillStyle = '#030406'; x.fillRect(0, 0, W0, H0);
+      // (the last of the picture's snow, fading)
+      const snow = Math.max(0, 1 - (S.deadT - 1.2) / 1.6);
+      if (snow > 0) for (let i = 0; i < 260 * snow; i++) { const g = Math.random() * 200 | 0; x.fillStyle = `rgba(${g},${g},${g},.5)`; x.fillRect(Math.random() * W0, Math.random() * 500, 3 + Math.random() * 30, 2); }
+      header(true);
+      x.textAlign = 'center'; x.fillStyle = 'rgba(255,255,255,.88)'; x.font = 'italic 800 150px "Barlow Condensed", sans-serif';
+      x.fillText('NO SIGNAL', W0 / 2, 360);
+      x.fillStyle = 'rgba(255,255,255,.45)'; x.font = '700 26px "Barlow Condensed", sans-serif'; x.fillText('SOURCE: RIG 1 · RIG 2 · RIG 3', W0 / 2, 410);
+      ticker('TECHNICAL DIFFICULTIES · PLEASE STAND BY · JPBANK LOVES NEW YORK · ', '#7A1B28');
+    }
     tex.needsUpdate = true;
   }
   return {
     tex,
-    mode(m) { if (m === S.mode) return; S.mode = m; S.dumpT = 0; },
-    // a stream lost: viewers gone, the price shaken
-    dip() { S.lost++; S.viewers = Math.round(S.viewers * 0.62); S.v -= 6; },
+    // 'reel' | 'dead' (the old names, 'pump' | 'dump', still taken)
+    mode(m) { m = m === 'pump' ? 'reel' : m === 'dump' ? 'dead' : m; if (m === S.mode) return; S.mode = m; S.deadT = 0; },
+    // a rig lost: the reel breaks up for a moment, viewers gone
+    dip() { S.lost++; S.viewers = Math.round(S.viewers * 0.62); S.glitch = 0.7; },
     get state() { return S; },
     update(dt) {
       S.t += dt; S.tick += dt;
       if (S.tick < 0.12) return; const step = S.tick; S.tick = 0;
-      if (S.mode === 'pump') {
-        S.v += (0.55 + Math.random() * 0.9 - (Math.random() < 0.12 ? 2.2 : 0)) * step * 8; S.viewers += Math.round((Math.random() * 40 - 8) * (S.lost ? 0.3 : 1));
-      } else {
-        S.dumpT += step;
-        const lo = Math.min(...S.pts), hi = Math.max(...S.pts);
-        S.v = S.dumpT < 2.5 ? S.v - (hi - lo) * step * 0.6 : lo + Math.random() * 0.4; S.viewers = Math.max(31, Math.round(S.viewers * 0.9));
-      }
-      S.pts.push(S.v); if (S.pts.length > 90) S.pts.shift();
+      S.glitch = Math.max(0, S.glitch - step);
+      if (S.mode === 'reel') S.viewers += Math.round((Math.random() * 40 - 8) * (S.lost ? 0.3 : 1));
+      else { S.deadT += step; S.viewers = Math.max(31, Math.round(S.viewers * 0.9)); }
       draw();
     },
     draw,
@@ -181,9 +267,9 @@ export function buildRally(W) {
   const black = new THREE.MeshStandardMaterial({ color: '#16181C', roughness: 0.7, metalness: 0.2 });
   const deckMat = new THREE.MeshStandardMaterial({ color: '#2A2D33', roughness: 0.85 });
   const steel = new THREE.MeshStandardMaterial({ color: '#B9BEC6', roughness: 0.35, metalness: 0.85 });
-  const acid = new THREE.MeshStandardMaterial({ color: '#B6FF3B', emissive: '#9BE02A', emissiveIntensity: 1.6, roughness: 0.5 });
+  const acid = new THREE.MeshStandardMaterial({ color: '#E8364F', emissive: '#E8364F', emissiveIntensity: 1.4, roughness: 0.5 });
 
-  /* the stage: a deck under the arch, a skirt with an acid-green strip, steps at its east end */
+  /* the stage: a deck under the arch, a skirt with a red strip (the party's colour), steps at its east end */
   const { x0, x1, z0, z1, top } = STAGE, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
   box(x1 - x0, top - PARK_Y, z1 - z0, deckMat, cx, (top + PARK_Y) / 2, cz);
   box(x1 - x0 + 0.04, 0.06, 0.04, acid, cx, top - 0.08, z1 + 0.01);
@@ -195,7 +281,7 @@ export function buildRally(W) {
     for (let k = 0; k < 9; k++) box(0.42, 0.03, 0.03, steel, tx, top + 0.5 + k * 0.95, SCREEN_Z - 0.2);
   }
   box(12.2, 0.42, 0.42, steel, 0, top + 8.2, SCREEN_Z);
-  // the screen: behind the arch's opening (in front of the park tree that stands just south of it), the chart on both
+  // the screen: behind the arch's opening (in front of the park tree that stands just south of it), the reel on both
   // faces (the back seen through the arch from 5th Ave)
   const screen = createScreen();
   const sw = 10, shh = 5.625, sy = top + 1.25 + shh / 2;
@@ -203,13 +289,14 @@ export function buildRally(W) {
   const scrMat = new THREE.MeshBasicMaterial({ map: screen.tex, color: new THREE.Color(1.25, 1.25, 1.25) });
   const front = new THREE.Mesh(new THREE.PlaneGeometry(sw, shh), scrMat); front.position.set(0, sy, SCREEN_Z + 0.17); g.add(front);
   const back = new THREE.Mesh(new THREE.PlaneGeometry(sw, shh), scrMat); back.position.set(0, sy, SCREEN_Z - 0.17); back.rotation.y = PI; g.add(back);
-  // the banner on the arch's attic, both faces: Blimpco's logo, BLIMPCO, SKY HIGH
+  // the banner on the arch's attic, both faces: the heart, JPBANK ♥, LOVES NEW YORK
   const banner = canvasTex(1024, 286, (x, w, h) => {
-    x.fillStyle = '#0B0D10'; x.fillRect(0, 0, w, h);
-    x.strokeStyle = '#B6FF3B'; x.lineWidth = 10; x.strokeRect(8, 8, w - 16, h - 16);
-    x.save(); x.beginPath(); x.arc(160, h / 2, 112, 0, PI * 2); x.fillStyle = '#B6FF3B'; x.fill(); x.beginPath(); x.arc(160, h / 2, 104, 0, PI * 2); x.clip(); x.fillStyle = '#2B3340'; x.fillRect(40, 20, 240, 250); drawBlimp(x, 160, h / 2, 92); x.restore();
-    x.fillStyle = '#B6FF3B'; x.font = 'italic 800 150px "Barlow Condensed", sans-serif'; x.fillText('BLIMPCO', 300, 158);
-    x.fillStyle = '#fff'; x.font = '800 56px "Barlow Condensed", sans-serif'; x.fillText('SKY HIGH · LIVE NOW', 306, 228);
+    x.fillStyle = '#0E2A5C'; x.fillRect(0, 0, w, h);
+    x.strokeStyle = '#E8364F'; x.lineWidth = 10; x.strokeRect(8, 8, w - 16, h - 16);
+    x.beginPath(); x.arc(160, h / 2, 112, 0, PI * 2); x.fillStyle = '#FFFFFF'; x.fill(); drawHeart(x, 160, h / 2 + 8, 70);
+    x.fillStyle = '#FFFFFF'; x.font = 'italic 800 150px "Barlow Condensed", sans-serif'; x.fillText('JPBANK', 300, 158);
+    drawHeart(x, 300 + x.measureText('JPBANK').width + 62, 104, 40);
+    x.fillStyle = '#fff'; x.font = '800 56px "Barlow Condensed", sans-serif'; x.fillText('LOVES NEW YORK', 306, 228);
   });
   const banMat = new THREE.MeshStandardMaterial({ map: banner, roughness: 0.8, emissive: '#FFFFFF', emissiveMap: banner, emissiveIntensity: 0.18, side: THREE.DoubleSide });
   for (const [z, ry] of [[ARCH.z + 2.36, 0], [ARCH.z - 2.36, PI]]) { const b = new THREE.Mesh(new THREE.PlaneGeometry(14.6, 14.6 * 286 / 1024), banMat); b.position.set(0, PARK_Y + 17.75, z); b.rotation.y = ry; g.add(b); }
@@ -232,8 +319,10 @@ export function buildRally(W) {
     { minX: -11.4, maxX: -10.0, minZ: 2809.7, maxZ: 2810.7, maxY: PARK_Y + 2.6, wagmi: 'm3' }, { minX: 10.0, maxX: 11.4, minZ: 2809.7, maxZ: 2810.7, maxY: PARK_Y + 2.6, wagmi: 'm3' },
   ];
 
-  /* the rigs: a tripod, a ring light, a phone in it, filming the stage */
+  /* the rigs: an LED panel on a truss stand (two posts on their feet, a bar over the top), the reel on both faces,
+     aimed across the lawn at the tents */
   const legMat = new THREE.MeshStandardMaterial({ color: '#1B1D21', roughness: 0.5, metalness: 0.6 });
+  const trussMat = new THREE.MeshStandardMaterial({ color: '#C3C8CF', roughness: 0.35, metalness: 0.85 });
   const sparks = [];
   const sparkMat = new THREE.MeshBasicMaterial({ color: '#FFE7A0' });
   const sparkGeo = new THREE.BoxGeometry(0.035, 0.035, 0.09);
@@ -242,20 +331,31 @@ export function buildRally(W) {
     let k = 0;
     for (const s of sparks) { if (s.life > 0) continue; s.life = 0.35 + Math.random() * 0.45; s.m.position.copy(p); s.v.set((Math.random() - 0.5) * 6, 1.5 + Math.random() * 4, (Math.random() - 0.5) * 6); s.m.visible = true; if (++k >= n) break; }
   };
+  // (the panel: 1.7 x 0.96 m, its middle 1.85 m up; the posts either side of it)
+  const PW = 1.7, PH = 0.96, PY = 1.85, PX = PW / 2 + 0.1;
   const rigs = RIGS.map(([rx, rz], i) => {
     const y0 = cm.getGroundHeight(rx, rz, 'person');
-    const root = new THREE.Group(); root.position.set(rx, y0, rz); root.rotation.y = Math.atan2(0 - rx, FIONA_AT[1] - rz); g.add(root);
+    const root = new THREE.Group(); root.position.set(rx, y0, rz); root.rotation.y = Math.atan2(CAMP_AT[0] - rx, CAMP_AT[1] - rz); g.add(root);
     const piv = new THREE.Group(); root.add(piv);
-    for (let k = 0; k < 3; k++) { const a = k / 3 * PI * 2 + 0.5, leg = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 1.0, 6), legMat); leg.position.set(Math.sin(a) * 0.22, 0.47, Math.cos(a) * 0.22); leg.rotation.set(Math.cos(a) * 0.45, 0, -Math.sin(a) * 0.45); leg.castShadow = true; piv.add(leg); }
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.75, 6), legMat); pole.position.y = 1.25; pole.castShadow = true; piv.add(pole);
-    const ringMat = new THREE.MeshStandardMaterial({ color: '#FFFFFF', emissive: '#FFF4E2', emissiveIntensity: 2.4, roughness: 0.3 });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.028, 10, 40), ringMat); ring.position.y = 1.68; ring.castShadow = true; piv.add(ring);
-    const scrM = new THREE.MeshBasicMaterial({ color: '#B6FF3B' });
-    const phone = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.012), black); phone.position.set(0, 1.68, 0.01); piv.add(phone);
-    const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.145), scrM); scr.position.set(0, 1.68, 0.0175); piv.add(scr);
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), new THREE.MeshBasicMaterial({ color: '#EF4444' })); dot.position.set(0.2, 1.95, 0); piv.add(dot);
-    // (a blow: its screen glitches and the ring light stutters for a moment, the whole rig rocks on its feet)
-    const GLITCH = ['#FF2E63', '#FFFFFF', '#3BD8FF', '#050506', '#B6FF3B', '#FFE14D'];
+    const part = (geo, mat, px, py, pz) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); m.castShadow = true; piv.add(m); return m; };
+    for (const sx of [-1, 1]) {
+      // a post of square truss (four chords and its rungs), its foot, a brace
+      for (const [dx, dz] of [[-0.06, -0.06], [0.06, -0.06], [-0.06, 0.06], [0.06, 0.06]]) part(new THREE.BoxGeometry(0.022, 2.42, 0.022), trussMat, sx * PX + dx, 1.21, dz);
+      for (let k = 0; k < 8; k++) part(new THREE.BoxGeometry(0.14, 0.018, 0.018), trussMat, sx * PX, 0.2 + k * 0.3, 0.06);
+      part(new THREE.BoxGeometry(0.2, 0.06, 0.9), legMat, sx * PX, 0.03, 0);
+    }
+    part(new THREE.BoxGeometry(PW + 0.36, 0.1, 0.12), trussMat, 0, 2.45, 0);
+    // the panel: a black case, the reel front (to the camp) and back
+    part(new THREE.BoxGeometry(PW + 0.08, PH + 0.08, 0.1), black, 0, PY, 0);
+    const scrM = new THREE.MeshBasicMaterial({ map: screen.tex, color: new THREE.Color(1.2, 1.2, 1.2) });
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), scrM); scr.position.set(0, PY, 0.052); piv.add(scr);
+    const scr2 = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), scrM); scr2.position.set(0, PY, -0.052); scr2.rotation.y = PI; piv.add(scr2);
+    // (a cable snaking off to the stage's power, and a red LIVE light on the bar)
+    part(new THREE.CylinderGeometry(0.012, 0.012, 1.6, 5), legMat, PX + 0.15, 0.02, -0.5).rotation.set(PI / 2, 0, 0.3);
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: '#EF4444' })); dot.position.set(PW / 2 - 0.05, 2.53, 0.04); piv.add(dot);
+    // (a blow: the reel breaks up for a moment, the whole rig rocks on its feet)
+    const GLITCH = ['#FF2E63', '#FFFFFF', '#3BD8FF', '#050506', '#E8364F', '#FFE14D'];
+    const LIT = new THREE.Color(1.2, 1.2, 1.2);
     const R = {
       i, x: rx, z: rz, y: y0, root, hp: 2, hp0: 2, down: false, fall: 0, fallDir: 0, flash: 0, glitch: 0, rock: 0, rockDir: 0,
       onHit: null, // (the mission's: (rig, dmg, from, down) at every blow, for its own feedback)
@@ -264,7 +364,7 @@ export function buildRally(W) {
         if (R.down) return false;
         R.hp -= dmg; R.flash = 0.18; R.glitch = 0.55; R.rock = 1;
         R.rockDir = from ? Math.atan2(rx - from.x, rz - from.z) - root.rotation.y : 0;
-        const at = V(rx, y0 + 1.6, rz);
+        const at = V(rx, y0 + 1.7, rz);
         spark(at, dmg >= 2 ? 16 : 10);
         W.audio?.play?.('carHit', { pos: [rx, 1.4, rz], vol: 0.45 });
         try { R.onHit?.(R, dmg, from, R.hp <= 0); } catch (e) { console.warn('[m3] rig', e); }
@@ -273,18 +373,18 @@ export function buildRally(W) {
         // (it falls away from the blow)
         const fx = from ? rx - from.x : Math.sin(root.rotation.y), fz = from ? rz - from.z : Math.cos(root.rotation.y);
         R.fallDir = Math.atan2(fx, fz) - root.rotation.y;
-        ringMat.emissiveIntensity = 0; ringMat.color.set('#5A5E66'); scrM.color.set('#050506'); dot.visible = false;
+        // (dark: its colour to black, the map kept, so nothing recompiles)
+        scrM.color.set('#050506'); dot.visible = false;
         spark(at, 22);
         W.audio?.play?.('glass', { pos: [rx, 1.6, rz], vol: 0.9 });
         return true;
       },
-      reset() { R.hp = 2; R.down = false; R.counted = false; R.fall = 0; R.glitch = 0; R.rock = 0; piv.rotation.set(0, 0, 0); ringMat.emissiveIntensity = 2.4; ringMat.color.set('#FFFFFF'); scrM.color.set('#B6FF3B'); dot.visible = true; },
+      reset() { R.hp = 2; R.down = false; R.counted = false; R.fall = 0; R.glitch = 0; R.rock = 0; piv.rotation.set(0, 0, 0); scrM.color.copy(LIT); dot.visible = true; },
       update(dt, t) {
-        // a blow's glitch: the phone's screen flicks through colours, the ring light stutters, the rig rocks
+        // a blow's glitch: the panel flicks through colours, the rig rocks
         if (!R.down && R.glitch > 0) {
           R.glitch = Math.max(0, R.glitch - dt);
-          scrM.color.set(R.glitch > 0 ? GLITCH[(Math.floor(t * 28) + R.i) % GLITCH.length] : '#B6FF3B');
-          ringMat.emissiveIntensity = R.glitch > 0 && Math.floor(t * 22) % 3 === 0 ? 0.15 : 2.4;
+          if (R.glitch > 0) scrM.color.set(GLITCH[(Math.floor(t * 28) + R.i) % GLITCH.length]); else scrM.color.copy(LIT);
         }
         if (!R.down && R.rock > 0) {
           R.rock = Math.max(0, R.rock - dt / 0.45);
@@ -293,28 +393,29 @@ export function buildRally(W) {
         }
         if (R.down && R.fall < 1) {
           R.fall = Math.min(1, R.fall + dt / 0.55);
-          const k = R.fall * R.fall, ang = k * 1.42 + (R.fall >= 1 ? 0 : 0);
+          const k = R.fall * R.fall, ang = k * 1.42;
           // (tipped about its feet, the way it fell)
           piv.rotation.set(Math.cos(R.fallDir) * ang, 0, -Math.sin(R.fallDir) * ang);
-          if (R.fall >= 1) { spark(V(rx + Math.sin(root.rotation.y + R.fallDir) * 1.6, y0 + 0.1, rz + Math.cos(root.rotation.y + R.fallDir) * 1.6), 10); W.audio?.play?.('carHit', { pos: [rx, 0.3, rz], vol: 0.25 }); }
+          if (R.fall >= 1) { spark(V(rx + Math.sin(root.rotation.y + R.fallDir) * 1.8, y0 + 0.1, rz + Math.cos(root.rotation.y + R.fallDir) * 1.8), 10); W.audio?.play?.('carHit', { pos: [rx, 0.3, rz], vol: 0.25 }); }
         }
-        if (!R.down && R.glitch <= 0) { dot.visible = (t % 1.2) < 0.75; ringMat.emissiveIntensity = 2.4 + (R.flash > 0 ? 3 : 0); }
+        if (!R.down && R.glitch <= 0) { dot.visible = (t % 1.2) < 0.75; scrM.color.copy(LIT).multiplyScalar(R.flash > 0 ? 1.6 : 1); }
         R.flash = Math.max(0, R.flash - dt);
       },
     };
     return R;
   });
 
-  /* the hype crowd: the city's own people (one instanced draw), facing the stage, dancing and cheering; on the fight,
+  /* the party crowd: the city's own people (one instanced draw), facing the stage, dancing and cheering; on the fight,
      they run. The dances and cheers are motion capture (assets/anim/bandai/rally-crowd-ped.json: Bandai Namco Research
      Motion Dataset, CC BY-NC 4.0, see NOTICE), fetched with the set and played on each person's own rig, each their own
      take, pace and moment in it (till they're in, or without them, a bounce on the spot); turning to run, each eases
      out of the dance over a quarter second (PersonRig.fadeFrom) */
   const N = window.NYC;
+  // (the motion capture, fetched once with the set: the party crowd's and the camp's)
+  const CLIPS = { CL: null };
+  fetch('assets/anim/bandai/rally-crowd-ped.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j?.clips) CLIPS.CL = Object.fromEntries(j.clips.map((c) => [c.name, c])); }).catch(() => {});
   const crowd = (() => {
     if (!N?.PersonCrowd || !N?.PersonRig) return null;
-    let CL = null;
-    fetch('assets/anim/bandai/rally-crowd-ped.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j?.clips) CL = Object.fromEntries(j.clips.map((c) => [c.name, c])); }).catch(() => {});
     // (27 Oct: the pack's three 'active' cheers stay out of the mix: they bounce on knees never straighter than 18-21
     // degrees, down to 66-75, the buckled look the owner asked to be rid of; the youthful takes stand tall, 2-6 degrees)
     const TAKES = [['danceLong', 0.35], ['danceShort', 0.2], ['waveBothYouth', 0.17], ['waveRightYouth', 0.15], ['raiseBothYouth', 0.13]];
@@ -350,7 +451,7 @@ export function buildRally(W) {
             p.run.t += dt; if (p.run.t > 0.4) { p.x += Math.sin(p.run.a) * p.run.v * dt; p.z += Math.cos(p.run.a) * p.run.v * dt; p.h = p.run.a; }
             const q = V(p.x, 0, p.z); cm.resolveHorizontalCollision?.(q, 0.3, 1.5); p.x = q.x; p.z = q.z;
             if (p.run.t > 9) { p.gone = true; continue; }
-          } else if (CL?.[p.clip] && p.rig.playClip) { p.rig.playClip(CL[p.clip], t * p.rate + p.at, p.x, p.z, p.h, ground(p, p.x, p.z)); p.danced = true; C.add(p.rig, cam ? Math.hypot(p.x - cam.x, p.z - cam.z) : 0); continue; }
+          } else if (CLIPS.CL?.[p.clip] && p.rig.playClip) { p.rig.playClip(CLIPS.CL[p.clip], t * p.rate + p.at, p.x, p.z, p.h, ground(p, p.x, p.z)); p.danced = true; C.add(p.rig, cam ? Math.hypot(p.x - cam.x, p.z - cam.z) : 0); continue; }
           else if (p.jump) air = Math.max(0, Math.sin(t * 7 + p.ph)) * 0.16;
           // (out of the dance: its last pose kept, faded out over 0.25 s into the rig's own stand and run)
           if (p.danced && p.rig.fadeFrom) { p.danced = false; (p.from ||= new Float32Array(p.rig.pose.length)).set(p.rig.pose); p.fade = 1; }
@@ -363,18 +464,23 @@ export function buildRally(W) {
     };
   })();
 
+  // the camp (its own group, people and colliders; shown with the set)
+  const camp = buildCamp(W, g, colliders, CLIPS);
+
   let shown = false, t = 0;
   const R = {
-    group: g, screen, rigs, crowd, colliders,
+    group: g, screen, rigs, crowd, camp, colliders,
+    // the camp's people cheer (a rig down, the camp answering Fiona)
+    cheer(secs = 3.2) { camp?.cheer(secs); },
     show(on) {
-      shown = !!on; g.visible = shown; crowd?.show(shown);
+      shown = !!on; g.visible = shown; crowd?.show(shown); camp?.show(shown);
       const Cc = cm.colliders;
       for (let i = Cc.length - 1; i >= 0; i--) if (Cc[i].wagmi === 'm3') Cc.splice(i, 1);
       if (shown) Cc.push(...colliders);
       cm._colliderCells = null;
     },
     get shown() { return shown; },
-    reset() { for (const r of rigs) r.reset(); screen.mode('pump'); crowd?.reset(); },
+    reset() { for (const r of rigs) r.reset(); screen.mode('reel'); crowd?.reset(); camp?.reset(); },
     get smashed() { return rigs.filter((r) => r.down).length; },
     update(dt, cam) {
       if (!shown) return;
@@ -383,16 +489,305 @@ export function buildRally(W) {
       for (const r of rigs) r.update(dt, t);
       for (const s of sparks) { if (s.life <= 0) continue; s.life -= dt; s.v.y -= 14 * dt; s.m.position.addScaledVector(s.v, dt); s.m.lookAt(s.m.position.x + s.v.x, s.m.position.y + s.v.y, s.m.position.z + s.v.z); if (s.life <= 0 || s.m.position.y < 0.2) { s.m.visible = false; s.life = 0; } }
       crowd?.update(dt, t, cam);
+      camp?.update(dt, t, cam);
     },
     // (compile its pipelines out of sight before it's first seen)
     async warm() {
-      const p = g.position.clone(); g.position.y = -60; g.visible = true; crowd?.show(true);
+      const p = g.position.clone(); g.position.y = -60; g.visible = true; crowd?.show(true); camp?.show(true);
       await new Promise((r) => { let n = 0; const f = () => (++n >= 4 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); });
-      g.position.copy(p); g.visible = shown; crowd?.show(shown);
+      g.position.copy(p); g.visible = shown; crowd?.show(shown); camp?.show(shown);
     },
   };
   screen.draw();
   return R;
+}
+
+/* -------------------------------------------------------------- camp -- */
+// OCCUPY JPBANK, day 41, on the lawns south of the rigs (the party's screens aimed at it). Everything here is an
+// original: the signs are hand-lettered in marker on cardboard (no real group, person or slogan owner), the banner a
+// painted bedsheet. CAMP: where it all stands (tents, signs, the banner's poles, the kitchen, the drum circle, the
+// people's spots); the tents and the kitchen are solid while the set stands
+export const CAMP_AT = [0, 2920];                                              // (the rigs face it)
+export const BEA_AT = [1.2, 2921.2];                                          // (where the people's mic faces: her crate, behind the camp's people)
+// (laid out between the park's own trees, at least a metre clear of their trunks, on the lawn bed south of the fountain:
+// the tent doors to the north, where the cameras are; js/city-grid.js plants the trees on a jittered ~7 m grid)
+const CAMP = {
+  // [x, z, heading (PI: the door to the north), kind ('dome' | 'ridge' | 'tarp'), colour]
+  tents: [
+    [-5.5, 2912.5, 3.44, 'dome',  0], [0.8, 2913.2, 2.94, 'ridge',  1], [9.6, 2914.2, 3.54, 'dome',  2],
+    [20.5, 2911.2, 3.04, 'dome',  3], [-21.0, 2912.5, 3.64, 'ridge',  4], [-27.0, 2912.0, 2.84, 'dome',  5],
+    [9.5, 2921.5, 3.24, 'tarp',  6], [20.0, 2920.5, 2.74, 'dome',  1], [28.5, 2919.5, 3.74, 'ridge',  0],
+    [-19.5, 2923.0, 3.34, 'dome',  2], [-27.5, 2925.5, 2.64, 'tarp',  6], [-6.0, 2931.5, 3.14, 'dome',  3],
+    [0.5, 2932.0, 3.54, 'ridge',  5], [10.0, 2931.0, 2.84, 'dome',  4], [20.5, 2930.8, 3.34, 'dome',  0],
+  ],
+  // [x, z, heading (0: facing north, to the rigs and the arch), sign (of SIGNS), 'stake' | 'lean' | 'low']
+  signs: [
+    [-12.6, 2903.6, 0.12, 4, 'stake'], [-7.4, 2903.0, -0.05, 1, 'stake'], [-0.6, 2903.4, 0.0, 9, 'stake'], [2.6, 2903.0, -0.1, 2, 'stake'],
+    [15.4, 2903.0, 0.1, 3, 'stake'], [19.8, 2902.4, -0.15, 0, 'stake'], [-5.6, 2910.6, 0.2, 7, 'lean'], [0.8, 2911.5, -0.1, 6, 'lean'],
+    [20.5, 2909.5, 0.1, 5, 'lean'], [-21.0, 2910.8, 0.4, 3, 'lean'], [9.5, 2912.6, 0.0, 0, 'lean'], [-9.2, 2917.6, 0.3, 8, 'low'],
+    [13.0, 2919.0, -0.2, 1, 'low'],
+  ],
+  banner: { a: [-11.4, 2908.8], b: [-5.0, 2909.6] },                            // the bedsheet between two poles, facing the rigs
+  kitchen: { x: -6.5, z: 2920.5, h: PI },                                    // (its front, the sign, to the north)
+  drums: { x: 10.0, z: 2905.0, r: 2.1 },
+  // the people standing about, watching the screens [x, z]; the kitchen's queue [x, z, heading]
+  watch: [
+    [-11.0, 2905.8], [-8.4, 2905.2], [-5.9, 2906.2], [-3.9, 2905.0], [1.6, 2906.0], [4.0, 2905.4], [-1.8, 2910.4],
+    [2.8, 2910.0], [16.4, 2905.8], [17.8, 2908.6], [-0.4, 2915.4], [3.4, 2915.6], [-20.2, 2908.6], [-24.5, 2909.0],
+  ],
+  queue: [[-7.8, 2917.3, 0], [-6.1, 2916.9, 0.15], [-4.4, 2917.6, -0.35]],
+};
+// the signs (marker on cardboard; the last is DAN DAN's after Ms. Bea fixed it)
+export const SIGNS = ['OCCUPY JPBANK · DAY 41', 'WE ARE THE 99%', 'AUDIT JPBANK', 'THEY GOT BAILED OUT · WE GOT SOLD OUT', 'BAILOUTS FOR BANKS · EVICTIONS FOR US',
+  'PEOPLE OVER PROFITS', "I CAN'T AFFORD A LOBBYIST", 'STUDENT LOANS: $78,000 · BONUS: $0', 'FREE HOT DOGS ≠ JUSTICE', 'DAN DAN · THE GREEDY MAN'];
+const INKS = ['#141414', '#141414', '#B3202A', '#141414', '#1F3F8F', '#141414', '#141414', '#141414', '#B3202A', '#141414'];
+
+// marker capitals, one letter at a time: each its own tilt, size and baseline (seed: the hand)
+function marker(x, text, cx, cy, size, ink, seed, maxW) {
+  let sd = seed * 977 + 13; const rnd = () => ((sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296);
+  // (too wide: the letters smaller, not squeezed)
+  const meas = (sz) => { x.font = `700 ${sz}px "Barlow Condensed", sans-serif`; let w = 0; for (const ch of text) w += x.measureText(ch).width * 1.04; return w; };
+  let w = meas(size);
+  if (maxW && w > maxW) { size *= maxW / w; w = meas(size); }
+  const k = 1;
+  let px = cx - (w * k) / 2;
+  x.fillStyle = ink; x.strokeStyle = ink; x.lineJoin = 'round'; x.lineCap = 'round'; x.lineWidth = size * 0.075;
+  for (const ch of text) {
+    const cw = x.measureText(ch).width * k;
+    x.save(); x.translate(px + cw / 2, cy + (rnd() - 0.5) * size * 0.08); x.rotate((rnd() - 0.5) * 0.12); x.scale(k * (0.95 + rnd() * 0.1), 0.95 + rnd() * 0.1);
+    x.strokeText(ch, -x.measureText(ch).width / 2, 0); x.fillText(ch, -x.measureText(ch).width / 2, 0);
+    x.restore();
+    px += cw * 1.04;
+  }
+  return w * k;
+}
+// a piece of cardboard (w x h at X, Y): torn a little at the edges, its flutes, a strip of tape
+function cardboard(x, X, Y, w, h, seed) {
+  let sd = seed * 131 + 7; const rnd = () => ((sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296);
+  x.save();
+  x.beginPath();
+  const n = 9, pts = [];
+  for (let i = 0; i <= n; i++) pts.push([X + (w * i) / n, Y + rnd() * 7]);
+  for (let i = 0; i <= n; i++) pts.push([X + w - rnd() * 7, Y + (h * i) / n]);
+  for (let i = n; i >= 0; i--) pts.push([X + (w * i) / n, Y + h - rnd() * 7]);
+  for (let i = n; i >= 0; i--) pts.push([X + rnd() * 7, Y + (h * i) / n]);
+  pts.forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b))); x.closePath(); x.clip();
+  const tone = 186 + rnd() * 22 | 0;
+  const g = x.createLinearGradient(X, Y, X + w, Y + h); g.addColorStop(0, `rgb(${tone},${tone - 40},${tone - 92})`); g.addColorStop(1, `rgb(${tone - 22},${tone - 60},${tone - 108})`);
+  x.fillStyle = g; x.fillRect(X, Y, w, h);
+  x.fillStyle = 'rgba(90,60,30,.07)'; for (let i = 0; i < w; i += 9) x.fillRect(X + i, Y, 3, h);
+  for (let i = 0; i < 5; i++) { x.fillStyle = `rgba(80,52,26,${0.05 + rnd() * 0.08})`; x.beginPath(); x.ellipse(X + rnd() * w, Y + rnd() * h, 20 + rnd() * 60, 8 + rnd() * 26, rnd() * 3, 0, PI * 2); x.fill(); }
+  x.fillStyle = 'rgba(232,226,200,.55)'; x.save(); x.translate(X + w * (0.12 + rnd() * 0.7), Y + 6); x.rotate((rnd() - 0.5) * 0.5); x.fillRect(-40, -12, 80, 24); x.restore();
+  x.restore();
+}
+// a sign's face in its cell (i: SIGNS, or 'fall': DAN DAN's after Ms. Bea's pen; 'blank': the back): its ' · ' parts on
+// lines of their own, a long part broken at its middle space, the lettering as big as the card takes
+function signLines(text) {
+  const out = [];
+  text.split(' · ').forEach((part, seg) => {
+    if (part.length <= 14 || !part.includes(' ')) { out.push([part, seg]); return; }
+    let best = -1; for (let j = 0; j < part.length; j++) if (part[j] === ' ' && (best < 0 || Math.abs(j - part.length / 2) < Math.abs(best - part.length / 2))) best = j;
+    out.push([part.slice(0, best), seg], [part.slice(best + 1), seg]);
+  });
+  return out;
+}
+function drawSign(x, X, Y, w, h, i) {
+  cardboard(x, X, Y, w, h, typeof i === 'number' ? i + 3 : i === 'fall' ? 12 : 40);
+  if (i === 'blank') return;
+  const fall = i === 'fall', n0 = fall ? 9 : i, text = SIGNS[n0], ink = INKS[n0];
+  const lines = signLines(text), n = lines.length;
+  // (the fall: room over GREEDY for FALL)
+  const big = Math.min(110, (h - 56) / (n + (fall ? 0.75 : 0)) / 1.02), lh = big * 1.02;
+  const gap = fall ? big * 0.75 : 0, y0 = Y + h / 2 - ((n - 1) * lh + gap) / 2 + big * 0.36;
+  lines.forEach(([l, seg], k) => {
+    const yk = y0 + k * lh + (fall && k >= 1 ? gap : 0);
+    const lw = marker(x, l, X + w / 2, yk, big, n0 === 3 && seg === 1 ? '#B3202A' : ink, n0 * 7 + k, w - 48);
+    if (fall && l.includes('GREEDY')) {
+      // GREEDY struck through twice in red, FALL over it
+      const scale = lw / Math.max(1, (() => { x.font = `700 ${big}px "Barlow Condensed", sans-serif`; let t = 0; for (const ch of l) t += x.measureText(ch).width * 1.04; return t; })());
+      x.font = `700 ${big}px "Barlow Condensed", sans-serif`;
+      let pre = 0; for (const ch of l.slice(0, l.indexOf('GREEDY'))) pre += x.measureText(ch).width * 1.04;
+      let gw = 0; for (const ch of 'GREEDY') gw += x.measureText(ch).width * 1.04;
+      const gx = X + w / 2 - lw / 2 + pre * scale, gwS = gw * scale, gy = yk - big * scale * 0.34;
+      x.strokeStyle = '#C4202E'; x.lineWidth = big * 0.09; x.lineCap = 'round';
+      x.beginPath(); x.moveTo(gx - 4, gy + 7); x.lineTo(gx + gwS + 4, gy - 7); x.moveTo(gx - 4, gy - 9); x.lineTo(gx + gwS + 4, gy + 5); x.stroke();
+      x.save(); x.translate(gx + gwS / 2, yk - big * 0.88); x.rotate(-0.07); marker(x, 'FALL', 0, 0, big * 0.85, '#C4202E', 99); x.restore();
+      // (and a caret under it)
+      x.strokeStyle = '#C4202E'; x.lineWidth = big * 0.06; x.beginPath(); x.moveTo(gx + gwS / 2 - 18, yk - big * 0.78); x.lineTo(gx + gwS / 2, yk - big * 0.9); x.lineTo(gx + gwS / 2 + 18, yk - big * 0.78); x.stroke();
+    }
+  });
+  // (a doodle: a heart by the 99%, an underline under AUDIT)
+  if (i === 1) drawHeart(x, X + w - 54, Y + h - 46, 20, '#B3202A');
+  if (i === 2) { x.strokeStyle = ink; x.lineWidth = 8; x.beginPath(); x.moveTo(X + 70, Y + h / 2 + 50); x.quadraticCurveTo(X + w / 2, Y + h / 2 + 60, X + w - 70, Y + h / 2 + 44); x.stroke(); }
+}
+
+function buildCamp(W, parent, colliders, CLIPS) {
+  const app = W.app, cm = app.controllerManager, scene = app.scene, N = window.NYC;
+  const g = new THREE.Group(); g.name = 'wagmi-m3-camp'; parent.add(g);
+  const gy = (x, z) => cm.getGroundHeight(x, z, 'person');
+  // merged by material: a draw call each
+  const kit = new Map();
+  const _m4 = new THREE.Matrix4(), _e = new THREE.Euler(), _qk = new THREE.Quaternion(), _s1 = new THREE.Vector3();
+  const put = (mat, geo, x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => { geo.applyMatrix4(_m4.compose(V(x, y, z), _qk.setFromEuler(_e.set(rx, ry, rz, 'YXZ')), _s1.set(sx, sy, sz))); if (!kit.has(mat)) kit.set(mat, []); kit.get(mat).push(geo); };
+  const nylon = ['#D9792B', '#2E6FB0', '#3E8E5A', '#E3C34A', '#B8423A', '#6B7480', '#2F64B3'].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.62, side: THREE.DoubleSide }));
+  const dark = new THREE.MeshStandardMaterial({ color: '#202328', roughness: 0.8 });
+  const pole = new THREE.MeshStandardMaterial({ color: '#8C9198', roughness: 0.4, metalness: 0.7 });
+  const wood = new THREE.MeshStandardMaterial({ color: '#8A6844', roughness: 0.85 });
+  const sheet = new THREE.MeshStandardMaterial({ color: '#EEEAE0', roughness: 0.9, side: THREE.DoubleSide });
+  const steel = new THREE.MeshStandardMaterial({ color: '#B4B9C0', roughness: 0.3, metalness: 0.85 });
+  const crate = new THREE.MeshStandardMaterial({ color: '#2D5FA8', roughness: 0.6 });
+  const skin = new THREE.MeshStandardMaterial({ color: '#E6D8BC', roughness: 0.7 });
+  const drumWood = new THREE.MeshStandardMaterial({ color: '#7A4A2A', roughness: 0.6 });
+  const bag = new THREE.MeshStandardMaterial({ color: '#4C3B5C', roughness: 0.85 });
+
+  /* the tents */
+  for (const [x, z, h, kind, c] of CAMP.tents) {
+    const y = gy(x, z), mat = nylon[c];
+    const f = [Math.sin(h), Math.cos(h)], r = [Math.cos(h), -Math.sin(h)];
+    if (kind === 'dome') {
+      put(mat, new THREE.SphereGeometry(1, 18, 8, 0, PI * 2, 0, PI / 2), x, y, z, 0, h, 0, 1.15, 1.0, 1.05);
+      // its poles over it, the door (dark, zipped half open) on the front
+      for (const a of [0.7, -0.7]) put(pole, new THREE.TorusGeometry(1.06, 0.012, 4, 24, PI), x, y, z, 0, h + a, 0, 1.12, 1.0, 1);
+      put(dark, new THREE.CircleGeometry(0.42, 14, 0, PI), x + f[0] * 1.07, y + 0.02, z + f[1] * 1.07, -0.25, h, 0, 1, 1.35, 1);
+      colliders.push({ minX: x - 1.1, maxX: x + 1.1, minZ: z - 1.1, maxZ: z + 1.1, maxY: y + 1.0, wagmi: 'm3' });
+    } else if (kind === 'ridge') {
+      // a prism on its side, the ridge 1.15 m up, 2.3 m long
+      put(mat, new THREE.CylinderGeometry(0.78, 0.78, 2.3, 3, 1, false), x, y + 0.39, z, -PI / 2, h, 0);
+      put(dark, new THREE.CircleGeometry(0.36, 3), x + f[0] * 1.16, y + 0.32, z + f[1] * 1.16, 0, h, PI / 2);
+      colliders.push({ minX: x - 1.2, maxX: x + 1.2, minZ: z - 1.2, maxZ: z + 1.2, maxY: y + 1.15, wagmi: 'm3' });
+    } else {
+      // a blue tarp on two poles and two stakes: a lean-to, a sleeping bag under it
+      put(mat, new THREE.PlaneGeometry(2.8, 2.2), x, y + 1.0, z, -0.62, h, 0);
+      for (const s2 of [-1.35, 1.35]) put(pole, new THREE.CylinderGeometry(0.02, 0.02, 1.9, 5), x + r[0] * s2 - f[0] * 0.66, y + 0.95, z + r[1] * s2 - f[1] * 0.66);
+      put(bag, new THREE.CapsuleGeometry(0.28, 1.4, 4, 8), x, y + 0.14, z, PI / 2, h + PI / 2, 0, 1, 1, 0.45);
+      colliders.push({ minX: x - 1.4, maxX: x + 1.4, minZ: z - 1.1, maxZ: z + 1.1, maxY: y + 1.7, wagmi: 'm3' });
+    }
+  }
+  /* the kitchen: a white canopy on four legs, a table of pots, a cooler, crates, the sign on its front */
+  const K = CAMP.kitchen, ky = gy(K.x, K.z);
+  {
+    const f = [Math.sin(K.h), Math.cos(K.h)], r = [Math.cos(K.h), -Math.sin(K.h)];
+    const at = (fw, rt) => [K.x + f[0] * fw + r[0] * rt, K.z + f[1] * fw + r[1] * rt];
+    for (const [a, b] of [[1.5, 1.5], [1.5, -1.5], [-1.5, 1.5], [-1.5, -1.5]]) { const [px, pz] = at(a, b); put(pole, new THREE.CylinderGeometry(0.025, 0.025, 2.3, 6), px, ky + 1.15, pz); }
+    put(sheet, new THREE.ConeGeometry(2.25, 0.62, 4, 1, true), K.x, ky + 2.6, K.z, 0, K.h + PI / 4, 0);
+    const [tx, tz] = at(0.3, 0); put(steel, new THREE.BoxGeometry(2.0, 0.05, 0.8), tx, ky + 0.78, tz, 0, K.h, 0);
+    for (const s2 of [-0.9, 0.9]) { const [lx, lz] = at(0.3, s2); put(steel, new THREE.BoxGeometry(0.04, 0.76, 0.7), lx, ky + 0.39, lz, 0, K.h, 0); }
+    for (const [a, b, rr, hh] of [[0.3, -0.6, 0.2, 0.32], [0.3, 0.05, 0.24, 0.38], [0.35, 0.62, 0.17, 0.26]]) { const [px, pz] = at(a, b); put(steel, new THREE.CylinderGeometry(rr, rr * 0.95, hh, 16), px, ky + 0.81 + hh / 2, pz); }
+    { const [px, pz] = at(-0.9, 1.0); put(nylon[0], new THREE.CylinderGeometry(0.2, 0.2, 0.5, 14), px, ky + 0.25, pz); }
+    for (let i = 0; i < 4; i++) { const [px, pz] = at(-0.9, -1.2 + (i % 2) * 0.42); put(crate, new THREE.BoxGeometry(0.38, 0.3, 0.38), px, ky + 0.15 + (i > 1 ? 0.3 : 0), pz, 0, K.h + i * 0.1, 0); }
+    // her crate, the people's mic's spot (the camp faces it)
+    put(wood, new THREE.BoxGeometry(0.55, 0.35, 0.45), BEA_AT[0], gy(BEA_AT[0], BEA_AT[1]) + 0.175, BEA_AT[1], 0, 0.3, 0);
+    colliders.push({ minX: K.x - 1.6, maxX: K.x + 1.6, minZ: K.z - 1.6, maxZ: K.z + 1.6, maxY: ky + 0.9, wagmi: 'm3' });
+    const sign = canvasTex(1024, 192, (x, w, h) => {
+      x.fillStyle = '#F1ECDF'; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < 6; i++) { x.fillStyle = 'rgba(120,100,70,.06)'; x.fillRect(Math.random() * w, 0, 30 + Math.random() * 80, h); }
+      marker(x, "MS. BEA'S KITCHEN", w / 2, 92, 88, '#B3202A', 51, w - 60);
+      marker(x, 'EVERYBODY EATS', w / 2, 168, 58, '#1F3F8F', 52, w - 200);
+    });
+    const sm = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.56), new THREE.MeshStandardMaterial({ map: sign, roughness: 0.9, side: THREE.DoubleSide }));
+    const [sx, sz] = at(1.53, 0); sm.position.set(sx, ky + 2.0, sz); sm.rotation.y = K.h; sm.castShadow = true; g.add(sm);
+  }
+  /* the drum circle: djembes and buckets in a ring */
+  const D = CAMP.drums;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * PI * 2, x = D.x + Math.sin(a) * D.r, z = D.z + Math.cos(a) * D.r, y = gy(x, z);
+    if (i % 3 === 2) { put(nylon[i % 2 ? 0 : 3], new THREE.CylinderGeometry(0.15, 0.13, 0.36, 12), x, y + 0.18, z); continue; }
+    put(drumWood, new THREE.CylinderGeometry(0.17, 0.11, 0.42, 14), x, y + 0.42, z); put(drumWood, new THREE.CylinderGeometry(0.1, 0.15, 0.22, 12), x, y + 0.11, z);
+    put(skin, new THREE.CylinderGeometry(0.175, 0.175, 0.02, 14), x, y + 0.64, z);
+  }
+  /* the banner: OCCUPY JPBANK painted on a bedsheet, sagging between two poles */
+  {
+    const [ax, az] = CAMP.banner.a, [bx, bz] = CAMP.banner.b, L = Math.hypot(bx - ax, bz - az), h = Math.atan2(bz - az, bx - ax);
+    const tex = canvasTex(1024, 240, (x, w, hh) => {
+      x.fillStyle = '#EFEAE0'; x.fillRect(0, 0, w, hh);
+      for (let i = 0; i < 9; i++) { const gx = Math.random() * w, gr = x.createLinearGradient(gx - 30, 0, gx + 30, 0); gr.addColorStop(0, 'rgba(120,110,90,0)'); gr.addColorStop(0.5, 'rgba(120,110,90,.12)'); gr.addColorStop(1, 'rgba(120,110,90,0)'); x.fillStyle = gr; x.fillRect(gx - 30, 0, 60, hh); }
+      marker(x, 'OCCUPY JPBANK', w / 2 - 70, 150, 150, '#151515', 61, 760);
+      x.save(); x.translate(w - 110, 96); x.rotate(0.12); marker(x, 'DAY', 0, 0, 52, '#B3202A', 62); marker(x, '41', 0, 70, 84, '#B3202A', 63); x.restore();
+      marker(x, 'AUDIT THE BANK · WE ARE THE 99%', w / 2 - 70, 214, 42, '#1F3F8F', 64, 700);
+    });
+    // (its back: the same sheet, the paint showing through faintly; seen from behind, mirrored, as it would be)
+    const plain = canvasTex(1024, 240, (x, w, hh) => { x.drawImage(tex.canvas, 0, 0); x.fillStyle = 'rgba(232,226,214,.8)'; x.fillRect(0, 0, w, hh); });
+    const geo = new THREE.PlaneGeometry(L - 0.3, 1.5, 24, 1), pa = geo.attributes.position;
+    for (let i = 0; i < pa.count; i++) { const u = (pa.getX(i) + (L - 0.3) / 2) / (L - 0.3); pa.setY(i, pa.getY(i) - Math.sin(PI * u) * 0.16); pa.setZ(i, Math.sin(u * PI * 3) * 0.04); }
+    geo.computeVertexNormals();
+    const y = (gy(ax, az) + gy(bx, bz)) / 2;
+    const front = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, side: THREE.FrontSide }));
+    const back = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: plain, roughness: 0.92, side: THREE.BackSide }));
+    for (const m of [front, back]) { m.position.set((ax + bx) / 2, y + 1.65, (az + bz) / 2); m.rotation.y = -h + PI; m.castShadow = true; g.add(m); }
+    for (const [px, pz] of [[ax, az], [bx, bz]]) { put(wood, new THREE.CylinderGeometry(0.04, 0.05, 2.7, 7), px, gy(px, pz) + 1.35, pz); }
+  }
+  /* the signs: marker on cardboard, an atlas of them (4 x 3 cells); on stakes, leaning on the tents, low on crates */
+  const CW = 512, CH = 320, atlas = canvasTex(2048, 1024, (x) => {
+    for (let i = 0; i < 12; i++) { const c = i % 4, r = (i / 4) | 0; drawSign(x, c * CW + 6, r * 341 + 6, CW - 12, CH - 12, i < 10 ? i : i === 10 ? 'fall' : 'blank'); }
+  });
+  atlas.anisotropy = 8;
+  const uvCell = (geo, i) => {
+    const c = i % 4, r = (i / 4) | 0, u0 = (c * CW) / 2048, u1 = ((c + 1) * CW) / 2048, v1 = 1 - (r * 341) / 1024, v0 = 1 - (r * 341 + CH) / 1024, uv = geo.attributes.uv;
+    for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) ? u1 : u0, uv.getY(k) ? v1 : v0);
+    return geo;
+  };
+  const signGeos = [], dan = [];
+  for (const [x, z, h, i, how] of CAMP.signs) {
+    const w = how === 'lean' ? 1.15 : how === 'low' ? 0.9 : 0.86, hh = w * (CH / CW), y = gy(x, z);
+    const lift = how === 'stake' ? 1.32 : how === 'lean' ? hh / 2 + 0.02 : hh / 2 + 0.36, tilt = how === 'lean' ? -0.32 : how === 'low' ? -0.12 : (Math.random() - 0.5) * 0.08;
+    const roll = (Math.random() - 0.5) * 0.06;
+    const mk = (cell, back) => { const geo = uvCell(new THREE.PlaneGeometry(w, hh), cell); if (back) geo.applyMatrix4(_m4.makeRotationY(PI)); geo.applyMatrix4(_m4.compose(V(x, y + lift, z), _qk.setFromEuler(_e.set(tilt, h + PI, roll, 'YXZ')), _s1.set(1, 1, 1))); return geo; };
+    const fr = mk(i, false); signGeos.push(fr); if (i === 9) dan.push(fr);
+    signGeos.push(mk(11, true));
+    if (how === 'stake') put(wood, new THREE.BoxGeometry(0.035, 1.25, 0.02), x + Math.sin(h) * 0.02, y + 0.62, z + Math.cos(h) * 0.02, 0, h, 0);
+    if (how === 'low') put(crate, new THREE.BoxGeometry(0.4, 0.32, 0.4), x + Math.sin(h) * 0.25, y + 0.16, z + Math.cos(h) * 0.25, 0, h, 0);
+  }
+  const signMat = new THREE.MeshStandardMaterial({ map: atlas, roughness: 0.95, alphaTest: 0.5 });
+  { const m = new THREE.Mesh(mergeGeometries(signGeos, false), signMat); m.castShadow = true; m.receiveShadow = true; g.add(m); }
+  for (const [mat, geos] of kit) { const m = new THREE.Mesh(mergeGeometries(geos, false), mat); m.castShadow = true; m.receiveShadow = true; g.add(m); }
+
+  /* the camp's people (the city's own, a second instanced crowd): round the drums, at the kitchen, by the tents
+     watching the screens; mic(on): all of them facing Ms. Bea's crate */
+  if (!N?.PersonCrowd || !N?.PersonRig) return { group: g, show() {}, reset() {}, cheer() {}, mic() {}, fallMan() {}, update() {} };
+  let s = 23; const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const spots = [];
+  for (let i = 0; i < 9; i++) { const a = (i / 9) * PI * 2 + 0.2, rr = D.r + 0.85 + rnd() * 0.4; spots.push([D.x + Math.sin(a) * rr, D.z + Math.cos(a) * rr, Math.atan2(-Math.sin(a), -Math.cos(a)), 'drum']); }
+  for (const [x, z, h] of CAMP.queue) spots.push([x, z, h, 'kitchen']);
+  for (const [x, z] of CAMP.watch) spots.push([x, z, null, 'watch']);
+  const NC = spots.length, C = new N.PersonCrowd(NC, { farDistance: 40, name: 'CampCrowd' });
+  for (const m of C.meshes) { m.visible = false; scene.add(m); }
+  const ground = (o, x, z) => gy(x, z);
+  const people = spots.map(([x, z, h, mode], i) => {
+    const female = rnd() < 0.5;
+    // (the watchers face the rigs: the reel aimed at them)
+    const hh = h ?? Math.atan2(-8 - x, 2862 - z) + (rnd() - 0.5) * 0.4;
+    return { x, z, h0: hh, h: hh, mode, cheerT: 0, cheerClip: rnd() < 0.5 ? 'raiseBothYouth' : 'waveRightYouth', rate: 0.9 + rnd() * 0.2, at: rnd() * 15,
+      dance: rnd() < 0.5 ? 'danceShort' : 'danceLong', danced: false, fade: 0,
+      rig: new N.PersonRig({ seed: 300 + i * 5.3, female, scale: female ? 0.92 + rnd() * 0.05 : 0.97 + rnd() * 0.06, girth: 0.9 + rnd() * 0.3, hair: female ? 0.6 + rnd() * 0.4 : rnd() * 0.4 }) };
+  });
+  let micOn = false, fallen = false;
+  const atlasCtx = atlas.canvas.getContext('2d');
+  return {
+    group: g, people,
+    show(on) { g.visible = !!on; for (const m of C.meshes) m.visible = !!on; },
+    reset() { micOn = false; for (const p of people) { p.cheerT = 0; p.h = p.h0; p.rig.reset?.(p.x, p.z, p.h, ground, p); } if (fallen) { fallen = false; atlasCtx.clearRect(1 * CW, 2 * 341, CW, 341); drawSign(atlasCtx, 1 * CW + 6, 2 * 341 + 6, CW - 12, CH - 12, 9); atlas.needsUpdate = true; } },
+    // (everyone not drumming: arms up for secs, each a moment apart)
+    cheer(secs = 3.2) { for (const p of people) if (p.mode !== 'drum' || micOn) p.cheerT = secs + rnd() * 0.5; },
+    mic(on) { micOn = !!on; for (const p of people) p.h = on ? Math.atan2(BEA_AT[0] - p.x, BEA_AT[1] - p.z) : p.h0; },
+    // Ms. Bea's pen: DAN DAN THE GREEDY MAN, GREEDY struck out, FALL over it
+    fallMan() { if (fallen) return; fallen = true; atlasCtx.clearRect(1 * CW, 2 * 341, CW, 341); drawSign(atlasCtx, 1 * CW + 6, 2 * 341 + 6, CW - 12, CH - 12, 'fall'); atlas.needsUpdate = true; },
+    update(dt, t, cam) {
+      const CL = CLIPS.CL;
+      C.begin();
+      for (const p of people) {
+        p.cheerT = Math.max(0, p.cheerT - dt);
+        const clip = p.cheerT > 0 ? p.cheerClip : p.mode === 'drum' && !micOn ? p.dance : null;
+        if (clip && CL?.[clip] && p.rig.playClip) { p.rig.playClip(CL[clip], t * p.rate + p.at, p.x, p.z, p.h, gy(p.x, p.z)); p.danced = true; }
+        else {
+          if (p.danced && p.rig.fadeFrom) { p.danced = false; (p.from ||= new Float32Array(p.rig.pose.length)).set(p.rig.pose); p.fade = 1; }
+          p.rig.update(Math.max(1e-4, dt), p.x, p.z, p.h, ground, p, 0, true);
+          if (p.fade > 0) { p.fade = Math.max(0, p.fade - dt / 0.3); p.rig.fadeFrom(p.from, p.fade * p.fade * (3 - 2 * p.fade)); }
+        }
+        C.add(p.rig, cam ? Math.hypot(p.x - cam.x, p.z - cam.z) : 0);
+      }
+      C.end();
+    },
+  };
 }
 
 /* ------------------------------------------------------------ garage -- */
@@ -785,7 +1180,7 @@ async function castMoves(inner, bones, clipMap, who) {
 // a thing fixed to a bone, placed in the rest pose (built at the origin, root at the origin facing +z)
 function onBone(P, bone, obj, x, y, z) { P.inner.updateMatrixWorld(true); obj.position.copy(P.inner.worldToLocal(V(x, y, z))); P.inner.add(obj); P.bones[bone]?.attach(obj); obj.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.frustumCulled = false; } }); return obj; }
 
-// Floor Price Fiona: the Suits' hype host, her own model (assets/characters/fiona.glb, made the way Gears' is, from the
+// Fiona: JPBank's Head of Community, the community day's host, her own model (assets/characters/fiona.glb, made the way Gears' is, from the
 // a MakeHuman-built human: an invented woman, a platinum ponytail, a white tee and a long white denim skirt, white trainers;
 // idle, talk, cheer, wave, walk, jog, run, shrug, phone, arms), on Dan's skeleton (upperarm01_, lowerarm01_, wrist_).
 // The scenes ask for the thug's 'thugIdle' (her idle) and 'run' (the library's run). White shades on her head bone, the

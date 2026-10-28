@@ -1,5 +1,6 @@
 // Mog City: the progress save, small. After each MISSION PASSED the story so far goes to localStorage:
-//   { v: 1, done: ['m1', 'm2', ...], unlocks: { fists, cans, bats, thrusters }, followers, at }
+//   { v: 1, done: ['m1', 'm2', ...], unlocks: { fists, cans, bats, thrusters }, supporters, at }   (a save from before
+//   27 Oct has its count as 'followers': read as supporters)
 // Every access is wrapped: with no storage (a private window, blocked site data) the game plays the same, unsaved.
 //   readSave()                the save, or null
 //   saveGate(ui, opts)        the start gate with a save: CONTINUE (the next mission's blip, no opening) or NEW GAME
@@ -12,7 +13,7 @@ const KEY = 'wagmi.save.v1';
 export const STORY = [
   { id: 'm1', act: 'Act I · Mission 1', title: 'Bagged', unlocks: { fists: true } },
   { id: 'm2', act: 'Act I · Mission 2', title: 'Burner', unlocks: { cans: true } },
-  { id: 'm3', act: 'Act II · Mission 3', title: 'KOLs', unlocks: { bats: true, thrusters: true } },
+  { id: 'm3', act: 'Act II · Mission 3', title: 'Occupied', unlocks: { bats: true, thrusters: true } },
 ];
 const ORDER = ['m1', 'm2', 'm3', 'm4'];
 const J_AT = { x: -296, z: 84.5 }, G_AT = { x: -1560, z: 1611 };
@@ -36,9 +37,9 @@ export function markDone(W, id) {
   applyUnlocks(W);
   // (the save only ever grows: a New Game played over a save keeps what the save had, so CONTINUE still goes on from
   // the furthest the story has been)
-  const old = readSave() || { done: [], unlocks: {}, followers: 0 };
+  const old = readSave() || { done: [], unlocks: {}, supporters: 0 };
   const done = ORDER.filter((m) => S.done.includes(m) || old.done.includes(m));
-  return writeSave({ v: 1, done, unlocks: { ...old.unlocks, ...S.unlocks }, followers: Math.max(W.followers || 0, old.followers || 0), at: Date.now() });
+  return writeSave({ v: 1, done, unlocks: { ...old.unlocks, ...S.unlocks }, supporters: Math.max(W.supporters || 0, old.supporters ?? old.followers ?? 0), at: Date.now() });
 }
 export function applyUnlocks(W) {
   const U = story(W).unlocks;
@@ -92,7 +93,7 @@ const SPAWN = {
 export async function resume(W, hold) {
   const save = readSave() || { done: [], unlocks: {} };
   const S = story(W); S.done = [...save.done]; S.unlocks = { ...save.unlocks };
-  W.followers = save.followers || 0;
+  W.supporters = save.supporters ?? save.followers ?? 0;
   if (S.done.includes('m2')) W.progress = { ...(W.progress || {}), m2: true };
   const ui = W.ui, app = W.app, next = nextOf(S.done), sp = SPAWN[next] || SPAWN.m4;
   const { place } = await import('../intro.js');

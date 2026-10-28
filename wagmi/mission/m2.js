@@ -28,9 +28,12 @@
 //             its green blip (named on the full map), a green chevron and a tall marker over it; the ring from 14 m;
 //             wandered off: a hint back to it (the checkpoint puts him 3.5 m off it, facing it)  checkpoint 'phone'
 //   phone     (a scene) the Suits' group chat: a photo of Dan's own door
-//   then MISSION PASSED (TIME, SUITS DOWN, QUIET TAKEDOWNS, HITS TAKEN, FOLLOWERS +9,800), Jane's call, Rook's DM
+//   then MISSION PASSED (TIME, SUITS DOWN, QUIET TAKEDOWNS, HITS TAKEN, SUPPORTERS +212), Jane's DM, Rook's DM
 //   (he knows where the dog is going, but Mack is checking all their phones tonight: 'i'll DM you tomorrow'), Dan
 //   placing him ("The 'it's a dog' guy", from the chat), and the G at Gears' garage: 'Rook will DM you tomorrow.'
+// Jane rides along on the car phone on every drive, only while he is at the wheel (mission/calls.js): the way to Bryant
+// Park ('m2-handoff'), the go ('m2-go'), the tail, whispering and coaching ('m2-tail'), the chase ('m2-chase'), and the
+// way to Gears' garage ('m3-handoff').
 // Fails: 'Dan got knocked out.', 'The van got away.', 'You left the yard.', 'You left the fight.', 'Mack got away.' Retry,
 // Quit, Skip (after three), each saying what it does, and a tip for the reason (TIPS, RETRY, SKIP: ui.failed).
 // URL: ?m2=handoff|start|go|tail|yard|fight|chase|phone (with ?nointro until intro.js knows ?m2 the way it knows ?m1).
@@ -172,7 +175,7 @@ export function handoff(W, { quick = false } = {}) {
   (async () => {
     if (!quick) await sleep(200);
     sfx?.play('buzz', { gain: 0.18, times: 1 }); sfx?.play('ding', { gain: 0.16 }); W.audio?.play?.('phoneBuzz');
-    ui.dm('Jane', "that burner is a gift. bring it to me and i'll crack it open. bryant park, 6th ave side. try not to get mugged on the way.", 10);
+    ui.dm('Jane', "that burner is a gift. bring it to me and i'll crack it open. bryant park, 6th ave side. i'll call when you're driving.", 10);
     await sleep(2200);
     between(W, {
       letter: 'J', at: J_AT, name: 'Jane · Bryant Park', objective: ['Bring the burner to ', { Jane: 'blue' }, ' at ', { 'Bryant Park': 'yellow' }, '.'],
@@ -281,6 +284,7 @@ function createMission(W, { keep = false } = {}) {
   function unpark() { const Cc = cm.colliders; for (let i = Cc.length - 1; i >= 0; i--) if (Cc[i].wagmi === 'm2park') Cc.splice(i, 1); cm._colliderCells = null; }
 
   function tidy() {
+    W.calls?.stop({ quiet: true, of: 'm2:' }); // (Jane's car call in this mission, if one is on: mission/calls.js)
     hooks.clear(); ui.objective(null); ui.sub(null); ui.help(null); ui.counter(null); ui.caller(null); ui.hold(null); ui.phone.hide(); U.clear();
     gps.clear(); for (const id of [...gps.blips.keys()]) gps.unblip(id);
     S.engine?.stop(0.4); S.engine = null;
@@ -373,6 +377,9 @@ function createMission(W, { keep = false } = {}) {
       const findObj = () => objective(['Find the ', { van: 'red' }, '. Stay in your car.'], null);
       const carObj = (first) => { objective(first ? ['Get in your ', { car: 'blue' }, '.'] : ['Get back in your ', { car: 'blue' }, '. You need it for the tail.'], { follow: () => car.position, name: car.label || "Dan's car" }); blipCar(); };
       if (inCar()) goObj(); else carObj(true);
+      // Jane on the car phone on the way (mission/calls.js 'm2-go'): her wrap once Times Square is reached; still in her
+      // main lines when the tail starts, she finishes them into it
+      W.calls?.start('m2-go', { wrapWhen: () => !!S.square });
       let footTold = !inCar(), outAt = 0;
       const off = hook(() => {
         const d = dist(me(), vanD.pos.x, vanD.pos.z);
@@ -409,12 +416,14 @@ function createMission(W, { keep = false } = {}) {
       // (its tail lamps up for the tail, brighter when it brakes: a dark van on a dark street stays in sight)
       let lamps = null; C.van.group.traverse((o) => { if (!lamps && o.isMesh && o.material?.emissive?.getHex() === 0xFF2A1A) lamps = o.material; });
       const lamps0 = lamps?.emissiveIntensity ?? 0;
-      let sus = 0, farT = 0, lost = false, helped = false, called = false, onFootT = 0, yardUp = false, lastV = vanD.v, goT = null;
+      let sus = 0, farT = 0, lost = false, helped = false, fallT = 0, onFootT = 0, yardUp = false, lastV = vanD.v, goT = null;
       const t0 = now();
       // (a tail has no route: the van's blip and the chevron over it, GTA's way)
       const vanTarget = null;
       const say1 = () => objective(S.flee ? ["Don't lose the ", { van: 'red' }, '.'] : ['Follow the ', { van: 'red' }, ". Don't get too close."], vanTarget);
       say1();
+      // Jane on the car phone, whispering (mission/calls.js 'm2-tail'), 9 s in; her wrap as the van nears the yard's gate
+      W.calls?.start('m2-tail', { mode: S.flee ? 'fast' : undefined, wrapWhen: () => vanD.done || dist(vanD.pos, -1897, -1039.5) < 120 });
       S.engine = sfx?.engine?.();
       const off = hook(() => {
         const dt = frameDt(), t = (now() - t0) / 1000;
@@ -443,10 +452,15 @@ function createMission(W, { keep = false } = {}) {
           // (its first seconds at the curb and pulling out: a slow fill, he's still finding his distance)
           const early = goT == null || t - goT < 6 ? 0.35 : 1;
           if (d < 12) sus += dt * 0.55 * early; else if (mirror) sus += dt * 0.12 * early; else sus = Math.max(0, sus - dt * 0.12);
+          // (Jane coaching him on the phone: too close or in its mirrors, falling behind for 2 s, back in the band)
+          if (d < 12 || (d < 18 && mirror)) W.calls?.react('tooClose');
+          fallT = d >= 70 ? fallT + dt : 0; if (fallT > 2) W.calls?.react('falling');
+          if (d >= 18 && d < 70) W.calls?.react('good');
           if (sus >= 1) {
             S.flee = true; sus = 1;
             objective(['You were ', { spotted: 'red' }, ". Don't lose the ", { van: 'red' }, '.'], vanTarget);
             W.audio?.play?.('horn', { pos: [vanD.pos.x, 1, vanD.pos.z] }); sfx?.play('squeal', { gain: 0.3, dur: 0.9 });
+            W.calls?.mode('fast'); W.calls?.react('spotted');
           }
         }
         const zone = d < 12 ? ['TOO CLOSE', '#EF4444'] : d < 18 ? ['CLOSE', '#F59E0B'] : d < 70 ? ['GOOD', '#FFC93C'] : d < 100 ? ['FALLING BEHIND', '#FFFFFF'] : ['LOSING THEM', '#EF4444'];
@@ -458,8 +472,9 @@ function createMission(W, { keep = false } = {}) {
         if (goT != null && t - goT > 14 && ((d > 140 && farT > 5) || d > 240)) fail('The van got away.');
         // out of the car on the way
         if (!inCar()) { onFootT += dt; if (onFootT > 1.5 && onFootT - dt <= 1.5) objective(['Get back in your ', { car: 'blue' }, ". The van won't wait."], { follow: () => car.position, name: car.label || "Dan's car" }); blipCar(); } else if (onFootT) { onFootT = 0; gps.unblip('car'); say1(); }
-        // Jane calls a little way in
-        if (!called && t > 9 && !S.flee) { called = true; janeTail(); }
+        // her turn calls as the van comes up to its corners (up 10th Ave, left on W 55th St)
+        if (dist(vanD.pos, -1409.5, -430) < 45) W.calls?.cue(0);
+        if (dist(vanD.pos, -1422, -1039.5) < 45) W.calls?.cue(1);
         // the yard goes up before it can be seen
         if (!yardUp && dist(vanD.pos, YARD.cx, YARD.cz) < 750) { yardUp = true; S.Y.show(true); parkInYard({ van: false, mack: true }); spawnYard(); }
       });
@@ -546,7 +561,7 @@ function createMission(W, { keep = false } = {}) {
         ui.counter('SUITS', `0/${total}`);
         delay(1.5).then(() => ui.help(['Press [E] by a ', { 'trash can': 'green' }, ' or a ', { bottle: 'green' }, ' to pick it up. [E] again throws it.'], 9)).catch(() => {});
         let warned = false, half = false, barkT = now() + 9000, hurtT = now(), hp0 = combat.player.hp;
-        const barks = ["I'm too leveraged to fight! Somebody hit him!", 'Shareholder value! Hit him harder!', 'Do you know what my liquidation price is?'];
+        const barks = ["I'm too leveraged to fight! Somebody hit him!", 'Shareholder value! Hit him harder!', 'Do you know what my bonus is riding on?'];
         offFight = hook(() => {
           const dt = frameDt(), hp = combat.player.hp;
           if (hp < hp0 - 0.5) hurtT = now(); hp0 = hp;
@@ -588,7 +603,7 @@ function createMission(W, { keep = false } = {}) {
       if (!inCar() && dist(car.position, P.position.x, P.position.z) > 40 && !inView(-1886, -1049)) place(W, { car: [-1886, -1049, PI / 2] });
       const { L } = S;
       S.mackHp = 100;
-      let lastRam = 0;
+      let lastRam = 0, rams = 0;
       const mackD = S.mackD = createDriver(W, { obj: L.group, path: MACK_ROUTE, halfW: 0.95, halfL: 2.3, plow: true, accel: 6, brake: 9, stopAtEnd: false,
         onWheels: (dt) => L.update(dt),
         onHit: (sp) => {
@@ -596,6 +611,9 @@ function createMission(W, { keep = false } = {}) {
           S.mackHp -= clamp((sp - 2) * 2.6, 4, 30); U.target("MACK'S CAR", 1 - Math.max(0, S.mackHp) / 100);
           W.audio?.play?.('carHit', { pos: [mackD.pos.x, 0.6, mackD.pos.z], vol: clamp(sp / 12, 0.3, 1) }); if (sp > 7) W.audio?.play?.('glass', { pos: [mackD.pos.x, 0.8, mackD.pos.z], vol: 0.6 });
           if (Math.random() < 0.5) say([['Mack', ACID, ['My paint!', 'That was a margin call!', 'Write-off! Write-off!', 'This car is on loan!'][Math.floor(Math.random() * 4)]]]).catch(() => {});
+          // (Jane on the phone, after Mack's bark: every third ram that lands, and his car smoking)
+          if (++rams % 3 === 0) W.calls?.react('hit');
+          if (S.mackHp < 30) W.calls?.react('smoking');
         } });
       mackD.place(0); L.group.visible = true; L.smoke(false);
       sfx?.play('squeal', { gain: 0.4, dur: 1.1 }); W.audio?.play?.('engineStart', { pos: [mackD.pos.x, 0.8, mackD.pos.z] });
@@ -607,8 +625,10 @@ function createMission(W, { keep = false } = {}) {
       const carTarget = { follow: () => car.position, name: car.label || "Dan's car" };
       if (!inCar()) { objective(['Get in your ', { car: 'blue' }, '. Mack is driving off.'], carTarget); blipCar(); } else go();
       say([['Mack', ACID, "You can't catch Mack, banker boy!"]]).catch(() => {});
+      // Jane on the car phone, fast (mission/calls.js 'm2-chase'): 5 s in, once he's in his car; the crash hangs up
+      W.calls?.start('m2-chase');
       S.engine = sfx?.engine?.();
-      let farT = 0, warned = false, wasIn = inCar(), everIn = wasIn, helped = false, jane = false, goT = null;
+      let farT = 0, warned = false, wasIn = inCar(), everIn = wasIn, helped = false, goT = null;
       const t0 = now();
       const off = hook(() => {
         const dt = frameDt(), t = (now() - t0) / 1000, p = me(), d = dist(p, mackD.pos.x, mackD.pos.z);
@@ -629,8 +649,11 @@ function createMission(W, { keep = false } = {}) {
         if (inCar() && !wasIn) { go(); gps.unblip('car'); } if (!inCar() && wasIn) { objective(['Get back in your ', { car: 'blue' }, ". You can't catch Mack on foot."], carTarget); blipCar(); }
         wasIn = inCar();
         if (!helped && inCar() && t > 2) { helped = true; ui.help("Ram Mack's car to wreck it, or keep up until he crashes.", 8); }
-        if (!jane && t > 14 && inCar()) { jane = true; janeChase(); }
-        if (inCar()) { if (d > 150 && !warned) { warned = true; ui.objective([{ Mack: 'red' }, ' is getting away.']); } else if (d < 110 && warned) { warned = false; go(); } }
+        // her calls on his route: down 11th Ave, east on W 34th St, Herald Square ahead
+        if (dist(mackD.pos, -1688, -1005) < 45) W.calls?.cue(0);
+        if (dist(mackD.pos, -1664, 645) < 45) W.calls?.cue(1);
+        if (dist(mackD.pos, CRASH.x, CRASH.z) < 300) W.calls?.cue(2);
+        if (inCar()) { if (d > 150 && !warned) { warned = true; ui.objective([{ Mack: 'red' }, ' is getting away.']); W.calls?.react('far'); } else if (d < 110 && warned) { warned = false; go(); } }
         // (not while he's still running for his car at the start)
         if (d > 260 && everIn) farT += dt; else farT = Math.max(0, farT - dt);
         if (farT > 6 || d > 450) fail('Mack got away.');
@@ -753,28 +776,7 @@ function createMission(W, { keep = false } = {}) {
   }
   function wakeCrew() { for (const e of S.crew?.enemies || []) e._m2restore?.(); S.crew?.engage(); }
 
-  // Jane on the phone during the tail (the caller card, in the car)
-  async function janeTail() {
-    const t = tok;
-    sfx?.play('ring', { gain: 0.14, times: 1 }); ui.caller('Jane', BLUE, 'Incoming call'); await gsleep(1600);
-    if (t.dead || S.flee) { ui.caller(null); return; }
-    ui.caller('Jane', BLUE, 'On call');
-    await say([
-      ['Jane', BLUE, "I've got the van. 'JPBank Security.' On the side. Subtle."],
-      ['Dan', WHITE, 'They took my laptop, Jane. None of this is subtle.'],
-      ['Jane', BLUE, "It's registered to a Mack Moneybags. Mack. He runs Midtown for the bank's security."],
-      ['Dan', WHITE, 'Mack Moneybags. Did his parents hate him?'],
-      ['Jane', BLUE, 'He picked it. He has it tattooed. In cursive.'],
-      ['Jane', BLUE, "Hang back. If they make you, they'll bolt."],
-    ], t).catch(() => {});
-    ui.caller(null);
-  }
-  async function janeChase() {
-    const t = tok;
-    sfx?.play('ring', { gain: 0.14, times: 1 }); ui.caller('Jane', BLUE, 'On call'); await gsleep(900);
-    await say([['Jane', BLUE, "That's Mack's car. He's heading for Herald Square."], ['Jane', BLUE, 'Ram him, Dan. Gently. Ish.'], ['Dan', WHITE, "There's no gentle way to ram a car."]], t).catch(() => {});
-    ui.caller(null);
-  }
+  // (Jane's calls on the drives, the tail's and the chase's among them: mission/calls.js)
 
   /* --------------------------------------------------- passed, hand-off -- */
   async function passed() {
@@ -789,18 +791,14 @@ function createMission(W, { keep = false } = {}) {
     await ui.passed({ title: 'Burner', stats: [
       ['TIME', `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`], ['SUITS DOWN', String(stats.ko || 0)],
       ['QUIET TAKEDOWNS', `${stats.quiet}/3`], ['HITS TAKEN', String(stats.hits)],
-    ], reward: '+9,800', note: '#FallGuyChase is trending · NEW: trash cans and bottles' }, 6);
-    W.followers = (W.followers || 0) + 9800;
+    ], reward: '+212', note: 'A trucker filmed the yard fight · NEW: trash cans and bottles' }, 6);
+    W.supporters = (W.supporters || 0) + 212;
     await gsleep(3500);
     // Jane, then Rook, then the way to Gears' garage
-    sfx?.play('ring', { gain: 0.14, times: 1 }); ui.caller('Jane', BLUE, 'On call'); await gsleep(1000);
-    await say([
-      ['Jane', BLUE, "I saw the chat. They know where you live, so you're not sleeping there tonight."],
-      ['Dan', WHITE, 'Where am I sleeping?'],
-      ['Jane', BLUE, "Gears has a room over his garage. West Chelsea. He builds rockets for cars. He's nice. Mostly."],
-    ], { dead: false }).catch(() => {});
-    ui.caller(null);
-    await gsleep(1200);
+    sfx?.play('buzz', { gain: 0.18, times: 1 }); sfx?.play('ding', { gain: 0.14 }); W.audio?.play?.('phoneBuzz');
+    ui.dm('Jane', "saw the chat. they know where you live, so not home tonight. gears' garage, west chelsea. i'll call when you're driving.", 9);
+    // (her DM read before Rook's takes its place)
+    await gsleep(6500);
     sfx?.play('buzz', { gain: 0.18, times: 2 }); sfx?.play('ding', { gain: 0.14 }); W.audio?.play?.('phoneBuzz');
     // (why not tonight: Mack lost his phone to Dan, so tonight he goes through everyone else's)
     ui.dm('Unknown number', "this is rook. from mack's chat. i want out. i know where they're taking your laptop. mack's checking all our phones tonight, so not yet. i'll DM you tomorrow. -R", 12);

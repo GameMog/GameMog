@@ -15,11 +15,11 @@ MOG CITY is a community project, and we want everyone who plays it, files an iss
 - Hate or discrimination of any kind, including about identity, background, age, body or ability.
 - Sexual content or advances.
 - Sharing anyone's private information without their permission.
-- Spam, scams, or using the project to promote tokens, coins, stocks or trading. The game jokes about finance; this space doesn't shill anything.
+- Spam, scams, or using the project to sell anything or to promote stocks, investments or trading schemes. The game jokes about banks; this space doesn't shill anything.
 
 ## Where it applies
 
-It applies in Mog City's repository (issues, pull requests, reviews and commits) and anywhere you represent the project.
+It applies wherever Mog City is worked on: its `mogcity` branch of GameMog/GameMog, and the issues, pull requests, Discussions, reviews and commits about it, and anywhere you represent the project.
 
 ## Reporting
 

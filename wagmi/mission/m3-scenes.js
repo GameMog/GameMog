@@ -3,21 +3,25 @@
 //   night   the night after Mission 2, in the garage: Dan on the old couch, Moon's photo on his phone, lights out;
 //           NEXT MORNING (a clock runs the night through); the sun low through the door, him asleep sitting up, waking
 //   garage  the Static Garage at midday, the next day: the street outside, then the bay: Gears' legs out from under
-//           Dan's car ("Cold-gas thrusters..."), Jane's video call: the Blimpco launch stream (Fiona, the airship logo)
-//   rally   Washington Square: the stage under the arch, the chart pumping, Fiona on the megaphone, a Suit spots Dan;
-//           then over his shoulder on the lawn, the three rigs ahead of him (the job's card up over it)
-//   dump    the third rig down: the chart goes red, Fiona drops the megaphone and runs for her SUV on 5th Ave; then
+//           Dan's car ("Cold-gas thrusters..."), Jane's video call: JPBank's community day next to the Occupy camp, and
+//           its smear reel on the screens (Dan, ten feet tall: 'the bad apple')
+//   rally   Washington Square: the stage under the arch, the reel on the big screen, Fiona on the megaphone, the camp
+//           chanting back from its tents; a Suit planted in the crowd spots Dan; then over his shoulder on the lawn, the
+//           three screen rigs ahead of him (the job's card up over it)
+//   dump    the third rig down: the reel dies mid-sentence (NO SIGNAL), Fiona drops the megaphone and runs for her SUV on
+//           5th Ave; Ms. Bea's people's mic over the empty stage, the camp chanting "Free Dan!"; then
 //           what the rigs bought him: Mack's phone (still in the Suits' chat) buzzes, Mr. Big changes the plan for the laptop
 //           (shredded at dawn) and names the driver: Rook, who DMed Dan last night (Mission 4's lead)
-//   home    back at the garage: Gears at the door, the car "in one piece", one line from Dan about Moon
+//   home    back at the garage: Gears at the door, the car "in one piece", one line from Dan about Moon, the news of the
+//           park's chant
 // Each is paced by its lines (a shot starts with its line) or fixed, and returns when it ends (or is skipped).
 import * as THREE from 'three/webgpu';
 import { upright, UPRIGHT_BONES, place } from '../intro.js';
 import { keys, clamp, lerp, spline, travel, rig } from './cine.js';
-import { GARAGE, ARCH, STAGE, FIONA_AT, SUV_AT, SCREEN_Z, CROWD_CAM, RIGS, drawMoon, drawBlimp } from './m3-set.js';
+import { GARAGE, ARCH, STAGE, FIONA_AT, SUV_AT, SCREEN_Z, CROWD_CAM, RIGS, BEA_AT, drawMoon, drawHeart } from './m3-set.js';
 
 const PI = Math.PI;
-const WHITE = '#FFFFFF', BLUE = '#6CB8FF', ACID = '#B6FF3B', GOLD = '#FFC93C', PINK = '#FF8AD8';
+const WHITE = '#FFFFFF', BLUE = '#6CB8FF', ACID = '#B6FF3B', GOLD = '#FFC93C', PINK = '#FF8AD8', BEA = '#FFB86B', CAMP = '#E8D9B0';
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const GX = GARAGE.x, GZ = GARAGE.z, GY = 0.22;
 export const SPOT = {
@@ -96,11 +100,13 @@ function runAt(P, dist) {
   const d = a.getClip().duration; a.time = (((dist / P.runSpeed) % d) + d) % d; P.mixer.update(0);
 }
 
-/* ---------------------------------------- the Blimpco stream (the call) -- */
-// what Jane shares: the launch stream (an original drawing): the arch, the stage, the chart pumping on the big screen,
-// Blimpco's logo on the banner, Fiona in her white puffer on the megaphone, the chat going by
+/* ------------------------------------ JPBank's broadcast (the call) -- */
+// what Jane shares: JPBank's own broadcast of its community day (an original drawing): the arch, JPBANK ♥ NY on the
+// banner, LIVE and the viewers on a strip under it (the call's own header has the top), the big screen running the
+// reel (a head-and-shoulders silhouette, BAD APPLE), Fiona in white on the
+// megaphone, the camp's tents and a cardboard sign either side, the chat going by (the Suits planted in it too)
 function streamSVG() {
-  const face = document.createElement('canvas'); face.width = face.height = 96; drawBlimp(face.getContext('2d'), 48, 48, 38);
+  const face = document.createElement('canvas'); face.width = face.height = 96; drawHeart(face.getContext('2d'), 48, 50, 34);
   const logo = face.toDataURL();
   return `<svg class="map" viewBox="0 0 90 192" preserveAspectRatio="xMidYMid slice">
   <defs><linearGradient id="m3sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FC3EA"/><stop offset="1" stop-color="#D9ECF7"/></linearGradient></defs>
@@ -108,13 +114,16 @@ function streamSVG() {
   <rect x="0" y="40" width="14" height="80" fill="#B9A28A"/><rect x="76" y="34" width="14" height="86" fill="#A88E76"/>
   <path d="M14 120 L14 46 L76 46 L76 120 L58 120 L58 80 Q45 58 32 80 L32 120 Z" fill="#EDE8DE"/>
   <rect x="14" y="46" width="62" height="12" fill="#E3DDD1"/>
-  <rect x="17" y="47" width="56" height="10" fill="#0B0D10" stroke="#B6FF3B" stroke-width=".8"/>
+  <rect x="17" y="47" width="56" height="10" fill="#0E2A5C" stroke="#E8364F" stroke-width=".8"/>
   <image href="${logo}" x="18" y="46.5" width="11" height="11"/>
-  <text x="31" y="55" font-family="Barlow Condensed" font-weight="800" font-style="italic" font-size="7.5" fill="#B6FF3B">BLIMPCO</text>
-  <rect x="24" y="78" width="42" height="26" fill="#0B140A" stroke="#222" stroke-width="1"/>
-  <path d="M27 100 L33 97 L37 98 L42 92 L46 93 L51 86 L55 87 L60 81 L63 82" fill="none" stroke="#B6FF3B" stroke-width="1.6"><animate attributeName="stroke-opacity" values="1;.6;1" dur="1s" repeatCount="indefinite"/></path>
-  <text x="28" y="85" font-family="Barlow Condensed" font-weight="800" font-size="5" fill="#B6FF3B">+4,120%</text>
+  <text x="31" y="55" font-family="Barlow Condensed" font-weight="800" font-style="italic" font-size="7.5" fill="#FFFFFF">JPBANK ♥ NY</text>
+  <rect x="24" y="78" width="42" height="26" fill="#0E1B33" stroke="#222" stroke-width="1"/>
+  <rect x="26" y="80" width="15" height="22" fill="#9FB3C8"/><circle cx="33.5" cy="87.5" r="3.6" fill="#2A3442"/><path d="M27 102 Q27 94 33.5 93.6 Q40 94 40 102 Z" fill="#2A3442"/>
+  <rect x="26" y="96" width="15" height="2.6" fill="#E8364F"><animate attributeName="opacity" values="1;.4;1" dur="1.2s" repeatCount="indefinite"/></rect>
+  <text x="43" y="87" font-family="Barlow Condensed" font-weight="800" font-size="5.6" fill="#FFFFFF">BAD APPLE</text><text x="43" y="93" font-family="Barlow Condensed" font-weight="700" font-size="3.4" fill="#E8364F">WE CAUGHT HIM</text>
   <rect x="0" y="118" width="90" height="74" fill="#5D6B4E"/><rect x="10" y="118" width="70" height="7" fill="#2A2D33"/>
+  <path d="M-2 140 L6 127 L14 140 Z" fill="#D9792B"/><path d="M6 127 L9 140 L14 140 Z" fill="#9E5520"/><path d="M76 138 L83 126 L92 138 Z" fill="#2E6FB0"/><path d="M83 126 L86 138 L92 138 Z" fill="#1F4F82"/>
+  <rect x="64.6" y="121" width=".8" height="12" fill="#6B5034"/><rect x="58" y="114" width="14" height="8" fill="#C9A675" transform="rotate(-4 65 118)"/><text x="59.4" y="119.6" font-family="Barlow Condensed" font-weight="800" font-size="3.4" fill="#1A1A1A" transform="rotate(-4 65 118)">OCCUPY</text>
   <g transform="translate(45 104)">
     <ellipse cx="0" cy="12" rx="6" ry="9" fill="#F1F1F4"/><rect x="-4" y="19" width="3" height="10" fill="#1B1C20"/><rect x="1" y="19" width="3" height="10" fill="#1B1C20"/>
     <circle cx="0" cy="0" r="3.4" fill="#C9906E"/><path d="M-3.6 -0.6 Q0 -6 3.6 -0.6 L3.4 1 Q0 -2 -3.4 1 Z" fill="#EDE3C8"/><path d="M2.8 -1 Q6 4 4 10" stroke="#EDE3C8" stroke-width="1.6" fill="none"/>
@@ -122,10 +131,11 @@ function streamSVG() {
     <path d="M-5 6 L-10 2 L-11 7 Z" fill="#F2F2F0"/><path d="M5 7 L9 -2" stroke="#F1F1F4" stroke-width="2.2" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" values="0 5 7;-18 5 7;0 5 7" dur=".5s" repeatCount="indefinite"/></path>
   </g>
   ${[[10, 140], [22, 146], [70, 142], [80, 150], [58, 152], [32, 156], [46, 160], [16, 166]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="3.2" fill="${['#3A2E28', '#1C1E22', '#7A5236', '#2B2F36'][i % 4]}"/><rect x="${x - 3.6}" y="${y + 2.6}" width="7.2" height="9" rx="2" fill="${['#2E3440', '#B6FF3B', '#5D2E3A', '#1D2026'][i % 4]}"/>`).join('')}
-  <rect x="4" y="12" width="20" height="8" rx="2" fill="#EF4444"/><text x="7.6" y="18.2" font-family="Barlow Condensed" font-weight="800" font-size="6" fill="#fff">LIVE</text>
-  <text x="27" y="18.2" font-family="Barlow Condensed" font-weight="700" font-size="5.4" fill="#fff" stroke="#000" stroke-width=".25">11.2K WATCHING</text>
+  <rect x="16" y="60.5" width="58" height="9" rx="2" fill="rgba(8,10,14,.72)"/>
+  <rect x="17.5" y="61.8" width="15" height="6.4" rx="1.4" fill="#EF4444"/><text x="20" y="66.8" font-family="Barlow Condensed" font-weight="800" font-size="5" fill="#fff">LIVE</text>
+  <text x="35" y="66.8" font-family="Barlow Condensed" font-weight="700" font-size="4.8" fill="#fff">11.2K WATCHING</text>
   <g font-family="Barlow Condensed" font-weight="700" font-size="4.8" fill="#fff">
-    <text x="5" y="172"><tspan fill="#B6FF3B">brick</tspan> BLIMPCO TO 100 DOLLARS</text><text x="5" y="178"><tspan fill="#FFC93C">tank</tspan> put my rent in</text><text x="5" y="184"><tspan fill="#B6FF3B">dash</tspan> wait is this the blimp one</text>
+    <text x="5" y="172"><tspan fill="#B6FF3B">brick</tspan> BOO THE BAD APPLE</text><text x="5" y="178"><tspan fill="#FFC93C">tank</tspan> free hot dogs tho</text><text x="5" y="184"><tspan fill="#B6FF3B">dash</tspan> wait is this the bank one</text>
   </g>
 </svg>`;
 }
@@ -133,7 +143,7 @@ export function streamCall(W, U) {
   U.call.show();
   const c = W.ui.phone.el.querySelector('.content .m2-call'); if (!c) return;
   const old = c.querySelector('svg.map'); if (old) old.outerHTML = streamSVG();
-  const tag = c.querySelector('.tag'); if (tag) tag.innerHTML = 'BLIMPCO · LIVE LAUNCH · 11.2K WATCHING<b>Washington Square Arch</b>';
+  const tag = c.querySelector('.tag'); if (tag) tag.innerHTML = 'JPBANK LOVES NEW YORK · LIVE · 11.2K WATCHING<b>Washington Square Arch</b>';
 }
 
 /* ------------------------------------------------------------- garage -- */
@@ -149,9 +159,10 @@ export function garageScene(W, { U, say, gears, garage }) {
     ['Gears', GOLD, 'Cold-gas thrusters. Little puffs of nitrogen. Very safe. Mostly.'],
     ['Dan', WHITE, 'Define mostly.'],
     ['Gears', GOLD, "I tested them on my van. Van's fine. It's on the roof now."],
-    ['Jane', BLUE, "Dan. Are you watching this? They're pumping Blimpco. Live."],
-    ['Fiona', PINK, 'Blimpco! Number go up! Number go UP!'],
-    ['Jane', BLUE, "It's up four thousand percent. The insiders are cashing out."],
+    ['Jane', BLUE, "Dan. Are you watching this? JPBank's throwing a party in Washington Square."],
+    ['Fiona', PINK, 'JPBank loves New York! Free hot dogs! Free tote bags!'],
+    ['Jane', BLUE, 'Right next to the Occupy camp. Now look at their screens.'],
+    ['Jane', BLUE, "It's you. Ten feet tall, three times. 'The bad apple.'"],
     ['Dan', WHITE, "I'm going to go unplug it."],
     ['Gears', GOLD, 'Go get your name back, kid.'],
   ];
@@ -167,12 +178,14 @@ export function garageScene(W, { U, say, gears, garage }) {
       { line: 2, t: Infinity, cam: (t, t0) => ({ pos: drift([GX - 1.05, GY + 1.5, GZ + 4.0], [GX - 1.1, GY + 1.48, GZ + 4.15], 4)(t, t0), look: [SPOT.gears[0], GY + 1.38, SPOT.gears[1]], fov: 40, shake: 0.3 }) },
       { line: 3, t: Infinity, ...OTS },
       { line: 4, t: Infinity, cam: (t, t0) => ({ pos: drift(at(-1.2, 0.55, 1.8), at(-1.05, 0.5, 1.78), 4)(t, t0), look: at(1.5, 0.22, 1.36), fov: 34, shake: 0.3 }) },
-      { line: 5, t: Infinity, cam: (t, t0) => ({ pos: drift(at(1.6, -0.95, 1.7), at(1.45, -0.85, 1.7), 5)(t, t0), look: at(0, 0, 1.64), fov: 28, shake: 0.3 }) },
-      { line: 6, t: Infinity, cam: (t, t0) => ({ pos: drift(at(2.9, -1.7, 1.7), at(2.6, -1.6, 1.68), 4)(t, t0), look: at(0, 0, 1.45), fov: 38, shake: 0.3 }) },
-      { line: 7, t: Infinity, cam: (t, t0) => ({ pos: drift([GX - 1.0, GY + 1.5, GZ + 4.3], [GX - 1.05, GY + 1.5, GZ + 4.45], 3)(t, t0), look: [SPOT.gears[0], GY + 1.42, SPOT.gears[1]], fov: 34, shake: 0.3 }) },
+      // (Jane's two: over his shoulder onto the phone, the shared broadcast in view: the camp, then the reel close)
+      { line: 5, t: Infinity, cam: (t, t0) => ({ pos: drift(at(-1.62, 0.7, 1.85), at(-1.4, 0.64, 1.83), 4)(t, t0), look: at(1.5, 0.22, 1.36), fov: 38, shake: 0.3 }) },
+      { line: 6, t: Infinity, cam: (t, t0) => ({ pos: drift(at(-1.05, 0.5, 1.79), at(-0.92, 0.46, 1.77), 4)(t, t0), look: at(1.5, 0.22, 1.36), fov: 30, shake: 0.3 }) },
+      { line: 7, t: Infinity, cam: (t, t0) => ({ pos: drift(at(2.9, -1.7, 1.7), at(2.6, -1.6, 1.68), 4)(t, t0), look: at(0, 0, 1.45), fov: 38, shake: 0.3 }) },
+      { line: 8, t: Infinity, cam: (t, t0) => ({ pos: drift([GX - 1.0, GY + 1.5, GZ + 4.3], [GX - 1.05, GY + 1.5, GZ + 4.45], 3)(t, t0), look: [SPOT.gears[0], GY + 1.42, SPOT.gears[1]], fov: 34, shake: 0.3 }) },
     ],
     cues: [
-      [0.3, () => { ui.title('ACT II · INSIDERS', 'KOLs', 2.8); sfx?.play('stinger', { gain: 0.35 }); W.audio?.play?.('missionStart'); }],
+      [0.3, () => { ui.title('ACT II · INSIDERS', 'Occupied', 2.8); sfx?.play('stinger', { gain: 0.35 }); W.audio?.play?.('missionStart'); }],
       [1.0, () => ui.place('Static Garage', 'West Chelsea · New York', 3.2)],
       [T.inside - 0.1, () => { garage.inside(true); }],
       [1.3, (st) => {
@@ -182,8 +195,7 @@ export function garageScene(W, { U, say, gears, garage }) {
           if (i === 2) gearsUp = true;
           if (i === 3) { sfx?.play('ring', { gain: 0.16, times: 1 }); W.audio?.play?.('phoneBuzz'); T.up = now; streamCall(W, U); }
           if (i === 4) { U.call.share(true); W.voice?.fx?.('Fiona', 'video'); }
-          if (i === 5) U.call.share(false);
-          if (i === 6) { T.down = now + 0.3; U.call.hide(); sfx?.play('hangup', { gain: 0.12 }); }
+          if (i === 7) { U.call.share(false); T.down = now + 0.3; U.call.hide(); sfx?.play('hangup', { gain: 0.12 }); }
           if (who === 'Jane') talkUntil = performance.now() + 400;
           // (Gears talks with his hands on his own lines, once he's up)
           if (who === 'Gears' && gearsUp) gears.rig.set([[0, 'idle'], [now, 'talk', { fade: 0.4, speed: 0.8 }], [now + 3.2, 'idle', { fade: 0.6 }]]);
@@ -351,7 +363,7 @@ export function rallyScene(W, { say, fiona, rally, spotter, lawn = null, onRigs 
     // (handed back facing the nearest rig: the job)
     face: near ? { x: near[0], z: near[1] } : null,
     shots: [
-      // from 5th Ave: the arch, Blimpco on the banner, the chart through the opening
+      // from 5th Ave: the arch, JPBank's banner, the reel through the opening
       { t: 0, cam: (t) => ({ pos: keys([[0, [7.5, 2.0, 2748]], [3.2, [6.5, 2.3, 2758]]], 'linear')(t), look: keys([[0, [0, 11, 2801]], [3.2, [0, 10, 2801]]], 'linear')(t), fov: 54, shake: 0.4 }) },
       // in the crowd, the stage
       // (in the crowd, over their heads: a spot the park's trees leave clear to the stage)
@@ -365,9 +377,12 @@ export function rallyScene(W, { say, fiona, rally, spotter, lawn = null, onRigs 
     ],
     cues: [
       [0.2, () => ui.place('Washington Square', 'Greenwich Village · New York', 3.2)],
-      [0.6, (st) => { W.voice?.fx?.('Fiona', 'phone'); say([['Fiona', PINK, 'Welcome to the launch of the century! Blimpco!']], st); }],
-      [5.9, (st) => say([['Fiona', PINK, 'Number go up! Number go UP!']], st)],
-      [8.6, (st) => say([['Brick', ACID, "Yo. That's banker boy. Protect the streams!"]], st)],
+      [0.6, (st) => { W.voice?.fx?.('Fiona', 'phone'); say([['Fiona', PINK, 'Hiii, New York! JPBank loves you!']], st); }],
+      // (the camp, across the park, answering her as her line ends: 0.6 + her 3.29 s recording; each line here ends
+      // before the next starts, by their recordings: the camp's 1.9 s, hers 2.7 s, Brick's 3.0 s)
+      [3.9, (st) => { rally.cheer?.(); say([['Camp', CAMP, 'We are the ninety-nine percent!']], st); }],
+      [6.1, (st) => say([['Fiona', PINK, 'Boo the bad apple, everybody! Booo!']], st)],
+      [9.0, (st) => say([['Brick', ACID, "Yo. That's banker boy. Protect the screens!"]], st)],
       // (him on the lawn behind the crowd, facing the nearest rig: where the fight starts him)
       ...(lawn ? [[T.rigs - 0.02, () => {
         const P = W.person, cm = W.app.controllerManager;
@@ -388,20 +403,23 @@ export function rallyScene(W, { say, fiona, rally, spotter, lawn = null, onRigs 
 }
 
 /* --------------------------------------------------------------- dump -- */
-// ~19 s: the chart red, Fiona off the stage and away in her SUV; then the stage left empty, the red chart over it, as
+// ~33 s: the reel dead (frozen mid-sentence, then NO SIGNAL), Fiona off the stage and away in her SUV; the stage left
+// empty, and Ms. Bea's people's mic from the camp (she says a phrase, the camp says it back so the back can hear: "Free
+// Dan!"); then the dead screen over the empty stage, as
 // Mack's phone (Dan took it in Mission 2, and nobody kicked it from their chat) shows Mr. Big's new plan for the laptop:
 // shredded at dawn, Rook driving (23 Oct, the review: smashing the rigs gains him something concrete toward the laptop; Rook's
 // DM at the end of the mission and Mission 4 start from it). Back on his car for his read of it
 export const DUMP_CHAT = [
-  ['brick', '#B6FF3B', 'STREAM IS DEAD. banker boy smashed all 3 rigs'],
-  ['mr.big', '#E9EEF5', 'Then no more streams. The laptop gets shredded at dawn.'],
+  ['brick', '#B6FF3B', 'SCREENS ARE DEAD. banker boy smashed all 3'],
+  ['mack.2', '#B6FF3B', 'new phone. boss the camp is chanting his NAME'],
+  ['mr.big', '#E9EEF5', 'Then no more PR. The laptop gets shredded at dawn.'],
   ['mr.big', '#E9EEF5', 'Rook drives.'],
   ['rook', '#6CB8FF', 'ok'],
 ];
 export function dumpScene(W, { say, fiona, rally, suv }) {
   const sfx = W.sfx, cm = W.app.controllerManager, [FX, FZ] = FIONA_AT, top = STAGE.top;
   // (gone: the SUV out of sight by 11.4, as before the chat was added)
-  const T = { drop: 3.0, run: 3.6, cut: 6.0, inCar: 8.4, go: 8.7, gone: 11.4, car: 9.8, stage: 11.6, chat: 11.9, back: 16.4, end: 19.0 };
+  const T = { drop: 3.0, run: 3.6, cut: 6.0, inCar: 8.4, go: 8.7, gone: 11.4, car: 9.8, stage: 11.6, mic: 11.8, camp: 13.3, chant: 22.6, chat: 25.2, back: 30.9, end: 33.5 };
   const [SX, SZ, SH] = SUV_AT;
   // her run: along the stage to its east end, down, round the arch's east pier (cut), then the last steps to the SUV
   // (the second leg at the pace that gets her to its door as it opens)
@@ -417,25 +435,48 @@ export function dumpScene(W, { say, fiona, rally, suv }) {
     END: T.end, hero: false,
     // (the cameras stand where nothing of the park's trees comes between them and her: see the set's tree list)
     shots: [
-      // from the stage's front, west of her: Fiona under the screen as the chart goes red
+      // from the stage's front, west of her: Fiona under the screen as the reel dies
       { t: 0, cam: (t) => ({ pos: keys([[0, [-4.4, 2.0, 2814.0]], [2.6, [-4.0, 2.1, 2813.4]]], 'linear')(t), look: keys([[0, [0.6, 4.6, SCREEN_Z]], [2.6, [0.4, 4.2, SCREEN_Z + 1]]], 'linear')(t), fov: 50, shake: 0.4 }) },
       // east of her, low by the stage's edge: the megaphone dropped, and her run past the camera to the steps
       { t: 2.6, cam: (t) => ({ pos: keys([[2.6, [4.2, 1.85, 2813.2]], [T.cut, [4.7, 1.8, 2813.0]]], 'linear')(t), look: (() => { const p = t < T.run ? { x: FX, z: FZ } : run1.at(Math.min(run1.length, r1(t))); return [p.x, onStage(p) ? top + 1.0 : 1.3, p.z]; })(), fov: 46, shake: 0.7 }) },
       { t: T.cut, cam: (t) => ({ pos: [16.8, 1.8, 2789.5], look: keys([[T.cut, [10, 1.2, 2794]], [T.go + 0.4, [SX + 0.5, 1.1, SZ]], [T.gone, [SX - 1, 1.2, SZ - 30]]])(t), fov: 44, shake: 0.6 }) },
       { t: T.car, cam: () => { const [cx, cz, ch] = ESCAPE_CAR; return { pos: [cx - Math.sin(ch) * 7.5, 2.3, cz - Math.cos(ch) * 7.5], look: [cx + Math.sin(ch) * 6, 1.1, cz + Math.cos(ch) * 6], fov: 52, shake: 0.4 }; } },
-      // the stage left empty under the red chart, the megaphone where she dropped it, while the chat comes in
-      { t: T.stage, cam: (t) => ({ pos: keys([[T.stage, [-3.2, 1.65, 2817.2]], [T.back, [-2.5, 1.75, 2815.6]]], 'linear')(t), look: keys([[T.stage, [0.6, 3.6, SCREEN_Z]], [T.back, [0.4, 3.3, SCREEN_Z]]], 'linear')(t), fov: 46, shake: 0.35 }) },
+      // the stage left empty under the dead screen, the megaphone where she dropped it
+      { t: T.stage, cam: (t) => ({ pos: keys([[T.stage, [-3.2, 1.65, 2817.2]], [T.camp, [-2.9, 1.7, 2816.5]]], 'linear')(t), look: keys([[T.stage, [0.6, 3.6, SCREEN_Z]], [T.camp, [0.5, 3.45, SCREEN_Z]]], 'linear')(t), fov: 46, shake: 0.35 }) },
+      // the people's mic, from just in front of Ms. Bea on her crate (BEA_AT, behind the camera): the camp facing her
+      // (and us), the dead screens far behind them up the lawn
+      { t: T.camp, cam: (t) => ({ pos: keys([[T.camp, [1.6, 2.35, 2918.8]], [T.chant, [1.4, 2.25, 2917.4]]], 'linear')(t), look: keys([[T.camp, [0.2, 1.45, 2906]], [T.chant, [0.0, 1.5, 2906]]], 'linear')(t), fov: 50, shake: 0.35 }) },
+      // "Free Dan!": the camp turned back to the bank's dead screens, arms up; from in front of them, Dan's sign among
+      // them (GREEDY struck out: FALL)
+      { t: T.chant, cam: (t) => ({ pos: keys([[T.chant, [0.9, 1.55, 2899.6]], [T.chat, [0.6, 1.5, 2900.4]]], 'linear')(t), look: [-0.6, 1.5, 2905.4], fov: 44, shake: 0.45 }) },
+      // the dead screen over the empty stage again, as the chat comes in
+      { t: T.chat, cam: (t) => ({ pos: keys([[T.chat, [3.4, 1.6, 2817.6]], [T.back, [2.8, 1.7, 2816.2]]], 'linear')(t), look: keys([[T.chat, [-0.4, 3.5, SCREEN_Z]], [T.back, [-0.3, 3.3, SCREEN_Z]]], 'linear')(t), fov: 46, shake: 0.35 }) },
       // back on his car, from its other side, for his read of it
       { t: T.back, cam: (t) => { const [cx, cz, ch] = ESCAPE_CAR, f = [Math.sin(ch), Math.cos(ch)], r = [-Math.cos(ch), Math.sin(ch)]; const p = keys([[T.back, [cx - f[0] * 6.2 - r[0] * 3.2, 1.9, cz - f[1] * 6.2 - r[1] * 3.2]], [T.end, [cx - f[0] * 5.4 - r[0] * 2.8, 1.8, cz - f[1] * 5.4 - r[1] * 2.8]]], 'linear')(t); return { pos: p, look: [cx + f[0] * 3, 1.0, cz + f[1] * 3], fov: 48, shake: 0.4 }; } },
     ],
     cues: [
-      [0.1, () => { rally.screen.mode('dump'); sfx?.play('squeal', { gain: 0.2, dur: 0.6 }); }],
-      [0.5, (st) => { W.voice?.fx?.('Fiona', 'phone'); say([['Fiona', PINK, 'Wait. Why is it red? Why is it going down?']], st); }],
+      [0.1, () => { rally.screen.mode('dead'); sfx?.play('squeal', { gain: 0.2, dur: 0.6 }); }],
+      [0.5, (st) => { W.voice?.fx?.('Fiona', 'phone'); say([['Fiona', PINK, 'Wait. Why is it black? Who unplugged it?']], st); }],
       [T.drop, () => { megaT = T.drop; W.voice?.fx?.('Fiona', null); }],
-      [T.run - 0.2, (st) => say([['Fiona', PINK, "It's a healthy correction! Bye!"]], st)],
+      [T.run - 0.2, (st) => say([['Fiona', PINK, "We'll be right back! JPBank loves you! Bye!"]], st)],
       [T.inCar - 0.1, () => W.audio?.play?.('doorOpen', { pos: [doorAt[0], 1, doorAt[1]] })],
       [T.go, () => { sfx?.play('squeal', { gain: 0.45, dur: 1.2 }); W.audio?.play?.('engineStart', { pos: [SX, 0.8, SZ] }); }],
-      [T.car + 0.2, (st) => say([['Dan', WHITE, 'Not financial advice.']], st)],
+      [T.car + 0.2, (st) => say([['Dan', WHITE, 'Take your time.']], st)],
+      // the people's mic: Ms. Bea says it, the camp says it back so the back can hear (arms up on each answer)
+      [T.mic, (st) => {
+        rally.camp?.mic(true);
+        say([
+          ['Bea', BEA, 'Mic check!'], ['Camp', CAMP, 'Mic check!'],
+          ['Bea', BEA, 'Anybody the bank hates this much...'], ['Camp', CAMP, 'Anybody the bank hates this much!'],
+          ['Bea', BEA, '...is somebody we should hear out!'], ['Camp', CAMP, 'Free Dan! Free Dan! Free Dan!'],
+        ], st, (who, i) => {
+          // ("Free Dan!": back to face the screens, all of them)
+          if (i === 5) rally.camp?.mic(false);
+          if (who === 'Camp') rally.cheer?.(i === 5 ? 4.5 : 1.8);
+        });
+      }],
+      // (Ms. Bea's pen: GREEDY struck out on Dan's sign, FALL over it)
+      [T.chant - 0.05, () => rally.camp?.fallMan()],
       // Mack's phone: the Suits' chat, Mr. Big's new plan
       [T.chat, (st) => {
         if (st.dead || !W.m2ui) return;
@@ -468,7 +509,7 @@ export function dumpScene(W, { say, fiona, rally, suv }) {
       fiona.rig.set([[0, 'thugIdle'], [T.run, fiona.clips.includes('run') ? 'run' : 'jog', { fade: 0.2, speed: 1.1 }]]);
       suv.group.visible = true;
     },
-    cleanup() { fiona.root.visible = false; fiona.mega.visible = false; suv.group.visible = false; W.ui?.phone?.hide?.(); },
+    cleanup() { fiona.root.visible = false; fiona.mega.visible = false; suv.group.visible = false; W.ui?.phone?.hide?.(); rally.camp?.mic(false); rally.camp?.fallMan(); },
   };
 }
 
@@ -487,6 +528,8 @@ export function homeScene(W, { say, gears, garage }) {
     ['Gears', GOLD, 'Mostly?'],
     ['Dan', WHITE, "Moon sleeps on Jane's feet tonight. I get a garage.", 0.6],
     ['Dan', WHITE, 'The thrusters work great. Very safe. Mostly.'],
+    ['Gears', GOLD, 'Saw the park on the news. Whole camp chanting your name.'],
+    ['Dan', WHITE, 'Good chanting or bad chanting?'],
     ['Gears', GOLD, "Ha. Room's upstairs, kid. Get some sleep."],
   ];
   const def = {
@@ -499,6 +542,10 @@ export function homeScene(W, { say, gears, garage }) {
       // (Moon: in on him, slowly; then wide for the joke, Gears' laugh in it too)
       { line: 3, t: Infinity, cam: (t, t0) => ({ pos: drift([gx - 0.6, G + 1.6, gz - 1.0], [gx - 0.5, G + 1.58, gz - 0.86], 4)(t, t0), look: [qx, G + 1.5, qz], fov: 28, shake: 0.25 }) },
       { line: 4, t: Infinity, cam: (t, t0) => ({ pos: drift([GX - 6, 1.8, 1599], [GX - 6.5, 2.4, 1597.5], 4)(t, t0), look: [GX - 0.2, 1.6, 1609], fov: 38, shake: 0.4 }) },
+      // (the news of the park: Gears' line on him, Dan's on Dan, then wide again for the laugh)
+      { line: 5, t: Infinity, cam: () => ({ pos: [qx + 0.35, G + 1.62, qz + 0.8], look: [gx, G + 1.72, gz], fov: 34, shake: 0.3 }) },
+      { line: 6, t: Infinity, cam: () => ({ pos: [gx - 0.5, G + 1.65, gz - 0.9], look: [qx, G + 1.55, qz], fov: 32, shake: 0.3 }) },
+      { line: 7, t: Infinity, cam: (t, t0) => ({ pos: drift([GX - 6.2, 2.0, 1598.5], [GX - 6.6, 2.4, 1597.4], 4)(t, t0), look: [GX - 0.2, 1.6, 1609], fov: 38, shake: 0.4 }) },
     ],
     cues: [
       [0.2, () => W.ui.place('Static Garage', 'West Chelsea · New York', 3)],

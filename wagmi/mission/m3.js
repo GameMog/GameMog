@@ -1,29 +1,33 @@
-// Mog City: Mission 3 · KOLs (docs/MISSIONS.md 4.4, as built; it was 'Pump and Dump' till the owner's 24 Oct note), and the way into it after Mission 2. Installed
+// Mog City: Mission 3 · Occupied (docs/MISSIONS.md 4.4, as built; the story pass of 27 Oct: an Occupy camp, OCCUPY
+// JPBANK, has held Washington Square for 41 days; JPBank's PR party next to it aims a smear reel of Dan at the tents),
+// and the way into it after Mission 2. Installed
 // by game.js after m2.js; Mission 2's way on (the G at Gears' garage) is taken over by ours (m3-save.js watchStory).
 //   garage  (a scene, midday, the next day) the Static Garage on W 22nd St: Gears under Dan's car ("Cold-gas
-//           thrusters..."), Jane's video call: the Blimpco launch stream, Fiona on the megaphone, Blimpco on the banner
+//           thrusters..."), Jane's video call: JPBank's community day next to the camp, Fiona, the reel on the screens
 //                                                                                              checkpoint 'garage'
 //   square  'Go to Washington Square.'  the GPS to the arch at the foot of 5th Ave; Jane calls  checkpoint 'square'
 //           first, in the car outside the garage: TRY THE THRUSTERS, Gears' cold-gas fitted (unlocked as the garage ends),
 //           a short practice on W 22nd St (its traffic held off while it runs): HOP and SIDE DASH, each ticked off on use,
 //           THRUSTERS READY when both are; optional: driving off down the street (90 m) puts it away. Jane calls after
-//   rally   (a scene) the stage under the arch, the chart pumping, Fiona hyping; a Suit spots him
-//   rigs    'Smash the livestream rigs.'  RIGS 0/3 (the job's card over the rally's last shot, which shows the three
+//   rally   (a scene) the stage under the arch, the reel on the big screen, Fiona hyping, the camp chanting back; a Suit
+//           planted in the crowd spots him
+//   rigs    'Smash the screen rigs.'  RIGS 0/3 (the job's card over the rally's last shot, which shows the three
 //           rigs from the lawn; each rig marked: a green column, a chevron, its tag with its health; J in reach of one;
-//           STREAM DOWN as each goes): blows (two), a bat (one lies by each), a thrown can or bottle, or the car; two of the
-//           hype crew by the rigs (a bat: their help), a brute by the stage who comes on at the first rig down, one more
+//           SCREEN DOWN as each goes): blows (two), a bat (one lies by each), a thrown can or bottle, or the car; two of the
+//           Suits planted in the crowd and by the rigs (a bat: their help), a brute by the stage who comes on at the first rig down, one more
 //           at 2/3; health 130 for it, a slow regen out of reach, +25 a rig; Fiona on the megaphone; the crowd runs;
 //           100 m from the fight: 'Get back to the fight.', 160 m: 'You left the fight.'   checkpoint 'rigs' (a retry
 //           keeps the rigs smashed and starts by the next one standing)
-//   dump    (a scene) the chart goes red, Fiona drops the megaphone and runs for her SUV on 5th Ave; Mack's phone: Mr. Big
-//           moves the dog out of the city at dawn, Rook driving
+//   dump    (a scene) the reel dies mid-sentence (NO SIGNAL), Fiona drops the megaphone and runs for her SUV on 5th Ave;
+//           Ms. Bea's people's mic over the empty stage ("Free Dan!"); Mack's phone: Mr. Big moves the laptop's
+//           shredding up to dawn, Rook driving
 //   escape  'Lose the Suits.'  HEAT 2: two Suits cars (WAGMI.pursuit), the car in Washington Mews facing away from
 //           them; 'Turn corners and break their line of sight'; the thrusters' keys again (unlocked here on a fresh
 //           restart that missed the garage); the HEAT meter says SEEN or SEARCHING and fills the escape's bar
 //                                                                                              checkpoint 'escape'
 //   return  'Go back to the garage.'  Jane calls                                               checkpoint 'return'
 //   home    (a scene) Gears at the door: "in one piece." "Mostly."
-//   then MISSION PASSED (TIME, RIGS SMASHED, SUITS DOWN, HITS TAKEN, FOLLOWERS +18,500, NEW: bats · cold-gas
+//   then MISSION PASSED (TIME, SCREENS SMASHED, SUITS DOWN, HITS TAKEN, SUPPORTERS +11,240, NEW: bats · cold-gas
 //   thrusters), the save, Rook's DM, and the END OF EPISODE 1 card (episode.js: keep exploring, replay a mission,
 //   share the game; MISSION 4 · COMING SOON). No Mission 4 yet: in free roam after it, Rook's R at Sara D. Roosevelt
 //   Park is the Mission 4 teaser, labelled so (its sign: MISSION 4 COMING SOON), never "a new mission is available"
@@ -49,7 +53,7 @@ import { episodeEnd, openMissionSelect } from './episode.js';
 import { clamp } from './cine.js';
 
 const PI = Math.PI;
-const WHITE = '#FFFFFF', BLUE = '#6CB8FF', ACID = '#B6FF3B', PINK = '#FF8AD8';
+const WHITE = '#FFFFFF', BLUE = '#6CB8FF', ACID = '#B6FF3B', PINK = '#FF8AD8', BEA = '#FFB86B', CAMP = '#E8D9B0';
 const Q = new URLSearchParams(location.search);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const G_AT = { x: GARAGE.x, z: GARAGE.z };
@@ -60,6 +64,9 @@ const SQ = { x: 0, z: 2786, name: 'Washington Square · the arch' };
 const FIFTH = { x: 0, z: 2738 };
 // (the stage and its front kept clear of the city's walkers while the rally stands)
 const STAGE_HOLD = { minX: -12.5, maxX: 12.5, minZ: 2801, maxZ: 2815.5 };
+// (and the Occupy camp's tents, the city's walkers kept out of them)
+const CAMP_HOLD = { minX: -31, maxX: 28, minZ: 2905, maxZ: 2938 };
+const SET_HOLDS = [STAGE_HOLD, CAMP_HOLD];
 // where the car and Dan start a checkpoint played straight in
 const FRESH = {
   // (on the lawn behind the crowd, clear of the park's trees, the camera's too: facing the rigs)
@@ -73,7 +80,7 @@ class Quit extends Error {}
 /* -------------------------------------------------------- our overlays -- */
 // Mission 3's own, in the game's style (mission/ui.js): the rigs' job card (big, mid-top, a few seconds, then just the
 // objective in the tracker), a tag over each rig (its icon, RIG, how far, a health bar), the prompt in reach of one
-// (J · Smash the rig), STREAM DOWN as one goes down (and the RIGS counter pops), and the NEXT MORNING card over the
+// (J · Smash the rig), SCREEN DOWN as one goes down (and the RIGS counter pops), and the NEXT MORNING card over the
 // black of the night in the garage (a clock running the night through). Under #wg (its fades cover them) but the
 // night's card, which is over its black.
 const O_CSS = `
@@ -141,7 +148,7 @@ body:has(#m3o .coach.on) #wg-thr { visibility: hidden; }
 #m3n .c { font: 800 clamp(24px, 3vw, 34px)/1 'Barlow Condensed'; letter-spacing: 3px; }
 #m3n .s { font: 700 14px/1 'Barlow Condensed'; letter-spacing: 4px; color: rgba(255,255,255,.6); text-transform: uppercase; }
 `;
-const RIG_ICON = '<svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6.2" fill="none" stroke="#4ADE80" stroke-width="2.4"/><rect x="10" y="5.6" width="4" height="6.8" rx="1" fill="#fff"/><path d="M12 15.2 V20 M8 22 L12 18.6 L16 22" stroke="#4ADE80" stroke-width="1.8" fill="none" stroke-linecap="round"/><circle cx="18.6" cy="3.6" r="1.6" fill="#EF4444"/></svg>';
+const RIG_ICON = '<svg viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="19" height="11" rx="1.5" fill="none" stroke="#4ADE80" stroke-width="2.2"/><rect x="5.5" y="6.5" width="13" height="5" fill="#fff"/><path d="M6 15 V22 M18 15 V22 M3.5 22 H8.5 M15.5 22 H20.5" stroke="#4ADE80" stroke-width="1.8" fill="none" stroke-linecap="round"/><circle cx="19.6" cy="2.4" r="1.6" fill="#EF4444"/></svg>';
 function overlay(W) {
   if (W._m3o) return W._m3o;
   if (!document.getElementById('m3o-css')) { const st = document.createElement('style'); st.id = 'm3o-css'; st.textContent = O_CSS; document.head.appendChild(st); }
@@ -160,7 +167,7 @@ function overlay(W) {
     card(on, secs = 4) {
       clearTimeout(timers.card); clearTimeout(timers.card2);
       if (!on) { if (card.classList.contains('on')) { card.classList.add('out'); later('card2', 600, () => card.classList.remove('on', 'out')); } return; }
-      card.innerHTML = `<div class="t">SMASH THE <b>3</b> LIVESTREAM RIGS</div>
+      card.innerHTML = `<div class="t">SMASH THE <b>3</b> SCREEN RIGS</div>
         <div class="l">Grab a <g>bat</g> or a <g>bottle</g> <kbd>E</kbd> · walk up to a <g>rig</g> · strike it <kbd>J</kbd> / click</div>
         <div class="s">Fists work too: two hits a rig. The Suits will try to stop you.</div>`;
       card.classList.remove('out'); void card.offsetWidth; card.classList.add('on');
@@ -172,6 +179,8 @@ function overlay(W) {
       prompt.classList.add('on');
     },
     pop(a, b, secs = 1.6) {
+      // (a rig down: the job's card has done its work, away at once, so the two never sit on each other)
+      clearTimeout(timers.card); clearTimeout(timers.card2); card.classList.remove('on', 'out');
       pop.querySelector('.a').textContent = a; pop.querySelector('.b').textContent = b;
       pop.classList.remove('on'); void pop.offsetWidth; pop.classList.add('on'); later('pop', secs * 1000, () => pop.classList.remove('on'));
       const c = document.querySelector('#wg .wg-count'); if (c) { c.classList.remove('m3pop'); void c.offsetWidth; c.classList.add('m3pop'); }
@@ -189,16 +198,21 @@ function overlay(W) {
     hitTag(r) { const t = tags.find((x) => x.r === r); if (!t) return; t.el.classList.remove('hit'); void t.el.offsetWidth; t.el.classList.add('hit'); },
     place(cam, me, dt) {
       const w = innerWidth, h = innerHeight;
+      // (while SCREEN DOWN is up, no tag under it)
+      const pr = pop.classList.contains('on') ? pop.getBoundingClientRect() : null;
       for (const t of tags) {
         const r = t.r;
         if (r.down) { t.downT += dt; if (!t.el.classList.contains('down')) { t.el.classList.add('down'); t.el.querySelector('.pill').lastChild.textContent = ''; t.el.querySelector('.pill').childNodes[1].textContent = 'DOWN'; } }
-        // (over its chevron from afar; close by, just over the ring light, so it stays in view)
+        // (over its chevron from afar; close by, just over the panel, so it stays in view)
         const dm = me ? Math.hypot(me.x - r.x, me.z - r.z) : 20;
-        _v.set(r.x, (r.y || 0) + 2.45 + 1.5 * clamp((dm - 4) / 8), r.z).project(cam);
+        _v.set(r.x, (r.y || 0) + 2.7 + 1.5 * clamp((dm - 4) / 8), r.z).project(cam);
         const off = _v.z > 1 || _v.z < -1 || Math.abs(_v.x) > 1.15 || Math.abs(_v.y) > 1.2 || t.downT > 1.6;
-        t.el.style.opacity = off ? '0' : '1';
+        const sx = (_v.x + 1) / 2 * w, sy = (1 - _v.y) / 2 * h;
+        // (the tag's pill and bar stand over its point: ~70 px either side, ~60 px up)
+        const under = pr && sx + 70 > pr.left - 12 && sx - 70 < pr.right + 12 && sy > pr.top - 12 && sy - 60 < pr.bottom + 12;
+        t.el.style.opacity = off || under ? '0' : '1';
         if (off) continue;
-        t.el.style.transform = `translate(${((_v.x + 1) / 2 * w).toFixed(1)}px, ${((1 - _v.y) / 2 * h).toFixed(1)}px)`;
+        t.el.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px)`;
         const k = clamp(r.hp / (r.hp0 || 2)); t.trail = Math.max(k, t.trail - dt * 1.4);
         t.f.style.transform = `scaleX(${k})`; t.tr.style.transform = `scaleX(${t.trail})`;
         const m = me ? `${Math.round(Math.hypot(me.x - r.x, me.z - r.z))} m` : '';
@@ -338,6 +352,8 @@ function between(W, { letter, at, name, objective, note = null, onArrive, radius
 }
 
 // after Mission 2: the G at Gears' garage; into its corona, Mission 3
+// The drive's call (mission/calls.js 'm3-handoff', set up there for the step 'free:G'): rings when he's rolling in his
+// car, wraps 200 m from the G; the garage scene hangs it up
 export function toGarage(W, { quick = false } = {}) {
   between(W, {
     letter: 'G', at: G_AT, name: "Gears' garage · W 22nd St", objective: ['Go to ', { "Gears' garage": 'yellow' }, '.'], carR: 9,
@@ -349,7 +365,11 @@ export function toGarage(W, { quick = false } = {}) {
 // after Mission 3 (Episode 1 over): Rook's R at Sara D. Roosevelt Park, where Mission 4 will start. A teaser, labelled
 // as one everywhere it shows (the objective, the blip's name, the sign over the corona): no stall nudges toward it, and
 // never "a new mission is available" (there isn't one yet). quick: no help line with it (the save's Continue)
+// The drive's call (mission/calls.js 'm4-teaser', once a session): rings when he's rolling in his car on the R's step
+// ('free:R'), wraps 120 m from the bench
 export function toRook(W, { quick = false } = {}) {
+  // (Jane on the car phone on the way, once a session: mission/calls.js 'm4-teaser', its wrap 120 m from the bench)
+  W.calls?.auto('free:R', 'm4-teaser', { wrapR: 120 });
   between(W, {
     letter: 'R', at: R_AT, name: 'Mission 4 (coming soon) · Sara D. Roosevelt Park',
     objective: [{ 'Mission 4': 'yellow' }, ' is coming soon. It starts at ', { "Rook's": 'blue' }, ' bench.'],
@@ -392,12 +412,16 @@ function createMission(W, { keep = false } = {}) {
   const dist = (a, x, z) => Math.hypot(a.x - x, a.z - z);
   const inCar = () => cm.activeMode === 'car';
   const me = () => (inCar() ? car.position : P.position);
-  // (on his way: the car over 3 m/s, or on foot over 1.5: Jane's calls on the drives play however he goes)
-  const moving = () => (inCar() ? Math.abs(car.speed || 0) > 3 : Math.abs(P.speed || 0) > 1.5);
   // the lines: subtitles (their recorded voices play from them), held for their reading time or their voice, a mumble
   // where there is no voice; onLine(who, i) as each starts
-  const VOICE = { Dan: 120, Jane: 205, Gears: 92, Fiona: 236, Brick: 112 };
+  const VOICE = { Dan: 120, Jane: 205, Gears: 92, Fiona: 236, Brick: 112, Bea: 190, Camp: 150 };
+  // (talking: how many say()s are playing, so a bark waits for the lines already up)
+  let talking = 0;
   async function say(lines, t = tok, onLine = null) {
+    talking++;
+    try { await sayLines(lines, t, onLine); } finally { talking--; }
+  }
+  async function sayLines(lines, t, onLine) {
     for (let i = 0; i < lines.length; i++) {
       const [who, color, text, pause = 0.25] = lines[i];
       if (t.dead) break;
@@ -458,7 +482,7 @@ function createMission(W, { keep = false } = {}) {
   async function spawnRally({ crew = true } = {}) {
     await sets();
     if (!S.R.shown) { S.R.reset(); S.R.show(true); }
-    holds([STAGE_HOLD]);
+    holds(SET_HOLDS);
     S.suv.group.visible = true; S.suv.group.position.set(SUV_AT[0], 0, SUV_AT[1]); S.suv.group.rotation.set(0, SUV_AT[2], 0);
     // Fiona, every frame she's up (rig-posed, the megaphone at her mouth, the other fist pumping)
     S.fiona.rig.set([[0, 'thugIdle']]); S.fionaUp = true;
@@ -469,11 +493,13 @@ function createMission(W, { keep = false } = {}) {
       F.rig.pose(t % 30); F.hype(0, 1, 0.8, t);
     });
     if (crew && !S.crew && W.combat?.spawnCrew) {
-      // two by the rigs (one with a bat), and a brute by the stage, a crew of his own: he holds back till the first
-      // rig goes down; facing the stage until it starts. Bats, cans and bottles lying about
+      // the Suits planted in the crowd (Jane: "They'll start something and pin it on you."): Brick (a bat) at the back of
+      // the party's crowd, where he spots Dan; one more by a rig; and a brute by the stage, a crew of his own: he holds
+      // back till the first rig goes down; facing the stage until it starts. Bats, cans and bottles lying about
       const C = S.crew = W.combat.spawnCrew({ x: -8, z: 2872, count: 2, brute: 0, weapons: ['bat'], aggro: false, props: { cans: 3, bottles: 2, bats: 2 } });
       const B = S.brute = W.combat.spawnCrew({ x: -9.5, z: 2822, count: 0, brute: 1, aggro: false, props: false });
-      const spots = [[-6.5, 2856.5], [16.5, 2888], [-9.5, 2822]];
+      // (Brick's spot: the spotter shot's camera, 1.6 m left and 2.6 m behind him, two metres clear of the park's trunks)
+      const spots = [[-5.0, 2829.0], [16.5, 2888], [-9.5, 2822]];
       [...C.enemies, ...B.enemies].forEach((e, i) => {
         const [x, z] = spots[i % spots.length];
         e.pos.set(x, cm.getGroundHeight(x, z, 'person'), z);
@@ -518,13 +544,14 @@ function createMission(W, { keep = false } = {}) {
         // (close by, the tag is enough: the column and the chevron would fill the view)
         const me = inCar() ? car.position : P.position, near = Math.hypot(me.x - r.x, me.z - r.z) < 7;
         if (r.down || near) { col.hide(); ch.hide(); continue; }
-        col.group.visible = true; ch.group.scale.setScalar(1.25); ch.at(r.x, (r.y || 0) + 2.75, r.z, dt);
+        col.group.visible = true; ch.group.scale.setScalar(1.25); ch.at(r.x, (r.y || 0) + 3.0, r.z, dt);
       }
       O.place(app.cameraSystem.camera, inCar() ? car.position : P.position, dt);
     })();
   }
 
   function tidy() {
+    W.calls?.stop({ quiet: true, of: 'm3:' }); // (Jane's car call in this mission, if one is on: mission/calls.js)
     hooks.clear(); fionaHook = null; ui.objective(null); ui.sub(null); ui.help(null); ui.counter(null); ui.caller(null); ui.hold(null); ui.phone.hide(); U.call?.hide();
     gps.clear(); for (const id of [...gps.blips.keys()]) gps.unblip(id);
     markRigs(false); O.clear();
@@ -566,7 +593,7 @@ function createMission(W, { keep = false } = {}) {
     const end = () => {
       if (Pr.over) return; Pr.over = true; Pr.overAt = now();
       off?.(); for (const f of offs) f(); O.coach(null);
-      holds(S.R?.shown ? [STAGE_HOLD] : []);
+      holds(S.R?.shown ? SET_HOLDS : []);
     };
     off = hook(() => {
       if (W.cutscene) return;
@@ -646,16 +673,20 @@ function createMission(W, { keep = false } = {}) {
         if (!up && d < 900) { up = true; spawnRally().catch((e) => console.warn('[m3]', e)); }
         if (dist(me(), G_AT.x, G_AT.z) > 300) S.Gar.show(false);
         if (S.R?.shown) S.R.update(dt, app.cameraSystem.camera.position);
-        // (Jane's call once the practice is over or put away: a few seconds after it, 7 s in at the soonest)
+        // (Jane's call, the Occupy setup (mission/calls.js 'm3-square'), once the practice is over or put away: a few
+        // seconds after it, 7 s in at the soonest; it rings at the wheel. Her wrap 250 m from the arch or on 5th Ave's
+        // last stretch, once her protected lines are said; no new extra block begun inside 400 m)
         const callAt = pr.over ? Math.max(t0 + 7000, pr.overAt + 2500) : Infinity;
-        if (!called && now() > callAt && (moving() || now() > callAt + 3000)) { called = true; janeDrive(); }
+        if (!called && now() > callAt) { called = true; W.calls?.start('m3-square', { delay: 0, wrapWhen: () => dist(me(), ARCH.x, ARCH.z) < 250 || at5th(me()), hurryWhen: () => dist(me(), ARCH.x, ARCH.z) < 400 }); }
       });
       // (there: by the arch, or stopped on 5th Ave's last stretch in front of it, or on foot near it)
       try { await wait(() => { const p = me(), d = dist(p, ARCH.x, ARCH.z); return d < 26 || ((d < 60 || at5th(p)) && (!inCar() || Math.abs(car.speed) < 6)); }); }
       finally { off(); drive.stop(); pr.stop(); }
+      // (there before Jane has told him how to kill the reel: the arrival waits for her, in the car)
+      if (inCar() && W.calls?.owes?.('m3-square')) await finishCall('m3-square');
       if (!up) await spawnRally();
     },
-    // the launch, seen; a Suit spots him
+    // the community day, seen; a Suit planted in the crowd spots him
     async rally(fresh) {
       await sets(); midday();
       // (however he came, the scene leaves him on foot at the arch, his car parked on 5th Ave behind him: the fight
@@ -667,14 +698,14 @@ function createMission(W, { keep = false } = {}) {
       car.speed = 0;
       // (its shots kept clear while it plays, M1's way: 5th Ave's last block down to the arch, the stage, the lawn to
       // the rigs; then only the stage again)
-      holds([STAGE_HOLD, { minX: -26, maxX: 26, minZ: 2735, maxZ: 2905 }]);
+      holds([...SET_HOLDS, { minX: -26, maxX: 26, minZ: 2735, maxZ: 2905 }]);
       // (its last shot: him on the lawn behind the crowd, the three rigs ahead with their marks, the job's card up)
       S.carded = false;
       const def = rallyScene(W, { say, fiona: S.fiona, rally: S.R, spotter: S.crew?.enemies[0] || null, lawn: FRESH.rigs.dan,
         onRigs: () => { S.carded = true; markRigs(true); O.card(true, 4.6); } });
       def.setup();
       if (moved && !fresh) setTimeout(() => ui.fade(0, 0.6), 120);
-      try { await runScene(W, def); } finally { holds([STAGE_HOLD]); }
+      try { await runScene(W, def); } finally { holds(SET_HOLDS); }
     },
     // the fight round the rigs
     async rigs(fresh) {
@@ -705,26 +736,45 @@ function createMission(W, { keep = false } = {}) {
       try {
         wake();
         R.crowd?.scatter(P.position.x, P.position.z - 20);
-        const go = () => objective(['Smash the ', { 'livestream rigs': 'green' }, '.'], null);
+        // (4 s in, Brick on his radio, loud enough for the camp to hear: the planted Suits' plan, out loud)
+        delay(4).then(async () => {
+          if (R.smashed >= 3) return;
+          W.voice?.fx?.('Brick', 'phone');
+          try { await say([['Brick', ACID, 'Make it look like he started it!']]); } finally { W.voice?.fx?.('Brick', null); }
+          await say([['Camp', CAMP, 'We saw that!']]);
+          R.cheer?.();
+        }).catch(() => {});
+        const go = () => objective(['Smash the ', { 'screen rigs': 'green' }, '.'], null);
         go();
         ui.counter('RIGS', `${R.smashed}/3`);
-        let warned = false, barkT = now() + 6000, again = null, extra = false, lastMv = 'free', swing = null, said = 0, routed = false;
+        let warned = false, barkT = now() + 10000, again = null, extra = false, lastMv = 'free', swing = null, routed = false;
         // (out of reach of them, a retry or a chase off the lawn: the line to the nearest rig standing)
         const nearestRig = () => { let b = null, bd = Infinity; for (const r of R.rigs) if (!r.down) { const d = dist(me(), r.x, r.z); if (d < bd) { bd = d; b = r; } } return [b, bd]; };
-        const rigTarget = { follow: () => { const [r] = nearestRig(); return r ? { x: r.x, z: r.z } : me(); }, name: 'Livestream rig' };
+        const rigTarget = { follow: () => { const [r] = nearestRig(); return r ? { x: r.x, z: r.z } : me(); }, name: 'Screen rig' };
+        // (Fiona's PR patter and the camp's chants back at her, taking turns)
         const BARKS = [
-          ['Fiona', PINK, 'Number go up! Number go UP!'], ['Fiona', PINK, 'Buy the dip! There is no dip!'], ['Fiona', PINK, 'Diamond hands, everybody! Diamond hands!'],
-          ['Fiona', PINK, "Don't look at the kid! Look at the chart!"], ['Fiona', PINK, 'Blimpco! Sky high!'],
+          ['Fiona', PINK, 'JPBank loves you! JPBank loves hot dogs! JPBank loves YOU!'], ['Fiona', PINK, "Don't look at the fight! Look at the free tote bags!"],
+          ['Fiona', PINK, 'This is a safe, fun, family space! Somebody hit him!'], ['Fiona', PINK, 'One bad apple, folks! The rest of the bank is delicious!'],
+          ['Camp', CAMP, 'We are the ninety-nine percent!'], ['Camp', CAMP, 'Banks got bailed out! We got sold out!'], ['Camp', CAMP, 'The whole world is watching!'],
         ];
-        const LOST = [['Fiona', PINK, 'We lost a stream! Keep pumping!'], ['Fiona', PINK, 'Two streams down! This is fine! Pump harder!']];
+        const FIONA_B = BARKS.filter((b) => b[0] === 'Fiona'), CAMP_B = BARKS.filter((b) => b[0] === 'Camp');
+        let barkN = 0;
+        const LOST = [['Fiona', PINK, "We lost a screen! That's fine! We have two more! And hot dogs!"], ['Fiona', PINK, 'Two screens down! Still the best day ever! Somebody call legal!']];
         const smashed = (r) => {
           stats.smashed = R.smashed; ui.counter('RIGS', `${R.smashed}/3`);
-          O.pop('STREAM DOWN', `RIGS ${R.smashed}/3`);
+          O.pop('SCREEN DOWN', `RIGS ${R.smashed}/3`);
           R.screen.dip(); S.chev[r.i].hide(); gps.unblip('rig' + r.i);
           sfx?.play('thunk', { gain: 0.3, f: 90 });
           if (combat?.player && !combat.player.down) combat.player.hp = Math.min(combat.player.maxHp, combat.player.hp + 25);
           wakeBrute();
-          if (R.smashed < 3) { W.voice?.fx?.('Fiona', 'phone'); say([LOST[Math.min(LOST.length - 1, said++)]]).catch(() => {}); barkT = now() + 9000; }
+          // (the camp across the lawn cheers each one down)
+          R.cheer?.();
+          // (Fiona's line for it; at the first, Ms. Bea gets the camp filming the Suits: the footage of the return call)
+          if (R.smashed < 3) {
+            W.voice?.fx?.('Fiona', 'phone');
+            say([LOST[Math.min(LOST.length - 1, R.smashed - 1)], ...(R.smashed === 1 ? [['Bea', BEA, 'Phones up, everybody! Film the men in suits!']] : [])]).catch(() => {});
+            barkT = now() + 9000;
+          }
         };
         // a blow at a rig: Dan's swing (the fight's own move, or the keys), what he throws, his car
         let heavyT = -1e9, pressT = -1e9, stepIn = null;
@@ -827,11 +877,11 @@ function createMission(W, { keep = false } = {}) {
             was.copy(p);
           }
           if (inCar() && Math.abs(car.speed) > 2.5) for (const r of R.rigs) if (!r.down && dist(car.position, r.x, r.z) < 2.4) r.hit(3, car.position);
-          // (each rig down, whatever brought it down: counted, its marks off, the chart shaken)
+          // (each rig down, whatever brought it down: counted, its marks off, the reel broken up)
           for (const r of R.rigs) if (r.down && !r.counted) { r.counted = true; smashed(r); }
           // the rigs marked (green blips; their columns, chevrons and tags: markRigs; the line to the nearest from afar),
           // the Suits red
-          for (const r of R.rigs) if (!r.down) gps.blip('rig' + r.i, { x: r.x, z: r.z, kind: 'object', edge: true, name: 'Livestream rig' });
+          for (const r of R.rigs) if (!r.down) gps.blip('rig' + r.i, { x: r.x, z: r.z, kind: 'object', edge: true, name: 'Screen rig' });
           // (in reach of one, the blow his: the prompt, the key and what it takes)
           const nr = !inCar() && !combat?.player?.down ? rigAt() : null;
           if (nr) {
@@ -844,13 +894,22 @@ function createMission(W, { keep = false } = {}) {
           for (const e of W.combat?.enemies || []) if (e.alive && dist(e.pos, P.position.x, P.position.z) < 150) { live.add('e:' + e.id); gps.blip('e:' + e.id, { x: e.pos.x, z: e.pos.z, kind: 'enemy' }); }
           for (const id of [...gps.blips.keys()]) if (id.startsWith('e:') && !live.has(id)) gps.unblip(id);
           // Fiona on the megaphone
-          if (now() > barkT) { barkT = now() + 9000 + Math.random() * 3000; W.voice?.fx?.('Fiona', 'phone'); say([BARKS[Math.floor(Math.random() * BARKS.length)]]).catch(() => {}); }
+          // (Fiona and the camp in turns, when nothing else is being said)
+          if (now() > barkT) {
+            if (talking) barkT = now() + 1500;
+            else {
+              barkT = now() + 9000 + Math.random() * 3000;
+              const pool = barkN++ % 2 ? CAMP_B : FIONA_B, b = pool[Math.floor(Math.random() * pool.length)];
+              if (b[0] === 'Fiona') W.voice?.fx?.('Fiona', 'phone');
+              say([b]).catch(() => {});
+            }
+          }
           // one more at two down
           if (!extra && R.smashed >= 2 && W.combat?.spawnCrew) {
             extra = true;
             S.extra = W.combat.spawnCrew({ x: -24, z: 2944, count: 1, brute: 0, weapons: ['bottle'], aggro: true, props: false });
             S.extra.engage?.();
-            say([['Brick', ACID, 'Backup! Protect the last stream!']]).catch(() => {});
+            say([['Brick', ACID, 'Backup! Protect the last screen!']]).catch(() => {});
           }
           // the fight's ground (from past the fountain up 5th Ave to where the drive ended)
           const d = Math.min(dist(me(), ARENA.x, ARENA.z), dist(me(), FIFTH.x, FIFTH.z + 30));
@@ -871,7 +930,7 @@ function createMission(W, { keep = false } = {}) {
       await delay(0.8);
       markRigs(false); O.card(false);
     },
-    // the dump: the chart red, Fiona gone, the car waiting
+    // the dump: the reel dead, Fiona gone, the people's mic, the car waiting
     async dump(fresh) {
       await sets(); midday();
       if (fresh) { await spawnRally({ crew: false }); for (const r of S.R.rigs) if (!r.down) r.hit(3); }
@@ -880,7 +939,7 @@ function createMission(W, { keep = false } = {}) {
       markRigs(false); O.card(false);
       for (const c of S.chev) c.hide();
       // (5th Ave from the square up, the arch's front, the stage, and the first of Washington Mews where his car waits)
-      holds([{ minX: -12, maxX: 12, minZ: 2560, maxZ: 2796 }, { minX: -16, maxX: 26, minZ: 2776, maxZ: 2830 }, STAGE_HOLD, { minX: 5, maxX: 60, minZ: 2738, maxZ: 2753 }]);
+      holds([{ minX: -12, maxX: 12, minZ: 2560, maxZ: 2796 }, { minX: -16, maxX: 26, minZ: 2776, maxZ: 2830 }, STAGE_HOLD, CAMP_HOLD, { minX: 5, maxX: 60, minZ: 2738, maxZ: 2753 }]);
       inTheCar(...ESCAPE_CAR);
       const def = dumpScene(W, { say, fiona: S.fiona, rally: S.R, suv: S.suv });
       def.setup();
@@ -891,7 +950,7 @@ function createMission(W, { keep = false } = {}) {
     async escape(fresh) {
       if (fresh) { midday(); inTheCar(...ESCAPE_CAR); }
       await sets(); midday();
-      if (fresh) { if (!S.R.shown) { S.R.reset(); S.R.show(true); } for (const r of S.R.rigs) if (!r.down) r.hit(3); S.R.screen.mode('dump'); }
+      if (fresh) { if (!S.R.shown) { S.R.reset(); S.R.show(true); } for (const r of S.R.rigs) if (!r.down) r.hit(3); S.R.screen.mode('dead'); S.R.camp?.fallMan(); }
       // (a retry starts him back where the dump left him, whatever shoved the car about before)
       if (fresh || !inCar()) inTheCar(...ESCAPE_CAR);
       objective(['Lose the ', { Suits: 'red' }, '.'], null);
@@ -905,7 +964,9 @@ function createMission(W, { keep = false } = {}) {
         if (!th?.unlock) { ui.help(['Cold-gas thrusters: [Space] hops the car, [Z] / [C] dash it sideways.'], 9); return; }
         if (!th.unlock('all', { announce: true }).length) ui.help('Thrusters: [SPACE] hop over a car · [Z] [C] dash a lane.', 7);
       }).catch(() => {});
-      delay(9).then(() => janeEscape()).catch(() => {});
+      // Jane, fast (mission/calls.js 'm3-escape'): 9 s in, at the wheel; SEEN / SEARCHING from the pursuit's sight, her
+      // wrap when it loses him (still in the car: it carries into the drive back)
+      W.calls?.start('m3-escape');
       // (they come out of W 8th St onto 5th Ave, ~80 m up from him, out of sight until they turn the corner: from just
       // round it, already rolling, so they are on him as he sets off and it takes a real run to lose them; from 150 m
       // down W 8th St at 8 m/s, a boost up 5th Ave lost them at the first corner in 25 s)
@@ -927,11 +988,14 @@ function createMission(W, { keep = false } = {}) {
         if (!chase && now() - t0 > 14000 && dist(me(), ARCH.x, ARCH.z + 150) > 420) lost = true;
       });
       if (chase) {
-        chase.on?.('lost', () => { lost = true; });
+        chase.on?.('spotted', () => W.calls?.react('seen'));
+        chase.on?.('hidden', () => W.calls?.react('searching'));
+        chase.on?.('lost', () => { lost = true; W.calls?.wrap(); });
         chase.on?.('caught', () => fail('The Suits caught you.'));
         chase.on?.('wrecked', () => { stats.wrecked = (stats.wrecked || 0) + 1; });
       } else ui.counter('HEAT', '2');
       try { await wait(() => lost); } finally { off(); chase?.stop?.(); S.chase = null; ui.counter(null); }
+      if (!chase) W.calls?.wrap();
       ui.objective(['You lost the ', { Suits: 'red' }, '.'], 3);
       await delay(1.5);
     },
@@ -944,10 +1008,14 @@ function createMission(W, { keep = false } = {}) {
       const drive = gps.drive({ dest: door, objective: ['Go back to the ', { garage: 'yellow' }, '.'] });
       const m = createMarker(THREE, app.scene, { color: '#FFC93C', radius: 2.4, height: 2.2, alpha: 0.3 });
       m.at(door.x, cm.getGroundHeight(door.x, door.z, 'person'), door.z);
-      const t0 = now(); let called = false;
-      const off = hook(() => { drive.step(); if (!called && now() - t0 > 8000 && (moving() || now() - t0 > 10000)) { called = true; janeReturn(); } });
+      // Jane, the payoff and the hook (mission/calls.js 'm3-return'): 8 s in at the wheel (after the escape's call, if it
+      // carries on); her wrap 150 m from the door, once her protected lines are said; no new extra block inside 300 m
+      W.calls?.start('m3-return', { wrapWhen: () => dist(me(), door.x, door.z) < 150, hurryWhen: () => dist(me(), door.x, door.z) < 300 });
+      const off = hook(() => { drive.step(); });
       try { await wait(() => { const d = dist(me(), door.x, door.z); return inCar() ? d < 7 && Math.abs(car.speed) < 3 : d < 2.6; }); }
       finally { off(); drive.stop(); m.hide(); app.scene.remove(m.group); }
+      // (there before she's said her piece: the home scene waits for her, in the car)
+      if (inCar() && W.calls?.owes?.('m3-return')) await finishCall('m3-return');
     },
     async home() {
       await sets();
@@ -982,39 +1050,28 @@ function createMission(W, { keep = false } = {}) {
   const RETRY = { garage: "Retry: from Gears' garage", square: 'Retry: to Washington Square', rigs: 'Retry: the rigs', escape: 'Retry: the getaway', return: "Retry: back to Gears' garage" };
   const SKIP = { rigs: 'Skip the rigs: start at the getaway', dump: 'Skip the rigs: start at the getaway', escape: "Skip the getaway: start on the way back to Gears' garage" };
 
-  // the calls on the way
-  async function janeDrive() {
-    const t = tok;
-    sfx?.play('ring', { gain: 0.14, times: 1 }); ui.caller('Jane', BLUE, 'Incoming call'); await gsleep(1500);
-    if (t.dead) { ui.caller(null); return; }
-    ui.caller('Jane', BLUE, 'On call');
-    await say([
-      ['Jane', BLUE, "It's a KOL rally. The bank pays Fiona, her followers buy."],
-      ['Jane', BLUE, 'The stream runs off three ring lights in the park. Kill the rigs, the stream dies.'],
-      ['Dan', WHITE, 'And no stream, no pump.'],
-      ['Jane', BLUE, "And no pump, Fiona's just a lady shouting at a fountain."],
-    ], t).catch(() => {});
-    ui.caller(null);
-  }
-  async function janeEscape() {
-    const t = tok;
-    sfx?.play('ring', { gain: 0.14, times: 1 }); ui.caller('Jane', BLUE, 'On call'); await gsleep(900);
-    await say([
-      ['Jane', BLUE, 'Two of their cars on you. The Village is all crooked streets. Use them.'],
-      ['Dan', WHITE, 'Gears said the thrusters were very safe.'],
-      ['Jane', BLUE, 'Gears says that about everything.'],
-    ], t).catch(() => {});
-    ui.caller(null);
-  }
-  async function janeReturn() {
-    const t = tok;
-    sfx?.play('ring', { gain: 0.14, times: 1 }); ui.caller('Jane', BLUE, 'On call'); await gsleep(900);
-    await say([
-      ['Jane', BLUE, 'Blimpco is down ninety-nine point eight percent. The stream died mid-sentence.'],
-      ['Dan', WHITE, 'Good.'],
-      ['Jane', BLUE, "The insiders never got out. They're furious. At Mr. Big, for once. Go get some sleep."],
-    ], t).catch(() => {});
-    ui.caller(null);
+  // Jane's calls on the drives (mission/calls.js): at an arrival with her protected main lines not all said, the
+  // scene waits, the car idling there (its own brakes held, car.halt), 'Finish the call.'; her lines at their pace for
+  // up to HOLD_MAIN s (then her wrap at once), her wrap, then the scene (HOLD_MAX s at most in all). Out of the car
+  // meanwhile: on hold, her pause line, then the scene as ever. (Mission 1's way: m1.js finishCall)
+  const HOLD_MAIN = 25, HOLD_MAX = 40;
+  async function finishCall(id) {
+    const t0 = now(), owes = () => W.calls?.owes?.(id);
+    let forced = false;
+    car.halt = 22; ui.help('Finish the call.', HOLD_MAX, { mode: 'car' });
+    try {
+      await wait(() => {
+        const s = (now() - t0) / 1000;
+        if (!inCar()) return true;
+        if (!forced && s > HOLD_MAIN && owes() === 'main') { forced = true; W.calls.wrap(); }
+        return !owes() || s > HOLD_MAX;
+      });
+      if (!inCar() && owes()) {
+        W.calls.pause();
+        const t1 = now();
+        await wait(() => !owes() || (W.calls.state().held && !W.calls.talking) || now() - t1 > 6000);
+      }
+    } finally { car.halt = 0; ui.help(null); }
   }
 
   /* --------------------------------------------------- passed, hand-off -- */
@@ -1022,16 +1079,16 @@ function createMission(W, { keep = false } = {}) {
     teardown();
     const secs = Math.round((now() - stats.t0) / 1000);
     sfx?.play('passed'); W.audio?.play?.('missionPassed');
-    await ui.passed({ title: 'KOLs', stats: [
-      ['TIME', `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`], ['RIGS SMASHED', '3/3'],
+    await ui.passed({ title: 'Occupied', stats: [
+      ['TIME', `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`], ['SCREENS SMASHED', '3/3'],
       ['SUITS DOWN', String(stats.ko || 0)], ['HITS TAKEN', String(stats.hits)],
-    ], reward: '+18,500', note: '#BlimpcoCrash is trending · NEW: bats · cold-gas thrusters' }, 6);
-    W.followers = (W.followers || 0) + 18500;
+    ], reward: '+11,240', note: 'The camp says FREE DAN · NEW: bats · cold-gas thrusters' }, 6);
+    W.supporters = (W.supporters || 0) + 11240;
     W.progress = { ...(W.progress || {}), m3: true };
     markDone(W, 'm3');
     await gsleep(4500);
     sfx?.play('buzz', { gain: 0.18, times: 2 }); sfx?.play('ding', { gain: 0.14 }); W.audio?.play?.('phoneBuzz');
-    ui.dm('Unknown number', "it's rook. you saw the chat. i'm driving your laptop to the shredder at dawn. meet me tonight at sara roosevelt park. come alone. -R", 12);
+    ui.dm('Unknown number', "it's rook. you saw the chat. i'm driving your laptop to the shredder at dawn. i was in that crowd today. i'm done. meet me tonight at sara roosevelt park. come alone. -R", 13);
     // (the DM read, then the end of the episode: its card, and free roam after it)
     await gsleep(5500);
     await endEpisode(W);
@@ -1079,7 +1136,7 @@ function createMission(W, { keep = false } = {}) {
     S,
   };
   missions(W).register({
-    id: 'm3', act: 'Act II · Mission 3', title: 'KOLs',
+    id: 'm3', act: 'Act II · Mission 3', title: 'Occupied',
     checkpoints: ['garage', 'square', 'rigs', 'escape', 'return'].map((id) => ({ id, label: LABELS[id] })),
     active: () => running && !!M._phase && M._phase !== 'passed',
     at: () => CHECKPOINT[M._phase] || 'garage',

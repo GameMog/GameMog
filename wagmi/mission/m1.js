@@ -1,6 +1,7 @@
 // Mog City: Mission 1 · Bagged (docs/MISSIONS.md 5), after the opening cutscene (wagmi/intro.js).
 //   car     'Get in your car.'                       checkpoint 1 (Dan at his mark, the roadster at the curb)
-//   drive   'Follow the laptop's tracker to Chelsea Park.'  the GPS, Jane on the phone, the tracker on the radar
+//   drive   'Follow the laptop's tracker to Chelsea Park.'  the GPS, the tracker on the radar, Jane on the car phone
+//           with the backstory, only while he is at the wheel (mission/calls.js 'm1-drive')
 //   arrival 'The swap' (a scene): his laptop bag driven off in a black SUV past him, the Suits cross the lawn for him
 //   fight   'Beat up the Suits.'  SUITS 0/4 -> 0/5 checkpoint 2 (Dash runs in at two down)
 //   search  'Search the van.'      hold F            checkpoint 3: his tracker, cut out, and a burner phone; Mr. Big's text
@@ -85,8 +86,6 @@ function createMission(W, { keep = false } = {}) {
   const dist = (a, x, z) => Math.hypot(a.x - x, a.z - z);
   const inCar = () => cm.activeMode === 'car';
   const me = () => (inCar() ? car.position : P.position);
-  // (on his way: the car over 3 m/s, or on foot over 1.5)
-  const moving = () => (inCar() ? Math.abs(car.speed || 0) > 3 : Math.abs(P.speed || 0) > 1.5);
   // lines: [speaker, colour, text, pause after]; each held for its reading time (15 characters a second, 1.4 s at least),
   // a voice mumbling each phrase of it as it goes (no words: the subtitles are the words)
   const VOICE = { Dan: 120, Knox: 104, Jane: 205, Dash: 128 };
@@ -111,25 +110,28 @@ function createMission(W, { keep = false } = {}) {
       ui.sub(null); await gsleep(pause * 1000);
     }
   }
-  // Jane's call on the drive: a ring, the caller card, the lines
-  async function janeCall(t) {
-    sfx.play('ring', { gain: 0.16, times: 1 });
-    ui.caller('Jane', BLUE, 'Incoming call');
-    await gsleep(1800);
-    if (t.dead) { ui.caller(null); return; }
-    ui.caller('Jane', BLUE, 'On call');
-    await say([
-      ['Jane', BLUE, "Dan. Why is your laptop doing forty down Fifth Avenue?"],
-      ['Dan', WHITE, 'Because some guys in a van took it.'],
-      ['Jane', BLUE, "...Okay. I'm on the tracker. They're cutting west. Who were they?"],
-      ['Dan', WHITE, 'Guys from my old job.'],
-      ['Jane', BLUE, 'So, JPBank. Great, narrows it down.', 1.2],
-      ['Jane', BLUE, "Tracker stopped. Chelsea Park, Ninth and Twenty-Eighth. Don't do anything stupid."],
-      ['Dan', WHITE, 'Define stupid.'],
-      ['Jane', BLUE, 'Going there alone.'],
-      ['Dan', WHITE, "Then I'm already doing it."],
-    ], t);
-    ui.caller(null);
+  // (Jane's call on the drive, the backstory: mission/calls.js 'm1-drive')
+  // At the park with her protected lines not all said: the arrival waits, the car idling there (its own brakes held,
+  // car.halt), 'Finish the call.'; her lines at their pace for up to HOLD_MAIN s (then her wrap at once), her wrap, then
+  // the scene (HOLD_MAX s at most in all). Out of the car meanwhile: on hold, her pause line, then the scene as ever.
+  const HOLD_MAIN = 25, HOLD_MAX = 44;
+  async function finishCall() {
+    const t0 = now(), owes = () => W.calls?.owes?.('m1-drive');
+    let forced = false;
+    car.halt = 22; ui.help('Finish the call.', HOLD_MAX, { mode: 'car' });
+    try {
+      await wait(() => {
+        const s = (now() - t0) / 1000;
+        if (!inCar()) return true;
+        if (!forced && s > HOLD_MAIN && owes() === 'main') { forced = true; W.calls.wrap(); }
+        return !owes() || s > HOLD_MAX;
+      });
+      if (!inCar() && owes()) {
+        W.calls.pause();
+        const t1 = now();
+        await wait(() => !owes() || (W.calls.state().held && !W.calls.talking) || now() - t1 > 6000);
+      }
+    } finally { car.halt = 0; ui.help(null); }
   }
   // (kept through a checkpoint restart: the card counts the whole mission)
   const stats = carry(W, 'm1', keep, () => ({ t0: now(), hits: 0, ko: 0 }));
@@ -148,6 +150,7 @@ function createMission(W, { keep = false } = {}) {
   })();
   const hook = (f) => { frameHooks.add(f); return () => frameHooks.delete(f); };
   function tidy() {
+    W.calls?.stop({ quiet: true, of: 'm1:' }); // (Jane's car call in this mission, if one is on: mission/calls.js)
     frameHooks.clear(); ui.objective(null); ui.sub(null); ui.help(null); ui.counter(null); ui.caller(null); ui.hold(null); ui.phone.hide();
     gps.clear(); app.mapSystem.waypoint = null; for (const id of [...gps.blips.keys()]) gps.unblip(id); marker.hide();
   }
@@ -189,7 +192,10 @@ function createMission(W, { keep = false } = {}) {
       // the route follows the objective: out of the car on the way, to the car ('Get back in your car.'); within 250 m
       // of the park on foot, on to it on foot (the fight is on foot anyway); back in, to the park again (gps.drive)
       const nav = gps.drive({ dest: DEST, objective: ["Follow the laptop's tracker to ", { 'Chelsea Park': 'yellow' }, '.'], onFoot: 250 });
-      const t0 = now(), tk = tok;
+      const t0 = now();
+      // Jane rings once he's rolling, in his car only (mission/calls.js 'm1-drive': the backstory, her wrap 250 m out; no
+      // new extra block begun inside 400 m)
+      W.calls?.start('m1-drive', { wrapWhen: () => dist(me(), DEST.x, DEST.z) < 250, hurryWhen: () => dist(me(), DEST.x, DEST.z) < 400 });
       // the tracker: a laptop blip running down 5th Ave, west on 34th St, south on 9th Ave to the park, where it stops
       const tag = [[3.6, 470], [3.6, 641], [-1134, 641], [-1134, 1117], [-1180, 1122]];
       const segs = tag.slice(1).map((p, i) => Math.hypot(p[0] - tag[i][0], p[1] - tag[i][1])), tagLen = segs.reduce((a, b) => a + b, 0);
@@ -200,7 +206,6 @@ function createMission(W, { keep = false } = {}) {
         [8, ['GPS shows the quickest legal route with a ', { 'yellow line': 'yellow' }, '.'], 'car'],
         [20, 'Hold [Shift] to boost.', 'car'],
       ];
-      let callAt = null, called = false;
       const places = [['Garment District', (p) => p.x < -300 && p.z < 700], ["Hell's Kitchen", (p) => p.x < -880 && p.z < 700], ['Chelsea', (p) => p.z > 760]];
       const seen = new Set();
       const off = hook(() => {
@@ -208,15 +213,14 @@ function createMission(W, { keep = false } = {}) {
         // (the objective says to follow the tag: it stays on the radar where it stopped, by the park, as Jane says)
         { const [x, z] = tagAt(Math.min(1, t / 20)); gps.blip('tag', { x, z, kind: 'laptop', edge: true, name: "Laptop tracker" }); }
         while (helps.length && t >= helps[0][0]) { const [, text, mode] = helps.shift(); ui.help(text, 7, mode ? { mode } : {}); }
-        // Jane calls six seconds after he sets off, in the car or on foot (or 10 s in, if he hasn't)
-        if (callAt == null && (moving() || t > 10)) callAt = t + 6;
-        if (callAt != null && !called && t >= callAt) { called = true; janeCall(tk); }
         const p = me();
         if (W.cast && !W.cast.van.group.visible && dist(p, DEST.x, DEST.z) < 320) setVan(W.cast, true);
         for (const [name, test] of places) if (!seen.has(name) && test(p)) { seen.add(name); ui.place(name, 'New York', 3); }
         nav.step();
       });
       await wait(() => (inCar() ? dist(car.position, DEST.x, DEST.z) < 6 && Math.abs(car.speed) < 8 : dist(P.position, DEST.x, DEST.z) < 6));
+      // (there before Jane has told the backstory: the arrival waits for her, in the car)
+      if (inCar() && W.calls?.owes?.('m1-drive')) { helps.length = 0; await finishCall(); }
       off(); nav.stop(); gps.unblip('tag'); gps.unblip('car');
     },
     // the arrival: his laptop bag goes off in the SUV past him; the Suits by their van cross the lawn for him
@@ -242,6 +246,10 @@ function createMission(W, { keep = false } = {}) {
         const crews = [combat.spawnCrew({ x: -1153, z: 1160, count: 4 }).engage()];
         let total = 4, dashIn = false, warned = false;
         const down = () => crews.reduce((n, c) => n + c.enemies.length - c.alive(), 0);
+        // (Knox's HR barks as the Suits go down, only when no line of the fight's is up; talk: one is)
+        const KNOX = { 1: ['Knox', ACID, "This is a performance review, kid! You're failing it!"], 3: ['Knox', ACID, 'Please stop hitting back! We value your feedback!'], 4: ['Knox', ACID, "Okay! I'm escalating this to HR!"] };
+        let talk = false, lastDown = 0;
+        const fightSay = (lines) => { talk = true; say(lines).catch(() => {}).finally(() => { talk = false; }); };
         const objective = () => gps.objective(['Beat up the ', { Suits: 'red' }, '.'], null);
         objective();
         ui.counter('SUITS', `0/${total}`);
@@ -258,8 +266,9 @@ function createMission(W, { keep = false } = {}) {
             dashIn = true; total = 5;
             const dx = -1262 - P.position.x, dz = 1124 - P.position.z, k = Math.min(1, 30 / Math.max(1, Math.hypot(dx, dz)));
             crews.push(combat.spawnCrew({ x: P.position.x + dx * k, z: P.position.z + dz * k, count: 1, props: false }).engage());
-            say([['Dash', ACID, 'Wait! Did I miss the brief?'], ['Knox', ACID, 'You always miss the brief!']]).catch(() => {});
+            fightSay([['Dash', ACID, 'Wait! Did I miss the brief?'], ['Knox', ACID, 'You always miss the brief!']]);
           }
+          { const n = down(); if (n !== lastDown) { lastDown = n; if (KNOX[n] && !talk && crews.some((c) => c.alive() > 0)) fightSay([KNOX[n]]); } }
           // too far from the fight
           const d = dist(me(), ARENA.x, ARENA.z);
           if (d > 150) fail('You left the fight.');
@@ -522,8 +531,8 @@ function createMission(W, { keep = false } = {}) {
     holds([]);
     const secs = Math.round((now() - stats.t0) / 1000);
     sfx.play('passed');
-    await ui.passed({ title: 'Bagged', stats: [['TIME', `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`], ['SUITS DOWN', `${stats.ko || 5}/5`], ['HITS TAKEN', String(stats.hits)]], reward: '+4,210', note: '#FallGuyFightsBack is trending' }, 6);
-    W.followers = (W.followers || 0) + 4210;
+    await ui.passed({ title: 'Bagged', stats: [['TIME', `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`], ['SUITS DOWN', `${stats.ko || 5}/5`], ['HITS TAKEN', String(stats.hits)]], reward: '+3', note: "Jane, Moon and your mom. It's a start." }, 6);
+    W.supporters = (W.supporters || 0) + 3;
     await sleep(4000);
     // the way on (mission/m2.js): Jane's DM, 'Meet Jane at Bryant Park.', the route to the J and its corona there, the
     // J kept on the radar with a nudge when he wanders; into the corona, Mission 2

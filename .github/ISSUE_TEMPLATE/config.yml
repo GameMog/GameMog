@@ -4,5 +4,11 @@ contact_links:
     url: https://mc.gamemog.com
     about: The game itself, free in your browser.
   - name: An idea (a mission, a character, a side activity, the city)
-    url: https://github.com/GameMog/GameMog/issues/new?title=Mog%20City%20idea%3A%20
-    about: Pitch it in an issue titled "Mog City idea:" first. Good ideas get built.
+    url: https://github.com/GameMog/GameMog/discussions/categories/ideas
+    about: Pitch it in Discussions first, titled "Mog City idea:". Good ideas become issues.
+  - name: A question
+    url: https://github.com/GameMog/GameMog/discussions/categories/q-a
+    about: Ask in Discussions, titled "Mog City:".
+  - name: The code (the mogcity branch)
+    url: https://github.com/GameMog/GameMog/tree/mogcity
+    about: Mog City's source, its README, CONTRIBUTING.md and ROADMAP.md.

@@ -17,6 +17,9 @@ qwen    Qwen3-TTS 12Hz through mlx-audio. A voice with no reference clip yet is 
         TAKES times (twice that while every take is bad), and the shortest good one kept; "bad": true when none was.
 kokoro  Kokoro-82M through kokoro-onnx: the voice (a blend {id: weight}) at its speed; a line longer than `fit` x 1.15 is
         said up to 12 % quicker. Deterministic.
+crowd   a crowd saying the line together (the Camp answering the people's mic): each of `crowd` ({voice, speed, delay s,
+        gain dB}) a Kokoro voice saying it, late by its delay plus a little more seeded by the line (ragged, never in
+        step), mixed down, with two faint slaps off the buildings (outdoors). Deterministic.
 Only the audio ships: the models are Apache-2.0, mlx-audio and kokoro-onnx MIT; the phonemizer kokoro-onnx uses is
 GPL-3.0 and is run here, never vendored.
 """
@@ -134,6 +137,28 @@ class Kokoro:
         from kokoro_onnx import Kokoro as K
         self.k = K(models["kokoroModel"], models["kokoroVoices"])
 
+    def crowd(self, v, L):
+        rng = np.random.default_rng(seed_of(v.get("seed", 1), L["id"]))
+        parts = []
+        for m in v["crowd"]:
+            x, sr = self.k.create(L["text"], voice=self.k.get_voice_style(m["voice"]), speed=float(m["speed"]), lang="en-us")
+            assert sr == SR, sr
+            x = np.asarray(x, dtype=np.float32).reshape(-1)
+            pk = float(np.max(np.abs(x))) or 1.0
+            lead = np.nonzero(np.abs(x) > pk * 0.0056)[0]
+            x = x[int(lead[0]) if len(lead) else 0:]  # (each voice from its first sound, then late by its delay)
+            rms = float(np.sqrt(np.mean(x ** 2))) or 1.0
+            at = int((float(m["delay"]) + rng.uniform(0, float(v.get("jitter", 0.06)))) * SR)
+            parts.append((at, x / rms * 10 ** (float(m.get("gain", 0)) / 20)))
+        n = max(at + len(x) for at, x in parts)
+        y = np.zeros(n + int(0.12 * SR), np.float32)
+        for at, x in parts:
+            y[at:at + len(x)] += x
+        for d, g in v.get("slaps", [[0.047, 0.22], [0.083, 0.13]]):  # outdoors: faint slaps off the buildings
+            k = int(d * SR)
+            y[k:] += g * y[: len(y) - k].copy()
+        return y / (float(np.max(np.abs(y))) or 1.0) * 0.9, {"voices": len(parts)}
+
     def line(self, v, L):
         style = sum(float(w) * self.k.get_voice_style(name) for name, w in v["voice"].items())
         speed, fit, tries = float(v["speed"]), L.get("fit"), []
@@ -174,6 +199,9 @@ def main(job_path):
         elif v["engine"] == "kokoro":
             kokoro = kokoro or Kokoro(models)
             x, info = kokoro.line(v, L)
+        elif v["engine"] == "crowd":
+            kokoro = kokoro or Kokoro(models)
+            x, info = kokoro.crowd(v, L)
         else:
             raise SystemExit(f"unknown engine {v['engine']} for {L['voice']}")
         write(L["out"], x)

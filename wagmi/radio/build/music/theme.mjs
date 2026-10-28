@@ -1,4 +1,4 @@
-// "We All Gonna Make It", the WAGMI FM theme: hip-hop / pop, 94 BPM, A minor (Am F C G), 56 bars (2:23), loops.
+// "Unfinished Business", the MOG FM theme: hip-hop / pop, 94 BPM, A minor (Am F C G), 56 bars (2:23), loops.
 //   0  intro      4 bars  the chords opening up, the hook teased on a bell, a riser into the drop
 //   4  hook A     8 bars  the hook on the pluck, drums and 808 in full
 //  12  verse 1    8 bars  electric piano, a lighter beat, the pluck answering every other bar
@@ -13,7 +13,7 @@
 //   C   C5 . . E5 G5 . E5 . D5 . C5 . D5 . E5 .     G  D5 . . C5 . . B4 . G4 . . . . . . .
 import { createSong } from './synth.mjs';
 
-export const meta = { id: 'wagmi-theme', title: 'We All Gonna Make It', bpm: 94,
+export const meta = { id: 'wagmi-theme', title: 'Unfinished Business', bpm: 94,
   sections: [['intro', 0, 4], ['hookA', 4, 12], ['verse1', 12, 20], ['build', 20, 24], ['hookB', 24, 32], ['verse2', 32, 40], ['bridge', 40, 44], ['hookC', 44, 52], ['outro', 52, 56]] };
 
 export function build() {

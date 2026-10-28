@@ -53,7 +53,8 @@ body .hud { transition: opacity .5s; }
 body.wg-hidehint #hud-controls-hint { opacity: 0 !important; }
 .wg-fade { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity .6s; z-index: 20; }
 
-.wg-gtitle { position: absolute; left: 0; right: 0; top: 20%; text-align: center; opacity: 0; transform: scale(1.04); transition: opacity 1.2s, transform 7s cubic-bezier(.1,.6,.2,1); z-index: 3; pointer-events: none; }
+.wg-gtitle { position: absolute; left: 0; right: 0; top: 20%; text-align: center; opacity: 0; transform: scale(1.04); transition: opacity 1.2s, transform 7s cubic-bezier(.1,.6,.2,1); z-index: 3; pointer-events: none;
+  translate: var(--wg-px, 0px) var(--wg-py, 0px); }
 .wg-gtitle.on { opacity: 1; transform: scale(1); }
 .wg-gtitle.now { transition: none; }
 .wg-gtitle .logo { position: relative; font: italic 800 clamp(52px, 10vw, 136px)/0.9 'Barlow Condensed', system-ui; letter-spacing: 1px; white-space: nowrap; }
@@ -258,6 +259,11 @@ body.wg-offering #wg .wg-help { opacity: 0 !important; }
 .wg-caller .av.cam { width: 66px; height: 88px; border-radius: 8px; box-shadow: 0 0 0 2px rgba(108,184,255,.55); }
 .wg-caller .n { font: 800 20px/1 'Barlow Condensed'; letter-spacing: 1px; }
 .wg-caller .s { font: 600 13px/1 'Barlow Condensed'; color: rgba(255,255,255,.6); margin-top: 4px; letter-spacing: 1px; }
+/* (ringing: her tile's ring pulsing; on hold, he's out of the car: her feed dimmed, the status in amber) */
+.wg-caller.ring .av.cam { animation: wgCallRing .75s ease-in-out infinite; }
+@keyframes wgCallRing { 50% { box-shadow: 0 0 0 5px rgba(108,184,255,.9); } }
+.wg-caller.hold .av.cam { filter: grayscale(.7) brightness(.6); }
+.wg-caller.hold .s { color: #FFC93C; }
 .wg-dm { position: absolute; right: 24px; top: 88px; width: 330px; padding: 12px 14px; background: rgba(8,10,14,0.72); border-radius: 10px; opacity: 0; transform: translateY(-10px); transition: opacity .3s, transform .4s; z-index: 4; backdrop-filter: blur(6px); }
 .wg-dm.on { opacity: 1; transform: none; }
 .wg-dm .a { font: 700 13px/1 'Barlow Condensed'; letter-spacing: 2px; text-transform: uppercase; color: #6CB8FF; }
@@ -308,6 +314,27 @@ body.wg-ko #canvas-container { filter: grayscale(.85) contrast(1.05); transition
 @media (prefers-reduced-motion: reduce) { .wg-gate.on .go > span, .wg-gate.on .fine { animation: wgG_fade .5s .5s backwards; animation-duration: .5s !important; } }
 /* (once it is in, a line shown again (a pad picked up or put down) is shown at once, not faded in from the start) */
 .wg-gate.in .go > span, .wg-gate.in .fine { animation: none; }
+/* (over the instant title, index.html: its veil, its motion and grain stay under this gate's type, this one's own veil
+   left off; the line's gold rules either side breathing with its pulse, as the title's) */
+.wg-gate.boot { background: none; }
+.wg-gate .go::before, .wg-gate .go::after { content: ''; position: absolute; top: 50%; width: clamp(22px, 3.4vw, 54px); height: 2px; margin-top: -1px;
+  background: linear-gradient(90deg, rgba(255,201,60,0), #FFC93C); transform-origin: 100% 50%; right: calc(100% - 10px); animation: wgBreath 1.6s ease-in-out infinite; }
+.wg-gate .go::after { right: auto; left: calc(100% - 10px); background: linear-gradient(270deg, rgba(255,201,60,0), #FFC93C); transform-origin: 0 50%; }
+.wg-gate.on .go::before, .wg-gate.on .go::after { animation: wgG_fade .45s 1.15s backwards, wgBreath 1.6s ease-in-out infinite; }
+.wg-gate.in .go::before, .wg-gate.in .go::after { animation: wgBreath 1.6s ease-in-out infinite; }
+.wg-gate.wait .go::before, .wg-gate.wait .go::after { animation: none; transform: scaleX(.7); }
+#wg .wg-gate .go.m3save::before, #wg .wg-gate .go.m3save::after { display: none; }
+@keyframes wgBreath { 0%, 100% { transform: scaleX(.5); } 50% { transform: scaleX(1); } }
+/* (a saved game's CONTINUE and NEW GAME (mission/m3-save.js) rising in one after the other, the chosen one glowing gold
+   with the pulse) */
+#wg .wg-gate .go.m3save .opt { position: relative; animation: wgSave_in .55s cubic-bezier(.16,.8,.24,1) backwards; }
+#wg .wg-gate .go.m3save .opt + .opt { animation-delay: .09s; }
+#wg .wg-gate .go.m3save .opt.sel::after { content: ''; position: absolute; inset: -1px; border-radius: 10px; pointer-events: none; box-shadow: 0 0 22px rgba(255,201,60,.42), inset 0 0 14px rgba(255,201,60,.16); animation: wgBlink 1.6s ease-in-out infinite; }
+@keyframes wgSave_in { from { opacity: 0; transform: translateY(16px); } }
+@media (prefers-reduced-motion: reduce) {
+  .wg-gate .go::before, .wg-gate .go::after { animation: none !important; transform: none; }
+  #wg .wg-gate .go.m3save .opt { animation: wgG_fade .4s backwards; animation-duration: .4s !important; }
+}
 
 /* the objective tracker: over the street signs and the radar (the city's HUD column, so it goes with it in a cutscene);
    [B] opens it into the brief: the objective, the last lines said, the last help */
@@ -404,6 +431,8 @@ body.touch-enabled #wg .wg-big .stats { min-width: min(340px, 100%); }
   body.touch-enabled[data-mode='car'] #wg .wg-help, body.touch-enabled[data-mode='car'] #wg .wg-offer, body.touch-enabled[data-mode='car'] #wg .wg-dm,
   body.touch-enabled[data-mode='car']:not(.wg-cine) #wg .wg-place, body.touch-enabled[data-mode='car']:not(.wg-cine) #wg .wg-line { right: calc(var(--wg-r) + 128px); }
   body.touch-enabled #wg .wg-caller { right: var(--wg-r); top: calc(var(--wg-t) + 58px); }
+  /* (a call's card has the look hint's place under the toolbar: the hint gives way while it's up, on hold on foot too) */
+  body.touch-enabled.wg-calling .touch-look-hint { opacity: 0 !important; }
   body.touch-enabled #wg .wg-count { left: auto; right: var(--wg-r); top: calc(var(--wg-t) + 58px); }
   body.touch-enabled.wg-calling #wg .wg-count { top: calc(var(--wg-t) + 120px); }
   body.touch-enabled:not(.wg-cine) #wg .wg-place { left: var(--wg-l); right: var(--wg-r); top: auto; bottom: calc(var(--wg-b) + var(--wg-thumbs) + 110px); }
@@ -534,12 +563,13 @@ export function createUI() {
     // (never quite black: a canvas the browser stops drawing under an opaque cover costs a long frame to bring back)
     fade(to = 1, secs = 0.6) { fadeEl.style.transition = `opacity ${secs}s`; fadeEl.style.opacity = String(Math.min(to, 0.985)); return sleep(secs * 1000); },
     // (now: at once, no fade: a skip mustn't leave it over the game)
-    // (the first time at once after a start on the gate: the letters blown out toward the lens over the trailer's black,
-    // staggered from the edges in, the rule snapped shut, a whoosh and a deep boom, done in 0.5 s; .on goes at once, nothing
-    // waits on it, and a second take-down meanwhile leaves it to finish)
+    // (the first take-down after a start on the gate: the letters blown out toward the lens, staggered from the edges in,
+    // the rule snapped shut, a whoosh and a deep boom, done in 0.5 s, over the trailer's black (?trailer=1) or, with no
+    // trailer, over the opening's aerial as its camera moves off; .on goes at once, nothing waits on it, and a second
+    // take-down meanwhile leaves it to finish)
     gameTitle(on, now = false) {
       if (!on && gTitle.classList.contains('out')) return;
-      if (!on && now && blowOut && gTitle.classList.contains('on')) {
+      if (!on && blowOut && gTitle.classList.contains('on')) {
         blowOut = false; gTitle.classList.remove('on'); gTitle.classList.add('out');
         const S = window.WAGMI?.sfx; try { S?.play('whoosh', { gain: 0.4, dur: 0.5 }); S?.play('boom', { gain: 0.32, at: 0.1 }); } catch {}
         setTimeout(() => { gTitle.classList.add('now'); gTitle.classList.remove('out', 'punch'); void gTitle.offsetWidth; gTitle.classList.remove('now'); }, 520);
@@ -682,6 +712,7 @@ export function createUI() {
       // (Jane: her video feed in the tile, her mouth with her voice; anyone else: their initial)
       if (name === 'Jane') callerCam(av); else { callerCam(null); av.textContent = name[0]; }
       callerEl.querySelector('.n').textContent = name.toUpperCase(); callerEl.querySelector('.s').textContent = status;
+      callerEl.classList.toggle('ring', /^incoming/i.test(status)); callerEl.classList.toggle('hold', /^on hold/i.test(status));
       callerEl.classList.add('on');
     },
     dm(from, text, secs = 8) {
@@ -697,7 +728,7 @@ export function createUI() {
       window.mcStat?.('pass', title);
       bigEl.innerHTML = `<div class="h" style="color:#FFC93C">MISSION PASSED</div><div class="t">${esc(title)}</div>
         <div class="stats">${stats.map(([a, b]) => `<div class="row"><span>${esc(a)}</span><span>${esc(b)}</span></div>`).join('')}
-        ${reward ? `<div class="reward"><span>FOLLOWERS</span><span>${esc(reward)}</span></div>` : ''}${note ? `<div class="note">${esc(note)}</div>` : ''}</div>`;
+        ${reward ? `<div class="reward"><span>SUPPORTERS</span><span>${esc(reward)}</span></div>` : ''}${note ? `<div class="note">${esc(note)}</div>` : ''}</div>`;
       bigEl.classList.add('on'); bigEl.style.pointerEvents = 'none';
       return sleep(secs * 1000).then(() => bigEl.classList.remove('on'));
     },
@@ -752,20 +783,31 @@ export function createUI() {
       const g = el('wg-gate', `<div class="go">${touch ? '<span>Tap to start</span>' : '<span class="wg-nopad">Click or press any key to start</span><span class="wg-padonly">Press <kbd data-pad="A">A</kbd> to start</span>'}</div><div class="fine">${esc(fine)}</div>`);
       const goEl = g.querySelector('.go');
       const T = window.__wgTitle?.adopt?.() || null;
-      // (its line blinks on the page's clock, as the title's does)
-      try { for (const a of goEl.getAnimations()) a.startTime = 0; } catch {}
+      // (its line blinks on the page's clock, its gold rules breathing with it, as the title's do)
+      try { for (const a of goEl.getAnimations({ subtree: true })) if (/^wg(Blink|Breath)$/.test(a.animationName)) a.startTime = 0; } catch {}
+      // (the live city under it drifting, the camera eased in from the opening's first frame once the still is out and
+      // back onto it with the start: wagmi/gate-drift.js, fetched now, nothing waiting on it)
+      const drift = { d: null, live: false, stopped: false };
+      import('../gate-drift.js').then((m) => { if (drift.stopped) return; drift.d = m.createGateDrift(); if (drift.live) drift.d.live(); }).catch((err) => console.warn('[gate] drift', err));
+      const driftLive = () => { drift.live = true; drift.d?.live(); };
       const isReady = () => { try { return !!when(); } catch { return false; } };
       let shown = false, live = !T;
       const show = () => {
         shown = true;
         const boot = T && document.getElementById('wg-boot');
         if (T) { g.classList.add('now'); gTitle.classList.add('now'); if (boot?.querySelector('.wg-boot-title.punch')) gTitle.classList.add('punch'); }
+        // (over the title's own veil and motion, index.html: this one's veil left off)
+        if (boot?.querySelector('.wg-boot-fx')) g.classList.add('boot');
         g.classList.add('on'); gTitle.classList.add('on'); setTimeout(() => g.classList.add('in'), 1700);
         // (its lettering on the title's clock: where the title's arrival (or a punch) is, done or mid-way)
         if (T) { try { syncTitle(boot, gTitle, g); } catch {} void g.offsetWidth; g.classList.remove('now'); gTitle.classList.remove('now'); T.handover(); } else ui.bootOff();
       };
-      // (the still out over the live city, two frames on: the opening's camera the one drawn under it by then)
-      const goLive = () => { if (live) return; live = true; requestAnimationFrame(() => requestAnimationFrame(() => T.live())); };
+      // (the still out over the live city, two frames on: the opening's camera the one drawn under it by then; the drift
+      // from the moment it goes)
+      const goLive = () => {
+        if (!T) { driftLive(); return; }
+        if (live) return; live = true; requestAnimationFrame(() => requestAnimationFrame(() => (T.live.length ? T.live(driftLive) : (T.live(), driftLive()))));
+      };
       if (T || isReady()) show();
       if (isReady()) goLive();
       else { const poll = setInterval(() => { if (!isReady()) return; clearInterval(poll); if (!shown) show(); goLive(); }, 50); }
@@ -773,7 +815,14 @@ export function createUI() {
         // (a finger starts on its release, a tap's end: on a phone only that lets the opening's first line be heard.
         // A mouse or a pen still starts on the press)
         const EVS = ['keydown', 'pointerdown', 'pointerup', 'touchend', 'click'];
-        const finish = () => { g.classList.remove('on'); setTimeout(() => g.remove(), 900); res(); };
+        // (the title's veil and motion out with it, index.html; the drift eased back onto the opening's camera, at once
+        // when the trailer's black is about to cover it)
+        const finish = () => {
+          g.classList.remove('on'); setTimeout(() => g.remove(), 900);
+          drift.stopped = true; drift.d?.stop(!!window.WAGMI?.trailer);
+          try { T?.done?.(); } catch {}
+          res();
+        };
         const waiting = () => { g.classList.add('wait'); goEl.className = 'go'; goEl.textContent = 'Starting…'; document.documentElement.classList.add('wg-t-start'); };
         const release = () => Promise.resolve().then(() => {
           let h = null; try { h = hold?.() || null; } catch (err) { console.warn(err); }

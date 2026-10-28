@@ -91,9 +91,9 @@ Characters (assets/characters)
 Music (the car radio: wagmi/radio/stations.js)
 ----------------------------------------------
 The same list is in assets/CREDITS.md, and in the game on the pause menu's Credits page
-(wagmi/credits.js). The game's theme is "Pyro Flow" by Kevin MacLeod (WAGMI FM's first track).
+(wagmi/credits.js). The game's theme is "Pyro Flow" by Kevin MacLeod (MOG FM's first track).
 
-  - "We All Gonna Make It", "Number Go Up" and "Fifth Ave Glide" (WAGMI FM;
+  - "Unfinished Business", "Fall Guy" and "Fifth Ave Glide" (MOG FM;
     assets/music/wagmi-theme.m4a, wagmi-pump.m4a, wagmi-glide.m4a) are original to this game,
     composed as code and rendered offline by wagmi/radio/build/music/ (no samples, no loops from
     anyone else).
@@ -191,7 +191,7 @@ Crowd sounds
 
 Voices (assets/voice)
 ---------------------
-  - Dan, Jane, Knox, Mack, Gears, Fiona, Brick and Dash: synthesised with Qwen3-TTS by the Qwen team,
+  - Dan, Jane, Knox, Mack, Gears, Fiona, Brick, Dash and Ms. Bea: synthesised with Qwen3-TTS by the Qwen team,
     Alibaba Cloud (Apache-2.0, https://github.com/QwenLM/Qwen3-TTS). Each voice was designed once with
     Qwen3-TTS-12Hz-1.7B-VoiceDesign and every line cloned from it with Qwen3-TTS-12Hz-0.6B-Base, using the
     mlx-community conversions (Apache-2.0) run with mlx-audio (MIT, https://github.com/Blaizzy/mlx-audio).
@@ -200,6 +200,9 @@ Voices (assets/voice)
   - Mr. Big: synthesised with Kokoro-82M by hexgrad (Apache-2.0, https://huggingface.co/hexgrad/Kokoro-82M),
     its stock voice bm_lewis, run with kokoro-onnx (MIT); heard as it is (no voice changer). The phonemizer
     kokoro-onnx uses is GPL-3.0 and was only run, never shipped or vendored.
+  - The Camp (the Occupy camp's crowd): synthesised with Kokoro-82M by hexgrad (Apache-2.0), eight of its
+    stock voices (am_michael, af_sarah, am_adam, af_bella, am_onyx, af_kore, am_eric and af_jessica), run with
+    kokoro-onnx (MIT), each line said by all eight a little apart and mixed into one crowd.
   - Any character not yet voiced: placeholders made with the macOS speech voices (the `say` command). They
     are meant to be replaced by recordings or synthesised voices like the others'. assets/voice/manifest.json records each line's source;
     docs/VOICE-LINES.md is the line sheet and says how to drop new voices in.

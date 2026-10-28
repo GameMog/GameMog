@@ -1,7 +1,12 @@
-name: Bug report
-description: Something in the game is broken or behaves wrongly.
+name: "Mog City: bug report"
+description: Something in Mog City (mc.gamemog.com) is broken or behaves wrongly.
+title: "Mog City: "
 labels: ["bug"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for playing Mog City. Keep the "Mog City:" at the start of the title: this repository's issues are shared with GameMog. One bug per issue, please.
   - type: textarea
     id: what
     attributes:
@@ -13,9 +18,26 @@ body:
     id: steps
     attributes:
       label: How do we make it happen?
-      description: The steps, where in the game (a mission and checkpoint, or a street), and the URL you used (for example https://mc.gamemog.com/?m2=yard).
+      description: The steps, where in the game (a mission and checkpoint, or a street), and the URL you used (for example https://mc.gamemog.com/?m3=rigs). The URL switches are listed in CONTRIBUTING.md.
     validations:
       required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where in the game?
+      options:
+        - The title screen
+        - The opening cutscene
+        - "Mission 1: Bagged"
+        - "Mission 2: Burner"
+        - "Mission 3: Occupied"
+        - A drive between missions (Jane's car phone)
+        - Free roam
+        - The cold-open trailer (?trailer=1 or ?trailer=only)
+        - The pause menu, a save or the credits
+        - Somewhere else
+    validations:
+      required: false
   - type: input
     id: device
     attributes:

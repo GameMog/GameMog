@@ -158,11 +158,11 @@
        the gate's own aerial, shot in the game at three shapes (16:9; 2.4:1, a phone on its side; 0.475, upright) so
        the live frame that replaces it is the same picture. Its rules are kept the same as ui.js's .wg-gate and .wg-gtitle) */
     #wg-boot { position: fixed; inset: 0; z-index: 29; pointer-events: none; color: #fff; font-family: 'Barlow Condensed', system-ui, sans-serif; transition: opacity .8s;
-      background: radial-gradient(70% 55% at 50% 30%, rgba(255,170,60,.18), rgba(255,170,60,0) 70%), linear-gradient(#262a33, #0d0e12 62%, #060709); --bar: min(11vh, 9.5vw); }
+      background: radial-gradient(70% 55% at 50% 30%, rgba(255,170,60,.18), rgba(255,170,60,0) 70%), linear-gradient(#262a33, #0d0e12 62%, #060709); --bar: min(11vh, 9.5vw); --fs: clamp(52px, 10vw, 136px); }
     #wg-boot.off { opacity: 0; }
     #wg-boot > div { position: absolute; }
-    #wg-boot .wg-boot-pic, #wg-boot .wg-boot-bar, #wg-boot .wg-boot-veil, #wg-boot .wg-boot-go, #wg-boot .wg-boot-fine { display: none; }
-    #wg-boot .wg-boot-title { left: 0; right: 0; top: 20%; text-align: center; z-index: 3; animation: wgBootIn .5s ease-out both; }
+    #wg-boot .wg-boot-pic, #wg-boot .wg-boot-bar, #wg-boot .wg-boot-veil, #wg-boot .wg-boot-go, #wg-boot .wg-boot-fine, #wg-boot .wg-boot-fx { display: none; }
+    #wg-boot .wg-boot-title { left: 0; right: 0; top: 20%; text-align: center; z-index: 4; animation: wgBootIn .5s ease-out both; }
     #wg-boot .wg-boot-logo { position: relative; font: italic 800 clamp(52px, 10vw, 136px)/0.9 'Barlow Condensed', system-ui, sans-serif; letter-spacing: 1px; white-space: nowrap; }
     #wg-boot .wg-boot-logo b { color: #FFC93C; font-weight: 800; }
     #wg-boot .wg-boot-rule { width: 140px; height: 3px; background: #FFC93C; margin: 14px auto 0; }
@@ -212,22 +212,33 @@
     @keyframes wgT_shingIn { from { transform: skewX(18deg) translateX(.9em); } to { transform: skewX(18deg) translateX(-3.3em); } }
     @keyframes wgT_punch { 0% { transform: none; animation-timing-function: cubic-bezier(.2,.8,.3,1); } 24% { transform: scale(1.065); animation-timing-function: cubic-bezier(.4,0,.3,1); } 100% { transform: none; } }
     html.wg-t #loading-overlay { display: none; }
+    /* (the sandbox's telemetry line, 'three.js · WebGPU · TSL · .. fps', never over the title: story mode puts it away for
+       good once the game is in, this from the first paint) */
+    html.wg-t .hud-top-left { visibility: hidden !important; }
     html.wg-t #wg-boot { background: #0a0b0d; }
-    html.wg-t #wg-boot .wg-boot-pic { display: block; inset: 0; background: #0a0b0d url(assets/ui/gate-aerial-land.webp) 50% 50% / cover no-repeat; }
+    html.wg-t #wg-boot .wg-boot-pic { display: block; inset: 0; background: #0a0b0d url(assets/ui/gate-aerial-land.webp) 50% 50% / cover no-repeat;
+      transform-origin: 72% 36%; animation: wgFx_up .7s ease-out backwards, wgFx_settle 2.8s cubic-bezier(.16,.6,.24,1) backwards; }
     @media (max-aspect-ratio: 3/4) { html.wg-t #wg-boot .wg-boot-pic { background-image: url(assets/ui/gate-aerial-port.webp); } }
     @media (min-aspect-ratio: 2/1) { html.wg-t #wg-boot .wg-boot-pic { background-image: url(assets/ui/gate-aerial-wide.webp); } }
-    html.wg-t #wg-boot .wg-boot-bar { display: block; left: 0; right: 0; height: var(--bar); background: #000; z-index: 1; }
+    html.wg-t #wg-boot .wg-boot-bar { display: block; left: 0; right: 0; height: var(--bar); background: #000; z-index: 5; }
     #wg-boot .wg-boot-bar.top { top: 0; } #wg-boot .wg-boot-bar.bot { bottom: 0; }
     html.wg-t #wg-boot .wg-boot-veil { display: block; inset: 0; z-index: 2;
       background: radial-gradient(70% 55% at 50% 30%, rgba(255,170,60,.16), rgba(255,170,60,0) 70%), linear-gradient(rgba(5,6,9,.5), rgba(5,6,9,.18) 45%, rgba(5,6,9,.8)); }
-    html.wg-t #wg-boot .wg-boot-title { animation: none; }
-    html.wg-t #wg-boot .wg-boot-go { display: block; z-index: 3; left: 50%; top: 66%; transform: translateX(-50%); max-width: calc(100% - 32px); padding: 10px 26px; text-align: center;
+    html.wg-t #wg-boot .wg-boot-title { animation: none; translate: var(--wg-px, 0px) var(--wg-py, 0px); }
+    html.wg-t #wg-boot .wg-boot-go { display: block; z-index: 4; left: 50%; top: 66%; transform: translateX(-50%); max-width: calc(100% - 32px); padding: 10px 26px; text-align: center;
       font: 700 clamp(13px, 2vw, 26px)/1.25 'Barlow Condensed', system-ui, sans-serif; letter-spacing: clamp(1px, .4vw, 5px); text-transform: uppercase; animation: wgBlink 1.6s ease-in-out infinite;
       text-shadow: 0 2px 10px rgba(0,0,0,.7); background: radial-gradient(closest-side, rgba(6,8,12,.55), rgba(6,8,12,0)); white-space: nowrap; }
     #wg-boot .wg-boot-go span { display: none; }
     html.wg-t #wg-boot .wg-boot-go .k-key { display: inline; }
     html.wg-t-save #wg-boot .wg-boot-go { visibility: hidden; }
-    html.wg-t #wg-boot .wg-boot-fine { display: block; z-index: 3; bottom: calc(var(--bar) + 2.6vh); left: 16px; right: 16px; text-align: center; font: 600 clamp(12px, 1.2vw, 15px)/1.5 'Barlow Condensed', system-ui, sans-serif;
+    /* (the line's gold rules either side, breathing out with its pulse; drawn once the type is in, with the line, ui.js's
+       .wg-gate .go the same) */
+    html.wg-t.wg-type #wg-boot .wg-boot-go::before, html.wg-t.wg-type #wg-boot .wg-boot-go::after { content: ''; position: absolute; top: 50%; width: clamp(22px, 3.4vw, 54px); height: 2px; margin-top: -1px;
+      background: linear-gradient(90deg, rgba(255,201,60,0), #FFC93C); transform-origin: 100% 50%; right: calc(100% - 10px); animation: wgT_fade .45s 1.15s backwards, wgBreath 1.6s ease-in-out infinite; }
+    html.wg-t.wg-type #wg-boot .wg-boot-go::after { right: auto; left: calc(100% - 10px); background: linear-gradient(270deg, rgba(255,201,60,0), #FFC93C); transform-origin: 0 50%; }
+    @keyframes wgBreath { 0%, 100% { transform: scaleX(.5); } 50% { transform: scaleX(1); } }
+    html.wg-t-start #wg-boot .wg-boot-go::before, html.wg-t-start #wg-boot .wg-boot-go::after { animation: none; transform: scaleX(.7); }
+    html.wg-t #wg-boot .wg-boot-fine { display: block; z-index: 4; bottom: calc(var(--bar) + 2.6vh); left: 16px; right: 16px; text-align: center; font: 600 clamp(12px, 1.2vw, 15px)/1.5 'Barlow Condensed', system-ui, sans-serif;
       letter-spacing: 2px; color: rgba(255,255,255,.72); text-shadow: 0 1px 4px rgba(0,0,0,.8); }
     @media (max-width: 560px) { html.wg-t #wg-boot .wg-boot-go { font-size: 4.3vw; padding: 8px 12px; top: 60%; } html.wg-t #wg-boot .wg-boot-fine { letter-spacing: 1px; } }
     /* (a phone, as body.touch-enabled sets the gate on one: the tap's words, the thumbs' sizes, the safe edges) */
@@ -242,10 +253,65 @@
     html.wg-t-start #wg-boot .wg-boot-go span { display: none !important; }
     html.wg-t-start #wg-boot .wg-boot-go .k-wait { display: inline !important; }
     html.wg-t-start #wg-boot .wg-boot-go .k-wait { animation: none; }
-    /* the gate has taken over (its own type and veil over this still, which stays until the live city is ready under
-       it); then the still fades out under the gate */
-    #wg-boot.handed .wg-boot-veil, #wg-boot.handed .wg-boot-title, #wg-boot.handed .wg-boot-go, #wg-boot.handed .wg-boot-fine { visibility: hidden; }
-    #wg-boot.live { opacity: 0; transition: opacity .9s ease; }
+    /* the gate has taken over (its own type over this still, which stays until the live city is ready under it; the veil
+       and the motion stay this one's, the gate's own veil left off over it: ui.js .wg-gate.boot); then the still and the
+       bars fade out under the gate, the live city's drift (wagmi/gate-drift.js) under the veil and the motion, all of it
+       gone with the start (.done) */
+    #wg-boot.handed .wg-boot-title, #wg-boot.handed .wg-boot-go, #wg-boot.handed .wg-boot-fine { visibility: hidden; }
+    html.wg-t #wg-boot.live { background: transparent; }
+    #wg-boot.live .wg-boot-pic, #wg-boot.live .wg-boot-bar { opacity: 0; transition: opacity .9s ease; }
+    #wg-boot.done { opacity: 0; transition: opacity .8s ease; }
+    /* (the title's motion behind the lockup: the still faded up and settling from x1.075 toward the tower, on its own clock
+       from the first paint; a warm light leak breathing in the corner, a cool one under it; a backlight behind the logo,
+       flashed as CITY lands and breathing after; an anamorphic streak through the logo at the landing; motes of light
+       drifting up at two depths; film grain; a vignette. Transform and opacity only, each on a layer of its own, so the
+       compositor runs it smooth while the city is built under it. --wg-px/--wg-py: the pointer's lean (a mouse's; the
+       script below), the lockup that way, the motes further, the city's camera the other (gate-drift.js). Drawn from the
+       second frame (html.wg-fx, the script below), so the first paint is the still alone, as quick as before them) */
+    html.wg-t.wg-fx #wg-boot .wg-boot-fx { display: block; inset: 0; z-index: 3; overflow: hidden; }
+    #wg-boot .wg-boot-fx > i { position: absolute; display: block; }
+    #wg-boot .wg-boot-fx .leak { inset: -8%; animation: wgFx_leak 13s ease-in-out infinite alternate;
+      background: radial-gradient(42% 46% at 84% 14%, rgba(255,178,92,.30), rgba(255,150,70,.12) 48%, rgba(255,150,70,0) 74%), radial-gradient(46% 40% at 8% 92%, rgba(60,96,220,.2), rgba(60,96,220,0) 72%); }
+    #wg-boot .wg-boot-fx .glow { left: calc(50% - min(600px, 70vw)); width: min(1200px, 140vw); top: calc(20% + var(--fs) * -1.25); height: calc(var(--fs) * 3.4); opacity: .8;
+      background: radial-gradient(closest-side, rgba(255,200,100,.32), rgba(255,170,60,.11) 55%, rgba(255,170,60,0)); translate: calc(var(--wg-px, 0px) * .5) calc(var(--wg-py, 0px) * .5);
+      animation: wgFx_bloom 1.2s .36s cubic-bezier(.2,.7,.2,1) backwards, wgFx_breathe 6.4s 1.56s ease-in-out infinite; }
+    #wg-boot .wg-boot-fx .flash { inset: 0; opacity: 0; background: radial-gradient(52% 26% at 50% calc(20% + var(--fs) * .47), rgba(255,240,205,.5), rgba(255,226,170,.14) 55%, rgba(255,226,170,0) 80%);
+      animation: wgFx_flash .9s .4s cubic-bezier(.1,.7,.3,1) backwards; }
+    #wg-boot .wg-boot-fx .streak { left: -10%; right: -10%; top: calc(20% + var(--fs) * .47 - 1px); height: 2px; opacity: 0;
+      background: linear-gradient(90deg, rgba(255,210,130,0), rgba(255,220,160,.7) 28%, #FFF8E6 50%, rgba(255,220,160,.7) 72%, rgba(255,210,130,0));
+      box-shadow: 0 0 10px 1px rgba(255,196,96,.6), 0 0 36px 6px rgba(255,170,60,.22); animation: wgFx_streak 1.15s .4s cubic-bezier(.12,.8,.22,1) backwards; }
+    #wg-boot .wg-boot-fx .mote { left: -48px; right: -48px; top: 0; height: calc(100% + 420px); background-size: 420px 420px; animation: wgFx_rise 36s linear infinite; opacity: .75;
+      translate: calc(var(--wg-px, 0px) * 2.2) calc(var(--wg-py, 0px) * 2.2);
+      background-image: radial-gradient(circle at 12% 18%, rgba(255,228,170,.9) 0 .9px, rgba(255,228,170,0) 2.2px), radial-gradient(circle at 61% 7%, rgba(255,236,196,.8) 0 .7px, rgba(255,236,196,0) 1.9px),
+        radial-gradient(circle at 87% 41%, rgba(255,214,140,.85) 0 1px, rgba(255,214,140,0) 2.4px), radial-gradient(circle at 34% 56%, rgba(255,240,210,.7) 0 .6px, rgba(255,240,210,0) 1.7px),
+        radial-gradient(circle at 72% 77%, rgba(255,222,160,.85) 0 .9px, rgba(255,222,160,0) 2.2px), radial-gradient(circle at 21% 89%, rgba(255,232,180,.75) 0 .7px, rgba(255,232,180,0) 1.9px),
+        radial-gradient(circle at 47% 31%, rgba(255,210,130,.6) 0 .5px, rgba(255,210,130,0) 1.5px), radial-gradient(circle at 93% 93%, rgba(255,236,196,.7) 0 .6px, rgba(255,236,196,0) 1.7px); }
+    #wg-boot .wg-boot-fx .mote.m2 { height: calc(100% + 560px); background-size: 560px 560px; animation: wgFx_rise2 24s linear infinite; opacity: .55;
+      translate: calc(var(--wg-px, 0px) * 3.6) calc(var(--wg-py, 0px) * 3.6);
+      background-image: radial-gradient(circle at 18% 64%, rgba(255,214,140,.55), rgba(255,214,140,.18) 3px, rgba(255,214,140,0) 6px), radial-gradient(circle at 76% 22%, rgba(255,230,180,.5), rgba(255,230,180,.15) 4px, rgba(255,230,180,0) 8px),
+        radial-gradient(circle at 54% 88%, rgba(255,200,120,.45), rgba(255,200,120,.12) 3px, rgba(255,200,120,0) 7px); }
+    #wg-boot .wg-boot-fx .grain { inset: -40px; opacity: .07; animation: wgFx_grain .8s steps(1, end) infinite;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='2.2 0 0 0 -.6 2.2 0 0 0 -.6 2.2 0 0 0 -.6 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 220px 220px; }
+    #wg-boot .wg-boot-fx .vig { inset: 0; background: radial-gradient(130% 100% at 50% 44%, rgba(0,0,0,0) 50%, rgba(0,0,0,.34) 80%, rgba(0,0,0,.62)); }
+    /* (the light added as light, screened, so warm over the blue sky glows rather than greys it; the grain overlaid, so
+       it textures the picture without washing it) */
+    #wg-boot .wg-boot-fx .leak, #wg-boot .wg-boot-fx .glow, #wg-boot .wg-boot-fx .flash, #wg-boot .wg-boot-fx .streak, #wg-boot .wg-boot-fx .mote { mix-blend-mode: screen; }
+    #wg-boot .wg-boot-fx .grain { mix-blend-mode: overlay; opacity: .05; }
+    /* (a phone: the fine motes left out, the bokeh kept) */
+    @media (any-pointer: coarse) { #wg-boot .wg-boot-fx .mote.m1 { display: none; } }
+    /* (the lockup's moments held for its type, with it) */
+    html.wg-t:not(.wg-type) #wg-boot .wg-boot-fx .glow, html.wg-t:not(.wg-type) #wg-boot .wg-boot-fx .flash, html.wg-t:not(.wg-type) #wg-boot .wg-boot-fx .streak { animation-play-state: paused !important; }
+    @keyframes wgFx_up { from { opacity: .15; } }
+    @keyframes wgFx_settle { from { transform: scale(1.075); } }
+    @keyframes wgFx_leak { from { opacity: .65; transform: translate3d(-2%, 1.5%, 0) scale(1); } to { opacity: 1; transform: translate3d(2%, -1%, 0) scale(1.06); } }
+    @keyframes wgFx_bloom { 0% { opacity: 0; transform: scale(.5); } 30% { opacity: 1; transform: scale(1.1); } 100% { opacity: .8; transform: none; } }
+    @keyframes wgFx_breathe { 0%, 100% { opacity: .8; transform: none; } 50% { opacity: 1; transform: scale(1.05); } }
+    @keyframes wgFx_flash { 0% { opacity: 0; } 14% { opacity: 1; } 100% { opacity: 0; } }
+    @keyframes wgFx_streak { 0% { opacity: 0; transform: scaleX(.04); } 16% { opacity: 1; } 48% { opacity: .8; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1.2); } }
+    @keyframes wgFx_rise { to { transform: translate3d(0, -420px, 0); } }
+    @keyframes wgFx_rise2 { to { transform: translate3d(0, -560px, 0); } }
+    @keyframes wgFx_grain { 0% { transform: translate3d(0, 0, 0); } 12.5% { transform: translate3d(-23px, 14px, 0); } 25% { transform: translate3d(17px, -31px, 0); } 37.5% { transform: translate3d(-35px, -9px, 0); }
+      50% { transform: translate3d(29px, 22px, 0); } 62.5% { transform: translate3d(-11px, 33px, 0); } 75% { transform: translate3d(36px, -18px, 0); } 87.5% { transform: translate3d(-27px, -36px, 0); } }
     /* the progress, a thin gold line along the picture's foot (over the gate: one line from the first paint to the
        city's first frame): a sweep while the city is built, then filled as its shaders compile (js/main.js sets
        --wg-load and html.wg-load-fill), gone when it is ready */
@@ -264,6 +330,10 @@
       html.wg-t #wg-boot .wg-boot-title *, html.wg-t #wg-boot .wg-boot-logo::before { animation: none !important; }
       html.wg-t #wg-boot .wg-boot-go span, html.wg-t #wg-boot .wg-boot-fine { animation: wgT_fade .5s .5s backwards; animation-duration: .5s !important; }
       #wg-boot .wg-boot-logo .g { display: none; }
+      /* (the still at rest, the light still, no streak, flash or motes; the rules faded in with the line, still) */
+      html.wg-t #wg-boot .wg-boot-pic, #wg-boot .wg-boot-fx > i { animation: none !important; }
+      #wg-boot .wg-boot-fx .flash, #wg-boot .wg-boot-fx .streak, #wg-boot .wg-boot-fx .mote { display: none; }
+      html.wg-t.wg-type #wg-boot .wg-boot-go::before, html.wg-t.wg-type #wg-boot .wg-boot-go::after { animation: wgT_fade .5s .5s backwards; animation-duration: .5s !important; transform: none; }
     }
   </style>
   <script type="importmap">
@@ -324,6 +394,7 @@
        fades its still out over the live city once that is ready. It goes by itself 25 s after the city is up if
        nothing took it) -->
   <div id="wg-boot" aria-hidden="true"><div class="wg-boot-pic"></div><div class="wg-boot-bar top"></div><div class="wg-boot-bar bot"></div><div class="wg-boot-veil"></div>
+    <div class="wg-boot-fx"><i class="leak"></i><i class="glow"></i><i class="flash"></i><i class="streak"></i><i class="mote m1"></i><i class="mote m2"></i><i class="grain"></i><i class="vig"></i></div>
     <div class="wg-boot-title"><div class="wg-boot-logo" data-t="MOG CITY"><span style="--x:-3">M</span><span style="--x:-2">O</span><span style="--x:-1">G</span> <b><span style="--x:1">C</span><span style="--x:2">I</span><span style="--x:3">T</span><span style="--x:4">Y</span><i class="g" aria-hidden="true"><i><span>C</span><span>I</span><span>T</span><span>Y</span></i></i></b></div><div class="wg-boot-rule"></div><div class="wg-boot-tag"><span style="--x:-9">U</span><span class="k" style="--x:-8">n</span><span style="--x:-7">f</span><span style="--x:-6">i</span><span style="--x:-5">n</span><span style="--x:-4">i</span><span style="--x:-3">s</span><span style="--x:-2">h</span><span style="--x:-1">e</span><span style="--x:0">d</span> <span style="--x:2">B</span><span style="--x:3">u</span><span style="--x:4">s</span><span style="--x:5">i</span><span style="--x:6">n</span><span style="--x:7">e</span><span style="--x:8">s</span><span style="--x:9">s</span></div></div>
     <div class="wg-boot-go"><span class="k-key">Click or press any key to start</span><span class="k-tap">Tap to start</span><span class="k-wait">Starting…</span></div>
     <div class="wg-boot-fine">Community entertainment project. Have fun!</div></div>
@@ -342,12 +413,35 @@
       // (the title's type asked for at once; when it is in, for the timings, and the lettering's arrival let go: html.wg-type,
       // 3 s on at the latest, so it doesn't run unseen while the face is still on its way. The name's face alone: the tag's
       // and the line's come in on their own, display=block, by the time they are drawn)
-      const typed = () => { if (H.classList.contains('wg-type')) return; H.classList.add('wg-type'); T.typeAt = Math.round(performance.now()); };
+      // ('Tap to start' blinks on the page's clock, its gold rules breathing with it: the gate's own line is set to the
+      // same, so neither flickers at the hand-over. The rules are drawn with the type)
+      const goEl = boot.querySelector('.wg-boot-go');
+      const pulse = () => { try { for (const a of goEl.getAnimations({ subtree: true })) if (/^wg(Blink|Breath)$/.test(a.animationName)) a.startTime = 0; } catch (e) {} };
+      const typed = () => { if (H.classList.contains('wg-type')) return; H.classList.add('wg-type'); T.typeAt = Math.round(performance.now()); pulse(); };
       try { document.fonts.load('italic 800 64px "Barlow Condensed"').then(typed, typed); } catch (e) { typed(); }
       setTimeout(typed, 3000);
-      // ('Tap to start' blinks on the page's clock: the gate's own line is set to the same, so neither flickers at the
-      // hand-over)
-      try { for (const a of boot.querySelector('.wg-boot-go').getAnimations()) a.startTime = 0; } catch (e) {}
+      pulse();
+      // (the motion behind the lockup from the second frame: the first paint is the still alone)
+      requestAnimationFrame(() => requestAnimationFrame(() => H.classList.add('wg-fx')));
+      // (the pointer's lean, a mouse's only, eased on the frame: --wg-px/--wg-py on the title and on the gate (#wg) for the
+      // lockup and the motes, T.ptr (-1..1) for the city's camera under the gate, wagmi/gate-drift.js. Not with less motion)
+      const P = (T.ptr = { x: 0, y: 0 });
+      let tx = 0, ty = 0, leaning = false;
+      const still = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return true; } })();
+      const lean = () => {
+        const tgt = [boot, document.getElementById('wg')];
+        if (T.over) { leaning = false; return; }
+        P.x += (tx - P.x) * 0.055; P.y += (ty - P.y) * 0.055;
+        const px = (-P.x * 9).toFixed(2) + 'px', py = (-P.y * 6).toFixed(2) + 'px';
+        for (const e of tgt) if (e) { e.style.setProperty('--wg-px', px); e.style.setProperty('--wg-py', py); }
+        if (Math.abs(tx - P.x) + Math.abs(ty - P.y) > 0.002) requestAnimationFrame(lean); else leaning = false;
+      };
+      const onMove = (e) => {
+        if (e.pointerType !== 'mouse' || T.over) return;
+        tx = Math.max(-1, Math.min(1, (e.clientX / innerWidth) * 2 - 1)); ty = Math.max(-1, Math.min(1, (e.clientY / innerHeight) * 2 - 1));
+        if (!leaning) { leaning = true; requestAnimationFrame(lean); }
+      };
+      if (!still) addEventListener('pointermove', onMove, { passive: true });
       // a start made here, before the gate itself is up: kept for it (a key, a click, a finger's release, as the gate's).
       // Each gesture wakes the sound for the trailer (the shim above); with a save, the gate itself asks which
       const EVS = ['keydown', 'pointerdown', 'pointerup', 'touchend', 'click'];
@@ -397,11 +491,26 @@
         } catch (err) {}
       }
       for (const k of EVS) addEventListener(k, on, true);
-      // the gate takes it: its start, if one was made; then handover() (the gate's own type over the still) and live()
-      // (the still faded out over the live city)
+      // the gate takes it: its start, if one was made; then handover() (the gate's own type over the still), live(cb)
+      // (the still and the bars faded out over the live city once the still has settled; cb then: the city's drift eased
+      // in from there) and done() (with the start: the veil and the motion faded out with the gate, the lean let go)
       T.adopt = () => { if (T.adopted) return null; T.adopted = true; off(); return T; };
       T.handover = () => boot.classList.add('handed');
-      T.live = () => { boot.classList.add('live'); setTimeout(() => boot.remove(), 1000); };
+      T.live = (cb) => {
+        const pic = boot.querySelector('.wg-boot-pic');
+        let wait = []; try { wait = pic ? pic.getAnimations().map((a) => a.finished.catch(() => {})) : []; } catch (e) {}
+        Promise.all(wait).then(() => {
+          if (T.over) return;
+          boot.classList.add('live'); try { cb && cb(); } catch (e) {}
+          setTimeout(() => { for (const e of boot.querySelectorAll('.wg-boot-pic, .wg-boot-bar')) e.remove(); }, 1000);
+        });
+      };
+      T.done = () => {
+        if (T.over) return; T.over = true;
+        removeEventListener('pointermove', onMove);
+        boot.classList.add('done');
+        setTimeout(() => { boot.remove(); const g = document.getElementById('wg'); if (g) { g.style.removeProperty('--wg-px'); g.style.removeProperty('--wg-py'); } }, 900);
+      };
     })();
   </script>
 

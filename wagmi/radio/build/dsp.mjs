@@ -108,3 +108,37 @@ export function squeeze(x, sr, gap = 0.2) {
   for (const [a, b] of parts) { const seg = x.subarray(Math.round(a), Math.round(b)); y.set(seg, o); for (let k = 0; k < f && k < seg.length; k++) { y[o + k] *= k / f; y[o + seg.length - 1 - k] *= k / f; } o += seg.length; }
   return y;
 }
+
+// a whisper made of a voiced line (the 'whisper' register: Jane on the phone on a tail): every 25 ms frame's spectral
+// envelope (LPC, the mouth) driven by noise instead of the voice (the same words, no pitch), with a trace of the voice
+// left under it (keep) so it stays clear through the phone's band. Seeded: the same line gives the same whisper.
+export function whisper(x, sr, { order = 20, keep = 0.12, pre = 0.95, seed = 1 } = {}) {
+  const N = 2 * Math.round(0.0125 * sr), H = N / 2, n = x.length, P = order * 4;
+  const e = new Float32Array(n); for (let i = 0; i < n; i++) e[i] = x[i] - pre * (i ? x[i - 1] : 0);
+  const win = new Float32Array(N); let w2 = 0; for (let i = 0; i < N; i++) { win[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / N); w2 += win[i] * win[i]; }
+  // (a seeded gaussian noise)
+  let s = seed >>> 0 || 1; const u = () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return (((t ^ (t >>> 14)) >>> 0) + 0.5) / 4294967296; };
+  const gauss = () => Math.sqrt(-2 * Math.log(u())) * Math.cos(2 * Math.PI * u());
+  const y = new Float32Array(n + N), f = new Float64Array(N), r = new Float64Array(order + 1), a = new Float64Array(order + 1), tmp = new Float64Array(order + 1), buf = new Float64Array(P + N);
+  for (let st = -H; st < n; st += H) {
+    for (let i = 0; i < N; i++) { const j = st + i; f[i] = (j >= 0 && j < n ? e[j] : 0) * win[i]; }
+    for (let k = 0; k <= order; k++) { let c = 0; for (let i = k; i < N; i++) c += f[i] * f[i - k]; r[k] = c * (k ? Math.exp(-0.5 * Math.pow((2 * Math.PI * 60 * k) / sr, 2)) : 1 + 1e-6); }
+    if (r[0] < 1e-9) continue;
+    // Levinson-Durbin: a[1..order], the prediction error power err
+    a.fill(0); a[0] = 1; let err = r[0];
+    for (let i = 1; i <= order; i++) {
+      let acc = r[i]; for (let j = 1; j < i; j++) acc += a[j] * r[i - j];
+      const k = -acc / err; tmp.set(a); for (let j = 1; j < i; j++) a[j] = tmp[j] + k * tmp[i - j]; a[i] = k; err *= 1 - k * k; if (err <= 0) break;
+    }
+    const g = Math.sqrt(Math.max(err, 0) / w2);
+    // noise through 1/A(z) (a short run-in first, so the frame starts in step), windowed, overlap-added
+    for (let i = 0; i < P + N; i++) { let v = g * gauss(); for (let j = 1; j <= order && i - j >= 0; j++) v -= a[j] * buf[i - j]; buf[i] = v; }
+    for (let i = 0; i < N; i++) { const j = st + i; if (j >= 0 && j < n) y[j] += buf[P + i] * win[i]; }
+  }
+  // de-emphasis, then the voice's trace under it, at the voice's own level
+  for (let i = 1; i < n; i++) y[i] += pre * y[i - 1];
+  let ex = 0, ey = 0; for (let i = 0; i < n; i++) { ex += x[i] * x[i]; ey += y[i] * y[i]; }
+  const gy = ey > 0 ? Math.sqrt(ex / ey) : 0, out = new Float32Array(n);
+  for (let i = 0; i < n; i++) out[i] = (1 - keep) * gy * y[i] + keep * x[i];
+  return run(out, biquad('highpass', 120, 0.7, sr));
+}

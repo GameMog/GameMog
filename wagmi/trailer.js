@@ -1,5 +1,5 @@
 // Mog City: Unfinished Business. The cold open: a 40 s trailer, live in the engine, between "Tap to start" and the opening: cut
-// on the beat of the game's own "Number Go Up" (140 BPM, assets/music/wagmi-pump.m4a, MIT), letterboxed and graded,
+// on the beat of the game's own "Fall Guy" (140 BPM, assets/music/wagmi-pump.m4a, MIT), letterboxed and graded,
 // then the opening (wagmi/intro.js) from its first frame exactly as before. Hold to skip it at any moment (the
 // cutscenes' own skip: Space or Enter held, a long press anywhere, the pad's A). Its cut is gamemog.com's hero too.
 //   off by default (?trailer=1 puts it back)        ?trailer=only  it alone, held on the title at the end (for looking at it;
@@ -667,7 +667,7 @@ async function play(W, T, borrow, getPage) {
       dnK = s.chart === 'down' ? ease.in(clamp(u / 0.75)) : 0;
       big = s.chart === 'up' ? 'THEY GOT RICH.' : 'HE GOT FRAMED.';
       bigA = smooth((u - 0.1) / 0.12) * (1 - smooth((u - (s.Bt - s.A - 0.14)) / 0.14));
-      if (s.chart === 'up') { tick = 'BLIMPCO  +' + Math.round(4000 * upK).toLocaleString('en-US') + '%'; }
+      if (s.chart === 'up') { tick = 'BLIMPCO  +' + Math.round(340 * upK).toLocaleString('en-US') + '%'; }
       else { tick = 'HIS NAME  −' + (99.7 * Math.min(1, dnK * 1.15)).toFixed(1) + '%'; tickC = '#EF4444'; }
     }
     set(pg.chart, ch.toFixed(3));

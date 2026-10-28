@@ -1,6 +1,6 @@
 // Mog City: the synthesised voices (Node data, for the voice build). The candidates the owner auditions for Dan, Jane and
 // Mr. Big, by name (dan-A .. dan-C, jane-A .. jane-C, mrbig-A .. mrbig-E), and for the side characters (knox-A/B, mack-A/B,
-// gears-A .. gears-E, fiona-A/B, dash-A/B, brick-A/B); the one picked for a speaker is recorded by
+// gears-A .. gears-E, fiona-A/B, dash-A/B, brick-A/B, bea-A/B, and the Camp's crowd camp-A); the one picked for a speaker is recorded by
 // `voices.mjs --tts <name>,..` in wagmi/radio/build/tts/picks.json, and wagmi/radio/build/tts.py renders that speaker's
 // lines with it (see docs/VOICE-LINES.md).
 //
@@ -9,6 +9,8 @@
 //                    (ref: the voice itself, keep it), then every line is CLONED from that clip by the 0.6B Base model.
 //   engine 'kokoro'  Kokoro-82M (Apache-2.0) through kokoro-onnx (MIT): a stock voice or a blend of them, at a speed.
 //                    Deterministic: the same words give the same audio.
+//   engine 'crowd'   several Kokoro stock voices saying the line together (crowd: {voice, speed, delay s, gain dB}),
+//                    each a little late (plus up to `jitter` s, seeded by the line), mixed down: the Camp. Deterministic.
 // Only the rendered audio ships. The models, the venv and the reference clips of voices nobody picked stay out of the
 // repo (.scratch/voices/refs); a picked qwen voice's reference clip is kept in wagmi/radio/build/tts/.
 
@@ -24,6 +26,7 @@ const GEARS_REF = 'Pop the hood. See that? Hand-wired, every bit of it. Took me 
 const FIONA_REF = 'Hi, everybody! Oh my gosh, look at all of you! This is the best crowd ever, I\'m not even kidding. Phones up, smiles on, and let me hear some noise!';
 const DASH_REF = 'Sorry, sorry, I\'m here, I\'m here! The train was late, then my phone died, then I went to the wrong park. Did I miss it? Please tell me I didn\'t miss it.';
 const BRICK_REF = 'Let\'s go, let\'s go! Hands up, phones out, nobody past the rope! You, back up. You, you\'re good. Everybody else, keep that energy up!';
+const BEA_REF = 'Alright, everybody, settle down. I taught science for thirty-one years, so I know what not listening sounds like. Soup is at six. Bring a bowl, bring a friend, and bring some patience.';
 const LOUD = 'close-mic, clean dry studio audio, a real person in the moment, not a radio announcer.'; // (raises the pitch: pin it)
 
 export const VOICES = {
@@ -87,7 +90,7 @@ export const VOICES = {
     design: `Male, early 60s, African-American New Yorker, deep gravelly low voice, weathered and husky, unhurried easy pace, kind and steady, a grown man's chest voice, ${STUDIO}` },
   'gears-E': { speaker: 'Gears', engine: 'qwen', desc: 'qwen-old-smooth', seed: 2352, refText: GEARS_REF,
     design: `Male, early 60s, African-American New Yorker, deep gravelly low voice, weathered and husky, unhurried easy pace, kind and steady, a grown man's chest voice, ${STUDIO}` },
-  // Fiona: the KOL hosting the rally on a megaphone; everything is the best thing ever
+  // Fiona: JPBank's Head of Community, hosting its community day on a megaphone; everything is the best thing ever
   // (an adult, and not to be mistaken for Jane, about 270 Hz: B is the lower, fuller one; picked of 7 by pitch)
   'fiona-A': { speaker: 'Fiona', engine: 'qwen', desc: 'qwen-big-hype-mezzo', seed: 2401, refText: FIONA_REF,
     design: `Female, early 30s, American, bright powerful mezzo voice, a party host working a crowd, loud and high energy, everything is the best thing ever, a big smile in the voice, ${LOUD}` },
@@ -106,6 +109,26 @@ export const VOICES = {
     design: `Male, early 30s, American, low gravelly voice, a big bouncer's chest voice, short barked phrases, restless and jumpy, ${STUDIO}` },
   'brick-B': { speaker: 'Brick', engine: 'qwen', desc: 'qwen-jumpy-bouncer', seed: 2621, refText: BRICK_REF,
     design: `Male, early 30s, American, low gravelly voice, a big bouncer's chest voice, short barked phrases, restless and jumpy, ${STUDIO}` },
+  // Ms. Bea: a retired Bronx science teacher in her sixties who runs the Occupy camp's kitchen and its people's mic;
+  // warm, unhurried, commanding (an invented voice). Picked of 6 designs (seeds 2701-2703 on the first words, 2711-2713
+  // on 'a mature grown woman's rich low alto with a little grain, motherly'): A the lowest, an older woman's low alto
+  // (reference about 164 Hz, her lines 150-183 Hz: well under Jane's 178-209 and Fiona's 270), B the slowest, the
+  // most deliberate (about 158 Hz, lines 164-195); the second words came out higher (176-200 Hz)
+  'bea-A': { speaker: 'Bea', engine: 'qwen', desc: 'qwen-teacher-low-alto', seed: 2701, refText: BEA_REF,
+    design: `Female, mid 60s, a retired schoolteacher from the Bronx, New York, an older woman's warm, full, low alto voice, commanding and unhurried, kind but firm, a voice that carries across a room without shouting, ${STUDIO}` },
+  'bea-B': { speaker: 'Bea', engine: 'qwen', desc: 'qwen-teacher-deliberate', seed: 2703, refText: BEA_REF,
+    design: `Female, mid 60s, a retired schoolteacher from the Bronx, New York, an older woman's warm, full, low alto voice, commanding and unhurried, kind but firm, a voice that carries across a room without shouting, ${STUDIO}` },
+  // the Camp: the Occupy camp answering Ms. Bea's people's mic, forty-odd people heard as eight (New York: the American
+  // Kokoro voices, four men and four women; not bm_lewis, Mr. Big's), each a few hundredths of a second late and at its
+  // own pace, so it is ragged like a crowd and not a choir; a faint slap off the buildings around the square. A little
+  // quick (1.01-1.1): the people's mic in m3-scenes.js gives each answer its reading time (its words / 15 s)
+  'camp-A': { speaker: 'Camp', engine: 'crowd', desc: 'kokoro-crowd-of-8', seed: 2801, jitter: 0.04,
+    crowd: [
+      { voice: 'am_michael', speed: 1.04, delay: 0, gain: 0 }, { voice: 'af_sarah', speed: 1.08, delay: 0.04, gain: -1 },
+      { voice: 'am_adam', speed: 1.02, delay: 0.07, gain: -1 }, { voice: 'af_bella', speed: 1.1, delay: 0.02, gain: -2 },
+      { voice: 'am_onyx', speed: 1.03, delay: 0.1, gain: -2 }, { voice: 'af_kore', speed: 1.05, delay: 0.08, gain: -3 },
+      { voice: 'am_eric', speed: 1.07, delay: 0.12, gain: -3 }, { voice: 'af_jessica', speed: 1.01, delay: 0.05, gain: -4 },
+    ] },
 };
 
 // how the synthesised voices should say a few words (on top of cast.mjs SAY; the subtitles keep the spelling)
@@ -117,4 +140,5 @@ export const TTS_SAY = [
 // a source tag for the manifest and NOTICE: what made the line
 export const ttsSource = (name, v = VOICES[name]) => v.engine === 'qwen'
   ? `tts:qwen3-tts-12hz-0.6b-base:${name}(design 1.7b-voicedesign seed ${v.seed})`
-  : `tts:kokoro-82m-v1.0:${name}(${Object.entries(v.voice).map(([k, w]) => (w === 1 ? k : `${w}*${k}`)).join('+')}@${v.speed})`;
+  : v.engine === 'crowd' ? `tts:kokoro-82m-v1.0:${name}(crowd ${v.crowd.map((m) => m.voice).join('+')})`
+    : `tts:kokoro-82m-v1.0:${name}(${Object.entries(v.voice).map(([k, w]) => (w === 1 ? k : `${w}*${k}`)).join('+')}@${v.speed})`;

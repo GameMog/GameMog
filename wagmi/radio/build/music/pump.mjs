@@ -1,4 +1,4 @@
-// "Number Go Up" (was "Pump & Dump" till the owner's 24 Oct note): pop-trap, 140 BPM in half time (the snare on the three), E minor (Em Am C B), 80 bars (2:17), loops.
+// "Fall Guy" (renamed in the story pass of 27 Oct): pop-trap, 140 BPM in half time (the snare on the three), E minor (Em Am C B), 80 bars (2:17), loops.
 //   0  intro    8 bars  bells and the pad, filtered; hats in at bar 4; a riser and a stop
 //   8  hook A  16 bars  the bell hook over a sliding 808, rolling hats, a plucked counter-line
 //  24  verse   16 bars  a darker pluck riff, the 808 alone under it, the hats stuttering
@@ -9,7 +9,7 @@
 //                   C   G4 . C5 . E5 . G5 . . . E5 . D5 . . .    B   D#5 . . . F#5 . . . B4 . . . . . . .
 import { createSong } from './synth.mjs';
 
-export const meta = { id: 'wagmi-pump', title: 'Number Go Up', bpm: 140,
+export const meta = { id: 'wagmi-pump', title: 'Fall Guy', bpm: 140,
   sections: [['intro', 0, 8], ['hookA', 8, 24], ['verse', 24, 40], ['build', 40, 48], ['hookB', 48, 64], ['outro', 64, 80]] };
 
 export function build() {

@@ -215,7 +215,7 @@ export function buildLaptop() {
   const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.31, 0.2), new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(1.25, 1.25, 1.25) }));
   // (the screen on the lid's inside, toward her: the base's front, +z)
   scr.position.set(0, 0.115, 0.0008); hinge.add(scr);
-  // (her sticker on the back of the lid: a little yellow smiley, the GM her room's poster has)
+  // (her sticker on the back of the lid: a little yellow smiley, the one her room's SUNY poster has)
   const st = new THREE.Mesh(new THREE.CircleGeometry(0.03, 20), new THREE.MeshStandardMaterial({ color: '#FFC93C', roughness: 0.6 }));
   st.position.set(0.06, 0.14, -0.0105); st.rotation.y = PI; hinge.add(st);
   g.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.frustumCulled = false; } });
@@ -245,7 +245,7 @@ export function buildLaptop() {
 
 /* -------------------------------------------------------------- her room -- */
 // Her room at night, a scene of its own like Mr. Big's study (mrbig.js): a dark blue wall, a desk of screens with code on them behind
-// her, warm string lights, a GM poster, a desk lamp; she stands at her desk in her hoodie, the call's camera at her eye
+// her, warm string lights, a SUNY poster, a desk lamp; she stands at her desk in her hoodie, the call's camera at her eye
 // level. full(cam): drawn in place of the city's frame (the bake's shots), null to stop.
 export function createJaneRoom(W, J) {
   const app = W.app, renderer = app.renderer;
@@ -269,10 +269,10 @@ export function createJaneRoom(W, J) {
     const f = box(0.86, 0.52, 0.04, frameM, x, y, z); f.rotation.y = ry;
     const s = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.46), new THREE.MeshBasicMaterial({ map: scr(31 + i * 97, t), color: new THREE.Color(1.3, 1.35, 1.5) })); s.position.z = 0.022; f.add(s);
   });
-  // a GM poster, the string lights over it
+  // a SUNY poster, the string lights over it
   const pc = document.createElement('canvas'); pc.width = 256; pc.height = 340; const px = pc.getContext('2d');
   px.fillStyle = '#1B1430'; px.fillRect(0, 0, 256, 340); px.strokeStyle = '#FFC93C'; px.lineWidth = 6; px.strokeRect(10, 10, 236, 320);
-  px.fillStyle = '#FFC93C'; px.font = '800 120px "Barlow Condensed", sans-serif'; px.textAlign = 'center'; px.fillText('GM', 128, 210);
+  px.fillStyle = '#FFC93C'; px.font = '800 120px "Barlow Condensed", sans-serif'; px.textAlign = 'center'; px.fillText('SUNY', 128, 210);
   const pt = new THREE.CanvasTexture(pc); pt.colorSpace = THREE.SRGBColorSpace;
   const poster = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.66), new THREE.MeshStandardMaterial({ map: pt, roughness: 0.9 })); poster.position.set(-1.25, 1.75, -1.54); scene.add(poster);
   const bulbM = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 1.7, 0.8) });
