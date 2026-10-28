@@ -441,69 +441,201 @@ export async function burnerMeet(W, { U, say, van, at = J_AT }) {
 }
 
 /* ------------------------------------------------------------- crash -- */
-// Greeley Square. ~9 s. mackCar: the car (smoking), mack: Mack's rig, phone: the phone mesh he drops
+// Greeley Square, or wherever the rams wrecked him. ~9 s. mackCar: the car (smoking), mack: Mack's rig, phone: the phone
+// mesh he drops. All of it in the wreck's own frame (f along its nose, l to its left: the driver's side, his door), so it
+// reads however the wreck lies. (28 Oct, round 3: its last shot, half the scene, was a lens 0.6 m off the ground in the
+// world's axes, and he ran off right behind his car: 'Keep the phone!' over an empty frame; before it, only his back.)
+// He is in view all through now: out of his door in a stagger, 'My car!' to its smoking nose, the phone dropped; then he
+// turns to Dan, waves him bye on his line and sprints off upright on his side of the wreck. His way off is the way he was
+// going, turned as little as runs 15 m clear of the wreck, Dan's car and the buildings; each camera stands on his side at
+// eye height, the first of its places that sees him (head and hips) the whole time it is on.
 export function crashScene(W, { mackCar, mack, phone, say, at = CRASH }) {
-  const cm = W.app.controllerManager, ui = W.ui, sfx = W.sfx;
+  const cm = W.app.controllerManager, ui = W.ui, sfx = W.sfx, dan = W.car;
   const { x: CX, z: CZ, h: CH } = at;
-  // the driver's door (his left): out of it, a stumble, the phone dropped, then off north-east at a run
-  const L = [Math.cos(CH), -Math.sin(CH)];
-  const door = [CX + L[0] * 1.45, CZ + L[1] * 1.45];
-  // (off up the road: the way he was going, or at Greeley Square up Broadway)
-  const run = at.run || [0.6, -0.8];
-  const away = [CX + run[0] * 42, CZ + run[1] * 42];
-  const drop = [CX + L[0] * 2.5 + Math.sin(CH) * 0.6, CZ + L[1] * 2.5 + Math.cos(CH) * 0.6];
-  const T = { out: 1.4, drop: 3.6, run: 4.6, end: 9.0 };
-  // (27 Oct: he holds by the door through his stumble (0.15 m of it), then walks the rest to where the phone falls, eased
-  // in and out, upright (the Suits' walk timed by the ground it covers): he used to slide the whole way through the stumble
-  // and shuffle, crouched, at 0.4 m/s; where he gets out, where he drops it and the dash are as they were)
-  const st = [lerp(door[0], drop[0] + 0.4, 0.12), lerp(door[1], drop[1] - 0.3, 0.12)];
-  const lx = keys([[T.out, door[0]], [T.out + 1.5, st[0]], [T.run, drop[0] + 0.4], [T.end, away[0]]], 'linear'), lz = keys([[T.out, door[1]], [T.out + 1.5, st[1]], [T.run, drop[1] - 0.3], [T.end, away[1]]], 'linear');
-  const wx = keys([[T.out + 1.5, st[0]], [T.run, drop[0] + 0.4]]), wz = keys([[T.out + 1.5, st[1]], [T.run, drop[1] - 0.3]]);
-  const lxw = (t) => (t > T.out + 1.5 && t < T.run ? wx(t) : lx(t)), lzw = (t) => (t > T.out + 1.5 && t < T.run ? wz(t) : lz(t));
+  const F = [Math.sin(CH), Math.cos(CH)], L = [Math.cos(CH), -Math.sin(CH)];
+  const P = (f, l) => [CX + F[0] * f + L[0] * l, CZ + F[1] * f + L[1] * l];
+  const G = (x, z) => cm.getGroundHeight(x, z, 'person');
+  const sm = (x) => { x = clamp(x); return x * x * (3 - 2 * x); }, turn = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * k;
+  // (out: he is out of the door; free: on his feet again; look: turned to the nose; turn: to Dan; run: off)
+  const T = { out: 1.4, free: 2.35, look: 2.7, drop: 3.6, turn: 4.4, line: 4.9, run: 6.7, end: 9.0 };
+  // where the phone falls (the next step's mark: m2.js phone) as it was; the door he gets out of, where he stands over
+  // the phone for 'My car!' (car frame); the nose he looks at
+  const drop = P(0.6, 2.5), DOOR = [0.35, 1.1], STAND = [0.95, 2.1], NOSE = P(2.3, 0.55);
+  // the wreck on the ground under its four wheels (half up a curb it sits tilted, not sunk into it), its slight list kept
+  const wh = [[1.38, 0.93], [1.38, -0.93], [-1.38, 0.93], [-1.38, -0.93]].map(([f, l]) => cm.getGroundHeight(...P(f, l), 'car'));
+  const CY = (wh[0] + wh[1] + wh[2] + wh[3]) / 4, PITCH = -Math.atan2(wh[0] + wh[1] - wh[2] - wh[3], 2 * 2.76), ROLL = 0.04 + Math.atan2(wh[0] + wh[2] - wh[1] - wh[3], 2 * 1.86);
+  // what his run and the lines of sight must clear: the wreck (its body 2.1 x 4.6 m to 1 m up, over the bonnet and the
+  // boot; its cabin to 1.45 m), Dan's car where it stopped (Dan at its wheel: m2.js), the buildings (a point the city's
+  // collision pushes out is inside one)
+  const box = (x, z, h, hw, hl, y0, top) => ({ x, z, s: Math.sin(h), c: Math.cos(h), hw, hl, y0, top });
+  const cab = P(-0.7, 0), boxes = [box(CX, CZ, CH, 1.05, 2.3, CY, 1.0), box(cab[0], cab[1], CH, 0.85, 1.3, CY, 1.45)];
+  if (dan?.position) boxes.push(box(dan.position.x, dan.position.z, dan.heading ?? 0, 1.0, 2.4, G(dan.position.x, dan.position.z), 1.3));
+  const inBox = (b, x, z, y, pad) => { const dx = x - b.x, dz = z - b.z; return Math.abs(dx * b.s + dz * b.c) < b.hl + pad && Math.abs(dx * b.c - dz * b.s) < b.hw + pad && (y == null || y < b.y0 + b.top + pad); };
+  const _v = V();
+  const wall = (x, z, r) => { _v.set(x, CY + 1, z); cm.resolveHorizontalCollision(_v, r, CY + 1); return Math.abs(_v.x - x) + Math.abs(_v.z - z) > 0.01; };
+  const clear = (x, z, pad) => !wall(x, z, 0.35) && !boxes.some((b) => inBox(b, x, z, null, pad));
+  const sees = (c, p, cars = true) => {
+    const n = Math.ceil(Math.hypot(p[0] - c[0], p[2] - c[2]) / 0.2);
+    for (let i = 1; i < n; i++) {
+      const k = i / n, x = lerp(c[0], p[0], k), y = lerp(c[1], p[1], k), z = lerp(c[2], p[2], k);
+      if ((cars && boxes.some((b) => inBox(b, x, z, y, 0.05))) || (i % 5 === 0 && wall(x, z, 0.05))) return false;
+    }
+    return true;
+  };
+  // (the first of a list that scores 1, else the best of it)
+  const first = (list, score) => { let best = list[0], bs = -1; for (const c of list) { const s = score(c); if (s >= 1) return c; if (s > bs) { bs = s; best = c; } } return best; };
+  // the low sun (the time of day's: js/lighting.js) across the ground: a camera with it behind or to the side sees his
+  // face lit; one looking into it, a dark shape against the sky
+  const sun = W.app.lightingSystem?.sunLight?.position || V(-0.52, 0.36, -0.77), sn = Math.hypot(sun.x, sun.z) || 1, SX = sun.x / sn, SZ = sun.z / sn;
+  const lit = (c, m) => { const dx = c[0] - m[0], dz = c[2] - m[2], d = Math.hypot(dx, dz) || 1; return (dx * SX + dz * SZ) / d > -0.3; };
+  // his way off and the cameras, worked out once (setup)
+  let plan = null;
+  function planned() {
+    if (plan) return plan;
+    // his way off: the way he was going (at.run; at Greeley Square, up Broadway), turned the least that runs 15 m clear
+    // (of the wreck by 0.6 m) from a step off where he stands, and away from the low sun if any such way does (the
+    // camera behind him sees his face lit for his line)
+    const run = at.run || [0.6, -0.8], a0 = Math.atan2(run[0] * L[0] + run[1] * L[1], run[0] * F[0] + run[1] * F[1]);
+    const ways = [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 7, -7, 8, -8, 9, -9, 10, -10, 11, -11, 12].map((k) => [Math.cos(a0 + k * PI / 12), Math.sin(a0 + k * PI / 12)]);
+    const away = (e) => (e[0] * F[0] + e[1] * L[0]) * SX + (e[0] * F[1] + e[1] * L[1]) * SZ < 0.25;
+    const E = first([...ways.filter(away), ...ways], (e) => { let n = 0; for (let s = 0.5; s <= 15.5; s += 0.75, n++) if (!clear(...P(STAND[0] + e[0] * s, STAND[1] + e[1] * s), 0.6)) break; return n / 21; });
+    const T0 = [STAND[0] + E[0] * 0.5, STAND[1] + E[1] * 0.5];
+    // where he is at t: three lurching steps out of the door (1.3 m), a step to stand over the phone, a step toward his
+    // way off as he turns to Dan, then the run (from a standstill to 6.2 m/s)
+    const walk = keys([[T.out, DOOR, 'linear'], [T.out + 0.45, [0.1, 1.75], 'linear'], [T.out + 0.95, [0.55, 2.15], 'out'], [T.look, STAND], [T.turn, STAND], [T.turn + 0.5, T0]]);
+    const ran = (u) => (u <= 0 ? 0 : 6.2 * (u - 0.4 * (1 - Math.exp(-u / 0.4))));
+    const xz = (t) => (t < T.run ? P(...walk(t)) : P(T0[0] + E[0] * ran(t - T.run), T0[1] + E[1] * ran(t - T.run)));
+    const body = (t, y) => { const [x, z] = xz(t); return [x, G(x, z) + y, z]; };
+    const lens = (f, l, y) => { const [x, z] = P(f, l); return [x, G(x, z) + y, z]; };
+    const ring = (f, l, d, y, angs) => angs.map((a) => lens(f + Math.cos(a * PI / 180) * d, l + Math.sin(a * PI / 180) * d, y));
+    // (a place's score: the share of his head (and hips, unless only his head need show) it sees at those times, less
+    // with the sun in its eye; 0 inside anything)
+    const watch = (c, ts, hips = true) => {
+      if (!clear(c[0], c[2], 0.5)) return 0;
+      let n = 0; for (const t of ts) n += hips ? (sees(c, body(t, 1.7)) ? 0.5 : 0) + (sees(c, body(t, 0.95)) ? 0.5 : 0) : sees(c, body(t, 1.7)) ? 1 : 0;
+      return (n / ts.length) * (lit(c, body(ts[Math.floor(ts.length / 2)], 0)) ? 1 : 0.6);
+    };
+    // 1: the wreck from 9 m off its nose on his side (the smoke, his door), pushing in a metre
+    const A1 = [40, 60, 25, 80, 100, 10, 120, 140, 160], i1 = A1.indexOf(first(A1, (a) => { const c = ring(0, 0, 9, 2.4, [a])[0]; return clear(c[0], c[2], 0.5) && sees(c, lens(0, 1.1, 1.0), false) ? 1 : 0; }));
+    const c1 = (t) => ring(0, 0, lerp(9.5, 8.5, clamp(t / T.out)), 2.4, [A1[i1]])[0];
+    // 2: him out of the door and his stagger, all of him, 4.2 m off his side of the nose
+    const c2 = first(ring(0.6, 1.95, 4.2, 1.6, [18, 32, 5, 48, 62, 78, 95, 115, 135]), (c) => watch(c, [T.out + 0.05, T.out + 0.45, T.out + 0.95, T.look]));
+    // 2b: 'My car!', over its smoking bonnet from off the nose: he looks at it, so at us (his head over it; else shot 2 on)
+    const c2b = first([[4.4, -0.9], [4.7, 0.2], [4.2, -1.8], [4.9, 1.2], [3.8, -2.6]].map(([f, l]) => lens(f, l, 1.45)), (c) => watch(c, [T.look, 3.1, 3.6, 4.0, T.turn - 0.05], false));
+    const c2bOk = watch(c2b, [T.look, 3.1, 3.6, 4.0, T.turn - 0.05], false) >= 1;
+    // 3: his line and his run, from Dan's way: back from where he turns (behind his way off), a little to one side, so he
+    // faces it for his line and runs away from it
+    const back = Math.atan2(-E[1], -E[0]) * 180 / PI;
+    const c3 = first([4.6, 3.6].flatMap((d) => ring(T0[0], T0[1], d, 1.5, [18, -18, 35, -35, 55, -55, 75, -75, 0].map((a) => back + a))), (c) => watch(c, [T.turn + 0.1, T.line, 6.0, T.run, 7.2, 7.8, 8.4, T.end]));
+    // his facing: along his way through the stagger; round to the nose for 'My car!'; to the camera (Dan's way) for his
+    // line; his way off for the run
+    const hTo = (t, x, z) => { const m = xz(t); return Math.atan2(x - m[0], z - m[1]); };
+    const hWay = (t) => { const a = xz(t - 0.06), b = xz(t + 0.12); return Math.atan2(b[0] - a[0], b[1] - a[1]); };
+    const hE = Math.atan2(E[0] * F[0] + E[1] * L[0], E[0] * F[1] + E[1] * L[1]), a2 = T.out + 0.85;
+    const face = (t) => (t < a2 ? hWay(Math.max(t, T.out + 0.06))
+      : t < T.turn ? turn(hWay(a2), hTo(t, NOSE[0], NOSE[1]), sm((t - a2) / 0.55))
+      : t < T.run ? turn(hTo(T.turn, NOSE[0], NOSE[1]), hTo(t, c3[0], c3[2]), sm((t - T.turn) / 0.45))
+      : turn(hTo(T.run, c3[0], c3[2]), hE, sm((t - T.run) / 0.4)));
+    return (plan = { E, xz, body, face, c1, c2, c2b: c2bOk ? c2b : null, c3 });
+  }
+  // the stagger over his clip: his back swaying side to side and pitched forward, his head hung, his arms out from his
+  // sides for balance; strongest over his first steps out of the door, gone as he finds his feet (T.free). (Each bone put
+  // back to the clip's own pose first, every frame: the mixer writes a bone only when its value changes, so a turn would
+  // pile up frame on frame)
+  const bent = new Map(), _r = new THREE.Quaternion(), _r2 = new THREE.Quaternion(), _fw = V(), _lf = V();
+  const unbend = () => { for (const [b, q] of bent) if (b.quaternion.equals(q.after)) b.quaternion.copy(q.before); bent.clear(); };
+  function stagger(t) {
+    const u = t - T.out, k = u < 0.12 ? clamp(u / 0.12) : 1 - sm((u - 0.5) / (T.free - T.out - 0.5));
+    if (k <= 0.001) return;
+    const h = mack.root.rotation.y, roll = 0.13 * Math.sin(u * 8.4 + 0.5);
+    _fw.set(Math.sin(h), 0, Math.cos(h)); _lf.set(Math.cos(h), 0, -Math.sin(h)); mack.root.updateMatrixWorld(true);
+    // (roll: about his forward, + toward his right; pitch: about his left, + forward)
+    const tilt = (n, r, p) => { const b = mack.bones[n]; if (!b) return; const before = b.quaternion.clone(); turnWorld(b, _r.setFromAxisAngle(_fw, r * k).multiply(_r2.setFromAxisAngle(_lf, p * k))); bent.set(b, { before, after: b.quaternion.clone() }); };
+    tilt('spine', roll * 0.45, 0.08); tilt('spine1', roll * 0.35, 0.07); tilt('spine2', roll * 0.2, 0.05); tilt('head', -roll * 0.3, 0.16);
+    tilt('upperArmL', 0.38 + roll * 0.4, 0); tilt('upperArmR', -0.38 + roll * 0.4, 0);
+  }
+  // his lanyard (m2-set.js buildMack; this is the one scene he is in): there a navy ring 0.3 m across round his neck that
+  // stood off his chest and out behind his back as soon as he moved, his pass inside his jacket. Laid on him instead,
+  // once: a cord out from under his collar down both sides of his chest to the pass, the pass flat on his chest, both on
+  // his chest bone, fitted to his clothes as he stands (the Suits' stand)
+  function lanyard(stand) {
+    const sp = mack.bones.spine2, nk = mack.bones.neck;
+    if (mack.lanyardOn || !sp || !nk) return;
+    const ring = sp.children.find((o) => o.isMesh && o.geometry?.type === 'TorusGeometry'), pass = sp.children.find((o) => o.isMesh && o.geometry?.type === 'BoxGeometry');
+    if (!ring || !pass) return;
+    mack.lanyardOn = true;
+    mack.rig.set([[0, stand]]); mack.rig.pose(0); mack.inner.updateMatrixWorld(true);
+    // (his clothes and skin as posed, in his own frame: +z his front, +x his left)
+    const me = mack.inner.matrixWorld.clone().invert(), pts = [];
+    mack.inner.traverse((m) => {
+      if (!m.isSkinnedMesh || !/^(clothes|skin)$/.test(m.material?.name || '')) return;
+      const pa = m.geometry.attributes.position; for (let i = 0; i < pa.count; i++) pts.push(m.getVertexPosition(i, V()).applyMatrix4(m.matrixWorld).applyMatrix4(me));
+    });
+    const N = nk.getWorldPosition(V()).applyMatrix4(me), z0 = N.z + 0.08;
+    // (his front at x, y: the furthest forward of him there)
+    const front = (x, y) => { let z = null; for (const q of pts) if (Math.abs(q.x - x) < 0.018 && Math.abs(q.y - y) < 0.018 && q.z > N.z - 0.03 && (z == null || q.z > z)) z = q.z; return z ?? z0; };
+    const yC = N.y - 0.22, path = [];
+    for (const sx of [1, -1]) {
+      const side = [];
+      for (let i = 0; i <= 6; i++) { const s = i / 6, x = sx * lerp(0.062, 0.02, s), y = lerp(N.y - 0.02, yC + 0.05, s); side.push(V(x, y, front(x, y) + (i ? 0.005 : -0.008))); }
+      path.push(...(sx > 0 ? side : side.reverse()));
+    }
+    const toSp = sp.matrixWorld.clone().invert().multiply(mack.inner.matrixWorld);
+    const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(path), 40, 0.0042, 5, false); geo.applyMatrix4(toSp);
+    const cord = new THREE.Mesh(geo, ring.material); cord.name = 'mack-lanyard'; cord.castShadow = true; cord.frustumCulled = false;
+    sp.remove(ring); ring.geometry.dispose(); sp.add(cord);
+    // (the pass at the cord's foot, tilted to the slope of his chest there)
+    const zU = front(0, yC + 0.04), zD = front(0, yC - 0.04), zc = front(0, yC);
+    const card = new THREE.Matrix4().compose(V(0, yC, Math.max(zc, (zU + zD) / 2) + 0.007), new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), Math.atan2(zU - zD, 0.08)), V(1, 1, 1));
+    toSp.clone().multiply(card).decompose(pass.position, pass.quaternion, pass.scale);
+  }
   return {
     END: T.end, hero: false, drop,
     // (handed back looking at where Mack's phone fell: the next step)
     face: { x: drop[0], z: drop[1] },
     shots: [
-      { t: 0, cam: (t) => ({ pos: keys([[0, [CX + 14, 2.4, CZ - 9]], [T.out, [CX + 12.5, 2.1, CZ - 8]]], 'linear')(t), look: [CX, 1.0, CZ], fov: 40, shake: 1.2 }) },
-      { t: T.out, cam: () => ({ pos: [door[0] + 4.2, 1.5, door[1] + 2.4], look: [lx(T.out + 1), 1.2, lz(T.out + 1)], fov: 36, shake: 0.7 }) },
-      { t: T.run, cam: (t) => ({ pos: [drop[0] - 2.2, 0.6, drop[1] + 2.4], look: [lerp(drop[0], lx(t), 0.7), lerp(0.3, 1.2, clamp((t - T.run) / 1.5)), lerp(drop[1], lz(t), 0.7)], fov: 42, shake: 0.6 }) },
+      { t: 0, cam: (t) => ({ pos: planned().c1(t), look: [CX, CY + 0.85, CZ], fov: 38, shake: 1.2 }) },
+      { t: T.out, cam: (t) => ({ pos: planned().c2, look: planned().body(clamp(t, T.out + 0.25, T.turn), 1.25), fov: 38, shake: 0.7 }) },
+      { t: 2.65, cam: (t) => { const p = planned(); return p.c2b ? { pos: p.c2b, look: p.body(t, 1.5), fov: 30, shake: 0.6 } : { pos: p.c2, look: p.body(clamp(t, T.out + 0.25, T.turn), 1.25), fov: 38, shake: 0.7 }; } },
+      { t: T.turn, cam: (t) => ({ pos: planned().c3, look: planned().body(t, 1.35), fov: lerp(32, 26, sm((t - T.run) / 2)), shake: 0.6 }) },
     ],
     cues: [
       [0.1, () => { if (Math.hypot(at.x - CRASH.x, at.z - CRASH.z) < 2) ui.place('Greeley Square', 'Herald Square · New York', 3); }],
-      [T.out - 0.2, () => W.audio?.play?.('doorOpen', { pos: [door[0], 1, door[1]] })],
+      [T.out - 0.2, () => { const [x, z] = P(...DOOR); W.audio?.play?.('doorOpen', { pos: [x, 1, z] }); }],
       [T.out + 0.6, (st) => say([['Mack', ACID, 'My car! My beautiful leveraged car!']], st)],
       [T.drop, () => sfx?.play('thunk', { gain: 0.2, f: 300, ring: false })],
-      [T.run + 0.3, (st) => say([['Mack', ACID, 'Keep the phone! Call it severance!']], st)],
+      [T.line, (st) => say([['Mack', ACID, 'Keep the phone! Call it severance!']], st)],
     ],
     pose(t, dt) {
-      mackCar.group.visible = true; mackCar.group.position.set(CX, 0, CZ); mackCar.group.rotation.set(0, CH, 0.04); mackCar.update(dt);
+      mackCar.group.visible = true; mackCar.group.position.set(CX, CY, CZ); mackCar.group.rotation.set(PITCH, CH, ROLL, 'YXZ'); mackCar.update(dt);
       const out = t >= T.out;
       mack.root.visible = out && t < T.end - 0.1;
       if (out) {
-        const x = lxw(t), z = lzw(t), nx = lx(t + 0.1), nz = lz(t + 0.1);
-        mack.root.position.set(x, cm.getGroundHeight(x, z, 'person'), z);
-        // (facing the phone through the stumble, then turned (over 0.3 s) the way he walks, so the walk goes where he faces)
-        const h0 = Math.atan2(drop[0] - door[0], drop[1] - door[1]), hw = Math.atan2(drop[0] + 0.4 - st[0], drop[1] - 0.3 - st[1]), dh = Math.atan2(Math.sin(hw - h0), Math.cos(hw - h0));
-        mack.root.rotation.y = t < T.run ? h0 + dh * clamp((t - T.out - 1.5) / 0.3) : Math.atan2(nx - x, nz - z);
-        mack.rig.pose(t);
+        const p = planned(), [x, z] = p.xz(t);
+        mack.root.position.set(x, G(x, z), z); mack.root.rotation.y = p.face(t);
+        unbend(); mack.rig.pose(t); stagger(t);
       }
-      phone.visible = t >= T.drop; if (t >= T.drop) { phone.position.set(drop[0], cm.getGroundHeight(drop[0], drop[1], 'person') + 0.012, drop[1]); phone.rotation.set(-PI / 2, 0, 0.6); }
+      phone.visible = t >= T.drop; if (t >= T.drop) { phone.position.set(drop[0], G(drop[0], drop[1]) + 0.012, drop[1]); phone.rotation.set(-PI / 2, 0, 0.6); }
     },
     setup() {
-      const has = (n) => mack.clips.includes(n);
-      // (27 Oct: each gait played at his path's own speed over the speed its feet carry it on this rig, measured (the
-      // motion audit: thug.glb walk 0.82, run 4.69, sprint 8.1 m/s at its own rate), so his feet stay planted: the shuffle
-      // from the door to where the phone falls (~0.4 m/s) at half the walk's rate, not 0.8 (its feet slid 0.25 m/s); the
-      // dash up the road (42 m in 4.4 s, 9.5 m/s) on the sprint at 1.17, not the run at 1 (its feet slid 5 m/s))
-      // (27 Oct: upright. Standing, the Suits' stand; the walk to the phone, the Suits' walk with its clip time from the
-      // metres his path covers (captured at 1.358 m/s), so its planted feet stay put through the ease in and out)
-      const sp = (a, b, s) => Math.hypot(lx(b) - lx(a), lz(b) - lz(a)) / (b - a) / s, dash = has('sprint') ? ['sprint', 8.1] : has('run') ? ['run', 4.69] : ['jog', 2.57];
-      const stand = has('suitIdle') ? 'suitIdle' : 'thugIdle', walk = has('suitWalk') ? { clip: 'suitWalk', along: odometer((t) => [lxw(t), lzw(t)], T.out + 1.5, T.run), mps: 1.358 } : { clip: 'walk', speed: clamp(sp(T.out + 1.5, T.run, 0.82), 0.35, 1.4) };
-      mack.rig.set([[0, stand], [T.out, has('thugStumbleBack') ? 'thugStumbleBack' : stand, { fade: 0.1, loop: false, speed: 0.7 }], [T.out + 1.5, walk.clip, { ...walk, clip: undefined, fade: 0.3 }],
-        [T.run, dash[0], { fade: 0.25, speed: clamp(sp(T.run, T.end, dash[1]), 0.6, 2) }]]);
+      const p = planned(), has = (n) => mack.clips.includes(n), pick = (...n) => n.find(has);
+      const stand = pick('suitIdle', 'thugIdle');
+      lanyard(stand);
+      // (each gait timed by the ground his path covers over the speed its feet carry it at its own rate (combat/enemy.js
+      // LOCO), so his feet stay planted: the Suits' upright walks and dash, the motion capture (assets/anim/bandai))
+      const MPS = { suitWalk: 1.358, suitWalk2: 1.488, walk: 0.82, suitDash: 4.852, run: 4.69 }, odo = (a, b) => odometer(p.xz, a, b);
+      const lurch = pick('suitWalk2', 'suitWalk', 'walk'), step = pick('suitWalk', 'walk'), dash = pick('suitDash', 'run');
+      // ('My car!': a hand out to it (the Suits' guiding gesture); his line: the Suits' wave goodbye)
+      const gesture = pick('suitIdleGuide') || stand, bye = pick('suitTauntBye') || stand;
+      mack.rig.set([[0, stand],
+        [T.out, lurch, { along: odo(T.out, T.out + 0.95), mps: MPS[lurch], fade: 0.12 }],
+        [T.out + 0.95, step, { along: odo(T.out + 0.95, T.look), mps: MPS[step], fade: 0.3 }],
+        [T.look - 0.05, gesture, { from: 0.4, fade: 0.4 }],
+        [T.turn, step, { along: odo(T.turn, T.turn + 0.5), mps: MPS[step], fade: 0.25 }],
+        [T.turn + 0.4, bye, { fade: 0.35 }],
+        [T.run, dash, { along: odo(T.run, T.end), mps: MPS[dash], fade: 0.3 }]]);
     },
-    cleanup() { mack.root.visible = false; },
+    cleanup() { unbend(); mack.root.visible = false; },
   };
 }
 

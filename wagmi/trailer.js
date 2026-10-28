@@ -364,7 +364,8 @@ async function play(W, T, borrow, getPage) {
     { a: 6, b: 7, kind: 'open', t0: 19.0, chart: 'down' },
     { a: 7, b: 8, kind: 'open', t0: 21.55 },
     { a: 8, b: 9, kind: 'open', t0: 25.0 },
-    { a: 9, b: 10, kind: 'open', t0: 33.45 },
+    // (the grab: on the opening's frames with a camera of its own and the strap hung: grabFrame)
+    { a: 9, b: 10, kind: 'open', t0: 33.45, grab: true },
     { a: 10, b: 11, kind: 'open', t0: 65.0, rate: 0.9 },
     { a: 11, b: 11.5, kind: 'open', t0: 36.0 },
     { a: 11.5, b: 11.875, kind: 'open', t0: 39.25 },
@@ -753,6 +754,57 @@ async function play(W, T, borrow, getPage) {
     if (on && !heliSnd) { try { heliSnd = W.audio?.loop?.('heli', { bus: 'sfx', vol: 0 }) || null; heliSnd?.set({ vol: 0.6 }); } catch { heliSnd = null; } }
     else if (!on && heliSnd) { try { heliSnd.stop(0.12); } catch {} heliSnd = null; }
   }
+  // the grab (bars 9-10, the hero film's 'grab' too): Hooks rips the bag off Dan on the opening's own frames (x: its
+  // time), with a camera of its own (28 Oct, round 3: the opening's, 1.05 m up and 2.2 m off them, had Hooks cut at the
+  // chin and both heads out of the hero film's crops): against the shop fronts behind them at eye height, both men from
+  // the waist up with room over their heads in the trailer's band, the hero film's 2560x1120 and its 1440x1080 middle,
+  // drifting a little with the bag. And the strap: the opening lays its rope out as a line between the bag's rings that
+  // springs out stiff to its full length, then swings on undamped; here it hangs from the rings at rest as the bag comes
+  // off him and moves as a damped rope (its points written into the opening's rope at rest each frame, so the opening's
+  // own step adds nothing)
+  const SLING = 0.95, FLOOR = 0.23; // (intro.js: BAG.sling, the rope's length; the sidewalk under it)
+  const GRAB = { pts: null, old: null }, _d = new THREE.Vector3();
+  function grabFrame(x, dt) {
+    const k = smooth((x - 33.45) / 1.7);
+    setCam([lerp(109.45, 109.25, k), 1.7, 388.42], [lerp(109.42, 109.28, k), 1.45, 390.5], 48, { shake: 1.2 });
+    const bag = W.cast?.bag, sl = bag?.sling;
+    if (!sl || !sl.mesh.visible) { GRAB.pts = null; return; }
+    const [a, b] = bag.rings(), P = sl.points, N = P.length, seg = SLING / (N - 1);
+    if (!GRAB.pts) { GRAB.pts = hang(a, b, N); GRAB.old = GRAB.pts.map((p) => p.clone()); }
+    else if (dt > 0) {
+      const h = Math.min(dt, 1 / 30), keep = Math.exp(-4.5 * h), R = GRAB.pts;
+      for (let i = 1; i < N - 1; i++) { const p = R[i], o = GRAB.old[i]; _d.subVectors(p, o).multiplyScalar(keep); o.copy(p); p.add(_d); p.y -= 9.8 * h * h; }
+      // (its length held, both ends on the rings, above the sidewalk)
+      for (let it = 0; it < 14; it++) {
+        R[0].copy(a); R[N - 1].copy(b);
+        for (let i = 0; i < N - 1; i++) {
+          const p = R[i], q = R[i + 1], len = _d.subVectors(q, p).length() || 1e-6, e = (len - seg) / len;
+          const wp = i === 0 ? 0 : i + 1 === N - 1 ? 1 : 0.5, wq = i + 1 === N - 1 ? 0 : i === 0 ? 1 : 0.5;
+          p.addScaledVector(_d, e * wp); q.addScaledVector(_d, -e * wq);
+        }
+        for (const p of R) if (p.y < FLOOR + 0.01) p.y = FLOOR + 0.01;
+      }
+    }
+    // (into the opening's rope twice: its speed is how far its points moved since its last step, so after the second it
+    // has none; its tube built from them)
+    for (let n = 0; n < 2; n++) { P.forEach((p, i) => p.copy(GRAB.pts[i])); sl.update(0, a, b, FLOOR); }
+  }
+  // (a rope SLING long hanging at rest from a and b: a U under the line between them, its N points evenly spaced along it)
+  function hang(a, b, N) {
+    const M = 64, chord = b.clone().sub(a);
+    const curve = (d) => Array.from({ length: M + 1 }, (_, i) => a.clone().addScaledVector(chord, i / M).add(new THREE.Vector3(0, -d * Math.sin(PI * i / M), 0)));
+    const length = (c) => c.reduce((s, p, i) => (i ? s + p.distanceTo(c[i - 1]) : 0), 0);
+    let lo = 0, hi = SLING; for (let it = 0; it < 30; it++) { const mid = (lo + hi) / 2; if (length(curve(mid)) < SLING) lo = mid; else hi = mid; }
+    const c = curve(lo), step = length(c) / (N - 1), out = [a.clone()];
+    let acc = 0, j = 1;
+    for (let i = 1; i < N - 1; i++) {
+      const want = i * step;
+      while (j < M && acc + c[j].distanceTo(c[j - 1]) < want) { acc += c[j].distanceTo(c[j - 1]); j++; }
+      out.push(c[j - 1].clone().lerp(c[j], (want - acc) / (c[j].distanceTo(c[j - 1]) || 1)));
+    }
+    out.push(b.clone());
+    return out;
+  }
   function frameAt(t, dt) {
     const s = shotAt(t), u = t - s.A;
     if (s !== cur) {
@@ -772,6 +824,7 @@ async function play(W, T, borrow, getPage) {
     fx.spd = 0;
     if (s.kind === 'open') {
       borrow.at(s.t0 + u * (s.rate || 1), dt);
+      if (s.grab) grabFrame(s.t0 + u * (s.rate || 1), dt);
       look('golden', null);
     } else {
       K[s.kind](u, s, dt);
