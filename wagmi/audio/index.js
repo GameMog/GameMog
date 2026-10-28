@@ -82,7 +82,7 @@ export function install(W) {
       if (!M) return null;
       const vs = traffic.voices || {};
       const who = (list) => (list || []).map((x) => (x.v ? { w: +x.w.toFixed(2), d: +Math.hypot((x.v.edge ? x.v.x : x.x) - M.listener.x, (x.v.edge ? x.v.z : x.z) - M.listener.z).toFixed(1), mode: x.L?.mode, kind: x.kind, highway: !x.v.edge, engine: !!x.mv } : null));
-      return { state: M.ctx.state, paused, where: city.where, cars: who(vs.cars), sirens: who(vs.sirens), blocks: city.engines, car: car.built, engine: car.engine, babble: !!M.babble, motors: M.motors.bake, crunchMs: M.crunchMs, played: { ...E.count }, msPerFrame: cost.n ? +(cost.ms / cost.n).toFixed(3) : 0, latency: +(M.ctx.baseLatency || 0).toFixed(4) };
+      return { state: M.ctx.state, paused, where: city.where, cars: who(vs.cars), sirens: who(vs.sirens), blocks: city.engines, car: car.built, engine: car.engine, babble: !!M.babble, motors: M.motors.bake, crunchMs: M.crunchMs, played: { ...E.count }, horns: { ...traffic.horns }, msPerFrame: cost.n ? +(cost.ms / cost.n).toFixed(3) : 0, latency: +(M.ctx.baseLatency || 0).toFixed(4) };
     },
   });
 

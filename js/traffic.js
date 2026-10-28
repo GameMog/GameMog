@@ -46,10 +46,15 @@ const DEFAULT_NUM_PEDS = 340;
 const DEFAULT_HEADLIGHTS = 96;
 
 // Intelligent Driver Model: max acceleration, comfortable braking, time headway, standstill gap; and the sideways
-// acceleration drivers accept in bends, which sets how fast they take each turn or lane shift
-const CAR_DRIVER = { a: 2.0, b: 3.0, T: 1.2, s0: 2.0, aLat: 3.5 };
-const BUS_DRIVER = { a: 1.1, b: 2.5, T: 1.5, s0: 2.5, aLat: 2.0 };
+// acceleration drivers accept in bends, which sets how fast they take each turn or lane shift (Mog City, after Slop New
+// York 17c0973: and how hard they brake in an emergency, bMax)
+const CAR_DRIVER = { a: 2.0, b: 3.0, T: 1.2, s0: 2.0, aLat: 3.5, bMax: 8 };
+const BUS_DRIVER = { a: 1.1, b: 2.5, T: 1.5, s0: 2.5, aLat: 2.0, bMax: 6 };
 const LOOKAHEAD = 70; // metres a driver looks ahead for vehicles, stop lines and signals
+// (Mog City, after Slop New York 17c0973) Dodging Dan's car (see react): seconds before he would hit it that a driver
+// notices, and the least it keeps up its manoeuvre once it reacts
+const AVOID_NOTICE = 1.8;
+const AVOID_HOLD = 1.2;
 
 // Vehicles further than VEHICLE_RADIUS from the camera and out of its view move to a free lane 100-300 m away,
 // also out of view; pedestrians likewise beyond PED_RADIUS, to 60-260 m away. After a teleport, everything
@@ -155,6 +160,7 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
       move: null, out: 0, conn: null, cs: 0, trail: null, commit: null, claimed: false, yielding: false, yieldAt: 0,
       wait: 0, laneTimer: Math.random() * 0.5, blocked: 0,
       dl: 0, dlv: 0, blink: 0, blinkPhase: Math.random() * 0.8,
+      evade: 0, alarm: 0, panicUntil: 0, panicAcc: 0, reaction: 0.6 + Math.random() * 0.4, // (Mog City, after 17c0973: see react)
       x: 0, z: 0, prevX: 0, prevZ: 0, tx: 0, tz: 1, nose: 0, yaw: 0, yawRate: 0, steer: 0,
       pitch: 0, roll: 0, pitchVel: 0, rollVel: 0, vx: 0, vz: 0, yawOffset: 0, yawVel: 0,
       pAhead: Infinity, pRight: 0, pSpeed: 0, wheelSpin: Math.random() * Math.PI * 2
@@ -425,6 +431,7 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
   // 4. WHO IS WHERE: LANE OCCUPANCY, INTERSECTIONS, VIEW, PLAYER
   // =========================================================================
   let clock = 0;
+  let dodgeClock = 0; // (Mog City: seconds of traffic time, for react: the world's, slowed with a slow motion)
   let tick = 0; // (Mog City: update()s so far: place() stamps a vehicle with it, one owner per vehicle per frame)
   let avePhase = 'green';
   let stPhase = 'red';
@@ -433,7 +440,7 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
   const phaseOf = (e) => (e.axisIndex === 0 ? avePhase : stPhase);
   let focusX = 0;
   let focusZ = 140;
-  const player = { active: false, entity: null, x: 0, z: 0, vx: 0, vz: 0, halfW: 0.86, halfL: 2.18, push: 0.5 };
+  const player = { active: false, entity: null, x: 0, z: 0, vx: 0, vz: 0, fx: 0, fz: 1, halfW: 0.86, halfL: 2.18, push: 0.5 };
   // (Mog City: Dan's car, parked where he left it while he is on foot. The traffic brakes for it, goes round it and
   // is pushed off it like off the player, but never moves it)
   const parked = { active: false, x: 0, z: 0, yaw: 0, halfW: 0.95, halfL: 2.25 };
@@ -1067,10 +1074,10 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
 
   // Overtake into an adjacent lane when it is clearly quicker (MOBIL), or work towards a lane the planned turn
   // can be made from; either only if neither v nor its new follower has to brake hard for it. Not while still
-  // pulling out of an intersection, nor in the last 12 m before the next.
+  // pulling out of an intersection, nor in the last 12 m before the next (Mog City, after 17c0973: nor while dodging Dan).
   function changeLanes(v) {
     const e = v.edge;
-    if (v.conn || v.commit || Math.abs(v.dl) > 0.5 || v.s < v.half || e.len - v.s - v.half < 12) return;
+    if (v.conn || v.commit || dodgeClock < v.panicUntil || Math.abs(v.dl) > 0.5 || v.s < v.half || e.len - v.s - v.half < 12) return;
     let target = -1;
     if (v.move.out[v.lane] < 0) {
       const t = v.lane + Math.sign(nearestLane(v.move, v.lane) - v.lane);
@@ -1201,12 +1208,161 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
     }
     const acc = Math.min(freeAcc(v) + worst, (cap - v.speed) * 2);
     v.acc = clamp(acc, -9, v.driver.a);
+    // (Mog City, after Slop New York 17c0973) dodging Dan: braking (as hard as it can, unless that would stop it before
+    // it has swerved out of his way), or flooring it (unless it must brake for something ahead; blockedAhead and the gap
+    // to the one ahead still hold it)
+    if (dodgeClock < v.panicUntil) {
+      if (v.panicAcc < 0) v.acc = Math.min(v.acc, v.evade ? -v.driver.b : -v.driver.bMax);
+      else if (v.acc > -v.driver.b && v.speed < 1.5 * v.v0) v.acc = Math.max(v.acc, 1.5 * v.driver.a);
+    }
     // (Mog City: stood inside an intersection 25 s with nobody right ahead (a bend its length can't take, a hold that
     // never lets go): it creeps on out of it, at a walk (blockedAhead still keeps it out of anything in its way)
     if (v.conn && v.wait > 25 && v.gap > 4) {
       v.acc = Math.max(v.acc, 0.6);
       v.ghost = Math.max(v.ghost || 0, 0.5);
     }
+  }
+
+  // (Mog City, after Slop New York by Mr.doob, MIT, commit 17c0973: its dodge; its steering through the front wheels is
+  // left out, the lane centring in drive() takes the swerve) Dodging Dan's car, as people do: late, and without second
+  // thoughts. A driver who sees him about to hit it (within AVOID_NOTICE seconds, both keeping on as they go) reacts
+  // only once that has lasted its reaction time, by when it is almost too late. Then it commits to one manoeuvre:
+  // braking if he would hit its front half (hard, unless it swerves too: a car that stops can't get out of the way),
+  // flooring it if its rear half (braking would only make that worse), and swerving to one side if the road is clear
+  // there: away from him (behind him if he crosses its way, to the right if he comes straight at it), unless there is
+  // more room the other way. It keeps that up for AVOID_HOLD seconds at least, and for as long as he is still about to
+  // hit it. Only while he drives (on foot the traffic brakes for him as before, and wagmi/combat for a fight); never a
+  // wreck, a car knocked about or one nosing through a jam (ghost); a bus brakes or pulls away but keeps its lane.
+  const dodgeStats = { brake: 0, floor: 0, swerve: 0, boxed: 0 }; // (for a test)
+  function react(v, dt) {
+    const knocked = Math.abs(v.vx) + Math.abs(v.vz) > 0.2;
+    const able = player.car && !v.wreck && !knocked && !(v.ghost > 0);
+    const t = able ? threatTime(v) : Infinity;
+    if (!able || (v.panicUntil && dodgeClock >= v.panicUntil)) {
+      v.evade = v.panicUntil = v.panicAcc = v.alarm = 0; // knocked after all, or over
+    }
+    if (!able) return;
+    if (v.panicUntil) {
+      if (t < AVOID_NOTICE) v.panicUntil = Math.max(v.panicUntil, dodgeClock + 0.5);
+      // (Mog City: and swerving, only as far as there is still room, a wreck sliding up or the curb coming out ahead;
+      // none in an intersection's curve)
+      if (v.evade) {
+        const side = Math.sign(v.evade);
+        v.evade = v.conn ? 0 : side * Math.min(Math.abs(v.evade), swerveRoom(v, side)) || 0;
+      }
+      return;
+    }
+    if (t >= AVOID_NOTICE) {
+      v.alarm = 0;
+      return;
+    }
+    v.alarm += dt;
+    if (v.alarm < v.reaction) return;
+    v.panicUntil = dodgeClock + AVOID_HOLD;
+    v.panicAcc = threat.ahead < 0 ? 1 : -1;
+    if (v.panicAcc > 0) dodgeStats.floor++;
+    else dodgeStats.brake++;
+    if (v.speed < 2 || v.bus || v.conn) return; // (not inside an intersection either: its curve has no lanes beside it)
+    // where he will be across v's way a moment after he would hit: v swerves away from there, or the other way if
+    // there is more room on that side
+    const later = threat.aside + threat.across * 0.5;
+    const side = Math.abs(later) < 0.3 ? 1 : -Math.sign(later);
+    const room = swerveRoom(v, side);
+    const other = swerveRoom(v, -side);
+    v.evade = other > room ? -side * other : side * room;
+    if (v.evade) dodgeStats.swerve++;
+    else dodgeStats.boxed++;
+  }
+
+  // Seconds until Dan's car would hit v (with a little margin), both keeping on straight as they go; Infinity if not
+  // within AVOID_NOTICE. Where it would hit goes in `threat`: his position ahead of v and to its right then, and his
+  // speed across v's heading. (Mog City: his car's box round its own middle, playerBody, and v's body as drawn)
+  const threat = { ahead: 0, aside: 0, across: 0 };
+  function threatTime(v) {
+    const px = playerBody.on ? playerBody.x : player.x;
+    const pz = playerBody.on ? playerBody.z : player.z;
+    const dx = px - v.x;
+    const dz = pz - v.z;
+    if (Math.abs(dx) > 90 || Math.abs(dz) > 90) return Infinity;
+    const hx = Math.sin(v.yaw);
+    const hz = Math.cos(v.yaw);
+    const ahead = dx * hx + dz * hz;
+    const aside = dz * hx - dx * hz;
+    const along = player.vx * hx + player.vz * hz - v.speed;
+    const across = player.vz * hx - player.vx * hz;
+    // his half extents along and across v's heading, as he is turned
+    const c = Math.abs(player.fx * hx + player.fz * hz);
+    const s = Math.abs(player.fz * hx - player.fx * hz);
+    const reachAhead = v.bodyL + player.halfL * c + player.halfW * s + 0.3;
+    const reachAside = v.bodyW + player.halfL * s + player.halfW * c + 0.3;
+    let enter = 0;
+    let exit = AVOID_NOTICE;
+    for (let k = 0; k < 2; k++) {
+      const p = k ? aside : ahead;
+      const m = k ? across : along;
+      const r = k ? reachAside : reachAhead;
+      if (Math.abs(m) < 1e-6) {
+        if (Math.abs(p) >= r) return Infinity;
+        continue;
+      }
+      const t0 = (-r - p) / m;
+      const t1 = (r - p) / m;
+      enter = Math.max(enter, Math.min(t0, t1));
+      exit = Math.min(exit, Math.max(t0, t1));
+    }
+    if (enter >= exit) return Infinity;
+    threat.ahead = ahead + along * enter;
+    threat.aside = aside + across * enter;
+    threat.across = across;
+    return enter;
+  }
+
+  // How far right (side 1) or left (-1) of its lane centre v can swerve: well over, a little, or not at all, as far as
+  // the road is clear beside it there and a little way ahead (no curb, sidewalk, median or post: network.isRoadClear),
+  // (Mog City:) and no vehicle stands or drives there, a wreck, the chase's cars or Dan's parked car included
+  const swept = { yaw: 0, yawOffset: 0, bodyW: 0, bodyL: 0 };
+  const sweptOther = { yaw: 0, yawOffset: 0, bodyW: 0, bodyL: 0 };
+  function swerveRoom(v, side) {
+    const rx = -v.tz;
+    const rz = v.tx;
+    const reach = v.half + v.speed * 0.6;
+    for (const r of [2.2, 1.2]) {
+      const off = side * (r + v.halfWidth) - v.dl;
+      let clear = true;
+      for (const a of [0, reach]) {
+        if (!network.isRoadClear(v.x + rx * off + v.tx * a, v.z + rz * off + v.tz * a, 0.2)) clear = false;
+      }
+      if (clear && sideFree(v, side * r - v.dl, reach)) return r;
+    }
+    return 0;
+  }
+  // Is the box v would sweep, `off` metres to its right of where it is now and from its tail to `reach` metres ahead of
+  // its middle, clear of every other vehicle (as drawn, a little wider) and of the other cars the traffic knows of?
+  function sideFree(v, off, reach) {
+    const yaw = Math.atan2(v.tx, v.tz);
+    const half = (v.bodyL + reach) / 2;
+    const cx = v.x - v.tz * off + v.tx * (reach - v.bodyL) / 2;
+    const cz = v.z + v.tx * off + v.tz * (reach - v.bodyL) / 2;
+    Object.assign(swept, { yaw, bodyW: v.bodyW + 0.3, bodyL: half + 0.3 });
+    const gx = Math.floor(cx / GRID);
+    const gz = Math.floor(cz / GRID);
+    for (let ix = gx - 1; ix <= gx + 1; ix++) {
+      for (let iz = gz - 1; iz <= gz + 1; iz++) {
+        const list = grid.get((ix + 2048) * 4096 + iz + 2048);
+        if (!list) continue;
+        for (const o of list) {
+          if (o === v || Math.abs(o.x - cx) > o.bodyL + swept.bodyL + 0.5 || Math.abs(o.z - cz) > o.bodyL + swept.bodyL + 0.5) continue;
+          if (bodyPen(swept, cx, cz, o) > 0) return false;
+        }
+      }
+    }
+    const others = parked.active ? [...blockers, parked] : blockers;
+    for (const k of others) {
+      if (Math.abs(k.x - cx) > k.halfL + swept.bodyL + 0.5 || Math.abs(k.z - cz) > k.halfL + swept.bodyL + 0.5) continue;
+      Object.assign(sweptOther, { x: k.x, z: k.z, yaw: k.yaw || 0, bodyW: k.halfW, bodyL: k.halfL });
+      if (bodyPen(swept, cx, cz, sweptOther) > 0) return false;
+    }
+    return true;
   }
 
   // Front bumper at the stop line: cross if allowed, or if going too fast to stop; otherwise wait there
@@ -1439,11 +1595,14 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
     }
     // ease sideways onto the lane centre (after lane changes and knocks), steering the front bumper towards it so the
     // nose doesn't swing on into the next lane, and no faster than the wheels can steer it, though even stopped half
-    // way into a lane change a driver edges over
-    const maxLat = Math.min(1.7, 0.3 + (v.bus ? 0.1 : 0.22) * v.speed);
+    // way into a lane change a driver edges over (Mog City, after Slop New York 17c0973: or onto `evade` metres right of
+    // it, swerving out of Dan's way, quicker, as hard as the tyres grip)
+    const panic = v.evade !== 0;
+    const maxLat = panic ? Math.min(3, 0.3 + 0.3 * v.speed) : Math.min(1.7, 0.3 + (v.bus ? 0.1 : 0.22) * v.speed);
     const rate = Math.min(1.8, Math.max(v.speed, 1.5) / (v.axle + v.half));
-    const target = clamp(-rate * v.dl, -maxLat, maxLat);
-    v.dlv += clamp(target - v.dlv, -2.5 * dt, 2.5 * dt);
+    const target = clamp(-rate * (v.dl - v.evade), -maxLat, maxLat);
+    const slew = (panic ? 8 : 2.5) * dt;
+    v.dlv += clamp(target - v.dlv, -slew, slew);
     v.dl += v.dlv * dt;
   }
 
@@ -1505,7 +1664,8 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
     v.steer += (steer - v.steer) * Math.min(1, dt * 10);
 
     const turn = v.move.turn;
-    if (Math.abs(v.dl) > 0.3 && Math.abs(v.dlv) > 0.05) v.blink = v.dl > 0 ? -1 : 1;
+    if (v.evade) v.blink = 0; // (Mog City, after 17c0973: no time to signal a swerve)
+    else if (Math.abs(v.dl) > 0.3 && Math.abs(v.dlv) > 0.05) v.blink = v.dl > 0 ? -1 : 1;
     else if (turn !== 'S' && (v.conn || v.edge.len - v.s < 35)) v.blink = turn === 'R' ? 1 : -1;
     else v.blink = 0;
 
@@ -1566,6 +1726,7 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
     v.yawOffset = clamp(d, -0.85, 0.85);
     v.yawVel = v.yawRate = v.vx = v.vz = v.speed = v.acc = 0;
     v.dlv = 0;
+    v.evade = v.alarm = v.panicUntil = v.panicAcc = 0; // (Mog City, after 17c0973)
     return Math.hypot(v.x - x, v.z - z) < 0.6 && Math.abs(d) < 0.85;
   }
 
@@ -1736,6 +1897,7 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
     v.speed = v.v0 * 0.5;
     v.acc = 0;
     v.dl = v.dlv = 0;
+    v.evade = v.alarm = v.panicUntil = v.panicAcc = 0; // (Mog City, after 17c0973)
     v.vx = v.vz = v.yawOffset = v.yawVel = v.pitch = v.pitchVel = v.roll = v.rollVel = 0;
     locate(v);
     v.prevX = v.x;
@@ -2431,6 +2593,7 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
 
   function update(dt, elapsed, focusPos = null, playerEntity = null, activeMode = 'car', camera = null) {
     clock = elapsed;
+    dodgeClock += dt;
     tick++;
     avePhase = signalPhase(elapsed, true);
     stPhase = signalPhase(elapsed, false);
@@ -2455,6 +2618,8 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
       player.z = playerEntity.position.z;
       player.vx = Math.sin(heading) * speed + (playerEntity.vx || 0);
       player.vz = Math.cos(heading) * speed + (playerEntity.vz || 0);
+      player.fx = Math.sin(heading); // (the way he faces, for react)
+      player.fz = Math.cos(heading);
     }
     // (Mog City: Dan's car, standing where he left it)
     const pc = activeMode !== 'car' && window.__NYC_APP && window.__NYC_APP.controllerManager && window.__NYC_APP.controllerManager.entities.car;
@@ -2540,6 +2705,7 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
       if (v.wreck && !v.wreck(v, dt)) v.wreck = null;
       if (!v.wreck) {
         relateToPlayer(v);
+        react(v, dt); // (Mog City, after Slop New York 17c0973)
         drive(v, dt);
         locate(v);
         knock(v, dt);
@@ -2643,7 +2809,8 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
     laneSpot, // (Mog City)
     recycleLog, // (Mog City)
     blockers, // (Mog City)
-    feedStats // (Mog City)
+    feedStats, // (Mog City)
+    dodgeStats // (Mog City)
   };
 }
 
