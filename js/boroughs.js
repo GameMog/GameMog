@@ -2526,7 +2526,8 @@ function createSignMaterial(tex, nightGlow) {
   const t = texture(tex);
   mat.colorNode = t.rgb;
   mat.opacityNode = t.a;
-  mat.alphaTest = 0.4;
+  // (Mog City: alphaTestNode, not `alphaTest`, see createTreeMaterial; after Slop New York 1a1cfd8)
+  mat.alphaTestNode = float(0.4);
   mat.emissiveNode = t.rgb.mul(float(0.25).add(nightFactorNode().mul(nightGlow)));
   return mat;
 }

@@ -692,8 +692,7 @@ function swayWeight(b, t) {
   }
 }
 
-// Leaf cards of one tree: lod 0 on every twig, lod 1 fewer & larger along the branches, lod 2 a shell of whole-crown
-// cards (far-canopy tile) round the crown ellipsoid
+// Fine twig cards (lod 0), larger branch cards (lod 1), and a canopy shell shared by all levels (lod 2).
 function placeCards(sp, branches, lod, tileMeters, rng, crown) {
   const R = (a, b) => a + (b - a) * rng();
   const cards = [];
@@ -760,7 +759,8 @@ function placeCards(sp, branches, lod, tileMeters, rng, crown) {
   return cards;
 }
 
-// One species / variant: [lod0, lod1, lod2] geometries (lod 2 only for variant 0)
+// One species / variant: [lod0, lod1, lod2] geometries.
+// (Mog City: the canopy shell on every level and fewer triangles at every level, after Slop New York ae7c9a8 & 9b48bc0)
 function buildTreeGeometries(speciesIndex, variant, tileMeters) {
   const sp = SPECIES[speciesIndex];
   const seed = 7919 * (speciesIndex + 1) + 104729 * (variant + 1);
@@ -779,27 +779,33 @@ function buildTreeGeometries(speciesIndex, variant, tileMeters) {
   }
   const crown = makeCrown(pts);
 
+  // Keep the canopy's shape, texture orientation and wind phase identical across levels.
+  const canopyRng = mulberry32(seed + 2 * 31337);
+  const canopyCards = placeCards(sp, branches, 2, tileMeters, canopyRng, crown)
+    .map((c) => ({ ...c, mirror: canopyRng() < 0.5, random: canopyRng() }));
+
   const geos = [];
-  const levels = variant === 0 ? [0, 1, 2] : [0, 1];
-  for (const lod of levels) {
+  for (let lod = 0; lod < 3; lod++) {
     const gb = new TreeGeometryBuilder();
     const rng = mulberry32(seed + lod * 31337);
     const aoAt = (p) => crown.barkAO(p);
-    // Bark: lod 0 everything, lod 1 trunk + limbs + branches (coarser), lod 2 trunk + limbs as thin prisms
+    // Small twigs are drawn in the leaf cards; simplify the remaining bark with distance.
     for (const b of branches) {
-      if (lod === 0) {
-        const radial = [9, 6, 4, 3][b.level];
-        addTube(gb, b, radial, 1, aoAt, swayWeight);
-      } else if (lod === 1 && b.level <= 2) {
-        addTube(gb, b, [6, 5, 3][b.level], 2, aoAt, swayWeight);
+      if (lod === 0 && b.level <= 2) {
+        addTube(gb, b, [5, 3, 3][b.level], [2, 3, 4][b.level], aoAt, swayWeight);
+      } else if (lod === 1 && b.level <= 1) {
+        addTube(gb, b, 3, b.level === 0 ? 4 : 8, aoAt, swayWeight);
       } else if (lod === 2 && b.level <= 1) {
-        addTube(gb, b, b.level === 0 ? 5 : 3, b.level === 0 ? 4 : 6, aoAt, swayWeight);
+        addTube(gb, b, 3, b.pts.length - 1, aoAt, swayWeight);
       }
     }
-    const cards = lod === 0 ? cards0 : placeCards(sp, branches, lod, tileMeters, rng, crown);
-    for (const c of cards) addCard(gb, c.at, c.up, c.face, c.size, c.tile, rng() < 0.5, rng(), crown);
+    const cards = (lod === 0 ? cards0 : lod === 1 ? placeCards(sp, branches, lod, tileMeters, rng, crown) : [])
+      .map((c) => ({ ...c, mirror: rng() < 0.5, random: rng() }))
+      .filter((_, i) => i % 2 === 0);
+    for (const c of cards) addCard(gb, c.at, c.up, c.face, c.size, c.tile, c.mirror, c.random, crown);
+    for (const c of canopyCards) addCard(gb, c.at, c.up, c.face, c.size, c.tile, c.mirror, c.random, crown);
     const g = gb.build();
-    g.userData = { species: sp.name, variant, lod, cards: cards.length, triangles: gb.idx.length / 3 };
+    g.userData = { species: sp.name, variant, lod, cards: cards.length + canopyCards.length, triangles: gb.idx.length / 3 };
     geos[lod] = g;
   }
   return geos;
@@ -846,7 +852,7 @@ function createTreeField(scene, sites) {
   const tier = new Uint8Array(N);
   const lod = new Uint8Array(N).fill(255);
 
-  // Meshes: lod 0 & 1 per species & variant, lod 2 per species
+  // Meshes per species, variant and level
   const meshes = [];
   const counts = [];
   const makeMesh = (geo, name) => {
@@ -856,7 +862,7 @@ function createTreeField(scene, sites) {
   const meshIndex = SPECIES.map((sp, s) => ({
     l0: [0, 1].map((v) => makeMesh(geos[s][v][0], `Trees_${sp.name}_v${v}_lod0`)),
     l1: [0, 1].map((v) => makeMesh(geos[s][v][1], `Trees_${sp.name}_v${v}_lod1`)),
-    l2: makeMesh(geos[s][0][2], `Trees_${sp.name}_lod2`)
+    l2: [0, 1].map((v) => makeMesh(geos[s][v][2], `Trees_${sp.name}_v${v}_lod2`))
   }));
 
   const dummy = new THREE.Object3D();
@@ -882,7 +888,7 @@ function createTreeField(scene, sites) {
     const mi = meshIndex[sp];
     meshOf[i * 3] = mi.l0[variant];
     meshOf[i * 3 + 1] = mi.l1[variant];
-    meshOf[i * 3 + 2] = mi.l2;
+    meshOf[i * 3 + 2] = mi.l2[variant];
     for (let l = 0; l < 3; l++) meshes[meshOf[i * 3 + l]].capacity++;
   });
 

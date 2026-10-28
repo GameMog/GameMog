@@ -113,9 +113,13 @@ export function createProps({ cm, fx, play, car = null, scene = null }) {
   // ---------------------------------------------------------------- who draws it
   // The city's culling (js/scene-culling.js) draws its big instanced meshes as chunks (the original taken out of the
   // scene) and casts their shadows from stand-ins: an instance is found again in whichever meshes draw it now, by the
-  // vertex data they share and its matrix
+  // vertex data they share and its matrix (a coarser shadow stand-in, such as the lamp posts', by the vertex data of what
+  // it stands in for: userData.standInOf)
   const drawers = new Map();
-  if (scene) scene.traverse((o) => { if (!o.isInstancedMesh) return; const k = o.geometry.attributes.position; if (!drawers.has(k)) drawers.set(k, []); drawers.get(k).push(o); });
+  if (scene) scene.traverse((o) => {
+    if (!o.isInstancedMesh) return;
+    for (const k of [o.geometry.attributes.position, o.userData.standInOf]) { if (!k) continue; if (!drawers.has(k)) drawers.set(k, []); drawers.get(k).push(o); }
+  });
   function drawnBy(inst, i, m0) {
     const out = inst.parent ? [[inst, i]] : [], e = m0.elements;
     for (const o of drawers.get(inst.geometry.attributes.position) || []) {

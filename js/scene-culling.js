@@ -243,6 +243,12 @@ function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
       root.traverse((o) => {
         if (!o.castShadow || !isStaticMesh(o) || !proxyableMaterial(o.material)) return;
         if (o.isInstancedMesh && o.count !== o.instanceMatrix.count) return;
+        // Opt-ins (userData.shadowStandIn: a coarser BufferGeometry to cast with): thin props (street-details.js) cast
+        // the same shadow with far fewer triangles (Mog City: after Slop New York 0630114)
+        if (o.userData.shadowStandIn) {
+          sources.push(o);
+          return;
+        }
         const tris = triangleCount(o.geometry) * (o.isInstancedMesh ? o.count : 1);
         if (tris < 20000) return;
         let radius;
@@ -259,7 +265,8 @@ function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
 
     for (const o of sources) {
       const side = sideOf(o.material);
-      const geo = o.geometry;
+      const standIn = o.userData.shadowStandIn?.isBufferGeometry ? o.userData.shadowStandIn : null;
+      const geo = standIn || o.geometry;
       if (o.isInstancedMesh) {
         const pos = geo.attributes.position;
         if (!geo.boundingBox) geo.computeBoundingBox();
@@ -271,6 +278,9 @@ function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
           g.setIndex(geo.index);
           g.setAttribute('position', pos);
           entry = { geometry: g, material: proxyMaterial(side), cells: new Map() };
+          // (Mog City: a coarser stand-in no longer shares the vertex data of what it stands in for; wagmi/crash/props.js
+          // finds a knocked-over post's shadow again by this)
+          if (standIn) entry.standInOf = o.geometry.attributes.position;
           instancedBySig.set(sig, entry);
         }
         const e = o.instanceMatrix.array;
@@ -327,6 +337,7 @@ function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
         const mesh = new THREE.InstancedMesh(entry.geometry, entry.material, n);
         mesh.instanceMatrix.array.set(list);
         mesh.computeBoundingSphere();
+        if (entry.standInOf) mesh.userData.standInOf = entry.standInOf;
         addProxy(mesh, tris * n);
       }
     }
