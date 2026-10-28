@@ -55,7 +55,7 @@ const FLAGSHIP: { title: string; headline: string[]; lead: string; href: string;
   headline: ['One city.', 'Infinite mogs.'],
   lead: 'Mog City: Unfinished Business. They framed the wrong guy. Play free in your browser.',
   href: 'https://mc.gamemog.com',
-  film: { wide: 'https://mc.gamemog.com/media/hero-trailer', narrow: 'https://mc.gamemog.com/media/hero-trailer' },
+  film: { wide: 'https://mc.gamemog.com/media/hero-trailer', narrow: 'https://mc.gamemog.com/media/hero-trailer-4x3' },
 };
 
 const REEL: { slug: string; film: string; seconds?: number }[] = [
