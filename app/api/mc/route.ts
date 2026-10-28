@@ -19,19 +19,34 @@ const KINDS = new Set<string>(MC_KINDS);
 const MAX_MS = 15 * 60_000;
 // a mission's name, or "<mission>: <reason>": one line of plain words
 const words = (x: unknown) => (typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160) || null : null);
+const MAX_BODY = 2048;
+// the body, read no further than MAX_BODY bytes (a body sent in chunks has no content-length to check first): null past it
+async function body(req: Request): Promise<string | null> {
+  const r = req.body?.getReader();
+  if (!r) return '';
+  const parts: Uint8Array[] = [];
+  for (let n = 0; ;) {
+    const { done, value } = await r.read();
+    if (done) break;
+    n += value.byteLength;
+    if (n > MAX_BODY) { r.cancel().catch(() => {}); return null; }
+    parts.push(value);
+  }
+  return Buffer.concat(parts).toString('utf8');
+}
 
 export async function POST(req: Request) {
   const origin = req.headers.get('origin');
   if (!allowed(origin)) return new Response(null, { status: 204 });
   const none = () => new Response(null, { status: 204, headers: { 'access-control-allow-origin': origin, vary: 'origin' } });
   const ua = req.headers.get('user-agent') ?? '';
-  if (isBot(ua) || Number(req.headers.get('content-length') ?? 0) > 2048) return none();
+  if (isBot(ua) || Number(req.headers.get('content-length') ?? 0) > MAX_BODY) return none();
   // the owner's own visits are not traffic
   if (validSession((await cookies()).get(COOKIE)?.value)) return none();
   let b: Record<string, unknown>;
   try {
-    const text = await req.text();
-    if (text.length > 2048) return none();
+    const text = await body(req);
+    if (text == null) return none();
     const j: unknown = JSON.parse(text);
     if (!j || typeof j !== 'object' || Array.isArray(j)) return none();
     b = j as Record<string, unknown>;

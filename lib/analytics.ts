@@ -216,7 +216,8 @@ function mcKpis(from: number, to: number): McKpis {
 
 /** Everything the Mog City tab shows for one range, with the range before it for comparison. */
 export function mcStats(range: Range, now = Date.now()): McStats {
-  const span = SPAN[range], from = now - span;
+  // (every count below is of [from, now), as the numbers' are, so a range asked of an earlier moment holds nothing after it)
+  const span = SPAN[range], from = now - span, IN = 'at >= ? AND at < ?';
 
   // the same buckets as stats(): on the hour for 24h, else from local midnight
   const hourly = range === '24h', size = hourly ? HOUR : DAY, count = hourly ? 24 : span / DAY;
@@ -224,36 +225,39 @@ export function mcStats(range: Range, now = Date.now()): McStats {
   if (hourly) end.setMinutes(0, 0, 0); else end.setHours(0, 0, 0, 0);
   const first = end.getTime() - (count - 1) * size;
   const series: McPoint[] = Array.from({ length: count }, (_, i) => ({ at: first + i * size, visitors: 0, players: 0 }));
-  for (const r of db.prepare("SELECT CAST((at - ?) / ? AS INTEGER) AS b, COUNT(DISTINCT visitor) AS visitors, COUNT(DISTINCT CASE WHEN kind = 'start' THEN visitor END) AS players FROM mc_events WHERE at >= ? GROUP BY b").all(first, size, first) as { b: number; visitors: number; players: number }[]) {
+  for (const r of db.prepare("SELECT CAST((at - ?) / ? AS INTEGER) AS b, COUNT(DISTINCT visitor) AS visitors, COUNT(DISTINCT CASE WHEN kind = 'start' THEN visitor END) AS players FROM mc_events WHERE at >= ? AND at < ? GROUP BY b").all(first, size, first, now) as { b: number; visitors: number; players: number }[]) {
     const p = series[Math.floor(r.b)];
     if (p) { p.visitors = r.visitors; p.players = r.players; }
   }
 
-  // the story's missions in order (and any other title card seen, after them): who saw its title, who passed it, and
-  // how many runs of it failed. Names are matched without case; a fail is "<mission>: <reason>"
-  const known = new Set(MC_MISSIONS.flatMap((m) => m.names.map((n) => n.toLowerCase())));
-  const others = (db.prepare("SELECT MIN(detail) AS name, COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'mission' AND detail IS NOT NULL AND at >= ? GROUP BY lower(detail) ORDER BY n DESC LIMIT 6").all(from) as { name: string; n: number }[])
-    .filter((r) => !known.has(r.name.toLowerCase())).map((r) => ({ label: r.name, names: [r.name] }));
+  // the story's missions in order (and any other title card seen, after them): who reached it, who passed it, and how
+  // many runs of it failed. Names are matched without case; a fail is "<mission>: <reason>"
+  const known = MC_MISSIONS.flatMap((m) => m.names.map((n) => n.toLowerCase()));
+  const others = (db.prepare(`SELECT MIN(detail) AS name, COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'mission' AND detail IS NOT NULL AND lower(detail) NOT IN (${known.map(() => '?').join(', ')}) AND ${IN} GROUP BY lower(detail) ORDER BY n DESC LIMIT 6`).all(...known, from, now) as { name: string; n: number }[])
+    .map((r) => ({ label: r.name, names: [r.name] }));
   const missions = [...MC_MISSIONS, ...others].map((m) => {
     const names = m.names.map((n) => n.toLowerCase()), marks = names.map(() => '?').join(', ');
+    const failed = `kind = 'fail' AND (${names.map(() => "substr(lower(detail), 1, length(?) + 2) = ? || ': '").join(' OR ')})`, failArgs = names.flatMap((n) => [n, n]);
     return {
       label: m.label,
-      started: mcOne(`SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'mission' AND lower(detail) IN (${marks}) AND at >= ?`, ...names, from),
-      passed: mcOne(`SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'pass' AND lower(detail) IN (${marks}) AND at >= ?`, ...names, from),
-      fails: mcOne(`SELECT COUNT(*) AS n FROM mc_events WHERE kind = 'fail' AND (${names.map(() => "substr(lower(detail), 1, length(?) + 2) = ? || ': '").join(' OR ')}) AND at >= ?`, ...names.flatMap((n) => [n, n]), from),
+      // reached: its title card, or its pass or a fail of it (a run whose title came before the range began), so a step's
+      // passes are never more than its starts
+      started: mcOne(`SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE ((kind IN ('mission', 'pass') AND lower(detail) IN (${marks})) OR (${failed})) AND ${IN}`, ...names, ...failArgs, from, now),
+      passed: mcOne(`SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'pass' AND lower(detail) IN (${marks}) AND ${IN}`, ...names, from, now),
+      fails: mcOne(`SELECT COUNT(*) AS n FROM mc_events WHERE ${failed} AND ${IN}`, ...failArgs, from, now),
     };
   });
-  const fails = (db.prepare("SELECT detail, COUNT(*) AS n, COUNT(DISTINCT visitor) AS v FROM mc_events WHERE kind = 'fail' AND detail IS NOT NULL AND at >= ? GROUP BY detail ORDER BY n DESC LIMIT 8").all(from) as { detail: string; n: number; v: number }[])
+  const fails = (db.prepare(`SELECT detail, COUNT(*) AS n, COUNT(DISTINCT visitor) AS v FROM mc_events WHERE kind = 'fail' AND detail IS NOT NULL AND ${IN} GROUP BY detail ORDER BY n DESC LIMIT 8`).all(from, now) as { detail: string; n: number; v: number }[])
     .map((r) => ({ label: r.detail, value: r.n, sub: r.v }));
 
   // where a visit came from is sent once, with the page load
-  const landed = mcOne("SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND at >= ?", from);
-  const referred = db.prepare("SELECT COALESCE(source, ref) AS s, COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND at >= ? AND (source IS NOT NULL OR ref IS NOT NULL) GROUP BY s ORDER BY n DESC LIMIT 10").all(from) as { s: string; n: number }[];
-  const withSource = mcOne("SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND at >= ? AND (source IS NOT NULL OR ref IS NOT NULL)", from);
+  const landed = mcOne(`SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND ${IN}`, from, now);
+  const referred = db.prepare(`SELECT COALESCE(source, ref) AS s, COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND ${IN} AND (source IS NOT NULL OR ref IS NOT NULL) GROUP BY s ORDER BY n DESC LIMIT 10`).all(from, now) as { s: string; n: number }[];
+  const withSource = mcOne(`SELECT COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND ${IN} AND (source IS NOT NULL OR ref IS NOT NULL)`, from, now);
   const sources: Row[] = [...referred.map((r) => ({ label: r.s, value: r.n })), ...(landed - withSource > 0 ? [{ label: 'Direct or unknown', value: landed - withSource }] : [])]
     .sort((a, b) => b.value - a.value);
 
-  const devices = (db.prepare("SELECT device, COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND at >= ? GROUP BY device ORDER BY n DESC").all(from) as { device: string; n: number }[])
+  const devices = (db.prepare(`SELECT device, COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND ${IN} GROUP BY device ORDER BY n DESC`).all(from, now) as { device: string; n: number }[])
     .map((r) => ({ label: r.device[0].toUpperCase() + r.device.slice(1), value: r.n }));
 
   return { range, now: mcKpis(from, now), before: mcKpis(from - span, from), series, bucket: hourly ? 'hour' : 'day', missions, fails, sources, devices };
