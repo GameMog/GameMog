@@ -56,6 +56,7 @@ const {
   filteredPulse,
   WALL_KINDS
 } = window.NYC;
+const { createFireEscapes } = window.NYC; // (Mog City: js/fire-escapes.js, after Slop New York 8c17250)
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -710,9 +711,9 @@ function buildCityBlocks(scene) {
         const nf = Math.round(p.y1 / storey);
         const w = p.x1 - p.x0;
         if (nf < 3 || w < 4.6) continue;
-        // A landing per floor from the 2nd up (3.45m apart, see ironMat), ending at the top landing's rail
+        // A landing per floor from the 2nd up, aligned with this facade's floor spacing.
         const landings = Math.min(nf - 1, 7);
-        const h = (landings - 1) * 3.45 + 1;
+        const h = (landings - 1) * storey + 1;
         for (const side of ['n', 's']) {
           const front = side === 'n' ? p.z0 - blk.minZ < EPS : blk.maxZ - p.z1 < EPS;
           if (!front) {
@@ -722,7 +723,10 @@ function buildCityBlocks(scene) {
           const z = side === 'n' ? p.z0 - 0.55 : p.z1 + 0.55;
           const count = w >= 15 ? 2 : 1;
           for (let k = 0; k < count; k++) {
-            blk.fireEscapes.push({ x: p.x0 + (w * (k + 0.5)) / count, y: 3.55, z, h });
+            blk.fireEscapes.push({
+              x: p.x0 + (w * (k + 0.5)) / count, y: storey + 0.1, z, h, storey, landings,
+              facing: side === 'n' ? Math.PI : 0
+            });
           }
         }
       }
@@ -2190,7 +2194,6 @@ function buildCityBlocks(scene) {
   const MAX_CORNICES = 7000;
   const MAX_WATER_TOWERS = 1400;
   const MAX_HVAC = 1600;
-  const MAX_FIRE_ESCAPES = 2400;
   const MAX_AWNINGS = 1800;
   const MAX_SHEDS = 300;
 
@@ -2289,29 +2292,9 @@ function buildCityBlocks(scene) {
   hvacInst.frustumCulled = false;
   group.add(hvacInst);
 
-  // 4. Wrought-iron facade fire escapes: one box each, cut by a mask (honoured by the main & shadow passes) into a
-  //    landing & railing at every floor, zig-zag stairs and corner posts. Bars never get thinner than a pixel, so
-  //    far away the lattice fills in instead of breaking up into shimmer
-  const ironMat = new THREE.MeshStandardNodeMaterial({ color: 0x22252a, roughness: 0.45, metalness: 0.7 });
-  ironMat.maskNode = Fn(() => {
-    const across = positionGeometry.x.add(0.5).mul(3.4);
-    const storey = positionWorld.y.sub(3.55).div(3.45); // Landings from the 2nd floor up, see fireEscapes
-    const up = fract(storey).mul(3.45);
-    const px = fwidth(across);
-    const py = fwidth(positionWorld.y);
-    const bar = (dist, halfWidth, footprint) => step(dist, max(footprint.mul(0.5), halfWidth));
-    const deck = bar(abs(up.sub(0.06)), 0.06, py);
-    const rails = max(bar(abs(up.sub(0.97)), 0.03, py), bar(abs(up.sub(0.5)), 0.02, py));
-    const flight = mix(across, float(3.4).sub(across), mod(floor(storey), 2.0));
-    const stairs = bar(abs(flight.sub(up)), 0.1, px.add(py));
-    const posts = bar(min(across, float(3.4).sub(across)), 0.07, px.mul(2.0)).mul(abs(normalGeometry.z)); // box-local: boxes may be turned
-    const caps = step(0.5, abs(normalWorldGeometry.y)); // Bottom landing & top rail stay solid
-    return max(deck, rails, stairs, posts, caps).greaterThan(0.5);
-  })();
-  const feInst = new THREE.InstancedMesh(unitBox, ironMat, MAX_FIRE_ESCAPES);
-  feInst.castShadow = feInst.receiveShadow = true;
-  feInst.frustumCulled = false;
-  group.add(feInst);
+  // 4. Instanced fire escapes: real steps nearby, lightweight silhouettes in the distance (after Slop New York
+  //    8c17250, 596fdc4 & dcf9dcc: js/fire-escapes.js).
+  const fireEscapeSystem = createFireEscapes(group);
 
   // 5. Ground-floor retail canvas awnings & illuminated storefront fascia signs
   const awningMat = new THREE.MeshStandardNodeMaterial({ color: 0xffffff, roughness: 0.65 });
@@ -2438,7 +2421,7 @@ function buildCityBlocks(scene) {
     let corniceCount = 0;
     let wtCount = 0;
     let hvacCount = 0;
-    let feCount = 0;
+    fireEscapeSystem.begin();
     let awningCount = 0;
     let shedCount = 0;
     const signCounts = signInsts.map(() => 0);
@@ -2488,13 +2471,7 @@ function buildCityBlocks(scene) {
       }
 
       // 4. Wrought-iron fire escapes
-      for (let i = 0; i < blk.fireEscapes.length && feCount < MAX_FIRE_ESCAPES; i++) {
-        const fe = blk.fireEscapes[i];
-        dummy.position.set(fe.x, fe.y + fe.h * 0.5, fe.z);
-        dummy.scale.set(3.4, fe.h, 1.1);
-        dummy.updateMatrix();
-        feInst.setMatrixAt(feCount++, dummy.matrix);
-      }
+      for (const fe of blk.fireEscapes) fireEscapeSystem.add(fe, focusX, focusZ);
 
       // 5. Retail awnings & illuminated storefront fascia signs
       for (let i = 0; i < blk.awnings.length && awningCount < MAX_AWNINGS; i++) {
@@ -2543,8 +2520,7 @@ function buildCityBlocks(scene) {
     hvacInst.count = hvacCount;
     flagRange(hvacInst.instanceMatrix, hvacCount);
 
-    feInst.count = feCount;
-    flagRange(feInst.instanceMatrix, feCount);
+    fireEscapeSystem.end();
 
     awningInst.count = awningCount;
     flagRange(awningInst.instanceMatrix, awningCount);
