@@ -241,11 +241,12 @@ async function initApp() {
   const streetDetails = buildStreetDetails(scene);
   markInit('streetDetails');
   // Buildings turned along non-grid streets have oriented colliders whose world bounds reach past their lots: they stay
-  // inside the property line anyway, so the road network (lanes & sidewalks) doesn't need them
+  // inside the property line anyway, so the road network (lanes & sidewalks) doesn't need them.
+  // Elevated building sections that clear even a bus don't obstruct ground traffic (Mog City: after Slop New York 49b2ef2)
   const trafficSystem = createTrafficSystem(scene, cityGrid.sidewalks, [
     ...cityGrid.footprints,
     ...streetDetails.footprints,
-    ...allColliders.filter((c) => !c.obb)
+    ...allColliders.filter((c) => !c.obb && (c.minY ?? 0) < 3.5)
   ]);
   markInit('traffic');
   const highwayTraffic = createHighwayTraffic(scene, cityGrid.highwayLanes);

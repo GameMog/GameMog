@@ -319,8 +319,10 @@ class ThirdPersonControllerManager {
         const back = Math.max(0, Math.min(cameraBack, -dx * sinH - dz * cosH));
         if (Math.hypot(dx + sinH * back, dz + cosH * back) < other.radius + Math.max(body[entity.type][0], 0.5) + 0.1) return false;
       }
+      // (Mog City: and the building parts that start above the body, arcades and overhangs: buildings.js minY)
+      const top = heli ? altitude + 3.2 : baseY + 1.9;
       for (const c of this.nearColliders(p.x, p.z, reach)) {
-        if (y > c.maxY + 1.5) continue;
+        if (y > c.maxY + 1.5 || c.minY >= top) continue;
         if (p.x + extX <= c.minX || p.x - extX >= c.maxX || p.z + extZ <= c.minZ || p.z - extZ >= c.maxZ) continue;
         if (c.obb) {
           const o = c.obb, dx = p.x - o.cx, dz = p.z - o.cz;
@@ -965,6 +967,40 @@ class ThirdPersonControllerManager {
     return best;
   }
 
+  // (Mog City) Another solid box than c (solid(d), one of list) at (px, pz) in c's frame (centre cx, cz; turned by cs, sn)
+  solidBeyond(c, cx, cz, cs, sn, px, pz, list, solid) {
+    const x = cx + px * cs + pz * sn;
+    const z = cz - px * sn + pz * cs;
+    for (const d of list) {
+      if (d === c || !solid(d) || x < d.minX || x > d.maxX || z < d.minZ || z > d.maxZ) continue;
+      if (d.obb) {
+        const o = d.obb, dx = x - o.cx, dz = z - o.cz;
+        if (Math.abs(dx * o.cs - dz * o.sn) > o.hx || Math.abs(dx * o.sn + dz * o.cs) > o.hz) continue;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // (Mog City) Which face of box c (centre cx, cz; turned by cs, sn; half sizes hx, hz) to push a body out through: a
+  // body at (lx, lz) in the box's frame, its half extents ex, ez there. The least deep face (0 -x, 1 +x, 2 -z, 3 +z),
+  // unless another solid box stands just beyond it where the body touches it: two building parts meeting along a wall
+  // share that face, and pushing out through it snagged anything sliding along the wall at every seam (a car scraping
+  // a street wall bounced off each building it passed). If every face is shared, the least deep
+  outFace(c, cx, cz, cs, sn, hx, hz, lx, lz, ex, ez, list, solid) {
+    const depth = [lx + ex + hx, hx - (lx - ex), lz + ez + hz, hz - (lz - ez)];
+    const order = [0, 1, 2, 3].sort((a, b) => depth[a] - depth[b]);
+    const IN = 0.05, OUT = 0.1;
+    // (along a face: the middle of where the body touches it, kept IN m inside the face's ends)
+    const mid = (l, e, h) => Math.max(-h + IN, Math.min(h - IN, (Math.max(l - e, -h) + Math.min(l + e, h)) * 0.5));
+    for (const k of order) {
+      const px = k === 0 ? -hx - OUT : k === 1 ? hx + OUT : mid(lx, ex, hx);
+      const pz = k === 2 ? -hz - OUT : k === 3 ? hz + OUT : mid(lz, ez, hz);
+      if (!this.solidBeyond(c, cx, cz, cs, sn, px, pz, list, solid)) return k;
+    }
+    return order[0];
+  }
+
   resolveHorizontalCollision(pos, radius, yHeight = 1.0, carEntity = null) {
     // The detailed island (the helicopter may roam out over the harbour & the boroughs)
     const heli = this.activeMode === 'helicopter';
@@ -998,13 +1034,19 @@ class ThirdPersonControllerManager {
     pos.x += sinH * CZ;
     pos.z += cosH * CZ;
 
+    // (Mog City) The buildings are a collider per part (buildings.js, after Slop New York 49b2ef2): one that starts
+    // above the body (an arcade, an overhang: minY) lets it under; and where two parts meet along a wall, the face
+    // between them is no way out (see outFace)
+    const top = heli ? yHeight + 3.2 : yHeight + 0.9;
+    const solid = (c) => !(yHeight > c.maxY + 1.5 || (c.carOnly && !carEntity) || c.minY >= top);
+
     const reach = Math.max(extX, extZ) + 6;
     let gx = pos.x;
     let gz = pos.z;
     let near = this.nearColliders(gx, gz, reach);
     for (let i = 0; i < near.length; i++) {
       const c = near[i];
-      if (yHeight > c.maxY + 1.5 || (c.carOnly && !carEntity)) continue;
+      if (!solid(c)) continue;
 
       if (
         pos.x + extX > c.minX &&
@@ -1026,37 +1068,32 @@ class ThirdPersonControllerManager {
           const ex = carEntity ? (Math.abs(lc) * CAR_W + Math.abs(ls) * CAR_L) : radius;
           const ez = carEntity ? (Math.abs(ls) * CAR_W + Math.abs(lc) * CAR_L) : radius;
           if (lx + ex <= -o.hx || lx - ex >= o.hx || lz + ez <= -o.hz || lz - ez >= o.hz) continue;
-          const oL = lx + ex + o.hx;
-          const oR = o.hx - (lx - ex);
-          const oT = lz + ez + o.hz;
-          const oB = o.hz - (lz - ez);
-          const m = Math.min(oL, oR, oT, oB);
+          const k = this.outFace(c, o.cx, o.cz, o.cs, o.sn, o.hx, o.hz, lx, lz, ex, ez, near, solid);
           let qx = lx;
           let qz = lz;
           let mx = 0;
           let mz = 0;
-          if (m === oL) { qx = -o.hx - ex; mx = -1; }
-          else if (m === oR) { qx = o.hx + ex; mx = 1; }
-          else if (m === oT) { qz = -o.hz - ez; mz = -1; }
+          if (k === 0) { qx = -o.hx - ex; mx = -1; }
+          else if (k === 1) { qx = o.hx + ex; mx = 1; }
+          else if (k === 2) { qz = -o.hz - ez; mz = -1; }
           else { qz = o.hz + ez; mz = 1; }
           pos.x = o.cx + qx * o.cs + qz * o.sn;
           pos.z = o.cz - qx * o.sn + qz * o.cs;
           nx = mx * o.cs + mz * o.sn;
           nz = -mx * o.sn + mz * o.cs;
         } else {
-          const overlapLeft = (pos.x + extX) - c.minX;
-          const overlapRight = c.maxX - (pos.x - extX);
-          const overlapTop = (pos.z + extZ) - c.minZ;
-          const overlapBottom = c.maxZ - (pos.z - extZ);
-
-          const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
-          if (minOverlap === overlapLeft) {
+          const hx = (c.maxX - c.minX) * 0.5;
+          const hz = (c.maxZ - c.minZ) * 0.5;
+          const cx = c.minX + hx;
+          const cz = c.minZ + hz;
+          const k = this.outFace(c, cx, cz, 1, 0, hx, hz, pos.x - cx, pos.z - cz, extX, extZ, near, solid);
+          if (k === 0) {
             pos.x = c.minX - extX;
             nx = -1;
-          } else if (minOverlap === overlapRight) {
+          } else if (k === 1) {
             pos.x = c.maxX + extX;
             nx = 1;
-          } else if (minOverlap === overlapTop) {
+          } else if (k === 2) {
             pos.z = c.minZ - extZ;
             nz = -1;
           } else {
