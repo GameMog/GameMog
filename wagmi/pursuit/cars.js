@@ -1,4 +1,4 @@
-// Mog City: the chase cars. The city's own lofted bodies (js/actor-models.js: BODY_SPECS, buildCarGeometry,
+// Mog City: the chase cars. The city's own lofted bodies (js/cars.js: BODY_SPECS, buildCarGeometry,
 // createLoftedCarMaterial), as Mission 1's black SUV is built (wagmi/mission/m1.js buildSUV):
 //   suits   gloss black SUVs and sedans on acid-green rims (#B6FF3B), an acid-green glow on the road under them
 //   police   the city's NYPD cruiser (the sedan in the white and blue livery) with its flashing roof bar
@@ -41,6 +41,21 @@ function bodyGeo(spec) {
   const key = 'body' + spec.name;
   return cache.geo[key] || (cache.geo[key] = cache.N.buildCarGeometry(spec, true));
 }
+// (the cruiser: js/cars.js paints a livery only for the traffic's instanced material, from its paintColor & carState
+// attributes; a fixed-colour material's state w is its reversing lamps. So the cruiser's body is its own copy of the
+// geometry carrying them as plain vertex attributes: police white, livery 1 = NYPD (carStyleCode), lamps off)
+function cruiserSpec(spec) { return cache.cruiser || (cache.cruiser = { ...spec, name: spec.name + '-cruiser', _layout: undefined }); }
+function policeGeo(spec) {
+  const key = 'police' + spec.name;
+  if (cache.geo[key]) return cache.geo[key];
+  const g = bodyGeo(spec).clone(), n = g.attributes.position.count, white = new THREE.Color(0xf6f9fc);
+  const style = cache.N.carStyleCode({ livery: 1, metallic: 0, trim: 2, wheel: 3 });
+  const paint = new Float32Array(n * 3), state = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) { paint[i * 3] = white.r; paint[i * 3 + 1] = white.g; paint[i * 3 + 2] = white.b; state[i * 4 + 3] = style; }
+  g.setAttribute('paintColor', new THREE.BufferAttribute(paint, 3));
+  g.setAttribute('carState', new THREE.BufferAttribute(state, 4));
+  return (cache.geo[key] = g);
+}
 
 export function buildChaseCar(kind = 'suits', i = 0) {
   const C = shared(), N = C.N, police = kind === 'police';
@@ -50,10 +65,10 @@ export function buildChaseCar(kind = 'suits', i = 0) {
   const spec = N.BODY_SPECS && N.BODY_SPECS[specName];
   let hw = 0.95, hl = 2.3, roof = 1.5;
   if (spec && N.buildCarGeometry && N.createLoftedCarMaterial) {
-    const mat = N.createLoftedCarMaterial(spec, police ? 0xf6f9fc : 0x0c0d0f);
-    // (the NYPD livery: the fixed-colour material's state uniform, w = 1)
-    if (police && mat.userData.carState) mat.userData.carState.value.w = 1;
-    const m = new THREE.Mesh(bodyGeo(spec), mat); m.castShadow = true; m.receiveShadow = true; tilt.add(m);
+    const livery = police && N.carStyleCode;
+    // (its own material, not the traffic's instanced one: the same nodes over plain vertex attributes)
+    const mat = livery ? N.createLoftedCarMaterial(cruiserSpec(spec)) : N.createLoftedCarMaterial(spec, police ? 0xf6f9fc : 0x0c0d0f);
+    const m = new THREE.Mesh(livery ? policeGeo(spec) : bodyGeo(spec), mat); m.castShadow = true; m.receiveShadow = true; tilt.add(m);
     hw = spec.halfWidth[2][1] + 0.02; hl = spec.zFront; roof = spec.cabin.roofY[1][1];
     if (police && N.buildLightbarGeometry && N.createLightbarMaterial) {
       const bar = new THREE.Mesh(cache.geo.bar || (cache.geo.bar = N.buildLightbarGeometry(spec)), N.createLightbarMaterial());

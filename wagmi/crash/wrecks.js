@@ -8,9 +8,13 @@ import * as THREE from 'three/webgpu';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const wrap = (a) => a - Math.round(a / (Math.PI * 2)) * Math.PI * 2;
-export const massOf = (v) => (v.bus ? 12 : v.isSUV ? 2.1 : v.isTaxi ? 1.5 : 1.4);
+// (by the city's body kinds, js/traffic.js CAR_KINDS: the modern fleet, after Slop New York 52f84db, adds minivans,
+// pickups and delivery vans, heavier, with the SUV's deeper horn)
+const MASS = { sedan: 1.4, taxi: 1.5, suv: 2.1, minivan: 2.0, pickup: 2.4, van: 2.7 };
+export const massOf = (v) => (v.bus ? 12 : MASS[v.bodyType] ?? (v.isSUV ? 2.1 : v.isTaxi ? 1.5 : 1.4));
 export const dims = (v) => [v.bodyW ?? (v.bus ? 1.3 : v.halfWidth), v.bodyL ?? (v.bus ? 5.72 : v.isSUV ? 2.22 : 2.18)];
-export const hornKind = (v) => (v.bus ? 'bus' : v.isTaxi ? 'taxi' : v.isSUV ? 'suv' : 'sedan');
+const BIG = { suv: 1, minivan: 1, pickup: 1, van: 1 };
+export const hornKind = (v) => (v.bus ? 'bus' : v.isTaxi ? 'taxi' : v.isSUV || BIG[v.bodyType] ? 'suv' : 'sedan');
 
 // two boxes on the ground (middle, yaw, half width across, half length along): their least overlap and its axis,
 // pointing from b to a (out.nx, out.nz, out.pen), or false

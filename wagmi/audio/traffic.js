@@ -36,7 +36,8 @@ export function createTraffic(M, E) {
   const vel = (v) => [v.tx * v.speed + (v.vx || 0), v.tz * v.speed + (v.vz || 0)];
   // what an engine needs of a vehicle, the city's or a highway's (h: its place this frame)
   const hw = new Map();
-  const kindOf = (v) => (v.edge ? (v.bus ? 'bus' : v.isSUV ? 'suv' : 'sedan') : v.kind === 'suv' ? 'suv' : 'sedan');
+  // (an engine by the body kind's voice, js/traffic.js CAR_KINDS engine: an SUV's for SUVs, pickups and vans)
+  const kindOf = (v) => (v.bus ? 'bus' : v.engine || (v.edge ? (v.isSUV ? 'suv' : 'sedan') : v.kind === 'suv' ? 'suv' : 'sedan'));
   function state(v) {
     if (v.edge) { const [vx, vz] = vel(v); return { x: v.x, z: v.z, vx, vz, speed: Math.abs(v.speed), acc: v.acc || 0 }; }
     const h = hw.get(v); if (!h) return null;
@@ -80,8 +81,9 @@ export function createTraffic(M, E) {
     const [vx, vz] = vel(v);
     set(v, M.doppler(v.x, 0.9, v.z, vx, vz));
   }
+  const BIG = { suv: 1, minivan: 1, pickup: 1, van: 1 }; // (their horns: an SUV's)
   const honk = (v, len, delay = 0, crash = false) => {
-    const kind = v.bus ? 'bus' : v.isNYPD ? 'police' : v.isTaxi ? 'taxi' : v.isSUV ? 'suv' : 'sedan';
+    const kind = v.bus ? 'bus' : v.isNYPD ? 'police' : v.isTaxi ? 'taxi' : v.isSUV || BIG[v.bodyType] ? 'suv' : 'sedan';
     E.play('horn', { pos: [v.x, 1, v.z], kind, len, bus: 'amb', vol: 0.9, delay });
     hornCool = crash ? 0.35 : 8;
   };

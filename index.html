@@ -103,13 +103,16 @@
   <script>
     // Download the city scripts while Three.js loads; execute them only after its imports are ready below.
     const nycAppScripts = (() => {
-      const assetVersion = '20261024-g';
+      const assetVersion = '20261028-traffic';
       return [
         './js/nyc-geodata.js',
         './js/city-config.js',
         './js/tsl-materials.js',
         './js/trees.js',
-        './js/actor-models.js',
+        './js/vehicles.js',
+        './js/cars.js',
+        './js/bus.js',
+        './js/helicopter.js',
         './js/vehicle-lights.js',
         './js/pedestrians.js',
         './js/lighting.js',
