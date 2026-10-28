@@ -197,8 +197,10 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
   let nypdCount = 0;
 
   for (let i = 0; i < NUM_CARS; i++) {
-    const isNYPD = (i % 10) === 6;
-    const isTaxi = !isNYPD && (i % 7) < 4;
+    // (Mog City, after Slop New York 3f5bcda, a1866b7: police 1 in 40, a few in sight, so a siren is an event, and
+    // taxis 1 in 5; were 1 in 10 and 4 in 7. Upstream went on to 1 in 100, 7540282)
+    const isNYPD = (i % 40) === 6;
+    const isTaxi = !isNYPD && (i % 5) === 0;
     const isSUV = !isNYPD && !isTaxi && (i % 2 === 0);
 
     let bodyType = 'sedan';
@@ -2694,7 +2696,7 @@ function createHighwayTraffic(scene, lanes) {
     lane.cars = [];
     for (let u = rand() * 30; u < lane.len - 12; u += 24 + rand() * 50) {
       const h = rand();
-      const kind = h < 0.32 ? 'taxi' : h < 0.72 ? 'sedan' : 'suv';
+      const kind = h < 0.20 ? 'taxi' : h < 0.65 ? 'sedan' : 'suv'; // (Mog City, after Slop New York a1866b7: was 0.32 / 0.72)
       const col = new THREE.Color(PALETTES[kind][Math.floor(rand() * PALETTES[kind].length)]);
       // (float32 values, so update() can tell whether an instance slot's paint changes by comparing with the buffer)
       const car = { lane, kind, u, v: lane.speed, acc: 0, seg: 0, col: [Math.fround(col.r), Math.fround(col.g), Math.fround(col.b)] };
