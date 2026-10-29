@@ -26,12 +26,13 @@ video call: **Mr. Big**, JPBank's CEO, from his study, a cigar in his hand: the 
 terms by text, stop digging. The laptop has a tracker.
 
 To prove he is innocent, Dan has to follow the evidence where the Suits take it, mission by mission. **Jane**, his
-girlfriend since their college days at SUNY, pieces it together: the tracker, the burner the Suits left behind and its
-twin, a handler's group chat. She is on the phone with him **whenever he drives**, and only then: the backstory, the
-plan, the jokes. Their dog **Moon** lives with Jane and comes along when Dan meets her in person. The Suits fight him at
-every step. In Act II, JPBank aims its smear at the Occupy camp, and Dan turns the camp around: it ends Episode 1 chanting
-"Free Dan." Mr. Big moves the laptop's shredding up to dawn, and **Rook**, a junior on the security team who was in that
-crowd, wants out. He is the one driving it.
+girlfriend since their college days at SUNY, who loves him and knows he didn't do it, pieces it together from home:
+the tracker, the burner the Suits left behind and its twin, a handler's group chat. She is on the phone with him
+**whenever he drives**, and only then: the backstory, the plan, the way through the city, the jokes. Their dog **Moon**
+lives with Jane and comes along when Dan meets her in person. The Suits fight him at every step. In Act II, JPBank aims
+its smear at the Occupy camp, and Dan turns the camp around: it ends Episode 1 chanting "Free Dan." Mr. Big moves the
+laptop's shredding up to dawn, and **Rook**, a junior on the security team who was in that crowd, wants out. He is the
+one driving it.
 
 Dan is one of the 99% in a suit: $78,000 of student loans at 6.8%, fired three weeks before bonus day, a mom who believes
 him ("eat something, and she believes you, in that order"). The bank offers the city's anger a scapegoat, and the
@@ -46,7 +47,7 @@ it is a real person. The MISSION PASSED card counts **SUPPORTERS**, the people b
 | Name | Who | Look | Voice |
 |---|---|---|---|
 | **Dan** (the player) | Mid-20s, first-year associate at JPBank, fired and charged. | Tall and lean (about 1.88 m, long-limbed, normal shoulders, a flat chest, an easy loping walk; he stands upright, chest open, shoulders back and down, his head over his shoulders): the build only, an **original adult face**: a long jaw, clean-shaven, tired dark eyes, short dark hair a week past a haircut. White shirt open at the collar, sleeves rolled, slim dark trousers, white trainers, a navy overshirt; a black laptop bag across his left shoulder in the opening. | A grown man's dry baritone with a New York edge; quick and deadpan, the jokes are armour; polite until he isn't. |
-| **Jane** | Mid-20s, Dan's girlfriend since SUNY (he printed his JPBank cover letter on her printer card); a data analyst at a public hospital who reads logs for fun; she pieces the evidence together, and she is on the phone whenever Dan drives. Adult. | Puerto Rican, athletic build (a runner's shoulders and legs), warm brown skin, dark curly hair tied up, small gold hoops; a fitted dark track jacket over a white tee, joggers, clean trainers; a laptop covered in stickers. Shown with respect, never as a joke or a stereotype. | Quick, warm and wry; a native New Yorker's own voice (no put-on accent); fast because she thinks fast; dry about Dan's choices, fully on his side. |
+| **Jane** | Mid-20s, Dan's girlfriend since SUNY (he printed his JPBank cover letter on her printer card); a data analyst at a public hospital who works from home (three screens, the tracker on the big one) and reads logs for fun; a born New Yorker who knows every one-way and which avenue jams at what hour; she pieces the evidence together, and she is on the phone whenever Dan drives. Adult. | Puerto Rican, athletic build (a runner's shoulders and legs), warm brown skin, dark curly hair tied up, small gold hoops; a fitted dark track jacket over a white tee, joggers, clean trainers; a laptop covered in stickers. Shown with respect, never as a joke or a stereotype. | Quick, warm and wry; a native New Yorker's own voice (no put-on accent); fast because she thinks fast; dry about Dan's choices, fully on his side. |
 | **Moon** | Dan and Jane's dog; lives with Jane. Never taken, not in the opening. | The existing small white fluffy dog (wagmi/moon.js), on a red lead. | Happy noises only (a sneeze, a tail on the pavement). |
 | **Mr. Big** | JPBank's CEO, about sixty: the man who set Dan up, on a video call from his study. An original face, nobody's. | Seated upright in his oxblood wing chair in a walnut-panelled study (bookshelves, a green banker's lamp, a whisky glass, Midtown at night through a tall window): a full head of swept-back silver hair, a full close-trimmed silver beard, heavy dark tortoiseshell rectangular glasses, a husky, heavy-set build (normal shoulders), a navy three-piece suit, white shirt, deep burgundy tie; a cigar in his hand, its tip glowing, thin grey smoke. | Smug, polished, unhurried; his own voice, no voice changer; never shouts, smiles through the threats. |
 | **The Suits** | JPBank's security team, run like a gang of thugs. | Dark suits, white shirts, dark glasses, earpieces (thug.glb's four suit looks). | Street-tough, in HR language. |
@@ -75,9 +76,12 @@ FREE HOT DOGS ≠ JUSTICE · DAN DAN THE GREEDY MAN (until Ms. Bea crosses out G
   that named him. The Suits' van swings in; Knox talks HR, Hooks rips the bag off his shoulder and runs for the van, Knox
   shoves Dan down, the van tears off. Mr. Big calls: sign the confession. The tracker: *Laptop moving · 5th Ave*. "Okay. You
   framed the wrong guy." **Act I · Fall Guy / Bagged.**
-- **Mission 1 · Bagged.** Into the car after the tracker. Jane calls the moment he drives, and the call is the backstory:
-  Mr. Big's offer ("Terms by text. Like a dentist."), the Blimpco trades with his login, the couch and Moon, SUNY, fired,
-  charged, a headline, the access log and the fifty-first floor ("Except the laptop."). At Chelsea Park an SUV whips past
+- **Mission 1 · Bagged.** Into the car after the tracker. Jane calls the moment he drives. Its first half-minute says who
+  she is: she works from home ("Commute's a hallway. Tracker's on my big screen."), she knows the streets cold ("Sixth
+  goes uptown, babe. Take Ninth. It moves at six."), they love each other and she knows he didn't do it ("Love you too.
+  You didn't do this. So we prove it."). Then the backstory: Mr. Big's offer ("Terms by text. Like a dentist."), the
+  Blimpco trades with his login, the couch and Moon, the access log and the fifty-first floor ("Except the laptop.").
+  On a long drive: fired, charged, a headline; SUNY and the ketchups. At Chelsea Park an SUV whips past
   with the bag on its back seat while the Suits cross the lawn to keep him busy. Beat up the Suits (Knox talks HR, Dash
   runs in late). In their van: the tracker, cut out of the bag, and a burner phone with Mr. Big's text on it.
   SUPPORTERS +3: Jane, Moon and his mom.

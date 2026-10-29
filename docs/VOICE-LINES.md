@@ -3,7 +3,7 @@
 Every spoken line in the game, for a voice service or actors. Generated from the game's own source by
 `node wagmi/radio/build/voices.mjs` (do not edit by hand: change the words in the game, then rebuild).
 
-**Every voice in the build is synthesised** with open models (no macOS placeholder is left), until real recordings replace them. Synthesised: Dan (`dan-A`), Jane (`jane-B`), Mr. Big (`mrbig-D`), Knox (`knox-A`), Mack (`mack-B`), Fiona (`fiona-A`), Brick (`brick-A`), Dash (`dash-A`), Gears (`gears-D`), Bea (`bea-A`), Camp (`camp-A`); see below.
+**Every voice in the build is synthesised** with open models (no macOS placeholder is left), until real recordings replace them. Synthesised: Dan (`dan-A`), Jane (`jane-B`), Mr. Big (`mrbig-D`), Knox (`knox-A`), Mack (`mack-B`), Fiona (`fiona-A`), Brick (`brick-A`), Dash (`dash-A`), Gears (`gears-D`), Bea (`bea-A`), Camp (`camp-B`); see below.
 
 ## How to deliver
 
@@ -20,12 +20,12 @@ Every spoken line in the game, for a voice service or actors. Generated from the
 
 A speaker can be voiced by an open text-to-speech model instead of the macOS placeholders: Qwen3-TTS 12Hz (a voice
 designed from words, then cloned for every line) or Kokoro-82M, both Apache-2.0, run locally. The candidates the
-owner auditioned are in `wagmi/radio/build/tts-voices.mjs`: Dan `dan-A` .. `dan-C`; Jane `jane-A` .. `jane-C`; Mr. Big `mrbig-A` .. `mrbig-E`; Knox `knox-A`, `knox-B`; Mack `mack-A`, `mack-B`; Gears `gears-A` .. `gears-E`; Fiona `fiona-A`, `fiona-B`; Dash `dash-A`, `dash-B`; Brick `brick-A`, `brick-B`; Bea `bea-A`, `bea-B`; Camp `camp-A` (the audition files and the designs nobody
+owner auditioned are in `wagmi/radio/build/tts-voices.mjs`: Dan `dan-A` .. `dan-C`; Jane `jane-A` .. `jane-C`; Mr. Big `mrbig-A` .. `mrbig-E`; Knox `knox-A`, `knox-B`; Mack `mack-A`, `mack-B`; Gears `gears-A` .. `gears-E`; Fiona `fiona-A`, `fiona-B`; Dash `dash-A`, `dash-B`; Brick `brick-A`, `brick-B`; Bea `bea-A`, `bea-B`; Camp `camp-A`, `camp-B` (the audition files and the designs nobody
 picked are in `.scratch/voices/`). To give each pick to every line of that
 speaker, in one command (today's picks):
 
 ```sh
-node wagmi/radio/build/voices.mjs --tts dan-A,jane-B,mrbig-D,knox-A,mack-B,fiona-A,brick-A,dash-A,gears-D,bea-A,camp-A     # the picked names
+node wagmi/radio/build/voices.mjs --tts dan-A,jane-B,mrbig-D,knox-A,mack-B,fiona-A,brick-A,dash-A,gears-D,bea-A,camp-B     # the picked names
 ```
 
 - It records the pick in `wagmi/radio/build/tts/picks.json` (later builds keep using it: a changed line is synthesised
@@ -39,8 +39,9 @@ node wagmi/radio/build/voices.mjs --tts dan-A,jane-B,mrbig-D,knox-A,mack-B,fiona
   makes it again from its 5th to 8th takes (the source says ` take 4`); `--only <id>` is not needed.
 - A car call's register (its `mode` in `wagmi/mission/calls.js`): a `fast` call's lines (a chase) have their pauses
   tightened and their tempo up 1.1x, the pitch kept (the source says ` +fast`); on a `whisper` call (the tail) the
-  speaker on the phone (Jane) is whispered by the build, her own take turned to breath, 3 dB under (`whisper()` in
-  `dsp.mjs`; ` +whisper`), and Dan answers in his own voice. A real recording is used as it is: record those whispered
+  speaker on the phone is whispered by the build, her own take turned to breath, 3 dB under (`whisper()` in
+  `dsp.mjs`; ` +whisper`), and Dan answers in his own voice. Jane does not whisper (the owner, 28 Oct; her cast's
+  `whisper: false`): she says those lines in her own voice, 2 dB under (` +hushed`). A real recording is used as it is: record those whispered
   or fast.
 - A crowd (the Camp: engine `crowd` in `tts-voices.mjs`) is several Kokoro voices saying the line together, each a
   little late and at its own pace, mixed down to one file.
@@ -64,7 +65,7 @@ node wagmi/radio/build/voices.mjs --tts dan-A,jane-B,mrbig-D,knox-A,mack-B,fiona
 | Mack | "Mack Moneybags", the Suits' Midtown handler; his phone holds the group chat | Big, loud, panicky about his money; every sentence a pitch. | mack-B: Qwen3-TTS (qwen-nasal-hustler) |
 | Gears | Dan's mechanic: a big ex-pit-crew man with a tuning garage in West Chelsea | Slow, warm, proud of his work. | gears-D: Qwen3-TTS (qwen-old-gravel) |
 | Fiona | JPBank's Head of Community: she hosts its "JPBank Loves New York" community day in Washington Square, next to the Occupy camp | A hype host on a megaphone; everything is the best thing ever. | fiona-A: Qwen3-TTS (qwen-big-hype-mezzo) |
-| Camp | the Occupy JPBank camp in Washington Square: forty-odd people answering the people's mic | A crowd, eight voices together in the build: ragged, outdoors, cheerful and loud. | camp-A: a crowd of Kokoro voices (kokoro-crowd-of-8) |
+| Camp | the Occupy JPBank camp in Washington Square: forty-odd people answering the people's mic | A crowd, eight voices together in the build: ragged, outdoors, cheerful and loud. | camp-B: a crowd of Kokoro voices (kokoro-crowd-of-8-tight) |
 | Brick | the Suits' bouncer at Fiona's rally: an earpiece cord, a radio | Loud, jumpy, a hype man turned bouncer. | brick-A: Qwen3-TTS (qwen-gravel-bouncer) |
 | Bea | Ms. Bea: a retired Bronx science teacher in her sixties who runs the Occupy camp's kitchen and its people's mic; JPBank took her house | Warm, unhurried, commanding: a teacher who has never needed a microphone. | bea-A: Qwen3-TTS (qwen-teacher-low-alto) |
 
@@ -113,63 +114,71 @@ Mission 1 "Bagged" (wagmi/mission/m1.js): the Suits at Chelsea Park; searching t
 | 14 | `m1-jane-okay-im-on-the` | Jane | ...Okay. I'm on the tracker. They're cutting west. Who were they? |  | A beat as it sinks in, then all business, fast. |
 | 15 | `m1-dan-guys-from-my-old` | Dan | Guys from my old job. |  | Deadpan. |
 | 16 | `m1-jane-so-jpbank-great-narrows` | Jane | So, JPBank. Great, narrows it down. |  | Sarcastic, quick. |
-| 17 | `m1-dan-then-their-ceo-called` | Dan | Then their CEO called me. On video. From a leather chair. |  | Call `m1-drive`. |
-| 18 | `m1-jane-mr-big-called-you` | Jane | Mr. Big called you? Himself? |  | Call `m1-drive`. |
-| 19 | `m1-dan-he-wants-a-signed` | Dan | He wants a signed confession. 'Terms by text.' Like a dentist. |  | Call `m1-drive`. |
-| 20 | `m1-jane-youre-not-signing-anything` | Jane | You're not signing anything. |  | Call `m1-drive`. |
-| 21 | `m1-dan-somebody-at-jpbank-bought` | Dan | Somebody at JPBank bought Blimpco a week before the merger. With my login. |  | Call `m1-drive`. |
-| 22 | `m1-jane-the-blimp-company` | Jane | The blimp company. |  | Call `m1-drive`. |
-| 23 | `m1-dan-airship-company-theyre-sensitive` | Dan | Airship company. They're sensitive about it. |  | Call `m1-drive`. |
-| 24 | `m1-jane-and-the-night-those` | Jane | And the night those trades went in, you were where? |  | Call `m1-drive`. |
-| 25 | `m1-dan-on-your-couch-with` | Dan | On your couch. With Moon asleep on my feet. |  | Call `m1-drive`. |
-| 26 | `m1-jane-i-know-i-was` | Jane | I know. I was there. Since SUNY you haven't done one sneaky thing. |  | Call `m1-drive`. |
-| 27 | `m1-dan-i-took-two-ketchups` | Dan | I took two ketchups once. |  | Call `m1-drive`. |
-| 28 | `m1-jane-and-told-the-cashier` | Jane | And told the cashier. |  | Call `m1-drive`. |
-| 29 | `m1-dan-monday-they-fired-me` | Dan | Monday they fired me. Wednesday they charged me. Today I'm a headline. |  | Call `m1-drive`. |
-| 30 | `m1-jane-so-why-do-they` | Jane | So why do they want the laptop this bad? |  | Call `m1-drive`. |
-| 31 | `m1-dan-the-deal-rooms-access` | Dan | The deal room's access log. Keeping it was my job. I kept my own copy. |  | Call `m1-drive`. |
-| 32 | `m1-dan-whoever-logged-in-as` | Dan | Whoever logged in as me did it from the fifty-first floor. |  | Call `m1-drive`. |
-| 33 | `m1-jane-whats-on-fifty-one` | Jane | What's on fifty-one? |  | Call `m1-drive`. |
-| 34 | `m1-dan-mr-big-and-his` | Dan | Mr. Big. And his bathroom. It's a very big bathroom. |  | Call `m1-drive`. |
-| 35 | `m1-jane-so-yours-is-the` | Jane | So yours is the only clean copy. Tell me you backed it up. |  | Call `m1-drive`. |
-| 36 | `m1-dan-bank-rule-nothing-leaves` | Dan | Bank rule. Nothing leaves the laptop. |  | Call `m1-drive`. |
-| 37 | `m1-jane-except-the-laptop` | Jane | Except the laptop. |  | Call `m1-drive`. |
-| 38 | `m1-dan-except-the-laptop` | Dan | Except the laptop. |  | Call `m1-drive`. |
-| 39 | `m1-jane-the-face-of-insider` | Jane | 'The face of insider trading.' At least it's a good photo. |  | Call `m1-drive`. |
-| 40 | `m1-dan-its-my-badge-photo` | Dan | It's my badge photo. I look like a hostage. |  | Call `m1-drive`. |
-| 41 | `m1-jane-you-looked-like-that` | Jane | You looked like that at SUNY. In the library. Two a.m. |  | Call `m1-drive`. |
-| 42 | `m1-dan-printing-my-jpbank-cover` | Dan | Printing my JPBank cover letter. |  | Call `m1-drive`. |
-| 43 | `m1-jane-on-my-printer-card` | Jane | On my printer card. You said you'd pay me back. |  | Call `m1-drive`. |
-| 44 | `m1-dan-two-hot-dogs-i` | Dan | Two hot dogs. I was making a statement. |  | Call `m1-drive`. |
-| 45 | `m1-jane-the-statement-was-mustard` | Jane | The statement was mustard. It's still on my coat. |  | Call `m1-drive`. |
-| 46 | `m1-dan-hows-moon` | Dan | How's Moon? |  | Call `m1-drive`. |
-| 47 | `m1-jane-asleep-on-your-hoodie` | Jane | Asleep on your hoodie. She ate one of your socks. |  | Call `m1-drive`. |
-| 48 | `m1-dan-the-good-one` | Dan | The good one? |  | Call `m1-drive`. |
-| 49 | `m1-jane-she-only-eats-the` | Jane | She only eats the good ones. She misses you. |  | Call `m1-drive`. |
-| 50 | `m1-dan-tell-her-im-on` | Dan | Tell her I'm on a business trip. Business is bad. |  | Call `m1-drive`. |
-| 51 | `m1-dan-hows-work` | Dan | How's work? |  | Call `m1-drive`. |
-| 52 | `m1-jane-the-hospitals-billing-system` | Jane | The hospital's billing system thinks a man in Queens is a hundred and twelve and pregnant. |  | Call `m1-drive`. |
-| 53 | `m1-dan-is-he` | Dan | Is he? |  | Call `m1-drive`. |
-| 54 | `m1-jane-hes-forty-and-very` | Jane | He's forty and very confused. I fixed it. Nobody will ever know. |  | Call `m1-drive`. |
-| 55 | `m1-dan-ill-know` | Dan | I'll know. |  | Call `m1-drive`. |
-| 56 | `m1-jane-youre-a-fugitive-you` | Jane | You're a fugitive. You don't count. |  | Call `m1-drive`. |
-| 57 | `m1-dan-im-not-a-fugitive` | Dan | I'm not a fugitive. I'm charged. It's different. |  | Call `m1-drive`. |
-| 58 | `m1-jane-how` | Jane | How? |  | Call `m1-drive`. |
-| 59 | `m1-dan-more-paperwork` | Dan | More paperwork. |  | Call `m1-drive`. |
-| 60 | `m1-jane-what-happened-to-the` | Jane | What happened to the lawyer? |  | Call `m1-drive`. |
-| 61 | `m1-dan-she-read-the-paper` | Dan | She read the paper and said I'm 'not a good fit'. |  | Call `m1-drive`. |
-| 62 | `m1-jane-lawyers-say-that` | Jane | Lawyers say that? |  | Call `m1-drive`. |
-| 63 | `m1-dan-they-say-it-to` | Dan | They say it to guys whose face is on the paper. |  | Call `m1-drive`. |
-| 64 | `m1-jane-then-we-find-one` | Jane | Then we find one who reads logs. I'll bring the logs. |  | Call `m1-drive`. |
-| 65 | `m1-jane-are-you-driving-like` | Jane | Are you driving like a banker or like a person? |  | Call `m1-drive`. |
-| 66 | `m1-dan-whats-the-difference` | Dan | What's the difference? |  | Call `m1-drive`. |
-| 67 | `m1-jane-a-banker-thinks-red` | Jane | A banker thinks red lights are a suggestion. |  | Call `m1-drive`. |
-| 68 | `m1-dan-im-stopping-at-every` | Dan | I'm stopping at every light. |  | Call `m1-drive`. |
-| 69 | `m1-jane-liar-i-can-hear` | Jane | Liar. I can hear the rockets. |  | Call `m1-drive`. |
-| 70 | `m1-jane-tracker-stopped-chelsea-park` | Jane | Tracker stopped. Chelsea Park, Ninth and Twenty-Eighth. Don't do anything stupid. |  | Reading the location off her screen; the warning is sincere. |
-| 71 | `m1-dan-define-stupid` | Dan | Define stupid. |  | Deadpan, already decided. |
-| 72 | `m1-jane-going-there-alone` | Jane | Going there alone. |  | Flat, pointed. |
-| 73 | `m1-dan-then-im-already-doing` | Dan | Then I'm already doing it. |  | A small grin in the voice. Hangs up. |
+| 17 | `m1-dan-dont-you-have-work` | Dan | Don't you have work? |  | Call `m1-drive`. |
+| 18 | `m1-jane-i-work-from-home` | Jane | I work from home. Commute's a hallway. Tracker's on my big screen. |  | Call `m1-drive`. |
+| 19 | `m1-dan-ill-take-sixth-avenue` | Dan | I'll take Sixth Avenue. |  | Call `m1-drive`. |
+| 20 | `m1-jane-sixth-goes-uptown-babe` | Jane | Sixth goes uptown, babe. Take Ninth. It moves at six. |  | Call `m1-drive`. |
+| 21 | `m1-dan-love-you-getting-it` | Dan | Love you. Getting it in before prison. |  | Call `m1-drive`. |
+| 22 | `m1-jane-love-you-too-you` | Jane | Love you too. You didn't do this. So we prove it. |  | Call `m1-drive`. |
+| 23 | `m1-dan-then-their-ceo-called` | Dan | Then their CEO called me. On video. From a leather chair. |  | Call `m1-drive`. |
+| 24 | `m1-jane-mr-big-called-you` | Jane | Mr. Big called you? Himself? |  | Call `m1-drive`. |
+| 25 | `m1-dan-he-wants-a-signed` | Dan | He wants a signed confession. 'Terms by text.' Like a dentist. |  | Call `m1-drive`. |
+| 26 | `m1-jane-youre-not-signing-anything` | Jane | You're not signing anything. |  | Call `m1-drive`. |
+| 27 | `m1-dan-somebody-at-jpbank-bought` | Dan | Somebody at JPBank bought Blimpco a week before the merger. With my login. |  | Call `m1-drive`. |
+| 28 | `m1-jane-the-blimp-company` | Jane | The blimp company. |  | Call `m1-drive`. |
+| 29 | `m1-dan-airship-company-theyre-sensitive` | Dan | Airship company. They're sensitive about it. |  | Call `m1-drive`. |
+| 30 | `m1-jane-and-the-night-those` | Jane | And the night those trades went in, you were where? |  | Call `m1-drive`. |
+| 31 | `m1-dan-on-your-couch-with` | Dan | On your couch. With Moon asleep on my feet. |  | Call `m1-drive`. |
+| 32 | `m1-jane-i-know-i-was` | Jane | I know. I was right there. |  | Call `m1-drive`. |
+| 33 | `m1-jane-so-why-do-they` | Jane | So why do they want the laptop this bad? |  | Call `m1-drive`. |
+| 34 | `m1-dan-the-deal-rooms-access` | Dan | The deal room's access log. Keeping it was my job. I kept my own copy. |  | Call `m1-drive`. |
+| 35 | `m1-dan-whoever-logged-in-as` | Dan | Whoever logged in as me did it from the fifty-first floor. |  | Call `m1-drive`. |
+| 36 | `m1-jane-whats-on-fifty-one` | Jane | What's on fifty-one? |  | Call `m1-drive`. |
+| 37 | `m1-dan-mr-big-and-his` | Dan | Mr. Big. And his bathroom. It's a very big bathroom. |  | Call `m1-drive`. |
+| 38 | `m1-jane-so-yours-is-the` | Jane | So yours is the only clean copy. Tell me you backed it up. |  | Call `m1-drive`. |
+| 39 | `m1-dan-bank-rule-nothing-leaves` | Dan | Bank rule. Nothing leaves the laptop. |  | Call `m1-drive`. |
+| 40 | `m1-jane-except-the-laptop` | Jane | Except the laptop. |  | Call `m1-drive`. |
+| 41 | `m1-dan-except-the-laptop` | Dan | Except the laptop. |  | Call `m1-drive`. |
+| 42 | `m1-dan-monday-they-fired-me` | Dan | Monday they fired me. Wednesday they charged me. Today I'm a headline. |  | Call `m1-drive`. |
+| 43 | `m1-jane-the-face-of-insider` | Jane | 'The face of insider trading.' At least it's a good photo. |  | Call `m1-drive`. |
+| 44 | `m1-dan-its-my-badge-photo` | Dan | It's my badge photo. I look like a hostage. |  | Call `m1-drive`. |
+| 45 | `m1-jane-you-looked-like-that` | Jane | You looked like that at SUNY. In the library. Two a.m. |  | Call `m1-drive`. |
+| 46 | `m1-dan-printing-my-jpbank-cover` | Dan | Printing my JPBank cover letter. |  | Call `m1-drive`. |
+| 47 | `m1-jane-on-my-printer-card` | Jane | On my printer card. You said you'd pay me back. |  | Call `m1-drive`. |
+| 48 | `m1-dan-two-hot-dogs-i` | Dan | Two hot dogs. I was making a statement. |  | Call `m1-drive`. |
+| 49 | `m1-jane-the-statement-was-mustard` | Jane | The statement was mustard. It's still on my coat. |  | Call `m1-drive`. |
+| 50 | `m1-dan-you-never-asked-if` | Dan | You never asked if I did it. |  | Call `m1-drive`. |
+| 51 | `m1-jane-since-suny-you-havent` | Jane | Since SUNY you haven't done one sneaky thing. |  | Call `m1-drive`. |
+| 52 | `m1-dan-i-took-two-ketchups` | Dan | I took two ketchups once. |  | Call `m1-drive`. |
+| 53 | `m1-jane-and-told-the-cashier` | Jane | And told the cashier. |  | Call `m1-drive`. |
+| 54 | `m1-dan-hows-moon` | Dan | How's Moon? |  | Call `m1-drive`. |
+| 55 | `m1-jane-asleep-on-your-hoodie` | Jane | Asleep on your hoodie. She ate one of your socks. |  | Call `m1-drive`. |
+| 56 | `m1-dan-the-good-one` | Dan | The good one? |  | Call `m1-drive`. |
+| 57 | `m1-jane-she-only-eats-the` | Jane | She only eats the good ones. She misses you. |  | Call `m1-drive`. |
+| 58 | `m1-dan-tell-her-im-on` | Dan | Tell her I'm on a business trip. Business is bad. |  | Call `m1-drive`. |
+| 59 | `m1-dan-hows-work` | Dan | How's work? |  | Call `m1-drive`. |
+| 60 | `m1-jane-the-hospitals-billing-system` | Jane | The hospital's billing system thinks a man in Queens is a hundred and twelve and pregnant. |  | Call `m1-drive`. |
+| 61 | `m1-dan-is-he` | Dan | Is he? |  | Call `m1-drive`. |
+| 62 | `m1-jane-hes-forty-and-very` | Jane | He's forty and very confused. I fixed it. Nobody will ever know. |  | Call `m1-drive`. |
+| 63 | `m1-dan-ill-know` | Dan | I'll know. |  | Call `m1-drive`. |
+| 64 | `m1-jane-youre-a-fugitive-you` | Jane | You're a fugitive. You don't count. |  | Call `m1-drive`. |
+| 65 | `m1-dan-im-not-a-fugitive` | Dan | I'm not a fugitive. I'm charged. It's different. |  | Call `m1-drive`. |
+| 66 | `m1-jane-how` | Jane | How? |  | Call `m1-drive`. |
+| 67 | `m1-dan-more-paperwork` | Dan | More paperwork. |  | Call `m1-drive`. |
+| 68 | `m1-jane-what-happened-to-the` | Jane | What happened to the lawyer? |  | Call `m1-drive`. |
+| 69 | `m1-dan-she-read-the-paper` | Dan | She read the paper and said I'm 'not a good fit'. |  | Call `m1-drive`. |
+| 70 | `m1-jane-lawyers-say-that` | Jane | Lawyers say that? |  | Call `m1-drive`. |
+| 71 | `m1-dan-they-say-it-to` | Dan | They say it to guys whose face is on the paper. |  | Call `m1-drive`. |
+| 72 | `m1-jane-then-we-find-one` | Jane | Then we find one who reads logs. I'll bring the logs. |  | Call `m1-drive`. |
+| 73 | `m1-jane-are-you-driving-like` | Jane | Are you driving like a banker or like a person? |  | Call `m1-drive`. |
+| 74 | `m1-dan-whats-the-difference` | Dan | What's the difference? |  | Call `m1-drive`. |
+| 75 | `m1-jane-a-banker-thinks-red` | Jane | A banker thinks red lights are a suggestion. |  | Call `m1-drive`. |
+| 76 | `m1-dan-im-stopping-at-every` | Dan | I'm stopping at every light. |  | Call `m1-drive`. |
+| 77 | `m1-jane-liar-i-can-hear` | Jane | Liar. I can hear the rockets. |  | Call `m1-drive`. |
+| 78 | `m1-jane-tracker-stopped-chelsea-park` | Jane | Tracker stopped. Chelsea Park, Ninth and Twenty-Eighth. Don't do anything stupid. |  | Reading the location off her screen; the warning is sincere. |
+| 79 | `m1-dan-define-stupid` | Dan | Define stupid. |  | Deadpan, already decided. |
+| 80 | `m1-jane-going-there-alone` | Jane | Going there alone. |  | Flat, pointed. |
+| 81 | `m1-dan-then-im-already-doing` | Dan | Then I'm already doing it. |  | A small grin in the voice. Hangs up. |
 
 ## Mission 2
 
@@ -263,49 +272,49 @@ Mission 2 (wagmi/mission/m2*.js). Jane's car calls (wagmi/mission/calls.js, only
 | 84 | `m2-jane-the-whole-pretzel-and` | Jane | The whole pretzel, and a napkin. She has no regrets. |  | Call `m2-go`. |
 | 85 | `m2-jane-thats-it-the-van` | Jane | That's it. The van at the curb. Stay in the car. |  | Call `m2-go`. |
 | 86 | `m2-jane-let-it-pull-out` | Jane | Let it pull out first. Then you're a tail. |  | Call `m2-go`. |
-| 87 | `m2-jane-hey-its-me-im` | Jane | Hey. It's me. I'm whispering. |  | Call `m2-tail`, whispered. |
+| 87 | `m2-jane-hey-its-me-im` | Jane | Hey. It's me. I'm whispering. |  | Call `m2-tail`, low and close, not whispered. |
 | 88 | `m2-dan-why-are-you-whispering` | Dan | Why are you whispering? |  | Call `m2-tail`. |
-| 89 | `m2-jane-its-a-tail-you` | Jane | It's a tail. You whisper on a tail. |  | Call `m2-tail`, whispered. |
+| 89 | `m2-jane-its-a-tail-you` | Jane | It's a tail. You whisper on a tail. |  | Call `m2-tail`, low and close, not whispered. |
 | 90 | `m2-dan-theyre-in-a-van` | Dan | They're in a van, Jane. A block ahead. |  | Call `m2-tail`. |
-| 91 | `m2-jane-then-whisper-louder` | Jane | Then whisper louder. |  | Call `m2-tail`, whispered. |
-| 92 | `m2-jane-ive-got-the-van` | Jane | I've got the van. 'JPBank Security.' On the side. Subtle. |  | Call `m2-tail`, whispered. |
+| 91 | `m2-jane-then-whisper-louder` | Jane | Then whisper louder. |  | Call `m2-tail`, low and close, not whispered. |
+| 92 | `m2-jane-ive-got-the-van` | Jane | I've got the van. 'JPBank Security.' On the side. Subtle. |  | Call `m2-tail`, low and close, not whispered. |
 | 93 | `m2-dan-they-took-my-laptop` | Dan | They took my laptop, Jane. None of this is subtle. |  | Call `m2-tail`. |
-| 94 | `m2-jane-its-registered-to-a` | Jane | It's registered to a Mack Moneybags. Mack. He runs Midtown for the bank's security. |  | Call `m2-tail`, whispered. |
+| 94 | `m2-jane-its-registered-to-a` | Jane | It's registered to a Mack Moneybags. Mack. He runs Midtown for the bank's security. |  | Call `m2-tail`, low and close, not whispered. |
 | 95 | `m2-dan-mack-moneybags-did-his` | Dan | Mack Moneybags. Did his parents hate him? |  | Call `m2-tail`. |
-| 96 | `m2-jane-he-picked-it-he` | Jane | He picked it. He has it tattooed. In cursive. |  | Call `m2-tail`, whispered. |
-| 97 | `m2-jane-hang-back-if-they` | Jane | Hang back. If they make you, they'll bolt. |  | Call `m2-tail`, whispered. |
-| 98 | `m2-jane-theyre-heading-west-toward` | Jane | They're heading west. Toward the river. Nothing out there but yards and wind. |  | Call `m2-tail`, whispered. |
+| 96 | `m2-jane-he-picked-it-he` | Jane | He picked it. He has it tattooed. In cursive. |  | Call `m2-tail`, low and close, not whispered. |
+| 97 | `m2-jane-hang-back-if-they` | Jane | Hang back. If they make you, they'll bolt. |  | Call `m2-tail`, low and close, not whispered. |
+| 98 | `m2-jane-theyre-heading-west-toward` | Jane | They're heading west. Toward the river. Nothing out there but yards and wind. |  | Call `m2-tail`, low and close, not whispered. |
 | 99 | `m2-dan-why-would-bank-security` | Dan | Why would bank security need a yard? |  | Call `m2-tail`. |
-| 100 | `m2-jane-somewhere-to-put-things` | Jane | Somewhere to put things nobody's supposed to find. |  | Call `m2-tail`, whispered. |
-| 101 | `m2-jane-let-a-car-get` | Jane | Let a car get between you. Be boring. |  | Call `m2-tail`, whispered. |
+| 100 | `m2-jane-somewhere-to-put-things` | Jane | Somewhere to put things nobody's supposed to find. |  | Call `m2-tail`, low and close, not whispered. |
+| 101 | `m2-jane-let-a-car-get` | Jane | Let a car get between you. Be boring. |  | Call `m2-tail`, low and close, not whispered. |
 | 102 | `m2-dan-im-in-a-car` | Dan | I'm in a car with rockets. |  | Call `m2-tail`. |
-| 103 | `m2-jane-be-a-boring-car` | Jane | Be a boring car with rockets. |  | Call `m2-tail`, whispered. |
-| 104 | `m2-jane-macks-got-a-sports` | Jane | Mack's got a sports sedan too. Plate: MACK ONE. |  | Call `m2-tail`, whispered. |
+| 103 | `m2-jane-be-a-boring-car` | Jane | Be a boring car with rockets. |  | Call `m2-tail`, low and close, not whispered. |
+| 104 | `m2-jane-macks-got-a-sports` | Jane | Mack's got a sports sedan too. Plate: MACK ONE. |  | Call `m2-tail`, low and close, not whispered. |
 | 105 | `m2-dan-of-course-it-is` | Dan | Of course it is. |  | Call `m2-tail`. |
-| 106 | `m2-jane-leased-everything-mack-has` | Jane | Leased. Everything Mack has is leased. |  | Call `m2-tail`, whispered. |
+| 106 | `m2-jane-leased-everything-mack-has` | Jane | Leased. Everything Mack has is leased. |  | Call `m2-tail`, low and close, not whispered. |
 | 107 | `m2-dan-even-the-tattoo` | Dan | Even the tattoo? |  | Call `m2-tail`. |
-| 108 | `m2-jane-especially-the-tattoo` | Jane | Especially the tattoo. |  | Call `m2-tail`, whispered. |
+| 108 | `m2-jane-especially-the-tattoo` | Jane | Especially the tattoo. |  | Call `m2-tail`, low and close, not whispered. |
 | 109 | `m2-dan-whats-moon-doing` | Dan | What's Moon doing? |  | Call `m2-tail`. |
-| 110 | `m2-jane-watching-the-tracker-with` | Jane | Watching the tracker with me. She growls when the van turns. |  | Call `m2-tail`, whispered. |
+| 110 | `m2-jane-watching-the-tracker-with` | Jane | Watching the tracker with me. She growls when the van turns. |  | Call `m2-tail`, low and close, not whispered. |
 | 111 | `m2-dan-shes-never-growled-in` | Dan | She's never growled in her life. |  | Call `m2-tail`. |
-| 112 | `m2-jane-shes-growling-on-the` | Jane | She's growling on the inside. |  | Call `m2-tail`, whispered. |
-| 113 | `m2-jane-theyre-turning-in-the` | Jane | They're turning in. The container yard on Twelfth. |  | Call `m2-tail`, whispered. |
-| 114 | `m2-jane-im-hanging-up-before` | Jane | I'm hanging up before your phone rings in there. |  | Call `m2-tail`, whispered. |
+| 112 | `m2-jane-shes-growling-on-the` | Jane | She's growling on the inside. |  | Call `m2-tail`, low and close, not whispered. |
+| 113 | `m2-jane-theyre-turning-in-the` | Jane | They're turning in. The container yard on Twelfth. |  | Call `m2-tail`, low and close, not whispered. |
+| 114 | `m2-jane-im-hanging-up-before` | Jane | I'm hanging up before your phone rings in there. |  | Call `m2-tail`, low and close, not whispered. |
 | 115 | `m2-dan-its-on-silent` | Dan | It's on silent. |  | Call `m2-tail`. |
-| 116 | `m2-jane-its-never-on-silent` | Jane | It's never on silent. |  | Call `m2-tail`, whispered. |
-| 117 | `m2-jane-get-back-in-your` | Jane | Get back in your car. The van won't wait. |  | Call `m2-tail`, whispered. |
-| 118 | `m2-jane-good-find-the-van` | Jane | Good. Find the van. Stay back. |  | Call `m2-tail`, whispered. |
-| 119 | `m2-jane-too-close-ease-off` | Jane | Too close. Ease off. |  | Call `m2-tail`, whispered. |
-| 120 | `m2-jane-youre-in-his-mirrors` | Jane | You're in his mirrors. Drop back. |  | Call `m2-tail`, whispered. |
-| 121 | `m2-jane-dan-back-off` | Jane | Dan. Back. Off. |  | Call `m2-tail`, whispered. |
-| 122 | `m2-jane-youre-losing-him-close` | Jane | You're losing him. Close it up a little. |  | Call `m2-tail`, whispered. |
-| 123 | `m2-jane-dont-lose-him-hes` | Jane | Don't lose him. He's turning. |  | Call `m2-tail`, whispered. |
-| 124 | `m2-jane-better-stay-right-there` | Jane | Better. Stay right there. |  | Call `m2-tail`, whispered. |
+| 116 | `m2-jane-its-never-on-silent` | Jane | It's never on silent. |  | Call `m2-tail`, low and close, not whispered. |
+| 117 | `m2-jane-get-back-in-your` | Jane | Get back in your car. The van won't wait. |  | Call `m2-tail`, low and close, not whispered. |
+| 118 | `m2-jane-good-find-the-van` | Jane | Good. Find the van. Stay back. |  | Call `m2-tail`, low and close, not whispered. |
+| 119 | `m2-jane-too-close-ease-off` | Jane | Too close. Ease off. |  | Call `m2-tail`, low and close, not whispered. |
+| 120 | `m2-jane-youre-in-his-mirrors` | Jane | You're in his mirrors. Drop back. |  | Call `m2-tail`, low and close, not whispered. |
+| 121 | `m2-jane-dan-back-off` | Jane | Dan. Back. Off. |  | Call `m2-tail`, low and close, not whispered. |
+| 122 | `m2-jane-youre-losing-him-close` | Jane | You're losing him. Close it up a little. |  | Call `m2-tail`, low and close, not whispered. |
+| 123 | `m2-jane-dont-lose-him-hes` | Jane | Don't lose him. He's turning. |  | Call `m2-tail`, low and close, not whispered. |
+| 124 | `m2-jane-better-stay-right-there` | Jane | Better. Stay right there. |  | Call `m2-tail`, low and close, not whispered. |
 | 125 | `m2-jane-he-made-you-go` | Jane | He made you! Go, go, don't lose him! |  | Call `m2-tail`, fast and clipped. |
 | 126 | `m2-dan-going` | Dan | Going! |  | Call `m2-tail`, fast and clipped. |
-| 127 | `m2-jane-hes-turning-up-tenth` | Jane | He's turning up Tenth. Take the corner easy. |  | Call `m2-tail`, whispered. |
+| 127 | `m2-jane-hes-turning-up-tenth` | Jane | He's turning up Tenth. Take the corner easy. |  | Call `m2-tail`, low and close, not whispered. |
 | 128 | `m2-jane-up-tenth-go` | Jane | Up Tenth! Go! |  | Call `m2-tail`, fast and clipped. |
-| 129 | `m2-jane-left-on-fifty-fifth` | Jane | Left on Fifty-Fifth. That's the river. That's the yards. |  | Call `m2-tail`, whispered. |
+| 129 | `m2-jane-left-on-fifty-fifth` | Jane | Left on Fifty-Fifth. That's the river. That's the yards. |  | Call `m2-tail`, low and close, not whispered. |
 | 130 | `m2-jane-fifty-fifth-left-left` | Jane | Fifty-Fifth! Left, left! |  | Call `m2-tail`, fast and clipped. |
 | 131 | `m2-jane-thats-macks-car-hes` | Jane | That's Mack's car. He's heading for Herald Square. |  | Call `m2-chase`. |
 | 132 | `m2-jane-ram-him-dan-gently` | Jane | Ram him, Dan. Gently. Ish. |  | Quick, then a beat; "Ish." an afterthought. |

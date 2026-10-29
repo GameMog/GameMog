@@ -49,11 +49,14 @@ const PAUSE = [['Dan', WHITE, 'Hang on. Getting out.'], ['Jane', BLUE, "You got 
 const RESUME = [['Jane', BLUE, 'There you are. Where was I?'], ['Jane', BLUE, 'Welcome back. Seatbelt.']];
 
 export const CALLS = {
-  // m1-drive (m1 · drive, normal): The call that introduces Jane and the backstory: the frame, Mr. Big, the couch and
-  // Moon, SUNY, the firing, the laptop and why it matters (~84 s, protected: the wrap waits for it). The extras carry
-  // the rest (the headline, the printer card, Moon, her job, the lawyer). Lines 1-5 and the wrap are the old call,
-  // word for word (recorded). Wrap: Dan within 250 m of DEST (Chelsea Park) and the main lines done (an extra block is
-  // cut at its next line). Arriving first: the arrival scene hangs up whatever is left.
+  // m1-drive (m1 · drive, normal): The call that introduces Jane and the backstory. Its first ~35 s (owner, 28 Oct) say
+  // who she is, since arriving at the park hangs up the rest: they're a couple who love each other; she's in because she
+  // cares and knows he didn't do it; she works from home (the tracker on her big screen, so she can stay on all day);
+  // she knows the city's streets cold (Sixth goes uptown, Ninth moves at six). Then the frame, Mr. Big, the couch and
+  // Moon, the laptop and why it matters (~94 s, protected: the wrap waits for it). The extras carry the rest (the firing
+  // and the headline, the printer card, SUNY and the ketchups, Moon, her job, the lawyer). Lines 1-5 and the wrap are
+  // the old call, word for word (recorded). Wrap: Dan within 250 m of DEST (Chelsea Park) and the main lines done (an
+  // extra block is cut at its next line). Arriving first: the arrival scene hangs up whatever is left.
   'm1-drive': {
     step: 'm1:drive', trigger: 'enter-car', delay: 3, wrapAfterMain: true,
     main: [
@@ -61,7 +64,13 @@ export const CALLS = {
       ['Dan', WHITE, 'Because some guys in a van took it.'],
       ['Jane', BLUE, "...Okay. I'm on the tracker. They're cutting west. Who were they?"],
       ['Dan', WHITE, 'Guys from my old job.'],
-      ['Jane', BLUE, 'So, JPBank. Great, narrows it down.', 1.2],
+      ['Jane', BLUE, 'So, JPBank. Great, narrows it down.'],
+      ['Dan', WHITE, "Don't you have work?"],
+      ['Jane', BLUE, "I work from home. Commute's a hallway. Tracker's on my big screen."],
+      ['Dan', WHITE, "I'll take Sixth Avenue."],
+      ['Jane', BLUE, 'Sixth goes uptown, babe. Take Ninth. It moves at six.'],
+      ['Dan', WHITE, 'Love you. Getting it in before prison.'],
+      ['Jane', BLUE, "Love you too. You didn't do this. So we prove it.", 0.6],
       ['Dan', WHITE, 'Then their CEO called me. On video. From a leather chair.'],
       ['Jane', BLUE, 'Mr. Big called you? Himself?'],
       ['Dan', WHITE, "He wants a signed confession. 'Terms by text.' Like a dentist."],
@@ -71,10 +80,7 @@ export const CALLS = {
       ['Dan', WHITE, "Airship company. They're sensitive about it."],
       ['Jane', BLUE, 'And the night those trades went in, you were where?'],
       ['Dan', WHITE, 'On your couch. With Moon asleep on my feet.'],
-      ['Jane', BLUE, "I know. I was there. Since SUNY you haven't done one sneaky thing."],
-      ['Dan', WHITE, 'I took two ketchups once.'],
-      ['Jane', BLUE, 'And told the cashier.'],
-      ['Dan', WHITE, "Monday they fired me. Wednesday they charged me. Today I'm a headline."],
+      ['Jane', BLUE, 'I know. I was right there.'],
       ['Jane', BLUE, 'So why do they want the laptop this bad?'],
       ['Dan', WHITE, "The deal room's access log. Keeping it was my job. I kept my own copy."],
       ['Dan', WHITE, 'Whoever logged in as me did it from the fifty-first floor.'],
@@ -87,6 +93,7 @@ export const CALLS = {
     ],
     extra: [
       [
+        ['Dan', WHITE, "Monday they fired me. Wednesday they charged me. Today I'm a headline."],
         ['Jane', BLUE, "'The face of insider trading.' At least it's a good photo."],
         ['Dan', WHITE, "It's my badge photo. I look like a hostage."],
         ['Jane', BLUE, 'You looked like that at SUNY. In the library. Two a.m.'],
@@ -94,6 +101,12 @@ export const CALLS = {
         ['Jane', BLUE, "On my printer card. You said you'd pay me back."],
         ['Dan', WHITE, 'Two hot dogs. I was making a statement.'],
         ['Jane', BLUE, "The statement was mustard. It's still on my coat."],
+      ],
+      [
+        ['Dan', WHITE, 'You never asked if I did it.'],
+        ['Jane', BLUE, "Since SUNY you haven't done one sneaky thing."],
+        ['Dan', WHITE, 'I took two ketchups once.'],
+        ['Jane', BLUE, 'And told the cashier.'],
       ],
       [
         ['Dan', WHITE, "How's Moon?"],
