@@ -10,12 +10,16 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 
 const done = new WeakSet();
 const CLIPS = new Set(['suitIdle', 'suitIdleGuide', 'suitWalk', 'suitWalk2', 'suitBack', 'suitLeft', 'suitRight']);
+// (the runs, 29 Oct: the capture's hands bend ~70-80 deg back off the forearm as they pump, read as hands on backwards
+// as the Suits jump out of the van in the opening; their arms keep their own pump, only the hands are brought in line)
+const RUNS = new Set(['suitRun', 'suitDash']);
 // the angle out from the body's middle plane (deg) that is kept: A, and K of the capture's angle over it
 const UPPER = { A: 1.0, K: 0.15 }, FORE = { A: 4.0, K: 0.2 };
 const D = Math.PI / 180;
 
 export function relaxArms(clips, model) {
-  const list = (clips instanceof Map ? [...clips.values()] : Array.isArray(clips) ? clips : Object.values(clips)).filter((c) => c && CLIPS.has(c.name) && !done.has(c));
+  const all = (clips instanceof Map ? [...clips.values()] : Array.isArray(clips) ? clips : Object.values(clips));
+  const list = all.filter((c) => c && (CLIPS.has(c.name) || RUNS.has(c.name)) && !done.has(c));
   if (!list.length || !model) return;
   const rig = skClone(model), B = {};
   rig.traverse((o) => { if (o.isBone && !B[o.name]) B[o.name] = o; });
@@ -38,6 +42,7 @@ export function relaxArms(clips, model) {
   // turn bone by the world turn qr: local' = parentW^-1 * qr * parentW * local
   const turn = (bone) => { bone.parent.getWorldQuaternion(qp); bone.quaternion.premultiply(qp).premultiply(qr).premultiply(qp.invert()); bone.updateMatrixWorld(true); };
   for (const clip of list) {
+    if (RUNS.has(clip.name)) { handsIn(clip, mixer, rig, B, true); done.add(clip); continue; }
     const tr = {}; for (const t of clip.tracks) { const [bn, prop] = t.name.split('.'); if (prop === 'quaternion' && /^(upperArm|forearm)[LR]$/.test(bn)) tr[bn] = t; }
     const act = mixer.clipAction(clip); act.play();
     const fresh = {};
@@ -79,7 +84,7 @@ const ROLL = { back: 18, max: 80, twist: 0.5, flex: 6, straight: 0.85 };
 // extra curl, rad, per joint 1-2-3 (the clip's index and middle are curled ~10 deg a joint; ring and little at rest)
 const CURL = { index: [0.1, 0.22, 0.12], middle: [0.14, 0.26, 0.14], ring: [0.3, 0.42, 0.25], pinky: [0.34, 0.46, 0.26] };
 
-function handsIn(clip, mixer, rig, B) {
+function handsIn(clip, mixer, rig, B, run = false) {
   const V = THREE.Vector3, Q = THREE.Quaternion;
   const byBone = {}; for (const t of clip.tracks) { const [bn, prop] = t.name.split('.'); if (prop === 'quaternion') byBone[bn] = t; }
   const act = mixer.clipAction(clip); act.play();
@@ -101,7 +106,7 @@ function handsIn(clip, mixer, rig, B) {
       const right = wp(B.upperArmL).sub(wp(B.upperArmR)).setY(0).normalize(), up = new V(0, 1, 0), fwd = new V().crossVectors(right, up);
       const e = wp(F), h = wp(H), ax = h.clone().sub(e).normalize();
       // a raised forearm (a gesture) keeps its hand
-      const lift = Math.acos(THREE.MathUtils.clamp(-ax.y, -1, 1)), w = 1 - THREE.MathUtils.smoothstep(lift, 55 * D, 75 * D);
+      const lift = Math.acos(THREE.MathUtils.clamp(-ax.y, -1, 1)), w = run ? 1 : 1 - THREE.MathUtils.smoothstep(lift, 55 * D, 75 * D);
       // first the wrist: the capture bends the hand out and back off the forearm's line (the palm shown ahead); in line
       // with the forearm instead, the fingers a touch in toward the thigh (ROLL.flex deg)
       let hd = wp(M1).sub(h).normalize();
