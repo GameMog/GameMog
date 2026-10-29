@@ -408,6 +408,9 @@ async function buildCast(W) {
   for (const n of ['idle', 'talk', 'phone', 'shrug']) qClips[n + '/arms'] = masked(qClip(n), (b) => ARMS.test(b) || HEAD.test(b), n + '/arms');
   qClips['talk/armL'] = masked(qClip('talk'), (b) => ARMS.test(b) && b.endsWith('_L'), 'talk/armL');
   qClips['idle/noArmL'] = masked(qClip('idle'), (b) => !(ARMS.test(b) && b.endsWith('_L')), 'idle/noArmL');
+  // (and with the head left to a layer of its own: the tracker scene's 'He's got my laptop', his face kept to us)
+  qClips['idle/noArmLHead'] = masked(qClip('idle'), (b) => !(ARMS.test(b) && b.endsWith('_L')) && !HEAD.test(b), 'idle/noArmLHead');
+  qClips['talk/head'] = masked(qClip('talk'), (b) => HEAD.test(b), 'talk/head');
   const qRig = rig(Qn.mixer, qClips);
   // his head's forward, in the head bone's own frame (from the rest of his idle, facing +z), for looking at things; and
   // his laptop bag fitted to him in that same pose (buildBag)

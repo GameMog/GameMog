@@ -450,7 +450,11 @@ function createMission(W, { keep = false } = {}) {
       // he steps up to the door, picks the two up, turns away from the van with them; the burner buzzes
       const qz = keys([[0, QZ + 0.9], [2.4, QZ + 0.9], [3.5, QZ, 'out']]), qh = keys([[0, PI], [4.8, PI], [5.6, 0.25]]);
       C.qRig.set([[0, 'idle'], [2.4, 'walk', { speed: 0.8, fade: 0.25 }], [3.45, 'pickup', { loop: false, fade: 0.25 }], [4.5, 'idle', { fade: 0.3 }],
-        [4.8, ['walk/body', 'idle/arms'], { speed: 0.9, fade: 0.25 }], [5.6, ['idle/body', ['talk/arms', { from: 1.47, speed: 0.05 }]], { fade: 0.4 }], [13.6, 'idle', { fade: 0.5 }]]);
+        [4.8, ['walk/body', 'idle/arms'], { speed: 0.9, fade: 0.25 }], [5.6, ['idle/body', ['talk/arms', { from: 1.47, speed: 0.05 }]], { fade: 0.4 }],
+        // (29 Oct: 'He's got my laptop' was said with both hands held up at his chest, clawed: the text read, the burner
+        // comes down in his right hand to his side and his left, the tracker on its open palm, talks a little, his
+        // shoulders square and his face still to us, as the opening's van-side line)
+        [10.45, ['idle/noArmLHead', ['talk/armL', { from: 0.6 }], ['talk/head', { from: 1.47, speed: 0.05 }]], { fade: 0.6 }], [13.6, 'idle', { fade: 0.5 }]]);
       shots.push({ t: 0, cam: (t) => ({ pos: keys([[0, [VAN[0] + 1.25, 0.95, VAN[1] + 1.75]], [3.4, [VAN[0] + 1.05, 0.9, VAN[1] + 1.65]]], 'linear')(t), look: [lipX + 0.05, 0.62, lipZ], fov: 32, shake: 0.4 }) });
       shots.push({ t: 3.4, cam: (t) => ({ pos: keys([[3.4, [VAN[0] + 2.6, 1.5, VAN[1] + 3.4]], [9, [VAN[0] + 2.3, 1.5, VAN[1] + 3.2]]], 'linear')(t), look: [QX, 1.0, QZ - 0.1], fov: 38, shake: 0.5 }) });
       // (the close-up, 'He's got my laptop': his whole face with room over his hair, the burner in his hand under it; 28
@@ -460,8 +464,8 @@ function createMission(W, { keep = false } = {}) {
       const _l = new THREE.Vector3();
       // (28 Oct: the burner lay on his open, splayed fingers) gripped in his right hand once picked up: its back on his
       // palm, his fingers round its far edge, his thumb on its near edge; when it buzzes he brings it up in front of his
-      // chest to read it, its screen to his eyes (readK), and down again as he drops back into his idle
-      const readK = keys([[5.8, 0], [6.5, 1], [13.3, 1], [14.0, 0]]), hand = burnerHand(Q.bones);
+      // chest to read it, its screen to his eyes (readK), and down to his side once read (29 Oct: not held up through his line)
+      const readK = keys([[5.8, 0], [6.5, 1], [10.45, 1], [11.15, 0]]), hand = burnerHand(Q.bones);
       pose = (t) => {
         C.van.setDoor(doorK(t));
         danAt(QX, qz(t), qh(t));
