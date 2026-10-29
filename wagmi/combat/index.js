@@ -202,16 +202,48 @@ export async function install(W) {
   c.carPush = carPush;
   // dress a thug.glb body as one of JP Bank's security men (the intro's men too): the look's suit on its own material,
   // shadows on, and his glasses (and earpiece) on his head bone (obj.userData.shades: the glasses)
-  // (who he is: a Suit of the story by his root's name, 'Suit-Knox'; a brute the widest of them; the fight's other men
-  // the crew in turn)
+  // (who he is: a Suit of the story by his root's name, 'Suit-Knox'. A fight's man gets a face no other man in the scene
+  // has while one is free: the crew's five in turn (each fight starting at the next), then Knox's when the story's Knox
+  // is not shown (never Mack's: M2's own man); the brute is a heavy-built man (Brick, else Knox) while one is free, never
+  // Tank. Past that a face comes back, the one seen least (not the bald Tank while a man with hair is as free), with
+  // other hair, skin and suit, so no two read as the same man (28 Oct, round 3: the fights had cloned Tank three times))
   const CREW = MEN ? Object.keys(MEN).filter((k) => k !== 'knox' && k !== 'mack') : [];
   let crewN = 0;
+  const fightMen = [];
+  const inScene = (o) => { for (; o; o = o.parent) if (o.isScene) return true; return false; };
+  const pickMan = (brute) => {
+    const now = performance.now();
+    // (a man still in the scene, or dressed a moment ago and not yet added, holds his face; one taken out of the scene
+    // (disposed: the fight's pipeline probe too) gives it back at once)
+    for (let i = fightMen.length - 1; i >= 0; i--) { const f = fightMen[i]; if (!inScene(f.obj) && (f.gone || now - f.t > 2000)) fightMen.splice(i, 1); }
+    const used = new Map(), story = new Set();
+    // (the story's men in the scene and shown (the opening's crew stays hidden in it after the opening); Mack whenever
+    // he is in it: his yard)
+    for (const o of c.scene?.children || []) { const s = /^Suit-(\w+)$/.exec(o.name || ''), k = s && s[1].toLowerCase(); if (k && MEN[k] && (o.visible || k === 'mack')) story.add(k); }
+    for (const k of story) used.set(k, 1);
+    for (const f of fightMen) used.set(f.man, (used.get(f.man) || 0) + 1);
+    const k0 = crewN++ % Math.max(1, CREW.length), order = [...CREW.slice(k0), ...CREW.slice(0, k0), ...['knox'].filter((k) => MEN[k] && !story.has(k))];
+    const pool = brute ? ['brick', 'knox', ...order.filter((k) => k !== 'brick' && k !== 'knox' && k !== 'tank')].filter((k) => MEN[k] && !story.has(k)) : order;
+    const free = pool.find((k) => !used.get(k));
+    if (free) return { man: free, v: 0 };
+    // (the bald Tank is not the one to come back: other hair is what makes a face seen again another man)
+    let best = pool[0] || CREW[0]; for (const k of pool) { const a = used.get(k) || 0, b = used.get(best) || 0; if (a < b || (a === b && best === 'tank' && k !== 'tank')) best = k; }
+    return { man: best, v: used.get(best) || 0 };
+  };
+  // (a face seen again: his hair, his skin and his suit other than the first's)
+  const VAR_HAIR = [null, [0.15, 0.085, 0.05], [0.3, 0.29, 0.28], [0.09, 0.06, 0.045]], VAR_SKIN = [null, [0.8, 0.72, 0.66], [1.06, 1.0, 0.94], [0.9, 0.82, 0.78]];
   c.dressSuit = (obj, look = 'a', own = true) => {
-    const map = looks[look] || looks.a;
-    let man = null;
+    let map = looks[look] || looks.a;
+    let man = null, variant = 0;
     if (MEN && !obj.userData.man) {
       const nm = (obj.parent?.name || '').replace(/^Suit-/, '').toLowerCase();
-      man = MEN[nm] ? nm : look === 'brute' && MEN.tank ? 'tank' : CREW[crewN++ % CREW.length];
+      if (MEN[nm]) man = nm;
+      else {
+        const p = pickMan(look === 'brute'); man = p.man; variant = p.v;
+        if (variant && look !== 'brute') { const had = new Set(fightMen.filter((f) => f.man === man).map((f) => f.look)); const lk = ['a', 'b', 'c'].find((k) => !had.has(k)); if (lk) { look = lk; map = looks[lk] || map; } }
+        const f = { obj, man, look, t: performance.now(), gone: false }; fightMen.push(f);
+        for (const o of new Set([obj, obj.parent].filter(Boolean))) { o.addEventListener('removed', () => { f.gone = true; }); o.addEventListener('added', () => { f.gone = false; }); }
+      }
       for (const [k, m] of Object.entries(MEN)) if (k !== man) obj.getObjectByName(m.node)?.removeFromParent();
       // (his skeleton: the frame's scale and each bone's rest, as his skin was bound)
       const M = MEN[man], rig = obj.getObjectByName('ThugRig');
@@ -236,6 +268,22 @@ export async function install(W) {
       if (map && (!MEN || o.material.name === 'clothes')) { o.material.map = map; o.material.needsUpdate = true; }
       o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
     });
+    // (a face seen again in the scene: other hair and a little other skin, the hands as the face)
+    if (variant && own) { const h = VAR_HAIR[(variant - 1) % 3 + 1], s = VAR_SKIN[(variant - 1) % 3 + 1];
+      obj.traverse((o) => { const n = o.isMesh && o.material?.name; if (n === 'hair' || n === 'hairShell') o.material.color.setRGB(...h); else if (n === 'skin' || n === 'hands') o.material.color.multiply(new THREE.Color(...s)); }); }
+    // (the brute: the fight scales his frame up (enemy.js TYPES.brute, set on his root after this): his height brought to
+    // a big man's 1.97 m and his build wider (the more for a slim-built man), his head (and so his glasses) kept life
+    // size and as tall as it is wide, his hands life size)
+    if (look === 'brute' && MEN && man) {
+      let lo = Infinity, hi = -Infinity; obj.traverse((o) => { if (!o.isSkinnedMesh) return; const g = o.geometry; if (!g.boundingBox) g.computeBoundingBox(); lo = Math.min(lo, g.boundingBox.min.y); if (o.material?.name === 'skin') hi = Math.max(hi, g.boundingBox.max.y); });
+      const bones = {}; obj.traverse((b) => { if (b.isBone) bones[b.name] = b; });
+      queueMicrotask(() => { const R = obj.parent?.scale.y || 1, H = hi - lo; if (!(H > 1 && H < 2.3)) return; const s = Math.min(1, 1.97 / (H * R)), wide = { brick: 1.08, knox: 1.07, mack: 1.08 }[man] || 1.13;
+        obj.scale.set(s * wide, s, s * wide); obj.updateMatrixWorld(true);
+        const gy = 1 / (R * s), gw = gy / wide, rel = new THREE.Matrix4(), e = rel.elements;
+        // (the head's own axis nearest his up gets the height's counter-scale, the other two the width's)
+        if (bones.head) { rel.copy(obj.matrixWorld).invert().multiply(bones.head.matrixWorld); let k = 1, best = -1; for (let i = 0; i < 3; i++) { const v = Math.abs(e[i * 4 + 1]) / (Math.hypot(e[i * 4], e[i * 4 + 1], e[i * 4 + 2]) || 1); if (v > best) { best = v; k = i; } } bones.head.scale.set(k === 0 ? gy : gw, k === 1 ? gy : gw, k === 2 ? gy : gw); }
+        const g = 1 / (R * s * Math.cbrt(wide * wide)); for (const n of ['handL', 'handR']) bones[n]?.scale.setScalar(g); });
+    }
     let head = null; if (kit && !obj.userData.shades) obj.traverse((o) => { if (o.isBone && o.name === kit.head && !head) head = o; });
     if (head) {
       const M = kitMats(), part = (geo, mat, at) => { const m = new THREE.Mesh(geo, mat); m.applyMatrix4(at); m.castShadow = true; m.frustumCulled = false; head.add(m); return m; };
