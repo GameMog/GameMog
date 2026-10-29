@@ -52,7 +52,11 @@ const {
   atan,
   fwidth,
   If,
-  mx_noise_float
+  mx_noise_float,
+  cos,
+  vec4,
+  normalView,
+  positionViewDirection
 } = window.NYC.TSL;
 const { mergeGeometries } = window.NYC.Addons;
 
@@ -526,18 +530,18 @@ const HEAD = {
   ]
 };
 
-// Head profile at any height (for the hair shell)
+// Head profile at any height (for the hair shell): (round 3) on the same spline as the near head's rows
 function headAt(table, y) {
   if (y >= table[0][0]) return table[0];
-  for (let i = 0; i < table.length - 1; i++) {
-    const a = table[i];
-    const b = table[i + 1];
-    if (y <= a[0] && y >= b[0]) {
-      const t = (a[0] - y) / (a[0] - b[0]);
-      return a.map((v, k) => v + (b[k] - v) * t);
-    }
+  if (y <= table[table.length - 1][0]) return table[table.length - 1];
+  let lo = 0;
+  let hi = table.length - 1;
+  for (let it = 0; it < 30; it++) {
+    const m = (lo + hi) / 2;
+    if (headRowAt(table, m)[0] > y) lo = m;
+    else hi = m;
   }
-  return table[table.length - 1];
+  return headRowAt(table, (lo + hi) / 2);
 }
 
 // (Mog City, 28 Oct: 1.625 + 0.07, was 1.62 + 0.055: a forehead between the brows & the hairline, the nape lower)
@@ -645,13 +649,21 @@ function shoeSkin(z, k) {
 // (Mog City, 28 Oct) The near head: rows through the brows, eyes, nose, lips & chin (fractional rows of HEAD, so the
 // female target lines up), its columns gathered round the face, and a continuous relief: brow ridge, eye sockets & the
 // eyeballs in them, the nose's bridge, tip & wings, cheekbones, lips, chin, the jaw's angle, ears
-const HEAD_NEAR_ROWS = [0, 1, 2, 3, 3.5, 4, 4.25, 4.55, 4.83, 5.1, 5.45, 5.8, 6.05, 6.25, 6.47, 6.72, 7, 7.22, 7.5, 7.75, 8, 8.4, 8.8, 9.2, 9.6, 10];
+const HEAD_NEAR_ROWS = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.25, 4.55, 4.83, 5.1, 5.45, 5.8, 6.05, 6.25, 6.47, 6.72, 7, 7.22, 7.5, 7.75, 8, 8.4, 8.8, 9.2, 9.6, 10];
 const HEAD_NEAR_COLUMNS = 36;
 const HEAD_NEAR_XS = 0.93; // (a head narrower than it is deep, as people's are; its hair shell with it)
+// (round 3) a Catmull-Rom spline through the profile's rows (it was straight between them: a ridge at each row, the
+// bald heads lumpy at the back); the hair shell follows the same curve (headAt)
 function headRowAt(table, r) {
-  const i = Math.min(Math.floor(r), table.length - 2);
+  const n = table.length;
+  const i = Math.max(0, Math.min(Math.floor(r), n - 2));
   const t = r - i;
-  return table[i].map((v, k) => v + (table[i + 1][k] - v) * t);
+  const P = (k) => table[Math.max(0, Math.min(n - 1, k))];
+  const a = P(i - 1);
+  const b = P(i);
+  const c = P(i + 1);
+  const d = P(i + 2);
+  return b.map((v, k) => 0.5 * (2 * v + (c[k] - a[k]) * t + (2 * a[k] - 5 * v + 4 * c[k] - d[k]) * t * t + (3 * v - a[k] - 3 * c[k] + d[k]) * t * t * t));
 }
 function faceRelief(female) {
   const k = female ? 0.75 : 1;
@@ -908,7 +920,7 @@ function buildPersonGeometry(detail = 1) {
       });
     });
   }
-  B.loft(headRows, PART.HEAD, { capStart: true, capEnd: true, smooth: hi ? 1 : 0, lift: hi ? { below: 1.6, k: (y) => (y < 1.556 ? 0.06 : 0.3) } : null });
+  B.loft(headRows, PART.HEAD, { capStart: true, capEnd: true, smooth: hi ? 1 : 0, lift: hi ? { below: 1.66, k: (y) => (y < 1.575 ? lerp(0.06, 0.3, smooth(1.535, 1.575, y)) : lerp(0.3, 1, smooth(1.59, 1.66, y))) } : null });
 
   // Hair shell (volume morph) & long hair (length morph, folded away inside the head when short)
   // (repair, near) the shell closes in a dome at the crown, arches over the ears and lies in locks & masses
@@ -956,8 +968,9 @@ function buildPersonGeometry(detail = 1) {
 // (Mog City, 28 Oct) The palettes and each person's outfit are shared by both levels of detail, so nobody changes
 // clothes crossing farDistance; the far level keeps its few masks, the near one is dressed in detail (dressNear).
 // Skin tones (sRGB), fair to deep, each nudged warm, olive or rosy per person
-// (Mog City repair: the two fairest a little deeper & rosier, so sunlit faces do not go porcelain-white under ACES)
-const SKIN_COLORS = [0xc39882, 0xbd917b, 0xb68a6e, 0xab7d62, 0x9c6f54, 0x8b5f45, 0x784f38, 0x65402c, 0x513223, 0x3e261a];
+// (Mog City repair: the two fairest a little deeper & rosier, so sunlit faces do not go porcelain-white under ACES;
+// round 3: a little more so, and warmer, they still read porcelain in the rally's full sun; round 3 repair: a touch more)
+const SKIN_COLORS = [0xb4876f, 0xb0846b, 0xb68a6e, 0xab7d62, 0x9c6f54, 0x8b5f45, 0x784f38, 0x65402c, 0x513223, 0x3e261a];
 // Hair, drawn for the skin tone (Mog City repair): the fairer third any natural colour (blond & red among them); the
 // middle third black to mid brown; the deeper tones black & near-black browns, an occasional honey-brown dye
 const HAIR_COLORS = [0x17120f, 0x2c2019, 0x3d2c1e, 0x584022, 0x7a5a36, 0xa08050, 0x5e3020, 0x2a2624];
@@ -966,9 +979,10 @@ const HAIR_COLORS_DEEP = [0x15110f, 0x181311, 0x1b1612, 0x201914, 0x16120f, 0x24
 const GREY_HAIR = 0x9c968e;
 // New York outerwear: black, navy, charcoal, camel, olive, oxblood, grey, brown (women: black, camel, navy, burgundy,
 // cream, olive, grey, plum); knits, hoodies & tees from TOP_COLORS
-const COAT_COLORS = [0x1c1d21, 0x26324a, 0x37383b, 0x7f6244, 0x4a4d38, 0x4f2a2a, 0x5f605d, 0x5a4636];
-const COAT_COLORS_F = [0x1d1b20, 0xa98b66, 0x2a3854, 0x6e2530, 0xc4bcad, 0x4d5541, 0x7d7b78, 0x5b3646];
-const TOP_COLORS = [0xe4e2dc, 0x1d1d20, 0x88898a, 0x2a3450, 0x5b5f45, 0x6c2a33, 0xb5a993, 0x3b4d5e];
+// (round 3: a few more of each, slate, taupe, rust, teal, stone, oat, steel, so a group of four rarely shares one)
+const COAT_COLORS = [0x1c1d21, 0x26324a, 0x37383b, 0x7f6244, 0x4a4d38, 0x4f2a2a, 0x5f605d, 0x5a4636, 0x3b4a5c, 0x6b5a48];
+const COAT_COLORS_F = [0x1d1b20, 0xa98b66, 0x2a3854, 0x6e2530, 0xc4bcad, 0x4d5541, 0x7d7b78, 0x5b3646, 0x8a5a44, 0x2f4a4a, 0x9b8e7e];
+const TOP_COLORS = [0xe4e2dc, 0x1d1d20, 0x88898a, 0x2a3450, 0x5b5f45, 0x6c2a33, 0xb5a993, 0x3b4d5e, 0x7a3b2e, 0x4a6a7a, 0xd8c9a8];
 const SHIRT_COLORS = [0xe9e7e1, 0xbcc8da, 0xd2cbbb, 0x9ba8b9];
 const LEG_COLORS = [0x22242c, 0x2d4767, 0x1e2a40, 0x51473d, 0x7a705f, 0x252526]; // (1 & 2 are denim)
 const LEG_COLORS_F = [0x1c1c22, 0x30496b, 0x22304a, 0x46413b, 0xcbc4b7, 0x4a2a2e]; // (1 & 2 are denim)
@@ -1013,14 +1027,23 @@ function personLooks(info) {
   const knit = step(0.6, st).mul(step(st, 0.8));
   const hoodie = step(0.8, st).mul(step(st, 0.9));
   const tee = step(0.9, st);
-  const coat = mix(
-    mix(pickColorFromPalette(COAT_COLORS, lane(29.0)), pickColorFromPalette(COAT_COLORS_F, lane(29.0)), female),
-    pickColorFromPalette(TOP_COLORS, lane(29.0)),
-    knit.add(hoodie).add(tee)
+  // (round 3) each their own shade of the palette's colour (lighter or darker, a little warmer or cooler), so two people
+  // drawing the same coat or trousers do not match
+  const shade = (c, salt) => {
+    const w = lane(salt + 0.5).sub(0.5).mul(0.14);
+    return c.mul(lane(salt).mul(0.38).add(0.81)).mul(vec3(w.add(1.0), float(1.0), float(1.0).sub(w)));
+  };
+  const coat = shade(
+    mix(
+      mix(pickColorFromPalette(COAT_COLORS, lane(29.0)), pickColorFromPalette(COAT_COLORS_F, lane(29.0)), female),
+      pickColorFromPalette(TOP_COLORS, lane(29.0)),
+      knit.add(hoodie).add(tee)
+    ),
+    101.0
   );
   const shirt = pickColorFromPalette(SHIRT_COLORS, lane(71.0));
   const legLane = lane(47.0);
-  const legs = mix(pickColorFromPalette(LEG_COLORS, legLane), pickColorFromPalette(LEG_COLORS_F, legLane), female);
+  const legs = shade(mix(pickColorFromPalette(LEG_COLORS, legLane), pickColorFromPalette(LEG_COLORS_F, legLane), female), 103.0);
   const denim = step(1 / 6, legLane).mul(step(legLane, 0.5));
   const bald = step(lane(41.0), 0.08).mul(float(1.0).sub(female));
   const puffer = zip.mul(step(lane(53.0), 0.5));
@@ -1072,7 +1095,38 @@ function createPersonMaterial(pose, detail = 1) {
       const hc = vec3(0.0, 1.635, -0.012);
       p.assign(mix(p, p.sub(hc).mul(0.88).add(hc), sink));
     }
-    const n = attribute('normal', 'vec3');
+    const n = attribute('normal', 'vec3').toVar();
+    // (Mog City, round 3) the wrist: the hand turns at the wrist toward the ground. It has no bone of its own: its
+    // vertices turn about the wrist before skinning, by the forearm's own rotation, so a raised or outstretched arm's
+    // hand is not a rigid stick on the forearm. It flexes palm-ward or back (up to ~22 degrees, the forearm level) more
+    // than it tips to the side; with the forearm hanging, not at all. The wrist's skin bends over 4 cm.
+    {
+      const hand = step(abs(skin.w.sub(PART.HAND)), 0.25);
+      const sd = float(1.0).sub(step(4.5, skin.x).mul(2.0)); // +1 the left hand (forearm bone 4), -1 the right (6)
+      const dB = vec3(sd.mul(Math.sin(ARM_BIND_ABDUCTION)), -Math.cos(ARM_BIND_ABDUCTION), 0.0);
+      const sh = mix(vec3(0.185, 1.43, -0.015), vec3(0.165, 1.415, -0.015), info.y).mul(vec3(sd, 1.0, 1.0));
+      const qf = pose.element(base.add(int(skin.x).mul(2)));
+      const g = qrot(vec4(qf.xyz.negate(), qf.w), vec3(0.0, -1.0, 0.0)); // the ground's way, in the forearm's frame
+      const fAx = normalize(cross(dB, normalize(vec3(sd.mul(-0.9), 0.0, -0.43)))); // flexing, toward the palm
+      const dAx = cross(fAx, dB); // tipping to the side
+      const rv = cross(dB, g);
+      const wgt = smoothstep(0.535, 0.575, dot(p.sub(sh), dB)).mul(hand);
+      const tv = fAx.mul(dot(rv, fAx).mul(0.38)).add(dAx.mul(dot(rv, dAx).mul(0.14))).mul(wgt);
+      const ang = length(tv);
+      const k = tv.div(max(ang, 1e-5));
+      const c = cos(ang);
+      const s = sin(ang);
+      const W = sh.add(dB.mul(mix(float(0.555), float(0.547), info.y)));
+      const v = p.sub(W);
+      p.assign(W.add(v.mul(c)).add(cross(k, v).mul(s)).add(k.mul(dot(k, v)).mul(float(1.0).sub(c))));
+      n.assign(n.mul(c).add(cross(k, n).mul(s)).add(k.mul(dot(k, n)).mul(float(1.0).sub(c))));
+    }
+    if (detail) {
+      // (round 3 repair) the hair shell's last cm shaded as the head under it (its normal eased to the head's, out from
+      // the head's centre), so its thin rim does not catch the light as a line over the painted hairline
+      const shellN = step(abs(skin.w.sub(PART.HAIR)), 0.25).mul(smoothstep(0.8, 1.0, extra.z));
+      n.assign(normalize(mix(n, normalize(q0.sub(vec3(0.0, 1.635, -0.012))), shellN)));
+    }
     const w = skin.z;
     const ia = base.add(int(skin.x).mul(2));
     const ib = base.add(int(skin.y).mul(2));
@@ -1239,6 +1293,60 @@ function dressNear(mat, vInfo) {
     const dens = smoothstep(0.0, 1.0, region).mul(clamp(fhN.mul(0.3).add(0.82), 0.0, 1.0)).mul(L.beard);
     const beardC = mix(L.hair, L.hair.mul(vec3(1.12, 1.0, 0.92)), 0.4).mul(fhN.mul(0.22).mul(fine.mul(0.6).add(0.4)).add(0.9));
     return mix(stub, beardC, dens.mul(0.9));
+  };
+
+  // (round 3 repair) the hair's own colour where it is painted on the head (hairCover) and on the hair shell's last few
+  // cm, as one function of the position, so the two meet with no band and no rim: strands down the head, in clumps
+  const hairPaint = (q, L, fine) => {
+    const ha = atan(q.x, q.z.add(0.012));
+    const cs = vec2(sin(ha), sin(ha.add(Math.PI / 2)));
+    const clump = mx_noise_float(vec3(cs.x.mul(9.0), cs.y.mul(9.0), q.y.mul(26.0).add(L.lane(91.0).mul(5.0))));
+    const strand = mx_noise_float(vec3(cs.x.mul(44.0), cs.y.mul(44.0), q.y.mul(80.0)));
+    return L.hair.mul(clump.mul(0.12).add(strand.mul(0.08).mul(fine)).add(0.98));
+  };
+  // (round 3) the hairline's cover on the head at q (0 skin .. 1 hair; px: metres a pixel spans): temples receding on
+  // some men, sideburns, arched over the ear (its centre EAR_A behind the side) and down behind it to the nape (as
+  // hairlineNear); none for the bald. (repair) Soft and feathered, never a drawn edge: the line wanders over two scales
+  // (a few mm in slow waves, less in small ones); the hair thins from full ~1 mm under the shell's edge to bare skin over
+  // ~9 mm (16 at the nape), a soft gradient at a distance; nearer, wisps and tufts along the growth carry it a little past
+  // the soft line and leave skin between them inside it, and very close, single fine hairs
+  // (the hairline's height round the head at q: temples receding on some men, sideburns, arched over the ear (its
+  // centre EAR_A behind the side) and down behind it to the nape (as hairlineNear); off the head for the bald)
+  const hairlineOf = (q, L, female) => {
+    const z = q.z;
+    const ax = abs(q.x);
+    const hd = normalize(vec2(q.x, z.add(0.01)));
+    const recede = float(1.0).sub(female).mul(L.lane(83.0)).mul(0.016).mul(hd.x.mul(hd.x));
+    const sideburn = float(1.0).sub(female).mul(float(1.0).sub(L.bald)).mul(smoothstep(0.064, 0.074, ax)).mul(smoothstep(-0.004, 0.004, z)).mul(smoothstep(0.022, 0.012, z));
+    const cosE = abs(hd.x).mul(Math.cos(EAR_A)).sub(hd.y.mul(Math.sin(EAR_A)));
+    const earArch = float(1.0).sub(cosE).mul(-2.0 / (0.34 * 0.34)).exp().mul(0.046);
+    const hl = hd.y.mul(0.07).add(1.625).sub(hd.x.mul(hd.x).sub(hd.y.mul(hd.y)).mul(0.005)).add(earArch).add(L.bald.mul(0.3)).add(recede).sub(sideburn.mul(0.026));
+    return { hl, hd, sideburn };
+  };
+  const hairCover = (q, L, female, px) => {
+    const { hl, hd, sideburn } = hairlineOf(q, L, female);
+    const ha = atan(q.x, q.z.add(0.012));
+    const cs = vec2(sin(ha), sin(ha.add(Math.PI / 2)));
+    const wav = mx_noise_float(vec3(cs.x.mul(7.0), cs.y.mul(7.0), L.lane(83.0).mul(5.0))).mul(0.5).add(0.5).mul(0.0035)
+      .add(mx_noise_float(vec3(cs.x.mul(27.0), cs.y.mul(27.0), L.lane(83.0).mul(5.0).add(3.0))).mul(0.5).add(0.5).mul(0.0015));
+    const hlJ = hl.sub(wav).sub(0.001);
+    const soft = smoothstep(0.2, -0.6, hd.y).mul(0.007).add(0.01);
+    // 0 bare skin .. 1 full hair; the density eases in from nothing (no edge to see), full just under the shell's edge
+    const r = clamp(q.y.sub(hlJ.sub(soft)).div(hl.add(0.0015).sub(hlJ.sub(soft))), 0.0, 1.0); // (full only under the shell: skin shows through at its edge)
+    const base = r.pow(1.6);
+    // wisps along the growth: the density varied (never thresholded, so no edge forms), most where it is thin
+    const tuft = mx_noise_float(vec3(cs.x.mul(60.0), cs.y.mul(60.0), q.y.mul(170.0).add(L.lane(83.0).mul(7.0)))).mul(0.5).add(0.5);
+    const midH = smoothstep(0.003, 0.001, px);
+    const cov = base.mul(tuft.sub(0.5).mul(2.4).mul(midH).mul(float(1.0).sub(base)).add(1.0));
+    // very close, single fine hairs, a few reaching a little past the soft line
+    const hairs = mx_noise_float(vec3(cs.x.mul(240.0), cs.y.mul(240.0), q.y.mul(460.0))).mul(0.5).add(0.5);
+    const fineH = smoothstep(0.0005, 0.0002, px);
+    const r2 = clamp(q.y.sub(hlJ.sub(soft.mul(1.35))).div(soft.mul(1.35)), 0.0, 1.0);
+    const strand = smoothstep(0.6, 0.7, hairs).mul(r2.mul(float(1.0).sub(base))).mul(0.7).mul(fineH);
+    // (the sideburn's front edge thins too)
+    const sb = float(1.0).sub(sideburn.mul(smoothstep(hlJ.add(0.022), hlJ.add(0.004), q.y)).mul(0.45));
+    const cover = clamp(max(cov, strand), 0.0, 1.0).mul(sb);
+    return { cover, hl };
   };
 
   mat.colorNode = Fn(() => {
@@ -1434,24 +1542,49 @@ function dressNear(mat, vInfo) {
         const blotch = mx_noise_float(q.mul(55.0));
         // (repair) mottled, not porcelain: a slow tone variation and a warmer, rosier cast in the blotches
         const mottle = mx_noise_float(q.mul(26.0).add(L.lane(23.0).mul(9.0)));
-        const c = skin.mul(mx_noise_float(q.mul(170.0)).mul(0.03).add(1.0)).mul(mottle.mul(0.045).add(1.0))
-          .mul(mix(vec3(1.0), vec3(1.06, 0.94, 0.92), blotch.mul(0.5).add(0.5).mul(0.6))).toVar();
+        // (round 3) and, close up, a finer grain (pores, tiny blemishes) over it
+        const grain = mx_noise_float(q.mul(430.0)).mul(0.024).mul(fine);
+        const c = skin.mul(mx_noise_float(q.mul(170.0)).mul(0.035).add(1.0).add(grain)).mul(mottle.mul(0.08).add(1.0))
+          .mul(mix(vec3(1.0), vec3(1.06, 0.94, 0.92), blotch.mul(0.5).add(0.5).mul(0.7))).toVar();
+        // (repair) and in hue, a little redder here, a little yellower there (skin is not one even tint)
+        const hueN = mx_noise_float(q.mul(62.0).add(L.lane(23.0).mul(4.0)));
+        c.assign(c.mul(vec3(hueN.mul(0.035).add(1.0), hueN.mul(-0.008).add(1.0), hueN.mul(-0.035).add(1.0))));
         // flush on the cheeks, the nose tip & the ears; the eye sockets, under the eyes, the nose's sides, the philtrum,
         // the fold from nose to mouth, the shadow under the lower lip
-        const warm = vec3(1.07, 0.9, 0.87);
+        // (round 3: broader & warmer, the nose & its bridge, the chin; a little less on deep skin)
+        // (repair) the cheeks' flush broad & soft, along the cheekbones and across the nose, broken by the mottling (it
+        // read as round blush patches on fair faces)
+        const warm = vec3(1.08, 0.9, 0.87);
         const ear = smoothstep(0.074, 0.086, ax).mul(smoothstep(0.012, -0.004, z)).mul(smoothstep(-0.05, -0.036, z)).mul(smoothstep(1.57, 1.583, y)).mul(smoothstep(1.656, 1.64, y));
-        const flush = blob(ax.sub(0.043), y.sub(1.597), float(0.017), float(0.012)).mul(0.55).mul(front)
-          .add(blob(ax, y.sub(1.588), float(0.008), float(0.008)).mul(0.45).mul(front))
-          .add(ear.mul(0.5));
+        const flush = blob(ax.sub(0.036), y.sub(1.597), float(0.034), float(0.021)).mul(0.5).mul(mottle.mul(0.6).add(0.85)).mul(front)
+          .add(blob(ax.sub(0.018), y.sub(1.603), float(0.03), float(0.011)).mul(0.14).mul(front))
+          .add(blob(ax, y.sub(1.596), float(0.042), float(0.03)).mul(0.22).mul(front))
+          .add(blob(ax, y.sub(1.55), float(0.026), float(0.013)).mul(0.16).mul(front))
+          .add(blob(ax.sub(0.031), y.sub(1.6355), float(0.013), float(0.0035)).mul(0.25).mul(front))
+          .add(blob(ax, y.sub(1.589), float(0.01), float(0.011)).mul(0.5).mul(front))
+          .add(blob(ax, y.sub(1.612), float(0.006), float(0.02)).mul(0.25).mul(front))
+          .add(blob(ax, y.sub(1.524), float(0.018), float(0.011)).mul(0.3).mul(front))
+          .add(ear.mul(0.6))
+          .mul(mix(float(1.0), float(0.55), L.skinT));
         c.assign(c.mul(mix(vec3(1.0), warm, clamp(flush, 0.0, 1.0))));
-        const socket = blob(ax.sub(0.031), y.sub(1.63), float(0.019), float(0.012)).mul(front).mul(0.17).add(blob(ax.sub(0.03), y.sub(1.637), float(0.015), float(0.004)).mul(front).mul(0.08));
+        // (round 3) planes under a flat light: the forehead a little lighter & yellower, the temples cooler, shade under
+        // the brow ridge and along the jaw's underside & angle
+        const forehead = blob(ax, y.sub(1.676), float(0.034), float(0.02)).mul(front);
+        c.assign(c.mul(mix(vec3(1.0), vec3(1.04, 1.02, 0.96), forehead)));
+        const underBrow = blob(ax.sub(0.031), y.sub(1.639), float(0.019), float(0.0055)).mul(front).mul(0.11);
+        const templeS = blob(ax.sub(0.07), y.sub(1.648), float(0.012), float(0.022)).mul(0.08);
+        const jawS = smoothstep(1.553, 1.522, y).mul(smoothstep(0.022, 0.056, ax)).mul(0.15)
+          .add(smoothstep(0.046, 0.074, ax).mul(smoothstep(1.66, 1.57, y)).mul(0.05)); // (repair) the face's sides turning away
+        c.assign(c.mul(float(1.0).sub(underBrow).sub(templeS).sub(jawS)));
+        const socket = blob(ax.sub(0.031), y.sub(1.63), float(0.019), float(0.012)).mul(front).mul(0.21).add(blob(ax.sub(0.03), y.sub(1.637), float(0.015), float(0.004)).mul(front).mul(0.08));
         const underEye = blob(ax.sub(0.03), y.sub(1.6185), float(0.012), float(0.0035)).mul(front);
-        const noseSide = blob(ax.sub(0.0125), y.sub(1.603), float(0.0035), float(0.012)).mul(front).mul(0.08);
+        const noseSide = blob(ax.sub(0.0125), y.sub(1.603), float(0.0035), float(0.012)).mul(front).mul(0.11)
+          .add(blob(ax, y.sub(1.5765), float(0.009), float(0.0028)).mul(front).mul(0.1)); // (repair) and the shade under it
         const philtrum = blob(ax, y.sub(1.564), float(0.0028), float(0.006)).mul(front).mul(0.05);
         const t = clamp(ax.sub(0.0135).mul(0.4626).add(float(1.574).sub(y).mul(0.8866)).div(0.0259), 0.0, 1.0);
         const nlD = length(vec2(ax.sub(mix(float(0.0135), float(0.0255), t)), y.sub(mix(float(1.574), float(1.551), t))));
         const nasolab = smoothstep(0.0028, 0.0, nlD).mul(front).mul(mix(float(0.04), float(0.1), step(L.lane(37.0), 0.25)));
-        const underLip = blob(ax, y.sub(1.5355), float(0.012), float(0.0028)).mul(front).mul(0.1);
+        const underLip = blob(ax, y.sub(1.5355), float(0.013), float(0.0034)).mul(front).mul(0.15);
         // (repair) the ear's form, painted where it stands out of the head: the rim (helix) catching light, the groove
         // inside it, the bowl (concha) & canal in shade, so it reads as an ear in profile
         const earBaseX = y.sub(1.622).mul(0.14).add(0.0781).mul(mix(float(1.0), float(0.94), female));
@@ -1473,8 +1606,12 @@ function dressNear(mat, vInfo) {
         const bow = blob(ax, float(0.0), float(0.0035), float(1.0)).mul(0.0009).negate().add(blob(ax.sub(0.0052), float(0.0), float(0.0028), float(1.0)).mul(0.0005));
         const yUL = y0.add(lw.pow(0.55).mul(0.006)).add(bow);
         const yLL = y0.sub(lw.pow(0.5).mul(mix(float(0.0072), float(0.0082), female)));
-        const upperL = smoothstep(aa.negate(), aa, yUL.sub(y)).mul(smoothstep(aa.negate(), aa, y.sub(y0))).mul(step(mu, 1.0)).mul(front);
-        const lowerL = smoothstep(aa.negate(), aa, y.sub(yLL)).mul(smoothstep(aa.negate(), aa, y0.sub(y))).mul(step(mu, 1.0)).mul(front);
+        // (round 3: the lips' outer border soft, as real lips' is, and fading into the corners: no painted doll's mouth;
+        // the line between them stays crisp)
+        const lf = max(aa, 0.0007);
+        const lipEnds = smoothstep(1.0, 0.82, mu);
+        const upperL = smoothstep(lf.negate(), lf, yUL.sub(y)).mul(smoothstep(aa.negate(), aa, y.sub(y0))).mul(lipEnds).mul(front);
+        const lowerL = smoothstep(lf.mul(-1.6), lf.mul(1.6), y.sub(yLL)).mul(smoothstep(aa.negate(), aa, y0.sub(y))).mul(lipEnds).mul(front);
         const lips = clamp(upperL.add(lowerL), 0.0, 1.0);
 
         // (repair) where the head meets the neck (the sides & back below the jaw, under the chin) it takes the neck's tone
@@ -1483,50 +1620,82 @@ function dressNear(mat, vInfo) {
         // stubble or a beard (men), soft-edged
         c.assign(withBeard(c, q, L, lips, fine));
 
-        // brows: an arch, thicker inside, tapering out; strands up close
+        // brows: an arch, thicker inside, tapering out; (round 3) hairs, not a painted band: strokes rising steeply at
+        // the inner end and lying along the arch outward, the edge broken, skin between them toward the edges up close;
+        // a soft tone at a distance
         const bx = ax.sub(0.0125).div(0.04);
         const yb = float(1.6458).add(sin(min(bx.mul(1.2), 1.0).mul(Math.PI)).mul(mix(float(0.0026), float(0.0034), female))).sub(bx.mul(0.0012));
         const th = mix(float(0.0056), float(0.0022), clamp(bx, 0.0, 1.0)).mul(mix(float(1.0), float(0.7), female)).mul(L.lane(7.0).mul(0.4).add(0.8));
-        const brow = smoothstep(th.mul(0.5).add(aa), th.mul(0.5).sub(aa).max(0.0), abs(y.sub(yb)))
-          .mul(smoothstep(0.0, 0.12, bx)).mul(smoothstep(1.0, 0.82, bx)).mul(front)
-          .mul(sin(ax.mul(1100.0).add(y.mul(1700.0))).mul(0.2).mul(fine).add(0.85));
+        const fineB = smoothstep(0.0012, 0.0005, px);
+        const bAng = mix(float(1.2), float(0.15), smoothstep(0.0, 0.35, bx)).sub(smoothstep(0.4, 1.0, bx).mul(0.35));
+        const cb = cos(bAng);
+        const sb = sin(bAng);
+        const strokes = mx_noise_float(vec3(ax.mul(cb).add(y.mul(sb)).mul(380.0), y.mul(cb).sub(ax.mul(sb)).mul(1800.0), L.lane(7.0).mul(10.0)));
+        const bEdge = mx_noise_float(vec3(ax.mul(1400.0), y.mul(1400.0), 2.3)).mul(0.0006).mul(fineB);
+        const browM = smoothstep(th.mul(0.72).add(aa), th.mul(0.28), abs(y.sub(yb)).add(bEdge))
+          .mul(smoothstep(0.0, 0.14, bx)).mul(smoothstep(1.02, 0.8, bx)).mul(front);
+        const brow = browM.mul(mix(float(0.8), smoothstep(-0.3, 0.12, strokes.add(browM.mul(0.35))).mul(0.95), fineB));
         const browC = mix(hair, color(0x2a1d16), 0.35).mul(0.7);
         c.assign(mix(c, browC, brow));
 
-        // eyes: almond lids (outer corners a touch higher), sclera shaded under the lid & toward the corners, an
-        // iris with a dark limbal ring, the pupil; the lash line, the lid's crease, a fainter lower lash line
+        // eyes: almond lids (outer corners a touch higher), sclera shaded under the lid & toward the corners, the
+        // pupil; (round 3) depth: the iris with fibres, a lighter ring round the pupil & a dark limbal ring at its edge,
+        // in the upper lid's shadow; a catchlight (the same side in both eyes); the pink inner corner; the wet rim of
+        // the lower lid; a darker, fuller upper lash line (thickest outward), the lid's crease, a fainter lower one
         const ex = ax.sub(0.0315);
         const ey = y.sub(1.6272).sub(ex.mul(0.08));
-        const eu = ex.div(0.0128);
+        const eu = ex.div(0.0132);
         const ews = clamp(float(1.0).sub(eu.mul(eu)), 0.0, 1.0).sqrt();
-        const yU = ews.mul(0.005);
-        const yL = ews.mul(-0.0039);
+        const yU = ews.mul(0.0053);
+        const yL = ews.mul(-0.004);
         const open = smoothstep(aa.negate(), aa, yU.sub(ey)).mul(smoothstep(aa.negate(), aa, ey.sub(yL))).mul(step(abs(eu), 1.0)).mul(front);
         const ir = length(vec2(ex.add(0.0004), ey.add(0.0004)));
-        const iris = smoothstep(aa.add(0.0056), float(0.0056).sub(aa), ir);
+        const rr = ir.div(0.0057);
+        const iris = smoothstep(aa.add(0.0057), float(0.0057).sub(aa), ir);
         const pupil = smoothstep(aa.add(0.0022), float(0.0022).sub(aa).max(0.0), ir);
-        const irisC = pickColorFromPalette(IRIS_COLORS, L.lane(97.0)).mul(mix(float(1.3), float(0.45), smoothstep(0.0022, 0.0056, ir)));
-        const lidShadow = smoothstep(yU.sub(0.0035), yU, ey);
-        const sclera = mix(vec3(0.36, 0.33, 0.31), skin, mix(float(0.3), float(0.55), L.skinT)).mul(float(1.0).sub(eu.mul(eu).mul(0.55))).mul(float(1.0).sub(lidShadow.mul(0.7)));
-        const eyeC = mix(mix(sclera, irisC.mul(float(1.0).sub(lidShadow.mul(0.35))), iris), vec3(0.015, 0.012, 0.012), pupil);
+        const ia = atan(ey.add(0.0004), ex.add(0.0004));
+        const fib = mx_noise_float(vec3(sin(ia).mul(14.0), sin(ia.add(Math.PI / 2)).mul(14.0), rr.mul(2.5).add(L.lane(97.0).mul(9.0))));
+        const collar = smoothstep(0.4, 0.5, rr).mul(smoothstep(0.7, 0.55, rr));
+        const limbal = smoothstep(0.74, 0.98, rr);
+        const irisC = pickColorFromPalette(IRIS_COLORS, L.lane(97.0)).mul(mix(float(1.3), float(0.85), rr))
+          .mul(fib.mul(mix(float(0.22), float(0.42), fine)).add(1.0)).mul(collar.mul(0.3).add(1.0)).mul(float(1.0).sub(limbal.mul(0.72)));
+        const lidShadow = smoothstep(yU.sub(0.0038), yU, ey);
+        const sclera = mix(vec3(0.36, 0.33, 0.31), skin, mix(float(0.3), float(0.55), L.skinT)).mul(float(1.0).sub(eu.mul(eu).mul(0.55))).mul(float(1.0).sub(lidShadow.mul(0.72)));
+        const caruncle = blob(ex.add(0.0121), ey.add(0.0002), float(0.0013), float(0.0016));
+        const scleraC = mix(sclera, skin.mul(vec3(0.95, 0.62, 0.6)), caruncle.mul(0.75));
+        const eyeC = mix(mix(scleraC, irisC.mul(float(1.0).sub(lidShadow.mul(0.42))), iris), vec3(0.012, 0.01, 0.01), pupil).toVar();
+        // (the catchlight: up & to the person's left of each pupil; as wide as a pixel at least, dimmer as it widens)
+        const cR = max(float(0.0006), px.mul(0.7));
+        const catchL = blob(q.x.sub(sign(q.x).mul(0.0311)).sub(0.0017), ey.sub(0.0015), cR, cR).mul(float(0.0006).div(cR).pow(2.0)).mul(float(1.0).sub(lidShadow.mul(0.6)));
+        eyeC.assign(mix(eyeC, vec3(0.9, 0.92, 0.95), clamp(catchL.mul(0.9), 0.0, 1.0)));
         c.assign(mix(c, eyeC, open));
-        const lashW = mix(float(0.0009), float(0.0013), female);
-        const lash = smoothstep(lashW.add(aa), lashW.sub(aa).max(0.0), abs(ey.sub(yU).sub(0.0005))).mul(step(abs(eu), mix(float(1.05), float(1.15), female))).mul(front);
+        // (the wet rim of the lower lid, catching the light)
+        const wetRim = smoothstep(aa.add(0.0005), float(0.0), abs(ey.sub(yL).sub(0.00035))).mul(step(abs(eu), 0.95)).mul(front).mul(0.22);
+        c.assign(mix(c, skin.mul(vec3(1.15, 0.95, 0.93)), wetRim));
+        const lashW = mix(float(0.0011), float(0.0015), female).mul(smoothstep(-1.1, 0.4, eu).mul(0.45).add(0.75));
+        const lash = smoothstep(lashW.add(aa), lashW.sub(aa).max(0.0), abs(ey.sub(yU).sub(0.0005))).mul(smoothstep(mix(float(1.06), float(1.12), female), float(0.9), abs(eu))).mul(front);
         const lowLash = smoothstep(aa.add(0.0005), float(0.0), abs(ey.sub(yL).add(0.0003))).mul(step(abs(eu), 1.0)).mul(front).mul(0.3);
-        const crease = smoothstep(aa.add(0.0009), float(0.0), abs(ey.sub(yU).sub(0.0042).sub(eu.mul(eu).mul(-0.0015)))).mul(step(abs(eu), 1.1)).mul(front).mul(0.22).mul(mid);
-        c.assign(mix(c, mix(color(0x16100d), hair.mul(0.3), 0.3), lash.mul(0.92)));
+        const crease = smoothstep(aa.add(0.0009), float(0.0), abs(ey.sub(yU).sub(0.0044).sub(eu.mul(eu).mul(-0.0015)))).mul(step(abs(eu), 1.1)).mul(front).mul(0.28).mul(mid);
+        c.assign(mix(c, mix(color(0x0e0907), hair.mul(0.25), 0.25), lash.mul(0.95)));
         const lid = smoothstep(0.0, 0.0012, ey.sub(yU)).mul(smoothstep(0.0042, 0.0028, ey.sub(yU))).mul(step(abs(eu), 1.05)).mul(front).mul(0.12);
         c.assign(c.mul(float(1.0).sub(lowLash).sub(crease).sub(lid)));
 
         // lips: upper darker, lower fuller & catching the light; lipstick on some women; the line between them
-        const lipBase = skin.mul(vec3(0.95, 0.7, 0.68)).mul(0.92);
+        // (repair) not painted on: a colour nearer the skin (more so on men); the upper lip shaded toward the line (it
+        // turns in), the lower one lit in its middle and turning under at its edge; the line darkest in from the corners,
+        // lighter at the middle; the light roll over the upper lip's border; the corners tucked in
+        const lipBase = skin.mul(mix(vec3(0.96, 0.79, 0.77), vec3(0.95, 0.73, 0.71), female)).mul(0.93);
         const stick = female.mul(step(L.lane(77.0), 0.35));
         const lipC = mix(lipBase, pickColorFromPalette(LIP_COLORS, L.lane(79.0)), stick.mul(0.6));
-        const lipShade = upperL.mul(0.84).add(lowerL.mul(blob(ax, y.sub(1.5448), float(0.009), float(0.0022)).mul(0.14).add(1.04)));
+        const upShade = mix(float(0.92), float(0.78), smoothstep(yUL, y0, y));
+        const loShade = blob(ax, y.sub(1.5452), float(0.01), float(0.0024)).mul(0.16).add(1.04).sub(smoothstep(y0.sub(0.003), yLL, y).mul(0.1));
+        const lipShade = upperL.mul(upShade).add(lowerL.mul(loShade));
         c.assign(mix(c, lipC.mul(lipShade), lips));
-        const ml = smoothstep(aa.add(0.0007), float(0.0), abs(y.sub(y0).add(0.0001))).mul(smoothstep(1.08, 0.75, mu)).mul(front);
-        const corners = blob(ax.sub(mw), y.sub(y0), float(0.0024), float(0.0018)).mul(front).mul(0.3);
-        c.assign(mix(c, skin.mul(0.25), ml.mul(0.85)).mul(float(1.0).sub(corners)));
+        const ml = smoothstep(aa.add(0.0007), float(0.0), abs(y.sub(y0).add(0.0001))).mul(smoothstep(1.08, 0.75, mu)).mul(front)
+          .mul(smoothstep(0.1, 0.65, mu).mul(0.3).add(0.6));
+        const corners = blob(ax.sub(mw), y.sub(y0), float(0.003), float(0.0022)).mul(front).mul(0.34);
+        const roll = smoothstep(0.0013, 0.0, abs(y.sub(yUL).sub(0.001))).mul(lipEnds).mul(front).mul(0.07);
+        c.assign(mix(c, skin.mul(0.28), ml.mul(0.85)).mul(float(1.0).sub(corners)).mul(roll.add(1.0)));
 
         // the older ones (greying): lines across the forehead, under the eyes
         const older = step(L.lane(37.0), 0.25).mul(front).mul(mid);
@@ -1538,22 +1707,13 @@ function dressNear(mat, vInfo) {
         const nos = smoothstep(1.0, 0.5, length(vec2(ax.sub(0.0074).div(0.003), y.sub(1.5795).div(0.0017)))).mul(front);
         c.assign(mix(c, skin.mul(0.42), nos.mul(0.6)));
 
-        // the hairline: soft, broken up by the strands, temples receding on some men, sideburns; none for the bald
-        const hd = normalize(vec2(q.x, z.add(0.01)));
-        const recede = float(1.0).sub(female).mul(L.lane(83.0)).mul(0.016).mul(hd.x.mul(hd.x));
-        const sideburn = float(1.0).sub(female).mul(float(1.0).sub(L.bald)).mul(smoothstep(0.064, 0.074, ax)).mul(smoothstep(-0.004, 0.004, z)).mul(smoothstep(0.022, 0.012, z));
-        // (repair) as hairlineNear: arched over the ear (its centre EAR_A behind the side), down behind it to the nape
-        const cosE = abs(hd.x).mul(Math.cos(EAR_A)).sub(hd.y.mul(Math.sin(EAR_A)));
-        const earArch = float(1.0).sub(cosE).mul(-2.0 / (0.34 * 0.34)).exp().mul(0.046);
-        const hl = hd.y.mul(0.07).add(1.625).sub(hd.x.mul(hd.x).sub(hd.y.mul(hd.y)).mul(0.005)).add(earArch).add(L.bald.mul(0.3)).add(recede).sub(sideburn.mul(0.026));
+        // the hairline (hairCover), never over the ear (it stands out of the head's side: skin)
+        const HC = hairCover(q, L, female, px);
+        const hl = HC.hl;
         const hn = mx_noise_float(q.mul(vec3(300.0, 90.0, 300.0)));
-        // (the ear stands out of the head's side: skin, never under the hair's colour)
         const earBase = y.sub(1.622).mul(0.14).add(0.0781).mul(mix(float(1.0), float(0.94), female));
         const earSkin = smoothstep(earBase.add(0.0025), earBase.add(0.0065), ax).mul(smoothstep(1.57, 1.58, y)).mul(smoothstep(1.66, 1.65, y));
-        const hairMask = smoothstep(hl.add(0.0005), hl.add(0.004), y).mul(float(1.0).sub(earSkin)).mul(float(1.0).sub(sideburn.mul(smoothstep(hl.add(0.022), hl.add(0.004), y)).mul(0.45)));
-        const thin = smoothstep(hl.sub(0.01), hl.add(0.0005), y).mul(sin(atan(q.x, z.add(0.012)).mul(300.0)).mul(0.2).mul(fine).add(0.45)).mul(float(1.0).sub(earSkin));
-        const hairC = hair.mul(hn.mul(0.08).add(0.93));
-        c.assign(mix(c, hairC, hairMask.max(thin)));
+        c.assign(mix(c, hairPaint(q, L, fine), HC.cover.mul(float(1.0).sub(earSkin))));
         // (repair) a buzz cut's shadow on some bald men, above their hairline
         const hl0 = hl.sub(L.bald.mul(0.3));
         const buzzCut = L.bald.mul(step(L.lane(87.0), 0.5)).mul(smoothstep(hl0.add(0.002), hl0.add(0.012), y)).mul(hn.mul(0.12).add(0.3));
@@ -1579,20 +1739,25 @@ function dressNear(mat, vInfo) {
         // long hair: lighter, thinner ends; darker on its inner side (toward the neck); the shell's roots in shade
         const ends = smoothstep(0.55, 1.0, along).mul(isLong).mul(0.1);
         const inner = smoothstep(0.15, 0.75, n0.z).mul(isLong).mul(0.3);
-        const roots = smoothstep(0.62, 0.95, along).mul(float(1.0).sub(isLong)).mul(0.1);
+        const edge = smoothstep(0.7, 0.92, along).mul(float(1.0).sub(isLong));
+        const roots = smoothstep(0.62, 0.95, along).mul(float(1.0).sub(isLong)).mul(0.1).mul(float(1.0).sub(edge));
         // salt & pepper on the grey ones: grey strands among their own colour
         const sp = L.grey.mul(clumpN.mul(0.2).add(strandN.mul(0.22).mul(fine)));
         const hairCol = mix(L.hairBase, color(GREY_HAIR), clamp(L.grey.mul(0.62).add(sp), 0.0, 1.0));
         const hairC0 = hairCol.mul(tint.add(ends).sub(inner).sub(roots));
-        // the shell's edge thins to the scalp (a soft hairline); temples receding on some men
-        const edge = smoothstep(0.84, 1.0, along).mul(float(1.0).sub(isLong));
+        // the shell's edge thins to the scalp; temples receding on some men. (round 3 repair) Over its last ~2 cm it takes
+        // the colour the head's hairline is painted in (hairPaint, the same function of the position), so the two meet
+        // with no rim and no flat band
         const temple = blob(abs(th0).sub(0.95), float(0.0), float(0.3), float(1.0)).mul(float(1.0).sub(female)).mul(L.lane(83.0));
-        const nape = smoothstep(0.84, 1.0, along).mul(float(1.0).sub(isLong)).mul(smoothstep(0.02, -0.04, q.z));
-        const hairC = mix(hairC0, skin.mul(0.95), clamp(edge.mul(temple.mul(0.6).add(0.12)).add(nape.mul(0.45)), 0.0, 1.0).mul(strandN.mul(0.3).mul(fine).add(0.85)));
+        const hairC = mix(mix(hairC0, hairPaint(q, L, fine), edge), skin.mul(0.95), clamp(edge.mul(temple).mul(0.6), 0.0, 1.0));
         // a bald head: the scalp (a buzzed shadow on some)
         const buzz = step(L.lane(87.0), 0.5).mul(smoothstep(1.7, 1.66, q.y)).mul(0.3);
         const scalp = mix(skin.mul(1.03), hair.mul(0.9), buzz);
-        col.assign(mix(hairC, scalp, L.bald));
+        // (round 3) toward the silhouette the outer strands separate: streaks of dark & light (light through the thin
+        // edge), not a clean shell's rim
+        const rimF = smoothstep(0.5, 0.05, abs(dot(normalView, positionViewDirection)));
+        const hairR = hairC.mul(clumpN.mul(0.35).add(strandN.mul(0.45)).mul(rimF).add(1.0)).add(hairCol.mul(rimF.mul(0.1)));
+        col.assign(mix(hairR, scalp, L.bald));
       });
     return col;
   })();
@@ -1607,8 +1772,14 @@ function dressNear(mat, vInfo) {
     const sq = (v) => v.mul(v);
     const eye = step(sq(ax.sub(0.0315).div(0.0128)).add(sq(q.y.sub(1.6272).div(0.0052))), 1.0).mul(front);
     const lipsR = step(sq(ax.div(0.0215)).add(sq(q.y.sub(1.5485).div(0.0068))), 1.0).mul(front);
-    const tzone = smoothstep(0.016, 0.006, ax).mul(smoothstep(1.575, 1.6, q.y)).mul(front);
-    const headR = mix(mix(mix(float(0.56), float(0.45), tzone), float(0.36), lipsR), float(0.44), eye);
+    // (round 3) the T-zone a broad, faint patch over the nose and the middle of the forehead (it was a 2 cm stripe up
+    // to the hairline: a light seam down the face)
+    const tzone = blob(ax, q.y.sub(1.598), float(0.011), float(0.022)).mul(0.6).add(blob(ax, q.y.sub(1.672), float(0.03), float(0.016)).mul(0.45)).mul(front);
+    const headR0 = mix(mix(mix(float(0.64), float(0.54), tzone), float(0.36), lipsR), float(0.42), eye);
+    // (repair) where the head is painted with hair (above the soft hairline, hairCover), the hair's roughness
+    const hlR = hairlineOf(q, L, L.female).hl;
+    const hairOn = smoothstep(hlR.sub(0.012), hlR.sub(0.003), q.y).mul(float(1.0).sub(L.bald));
+    const headR = mix(headR0, float(0.62), hairOn);
     // (repair) hair: matte, its sheen broken into streaks along the strands (no smooth helmet highlight)
     const hairR = float(0.62).toVar();
     If(partId.greaterThan(5.5), () => {
@@ -1746,6 +1917,32 @@ const _cA = new THREE.Quaternion();
 const _cB = new THREE.Quaternion();
 const _cY = new THREE.Quaternion();
 const _cv = new THREE.Vector3();
+// (Mog City, round 3) relaxing a captured take's arms (PersonRig.relaxArms): each arm's bind direction, the working vectors
+const ARM_DIR = SIDES.map((side) => new THREE.Vector3(side * Math.sin(ARM_BIND_ABDUCTION), -Math.cos(ARM_BIND_ABDUCTION), 0));
+const _ra = new THREE.Vector3();
+const _rb = new THREE.Vector3();
+const _rp = new THREE.Vector3();
+const _rk = new THREE.Vector3();
+const _rc = new THREE.Vector3();
+const _rq = new THREE.Quaternion();
+const _rs = new THREE.Vector3();
+const _rf = new THREE.Vector3();
+const _rh = new THREE.Vector3();
+const FACE_FROM_HEAD = new THREE.Vector3(0, 0.1, 0.065);
+const _rv = new THREE.Vector3();
+// (repair) the forearm's direction: the upper arm a turned by the bend vector own + g * x (angle x direction, both
+// perpendicular to a), into out; x makes the whole bend th + extra where own leans toward g (th = |own|), eases to a plain
+// add where it leans away (g is turning round), and is 0 with nothing extra
+function bendDir(out, a, own, g, extra) {
+  const th = own.length();
+  const c = th > 1e-6 ? Math.max(0, own.dot(g) / th) : 0;
+  const M = th + extra;
+  const x = Math.sqrt(Math.max(0, M * M - th * th * (1 - c * c))) - th * c;
+  const v = _rv.copy(own).addScaledVector(g, x);
+  const ang = v.length();
+  if (ang < 1e-7) return out.copy(a);
+  return out.copy(a).multiplyScalar(Math.cos(ang)).addScaledVector(v, Math.sin(ang) / ang).normalize();
+}
 const b64i16 = (b64) => {
   const s = atob(b64), u = new Uint8Array(s.length);
   for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
@@ -1797,6 +1994,9 @@ class PersonRig {
     this.feet = [makeFoot(1), makeFoot(-1)];
     this.pose = new Float32Array(STRIDE * 4);
     this.pose.set([seed, this.female, girth, hair], (STRIDE - 1) * 4);
+    // (round 3) how loose this person's arms are in a cheer or a dance (0.8 .. 1.2)
+    const hv = Math.sin(seed * 41.37 + 3.1) * 43758.5453;
+    this.armLoose = 0.8 + 0.4 * (hv - Math.floor(hv));
   }
 
   get legLength() {
@@ -2261,8 +2461,10 @@ class PersonRig {
       const b = (i1 * BONE_COUNT + k) * 4;
       _cA.set(Q[a], Q[a + 1], Q[a + 2], Q[a + 3]).normalize();
       _cB.set(Q[b], Q[b + 1], Q[b + 2], Q[b + 3]).normalize();
-      _cq[k].slerpQuaternions(_cA, _cB, u).premultiply(_cY);
+      _cq[k].slerpQuaternions(_cA, _cB, u);
     }
+    this.relaxArms(t);
+    for (let k = 0; k < BONE_COUNT; k++) _cq[k].premultiply(_cY);
     _cv.set(lerp(P[i0 * 3], P[i1 * 3], u), lerp(P[i0 * 3 + 1], P[i1 * 3 + 1], u), lerp(P[i0 * 3 + 2], P[i1 * 3 + 2], u))
       .multiplyScalar(0.001 * s).applyQuaternion(_cY);
     _cj[BONE.PELVIS].set(x + _cv.x, groundY + _cv.y, z + _cv.z);
@@ -2271,6 +2473,98 @@ class PersonRig {
       _cj[k].copy(j[k]).sub(j[pa]).multiplyScalar(s).applyQuaternion(_cq[pa]).add(_cj[pa]);
     }
     for (let k = 0; k < BONE_COUNT; k++) this.writeBone(k, _cq[k], _cj[k]);
+  }
+
+  /**
+   * (Mog City, round 3) A captured take's arms, relaxed (on _cq, the body's frame, facing +Z): the takes lock the elbows
+   * near straight whenever the arms go up or out (stiff tubes, a T-pose in the near crowd). Each elbow bends at least a
+   * little more the higher the upper arm is raised: none added hanging (the take's own), ~50 degrees with the arm out
+   * level, ~30 overhead (this person's own looseness, breathing slowly with the beat); a soft minimum, so a take that
+   * already bends more keeps its own. The bend stays in the plane the take bends it in, or, nearly straight, folds the
+   * forearm in toward the head & up (a little to the front): arms raised in a V, out level like goal posts. The forearm's own twist is kept.
+   * (repair) Continuous in time: the forearm never jumps between frames. The bend is the take's own (angle x direction,
+   * round the upper arm) plus the added bend along a fold direction each arm holds (this._fold), which follows its
+   * target (the take's own direction once it bends clearly, else in toward the head) at a limited speed, so when the
+   * take straightens and re-bends the other way the added bend eases across instead of flipping; no hard cut-offs; the
+   * hand kept off the face by a smooth scale (the most of the bend that keeps it 20 cm off, eased), not by halving.
+   */
+  relaxArms(t) {
+    const j = this.bind;
+    const F = this._fold || (this._fold = { t: -1e9, g: [new THREE.Vector3(), new THREE.Vector3()], add: [0, 0], ok: [false, false] });
+    const dt = t - F.t;
+    F.t = t;
+    const fresh = !(dt >= 0 && dt < 0.3); // (a jump in time: the fold set afresh)
+    const follow = 6 * Math.max(0, dt); // how far the fold direction may turn this step (~6 rad/s)
+    // (the face, in the body's frame from the pelvis: a hand is never folded onto it)
+    const chest = _rf.copy(j[BONE.CHEST]).sub(j[BONE.PELVIS]).applyQuaternion(_cq[BONE.PELVIS]);
+    const face = _rh.copy(j[BONE.HEAD]).sub(j[BONE.CHEST]).applyQuaternion(_cq[BONE.CHEST]).add(chest);
+    _rs.copy(FACE_FROM_HEAD).applyQuaternion(_cq[BONE.HEAD]);
+    face.add(_rs);
+    for (let k = 0; k < 2; k++) {
+      const side = SIDES[k];
+      const qF = _cq[LIMB.forearm[k]];
+      const a = _ra.copy(ARM_DIR[k]).applyQuaternion(_cq[LIMB.upperArm[k]]);
+      const b = _rb.copy(ARM_DIR[k]).applyQuaternion(qF);
+      const cosT = Math.max(-1, Math.min(1, a.dot(b)));
+      const th = Math.acos(cosT);
+      const e = Math.asin(Math.max(-1, Math.min(1, a.y))); // the upper arm's elevation (0 level, +PI/2 straight up)
+      const want = this.armLoose * smooth(-0.85, -0.15, e) * (0.86 - 0.3 * smooth(0.35, 1.2, e)) * (1 + 0.12 * Math.sin(t * 1.7 + this.seed * 3 + k * 2.1));
+      const add = 0.08 * Math.log1p(Math.exp(Math.min(30, (want - th) / 0.08))); // soft max(want - th, 0)
+      // the take's own bend as a vector round the upper arm (angle x direction): _rk = th * its direction
+      const own = _rk.copy(b).addScaledVector(a, -cosT);
+      const sinT = own.length();
+      own.multiplyScalar(th / Math.max(sinT, 1e-6));
+      // the fold's target: in toward the head & up, a little to the front (perpendicular to the upper arm), or the
+      // take's own direction once it bends clearly
+      const p = _rp.set(-side * 0.75, 0.6, 0.35);
+      p.addScaledVector(a, -p.dot(a));
+      if (p.lengthSq() < 1e-6) p.set(0, 0, 1).addScaledVector(a, -a.z);
+      p.normalize();
+      const w = smooth(0.17, 0.45, th);
+      if (w > 0) p.multiplyScalar(1 - w).addScaledVector(own, w / Math.max(th, 1e-6));
+      const g = F.g[k];
+      if (p.lengthSq() > 1e-4) p.normalize();
+      else p.copy(F.ok[k] ? g : p.set(0, 0, 1).addScaledVector(a, -a.z).normalize()); // (no clear target: hold)
+      if (fresh || !F.ok[k]) { g.copy(p); F.add[k] = add; }
+      else {
+        // (kept round the upper arm as it moves; turned toward the target round it, at most `follow` radians a step: a
+        // turn of more than ~150 degrees goes round the front, so a hand never sweeps back through the head)
+        g.addScaledVector(a, -g.dot(a));
+        if (g.lengthSq() < 1e-8) g.copy(p);
+        g.normalize();
+        const ang = Math.acos(Math.max(-1, Math.min(1, g.dot(p))));
+        if (ang > 1e-5) {
+          let sense = Math.sign(_rc.crossVectors(g, p).dot(a)) || 1;
+          if (ang > 2.6) sense = _rc.crossVectors(a, g).z >= 0 ? 1 : -1;
+          _rq.setFromAxisAngle(a, sense * Math.min(ang, follow));
+          g.applyQuaternion(_rq);
+        }
+        // (the added bend eased a little, so a fast raise of the arm does not whip the forearm)
+        F.add[k] += (add - F.add[k]) * (1 - Math.exp(-dt / 0.05));
+      }
+      F.ok[k] = true;
+      const addS = F.add[k];
+      if (addS < 1e-4) continue;
+      // (the hand kept off the face: of the added bend, the most that keeps the hand 20 cm off it (or as far as the take
+      // has it), eased over 5 cm; a max of continuous terms, so it never steps)
+      const elbow = _rs.copy(j[LIMB.upperArm[k]]).sub(j[BONE.CHEST]).applyQuaternion(_cq[BONE.CHEST]).add(chest).addScaledVector(a, UPPER_ARM);
+      const reach = FOREARM + 0.07;
+      const d0 = Math.hypot(elbow.x + b.x * reach - face.x, elbow.y + b.y * reach - face.y, elbow.z + b.z * reach - face.z);
+      const lim = Math.min(0.2, d0);
+      const bNew = _rc;
+      let keep = 0;
+      for (let it = 4; it >= 1; it--) {
+        const sc = it / 4;
+        bendDir(bNew, a, own, g, addS * sc);
+        const dh = Math.hypot(elbow.x + bNew.x * reach - face.x, elbow.y + bNew.y * reach - face.y, elbow.z + bNew.z * reach - face.z);
+        keep = Math.max(keep, sc * smooth(lim - 0.05, lim, dh));
+        if (keep >= 1) break;
+      }
+      if (addS * keep < 1e-4) continue;
+      bendDir(bNew, a, own, g, addS * keep);
+      _rq.setFromUnitVectors(b, bNew);
+      qF.premultiply(_rq);
+    }
   }
 
   /**
