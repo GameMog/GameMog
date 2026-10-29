@@ -141,6 +141,8 @@ h2,.t-h2{font-family:var(--display);font-size:24px;font-weight:700;line-height:3
 .btn:hover{background:var(--brand-press);border-color:var(--brand-press)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .btn:disabled:hover{background:var(--brand);border-color:var(--brand)}
+/* a 'coming soon' button: shown, not clickable, keeps its own colours (the flagship's MOG) */
+.btn.soon:disabled{opacity:.72;cursor:default;pointer-events:none}
 .btn.quiet{background:none;border-color:transparent;color:var(--ink-2)}
 .btn.quiet:hover{background:var(--fill);color:var(--ink)}
 .btn.outline{background:var(--surface);color:var(--ink);border-color:#D5D7DD}

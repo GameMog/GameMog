@@ -103,13 +103,15 @@ function RecordStat({ game }: { game: GameRow }) {
   return record?.level ? <span><b>Lap {record.level}</b> record</span> : null;
 }
 
-/** The flagship's film as the hero: one clip, so it loops; Play leaves for its own site. */
+/** The flagship's film as the hero: one clip, so it loops; Play leaves for its own site; MOG shows, not clickable, until
+ * the flagship can be Mogged (the owner, 29 Oct). */
 function Flagship({ f }: { f: NonNullable<typeof FLAGSHIP> }) {
   const lead = (
     <Fragment key="lead">
       <p>{f.lead}</p>
       <div className="acts">
         <a href={f.href} className="btn play" aria-label={`Play ${f.title}`}>Play</a>
+        <button type="button" className="btn more soon" disabled>MOG (coming soon)</button>
       </div>
     </Fragment>
   );
@@ -120,6 +122,7 @@ function Flagship({ f }: { f: NonNullable<typeof FLAGSHIP> }) {
       <p className="tagline">{f.lead}</p>
       <div className="acts">
         <a href={f.href} className="btn big light" aria-label={`Play ${f.title}`}><Icon name="play" size={20} />Play</a>
+        <button type="button" className="btn big ghost soon" disabled><Icon name="remix" size={18} />MOG (coming soon)</button>
       </div>
     </Fragment>
   );
