@@ -637,8 +637,14 @@ async function play(W, T, borrow, getPage) {
         J.arm('R', V(-0.12, 0.8 + ty * Math.sin(u * 19), 0.42), shR.add(V(-0.5, -0.5, 0)), 0.9);
       }
       const cp = [lerp(0.3, 0.25, k), lerp(1.22, 1.19, k), lerp(1.78, 1.6, k)], scr = lap.localToWorld(V(0, 0.13, -0.1));
-      J.face.set({ blink: u > 0.12 && u < 0.24 ? 1 - Math.abs(u - 0.18) / 0.06 : 0 });
-      J.face.aim(scr.lerp(V(cp[0] + 0.12, cp[1] + 0.04, cp[2]), up), { k: 0.5 });
+      // (her face, 28 Oct round 3 repair: the shot opened on a glare and a sulky mouth. Reading, her head is bowed most of
+      // the way to the screen (her eyes need little more, her lids follow them: jane.js), her brows a touch up from rest and
+      // her lips just apart; on the ping she blinks, then her head leads the look up (the eyes no further than it) and her
+      // brows lift a little and settle)
+      const upH = smooth((u - 0.17) / 0.24), upE = smooth((u - 0.25) / 0.22), lift = Math.sin(PI * upE), cam0 = V(cp[0] + 0.12, cp[1] + 0.04, cp[2]);
+      J.face.set({ blink: u > 0.12 && u < 0.24 ? 1 - Math.abs(u - 0.18) / 0.06 : 0, brow: 0.12 + 0.2 * lift });
+      J.jaw(0.05 * (1 - upE));
+      J.face.aim(scr.clone().lerp(cam0, upH), { k: 0.75, eyes: scr.clone().lerp(cam0, upE) });
       lap.userData.screen('trace', u);
       KC.room.full({ pos: cp, look: [0.0, 1.05, 0.15], fov: shotFov(cs, 34) });
       // (the city's lens left where it was: only the band's bars from it)

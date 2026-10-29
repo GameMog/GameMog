@@ -222,6 +222,32 @@ function janeMouth(inner, face, teeth, back) {
   set(0);
 }
 
+// her lids with her eyes (28 Oct, round 3; the critic: in the trailer's room shot she opened on a wide-eyed glare, the
+// whites over her irises as she read her laptop). face.aim turns the eyes alone, so looking down her upper lids stayed
+// up. Now, as a face's do, they come down with the eyes (LIDS of the way to shut at the eyes' lowest), her brows held
+// where they are (the lids' morph drags the skin under the brows down a little: BROWS of it given back, or reading her
+// screen she frowned); and a quick look up (her laptop's ping, then to whoever she's talking to) lifts her brows a
+// little, easing back over half a second. Whatever a caller sets (a blink, raised brows) still wins where it is more.
+const LIDS = 0.35, BROWS = 0.9, LIFT = 0.3;
+function lidsWithEyes(face) {
+  if (!face || face.set.__lids) return;
+  const set0 = face.set, st = { blink: 0, brow: 0, y: 0, t: -1, lift: 0 };
+  face.set = (o = {}) => {
+    if (o.blink != null) st.blink = o.blink;
+    if (o.brow != null) st.brow = o.brow;
+    if (o.lookY != null) {
+      const now = performance.now() / 1000, dt = now - st.t;
+      // (only from frame to frame of a running scene: set by hand a frame at a time (the call's bake), nothing lifts)
+      if (dt > 0 && dt < 0.1) { st.lift *= Math.exp(-dt / 0.5); if (o.lookY > st.y) st.lift = Math.max(st.lift, clamp(((o.lookY - st.y) / dt) * 0.08, 0, LIFT)); }
+      else st.lift = 0;
+      st.y = o.lookY; st.t = now;
+    }
+    const down = clamp(-st.y, 0, 1) * LIDS;
+    return set0({ ...o, blink: Math.max(st.blink, down), brow: Math.max(st.brow, st.lift + down * BROWS) });
+  };
+  face.set.__lids = true;
+}
+
 // her gait: the walk (Bandai Namco Research Motion Dataset, retargeted to her own rig, assets/characters/jane.glb) was
 // captured at this speed on her legs, in place: a scene walking her at v m/s plays it at v / GAIT.walk, so her feet stay
 // planted (27 Oct)
@@ -243,9 +269,10 @@ export async function buildJane(W, { scene = W.app.scene, auto = true } = {}) {
     if (o.material && o.material.name === 'puff') o.material = curlyPuff();
     // (the short curls under her band: their cards caught a park lamp as white streaks; matte and a shade darker)
     if (o.material && o.material.name === 'hair' && !o.material.userData.toned) { o.material.roughness = 0.88; o.material.color.multiplyScalar(0.8); o.material.userData.toned = true; }
-    // (her hair's cut-out strands (28 Oct): their edges smoothed by the multisampling (alpha to coverage), so the strand
-    // ends, the hairline and the edge of the fall come out soft, not stepped)
-    if (o.material && o.material.name === 'hairStrands' && o.material.alphaTest > 0) o.material.alphaToCoverage = true;
+    // (her hair's cut-out strands: a plain cut-out, no alpha to coverage. Round 3's strand cards have soft edges all
+    // round her silhouette, and where the frame isn't multisampled (the game's own view: the meet over her shoulder)
+    // alpha to coverage dithered them into a fringe of black dots)
+    if (o.material && o.material.name === 'hairStrands' && o.material.alphaTest > 0) o.material.alphaToCoverage = false;
     if (o.isSkinnedMesh && o.name === 'hoodie') hoodieNormals(o);
     if (!o.isSkinnedMesh && o.material?.color?.getHexString() === 'e8e2d8') teeth = o;
     if (!o.isSkinnedMesh && o.material?.color?.getHexString() === '2a0e0c') back = o;
@@ -266,6 +293,7 @@ export async function buildJane(W, { scene = W.app.scene, auto = true } = {}) {
      is nearest); auto: false for the bake, which sets it by hand */
   const face = createFace(W, { speaker: 'Jane', inner, bones, head: true, open: 0.5, fix: JANE_FACE, auto });
   if (teeth && !teeth.userData.set) { janeMouth(inner, face, teeth, back); teeth.userData.set = true; }
+  lidsWithEyes(face);
   const P = {
     root, inner, bones, mixer, rig: rig(mixer, clipMap), clips: Object.keys(clipMap), top, face,
     // her mouth, 0 (shut) .. 1 (wide); about 0.35 is talking
