@@ -111,28 +111,9 @@ function createMission(W, { keep = false } = {}) {
     }
   }
   // (Jane's call on the drive, the backstory: mission/calls.js 'm1-drive')
-  // At the park with her protected lines not all said: the arrival waits, the car idling there (its own brakes held,
-  // car.halt), 'Finish the call.'; her lines at their pace for up to HOLD_MAIN s (then her wrap at once), her wrap, then
-  // the scene (HOLD_MAX s at most in all). Out of the car meanwhile: on hold, her pause line, then the scene as ever.
-  const HOLD_MAIN = 25, HOLD_MAX = 44;
-  async function finishCall() {
-    const t0 = now(), owes = () => W.calls?.owes?.('m1-drive');
-    let forced = false;
-    car.halt = 22; ui.help('Finish the call.', HOLD_MAX, { mode: 'car' });
-    try {
-      await wait(() => {
-        const s = (now() - t0) / 1000;
-        if (!inCar()) return true;
-        if (!forced && s > HOLD_MAIN && owes() === 'main') { forced = true; W.calls.wrap(); }
-        return !owes() || s > HOLD_MAX;
-      });
-      if (!inCar() && owes()) {
-        W.calls.pause();
-        const t1 = now();
-        await wait(() => !owes() || (W.calls.state().held && !W.calls.talking) || now() - t1 > 6000);
-      }
-    } finally { car.halt = 0; ui.help(null); }
-  }
+  // At the park with her call still on: it hangs up at once and the scene starts the moment the car is in the marker
+  // (the owner, 28 Oct: entering the yellow circle starts the cutscene straight away, as every other marker does)
+  function endCall() { if (W.calls?.owes?.('m1-drive')) W.calls.stop({ quiet: true, of: 'm1:' }); }
   // (kept through a checkpoint restart: the card counts the whole mission)
   const stats = carry(W, 'm1', keep, () => ({ t0: now(), hits: 0, ko: 0 }));
   let lastHp = null;
@@ -218,9 +199,10 @@ function createMission(W, { keep = false } = {}) {
         for (const [name, test] of places) if (!seen.has(name) && test(p)) { seen.add(name); ui.place(name, 'New York', 3); }
         nav.step();
       });
-      await wait(() => (inCar() ? dist(car.position, DEST.x, DEST.z) < 6 && Math.abs(car.speed) < 8 : dist(P.position, DEST.x, DEST.z) < 6));
-      // (there before Jane has told the backstory: the arrival waits for her, in the car)
-      if (inCar() && W.calls?.owes?.('m1-drive')) { helps.length = 0; await finishCall(); }
+      // (in the car: anywhere in the marker at under ~45 mph; it stops there and the scene starts at once)
+      await wait(() => (inCar() ? dist(car.position, DEST.x, DEST.z) < 7 && Math.abs(car.speed) < 20 : dist(P.position, DEST.x, DEST.z) < 6));
+      if (inCar()) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; }
+      helps.length = 0; endCall();
       off(); nav.stop(); gps.unblip('tag'); gps.unblip('car');
     },
     // the arrival: his laptop bag goes off in the SUV past him; the Suits by their van cross the lawn for him

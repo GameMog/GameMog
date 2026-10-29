@@ -683,7 +683,8 @@ function createMission(W, { keep = false } = {}) {
       try { await wait(() => { const p = me(), d = dist(p, ARCH.x, ARCH.z); return d < 26 || ((d < 60 || at5th(p)) && (!inCar() || Math.abs(car.speed) < 6)); }); }
       finally { off(); drive.stop(); pr.stop(); }
       // (there before Jane has told him how to kill the reel: the arrival waits for her, in the car)
-      if (inCar() && W.calls?.owes?.('m3-square')) await finishCall('m3-square');
+      if (inCar()) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; }
+      endCall('m3-square');
       if (!up) await spawnRally();
     },
     // the community day, seen; a Suit planted in the crowd spots him
@@ -1012,10 +1013,10 @@ function createMission(W, { keep = false } = {}) {
       // carries on); her wrap 150 m from the door, once her protected lines are said; no new extra block inside 300 m
       W.calls?.start('m3-return', { wrapWhen: () => dist(me(), door.x, door.z) < 150, hurryWhen: () => dist(me(), door.x, door.z) < 300 });
       const off = hook(() => { drive.step(); });
-      try { await wait(() => { const d = dist(me(), door.x, door.z); return inCar() ? d < 7 && Math.abs(car.speed) < 3 : d < 2.6; }); }
+      try { await wait(() => { const d = dist(me(), door.x, door.z); return inCar() ? d < 7 && Math.abs(car.speed) < 20 : d < 2.6; }); if (inCar()) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; } }
       finally { off(); drive.stop(); m.hide(); app.scene.remove(m.group); }
       // (there before she's said her piece: the home scene waits for her, in the car)
-      if (inCar() && W.calls?.owes?.('m3-return')) await finishCall('m3-return');
+      endCall('m3-return');
     },
     async home() {
       await sets();
@@ -1050,29 +1051,9 @@ function createMission(W, { keep = false } = {}) {
   const RETRY = { garage: "Retry: from Gears' garage", square: 'Retry: to Washington Square', rigs: 'Retry: the rigs', escape: 'Retry: the getaway', return: "Retry: back to Gears' garage" };
   const SKIP = { rigs: 'Skip the rigs: start at the getaway', dump: 'Skip the rigs: start at the getaway', escape: "Skip the getaway: start on the way back to Gears' garage" };
 
-  // Jane's calls on the drives (mission/calls.js): at an arrival with her protected main lines not all said, the
-  // scene waits, the car idling there (its own brakes held, car.halt), 'Finish the call.'; her lines at their pace for
-  // up to HOLD_MAIN s (then her wrap at once), her wrap, then the scene (HOLD_MAX s at most in all). Out of the car
-  // meanwhile: on hold, her pause line, then the scene as ever. (Mission 1's way: m1.js finishCall)
-  const HOLD_MAIN = 25, HOLD_MAX = 40;
-  async function finishCall(id) {
-    const t0 = now(), owes = () => W.calls?.owes?.(id);
-    let forced = false;
-    car.halt = 22; ui.help('Finish the call.', HOLD_MAX, { mode: 'car' });
-    try {
-      await wait(() => {
-        const s = (now() - t0) / 1000;
-        if (!inCar()) return true;
-        if (!forced && s > HOLD_MAIN && owes() === 'main') { forced = true; W.calls.wrap(); }
-        return !owes() || s > HOLD_MAX;
-      });
-      if (!inCar() && owes()) {
-        W.calls.pause();
-        const t1 = now();
-        await wait(() => !owes() || (W.calls.state().held && !W.calls.talking) || now() - t1 > 6000);
-      }
-    } finally { car.halt = 0; ui.help(null); }
-  }
+  // Jane's calls on the drives (mission/calls.js): at an arrival with her call still on, it hangs up at once and the
+  // scene starts the moment the car is there (the owner, 28 Oct: a marker starts its cutscene straight away)
+  function endCall(id) { if (W.calls?.owes?.(id)) W.calls.stop({ quiet: true, of: 'm3:' }); }
 
   /* --------------------------------------------------- passed, hand-off -- */
   async function passed() {
