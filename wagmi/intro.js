@@ -17,6 +17,7 @@
 // built with the cast for the missions: their dog lives with Jane and is never in the opening.)
 import * as THREE from 'three/webgpu';
 import { loadGLB } from './glb.js';
+import { relaxArms } from './combat/suitarms.js';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildMoon, buildLeash } from './moon.js';
@@ -353,6 +354,7 @@ async function buildCast(W) {
   const suitPack = await loadGLB('assets/anim/bandai/suits.glb').catch(() => null);
   const thugClips = Object.fromEntries(gltf.animations.map((c) => [c.name, c]));
   for (const c of suitPack?.animations || []) thugClips[c.name] = c;
+  relaxArms(thugClips, gltf.scene); // (the standing and walking arms in at the sides: combat/suitarms.js)
   const SUITS = thugClips.suitIdle ? { idle: 'suitIdle', walk: ['suitWalk', 1.358], run: ['suitRun', 3.517], dash: ['suitDash', 4.852], back: ['suitBack', 1.211] }
     : { idle: 'thugIdle', walk: ['walk', 0.82], run: ['jog', 2.6], dash: ['run', 4.7], back: ['walk', -0.82] };
   function suit(look, name) {
@@ -594,7 +596,9 @@ function buildScript(ctx) {
     [15.85, 'idle', { fade: 0.45 }],
     [24.0, ['walk/body', 'idle/arms'], { speed: 1.1, fade: 0.25 }],
     [24.75, 'idle', { fade: 0.3 }],
-    [28.3, ['idle/body', 'talk/arms'], { fade: 0.35, from: 0.4 }],
+    // (his answer: one hand talking, the other down at his side, his shoulders square: both hands up at his chest
+    // read as a man clutching himself)
+    [28.3, ['idle/noArmL', ['talk/armL', { from: 0.6 }]], { fade: 0.35 }],
     [31.45, 'idle', { fade: 0.4 }],
     // a step after the bag as it goes, his hand out for it
     [34.3, ['walk/body', 'idle/arms'], { speed: 1.1, fade: 0.12 }],

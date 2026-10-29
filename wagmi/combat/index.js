@@ -48,6 +48,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadGLB } from '../glb.js';
 import { faceMorphs } from '../face.js';
 import { Enemy, BLOWS, prepareClips } from './enemy.js';
+import { relaxArms } from './suitarms.js';
 import { createHero } from './hero.js';
 import { createInput } from './input.js';
 import { createFx } from './fx.js';
@@ -133,6 +134,7 @@ export async function install(W) {
   c.rules = rulesNow();
   c.thug = { gltf, ...prepareClips(gltf) };
   for (const clip of (await bandai)?.animations || []) c.thug.clips.set(clip.name, clip); // (in place: their travel taken out)
+  relaxArms(c.thug.clips, gltf.scene); // (the standing and walking arms in at the sides: suitarms.js)
   // Dan's car parked in the street is solid to the fight (the city's own collision only knows the buildings): a box
   // (its half width, half length and roof) the men are kept out of and walk round, and the camera won't look through
   const car = W.car, CAR = car?.body ? { hx: car.body.hx, hz: (car.body.z1 - car.body.z0) / 2, h: car.body.top + 0.05 } : { hx: 0.9, hz: 2.25, h: 1.3 };
