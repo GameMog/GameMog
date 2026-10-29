@@ -12,6 +12,7 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { positionWorld, positionLocal, normalLocal, uv, vec2, vec3, vec4, float, mix, smoothstep, clamp, abs, color, length, pow, mrt, mx_noise_float } from 'three/tsl';
 import { rig } from './cine.js';
+import { relaxArms } from '../combat/suitarms.js';
 
 const PI = Math.PI;
 export const YARD = { x0: -1946, x1: -1898, z0: -1080, z1: -1022, cx: -1924, cz: -1050 };
@@ -418,6 +419,7 @@ export async function buildMack(W) {
   const pack = await loadGLB('assets/anim/bandai/suits.glb').catch(() => null);
   const clips = Object.fromEntries(gltf.animations.map((c) => [c.name, c]));
   for (const c of pack?.animations || []) clips[c.name] = c;
+  relaxArms(clips, gltf.scene); // (the arms in at his sides and the hands set as Dan's hang: combat/suitarms.js; once per clip)
   root.visible = false; W.app.scene.add(root);
   return { root, inner, bones, mixer, rig: rig(mixer, clips), clips: Object.keys(clips) };
 }

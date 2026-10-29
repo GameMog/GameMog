@@ -1366,6 +1366,8 @@ class TreeNodeMaterial extends THREE.MeshStandardNodeMaterial {
 
 // Prevailing wind (xz, blowing from the west-north-west across Manhattan)
 const TREE_WIND = vec2(0.86, 0.51);
+// (Mog City) the near trees' canopy shell: gone within [0] m of the camera, whole beyond [1] m (js/trees.js)
+const SHELL_FADE = [5, 14];
 
 /**
  * Instanced street & park tree material (js/trees.js): bark tubes and alpha-tested leaf cards in ONE draw per mesh.
@@ -1429,6 +1431,11 @@ function createTreeMaterial(leafAtlas) {
   const alpha = mix(float(frontFacing), leaf.a, isLeaf);
   mat.alphaTestNode = float(0.5);
   mat.maskShadowNode = alpha.greaterThan(0.5);
+  // (Mog City) The canopy shell's cards (aTree.w >= 2, js/trees.js) dissolve leaf by leaf within SHELL_FADE of the
+  // camera, so a crown over the lens is see-through twigs while one further off stays full; in the view only (the
+  // shadow maps keep the whole crown)
+  const shellFade = smoothstep(SHELL_FADE[0], SHELL_FADE[1], length(positionView));
+  const viewAlpha = alpha.mul(mix(float(1.0), shellFade, step(1.5, aTree.w)));
 
   mat.colorNode = Fn(() => {
     // Leaves: per-tree tint x atlas brightness, a share of sun-yellowed and of cooler leaves, brown twigs & stalks,
@@ -1449,7 +1456,7 @@ function createTreeMaterial(leafAtlas) {
     const planeBark = mix(mix(color(0x645e4b), color(0x948c73), smoothstep(0.56, 0.66, n2)), color(0x4a3f31), smoothstep(0.3, 0.22, n2));
     const bark = mix(furrowed, planeBark, step(species, 0.5)).mul(crownAO.mul(0.4).add(0.6));
 
-    return vec4(mix(bark, foliage, isLeaf), alpha);
+    return vec4(mix(bark, foliage, isLeaf), viewAlpha);
   })();
 
   mat.roughnessNode = mix(float(0.93), float(0.72).sub(leaf.r.mul(0.1)), isLeaf);

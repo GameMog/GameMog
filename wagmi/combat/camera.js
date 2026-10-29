@@ -153,7 +153,7 @@ export function createFightCamera(c) {
         let ceil = null;
         for (let i = 0; i < o.count; i++) {
           const x = a[i * 16 + 12], z = a[i * 16 + 14]; if (Math.abs(x - q.x) > 22 || Math.abs(z - q.z) > 22) continue;
-          ceil ||= leaves(o.geometry);
+          ceil ||= leaves(o.geometry, /lod0$/.test(o.name));
           const sx = Math.hypot(a[i * 16], a[i * 16 + 1], a[i * 16 + 2]), sy = Math.hypot(a[i * 16 + 4], a[i * 16 + 5], a[i * 16 + 6]), y = a[i * 16 + 13];
           near.trees.push({ x, z, r: 0.34, y0: -9, y1: y + CROWN * sy, y, sx, sy, ceil });
         }
@@ -166,10 +166,11 @@ export function createFightCamera(c) {
   // (keyed by its vertex data, which every cell's mesh of a model shares)
   const ceils = new WeakMap();
   let treeRoot = null;
-  function leaves(g) {
+  // (the near level's canopy shell, aTree.w >= 2, is left out: it dissolves round the lens, js/tsl-materials.js)
+  function leaves(g, near) {
     let L = ceils.get(g.attributes.position); if (L) return L;
-    L = new Array(9).fill(Infinity); const p = g.attributes.position;
-    for (let i = 0; i < p.count; i++) { const r = Math.hypot(p.getX(i), p.getZ(i)); if (r < 0.9) continue; const b = Math.min(8, Math.floor(r)), y = p.getY(i); if (y < L[b]) L[b] = y; }
+    L = new Array(9).fill(Infinity); const p = g.attributes.position, w = near && g.attributes.aTree;
+    for (let i = 0; i < p.count; i++) { if (w && w.getW(i) >= 1.5) continue; const r = Math.hypot(p.getX(i), p.getZ(i)); if (r < 0.9) continue; const b = Math.min(8, Math.floor(r)), y = p.getY(i); if (y < L[b]) L[b] = y; }
     ceils.set(g.attributes.position, L); return L;
   }
   // a point inside a building (the city's collision boxes) or Dan's parked car

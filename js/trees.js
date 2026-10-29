@@ -800,18 +800,21 @@ function buildTreeGeometries(speciesIndex, variant, tileMeters) {
         addTube(gb, b, 3, b.pts.length - 1, aoAt, swayWeight);
       }
     }
-    // (Mog City: the near level keeps every twig card and no canopy shell: within 105 m the shell's whole-crown cards
-    // made each crown a dense blob that filled the follow camera's view under the street trees (?m3=handoff, ?m3=rook),
-    // where the missions were staged with see-through crowns. The shell and the halved cards stay on levels 1 and 2)
+    // (Mog City: the near level keeps every twig card, and the canopy shell too, which the material dissolves close to
+    // the camera (SHELL_FADE in createTreeMaterial, js/tsl-materials.js). Without the shell (e5cc9ed) the twig cards
+    // alone read as bare winter branches from ~25 m out to 105 m, so a crown driven toward went from full (level 1)
+    // to bare at 105 m: "trees lose their leaves". With the whole shell drawn up close each crown was a dense blob
+    // that filled the follow camera's view under the street trees (?m3=handoff, ?m3=rook), where the missions were
+    // staged with see-through crowns; the dissolve keeps those. The halved cards stay on levels 1 and 2)
     const near = lod === 0;
     const cards = (lod === 0 ? cards0 : lod === 1 ? placeCards(sp, branches, lod, tileMeters, rng, crown) : [])
       .map((c) => ({ ...c, mirror: rng() < 0.5, random: rng() }))
       .filter((_, i) => near || i % 2 === 0);
     for (const c of cards) addCard(gb, c.at, c.up, c.face, c.size, c.tile, c.mirror, c.random, crown);
-    const shell = near ? [] : canopyCards;
-    for (const c of shell) addCard(gb, c.at, c.up, c.face, c.size, c.tile, c.mirror, c.random, crown);
+    // (shell cards carry their random + 2, which marks them for the dissolve; the flutter only takes its phase from it)
+    for (const c of canopyCards) addCard(gb, c.at, c.up, c.face, c.size, c.tile, c.mirror, 2 + c.random, crown);
     const g = gb.build();
-    g.userData = { species: sp.name, variant, lod, cards: cards.length + shell.length, triangles: gb.idx.length / 3 };
+    g.userData = { species: sp.name, variant, lod, cards: cards.length + canopyCards.length, triangles: gb.idx.length / 3 };
     geos[lod] = g;
   }
   return geos;
