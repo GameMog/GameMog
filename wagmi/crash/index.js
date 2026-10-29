@@ -14,6 +14,7 @@ import * as THREE from 'three/webgpu';
 import { createFx } from './fx.js';
 import { createProps } from './props.js';
 import { createWrecks, boxes, dims, massOf } from './wrecks.js';
+import { createPhysics } from '../physics/index.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
@@ -25,11 +26,13 @@ export function install(W) {
     hits: 0, heard: 0, cost: { ms: 0, frames: 0 }, // (cost: ms spent here, over frames: for a test)
     on(ev, cb) { (listeners[ev] || (listeners[ev] = [])).push(cb); return () => { listeners[ev] = listeners[ev].filter((x) => x !== cb); }; },
   };
-  const emit = (ev, d) => { api.hits++; for (const cb of listeners[ev] || []) { try { cb(d); } catch (e) { console.error('[crash]', ev, e); } } };
+  const emit = (ev, d) => { api.hits++; physics.want(); for (const cb of listeners[ev] || []) { try { cb(d); } catch (e) { console.error('[crash]', ev, e); } } };
   const play = (name, o) => { if (name === 'carHit') api.heard = performance.now(); try { return W.audio?.play?.(name, o); } catch { return null; } };
+  // the rigid bodies (Jolt, wagmi/physics): loaded on the first hit, or the first fight
+  const physics = api.physics = W.physics = createPhysics({ cm, car });
   const fx = api.fx = createFx(app.scene, (x, z) => cm.getGroundHeight(x, z, 'person'));
-  const props = api.props = createProps({ cm, fx, play, car, scene: app.scene });
-  const wrecks = api.wrecks = TS ? createWrecks({ TS, cm, fx, play, props, camera: cam }) : null;
+  const props = api.props = createProps({ cm, fx, play, car, scene: app.scene, physics });
+  const wrecks = api.wrecks = TS ? createWrecks({ TS, cm, fx, play, props, camera: cam, physics }) : null;
 
   /* ---------------------------------------------------------- the feel -- */
   // the camera jolted (a sprung push, a: 0..1, along dx dz) and shaken; time slowed (real seconds)
@@ -319,6 +322,8 @@ export function install(W) {
     const tsUpdate = TS.update;
     TS.update = function (dt, ...rest) {
       const d = dt * timeScale(), t0 = performance.now();
+      // (the rigid bodies' step: round Dan, on foot or in the car; the wrecks and the furniture read it after)
+      try { physics.frame(d, cm.getActiveEntity()?.position || car.position); } catch (err) { console.error('[physics]', err); }
       try { wrecks.frame(d); } catch (err) { console.error('[crash] wrecks', err); }
       api.cost.ms += performance.now() - t0;
       const r = tsUpdate.call(this, d, ...rest);

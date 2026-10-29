@@ -246,9 +246,10 @@ export function createNav(c) {
     if (!crowd) return;
     const t0 = performance.now();
     // (his agent gone with him; the others held where they stand unless the crowd walked them last frame)
-    for (const [e, A] of agents) if (e.out || !c.enemies.includes(e)) { crowd.removeAgent(A.a); agents.delete(e); }
+    // (and a man ragdolled (wagmi/physics/ragdoll.js) leaves the crowd until he is up: his body is Jolt's)
+    for (const [e, A] of agents) if (e.out || e.rag || !c.enemies.includes(e)) { crowd.removeAgent(A.a); agents.delete(e); }
     for (const e of c.enemies) {
-      if (e.out) continue;
+      if (e.out || e.rag) continue;
       const A = agentFor(e);
       if (A && !e.navUsed) hold(A, e);
       e.navUsed = false;

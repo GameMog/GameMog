@@ -2440,6 +2440,22 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
     }
   }
 
+  // (Mog City) the wheels of a wreck in wagmi/physics (c.posed): on its body as it lies, tipped or upside down
+  const _posedBody = new THREE.Matrix4(), _posedWheel = new THREE.Matrix4(), _posedQ = new THREE.Quaternion(), _posedE = new THREE.Euler(), _posedP = new THREE.Vector3(), _posedS = new THREE.Vector3();
+  function placeWheelsPosed(v, i, radius, halfTrack, halfBase, leftInst, rightInst, baseRadius = 0.35) {
+    _posedBody.makeRotationFromEuler(_posedE.set(v.pitch, v.yaw + v.yawOffset, v.roll, 'YXZ')).setPosition(v.x, v.py || 0, v.z);
+    const scale = radius / baseRadius;
+    _posedS.set(scale, scale, scale);
+    for (let w = 0; w < 2; w++) {
+      const wz = w === 0 ? halfBase : -halfBase;
+      _posedQ.setFromEuler(_posedE.set(v.wheelSpin + w * 0.55, 0, 0, 'YXZ'));
+      for (const [side, inst] of [[-1, leftInst], [1, rightInst]]) {
+        _posedWheel.compose(_posedP.set(side * halfTrack, radius, wz), _posedQ, _posedS).premultiply(_posedBody);
+        inst.setMatrixAt(i * 2 + w, _posedWheel);
+      }
+    }
+  }
+
   // Lamp state for the car & bus materials: brake lights while slowing down or standing, the turn signal on the side
   // v is heading for (left = +x)
   function writeLampState(v, array, o) {
@@ -2463,7 +2479,8 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
     const bodyInst = near ? bodies[c.bodyType].near : bodies[c.bodyType].far;
     const slot = bodyInst.count++;
 
-    dummy.position.set(c.x, 0.0, c.z);
+    // (Mog City: a wreck in wagmi/physics has a full pose: c.py its height, pitch and roll whatever they are)
+    dummy.position.set(c.x, c.py || 0.0, c.z);
     dummy.rotation.set(c.pitch, rotY, c.roll, 'YXZ');
     dummy.scale.set(1, 1, 1);
     dummy.updateMatrix();
@@ -2524,7 +2541,8 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
     }
 
     if (near) {
-      placeWheels(c, wheelCars++, rotY, c.roll, spec.wheelRadius, spec.wheelX, spec.wheelZ, carWheelLeftInst, carWheelRightInst);
+      if (c.posed) placeWheelsPosed(c, wheelCars++, spec.wheelRadius, spec.wheelX, spec.wheelZ, carWheelLeftInst, carWheelRightInst);
+      else placeWheels(c, wheelCars++, rotY, c.roll, spec.wheelRadius, spec.wheelX, spec.wheelZ, carWheelLeftInst, carWheelRightInst);
     }
   }
 
@@ -2611,7 +2629,7 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
 
         const baseInt = (v.bus ? HEADLIGHTS.busIntensity : HEADLIGHTS.intensity) * beamScale * fade;
         // Match the body instance, including suspension and impact rotation.
-        dummy.position.set(v.x, 0, v.z);
+        dummy.position.set(v.x, v.py || 0, v.z);
         dummy.rotation.set(v.pitch, v.yaw + v.yawOffset, v.roll, 'YXZ');
         dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();

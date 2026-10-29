@@ -6,6 +6,9 @@
 // trees, the subway stairs and the plazas' granite are solid, a hard stop. Hit slowly, a pole or a hydrant is solid too.
 // Each thing is drawn by instances of the city's own instanced meshes: knocked, its instances are moved as one body (no
 // new meshes; those in its hide list, a lamp's light pool, gone), and put back when the camera is far away.
+// With Jolt loaded (wagmi/physics), a small thing knocked flying is a rigid box there: it tumbles, bounces off the
+// ground, the buildings, the wrecks and the other things knocked about, is shoved along by Dan's car (a kinematic body
+// in Jolt) and lies however it comes to rest; it can be knocked again. Poles still fall about their foot.
 import * as THREE from 'three/webgpu';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -28,7 +31,7 @@ const KINDS = {
 const CELL = 12;
 const key = (ix, iz) => (ix + 4096) * 8192 + (iz + 4096);
 
-export function createProps({ cm, fx, play, car = null, scene = null }) {
+export function createProps({ cm, fx, play, car = null, scene = null, physics: PH = null }) {
   const list = (window.NYC.breakables || []).filter((b) => b.solid || (KINDS[b.kind] && b.parts && b.parts.length));
   const cells = new Map();
   for (const b of list) {
@@ -182,6 +185,8 @@ export function createProps({ cm, fx, play, car = null, scene = null }) {
       body.v = new THREE.Vector3(m.vx * k + rnd(-1.5, 1.5) - nx * 1.5, Math.min(7, 1.5 + vi * rnd(0.12, 0.25)), m.vz * k + rnd(-1.5, 1.5) - nz * 1.5);
       body.w = new THREE.Vector3(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).normalize().multiplyScalar(Math.min(14, vi * rnd(0.35, 0.7)));
     }
+    // (in Jolt: a box round its parts on its own axes, set going as above)
+    if (!fall && PH && PH.ready && PH.inside(b.x, b.z, 4)) toJolt(body, K);
     bodies.push(body);
     // the sound and the bits: a pole's clang and sparks at its foot, a crunch of whatever it was, a hydrant's water
     const pos = [b.x, b.y + 0.6, b.z], k = Math.min(1.2, vi / 18);
@@ -190,6 +195,33 @@ export function createProps({ cm, fx, play, car = null, scene = null }) {
     else { play('carHit', { pos, vol: 0.3 + 0.5 * k }); play('clang', { pos, vol: 0.4 + 0.4 * k, rate: 0.8 }); }
     if (K.water) { fx.hydrant(b.x, b.y, b.z); play('splash', { pos, vol: 1 }); }
     if (b.kind === 'mailbox' || b.kind === 'cart') fx.bits(b.x, b.y + 0.8, b.z, m.vx, m.vz, 8, 'paint', b.kind === 'mailbox' ? [0.09, 0.24, 0.48] : [0.8, 0.84, 0.88]);
+  }
+  const _oq = new THREE.Quaternion(), _om = new THREE.Matrix4(), _oc = new THREE.Vector3(), _inv = new THREE.Quaternion();
+  function toJolt(B, K) {
+    // its box: the extents of its corners along its own axes
+    const A = B.axes, lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const v of B.pts) for (let k = 0; k < 3; k++) { const d = v.dot(A[k]); lo[k] = Math.min(lo[k], d); hi[k] = Math.max(hi[k], d); }
+    // (the axes as a turn: made square first, the first part's may be a little off)
+    const ax = A[0].clone(), ay = A[1].clone().addScaledVector(ax, -A[1].dot(ax)).normalize(), az = new THREE.Vector3().crossVectors(ax, ay);
+    _om.makeBasis(ax, ay, az); _oq.setFromRotationMatrix(_om);
+    // (its middle, from c0, in the world; and the local corners' box)
+    _oc.set(0, 0, 0); for (let k = 0; k < 3; k++) _oc.addScaledVector([ax, ay, az][k], (lo[k] + hi[k]) / 2);
+    const h = [0, 1, 2].map((k) => Math.max(0.04, (hi[k] - lo[k]) / 2));
+    const p = _oc.clone().add(B.p);
+    // (not started inside the ground)
+    const g = cm.getGroundHeight(p.x, p.z, 'person'); let low = Infinity;
+    for (const v of B.pts) low = Math.min(low, v.y + B.p.y);
+    if (low < g + 0.02) p.y += g + 0.02 - low;
+    B.jb = PH.addBox(p, _oq, h[0], h[1], h[2], { mass: Math.max(15, K.mass * 1000), friction: 0.55, restitution: 0.25, damp: 0.05, angDamp: 0.12, v: B.v, w: B.w, ccd: true });
+    B.jb.kind = 'prop';
+    // (its parts' frame: c0 off the box's middle, the box's first turn)
+    B.jOff = B.p.clone().sub(p); B.jq0 = _oq.clone().invert();
+  }
+  // the pose of a thing in Jolt, back into its own (p: where c0 is, q: its turn from as it stood)
+  function fromJolt(B) {
+    PH.read(B.jb);
+    B.q.copy(B.jb.q).multiply(B.jq0);
+    B.p.copy(B.jOff).applyQuaternion(_inv.copy(B.jb.q).multiply(B.jq0)).add(B.jb.p);
   }
   function lowest(body, out) {
     // the lowest of its corners now (fallen: only those over a metre from its foot), and the ground under that one
@@ -245,6 +277,24 @@ export function createProps({ cm, fx, play, car = null, scene = null }) {
     frame++;
     for (let i = bodies.length - 1; i >= 0; i--) {
       const B = bodies[i];
+      if (B.jb) {
+        // (in Jolt: as it lies or flies; frozen once it leaves the local world)
+        if (!B.jb.frozen && !PH.inside(B.jb.p.x, B.jb.p.z, 2)) PH.freeze(B.jb);
+        if (!B.jb.frozen) fromJolt(B);
+        B.rest = B.jb.frozen || !B.jb.active;
+        if (B.rest && cam && Math.hypot(B.c0.x - cam.x, B.c0.z - cam.z) > 230) {
+          for (const p of B.parts) for (const [o, j] of p.to) write(o, j, p.m0);
+          for (const [o, j, m0] of B.hidden) write(o, j, m0);
+          B.b.taken = false; if (B.b.light) B.b.light.out = false;
+          PH.remove(B.jb); bodies.splice(i, 1); continue;
+        }
+        // (a landing's clang)
+        if (!B.rest) { const vy = PH.vel(B.jb, _wp).y; if ((B.lvy || 0) < -2.5 && vy > (B.lvy || 0) + 2) play('clang', { pos: [B.p.x, B.p.y, B.p.z], vol: Math.min(0.6, -B.lvy * 0.1), rate: 0.9 + Math.random() * 0.3 }); B.lvy = vy; }
+        if (!B.rest || !B.drawnRest) { B.drawnRest = B.rest; _b.compose(B.p, B.q, _one); for (const p of B.parts) { _m.multiplyMatrices(_b, p.K); for (const [o, j] of p.to) write(o, j, _m); } }
+        continue;
+      }
+      // (still flying when Jolt came in: handed to it)
+      if (!B.fall && !B.rest && !B.to && PH && PH.ready && PH.inside(B.p.x, B.p.z, 4)) { toJolt(B, KINDS[B.b.kind]); continue; }
       if (!B.fall) shove(B);
       if (B.rest) {
         // put back, the camera far away
@@ -303,6 +353,6 @@ export function createProps({ cm, fx, play, car = null, scene = null }) {
     }
   }
   // (for a test: everything put back now)
-  function reset() { for (const B of bodies) { for (const p of B.parts) for (const [o, j] of p.to) write(o, j, p.m0); for (const [o, j, m0] of B.hidden) write(o, j, m0); B.b.taken = false; if (B.b.light) B.b.light.out = false; } bodies.length = 0; }
+  function reset() { for (const B of bodies) { if (B.jb) PH.remove(B.jb); for (const p of B.parts) for (const [o, j] of p.to) write(o, j, p.m0); for (const [o, j, m0] of B.hidden) write(o, j, m0); B.b.taken = false; if (B.b.light) B.b.light.out = false; } bodies.length = 0; }
   return { list, around, collide, update, reset, bodies, KINDS };
 }

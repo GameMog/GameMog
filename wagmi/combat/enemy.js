@@ -26,8 +26,13 @@
 import * as THREE from 'three/webgpu';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { clamp, damp, dampAngle, angWrap, yawTo, hdist, rnd, pick, smooth } from './util.js';
+import { createRagdolls } from '../physics/ragdoll.js';
+// (the ragdolls, made once Jolt is in: wagmi/physics, loaded by the crash's first hit or the first Suit on the street)
+let RAGS = null;
+const rags = () => { const P = window.WAGMI?.physics; if (!P || !P.ready || RAG_OFF) return null; return RAGS || (RAGS = createRagdolls(P)); };
+const RAG_OFF = new URLSearchParams(location.search).get('ragdoll') === '0';
 
-const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion();
+const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion();
 const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
 const G = 22;
 
@@ -129,6 +134,7 @@ export class Enemy {
     this.weapon = null; if (weapon) c.items.arm(this, weapon);
     this.idle(0);
     this.mixer.update(rnd(0, 1.5));
+    window.WAGMI?.physics?.want(); // (a man on the street: Jolt loads now, for his fall)
   }
   get pos() { return this.root.position; }
   get alive() { return !this.out; }
@@ -354,11 +360,14 @@ export class Enemy {
     this.c.onEnemyInterrupted(this);
   }
   pushXZ(dir, d) { this.moveXZ(dir.x * d, dir.z * d); }
-  knock(dir, speed, up) {
+  knock(dir, speed, up, ragdoll = true) {
     this.disarm(_v2.set(dir.x * speed * 0.4 + rnd(-1, 1), 3, dir.z * speed * 0.4 + rnd(-1, 1)));
     this.set('knock'); this.turnRate = 22; this.dusted = false;
     this.vel.set(dir.x * speed, up, dir.z * speed);
     this.play('thugKnockdown', { fade: 0.05, once: true, ts: speed > 5 ? 1.45 : 1.15 });
+    // (flung: his ragdoll takes him, from the pose he was in, if Jolt is in; else the clip and the arc as before)
+    this.ragBlend = null; this.ragHold = null;
+    if (ragdoll && !this.rag) { const R = rags(); if (R) { try { R.start(this, this.vel, _v3.set(dir.x, 0, dir.z).normalize()); } catch (err) { console.warn('[ragdoll]', err); R.drop(this); } } }
     this.c.onEnemyInterrupted(this);
   }
   // to the car's side at `at`, then a fist or a boot into it (index.js onCarBang)
@@ -378,7 +387,7 @@ export class Enemy {
   // out of the way of a car: a dive to one side, onto the street, and up again
   dive(dir) {
     if (this.state === 'fetch') this.dropClaim();
-    this.faceYaw = Math.atan2(-dir.x, -dir.z); this.knock(dir, 5.4, 2.7);
+    this.faceYaw = Math.atan2(-dir.x, -dir.z); this.knock(dir, 5.4, 2.7, false);
   }
   // countered: his swing is stopped dead, he reels (the counter's blow follows)
   parry(dir) {
@@ -409,6 +418,18 @@ export class Enemy {
     this.st += dt; this.cd -= dt; this.stun -= dt;
     this.flinch = Math.max(0, this.flinch - dt * 5); this.flash = Math.max(0, this.flash - dt * 12);
     const dist = hdist(this.pos, P), faceP = yawTo(this.pos, P);
+    if (this.rag) {
+      // (ragdolled: where his body is; down once it has settled, up (the get-up from where he lies) when it is time)
+      const settled = RAGS.step(this, dt);
+      if (this.state === 'knock' && settled) {
+        this.landDown();
+        // (still alive: from where he lies into the clip's own lying pose (the knockdown's end, lined up with him), so the
+        // get-up follows it as it always has; out for good, he stays as he fell)
+        if (this.hp > 0) { RAGS.end(this); this.play('thugKnockdown', { fade: 0, once: true, at: 0.97 }); this.rm = null; this.downT = Math.max(this.downT, 1.3); }
+      }
+      if (this.rag && this.state === 'down' && this.st > this.downT) { RAGS.hold(this); this.out = true; this.set('out'); this.c.onEnemyOut(this); }
+      if (this.rag) { this.mixer.update(dt); return; }
+    }
     if (this.state === 'knock' && this.st > 3.5) { this.pos.y = this.ground(); this.landDown(); }
     if (this.hopStep(dt)) { this.root.rotation.y = this.yaw; this.mixer.update(dt); return; }
     if (this.faceYaw != null && this.turnRate) { this.yaw = dampAngle(this.yaw, this.faceYaw, this.turnRate, dt); if (Math.abs(angWrap(this.faceYaw - this.yaw)) < 0.02) this.turnRate = 0; }
@@ -619,6 +640,13 @@ export class Enemy {
   // ------------------------------------------------------------------ over the clip (after the mixer)
   late(dt) {
     const B = this.bones;
+    // (ragdolled, or lying as he fell: his bones are the ragdoll's)
+    if (this.rag || this.ragHold) {
+      if (this.rag) RAGS.apply(this); else RAGS.applyHold(this);
+      const e = this.flash * this.flash * 0.05; for (const m of this.mats) m.emissive.setRGB(e, e * 0.92, e * 0.85);
+      if (this.weapon) this.c.items.holdOn(this, this.weapon);
+      return;
+    }
     // knocked about: a tumble about the pelvis
     const piv = 0.95;
     _q.setFromAxisAngle(X, this.pitch);
@@ -639,6 +667,7 @@ export class Enemy {
     const e = this.flash * this.flash * 0.05;
     for (const m of this.mats) m.emissive.setRGB(e, e * 0.92, e * 0.85);
     this.root.updateMatrixWorld(true);
+    if (this.ragBlend) RAGS.blend(this, dt);
     if (this.weapon) this.c.items.holdOn(this, this.weapon);
   }
   // how much of him shows (1: all of him; toward 0 he dissolves, a dither: no sorting, no new pipeline)
@@ -647,6 +676,7 @@ export class Enemy {
     this.fadeK = k; for (const m of this.mats) m.opacity = k;
   }
   dispose() {
+    if (this.rag) RAGS?.drop(this);
     this.c.scene.remove(this.root); this.mixer.stopAllAction();
     for (const m of this.mats) m.dispose();
     if (this.weapon) this.c.items.drop(this, true);

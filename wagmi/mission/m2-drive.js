@@ -16,6 +16,7 @@ import { spline, clamp } from './cine.js';
 const pbox = (car) => { const B = car.body; return B ? { hx: B.hx, hl: (B.z1 - B.z0) / 2, cz: (B.z1 + B.z0) / 2 } : { hx: 1.08, hl: 2.4, cz: 0 }; };
 
 export function createDriver(W, { obj, path, halfW = 1.0, halfL = 2.8, plow = false, onWheels = null, onHit = null, accel = 3.2, brake = 7, stopAtEnd = true }) {
+  if (plow) W.physics?.want(); // (Mack plows the traffic: Jolt for the cars he knocks out of their lanes)
   const app = W.app, cm = app.controllerManager, car = W.car, TS = app.trafficSystem;
   const S = spline(path);
   const D = {
@@ -84,6 +85,12 @@ export function createDriver(W, { obj, path, halfW = 1.0, halfL = 2.8, plow = fa
       const fresh = now - (hitAt.get(v) || 0) > 700; hitAt.set(v, now);
       if (!fresh) continue;
       if (!v.bus) { v.yawVel = (v.yawVel || 0) + side * Math.min(3, push * 0.25); v.rollVel = (v.rollVel || 0) + side * Math.min(6, push) * 0.2; }
+      // (hit hard, with Jolt in (wagmi/physics): the car is knocked out of its lane as a rigid body, the blow where his
+      // nose met it, as Dan's own crashes do)
+      if (!v.bus && rel > 8 && W.physics?.ready && W.crash?.wrecks) {
+        const m = v.isSUV ? 2.1 : 1.4, dvx = (nx * push * 0.35 + side * fz * push * 0.8) * k * 1.5, dvz = (nz * push * 0.35 - side * fx * push * 0.8) * k * 1.5;
+        try { W.crash.wrecks.push(v, dvx * m, dvz * m, D.pos.x + fx * halfL, D.pos.z + fz * halfL, true); } catch (err) { console.warn('[m2-drive] wreck', err); }
+      }
       D.hits++;
       if (k0 < 1) continue;
       D.v *= v.bus ? 0.7 : 0.9;
