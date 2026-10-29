@@ -78,19 +78,103 @@ function armTo(W, side, target, pole, w = 1) {
   if (e.lengthSq() > 1e-6 && p.lengthSq() > 1e-6) { let ang = e.angleTo(p); if (V().crossVectors(e, p).dot(ax) < 0) ang = -ang; turnWorld(b1, _q.setFromAxisAngle(ax, ang)); }
   if (w < 0.999) { b1.quaternion.slerpQuaternions(q1, b1.quaternion.clone(), w); b2.quaternion.slerpQuaternions(q2, b2.quaternion.clone(), w); b1.updateMatrixWorld(true); }
 }
-// his phone up in front of him in his right hand (k 0..1)
+// his phone up in front of him in his right hand, its screen to his eyes (k 0..1: down by his side .. up). Gripped
+// (28 Oct: it floated over an open hand with splayed fingers), the opening's grip (wagmi/intro.js): the wrist reached to
+// where the hand holds the phone there, the hand turned palm to the phone's back and across it, the fingers curled round
+// its far edge, the thumb on the glass by its near edge; the phone then glued to the hand
 function holdPhone(W, phone, h, k) {
-  const B = W.dan.bones; if (!B.head || k <= 0.001) { phone.visible = false; return; }
+  const B = W.dan.bones; if (!B.head) { phone.visible = false; return; }
+  const K = keepHand(B);
+  if (k <= 0.001) { phone.visible = false; wroteHand(K); return; }
   W.person.mesh.updateMatrixWorld(true);
   const F = V(Math.sin(h), 0, Math.cos(h)), R = V(-Math.cos(h), 0, Math.sin(h));
   const eye = B.head.getWorldPosition(V()).add(V(0, 0.07, 0)).addScaledVector(F, 0.08);
   const P = eye.clone().addScaledVector(F, 0.3).add(V(0, -0.27, 0)).addScaledVector(R, 0.05);
-  const z = eye.clone().sub(P).normalize(), y = V(0, 1, 0).addScaledVector(z, -z.y).normalize(), x = V().crossVectors(y, z).normalize();
+  const z = eye.clone().sub(P).normalize(), y = V(0, 1, 0).addScaledVector(z, -z.y).normalize().applyAxisAngle(z, GRIP.roll), x = V().crossVectors(y, z).normalize();
   const sh = B.upperarm01_R.getWorldPosition(V());
-  armTo(W, 'R', P.clone().addScaledVector(z, -0.03).addScaledVector(y, -0.05), sh.clone().add(V(0, -1, 0)).addScaledVector(R, 0.5).addScaledVector(F, -0.3), k);
+  gripPhone(W, phone, P, x, y, z, sh.clone().add(V(0, -1, 0)).addScaledVector(R, 0.5).addScaledVector(F, -0.3), k);
   phone.visible = k > 0.6;
-  phone.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z)); phone.position.copy(P);
+  wroteHand(K);
 }
+// the grip (fitted offline to his hand mesh: the phone in the palm, the four fingers wrapped round its far long edge, the
+// thumb on the glass by the near one, nothing through it, the wrist bent about 12 deg, the forearm's twist bone taking
+// 90% of the turn so the wrist isn't wrung): tilt (the hand across the phone, from its length), roll (the phone turned
+// in its plane so the hand lines up with the forearm), along / across (the phone's middle from the palm's), depth (the
+// palm's flesh under the bones), half (the phone's half thickness), lift (its middle moved up its length from there), the
+// thumb's mark on the glass from its middle and its pad's radius; each finger's curl about its own hinge [knuckle, middle, tip] and the thumb's [base, middle, tip,
+// swing], the hinges read off the fist in his fight clip (the right hand's)
+const GRIP = { tilt: 1.2, roll: -0.5, along: 0.012, across: -0.004, depth: 0.022, half: 0.0045, lift: 0, thumb: [0.03, 0], thumbR: 0.0095,
+  hinge: { 1: [0.92, -0.1, -0.38], 2: [0.45, 0.66, 0.6], 3: [0.43, 0.56, 0.71], 4: [0.39, 0.46, 0.8], 5: [0.35, 0.35, 0.87], len: [-0.42, -0.48, 0.77] },
+  fingers: [[0.25, 1.1, 0.9], [0.3, 1.2, 0.95], [0.35, 1.2, 0.95], [0.4, 1.1, 0.9]], thumbCurl: [0, 0.3, 0.2, 0], share: 0.9 };
+// (the bones the grip works over the clip's pose, put back to the clip's own values first each frame: the gaits only
+// write a bone when its value changes, so a turn would pile up frame on frame and a hand closed round the phone would
+// stay closed for the game; releasePhone(W) when a scene ends)
+const HAND_R = ['upperarm01_R', 'lowerarm01_R', 'lowerarm02_R', 'wrist_R', ...[1, 2, 3, 4, 5].flatMap((f) => [1, 2, 3].map((j) => `finger${f}-${j}_R`))];
+const handKeep = new WeakMap();
+function keepHand(B) {
+  let K = handKeep.get(B); if (!K) handKeep.set(B, (K = HAND_R.map((n) => B[n]).filter(Boolean).map((b) => ({ b, clean: b.quaternion.clone(), wrote: null }))));
+  for (const s of K) { if (s.wrote && s.b.quaternion.equals(s.wrote)) s.b.quaternion.copy(s.clean); else s.clean.copy(s.b.quaternion); }
+  return K;
+}
+const wroteHand = (K) => { for (const s of K) (s.wrote ||= new THREE.Quaternion()).copy(s.b.quaternion); };
+function releasePhone(W) { const B = W.dan?.bones, K = B && handKeep.get(B); if (!K) return; for (const s of K) { if (s.wrote && s.b.quaternion.equals(s.wrote)) s.b.quaternion.copy(s.clean); s.wrote = null; } }
+// two-bone reach for any chain (the thumb), the middle joint toward the world point pole, by weight
+function chainTo(b1, b2, b3, target, pole, w) {
+  const q1 = b1.quaternion.clone(), q2 = b2.quaternion.clone();
+  const a = b1.getWorldPosition(V()), b = b2.getWorldPosition(V()); let c = b3.getWorldPosition(V());
+  const la = a.distanceTo(b), lb = b.distanceTo(c), d = clamp(target.distanceTo(a), Math.abs(la - lb) + 1e-3, la + lb - 1e-3);
+  const cur = a.clone().sub(b).normalize().angleTo(c.clone().sub(b).normalize()), want = Math.acos(clamp((la * la + lb * lb - d * d) / (2 * la * lb), -1, 1));
+  const n = V().crossVectors(a.clone().sub(b), c.clone().sub(b)); if (n.lengthSq() < 1e-8) n.set(1, 0, 0); n.normalize();
+  turnWorld(b2, _q.setFromAxisAngle(n, want - cur)); c = b3.getWorldPosition(V());
+  turnWorld(b1, _q.setFromUnitVectors(c.sub(a).normalize(), target.clone().sub(a).normalize()));
+  const ax = target.clone().sub(a).normalize(), e = b2.getWorldPosition(V()).sub(a), p = pole.clone().sub(a);
+  e.addScaledVector(ax, -e.dot(ax)); p.addScaledVector(ax, -p.dot(ax));
+  if (e.lengthSq() > 1e-6 && p.lengthSq() > 1e-6) { let ang = e.angleTo(p); if (V().crossVectors(e, p).dot(ax) < 0) ang = -ang; turnWorld(b1, _q.setFromAxisAngle(ax, ang)); }
+  if (w < 0.999) { b1.quaternion.slerpQuaternions(q1, b1.quaternion.clone(), w); b2.quaternion.slerpQuaternions(q2, b2.quaternion.clone(), w); b1.updateMatrixWorld(true); }
+}
+// the right hand's frame: f along it (wrist to middle knuckle), a across it (to the index), p out of the palm, c the
+// palm's middle
+function handR(B) {
+  const w = B.wrist_R.getWorldPosition(V()), m = B['finger3-1_R'].getWorldPosition(V()), len = w.distanceTo(m), f = m.clone().sub(w).divideScalar(len);
+  const a = B['finger2-1_R'].getWorldPosition(V()).sub(B['finger5-1_R'].getWorldPosition(V())); a.addScaledVector(f, -a.dot(f)).normalize();
+  return { w, f, a, p: V().crossVectors(a, f), len, c: w.clone().addScaledVector(f, len * 0.5) };
+}
+// the phone (its middle C, screen N, top U, right S) in his right hand, his elbow toward pole, by weight k
+function gripPhone(W, phone, C, S, U, N, pole, k) {
+  const B = W.dan.bones, st = Math.sin(GRIP.tilt), ct = Math.cos(GRIP.tilt), len = handR(B).len;
+  // (where the wrist goes for the phone to be there, and the hand's length: across the phone's back)
+  const f = U.clone().multiplyScalar(ct).addScaledVector(S, -st), a = U.clone().multiplyScalar(st).addScaledVector(S, ct);
+  armTo(W, 'R', C.clone().addScaledVector(U, -GRIP.lift).addScaledVector(N, -(GRIP.depth + GRIP.half)).addScaledVector(a, -GRIP.across).addScaledVector(f, -(GRIP.along + len * 0.5)), pole, k);
+  // the hand turned: its fingers along f, its back away from the screen; most of the turn taken by the forearm's
+  // twist bone (no wrung wrist)
+  { const H = handR(B), n0 = V().crossVectors(H.f, H.a).normalize(), back = N.clone().negate(); back.addScaledVector(f, -back.dot(f)).normalize();
+    const q0 = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(H.f, n0, V().crossVectors(H.f, n0).normalize()));
+    const q1 = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(f, back, V().crossVectors(f, back).normalize()));
+    const turn = q1.multiply(q0.invert()); if (k < 0.999) turn.slerpQuaternions(new THREE.Quaternion(), turn.clone(), k); turnWorld(B.wrist_R, turn); }
+  { const wr = B.wrist_R, tw = B.lowerarm02_R; if (tw && wr.parent === tw) { const d = wr.position.clone().normalize(), q = wr.quaternion, s = d.x * q.x + d.y * q.y + d.z * q.z;
+    const part = new THREE.Quaternion().slerp(new THREE.Quaternion(d.x * s, d.y * s, d.z * s, q.w).normalize(), GRIP.share * k); tw.quaternion.multiply(part); wr.quaternion.premultiply(part.invert()); tw.updateMatrixWorld(true); } }
+  // the fingers round its far edge
+  const hg = (n) => V(...GRIP.hinge[n]).normalize(), q2 = new THREE.Quaternion();
+  GRIP.fingers.forEach((curl, i) => { const ax = hg(i + 2); curl.forEach((ang, j) => B[`finger${i + 2}-${j + 1}_R`]?.quaternion.slerp(_q.setFromAxisAngle(ax, ang), k)); });
+  { const [t1, t2, t3, sw] = GRIP.thumbCurl, ax = hg(1);
+    B['finger1-1_R']?.quaternion.slerp(_q.setFromAxisAngle(hg('len'), sw).multiply(q2.setFromAxisAngle(ax, t1)), k);
+    B['finger1-2_R']?.quaternion.slerp(_q.setFromAxisAngle(ax, t2), k); B['finger1-3_R']?.quaternion.slerp(_q.setFromAxisAngle(ax, t3), k); }
+  B.wrist_R.updateMatrixWorld(true);
+  // the phone glued to the hand: its back on the palm
+  const H = handR(B), U2 = H.f.clone().multiplyScalar(ct).addScaledVector(H.a, st), N2 = H.p, S2 = V().crossVectors(U2, N2).normalize();
+  phone.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(S2, U2, N2));
+  phone.position.copy(H.c).addScaledVector(H.f, GRIP.along).addScaledVector(H.a, GRIP.across).addScaledVector(N2, GRIP.depth + GRIP.half).addScaledVector(U2, GRIP.lift);
+  phone.updateMatrixWorld(true);
+  // the thumb on the glass by the near edge: its last joint reached there, the tip laid along the glass
+  const b1 = B['finger1-1_R'], b2 = B['finger1-2_R'], b3 = B['finger1-3_R'];
+  if (b1 && b2 && b3) {
+    const tg = phone.position.clone().addScaledVector(S2, GRIP.thumb[0]).addScaledVector(U2, GRIP.thumb[1]).addScaledVector(N2, GRIP.half + GRIP.thumbR);
+    chainTo(b1, b2, b3, tg, b2.getWorldPosition(V()).addScaledVector(N2, 1).addScaledVector(S2, 0.6), k);
+    const q3 = b3.quaternion.clone(), d = b3.position.clone().normalize().transformDirection(b3.matrixWorld), want = S2.clone().multiplyScalar(-0.55).addScaledVector(U2, 0.8).addScaledVector(N2, -0.12).normalize();
+    turnWorld(b3, new THREE.Quaternion().setFromUnitVectors(d, want)); if (k < 0.999) b3.quaternion.slerpQuaternions(q3, b3.quaternion.clone(), k); b3.updateMatrixWorld(true);
+  }
+}
+
 const drift = (a, b, secs) => (t, t0) => keys([[t0, a], [t0 + secs, b]], 'linear')(t);
 // a thug rig placed and posed: x, z, heading, the scene clock
 function stand(W, P, x, z, h, t, { y = null, lie = false } = {}) {
@@ -238,7 +322,7 @@ export function garageScene(W, { U, say, gears, garage }) {
       gears.rig.set([[0, 'idle']]);
     },
     cleanup() {
-      U.call.hide(); C.phone.visible = false; gears.root.visible = false; garage.inside(false);
+      U.call.hide(); C.phone.visible = false; releasePhone(W); gears.root.visible = false; garage.inside(false);
       W.voice?.fx?.('Fiona', null);
       // (out on the sidewalk by his car at the curb before the hand-back, where play goes on (m3.js puts them there
       // too), so the view comes down behind him there, facing the car and the way on)
@@ -348,7 +432,7 @@ export function nightScene(W, { garage, card, onDark }) {
     cleanup() {
       r.stop(); Q.act('idle').setEffectiveWeight(1); card?.(false);
       if (lock0) { C.phone.screen.material.map = lock0; C.phone.screen.material.needsUpdate = true; }
-      C.phone.visible = false; garage.mood(null);
+      C.phone.visible = false; releasePhone(W); garage.mood(null);
     },
   };
   return def;

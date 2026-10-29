@@ -471,21 +471,29 @@ function createMission(W, { keep = false } = {}) {
         [4.8, ['walk/body', 'idle/arms'], { speed: 0.9, fade: 0.25 }], [5.6, ['idle/body', ['talk/arms', { from: 1.47, speed: 0.05 }]], { fade: 0.4 }], [13.6, 'idle', { fade: 0.5 }]]);
       shots.push({ t: 0, cam: (t) => ({ pos: keys([[0, [VAN[0] + 1.25, 0.95, VAN[1] + 1.75]], [3.4, [VAN[0] + 1.05, 0.9, VAN[1] + 1.65]]], 'linear')(t), look: [lipX + 0.05, 0.62, lipZ], fov: 32, shake: 0.4 }) });
       shots.push({ t: 3.4, cam: (t) => ({ pos: keys([[3.4, [VAN[0] + 2.6, 1.5, VAN[1] + 3.4]], [9, [VAN[0] + 2.3, 1.5, VAN[1] + 3.2]]], 'linear')(t), look: [QX, 1.0, QZ - 0.1], fov: 38, shake: 0.5 }) });
-      shots.push({ t: 9, cam: (t) => ({ pos: keys([[9, [QX + 0.55, 1.55, QZ + 1.45]], [15.5, [QX + 0.5, 1.55, QZ + 1.3]]], 'linear')(t), look: [QX - 0.05, 1.42, QZ], fov: 34, shake: 0.4 }) });
+      // (the close-up, 'He's got my laptop': his whole face with room over his hair, the burner in his hand under it; 28
+      // Oct, it was framed for a shorter man and cut him off at the nose)
+      shots.push({ t: 9, cam: (t) => ({ pos: keys([[9, [QX + 0.5, 1.66, QZ + 1.6]], [15.5, [QX + 0.45, 1.66, QZ + 1.45]]], 'linear')(t), look: [QX - 0.02, 1.57, QZ], fov: 40, shake: 0.4 }) });
       const doorK = keys([[0.4, 0, 'out'], [1.0, 1]]);
-      const _r = new THREE.Vector3(), _l = new THREE.Vector3();
+      const _l = new THREE.Vector3();
+      // (28 Oct: the burner lay on his open, splayed fingers) gripped in his right hand once picked up: its back on his
+      // palm, his fingers round its far edge, his thumb on its near edge; when it buzzes he brings it up in front of his
+      // chest to read it, its screen to his eyes (readK), and down again as he drops back into his idle
+      const readK = keys([[5.8, 0], [6.5, 1], [13.3, 1], [14.0, 0]]), hand = burnerHand(Q.bones);
       pose = (t) => {
         C.van.setDoor(doorK(t));
         danAt(QX, qz(t), qh(t));
         poseDan(t, qh(t), t > 3.2 && t < 4.6 ? 0.3 : 1); P.mesh.updateMatrixWorld(true);
         // picked up: one in each hand from then on
+        hand.keep();
         if (t > 3.85) {
-          const B = Q.bones; B['finger3-1_R'].getWorldPosition(_r); B['finger3-1_L'].getWorldPosition(_l);
-          burner.position.copy(_r); tracker.position.copy(_l); tracker.rotation.set(0.6, 0, 0.2);
+          hand.grip(W, burner, qh(t), readK(t), clamp((t - 3.85) / 0.15));
+          Q.bones['finger3-1_L'].getWorldPosition(_l); tracker.position.copy(_l); tracker.rotation.set(0.6, 0, 0.2);
           burner.material.emissiveIntensity = t > 6 ? 1.2 : 0;
         }
+        hand.wrote();
       };
-      cleanup = () => app.scene.remove(tracker, burner);
+      cleanup = () => { hand.release(); app.scene.remove(tracker, burner); };
       cues.push([1.1, () => sfx.play('doorSlide', { gain: 0.35 })]);
       cues.push([2.0, () => say([['Dan', WHITE, "My tracker. Cut right out."]], st)]);
       cues.push([6.0, () => { sfx.play('buzz', { gain: 0.2, times: 2 }); sfx.play('ding', { gain: 0.14 }); }]);
@@ -583,4 +591,85 @@ function createMission(W, { keep = false } = {}) {
     restart: (at) => { W.combat?.clear?.(); holds([]); ui.ko(false); start(W, { at, keep: true }).catch((e) => console.error('[m1]', e)); },
   });
   return M;
+}
+
+/* ------------------------------------------------- the burner in his hand -- */
+// (28 Oct) the van search's burner gripped in Dan's right hand: in his palm, the hand across it (tilt from its length,
+// the burner turned a little in its plane, roll, so the hand lines up with the forearm), the four fingers wrapped round
+// its far long edge, his thumb on the glass by the near one (fitted offline to his hand mesh: nothing through it). grip(W, burner, h, k, w): k 0..1 brings it up in front of his chest to read (the wrist reached there, the
+// hand turned palm to its back), w closes the hand on it. His right arm's and hand's bones are put back to the clip's own
+// pose first each frame (keep), noted after (wrote), and put back when the scene ends (release): the gaits only write a
+// bone when its value changes, so a turn would pile up, and a closed hand would stay closed for the game.
+function burnerHand(B) {
+  const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _w = new THREE.Quaternion();
+  const G = { tilt: 1.2, roll: -0.5, along: 0.01, across: -0.004, depth: 0.02, half: 0.006, lift: 0, thumb: [0.02, 0], thumbR: 0.0095,
+    hinge: { 1: [0.92, -0.1, -0.38], 2: [0.45, 0.66, 0.6], 3: [0.43, 0.56, 0.71], 4: [0.39, 0.46, 0.8], 5: [0.35, 0.35, 0.87], len: [-0.42, -0.48, 0.77] },
+    fingers: [[0.4, 1.3, 1.0], [0.5, 1.35, 1.05], [0.55, 1.35, 1.05], [0.6, 1.25, 1.0]], thumbCurl: [0, 0.3, 0.2, 0], share: 0.9 };
+  const K = ['upperarm01_R', 'lowerarm01_R', 'lowerarm02_R', 'wrist_R', ...[1, 2, 3, 4, 5].flatMap((f) => [1, 2, 3].map((j) => `finger${f}-${j}_R`))]
+    .map((n) => B[n]).filter(Boolean).map((b) => ({ b, clean: b.quaternion.clone(), wrote: null }));
+  const turnWorld = (b, q) => { b.getWorldQuaternion(_w); const want = q.clone().multiply(_w); b.parent.getWorldQuaternion(_w); b.quaternion.copy(_w.invert().multiply(want)); b.updateMatrixWorld(true); };
+  function chain(b1, b2, b3, target, pole, w) {
+    if (!b1 || !b2 || !b3 || w <= 0.001) return;
+    const q1 = b1.quaternion.clone(), q2 = b2.quaternion.clone();
+    const a = b1.getWorldPosition(V()), b = b2.getWorldPosition(V()); let c = b3.getWorldPosition(V());
+    const la = a.distanceTo(b), lb = b.distanceTo(c), d = clamp(target.distanceTo(a), Math.abs(la - lb) + 1e-3, la + lb - 1e-3);
+    const cur = a.clone().sub(b).normalize().angleTo(c.clone().sub(b).normalize()), want = Math.acos(clamp((la * la + lb * lb - d * d) / (2 * la * lb), -1, 1));
+    const n = V().crossVectors(a.clone().sub(b), c.clone().sub(b)); if (n.lengthSq() < 1e-8) n.set(1, 0, 0); n.normalize();
+    turnWorld(b2, _q.setFromAxisAngle(n, want - cur)); c = b3.getWorldPosition(V());
+    turnWorld(b1, _q.setFromUnitVectors(c.sub(a).normalize(), target.clone().sub(a).normalize()));
+    const ax = target.clone().sub(a).normalize(), e = b2.getWorldPosition(V()).sub(a), p = pole.clone().sub(a);
+    e.addScaledVector(ax, -e.dot(ax)); p.addScaledVector(ax, -p.dot(ax));
+    if (e.lengthSq() > 1e-6 && p.lengthSq() > 1e-6) { let ang = e.angleTo(p); if (V().crossVectors(e, p).dot(ax) < 0) ang = -ang; turnWorld(b1, _q.setFromAxisAngle(ax, ang)); }
+    if (w < 0.999) { b1.quaternion.slerpQuaternions(q1, b1.quaternion.clone(), w); b2.quaternion.slerpQuaternions(q2, b2.quaternion.clone(), w); b1.updateMatrixWorld(true); }
+  }
+  // (the hand's frame: f along it, a across it to the index, p out of the palm, c the palm's middle)
+  const frame = () => { const w = B.wrist_R.getWorldPosition(V()), m = B['finger3-1_R'].getWorldPosition(V()), len = w.distanceTo(m), f = m.clone().sub(w).divideScalar(len);
+    const a = B['finger2-1_R'].getWorldPosition(V()).sub(B['finger5-1_R'].getWorldPosition(V())); a.addScaledVector(f, -a.dot(f)).normalize();
+    return { w, f, a, p: V().crossVectors(a, f), len, c: w.clone().addScaledVector(f, len * 0.5) }; };
+  const hg = (n) => V(...G.hinge[n]).normalize();
+  return {
+    keep() { for (const s of K) { if (s.wrote && s.b.quaternion.equals(s.wrote)) s.b.quaternion.copy(s.clean); else s.clean.copy(s.b.quaternion); } },
+    wrote() { for (const s of K) (s.wrote ||= new THREE.Quaternion()).copy(s.b.quaternion); },
+    release() { for (const s of K) { if (s.wrote && s.b.quaternion.equals(s.wrote)) s.b.quaternion.copy(s.clean); s.wrote = null; } },
+    grip(W, burner, h, k, w) {
+      if (!B.head || !B.wrist_R || !B['finger3-1_R']) return;
+      const st = Math.sin(G.tilt), ct = Math.cos(G.tilt);
+      if (k > 0.001) {
+        // read: in front of his chest, a little to his right, its screen to his eyes
+        const F = V(Math.sin(h), 0, Math.cos(h)), R = V(-Math.cos(h), 0, Math.sin(h));
+        const eye = B.head.getWorldPosition(V()).add(V(0, 0.07, 0)).addScaledVector(F, 0.08);
+        const C = eye.clone().addScaledVector(F, 0.3).add(V(0, -0.33, 0)).addScaledVector(R, 0.06);
+        const N = eye.clone().sub(C).normalize(), U = V(0, 1, 0).addScaledVector(N, -N.y).normalize().applyAxisAngle(N, G.roll), S = V().crossVectors(U, N).normalize();
+        const f = U.clone().multiplyScalar(ct).addScaledVector(S, -st), a = U.clone().multiplyScalar(st).addScaledVector(S, ct), len = frame().len;
+        const sh = B.upperarm01_R.getWorldPosition(V());
+        chain(B.upperarm01_R, B.lowerarm01_R, B.wrist_R, C.clone().addScaledVector(U, -G.lift).addScaledVector(N, -(G.depth + G.half)).addScaledVector(a, -G.across).addScaledVector(f, -(G.along + len * 0.5)),
+          sh.clone().add(V(0, -1, 0)).addScaledVector(R, 0.5).addScaledVector(F, -0.3), k);
+        const H = frame(), n0 = V().crossVectors(H.f, H.a).normalize(), back = N.clone().negate(); back.addScaledVector(f, -back.dot(f)).normalize();
+        const q0 = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(H.f, n0, V().crossVectors(H.f, n0).normalize()));
+        const q1 = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(f, back, V().crossVectors(f, back).normalize()));
+        const turn = q1.multiply(q0.invert()); if (k < 0.999) turn.slerpQuaternions(new THREE.Quaternion(), turn.clone(), k); turnWorld(B.wrist_R, turn);
+        const wr = B.wrist_R, tw = B.lowerarm02_R;
+        if (tw && wr.parent === tw) { const d = wr.position.clone().normalize(), q = wr.quaternion, s = d.x * q.x + d.y * q.y + d.z * q.z;
+          const part = new THREE.Quaternion().slerp(new THREE.Quaternion(d.x * s, d.y * s, d.z * s, q.w).normalize(), G.share * k); tw.quaternion.multiply(part); wr.quaternion.premultiply(part.invert()); tw.updateMatrixWorld(true); }
+      }
+      // the fingers round it
+      G.fingers.forEach((curl, i) => { const ax = hg(i + 2); curl.forEach((ang, j) => B[`finger${i + 2}-${j + 1}_R`]?.quaternion.slerp(_q.setFromAxisAngle(ax, ang), w)); });
+      { const [t1, t2, t3, sw] = G.thumbCurl, ax = hg(1);
+        B['finger1-1_R']?.quaternion.slerp(_q.setFromAxisAngle(hg('len'), sw).multiply(_q2.setFromAxisAngle(ax, t1)), w);
+        B['finger1-2_R']?.quaternion.slerp(_q.setFromAxisAngle(ax, t2), w); B['finger1-3_R']?.quaternion.slerp(_q.setFromAxisAngle(ax, t3), w); }
+      B.wrist_R.updateMatrixWorld(true);
+      // the burner glued to the hand (its box: x across, y its thickness, z its length)
+      const H = frame(), U2 = H.f.clone().multiplyScalar(ct).addScaledVector(H.a, st), N2 = H.p, S2 = V().crossVectors(U2, N2).normalize();
+      burner.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(S2, N2, U2.clone().negate()));
+      burner.position.copy(H.c).addScaledVector(H.f, G.along).addScaledVector(H.a, G.across).addScaledVector(N2, G.depth + G.half).addScaledVector(U2, G.lift);
+      // the thumb on the glass by its near edge
+      const b1 = B['finger1-1_R'], b2 = B['finger1-2_R'], b3 = B['finger1-3_R'];
+      if (b1 && b2 && b3 && w > 0.001) {
+        const tg = burner.position.clone().addScaledVector(S2, G.thumb[0]).addScaledVector(U2, G.thumb[1]).addScaledVector(N2, G.half + G.thumbR);
+        chain(b1, b2, b3, tg, b2.getWorldPosition(V()).addScaledVector(N2, 1).addScaledVector(S2, 0.6), w);
+        const q3 = b3.quaternion.clone(), d = b3.position.clone().normalize().transformDirection(b3.matrixWorld), want = S2.clone().multiplyScalar(-0.55).addScaledVector(U2, 0.8).addScaledVector(N2, -0.12).normalize();
+        turnWorld(b3, new THREE.Quaternion().setFromUnitVectors(d, want)); if (w < 0.999) b3.quaternion.slerpQuaternions(q3, b3.quaternion.clone(), w); b3.updateMatrixWorld(true);
+      }
+    },
+  };
 }

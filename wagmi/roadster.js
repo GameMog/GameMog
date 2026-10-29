@@ -966,6 +966,64 @@ export function createDriver(THREE, rs, q, { fade = 0.22 } = {}) {
 
   const snap = { on: false, t: 0, q: new Map(), root: V(), pos: V(), quat: new THREE.Quaternion() };
   const all = Object.values(B);
+  // The hands on the yoke (28 Oct: both lay open and flat over the rim): each closed round the rim's side end, the rim
+  // across the palm at the fingers' roots, the fingers curled round it, the thumb laid along it on its near face, the palm
+  // toward the yoke's middle; the hand along its forearm as the reach leaves it, the forearm's twist bone taking most of
+  // its turn (no wrung wrist). The hands' bones are put back to the clips' own values first each frame and when he gets
+  // out (the gaits only write a bone when its value changes, so a hand closed on the yoke would stay closed for the game).
+  // WHEEL: the rim's tube radius, the palm's flesh, where the rim crosses the hand (a share of wrist to middle knuckle),
+  // the share of the hand's turn the forearm takes, the thumb tip's mark up the rim from the hand and out from its middle;
+  // each finger's curl about its own hinge [knuckle, middle, tip], the thumb's [base, middle, tip, swing about the hand's
+  // length]; the hinges the opening's (wagmi/intro.js, read off his fight clip's fist), the left hand's mirrored
+  const WHEEL = { r: 0.018, depth: 0.017, along: 0.8, share: 0.9, thumbUp: 0.045, thumbOut: -0.004,
+    fingers: [[0.9, 1.15, 0.75], [0.95, 1.25, 0.8], [1.0, 1.25, 0.8], [1.05, 1.2, 0.75]], thumb: [0.1, 0.15, 0.1, 0.35],
+    hinge: { 1: [0.92, -0.1, -0.38], 2: [0.45, 0.66, 0.6], 3: [0.43, 0.56, 0.71], 4: [0.39, 0.46, 0.8], 5: [0.35, 0.35, 0.87], len: [-0.42, -0.48, 0.77] } };
+  const HK = ['L', 'R'].flatMap((sd) => [`lowerarm02_${sd}`, `wrist_${sd}`, ...[1, 2, 3, 4, 5].flatMap((f) => [1, 2, 3].map((j) => `finger${f}-${j}_${sd}`))])
+    .map((n) => B[n]).filter(Boolean).map((b) => ({ b, clean: b.quaternion.clone(), wrote: null }));
+  const keepHands = () => { for (const s of HK) { if (s.wrote && s.b.quaternion.equals(s.wrote)) s.b.quaternion.copy(s.clean); else s.clean.copy(s.b.quaternion); } };
+  const wroteHands = () => { for (const s of HK) (s.wrote ||= new THREE.Quaternion()).copy(s.b.quaternion); };
+  const freeHands = () => { for (const s of HK) { if (s.wrote && s.b.quaternion.equals(s.wrote)) s.b.quaternion.copy(s.clean); s.wrote = null; } };
+  const hingeOf = (n, sd) => { const [x, y, z] = WHEEL.hinge[n]; return (sd === 'R' ? V(x, y, z) : V(x, -y, -z)).normalize(); };
+  const spin = rs.yoke && rs.yoke.children[0];
+  // a hand's frame: f along it (wrist to middle knuckle), a across it (to the index), p out of the palm
+  function handOf(sd) {
+    const w = B['wrist_' + sd].getWorldPosition(V()), m = B[`finger3-1_${sd}`].getWorldPosition(V()), len = w.distanceTo(m), f = m.clone().sub(w).divideScalar(len);
+    const a = B[`finger2-1_${sd}`].getWorldPosition(V()).sub(B[`finger5-1_${sd}`].getWorldPosition(V())); a.addScaledVector(f, -a.dot(f)).normalize();
+    return { w, f, a, len, p: sd === 'R' ? V().crossVectors(a, f) : V().crossVectors(f, a) };
+  }
+  function gripRim(sd, pole, w) {
+    if (!spin || !B['finger3-1_' + sd] || !B['finger2-1_' + sd] || !B['finger5-1_' + sd]) return;
+    spin.updateWorldMatrix(true, false);
+    const sg = sd === 'L' ? 1 : -1, rim = spin.localToWorld(V(0.15 * sg, 0, 0)), a = V(0, 1, 0).transformDirection(spin.matrixWorld);
+    // (the hand along its forearm, square to the rim; its palm then faces the yoke's middle)
+    const fa = B['wrist_' + sd].getWorldPosition(V()).sub(B['lowerarm01_' + sd].getWorldPosition(V())).normalize(), f = fa.addScaledVector(a, -fa.dot(a)).normalize();
+    const p = sd === 'R' ? V().crossVectors(a, f) : V().crossVectors(f, a), len = handOf(sd).len;
+    reach('upperarm01_' + sd, 'lowerarm01_' + sd, 'wrist_' + sd, rim.clone().addScaledVector(p, -(WHEEL.depth + WHEEL.r)).addScaledVector(f, -len * WHEEL.along), pole, w);
+    // the hand turned to that frame (its back the palm's other side), a share of the turn to the forearm's twist bone
+    const H = handOf(sd), n0 = H.p.clone().negate(), back = p.clone().negate();
+    const q0 = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(H.f, n0, V().crossVectors(H.f, n0).normalize()));
+    const q1 = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(f, back, V().crossVectors(f, back).normalize()));
+    const turn = q1.multiply(q0.invert()); if (w < 0.999) turn.slerpQuaternions(new THREE.Quaternion(), turn.clone(), w); turnWorld(B['wrist_' + sd], turn);
+    const wr = B['wrist_' + sd], tw = B['lowerarm02_' + sd];
+    if (tw && wr.parent === tw) { const dd = wr.position.clone().normalize(), q = wr.quaternion, s = dd.x * q.x + dd.y * q.y + dd.z * q.z;
+      const part = new THREE.Quaternion().slerp(new THREE.Quaternion(dd.x * s, dd.y * s, dd.z * s, q.w).normalize(), WHEEL.share * w); tw.quaternion.multiply(part); wr.quaternion.premultiply(part.invert()); tw.updateMatrixWorld(true); }
+    // the fingers round the rim, the thumb along it
+    const gq = new THREE.Quaternion(), gq2 = new THREE.Quaternion();
+    WHEEL.fingers.forEach((curl, i) => { const ax = hingeOf(i + 2, sd); curl.forEach((ang, j) => B[`finger${i + 2}-${j + 1}_${sd}`]?.quaternion.slerp(gq.setFromAxisAngle(ax, ang), w)); });
+    const [t1, t2, t3, sw] = WHEEL.thumb, ax = hingeOf(1, sd);
+    B['finger1-1_' + sd]?.quaternion.slerp(gq.setFromAxisAngle(hingeOf('len', sd), sw).multiply(gq2.setFromAxisAngle(ax, t1)), w);
+    B['finger1-2_' + sd]?.quaternion.slerp(gq.setFromAxisAngle(ax, t2), w); B['finger1-3_' + sd]?.quaternion.slerp(gq.setFromAxisAngle(ax, t3), w);
+    wr.updateMatrixWorld(true);
+    // (the thumb's tip reached onto the rim's near face, up along it from the hand, and laid along the rim)
+    const b2 = B['finger1-2_' + sd], b3 = B['finger1-3_' + sd];
+    if (b2 && b3 && B['finger1-1_' + sd]) {
+      const near = V(0, 0, -1).transformDirection(spin.matrixWorld), out = V(sg, 0, 0).transformDirection(spin.matrixWorld);
+      const tip = rim.clone().addScaledVector(a, WHEEL.thumbUp).addScaledVector(near, WHEEL.r + 0.008).addScaledVector(out, WHEEL.thumbOut);
+      reach('finger1-1_' + sd, 'finger1-2_' + sd, 'finger1-3_' + sd, tip, b2.getWorldPosition(V()).addScaledVector(near, 1).addScaledVector(out, 0.5).sub(B['finger1-1_' + sd].getWorldPosition(V())), w);
+      const q3 = b3.quaternion.clone(), dd = b3.position.clone().normalize().transformDirection(b3.matrixWorld), want = a.clone().addScaledVector(out, -0.35).addScaledVector(near, -0.15).normalize();
+      turnWorld(b3, new THREE.Quaternion().setFromUnitVectors(dd, want)); if (w < 0.999) b3.quaternion.slerpQuaternions(q3, b3.quaternion.clone(), w); b3.updateMatrixWorld(true);
+    }
+  }
   function weights(sw) {
     for (const a of mixer._actions) if (a !== sit && a !== idle) a.setEffectiveWeight(0);
     for (const a of [sit, idle]) { a.enabled = true; if (!a.isRunning()) a.play(); }
@@ -993,11 +1051,12 @@ export function createDriver(THREE, rs, q, { fade = 0.22 } = {}) {
       parent.add(body); body.position.set(0, 0, 0); body.quaternion.identity();
       // (the clips' weights are his rig's again: it, or a scene, sets them)
       sit.setEffectiveWeight(0); sit.stop();
+      freeHands();
       d.attached = false;
     },
     pose(dt, k, { steer = 0 } = {}) {
       k = Math.min(1, Math.max(0, k));
-      weights(smooth(sitW(k)[0])); mixer.update(dt);
+      weights(smooth(sitW(k)[0])); mixer.update(dt); keepHands();
       // where he is: turned by his yaw, then moved so his hips are on their mark
       bodyQ.setFromAxisAngle(up, yaw(k)[0]);
       body.quaternion.copy(bodyQ); body.position.set(0, 0, 0); body.updateMatrixWorld(true);
@@ -1018,6 +1077,8 @@ export function createDriver(THREE, rs, q, { fade = 0.22 } = {}) {
       if (wy > 0.01) {
         reach('upperarm01_L', 'lowerarm01_L', 'wrist_L', rs.grip('L', _to), his(1, -1, -0.4, _pole), wy);
         reach('upperarm01_R', 'lowerarm01_R', 'wrist_R', rs.grip('R', _to), his(-1, -1, -0.4, _pole), wy);
+        // (then each hand closed round the rim there)
+        gripRim('L', his(1, -1, -0.4, V()), wy); gripRim('R', his(-1, -1, -0.4, V()), wy);
       }
       if (wr > 0.01) reach('upperarm01_L', 'lowerarm01_L', 'wrist_L', world(SILL, _to), his(1, 0.3, -1, _pole), wr);
       // (eased over from the pose he came in with)
@@ -1031,6 +1092,7 @@ export function createDriver(THREE, rs, q, { fade = 0.22 } = {}) {
           body.updateMatrixWorld(true);
         }
       }
+      wroteHands();
     },
   };
   return d;
