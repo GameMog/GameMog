@@ -111,7 +111,7 @@ function Flagship({ f }: { f: NonNullable<typeof FLAGSHIP> }) {
       <p>{f.lead}</p>
       <div className="acts">
         <a href={f.href} className="btn play" aria-label={`Play ${f.title}`}>Play</a>
-        <button type="button" className="btn more soon" disabled>MOG (coming soon)</button>
+        <button type="button" className="btn more soon" disabled>MOG Soon</button>
       </div>
     </Fragment>
   );
@@ -122,7 +122,7 @@ function Flagship({ f }: { f: NonNullable<typeof FLAGSHIP> }) {
       <p className="tagline">{f.lead}</p>
       <div className="acts">
         <a href={f.href} className="btn big light" aria-label={`Play ${f.title}`}><Icon name="play" size={20} />Play</a>
-        <button type="button" className="btn big ghost soon" disabled><Icon name="remix" size={18} />MOG (coming soon)</button>
+        <button type="button" className="btn big ghost soon" disabled><Icon name="remix" size={18} />MOG Soon</button>
       </div>
     </Fragment>
   );
