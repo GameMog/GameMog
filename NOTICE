@@ -66,6 +66,15 @@ sides (28 Oct 2026).
     (see Characters below), over the idle's legs
 
 
+Recast Navigation (the fights' pathfinding)
+-------------------------------------------
+js/vendor/recast/: recast-navigation-js 0.43.1 by Isaac Mason (https://github.com/isaac-mason/recast-navigation-js),
+MIT License, from the npm packages @recast-navigation/core, @recast-navigation/generators and @recast-navigation/wasm
+0.43.1 (dist/index.mjs as core.mjs and generators.mjs; recast-navigation.wasm.js and recast-navigation.wasm.wasm). The
+WASM build is compiled from Recast & Detour (https://github.com/recastnavigation/recastnavigation), (c) 2009 Mikko
+Mononen, zlib License. Both licences are in js/vendor/recast/LICENSE. Altered: the two .mjs files' package imports
+were rewritten to relative paths (no bundler); nothing else changed. Used by wagmi/combat/nav.js and nav-worker.js.
+
 Props (street fight)
 --------------------
   - assets/props/trash-cans.glb: "Metal Trash Can" by GurJas Studios, from Poly Haven

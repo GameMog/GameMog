@@ -259,11 +259,26 @@ export class Enemy {
     const w = this.c.detour(this.pos, p, this.T.radius * this.T.scale + 0.1, _wp); if (w) p = w;
     const to = _v.set(p.x - this.pos.x, 0, p.z - this.pos.z), L = to.length();
     const want = L > 0.15 ? sp : 0;
-    this.spd = damp(this.spd, want, want > this.spd ? 5 : 8, dt);
-    if (L < 0.05 || this.spd < 0.05) { this.yaw = dampAngle(this.yaw, faceYaw, 7, dt); this.twist = damp(this.twist, 0, 6, dt); this.locomote(0); return 0; }
-    to.divideScalar(L);
-    const step = Math.min(L, this.spd * dt);
-    this.moveXZ(to.x * step, to.z * step, this.spd > 0.9);
+    // (the navmesh's crowd walks him when there is one here (nav.js): its way round what stands between, kept apart
+    // from the others; he follows his agent through the city's collision, his speed and heading its velocity's)
+    const g = this.c.nav?.steer(this, p, want);
+    if (g) {
+      const vs = Math.hypot(g.vx, g.vz);
+      let dx = g.x - this.pos.x, dz = g.z - this.pos.z; const D = Math.hypot(dx, dz);
+      if (D > 1.2) { this.c.nav.resync(this); dx = dz = 0; } // (a wall held him back: his agent back with him)
+      else { const cap = vs * dt * 1.25 + 0.6 * dt; if (D > cap) { dx *= cap / D; dz *= cap / D; } } // (catching up gently)
+      this.spd = vs;
+      if (vs < 0.05 && !(L > 0.3 && this.loco)) { this.moveXZ(dx, dz); this.yaw = dampAngle(this.yaw, faceYaw, 7, dt); this.twist = damp(this.twist, 0, 6, dt); this.locomote(0); return 0; }
+      if (vs >= 0.05) to.set(g.vx / vs, 0, g.vz / vs); else to.divideScalar(Math.max(L, 1e-6));
+      this.moveXZ(dx, dz, vs > 0.9);
+      if (vs < 0.13) this.spd = 0.13; // (setting off: a frame or two of his walk before the crowd gets him going)
+    } else {
+      this.spd = damp(this.spd, want, want > this.spd ? 5 : 8, dt);
+      if (L < 0.05 || this.spd < 0.05) { this.yaw = dampAngle(this.yaw, faceYaw, 7, dt); this.twist = damp(this.twist, 0, 6, dt); this.locomote(0); return 0; }
+      to.divideScalar(L);
+      const step = Math.min(L, this.spd * dt);
+      this.moveXZ(to.x * step, to.z * step, this.spd > 0.9);
+    }
     const my = Math.atan2(to.x, to.z), rel = angWrap(my - faceYaw);
     let body = faceYaw, back = false, side = 0;
     if (this.spd > 2.4) body = my; // running: faces where he runs

@@ -57,6 +57,7 @@ import { createFightCamera } from './camera.js';
 import { createSfx } from './sfx.js';
 import { createItems } from './items.js';
 import { installVault } from '../vault.js';
+import { createNav } from './nav.js';
 import { clamp, smooth, angWrap, yawTo, hdist, rnd, fwd } from './util.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
@@ -202,6 +203,9 @@ export async function install(W) {
   c.world = { ground: (x, z) => cm.getGroundHeight(x, z, 'person'), collide: (pos, r) => { cm.resolveHorizontalCollision(pos, r, pos.y + 1.0); carPush(pos, r); vehPush(pos, r); } };
   c.vehPush = vehPush;
   c.carPush = carPush;
+  // the navmesh and the crowd that walk the men round what stands in the way (nav.js: Recast; the steering above if it
+  // isn't there)
+  c.nav = createNav(c);
   // dress a thug.glb body as one of JP Bank's security men (the intro's men too): the look's suit on its own material,
   // shadows on, and his glasses (and earpiece) on his head bone (obj.userData.shades: the glasses)
   // (who he is: a Suit of the story by his root's name, 'Suit-Knox'. A fight's man gets a face no other man in the scene
@@ -564,6 +568,7 @@ export async function install(W) {
   function spawnCrew({ x, z, count = 4, brute = 0, weapons = [], aggro = true, props = true } = {}) {
     if (!fightOn) c.rules = rulesNow(); // (the rules its men pick their blows by)
     if (x == null || z == null) { const f = fwd(P.heading, _v); x = P.position.x + f.x * 8; z = P.position.z + f.z * 8; }
+    if (count + brute > 0) c.nav.want(x, z); // (the navmesh round them, built now)
     const crew = { id: 'crew' + (++crewSeq), enemies: [], aggro, awake: false, cleared: false, _cleared: [],
       alive() { return this.enemies.filter((e) => e.alive).length; },
       onCleared(cb) { if (this.cleared) cb(this); else this._cleared.push(cb); return this; },
@@ -792,6 +797,7 @@ export async function install(W) {
     c.playerFeet.copy(cm.activeMode === 'person' || !W.car ? P.position : W.car.position);
     trafficNear();
     const frozen = !!W.cutscene;
+    c.nav.frame(dt, frozen); // (the crowd's step: the men it walks follow it in their update)
     if (!frozen && c.enemies.length) director(dt);
     for (let i = c.enemies.length - 1; i >= 0; i--) {
       const e = c.enemies[i];
@@ -988,6 +994,7 @@ export async function install(W) {
     get fighting() { return c.me.fighting && c.live(); },
     get enemies() { return c.enemies; },
     get crews() { return c.crews; },
+    nav: c.nav, // (the pathfinding: nav.statsNow(), nav.ready(); ?nav=0 turns it off, ?navdebug draws it)
     player: {
       get hp() { return c.me.hp; }, set hp(v) { c.me.hp = clamp(+v || 0, 0, c.me.maxHp); },
       get maxHp() { return c.me.maxHp; }, set maxHp(v) { c.me.maxHp = Math.max(1, +v || 100); },

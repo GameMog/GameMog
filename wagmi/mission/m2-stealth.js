@@ -116,9 +116,18 @@ export function createStealth(W, { posts, U, center }) {
       if (post.path) {
         const [a, b] = L.leg ? [post.path[1], post.path[0]] : [post.path[0], post.path[1]];
         const dx = b[0] - e.pos.x, dz = b[1] - e.pos.z, d = Math.hypot(dx, dz);
+        // (his beat walked along the navmesh's way to the leg's end (combat/nav.js), corner to corner, once it is
+        // there; straight at it before, or without it)
+        const nav = combat.nav, ready = !!nav?.ready?.();
+        if (!L.route || L.route.leg !== L.leg || L.route.ready !== ready) {
+          const pts = ready ? nav.path(e.pos, { x: b[0], z: b[1] }) : null;
+          L.route = { leg: L.leg, ready, pts: pts ? [...pts.slice(0, -1).map((q) => [q.x, q.z]), b] : [b], i: 0 }; // (his own end of it, whatever the navmesh's)
+        }
+        const R = L.route; while (R.i < R.pts.length - 1 && Math.hypot(R.pts[R.i][0] - e.pos.x, R.pts[R.i][1] - e.pos.z) < 0.35) R.i++;
+        const wx = R.pts[R.i][0] - e.pos.x, wz = R.pts[R.i][1] - e.pos.z, wd = Math.hypot(wx, wz) || 1;
         if (L.wait > 0) { L.wait -= dt; L.walking = false; if (e.curName !== 'thugIdle') e.play('thugIdle', { fade: 0.3 }); L.yaw += angWrap(Math.atan2(a[0] - b[0], a[1] - b[1]) + Math.sin(L.t * 1.3) * 0.9 - L.yaw) * Math.min(1, dt * 2); if (L.wait <= 0) L.leg ^= 1; }
         else if (d < 0.3) { L.wait = post.pause || 2; }
-        else if (L.sus < 0.35) { const st = Math.min(d, (post.speed || 1.1) * dt); e.moveXZ(dx / d * st, dz / d * st); L.walking = true; e.locomote(post.speed || 1.1); L.yaw += angWrap(Math.atan2(dx, dz) - L.yaw) * Math.min(1, dt * 5); }
+        else if (L.sus < 0.35) { const st = Math.min(wd, (post.speed || 1.1) * dt); e.moveXZ(wx / wd * st, wz / wd * st); L.walking = true; e.locomote(post.speed || 1.1); L.yaw += angWrap(Math.atan2(wx, wz) - L.yaw) * Math.min(1, dt * 5); }
         else { L.walking = false; if (e.curName !== 'thugIdle') e.play('thugIdle', { fade: 0.3 }); }
       } else {
         const want = post.yaw + Math.sin(L.t * 2 * PI / (post.period || 7)) * (post.sweep || 0.8);
