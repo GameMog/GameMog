@@ -65,11 +65,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export async function install(W) {
   const app = W.app, cm = app.controllerManager, scene = app.scene, P = W.person, Q = W.dan;
-  // (the men's motion capture: a standing idle, walks, a run and a sprint, side-steps, a back-step, a gesture and two
-  // wave-offs, clips on thug.glb's rig in a pack of their own, assets/anim/bandai/suits.glb (CC BY-NC 4.0, see NOTICE),
-  // fetched alongside the body; enemy.js plays them over the rig's brawler idle and walks, which stay for the fight and as
-  // the fallback if the pack fails to load)
-  const bandai = loadGLB('assets/anim/bandai/suits.glb').catch(() => null);
+  // (the men's clips: Dan's own, retargeted onto thug.glb's rig by anatomical frames (29 Oct: .scratch/polish/round11/
+  // retarget/src/retarget.mjs), in a pack of their own, assets/anim/suits-dan.glb: the standing idle, walks, run and
+  // sprint, side-steps, a back-step, a gesture, two wave-offs, and the fight (guard, the blows, the hit, the knockdown,
+  // the get-up, the stumbles) under the rig's own clip names, so they replace the rig's clips by name; those stay as the
+  // fallback if the pack fails to load)
+  const bandai = loadGLB('assets/anim/suits-dan.glb').catch(() => null);
   const gltf = await loadGLB('assets/characters/thug.glb');
   // the looks (JP Bank security's suits): a (baked into the model: charcoal, white shirt, black tie), b (black, white
   // shirt), c (grey, black shirt), brute (black, white shirt): textures riding in the same file (asset.extras.looks)
@@ -133,9 +134,11 @@ export async function install(W) {
   let rulesPin = RULES[new URLSearchParams(location.search).get('fightrules')] || null, rulesT = 0;
   const rulesNow = () => { if (rulesPin) return rulesPin; let m = null; try { m = W.missions?.active?.(); } catch (e) { /* (none) */ } return m && m.id === 'm1' ? RULES.lesson : RULES.full; };
   c.rules = rulesNow();
+  // (the pack's clips replace the rig's by name before prepareClips, so its stumbles, knockdown and get-up get the same
+  // in-place copy and root-motion track as the rig's own did)
+  { const pack = (await bandai)?.animations || []; if (pack.length) { const over = new Set(pack.map((a) => a.name)); gltf.animations = [...gltf.animations.filter((a) => !over.has(a.name)), ...pack]; } }
   c.thug = { gltf, ...prepareClips(gltf) };
-  for (const clip of (await bandai)?.animations || []) c.thug.clips.set(clip.name, clip); // (in place: their travel taken out)
-  relaxArms(c.thug.clips, gltf.scene); // (the standing and walking arms in at the sides: suitarms.js)
+  relaxArms(c.thug.clips, gltf.scene); // (a no-op since 29 Oct: the clips are Dan's, arms and hands included: suitarms.js)
   // Dan's car parked in the street is solid to the fight (the city's own collision only knows the buildings): a box
   // (its half width, half length and roof) the men are kept out of and walk round, and the camera won't look through
   const car = W.car, CAR = car?.body ? { hx: car.body.hx, hz: (car.body.z1 - car.body.z0) / 2, h: car.body.top + 0.05 } : { hx: 0.9, hz: 2.25, h: 1.3 };

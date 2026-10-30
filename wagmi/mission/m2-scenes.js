@@ -706,7 +706,7 @@ export function crashScene(W, { mackCar, mack, phone, say, at = CRASH }) {
       lanyard(stand);
       // (each gait timed by the ground his path covers over the speed its feet carry it at its own rate (combat/enemy.js
       // LOCO), so his feet stay planted: the Suits' upright walks and dash, the motion capture (assets/anim/bandai))
-      const MPS = { suitWalk: 1.358, suitWalk2: 1.488, walk: 0.82, suitDash: 4.852, run: 4.69 }, odo = (a, b) => odometer(p.xz, a, b);
+      const MPS = { suitWalk: 1.392, suitWalk2: 0.749, walk: 1.392, suitDash: 4.924, run: 3.855 }, odo = (a, b) => odometer(p.xz, a, b);
       const lurch = pick('suitWalk2', 'suitWalk', 'walk'), step = pick('suitWalk', 'walk'), dash = pick('suitDash', 'run');
       // ('My car!': a hand out to it (the Suits' guiding gesture); his line: the Suits' wave goodbye)
       const gesture = pick('suitIdleGuide') || stand, bye = pick('suitTauntBye') || stand;

@@ -351,11 +351,11 @@ async function buildCast(W) {
   // walks, a run, a sprint and a back-step on thug.glb's rig, over the rig's own clips (its guard kept for squaring up,
   // its brawler idle and walks the fallback); SUITS: the clip for each and the speed it was captured at (m/s), for a rig
   // segment's { along, mps }: the clip's time from the ground the path covers, so their feet stay planted)
-  const suitPack = await loadGLB('assets/anim/bandai/suits.glb').catch(() => null);
+  const suitPack = await loadGLB('assets/anim/suits-dan.glb').catch(() => null); // (29 Oct: Dan's clips retargeted onto the rig, combat/index.js)
   const thugClips = Object.fromEntries(gltf.animations.map((c) => [c.name, c]));
   for (const c of suitPack?.animations || []) thugClips[c.name] = c;
   relaxArms(thugClips, gltf.scene); // (the standing and walking arms in at the sides: combat/suitarms.js)
-  const SUITS = thugClips.suitIdle ? { idle: 'suitIdle', walk: ['suitWalk', 1.358], run: ['suitRun', 3.517], dash: ['suitDash', 4.852], back: ['suitBack', 1.211] }
+  const SUITS = thugClips.suitIdle ? { idle: 'suitIdle', walk: ['suitWalk', 1.392], run: ['suitRun', 3.855], dash: ['suitDash', 4.924], back: ['suitBack', 1.537] }
     : { idle: 'thugIdle', walk: ['walk', 0.82], run: ['jog', 2.6], dash: ['run', 4.7], back: ['walk', -0.82] };
   function suit(look, name) {
     const root = new THREE.Group(); root.name = name;

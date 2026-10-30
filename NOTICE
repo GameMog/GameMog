@@ -47,16 +47,12 @@ Motion data: Bandai Namco Research Motion Dataset, (c) 2022 Bandai Namco Researc
 (https://creativecommons.org/licenses/by-nc/4.0/; https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset).
 These files are NOT covered by the MIT License in LICENSE; they remain under CC BY-NC 4.0: they may be used and
 shared for non-commercial purposes only, with this credit. The licence's text is in assets/anim/bandai/LICENSE.txt.
-They were changed: retargeted from the dataset's BVH files to this game's rigs (thug.glb's, dan.glb's, fiona.glb's,
-gears.glb's and the city's walkers'), trimmed to loops, their travel taken out (in place) and their feet set on the
-ground; the Suits' standing idle is one short stand from the dataset played forward then back at half speed, Fiona's
-and Gears' idles one standing frame held with breathing added; in the game Dan's steps play on his legs alone, under
-his guard. In suits.glb the fingers are also eased from the capture's near-fist toward a relaxed hand (a soft curl,
-the index least and the little finger most), and in the standing idles the upper arms are turned in to hang at the
-sides (28 Oct 2026).
-  - assets/anim/bandai/suits.glb: the Suits' standing idle, walks, run, sprint, side-steps, back-step, a "this way"
-    gesture and two wave-offs (dataset-1: call, walk, run, dash, walk-back, walk-left, walk-right, guide, bye,
-    byebye; normal and masculinity styles)
+They were changed: retargeted from the dataset's BVH files to this game's rigs (dan.glb's, fiona.glb's, gears.glb's
+and the city's walkers'), trimmed to loops, their travel taken out (in place) and their feet set on the ground;
+Fiona's and Gears' idles are one standing frame held with breathing added; in the game Dan's steps play on his legs
+alone, under his guard.
+  - (The Suits' clips, assets/anim/suits-dan.glb, are not from this dataset: since 29 Oct 2026 they are Dan's own
+    clips (dan.glb's) retargeted onto thug.glb's rig. The dataset's suits.glb pack was removed that day.)
   - assets/anim/bandai/rally-crowd-ped.json: the rally crowd's dances and cheers (dataset-1: dance-long,
     dance-short, normal; dataset-2: wave-both-hands, raise-up-both-hands, wave-right-hand; active, youthful)
   - assets/anim/bandai/dan-footwork.glb: Dan's step forward, back-pedal and side-steps in a fight (dataset-1:

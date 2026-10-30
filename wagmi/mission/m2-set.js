@@ -416,7 +416,7 @@ export async function buildMack(W) {
   const mixer = new THREE.AnimationMixer(inner);
   // (his motion capture: the Suits' pack, assets/anim/bandai/suits.glb (CC BY-NC 4.0: NOTICE), over the rig's own clips
   // (its stumble kept): the upright stand, walk and sprint the opening and the fight use)
-  const pack = await loadGLB('assets/anim/bandai/suits.glb').catch(() => null);
+  const pack = await loadGLB('assets/anim/suits-dan.glb').catch(() => null); // (29 Oct: Dan's clips retargeted onto the rig, combat/index.js)
   const clips = Object.fromEntries(gltf.animations.map((c) => [c.name, c]));
   for (const c of pack?.animations || []) clips[c.name] = c;
   relaxArms(clips, gltf.scene); // (the arms in at his sides and the hands set as Dan's hang: combat/suitarms.js; once per clip)

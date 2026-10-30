@@ -1,26 +1,29 @@
-// The Suits' arms at rest: the motion capture pack (assets/anim/bandai/suits.glb) holds the arms out from the body in
-// its standing and walking clips (the upper arm ~6 deg off the side and the forearm a further ~12, so the hands hang
-// 25-30 cm out from the middle, well clear of the trousers: an A-shape, a mannequin's stance). A man in a suit lets his
-// arms fall: the upper arm straight down by the jacket's side, the forearm in with it, the hand at the trouser seam.
-// relaxArms(clips, model) brings them in, once per clip (the clips are shared by every caller of loadGLB), key by key on
-// a copy of the model's rig posed at each key: each upper arm and forearm turned in toward the body's middle plane only,
-// so the swing of the walk forward and back is the capture's own; a forearm raised (a gesture) is left as it is.
+// The Suits' hands. Their clips are Dan's own, retargeted onto the rig by anatomical frames (29 Oct, round 11:
+// assets/anim/suits-dan.glb, .scratch/polish/round11/retarget/src/retarget.mjs): the arms, the trunk and the legs are
+// his and are left as they are. The hands and fingers are not taken from the retarget (its fingers read as the rig's
+// rest: segmented knuckles, splayed in the walk, the thumb out): at each key the hand is SET from the forearm and the
+// fingers set outright, as the owner approved on 29 Oct (rounds 7-8, 344180b): the hang hand for the standing and
+// walking clips, a loose half-fist for the runs, a fist for the blows, a relaxed open hand for the hit, the fall, the
+// get-up and the stumbles. relaxArms(clips, model) does it once per clip (the clips are shared by every caller of
+// loadGLB), key by key on a copy of the model's rig posed at each key; its name is its callers' (it brought the Bandai
+// pack's arms in; there is no arm pass now).
 import * as THREE from 'three/webgpu';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 
 const done = new WeakSet();
-const CLIPS = new Set(['suitIdle', 'suitIdleGuide', 'suitWalk', 'suitWalk2', 'suitBack', 'suitLeft', 'suitRight']);
-// (the runs and the gestures: their arms keep their own pump and wave, only the hands and fingers are set (handsAbs))
-const RUNS = new Set(['suitRun', 'suitDash']), WAVES = new Set(['suitTauntBye', 'suitTauntByebye']);
-// (the rig's own fight clips: those that close the hand (f8b6255) get a real fist, set from the forearm: fistsAbs)
-const FIGHT = new Set(['guard', 'thugPunch1', 'thugPunch2', 'thugKick', 'bruteSlam', 'hitReact', 'thugIdle', 'thugStumbleBack', 'thugStumbleLeft', 'thugStumbleRight']);
-// the angle out from the body's middle plane (deg) that is kept: A, and K of the capture's angle over it
-const UPPER = { A: 1.0, K: 0.15 }, FORE = { A: 4.0, K: 0.2 };
+// the hang hand (handsAbs 'hang'): the standing and walking clips and the gestures (a raised forearm keeps Dan's hand)
+const HANG = new Set(['suitIdle', 'thugIdle', 'suitIdleGuide', 'suitWalk', 'suitWalk2', 'suitBack', 'suitLeft', 'suitRight', 'walk', 'jog', 'suitTauntBye', 'suitTauntByebye']);
+// the runner's loose half-fist (handsAbs 'run')
+const RUNS = new Set(['suitRun', 'suitDash', 'run', 'sprint']);
+// the fist (fistsAbs), the whole clip: these are blows, the hand is closed throughout
+const FISTS = new Set(['guard', 'thugPunch1', 'thugPunch2', 'thugKick', 'bruteSlam']);
+// a relaxed open hand (handsAbs 'open': the hang hand in the body's own frame, no raised-forearm exception, the soft curl)
+const OPEN = new Set(['hitReact', 'thugKnockdown', 'thugGetUp', 'thugStumbleBack', 'thugStumbleLeft', 'thugStumbleRight']);
 const D = Math.PI / 180;
 
 export function relaxArms(clips, model) {
   const all = (clips instanceof Map ? [...clips.values()] : Array.isArray(clips) ? clips : Object.values(clips));
-  const list = all.filter((c) => c && (CLIPS.has(c.name) || RUNS.has(c.name) || WAVES.has(c.name) || FIGHT.has(c.name)) && !done.has(c));
+  const list = all.filter((c) => c && (HANG.has(c.name) || RUNS.has(c.name) || FISTS.has(c.name) || OPEN.has(c.name)) && !done.has(c));
   if (!list.length || !model) return;
   const rig = skClone(model), B = {};
   rig.traverse((o) => { if (o.isBone && !B[o.name]) B[o.name] = o; });
@@ -28,74 +31,32 @@ export function relaxArms(clips, model) {
   rig.position.set(0, 0, 0); rig.quaternion.identity(); rig.scale.set(1, 1, 1);
   const H = handRest(rig, B); // (the hands' and fingers' rest, read before anything poses the copy)
   const mixer = new THREE.AnimationMixer(rig);
-  const vS = new THREE.Vector3(), vE = new THREE.Vector3(), vH = new THREE.Vector3(), d = new THREE.Vector3();
-  const qp = new THREE.Quaternion(), qr = new THREE.Quaternion(), d2 = new THREE.Vector3();
-  // the bone from a to b brought in toward the body's middle plane: the side (x) part of its line cut to what is left
-  // of its angle off that plane over P.A (x P.K), the rest of the line (down, forward or back: the swing) kept in
-  // proportion; qr: the world turn that does it
-  const inward = (a, b, s, P, w) => {
-    d.subVectors(b, a).normalize();
-    const lat = Math.asin(THREE.MathUtils.clamp(s * d.x, -1, 1)), A = P.A * D;
-    if (lat <= A || w <= 0) return qr.identity();
-    const lat2 = lat - (lat - (A + (lat - A) * P.K)) * w, yz = Math.hypot(d.y, d.z), k = Math.cos(lat2) / Math.max(1e-6, yz);
-    d2.set(s * Math.sin(lat2), d.y * k, d.z * k).normalize();
-    return qr.setFromUnitVectors(d, d2);
-  };
-  // turn bone by the world turn qr: local' = parentW^-1 * qr * parentW * local
-  const turn = (bone) => { bone.parent.getWorldQuaternion(qp); bone.quaternion.premultiply(qp).premultiply(qr).premultiply(qp.invert()); bone.updateMatrixWorld(true); };
   for (const clip of list) {
-    if (FIGHT.has(clip.name)) { if (isFist(clip, H)) fistsAbs(clip, mixer, rig, B, H); done.add(clip); continue; }
-    if (RUNS.has(clip.name) || WAVES.has(clip.name)) { handsAbs(clip, mixer, rig, B, H, RUNS.has(clip.name) ? 'run' : 'hang'); done.add(clip); continue; }
-    const tr = {}; for (const t of clip.tracks) { const [bn, prop] = t.name.split('.'); if (prop === 'quaternion' && /^(upperArm|forearm)[LR]$/.test(bn)) tr[bn] = t; }
-    const act = mixer.clipAction(clip); act.play();
-    const fresh = {};
-    for (const [bn, t] of Object.entries(tr)) {
-      const vals = t.values.slice(), side = bn.endsWith('L') ? 'L' : 'R', s = side === 'L' ? 1 : -1, isFore = bn.startsWith('forearm');
-      const U = B['upperArm' + side], F = B['forearm' + side], H = B['hand' + side];
-      for (let i = 0; i < t.times.length; i++) {
-        act.time = t.times[i]; mixer.update(0); rig.updateMatrixWorld(true);
-        // the forearm's lift from straight down (3D): a gesture (raised past ~60 deg) keeps its own line
-        U.getWorldPosition(vS); F.getWorldPosition(vE); H.getWorldPosition(vH);
-        const lift = Math.acos(THREE.MathUtils.clamp((vE.y - vH.y) / Math.max(1e-6, vE.distanceTo(vH)), -1, 1));
-        const w = 1 - THREE.MathUtils.smoothstep(lift, 55 * D, 75 * D);
-        inward(vS, vE, s, UPPER, w); turn(U);
-        let q = U.quaternion;
-        if (isFore) {
-          F.getWorldPosition(vE); H.getWorldPosition(vH);
-          inward(vE, vH, s, FORE, w); turn(F); q = F.quaternion;
-        }
-        q.toArray(vals, i * 4);
-      }
-      fresh[bn] = vals;
-    }
-    act.stop(); mixer.uncacheAction(clip);
-    for (const [bn, t] of Object.entries(tr)) t.values = fresh[bn];
-    handsAbs(clip, mixer, rig, B, H);
+    if (FISTS.has(clip.name)) fistsAbs(clip, mixer, rig, B, H);
+    else handsAbs(clip, mixer, rig, B, H, RUNS.has(clip.name) ? 'run' : OPEN.has(clip.name) ? 'open' : 'hang');
     done.add(clip);
   }
 }
 
 // The hands (29 Oct, round 7; the owner: "if you need to model Dan, then do that because his are facing right direction
-// everywhere"). The pack's hand turns are a retarget's: relative to this rig's hand they hold the palm 40-90 deg off
-// (idle: turned forward and out; the walks: rolled back; the runs: bent back), and the fingers splay as the rig's rest
-// does. Rolling the capture's hand (rounds 5-6) kept its error. So the hand is not taken from the capture at all: at
-// each key it is SET, from the forearm, as Dan's hand hangs from his: in line with the forearm (flexed FLEX deg toward the
-// palm), the palm to the side of the thigh, turned BACK deg toward the rear; half the hand's roll off its rest taken in
-// the forearm's twist bone (no wrung wrist); and the fingers set (not added to) as Dan's are: together, gently curled,
-// the thumb resting along the index. A forearm raised (a wave) keeps the capture's own hand, its fingers as relaxed.
+// everywhere"). The hand is not taken from the clip: at each key it is SET, from the forearm, as Dan's hand hangs from
+// his: in line with the forearm (flexed FLEX deg toward the palm), the palm to the side of the thigh, turned BACK deg
+// toward the rear; half the hand's roll off its rest taken in the forearm's twist bone (no wrung wrist); and the fingers
+// set (not added to) as Dan's are: together, gently curled, the thumb resting along the index. A forearm raised (a wave,
+// the guide's gesture) keeps the clip's own hand, its fingers as relaxed.
 const HAND = { flex: 10, back: 35, twist: 0.5 };
 // the fingers: each joint's curl toward the palm (deg, joints 1-2-3), and how much of the rest's splay is kept
 const CURL = { index: [42, 40, 22], middle: [44, 44, 24], ring: [46, 50, 26], pinky: [46, 54, 28] }, SPLAY = 0.25;
 const THUMB = { dir: [1, 0.3, -0.05], curl: [0, 4, 22] };
 // (29 Oct, round 8; the owner on round 7's running hand and the guard's fists: "looks weird, not human, fix", "study
 // dan") The run: a runner's loose hand, as Dan's: the fingers rolled into a soft half-fist, together, the thumb's pad
-// resting on the side of the index's middle segment, the wrist straight (the capture's own hand never blended back in
-// when the forearm comes up in the pump: that was the bent-back claw). The fist (the rig's own guard and blows): the
-// fingers rolled tight and together, the four knuckles in a line, the thumb across the middle segments of the index and
-// middle fingers (Dan's jab: 90 / 114 / 58 deg at the three joints, measured in the bench), the wrist straight in line
-// with the forearm (the clips cocked it back 65-80 deg: the blocky fist held against the face).
+// resting on the side of the index's middle segment, the wrist straight (the clip's own hand never blended back in
+// when the forearm comes up in the pump: that was the bent-back claw). The fist (the guard and the blows): the fingers
+// rolled tight and together, the four knuckles in a line, the thumb across the middle segments of the index and middle
+// fingers (Dan's jab: 90 / 114 / 58 deg at the three joints, measured in the bench), the wrist straight in line with
+// the forearm.
 const RUN = { curl: { index: [62, 82, 38], middle: [66, 86, 40], ring: [70, 90, 42], pinky: [74, 92, 44] }, splay: 0 };
-const FIST = { curl: { index: [95, 120, 64], middle: [99, 124, 68], ring: [103, 128, 72], pinky: [108, 128, 76] }, splay: 0, flex: 5, thumb3: 28, out: 0.16, ahead: 0.95, tiltMax: 55, wide: 0.3 };
+const FIST = { curl: { index: [95, 120, 64], middle: [99, 124, 68], ring: [103, 128, 72], pinky: [108, 128, 76] }, splay: 0, flex: 5, thumb3: 28, out: 0.16 };
 const FINGERS = ['index', 'middle', 'ring', 'pinky'];
 
 // the hand frame from 'along' (wrist to the middle finger's knuckle) and 'across' (little finger's knuckle to the index's):
@@ -197,21 +158,14 @@ function handRest(rig, B) {
     const fist = placeThumb(fingers(FIST.curl, FIST.splay), () => mid('middle', 0.5).addScaledVector(palm, FIST.out * hl), FIST.thumb3,
       () => mid('index', 0.35).addScaledVector(cW, 0.1 * hl).addScaledVector(palm, FIST.out * hl));
     out[side] = { HL, HLt: HL.clone().transpose(), fing: hang, run, fist, s, rest: h.quaternion.clone(), axL: h.position.clone().normalize(),
-      alongL: along, idx2: B['index2' + side]?.quaternion.clone(), palmL: palm.clone().applyQuaternion(wq(h).invert()).normalize() };
+      alongL: along, palmL: palm.clone().applyQuaternion(wq(h).invert()).normalize() };
   }
   return out;
 }
 
-// the rig's own fight clips: does this one close the hand (the index's middle joint turned > 60 deg off its rest)?
-function isFist(clip, H) {
-  const t = clip.tracks.find((k) => k.name === 'index2L.quaternion'), r = H.L?.idx2;
-  if (!t || !r) return false;
-  const i = Math.floor(t.times.length / 2), q = new THREE.Quaternion().fromArray(t.values, i * 4);
-  return 2 * Math.acos(Math.min(1, Math.abs(q.dot(r)))) > 60 * D;
-}
-
-// the fists: at each key the hand turned (the least turn) so its line runs on with the forearm's, flexed FIST.flex
-// toward the palm, its roll the clip's own; the fingers and thumb set closed (handRest's fist)
+// the fists (the guard and the blows, the whole clip): at each key the hand turned (the least turn) so its line runs on
+// with the forearm's, flexed FIST.flex toward the palm, its roll the clip's own; the fingers and thumb set closed
+// (handRest's fist). The forearm is Dan's: left alone.
 function fistsAbs(clip, mixer, rig, B, H) {
   const V = THREE.Vector3, Q = THREE.Quaternion;
   const byBone = {}; for (const t of clip.tracks) { const [bn, prop] = t.name.split('.'); if (prop === 'quaternion') byBone[bn] = t; }
@@ -222,27 +176,9 @@ function fistsAbs(clip, mixer, rig, B, H) {
     const R = H[side]; if (!R) continue;
     const F = B['forearm' + side], Hb = B['hand' + side], tH = byBone['hand' + side];
     const times = [...new Set([...(tH ? tH.times : [0, clip.duration]), ...(byBone['forearm' + side]?.times || []), ...(byBone['forearmTwist' + side]?.times || [])])].sort((a, b) => a - b);
-    const vH = new Float32Array(times.length * 4), vF = new Float32Array(times.length * 4), qh = new Q(), qs = new Q(), qp = new Q(), qr = new Q();
-    const M1 = B['middle1' + side], U = B['upperArm' + side];
+    const vH = new Float32Array(times.length * 4), qh = new Q(), qs = new Q(), qp = new Q();
     times.forEach((time, i) => {
       act.time = time; mixer.update(0); rig.updateMatrixWorld(true);
-      // (a fist held up at the face: the clip presses it to the cheek, a cocked wrist was what kept it off the face; the
-      // forearm tipped forward about the elbow until the fist is FIST.ahead of a forearm's length out in front of the head)
-      if (B.head && M1 && U) {
-        const right = wp(B.upperArmL).sub(wp(B.upperArmR)).setY(0).normalize(), fwd = new V().crossVectors(right, new V(0, 1, 0));
-        const fist = () => wp(Hb).lerp(wp(M1), 0.6), head = wp(B.head), need = FIST.ahead * wp(F).distanceTo(wp(Hb));
-        const ahead = () => fist().sub(head).dot(fwd);
-        if (fist().y > wp(U).y && ahead() < need) {
-          const q0 = F.quaternion.clone(), tilt = (ang) => { F.quaternion.copy(q0); qr.setFromAxisAngle(right, ang); F.parent.getWorldQuaternion(qp); F.quaternion.premultiply(qp).premultiply(qr).premultiply(qp.invert()); F.updateMatrixWorld(true); };
-          const a0 = ahead(); tilt(0.05); const sgn = ahead() > a0 ? 1 : -1; let ang = 0;
-          for (; ang < FIST.tiltMax * D; ang += 2 * D) { tilt(sgn * ang); if (ahead() >= need) break; }
-          // (and out to its own side of the face, so the two fists do not meet in front of the nose)
-          const sd = side === 'L' ? 1 : -1, wide = FIST.wide * wp(F).distanceTo(wp(Hb)), lat = () => fist().sub(head).dot(right) * sd;
-          if (lat() < wide) { const q1 = F.quaternion.clone(), roll = (a) => { F.quaternion.copy(q1); qr.setFromAxisAngle(fwd, a); F.parent.getWorldQuaternion(qp); F.quaternion.premultiply(qp).premultiply(qr).premultiply(qp.invert()); F.updateMatrixWorld(true); };
-            roll(0.05); const sg = lat() > (roll(0), lat()) ? 1 : -1; let a = 0; for (; a < 30 * D; a += 2 * D) { roll(sg * a); if (lat() >= wide) break; }  }
-        }
-      }
-      F.quaternion.toArray(vF, i * 4);
       const ax = wp(Hb).sub(wp(F)).normalize();
       Hb.getWorldQuaternion(qh);
       const along = R.alongL.clone().applyQuaternion(qh), palm = R.palmL.clone().applyQuaternion(qh);
@@ -252,7 +188,7 @@ function fistsAbs(clip, mixer, rig, B, H) {
       Hb.parent.getWorldQuaternion(qp);
       qp.invert().multiply(qs.multiply(qh)).toArray(vH, i * 4);
     });
-    out['hand' + side] = { times, vals: vH }; out['forearm' + side] = { times, vals: vF };
+    out['hand' + side] = { times, vals: vH };
     for (const [bn, q] of Object.entries(R.fist)) { const v = new Float32Array(8); q.toArray(v, 0); q.toArray(v, 4); out[bn] = { times: [0, clip.duration], vals: v }; }
   }
   act.stop(); mixer.uncacheAction(clip);
@@ -263,12 +199,18 @@ function fistsAbs(clip, mixer, rig, B, H) {
   }
 }
 
+// the hang hand ('hang': the standing and walking clips, the gestures), the runner's half-fist ('run') and the relaxed
+// open hand ('open': the hit, the fall, the get-up, the stumbles): the hand set from the forearm at each key, the
+// fingers set. 'hang' reads the body's sides in the world (he stands) and keeps the clip's own hand on a raised forearm
+// (a gesture); 'run' and 'open' set the hand everywhere, 'open' in the body's own frame (across the shoulders, up the
+// trunk): a man on the floor has no raised forearm and no world-up.
 function handsAbs(clip, mixer, rig, B, H, mode = 'hang') {
   const V = THREE.Vector3, Q = THREE.Quaternion;
   const byBone = {}; for (const t of clip.tracks) { const [bn, prop] = t.name.split('.'); if (prop === 'quaternion') byBone[bn] = t; }
   const act = mixer.clipAction(clip); act.play();
   const at = (time) => { act.time = time; mixer.update(0); rig.updateMatrixWorld(true); };
   const wp = (b) => b.getWorldPosition(new V());
+  const body = mode === 'open' && B.thighL && B.thighR && B.neck;
   const out = {};
   for (const side of ['L', 'R']) {
     const R = H[side]; if (!R) continue;
@@ -279,9 +221,11 @@ function handsAbs(clip, mixer, rig, B, H, mode = 'hang') {
     const qp = new Q(), qw = new Q(), m = new THREE.Matrix4();
     times.forEach((time, i) => {
       at(time);
-      const right = wp(B.upperArmL).sub(wp(B.upperArmR)).setY(0).normalize(), up = new V(0, 1, 0), fwd = new V().crossVectors(right, up);
+      const right = wp(B.upperArmL).sub(wp(B.upperArmR)), up = new V(0, 1, 0);
+      if (body) { up.copy(wp(B.neck)).sub(wp(B.thighL).add(wp(B.thighR)).multiplyScalar(0.5)).normalize(); right.addScaledVector(up, -right.dot(up)); } else right.setY(0);
+      right.normalize(); const fwd = new V().crossVectors(right, up).normalize();
       const e = wp(F), h = wp(Hb), ax = h.clone().sub(e).normalize();
-      const lift = Math.acos(THREE.MathUtils.clamp(-ax.y, -1, 1)), w = mode === 'run' ? 1 : 1 - THREE.MathUtils.smoothstep(lift, 60 * D, 85 * D);
+      const lift = Math.acos(THREE.MathUtils.clamp(-ax.y, -1, 1)), w = mode === 'hang' ? 1 - THREE.MathUtils.smoothstep(lift, 60 * D, 85 * D) : 1;
       // the palm: toward the body's middle plane, square to the forearm, turned BACK toward the rear
       const inn = right.clone().multiplyScalar(-s), back = fwd.clone().negate();
       const P = inn.multiplyScalar(Math.cos(HAND.back * D)).addScaledVector(back, Math.sin(HAND.back * D));
@@ -294,7 +238,7 @@ function handsAbs(clip, mixer, rig, B, H, mode = 'hang') {
       // the hand's world turn: target basis x rest basis^T; local = forearm^-1 x world
       m.multiplyMatrices(basis(A, C), R.HLt); qw.setFromRotationMatrix(m);
       F.getWorldQuaternion(qp); const want = qp.invert().multiply(qw);
-      // (a raised forearm: the capture's own hand, blended in past 60 deg)
+      // (a raised forearm: the clip's own hand, blended in past 60 deg)
       const q = w >= 1 ? want : Hb.quaternion.clone().slerp(want, w);
       q.toArray(vH, i * 4);
       // the twist bone: half the hand's roll about the forearm's line, off its rest
