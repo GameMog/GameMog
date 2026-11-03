@@ -18,6 +18,8 @@ import { createElectric, driveCue } from './electric.js';
 import { drive } from './drivemode.js';
 
 const XFADE = 0.4;
+// the car's level in the mix (sfx bus): 1.65 = +4.4 dB over the street (the owner, 3 Nov)
+const CAR_LEVEL = 1.65;
 // the speed the electric drive's voice is given: the road speed up to 30 m/s, then easing off toward ~44 (34 m/s plays
 // as 33.5, the boost's 56 as 42: its whine about 1140 Hz there, not 1500)
 const evSpeed = (vs) => { const v = Math.abs(vs); return v <= 30 ? vs : Math.sign(vs) * (30 + 14 * (1 - Math.exp(-(v - 30) / 14))); };
@@ -120,7 +122,8 @@ export function createPlayerCar(M, E, dest = M.bus.sfx, opt = {}) {
     ramp(G.rg.gain, on * 0.34 * burn, 0.03);
     ramp(G.ckg.gain, on * (0.4 * burn + 0.5 * tail), 0.03);
     ramp(G.rlg.gain, on * 0.45 * burn, 0.05);
-    ramp(G.out.gain, 1, 0.05);
+    // (the owner, 3 Nov: the engine sat under the street; the car's whole voice +4.4 dB, CAR_LEVEL)
+    ramp(G.out.gain, CAR_LEVEL, 0.05);
     if (s.jolt > 0.02 && s.on) E.play('kerb', { k: Math.min(1, s.jolt), vol: 0.9 });
   }
   return {

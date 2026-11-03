@@ -76,7 +76,8 @@ export function createMixer(ctx) {
   M.inside = (k) => {
     const t = ctx.currentTime;
     muffle.frequency.setTargetAtTime(20000 * Math.pow(1500 / 20000, k), t, 0.12);
-    muffleGain.gain.setTargetAtTime(1 - 0.42 * k, t, 0.12);
+    // (3 Nov: the city a little further down inside the car, 0.42 -> 0.5, so the engine reads over it)
+    muffleGain.gain.setTargetAtTime(1 - 0.5 * k, t, 0.12);
   };
   M.setLevel = (name, v) => { const g = bus[name]; if (g) g.gain.setTargetAtTime(v, ctx.currentTime, 0.05); };
   // a pause: hold(true) fades everything out in a few ms and then stops the context where it is (a line half said, a
