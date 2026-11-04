@@ -72,7 +72,7 @@ export function runEpisodeChecks(ok: Ok) {
     for (const [k, v] of [['NODE_ENV', saved.node], ['EPISODE_MC_ORIGIN', saved.mc], ['STORY_ORIGIN', saved.story]] as const) { if (v === undefined) delete envs[k]; else envs[k] = v; }
     ok('in production the frame is https://mc.gamemog.com (EPISODE_MC_ORIGIN ignored) with host=https://gamemog.com and a gamemog.com story, and only mc.gamemog.com may read a story (CORS)', prod, src.slice(0, 120));
   }
-  ok('episodes can be mogged by default (the owner, 4 Nov); EPISODE_MOGS=off closes them without a new build; every other kind is unchanged', lit && killed && on);
+  ok('episodes are closed by default (the owner, 4 Nov: MOG Soon again); EPISODE_MOGS=on opens them without a new build, =off keeps them closed; every other kind is unchanged', !lit && killed && on);
   const mogOf = (code: string) => ({ parent: { format: 'world', code, meta: null } });
   ok('an episode is made only as a Mog of one, and a Mog of one stays one (a Create or a Mog of another kind that writes one is sent back)',
     E.episodeKindProblems(world).length === 1 && E.episodeKindProblems(world, mogOf(kart)).length === 1 && E.episodeKindProblems(kart, mogOf(world)).length === 1

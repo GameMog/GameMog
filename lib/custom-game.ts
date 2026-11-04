@@ -292,11 +292,11 @@ export function worldControls(code: string, o: { kartItems?: boolean } = {}) {
  * before anything is spent.
  */
 // (a Grand Prix, 14 Oct: closed until it had its chapter, its DNA, its test drive and its check; opened 21 Oct)
-// (a Mog City episode, 3 Nov: on for everyone at launch, the owner 4 Nov; EPISODE_MOGS=off in the server's environment
-// is the kill switch, read on each call, so it needs no new build: /g/mog-city stays playable and its Mog closes)
+// (a Mog City episode, 3 Nov: on for everyone at launch 4 Nov, then closed again the same day by the owner while Mogs are
+// rethought; EPISODE_MOGS=on in the server's environment reopens them, read on each call: /g/mog-city stays playable)
 export const MOGGABLE: Record<WorldMode, boolean> = { race: true, survival: true, derby: true, kart: true, shootout: true, gp: true, get episode() { return episodeMogsOn(); } };
-/** The episode switch (MOGGABLE.episode): on unless EPISODE_MOGS=off. */
-export function episodeMogsOn() { return process.env.EPISODE_MOGS !== 'off'; }
+/** The episode switch (MOGGABLE.episode): off unless EPISODE_MOGS=on (the owner, 4 Nov: back to MOG Soon while Mogs are rethought). */
+export function episodeMogsOn() { return process.env.EPISODE_MOGS === 'on'; }
 /** Whether a game can be mogged: every game but a world of a kind MOGGABLE closes. */
 export function canMog(game: { format: string; code?: string | null; meta?: string | null }) {
   return game.format !== 'world' || MOGGABLE[worldMode(game.code, game.meta)];

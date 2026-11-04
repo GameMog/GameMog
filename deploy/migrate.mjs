@@ -1008,6 +1008,36 @@ export const MIGRATIONS = [
       return 'published';
     },
   },
+  {
+    // 4 Nov: Mallow: The Lantern Sea (a creator's build, no parent) published with no cover and no key art: its one test
+    // drive never reported (meta.test: unverified, cover none), so /g/<slug>/cover served the route's palette card, an
+    // empty sky and sea. These were shot on the Mac from its own code by the platform's server playtest
+    // (lib/playtest-runtime.ts playtestWorld: passed, 60 fps). Only the empty columns are filled, and only on the code
+    // they were shot from (codeHash aad04cc5e4ccb808): a cover the game has since got is never replaced
+    id: '2026-11-04-mallow-cover',
+    run(db) {
+      const cover = file('mallow-the-lantern-sea-cover.jpg'), icon = file('mallow-the-lantern-sea-icon.jpg'), wide = file('mallow-the-lantern-sea-wide.jpg');
+      if (!cover || !icon || !wide) throw new Error('deploy/migrations/mallow-the-lantern-sea-{cover,icon,wide}.jpg are not in this build');
+      const g = db.prepare("SELECT id, code, cover, art_wide FROM games WHERE id = 'bc676b38-450e-4120-bcfa-50f1b9a32d9a' AND slug = 'mallow-the-lantern-sea'").get();
+      if (!g) return 'no such game';
+      if (createHash('sha256').update(String(g.code ?? '')).digest('hex').slice(0, 16) !== 'aad04cc5e4ccb808') return 'left alone: its code is not the code the pictures show';
+      if (g.cover && g.art_wide) return 'already has a cover';
+      db.prepare('UPDATE games SET cover = COALESCE(cover, ?), art_icon = COALESCE(art_icon, ?), art_wide = COALESCE(art_wide, ?) WHERE id = ?').run(cover, icon, wide, g.id);
+      db.prepare("UPDATE games SET meta = json_set(meta, '$.test.cover', 'current') WHERE id = ? AND json_extract(meta, '$.test.cover') = 'none'").run(g.id);
+      return 'cover restored';
+    },
+  },
+  {
+    // (the owner, 4 Nov: "Dognapped = unlisted": the Mog City episode stays playable for anyone with its link, but
+    // leaves every list, feed, Mog and board (hidden = 1 with meta.unlisted, lib/db.ts))
+    id: '2026-11-04-unlist-dognapped',
+    run(db) {
+      const g = db.prepare("SELECT id, hidden, meta FROM games WHERE slug = 'mog-city-dognapped-for-christmas'").get();
+      if (!g) return 'no such game';
+      db.prepare("UPDATE games SET hidden = 1, meta = json_set(COALESCE(meta, '{}'), '$.unlisted', json('true')) WHERE id = ?").run(g.id);
+      return 'unlisted';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

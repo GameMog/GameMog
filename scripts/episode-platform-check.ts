@@ -11,7 +11,7 @@
  * dare, the story is served with CORS for Mog City only, /play goes to Mog City, and scores and dares are refused.
  * Also: a consent the route cannot read is refused before anything is spent, and a pass naming an unconsented real
  * person is sent back. Needs /g/mog-city in the database (deploy/migrate.mjs 2026-11-03-mog-city) and, for the Mog
- * page's composer, a dev server started without EPISODE_MOGS (on by default; =off is the kill switch, checked in this
+ * page's composer, a dev server started with EPISODE_MOGS=on (closed by default since 4 Nov; =off is checked in this
  * process before any spend). Its throwaway rows go after.
  */
 import { register } from 'node:module';
@@ -152,7 +152,8 @@ export async function episodePlatformChecks(ok: Ok, BASE: string) {
   ok('/g/mog-city plays Mog City in its frame (Mog City embedded, its game id, the story at its version)', home.r.status === 200 && !!hs && MC_RE.test(hs)
     && hs.includes(`&game=${parent.id}&story=${encodeURIComponent(`${new URL(BASE).origin}/g/mog-city/story.json?v=${hv}`)}`) && home.html.includes('Story episode'), hs ?? String(home.r.status));
   const mogPage = await page('/mog/mog-city');
-  // (on for everyone by default, the owner 4 Nov: the dev server runs without EPISODE_MOGS, as production does)
+  // (closed by default since the owner's 4 Nov kill switch: this part of the check needs the dev server started with
+  // EPISODE_MOGS=on; production runs without it and shows MOG Soon)
   ok('the Mog page offers the episode composer by default: its ideas and the consent step', !mogPage.html.includes(MOG_SOON.replace(/'/g, '&#x27;'))
     && mogPage.html.includes('My Mog names a real person') && mogPage.html.includes('Rename the bank and every sign in the city') && mogPage.html.includes('Mog City loads it in your browser'));
   ok('the game page has its Mog button, and the homepage hero\'s MOG opens /mog/mog-city (no MOG Soon)', home.html.includes('href="/mog/mog-city"')

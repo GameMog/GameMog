@@ -426,9 +426,17 @@ export async function generateGame(
       db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
       insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report: { pending: true }, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
       if (drivesInBrowser()) {
-        const token = randomUUID();
-        emit({ type: 'drive', draftId, token, attempt });
-        report = await waitForDrive(draftId, token, isShootoutWorld(code) ? SHOOT_DRIVE_MS : undefined, input.signal);
+        const drive = () => {
+          const token = randomUUID();
+          emit({ type: 'drive', draftId, token, attempt });
+          return waitForDrive(draftId, token, isShootoutWorld(code) ? SHOOT_DRIVE_MS : undefined, input.signal);
+        };
+        report = await drive();
+        // (4 Nov, Mallow: The Lantern Sea: its one drive never reported, no pass had a cover, and it published with none,
+        // so its thumbnail was the route's palette card. A drive that never ran (skipped) and took no picture, with none from an earlier pass,
+        // is asked for once more; the page runs a fresh one (app/create/generation.tsx TestDrive is keyed by the token).
+        // No model call: the same code is driven again. Still nothing, and it ships unverified as before)
+        if (!report.ran && !report.cover && !shots.cover && !stopped()) report = await drive();
       } else report = await playtestWorld(`${input.origin}/d/${draftId}/play`);
       if (stopped()) return;
       problems.push(...report.problems);
