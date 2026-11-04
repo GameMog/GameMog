@@ -1,4 +1,5 @@
 import { worldMode, type WorldMode } from './custom-game';
+import { isEpisodeWorld, packOf, changeReport } from './episode';
 import { pickPass, type Pass, type Pick as PassPick } from './look';
 
 /**
@@ -56,6 +57,11 @@ export type Dna = {
    * the player's first), the lap's segments counted, and its place is map (gp.map, a runtime map such as 'port-artificial')
    */
   gp: { laps: number | null; you: string | null; drivers: string[]; names: string[]; segments: number | null } | null;
+  /**
+   * a Mog City episode's own (3 Nov, episode: {...}, a story pack; null for every other kind): its title, its cast's
+   * names by id, its brand names, and what it changed against the default pack (lib/episode.ts changeReport)
+   */
+  episode: { title: string; cast: Record<string, string>; names: Record<string, string>; rewritten: number; kept: number; copy: number } | null;
   /** every word the module uses, comments and names included (a world that builds its own place says what it is) */
   words: string[];
 };
@@ -290,8 +296,22 @@ function shootOf(code: string, world: Map<string, string>, assets: string[]): Sh
     sky: assets.filter((a) => /^(?:sky|hdri)-/.test(a)),
   };
 }
+/** A Mog City episode's DNA (3 Nov): its pack's title, cast and names, and what it changed of the default; nothing of a world module. */
+function episodeDna(source: string): Dna {
+  const p = packOf(source), r = p ? changeReport(p) : null;
+  return {
+    kind: 'episode', map: null, city: null, traversal: false, hero: { kind: 'human', name: p?.cast.dan?.name ?? null, body: null, traits: [] }, moves: [], crews: {}, patrol: null,
+    places: [], intro: null, outro: null, goal: null, fund: null, beats: 0, coins: false, assets: [], play: { vehicle: false, combat: false, bounty: false }, track: null,
+    kart: null, shootout: null, gp: null,
+    episode: p ? { title: p.title.episode, cast: Object.fromEntries(Object.entries(p.cast).map(([id, c]) => [id, String(c.name)])), names: { ...p.names },
+      rewritten: r!.rewritten, kept: r!.kept, copy: r!.copy } : null,
+    words: [],
+  };
+}
 /** A world's DNA, read from its module. */
 export function dna(source: string): Dna {
+  // (a Mog City episode, 3 Nov: data, read from its pack; it has none of a world module's parts)
+  if (isEpisodeWorld(source)) return episodeDna(source);
   const code = uncomment(source);
   const call = /\bGameMog\s*\.\s*world\s*\(\s*/.exec(code);
   const world = call ? entries(resolve(code, code[call.index + call[0].length] === '{' ? bracket(code, call.index + call[0].length) : code.slice(call.index + call[0].length).split(/[),]/)[0])) : new Map<string, string>();
@@ -373,6 +393,7 @@ export function dna(source: string): Dna {
       // airdrops: false, and there are none)
       itemsOn: resolve(code, kartObj.get('items')) !== 'false' && entries(resolve(code, kartObj.get('course'))).get('airdrops') !== 'false' } : null,
     shootout: kind === 'shootout' ? shootOf(code, world, assets) : null,
+    episode: null,
     gp: gpObj ? { laps: Number.isFinite(gpLapsN) ? gpLapsN : null, you: str(gpObj.get('you')),
       drivers: gpDrivers.map((d) => str(d.get('id'))).filter((x): x is string => !!x), names: gpDrivers.map((d) => str(d.get('name'))).filter((x): x is string => !!x),
       segments: segs.startsWith('[') ? count(segs) || null : null } : null,
@@ -411,6 +432,8 @@ const KIND: Record<WorldMode, RegExp> = {
   // (a Grand Prix, 14 Oct: the same never-matching form, so every idea reads exactly as before; a Grand Prix cannot be
   // mogged until its M3, lib/custom-game.ts MOGGABLE)
   gp: /(?!)/,
+  // (a Mog City episode, 3 Nov: the same; made only as a Mog of one, held by a lock)
+  episode: /(?!)/,
 };
 /**
  * Settings a world can be moved to (a rename's clause is taken out before these are looked for). The words that also
@@ -512,6 +535,7 @@ export const KIND_SAID: Record<WorldMode, string> = {
   kart: 'a kart race (kart: {...}: laps, eight karts, places)',
   shootout: 'a penalty shootout (shootout: {...}: one taker, one keeper, kick after kick)',
   gp: 'a Grand Prix (gp: {...}: a 3 to 7 km lap, twenty cars, places)',
+  episode: 'a Mog City episode (episode: {...}: a story pack for the city on mc.gamemog.com)',
 };
 const list = (xs: string[], n = 3) => xs.length > n ? `${xs.slice(0, n).join(', ')} and more` : xs.join(', ');
 const patrolSaid = (car: string) => (car === 'on' ? 'a patrol car' : `${/^[aeiou]|^suv$/i.test(car) ? 'an' : 'a'} ${car === 'suv' ? 'SUV' : car}`);
@@ -561,6 +585,13 @@ function describeShootout(d: Dna, s: ShootDna): string[] {
 
 /** The parent's DNA as the Mog prompt states it: the things a Mog keeps unless the idea replaces them. */
 export function describeDna(d: Dna): string[] {
+  if (d.kind === 'episode' && d.episode) {
+    const e = d.episode;
+    return [`The kind of game: ${KIND_SAID.episode}.`, `The title: MOG CITY: ${e.title} (title.episode).`,
+      `The cast: ${Object.entries(e.cast).map(([id, n]) => `${n} (${id})`).join(', ')}.`,
+      `The names: ${Object.entries(e.names).map(([k, n]) => `${n} (${k})`).join(', ')}.`,
+      `The lines: ${e.rewritten} of ${e.rewritten + e.kept} rewritten from Mog City's own; ${e.kept} keep their recorded voices.`];
+  }
   if (d.kind === 'shootout' && d.shootout) return describeShootout(d, d.shootout);
   if (d.kind === 'gp' && d.gp) {
     const g = d.gp, you = g.you ? g.names[g.drivers.indexOf(g.you)] ?? g.you : null;
@@ -639,7 +670,8 @@ export function compareDna(parent: Dna | string, child: Dna | string, ideaText: 
   };
   // (a penalty shootout, 13 Oct: a Mog of one stays one, and nothing becomes one, whatever the idea says)
   // (a Grand Prix too, 21 Oct)
-  const shoot = p.kind === 'shootout' || c.kind === 'shootout' || p.kind === 'gp' || c.kind === 'gp';
+  // (and a Mog City episode, 3 Nov)
+  const shoot = p.kind === 'shootout' || c.kind === 'shootout' || p.kind === 'gp' || c.kind === 'gp' || p.kind === 'episode' || c.kind === 'episode';
   const kindOk = p.kind !== c.kind && idea.kind === c.kind && !shoot;
   const moved = idea.place ? `the idea names a new place (${idea.place})` : false;
   const kindWhy = kindOk ? `the idea asks for ${KIND_SAID[c.kind]}` : false;
@@ -650,6 +682,10 @@ export function compareDna(parent: Dna | string, child: Dna | string, ideaText: 
   rule('kind', p.kind !== c.kind, kindWhy,
     () => p.kind === 'shootout'
       ? `The kind of game: the original is ${KIND_SAID.shootout}, this is ${KIND_SAID[c.kind]}. A Mog of a penalty shootout stays one, whatever its idea says: keep shootout: {...} among GameMog.world's own keys (the runtime runs the kick, the keeper and the camera) and carry the idea out in the world.`
+      : p.kind === 'episode'
+        ? `The kind of game: the original is ${KIND_SAID.episode}, this is ${KIND_SAID[c.kind]}. A Mog of a Mog City episode stays one: reply with its story pack.`
+      : c.kind === 'episode'
+        ? `The kind of game: the original is ${KIND_SAID[p.kind]}, this is a Mog City episode, which is made only as a Mog of one. Keep ${KIND_SAID[p.kind]}.`
       : p.kind === 'gp'
         ? `The kind of game: the original is ${KIND_SAID.gp}, this is ${KIND_SAID[c.kind]}. A Mog of a Grand Prix stays one, whatever its idea says: keep gp: {...} among GameMog.world's own keys (the runtime races the cars and the agents) and carry the idea out in the world.`
       : c.kind === 'shootout' || c.kind === 'gp'

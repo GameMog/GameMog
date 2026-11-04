@@ -41,7 +41,7 @@ type Posted = { score: number; tier: KartTier; rank: number | null; review: bool
  *
  * A result posted from a frame is a claim, not a fact. It is stored as one.
  */
-export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`, scores = true, you: wantsYou = false, kart = false, shootout = false, kartScore = null, kdiag = null }: {
+export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`, scores = true, you: wantsYou = false, kart = false, shootout = false, kartScore = null, kdiag = null, episode = false }: {
   slug: string; gameId: string; poster: React.ReactNode; src?: string;
   /** Off for drafts: a run in a preview has no leaderboard to post to. */
   scores?: boolean;
@@ -66,6 +66,12 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
    * back behind a card of what this device is and how the last race on it ended.
    */
   kdiag?: string | null;
+  /**
+   * A Mog City episode (3 Nov): `src` is Mog City itself on mc.gamemog.com, its own origin (never this site's), so the frame
+   * may keep that origin (allow-same-origin: its saves, its settings and its module scripts) and lock the pointer; its
+   * ready message ({ type: 'ready', hash, story }) names no gameId, and the frame's window is what is checked.
+   */
+  episode?: boolean;
 }) {
   const diag = kart ? readKdiag(kdiag) : { info: false, switches: [] as string[] };
   const base = diag.switches.length ? `${base0}${base0.includes('?') ? '&' : '?'}kdiag=${diag.switches.join(',')}` : base0;
@@ -167,7 +173,7 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
     function onMessage(e: MessageEvent) {
       if (!ref.current || e.source !== ref.current.contentWindow) return;
       const d = e.data;
-      if (!d || d.source !== 'gamemog' || d.gameId !== gameId) return;
+      if (!d || d.source !== 'gamemog' || (d.gameId !== gameId && !(episode && d.gameId === undefined))) return;
       if (d.type === 'ready') {
         setLive(true); setLoaded(true);
         // (the dare's PLAY was tapped before the game was up: it starts now)
@@ -236,7 +242,7 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
     }
     addEventListener('message', onMessage);
     return () => removeEventListener('message', onMessage);
-  }, [gameId, scores, slug]);
+  }, [gameId, scores, slug, episode]);
 
   // The dare: read from the address, loaded, and kept only when it is this game's (a published game's page only)
   useEffect(() => {
@@ -334,8 +340,8 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
         {src !== null && !held && <iframe
           ref={ref}
           src={src}
-          sandbox="allow-scripts"
-          allow="autoplay; fullscreen"
+          sandbox={episode ? 'allow-scripts allow-same-origin allow-pointer-lock' : 'allow-scripts'}
+          allow={episode ? 'autoplay; fullscreen; gamepad' : 'autoplay; fullscreen'}
           title={`${slug}, game`}
           onLoad={() => setLoaded(true)}
         />}

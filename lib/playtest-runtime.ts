@@ -140,7 +140,7 @@ export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: 
   /** A Mog's DNA against its parent (6 Oct, lib/mog-dna.ts): what it dropped that the idea did not ask for, and what became of the repair. */
   dna?: DnaReport;
   /** A kart race's drive (8 Oct): what the race counted. It is stored with the draft's report, beside status and codeHash. */
-  kind?: 'kart' | 'shootout' | 'gp'; kart?: KartDrive;
+  kind?: 'kart' | 'shootout' | 'gp' | 'episode'; kart?: KartDrive;
   /** A penalty shootout's drive (13 Oct): what its kicks counted (levelReached is the kicks driven). Stored the same way. */
   shootout?: ShootDrive;
   /** A Grand Prix's drive (18 Oct): one lap of the race on the autopilot, to its result (levelReached is the laps run). Stored the same way. */

@@ -8,6 +8,7 @@ import { worldControls, worldMode, MODE_PAGE, NO_GM_HOW, kartHow, canMog, type G
 import { optionsOf } from '@/lib/world-options';
 import { PlayFrame } from './play-frame';
 import { playSrc } from '@/lib/play-page';
+import { mcFrameSrc, storyUrl } from '@/lib/episode-play';
 import { YouLine } from './you-line';
 import { GameActions } from './actions';
 import { Tabs } from './tabs';
@@ -38,6 +39,11 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
   // an open world ranks the time survived; a race the level reached; a kart race its score (8 Oct), each player once;
   // a penalty shootout (12 Oct) the goals scored in a sitting, on the score board, with the kicks they took
   const shootout = mode === 'shootout';
+  // (a Mog City episode, 3 Nov: the city on mc.gamemog.com with this game's story; no board and no dares at launch, and
+  // the creator's word on any real person it names, as a small line)
+  const episode = mode === 'episode';
+  const said = (meta as { consent?: { names?: unknown } }).consent;
+  const consent = episode && Array.isArray(said?.names) && said.names.length > 0;
   // (a Grand Prix, 18 Oct: the fastest race first, on the time board; it was read as an open world's survival board, slowest on top)
   const by = mode ? (mode === 'race' ? 'level' : mode === 'kart' ? 'kart' : shootout ? 'score' : mode === 'gp' ? 'gp' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
@@ -101,7 +107,7 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
         </nav>
         <div className="gtop">
           <div className="gstage">
-            <PlayFrame slug={game.slug} gameId={game.id} src={playSrc(game)} you={game.format === 'world'} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
+            <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game)) : playSrc(game)} episode={episode} scores={!episode} you={game.format === 'world' && !episode} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
               // eslint-disable-next-line @next/next/no-img-element
               poster={<img src={`/g/${game.slug}/cover`} alt="" />} />
           </div>
@@ -110,9 +116,10 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
               <h1>{game.title}</h1>
               <p className="by">{game.creator ? <>Created by <b>{game.creator}</b></> : <>By <b>a GameMog creator</b></>} <span className="maturity">· {page ? `${page.label} · GameMog Runtime` : 'Written by GameMog'}</span></p>
               <Lineage game={game} />
-              {world && <YouLine slug={game.slug} />}
+              {world && !episode && <YouLine slug={game.slug} />}
+              {consent && <p className="t-meta dim" data-consent>Names a real person, with consent stated by its creator.</p>}
             </div>
-            <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} mog={canMog(game)} />
+            <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} mog={canMog(game)} dare={!episode} />
           </div>
         </div>
 
@@ -155,7 +162,7 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
                 </div>
               ),
             },
-            { label: `Leaderboard${scores.length ? ` (${scores.length})` : ''}`, body: leaderboard },
+            ...(episode ? [] : [{ label: `Leaderboard${scores.length ? ` (${scores.length})` : ''}`, body: leaderboard }]),
             { label: `Mogs${mogs.length ? ` (${mogs.length})` : ''}`, body: <MogsPanel game={game} /> },
             {
               label: 'Cast',

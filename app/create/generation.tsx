@@ -18,7 +18,9 @@ import type { WorldMode } from '@/lib/custom-game';
  */
 export type Draft = {
   draftId: string; attempts: number; ms: number;
-  meta: { title: string; tagline: string; blurb: string; genre: string; cast: { name: string; color: string; role?: string }[] };
+  meta: { title: string; tagline: string; blurb: string; genre: string; cast: { name: string; color: string; role?: string }[];
+    /** a Mog City episode's (3 Nov): its lines, how many it rewrote and how many keep their recordings */
+    episode?: { lines: number; rewritten: number; kept: number } };
   runtime: { ran: boolean; readyMs: number | null; fps: number | null; levelReached?: number; advisories?: string[]; open?: { kos: number; heat: number; boss: boolean };
     /** a penalty shootout's drive (13 Oct, lib/playtest-runtime.ts ShootDrive): the kicks it took and how many reached a result */
     kind?: string; shootout?: { kicks?: number; results?: number; goals?: number } };
@@ -490,6 +492,48 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
 }
 
 /**
+ * A Mog City episode's test drive (3 Nov): the draft's preview, Mog City itself (/d/<id>/play answers with its address,
+ * ?story= at the draft's story.json), until the game says it is up with the story it loaded ({ type: 'ready', hash,
+ * story }); that is the report (lib/test-drive.ts episodeVerdict judges it against the draft's pack). Nothing is driven:
+ * the game waits at its title. A tab in the background is waited for, as a world's drive is.
+ */
+const EPISODE_DRIVE_S = 140;
+function EpisodeDrive({ drive, onDone }: { drive: { draftId: string; token: string; attempt: number }; onDone: () => void }) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const done = useRef(onDone); done.current = onDone;
+  const [go, setGo] = useState(() => typeof document === 'undefined' || !document.hidden);
+  useEffect(() => {
+    let sent = false, shown = 0, away = 0;
+    const t0 = Date.now();
+    const post = (payload: Record<string, unknown>) => fetch('/api/generate/drive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draftId: drive.draftId, token: drive.token, ...payload }) });
+    const send = (raw: Record<string, unknown>) => { if (sent) return; sent = true; post({ raw: { kind: 'episode', ...raw } }).catch(() => {}).finally(() => done.current()); };
+    const onMsg = (e: MessageEvent) => {
+      if (e.source !== frame.current?.contentWindow) return;
+      const d = e.data as { source?: string; type?: string; hash?: unknown; story?: unknown };
+      if (d?.source !== 'gamemog' || d.type !== 'ready') return;
+      send({ ready: true, readyMs: Date.now() - t0, hash: d.hash, story: d.story });
+    };
+    const onVis = () => { if (!document.hidden) setGo(true); };
+    addEventListener('message', onMsg);
+    document.addEventListener('visibilitychange', onVis);
+    const tick = setInterval(() => {
+      if (sent) return;
+      if (document.hidden) { if (away++ % 30 === 0) post({ hold: true }).catch(() => {}); return; }
+      if (++shown >= EPISODE_DRIVE_S) send({ timedOut: true });
+    }, 1000);
+    return () => { removeEventListener('message', onMsg); document.removeEventListener('visibilitychange', onVis); clearInterval(tick); };
+  }, [drive.draftId, drive.token]);
+  return (
+    <div className="bs-drive" style={{ aspectRatio: '16 / 9', height: 'auto' }}>
+      {go ? <iframe ref={frame} src={`/d/${drive.draftId}/play`} sandbox="allow-scripts allow-same-origin allow-pointer-lock" allow="autoplay; fullscreen; gamepad" title="Test drive"
+        tabIndex={-1} style={{ width: '100%', height: '100%', border: 0 }} />
+        : <p className="bs-drivewait">Your episode is ready to load. It loads as soon as this tab is in front.</p>}
+      <span className="bs-drivetag">Loading the city with your episode</span>
+    </div>
+  );
+}
+
+/**
  * The show while a world or a Mog is built: what it is, where it has got to,
  * how long is left, and a track drawing itself as it happens.
  */
@@ -533,7 +577,7 @@ function BuildShow({ gen, mode, subject, open, kind }: { gen: Generation; mode: 
       </div>
       <h2 className="bs-title">{mode === 'mog' ? info.mogTitle : info.title}{polishing ? `, pass ${attempt} of 3` : ''}</h2>
       <p className="bs-line">{line}{key === 'writing' && (stage?.chars ?? 0) > 0 ? `  ·  ${Math.round(Math.min(0.98, (stage?.chars ?? 0) / TARGET_CHARS) * 100)}% built` : ''}</p>
-      {gen.drive ? <TestDrive key={gen.drive.token} drive={gen.drive} onDone={gen.endDrive} /> : shootout ? <GoalArt stage={key} built={built} t={t} /> : <TrackArt stage={key} built={built} t={t} />}
+      {gen.drive ? (kind === 'episode' ? <EpisodeDrive key={gen.drive.token} drive={gen.drive} onDone={gen.endDrive} /> : <TestDrive key={gen.drive.token} drive={gen.drive} onDone={gen.endDrive} />) : shootout ? <GoalArt stage={key} built={built} t={t} /> : <TrackArt stage={key} built={built} t={t} />}
       <div className="bs-bar" aria-hidden>
         {Array.from({ length: segments }, (_, i) => {
           const fill = Math.max(0, Math.min(1, overall * segments - i));
@@ -652,6 +696,15 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode
   // another take is another game to publish
   useEffect(() => { setLive(null); }, [draft?.draftId]);
   if (!draft) return null;
+  // (a Mog City episode, 3 Nov: no dares at launch; the published game is the next step)
+  if (live && (kind === 'episode' || draft.runtime.kind === 'episode')) return (
+    <div className="panel bs-ready">
+      <p className="bs-readylbl">Published</p>
+      <h2>{draft.meta.title}</h2>
+      <p className="dim" style={{ marginBottom: 12, fontSize: 16 }}>It is live, listed as a Mog of {parentTitle ?? 'its original'}.</p>
+      <a className="btn" href={`/g/${live.slug}`}>Play it</a>
+    </div>
+  );
   if (live) return <SendDare game={live} title={draft.meta.title} mode={mode} parentTitle={parentTitle} name={live.creator ?? ''} answering={dare ?? null} />;
 
   async function onPublish() {
@@ -670,11 +723,14 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode
   // (a penalty shootout's drive, 13 Oct: the kicks that reached a result, not laps)
   const so = draft.runtime.shootout;
   const shot = kind === 'shootout' || draft.runtime.kind === 'shootout' ? { n: so?.results ?? so?.kicks ?? draft.runtime.levelReached ?? 0 } : null;
+  // (a Mog City episode, 3 Nov: what it rewrote, and what that means for the voices)
+  const episode = kind === 'episode' || draft.runtime.kind === 'episode';
+  const ep = draft.meta.episode;
   return (
     <div className="panel bs-ready">
       <p className="bs-readylbl">Ready to play</p>
       <div style={{ marginBottom: 16 }}>
-        <PlayFrame slug={draft.draftId} gameId={`draft-${draft.draftId}`} src={`/d/${draft.draftId}/play`} scores={false}
+        <PlayFrame slug={draft.draftId} gameId={`draft-${draft.draftId}`} src={`/d/${draft.draftId}/play`} scores={false} episode={episode}
           // eslint-disable-next-line @next/next/no-img-element
           poster={<img src={`/d/${draft.draftId}/cover`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />} />
       </div>
@@ -690,7 +746,9 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode
         ))}
       </div>
       <p className="t-meta dim" style={{ marginBottom: 16 }}>
-        {draft.runtime.ran
+        {episode
+          ? `${draft.runtime.ran ? 'Mog City loaded this episode in your browser.' : 'Mog City did not get to load it in this tab, so nobody has played it yet. Give it a run above before you publish.'}${ep ? ` ${ep.rewritten} of its ${ep.lines} lines are rewritten: players' browsers read them aloud; the other ${ep.kept} keep their recorded voices.` : ''}`
+          : draft.runtime.ran
           ? `Test-driven in a real browser: it loads in ${secs < 1 ? 'under a second' : `${secs.toFixed(1)} seconds`}, runs smoothly at ${draft.runtime.fps} fps, and ${shot ? `played ${shot.n} kick${shot.n === 1 ? '' : 's'} through to a result` : draft.runtime.open ? `held up through ${draft.runtime.open.kos} knockouts to heat ${draft.runtime.open.heat}${draft.runtime.open.boss ? ' and a boss' : ''}` : `held up through ${draft.runtime.levelReached ?? 0} laps of rivals`}.`
           : 'It passed the safety check, but the test drive did not get to finish in this tab, so nobody has played it through yet. Give it a run above before you publish.'}
         {' '}Built in {Math.max(1, Math.round(draft.ms / 60000))} minutes.

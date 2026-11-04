@@ -8,6 +8,7 @@ import { admit, takeSlot, resting, priceBuild, BUSY, RESTING, type Lease, type P
 import { ImageSchema, type Character, type CharacterImage } from '@/lib/character';
 import { readOptions } from '@/lib/world-options';
 import { isOpenWorld, worldMode, canMog, MOG_SOON } from '@/lib/custom-game';
+import { isEpisodeParent, readConsent } from '@/lib/episode';
 
 export const runtime = 'nodejs';
 // Opus writing a whole game, a real-browser playtest and up to two repairs
@@ -17,7 +18,7 @@ export const maxDuration = 1800;
 const MAX_IMAGE_BYTES = 2_200_000;
 
 export async function POST(req: Request) {
-  let body: { prompt?: string; image?: unknown; hintFur?: string; characterName?: string; kind?: 'game' | 'race'; mogOf?: string; options?: unknown };
+  let body: { prompt?: string; image?: unknown; hintFur?: string; characterName?: string; kind?: 'game' | 'race'; mogOf?: string; options?: unknown; consent?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -37,6 +38,11 @@ export async function POST(req: Request) {
   if (!parent && text.length < 8) {
     return NextResponse.json({ error: 'Describe the world in a sentence or two.' }, { status: 400 });
   }
+  // a Mog of a Mog City episode (3 Nov): the creator's consent for any real person it names, read before anything is
+  // spent (lib/episode.ts readConsent); every other Mog ignores the field
+  const episode = isEpisodeParent(parent);
+  const consent = episode ? readConsent(body.consent) : { ok: true as const, consent: null };
+  if (!consent.ok) return NextResponse.json({ error: consent.error, field: 'consent' }, { status: 400 });
   if (parent && !(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN)) {
     return NextResponse.json({ error: 'Mogging needs the model: set ANTHROPIC_API_KEY.' }, { status: 503 });
   }
@@ -140,10 +146,11 @@ export async function POST(req: Request) {
           // a Mog of a penalty shootout (13 Oct) has no obstacles to add or clear and no music, whatever the page sent: the
           // crowd is its sound (the shootout's recorded crowd), and no track or score is laid over it
           // (and a Grand Prix's, 21 Oct: its engines and its crowd are its sound)
-          if (parent && parent.format === 'world' && (worldMode(parent.code, parent.meta) === 'shootout' || worldMode(parent.code, parent.meta) === 'gp')) {
+          // (and a Mog City episode's, 3 Nov: the city's own sound and none of a world's options)
+          if (parent && parent.format === 'world' && (worldMode(parent.code, parent.meta) === 'shootout' || worldMode(parent.code, parent.meta) === 'gp' || episode)) {
             options.hazards = 'same'; options.music = null; delete options.soundtrack;
           }
-          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options, signal: stop.signal, usage }, (e) => {
+          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options, consent: consent.consent, signal: stop.signal, usage }, (e) => {
             if (e.type === 'stage') attempts = Math.max(attempts, e.attempt);
             if (e.type === 'drive' || e.type === 'done') draftId = e.draftId;
             if (e.type === 'done' || e.type === 'error') result = e;

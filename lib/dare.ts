@@ -67,6 +67,8 @@ const int = (v: unknown) => Math.round(Number(v) || 0);
 export function checkRun(game: GameLike, input: unknown): { ok: true; run: DareRun } | { ok: false; error: string } {
   const no = (error: string) => ({ ok: false as const, error });
   if (!input || typeof input !== 'object') return no('That run did not come through.');
+  // (a Mog City episode, 3 Nov: no dares at launch)
+  if (game.format === 'world' && worldMode(game.code, game.meta) === 'episode') return no('Story episodes have no dares yet.');
   const b = input as Record<string, unknown>;
   if (b.assisted) return no('Assisted runs do not count.');
   const x = contextOf(game);

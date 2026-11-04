@@ -10,6 +10,8 @@ import { drivesInBrowser, waitForDrive, codeHash, testStatus } from './test-driv
 import { lookAdvisories, pickPass, type Pass } from './look';
 import { insertDraft, db, type GameRow } from './db';
 import { dna, compareDna, describeDna, askedKind, dnaReport, pickMogPass, KIND_SAID } from './mog-dna';
+import { isEpisodeParent, episodeKindProblems, type Consent } from './episode';
+import { episodeSystem, generateEpisode } from './episode-build';
 
 /**
  * A world, written by Claude Opus 5.5 on the GameMog Runtime.
@@ -52,9 +54,10 @@ const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8')
  */
 const SHOOT_CHAPTER = '## Penalty shootouts\n';
 /** The builder's manual: the "Penalty shootouts" chapter only for a Mog of one, and the "Grand Prix" chapter only for a Mog of a Grand Prix (21 Oct). */
+// (and the "Mog City episodes" chapter, 3 Nov, only in an episode Mog's own short prompt, system('episode'))
 function manual(kind?: 'shootout' | 'gp') {
   let api = read('lib', 'runtime', 'API.md');
-  for (const [chapter, k] of [[SHOOT_CHAPTER, 'shootout'], [GP_CHAPTER, 'gp']] as const) {
+  for (const [chapter, k] of [[SHOOT_CHAPTER, 'shootout'], [GP_CHAPTER, 'gp'], [EPISODE_CHAPTER, 'episode']] as const) {
     const i = api.indexOf(chapter);
     if (kind === k || i < 0) continue;
     const j = api.indexOf('\n## ', i + chapter.length);
@@ -63,10 +66,20 @@ function manual(kind?: 'shootout' | 'gp') {
   return api;
 }
 const GP_CHAPTER = '## Grand Prix\n';
+const EPISODE_CHAPTER = '## Mog City episodes\n';
+/** The "Mog City episodes" chapter of lib/runtime/API.md, alone (an episode Mog reads it and none of the runtime's manual). */
+export function episodeChapter() {
+  const api = read('lib', 'runtime', 'API.md'), i = api.indexOf(EPISODE_CHAPTER);
+  if (i < 0) return '';
+  const j = api.indexOf('\n## ', i + EPISODE_CHAPTER.length);
+  return (j < 0 ? api.slice(i) : api.slice(i, j)).trim();
+}
 const GP_RULE = ' A Grand Prix (gp: {...}, only ever a Mog of one) plays by the "Grand Prix" section instead: the runtime races it (the cars, the AI agents, the lights, the laps, the cameras, the HUD and the sound); you build the place, the cast and how it all looks.';
 const SHOOT_RULE = ' A penalty shootout (shootout: {...}, only ever a Mog of one) plays by the "Penalty shootouts" section instead: the runtime directs it (the kick, the keeper, the camera, the HUD and the sound); you build the stadium and how the people look.';
 
-export function system(kind?: 'shootout' | 'gp') {
+export function system(kind?: 'shootout' | 'gp' | 'episode') {
+  // (a Mog City episode, 3 Nov: data, not a world module; a short prompt of its own, lib/episode-build.ts)
+  if (kind === 'episode') return episodeSystem(episodeChapter());
   return `You design and build worlds for GameMog, a platform where people describe a world and get a playable 3D game at a link. Every GameMog game runs on the GameMog Runtime, which owns the rules; you write the world module, which owns everything else.
 
 Make the world the creator asked for, native to its characters: its own place, its own creatures, its own obstacles, its own light and sound. Two worlds on GameMog should never feel like reskins of each other.
@@ -298,9 +311,11 @@ export function gpKindProblems(code: string, mog?: MogInput, meta?: WorldMeta): 
 export type BuildHooks = { signal?: AbortSignal; usage?: (pass: { attempt: number; model: string; usage: Anthropic.Beta.BetaUsage; partial?: boolean }) => void };
 
 export async function generateGame(
-  input: { prompt: string; image?: CharacterImage; origin: string; mog?: MogInput; options?: WorldOptions } & BuildHooks,
+  input: { prompt: string; image?: CharacterImage; origin: string; mog?: MogInput; options?: WorldOptions; consent?: Consent | null } & BuildHooks,
   emit: (e: GameEvent) => void
 ) {
+  // a Mog of a Mog City episode (3 Nov) is a story pack, built by its own loop
+  if (input.mog && isEpisodeParent(input.mog.parent)) return generateEpisode({ ...input, mog: input.mog, model: GAME_MODEL, system: system('episode') }, emit);
   const stopped = () => !!input.signal?.aborted;
   const started = Date.now();
   const client = new Anthropic();
@@ -396,7 +411,8 @@ export async function generateGame(
     if (final.stop_reason === 'max_tokens') problems.push(input.mog && longMogParent(input.mog.parent.code)
       ? 'The reply was cut off at the length limit. Write the complete world again within it: leave out every comment and shorten repeated code (a loop over a table in place of lines written out), keeping all of the original\'s scenery and everything a player sees.'
       : 'The reply was cut off at the length limit. Write a more compact world module that still does everything.');
-    if (code) problems.push(...staticCheckWorld(code), ...shootoutKindProblems(meta, code, input.mog), ...gpKindProblems(code, input.mog, meta));
+    // (and a Mog City episode, 3 Nov: made only as a Mog of one, which lib/episode-build.ts builds; a world that writes one is sent back)
+    if (code) problems.push(...staticCheckWorld(code), ...shootoutKindProblems(meta, code, input.mog), ...gpKindProblems(code, input.mog, meta), ...episodeKindProblems(code, input.mog));
     // a Mog's pass next to its parent: what it dropped that the idea does not ask for
     const verdict = parentDna && code ? compareDna(parentDna, code, input.mog!.instruction) : undefined;
 

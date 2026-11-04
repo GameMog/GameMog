@@ -3,6 +3,8 @@ import { COOKIE, validSession } from '../../../admin/session';
 import { GAME_CSP } from '@/lib/engine/shell';
 import { CUSTOM_CSP, worldCsp, publicOrigin } from '@/lib/custom-game';
 import { playPage } from '@/lib/play-page';
+import { isEpisodeWorld } from '@/lib/episode';
+import { mcFrameSrc, storyUrl } from '@/lib/episode-play';
 import { siteUrl } from '../../../seo';
 
 /**
@@ -24,6 +26,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   const open = getGameBySlug(slug) ?? getUnlistedGameBySlug(slug);
   const game = open ?? (owner() ? getGameBySlugForOwner(slug) : undefined);
   if (!game) return new Response('Not found', { status: 404 });
+  // a Mog City episode (3 Nov) plays on mc.gamemog.com with its story: this address (the frame's "Open it in its own tab") goes there
+  if (game.format === 'world' && isEpisodeWorld(game.code)) return new Response(null, { status: 302, headers: { location: mcFrameSrc(storyUrl(game)), 'cache-control': 'no-store' } });
 
   const page = playPage(game);
   const custom = (game.format === 'custom' || game.format === 'world') && game.code;

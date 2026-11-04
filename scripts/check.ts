@@ -18,6 +18,7 @@ import { distance } from '../lib/color.ts';
 import { BOUNDS } from '../lib/rig.ts';
 import { runDesignChecks } from './design-check.ts';
 import { runDifficultyChecks } from './difficulty-check.ts';
+import { runEpisodeChecks } from './episode-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -487,13 +488,19 @@ console.log('\na Mog keeps its parent: the DNA check, on real worlds');
   // before, and a Create cannot be steered into writing a shootout the static check then refuses
   const { system } = await import('../lib/generate-game.ts');
   // (21 Oct) and the Grand Prix chapter likewise, only by a Mog of a Grand Prix
-  const sysPlain = system(), sysShoot = system('shootout'), sysGp = system('gp'), api = R('lib/runtime/API.md');
+  // (3 Nov) and the "Mog City episodes" chapter is read by nobody but an episode Mog, whose short prompt holds it alone
+  const sysPlain = system(), sysShoot = system('shootout'), sysGp = system('gp'), sysEp = system('episode'), api0 = R('lib/runtime/API.md');
   const cut = (text: string, head: string) => { const a = text.indexOf(head), b = text.indexOf('\n## ', a + 5); return a < 0 || b < 0 ? text : text.slice(0, a) + text.slice(b + 1); };
+  const api = cut(api0, '## Mog City episodes\n');
   const at = api.indexOf('## Penalty shootouts\n'), gpAt = api.indexOf('## Grand Prix\n');
   ok('the builder\'s manual: a shootout Mog reads the "Penalty shootouts" chapter and its rule, a Grand Prix Mog the "Grand Prix" chapter and its rule; every other build reads the manual without them, every other chapter whole',
     at > 0 && gpAt > 0 && sysShoot.includes(cut(api, '## Grand Prix\n')) && sysShoot.includes('plays by the "Penalty shootouts" section instead') && !sysPlain.includes('## Penalty shootouts') && !sysPlain.includes('Penalty shootouts" section')
       && sysGp.includes(cut(api, '## Penalty shootouts\n')) && sysGp.includes('plays by the "Grand Prix" section instead') && !sysPlain.includes('## Grand Prix') && !sysShoot.includes('## Grand Prix') && !sysGp.includes('## Penalty shootouts')
       && sysPlain.includes(cut(cut(api, '## Penalty shootouts\n'), '## Grand Prix\n')) && sysShoot.length - sysPlain.length > 15_000, `${sysPlain.length} / ${sysShoot.length} / ${sysGp.length}`);
+  const epAt = api0.indexOf('## Mog City episodes\n'), epEnd = api0.indexOf('\n## ', epAt + 5);
+  ok('the builder\'s manual: the "Mog City episodes" chapter goes only to an episode Mog, alone (none of the runtime\'s manual), and to no other build',
+    epAt > 0 && sysEp.includes(api0.slice(epAt, epEnd).trim()) && !sysEp.includes('## The world module') && !sysEp.includes('## Penalty shootouts')
+      && ![sysPlain, sysShoot, sysGp].some((x) => x.includes('## Mog City episodes')) && sysEp.length < 20_000, `${sysEp.length} characters`);
   // (13 Oct review) the real-names list: the famous shootout names, sponsors and the Olympics refused anywhere; the players'
   // names that are everyday words (neuer, pele, salah) only where they name someone, never on a board meaning the word
   const { shootoutDenied, staticCheckWorld: staticCheck } = await import('../lib/custom-game.ts');
@@ -507,6 +514,8 @@ console.log('\na Mog keeps its parent: the DNA check, on real worlds');
 
 runDifficultyChecks(ok);
 runDesignChecks(ok);
+// Mog City episodes (3 Nov): the schema copy, the kind, the gate, the words, the consent rules
+runEpisodeChecks(ok);
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPlayableGameById } from '@/lib/db';
 import { cleanName, cleanMessage } from '@/lib/names';
+import { worldMode } from '@/lib/custom-game';
 import {
   checkRun, checkCard, decodeCard, createDare, getDare, target, dareUrl, validPlayer, validDareId,
   rateOk, cardBudgetOk, clientKey, fromOwnPage, type DareRun,
@@ -28,6 +29,8 @@ export async function POST(req: Request) {
 
   const game = typeof b.gameId === 'string' ? getPlayableGameById(b.gameId) : undefined;
   if (!game) return no('That game is not available.', 404);
+  // (a Mog City episode, 3 Nov: no dares at launch)
+  if (game.format === 'world' && worldMode(game.code, game.meta) === 'episode') return no('Story episodes have no dares yet.', 409);
   if (!validPlayer(b.sender)) return no('That dare did not come through.', 400);
   const name = b.name == null || b.name === '' ? null : cleanName(b.name);
   if (name && !name.ok) return no(name.error, 400, 'name');

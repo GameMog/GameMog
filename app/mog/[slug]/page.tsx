@@ -47,7 +47,13 @@ export default async function MogPage({ params, searchParams }: { params: Promis
       <main className="wrap" style={{ paddingBottom: 80, maxWidth: 820 }}>
         <h1 style={{ marginTop: 24, marginBottom: 6 }}>Mog {game.title}</h1>
         {/* (a penalty shootout is played, not raced, before it can publish, 13 Oct) */}
-        {open && kind === 'shootout' ? (
+        {open && kind === 'episode' ? (
+          <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
+            Challenge it with a better episode. Say how to beat it; GameMog gets the episode&apos;s story and your idea
+            and writes your version of it, and Mog City loads it in your browser before it can publish. Players who
+            have played both pick the better one, and the original is always credited.
+          </p>
+        ) : open && kind === 'shootout' ? (
           <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
             Challenge it with a better variation. Say how to beat it; GameMog gets the original&apos;s
             code and your idea and writes the variation, and it is played in a real browser before it can

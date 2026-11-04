@@ -29,6 +29,8 @@ export async function POST(req: Request) {
   if (row.format === 'world') {
     const level = Number(b.level) || 0, gm = Number(b.gm) || 0, timeMs = Number(b.timeMs) || 0, kos = Math.max(0, Math.round(Number(b.kos) || 0));
     if (b.assisted) return NextResponse.json({ error: 'Assisted runs are not ranked.' }, { status: 422 });
+    // (a Mog City episode, 3 Nov: no board at launch)
+    if (worldMode(row.code, row.meta) === 'episode') return NextResponse.json({ error: 'Story episodes have no leaderboard yet.' }, { status: 422 });
     // a kart race (the owner, 8 Oct): one score, 0 to 10,000, that the server works out itself from the run's parts
     // (lib/runtime/kart-score.js, the file the game carries) and the world's measured constants (meta.kartScore); the
     // score the game sent is never read. Then the board shows each player's best run, by score, then time

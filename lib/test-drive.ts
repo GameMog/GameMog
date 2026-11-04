@@ -18,7 +18,9 @@ export function drivesInBrowser() {
   return !chromePath() || process.env.GAMEMOG_DRIVE === 'browser';
 }
 
-type Pending = { token: string; resolve: (r: WorldReport) => void; timer?: ReturnType<typeof setTimeout>; skip: () => void; until: number };
+type Pending = { token: string; resolve: (r: WorldReport) => void; timer?: ReturnType<typeof setTimeout>; skip: () => void; until: number; expect?: DriveExpect };
+/** What a drive is checked against beyond what it measured: a Mog City episode's story hash (3 Nov). */
+export type DriveExpect = { episodeHash?: string };
 // one map for the whole process: each route is its own bundle
 const G = globalThis as unknown as { __gmDrives?: Map<string, Pending> };
 const pending = (G.__gmDrives ??= new Map<string, Pending>());
@@ -39,11 +41,11 @@ const HOLD_MAX = 15 * 60_000;
  * build's own (app/api/generate/route.ts), which aborts when the creator has left: nobody is there to drive it, so the
  * wait ends at once, skipped, and the build stops (the owner's safety limits, 9 Oct).
  */
-export function waitForDrive(draftId: string, token: string, ms = 240_000, signal?: AbortSignal): Promise<WorldReport> {
+export function waitForDrive(draftId: string, token: string, ms = 240_000, signal?: AbortSignal, expect?: DriveExpect): Promise<WorldReport> {
   return new Promise((resolve) => {
     const done = () => { clearTimeout(p.timer); signal?.removeEventListener('abort', p.skip); if (pending.get(draftId) === p) pending.delete(draftId); };
     const p: Pending = {
-      token, until: Date.now() + HOLD_MAX,
+      token, until: Date.now() + HOLD_MAX, expect,
       skip: () => { done(); resolve(SKIPPED); },
       resolve: (r) => { done(); resolve(r); },
     };
@@ -108,8 +110,27 @@ function shootOf(v: unknown): ShootDrive {
     calls: num(o.calls, 0, 100_000), tris: num(o.tris, 0, 100_000_000), fps: num(o.fps, 0, 500), cut: o.cut === true, lens: readLens(o.lens) };
 }
 
+/**
+ * A Mog City episode's drive (3 Nov): the creator's page framed Mog City with ?story= at the draft's story.json, and
+ * reports what the game posted when it was up ({ type: 'ready', hash, story: { ok, id, hash } }). It passes when the game
+ * loaded exactly the draft's pack (the SHA-256 of the story text the route serves). Anything else (no answer in time,
+ * the default pack, another hash) is unverified with a note, never a problem sent back: the gate already ran Mog City's
+ * own validatePack, so a refusal there is the platform's to fix, and the builder could not.
+ */
+export function episodeVerdict(raw: Record<string, unknown>, expectHash?: string): WorldReport {
+  const story = (raw.story && typeof raw.story === 'object' ? raw.story : {}) as Record<string, unknown>;
+  const hex = (v: unknown) => (typeof v === 'string' && /^[0-9a-f]{64}$/.test(v) ? v : null);
+  const readyMs = num(raw.readyMs, 0, 600_000), seen = hex(story.hash) ?? hex(raw.hash);
+  const base = { ...SKIPPED, readyMs, kind: 'episode' } as WorldReport;
+  if (raw.timedOut || !raw.ready) return { ...base, advisories: ['Mog City did not report that it was up in this browser in time, so the test drive did not judge the episode.'] };
+  if (story.ok === true && seen && expectHash && seen === expectHash) return { ...base, ok: true, ran: true };
+  return { ...base, advisories: [story.ok === true && story.id === 'default' ? 'Mog City loaded its default story here, not this episode (it takes story addresses from gamemog.com only), so the test drive did not judge it.'
+    : `Mog City did not report this episode's pack as loaded (${story.ok === true ? 'another pack' : 'refused'}), so the test drive did not judge it.`] };
+}
+
 /** What the drive measured, judged as the server's own test drive would. */
-export function judge(raw: Record<string, unknown>, images: { cover?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown }): WorldReport {
+export function judge(raw: Record<string, unknown>, images: { cover?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown }, expect?: DriveExpect): WorldReport {
+  if (raw.kind === 'episode' || expect?.episodeHash) return episodeVerdict(raw, expect?.episodeHash);
   if (raw.timedOut) return SKIPPED;
   const errors = strs(raw.errors, 12), advisories = strs(raw.advisories, 12), problems: string[] = [];
   const readyMs = num(raw.readyMs, 0, 600_000);
@@ -210,7 +231,7 @@ export function judge(raw: Record<string, unknown>, images: { cover?: unknown; c
 export function submitDrive(draftId: string, token: string, raw: Record<string, unknown>, images: { cover?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown }) {
   const p = pending.get(draftId);
   if (!p || p.token !== token) return false;
-  const r = raw && typeof raw === 'object' ? raw : {}, report = judge(r, images);
+  const r = raw && typeof raw === 'object' ? raw : {}, report = judge(r, images, p.expect);
   // and what it heard the world play as its own (9 Oct, lib/runtime/drive.js), read for what it must be: kept with the
   // draft for its publish (lib/world-options.ts publishedSoundtrack); a report without one says nothing either way
   p.resolve('soundtrack' in r ? { ...report, soundtrack: readSoundtrack(r.soundtrack) } as WorldReport : report);

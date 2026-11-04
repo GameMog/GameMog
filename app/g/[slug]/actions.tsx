@@ -32,10 +32,12 @@ const voterId = playerId;
 const short = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K` : String(n);
 
-export function GameActions({ gameId, slug, title, initial, mog = true }: {
+export function GameActions({ gameId, slug, title, initial, mog = true, dare = true }: {
   gameId: string; slug: string; title: string; initial: Counts;
   /** false for a game whose kind cannot be mogged yet (lib/custom-game.ts canMog; every kind can today, a penalty shootout too since 13 Oct): no Mog action */
   mog?: boolean;
+  /** false for a kind with no dares yet (a Mog City episode, 3 Nov): no Dare action */
+  dare?: boolean;
 }) {
   const [counts, setCounts] = useState(initial);
   const [mine, setMine] = useState<-1 | 0 | 1>(0);
@@ -110,9 +112,11 @@ export function GameActions({ gameId, slug, title, initial, mog = true }: {
             <Icon name="remix" size={24} /><span>Mog</span>
           </Link>
         )}
-        <button className="act" onClick={() => setSheet({ parent: null, run: null, n: Date.now() })} aria-haspopup="dialog">
-          <Icon name="share" size={24} /><span>Dare</span>
-        </button>
+        {dare && (
+          <button className="act" onClick={() => setSheet({ parent: null, run: null, n: Date.now() })} aria-haspopup="dialog">
+            <Icon name="share" size={24} /><span>Dare</span>
+          </button>
+        )}
         <div className="votes">
           <button className="act" onClick={() => vote(1)} aria-pressed={mine === 1} aria-label="Like">
             <Icon name="thumbUp" size={24} /><span>{short(counts.up)}</span>

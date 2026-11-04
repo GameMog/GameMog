@@ -1,0 +1,81 @@
+{
+  "id": "5b0c2d0e-6f4a-4c1e-9a43-0d7c1e3a9b21",
+  "title": "MOG CITY: Unfinished Business",
+  "tagline": "They framed the wrong guy.",
+  "blurb": "Dan, a banker, has been made the fall guy, and the laptop that proves it is moving through Midtown. Play the city's missions on foot and at the wheel, with Jane on the phone and the Suits on your tail.",
+  "meta": {
+    "title": "MOG CITY: Unfinished Business",
+    "tagline": "They framed the wrong guy.",
+    "blurb": "Dan, a banker, has been made the fall guy, and the laptop that proves it is moving through Midtown. Play the city's missions on foot and at the wheel, with Jane on the phone and the Suits on your tail.",
+    "genre": "Story episode",
+    "cast": [
+      {
+        "name": "Dan",
+        "color": "#E7E7E3",
+        "role": "player"
+      },
+      {
+        "name": "Jane",
+        "color": "#4C8DFF",
+        "role": "ally"
+      },
+      {
+        "name": "Mr. Big",
+        "color": "#C9A227",
+        "role": "boss"
+      },
+      {
+        "name": "Gears",
+        "color": "#E07B39",
+        "role": "ally"
+      },
+      {
+        "name": "Fiona",
+        "color": "#D9467A",
+        "role": "ally"
+      },
+      {
+        "name": "Knox",
+        "color": "#3B3F4A",
+        "role": "rival"
+      },
+      {
+        "name": "Mack",
+        "color": "#5A6270",
+        "role": "rival"
+      },
+      {
+        "name": "Moon",
+        "color": "#B08A5A",
+        "role": "dog"
+      }
+    ],
+    "palette": {
+      "sky": "#0B1220",
+      "ground": "#2A2D34",
+      "accent": "#F2C230"
+    },
+    "mode": "episode",
+    "controls": "W A S D and the mouse: move and look. Shift: sprint. Space: jump. F: get in or out of the car; W S A D drive, brake and steer, Shift boosts, Space hops, X puts the car back on the road. J or a left click: strike; K or a right click: heavy; Q or L: counter; C: dodge; E: grab. R and T: the radio. M: the map. B: the brief. Esc: pause, with every control. Hold Space to skip a cutscene. An Xbox or PlayStation controller works too.",
+    "scoring": "none",
+    "runtime": 1,
+    "options": {
+      "hazards": "same",
+      "music": null,
+      "open": false,
+      "coins": false
+    },
+    "episode": {
+      "lines": 462,
+      "rewritten": 0,
+      "kept": 462,
+      "renamed": 0,
+      "copy": 0
+    },
+    "test": {
+      "status": "unverified",
+      "codeHash": "0286b4327b15dd40",
+      "cover": "none"
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import { readOptions, type WorldOptions } from './world-options';
+import { isEpisodeWorld, checkEpisode, EPISODE_CONTROLS } from './episode';
 import { z } from 'zod';
 import { Script, runInNewContext } from 'node:vm';
 import { readFileSync } from 'node:fs';
@@ -206,14 +207,15 @@ export const DERBY_CONTROLS = 'W A S D or the arrow keys: drive (S brakes, then 
  * truth; meta.mode records it when a world is stored, and a game stored before that
  * is read from what it did store (scoring 'survival', options.open).
  */
-export const WORLD_MODES = ['race', 'survival', 'derby', 'kart', 'shootout', 'gp'] as const;
+// (a Mog City episode, 3 Nov: a story pack for the city on mc.gamemog.com, lib/episode.ts; read first of all)
+export const WORLD_MODES = ['race', 'survival', 'derby', 'kart', 'shootout', 'gp', 'episode'] as const;
 export type WorldMode = (typeof WORLD_MODES)[number];
 export function worldMode(code?: string | null, meta?: string | null | Record<string, unknown>): WorldMode {
   // (a kart race, 6 Oct: kart: {...} among GameMog.world's own keys; read first, so a kart world that names a
   // vehicle or an "open" anywhere inside it stays a kart race)
   // (a penalty shootout, 12 Oct: shootout: {...} among its own keys, read first; it never has open or kart there)
   // (a Grand Prix, 14 Oct: gp: {...} among its own keys, read first of all; it never has open, kart or shootout there)
-  if (code) return isGpWorld(code) ? 'gp' : isShootoutWorld(code) ? 'shootout' : isKartWorld(code) ? 'kart' : isOpenWorld(code) ? (/\bvehicle\s*:\s*\{/.test(code) ? 'derby' : 'survival') : 'race';
+  if (code) return isEpisodeWorld(code) ? 'episode' : isGpWorld(code) ? 'gp' : isShootoutWorld(code) ? 'shootout' : isKartWorld(code) ? 'kart' : isOpenWorld(code) ? (/\bvehicle\s*:\s*\{/.test(code) ? 'derby' : 'survival') : 'race';
   let m: { mode?: unknown; scoring?: unknown; options?: { open?: unknown } } = {};
   try { m = (typeof meta === 'string' ? JSON.parse(meta) : meta) ?? {}; } catch { /* a race */ }
   if (WORLD_MODES.includes(m.mode as WorldMode)) return m.mode as WorldMode;
@@ -246,6 +248,12 @@ export const MODE_PAGE: Record<WorldMode, { label: string; rivals: string; how: 
     rivals: 'Nineteen on the grid',
     how: 'A Grand Prix at night: twenty cars, three laps of a harbour street circuit, five red lights and a random hold before they go out. Race nineteen AI drivers at their real pace: brake late, take the line, tuck into a slipstream and open the Flap on the straights once you are close enough to arm it. Contact never ends your race. Cut a corner and that lap is deleted from your times; three strikes add five seconds. The race ends a minute after the winner crosses the line.',
   },
+  // (a Mog City episode, 3 Nov: the city on mc.gamemog.com with this game's story pack; no board, no dares at launch)
+  episode: {
+    label: 'Story episode',
+    rivals: 'The Suits',
+    how: 'A Mog City episode: the whole city and its missions, told with this episode\'s own cast names, lines, signs and looks. It plays in your browser from mc.gamemog.com. Lines the episode kept speak in their recorded voices; lines it rewrote show as subtitles and are read by your browser\'s voice. Episodes have no leaderboard yet.',
+  },
   derby: {
     label: 'Car combat arena',
     rivals: 'More cars as the heat rises',
@@ -266,6 +274,7 @@ export function kartHow(laps?: number | null, items = true) {
 /** An open world with no GM (the creator's option, or open.coins: false) explains itself without coins. */
 export const NO_GM_HOW = 'An open world to roam, with no GM to chase. Crews come for you, more of them and tougher as the heat rises: it climbs with time and with every few knockouts, and a boss arrives at every third heat. Get knocked out and the run is over. The leaderboard ranks the time survived, then the takedowns.';
 export function worldControls(code: string, o: { kartItems?: boolean } = {}) {
+  if (isEpisodeWorld(code)) return EPISODE_CONTROLS;
   if (isGpWorld(code)) return GP_CONTROLS;
   if (isShootoutWorld(code)) return SHOOTOUT_CONTROLS;
   if (isKartWorld(code)) return kartControls(o.kartItems !== false);
@@ -283,7 +292,11 @@ export function worldControls(code: string, o: { kartItems?: boolean } = {}) {
  * before anything is spent.
  */
 // (a Grand Prix, 14 Oct: closed until it had its chapter, its DNA, its test drive and its check; opened 21 Oct)
-export const MOGGABLE: Record<WorldMode, boolean> = { race: true, survival: true, derby: true, kart: true, shootout: true, gp: true };
+// (a Mog City episode, 3 Nov: deployed dark, /g/mog-city playable and its Mog closed, until the owner switches it on:
+// EPISODE_MOGS=on in the server's environment; read on each call, so the switch needs no new build)
+export const MOGGABLE: Record<WorldMode, boolean> = { race: true, survival: true, derby: true, kart: true, shootout: true, gp: true, get episode() { return episodeMogsOn(); } };
+/** The episode switch (MOGGABLE.episode): off unless EPISODE_MOGS=on. */
+export function episodeMogsOn() { return process.env.EPISODE_MOGS === 'on'; }
 /** Whether a game can be mogged: every game but a world of a kind MOGGABLE closes. */
 export function canMog(game: { format: string; code?: string | null; meta?: string | null }) {
   return game.format !== 'world' || MOGGABLE[worldMode(game.code, game.meta)];
@@ -1009,6 +1022,8 @@ function gpProblems(code: string, from: number): string[] {
 export const WORLD_MAX = 750_000;
 
 export function staticCheckWorld(code: string, opts: { max?: number } = {}): string[] {
+  // (a Mog City episode, 3 Nov: data, never run on the runtime; its own check, lib/episode.ts checkEpisode)
+  if (isEpisodeWorld(code)) return checkEpisode(code);
   const problems: string[] = [], max = opts.max ?? WORLD_MAX;
   if (code.length < 1500) problems.push('The world module is too short to be a real world. Build the whole thing.');
   if (code.length > max) problems.push(`The world module is ${Math.round(code.length / 1000)}KB; keep it under ${Math.round(max / 1000)}KB.`);

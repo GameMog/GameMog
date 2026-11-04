@@ -983,6 +983,31 @@ export const MIGRATIONS = [
       return 'updated';
     },
   },
+  {
+    // the owner, 3 Nov: Mog City made moggable (MogCity .scratch/moggable/PLAN.md 4.7): the first-party Mog City episode at
+    // /g/mog-city, holding Mog City's default story pack (lib/episode/default.json) as its world module, so the city plays
+    // in its frame from mc.gamemog.com and an episode Mog has its parent. Deployed dark: the row is playable, and its Mog
+    // stays closed until EPISODE_MOGS=on (lib/custom-game.ts MOGGABLE). Only inserted: a row already at /g/mog-city is
+    // never overwritten. On a build without the episode kind or its story route it waits (unrecorded, tried at the next boot)
+    id: '2026-11-03-mog-city',
+    run(db) {
+      const code = file('mog-city.js'), meta = file('mog-city.meta.json');
+      if (!code || !meta) throw new Error('deploy/migrations/mog-city.js or its meta.json is not in this build');
+      if (!existsSync(join('lib', 'episode.ts')) || !existsSync(join('lib', 'episode', 'schema.js')) || !existsSync(join('app', 'g', '[slug]', 'story.json', 'route.ts'))) throw new Error('the episode kind or its story route is not in this build');
+      const m = JSON.parse(meta.toString('utf8')), src = code.toString('utf8');
+      if (!m.meta || m.meta.mode !== 'episode' || m.meta.scoring !== 'none') throw new Error('mog-city.meta.json is not an episode without a board');
+      if (!/^GameMog\.world\(\{ episode: \{/.test(src)) throw new Error('deploy/migrations/mog-city.js is not an episode module');
+      const g = db.prepare("SELECT id, code FROM games WHERE slug = 'mog-city'").get();
+      if (g) return String(g.code ?? '').trim() === src.trim() ? 'already there' : 'left alone (another mog-city)';
+      if (db.prepare('SELECT id FROM games WHERE id = ?').get(m.id)) return 'left alone (its id is taken)';
+      const cover = file('mog-city-cover.jpg'), icon = file('mog-city-icon.jpg'), wide = file('mog-city-wide.jpg');
+      if (!cover || !icon || !wide) throw new Error('deploy/migrations/mog-city-{cover,icon,wide}.jpg are not in this build');
+      db.prepare(`INSERT INTO games (id, slug, title, tagline, blurb, difficulty, spec, prompt, featured, created_at, format, code, meta, cover, art_icon, art_wide, parent_id, root_id, generation, mog_prompt)
+        VALUES (?, 'mog-city', ?, ?, ?, 'endless', '{}', ?, 0, ?, 'world', ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
+        .run(m.id, m.title, m.tagline, m.blurb, 'first-party world: mog-city', Date.now(), src, JSON.stringify(m.meta), cover, icon, wide);
+      return 'published';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {

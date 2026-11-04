@@ -1,0 +1,53 @@
+{
+  "title": "MOG CITY: Unfinished Business",
+  "tagline": "They framed the wrong guy.",
+  "blurb": "Dan, a banker, has been made the fall guy, and the laptop that proves it is moving through Midtown. Play the city's missions on foot and at the wheel, with Jane on the phone and the Suits on your tail.",
+  "genre": "Story episode",
+  "cast": [
+    {
+      "name": "Dan",
+      "color": "#E7E7E3",
+      "role": "player"
+    },
+    {
+      "name": "Jane",
+      "color": "#4C8DFF",
+      "role": "ally"
+    },
+    {
+      "name": "Mr. Big",
+      "color": "#C9A227",
+      "role": "boss"
+    },
+    {
+      "name": "Gears",
+      "color": "#E07B39",
+      "role": "ally"
+    },
+    {
+      "name": "Fiona",
+      "color": "#D9467A",
+      "role": "ally"
+    },
+    {
+      "name": "Knox",
+      "color": "#3B3F4A",
+      "role": "rival"
+    },
+    {
+      "name": "Mack",
+      "color": "#5A6270",
+      "role": "rival"
+    },
+    {
+      "name": "Moon",
+      "color": "#B08A5A",
+      "role": "dog"
+    }
+  ],
+  "palette": {
+    "sky": "#0B1220",
+    "ground": "#2A2D34",
+    "accent": "#F2C230"
+  }
+}

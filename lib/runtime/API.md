@@ -1751,6 +1751,73 @@ What a Mog changes, and how:
   in build along ctx.gp.table, as real and as detailed (and then the lap may change: drop gp.line, which the runtime
   then works out again, and gp.cameras' TV lenses, whose places are along the old lap).
 
+## Mog City episodes
+
+A Mog City episode (the owner, 3 Nov 2026) is its own kind of world, made only as a Mog of one, and it is data, not
+code. Mog City is a 3D crime game in a New York city: Dan, a banker framed for something he did not do, his friend Jane
+on the phone, Mr. Big, the Suits who come for him, three missions on foot and at the wheel. The game itself runs on
+mc.gamemog.com, and its engine owns all of it: the missions and their order, the places, the timing and triggers, the
+cutscenes' shots, the bodies and faces, the fights, the cars, the cameras, the HUD and the recorded voices. An episode
+is its story pack: one JSON object holding everything a Mog may change, the words and the looks.
+
+The pack's keys, all of them always present, exactly as the original's:
+
+- pack: 1 and base: "mog-city@1". Never change them.
+- title.episode: the episode's own title, 1 to 40 characters. The game always shows MOG CITY: before it (the lockup,
+  the tab, the share text), and so does GameMog: never write MOG CITY in it.
+- names: bank, blimp, occupy and college: the bank's name (on the signs and in the lines), the airship company's, the
+  protest's word, and the college Dan and Jane went to. A name is 1 to 24 characters on one line.
+- cast: dan (the hero), jane, mrbig, gears, fiona (people with a body), bea and camp (voices only), moon (the dog), the
+  seven Suits knox, hooks, tank, brick, dash, mack and rook, and suits (the crew's own name). Each has its name (1 to 24
+  characters, one line: subtitles, captions, the phone, the DMs and the tokens show it). The ids never change: they bind
+  the bodies, faces and voices.
+- cast looks: a person's look has skin (three numbers 0.7 to 1.08 that multiply the skin's red, green and blue), hair and
+  outfit (a colour as #RRGGBB, or null as modelled), build (0.94 to 1.12) and height (0.97 to 1.04); Dan's look has skin,
+  hair and outfit only (his height is locked). A Suit's look has skin, hair, suit (the jacket and trousers), shirt, build
+  and height, and its body: which of the seven men's bodies and faces plays it (knox, hooks, tank, brick, dash, mack or
+  rook); the seven Suits must use the seven bodies, each once. Moon's look is fur. The defaults (1, 1, 1 and null and
+  1) change nothing.
+- cast voices: pitch (0.5 to 1.6), rate (0.7 to 1.4) and prefer (male, female or any): how the browser's voice reads
+  that character's changed lines.
+- car.paint: the colour of Dan's car, #RRGGBB.
+- lines: every spoken line by its id, as [speaker, text]: the speaker is fixed (a cast id), the text is yours.
+- copy: every other string a player reads, by its id: the objectives (often split in parts around a coloured word: keep
+  each part's role, and its spaces at either end), the help, the fail reasons, the place cards, the titles, the
+  captions, the phone's screens, the DMs, the counters and the signs painted in the city.
+- difficulty: enemyHp and enemyDamage (0.6 to 1.6, on every Suit), heroHp (60 to 200, Dan's health, 100 by default),
+  crewExtra (-1 to 2 men in each fight's crew) and chaseSpeed (0.8 to 1.25, the pursuers in the getaway).
+
+The rules the gate holds a pack to:
+
+- The same ids in names, lines and copy as the original: nothing added, nothing removed, no line given to another
+  speaker.
+- Each text within its own limit: at most twice its original's length (24 characters at least, 220 at most); a line of
+  the opening must fit its moment, so keep those close to their original length. Copy may hold a line break; nothing
+  else may.
+- Plain text only: no angle brackets, no backticks, no control or invisible characters, and braces only as tokens.
+- Tokens put a name in a text: {jane} is the cast member's name as written, {jane:upper} in capitals and {jane:lower}
+  in lower case; {bank}, {blimp}, {occupy} and {college} the same for the names. Use a token wherever a cast name or a
+  brand is a whole word, as the original does, so a rename reaches every line, sign and caption at once.
+- Strict JSON, under 160 KB.
+
+How to carry an idea out:
+
+- Every line you change loses its recorded voice: it is shown as a subtitle and read by the player's browser. So change
+  what the idea needs and copy every other line exactly, character for character. A rename done with the tokens keeps
+  every line that does not say the name.
+- Places, the order of the missions and what a player has to do cannot change: a Mog changes how they are told and how
+  the people look. If the idea asks for what a pack cannot do (a new mission, a new place, a new face), carry out the
+  nearest thing it can (the words, the names, the looks, the difficulty) and say what the episode is in its tagline and
+  blurb.
+- Keep it Mog City: a crime caper for teenagers and up, with jokes. Mild swearing as the original has it; no slurs, no
+  sexual content, no cruelty beyond the fights the game already has.
+- Real companies, brands and products: never a new one. Give every company an original name of the city's own; the
+  original's own names (the bank, the airship company) may stay as they are.
+- Real people: only the people the creator's consent names (it is them, or they agreed), and then only as the creator
+  asks: never anything false and damaging about them presented as true, nothing about their private life. Anyone else
+  the idea names gets an original name of the city's own.
+- Never name an AI model or the company behind one in anything a player reads.
+
 ## Never
 
 Build a 2D game, move or replace the camera, create a renderer, call `requestAnimationFrame`, `setTimeout` or `setInterval`, add event
