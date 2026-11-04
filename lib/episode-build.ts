@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { render } from './episode/schema.js';
 import { randomUUID } from 'node:crypto';
 import { db, insertDraft, type GameRow } from './db';
 import { waitForDrive, codeHash, testStatus } from './test-drive';
@@ -186,9 +187,15 @@ export async function generateEpisode(
       const stored = episodeMeta(pack, meta, consent);
       db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
       insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report: { pending: true }, format: 'world', parentId: input.mog.parent.id, mogPrompt: input.mog.instruction });
-      // (the parent's pictures: the city's, with this game's title on its page)
+      // its pictures are made, not shot (lib/episode/art.ts): the poster plate with its own title, the plain plate as its
+      // cover (the dare card's ?plain never gets a second title); if they cannot be made, the parent's, never a failed build
       db.prepare('UPDATE drafts SET cover = (SELECT cover FROM games WHERE id = ?), art_icon = (SELECT art_icon FROM games WHERE id = ?), art_wide = (SELECT art_wide FROM games WHERE id = ?) WHERE id = ?')
         .run(input.mog.parent.id, input.mog.parent.id, input.mog.parent.id, draftId);
+      try {
+        const { episodeArt, plainCover } = await import('./episode/art');
+        const art = await episodeArt(render(pack.title.episode, pack), ['wide', 'icon']);
+        if (art.wide && art.icon) db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ? WHERE id = ?').run(plainCover(), art.icon, art.wide, draftId);
+      } catch (e) { console.error('episode: its key art could not be made', e); }
       const token = randomUUID();
       emit({ type: 'drive', draftId, token, attempt });
       let report: WorldReport = await waitForDrive(draftId, token, EPISODE_DRIVE_MS, input.signal, { episodeHash: storyOf(code)!.hash });

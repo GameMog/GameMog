@@ -74,7 +74,7 @@ export function runEpisodeChecks(ok: Ok) {
     ['markup in a line', (p) => { p.lines[firstLine] = [p.lines[firstLine][0], '<b>hi</b>']; }],
     ['an unknown token', (p) => { p.copy[firstCopy] = 'Hi {nobody}'; }],
     ['a zero-width character', (p) => { p.cast.dan.name = 'Da​n'; }],
-    ['the Suits\' bodies not a permutation', (p) => { (p.cast.knox as { body: string }).body = 'hooks'; }],
+    ['the Suits\' bodies not a permutation', (p) => { p.cast.knox.body = 'hooks'; }],
     ['a difficulty out of range', (p) => { p.difficulty.heroHp = 999; }],
     ['an unknown key', (p) => { (p as unknown as Record<string, unknown>).script = 'x'; }],
     ['another base', (p) => { p.base = 'mog-city@2'; }],

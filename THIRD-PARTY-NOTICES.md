@@ -70,6 +70,12 @@ blow-off are cut from CC0-1.0 recordings on Freesound by [Dominik_W](https://fre
 [richwise](https://freesound.org/s/478756/) (478756) and [EwanPenman11](https://freesound.org/s/659544/) (659544),
 from Freesound's previews, credited with thanks though CC0 does not require it.
 
+### Mog City episode key art (`lib/episode/art/`)
+
+- `barlow-condensed-800.ttf`: Barlow Condensed ExtraBold, Copyright 2017 The Barlow Project Authors
+  (https://github.com/jpt/barlow), under the SIL Open Font License 1.1 (`OFL-Barlow.txt` beside it).
+- `plate-wide.jpg`, `plate-square.jpg`: graded from Mog City's own poster renders (MIT, the Mog City repo).
+
 ## Names and likenesses
 
 Worlds use invented names and look-alikes with no logos. No trademark or likeness of anyone else

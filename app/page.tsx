@@ -11,7 +11,7 @@ import { listGames, bestTimes, topScores, tileStats, type GameRow, type TileStat
 import { CHARTS, sortGames, type ChartSort } from '@/lib/catalog';
 import { Cover } from './cover';
 import type { WorldSpec } from '@/lib/worldspec';
-import { worldMode } from '@/lib/custom-game';
+import { worldMode, MOGGABLE } from '@/lib/custom-game';
 import { DEFAULT_DESCRIPTION, pageMeta } from './seo';
 
 export const dynamic = 'force-dynamic';
@@ -105,13 +105,15 @@ function RecordStat({ game }: { game: GameRow }) {
 
 /** The flagship's film as the hero: one clip, so it loops; Play leaves for its own site; MOG shows, not clickable, until
  * the flagship can be Mogged (the owner, 29 Oct). */
+// (3 Nov: Mog City is moggable as an episode once the owner switches it on, EPISODE_MOGS=on: MOG then opens /mog/mog-city)
 function Flagship({ f }: { f: NonNullable<typeof FLAGSHIP> }) {
+  const mog = MOGGABLE.episode;
   const lead = (
     <Fragment key="lead">
       <p>{f.lead}</p>
       <div className="acts">
         <a href={f.href} className="btn play" aria-label={`Play ${f.title}`}>Play</a>
-        <button type="button" className="btn more soon" disabled>MOG Soon</button>
+        {mog ? <a href="/mog/mog-city" className="btn more" aria-label={`Mog ${f.title}`}>MOG</a> : <button type="button" className="btn more soon" disabled>MOG Soon</button>}
       </div>
     </Fragment>
   );
@@ -122,7 +124,7 @@ function Flagship({ f }: { f: NonNullable<typeof FLAGSHIP> }) {
       <p className="tagline">{f.lead}</p>
       <div className="acts">
         <a href={f.href} className="btn big light" aria-label={`Play ${f.title}`}><Icon name="play" size={20} />Play</a>
-        <button type="button" className="btn big ghost soon" disabled><Icon name="remix" size={18} />MOG Soon</button>
+        {mog ? <a href="/mog/mog-city" className="btn big ghost" aria-label={`Mog ${f.title}`}><Icon name="remix" size={18} />MOG</a> : <button type="button" className="btn big ghost soon" disabled><Icon name="remix" size={18} />MOG Soon</button>}
       </div>
     </Fragment>
   );

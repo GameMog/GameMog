@@ -14,7 +14,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const d = getDraft(id);
   if (!d) return new Response('Not found', { status: 404 });
   // a draft Mog City episode (3 Nov) plays on mc.gamemog.com with the draft's story
-  if (d.format === 'world' && isEpisodeWorld(d.code)) return new Response(null, { status: 302, headers: { location: mcFrameSrc(draftStoryUrl(d.id, process.env.NODE_ENV === 'production' ? undefined : publicOrigin(req))), 'cache-control': 'no-store' } });
+  if (d.format === 'world' && isEpisodeWorld(d.code)) return new Response(null, { status: 302, headers: { location: mcFrameSrc(draftStoryUrl(d.id, process.env.NODE_ENV === 'production' ? undefined : publicOrigin(req)), `draft-${d.id}`), 'cache-control': 'no-store' } });
   const meta = JSON.parse(d.meta);
   const html = d.format === 'world'
     ? renderWorldGame(d.code, withKartScore(d.code, meta), `draft-${d.id}`, meta.runtime ?? 1, new URL(req.url).searchParams.get('drive') === '1')

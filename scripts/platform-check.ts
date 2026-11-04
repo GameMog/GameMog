@@ -27,6 +27,7 @@ import { dna, compareDna, askedKind, describeDna } from '../lib/mog-dna.ts';
 import { testDriveChecks } from './test-drive-check.ts';
 import { buildLimitsChecks } from './build-limits-check.ts';
 import { soundtrackChecks } from './soundtrack-check.ts';
+import { episodePlatformChecks } from './episode-platform-check.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3939';
 let failures = 0;
@@ -500,6 +501,9 @@ try {
   // soundtrack and plays exactly that, every world built before plays as it did, and the live worlds' own are named
   console.log('\nThe soundtrack choice');
   await soundtrackChecks(ok, BASE);
+  // Mog City episodes (3 Nov, scripts/episode-platform-check.ts): an episode Mog built against a stand-in model with the
+  // consent step, published, its page framing Mog City, its story served with CORS for Mog City only
+  await episodePlatformChecks(ok, BASE);
 } finally {
   for (const id of made.reverse()) {
     db.prepare('DELETE FROM mog_picks WHERE child_id = ? OR parent_id = ?').run(id, id);

@@ -107,14 +107,14 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
         </nav>
         <div className="gtop">
           <div className="gstage">
-            <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game)) : playSrc(game)} episode={episode} scores={!episode} you={game.format === 'world' && !episode} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
+            <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game), game.id) : playSrc(game)} episode={episode} scores={!episode} you={game.format === 'world' && !episode} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
               // eslint-disable-next-line @next/next/no-img-element
               poster={<img src={`/g/${game.slug}/cover`} alt="" />} />
           </div>
           <div className="gbar">
             <div className="gtitle">
               <h1>{game.title}</h1>
-              <p className="by">{game.creator ? <>Created by <b>{game.creator}</b></> : <>By <b>a GameMog creator</b></>} <span className="maturity">· {page ? `${page.label} · GameMog Runtime` : 'Written by GameMog'}</span></p>
+              <p className="by">{game.creator ? <>Created by <b>{game.creator}</b></> : <>By <b>a GameMog creator</b></>} <span className="maturity">· {page ? `${page.label} · ${episode ? 'Mog City' : 'GameMog Runtime'}` : 'Written by GameMog'}</span></p>
               <Lineage game={game} />
               {world && !episode && <YouLine slug={game.slug} />}
               {consent && <p className="t-meta dim" data-consent>Names a real person, with consent stated by its creator.</p>}

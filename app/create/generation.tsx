@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { PlayFrame } from '../g/[slug]/play-frame';
+import { PlayFrame, MC_ORIGIN } from '../g/[slug]/play-frame';
 import { playerId } from '../anon';
 import { cleanName, cleanMessage } from '@/lib/names';
 import { renderDareCard, cardBase64 } from '@/lib/dare-card';
@@ -508,7 +508,7 @@ function EpisodeDrive({ drive, onDone }: { drive: { draftId: string; token: stri
     const post = (payload: Record<string, unknown>) => fetch('/api/generate/drive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draftId: drive.draftId, token: drive.token, ...payload }) });
     const send = (raw: Record<string, unknown>) => { if (sent) return; sent = true; post({ raw: { kind: 'episode', ...raw } }).catch(() => {}).finally(() => done.current()); };
     const onMsg = (e: MessageEvent) => {
-      if (e.source !== frame.current?.contentWindow) return;
+      if (e.source !== frame.current?.contentWindow || e.origin !== MC_ORIGIN) return;
       const d = e.data as { source?: string; type?: string; hash?: unknown; story?: unknown };
       if (d?.source !== 'gamemog' || d.type !== 'ready') return;
       send({ ready: true, readyMs: Date.now() - t0, hash: d.hash, story: d.story });
@@ -525,7 +525,8 @@ function EpisodeDrive({ drive, onDone }: { drive: { draftId: string; token: stri
   }, [drive.draftId, drive.token]);
   return (
     <div className="bs-drive" style={{ aspectRatio: '16 / 9', height: 'auto' }}>
-      {go ? <iframe ref={frame} src={`/d/${drive.draftId}/play`} sandbox="allow-scripts allow-same-origin allow-pointer-lock" allow="autoplay; fullscreen; gamepad" title="Test drive"
+      {go ? <iframe ref={frame} src={`/d/${drive.draftId}/play`} sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
+        allow="autoplay; fullscreen; gamepad; web-share; clipboard-write" referrerPolicy="strict-origin-when-cross-origin" title="Test drive"
         tabIndex={-1} style={{ width: '100%', height: '100%', border: 0 }} />
         : <p className="bs-drivewait">Your episode is ready to load. It loads as soon as this tab is in front.</p>}
       <span className="bs-drivetag">Loading the city with your episode</span>

@@ -27,7 +27,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   const game = open ?? (owner() ? getGameBySlugForOwner(slug) : undefined);
   if (!game) return new Response('Not found', { status: 404 });
   // a Mog City episode (3 Nov) plays on mc.gamemog.com with its story: this address (the frame's "Open it in its own tab") goes there
-  if (game.format === 'world' && isEpisodeWorld(game.code)) return new Response(null, { status: 302, headers: { location: mcFrameSrc(storyUrl(game)), 'cache-control': 'no-store' } });
+  if (game.format === 'world' && isEpisodeWorld(game.code)) return new Response(null, { status: 302, headers: { location: mcFrameSrc(storyUrl(game), game.id), 'cache-control': 'no-store' } });
 
   const page = playPage(game);
   const custom = (game.format === 'custom' || game.format === 'world') && game.code;

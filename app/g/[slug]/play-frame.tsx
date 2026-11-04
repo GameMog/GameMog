@@ -12,6 +12,9 @@ import { KartDiagCard, readKdiag, KART_BOOT_KEY as BOOT_KEY, KART_LAST_KEY as LA
 import type { DareView } from '@/lib/dare';
 import type { DareOutcome } from './dare-overlay';
 
+/** Mog City's origin (3 Nov): an episode's frame is spoken to there, and heard only from there (NEXT_PUBLIC_MC_ORIGIN for a local copy). */
+export const MC_ORIGIN = process.env.NEXT_PUBLIC_MC_ORIGIN ?? 'https://mc.gamemog.com';
+
 // the dare's glass (./dare-overlay.tsx, with app/glass.css): loaded only when a dare is in context
 const DareStart = dynamic(() => import('./dare-overlay').then((m) => m.DareStart), { ssr: false });
 const DareResult = dynamic(() => import('./dare-overlay').then((m) => m.DareResult), { ssr: false });
@@ -74,6 +77,8 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
   episode?: boolean;
 }) {
   const diag = kart ? readKdiag(kdiag) : { info: false, switches: [] as string[] };
+  // (an episode's frame is Mog City's own origin: messages go to it by name, never '*')
+  const target = episode ? MC_ORIGIN : '*';
   const base = diag.switches.length ? `${base0}${base0.includes('?') ? '&' : '?'}kdiag=${diag.switches.join(',')}` : base0;
   const [held, setHeld] = useState(diag.info);
   const ref = useRef<HTMLIFrameElement>(null);
@@ -123,11 +128,11 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
   // running perfectly well underneath.
   useEffect(() => {
     if (live) return;
-    const ask = () => ref.current?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'hello' }, '*');
+    const ask = () => ref.current?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'hello' }, target);
     ask();
     const t = setInterval(ask, 400);
     return () => clearInterval(t);
-  }, [live]);
+  }, [live, target]);
 
   // A kart race's racer pick (6 Oct): the game runs on an opaque origin, so it cannot keep anything itself; the
   // racer you picked is kept here, by its id, and handed back each time a kart race is up
@@ -172,12 +177,13 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
     try { setName(localStorage.getItem('gamemog:name') ?? ''); } catch {}
     function onMessage(e: MessageEvent) {
       if (!ref.current || e.source !== ref.current.contentWindow) return;
+      if (episode && e.origin !== MC_ORIGIN) return;
       const d = e.data;
       if (!d || d.source !== 'gamemog' || (d.gameId !== gameId && !(episode && d.gameId === undefined))) return;
       if (d.type === 'ready') {
         setLive(true); setLoaded(true);
         // (the dare's PLAY was tapped before the game was up: it starts now)
-        if (playPending.current) { playPending.current = false; ref.current?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'play' }, '*'); }
+        if (playPending.current) { playPending.current = false; ref.current?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'play' }, target); }
         return;
       }
       // a kart race's guard: how far its boot got, and what went wrong (the frame has no network: sent on from here)
@@ -242,7 +248,7 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
     }
     addEventListener('message', onMessage);
     return () => removeEventListener('message', onMessage);
-  }, [gameId, scores, slug, episode]);
+  }, [gameId, scores, slug, episode, target]);
 
   // The dare: read from the address, loaded, and kept only when it is this game's (a published game's page only)
   useEffect(() => {
@@ -289,7 +295,7 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
     const go = new URLSearchParams(location.search).get('play') === '1';
     if (go && (document.fullscreenElement || !canFs)) {
       if (!live) return;
-      ref.current?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'play' }, '*');
+      ref.current?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'play' }, target);
       track('play');
       started.current = true;
       dareEvent(dare.id, 'played');
@@ -340,8 +346,12 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
         {src !== null && !held && <iframe
           ref={ref}
           src={src}
-          sandbox={episode ? 'allow-scripts allow-same-origin allow-pointer-lock' : 'allow-scripts'}
-          allow={episode ? 'autoplay; fullscreen; gamepad' : 'autoplay; fullscreen'}
+          // (an episode, the Phase D frame probe of 3 Nov: autoplay passes the page's Play click down to the game's audio
+          // and speech; fullscreen, gamepad, web-share and clipboard-write for the game's own buttons; popups for its
+          // links; pointer lock is a sandbox token, not a feature)
+          sandbox={episode ? 'allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts'}
+          allow={episode ? 'autoplay; fullscreen; gamepad; web-share; clipboard-write' : 'autoplay; fullscreen'}
+          {...(episode ? { allowFullScreen: true, referrerPolicy: 'strict-origin-when-cross-origin' as const, 'data-origin': MC_ORIGIN } : {})}
           title={`${slug}, game`}
           onLoad={() => setLoaded(true)}
         />}
@@ -433,7 +443,7 @@ function KartPanel({ result, score, tier, gmOn, provisional = false, children }:
 export function startPlay() {
   const box = document.getElementById('play');
   const frame = box?.querySelector('iframe');
-  frame?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'play' }, '*');
+  frame?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'play' }, frame.dataset.origin || '*');
   track('play');
   if (box?.requestFullscreen) box.requestFullscreen().catch(() => box.scrollIntoView({ block: 'center' }));
   else box?.scrollIntoView({ block: 'center' });
