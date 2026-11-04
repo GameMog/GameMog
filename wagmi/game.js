@@ -40,7 +40,12 @@ installDriveMode(WAGMI);
   Object.assign(car, { body: { hx: 1.08, z0: -2.33, z1: 2.47, top: 1.28 }, axle: 1.56, mass: 2.0,
     // (the owner, 2 Nov: the view starts closer so the car reads bigger, 0.78 of the old 6.7 m / 2.0 m; the wheel, pinch
     // and stick still zoom out to 2.4x of it, js/cameras.js)
-    chaseDistance: 5.2, chaseHeight: 1.56, chase: { fov: 58, pull: 0.002, kick: 1.1, boostKick: 3.0, vmax: 34, shake: 0.03, vtop: 56 } });
+    // (the owner, 4 Nov, two screenshots on Washington Sq S and Spring St: "here is where i want the car positioned".
+    // Solved from them: the lens 5.56 m behind the car's middle and 2.47 m up, looking 5.3 degrees down, the look point
+    // as before. On a 16:9-ish screen the car is 0.30 of the width across its tail light, the light 0.85 down, the roof
+    // 0.60 down and the horizon 0.42 down; it was 0.35, 0.80, 0.58 and 0.46: a little further back, higher, and the car
+    // lower in the frame. The zoom still scales both, out to 2.4x)
+    chaseDistance: 5.58, chaseHeight: 2.05, chase: { fov: 58, pull: 0.002, kick: 1.1, boostKick: 3.0, vmax: 34, shake: 0.03, vtop: 56 } });
   Object.assign(car, { label: story.t("Dan's car"), topSpeed: 34, boostSpeed: 56, accel: 16, boostAccel: 32, roadster: rs });
   // how it slows (js/controllers.js driveSpeed, after Slop New York f3132b6): rolling 0.5 m/s² and the air (0.004 v²)
   // always, 3 more lifted off (coast: 60 mph to 10 in about 5 s, 72 m, where it used to stop in 0.6 s), the brakes 16
