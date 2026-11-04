@@ -14,7 +14,9 @@ export function createMixer(ctx) {
   M.now = () => ctx.currentTime;
 
   /* ------------------------------------------------------------ the buses -- */
-  const master = ctx.createGain(); master.gain.value = 0.9;
+  // (3 Nov, the owner: the whole game 3 dB louder: 0.9 -> 1.27 into the glue and the limiter, the output trim kept, so
+  // the peaks stay under the ceiling they had)
+  const master = ctx.createGain(); master.gain.value = 1.27;
   // glue, then a fast limiter: nothing past the ceiling however much piles up (a crash in a siren in a horn jam)
   const glue = ctx.createDynamicsCompressor(); glue.threshold.value = -14; glue.knee.value = 8; glue.ratio.value = 3; glue.attack.value = 0.006; glue.release.value = 0.25;
   const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.12;
