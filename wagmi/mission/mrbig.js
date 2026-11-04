@@ -27,6 +27,7 @@ import { loadGLB } from '../glb.js';
 import { createFace } from '../face.js';
 import { createVapor } from '../pursuit/vapor.js';
 import { clamp, smooth } from './cine.js';
+import { S as story } from '../story/index.js';
 
 const PI = Math.PI;
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -162,6 +163,8 @@ export async function createMrBig(W) {
     if (o.material?.name === 'eyes' && !o.material.isMeshPhysicalMaterial) { const m0 = o.material;
       o.material = new THREE.MeshPhysicalMaterial({ name: 'eyes', map: m0.map, alphaTest: m0.alphaTest, roughness: 0.16, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02 }); o.material.envMapIntensity = 1.4; }
   });
+  // (a Mog's look for him: wagmi/story)
+  story.dress('mrbig', inner);
   const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
   const sk = skin.skeleton;
   // (the frame holding his skeleton came from the cast's template turned 10 degrees forward and 7 to one side, which

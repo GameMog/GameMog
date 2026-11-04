@@ -60,7 +60,9 @@ export function mouthFollower() {
 // at about four a second, a pause now and then
 export const chatter = (t) => Math.max(0, Math.sin(t * 25.1) * 0.5 + 0.5) * (0.35 + 0.65 * Math.max(0, Math.sin(t * 5.3 + 1.1))) * (Math.sin(t * 1.3) > -0.75 ? 1 : 0);
 // the subtitle on screen: { who, text }, or null
-export const subLine = () => { const s = typeof document !== 'undefined' && document.querySelector('#wg .wg-sub'); if (!s || s.classList.contains('hide')) return null; const b = s.querySelector('b'), who = b ? b.textContent.trim() : ''; return { who, text: s.textContent.trim().slice(who.length).trim() }; };
+// (who: the speaker's id as the line was given (ui.sub keeps it on the line: a Mog's names are shown, not asked), else
+// its label; text: the words after the label)
+export const subLine = () => { const s = typeof document !== 'undefined' && document.querySelector('#wg .wg-sub'); if (!s || s.classList.contains('hide')) return null; const b = s.querySelector('b'), label = b ? b.textContent.trim() : '', who = s.dataset.who ?? label; return { who, text: s.textContent.trim().slice(label.length).trim() }; };
 
 /* ------------------------------------------------------------ landmarks -- */
 // Found on the body as it was built (its primitives' shared vertices, the skin's triangles):

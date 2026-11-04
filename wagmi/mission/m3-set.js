@@ -28,6 +28,8 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { rig, clamp } from './cine.js';
 import { faceOn } from '../face.js';
+// (the story pack, wagmi/story: here `story`, S being the screen's own state below)
+import { S as story } from '../story/index.js';
 
 const PI = Math.PI;
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -219,14 +221,14 @@ function createScreen() {
   function draw() {
     if (S.mode === 'reel') {
       const n = Math.floor(S.t / 2.4), idx = n % REEL.length, k = Math.min(1, (S.t - n * 2.4) / 0.28);
-      frame(REEL[idx], k * (2 - k), idx);
+      frame(story.t(REEL[idx]), k * (2 - k), idx);
       if (S.glitch > 0) glitch(Math.min(1, S.glitch * 2));
-      ticker('JPBANK LOVES NEW YORK · FREE HOT DOGS TILL 4 · ONE BAD APPLE · WE CAUGHT HIM · BANKING IS FOR EVERYONE · ', '#E8364F');
+      ticker(story.t('JPBANK LOVES NEW YORK · FREE HOT DOGS TILL 4 · ONE BAD APPLE · WE CAUGHT HIM · BANKING IS FOR EVERYONE · '), '#E8364F');
     } else if (S.deadT < 1.2) {
       // (frozen mid-sentence, and breaking up)
-      frame('DAN: THE FACE OF INSIDER TRAD—', 1, 4);
+      frame(story.t('DAN: THE FACE OF INSIDER TRAD—'), 1, 4);
       glitch(0.4 + S.deadT);
-      ticker('TECHNICAL DIFFICULTIES · PLEASE STAND BY · JPBANK LOVES NEW YORK · ', '#E8364F');
+      ticker(story.t('TECHNICAL DIFFICULTIES · PLEASE STAND BY · JPBANK LOVES NEW YORK · '), '#E8364F');
     } else {
       x.fillStyle = '#030406'; x.fillRect(0, 0, W0, H0);
       // (the last of the picture's snow, fading)
@@ -236,7 +238,7 @@ function createScreen() {
       x.textAlign = 'center'; x.fillStyle = 'rgba(255,255,255,.88)'; x.font = 'italic 800 150px "Barlow Condensed", sans-serif';
       x.fillText('NO SIGNAL', W0 / 2, 360);
       x.fillStyle = 'rgba(255,255,255,.45)'; x.font = '700 26px "Barlow Condensed", sans-serif'; x.fillText('SOURCE: RIG 1 · RIG 2 · RIG 3', W0 / 2, 410);
-      ticker('TECHNICAL DIFFICULTIES · PLEASE STAND BY · JPBANK LOVES NEW YORK · ', '#7A1B28');
+      ticker(story.t('TECHNICAL DIFFICULTIES · PLEASE STAND BY · JPBANK LOVES NEW YORK · '), '#7A1B28');
     }
     tex.needsUpdate = true;
   }
@@ -295,7 +297,7 @@ export function buildRally(W) {
     x.strokeStyle = '#E8364F'; x.lineWidth = 10; x.strokeRect(8, 8, w - 16, h - 16);
     x.beginPath(); x.arc(160, h / 2, 112, 0, PI * 2); x.fillStyle = '#FFFFFF'; x.fill(); drawHeart(x, 160, h / 2 + 8, 70);
     x.fillStyle = '#FFFFFF'; x.font = 'italic 800 150px "Barlow Condensed", sans-serif'; x.fillText('JPBANK', 300, 158);
-    drawHeart(x, 300 + x.measureText('JPBANK').width + 62, 104, 40);
+    drawHeart(x, 300 + x.measureText(story.t('JPBANK')).width + 62, 104, 40);
     x.fillStyle = '#fff'; x.font = '800 56px "Barlow Condensed", sans-serif'; x.fillText('LOVES NEW YORK', 306, 228);
   });
   const banMat = new THREE.MeshStandardMaterial({ map: banner, roughness: 0.8, emissive: '#FFFFFF', emissiveMap: banner, emissiveIntensity: 0.18, side: THREE.DoubleSide });
@@ -594,7 +596,7 @@ function signLines(text) {
 function drawSign(x, X, Y, w, h, i) {
   cardboard(x, X, Y, w, h, typeof i === 'number' ? i + 3 : i === 'fall' ? 12 : 40);
   if (i === 'blank') return;
-  const fall = i === 'fall', n0 = fall ? 9 : i, text = SIGNS[n0], ink = INKS[n0];
+  const fall = i === 'fall', n0 = fall ? 9 : i, text = story.t(SIGNS[n0]), ink = INKS[n0];
   const lines = signLines(text), n = lines.length;
   // (the fall: room over GREEDY for FALL)
   const big = Math.min(110, (h - 56) / (n + (fall ? 0.75 : 0)) / 1.02), lh = big * 1.02;
@@ -681,8 +683,8 @@ function buildCamp(W, parent, colliders, CLIPS) {
     const sign = canvasTex(1024, 192, (x, w, h) => {
       x.fillStyle = '#F1ECDF'; x.fillRect(0, 0, w, h);
       for (let i = 0; i < 6; i++) { x.fillStyle = 'rgba(120,100,70,.06)'; x.fillRect(Math.random() * w, 0, 30 + Math.random() * 80, h); }
-      marker(x, "MS. BEA'S KITCHEN", w / 2, 92, 88, '#B3202A', 51, w - 60);
-      marker(x, 'EVERYBODY EATS', w / 2, 168, 58, '#1F3F8F', 52, w - 200);
+      marker(x, story.t("MS. BEA'S KITCHEN"), w / 2, 92, 88, '#B3202A', 51, w - 60);
+      marker(x, story.t('EVERYBODY EATS'), w / 2, 168, 58, '#1F3F8F', 52, w - 200);
     });
     const sm = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.56), new THREE.MeshStandardMaterial({ map: sign, roughness: 0.9, side: THREE.DoubleSide }));
     const [sx, sz] = at(1.53, 0); sm.position.set(sx, ky + 2.0, sz); sm.rotation.y = K.h; sm.castShadow = true; g.add(sm);
@@ -701,9 +703,9 @@ function buildCamp(W, parent, colliders, CLIPS) {
     const tex = canvasTex(1024, 240, (x, w, hh) => {
       x.fillStyle = '#EFEAE0'; x.fillRect(0, 0, w, hh);
       for (let i = 0; i < 9; i++) { const gx = Math.random() * w, gr = x.createLinearGradient(gx - 30, 0, gx + 30, 0); gr.addColorStop(0, 'rgba(120,110,90,0)'); gr.addColorStop(0.5, 'rgba(120,110,90,.12)'); gr.addColorStop(1, 'rgba(120,110,90,0)'); x.fillStyle = gr; x.fillRect(gx - 30, 0, 60, hh); }
-      marker(x, 'OCCUPY JPBANK', w / 2 - 70, 150, 150, '#151515', 61, 760);
+      marker(x, story.t('OCCUPY JPBANK'), w / 2 - 70, 150, 150, '#151515', 61, 760);
       x.save(); x.translate(w - 110, 96); x.rotate(0.12); marker(x, 'DAY', 0, 0, 52, '#B3202A', 62); marker(x, '41', 0, 70, 84, '#B3202A', 63); x.restore();
-      marker(x, 'AUDIT THE BANK · WE ARE THE 99%', w / 2 - 70, 214, 42, '#1F3F8F', 64, 700);
+      marker(x, story.t('AUDIT THE BANK · WE ARE THE 99%'), w / 2 - 70, 214, 42, '#1F3F8F', 64, 700);
     });
     // (its back: the same sheet, the paint showing through faintly; seen from behind, mirrored, as it would be)
     const plain = canvasTex(1024, 240, (x, w, hh) => { x.drawImage(tex.canvas, 0, 0); x.fillStyle = 'rgba(232,226,214,.8)'; x.fillRect(0, 0, w, hh); });
@@ -1192,6 +1194,8 @@ export async function buildFiona(W) {
   const root = new THREE.Group(); root.name = 'Fiona';
   const inner = skClone(gltf.scene); root.add(inner);
   inner.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+  // (a Mog's look for her: wagmi/story)
+  story.dress('fiona', inner);
   const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
   inner.updateMatrixWorld(true);
   const top = new THREE.Box3().setFromObject(inner).max.y;
@@ -1317,6 +1321,8 @@ export async function buildGears(W) {
       t.userData.heather = true; m.map = t; m.needsUpdate = true;
     } catch (e) { console.warn('[m3] gears tee', e); }
   });
+  // (a Mog's look for him, over the tee: wagmi/story)
+  story.dress('gears', inner);
   // the rag: hanging out of his right back pocket. Placed in the bind pose (the clothes' own vertices through the skin's
   // bind matrix: the back of his hips over the right hip joint) and hung on the hips' bone the way the skin hangs on it
   // (its bones were saved mid-clip, so the model as it loads is not in that pose)

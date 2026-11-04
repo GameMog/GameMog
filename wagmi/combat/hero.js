@@ -31,6 +31,7 @@
 // across the car or behind a wall.
 import * as THREE from 'three/webgpu';
 import { clamp, smooth, lerp, yawTo, hdist, angWrap, fwd, right } from './util.js';
+import { S as story } from '../story/index.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -92,7 +93,8 @@ export function createHero(c) {
   const W = c.W, p = W.person, Q = W.dan, cm = c.cm;
   const M = { name: 'free', t: 0 };
   const me = {
-    M, hp: 100, maxHp: 100, invulnUntil: 0, comboStep: 0, lastAttackT: -9, target: null, counterUntil: 0, focus: null,
+    // (his health: a Mog's difficulty may give him more or less, wagmi/story; 100 in Mog City)
+    M, hp: story.knob('heroHp'), maxHp: story.knob('heroHp'), invulnUntil: 0, comboStep: 0, lastAttackT: -9, target: null, counterUntil: 0, focus: null,
     meter: 0, lastHurtT: -99, fighting: false, holding: null, vel: new THREE.Vector3(), contact: null,
   };
   const prev = new THREE.Vector3();

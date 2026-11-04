@@ -28,6 +28,7 @@ import { createMrBig } from './mission/mrbig.js';
 import { createDirector, keys, angleKeys, spline, travel, rig, odometer, masked, handheld, clamp, smooth, lerp, ease, shotAspect, shotFov } from './mission/cine.js';
 import { createFace } from './face.js';
 import { createTrailer } from './trailer.js';
+import { S as story } from './story/index.js';
 
 const Q = new URLSearchParams(location.search);
 const PI = Math.PI;
@@ -336,7 +337,7 @@ function buildPhone(feed) {
 async function buildCast(W) {
   const app = W.app, scene = app.scene, Qn = W.dan;
   // Moon and her lead (for the missions: she lives with Jane, and is not in the opening)
-  const moon = buildMoon(THREE); moon.group.visible = false; scene.add(moon.group);
+  const moon = buildMoon(THREE, story.lookChanged('moon') ? { fur: story.look('moon').fur } : undefined); moon.group.visible = false; scene.add(moon.group);
   const leash = buildLeash(THREE, { length: 1.5, radius: 0.0075 }); leash.mesh.visible = false; scene.add(leash.mesh);
   // the van
   const van = buildVan(THREE); van.group.visible = false; scene.add(van.group);
@@ -825,6 +826,8 @@ function buildScript(ctx) {
     ['Dan', WHITE, 69.7, 73.3, 'Did the CEO of my bank just ask me to confess?'],
     ['Dan', WHITE, 74.8, 76.8, 'Okay. You framed the wrong guy.'],
   ];
+  // (each line's words as the story has them, wagmi/story: Mog City's own are the very same strings)
+  for (const L of LINES) L[4] = story.line(L[0], L[4]);
   const lineAt = (t) => LINES.find((l) => t >= l[2] && t < l[3]) || null;
 
   // ---- the voices: no words, but a voiced mumble under each phrase of a line as it starts (Dan a grown man's pitch,
@@ -834,7 +837,7 @@ function buildScript(ctx) {
     const out = [];
     for (const [who, , a, b, text] of LINES) {
       // (a line with a recorded voice speaks it itself: wagmi/radio/voices.js, from the subtitle)
-      const v = VOICE[who]; if (!v || text === 'Hey!' || W.voice?.has(who, text)) continue;
+      const v = VOICE[who]; if (!v || text === 'Hey!' || W.voice?.speaks?.(who, text)) continue;
       const parts = text.match(/[^.?!]+[.?!']*/g) || [text], cps = text.length / (b - a);
       let at = a;
       for (const ph of parts) {
@@ -1368,7 +1371,7 @@ function buildScript(ctx) {
     const bossTalks = L && L[0] === 'Mr. Big';
     // (Mr. Big's recorded voice, when his line has one: the meters follow it; else the murmur on the line)
     const bossVoiced = bossTalks && W.voice?.has('Mr. Big', L[4]);
-    if (sound.voice) sound.voice.talk(bossTalks && playing && !bossVoiced);
+    if (sound.voice) sound.voice.talk(bossTalks && playing && !bossVoiced && !W.voice?.speaks?.('Mr. Big', L[4]));
     if (bossTalks) { const lv = bossVoiced ? Math.min(1, 0.12 + W.voice.level() * 1.2) : 0.6 + 0.4 * Math.random(); ui.phone.talk(lv); ui.callTalk(lv); }
     if (!borrow.quiet) cues(t, seek);
     lastT = t;

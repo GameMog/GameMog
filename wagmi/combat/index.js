@@ -59,6 +59,8 @@ import { createItems } from './items.js';
 import { installVault } from '../vault.js';
 import { createNav } from './nav.js';
 import { clamp, smooth, angWrap, yawTo, hdist, rnd, fwd } from './util.js';
+// (the story pack, wagmi/story: here Story, `story` being the fights' own word for the men in the story's scenes)
+import { S as Story } from '../story/index.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -228,7 +230,8 @@ export async function install(W) {
     const used = new Map(), story = new Set();
     // (the story's men in the scene and shown (the opening's crew stays hidden in it after the opening); Mack whenever
     // he is in it: his yard)
-    for (const o of c.scene?.children || []) { const s = /^Suit-(\w+)$/.exec(o.name || ''), k = s && s[1].toLowerCase(); if (k && MEN[k] && (o.visible || k === 'mack')) story.add(k); }
+    // (a story man's face is the body the story pack gives his part: wagmi/story, his own in Mog City)
+    for (const o of c.scene?.children || []) { const s = /^Suit-(\w+)$/.exec(o.name || ''), k = s && s[1].toLowerCase(); if (k && MEN[k] && (o.visible || k === 'mack')) story.add(MEN[Story.body(k)] ? Story.body(k) : k); }
     for (const k of story) used.set(k, 1);
     for (const f of fightMen) used.set(f.man, (used.get(f.man) || 0) + 1);
     const k0 = crewN++ % Math.max(1, CREW.length), order = [...CREW.slice(k0), ...CREW.slice(0, k0), ...['knox'].filter((k) => MEN[k] && !story.has(k))];
@@ -243,10 +246,11 @@ export async function install(W) {
   const VAR_HAIR = [null, [0.15, 0.085, 0.05], [0.3, 0.29, 0.28], [0.09, 0.06, 0.045]], VAR_SKIN = [null, [0.8, 0.72, 0.66], [1.06, 1.0, 0.94], [0.9, 0.82, 0.78]];
   c.dressSuit = (obj, look = 'a', own = true) => {
     let map = looks[look] || looks.a;
-    let man = null, variant = 0;
+    let man = null, variant = 0, part = null;
     if (MEN && !obj.userData.man) {
       const nm = (obj.parent?.name || '').replace(/^Suit-/, '').toLowerCase();
-      if (MEN[nm]) man = nm;
+      // (a story part ('Suit-Knox') played by the body the story pack gives it: his own in Mog City)
+      if (MEN[nm]) { part = nm; man = MEN[Story.body(nm)] ? Story.body(nm) : nm; }
       else {
         const p = pickMan(look === 'brute'); man = p.man; variant = p.v;
         if (variant && look !== 'brute') { const had = new Set(fightMen.filter((f) => f.man === man).map((f) => f.look)); const lk = ['a', 'b', 'c'].find((k) => !had.has(k)); if (lk) { look = lk; map = looks[lk] || map; } }
@@ -280,6 +284,8 @@ export async function install(W) {
     // (a face seen again in the scene: other hair and a little other skin, the hands as the face)
     if (variant && own) { const h = VAR_HAIR[(variant - 1) % 3 + 1], s = VAR_SKIN[(variant - 1) % 3 + 1];
       obj.traverse((o) => { const n = o.isMesh && o.material?.name; if (n === 'hair' || n === 'hairShell') o.material.color.setRGB(...h); else if (n === 'skin' || n === 'hands') o.material.color.multiply(new THREE.Color(...s)); }); }
+    // (a Mog's look for the part, or for a fight's man the part whose body he wears: wagmi/story; nothing in Mog City)
+    if (MEN && man) Story.dress(part || Object.keys(MEN).find((k) => Story.body(k) === man) || man, obj);
     // (the brute: the fight scales his frame up (enemy.js TYPES.brute, set on his root after this): his height brought to
     // a big man's 1.97 m and his build wider (the more for a slim-built man), his head (and so his glasses) kept life
     // size and as tall as it is wide, his hands life size)
@@ -726,7 +732,7 @@ export async function install(W) {
   // (or three tries); then a last word and the fight as it is. Once a session: a restart of the checkpoint picks up at
   // the step it reached
   const LESSON = [
-    { key: 'strike', need: 3, title: 'STRIKE', line: '<kbd>LMB</kbd><kbd>J</kbd><span>Hit the Suits</span>' },
+    { key: 'strike', need: 3, title: 'STRIKE', line: `<kbd>LMB</kbd><kbd>J</kbd><span>${Story.html(Story.t('Hit the Suits'))}</span>` },
     { key: 'counter', need: 1, title: 'COUNTER', line: '<span>When his <b class="y">!</b> turns yellow</span><kbd>Q</kbd><kbd>L</kbd><span>Counter</span>' },
     { key: 'dodge', need: 1, title: 'DODGE', line: '<span>A red <b class="r">‼</b> can’t be countered</span><kbd>C</kbd><kbd>Space</kbd><span>Dodge</span>' },
   ];

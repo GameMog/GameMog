@@ -12,6 +12,8 @@
 //                                                           strong (in position: big, a gold key), soft (not yet: no key)
 //   U.banner(title, sub, { color, secs }) / U.banner(null)  a big word over the middle for a moment ('SPOTTED!')
 import { janePortrait } from './jane.js';
+// (the story pack: what these show is S.t of what they are given, wagmi/story)
+import { S as story } from '../story/index.js';
 const CSS = `
 #wg .m2-tail { position: absolute; right: 24px; bottom: 228px; width: 250px; padding: 10px 14px 12px; background: rgba(8,10,14,0.62); border-radius: 10px; opacity: 0; transition: opacity .3s; z-index: 4; }
 #wg .m2-tail.on { opacity: 1; }
@@ -129,10 +131,11 @@ export function createM2UI(ui) {
     show() {
       ui.phone.show('ended'); // (the frame, the shade: its content is ours)
       const c = content(); if (!c) return;
-      c.innerHTML = `<div class="m2-call"><div class="feed"></div>${MAP_SVG}<div class="label">JANE<small class="clock">VIDEO CALL · 00:00</small></div>
+      c.innerHTML = `<div class="m2-call"><div class="feed"></div>${MAP_SVG}<div class="label">${esc(story.name('jane').toUpperCase())}<small class="clock">VIDEO CALL · 00:00</small></div>
         <div class="tag">BURNER TWIN · LAST PING 20 MIN AGO<b>7th Ave &amp; W 47th St</b></div><div class="pip"></div><div class="wave">${'<i></i>'.repeat(20)}</div><div class="end"></div></div>`;
       callEl = c.querySelector('.m2-call'); waveEl = c.querySelector('.wave'); clockEl = c.querySelector('.clock');
-      feed = janePortrait(c.querySelector('.feed'), { crop: 'phone' }); callT = performance.now();
+      // (her feed is a pre-rendered sheet of her: not shown for a Jane a Mog gave another look)
+      feed = story.lookChanged('jane') ? null : janePortrait(c.querySelector('.feed'), { crop: 'phone' }); callT = performance.now();
     },
     // level 0..1: her voice (the wave, her mouth)
     talk(level = 0) {
@@ -151,9 +154,11 @@ export function createM2UI(ui) {
   async function chat(lines, { every = 900, title = 'SECURITY · MIDTOWN', sub = '14 members' } = {}) {
     ui.phone.show('ended');
     const c = content(); if (!c) return;
-    c.innerHTML = `<div class="m2-chat"><div class="hd"><div class="gi">S</div><div><div class="n">${esc(title)}</div><div class="s">${esc(sub)}</div></div></div><div class="list"></div></div>`;
+    c.innerHTML = `<div class="m2-chat"><div class="hd"><div class="gi">S</div><div><div class="n">${esc(story.t(title))}</div><div class="s">${esc(story.t(sub))}</div></div></div><div class="list"></div></div>`;
     const list = c.querySelector('.list');
-    for (const [who, col, text, o = {}] of lines) {
+    for (const [handle, col, words, o = {}] of lines) {
+      // (a handle that is one of the cast's ('knox', 'mr.big') is their name as the story has it, lower case, no spaces)
+      const id = handle.replace(/[^a-z]/g, ''), who = story.name(id) !== id ? story.name(id).toLowerCase().replace(/\s+/g, '') : handle, text = story.t(words);
       const m = document.createElement('div'); m.className = 'm' + (o.me ? ' me' : '');
       m.innerHTML = `<div class="av" style="background:${col}">${esc(who[0].toUpperCase())}</div><div class="b"><div class="w" style="color:${col}">${esc(who)}</div>${o.photo ? DOOR_SVG : ''}${esc(text)}</div>`;
       list.appendChild(m);
@@ -173,7 +178,7 @@ export function createM2UI(ui) {
       tailEl.classList.add('on');
       tailD.textContent = `${Math.round(d)} m`;
       pin.style.left = `${Math.min(100, Math.max(0, d / max * 100)).toFixed(1)}%`;
-      note.textContent = n; note.style.color = color;
+      note.textContent = story.t(n); note.style.color = color;
       sus.style.width = `${Math.round(Math.min(1, s) * 100)}%`;
     },
     hide() { tailEl.classList.remove('on'); },
@@ -196,7 +201,7 @@ export function createM2UI(ui) {
   const tgtEl = el('m2-target', `<div class="row"><b class="n"></b><span>DAMAGE</span></div><i><s></s></i>`);
   function target(label, k = 0) {
     if (!label) { tgtEl.classList.remove('on'); return; }
-    tgtEl.querySelector('.n').textContent = label; tgtEl.querySelector('s').style.width = `${Math.round(Math.min(1, Math.max(0, k)) * 100)}%`;
+    tgtEl.querySelector('.n').textContent = story.t(label); tgtEl.querySelector('s').style.width = `${Math.round(Math.min(1, Math.max(0, k)) * 100)}%`;
     tgtEl.classList.add('on');
   }
 
@@ -206,7 +211,7 @@ export function createM2UI(ui) {
   // (strong: in position, the thing to do now; soft: not yet, and no key in it: on a phone a key here is its button)
   function prompt(text, { strong = false, soft = false } = {}) {
     if (!text) { promptEl.classList.remove('on'); return; }
-    const html = keycaps(text); if (promptEl.innerHTML !== html) promptEl.innerHTML = html;
+    const html = keycaps(story.t(text)); if (promptEl.innerHTML !== html) promptEl.innerHTML = html;
     promptEl.classList.toggle('strong', !!strong); promptEl.classList.toggle('soft', !!soft && !strong); promptEl.classList.add('on');
   }
 
@@ -216,8 +221,8 @@ export function createM2UI(ui) {
   function banner(title, sub = '', { color = '#EF4444', secs = 2.4 } = {}) {
     clearTimeout(bannerT);
     if (!title) { bannerEl.classList.remove('on'); return; }
-    bannerEl.querySelector('.t').textContent = title; bannerEl.querySelector('.t').style.color = color;
-    bannerEl.querySelector('.s').textContent = sub || '';
+    bannerEl.querySelector('.t').textContent = story.t(title); bannerEl.querySelector('.t').style.color = color;
+    bannerEl.querySelector('.s').textContent = story.t(sub) || '';
     // (in again from its larger size each time)
     bannerEl.classList.remove('on'); void bannerEl.offsetWidth; bannerEl.classList.add('on');
     bannerT = setTimeout(() => bannerEl.classList.remove('on'), secs * 1000);

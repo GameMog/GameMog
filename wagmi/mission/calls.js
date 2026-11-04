@@ -43,6 +43,8 @@
 //   - the lines speak with their recordings (assets/voice, by speaker and words: W.voice, from the subtitle; Jane's on
 //     the phone, Dan's dry), the placeholder mumble until a line is recorded. The radio ducks under the call. The card is
 //     ui.caller (Jane's face in it, her mouth with her lines: jane.js); on a phone it sits by the toolbar (ui.js).
+import { S as story } from '../story/index.js';
+
 const BLUE = '#6CB8FF', WHITE = '#FFFFFF';
 // the pause and resume lines of the ordinary calls (each cycles: one each time he gets out, one each time he's back)
 const PAUSE = [['Dan', WHITE, 'Hang on. Getting out.'], ['Jane', BLUE, "You got out. I'll hold."]];
@@ -685,14 +687,15 @@ export function createCalls(W) {
   // a line: its subtitle (its recording plays from it, wagmi/radio/voices.js), held for its reading time (15 characters
   // a second, 1.4 s at least; quicker in the fast register) or as long as its voice takes
   function say(C, tup, kind, again = false) {
-    const [who, color, text, gap = 0.25] = tup;
+    // (the words as the story has them, wagmi/story; the line's mark on screen is its speaker's name as shown)
+    const [who, color, words, gap = 0.25] = tup, text = story.line(who, words);
     const fast = C.mode === 'fast', rec = W.voice?.dur?.(who, text) || 0;
     const secs = fast ? Math.max(1.1, text.length / 17, rec + 0.1) : Math.max(1.4, text.length / 15, rec + 0.15);
     W.ui?.sub(who, text, color);
-    if (!W.voice?.has?.(who, text)) mumble(C, who, text, secs);
+    if (!W.voice?.speaks?.(who, text)) mumble(C, who, text, secs);
     duck(secs + gap + 0.6);
     const t = now();
-    C.line = { tup, kind, again, mine: who.toUpperCase() + text, t0: t, end: t + secs * 1000, gap: (fast ? Math.min(gap, 0.15) : gap) * 1000, cutAt: 0 };
+    C.line = { tup, kind, again, mine: story.name(who).toUpperCase() + text, t0: t, end: t + secs * 1000, gap: (fast ? Math.min(gap, 0.15) : gap) * 1000, cutAt: 0 };
     C.said++; C.log.push(`${kind} ${who}: ${text.slice(0, 32)}`); if (C.log.length > 40) C.log.shift();
   }
   function finish(C, t) {

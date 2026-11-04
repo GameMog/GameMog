@@ -17,6 +17,7 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { positionLocal, normalLocal, positionView, normalViewGeometry, mx_worley_noise_float, float, vec3, mix, smoothstep, dFdx, dFdy, cross, dot, sign, abs, normalize } from 'three/tsl';
 import { rig, clamp } from './cine.js';
 import { createFace, voiceOf, mouthFollower, chatter, subLine } from '../face.js';
+import { S as story } from '../story/index.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const PI = Math.PI;
@@ -277,6 +278,8 @@ export async function buildJane(W, { scene = W.app.scene, auto = true } = {}) {
     if (!o.isSkinnedMesh && o.material?.color?.getHexString() === 'e8e2d8') teeth = o;
     if (!o.isSkinnedMesh && o.material?.color?.getHexString() === '2a0e0c') back = o;
   });
+  // (a Mog's look for her: wagmi/story)
+  story.dress('jane', inner);
   // (her teeth, her tongue, the mouth's back: janeMouth, once her face is made)
   const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
   inner.updateMatrixWorld(true);

@@ -18,6 +18,7 @@
 import * as THREE from 'three/webgpu';
 import { upright, UPRIGHT_BONES, place } from '../intro.js';
 import { keys, clamp, lerp, spline, travel, rig } from './cine.js';
+import { S as story } from '../story/index.js';
 import { GARAGE, ARCH, STAGE, FIONA_AT, SUV_AT, SCREEN_Z, CROWD_CAM, RIGS, BEA_AT, drawMoon, drawHeart } from './m3-set.js';
 
 const PI = Math.PI;
@@ -237,7 +238,7 @@ export function streamCall(W, U) {
   U.call.show();
   const c = W.ui.phone.el.querySelector('.content .m2-call'); if (!c) return;
   const old = c.querySelector('svg.map'); if (old) old.outerHTML = streamSVG();
-  const tag = c.querySelector('.tag'); if (tag) tag.innerHTML = 'JPBANK LOVES NEW YORK · LIVE · 11.2K WATCHING<b>Washington Square Arch</b>';
+  const tag = c.querySelector('.tag'); if (tag) tag.innerHTML = `${story.html(story.t('JPBANK LOVES NEW YORK · LIVE · 11.2K WATCHING'))}<b>${story.html(story.t('Washington Square Arch'))}</b>`;
 }
 
 /* ------------------------------------------------------------- garage -- */

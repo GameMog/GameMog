@@ -17,6 +17,7 @@ import { createMarker } from './marker.js';
 import { missions, carry } from './pause.js';
 import { createDirector, keys, angleKeys, spline, travel, handheld, clamp, lerp } from './cine.js';
 import { buildChevron } from './m2-set.js';
+import { S as story } from '../story/index.js';
 
 const PI = Math.PI;
 const WHITE = '#FFFFFF', ACID = '#B6FF3B', BLUE = '#6CB8FF';
@@ -91,7 +92,7 @@ function createMission(W, { keep = false } = {}) {
   const VOICE = { Dan: 120, Knox: 104, Jane: 205, Dash: 128 };
   function voice(who, text, secs) {
     // (a line with a recorded voice speaks it itself: wagmi/radio/voices.js, from the subtitle)
-    const f0 = VOICE[who]; if (!f0 || W.voice?.has(who, text)) return;
+    const f0 = VOICE[who]; if (!f0 || W.voice?.speaks?.(who, text)) return;
     const parts = text.match(/[^.?!]+[.?!']*/g) || [text];
     let at = 0;
     for (const ph of parts) {
@@ -101,9 +102,10 @@ function createMission(W, { keep = false } = {}) {
     }
   }
   async function say(lines, t = tok) {
-    for (const [who, color, text, pause = 0.25] of lines) {
+    for (const [who, color, words, pause = 0.25] of lines) {
       if (t.dead) break;
-      // (held for its reading time, or as long as its voice takes to say it)
+      // (the words as the story has them: wagmi/story; held for their reading time, or as long as the voice takes)
+      const text = story.line(who, words);
       const secs = Math.max(1.4, text.length / 15, (W.voice?.dur(who, text) || 0) + 0.15);
       ui.sub(who, text, color); voice(who, text, secs);
       await gsleep(secs * 1000);
@@ -225,8 +227,10 @@ function createMission(W, { keep = false } = {}) {
       const offDown = combat.player.onDown(() => fail('Dan got knocked out.', true));
       try {
         // (where the arrival leaves them: a few steps off him on the lawn's edge)
-        const crews = [combat.spawnCrew({ x: -1153, z: 1160, count: 4 }).engage()];
-        let total = 4, dashIn = false, warned = false;
+        // (a Mog's difficulty: men more or fewer, wagmi/story; four in Mog City)
+        const N = Math.max(1, 4 + story.knob('crewExtra'));
+        const crews = [combat.spawnCrew({ x: -1153, z: 1160, count: N }).engage()];
+        let total = N, dashIn = false, warned = false;
         const down = () => crews.reduce((n, c) => n + c.enemies.length - c.alive(), 0);
         // (Knox's HR barks as the Suits go down, only when no line of the fight's is up; talk: one is)
         const KNOX = { 1: ['Knox', ACID, "This is a performance review, kid! You're failing it!"], 3: ['Knox', ACID, 'Please stop hitting back! We value your feedback!'], 4: ['Knox', ACID, "Okay! I'm escalating this to HR!"] };
@@ -245,7 +249,7 @@ function createMission(W, { keep = false } = {}) {
           // Dash runs in along W 28th St at two down: from about 30 m off him on the line to the street, so the last
           // fight reads as one fight (from the street itself, 110 m out, he took half a minute to walk in)
           if (!dashIn && down() >= 2) {
-            dashIn = true; total = 5;
+            dashIn = true; total = N + 1;
             const dx = -1262 - P.position.x, dz = 1124 - P.position.z, k = Math.min(1, 30 / Math.max(1, Math.hypot(dx, dz)));
             crews.push(combat.spawnCrew({ x: P.position.x + dx * k, z: P.position.z + dz * k, count: 1, props: false }).engage());
             fightSay([['Dash', ACID, 'Wait! Did I miss the brief?'], ['Knox', ACID, 'You always miss the brief!']]);
@@ -420,7 +424,7 @@ function createMission(W, { keep = false } = {}) {
       cues.push([0.85, () => { engine = sfx.engine(); sfx.play('squeal', { gain: 0.42, dur: 0.6, p: -0.3 }); }]);
       cues.push([2.75, () => sfx.play('whoosh', { gain: 0.3, dur: 0.5 })]);
       cues.push([3.8, () => sfx.play('squeal', { gain: 0.35, dur: 1.1, p: -0.2 })]);
-      cues.push([5.5, () => { ui.sub('Dan', 'HEY!', WHITE); if (!W.voice?.has('Dan', 'HEY!')) sfx.play('shout', { gain: 0.5, f0: 190, vowel: 'e', dur: 0.7 }); }]);
+      cues.push([5.5, () => { const hey = story.line('Dan', 'HEY!'); ui.sub('Dan', hey, WHITE); if (!W.voice?.speaks?.('Dan', hey)) sfx.play('shout', { gain: 0.5, f0: 190, vowel: 'e', dur: 0.7 }); }]);
       cues.push([5.7, () => sfx.play('whoosh', { gain: 0.35, dur: 0.6 })]);
       cues.push([6.6, () => ui.sub(null)]);
       cues.push([T.a4 + 0.6, () => say([['Knox', ACID, "Told you to check your DMs. You didn't check your DMs."], ['Dan', WHITE, 'Been a little busy getting framed.'], ['Knox', ACID, "Nothing personal, kid. It's just extremely personal."]], st)]);
@@ -524,8 +528,10 @@ function createMission(W, { keep = false } = {}) {
     tidy();
     holds([]);
     const secs = Math.round((now() - stats.t0) / 1000);
+    // (in a GameMog frame: Mission 1 passed is a Mog's play counted, wagmi/story S.result; once a session)
+    story.result?.(1, secs);
     sfx.play('passed');
-    await ui.passed({ title: 'Bagged', stats: [['TIME', `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`], ['SUITS DOWN', `${stats.ko || 5}/5`], ['HITS TAKEN', String(stats.hits)]], reward: '+3', note: "Jane, Moon and your mom. It's a start." }, 6);
+    await ui.passed({ title: 'Bagged', stats: [['TIME', `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`], ['SUITS DOWN', `${stats.ko || 5 + story.knob('crewExtra')}/${Math.max(1, 4 + story.knob('crewExtra')) + 1}`], ['HITS TAKEN', String(stats.hits)]], reward: '+3', note: "Jane, Moon and your mom. It's a start." }, 6);
     W.supporters = (W.supporters || 0) + 3;
     await sleep(4000);
     // the way on (mission/m2.js): Jane's DM, 'Meet Jane at Bryant Park.', the route to the J and its corona there, the

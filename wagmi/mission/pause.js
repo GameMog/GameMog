@@ -23,6 +23,9 @@
 // sideways, and the controls' Touch column (wagmi/touch.js's buttons).
 //   ui.pause.open(id)     open on one item ('select': Mission select); open() on Resume
 import { creditsHTML } from '../credits.js';
+// (the story pack, wagmi/story: the missions' names and checkpoints as a Mog has them; Story, `story` being the mission
+// select's list here)
+import { S as Story } from '../story/index.js';
 const Q = new URLSearchParams(location.search);
 const DEBUG = Q.has('debug');
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -249,7 +252,7 @@ export function createPause(ui) {
   let sel = 0, inPanel = false, sub = 0, isOpen = false, openedAt = 0;
   function brief() {
     const r = ui.recent(), M = W.missions.active();
-    const head = M ? `<div class="t">${esc(M.act || 'Mission')}</div><div class="ms sh">${esc(M.title || '')}</div>` : '';
+    const head = M ? `<div class="t">${esc(Story.t(M.act || 'Mission'))}</div><div class="ms sh">${esc(Story.t(M.title || ''))}</div>` : '';
     const lines = r.lines.map(([w, c, t]) => `<div class="ln">${w ? `<b style="color:${c}">${esc(w.toUpperCase())}</b>` : ''}${esc(t)}</div>`).join('');
     return `${head}<div class="t">Objective</div><div class="ob sh">${r.objective || '<span class="mu">No objective right now.</span>'}</div>
       ${lines ? `<div class="t g">Lately</div>${lines}` : ''}${r.help.length ? `<div class="t g">Help</div>${r.help.map((h) => `<div class="ln">${h}</div>`).join('')}` : ''}`;
@@ -273,14 +276,14 @@ export function createPause(ui) {
       <div class="mu" style="margin-top:10px;font-size:15px"><kbd>Enter</kbd> to reset${W.recoverCar?.key ? ` · in the car, any time: <kbd>${esc(recoverKey())}</kbd>` : ''}</div>`;
     else if (id === 'restart') {
       const { M, list } = checkpoints();
-      panel.innerHTML = M ? `<div class="t">${esc(M.act || 'Mission')}</div><div class="ms sh">${esc(M.title)}</div>
-        ${list.map((c, i) => `<button class="opt${inPanel && i === sub ? ' sel' : ''}${c.lock ? ' lock' : ''}${c.cur ? ' cur' : ''}" data-cp="${i}">${esc(c.label)}<small>${c.cur ? 'Last checkpoint' : c.lock ? 'Not reached' : ''}</small></button>`).join('')}`
+      panel.innerHTML = M ? `<div class="t">${esc(Story.t(M.act || 'Mission'))}</div><div class="ms sh">${esc(Story.t(M.title))}</div>
+        ${list.map((c, i) => `<button class="opt${inPanel && i === sub ? ' sel' : ''}${c.lock ? ' lock' : ''}${c.cur ? ' cur' : ''}" data-cp="${i}">${esc(Story.t(c.label))}<small>${c.cur ? 'Last checkpoint' : c.lock ? 'Not reached' : ''}</small></button>`).join('')}`
         : `<div class="t">Restart</div><div class="mu">No mission running: nothing to restart.</div>`;
     } else if (id === 'sound') {
       panel.innerHTML = `<div class="t">Sound</div>${W.audio?.bus ? VOLS.map(([k, label], i) => `<div class="sl${inPanel && i === sub ? ' sel' : ''}" data-v="${k}"><span>${label}</span><div class="bar"><i style="width:${Math.round(vol[k] * 100)}%"></i></div><span class="v">${Math.round(vol[k] * 100)}%</span></div>`).join('')
         : '<div class="mu">No sound in this session.</div>'}<div class="mu" style="margin-top:12px;font-size:15px">${inPanel ? '<kbd>←</kbd><kbd>→</kbd> change · <kbd>↑</kbd><kbd>↓</kbd> choose' : '<kbd>Enter</kbd> to change'}</div>`;
     } else if (id === 'select') {
-      panel.innerHTML = `<div class="t">Mission select</div>${story().map((m, i) => `<button class="opt${inPanel && i === sub ? ' sel' : ''}${m.passed ? '' : ' lock'}" data-ms="${i}">${esc(m.title)}<small>${m.passed ? 'Replay' : 'Not passed yet'}</small></button>`).join('') || '<div class="mu">No missions yet.</div>'}
+      panel.innerHTML = `<div class="t">Mission select</div>${story().map((m, i) => `<button class="opt${inPanel && i === sub ? ' sel' : ''}${m.passed ? '' : ' lock'}" data-ms="${i}">${esc(Story.t(m.title))}<small>${m.passed ? 'Replay' : 'Not passed yet'}</small></button>`).join('') || '<div class="mu">No missions yet.</div>'}
         <div class="mu" style="margin-top:8px;font-size:15px">A replay starts the mission from the top. Your story stays where it is.</div>`;
     } else if (id === 'graphics') {
       const q = quality(), cur = gfxChoice(), now = TIER[q?.tier] || q?.tier || '';

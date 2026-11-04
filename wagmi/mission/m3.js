@@ -51,6 +51,7 @@ import { garageScene, nightScene, rallyScene, dumpScene, homeScene, SPOT, ESCAPE
 import { watchStory, markDone } from './m3-save.js';
 import { episodeEnd, openMissionSelect } from './episode.js';
 import { clamp } from './cine.js';
+import { S as story } from '../story/index.js';
 
 const PI = Math.PI;
 const WHITE = '#FFFFFF', BLUE = '#6CB8FF', ACID = '#B6FF3B', PINK = '#FF8AD8', BEA = '#FFB86B', CAMP = '#E8D9B0';
@@ -169,7 +170,7 @@ function overlay(W) {
       if (!on) { if (card.classList.contains('on')) { card.classList.add('out'); later('card2', 600, () => card.classList.remove('on', 'out')); } return; }
       card.innerHTML = `<div class="t">SMASH THE <b>3</b> SCREEN RIGS</div>
         <div class="l">Grab a <g>bat</g> or a <g>bottle</g> <kbd>E</kbd> · walk up to a <g>rig</g> · strike it <kbd>J</kbd> / click</div>
-        <div class="s">Fists work too: two hits a rig. The Suits will try to stop you.</div>`;
+        <div class="s">${story.html(story.t('Fists work too: two hits a rig. The Suits will try to stop you.'))}</div>`;
       card.classList.remove('out'); void card.offsetWidth; card.classList.add('on');
       later('card', secs * 1000, () => O.card(false));
     },
@@ -423,11 +424,13 @@ function createMission(W, { keep = false } = {}) {
   }
   async function sayLines(lines, t, onLine) {
     for (let i = 0; i < lines.length; i++) {
-      const [who, color, text, pause = 0.25] = lines[i];
+      const [who, color, words, pause = 0.25] = lines[i];
       if (t.dead) break;
+      // (the words as the story has them: wagmi/story)
+      const text = story.line(who, words);
       const secs = Math.max(1.4, text.length / 15, (W.voice?.dur?.(who, text) || 0) + 0.15);
       ui.sub(who, text, color); onLine?.(who, i);
-      if (VOICE[who] && !W.voice?.has?.(who, text)) {
+      if (VOICE[who] && !W.voice?.speaks?.(who, text)) {
         const parts = text.match(/[^.?!]+[.?!']*/g) || [text]; let a = 0;
         for (const ph of parts) { const n = ph.trim().length; if (n) setTimeout(() => sfx?.play('mumble', { f0: VOICE[who] * (0.96 + Math.random() * 0.08), dur: Math.min(0.5, Math.max(0.2, 0.1 + n * 0.02)), gain: 0.24, q: /\?/.test(ph) }), a * 1000 + 30); a += ph.length / text.length * secs; }
       }
@@ -496,7 +499,8 @@ function createMission(W, { keep = false } = {}) {
       // the Suits planted in the crowd (Jane: "They'll start something and pin it on you."): Brick (a bat) at the back of
       // the party's crowd, where he spots Dan; one more by a rig; and a brute by the stage, a crew of his own: he holds
       // back till the first rig goes down; facing the stage until it starts. Bats, cans and bottles lying about
-      const C = S.crew = W.combat.spawnCrew({ x: -8, z: 2872, count: 2, brute: 0, weapons: ['bat'], aggro: false, props: { cans: 3, bottles: 2, bats: 2 } });
+      // (a Mog's difficulty: men more or fewer, wagmi/story; two in Mog City)
+      const C = S.crew = W.combat.spawnCrew({ x: -8, z: 2872, count: Math.max(1, 2 + story.knob('crewExtra')), brute: 0, weapons: ['bat'], aggro: false, props: { cans: 3, bottles: 2, bats: 2 } });
       const B = S.brute = W.combat.spawnCrew({ x: -9.5, z: 2822, count: 0, brute: 1, aggro: false, props: false });
       // (Brick's spot: the spotter shot's camera, 1.6 m left and 2.6 m behind him, two metres clear of the park's trunks)
       const spots = [[-5.0, 2829.0], [16.5, 2888], [-9.5, 2822]];
@@ -976,7 +980,7 @@ function createMission(W, { keep = false } = {}) {
       // real-key lose bot: escape 16 lost them at 42-52 s, ~33 s after the last sighting, so a clean early break came in
       // under 45; at 25 it is ~32-37 s after the last sighting: 45-49 s in four runs that shook them by 7-17 s; a messy
       // start (stuck on the kerb, rammed) runs to 60-70 s)
-      const chase = S.chase = W.pursuit?.start?.({ heat: 2, kind: 'suits', count: 2, from: { x: -48, z: 2700 }, speed: 16, escape: 25, vmax: 35, target: () => (inCar() ? car.position : P.position) }) || null;
+      const chase = S.chase = W.pursuit?.start?.({ heat: 2, kind: 'suits', count: 2, from: { x: -48, z: 2700 }, speed: 16 * story.knob('chaseSpeed'), escape: 25, vmax: 35 * story.knob('chaseSpeed'), target: () => (inCar() ? car.position : P.position) }) || null;
       let lost = false, wasIn = inCar();
       const t0 = now();
       const off = hook(() => {

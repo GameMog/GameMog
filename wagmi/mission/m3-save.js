@@ -9,7 +9,9 @@
 //   watchStory(W)             (every session) notes each mission passed, saves, and keeps the way on pointing at the
 //                             next mission (a replayed mission's hand-off can't send him back to an old blip)
 //   W.storyList(), W.replay(id)  the pause menu's Mission select: the story's missions, and replaying one that is passed
-const KEY = 'wagmi.save.v1';
+// (a Mog's progress under its own key, never mixed with Mog City's: wagmi/story S.save; index.html reads the same)
+import { S as Story } from '../story/index.js';
+const KEY = Story.save('wagmi.save.v1');
 export const STORY = [
   { id: 'm1', act: 'Act I · Mission 1', title: 'Bagged', unlocks: { fists: true } },
   { id: 'm2', act: 'Act I · Mission 2', title: 'Burner', unlocks: { cans: true } },

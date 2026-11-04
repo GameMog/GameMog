@@ -36,6 +36,9 @@
 //                                                options on the number keys (held off the city's own while it is up)
 import { createPause } from './pause.js';
 import { janePortrait } from './jane.js';
+// (the story pack: every string these methods show is S.t of what they are given, a speaker's label S.name of its id;
+// with Mog City's own pack each returns what it is given, wagmi/story/index.js)
+import { S as story } from '../story/index.js';
 export const COLORS = { yellow: '#FFC93C', green: '#4ADE80', red: '#EF4444', blue: '#6CB8FF', acid: '#B6FF3B', white: '#FFFFFF' };
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -459,10 +462,13 @@ export function createUI() {
   const fadeEl = el('wg-fade');
   // (the lockup's letters, a box each, as index.html's instant title has them: --x a letter's place from the middle, .k
   // a pair the face kerns (P-a), .g CITY's glint)
-  const LET = (s, x0, k = []) => [...s].map((c, i) => (c === ' ' ? ' ' : `<span${k.includes(i) ? ' class="k"' : ''} style="--x:${x0 + i}">${c}</span>`)).join('');
+  const LET = (s, x0, k = []) => (Array.isArray(s) ? s : [...s]).map((c, i) => (c === ' ' ? ' ' : `<span${k.includes(i) ? ' class="k"' : ''} style="--x:${x0 + i}">${c}</span>`)).join('');
   // (read once, as the name: role img with its name for a label, its letters (a box each) and shadow layer not read)
-  const gTitle = el('wg-gtitle', `<div class="logo" aria-hidden="true" data-t="MOG CITY">${LET('MOG', -3)} <b>${LET('CITY', 1)}<i class="g" aria-hidden="true"><i>${[...'CITY'].map((c) => `<span>${c}</span>`).join('')}</i></i></b></div><div class="rule"></div><div class="tag" aria-hidden="true">${LET('Unfinished Business', -9, [1])}</div>`);
-  gTitle.setAttribute('role', 'img'); gTitle.setAttribute('aria-label', 'MOG CITY: Unfinished Business');
+  // (the episode's title under MOG CITY: the pack's, its letters centred, the P-a kern only in Mog City's own; its
+  // letters escaped as the pack's text is everywhere)
+  const EP = [...story.episode].map((c) => esc(c));
+  const gTitle = el('wg-gtitle', `<div class="logo" aria-hidden="true" data-t="MOG CITY">${LET('MOG', -3)} <b>${LET('CITY', 1)}<i class="g" aria-hidden="true"><i>${[...'CITY'].map((c) => `<span>${c}</span>`).join('')}</i></i></b></div><div class="rule"></div><div class="tag" aria-hidden="true">${LET(EP, -Math.floor((EP.length - 1) / 2), story.isDefault ? [1] : [])}</div>`);
+  gTitle.setAttribute('role', 'img'); gTitle.setAttribute('aria-label', story.title());
   // (the instant title's lettering clock onto the gate's, by name (index.html's wgT_x, here wgG_x): its arrival, and a
   // punch it took, mid-way or done, so the gate's takes its place without a jump or a second arrival. Its arrival's parts
   // all start together (S): one done and gone (they don't hold their last frame, so the settled title paints as one) takes
@@ -496,8 +502,9 @@ export function createUI() {
   function callerCam(av) {
     if (!av) { if (cam) { cam.stop(); cam = null; callerEl.querySelector('.av').classList.remove('cam'); } return; }
     if (cam) return;
-    const subB = () => document.querySelector('#wg .wg-sub:not(.hide) b');
-    av.textContent = 'J'; av.classList.add('cam'); cam = janePortrait(av, { crop: 'face', speaking: () => /^jane/i.test(subB()?.textContent || '') });
+    // (who speaks: the line's speaker id, wagmi/face.js subLine)
+    const subW = () => { const e = document.querySelector('#wg .wg-sub:not(.hide)'); return (e && (e.dataset.who ?? e.querySelector('b')?.textContent)) || ''; };
+    av.textContent = 'J'; av.classList.add('cam'); cam = janePortrait(av, { crop: 'face', speaking: () => /^jane/i.test(subW()) });
   }
   const dmEl = el('wg-dm', `<div class="a"></div><div class="b"></div>`);
   const countEl = el('wg-count', `<div class="l"></div><div class="v"></div>`);
@@ -512,11 +519,13 @@ export function createUI() {
   const later = (key, ms, fn) => { clearTimeout(timers.get(key)); timers.set(key, setTimeout(fn, ms)); };
   // [F] a key cap; [F|TAKE PHONE] the same cap, named for a phone's button (wagmi/touch.js reads data-touch-as first;
   // not data-k: wagmi/pad.js's restore() deletes that). The input is escaped for & < > but not ", so never a " in a name
-  const keycaps = (s) => esc(s).replace(/\[([^\]|]+)(?:\|([^\]]+))?\]/g, (_, k, t) => (t ? `<kbd data-touch-as="${t}">${k}</kbd>` : `<kbd>${k}</kbd>`));
+  // (a " in a phone's name made safe all the same: a Mog's words come through here)
+  const keycaps = (s) => esc(s).replace(/\[([^\]|]+)(?:\|([^\]]+))?\]/g, (_, k, t) => (t ? `<kbd data-touch-as="${t.replace(/"/g, '&quot;')}">${k}</kbd>` : `<kbd>${k}</kbd>`));
   // objective parts: strings, and { noun: 'yellow' | 'red' | 'blue' | 'green' } for the one coloured noun
+  // (each string part and each noun through the story: S.t)
   const rich = (parts) => (Array.isArray(parts) ? parts : [parts]).map((p) => {
-    if (typeof p === 'string') return keycaps(p);
-    const [k, c] = Object.entries(p)[0]; return `<span style="color:${COLORS[c] || c}">${keycaps(k)}</span>`;
+    if (typeof p === 'string') return keycaps(story.t(p));
+    const [k, c] = Object.entries(p)[0]; return `<span style="color:${COLORS[c] || c}">${keycaps(story.t(k))}</span>`;
   }).join('');
 
   // the tracker: the objective kept on screen (the line above goes after a few seconds, this one doesn't), and what
@@ -527,9 +536,11 @@ export function createUI() {
   const trackO = trackEl.querySelector('.o'), trackLog = trackEl.querySelector('.log');
   const said = [], helped = [];
   let trackHtml = null, trackText = '', briefT = 0;
+  // (plain: the words as written in the code, for the rules that read them; shown: as the story has them)
   const plain = (parts) => (Array.isArray(parts) ? parts : [parts]).map((p) => (typeof p === 'string' ? p : Object.keys(p)[0])).join('');
+  const shown = (parts) => (Array.isArray(parts) ? parts : [parts]).map((p) => story.t(typeof p === 'string' ? p : Object.keys(p)[0])).join('');
   function track(parts) {
-    trackHtml = parts ? rich(parts) : null; trackText = parts ? plain(parts) : '';
+    trackHtml = parts ? rich(parts) : null; trackText = parts ? shown(parts) : '';
     trackO.innerHTML = trackHtml || 'No objective right now.'; trackO.classList.toggle('none', !trackHtml);
     trackEl.classList.toggle('off', !trackHtml && !trackEl.classList.contains('open'));
   }
@@ -581,20 +592,20 @@ export function createUI() {
     bootOff() { const b = document.getElementById('wg-boot'); if (!b) return; b.classList.add('off'); setTimeout(() => b.remove(), 900); },
     title(act, name, hold = 2.6) {
       window.mcStat?.('mission', name);
-      titleEl.querySelector('.act').textContent = act || ''; titleEl.querySelector('.name').textContent = name || '';
+      titleEl.querySelector('.act').textContent = story.t(act) || ''; titleEl.querySelector('.name').textContent = story.t(name) || '';
       titleEl.classList.remove('out'); void titleEl.offsetWidth; titleEl.classList.add('on');
       later('title', (0.4 + hold) * 1000, () => { titleEl.classList.add('out'); later('title2', 700, () => titleEl.classList.remove('on', 'out')); });
     },
     titleOff() { titleEl.classList.remove('on', 'out'); },
     place(name, sub = '', secs = 3) {
-      placeEl.querySelector('.n').textContent = name; placeEl.querySelector('.s').textContent = sub;
+      placeEl.querySelector('.n').textContent = story.t(name); placeEl.querySelector('.s').textContent = story.t(sub);
       placeEl.classList.add('on'); later('place', secs * 1000, () => placeEl.classList.remove('on'));
     },
     placeOff() { placeEl.classList.remove('on'); },
     caption(name, role = '', color = '#FFFFFF', secs = 2.8) {
       if (!name) { capEl.classList.remove('on'); return; }
       capEl.style.setProperty('--c', color);
-      capEl.querySelector('.n').textContent = name; capEl.querySelector('.r').textContent = role;
+      capEl.querySelector('.n').textContent = story.t(name); capEl.querySelector('.r').textContent = story.t(role);
       capEl.classList.remove('on'); void capEl.offsetWidth; capEl.classList.add('on');
       later('cap', secs * 1000, () => capEl.classList.remove('on'));
     },
@@ -603,7 +614,10 @@ export function createUI() {
       // (the line's recorded voice, if it has one: wagmi/radio/voices.js plays it once per showing)
       window.WAGMI?.voice?.sub?.(speaker, text);
       if (!text) { subOn = false; subEl.classList.add('hide'); if (objHtml) objEl.classList.remove('hide'); return; }
-      subEl.innerHTML = (speaker ? `<b style="color:${color}">${esc(speaker.toUpperCase())}</b>` : '') + esc(text);
+      // (the label the speaker's name as the story has it; the id kept on the line for whoever asks who speaks: face.js
+      // subLine. The words come already as the story has them: the say loops' S.line)
+      subEl.innerHTML = (speaker ? `<b style="color:${color}">${esc(story.name(speaker).toUpperCase())}</b>` : '') + esc(text);
+      subEl.dataset.who = speaker || '';
       subOn = true; subEl.classList.remove('hide'); objEl.classList.add('hide');
       const last = said[said.length - 1];
       if (!last || last[2] !== text) { said.push([speaker, color, text]); if (said.length > 12) said.shift(); }
@@ -667,7 +681,7 @@ export function createUI() {
           const near = onFoot && d <= reach, seen = onFoot && d <= show;
           k = near && held ? k + dt / secs : Math.max(0, k - dt * 2);
           if (!seen) ui.hold(null);
-          else ui.hold(near ? `Hold [F] to ${label}` : `${verb} ${noun || 'it'}, then hold [F]`, k, !near);
+          else ui.hold(near ? `Hold [F] to ${story.t(label)}` : `${story.t(verb)} ${story.t(noun) || 'it'}, then hold [F]`, k, !near);
           return k >= 1;
         },
         get k() { return k; },
@@ -690,7 +704,7 @@ export function createUI() {
       if (offerKeys) { removeEventListener('keydown', offerKeys, true); offerKeys = null; }
       clearTimeout(timers.get('offer'));
       if (!o || !o.options?.length) { offerEl.classList.remove('on'); document.body.classList.remove('wg-offering'); return; }
-      offerEl.innerHTML = `<div class="h">${esc(o.title || 'Need a hand?')}</div>${o.note ? `<div class="n">${rich(o.note)}</div>` : ''}
+      offerEl.innerHTML = `<div class="h">${esc(story.t(o.title || 'Need a hand?'))}</div>${o.note ? `<div class="n">${rich(o.note)}</div>` : ''}
         ${o.options.map((p, i) => `<button type="button" data-i="${i}"><kbd>${esc(p.key)}</kbd><span>${rich(p.label)}</span></button>`).join('')}<div class="x">Or just carry on.</div>`;
       offerEl.classList.add('on'); document.body.classList.add('wg-offering');
       const pick = (p) => { ui.offer(null); try { p.run?.(); } catch (e) { console.warn('[wagmi] offer', e); } };
@@ -709,26 +723,28 @@ export function createUI() {
     caller(name, color = '#6CB8FF', status = 'On call') {
       if (!name) { callerEl.classList.remove('on'); callerCam(null); return; }
       const av = callerEl.querySelector('.av'); av.style.background = color;
-      // (Jane: her video feed in the tile, her mouth with her voice; anyone else: their initial)
-      if (name === 'Jane') callerCam(av); else { callerCam(null); av.textContent = name[0]; }
-      callerEl.querySelector('.n').textContent = name.toUpperCase(); callerEl.querySelector('.s').textContent = status;
+      // (Jane: her video feed in the tile, her mouth with her voice; anyone else, or a Jane a Mog gave another look (her
+      // feed is a pre-rendered sheet that cannot follow it): their initial)
+      const shownName = story.t(name);
+      if (name === 'Jane' && !story.lookChanged('jane')) callerCam(av); else { callerCam(null); av.textContent = shownName[0]; }
+      callerEl.querySelector('.n').textContent = shownName.toUpperCase(); callerEl.querySelector('.s').textContent = story.t(status);
       callerEl.classList.toggle('ring', /^incoming/i.test(status)); callerEl.classList.toggle('hold', /^on hold/i.test(status));
       callerEl.classList.add('on');
     },
     dm(from, text, secs = 8) {
       if (!from) { dmEl.classList.remove('on'); return; }
-      dmEl.querySelector('.a').textContent = `New message · ${from}`; dmEl.querySelector('.b').textContent = text;
+      dmEl.querySelector('.a').textContent = `New message · ${story.t(from)}`; dmEl.querySelector('.b').textContent = story.t(text);
       dmEl.classList.add('on'); later('dm', secs * 1000, () => dmEl.classList.remove('on'));
     },
     counter(label, value) {
       if (label == null) { countEl.classList.remove('on'); return; }
-      countEl.querySelector('.l').textContent = label; countEl.querySelector('.v').textContent = value; countEl.classList.add('on');
+      countEl.querySelector('.l').textContent = story.t(label); countEl.querySelector('.v').textContent = value; countEl.classList.add('on');
     },
     passed({ title = '', stats = [], reward = '', note = '' } = {}, secs = 6) {
       window.mcStat?.('pass', title);
-      bigEl.innerHTML = `<div class="h" style="color:#FFC93C">MISSION PASSED</div><div class="t">${esc(title)}</div>
-        <div class="stats">${stats.map(([a, b]) => `<div class="row"><span>${esc(a)}</span><span>${esc(b)}</span></div>`).join('')}
-        ${reward ? `<div class="reward"><span>SUPPORTERS</span><span>${esc(reward)}</span></div>` : ''}${note ? `<div class="note">${esc(note)}</div>` : ''}</div>`;
+      bigEl.innerHTML = `<div class="h" style="color:#FFC93C">MISSION PASSED</div><div class="t">${esc(story.t(title))}</div>
+        <div class="stats">${stats.map(([a, b]) => `<div class="row"><span>${esc(story.t(a))}</span><span>${esc(b)}</span></div>`).join('')}
+        ${reward ? `<div class="reward"><span>SUPPORTERS</span><span>${esc(reward)}</span></div>` : ''}${note ? `<div class="note">${esc(story.t(note))}</div>` : ''}</div>`;
       bigEl.classList.add('on'); bigEl.style.pointerEvents = 'none';
       return sleep(secs * 1000).then(() => bigEl.classList.remove('on'));
     },
@@ -739,10 +755,10 @@ export function createUI() {
       const opts = ['retry', 'quit', ...(skip ? ['skip'] : [])];
       const labels = { retry: retryLabel, quit: quitLabel, skip: skipLabel };
       const choice = (o, i) => {
-        const s = String(labels[o] || ''), at = s.indexOf(': '), main = at < 0 ? s || o : s.slice(0, at), sub = at < 0 ? '' : s.slice(at + 2);
+        const s = String(story.t(labels[o]) || ''), at = s.indexOf(': '), main = at < 0 ? s || o : s.slice(0, at), sub = at < 0 ? '' : s.slice(at + 2);
         return `<button data-o="${o}" class="${i === 0 ? 'sel' : ''}"><span class="m">${esc(main)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;
       };
-      bigEl.innerHTML = `<div class="h" style="color:#EF4444;font-size:72px">MISSION FAILED</div><div class="why">${esc(reason)}</div>
+      bigEl.innerHTML = `<div class="h" style="color:#EF4444;font-size:72px">MISSION FAILED</div><div class="why">${esc(story.t(reason))}</div>
         ${tip ? `<div class="tip"><b>TIP</b>${rich(tip)}</div>` : ''}
         <div class="choices">${opts.map(choice).join('')}</div>`;
       bigEl.classList.add('on'); bigEl.style.pointerEvents = 'auto'; document.body.classList.add('wg-failing');
@@ -856,7 +872,7 @@ export function createUI() {
       });
     },
     story(on) { document.body.classList.toggle('wg-story', !!on); },
-    call(on, name = 'UNKNOWN') { callEl.classList.toggle('on', !!on); if (on) { callEl.querySelector('.nm').textContent = name; if (!callT) callT = performance.now(); } },
+    call(on, name = 'UNKNOWN') { callEl.classList.toggle('on', !!on); if (on) { callEl.querySelector('.nm').textContent = story.t(name); if (!callT) callT = performance.now(); } },
     callTalk(level) {
       if (!callEl.classList.contains('on')) return;
       for (const b of callWave.children) b.style.transform = `scaleY(${(0.06 + 0.9 * Math.random() * level * (0.4 + 0.6 * Math.random())).toFixed(3)})`;
@@ -903,21 +919,21 @@ export function createUI() {
       phoneEl.classList.add('on'); blurEl.classList.toggle('on', d.blur !== false);
       wave = null;
       if (screen === 'feed') {
-        content.innerHTML = `<div class="wg-ph-feed"><div class="hd">@dan</div><div class="sub">Comments · ${esc(d.count || '18.4K')}</div>
-          ${(d.items || []).map(([h, t, c, hot]) => `<div class="c${hot ? ' hot' : ''}"><div class="av" style="background:${c}">${esc(h[1].toUpperCase())}</div><div><div class="h">${esc(h)}</div><div class="t">${esc(t)}</div></div></div>`).join('')}</div>`;
+        content.innerHTML = `<div class="wg-ph-feed"><div class="hd">${esc(story.t('@dan'))}</div><div class="sub">Comments · ${esc(d.count || '18.4K')}</div>
+          ${(d.items || []).map(([h, t, c, hot]) => `<div class="c${hot ? ' hot' : ''}"><div class="av" style="background:${c}">${esc((story.t(h)[1] || '').toUpperCase())}</div><div><div class="h">${esc(story.t(h))}</div><div class="t">${esc(story.t(t))}</div></div></div>`).join('')}</div>`;
         const cs = [...content.querySelectorAll('.c')];
         cs.forEach((c, i) => setTimeout(() => c.classList.add('on'), 150 + i * (d.every || 420)));
       } else if (screen === 'incoming') {
-        content.innerHTML = `<div class="wg-ph-call"><div class="pic">?</div><div class="who">${esc(d.name || 'UNKNOWN')}</div><div class="what">${esc(d.what || 'Video call…')}</div>
+        content.innerHTML = `<div class="wg-ph-call"><div class="pic">?</div><div class="who">${esc(story.t(d.name || 'UNKNOWN'))}</div><div class="what">${esc(story.t(d.what || 'Video call…'))}</div>
           <div class="btns"><div class="b no">✕</div><div class="b yes">✓</div></div></div>`;
       } else if (screen === 'video') {
-        content.innerHTML = `<div class="wg-ph-video glitch">${BOSS_SVG}<div class="scan"></div><div class="label">${esc(d.name || 'UNKNOWN')}<small class="clock">00:00</small></div>
+        content.innerHTML = `<div class="wg-ph-video glitch">${BOSS_SVG}<div class="scan"></div><div class="label">${esc(story.t(d.name || 'UNKNOWN'))}<small class="clock">00:00</small></div>
           <div class="wave">${'<i></i>'.repeat(22)}</div><div class="vc">PRIVATE LINE</div><div class="end"></div></div>`;
         wave = content.querySelector('.wave'); waveT = performance.now();
       } else if (screen === 'ended') {
-        content.innerHTML = `<div class="wg-ph-ended">CALL ENDED</div>`;
+        content.innerHTML = `<div class="wg-ph-ended">${esc(story.t('CALL ENDED'))}</div>`;
       } else if (screen === 'burner') {
-        content.innerHTML = `<div class="wg-ph-burner"><div class="h">1 NEW MESSAGE · UNKNOWN</div><div class="m">${esc(d.text || '')}</div></div>`;
+        content.innerHTML = `<div class="wg-ph-burner"><div class="h">1 NEW MESSAGE · UNKNOWN</div><div class="m">${esc(story.t(d.text || ''))}</div></div>`;
       } else if (screen === 'tracker') {
         content.innerHTML = `<div class="wg-ph-tag"><svg class="map" viewBox="0 0 90 192" preserveAspectRatio="xMidYMid slice">
           <rect width="90" height="192" fill="#0E1626"/>
@@ -926,7 +942,7 @@ export function createUI() {
           <path d="M49 40 L49 150" stroke="#2F7FD8" stroke-width="2" stroke-dasharray="3 3" opacity=".8"/>
           <circle class="dot" cx="49" cy="60" r="6" fill="#2F7FD8" stroke="#fff" stroke-width="1.5"><animate attributeName="cy" values="60;132" dur="5s" fill="freeze"/></circle>
           <text x="54" y="182" font-family="Barlow Condensed" font-weight="700" font-size="7" fill="#7C8AA5">5TH AVE</text></svg>
-          <div class="note"><div class="ic">📍</div><div><div class="a">Tracker · now</div><div class="b">${esc(d.text || 'Laptop moving · 5th Ave')}</div></div></div></div>`;
+          <div class="note"><div class="ic">📍</div><div><div class="a">Tracker · now</div><div class="b">${esc(story.t(d.text || 'Laptop moving · 5th Ave'))}</div></div></div></div>`;
         setTimeout(() => content.querySelector('.note')?.classList.add('on'), 250);
       }
     },

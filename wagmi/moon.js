@@ -48,6 +48,9 @@ export function buildMoon(THREE, o = {}) {
   /* ----------------------------------------------------- the soft volumes -- */
   // the dog under the coat: white, soft, so no gap between the locks ever shows anything but more dog
   const coatMat = new THREE.MeshStandardMaterial({ color: '#E9E2D6', roughness: 0.95 });
+  // (o.fur: a Mog's coat colour, multiplied over her white (the story pack, wagmi/story); none: her own)
+  const fur = o.fur ? new THREE.Color(o.fur) : null;
+  if (fur) coatMat.color.multiply(fur);
   const blob = (parent, c, r, mat = coatMat, rot = null) => {
     const m = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), mat);
     m.position.copy(c); m.scale.copy(r); if (rot) m.rotation.set(...rot);
@@ -122,7 +125,7 @@ export function buildMoon(THREE, o = {}) {
     const tint = mix(vec3(1.0, 0.98, 0.94), vec3(0.96, 0.965, 0.98), seed);
     // (each fibre a shade darker at its sides, so neighbours part by light as well as by the gaps)
     const shade = mix(float(0.84), float(1.0), float(1.0).sub(across.mul(across))).mul(mix(float(0.78), float(1.04), fibre)).mul(mix(mix(float(0.88), float(1.0), smoothstep(0.0, 0.7, core)), float(1.0), far));
-    m.colorNode = root.mul(tint).mul(shade);
+    m.colorNode = fur ? root.mul(tint).mul(shade).mul(vec3(fur.r, fur.g, fur.b)) : root.mul(tint).mul(shade);
     // (the clump narrows toward its tip; the middle fibres run on to it, the outer ones stop short and some thinner, and
     // the gaps between the fibres open wider toward the tips)
     const profile = float(1.0).sub(t.mul(t).mul(0.75)).sub(fibre.mul(across).mul(0.22));

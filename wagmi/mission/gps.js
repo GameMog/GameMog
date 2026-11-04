@@ -31,6 +31,7 @@
 // In the car, the next turn and its street at the top of the screen (turns.js: gps.turns), its corner a white chevron on
 // the radar. On the full map, a blip with label: true has its name beside it; a pulse takes the blip's own colour.
 import { createTurns } from './turns.js';
+import { S as story } from '../story/index.js';
 const YELLOW = '#FFC93C', BLUE = '#6CB8FF', RED = '#EF4444', GREEN = '#4ADE80', PURPLE = '#C77DFF', HALO = 'rgba(8, 11, 15, 0.9)';
 const FOOT_LINE = 150; // m: on foot and this close, the route is the straight line to it
 
@@ -366,7 +367,8 @@ export function createGPS(W) {
     const out = [];
     const add = (name, x, z, sub) => {
       if (!name) return;
-      const [n, s2] = String(name).split(' · ');
+      // (as the story has the name: wagmi/story)
+      const [n, s2] = String(story.t(name)).split(' · ');
       if (out.some((o) => o.name === n && Math.hypot(o.x - x, o.z - z) < 30)) return;
       out.push({ name: n, sub: s2 || sub || 'Mission', x, z, kind: 'Mission' });
     };
@@ -505,7 +507,7 @@ export function createGPS(W) {
     for (const b of blips.values()) {
       const x = toX(b.x), y = toY(b.z);
       drawBlip(ctx, x, y, b, 8, t);
-      if (b.label && b.name) drawLabel(ctx, x, y, String(b.name).split(' · ')[0]);
+      if (b.label && b.name) drawLabel(ctx, x, y, String(story.t(b.name)).split(' · ')[0]);
     }
     ctx.translate(toX(ent.position.x), toY(ent.position.z)); drawArrow(ctx, ent.heading, -11, 7.5, 8);
     ctx.restore();

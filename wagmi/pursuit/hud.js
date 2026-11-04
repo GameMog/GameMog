@@ -8,6 +8,9 @@
 // last saw him (shrinking as the escape runs down), a ? where they last saw him, and a red blip for each car after him,
 // with a line from it to him while it sees him.
 //   const hud = createHud(W);  hud.show(chase) / hud.show(null);  (it reads chase.view() every frame)
+// (its line through the story pack, wagmi/story)
+import { S as story } from '../story/index.js';
+
 const ACID = '#B6FF3B', RED = '#EF4444', BLUE = '#6CB8FF', HALO = 'rgba(8, 11, 15, 0.9)';
 const SKULL = `<svg viewBox="0 0 24 24"><path d="M12 2.2c-5 0-8.6 3.4-8.6 8.1 0 2.7 1.2 4.6 2.9 5.8v2.6c0 .9.7 1.6 1.6 1.6h.9v-2.1h1.5v2.1h3.4v-2.1h1.5v2.1h.9c.9 0 1.6-.7 1.6-1.6v-2.6c1.7-1.2 2.9-3.1 2.9-5.8 0-4.7-3.6-8.1-8.6-8.1zM8.3 14.1a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4zm7.4 0a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4zM12 15.2l1.1 2h-2.2l1.1-2z"/></svg>`;
 const STAR = `<svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.6 1.4 6.7L12 17.4l-6.1 3.4 1.4-6.7-5-4.6 6.8-.8z"/></svg>`;
@@ -63,7 +66,7 @@ export function createHud(W) {
     el.classList.remove('suits', 'police'); el.classList.add(kind === 'police' ? 'police' : 'suits', 'on');
     lit = -1;
   }
-  function say(text, secs = 2.5) { msg.textContent = text; msg.classList.add('on'); msgT = secs; }
+  function say(text, secs = 2.5) { msg.textContent = story.t(text); msg.classList.add('on'); msgT = secs; }
   // (beside the toolbar top-right while it shows, story mode's Map and Pause: the line under it is the street's 'hit and
   // run' note and the DM card's; under the sandbox's wide one)
   function place() {

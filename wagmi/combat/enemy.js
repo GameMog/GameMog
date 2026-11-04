@@ -27,6 +27,7 @@ import * as THREE from 'three/webgpu';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { clamp, damp, dampAngle, angWrap, yawTo, hdist, rnd, pick, smooth } from './util.js';
 import { createRagdolls } from '../physics/ragdoll.js';
+import { S as story } from '../story/index.js';
 // (the ragdolls, made once Jolt is in: wagmi/physics, loaded by the crash's first hit or the first Suit on the street)
 let RAGS = null;
 const rags = () => { const P = window.WAGMI?.physics; if (!P || !P.ready || RAG_OFF) return null; return RAGS || (RAGS = createRagdolls(P)); };
@@ -36,9 +37,11 @@ const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vecto
 const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
 const G = 22;
 
+// (hp and dmg times a Mog's difficulty, wagmi/story: x1 in Mog City)
+const HP = story.knob('enemyHp'), DMG = story.knob('enemyDamage');
 export const TYPES = {
-  grunt: { hp: 50, speed: 3.2, dmg: 9, scale: 1, attacks: ['thugPunch1', 'thugPunch2', 'thugKick'], looks: ['a', 'b', 'c'], radius: 0.34 },
-  brute: { hp: 150, speed: 2.4, dmg: 18, scale: 1.24, attacks: ['bruteSlam', 'thugPunch1', 'bruteSlam'], looks: ['brute'], radius: 0.34 },
+  grunt: { hp: Math.round(50 * HP), speed: 3.2, dmg: Math.round(9 * DMG), scale: 1, attacks: ['thugPunch1', 'thugPunch2', 'thugKick'], looks: ['a', 'b', 'c'], radius: 0.34 },
+  brute: { hp: Math.round(150 * HP), speed: 2.4, dmg: Math.round(18 * DMG), scale: 1.24, attacks: ['bruteSlam', 'thugPunch1', 'bruteSlam'], looks: ['brute'], radius: 0.34 },
 };
 // each blow: its clip (the blow's own name when not given), when it lands (clip s), its telegraph (s from the start of
 // the swing to that moment: the wind-up is slowed to fill it, so the cue over his head and his body tell the same

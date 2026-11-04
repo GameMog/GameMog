@@ -10,6 +10,8 @@ import { buildRoadster, createDriver } from './roadster.js';
 import { createStand } from './stand.js';
 import { createPlant } from './plant.js';
 import { drive, installDriveMode } from './audio/drivemode.js';
+// (the story pack, first: its top-level await holds the game until the pack is in; wagmi/story)
+import { S as story } from './story/index.js';
 
 const app = await new Promise((res) => { const t = setInterval(() => { if (window.__NYC_APP && window.__NYC_APP.controllerManager) { clearInterval(t); res(window.__NYC_APP); } }, 100); });
 const cm = app.controllerManager, person = cm.entities.person, car = cm.entities.car;
@@ -22,7 +24,7 @@ installDriveMode(WAGMI);
   // the taxi's body, decals, plates and tyres put away (its headlamps, suspension and physics kept)
   for (const o of car.chassisPivot.children) if (!o.isLight && !(o.isObject3D && o.children.some((k) => k.isLight))) o.visible = false;
   for (const w of car.wheels) w.tire.visible = false;
-  const rs = buildRoadster(THREE);   // (its own default paint)
+  const rs = buildRoadster(THREE, story.paint ? { paint: story.paint } : undefined);   // (its own default paint; a Mog's, wagmi/story)
   rs.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   car.chassisPivot.add(rs.group);
   // its size: built at a sports car's, scaled up whole (S) to a big hypercar's, 4.8 m long, 2.2 m wide and 1.28 m tall;
@@ -39,7 +41,7 @@ installDriveMode(WAGMI);
     // (the owner, 2 Nov: the view starts closer so the car reads bigger, 0.78 of the old 6.7 m / 2.0 m; the wheel, pinch
     // and stick still zoom out to 2.4x of it, js/cameras.js)
     chaseDistance: 5.2, chaseHeight: 1.56, chase: { fov: 58, pull: 0.002, kick: 1.1, boostKick: 3.0, vmax: 34, shake: 0.03, vtop: 56 } });
-  Object.assign(car, { label: "Dan's car", topSpeed: 34, boostSpeed: 56, accel: 16, boostAccel: 32, roadster: rs });
+  Object.assign(car, { label: story.t("Dan's car"), topSpeed: 34, boostSpeed: 56, accel: 16, boostAccel: 32, roadster: rs });
   // how it slows (js/controllers.js driveSpeed, after Slop New York f3132b6): rolling 0.5 m/s² and the air (0.004 v²)
   // always, 3 more lifted off (coast: 60 mph to 10 in about 5 s, 72 m, where it used to stop in 0.6 s), the brakes 16
   // (1.6 g as before: 60 mph to a stop in 20 m), 32 with Shift held (its boostAccel, as the brakes always were on the
@@ -389,6 +391,8 @@ installDriveMode(WAGMI);
   const armature = body.getObjectByName('root')?.parent;
   if (armature && armature !== body) { armature.quaternion.identity(); armature.position.y += 0.02; }
   body.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+  // (a Mog's look for him: skin, hair, outfit; his height stays his own. wagmi/story)
+  story.dress('dan', body);
   for (const m of person.crowd.meshes) m.visible = false;
   person.mesh.add(body);
   const mixer = new THREE.AnimationMixer(body), clips = gltf.animations.slice(), A = {};

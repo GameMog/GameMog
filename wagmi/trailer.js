@@ -31,6 +31,7 @@ import * as THREE from 'three/webgpu';
 import { createVapor } from './pursuit/vapor.js';
 import { keys, clamp, smooth, lerp, ease, handheld, shotFov } from './mission/cine.js';
 import { dropFace } from './face.js';
+import { S as story } from './story/index.js';
 
 const Q = new URLSearchParams(location.search);
 const PI = Math.PI;
@@ -154,7 +155,7 @@ function buildPage() {
 <div class="spd"><i></i><i></i></div>
 <div class="big"></div>
 <div class="card"><div class="t"></div><div class="r"></div></div>
-<div class="logo"><div class="l">MOG <b>CITY</b></div><div class="r"></div><div class="g">UNFINISHED BUSINESS</div></div>
+<div class="logo"><div class="l">MOG <b>CITY</b></div><div class="r"></div><div class="g">${story.html(story.episode.toUpperCase())}</div></div>
 <div class="flash"></div>`;
   (document.getElementById('wg') || document.body).appendChild(root);
   root.querySelectorAll('.spd i').forEach((el, i) => { el.style.background = STREAKS[i]; });
@@ -397,7 +398,7 @@ async function play(W, T, borrow, getPage) {
     [0.35, () => play1('buzz', { gain: 0.22, times: 2 })],
     [B(7) + 0.05, () => play1('squeal', { gain: 0.32, dur: 1.5, p: 0.3 })],
     [B(8) + 0.12, () => play1('doorSlide', { gain: 0.7 })],
-    [B(10) + 0.05, () => ui.sub('Mr. Big', 'You sign the confession.', ACID)],
+    [B(10) + 0.05, () => ui.sub('Mr. Big', story.t('You sign the confession.'), ACID)],
     [B(11) - 0.05, () => ui.sub(null)],
     [B(11) + 0.06, () => { play1('shove', { gain: 0.8 }); play1('hit', { gain: 0.45 }); play1('grunt', { gain: 0.5, f0: 165, vowel: 'o' }); }],
     [B(11.5) + 0.02, () => play1('squeal', { gain: 0.4, dur: 1.0, p: -0.2 })],
@@ -691,7 +692,7 @@ async function play(W, T, borrow, getPage) {
     const fl = flashAt(B(DROP), 0.38, 0.12) + (t < B(CARD) ? flashAt(B(IGN), 0.28, 0.1) : 0) + flashAt(B(LOGO), 0.9, 0.3);
     set(pg.flash, fl.toFixed(3));
     // the cards
-    const card = t < B(2) ? { text: 'FIRST YEAR AT JPBANK.', a: 0.45, b: B(2) - 0.12, rule: true } : t >= B(CARD) && t < B(LOGO) ? { text: 'WRONG GUY TO FRAME.', a: B(CARD) + 0.1, b: B(LOGO) - 0.04, rule: false } : null;
+    const card = t < B(2) ? { text: story.t('FIRST YEAR AT JPBANK.'), a: 0.45, b: B(2) - 0.12, rule: true } : t >= B(CARD) && t < B(LOGO) ? { text: story.t('WRONG GUY TO FRAME.'), a: B(CARD) + 0.1, b: B(LOGO) - 0.04, rule: false } : null;
     if (card) {
       const ca = smooth((t - card.a) / 0.35) * (1 - smooth((t - (card.b - 0.18)) / 0.18));
       if (pg.cardT.textContent !== card.text) pg.cardT.textContent = card.text;
@@ -705,10 +706,10 @@ async function play(W, T, borrow, getPage) {
       ch = s.chart === 'up' ? smooth(u / 0.18) : 1 - smooth((u - (s.Bt - s.A - 0.15)) / 0.15);
       upK = s.chart === 'up' ? ease.out(u / 1.1) : 1;
       dnK = s.chart === 'down' ? ease.in(clamp(u / 0.75)) : 0;
-      big = s.chart === 'up' ? 'THEY GOT RICH.' : 'HE GOT FRAMED.';
+      big = s.chart === 'up' ? story.t('THEY GOT RICH.') : story.t('HE GOT FRAMED.');
       bigA = smooth((u - 0.1) / 0.12) * (1 - smooth((u - (s.Bt - s.A - 0.14)) / 0.14));
-      if (s.chart === 'up') { tick = 'BLIMPCO  +' + Math.round(340 * upK).toLocaleString('en-US') + '%'; }
-      else { tick = 'HIS NAME  −' + (99.7 * Math.min(1, dnK * 1.15)).toFixed(1) + '%'; tickC = '#EF4444'; }
+      if (s.chart === 'up') { tick = story.t('BLIMPCO') + '  +' + Math.round(340 * upK).toLocaleString('en-US') + '%'; }
+      else { tick = story.t('HIS NAME') + '  −' + (99.7 * Math.min(1, dnK * 1.15)).toFixed(1) + '%'; tickC = '#EF4444'; }
     }
     set(pg.chart, ch.toFixed(3));
     if (ch > 0) {

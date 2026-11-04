@@ -40,6 +40,8 @@
     const send = (body) => {
       try {
         body.v = id;
+        // (a Mog's moments tagged with its story's id, wagmi/story; Mog City's own carry nothing more)
+        const st = window.__mcStory; if (st && !st.isDefault) body.story = st.id;
         const json = JSON.stringify(body);
         if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([json], { type: 'text/plain' }))) return;
         fetch(url, { method: 'POST', mode: 'no-cors', keepalive: true, credentials: 'include', body: json }).catch(() => {});

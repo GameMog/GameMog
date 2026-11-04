@@ -5,6 +5,14 @@
 // phone. Speech ducks the radio.
 //   W.voice.has(speaker, text) · dur(speaker, text) (s, 0 if none) · say(speaker, text) · stop(secs) · level() (0..1,
 //   the voice playing now, for mouths and meters) · fx(speaker, 'phone' | 'video' | null) (a speaker's call sound)
+//   speaks(speaker, text): the line will be heard (its recording, or the browser's voice for a Mog's changed line: the
+//   mumbles stand aside for both) · synthOn: the browser's voice is speaking · synthLog: what it said
+// A Mog's changed or new line (the story pack, wagmi/story/index.js S.changed: words that are not one of Mog City's
+// lines) has no recording: shown, it is spoken by the browser's speechSynthesis in the character's voice from the pack
+// ({ pitch, rate, prefer }, an English voice picked once per speaker), ducking the music as a recording does. It never
+// goes through the phone or video filters (it is not in the Web Audio graph). Mog City's own pack never gets here.
+import { S as story } from '../story/index.js';
+
 export async function createVoice(W, out) {
   const key = (speaker, text) => `${String(speaker).toLowerCase()}|${String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}`;
   let man = { lines: [] };
@@ -69,21 +77,61 @@ export async function createVoice(W, out) {
       if (out.via() === 'mixer') W.audio.duck('music', 0.6, wait + secs + 0.2); else W.radio?.duck?.(0.3, wait + secs + 0.2);
     }).catch(() => {});
   }
+  // ---- the browser's voice, for a Mog's changed lines
+  const synth = typeof speechSynthesis !== 'undefined' && typeof SpeechSynthesisUtterance !== 'undefined' ? speechSynthesis : null;
+  const picked = new Map();
+  let said = null;
+  const FEMALE = /female|woman|samantha|victoria|karen|moira|tessa|fiona|zira|susan|serena|allison|ava|kate|veena|hazel|libby|sonia|aria|jenny|google uk english female/i;
+  const MALE = /\bmale|\bman\b|daniel|alex\b|fred|david|mark|tom\b|aaron|arthur|oliver|ryan|guy|george|rishi|gordon|google uk english male/i;
+  function voiceFor(speaker, prefer) {
+    if (picked.has(speaker)) return picked.get(speaker);
+    const all = synth.getVoices().filter((v) => /^en(-|_|$)/i.test(v.lang));
+    if (!all.length) return null;
+    const pool = prefer === 'female' ? all.filter((v) => FEMALE.test(v.name)) : prefer === 'male' ? all.filter((v) => MALE.test(v.name) && !FEMALE.test(v.name)) : all;
+    const list = pool.length ? pool : all;
+    // (the same speaker the same voice, others spread over what there is)
+    let h = 0; for (const c of String(speaker)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const v = list[h % list.length]; picked.set(speaker, v); return v;
+  }
+  if (synth) try { synth.addEventListener?.('voiceschanged', () => picked.clear()); } catch {}
+  function speak(speaker, text) {
+    if (said === text + '|' + speaker) return; said = text + '|' + speaker;
+    const P = story.voiceOf(speaker) || { pitch: 1, rate: 1, prefer: 'any' };
+    V.synthLog.push({ speaker, text, at: +(performance.now() / 1000).toFixed(3), ok: !!synth }); if (V.synthLog.length > 60) V.synthLog.shift();
+    if (!synth) return;
+    try {
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(text), v = voiceFor(speaker, P.prefer);
+      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
+      u.pitch = P.pitch; u.rate = P.rate; u.volume = 1;
+      u.onstart = () => { V.synthOn = true; };
+      u.onend = u.onerror = () => { V.synthOn = false; };
+      V.synthOn = true; synth.speak(u);
+      const secs = Math.max(1.4, text.length / 14 / P.rate);
+      if (out.via() === 'mixer') W.audio?.duck?.('music', 0.6, secs + 0.2); else W.radio?.duck?.(0.3, secs + 0.2);
+    } catch { V.synthOn = false; }
+  }
   const V = {
-    lines: man.lines, log: [],
+    lines: man.lines, log: [], synthLog: [], synthOn: false,
     has: (speaker, text) => byKey.has(key(speaker, text)),
+    speaks: (speaker, text) => byKey.has(key(speaker, text)) || (!!text && story.changed(speaker, text)),
     dur: (speaker, text) => byKey.get(key(speaker, text))?.dur || 0,
     line: (speaker, text) => byKey.get(key(speaker, text)) || null,
     // the subtitles' hook: a line shown plays it (once per showing)
     sub(speaker, text) {
-      if (!text) { shown = null; return; }
-      const l = byKey.get(key(speaker, text)); if (!l || shown === l) return;
+      if (!text) { shown = null; said = null; return; }
+      const l = byKey.get(key(speaker, text));
+      // (a Mog's changed line: once per showing, as a recording is; the line before it, recorded or spoken, cut)
+      if (!l) { if (speaker && story.changed(speaker, text) && said !== text + '|' + speaker) { shown = null; V.stop(0.08); speak(speaker, text); } return; }
+      if (shown === l) return;
+      if (V.synthOn) try { synth?.cancel(); } catch {}
       shown = l; play(l);
     },
     // a line spoken without a subtitle
     say(speaker, text) { const l = byKey.get(key(speaker, text)); if (!l) return false; shown = l; play(l); return true; },
     stop(secs = 0.15) {
       cur = null;
+      if (V.synthOn && synth) { try { synth.cancel(); } catch {} V.synthOn = false; said = null; }
       for (const p of live) try { p.g.gain.setTargetAtTime(0, ctx.currentTime, secs / 3); p.src.stop(ctx.currentTime + secs + 0.05); } catch {}
       live.clear();
     },

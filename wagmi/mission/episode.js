@@ -7,8 +7,12 @@
 // exploring. A pad (wagmi/pad.js) sends those keys: it reads the card as a question on screen, as it does the fail
 // screen (#wg .wg-big.on .choices), which also keeps the pause menu and the touch buttons away while it is up. Touch:
 // the buttons are 48 px tall, stacked on a narrow (portrait) screen.
+import { S as story } from '../story/index.js';
+
 const URL_ = 'https://mc.gamemog.com';
-const SHARE = { title: 'MOG CITY: Unfinished Business', text: 'They framed the wrong guy. Play free in your browser.', url: URL_ };
+// (a Mog shares its own title and words, wagmi/story: MOG CITY: <its episode>)
+const SHARE = { title: story.title(), text: story.t('They framed the wrong guy. Play free in your browser.'), url: URL_ };
+const H = story.html;
 const ACTS = ['explore', 'replay', 'share'];
 let shareDead = false;                                 // (a share API with no sheet behind it, found once: copy from then on)
 
@@ -81,16 +85,16 @@ export function episodeEnd(W = window.WAGMI) {
   el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-labelledby', 'wg-ep-h');
   el.innerHTML = `<div class="ep-in">
     <div class="ep-logo">MOG <b>CITY</b></div>
-    <div class="ep-h" id="wg-ep-h">END OF EPISODE 1</div>
+    <div class="ep-h" id="wg-ep-h">${H(story.t('END OF EPISODE 1'))}</div>
     <div class="ep-rule"></div>
-    <div class="ep-ty">Thanks for playing. Dan isn't done yet.</div>
+    <div class="ep-ty">${H(story.t("Thanks for playing. Dan isn't done yet."))}</div>
     <div class="choices">
       <button type="button" class="sel" data-a="explore">Keep exploring</button>
       <button type="button" data-a="replay">Replay a mission</button>
       <button type="button" data-a="share">Share the game</button>
     </div>
     <div class="ep-msg" aria-live="polite"></div>
-    <div class="ep-next"><span class="k">MISSION 4 · COMING SOON</span><span class="s">Rook knows where your laptop is going.</span></div>
+    <div class="ep-next"><span class="k">${H(story.t('MISSION 4 · COMING SOON'))}</span><span class="s">${H(story.t('Rook knows where your laptop is going.'))}</span></div>
     <div class="ep-keys"><kbd>←</kbd><kbd>→</kbd> choose · <kbd>Enter</kbd> OK · <kbd>Esc</kbd> keep exploring</div>
   </div>`;
   host.appendChild(el);

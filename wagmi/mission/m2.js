@@ -51,6 +51,7 @@ import { buildYard, buildMackCar, buildMack, buildChevron, YARD } from './m2-set
 import * as SCENES from './m2-scenes.js';
 import { runScene, burnerScene, crashScene, phoneScene, J_AT, CRASH } from './m2-scenes.js';
 import { clamp } from './cine.js';
+import { S as story } from '../story/index.js';
 
 const PI = Math.PI;
 const WHITE = '#FFFFFF', BLUE = '#6CB8FF', ACID = '#B6FF3B';
@@ -213,11 +214,13 @@ function createMission(W, { keep = false } = {}) {
   const VOICE = { Dan: 120, Jane: 205, Mack: 98, Knox: 104 };
   async function say(lines, t = tok, onLine = null) {
     for (let i = 0; i < lines.length; i++) {
-      const [who, color, text, pause = 0.25] = lines[i];
+      const [who, color, words, pause = 0.25] = lines[i];
       if (t.dead) break;
+      // (the words as the story has them: wagmi/story)
+      const text = story.line(who, words);
       const secs = Math.max(1.4, text.length / 15, (W.voice?.dur?.(who, text) || 0) + 0.15);
       ui.sub(who, text, color); onLine?.(who, i);
-      if (VOICE[who] && !W.voice?.has?.(who, text)) {
+      if (VOICE[who] && !W.voice?.speaks?.(who, text)) {
         const parts = text.match(/[^.?!]+[.?!']*/g) || [text]; let a = 0;
         for (const ph of parts) { const n = ph.trim().length; if (n) setTimeout(() => sfx?.play('mumble', { f0: VOICE[who] * (0.96 + Math.random() * 0.08), dur: Math.min(0.5, Math.max(0.2, 0.1 + n * 0.02)), gain: 0.24, q: /\?/.test(ph) }), a * 1000 + 30); a += ph.length / text.length * secs; }
       }
@@ -781,7 +784,8 @@ function createMission(W, { keep = false } = {}) {
     // three at the stash, trash cans and bottles about, facing their table (until the alarm; two more wait in the
     // containers for the fight's second wave)
     const cx = Y.stash.x - 1.5, cz = Y.stash.z - 5;
-    const crew = S.crew = W.combat.spawnCrew({ x: cx, z: cz, count: 3, brute: 0, weapons: ['bottle'], aggro: false, props: { cans: 3, bottles: 4 } });
+    // (a Mog's difficulty: men more or fewer, wagmi/story; three in Mog City)
+    const crew = S.crew = W.combat.spawnCrew({ x: cx, z: cz, count: Math.max(1, 3 + story.knob('crewExtra')), brute: 0, weapons: ['bottle'], aggro: false, props: { cans: 3, bottles: 4 } });
     crew.enemies.forEach((e, i) => {
       const a = i / crew.enemies.length * PI * 2, r = 3.0 + (i % 2) * 1.3, x = cx + Math.sin(a) * r, z = cz + Math.cos(a) * r;
       e.pos.set(x, cm.getGroundHeight(x, z, 'person'), z);

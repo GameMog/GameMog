@@ -56,7 +56,10 @@
       const Q = new URLSearchParams(location.search), H = document.documentElement;
       if (Q.has('nointro') || Q.has('nogate') || Q.has('fight') || Q.get('m1') || Q.get('m2') || Q.get('m3')) return;
       H.classList.add('wg-t');
-      try { const s = JSON.parse(localStorage.getItem('wagmi.save.v1') || 'null'); if (s && Array.isArray(s.done) && s.done.length) H.classList.add('wg-t-save'); } catch (e) {}
+      // (a Mog's own save (wagmi/story S.save: the key with its story's id), Mog City's without ?story=)
+      let key = 'wagmi.save.v1';
+      try { const st = Q.get('story'); if (st && st !== 'off') key += ':' + new URL(st, location.href).pathname.replace(/^\/|\/story\.json$/g, '').replace(/^tools\/story\/test-packs\//, 'test/').replace(/\.json$/, ''); } catch (e) {}
+      try { const s = JSON.parse(localStorage.getItem(key) || 'null'); if (s && Array.isArray(s.done) && s.done.length) H.classList.add('wg-t-save'); } catch (e) {}
       const l = document.createElement('link');
       l.rel = 'preload'; l.as = 'image'; l.setAttribute('fetchpriority', 'high');
       l.href = 'assets/ui/gate-aerial-' + (matchMedia('(max-aspect-ratio: 3/4)').matches ? 'port' : matchMedia('(min-aspect-ratio: 2/1)').matches ? 'wide' : 'land') + '.webp';

@@ -12,6 +12,7 @@ import * as THREE from 'three/webgpu';
 import { getCast, upright, UPRIGHT_BONES } from '../intro.js';
 import { createDirector, keys, angleKeys, handheld, clamp, lerp, odometer } from './cine.js';
 import { buildJane, buildLaptop } from './jane.js';
+import { S as story } from '../story/index.js';
 
 const PI = Math.PI;
 const WHITE = '#FFFFFF', BLUE = '#6CB8FF', ACID = '#B6FF3B';
@@ -215,7 +216,7 @@ export function evidence(W, mode) {
   if (!mode) { el?.classList.remove('on', 'trace'); return; }
   if (!el) {
     el = document.createElement('div'); el.className = 'd-evid';
-    el.innerHTML = `<div class="hd">JANE'S SCREEN · CARRIER LOG</div><div class="sale">ONE PREPAID SALE · CANAL ST KIOSK · PAID CASH</div>
+    el.innerHTML = `<div class="hd">${story.html(story.t("JANE'S SCREEN · CARRIER LOG"))}</div><div class="sale">ONE PREPAID SALE · CANAL ST KIOSK · PAID CASH</div>
       <div class="row me"><span class="sim">SIM ··4471</span><span class="t">ON<b>WED 9:41</b></span><span class="s">THIS BURNER</span></div>
       <div class="row tw"><span class="sim">SIM ··4472</span><span class="t">ON<b>WED 9:41</b></span><span class="s">THE TWIN</span></div>
       <div class="ping">● LAST PING 20 MIN AGO · <b>7 AV &amp; W 47 ST</b></div>`;

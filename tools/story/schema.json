@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mc.gamemog.com/tools/story/schema.json",
+  "title": "Mog City story pack",
+  "description": "Schema version 1 of a Mog City story pack (see tools/story/README.md). Structure only: the rules a JSON Schema cannot say (the fixed key sets of lines, copy and names against the base pack, each entry's length limit, the speakers, the tokens, the Suits' bodies as a permutation) are enforced by validatePack() in wagmi/story/schema.js, which embeds this same object.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["pack", "base", "title", "names", "cast", "car", "lines", "copy", "difficulty"],
+  "properties": {
+    "pack": { "const": 1 },
+    "base": { "const": "mog-city@1" },
+    "title": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["episode"],
+      "properties": { "episode": { "$ref": "#/$defs/text", "maxLength": 40, "minLength": 1 } }
+    },
+    "names": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bank", "blimp", "occupy", "college"],
+      "properties": {
+        "bank": { "$ref": "#/$defs/name" },
+        "blimp": { "$ref": "#/$defs/name" },
+        "occupy": { "$ref": "#/$defs/name" },
+        "college": { "$ref": "#/$defs/name" }
+      }
+    },
+    "cast": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dan", "jane", "mrbig", "gears", "fiona", "bea", "camp", "moon", "knox", "hooks", "tank", "brick", "dash", "mack", "rook", "suits"],
+      "properties": {
+        "dan": { "$ref": "#/$defs/hero" },
+        "jane": { "$ref": "#/$defs/person" },
+        "mrbig": { "$ref": "#/$defs/person" },
+        "gears": { "$ref": "#/$defs/person" },
+        "fiona": { "$ref": "#/$defs/person" },
+        "bea": { "$ref": "#/$defs/voiced" },
+        "camp": { "$ref": "#/$defs/voiced" },
+        "moon": { "$ref": "#/$defs/dog" },
+        "knox": { "$ref": "#/$defs/suit" },
+        "hooks": { "$ref": "#/$defs/suit" },
+        "tank": { "$ref": "#/$defs/suit" },
+        "brick": { "$ref": "#/$defs/suit" },
+        "dash": { "$ref": "#/$defs/suit" },
+        "mack": { "$ref": "#/$defs/suit" },
+        "rook": { "$ref": "#/$defs/suit" },
+        "suits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": { "name": { "$ref": "#/$defs/name" } }
+        }
+      }
+    },
+    "car": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paint"],
+      "properties": { "paint": { "$ref": "#/$defs/colour" } }
+    },
+    "lines": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "maxLength": 64 },
+      "additionalProperties": {
+        "type": "array",
+        "prefixItems": [
+          { "enum": ["dan", "jane", "mrbig", "gears", "fiona", "bea", "camp", "knox", "brick", "dash", "mack"] },
+          { "$ref": "#/$defs/text", "minLength": 1, "maxLength": 220 }
+        ],
+        "items": false,
+        "minItems": 2
+      }
+    },
+    "copy": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z0-9]+(\\.[a-z0-9]+(-[a-z0-9]+)*)+$", "maxLength": 80 },
+      "additionalProperties": { "$ref": "#/$defs/text", "minLength": 1, "maxLength": 220 }
+    },
+    "difficulty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enemyHp", "enemyDamage", "heroHp", "crewExtra", "chaseSpeed"],
+      "properties": {
+        "enemyHp": { "type": "number", "minimum": 0.6, "maximum": 1.6 },
+        "enemyDamage": { "type": "number", "minimum": 0.6, "maximum": 1.6 },
+        "heroHp": { "type": "integer", "minimum": 60, "maximum": 200 },
+        "crewExtra": { "type": "integer", "minimum": -1, "maximum": 2 },
+        "chaseSpeed": { "type": "number", "minimum": 0.8, "maximum": 1.25 }
+      }
+    },
+    "consent": {
+      "description": "Carried through untouched for GameMog (its consent step, Phase C). Mog City never reads or shows it.",
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "text": {
+      "description": "Plain text: no < > ` and no control or invisible characters but a line break (in copy); braces only as tokens {key}, {key:upper}, {key:lower}, key a cast id or a names key",
+      "type": "string",
+      "pattern": "^(?:[^<>`{}\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F\\u00AD\\u0600-\\u0605\\u061C\\u06DD\\u070F\\u180E\\u200B-\\u200F\\u202A-\\u202E\\u2028-\\u2064\\u2066-\\u206F\\uFEFF\\uFFF9-\\uFFFB]|\\{[a-z]+(?::(?:upper|lower))?\\})*$"
+    },
+    "name": { "$ref": "#/$defs/text", "minLength": 1, "maxLength": 24, "pattern": "^[^{}\\n]*$" },
+    "colour": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+    "colourOrNull": { "anyOf": [{ "$ref": "#/$defs/colour" }, { "type": "null" }] },
+    "skin": {
+      "type": "array",
+      "items": { "type": "number", "minimum": 0.7, "maximum": 1.08 },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "voice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pitch", "rate", "prefer"],
+      "properties": {
+        "pitch": { "type": "number", "minimum": 0.5, "maximum": 1.6 },
+        "rate": { "type": "number", "minimum": 0.7, "maximum": 1.4 },
+        "prefer": { "enum": ["male", "female", "any"] }
+      }
+    },
+    "hero": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "look", "voice"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "look": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["skin", "hair", "outfit"],
+          "properties": {
+            "skin": { "$ref": "#/$defs/skin" },
+            "hair": { "$ref": "#/$defs/colourOrNull" },
+            "outfit": { "$ref": "#/$defs/colourOrNull" }
+          }
+        },
+        "voice": { "$ref": "#/$defs/voice" }
+      }
+    },
+    "person": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "look", "voice"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "look": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["skin", "hair", "outfit", "build", "height"],
+          "properties": {
+            "skin": { "$ref": "#/$defs/skin" },
+            "hair": { "$ref": "#/$defs/colourOrNull" },
+            "outfit": { "$ref": "#/$defs/colourOrNull" },
+            "build": { "type": "number", "minimum": 0.94, "maximum": 1.12 },
+            "height": { "type": "number", "minimum": 0.97, "maximum": 1.04 }
+          }
+        },
+        "voice": { "$ref": "#/$defs/voice" }
+      }
+    },
+    "voiced": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "voice"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "voice": { "$ref": "#/$defs/voice" }
+      }
+    },
+    "dog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "look"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "look": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fur"],
+          "properties": { "fur": { "$ref": "#/$defs/colourOrNull" } }
+        }
+      }
+    },
+    "suit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "body", "look", "voice"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "body": { "enum": ["knox", "hooks", "tank", "brick", "dash", "mack", "rook"] },
+        "look": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["skin", "hair", "suit", "shirt", "build", "height"],
+          "properties": {
+            "skin": { "$ref": "#/$defs/skin" },
+            "hair": { "$ref": "#/$defs/colourOrNull" },
+            "suit": { "$ref": "#/$defs/colourOrNull" },
+            "shirt": { "$ref": "#/$defs/colourOrNull" },
+            "build": { "type": "number", "minimum": 0.94, "maximum": 1.12 },
+            "height": { "type": "number", "minimum": 0.97, "maximum": 1.04 }
+          }
+        },
+        "voice": { "$ref": "#/$defs/voice" }
+      }
+    }
+  }
+}
