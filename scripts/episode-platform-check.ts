@@ -201,6 +201,8 @@ export async function episodePlatformChecks(ok: Ok, BASE: string) {
     ok('with the consent, the Mog passes: the gate, the real-name check and a drive that saw this very pack', !!done && !!drove && done.runtime.ran === true && done.runtime.status === 'passed' && done.runtime.kind === 'episode', JSON.stringify(made.events.filter((e) => e.type !== 'progress' && e.type !== 'tick').map((e) => e.type)));
     if (!done) return;
     drafts.add(done.draftId);
+    const rep = JSON.parse((db.prepare('SELECT report FROM drafts WHERE id = ?').get(done.draftId) as { report: string }).report) as { trail?: { passes?: { attempt: number; sentBack: string[] }[]; shipped?: number } };
+    ok('the draft\'s report keeps every pass\'s account (report.trail.passes), as a world build\'s does', rep.trail?.shipped === 1 && rep.trail.passes?.length === 1 && rep.trail.passes[0].sentBack.length === 0, JSON.stringify(rep.trail));
     ok(`its title is ${MOG_CITY}: <its title>, and its meta carries the consent (no browser id)`, done.meta.title === `${MOG_CITY}: ${pack.title.episode}` && JSON.stringify(done.meta.consent).includes('"basis":"permission"') && !('player' in (done.meta.consent as object)));
     const ds = await page(`/d/${done.draftId}/story.json`, { headers: { origin: 'https://mc.gamemog.com' } });
     ok('the draft\'s story is served for its preview, readable by Mog City', ds.r.status === 200 && ds.r.headers.get('access-control-allow-origin') === 'https://mc.gamemog.com' && JSON.parse(ds.html).cast.jane.name === 'Rosa');

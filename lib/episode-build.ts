@@ -154,6 +154,9 @@ export async function generateEpisode(
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: episodeTurn(input.mog, consent) }];
   const draftId = randomUUID();
   let lastProblems: string[] = [];
+  // every pass's own account, kept with the draft's report (report.trail, as a world build keeps it): what stopped it, how
+  // long its reply was, and what it was sent back with
+  const passes: { attempt: number; stop: string | null; replyChars: number; sentBack: string[] }[] = [];
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     if (stopped()) return;
     emit({ type: 'stage', stage: attempt === 1 ? 'thinking' : 'repairing', attempt });
@@ -186,6 +189,8 @@ export async function generateEpisode(
     const text = final.content.filter((b) => b.type === 'text').map((b) => (b as Anthropic.Beta.BetaTextBlock).text).join('\n');
     emit({ type: 'stage', stage: 'checking', attempt });
     const { meta, pack, problems } = parseEpisodeReply(text);
+    const account = { attempt, stop: final.stop_reason ?? null, replyChars: text.length, sentBack: [] as string[] };
+    passes.push(account);
     if (final.stop_reason === 'max_tokens') problems.push('The reply was cut off at the length limit. Reply again with both blocks, the pack as compact JSON (no indentation).');
     let code: string | null = null;
     if (pack) {
@@ -224,13 +229,14 @@ export async function generateEpisode(
       const hash = codeHash(code);
       report = { ...report, kind: 'episode', status: testStatus(report), codeHash: hash, coverHash: hash } as WorldReport;
       const { cover: _c, artIcon: _i, artWide: _w, ...rest } = report;
-      db.prepare('UPDATE drafts SET report = ? WHERE id = ?').run(JSON.stringify({ ...rest, trail: { shipped: attempt, why: 'it passed' } }), draftId);
+      db.prepare('UPDATE drafts SET report = ? WHERE id = ?').run(JSON.stringify({ ...rest, trail: { passes, shipped: attempt, why: 'it passed' } }), draftId);
       // (a drive that did not see this very pack load is unverified, never a repair: Mog City runs the same validatePack
       // the gate ran, so a refusal there is the platform's to fix, not the builder's; lib/test-drive.ts episodeVerdict)
       return emit({ type: 'done', draftId, meta: stored as never, runtime: rest, attempts: attempt, ms: Date.now() - started, mc: mcOrigin() });
     }
 
     lastProblems = problems;
+    account.sentBack = problems.slice(0, 20).map((p) => p.slice(0, 400));
     emit({ type: 'problems', attempt, problems });
     messages.push({ role: 'assistant', content: final.content as Anthropic.Beta.BetaContentBlockParam[] });
     messages.push({ role: 'user', content: `Your pack was checked. Fix every one of these and reply with both blocks again, the complete pack:\n\n${problems.map((p) => `- ${p}`).join('\n')}` });
