@@ -72,8 +72,11 @@ from Freesound's previews, credited with thanks though CC0 does not require it.
 
 ### Mog City episode key art (`lib/episode/art/`)
 
-- `barlow-condensed-800.ttf`: Barlow Condensed ExtraBold, Copyright 2017 The Barlow Project Authors
-  (https://github.com/jpt/barlow), under the SIL Open Font License 1.1 (`OFL-Barlow.txt` beside it).
+- `BarlowCondensed-ExtraBold.ttf`: Barlow Condensed ExtraBold, Copyright 2017 The Barlow Project Authors
+  (https://github.com/jpt/barlow), under the SIL Open Font License 1.1 (`OFL.txt` beside it). Downloaded unchanged from
+  https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/barlowcondensed/BarlowCondensed-ExtraBold.ttf
+  (SHA-256 724c9c25952d5f4a2d87185d9767aa006144c5f0d944dc05bf7d5d603551c260, pinned in `lib/episode/art.ts` FONT_SHA and
+  checked by `npm run check`), with its licence from the same folder (`OFL.txt`). The owner approved this download (3 Nov 2026).
 - `plate-wide.jpg`, `plate-square.jpg`: graded from Mog City's own poster renders (MIT, the Mog City repo).
 
 ## Names and likenesses

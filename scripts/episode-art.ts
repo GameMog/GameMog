@@ -11,3 +11,5 @@ if (!title || !prefix) { console.error('usage: scripts/episode-art.ts "<episode 
 const t = Date.now(), art = await episodeArt(title, ['wide', 'icon']);
 writeFileSync(`${prefix}-wide.jpg`, art.wide!); writeFileSync(`${prefix}-icon.jpg`, art.icon!); writeFileSync(`${prefix}-cover.jpg`, plainCover());
 console.log(`${art.title}${art.full ? '' : ' (characters dropped)'}: ${JSON.stringify(art.fits)} in ${Date.now() - t} ms`);
+// (next/og leaves a handle open after its render: end the script ourselves)
+process.exit(0);

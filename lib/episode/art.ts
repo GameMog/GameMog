@@ -10,13 +10,18 @@ import sharp from 'sharp';
  * an episode has no frame a test drive can take a picture of, so its card is made, not shot. Mog City's poster plate
  * (lib/episode/art/plate-*.jpg, graded once) with the poster's type: MOG (white) CITY (gold), the gold rule, the
  * episode's title in tracked capitals and the foot line. The type is set by next/og (no system fonts, no Chrome), with
- * the font passed as bytes (lib/episode/art/barlow-condensed-800.ttf, SIL OFL 1.1, OFL-Barlow.txt beside it), and
+ * the font passed as bytes (lib/episode/art/BarlowCondensed-ExtraBold.ttf, the official upright Barlow Condensed
+ * ExtraBold from github.com/google/fonts, pinned by FONT_SHA, SIL OFL 1.1 with OFL.txt beside it; the owner approved its
+ * download 3 Nov; the logo's italic is the poster's skew, set here), and
  * composited onto the plate by sharp. Nothing touches the network as long as every glyph is in the font: coverage is
  * checked against the font's cmap first and anything it lacks is dropped (satori would fetch fallback fonts otherwise).
  * The plate always shows Mog City's default Dan and car: a Mog's looks and paint do not show in its card.
  */
 const DIR = join(process.cwd(), 'lib', 'episode', 'art');
-const FONT = readFileSync(join(DIR, 'barlow-condensed-800.ttf'));
+/** The font's SHA-256 as downloaded (google/fonts at 2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc, ofl/barlowcondensed). */
+export const FONT_SHA = '724c9c25952d5f4a2d87185d9767aa006144c5f0d944dc05bf7d5d603551c260';
+export const FONT_FILE = join(DIR, 'BarlowCondensed-ExtraBold.ttf');
+const FONT = readFileSync(FONT_FILE);
 const h = React.createElement;
 export const GOLD = '#FFC93C';
 export const SIZES = { wide: [1280, 720], og: [1200, 630], icon: [512, 512] } as const;

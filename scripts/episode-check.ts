@@ -38,6 +38,10 @@ export function runEpisodeChecks(ok: Ok) {
     ok('the default pack and its limits are identical to Mog City\'s assets/story/default.json and limits.json',
       R('lib/episode/default.json') === R(join(mc, 'assets', 'story', 'default.json')) && R('lib/episode/limits.json') === R(join(mc, 'assets', 'story', 'limits.json')));
   } else console.log('  NOT RUN  the copy against Mog City\'s own files: no Mog City checkout found (MOGCITY_DIR)');
+  // (the key art's font, 3 Nov: the official Barlow Condensed ExtraBold, OFL, pinned by its hash with its licence beside it)
+  ok('the key art\'s font is the pinned Barlow Condensed ExtraBold (SHA-256), with its OFL licence beside it and its credit in THIRD-PARTY-NOTICES.md',
+    sha(readFileSync('lib/episode/art/BarlowCondensed-ExtraBold.ttf')) === '724c9c25952d5f4a2d87185d9767aa006144c5f0d944dc05bf7d5d603551c260' && /SIL OPEN FONT LICENSE Version 1\.1/.test(R('lib/episode/art/OFL.txt'))
+      && R('THIRD-PARTY-NOTICES.md').includes('ofl/barlowcondensed/BarlowCondensed-ExtraBold.ttf') && R('lib/episode/art.ts').includes("'724c9c25952d5f4a2d87185d9767aa006144c5f0d944dc05bf7d5d603551c260'"));
 
   console.log('\nMog City episodes: the kind');
   const world = R('worlds/mog-city.js'), base = E.episodeBase().pack, kart = R('worlds/aspen-gp.js'), gp = R('worlds/artificial1.js');
