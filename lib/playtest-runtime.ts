@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withBrowser, chromePath, HostSlept } from './browser';
 import { lookScore, lookAdvisories, lookNotes, isLook, type Look } from './look';
-import { captureWorldKeyArt, captureShootoutKeyArt, gpArtSpot, captureGpKeyArt, GP_ART_BACK } from './key-art';
+import { captureWorldKeyArt, captureShootoutKeyArt, gpArtSpot, captureGpKeyArt, capturePortrait, GP_ART_BACK, type WorldKeyArt } from './key-art';
 import type { DnaReport } from './mog-dna';
 
 /**
@@ -134,7 +134,9 @@ export async function runtimePlaytest(url: string): Promise<RuntimeReport> {
  * thinned): the world still works, but the model is told once so it can do
  * better.
  */
-export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: number; artIcon?: Uint8Array; artWide?: Uint8Array; open?: { kos: number; heat: number; boss: boolean; police: boolean }; look?: Look;
+export type WorldReport = RuntimeReport & { advisories: string[]; levelReached: number; artIcon?: Uint8Array; artWide?: Uint8Array;
+  /** The hero's portrait (4 Nov), shot with the key art (lib/key-art.ts capturePortrait). */
+  avatar?: Uint8Array; open?: { kos: number; heat: number; boss: boolean; police: boolean }; look?: Look;
   /** What the test drive found (1 Oct): a drive that never ran is unverified, never a pass; and the code it drove, and the code its cover shows. */
   status?: TestStatus; codeHash?: string; coverHash?: string;
   /** A Mog's DNA against its parent (6 Oct, lib/mog-dna.ts): what it dropped that the idea did not ask for, and what became of the repair. */
@@ -431,7 +433,7 @@ async function gpPlaytest(page: Pg, readyMs: number, errs: () => Promise<string[
   const near = L ? L - GP_ART_BACK - 350 : 4950;
   await D("d.go({ seed: 11, autopilot: true, skipLights: true, laps: 1 })");
   await page.eval('window.__gmRuntime.debug.timeScale(6)');
-  let s = await S(), maxStuck = 0, picked: Awaited<ReturnType<typeof bestCover>> | undefined, art: { icon: Uint8Array; wide: Uint8Array } | undefined, cut = true;
+  let s = await S(), maxStuck = 0, picked: Awaited<ReturnType<typeof bestCover>> | undefined, art: WorldKeyArt | undefined, cut = true;
   for (let i = 0; i < 400; i++) {
     s = await S();
     if (s) maxStuck = Math.max(maxStuck, ...s.cars.map((c) => c.stuck));
@@ -458,7 +460,7 @@ async function gpPlaytest(page: Pg, readyMs: number, errs: () => Promise<string[
     timeMs: first && Number.isFinite(+first.timeMs) ? Math.round(+first.timeMs) : null, replayEqual: rep && typeof rep.equal === 'boolean' ? rep.equal : null, parts,
     maxStuck: Math.round(maxStuck * 10) / 10, calls: int(rend?.p95?.calls, 0, 100_000), tris: int(rend?.p95?.tris, 0, 100_000_000), fps, cut };
   const v = gpVerdict(gd, { errors, fps, cover: picked.cover, art: !!art, cutFails: true });
-  return { ok: v.problems.length === 0, ran: true, readyMs, fps, errors, problems: v.problems, advisories: [...advisories, ...v.advisories], levelReached: gd.laps, cover: picked.cover, artIcon: art?.icon, artWide: art?.wide, look: picked.look, kind: 'gp', gp: gd };
+  return { ok: v.problems.length === 0, ran: true, readyMs, fps, errors, problems: v.problems, advisories: [...advisories, ...v.advisories], levelReached: gd.laps, cover: picked.cover, artIcon: art?.icon, artWide: art?.wide, avatar: art?.avatar, look: picked.look, kind: 'gp', gp: gd };
 }
 
 /**
@@ -504,7 +506,7 @@ async function shootPlaytest(page: Pg, readyMs: number, errs: () => Promise<stri
   // the lenses behind the goal (lib/runtime/shoot-lens.js, as the creator's drive reads them)
   const lens = readLens(await page.eval(LENS_RUN()).catch(() => null));
   const outcomes: string[] = [];
-  let kicks = 0, keys = false, picked: Awaited<ReturnType<typeof bestCover>> | undefined, art: { icon: Uint8Array; wide: Uint8Array } | undefined;
+  let kicks = 0, keys = false, picked: Awaited<ReturnType<typeof bestCover>> | undefined, art: WorldKeyArt | undefined, avatar: Uint8Array | undefined;
   const tapped = (k: number) => D(`D.aim(${SHOOT_KICKS[k][0]}, ${SHOOT_KICKS[k][1]}); return D.tap(${SHOOT_KICKS[k][2]}, 1.6, { releaseMs: 0 });`);
   // to the kick's outcome (the key art at the second kick's strike); back at the set with nothing kicked, false
   const toOutcome = async (k: number) => {
@@ -529,6 +531,8 @@ async function shootPlaytest(page: Pg, readyMs: number, errs: () => Promise<stri
     kicks++;
     if (s.phase !== 'set') { outcomes.push('none'); break; }
     see(s);
+    // the kicker's portrait (5 Nov): at the second kick's set, standing up and looking ahead, before his run-up
+    if (k === 1 && !avatar) avatar = await capturePortrait(page);
     let done: boolean;
     if (k === 0) {
       await D('D.film(true); return 1;'); await sleep(120);
@@ -557,7 +561,7 @@ async function shootPlaytest(page: Pg, readyMs: number, errs: () => Promise<stri
     calls: calls || null, tris: tris || null, fps, cut: false, keys, lens };
   const v = shootVerdict(so, { errors, fps, fpsCounts: true, timed: true, cover: picked?.cover, look: picked?.look });
   return { ok: v.problems.length === 0, ran: true, readyMs, fps, errors, problems: v.problems, advisories: [...advisories, ...v.advisories], levelReached: kicks,
-    cover: picked?.cover, artIcon: art?.icon, artWide: art?.wide, look: picked?.look, kind: 'shootout', shootout: so };
+    cover: picked?.cover, artIcon: art?.icon, artWide: art?.wide, avatar, look: picked?.look, kind: 'shootout', shootout: so };
 }
 
 export async function playtestWorld(url: string): Promise<WorldReport> {
@@ -599,6 +603,11 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         // a library map (the city) builds after the page is ready: drive the world it makes, not the build
         for (let i = 0; i < 150 && !(await os()).ready; i++) await sleep(200);
         await page.eval('window.__gmRuntime.debug.start()');
+        // the hero's portrait first (4 Nov), a moment after the start, before anyone is fighting him: the fight's guard
+        // and lunges would have his hands in front of his face
+        await page.eval('window.__gmRuntime.debug.invincible(true)');
+        await sleep(2500);
+        const avatar = await capturePortrait(page);
         await page.eval('window.__gmRuntime.debug.invincible(true); window.__gmRuntime.debug.autopilot(true)');
         // the frame rate of play once it has settled: the first seconds build the first people and let the runtime
         // find the resolution the card holds (v1.js adapt), and a big map (the city) is still sending itself over
@@ -622,7 +631,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         }
         await page.eval('window.__gmRuntime.debug.timeScale(1)');
         await sleep(1500);
-        const art = await captureWorldKeyArt(page).catch(() => undefined);
+        const art = await captureWorldKeyArt(page, { portrait: false }).catch(() => undefined);
         await page.eval('window.__gmRuntime.debug.cinematic(true); window.__gmRuntime.debug.film(null)');
         await sleep(600);
         const { cover, look } = await bestCover(page);
@@ -639,7 +648,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         if (!sawBoss) problems.push(o.bosses === false ? 'Asked for a boss (the heat sends none: open.heat.bosses is false), none came. Check open.crew.boss.' : 'Raising the heat to 3 brought no boss. Check open.crew.boss.');
         if (!results.length) problems.push('A knockout of the player did not end the run with a result.');
         if (cover.length < 14_000) problems.push('The screen is nearly a flat colour in the open world. Check the map or the ground, the lights and the camera.');
-        return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: o.heat, cover, artIcon: art?.icon, artWide: art?.wide, open: { kos, heat: o.heat, boss: sawBoss, police: sawPolice }, look } as WorldReport;
+        return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: o.heat, cover, artIcon: art?.icon, artWide: art?.wide, avatar, open: { kos, heat: o.heat, boss: sawBoss, police: sawPolice }, look } as WorldReport;
       }
 
       // a penalty shootout (13 Oct): kicks at the spot, not laps (shootPlaytest)
@@ -695,7 +704,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
         // what the race counted, as the browser's drive reports it (KartDrive): publishing reads the lap and the track's signature
         const all = k.laps * k.L, kartDrive: KartDrive = { L: k.L, trackSig: typeof k.trackSig === 'string' ? k.trackSig : null, laps: k.laps, lapsDone: laps, place: k.place, finished: !!k.finished, estimated: !!k.est,
           drifted: drifts, stuck: +stuck.toFixed(2), fps, results: results.length, time: k.time, share: all > 0 ? +Math.max(0, Math.min(1, (k.karts[0]?.prog ?? 0) / all)).toFixed(3) : 0, scale: 3, cut: false };
-        return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: laps, cover: picked.cover, artIcon: art?.icon, artWide: art?.wide, look: picked.look, kind: 'kart', kart: kartDrive };
+        return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached: laps, cover: picked.cover, artIcon: art?.icon, artWide: art?.wide, avatar: art?.avatar, look: picked.look, kind: 'kart', kart: kartDrive };
       }
 
       await page.eval('window.__gmRuntime.debug.start()');
@@ -746,7 +755,7 @@ export async function playtestWorld(url: string): Promise<WorldReport> {
       if (!results.length) problems.push('A crash did not end the run with a result. Do not interfere with the runtime; make sure nothing throws in animate().');
       if (cover.length < 14_000) problems.push('The screen is nearly a flat colour while racing. Check that build() adds the ground, the track surface and lights, and that the sky and fog do not swallow everything.');
 
-      return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover, artIcon: art?.icon, artWide: art?.wide, look: picked.look };
+      return { ok: problems.length === 0, ran: true, readyMs, fps, errors, problems, advisories, levelReached, cover, artIcon: art?.icon, artWide: art?.wide, avatar: art?.avatar, look: picked.look };
     }, { width: 1280, height: 807, timeoutMs: 90_000 }));
     // a penalty shootout that loaded (13 Oct): then its phone load, in a Chrome of its own, judged in
     return report.kind === 'shootout' && report.shootout && report.readyMs !== null ? withPhone(report, await shootPhoneLoad(url)) : report;

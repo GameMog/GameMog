@@ -67,10 +67,10 @@ const stored = { ...meta, mode: worldMode(code), controls: worldControls(code), 
 insertDraft({ id: draftId, prompt: `first-party world: ${name}`, format: 'world', report: { pending: true }, code, meta: stored, parentId: parent?.id ?? null, mogPrompt: parent ? mogPrompt : null });
 console.log('playtesting in Chrome...');
 const report = await playtestWorld(`${BASE}/d/${draftId}/play`);
-const { cover, artIcon, artWide, ...rest } = report;
+const { cover, artIcon, artWide, avatar, ...rest } = report;
 // what the drive found, and the code it drove, kept with the world (as a creator's publish keeps it)
 const hash = codeHash(code), test = { status: testStatus(report), codeHash: hash, cover: cover ? 'current' : 'none' };
-db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ?, meta = ? WHERE id = ?').run(cover ?? null, artIcon ?? null, artWide ?? null, JSON.stringify({ ...rest, status: test.status, codeHash: hash }), JSON.stringify({ ...stored, test }), draftId);
+db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, art_avatar = ?, report = ?, meta = ? WHERE id = ?').run(cover ?? null, artIcon ?? null, artWide ?? null, avatar ?? null, JSON.stringify({ ...rest, status: test.status, codeHash: hash }), JSON.stringify({ ...stored, test }), draftId);
 console.log(`ready in ${report.readyMs}ms, ${report.fps} fps, reached ${report.open ? `heat ${report.levelReached}, ${report.open.kos} knockouts, boss ${report.open.boss}, police ${report.open.police}` : `level ${report.levelReached}`}`);
 if (report.advisories.length) console.log('runtime repairs:\n- ' + report.advisories.join('\n- '));
 if (!report.ok) { console.error('playtest failed:\n- ' + report.problems.join('\n- ')); process.exit(1); }
@@ -80,8 +80,8 @@ const base = meta.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$
 const existing = db.prepare('SELECT id FROM games WHERE slug = ?').get(base) as { id: string } | undefined;
 const slug = existing ? base : slugify(meta.title);
 if (existing) {
-  db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = (SELECT meta FROM drafts WHERE id = ?), cover = ?, art_icon = ?, art_wide = ?, format = ? WHERE id = ?')
-    .run(meta.title, meta.tagline, meta.blurb, code, draftId, cover ?? null, artIcon ?? null, artWide ?? null, 'world', existing.id);
+  db.prepare('UPDATE games SET title = ?, tagline = ?, blurb = ?, code = ?, meta = (SELECT meta FROM drafts WHERE id = ?), cover = ?, art_icon = ?, art_wide = ?, art_avatar = ?, format = ? WHERE id = ?')
+    .run(meta.title, meta.tagline, meta.blurb, code, draftId, cover ?? null, artIcon ?? null, artWide ?? null, avatar ?? null, 'world', existing.id);
   if (parent) db.prepare('UPDATE games SET parent_id = ?, root_id = ?, generation = ?, mog_prompt = ? WHERE id = ?').run(parent.id, parent.root_id ?? parent.id, parent.generation + 1, mogPrompt ?? null, existing.id);
   // (its board scored again under the constants just measured)
   if (kartScore) console.log(`kart score: rescored ${rescoreKart(existing.id, kartScore)} runs`);

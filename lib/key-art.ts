@@ -1,15 +1,40 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Page } from './browser';
 import { artBlown, artBadness, artFair, artNote, type Look } from './look';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export type WorldKeyArt = { icon: Uint8Array; wide: Uint8Array };
+/** avatar (4 Nov): the hero's portrait, shot in the same pass (capturePortrait); absent if it could not be. */
+export type WorldKeyArt = { icon: Uint8Array; wide: Uint8Array; avatar?: Uint8Array };
+
+let PORTRAIT = '';
+const portraitSource = () => {
+  if (!PORTRAIT || process.env.NODE_ENV !== 'production') PORTRAIT = readFileSync(join(process.cwd(), 'lib', 'runtime', 'portrait.js'), 'utf8');
+  return PORTRAIT;
+};
+
+/**
+ * The hero's portrait (4 Nov; lib/runtime/portrait.js): head and shoulders, a 512 px square, from the front the lens that
+ * is up faces him from (the key art's; `behind` for a camera that chases him). Recording-only, as the key art is; never
+ * a reason for a drive to fail: undefined when it cannot be shot.
+ */
+export async function capturePortrait(page: Page, opts: { behind?: boolean; angles?: number[]; key?: number; zoom?: number; lift?: number; stance?: string; settle?: number } = {}): Promise<Uint8Array | undefined> {
+  try {
+    if (await artBlocked(page)) return undefined;
+    await page.eval(portraitSource());
+    const r = await page.eval<{ image: string | null; face?: number; angle?: number; tries?: number; kind?: string } | null>(`window.GameMogPortrait.take(${JSON.stringify(opts)})`);
+    if (process.env.PORTRAIT_DEBUG) console.log('portrait', JSON.stringify({ ...r, image: r?.image ? r.image.length : null }));
+    const b64 = r?.image?.match(/^data:image\/jpeg;base64,(.+)$/)?.[1];
+    return b64 ? new Uint8Array(Buffer.from(b64, 'base64')) : undefined;
+  } catch { return undefined; }
+}
 
 /**
  * Photograph a running Runtime world as designed key art. The world remains
  * unchanged: the camera and title are recording-only and removed afterwards.
  */
-export async function captureWorldKeyArt(page: Page, opts: { kart?: boolean } = {}): Promise<WorldKeyArt> {
+export async function captureWorldKeyArt(page: Page, opts: { kart?: boolean; portrait?: boolean } = {}): Promise<WorldKeyArt> {
   // an open world may name its shot: where the player stands and which way the
   // camera looks (open.keyArt: { at: [x, z], look: degrees, tilt }); the fight
   // is brought to him there
@@ -28,9 +53,12 @@ export async function captureWorldKeyArt(page: Page, opts: { kart?: boolean } = 
   await judged(page, !!opts.kart);
 
   const { wide, icon } = await titled(page);
-  await page.eval(`document.getElementById('gm-key-art-title')?.remove();
-    window.__gmRuntime.debug.film(null); window.__gmRuntime.debug.cinematic(false);`);
-  return { icon, wide };
+  await page.eval(`document.getElementById('gm-key-art-title')?.remove();`);
+  // the hero's portrait, in the same pass, from the front the key art's lens shows
+  // (an open world's is shot before the fight, calm: opts.portrait false)
+  const avatar = opts.portrait === false ? undefined : await capturePortrait(page);
+  await page.eval(`window.__gmRuntime.debug.film(null); window.__gmRuntime.debug.cinematic(false);`);
+  return { icon, wide, avatar };
 }
 
 /**
@@ -123,6 +151,7 @@ export async function captureShootoutKeyArt(page: Page): Promise<WorldKeyArt> {
       if (at.out || (at.z !== null && at.z <= SHOOT_ART_Z)) break;
       await sleep(50);
     }
+    // (no portrait here: at the strike the kicker looks down at the ball; it is shot at the set, playtest-runtime.ts)
     return await titled(page);
   } finally {
     await page.eval(`document.getElementById('gm-key-art-title')?.remove();`).catch(() => undefined);
@@ -155,6 +184,10 @@ export async function gpArtSpot(page: Page): Promise<boolean> {
   return d !== null && d >= at - 40;
 }
 export async function captureGpKeyArt(page: Page): Promise<WorldKeyArt> {
-  try { return await titled(page); }
-  finally { await page.eval(`document.getElementById('gm-key-art-title')?.remove(); window.__gmRuntime.debug.cinematic(false);`).catch(() => undefined); }
+  try {
+    const art = await titled(page);
+    await page.eval(`document.getElementById('gm-key-art-title')?.remove();`).catch(() => undefined);
+    // (the chase camera is behind the car: the portrait turns round to its front)
+    return { ...art, avatar: await capturePortrait(page, { behind: true }) };
+  } finally { await page.eval(`document.getElementById('gm-key-art-title')?.remove(); window.__gmRuntime.debug.cinematic(false);`).catch(() => undefined); }
 }

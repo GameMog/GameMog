@@ -252,11 +252,13 @@ button.tag:hover{border-color:var(--ink)}
 .bubble{display:flex;flex-direction:column;align-items:center;gap:12px;font-size:14px;font-weight:700;text-align:center;color:var(--ink)}
 .bubble i{display:flex;align-items:center;justify-content:center;width:100%;max-width:150px;aspect-ratio:1;border-radius:50%;overflow:hidden;background:var(--surface);box-shadow:var(--elev);color:#FFFFFF}
 .bubble i>img,.bubble i>svg{width:100%;height:100%;object-fit:cover}
-/* key art carries its title along the bottom; a circle shows the world above
-   it, not a slice of the lettering */
-.bubble i>img{transform:scale(1.6);transform-origin:50% 12%}
-.bubble i>svg{transform:scale(1.5);transform-origin:76% 70%}
-.bubble i.solid{background:var(--ink)}
+/* (4 Nov) each world's bubble is its hero's portrait, head and shoulders and
+   already centred (app/g/[slug]/avatar): shown whole, never zoomed */
+/* Classic's drawn cover framed like a portrait: its fuzzling's face in the middle, the lettering under the edge */
+.bubble i>svg{transform:scale(1.8);transform-origin:74% 62%}
+/* one thin ring round every bubble, so a pale portrait keeps its edge on the page */
+.bubble i{outline:1px solid var(--line);outline-offset:-1px}
+.bubble i.solid{background:var(--ink);color:var(--page)}
 .bubble:hover i{box-shadow:var(--elev-hover)}
 
 /* ------------------------------------------------------------- billboard -- */

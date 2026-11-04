@@ -453,7 +453,7 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
   useEffect(() => {
     let sent = false, shown = 0, away = 0;
     // (the drive's own report, held while the phone load runs)
-    let first: { raw: Record<string, unknown>; covers?: unknown; artIcon?: unknown; artWide?: unknown } | null = null;
+    let first: { raw: Record<string, unknown>; covers?: unknown; artIcon?: unknown; artWide?: unknown; avatar?: unknown } | null = null;
     const title = document.title;
     const post = (payload: Record<string, unknown>) => fetch('/api/generate/drive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draftId: drive.draftId, token: drive.token, ...payload }) });
     const send = (payload: Record<string, unknown>) => {
@@ -462,13 +462,13 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
     };
     const onMsg = (e: MessageEvent) => {
       if (e.source !== frame.current?.contentWindow) return;
-      const d = e.data as { gm?: string; type?: string; raw?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown };
+      const d = e.data as { gm?: string; type?: string; raw?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown; avatar?: unknown };
       if (d?.gm !== 'drive' || d.type !== 'report') return;
       if (first) { send({ ...first, raw: { ...first.raw, phone: d.raw } }); return; }
       const raw = (d.raw && typeof d.raw === 'object' ? d.raw : {}) as Record<string, unknown>;
       // a penalty shootout that loaded, driven in front: now its phone load, in a fresh frame
-      if (raw.kind === 'shootout' && raw.ready === true && !raw.hidden) { first = { raw, covers: d.covers, artIcon: d.artIcon, artWide: d.artWide }; shown = 0; setPhone(true); return; }
-      send({ raw: d.raw, covers: d.covers, artIcon: d.artIcon, artWide: d.artWide });
+      if (raw.kind === 'shootout' && raw.ready === true && !raw.hidden) { first = { raw, covers: d.covers, artIcon: d.artIcon, artWide: d.artWide, avatar: d.avatar }; shown = 0; setPhone(true); return; }
+      send({ raw: d.raw, covers: d.covers, artIcon: d.artIcon, artWide: d.artWide, avatar: d.avatar });
     };
     const onVis = () => { if (!document.hidden) { setGo(true); document.title = title; } else if (!sent) document.title = 'Your world is ready to test-drive'; };
     window.addEventListener('message', onMsg);

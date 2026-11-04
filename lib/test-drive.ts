@@ -228,10 +228,12 @@ export function judge(raw: Record<string, unknown>, images: { cover?: unknown; c
 }
 
 /** The page's report for a draft it was asked to drive. */
-export function submitDrive(draftId: string, token: string, raw: Record<string, unknown>, images: { cover?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown }) {
+export function submitDrive(draftId: string, token: string, raw: Record<string, unknown>, images: { cover?: unknown; covers?: unknown; artIcon?: unknown; artWide?: unknown; avatar?: unknown }) {
   const p = pending.get(draftId);
   if (!p || p.token !== token) return false;
-  const r = raw && typeof raw === 'object' ? raw : {}, report = judge(r, images, p.expect);
+  const r = raw && typeof raw === 'object' ? raw : {}, judged = judge(r, images, p.expect);
+  // the hero's portrait (4 Nov), shot with the key art: a picture like it, kept only if it is one
+  const avatar = judged.ran ? jpeg(images.avatar) : undefined, report: WorldReport = avatar ? { ...judged, avatar } : judged;
   // and what it heard the world play as its own (9 Oct, lib/runtime/drive.js), read for what it must be: kept with the
   // draft for its publish (lib/world-options.ts publishedSoundtrack); a report without one says nothing either way
   p.resolve('soundtrack' in r ? { ...report, soundtrack: readSoundtrack(r.soundtrack) } as WorldReport : report);

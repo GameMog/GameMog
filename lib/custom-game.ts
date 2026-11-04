@@ -577,10 +577,13 @@ function endoScript(world: string) {
   return ENDO ? `<script>\n${inert(ENDO)}\n</script>\n` : '';
 }
 
-/** The test drive that runs in the creator's browser (lib/runtime/drive.js). */
+/** The test drive that runs in the creator's browser (lib/runtime/drive.js), with the hero's portrait it shoots (lib/runtime/portrait.js, 4 Nov). */
 let DRIVE = '';
 function driveSource() {
-  if (!DRIVE || process.env.NODE_ENV !== 'production') DRIVE = readFileSync(join(process.cwd(), 'lib', 'runtime', 'drive.js'), 'utf8');
+  if (!DRIVE || process.env.NODE_ENV !== 'production') {
+    const read = (f: string) => readFileSync(join(process.cwd(), 'lib', 'runtime', f), 'utf8');
+    DRIVE = `${read('portrait.js')}\n${read('drive.js')}`;
+  }
   return DRIVE;
 }
 /** A penalty shootout's sight lines from the lenses behind the goal (lib/runtime/shoot-lens.js), read by both test drives. */

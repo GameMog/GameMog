@@ -205,7 +205,9 @@ function JumpIn({ worlds, classic, stats }: { worlds: GameRow[]; classic?: GameR
   const trending = pick(...byPlays);
   const mogged = pick(...[...worlds].sort((a, b) => (stats[b.id]?.mogs ?? 0) - (stats[a.id]?.mogs ?? 0)));
   const rising = pick(...[...worlds].sort((a, b) => b.created_at - a.created_at));
-  const art = (g?: GameRow) => (g ? <img src={`/g/${g.slug}/cover`} alt="" loading="lazy" /> : null);
+  // (4 Nov, the owner: profile pictures of each game's main character) the hero's portrait, head and shoulders
+  // (app/g/[slug]/avatar/route.ts: a square from the centre of the cover for a game that has none yet)
+  const art = (g?: GameRow) => (g ? <img src={`/g/${g.slug}/avatar`} alt="" loading="lazy" width={512} height={512} /> : null);
   const items: { href: string; label: string; pic: React.ReactNode; solid?: boolean }[] = [
     { href: '/charts/trending', label: 'Top Trending', pic: art(trending) },
     { href: '/charts/up-and-coming', label: 'Up-and-Coming', pic: art(rising) },

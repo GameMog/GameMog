@@ -325,12 +325,13 @@ export async function generateGame(
   const draftId = randomUUID();
   let lastProblems: string[] = [];
   // the latest pictures any pass's test drive took (cover and key art)
-  const shots: { cover?: Uint8Array; artIcon?: Uint8Array; artWide?: Uint8Array; hash?: string } = {};
+  // (and the hero's portrait, 4 Nov: shot in the key art's pass, lib/key-art.ts capturePortrait)
+  const shots: { cover?: Uint8Array; artIcon?: Uint8Array; artWide?: Uint8Array; avatar?: Uint8Array; hash?: string } = {};
   // a Mog's parent, read from its module (lib/mog-dna.ts): every pass that passes is compared with it, and one that
   // dropped what the idea does not ask for goes back once to put it back (the owner, 6 Oct: "Mogs keep their parent")
   const parentDna = input.mog?.parent.format === 'world' && input.mog.parent.code ? dna(input.mog.parent.code) : null;
   // a pass that passed and went back once, for its notes or its parent's DNA: everything it would ship with, so it still can
-  type Kept = Pass & { attempt: number; meta: WorldMeta; stored: unknown; code: string; report: Omit<WorldReport, 'cover' | 'artIcon' | 'artWide'>; shots: typeof shots; dropped: number };
+  type Kept = Pass & { attempt: number; meta: WorldMeta; stored: unknown; code: string; report: Omit<WorldReport, 'cover' | 'artIcon' | 'artWide' | 'avatar'>; shots: typeof shots; dropped: number };
   let kept: Kept | null = null;
   // every pass's own account, kept with the report that ships (drafts.report.trail): what stopped it, how long its
   // reply was, what it was sent back with, its verdict and its best frame; and why the pass that shipped did
@@ -342,7 +343,7 @@ export async function generateGame(
     const report = k.dropped && k.report.dna ? { ...k.report, dna: { ...k.report.dna, repair: `sent back once to put the parent back; this pass ships: ${why}` } } : k.report;
     db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
     insertDraft({ id: draftId, prompt: input.prompt, meta: k.stored, code: k.code, report, format: 'world', parentId: input.mog?.parent.id ?? null, mogPrompt: input.mog?.instruction ?? null });
-    db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ? WHERE id = ?').run(k.shots.cover ?? null, k.shots.artIcon ?? null, k.shots.artWide ?? null, draftId);
+    db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, art_avatar = ? WHERE id = ?').run(k.shots.cover ?? null, k.shots.artIcon ?? null, k.shots.artWide ?? null, k.shots.avatar ?? null, draftId);
     keepTrail({ shipped: k.attempt, why });
     return emit({ type: 'done', draftId, meta: k.meta, runtime: report, attempts, ms: Date.now() - started, kept: { attempt: k.attempt, why } });
   };
@@ -446,11 +447,13 @@ export async function generateGame(
       // a Mog's DNA verdict goes in its report, so it is there to see later (and, for a repair, what it repaired)
       if (verdict) report.dna = dnaReport(verdict, prior?.dropped ? `the repair of pass ${prior.attempt}, which dropped ${prior.dropped} of the parent` : undefined);
       const { cover, artIcon, artWide, ...rest } = report;
+      // (the portrait is a picture too: kept with the shots, never in the report's JSON)
+      const avatar = rest.avatar; delete rest.avatar;
       // a pass whose drive took no pictures (skipped) keeps the last pass's: a world never ships without a cover it had,
       // and the report says which code that cover shows
-      if (cover) { shots.cover = cover; shots.hash = hash; } if (artIcon) shots.artIcon = artIcon; if (artWide) shots.artWide = artWide;
+      if (cover) { shots.cover = cover; shots.hash = hash; } if (artIcon) shots.artIcon = artIcon; if (artWide) shots.artWide = artWide; if (avatar) shots.avatar = avatar;
       if (shots.cover) rest.coverHash = shots.hash;
-      db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, report = ? WHERE id = ?').run(shots.cover ?? null, shots.artIcon ?? null, shots.artWide ?? null, JSON.stringify(rest), draftId);
+      db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ?, art_avatar = ?, report = ? WHERE id = ?').run(shots.cover ?? null, shots.artIcon ?? null, shots.artWide ?? null, shots.avatar ?? null, JSON.stringify(rest), draftId);
       // the runtime's repairs and the look's notes are not failures, but the
       // model hears about them once, so the world it ships is the one it
       // meant; so does a Mog that dropped its parent's DNA against the idea;
@@ -483,7 +486,7 @@ export async function generateGame(
     }
 
     if (!problems.length && meta && report) {
-      const { cover: _c, artIcon: _i, artWide: _w, ...rest } = report;
+      const { cover: _c, artIcon: _i, artWide: _w, avatar: _a, ...rest } = report;
       keepTrail({ shipped: attempt, why: pickWhy || 'it passed' });
       return emit({ type: 'done', draftId, meta, runtime: rest, attempts: attempt, ms: Date.now() - started });
     }
