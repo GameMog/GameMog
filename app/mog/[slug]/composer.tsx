@@ -77,8 +77,8 @@ function ConsentStep({ value, onChange, disabled }: { value: ConsentState; onCha
               <span>I have their permission</span>
             </label>
           </div>
-          <label className="ccheck" style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <input type="checkbox" checked={value.adult} disabled={disabled} onChange={(e) => onChange({ ...value, adult: e.target.checked })} style={{ marginTop: 3 }} />
+          <label className="ccheck" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', height: 'auto', padding: '12px 14px', lineHeight: 1.4 }}>
+            <input type="checkbox" checked={value.adult} disabled={disabled} onChange={(e) => onChange({ ...value, adult: e.target.checked })} style={{ marginTop: 1, flex: '0 0 auto' }} />
             <span>They are adults, and nothing in this Mog presents something false and damaging about them as true.</span>
           </label>
           <p className="t-meta dim" style={{ margin: 0 }}>Anyone else real gets a made-up name. Real companies and brands always do.</p>
