@@ -43,8 +43,10 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
   // (a Mog City episode, 3 Nov: the city on mc.gamemog.com with this game's story; no board and no dares at launch, and
   // the creator's word on any real person it names, as a small line)
   const episode = mode === 'episode';
-  const said = (meta as { consent?: { names?: unknown } }).consent;
-  const consent = episode && Array.isArray(said?.names) && said.names.length > 0;
+  const said = meta as { consent?: { names?: unknown }; consentInherited?: unknown };
+  const consent = episode && Array.isArray(said.consent?.names) && said.consent.names.length > 0;
+  // (review F6: a Mog that keeps a consented person's words from the episode it came from carries their line too)
+  const inherited = episode && !consent && Array.isArray(said.consentInherited) && said.consentInherited.length > 0;
   // (a Grand Prix, 18 Oct: the fastest race first, on the time board; it was read as an open world's survival board, slowest on top)
   const by = mode ? (mode === 'race' ? 'level' : mode === 'kart' ? 'kart' : shootout ? 'score' : mode === 'gp' ? 'gp' : 'survival') : meta.scoring === 'survival' ? 'score' : meta.scoring ?? 'score';
   const scores = topScores(game.id, 10, by);
@@ -119,6 +121,7 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
               <Lineage game={game} />
               {world && !episode && <YouLine slug={game.slug} />}
               {consent && <p className="t-meta dim" data-consent>Names a real person, with consent stated by its creator.</p>}
+              {inherited && <p className="t-meta dim" data-consent>Names a real person, with consent stated by the creator of the episode it came from.</p>}
             </div>
             <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} mog={canMog(game)} dare={!episode} />
           </div>

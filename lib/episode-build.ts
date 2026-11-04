@@ -6,7 +6,7 @@ import { waitForDrive, codeHash, testStatus } from './test-drive';
 import type { WorldReport } from './playtest-runtime';
 import {
   packOf, episodeBase, episodeModule, episodeKindProblems, changedStrings, changeReport, episodeTitle, episodeCast, storyOf,
-  realNameProblems, mcOrigin, NAMES_CHECK_SYSTEM, namesCheckTurn, readNamesCheck, EPISODE_CONTROLS, MOG_CITY, type Consent, type EpisodePack,
+  realNameProblems, mcOrigin, NAMES_CHECK_SYSTEM, namesCheckTurn, namesCheckBatches, titleRepeatsEngine, readNamesCheck, EPISODE_CONTROLS, MOG_CITY, type Consent, type EpisodePack,
 } from './episode';
 
 /**
@@ -95,7 +95,11 @@ export function parseEpisodeReply(text: string): { meta?: { tagline: string; blu
 }
 
 /** The meta an episode draft is stored with: the title is always MOG CITY: <its title>; no board, no options to choose. */
-export function episodeMeta(pack: EpisodePack, m: { tagline: string; blurb: string }, consent?: Consent | null) {
+// (inherited, review F6: the real people its parent's creator consented for, whose words a Mog keeps where it did not
+// change them; its page carries their line too)
+export function episodeMeta(pack: EpisodePack, m: { tagline: string; blurb: string }, consent?: Consent | null, inherited: string[] = []) {
+  const own = new Set((consent?.names ?? []).map((n) => n.toLowerCase()));
+  const kept = [...new Set(inherited)].filter((n) => !own.has(n.toLowerCase())).slice(0, 12);
   return {
     title: episodeTitle(pack), tagline: m.tagline, blurb: m.blurb, genre: 'Story episode', cast: episodeCast(pack),
     palette: { sky: '#0B1220', ground: '#2A2D34', accent: '#F2C230' },
@@ -103,22 +107,39 @@ export function episodeMeta(pack: EpisodePack, m: { tagline: string; blurb: stri
     options: { hazards: 'same' as const, music: null, open: false, coins: false },
     episode: changeReport(pack),
     ...(consent ? { consent } : {}),
+    ...(kept.length ? { consentInherited: kept } : {}),
   };
+}
+
+/** The real people a Mog's parent names with consent (its own and what it inherited). */
+export function inheritedConsent(parentMeta: string | null | undefined): string[] {
+  try {
+    const m = JSON.parse(parentMeta ?? '{}') as { consent?: { names?: unknown }; consentInherited?: unknown };
+    const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+    return [...strs(m.consent?.names), ...strs(m.consentInherited)];
+  } catch { return []; }
 }
 
 type Emit = (e: import('./generate-game').GameEvent) => void;
 type Hooks = { signal?: AbortSignal; usage?: (pass: { attempt: number; model: string; usage: Anthropic.Beta.BetaUsage; partial?: boolean }) => void };
 
 /** The real people and brands in a pass's changed texts, by an independent call; null when the check could not be made. */
-async function checkNames(client: Anthropic, model: string, texts: { at: string; text: string }[], pack: EpisodePack, attempt: number, hooks: Hooks) {
-  if (!texts.length) return { people: [], brands: [] };
-  try {
-    const r = await client.beta.messages.create({ model, max_tokens: 2000, system: NAMES_CHECK_SYSTEM, messages: [{ role: 'user', content: namesCheckTurn(texts, pack) }] }, { signal: hooks.signal });
-    hooks.usage?.({ attempt, model: r.model, usage: r.usage });
-    return readNamesCheck(r.content.filter((b) => b.type === 'text').map((b) => (b as Anthropic.Beta.BetaTextBlock).text).join('\n'));
-  } catch {
-    return null;
+/** The real people and brands in every changed text, the tagline and the blurb, batch by batch (namesCheckBatches); null when any batch could not be read. */
+async function checkNames(client: Anthropic, model: string, batches: { at: string; text: string }[][], pack: EpisodePack, attempt: number, hooks: Hooks) {
+  const found = { people: [] as string[], brands: [] as string[] };
+  for (const texts of batches) {
+    try {
+      const r = await client.beta.messages.create({ model, max_tokens: 2000, system: NAMES_CHECK_SYSTEM, messages: [{ role: 'user', content: namesCheckTurn(texts, pack) }] }, { signal: hooks.signal });
+      hooks.usage?.({ attempt, model: r.model, usage: r.usage });
+      if (r.stop_reason === 'max_tokens') return null;
+      const one = readNamesCheck(r.content.filter((b) => b.type === 'text').map((b) => (b as Anthropic.Beta.BetaTextBlock).text).join('\n'));
+      if (!one) return null;
+      found.people.push(...one.people); found.brands.push(...one.brands);
+    } catch {
+      return null;
+    }
   }
+  return found;
 }
 
 export async function generateEpisode(
@@ -172,10 +193,10 @@ export async function generateEpisode(
       delete (pack as { consent?: unknown }).consent;
       code = episodeModule(pack);
       problems.push(...episodeKindProblems(code, input.mog, meta));
-      if (/^\s*mog\s*city\b/i.test(String(pack.title?.episode ?? ''))) problems.push(`The episode title is only the episode's own: the game puts ${MOG_CITY}: before it.`);
+      if (titleRepeatsEngine(String(pack.title?.episode ?? ''))) problems.push(`The episode title is only the episode's own: the game puts ${MOG_CITY}: before it.`);
       if (!problems.length && meta) {
         const changed = changedStrings(pack, parentPack);
-        const checked = await checkNames(client, input.model, [...changed, { at: '/meta/tagline', text: meta.tagline }, { at: '/meta/blurb', text: meta.blurb }], pack, attempt, input);
+        const checked = await checkNames(client, input.model, namesCheckBatches(changed, meta), pack, attempt, input);
         if (stopped()) return;
         if (!checked) return emit({ type: 'error', error: 'The names in this Mog could not be checked right now. Try again in a minute.' });
         problems.push(...realNameProblems({ people: [...meta.people, ...checked.people], brands: [...meta.brands, ...checked.brands] }, consent));
@@ -184,7 +205,7 @@ export async function generateEpisode(
 
     if (!problems.length && meta && pack && code) {
       emit({ type: 'stage', stage: 'playtesting', attempt });
-      const stored = episodeMeta(pack, meta, consent);
+      const stored = episodeMeta(pack, meta, consent, inheritedConsent(input.mog.parent.meta));
       db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
       insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report: { pending: true }, format: 'world', parentId: input.mog.parent.id, mogPrompt: input.mog.instruction });
       // its pictures are made, not shot (lib/episode/art.ts): the poster plate with its own title, the plain plate as its

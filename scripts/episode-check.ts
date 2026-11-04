@@ -12,7 +12,7 @@ import * as E from '../lib/episode.ts';
 import { SCHEMA, validatePack, MEN } from '../lib/episode/schema.js';
 import { worldMode, canMog, MOGGABLE, staticCheckWorld, worldControls } from '../lib/custom-game.ts';
 import { dna, compareDna } from '../lib/mog-dna.ts';
-import { parseEpisodeReply, episodeMeta, episodeTurn } from '../lib/episode-build.ts';
+import { parseEpisodeReply, episodeMeta, episodeTurn, inheritedConsent } from '../lib/episode-build.ts';
 import { episodeVerdict } from '../lib/test-drive.ts';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
@@ -119,6 +119,33 @@ export function runEpisodeChecks(ok: Ok) {
   ok('a consented person passes, by full name or part of it; public figures included', E.realNameProblems({ people: ['Elon Musk', 'Musk'], brands: [] }, consent).length === 0);
   ok('a real person not in the consent is sent back, and with no consent every real person is', E.realNameProblems({ people: ['Taylor Swift'], brands: [] }, consent).length === 1 && E.realNameProblems({ people: ['Elon Musk'], brands: [] }, null).length === 1);
   ok('a real brand is always sent back, consent or not', E.realNameProblems({ people: [], brands: ['Goldman Sachs'] }, consent).length === 1);
+  // (review F1-F6, 3 Nov)
+  {
+    const big = clone(base), ids = Object.keys(base.lines), cids = Object.keys(base.copy);
+    ids.forEach((id) => { big.lines[id] = [big.lines[id][0], `${big.lines[id][1].slice(0, 20)} again`]; });
+    cids.slice(0, 260).forEach((id) => { big.copy[id] = `${base.copy[id].slice(0, 20)} x`.trim(); });
+    big.copy[cids[cids.length - 1]] = 'Pepsi stand';
+    const changed = E.changedStrings(big, base), meta = { tagline: 'TAGLINE-MARK', blurb: 'BLURB-MARK and more words' };
+    const batches = E.namesCheckBatches(changed, meta), turns = batches.map((b) => E.namesCheckTurn(b, big));
+    ok(`the independent name check reads every changed text, the tagline and the blurb, in batches (a ${changed.length}-text rewrite whose last text is "Pepsi stand": ${batches.length} calls, none over ${E.NAMES_CHECK_BATCH})`,
+      changed.length > 700 && batches.flat().length === changed.length + 2 && batches.every((b) => b.length <= E.NAMES_CHECK_BATCH)
+        && turns.some((t) => t.includes('Pepsi stand')) && turns[0].includes('TAGLINE-MARK') && turns[0].includes('BLURB-MARK'), `${changed.length} texts`);
+  }
+  ok('a name check reply of the wrong shape fails closed (null), never "nobody found"', E.readNamesCheck('{}') === null && E.readNamesCheck('{"people": "Elon Musk", "brands": []}') === null
+    && E.readNamesCheck('{"people": [], "brands": [3]}') === null && E.readNamesCheck('{"people": [], "brands": []}') !== null);
+  const john = E.readConsent({ names: ['John'], basis: 'self', adult: true });
+  ok('a consent covers only the person it names: "John" does not cover John Lennon or Elton John; "Elon Musk" covers "Musk"',
+    john.ok && !E.consented('John Lennon', john.consent) && !E.consented('Elton John', john.consent) && E.consented('John', john.consent) && E.consented('Musk', consent) && !E.consented('Elon Reeve', consent));
+  ok('an episode title that repeats MOG CITY, however it is written, is caught; others are not',
+    ['MOG CITY 2', 'Mog-City: Return', 'M0G CITY', 'mog.city nights', ' Mög City'].every(E.titleRepeatsEngine) && !['Night Shift', 'Smog City', 'The Mog', 'City of Mogs'].some(E.titleRepeatsEngine));
+  ok('public JSON (/api/games) carries only the consent\'s names, never its basis, confirmation or time', (() => {
+    const pm = E.publicMeta(JSON.stringify({ title: 'x', consent: { names: ['Pat Doe'], basis: 'self', adult: true, at: 5 } }))!;
+    return pm.includes('"consent":{"names":["Pat Doe"]}') && !/basis|adult|"at"/.test(pm) && E.publicMeta('{"title":"y"}') === '{"title":"y"}';
+  })());
+  ok('a Mog of a consented episode inherits its consent line (the names its parent named with consent), not as its own consent',
+    (() => { const m = episodeMeta(base, { tagline: 'tt', blurb: 'bbbbbbbbbbbb' }, null, inheritedConsent(JSON.stringify({ consent: { names: ['Pat Doe'] }, consentInherited: ['Sam Roe'] })));
+      return JSON.stringify((m as { consentInherited?: string[] }).consentInherited) === '["Pat Doe","Sam Roe"]' && !('consent' in m); })());
+  ok('the key art makes only shapes whose plates ship (no 1200x630 og)', R('lib/episode/art.ts').includes("SIZES = { wide: [1280, 720], icon: [512, 512] }"));
   ok('the check\'s reply is read for what it must be', JSON.stringify(E.readNamesCheck('Here: {"people": ["A B"], "brands": []}')) === '{"people":["A B"],"brands":[]}' && E.readNamesCheck('none') === null);
   ok('the consent is the platform\'s record: kept in the game\'s meta without the creator\'s browser id', JSON.stringify(episodeMeta(base, { tagline: 'tt', blurb: 'bbbbbbbbbbbb' }, consent)).includes('"consent":{"names":["Elon Musk"],"basis":"permission","adult":true')
     && !('player' in (consent as object)));

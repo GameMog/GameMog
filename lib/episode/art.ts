@@ -24,7 +24,8 @@ export const FONT_FILE = join(DIR, 'BarlowCondensed-ExtraBold.ttf');
 const FONT = readFileSync(FONT_FILE);
 const h = React.createElement;
 export const GOLD = '#FFC93C';
-export const SIZES = { wide: [1280, 720], og: [1200, 630], icon: [512, 512] } as const;
+// (no 1200x630 'og' shape: its plate is not shipped and every page's og:image is the wide card; review F8)
+export const SIZES = { wide: [1280, 720], icon: [512, 512] } as const;
 export type Shape = keyof typeof SIZES;
 
 /* ------------------------------------------------- the font's cmap and advances (TrueType, format 4) -- */
@@ -100,7 +101,6 @@ type L = { pad: number; top: number; logo: number; rule: [number, number, number
 const LAYOUT: Record<Shape, L> = {
   // the poster's top-left block (compose.mts 'tl'), scaled 1280/1200 for the card
   wide: { pad: 111, top: 96, logo: 134, rule: [128, 4, 17, 14], sub: [40, 28], maxW: 640, foot: 21, center: false },
-  og: { pad: 104, top: 90, logo: 126, rule: [120, 4, 16, 13], sub: [38, 26], maxW: 600, foot: 20, center: false },
   // the icon: centred at the top over the square plate (compose.mts 'sq', at 512), no foot (unreadable at tile size)
   icon: { pad: 26, top: 34, logo: 74, rule: [72, 3, 10, 9], sub: [26, 17], maxW: 440, foot: 0, center: true },
 };
@@ -133,14 +133,14 @@ async function draw(el: React.ReactElement, W: number, H: number): Promise<Buffe
   return Buffer.from(await r.arrayBuffer());
 }
 
-export type EpisodeArt = { wide?: Buffer; icon?: Buffer; og?: Buffer; title: string; full: boolean; fits: Record<Shape, { lines: string[]; size: number }> };
+export type EpisodeArt = { wide?: Buffer; icon?: Buffer; title: string; full: boolean; fits: Record<Shape, { lines: string[]; size: number }> };
 
 /** The three images for one episode title (the pack's title.episode, tokens already rendered). About 0.2-0.4 s on a laptop. */
 export async function episodeArt(episode: string, shapes: Shape[] = ['wide', 'icon']): Promise<EpisodeArt> {
   const { text, full } = artTitle(episode);
   const out = { title: text, full, fits: {} } as EpisodeArt;
   for (const shape of shapes) {
-    const [W, H] = SIZES[shape], plate = `plate-${shape === 'icon' ? 'square' : shape}.jpg`;
+    const [W, H] = SIZES[shape], plate = `plate-${shape === 'icon' ? 'square' : 'wide'}.jpg`;
     const { el, fit } = typeLayer(shape, text);
     const type = await draw(el, W, H);
     out[shape] = await sharp(readFileSync(join(DIR, plate))).composite([{ input: type }])

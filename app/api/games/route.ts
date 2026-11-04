@@ -6,6 +6,7 @@ import { validPlayer } from '@/lib/dare';
 import { playtest } from '@/lib/playtest';
 import { codeHash, testStatus } from '@/lib/test-drive';
 import { isKartWorld } from '@/lib/custom-game';
+import { publicMeta } from '@/lib/episode';
 import { publishedKartConstants, type KartDriveTrack } from '@/lib/kart-score';
 import { dna } from '@/lib/mog-dna';
 import { publishedSoundtrack, type Soundtrack, type WorldOptions } from '@/lib/world-options';
@@ -14,7 +15,8 @@ import type { WorldSpec } from '@/lib/worldspec';
 export const runtime = 'nodejs';
 
 export async function GET() {
-  return NextResponse.json({ games: listGames().map(({ spec, ...g }) => ({ ...g, spec: JSON.parse(spec) })) });
+  // (a consent record is served as its names only: lib/episode.ts publicMeta)
+  return NextResponse.json({ games: listGames().map(({ spec, ...g }) => ({ ...g, meta: publicMeta(g.meta), spec: JSON.parse(spec) })) });
 }
 
 export async function POST(req: Request) {

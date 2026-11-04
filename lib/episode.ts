@@ -78,6 +78,15 @@ export function storyOf(code?: string | null): { text: string; hash: string } | 
   const text = JSON.stringify(p);
   return { text, hash: createHash('sha256').update(text).digest('hex') };
 }
+/**
+ * Whether an episode title starts with the engine's own name, however it is written ("Mog-City", "M0G CITY", "mog.city"):
+ * the game puts MOG CITY: before every title, so the title never repeats it (review F4).
+ */
+export function titleRepeatsEngine(title: string) {
+  const plain = String(title).normalize('NFKC').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')
+    .replace(/[0134578@$]/g, (c) => ({ '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', $: 's' })[c] ?? c).replace(/[^a-z]/g, '');
+  return plain.startsWith('mogcity');
+}
 /** "MOG CITY: <their title>": the runtime's lockup and the game's title on GameMog. */
 export const episodeTitle = (pack: Pick<Pack, 'title'>) => `${MOG_CITY}: ${pack.title.episode}`;
 
@@ -188,11 +197,14 @@ export function readConsent(input: unknown, now = Date.now()): { ok: true; conse
   return { ok: true, consent: { names: [...new Set(names)], basis: o.basis, adult: true, at: now } };
 }
 const tokens = (s: string) => s.normalize('NFKC').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter((t) => t.length > 1);
-/** Whether a real person found in a Mog is one the creator consented for: one's words all within the other's ("Musk" in "Elon Musk"). */
+/**
+ * Whether a real person found in a Mog is one the creator consented for: every word of the name found is in a consented
+ * name ("Musk" and "Elon Musk" within "Elon Musk"), never the reverse (a consent for "John" does not cover "John Lennon").
+ */
 export function consented(person: string, consent: Consent | null | undefined): boolean {
   const p = tokens(person);
   if (!p.length || !consent) return false;
-  return consent.names.some((n) => { const c = tokens(n); return c.length > 0 && (p.every((t) => c.includes(t)) || c.every((t) => p.includes(t))); });
+  return consent.names.some((n) => { const c = tokens(n); return c.length > 0 && p.every((t) => c.includes(t)); });
 }
 /** What to send back for the real people and brands a Mog names (the builder's own list and the check's, together). */
 export function realNameProblems(found: { people: string[]; brands: string[] }, consent: Consent | null | undefined): string[] {
@@ -206,11 +218,24 @@ export function realNameProblems(found: { people: string[]; brands: string[] }, 
 
 /** The instruction for the independent check of real names (the builder's own list is not taken on its word). */
 export const NAMES_CHECK_SYSTEM = 'You check text written for a video game. List every real person (living or dead, public figure or not) and every real company, brand, product, team or organisation that the texts name or clearly refer to. Fictional characters, invented names, ordinary words and generic places (a city, a street, a park) do not count. A name that is also an ordinary first name counts only when the text clearly means a real, specific person. Reply with one JSON object and nothing else: {"people": ["..."], "brands": ["..."]}.';
-/** The check's turn: the changed texts, numbered, as they will be shown (tokens such as {jane} are the cast's names). */
-export function namesCheckTurn(changed: Changed[], pack: Pack) {
+/** The check's turn: one batch of texts, numbered, as they will be shown (tokens such as {jane} are the cast's names). */
+export function namesCheckTurn(texts: Changed[], pack: Pack) {
   const cast = Object.entries(pack.cast).map(([id, c]) => `{${id}} = ${c.name}`).join(', ');
   const names = Object.entries(pack.names).map(([k, v]) => `{${k}} = ${v}`).join(', ');
-  return `Tokens in braces are filled in by the game: ${cast}; ${names}.\n\nThe texts:\n${changed.slice(0, 600).map((c, i) => `${i + 1}. ${c.text}`).join('\n')}`;
+  return `Tokens in braces are filled in by the game: ${cast}; ${names}.\n\nThe texts:\n${texts.map((c, i) => `${i + 1}. ${c.text}`).join('\n')}`;
+}
+/** The most texts one name check reads (a full rewrite is about 850 texts, so up to 3 calls). */
+export const NAMES_CHECK_BATCH = 300;
+/**
+ * Every text the independent name check must read, in batches, nothing left out (review F1, 3 Nov: it once read only
+ * the first 600): the tagline and the blurb first, then every changed text. Each batch is one call; the build fails
+ * closed if any batch cannot be read.
+ */
+export function namesCheckBatches(changed: Changed[], meta: { tagline: string; blurb: string }, size = NAMES_CHECK_BATCH): Changed[][] {
+  const all = [{ at: '/meta/tagline', text: meta.tagline }, { at: '/meta/blurb', text: meta.blurb }, ...changed];
+  const out: Changed[][] = [];
+  for (let i = 0; i < all.length; i += size) out.push(all.slice(i, i + size));
+  return out;
 }
 /** The check's reply, read for what it must be. */
 export function readNamesCheck(text: string): { people: string[]; brands: string[] } | null {
@@ -218,7 +243,10 @@ export function readNamesCheck(text: string): { people: string[]; brands: string
   if (!m) return null;
   try {
     const o = JSON.parse(m[0]) as Record<string, unknown>;
-    const arr = (v: unknown) => (Array.isArray(v) ? v : []).filter((x): x is string => typeof x === 'string').map((s) => s.slice(0, 80)).slice(0, 40);
+    // (a reply of any other shape is not "nobody found": both lists, each of strings, or the check failed, review F2)
+    const ok = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
+    if (!o || typeof o !== 'object' || !ok(o.people) || !ok(o.brands)) return null;
+    const arr = (v: string[]) => v.map((s) => s.slice(0, 80)).slice(0, 40);
     return { people: arr(o.people), brands: arr(o.brands) };
   } catch { return null; }
 }
@@ -253,3 +281,16 @@ export function episodeCast(pack: Pack) {
 }
 /** The speaker ids the pack's lines may use (Mog City's CAST), for the manual. */
 export const EPISODE_CAST = CAST as Record<string, string>;
+
+/**
+ * A game's meta as public JSON shows it (GET /api/games; review F5): of a consent record, only the names (they are in
+ * the pack anyway); never the basis, the confirmation or the time, which stay on the server.
+ */
+export function publicMeta(meta: string | null): string | null {
+  if (!meta || !meta.includes('"consent"')) return meta;
+  try {
+    const m = JSON.parse(meta) as { consent?: { names?: unknown } };
+    if (m.consent && typeof m.consent === 'object') m.consent = { names: Array.isArray(m.consent.names) ? m.consent.names : [] };
+    return JSON.stringify(m);
+  } catch { return meta; }
+}
