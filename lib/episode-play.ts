@@ -16,9 +16,9 @@ export function storyUrl(game: { slug: string; code?: string | null }) {
 /** A draft's story address (never kept by an edge). */
 export const draftStoryUrl = (id: string, origin = storyOrigin()) => `${origin}/d/${id}/story.json`;
 /** The play frame's address for a story: Mog City embedded (embed=1, the game's id for its messages) with ?story=. */
-// (outside production also ?host=, the page's own origin, where a local Mog City posts its messages: it posts to
-// https://gamemog.com unless told another allowlisted host)
-export const mcFrameSrc = (story: string, game: string) => `${mcOrigin()}/?embed=1${process.env.NODE_ENV === 'production' ? '' : `&host=${encodeURIComponent(storyOrigin())}`}&game=${encodeURIComponent(game)}&story=${encodeURIComponent(story)}`;
+// (and ?host=, the site's own origin, where Mog City posts its messages: https://gamemog.com in production, named outright
+// rather than left to Mog City's default; a local dev origin on the Mac)
+export const mcFrameSrc = (story: string, game: string) => `${mcOrigin()}/?embed=1&host=${encodeURIComponent(storyOrigin())}&game=${encodeURIComponent(game)}&story=${encodeURIComponent(story)}`;
 
 /** The origins whose pages may read a story (CORS): Mog City's, and on a Mac a local copy of it (app/api/mc's rule). */
 export function storyReader(origin: string | null): string | null {

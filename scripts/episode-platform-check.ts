@@ -11,7 +11,8 @@
  * dare, the story is served with CORS for Mog City only, /play goes to Mog City, and scores and dares are refused.
  * Also: a consent the route cannot read is refused before anything is spent, and a pass naming an unconsented real
  * person is sent back. Needs /g/mog-city in the database (deploy/migrate.mjs 2026-11-03-mog-city) and, for the Mog
- * page's composer, a dev server started with EPISODE_MOGS=on (else it checks the dark page). Its throwaway rows go after.
+ * page's composer, a dev server started without EPISODE_MOGS (on by default; =off is the kill switch, checked in this
+ * process before any spend). Its throwaway rows go after.
  */
 import { register } from 'node:module';
 import { createServer, type ServerResponse } from 'node:http';
@@ -151,9 +152,11 @@ export async function episodePlatformChecks(ok: Ok, BASE: string) {
   ok('/g/mog-city plays Mog City in its frame (Mog City embedded, its game id, the story at its version)', home.r.status === 200 && !!hs && MC_RE.test(hs)
     && hs.includes(`&game=${parent.id}&story=${encodeURIComponent(`${new URL(BASE).origin}/g/mog-city/story.json?v=${hv}`)}`) && home.html.includes('Story episode'), hs ?? String(home.r.status));
   const mogPage = await page('/mog/mog-city');
-  const lit = !mogPage.html.includes(MOG_SOON.replace(/'/g, '&#x27;')) && mogPage.html.includes('My Mog names a real person');
-  if (lit) ok('the Mog page (EPISODE_MOGS=on) offers the episode composer: its ideas and the consent step', mogPage.html.includes('Rename the bank and every sign in the city') && mogPage.html.includes('Mog City loads it in your browser'));
-  else ok('the Mog page (dark: EPISODE_MOGS is not on in the dev server) says Mogs are coming soon and offers no composer, and the game page has no Mog button', mogPage.html.includes(MOG_SOON.replace(/'/g, '&#x27;')) && !home.html.includes('href="/mog/mog-city"'));
+  // (on for everyone by default, the owner 4 Nov: the dev server runs without EPISODE_MOGS, as production does)
+  ok('the Mog page offers the episode composer by default: its ideas and the consent step', !mogPage.html.includes(MOG_SOON.replace(/'/g, '&#x27;'))
+    && mogPage.html.includes('My Mog names a real person') && mogPage.html.includes('Rename the bank and every sign in the city') && mogPage.html.includes('Mog City loads it in your browser'));
+  ok('the game page has its Mog button, and the homepage hero\'s MOG opens /mog/mog-city (no MOG Soon)', home.html.includes('href="/mog/mog-city"')
+    && await (async () => { const h = (await page('/')).html; return h.includes('href="/mog/mog-city"') && !h.includes('MOG Soon'); })());
 
   const env = { key: process.env.ANTHROPIC_API_KEY, token: process.env.ANTHROPIC_AUTH_TOKEN, base: process.env.ANTHROPIC_BASE_URL, mogs: process.env.EPISODE_MOGS, usd: process.env.BUILD_DAILY_USD, site: process.env.SITE_URL };
   const realFetch = globalThis.fetch;
@@ -182,6 +185,11 @@ export async function episodePlatformChecks(ok: Ok, BASE: string) {
     api.names = '{"people": ["Elon Musk"], "brands": []}';
 
     const calls0 = api.builds + api.checks;
+    // (the kill switch, EPISODE_MOGS=off: refused at once, nothing spent, and the default is on again)
+    process.env.EPISODE_MOGS = 'off';
+    const killed = await build(POST, { mogOf: 'mog-city', prompt: `Make Jane the boss ${tag}` });
+    process.env.EPISODE_MOGS = 'on';
+    ok('with the kill switch (EPISODE_MOGS=off) a Mog of an episode is refused (409, the coming-soon words) before anything is spent', killed.status === 409 && (killed.json as { error?: string })?.error === MOG_SOON && api.builds + api.checks === calls0);
     const refused = await build(POST, { mogOf: 'mog-city', prompt: `Make Jane the boss ${tag}`, consent: { names: ['Elon Musk'], basis: 'maybe', adult: true } });
     ok('a consent the route cannot read is refused before anything is spent', refused.status === 400 && (refused.json as { field?: string })?.field === 'consent' && api.builds + api.checks === calls0);
 

@@ -1,7 +1,7 @@
 /**
  * Mog City episodes, the offline half (3 Nov 2026; MogCity .scratch/moggable/PLAN.md 4.9). Part of `npm run check`:
  * the schema copy against Mog City's own and its pinned SHA-256, the kind (read from its module, Mog-only, kind-locked,
- * dark until EPISODE_MOGS=on), the gate on good and bad packs (schema, size, shape), the words judged on changed texts
+ * on unless EPISODE_MOGS=off), the gate on good and bad packs (schema, size, shape), the words judged on changed texts
  * only (the platform's blocked words, the never-mention hashes), the consent rules for real people and brands, the
  * manual's chapter against the schema, and the first-party world. The end-to-end half is in scripts/platform-check.ts.
  */
@@ -14,6 +14,7 @@ import { worldMode, canMog, MOGGABLE, staticCheckWorld, worldControls } from '..
 import { dna, compareDna } from '../lib/mog-dna.ts';
 import { parseEpisodeReply, episodeMeta, episodeTurn, inheritedConsent } from '../lib/episode-build.ts';
 import { episodeVerdict } from '../lib/test-drive.ts';
+import { mcFrameSrc, storyReader, storyUrl } from '../lib/episode-play.ts';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
 const sha = (s: string | Buffer) => createHash('sha256').update(s).digest('hex');
@@ -53,11 +54,25 @@ export function runEpisodeChecks(ok: Ok) {
   ok('its page reads as an episode, with Mog City\'s own controls', worldControls(world) === E.EPISODE_CONTROLS && /Hold Space to skip a cutscene/.test(E.EPISODE_CONTROLS));
   const env = process.env.EPISODE_MOGS;
   delete process.env.EPISODE_MOGS;
-  const dark = !MOGGABLE.episode && !canMog({ format: 'world', code: world, meta: null }) && canMog({ format: 'world', code: kart, meta: null });
-  process.env.EPISODE_MOGS = 'on';
   const lit = MOGGABLE.episode && canMog({ format: 'world', code: world, meta: null });
+  process.env.EPISODE_MOGS = 'off';
+  const killed = !MOGGABLE.episode && !canMog({ format: 'world', code: world, meta: null }) && canMog({ format: 'world', code: kart, meta: null });
+  process.env.EPISODE_MOGS = 'on';
+  const on = MOGGABLE.episode;
   if (env === undefined) delete process.env.EPISODE_MOGS; else process.env.EPISODE_MOGS = env;
-  ok('it deploys dark: an episode cannot be mogged until EPISODE_MOGS=on, which opens it without a new build; every other kind is unchanged', dark && lit);
+  // (production, the owner's launch 4 Nov: the frame is mc.gamemog.com whatever EPISODE_MC_ORIGIN says, it names
+  // host=https://gamemog.com, and only mc.gamemog.com may read a story)
+  {
+    const saved = { node: process.env.NODE_ENV, mc: process.env.EPISODE_MC_ORIGIN, story: process.env.STORY_ORIGIN };
+    const envs = process.env as Record<string, string | undefined>;
+    envs.NODE_ENV = 'production'; envs.EPISODE_MC_ORIGIN = 'http://localhost:4962'; delete envs.STORY_ORIGIN;
+    const src = mcFrameSrc(storyUrl({ slug: 'mog-city', code: world }), 'g1');
+    const prod = E.mcOrigin() === 'https://mc.gamemog.com' && src.startsWith('https://mc.gamemog.com/?embed=1&host=https%3A%2F%2Fgamemog.com&game=g1&story=https%3A%2F%2Fgamemog.com%2Fg%2Fmog-city%2Fstory.json%3Fv%3D')
+      && storyReader('https://mc.gamemog.com') === 'https://mc.gamemog.com' && [null, 'http://localhost:4962', 'http://127.0.0.1:3939', 'https://evil.example', 'null', 'https://gamemog.com'].every((o) => storyReader(o) === null);
+    for (const [k, v] of [['NODE_ENV', saved.node], ['EPISODE_MC_ORIGIN', saved.mc], ['STORY_ORIGIN', saved.story]] as const) { if (v === undefined) delete envs[k]; else envs[k] = v; }
+    ok('in production the frame is https://mc.gamemog.com (EPISODE_MC_ORIGIN ignored) with host=https://gamemog.com and a gamemog.com story, and only mc.gamemog.com may read a story (CORS)', prod, src.slice(0, 120));
+  }
+  ok('episodes can be mogged by default (the owner, 4 Nov); EPISODE_MOGS=off closes them without a new build; every other kind is unchanged', lit && killed && on);
   const mogOf = (code: string) => ({ parent: { format: 'world', code, meta: null } });
   ok('an episode is made only as a Mog of one, and a Mog of one stays one (a Create or a Mog of another kind that writes one is sent back)',
     E.episodeKindProblems(world).length === 1 && E.episodeKindProblems(world, mogOf(kart)).length === 1 && E.episodeKindProblems(kart, mogOf(world)).length === 1

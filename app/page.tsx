@@ -103,9 +103,10 @@ function RecordStat({ game }: { game: GameRow }) {
   return record?.level ? <span><b>Lap {record.level}</b> record</span> : null;
 }
 
-/** The flagship's film as the hero: one clip, so it loops; Play leaves for its own site; MOG shows, not clickable, until
- * the flagship can be Mogged (the owner, 29 Oct). */
-// (3 Nov: Mog City is moggable as an episode once the owner switches it on, EPISODE_MOGS=on: MOG then opens /mog/mog-city)
+/** The flagship's film as the hero: one clip, so it loops; Play leaves for its own site; MOG opens its Mog page (the owner,
+ * 4 Nov; until then it showed MOG Soon, 29 Oct). */
+// (4 Nov, the owner: Mog City is moggable as an episode for everyone, so MOG opens /mog/mog-city; EPISODE_MOGS=off, the
+// kill switch, puts MOG Soon back)
 function Flagship({ f }: { f: NonNullable<typeof FLAGSHIP> }) {
   const mog = MOGGABLE.episode;
   const lead = (
