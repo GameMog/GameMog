@@ -85,6 +85,9 @@ async function framedRun(ok: Ok, BASE: string, g: GameRow, html: string) {
     const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, '0')).join('');
     document.body.textContent = 'STAND-IN MOG CITY: ' + JSON.parse(t).cast.jane.name;
     parent.postMessage({ source: 'gamemog', type: 'ready', gameId: game, hash: h, story: { ok: true, id: 'standin', hash: h } }, host);
+    // (a result for another pack, or another game, never counts; then the real one)
+    setTimeout(() => parent.postMessage({ source: 'gamemog', type: 'result', game, mission: 1, passed: true, story: '0'.repeat(64), secs: 300 }, host), 300);
+    setTimeout(() => parent.postMessage({ source: 'gamemog', type: 'result', game: 'another-game', mission: 1, passed: true, story: h, secs: 300 }, host), 450);
     setTimeout(() => parent.postMessage({ source: 'gamemog', type: 'result', game, mission: 1, passed: true, story: h, secs: 312 }, host), 600);
   });
 </script>`;
@@ -108,7 +111,7 @@ async function framedRun(ok: Ok, BASE: string, g: GameRow, html: string) {
     ok('in Chrome, the episode frame is mounted with the measured attributes (sandbox with same-origin, pointer lock and popups; allow autoplay, fullscreen, gamepad, web-share, clipboard-write)',
       seen.frame?.src === src && seen.frame.sandbox === 'allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox' && seen.frame.allow === 'autoplay; fullscreen; gamepad; web-share; clipboard-write', JSON.stringify(seen.frame));
     ok('in Chrome, the episode frame (a stand-in Mog City at the local origin, saying ready once, as Mog City does) reports ready, which lifts the poster', seen.lifted, JSON.stringify(seen.errors));
-    ok('Mission 1 passed (type result, mission 1, passed, its game id, from Mog City\'s origin) is a finished run for the Mog-off and the player counts; nothing reaches a board',
+    ok('Mission 1 passed (type result, mission 1, passed, its game id, the served pack\'s hash, from Mog City\'s origin) is a finished run for the Mog-off and the player counts, once (a result for another pack or another game is not); nothing reaches a board',
       plays.length === 1 && plays[0].runs === 1 && before === 0 && scores === 0, JSON.stringify({ plays, scores }));
   } finally { mc.close(); }
 }

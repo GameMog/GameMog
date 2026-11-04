@@ -9,7 +9,7 @@ import { optionsOf } from '@/lib/world-options';
 import { PlayFrame } from './play-frame';
 import { playSrc } from '@/lib/play-page';
 import { mcFrameSrc, storyUrl } from '@/lib/episode-play';
-import { mcOrigin } from '@/lib/episode';
+import { mcOrigin, storyOf } from '@/lib/episode';
 import { YouLine } from './you-line';
 import { GameActions } from './actions';
 import { Tabs } from './tabs';
@@ -108,7 +108,7 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
         </nav>
         <div className="gtop">
           <div className="gstage">
-            <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game), game.id) : playSrc(game)} episode={episode} mc={mcOrigin()} scores={!episode} you={game.format === 'world' && !episode} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
+            <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game), game.id) : playSrc(game)} episode={episode} mc={mcOrigin()} story={episode ? storyOf(game.code)?.hash ?? null : null} scores={!episode} you={game.format === 'world' && !episode} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
               // eslint-disable-next-line @next/next/no-img-element
               poster={<img src={`/g/${game.slug}/cover`} alt="" />} />
           </div>
