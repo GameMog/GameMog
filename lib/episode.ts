@@ -21,7 +21,7 @@ import { isBlocked, isReserved } from './names';
  */
 
 /** The SHA-256 of Mog City's wagmi/story/schema.js as copied (everything after the header of lib/episode/schema.js). */
-export const SCHEMA_SHA = 'aeb0a96b943d2d8a1fa31689149416b525707c5b9199384cabf3464064a2b2b1';
+export const SCHEMA_SHA = 'ed88b7a71abb5a292b7eda75c4d8a69ca1a4c993f81c42623e9922c4dcfbac38';
 /** The line in lib/episode/schema.js after which the file is Mog City's, byte for byte. */
 export const SCHEMA_MARK = '// ---- copy below ----\n';
 /** The most an episode module may hold (the default pack is about 60 KB; WORLD_MAX's 750 KB is far too loose for data). */
