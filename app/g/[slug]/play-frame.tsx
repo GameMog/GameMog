@@ -12,8 +12,8 @@ import { KartDiagCard, readKdiag, KART_BOOT_KEY as BOOT_KEY, KART_LAST_KEY as LA
 import type { DareView } from '@/lib/dare';
 import type { DareOutcome } from './dare-overlay';
 
-/** Mog City's origin (3 Nov): an episode's frame is spoken to there, and heard only from there (NEXT_PUBLIC_MC_ORIGIN for a local copy). */
-export const MC_ORIGIN = process.env.NEXT_PUBLIC_MC_ORIGIN ?? 'https://mc.gamemog.com';
+/** Mog City's origin (3 Nov): an episode's frame is spoken to there, and heard only from there; a page passes its own (`mc`, lib/episode.ts mcOrigin: a local copy outside production). */
+export const MC_ORIGIN = 'https://mc.gamemog.com';
 
 // the dare's glass (./dare-overlay.tsx, with app/glass.css): loaded only when a dare is in context
 const DareStart = dynamic(() => import('./dare-overlay').then((m) => m.DareStart), { ssr: false });
@@ -44,7 +44,7 @@ type Posted = { score: number; tier: KartTier; rank: number | null; review: bool
  *
  * A result posted from a frame is a claim, not a fact. It is stored as one.
  */
-export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`, scores = true, you: wantsYou = false, kart = false, shootout = false, kartScore = null, kdiag = null, episode = false }: {
+export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`, scores = true, you: wantsYou = false, kart = false, shootout = false, kartScore = null, kdiag = null, episode = false, mc = MC_ORIGIN }: {
   slug: string; gameId: string; poster: React.ReactNode; src?: string;
   /** Off for drafts: a run in a preview has no leaderboard to post to. */
   scores?: boolean;
@@ -75,10 +75,12 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
    * ready message ({ type: 'ready', hash, story }) names no gameId, and the frame's window is what is checked.
    */
   episode?: boolean;
+  /** Mog City's origin for an episode's frame (the server's mcOrigin()). */
+  mc?: string;
 }) {
   const diag = kart ? readKdiag(kdiag) : { info: false, switches: [] as string[] };
   // (an episode's frame is Mog City's own origin: messages go to it by name, never '*')
-  const target = episode ? MC_ORIGIN : '*';
+  const target = episode ? mc : '*';
   const base = diag.switches.length ? `${base0}${base0.includes('?') ? '&' : '?'}kdiag=${diag.switches.join(',')}` : base0;
   const [held, setHeld] = useState(diag.info);
   const ref = useRef<HTMLIFrameElement>(null);
@@ -86,7 +88,8 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
   const me = useMe();
   // the character rides in the URL fragment, which never reaches the server;
   // it is fixed when the frame first loads, and changes after go by message
-  const [src, setSrc] = useState<string | null>(you ? null : base);
+  // (an episode's frame is not in the server's HTML: Mog City says ready once, and only a page already listening hears it)
+  const [src, setSrc] = useState<string | null>(you || episode ? null : base);
   useEffect(() => { if (you && me !== undefined && src === null) setSrc(base + (me ? meFragment(me) : '')); }, [you, me, base, src]);
   const [result, setResult] = useState<Result | null>(null);
   const [name, setName] = useState('');
@@ -177,9 +180,21 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
     try { setName(localStorage.getItem('gamemog:name') ?? ''); } catch {}
     function onMessage(e: MessageEvent) {
       if (!ref.current || e.source !== ref.current.contentWindow) return;
-      if (episode && e.origin !== MC_ORIGIN) return;
+      if (episode && e.origin !== mc) return;
       const d = e.data;
-      if (!d || d.source !== 'gamemog' || (d.gameId !== gameId && !(episode && d.gameId === undefined))) return;
+      // (an episode's messages name the game as gameId or game, from the frame's ?game=; its ready may name none)
+      const named = d && (d.gameId ?? d.game);
+      if (!d || d.source !== 'gamemog' || (named !== gameId && !(episode && named === undefined && d.type === 'ready'))) return;
+      // A Mog City episode's played (the owner, 3 Nov: an episode counts as played when the player finishes Mission 1):
+      // Mog City's { type: 'result', game, mission: 1, passed: true, story, secs } is recorded as a finished run for the
+      // Mog-off picks and the player counts, as every other kind's result is; it has no score, board or dare
+      if (episode) {
+        if (d.type === 'result' && d.mission === 1 && d.passed === true && named === gameId && !gameId.startsWith('draft-')) {
+          fetch('/api/plays', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ gameId, player: playerId() }) })
+            .then(() => dispatchEvent(new CustomEvent('gamemog:run', { detail: { gameId } }))).catch(() => {});
+        }
+        if (d.type !== 'ready') return;
+      }
       if (d.type === 'ready') {
         setLive(true); setLoaded(true);
         // (the dare's PLAY was tapped before the game was up: it starts now)
@@ -248,7 +263,10 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
     }
     addEventListener('message', onMessage);
     return () => removeEventListener('message', onMessage);
-  }, [gameId, scores, slug, episode, target]);
+  }, [gameId, scores, slug, episode, target, mc]);
+
+  // (an episode: its frame loads now, after the listener above is in place)
+  useEffect(() => { if (episode && src === null) setSrc(base); }, [episode, base, src]);
 
   // The dare: read from the address, loaded, and kept only when it is this game's (a published game's page only)
   useEffect(() => {
@@ -351,7 +369,7 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
           // links; pointer lock is a sandbox token, not a feature)
           sandbox={episode ? 'allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts'}
           allow={episode ? 'autoplay; fullscreen; gamepad; web-share; clipboard-write' : 'autoplay; fullscreen'}
-          {...(episode ? { allowFullScreen: true, referrerPolicy: 'strict-origin-when-cross-origin' as const, 'data-origin': MC_ORIGIN } : {})}
+          {...(episode ? { allowFullScreen: true, referrerPolicy: 'strict-origin-when-cross-origin' as const, 'data-origin': mc } : {})}
           title={`${slug}, game`}
           onLoad={() => setLoaded(true)}
         />}

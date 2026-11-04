@@ -29,8 +29,12 @@ export const EPISODE_MAX = 160_000;
 /** The base every pack names, and the engine's own name in every title. */
 export const EPISODE_BASE = 'mog-city@1';
 export const MOG_CITY = 'MOG CITY';
-/** Where the game runs (a local copy of Mog City: NEXT_PUBLIC_MC_ORIGIN, the play frame reads the same). */
-export const mcOrigin = () => process.env.NEXT_PUBLIC_MC_ORIGIN ?? 'https://mc.gamemog.com';
+/** Where the game runs: mc.gamemog.com; outside production a local copy of Mog City may stand in (EPISODE_MC_ORIGIN, localhost only). */
+export const MC_PROD = 'https://mc.gamemog.com';
+export function mcOrigin() {
+  const o = process.env.EPISODE_MC_ORIGIN;
+  return o && process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1):\d{2,5}$/.test(o) ? o : MC_PROD;
+}
 /** The play page's controls line for an episode (Mog City's own). */
 // (Mog City's README "Controls", 3 Nov)
 export const EPISODE_CONTROLS = 'W A S D and the mouse: move and look. Shift: sprint. Space: jump. F: get in or out of the car; W S A D drive, brake and steer, Shift boosts, Space hops, X puts the car back on the road. J or a left click: strike; K or a right click: heavy; Q or L: counter; C: dodge; E: grab. R and T: the radio. M: the map. B: the brief. Esc: pause, with every control. Hold Space to skip a cutscene. An Xbox or PlayStation controller works too.';

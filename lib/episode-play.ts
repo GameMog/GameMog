@@ -1,4 +1,4 @@
-import { storyOf, mcOrigin } from './episode';
+import { storyOf, mcOrigin, MC_PROD } from './episode';
 
 /**
  * Where a Mog City episode plays (3 Nov 2026; MogCity .scratch/moggable/PLAN.md 4.4): its story JSON on this site
@@ -16,12 +16,14 @@ export function storyUrl(game: { slug: string; code?: string | null }) {
 /** A draft's story address (never kept by an edge). */
 export const draftStoryUrl = (id: string, origin = storyOrigin()) => `${origin}/d/${id}/story.json`;
 /** The play frame's address for a story: Mog City embedded (embed=1, the game's id for its messages) with ?story=. */
-export const mcFrameSrc = (story: string, game: string) => `${mcOrigin()}/?embed=1&game=${encodeURIComponent(game)}&story=${encodeURIComponent(story)}`;
+// (outside production also ?host=, the page's own origin, where a local Mog City posts its messages: it posts to
+// https://gamemog.com unless told another allowlisted host)
+export const mcFrameSrc = (story: string, game: string) => `${mcOrigin()}/?embed=1${process.env.NODE_ENV === 'production' ? '' : `&host=${encodeURIComponent(storyOrigin())}`}&game=${encodeURIComponent(game)}&story=${encodeURIComponent(story)}`;
 
 /** The origins whose pages may read a story (CORS): Mog City's, and on a Mac a local copy of it (app/api/mc's rule). */
 export function storyReader(origin: string | null): string | null {
   if (!origin) return null;
-  if (origin === mcOrigin()) return origin;
+  if (origin === MC_PROD || origin === mcOrigin()) return origin;
   return process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1):\d{2,5}$/.test(origin) ? origin : null;
 }
 

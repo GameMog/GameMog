@@ -6,7 +6,7 @@ import { waitForDrive, codeHash, testStatus } from './test-drive';
 import type { WorldReport } from './playtest-runtime';
 import {
   packOf, episodeBase, episodeModule, episodeKindProblems, changedStrings, changeReport, episodeTitle, episodeCast, storyOf,
-  realNameProblems, NAMES_CHECK_SYSTEM, namesCheckTurn, readNamesCheck, EPISODE_CONTROLS, MOG_CITY, type Consent, type EpisodePack,
+  realNameProblems, mcOrigin, NAMES_CHECK_SYSTEM, namesCheckTurn, readNamesCheck, EPISODE_CONTROLS, MOG_CITY, type Consent, type EpisodePack,
 } from './episode';
 
 /**
@@ -197,7 +197,7 @@ export async function generateEpisode(
         if (art.wide && art.icon) db.prepare('UPDATE drafts SET cover = ?, art_icon = ?, art_wide = ? WHERE id = ?').run(plainCover(), art.icon, art.wide, draftId);
       } catch (e) { console.error('episode: its key art could not be made', e); }
       const token = randomUUID();
-      emit({ type: 'drive', draftId, token, attempt });
+      emit({ type: 'drive', draftId, token, attempt, mc: mcOrigin() });
       let report: WorldReport = await waitForDrive(draftId, token, EPISODE_DRIVE_MS, input.signal, { episodeHash: storyOf(code)!.hash });
       if (stopped()) return;
       const hash = codeHash(code);
@@ -206,7 +206,7 @@ export async function generateEpisode(
       db.prepare('UPDATE drafts SET report = ? WHERE id = ?').run(JSON.stringify({ ...rest, trail: { shipped: attempt, why: 'it passed' } }), draftId);
       // (a drive that did not see this very pack load is unverified, never a repair: Mog City runs the same validatePack
       // the gate ran, so a refusal there is the platform's to fix, not the builder's; lib/test-drive.ts episodeVerdict)
-      return emit({ type: 'done', draftId, meta: stored as never, runtime: rest, attempts: attempt, ms: Date.now() - started });
+      return emit({ type: 'done', draftId, meta: stored as never, runtime: rest, attempts: attempt, ms: Date.now() - started, mc: mcOrigin() });
     }
 
     lastProblems = problems;

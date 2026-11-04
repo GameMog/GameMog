@@ -20,6 +20,8 @@ import { db, getGameBySlug, getDraft } from '../lib/db.ts';
 import { submitDrive } from '../lib/test-drive.ts';
 import { storyOf, packOf, episodeBase, MOG_CITY } from '../lib/episode.ts';
 import { MOG_SOON } from '../lib/custom-game.ts';
+import { withBrowser } from '../lib/browser.ts';
+import type { GameRow } from '../lib/db.ts';
 
 const ROOT = new URL('../', import.meta.url).href;
 register('data:text/javascript,' + encodeURIComponent(`
@@ -34,6 +36,9 @@ register('data:text/javascript,' + encodeURIComponent(`
 type Ok = (name: string, cond: boolean, detail?: string) => void;
 type Ev = { type: string; [k: string]: unknown };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** An episode's frame address, as the page's props carry it (the frame itself is mounted in the browser, after its listener). */
+const frameSrc = (html: string) => /src\\?":\\?"((?:https:\/\/mc\.gamemog\.com|http:\/\/(?:localhost|127\.0\.0\.1):\d+)\/\?embed=1(?:[^"\\]|\\u0026)*)/.exec(html)?.[1]?.replace(/\\u0026|&amp;/g, '&') ?? null;
+const MC_RE = /^(?:https:\/\/mc\.gamemog\.com|http:\/\/(?:localhost|127\.0\.0\.1):\d+)\/\?embed=1(?:&host=[^&]+)?&game=/;
 
 /* the stand-in Messages API: a build gets `reply`, the real-name check gets `names` */
 const api = { builds: 0, checks: 0, reply: '', names: '{"people": [], "brands": []}' };
@@ -62,6 +67,51 @@ const server = createServer((req, res) => {
     res.end();
   });
 });
+
+/**
+ * The episode's frame in Chrome, with a stand-in Mog City (3 Nov, the owner: an episode counts as played when the player
+ * finishes Mission 1). Runs when the dev server frames a local Mog City (EPISODE_MC_ORIGIN=http://localhost:<port>) and
+ * that port is free: a page there does what Mog City does when framed (fetch ?story=, post ready with its SHA-256 to
+ * ?host=, then { type: 'result', game, mission: 1, passed: true, story, secs }). Checked: the poster lifts on ready, the result is a finished run (/api/plays: the plays
+ * table), and nothing reaches the scores.
+ */
+async function framedRun(ok: Ok, BASE: string, g: GameRow, html: string) {
+  const src = frameSrc(html);
+  const at = src ? new URL(src) : null;
+  if (!at || !/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(at.origin)) { console.log('  NOT RUN  the episode frame in Chrome with a stand-in Mog City: start the dev server with EPISODE_MC_ORIGIN=http://localhost:<free port>'); return; }
+  const page = `<!doctype html><meta charset="utf-8"><body>stand-in<script>
+  const q = new URLSearchParams(location.search), host = q.get('host'), game = q.get('game');
+  fetch(q.get('story')).then((r) => r.text()).then(async (t) => {
+    const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    document.body.textContent = 'STAND-IN MOG CITY: ' + JSON.parse(t).cast.jane.name;
+    parent.postMessage({ source: 'gamemog', type: 'ready', gameId: game, hash: h, story: { ok: true, id: 'standin', hash: h } }, host);
+    setTimeout(() => parent.postMessage({ source: 'gamemog', type: 'result', game, mission: 1, passed: true, story: h, secs: 312 }, host), 600);
+  });
+</script>`;
+  const mc = createServer((req, res) => { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(page); });
+  const listening = await new Promise<boolean>((r) => { mc.once('error', () => r(false)); mc.listen(Number(at.port), () => r(true)); });
+  if (!listening) { console.log(`  NOT RUN  the episode frame in Chrome: ${at.origin} is taken (a real Mog City there is checked by hand, PHASE-C.md)`); return; }
+  try {
+    const before = (db.prepare('SELECT COUNT(*) AS n FROM plays WHERE game_id = ?').get(g.id) as { n: number }).n;
+    const seen = await withBrowser(async (pg) => {
+      await pg.goto(`${BASE}/g/${g.slug}`);
+      for (let i = 0; i < 60; i++) {
+        const lifted = await pg.eval<boolean>(`document.querySelector('#play .poster')?.dataset.hide === '1'`).catch(() => false);
+        if (lifted && (db.prepare('SELECT COUNT(*) AS n FROM plays WHERE game_id = ?').get(g.id) as { n: number }).n > before) break;
+        await sleep(500);
+      }
+      return { lifted: await pg.eval<boolean>(`document.querySelector('#play .poster')?.dataset.hide === '1'`), errors: pg.errors.slice(0, 4),
+        frame: await pg.eval<{ src: string; sandbox: string; allow: string } | null>(`(() => { const f = document.querySelector('#play iframe'); return f && { src: f.src, sandbox: f.getAttribute('sandbox'), allow: f.getAttribute('allow') }; })()`) };
+    }, { width: 1280, height: 800, timeoutMs: 90_000 });
+    const plays = db.prepare('SELECT runs FROM plays WHERE game_id = ?').all(g.id) as { runs: number }[];
+    const scores = (db.prepare('SELECT COUNT(*) AS n FROM scores WHERE game_id = ?').get(g.id) as { n: number }).n;
+    ok('in Chrome, the episode frame is mounted with the measured attributes (sandbox with same-origin, pointer lock and popups; allow autoplay, fullscreen, gamepad, web-share, clipboard-write)',
+      seen.frame?.src === src && seen.frame.sandbox === 'allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox' && seen.frame.allow === 'autoplay; fullscreen; gamepad; web-share; clipboard-write', JSON.stringify(seen.frame));
+    ok('in Chrome, the episode frame (a stand-in Mog City at the local origin, saying ready once, as Mog City does) reports ready, which lifts the poster', seen.lifted, JSON.stringify(seen.errors));
+    ok('Mission 1 passed (type result, mission 1, passed, its game id, from Mog City\'s origin) is a finished run for the Mog-off and the player counts; nothing reaches a board',
+      plays.length === 1 && plays[0].runs === 1 && before === 0 && scores === 0, JSON.stringify({ plays, scores }));
+  } finally { mc.close(); }
+}
 
 type POST = (req: Request) => Promise<Response>;
 /** One build through the route, its events read to the end; `drive` answers the drive as the creator's page would. */
@@ -94,8 +144,9 @@ export async function episodePlatformChecks(ok: Ok, BASE: string) {
   if (!parent) { ok('/g/mog-city is in the database (node deploy/migrate.mjs)', false); return; }
   const page = async (path: string, init?: RequestInit) => { const r = await fetch(`${BASE}${path}`, { redirect: 'manual', ...init }); return { r, html: (await r.text()).replaceAll('<!-- -->', '') }; };
   const home = await page('/g/mog-city');
-  ok('/g/mog-city plays Mog City in its frame, the story at its version', home.r.status === 200 && home.html.includes(`src="https://mc.gamemog.com/?embed=1&amp;game=${parent.id}&amp;story=${encodeURIComponent(`${new URL(BASE).origin}/g/mog-city/story.json?v=${storyOf(parent.code)!.hash.slice(0, 16)}`)}"`)
-    && home.html.includes('sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"') && home.html.includes('allow="autoplay; fullscreen; gamepad; web-share; clipboard-write"') && home.html.includes('Story episode'), home.r.status + '');
+  const hs = frameSrc(home.html), hv = storyOf(parent.code)!.hash.slice(0, 16);
+  ok('/g/mog-city plays Mog City in its frame (Mog City embedded, its game id, the story at its version)', home.r.status === 200 && !!hs && MC_RE.test(hs)
+    && hs.includes(`&game=${parent.id}&story=${encodeURIComponent(`${new URL(BASE).origin}/g/mog-city/story.json?v=${hv}`)}`) && home.html.includes('Story episode'), hs ?? String(home.r.status));
   const mogPage = await page('/mog/mog-city');
   const lit = !mogPage.html.includes(MOG_SOON.replace(/'/g, '&#x27;')) && mogPage.html.includes('My Mog names a real person');
   if (lit) ok('the Mog page (EPISODE_MOGS=on) offers the episode composer: its ideas and the consent step', mogPage.html.includes('Rename the bank and every sign in the city') && mogPage.html.includes('Mog City loads it in your browser'));
@@ -151,7 +202,7 @@ export async function episodePlatformChecks(ok: Ok, BASE: string) {
     const ds = await page(`/d/${done.draftId}/story.json`, { headers: { origin: 'https://mc.gamemog.com' } });
     ok('the draft\'s story is served for its preview, readable by Mog City', ds.r.status === 200 && ds.r.headers.get('access-control-allow-origin') === 'https://mc.gamemog.com' && JSON.parse(ds.html).cast.jane.name === 'Rosa');
     const dp = await page(`/d/${done.draftId}/play`);
-    ok('the draft\'s /play goes to Mog City with the draft\'s story', dp.r.status === 302 && (dp.r.headers.get('location') ?? '').startsWith(`https://mc.gamemog.com/?embed=1&game=draft-${done.draftId}&story=`) && decodeURIComponent(dp.r.headers.get('location')!).endsWith(`/d/${done.draftId}/story.json`));
+    ok('the draft\'s /play goes to Mog City with the draft\'s story', dp.r.status === 302 && /^(?:https:\/\/mc\.gamemog\.com|http:\/\/(?:localhost|127\.0\.0\.1):\d+)\/\?embed=1(?:&host=[^&]+)?&game=draft-/.test(dp.r.headers.get('location') ?? '') && (dp.r.headers.get('location') ?? '').includes(`&game=draft-${done.draftId}&story=`) && decodeURIComponent(dp.r.headers.get('location')!).endsWith(`/d/${done.draftId}/story.json`));
 
     console.log('\nMog City episodes: published');
     const pub = await realFetch(`${BASE}/api/games`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draftId: done.draftId, player: randomUUID() }) });
@@ -167,7 +218,7 @@ export async function episodePlatformChecks(ok: Ok, BASE: string) {
     ok('its stored meta: an episode with no board, its consent kept', gm.mode === 'episode' && gm.scoring === 'none' && gm.consent?.names?.[0] === 'Elon Musk');
     const v = storyOf(g.code)!.hash.slice(0, 16), story = `${new URL(BASE).origin}/g/${g.slug}/story.json?v=${v}`;
     const gp = await page(`/g/${g.slug}`);
-    ok('its page frames Mog City with ?story= at its story.json, and shows the consent line', gp.r.status === 200 && gp.html.includes(`src="https://mc.gamemog.com/?embed=1&amp;game=${g.id}&amp;story=${encodeURIComponent(story)}"`)
+    ok('its page frames Mog City with ?story= at its story.json, and shows the consent line', gp.r.status === 200 && MC_RE.test(frameSrc(gp.html) ?? '') && (frameSrc(gp.html) ?? '').endsWith(`&game=${g.id}&story=${encodeURIComponent(story)}`)
       && gp.html.includes('Names a real person, with consent stated by its creator.') && gp.html.includes(`${MOG_CITY}: Night Shift`));
     ok('its page has no leaderboard and no dare, and credits Mog City', !gp.html.includes('Leaderboard') && !/>Dare</.test(gp.html) && gp.html.includes('Remixed from') && gp.html.includes('MOG CITY: Unfinished Business'));
     const sMc = await page(`/g/${g.slug}/story.json?v=${v}`, { headers: { origin: 'https://mc.gamemog.com' } });
@@ -178,10 +229,11 @@ export async function episodePlatformChecks(ok: Ok, BASE: string) {
     const again = await page(`/g/${g.slug}/story.json?v=${v}`, { headers: { 'if-none-match': sMc.r.headers.get('etag') ?? '' } });
     ok('a story the browser holds is answered 304', again.r.status === 304);
     const play = await page(`/g/${g.slug}/play`);
-    ok('/play goes to Mog City with its story', play.r.status === 302 && play.r.headers.get('location') === `https://mc.gamemog.com/?embed=1&game=${g.id}&story=${encodeURIComponent(story)}`);
+    ok('/play goes to Mog City with its story', play.r.status === 302 && (play.r.headers.get('location') ?? '').endsWith(`&game=${g.id}&story=${encodeURIComponent(story)}`));
     const sc = await realFetch(`${BASE}/api/scores`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ gameId: g.id, player: 'x', level: 1, timeMs: 1000, finished: true }) });
     const dr = await realFetch(`${BASE}/api/dares`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ gameId: g.id, sender: randomUUID() }) });
     ok('scores and dares are refused for an episode', sc.status === 422 && dr.status === 409, `${sc.status} / ${dr.status}`);
+    await framedRun(ok, BASE, g, gp.html);
     const none = await page(`/g/${(db.prepare("SELECT slug FROM games WHERE slug = 'aspen-gp' OR slug = 'meme-kart' LIMIT 1").get() as { slug: string } | undefined)?.slug ?? 'meme-kart'}/story.json`);
     ok('a game that is not an episode has no story', none.r.status === 404);
   } finally {
@@ -190,7 +242,7 @@ export async function episodePlatformChecks(ok: Ok, BASE: string) {
       if (val === undefined) delete process.env[k]; else process.env[k] = val;
     }
     server.close();
-    for (const id of games) { db.prepare('DELETE FROM plays WHERE game_id = ?').run(id); db.prepare('DELETE FROM games WHERE id = ?').run(id); }
+    for (const id of games) { db.prepare('DELETE FROM plays WHERE game_id = ?').run(id); db.prepare('DELETE FROM scores WHERE game_id = ?').run(id); db.prepare('DELETE FROM games WHERE id = ?').run(id); }
     for (const id of drafts) db.prepare('DELETE FROM drafts WHERE id = ?').run(id);
     db.prepare('DELETE FROM generations WHERE prompt LIKE ?').run(`%${tag}%`);
   }

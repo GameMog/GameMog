@@ -39,9 +39,10 @@ export type GameEvent =
   | { type: 'progress'; chars: number }
   | { type: 'problems'; attempt: number; problems: string[] }
   // the page drives the draft itself and posts the report (lib/test-drive.ts)
-  | { type: 'drive'; draftId: string; token: string; attempt: number }
+  // (mc: a Mog City episode's, the origin its frame is Mog City at)
+  | { type: 'drive'; draftId: string; token: string; attempt: number; mc?: string }
   // kept: the world that ships is an earlier pass, because the repair of its notes was worse (lib/look.ts pickPass)
-  | { type: 'done'; draftId: string; meta: WorldMeta; runtime: Omit<WorldReport, 'cover'>; attempts: number; ms: number; kept?: { attempt: number; why: string } }
+  | { type: 'done'; draftId: string; meta: WorldMeta; runtime: Omit<WorldReport, 'cover'>; attempts: number; ms: number; kept?: { attempt: number; why: string }; mc?: string }
   | { type: 'error'; error: string; problems?: string[] };
 
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8');

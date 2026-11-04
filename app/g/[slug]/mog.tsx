@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { family, getGameById, mogsOf, type GameRow } from '@/lib/db';
-import { canMog, MOG_SOON } from '@/lib/custom-game';
+import { canMog, MOG_SOON, worldMode } from '@/lib/custom-game';
 import { MogOff } from './mog-off';
 
 /**
@@ -29,7 +29,7 @@ export function Lineage({ game }: { game: GameRow }) {
 export function MogOffPanel({ game }: { game: GameRow }) {
   const parent = game.parent_id ? getGameById(game.parent_id) : null;
   if (!parent) return null;
-  return <MogOff child={{ id: game.id, slug: game.slug, title: game.title }} parent={{ id: parent.id, slug: parent.slug, title: parent.title }} idea={game.mog_prompt} />;
+  return <MogOff child={{ id: game.id, slug: game.slug, title: game.title }} parent={{ id: parent.id, slug: parent.slug, title: parent.title }} idea={game.mog_prompt} episode={game.format === 'world' && worldMode(game.code, game.meta) === 'episode'} />;
 }
 
 export function MogsPanel({ game }: { game: GameRow }) {

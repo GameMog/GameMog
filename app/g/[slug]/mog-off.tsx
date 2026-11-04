@@ -11,7 +11,8 @@ type State = { child: number; parent: number; uncounted: number; pick: string | 
  * counts toward the family's ranking only once this browser has finished a
  * run in both, which is the difference between an opinion and a selection.
  */
-export function MogOff({ child, parent, idea }: { child: Side; parent: Side; idea: string | null }) {
+// (episode: a Mog City episode counts as played once Mission 1 is passed, the owner 3 Nov)
+export function MogOff({ child, parent, idea, episode = false }: { child: Side; parent: Side; idea: string | null; episode?: boolean }) {
   const [s, setS] = useState<State | null>(null);
   const [busy, setBusy] = useState(false);
   const load = useCallback(() => {
@@ -55,7 +56,7 @@ export function MogOff({ child, parent, idea }: { child: Side; parent: Side; ide
       <p className="t-meta dim" style={{ marginTop: 4 }}>
         {both
           ? 'You have played both, so your pick counts.'
-          : <>Your pick counts once you have finished a run in both: {s?.played.child ? 'this Mog done' : 'this Mog to play'}, {s?.played.parent ? 'the original done' : <Link href={`/g/${parent.slug}`}>the original to play</Link>}.</>}
+          : <>Your pick counts once you have {episode ? 'passed Mission 1' : 'finished a run'} in both: {s?.played.child ? 'this Mog done' : 'this Mog to play'}, {s?.played.parent ? 'the original done' : <Link href={`/g/${parent.slug}`}>the original to play</Link>}.</>}
       </p>
     </section>
   );

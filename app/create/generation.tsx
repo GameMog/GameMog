@@ -18,6 +18,8 @@ import type { WorldMode } from '@/lib/custom-game';
  */
 export type Draft = {
   draftId: string; attempts: number; ms: number;
+  /** a Mog City episode's: the origin its frame is Mog City at */
+  mc?: string;
   meta: { title: string; tagline: string; blurb: string; genre: string; cast: { name: string; color: string; role?: string }[];
     /** a Mog City episode's (3 Nov): its lines, how many it rewrote and how many keep their recordings */
     episode?: { lines: number; rewritten: number; kept: number } };
@@ -34,7 +36,7 @@ export function useGeneration() {
   const [error, setError] = useState('');
   const [publishing, setPublishing] = useState(false);
   // a draft the builder wants this page to test-drive (lib/test-drive.ts)
-  const [drive, setDrive] = useState<{ draftId: string; token: string; attempt: number } | null>(null);
+  const [drive, setDrive] = useState<{ draftId: string; token: string; attempt: number; mc?: string } | null>(null);
   const [startedAt, setStartedAt] = useState(0);
   const [now, setNow] = useState(0);
   // in line for a slot (lib/build-limits.ts): the place (1 = next) and the wait in minutes, until the build begins
@@ -77,7 +79,7 @@ export function useGeneration() {
             else if (e.type === 'stage') setStage((s) => ({ stage: e.stage, attempt: e.attempt, chars: e.stage === 'writing' ? s?.chars ?? 0 : 0 }));
             else if (e.type === 'progress') setStage((s) => (s ? { ...s, chars: e.chars } : s));
             else if (e.type === 'problems') setRounds((r) => [...r, { attempt: e.attempt, problems: e.problems }]);
-            else if (e.type === 'drive') setDrive({ draftId: e.draftId, token: e.token, attempt: e.attempt });
+            else if (e.type === 'drive') setDrive({ draftId: e.draftId, token: e.token, attempt: e.attempt, mc: typeof e.mc === 'string' ? e.mc : undefined });
             else if (e.type === 'done') { ended = true; setDraft(e); }
             else if (e.type === 'error') {
               ended = true;
@@ -498,7 +500,8 @@ function TestDrive({ drive, onDone }: { drive: { draftId: string; token: string;
  * the game waits at its title. A tab in the background is waited for, as a world's drive is.
  */
 const EPISODE_DRIVE_S = 140;
-function EpisodeDrive({ drive, onDone }: { drive: { draftId: string; token: string; attempt: number }; onDone: () => void }) {
+function EpisodeDrive({ drive, onDone }: { drive: { draftId: string; token: string; attempt: number; mc?: string }; onDone: () => void }) {
+  const mc = drive.mc ?? MC_ORIGIN;
   const frame = useRef<HTMLIFrameElement>(null);
   const done = useRef(onDone); done.current = onDone;
   const [go, setGo] = useState(() => typeof document === 'undefined' || !document.hidden);
@@ -508,7 +511,7 @@ function EpisodeDrive({ drive, onDone }: { drive: { draftId: string; token: stri
     const post = (payload: Record<string, unknown>) => fetch('/api/generate/drive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draftId: drive.draftId, token: drive.token, ...payload }) });
     const send = (raw: Record<string, unknown>) => { if (sent) return; sent = true; post({ raw: { kind: 'episode', ...raw } }).catch(() => {}).finally(() => done.current()); };
     const onMsg = (e: MessageEvent) => {
-      if (e.source !== frame.current?.contentWindow || e.origin !== MC_ORIGIN) return;
+      if (e.source !== frame.current?.contentWindow || e.origin !== mc) return;
       const d = e.data as { source?: string; type?: string; hash?: unknown; story?: unknown };
       if (d?.source !== 'gamemog' || d.type !== 'ready') return;
       send({ ready: true, readyMs: Date.now() - t0, hash: d.hash, story: d.story });
@@ -522,7 +525,7 @@ function EpisodeDrive({ drive, onDone }: { drive: { draftId: string; token: stri
       if (++shown >= EPISODE_DRIVE_S) send({ timedOut: true });
     }, 1000);
     return () => { removeEventListener('message', onMsg); document.removeEventListener('visibilitychange', onVis); clearInterval(tick); };
-  }, [drive.draftId, drive.token]);
+  }, [drive.draftId, drive.token, mc]);
   return (
     <div className="bs-drive" style={{ aspectRatio: '16 / 9', height: 'auto' }}>
       {go ? <iframe ref={frame} src={`/d/${drive.draftId}/play`} sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
@@ -731,7 +734,7 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode
     <div className="panel bs-ready">
       <p className="bs-readylbl">Ready to play</p>
       <div style={{ marginBottom: 16 }}>
-        <PlayFrame slug={draft.draftId} gameId={`draft-${draft.draftId}`} src={`/d/${draft.draftId}/play`} scores={false} episode={episode}
+        <PlayFrame slug={draft.draftId} gameId={`draft-${draft.draftId}`} src={`/d/${draft.draftId}/play`} scores={false} episode={episode} mc={draft.mc}
           // eslint-disable-next-line @next/next/no-img-element
           poster={<img src={`/d/${draft.draftId}/cover`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />} />
       </div>
