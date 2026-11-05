@@ -24,8 +24,10 @@ export function runCastRegistryChecks(ok: Ok) {
   ok(`every shipped body is on disk at its registry size (${people.length} people)`, people.every(([, m]) => existsSync(pub(m.glb!)) && statSync(pub(m.glb!)).size === (m as any).bytes),
     people.filter(([, m]) => !existsSync(pub(m.glb!)) || statSync(pub(m.glb!)).size !== (m as any).bytes).map(([k]) => k).join(' '));
   ok('every Suit\'s clip pack is on disk', people.filter(([, m]) => m.rig === 'suit').every(([, m]) => existsSync(pub(m.clips!.from))));
-  const glbs = new Set(people.map(([, m]) => m.glb)), bytes = [...glbs].reduce((s, g) => s + statSync(pub(g!)).size, 0);
-  ok('the shipped bodies stay small enough to serve (each under 5.5 MB, all under 20 MB)', [...glbs].every((g) => statSync(pub(g!)).size < 5.5e6) && bytes < 20e6, `${(bytes / 1e6).toFixed(1)} MB`);
+  // (Mog City's set all under 20 MB; the hand-built ones (each under 3 MiB, below) are served one by one, only to a story
+  // that casts them, so they are counted apart)
+  const glbs = new Set(people.map(([, m]) => m.glb)), own = new Set(people.filter(([, m]) => m.built !== 'hand').map(([, m]) => m.glb)), bytes = [...own].reduce((s, g) => s + statSync(pub(g!)).size, 0);
+  ok('the shipped bodies stay small enough to serve (each under 5.5 MB, Mog City\'s set all under 20 MB)', [...glbs].every((g) => statSync(pub(g!)).size < 5.5e6) && bytes < 20e6, `${(bytes / 1e6).toFixed(1)} MB`);
   const rec = Object.keys(MODELS).flatMap((k) => recordedLines(k));
   ok(`every recorded line is listed with its file and length (${rec.length} lines; the recordings are Mog City's own)`, rec.length > 400 && rec.every((l) => typeof l.file === 'string' && l.file.length > 4 && l.dur > 0));
   ok('the credits are beside the shipped files', existsSync(pub('cast/mogcity/CREDITS.md')));
@@ -56,6 +58,10 @@ export function runCastRegistryChecks(ok: Ok) {
     const run = r.ok ? toRunnerPack(r.pack) : null, stored = r.ok ? toRunnerPack(r.pack, { cast: { mateo: '/storykit/f/' + 'a'.repeat(64) + '.glb' } }) : null;
     ok('a hand-built hero passes and plays as a forged body (its GLB, the clip pack\'s idle and walk, no model key)', !!run && run.hero === 'Mateo' && run.cast.Mateo?.glb === MODELS['hand/young-hero'].glb && !run.cast.Mateo.model && run.cast.Mateo.walk === 'walkCool'
       && stored!.cast.Mateo.glb === '/storykit/f/' + 'a'.repeat(64) + '.glb' && run.cast.Dan?.model === 'mogcity/dan', r.problems.join(' | ')); }
+  // (and every other hand-built person the same way, by their registry name)
+  for (const k of Object.keys(MODELS).filter((x) => MODELS[x].built === 'hand' && x !== 'hand/young-hero')) {
+    const p = clone(P), id = k.split('/')[1], who = MODELS[k].name; p.cast.push({ id, model: k, color: '#B5838D' }); p.hero = id; p.pets[0].owner = id; const r = gatePack(p), run = r.ok ? toRunnerPack(r.pack) : null;
+    ok(`${k} (${who}) as the hero passes and plays as a forged body`, !!run && run.hero === who && run.cast[who]?.glb === MODELS[k].glb && !run.cast[who].model && run.cast[who].walk === MODELS[k].clips!.walk && run.cast[who].idle === MODELS[k].clips!.idle, r.problems.join(' | ')); }
   const refuse = (name: string, edit: (p: any) => void, re: RegExp) => { const p = clone(P); edit(p); const r = gatePack(p); ok(`refused: ${name}`, !r.ok && r.problems.some((x) => re.test(x)), r.problems.join(' | ') || 'passed'); };
   refuse('a shipped person with a sheet too', (p) => { p.cast[2].sheet = seedSheet('mogcity/mrbig', 'mrbig'); }, /shipped body as it is, so it has no sheet/);
   refuse('a model not in the registry', (p) => { p.cast[2].model = 'mogcity/nobody'; }, /model/);

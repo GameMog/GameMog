@@ -650,6 +650,53 @@
    "seed": "storykit/cast/seeds.json#hand/young-hero",
    "credit": "An original Story Kit character (an invented person, no real likeness): the Character Forge's young-hero anchor (MakeHuman base body, clothes and hair, CC0 1.0) polished by hand; moves from the Story Kit's clip pack (cast/cast-clips.glb: CMU Graphics Lab Motion Capture Database clips)."
   },
+  "hand/old-boss": {
+   "kind": "person",
+   "world": "Story Kit",
+   "built": "hand",
+   "name": "Augustin",
+   "role": "a silver-bearded boss in his sixties who runs the block from a back office, soft-spoken and ruthless (the Story Kit's hand-built old boss; a villain or a boss by default, a hero when the story is his)",
+   "glb": "cast/hand/old-boss.glb",
+   "bytes": 2263444,
+   "rig": "cast66",
+   "clips": {
+    "from": "cast/cast-clips.glb",
+    "idle": "idle",
+    "walk": "walkHeavy",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "face": {
+    "open": 0.4,
+    "hair": true
+   },
+   "props": [],
+   "height": 1.75,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "drive",
+    "fight",
+    "hero"
+   ],
+   "anchor": "old-boss",
+   "voice": {
+    "f0": 122,
+    "near": {
+     "id": "hand-old-boss",
+     "kokoro": "bm_george",
+     "speed": 0.9,
+     "pitch": -1.2,
+     "description": "a man in his sixties, low unhurried baritone with quiet authority, courteous, never raises his voice"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#hand/old-boss",
+   "credit": "An original Story Kit character (an invented person, no real likeness): the Character Forge's old-boss anchor (MakeHuman base body, clothes and hair, CC0 1.0) polished by hand; moves from the Story Kit's clip pack (cast/cast-clips.glb: CMU Graphics Lab Motion Capture Database clips)."
+  },
   "mogcity/moon": {
    "kind": "pet",
    "world": "Mog City",

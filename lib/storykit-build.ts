@@ -168,7 +168,7 @@ ${rec.join('\n')}
 
 A Mog that changes how one of them looks replaces the model with a sheet started from their seed sheet (given with the parent when it has them).${hand.length ? `
 
-Hand-built people (${hand.map((k) => `\`${k}\``).join(', ')}) belong to no world: polished by hand to the shipped cast's standard, they fit any story in any city, and can be its hero (\`{ "id": "...", "model": "${hand[0]}", "color": "..." }\`, set \`name\` to rename them; they have no recorded lines, so every line is voiced in their voice block). For a young man who carries the story, prefer one over a forged sheet on the same anchor.` : ''}`;
+Hand-built people (${hand.map((k) => `\`${k}\``).join(', ')}) belong to no world: polished by hand to the shipped cast's standard, they fit any story in any city, in any part, and can be its hero (\`{ "id": "...", "model": "${hand[0]}", "color": "..." }\`, set \`name\` to rename them; they have no recorded lines, so every line is voiced in their voice block). ${hand.map((k) => `\`${k}\` is ${MODELS[k].name}, ${MODELS[k].role.replace(/ \(.*\)$/, '')}`).join('; ')}. For a lead who fits one of them, prefer them over a forged sheet on the same anchor.` : ''}`;
 }
 /** The seed sheets of the shipped people a parent pack uses (a Mog's request), or ''. */
 export function seedsFor(pack: PackV2) {
