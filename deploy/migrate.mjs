@@ -1145,7 +1145,9 @@ export const MIGRATIONS = [
         if (g.art_avatar && sha(g.art_avatar) !== old.get(a.slug)) { left.push(`${a.slug} (its own portrait)`); continue; }
         n += Number(db.prepare('UPDATE games SET art_avatar = ? WHERE id = ?').run(file(`${a.slug}-avatar.jpg`), g.id).changes);
       }
-      const kept = new Set(AVATARS.map((a) => a.slug));
+      // (the 4 Nov portraits of these three creatures already face the camera, centred: kept until a build shoots a
+      // headshot, so the homepage's Up-and-Coming bubble keeps Mallow's face instead of a cover square)
+      const kept = new Set([...AVATARS.map((a) => a.slug), 'mallow-the-lantern-sea', 'lantern-hour-moon-whale-midway', 'ruse-cloudquake-carnival']);
       for (const o of OLD_AVATARS) {
         if (kept.has(o.slug)) continue;
         const g = db.prepare('SELECT id, art_avatar FROM games WHERE slug = ?').get(o.slug);
