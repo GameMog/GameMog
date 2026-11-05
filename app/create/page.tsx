@@ -10,7 +10,7 @@ import { DEFAULT_OPTIONS, type WorldOptions } from '@/lib/world-options';
 import { useStoryKit, StoryCityField, StoryCityCard, STORY_IDEAS, STORY_RULES, useStoryConsent } from './story';
 import { ConsentStep } from './consent';
 import { CharCount, CREATE_PROMPT_MAX } from './char-count';
-import { storyCityName, type StoryCity } from '@/lib/storykit-site';
+import { storyCityName, STORY_HERO_MAX, type StoryCity } from '@/lib/storykit-site';
 
 type Finding = { level: 'error' | 'warn'; code: string; message: string };
 type Report = { ok: boolean; findings: Finding[]; stats: Record<string, number> };
@@ -185,6 +185,9 @@ export default function Create() {
   const [story, setStory] = useState(false);
   const [city, setCity] = useState<StoryCity>('ny');
   const { consent, setConsent, said } = useStoryConsent();
+  // the hero (optional): the creator's words for how they look, or Mog City's own hero (then the words are not sent)
+  const [heroLook, setHeroLook] = useState('');
+  const [asDan, setAsDan] = useState(false);
   const telling = storykit && story;
 
   async function onFile(file: File | undefined) {
@@ -214,7 +217,11 @@ export default function Create() {
   }
 
   async function generate() {
-    if (telling) { await gen.run({ prompt: prompt.trim(), story: { city }, consent: said.value }); return; }
+    if (telling) {
+      const hero = asDan ? { model: 'dan' } : heroLook.trim() || undefined;
+      await gen.run({ prompt: prompt.trim(), story: { city, ...(hero ? { hero } : {}) }, consent: said.value });
+      return;
+    }
     setSpec(null); setReport(null); setCharacter(null); setAdjustments([]);
     const data = await gen.run({
       kind,
@@ -284,6 +291,21 @@ export default function Create() {
                 onChange={(e) => setPrompt(e.target.value.slice(0, CREATE_PROMPT_MAX))}
               />
               <CharCount n={prompt.length} max={CREATE_PROMPT_MAX} />
+              <label className="lbl" htmlFor="hero" style={{ marginTop: 12 }}>Your hero <span className="opt">(optional)</span></label>
+              <textarea
+                id="hero" rows={3} value={heroLook} maxLength={STORY_HERO_MAX} disabled={busy || asDan} aria-disabled={asDan}
+                style={{ minHeight: 100, ...(asDan ? { opacity: 0.45 } : null) }}
+                placeholder="Age, build, hair, face, what they wear, how they carry themselves. e.g. 30s, broad shoulders, close-cropped grey beard, navy work jacket, tired eyes."
+                onChange={(e) => setHeroLook(e.target.value.slice(0, STORY_HERO_MAX))}
+              />
+              <CharCount n={asDan ? 0 : heroLook.length} max={STORY_HERO_MAX} />
+              <label className="ccheck" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', height: 'auto', marginTop: 8, lineHeight: 1.4 }}>
+                <input type="checkbox" checked={asDan} disabled={busy} onChange={(e) => setAsDan(e.target.checked)} style={{ marginTop: 3, flex: '0 0 auto' }} />
+                <span>
+                  Play as Dan (Mog City&apos;s hero)
+                  <span className="dim-2" style={{ display: 'block', fontSize: 13 }}>Your story, your missions and people, with Mog City&apos;s own hand-built hero.</span>
+                </span>
+              </label>
               <div style={{ marginTop: 12 }}>
                 <ConsentStep value={consent} onChange={setConsent} disabled={busy} what="story" />
               </div>

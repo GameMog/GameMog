@@ -16,7 +16,8 @@
  * voices and lines inherited by hash and its parent's stored files carried over, and bad replies sent back with the
  * gate's words and then fixed (Chicago labels in New York, a bike called a car, an unknown place, a real person, which
  * consent allows, a Mission 1 with no playable payoff, a step Mog City has no part for), and a Mog that keeps moving the
- * city refused to the end of the pass limit.
+ * city refused to the end of the pass limit. The hero (5 Nov): a look sent to the builder for the hero's sheet, Dan as
+ * the shipped hero (the gate accepts him, he is never forged), and the route refusing a bad hero before anything is spent.
  */
 import { register } from 'node:module';
 import { createServer, type ServerResponse } from 'node:http';
@@ -38,7 +39,7 @@ register('data:text/javascript,' + encodeURIComponent(`
 const { db, insertDraft, publishDraft, getGameBySlug } = await import('../lib/db.ts');
 const { StoryStore } = await import('../lib/storykit-store.ts');
 const { gatePack } = await import('../storykit/pack/gate.ts');
-const { storykitModule, storykitMeta, inheritance, isStorykitWorld, storykitPackOf, STORY_CLOSED, exampleWorld } = await import('../lib/storykit-build.ts');
+const { storykitModule, storykitMeta, inheritance, isStorykitWorld, storykitPackOf, STORY_CLOSED, exampleWorld, storykitTurn, readStoryHero } = await import('../lib/storykit-build.ts');
 const { mogBase } = await import('../storykit/pack/gate.ts');
 const { voicePlanOf } = await import('../storykit/pack/runner.ts');
 const { MOG_SOON } = await import('../lib/custom-game.ts');
@@ -111,6 +112,14 @@ function nyStory() {
   const more = p.acts.flatMap((a: any) => a.missions).map((m: any, i: number) => ({ ...clone(m), id: `NR-${i + 4}`, title: `${m.title} Again` }));
   p.acts.at(-1).missions.push(...more);
   return p;
+}
+// the same story played as Dan (the creator ticked "Play as Dan"): the hero is the shipped Dan, no sheet
+function danStory() {
+  const p = nyStory();
+  const dez = p.cast.find((c: any) => c.id === p.hero);
+  const q = JSON.parse(JSON.stringify(p).replaceAll('"dez"', '"dan"').replaceAll('{dez}', '{dan}'));
+  q.cast[q.cast.findIndex((c: any) => c.id === 'dan')] = { id: 'dan', model: 'mogcity/dan', color: dez.color };
+  return q;
 }
 // a good Mog of Night Shift: a new person (a chestnut seller), a new car (the hero's own sedan) and Christmas
 function holly(ns: any) {
@@ -228,6 +237,54 @@ try {
   ok('nothing inherited, everything to make in the browser: forge Dez, Mrs. Kwon and Ray, voice every line; the show hears the cast',
     cRep?.inherit?.todo?.forge?.join() === 'dez,kwon,ray' && cRep.inherit.lines.inherited === 0 && cd?.story?.forge?.join() === 'dez,kwon,ray' && create.events.some((e) => e.type === 'story' && e.cast?.[0]?.id === 'dez' && e.city === 'ny') && cRep.status === 'unverified',
     JSON.stringify(cRep?.inherit?.todo));
+
+  /* 1b. the hero: "Your hero" (a look) and "Play as Dan" (5 Nov) */
+  console.log('\n  the hero: a look, or Dan');
+  const LOOK = 'Late 40s, broad shoulders, close-cropped grey beard, navy work jacket, tired eyes, walks like his knees hurt.';
+  const bare = storykitTurn('A cab driver works the night', { city: 'ny' });
+  ok('no hero (nothing, null or blank) is today\'s build exactly: the same first turn, no hero section',
+    bare === storykitTurn('A cab driver works the night', { city: 'ny', hero: null }) && !/THE HERO/.test(bare)
+      && [undefined, null, '', '   '].every((v) => { const r = readStoryHero(v); return r.ok && r.hero === null; }));
+  const spent0 = api.builds + api.checks;
+  const refusals = await Promise.all([
+    { prompt: `A cab driver works the night ${tag}`, storykit: { city: 'ny', hero: 'x'.repeat(401) } },
+    { prompt: `A cab driver works the night ${tag}`, storykit: { city: 'ny', hero: { model: 'jane' } } },
+    { prompt: `A cab driver works the night ${tag}`, storykit: { city: 'ny', hero: { model: 'dan', look: 'tall' } } },
+    { prompt: `A cab driver works the night ${tag}`, storykit: { city: 'ny', hero: 42 } },
+    { prompt: `A cab driver works the night ${tag}`, storykit: { city: 'ny', hero: ['dan'] } },
+    { prompt: `A cab driver works the night ${tag}`, storykit: { city: 'ny', hero: 'Tall, and looks like Brad Pitt in a navy coat' } },
+  ].map((b) => build(POST, b)));
+  ok('the route refuses a 401-character hero, an unknown model, an extra key, a number, a list and a real person\'s likeness (400, field hero), before anything is spent',
+    refusals.every((r) => r.status === 400 && r.json?.field === 'hero') && api.builds + api.checks === spent0 && /400 characters/.test(refusals[0].json?.error ?? ''),
+    JSON.stringify(refusals.map((r) => [r.status, r.json])));
+  const r400 = readStoryHero('x'.repeat(400)), dan = readStoryHero({ model: 'dan' });
+  ok('400 characters is the cap (accepted), and { model: "dan" } is read as Dan', r400.ok && !!r400.hero && dan.ok && (dan.hero as any)?.model === 'dan');
+
+  api.replies = [reply(nyStory())];
+  const looked = await build(POST, { prompt: `A cab driver works six fares across New York before sunrise ${tag}`, storykit: { city: 'ny', hero: LOOK } });
+  const ld = doneOf(looked); if (ld) drafts.push(ld.draftId);
+  const lturn = JSON.stringify(api.requests.at(-1)?.messages ?? '');
+  ok('a look: the first turn carries the creator\'s words as the hero\'s look for the Character Forge sheet (appearance only, never story text, never a real person)',
+    lturn.includes(LOOK) && lturn.includes("THE HERO'S LOOK") && lturn.includes('never story text') && lturn.includes('Character Forge sheet') && lturn.includes('real-person rules') && !lturn.includes('THE HERO IS DAN'));
+  ok('... and the build passes with a forged hero (Dez, with a sheet, to forge)', !!ld && ld.attempts === 1 && ld.story?.forge?.includes('dez'), JSON.stringify(looked.events.filter((e) => e.type === 'problems' || e.type === 'error')).slice(0, 400));
+
+  ok('the gate accepts a pack whose hero is the shipped Dan (no sheet, his registry voice, name and anchor filled in)',
+    (() => { const g = gatePack(danStory()); const d = g.pack?.cast.find((c: any) => c.id === 'dan'); return g.ok && g.pack.hero === 'dan' && d?.model === 'mogcity/dan' && !d.sheet && d.name === 'Dan' && d.voice?.id === 'mogcity-dan'; })(),
+    JSON.stringify(gatePack(danStory()).problems.slice(0, 4)));
+  api.replies = [reply(nyStory()), reply(danStory())];
+  const n1 = api.requests.length;
+  const asDan = await build(POST, { prompt: `A cab driver works six fares across New York before sunrise ${tag}`, storykit: { city: 'ny', hero: { model: 'dan' } } });
+  const dd = doneOf(asDan); if (dd) drafts.push(dd.draftId);
+  const dturn = JSON.stringify(api.requests[n1]?.messages ?? '');
+  ok('Dan: the first turn tells the builder the hero is the shipped Dan ({ id dan, model mogcity/dan }, no sheet, his voice), the rest a new story',
+    dturn.includes('THE HERO IS DAN') && dturn.includes('\\"model\\": \\"mogcity/dan\\"') && dturn.includes('no sheet') && dturn.includes('recorded lines') && !dturn.includes("THE HERO'S LOOK"), dturn.slice(-900));
+  ok('Dan: a pass with a forged hero is sent back, the pass with Dan passes; Dan is never forged (not in the forge list, done in the show)',
+    sentBack(asDan).some((p) => /plays this story as Dan/.test(p)) && !!dd && dd.attempts === 2 && !dd.story?.forge?.includes('dan') && dd.story?.forge?.join() === 'kwon,ray'
+      && asDan.events.some((e) => e.type === 'story' && e.cast?.find((c: any) => c.id === 'dan')?.state === 'done'),
+    JSON.stringify([sentBack(asDan).slice(0, 2), dd?.story?.forge]));
+  const dRow = dd ? db.prepare('SELECT code FROM drafts WHERE id = ?').get(dd.draftId) as any : null;
+  const dPack = dRow ? storykitPackOf(dRow.code) : null;
+  ok('Dan: the stored pack plays Dan as the hero (model mogcity/dan, no sheet)', dPack?.hero === 'dan' && dPack.cast.find((c: any) => c.id === 'dan')?.model === 'mogcity/dan' && !dPack.cast.find((c: any) => c.id === 'dan')?.sheet);
 
   /* 2. a good Mog of Night Shift */
   console.log('\n  a good Mog of Night Shift (a new person, a new car, Christmas)');

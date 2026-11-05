@@ -44,3 +44,13 @@ export function storyOf(game: { format?: string; meta?: string | null } | null |
 
 /** What the build route says to a story build while the switch is off (app/api/generate/route.ts). */
 export const STORY_CLOSED = 'Story worlds are not open yet.';
+
+/**
+ * The hero on a story world's CREATE (5 Nov): optional, and one of two. "Your hero" is the creator's words for how the
+ * hero looks (up to STORY_HERO_MAX characters; the builder writes the hero's Character Forge sheet from it, never the
+ * story), or "Play as Dan" plays the story as Mog City's own hand-built hero. Sent as body.storykit.hero: a string (the
+ * look) or { model: 'dan' }; the build route reads it strictly (lib/storykit-build.ts readStoryHero) before anything is
+ * spent.
+ */
+export const STORY_HERO_MAX = 400;
+export const STORY_HERO_MODELS = ['dan'] as const;

@@ -9,7 +9,7 @@ import { ImageSchema, type Character, type CharacterImage } from '@/lib/characte
 import { readOptions } from '@/lib/world-options';
 import { isOpenWorld, worldMode, canMog, MOG_SOON } from '@/lib/custom-game';
 import { isEpisodeParent, readConsent } from '@/lib/episode';
-import { isStoryParent, storyParentPack, readCity, STORY_CLOSED } from '@/lib/storykit-build';
+import { isStoryParent, storyParentPack, readCity, readStoryHero, STORY_CLOSED, type StoryHero } from '@/lib/storykit-build';
 import { storykitForRequest } from '@/lib/storykit-http';
 import { storykitMode } from '@/lib/storykit-switch';
 import { storyStore, storeGuard } from '@/lib/storykit-store';
@@ -44,7 +44,8 @@ export async function POST(req: Request) {
   // from a story request
   const storyMog = isStoryParent(parent);
   let storyCity: ReturnType<typeof readCity> = null;
-  const storyAsk = (body.storykit ?? body.story) as { city?: unknown } | null | undefined;
+  let storyHero: StoryHero | null = null;
+  const storyAsk = (body.storykit ?? body.story) as { city?: unknown; hero?: unknown } | null | undefined;
   if ((storyAsk != null && !parent) || storyMog) {
     if (!storykitForRequest(req)) return NextResponse.json({ error: storyMog ? MOG_SOON : STORY_CLOSED }, { status: storyMog ? 409 : 404 });
     // (the store's size guard, lib/storykit-store.ts storeGuard: refused here too, before a slot is taken or anything is spent)
@@ -54,6 +55,11 @@ export async function POST(req: Request) {
     else {
       storyCity = readCity(storyAsk?.city);
       if (!storyCity) return NextResponse.json({ error: 'Pick a city for the story world: New York (story worlds play on Mog City\'s engine, which plays New York so far).', field: 'city' }, { status: 400 });
+      // the hero (5 Nov, optional): the creator's words for how they look (up to 400 characters), or Mog City's Dan
+      // ({ model: 'dan' }); read strictly here, before a slot is taken or anything is spent (lib/storykit-build.ts readStoryHero)
+      const hero = readStoryHero(storyAsk?.hero);
+      if (!hero.ok) return NextResponse.json({ error: hero.error, field: 'hero' }, { status: 400 });
+      storyHero = hero.hero;
     }
   }
   // (a kind of game that cannot be mogged yet, lib/custom-game.ts canMog, is refused here, before a slot is taken or
@@ -182,7 +188,7 @@ export async function POST(req: Request) {
           if (parent && parent.format === 'world' && (worldMode(parent.code, parent.meta) === 'shootout' || worldMode(parent.code, parent.meta) === 'gp' || episode)) {
             options.hazards = 'same'; options.music = null; delete options.soundtrack;
           }
-          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options, consent: consent.consent, ...(storyCity ? { storykit: { city: storyCity } } : {}), signal: stop.signal, usage }, (e) => {
+          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options, consent: consent.consent, ...(storyCity ? { storykit: { city: storyCity, hero: storyHero } } : {}), signal: stop.signal, usage }, (e) => {
             if (e.type === 'stage') attempts = Math.max(attempts, e.attempt);
             if (e.type === 'drive' || e.type === 'done') draftId = e.draftId;
             if (e.type === 'done' || e.type === 'error') result = e;

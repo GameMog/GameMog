@@ -3,7 +3,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { db, insertDraft, type GameRow } from './db';
-import { gatePack, personName, mogBase, MOGCITY, type PackV2 } from '../storykit/pack/gate.ts';
+import { gatePack, personName, mogBase, MOGCITY, LIKENESS_TEXT, type PackV2 } from '../storykit/pack/gate.ts';
+import { isBlocked } from './names';
+import { STORY_HERO_MAX, STORY_HERO_MODELS } from './storykit-site';
 import { MODELS, seeds as castSeeds, recordedClip, recordedLines } from '../storykit/pack/registry.ts';
 import { PLACES, CAM_POINTS, CITY_NAME, MOGCITY_BUILDS, buildsFor, type CityId } from '../storykit/pack/cities.ts';
 import { ANCHORS, MOGCITY_SCENES, MOGCITY_STUBS } from '../storykit/pack/schema.mjs';
@@ -88,6 +90,35 @@ export function storyParentPack(parent: { code?: string | null; meta?: string | 
   const pack = storykitPackOf(parent.code);
   return pack ? { pack, store: null } : null;
 }
+/**
+ * The hero a story Create asks for (lib/storykit-site.ts STORY_HERO_MAX): nothing (null, undefined or blank: the builder
+ * invents the hero, as before), the creator's words for the hero's look (a string), or Mog City's Dan ({ model: 'dan' },
+ * the only shipped hero offered). Anything else is refused, with the page's words, before a slot is taken or anything is
+ * spent: another type, a look over the cap, markup, a word GameMog doesn't allow, a look pointing at a real person's
+ * likeness (the gate's rule 6: "looks like <Name>"), or any other model or key.
+ */
+export type StoryHero = { look: string } | { model: (typeof STORY_HERO_MODELS)[number] };
+export function readStoryHero(v: unknown): { ok: true; hero: StoryHero | null } | { ok: false; error: string } {
+  if (v == null) return { ok: true, hero: null };
+  if (typeof v === 'string') {
+    const look = v.replace(/\s+/g, ' ').trim();
+    if (!look) return { ok: true, hero: null };
+    if (look.length > STORY_HERO_MAX) return { ok: false, error: `Keep your hero to ${STORY_HERO_MAX} characters.` };
+    if (/[<>{}`]/.test(look)) return { ok: false, error: 'Describe your hero in words: no code or markup.' };
+    if (isBlocked(look)) return { ok: false, error: 'Your hero has a word GameMog doesn\'t allow.' };
+    if (LIKENESS_TEXT.test(look)) return { ok: false, error: 'Describe your hero in your own words: heroes are invented, never made to look like a real person.' };
+    return { ok: true, hero: { look } };
+  }
+  if (typeof v === 'object' && !Array.isArray(v)) {
+    const o = v as Record<string, unknown>;
+    const keys = Object.keys(o);
+    if (keys.length === 1 && keys[0] === 'model' && (STORY_HERO_MODELS as readonly unknown[]).includes(o.model)) return { ok: true, hero: { model: o.model as (typeof STORY_HERO_MODELS)[number] } };
+  }
+  return { ok: false, error: 'That hero could not be read: describe how they look, or play as Dan.' };
+}
+/** The shipped person a story played as Dan casts as its hero (public/storykit/cast/registry.json). */
+export const DAN = 'mogcity/dan';
+
 export const readCity = (v: unknown): CityId | null => (typeof v === 'string' && (STORYKIT_CITIES as string[]).includes(v) ? v as CityId : null);
 /** The base a Create in a city runs on: Mog City's engine (mogcity-1, mc.gamemog.com) and its build of the city. */
 export const baseOf = (city: CityId) => ({ engine: MOGCITY, city, cityBuild: buildsFor(MOGCITY, city)[0] });
@@ -204,7 +235,7 @@ ${JSON.stringify(exampleWorld())}
 \`\`\``;
 }
 
-export type StorykitInput = { city?: CityId; mog?: { parent: GameRow; instruction: string } };
+export type StorykitInput = { city?: CityId; hero?: StoryHero | null; mog?: { parent: GameRow; instruction: string } };
 const parentOf = (input: StorykitInput) => (input.mog ? storyParentPack(input.mog.parent) : null);
 
 /** The first turn: a Create's city and request, or a Mog's parent pack whole, its locks and the idea. */
@@ -233,7 +264,28 @@ Start from the original's pack and change what the idea asks for, and nothing el
 
 ${prompt}
 
-Its base is exactly ${JSON.stringify(baseOf(city))}. Write a new story pack: ${CREATE_MISSIONS.min} to ${CREATE_MISSIONS.max} missions in 1 to 3 acts, its own cast, rides and voices, set in ${CITY_NAME[city]}, with a title of its own that never names Mog City (Mog City is the engine, not a world's name). A new world sets its own rules from the runtime's parts: its meters, its clock, its mission rules and HUD items. Reply with the two blocks.`;
+Its base is exactly ${JSON.stringify(baseOf(city))}. Write a new story pack: ${CREATE_MISSIONS.min} to ${CREATE_MISSIONS.max} missions in 1 to 3 acts, its own cast, rides and voices, set in ${CITY_NAME[city]}, with a title of its own that never names Mog City (Mog City is the engine, not a world's name). A new world sets its own rules from the runtime's parts: its meters, its clock, its mission rules and HUD items.${heroTurn(input.hero)} Reply with the two blocks.`;
+}
+
+/**
+ * What a Create's first turn says about its hero (the creator's "Your hero" words, or "Play as Dan"), or '' (the builder
+ * invents the hero, as it always has). The look is the creator's words for how the hero looks: it goes into the hero's
+ * Character Forge sheet (identity, heritage, face, hair, facial hair, wardrobe, posture), never into the story.
+ */
+export function heroTurn(hero?: StoryHero | null): string {
+  if (!hero) return '';
+  if ('model' in hero) return `
+
+THE HERO IS DAN. The creator chose to play this story as Dan, Mog City's own hand-built hero. The hero is the shipped person, exactly { "id": "dan", "model": "${DAN}" } in cast, with no sheet, and "hero": "dan": his own body, clips and face, and the name Dan. Leave his voice block out (or copy the registry's exactly), so his recorded lines play where the words match his and the voice near his speaks the rest. Never give him a sheet, a new look or another name. Everything else is a new story: its own missions, people, cars, voices and dressing, and its own cutscenes (no scene steps: Mog City's set pieces belong to Mog City's own story). Dan is the player; write him as this story's hero, not as Mog City's plot.`;
+  return `
+
+THE HERO'S LOOK. The creator described how their hero looks, in their own words (between the lines below). It is a description of the hero's appearance only, never story text: no event, person, place or line in it is part of the story, and it is never quoted on screen.
+
+----- the hero's look -----
+${hero.look}
+----- end of the hero's look -----
+
+Give the hero (the cast member "hero" names) a Character Forge sheet built from it: their age, build and height in identity, their skin and heritage, their face words, hair and facial hair, their wardrobe, and how they carry themselves in posture. Where it leaves something out, choose what fits the story; where it asks for something the sheet cannot make, take the nearest the sheet can. The hero is an invented person with an invented name: never name them after a real person, and never make them look or sound like one, whatever the words say (the real-person rules apply to the hero as to the story).`;
 }
 
 /* ------------------------------------------------------------- the reply -- */
@@ -316,6 +368,15 @@ export function builderProblems(pack: PackV2, input: StorykitInput, meta?: Story
     // (a title naming Mog City, a Create's or a Mog's, is the gate's: storykit/pack/gate.ts rule 11)
     const hero = (pack.cast ?? []).find((c: PackV2) => c?.id === pack.hero);
     if (hero?.model !== 'mogcity/dan' && all.some((m: PackV2) => kinds(m.steps).some((x: PackV2) => x?.type === 'scene'))) out.push('A scene step plays Mog City\'s own set pieces with its own people, so only a story whose hero is Dan (mogcity/dan) writes one: write this story\'s own cutscenes instead.');
+  }
+  // the hero as the creator asked (a Create only): played as Dan, the shipped Dan with no sheet and no scene step; given a
+  // look, a forged hero (a sheet, which the look is written into)
+  if (!input.mog && input.hero) {
+    const hero = (pack.cast ?? []).find((c: PackV2) => c?.id === pack.hero);
+    if ('model' in input.hero) {
+      if (!hero || hero.model !== DAN || hero.sheet || hero.voiceOnly) out.push(`The creator plays this story as Dan: the hero is the shipped person { "id": "dan", "model": "${DAN}" }, with no sheet, and "hero" names him.`);
+      else if (all.some((m: PackV2) => kinds(m.steps).some((x: PackV2) => x?.type === 'scene'))) out.push('This is a new story played as Dan, not Mog City\'s own: write its own cutscenes, no scene steps (Mog City\'s set pieces).');
+    } else if (!hero?.sheet) out.push('The creator described how their hero looks: the hero is a forged person with a Character Forge sheet written from that look, not a shipped model.');
   }
   // Mission 1 ends on a payoff the player does (the owner's review of the first build, 4 Nov)
   const m1 = all[0];

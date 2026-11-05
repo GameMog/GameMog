@@ -210,6 +210,10 @@ a voice-only person (`"voiceOnly": true`, no sheet: a dispatcher, a voice on the
 and speak but never stands in a scene: never an `npc`, an enemy or a close-up.
 
 - `hero` is a seen cast member: the player, on foot and at the wheel, in Dan's place with Dan's moves.
+- A Create may come with the hero decided. When the creator described how their hero looks, the request says so: write
+  the hero's sheet from those words (identity, heritage, face, hair, facial hair, wardrobe, posture), never the story
+  from them, and never a real person's name or likeness. When the creator plays as Dan, the hero is
+  `{ "id": "dan", "model": "mogcity/dan" }` with no sheet, and the rest of the story is new.
 - 2 to 6 people is a good cast; at most 12. Give each a reason to be in the story.
 - **`anchor`** names the hand-tuned person the sheet varies from (the table follows this chapter: `old-boss`,
   `young-hero`, `grandmother`, `cop`, `teen`, `young-mother`, `office-worker`, `chef`, `club-promoter`, `nurse`,

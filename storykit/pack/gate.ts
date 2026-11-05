@@ -145,7 +145,8 @@ const TEXT_VERBS: [RegExp, string][] = [
 ];
 const ANIMAL = /\b(dog|dogs|puppy|pup|hound|mutt|cat|kitten|horse|pony|parrot|hamster|rabbit|bunny)\b/i;
 const LIKENESS_KEY = /likeness|look.?alike|resembl|celebrity|based.?on|real.?(?:name|person|people)|portrait|photo|face.?ref|voice.?ref|clone|impersonat/i;
-const LIKENESS_TEXT = /\b(?:[Ll]ooks?|[Ss]ounds?|[Tt]alks?|[Dd]ressed)\s+(?:just\s+)?like\s+(?:a\s+young(?:er)?\s+|an\s+old(?:er)?\s+)?\p{Lu}\p{Ll}|\b[Rr]esembl\w*\s+\p{Lu}|\b[Pp]layed by\b|\b[Ii]n the (?:style|voice|image) of\b|\b[Ll]ook-?alike\b|\b[Dd]oppel?g[aä]nger\b|\b[Ii]mpersonat\w*|\b(?:[Aa]\s+)?(?:[Yy]ounger|[Oo]lder) version of\b/u;
+/** Words that point at a real person's likeness (rule 6; the build route reads a story's hero look with it too). */
+export const LIKENESS_TEXT = /\b(?:[Ll]ooks?|[Ss]ounds?|[Tt]alks?|[Dd]ressed)\s+(?:just\s+)?like\s+(?:a\s+young(?:er)?\s+|an\s+old(?:er)?\s+)?\p{Lu}\p{Ll}|\b[Rr]esembl\w*\s+\p{Lu}|\b[Pp]layed by\b|\b[Ii]n the (?:style|voice|image) of\b|\b[Ll]ook-?alike\b|\b[Dd]oppel?g[aä]nger\b|\b[Ii]mpersonat\w*|\b(?:[Aa]\s+)?(?:[Yy]ounger|[Oo]lder) version of\b/u;
 const TOKENS = new Set(['n', 'of', 'name', 'ride', 'ride.name', 'ride.board', 'ride.go', 'ride.park']);
 
 /** FNV-1a (32-bit) of a line's text: a clip in the manifest is for this exact text (the voice pass's own, voice-design.js). */
