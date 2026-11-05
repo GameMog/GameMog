@@ -114,3 +114,22 @@ test("Mog City's own story as a world (packs/mog-city.json): read from the game'
   const calls = fs.readFileSync(path.join(ROOT, 'wagmi/mission/calls.js'), 'utf8');
   for (const m of w.missions) for (const s of m.steps) for (const x of s.during || []) if (x.ref) assert.ok(calls.includes(`'${x.ref}': {`), x.ref);
 });
+
+test("a world's title is its own: no MOG CITY lockup under ?pack= (Mog City's own story keeps it)", async () => {
+  const { ownTitle, isOwn } = await import('../wagmi/storyrun/title.js');
+  assert.equal(ownTitle('Night Shift'), 'Night Shift');
+  assert.equal(ownTitle('Mog City: Night Shift'), 'Night Shift');
+  assert.equal(ownTitle('MOGCITY - Night Shift'), 'Night Shift');
+  assert.equal(isOwn({ def: { id: 'mog-city' }, url: 'http://127.0.0.1:4981/packs/mog-city.json' }), true);
+  assert.equal(isOwn({ def: { id: 'mog-city' }, url: `https://gamemog.com/storykit/f/${'a'.repeat(64)}.json` }), false);
+  // (index.html hides its lockup only under ?pack=, until the world's title is in)
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  assert.match(html, /if \(Q\.has\('pack'\)\) H\.classList\.add\('wg-pk'\);/);
+  assert.match(html, /html\.wg-pk:not\(\.wg-pk-t\) #wg-boot \.wg-boot-title \{ visibility: hidden; \}/);
+});
+
+test('the host hears page errors, rejections, load failures and the page going behind', async () => {
+  const src = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/host.js'), 'utf8');
+  for (const k of ["error('page'", "error('rejection'", "error('load'", "tell('hidden'"]) assert.ok(src.includes(k), k);
+  assert.match(fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/pack.js'), 'utf8'), /export async function load\(\) \{\n  watch\(\);/);
+});

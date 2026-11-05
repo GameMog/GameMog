@@ -11,6 +11,8 @@
 //   await load() -> world | null      world: { ok, why, url, hash, id, title, def (the checked JSON), asset(path) -> URL
 //                                     or null, heroGLTF(loadGLB), sheetCar, ... }
 import { packUrl, packHash, assetUrl, hostOf } from './allow.js';
+import { watch, error as hostError } from './host.js';
+import { showTitle, plainTitle, isOwn } from './title.js';
 
 export const STEP_KINDS = new Set(['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
@@ -74,10 +76,11 @@ export function check(w) {
 }
 
 export async function load() {
+  watch();
   const raw = q.get('pack');
   const out = { ok: false, why: null, url: null, hash: null, id: null, title: null, def: null };
   const url = packUrl(raw, location, hostOf(q.get('host')));
-  if (!url) { out.why = 'address not allowed'; return out; }
+  if (!url) { out.why = 'address not allowed'; hostError('load', 'the world did not load: its address is not allowed'); plainTitle(); return out; }
   out.url = url;
   try {
     const bytes = await getBytes(url);
@@ -88,7 +91,8 @@ export async function load() {
     if (errs.length) throw new Error('refused: ' + errs.slice(0, 4).join('; '));
     Object.assign(out, { ok: true, hash: h, id: def.id, title: def.title, def });
   } catch (err) { out.why = String(err.message || err); }
-  if (!out.ok) { console.warn('[storyrun] world refused:', out.why); return out; }
+  if (!out.ok) { console.warn('[storyrun] world refused:', out.why); hostError('load', `the world did not load: ${out.why}`); plainTitle(); return out; }
+  showTitle(out.def, null, isOwn(out));
   const W = out, def = W.def;
   W.asset = (p) => (typeof p === 'string' && /^assets\/[\w/.-]+$/.test(p) && !p.includes('..') ? p : assetUrl(p, url));
   // (the cast by display name; the hero's)

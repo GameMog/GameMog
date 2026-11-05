@@ -4,7 +4,7 @@
 // What it sets up, in Mog City's own way:
 //   - mission/ui.js (the HUD, the pause menu and its game clock) and mission/audio.js, story mode on, the sandbox's
 //     toolbar put away; the hero's face (face.js) on Dan's body, as the opening does;
-//   - the start gate (ui.gate) with the world's title under MOG CITY's lettering, over the live city;
+//   - the start gate (ui.gate) with the world's own title in the lockup's lettering (no MOG CITY), over the live city;
 //   - the places (places.js), the cast (cast.js: registry people native, forged ones from the world's files), the
 //     voices (the world's clips into W.voice), the HUD additions (hud.js);
 //   - the story: acts in order, each mission on the runner (runner.js); between missions free roam to the next one's
@@ -20,12 +20,12 @@ import { createGPS } from '../mission/gps.js';
 import { createMarker } from '../mission/marker.js';
 import { createFace } from '../face.js';
 import { outBesideCar } from '../intro.js';
-import { S as story } from '../story/index.js';
 import { createPlaces } from './places.js';
 import { createCast } from './cast.js';
 import { createHud } from './hud.js';
 import { createRunner } from './runner.js';
 import { tell, result as tellResult, log as hostLog } from './host.js';
+import { showTitle, plainTitle, isOwn, ownTitle } from './title.js';
 
 const Q = new URLSearchParams(location.search);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -39,16 +39,14 @@ export async function install(W) {
   addEventListener('keydown', (e) => { if (/^Digit[1-4]$/.test(e.code) && !Q.has('sandbox') && !document.body.classList.contains('wg-offering') && !W.storyrun?.choosing) e.stopImmediatePropagation(); }, true);
   if (!world || !world.ok) {
     tell('ready', { gameId: Q.get('game') || null, hash: null, story: { v: 2, ok: false, id: null, hash: null, why: world?.why || 'no world' } });
-    ui.bootOff(); outBesideCar(W);
+    plainTitle(); ui.bootOff(); outBesideCar(W);
     console.warn('[storyrun] no story: free roam');
     return;
   }
   const def = world.def;
-  // the title: the world's under MOG CITY's lettering (the tab, the instant title's tag line)
-  // (a title that already says Mog City, 'Mog City: Night Shift', shows its own part under the lettering)
-  const shortTitle = String(def.title).replace(/^mog\s*city\s*[:·\-–—]\s*/i, '') || def.title;
-  try { document.title = story.title().replace(story.episode, shortTitle); } catch {}
-  try { const tag = document.querySelector('#wg-boot .wg-boot-tag'); if (tag) tag.textContent = shortTitle; const g = document.querySelector('#wg .wg-gtitle .tag'); if (g) g.textContent = shortTitle; } catch {}
+  // the title: the world's own, alone (never MOG CITY's lockup: Mog City is the engine), on the tab, the instant title
+  // and the start gate (title.js)
+  showTitle(def, document.querySelector('#wg .wg-gtitle'), isOwn(world));
   const heroName = world.heroName || 'Dan';
   if (W.dan && !W.dan.face) W.dan.face = createFace(W, { speaker: heroName, inner: W.dan.body, bones: W.dan.bones, hair: true, open: 0.42 });
   W.gps = W.gps || createGPS(W);
@@ -225,7 +223,7 @@ export async function install(W) {
   }
   async function actEnd(e) {
     await ui.fade(0.9, 0.5);
-    await hud.card({ kicker: e.title || 'END OF ACT', text: e.heading || def.title, sub: (e.story || []).join(' ') || (e.quote ? `"${e.quote.text}"` : '') }, flags.autoCard ? 1 : Math.max(3, e.minSecs || 0));
+    await hud.card({ kicker: e.title || 'END OF ACT', text: e.heading || (isOwn(world) ? def.title : ownTitle(def.title)), sub: (e.story || []).join(' ') || (e.quote ? `"${e.quote.text}"` : '') }, flags.autoCard ? 1 : Math.max(3, e.minSecs || 0));
     if (e.next) await hud.card({ kicker: e.next.kicker || 'NEXT', text: e.next.text, sub: e.next.sub || '' }, flags.autoCard ? 0.8 : (e.next.secs || 3));
     await ui.fade(0, 0.5);
   }

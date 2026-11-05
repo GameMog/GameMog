@@ -6,6 +6,13 @@
 //   progress      { mission, step, kind, i, n }                             each step as it starts (kind: the step's type)
 //   mission-start { id, title } · mission-end { id, how, secs | why } · mission-fail { id, why, step, kind } · story-end { id }
 //   keyart        { wide, square }                                          JPEG bytes, transferred ArrayBuffers
+//   hidden        { hidden }                                                the page went behind (true: Chrome stops
+//                                                                           drawing it, the drive is paused) or came back
+//   error         { kind, message, where? }                                 kind: 'page' (an uncaught error), 'rejection'
+//                                                                           (an unhandled rejection), 'load' (a script,
+//                                                                           image, model or sound that did not load, or
+//                                                                           the world itself); each distinct one once, 40
+//                                                                           at most a session (watch(), from pack.js)
 import { hostOf } from './allow.js';
 
 const q = new URLSearchParams(location.search);
@@ -26,4 +33,27 @@ export function result(world, mission, secs) {
   if (!game || told.has(mission)) return false;
   told.add(mission);
   return tell('result', { game, mission, passed: true, story: world.hash, secs: Math.max(0, Math.round(secs)) });
+}
+
+// what goes wrong on the page, and the page going behind: watched from the world's load on (pack.js load(), the first
+// thing under ?pack=), so a world that never gets in still says why
+let watching = false, errorsSent = 0;
+const errorsSeen = new Set();
+export function error(kind, message, where) {
+  const m = String(message || kind).replace(/\s+/g, ' ').trim().slice(0, 200), key = `${kind}|${m}|${where || ''}`;
+  if (errorsSeen.has(key) || errorsSent >= 40) return false;
+  errorsSeen.add(key); errorsSent++;
+  return tell('error', { kind, message: m, ...(where ? { where: String(where).slice(0, 200) } : {}) });
+}
+export function watch() {
+  if (watching || typeof window === 'undefined') return;
+  watching = true;
+  addEventListener('error', (e) => {
+    const t = e.target;
+    // (a resource's failed load reaches the window only in the capture phase, with no message: named by its tag and address)
+    if (t && t !== window && t.tagName) { error('load', `${t.tagName.toLowerCase()} did not load`, t.currentSrc || t.src || t.href || ''); return; }
+    error('page', e.message || e.error?.message || 'error', e.filename ? `${e.filename.replace(location.origin, '')}:${e.lineno}:${e.colno}` : '');
+  }, true);
+  addEventListener('unhandledrejection', (e) => { const r = e.reason; error('rejection', (r && (r.message || r.name)) || String(r)); });
+  document.addEventListener('visibilitychange', () => tell('hidden', { hidden: document.hidden }));
 }
