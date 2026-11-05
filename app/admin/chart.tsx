@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Point } from '@/lib/analytics';
+import type { Bucket, Point } from '@/lib/analytics';
 import { DRAW, SNAP, Spring, drive } from './motion';
 
 const H = 240, PAD = { l: 40, r: 14, t: 18, b: 30 };
@@ -14,10 +14,13 @@ function niceMax(v: number) {
   return 10 * step;
 }
 
-export const bucketLabel = (at: number, bucket: 'hour' | 'day') =>
-  bucket === 'hour'
-    ? new Date(at).toLocaleTimeString('en-US', { hour: 'numeric' })
-    : new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+// a week is named by its Monday; All time can span a new year, so a day or week outside this year carries its year
+export const bucketLabel = (at: number, bucket: Bucket, long = false) => {
+  if (bucket === 'hour') return new Date(at).toLocaleTimeString('en-US', { hour: 'numeric' });
+  const d = new Date(at), year = d.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' as const } : {};
+  const day = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...year });
+  return bucket === 'week' && long ? `Week of ${day}` : day;
+};
 
 /**
  * Visitors and page views over the range. The lines draw themselves from the
@@ -26,7 +29,7 @@ export const bucketLabel = (at: number, bucket: 'hour' | 'day') =>
  * lines stand for on another chart (Mog City: players in the dark line, visitors
  * in the light one, which must be the larger).
  */
-export function LineChart({ points, bucket, k, names = NAMES }: { points: Point[]; bucket: 'hour' | 'day'; k: string; names?: { visitors: string; views: string; empty?: string } }) {
+export function LineChart({ points, bucket, k, names = NAMES }: { points: Point[]; bucket: Bucket; k: string; names?: { visitors: string; views: string; empty?: string } }) {
   const wrap = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
   const [hover, setHover] = useState<number | null>(null);
@@ -116,7 +119,7 @@ export function LineChart({ points, bucket, k, names = NAMES }: { points: Point[
       )}
       {empty && w > 0 && <p className="chart-empty">{names.empty ?? NAMES.empty}</p>}
       <div ref={tip} className="tip" style={{ opacity: 0 }} aria-hidden>
-        {hp && <><b>{bucketLabel(hp.at, bucket)}</b><span><i className="k visitors" />{names.visitors} {hp.visitors.toLocaleString('en-US')}</span><span><i className="k views" />{names.views} {hp.views.toLocaleString('en-US')}</span></>}
+        {hp && <><b>{bucketLabel(hp.at, bucket, true)}</b><span><i className="k visitors" />{names.visitors} {hp.visitors.toLocaleString('en-US')}</span><span><i className="k views" />{names.views} {hp.views.toLocaleString('en-US')}</span></>}
       </div>
     </div>
   );

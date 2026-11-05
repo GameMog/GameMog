@@ -19,8 +19,11 @@ const TABS = [
   { id: 'overview', label: 'Overview' }, { id: 'dares', label: 'Dares' }, { id: 'worlds', label: 'Worlds' }, { id: 'builds', label: 'Builds' },
   { id: 'names', label: 'Names' }, { id: 'traffic', label: 'Traffic' }, { id: 'mogcity', label: 'Mog City' }, { id: 'reports', label: 'Crashes' },
 ] as const satisfies readonly { id: Tab; label: string }[];
-const RANGE_ITEMS = [{ id: '24h', label: '24h' }, { id: '7d', label: '7 days' }, { id: '30d', label: '30 days' }] as const satisfies readonly { id: Range; label: string }[];
-const RANGE_WORDS: Record<Range, string> = { '24h': 'the day before', '7d': 'the week before', '30d': 'the 30 days before' };
+const RANGE_ITEMS = [{ id: '24h', label: '24h' }, { id: '7d', label: '7 days' }, { id: '30d', label: '30 days' }, { id: 'all', label: 'All time' }] as const satisfies readonly { id: Range; label: string }[];
+// (All time has no period before it: its numbers say since when instead, Delta)
+const RANGE_WORDS: Record<Exclude<Range, 'all'>, string> = { '24h': 'the day before', '7d': 'the week before', '30d': 'the 30 days before' };
+const RANGE_COMMANDS: Record<Range, string> = { '24h': 'Show the last 24 hours', '7d': 'Show the last 7 days', '30d': 'Show the last 30 days', all: 'Show all time' };
+const since = (at: number) => new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 // the tabs that follow the range switch
 const ranged = (t: Tab) => t === 'overview' || t === 'traffic' || t === 'mogcity';
 
@@ -81,7 +84,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
 
   const commands = useMemo<Command[]>(() => [
     ...TABS.map((t) => ({ id: `tab-${t.id}`, label: `Go to ${t.label}`, group: 'Tab', always: true, run: () => setTab(t.id) })),
-    ...RANGE_ITEMS.map((r) => ({ id: `range-${r.id}`, label: `Show the last ${r.id === '24h' ? '24 hours' : r.label}`, group: 'Range', always: true, run: () => { setRange(r.id); setTab((t) => (ranged(t) ? t : 'overview')); } })),
+    ...RANGE_ITEMS.map((r) => ({ id: `range-${r.id}`, label: RANGE_COMMANDS[r.id], group: 'Range', always: true, run: () => { setRange(r.id); setTab((t) => (ranged(t) ? t : 'overview')); } })),
     { id: 'refresh', label: 'Refresh the numbers', group: 'Data', always: true, run: () => { router.refresh(); toast('Numbers refreshed'); } },
     ...worlds.flatMap((w) => [
       { id: `pub-${w.id}`, label: `${w.hidden ? 'Restore' : 'Unpublish'} ${w.title}`, group: kindOf(w), run: () => publish(w, !!w.hidden) },
@@ -130,7 +133,8 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
 }
 
 /* ------------------------------------------------------------ overview -- */
-function Delta({ now, before, range }: { now: number; before: number; range: Range }) {
+function Delta({ now, before, range, from }: { now: number; before: number | null; range: Range; from: number }) {
+  if (range === 'all' || before === null) return <p className="kpi-d" title={`Everything recorded since ${since(from)}`}>Since launch</p>;
   if (!before && !now) return <p className="kpi-d">None in {RANGE_WORDS[range]} either</p>;
   if (!before) return <p className="kpi-d">New this period</p>;
   const pct = Math.round(((now - before) / before) * 100);
@@ -148,7 +152,7 @@ function Kpi({ label, k, s, format, hint }: { label: string; k: keyof Kpis; s: S
     <div className="kpi" title={hint}>
       <p className="kpi-l">{label}</p>
       <p className="kpi-n"><Num value={s.now[k]} format={format} /></p>
-      <Delta now={s.now[k]} before={s.before[k]} range={s.range} />
+      <Delta now={s.now[k]} before={s.before ? s.before[k] : null} range={s.range} from={s.from} />
     </div>
   );
 }
@@ -521,7 +525,7 @@ function McKpi({ label, k, m, format, hint, extra }: { label: string; k: keyof M
     <div className="kpi" title={hint}>
       <p className="kpi-l">{label}</p>
       <p className="kpi-n"><Num value={m.now[k]} format={format} /></p>
-      <Delta now={m.now[k]} before={m.before[k]} range={m.range} />
+      <Delta now={m.now[k]} before={m.before ? m.before[k] : null} range={m.range} from={m.from} />
       {extra && <p className="kpi-x">{extra}</p>}
     </div>
   );

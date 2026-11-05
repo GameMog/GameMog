@@ -29,12 +29,55 @@ export function recordEvent(e: { visitor: string; kind: EventKind; path: string;
 }
 
 /* ---------------------------------------------------------------- ranges -- */
-export const RANGES = ['24h', '7d', '30d'] as const;
+// 'all' (the owner, 5 Nov: "we need an ALL time or ALL next to 24h, 7 days, 30 days"): from the first thing the site
+// recorded to now, in days (in weeks once it is longer than WEEKLY_AFTER days), with no period before it to compare with
+export const RANGES = ['24h', '7d', '30d', 'all'] as const;
 export type Range = (typeof RANGES)[number];
-const HOUR = 3_600_000, DAY = 24 * HOUR;
-const SPAN: Record<Range, number> = { '24h': DAY, '7d': 7 * DAY, '30d': 30 * DAY };
+export type Bucket = 'hour' | 'day' | 'week';
+const HOUR = 3_600_000, DAY = 24 * HOUR, WEEK = 7 * DAY, WEEKLY_AFTER = 120;
+const SPAN: Record<Exclude<Range, 'all'>, number> = { '24h': DAY, '7d': 7 * DAY, '30d': 30 * DAY };
 
 const one = (sql: string, ...args: number[]) => Number((db.prepare(sql).get(...args) as { n: number | null }).n ?? 0);
+/** The earliest of the columns' MIN (each read off an index or a small table); `now` when nothing is recorded yet. */
+function firstAt(now: number, ...sqls: string[]) {
+  let first = now;
+  for (const sql of sqls) {
+    const n = (db.prepare(sql).get() as { n: number | null }).n;
+    if (n != null && n > 0 && n < first) first = n;
+  }
+  return first;
+}
+/** When the site's numbers begin: its first visit (events_by_time), build or published game. */
+export const siteStart = (now = Date.now()) => firstAt(now,
+  'SELECT MIN(at) AS n FROM events', "SELECT MIN(created_at) AS n FROM generations WHERE model != 'offline'", 'SELECT MIN(created_at) AS n FROM games WHERE featured = 0');
+/** When Mog City's numbers begin: its first event (mc_events_by_time). */
+export const mcStart = (now = Date.now()) => firstAt(now, 'SELECT MIN(at) AS n FROM mc_events');
+
+/**
+ * A range's window and its chart's buckets: on the hour for 24h, else from local midnight (Monday's for weeks), so the
+ * chart's last point is the one still filling up. `start` is where 'all' begins (siteStart or mcStart).
+ */
+function windowOf(range: Range, now: number, start: number) {
+  const end = new Date(now);
+  if (range === '24h') {
+    end.setMinutes(0, 0, 0);
+    return { from: now - DAY, bucket: 'hour' as Bucket, size: HOUR, count: 24, first: end.getTime() - 23 * HOUR };
+  }
+  end.setHours(0, 0, 0, 0);
+  if (range !== 'all') {
+    const count = SPAN[range] / DAY;
+    return { from: now - SPAN[range], bucket: 'day' as Bucket, size: DAY, count, first: end.getTime() - (count - 1) * DAY };
+  }
+  const day0 = new Date(Math.min(start, now));
+  day0.setHours(0, 0, 0, 0);
+  // (local days, rounded: a daylight-saving change makes one 23 or 25 hours long)
+  const days = Math.round((end.getTime() - day0.getTime()) / DAY) + 1;
+  if (days <= WEEKLY_AFTER) return { from: start, bucket: 'day' as Bucket, size: DAY, count: days, first: end.getTime() - (days - 1) * DAY };
+  // weeks start on Monday; the first is the one the first day falls in
+  day0.setDate(day0.getDate() - ((day0.getDay() + 6) % 7));
+  const count = Math.floor((end.getTime() - day0.getTime() + HOUR) / WEEK) + 1;
+  return { from: start, bucket: 'week' as Bucket, size: WEEK, count, first: day0.getTime() };
+}
 
 /* ----------------------------------------------------------------- spend -- */
 /**
@@ -115,20 +158,14 @@ function kpis(from: number, to: number): Kpis {
 export type Point = { at: number; visitors: number; views: number };
 export type Row = { label: string; href?: string; value: number; sub?: number };
 export type Stats = {
-  range: Range; now: Kpis; before: Kpis; series: Point[]; bucket: 'hour' | 'day';
+  // before: the same span just before it, to compare with; null for 'all' (nothing came before it)
+  range: Range; from: number; now: Kpis; before: Kpis | null; series: Point[]; bucket: Bucket;
   pages: Row[]; sources: Row[]; devices: Row[]; games: Row[];
 };
 
 /** Everything the Overview and Traffic tabs show for one range, with the range before it for comparison. */
 export function stats(range: Range, now = Date.now()): Stats {
-  const span = SPAN[range], from = now - span;
-
-  // buckets start on the hour, or at local midnight, so the chart's last
-  // point is the one still filling up
-  const hourly = range === '24h', size = hourly ? HOUR : DAY, count = hourly ? 24 : span / DAY;
-  const end = new Date(now);
-  if (hourly) end.setMinutes(0, 0, 0); else end.setHours(0, 0, 0, 0);
-  const first = end.getTime() - (count - 1) * size;
+  const { from, bucket, size, count, first } = windowOf(range, now, range === 'all' ? siteStart(now) : now);
   const series: Point[] = Array.from({ length: count }, (_, i) => ({ at: first + i * size, visitors: 0, views: 0 }));
   for (const r of db.prepare("SELECT CAST((at - ?) / ? AS INTEGER) AS b, COUNT(*) AS views, COUNT(DISTINCT visitor) AS visitors FROM events WHERE kind = 'view' AND at >= ? GROUP BY b").all(first, size, first) as { b: number; views: number; visitors: number }[]) {
     const p = series[Math.floor(r.b)];
@@ -163,7 +200,7 @@ export function stats(range: Range, now = Date.now()): Stats {
   const games = opened.filter((r) => titles.has(r.slug)).sort((a, b) => b.n - a.n).slice(0, 10)
     .map((r) => ({ label: titles.get(r.slug)!, href: `/g/${r.slug}`, value: r.n, sub: pressed.get(r.slug) ?? 0 }));
 
-  return { range, now: kpis(from, now), before: kpis(from - span, from), series, bucket: hourly ? 'hour' : 'day', pages, sources, devices, games };
+  return { range, from, now: kpis(from, now), before: range === 'all' ? null : kpis(from - (now - from), from), series, bucket, pages, sources, devices, games };
 }
 
 /** People on the site in the last five minutes. */
@@ -196,7 +233,7 @@ export type McKpis = { visitors: number; loads: number; players: number; starts:
 export type McMission = { label: string; started: number; passed: number; fails: number };
 export type McPoint = { at: number; visitors: number; players: number };
 export type McStats = {
-  range: Range; now: McKpis; before: McKpis; series: McPoint[]; bucket: 'hour' | 'day';
+  range: Range; from: number; now: McKpis; before: McKpis | null; series: McPoint[]; bucket: Bucket;
   missions: McMission[]; fails: Row[]; sources: Row[]; devices: Row[];
 };
 
@@ -217,13 +254,9 @@ function mcKpis(from: number, to: number): McKpis {
 /** Everything the Mog City tab shows for one range, with the range before it for comparison. */
 export function mcStats(range: Range, now = Date.now()): McStats {
   // (every count below is of [from, now), as the numbers' are, so a range asked of an earlier moment holds nothing after it)
-  const span = SPAN[range], from = now - span, IN = 'at >= ? AND at < ?';
-
-  // the same buckets as stats(): on the hour for 24h, else from local midnight
-  const hourly = range === '24h', size = hourly ? HOUR : DAY, count = hourly ? 24 : span / DAY;
-  const end = new Date(now);
-  if (hourly) end.setMinutes(0, 0, 0); else end.setHours(0, 0, 0, 0);
-  const first = end.getTime() - (count - 1) * size;
+  const IN = 'at >= ? AND at < ?';
+  // the same buckets as stats(); 'all' begins at Mog City's first event
+  const { from, bucket, size, count, first } = windowOf(range, now, range === 'all' ? mcStart(now) : now);
   const series: McPoint[] = Array.from({ length: count }, (_, i) => ({ at: first + i * size, visitors: 0, players: 0 }));
   for (const r of db.prepare("SELECT CAST((at - ?) / ? AS INTEGER) AS b, COUNT(DISTINCT visitor) AS visitors, COUNT(DISTINCT CASE WHEN kind = 'start' THEN visitor END) AS players FROM mc_events WHERE at >= ? AND at < ? GROUP BY b").all(first, size, first, now) as { b: number; visitors: number; players: number }[]) {
     const p = series[Math.floor(r.b)];
@@ -260,7 +293,7 @@ export function mcStats(range: Range, now = Date.now()): McStats {
   const devices = (db.prepare(`SELECT device, COUNT(DISTINCT visitor) AS n FROM mc_events WHERE kind = 'land' AND ${IN} GROUP BY device ORDER BY n DESC`).all(from, now) as { device: string; n: number }[])
     .map((r) => ({ label: r.device[0].toUpperCase() + r.device.slice(1), value: r.n }));
 
-  return { range, now: mcKpis(from, now), before: mcKpis(from - span, from), series, bucket: hourly ? 'hour' : 'day', missions, fails, sources, devices };
+  return { range, from, now: mcKpis(from, now), before: range === 'all' ? null : mcKpis(from - (now - from), from), series, bucket, missions, fails, sources, devices };
 }
 
 /* ------------------------------------------------------------ moderation -- */
