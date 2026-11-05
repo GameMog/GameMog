@@ -6,6 +6,7 @@
  */
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { runnerPackOf } from './storykit-pack.ts';
+import { ownRecord, OWN_RECORD } from './storykit-own-world.ts';
 import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/pack/gate.ts';
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
 import { SCHEMA } from '../storykit/pack/schema.mjs';
@@ -212,6 +213,8 @@ export function runStoryPackChecks(ok: Ok) {
     if (!g.ok) continue;
     const out = `public/storykit/packs/${id}.json`, want = JSON.stringify(runnerPackOf(g.pack), null, 1) + '\n';
     ok(`${id}: its built pack is current (npm run storykit:pack -- ${id})`, existsSync(out) && R(out) === want);
+    // (Mog City's own story world, as deploy/migrate.mjs publishes it on the server: the record is this pack's, 5 Nov)
+    if (id === 'mog-city') ok(`mog-city: ${OWN_RECORD}, the own world the migration publishes, is current (node --import ./scripts/ts-resolve.mjs scripts/storykit-own-world.ts --export)`, existsSync(OWN_RECORD) && R(OWN_RECORD) === ownRecord());
     const v1 = JSON.parse(want), glbs = Object.values(v1.cast).map((c: any) => c.glb).filter(Boolean) as string[];
     const stamps = g.pack.cast.filter((c: any) => c.sheet).every((c: any) => existsSync(`public/storykit/cast/${id}/${c.id}.sheet.json`) && R(`public/storykit/cast/${id}/${c.id}.sheet.json`) === JSON.stringify(c.sheet, null, 1) + '\n');
     ok(`${id}: every seen person has a GLB forged from their current sheet (or a shipped one, cast[].model), and the clip pack is there`, glbs.length === g.pack.cast.filter((c: any) => c.sheet || (c.model && !c.voiceOnly)).length && glbs.every((p) => existsSync(`public/storykit/${p}`)) && stamps && existsSync(`public/storykit/${v1.clips}`), glbs.join(' '));

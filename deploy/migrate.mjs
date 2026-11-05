@@ -7,8 +7,10 @@
  */
 import { DatabaseSync } from 'node:sqlite';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { createHash } from 'node:crypto';
+import { join, dirname, resolve } from 'node:path';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { register } from 'node:module';
+import { pathToFileURL } from 'node:url';
 
 const DIR = 'deploy/migrations';
 const file = (name) => { const p = join(DIR, name); return existsSync(p) ? readFileSync(p) : null; };
@@ -1193,22 +1195,108 @@ export const MIGRATIONS = [
     // now off): no name, so the page says "By a GameMog creator" until the owner gives one
     id: '2026-11-05-velvet-run-creator',
     run(db) {
+      // (a fresh disk's database has no creator column until the app's first start, lib/db.ts: nothing to clear there)
+      if (!columns(db, 'games').has('creator')) return 'no creator column yet: nothing to clear';
       const r = db.prepare("UPDATE games SET creator = NULL WHERE slug = 'the-velvet-run' AND creator = 'Mt. Browser'").run();
       return r.changes ? 'cleared' : 'nothing to clear';
     },
   },
+  {
+    // 5 Nov, the owner: "make the Mog of Mog City live" with the Story Kit Mog. /g/mog-city stays the 3 Nov episode and
+    // plays exactly as before; its Mog is a story Mog of Mog City's OWN story world (lib/storykit-mogcity.ts), published
+    // here as scripts/storykit-own-world.ts does on a dev database: the gated pack (storykit/packs/mog-city.json on Mog
+    // City's engine, gated { own: true }; the record deploy/migrations/mog-city-story.json, `npm run check` holds it
+    // current) written to the Story Kit store beside this database (data/storykit) as a store draft, sealed and kept with
+    // the game; the game a story world (format 'world', meta mode 'storykit') HIDDEN, so it has no public page and is in
+    // no list, feed, search, sitemap or board (a Mog and the composer read it by meta.storykit.ownOf, the episode's id).
+    // Its people are Mog City's shipped models and every line one of its recordings: no files of its own. Once only: a
+    // world already linked to the episode is left as it is, an own world from the dev script is linked and hidden. It
+    // waits (unrecorded, tried at the next boot) while the Story Kit is off on this server or /g/mog-city is not there
+    id: '2026-11-05-mog-city-own-story',
+    async: true,
+    async run(db, path) {
+      if (!['on', 'owner'].includes(String(process.env.STORYKIT ?? '').trim().toLowerCase())) throw new Error('waiting: the Story Kit is off on this server (STORYKIT)');
+      const rec = file('mog-city-story.json');
+      if (!rec) throw new Error('deploy/migrations/mog-city-story.json is not in this build');
+      const own = JSON.parse(rec.toString('utf8'));
+      if (own.v !== 1 || !own.pack || own.pack.storykit !== 2 || own.meta?.mode !== 'storykit' || own.meta.storykit?.own !== true) throw new Error('mog-city-story.json is not Mog City\'s own story world');
+      const ep = db.prepare("SELECT id, code, cover, art_icon, art_wide FROM games WHERE slug = 'mog-city'").get();
+      if (!ep || !/^\s*GameMog\s*\.\s*world\s*\(\s*\{\s*episode\s*:\s*\{/.test(String(ep.code ?? ''))) throw new Error('waiting: /g/mog-city (the episode) is not in this database');
+      const owns = db.prepare("SELECT id, slug, hidden, meta FROM games WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.own') = 1").all();
+      const linked = owns.find((g) => JSON.parse(g.meta).storykit?.ownOf === ep.id);
+      if (linked) return `already there: /g/${linked.slug} (hidden ${linked.hidden})`;
+      const dev = owns.find((g) => g.slug === own.slug && JSON.parse(g.meta).storykit?.packId === own.pack.id);
+      if (dev) {
+        db.prepare("UPDATE games SET hidden = 1, meta = json_set(meta, '$.storykit.ownOf', ?) WHERE id = ?").run(ep.id, dev.id);
+        return `linked the existing /g/${dev.slug} to /g/mog-city, hidden`;
+      }
+      if (db.prepare('SELECT 1 FROM games WHERE slug = ?').get(own.slug)) return `left alone: /g/${own.slug} is another game`;
+      // (a fresh disk's database has no creator column until the app's first start: added here as lib/db.ts adds it, which
+      // then finds it there; every other column is written only if this database has it)
+      if (!columns(db, 'games').has('creator')) db.exec('ALTER TABLE games ADD COLUMN creator TEXT');
+      const cols = columns(db, 'games');
+      // (the Story Kit store, lib/storykit-store.ts, beside this database: data/gamemog.db -> data/storykit)
+      const { StoryStore } = await storykit();
+      const s = new StoryStore(join(dirname(resolve(path)), 'storykit'));
+      const packJson = JSON.stringify(own.pack), code = `GameMog.world({ storykit: ${packJson} });\n`;
+      const storeId = randomUUID(), gameId = randomUUID(), t = Date.now();
+      s.db.prepare('INSERT INTO drafts (id, token_hash, pack, parent, created_at, touched_at) VALUES (?, ?, ?, NULL, ?, ?)')
+        .run(storeId, createHash('sha256').update(randomBytes(24)).digest('hex'), packJson, t, t);
+      try {
+        const sealed = s.seal(s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(storeId));
+        if (!sealed.ok) throw new Error(`the store refused the world: ${sealed.error}`);
+        const meta = { ...own.meta, storykit: { ...own.meta.storykit, pack: storeId, ownOf: ep.id, world: sealed.hash } };
+        const row = { id: gameId, slug: own.slug, title: own.meta.title, tagline: own.meta.tagline, blurb: own.meta.blurb, difficulty: 'endless', spec: '{}',
+          prompt: 'Mog City\'s own story', featured: 0, created_at: t, format: 'world', code, meta: JSON.stringify(meta),
+          cover: ep.cover ?? null, art_icon: ep.art_icon ?? null, art_wide: ep.art_wide ?? null, parent_id: null, root_id: null, generation: 0, mog_prompt: null,
+          hidden: 1, creator: 'Mog City' };
+        const keys = Object.keys(row).filter((k) => cols.has(k));
+        if (!keys.includes('hidden')) throw new Error('the games table has no hidden column');
+        db.prepare(`INSERT INTO games (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`).run(...keys.map((k) => row[k]));
+        if (!s.keep(storeId, gameId)) throw new Error('the store could not keep the world');
+        return `published /g/${own.slug} hidden (store draft ${storeId}, world ${sealed.hash.slice(0, 12)}), linked to /g/mog-city`;
+      } catch (e) {
+        // (the games row is rolled back with the transaction; the store draft goes with it)
+        try { const d = s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(storeId); if (d) { s.release(storeId); s.abandon(d); } } catch { /* swept later */ }
+        throw e;
+      }
+    },
+  },
 ];
 
+/** A table's columns (the app adds some at its first start, lib/db.ts: a fresh disk's database may lack them). */
+const columns = (db, table) => new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name));
+
+/**
+ * The Story Kit's store module (TypeScript, loaded the way the scripts load it: Node strips the types, and the resolve
+ * hook, scripts/ts-resolve-hooks.mjs, finds the lib's extensionless imports). Loaded only for a migration that needs it.
+ */
+let sk = null;
+async function storykit() {
+  if (!sk) {
+    register(pathToFileURL(resolve('scripts/ts-resolve-hooks.mjs')).href);
+    sk = await import(pathToFileURL(resolve('lib/storykit-store.ts')).href);
+  }
+  return sk;
+}
+
+/**
+ * Runs every migration not yet recorded, each in its own transaction, in order. The ones marked `async` (they load the
+ * Story Kit's modules) run after the others; then the returned promise settles (deploy/boot.mjs awaits it). Without an
+ * async one pending, everything has run when this returns.
+ */
 export function migrate(path = 'data/gamemog.db') {
   if (!existsSync(path)) return;
   const db = new DatabaseSync(path);
   db.exec('CREATE TABLE IF NOT EXISTS migrations (id TEXT PRIMARY KEY, at INTEGER NOT NULL, note TEXT)');
   const done = new Set(db.prepare('SELECT id FROM migrations').all().map((r) => r.id));
+  const later = [];
   for (const m of MIGRATIONS) {
     if (done.has(m.id)) continue;
+    if (m.async) { later.push(m); continue; }
     try {
       db.exec('BEGIN');
-      const note = m.run(db) ?? '';
+      const note = m.run(db, path) ?? '';
       db.prepare('INSERT INTO migrations (id, at, note) VALUES (?, ?, ?)').run(m.id, Date.now(), String(note));
       db.exec('COMMIT');
       console.log(`migrate: ${m.id} (${note})`);
@@ -1217,7 +1305,22 @@ export function migrate(path = 'data/gamemog.db') {
       console.error(`migrate: ${m.id} failed: ${e.message}`);
     }
   }
-  db.close();
+  if (!later.length) { db.close(); return; }
+  return (async () => {
+    for (const m of later) {
+      try {
+        db.exec('BEGIN');
+        const note = (await m.run(db, path)) ?? '';
+        db.prepare('INSERT INTO migrations (id, at, note) VALUES (?, ?, ?)').run(m.id, Date.now(), String(note));
+        db.exec('COMMIT');
+        console.log(`migrate: ${m.id} (${note})`);
+      } catch (e) {
+        db.exec('ROLLBACK');
+        console.error(`migrate: ${m.id} failed: ${e.message}`);
+      }
+    }
+    db.close();
+  })();
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) migrate(process.argv[2]);
+if (import.meta.url === `file://${process.argv[1]}`) await migrate(process.argv[2]);

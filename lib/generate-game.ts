@@ -143,7 +143,10 @@ A strong world module is usually 600 to 1,400 lines. Spend effort on the world, 
  * built from otherwise), what its creator asked for, and the challenger's
  * idea, and writes a complete new world that should beat it.
  */
-export type MogInput = { parent: GameRow; instruction: string };
+/** A Mog: the game it remixes, and the idea. `lineage` (5 Nov, a Mog of /g/mog-city, lib/storykit-mogcity.ts): the game
+ *  the published Mog's family credits when it is not the parent it was built from (the episode, whose Mog is built from
+ *  Mog City's own story world). */
+export type MogInput = { parent: GameRow; instruction: string; lineage?: GameRow };
 /**
  * A long original whose code still fits a reply once its comments are left out (9 Oct, Aspen GP: 233 KB, about 125k
  * tokens with its comments against the reply's 128k, about 105k without; up to about 112k leaves room to think). The

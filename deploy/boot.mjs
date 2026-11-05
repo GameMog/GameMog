@@ -20,7 +20,7 @@ if (existsSync(DB)) {
 }
 
 // what has changed in the published content since (deploy/migrate.mjs)
-migrate(DB);
+await migrate(DB);
 
 // the builds the last server was running when it stopped are 'interrupted' (deploy/builds.mjs)
 const interrupted = interruptBuilds(DB);

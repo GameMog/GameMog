@@ -261,7 +261,10 @@ ${JSON.stringify(exampleWorld())}
 \`\`\``;
 }
 
-export type StorykitInput = { city?: CityId; hero?: StoryHero | null; mog?: { parent: GameRow; instruction: string } };
+/** `mog.lineage`: the game the published Mog's family credits (its draft's parent) when it is not the story world it was
+ * built from: a Mog of /g/mog-city is built from Mog City's own story world and joins /g/mog-city's family
+ * (lib/storykit-mogcity.ts). */
+export type StorykitInput = { city?: CityId; hero?: StoryHero | null; mog?: { parent: GameRow; instruction: string; lineage?: GameRow } };
 const parentOf = (input: StorykitInput) => (input.mog ? storyParentPack(input.mog.parent) : null);
 
 /** The first turn: a Create's city and request, or a Mog's parent pack whole, its locks and the idea. */
@@ -650,7 +653,7 @@ export async function generateStorykit(
         inherit, store: { draft: opened.id, files: opened.inherited }, trail: { passes, shipped: attempt, why: 'it passed the gate' },
       };
       db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);
-      insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report, format: 'world', parentId: sk.mog?.parent.id ?? null, mogPrompt: sk.mog?.instruction ?? null });
+      insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report, format: 'world', parentId: (sk.mog?.lineage ?? sk.mog?.parent)?.id ?? null, mogPrompt: sk.mog?.instruction ?? null });
       // the show's first word on the browser's work (app/create/story-show.tsx StoryWork): who is to be forged and who is
       // inherited, and how many lines are voiced already
       const name = (c: PackV2) => String(personName(c) || c.id);

@@ -15,6 +15,7 @@
     "storykit:pack": "node --import ./scripts/ts-resolve.mjs scripts/storykit-pack.ts",
     "storykit:forge-browser-check": "node --import ./scripts/ts-resolve.mjs scripts/storykit-forge-browser-check.ts",
     "storykit:builder-check": "node --import ./scripts/ts-resolve.mjs scripts/storykit-builder-check.ts",
+    "storykit:mogcity-check": "node --import ./scripts/ts-resolve.mjs scripts/storykit-mogcity-check.ts",
     "storykit:forge-kit": "node scripts/forge/kit.mjs",
     "storykit:forge-web": "node scripts/forge/build-web.mjs",
     "storykit:voice-files": "node scripts/storykit-voice-files.mjs",

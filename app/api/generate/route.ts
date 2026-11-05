@@ -11,6 +11,7 @@ import { isOpenWorld, worldMode, canMog, MOG_SOON } from '@/lib/custom-game';
 import { isEpisodeParent, readConsent } from '@/lib/episode';
 import { isStoryParent, storyParentPack, readCity, readStoryHero, STORY_CLOSED, type StoryHero } from '@/lib/storykit-build';
 import { storykitForRequest } from '@/lib/storykit-http';
+import { isMogCityEpisode, mogCityStoryParent } from '@/lib/storykit-mogcity';
 import { storykitMode } from '@/lib/storykit-switch';
 import { storyStore, storeGuard } from '@/lib/storykit-store';
 
@@ -38,11 +39,16 @@ export async function POST(req: Request) {
     ? getGameBySlug(body.mogOf) ?? (storykitMode() === 'owner' && storykitForRequest(req) ? ownerStory(getGameBySlugForOwner(body.mogOf)) : undefined)
     : undefined;
   if (body.mogOf && !parent) return NextResponse.json({ error: 'The game you are mogging no longer exists.' }, { status: 404 });
+  // a Mog of /g/mog-city (5 Nov, lib/storykit-mogcity.ts): the episode plays as it always did, and its Mog is a story Mog
+  // of Mog City's own story world (hidden, deploy/migrate.mjs), whose family is the episode's. Without that world (or with
+  // the Story Kit off) it is the episode's Mog as before, MOG Soon (canMog). Every other episode's Mog is unchanged
+  const ownStory = parent && isMogCityEpisode(parent) ? mogCityStoryParent() : undefined;
+  const from = ownStory ?? parent;
   // a Story Kit world (STORYKIT=on, lib/storykit-site.ts): its create ({ storykit: { city } }) or a Mog of one. Closed while
   // the switch is off, refused here before a slot is taken or anything is spent; on, the story writer builds it
   // (lib/storykit-build.ts: a create in its city, a Mog in its parent's, locked). No other kind of build ever starts
   // from a story request
-  const storyMog = isStoryParent(parent);
+  const storyMog = isStoryParent(from);
   let storyCity: ReturnType<typeof readCity> = null;
   let storyHero: StoryHero | null = null;
   const storyAsk = (body.storykit ?? body.story) as { city?: unknown; hero?: unknown } | null | undefined;
@@ -51,7 +57,7 @@ export async function POST(req: Request) {
     // (the store's size guard, lib/storykit-store.ts storeGuard: refused here too, before a slot is taken or anything is spent)
     const full = storeGuard(storyStore());
     if (full) return NextResponse.json({ error: full }, { status: 507 });
-    if (storyMog) { if (!storyParentPack(parent!)) return NextResponse.json({ error: 'The story world you are mogging could not be read.' }, { status: 409 }); }
+    if (storyMog) { if (!storyParentPack(from!)) return NextResponse.json({ error: 'The story world you are mogging could not be read.' }, { status: 409 }); }
     else {
       storyCity = readCity(storyAsk?.city);
       if (!storyCity) return NextResponse.json({ error: 'Pick a city for the story world: New York (story worlds play on Mog City\'s engine, which plays New York so far).', field: 'city' }, { status: 400 });
@@ -64,7 +70,7 @@ export async function POST(req: Request) {
   }
   // (a kind of game that cannot be mogged yet, lib/custom-game.ts canMog, is refused here, before a slot is taken or
   // anything is spent; every kind can be today, a penalty shootout too since 13 Oct)
-  if (parent && !canMog(parent)) return NextResponse.json({ error: MOG_SOON }, { status: 409 });
+  if (parent && !ownStory && !canMog(parent)) return NextResponse.json({ error: MOG_SOON }, { status: 409 });
   if (parent && (text.length < 4 || text.length > 600)) {
     return NextResponse.json({ error: 'Say in a line how your Mog should beat the original (up to 600 characters).' }, { status: 400 });
   }
@@ -78,7 +84,7 @@ export async function POST(req: Request) {
   // a Mog of a Mog City episode (3 Nov): the creator's consent for any real person it names, read before anything is
   // spent (lib/episode.ts readConsent); every other Mog ignores the field
   // (and a story world's create or Mog, 4 Nov: the same consent step, lib/storykit-build.ts)
-  const episode = isEpisodeParent(parent);
+  const episode = !ownStory && isEpisodeParent(parent);
   const consent = episode || storyMog || storyCity ? readConsent(body.consent) : { ok: true as const, consent: null };
   if (!consent.ok) return NextResponse.json({ error: consent.error, field: 'consent' }, { status: 400 });
   if ((parent || storyCity) && !(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN)) {
@@ -188,7 +194,7 @@ export async function POST(req: Request) {
           if (parent && parent.format === 'world' && (worldMode(parent.code, parent.meta) === 'shootout' || worldMode(parent.code, parent.meta) === 'gp' || episode)) {
             options.hazards = 'same'; options.music = null; delete options.soundtrack;
           }
-          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options, consent: consent.consent, ...(storyCity ? { storykit: { city: storyCity, hero: storyHero } } : {}), signal: stop.signal, usage }, (e) => {
+          await generateGame({ prompt: text, image, origin, mog: parent ? { parent: from!, instruction: text, ...(ownStory ? { lineage: parent } : {}) } : undefined, options, consent: consent.consent, ...(storyCity ? { storykit: { city: storyCity, hero: storyHero } } : {}), signal: stop.signal, usage }, (e) => {
             if (e.type === 'stage') attempts = Math.max(attempts, e.attempt);
             if (e.type === 'drive' || e.type === 'done') draftId = e.draftId;
             if (e.type === 'done' || e.type === 'error') result = e;

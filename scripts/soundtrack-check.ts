@@ -197,7 +197,8 @@ export async function soundtrackUnitChecks(ok: Ok) {
     t.prepare('UPDATE games SET code = code || ? WHERE slug = ?').run('\n// changed', 'ai-alps');
     const was = new Map((t.prepare('SELECT slug, meta FROM games').all() as { slug: string; meta: string }[]).map((g) => [g.slug, g.meta]));
     const M = MIGRATIONS.find((m: { id: string }) => m.id === '2026-10-09-own-soundtracks')!;
-    const note = M.run(t), again = M.run(t);
+    // (a sync migration: its note, String() for the type the async ones give the list, deploy/migrate.mjs)
+    const note = String(M.run(t)), again = String(M.run(t));
     const now = new Map((t.prepare('SELECT slug, meta FROM games').all() as { slug: string; meta: string }[]).map((g) => [g.slug, g.meta]));
     const right = OWN_SOUNDTRACKS.filter((s) => s.slug !== 'ai-alps').every((s) => now.get(s.slug) === J({ ...JSON.parse(was.get(s.slug)!), soundtrack: s.soundtrack }));
     ok('soundtrack: the migration adds each live world\'s own soundtrack to its meta and nothing else (every other field as it was), leaves a changed world and Midnight Mog alone, and is harmless twice',
