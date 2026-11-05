@@ -283,9 +283,12 @@ export function createRunner(ctx) {
   };
 
   // npc: a cast member at a place, or beside the player, facing him
+  // (an npc step's own id names who it stood up: { remove: 'knox-door' } hides Knox, as { remove: 'Knox' } does)
+  const npcIds = new Map();
   STEPS.npc = async (d) => {
     const who = castName(d.who);
-    if (d.remove) { cast.hide(castName(d.remove)); return; }
+    if (d.remove) { cast.hide(castName(npcIds.get(d.remove) || d.remove)); return; }
+    if (d.id) npcIds.set(d.id, who);
     let x, z;
     if (d.at && d.at.rel === 'player') {
       const e = cm.getActiveEntity(), h = e.heading, r = d.at.right || 0, f = d.at.fwd || 0;
@@ -430,7 +433,10 @@ export function createRunner(ctx) {
       await wait(() => W.calls.state()?.id !== d.ref || W.calls.owes?.(d.ref) !== 'main', t);
       return;
     }
-    if ((d.auto || d.inCar) && W.calls?.define) {
+    // (the car phone: an inCar call, or one that answers itself while he drives or is at the wheel; an `auto` call on
+    // foot, as a video call outside his building, is answered at once and played on the phone below: calls.js would
+    // hold it for a car he is not in)
+    if ((d.inCar || (d.auto && (ride || inCar()))) && W.calls?.define) {
       const id = `pack:${M.def.id}:${M.i}:${ride ? 'd' : 's'}:${who}`;
       const f0 = {}; for (const n of new Set([who, ...lines.map((l) => castName(l.who))])) f0[n] = cast.f0(n);
       W.calls.define(id, { who, color, f0, step: ui.stepId, main: lines.map(toTup), extra: (d.extra || []).map((b) => b.map(tuple).map(toTup)), wrap: (d.wrap || []).map(tuple).map(toTup),
@@ -445,15 +451,16 @@ export function createRunner(ctx) {
       if (d.choice) return choose(d.choice, t);
       return;
     }
-    sfx.play('ring', { gain: 0.16, times: 2 });
-    ui.caller(who, color, 'Incoming call');
-    let answer = null;
+    sfx.play('ring', { gain: 0.16, times: d.auto ? 1 : 2 });
+    ui.caller(who, color, d.auto ? (d.role || 'Incoming call') : 'Incoming call');
+    let answer = d.auto ? true : null;
     const onKey = (e) => { if (W.paused || e.repeat) return; if (['KeyE', 'KeyY'].includes(e.code)) { answer = true; e.stopImmediatePropagation(); } else if (['KeyX', 'KeyN'].includes(e.code)) { answer = false; e.stopImmediatePropagation(); } };
     addEventListener('keydown', onKey, true);
-    ui.help('Press [E|ANSWER] to answer, [X|DECLINE] to decline.', (d.ring || 8) + 1);
+    if (!d.auto) ui.help('Press [E|ANSWER] to answer, [X|DECLINE] to decline.', (d.ring || 8) + 1);
     const t0 = now();
     try {
       await wait(() => answer != null || (ctx.flags.autoAnswer && now() - t0 > 1500) || (now() - t0) / 1000 > (d.ring || 8), t);
+      if (d.auto) await wait(() => now() - t0 > 900, t);
     } finally { removeEventListener('keydown', onKey, true); ui.help(null); }
     if (answer == null && ctx.flags.autoAnswer) answer = true;
     if (!answer) {
@@ -464,7 +471,7 @@ export function createRunner(ctx) {
       return;
     }
     applySet(d.answer);
-    ui.caller(who, color, 'On call');
+    ui.caller(who, color, d.role || 'On call');
     M.log.push(['call', who]);
     try {
       for (const l of lines) await say(castName(l.who), l.text, t, { secs: l.secs, phone: castName(l.who) !== heroName });
@@ -579,11 +586,15 @@ export function createRunner(ctx) {
     app.scene.add(g);
     const D = createDriver(W, { obj: g, path: pts, halfW: 1.0, halfL: 2.4 });
     D.place(0);
+    // (the followed car, for the test drive's autopilot: autopilot.js jumps a long tail on, as it does a long leg)
+    M.tail = D;
     const name = d.name || 'the car';
     gps.objective(parts(d.objective || `Follow **${name}**. Don't get too close.`, 'red'), { follow: () => D.pos, name });
     gps.blip('tail', { x: D.pos.x, z: D.pos.z, kind: 'enemy', edge: true, name });
-    let close = 0, far = 0, last = now();
-    const ring = d.ring || 25, lostDist = d.lostDist || 160;
+    let close = 0, far = 0, last = now(), opened = false, lastLeft = 0;
+    const ring = d.ring || 25, lostDist = d.lostDist || 160, t0 = now();
+    // (a tail that starts where the last leg ended, on top of the car to follow: being close counts only once it has
+    // pulled away to half the ring, or after 6 s; MM, 5 Nov: Mission 2's van "spotted" a player parked at its mark)
     try {
       await wait(() => {
         const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
@@ -591,13 +602,16 @@ export function createRunner(ctx) {
         const want = dd < ring ? (d.speed || 13) * 1.4 : dd > lostDist * 0.6 ? (d.speed || 13) * 0.5 : (d.speed || 13);
         D.step(dt, want);
         gps.blip('tail', { x: D.pos.x, z: D.pos.z, kind: 'enemy', edge: true, name });
-        close = dd < ring * 0.5 ? close + dt : Math.max(0, close - dt);
+        // (the metres the followed car has left, told to a framing GameMog each second: a long tail is progress, not stuck)
+        if (tt - lastLeft > 1000) { lastLeft = tt; host.tell('progress', { mission: M.def.id, step: d.id || null, kind: 'tail', i: M.i, n: M.def.steps.length, left: Math.max(0, Math.round(D.length - D.s)) }); }
+        if (dd >= ring * 0.5 || now() - t0 > 6000) opened = true;
+        close = dd < ring * 0.5 && opened ? close + dt : Math.max(0, close - dt);
         far = dd > lostDist ? far + dt : 0;
         if (close > (d.spotTime || 4)) throw new Fail(`${name.replace(/^the /, 'The ')} spotted you.`, 'lost');
         if (far > (d.lostTime || 8)) throw new Fail(`You lost ${name}.`, 'lost');
         return D.done;
       }, t);
-    } finally { app.scene.remove(g); gps.unblip('tail'); gps.clear(); }
+    } finally { app.scene.remove(g); gps.unblip('tail'); gps.clear(); if (M.tail === D) M.tail = null; }
   };
 
   // a trigger: once (or every time) the player is in an area, on a street, or a condition holds: its line, set and side steps

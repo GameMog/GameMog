@@ -6,7 +6,7 @@
 //     toolbar put away; the hero's face (face.js) on Dan's body, as the opening does;
 //   - the start gate (ui.gate) with the world's own title in the lockup's lettering (no MOG CITY), over the live city;
 //   - the places (places.js), the cast (cast.js: registry people native, forged ones from the world's files), the
-//     voices (the world's clips into W.voice), the HUD additions (hud.js);
+//     voices (the world's clips into W.voice), the HUD additions (hud.js), a pet that follows the hero (pet.js);
 //   - the story: acts in order, each mission on the runner (runner.js); between missions free roam to the next one's
 //     start, marked the Mog City way (a letter corona in the giver's colour, the yellow route, a DM); MISSION PASSED,
 //     the save (localStorage, per world), the pause menu's Mission select (W.storyList / W.replay); the end card.
@@ -78,14 +78,22 @@ export async function install(W) {
   };
   const host = { tell };
   const runner = createRunner({ W, world, places, cast, hud, host, save, flags });
+  // a pet that goes with the hero (pets[] "follows": pet.js), only when the world has one
+  let pets = null;
+  if (Object.values(def.cast || {}).some((c) => c && c.pet && c.pet.follows)) {
+    try { pets = (await import('./pet.js')).createPets(W, world); } catch (e) { console.warn('[storyrun] pets', e); }
+  }
   // every frame, as Mog City's missions do (m1.js): the GPS route followed, the HUD told whether he is on foot
+  let lastT = performance.now();
   (function frame() {
     requestAnimationFrame(frame);
+    const t = performance.now(), dt = Math.min(0.1, (t - lastT) / 1000); lastT = t;
     if (W.paused) return;
     try { W.gps.update(); } catch (e) { console.warn('[storyrun] gps', e); }
+    if (pets) try { pets.update(dt); } catch (e) { console.warn('[storyrun] pets', e); pets = null; }
     document.body.classList.toggle('wg-onfoot', W.app.controllerManager.activeMode !== 'car');
   })();
-  W.storyrun = { world, places, cast, hud, runner, save, host: hostLog, get choosing() { return hud.choosing; } };
+  W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, get choosing() { return hud.choosing; } };
   // the missions in story order (the acts' order lists, then any left out)
   const acts = def.acts || [];
   const byId = new Map(def.missions.map((m) => [m.id, m]));

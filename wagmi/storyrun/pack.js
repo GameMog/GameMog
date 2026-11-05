@@ -44,6 +44,8 @@ export function asksDressing(d) {
 // Mog City's own mission phases a step may name by `ref` (runner.js PART_IDS: m2.js / m3.js playPart)
 export const PART_REFS = new Set(['m2.start', 'm2.go', 'm2.tail', 'm2.yard', 'm2.fight', 'm2.chase', 'm2.crash', 'm2.phone', 'm2.chat',
   'm3.garage', 'm3.square', 'm3.rally', 'm3.rigs', 'm3.dump', 'm3.escape', 'm3.ret', 'm3.home']);
+// the lists a whole story may hold more of: its voice plan's lines (Mog City's own story has 445, every one recorded)
+const LONG = { 'world.voice.lines': 2000 };
 // the world's own checks (the store's gate ran before it was sealed; this is what the runner relies on)
 export function check(w) {
   const errs = [];
@@ -53,7 +55,7 @@ export function check(w) {
     if (typeof v === 'string') { if (v.length > MAX_TEXT) bad(`${at}: text too long`); return; }
     if (typeof v === 'number') { if (!Number.isFinite(v)) bad(`${at}: not a number`); return; }
     if (v === null || typeof v === 'boolean') return;
-    if (Array.isArray(v)) { if (v.length > 400) bad(`${at}: list too long`); v.forEach((x, i) => walk(x, `${at}[${i}]`, depth + 1)); return; }
+    if (Array.isArray(v)) { if (v.length > (LONG[at] || 400)) bad(`${at}: list too long`); v.forEach((x, i) => walk(x, `${at}[${i}]`, depth + 1)); return; }
     if (typeof v === 'object') { for (const k of Object.keys(v)) { if (k === '__proto__' || k === 'constructor' || k === 'prototype') bad(`${at}: key ${k}`); walk(v[k], `${at}.${k}`, depth + 1); } return; }
     bad(`${at}: ${typeof v}`);
   };

@@ -80,7 +80,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
   const key = (code, type = 'keydown') => dispatchEvent(new KeyboardEvent(type, { code, key: code.replace(/^Key/, '').toLowerCase(), bubbles: true }));
   let held = null;
   const hold = (code) => { if (held === code) return; if (held) key(held, 'keyup'); held = code; if (code) key(code); };
-  let cineT = 0, chaseJumpT = 0, seenT = 0, slowT = 0, tailS = null, lastKey = 0, tPhase = null, tPhaseT = 0;
+  let cineT = 0, chaseJumpT = 0, seenT = 0, slowT = 0, tailS = null, tailJumpT = 0, tailJumped = false, lastKey = 0, tPhase = null, tPhaseT = 0;
   let frameDt = 0.016, lastF = performance.now();
   function tick() {
     if (!on) return;
@@ -91,7 +91,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     const d = M.def.steps[M.i], key = `${M.def.id}:${M.i}`, t = performance.now() / 1000;
     if (mKey !== M.def.id) { mKey = M.def.id; mT = t; }
     if (t - mT > missionSecs && !M.tok.dead) { note(`timeout ${key} ${d?.type}`); onTimeout?.(M.def, d, M.i); mT = t; }
-    if (key !== stepKey) { stepKey = key; stepT = t; jumped = false; lastProg = { t, d: Infinity, x: 0, z: 0 }; fightT = 0; release(); hold(null); tailS = null; seenT = 0; slowT = 0; }
+    if (key !== stepKey) { stepKey = key; stepT = t; jumped = false; lastProg = { t, d: Infinity, x: 0, z: 0 }; fightT = 0; release(); hold(null); tailS = null; tailJumped = false; seenT = 0; slowT = 0; }
     // (a new leg inside one step, a stops step's next stop: its own jump, its own clock)
     { const dd = gps?.dest, lk = dd ? `${Math.round(dd.x)},${Math.round(dd.z)}` : null; if (lk !== legKey) { legKey = lk; legT = t; jumped = false; lastProg = { t, d: Infinity, x: 0, z: 0 }; } }
     // (an authored scene, skipped after skipScenes s of it)
@@ -148,6 +148,26 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     // a long leg: on to its last 110 m
     if (inCar() && !jumped && t - stepT > 1.2 && L > 250 && type !== 'tail' && type !== 'pursuit') { jumped = true; const q = fromEnd(r, 110); putCar(q.x, q.z, q.h); note(`jump ${Math.round(L)} m`); return; }
     if (!inCar() && !jumped && t - stepT > 1.2 && L > 60) { jumped = true; const q = fromEnd(r, 12); P.position.set(q.x, cm.getGroundHeight(q.x, q.z, 'person'), q.z); P.heading = q.h; note(`walk jump ${Math.round(L)} m`); return; }
+    // a world's tail (no ref): the route ends at the car being followed, so it is kept between the step's ring and its
+    // lost distance (MM, 5 Nov: steering on to the van's bumper, the autopilot was spotted in 15 s): off the gas inside
+    // 0.8 of the ring (braking, then backing off, inside 0.6), the boost past a third of the lost distance, and put back on the route at
+    // 1.4 rings behind it when it is past 0.7 of it (a heavy car falls behind)
+    if (type === 'tail' && inCar()) {
+      const ring = d.ring || 25, lost = d.lostDist || 160;
+      // (a long tail, as a long leg: after 12 s of following, the followed car is put on to its last 240 m and the
+      // car 1.4 rings behind it on its way; the city's traffic makes a 2.5 km tail a five-minute drive)
+      const T = M.tail;
+      if (T && !tailJumped && t - stepT > 12 && T.length - T.s > 420) {
+        tailJumped = true; T.place(T.length - 240);
+        const a = T.at(Math.max(0, T.s - ring * 1.4)), b = T.at(Math.max(0, T.s - ring * 1.4) + 3);
+        putCar(a.x, a.z, Math.atan2(b.x - a.x, b.z - a.z)); note(`tail jump ${Math.round(T.length)} m`); return;
+      }
+      if (L < ring * 0.8) { release(); if (L < ring * 0.6 && car.speed > -5) cm.setTouchInput('backward', 0.8); return; }
+      if (L > lost * 0.7 && t - tailJumpT > 6) { tailJumpT = t; const q = fromEnd(r, ring * 1.4); putCar(q.x, q.z, q.h); note('tail: back in range'); return; }
+      const tg = along(r, x, z, 9 + Math.abs(car.speed || 0) * 0.6);
+      steerTo(tg.x, tg.z, L > lost * 0.33 ? 17 : L > ring * 1.6 ? 13 : 9);
+      return;
+    }
     // stuck
     if (L < lastProg.d - 2) lastProg = { t, d: L, x, z };
     else if (t - lastProg.t > 5) {
