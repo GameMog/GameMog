@@ -13,6 +13,7 @@ import { Cover } from './cover';
 import type { WorldSpec } from '@/lib/worldspec';
 import { worldMode, MOGGABLE } from '@/lib/custom-game';
 import { DEFAULT_DESCRIPTION, pageMeta } from './seo';
+import { mogCityStoryFor } from './mog-city-mog';
 
 export const dynamic = 'force-dynamic';
 export const metadata = pageMeta({ description: DEFAULT_DESCRIPTION, path: '/' });
@@ -107,8 +108,10 @@ function RecordStat({ game }: { game: GameRow }) {
  * 4 Nov; until then it showed MOG Soon, 29 Oct). */
 // (4 Nov, the owner: MOG Soon again while Mogs are rethought; EPISODE_MOGS=on reopens Mog City Mogs, and MOG then opens
 // /mog/mog-city)
-function Flagship({ f }: { f: NonNullable<typeof FLAGSHIP> }) {
-  const mog = MOGGABLE.episode;
+// (5 Nov: MOG is live again as a Story Kit Mog of Mog City's own story, wherever the Story Kit is open to this viewer and
+// the own world is published: app/mog-city-mog.ts; otherwise MOG Soon as before)
+function Flagship({ f, storyMog }: { f: NonNullable<typeof FLAGSHIP>; storyMog: boolean }) {
+  const mog = storyMog || MOGGABLE.episode;
   const lead = (
     <Fragment key="lead">
       <p>{f.lead}</p>
@@ -329,7 +332,7 @@ export default async function Home() {
   return (
     <>
       <SiteHeader />
-      {FLAGSHIP ? <Flagship f={FLAGSHIP} /> : Reel({ worlds, stats }) ?? <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />}
+      {FLAGSHIP ? <Flagship f={FLAGSHIP} storyMog={!!(await mogCityStoryFor())} /> : Reel({ worlds, stats }) ?? <Billboard game={hero} film={filmFor(hero.slug)} stats={stats[hero.id]} />}
       <main className="wrap" style={{ paddingTop: 24 }}>
 
         {rails.map((rail, i) => (

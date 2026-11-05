@@ -14,6 +14,7 @@ import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
 import { CustomGamePage } from './custom-page';
 import { storykitForViewer } from '@/lib/storykit-http';
+import { mogOpenFor } from '../../mog-city-mog';
 import { Lineage, MogsPanel } from './mog';
 import { mogsOf, tileStats, getGameById } from '@/lib/db';
 import type { Metadata } from 'next';
@@ -56,7 +57,11 @@ export default async function GamePage({ params, searchParams }: { params: Promi
   const game = getGameBySlug(slug) ?? getUnlistedGameBySlug(slug) ?? ((await isAdmin()) ? getGameBySlugForOwner(slug) : undefined);
   if (!game) notFound();
   // (the Story Kit open to this viewer: STORYKIT=on, or owner-only and the owner's session; lib/storykit-switch.ts)
-  if (game.format === 'custom' || game.format === 'world') return <CustomGamePage game={game} kdiag={kdiag} storyOpen={game.format === 'world' ? await storykitForViewer() : undefined} />;
+  if (game.format === 'custom' || game.format === 'world') {
+    const storyOpen = game.format === 'world' ? await storykitForViewer() : undefined;
+    // (/g/mog-city's MOG, 5 Nov: a Story Kit Mog of Mog City's own story when that is live, app/mog-city-mog.ts)
+    return <CustomGamePage game={game} kdiag={kdiag} storyOpen={storyOpen} mogOpen={await mogOpenFor(game, storyOpen)} />;
+  }
 
   const spec = JSON.parse(game.spec) as WorldSpec;
   const scores = topScores(game.id);

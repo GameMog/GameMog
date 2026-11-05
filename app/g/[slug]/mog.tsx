@@ -32,7 +32,8 @@ export function MogOffPanel({ game }: { game: GameRow }) {
   return <MogOff child={{ id: game.id, slug: game.slug, title: game.title }} parent={{ id: parent.id, slug: parent.slug, title: parent.title }} idea={game.mog_prompt} episode={game.format === 'world' && worldMode(game.code, game.meta) === 'episode'} />;
 }
 
-export function MogsPanel({ game }: { game: GameRow }) {
+/** `open`: whether this game's Mog is open to this viewer (default canMog; /g/mog-city's story Mog, app/mog-city-mog.ts). */
+export function MogsPanel({ game, open = canMog(game) }: { game: GameRow; open?: boolean }) {
   const fam = family(game.id), children = mogsOf(game.id);
   const byId = new Map(fam.map((m) => [m.id, m]));
   return (
@@ -44,7 +45,7 @@ export function MogsPanel({ game }: { game: GameRow }) {
         </p>
         {/* (a kind of game that cannot be mogged yet says so: lib/custom-game.ts canMog. A penalty shootout can be,
             13 Oct, and its Mogs are listed, picked and ranked here as any game's) */}
-        {canMog(game)
+        {open
           ? <Link className="btn" href={`/mog/${game.slug}`}>Mog this game</Link>
           : <p className="dim" style={{ fontSize: 14, lineHeight: 1.5, maxWidth: 320 }}>{MOG_SOON}</p>}
       </div>
@@ -67,7 +68,7 @@ export function MogsPanel({ game }: { game: GameRow }) {
             })}
           </tbody>
         </table>
-      ) : <p className="dim" style={{ marginBottom: 24 }}>{canMog(game) ? 'Nobody has mogged this game yet. Be the first.' : 'Nobody has mogged this game yet.'}</p>}
+      ) : <p className="dim" style={{ marginBottom: 24 }}>{open ? 'Nobody has mogged this game yet. Be the first.' : 'Nobody has mogged this game yet.'}</p>}
 
       {fam.length > 1 && (
         <>

@@ -5,6 +5,8 @@ import type { Metadata } from 'next';
 import { familyByRoot, getGameBySlug, getUnlistedGameBySlug, getPlayableGameById, type FamilyMember, type GameRow } from '@/lib/db';
 import { canMog, MOG_SOON } from '@/lib/custom-game';
 import { pageMeta } from '../../../seo';
+import { mogCityStoryFor } from '../../../mog-city-mog';
+import { isMogCityEpisode } from '@/lib/storykit-mogcity';
 import { GlassFont } from '../../../discord-pill';
 import '../../../glass.css';
 
@@ -65,6 +67,9 @@ export default async function FamilyPage({ params }: Params) {
   const f = load(slug);
   if (!f) notFound();
   const rows = treeOrder(f.members, f.rootId);
+  // (/g/mog-city's Mog, 5 Nov: a Story Kit Mog of Mog City's own story when that is live for this viewer, app/mog-city-mog.ts)
+  const mcStory = f.members.some((m) => isMogCityEpisode(m)) || isMogCityEpisode(f.root) ? !!(await mogCityStoryFor()) : false;
+  const mogOpen = (m: GameRow) => canMog(m) || (mcStory && isMogCityEpisode(m));
   const title = f.root?.title ?? f.game.title;
   const plays = f.members.reduce((s, m) => s + m.plays, 0);
   return (
@@ -101,13 +106,13 @@ export default async function FamilyPage({ params }: Params) {
                     <svg width="11" height="13" viewBox="0 0 14 16" aria-hidden><path d="M1 1.2v13.6a.7.7 0 0 0 1.05.6l11.2-6.8a.7.7 0 0 0 0-1.2L2.05.6A.7.7 0 0 0 1 1.2Z" fill="currentColor" /></svg>
                     <span>Play</span>
                   </Link>
-                  {canMog(m) && <Link className="gl-pill gl-clear" href={`/mog/${m.slug}`} aria-label={`Mog ${m.title}`}>Mog it</Link>}
+                  {mogOpen(m) && <Link className="gl-pill gl-clear" href={`/mog/${m.slug}`} aria-label={`Mog ${m.title}`}>Mog it</Link>}
                 </div>
               </li>
             );
           })}
         </ol>
-        {rows.length <= 1 ? <p className="fp-meta" style={{ marginTop: 16 }}>{f.root && !canMog(f.root) ? MOG_SOON : 'No Mogs yet. Make the first one.'}</p> : null}
+        {rows.length <= 1 ? <p className="fp-meta" style={{ marginTop: 16 }}>{f.root && !mogOpen(f.root) ? MOG_SOON : 'No Mogs yet. Make the first one.'}</p> : null}
       </div>
     </main>
   );

@@ -14,6 +14,8 @@ import { storyOf, storyCityName } from '@/lib/storykit-site';
 import { storykitForViewer } from '@/lib/storykit-http';
 import { storykitMode } from '@/lib/storykit-switch';
 import { StoryMogComposer } from '../../create/story';
+import { mogCityStoryFor, MOG_CITY_STORY_MOG } from '../../mog-city-mog';
+import { isMogCityEpisode } from '@/lib/storykit-mogcity';
 import { Lock } from '../../create/story-show';
 
 export const dynamic = 'force-dynamic';
@@ -48,7 +50,12 @@ export default async function MogPage({ params, searchParams }: { params: Promis
   // (a kind of game that cannot be mogged yet says so and offers no build, and app/api/generate/route.ts refuses one
   // too: lib/custom-game.ts canMog. A penalty shootout can be, 13 Oct: its composer offers its own ideas)
   // a Story Kit world (STORYKIT=on, lib/storykit-site.ts): its Mog keeps its city, shown locked, and remixes the rest
-  const story = storyOf(game, storyOpen);
+  // (/mog/mog-city, 5 Nov: the 3 Nov episode's Mog is a Story Kit Mog of Mog City's own story when that is live for this
+  // viewer, app/mog-city-mog.ts: the same story composer, New York locked, with Mog City's people to remake and its
+  // missions kept; the card below stays /g/mog-city's own, and the build takes the own world as the parent)
+  const mcStory = isMogCityEpisode(game) ? await mogCityStoryFor(storyOpen) : undefined;
+  const mcCity = mcStory ? storyOf(mcStory, true) : null;
+  const story = mcCity ?? storyOf(game, storyOpen);
   const open = story ? true : canMog(game);
   const kind = worldMode(game.code, game.meta);
   return (
@@ -57,7 +64,14 @@ export default async function MogPage({ params, searchParams }: { params: Promis
       <main className="wrap" style={{ paddingBottom: 80, maxWidth: 820 }}>
         <h1 style={{ marginTop: 24, marginBottom: 6 }}>Mog {game.title}</h1>
         {/* (a penalty shootout is played, not raced, before it can publish, 13 Oct) */}
-        {story ? (
+        {mcCity ? (
+          <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
+            Remix Mog City&apos;s story. The city stays {storyCityName(mcCity.city)}, street for street, and the
+            missions stay as they are; Dan, Jane, Mr. Big and the Suits, their cars, their lines and the season are yours
+            to change. Your browser forges the remade people and records the changed lines, and plays every mission
+            before it can publish. The original is always credited.
+          </p>
+        ) : story ? (
           <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
             Remix the story. The city stays {storyCityName(story.city)}, street for street; the story, the missions, the
             people, their cars and their voices are yours to change. Your browser forges the new people and records the
@@ -102,7 +116,7 @@ export default async function MogPage({ params, searchParams }: { params: Promis
           </div>
         </div>
         {story
-          ? <StoryMogComposer slug={game.slug} title={game.title} city={story.city} cityName={storyCityName(story.city)} dare={dare} />
+          ? <StoryMogComposer slug={game.slug} title={mcCity ? 'Mog City' : game.title} city={story.city} cityName={storyCityName(story.city)} dare={dare} {...(mcCity ? MOG_CITY_STORY_MOG : {})} />
           : open
           ? <MogComposer slug={game.slug} title={game.title} inherited={optionsOf(game)} dare={dare} kind={kind} />
           : <Link className="btn big" href={`/g/${game.slug}`}>Play {game.title}</Link>}

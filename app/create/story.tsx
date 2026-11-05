@@ -113,7 +113,14 @@ const MOG_IDEAS = [
  * /mog/<story world> (STORYKIT=on): the city is the original's, shown as a locked chip with no dropdown; the creator
  * says how their Mog remixes the rest. The page says what can change and what stays.
  */
-export function StoryMogComposer({ slug, title, city, cityName, dare }: { slug: string; title: string; city: StoryCity; cityName: string; dare?: string | null }) {
+/**
+ * `change` / `stays` / `ideas`: a parent that keeps more than its city (Mog City's own story keeps its missions,
+ * app/mog-city-mog.ts MOG_CITY_STORY_MOG) says so here; any other story world keeps the lists below.
+ */
+export function StoryMogComposer({ slug, title, city, cityName, dare, change, stays, ideas }: {
+  slug: string; title: string; city: StoryCity; cityName: string; dare?: string | null;
+  change?: string[]; stays?: string[]; ideas?: string[];
+}) {
   const gen = useGeneration();
   const [idea, setIdea] = useState('');
   const { consent, setConsent, said } = useStoryConsent();
@@ -130,16 +137,21 @@ export function StoryMogComposer({ slug, title, city, cityName, dare }: { slug: 
           <div>
             <p className="lbl">You can change</p>
             <ul>
-              <li>The story and its three acts, the missions and the choices</li>
-              <li>The people: new ones, or the same ones remade</li>
-              <li>The cars, and who drives what</li>
-              <li>The voices and every line</li>
+              {change ? change.map((x) => <li key={x}>{x}</li>) : (
+                <>
+                  <li>The story and its three acts, the missions and the choices</li>
+                  <li>The people: new ones, or the same ones remade</li>
+                  <li>The cars, and who drives what</li>
+                  <li>The voices and every line</li>
+                </>
+              )}
             </ul>
           </div>
           <div>
             <p className="lbl">Stays the same</p>
             <ul>
               <li>The city: {cityName}, street for street</li>
+              {stays?.map((x) => <li key={x}>{x}</li>)}
               <li>Whatever you leave alone is kept from {title}, recordings included</li>
             </ul>
           </div>
@@ -149,7 +161,7 @@ export function StoryMogComposer({ slug, title, city, cityName, dare }: { slug: 
           onChange={(e) => setIdea(e.target.value)} />
         <CharCount n={idea.length} max={MOG_PROMPT_MAX} />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
-          {MOG_IDEAS.map((x) => <button key={x} className="tag" onClick={() => setIdea(x)}>{x}</button>)}
+          {(ideas ?? MOG_IDEAS).map((x) => <button key={x} className="tag" onClick={() => setIdea(x)}>{x}</button>)}
         </div>
         <ConsentStep value={consent} onChange={setConsent} disabled={gen.busy} />
         {phone && <p className="t-meta" style={{ margin: '0 0 8px' }}>{PHONE_NOTE}</p>}

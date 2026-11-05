@@ -33,7 +33,7 @@ function storyHow(city: string) {
   return `A story in three acts on the streets of ${city}. Follow the objective and the GPS to each mission: drives, chases, tails, fights and calls move the story on, with cutscenes between them. Between missions the city is yours to roam. Finish every mission to reach the story's end.`;
 }
 
-export function CustomGamePage({ game, kdiag = null, storyOpen }: { game: GameRow; kdiag?: string | null; storyOpen?: boolean }) {
+export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog(game) }: { game: GameRow; kdiag?: string | null; storyOpen?: boolean; mogOpen?: boolean }) {
   const meta = JSON.parse(game.meta ?? '{}') as Omit<GameMeta, 'scoring'> & { scoring?: GameMeta['scoring'] | 'level' | 'survival' };
   const world = game.format === 'world';
   // a framework world's controls are the runtime's, read from its code, so a change to them
@@ -137,7 +137,7 @@ export function CustomGamePage({ game, kdiag = null, storyOpen }: { game: GameRo
               {consent && <p className="t-meta dim" data-consent>Names a real person, with consent stated by its creator.</p>}
               {inherited && <p className="t-meta dim" data-consent>Names a real person, with consent stated by the creator of the episode it came from.</p>}
             </div>
-            <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} mog={canMog(game)} dare={!episode} />
+            <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} mog={mogOpen} dare={!episode} />
           </div>
         </div>
 
@@ -181,7 +181,7 @@ export function CustomGamePage({ game, kdiag = null, storyOpen }: { game: GameRo
               ),
             },
             ...(episode ? [] : [{ label: `Leaderboard${scores.length ? ` (${scores.length})` : ''}`, body: leaderboard }]),
-            { label: `Mogs${mogs.length ? ` (${mogs.length})` : ''}`, body: <MogsPanel game={game} /> },
+            { label: `Mogs${mogs.length ? ` (${mogs.length})` : ''}`, body: <MogsPanel game={game} open={mogOpen} /> },
             {
               label: 'Cast',
               body: (
