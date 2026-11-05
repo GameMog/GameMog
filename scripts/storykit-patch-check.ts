@@ -1,8 +1,9 @@
 /**
  * Story Kit: the owner's patch of a published world (lib/storykit-store.ts StoryStore.patch, lib/storykit-publish.ts
- * patchStoryWorld, app/api/storykit/admin/patch/route.ts): an opening and its voiced lines added to a kept world, every
- * refusal changing nothing, the old world kept for patching back. Part of `npm run check`. A temporary store with a fake
- * clock; nothing touches data/, no server, no network.
+ * patchStoryWorld, app/api/storykit/admin/patch/route.ts): an opening and its voiced lines added to a kept world, and a
+ * cast member's new body (a re-forged GLB under the same name), every refusal changing nothing, the old world and the
+ * files it names kept for patching back. Part of `npm run check`. A temporary store with a fake clock; nothing touches
+ * data/, no server, no network.
  */
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -74,7 +75,7 @@ export function runStoryPatchChecks(ok: Ok) {
     ok('a sent file the world does not name is refused', !extra.ok && (extra as any).problems.some((p: string) => /not named by the world/.test(p)));
     const fake = r({ world, files: [{ ext: 'ogg', bytes: new TextEncoder().encode('not an ogg file at all, no') }, ...files.slice(1)], opening: nyOpening(), from: was });
     const glb = r({ world, files: [{ ext: 'glb', bytes: tinyGlb('x') }, ...files], opening: nyOpening(), from: was });
-    ok('only real voice clips are sent (a fake Ogg, a GLB: refused)', !fake.ok && !glb.ok);
+    ok('only real clips and new bodies are sent (a fake Ogg, a GLB no one wears: refused)', !fake.ok && !glb.ok);
     const wrongLine = clone(world); const k = Object.keys(wrongLine.voice.clips).at(-1)!; wrongLine.voice.clips['00000000-00000000'] = wrongLine.voice.clips[k]; delete wrongLine.voice.clips[k];
     ok('a clip for no line of the world is refused', (() => { const x = r({ world: wrongLine, files, opening: nyOpening(), from: was }); return !x.ok && (x as any).problems.some((p: string) => /no line of the world/.test(p)); })());
     const another = clone(world); another.id = 'sk-else';
@@ -96,6 +97,35 @@ export function runStoryPatchChecks(ok: Ok) {
     const back = p.ok ? r({ world: wasWorld, files: [], opening: null, from: p.hash }) : null;
     ok('patching back to the old world restores it, and keeps the patched one', !!back && back.ok && back.hash === was && kept().world === was && !JSON.parse(kept().pack).opening && p.ok && !!s.read(`${p.hash}.json`), JSON.stringify(back));
     ok('the limits are the store\'s (a world at most 24 MB, clips at most 1 MB each)', LIMITS.world === 24 << 20 && LIMITS.voice.each === 1 << 20);
+
+    // a new body: a cast member re-forged, the new GLB in place of the old one under the same name
+    const now0 = kept().world, w0 = JSON.parse(s.read(`${now0}.json`)!.bytes.toString());
+    const who = Object.keys(w0.cast).find((n) => /\/storykit\/f\/[0-9a-f]{64}\.glb$/.test(w0.cast[n].glb ?? ''))!;
+    const oldBody = (s.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'glb' AND name = 'nico'").get(o.id) as { hash: string }).hash;
+    const body = tinyGlb('nico re-forged', 64), bodyUrl = `/storykit/f/${sha(body)}.glb`;
+    const wb = clone(w0); wb.cast[who].glb = bodyUrl;
+    const b1 = blobs();
+    const asBody = (world: any, bytes: Uint8Array) => r({ world, files: [{ ext: 'glb', bytes }], from: now0 });
+    const stranger = clone(wb); stranger.cast['Nobody Here'] = clone(wb.cast[who]); stranger.cast[who] = clone(w0.cast[who]);
+    ok('a body for a name that is no cast member is refused', (() => { const x = asBody(stranger, body); return !x.ok && (x as any).problems.some((p: string) => /world\.cast\.Nobody Here/.test(p)); })());
+    const bare = Object.keys(w0.cast).find((n) => !w0.cast[n].glb);
+    if (bare) { const x = clone(w0); x.cast[bare] = { ...x.cast[bare], glb: bodyUrl }; ok('a body for someone without a forged one is refused', (() => { const y = asBody(x, body); return !y.ok && (y as any).problems.some((p: string) => p.startsWith(`world.cast.${bare}:`)); })()); }
+    const notGlb = body.slice(); notGlb.set([0, 0, 0, 0], 0); const wn = clone(w0); wn.cast[who].glb = `/storykit/f/${sha(notGlb)}.glb`;
+    ok('a body that is not a glTF binary (bad magic) is refused', (() => { const x = asBody(wn, notGlb); return !x.ok && (x as any).problems.some((p: string) => /no glTF magic/.test(p)); })());
+    const big = tinyGlb('too big', LIMITS.glb.each); const wbig = clone(w0); wbig.cast[who].glb = `/storykit/f/${sha(big)}.glb`;
+    ok('a body over the per-person cap is refused', (() => { const x = asBody(wbig, big); return !x.ok && (x as any).problems.some((p: string) => /body is 16 bytes to 3 MB/.test(p)); })());
+    const recolour = clone(wb); recolour.cast[who].color = '#000000';
+    ok('a person changed in anything but the body is refused', (() => { const x = asBody(recolour, body); return !x.ok && (x as any).problems.some((p: string) => p.startsWith(`world.cast.${who}:`)); })());
+    ok('a refused body stores nothing and changes nothing', blobs() === b1 && kept().world === now0 && (s.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'glb' AND name = 'nico'").get(o.id) as any).hash === oldBody);
+    const nb = asBody(wb, body);
+    ok('a new body for a real cast member is accepted, and the world sealed as sent', nb.ok && nb.bodies === 1 && kept().world === nb.hash && nb.hash === sha(JSON.stringify(wb)), JSON.stringify(nb));
+    ok('the draft\'s file for that person is the new body (the store builds the same cast)', (s.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'glb' AND name = 'nico'").get(o.id) as any)?.hash === sha(body) && (s.world(o.id) as any).cast[who].glb === bodyUrl);
+    ok('the old body is kept with the world it was in (patching back still plays)', s.sweep(true) && !!s.read(`${oldBody}.glb`) && !!s.read(`${now0}.json`));
+    const mp2 = JSON.parse(kept().pack); mp2.parent = mp2.id; mp2.id = 'night-fares-mog-2';
+    const mog2 = s.open(mp2, { parent: o.id });
+    ok('a Mog of the world gets the new body', mog2.ok && (s.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'glb' AND name = 'nico' AND inherited = 1").get(mog2.id) as any)?.hash === sha(body), mog2.ok ? '' : JSON.stringify(mog2));
+    const back2 = nb.ok ? r({ world: w0, files: [], from: nb.hash }) : null;
+    ok('patching back restores the old body', !!back2 && back2.ok && back2.bodies === 1 && kept().world === now0 && (s.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'glb' AND name = 'nico'").get(o.id) as any).hash === oldBody && !!s.read(`${sha(body)}.glb`), JSON.stringify(back2));
   } finally { rmSync(root, { recursive: true, force: true }); }
 
   const route = 'app/api/storykit/admin/patch/route.ts';
