@@ -40,7 +40,8 @@ export function runStoryOwnerChecks(ok: Ok) {
     ['app/create/story-preview/page.tsx', /!\(await storykitForViewer\(\)\)/],
     ['app/g/[slug]/play/route.ts', /storykitForRequest\(req\)/],
     ['app/d/[id]/play/route.ts', /storykitForRequest\(req\)/],
-    ['app/g/[slug]/page.tsx', /storyOpen=\{[^}]*await storykitForViewer\(\)/],
+    // (inline, or read once into storyOpen and passed on: the Mog of Mog City reads it too, 5 Nov)
+    ['app/g/[slug]/page.tsx', /storyOpen=\{[^}]*await storykitForViewer\(\)|const storyOpen = [^;\n]*await storykitForViewer\(\)[^;\n]*;[\s\S]*storyOpen=\{storyOpen\}/],
     ['app/mog/[slug]/page.tsx', /storyOf\(game, storyOpen\)/],
     ['app/api/generate/route.ts', /if \(!storykitForRequest\(req\)\) return/],
     ['app/api/games/route.ts', /sealStoryDraft\(d, storykitForRequest\(req\)\)/],
