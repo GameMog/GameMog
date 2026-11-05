@@ -378,6 +378,17 @@ export function builderProblems(pack: PackV2, input: StorykitInput, meta?: Story
       else if (all.some((m: PackV2) => kinds(m.steps).some((x: PackV2) => x?.type === 'scene'))) out.push('This is a new story played as Dan, not Mog City\'s own: write its own cutscenes, no scene steps (Mog City\'s set pieces).');
     } else if (!hero?.sheet) out.push('The creator described how their hero looks: the hero is a forged person with a Character Forge sheet written from that look, not a shipped model.');
   }
+  // a search of the hero's own car says so (on: "ride"): the hold is then at the car wherever he parked it. Written as a
+  // search at the place, it waits at the corner, and a player who parked a block away finds nothing there (the Velvet
+  // Run, 5 Nov: "Search the Vesper's trunk." at First Avenue, given up)
+  for (const m of all) {
+    const v = (pack.vehicles ?? []).find((x: PackV2) => x && (x.id || x.stock) === m?.vehicle), name = String(v?.label || '').split(/\s+/).find((w: string) => w.length >= 3 && /^[A-Z]/.test(w));
+    for (const x of kinds(m?.steps)) {
+      if (x?.type !== 'search' || x.on || m?.vehicle === 'on-foot') continue;
+      const words = `${x.label || ''} ${x.objective || ''}`;
+      if (/\b(trunk|boot|tailgate|glove ?box)\b/i.test(words) || (name && new RegExp(`\\b${name.replace(/\W/g, '')}\\b`, 'i').test(words))) out.push(`mission ${m.id}: the search "${x.label}" is of the hero's own car: write "on": "ride" (and "part": "trunk", "door" or "hood"), so the hold is at the car wherever the player parks it.`);
+    }
+  }
   // Mission 1 ends on a payoff the player does (the owner's review of the first build, 4 Nov)
   const m1 = all[0];
   if (m1?.steps?.length) {

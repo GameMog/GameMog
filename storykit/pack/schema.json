@@ -5147,7 +5147,7 @@
       "label": {
        "type": "string",
        "maxLength": 40,
-       "description": "what holding does, lower case: \"search the van\""
+       "description": "what holding does, lower case: \"search the van\", \"search the trunk\""
       },
       "secs": {
        "type": "number",
@@ -5161,6 +5161,21 @@
       },
       "objective": {
        "$ref": "#/$defs/objective"
+      },
+      "on": {
+       "enum": [
+        "place",
+        "ride"
+       ],
+       "description": "place (default): hold F at the place. ride: at the hero's own car (the mission's vehicle), wherever he parked it: its trunk, door or hood (part)"
+      },
+      "part": {
+       "enum": [
+        "trunk",
+        "door",
+        "hood"
+       ],
+       "description": "with on: 'ride', which part of the car (trunk if left out; door for the glovebox, the seats or the door pockets)"
       }
      }
     },

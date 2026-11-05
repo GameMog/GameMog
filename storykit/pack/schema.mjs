@@ -176,8 +176,13 @@ const STEPS = {
   }, ['enemies', 'arena', 'win']),
   // a text message on the phone (Mog City's DMs): from a cast member, or a name ("Unknown number"); read, never voiced
   dm: step('dm', { from: R('castRef'), name: S(40), text: S(280), secs: N(2, 20), wait: B }, ['text']),
-  // hold a key at a spot on foot (search the van, take a dropped phone): F held for secs inside the ring
-  search: step('search', { at: R('placeRef'), label: S(40, { description: 'what holding does, lower case: "search the van"' }), secs: N(0.3, 6), radius: N(1.5, 12), objective: R('objective') }, ['at', 'label']),
+  // hold a key at a spot on foot (search the van, take a dropped phone): F held for secs inside the ring. on: 'ride' is
+  // a search of the hero's own car (its trunk, a door's glovebox, under its hood) held at the car wherever he parked it,
+  // following it; `at` is then where he drives it to (the route's target until he is there). Mog City's runner also
+  // takes a search whose words name the car's trunk, boot or glovebox, or the car by name, as one; on: 'place' says not
+  search: step('search', { at: R('placeRef'), label: S(40, { description: 'what holding does, lower case: "search the van", "search the trunk"' }), secs: N(0.3, 6), radius: N(1.5, 12), objective: R('objective'),
+    on: E(['place', 'ride'], { description: "place (default): hold F at the place. ride: at the hero's own car (the mission's vehicle), wherever he parked it: its trunk, door or hood (part)" }),
+    part: E(['trunk', 'door', 'hood'], { description: "with on: 'ride', which part of the car (trunk if left out; door for the glovebox, the seats or the door pockets)" }) }, ['at', 'label']),
   // a tow (Mog City's runner): a car stands at the target place; the hero's wrecker (a ride with the tow ability) backs up
   // to its nose, F held at the wheel hooks it on the wheel-lift, then it is towed to `to` and let down there
   tow: step('tow', {

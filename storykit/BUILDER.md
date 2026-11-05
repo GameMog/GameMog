@@ -89,7 +89,10 @@ people and places.
   show how hot it is, a search circle shows where they look once he breaks their line of sight. `goal: "lose"` is
   won by getting out of sight and staying out; `goal: "reach"` by getting to `to` with them on his tail.
 - **Searching.** A `search` is Mog City's hold-F action at a spot on foot ("search the van", "take the phone"): a
-  ring fills while F is held. It is how the player does something with their hands at the goal.
+  ring fills while F is held. It is how the player does something with their hands at the goal. To search **the
+  hero's own car** (its trunk, its glovebox, under its hood) write `"on": "ride"` (and `"part": "trunk"`, `"door"` or
+  `"hood"`; trunk if left out): the ring and the hold are then at the car wherever the player parked it, and `at` is
+  where he drives it to. Without it the hold is at the place, and a player who parked a block away finds nothing there.
 - **Towing.** A `tow` is a real tow, for a ride with the `tow` ability (a `wrecker` sheet, or a `pickup` with it): a car
   stands at `target` (a city body, `car: "van"`, or one of your vehicles by id: an ambulance is a van sheet with a
   livery), the player drives up to it, backs the truck's tail up to its nose and holds F at the wheel; the light bar
@@ -302,6 +305,7 @@ their fields are in the schema (`$defs.step`); speakers (`who`, `say`, `by`, `fr
 | several drops | `{ "type": "stops", "stops": ["@a", { "@": "b", "name": "the shop" }], "objective": "Drop {n} of {of}: **{name}**" }` |
 | walk (after parking) | `{ "type": "walk", "to": "@pier48", "leaveCar": true, "objective": "Park the {ride} and walk to **Pier 48**." }` |
 | do something there | `{ "type": "search", "at": "@crash", "label": "search the van", "secs": 2, "objective": "Search the **van**." }` |
+| search his own car | `{ "type": "search", "at": "@un", "on": "ride", "part": "trunk", "label": "search the trunk", "secs": 2, "objective": "Search the {ride}'s **trunk**." }` |
 | tow a car (a wrecker) | `{ "type": "tow", "target": "@crash", "car": "rides.ambulance", "name": "the ambulance", "to": "@depot", "objective": "Drive to **the ambulance**.", "dropObjective": "Tow **the ambulance** to **the depot**." }` |
 | the car phone while driving | a `drive` with `during: [{ "at": 2, "type": "call", "who": "ray", "auto": true, "inCar": true, "lines": [{ "who": "ray", "text": "..." }], "wrap": [{ "who": "ray", "text": "..." }] }]` |
 | a ringing call, then a timed choice | a `drive` with `during: [{ "at": 3, "type": "call", "who": "ray", "lines": [ ... ], "choice": { "who": "ray", "prompt": "...", "timeout": 7, "default": 0, "options": [{ "text": "...", "reply": "...", "set": { "flags": { "told": "yes" } } }] }, "voicemail": { "text": "..." } }]` |

@@ -41,6 +41,8 @@
  *      reworded), the same clock (format and unit), and only the step kinds, fight rules and fight wins its parent uses.
  *      It changes the story, the cast, the cars, the voices and the dressing. A Create sets its own rules: its meters,
  *      clock, mission rules and HUD items, from the runtime's parts (the schema's closed lists).
+ *  13. a search of the hero's own car (search on: 'ride', its part: trunk, door, hood): only on a mission with a vehicle and
+ *      on Mog City's engine, its `at` a drive place (where he drives the car to); a part only with on: 'ride'.
  *
  * toRunnerPack(pack) turns a passed pack into the runner's pack format (storykit: 1, with its engine): what the store
  * seals as a world and Mog City's runner plays (Mog City wagmi/storyrun/pack.js).
@@ -483,7 +485,15 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
           break;
         case 'choice': choice(s, at, lid); break;
         case 'dm': if (s.from) who(s.from, `${at}.from`); else if (!s.name) refuse(`${at}: a DM is from a cast member (from) or a name ("Unknown number").`); break;
-        case 'search': need.set('walk', at); place(s.at, `${at}.at`, 'any'); break;
+        case 'search':
+          need.set('walk', at); place(s.at, `${at}.at`, s.on === 'ride' ? 'drive' : 'any');
+          // (a search of the hero's own car: held at the car wherever he parked it, so the mission needs a car to search, on Mog City's engine)
+          if (s.on === 'ride') {
+            if (ride.family === 'foot') refuse(`${at}: on: "ride" searches the hero's own car, and ${M} is on foot; give the mission a vehicle, or search the place (on: "place").`);
+            if (!mc) refuse(`${at}: on: "ride" (a search of the hero's car, wherever he parked it) plays on Mog City's engine (base.engine "mogcity-1").`);
+          } else if (s.part) refuse(`${at}.part: a part of the car only goes with on: "ride".`);
+          else if (s.on !== 'place' && /\b(trunk|boot|tailgate|glove ?box)\b/i.test(`${s.label || ''} ${s.objective || ''}`)) warnings.push(`${at}: it names a car's trunk or glovebox; if that is the hero's own car, write on: "ride" so the hold is at the car wherever he parks it.`);
+          break;
         case 'tow':
           need.set('tow', at); place(s.target, `${at}.target`, 'drive'); place(s.to, `${at}.to`, 'drive');
           if (!mc) refuse(`${at}: a tow plays on Mog City's engine (base.engine "mogcity-1").`);
