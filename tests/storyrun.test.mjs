@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 globalThis.location = new URL('http://127.0.0.1:4981/?pack=x');
@@ -15,11 +16,14 @@ const { test: cond, value } = await import('../wagmi/storyrun/cond.js');
 const files = (dir) => fs.readdirSync(path.join(ROOT, dir), { recursive: true }).filter((f) => /\.(m?js|mts|json|md)$/.test(f)).map((f) => path.join(dir, f));
 
 test('no forbidden name anywhere in the runner, its tools or its test worlds', () => {
-  const BAD = /GEN Z|\bQuant\b|\$QUANT|ceogenz|\bJuno\b|\bDegens\b|\bZK\b|WAGMI City/i;
+  // (the names are held as hashes, never written out: a word, or two words together, lower-cased, sha256's first 16 hex)
+  const BAD = new Set(['6c3b9eb90037aebb', '7327d4d86dcf6bd5', '33ce206b561db612', '74f4465e33524366', 'a50128d59f482a86', '3be0e6fa29e179d8', 'e0f815fb33ac48cf', '21a301158facee68']);
+  const h = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16);
+  const bad = (l) => { const w = l.toLowerCase().match(/\$?[a-z0-9]+/g) || []; return w.some((x, i) => BAD.has(h(x)) || (i && BAD.has(h(w[i - 1] + ' ' + x)))); };
   const hits = [];
   for (const f of [...files('wagmi/storyrun'), ...files('tools/storyrun')]) {
     const lines = fs.readFileSync(path.join(ROOT, f), 'utf8').split('\n');
-    lines.forEach((l, i) => { if (BAD.test(l)) hits.push(`${f}:${i + 1}`); });
+    lines.forEach((l, i) => { if (bad(l)) hits.push(`${f}:${i + 1}`); });
   }
   assert.deepEqual(hits, []);
 });
