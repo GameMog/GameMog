@@ -316,7 +316,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   if (pack.ride && !rides.has(pack.ride)) refuse(`ride "${pack.ride}" is not one of the vehicles.`);
 
   // cast: sheet, voice, anchor
-  const voiceIds = new Map<string, string>(), blocks: { id: string; base: string; pitch: number; speed: number }[] = [];
+  const voiceIds = new Map<string, string>(), blocks: { id: string; base: string; mix: string; pitch: number; speed: number }[] = [];
   for (const c of pack.cast) {
     const at = `cast "${c.id}"`;
     if (c.voiceOnly && c.sheet) refuse(`${at}: voiceOnly (heard, never seen) has no sheet.`);
@@ -345,11 +345,14 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
       else if (/not an English stock voice/.test(p)) refuse(`${at}.voice: ${p}`);
       else clamped.push(`${at}.voice: ${p}`);
     }
-    blocks.push({ id: c.id, base: lint.block.base, pitch: lint.block.pitch, speed: lint.block.speed });
+    // (the whole mix, not only its base: a 50/50 blend of two stock voices is not the base voice alone, 5 Nov: Mog
+    // City's crowd, am_michael with af_sarah, was warned as sounding like Dan's plain am_michael)
+    const mix = Object.entries((lint.block.blend || { [lint.block.base]: 1 }) as Record<string, number>).filter(([, w]) => w > 0).sort(([x], [y]) => (x < y ? -1 : 1)).map(([id, w]) => `${id}:${Math.round(w * 20) / 20}`).join(',');
+    blocks.push({ id: c.id, base: lint.block.base, mix, pitch: lint.block.pitch, speed: lint.block.speed });
   }
   for (let i = 0; i < blocks.length; i++) for (let j = i + 1; j < blocks.length; j++) {
     const a = blocks[i], b = blocks[j];
-    if (a.base === b.base && Math.abs(a.pitch - b.pitch) < 0.75 && Math.abs(a.speed - b.speed) < 0.06) warnings.push(`cast "${a.id}" and "${b.id}" share ${a.base} at almost the same pitch and speed: they will sound alike.`);
+    if (a.base === b.base && a.mix === b.mix && Math.abs(a.pitch - b.pitch) < 0.75 && Math.abs(a.speed - b.speed) < 0.06) warnings.push(`cast "${a.id}" and "${b.id}" share ${a.base} at almost the same pitch and speed: they will sound alike.`);
   }
   if (pack.hero) {
     const h = cast.get(pack.hero); if (!h) refuse(`hero "${pack.hero}" is not in the cast.`); else if (h.voiceOnly) refuse(`hero "${pack.hero}" is voiceOnly; the player is seen.`);

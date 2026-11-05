@@ -52,7 +52,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!id || !/^[a-z0-9][a-z0-9-]{1,39}$/.test(id)) { console.error('usage: storykit-pack.ts <pack id> [--no-forge]'); process.exit(2); }
   const P = packPaths(id);
   if (!existsSync(P.src)) { console.error(`no pack at ${path.relative(ROOT, P.src)}`); process.exit(2); }
-  const g = gatePack(JSON.parse(readFileSync(P.src, 'utf8')));
+  // (Mog City's own story, the one pack whose title may be Mog City's: gate rule 11's own exemption, as the check reads it)
+  const g = gatePack(JSON.parse(readFileSync(P.src, 'utf8')), { own: id === 'mog-city' });
   for (const w of g.warnings) console.log('warning:', w);
   for (const c of g.clamped) console.log('clamped:', c);
   if (!g.ok) { for (const p of g.problems) console.error('refused:', p); process.exit(1); }
