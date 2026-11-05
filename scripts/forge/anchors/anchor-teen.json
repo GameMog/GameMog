@@ -1,0 +1,120 @@
+{
+ "id": "anchor-teen",
+ "name": "Jaylen Marte",
+ "role": "anchor: street-wise teen",
+ "logline": "Seventeen, knows every shortcut between the bodega and the courts, and every lie the block tells.",
+ "identity": {
+  "age": 17,
+  "body": "male",
+  "presentation": "teenage boy",
+  "heightCm": 174,
+  "build": {
+   "frame": "small",
+   "weight": "slim",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "Dominican-American",
+  "blend": {
+   "african": 0.5,
+   "asian": 0.1,
+   "european": 0.4
+  },
+  "skin": {
+   "tone": "brown",
+   "undertone": "warm",
+   "weathered": false,
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "soft",
+  "cheeks": "average",
+  "cheekbones": "high",
+  "faceWidth": "narrow",
+  "nose": {
+   "width": "wide",
+   "length": "short",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "soft",
+  "chin": {
+   "projection": "average",
+   "length": "short",
+   "width": "narrow"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "black",
+   "weight": "average"
+  },
+  "eyeShape": "almond",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "full",
+   "width": "average",
+   "cupidsBow": "defined",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "protruding"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "jawWidth": "narrow",
+  "eyeSpacing": "wide",
+  "faceLength": "short"
+ },
+ "hair": {
+  "style": "short-twists",
+  "color": "black"
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "hoodie",
+   "color": "#1E2023",
+   "accent": "#1E2023"
+  },
+  "bottom": {
+   "item": "track-pants",
+   "color": "#26282B"
+  },
+  "shoes": {
+   "item": "sneakers",
+   "color": "#E8E6E0",
+   "accent": "#B23A2E"
+  }
+ },
+ "posture": {
+  "stance": "slouched",
+  "pace": "restless",
+  "gestures": "hands in pockets, chin up, quick looks over his shoulder",
+  "idle": "shift",
+  "walk": "walkCool"
+ },
+ "personality": {
+  "traits": [
+   "quick",
+   "wary",
+   "funny",
+   "loyal"
+  ],
+  "wants": "enough money to get his little sister out of the building",
+  "speech": "fast, clipped, half slang, never finishes a sentence he can shrug"
+ },
+ "voice": {
+  "id": "anchor-teen-v1",
+  "description": "light tenor, quick and cocky, voice still settling",
+  "pitch": "mid",
+  "rate": "quick"
+ }
+}

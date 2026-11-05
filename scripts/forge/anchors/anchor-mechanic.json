@@ -1,0 +1,117 @@
+{
+ "id": "anchor-mechanic",
+ "name": "Declan Rourke",
+ "role": "anchor: mechanic",
+ "logline": "Fifty-eight, runs a two-bay garage under the tracks, fixes anything with an engine and asks nothing.",
+ "identity": {
+  "age": 58,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 180,
+  "build": {
+   "frame": "broad",
+   "weight": "average",
+   "muscle": "strong"
+  }
+ },
+ "heritage": {
+  "note": "Irish-American",
+  "blend": {
+   "african": 0,
+   "asian": 0,
+   "european": 1
+  },
+  "skin": {
+   "tone": "light",
+   "undertone": "warm",
+   "weathered": true,
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "heavy",
+  "cheeks": "average",
+  "cheekbones": "flat",
+  "faceWidth": "wide",
+  "nose": {
+   "width": "wide",
+   "length": "average",
+   "tip": "drooping",
+   "bridge": "hump"
+  },
+  "browRidge": "strong",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "wide"
+  },
+  "eyes": "blue",
+  "brows": {
+   "color": "auburn",
+   "weight": "heavy"
+  },
+  "eyeShape": "deep-set",
+  "eyeBags": "heavy",
+  "mouth": {
+   "lips": "thin",
+   "width": "average",
+   "corners": "down"
+  },
+  "ears": {
+   "size": "large",
+   "angle": "average"
+  },
+  "skull": {
+   "shape": "square"
+  },
+  "forehead": "high"
+ },
+ "hair": {
+  "style": "balding",
+  "color": "auburn",
+  "greying": 0.5
+ },
+ "facialHair": {
+  "style": "stubble",
+  "color": "salt-and-pepper",
+  "density": 0.8
+ },
+ "wardrobe": {
+  "top": {
+   "item": "uniform-jacket",
+   "color": "#3E4A55"
+  },
+  "bottom": {
+   "item": "trousers",
+   "color": "#2A2E33"
+  },
+  "shoes": {
+   "item": "work-boots",
+   "color": "#2A211C"
+  }
+ },
+ "posture": {
+  "stance": "guarded",
+  "pace": "slow",
+  "gestures": "wipes his hands on a rag, nods at the engine not at you",
+  "idle": "arms",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "gruff",
+   "honest",
+   "patient",
+   "private"
+  ],
+  "wants": "to be left alone with the cars and his radio",
+  "speech": "few words, low, a long pause before the answer"
+ },
+ "voice": {
+  "id": "anchor-mechanic-v1",
+  "description": "deep gravel bass, slow",
+  "pitch": "low",
+  "rate": "slow"
+ }
+}

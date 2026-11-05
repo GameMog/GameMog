@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portrait studio</title>
+<style>html,body{margin:0;background:#16171C}canvas{display:block}</style>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+      "three/webgpu": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+      "three/tsl": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.tsl.js",
+      "three/addons/": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/examples/jsm/"
+    }
+  }
+</script>
+</head>
+<body>
+<script type="module">
+// The portrait studio: a forged person's headshot, made in the creator's browser for the build show's cast cards and the
+// world's headshot portrait (app/create/story-show.tsx portraitOf loads this page in a hidden frame and calls it).
+//   window.__portrait(src, { w, h, bg })  src: a GLB's URL or its bytes (an ArrayBuffer, as the browser forge gives it);
+//                                         resolves to a JPEG data URL of the head and shoulders, in the idle pose
+// The set is the forge studio's (scripts/forge/studio/studio.html): a warm key from the front left, a cool rim from
+// behind, a soft fill. The body is posed on the shared clip pack's idle (cast-clips.glb), as it stands in the story.
+// Same three.js build as the Story Kit engine; the WebGL backend, so the canvas can be read straight after a render.
+import * as THREE from 'three/webgpu';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { castClips } from './clips.js';
+
+try {
+  const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: true, alpha: false });
+  renderer.setPixelRatio(1); renderer.setSize(384, 480);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+  document.body.appendChild(renderer.domElement); await renderer.init();
+  const scene = new THREE.Scene(); scene.background = new THREE.Color('#16171C');
+  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.38;
+  const key = new THREE.SpotLight('#FFE6C8', 40, 8, 0.5, 0.6, 1.6); key.position.set(-1.1, 2.3, 1.7); scene.add(key, key.target);
+  const rim = new THREE.DirectionalLight('#AFC8FF', 1.8); rim.position.set(1.8, 2.4, -2.2); scene.add(rim);
+  const fill = new THREE.DirectionalLight('#FFF1E2', 0.4); fill.position.set(2.0, 1.4, 2.6); scene.add(fill);
+  scene.add(new THREE.HemisphereLight('#E8EEFF', '#2A2420', 0.25));
+  const camera = new THREE.PerspectiveCamera(18, 384 / 480, 0.05, 20);
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+  let pack = null;
+  const clipPack = async () => (pack ??= loader.loadAsync('/storykit/cast/cast-clips.glb').then((g) => g.animations).catch(() => []));
+  let queue = Promise.resolve();
+
+  async function one(src, { w = 384, h = 480, bg = '#16171C' } = {}) {
+    const gltf = typeof src === 'string' ? await loader.loadAsync(src) : await loader.parseAsync(src, '/storykit/cast/');
+    const M = gltf.scene; M.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+    const root = M.getObjectByName('root'); if (root && root.parent && root.parent !== M) root.parent.quaternion.identity();
+    const extras = gltf.parser.json.asset?.extras?.forge || {};
+    const clips = castClips(THREE, await clipPack(), extras) || gltf.animations;
+    const mixer = new THREE.AnimationMixer(M), idle = THREE.AnimationClip.findByName(clips, 'idle') || clips[0];
+    if (idle) { mixer.clipAction(idle).play(); mixer.setTime(1.2); }
+    if (root) { root.position.x = 0; root.position.z = 0; }
+    scene.add(M); M.updateMatrixWorld(true);
+    // the eyes: the forge's landmarks when it carried them, else about 8 cm over the head bone
+    const head = M.getObjectByName('head'), e = new THREE.Vector3();
+    if (head) { head.getWorldPosition(e); e.y += 0.075; } else e.set(0, (extras.landmarks?.height || 1.7) * 0.93, 0);
+    // a slight three-quarter from the key's side, the eyes a third down the frame, head and shoulders in
+    const a = -0.32, d = 1.75;
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    camera.position.set(e.x + Math.sin(a) * d, e.y + 0.02, e.z + Math.cos(a) * d); camera.lookAt(e.x, e.y - 0.13, e.z);
+    key.target.position.copy(e);
+    scene.background = new THREE.Color(bg);
+    renderer.setSize(w, h);
+    renderer.render(scene, camera); renderer.render(scene, camera);
+    const url = renderer.domElement.toDataURL('image/jpeg', 0.88);
+    scene.remove(M); mixer.stopAllAction(); mixer.uncacheRoot(M);
+    M.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); for (const m of [].concat(o.material)) { for (const k in m) if (m[k] && m[k].isTexture) m[k].dispose(); m.dispose(); } } });
+    return url;
+  }
+  // one at a time: each portrait has the set to itself
+  window.__portrait = (src, o) => { const p = queue.then(() => one(src, o)); queue = p.catch(() => {}); return p; };
+} catch (e) { window.__portraitError = String(e && e.message || e); }
+</script>
+</body>
+</html>

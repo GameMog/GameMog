@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Forge Studio v2</title>
+  <style>html, body { margin: 0; height: 100%; background: #15171B; overflow: hidden; } canvas { display: block; }</style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/webgpu": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/tsl": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.tsl.js",
+        "three/addons/": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+<script type="module">
+// The forge's studio (v2): one character (?glb=) in a lit set, its clips from the shared pack (?clips=, cast-clips.glb)
+// bound by clips-runtime.mjs; ?light=warm|cool relights the set in one colour (the gates' colour check, on screen). window.__shot({ mode: 'turn'|'talk', yaw, cam: 'eye'|'low',
+// clip, t, jaw }) poses and frames it; window.__info: what face.js found, the props fitted, feet and spine checks.
+// Props are code fitted to the face's landmarks (Mog City's pattern): glasses from the sheet (asset extras forge.props).
+import * as THREE from 'three/webgpu';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+// (FC: the face the engine gives a forged person (Story Kit's cast face.js: its morphs, the forge's carried landmarks and
+// the mouth's inside shaded dark, as cast.js draws it); ?face=wagmi for Mog City's morphs alone, as before)
+import { faceMorphs } from '/wagmi/face.js';
+import { morphFace } from '/cast/face.js';
+import { castClips } from '/forge/clips-runtime.mjs';
+const q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGPURenderer({ antialias: true });
+renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement); await renderer.init();
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#1B1D22');
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.42;
+// the set: a warm key from front-left, a cool rim from behind-right, a soft fill, a dark wood-panelled backdrop and floor
+// (the same set for everyone, Mr. Big included: the comparison is the person, not the room)
+const LIGHT = q.get('light'), LC = LIGHT === 'warm' ? ['#FFB46B', '#FFB46B', '#FFB46B', '#FFC890'] : LIGHT === 'cool' ? ['#BCD2FF', '#BCD2FF', '#BCD2FF', '#C8DAFF'] : ['#FFE6C8', '#AFC8FF', '#FFF1E2', '#E8EEFF'];
+const key = new THREE.SpotLight(LC[0], 60, 12, 0.6, 0.55, 1.6); key.position.set(-1.6, 2.6, 2.4); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0002; key.shadow.normalBias = 0.01; scene.add(key, key.target);
+const rim = new THREE.DirectionalLight(LC[1], 1.6); rim.position.set(2.2, 2.8, -2.6); scene.add(rim);
+const fill = new THREE.DirectionalLight(LC[2], 0.35); fill.position.set(2.5, 1.4, 3); scene.add(fill);
+scene.add(new THREE.HemisphereLight(LC[3], '#2A2420', 0.25)); if (LIGHT) scene.environmentIntensity = 0.1;
+// ?light=study: Mr. Big's study (the owner's bar): a warm lamp key low and to the side, a cool window rim from behind, a
+// red leather chair back and a wall of books behind, the room otherwise dark
+const STUDY = LIGHT === 'study';
+if (STUDY) { key.color.set('#FFB872'); key.intensity = 70; key.position.set(-1.3, 1.9, 1.7); key.angle = 0.5; key.penumbra = 0.8;
+  rim.color.set('#7F9CFF'); rim.intensity = 2.4; rim.position.set(1.8, 2.4, -2.2); fill.color.set('#FFD9B0'); fill.intensity = 0.16; fill.position.set(2.2, 1.0, 2.2);
+  scene.environmentIntensity = 0.16; scene.background = new THREE.Color('#0B0B0D');
+  const lamp = new THREE.PointLight('#FFC27A', 2.2, 3.5, 2); lamp.position.set(0.7, 1.15, 0.8); scene.add(lamp); }
+const wallTex = (() => { const c = document.createElement('canvas'); c.width = 1024; c.height = 512; const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 512); g.addColorStop(0, '#2A2019'); g.addColorStop(1, '#3B2C21'); x.fillStyle = g; x.fillRect(0, 0, 1024, 512);
+  for (let i = 0; i < 8; i++) { x.strokeStyle = 'rgba(0,0,0,0.35)'; x.lineWidth = 6; x.strokeRect(i * 128 + 10, 40, 108, 300); x.strokeStyle = 'rgba(255,220,180,0.06)'; x.lineWidth = 2; x.strokeRect(i * 128 + 14, 44, 100, 292); }
+  x.fillStyle = 'rgba(0,0,0,0.3)'; x.fillRect(0, 380, 1024, 8);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(9, 4.5), new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.8 })); wall.position.set(0, 2.1, -2.2); wall.receiveShadow = true; scene.add(wall);
+if (STUDY) { wall.visible = false;
+  const books = (() => { const c = document.createElement('canvas'); c.width = 1024; c.height = 1024; const x = c.getContext('2d'); x.fillStyle = '#120C08'; x.fillRect(0, 0, 1024, 1024); let s = 7; const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    for (let row = 0; row < 6; row++) { const y0 = row * 170 + 14; x.fillStyle = '#2A1A10'; x.fillRect(0, y0 + 150, 1024, 16); let px = 4; while (px < 1020) { const w = 14 + r() * 22, h = 100 + r() * 46, hue = [[86, 24, 20], [30, 44, 32], [70, 52, 30], [28, 30, 48], [96, 70, 40], [50, 20, 26]][Math.floor(r() * 6)], k = 0.55 + r() * 0.5;
+      x.fillStyle = `rgb(${hue.map((v) => Math.round(v * k)).join(',')})`; x.fillRect(px, y0 + 150 - h, w - 2, h); x.fillStyle = 'rgba(200,160,90,0.25)'; x.fillRect(px + 2, y0 + 150 - h + 12, w - 6, 3); px += w; } }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+  const shelf = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshStandardMaterial({ map: books, roughness: 0.85 })); shelf.position.set(0, 1.8, -2.6); scene.add(shelf);
+  const leather = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.35, 0.25, 4, 4, 1), new THREE.MeshStandardMaterial({ color: '#5A120E', roughness: 0.38 })); leather.position.set(0, 1.2, -0.75); leather.receiveShadow = true; scene.add(leather); window.__leather = leather; }
+const floor = new THREE.Mesh(new THREE.CircleGeometry(9, 64), new THREE.MeshStandardMaterial({ color: '#2B2420', roughness: 0.65 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(q.get('glb'));
+const M = gltf.scene; M.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+// (?ids=1, NK: every part flat in its own colour, a back face magenta: which part a shard or a fleck at the neck is)
+if (q.get('ids')) { const pal = ['#3AA0FF', '#FFB000', '#22CC66', '#FF5050', '#A070FF', '#00D0D0', '#FFFF40', '#FF80C0', '#80FF80', '#C08040']; let k = 0; const seenM = new Map(), legend = [], backs = [];
+  M.traverse((o) => { if (!o.isMesh) return; const n = o.material.name; if (n === 'skin') { o.material = new THREE.MeshBasicMaterial({ color: '#E8C8A8' }); o.material.name = 'skin'; }
+    else { if (!seenM.has(n)) { seenM.set(n, pal[k++ % pal.length]); legend.push(n + ':' + seenM.get(n)); } o.material = new THREE.MeshBasicMaterial({ color: seenM.get(n), side: THREE.FrontSide }); o.material.name = n; }
+    const b = o.clone(); b.material = new THREE.MeshBasicMaterial({ color: '#FF00FF', side: THREE.BackSide }); backs.push([o.parent, b]); });
+  for (const [p, b] of backs) p.add(b); window.__legend = legend; }
+const holder = new THREE.Group(); holder.add(M); scene.add(holder);
+{ const r = M.getObjectByName('root'); if (r && r.parent && r.parent !== M && q.get('straight') !== '0') r.parent.quaternion.identity(); }
+const body = []; let skin = null; M.traverse((o) => { if (o.isSkinnedMesh && o.material.name === 'skin') skin = o; });
+M.traverse((o) => { if (o.isSkinnedMesh && skin && o.geometry.attributes.position === skin.geometry.attributes.position) body.push(o); });
+const fm = q.get('face') === 'wagmi' ? faceMorphs(body, {}) : morphFace(M, { forged: gltf.parser.json.asset?.extras?.forge?.landmarks || null }).fm;
+for (const m of body) { const list = (m.geometry.morphAttributes.position || []).map((a) => a.name); if (list.length) { m.morphTargetDictionary = Object.fromEntries(list.map((k, i) => [k, i])); m.morphTargetInfluences = list.map(() => 0); m.material.needsUpdate = true; } }
+const setM = (k, x) => { for (const m of body) { const d = m.morphTargetDictionary; if (d && d[k] != null) m.morphTargetInfluences[d[k]] = x; } };
+const extras = gltf.parser.json.asset?.extras?.forge || {};
+const head = M.getObjectByName('head'), sk = skin.skeleton, hi = sk.bones.indexOf(head);
+// props: glasses fitted to the eyes found (bind space), carried by the head bone through its inverse bind
+const props = extras.props || []; if (q.get('glasses')) props.push({ kind: 'glasses', color: '#' + q.get('glasses') });
+const bindFrame = new THREE.Group(); bindFrame.matrixAutoUpdate = false; bindFrame.matrix.copy(sk.boneInverses[hi]); head.add(bindFrame);
+// (face.js reports the lids it found as lidUp / lidMid; its defaults (0.74 rad, -0.55 mm) mean none were found)
+const info = { found: fm?.found ? { parting: fm.found.parting?.[0], chin: fm.found.chin, lidUp: fm.found.lidUp, lidMid: fm.found.lidMid, lids: !(fm.found.lidUp === 0.74 && fm.found.lidMid === -0.55) } : null, props: [] };
+for (const p of props) if (p.kind === 'glasses' && fm) {
+  const e0 = fm.eyes[0], e1 = fm.eyes[1], mid = e0.c.clone().add(e1.c).multiplyScalar(0.5), ipd = e0.c.distanceTo(e1.c), r = e0.r;
+  const col = new THREE.Color(p.color || '#1A120C'), fmat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.3, metalness: p.metal ? 0.8 : 0.05 });
+  const lens = new THREE.MeshStandardMaterial({ color: '#C8D4E0', roughness: 0.03, metalness: 0.3, transparent: true, opacity: 0.12, depthWrite: false });
+  const G = new THREE.Group(), LW = p.round ? 0.042 : 0.047, LH = p.round ? 0.038 : 0.029, T = 0.0026, cx = Math.max(ipd / 2, 0.031) + 0.001;
+  for (const sx of [-1, 1]) {
+    const ring = p.round ? new THREE.Mesh(new THREE.TorusGeometry(LW / 2, T / 2, 8, 40), fmat) : (() => { const s = new THREE.Shape(), w = LW + 2 * T, h = LH + 2 * T; s.moveTo(-w / 2, -h / 2); s.lineTo(w / 2, -h / 2); s.lineTo(w / 2, h / 2); s.lineTo(-w / 2, h / 2); const hole = new THREE.Path(); hole.moveTo(-LW / 2, -LH / 2); hole.lineTo(-LW / 2, LH / 2); hole.lineTo(LW / 2, LH / 2); hole.lineTo(LW / 2, -LH / 2); s.holes.push(hole); const g = new THREE.ExtrudeGeometry(s, { depth: 0.0032, bevelEnabled: true, bevelThickness: 0.0006, bevelSize: 0.0006, bevelSegments: 2 }); g.translate(0, 0, -0.0025); return new THREE.Mesh(g, fmat); })();
+    ring.position.set(sx * cx, 0, 0); ring.rotation.y = -sx * 0.06; G.add(ring);
+    const l = new THREE.Mesh(p.round ? new THREE.CircleGeometry(LW / 2, 32) : new THREE.PlaneGeometry(LW, LH), lens); l.position.set(sx * cx, 0, 0.0005); l.rotation.y = -sx * 0.06; G.add(l);
+    const ox = sx * (cx + LW / 2 + T * 0.5), ex = sx * (cx + LW / 2 + 0.012), z2 = -0.095, len = Math.hypot(ex - ox, z2), arm = new THREE.Mesh(new THREE.BoxGeometry(0.0022, 0.0038, len), fmat);
+    arm.position.set((ox + ex) / 2, LH / 2 - 0.004, z2 / 2); arm.lookAt(new THREE.Vector3(ex, LH / 2 - 0.004, z2).add(new THREE.Vector3())); G.add(arm);
+  }
+  const br = new THREE.Mesh(new THREE.CylinderGeometry(0.0022, 0.0022, 2 * cx - LW - 2 * T + 0.004, 8), fmat); br.rotation.z = Math.PI / 2; br.position.set(0, LH * 0.2, 0.0015); G.add(br);
+  G.position.set(mid.x, mid.y - 0.003, mid.z + r + 0.011); G.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  bindFrame.add(G); info.props.push('glasses');
+}
+const pack = q.get('clips') ? await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(q.get('clips')) : null;
+const CLIPS = (pack && castClips(THREE, pack.animations, extras)) || gltf.animations;
+const mixer = new THREE.AnimationMixer(M); let action = null;
+const pose = (clip, t) => { const c = THREE.AnimationClip.findByName(CLIPS, clip) || CLIPS[0]; if (action) action.stop(); action = mixer.clipAction(c); action.reset().play(); mixer.setTime(t);
+  // (in place: the root's travel off for framing, its height kept)
+  const rt = M.getObjectByName('root'); rt.position.x = 0; rt.position.z = 0; M.updateMatrixWorld(true); };
+const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.05, 50);
+const eyesWorld = () => { const m = head.matrixWorld.clone().multiply(sk.boneInverses[hi]); return fm ? fm.eyes[0].c.clone().add(fm.eyes[1].c).multiplyScalar(0.5).applyMatrix4(m) : head.getWorldPosition(new THREE.Vector3()); };
+window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, jaw = 0, blink = 0, w = 1, ang = 0.35 } = {}) => {
+  if (window.__leather) window.__leather.visible = mode === 'study'; holder.rotation.y = 0; pose(clip, t); holder.rotation.y = yaw; holder.updateMatrixWorld(true);
+  setM('jaw', jaw); setM('lip', Math.min(1, jaw * 1.2)); setM('blink', Math.min(1, blink * 2)); setM('blink2', Math.max(0, blink * 2 - 1));
+  const box = new THREE.Box3().setFromObject(M), ht = box.max.y, e = eyesWorld();
+  if (mode === 'turn') {
+    camera.fov = 26; const d = ht * 2.55;
+    if (cam === 'eye') { camera.position.set(0, e.y, d); camera.lookAt(0, ht * 0.5, 0); }
+    // (MV: 'fixed': one camera for everyone (1.9 m tall frame, 5.2 m off): a height-true line-up, builds side by side)
+    else if (cam === 'fixed') { camera.fov = 24; camera.position.set(0, 1.0, 5.2); camera.lookAt(0, 0.95, 0); }
+    else if (cam === 'hip') { camera.fov = 22; camera.position.set(0, ht * 0.52, d * 0.42); camera.lookAt(0, ht * 0.5, 0); }
+    else if (cam === 'feet') { camera.fov = 18; camera.position.set(0, 0.25, d * 0.33); camera.lookAt(0, 0.1, 0); }
+    else { camera.position.set(0, 0.45, d * 0.92); camera.lookAt(0, ht * 0.56, 0); }
+  } else if (mode === 'head') {
+    // (the head and shoulders at 1 m: a hood, a collar, a scarf from every side; cam 'low' looks up from the chest, 'near' the neck close)
+    // (NK: cam 'neck' the collar and neckline close, from the chin to the collarbones, a little above them as the study camera is)
+    if (cam === 'neck') { camera.fov = 13; camera.position.set(e.x, e.y - 0.1, e.z + 1.0); camera.lookAt(e.x, e.y - 0.165, e.z - 0.06); } else {
+    camera.fov = cam === 'near' ? 16 : 26; camera.position.set(e.x, e.y + (cam === 'low' ? -0.28 : cam === 'near' ? -0.08 : 0.02), e.z + 1.0); camera.lookAt(e.x, e.y - (cam === 'near' ? 0.11 : 0.07), e.z - 0.06); }
+  } else if (mode === 'shoe') {
+    // (forge v2.3, SH: the shoes at 0.9 m, both in frame between the feet; cam 'low' 4 cm off the floor, 'eye' from 55 cm up)
+    const a = M.getObjectByName('foot_L').getWorldPosition(new THREE.Vector3()), b = M.getObjectByName('foot_R').getWorldPosition(new THREE.Vector3()), m = a.add(b).multiplyScalar(0.5);
+    camera.fov = 24; if (cam === 'walk') { camera.position.set(m.x, 0.1, m.z + 1.7); camera.lookAt(m.x, 0.13, m.z); } else { camera.position.set(m.x, cam === 'low' ? 0.04 : 0.55, m.z + (cam === 'low' ? 0.95 : 0.8)); camera.lookAt(m.x, 0.06, m.z); }
+  } else if (mode === 'face') {
+    camera.fov = 14; camera.position.set(e.x + 0.05, e.y - 0.02, e.z + 0.62); camera.lookAt(e.x, e.y - 0.035, e.z);
+  } else if (mode === 'close') {
+    // (FC: the talking close-up: the face from brows to chin at 0.62 m, turned by ang (0.5 = 3/4), the mouth near the middle)
+    const a = ang; camera.fov = 17; camera.position.set(e.x + Math.sin(a) * 0.62, e.y - 0.005, e.z + Math.cos(a) * 0.62); camera.lookAt(e.x, e.y - 0.04, e.z);
+  } else if (mode === 'cloth') {
+    // (C5: the cloth close: 'chest' the chest and upper arm at 0.95 m, 'arm' the near elbow and sleeve, 'legs' hips to
+    // knees; turned by ang, in whatever light the page was opened with)
+    const bone = (n) => M.getObjectByName(n).getWorldPosition(new THREE.Vector3()), a = ang;
+    const tg = cam === 'arm' ? bone('lowerarm01_L') : cam === 'legs' ? bone('upperleg02_L').add(bone('upperleg02_R')).multiplyScalar(0.5) : bone('spine02').lerp(bone('neck01'), 0.35);
+    const dd = cam === 'arm' ? 0.75 : cam === 'legs' ? 1.25 : 1.0; camera.fov = 24; camera.position.set(tg.x + Math.sin(a) * dd, tg.y + 0.05, tg.z + Math.cos(a) * dd); camera.lookAt(tg.x, tg.y, tg.z);
+  } else if (mode === 'study') {
+    const a = ang; camera.fov = 20; camera.position.set(e.x + Math.sin(a) * 1.15, e.y + 0.01, e.z + Math.cos(a) * 1.15); camera.lookAt(e.x, e.y - 0.06, e.z);
+  } else {
+    camera.fov = 22; camera.position.set(e.x + 0.16, e.y + 0.015, e.z + 0.62); camera.lookAt(e.x, e.y - 0.045, e.z);
+  }
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.render(scene, camera); renderer.render(scene, camera);
+  // checks: the feet on the floor (the lowest point of the body in this pose) and the spine's lean from upright
+  const sp = M.getObjectByName('spine05'), nk = M.getObjectByName('neck01'), a = sp.getWorldPosition(new THREE.Vector3()), b = nk.getWorldPosition(new THREE.Vector3());
+  return { floor: +box.min.y.toFixed(3), height: +ht.toFixed(3), spineLeanDeg: +(Math.acos(Math.min(1, (b.y - a.y) / b.distanceTo(a))) * 180 / Math.PI).toFixed(1) };
+};
+info.clips = CLIPS.length; info.clipSource = pack ? 'pack' : 'baked'; info.extras = { mouth: extras.landmarks?.below, hands: extras.post?.hands };
+window.__dur = (n) => (THREE.AnimationClip.findByName(CLIPS, n) || CLIPS[0]).duration;
+window.__info = info; window.__ready = true;
+</script>
+</body>
+</html>

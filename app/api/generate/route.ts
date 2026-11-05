@@ -2,13 +2,17 @@ import { NextResponse } from 'next/server';
 import { generateWorld, offlineWorld, readCatalogue, MODEL } from '@/lib/generate';
 import { generateGame, GAME_MODEL, type GameEvent } from '@/lib/generate-game';
 import { playtest } from '@/lib/playtest';
-import { logGeneration, recentSpecs, getGameBySlug, startBuild, setBuildUsage, endBuild } from '@/lib/db';
+import { logGeneration, recentSpecs, getGameBySlug, getGameBySlugForOwner, startBuild, setBuildUsage, endBuild } from '@/lib/db';
 import { admit, takeSlot, resting, priceBuild, BUSY, RESTING, type Lease, type PassUsage } from '@/lib/build-limits';
 
 import { ImageSchema, type Character, type CharacterImage } from '@/lib/character';
 import { readOptions } from '@/lib/world-options';
 import { isOpenWorld, worldMode, canMog, MOG_SOON } from '@/lib/custom-game';
 import { isEpisodeParent, readConsent } from '@/lib/episode';
+import { isStoryParent, storyParentPack, readCity, STORY_CLOSED } from '@/lib/storykit-build';
+import { storykitForRequest } from '@/lib/storykit-http';
+import { storykitMode } from '@/lib/storykit-switch';
+import { storyStore, storeGuard } from '@/lib/storykit-store';
 
 export const runtime = 'nodejs';
 // Opus writing a whole game, a real-browser playtest and up to two repairs
@@ -18,7 +22,7 @@ export const maxDuration = 1800;
 const MAX_IMAGE_BYTES = 2_200_000;
 
 export async function POST(req: Request) {
-  let body: { prompt?: string; image?: unknown; hintFur?: string; characterName?: string; kind?: 'game' | 'race'; mogOf?: string; options?: unknown; consent?: unknown };
+  let body: { prompt?: string; image?: unknown; hintFur?: string; characterName?: string; kind?: 'game' | 'race'; mogOf?: string; options?: unknown; consent?: unknown; storykit?: unknown; story?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -27,8 +31,31 @@ export async function POST(req: Request) {
 
   const text = (body.prompt ?? '').trim();
   // a Mog: the game it challenges, and one line on how to beat it
-  const parent = typeof body.mogOf === 'string' ? getGameBySlug(body.mogOf) : undefined;
+  // (STORYKIT=owner: the owner's story worlds are published hidden, so the owner's session also finds a hidden story world
+  // to Mog; nobody else's lookup changes: lib/storykit-switch.ts)
+  const ownerStory = (g: ReturnType<typeof getGameBySlug>) => (g && isStoryParent(g) ? g : undefined);
+  const parent = typeof body.mogOf === 'string'
+    ? getGameBySlug(body.mogOf) ?? (storykitMode() === 'owner' && storykitForRequest(req) ? ownerStory(getGameBySlugForOwner(body.mogOf)) : undefined)
+    : undefined;
   if (body.mogOf && !parent) return NextResponse.json({ error: 'The game you are mogging no longer exists.' }, { status: 404 });
+  // a Story Kit world (STORYKIT=on, lib/storykit-site.ts): its create ({ storykit: { city } }) or a Mog of one. Closed while
+  // the switch is off, refused here before a slot is taken or anything is spent; on, the story writer builds it
+  // (lib/storykit-build.ts: a create in its city, a Mog in its parent's, locked). No other kind of build ever starts
+  // from a story request
+  const storyMog = isStoryParent(parent);
+  let storyCity: ReturnType<typeof readCity> = null;
+  const storyAsk = (body.storykit ?? body.story) as { city?: unknown } | null | undefined;
+  if ((storyAsk != null && !parent) || storyMog) {
+    if (!storykitForRequest(req)) return NextResponse.json({ error: storyMog ? MOG_SOON : STORY_CLOSED }, { status: storyMog ? 409 : 404 });
+    // (the store's size guard, lib/storykit-store.ts storeGuard: refused here too, before a slot is taken or anything is spent)
+    const full = storeGuard(storyStore());
+    if (full) return NextResponse.json({ error: full }, { status: 507 });
+    if (storyMog) { if (!storyParentPack(parent!)) return NextResponse.json({ error: 'The story world you are mogging could not be read.' }, { status: 409 }); }
+    else {
+      storyCity = readCity(storyAsk?.city);
+      if (!storyCity) return NextResponse.json({ error: 'Pick a city for the story world: New York (story worlds play on Mog City\'s engine, which plays New York so far).', field: 'city' }, { status: 400 });
+    }
+  }
   // (a kind of game that cannot be mogged yet, lib/custom-game.ts canMog, is refused here, before a slot is taken or
   // anything is spent; every kind can be today, a penalty shootout too since 13 Oct)
   if (parent && !canMog(parent)) return NextResponse.json({ error: MOG_SOON }, { status: 409 });
@@ -40,10 +67,11 @@ export async function POST(req: Request) {
   }
   // a Mog of a Mog City episode (3 Nov): the creator's consent for any real person it names, read before anything is
   // spent (lib/episode.ts readConsent); every other Mog ignores the field
+  // (and a story world's create or Mog, 4 Nov: the same consent step, lib/storykit-build.ts)
   const episode = isEpisodeParent(parent);
-  const consent = episode ? readConsent(body.consent) : { ok: true as const, consent: null };
+  const consent = episode || storyMog || storyCity ? readConsent(body.consent) : { ok: true as const, consent: null };
   if (!consent.ok) return NextResponse.json({ error: consent.error, field: 'consent' }, { status: 400 });
-  if (parent && !(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN)) {
+  if ((parent || storyCity) && !(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN)) {
     return NextResponse.json({ error: 'Mogging needs the model: set ANTHROPIC_API_KEY.' }, { status: 503 });
   }
 
@@ -92,7 +120,7 @@ export async function POST(req: Request) {
     const leave = () => stop.abort();
     if (door.kind === 'queued') stop.signal.addEventListener('abort', door.ticket.leave, { once: true });
     if (req.signal.aborted) leave(); else req.signal.addEventListener('abort', leave, { once: true });
-    const model = GAME_MODEL + (image ? '+vision' : '') + (parent ? '+mog' : '');
+    const model = GAME_MODEL + (image ? '+vision' : '') + (parent ? '+mog' : '') + (storyMog || storyCity ? '+storykit' : '');
     type Line = { type: 'tick' } | { type: 'queued'; position: number; etaMin: number } | { type: 'admitted' } | { type: 'error'; error: string; resting: true };
     const stream = new ReadableStream({
       async start(controller) {
@@ -150,7 +178,7 @@ export async function POST(req: Request) {
           if (parent && parent.format === 'world' && (worldMode(parent.code, parent.meta) === 'shootout' || worldMode(parent.code, parent.meta) === 'gp' || episode)) {
             options.hazards = 'same'; options.music = null; delete options.soundtrack;
           }
-          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options, consent: consent.consent, signal: stop.signal, usage }, (e) => {
+          await generateGame({ prompt: text, image, origin, mog: parent ? { parent, instruction: text } : undefined, options, consent: consent.consent, ...(storyCity ? { storykit: { city: storyCity } } : {}), signal: stop.signal, usage }, (e) => {
             if (e.type === 'stage') attempts = Math.max(attempts, e.attempt);
             if (e.type === 'drive' || e.type === 'done') draftId = e.draftId;
             if (e.type === 'done' || e.type === 'error') result = e;

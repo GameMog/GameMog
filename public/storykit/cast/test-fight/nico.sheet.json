@@ -1,0 +1,116 @@
+{
+ "id": "nico",
+ "name": "Nico Vale",
+ "role": "a boxing coach walking home",
+ "logline": "Twenty-nine, keeps a gym open on Ninth Avenue with his own money, and never walks around a problem.",
+ "identity": {
+  "age": 29,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 181,
+  "build": {
+   "frame": "medium",
+   "weight": "slim",
+   "muscle": "athletic"
+  }
+ },
+ "heritage": {
+  "note": "Caribbean and Italian mix",
+  "blend": {
+   "african": 0.35,
+   "asian": 0.1,
+   "european": 0.55
+  },
+  "skin": {
+   "tone": "medium",
+   "undertone": "warm",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "square",
+  "cheeks": "average",
+  "cheekbones": "high",
+  "faceWidth": "wide",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "hump"
+  },
+  "browRidge": "strong",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "wide"
+  },
+  "eyes": "brown",
+  "brows": {
+   "color": "black",
+   "weight": "average"
+  },
+  "eyeShape": "deep-set",
+  "eyeBags": "light",
+  "mouth": {
+   "lips": "thin",
+   "width": "average",
+   "corners": "down"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "average"
+  },
+  "skull": {
+   "shape": "square"
+  },
+  "forehead": "low"
+ },
+ "hair": {
+  "style": "short-curly",
+  "color": "black"
+ },
+ "facialHair": {
+  "style": "stubble",
+  "color": "black",
+  "density": 0.5
+ },
+ "wardrobe": {
+  "top": {
+   "item": "long-sleeve",
+   "color": "#7A2E2A"
+  },
+  "bottom": {
+   "item": "track-pants",
+   "color": "#22252B",
+   "accent": "#D8D8D8"
+  },
+  "shoes": {
+   "item": "white-sneakers",
+   "color": "#E9E9E6",
+   "accent": "#7A2E2A"
+  }
+ },
+ "posture": {
+  "stance": "proud",
+  "pace": "quick",
+  "gestures": "rolls his shoulders",
+  "idle": "idle",
+  "walk": "walkCool"
+ },
+ "personality": {
+  "traits": [
+   "steady",
+   "dry",
+   "protective"
+  ],
+  "wants": "the gym to make rent",
+  "speech": "short and even"
+ },
+ "voice": {
+  "id": "nico-v1",
+  "description": "young, even, a little hoarse",
+  "pitch": "mid-low",
+  "rate": "steady"
+ }
+}

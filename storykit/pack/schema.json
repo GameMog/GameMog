@@ -1,0 +1,5481 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://gamemog.com/storykit/pack/story-pack.v2.json",
+ "title": "GameMog Story Kit: story pack v2",
+ "description": "A story for Mog City's engine (base.engine mogcity-1: mc.gamemog.com plays it with its own HUD, calls, cutscenes, fights and chases), as data only. Closed word lists, bounded numbers (clamped by the gate, not refused) and bounded texts (refused when too long). Places are names from the city; people are Character Forge sheets; rides are vehicle sheets or the engine's stock cars; voices are Kokoro blends. gate.ts holds the rules beyond this schema.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "storykit",
+  "id",
+  "title",
+  "base",
+  "dressing",
+  "cast",
+  "vehicles",
+  "acts"
+ ],
+ "properties": {
+  "storykit": {
+   "const": 2
+  },
+  "id": {
+   "$ref": "#/$defs/packId"
+  },
+  "parent": {
+   "$ref": "#/$defs/packId",
+   "description": "a Mog: the pack it remixes (its base is copied and locked)"
+  },
+  "title": {
+   "type": "string",
+   "maxLength": 48
+  },
+  "kicker": {
+   "type": "string",
+   "maxLength": 24
+  },
+  "tagline": {
+   "type": "string",
+   "maxLength": 80
+  },
+  "base": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "engine",
+    "city",
+    "cityBuild"
+   ],
+   "properties": {
+    "engine": {
+     "enum": [
+      "storykit-1",
+      "mogcity-1"
+     ]
+    },
+    "city": {
+     "enum": [
+      "ny",
+      "sf"
+     ]
+    },
+    "cityBuild": {
+     "type": "string",
+     "maxLength": 40,
+     "pattern": "^[a-z]{2,8}-[a-z0-9.-]{1,30}$"
+    }
+   },
+   "description": "what the story runs on; on a Mog, equal to the parent's (locked)"
+  },
+  "dressing": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "time",
+    "season",
+    "weather"
+   ],
+   "properties": {
+    "time": {
+     "enum": [
+      "golden",
+      "midday",
+      "twilight",
+      "midnight",
+      "dawn"
+     ]
+    },
+    "season": {
+     "enum": [
+      "spring",
+      "summer",
+      "autumn",
+      "winter"
+     ]
+    },
+    "weather": {
+     "enum": [
+      "clear",
+      "overcast",
+      "rain",
+      "storm",
+      "fog",
+      "snow"
+     ]
+    },
+    "holiday": {
+     "type": "array",
+     "items": {
+      "enum": [
+       "christmas",
+       "new-year",
+       "halloween",
+       "thanksgiving",
+       "lunar-new-year",
+       "valentines",
+       "independence-day",
+       "diwali",
+       "hanukkah",
+       "pride"
+      ]
+     },
+     "minItems": 0,
+     "maxItems": 2,
+     "uniqueItems": true
+    },
+    "blackout": {
+     "enum": [
+      "midtown",
+      "downtown",
+      "manhattan"
+     ],
+     "description": "the power is out there (midtown: 34th to 59th St; downtown: below 34th St; manhattan: all of it, the boroughs over the rivers lit): dark windows, street lights and billboards, dead signals, emergency cars, stranded cars, generator-lit islands. Left out, the power is on"
+    }
+   }
+  },
+  "hero": {
+   "$ref": "#/$defs/castRef",
+   "description": "the player character (a cast id)"
+  },
+  "ride": {
+   "$ref": "#/$defs/rideId",
+   "description": "the free-drive ride (a vehicle id); the first vehicle when left out"
+  },
+  "hud": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [],
+   "properties": {
+    "clock": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [],
+     "properties": {
+      "label": {
+       "type": "string",
+       "maxLength": 12
+      },
+      "format": {
+       "enum": [
+        "count",
+        "age",
+        "text"
+       ]
+      },
+      "unit": {
+       "type": "string",
+       "maxLength": 12,
+       "pattern": "^[a-z]{1,12}$"
+      },
+      "unitLabel": {
+       "type": "string",
+       "maxLength": 12
+      },
+      "zero": {
+       "type": "string",
+       "maxLength": 24
+      }
+     }
+    },
+    "meters": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "id",
+       "kind"
+      ],
+      "properties": {
+       "id": {
+        "$ref": "#/$defs/slug"
+       },
+       "label": {
+        "type": "string",
+        "maxLength": 12
+       },
+       "kind": {
+        "enum": [
+         "money",
+         "count",
+         "pips",
+         "bar",
+         "hidden"
+        ],
+        "description": "count: a plain number that only adds up (supporters), money without the dollars or the choices"
+       },
+       "start": {
+        "type": "number",
+        "minimum": -1000000,
+        "maximum": 1000000
+       },
+       "min": {
+        "type": "number",
+        "minimum": -1000000,
+        "maximum": 1000000
+       },
+       "max": {
+        "type": "number",
+        "minimum": -1000000,
+        "maximum": 1000000
+       },
+       "pips": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 10
+       },
+       "cool": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100
+       },
+       "heat": {
+        "type": "boolean"
+       },
+       "prefix": {
+        "type": "string",
+        "maxLength": 2
+       }
+      }
+     },
+     "minItems": 0,
+     "maxItems": 4
+    }
+   }
+  },
+  "places": {
+   "type": "object",
+   "maxProperties": 24,
+   "propertyNames": {
+    "$ref": "#/$defs/placeKey"
+   },
+   "additionalProperties": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "@"
+    ],
+    "properties": {
+     "@": {
+      "$ref": "#/$defs/placeKey"
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 60
+     },
+     "face": {
+      "$ref": "#/$defs/placeKey"
+     },
+     "heading": {
+      "$ref": "#/$defs/heading"
+     }
+    }
+   },
+   "description": "the pack's own names for city places: { key: { \"@\": cityKey, name } }. Never a coordinate."
+  },
+  "cast": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "color"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/slug"
+     },
+     "anchor": {
+      "enum": [
+       "none",
+       "old-boss",
+       "young-hero",
+       "grandmother",
+       "grandfather",
+       "chef",
+       "cop",
+       "doorman",
+       "teen",
+       "office-worker",
+       "driver",
+       "fixer",
+       "nurse",
+       "mechanic",
+       "street-vendor",
+       "musician",
+       "young-mother",
+       "club-promoter",
+       "veteran"
+      ]
+     },
+     "color": {
+      "$ref": "#/$defs/colour"
+     },
+     "voiceOnly": {
+      "type": "boolean",
+      "description": "heard, never seen (a dispatcher on the phone): no sheet, no body"
+     },
+     "model": {
+      "enum": [
+       "mogcity/dan",
+       "mogcity/jane",
+       "mogcity/mrbig",
+       "mogcity/gears",
+       "mogcity/fiona",
+       "mogcity/suit-knox",
+       "mogcity/suit-hooks",
+       "mogcity/suit-tank",
+       "mogcity/suit-brick",
+       "mogcity/suit-dash",
+       "mogcity/suit-mack",
+       "mogcity/suit-rook",
+       "mogcity/bea",
+       "mogcity/camp"
+      ],
+      "description": "a shipped person from the cast registry (public/storykit/cast/registry.json), as they are: their own body, clips, face and recorded lines. No sheet. anchor and voice default to the registry's"
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 40,
+      "description": "a model person's name (a sheet carries its own): a rename keeps the body"
+     },
+     "role": {
+      "type": "string",
+      "maxLength": 60,
+      "description": "a model person's role"
+     },
+     "sheet": {
+      "$ref": "https://gamemog.com/schema/forge/character-sheet.v2.json"
+     },
+     "voice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "id",
+       "description"
+      ],
+      "description": "A Kokoro-82M voice (storykit/voices/voice-design.js): one stock voice, or a blend of up to 3, then speed and pitch. An invented voice, never a recording or an imitation of a person.",
+      "properties": {
+       "id": {
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9-]{2,60}$",
+        "description": "the voice's id; the cast sheet's voice.id names the same"
+       },
+       "kokoro": {
+        "enum": [
+         "af_heart",
+         "af_bella",
+         "af_nicole",
+         "af_aoede",
+         "af_kore",
+         "af_sarah",
+         "af_alloy",
+         "af_nova",
+         "af_sky",
+         "af_jessica",
+         "af_river",
+         "am_fenrir",
+         "am_michael",
+         "am_puck",
+         "am_echo",
+         "am_eric",
+         "am_liam",
+         "am_onyx",
+         "am_santa",
+         "am_adam",
+         "bf_emma",
+         "bf_isabella",
+         "bf_alice",
+         "bf_lily",
+         "bm_george",
+         "bm_fable",
+         "bm_lewis",
+         "bm_daniel"
+        ],
+        "description": "one English stock voice (the base)"
+       },
+       "blend": {
+        "type": "object",
+        "minProperties": 1,
+        "maxProperties": 3,
+        "propertyNames": {
+         "enum": [
+          "af_heart",
+          "af_bella",
+          "af_nicole",
+          "af_aoede",
+          "af_kore",
+          "af_sarah",
+          "af_alloy",
+          "af_nova",
+          "af_sky",
+          "af_jessica",
+          "af_river",
+          "am_fenrir",
+          "am_michael",
+          "am_puck",
+          "am_echo",
+          "am_eric",
+          "am_liam",
+          "am_onyx",
+          "am_santa",
+          "am_adam",
+          "bf_emma",
+          "bf_isabella",
+          "bf_alice",
+          "bf_lily",
+          "bm_george",
+          "bm_fable",
+          "bm_lewis",
+          "bm_daniel",
+          "ef_dora",
+          "em_alex",
+          "ff_siwis",
+          "hf_alpha",
+          "hf_beta",
+          "hm_omega",
+          "hm_psi",
+          "if_sara",
+          "im_nicola",
+          "jf_alpha",
+          "jm_kumo",
+          "pf_dora",
+          "pm_alex",
+          "zf_xiaobei",
+          "zf_xiaoni",
+          "zf_xiaoxiao",
+          "zf_xiaoyi",
+          "zm_yunjian",
+          "zm_yunxi",
+          "zm_yunyang"
+         ]
+        },
+        "additionalProperties": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "description": "up to 3 voices and their weights (normalised); the heaviest English stock voice is the base, other languages at most 0.35"
+       },
+       "speed": {
+        "type": "number",
+        "minimum": 0.8,
+        "maximum": 1.2
+       },
+       "pitch": {
+        "type": "number",
+        "minimum": -2.5,
+        "maximum": 2.5,
+        "description": "semitones, after rendering"
+       },
+       "description": {
+        "type": "string",
+        "maxLength": 160,
+        "description": "the voice in words: age, warmth, pace, accent. Never \"sounds like\" anyone"
+       }
+      },
+      "anyOf": [
+       {
+        "required": [
+         "kokoro"
+        ]
+       },
+       {
+        "required": [
+         "blend"
+        ]
+       }
+      ]
+     }
+    }
+   },
+   "minItems": 1,
+   "maxItems": 12
+  },
+  "pets": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "name",
+     "species"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/slug"
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 40
+     },
+     "species": {
+      "enum": [
+       "dog"
+      ],
+      "description": "the rigged animals the engine has"
+     },
+     "breed": {
+      "enum": [
+       "mixed",
+       "terrier",
+       "shepherd",
+       "retriever",
+       "bulldog",
+       "husky",
+       "poodle",
+       "spaniel"
+      ]
+     },
+     "coat": {
+      "$ref": "#/$defs/colour"
+     },
+     "size": {
+      "enum": [
+       "small",
+       "medium",
+       "large"
+      ]
+     },
+     "owner": {
+      "$ref": "#/$defs/castRef"
+     },
+     "model": {
+      "enum": [
+       "mogcity/moon"
+      ],
+      "description": "a shipped pet from the cast registry (mogcity/moon: Moon, a small white fluffy dog); without one a dog is built the same way in its coat and size"
+     },
+     "follows": {
+      "type": "boolean",
+      "description": "stays with its owner, the hero, as the player plays: trots after them on foot, rides in the car beside them, sits when they stop"
+     }
+    }
+   },
+   "minItems": 0,
+   "maxItems": 3
+  },
+  "vehicles": {
+   "type": "array",
+   "items": {
+    "oneOf": [
+     {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "stock"
+      ],
+      "properties": {
+       "stock": {
+        "enum": [
+         "trailhand",
+         "vandal",
+         "roadster"
+        ],
+        "description": "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own)"
+       },
+       "id": {
+        "$ref": "#/$defs/rideId"
+       },
+       "paint": {
+        "$ref": "#/$defs/colour"
+       }
+      }
+     },
+     {
+      "$ref": "https://gamemog.com/storykit/vehicles/vehicle-sheet.schema.json"
+     }
+    ]
+   },
+   "minItems": 1,
+   "maxItems": 6
+  },
+  "acts": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "missions"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/slug"
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 24
+     },
+     "timeline": {
+      "type": "object",
+      "maxProperties": 9,
+      "propertyNames": {
+       "$ref": "#/$defs/missionId"
+      },
+      "additionalProperties": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "at": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1000
+        },
+        "clock": {
+         "$ref": "#/$defs/clock"
+        },
+        "time": {
+         "enum": [
+          "golden",
+          "midday",
+          "twilight",
+          "midnight",
+          "dawn"
+         ]
+        },
+        "skip": {
+         "type": "string",
+         "maxLength": 60
+        },
+        "date": {
+         "type": "string",
+         "maxLength": 40
+        }
+       }
+      }
+     },
+     "end": {
+      "$ref": "#/$defs/actEndCard"
+     },
+     "missions": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "id",
+        "title",
+        "vehicle",
+        "start",
+        "steps"
+       ],
+       "properties": {
+        "id": {
+         "$ref": "#/$defs/missionId"
+        },
+        "title": {
+         "type": "string",
+         "maxLength": 48
+        },
+        "vehicle": {
+         "$ref": "#/$defs/rideRef"
+        },
+        "verbs": {
+         "type": "array",
+         "items": {
+          "enum": [
+           "drive",
+           "walk",
+           "boost",
+           "hop",
+           "dash",
+           "ram",
+           "escape",
+           "chase",
+           "tail",
+           "follow",
+           "carry",
+           "sneak",
+           "deliver",
+           "pedal",
+           "lean",
+           "wheelie",
+           "tow",
+           "fight"
+          ]
+         },
+         "minItems": 0,
+         "maxItems": 8,
+         "uniqueItems": true
+        },
+        "start": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "traffic": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "stakes": {
+         "$ref": "#/$defs/line"
+        },
+        "passLine": {
+         "$ref": "#/$defs/line"
+        },
+        "note": {
+         "$ref": "#/$defs/line"
+        },
+        "timerLine": {
+         "type": "string",
+         "maxLength": 80
+        },
+        "label": {
+         "type": "string",
+         "maxLength": 24
+        },
+        "reward": {
+         "$ref": "#/$defs/set"
+        },
+        "hiddenMeters": {
+         "type": "array",
+         "items": {
+          "$ref": "#/$defs/slug"
+         },
+         "minItems": 0,
+         "maxItems": 4
+        },
+        "next": {
+         "$ref": "#/$defs/missionId"
+        },
+        "hidden": {
+         "type": "boolean"
+        },
+        "steps": {
+         "type": "array",
+         "items": {
+          "$ref": "#/$defs/step"
+         },
+         "minItems": 1,
+         "maxItems": 60
+        }
+       }
+      },
+      "minItems": 1,
+      "maxItems": 6
+     }
+    }
+   },
+   "minItems": 1,
+   "maxItems": 3
+  },
+  "voices": {
+   "type": "object",
+   "maxProperties": 600,
+   "propertyNames": {
+    "$ref": "#/$defs/lineId"
+   },
+   "additionalProperties": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "voice",
+     "status"
+    ],
+    "properties": {
+     "voice": {
+      "$ref": "#/$defs/slug"
+     },
+     "status": {
+      "enum": [
+       "ready",
+       "pending"
+      ]
+     },
+     "clip": {
+      "oneOf": [
+       {
+        "type": "string",
+        "maxLength": 160,
+        "pattern": "^voices/[a-z0-9][a-z0-9_/-]{0,120}\\.(ogg|opus|mp3|wav|m4a)$"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "hash": {
+      "type": "string",
+      "maxLength": 8,
+      "pattern": "^[0-9a-f]{8}$"
+     }
+    }
+   },
+   "description": "the voice manifest: line id -> its clip (relative to the pack) or pending. Lines left out are pending; subtitles play until a clip is ready."
+  }
+ },
+ "$defs": {
+  "packId": {
+   "type": "string",
+   "maxLength": 40,
+   "pattern": "^[a-z0-9][a-z0-9-]{1,39}$"
+  },
+  "slug": {
+   "type": "string",
+   "maxLength": 40,
+   "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+  },
+  "rideId": {
+   "type": "string",
+   "maxLength": 48,
+   "pattern": "^[a-z0-9][a-z0-9.-]{0,47}$"
+  },
+  "rideRef": {
+   "type": "string",
+   "maxLength": 48,
+   "pattern": "^(on-foot|[a-z0-9][a-z0-9.-]{0,47})$",
+   "description": "a vehicle id, or on-foot"
+  },
+  "missionId": {
+   "type": "string",
+   "maxLength": 12,
+   "pattern": "^[A-Z0-9][A-Z0-9-]{0,11}$"
+  },
+  "stepId": {
+   "type": "string",
+   "maxLength": 24,
+   "pattern": "^[a-z0-9][a-z0-9_-]{0,23}$"
+  },
+  "lineId": {
+   "type": "string",
+   "maxLength": 64,
+   "pattern": "^[A-Z0-9-]{1,12}(\\.[a-z0-9]{1,6}){1,6}$"
+  },
+  "flag": {
+   "type": "string",
+   "maxLength": 40,
+   "pattern": "^[A-Za-z0-9 _'-]{1,40}$"
+  },
+  "placeKey": {
+   "type": "string",
+   "maxLength": 40,
+   "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$"
+  },
+  "placeRef": {
+   "oneOf": [
+    {
+     "type": "string",
+     "maxLength": 41,
+     "pattern": "^@[a-z0-9][a-z0-9_-]{0,39}$"
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "@"
+     ],
+     "properties": {
+      "@": {
+       "$ref": "#/$defs/placeKey"
+      },
+      "face": {
+       "$ref": "#/$defs/placeKey"
+      },
+      "heading": {
+       "$ref": "#/$defs/heading"
+      },
+      "mode": {
+       "enum": [
+        "car",
+        "walk"
+       ]
+      }
+     }
+    }
+   ]
+  },
+  "stopRef": {
+   "oneOf": [
+    {
+     "type": "string",
+     "maxLength": 41,
+     "pattern": "^@[a-z0-9][a-z0-9_-]{0,39}$"
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "@"
+     ],
+     "properties": {
+      "@": {
+       "$ref": "#/$defs/placeKey"
+      },
+      "name": {
+       "type": "string",
+       "maxLength": 60
+      },
+      "bonus": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600
+      },
+      "set": {
+       "$ref": "#/$defs/set"
+      }
+     }
+    }
+   ]
+  },
+  "camRef": {
+   "oneOf": [
+    {
+     "type": "string",
+     "maxLength": 41,
+     "pattern": "^(player|@[a-z0-9][a-z0-9_-]{0,39}|[a-z][a-z0-9-]{1,39})$",
+     "description": "'player', a place, or the city's named camera point"
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "rel"
+     ],
+     "properties": {
+      "rel": {
+       "type": "string",
+       "maxLength": 40,
+       "pattern": "^(player|[a-z0-9][a-z0-9-]{0,39})$",
+       "description": "'player' (his position, in his frame) or a cast id with a body on the street (their head, in their frame)"
+      },
+      "right": {
+       "type": "number",
+       "minimum": -80,
+       "maximum": 80
+      },
+      "up": {
+       "type": "number",
+       "minimum": -10,
+       "maximum": 120
+      },
+      "fwd": {
+       "type": "number",
+       "minimum": -80,
+       "maximum": 80
+      }
+     }
+    }
+   ]
+  },
+  "castRef": {
+   "$ref": "#/$defs/slug"
+  },
+  "beingRef": {
+   "$ref": "#/$defs/slug",
+   "description": "a cast id (with a body) or a pet id"
+  },
+  "heading": {
+   "type": "number",
+   "minimum": -360,
+   "maximum": 360,
+   "description": "degrees, 0 faces +z"
+  },
+  "clock": {
+   "type": "string",
+   "maxLength": 12
+  },
+  "colour": {
+   "type": "string",
+   "maxLength": 7,
+   "pattern": "^#[0-9A-Fa-f]{6}$"
+  },
+  "label": {
+   "type": "string",
+   "maxLength": 80,
+   "description": "on-screen words: titles, captions, objectives"
+  },
+  "objective": {
+   "type": "string",
+   "maxLength": 120,
+   "description": "the HUD objective; **bold**, {n} {of} {name} and ride tokens ({ride}, {ride.name}, {ride.board}, {ride.go}, {ride.park})"
+  },
+  "line": {
+   "type": "string",
+   "maxLength": 160
+  },
+  "speech": {
+   "type": "string",
+   "maxLength": 200,
+   "description": "a spoken line (voiced; a subtitle until its clip is ready)"
+  },
+  "spoken": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "who",
+    "text"
+   ],
+   "properties": {
+    "who": {
+     "$ref": "#/$defs/castRef"
+    },
+    "text": {
+     "$ref": "#/$defs/speech"
+    },
+    "secs": {
+     "type": "number",
+     "minimum": 0.5,
+     "maximum": 20
+    }
+   }
+  },
+  "sayLine": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "who",
+    "text"
+   ],
+   "properties": {
+    "who": {
+     "$ref": "#/$defs/castRef"
+    },
+    "text": {
+     "$ref": "#/$defs/speech"
+    }
+   }
+  },
+  "cond": {
+   "oneOf": [
+    {
+     "type": "string",
+     "maxLength": 120
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "all"
+     ],
+     "properties": {
+      "all": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/cond"
+       },
+       "minItems": 1,
+       "maxItems": 6
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "any"
+     ],
+     "properties": {
+      "any": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/cond"
+       },
+       "minItems": 1,
+       "maxItems": 6
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "not"
+     ],
+     "properties": {
+      "not": {
+       "$ref": "#/$defs/cond"
+      }
+     }
+    }
+   ]
+  },
+  "value": {
+   "oneOf": [
+    {
+     "type": "number",
+     "minimum": 0,
+     "maximum": 3600
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "base"
+     ],
+     "properties": {
+      "base": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 3600
+      },
+      "add": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "if",
+         "n"
+        ],
+        "properties": {
+         "if": {
+          "$ref": "#/$defs/cond"
+         },
+         "n": {
+          "type": "number",
+          "minimum": -3600,
+          "maximum": 3600
+         }
+        }
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "min": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 3600
+      },
+      "max": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 3600
+      }
+     }
+    }
+   ]
+  },
+  "amount": {
+   "oneOf": [
+    {
+     "type": "number",
+     "minimum": -1000000,
+     "maximum": 1000000
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "add"
+     ],
+     "properties": {
+      "add": {
+       "type": "number",
+       "minimum": -1000000,
+       "maximum": 1000000
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "to"
+     ],
+     "properties": {
+      "to": {
+       "type": "number",
+       "minimum": -1000000,
+       "maximum": 1000000
+      }
+     }
+    }
+   ]
+  },
+  "setOne": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [],
+   "properties": {
+    "meters": {
+     "type": "object",
+     "maxProperties": 6,
+     "propertyNames": {
+      "$ref": "#/$defs/slug"
+     },
+     "additionalProperties": {
+      "$ref": "#/$defs/amount"
+     }
+    },
+    "flags": {
+     "type": "object",
+     "maxProperties": 12,
+     "propertyNames": {
+      "$ref": "#/$defs/flag"
+     },
+     "additionalProperties": {
+      "oneOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "string",
+        "maxLength": 40
+       },
+       {
+        "type": "number",
+        "minimum": -1000000,
+        "maximum": 1000000
+       },
+       {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "add"
+        ],
+        "properties": {
+         "add": {
+          "type": "number",
+          "minimum": -1000000,
+          "maximum": 1000000
+         }
+        }
+       }
+      ]
+     }
+    },
+    "label": {
+     "type": "string",
+     "maxLength": 24
+    },
+    "if": {
+     "$ref": "#/$defs/cond"
+    },
+    "wallet": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "name",
+       "amount"
+      ],
+      "properties": {
+       "name": {
+        "type": "string",
+        "maxLength": 40
+       },
+       "amount": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1000000
+       },
+       "due": {
+        "type": "string",
+        "maxLength": 24
+       }
+      }
+     },
+     "minItems": 0,
+     "maxItems": 6
+    }
+   }
+  },
+  "set": {
+   "oneOf": [
+    {
+     "$ref": "#/$defs/setOne"
+    },
+    {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/setOne"
+     },
+     "minItems": 1,
+     "maxItems": 6
+    }
+   ]
+  },
+  "actEndCard": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [],
+   "properties": {
+    "title": {
+     "$ref": "#/$defs/label"
+    },
+    "heading": {
+     "$ref": "#/$defs/label"
+    },
+    "stats": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "label",
+       "value"
+      ],
+      "properties": {
+       "label": {
+        "type": "string",
+        "maxLength": 24
+       },
+       "value": {
+        "type": "string",
+        "maxLength": 24
+       }
+      }
+     },
+     "minItems": 0,
+     "maxItems": 6
+    },
+    "story": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/line"
+     },
+     "minItems": 0,
+     "maxItems": 4
+    },
+    "quote": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "text"
+     ],
+     "properties": {
+      "text": {
+       "$ref": "#/$defs/line"
+      },
+      "by": {
+       "$ref": "#/$defs/castRef"
+      },
+      "tag": {
+       "$ref": "#/$defs/slug"
+      },
+      "missing": {
+       "$ref": "#/$defs/line"
+      }
+     }
+    },
+    "meter": {
+     "$ref": "#/$defs/slug"
+    },
+    "minSecs": {
+     "type": "number",
+     "minimum": 0,
+     "maximum": 12
+    },
+    "signed": {
+     "type": "string",
+     "maxLength": 40
+    },
+    "next": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "text"
+     ],
+     "properties": {
+      "kicker": {
+       "type": "string",
+       "maxLength": 24
+      },
+      "text": {
+       "type": "string",
+       "maxLength": 80
+      },
+      "sub": {
+       "$ref": "#/$defs/line"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 1000
+      },
+      "secs": {
+       "type": "number",
+       "minimum": 1,
+       "maximum": 8
+      }
+     }
+    }
+   }
+  },
+  "sideStep": {
+   "$ref": "#/$defs/step",
+   "description": "a step started alongside another (during, a trigger's do); gate.ts refuses a side step inside a side step"
+  },
+  "step": {
+   "oneOf": [
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "to"
+     ],
+     "properties": {
+      "type": {
+       "const": "drive"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "to": {
+       "oneOf": [
+        {
+         "$ref": "#/$defs/placeRef"
+        },
+        {
+         "type": "array",
+         "items": {
+          "$ref": "#/$defs/placeRef"
+         },
+         "minItems": 1,
+         "maxItems": 6
+        }
+       ]
+      },
+      "radius": {
+       "type": "number",
+       "minimum": 3,
+       "maximum": 60
+      },
+      "stop": {
+       "type": "boolean"
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      },
+      "bonus": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600
+      },
+      "flag": {
+       "$ref": "#/$defs/flag"
+      },
+      "uTurns": {
+       "type": "boolean"
+      },
+      "snap": {
+       "type": "boolean"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "stops"
+     ],
+     "properties": {
+      "type": {
+       "const": "stops"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "stops": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/stopRef"
+       },
+       "minItems": 1,
+       "maxItems": 8
+      },
+      "radius": {
+       "type": "number",
+       "minimum": 3,
+       "maximum": 60
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "to"
+     ],
+     "properties": {
+      "type": {
+       "const": "walk"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "to": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "radius": {
+       "type": "number",
+       "minimum": 1,
+       "maximum": 20
+      },
+      "leaveCar": {
+       "type": "boolean"
+      },
+      "enterCar": {
+       "type": "boolean"
+      },
+      "beam": {
+       "type": "boolean"
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "goal"
+     ],
+     "properties": {
+      "type": {
+       "const": "pursuit"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "type": "number",
+       "minimum": 5,
+       "maximum": 600
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "count": {
+       "$ref": "#/$defs/value"
+      },
+      "level": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 5
+      },
+      "kind": {
+       "enum": [
+        "crew",
+        "police"
+       ]
+      },
+      "goal": {
+       "enum": [
+        "lose",
+        "reach",
+        "escort"
+       ]
+      },
+      "to": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "radius": {
+       "type": "number",
+       "minimum": 3,
+       "maximum": 60
+      },
+      "los": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 20
+      },
+      "roles": {
+       "type": "array",
+       "items": {
+        "enum": [
+         "chaser",
+         "cutter",
+         "pacer",
+         "blocker"
+        ]
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "loseDist": {
+       "type": "number",
+       "minimum": 40,
+       "maximum": 400
+      },
+      "loseTime": {
+       "type": "number",
+       "minimum": 1,
+       "maximum": 30
+      },
+      "alert": {
+       "$ref": "#/$defs/label"
+      },
+      "peelText": {
+       "$ref": "#/$defs/label"
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      },
+      "bonus": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600
+      },
+      "flag": {
+       "$ref": "#/$defs/flag"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type"
+     ],
+     "properties": {
+      "type": {
+       "const": "timer"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "seconds": {
+       "$ref": "#/$defs/value"
+      },
+      "label": {
+       "type": "string",
+       "maxLength": 16
+      },
+      "fail": {
+       "enum": [
+        "hard",
+        "soft"
+       ]
+      },
+      "flag": {
+       "$ref": "#/$defs/flag"
+      },
+      "why": {
+       "$ref": "#/$defs/line"
+      },
+      "set": {
+       "$ref": "#/$defs/set"
+      },
+      "lateLabel": {
+       "type": "string",
+       "maxLength": 16
+      },
+      "stop": {
+       "type": "boolean"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "who"
+     ],
+     "properties": {
+      "type": {
+       "const": "call"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "who": {
+       "$ref": "#/$defs/castRef"
+      },
+      "role": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "ring": {
+       "type": "number",
+       "minimum": 2,
+       "maximum": 20
+      },
+      "lines": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/spoken"
+       },
+       "minItems": 0,
+       "maxItems": 40
+      },
+      "answer": {
+       "$ref": "#/$defs/set"
+      },
+      "decline": {
+       "$ref": "#/$defs/set"
+      },
+      "auto": {
+       "type": "boolean",
+       "description": "answers itself (no ring, no decline): a call the hero always takes, on the car phone"
+      },
+      "inCar": {
+       "type": "boolean",
+       "description": "talks only while the hero is in a car; on foot it holds (hold.pause), back in it resumes (hold.resume)"
+      },
+      "extra": {
+       "type": "array",
+       "items": {
+        "type": "array",
+        "items": {
+         "$ref": "#/$defs/spoken"
+        },
+        "minItems": 1,
+        "maxItems": 12
+       },
+       "minItems": 0,
+       "maxItems": 8,
+       "description": "more talk, block by block, after the lines and while the step it rides on still runs (a long drive)"
+      },
+      "wrap": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/spoken"
+       },
+       "minItems": 0,
+       "maxItems": 6,
+       "description": "when the step it rides on ends (he arrived), the line being said finishes, then these, then the call ends"
+      },
+      "hold": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "pause": {
+         "type": "array",
+         "items": {
+          "$ref": "#/$defs/spoken"
+         },
+         "minItems": 0,
+         "maxItems": 2
+        },
+        "resume": {
+         "type": "array",
+         "items": {
+          "$ref": "#/$defs/spoken"
+         },
+         "minItems": 0,
+         "maxItems": 2
+        }
+       },
+       "description": "inCar: what is said when he gets out, and when he is back at the wheel"
+      },
+      "voicemail": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "text"
+       ],
+       "properties": {
+        "text": {
+         "$ref": "#/$defs/speech"
+        },
+        "secs": {
+         "type": "number",
+         "minimum": 0.5,
+         "maximum": 20
+        },
+        "from": {
+         "$ref": "#/$defs/castRef"
+        },
+        "flag": {
+         "$ref": "#/$defs/flag"
+        },
+        "set": {
+         "$ref": "#/$defs/set"
+        }
+       }
+      },
+      "outgoing": {
+       "type": "boolean"
+      },
+      "pickup": {
+       "type": "boolean"
+      },
+      "tag": {
+       "$ref": "#/$defs/slug"
+      },
+      "duck": {
+       "type": "boolean"
+      },
+      "carry": {
+       "type": "boolean"
+      },
+      "choice": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "prompt",
+        "options"
+       ],
+       "properties": {
+        "prompt": {
+         "type": "string",
+         "maxLength": 120
+        },
+        "who": {
+         "$ref": "#/$defs/castRef"
+        },
+        "timeout": {
+         "type": "number",
+         "minimum": 3,
+         "maximum": 30
+        },
+        "default": {
+         "oneOf": [
+          {
+           "type": "integer",
+           "minimum": 0,
+           "maximum": 3
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "defaultText": {
+         "type": "string",
+         "maxLength": 80
+        },
+        "options": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+           "text"
+          ],
+          "properties": {
+           "text": {
+            "type": "string",
+            "maxLength": 80
+           },
+           "set": {
+            "$ref": "#/$defs/set"
+           },
+           "reply": {
+            "$ref": "#/$defs/speech"
+           },
+           "goto": {
+            "$ref": "#/$defs/stepId"
+           },
+           "value": {
+            "$ref": "#/$defs/slug"
+           },
+           "label": {
+            "type": "string",
+            "maxLength": 24
+           }
+          }
+         },
+         "minItems": 2,
+         "maxItems": 4
+        },
+        "silenceReply": {
+         "$ref": "#/$defs/speech"
+        },
+        "silenceValue": {
+         "$ref": "#/$defs/slug"
+        },
+        "silenceLabel": {
+         "type": "string",
+         "maxLength": 24
+        },
+        "fork": {
+         "type": "string",
+         "maxLength": 8,
+         "pattern": "^[A-Z0-9]{1,8}$"
+        },
+        "flag": {
+         "$ref": "#/$defs/flag"
+        }
+       },
+       "description": "a timed choice when the call is answered, after its lines"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "who",
+      "text"
+     ],
+     "properties": {
+      "type": {
+       "const": "voicemail"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "who": {
+       "$ref": "#/$defs/castRef"
+      },
+      "role": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "text": {
+       "$ref": "#/$defs/speech"
+      },
+      "secs": {
+       "type": "number",
+       "minimum": 0.5,
+       "maximum": 20
+      },
+      "time": {
+       "$ref": "#/$defs/clock"
+      },
+      "set": {
+       "$ref": "#/$defs/set"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "who",
+      "text"
+     ],
+     "properties": {
+      "type": {
+       "const": "voicenote"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "who": {
+       "$ref": "#/$defs/castRef"
+      },
+      "role": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "text": {
+       "$ref": "#/$defs/speech"
+      },
+      "secs": {
+       "type": "number",
+       "minimum": 0.5,
+       "maximum": 20
+      },
+      "time": {
+       "$ref": "#/$defs/clock"
+      },
+      "set": {
+       "$ref": "#/$defs/set"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "prompt",
+      "options"
+     ],
+     "properties": {
+      "type": {
+       "const": "choice"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "prompt": {
+       "type": "string",
+       "maxLength": 120
+      },
+      "who": {
+       "$ref": "#/$defs/castRef"
+      },
+      "timeout": {
+       "type": "number",
+       "minimum": 3,
+       "maximum": 30
+      },
+      "default": {
+       "oneOf": [
+        {
+         "type": "integer",
+         "minimum": 0,
+         "maximum": 3
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "defaultText": {
+       "type": "string",
+       "maxLength": 80
+      },
+      "options": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "text"
+        ],
+        "properties": {
+         "text": {
+          "type": "string",
+          "maxLength": 80
+         },
+         "set": {
+          "$ref": "#/$defs/set"
+         },
+         "reply": {
+          "$ref": "#/$defs/speech"
+         },
+         "goto": {
+          "$ref": "#/$defs/stepId"
+         },
+         "value": {
+          "$ref": "#/$defs/slug"
+         },
+         "label": {
+          "type": "string",
+          "maxLength": 24
+         }
+        }
+       },
+       "minItems": 2,
+       "maxItems": 4
+      },
+      "silenceReply": {
+       "$ref": "#/$defs/speech"
+      },
+      "silenceValue": {
+       "$ref": "#/$defs/slug"
+      },
+      "silenceLabel": {
+       "type": "string",
+       "maxLength": 24
+      },
+      "fork": {
+       "type": "string",
+       "maxLength": 8,
+       "pattern": "^[A-Z0-9]{1,8}$"
+      },
+      "flag": {
+       "$ref": "#/$defs/flag"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "shots"
+     ],
+     "properties": {
+      "type": {
+       "const": "cutscene"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "shots": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "cam"
+        ],
+        "properties": {
+         "cam": {
+          "$ref": "#/$defs/camRef"
+         },
+         "to": {
+          "$ref": "#/$defs/camRef"
+         },
+         "look": {
+          "$ref": "#/$defs/camRef"
+         },
+         "lookTo": {
+          "$ref": "#/$defs/camRef"
+         },
+         "dur": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 12
+         },
+         "fov": {
+          "type": "number",
+          "minimum": 20,
+          "maximum": 90
+         },
+         "sub": {
+          "$ref": "#/$defs/line"
+         },
+         "say": {
+          "$ref": "#/$defs/castRef"
+         },
+         "line": {
+          "$ref": "#/$defs/speech"
+         },
+         "caption": {
+          "$ref": "#/$defs/label"
+         }
+        }
+       },
+       "minItems": 1,
+       "maxItems": 12
+      },
+      "place": {
+       "$ref": "#/$defs/placeRef"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "at"
+     ],
+     "properties": {
+      "type": {
+       "const": "place"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "time": {
+       "enum": [
+        "golden",
+        "midday",
+        "twilight",
+        "midnight",
+        "dawn"
+       ]
+      },
+      "bonus": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "set"
+     ],
+     "properties": {
+      "type": {
+       "const": "set"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "set": {
+       "$ref": "#/$defs/set"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "who",
+      "text"
+     ],
+     "properties": {
+      "type": {
+       "const": "say"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "who": {
+       "$ref": "#/$defs/castRef"
+      },
+      "text": {
+       "$ref": "#/$defs/speech"
+      },
+      "secs": {
+       "type": "number",
+       "minimum": 0.5,
+       "maximum": 12
+      },
+      "wait": {
+       "type": "boolean"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "secs"
+     ],
+     "properties": {
+      "type": {
+       "const": "wait"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "secs": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 30
+      },
+      "call": {
+       "type": "boolean",
+       "description": "ends early once no call is live (a car phone wrapping up), secs at most"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "to"
+     ],
+     "properties": {
+      "type": {
+       "const": "goto"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "to": {
+       "$ref": "#/$defs/stepId"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type"
+     ],
+     "properties": {
+      "type": {
+       "const": "end"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "fail": {
+       "$ref": "#/$defs/line"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "label"
+     ],
+     "properties": {
+      "type": {
+       "const": "label"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "label": {
+       "type": "string",
+       "maxLength": 24
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "text"
+     ],
+     "properties": {
+      "type": {
+       "const": "transition"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 1000
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "kicker": {
+       "type": "string",
+       "maxLength": 24
+      },
+      "text": {
+       "type": "string",
+       "maxLength": 80
+      },
+      "sub": {
+       "$ref": "#/$defs/line"
+      },
+      "secs": {
+       "type": "number",
+       "minimum": 1,
+       "maximum": 8
+      },
+      "clock": {
+       "$ref": "#/$defs/clock"
+      },
+      "time": {
+       "enum": [
+        "golden",
+        "midday",
+        "twilight",
+        "midnight",
+        "dawn"
+       ]
+      },
+      "place": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "traffic": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 1
+      },
+      "set": {
+       "$ref": "#/$defs/set"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "shots"
+     ],
+     "properties": {
+      "type": {
+       "const": "vignette"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "place": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "color": {
+       "$ref": "#/$defs/colour"
+      },
+      "shots": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+         "dur": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 12
+         },
+         "text": {
+          "type": "string",
+          "maxLength": 120
+         },
+         "sub": {
+          "$ref": "#/$defs/line"
+         },
+         "caption": {
+          "$ref": "#/$defs/label"
+         },
+         "say": {
+          "$ref": "#/$defs/castRef"
+         },
+         "line": {
+          "$ref": "#/$defs/speech"
+         },
+         "cam": {
+          "$ref": "#/$defs/camRef"
+         },
+         "to": {
+          "$ref": "#/$defs/camRef"
+         },
+         "look": {
+          "$ref": "#/$defs/camRef"
+         },
+         "lookTo": {
+          "$ref": "#/$defs/camRef"
+         },
+         "fov": {
+          "type": "number",
+          "minimum": 20,
+          "maximum": 90
+         },
+         "color": {
+          "$ref": "#/$defs/colour"
+         },
+         "if": {
+          "$ref": "#/$defs/cond"
+         }
+        }
+       },
+       "minItems": 1,
+       "maxItems": 12
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "bills"
+     ],
+     "properties": {
+      "type": {
+       "const": "wallet"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "title": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "bills": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "name",
+         "amount"
+        ],
+        "properties": {
+         "name": {
+          "type": "string",
+          "maxLength": 40
+         },
+         "amount": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
+         },
+         "due": {
+          "type": "string",
+          "maxLength": 24
+         }
+        }
+       },
+       "minItems": 1,
+       "maxItems": 6
+      },
+      "pop": {
+       "type": "number",
+       "minimum": 1,
+       "maximum": 20
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type"
+     ],
+     "properties": {
+      "type": {
+       "const": "actEnd"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "title": {
+       "$ref": "#/$defs/label"
+      },
+      "heading": {
+       "$ref": "#/$defs/label"
+      },
+      "stats": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "label",
+         "value"
+        ],
+        "properties": {
+         "label": {
+          "type": "string",
+          "maxLength": 24
+         },
+         "value": {
+          "type": "string",
+          "maxLength": 24
+         }
+        }
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "story": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/line"
+       },
+       "minItems": 0,
+       "maxItems": 4
+      },
+      "quote": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "text"
+       ],
+       "properties": {
+        "text": {
+         "$ref": "#/$defs/line"
+        },
+        "by": {
+         "$ref": "#/$defs/castRef"
+        },
+        "tag": {
+         "$ref": "#/$defs/slug"
+        },
+        "missing": {
+         "$ref": "#/$defs/line"
+        }
+       }
+      },
+      "meter": {
+       "$ref": "#/$defs/slug"
+      },
+      "minSecs": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 12
+      },
+      "signed": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "next": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "text"
+       ],
+       "properties": {
+        "kicker": {
+         "type": "string",
+         "maxLength": 24
+        },
+        "text": {
+         "type": "string",
+         "maxLength": 80
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "at": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1000
+        },
+        "secs": {
+         "type": "number",
+         "minimum": 1,
+         "maximum": 8
+        }
+       }
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "who"
+     ],
+     "properties": {
+      "type": {
+       "const": "comfort"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "who": {
+       "$ref": "#/$defs/beingRef"
+      },
+      "label": {
+       "type": "string",
+       "maxLength": 24
+      },
+      "start": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 1
+      },
+      "refill": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 0.5
+      },
+      "fail": {
+       "enum": [
+        "hard",
+        "soft"
+       ]
+      },
+      "flag": {
+       "$ref": "#/$defs/flag"
+      },
+      "why": {
+       "$ref": "#/$defs/line"
+      },
+      "set": {
+       "$ref": "#/$defs/set"
+      },
+      "drain": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "brake": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "lateral": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "hit": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "bump": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "time": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 0.2
+        }
+       }
+      },
+      "lines": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "below",
+         "who",
+         "text"
+        ],
+        "properties": {
+         "below": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+         },
+         "who": {
+          "$ref": "#/$defs/castRef"
+         },
+         "text": {
+          "$ref": "#/$defs/speech"
+         }
+        }
+       },
+       "minItems": 0,
+       "maxItems": 6
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "route"
+     ],
+     "properties": {
+      "type": {
+       "const": "tail"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "name": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "car": {
+       "enum": [
+        "lowered",
+        "sedan",
+        "suv"
+       ]
+      },
+      "color": {
+       "$ref": "#/$defs/colour"
+      },
+      "route": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/placeRef"
+       },
+       "minItems": 2,
+       "maxItems": 12
+      },
+      "ahead": {
+       "type": "number",
+       "minimum": 20,
+       "maximum": 200
+      },
+      "speed": {
+       "type": "number",
+       "minimum": 3,
+       "maximum": 30
+      },
+      "ring": {
+       "type": "number",
+       "minimum": 10,
+       "maximum": 60
+      },
+      "spotTime": {
+       "type": "number",
+       "minimum": 1,
+       "maximum": 10
+      },
+      "lostDist": {
+       "type": "number",
+       "minimum": 60,
+       "maximum": 400
+      },
+      "lostTime": {
+       "type": "number",
+       "minimum": 3,
+       "maximum": 30
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "units"
+     ],
+     "properties": {
+      "type": {
+       "const": "stealth"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "units": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "@"
+        ],
+        "properties": {
+         "@": {
+          "$ref": "#/$defs/placeKey"
+         },
+         "kind": {
+          "enum": [
+           "police",
+           "scout"
+          ]
+         },
+         "roam": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 200
+         },
+         "radius": {
+          "type": "number",
+          "minimum": 10,
+          "maximum": 80
+         },
+         "heading": {
+          "$ref": "#/$defs/heading"
+         }
+        }
+       },
+       "minItems": 1,
+       "maxItems": 8
+      },
+      "radius": {
+       "type": "number",
+       "minimum": 10,
+       "maximum": 80
+      },
+      "detect": {
+       "type": "number",
+       "minimum": 0.5,
+       "maximum": 10
+      },
+      "lightsOff": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 1
+      },
+      "call": {
+       "type": "number",
+       "minimum": 1,
+       "maximum": 2
+      },
+      "foot": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 1
+      },
+      "onDetect": {
+       "oneOf": [
+        {
+         "enum": [
+          "fail"
+         ]
+        },
+        {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "goto"
+         ],
+         "properties": {
+          "goto": {
+           "$ref": "#/$defs/stepId"
+          }
+         }
+        },
+        {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "set"
+         ],
+         "properties": {
+          "set": {
+           "$ref": "#/$defs/set"
+          }
+         }
+        },
+        {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "pursuit"
+         ],
+         "properties": {
+          "pursuit": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [],
+           "properties": {
+            "count": {
+             "$ref": "#/$defs/value"
+            },
+            "level": {
+             "type": "integer",
+             "minimum": 1,
+             "maximum": 5
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      "why": {
+       "$ref": "#/$defs/line"
+      },
+      "hint": {
+       "$ref": "#/$defs/label"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type"
+     ],
+     "properties": {
+      "type": {
+       "const": "patrol"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "count": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 4
+      },
+      "near": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "roam": {
+       "type": "number",
+       "minimum": 50,
+       "maximum": 600
+      },
+      "radius": {
+       "type": "number",
+       "minimum": 10,
+       "maximum": 120
+      },
+      "limit": {
+       "type": "number",
+       "minimum": 5,
+       "maximum": 40
+      },
+      "heat": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 100
+      },
+      "escalate": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 6
+      },
+      "pursuit": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "count": {
+         "$ref": "#/$defs/value"
+        },
+        "level": {
+         "type": "integer",
+         "minimum": 1,
+         "maximum": 5
+        }
+       }
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "route"
+     ],
+     "properties": {
+      "type": {
+       "const": "convoy"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "route": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/placeRef"
+       },
+       "minItems": 2,
+       "maxItems": 12
+      },
+      "cars": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 8
+      },
+      "lead": {
+       "enum": [
+        "hearse",
+        "van",
+        "sedan",
+        "suv"
+       ]
+      },
+      "speed": {
+       "type": "number",
+       "minimum": 3,
+       "maximum": 20
+      },
+      "gap": {
+       "type": "number",
+       "minimum": 6,
+       "maximum": 40
+      },
+      "band": {
+       "type": "array",
+       "items": {
+        "type": "number",
+        "minimum": 2,
+        "maximum": 80
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "refill": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 0.5
+      },
+      "fail": {
+       "oneOf": [
+        {
+         "enum": [
+          "hard",
+          "soft"
+         ]
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "flag": {
+       "$ref": "#/$defs/flag"
+      },
+      "label": {
+       "type": "string",
+       "maxLength": 24
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      },
+      "drain": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 0.5
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type"
+     ],
+     "properties": {
+      "type": {
+       "const": "trigger"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "street": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "area": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "@",
+        "r"
+       ],
+       "properties": {
+        "@": {
+         "$ref": "#/$defs/placeKey"
+        },
+        "r": {
+         "type": "number",
+         "minimum": 5,
+         "maximum": 200
+        }
+       }
+      },
+      "when": {
+       "$ref": "#/$defs/cond"
+      },
+      "once": {
+       "type": "boolean"
+      },
+      "cue": {
+       "type": "string",
+       "maxLength": 16,
+       "pattern": "^[a-z][a-z-]{0,15}$"
+      },
+      "say": {
+       "$ref": "#/$defs/sayLine"
+      },
+      "set": {
+       "$ref": "#/$defs/set"
+      },
+      "flag": {
+       "$ref": "#/$defs/flag"
+      },
+      "atStart": {
+       "type": "boolean"
+      },
+      "do": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "shot"
+     ],
+     "properties": {
+      "type": {
+       "const": "beat"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "shot": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "cam"
+       ],
+       "properties": {
+        "cam": {
+         "$ref": "#/$defs/camRef"
+        },
+        "look": {
+         "$ref": "#/$defs/camRef"
+        },
+        "to": {
+         "$ref": "#/$defs/camRef"
+        },
+        "lookTo": {
+         "$ref": "#/$defs/camRef"
+        },
+        "fov": {
+         "type": "number",
+         "minimum": 20,
+         "maximum": 90
+        }
+       }
+      },
+      "dur": {
+       "type": "number",
+       "minimum": 0.5,
+       "maximum": 6
+      },
+      "say": {
+       "$ref": "#/$defs/sayLine"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "at"
+     ],
+     "properties": {
+      "type": {
+       "const": "roadblock"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "r": {
+       "type": "number",
+       "minimum": 6,
+       "maximum": 40
+      },
+      "cars": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 4
+      },
+      "kind": {
+       "enum": [
+        "police",
+        "crew"
+       ]
+      },
+      "text": {
+       "$ref": "#/$defs/label"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "who"
+     ],
+     "properties": {
+      "type": {
+       "const": "passenger"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "who": {
+       "$ref": "#/$defs/beingRef"
+      },
+      "board": {
+       "type": "boolean"
+      },
+      "seat": {
+       "enum": [
+        "front",
+        "rear",
+        "rear-left"
+       ]
+      },
+      "from": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "to": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "secs": {
+       "type": "number",
+       "minimum": 1,
+       "maximum": 8
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "enemies",
+      "arena",
+      "win"
+     ],
+     "properties": {
+      "type": {
+       "const": "fight"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "enemies": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/castRef"
+       },
+       "minItems": 1,
+       "maxItems": 8,
+       "description": "who he fights: cast ids with a body (a seen person, never the hero); an id twice is two of them"
+      },
+      "arena": {
+       "$ref": "#/$defs/placeRef",
+       "description": "where: he is put there on foot, the men come at him from ahead"
+      },
+      "win": {
+       "enum": [
+        "ko-all",
+        "survive"
+       ],
+       "description": "ko-all: every man put down for good; survive: on his feet when the timer runs out"
+      },
+      "timer": {
+       "type": "number",
+       "minimum": 10,
+       "maximum": 300,
+       "description": "seconds: ko-all within it (else failed), or how long to hold on (survive needs it)"
+      },
+      "rules": {
+       "enum": [
+        "lesson",
+        "full"
+       ],
+       "description": "lesson: forgiving, one man at a time, plain blows; full (default): feints, red kicks, a guessed counter whiffs"
+      },
+      "hp": {
+       "type": "number",
+       "minimum": 40,
+       "maximum": 400,
+       "description": "the hero's health (100)"
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      },
+      "why": {
+       "$ref": "#/$defs/line"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "text"
+     ],
+     "properties": {
+      "type": {
+       "const": "dm"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "from": {
+       "$ref": "#/$defs/castRef"
+      },
+      "name": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "text": {
+       "type": "string",
+       "maxLength": 280
+      },
+      "secs": {
+       "type": "number",
+       "minimum": 2,
+       "maximum": 20
+      },
+      "wait": {
+       "type": "boolean"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "at",
+      "label"
+     ],
+     "properties": {
+      "type": {
+       "const": "search"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "label": {
+       "type": "string",
+       "maxLength": 40,
+       "description": "what holding does, lower case: \"search the van\""
+      },
+      "secs": {
+       "type": "number",
+       "minimum": 0.3,
+       "maximum": 6
+      },
+      "radius": {
+       "type": "number",
+       "minimum": 1.5,
+       "maximum": 12
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "target",
+      "to"
+     ],
+     "properties": {
+      "type": {
+       "const": "tow"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "target": {
+       "$ref": "#/$defs/placeRef",
+       "description": "where the car to tow stands (on the kerb, a little before that corner): a drive place"
+      },
+      "car": {
+       "type": "string",
+       "maxLength": 48,
+       "pattern": "^(sedan|suv|taxi|pickup|van|minivan|[a-z0-9][a-z0-9.-]{0,47})$",
+       "description": "the car on the hook: a city body (sedan, suv, taxi, pickup, van, minivan; sedan if left out) or one of the pack's vehicles by id (its sheet: an ambulance is a van sheet with a livery)"
+      },
+      "color": {
+       "$ref": "#/$defs/colour"
+      },
+      "name": {
+       "type": "string",
+       "maxLength": 40,
+       "description": "what it is called on screen, lower case: \"the ambulance\""
+      },
+      "to": {
+       "$ref": "#/$defs/placeRef",
+       "description": "where it is towed to and let down: a drive place"
+      },
+      "radius": {
+       "type": "number",
+       "minimum": 3,
+       "maximum": 60
+      },
+      "secs": {
+       "type": "number",
+       "minimum": 0.3,
+       "maximum": 6
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      },
+      "hookObjective": {
+       "$ref": "#/$defs/objective"
+      },
+      "dropObjective": {
+       "$ref": "#/$defs/objective"
+      },
+      "bonus": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600
+      },
+      "flag": {
+       "$ref": "#/$defs/flag"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "name"
+     ],
+     "properties": {
+      "type": {
+       "const": "scene"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "name": {
+       "enum": [
+        "opening",
+        "m1.arrival",
+        "m1.tracker",
+        "m1.park"
+       ],
+       "description": "opening: the opening: the van in the park, Dan and the Suits, then Mr. Big's video call from his study (about 80 s); m1.arrival: Mission 1: the van arrives at the park and the Suits get out (the fight follows); m1.tracker: Mission 1: the laptop tracker close-up, Dan sees where it is going; m1.park: set dressing, at once: the park as Mission 1 dresses it, the van at its mark, the street there held clear"
+      },
+      "time": {
+       "enum": [
+        "golden",
+        "midday",
+        "twilight",
+        "midnight",
+        "dawn"
+       ],
+       "description": "the time of day after it"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type"
+     ],
+     "properties": {
+      "type": {
+       "const": "npc"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "oneOf": [
+        {
+         "$ref": "#/$defs/placeRef"
+        },
+        {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "rel"
+         ],
+         "properties": {
+          "rel": {
+           "const": "player"
+          },
+          "right": {
+           "type": "number",
+           "minimum": -20,
+           "maximum": 20
+          },
+          "fwd": {
+           "type": "number",
+           "minimum": -20,
+           "maximum": 20
+          }
+         },
+         "description": "beside the player (the kerb is to the right), facing him"
+        }
+       ]
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "who": {
+       "$ref": "#/$defs/beingRef"
+      },
+      "color": {
+       "$ref": "#/$defs/colour"
+      },
+      "remove": {
+       "$ref": "#/$defs/slug"
+      }
+     }
+    }
+   ]
+  }
+ }
+}

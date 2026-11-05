@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Making your world</title>
+<style>
+  :root { --bg: #0E0F13; --fg: #ECE8DF; --mute: #9B968C; --line: #2C2D33; --ok: #7FC28B; --bad: #E0776C; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, sans-serif; }
+  main { padding: 16px; display: grid; gap: 12px; }
+  h1 { font-size: 16px; margin: 0; } #st { color: var(--mute); }
+  #stage { position: relative; width: 1280px; max-width: 100%; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--line); }
+  #stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  #aux { position: fixed; left: -10000px; top: 0; width: 960px; height: 600px; overflow: hidden; }
+  #aux iframe { width: 960px; height: 600px; border: 0; }
+  .credit { padding: 0 16px 16px; margin: 0; color: var(--mute); font-size: 12px; } .credit a { color: var(--mute); }
+  ol { margin: 0; padding-left: 20px; color: var(--mute); } li.passed { color: var(--ok); } li.failed { color: var(--bad); }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">Making your world</h1>
+  <p id="st">Starting...</p>
+  <div id="stage" aria-label="Test drive"></div>
+  <ol id="missions"></ol>
+</main>
+<p class="credit">Voices: Kokoro-82M by hexgrad (Apache-2.0), downloaded from <a href="https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX">Hugging Face</a> and run by transformers.js (Apache-2.0) and ONNX Runtime Web (MIT). Phonemes: eSpeak NG as phonemizer.js, a separate unmodified file under the <a href="/storykit/vendor/gpl/">GPL-3.0-or-later (its licence and source)</a>. The world plays on Mog City (mc.gamemog.com). <a href="/storykit/CREDITS.md">Credits</a>.</p>
+<div id="aux" aria-hidden="true"></div>
+<script type="module" src="./work.js"></script>
+</body>
+</html>

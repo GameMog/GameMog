@@ -13,6 +13,7 @@ import { GameActions } from './actions';
 import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
 import { CustomGamePage } from './custom-page';
+import { storykitForViewer } from '@/lib/storykit-http';
 import { Lineage, MogsPanel } from './mog';
 import { mogsOf, tileStats, getGameById } from '@/lib/db';
 import type { Metadata } from 'next';
@@ -54,7 +55,8 @@ export default async function GamePage({ params, searchParams }: { params: Promi
   // an unlisted game plays for anyone with its link; any other hidden game only for the owner's session
   const game = getGameBySlug(slug) ?? getUnlistedGameBySlug(slug) ?? ((await isAdmin()) ? getGameBySlugForOwner(slug) : undefined);
   if (!game) notFound();
-  if (game.format === 'custom' || game.format === 'world') return <CustomGamePage game={game} kdiag={kdiag} />;
+  // (the Story Kit open to this viewer: STORYKIT=on, or owner-only and the owner's session; lib/storykit-switch.ts)
+  if (game.format === 'custom' || game.format === 'world') return <CustomGamePage game={game} kdiag={kdiag} storyOpen={game.format === 'world' ? await storykitForViewer() : undefined} />;
 
   const spec = JSON.parse(game.spec) as WorldSpec;
   const scores = topScores(game.id);

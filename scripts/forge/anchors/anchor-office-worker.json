@@ -1,0 +1,125 @@
+{
+ "id": "anchor-office-worker",
+ "name": "Priya Raman-Cole",
+ "role": "anchor: office worker",
+ "logline": "Thirty-six, senior analyst on the 31st floor, sees the numbers nobody upstairs wants seen.",
+ "identity": {
+  "age": 36,
+  "body": "female",
+  "presentation": "woman",
+  "heightCm": 175,
+  "build": {
+   "frame": "medium",
+   "weight": "slim",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "Indian-British",
+  "blend": {
+   "african": 0.1,
+   "asian": 0.45,
+   "european": 0.45
+  },
+  "skin": {
+   "tone": "medium",
+   "undertone": "warm",
+   "weathered": false,
+   "makeup": "natural",
+   "lipTint": "rose"
+  }
+ },
+ "face": {
+  "jaw": "average",
+  "cheeks": "average",
+  "cheekbones": "high",
+  "faceWidth": "narrow",
+  "nose": {
+   "width": "average",
+   "length": "long",
+   "tip": "drooping",
+   "bridge": "greek"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "narrow"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "black",
+   "weight": "average"
+  },
+  "eyeShape": "almond",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "average"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "high",
+  "faceLength": "long",
+  "jawWidth": "narrow",
+  "eyeSpacing": "close"
+ },
+ "hair": {
+  "style": "long-straight",
+  "color": "dark-brown"
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "long-sleeve",
+   "color": "#465063"
+  },
+  "bottom": {
+   "item": "loose-trousers",
+   "color": "#2A2C31"
+  },
+  "shoes": {
+   "item": "sneakers",
+   "color": "#1F1E20",
+   "accent": "#1F1E20"
+  }
+ },
+ "props": [
+  {
+   "kind": "glasses",
+   "color": "#2A2626"
+  }
+ ],
+ "posture": {
+  "stance": "upright",
+  "pace": "quick",
+  "gestures": "pushes her glasses up, counts on her fingers",
+  "idle": "arms",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "precise",
+   "guarded",
+   "dry",
+   "principled"
+  ],
+  "wants": "to get the file to someone who will read it, and keep her job doing it",
+  "speech": "measured, exact, a dry joke when cornered"
+ },
+ "voice": {
+  "id": "anchor-office-worker-v1",
+  "description": "clear alto, crisp and even",
+  "pitch": "mid",
+  "rate": "steady"
+ }
+}

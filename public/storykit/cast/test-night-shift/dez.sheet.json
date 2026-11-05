@@ -1,0 +1,116 @@
+{
+ "id": "dez",
+ "name": "Dez Amaro",
+ "role": "night-shift cab driver",
+ "logline": "Twenty-four, five years of nights in the same yellow cab, and one more fare before he goes home.",
+ "identity": {
+  "age": 24,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 182,
+  "build": {
+   "frame": "medium",
+   "weight": "slim",
+   "muscle": "athletic"
+  }
+ },
+ "heritage": {
+  "note": "mixed West African / Latin American",
+  "blend": {
+   "african": 0.4,
+   "asian": 0.15,
+   "european": 0.45
+  },
+  "skin": {
+   "tone": "tan",
+   "undertone": "warm",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "square",
+  "cheeks": "average",
+  "cheekbones": "high",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "strong",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "brown",
+  "brows": {
+   "color": "black",
+   "weight": "average"
+  },
+  "eyeShape": "almond",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "full",
+   "width": "average",
+   "cupidsBow": "defined",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average"
+ },
+ "hair": {
+  "style": "short-curly",
+  "color": "black"
+ },
+ "facialHair": {
+  "style": "stubble",
+  "color": "black",
+  "density": 0.55
+ },
+ "wardrobe": {
+  "top": {
+   "item": "hoodie",
+   "color": "#3B4A3A",
+   "accent": "#E6E4DE"
+  },
+  "bottom": {
+   "item": "jeans",
+   "color": "#2C3646"
+  },
+  "shoes": {
+   "item": "white-sneakers"
+  }
+ },
+ "posture": {
+  "stance": "relaxed",
+  "pace": "quick",
+  "gestures": "talks with his hands, shrugs a lot",
+  "idle": "shift",
+  "walk": "walkCool"
+ },
+ "personality": {
+  "traits": [
+   "steady",
+   "kind",
+   "dry",
+   "stubborn"
+  ],
+  "wants": "to get home before the snow closes the bridges",
+  "speech": "easy, low, a joke under most lines"
+ },
+ "voice": {
+  "id": "dez-v1",
+  "description": "warm mid baritone, quick",
+  "pitch": "mid",
+  "rate": "quick"
+ }
+}

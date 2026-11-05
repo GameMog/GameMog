@@ -1,0 +1,125 @@
+{
+ "id": "anchor-old-boss",
+ "name": "Augustin Merle",
+ "role": "anchor: old boss (owns the block, runs it from a back office)",
+ "logline": "Seventy-one, heavy and unhurried, the man everyone on the street owes a favour.",
+ "identity": {
+  "age": 71,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 175,
+  "build": {
+   "frame": "broad",
+   "weight": "heavy",
+   "muscle": "soft"
+  }
+ },
+ "heritage": {
+  "note": "Mediterranean-Levantine mix",
+  "blend": {
+   "african": 0.07,
+   "asian": 0.13,
+   "european": 0.8
+  },
+  "skin": {
+   "tone": "light-medium",
+   "undertone": "warm",
+   "weathered": true,
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "heavy",
+  "cheeks": "jowly",
+  "cheekbones": "average",
+  "faceWidth": "wide",
+  "nose": {
+   "width": "wide",
+   "length": "long",
+   "tip": "drooping",
+   "bridge": "greek"
+  },
+  "browRidge": "strong",
+  "chin": {
+   "projection": "strong",
+   "length": "average",
+   "width": "wide"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "grey",
+   "weight": "heavy"
+  },
+  "eyeShape": "hooded",
+  "eyeBags": "heavy",
+  "mouth": {
+   "lips": "thin",
+   "width": "wide",
+   "corners": "down"
+  },
+  "ears": {
+   "size": "large",
+   "angle": "average"
+  },
+  "skull": {
+   "shape": "square",
+   "back": "full"
+  },
+  "forehead": "high",
+  "jawWidth": "wide"
+ },
+ "hair": {
+  "style": "balding",
+  "color": "grey",
+  "greying": 0.9
+ },
+ "facialHair": {
+  "style": "full",
+  "color": "grey",
+  "density": 0.9
+ },
+ "wardrobe": {
+  "top": {
+   "item": "suit-jacket",
+   "color": "#26272C",
+   "accent": "#5A1E24"
+  },
+  "bottom": {
+   "item": "suit-trousers",
+   "color": "#26272C"
+  },
+  "shoes": {
+   "item": "dress"
+  }
+ },
+ "props": [
+  {
+   "kind": "round-glasses",
+   "color": "#8A6A2E"
+  }
+ ],
+ "posture": {
+  "stance": "upright",
+  "pace": "slow",
+  "gestures": "two fingers raised, never points",
+  "idle": "idle",
+  "walk": "walkHeavy"
+ },
+ "personality": {
+  "traits": [
+   "patient",
+   "courteous",
+   "ruthless",
+   "sentimental"
+  ],
+  "wants": "the block to outlive him, in his name",
+  "speech": "soft, slow, never raises his voice"
+ },
+ "voice": {
+  "id": "anchor-old-boss-v1",
+  "description": "low, soft, deliberate",
+  "pitch": "low",
+  "rate": "slow"
+ }
+}

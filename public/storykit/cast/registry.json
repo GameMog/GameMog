@@ -1,0 +1,623 @@
+{
+ "v": 1,
+ "note": "The Story Kit cast registry: shipped, hand-polished people and pets a pack names by key (cast[].model, pets[].model) instead of a Character Forge sheet. storykit/cast/README.md has the format and the rules.",
+ "voices": {
+  "mogcity": "cast/mogcity/voice/manifest.json"
+ },
+ "models": {
+  "mogcity/dan": {
+   "kind": "person",
+   "world": "Mog City",
+   "name": "Dan",
+   "role": "a fired first-year bank associate, framed (Mog City's hero)",
+   "glb": "cast/mogcity/dan.glb",
+   "bytes": 3668788,
+   "rig": "cast66",
+   "clips": {
+    "from": "own",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "lift": 0.02,
+   "face": {
+    "open": 0.42,
+    "hair": true
+   },
+   "props": [],
+   "height": 1.88,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "hero"
+   ],
+   "anchor": "young-hero",
+   "voice": {
+    "recorded": "dan",
+    "lines": 176,
+    "f0": 110,
+    "near": {
+     "id": "mogcity-dan",
+     "kokoro": "am_michael",
+     "speed": 1.05,
+     "pitch": -0.2,
+     "description": "a young man, dry baritone with a city edge, quick and deadpan"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#mogcity/dan",
+   "credit": "An original character made for Mog City (an invented person) from MakeHuman's base body, clothes and hair (CC0 1.0); everyday clips from the CMU Graphics Lab Motion Capture Database. cast/mogcity/CREDITS.md"
+  },
+  "mogcity/jane": {
+   "kind": "person",
+   "world": "Mog City",
+   "name": "Jane",
+   "role": "a hospital data analyst, Dan's girlfriend",
+   "glb": "cast/mogcity/jane.glb",
+   "bytes": 1606768,
+   "rig": "cast66",
+   "clips": {
+    "from": "own",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "face": {
+    "open": 0.5,
+    "fix": {
+     "parting": 0.0634,
+     "chin": 0.1043,
+     "lipZ": 0.0162,
+     "lidUp": 0.74,
+     "lidMid": -0.00055
+    }
+   },
+   "props": [],
+   "height": 1.65,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "hero"
+   ],
+   "anchor": "office-worker",
+   "voice": {
+    "recorded": "jane",
+    "lines": 231,
+    "f0": 180,
+    "near": {
+     "id": "mogcity-jane",
+     "kokoro": "af_bella",
+     "speed": 1.05,
+     "pitch": -1.4,
+     "description": "a young woman, quick warm alto, wry and fast"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#mogcity/jane",
+   "credit": "An original character made for Mog City (an invented person) from MakeHuman's base body, clothes and hair (CC0 1.0); everyday clips from the CMU Graphics Lab Motion Capture Database. cast/mogcity/CREDITS.md"
+  },
+  "mogcity/mrbig": {
+   "kind": "person",
+   "world": "Mog City",
+   "name": "Mr. Big",
+   "role": "the bank's CEO",
+   "glb": "cast/mogcity/mrbig.glb",
+   "bytes": 1950092,
+   "rig": "cast66",
+   "clips": {
+    "from": "own",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "face": {
+    "open": 0.45,
+    "gaze": 0.18
+   },
+   "props": [
+    "tortoise-glasses"
+   ],
+   "height": 1.78,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "hero"
+   ],
+   "anchor": "old-boss",
+   "voice": {
+    "recorded": "mrbig",
+    "lines": 4,
+    "f0": 92,
+    "near": {
+     "id": "mogcity-mrbig",
+     "kokoro": "bm_lewis",
+     "speed": 1,
+     "pitch": 0,
+     "description": "an older man, deep smooth British baritone, unhurried, smiling through it"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#mogcity/mrbig",
+   "credit": "An original character made for Mog City (an invented person) from MakeHuman's base body, clothes and hair (CC0 1.0); everyday clips from the CMU Graphics Lab Motion Capture Database. cast/mogcity/CREDITS.md"
+  },
+  "mogcity/gears": {
+   "kind": "person",
+   "world": "Mog City",
+   "name": "Gears",
+   "role": "an ex-pit-crew mechanic with a tuning garage",
+   "glb": "cast/mogcity/gears.glb",
+   "bytes": 1617932,
+   "rig": "cast66",
+   "clips": {
+    "from": "own",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb",
+    "moves": "cast/mogcity/gears-moves.glb"
+   },
+   "lift": 0.02,
+   "face": {
+    "open": 0.45
+   },
+   "props": [
+    "heather-tee"
+   ],
+   "height": 1.9,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "hero"
+   ],
+   "anchor": "mechanic",
+   "voice": {
+    "recorded": "gears",
+    "lines": 7,
+    "f0": 82,
+    "near": {
+     "id": "mogcity-gears",
+     "blend": {
+      "am_onyx": 0.65,
+      "am_michael": 0.35
+     },
+     "speed": 0.92,
+     "pitch": -0.6,
+     "description": "a big man, low warm bass, slow and proud"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#mogcity/gears",
+   "credit": "An original character made for Mog City (an invented person) from MakeHuman's base body, clothes and hair (CC0 1.0); everyday clips from the CMU Graphics Lab Motion Capture Database. cast/mogcity/CREDITS.md Their standing idle (and Fiona's run) is from the Bandai Namco Research Motion Dataset (CC BY-NC 4.0), retargeted in Mog City."
+  },
+  "mogcity/fiona": {
+   "kind": "person",
+   "world": "Mog City",
+   "name": "Fiona",
+   "role": "the bank's Head of Community",
+   "glb": "cast/mogcity/fiona.glb",
+   "bytes": 1747044,
+   "rig": "cast66",
+   "clips": {
+    "from": "own",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb",
+    "moves": "cast/mogcity/fiona-moves.glb"
+   },
+   "lift": 0.02,
+   "face": {
+    "open": 0.42
+   },
+   "props": [
+    "white-shades"
+   ],
+   "height": 1.7,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "hero"
+   ],
+   "anchor": "office-worker",
+   "voice": {
+    "recorded": "fiona",
+    "lines": 11,
+    "f0": 282,
+    "near": {
+     "id": "mogcity-fiona",
+     "kokoro": "af_heart",
+     "speed": 1.1,
+     "pitch": 2.5,
+     "description": "a young woman, bright high hype-host voice, fast and relentlessly nice"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#mogcity/fiona",
+   "credit": "An original character made for Mog City (an invented person) from MakeHuman's base body, clothes and hair (CC0 1.0); everyday clips from the CMU Graphics Lab Motion Capture Database. cast/mogcity/CREDITS.md Their standing idle (and Fiona's run) is from the Bandai Namco Research Motion Dataset (CC BY-NC 4.0), retargeted in Mog City."
+  },
+  "mogcity/suit-knox": {
+   "kind": "person",
+   "world": "Mog City",
+   "name": "Knox",
+   "role": "the security crew's lead",
+   "glb": "cast/mogcity/suits.glb",
+   "bytes": 4957916,
+   "rig": "suit",
+   "man": "knox",
+   "look": "c",
+   "clips": {
+    "from": "cast/mogcity/suits-clips.glb",
+    "idle": "suitIdle",
+    "walk": "suitWalk",
+    "talk": "suitIdleGuide"
+   },
+   "face": {
+    "open": 0.4
+   },
+   "props": [
+    "suit-shades"
+   ],
+   "height": 1.9,
+   "can": [
+    "stand",
+    "walk",
+    "talk"
+   ],
+   "anchor": "fixer",
+   "voice": {
+    "recorded": "suit-knox",
+    "lines": 9,
+    "f0": 122,
+    "near": {
+     "id": "mogcity-suit-knox",
+     "kokoro": "am_puck",
+     "speed": 0.98,
+     "pitch": 0.6,
+     "description": "a big man, low cocky voice, sing-song mockery"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#mogcity/suit-knox",
+   "credit": "One of Mog City's Suits: the rig and dressing are ported from Spiderbench by Shikhar (used with the author's permission, not MIT), the men built from MakeHuman (CC0 1.0); their clips are Dan's own, retargeted to the rig. cast/mogcity/CREDITS.md"
+  },
+  "mogcity/suit-hooks": {
+   "kind": "person",
+   "world": "Mog City",
+   "name": "Hooks",
+   "role": "the security crew's grabber",
+   "glb": "cast/mogcity/suits.glb",
+   "bytes": 4957916,
+   "rig": "suit",
+   "man": "hooks",
+   "look": "b",
+   "clips": {
+    "from": "cast/mogcity/suits-clips.glb",
+    "idle": "suitIdle",
+    "walk": "suitWalk",
+    "talk": "suitIdleGuide"
+   },
+   "face": {
+    "open": 0.4
+   },
+   "props": [
+    "suit-shades",
+    "earpiece"
+   ],
+   "height": 1.78,
+   "can": [
+    "stand",
+    "walk",
+    "talk"
+   ],
+   "anchor": "fixer",
+   "voice": {
+    "near": {
+     "id": "mogcity-suit-hooks",
+     "kokoro": "am_liam",
+     "speed": 1.05,
+     "pitch": 0,
+     "description": "a wiry man, clipped mid voice, few words"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#mogcity/suit-hooks",
+   "credit": "One of Mog City's Suits: the rig and dressing are ported from Spiderbench by Shikhar (used with the author's permission, not MIT), the men built from MakeHuman (CC0 1.0); their clips are Dan's own, retargeted to the rig. cast/mogcity/CREDITS.md"
+  },
+  "mogcity/suit-tank": {
+   "kind": "person",
+   "world": "Mog City",
+   "name": "Tank",
+   "role": "the widest of the security crew",
+   "glb": "cast/mogcity/suits.glb",
+   "bytes": 4957916,
+   "rig": "suit",
+   "man": "tank",
+   "look": "a",
+   "clips": {
+    "from": "cast/mogcity/suits-clips.glb",
+    "idle": "suitIdle",
+    "walk": "suitWalk",
+    "talk": "suitIdleGuide"
+   },
+   "face": {
+    "open": 0.4
+   },
+   "props": [
+    "suit-shades"
+   ],
+   "height": 1.86,
+   "can": [
+    "stand",
+    "walk",
+    "talk"
+   ],
+   "anchor": "fixer",
+   "voice": {
+    "near": {
+     "id": "mogcity-suit-tank",
+     "kokoro": "am_onyx",
+     "speed": 0.88,
+     "pitch": 0.8,
+     "description": "a huge man, flat low voice, one word at a time"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#mogcity/suit-tank",
+   "credit": "One of Mog City's Suits: the rig and dressing are ported from Spiderbench by Shikhar (used with the author's permission, not MIT), the men built from MakeHuman (CC0 1.0); their clips are Dan's own, retargeted to the rig. cast/mogcity/CREDITS.md"
+  },
+  "mogcity/suit-brick": {
+   "kind": "person",
+   "world": "Mog City",
+   "name": "Brick",
+   "role": "the bouncer who runs the planted crowd",
+   "glb": "cast/mogcity/suits.glb",
+   "bytes": 4957916,
+   "rig": "suit",
+   "man": "brick",
+   "look": "b",
+   "clips": {
+    "from": "cast/mogcity/suits-clips.glb",
+    "idle": "suitIdle",
+    "walk": "suitWalk",
+    "talk": "suitIdleGuide"
+   },
+   "face": {
+    "open": 0.4
+   },
+   "props": [
+    "suit-shades",
+    "earpiece"
+   ],
+   "height": 1.88,
+   "can": [
+    "stand",
+    "walk",
+    "talk"
+   ],
+   "anchor": "fixer",
+   "voice": {
+    "recorded": "suit-brick",
+    "lines": 3,
+    "f0": 109,
+    "near": {
+     "id": "mogcity-suit-brick",
+     "kokoro": "am_puck",
+     "speed": 1.08,
+     "pitch": -1.4,
+     "description": "a big man, loud jumpy baritone, a hype man"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#mogcity/suit-brick",
+   "credit": "One of Mog City's Suits: the rig and dressing are ported from Spiderbench by Shikhar (used with the author's permission, not MIT), the men built from MakeHuman (CC0 1.0); their clips are Dan's own, retargeted to the rig. cast/mogcity/CREDITS.md"
+  },
+  "mogcity/suit-dash": {
+   "kind": "person",
+   "world": "Mog City",
+   "name": "Dash",
+   "role": "the one who is always late",
+   "glb": "cast/mogcity/suits.glb",
+   "bytes": 4957916,
+   "rig": "suit",
+   "man": "dash",
+   "look": "a",
+   "clips": {
+    "from": "cast/mogcity/suits-clips.glb",
+    "idle": "suitIdle",
+    "walk": "suitWalk",
+    "talk": "suitIdleGuide"
+   },
+   "face": {
+    "open": 0.4
+   },
+   "props": [
+    "suit-shades"
+   ],
+   "height": 1.76,
+   "can": [
+    "stand",
+    "walk",
+    "talk"
+   ],
+   "anchor": "fixer",
+   "voice": {
+    "recorded": "suit-dash",
+    "lines": 1,
+    "f0": 209,
+    "near": {
+     "id": "mogcity-suit-dash",
+     "kokoro": "am_fenrir",
+     "speed": 1.12,
+     "pitch": 2.5,
+     "description": "a young man, breathless whiny tenor"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#mogcity/suit-dash",
+   "credit": "One of Mog City's Suits: the rig and dressing are ported from Spiderbench by Shikhar (used with the author's permission, not MIT), the men built from MakeHuman (CC0 1.0); their clips are Dan's own, retargeted to the rig. cast/mogcity/CREDITS.md"
+  },
+  "mogcity/suit-mack": {
+   "kind": "person",
+   "world": "Mog City",
+   "name": "Mack",
+   "role": "the security crew's Midtown handler",
+   "glb": "cast/mogcity/suits.glb",
+   "bytes": 4957916,
+   "rig": "suit",
+   "man": "mack",
+   "look": "c",
+   "clips": {
+    "from": "cast/mogcity/suits-clips.glb",
+    "idle": "suitIdle",
+    "walk": "suitWalk",
+    "talk": "suitIdleGuide"
+   },
+   "face": {
+    "open": 0.4
+   },
+   "props": [
+    "suit-shades"
+   ],
+   "height": 1.87,
+   "can": [
+    "stand",
+    "walk",
+    "talk"
+   ],
+   "anchor": "fixer",
+   "voice": {
+    "recorded": "suit-mack",
+    "lines": 9,
+    "f0": 159,
+    "near": {
+     "id": "mogcity-suit-mack",
+     "kokoro": "am_fenrir",
+     "speed": 1,
+     "pitch": 2.1,
+     "description": "a big man, loud reedy voice, panicky, every sentence a pitch"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#mogcity/suit-mack",
+   "credit": "One of Mog City's Suits: the rig and dressing are ported from Spiderbench by Shikhar (used with the author's permission, not MIT), the men built from MakeHuman (CC0 1.0); their clips are Dan's own, retargeted to the rig. cast/mogcity/CREDITS.md"
+  },
+  "mogcity/suit-rook": {
+   "kind": "person",
+   "world": "Mog City",
+   "name": "Rook",
+   "role": "a junior on the security team who wants out",
+   "glb": "cast/mogcity/suits.glb",
+   "bytes": 4957916,
+   "rig": "suit",
+   "man": "rook",
+   "look": "a",
+   "clips": {
+    "from": "cast/mogcity/suits-clips.glb",
+    "idle": "suitIdle",
+    "walk": "suitWalk",
+    "talk": "suitIdleGuide"
+   },
+   "face": {
+    "open": 0.4
+   },
+   "props": [
+    "suit-shades"
+   ],
+   "height": 1.77,
+   "can": [
+    "stand",
+    "walk",
+    "talk"
+   ],
+   "anchor": "fixer",
+   "voice": {
+    "near": {
+     "id": "mogcity-suit-rook",
+     "kokoro": "am_puck",
+     "speed": 1.1,
+     "pitch": 1.8,
+     "description": "a young man, nervous quick light baritone, apologetic"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#mogcity/suit-rook",
+   "credit": "One of Mog City's Suits: the rig and dressing are ported from Spiderbench by Shikhar (used with the author's permission, not MIT), the men built from MakeHuman (CC0 1.0); their clips are Dan's own, retargeted to the rig. cast/mogcity/CREDITS.md"
+  },
+  "mogcity/bea": {
+   "kind": "voice",
+   "world": "Mog City",
+   "name": "Ms. Bea",
+   "role": "a retired science teacher who runs the camp's kitchen",
+   "can": [
+    "talk"
+   ],
+   "anchor": "grandmother",
+   "voice": {
+    "recorded": "bea",
+    "lines": 4,
+    "f0": 167,
+    "near": {
+     "id": "mogcity-bea",
+     "kokoro": "af_kore",
+     "speed": 0.95,
+     "pitch": 1,
+     "description": "an older woman, warm commanding teacher's voice, unhurried"
+    }
+   },
+   "credit": "Heard, not seen, in Mog City. cast/mogcity/CREDITS.md"
+  },
+  "mogcity/camp": {
+   "kind": "voice",
+   "world": "Mog City",
+   "name": "The Camp",
+   "role": "forty-odd people of every age camped out in the square",
+   "can": [
+    "talk"
+   ],
+   "anchor": "none",
+   "voice": {
+    "recorded": "camp",
+    "lines": 7,
+    "f0": 108,
+    "near": {
+     "id": "mogcity-camp",
+     "blend": {
+      "am_michael": 0.5,
+      "af_sarah": 0.5
+     },
+     "speed": 1.05,
+     "pitch": 0,
+     "description": "a crowd of voices together, ragged, cheerful and loud"
+    }
+   },
+   "credit": "Eight Kokoro-82M stock voices together. cast/mogcity/CREDITS.md"
+  },
+  "mogcity/moon": {
+   "kind": "pet",
+   "world": "Mog City",
+   "name": "Moon",
+   "role": "a small white fluffy dog",
+   "species": "dog",
+   "breed": "mixed",
+   "build": "moon",
+   "can": [
+    "stand",
+    "follow",
+    "sit",
+    "ride"
+   ],
+   "credit": "Built in code for Mog City (MIT): a Maltese / Havanese type, about 4,000 combed fur clumps."
+  }
+ }
+}

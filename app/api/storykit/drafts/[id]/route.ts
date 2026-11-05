@@ -1,0 +1,27 @@
+import { storyStore, bearer } from '@/lib/storykit-store';
+import { storykitOff, json } from '@/lib/storykit-http';
+import { storykitMc } from '@/lib/storykit-publish';
+
+export const runtime = 'nodejs';
+
+/**
+ * A Story Kit draft, with its token (authorization: Bearer <token>).
+ *   GET     its files, what is still missing (GLBs, clips), its bytes against the limits and when it expires; and `mc`,
+ *           Mog City's origin, where its test drive plays (lib/storykit-publish.ts storykitMc)
+ *   DELETE  abandon it now: its rows, then every stored file nothing else points at
+ */
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function GET(req: Request, ctx: Ctx) {
+  const off = storykitOff(req); if (off) return off;
+  const d = storyStore().auth((await ctx.params).id, bearer(req));
+  return d ? json({ ...storyStore().status(d), mc: storykitMc() }) : json({ error: 'No such draft, or not yours.' }, 404);
+}
+
+export async function DELETE(req: Request, ctx: Ctx) {
+  const off = storykitOff(req); if (off) return off;
+  const s = storyStore(), d = s.auth((await ctx.params).id, bearer(req));
+  if (!d) return json({ error: 'No such draft, or not yours.' }, 404);
+  const r = s.abandon(d);
+  return r.ok ? json({ ok: true, freed: r.freed }) : json({ error: r.error }, r.status);
+}

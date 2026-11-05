@@ -1,0 +1,15 @@
+{
+  "v": 1, "id": "rides.wrecker", "label": "Night Wrecker", "noun": "truck", "family": "car4", "class": "wrecker", "era": 2008, "condition": "tired",
+  "body": { "rear": "bed", "doors": 2, "doorType": "conventional", "roof": "fixed", "trim": "chrome", "crease": "single" },
+  "face": { "lamps": "square", "grille": "horizontal-bars", "bumper": "chrome-blade", "fog": true },
+  "tail": { "lamps": "vertical", "exhaust": "single", "plate": "bumper" },
+  "paint": { "base": "#B8231E", "finish": "gloss", "second": "#26292C" },
+  "wheels": { "style": "steel-bare", "finish": "silver", "tyre": "all-terrain" },
+  "interior": { "seat": "#3A3A38", "material": "vinyl", "dash": "analog", "wheel": "four-spoke" },
+  "props": ["coffee-cups", "clipboard"],
+  "sound": { "engine": "diesel", "character": 0.35, "gears": 6 },
+  "handling": { "pace": -0.5, "pull": -0.5, "grip": -0.3, "weight": 0.9, "turnIn": -0.6, "brakes": -0.3, "character": "tank" },
+  "abilities": ["boost", "tow"],
+  "story": { "owner": "hero", "nickname": "the Hook", "oneLine": "A red regular-cab wrecker: a yellow boom, a wheel-lift under the tail, an amber bar on the roof." },
+  "plate": "TOW 118"
+}

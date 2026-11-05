@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { SiteHeader, SiteFooter } from '../../header';
 import { Cover } from '../../cover';
-import { getGameBySlug, getGameById, mogsOf } from '@/lib/db';
+import { getGameBySlug, getGameById, getGameBySlugForOwner, mogsOf } from '@/lib/db';
 import type { WorldSpec } from '@/lib/worldspec';
 import type { Metadata } from 'next';
 import { MogComposer } from './composer';
@@ -10,6 +10,11 @@ import { optionsOf } from '@/lib/world-options';
 import { clip, pageMeta } from '../../seo';
 import { getDare } from '@/lib/dare';
 import { canMog, MOG_SOON, worldMode } from '@/lib/custom-game';
+import { storyOf, storyCityName } from '@/lib/storykit-site';
+import { storykitForViewer } from '@/lib/storykit-http';
+import { storykitMode } from '@/lib/storykit-switch';
+import { StoryMogComposer } from '../../create/story';
+import { Lock } from '../../create/story-show';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +35,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
  */
 export default async function MogPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ dare?: string | string[] }> }) {
   const { slug } = await params;
-  const game = getGameBySlug(slug);
+  // (STORYKIT=owner: the owner's story worlds are published hidden, so the owner's session also finds a hidden story
+  // world here to Mog it; nothing else changes, and nobody else's lookup does: lib/storykit-switch.ts)
+  const storyOpen = await storykitForViewer();
+  const game = getGameBySlug(slug) ?? (storyOpen && storykitMode() === 'owner' ? ((g) => (g && storyOf(g, true) ? g : undefined))(getGameBySlugForOwner(slug)) : undefined);
   if (!game) notFound();
   // a dare's "Mog it back" (/mog/<slug>?dare=<id>): kept only when it is a live dare on this very game
   const asked = (await searchParams).dare;
@@ -39,7 +47,9 @@ export default async function MogPage({ params, searchParams }: { params: Promis
   const mogs = mogsOf(game.id).length;
   // (a kind of game that cannot be mogged yet says so and offers no build, and app/api/generate/route.ts refuses one
   // too: lib/custom-game.ts canMog. A penalty shootout can be, 13 Oct: its composer offers its own ideas)
-  const open = canMog(game);
+  // a Story Kit world (STORYKIT=on, lib/storykit-site.ts): its Mog keeps its city, shown locked, and remixes the rest
+  const story = storyOf(game, storyOpen);
+  const open = story ? true : canMog(game);
   const kind = worldMode(game.code, game.meta);
   return (
     <>
@@ -47,7 +57,13 @@ export default async function MogPage({ params, searchParams }: { params: Promis
       <main className="wrap" style={{ paddingBottom: 80, maxWidth: 820 }}>
         <h1 style={{ marginTop: 24, marginBottom: 6 }}>Mog {game.title}</h1>
         {/* (a penalty shootout is played, not raced, before it can publish, 13 Oct) */}
-        {open && kind === 'episode' ? (
+        {story ? (
+          <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
+            Remix the story. The city stays {storyCityName(story.city)}, street for street; the story, the missions, the
+            people, their cars and their voices are yours to change. Your browser forges the new people and records the
+            new lines, and plays every mission before it can publish. The original is always credited.
+          </p>
+        ) : open && kind === 'episode' ? (
           <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
             Challenge it with a better episode. Say how to beat it; GameMog gets the episode&apos;s story and your idea
             and writes your version of it, and Mog City loads it in your browser before it can publish. Players who
@@ -77,6 +93,7 @@ export default async function MogPage({ params, searchParams }: { params: Promis
             <label className="lbl">The game you are challenging</label>
             <p style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3 }}><Link href={`/g/${game.slug}`}>{game.title}</Link></p>
             <p className="dim" style={{ fontSize: 14, lineHeight: 1.5 }}>{game.tagline}</p>
+            {story ? <p className="skchip" style={{ marginTop: 8 }}><Lock />{storyCityName(story.city)}</p> : null}
             <p className="t-meta dim-2" style={{ marginTop: 4 }}>
               Generation {game.generation}
               {root ? <>, from <Link href={`/g/${root.slug}`}>{root.title}</Link></> : null}
@@ -84,7 +101,9 @@ export default async function MogPage({ params, searchParams }: { params: Promis
             </p>
           </div>
         </div>
-        {open
+        {story
+          ? <StoryMogComposer slug={game.slug} title={game.title} city={story.city} cityName={storyCityName(story.city)} dare={dare} />
+          : open
           ? <MogComposer slug={game.slug} title={game.title} inherited={optionsOf(game)} dare={dare} kind={kind} />
           : <Link className="btn big" href={`/g/${game.slug}`}>Play {game.title}</Link>}
       </main>

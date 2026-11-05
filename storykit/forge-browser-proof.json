@@ -1,0 +1,68 @@
+{
+ "$comment": "npm run storykit:forge-browser-check (B6): every anchor forged in headless Chrome with this forge.js (key: sha256 of forge.js, the kit and the anchors' sheets); bytes under the store's 3145728 a person",
+ "key": "630efe377adbdc377bd9afa654c7fd0aeb3897af5c398f9f3742c3cfaacd17e1",
+ "at": "2026-11-05T08:25:15.335Z",
+ "chrome": "Chrome/156.0.0.0",
+ "runs": [
+  {
+   "id": "old-boss",
+   "bytes": 2472360,
+   "ms": 6386
+  },
+  {
+   "id": "young-hero",
+   "bytes": 3030632,
+   "ms": 9630
+  },
+  {
+   "id": "grandmother",
+   "bytes": 2301588,
+   "ms": 5058
+  },
+  {
+   "id": "cop",
+   "bytes": 2925900,
+   "ms": 10670
+  },
+  {
+   "id": "teen",
+   "bytes": 2469644,
+   "ms": 8191
+  },
+  {
+   "id": "young-mother",
+   "bytes": 2681448,
+   "ms": 9384
+  },
+  {
+   "id": "office-worker",
+   "bytes": 2424704,
+   "ms": 8061
+  },
+  {
+   "id": "chef",
+   "bytes": 2950624,
+   "ms": 12099
+  },
+  {
+   "id": "club-promoter",
+   "bytes": 2829896,
+   "ms": 10209
+  },
+  {
+   "id": "nurse",
+   "bytes": 2661012,
+   "ms": 6375
+  },
+  {
+   "id": "mechanic",
+   "bytes": 2819140,
+   "ms": 10661
+  },
+  {
+   "id": "veteran",
+   "bytes": 3025860,
+   "ms": 10905
+  }
+ ]
+}

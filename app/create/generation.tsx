@@ -6,6 +6,8 @@ import { cleanName, cleanMessage } from '@/lib/names';
 import { renderDareCard, cardBase64 } from '@/lib/dare-card';
 import { DiscordPill } from '../discord-pill';
 import type { WorldMode } from '@/lib/custom-game';
+import { StoryShow, storyPatch, type StoryWork } from './story-show';
+import { startStoryWork, type StoryDone } from './story-work';
 
 /**
  * Writing a world, shared by Create and Mog: the request and the events the
@@ -18,8 +20,10 @@ import type { WorldMode } from '@/lib/custom-game';
  */
 export type Draft = {
   draftId: string; attempts: number; ms: number;
-  /** a Mog City episode's: the origin its frame is Mog City at */
+  /** a Mog City episode's or a Story Kit world's (which plays on Mog City too, /d/<id>/play): the origin its frame is Mog City at */
   mc?: string;
+  /** a Story Kit world's (STORYKIT=on): its store draft and write token, for this browser's work (./story-work.ts) */
+  story?: StoryDone;
   meta: { title: string; tagline: string; blurb: string; genre: string; cast: { name: string; color: string; role?: string }[];
     /** a Mog City episode's (3 Nov): its lines, how many it rewrote and how many keep their recordings */
     episode?: { lines: number; rewritten: number; kept: number } };
@@ -41,6 +45,9 @@ export function useGeneration() {
   const [now, setNow] = useState(0);
   // in line for a slot (lib/build-limits.ts): the place (1 = next) and the wait in minutes, until the build begins
   const [queue, setQueue] = useState<{ position: number; etaMin: number } | null>(null);
+  // a Story Kit world's browser work (STORYKIT=on, app/create/story-show.tsx): the cast, the voices, the test drive and
+  // the key art, reported by the creator's browser (reportStory) or by the build stream ({ type: 'story', ... })
+  const [story, setStory] = useState<StoryWork | null>(null);
   useEffect(() => {
     if (!busy) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -51,13 +58,26 @@ export function useGeneration() {
   // the connection closes, and the server stops the build (lib/build-limits.ts, the owner's limit 1, 9 Oct).
   // Closing the tab or reloading closes the connection by itself.
   const reading = useRef<AbortController | null>(null);
-  useEffect(() => () => { reading.current?.abort(); reading.current = null; }, []);
+  // a Story Kit world's browser work (./story-work.ts): stopped by a new build or the page leaving
+  const working = useRef<(() => void) | null>(null);
+  useEffect(() => () => { reading.current?.abort(); reading.current = null; working.current?.(); working.current = null; }, []);
+  function storyWork(story: StoryDone) {
+    working.current?.();
+    setStory((s) => storyPatch(s, { stage: 'forging' }));
+    working.current = startStoryWork(story, {
+      patch: (p) => setStory((s) => storyPatch(s, p)),
+      // the world's draft is kept; what could not be made here is said, and the draft shows as it is (unverified)
+      error: (e) => { setStory((s) => storyPatch(s, { done: true })); setError(e); working.current?.(); working.current = null; },
+      done: () => { working.current?.(); working.current = null; },
+    });
+  }
 
   /** Streams a written world; any other response comes back as JSON for the caller. */
   async function run(body: Record<string, unknown>): Promise<unknown | null> {
     reading.current?.abort();
+    working.current?.(); working.current = null;
     const stop = (reading.current = new AbortController());
-    setBusy(true); setError(''); setDraft(null); setRounds([]); setStage(null); setDrive(null); setQueue(null);
+    setBusy(true); setError(''); setDraft(null); setRounds([]); setStage(null); setDrive(null); setQueue(null); setStory(null);
     setStartedAt(Date.now()); setNow(Date.now());
     try {
       const res = await fetch('/api/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: stop.signal });
@@ -80,7 +100,8 @@ export function useGeneration() {
             else if (e.type === 'progress') setStage((s) => (s ? { ...s, chars: e.chars } : s));
             else if (e.type === 'problems') setRounds((r) => [...r, { attempt: e.attempt, problems: e.problems }]);
             else if (e.type === 'drive') setDrive({ draftId: e.draftId, token: e.token, attempt: e.attempt, mc: typeof e.mc === 'string' ? e.mc : undefined });
-            else if (e.type === 'done') { ended = true; setDraft(e); }
+            else if (e.type === 'story') { const { type: _t, ...patch } = e; void _t; setStory((s) => storyPatch(s, patch as StoryWork)); }
+            else if (e.type === 'done') { ended = true; setDraft(e); if (e.story?.draft && e.story?.token) storyWork(e.story as StoryDone); }
             else if (e.type === 'error') {
               ended = true;
               setError(e.error);
@@ -130,7 +151,8 @@ export function useGeneration() {
     } finally { setPublishing(false); }
   }
 
-  return { busy, stage, rounds, draft, error, setError, publishing, startedAt, now, run, publish, drive, endDrive: () => setDrive(null), queue };
+  const reportStory = (p: StoryWork) => setStory((s) => storyPatch(s, p));
+  return { busy, stage, rounds, draft, error, setError, publishing, startedAt, now, run, publish, drive, endDrive: () => setDrive(null), queue, story, reportStory };
 }
 export type Generation = ReturnType<typeof useGeneration>;
 /** A published game, as POST /api/games answers it. */
@@ -138,8 +160,9 @@ export type Published = { id: string; slug: string; creator: string | null };
 export type PublishOutcome = { ok: true; game: Published } | { ok: false; error: string; field?: 'creator' };
 
 type Mode = 'create' | 'mog';
-/** The kind of world being built, when it is known (a Mog's is its original's): a penalty shootout has its own show. */
-type Kind = WorldMode | undefined;
+/** The kind of world being built, when it is known (a Mog's is its original's): a penalty shootout has its own show, and so
+ * has a Story Kit world ('story', STORYKIT=on: app/create/story-show.tsx). */
+type Kind = WorldMode | 'story' | undefined;
 type StageKey = 'thinking' | 'writing' | 'checking' | 'playtesting' | 'repairing';
 
 /** What each stage is called, and what is going on in it, in the creator's words. */
@@ -305,6 +328,8 @@ function friendlyError(e: string) {
   if (/^GameMog is busy building/.test(e)) return 'GameMog is busy building other worlds. Try again in a minute.';
   // the day's spend has reached its ceiling (lib/build-limits.ts RESTING): no build starts until tomorrow
   if (/^Building is resting/.test(e)) return 'Building is resting for today. Every world is still free to play: come back tomorrow.';
+  // a story world asked of a server where they are not open, or not connected yet (lib/storykit-site.ts): said as it is
+  if (/^Story worlds /.test(e)) return e;
   if (/while waiting in line/.test(e)) return 'The connection dropped while you were in line. Please try again.';
   if (/rate limit|overload|529|capacity|busy/i.test(e)) return 'The world builder is very busy right now. Give it a minute, then try again.';
   if (/key|authentication|unauthori[sz]ed|401|403|needs the model/i.test(e)) return 'The world builder isn\'t connected right now, so nothing could be built.';
@@ -635,7 +660,7 @@ function InLine({ gen, mode, subject, kind }: { gen: Generation; mode: Mode; sub
       <div className="bs-top"><span className="bs-kicker">{q.position <= 1 ? 'You\'re next in line' : `You're ${ordinal(q.position)} in line`}</span></div>
       <h2 className="bs-title">{q.etaMin <= 1 ? 'About a minute' : `About ${q.etaMin} minutes`}</h2>
       <p className="bs-line">Keep this tab open: your browser test-drives your {what}.</p>
-      {kind === 'shootout' ? <GoalArt stage="thinking" built={0} t={t} /> : <TrackArt stage="thinking" built={0} t={t} />}
+      {kind === 'story' ? null : kind === 'shootout' ? <GoalArt stage="thinking" built={0} t={t} /> : <TrackArt stage="thinking" built={0} t={t} />}
       {subject ? <div className="bs-foot"><p className="bs-idea"><span>{mode === 'mog' ? 'Your idea' : 'Your world'}</span>{subject.length > 220 ? subject.slice(0, 217) + '...' : subject}</p></div> : null}
     </section>
   );
@@ -653,15 +678,21 @@ function LimitNote({ error }: { error: string }) {
   );
 }
 
-export function GenerationProgress({ gen, mode = 'create', subject, open, kind }: { gen: Generation; mode?: Mode; subject?: string; open?: boolean; kind?: Kind }) {
-  const { busy, error, rounds } = gen;
+/** `city`: a story world's city, by name (on its show). */
+export function GenerationProgress({ gen, mode = 'create', subject, open, kind, city }: { gen: Generation; mode?: Mode; subject?: string; open?: boolean; kind?: Kind; city?: string }) {
+  const { error, rounds } = gen;
+  // (a story world's show stays up while the browser works after the stream: forge, voices, test drive, key art)
+  const browserWork = kind === 'story' && !!gen.story?.stage && !gen.story.done;
+  const busy = gen.busy || browserWork;
   const limit = /^(GameMog is busy building|Building is resting)/.test(error);
   const ref = useRef<HTMLDivElement>(null);
   // the show comes into view as the build starts
   useEffect(() => { if (busy) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [busy]);
   return (
     <div ref={ref} style={{ scrollMarginTop: 96 }}>
-      {busy && (gen.queue ? <InLine gen={gen} mode={mode} subject={subject} kind={kind} /> : <BuildShow gen={gen} mode={mode} subject={subject} open={open} kind={kind} />)}
+      {busy && (gen.queue ? <InLine gen={gen} mode={mode} subject={subject} kind={kind} />
+        : kind === 'story' ? <StoryShow mode={mode} stage={gen.stage?.stage as never} chars={gen.stage?.chars ?? 0} startedAt={gen.startedAt} now={gen.busy && gen.now ? gen.now : Date.now()} story={gen.story} subject={subject} cityName={city} />
+        : <BuildShow gen={gen} mode={mode} subject={subject} open={open} kind={kind} />)}
       {!busy && error && limit && <LimitNote error={error} />}
       {!busy && error && !limit && (
         <div className="bs-error" role="alert">
@@ -700,12 +731,14 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode
   // another take is another game to publish
   useEffect(() => { setLive(null); }, [draft?.draftId]);
   if (!draft) return null;
+  // (a Story Kit world: the draft waits until the browser has forged, voiced, driven and framed it)
+  if (kind === 'story' && gen.story?.stage && !gen.story.done) return null;
   // (a Mog City episode, 3 Nov: no dares at launch; the published game is the next step)
-  if (live && (kind === 'episode' || draft.runtime.kind === 'episode')) return (
+  if (live && (kind === 'episode' || draft.runtime.kind === 'episode' || draft.story)) return (
     <div className="panel bs-ready">
       <p className="bs-readylbl">Published</p>
       <h2>{draft.meta.title}</h2>
-      <p className="dim" style={{ marginBottom: 12, fontSize: 16 }}>It is live, listed as a Mog of {parentTitle ?? 'its original'}.</p>
+      <p className="dim" style={{ marginBottom: 12, fontSize: 16 }}>{draft.story && !parentTitle ? 'It is live.' : `It is live, listed as a Mog of ${parentTitle ?? 'its original'}.`}</p>
       <a className="btn" href={`/g/${live.slug}`}>Play it</a>
     </div>
   );
@@ -734,7 +767,7 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode
     <div className="panel bs-ready">
       <p className="bs-readylbl">Ready to play</p>
       <div style={{ marginBottom: 16 }}>
-        <PlayFrame slug={draft.draftId} gameId={`draft-${draft.draftId}`} src={`/d/${draft.draftId}/play`} scores={false} episode={episode} mc={draft.mc}
+        <PlayFrame slug={draft.draftId} gameId={`draft-${draft.draftId}`} src={`/d/${draft.draftId}/play`} scores={false} episode={episode || !!draft.story} storykit={!!draft.story} mc={draft.mc}
           // eslint-disable-next-line @next/next/no-img-element
           poster={<img src={`/d/${draft.draftId}/cover`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />} />
       </div>
@@ -750,7 +783,9 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode
         ))}
       </div>
       <p className="t-meta dim" style={{ marginBottom: 16 }}>
-        {episode
+        {draft.story
+          ? (gen.story?.result ? `Test-driven in your browser: the autopilot played ${gen.story.result.passed} of ${gen.story.result.of} missions to the end${gen.story.result.status === 'passed' ? ', with no errors' : ''}.${gen.story.result.reason ? ` ${gen.story.result.reason}` : ''}` : 'The test drive did not get to finish in this tab, so nobody has played it through yet. Give it a run above before you publish.')
+          : episode
           ? `${draft.runtime.ran ? 'Mog City loaded this episode in your browser.' : 'Mog City did not get to load it in this tab, so nobody has played it yet. Give it a run above before you publish.'}${ep ? ` ${ep.rewritten} of its ${ep.lines} lines are rewritten: players' browsers read them aloud; the other ${ep.kept} keep their recorded voices.` : ''}`
           : draft.runtime.ran
           ? `Test-driven in a real browser: it loads in ${secs < 1 ? 'under a second' : `${secs.toFixed(1)} seconds`}, runs smoothly at ${draft.runtime.fps} fps, and ${shot ? `played ${shot.n} kick${shot.n === 1 ? '' : 's'} through to a result` : draft.runtime.open ? `held up through ${draft.runtime.open.kos} knockouts to heat ${draft.runtime.open.heat}${draft.runtime.open.boss ? ' and a boss' : ''}` : `held up through ${draft.runtime.levelReached ?? 0} laps of rivals`}.`

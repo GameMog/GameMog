@@ -1,0 +1,15 @@
+{
+  "v": 1, "id": "rides.trailhand", "label": "Trailhand", "noun": "suv", "family": "car4", "class": "suv", "era": 2006, "condition": "daily",
+  "body": { "rear": "wagon", "doors": 5, "cladding": true, "roofRails": true, "trim": "black", "crease": "single", "hood": "flat" },
+  "face": { "lamps": "wraparound", "grille": "horizontal-bars", "bumper": "body", "fog": true },
+  "tail": { "lamps": "vertical", "exhaust": "single", "plate": "center" },
+  "paint": { "base": "#5E1A1F", "finish": "metallic" },
+  "wheels": { "style": "five-spoke", "finish": "silver", "tyre": "all-terrain" },
+  "interior": { "seat": "#2C2E31", "material": "cloth", "dash": "analog", "wheel": "three-spoke" },
+  "props": ["child-seat", "diaper-bag"],
+  "sound": { "engine": "v8", "character": 0 },
+  "handling": { "pace": -0.08, "pull": -0.45, "grip": -0.53, "weight": 0.27, "turnIn": -0.25, "brakes": -0.37, "character": "floaty" },
+  "abilities": ["boost"],
+  "story": { "owner": "family", "nickname": "the Ark", "oneLine": "A high-mileage family hauler; the child seat in the back has a little yellow star on its handle." },
+  "plate": "5ARK019"
+}

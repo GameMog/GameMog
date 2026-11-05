@@ -6,6 +6,8 @@ import { playPage } from '@/lib/play-page';
 import { isEpisodeWorld } from '@/lib/episode';
 import { mcFrameSrc, storyUrl } from '@/lib/episode-play';
 import { siteUrl } from '../../../seo';
+import { storyPlaySrc, storySite } from '@/lib/storykit-publish';
+import { storykitForRequest } from '@/lib/storykit-http';
 
 /**
  * The game document itself. Served on its own URL so it can be locked down
@@ -28,6 +30,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   if (!game) return new Response('Not found', { status: 404 });
   // a Mog City episode (3 Nov) plays on mc.gamemog.com with its story: this address (the frame's "Open it in its own tab") goes there
   if (game.format === 'world' && isEpisodeWorld(game.code)) return new Response(null, { status: 302, headers: { location: mcFrameSrc(storyUrl(game), game.id), 'cache-control': 'no-store' } });
+
+  // a Story Kit world (STORYKIT=on): Mog City with its sealed world (lib/storykit-publish.ts storyPlaySrc)
+  const story = game.format === 'world' && storykitForRequest(req) ? storyPlaySrc(game.meta, game.id, storySite(publicOrigin(req))) : null;
+  if (story) return new Response(null, { status: 302, headers: { location: story, 'cache-control': 'no-store' } });
 
   const page = playPage(game);
   const custom = (game.format === 'custom' || game.format === 'world') && game.code;

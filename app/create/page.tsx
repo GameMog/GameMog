@@ -7,6 +7,9 @@ import type { WorldSpec } from '@/lib/worldspec';
 import { useGeneration, GenerationProgress, DraftResult } from './generation';
 import { WorldOptionsFields } from './options';
 import { DEFAULT_OPTIONS, type WorldOptions } from '@/lib/world-options';
+import { useStoryKit, StoryCityField, StoryCityCard, STORY_IDEAS, STORY_RULES, useStoryConsent } from './story';
+import { ConsentStep } from './consent';
+import { storyCityName, type StoryCity } from '@/lib/storykit-site';
 
 type Finding = { level: 'error' | 'warn'; code: string; message: string };
 type Report = { ok: boolean; findings: Finding[]; stats: Record<string, number> };
@@ -176,6 +179,12 @@ export default function Create() {
   // every future game is a world on the runtime; the race template remains for
   // the worlds already built on it and for running without an API key
   const kind = 'game' as 'game' | 'race';
+  // a Story Kit world (STORYKIT=on): a city from the dropdown, the idea, and the consent step for real names
+  const storykit = useStoryKit();
+  const [story, setStory] = useState(false);
+  const [city, setCity] = useState<StoryCity>('ny');
+  const { consent, setConsent, said } = useStoryConsent();
+  const telling = storykit && story;
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -204,6 +213,7 @@ export default function Create() {
   }
 
   async function generate() {
+    if (telling) { await gen.run({ prompt: prompt.trim(), story: { city }, consent: said.value }); return; }
     setSpec(null); setReport(null); setCharacter(null); setAdjustments([]);
     const data = await gen.run({
       kind,
@@ -241,13 +251,49 @@ export default function Create() {
       <main className="wrap" style={{ paddingBottom: 80 }}>
         <div className="chead">
           <h1>Create a world</h1>
-          <p className="secsub">
-            Describe a place and GameMog builds it: the track, the rivals, the obstacles, the light and
-            the sound. It goes on the charts, and anyone can Mog it with a better version.
-          </p>
+          {telling ? (
+            <p className="secsub">
+              Pick a city and tell a story, and GameMog makes it a game: three acts of missions on the city&apos;s own
+              streets, with its own people, cars and voices. Anyone can Mog it; the city stays yours.
+            </p>
+          ) : (
+            <p className="secsub">
+              Describe a place and GameMog builds it: the track, the rivals, the obstacles, the light and
+              the sound. It goes on the charts, and anyone can Mog it with a better version.
+            </p>
+          )}
+          {storykit && (
+            <div className="ckind" role="radiogroup" aria-label="Kind of world">
+              <button type="button" role="radio" aria-checked={!story} className={!story ? 'on' : undefined} disabled={busy} onClick={() => setStory(false)}>Arcade world</button>
+              <button type="button" role="radio" aria-checked={story} className={story ? 'on' : undefined} disabled={busy} onClick={() => setStory(true)}>Story world<span className="cnew">New</span></button>
+            </div>
+          )}
         </div>
 
         <div className="cgrid">
+          {telling ? (
+            <section className="panel cidea">
+              <div className="copts" style={{ marginTop: 0 }}>
+                <StoryCityField value={city} onChange={setCity} disabled={busy} />
+              </div>
+              <label className="lbl" htmlFor="p">Your story</label>
+              <textarea
+                id="p" rows={6} value={prompt}
+                placeholder={`Who is your hero, what do they want tonight, and who is in their way in ${storyCityName(city)}? Name the people, the cars and the hour. The more specific, the better.`}
+                onChange={(e) => setPrompt(e.target.value)}
+              />
+              <div style={{ marginTop: 12 }}>
+                <ConsentStep value={consent} onChange={setConsent} disabled={busy} what="story" />
+              </div>
+              <div className="cgo" style={{ marginTop: 0 }}>
+                <p className="dim-2">Three acts, 6 to 9 missions, its own people, cars and voices.</p>
+                <button className="btn big" onClick={generate} disabled={busy || prompt.trim().length < 8 || !said.ok}>
+                  {busy ? 'Writing your story' : 'Write the story'}
+                </button>
+              </div>
+              <IdeaDeck key={city} ideas={STORY_IDEAS[city]} value={prompt} onPick={setPrompt} still={busy || prompt.trim().length > 0} />
+            </section>
+          ) : (
           <section className="panel cidea">
             <label className="lbl" htmlFor="p">Your world</label>
             <textarea
@@ -264,7 +310,9 @@ export default function Create() {
             </div>
             <IdeaDeck ideas={kind === 'game' ? GAME_IDEAS : RACE_IDEAS} value={prompt} onPick={setPrompt} still={busy || prompt.trim().length > 0} />
           </section>
+          )}
 
+          {telling ? <StoryCityCard city={city} /> : (
           <aside className="panel cchar">
             <label className="lbl">Your character <span className="opt">(optional)</span></label>
             <div
@@ -302,9 +350,12 @@ export default function Create() {
               onChange={(e) => onFile(e.target.files?.[0])}
             />
           </aside>
+          )}
         </div>
 
-        <GenerationProgress gen={gen} mode="create" subject={prompt} open={options.open} />
+        {telling
+          ? <GenerationProgress gen={gen} mode="create" subject={prompt} kind="story" city={storyCityName(city)} />
+          : <GenerationProgress gen={gen} mode="create" subject={prompt} open={options.open} />}
 
         {report && report.findings.length > 0 && (
           <div className="panel" style={{ marginBottom: 16 }}>
@@ -317,7 +368,7 @@ export default function Create() {
           </div>
         )}
 
-        <DraftResult gen={gen} publishLabel="Publish and get a link" againLabel="Make another" onAgain={generate} />
+        <DraftResult gen={gen} kind={telling ? 'story' : undefined} publishLabel="Publish and get a link" againLabel="Make another" onAgain={generate} />
 
         {spec && meta && (
           <div className="panel">
@@ -368,12 +419,12 @@ export default function Create() {
         <section className="sec">
           <div className="sechead">
             <div className="sectext">
-              <h2 className="sectitle">{options.open ? 'How every open world plays' : 'How every world plays'}</h2>
-              <p className="secsub">The GameMog Runtime supplies the rules, so every world is fair to {options.open ? 'play' : 'race'} and fair to Mog.</p>
+              <h2 className="sectitle">{telling ? 'What every story world gets' : options.open ? 'How every open world plays' : 'How every world plays'}</h2>
+              <p className="secsub">{telling ? 'The Story Kit supplies the city, the engine and the rules, so you only tell the story.' : <>The GameMog Runtime supplies the rules, so every world is fair to {options.open ? 'play' : 'race'} and fair to Mog.</>}</p>
             </div>
           </div>
           <ol className="crules">
-            {(options.open ? OPEN_RULES : RULES).map((r, i) => (
+            {(telling ? STORY_RULES : options.open ? OPEN_RULES : RULES).map((r, i) => (
               <li key={r.title}>
                 <span className="n">{String(i + 1).padStart(2, '0')}</span>
                 <b>{r.title}</b>

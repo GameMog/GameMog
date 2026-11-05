@@ -10,6 +10,8 @@ import { PlayFrame } from './play-frame';
 import { playSrc } from '@/lib/play-page';
 import { mcFrameSrc, storyUrl } from '@/lib/episode-play';
 import { mcOrigin, storyOf } from '@/lib/episode';
+import { storyOf as storyWorldOf } from '@/lib/storykit-site';
+import { storyPlaySrc, storykitMc, sealedWorldOf } from '@/lib/storykit-publish';
 import { YouLine } from './you-line';
 import { GameActions } from './actions';
 import { Tabs } from './tabs';
@@ -25,7 +27,7 @@ import { KartBoard } from './kart-score-ui';
  * the model declared about its own game (controls, cast, how it scores) in
  * place of the race engine's laps and windows.
  */
-export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: string | null }) {
+export function CustomGamePage({ game, kdiag = null, storyOpen }: { game: GameRow; kdiag?: string | null; storyOpen?: boolean }) {
   const meta = JSON.parse(game.meta ?? '{}') as Omit<GameMeta, 'scoring'> & { scoring?: GameMeta['scoring'] | 'level' | 'survival' };
   const world = game.format === 'world';
   // a framework world's controls are the runtime's, read from its code, so a change to them
@@ -43,6 +45,9 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
   // (a Mog City episode, 3 Nov: the city on mc.gamemog.com with this game's story; no board and no dares at launch, and
   // the creator's word on any real person it names, as a small line)
   const episode = mode === 'episode';
+  // (a Story Kit world, STORYKIT=on: Mog City with its sealed world, lib/storykit-publish.ts; framed as an episode is,
+  // Mog City's own origin, its messages heard from there only, a played mission counted for this very world)
+  const storyWorld = world && storyWorldOf(game, storyOpen) ? storyPlaySrc(game.meta, game.id) : null;
   const said = meta as { consent?: { names?: unknown }; consentInherited?: unknown };
   const consent = episode && Array.isArray(said.consent?.names) && said.consent.names.length > 0;
   // (review F6: a Mog that keeps a consented person's words from the episode it came from carries their line too)
@@ -110,14 +115,14 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
         </nav>
         <div className="gtop">
           <div className="gstage">
-            <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game), game.id) : playSrc(game)} episode={episode} mc={mcOrigin()} story={episode ? storyOf(game.code)?.hash ?? null : null} scores={!episode} you={game.format === 'world' && !episode} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
+            <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game), game.id) : storyWorld ?? playSrc(game)} episode={episode || !!storyWorld} storykit={!!storyWorld} mc={storyWorld ? storykitMc() : mcOrigin()} story={episode ? storyOf(game.code)?.hash ?? null : storyWorld ? sealedWorldOf(game.meta) : null} scores={!episode && !storyWorld} you={game.format === 'world' && !episode && !storyWorld} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
               // eslint-disable-next-line @next/next/no-img-element
               poster={<img src={`/g/${game.slug}/cover`} alt="" />} />
           </div>
           <div className="gbar">
             <div className="gtitle">
               <h1>{game.title}</h1>
-              <p className="by">{game.creator ? <>Created by <b>{game.creator}</b></> : <>By <b>a GameMog creator</b></>} <span className="maturity">· {page ? `${page.label} · ${episode ? 'Mog City' : 'GameMog Runtime'}` : 'Written by GameMog'}</span></p>
+              <p className="by">{game.creator ? <>Created by <b>{game.creator}</b></> : <>By <b>a GameMog creator</b></>} <span className="maturity">· {storyWorld ? 'Story world · Story Kit' : page ? `${page.label} · ${episode ? 'Mog City' : 'GameMog Runtime'}` : 'Written by GameMog'}</span></p>
               <Lineage game={game} />
               {world && !episode && <YouLine slug={game.slug} />}
               {consent && <p className="t-meta dim" data-consent>Names a real person, with consent stated by its creator.</p>}
@@ -150,7 +155,7 @@ export function CustomGamePage({ game, kdiag = null }: { game: GameRow; kdiag?: 
                     <div><dt>Rivals</dt><dd>{page ? page.rivals : rivals}</dd></div>
                   </dl>
                   <h2 style={{ marginTop: 26, marginBottom: 6 }}>Controls</h2>
-                  <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{controls}</p>
+                  <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{storyWorld ? 'W/S or the arrows drive and brake, A/D steer, Shift boosts, F gets in or out of a car, M opens the map, J the journal, Esc pauses.' : controls}</p>
                   <h2 style={{ marginTop: 26, marginBottom: 8 }}>Media</h2>
                   <div className="gmedia">
                     {hasFilm && <video src={`${filmBase}.mp4`} poster={`${filmBase}.jpg`} controls muted loop playsInline aria-label="Gameplay film" />}

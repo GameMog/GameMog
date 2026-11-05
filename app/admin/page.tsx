@@ -5,6 +5,8 @@ import { kartReports } from '@/lib/kart-report';
 import { buildSlots, slotsHeld, queueLength, queueMax, spendToday, IN_FLIGHT_USD } from '@/lib/build-limits';
 import { dareLoop } from '@/lib/funnel';
 import { adminEnabled, isAdmin } from './session';
+import { storykitMode } from '@/lib/storykit-switch';
+import { storyStore } from '@/lib/storykit-store';
 import { Dashboard } from './dashboard';
 import { Login } from './login';
 import './admin.css';
@@ -36,5 +38,9 @@ export default async function AdminPage() {
   const day = spendToday(now);
   const slots = { held: slotsHeld(), max: buildSlots(), queue: queueLength(), queueMax: queueMax(), spent: day.total, inFlight: day.inFlight, perBuild: IN_FLIGHT_USD, ceiling: day.ceiling };
   // the dare loop (lib/funnel.ts): today and the last 7 days, read-only
-  return <Dashboard stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} slots={slots} loop={dareLoop(now)} mc={mc} />;
+  // the Story Kit's store (lib/storykit-store.ts), only while its switch is on or owner-only: off, the store is never
+  // opened (data/storykit is not made) and nothing is shown
+  const mode = storykitMode();
+  const storykit = mode === 'off' ? null : { mode, ...storyStore().usage() };
+  return <Dashboard stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} slots={slots} loop={dareLoop(now)} mc={mc} storykit={storykit} />;
 }

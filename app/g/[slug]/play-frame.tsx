@@ -44,7 +44,7 @@ type Posted = { score: number; tier: KartTier; rank: number | null; review: bool
  *
  * A result posted from a frame is a claim, not a fact. It is stored as one.
  */
-export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`, scores = true, you: wantsYou = false, kart = false, shootout = false, kartScore = null, kdiag = null, episode = false, mc = MC_ORIGIN, story = null }: {
+export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`, scores = true, you: wantsYou = false, kart = false, shootout = false, kartScore = null, kdiag = null, episode = false, mc = MC_ORIGIN, story = null, storykit = false }: {
   slug: string; gameId: string; poster: React.ReactNode; src?: string;
   /** Off for drafts: a run in a preview has no leaderboard to post to. */
   scores?: boolean;
@@ -79,6 +79,13 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
   mc?: string;
   /** An episode's story hash (SHA-256 of the story.json it serves): a result counts only for this very pack. */
   story?: string | null;
+  /**
+   * A Story Kit world (STORYKIT=on, lib/storykit-publish.ts): Mog City playing the world (`src` is mc.gamemog.com/?pack=
+   * with its sealed world), framed as an episode is (pass `episode` too: Mog City's origin, its ready and result heard
+   * from there only); its result counts for `story`, the sealed world's SHA-256, on its first passed mission. Mog City
+   * has its own loading screen, so the poster goes when the frame has loaded.
+   */
+  storykit?: boolean;
 }) {
   const diag = kart ? readKdiag(kdiag) : { info: false, switches: [] as string[] };
   // (an episode's frame is Mog City's own origin: messages go to it by name, never '*')
@@ -180,6 +187,7 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
 
   useEffect(() => {
     try { setName(localStorage.getItem('gamemog:name') ?? ''); } catch {}
+    let counted = false;
     function onMessage(e: MessageEvent) {
       if (!ref.current || e.source !== ref.current.contentWindow) return;
       if (episode && e.origin !== mc) return;
@@ -191,7 +199,9 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
       // Mog City's { type: 'result', game, mission: 1, passed: true, story, secs } is recorded as a finished run for the
       // Mog-off picks and the player counts, as every other kind's result is; it has no score, board or dare
       if (episode) {
-        if (d.type === 'result' && d.mission === 1 && d.passed === true && d.game === gameId && !!story && d.story === story && !gameId.startsWith('draft-')) {
+        // (a Story Kit world on Mog City, storykit: its first passed mission, whatever its id, for this very sealed world)
+        if (d.type === 'result' && (storykit ? typeof d.mission === 'string' : d.mission === 1) && d.passed === true && d.game === gameId && !!story && d.story === story && !gameId.startsWith('draft-') && !(storykit && counted)) {
+          counted = true;
           fetch('/api/plays', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ gameId, player: playerId() }) })
             .then(() => dispatchEvent(new CustomEvent('gamemog:run', { detail: { gameId } }))).catch(() => {});
         }
@@ -265,7 +275,7 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
     }
     addEventListener('message', onMessage);
     return () => removeEventListener('message', onMessage);
-  }, [gameId, scores, slug, episode, target, mc, story]);
+  }, [gameId, scores, slug, episode, target, mc, story, storykit]);
 
   // (an episode: its frame loads now, after the listener above is in place)
   useEffect(() => { if (episode && src === null) setSrc(base); }, [episode, base, src]);
@@ -369,11 +379,11 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
           // (an episode, the Phase D frame probe of 3 Nov: autoplay passes the page's Play click down to the game's audio
           // and speech; fullscreen, gamepad, web-share and clipboard-write for the game's own buttons; popups for its
           // links; pointer lock is a sandbox token, not a feature)
-          sandbox={episode ? 'allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox' : 'allow-scripts'}
-          allow={episode ? 'autoplay; fullscreen; gamepad; web-share; clipboard-write' : 'autoplay; fullscreen'}
+          sandbox={episode ? 'allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox' : storykit ? 'allow-scripts allow-same-origin allow-pointer-lock' : 'allow-scripts'}
+          allow={episode ? 'autoplay; fullscreen; gamepad; web-share; clipboard-write' : storykit ? 'autoplay; fullscreen; gamepad' : 'autoplay; fullscreen'}
           {...(episode ? { allowFullScreen: true, referrerPolicy: 'strict-origin-when-cross-origin' as const, 'data-origin': mc } : {})}
           title={`${slug}, game`}
-          onLoad={() => setLoaded(true)}
+          onLoad={() => { setLoaded(true); if (storykit) setLive(true); }}
         />}
         <div className="poster" data-hide={live ? '1' : '0'} aria-hidden>{poster}</div>
         {!live && stalled && (

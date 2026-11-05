@@ -1,0 +1,121 @@
+{
+ "id": "anchor-club-promoter",
+ "name": "Teo Bastos",
+ "role": "anchor: club promoter",
+ "logline": "Thirty-one, knows every door on the strip and what it costs, sells the night and believes it.",
+ "identity": {
+  "age": 31,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 191,
+  "build": {
+   "frame": "medium",
+   "weight": "average",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "Brazilian",
+  "blend": {
+   "african": 0.2,
+   "asian": 0.05,
+   "european": 0.75
+  },
+  "skin": {
+   "tone": "light-medium",
+   "undertone": "olive",
+   "weathered": false,
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "average",
+  "cheeks": "hollow",
+  "cheekbones": "average",
+  "faceWidth": "narrow",
+  "nose": {
+   "width": "narrow",
+   "length": "long",
+   "tip": "average",
+   "bridge": "hump"
+  },
+  "browRidge": "strong",
+  "chin": {
+   "projection": "average",
+   "length": "long",
+   "width": "average"
+  },
+  "eyes": "hazel",
+  "brows": {
+   "color": "black",
+   "weight": "average"
+  },
+  "eyeShape": "hooded",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "defined",
+   "corners": "up"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "long",
+  "jawWidth": "narrow",
+  "eyeSpacing": "close"
+ },
+ "hair": {
+  "style": "side-part",
+  "color": "black"
+ },
+ "facialHair": {
+  "style": "stubble",
+  "color": "black",
+  "density": 0.7
+ },
+ "wardrobe": {
+  "top": {
+   "item": "uniform-jacket",
+   "color": "#2B2D33"
+  },
+  "bottom": {
+   "item": "trousers",
+   "color": "#1E1F24"
+  },
+  "shoes": {
+   "item": "white-sneakers",
+   "color": "#EDEBE6",
+   "accent": "#1B1C22"
+  }
+ },
+ "posture": {
+  "stance": "proud",
+  "pace": "steady",
+  "gestures": "open palms, a hand on your shoulder, never stands still at a door",
+  "idle": "idle",
+  "walk": "walkCool"
+ },
+ "personality": {
+  "traits": [
+   "charming",
+   "restless",
+   "vain",
+   "quick"
+  ],
+  "wants": "his own room on the strip before the strip finds someone younger",
+  "speech": "smooth, warm, calls everyone by name, every sentence a pitch"
+ },
+ "voice": {
+  "id": "anchor-club-promoter-v1",
+  "description": "smooth light baritone, easy and fast",
+  "pitch": "mid",
+  "rate": "quick"
+ }
+}

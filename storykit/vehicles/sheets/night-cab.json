@@ -1,0 +1,15 @@
+{
+  "v": 1, "id": "rides.night-cab", "label": "Night Cab", "noun": "cab", "family": "car4", "class": "taxi", "era": 1996, "condition": "tired",
+  "body": { "rear": "notchback", "doors": 4, "trim": "chrome", "crease": "single", "hood": "flat" },
+  "face": { "lamps": "square", "grille": "egg-crate", "bumper": "black-plastic", "fog": false },
+  "tail": { "lamps": "wrap", "exhaust": "single", "plate": "center" },
+  "paint": { "base": "#F2B90F", "finish": "gloss", "livery": { "kind": "taxi", "text": "TAXI", "number": "4K21" } },
+  "wheels": { "style": "steel-hubcap", "finish": "silver", "tyre": "road" },
+  "interior": { "seat": "#2D2A27", "material": "vinyl", "dash": "analog", "wheel": "four-spoke", "partition": true },
+  "props": ["air-freshener", "coffee-cups", "clipboard"],
+  "sound": { "engine": "v8", "character": -0.4, "gears": 4 },
+  "handling": { "pace": -0.2, "pull": -0.45, "grip": -0.5, "weight": 0.4, "turnIn": -0.45, "brakes": -0.4, "character": "floaty" },
+  "abilities": ["boost"],
+  "story": { "owner": "driver", "nickname": "Four K", "oneLine": "A nineties yellow cab on its third engine, a bulletproof divider and a pine tree that smells of nothing now." },
+  "plate": "T 4K21"
+}

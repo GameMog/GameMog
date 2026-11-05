@@ -1,0 +1,126 @@
+{
+ "id": "anchor-veteran",
+ "name": "Kenji \"Sarge\" Okamura",
+ "role": "anchor: retired veteran",
+ "logline": "Seventy-two, two tours and forty years driving the crosstown bus, keeps the bench by the park and the peace on it.",
+ "identity": {
+  "age": 72,
+  "body": "male",
+  "presentation": "older man",
+  "heightCm": 168,
+  "build": {
+   "frame": "small",
+   "weight": "slim",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "Japanese-American",
+  "blend": {
+   "african": 0,
+   "asian": 0.9,
+   "european": 0.1
+  },
+  "skin": {
+   "tone": "light-medium",
+   "undertone": "neutral",
+   "weathered": true,
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "square",
+  "cheeks": "hollow",
+  "cheekbones": "high",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "flat"
+  },
+  "browRidge": "strong",
+  "chin": {
+   "projection": "average",
+   "length": "long",
+   "width": "average"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "white",
+   "weight": "average"
+  },
+  "eyeShape": "monolid",
+  "eyeBags": "heavy",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "corners": "down"
+  },
+  "ears": {
+   "size": "large",
+   "angle": "average"
+  },
+  "skull": {
+   "shape": "long"
+  },
+  "forehead": "high",
+  "faceLength": "long",
+  "jawWidth": "narrow",
+  "eyeSpacing": "close"
+ },
+ "hair": {
+  "style": "buzz",
+  "color": "white",
+  "greying": 1
+ },
+ "facialHair": {
+  "style": "moustache",
+  "color": "white",
+  "density": 0.5
+ },
+ "wardrobe": {
+  "top": {
+   "item": "uniform-jacket",
+   "color": "#4A4A3E"
+  },
+  "bottom": {
+   "item": "trousers",
+   "color": "#2B2B2E"
+  },
+  "shoes": {
+   "item": "boots",
+   "color": "#18161A"
+  }
+ },
+ "props": [
+  {
+   "kind": "cane",
+   "color": "#3A2A20"
+  }
+ ],
+ "posture": {
+  "stance": "proud",
+  "pace": "slow",
+  "gestures": "both hands on the cane, a slow nod, one finger up for quiet",
+  "idle": "idle",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "dignified",
+   "wry",
+   "watchful",
+   "stubborn"
+  ],
+  "wants": "the young ones on his block to get older than he was when he shipped out",
+  "speech": "slow, deliberate, dry, a story for every answer"
+ },
+ "voice": {
+  "id": "anchor-veteran-v1",
+  "description": "deep, slow bass-baritone, worn and warm",
+  "pitch": "low",
+  "rate": "slow"
+ }
+}

@@ -1,0 +1,28 @@
+{
+ "storykit": 2, "id": "test-mogcity-cast", "title": "Moon's Walk", "kicker": "NEW YORK", "tagline": "Mog City's own people, from the cast registry",
+ "base": { "engine": "storykit-1", "city": "ny", "cityBuild": "ny-bc7d0b3-1" },
+ "dressing": { "time": "golden", "season": "autumn", "weather": "clear", "holiday": [] },
+ "hero": "dan", "ride": "rides.roadster",
+ "hud": { "clock": { "label": "DAY", "format": "count", "unit": "day", "unitLabel": "DAY" }, "meters": [] },
+ "places": { "jane-stoop": { "@": "bryant", "name": "the library steps on 42nd St" } },
+ "cast": [
+  { "id": "dan", "model": "mogcity/dan", "color": "#8FD3C8" },
+  { "id": "jane", "model": "mogcity/jane", "color": "#E8A0BF" },
+  { "id": "mrbig", "model": "mogcity/mrbig", "color": "#C9A646" },
+  { "id": "gears", "model": "mogcity/gears", "color": "#6FA8DC" },
+  { "id": "fiona", "model": "mogcity/fiona", "color": "#B6FF3B" },
+  { "id": "knox", "model": "mogcity/suit-knox", "color": "#9AA0A8" }
+ ],
+ "pets": [ { "id": "moon", "name": "Moon", "species": "dog", "breed": "mixed", "size": "small", "owner": "dan", "model": "mogcity/moon", "follows": true } ],
+ "vehicles": [ { "stock": "roadster", "id": "rides.roadster" } ],
+ "acts": [ { "id": "act1", "name": "ONE WALK", "timeline": { "MW-1": { "at": 1, "clock": "5:40 PM", "time": "golden" } },
+  "missions": [ { "id": "MW-1", "title": "Moon's Walk", "vehicle": "rides.roadster", "verbs": ["drive"], "start": { "@": "flatiron", "face": "empire" }, "traffic": 0.3,
+   "stakes": "Moon wants Jane, and Jane is at the library.", "passLine": "Moon found Jane.",
+   "steps": [
+    { "type": "say", "who": "dan", "text": "Kidding. Obviously.", "secs": 2 },
+    { "type": "drive", "to": "@jane-stoop", "radius": 10, "objective": "Take **Moon** to **the library steps**" },
+    { "type": "npc", "who": "jane", "id": "jane-kerb", "at": { "rel": "player", "right": 3.4, "fwd": 0.8 } },
+    { "type": "cutscene", "shots": [ { "cam": { "rel": "jane", "fwd": 1.1, "right": 0.2 }, "look": { "rel": "jane", "up": -0.04 }, "fov": 30, "dur": 3.5, "say": "jane", "line": "Your face is on four front pages today. Moon's jealous." } ] },
+    { "type": "say", "who": "jane", "text": "Moon walked you here? Good dog. Bad driver.", "secs": 3 }
+   ] } ] } ]
+}

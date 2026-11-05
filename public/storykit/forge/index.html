@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Character Forge</title>
+<style>
+  :root { --bg: #f6f4ef; --fg: #1d1c1a; --mute: #6b675f; --line: #d9d4c9; --ok: #2f6b3a; --bad: #9a2a22; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151413; --fg: #ece8df; --mute: #9b968c; --line: #34312c; --ok: #7fc28b; --bad: #e0776c; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; } p { color: var(--mute); margin: 0 0 16px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  input { flex: 1 1 280px; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); background: transparent; color: inherit; border-radius: 6px; }
+  button, a.btn { padding: 8px 14px; border: 1px solid var(--line); background: var(--fg); color: var(--bg); border-radius: 6px; cursor: pointer; text-decoration: none; }
+  pre { white-space: pre-wrap; word-break: break-word; border-top: 1px solid var(--line); padding-top: 12px; font-size: 13px; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Character Forge</h1>
+  <p>A person's sheet becomes a rigged, talking 3D body in this browser. Nothing is sent anywhere.</p>
+  <div class="row"><input id="src" value="/storykit/cast/test-night-shift/kwon.sheet.json" aria-label="Sheet URL"><button id="go">Forge</button></div>
+  <div class="row" id="dl"></div>
+  <pre id="out">Ready.</pre>
+</main>
+<script type="module">
+  // ?sheet=<url>&auto=1 forges on load. window.__forge: { state, rec, glb (Uint8Array), b64() } for the test harness.
+  import { forge } from './forge.js';
+  const $ = (id) => document.getElementById(id), q = new URLSearchParams(location.search);
+  if (q.get('sheet')) $('src').value = q.get('sheet');
+  window.__forge = { state: 'idle' };
+  async function run() {
+    const out = $('out'), lines = []; out.textContent = 'Forging...'; window.__forge = { state: 'running' };
+    try {
+      const sheet = await (await fetch($('src').value)).json(), t0 = performance.now();
+      const r = await forge(sheet, { log: (...a) => lines.push(a.join(' ')) });
+      const wall = Math.round(performance.now() - t0), blob = new Blob([r.glb], { type: 'model/gltf-binary' });
+      window.__forge = { state: 'done', wall, rec: r.rec, lm: r.lm, glb: r.glb,
+        b64: () => { let s = ''; for (let i = 0; i < r.glb.length; i += 0x8000) s += String.fromCharCode(...r.glb.subarray(i, i + 0x8000)); return btoa(s); } };
+      const c = r.rec.checks;
+      out.innerHTML = `<span class="ok">${sheet.name}: forged in ${(wall / 1000).toFixed(1)} s</span>, ${r.rec.sizeMB} MB\n` +
+        `steps (ms): ${JSON.stringify(r.rec.ms)}\nlandmarks: ${JSON.stringify(c.landmarks)}\nlips ${c.lipsFound ? 'found' : 'missing'}, lids ${c.lids ? 'found' : 'missing'}, teeth ${c.teeth ? 'built' : 'missing'}\n` +
+        `clamps: ${r.rec.clamps.length ? r.rec.clamps.join('; ') : 'none'}`;
+      $('dl').innerHTML = ''; const a = document.createElement('a'); a.className = 'btn'; a.href = URL.createObjectURL(blob); a.download = sheet.id + '.glb'; a.textContent = 'Download ' + sheet.id + '.glb'; $('dl').append(a);
+    } catch (e) { window.__forge = { state: 'error', error: String(e && e.stack || e) }; out.innerHTML = `<span class="bad">${String(e)}</span>\n` + lines.slice(-8).join('\n'); }
+  }
+  $('go').onclick = run;
+  if (q.get('auto')) run();
+</script>
+</body>
+</html>

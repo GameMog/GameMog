@@ -1,0 +1,80 @@
+{
+  "v": 1,
+  "id": "rides.black-sedan",
+  "label": "Black Sedan",
+  "noun": "sedan",
+  "family": "car4",
+  "class": "sedan",
+  "era": 2025,
+  "condition": "showroom",
+  "proportions": {
+    "length": 0.45,
+    "width": 0.4,
+    "height": -0.05,
+    "wheelSize": 0.7,
+    "bonnet": 0.1,
+    "cabinForward": 0.15,
+    "windscreenRake": 0.55,
+    "roofline": -0.25,
+    "beltline": 0.6,
+    "tumblehome": 0.3
+  },
+  "body": {
+    "rear": "notchback",
+    "doors": 4,
+    "roof": "sunroof",
+    "trim": "chrome",
+    "crease": "double",
+    "hood": "flat"
+  },
+  "face": {
+    "lamps": "slim-led",
+    "grille": "horizontal-bars",
+    "grilleSize": 0.6,
+    "bumper": "body",
+    "fog": false
+  },
+  "tail": {
+    "lamps": "full-width",
+    "exhaust": "twin",
+    "plate": "center"
+  },
+  "paint": {
+    "base": "#0A0B0D",
+    "finish": "metallic"
+  },
+  "wheels": {
+    "style": "multi-spoke",
+    "finish": "silver",
+    "tyre": "low-profile"
+  },
+  "interior": {
+    "seat": "#C2AE90",
+    "material": "leather",
+    "dash": "screen",
+    "wheel": "three-spoke"
+  },
+  "props": [],
+  "sound": {
+    "engine": "v12",
+    "character": -0.5
+  },
+  "handling": {
+    "pace": 0.4,
+    "pull": 0.3,
+    "grip": 0.3,
+    "weight": 0.45,
+    "turnIn": -0.1,
+    "brakes": 0.3,
+    "character": "planted"
+  },
+  "abilities": [
+    "boost"
+  ],
+  "story": {
+    "owner": "client",
+    "nickname": "the Quiet One",
+    "oneLine": "A long black sedan, tan leather behind dark glass; you hear it only when it wants you to."
+  },
+  "plate": "8LUX 300"
+}

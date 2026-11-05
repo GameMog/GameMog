@@ -1,0 +1,15 @@
+{
+  "v": 1, "id": "rides.work-van", "label": "Work Van", "noun": "van", "family": "car4", "class": "van", "era": 2004, "condition": "beater",
+  "body": { "rear": "box", "doors": 4, "doorType": "sliding", "roof": "high", "cladding": true, "trim": "black", "crease": "single" },
+  "face": { "lamps": "square", "grille": "horizontal-bars", "bumper": "black-plastic", "fog": false },
+  "tail": { "lamps": "vertical", "exhaust": "single", "plate": "bumper" },
+  "paint": { "base": "#E9E8E2", "finish": "gloss", "second": "#D2CDBE" },
+  "wheels": { "style": "steel-bare", "finish": "black", "tyre": "road" },
+  "interior": { "seat": "#34373B", "material": "vinyl", "dash": "analog", "wheel": "four-spoke" },
+  "props": ["ladder-rack", "toolbox", "clipboard", "parking-tickets"],
+  "sound": { "engine": "diesel", "character": 0.3, "gears": 5 },
+  "handling": { "pace": -0.6, "pull": -0.7, "grip": -0.6, "weight": 0.8, "turnIn": -0.8, "brakes": -0.6, "character": "tank" },
+  "abilities": ["boost", "ram"],
+  "story": { "owner": "crew", "nickname": "the Fridge", "oneLine": "A battered white work van: a ladder on the roof, a replacement door in the wrong white, tickets under the wiper." },
+  "plate": "WRK 552"
+}

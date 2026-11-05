@@ -1,0 +1,122 @@
+{
+ "id": "anchor-grandmother",
+ "name": "Beatrice 'Nana Bea' Hall",
+ "role": "anchor: grandmother",
+ "logline": "Seventy-seven, church on Sunday, cards on Thursday, and nothing on the street gets past her window.",
+ "identity": {
+  "age": 77,
+  "body": "female",
+  "presentation": "woman",
+  "heightCm": 157,
+  "build": {
+   "frame": "small",
+   "weight": "average",
+   "muscle": "soft"
+  }
+ },
+ "heritage": {
+  "note": "Caribbean",
+  "blend": {
+   "african": 0.8,
+   "asian": 0.05,
+   "european": 0.15
+  },
+  "skin": {
+   "tone": "brown",
+   "undertone": "warm",
+   "weathered": true,
+   "makeup": "natural",
+   "lipTint": "berry"
+  }
+ },
+ "face": {
+  "jaw": "soft",
+  "cheeks": "full",
+  "cheekbones": "high",
+  "faceWidth": "average",
+  "nose": {
+   "width": "wide",
+   "length": "short",
+   "tip": "average",
+   "bridge": "flat"
+  },
+  "browRidge": "soft",
+  "chin": {
+   "projection": "average",
+   "length": "short",
+   "width": "average"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "grey",
+   "weight": "fine"
+  },
+  "eyeShape": "downturned",
+  "eyeBags": "light",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "corners": "up"
+  },
+  "ears": {
+   "size": "average"
+  },
+  "skull": {
+   "shape": "round"
+  },
+  "forehead": "average",
+  "faceLength": "short",
+  "eyeSpacing": "wide"
+ },
+ "hair": {
+  "style": "side-part",
+  "color": "silver",
+  "greying": 1
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "long-sleeve",
+   "color": "#C9BBA4"
+  },
+  "bottom": {
+   "item": "loose-trousers",
+   "color": "#3A3634"
+  },
+  "shoes": {
+   "item": "dress",
+   "color": "#3A2A22"
+  }
+ },
+ "props": [
+  {
+   "kind": "round-glasses",
+   "color": "#6A4A3A"
+  }
+ ],
+ "posture": {
+  "stance": "stooped",
+  "pace": "slow",
+  "gestures": "pats your arm, wags one finger",
+  "idle": "idle",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "warm",
+   "nosy",
+   "shrewd",
+   "devout"
+  ],
+  "wants": "her grandson home before the streetlights",
+  "speech": "slow, musical, calls everyone 'baby'"
+ },
+ "voice": {
+  "id": "anchor-grandmother-v1",
+  "description": "warm alto, slow and musical",
+  "pitch": "mid-low",
+  "rate": "slow"
+ }
+}

@@ -1,0 +1,15 @@
+{
+  "v": 1, "id": "rides.vandal-gt", "label": "Vandal GT", "noun": "coupe", "family": "car4", "class": "muscle", "era": 2006, "condition": "daily",
+  "body": { "rear": "fastback", "doors": 2, "crease": "muscle-hips", "hood": "dome", "aero": "ducktail", "sideScoop": true, "trim": "black" },
+  "face": { "lamps": "square", "grille": "honeycomb", "bumper": "body", "fog": true },
+  "tail": { "lamps": "bars", "exhaust": "twin", "plate": "center" },
+  "paint": { "base": "#B3141C", "finish": "gloss" },
+  "wheels": { "style": "split-five", "finish": "silver", "tyre": "low-profile" },
+  "interior": { "seat": "#26272A", "material": "cloth", "dash": "twin-cowl", "wheel": "three-spoke" },
+  "props": ["booster"],
+  "sound": { "engine": "v8-cammed", "character": 0.6 },
+  "handling": { "pace": 0.69, "pull": 0.3, "grip": -0.07, "weight": -0.36, "turnIn": 0.33, "brakes": 0.26, "character": "tail-happy" },
+  "abilities": ["boost", "ram"],
+  "story": { "owner": "dad", "nickname": "the Vandal", "oneLine": "Loud on purpose; the booster seat in the back still has its price tag." },
+  "plate": "VNDL 06"
+}

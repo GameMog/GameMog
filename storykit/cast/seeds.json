@@ -1,0 +1,1119 @@
+{
+ "note": "Mog City's shipped people as Character Forge sheets: the seed a Mog starts from when it changes one of them (storykit/cast/README.md). The sheet is a description for the forge, not the shipped model; the anchor named in public/storykit/cast/registry.json is the forge's nearest archetype.",
+ "seeds": {
+  "mogcity/dan": {
+   "id": "dan",
+   "name": "Dan",
+   "role": "a fired first-year bank associate, framed",
+   "logline": "Mid-twenties, tall and lean, dry jokes for armour, out to clear his name.",
+   "identity": {
+    "age": 25,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 188,
+    "build": {
+     "frame": "medium",
+     "weight": "slim",
+     "muscle": "average"
+    }
+   },
+   "heritage": {
+    "note": "New Yorker, mixed European heritage",
+    "blend": {
+     "african": 0.06,
+     "asian": 0.08,
+     "european": 0.86
+    },
+    "skin": {
+     "tone": "light-medium",
+     "undertone": "neutral",
+     "weathered": false,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "average",
+    "cheeks": "hollow",
+    "faceWidth": "narrow",
+    "chin": {
+     "projection": "average",
+     "length": "long",
+     "width": "average"
+    },
+    "eyes": "dark-brown",
+    "brows": {
+     "color": "dark-brown",
+     "weight": "average"
+    },
+    "eyeBags": "light",
+    "mouth": {
+     "lips": "average",
+     "width": "average",
+     "corners": "neutral"
+    }
+   },
+   "hair": {
+    "style": "short",
+    "color": "black"
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "tee",
+     "color": "#1E2633",
+     "fit": "regular"
+    },
+    "bottom": {
+     "item": "trousers",
+     "color": "#161B26",
+     "fit": "regular"
+    },
+    "shoes": {
+     "item": "white-sneakers",
+     "color": "#F4F4F2"
+    }
+   },
+   "posture": {
+    "stance": "upright",
+    "pace": "steady",
+    "gestures": "hands in pockets, a shrug for everything",
+    "idle": "idle",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "deadpan",
+     "quick",
+     "stubborn",
+     "loyal"
+    ],
+    "wants": "to prove he was set up",
+    "speech": "quick, dry, polite until he is not"
+   },
+   "voice": {
+    "id": "mogcity-dan",
+    "description": "a young man, dry baritone with a city edge, quick and deadpan",
+    "pitch": "mid-low",
+    "rate": "quick"
+   }
+  },
+  "mogcity/jane": {
+   "id": "jane",
+   "name": "Jane",
+   "role": "a hospital data analyst who reads logs for fun",
+   "logline": "Mid-twenties, a born New Yorker who knows every one-way, on the phone whenever he drives.",
+   "identity": {
+    "age": 25,
+    "body": "female",
+    "presentation": "woman",
+    "heightCm": 165,
+    "build": {
+     "frame": "medium",
+     "weight": "slim",
+     "muscle": "athletic"
+    }
+   },
+   "heritage": {
+    "note": "Puerto Rican",
+    "blend": {
+     "african": 0.25,
+     "asian": 0.1,
+     "european": 0.65
+    },
+    "skin": {
+     "tone": "tan",
+     "undertone": "warm",
+     "weathered": false,
+     "makeup": "natural",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "soft",
+    "cheekbones": "high",
+    "eyes": "dark-brown",
+    "brows": {
+     "color": "black",
+     "weight": "average"
+    },
+    "mouth": {
+     "lips": "full",
+     "width": "average",
+     "corners": "up"
+    }
+   },
+   "hair": {
+    "style": "long",
+    "color": "dark-brown"
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "long-sleeve",
+     "color": "#1C6F7E",
+     "accent": "#F2F2F0",
+     "fit": "fitted"
+    },
+    "bottom": {
+     "item": "track-pants",
+     "color": "#2A2D36"
+    },
+    "shoes": {
+     "item": "white-sneakers",
+     "color": "#F2F2F0"
+    }
+   },
+   "posture": {
+    "stance": "relaxed",
+    "pace": "quick",
+    "gestures": "talks with her hands, laptop on her hip",
+    "idle": "idle",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "quick",
+     "warm",
+     "wry",
+     "sharp"
+    ],
+    "wants": "to get him home in one piece",
+    "speech": "fast, warm, dry about his choices"
+   },
+   "voice": {
+    "id": "mogcity-jane",
+    "description": "a young woman, quick warm alto, wry, native New York",
+    "pitch": "mid",
+    "rate": "quick"
+   }
+  },
+  "mogcity/mrbig": {
+   "id": "mrbig",
+   "name": "Mr. Big",
+   "role": "the bank's CEO",
+   "logline": "About sixty, heavy-set and unhurried, smiles through every threat.",
+   "identity": {
+    "age": 61,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 178,
+    "build": {
+     "frame": "broad",
+     "weight": "heavy",
+     "muscle": "average"
+    }
+   },
+   "heritage": {
+    "note": "old-money New York",
+    "blend": {
+     "african": 0.04,
+     "asian": 0.08,
+     "european": 0.88
+    },
+    "skin": {
+     "tone": "light-medium",
+     "undertone": "warm",
+     "weathered": true,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "heavy",
+    "cheeks": "full",
+    "faceWidth": "wide",
+    "browRidge": "strong",
+    "eyes": "grey-blue",
+    "brows": {
+     "color": "silver",
+     "weight": "heavy"
+    },
+    "eyeShape": "hooded",
+    "eyeBags": "light",
+    "mouth": {
+     "lips": "thin",
+     "width": "wide",
+     "corners": "neutral"
+    }
+   },
+   "hair": {
+    "style": "swept-back",
+    "color": "silver",
+    "greying": 1
+   },
+   "facialHair": {
+    "style": "full-trimmed",
+    "color": "silver",
+    "density": 0.9
+   },
+   "wardrobe": {
+    "top": {
+     "item": "suit-jacket",
+     "color": "#1C2442",
+     "fit": "regular"
+    },
+    "bottom": {
+     "item": "suit-trousers",
+     "color": "#1C2442"
+    },
+    "shoes": {
+     "item": "dress",
+     "color": "#1A120E"
+    }
+   },
+   "props": [
+    {
+     "kind": "glasses"
+    },
+    {
+     "kind": "cigar"
+    }
+   ],
+   "posture": {
+    "stance": "proud",
+    "pace": "slow",
+    "gestures": "a cigar for a pointer",
+    "idle": "idle",
+    "walk": "walkHeavy"
+   },
+   "personality": {
+    "traits": [
+     "smug",
+     "polished",
+     "patient",
+     "ruthless"
+    ],
+    "wants": "the problem to go away quietly",
+    "speech": "slow, polished, never raises his voice"
+   },
+   "voice": {
+    "id": "mogcity-mrbig",
+    "description": "an older man, deep smooth British baritone, unhurried",
+    "pitch": "low",
+    "rate": "slow"
+   }
+  },
+  "mogcity/gears": {
+   "id": "gears",
+   "name": "Gears",
+   "role": "an ex-pit-crew mechanic with a tuning garage",
+   "logline": "Late forties, big and gentle, proud of every weld. Mostly.",
+   "identity": {
+    "age": 48,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 190,
+    "build": {
+     "frame": "broad",
+     "weight": "heavy",
+     "muscle": "strong"
+    }
+   },
+   "heritage": {
+    "note": "West Chelsea",
+    "blend": {
+     "african": 0.8,
+     "asian": 0.05,
+     "european": 0.15
+    },
+    "skin": {
+     "tone": "dark-brown",
+     "undertone": "warm",
+     "weathered": true,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "heavy",
+    "cheeks": "full",
+    "faceWidth": "wide",
+    "eyes": "brown",
+    "brows": {
+     "color": "dark-brown",
+     "weight": "heavy"
+    },
+    "mouth": {
+     "lips": "average",
+     "width": "wide",
+     "corners": "up"
+    }
+   },
+   "hair": {
+    "style": "short",
+    "color": "black",
+    "greying": 0.2
+   },
+   "facialHair": {
+    "style": "full",
+    "color": "salt-and-pepper",
+    "density": 0.85
+   },
+   "wardrobe": {
+    "top": {
+     "item": "overalls",
+     "color": "#1F2D4A"
+    },
+    "bottom": {
+     "item": "trousers",
+     "color": "#1F2D4A"
+    },
+    "headwear": {
+     "item": "ball-cap",
+     "color": "#1C2840"
+    },
+    "shoes": {
+     "item": "work-boots",
+     "color": "#3A2A1E"
+    }
+   },
+   "posture": {
+    "stance": "relaxed",
+    "pace": "slow",
+    "gestures": "wipes his hands on a red rag",
+    "idle": "idle",
+    "walk": "walkHeavy"
+   },
+   "personality": {
+    "traits": [
+     "gentle",
+     "proud",
+     "slow",
+     "kind"
+    ],
+    "wants": "his cars driven properly",
+    "speech": "slow and warm, one word at a time"
+   },
+   "voice": {
+    "id": "mogcity-gears",
+    "description": "a big man, low warm bass, slow and proud",
+    "pitch": "low",
+    "rate": "slow"
+   }
+  },
+  "mogcity/fiona": {
+   "id": "fiona",
+   "name": "Fiona",
+   "role": "the bank's Head of Community",
+   "logline": "Hosts the community day on a megaphone; everything is the best thing ever.",
+   "identity": {
+    "age": 31,
+    "body": "female",
+    "presentation": "woman",
+    "heightCm": 170,
+    "build": {
+     "frame": "small",
+     "weight": "slim",
+     "muscle": "average"
+    }
+   },
+   "heritage": {
+    "note": "Manhattan",
+    "blend": {
+     "african": 0.03,
+     "asian": 0.07,
+     "european": 0.9
+    },
+    "skin": {
+     "tone": "light",
+     "undertone": "cool",
+     "weathered": false,
+     "makeup": "lipstick",
+     "lipTint": "rose"
+    }
+   },
+   "face": {
+    "jaw": "soft",
+    "cheekbones": "high",
+    "eyes": "blue",
+    "brows": {
+     "color": "dark-blonde",
+     "weight": "fine"
+    },
+    "mouth": {
+     "lips": "full",
+     "width": "wide",
+     "corners": "up"
+    }
+   },
+   "hair": {
+    "style": "ponytail",
+    "color": "platinum"
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "puffer-coat",
+     "color": "#F4F4F2"
+    },
+    "bottom": {
+     "item": "loose-trousers",
+     "color": "#F1F1EE"
+    },
+    "shoes": {
+     "item": "white-sneakers",
+     "color": "#F6F6F4"
+    }
+   },
+   "props": [
+    {
+     "kind": "glasses"
+    }
+   ],
+   "posture": {
+    "stance": "proud",
+    "pace": "quick",
+    "gestures": "megaphone up, a fist pump",
+    "idle": "idle",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "bubbly",
+     "relentless",
+     "nice",
+     "on-message"
+    ],
+    "wants": "the event to trend",
+    "speech": "a hype host, every line a headline"
+   },
+   "voice": {
+    "id": "mogcity-fiona",
+    "description": "a young woman, bright high hype-host soprano, fast",
+    "pitch": "high",
+    "rate": "quick"
+   }
+  },
+  "mogcity/suit-knox": {
+   "id": "knox",
+   "name": "Knox",
+   "role": "the security crew's lead",
+   "logline": "Big, black shades, enjoys every second of it.",
+   "identity": {
+    "age": 38,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 190,
+    "build": {
+     "frame": "broad",
+     "weight": "stocky",
+     "muscle": "strong"
+    }
+   },
+   "heritage": {
+    "note": "Bronx",
+    "blend": {
+     "african": 0.6,
+     "asian": 0.05,
+     "european": 0.35
+    },
+    "skin": {
+     "tone": "brown",
+     "undertone": "warm",
+     "weathered": false,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "square",
+    "eyes": "dark-brown",
+    "brows": {
+     "color": "black",
+     "weight": "average"
+    }
+   },
+   "hair": {
+    "style": "buzz",
+    "color": "black"
+   },
+   "facialHair": {
+    "style": "short-boxed",
+    "color": "black",
+    "density": 0.7
+   },
+   "wardrobe": {
+    "top": {
+     "item": "suit-jacket",
+     "color": "#2A2A2E",
+     "fit": "regular"
+    },
+    "bottom": {
+     "item": "suit-trousers",
+     "color": "#2A2A2E"
+    },
+    "shoes": {
+     "item": "dress",
+     "color": "#141414"
+    }
+   },
+   "props": [
+    {
+     "kind": "glasses"
+    }
+   ],
+   "posture": {
+    "stance": "proud",
+    "pace": "steady",
+    "idle": "arms",
+    "walk": "walkCool"
+   },
+   "personality": {
+    "traits": [
+     "cocky",
+     "loud",
+     "mocking"
+    ],
+    "wants": "the bag back",
+    "speech": "low, sing-song mockery"
+   },
+   "voice": {
+    "id": "mogcity-suit-knox",
+    "description": "a big man, low cocky voice, sing-song",
+    "pitch": "mid-low",
+    "rate": "steady"
+   }
+  },
+  "mogcity/suit-hooks": {
+   "id": "hooks",
+   "name": "Hooks",
+   "role": "the security crew's grabber",
+   "logline": "Wiry, fast hands, says nothing.",
+   "identity": {
+    "age": 33,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 178,
+    "build": {
+     "frame": "small",
+     "weight": "thin",
+     "muscle": "athletic"
+    }
+   },
+   "heritage": {
+    "note": "Queens",
+    "blend": {
+     "african": 0.1,
+     "asian": 0.2,
+     "european": 0.7
+    },
+    "skin": {
+     "tone": "light-medium",
+     "undertone": "olive",
+     "weathered": false,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "square",
+    "eyes": "dark-brown",
+    "brows": {
+     "color": "black",
+     "weight": "average"
+    }
+   },
+   "hair": {
+    "style": "slicked",
+    "color": "black"
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "suit-jacket",
+     "color": "#141416",
+     "fit": "regular"
+    },
+    "bottom": {
+     "item": "suit-trousers",
+     "color": "#141416"
+    },
+    "shoes": {
+     "item": "dress",
+     "color": "#141414"
+    }
+   },
+   "props": [
+    {
+     "kind": "glasses"
+    },
+    {
+     "kind": "earpiece"
+    }
+   ],
+   "posture": {
+    "stance": "guarded",
+    "pace": "quick",
+    "idle": "idle",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "quiet",
+     "quick"
+    ],
+    "wants": "the job done fast",
+    "speech": "grunts"
+   },
+   "voice": {
+    "id": "mogcity-suit-hooks",
+    "description": "a wiry man, clipped mid voice",
+    "pitch": "mid",
+    "rate": "quick"
+   }
+  },
+  "mogcity/suit-tank": {
+   "id": "tank",
+   "name": "Tank",
+   "role": "the widest of the security crew",
+   "logline": "Shaved head, wider than the door.",
+   "identity": {
+    "age": 41,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 186,
+    "build": {
+     "frame": "broad",
+     "weight": "heavy",
+     "muscle": "strong"
+    }
+   },
+   "heritage": {
+    "note": "Staten Island",
+    "blend": {
+     "african": 0.08,
+     "asian": 0.04,
+     "european": 0.88
+    },
+    "skin": {
+     "tone": "light",
+     "undertone": "warm",
+     "weathered": true,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "square",
+    "eyes": "dark-brown",
+    "brows": {
+     "color": "black",
+     "weight": "average"
+    }
+   },
+   "hair": {
+    "style": "shaved",
+    "color": "dark-brown"
+   },
+   "facialHair": {
+    "style": "stubble",
+    "color": "dark-brown",
+    "density": 0.6
+   },
+   "wardrobe": {
+    "top": {
+     "item": "suit-jacket",
+     "color": "#2A2A2E",
+     "fit": "regular"
+    },
+    "bottom": {
+     "item": "suit-trousers",
+     "color": "#2A2A2E"
+    },
+    "shoes": {
+     "item": "dress",
+     "color": "#141414"
+    }
+   },
+   "props": [
+    {
+     "kind": "glasses"
+    }
+   ],
+   "posture": {
+    "stance": "guarded",
+    "pace": "slow",
+    "idle": "arms",
+    "walk": "walkHeavy"
+   },
+   "personality": {
+    "traits": [
+     "slow",
+     "blunt"
+    ],
+    "wants": "overtime",
+    "speech": "one word at a time"
+   },
+   "voice": {
+    "id": "mogcity-suit-tank",
+    "description": "a huge man, flat low voice",
+    "pitch": "low",
+    "rate": "slow"
+   }
+  },
+  "mogcity/suit-brick": {
+   "id": "brick",
+   "name": "Brick",
+   "role": "the bouncer who runs the planted crowd",
+   "logline": "A hype man turned bouncer, an earpiece cord and a radio.",
+   "identity": {
+    "age": 35,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 188,
+    "build": {
+     "frame": "broad",
+     "weight": "stocky",
+     "muscle": "athletic"
+    }
+   },
+   "heritage": {
+    "note": "Brooklyn",
+    "blend": {
+     "african": 0.45,
+     "asian": 0.05,
+     "european": 0.5
+    },
+    "skin": {
+     "tone": "medium",
+     "undertone": "warm",
+     "weathered": false,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "square",
+    "eyes": "dark-brown",
+    "brows": {
+     "color": "black",
+     "weight": "average"
+    }
+   },
+   "hair": {
+    "style": "buzz",
+    "color": "black"
+   },
+   "facialHair": {
+    "style": "goatee",
+    "color": "black",
+    "density": 0.7
+   },
+   "wardrobe": {
+    "top": {
+     "item": "suit-jacket",
+     "color": "#141416",
+     "fit": "regular"
+    },
+    "bottom": {
+     "item": "suit-trousers",
+     "color": "#141416"
+    },
+    "shoes": {
+     "item": "dress",
+     "color": "#141414"
+    }
+   },
+   "props": [
+    {
+     "kind": "glasses"
+    },
+    {
+     "kind": "earpiece"
+    }
+   ],
+   "posture": {
+    "stance": "proud",
+    "pace": "restless",
+    "idle": "shift",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "loud",
+     "jumpy"
+    ],
+    "wants": "the crowd on message",
+    "speech": "loud and jumpy"
+   },
+   "voice": {
+    "id": "mogcity-suit-brick",
+    "description": "a big man, loud jumpy baritone",
+    "pitch": "mid-low",
+    "rate": "quick"
+   }
+  },
+  "mogcity/suit-dash": {
+   "id": "dash",
+   "name": "Dash",
+   "role": "the one who is always late",
+   "logline": "Tie half-knotted, out of breath, late even to fights.",
+   "identity": {
+    "age": 28,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 176,
+    "build": {
+     "frame": "small",
+     "weight": "slim",
+     "muscle": "soft"
+    }
+   },
+   "heritage": {
+    "note": "Long Island",
+    "blend": {
+     "african": 0.05,
+     "asian": 0.1,
+     "european": 0.85
+    },
+    "skin": {
+     "tone": "light",
+     "undertone": "neutral",
+     "weathered": false,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "square",
+    "eyes": "dark-brown",
+    "brows": {
+     "color": "black",
+     "weight": "average"
+    }
+   },
+   "hair": {
+    "style": "swept-back",
+    "color": "light-brown"
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "suit-jacket",
+     "color": "#2E2F33",
+     "fit": "oversized"
+    },
+    "bottom": {
+     "item": "suit-trousers",
+     "color": "#2E2F33"
+    },
+    "shoes": {
+     "item": "dress",
+     "color": "#141414"
+    }
+   },
+   "props": [
+    {
+     "kind": "glasses"
+    }
+   ],
+   "posture": {
+    "stance": "slouched",
+    "pace": "restless",
+    "idle": "shift",
+    "walk": "jog"
+   },
+   "personality": {
+    "traits": [
+     "whiny",
+     "late"
+    ],
+    "wants": "to sit down",
+    "speech": "breathless and whiny"
+   },
+   "voice": {
+    "id": "mogcity-suit-dash",
+    "description": "a young man, breathless whiny tenor, higher",
+    "pitch": "high",
+    "rate": "quick"
+   }
+  },
+  "mogcity/suit-mack": {
+   "id": "mack",
+   "name": "Mack",
+   "role": "the security crew's Midtown handler",
+   "logline": "Big, loud and panicky about his money; every sentence a pitch.",
+   "identity": {
+    "age": 44,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 187,
+    "build": {
+     "frame": "broad",
+     "weight": "heavy",
+     "muscle": "average"
+    }
+   },
+   "heritage": {
+    "note": "Midtown",
+    "blend": {
+     "african": 0.05,
+     "asian": 0.05,
+     "european": 0.9
+    },
+    "skin": {
+     "tone": "light-medium",
+     "undertone": "warm",
+     "weathered": false,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "square",
+    "eyes": "dark-brown",
+    "brows": {
+     "color": "black",
+     "weight": "average"
+    }
+   },
+   "hair": {
+    "style": "short",
+    "color": "brown",
+    "greying": 0.2
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "suit-jacket",
+     "color": "#5A5D63",
+     "fit": "regular"
+    },
+    "bottom": {
+     "item": "suit-trousers",
+     "color": "#5A5D63"
+    },
+    "shoes": {
+     "item": "dress",
+     "color": "#141414"
+    }
+   },
+   "props": [
+    {
+     "kind": "glasses"
+    }
+   ],
+   "posture": {
+    "stance": "proud",
+    "pace": "restless",
+    "idle": "phone",
+    "walk": "walkHeavy"
+   },
+   "personality": {
+    "traits": [
+     "loud",
+     "greedy",
+     "panicky"
+    ],
+    "wants": "his money safe",
+    "speech": "every sentence a pitch"
+   },
+   "voice": {
+    "id": "mogcity-suit-mack",
+    "description": "a big man, loud reedy tenor, panicky",
+    "pitch": "mid-high",
+    "rate": "quick"
+   }
+  },
+  "mogcity/suit-rook": {
+   "id": "rook",
+   "name": "Rook",
+   "role": "a junior on the security team who wants out",
+   "logline": "A first-year in a suit too big for him.",
+   "identity": {
+    "age": 23,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 177,
+    "build": {
+     "frame": "small",
+     "weight": "slim",
+     "muscle": "soft"
+    }
+   },
+   "heritage": {
+    "note": "Jersey City",
+    "blend": {
+     "african": 0.15,
+     "asian": 0.35,
+     "european": 0.5
+    },
+    "skin": {
+     "tone": "light-medium",
+     "undertone": "neutral",
+     "weathered": false,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "square",
+    "eyes": "dark-brown",
+    "brows": {
+     "color": "black",
+     "weight": "average"
+    }
+   },
+   "hair": {
+    "style": "short",
+    "color": "black"
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "suit-jacket",
+     "color": "#2A2A2E",
+     "fit": "oversized"
+    },
+    "bottom": {
+     "item": "suit-trousers",
+     "color": "#2A2A2E"
+    },
+    "shoes": {
+     "item": "dress",
+     "color": "#141414"
+    }
+   },
+   "props": [
+    {
+     "kind": "glasses"
+    }
+   ],
+   "posture": {
+    "stance": "slouched",
+    "pace": "quick",
+    "idle": "idle",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "anxious",
+     "apologetic"
+    ],
+    "wants": "out",
+    "speech": "nervous, quick, sorry"
+   },
+   "voice": {
+    "id": "mogcity-suit-rook",
+    "description": "a young man, nervous quick light baritone",
+    "pitch": "mid",
+    "rate": "quick"
+   }
+  }
+ }
+}

@@ -1,0 +1,294 @@
+{
+ "storykit": 1,
+ "engine": "storykit-1",
+ "id": "test-mogcity-cast",
+ "title": "Moon's Walk",
+ "kicker": "NEW YORK",
+ "tagline": "Mog City's own people, from the cast registry",
+ "city": "ny",
+ "car": "roadster",
+ "hud": {
+  "clock": {
+   "label": "DAY",
+   "format": "count",
+   "unit": "day",
+   "unitLabel": "DAY"
+  },
+  "meters": []
+ },
+ "dressing": {
+  "time": "golden",
+  "season": "autumn",
+  "weather": "clear",
+  "holiday": []
+ },
+ "cast": {
+  "Dan": {
+   "color": "#8FD3C8",
+   "role": "a fired first-year bank associate, framed (Mog City's hero)",
+   "model": "mogcity/dan",
+   "glb": "cast/mogcity/dan.glb"
+  },
+  "Jane": {
+   "color": "#E8A0BF",
+   "role": "a hospital data analyst, Dan's girlfriend",
+   "model": "mogcity/jane",
+   "glb": "cast/mogcity/jane.glb"
+  },
+  "Mr. Big": {
+   "color": "#C9A646",
+   "role": "the bank's CEO",
+   "model": "mogcity/mrbig",
+   "glb": "cast/mogcity/mrbig.glb"
+  },
+  "Gears": {
+   "color": "#6FA8DC",
+   "role": "an ex-pit-crew mechanic with a tuning garage",
+   "model": "mogcity/gears",
+   "glb": "cast/mogcity/gears.glb"
+  },
+  "Fiona": {
+   "color": "#B6FF3B",
+   "role": "the bank's Head of Community",
+   "model": "mogcity/fiona",
+   "glb": "cast/mogcity/fiona.glb"
+  },
+  "Knox": {
+   "color": "#9AA0A8",
+   "role": "the security crew's lead",
+   "model": "mogcity/suit-knox",
+   "glb": "cast/mogcity/suits.glb"
+  },
+  "Moon": {
+   "color": "#E9E2D6",
+   "pet": {
+    "species": "dog",
+    "breed": "mixed",
+    "size": "small",
+    "model": "mogcity/moon",
+    "owner": "Dan",
+    "follows": true
+   }
+  }
+ },
+ "clips": "cast/cast-clips.glb",
+ "hero": "Dan",
+ "places": {
+  "jane-stoop": {
+   "@": "bryant",
+   "name": "the library steps on 42nd St"
+  }
+ },
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ONE WALK",
+   "order": [
+    "MW-1"
+   ],
+   "timeline": {
+    "MW-1": {
+     "at": 1,
+     "clock": "5:40 PM",
+     "time": "golden"
+    }
+   }
+  }
+ ],
+ "missions": [
+  {
+   "id": "MW-1",
+   "title": "Moon's Walk",
+   "vehicle": "roadster",
+   "start": {
+    "@": "flatiron",
+    "face": "empire"
+   },
+   "traffic": 0.3,
+   "stakes": "Moon wants Jane, and Jane is at the library.",
+   "passLine": "Moon found Jane.",
+   "steps": [
+    {
+     "type": "say",
+     "who": "Dan",
+     "text": "Kidding. Obviously.",
+     "secs": 2
+    },
+    {
+     "type": "drive",
+     "to": "@jane-stoop",
+     "radius": 10,
+     "objective": "Take **Moon** to **the library steps**"
+    },
+    {
+     "type": "npc",
+     "who": "Jane",
+     "id": "jane-kerb",
+     "at": {
+      "rel": "player",
+      "right": 3.4,
+      "fwd": 0.8
+     }
+    },
+    {
+     "type": "cutscene",
+     "shots": [
+      {
+       "cam": {
+        "rel": "Jane",
+        "fwd": 1.1,
+        "right": 0.2
+       },
+       "look": {
+        "rel": "Jane",
+        "up": -0.04
+       },
+       "fov": 30,
+       "dur": 3.5,
+       "sub": [
+        "Jane",
+        "Your face is on four front pages today. Moon's jealous."
+       ]
+      }
+     ]
+    },
+    {
+     "type": "say",
+     "who": "Jane",
+     "text": "Moon walked you here? Good dog. Bad driver.",
+     "secs": 3
+    }
+   ],
+   "city": "New York"
+  }
+ ],
+ "voice": {
+  "model": "kokoro-82m-v1.0",
+  "dir": "packs/test-mogcity-cast/voice/",
+  "cast": {
+   "Dan": {
+    "id": "dan",
+    "voice": "mogcity-dan",
+    "key": "7076f90c",
+    "block": {
+     "id": "mogcity-dan",
+     "base": "am_michael",
+     "blend": {
+      "am_michael": 1
+     },
+     "speed": 1.05,
+     "pitch": -0.2,
+     "description": "a young man, dry baritone with a city edge, quick and deadpan"
+    }
+   },
+   "Jane": {
+    "id": "jane",
+    "voice": "mogcity-jane",
+    "key": "f9c669d3",
+    "block": {
+     "id": "mogcity-jane",
+     "base": "af_bella",
+     "blend": {
+      "af_bella": 1
+     },
+     "speed": 1.05,
+     "pitch": -1.4,
+     "description": "a young woman, quick warm alto, wry and fast"
+    }
+   },
+   "Mr. Big": {
+    "id": "mrbig",
+    "voice": "mogcity-mrbig",
+    "key": "2b2dafac",
+    "block": {
+     "id": "mogcity-mrbig",
+     "base": "bm_lewis",
+     "blend": {
+      "bm_lewis": 1
+     },
+     "speed": 1,
+     "pitch": 0,
+     "description": "an older man, deep smooth British baritone, unhurried, smiling through it"
+    }
+   },
+   "Gears": {
+    "id": "gears",
+    "voice": "mogcity-gears",
+    "key": "22612a80",
+    "block": {
+     "id": "mogcity-gears",
+     "base": "am_onyx",
+     "blend": {
+      "am_onyx": 0.65,
+      "am_michael": 0.35
+     },
+     "speed": 0.92,
+     "pitch": -0.6,
+     "description": "a big man, low warm bass, slow and proud"
+    }
+   },
+   "Fiona": {
+    "id": "fiona",
+    "voice": "mogcity-fiona",
+    "key": "493ed308",
+    "block": {
+     "id": "mogcity-fiona",
+     "base": "af_heart",
+     "blend": {
+      "af_heart": 1
+     },
+     "speed": 1.1,
+     "pitch": 2.5,
+     "description": "a young woman, bright high hype-host voice, fast and relentlessly nice"
+    }
+   },
+   "Knox": {
+    "id": "knox",
+    "voice": "mogcity-suit-knox",
+    "key": "717ae4d6",
+    "block": {
+     "id": "mogcity-suit-knox",
+     "base": "am_puck",
+     "blend": {
+      "am_puck": 1
+     },
+     "speed": 0.98,
+     "pitch": 0.6,
+     "description": "a big man, low cocky voice, sing-song mockery"
+    }
+   }
+  },
+  "lines": [
+   {
+    "id": "MW-1.s0",
+    "who": "Dan",
+    "voice": "mogcity-dan",
+    "text": "Kidding. Obviously.",
+    "hash": "387352c5",
+    "clip": "387352c5-7076f90c",
+    "rec": "cast/mogcity/voice/intro-dan-kidding-obviously.m4a",
+    "recId": "intro-dan-kidding-obviously",
+    "secs": 1.09
+   },
+   {
+    "id": "MW-1.s3.c0",
+    "who": "Jane",
+    "voice": "mogcity-jane",
+    "text": "Your face is on four front pages today. Moon's jealous.",
+    "hash": "e945f2a2",
+    "clip": "e945f2a2-f9c669d3",
+    "rec": "cast/mogcity/voice/m2-jane-your-face-is-on.m4a",
+    "recId": "m2-jane-your-face-is-on",
+    "secs": 3.27
+   },
+   {
+    "id": "MW-1.s4",
+    "who": "Jane",
+    "voice": "mogcity-jane",
+    "text": "Moon walked you here? Good dog. Bad driver.",
+    "hash": "e6b46b54",
+    "clip": "e6b46b54-f9c669d3"
+   }
+  ]
+ }
+}

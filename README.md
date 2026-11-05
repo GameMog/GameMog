@@ -418,6 +418,21 @@ A posted score is a claim from an untrusted surface. `POST /api/scores` does the
 checks that catch accidents and casual tampering. **It is not proof.** Real verification needs
 replay validation; the shape is there for it to slot into.
 
+## Story Kit (behind a switch)
+
+Story worlds (`storykit/README.md`: a creator's 3-act story played on Mog City's engine) are behind one server switch,
+`STORYKIT` (`lib/storykit-switch.ts`; a rebuild is needed to change it, /create is prerendered):
+
+- unset: off. The site is exactly as it is without the Story Kit.
+- `STORYKIT=owner`: on only for the owner's /admin session (the same sign-in and cookie). Everyone else sees the site
+  as it is with the switch off; a story world the owner publishes goes in hidden. Mog City reads a world's files and a
+  draft's runner pack by their unguessable names without the cookie.
+- `STORYKIT=on`: on for everyone.
+
+The world store sits on the Render disk (`data/storykit`, `STORYKIT_DISK_MB`, 400 by default). At 90% of it, new story
+worlds are refused with a clear message before anything is spent; published worlds are kept. /admin shows the usage
+while the switch is on or owner. The rules: `docs/RULES.md` section 1h.
+
 ## Data
 
 SQLite via Node's built-in `node:sqlite`: no native module, no build step, one file in `data/`.

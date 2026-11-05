@@ -20,6 +20,7 @@ data/backups/
 /CLAUDE.local.md
 # scratch scripts, test rigs and renders
 /scripts/.scratch/
+/.scratch/
 /scripts/kart-steer/
 # trailers, stills and mockups made for review and marketing (the repo root holds no media of its own)
 /*.mp4
@@ -34,3 +35,11 @@ data/backups/
 /gamemog-dare-mockups/
 # private planning notes (dated: strategy, go-to-market, capital); the product docs are undated
 /docs/*-20[0-9][0-9]-[0-9][0-9]-[0-9][0-9].md
+# Story Kit voices: local copies of Kokoro-82M and its runtime for offline dev (npm run storykit:voice-files); a
+# creator's browser downloads them from Hugging Face and jsDelivr (storykit/voices/browser-voice-pass.js)
+/public/storykit/kokoro/
+/public/storykit/vendor/*
+# (the GPL phonemizer is served, so it is committed with its licence and source offer: vendor/gpl/SOURCE.md)
+!/public/storykit/vendor/gpl/
+# Story Kit world store (lib/storykit-store.ts): on the Render disk, never committed
+data/storykit/

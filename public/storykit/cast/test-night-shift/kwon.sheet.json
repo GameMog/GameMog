@@ -1,0 +1,111 @@
+{
+ "id": "kwon",
+ "name": "Mrs. Kwon",
+ "role": "the last fare of the night",
+ "logline": "Sixty-eight, runs a laundromat on Orchard Street, and carries fifty years of its books in one bag.",
+ "identity": {
+  "age": 68,
+  "body": "female",
+  "presentation": "older woman",
+  "heightCm": 151,
+  "build": {
+   "frame": "small",
+   "weight": "slim",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "Korean",
+  "blend": {
+   "african": 0.03,
+   "asian": 0.9,
+   "european": 0.07
+  },
+  "skin": {
+   "tone": "light-medium",
+   "undertone": "warm",
+   "weathered": true,
+   "makeup": "natural",
+   "lipTint": "rose"
+  }
+ },
+ "face": {
+  "jaw": "soft",
+  "cheeks": "average",
+  "cheekbones": "high",
+  "faceWidth": "wide",
+  "nose": {
+   "width": "average",
+   "length": "short",
+   "tip": "average"
+  },
+  "browRidge": "soft",
+  "chin": {
+   "projection": "average",
+   "length": "short"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "grey",
+   "weight": "fine"
+  },
+  "eyeShape": "monolid",
+  "mouth": {
+   "lips": "thin",
+   "corners": "down"
+  },
+  "skull": {
+   "shape": "round"
+  },
+  "forehead": "high"
+ },
+ "hair": {
+  "style": "bob-tucked",
+  "color": "salt-and-pepper",
+  "greying": 0.55
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "puffer-coat",
+   "color": "#B3202B"
+  },
+  "bottom": {
+   "item": "loose-trousers",
+   "color": "#2E2B2A"
+  },
+  "headwear": {
+   "item": "knit-beanie",
+   "color": "#E9E1D2"
+  },
+  "shoes": {
+   "item": "work-shoes"
+  }
+ },
+ "posture": {
+  "stance": "upright",
+  "pace": "quick",
+  "gestures": "short, decisive points; hands tucked in her sleeves when she listens",
+  "idle": "idle",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "sharp",
+   "proud",
+   "frightened",
+   "warm"
+  ],
+  "wants": "her shop's books somewhere safe before morning",
+  "speech": "clipped and polite, then very direct"
+ },
+ "voice": {
+  "id": "kwon-v1",
+  "description": "small bright alto, quick, a little rasp",
+  "pitch": "mid-high",
+  "rate": "quick",
+  "accent": "Korean-American, Queens"
+ }
+}

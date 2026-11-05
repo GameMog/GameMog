@@ -1,0 +1,430 @@
+{
+ "storykit": 2,
+ "id": "night-fares",
+ "title": "Night Fares",
+ "kicker": "NEW YORK",
+ "tagline": "Two nights behind the wheel",
+ "base": {
+  "engine": "storykit-1",
+  "city": "ny",
+  "cityBuild": "ny-bc7d0b3-1"
+ },
+ "dressing": {
+  "time": "midnight",
+  "season": "autumn",
+  "weather": "clear",
+  "holiday": []
+ },
+ "hero": "nico",
+ "ride": "vandal",
+ "hud": {
+  "clock": {
+   "label": "NIGHT",
+   "format": "count",
+   "unit": "night",
+   "unitLabel": "NIGHT"
+  },
+  "meters": [
+   {
+    "id": "cash",
+    "label": "CASH",
+    "kind": "money",
+    "start": 60
+   },
+   {
+    "id": "heat",
+    "label": "HEAT",
+    "kind": "pips",
+    "pips": 5,
+    "max": 100,
+    "start": 0,
+    "cool": 20,
+    "heat": true
+   },
+   {
+    "id": "trust",
+    "label": "TRUST",
+    "kind": "bar",
+    "start": 50
+   }
+  ]
+ },
+ "places": {
+  "pickup": {
+   "@": "les"
+  },
+  "gallery": {
+   "@": "soho",
+   "name": "the gallery on Prince St"
+  }
+ },
+ "cast": [
+  {
+   "id": "nico",
+   "anchor": "young-hero",
+   "color": "#F2C14E",
+   "voice": {
+    "id": "nico-v1",
+    "kokoro": "am_puck",
+    "speed": 1.05,
+    "pitch": 0.5,
+    "description": "a quick, wry man in his late twenties, warm under the jokes"
+   },
+   "sheet": {
+    "id": "nico",
+    "name": "Nico Ferrante",
+    "role": "night driver",
+    "logline": "Drives nights so the days are his own.",
+    "identity": {
+     "age": 28,
+     "body": "male",
+     "heightCm": 178,
+     "build": {
+      "frame": "medium",
+      "weight": "slim",
+      "muscle": "athletic"
+     }
+    },
+    "heritage": {
+     "blend": {
+      "african": 0.1,
+      "asian": 0.05,
+      "european": 0.85
+     },
+     "skin": {
+      "tone": "light-medium",
+      "undertone": "olive"
+     }
+    },
+    "face": {
+     "jaw": "average",
+     "eyes": "brown"
+    },
+    "hair": {
+     "style": "short",
+     "color": "dark-brown"
+    },
+    "facialHair": {
+     "style": "stubble"
+    },
+    "wardrobe": {
+     "top": {
+      "item": "suit-jacket",
+      "color": "#202830"
+     },
+     "bottom": {
+      "item": "jeans"
+     },
+     "shoes": {
+      "item": "sneakers"
+     }
+    },
+    "posture": {
+     "stance": "relaxed",
+     "pace": "quick"
+    },
+    "voice": {
+     "id": "nico-v1"
+    }
+   }
+  },
+  {
+   "id": "rae",
+   "anchor": "office-worker",
+   "color": "#8FD3C8",
+   "voice": {
+    "id": "rae-v1",
+    "blend": {
+     "af_nicole": 0.7,
+     "af_kore": 0.3
+    },
+    "speed": 0.95,
+    "pitch": -0.5,
+    "description": "a low, dry woman in her thirties who says less than she means"
+   },
+   "sheet": {
+    "id": "rae",
+    "name": "Rae Okafor",
+    "role": "the fare with somewhere to be",
+    "logline": "Late for the one door in the city that closes on time.",
+    "identity": {
+     "age": 34,
+     "body": "female",
+     "heightCm": 170,
+     "build": {
+      "frame": "small",
+      "weight": "slim",
+      "muscle": "average"
+     }
+    },
+    "heritage": {
+     "blend": {
+      "african": 0.8,
+      "asian": 0.05,
+      "european": 0.15
+     },
+     "skin": {
+      "tone": "brown",
+      "undertone": "warm"
+     }
+    },
+    "face": {
+     "jaw": "average",
+     "eyes": "brown"
+    },
+    "hair": {
+     "style": "box-braids",
+     "color": "black"
+    },
+    "facialHair": {
+     "style": "none"
+    },
+    "wardrobe": {
+     "top": {
+      "item": "overcoat",
+      "color": "#5A3E2B"
+     },
+     "bottom": {
+      "item": "trousers"
+     },
+     "shoes": {
+      "item": "dress"
+     }
+    },
+    "posture": {
+     "stance": "upright",
+     "pace": "steady"
+    },
+    "voice": {
+     "id": "rae-v1"
+    }
+   }
+  },
+  {
+   "id": "dispatch",
+   "anchor": "none",
+   "color": "#E3B866",
+   "voiceOnly": true,
+   "voice": {
+    "id": "dispatch-v1",
+    "kokoro": "bf_emma",
+    "speed": 1.1,
+    "pitch": 0,
+    "description": "a brisk night-desk dispatcher, clipped and tired"
+   }
+  }
+ ],
+ "vehicles": [
+  {
+   "stock": "vandal"
+  }
+ ],
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ACT ONE",
+   "timeline": {
+    "NF-1": {
+     "at": 1,
+     "clock": "11:40 PM",
+     "time": "midnight"
+    },
+    "NF-2": {
+     "at": 2,
+     "clock": "7:10 PM",
+     "time": "twilight",
+     "skip": "The next evening"
+    }
+   },
+   "end": {
+    "title": "Night Fares",
+    "stats": [
+     {
+      "label": "NIGHTS",
+      "value": "2"
+     }
+    ],
+    "story": [
+     "Two nights, two fares, one city that never quite sleeps."
+    ],
+    "meter": "trust",
+    "minSecs": 4
+   },
+   "missions": [
+    {
+     "id": "NF-1",
+     "title": "First Fare",
+     "vehicle": "vandal",
+     "verbs": [
+      "drive",
+      "carry"
+     ],
+     "start": {
+      "@": "timessquare",
+      "face": "les"
+     },
+     "traffic": 0.6,
+     "stakes": "Rae needs to be downtown before the door closes.",
+     "passLine": "Rae made it in time.",
+     "reward": {
+      "meters": {
+       "cash": 40,
+       "trust": 10
+      }
+     },
+     "steps": [
+      {
+       "type": "say",
+       "who": "dispatch",
+       "text": "Fare waiting on Orchard. Go.",
+       "secs": 3
+      },
+      {
+       "type": "timer",
+       "seconds": 420,
+       "label": "PICKUP",
+       "fail": "soft",
+       "flag": "late pickup",
+       "why": "Late. Rae is not impressed."
+      },
+      {
+       "type": "drive",
+       "to": "@pickup",
+       "radius": 9,
+       "objective": "Pick up **Rae** at Orchard & Rivington",
+       "during": [
+        {
+         "at": 20,
+         "type": "call",
+         "who": "dispatch",
+         "role": "Night desk",
+         "lines": [
+          {
+           "who": "dispatch",
+           "text": "Your fare's for the gallery on Prince. They lock the door at midnight."
+          },
+          {
+           "who": "dispatch",
+           "text": "Don't make me call twice."
+          }
+         ],
+         "answer": {
+          "meters": {
+           "trust": 5
+          }
+         },
+         "voicemail": {
+          "text": "Dispatch. Gallery on Prince, door locks at midnight. Move.",
+          "secs": 4
+         }
+        }
+       ]
+      },
+      {
+       "type": "passenger",
+       "who": "rae",
+       "seat": "rear",
+       "secs": 2
+      },
+      {
+       "type": "choice",
+       "who": "rae",
+       "prompt": "Fast or careful?",
+       "timeout": 8,
+       "default": 1,
+       "flag": "rae style",
+       "options": [
+        {
+         "text": "Fast. Hold on.",
+         "value": "fast",
+         "set": {
+          "meters": {
+           "trust": 5
+          }
+         },
+         "reply": "Finally, someone who drives like they mean it."
+        },
+        {
+         "text": "Careful. We'll get there.",
+         "value": "careful"
+        }
+       ]
+      },
+      {
+       "type": "say",
+       "if": "late pickup",
+       "who": "rae",
+       "text": "You were late, you know.",
+       "secs": 3
+      },
+      {
+       "type": "drive",
+       "to": "@gallery",
+       "radius": 9,
+       "objective": "Drop **Rae** at the gallery on Prince St"
+      },
+      {
+       "type": "passenger",
+       "who": "rae",
+       "board": false
+      },
+      {
+       "type": "timer",
+       "stop": true
+      }
+     ]
+    },
+    {
+     "id": "NF-2",
+     "title": "Somebody's Following",
+     "vehicle": "vandal",
+     "verbs": [
+      "escape",
+      "boost"
+     ],
+     "start": {
+      "@": "soho",
+      "face": "tribeca"
+     },
+     "traffic": 0.5,
+     "stakes": "A car has been behind you for six blocks.",
+     "passLine": "Lost them.",
+     "steps": [
+      {
+       "type": "say",
+       "who": "nico",
+       "text": "That car again. Hold on.",
+       "secs": 3
+      },
+      {
+       "type": "pursuit",
+       "goal": "lose",
+       "count": 1,
+       "level": 1,
+       "kind": "crew",
+       "loseDist": 140,
+       "loseTime": 3.5,
+       "los": 4,
+       "objective": "Lose the car behind you. Shift to boost."
+      },
+      {
+       "type": "drive",
+       "to": "@tribeca",
+       "radius": 10,
+       "objective": "Lie low at **Franklin & Hudson**"
+      },
+      {
+       "type": "set",
+       "set": {
+        "flags": {
+         "Lost the tail": true
+        }
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "voices": {}
+}

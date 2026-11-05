@@ -11,6 +11,10 @@ import { publishedKartConstants, type KartDriveTrack } from '@/lib/kart-score';
 import { dna } from '@/lib/mog-dna';
 import { publishedSoundtrack, type Soundtrack, type WorldOptions } from '@/lib/world-options';
 import type { WorldSpec } from '@/lib/worldspec';
+import { sealStoryDraft, keepStoryWorld } from '@/lib/storykit-publish';
+import { storykitForRequest } from '@/lib/storykit-http';
+import { storykitMode } from '@/lib/storykit-switch';
+import { setWorldHidden } from '@/lib/analytics';
 
 export const runtime = 'nodejs';
 
@@ -65,6 +69,11 @@ export async function POST(req: Request) {
       const s = publishedSoundtrack({ options: dm.options, parentMeta, kart: isKartWorld(d.code), drive: report.codeHash === hash && 'soundtrack' in report ? { soundtrack: report.soundtrack } : null });
       add = { ...add, ...(s.options ? { options: s.options } : {}), soundtrack: s.soundtrack ?? undefined };
     }
+    // a Story Kit world (STORYKIT=on, lib/storykit-publish.ts): its store draft sealed as the world the game plays, and
+    // kept with the game once it exists (never swept); with the switch off a story draft is not published
+    const story = sealStoryDraft(d, storykitForRequest(req));
+    if (story && !story.ok) return NextResponse.json({ error: story.error }, { status: story.status });
+    if (story) add = { ...add, ...story.meta };
     const id = randomUUID();
     const slug = slugify(dm.title);
     if (!publishDraft(d.id, slug, id, test, add, { creator, player })) {
@@ -72,6 +81,10 @@ export async function POST(req: Request) {
       if (first) return NextResponse.json({ id: first.id, slug: first.slug, creator: first.creator, again: true });
       return NextResponse.json({ error: 'That draft no longer exists.' }, { status: 404 });
     }
+    if (story) keepStoryWorld(story.storeId, id);
+    // (STORYKIT=owner: the owner's test world goes in hidden, so nobody else sees it in any list; the owner's session
+    // opens it at /g/<slug>, lib/storykit-switch.ts. Set it live from /admin only once the switch is on for everyone)
+    if (story && storykitMode() === 'owner') setWorldHidden(id, true);
     return NextResponse.json({ id, slug, creator });
   }
 

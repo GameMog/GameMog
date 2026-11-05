@@ -1,0 +1,117 @@
+{
+ "id": "marko",
+ "name": "Marko Lisic",
+ "role": "muscle in a dark suit",
+ "logline": "44, paid by the hour to stand on a corner and make problems go away.",
+ "identity": {
+  "age": 44,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 183,
+  "build": {
+   "frame": "broad",
+   "weight": "heavy",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "mixed",
+  "blend": {
+   "african": 0.04,
+   "asian": 0.06,
+   "european": 0.9
+  },
+  "skin": {
+   "tone": "light",
+   "undertone": "neutral",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "heavy",
+  "cheeks": "full",
+  "cheekbones": "average",
+  "faceWidth": "wide",
+  "nose": {
+   "width": "average",
+   "length": "long",
+   "tip": "drooping",
+   "bridge": "hump"
+  },
+  "browRidge": "strong",
+  "chin": {
+   "projection": "strong",
+   "length": "average",
+   "width": "wide"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "dark-brown",
+   "weight": "heavy"
+  },
+  "eyeShape": "hooded",
+  "eyeBags": "light",
+  "mouth": {
+   "lips": "thin",
+   "width": "wide",
+   "corners": "down"
+  },
+  "ears": {
+   "size": "large",
+   "angle": "average"
+  },
+  "skull": {
+   "shape": "square",
+   "back": "full"
+  },
+  "forehead": "high"
+ },
+ "hair": {
+  "style": "slicked",
+  "color": "dark-brown"
+ },
+ "facialHair": {
+  "style": "stubble",
+  "color": "dark-brown",
+  "density": 0.6
+ },
+ "wardrobe": {
+  "top": {
+   "item": "suit-jacket",
+   "color": "#1E2026",
+   "accent": "#14161A"
+  },
+  "bottom": {
+   "item": "suit-trousers",
+   "color": "#1E2026"
+  },
+  "shoes": {
+   "item": "dress",
+   "color": "#121214"
+  }
+ },
+ "props": [],
+ "posture": {
+  "stance": "guarded",
+  "pace": "steady",
+  "gestures": "cracks his knuckles",
+  "idle": "arms",
+  "walk": "walkHeavy"
+ },
+ "personality": {
+  "traits": [
+   "blunt",
+   "patient",
+   "loyal"
+  ],
+  "wants": "the corner quiet",
+  "speech": "few words"
+ },
+ "voice": {
+  "id": "marko-v1",
+  "description": "low and flat",
+  "pitch": "low",
+  "rate": "slow"
+ }
+}

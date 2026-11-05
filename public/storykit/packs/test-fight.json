@@ -1,0 +1,246 @@
+{
+ "storykit": 1,
+ "engine": "storykit-1",
+ "id": "test-fight",
+ "title": "Corner Work",
+ "kicker": "NEW YORK",
+ "tagline": "Three suits, one coach, no cars",
+ "city": "ny",
+ "car": "vandal",
+ "dressing": {
+  "time": "golden",
+  "season": "autumn",
+  "weather": "clear",
+  "holiday": []
+ },
+ "cast": {
+  "Nico Vale": {
+   "color": "#E0533C",
+   "role": "a boxing coach walking home",
+   "glb": "cast/test-fight/nico.glb",
+   "idle": "idle",
+   "walk": "walkCool"
+  },
+  "Vance Okafor": {
+   "color": "#5B6B8C",
+   "role": "muscle in a dark suit",
+   "glb": "cast/test-fight/vance.glb",
+   "idle": "arms",
+   "walk": "walkHeavy"
+  },
+  "Marko Lisic": {
+   "color": "#7C6A55",
+   "role": "muscle in a dark suit",
+   "glb": "cast/test-fight/marko.glb",
+   "idle": "arms",
+   "walk": "walkHeavy"
+  },
+  "Tomas Reyes": {
+   "color": "#4F7A64",
+   "role": "muscle in a dark suit",
+   "glb": "cast/test-fight/tomas.glb",
+   "idle": "arms",
+   "walk": "walkHeavy"
+  }
+ },
+ "clips": "cast/cast-clips.glb",
+ "hero": "Nico Vale",
+ "places": {
+  "the-corner": {
+   "@": "bryant",
+   "name": "the corner of 6th Ave and W 41st St"
+  }
+ },
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ACT ONE",
+   "order": [
+    "FT-1",
+    "FT-2"
+   ]
+  }
+ ],
+ "missions": [
+  {
+   "id": "FT-1",
+   "title": "Corner Work",
+   "start": {
+    "@": "the-corner",
+    "mode": "walk"
+   },
+   "traffic": 0.6,
+   "stakes": "Three men in suits want the gym's corner. Nico wants to get home.",
+   "passLine": "The corner is quiet again.",
+   "steps": [
+    {
+     "type": "say",
+     "who": "Vance Okafor",
+     "text": "Wrong corner, coach.",
+     "secs": 2.2
+    },
+    {
+     "type": "say",
+     "who": "Nico Vale",
+     "text": "Every corner's my corner. Go home.",
+     "secs": 2.4
+    },
+    {
+     "type": "fight",
+     "id": "brawl",
+     "enemies": [
+      "Vance Okafor",
+      "Marko Lisic",
+      "Tomas Reyes"
+     ],
+     "arena": "@the-corner",
+     "win": "ko-all",
+     "timer": 180,
+     "objective": "**Put all three down.**",
+     "checkpoint": true
+    },
+    {
+     "type": "say",
+     "who": "Nico Vale",
+     "text": "Tell whoever sent you the gym stays open.",
+     "secs": 2.8
+    }
+   ],
+   "city": "New York"
+  },
+  {
+   "id": "FT-2",
+   "title": "Second Wave",
+   "start": {
+    "@": "the-corner",
+    "mode": "walk"
+   },
+   "traffic": 0.6,
+   "stakes": "They came back with friends.",
+   "passLine": "Still standing.",
+   "steps": [
+    {
+     "type": "say",
+     "who": "Marko Lisic",
+     "text": "Again. All of you.",
+     "secs": 2
+    },
+    {
+     "type": "fight",
+     "enemies": [
+      "Marko Lisic",
+      "Vance Okafor",
+      "Tomas Reyes",
+      "Vance Okafor"
+     ],
+     "arena": "@the-corner",
+     "win": "survive",
+     "timer": 35,
+     "rules": "lesson"
+    }
+   ],
+   "city": "New York"
+  }
+ ],
+ "voice": {
+  "model": "kokoro-82m-v1.0",
+  "dir": "packs/test-fight/voice/",
+  "cast": {
+   "Nico Vale": {
+    "id": "nico",
+    "voice": "nico-v1",
+    "key": "5f0ad808",
+    "block": {
+     "id": "nico-v1",
+     "base": "am_michael",
+     "blend": {
+      "am_michael": 0.6,
+      "am_liam": 0.4
+     },
+     "speed": 1.02,
+     "pitch": -0.4,
+     "description": "a man near thirty, even and a little hoarse, never in a hurry"
+    }
+   },
+   "Vance Okafor": {
+    "id": "vance",
+    "voice": "vance-v1",
+    "key": "cb3d29a7",
+    "block": {
+     "id": "vance-v1",
+     "base": "am_onyx",
+     "blend": {
+      "am_onyx": 1
+     },
+     "speed": 0.94,
+     "pitch": -1.6,
+     "description": "a big man, low and flat"
+    }
+   },
+   "Marko Lisic": {
+    "id": "marko",
+    "voice": "marko-v1",
+    "key": "75917209",
+    "block": {
+     "id": "marko-v1",
+     "base": "am_fenrir",
+     "blend": {
+      "am_fenrir": 1
+     },
+     "speed": 0.97,
+     "pitch": -0.6,
+     "description": "a heavy man in his forties, gravel and slow"
+    }
+   },
+   "Tomas Reyes": {
+    "id": "tomas",
+    "voice": "tomas-v1",
+    "key": "2b0fa412",
+    "block": {
+     "id": "tomas-v1",
+     "base": "am_eric",
+     "blend": {
+      "am_eric": 1
+     },
+     "speed": 1.08,
+     "pitch": 0.4,
+     "description": "a quick young man, clipped and sure of himself"
+    }
+   }
+  },
+  "lines": [
+   {
+    "id": "FT-1.s0",
+    "who": "Vance Okafor",
+    "voice": "vance-v1",
+    "text": "Wrong corner, coach.",
+    "hash": "2a15b6af",
+    "clip": "2a15b6af-cb3d29a7"
+   },
+   {
+    "id": "FT-1.s1",
+    "who": "Nico Vale",
+    "voice": "nico-v1",
+    "text": "Every corner's my corner. Go home.",
+    "hash": "efaf8bdf",
+    "clip": "efaf8bdf-5f0ad808"
+   },
+   {
+    "id": "FT-1.s3",
+    "who": "Nico Vale",
+    "voice": "nico-v1",
+    "text": "Tell whoever sent you the gym stays open.",
+    "hash": "56c479d3",
+    "clip": "56c479d3-5f0ad808"
+   },
+   {
+    "id": "FT-2.s0",
+    "who": "Marko Lisic",
+    "voice": "marko-v1",
+    "text": "Again. All of you.",
+    "hash": "094ba2f4",
+    "clip": "094ba2f4-75917209"
+   }
+  ]
+ }
+}

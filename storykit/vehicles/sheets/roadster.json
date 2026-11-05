@@ -1,0 +1,15 @@
+{
+  "v": 1, "id": "rides.roadster", "label": "Roadster", "noun": "car", "family": "car4", "class": "supercar", "era": 2026, "condition": "showroom",
+  "body": { "rear": "fastback", "doors": 2, "doorType": "up", "crease": "single", "hood": "flat", "aero": "none", "trim": "black" },
+  "face": { "lamps": "slim-led", "grille": "closed-ev", "bumper": "body", "fog": false },
+  "tail": { "lamps": "full-width", "exhaust": "none", "plate": "center" },
+  "paint": { "base": "#E9E9E6", "finish": "satin", "second": "#0B0C0D", "split": "lower" },
+  "wheels": { "style": "turbine", "finish": "black", "tyre": "low-profile" },
+  "interior": { "seat": "#1A1A1C", "material": "alcantara", "dash": "screen", "wheel": "yoke" },
+  "props": [],
+  "sound": { "engine": "v8", "character": 0 },
+  "handling": { "pace": 0.85, "pull": 0.85, "grip": 0.87, "weight": -0.27, "turnIn": 0.67, "brakes": 0.58, "character": "planted" },
+  "abilities": ["boost", "hop", "dash"],
+  "story": { "owner": "hero", "nickname": "the Wedge", "oneLine": "A knife-nosed electric wedge with a rocket package across the tail." },
+  "plate": "WEDGE"
+}

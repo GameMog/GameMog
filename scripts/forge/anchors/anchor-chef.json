@@ -1,0 +1,117 @@
+{
+ "id": "anchor-chef",
+ "name": "Lucía Ibarra",
+ "role": "anchor: chef",
+ "logline": "Forty-three, owns a twelve-table kitchen and the alley behind it, feeds half the block on credit.",
+ "identity": {
+  "age": 43,
+  "body": "female",
+  "presentation": "woman",
+  "heightCm": 163,
+  "build": {
+   "frame": "medium",
+   "weight": "stocky",
+   "muscle": "strong"
+  }
+ },
+ "heritage": {
+  "note": "Mexican-American",
+  "blend": {
+   "african": 0.08,
+   "asian": 0.37,
+   "european": 0.55
+  },
+  "skin": {
+   "tone": "light-medium",
+   "undertone": "olive",
+   "weathered": true,
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "square",
+  "cheeks": "average",
+  "cheekbones": "high",
+  "faceWidth": "wide",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "hump"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "strong",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "black",
+   "weight": "heavy"
+  },
+  "eyeShape": "hooded",
+  "eyeBags": "light",
+  "mouth": {
+   "lips": "average",
+   "width": "wide",
+   "corners": "down"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "average"
+  },
+  "skull": {
+   "shape": "square"
+  },
+  "forehead": "average",
+  "jawWidth": "wide",
+  "faceLength": "short"
+ },
+ "hair": {
+  "style": "bun",
+  "color": "dark-brown",
+  "greying": 0.15
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "chef-jacket",
+   "color": "#ECEBE6"
+  },
+  "bottom": {
+   "item": "loose-trousers",
+   "color": "#262628"
+  },
+  "shoes": {
+   "item": "work-boots",
+   "color": "#1A1816"
+  }
+ },
+ "posture": {
+  "stance": "proud",
+  "pace": "steady",
+  "gestures": "wipes her hands on the apron, points with a spoon",
+  "idle": "arms",
+  "walk": "walkHeavy"
+ },
+ "personality": {
+  "traits": [
+   "blunt",
+   "generous",
+   "proud",
+   "shrewd"
+  ],
+  "wants": "the lease renewed, and the men who keep asking for \"protection\" gone",
+  "speech": "loud in the kitchen, low and slow when it matters"
+ },
+ "voice": {
+  "id": "anchor-chef-v1",
+  "description": "husky alto, unhurried, warm when she wants",
+  "pitch": "mid-low",
+  "rate": "steady"
+ }
+}

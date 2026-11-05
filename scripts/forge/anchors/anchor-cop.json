@@ -1,0 +1,125 @@
+{
+ "id": "anchor-cop",
+ "name": "Sgt. Ray Delgado",
+ "role": "anchor: beat cop",
+ "logline": "Forty-six, twenty years on the same beat, tired of the job and still good at it.",
+ "identity": {
+  "age": 46,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 186,
+  "build": {
+   "frame": "broad",
+   "weight": "stocky",
+   "muscle": "strong"
+  }
+ },
+ "heritage": {
+  "note": "Mexican-American",
+  "blend": {
+   "african": 0.1,
+   "asian": 0.3,
+   "european": 0.6
+  },
+  "skin": {
+   "tone": "tan",
+   "undertone": "olive",
+   "weathered": true,
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "square",
+  "cheeks": "average",
+  "cheekbones": "high",
+  "faceWidth": "wide",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "hump"
+  },
+  "browRidge": "strong",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "wide"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "black",
+   "weight": "heavy"
+  },
+  "eyeShape": "deep-set",
+  "eyeBags": "light",
+  "mouth": {
+   "lips": "thin",
+   "width": "average",
+   "corners": "down"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "average"
+  },
+  "skull": {
+   "shape": "square"
+  },
+  "forehead": "low",
+  "jawWidth": "wide",
+  "eyeSpacing": "close"
+ },
+ "hair": {
+  "style": "buzz",
+  "color": "black",
+  "greying": 0.2
+ },
+ "facialHair": {
+  "style": "moustache",
+  "color": "black",
+  "density": 0.8
+ },
+ "wardrobe": {
+  "top": {
+   "item": "uniform-jacket",
+   "color": "#1F2A44",
+   "accent": "#C9A646"
+  },
+  "bottom": {
+   "item": "trousers",
+   "color": "#1B2236"
+  },
+  "headwear": {
+   "item": "peaked-cap",
+   "color": "#1C2640",
+   "accent": "#C9A646"
+  },
+  "shoes": {
+   "item": "boots",
+   "color": "#1A1816"
+  }
+ },
+ "posture": {
+  "stance": "guarded",
+  "pace": "steady",
+  "gestures": "thumbs in his belt, chin-points",
+  "idle": "arms",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "tired",
+   "fair",
+   "dry",
+   "stubborn"
+  ],
+  "wants": "to make it to his pension without burying anyone else",
+  "speech": "flat, dry, short sentences"
+ },
+ "voice": {
+  "id": "anchor-cop-v1",
+  "description": "gravel baritone, flat",
+  "pitch": "mid-low",
+  "rate": "steady"
+ }
+}

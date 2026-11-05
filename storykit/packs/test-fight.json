@@ -1,0 +1,653 @@
+{
+ "storykit": 2,
+ "id": "test-fight",
+ "title": "Corner Work",
+ "kicker": "NEW YORK",
+ "tagline": "Three suits, one coach, no cars",
+ "base": {
+  "engine": "storykit-1",
+  "city": "ny",
+  "cityBuild": "ny-bc7d0b3-1"
+ },
+ "dressing": {
+  "time": "golden",
+  "season": "autumn",
+  "weather": "clear",
+  "holiday": []
+ },
+ "hero": "nico",
+ "ride": "vandal",
+ "places": {
+  "the-corner": {
+   "@": "bryant",
+   "name": "the corner of 6th Ave and W 41st St"
+  }
+ },
+ "cast": [
+  {
+   "id": "nico",
+   "anchor": "young-hero",
+   "color": "#E0533C",
+   "voice": {
+    "id": "nico-v1",
+    "blend": {
+     "am_michael": 0.6,
+     "am_liam": 0.4
+    },
+    "speed": 1.02,
+    "pitch": -0.4,
+    "description": "a man near thirty, even and a little hoarse, never in a hurry"
+   },
+   "sheet": {
+    "id": "nico",
+    "name": "Nico Vale",
+    "role": "a boxing coach walking home",
+    "logline": "Twenty-nine, keeps a gym open on Ninth Avenue with his own money, and never walks around a problem.",
+    "identity": {
+     "age": 29,
+     "body": "male",
+     "presentation": "man",
+     "heightCm": 181,
+     "build": {
+      "frame": "medium",
+      "weight": "slim",
+      "muscle": "athletic"
+     }
+    },
+    "heritage": {
+     "note": "Caribbean and Italian mix",
+     "blend": {
+      "african": 0.35,
+      "asian": 0.1,
+      "european": 0.55
+     },
+     "skin": {
+      "tone": "medium",
+      "undertone": "warm",
+      "makeup": "none",
+      "lipTint": "natural"
+     }
+    },
+    "face": {
+     "jaw": "square",
+     "cheeks": "average",
+     "cheekbones": "high",
+     "faceWidth": "wide",
+     "nose": {
+      "width": "average",
+      "length": "average",
+      "tip": "average",
+      "bridge": "hump"
+     },
+     "browRidge": "strong",
+     "chin": {
+      "projection": "average",
+      "length": "average",
+      "width": "wide"
+     },
+     "eyes": "brown",
+     "brows": {
+      "color": "black",
+      "weight": "average"
+     },
+     "eyeShape": "deep-set",
+     "eyeBags": "light",
+     "mouth": {
+      "lips": "thin",
+      "width": "average",
+      "corners": "down"
+     },
+     "ears": {
+      "size": "average",
+      "angle": "average"
+     },
+     "skull": {
+      "shape": "square"
+     },
+     "forehead": "low"
+    },
+    "hair": {
+     "style": "short-curly",
+     "color": "black"
+    },
+    "facialHair": {
+     "style": "stubble",
+     "color": "black",
+     "density": 0.5
+    },
+    "wardrobe": {
+     "top": {
+      "item": "long-sleeve",
+      "color": "#7A2E2A"
+     },
+     "bottom": {
+      "item": "track-pants",
+      "color": "#22252B",
+      "accent": "#D8D8D8"
+     },
+     "shoes": {
+      "item": "white-sneakers",
+      "color": "#E9E9E6",
+      "accent": "#7A2E2A"
+     }
+    },
+    "posture": {
+     "stance": "proud",
+     "pace": "quick",
+     "gestures": "rolls his shoulders",
+     "idle": "idle",
+     "walk": "walkCool"
+    },
+    "personality": {
+     "traits": [
+      "steady",
+      "dry",
+      "protective"
+     ],
+     "wants": "the gym to make rent",
+     "speech": "short and even"
+    },
+    "voice": {
+     "id": "nico-v1",
+     "description": "young, even, a little hoarse",
+     "pitch": "mid-low",
+     "rate": "steady"
+    }
+   }
+  },
+  {
+   "id": "vance",
+   "anchor": "cop",
+   "color": "#5B6B8C",
+   "voice": {
+    "id": "vance-v1",
+    "kokoro": "am_onyx",
+    "speed": 0.94,
+    "pitch": -1.6,
+    "description": "a big man, low and flat"
+   },
+   "sheet": {
+    "id": "vance",
+    "name": "Vance Okafor",
+    "role": "muscle in a dark suit",
+    "logline": "38, paid by the hour to stand on a corner and make problems go away.",
+    "identity": {
+     "age": 38,
+     "body": "male",
+     "presentation": "man",
+     "heightCm": 188,
+     "build": {
+      "frame": "broad",
+      "weight": "stocky",
+      "muscle": "strong"
+     }
+    },
+    "heritage": {
+     "note": "mixed",
+     "blend": {
+      "african": 0.7,
+      "asian": 0.05,
+      "european": 0.25
+     },
+     "skin": {
+      "tone": "dark-brown",
+      "undertone": "warm",
+      "makeup": "none",
+      "lipTint": "natural"
+     }
+    },
+    "face": {
+     "jaw": "square",
+     "cheeks": "average",
+     "cheekbones": "average",
+     "faceWidth": "wide",
+     "nose": {
+      "width": "wide",
+      "length": "average",
+      "tip": "average",
+      "bridge": "straight"
+     },
+     "browRidge": "strong",
+     "chin": {
+      "projection": "strong",
+      "length": "average",
+      "width": "wide"
+     },
+     "eyes": "dark-brown",
+     "brows": {
+      "color": "black",
+      "weight": "heavy"
+     },
+     "eyeShape": "hooded",
+     "eyeBags": "light",
+     "mouth": {
+      "lips": "thin",
+      "width": "wide",
+      "corners": "down"
+     },
+     "ears": {
+      "size": "large",
+      "angle": "average"
+     },
+     "skull": {
+      "shape": "square",
+      "back": "full"
+     },
+     "forehead": "high"
+    },
+    "hair": {
+     "style": "buzz",
+     "color": "black"
+    },
+    "facialHair": {
+     "style": "short-boxed",
+     "color": "black",
+     "density": 0.8
+    },
+    "wardrobe": {
+     "top": {
+      "item": "suit-jacket",
+      "color": "#1E2026",
+      "accent": "#14161A"
+     },
+     "bottom": {
+      "item": "suit-trousers",
+      "color": "#1E2026"
+     },
+     "shoes": {
+      "item": "dress",
+      "color": "#121214"
+     }
+    },
+    "props": [
+     {
+      "kind": "earpiece"
+     }
+    ],
+    "posture": {
+     "stance": "guarded",
+     "pace": "steady",
+     "gestures": "cracks his knuckles",
+     "idle": "arms",
+     "walk": "walkHeavy"
+    },
+    "personality": {
+     "traits": [
+      "blunt",
+      "patient",
+      "loyal"
+     ],
+     "wants": "the corner quiet",
+     "speech": "few words"
+    },
+    "voice": {
+     "id": "vance-v1",
+     "description": "low and flat",
+     "pitch": "low",
+     "rate": "slow"
+    }
+   }
+  },
+  {
+   "id": "marko",
+   "anchor": "old-boss",
+   "color": "#7C6A55",
+   "voice": {
+    "id": "marko-v1",
+    "kokoro": "am_fenrir",
+    "speed": 0.97,
+    "pitch": -0.6,
+    "description": "a heavy man in his forties, gravel and slow"
+   },
+   "sheet": {
+    "id": "marko",
+    "name": "Marko Lisic",
+    "role": "muscle in a dark suit",
+    "logline": "44, paid by the hour to stand on a corner and make problems go away.",
+    "identity": {
+     "age": 44,
+     "body": "male",
+     "presentation": "man",
+     "heightCm": 183,
+     "build": {
+      "frame": "broad",
+      "weight": "heavy",
+      "muscle": "average"
+     }
+    },
+    "heritage": {
+     "note": "mixed",
+     "blend": {
+      "african": 0.04,
+      "asian": 0.06,
+      "european": 0.9
+     },
+     "skin": {
+      "tone": "light",
+      "undertone": "neutral",
+      "makeup": "none",
+      "lipTint": "natural"
+     }
+    },
+    "face": {
+     "jaw": "heavy",
+     "cheeks": "full",
+     "cheekbones": "average",
+     "faceWidth": "wide",
+     "nose": {
+      "width": "average",
+      "length": "long",
+      "tip": "drooping",
+      "bridge": "hump"
+     },
+     "browRidge": "strong",
+     "chin": {
+      "projection": "strong",
+      "length": "average",
+      "width": "wide"
+     },
+     "eyes": "dark-brown",
+     "brows": {
+      "color": "dark-brown",
+      "weight": "heavy"
+     },
+     "eyeShape": "hooded",
+     "eyeBags": "light",
+     "mouth": {
+      "lips": "thin",
+      "width": "wide",
+      "corners": "down"
+     },
+     "ears": {
+      "size": "large",
+      "angle": "average"
+     },
+     "skull": {
+      "shape": "square",
+      "back": "full"
+     },
+     "forehead": "high"
+    },
+    "hair": {
+     "style": "slicked",
+     "color": "dark-brown"
+    },
+    "facialHair": {
+     "style": "stubble",
+     "color": "dark-brown",
+     "density": 0.6
+    },
+    "wardrobe": {
+     "top": {
+      "item": "suit-jacket",
+      "color": "#1E2026",
+      "accent": "#14161A"
+     },
+     "bottom": {
+      "item": "suit-trousers",
+      "color": "#1E2026"
+     },
+     "shoes": {
+      "item": "dress",
+      "color": "#121214"
+     }
+    },
+    "props": [],
+    "posture": {
+     "stance": "guarded",
+     "pace": "steady",
+     "gestures": "cracks his knuckles",
+     "idle": "arms",
+     "walk": "walkHeavy"
+    },
+    "personality": {
+     "traits": [
+      "blunt",
+      "patient",
+      "loyal"
+     ],
+     "wants": "the corner quiet",
+     "speech": "few words"
+    },
+    "voice": {
+     "id": "marko-v1",
+     "description": "low and flat",
+     "pitch": "low",
+     "rate": "slow"
+    }
+   }
+  },
+  {
+   "id": "tomas",
+   "anchor": "young-hero",
+   "color": "#4F7A64",
+   "voice": {
+    "id": "tomas-v1",
+    "kokoro": "am_eric",
+    "speed": 1.08,
+    "pitch": 0.4,
+    "description": "a quick young man, clipped and sure of himself"
+   },
+   "sheet": {
+    "id": "tomas",
+    "name": "Tomas Reyes",
+    "role": "muscle in a dark suit",
+    "logline": "31, paid by the hour to stand on a corner and make problems go away.",
+    "identity": {
+     "age": 31,
+     "body": "male",
+     "presentation": "man",
+     "heightCm": 178,
+     "build": {
+      "frame": "medium",
+      "weight": "average",
+      "muscle": "athletic"
+     }
+    },
+    "heritage": {
+     "note": "mixed",
+     "blend": {
+      "african": 0.15,
+      "asian": 0.25,
+      "european": 0.6
+     },
+     "skin": {
+      "tone": "tan",
+      "undertone": "olive",
+      "makeup": "none",
+      "lipTint": "natural"
+     }
+    },
+    "face": {
+     "jaw": "average",
+     "cheeks": "hollow",
+     "cheekbones": "average",
+     "faceWidth": "wide",
+     "nose": {
+      "width": "average",
+      "length": "average",
+      "tip": "average",
+      "bridge": "straight"
+     },
+     "browRidge": "strong",
+     "chin": {
+      "projection": "strong",
+      "length": "average",
+      "width": "wide"
+     },
+     "eyes": "dark-brown",
+     "brows": {
+      "color": "black",
+      "weight": "heavy"
+     },
+     "eyeShape": "hooded",
+     "eyeBags": "light",
+     "mouth": {
+      "lips": "thin",
+      "width": "wide",
+      "corners": "down"
+     },
+     "ears": {
+      "size": "large",
+      "angle": "average"
+     },
+     "skull": {
+      "shape": "square",
+      "back": "full"
+     },
+     "forehead": "high"
+    },
+    "hair": {
+     "style": "short",
+     "color": "black"
+    },
+    "facialHair": {
+     "style": "moustache",
+     "color": "black",
+     "density": 0.8
+    },
+    "wardrobe": {
+     "top": {
+      "item": "suit-jacket",
+      "color": "#1E2026",
+      "accent": "#14161A"
+     },
+     "bottom": {
+      "item": "suit-trousers",
+      "color": "#1E2026"
+     },
+     "shoes": {
+      "item": "dress",
+      "color": "#121214"
+     }
+    },
+    "props": [
+     {
+      "kind": "earpiece"
+     }
+    ],
+    "posture": {
+     "stance": "guarded",
+     "pace": "steady",
+     "gestures": "cracks his knuckles",
+     "idle": "arms",
+     "walk": "walkHeavy"
+    },
+    "personality": {
+     "traits": [
+      "blunt",
+      "patient",
+      "loyal"
+     ],
+     "wants": "the corner quiet",
+     "speech": "few words"
+    },
+    "voice": {
+     "id": "tomas-v1",
+     "description": "low and flat",
+     "pitch": "low",
+     "rate": "slow"
+    }
+   }
+  }
+ ],
+ "vehicles": [
+  {
+   "stock": "vandal"
+  }
+ ],
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ACT ONE",
+   "missions": [
+    {
+     "id": "FT-1",
+     "title": "Corner Work",
+     "vehicle": "on-foot",
+     "verbs": [
+      "walk",
+      "fight"
+     ],
+     "start": {
+      "@": "the-corner",
+      "mode": "walk"
+     },
+     "traffic": 0.6,
+     "stakes": "Three men in suits want the gym's corner. Nico wants to get home.",
+     "passLine": "The corner is quiet again.",
+     "steps": [
+      {
+       "type": "say",
+       "who": "vance",
+       "text": "Wrong corner, coach.",
+       "secs": 2.2
+      },
+      {
+       "type": "say",
+       "who": "nico",
+       "text": "Every corner's my corner. Go home.",
+       "secs": 2.4
+      },
+      {
+       "type": "fight",
+       "id": "brawl",
+       "enemies": [
+        "vance",
+        "marko",
+        "tomas"
+       ],
+       "arena": "@the-corner",
+       "win": "ko-all",
+       "timer": 180,
+       "objective": "**Put all three down.**",
+       "checkpoint": true
+      },
+      {
+       "type": "say",
+       "who": "nico",
+       "text": "Tell whoever sent you the gym stays open.",
+       "secs": 2.8
+      }
+     ]
+    },
+    {
+     "id": "FT-2",
+     "title": "Second Wave",
+     "vehicle": "on-foot",
+     "verbs": [
+      "fight"
+     ],
+     "start": {
+      "@": "the-corner",
+      "mode": "walk"
+     },
+     "traffic": 0.6,
+     "stakes": "They came back with friends.",
+     "passLine": "Still standing.",
+     "steps": [
+      {
+       "type": "say",
+       "who": "marko",
+       "text": "Again. All of you.",
+       "secs": 2
+      },
+      {
+       "type": "fight",
+       "enemies": [
+        "marko",
+        "vance",
+        "tomas",
+        "vance"
+       ],
+       "arena": "@the-corner",
+       "win": "survive",
+       "timer": 35,
+       "rules": "lesson"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

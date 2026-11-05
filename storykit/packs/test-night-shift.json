@@ -1,0 +1,1002 @@
+{
+ "storykit": 2,
+ "id": "test-night-shift",
+ "title": "Night Shift",
+ "kicker": "NEW YORK",
+ "tagline": "One cab, one fare, one snowy night",
+ "base": {
+  "engine": "storykit-1",
+  "city": "ny",
+  "cityBuild": "ny-bc7d0b3-1"
+ },
+ "dressing": {
+  "time": "midnight",
+  "season": "winter",
+  "weather": "snow",
+  "holiday": []
+ },
+ "hero": "dez",
+ "ride": "rides.night-cab",
+ "hud": {
+  "clock": {
+   "label": "NIGHT",
+   "format": "count",
+   "unit": "night",
+   "unitLabel": "NIGHT"
+  },
+  "meters": [
+   {
+    "id": "cash",
+    "label": "FARES",
+    "kind": "money",
+    "start": 0
+   },
+   {
+    "id": "trust",
+    "label": "TRUST",
+    "kind": "bar",
+    "start": 40
+   }
+  ]
+ },
+ "places": {
+  "kwon-corner": {
+   "@": "les",
+   "name": "Orchard St & Rivington St"
+  },
+  "kwon-home": {
+   "@": "westvillage",
+   "name": "the green door on Bank St"
+  }
+ },
+ "cast": [
+  {
+   "id": "dez",
+   "anchor": "driver",
+   "color": "#F2C14E",
+   "voice": {
+    "id": "dez-v1",
+    "blend": {
+     "am_michael": 0.55,
+     "am_puck": 0.3,
+     "am_liam": 0.15
+    },
+    "speed": 1.06,
+    "pitch": -0.5,
+    "description": "a young man in his twenties, warm mid baritone, quick and dry, a little tired by the small hours"
+   },
+   "sheet": {
+    "id": "dez",
+    "name": "Dez Amaro",
+    "role": "night-shift cab driver",
+    "logline": "Twenty-four, five years of nights in the same yellow cab, and one more fare before he goes home.",
+    "identity": {
+     "age": 24,
+     "body": "male",
+     "presentation": "man",
+     "heightCm": 182,
+     "build": {
+      "frame": "medium",
+      "weight": "slim",
+      "muscle": "athletic"
+     }
+    },
+    "heritage": {
+     "note": "mixed West African / Latin American",
+     "blend": {
+      "african": 0.4,
+      "asian": 0.15,
+      "european": 0.45
+     },
+     "skin": {
+      "tone": "tan",
+      "undertone": "warm",
+      "makeup": "none",
+      "lipTint": "natural"
+     }
+    },
+    "face": {
+     "jaw": "square",
+     "cheeks": "average",
+     "cheekbones": "high",
+     "faceWidth": "average",
+     "nose": {
+      "width": "average",
+      "length": "average",
+      "tip": "average",
+      "bridge": "straight"
+     },
+     "browRidge": "average",
+     "chin": {
+      "projection": "strong",
+      "length": "average",
+      "width": "average"
+     },
+     "eyes": "brown",
+     "brows": {
+      "color": "black",
+      "weight": "average"
+     },
+     "eyeShape": "almond",
+     "eyeBags": "none",
+     "mouth": {
+      "lips": "full",
+      "width": "average",
+      "cupidsBow": "defined",
+      "corners": "neutral"
+     },
+     "ears": {
+      "size": "average",
+      "angle": "flat"
+     },
+     "skull": {
+      "shape": "oval"
+     },
+     "forehead": "average"
+    },
+    "hair": {
+     "style": "short-curly",
+     "color": "black"
+    },
+    "facialHair": {
+     "style": "stubble",
+     "color": "black",
+     "density": 0.55
+    },
+    "wardrobe": {
+     "top": {
+      "item": "hoodie",
+      "color": "#3B4A3A",
+      "accent": "#E6E4DE"
+     },
+     "bottom": {
+      "item": "jeans",
+      "color": "#2C3646"
+     },
+     "shoes": {
+      "item": "white-sneakers"
+     }
+    },
+    "posture": {
+     "stance": "relaxed",
+     "pace": "quick",
+     "gestures": "talks with his hands, shrugs a lot",
+     "idle": "shift",
+     "walk": "walkCool"
+    },
+    "personality": {
+     "traits": [
+      "steady",
+      "kind",
+      "dry",
+      "stubborn"
+     ],
+     "wants": "to get home before the snow closes the bridges",
+     "speech": "easy, low, a joke under most lines"
+    },
+    "voice": {
+     "id": "dez-v1",
+     "description": "warm mid baritone, quick",
+     "pitch": "mid",
+     "rate": "quick"
+    }
+   }
+  },
+  {
+   "id": "kwon",
+   "anchor": "grandmother",
+   "color": "#E8726A",
+   "voice": {
+    "id": "kwon-v1",
+    "blend": {
+     "af_nicole": 0.5,
+     "af_kore": 0.3,
+     "af_sarah": 0.2
+    },
+    "speed": 1.02,
+    "pitch": 0.8,
+    "description": "a small older woman, bright alto with a little rasp, quick and polite, steel under it"
+   },
+   "sheet": {
+    "id": "kwon",
+    "name": "Mrs. Kwon",
+    "role": "the last fare of the night",
+    "logline": "Sixty-eight, runs a laundromat on Orchard Street, and carries fifty years of its books in one bag.",
+    "identity": {
+     "age": 68,
+     "body": "female",
+     "presentation": "older woman",
+     "heightCm": 151,
+     "build": {
+      "frame": "small",
+      "weight": "slim",
+      "muscle": "average"
+     }
+    },
+    "heritage": {
+     "note": "Korean",
+     "blend": {
+      "african": 0.03,
+      "asian": 0.9,
+      "european": 0.07
+     },
+     "skin": {
+      "tone": "light-medium",
+      "undertone": "warm",
+      "weathered": true,
+      "makeup": "natural",
+      "lipTint": "rose"
+     }
+    },
+    "face": {
+     "jaw": "soft",
+     "cheeks": "average",
+     "cheekbones": "high",
+     "faceWidth": "wide",
+     "nose": {
+      "width": "average",
+      "length": "short",
+      "tip": "average"
+     },
+     "browRidge": "soft",
+     "chin": {
+      "projection": "average",
+      "length": "short"
+     },
+     "eyes": "dark-brown",
+     "brows": {
+      "color": "grey",
+      "weight": "fine"
+     },
+     "eyeShape": "monolid",
+     "mouth": {
+      "lips": "thin",
+      "corners": "down"
+     },
+     "skull": {
+      "shape": "round"
+     },
+     "forehead": "high"
+    },
+    "hair": {
+     "style": "bob-tucked",
+     "color": "salt-and-pepper",
+     "greying": 0.55
+    },
+    "facialHair": {
+     "style": "none"
+    },
+    "wardrobe": {
+     "top": {
+      "item": "puffer-coat",
+      "color": "#B3202B"
+     },
+     "bottom": {
+      "item": "loose-trousers",
+      "color": "#2E2B2A"
+     },
+     "headwear": {
+      "item": "knit-beanie",
+      "color": "#E9E1D2"
+     },
+     "shoes": {
+      "item": "work-shoes"
+     }
+    },
+    "posture": {
+     "stance": "upright",
+     "pace": "quick",
+     "gestures": "short, decisive points; hands tucked in her sleeves when she listens",
+     "idle": "idle",
+     "walk": "walk"
+    },
+    "personality": {
+     "traits": [
+      "sharp",
+      "proud",
+      "frightened",
+      "warm"
+     ],
+     "wants": "her shop's books somewhere safe before morning",
+     "speech": "clipped and polite, then very direct"
+    },
+    "voice": {
+     "id": "kwon-v1",
+     "description": "small bright alto, quick, a little rasp",
+     "pitch": "mid-high",
+     "rate": "quick",
+     "accent": "Korean-American, Queens"
+    }
+   }
+  },
+  {
+   "id": "ray",
+   "anchor": "cop",
+   "color": "#86A8E0",
+   "voice": {
+    "id": "ray-v1",
+    "blend": {
+     "am_onyx": 0.6,
+     "am_michael": 0.25,
+     "bm_lewis": 0.15
+    },
+    "speed": 0.92,
+    "pitch": -1,
+    "description": "a tired baritone in his forties, gravel in it, flat and short, kind underneath"
+   },
+   "sheet": {
+    "id": "ray",
+    "name": "Sgt. Ray Ortega",
+    "role": "precinct sergeant and an old friend",
+    "logline": "Forty-six, twenty years in the same precinct, still calls Dez on slow nights.",
+    "identity": {
+     "age": 46,
+     "body": "male",
+     "presentation": "man",
+     "heightCm": 184,
+     "build": {
+      "frame": "broad",
+      "weight": "stocky",
+      "muscle": "strong"
+     }
+    },
+    "heritage": {
+     "note": "Mexican-American",
+     "blend": {
+      "african": 0.1,
+      "asian": 0.3,
+      "european": 0.6
+     },
+     "skin": {
+      "tone": "tan",
+      "undertone": "olive",
+      "weathered": true,
+      "makeup": "none",
+      "lipTint": "natural"
+     }
+    },
+    "face": {
+     "jaw": "square",
+     "cheeks": "average",
+     "cheekbones": "high",
+     "faceWidth": "wide",
+     "nose": {
+      "width": "average",
+      "length": "average",
+      "tip": "average",
+      "bridge": "hump"
+     },
+     "browRidge": "strong",
+     "chin": {
+      "projection": "average",
+      "length": "average",
+      "width": "wide"
+     },
+     "eyes": "dark-brown",
+     "brows": {
+      "color": "black",
+      "weight": "heavy"
+     },
+     "eyeShape": "deep-set",
+     "eyeBags": "light",
+     "mouth": {
+      "lips": "thin",
+      "width": "average",
+      "corners": "down"
+     },
+     "ears": {
+      "size": "average",
+      "angle": "average"
+     },
+     "skull": {
+      "shape": "square"
+     },
+     "forehead": "low"
+    },
+    "hair": {
+     "style": "buzz",
+     "color": "black",
+     "greying": 0.2
+    },
+    "facialHair": {
+     "style": "moustache",
+     "color": "black",
+     "density": 0.8
+    },
+    "wardrobe": {
+     "top": {
+      "item": "uniform-jacket",
+      "color": "#1F2A44",
+      "accent": "#C9A646"
+     },
+     "bottom": {
+      "item": "trousers",
+      "color": "#1B2236"
+     },
+     "headwear": {
+      "item": "peaked-cap",
+      "color": "#1C2640",
+      "accent": "#C9A646"
+     },
+     "shoes": {
+      "item": "boots",
+      "color": "#1A1816"
+     }
+    },
+    "posture": {
+     "stance": "guarded",
+     "pace": "steady",
+     "gestures": "thumbs in his belt, chin-points",
+     "idle": "arms",
+     "walk": "walk"
+    },
+    "personality": {
+     "traits": [
+      "tired",
+      "fair",
+      "dry",
+      "stubborn"
+     ],
+     "wants": "to make it to his pension without burying anyone else",
+     "speech": "flat, dry, short sentences"
+    },
+    "voice": {
+     "id": "ray-v1",
+     "description": "gravel baritone, flat",
+     "pitch": "mid-low",
+     "rate": "steady"
+    }
+   }
+  }
+ ],
+ "vehicles": [
+  {
+   "v": 1,
+   "id": "rides.night-cab",
+   "label": "Night Cab",
+   "noun": "cab",
+   "family": "car4",
+   "class": "taxi",
+   "era": 1996,
+   "condition": "tired",
+   "body": {
+    "rear": "notchback",
+    "doors": 4,
+    "trim": "chrome",
+    "crease": "single",
+    "hood": "flat"
+   },
+   "face": {
+    "lamps": "square",
+    "grille": "egg-crate",
+    "bumper": "black-plastic",
+    "fog": false
+   },
+   "tail": {
+    "lamps": "wrap",
+    "exhaust": "single",
+    "plate": "center"
+   },
+   "paint": {
+    "base": "#F2B90F",
+    "finish": "gloss",
+    "livery": {
+     "kind": "taxi",
+     "text": "TAXI",
+     "number": "4K21"
+    }
+   },
+   "wheels": {
+    "style": "steel-hubcap",
+    "finish": "silver",
+    "tyre": "road"
+   },
+   "interior": {
+    "seat": "#2D2A27",
+    "material": "vinyl",
+    "dash": "analog",
+    "wheel": "four-spoke",
+    "partition": true
+   },
+   "props": [
+    "air-freshener",
+    "coffee-cups",
+    "clipboard"
+   ],
+   "sound": {
+    "engine": "v8",
+    "character": -0.4,
+    "gears": 4
+   },
+   "handling": {
+    "pace": -0.2,
+    "pull": -0.45,
+    "grip": -0.5,
+    "weight": 0.4,
+    "turnIn": -0.45,
+    "brakes": -0.4,
+    "character": "floaty"
+   },
+   "abilities": [
+    "boost"
+   ],
+   "story": {
+    "owner": "driver",
+    "nickname": "Four K",
+    "oneLine": "A nineties yellow cab on its third engine, a bulletproof divider and a pine tree that smells of nothing now."
+   },
+   "plate": "T 4K21"
+  }
+ ],
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ONE NIGHT",
+   "timeline": {
+    "NS-1": {
+     "at": 1,
+     "clock": "12:40 AM",
+     "time": "midnight"
+    },
+    "NS-2": {
+     "at": 1,
+     "clock": "1:05 AM",
+     "time": "midnight",
+     "skip": "Five minutes later"
+    },
+    "NS-3": {
+     "at": 1,
+     "clock": "1:30 AM",
+     "time": "midnight",
+     "skip": "Twenty minutes later"
+    }
+   },
+   "end": {
+    "title": "Night Shift",
+    "stats": [
+     {
+      "label": "NIGHTS",
+      "value": "1"
+     },
+     {
+      "label": "FARES",
+      "value": "1"
+     }
+    ],
+    "story": [
+     "The snow stopped at three. The books are behind a green door on Bank Street."
+    ],
+    "quote": {
+     "text": "Fifty years of books, and a cab driver kept them.",
+     "by": "kwon"
+    },
+    "meter": "trust",
+    "minSecs": 4
+   },
+   "missions": [
+    {
+     "id": "NS-1",
+     "title": "Last Fare",
+     "vehicle": "rides.night-cab",
+     "verbs": [
+      "drive",
+      "carry"
+     ],
+     "start": {
+      "@": "bowery",
+      "face": "ludlow"
+     },
+     "traffic": 0.35,
+     "stakes": "One more fare before the snow closes the city.",
+     "passLine": "Mrs. Kwon is at Foley Square.",
+     "reward": {
+      "meters": {
+       "cash": 24
+      }
+     },
+     "steps": [
+      {
+       "type": "say",
+       "who": "dez",
+       "text": "Last fare, then home. It's sticking now.",
+       "secs": 3
+      },
+      {
+       "type": "drive",
+       "to": "@kwon-corner",
+       "radius": 9,
+       "objective": "A fare is waiting at **Orchard & Rivington**",
+       "during": [
+        {
+         "at": 3,
+         "type": "call",
+         "who": "ray",
+         "role": "Sgt. Ortega, the precinct",
+         "lines": [
+          {
+           "who": "ray",
+           "text": "Dez. A crew's been boxing in cabs below Houston tonight.",
+           "secs": 3.5
+          },
+          {
+           "who": "ray",
+           "text": "Two drivers jumped since ten. You heading home?",
+           "secs": 3
+          }
+         ],
+         "choice": {
+          "who": "ray",
+          "prompt": "Ray wants an answer.",
+          "timeout": 7,
+          "default": 0,
+          "flag": "told ray",
+          "options": [
+           {
+            "text": "One more fare, then home.",
+            "value": "one-more",
+            "reply": "Then keep your doors locked."
+           },
+           {
+            "text": "I'll watch myself.",
+            "value": "careful",
+            "set": {
+             "meters": {
+              "trust": 5
+             }
+            },
+            "reply": "You always say that."
+           }
+          ]
+         },
+         "voicemail": {
+          "text": "Dez, it's Ray. A crew's working below Houston. Call me back.",
+          "secs": 4
+         }
+        }
+       ]
+      },
+      {
+       "type": "npc",
+       "who": "kwon",
+       "id": "kwon-kerb",
+       "at": {
+        "rel": "player",
+        "right": 3.4,
+        "fwd": 0.8
+       }
+      },
+      {
+       "type": "cutscene",
+       "shots": [
+        {
+         "cam": {
+          "rel": "player",
+          "right": -3,
+          "up": 2.6,
+          "fwd": -7
+         },
+         "look": {
+          "rel": "kwon"
+         },
+         "dur": 2.4,
+         "caption": "Orchard St, 12:40 AM"
+        },
+        {
+         "cam": {
+          "rel": "kwon",
+          "fwd": 1.05,
+          "up": 0.03,
+          "right": 0.22
+         },
+         "look": {
+          "rel": "kwon",
+          "up": -0.04
+         },
+         "fov": 30,
+         "dur": 3.8,
+         "say": "kwon",
+         "line": "First cab that stopped for me in an hour. Foley Square, please."
+        }
+       ]
+      },
+      {
+       "type": "passenger",
+       "who": "kwon",
+       "seat": "rear",
+       "secs": 3
+      },
+      {
+       "type": "choice",
+       "who": "kwon",
+       "prompt": "She holds a canvas bag on her lap with both hands.",
+       "timeout": 8,
+       "default": 0,
+       "flag": "bag",
+       "options": [
+        {
+         "text": "None of my business.",
+         "value": "quiet",
+         "set": {
+          "meters": {
+           "trust": 5
+          }
+         },
+         "reply": "Good. Keep it that way."
+        },
+        {
+         "text": "Heavy bag for this hour.",
+         "value": "ask",
+         "reply": "Fifty years of my shop's books. Drive, please."
+        }
+       ]
+      },
+      {
+       "type": "drive",
+       "to": "@foley",
+       "radius": 9,
+       "objective": "Take **Mrs. Kwon** to **Foley Square**"
+      },
+      {
+       "type": "say",
+       "who": "kwon",
+       "text": "Wait here. Five minutes. Meter running.",
+       "secs": 3
+      },
+      {
+       "type": "passenger",
+       "who": "kwon",
+       "board": false,
+       "secs": 2.5
+      }
+     ]
+    },
+    {
+     "id": "NS-2",
+     "title": "Snow Tail",
+     "vehicle": "rides.night-cab",
+     "verbs": [
+      "drive",
+      "carry",
+      "escape",
+      "boost"
+     ],
+     "start": {
+      "@": "foley",
+      "face": "tribeca"
+     },
+     "traffic": 0.3,
+     "stakes": "Someone followed Mrs. Kwon out of the building.",
+     "passLine": "The grey car is gone.",
+     "reward": {
+      "meters": {
+       "cash": 30
+      }
+     },
+     "steps": [
+      {
+       "type": "passenger",
+       "who": "kwon",
+       "seat": "rear",
+       "secs": 2.5
+      },
+      {
+       "type": "say",
+       "who": "kwon",
+       "text": "Go. The grey car across the street. It followed me out.",
+       "secs": 3.5
+      },
+      {
+       "type": "say",
+       "who": "dez",
+       "text": "Hold on to something.",
+       "secs": 2.5
+      },
+      {
+       "type": "pursuit",
+       "goal": "lose",
+       "count": 1,
+       "level": 1,
+       "kind": "crew",
+       "loseDist": 150,
+       "loseTime": 3.5,
+       "los": 4,
+       "objective": "Lose the grey car. Shift to boost.",
+       "flag": "lost the tail"
+      },
+      {
+       "type": "choice",
+       "who": "kwon",
+       "prompt": "Mrs. Kwon is shaking. What do you say?",
+       "timeout": 8,
+       "default": 0,
+       "flag": "calmed",
+       "options": [
+        {
+         "text": "You're safe. Nobody's behind us.",
+         "value": "calm",
+         "set": {
+          "meters": {
+           "trust": 10
+          }
+         },
+         "reply": "Thank you. Franklin Street. I need to think."
+        },
+        {
+         "text": "Who were they?",
+         "value": "ask",
+         "reply": "My nephew's friends. Franklin Street, please."
+        }
+       ]
+      },
+      {
+       "type": "drive",
+       "to": "@tribeca",
+       "radius": 10,
+       "objective": "Lie low on **Franklin & Hudson**"
+      },
+      {
+       "type": "say",
+       "who": "kwon",
+       "text": "The books show who borrowed from the shop. They want them burned.",
+       "secs": 4
+      }
+     ]
+    },
+    {
+     "id": "NS-3",
+     "title": "Home Before Dawn",
+     "vehicle": "rides.night-cab",
+     "verbs": [
+      "drive",
+      "carry"
+     ],
+     "start": {
+      "@": "tribeca",
+      "face": "westvillage"
+     },
+     "traffic": 0.3,
+     "stakes": "Get Mrs. Kwon and her books home.",
+     "passLine": "Mrs. Kwon is home, and so are her books.",
+     "reward": {
+      "meters": {
+       "cash": 40
+      }
+     },
+     "steps": [
+      {
+       "type": "passenger",
+       "who": "kwon",
+       "seat": "rear",
+       "secs": 2.5
+      },
+      {
+       "type": "say",
+       "who": "kwon",
+       "text": "I called my granddaughter. Take me home. Bank Street.",
+       "secs": 3.5
+      },
+      {
+       "type": "drive",
+       "to": "@kwon-home",
+       "radius": 9,
+       "objective": "Take **Mrs. Kwon** home to **Bank St**",
+       "during": [
+        {
+         "at": 3,
+         "type": "call",
+         "who": "ray",
+         "role": "Sgt. Ortega, the precinct",
+         "lines": [
+          {
+           "who": "ray",
+           "text": "Heard a cab ran a crew car ragged on Centre Street.",
+           "secs": 3
+          },
+          {
+           "who": "ray",
+           "text": "That you?",
+           "secs": 1.5
+          }
+         ],
+         "choice": {
+          "who": "ray",
+          "prompt": "Tell Ray?",
+          "timeout": 7,
+          "default": 0,
+          "flag": "told ray tonight",
+          "options": [
+           {
+            "text": "It was me. I have a passenger.",
+            "value": "tell",
+            "set": {
+             "meters": {
+              "trust": 10
+             }
+            },
+            "reply": "Bring her by after. I'll take her statement myself."
+           },
+           {
+            "text": "Wasn't me.",
+            "value": "deny",
+            "reply": "Sure it wasn't. Drive safe, Dez."
+           }
+          ]
+         },
+         "voicemail": {
+          "text": "Dez. Call me when you see this.",
+          "secs": 3
+         }
+        }
+       ]
+      },
+      {
+       "type": "say",
+       "who": "kwon",
+       "text": "Here. The green door.",
+       "secs": 2.5
+      },
+      {
+       "type": "passenger",
+       "who": "kwon",
+       "board": false,
+       "secs": 2.5
+      },
+      {
+       "type": "npc",
+       "if": "told ray tonight == tell",
+       "who": "ray",
+       "id": "ray-door",
+       "at": {
+        "rel": "player",
+        "right": 3.4,
+        "fwd": 4
+       }
+      },
+      {
+       "type": "cutscene",
+       "if": "told ray tonight == tell",
+       "shots": [
+        {
+         "cam": {
+          "rel": "player",
+          "right": -2.5,
+          "up": 2.2,
+          "fwd": -6
+         },
+         "look": {
+          "rel": "ray"
+         },
+         "dur": 2.2,
+         "caption": "Bank St, 1:50 AM"
+        },
+        {
+         "cam": {
+          "rel": "ray",
+          "fwd": 1.2,
+          "up": 0.02,
+          "right": -0.2
+         },
+         "look": {
+          "rel": "ray",
+          "up": -0.05
+         },
+         "fov": 30,
+         "dur": 3.6,
+         "say": "ray",
+         "line": "Told you to lock your doors. Go home, Dez. I've got her."
+        }
+       ]
+      },
+      {
+       "type": "say",
+       "who": "dez",
+       "text": "Snow's stopping. Home.",
+       "secs": 2.5
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "voices": {}
+}

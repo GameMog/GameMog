@@ -9,6 +9,10 @@ import { Bar, BlurIn, MorphButton, Num, Segmented, Toasts, Toggle, useToast, typ
 import { Palette, type Command } from './palette';
 import type { KartReportRow } from '@/lib/kart-report';
 import type { DareLoop, LoopWindow } from '@/lib/funnel';
+import type { StoreUsage } from '@/lib/storykit-store';
+
+/** The Story Kit's store on the owner's screen, only while the switch is on or owner-only (else null: nothing shown). */
+export type StoryKitAdmin = StoreUsage & { mode: 'owner' | 'on' };
 
 type Tab = 'overview' | 'dares' | 'worlds' | 'builds' | 'names' | 'traffic' | 'mogcity' | 'reports';
 const TABS = [
@@ -25,7 +29,7 @@ const ranged = (t: Tab) => t === 'overview' || t === 'traffic' || t === 'mogcity
 // its ceiling (BUILD_DAILY_USD)
 export type Capacity = { held: number; max: number; queue: number; queueMax: number; spent: number; inFlight: number; perBuild: number; ceiling: number };
 // mc: Mog City (mc.gamemog.com), counted apart from everything else here (lib/analytics.ts mcStats)
-export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats> };
+export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null };
 
 export function Dashboard(props: AdminData) {
   return <Toasts><Board {...props} /></Toasts>;
@@ -42,7 +46,7 @@ export function ago(at: number) {
   return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, slots, loop, mc }: AdminData) {
+function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, slots, loop, mc, storykit = null }: AdminData) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('overview');
@@ -109,7 +113,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
 
       <main className="adm-main">
         <BlurIn k={ranged(tab) ? `${tab}-${range}` : tab}>
-          {tab === 'overview' && <Overview s={s} slots={slots} />}
+          {tab === 'overview' && <Overview s={s} slots={slots} storykit={storykit} />}
           {tab === 'dares' && <Dares loop={loop} />}
           {tab === 'worlds' && <Worlds worlds={worlds} hidden={hiddenCount} publish={publish} />}
           {tab === 'builds' && <Builds builds={builds} titles={new Map(worlds.map((w) => [w.slug, w.title]))} />}
@@ -149,7 +153,7 @@ function Kpi({ label, k, s, format, hint }: { label: string; k: keyof Kpis; s: S
   );
 }
 
-function Overview({ s, slots }: { s: Stats; slots: AdminData['slots'] }) {
+function Overview({ s, slots, storykit }: { s: Stats; slots: AdminData['slots']; storykit: StoryKitAdmin | null }) {
   const n = s.now;
   const funnel = [
     { label: 'Visited', value: n.visitors },
@@ -171,6 +175,7 @@ function Overview({ s, slots }: { s: Stats; slots: AdminData['slots'] }) {
       </section>
 
       <CapacityCard c={slots} />
+      {storykit && <StoryKitCard k={storykit} />}
 
       <section className="card">
         <div className="card-h">
@@ -226,6 +231,28 @@ function CapacityCard({ c }: { c: Capacity }) {
       </dl>
       <div className="track" aria-hidden style={{ marginTop: 12 }}><Bar share={share} /></div>
       <p className="fine">Los Angeles day. Running builds count {money(c.perBuild)} each until they cost more{c.inFlight > 0 ? ` (${money(c.inFlight)} now)` : ''}. At the ceiling no new build starts and the line is let go; running builds finish.</p>
+    </section>
+  );
+}
+
+// the Story Kit's world store (lib/storykit-store.ts): what it holds against its disk, and its size guard (new story
+// worlds stop at the guard; published ones are kept for ever, so the store only grows)
+const mb = (n: number) => `${(n / 1048576).toFixed(n < 10 * 1048576 ? 1 : 0)} MB`;
+function StoryKitCard({ k }: { k: StoryKitAdmin }) {
+  const pctOf = Math.round(k.share * 100), guardPct = Math.round((k.guard / Math.max(1, k.disk)) * 100);
+  return (
+    <section className="card">
+      <div className="card-h"><h2>Story Kit store</h2></div>
+      <dl className="facts">
+        <div><dt>Switch</dt><dd>{k.mode === 'owner' ? 'Owner only' : 'On for everyone'}</dd></div>
+        <div><dt>Stored</dt><dd>{mb(k.used)} of {mb(k.disk)}<small> {pctOf}% used, {k.blobs} files</small></dd></div>
+        <div><dt>Published worlds</dt><dd>{k.kept}<small> {mb(k.keptBytes)}, kept for ever</small></dd></div>
+        <div><dt>Drafts</dt><dd>{k.open}<small> open now, {k.today} opened in 24 h</small></dd></div>
+      </dl>
+      <div className="track" aria-hidden style={{ marginTop: 12 }}><Bar share={Math.min(1, k.share)} /></div>
+      <p className="fine">{k.guarded
+        ? `New story worlds are paused: the store is past its guard (${guardPct}% of ${mb(k.disk)}). Published worlds still play. Raise STORYKIT_DISK_MB if the disk has room, or move the store off the disk.`
+        : `New story worlds stop at ${guardPct}% (${mb(k.guard)}), ${mb(Math.max(0, k.guard - k.used))} from now; drafts already open can finish. STORYKIT_DISK_MB sets the size.`}</p>
     </section>
   );
 }

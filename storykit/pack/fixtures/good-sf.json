@@ -1,0 +1,224 @@
+{
+ "storykit": 2,
+ "id": "fog-run",
+ "title": "Fog Run",
+ "kicker": "SAN FRANCISCO",
+ "tagline": "Three boxes before nine",
+ "base": {
+  "engine": "storykit-1",
+  "city": "sf",
+  "cityBuild": "sf-bc7d0b3-1"
+ },
+ "dressing": {
+  "time": "golden",
+  "season": "winter",
+  "weather": "fog",
+  "holiday": [
+   "christmas"
+  ]
+ },
+ "hero": "marisol",
+ "ride": "rides.fog-van",
+ "hud": {
+  "clock": {
+   "label": "DAY",
+   "format": "count",
+   "unit": "day"
+  },
+  "meters": [
+   {
+    "id": "cash",
+    "label": "CASH",
+    "kind": "money",
+    "start": 20
+   },
+   {
+    "id": "nerve",
+    "label": "NERVE",
+    "kind": "bar",
+    "start": 60
+   }
+  ]
+ },
+ "cast": [
+  {
+   "id": "marisol",
+   "anchor": "driver",
+   "color": "#E7A6C8",
+   "voice": {
+    "id": "marisol-v1",
+    "blend": {
+     "af_bella": 0.75,
+     "ef_dora": 0.25
+    },
+    "speed": 1.0,
+    "pitch": 0.5,
+    "description": "a bright, fast-talking courier in her twenties"
+   },
+   "sheet": {
+    "id": "marisol",
+    "name": "Marisol Reyes",
+    "role": "courier",
+    "logline": "Knows every hill in the city by how it feels in second gear.",
+    "identity": {
+     "age": 26,
+     "body": "female",
+     "heightCm": 163,
+     "build": {
+      "frame": "small",
+      "weight": "average",
+      "muscle": "athletic"
+     }
+    },
+    "heritage": {
+     "blend": {
+      "african": 0.15,
+      "asian": 0.1,
+      "european": 0.75
+     },
+     "skin": {
+      "tone": "tan",
+      "undertone": "warm"
+     }
+    },
+    "face": {
+     "jaw": "average",
+     "eyes": "brown"
+    },
+    "hair": {
+     "style": "ponytail",
+     "color": "dark-brown"
+    },
+    "facialHair": {
+     "style": "none"
+    },
+    "wardrobe": {
+     "top": {
+      "item": "puffer-coat",
+      "color": "#C2452D"
+     },
+     "bottom": {
+      "item": "track-pants"
+     },
+     "shoes": {
+      "item": "sneakers"
+     }
+    },
+    "posture": {
+     "stance": "relaxed",
+     "pace": "quick"
+    },
+    "voice": {
+     "id": "marisol-v1"
+    }
+   }
+  }
+ ],
+ "pets": [
+  {
+   "id": "moon",
+   "name": "Moon",
+   "species": "dog",
+   "breed": "husky",
+   "size": "medium",
+   "owner": "marisol"
+  }
+ ],
+ "vehicles": [
+  {
+   "v": 1,
+   "id": "rides.fog-van",
+   "label": "Fog Runner",
+   "noun": "van",
+   "family": "car4",
+   "class": "van",
+   "abilities": [
+    "boost"
+   ]
+  }
+ ],
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ACT ONE",
+   "timeline": {
+    "FR-1": {
+     "at": 1,
+     "clock": "6:50 AM",
+     "time": "golden"
+    }
+   },
+   "missions": [
+    {
+     "id": "FR-1",
+     "title": "Before the Fog Lifts",
+     "vehicle": "rides.fog-van",
+     "verbs": [
+      "deliver"
+     ],
+     "start": {
+      "@": "ferry",
+      "face": "pier28"
+     },
+     "traffic": 0.5,
+     "stakes": "Three drops on the waterfront before nine.",
+     "passLine": "All three dropped.",
+     "reward": {
+      "meters": {
+       "cash": 60
+      }
+     },
+     "steps": [
+      {
+       "type": "passenger",
+       "who": "moon",
+       "seat": "front",
+       "secs": 2
+      },
+      {
+       "type": "timer",
+       "seconds": 600,
+       "label": "DROPS",
+       "fail": "hard",
+       "why": "The fog lifted. Too late."
+      },
+      {
+       "type": "stops",
+       "radius": 9,
+       "stops": [
+        "@emb_mission",
+        "@emb_bryant",
+        {
+         "@": "king_4th",
+         "name": "the corner shop on King"
+        }
+       ],
+       "objective": "Drop {n} of {of}: **{name}**"
+      },
+      {
+       "type": "timer",
+       "stop": true
+      },
+      {
+       "type": "walk",
+       "to": "@pier48",
+       "objective": "Park the {ride} and walk to the end of **Pier 48**"
+      },
+      {
+       "type": "cutscene",
+       "shots": [
+        {
+         "cam": "bridge-from-rincon",
+         "look": "bridge-mid",
+         "dur": 4,
+         "sub": "The bridge, just coming out of the fog."
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "voices": {}
+}

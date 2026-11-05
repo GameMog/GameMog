@@ -12,6 +12,7 @@ import { insertDraft, db, type GameRow } from './db';
 import { dna, compareDna, describeDna, askedKind, dnaReport, pickMogPass, KIND_SAID } from './mog-dna';
 import { isEpisodeParent, episodeKindProblems, type Consent } from './episode';
 import { episodeSystem, generateEpisode } from './episode-build';
+import { generateStorykit, isStoryParent, type StorykitInput } from './storykit-build';
 
 /**
  * A world, written by Claude Opus 5.5 on the GameMog Runtime.
@@ -42,7 +43,11 @@ export type GameEvent =
   // (mc: a Mog City episode's, the origin its frame is Mog City at)
   | { type: 'drive'; draftId: string; token: string; attempt: number; mc?: string }
   // kept: the world that ships is an earlier pass, because the repair of its notes was worse (lib/look.ts pickPass)
-  | { type: 'done'; draftId: string; meta: WorldMeta; runtime: Omit<WorldReport, 'cover'>; attempts: number; ms: number; kept?: { attempt: number; why: string }; mc?: string }
+  // (a story world, 4 Nov, lib/storykit-build.ts: its store draft and write token for the creator's browser, sent once)
+  | { type: 'done'; draftId: string; meta: WorldMeta; runtime: Omit<WorldReport, 'cover'>; attempts: number; ms: number; kept?: { attempt: number; why: string }; mc?: string;
+      story?: { draft: string; token: string; pack: string; city: string; forge: string[]; voice: number; inherited: number } }
+  // a story world's browser work, as the build show reads it (app/create/story-show.tsx StoryWork)
+  | { type: 'story'; [k: string]: unknown }
   | { type: 'error'; error: string; problems?: string[] };
 
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8');
@@ -312,9 +317,14 @@ export function gpKindProblems(code: string, mog?: MogInput, meta?: WorldMeta): 
 export type BuildHooks = { signal?: AbortSignal; usage?: (pass: { attempt: number; model: string; usage: Anthropic.Beta.BetaUsage; partial?: boolean }) => void };
 
 export async function generateGame(
-  input: { prompt: string; image?: CharacterImage; origin: string; mog?: MogInput; options?: WorldOptions; consent?: Consent | null } & BuildHooks,
+  input: { prompt: string; image?: CharacterImage; origin: string; mog?: MogInput; options?: WorldOptions; consent?: Consent | null; storykit?: Pick<StorykitInput, 'city'> } & BuildHooks,
   emit: (e: GameEvent) => void
 ) {
+  // a Story Kit world (4 Nov, behind STORYKIT=on; lib/storykit-build.ts): a Create in a picked city, or a Mog of one, is a
+  // story pack built by its own loop (it refuses at once while the switch is off)
+  if (input.storykit || (input.mog && isStoryParent(input.mog.parent))) {
+    return generateStorykit({ prompt: input.prompt, model: GAME_MODEL, signal: input.signal, usage: input.usage, consent: input.consent ?? null, storykit: input.mog ? { mog: input.mog } : { city: input.storykit!.city } }, emit);
+  }
   // a Mog of a Mog City episode (3 Nov) is a story pack, built by its own loop
   if (input.mog && isEpisodeParent(input.mog.parent)) return generateEpisode({ ...input, mog: input.mog, model: GAME_MODEL, system: system('episode') }, emit);
   const stopped = () => !!input.signal?.aborted;
