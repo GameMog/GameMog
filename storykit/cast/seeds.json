@@ -1357,6 +1357,126 @@
     "pitch": "low",
     "rate": "slow"
    }
+  },
+  "hand/young-mother": {
+   "id": "young-mother",
+   "name": "Marisol",
+   "role": "a young woman in her twenties who carries the story",
+   "logline": "Twenty-four, two jobs, runs her whole life off a cracked phone and a bus pass.",
+   "identity": {
+    "age": 24,
+    "body": "female",
+    "presentation": "woman",
+    "heightCm": 152,
+    "build": {
+     "frame": "small",
+     "weight": "slim",
+     "muscle": "soft"
+    }
+   },
+   "heritage": {
+    "note": "Filipina-American",
+    "blend": {
+     "african": 0,
+     "asian": 0.75,
+     "european": 0.25
+    },
+    "skin": {
+     "tone": "medium",
+     "undertone": "warm",
+     "weathered": false,
+     "makeup": "natural",
+     "lipTint": "nude"
+    }
+   },
+   "face": {
+    "jaw": "soft",
+    "cheeks": "full",
+    "cheekbones": "high",
+    "faceWidth": "average",
+    "nose": {
+     "width": "average",
+     "length": "short",
+     "tip": "upturned",
+     "bridge": "concave"
+    },
+    "browRidge": "soft",
+    "chin": {
+     "projection": "average",
+     "length": "short",
+     "width": "average"
+    },
+    "eyes": "dark-brown",
+    "brows": {
+     "color": "black",
+     "weight": "fine"
+    },
+    "eyeShape": "almond",
+    "eyeBags": "light",
+    "mouth": {
+     "lips": "average",
+     "width": "average",
+     "cupidsBow": "defined",
+     "corners": "up"
+    },
+    "ears": {
+     "size": "small",
+     "angle": "flat"
+    },
+    "skull": {
+     "shape": "round"
+    },
+    "forehead": "average",
+    "faceLength": "short",
+    "eyeSpacing": "wide",
+    "jawWidth": "narrow"
+   },
+   "hair": {
+    "style": "long-straight",
+    "color": "black"
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "hoodie",
+     "color": "#6A6470",
+     "accent": "#6A6470"
+    },
+    "bottom": {
+     "item": "jeans",
+     "color": "#2F3E55"
+    },
+    "shoes": {
+     "item": "white-sneakers",
+     "color": "#ECEAE4",
+     "accent": "#8C9AA8"
+    }
+   },
+   "posture": {
+    "stance": "relaxed",
+    "pace": "quick",
+    "gestures": "phone in one hand, the other always reaching for something",
+    "idle": "phone",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "tired",
+     "warm",
+     "sharp",
+     "stubborn"
+    ],
+    "wants": "one quiet hour, and her son never to know how close it got",
+    "speech": "quick and practical, softens for kids, cuts adults short"
+   },
+   "voice": {
+    "id": "hand-young-mother",
+    "description": "a woman around thirty, bright warm mezzo, quick and practical, softens for kids, a tired laugh under it",
+    "pitch": "mid-high",
+    "rate": "quick"
+   }
   }
  }
 }

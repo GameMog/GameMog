@@ -697,6 +697,53 @@
    "seed": "storykit/cast/seeds.json#hand/old-boss",
    "credit": "An original Story Kit character (an invented person, no real likeness): the Character Forge's old-boss anchor (MakeHuman base body, clothes and hair, CC0 1.0) polished by hand; moves from the Story Kit's clip pack (cast/cast-clips.glb: CMU Graphics Lab Motion Capture Database clips)."
   },
+  "hand/young-mother": {
+   "kind": "person",
+   "world": "Story Kit",
+   "built": "hand",
+   "name": "Marisol",
+   "role": "a young woman in her twenties who carries the story (the Story Kit's hand-built female lead)",
+   "glb": "cast/hand/young-mother.glb",
+   "bytes": 2716220,
+   "rig": "cast66",
+   "clips": {
+    "from": "cast/cast-clips.glb",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "face": {
+    "open": 0.45,
+    "hair": true
+   },
+   "props": [],
+   "height": 1.52,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "drive",
+    "fight",
+    "hero"
+   ],
+   "anchor": "young-mother",
+   "voice": {
+    "f0": 188,
+    "near": {
+     "id": "hand-young-mother",
+     "kokoro": "af_heart",
+     "speed": 1.05,
+     "pitch": -0.6,
+     "description": "a woman in her twenties, bright warm mezzo, quick and practical, a tired laugh under it"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#hand/young-mother",
+   "credit": "An original Story Kit character (an invented person, no real likeness): the Character Forge's young-mother anchor (MakeHuman base body, clothes and hair, CC0 1.0) polished by hand; moves from the Story Kit's clip pack (cast/cast-clips.glb: CMU Graphics Lab Motion Capture Database clips)."
+  },
   "mogcity/moon": {
    "kind": "pet",
    "world": "Mog City",

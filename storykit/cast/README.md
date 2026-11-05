@@ -80,6 +80,7 @@ and can be any story's hero.
 |---|---|---|---|---|
 | `hand/young-hero` | Mateo, a young man in his twenties who carries the story | `young-hero` | `hand-young-hero` (am_puck) | `cast/hand/young-hero.glb` |
 | `hand/old-boss` | Augustin, a silver-bearded boss in his sixties who runs the block from a back office, soft-spoken and ruthless | `old-boss` | `hand-old-boss` (bm_george) | `cast/hand/old-boss.glb` |
+| `hand/young-mother` | Marisol, a young woman in her twenties who carries the story | `young-mother` | `hand-young-mother` (af_heart) | `cast/hand/young-mother.glb` |
 
 To ship a new build of one: copy its GLB to `public/storykit/cast/hand/` and set the registry's `bytes`.
 
