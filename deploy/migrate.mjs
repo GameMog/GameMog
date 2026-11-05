@@ -42,47 +42,77 @@ export const OWN_SOUNDTRACKS = [
 ];
 
 /**
- * The heroes' portraits (4 Nov; the owner: the homepage's "Jump in" bubbles should be "profile pics of the games' main
- * characters"): head and shoulders, 512 px, shot on the Mac in headless Chrome from each live game's own code (as
+ * The heroes' headshots (4 to 5 Nov; the owner: the homepage's "Jump in" bubbles should be "profile pics of the games'
+ * main characters", "looking straight into camera like a headshot"): straight on, eyes 40% down, 512 px, shot on the Mac in headless Chrome from each live game's own code (as
  * /api/games served it on 4 Nov) by the platform's key-art pass (lib/key-art.ts capturePortrait, lib/runtime/portrait.js),
- * each judged by eye. deploy/migrations/<slug>-avatar.jpg. Code: sha256 of the row's code, first 16 hex. A portrait goes
- * only into an empty art_avatar, and only on the code it was shot from; any other game shows a square of its cover
- * (app/g/[slug]/avatar/route.ts) until its next build shoots its own.
+ * each judged by eye at the bubbles' 90 px. deploy/migrations/<slug>-avatar.jpg. Code: sha256 of the row's code, first 16
+ * hex. Set by 2026-11-05-hero-headshots (where a game has none or still has its 4 Nov portrait), only on the code it was
+ * shot from; any other game shows a square of its cover (app/g/[slug]/avatar/route.ts) until its next build shoots its own.
  */
 export const AVATARS = [
-  { slug: 'mallow-the-lantern-sea', id: 'bc676b38-450e-4120-bcfa-50f1b9a32d9a', code: 'aad04cc5e4ccb808' },
-  { slug: 'invisible-world', id: '3a646312-8002-4cbc-9386-0be572a2a5b4', code: '51a860a8fab19398' },
-  { slug: 'magma-crown', id: 'ae46cc09-9dfb-4975-b8f4-6138b7b4e66f', code: 'bf6f3bf50c66462e' },
   { slug: 'artificial1', id: '82667fc6-d77e-4bfd-b466-cf174645587f', code: '745abbb65d5779b5' },
   { slug: 'wonderwake-skywhale-rally', id: '68d184f8-4d2c-4846-ba72-2f0036971ef0', code: '1f0826eae18cc40b' },
   { slug: 'eye-of-the-meme-storm', id: 'e77b2a60-2974-4215-8e02-86162bfce883', code: 'a1e77bc8680bd193' },
-  { slug: 'shootout', id: '70a68452-134f-4a25-bfbe-89edaacb1fc1', code: '2c35cc8615404c3b' },
   { slug: 'qatar-gp-golden-dunes', id: '37d7b3a3-91cc-4c3e-b545-00157c3b5a99', code: 'dc83b96ec3854b0a' },
-  { slug: 'aspen-gp', id: 'c1093f21-d3d3-4735-9b40-1d532ca13892', code: 'f2722635e78362eb' },
   { slug: 'meme-kart-midnight-mog', id: '90da1a00-0272-4e56-8b38-ffc088699026', code: '7d253a8fb6fed54b' },
   { slug: 'meme-kart', id: '88cd2bad-86fb-45a0-87ce-d312e1acb244', code: '1b48b6d7a19ef083' },
   { slug: 'amazon-gold-2026', id: '20583b14-077c-4fd9-a92f-1a3ed0b37412', code: '0ef9226c0b2556db' },
-  { slug: 'manila-thrilla-2026', id: '8262aaea-e57d-4f2b-9674-7cdb9f4ee21f', code: '63796cac6ddbfc9d' },
-  { slug: 'country-box', id: '3859e557-f2ae-49f1-a59b-6fbd3796fb4b', code: 'f94abd878f595637' },
   { slug: 'ai-alps', id: 'd7625caf-7e78-41f2-af35-08cd4fb63dac', code: 'f3dbb1dd7732cb8b' },
-  { slug: 'meme-match', id: '427f5849-f0c1-4f39-8dc6-d5c2f3166427', code: 'c708847ae9228521' },
-  { slug: 'sandrider', id: 'f7663e89-bcfa-471d-876a-68a79836938f', code: '1ad4d82e385301fb' },
   { slug: 'neon-canvas-alley', id: '51c2b800-189f-4208-b996-4572c9018a63', code: '0f3d95dba9c4035a' },
-  { slug: 'mogdune', id: '6326cf02-b83d-4bbc-89b9-cb4d743ff97e', code: '14038421900f37a9' },
   { slug: 'wanderer-of-the-ring', id: '19d07fac-41e7-4c7f-8f69-ef5f4ff4086c', code: '87f4ffabc5fa8956' },
-  { slug: 'lantern-hour-moon-whale-midway', id: '23f61497-cc86-43ee-adbb-061b099b4fd9', code: '28caf4905f640d0f' },
-  { slug: 'ruse-cloudquake-carnival', id: 'b845718a-be6e-4d11-a87e-75afd2e1371e', code: 'f7d7f71b98c9854b' },
   { slug: 'three-on-the-line', id: '7f16dd2e-26f5-4600-b3d5-feab7b8aa175', code: '208b9fcf24810249' },
   { slug: 'mog-derby', id: '5e118e8c-07b0-4f15-b551-1a1b3ab4101a', code: '3a46566445504402' },
+  { slug: 'iara-of-the-amazon', id: '0e1fd6e5-8255-4631-8cde-2ae482d0fa8c', code: 'af544bd362aad190' },
+  { slug: 'zombie-beach', id: '7ecfbbb2-5697-4903-844e-40a6b79f0348', code: '20387636c75517cd' },
+  { slug: 'invisible-world', id: '3a646312-8002-4cbc-9386-0be572a2a5b4', code: '51a860a8fab19398' },
+  { slug: 'magma-crown', id: 'ae46cc09-9dfb-4975-b8f4-6138b7b4e66f', code: 'bf6f3bf50c66462e' },
+  { slug: 'santa-south-beach-gp', id: '29042c94-6772-4b6a-a2ff-34fe48ced3f1', code: '2d504c013594e881' },
+  { slug: 'darkmog-frostbite-gp', id: 'f3603ade-68bc-40ea-8322-1665c1edeb83', code: 'a36f20e76a91e887' },
+  { slug: 'shootout', id: '70a68452-134f-4a25-bfbe-89edaacb1fc1', code: '2c35cc8615404c3b' },
+  { slug: 'great-wall-shinobi', id: '09438e11-8062-4952-8b21-9720e89574b3', code: '26731bc8f8bfe63c' },
   { slug: 'rustwalker-ranger', id: '529675fa-ff03-432f-963b-c11d5347c5b4', code: '25e332d215767b16' },
   { slug: 'moonrover-ranger', id: 'a25ab539-c8bc-4521-a2f7-ef972a28cd11', code: '76652426b83b09a1' },
-  { slug: 'iara-of-the-amazon', id: '0e1fd6e5-8255-4631-8cde-2ae482d0fa8c', code: 'af544bd362aad190' },
-  { slug: 'mane-event-savanna-run', id: '7bf331a3-5abd-4995-baf3-61b89f70399c', code: 'c83015a449b2300d' },
-  { slug: 'zombie-beach', id: '7ecfbbb2-5697-4903-844e-40a6b79f0348', code: '20387636c75517cd' },
-  { slug: 'santa-south-beach-gp', id: '29042c94-6772-4b6a-a2ff-34fe48ced3f1', code: '2d504c013594e881' },
-  { slug: 'great-wall-shinobi', id: '09438e11-8062-4952-8b21-9720e89574b3', code: '26731bc8f8bfe63c' },
-  { slug: 'darkmog-frostbite-gp', id: 'f3603ade-68bc-40ea-8322-1665c1edeb83', code: 'a36f20e76a91e887' },
-  { slug: 'mog-kart-canyon-gp', id: '670ab5a5-0ef9-44cc-b216-345904f419e8', code: '4a8adbdf4067b34d' },
+  { slug: 'meme-match', id: '427f5849-f0c1-4f39-8dc6-d5c2f3166427', code: 'c708847ae9228521' },
+  { slug: 'country-box', id: '3859e557-f2ae-49f1-a59b-6fbd3796fb4b', code: 'f94abd878f595637' },
+  { slug: 'manila-thrilla-2026', id: '8262aaea-e57d-4f2b-9674-7cdb9f4ee21f', code: '63796cac6ddbfc9d' },
+  { slug: 'aspen-gp', id: 'c1093f21-d3d3-4735-9b40-1d532ca13892', code: 'f2722635e78362eb' },
+];
+
+/** The 4 Nov portraits as they were shipped (sha256 of the bytes, first 16 hex): the headshots replace only these. */
+export const OLD_AVATARS = [
+  { slug: 'ai-alps', sha: 'c8f478e771b2aec3' },
+  { slug: 'amazon-gold-2026', sha: 'a90e40440d6e8d20' },
+  { slug: 'artificial1', sha: '5abb246293e20c30' },
+  { slug: 'aspen-gp', sha: '79a0ef4f5047b37e' },
+  { slug: 'country-box', sha: '6bc1e62b9e7344ba' },
+  { slug: 'darkmog-frostbite-gp', sha: '32dcfef70455e796' },
+  { slug: 'eye-of-the-meme-storm', sha: 'a5e626abae8c80f0' },
+  { slug: 'great-wall-shinobi', sha: '77877546ae6ae646' },
+  { slug: 'iara-of-the-amazon', sha: 'b73385dbc7e74613' },
+  { slug: 'invisible-world', sha: '298bff4091fde4d0' },
+  { slug: 'lantern-hour-moon-whale-midway', sha: '83d6e3d763cc2782' },
+  { slug: 'magma-crown', sha: '339ae9378dab9d88' },
+  { slug: 'mallow-the-lantern-sea', sha: 'c84ea6cd7cd62a9e' },
+  { slug: 'mane-event-savanna-run', sha: '745f911fe0f39eec' },
+  { slug: 'manila-thrilla-2026', sha: 'fe0354093439dcfa' },
+  { slug: 'meme-kart', sha: '19d09d5067b05121' },
+  { slug: 'meme-kart-midnight-mog', sha: '829a69a3ffeff0f8' },
+  { slug: 'meme-match', sha: 'b8df6e5601a25886' },
+  { slug: 'mog-derby', sha: 'e28e500794637120' },
+  { slug: 'mog-kart-canyon-gp', sha: 'c9b6df4779afeccf' },
+  { slug: 'mogdune', sha: '0f43fb0ea8422bff' },
+  { slug: 'moonrover-ranger', sha: '8f2d299f4348e357' },
+  { slug: 'neon-canvas-alley', sha: '6cd1b22f5fec7178' },
+  { slug: 'qatar-gp-golden-dunes', sha: '5dd7cf20cd1ecac3' },
+  { slug: 'ruse-cloudquake-carnival', sha: 'a16afa71388dfe2e' },
+  { slug: 'rustwalker-ranger', sha: 'd3988046e32c61c5' },
+  { slug: 'sandrider', sha: '0f3e53e010ced1a0' },
+  { slug: 'santa-south-beach-gp', sha: 'b0d9618ab164ec87' },
+  { slug: 'shootout', sha: '01295c890f6b082c' },
+  { slug: 'three-on-the-line', sha: '9ae31940107810be' },
+  { slug: 'wanderer-of-the-ring', sha: '646cd4a3d8516417' },
+  { slug: 'wonderwake-skywhale-rally', sha: '8eca21c4d0949da8' },
+  { slug: 'zombie-beach', sha: '51581979dcdf19a7' },
 ];
 
 // (exported for the checks: scripts/kart-score/test-mog.mjs runs one on a database of its own)
@@ -1083,24 +1113,45 @@ export const MIGRATIONS = [
     },
   },
   {
-    // 4 Nov: the heroes' portraits (AVATARS above). The column is added here if the server's database has not got it yet
-    // (this runs before lib/db.ts opens it)
+    // 4 Nov: the first portraits (33, framed head and shoulders from 18 degrees). Superseded the next day by the headshots
+    // (2026-11-05-hero-headshots), which replace them; on a database that has not had it, it only adds the column
     id: '2026-11-04-hero-avatars',
+    run(db) {
+      const has = db.prepare('PRAGMA table_info(games)').all().some((c) => c.name === 'art_avatar');
+      if (!has) db.exec('ALTER TABLE games ADD COLUMN art_avatar BLOB');
+      return 'superseded by 2026-11-05-hero-headshots';
+    },
+  },
+  {
+    // 5 Nov, the owner: "portraits are not centered, and main character need to be looking straight into camera like a
+    // headshot or instagram photo". The headshots (AVATARS above) replace the 4 Nov portraits: a game's portrait is set
+    // where it has none or still has the very 4 Nov one (OLD_AVATARS, by its bytes), and only on the code it was shot
+    // from; a 4 Nov portrait with no headshot to replace it is cleared, so that game shows its cover's square. A
+    // portrait a game's own build shot since is never touched
+    id: '2026-11-05-hero-headshots',
     run(db) {
       const has = db.prepare('PRAGMA table_info(games)').all().some((c) => c.name === 'art_avatar');
       if (!has) db.exec('ALTER TABLE games ADD COLUMN art_avatar BLOB');
       const missing = AVATARS.filter((a) => !file(`${a.slug}-avatar.jpg`)).map((a) => a.slug);
       if (missing.length) throw new Error(`deploy/migrations/{${missing.join(',')}}-avatar.jpg are not in this build`);
-      let n = 0, had = 0;
+      const sha = (b) => (b ? createHash('sha256').update(Buffer.from(b)).digest('hex').slice(0, 16) : null);
+      const old = new Map(OLD_AVATARS.map((o) => [o.slug, o.sha]));
+      let n = 0, cleared = 0;
       const left = [];
       for (const a of AVATARS) {
         const g = db.prepare('SELECT id, code, art_avatar FROM games WHERE id = ? AND slug = ?').get(a.id, a.slug);
         if (!g) { left.push(`${a.slug} (gone)`); continue; }
         if (createHash('sha256').update(String(g.code ?? '')).digest('hex').slice(0, 16) !== a.code) { left.push(`${a.slug} (its code changed)`); continue; }
-        if (g.art_avatar) { had++; continue; }
-        n += Number(db.prepare('UPDATE games SET art_avatar = ? WHERE id = ? AND art_avatar IS NULL').run(file(`${a.slug}-avatar.jpg`), g.id).changes);
+        if (g.art_avatar && sha(g.art_avatar) !== old.get(a.slug)) { left.push(`${a.slug} (its own portrait)`); continue; }
+        n += Number(db.prepare('UPDATE games SET art_avatar = ? WHERE id = ?').run(file(`${a.slug}-avatar.jpg`), g.id).changes);
       }
-      return `${n} of ${AVATARS.length} portraits${had ? `; ${had} had one` : ''}${left.length ? `; left alone: ${left.join(', ')}` : ''}`;
+      const kept = new Set(AVATARS.map((a) => a.slug));
+      for (const o of OLD_AVATARS) {
+        if (kept.has(o.slug)) continue;
+        const g = db.prepare('SELECT id, art_avatar FROM games WHERE slug = ?').get(o.slug);
+        if (g && g.art_avatar && sha(g.art_avatar) === o.sha) cleared += Number(db.prepare('UPDATE games SET art_avatar = NULL WHERE id = ?').run(g.id).changes);
+      }
+      return `${n} of ${AVATARS.length} headshots; ${cleared} of the 4 Nov portraits cleared${left.length ? `; left alone: ${left.join(', ')}` : ''}`;
     },
   },
 ];
