@@ -67,8 +67,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export async function install(W) {
   const app = W.app, cm = app.controllerManager, scene = app.scene, P = W.person, Q = W.dan;
-  // (the men's clips: Dan's own, retargeted onto thug.glb's rig by anatomical frames (29 Oct: .scratch/polish/round11/
-  // retarget/src/retarget.mjs), in a pack of their own, assets/anim/suits-dan.glb: the standing idle, walks, run and
+  // (the men's clips: Dan's own, retargeted onto thug.glb's rig by anatomical frames (tools/retarget-suits.mjs: 5 Nov,
+  // standing plumb, Dan's armature turn taken out as the game takes it out of him), in a pack of their own, assets/anim/suits-dan.glb: the standing idle, walks, run and
   // sprint, side-steps, a back-step, a gesture, two wave-offs, and the fight (guard, the blows, the hit, the knockdown,
   // the get-up, the stumbles) under the rig's own clip names, so they replace the rig's clips by name; those stay as the
   // fallback if the pack fails to load)

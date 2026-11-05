@@ -356,7 +356,7 @@ async function buildCast(W) {
   const thugClips = Object.fromEntries(gltf.animations.map((c) => [c.name, c]));
   for (const c of suitPack?.animations || []) thugClips[c.name] = c;
   relaxArms(thugClips, gltf.scene); // (the standing and walking arms in at the sides: combat/suitarms.js)
-  const SUITS = thugClips.suitIdle ? { idle: 'suitIdle', walk: ['suitWalk', 1.392], run: ['suitRun', 3.855], dash: ['suitDash', 4.924], back: ['suitBack', 1.537] }
+  const SUITS = thugClips.suitIdle ? { idle: 'suitIdle', walk: ['suitWalk', 1.481], run: ['suitRun', 3.85], dash: ['suitDash', 5.186], back: ['suitBack', 1.644] }
     : { idle: 'thugIdle', walk: ['walk', 0.82], run: ['jog', 2.6], dash: ['run', 4.7], back: ['walk', -0.82] };
   function suit(look, name) {
     const root = new THREE.Group(); root.name = name;

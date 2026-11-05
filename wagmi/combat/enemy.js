@@ -76,8 +76,9 @@ const STUMBLE = { back: 'thugStumbleBack', left: 'thugStumbleLeft', right: 'thug
 // speed. The suit* clips (in place): two walks (normal, masculine), a run, a sprint, a
 // back-step and side-steps; an upright standing idle (looped), a "this way" gesture now and then as he settles, and two
 // wave-offs (taunts) played once
-// (29 Oct: the pack is Dan's clips retargeted (assets/anim/suits-dan.glb), every gait's speed measured on the rig's planted feet)
-const LOCO = { walk: 1.392, jog: 3.247, run: 3.855, sprint: 4.924, suitWalk: 1.392, suitWalk2: 0.749, suitRun: 3.855, suitDash: 4.924, suitBack: 1.537, suitLeft: 0.408, suitRight: 0.412 };
+// (29 Oct: the pack is Dan's clips retargeted (assets/anim/suits-dan.glb), every gait's speed measured on the rig's planted feet;
+// 5 Nov: rebuilt plumb by tools/retarget-suits.mjs (Dan's armature turn out), its speeds re-measured)
+const LOCO = { walk: 1.481, jog: 3.024, run: 3.85, sprint: 5.186, suitWalk: 1.481, suitWalk2: 0.931, suitRun: 3.85, suitDash: 5.186, suitBack: 1.644, suitLeft: 0.394, suitRight: 0.545 };
 const WALKS = new Set(['walk', 'suitWalk', 'suitWalk2', 'suitBack', 'suitLeft', 'suitRight']);
 const LOOPS = new Set(['thugIdle', 'guard', 'walk', 'jog', 'run', 'sprint', 'suitIdle', 'suitWalk', 'suitWalk2', 'suitRun', 'suitDash', 'suitBack', 'suitLeft', 'suitRight']);
 const TAUNTS = ['suitTauntBye', 'suitTauntByebye'];
