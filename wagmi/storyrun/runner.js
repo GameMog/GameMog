@@ -268,19 +268,90 @@ export function createRunner(ctx) {
     const ring = createMarker(THREE, app.scene, { color: '#FFC93C', radius: Math.max(1.2, r * 0.6), height: d.beam ? 6 : 1.1, alpha: 0.22 }); ring.at(p.x, 0, p.z);
     try { await wait(() => !inCar() && dist(P.position, p.x, p.z) < r, t); } finally { ring.hide(); app.scene.remove(ring.group); gps.clear(); }
   };
-  // search: hold F there on foot (the van's search, ui.holdAct)
+  // search: hold F there on foot (the van's search, ui.holdAct). The hold counts at the spot its ring is drawn on (a
+  // corner's centre, cx/cz, when the place is a corner: the ring and the hold were 7 m apart there, VR 5 Nov).
+  // A search of the player's own car (on: 'ride', or a search whose words name its trunk, boot, glovebox or hood, or the
+  // car by name: carSearch) is held at the car wherever he parked it: its trunk (or door, or hood), the ring, the blip and
+  // the route following the car; the place stays the route's target while he is still driving there, more than 40 m out.
+  // F at the car then searches it rather than getting in (W.carF, as the tow's hook-up)
   STEPS.search = async (d, t) => {
-    const p = placeOf(d.at), reach = d.radius || 3.2;
+    const p = placeOf(d.at), on = carSearch(d);
+    if (on) return searchCar(d, p, on, t);
+    const reach = d.radius || 3.2, hx = p.cx ?? p.x, hz = p.cz ?? p.z;
     gps.objective(parts(d.objective || `Search **${d.label}**.`, 'green'), { x: p.x, z: p.z, name: d.label }, { blip: false });
     gps.blip('search', { x: p.x, z: p.z, kind: 'object', edge: true, name: d.label });
-    const ring = createMarker(THREE, app.scene, { color: '#4ADE80', radius: d.ring || reach * 0.8, height: 1.1, alpha: 0.2 }); ring.at(p.cx ?? p.x, 0.02, p.cz ?? p.z);
+    const ring = createMarker(THREE, app.scene, { color: '#4ADE80', radius: d.ring || reach * 0.8, height: 1.1, alpha: 0.2 }); ring.at(hx, 0.02, hz);
     const act = ui.holdAct({ label: d.label, noun: d.noun || d.label.replace(/^\w+\s+/, ''), secs: d.secs || 1.0, show: reach + 6, reach });
-    M.holding = { x: p.x, z: p.z, act };
+    M.holding = { x: hx, z: hz, act };
     let last = now();
-    try { await wait(() => { const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt; return act.step(dt, dist(P.position, p.x, p.z), !inCar()) || (M.auto && !inCar() && dist(P.position, p.x, p.z) < reach); }, t); }
+    try { await wait(() => { const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt; return act.step(dt, dist(P.position, hx, hz), !inCar()) || (M.auto && !inCar() && dist(P.position, hx, hz) < reach); }, t); }
     finally { act.stop(); ring.hide(); app.scene.remove(ring.group); gps.unblip('search'); gps.clear(); M.holding = null; }
     sfx.play('ding', { gain: 0.25 });
   };
+  // which part of the player's car a search is of, or null (a search at the place). on: 'ride' says so (part: trunk,
+  // door, hood; trunk if left out), on: 'place' says not; else the step's words: a trunk, boot, tailgate, glovebox, hood
+  // or bonnet, or the car's own name ('Search the Vesper's trunk', its sheet's label 'Vesper V12'), unless they name some
+  // other vehicle ('search the van's trunk': the van is the story's, not his)
+  const CAR_PARTS = [['door', /\b(glove ?box|glove compartment|door pocket|dash ?board)\b/i], ['hood', /\b(hood|bonnet)\b/i], ['trunk', /\b(trunk|boot|tailgate)\b/i]];
+  const OTHER_RIDES = /\b(van|truck|lorry|taxi|cab|bus|ambulance|suv|sedan|pickup|wagon|limo|limousine|hearse|coupe|motorbike|moped|scooter|wrecker|tow truck|cruiser|squad car)\b/gi;
+  function carSearch(d) {
+    if (d.on === 'place') return null;
+    if (d.on === 'ride') return ['trunk', 'door', 'hood'].includes(d.part) ? d.part : 'trunk';
+    const words = `${d.label || ''} ${d.noun || ''} ${d.objective || ''}`.replace(/\*\*|\{(yellow|red|blue|green)\}/g, '');
+    const sheet = (def0.rides && M.def.vehicle && def0.rides[M.def.vehicle]) || def0.car?.sheet || null;
+    const label = String(sheet?.label || car.label || ''), noun = String(sheet?.noun || '').toLowerCase();
+    const name = label.split(/\s+/).find((w) => w.length >= 3 && /^[A-Z]/.test(w));
+    const named = !!name && new RegExp(`\\b${name.replace(/[^\w]/g, '')}\\b`, 'i').test(words);
+    const other = (words.match(OTHER_RIDES) || []).some((w) => w.toLowerCase() !== noun && !label.toLowerCase().includes(w.toLowerCase()));
+    if (other && !named) return null;
+    const part = CAR_PARTS.find(([, re]) => re.test(words));
+    return part ? part[0] : named ? 'trunk' : null;
+  }
+  async function searchCar(d, p, part, t) {
+    const b = car.body || { hx: 1.05, z0: -2.3, z1: 2.4 }, hx = b.hx || 1.05;
+    const reach = part === 'door' ? 1.5 : 1.7, FAR = 40;
+    // (the car's frame: along its length, across it; a point or a segment of its outline in the world)
+    const local = (x, z) => { const s = Math.sin(car.heading), c = Math.cos(car.heading), dx = x - car.position.x, dz = z - car.position.z; return [dx * s + dz * c, dx * c - dz * s]; };
+    const world_ = (along, across) => { const s = Math.sin(car.heading), c = Math.cos(car.heading); return { x: car.position.x + along * s + across * c, z: car.position.z + along * c - across * s }; };
+    // how far he is from the part: the rear bumper's width (trunk), the front's (hood), a front door's length on either side
+    const partDist = () => {
+      const [al, ac] = local(P.position.x, P.position.z);
+      if (part === 'door') { const sd = Math.abs(Math.abs(ac) - hx), lo = (b.z1 ?? 2.4) * -0.2, hi = (b.z1 ?? 2.4) * 0.45; return Math.hypot(sd, Math.max(0, lo - al, al - hi)); }
+      // (off the end of the car the full reach; along its side, past the bumper, only its corner)
+      const zz = part === 'hood' ? (b.z1 ?? 2.4) : (b.z0 ?? -2.3), out = part === 'hood' ? al - zz : zz - al;
+      return Math.hypot(Math.max(0, Math.abs(ac) - hx), out >= 0 ? out : -out * 1.8);
+    };
+    // where he goes: a step behind the trunk (in front of the hood, beside the door on the side he is on)
+    const anchor = () => {
+      if (part === 'door') { const [, ac] = local(P.position.x, P.position.z); return world_((b.z1 ?? 2.4) * 0.15, (ac < 0 ? -1 : 1) * (hx + 0.7)); }
+      return part === 'hood' ? world_((b.z1 ?? 2.4) + 0.8, 0) : world_((b.z0 ?? -2.3) - 0.8, 0);
+    };
+    const what = part === 'door' ? 'the glovebox' : part === 'hood' ? 'the hood' : 'the trunk';
+    const label = d.label || `search ${what}`, noun = d.noun || (/^\w+\s+(the|his|her|its|their|my|your)\b/i.test(label) && CAR_PARTS.some(([, re]) => re.test(label)) ? label.replace(/^\w+\s+/, '') : what);
+    const objective = parts(d.objective || `Search ${what.replace('the ', 'the **')}**.`, 'green');
+    const tgt = { follow: anchor, name: car.label || what, still: true };
+    const ring = createMarker(THREE, app.scene, { color: '#4ADE80', radius: 1.0, height: 0.9, alpha: 0.22 });
+    const act = ui.holdAct({ label, noun, secs: d.secs || 1.0, show: reach + 7, reach });
+    const carF0 = W.carF;
+    W.carF = () => !inCar() && partDist() <= reach + 0.4;
+    M.holding = { car: part, act, get x() { return anchor().x; }, get z() { return anchor().z; } };
+    let mode = null, helped = false, last = now();
+    try {
+      await wait(() => {
+        const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
+        const want = inCar() && dist(car.position, p.x, p.z) > FAR ? 'place' : 'car';
+        if (want !== mode) { mode = want; gps.objective(objective, want === 'place' ? { x: p.x, z: p.z, name: p.name } : tgt, { blip: false }); }
+        const a = anchor(), q = mode === 'place' ? p : a;
+        gps.blip('search', { x: q.x, z: q.z, kind: 'object', edge: true, name: mode === 'place' ? p.name : (car.label || what) });
+        if (mode === 'car') ring.at(a.x, 0.02, a.z); else ring.hide();
+        if (mode === 'car' && inCar() && Math.abs(car.speed || 0) < 1 && !helped) { helped = true; ui.help('Press [F] to get out.', 6); }
+        const dd = partDist();
+        return act.step(dt, dd, !inCar()) || (M.auto && !inCar() && dd < reach);
+      }, t);
+    } finally { act.stop(); ring.hide(); app.scene.remove(ring.group); gps.unblip('search'); gps.clear(); M.holding = null; W.carF = carF0; }
+    M.log.push(['search', 'car', part]);
+    sfx.play('ding', { gain: 0.25 });
+  }
 
   // npc: a cast member at a place, or beside the player, facing him
   // (an npc step's own id names who it stood up: { remove: 'knox-door' } hides Knox, as { remove: 'Knox' } does)
@@ -312,12 +383,26 @@ export function createRunner(ctx) {
     }
     return [e.position.x, e.position.y + 1.5, e.position.z];
   }
-  // the cutscene's key light on the face it looks at (as Mog City's night scene does, m2-scenes.js burnerMeet's keyL): a
-  // warm point light between the lens and the subject, a little above; in the scene from the start at 0 (no material
-  // rebuilt when a cutscene starts), up only while a cutscene runs
+  // the cutscene's key light on the face it looks at, placed as Mog City's night scene places it (m2-scenes.js
+  // burnerMeet's keyL: loc(0.8, 0.5, 1.9), 1.9 m out in front of the face, 0.8 m to one side, 0.5 m up, 2.6): from the
+  // camera's side of the face but off its axis, so the face is modelled, not flattened. (VR, 5 Nov: it was put between
+  // the lens and the face, 0.5 m from a close-up's face and straight on: seven times the light, a flat pale mask.) In
+  // the scene from the start at 0 (no material rebuilt when a cutscene starts), up only while a cutscene runs
   const keyL = new THREE.PointLight('#FFE6CC', 0, 4.5, 2); app.scene.add(keyL);
+  // (a close-up, the lens within CLOSE m of what it looks at: the city's screen-space reflections off for the shot. The
+  // glass behind a face, a bus's windows, a shop front, would 'reflect' the face itself from the screen, stretched
+  // and striped: VR, 5 Nov, 'a ghost in the bus window'. The reflection's strength is a uniform: nothing is rebuilt)
+  const CLOSE = 3.5, ssrOf = () => app.postFX?.ssrPass || null;
+  function keyLight(p, l) {
+    const dx = p[0] - l[0], dz = p[2] - l[2], dy = p[1] - l[1], n = Math.hypot(dx, dy, dz) || 1, h = Math.hypot(dx, dz) || 1;
+    const fx = dx / h, fz = dz / h, out = Math.min(1.9, n * 0.9);
+    keyL.position.set(l[0] + fx * out - fz * 0.8, l[1] + 0.5, l[2] + fz * out + fx * 0.8);
+    keyL.intensity = n < 6 ? 2.6 : 0;
+    return n;
+  }
   async function shotList(shots, t, { skippable = true, beat = false } = {}) {
     const D = createDirector(W);
+    const ssr0 = ssrOf()?.intensity.value ?? 0;
     W.cutscene = !beat; if (!beat) { ui.cine(true); ui.objective(null); }
     let skip = false;
     const local = tokOf(t);
@@ -343,7 +428,7 @@ export function createRunner(ctx) {
             const k = Math.min(dur, (now() - t0) / 1000), hh = handheld(k + t0 / 1000, 0.4);
             const p = pos(k), l = look(k);
             D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov: s.fov || 40, roll: 0, shake: hh };
-            { const dx = p[0] - l[0], dy = p[1] - l[1], dz = p[2] - l[2], n = Math.hypot(dx, dy, dz) || 1, k = Math.min(0.9, n * 0.5); keyL.position.set(l[0] + dx / n * k, l[1] + dy / n * k + 0.35, l[2] + dz / n * k); keyL.intensity = n < 6 ? 2.6 : 0; }
+            { const n = keyLight(p, l), ssr = ssrOf(); if (ssr) ssr.intensity.value = n < CLOSE ? 0 : ssr0; }
             if (!beat) stepSkip();
             return (now() - t0) / 1000 >= len;
           }, local);
@@ -351,7 +436,7 @@ export function createRunner(ctx) {
         ui.sub(null);
       }
     } finally {
-      ui.sub(null); ui.caption(null); ui.skip(null); keyL.intensity = 0;
+      ui.sub(null); ui.caption(null); ui.skip(null); keyL.intensity = 0; if (ssrOf()) ssrOf().intensity.value = ssr0;
       if (!beat) D.block(false);
       await D.release(0.6);
       W.cutscene = false; if (!beat) ui.cine(false);
