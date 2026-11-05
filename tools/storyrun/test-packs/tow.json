@@ -1,0 +1,215 @@
+{
+ "storykit": 1,
+ "id": "test-tow",
+ "title": "Night Hook",
+ "kicker": "NEW YORK",
+ "tagline": "A wrecker, a stalled van, one hook",
+ "city": "ny",
+ "car": {
+  "sheet": {
+   "v": 1,
+   "id": "rides.wrecker",
+   "label": "Night Wrecker",
+   "noun": "truck",
+   "family": "car4",
+   "class": "wrecker",
+   "era": 2008,
+   "condition": "tired",
+   "body": {
+    "rear": "bed",
+    "doors": 2,
+    "doorType": "conventional",
+    "roof": "fixed",
+    "trim": "chrome",
+    "crease": "single"
+   },
+   "face": {
+    "lamps": "square",
+    "grille": "horizontal-bars",
+    "bumper": "chrome-blade",
+    "fog": true
+   },
+   "tail": {
+    "lamps": "vertical",
+    "exhaust": "single",
+    "plate": "bumper"
+   },
+   "paint": {
+    "base": "#B8231E",
+    "finish": "gloss",
+    "second": "#26292C"
+   },
+   "wheels": {
+    "style": "steel-bare",
+    "finish": "silver",
+    "tyre": "all-terrain"
+   },
+   "interior": {
+    "seat": "#3A3A38",
+    "material": "vinyl",
+    "dash": "analog",
+    "wheel": "four-spoke"
+   },
+   "props": [
+    "coffee-cups",
+    "clipboard"
+   ],
+   "sound": {
+    "engine": "diesel",
+    "character": 0.35,
+    "gears": 6
+   },
+   "handling": {
+    "pace": -0.5,
+    "pull": -0.5,
+    "grip": -0.3,
+    "weight": 0.9,
+    "turnIn": -0.6,
+    "brakes": -0.3,
+    "character": "tank"
+   },
+   "abilities": [
+    "boost",
+    "tow"
+   ],
+   "story": {
+    "owner": "hero",
+    "nickname": "the Hook",
+    "oneLine": "A red regular-cab wrecker: a yellow boom, a wheel-lift under the tail, an amber bar on the roof."
+   },
+   "plate": "TOW 118"
+  }
+ },
+ "rides": {
+  "rides.stalled-van": {
+   "v": 1,
+   "id": "rides.stalled-van",
+   "label": "Stalled Van",
+   "noun": "van",
+   "family": "car4",
+   "class": "van",
+   "era": 2012,
+   "condition": "tired",
+   "body": {
+    "rear": "box",
+    "doors": 4,
+    "doorType": "sliding",
+    "roof": "high"
+   },
+   "paint": {
+    "base": "#ECEBE6",
+    "finish": "gloss",
+    "second": "#C4202A",
+    "split": "beltline"
+   },
+   "wheels": {
+    "style": "steel-bare",
+    "finish": "black",
+    "tyre": "road"
+   },
+   "abilities": [
+    "boost"
+   ],
+   "plate": "MED 204"
+  }
+ },
+ "dressing": {
+  "time": "twilight",
+  "season": "autumn",
+  "weather": "clear",
+  "holiday": []
+ },
+ "cast": {
+  "Lou": {
+   "color": "#F2C230",
+   "role": "a tow-truck driver",
+   "model": "mogcity/dan"
+  }
+ },
+ "hero": "Lou",
+ "places": {
+  "breakdown": {
+   "@": "heraldsq",
+   "name": "the van on 6th Ave"
+  },
+  "yard": {
+   "@": "javits",
+   "name": "the tow yard"
+  }
+ },
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ACT I",
+   "order": [
+    "TW-1",
+    "TW-2"
+   ],
+   "end": {
+    "title": "END OF ACT I",
+    "heading": "Hooked",
+    "next": {
+     "text": "More soon"
+    }
+   }
+  }
+ ],
+ "missions": [
+  {
+   "id": "TW-1",
+   "title": "Night Hook",
+   "vehicle": "rides.wrecker",
+   "start": "@murrayhill",
+   "stakes": "A van died on 6th Ave.",
+   "passLine": "The van is off the street.",
+   "steps": [
+    {
+     "type": "say",
+     "who": "Lou",
+     "text": "Herald Square. Somebody's van gave up.",
+     "secs": 2
+    },
+    {
+     "type": "tow",
+     "id": "hook-van",
+     "checkpoint": true,
+     "target": "@breakdown",
+     "car": "rides.stalled-van",
+     "name": "the stalled van",
+     "to": "@yard",
+     "radius": 12
+    },
+    {
+     "type": "say",
+     "who": "Lou",
+     "text": "In the yard. Next.",
+     "secs": 2
+    }
+   ]
+  },
+  {
+   "id": "TW-2",
+   "title": "Second Call",
+   "vehicle": "rides.wrecker",
+   "start": "@javits",
+   "steps": [
+    {
+     "type": "tow",
+     "id": "hook-sedan",
+     "target": "@javits",
+     "car": "sedan",
+     "color": "#1C3F6E",
+     "name": "the blue sedan",
+     "to": "@chelseapark",
+     "radius": 12
+    },
+    {
+     "type": "say",
+     "who": "Lou",
+     "text": "Done for the night.",
+     "secs": 2
+    }
+   ]
+  }
+ ]
+}

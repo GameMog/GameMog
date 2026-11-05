@@ -10,6 +10,7 @@ import SCHEMA from './vehicle-sheet.schema.json' with { type: 'json' };
 import { CLASSES, REAL_NAMES } from './classes.js';
 
 export { SCHEMA };
+export const TOW_CLASSES = ['wrecker', 'pickup'];
 
 const ref = (s) => (s && s.$ref ? SCHEMA.$defs[s.$ref.split('/').pop()] : s);
 
@@ -79,6 +80,9 @@ export function checkSheet(raw) {
   const out = { problems: [], notes: [] };
   const clean = walk(SCHEMA, raw, 'sheet', out);
   if (!out.problems.length) out.problems.push(...realNameProblems(clean));
+  // a tow rig sits on a bed: only a wrecker or a pickup carries one (never faked on a car with nowhere to put it)
+  if (!out.problems.length && (clean.abilities || []).includes('tow') && !TOW_CLASSES.includes(clean.class)) out.problems.push(`sheet.abilities: "tow" needs a tow rig, which only a ${TOW_CLASSES.join(' or a ')} carries (this is a ${clean.class})`);
+  if (!out.problems.length && clean.abilities?.includes('tow') && clean.body?.rear && clean.body.rear !== 'bed') out.problems.push('sheet.body.rear: a tow rig sits on a bed; "tow" needs rear "bed"');
   return { ok: !out.problems.length, sheet: out.problems.length ? null : fillSheet(clean), problems: out.problems, notes: out.notes };
 }
 
@@ -101,7 +105,7 @@ export function fillSheet(s) {
     props: s.props || [],
     sound: o({ ...C.sound, horn: 'twin' }, s.sound),
     handling: o({ pace: 0, pull: 0, grip: 0, weight: 0, turnIn: 0, brakes: 0, ...C.handling }, s.handling),
-    abilities: s.abilities || ['boost'],
+    abilities: s.abilities || C.abilities || ['boost'],
     story: o({}, s.story),
     plate: s.plate ?? '',
   };

@@ -15,6 +15,9 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
   cp $SK/cast/test-night-shift/*.glb tools/storyrun/test-packs/night-shift/
   mkdir -p tools/storyrun/test-packs/night-shift/voice && cp $SK/packs/test-night-shift/voice/*.ogg tools/storyrun/test-packs/night-shift/voice/
   ```
+- `tow.json`: Night Hook, two tows in a vehicle-sheet wrecker (the Story Kit's `wrecker` sheet: tow rig, light bar,
+  opening doors): TW-1 hooks a stalled van (a ride of the world's, from its sheet) on 6th Ave and tows it to 11th Ave;
+  TW-2 a blue sedan (the city's own body) to Chelsea Park. Both pass under the autopilot (`&autopilot=1&mission=TW-1`).
 
 On a local server (`python3 -m http.server 4981 --bind 127.0.0.1` in the repo):
 `http://127.0.0.1:4981/?pack=/tools/storyrun/test-packs/native.json`.

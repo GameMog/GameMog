@@ -18,8 +18,8 @@
     "noun": { "enum": ["car", "cab", "van", "truck", "suv", "coupe", "sedan", "wagon", "hatch", "pickup", "limo", "cruiser", "roadster"], "description": "{ride} in copy." },
     "family": { "enum": ["car4"], "x-planned": ["heavy4", "motorbike", "scooter", "bicycle"], "description": "Decides physics, mount and animation. car4 = four wheels, a driver seated inside." },
     "class": {
-      "enum": ["compact-hatch", "sedan", "coupe", "wagon", "muscle", "sports", "supercar", "suv", "crossover", "pickup", "minivan", "van", "taxi", "cruiser", "limo"],
-      "description": "A hand-tuned base shape within the family; the knobs move it."
+      "enum": ["compact-hatch", "sedan", "coupe", "wagon", "muscle", "sports", "supercar", "suv", "crossover", "pickup", "minivan", "van", "taxi", "cruiser", "limo", "wrecker"],
+      "description": "A hand-tuned base shape within the family; the knobs move it. wrecker: a regular-cab tow truck (its tow rig comes with the tow ability)."
     },
     "era": { "type": "integer", "minimum": 1955, "maximum": 2026, "default": 2010, "description": "Snapped to a decade: trim, lamp tech, gearbox." },
     "condition": { "enum": ["showroom", "daily", "tired", "beater"], "default": "daily", "description": "Dirt low on the body, dull clear coat; tired adds scuffs and dings, beater adds rust spots and a mismatched panel." },
@@ -135,8 +135,8 @@
     },
     "abilities": {
       "type": "array", "uniqueItems": true,
-      "items": { "enum": ["boost", "ram", "hop", "dash"] },
-      "description": "Mission verbs this ride can do (car4: boost = nitrous or a kick-down, ram = a reinforced nose, hop/dash = thrusters, which also draws the nozzles)."
+      "items": { "enum": ["boost", "ram", "hop", "dash", "tow"] },
+      "description": "Mission verbs this ride can do (car4: boost = nitrous or a kick-down, ram = a reinforced nose, hop/dash = thrusters, which also draws the nozzles, tow = a tow rig on the bed: tower, boom, hook and a wheel-lift under the tail, plus an amber light bar; only a wrecker or a pickup carries one)."
     },
     "story": {
       "type": "object", "additionalProperties": false,

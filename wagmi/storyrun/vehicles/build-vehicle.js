@@ -370,8 +370,10 @@ export function buildVehicle(THREE, raw, o = {}) {
       const bowBR = ['box', 'wagon'].includes(S.rear) ? 0.01 : 0.04 * W, bowRR = ['box', 'wagon'].includes(S.rear) ? 0.008 : 0.03 * W;
       const sb1 = zBack + bowBR + rcbR, sr1 = zRoofR + bowRR + rcrR;
       const side = (f, mat) => { const bz = lerp(sb0, sb1, f), rz = lerp(sr0, sr1, f); P(beltX(bz) - 0.012, bz, xr, rz, 1, 0, mat); };
+      // (the side glass's lines, for the driver's door cut out of the merged body below: belt z and roof z per fraction)
+      S.gh = { sb0, sb1, sr0, sr1 };
       side(0, pillarA);
-      const sealF = 0.014 / Math.max(0.5, sb0 - sb1);
+      const sealF = 0.014 / Math.max(0.5, sb0 - sb1); S.gh.sealF = sealF;
       S.win.forEach(([f0, f1, glass], k) => {
         side(f0 - sealF, 'seal'); side(f0, glass); side(f1, 'seal');
         side(f1 + sealF, k < S.win.length - 1 ? 'blackP' : 'paint');
@@ -733,6 +735,8 @@ export function buildVehicle(THREE, raw, o = {}) {
       if (S.doors >= 4 && cuts.length > 2) hz.push(cuts[2] + 0.12);
       if (sheet.body.doorType === 'sliding') hz.push(cuts[cuts.length - 1] + 0.15);
       if (sheet.body.doorType !== 'up') for (const z of hz) { const hy = Math.min(YS(z) - 0.1, S.crease + 0.12); body.add(rbox(0.022, 0.04, 0.17, 0.01, trimChrome ? M.chrome : sheet.paint.finish === 'primer' ? M.black : M.black, side * (sideX(z, hy) + 0.008), hy, z)); handleZ.push(z); }
+      // (the front door's handle and cuts, for the opening door: where a hand takes it)
+      if (side === 1) { const z = hz[0], hy = Math.min(YS(z) - 0.1, S.crease + 0.12); S.doorCuts = cuts.slice(); S.handle = [sideX(z, hy) + 0.03, hy, z]; }
       // the sliding door's rail under the back side glass line
       if (sheet.body.doorType === 'sliding') body.add(rbox(0.012, 0.02, Math.max(0.3, bz - 1.25 - (AXR + ARCH)), 0.004, M.black, side * (sideX(AXR + 0.8, S.yBelt - 0.08) + 0.006), S.yBelt - 0.08, (bz - 1.25 + AXR + ARCH) / 2));
       // the mirrors: on stubby arms at the front door's corner, the glass facing back
@@ -978,6 +982,109 @@ export function buildVehicle(THREE, raw, o = {}) {
   };
   for (const p of sheet.props) PROPS[p]?.();
 
+  /* ------------------------------------------- the tow rig (tow: a wrecker's) -- */
+  // On a bed (a wrecker, a pickup) with the tow ability: a tower behind the cab, a boom up and back over the tail on a
+  // ram, its cable and hook, chains; under the tail a wheel-lift (an arm out, a crossbar, two wheel cradles) that moves
+  // (rs.tow.set(out, lift): 0 stowed, 1 out and down / raised); an amber light bar on the cab's roof (rs.setBeacon).
+  // No lettering: the safety stripes on the crossbar are plain bands.
+  const towRig = sheet.abilities.includes('tow') && isBed;
+  let towLift = null, liftArm = null, liftBar = null, beacons = null;
+  const TOW = { out: 0, lift: 0 };
+  if (towRig) {
+    M.rig = std({ color: sheet.paint.second || '#2B2E31', roughness: 0.42, metalness: 0.65 });
+    M.boom = std({ color: '#D2A626', roughness: 0.5, metalness: 0.35 });
+    M.chain = std({ color: '#8A8D90', roughness: 0.32, metalness: 0.95 });
+    M.beaconA = std({ color: '#8A4E08', emissive: '#FF9A1A', emissiveIntensity: 0.15, roughness: 0.25, metalness: 0.1 });
+    M.beaconB = std({ color: '#8A4E08', emissive: '#FF9A1A', emissiveIntensity: 0.15, roughness: 0.25, metalness: 0.1 });
+    M.work = std({ color: '#C9CDD0', emissive: '#FFF6E0', emissiveIntensity: 0, roughness: 0.2, metalness: 0.3 });
+    const _up = V3(0, 1, 0);
+    // a bar from a to b (w across, d deep), any direction
+    const bar = (a, b, w, d, mat, parent = body, round = 0.012) => {
+      const dir = b.clone().sub(a), L = dir.length();
+      const m = rbox(w, L, d, round, mat, (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+      m.quaternion.setFromUnitVectors(_up, dir.normalize()); parent.add(m); return m;
+    };
+    const rod = (a, b, r, mat, parent = body) => {
+      const dir = b.clone().sub(a), L = dir.length(), m = cyl(r, r, L, 10, mat);
+      m.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2); m.quaternion.setFromUnitVectors(_up, dir.normalize()); parent.add(m); return m;
+    };
+    const z0 = ZR + 0.07, z1 = zBack - 0.05, yf = Math.max(yb + 0.22, WR + 0.12), yt = YS((z0 + z1) / 2), bw = W - 0.08;
+    // the headboard (a guard behind the cab's back glass) and the tower
+    const tz = z1 - 0.2, th = 1.0;
+    body.add(rbox(2 * bw - 0.1, 0.56, 0.05, 0.01, M.rig, 0, yt + 0.24, z1 - 0.02));
+    for (let k = 0; k < 5; k++) body.add(rbox(2 * bw - 0.2, 0.02, 0.03, 0.006, M.black, 0, yt + 0.04 + k * 0.1, z1 - 0.05));
+    for (const s of [1, -1]) {
+      bar(V3(s * 0.46, yf, tz), V3(s * 0.4, yt + th, tz), 0.14, 0.16, M.rig);
+      // (a brace down to the bed's front corner)
+      bar(V3(s * 0.44, yt + th * 0.55, tz), V3(s * (bw - 0.1), yf + 0.05, z1 - 0.06), 0.06, 0.06, M.rig);
+      // a toolbox along each side of the bed
+      body.add(rbox(0.36, 0.42, Math.min(1.4, (z1 - z0) * 0.5), 0.02, M.chrome, s * (bw - 0.2), yt - 0.02, z1 - 0.38 - Math.min(1.4, (z1 - z0) * 0.5) / 2));
+      // work lamps on the tower, aimed back
+      body.add(rbox(0.14, 0.1, 0.08, 0.02, M.black, s * 0.36, yt + th + 0.02, tz - 0.12));
+      const wl = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.07), M.work); wl.rotation.y = Math.PI; wl.position.set(s * 0.36, yt + th + 0.02, tz - 0.165); body.add(wl);
+    }
+    body.add(rbox(0.98, 0.14, 0.2, 0.02, M.rig, 0, yt + th, tz));
+    // the boom: from its pin on the tower up and back past the tail, on a ram from the bed's floor
+    const pin = V3(0, yt + th - 0.18, tz - 0.12), tip = V3(0, yt + th + 0.42, ZR - 0.32);
+    bar(pin, tip, 0.2, 0.17, M.boom);
+    bar(pin.clone().add(V3(0, 0.03, -0.25)), tip.clone().lerp(pin, 0.2), 0.14, 0.12, M.boom);
+    for (const s of [1, -1]) {
+      const ramA = V3(s * 0.12, yf + 0.04, lerp(z0, z1, 0.55)), ramB = pin.clone().lerp(tip, 0.55).add(V3(s * 0.12, -0.08, 0));
+      rod(ramA, ramA.clone().lerp(ramB, 0.55), 0.055, M.rig); rod(ramA.clone().lerp(ramB, 0.5), ramB, 0.035, M.chrome);
+    }
+    // the sheave at the tip, the cable down to the hook, the hook; chains looped over the boom
+    const sheave = cyl(0.13, 0.13, 0.09, 18, M.rig); sheave.rotation.z = Math.PI / 2; sheave.position.copy(tip).add(V3(0, -0.04, -0.06)); body.add(sheave);
+    const hookAt = V3(0, Math.max(yb + 0.35, yt - 0.25), tip.z - 0.12);
+    rod(V3(0, tip.y - 0.15, tip.z - 0.12), hookAt.clone().add(V3(0, 0.1, 0)), 0.009, M.black);
+    body.add(rbox(0.07, 0.12, 0.05, 0.015, M.rig, 0, hookAt.y + 0.08, hookAt.z));
+    const hk = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.019, 8, 18, Math.PI * 1.45), M.chain); hk.position.copy(hookAt).add(V3(0, -0.04, 0)); hk.rotation.set(0, Math.PI / 2, -Math.PI * 0.72); body.add(hk);
+    // (a chain hung in a loop from two points under the boom: links along a sag, each turned a quarter from the last)
+    for (const s of [1, -1]) {
+      const A = pin.clone().lerp(tip, 0.62).add(V3(s * 0.12, -0.09, 0)), B = pin.clone().lerp(tip, 0.86).add(V3(s * 0.12, -0.09, 0)), n = 16;
+      for (let k = 0; k <= n; k++) {
+        const u = k / n, p = A.clone().lerp(B, u); p.y -= 0.34 * Math.sin(u * Math.PI);
+        const q = A.clone().lerp(B, Math.min(1, u + 0.02)); q.y -= 0.34 * Math.sin(Math.min(1, u + 0.02) * Math.PI);
+        const ln = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.007, 5, 10), M.chain); ln.scale.set(1, 1.5, 1);
+        ln.position.copy(p); ln.quaternion.setFromUnitVectors(_up, q.sub(p).normalize()); if (k % 2) ln.rotateY(Math.PI / 2); body.add(ln);
+      }
+    }
+    // amber marker lamps on the boom's tip
+    for (const s of [1, -1]) body.add(rbox(0.05, 0.035, 0.05, 0.01, M.beaconB, s * 0.12, tip.y + 0.06, tip.z + 0.05));
+    // the light bar on the cab's roof: a black base, six lenses flashing in two banks (rs.setBeacon)
+    {
+      const ry = roofY(roofMid) + 0.02, rz = Math.min(zRoofF - 0.25, roofMid + 0.15), lw = Math.min(1.3, 2 * S.wRoof - 0.1);
+      body.add(rbox(lw, 0.05, 0.26, 0.02, M.black, 0, ry + 0.025, rz));
+      for (const s of [1, -1]) body.add(rbox(0.05, 0.05, 0.05, 0.01, M.black, s * (lw / 2 - 0.12), ry, rz));
+      for (let k = 0; k < 6; k++) { const x = lerp(-lw / 2 + 0.1, lw / 2 - 0.1, k / 5); body.add(rbox(lw / 6 - 0.025, 0.085, 0.22, 0.025, k < 3 ? M.beaconA : M.beaconB, x, ry + 0.09, rz)); }
+      beacons = { on: false, t: 0 };
+    }
+    // the wheel-lift, under the tail: an arm out of the bed's frame, a crossbar, two wheel cradles (forks)
+    towLift = new THREE.Group(); towLift.name = 'wheel-lift'; body.add(towLift);
+    const chev = textMat((cx, w, h) => { cx.fillStyle = '#F2C230'; cx.fillRect(0, 0, w, h); cx.fillStyle = '#16171A'; for (let x = -h; x < w + h; x += 64) { cx.beginPath(); cx.moveTo(x, h); cx.lineTo(x + 32, h); cx.lineTo(x + 32 + h, 0); cx.lineTo(x + h, 0); cx.fill(); } }, 512, 64, { roughness: 0.6, metalness: 0.1 });
+    // (in the lift's frame: z 0 at the crossbar, the arm forward into the frame rails)
+    // (the arm from its pivot under the bed's frame to the crossbar: set with the lift, setTow)
+    liftArm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1, 0.12), M.rig); liftArm.name = 'wheel-lift-arm'; body.add(liftArm);
+    towLift.add(rbox(1.55, 0.13, 0.16, 0.015, M.rig, 0, 0, 0));
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.11), chev); plate.rotation.y = Math.PI; plate.position.set(0, 0, -0.082); towLift.add(plate);
+    for (const s of [1, -1]) {
+      // each cradle: an L under a tyre (an arm across, two prongs back round the tyre)
+      towLift.add(rbox(0.1, 0.08, 0.1, 0.01, M.rig, s * 0.72, -0.01, 0));
+      for (const dz of [-0.2, 0.2]) towLift.add(rbox(0.36, 0.06, 0.06, 0.01, M.boom, s * 0.62, -0.02, dz));
+      towLift.add(rbox(0.06, 0.06, 0.46, 0.01, M.boom, s * 0.8, -0.02, 0));
+      const tie = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.008, 6, 12), M.chain); tie.position.set(s * 0.45, 0.07, 0.02); tie.rotation.x = Math.PI / 2; towLift.add(tie);
+    }
+    liftBar = { yStow: Math.max(yb + 0.02, 0.4), zStow: ZR - 0.24, zOut: ZR - 1.05, yDown: 0.08, yUp: 0.42, pivot: V3(0, Math.max(yb - 0.04, 0.42), ZR + 0.55) };
+  }
+  function setTow(out = TOW.out, lift = TOW.lift) {
+    TOW.out = clamp(out, 0, 1); TOW.lift = clamp(lift, 0, 1);
+    if (!towLift) return;
+    const L = liftBar, down = TOW.out * (1 - TOW.lift);
+    towLift.position.set(0, lerp(L.yStow, L.yDown, down) + (L.yUp - L.yStow) * TOW.lift * TOW.out, lerp(L.zStow, L.zOut, TOW.out));
+    const c = towLift.position.clone().add(new THREE.Vector3(0, 0.02, 0.06)), d = c.clone().sub(L.pivot), len = d.length();
+    liftArm.position.copy(L.pivot).add(c).multiplyScalar(0.5); liftArm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); liftArm.scale.set(1, len, 1);
+  }
+  setTow(0, 0);
+
   /* ------------------------------------------------- the thrusters (hop, dash) -- */
   const thrusters = sheet.abilities.includes('hop') || sheet.abilities.includes('dash');
   if (thrusters) {
@@ -1103,14 +1210,15 @@ export function buildVehicle(THREE, raw, o = {}) {
     M.paint.roughnessNode = rough.min(1);
   }
 
+  const merged = [];
   /* ---------------------------------------------- one mesh per material -- */
   {
     body.updateMatrixWorld(true);
     const inv = new THREE.Matrix4().copy(body.matrixWorld).invert();
     const byMat = new Map(), gone = [];
-    const keep = new Set([childSeat, booster, roofSign].filter(Boolean));
+    const keep = new Set([childSeat, booster, roofSign, towLift, liftArm].filter(Boolean));
     body.traverse((m) => {
-      if (!m.isMesh || m.material.map) return;
+      if (!m.isMesh || m.material.map || keep.has(m)) return;
       let p = m.parent; while (p && p !== body) { if (keep.has(p)) return; p = p.parent; }
       let geo = m.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld)); if (geo.index) geo = geo.toNonIndexed();
       for (const k of Object.keys(geo.attributes)) if (k !== 'position' && k !== 'normal') geo.deleteAttribute(k);
@@ -1119,8 +1227,75 @@ export function buildVehicle(THREE, raw, o = {}) {
     for (const m of gone) m.parent.remove(m);
     for (const [mat, geos] of byMat) {
       const mm = new THREE.Mesh(mergeGeometries(geos), mat);
-      mm.castShadow = !mat.transparent; mm.receiveShadow = true; body.add(mm);
+      mm.castShadow = !mat.transparent; mm.receiveShadow = true; body.add(mm); merged.push(mm);
     }
+  }
+
+  /* ------------------------------------------------- the front doors, opening -- */
+  // Each front door is cut out of the merged body: every triangle whose middle is in the door (between its cuts, from
+  // just over the sill up to the top of its window frame, in the skin's last 5 cm: paint, glass, seals, handle,
+  // moulding, the headliner's edge), moved into its own group on a hinge at its front cut, with an inner trim panel
+  // and an armrest. A conventional door swings out on a near-vertical axis (70 degrees); an up door ('up') swings up
+  // and forward from its foot at the windscreen. setDoor('L' | 'R', 0..1) (L: the driver's, +x), doorT(side);
+  // doors[side].pivot.children[0] is a frame whose point (0.86, 0.86, -0.18) is the handle, where Mog City's ride
+  // (wagmi/game.js) puts the hand that opens it, as on the roadster.
+  const doors = {};
+  if (S.doorCuts && S.doorCuts.length >= 2 && S.handle) {
+    const z1 = S.doorCuts[0], z0 = S.doorCuts[1], up = sheet.body.doorType === 'up';
+    const tMax = Math.min(0.93, tTop + 0.03), gh = S.gh;
+    const w0 = S.win[0];
+    const zA = (t) => (gh ? lerp(lerp(gh.sb0, gh.sb1, w0[0] - (gh.sealF || 0.01)), lerp(gh.sr0, gh.sr1, w0[0] - (gh.sealF || 0.01)), t) : z1);
+    const zB = (t) => (gh ? lerp(lerp(gh.sb0, gh.sb1, w0[1] + (gh.sealF || 0.01) * 0.5), lerp(gh.sr0, gh.sr1, w0[1] + (gh.sealF || 0.01) * 0.5), t) : z0);
+    const yLow = yb + 0.1;
+    const inDoor = (side, x, y, z) => {
+      if (side * x <= 0.2 || y < yLow) return false;
+      const ax = Math.abs(x), ty = topY(ax, z);
+      if (y <= ty + 0.003) return z <= z1 && z >= z0 && ax > sideX(z, y) - 0.05;
+      const t = (y - ty) / Math.max(0.05, roofY(z) - ty);
+      if (t > tMax || z > zA(t) || z < zB(t)) return false;
+      return ax > lerp(beltX(z), S.wRoof, t) - 0.07;
+    };
+    const yMid = (yLow + S.yBelt) / 2;
+    for (const [sideK, side] of [['L', 1], ['R', -1]]) {
+      const hinge = up ? V3(side * (beltX(z1) - 0.02), YS(z1) - 0.02, z1 - 0.02) : V3(side * (sideX(z1, yMid) - 0.03), 0, z1 - 0.015);
+      const pivot = new THREE.Group(); pivot.name = 'door-' + sideK; pivot.position.copy(hinge); body.add(pivot);
+      // (the hand's frame: its (0.86, 0.86, -0.18) on the handle, the roadster's hand point)
+      const gripF = new THREE.Group(); gripF.position.set(side * S.handle[0] - hinge.x - 0.86, S.handle[1] - hinge.y - 0.86, S.handle[2] - hinge.z + 0.18); pivot.add(gripF);
+      let cut = 0;
+      for (const mm of merged) {
+        const pa = mm.geometry.attributes.position, na = mm.geometry.attributes.normal, n = pa.count;
+        const keepP = [], keepN = [], doorP = [], doorN = [];
+        for (let i = 0; i < n; i += 3) {
+          const cx = (pa.getX(i) + pa.getX(i + 1) + pa.getX(i + 2)) / 3, cy = (pa.getY(i) + pa.getY(i + 1) + pa.getY(i + 2)) / 3, cz = (pa.getZ(i) + pa.getZ(i + 1) + pa.getZ(i + 2)) / 3;
+          const into = inDoor(side, cx, cy, cz);
+          const P = into ? doorP : keepP, Nn = into ? doorN : keepN;
+          for (let k = 0; k < 3; k++) { P.push(pa.getX(i + k) - (into ? hinge.x : 0), pa.getY(i + k) - (into ? hinge.y : 0), pa.getZ(i + k) - (into ? hinge.z : 0)); Nn.push(na.getX(i + k), na.getY(i + k), na.getZ(i + k)); }
+        }
+        if (!doorP.length) continue;
+        cut += doorP.length / 9;
+        const kg = new THREE.BufferGeometry(); kg.setAttribute('position', new THREE.Float32BufferAttribute(keepP, 3)); kg.setAttribute('normal', new THREE.Float32BufferAttribute(keepN, 3));
+        mm.geometry.dispose(); mm.geometry = kg;
+        const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.Float32BufferAttribute(doorP, 3)); dg.setAttribute('normal', new THREE.Float32BufferAttribute(doorN, 3));
+        const dm = new THREE.Mesh(dg, mm.material); dm.castShadow = mm.castShadow; dm.receiveShadow = true; pivot.add(dm);
+      }
+      if (!cut) { body.remove(pivot); continue; }
+      // the inside of the door: a trim panel from the sill to the belt, an armrest, a pull
+      const zm = (z0 + z1) / 2, ti = (y) => side * (sideX(zm, y) - 0.055) - hinge.x;
+      const yT = topY(sideX(zm, S.yBelt), zm) - 0.02;
+      const panel = rbox(0.03, yT - yLow - 0.02, z1 - z0 - 0.06, 0.01, M.dash, ti((yT + yLow) / 2), (yT + yLow) / 2 - hinge.y, zm - hinge.z); pivot.add(panel);
+      pivot.add(rbox(0.07, 0.05, (z1 - z0) * 0.45, 0.02, M.seat, ti(S.hipY + 0.12) - side * 0.04, S.hipY + 0.12 - hinge.y, zm + (z1 - z0) * 0.08 - hinge.z));
+      pivot.add(rbox(0.03, 0.03, 0.14, 0.01, M.chrome, ti(S.hipY + 0.3) - side * 0.025, S.hipY + 0.3 - hinge.y, zm + (z1 - z0) * 0.22 - hinge.z));
+      // (the sill's black seal, seen when it is open)
+      body.add(rbox(0.05, 0.02, z1 - z0 - 0.04, 0.008, M.rubberTrim, side * (sideX(zm, yLow + 0.05) - 0.04), yLow + 0.01, zm));
+      doors[sideK] = { pivot, t: 0, side, up };
+    }
+  }
+  const DOOR_OPEN = 1.22, DOOR_UP = 1.15;
+  function setDoor(sideK, t) {
+    const d = doors[sideK]; if (!d) return;
+    d.t = clamp(t, 0, 1);
+    if (d.up) { d.pivot.rotation.set(DOOR_UP * d.t, -d.side * 0.25 * d.t, 0, 'YXZ'); }
+    else d.pivot.rotation.set(0, -d.side * DOOR_OPEN * d.t, d.side * 0.02 * d.t);
   }
 
   /* ------------------------------------------------ drive, sound, the live parts -- */
@@ -1170,6 +1345,12 @@ export function buildVehicle(THREE, raw, o = {}) {
     spr.pitchV += ((wantPitch - spr.pitch) * springs.k * 1.15 - spr.pitchV * springs.damp * 1.15) * dt; spr.pitch += spr.pitchV * dt;
     bodyPivot.rotation.z = spr.roll; bodyPivot.rotation.x = spr.pitch;
     const tg = booster?.userData.tag; if (tg) tg.rotation.y = 0.5 + 0.25 * Math.sin(clock * 2.1) * Math.min(1, 0.2 + v / 10);
+    // the light bar: two banks in turn, three flashes each, while it is on
+    if (beacons) {
+      const on = beacons.on, ph = (clock * 2.6) % 1, bank = ph < 0.5, f = Math.sin((ph % 0.5) * 6 * Math.PI) > 0 ? 1 : 0.1;
+      M.beaconA.emissiveIntensity = on ? (bank ? 5 * f : 0.2) : 0.15; M.beaconB.emissiveIntensity = on ? (!bank ? 5 * f : 0.2) : 0.15;
+      M.work.emissiveIntensity = on || night > 0.5 ? 3 : 0;
+    }
   }
   lamps();
 
@@ -1226,6 +1407,13 @@ export function buildVehicle(THREE, raw, o = {}) {
     setBrake(on) { brakeSet = on == null ? null : on ? 1 : 0; lamps(); },
     setReverse(on) { revSet = on == null ? null : on ? 1 : 0; lamps(); },
     setBooster(on) { if (booster) booster.visible = !!on; },
+    // the front doors (setDoor / door(side, t), doorT(side), doors: { L, R } with their pivots), as the roadster's
+    setDoor, door: setDoor, doorT: (sideK) => doors[sideK]?.t ?? 0, doors: doors.L ? doors : null,
+    // the tow rig (a wrecker's): set(out, lift) moves the wheel-lift; hitch(out) is where a towed car's front wheels sit
+    // (the crossbar's top, in the world); setBeacon(on) the light bar
+    tow: towLift ? { set: setTow, get out() { return TOW.out; }, get lift() { return TOW.lift; }, arm: towLift,
+      hitch(out = new THREE.Vector3()) { towLift.updateWorldMatrix(true, false); return towLift.localToWorld(out.set(0, 0.07, 0)); } } : null,
+    setBeacon(on) { if (beacons) beacons.on = !!on; },
     // what the story layer reads: the words, the abilities, the sockets, the gate's checks and the sheet's clamps
     sheet, label: sheet.label, noun: sheet.noun, abilities: sheet.abilities, doorType: sheet.body.doorType, sockets, checks, notes: chk.notes, shape: S,
   };

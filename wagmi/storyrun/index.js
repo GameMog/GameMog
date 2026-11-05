@@ -255,7 +255,7 @@ function grab(W) {
   });
 }
 async function keyArt(W, runner) {
-  const TRAVEL = new Set(['drive', 'stops', 'pursuit', 'tail']);
+  const TRAVEL = new Set(['drive', 'stops', 'pursuit', 'tail', 'tow']);
   for (let i = 0; i < 1800; i++) {
     const M = runner.M, d = M?.def.steps[M.i];
     if (d && TRAVEL.has(d.type) && !W.cutscene && W.app.controllerManager.activeMode === 'car') break;

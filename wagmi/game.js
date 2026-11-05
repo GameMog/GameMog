@@ -968,6 +968,8 @@ Object.defineProperty(person, 'control', { configurable: true, get: () => contro
 }
 addEventListener('keydown', (e) => {
   if (e.code !== 'KeyF' || e.repeat) return;
+  // (a world's step holding F at the wheel, a tow's hook-up: wagmi/storyrun/runner.js; never set without ?pack=)
+  if (WAGMI.carF && WAGMI.carF()) return;
   // (the game's own F: the old way, at once; a game pad's (wagmi/pad.js, e.wgPad) is the player's, as a real key)
   if (!e.isTrusted && !e.wgPad) { if (cm.activeMode === 'person' && near()) inQuick(); else if (cm.activeMode === 'car' && Math.abs(car.speed) < 4) outQuick(); return; }
   if (WAGMI.cutscene || WAGMI.directed) return;
@@ -1086,7 +1088,7 @@ let last = performance.now();
   // (held going nowhere a beat in the car, or stopped facing the wrong way: the reset offered first)
   const wrongWay = WAGMI.carWrongWay(ride.phase || WAGMI.paused || WAGMI.cutscene || WAGMI.directed ? 0 : dt) > 0;
   const pinned = cm.activeMode === 'car' && ((WAGMI.carStuck?.() || 0) > 1.2 || wrongWay);
-  const show = ride.phase || WAGMI.paused || WAGMI.cutscene || WAGMI.directed ? '' : cm.activeMode === 'person' && near() ? 'F  ·  Get in'
+  const show = ride.phase || WAGMI.paused || WAGMI.cutscene || WAGMI.directed || (WAGMI.carF && WAGMI.carF()) ? '' : cm.activeMode === 'person' && near() ? 'F  ·  Get in'
     : pinned ? 'X  ·  Reset car to road' : cm.activeMode === 'car' && Math.abs(car.speed) < 4 ? 'F  ·  Get out' : '';
   // (the key in a key cap that reads as plain text, so a game pad's button can stand in for it: wagmi/pad.js; what is
   // offered, WAGMI.prompt, for the pad's Y: the car's door, or else the fight's heavy)

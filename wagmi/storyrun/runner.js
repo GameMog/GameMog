@@ -45,7 +45,7 @@ export const SCENES = {
   // Missions 2 and 3's authored scenes, their phases of the same name (the runner plays them as parts: runPart)
   ...Object.fromEntries(['m2.start', 'm2.crash', 'm2.chat', 'm3.garage', 'm3.rally', 'm3.dump', 'm3.home'].map((id) => [id, (W, o) => PART_MOD[id.slice(0, 2)]().then((m) => m.playPart(W, id.slice(3), o))])),
 };
-const TRAVEL = new Set(['drive', 'stops', 'walk', 'pursuit', 'tail', 'search']);
+const TRAVEL = new Set(['drive', 'stops', 'walk', 'pursuit', 'tail', 'search', 'tow']);
 const BACKGROUND = new Set(['trigger', 'comfort', 'patrol', 'stealth', 'roadblock']);
 const ENDS_WITH_HOST = new Set([...BACKGROUND, 'pursuit', 'beat', 'tail', 'convoy', 'call']);
 const TIPS = {
@@ -747,6 +747,140 @@ export function createRunner(ctx) {
     } finally { offHit?.(); hud.bar(null); }
   };
 
+  // tow: the hero's wrecker (a sheet with the tow ability: its wheel-lift and light bar, rs.tow) hooks a car and hauls it.
+  // A car stands at the target place, parked on the kerb (the city's own body, sedan by default, or a ride of the
+  // world's by its id, built from its sheet); he drives up to it (the GPS), backs the truck's tail up to its nose
+  // (a green ring where the tail goes), holds F at the wheel to hook it: the light bar on, the lift out and down under
+  // its front wheels, then up. Then he tows it to `to`: its front wheels in the cradle, its back wheels rolling on the
+  // road, trailing the hitch as a trailer does (its back axle follows the front's along the line between them, so it
+  // swings wide behind him in a turn and folds when he reverses), pitched nose up by the lift's height, bobbing on the
+  // truck's starts and stops and knocked aside by walls; the truck slower and heavier for it. At the drop-off, slowed,
+  // the lift lets it down and it stays there, parked. M.tow says where it is for the test drive (autopilot.js).
+  const parked = [];
+  const _tv = new THREE.Vector3(), _tq = new THREE.Quaternion(), _te = new THREE.Euler(0, 0, 0, 'YXZ');
+  async function towCar(d) {
+    const N = window.NYC, ride = d.car && def0.rides?.[d.car];
+    if (ride) {
+      try {
+        const { buildVehicle } = await import('./vehicles/build-vehicle.js');
+        const v = buildVehicle(THREE, ride.sheet || ride);
+        v.group.traverse((o) => { if (o.isMesh) { o.castShadow = !o.material.transparent; o.receiveShadow = true; } });
+        return { obj: v.group, rs: v, wr: v.shape.WR, zF: v.shape.AXF, zR: v.shape.AXR, half: v.width / 2, nose: v.shape.ZF };
+      } catch (e) { console.warn('[storyrun] tow car', d.car, e); }
+    }
+    const spec = N.BODY_SPECS?.[['sedan', 'suv', 'taxi', 'pickup', 'van', 'minivan'].includes(d.car) ? d.car : 'sedan'] || null, g = new THREE.Group();
+    if (spec && N.buildCarGeometry) { const m = new THREE.Mesh(N.buildCarGeometry(spec, true), N.createLoftedCarMaterial(spec, new THREE.Color(d.color || '#D9D6CF').getHex())); m.castShadow = true; m.receiveShadow = true; g.add(m); }
+    else { const m = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.4, 4.6), new THREE.MeshStandardMaterial({ color: d.color || '#D9D6CF' })); m.position.y = 0.8; g.add(m); }
+    const wz = spec?.wheelZ || 1.4;
+    return { obj: g, rs: null, wr: spec?.wheelRadius || 0.35, zF: wz, zR: -wz, half: (spec?.wheelX || 0.8) + 0.15, nose: spec?.zFront || 2.25 };
+  }
+  STEPS.tow = async (d, t) => {
+    for (const c of parked.splice(0)) app.scene.remove(c.obj);
+    const p = placeOf(d.target), dest = placeOf(d.to), name = d.name || 'the car', rs = car.roadster, rig = rs?.tow || null;
+    const T = await towCar(d); app.scene.add(T.obj);
+    const wb = T.zF - T.zR, gy = (x, z) => cm.getGroundHeight(x, z, 'car');
+    // (parked on the kerb at the place, facing along its lane)
+    // (mid-block, before the corner the place names: back along its lane, on the kerb side)
+    const h0 = p.heading ?? 0, side = 3.2, back = d.back ?? 18;
+    const st = { fx: 0, fz: 0, rx: 0, rz: 0, fy: 0, pitch: 0, pv: 0, h: h0, spin: 0 };
+    const cx = (p.cx ?? p.x) - Math.cos(h0) * side - Math.sin(h0) * back, cz = (p.cz ?? p.z) + Math.sin(h0) * side - Math.cos(h0) * back;
+    st.fx = cx + Math.sin(h0) * T.zF; st.fz = cz + Math.cos(h0) * T.zF; st.rx = cx + Math.sin(h0) * T.zR; st.rz = cz + Math.cos(h0) * T.zR;
+    const pose = (dt = 0) => {
+      // the body from its two axles: the front at the hitch's height (fy over the ground), the back on the road
+      const h = Math.atan2(st.fx - st.rx, st.fz - st.rz), gR = gy(st.rx, st.rz), lift = Math.max(0, st.fy);
+      const want = Math.asin(Math.min(0.5, lift / wb));
+      st.pv += ((want - st.pitch) * 90 - st.pv * 11) * dt; st.pitch += st.pv * dt; if (!dt) st.pitch = want;
+      st.h = h;
+      _te.set(-st.pitch, h, 0); _tq.setFromEuler(_te);
+      T.obj.quaternion.copy(_tq);
+      _tv.set(0, T.wr, T.zR).applyQuaternion(_tq);
+      T.obj.position.set(st.rx - _tv.x, gR + T.wr - _tv.y, st.rz - _tv.z);
+      if (T.rs) T.rs.update(dt, st.spin, 0);
+    };
+    pose();
+    M.towing = T; M.tow = { phase: 'reach', name };
+    const front = () => ({ x: st.fx, z: st.fz });
+    // where the truck's lift reaches when it is out (its crossbar), in the world
+    const liftZ = rig ? rs.shape.ZR - 1.05 : (car.body?.z0 ?? -2.3) - 0.9;
+    const reachOf = () => { const c = Math.cos(car.heading), sn = Math.sin(car.heading); return { x: car.position.x + liftZ * sn, z: car.position.z + liftZ * c }; };
+    // (the spot the truck backs to: in front of the car, facing its way, its lift's crossbar under the front wheels)
+    const spot = { x: st.fx - Math.sin(h0) * liftZ, z: st.fz - Math.cos(h0) * liftZ, h: h0 };
+    M.tow.spot = spot; M.tow.front = front;
+    gps.blip('tow', { x: cx, z: cz, kind: 'object', edge: true, name });
+    // 1. up to it
+    try {
+      await goTo({ x: spot.x + Math.sin(h0) * 9, z: spot.z + Math.cos(h0) * 9, name }, { radius: 14, stop: false, card: false }, t, { objective: d.objective || `Drive to **${name}**.`, needsCar: true });
+    } catch (e) { gps.unblip('tow'); throw e; }
+    // 2. back up to its nose and hold F at the wheel
+    M.tow.phase = 'hook';
+    const ring = createMarker(THREE, app.scene, { color: '#4ADE80', radius: 1.3, height: 0.6, alpha: 0.22 }); ring.at(spot.x + Math.sin(h0) * (liftZ * 0.5), 0.02, spot.z + Math.cos(h0) * (liftZ * 0.5));
+    gps.objective(parts(d.hookObjective || `Back up to **${name}**, then hold **F** to hook it.`, 'green'), { x: cx, z: cz, name }, { blip: false });
+    const act = ui.holdAct({ label: `hook up ${name}`, verb: 'Back up to', noun: name, secs: d.secs || 1.2, show: 14, reach: 1.6 });
+    W.carF = () => !!M?.tow && M.tow.phase === 'hook' && inCar();
+    let last = now();
+    try {
+      await wait(() => {
+        const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
+        const r = reachOf(), dd = Math.hypot(r.x - st.fx, r.z - st.fz), al = Math.abs(Math.atan2(Math.sin(car.heading - h0), Math.cos(car.heading - h0)));
+        const ok = inCar() && Math.abs(car.speed || 0) < 1.2 && al < 0.45;
+        M.tow.d = dd; M.tow.al = al;
+        return act.step(dt, ok ? dd : Math.max(dd, 1.7), inCar());
+      }, t);
+    } finally { act.stop(); ring.hide(); app.scene.remove(ring.group); gps.unblip('tow'); gps.clear(); W.carF = null; }
+    // the hook-up: the light bar on, the lift out and down under its wheels, then up with its nose
+    M.tow.phase = 'hooking';
+    rs.setBeacon?.(true); sfx.play('thunk', { gain: 0.25, f: 90 });
+    const hk = now(), hold0 = { x: car.position.x, z: car.position.z, h: car.heading };
+    await wait(() => {
+      const k = (now() - hk) / 1000;
+      car.speed = 0; car.position.x = hold0.x; car.position.z = hold0.z; car.heading = hold0.h;
+      rig?.set(Math.min(1, k / 0.8), Math.max(0, Math.min(1, (k - 0.9) / 0.8)));
+      if (k > 0.9) { const H = rig ? rig.hitch(_tv) : _tv.set(reachOf().x, 0.45 * Math.min(1, (k - 0.9) / 0.8), reachOf().z); const a = Math.min(1, (k - 0.9) / 0.5); st.fx += (H.x - st.fx) * a; st.fz += (H.z - st.fz) * a; st.fy = Math.max(0, H.y - gy(H.x, H.z) - 0.07); pose(0.016); }
+      return k > 1.8;
+    }, t);
+    sfx.play('ding', { gain: 0.22 }); M.log.push(['tow', 'hooked', name]);
+    // 3. haul it: the truck slower and heavier
+    M.tow.phase = 'haul';
+    // (the chase camera back and up over what is on the hook, so the road ahead shows past it)
+    const keep = { topSpeed: car.topSpeed, boostSpeed: car.boostSpeed, accel: car.accel, boostAccel: car.boostAccel, mass: car.mass, chaseDistance: car.chaseDistance, chaseHeight: car.chaseHeight };
+    Object.assign(car, { topSpeed: keep.topSpeed * 0.72, boostSpeed: keep.boostSpeed * 0.75, accel: keep.accel * 0.6, boostAccel: keep.boostAccel * 0.65, mass: (keep.mass || 2) * 1.6,
+      chaseDistance: (keep.chaseDistance || 6) + (T.nose - T.zR) * 0.9 + 1.5, chaseHeight: (keep.chaseHeight || 2) + 1.1 });
+    M.towKeep = keep;
+    let lastV = car.speed || 0;
+    const follow = (dt) => {
+      const H = rig ? rig.hitch(_tv) : _tv.set(reachOf().x, gy(reachOf().x, reachOf().z) + 0.5, reachOf().z);
+      st.fx = H.x; st.fz = H.z; st.fy = Math.max(0, H.y - gy(H.x, H.z) - 0.07);
+      // (the back axle follows the front's along the line between them: a trailer)
+      let dx = st.rx - st.fx, dz = st.rz - st.fz, L = Math.hypot(dx, dz) || 1;
+      if (L > wb * 3) { dx = -Math.sin(car.heading); dz = -Math.cos(car.heading); L = 1; }
+      st.rx = st.fx + dx / L * wb; st.rz = st.fz + dz / L * wb;
+      // (into a wall: knocked back out of it)
+      const q = { x: st.rx, y: 0, z: st.rz }; cm.resolveHorizontalCollision(q, T.half, 1.0); st.rx = q.x; st.rz = q.z;
+      // (the truck's starts and stops rock it on its back springs)
+      const acc = dt > 0 ? ((car.speed || 0) - lastV) / dt : 0; lastV = car.speed || 0;
+      st.pv += -acc * 0.006; st.spin = car.speed || 0;
+      pose(dt);
+    };
+    let lastF = now(), live = true;
+    (function loop() { if (!live) return; const tt = now(), dt = Math.min(0.05, (tt - lastF) / 1000); lastF = tt; if (!W.paused) try { follow(dt); } catch (e) { console.warn('[storyrun] tow', e); } requestAnimationFrame(loop); })();
+    try {
+      await goTo(dest, { radius: d.radius || 10, stopSpeed: 2.5 }, t, { objective: d.dropObjective || `Tow **${name}** to **${dest.name}**.`, needsCar: true });
+      // 4. let it down there
+      M.tow.phase = 'drop';
+      const k0 = now();
+      await wait(() => { const k = (now() - k0) / 1000; car.speed = 0; rig?.set(1, Math.max(0, 1 - k / 0.7)); if (k > 0.8) rig?.set(Math.max(0, 1 - (k - 0.8) / 0.6), 0); return k > 1.5; }, t);
+    } finally {
+      live = false;
+      if (M.towKeep) { Object.assign(car, M.towKeep); M.towKeep = null; }
+      rs.setBeacon?.(false); rig?.set(0, 0);
+    }
+    // (left there, on its wheels, a little back from the truck)
+    const bx = Math.sin(st.h), bz = Math.cos(st.h); st.fx -= bx * 0.5; st.fz -= bz * 0.5; st.rx -= bx * 0.5; st.rz -= bz * 0.5; st.fy = 0; st.pitch = 0; st.pv = 0; pose(0);
+    parked.push(T); M.towing = null; M.tow = null;
+    M.timer.add(d.bonus || 0); if (d.flag) M.state.flags[flagName(d.flag)] = true;
+    M.log.push(['tow', 'dropped', name]);
+  };
+
   for (const k of KINDS_STUB) STEPS[k] = async (d) => { if (!M.stubbed.has(k)) { M.stubbed.add(k); console.info(`[storyrun] ${M.def.id}: '${k}' has no Mog City part yet; it passes`); } applySet(d.set); };
 
   /* ------------------------------------------------------- side steps -- */
@@ -786,6 +920,10 @@ export function createRunner(ctx) {
     gps.clear(); app.mapSystem.waypoint = null; for (const id of [...gps.blips.keys()]) gps.unblip(id); marker.hide();
     for (const n of M.npcs) cast.hide(n); M.npcs.clear();
     dropRiders();
+    // (a tow cut short: the car on the hook put away, the truck as it was)
+    if (M.towing) { app.scene.remove(M.towing.obj); M.towing = null; }
+    if (M.towKeep) { Object.assign(car, M.towKeep); M.towKeep = null; }
+    M.tow = null; W.carF = null; car.roadster?.tow?.set(0, 0); car.roadster?.setBeacon?.(false);
     // (Mog City's own mission phases it played: their instances stopped, all they put in the world put away)
     for (const mod of M.partMods.values()) try { mod.endParts(W); } catch (e) { console.warn('[storyrun] parts', e); }
     M.partMods.clear();

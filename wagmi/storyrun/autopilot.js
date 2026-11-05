@@ -5,6 +5,8 @@
 //     its own; braked to stop on the mark (a heavy car sails past it), and put on it after 40 s circling close by;
 //   - a wedged car (wagmi/game.js carStuck) put back on the road (W.recoverCar), or 40 m on along the route;
 //   - a held-up walk moved 6 m on;
+//   - a tow: driven up to the car, put on the spot in front of it (backing up is the player's), F held at the wheel to
+//     hook it, then driven to the drop-off with it on the hook;
 //   - into the car for a drive, out of it for a walk or a search (W.ride, the quick way);
 //   - a fight fought: strikes at the nearest man, counters when one swings close, and after 8 s the nearest man put down
 //     every 1.5 s, the hero kept on his feet (a test drive checks that the story plays through, not the difficulty);
@@ -78,7 +80,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
   const key = (code, type = 'keydown') => dispatchEvent(new KeyboardEvent(type, { code, key: code.replace(/^Key/, '').toLowerCase(), bubbles: true }));
   let held = null;
   const hold = (code) => { if (held === code) return; if (held) key(held, 'keyup'); held = code; if (code) key(code); };
-  let cineT = 0, chaseJumpT = 0, seenT = 0, slowT = 0, tailS = null, lastKey = 0;
+  let cineT = 0, chaseJumpT = 0, seenT = 0, slowT = 0, tailS = null, lastKey = 0, tPhase = null, tPhaseT = 0;
   let frameDt = 0.016, lastF = performance.now();
   function tick() {
     if (!on) return;
@@ -111,7 +113,19 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       if (t - fightT > 8 && t - lastFin > 1.5) { lastFin = t; const dir = new THREE.Vector3(n.pos.x - P.position.x, 0, n.pos.z - P.position.z).normalize(); try { n.hit({ kind: 'finisher', dmg: 9999, dir, w: 0.6, fly: 6, up: 4 }); note('assist ko'); } catch {} }
       return;
     }
-    if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place'].includes(type)) { release(); return; }
+    // a tow: up to the car and on to the drop-off by the route (below); backing up to its nose, put on the spot after 1.5 s
+    // and F held at the wheel; the hook-up and the drop play themselves
+    if (type === 'tow' && M.tow && M.tow.phase !== 'reach' && M.tow.phase !== 'haul') {
+      if (M.tow.phase !== tPhase) { tPhase = M.tow.phase; tPhaseT = t; }
+      if (M.tow.phase !== 'hook') { release(); hold(null); return; }
+      if (!inCar()) { release(); if (!W.ride?.phase) { W.ride?.getIn?.(true); note('in'); } return; }
+      const sp = M.tow.spot;
+      if ((M.tow.d > 1.2 || M.tow.al > 0.3) && t - tPhaseT > 1.5) { release(); putCar(sp.x, sp.z, sp.h); note('tow: backed up to it'); return; }
+      release(); if (M.tow.d <= 1.6 && M.tow.al <= 0.45) hold('KeyF');
+      return;
+    }
+    if (type === 'tow' && held) hold(null);
+    if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow'].includes(type)) { release(); return; }
     // a chase to lose: escape() (the pursuit's own 'lost' ends it)
     if (type === 'pursuit' && d.goal !== 'reach' && escape(t)) return;
     // in or out of the car as the step wants

@@ -202,6 +202,19 @@ export const CLASSES = {
     interior: { seat: '#3A3A38', material: 'cloth', dash: 'analog', wheel: 'four-spoke' },
     sound: { engine: 'v8', character: 0.2 }, handling: { character: 'tank' },
   },
+  // a regular-cab tow truck: a long frame, a short cab, a bed for the tow rig (the tow ability draws it), heavy and slow
+  wrecker: {
+    L: 6.3, W: 1.02, wb: 3.95, fo: 1.0, WR: 0.43, RIM: 0.25, TW: 0.28, WXin: 0.15,
+    yb: 0.56, yNose: 1.3, yCowl: 1.38, yBelt: 1.4, yTail: 1.26, yRoof: 2.1, roofFall: 0.012,
+    cowl: 1.62, roofF: 2.2, roofR: 3.0, back: 2.96, wRoof: 0.84, RF: 0.16, RR: 0.05, crease: 1.08, clad: 0,
+    win: [[0.05, 0.86, 'front']], tumble: 0.012, crown: 0.015,
+    rear: 'bed', doors: 2, roof: 'fixed', noun: 'truck', abilities: ['boost', 'tow'],
+    face: { lamps: 'square', grille: 'horizontal-bars', bumper: 'chrome-blade', fog: true },
+    tail: { lamps: 'vertical', exhaust: 'single', plate: 'bumper' }, trim: 'chrome', pillar: 'black',
+    wheels: { style: 'steel-bare', finish: 'silver', tyre: 'all-terrain' },
+    interior: { seat: '#3A3A38', material: 'vinyl', dash: 'analog', wheel: 'four-spoke' },
+    sound: { engine: 'diesel', character: 0.3, gears: 6 }, handling: { character: 'tank' },
+  },
 };
 
 // the back of the glasshouse for each rear shape, as fractions of the length (used when a sheet's rear differs from
