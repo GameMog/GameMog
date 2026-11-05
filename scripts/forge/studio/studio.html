@@ -22,6 +22,7 @@
 // clip, t, jaw }) poses and frames it; window.__info: what face.js found, the props fitted, feet and spine checks.
 // Props are code fitted to the face's landmarks (Mog City's pattern): glasses from the sheet (asset extras forge.props).
 import * as THREE from 'three/webgpu';
+import * as TSL from 'three/tsl';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
@@ -112,7 +113,25 @@ const pose = (clip, t) => { const c = THREE.AnimationClip.findByName(CLIPS, clip
   const rt = M.getObjectByName('root'); rt.position.x = 0; rt.position.z = 0; M.updateMatrixWorld(true); };
 const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.05, 50);
 const eyesWorld = () => { const m = head.matrixWorld.clone().multiply(sk.boneInverses[hi]); return fm ? fm.eyes[0].c.clone().add(fm.eyes[1].c).multiplyScalar(0.5).applyMatrix4(m) : head.getWorldPosition(new THREE.Vector3()); };
-window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, jaw = 0, blink = 0, w = 1, ang = 0.35 } = {}) => {
+// (G7a: mask: true draws the same frame as flat ids for the mouth gate (studio/talk.mts): the mouth's inside red (the
+// skin face.js shades as inside the mouth (mouthShade < 0.6), a shipped GLB's dark mouth node: an unnamed mesh on a
+// bone, not the studio's glasses), the tongue blue, the teeth green, the rest of the person black, the set
+// and background white)
+const maskMats = new Map();
+function maskMat(o) {
+  const n = o.material?.name || '', key = o.uuid; if (maskMats.has(key)) return maskMats.get(key);
+  // (the set (backdrop, chair, floor) and the background white: a white hole inside the mouth is the dark behind it)
+  let mine = false; for (let p = o; p; p = p.parent) if (p === M) { mine = true; break; }
+  if (!mine) { const m = new THREE.MeshBasicNodeMaterial({ color: 0xffffff }); maskMats.set(key, m); return m; }
+  const flat = (c) => { const m = new THREE.MeshBasicNodeMaterial({ color: c }); m.side = o.material.side; return m; };
+  let m;
+  if (n === 'skin' && o.geometry.attributes.mouthShade) { m = new THREE.MeshBasicNodeMaterial(); m.colorNode = TSL.mix(TSL.vec3(1, 0, 0), TSL.vec3(0, 0, 0), TSL.step(0.6, TSL.attribute('mouthShade', 'float'))); }
+  else if (/^teeth/.test(n) && o.material.map) { const tx = TSL.texture(o.material.map); m = new THREE.MeshBasicNodeMaterial(); m.colorNode = TSL.mix(TSL.vec3(0, 1, 0), TSL.vec3(0, 0, 1), TSL.step(tx.g.mul(1.8), tx.r)); m.opacityNode = tx.a; m.alphaTest = o.material.alphaTest || 0.5; m.side = o.material.side; }
+  else if (!o.isSkinnedMesh && !n && o.parent?.isBone && o.material.color) { const c = o.material.color; m = flat(c.r < 0.1 && c.g < 0.1 ? 0xff0000 : 0x00ff00); }
+  else { m = flat(0x000000); if (o.material.map && (o.material.alphaTest || o.material.transparent)) { m.opacityNode = TSL.texture(o.material.map).a; m.alphaTest = Math.max(0.3, o.material.alphaTest || 0); } }
+  maskMats.set(key, m); return m;
+}
+window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, jaw = 0, blink = 0, w = 1, ang = 0.35, mask = false } = {}) => {
   if (window.__leather) window.__leather.visible = mode === 'study'; holder.rotation.y = 0; pose(clip, t); holder.rotation.y = yaw; holder.updateMatrixWorld(true);
   setM('jaw', jaw); setM('lip', Math.min(1, jaw * 1.2)); setM('blink', Math.min(1, blink * 2)); setM('blink2', Math.max(0, blink * 2 - 1));
   const box = new THREE.Box3().setFromObject(M), ht = box.max.y, e = eyesWorld();
@@ -149,7 +168,10 @@ window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, 
   } else {
     camera.fov = 22; camera.position.set(e.x + 0.16, e.y + 0.015, e.z + 0.62); camera.lookAt(e.x, e.y - 0.045, e.z);
   }
-  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.render(scene, camera); renderer.render(scene, camera);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  if (mask) { const back = []; scene.traverse((o) => { if (o.isMesh) { back.push([o, o.material]); o.material = maskMat(o); } }); const bg = scene.background; scene.background = new THREE.Color(1, 1, 1);
+    renderer.render(scene, camera); renderer.render(scene, camera); for (const [o, m] of back) o.material = m; scene.background = bg; }
+  else { renderer.render(scene, camera); renderer.render(scene, camera); }
   // checks: the feet on the floor (the lowest point of the body in this pose) and the spine's lean from upright
   const sp = M.getObjectByName('spine05'), nk = M.getObjectByName('neck01'), a = sp.getWorldPosition(new THREE.Vector3()), b = nk.getWorldPosition(new THREE.Vector3());
   return { floor: +box.min.y.toFixed(3), height: +ht.toFixed(3), spineLeanDeg: +(Math.acos(Math.min(1, (b.y - a.y) / b.distanceTo(a))) * 180 / Math.PI).toFixed(1) };

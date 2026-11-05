@@ -49,8 +49,9 @@ export const FACE_LIB = {
   // the corners' skin goes down with it: MakeHuman's angles-down at 0.55 read as a grimace in every talking frame
   // (mechanic, Sal, cop), and even a neutral mouth's corner tips sank to the opening's bottom. Measured by the talk
   // gate's corners on the mechanic: angles-down 0.12 -> 0.63 of the opening's height, angles-up 0.5 -> 0.53. 'down' is
-  // now the least lift (a stern mouth at rest), 'up' the most)
-  mouthCorners: { down: [['mouth/mouth-angles-up', 0.32]], neutral: [['mouth/mouth-angles-up', 0.45]], up: [['mouth/mouth-angles-up', 0.62]] },
+  // now the least lift (a stern mouth at rest), 'up' the most. G7a: 'down' 0.32 -> 0.40: the mechanic's mouth at 0.32
+  // still read turned down at rest in every round-6 close-up (neutral 0.45))
+  mouthCorners: { down: [['mouth/mouth-angles-up', 0.4]], neutral: [['mouth/mouth-angles-up', 0.45]], up: [['mouth/mouth-angles-up', 0.62]] },
   earSize: { small: [['ears/l|r-ear-scale-decr', 0.55]], average: [], large: [['ears/l|r-ear-scale-incr', 0.5], ['ears/l|r-ear-lobe-incr', 0.4]] },
   earShape: { round: [['ears/l|r-ear-shape-round', 0.6]], pointed: [['ears/l|r-ear-shape-pointed', 0.45]], square: [['ears/l|r-ear-shape-square', 0.6]], average: [] },
   earAngle: { flat: [['ears/l|r-ear-wing-decr', 0.6]], average: [], protruding: [['ears/l|r-ear-wing-incr', 0.55], ['ears/l|r-ear-flap-incr', 0.35]] },

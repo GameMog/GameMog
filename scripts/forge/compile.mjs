@@ -63,6 +63,9 @@ export function compile(S) {
   C.skinRough = T.weathered ? 0.64 : fem ? 0.58 : 0.6;
   const lips = { natural: null, rose: [1.0, 0.74, 0.76, 0.5], red: [1.05, 0.55, 0.55, 0.6], berry: [0.85, 0.55, 0.62, 0.6], nude: [1.0, 0.86, 0.8, 0.4] }[T.lipTint || 'natural'];
   if (lips && T.makeup !== 'none') C.lips = lips;
+  // (G7a: natural lips framed by a beard or a moustache read pale peach against it (the old boss, round 6): a man's own
+  // lip colour, a little deeper and rosier-brown than his skin)
+  else if ((T.lipTint || 'natural') === 'natural' && S.facialHair?.style && !['none', 'stubble'].includes(S.facialHair.style)) C.lips = [0.9, 0.7, 0.68, 0.5];
   if (T.makeup === 'natural' || T.makeup === 'lipstick') C.lids = [0.8, 0.74, 0.76, 0.35];
 
   /* the face */
