@@ -218,9 +218,14 @@ browser, only what is not stored yet (so the page can be reopened on the same dr
    count only time the tab is in front: 90 s with no progress on a step, 6 min per mission, 60 s between missions,
    2 min to load, 20 min in all; it stops at the first stuck or failed mission with the reason.
 4. **Key art:** Mog City sends its frames in the `keyart` message -> `PUT files/art/key-wide.jpg`, `key-square.jpg`.
+   Since 5 Nov (mogcity branch) the frame is a staged hero shot: a low three-quarter front of the hero car on a long
+   lens, its face lit, the HUD hidden (the chase camera's view when no side is clear).
 5. **Report:** `POST /api/storykit/drafts/<id>/report { missions, errors, ms, stages }`. The GameMog draft made with
    that store draft (`lib/storykit-publish.ts`) gets it as its test drive (`passed` only when every mission passed with
-   0 page errors, for its exact code) and the key art as its cover and icon. The draft result then shows.
+   0 page errors, for its exact code), the plain frame as its cover, and the frames titled in Mog City's lockup
+   (`lib/story-art.ts`: graded, edges thrown out of focus, the title with its last word in gold, the kicker as the tag
+   line) as its key art, wide and square. A story world published before this is titled the first time its cover is
+   asked for (`titleStoryArt`, `app/g/[slug]/cover`). The draft result then shows.
 
 `GET /api/storykit/drafts/<id>/source` (with the token) gives the work page the gated source pack (the sheets).
 

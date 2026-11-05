@@ -4,6 +4,7 @@ import { codeHash } from './test-drive';
 import { storykitPublic } from './storykit-switch';
 import { storyStore } from './storykit-store';
 import { MC_PROD, mcOrigin } from './episode';
+import { storyKeyArt } from './story-art';
 
 /**
  * A Story Kit world from its draft to its game (STORYKIT=on): what the creator's browser reports after its work, what
@@ -13,8 +14,9 @@ import { MC_PROD, mcOrigin } from './episode';
  *                          { missions, errors } (POST /api/storykit/drafts/<id>/report, with the store draft's token).
  *                          The GameMog draft whose meta names that store draft gets the drive in its report: passed
  *                          only when every mission of the pack passed with 0 page errors (else failed), for its exact
- *                          code (codeHash), as a world's test drive is. The store's key art (art/key-wide, key-square)
- *                          becomes the draft's cover, so the draft and the game show it as every world's.
+ *                          code (codeHash), as a world's test drive is. The store's key art (art/key-wide, key-square,
+ *                          Mog City's frames) becomes the draft's cover as it is (cover: the plain frame, as every
+ *                          world's) and, titled in Mog City's lockup (lib/story-art.ts), its key art (art_wide, art_icon).
  *   publishing             app/api/games/route.ts: the store draft is sealed and kept (never swept), and the game's meta
  *                          names the sealed world (storykit.world, its SHA-256): what /g/<slug>/play plays.
  *   playing                a story world plays on Mog City's engine (the owner, 4 Nov: every Story Kit world runs on
@@ -136,7 +138,7 @@ function playHashOf(storeId: string): string | null {
  * The creator's browser's report for a store draft: its GameMog draft's test drive (passed: every mission of the pack,
  * 0 page errors), and the store's key art as the draft's cover. Null when no draft names that store draft.
  */
-export function recordStoryReport(storeId: string, pack: { acts?: { missions?: { id: string; hidden?: boolean }[] }[] }, rep: DriveReport) {
+export async function recordStoryReport(storeId: string, pack: { title?: unknown; kicker?: unknown; acts?: { missions?: { id: string; hidden?: boolean }[] }[] }, rep: DriveReport) {
   const d = draftOfStore(storeId); if (!d) return null;
   // (a hidden mission, as Mog City's "Coming Soon", is not in the story's list: the work page drives the listed ones)
   const want = (pack.acts ?? []).flatMap((a) => (a.missions ?? []).filter((m) => !m.hidden).map((m) => m.id));
@@ -156,13 +158,16 @@ export function recordStoryReport(storeId: string, pack: { acts?: { missions?: {
   const next: Record<string, unknown> = { ...report, ran: true, status, codeHash: codeHash(d.code), levelReached: passed.size,
     drive: { missions, want: want.length, passed: passed.size, errors: rep.errors, ms: rep.ms ?? null, stages: rep.stages ?? null, reason: rep.reason ?? null, stuck: rep.stuck ?? null, live: rep.live ?? null, hidden: rep.hidden ?? null, at: Date.now(),
       ...(play ? { play } : {}), ...(carried.length ? { carried: carried.map((m) => m.id) } : {}), ...(rep.partial ? { partial: true } : {}) } };
-  // the store's key art: the draft's cover (wide) and its icon (square), as every world's
+  // the store's key art: the draft's cover (the plain wide frame), and its key art, wide and square, titled in Mog City's
+  // lockup (lib/story-art.ts; the owner, 5 Nov: story thumbnails "need to pop like the rest ... with game title"). A
+  // title the lettering cannot set, or a failure, keeps the plain frames (the cover route titles them when asked)
   const s = storyStore(), files = s.db.prepare("SELECT name, hash, ext FROM files WHERE draft_id = ? AND kind = 'art'").all(storeId) as { name: string; hash: string; ext: string }[];
   const blob = (stem: string) => { const f = files.find((x) => x.name.replace(/\.[a-z]+$/, '') === stem && x.ext === 'jpg'); return f ? s.read(`${f.hash}.${f.ext}`)?.bytes ?? null : null; };
   const wide = blob('key-wide'), square = blob('key-square');
   if (wide) next.coverHash = codeHash(d.code);
+  const art = wide ? await storyKeyArt({ wide, square }, typeof pack.title === 'string' ? pack.title : '', typeof pack.kicker === 'string' ? pack.kicker : '').catch(() => null) : null;
   db.prepare('UPDATE drafts SET report = ?, cover = COALESCE(?, cover), art_wide = COALESCE(?, art_wide), art_icon = COALESCE(?, art_icon) WHERE id = ?')
-    .run(JSON.stringify(next), wide, wide, square, d.id);
+    .run(JSON.stringify(next), wide, art?.wide ?? wide, art?.icon ?? square, d.id);
   return { draft: d.id, status: next.status as string, passed: passed.size, of: want.length, ...(rep.reason ? { reason: rep.reason } : {}) };
 }
 
@@ -208,4 +213,35 @@ export function patchStoryWorld(slug: unknown, input: { world: unknown; files?: 
     db.exec('COMMIT');
     return { ...r, game: game.id, drafts: drafts.length };
   } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
+
+/**
+ * A published story world's key art, titled (lib/story-art.ts), for one whose art is still Mog City's plain frame: the
+ * worlds published before story key art was titled (5 Nov: The Velvet Run, Special Delivery), or one whose titling
+ * failed at its report. Its plain frame stays the cover (?plain, the dare card); the titled wide and square replace
+ * art_wide and art_icon, once (the update is guarded on the art still being the frame), so the first request for its
+ * cover after a deploy makes them and every later one reads them. `owner`: a hidden world's, for the owner's session
+ * only, as gameArt. Null for anything else: not a story world, no frame, already titled, or a title nothing can set.
+ */
+const titling = new Map<string, Promise<{ wide: Buffer; icon: Buffer } | null>>();
+export function titleStoryArt(slug: string, owner = false): Promise<{ wide: Buffer; icon: Buffer } | null> {
+  const row = db.prepare(`SELECT id, title, meta, cover, art_wide, art_icon FROM games WHERE slug = ? AND (${owner ? '1' : "hidden = 0 OR json_extract(meta, '$.unlisted') = 1"})`)
+    .get(slug) as { id: string; title: string; meta: string | null; cover: Uint8Array | null; art_wide: Uint8Array | null; art_icon: Uint8Array | null } | undefined;
+  if (!row?.cover || !storeDraftOf(row.meta)) return Promise.resolve(null);
+  if (row.art_wide && !Buffer.from(row.art_wide).equals(Buffer.from(row.cover))) return Promise.resolve(null);
+  const busy = titling.get(row.id); if (busy) return busy;
+  const job = (async () => {
+    // the lockup's tag line is the world's kicker, from its pack in the store (none to be had: no tag line)
+    let kicker = '';
+    try {
+      const p = storyStore().db.prepare('SELECT pack FROM drafts WHERE id = ?').get(storeDraftOf(row.meta)!) as { pack: string } | undefined;
+      const k = p ? (JSON.parse(p.pack) as { kicker?: unknown }).kicker : null;
+      if (typeof k === 'string') kicker = k;
+    } catch { /* no tag line */ }
+    const art = await storyKeyArt({ wide: row.cover!, square: row.art_icon }, row.title, kicker).catch(() => null);
+    if (art) db.prepare('UPDATE games SET art_wide = ?, art_icon = ? WHERE id = ? AND (art_wide IS NULL OR art_wide = cover)').run(art.wide, art.icon, row.id);
+    return art;
+  })().finally(() => titling.delete(row.id));
+  titling.set(row.id, job);
+  return job;
 }

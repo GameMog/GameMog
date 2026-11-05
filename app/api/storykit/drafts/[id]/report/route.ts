@@ -19,6 +19,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   let rep = null;
   try { rep = body ? readDriveReport(JSON.parse(new TextDecoder().decode(body))) : null; } catch { rep = null; }
   if (!rep) return json({ error: 'A report is { missions: [{ id, state }], errors }.' }, 400);
-  const r = recordStoryReport(d.id, JSON.parse(d.pack), rep);
+  const r = await recordStoryReport(d.id, JSON.parse(d.pack), rep);
   return r ? json({ ok: true, ...r }) : json({ error: 'No world was built with this draft.' }, 404);
 }

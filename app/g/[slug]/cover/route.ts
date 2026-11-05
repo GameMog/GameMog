@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gameArt, gameCover, getGameBySlug, getUnlistedGameBySlug, getGameBySlugForOwner } from '@/lib/db';
 import { isAdmin } from '../../../admin/session';
+import { titleStoryArt } from '@/lib/storykit-publish';
 
 /** The screenshot the runtime playtest took mid-play, used as the game's cover. */
 export async function GET(req: Request, ctx: { params: Promise<{ slug: string }> }) {
@@ -14,8 +15,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   const plain = new URL(req.url).searchParams.has('plain');
   // (a hidden game's art for the owner's session only, never cached by anyone else: 5 Nov, owner-only story worlds)
   const listed = !!(getGameBySlug(slug) ?? getUnlistedGameBySlug(slug)), owner = !listed && (await isAdmin());
+  // (a story world whose art is still Mog City's plain frame gets it titled first, once: lib/storykit-publish.ts titleStoryArt)
+  const titled = plain || existsSync(path) ? null : await titleStoryArt(slug, owner);
   const jpg = plain ? gameCover(slug, owner) ?? (existsSync(path) ? readFileSync(path) : gameArt(slug, shape, owner))
-    : existsSync(path) ? readFileSync(path) : gameArt(slug, shape, owner) ?? gameCover(slug, owner);
+    : existsSync(path) ? readFileSync(path) : titled ? titled[shape === 'square' ? 'icon' : 'wide'] : gameArt(slug, shape, owner) ?? gameCover(slug, owner);
   const cache = owner ? 'private, no-store' : null;
   if (jpg) {
     return new Response(Buffer.from(jpg), {
