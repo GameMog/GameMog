@@ -1,0 +1,51 @@
+{
+ "storykit": 1,
+ "id": "test-native",
+ "title": "Late Pickup",
+ "kicker": "NEW YORK",
+ "tagline": "Mog City's own people, on Mog City's own engine",
+ "city": "ny",
+ "car": "roadster",
+ "hud": { "meters": [{ "id": "trust", "label": "TRUST", "kind": "count", "start": 0 }] },
+ "dressing": { "time": "golden", "season": "autumn", "weather": "clear", "holiday": [] },
+ "cast": {
+  "Dan": { "color": "#FFFFFF", "role": "a fired first-year associate", "model": "mogcity/dan" },
+  "Jane": { "color": "#6CB8FF", "role": "a hospital data analyst", "model": "mogcity/jane" },
+  "Knox": { "color": "#B6FF3B", "role": "the security crew's lead", "model": "mogcity/suit-knox" }
+ },
+ "hero": "Dan",
+ "places": {
+  "office": { "@": "heraldsq", "name": "Herald Square" },
+  "park": { "@": "chelseapark", "name": "Chelsea Park" }
+ },
+ "acts": [{ "id": "act1", "name": "ACT I", "order": ["LP-1", "LP-2"], "end": { "title": "END OF ACT I", "heading": "Picked Up", "next": { "text": "Act II soon" } } }],
+ "missions": [
+  {
+   "id": "LP-1", "title": "Late Pickup", "vehicle": "roadster", "start": "@murrayhill", "stakes": "Jane is waiting at Herald Square.", "passLine": "Jane is in the car.",
+   "steps": [
+    { "type": "say", "who": "Dan", "text": "Okay. Herald Square. Five minutes.", "secs": 2 },
+    { "type": "drive", "id": "to-jane", "to": "@office", "radius": 10, "objective": "Pick up **Jane** at **Herald Square**.", "checkpoint": true,
+      "during": [{ "type": "call", "at": 2, "who": "Jane", "auto": true, "inCar": true, "lines": [["JANE", "Dan. Why is your laptop doing forty down Fifth Avenue?"], ["DAN", "Because some guys in a van took it."]], "wrap": [["JANE", "See you in a minute."]] }] },
+    { "type": "npc", "who": "Jane", "id": "jane-kerb", "at": { "rel": "player", "right": 3.4, "fwd": 0.8 } },
+    { "type": "cutscene", "shots": [{ "cam": { "rel": "Jane", "fwd": 1.4, "right": 0.3 }, "look": { "rel": "Jane", "up": -0.05 }, "fov": 32, "dur": 2.5, "sub": ["Jane", "You're late. Moon noticed."] }] },
+    { "type": "choice", "prompt": "What do you tell her?", "who": "Jane", "timeout": 8, "default": 0,
+      "options": [{ "text": "Traffic.", "set": { "meters": { "trust": 1 } } }, { "text": "I got lost.", "set": { "meters": { "trust": 2 } } }] },
+    { "type": "dm", "from": "Knox", "text": "We see you. Chelsea Park. Now.", "secs": 5 },
+    { "type": "npc", "remove": "Jane", "who": "Jane" },
+    { "type": "drive", "id": "to-park", "to": "@park", "radius": 10, "objective": "Drive to **Chelsea Park**." }
+   ]
+  },
+  {
+   "id": "LP-2", "title": "Park Talk", "start": { "@": "park", "mode": "walk" }, "stakes": "Knox wants a word.", "passLine": "Knox has had his word.",
+   "steps": [
+    { "type": "timer", "seconds": 90, "label": "TIME", "fail": "soft" },
+    { "type": "search", "id": "bench", "at": "@park", "label": "search the bench", "secs": 1, "radius": 4, "checkpoint": true },
+    { "type": "say", "who": "Knox", "text": "This is a performance review, kid! You're failing it!", "secs": 2 },
+    { "type": "fight", "id": "brawl", "enemies": ["Knox", "Knox"], "arena": "@park", "win": "ko-all", "rules": "lesson", "objective": "Beat up the **Suits**.", "checkpoint": true },
+    { "type": "timer", "stop": true },
+    { "type": "transition", "kicker": "LATER", "text": "Home", "sub": "Moon is asleep.", "secs": 2 }
+   ]
+  }
+ ],
+ "voice": { "model": "kokoro-82m-v1.0", "dir": "", "cast": {}, "lines": [] }
+}

@@ -1512,3 +1512,15 @@ export function upright(W, h, k = 1) {
   const hip = mid('upperleg01_L', 'upperleg01_R'), d = B.head.getWorldPosition(V()).sub(hip);
   turn(B.spine05, R, (Math.atan2(d.dot(F), d.y) - LEAN) * k);
 }
+
+// (?pack=: this opening as a world's scene step, wagmi/storyrun/runner.js 'opening': the same set, cast, script and
+// camera as install's above, played once the world's own gate is through (no trailer). Never called without ?pack=.)
+export async function playOpening(W) {
+  W.set = W.set || dressSet(W);
+  place(W, { dan: [112, 386.7, 0] }); W.person.mesh.visible = false;
+  const hold = createDirector(W); hold.camera = { pos: [260, 140, 250], look: [-80, 172, 686], fov: 50, band: false }; hold.take(); W.ui.cine(true);
+  W._holdCam = hold;
+  const cast = await castOpening(W);
+  W.intro = cast.api;
+  await cast.run(null);
+}

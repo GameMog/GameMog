@@ -668,14 +668,15 @@ export function createCalls(W) {
   // the line on screen ('JANE' + its words), or null: one that isn't the call's is the mission's
   const subNow = () => { const e = document.querySelector('#wg .wg-sub'); return e && !e.classList.contains('hide') ? e.textContent : null; };
   const heardOf = (id) => { if (!heard.has(id)) heard.set(id, { main: false, extra: new Set(), rang: false }); return heard.get(id); };
-  const card = (status) => W.ui?.caller?.('Jane', BLUE, status);
+  // (the caller: Jane, or a world's call's own caller and colour: wagmi/storyrun, W.calls.define)
+  const card = (status, C = cur) => W.ui?.caller?.(C?.def.who || 'Jane', C?.def.color || BLUE, status);
   const mainLeft = (C) => C.mainI < C.def.main.length || C.line?.kind === 'main' || C.again?.kind === 'main';
   // (under the call: the music bus when the game's mixer has the radio, else the radio's own duck)
   const duck = (secs) => { try { if (W.audio?.bus?.music && W.audio?.bus?.voice) W.audio.duck('music', 0.6, secs); else W.radio?.duck?.(0.32, secs); } catch {} };
 
   // a line not recorded yet: a voice mumbling each phrase of it (Jane's through the phone, softer whispering)
   function mumble(C, who, text, secs) {
-    const f0 = VOICE[who]; if (!f0 || !W.sfx) return;
+    const f0 = C.def.f0?.[who] ?? VOICE[who]; if (!f0 || !W.sfx) return;
     const phone = who === 'Jane', parts = text.match(/[^.?!]+[.?!']*/g) || [text];
     let at = 0;
     for (const ph of parts) {
@@ -863,6 +864,9 @@ export function createCalls(W) {
 
   return {
     CALLS, start, react, cue,
+    // a world's car-phone call (wagmi/storyrun): the same def shape as CALLS' (main, extra, wrap, pause, resume, trigger,
+    // delay, wrapAfterMain), plus who and color for its card and f0 (speaker -> Hz) for a line's mumble
+    define(id, def) { CALLS[id] = { trigger: 'enter-car', delay: 2, main: [], extra: [], wrap: [], pause: [], resume: [], ...def }; return CALLS[id]; },
     stop({ quiet = false, of = null } = {}) {
       const mine = (c) => c && (!of || c.step.startsWith(of));
       if (mine(next)) end(next, false);

@@ -1,0 +1,617 @@
+{
+ "storykit": 1,
+ "id": "mog-city",
+ "title": "Unfinished Business",
+ "kicker": "MOG CITY",
+ "tagline": "Act I · Fall Guy",
+ "city": "ny",
+ "car": "roadster",
+ "cast": {
+  "Dan": {
+   "color": "#FFFFFF",
+   "role": "a fired first-year associate",
+   "model": "mogcity/dan"
+  },
+  "Jane": {
+   "color": "#6CB8FF",
+   "role": "his best friend, a hospital data analyst",
+   "model": "mogcity/jane",
+   "voiceOnly": true
+  },
+  "Knox": {
+   "color": "#B6FF3B",
+   "role": "the Suits' lead",
+   "model": "mogcity/suit-knox",
+   "voiceOnly": true
+  },
+  "Dash": {
+   "color": "#B6FF3B",
+   "role": "the Suit who misses the brief",
+   "model": "mogcity/suit-dash",
+   "voiceOnly": true
+  },
+  "Mr. Big": {
+   "color": "#FFC93C",
+   "role": "the boss who framed him",
+   "model": "mogcity/mrbig",
+   "voiceOnly": true
+  },
+  "Mack": {
+   "color": "#B6FF3B",
+   "role": "the Suits' boss on the street",
+   "voiceOnly": true
+  },
+  "Rook": {
+   "color": "#FFFFFF",
+   "role": "a Suit who wants out",
+   "voiceOnly": true
+  },
+  "Gears": {
+   "color": "#FFC93C",
+   "role": "the mechanic who hides him",
+   "model": "mogcity/gears"
+  },
+  "Fiona": {
+   "color": "#FF8AD8",
+   "role": "JPBank's PR lead",
+   "model": "mogcity/fiona"
+  }
+ },
+ "hero": "Dan",
+ "places": {
+  "home": {
+   "at": [
+    88,
+    394.4,
+    -90
+   ],
+   "name": "Dan's car"
+  },
+  "door": {
+   "at": [
+    109,
+    390.8,
+    -80.79
+   ],
+   "name": "E 37th St"
+  },
+  "park": {
+   "at": [
+    -1139,
+    1160,
+    0
+   ],
+   "name": "Chelsea Park"
+  },
+  "lawn": {
+   "at": [
+    -1145.5,
+    1160,
+    -90
+   ],
+   "name": "Chelsea Park"
+  },
+  "crew": {
+   "at": [
+    -1153,
+    1160,
+    90
+   ],
+   "name": "Chelsea Park"
+  },
+  "dash": {
+   "at": [
+    -1262,
+    1124,
+    0
+   ],
+   "name": "W 28th St"
+  },
+  "van": {
+   "at": [
+    -1240,
+    1121.4,
+    0
+   ],
+   "name": "The Suits' van"
+  },
+  "vanside": {
+   "at": [
+    -1240,
+    1125.5,
+    180
+   ],
+   "name": "The Suits' van"
+  },
+  "getin": {
+   "at": [
+    86.6,
+    391.7,
+    20.05
+   ],
+   "name": "Dan's car"
+  },
+  "jane": {
+   "at": [
+    -298.8,
+    84.5,
+    180
+   ],
+   "name": "Bryant Park"
+  },
+  "garage": {
+   "at": [
+    -1560,
+    1611,
+    90
+   ],
+   "name": "Gears' garage"
+  }
+ },
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ACT I · FALL GUY",
+   "order": [
+    "M1",
+    "M2"
+   ]
+  },
+  {
+   "id": "act2",
+   "name": "ACT II · INSIDERS",
+   "order": [
+    "M3"
+   ]
+  }
+ ],
+ "missions": [
+  {
+   "id": "M1",
+   "title": "Bagged",
+   "card": false,
+   "stakes": "Follow the laptop's tracker to Chelsea Park.",
+   "passLine": "Jane, Moon and your mom. It's a start.",
+   "pass": {
+    "stats": [
+     "time",
+     "ko",
+     "hits"
+    ],
+    "koLabel": "SUITS DOWN",
+    "koOf": 5,
+    "reward": "+3"
+   },
+   "steps": [
+    {
+     "id": "opening",
+     "type": "scene",
+     "name": "opening"
+    },
+    {
+     "id": "car",
+     "type": "walk",
+     "enterCar": true,
+     "checkpoint": true,
+     "objective": "Get in your **car**.",
+     "from": {
+      "car": "home",
+      "dan": "door"
+     }
+    },
+    {
+     "id": "drive",
+     "type": "drive",
+     "to": "@park",
+     "radius": 7,
+     "stopSpeed": 20,
+     "card": false,
+     "objective": "Follow the laptop's tracker to **Chelsea Park**.",
+     "from": {
+      "car": "home",
+      "dan": "getin",
+      "getIn": true
+     },
+     "during": [
+      {
+       "type": "call",
+       "who": "Jane",
+       "ref": "m1-drive",
+       "wrapNear": 250,
+       "hurryNear": 400
+      }
+     ],
+     "help": [
+      [
+       2,
+       "Your destination is marked with a **●** on the Radar."
+      ],
+      [
+       8,
+       "GPS shows the quickest legal route with a **yellow line**.",
+       "car"
+      ],
+      [
+       20,
+       "Hold [Shift] to boost.",
+       "car"
+      ]
+     ],
+     "blip": {
+      "kind": "laptop",
+      "name": "Laptop tracker",
+      "secs": 20,
+      "path": [
+       [
+        3.6,
+        470
+       ],
+       [
+        3.6,
+        641
+       ],
+       [
+        -1134,
+        641
+       ],
+       [
+        -1134,
+        1117
+       ],
+       [
+        -1180,
+        1122
+       ]
+      ]
+     },
+     "areas": [
+      {
+       "name": "Garment District",
+       "sub": "New York",
+       "maxX": -300,
+       "maxZ": 700
+      },
+      {
+       "name": "Hell's Kitchen",
+       "sub": "New York",
+       "maxX": -880,
+       "maxZ": 700
+      },
+      {
+       "name": "Chelsea",
+       "sub": "New York",
+       "minZ": 760
+      }
+     ],
+     "dressNear": {
+      "dress": "m1.van",
+      "within": 320
+     }
+    },
+    {
+     "id": "arrival",
+     "type": "scene",
+     "name": "m1.arrival"
+    },
+    {
+     "id": "fight",
+     "type": "fight",
+     "checkpoint": true,
+     "from": {
+      "car": "park",
+      "dan": "lawn"
+     },
+     "arena": "@lawn",
+     "crewAt": "@crew",
+     "enemies": [
+      "Knox",
+      "Knox",
+      "Knox",
+      "Knox"
+     ],
+     "win": "ko-all",
+     "counter": "SUITS",
+     "objective": "Beat up the **Suits**.",
+     "why": "Dan got knocked out.",
+     "reinforce": {
+      "at": 2,
+      "count": 1,
+      "from": "@dash",
+      "say": [
+       [
+        "Dash",
+        "Wait! Did I miss the brief?"
+       ],
+       [
+        "Knox",
+        "You always miss the brief!"
+       ]
+      ]
+     },
+     "barks": {
+      "1": [
+       "Knox",
+       "This is a performance review, kid! You're failing it!"
+      ],
+      "3": [
+       "Knox",
+       "Please stop hitting back! We value your feedback!"
+      ],
+      "4": [
+       "Knox",
+       "Okay! I'm escalating this to HR!"
+      ]
+     },
+     "dress": "m1.park",
+     "help": [
+      [
+       1.5,
+       "Suits are marked with a **red dot**{red} on the Radar."
+      ]
+     ],
+     "rules": "lesson"
+    },
+    {
+     "id": "search",
+     "type": "search",
+     "checkpoint": true,
+     "from": {
+      "car": "park",
+      "dan": "vanside"
+     },
+     "at": "@van",
+     "label": "search the van",
+     "noun": "the van",
+     "objective": "Search the **van**.",
+     "radius": 4.6,
+     "ring": 3.9,
+     "secs": 1.0,
+     "dress": "m1.park"
+    },
+    {
+     "id": "tracker",
+     "type": "scene",
+     "name": "m1.tracker"
+    }
+   ],
+   "after": [
+    {
+     "dm": {
+      "from": "Jane",
+      "text": "that burner is a gift. bring it to me and i'll crack it open. bryant park, 6th ave side. i'll call when you're driving.",
+      "secs": 10
+     },
+     "wait": 2.2
+    }
+   ]
+  },
+  {
+   "id": "M2",
+   "title": "Burner",
+   "card": false,
+   "start": "@jane",
+   "time": "dusk",
+   "stakes": "Bring the burner to Jane at Bryant Park.",
+   "passLine": "A trucker filmed the yard fight · NEW: trash cans and bottles",
+   "between": {
+    "letter": "J",
+    "name": "Jane · Bryant Park",
+    "objective": "Bring the burner to **Jane**{blue} at **Bryant Park**.",
+    "step": "free:J",
+    "dm": false,
+    "help": "A new mission is available. Go to the **J** on the Radar.",
+    "note": [
+     "Jane",
+     "no rush. moon and i are at bryant park, 6th ave side. the J on your radar."
+    ]
+   },
+   "pass": {
+    "stats": [
+     "time",
+     {
+      "label": "SUITS DOWN",
+      "stat": "ko"
+     },
+     {
+      "label": "QUIET TAKEDOWNS",
+      "stat": "quiet",
+      "of": 3
+     },
+     "hits"
+    ],
+    "reward": "+212"
+   },
+   "after": [
+    {
+     "dm": {
+      "from": "Jane",
+      "text": "saw the chat. they know where you live, so not home tonight. gears' garage, west chelsea. i'll call when you're driving.",
+      "secs": 9
+     },
+     "wait": 6.5
+    },
+    {
+     "dm": {
+      "from": "Unknown number",
+      "text": "this is rook. from mack's chat. i want out. i know where they're taking your laptop. mack's checking all our phones tonight, so not yet. i'll DM you tomorrow. -R",
+      "secs": 12
+     },
+     "wait": 1.8
+    },
+    {
+     "say": [
+      "Dan",
+      "Rook. The 'getting weird' guy."
+     ]
+    },
+    {
+     "wait": 0.7
+    }
+   ],
+   "steps": [
+    {
+     "id": "start",
+     "type": "scene",
+     "name": "m2.start",
+     "checkpoint": true
+    },
+    {
+     "id": "go",
+     "type": "drive",
+     "ref": "m2.go",
+     "checkpoint": true,
+     "objective": "Drive to **Times Square**."
+    },
+    {
+     "id": "tail",
+     "type": "tail",
+     "ref": "m2.tail",
+     "checkpoint": true,
+     "objective": "Follow the **van**{red}. Don't get too close."
+    },
+    {
+     "id": "yard",
+     "type": "stealth",
+     "ref": "m2.yard",
+     "checkpoint": true,
+     "objective": "Sneak up on the **stash**{green}."
+    },
+    {
+     "id": "fight",
+     "type": "fight",
+     "ref": "m2.fight",
+     "objective": "Beat up the **Suits**{red}."
+    },
+    {
+     "id": "chase",
+     "type": "pursuit",
+     "ref": "m2.chase",
+     "checkpoint": true,
+     "objective": "Take down **Mack**{red}."
+    },
+    {
+     "id": "crash",
+     "type": "scene",
+     "name": "m2.crash"
+    },
+    {
+     "id": "phone",
+     "type": "search",
+     "ref": "m2.phone",
+     "chat": false,
+     "checkpoint": true,
+     "label": "take Mack's phone",
+     "objective": "Take **Mack's phone**{green}."
+    },
+    {
+     "id": "chat",
+     "type": "scene",
+     "name": "m2.chat"
+    }
+   ]
+  },
+  {
+   "id": "M3",
+   "title": "Occupied",
+   "card": false,
+   "start": "@garage",
+   "stakes": "Kill the smear reel at Washington Square.",
+   "passLine": "The camp says FREE DAN · NEW: bats · cold-gas thrusters",
+   "between": {
+    "letter": "G",
+    "name": "Gears' garage · W 22nd St",
+    "objective": "Go to **Gears' garage**.",
+    "step": "free:G",
+    "dm": false,
+    "carR": 9,
+    "help": "A new mission is available. Go to the **G** on the Radar.",
+    "note": [
+     "Jane",
+     "gears' garage is in west chelsea, the G on your radar. he's expecting you."
+    ]
+   },
+   "pass": {
+    "stats": [
+     "time",
+     {
+      "label": "SCREENS SMASHED",
+      "value": "3/3"
+     },
+     {
+      "label": "SUITS DOWN",
+      "stat": "ko"
+     },
+     "hits"
+    ],
+    "reward": "+11,240"
+   },
+   "after": [
+    {
+     "dm": {
+      "from": "Unknown number",
+      "text": "it's rook. you saw the chat. i'm driving your laptop to the shredder at dawn. i was in that crowd today. i'm done. meet me tonight at sara roosevelt park. come alone. -R",
+      "secs": 13
+     },
+     "wait": 5.5
+    }
+   ],
+   "steps": [
+    {
+     "id": "garage",
+     "type": "scene",
+     "name": "m3.garage",
+     "checkpoint": true
+    },
+    {
+     "id": "square",
+     "type": "drive",
+     "ref": "m3.square",
+     "checkpoint": true,
+     "objective": "Go to **Washington Square**."
+    },
+    {
+     "id": "rally",
+     "type": "scene",
+     "name": "m3.rally"
+    },
+    {
+     "id": "rigs",
+     "type": "fight",
+     "ref": "m3.rigs",
+     "checkpoint": true,
+     "objective": "Smash the **screen rigs**{green}."
+    },
+    {
+     "id": "dump",
+     "type": "scene",
+     "name": "m3.dump"
+    },
+    {
+     "id": "escape",
+     "type": "pursuit",
+     "ref": "m3.escape",
+     "checkpoint": true,
+     "objective": "Lose the **Suits**{red}."
+    },
+    {
+     "id": "ret",
+     "type": "drive",
+     "ref": "m3.ret",
+     "checkpoint": true,
+     "objective": "Go back to the **garage**."
+    },
+    {
+     "id": "home",
+     "type": "scene",
+     "name": "m3.home"
+    }
+   ]
+  }
+ ],
+ "voice": {
+  "model": "none",
+  "dir": "",
+  "cast": {},
+  "lines": []
+ }
+}

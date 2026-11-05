@@ -1,0 +1,892 @@
+{
+ "storykit": 1,
+ "id": "test-night-shift",
+ "title": "Night Shift",
+ "kicker": "NEW YORK",
+ "tagline": "One cab, one fare, one snowy night",
+ "city": "ny",
+ "car": {
+  "sheet": {
+   "v": 1,
+   "id": "rides.night-cab",
+   "label": "Night Cab",
+   "noun": "cab",
+   "family": "car4",
+   "class": "taxi",
+   "era": 1996,
+   "condition": "tired",
+   "body": {
+    "rear": "notchback",
+    "doors": 4,
+    "trim": "chrome",
+    "crease": "single",
+    "hood": "flat"
+   },
+   "face": {
+    "lamps": "square",
+    "grille": "egg-crate",
+    "bumper": "black-plastic",
+    "fog": false
+   },
+   "tail": {
+    "lamps": "wrap",
+    "exhaust": "single",
+    "plate": "center"
+   },
+   "paint": {
+    "base": "#F2B90F",
+    "finish": "gloss",
+    "livery": {
+     "kind": "taxi",
+     "text": "TAXI",
+     "number": "4K21"
+    }
+   },
+   "wheels": {
+    "style": "steel-hubcap",
+    "finish": "silver",
+    "tyre": "road"
+   },
+   "interior": {
+    "seat": "#2D2A27",
+    "material": "vinyl",
+    "dash": "analog",
+    "wheel": "four-spoke",
+    "partition": true
+   },
+   "props": [
+    "air-freshener",
+    "coffee-cups",
+    "clipboard"
+   ],
+   "sound": {
+    "engine": "v8",
+    "character": -0.4,
+    "gears": 4
+   },
+   "handling": {
+    "pace": -0.2,
+    "pull": -0.45,
+    "grip": -0.5,
+    "weight": 0.4,
+    "turnIn": -0.45,
+    "brakes": -0.4,
+    "character": "floaty"
+   },
+   "abilities": [
+    "boost"
+   ],
+   "story": {
+    "owner": "driver",
+    "nickname": "Four K",
+    "oneLine": "A nineties yellow cab on its third engine, a bulletproof divider and a pine tree that smells of nothing now."
+   },
+   "plate": "T 4K21"
+  }
+ },
+ "hud": {
+  "clock": {
+   "label": "NIGHT",
+   "format": "count",
+   "unit": "night",
+   "unitLabel": "NIGHT"
+  },
+  "meters": [
+   {
+    "id": "cash",
+    "label": "FARES",
+    "kind": "money",
+    "start": 0
+   },
+   {
+    "id": "trust",
+    "label": "TRUST",
+    "kind": "bar",
+    "start": 40
+   }
+  ]
+ },
+ "dressing": {
+  "time": "midnight",
+  "season": "winter",
+  "weather": "snow",
+  "holiday": []
+ },
+ "cast": {
+  "Dez Amaro": {
+   "color": "#F2C14E",
+   "role": "night-shift cab driver",
+   "glb": "dez.glb",
+   "idle": "shift",
+   "walk": "walkCool"
+  },
+  "Mrs. Kwon": {
+   "color": "#E8726A",
+   "role": "the last fare of the night",
+   "glb": "kwon.glb",
+   "idle": "idle",
+   "walk": "walk"
+  },
+  "Sgt. Ray Ortega": {
+   "color": "#86A8E0",
+   "role": "precinct sergeant and an old friend",
+   "glb": "ray.glb",
+   "idle": "arms",
+   "walk": "walk"
+  }
+ },
+ "hero": "Dez Amaro",
+ "places": {
+  "kwon-corner": {
+   "@": "les",
+   "name": "Orchard St & Rivington St"
+  },
+  "kwon-home": {
+   "@": "westvillage",
+   "name": "the green door on Bank St"
+  }
+ },
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ONE NIGHT",
+   "order": [
+    "NS-1",
+    "NS-2",
+    "NS-3"
+   ],
+   "timeline": {
+    "NS-1": {
+     "at": 1,
+     "clock": "12:40 AM",
+     "time": "midnight"
+    },
+    "NS-2": {
+     "at": 1,
+     "clock": "1:05 AM",
+     "time": "midnight",
+     "skip": "Five minutes later"
+    },
+    "NS-3": {
+     "at": 1,
+     "clock": "1:30 AM",
+     "time": "midnight",
+     "skip": "Twenty minutes later"
+    }
+   },
+   "end": {
+    "title": "Night Shift",
+    "stats": [
+     {
+      "label": "NIGHTS",
+      "value": "1"
+     },
+     {
+      "label": "FARES",
+      "value": "1"
+     }
+    ],
+    "story": [
+     "The snow stopped at three. The books are behind a green door on Bank Street."
+    ],
+    "quote": {
+     "text": "Fifty years of books, and a cab driver kept them.",
+     "by": "Mrs. Kwon"
+    },
+    "meter": "trust",
+    "minSecs": 4
+   }
+  }
+ ],
+ "missions": [
+  {
+   "id": "NS-1",
+   "title": "Last Fare",
+   "vehicle": "rides.night-cab",
+   "start": {
+    "@": "bowery",
+    "face": "ludlow"
+   },
+   "traffic": 0.35,
+   "stakes": "One more fare before the snow closes the city.",
+   "passLine": "Mrs. Kwon is at Foley Square.",
+   "reward": {
+    "meters": {
+     "cash": 24
+    }
+   },
+   "steps": [
+    {
+     "type": "say",
+     "who": "Dez Amaro",
+     "text": "Last fare, then home. It's sticking now.",
+     "secs": 3
+    },
+    {
+     "type": "drive",
+     "to": "@kwon-corner",
+     "radius": 9,
+     "objective": "A fare is waiting at **Orchard & Rivington**",
+     "during": [
+      {
+       "at": 3,
+       "type": "call",
+       "who": "Sgt. Ray Ortega",
+       "role": "Sgt. Ortega, the precinct",
+       "lines": [
+        [
+         "SGT. RAY ORTEGA",
+         "Dez. A crew's been boxing in cabs below Houston tonight.",
+         3.5
+        ],
+        [
+         "SGT. RAY ORTEGA",
+         "Two drivers jumped since ten. You heading home?",
+         3
+        ]
+       ],
+       "choice": {
+        "who": "Sgt. Ray Ortega",
+        "prompt": "Ray wants an answer.",
+        "timeout": 7,
+        "default": 0,
+        "flag": "told ray",
+        "options": [
+         {
+          "text": "One more fare, then home.",
+          "value": "one-more",
+          "reply": [
+           "Sgt. Ray Ortega",
+           "Then keep your doors locked."
+          ]
+         },
+         {
+          "text": "I'll watch myself.",
+          "value": "careful",
+          "set": {
+           "meters": {
+            "trust": 5
+           }
+          },
+          "reply": [
+           "Sgt. Ray Ortega",
+           "You always say that."
+          ]
+         }
+        ]
+       },
+       "voicemail": {
+        "text": "Dez, it's Ray. A crew's working below Houston. Call me back.",
+        "secs": 4
+       }
+      }
+     ]
+    },
+    {
+     "type": "npc",
+     "who": "Mrs. Kwon",
+     "id": "kwon-kerb",
+     "at": {
+      "rel": "player",
+      "right": 3.4,
+      "fwd": 0.8
+     }
+    },
+    {
+     "type": "cutscene",
+     "shots": [
+      {
+       "cam": {
+        "rel": "player",
+        "right": -3,
+        "up": 2.6,
+        "fwd": -7
+       },
+       "look": {
+        "rel": "Mrs. Kwon"
+       },
+       "dur": 2.4,
+       "caption": "Orchard St, 12:40 AM"
+      },
+      {
+       "cam": {
+        "rel": "Mrs. Kwon",
+        "fwd": 1.05,
+        "up": 0.03,
+        "right": 0.22
+       },
+       "look": {
+        "rel": "Mrs. Kwon",
+        "up": -0.04
+       },
+       "fov": 30,
+       "dur": 3.8,
+       "sub": [
+        "Mrs. Kwon",
+        "First cab that stopped for me in an hour. Foley Square, please."
+       ]
+      }
+     ]
+    },
+    {
+     "type": "passenger",
+     "who": "Mrs. Kwon",
+     "seat": "rear",
+     "secs": 3
+    },
+    {
+     "type": "choice",
+     "who": "Mrs. Kwon",
+     "prompt": "She holds a canvas bag on her lap with both hands.",
+     "timeout": 8,
+     "default": 0,
+     "flag": "bag",
+     "options": [
+      {
+       "text": "None of my business.",
+       "value": "quiet",
+       "set": {
+        "meters": {
+         "trust": 5
+        }
+       },
+       "reply": [
+        "Mrs. Kwon",
+        "Good. Keep it that way."
+       ]
+      },
+      {
+       "text": "Heavy bag for this hour.",
+       "value": "ask",
+       "reply": [
+        "Mrs. Kwon",
+        "Fifty years of my shop's books. Drive, please."
+       ]
+      }
+     ]
+    },
+    {
+     "type": "drive",
+     "to": "@foley",
+     "radius": 9,
+     "objective": "Take **Mrs. Kwon** to **Foley Square**"
+    },
+    {
+     "type": "say",
+     "who": "Mrs. Kwon",
+     "text": "Wait here. Five minutes. Meter running.",
+     "secs": 3
+    },
+    {
+     "type": "passenger",
+     "who": "Mrs. Kwon",
+     "board": false,
+     "secs": 2.5
+    }
+   ],
+   "city": "New York"
+  },
+  {
+   "id": "NS-2",
+   "title": "Snow Tail",
+   "vehicle": "rides.night-cab",
+   "start": {
+    "@": "foley",
+    "face": "tribeca"
+   },
+   "traffic": 0.3,
+   "stakes": "Someone followed Mrs. Kwon out of the building.",
+   "passLine": "The grey car is gone.",
+   "reward": {
+    "meters": {
+     "cash": 30
+    }
+   },
+   "steps": [
+    {
+     "type": "passenger",
+     "who": "Mrs. Kwon",
+     "seat": "rear",
+     "secs": 2.5
+    },
+    {
+     "type": "say",
+     "who": "Mrs. Kwon",
+     "text": "Go. The grey car across the street. It followed me out.",
+     "secs": 3.5
+    },
+    {
+     "type": "say",
+     "who": "Dez Amaro",
+     "text": "Hold on to something.",
+     "secs": 2.5
+    },
+    {
+     "type": "pursuit",
+     "goal": "lose",
+     "count": 1,
+     "level": 1,
+     "kind": "crew",
+     "loseDist": 150,
+     "loseTime": 3.5,
+     "los": 4,
+     "objective": "Lose the grey car. Shift to boost.",
+     "flag": "lost the tail"
+    },
+    {
+     "type": "choice",
+     "who": "Mrs. Kwon",
+     "prompt": "Mrs. Kwon is shaking. What do you say?",
+     "timeout": 8,
+     "default": 0,
+     "flag": "calmed",
+     "options": [
+      {
+       "text": "You're safe. Nobody's behind us.",
+       "value": "calm",
+       "set": {
+        "meters": {
+         "trust": 10
+        }
+       },
+       "reply": [
+        "Mrs. Kwon",
+        "Thank you. Franklin Street. I need to think."
+       ]
+      },
+      {
+       "text": "Who were they?",
+       "value": "ask",
+       "reply": [
+        "Mrs. Kwon",
+        "My nephew's friends. Franklin Street, please."
+       ]
+      }
+     ]
+    },
+    {
+     "type": "drive",
+     "to": "@tribeca",
+     "radius": 10,
+     "objective": "Lie low on **Franklin & Hudson**"
+    },
+    {
+     "type": "say",
+     "who": "Mrs. Kwon",
+     "text": "The books show who borrowed from the shop. They want them burned.",
+     "secs": 4
+    }
+   ],
+   "city": "New York"
+  },
+  {
+   "id": "NS-3",
+   "title": "Home Before Dawn",
+   "vehicle": "rides.night-cab",
+   "start": {
+    "@": "tribeca",
+    "face": "westvillage"
+   },
+   "traffic": 0.3,
+   "stakes": "Get Mrs. Kwon and her books home.",
+   "passLine": "Mrs. Kwon is home, and so are her books.",
+   "reward": {
+    "meters": {
+     "cash": 40
+    }
+   },
+   "steps": [
+    {
+     "type": "passenger",
+     "who": "Mrs. Kwon",
+     "seat": "rear",
+     "secs": 2.5
+    },
+    {
+     "type": "say",
+     "who": "Mrs. Kwon",
+     "text": "I called my granddaughter. Take me home. Bank Street.",
+     "secs": 3.5
+    },
+    {
+     "type": "drive",
+     "to": "@kwon-home",
+     "radius": 9,
+     "objective": "Take **Mrs. Kwon** home to **Bank St**",
+     "during": [
+      {
+       "at": 3,
+       "type": "call",
+       "who": "Sgt. Ray Ortega",
+       "role": "Sgt. Ortega, the precinct",
+       "lines": [
+        [
+         "SGT. RAY ORTEGA",
+         "Heard a cab ran a crew car ragged on Centre Street.",
+         3
+        ],
+        [
+         "SGT. RAY ORTEGA",
+         "That you?",
+         1.5
+        ]
+       ],
+       "choice": {
+        "who": "Sgt. Ray Ortega",
+        "prompt": "Tell Ray?",
+        "timeout": 7,
+        "default": 0,
+        "flag": "told ray tonight",
+        "options": [
+         {
+          "text": "It was me. I have a passenger.",
+          "value": "tell",
+          "set": {
+           "meters": {
+            "trust": 10
+           }
+          },
+          "reply": [
+           "Sgt. Ray Ortega",
+           "Bring her by after. I'll take her statement myself."
+          ]
+         },
+         {
+          "text": "Wasn't me.",
+          "value": "deny",
+          "reply": [
+           "Sgt. Ray Ortega",
+           "Sure it wasn't. Drive safe, Dez."
+          ]
+         }
+        ]
+       },
+       "voicemail": {
+        "text": "Dez. Call me when you see this.",
+        "secs": 3
+       }
+      }
+     ]
+    },
+    {
+     "type": "say",
+     "who": "Mrs. Kwon",
+     "text": "Here. The green door.",
+     "secs": 2.5
+    },
+    {
+     "type": "passenger",
+     "who": "Mrs. Kwon",
+     "board": false,
+     "secs": 2.5
+    },
+    {
+     "type": "npc",
+     "if": "told ray tonight == tell",
+     "who": "Sgt. Ray Ortega",
+     "id": "ray-door",
+     "at": {
+      "rel": "player",
+      "right": 3.4,
+      "fwd": 4
+     }
+    },
+    {
+     "type": "cutscene",
+     "if": "told ray tonight == tell",
+     "shots": [
+      {
+       "cam": {
+        "rel": "player",
+        "right": -2.5,
+        "up": 2.2,
+        "fwd": -6
+       },
+       "look": {
+        "rel": "Sgt. Ray Ortega"
+       },
+       "dur": 2.2,
+       "caption": "Bank St, 1:50 AM"
+      },
+      {
+       "cam": {
+        "rel": "Sgt. Ray Ortega",
+        "fwd": 1.2,
+        "up": 0.02,
+        "right": -0.2
+       },
+       "look": {
+        "rel": "Sgt. Ray Ortega",
+        "up": -0.05
+       },
+       "fov": 30,
+       "dur": 3.6,
+       "sub": [
+        "Sgt. Ray Ortega",
+        "Told you to lock your doors. Go home, Dez. I've got her."
+       ]
+      }
+     ]
+    },
+    {
+     "type": "say",
+     "who": "Dez Amaro",
+     "text": "Snow's stopping. Home.",
+     "secs": 2.5
+    }
+   ],
+   "city": "New York"
+  }
+ ],
+ "voice": {
+  "model": "kokoro-82m-v1.0",
+  "dir": "voice/",
+  "cast": {
+   "Dez Amaro": {
+    "id": "dez",
+    "voice": "dez-v1",
+    "key": "f6a129c2",
+    "block": {
+     "id": "dez-v1",
+     "base": "am_michael",
+     "blend": {
+      "am_michael": 0.55,
+      "am_puck": 0.3,
+      "am_liam": 0.15
+     },
+     "speed": 1.06,
+     "pitch": -0.5,
+     "description": "a young man in his twenties, warm mid baritone, quick and dry, a little tired by the small hours"
+    }
+   },
+   "Mrs. Kwon": {
+    "id": "kwon",
+    "voice": "kwon-v1",
+    "key": "b23faf81",
+    "block": {
+     "id": "kwon-v1",
+     "base": "af_nicole",
+     "blend": {
+      "af_nicole": 0.5,
+      "af_kore": 0.3,
+      "af_sarah": 0.2
+     },
+     "speed": 1.02,
+     "pitch": 0.8,
+     "description": "a small older woman, bright alto with a little rasp, quick and polite, steel under it"
+    }
+   },
+   "Sgt. Ray Ortega": {
+    "id": "ray",
+    "voice": "ray-v1",
+    "key": "772b9153",
+    "block": {
+     "id": "ray-v1",
+     "base": "am_onyx",
+     "blend": {
+      "am_onyx": 0.6,
+      "am_michael": 0.25,
+      "bm_lewis": 0.15
+     },
+     "speed": 0.92,
+     "pitch": -1,
+     "description": "a tired baritone in his forties, gravel in it, flat and short, kind underneath"
+    }
+   }
+  },
+  "lines": [
+   {
+    "id": "NS-1.s0",
+    "who": "Dez Amaro",
+    "voice": "dez-v1",
+    "text": "Last fare, then home. It's sticking now.",
+    "hash": "3a3ebbbc",
+    "clip": "3a3ebbbc-f6a129c2"
+   },
+   {
+    "id": "NS-1.s1.d0.l0",
+    "who": "Sgt. Ray Ortega",
+    "voice": "ray-v1",
+    "text": "Dez. A crew's been boxing in cabs below Houston tonight.",
+    "hash": "54be064d",
+    "clip": "54be064d-772b9153"
+   },
+   {
+    "id": "NS-1.s1.d0.l1",
+    "who": "Sgt. Ray Ortega",
+    "voice": "ray-v1",
+    "text": "Two drivers jumped since ten. You heading home?",
+    "hash": "8c09c5f9",
+    "clip": "8c09c5f9-772b9153"
+   },
+   {
+    "id": "NS-1.s1.d0.vm",
+    "who": "Sgt. Ray Ortega",
+    "voice": "ray-v1",
+    "text": "Dez, it's Ray. A crew's working below Houston. Call me back.",
+    "hash": "3abf70e6",
+    "clip": "3abf70e6-772b9153"
+   },
+   {
+    "id": "NS-1.s1.d0.ch.o0",
+    "who": "Sgt. Ray Ortega",
+    "voice": "ray-v1",
+    "text": "Then keep your doors locked.",
+    "hash": "600d2c9b",
+    "clip": "600d2c9b-772b9153"
+   },
+   {
+    "id": "NS-1.s1.d0.ch.o1",
+    "who": "Sgt. Ray Ortega",
+    "voice": "ray-v1",
+    "text": "You always say that.",
+    "hash": "3f7efb07",
+    "clip": "3f7efb07-772b9153"
+   },
+   {
+    "id": "NS-1.s3.c1",
+    "who": "Mrs. Kwon",
+    "voice": "kwon-v1",
+    "text": "First cab that stopped for me in an hour. Foley Square, please.",
+    "hash": "9b2baad0",
+    "clip": "9b2baad0-b23faf81"
+   },
+   {
+    "id": "NS-1.s5.o0",
+    "who": "Mrs. Kwon",
+    "voice": "kwon-v1",
+    "text": "Good. Keep it that way.",
+    "hash": "636d1938",
+    "clip": "636d1938-b23faf81"
+   },
+   {
+    "id": "NS-1.s5.o1",
+    "who": "Mrs. Kwon",
+    "voice": "kwon-v1",
+    "text": "Fifty years of my shop's books. Drive, please.",
+    "hash": "bfc19104",
+    "clip": "bfc19104-b23faf81"
+   },
+   {
+    "id": "NS-1.s7",
+    "who": "Mrs. Kwon",
+    "voice": "kwon-v1",
+    "text": "Wait here. Five minutes. Meter running.",
+    "hash": "62a1a61f",
+    "clip": "62a1a61f-b23faf81"
+   },
+   {
+    "id": "NS-2.s1",
+    "who": "Mrs. Kwon",
+    "voice": "kwon-v1",
+    "text": "Go. The grey car across the street. It followed me out.",
+    "hash": "12c6d205",
+    "clip": "12c6d205-b23faf81"
+   },
+   {
+    "id": "NS-2.s2",
+    "who": "Dez Amaro",
+    "voice": "dez-v1",
+    "text": "Hold on to something.",
+    "hash": "72670064",
+    "clip": "72670064-f6a129c2"
+   },
+   {
+    "id": "NS-2.s4.o0",
+    "who": "Mrs. Kwon",
+    "voice": "kwon-v1",
+    "text": "Thank you. Franklin Street. I need to think.",
+    "hash": "3c95aa66",
+    "clip": "3c95aa66-b23faf81"
+   },
+   {
+    "id": "NS-2.s4.o1",
+    "who": "Mrs. Kwon",
+    "voice": "kwon-v1",
+    "text": "My nephew's friends. Franklin Street, please.",
+    "hash": "246d3f37",
+    "clip": "246d3f37-b23faf81"
+   },
+   {
+    "id": "NS-2.s6",
+    "who": "Mrs. Kwon",
+    "voice": "kwon-v1",
+    "text": "The books show who borrowed from the shop. They want them burned.",
+    "hash": "f9ca22f6",
+    "clip": "f9ca22f6-b23faf81"
+   },
+   {
+    "id": "NS-3.s1",
+    "who": "Mrs. Kwon",
+    "voice": "kwon-v1",
+    "text": "I called my granddaughter. Take me home. Bank Street.",
+    "hash": "27efe124",
+    "clip": "27efe124-b23faf81"
+   },
+   {
+    "id": "NS-3.s2.d0.l0",
+    "who": "Sgt. Ray Ortega",
+    "voice": "ray-v1",
+    "text": "Heard a cab ran a crew car ragged on Centre Street.",
+    "hash": "d13e7588",
+    "clip": "d13e7588-772b9153"
+   },
+   {
+    "id": "NS-3.s2.d0.l1",
+    "who": "Sgt. Ray Ortega",
+    "voice": "ray-v1",
+    "text": "That you?",
+    "hash": "30e8a858",
+    "clip": "30e8a858-772b9153"
+   },
+   {
+    "id": "NS-3.s2.d0.vm",
+    "who": "Sgt. Ray Ortega",
+    "voice": "ray-v1",
+    "text": "Dez. Call me when you see this.",
+    "hash": "af12474e",
+    "clip": "af12474e-772b9153"
+   },
+   {
+    "id": "NS-3.s2.d0.ch.o0",
+    "who": "Sgt. Ray Ortega",
+    "voice": "ray-v1",
+    "text": "Bring her by after. I'll take her statement myself.",
+    "hash": "afae4a14",
+    "clip": "afae4a14-772b9153"
+   },
+   {
+    "id": "NS-3.s2.d0.ch.o1",
+    "who": "Sgt. Ray Ortega",
+    "voice": "ray-v1",
+    "text": "Sure it wasn't. Drive safe, Dez.",
+    "hash": "c70ef805",
+    "clip": "c70ef805-772b9153"
+   },
+   {
+    "id": "NS-3.s3",
+    "who": "Mrs. Kwon",
+    "voice": "kwon-v1",
+    "text": "Here. The green door.",
+    "hash": "c3543535",
+    "clip": "c3543535-b23faf81"
+   },
+   {
+    "id": "NS-3.s6.c1",
+    "who": "Sgt. Ray Ortega",
+    "voice": "ray-v1",
+    "text": "Told you to lock your doors. Go home, Dez. I've got her.",
+    "hash": "f1081a7f",
+    "clip": "f1081a7f-772b9153"
+   },
+   {
+    "id": "NS-3.s7",
+    "who": "Dez Amaro",
+    "voice": "dez-v1",
+    "text": "Snow's stopping. Home.",
+    "hash": "879ab499",
+    "clip": "879ab499-f6a129c2"
+   }
+  ]
+ }
+}

@@ -64,7 +64,7 @@ function fromVan(x, z) {
   return Math.hypot(Math.max(0, Math.abs(along) - 2.8), Math.max(0, Math.abs(across) - 1.0));
 }
 
-function createMission(W, { keep = false } = {}) {
+function createMission(W, { keep = false, quiet = false } = {}) {
   const app = W.app, cm = app.controllerManager, P = W.person, car = W.car, ui = W.ui, sfx = W.sfx;
   const gps = W.gps || (W.gps = createGPS(W));
   const marker = W.marker || (W.marker = createMarker(THREE, app.scene, { color: '#FFC93C', radius: 3 }));
@@ -571,11 +571,11 @@ function createMission(W, { keep = false } = {}) {
       M._phase = 'passed';
       await passed();
     },
-    fail,
+    fail, scene, end() { running = false; }, async dress() { const C = await getCast(W); setVan(C, true); parkHolds(); }, async van() { const C = await getCast(W); setVan(C, true); }, // (scene, end, dress, van: ?pack=, playScene below)
   };
   // the pause menu's 'Restart checkpoint': any phase up to the one he is in, from its start
   const LABELS = { car: 'Get in the car', drive: 'Drive to Chelsea Park', arrival: 'Chelsea Park · the swap', fight: 'The fight', search: 'Search the van' };
-  missions(W).register({
+  if (!quiet) missions(W).register({
     id: 'm1', act: 'Act I · Mission 1', title: 'Bagged',
     checkpoints: ORDER.map((id) => ({ id, label: LABELS[id] })),
     active: () => running && !!M._phase && M._phase !== 'passed',
@@ -664,4 +664,12 @@ function burnerHand(B) {
       }
     },
   };
+}
+
+// (?pack=: one of this mission's scenes, 'arrival' or 'tracker', as a world's scene step, wagmi/storyrun/runner.js: the
+// scene alone, no mission run and nothing in the pause menu; 'park' is the park dressed as its phases dress it, the
+// Suits' van at its mark and the street held clear; 'van' the van alone at its mark (the drive's, 320 m out). Never called without ?pack=.)
+export async function playScene(W, name) {
+  const M = createMission(W, { quiet: true });
+  try { if (name === 'park') await M.dress(); else if (name === 'van') await M.van(); else await M.scene(name); } finally { M.end(); }
 }

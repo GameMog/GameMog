@@ -1,0 +1,54 @@
+{
+ "storykit": 1,
+ "id": "dr-day",
+ "title": "Day As It Is",
+ "kicker": "NEW YORK",
+ "tagline": "A still city, for the set dressing shots",
+ "city": "ny",
+ "car": "roadster",
+ "dressing": {
+  "time": "midday",
+  "season": "winter",
+  "weather": "clear",
+  "holiday": []
+ },
+ "cast": {
+  "Dan": {
+   "color": "#FFFFFF",
+   "role": "the hero",
+   "model": "mogcity/dan"
+  }
+ },
+ "hero": "Dan",
+ "places": {},
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ACT I",
+   "order": [
+    "DR-1"
+   ]
+  }
+ ],
+ "missions": [
+  {
+   "id": "DR-1",
+   "title": "Look Around",
+   "start": "@bryantpark",
+   "stakes": "Nothing yet.",
+   "passLine": "Done.",
+   "steps": [
+    {
+     "type": "wait",
+     "secs": 900
+    }
+   ]
+  }
+ ],
+ "voice": {
+  "model": "kokoro-82m-v1.0",
+  "dir": "",
+  "cast": {},
+  "lines": []
+ }
+}
