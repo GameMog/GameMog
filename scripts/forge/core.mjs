@@ -14,7 +14,7 @@ import { applyFace, carry } from './targets.mjs';
 import { skinGuard, skinTone } from './colour.mjs';
 import { prepare, GARMENTS, rasterPaint, weldNormals, wrapWeights, coveredBy, FABRIC, FABRIC_ROUGH, fabricBump, fabricShade, tuckBob, baldTris, slick, knitTex, BRAIDS, nearestBody, beardCards, strandAtlas, mouthGap, vnoise } from './library.mjs';
 import { hoodDown, drawcords, necklineBinding, splitNeckline } from './necklines.mjs';
-import { cardHairTex, hairlineDist } from './hairline.mjs';
+import { cardHairTex, hairlineDist, scalpLine } from './hairline.mjs';
 export async function core(CFG0, env) {
 // (the platform: its logger stands in for the console, its module table for require)
 const console = { error: env.log, log: env.log, warn: env.log };
@@ -818,7 +818,10 @@ function compact(lists, n) {
   return { order, out };
 }
 // smooth normals from the shape as built: area-weighted, the same at a seam's two copies of a point (welded by place)
-function normals(P, lists, order, keepN, srcN) {
+// (G8b, smoothN[list]: that list's normals then relaxed over their neighbours that many times: a pack top fitted to a
+// body keeps the template's creases as sharp ridges, and under the study key each ridge lit as a bright satin line (the
+// grandmother's tee); relaxed, the folds' light rolls over them as cotton's does)
+function normals(P, lists, order, keepN, srcN, smoothN = []) {
   const n = order.length, N = new Float32Array(n * 3);
   const key = (i) => { const v = order[i]; return Math.round(P[v * 3] * 1e4) + ',' + Math.round(P[v * 3 + 1] * 1e4) + ',' + Math.round(P[v * 3 + 2] * 1e4); };
   const weld = new Map(), wid = new Int32Array(n); for (let i = 0; i < n; i++) { const k = key(i); if (!weld.has(k)) weld.set(k, weld.size); wid[i] = weld.get(k); }
@@ -828,6 +831,13 @@ function normals(P, lists, order, keepN, srcN) {
     const ux = P[b * 3] - P[a * 3], uy = P[b * 3 + 1] - P[a * 3 + 1], uz = P[b * 3 + 2] - P[a * 3 + 2], vx = P[c * 3] - P[a * 3], vy = P[c * 3 + 1] - P[a * 3 + 1], vz = P[c * 3 + 2] - P[a * 3 + 2];
     const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
     for (const i of [L[q], L[q + 1], L[q + 2]]) { const w = wid[i]; acc[w * 3] += nx; acc[w * 3 + 1] += ny; acc[w * 3 + 2] += nz; } } }
+  for (const [li, L] of lists.entries()) { const K = smoothN[li] || 0; if (!K || keepN[li]) continue;
+    const nb = new Map(), add = (a, b) => { if (a === b) return; (nb.get(a) || nb.set(a, new Set()).get(a)).add(b); };
+    for (let q = 0; q < L.length; q += 3) { const w = [wid[L[q]], wid[L[q + 1]], wid[L[q + 2]]]; add(w[0], w[1]); add(w[1], w[0]); add(w[1], w[2]); add(w[2], w[1]); add(w[0], w[2]); add(w[2], w[0]); }
+    const ids = [...nb.keys()], unit = (w, a) => { const l = Math.hypot(a[w * 3], a[w * 3 + 1], a[w * 3 + 2]) || 1; return [a[w * 3] / l, a[w * 3 + 1] / l, a[w * 3 + 2] / l]; };
+    for (let it = 0; it < K; it++) { const nx = new Float64Array(acc.length); nx.set(acc);
+      for (const w of ids) { const s0 = unit(w, acc); for (const u of nb.get(w)) { const t = unit(u, acc); s0[0] += t[0]; s0[1] += t[1]; s0[2] += t[2]; } nx[w * 3] = s0[0]; nx[w * 3 + 1] = s0[1]; nx[w * 3 + 2] = s0[2]; }
+      acc.set(nx); } }
   const own = new Uint8Array(n); for (const [li, L] of lists.entries()) if (keepN[li]) for (const i of L) own[i] = 1;
   for (let i = 0; i < n; i++) {
     let x, y, z;
@@ -1080,7 +1090,9 @@ function mouthNormals(acc, order) {
 // her lips a little rose and her lids a touch darker on the skin's texture: the skin's triangles about her mouth painted
 // in the texture's space (its uvs), softly, by how near each point is to the lips' middle line
 async function paintFace(img) {
-  if (!CFG.lips && !CFG.blouse && !CFG.lids) return img;
+  // (G8b: and the scalp's paint: a face with no lips or lids painted returned here, so on the chef and the young hero the
+  // scalp under the hair was never painted at all)
+  if (!CFG.lips && !CFG.blouse && !CFG.lids && !CFG.scalp) return img;
   const S = 2048, { data } = await sharp(img).removeAlpha().raw().toBuffer({ resolveWithObject: true });
   const uv = B.get('uv'), ey = (eyeC[0][1] + eyeC[1][1]) / 2, py = ey - (CFG.mouth?.below ?? 63.5) / 1000;
   const [lr, lg, lb, la] = CFG.lips || [1, 1, 1, 0];
@@ -1135,31 +1147,61 @@ async function paintFace(img) {
   }
   // (cast2: her hairline: the scalp under her hair and a centimetre past its edge painted her platinum, in fine strands
   // combed back toward the ponytail, thinning out to the skin: the hair's cards then sit on painted hair, no bald seam)
-  if (CFG.scalp && hairT.length) {
-    const hv = [...new Set(hairT)], HP = new Float32Array(hv.length * 3); hv.forEach((v, k) => { HP[k * 3] = pPos[v * 3]; HP[k * 3 + 1] = pPos[v * 3 + 1]; HP[k * 3 + 2] = pPos[v * 3 + 2]; });
-    const near = new Float32Array(nB).fill(1);
-    for (const v of skinV) { if (headW(v) < (CFG.scalp.nape ? 0.15 : 0.4) || bPos[v * 3 + 1] < EY - (CFG.scalp.nape ?? 0.06)) continue; const x = bPos[v * 3], y = bPos[v * 3 + 1], z = bPos[v * 3 + 2]; let m = 1;
-      for (let k = 0; k < hv.length; k++) { const dx = HP[k * 3] - x, dy = HP[k * 3 + 1] - y, dz = HP[k * 3 + 2] - z, d2 = dx * dx + dy * dy + dz * dz; if (d2 < m) m = d2; } near[v] = Math.sqrt(m); }
-    const { col, root, reach } = CFG.scalp, wv0 = (v) => 1 - sm(0.004, reach, near[v]);
-    let n = 0;
+  // (G8b: the scalp under the hair painted to a graded line (hairline.mjs scalpLine): H5's paint reached 4-8 mm from
+  // the nearest hair point while the cards stand 1-2 cm off the scalp, so most heads had none, and the cards' alpha-cut
+  // edge lay on bare skin, a hard stepped cut-out (the chef, young hero, office worker; round 7). Now: full under the
+  // hair to 2 mm past the line, so the cards' cut edge lies on painted hair, then thinning out to single strands
+  // over the 8 mm past that, each ending at its own distance (Mr. Big's hairline: the short hairs in front of the
+  // long). The face in front of the ears at eye height is never scalp (a lock hanging
+  // beside the cheek); the lower limit (EY - 6 cm, or the nape's) eased over 1.5 cm, not cut)
+  if (CFG.scalp && hairTX.length) {
+    const NB = B.get('normal'), lim = CFG.scalp.nape ?? 0.06, minW = CFG.scalp.nape ? 0.15 : 0.4;
+    const V = [...skinV].filter((v) => headW(v) >= minW - 0.1 && bPos[v * 3 + 1] >= EY - lim - 0.02);
+    const SL = scalpLine({ P: bPos, N: NB, V, T: skinT }, { P: pPosX, T: hairTX }, { R: 0.035 }), inV = new Set(V);
+    // (a light head of hair (grey, silver, blond: its middle tone over 90) painted from near its middle, not from its
+    // dark roots: the grandmother's silver cards lay on a dark grey band, a step of their own; its light tone was brighter
+    // on the lit skin than the cards are)
+    const lightH = 0.3 * CFG.scalp.col[0] + 0.59 * CFG.scalp.col[1] + 0.11 * CFG.scalp.col[2] > 90, col = CFG.scalp.col, root = lightH ? CFG.scalp.root.map((c, i) => Math.round(c + (col[i] - c) * 0.6)) : CFG.scalp.root;
+    const out = CFG.scalp.out ?? 0.01, inn = CFG.scalp.inn ?? -0.002;
+    const sv = new Map(); for (const v of V) sv.set(v, SL.sd([bPos[v * 3], bPos[v * 3 + 1], bPos[v * 3 + 2]]));
+    // (a point's side when the line is out of reach: under the hair or not)
+    const sOf = (v) => { if (!inV.has(v)) return -0.03; const d = sv.get(v); return isNaN(d) ? (SL.cov.get(v) ? 0.03 : -0.03) : d; };
+    // (the strands in 3D, so they run on across the skin's triangles (a texel-space streak turned with each triangle's
+    // uvs and showed the mesh as a net through thinned hair): along the comb (back and up), across it round the skull)
+    const HC = [0, EY + 0.02, EZ - 0.09], nrm3 = (a) => { const l = Math.hypot(...a) || 1; return a.map((c) => c / l); }, cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const strand3 = (p, len, wid, seed) => { const D = nrm3([-0.2 * Math.sign(p[0]), 0.45, -1]), C = nrm3(cross(D, nrm3([p[0] - HC[0], p[1] - HC[1], p[2] - HC[2]])));
+      return vnoise((p[0] * C[0] + p[1] * C[1] + p[2] * C[2]) / wid + seed, (p[0] * D[0] + p[1] * D[1] + p[2] * D[2]) / len, seed * 0.37); };
+    let n = 0; const SA = new Float32Array(S * S), SS = new Float32Array(S * S);
     for (let q = 0; q < skinT.length; q += 3) {
-      const vs = [skinT[q], skinT[q + 1], skinT[q + 2]], ws = vs.map(wv0); if (ws.every((w) => w <= 0.01)) continue;
+      const vs = [skinT[q], skinT[q + 1], skinT[q + 2]], ss = vs.map(sOf); if (ss.every((x) => x < -out - 0.004)) continue;
+      const near = ss.some((x) => Math.abs(x) < 0.03);
       const U = vs.map((v) => [uv[v * 2] / 65535 * S, (1 - uv[v * 2 + 1] / 65535) * S]), Pv = vs.map((v) => [bPos[v * 3], bPos[v * 3 + 1], bPos[v * 3 + 2]]);
-      const D = [-0.2 * Math.sign(Pv[0][0]), 0.45, -1], dl = Math.hypot(...D), d = uvDir(Pv, U, D.map((c) => c / dl));
       const x0 = Math.floor(Math.min(...U.map((u) => u[0]))), x1 = Math.ceil(Math.max(...U.map((u) => u[0]))), y0 = Math.floor(Math.min(...U.map((u) => u[1]))), y1 = Math.ceil(Math.max(...U.map((u) => u[1])));
       const det = (U[1][1] - U[2][1]) * (U[0][0] - U[2][0]) + (U[2][0] - U[1][0]) * (U[0][1] - U[2][1]); if (Math.abs(det) < 1e-9) continue;
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
         const l1 = ((U[1][1] - U[2][1]) * (x - U[2][0]) + (U[2][0] - U[1][0]) * (y - U[2][1])) / det, l2 = ((U[2][1] - U[0][1]) * (x - U[2][0]) + (U[0][0] - U[2][0]) * (y - U[2][1])) / det, l3 = 1 - l1 - l2;
         if (l1 < -0.03 || l2 < -0.03 || l3 < -0.03 || x < 0 || y < 0 || x >= S || y >= S) continue;
-        const w = Math.max(0, Math.min(1, l1 * ws[0] + l2 * ws[1] + l3 * ws[2])); if (w <= 0.01) continue;
-        let part = 1; if (CFG.sidePart) { const px = l1 * Pv[0][0] + l2 * Pv[1][0] + l3 * Pv[2][0], py = l1 * Pv[0][1] + l2 * Pv[1][1] + l3 * Pv[2][1], pz = l1 * Pv[0][2] + l2 * Pv[1][2] + l3 * Pv[2][2];
-          part = 1 - (1 - sm(0.0008, 0.0022, Math.abs(px - (CFG.sidePart.x ?? 0.026)))) * sm(EY + 0.04, EY + 0.06, py) * sm(EZ - 0.13, EZ - 0.1, pz); }
-        const st = strand(x, y, d, 22, 5), a = Math.pow(Math.min(1, w * 1.15), 1.6) * (0.72 + 0.28 * st) * part, i = (y * S + x) * 3, k = 0.94 + 0.1 * st;
-        for (let c = 0; c < 3; c++) data[i + c] = Math.round(data[i + c] * (1 - a) + Math.min(255, (root[c] + (col[c] - root[c]) * st) * k) * a);
-        hairPx(i / 3, a); n++;
+        const px = l1 * Pv[0][0] + l2 * Pv[1][0] + l3 * Pv[2][0], py = l1 * Pv[0][1] + l2 * Pv[1][1] + l3 * Pv[2][1], pz = l1 * Pv[0][2] + l2 * Pv[1][2] + l3 * Pv[2][2];
+        let sd = l1 * ss[0] + l2 * ss[1] + l3 * ss[2]; if (near) { const e = SL.sd([px, py, pz]); if (!isNaN(e)) sd = e; }
+        if (sd < -out - 0.004) continue;
+        // (the region's limits soft: the lower limit eased over 1.5 cm, and the face in front of the ears at eye height,
+        // where a lock hangs beside the cheek, eased out)
+        const reg = sm(EY - lim, EY - lim + 0.015, py) * (1 - sm(EZ - 0.078, EZ - 0.062, pz) * (1 - sm(EY + 0.008, EY + 0.03, py)));
+        if (reg <= 0.01) continue;
+        let part = 1; if (CFG.sidePart) part = 1 - (1 - sm(0.0008, 0.0022, Math.abs(px - (CFG.sidePart.x ?? 0.026)))) * sm(EY + 0.04, EY + 0.06, py) * sm(EZ - 0.13, EZ - 0.1, pz);
+        // (each strand's own end: a fine strand's height moves where it stops by +-4 mm; the coarse clump's by +-2)
+        const P3 = [px, py, pz], st = strand3(P3, 0.009, 0.00045, 5), cl = strand3(P3, 0.014, 0.0016, 11);
+        const w = sm(-out, inn, sd + (st - 0.5) * 0.008 + (cl - 0.5) * 0.004) * reg;
+        const a = Math.pow(w, 1.4) * (0.7 + 0.3 * st) * part; if (a <= 0.01) continue;
+        // (each texel painted once, at the most any triangle gives it: the triangles overlap a little at their edges,
+        // and painted twice there the mesh showed as a dark net)
+        const t = y * S + x; if (a > SA[t]) { SA[t] = a; SS[t] = st; }
       }
     }
-    console.error('scalp px', n);
+    for (let t = 0; t < S * S; t++) { const a = SA[t]; if (!a) continue; const st = SS[t], i = t * 3, k = 0.94 + 0.1 * st;
+      for (let c = 0; c < 3; c++) data[i + c] = Math.round(data[i + c] * (1 - a) + Math.min(255, (root[c] + (col[c] - root[c]) * st) * k) * a);
+      hairPx(t, a); n++; }
+    console.error('scalp (G8b): line points', SL.n, 'under hair', [...SL.cov.values()].filter(Boolean).length, 'of', V.length, '; px', n);
   }
   return sharp(data, { raw: { width: S, height: S, channels: 3 } }).jpeg({ quality: 92 }).toBuffer();
 }
@@ -1366,15 +1408,29 @@ async function garment(name, mode, opt = {}, T = null) {
   // (forge v2.5, MV: done here, not by sharp: Node's sharp hands a one-channel raw image back as three channels, so the
   // shading was read three texels to the pixel, smeared sideways and banded line by line: the 'stripes' on every baked
   // sleeve and the blown light tops (the browser's sharp-web did not). Box-averaged to DS x DS, read back bilinear)
+  // (G8b: averaged over the garment's own texels only, not the atlas's empty grey round its islands: that grey is
+  // lighter than the cloth, and averaged in it lit every island's border, so each seam (the shoulder's, the armhole's,
+  // the neck's) drew a bright line down the cloth, ridges that read as satin (the grandmother's tee). The cells with no
+  // cloth take their neighbours'; a template whose cloth itself is that light grey keeps the old average)
+  const isl = new Uint8Array(lum.length); let nIsl = 0; for (let i = 0; i < lum.length; i++) { const r = data[i * 3], g = data[i * 3 + 1], b = data[i * 3 + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (!(mx - mn < 18 && mn > 150)) { isl[i] = 1; nIsl++; } }
+  const own = nIsl > lum.length * 0.25 && nIsl < lum.length * 0.97;
   const DS = opt.ds ?? 64, bl = (() => { const Wd = info.width, Hd = info.height, sm = new Float32Array(DS * DS), n = new Float32Array(DS * DS);
-    for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) { const k = Math.min(DS - 1, Math.floor(y * DS / Hd)) * DS + Math.min(DS - 1, Math.floor(x * DS / Wd)); sm[k] += lum[y * Wd + x]; n[k]++; }
-    for (let k = 0; k < sm.length; k++) sm[k] /= n[k] || 1;
+    for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) { if (own && !isl[y * Wd + x]) continue; const k = Math.min(DS - 1, Math.floor(y * DS / Hd)) * DS + Math.min(DS - 1, Math.floor(x * DS / Wd)); sm[k] += lum[y * Wd + x]; n[k]++; }
+    for (let k = 0; k < sm.length; k++) sm[k] = n[k] ? sm[k] / n[k] : NaN;
+    for (let pass = 0; pass < DS; pass++) { let left = 0; const c = Float32Array.from(sm);
+      for (let y = 0; y < DS; y++) for (let x = 0; x < DS; x++) { const k = y * DS + x; if (!isNaN(c[k])) continue; let s0 = 0, m = 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= DS || yy >= DS || isNaN(c[yy * DS + xx])) continue; s0 += c[yy * DS + xx]; m++; } if (m) sm[k] = s0 / m; else left++; }
+      if (!left) break; }
+    for (let k = 0; k < sm.length; k++) if (isNaN(sm[k])) sm[k] = 128;
     const out = new Uint8Array(Wd * Hd);
     for (let y = 0; y < Hd; y++) { const fy = Math.min(DS - 1, Math.max(0, (y + 0.5) * DS / Hd - 0.5)), y0 = Math.floor(fy), y1 = Math.min(DS - 1, y0 + 1), ty = fy - y0;
       for (let x = 0; x < Wd; x++) { const fx = Math.min(DS - 1, Math.max(0, (x + 0.5) * DS / Wd - 0.5)), x0 = Math.floor(fx), x1 = Math.min(DS - 1, x0 + 1), tx = fx - x0;
         out[y * Wd + x] = Math.round((sm[y0 * DS + x0] * (1 - tx) + sm[y0 * DS + x1] * tx) * (1 - ty) + (sm[y1 * DS + x0] * (1 - tx) + sm[y1 * DS + x1] * tx) * ty); } }
     return out; })();
-  const sorted = Uint8Array.from(bl).sort(), mid = sorted[Math.floor(sorted.length * 0.6)] || 128;
+  // (its middle as before (the whole atlas's 64 x 64 average, the grey in it), so the cloth's level is unchanged: only
+  // the borders' false light goes)
+  const midOf = (A) => { const t = Float32Array.from(A).sort(); return t[Math.floor(t.length * 0.6)] || 128; };
+  const mid = own ? (() => { const sm0 = new Float32Array(DS * DS), n0 = new Float32Array(DS * DS); for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) { const k = Math.min(DS - 1, Math.floor(y * DS / info.height)) * DS + Math.min(DS - 1, Math.floor(x * DS / info.width)); sm0[k] += lum[y * info.width + x]; n0[k]++; }
+    for (let k = 0; k < sm0.length; k++) sm0[k] = Math.round(sm0[k] / (n0[k] || 1)); return midOf(sm0); })() : midOf(bl);
   const o = new Uint8Array(info.width * info.height * 3);
   const floor = opt.floor ?? 0.35;
   // (G7c: opt.hi: the folds' light capped lower, and opt.heather: a cotton's heathered grain in it (each texel its own
@@ -1759,7 +1815,7 @@ const HAIRTEX = (CFG.hairStrands && !HAIR_BODY && hairTX.length) ? await (async 
   // (G7c: under hair drawn back off the neck (CFG.scalp.nape: a bun) the nape's bare skin too, so the cards' lowest edge
   // at the back thins to strands as the front does: it was a hard cut line across the neck, the chef's, round 6)
   const NAPE = CFG.scalp?.nape, napeZ = EZ - 0.11, atNape = (v) => NAPE && headW(v) > 0.3 && bPos[v * 3 + 1] > EY - NAPE && bPos[v * 3 + 1] < EY - 0.075 && bPos[v * 3 + 2] < napeZ;
-  const band = [...skinV].filter((v) => (headW(v) > 0.5 && bPos[v * 3 + 1] > EY - 0.035 && bPos[v * 3 + 1] < EY + 0.11 && bPos[v * 3 + 2] > EZ - 0.085) || atNape(v));
+  const band = [...skinV].filter((v) => (headW(v) > 0.5 && bPos[v * 3 + 1] > EY - 0.035 && bPos[v * 3 + 1] < EY + 0.11 && bPos[v * 3 + 2] > EZ - (CFG.hairStrands?.bandZ ?? 0.085)) || atNape(v));
   const { dE, bare } = hairlineDist({ P: bPos, N: NB, V: band }, { P: pPosX, T: hairTX }, hv);
   // (below the eyes a lock beside the cheek is not the hairline: its distance eased away)
   for (const v of hv) { const y = pPosX[v * 3 + 1]; if (NAPE && pPosX[v * 3 + 2] < napeZ) continue; dE[v] += (1 - sm(EY - 0.03, EY - 0.005, y)) * 0.05; }
@@ -1840,9 +1896,9 @@ function skinAttrs(src, order) {
   }
   return { J, Wt };
 }
-function build(name, src, P, lists, mats, keepN, color = null) {
+function build(name, src, P, lists, mats, keepN, color = null, smoothN = []) {
   const { order, out } = compact(lists, src.n ?? (src === B ? nB : nP));
-  const N = normals(P, out, order, keepN, src.get('normal')), uv = src.get('uv');
+  const N = normals(P, out, order, keepN, src.get('normal'), smoothN), uv = src.get('uv');
   const pos = new Float32Array(order.length * 3), UV = new Float32Array(order.length * 2);
   order.forEach((v, i) => { pos.set([P[v * 3], P[v * 3 + 1], P[v * 3 + 2]], i * 3); UV[i * 2] = uv[v * 2] / 65535; UV[i * 2 + 1] = 1 - uv[v * 2 + 1] / 65535; });
   const { J, Wt } = skinAttrs(src, order);
@@ -1901,7 +1957,45 @@ const body = HAIR_BODY ? build('', BSRC, BPOS, [NAPE.main, eyesT, browT, lashT, 
   : build('', BSRC, BPOS, [NAPE.main, eyesT, browT, lashT, ...SH, NAPE.nape], [M.skin, M.eyes, M.brows, M.lashes, ...SHM, M.skin], [false, true, true, true, ...SHK, false], shellColor);
 // (G7a: the mouth's inside facing out through the opening: the skin's points in it, the body's shared NORMAL)
 console.error('mouth inside normals', mouthNormals(body.node.getMesh().listPrimitives()[0].getAttribute('NORMAL'), body.order));
-const pack = build('pack', PKX, pPosX, HAIR_BODY ? [...wearT, shoeT] : [hairTX, ...wearT, shoeT], HAIR_BODY ? [...wearM, M.shoes] : [M.hair, ...wearM, M.shoes], HAIR_BODY ? [...wearT.map(() => false), false] : [true, ...wearT.map(() => false), false]);
+// (G8b: a baked cotton top's folds filled: the pack's top fitted to a body keeps the template's creases, and under the
+// study key each crease's ridge caught the light and its valley the ridge's shadow, a bright satin line beside a dark one
+// across the shoulders (the grandmother's tee: the same with its specular off and with flat normals: the shadow map's,
+// so the shape's own). Each point moved toward its neighbours' middle, 10 times, the valleys rising and the crests
+// sinking, a crest no deeper than 6 mm off the body under it (its room), so nothing goes through the body; its open edges (the hem, the cuffs,
+// the neck) and the two rings in from them stay where they are. Then its normals relaxed 4 times (normals' smoothN))
+const wearSm = CFG.wear.map(([, , , mode, opt]) => (mode === 'bake' && opt?.heather ? 4 : 0));
+for (const [wi, K] of wearSm.entries()) { if (!K) continue;
+  const T = wearT[wi], key = (v) => Math.round(pPosX[v * 3] * 1e4) + ',' + Math.round(pPosX[v * 3 + 1] * 1e4) + ',' + Math.round(pPosX[v * 3 + 2] * 1e4), wid = new Map(), mem = [];
+  for (const v of new Set(T)) { const k = key(v); if (!wid.has(k)) { wid.set(k, mem.length); mem.push([]); } mem[wid.get(k)].push(v); }
+  const W = (v) => wid.get(key(v)), n = mem.length, nb = Array.from({ length: n }, () => new Set()), ec = new Map();
+  for (let q = 0; q < T.length; q += 3) { const w = [W(T[q]), W(T[q + 1]), W(T[q + 2])]; for (let e = 0; e < 3; e++) { const a = w[e], b = w[(e + 1) % 3]; if (a === b) continue; nb[a].add(b); nb[b].add(a); const k = a < b ? a + '|' + b : b + '|' + a; ec.set(k, (ec.get(k) || 0) + 1); } }
+  const edge = new Uint8Array(n); for (const [k, c] of ec) if (c === 1) for (const w of k.split('|')) edge[+w] = 1;
+  // (the rings out from the open edges: the first two still, the third half: moved, a cuff's last ring bent into a ragged frill)
+  const ring = new Int32Array(n).fill(99); let fr = []; for (let i = 0; i < n; i++) if (edge[i]) { ring[i] = 0; fr.push(i); }
+  for (let r = 1; fr.length && r < 6; r++) { const nx = []; for (const i of fr) for (const j of nb[i]) if (ring[j] > r) { ring[j] = r; nx.push(j); } fr = nx; }
+  const P = new Float64Array(n * 3); mem.forEach((L, i) => { for (let c = 0; c < 3; c++) P[i * 3 + c] = pPosX[L[0] * 3 + c]; });
+  // (each point's room over the body: its distance to the nearest body point less 6 mm; a crest may sink that far,
+  // no further)
+  const room = new Float64Array(n); { const cell = 0.02, G = new Map(), kk = (x, y, z) => x + ',' + y + ',' + z;
+    for (const v of skinV) { const k = kk(Math.floor(bPos[v * 3] / cell), Math.floor(bPos[v * 3 + 1] / cell), Math.floor(bPos[v * 3 + 2] / cell)); (G.get(k) || G.set(k, []).get(k)).push(v); }
+    for (let i = 0; i < n; i++) { const p = [P[i * 3], P[i * 3 + 1], P[i * 3 + 2]], c0 = p.map((x) => Math.floor(x / cell)); let m = 0.04;
+      for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let c = -1; c <= 1; c++) for (const v of G.get(kk(c0[0] + a, c0[1] + b, c0[2] + c)) || []) { const d = Math.hypot(bPos[v * 3] - p[0], bPos[v * 3 + 1] - p[1], bPos[v * 3 + 2] - p[2]); if (d < m) m = d; }
+      room[i] = Math.max(0, m - 0.006); } }
+  const sunk = new Float64Array(n);
+  let moved = 0;
+  for (let it = 0; it < 10; it++) {
+    const N = new Float64Array(n * 3);
+    for (let q = 0; q < T.length; q += 3) { const w = [W(T[q]), W(T[q + 1]), W(T[q + 2])], u = [0, 1, 2].map((c) => P[w[1] * 3 + c] - P[w[0] * 3 + c]), v = [0, 1, 2].map((c) => P[w[2] * 3 + c] - P[w[0] * 3 + c]);
+      const f = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]; for (const x of w) for (let c = 0; c < 3; c++) N[x * 3 + c] += f[c]; }
+    const P2 = Float64Array.from(P);
+    for (let i = 0; i < n; i++) { if (edge[i] || !nb[i].size) continue; const m = [0, 0, 0]; for (const j of nb[i]) for (let c = 0; c < 3; c++) m[c] += P[j * 3 + c] / nb[i].size;
+      const l = Math.hypot(N[i * 3], N[i * 3 + 1], N[i * 3 + 2]) || 1, nn = [N[i * 3] / l, N[i * 3 + 1] / l, N[i * 3 + 2] / l], d = [0, 1, 2].map((c) => (m[c] - P[i * 3 + c]) * 0.5 * sm(1.5, 3.5, ring[i])), dn = d[0] * nn[0] + d[1] * nn[1] + d[2] * nn[2];
+      if (dn < 0) { const ok = Math.max(0, Math.min(-dn, room[i] - sunk[i])); for (let c = 0; c < 3; c++) d[c] -= (dn + ok) * nn[c]; sunk[i] += ok; }
+      for (let c = 0; c < 3; c++) P2[i * 3 + c] = P[i * 3 + c] + d[c]; }
+    P.set(P2); }
+  mem.forEach((L, i) => { const d = Math.hypot(...[0, 1, 2].map((c) => P[i * 3 + c] - pPosX[L[0] * 3 + c])); if (d > 1e-5) moved++; for (const v of L) for (let c = 0; c < 3; c++) pPosX[v * 3 + c] = P[i * 3 + c]; });
+  console.error('cotton top (G8b): folds filled,', moved, 'of', n, 'points moved'); }
+const pack = build('pack', PKX, pPosX, HAIR_BODY ? [...wearT, shoeT] : [hairTX, ...wearT, shoeT], HAIR_BODY ? [...wearM, M.shoes] : [M.hair, ...wearM, M.shoes], HAIR_BODY ? [...wearT.map(() => false), false] : [true, ...wearT.map(() => false), false], null, HAIR_BODY ? [...wearSm, 0] : [0, ...wearSm, 0]);
 
 /* ----------------------------------------------------- FORGE: made garments -- */
 // an extra skinned mesh: points in the bind space, uvs, B-skeleton joint indices + weights (4 per point), triangles;
@@ -2439,7 +2533,8 @@ if (CFG.cap?.make) {
   // (G7c: a peaked cap's crown and braided band are cloth: woven, rough, a cloth's turned-down specular (CLOTHSPEC). At
   // roughness 0.72 and a plain F0 0.04 the gold band showed a lacquered streak in the study key (the cloth gate's
   // highlight 4.5 % of the cap's pixels, its 99th percentile lift 0.045). The peak alone is the glossy patent part: its
-  // own primitive, 'cap-peak')
+  // own primitive, 'cap-peak') (G8b: and matte too: at roughness 0.4 the peak's curve still drew the cool rim as a bright
+  // blue streak across it in the talk frames (the cop, round 7); a worn peak at 0.74, its specular half)
   const peaked = STYLE === 'peaked' && peak0 >= 0, triCap = peaked ? [...tri.slice(0, peak0), ...tri.slice(peak1)] : tri;
   const capM = doc.createMaterial('cap').setRoughnessFactor(peaked ? 0.92 : K.rough ?? 0.88).setMetallicFactor(0).setDoubleSided(true).setBaseColorFactor([1, 1, 1, 1]);
   if (peaked) capM.setExtension('KHR_materials_specular', SPECX.createSpecular().setSpecularFactor(CLOTHSPEC[0]).setSpecularColorFactor(CLOTHSPEC[1]));
@@ -2448,7 +2543,7 @@ if (CFG.cap?.make) {
     .setIndices(acc('SCALAR', big ? Uint32Array.from(triCap) : Uint16Array.from(triCap))).setMaterial(capM);
   const peakPrim = peaked ? doc.createPrimitive().setAttribute('POSITION', aP).setAttribute('NORMAL', aN).setAttribute('COLOR_0', aC).setAttribute('TEXCOORD_0', aUV)
     .setIndices(acc('SCALAR', big ? Uint32Array.from(tri.slice(peak0, peak1)) : Uint16Array.from(tri.slice(peak0, peak1))))
-    .setMaterial(doc.createMaterial('cap-peak').setRoughnessFactor(0.4).setMetallicFactor(0).setDoubleSided(true).setBaseColorFactor([1, 1, 1, 1]).setExtras({ layer: 9, kind: 'cloth', garment: STYLE })) : null;
+    .setMaterial(doc.createMaterial('cap-peak').setRoughnessFactor(0.74).setMetallicFactor(0).setDoubleSided(true).setBaseColorFactor([1, 1, 1, 1]).setExtension('KHR_materials_specular', SPECX.createSpecular().setSpecularFactor(0.5).setSpecularColorFactor([1, 1, 1])).setExtras({ layer: 9, kind: 'cloth', garment: STYLE })) : null;
   // FORGE v2: a knit beanie's stitches: stockinette Vs over the crown, ribs in the cuff (library.knitTex), as a light map
   // under its colour and a normal map, so it reads knitted up close, not a plain dome (Oh Soon-ja, v1)
   prim.setAttribute('TEXCOORD_0', aUV);

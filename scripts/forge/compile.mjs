@@ -135,7 +135,10 @@ export function compile(S) {
   if (st === 'slicked') { C.slick = 0.42; C.shaved = { a: 0.55, col: ramp[0] }; }
   // (H5: balding is the horseshoe cropped close (painted and fur shells, Mr. Big's beard's make), not the short cut's cards
   // cut round the crown: their cut edges stood as pasted patches over the ears)
-  if (st === 'balding') { C.hair = 'none'; C.bald = { crown: age > 60 ? 0.055 : 0.07 }; C.shaved = { a: 0.62, col: mix(ramp[0], ramp[1], 0.6).map(Math.round), horseshoe: true }; C.fuzz = { layers: 3, depth: 0.0026, colors: [ramp[0], ramp[1], ramp[2]], grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 9, w: 0.8, lift: 0.75, contrast: 0.55 }; }
+  // (G8b: a horseshoe's hairs 11 px long, not 9, and 45 % of the way from the scalp's paint to their own tone, not 55:
+  // seen from behind, the old boss's and the mechanic's read as specks and dark scribbles (1.4 % specks, the old boss's
+  // browser build 1.52 % in round 7))
+  if (st === 'balding') { C.hair = 'none'; C.bald = { crown: age > 60 ? 0.055 : 0.07 }; C.shaved = { a: 0.62, col: mix(ramp[0], ramp[1], 0.6).map(Math.round), horseshoe: true }; C.fuzz = { layers: 3, depth: 0.0026, colors: [ramp[0], ramp[1], ramp[2]], grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 11, w: 0.8, lift: 0.75, contrast: 0.45 }; }
   // (a buzz is the scalp painted, no cards: a card cap that short reads as a helmet (the gates' helmet check))
   // (H5: and fur shells over it, 1.8 mm, short hairs along their growth: a buzz reads as hair at 2 m and in silhouette)
   if (st === 'buzz') { C.hair = 'none'; C.shaved = { a: 0.7, col: ramp[0].map((x, i) => Math.round((x + ramp[1][i]) / 2)), buzz: true }; C.fuzz = { layers: 3, depth: 0.0013, colors: [ramp[0], ramp[1], ramp[2]], grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 8, w: 0.8, lift: 0.75, contrast: 0.55 }; }
@@ -164,8 +167,10 @@ export function compile(S) {
   }
 
   // (H5: every card cut drawn as strands (hairline.mjs: Jane's hair2 for the library), its hairline thinned to single
-  // strands and laid on the skin, the scalp under it painted the hair's colour with a ragged edge)
-  if (C.hair !== 'none' && !C.hair.startsWith('body:')) { C.hairStrands = { fw: 0.014, d0: 0.002, hl: 0.35, normal: 2.2, hug: 0.002, hugW: 0.012 }; C.scalp = C.scalp || { col: ramp[1], root: ramp[0], reach: 0.008 }; C.hairRough = 0.62; }
+  // strands and laid on the skin, the scalp under it painted the hair's colour with a ragged edge) (G8b: the bare band
+  // the front edge thins toward runs back to 10 cm behind the eyes, to the front of the ear: the temple's cards stopped
+  // short of it and kept a hard, stepped edge)
+  if (C.hair !== 'none' && !C.hair.startsWith('body:')) { C.hairStrands = { fw: 0.014, d0: 0.002, hl: 0.35, normal: 2.2, hug: 0.002, hugW: 0.012, bandZ: 0.1 }; C.scalp = C.scalp || { col: ramp[1], root: ramp[0], reach: 0.008 }; C.hairRough = 0.62; }
 
   /* facial hair (men or anyone the sheet gives it to) */
   const FH = S.facialHair, fc = HC(FH.color || S.hair.color), dens = clamp(FH.density ?? 0.85, 0.1, 1);

@@ -2,7 +2,8 @@
 // head in Mr. Big's study light: front, 3/4, profile, back 3/4, back, and the face close at 3/4 mid-word (stubble,
 // moustache, beard, brows), then the whole figure at eye height (2 m read). Rows into <P>-hair-sheet.jpg and per
 // character <P>-<name>-hair.jpg. G7b: each study view drawn again as a hair mask and the hair-read gate (hairgate.mjs)
-// measured on it, as PNG: <P>-hair.json (per name: its verdict and each view's stats). Run under the shared lock:
+// measured on it, as PNG: <P>-hair.json (per name: its verdict and each view's stats). G8b: and the hairline's step
+// (hairgate.mjs hairlineStats) in the hairline close at the front and both 3/4s (KEEP=<dir>: those PNGs kept). Run under the shared lock:
 //   from a GameMog checkout that has the lock (MogCity/.scratch/integrate/reg): node --import ./scripts/ts-resolve.mjs MogCity/.scratch/integrate/reg/locked.mts <this>
 // env FORGE_OUT, SHOTS, P, NAMES=a,b, BAKED=name,... (shot with their own baked clips), PORT, SHEET (sheet file name)
 import { spawn } from 'node:child_process';
@@ -11,7 +12,7 @@ import { tmpdir } from 'node:os'; import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { TOOLBOX } from '../paths.mjs';
 import { writeFileSync } from 'node:fs';
-import { hairStats, hairVerdict } from '../hairgate.mjs';
+import { hairStats, hairVerdict, hairlineStats, hairlineVerdict } from '../hairgate.mjs';
 const sharp = createRequire(TOOLBOX)('sharp');
 const HERE = new URL('.', import.meta.url).pathname, OUT = process.env.FORGE_OUT!, SHOTS = process.env.SHOTS || OUT, P = process.env.P || 'H';
 const PORT = +(process.env.PORT || 4981), BASE = `http://127.0.0.1:${PORT}`;
@@ -48,7 +49,14 @@ try {
       await ev(`window.__shot(${JSON.stringify({ ...o, mask: 'hair' })})`); await sleep(60); const m = await png(); const a = await rawOf(lit), b = await rawOf(m);
       views.push({ ang, stats: hairStats(a.data, b.data, a.info.width, a.info.channels) }); }
     const hm: string[] = (await ev('window.__info.hairMats')) || [];
-    gate[name] = { ...hairVerdict(views, { ropes: hm.length > 0 && hm.every((n) => /^(braids|locs)$/.test(n)) }), hairMats: hm, views }; console.log(name, 'hair', JSON.stringify({ pass: gate[name].pass, views: views.map((v) => v.stats) }));
+    // (G8b: the hairline's step (hairgate.mjs hairlineStats): the hairline close at the front and both 3/4s)
+    const lines: any[] = [];
+    for (const ang of [0, 0.7, -0.7]) { const o = { mode: 'hairline', clip: 'idle', t: 1.2, ang }; await shot(o); const lit = await png();
+      await ev(`window.__shot(${JSON.stringify({ ...o, mask: 'hairline' })})`); await sleep(60); const m = await png(); const a = await rawOf(lit), b = await rawOf(m);
+      if (process.env.KEEP) { mkdirSync(process.env.KEEP, { recursive: true }); writeFileSync(`${process.env.KEEP}/${name}-hl${ang}-lit.png`, lit); writeFileSync(`${process.env.KEEP}/${name}-hl${ang}-mask.png`, m); }
+      lines.push({ ang, stats: hairlineStats(a.data, b.data, a.info.width, a.info.channels) }); }
+    const hv = hairVerdict(views, { ropes: hm.length > 0 && hm.every((n) => /^(braids|locs)$/.test(n)) }), hl = hairlineVerdict(lines);
+    gate[name] = { ...hv, pass: hv.pass && hl.pass, hairPass: hv.pass, hairline: { ...hl, views: lines }, hairMats: hm, views }; console.log(name, 'hair', JSON.stringify({ pass: gate[name].pass, views: views.map((v) => v.stats), hairline: lines.map((v) => v.stats && v.stats.step) }));
     tiles.push(await shot({ mode: "close", clip: "talk", t: 1.37, jaw: 0.3, ang: 0.45 })); tiles.push(await shot({ mode: "close", clip: "idle", t: 1.2, ang: 1.1 }));
     await size(400, 600); tiles.push(await sharp(await shot({ mode: 'turn', yaw: 0.35, cam: 'eye' })).resize(T, T, { fit: 'cover', position: 'top' }).toBuffer());
     const row = await sharp({ create: { width: T * tiles.length, height: T, channels: 3, background: '#000' } }).composite(await Promise.all(tiles.map(async (t, i) => ({ input: await sharp(t).resize(T, T, { fit: 'cover' }).toBuffer(), left: i * T, top: 0 })))).jpeg({ quality: 90 }).toBuffer();

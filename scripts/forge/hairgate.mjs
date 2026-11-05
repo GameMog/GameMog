@@ -65,3 +65,46 @@ export function hairVerdict(views, o = {}) {
   return { pass: !bad.length, seen: seen.length, worstGrain: Math.max(0, ...seen.map((v) => v.stats.grain)), worstDots: Math.max(0, ...seen.map((v) => v.stats.dots)), worstHoles: Math.max(0, ...seen.map((v) => v.stats.holes)), ropes: !!o.ropes, fails: bad.map((v) => `ang ${v.ang}: ${v.faults.join(', ')}`),
     limit: `the head's hair in the study light (front, 3/4, profile, back 3/4): grain <= ${HAIR_LIMITS.maxGrain} (its lightness's mean distance from its 5 x 5 mean, over its mean + 0.1), <= ${HAIR_LIMITS.maxDots * 100} % isolated specks, <= ${HAIR_LIMITS.maxHoles * 100} % of its closed area open (not for braids or locs)` };
 }
+
+// G8b, the hairline's step. Round 7 graded the chef's, young hero's and office worker's hairlines as hard, stepped
+// cut-outs at the temples and forehead: the cards' alpha-cut edge lying on bare skin (their scalp was never painted).
+// Mr. Big's is graded: the hair thins over the painted scalp, so where the hair's cut-out meets the skin the skin beside
+// it is already the hair's tone. studio/hair.mts draws the hairline close (studio.html mode 'hairline': brows to the
+// crown's front at 0.62 m) at the front and both 3/4s, lit and as mask 'hairline' (the hair white through its cut-out,
+// the skin red, the rest black). On the hair's edge against the skin in the frame's top 62 % (the forehead and temples,
+// not the ears or neck): per edge pixel the jump in OKLab lightness between the hair and the skin within 3 px of it
+// (the means of each in its 7 x 7), over the contrast between the hair and the bare forehead (their medians away from
+// the edge: the hair 6-60 px in, the skin 45-130 px out (past a painted hairline's strands: 1 px is about 0.3 mm); at
+// least 0.1), and over 0.12 whatever the contrast. step = the share of edge pixels whose jump is over
+// half that contrast: a cut-out's edge jumps the whole way, a graded one a little at a time.
+//   hairlineStats(lit, mask, width, channels) -> { edge, contrast, step } (null: under minEdge edge pixels)
+// Calibration (G8b, 600 px, the three views): Mr. Big 0.11-0.19 (silver on light skin: his contrast at the floor, so
+// the 0.12 jump decides), Jane 0.07-0.14. G8a's builds: the chef 0.92-1.0, the young hero 0.90-1.0, the club promoter
+// 0.95-1.0, the grandmother 0.19-0.45, the office worker 0.20-0.32, the young mother 0.12-0.28 (six fail); after G8b's
+// scalp line (core.mjs) every anchor 0-0.21. Limit 0.25: Mr. Big's worst with a margin. The cop's cap and the veteran's
+// buzz show no hair edge on the forehead (null: passes).
+export const HAIRLINE_LIMITS = { minEdge: 60, top: 0.62, near: 3, minJump: 0.12, maxStep: 0.25 };
+export function hairlineStats(lit, mask, W, ch = 3) {
+  const H = Math.floor(mask.length / ch / W), cls = new Uint8Array(W * H), L = new Float32Array(W * H), C = HAIRLINE_LIMITS;
+  for (let k = 0; k < W * H; k++) { const r = mask[k * ch], g = mask[k * ch + 1], b = mask[k * ch + 2]; cls[k] = r > 128 && g > 128 && b > 128 ? 1 : r > 128 && g < 80 && b < 80 ? 2 : 0; if (cls[k]) L[k] = okL(lin(lit[k * ch]), lin(lit[k * ch + 1]), lin(lit[k * ch + 2])); }
+  // (each pixel's distance (in px, chessboard, two passes) to the nearest hair and to the nearest skin)
+  const dist = (want) => { const d = new Uint16Array(W * H).fill(9999); for (let k = 0; k < W * H; k++) if (cls[k] === want) d[k] = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const k = y * W + x; let m = d[k]; if (x > 0) m = Math.min(m, d[k - 1] + 1); if (y > 0) { m = Math.min(m, d[k - W] + 1); if (x > 0) m = Math.min(m, d[k - W - 1] + 1); if (x < W - 1) m = Math.min(m, d[k - W + 1] + 1); } d[k] = m; }
+    for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) { const k = y * W + x; let m = d[k]; if (x < W - 1) m = Math.min(m, d[k + 1] + 1); if (y < H - 1) { m = Math.min(m, d[k + W] + 1); if (x < W - 1) m = Math.min(m, d[k + W + 1] + 1); if (x > 0) m = Math.min(m, d[k + W - 1] + 1); } d[k] = m; }
+    return d; };
+  const dH = dist(1), dS = dist(2), Ytop = Math.floor(H * C.top), hs = [], ss = [];
+  for (let y = 0; y < Ytop; y++) for (let x = 0; x < W; x++) { const k = y * W + x; if (cls[k] === 1 && dS[k] >= 6 && dS[k] < 60) hs.push(L[k]); else if (cls[k] === 2 && dH[k] >= 45 && dH[k] < 130) ss.push(L[k]); }
+  if (hs.length < 50 || ss.length < 50) return null;
+  const med = (a) => a.sort((p, q) => p - q)[a.length >> 1], contrast = Math.max(0.1, Math.abs(med(ss) - med(hs)));
+  let edge = 0, steps = 0;
+  for (let y = 4; y < Ytop; y++) for (let x = 4; x < W - 4; x++) { const k = y * W + x; if (cls[k] !== 1 || !(cls[k - 1] === 2 || cls[k + 1] === 2 || cls[k - W] === 2 || cls[k + W] === 2)) continue;
+    let sh = 0, nh = 0, sk = 0, nk = 0; for (let dy = -C.near; dy <= C.near; dy++) for (let dx = -C.near; dx <= C.near; dx++) { const q = k + dy * W + dx; if (cls[q] === 1) { sh += L[q]; nh++; } else if (cls[q] === 2) { sk += L[q]; nk++; } }
+    if (!nh || !nk) continue; edge++; if (Math.abs(sk / nk - sh / nh) > Math.max(0.5 * contrast, C.minJump)) steps++; }
+  if (edge < C.minEdge) return null;
+  return { edge, contrast: +contrast.toFixed(3), hairL: +med(hs).toFixed(3), skinL: +med(ss).toFixed(3), step: +(steps / edge).toFixed(3) };
+}
+export function hairlineVerdict(views) {
+  const seen = views.filter((v) => v.stats), bad = seen.filter((v) => v.stats.step > HAIRLINE_LIMITS.maxStep);
+  return { pass: !bad.length, seen: seen.length, worstStep: Math.max(0, ...seen.map((v) => v.stats.step)), fails: bad.map((v) => `ang ${v.ang}: hairline step ${v.stats.step} > ${HAIRLINE_LIMITS.maxStep}`),
+    limit: `the hairline close (front and both 3/4s): <= ${HAIRLINE_LIMITS.maxStep * 100} % of the hair's edge against the forehead and temples jumping more than half the hair-to-skin contrast within ${HAIRLINE_LIMITS.near} px` };
+}

@@ -121,10 +121,11 @@ const maskMats = new Map();
 // (G7b: mask: 'hair' draws the head's hair white (its cut-out kept), everything else and the set black: the hair-read
 // gate (hairgate.mjs, studio/hair.mts))
 const hairMats = new Map();
-function hairMaskMat(o) {
-  const n = o.material?.name || '', key = o.uuid; if (hairMats.has(key)) return hairMats.get(key);
+function hairMaskMat(o, skinToo = false) {
+  const n = o.material?.name || '', key = o.uuid + (skinToo ? '+skin' : ''); if (hairMats.has(key)) return hairMats.get(key);
   let mine = false; for (let p = o; p; p = p.parent) if (p === M) { mine = true; break; }
-  const m = new THREE.MeshBasicNodeMaterial({ color: mine && /^(hair|curls|braids|locs)/.test(n) ? 0xffffff : 0x000000 }); m.side = o.material.side;
+  // (G8b: mask 'hairline' draws the skin red as well: the hairline gate's hair edge against the skin)
+  const m = new THREE.MeshBasicNodeMaterial({ color: mine && /^(hair|curls|braids|locs)/.test(n) ? 0xffffff : mine && skinToo && n === 'skin' ? 0xff0000 : 0x000000 }); m.side = o.material.side;
   // (a cropped head's fur shells drawn whole: the crop is the shells' area, its hairs and the painted scalp between them)
   if (n !== 'hairShell' && o.material.map && (o.material.alphaTest || o.material.transparent)) { m.opacityNode = TSL.texture(o.material.map).a; m.alphaTest = Math.max(0.3, o.material.alphaTest || 0); }
   hairMats.set(key, m); return m;
@@ -140,7 +141,8 @@ function clothMaskMat(o) {
   const key = o.uuid; if (clothMats.has(key)) return clothMats.get(key);
   let mine = false; for (let p = o; p; p = p.parent) if (p === M) { mine = true; break; }
   // (each cloth material its own code: red full, green 8 x its number (1..31), so the gate measures each piece apart)
-  const c = new THREE.Color(0, 0, 0); if (mine && isClothMat(o.material)) { const nm = o.material.name || '?'; if (!clothIds.has(nm)) clothIds.set(nm, Math.min(31, clothIds.size + 1)); c.setRGB(1, clothIds.get(nm) * 8 / 255, 0, THREE.SRGBColorSpace); }
+  // (G8b: the skin pure blue: the cloth gate's light-on-skin shards)
+  const c = new THREE.Color(0, 0, mine && (o.material.name || '') === 'skin' ? 1 : 0); if (mine && isClothMat(o.material)) { const nm = o.material.name || '?'; if (!clothIds.has(nm)) clothIds.set(nm, Math.min(31, clothIds.size + 1)); c.setRGB(1, clothIds.get(nm) * 8 / 255, 0, THREE.SRGBColorSpace); }
   const m = new THREE.MeshBasicNodeMaterial({ color: c }); m.side = o.material.side; m.toneMapped = false;
   if (o.material.map && (o.material.alphaTest || o.material.transparent)) { m.opacityNode = TSL.texture(o.material.map).a; m.alphaTest = Math.max(0.3, o.material.alphaTest || 0); }
   clothMats.set(key, m); return m;
@@ -163,7 +165,9 @@ function maskMat(o) {
   else { m = flat(0x000000); if (o.material.map && (o.material.alphaTest || o.material.transparent)) { m.opacityNode = TSL.texture(o.material.map).a; m.alphaTest = Math.max(0.3, o.material.alphaTest || 0); } }
   maskMats.set(key, m); return m;
 }
-window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, jaw = 0, blink = 0, w = 1, ang = 0.35, mask = false, nospec = false } = {}) => {
+window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, jaw = 0, blink = 0, w = 1, ang = 0.35, mask = false, nospec = false, hide = '' } = {}) => {
+  // (G8b: hide: a regex of material names left out of this frame (the scalp's paint seen without the hair over it))
+  { const re = hide ? new RegExp(hide) : null; M.traverse((o) => { if (!o.isMesh) return; if (o.userData.vis0 === undefined) o.userData.vis0 = o.visible; o.visible = o.userData.vis0 && !(re && re.test(o.material?.name || '')); }); }
   if (window.__leather) window.__leather.visible = mode === 'study'; holder.rotation.y = 0; pose(clip, t); holder.rotation.y = yaw; holder.updateMatrixWorld(true);
   setM('jaw', jaw); setM('lip', Math.min(1, jaw * 1.2)); setM('blink', Math.min(1, blink * 2)); setM('blink2', Math.max(0, blink * 2 - 1));
   const box = new THREE.Box3().setFromObject(M), ht = box.max.y, e = eyesWorld();
@@ -189,6 +193,9 @@ window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, 
   } else if (mode === 'close') {
     // (FC: the talking close-up: the face from brows to chin at 0.62 m, turned by ang (0.5 = 3/4), the mouth near the middle)
     const a = ang; camera.fov = 17; camera.position.set(e.x + Math.sin(a) * 0.62, e.y - 0.005, e.z + Math.cos(a) * 0.62); camera.lookAt(e.x, e.y - 0.04, e.z);
+  } else if (mode === 'hairline') {
+    // (G8b: the hairline close: the brows to the crown's front at 0.62 m, turned by ang: the forehead's and temples' hair edge)
+    const a = ang; camera.fov = 17; camera.position.set(e.x + Math.sin(a) * 0.62, e.y + 0.04, e.z + Math.cos(a) * 0.62); camera.lookAt(e.x, e.y + 0.045, e.z);
   } else if (mode === 'cloth') {
     // (C5: the cloth close: 'chest' the chest and upper arm at 0.95 m, 'arm' the near elbow and sleeve, 'legs' hips to
     // knees; turned by ang, in whatever light the page was opened with)
@@ -201,7 +208,7 @@ window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, 
     camera.fov = 22; camera.position.set(e.x + 0.16, e.y + 0.015, e.z + 0.62); camera.lookAt(e.x, e.y - 0.045, e.z);
   }
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  if (mask) { const back = [], blk = mask === 'hair' || mask === 'cloth'; scene.traverse((o) => { if (o.isMesh) { back.push([o, o.material]); o.material = mask === 'hair' ? hairMaskMat(o) : mask === 'cloth' ? clothMaskMat(o) : maskMat(o); } }); const bg = scene.background; scene.background = new THREE.Color(blk ? 0 : 1, blk ? 0 : 1, blk ? 0 : 1);
+  if (mask) { const back = [], blk = mask === 'hair' || mask === 'hairline' || mask === 'cloth'; scene.traverse((o) => { if (o.isMesh) { back.push([o, o.material]); o.material = mask === 'hair' || mask === 'hairline' ? hairMaskMat(o, mask === 'hairline') : mask === 'cloth' ? clothMaskMat(o) : maskMat(o); } }); const bg = scene.background; scene.background = new THREE.Color(blk ? 0 : 1, blk ? 0 : 1, blk ? 0 : 1);
     renderer.render(scene, camera); renderer.render(scene, camera); for (const [o, m] of back) o.material = m; scene.background = bg; }
   else if (nospec) { const back = []; M.traverse((o) => { if (o.isMesh) { back.push([o, o.material]); o.material = noSpecMat(o); } }); renderer.render(scene, camera); renderer.render(scene, camera); for (const [o, m] of back) o.material = m; }
   else { renderer.render(scene, camera); renderer.render(scene, camera); }

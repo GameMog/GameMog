@@ -100,8 +100,14 @@ function skinBy(P, near, out) { const JI = [], WT = []; for (let i = 0; i < P.le
 export function standCollar(ctx, o) {
   const { NECKY } = ctx, { at: skin, nz } = neckSkin(ctx), NE = necklineOf(o.sh.P, o.sh.idx, nz, NECKY), gap = o.gap ?? 0.0025, th = o.th ?? 0.0035, tuck = o.tuck ?? 0.012, open = o.open ?? 0, NA = open ? 72 : 80;
   const angle = (i) => (open ? open + ((TAU - 2 * open) * i) / NA : (TAU * i) / NA + (o.seamBack ? Math.PI : 0)); // (o.seamBack: a closed ring's uv seam at the back, out of sight)
+  // (G8b: the top edge over a neckline smoothed round the neck (+-0.4 rad), not each bin's own: on the chef the top
+  // followed the coat's neckline's every rise and dip and read as torn paper; and never under the neckline's own
+  // height + 60 % of minH)
+  const SN = 144, ys = Float32Array.from({ length: SN }, (_, k) => NE.y(-Math.PI + (k + 0.5) * TAU / SN));
+  for (let p = 0; p < 40; p++) { const c = Float32Array.from(ys); for (let k = 0; k < SN; k++) ys[k] = (2 * c[k] + c[(k + 1) % SN] + c[(k - 1 + SN) % SN]) / 4; }
+  const ySm = (a) => { const u = ((a + Math.PI) / TAU) * SN - 0.5, i0 = ((Math.floor(u) % SN) + SN) % SN, f = u - Math.floor(u); return ys[i0] * (1 - f) + ys[(i0 + 1) % SN] * f; };
   const loop = (i) => { const a = angle(i), f = 0.5 + 0.5 * Math.cos(a), yE = NE.y(a), rE = NE.r(a), corner = open ? (o.round ?? 0.008) * (1 - sm(0, 0.35, Math.min(Math.abs(a - open), Math.abs(TAU - open - a)))) : 0;
-    const yT = Math.max(NECKY + (o.top ?? 0.012) - (o.dropFront ?? 0) * f * f - corner, yE + (o.minH ?? 0.016)), yB = yE - tuck;
+    const yT = Math.max(NECKY + (o.top ?? 0.012) - (o.dropFront ?? 0) * f * f - corner, (o.smoothTop ? ySm(a) : yE) + (o.minH ?? 0.016), yE + (o.minH ?? 0.016) * (o.smoothTop ? 0.6 : 1)), yB = yE - tuck;
     const rI = (y) => skin(a, Math.min(y, yT)) + gap, rO = (y) => { const base = rI(y) + th, s = sm(yE + 0.014, yE - 0.002, y); return Math.max(base, (rE - 0.0015) * s + base * (1 - s)); };
     const rIc = (y) => Math.min(rI(y), rO(y) - 0.0015);
     const out = [], inn = [], hs = [yB, yE - 0.004, yE + 0.002, yE + 0.007]; const h0 = yE + 0.007, h1 = yT - th / 2; for (let k = 1; k <= 3; k++) hs.push(h0 + ((h1 - h0) * k) / 3);
@@ -129,7 +135,7 @@ export function standCollar(ctx, o) {
   const { JI, WT } = skinBy(P, (p) => colS[binOf(angOf(p[0], p[2], nz), NC)]);
   // (the skin inside the band hidden: from under the coat's neckline to 6 mm under the band's top, out to the coat's
   // edge: closed in by the band, it can only show as flecks where the shoulder's slope comes up through its foot)
-  const hide = new Set(), { bodyIdx, bPos } = ctx, topAt = (a) => { const f = 0.5 + 0.5 * Math.cos(a); return Math.max(NECKY + (o.top ?? 0.012) - (o.dropFront ?? 0) * f * f, NE.y(a) + (o.minH ?? 0.016)); };
+  const hide = new Set(), { bodyIdx, bPos } = ctx, topAt = (a) => { const f = 0.5 + 0.5 * Math.cos(a); return Math.max(NECKY + (o.top ?? 0.012) - (o.dropFront ?? 0) * f * f, (o.smoothTop ? ySm(a) : NE.y(a)) + (o.minH ?? 0.016), NE.y(a) + (o.minH ?? 0.016) * (o.smoothTop ? 0.6 : 1)); };
   const inside = (v) => { const x = bPos[v * 3], y = bPos[v * 3 + 1], z = bPos[v * 3 + 2] - nz, a = Math.atan2(x, z); if (open && Math.abs(a) < open + 0.05) return false; return y < topAt(a) - 0.006 && y > NE.y(a) - 0.03 && Math.hypot(x, z) < NE.r(a) + 0.006; };
   // (and a skin triangle with each point either inside the band or under the coat (o.field > 0): the body's triangles
   // are big at the shoulders, and one reaching from the neck out to the shoulder's top was neither all under the coat nor

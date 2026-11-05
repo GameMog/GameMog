@@ -108,14 +108,8 @@ export function cardHairTex(src, W, H, ramp, dmap, o = {}) {
 // { dE (Float32Array per hair point, 9 where far), bare (count) }. A skin point is bare when no hair triangle lies over
 // it within 3 cm along its normal (Jane's scalp2 test)
 export function hairlineDist(skin, hair, hv) {
-  const { P: SP, N: SN, V } = skin, { P: HP, T } = hair, nT = T.length / 3;
-  const TC = new Float32Array(nT * 3); for (let q = 0; q < nT; q++) for (let c = 0; c < 3; c++) TC[q * 3 + c] = (HP[T[q * 3] * 3 + c] + HP[T[q * 3 + 1] * 3 + c] + HP[T[q * 3 + 2] * 3 + c]) / 3;
-  const hit = (p, n, R) => { for (let q = 0; q < nT; q++) { const dx = TC[q * 3] - p[0], dy = TC[q * 3 + 1] - p[1], dz = TC[q * 3 + 2] - p[2]; if (dx * dx + dy * dy + dz * dz > 0.0016) continue;
-    const a0 = T[q * 3] * 3, b0 = T[q * 3 + 1] * 3, c0 = T[q * 3 + 2] * 3, e1 = [HP[b0] - HP[a0], HP[b0 + 1] - HP[a0 + 1], HP[b0 + 2] - HP[a0 + 2]], e2 = [HP[c0] - HP[a0], HP[c0 + 1] - HP[a0 + 1], HP[c0 + 2] - HP[a0 + 2]];
-    const h = [n[1] * e2[2] - n[2] * e2[1], n[2] * e2[0] - n[0] * e2[2], n[0] * e2[1] - n[1] * e2[0]], a = e1[0] * h[0] + e1[1] * h[1] + e1[2] * h[2]; if (Math.abs(a) < 1e-12) continue;
-    const f = 1 / a, s = [p[0] - HP[a0], p[1] - HP[a0 + 1], p[2] - HP[a0 + 2]], u = f * (s[0] * h[0] + s[1] * h[1] + s[2] * h[2]); if (u < 0 || u > 1) continue;
-    const qv = [s[1] * e1[2] - s[2] * e1[1], s[2] * e1[0] - s[0] * e1[2], s[0] * e1[1] - s[1] * e1[0]], v = f * (n[0] * qv[0] + n[1] * qv[1] + n[2] * qv[2]); if (v < 0 || u + v > 1) continue;
-    const t = f * (e2[0] * qv[0] + e2[1] * qv[1] + e2[2] * qv[2]); if (t > -0.003 && t < R) return true; } return false; };
+  const { P: SP, N: SN, V } = skin, { P: HP, T } = hair;
+  const hit = hairHit(HP, T);
   const bare = []; for (const v of V) { const p = [SP[v * 3], SP[v * 3 + 1], SP[v * 3 + 2]], n = [SN[v * 3] / 127, SN[v * 3 + 1] / 127, SN[v * 3 + 2] / 127], l = Math.hypot(...n) || 1; if (!hit(p, n.map((c) => c / l), 0.03)) bare.push(p); }
   // (a 1 cm grid of the bare points)
   const G = new Map(), cell = 0.01, key = (x, y, z) => x + ',' + y + ',' + z; for (const p of bare) { const k = key(...p.map((c) => Math.floor(c / cell))); (G.get(k) || G.set(k, []).get(k)).push(p); }
@@ -125,4 +119,54 @@ export function hairlineDist(skin, hair, hv) {
       for (const q of L) { const d = Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]); if (d < m) m = d; } }
     dE[v] = m; }
   return { dE, bare: bare.length };
+}
+
+// a ray from p along the unit n against the hair's triangles (those within 4 cm of p): true when one is hit between
+// 3 mm behind p and R in front of it
+export function hairHit(HP, T) {
+  const nT = T.length / 3, TC = new Float32Array(nT * 3); for (let q = 0; q < nT; q++) for (let c = 0; c < 3; c++) TC[q * 3 + c] = (HP[T[q * 3] * 3 + c] + HP[T[q * 3 + 1] * 3 + c] + HP[T[q * 3 + 2] * 3 + c]) / 3;
+  // (the triangles' centres on a 4 cm grid, so a test looks at its own cell and the ones round it only)
+  const G = new Map(), cell = 0.04, key = (x, y, z) => x + ',' + y + ',' + z;
+  for (let q = 0; q < nT; q++) { const k = key(Math.floor(TC[q * 3] / cell), Math.floor(TC[q * 3 + 1] / cell), Math.floor(TC[q * 3 + 2] / cell)); (G.get(k) || G.set(k, []).get(k)).push(q); }
+  return (p, n, R) => { const c0 = p.map((x) => Math.floor(x / cell));
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (let kk = -1; kk <= 1; kk++) for (const q of G.get(key(c0[0] + i, c0[1] + j, c0[2] + kk)) || []) {
+      const dx = TC[q * 3] - p[0], dy = TC[q * 3 + 1] - p[1], dz = TC[q * 3 + 2] - p[2]; if (dx * dx + dy * dy + dz * dz > 0.0016) continue;
+      const a0 = T[q * 3] * 3, b0 = T[q * 3 + 1] * 3, c1 = T[q * 3 + 2] * 3, e1 = [HP[b0] - HP[a0], HP[b0 + 1] - HP[a0 + 1], HP[b0 + 2] - HP[a0 + 2]], e2 = [HP[c1] - HP[a0], HP[c1 + 1] - HP[a0 + 1], HP[c1 + 2] - HP[a0 + 2]];
+      const h = [n[1] * e2[2] - n[2] * e2[1], n[2] * e2[0] - n[0] * e2[2], n[0] * e2[1] - n[1] * e2[0]], a = e1[0] * h[0] + e1[1] * h[1] + e1[2] * h[2]; if (Math.abs(a) < 1e-12) continue;
+      const f = 1 / a, s = [p[0] - HP[a0], p[1] - HP[a0 + 1], p[2] - HP[a0 + 2]], u = f * (s[0] * h[0] + s[1] * h[1] + s[2] * h[2]); if (u < 0 || u > 1) continue;
+      const qv = [s[1] * e1[2] - s[2] * e1[1], s[2] * e1[0] - s[0] * e1[2], s[0] * e1[1] - s[1] * e1[0]], v = f * (n[0] * qv[0] + n[1] * qv[1] + n[2] * qv[2]); if (v < 0 || u + v > 1) continue;
+      const t = f * (e2[0] * qv[0] + e2[1] * qv[1] + e2[2] * qv[2]); if (t > -0.003 && t < R) return true; } return false; };
+}
+
+// G8b, the scalp under the hair and its line (Mr. Big's graded hairline). H5's scalp paint reached 4-8 mm from the
+// nearest hair POINT, and the cards stand 1-2 cm off the scalp, so on most heads it painted nothing: the cards' alpha-cut
+// edge lay straight on bare skin, a hard cut-out stepped by the cards' own triangles (the chef, young hero, office
+// worker). This finds the scalp the hair lies over (a skin point is under hair when a hair triangle is within R along its
+// normal), then the line between the scalp and the bare skin, found on each skin edge that crosses it by halving (3
+// times: the line falls between the skin's points, not on them, so no triangle steps) and smoothed over 8 mm. Returns
+// { cov (Map v -> 0|1), n (line points), sd(p) }: sd the signed distance (m) to the line, + under the hair, - on bare
+// skin, +-cap beyond cap. skin { P, N (int8 x3), V (the points that may be scalp), T (the skin's triangles) }; hair { P, T }
+export function scalpLine(skin, hair, o = {}) {
+  const { P, N, V, T } = skin, R = o.R ?? 0.035, cap = o.cap ?? 0.03, hit = hairHit(hair.P, hair.T), inV = new Set(V);
+  const pt = (v) => [P[v * 3], P[v * 3 + 1], P[v * 3 + 2]], nm = (v) => { const n = [N[v * 3] / 127, N[v * 3 + 1] / 127, N[v * 3 + 2] / 127], l = Math.hypot(...n) || 1; return n.map((c) => c / l); };
+  const cov = new Map(); for (const v of V) cov.set(v, hit(pt(v), nm(v), R) ? 1 : 0);
+  const seen = new Set(), Q = [], D = [];
+  for (let q = 0; q < T.length; q += 3) for (let e = 0; e < 3; e++) { let a = T[q + e], b = T[q + (e + 1) % 3]; if (!inV.has(a) || !inV.has(b) || cov.get(a) === cov.get(b)) continue;
+    if (cov.get(a)) [a, b] = [b, a]; const k = a + ',' + b; if (seen.has(k)) continue; seen.add(k);
+    // (a bare, b under hair: halve the edge 3 times)
+    const pa = pt(a), pb = pt(b), na = nm(a), nb = nm(b); let lo = 0, hi = 1;
+    for (let it = 0; it < 3; it++) { const m = (lo + hi) / 2, p = pa.map((c, i) => c + (pb[i] - c) * m), n = na.map((c, i) => c + (nb[i] - c) * m), l = Math.hypot(...n) || 1; if (hit(p, n.map((c) => c / l), R)) hi = m; else lo = m; }
+    const m = (lo + hi) / 2, d = pb.map((c, i) => c - pa[i]), dl = Math.hypot(...d) || 1; Q.push(pa.map((c, i) => c + (pb[i] - c) * m)); D.push(d.map((c) => c / dl)); }
+  // (smoothed: each point and its direction the mean of those within 8 mm, twice)
+  const cell = 0.01, key = (x, y, z) => x + ',' + y + ',' + z, grid = (A) => { const G = new Map(); A.forEach((p, i) => { const k = key(...p.map((c) => Math.floor(c / cell))); (G.get(k) || G.set(k, []).get(k)).push(i); }); return G; };
+  const around = (G, A, p, r, f) => { const c0 = p.map((x) => Math.floor(x / cell)), rc = Math.ceil(r / cell); for (let i = -rc; i <= rc; i++) for (let j = -rc; j <= rc; j++) for (let k = -rc; k <= rc; k++) for (const n of G.get(key(c0[0] + i, c0[1] + j, c0[2] + k)) || []) { const q = A[n]; const d = Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]); if (d <= r) f(n, d); } };
+  let A = Q, Dd = D;
+  for (let pass = 0; pass < 2; pass++) { const G = grid(A), A2 = [], D2 = [];
+    for (let i = 0; i < A.length; i++) { const s = [0, 0, 0], sd = [0, 0, 0]; let w = 0; around(G, A, A[i], 0.008, (n) => { for (let c = 0; c < 3; c++) { s[c] += A[n][c]; sd[c] += Dd[n][c]; } w++; });
+      const l = Math.hypot(...sd) || 1; A2.push(s.map((c) => c / w)); D2.push(sd.map((c) => c / l)); }
+    A = A2; Dd = D2; }
+  const G = grid(A);
+  const sd = (p) => { let best = -1, bd = cap; around(G, A, p, cap, (n, d) => { if (d < bd) { bd = d; best = n; } }); if (best < 0) return NaN;
+    const q = A[best], d = Dd[best]; return Math.max(-cap, Math.min(cap, (p[0] - q[0]) * d[0] + (p[1] - q[1]) * d[1] + (p[2] - q[2]) * d[2])); };
+  return { cov, n: A.length, sd };
 }
