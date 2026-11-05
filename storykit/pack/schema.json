@@ -499,7 +499,8 @@
        "mogcity/suit-mack",
        "mogcity/suit-rook",
        "mogcity/bea",
-       "mogcity/camp"
+       "mogcity/camp",
+       "hand/young-hero"
       ],
       "description": "a shipped person from the cast registry (public/storykit/cast/registry.json), as they are: their own body, clips, face and recorded lines. No sheet. anchor and voice default to the registry's"
      },

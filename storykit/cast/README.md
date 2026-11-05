@@ -9,6 +9,7 @@ set (`mogcity/...`): Mr. Big is the quality bar, and nothing in the registry is 
 | file | what |
 |---|---|
 | `public/storykit/cast/registry.json` | the registry (the gate and the work page read it) |
+| `public/storykit/cast/hand/` | the hand-built bodies (`hand/...`, below) and their `CREDITS.md` |
 | `public/storykit/cast/mogcity/` | Mog City's bodies (the creator's browser makes their headshots from them), the Suits' clip pack, Fiona's and Gears' moves, the list of their 462 recorded lines (`voice/manifest.json`; the recordings themselves are Mog City's and play there), `CREDITS.md` |
 | `storykit/cast/seeds.json` | each shipped person as a Character Forge sheet: where a Mog starts when it changes one |
 | `storykit/pack/registry.ts` | the platform's side: `modelOf`, `nearVoice`, `seedSheet`, `recordedClip` |
@@ -64,6 +65,22 @@ keeps the body. `storykit/packs/test-mogcity-cast.json` is the worked example.
 Mog City's set: `mogcity/dan`, `jane`, `mrbig`, `gears`, `fiona` (cast66: stand, walk, talk, sit, hero);
 `mogcity/suit-knox`, `suit-hooks`, `suit-tank`, `suit-brick`, `suit-dash`, `suit-mack`, `suit-rook` (one file, seven
 men; stand, walk, talk); `mogcity/bea`, `mogcity/camp` (voice only); `mogcity/moon` (the dog).
+
+## Hand-built people (`hand/...`)
+
+The registry's other set: Story Kit people polished by hand to the shipped cast's standard (Mr. Big is the bar), for
+any story in any city. They carry `"built": "hand"` and belong to no world, so Mog City has no builder of its own for
+them: the work page never forges one but **stores their GLB as the cast member's file** (as it is), the store counts it
+as missing until it is there, and the runner's pack (`toRunnerPack`) draws them as a forged person: `{ glb, idle, walk }`
+with no `model` key (the runner reads a model as one of Mog City's people, and a model hero as Dan). They move on the
+clip pack (`cast/cast-clips.glb`, rig cast66), have no recorded lines (every line is voiced in their `near` block),
+and can be any story's hero.
+
+| key | who | anchor | voice | file |
+|---|---|---|---|---|
+| `hand/young-hero` | Mateo, a young man in his twenties who carries the story | `young-hero` | `hand-young-hero` (am_puck) | `cast/hand/young-hero.glb` |
+
+To ship a new build of one: copy its GLB to `public/storykit/cast/hand/` and set the registry's `bytes`.
 
 ## Voices: recordings for unchanged lines, near voices for the rest
 

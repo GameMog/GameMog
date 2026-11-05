@@ -12,7 +12,7 @@ import { lintVoiceBlock, KOKORO_VOICES, voiceKey } from '../voices/voice-design.
 
 type Json = any;
 export type Model = {
-  kind: 'person' | 'voice' | 'pet'; world: string; name: string; role: string; glb?: string; rig?: 'cast66' | 'suit'; man?: string; look?: string;
+  kind: 'person' | 'voice' | 'pet'; world: string; built?: 'hand'; name: string; role: string; glb?: string; rig?: 'cast66' | 'suit'; man?: string; look?: string;
   clips?: Record<string, string>; face?: Json; props?: string[]; height?: number; can: string[]; anchor?: string; species?: string; breed?: string; build?: string;
   voice?: { recorded?: string; lines?: number; f0?: number; near: Json }; seed?: string; credit: string;
 };
@@ -21,6 +21,8 @@ const SETS: Record<string, { lines: { id: string; who: string; text: string; fil
 const SET_DIR: Record<string, string> = Object.fromEntries(Object.entries((REGISTRY as Json).voices as Record<string, string>).map(([k, f]) => [k, f.replace(/[^/]+$/, '')]));
 
 export const modelOf = (key: unknown): Model | null => (typeof key === 'string' && Object.hasOwn(MODELS, key) ? MODELS[key] : null);
+/** A hand-built person (built: 'hand', 'hand/...'): a Story Kit body Mog City does not ship, so the world carries their GLB. */
+export const handBuilt = (key: unknown) => modelOf(key)?.built === 'hand';
 export const can = (key: unknown, what: string) => !!modelOf(key)?.can.includes(what);
 /** The model's voice block for lines it never recorded (the pack's cast[].voice when it leaves it out). */
 export const nearVoice = (key: string) => { const m = modelOf(key); return m?.voice ? JSON.parse(JSON.stringify(m.voice.near)) : null; };

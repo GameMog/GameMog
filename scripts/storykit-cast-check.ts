@@ -48,6 +48,14 @@ export function runCastRegistryChecks(ok: Ok) {
     ok('a shipped person given another voice keeps the body and loses the recordings (all lines rendered)', r.ok && voicePlanOf(r.pack).lines.filter((l: any) => l.who === 'Dan' && l.rec).length === 0, r.problems.join(' | ')); }
   { const p = clone(P); p.cast[1].name = 'Jo'; p.acts[0].missions[0].steps[3].shots[0].line = 'Your face is on four front pages today. Moon\'s jealous.'; const r = gatePack(p);
     ok('a rename keeps the body and the recordings of lines that still say the same', r.ok && toRunnerPack(r.pack).cast.Jo?.glb === 'cast/mogcity/jane.glb' && voicePlanOf(r.pack).lines.some((l: any) => l.who === 'Jo' && l.rec), r.problems.join(' | ')); }
+  // a hand-built person (registry built: 'hand', not Mog City's own): any story's hero, drawn as a forged person from the
+  // world's stored copy of their GLB (or the registry's file), never with a model key (the runner reads one as Dan)
+  { const hand = Object.keys(MODELS).filter((k) => MODELS[k].built === 'hand');
+    ok(`every hand-built person can be the hero, walk, talk, drive and fight, with no recorded lines (${hand.join(' ')})`, hand.length > 0 && hand.every((k) => ['hero', 'walk', 'talk', 'drive', 'fight'].every((x) => MODELS[k].can.includes(x)) && !MODELS[k].voice?.recorded && MODELS[k].rig === 'cast66' && statSync(pub(MODELS[k].glb!)).size <= 3 * (1 << 20)));
+    const p = clone(P); p.cast.push({ id: 'mateo', model: 'hand/young-hero', color: '#D9A35B' }); p.hero = 'mateo'; p.pets[0].owner = 'mateo'; const r = gatePack(p);
+    const run = r.ok ? toRunnerPack(r.pack) : null, stored = r.ok ? toRunnerPack(r.pack, { cast: { mateo: '/storykit/f/' + 'a'.repeat(64) + '.glb' } }) : null;
+    ok('a hand-built hero passes and plays as a forged body (its GLB, the clip pack\'s idle and walk, no model key)', !!run && run.hero === 'Mateo' && run.cast.Mateo?.glb === MODELS['hand/young-hero'].glb && !run.cast.Mateo.model && run.cast.Mateo.walk === 'walkCool'
+      && stored!.cast.Mateo.glb === '/storykit/f/' + 'a'.repeat(64) + '.glb' && run.cast.Dan?.model === 'mogcity/dan', r.problems.join(' | ')); }
   const refuse = (name: string, edit: (p: any) => void, re: RegExp) => { const p = clone(P); edit(p); const r = gatePack(p); ok(`refused: ${name}`, !r.ok && r.problems.some((x) => re.test(x)), r.problems.join(' | ') || 'passed'); };
   refuse('a shipped person with a sheet too', (p) => { p.cast[2].sheet = seedSheet('mogcity/mrbig', 'mrbig'); }, /shipped body as it is, so it has no sheet/);
   refuse('a model not in the registry', (p) => { p.cast[2].model = 'mogcity/nobody'; }, /model/);

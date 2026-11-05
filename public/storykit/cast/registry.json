@@ -603,6 +603,53 @@
    },
    "credit": "Eight Kokoro-82M stock voices together. cast/mogcity/CREDITS.md"
   },
+  "hand/young-hero": {
+   "kind": "person",
+   "world": "Story Kit",
+   "built": "hand",
+   "name": "Mateo",
+   "role": "a young man in his twenties who carries the story (the Story Kit's hand-built young hero)",
+   "glb": "cast/hand/young-hero.glb",
+   "bytes": 2729776,
+   "rig": "cast66",
+   "clips": {
+    "from": "cast/cast-clips.glb",
+    "idle": "shift",
+    "walk": "walkCool",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "face": {
+    "open": 0.45,
+    "hair": true
+   },
+   "props": [],
+   "height": 1.82,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "drive",
+    "fight",
+    "hero"
+   ],
+   "anchor": "young-hero",
+   "voice": {
+    "f0": 118,
+    "near": {
+     "id": "hand-young-hero",
+     "kokoro": "am_puck",
+     "speed": 1.04,
+     "pitch": -0.3,
+     "description": "a young man in his twenties, warm mid baritone, quick, cracks jokes when he is scared"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#hand/young-hero",
+   "credit": "An original Story Kit character (an invented person, no real likeness): the Character Forge's young-hero anchor (MakeHuman base body, clothes and hair, CC0 1.0) polished by hand; moves from the Story Kit's clip pack (cast/cast-clips.glb: CMU Graphics Lab Motion Capture Database clips)."
+  },
   "mogcity/moon": {
    "kind": "pet",
    "world": "Mog City",

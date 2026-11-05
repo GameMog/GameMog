@@ -23,6 +23,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import path from 'node:path';
 import { gatePack, toRunnerPack } from '../storykit/pack/gate.ts';
 import { voicePlanOf } from '../storykit/pack/runner.ts';
+import { handBuilt } from '../storykit/pack/registry.ts';
 import { storykitLive } from './storykit-switch.ts';
 
 /** The store is there when the switch is on or owner-only (lib/storykit-switch.ts); who may write is the routes' check. */
@@ -319,7 +320,7 @@ export class StoryStore {
       world: d.world ? blobUrl(d.world, 'json') : null,
       files: files.map((f) => ({ kind: f.kind, name: f.name, url: blobUrl(f.hash, f.ext), bytes: f.bytes, inherited: !!f.inherited })),
       missing: {
-        glb: pack.cast.filter((c: any) => c.sheet && !has('glb', c.id)).map((c: any) => c.id),
+        glb: pack.cast.filter((c: any) => (c.sheet || (!c.voiceOnly && handBuilt(c.model))) && !has('glb', c.id)).map((c: any) => c.id),
         voice: lines.filter((l: any) => !l.rec && !has('voice', l.clip)).map((l: any) => l.clip),
       },
       bytes: { glb: this.footprint(d.id, 'glb').bytes, voice: this.footprint(d.id, 'voice').bytes, art: this.footprint(d.id, 'art').bytes, world: this.footprint(d.id).bytes },

@@ -149,6 +149,7 @@ export function voiceTable() {
 
 /** The cast registry for the builder: each shipped person and pet, its anchor, voice and recorded lines, and the seed sheet a Mog starts from when it changes one. */
 export function shippedCast() {
+  const hand = Object.keys(MODELS).filter((k) => MODELS[k].built === 'hand');
   const rows = Object.entries(MODELS).map(([k, m]) => `| \`${k}\` | ${m.kind} | ${m.name} | ${m.role} | ${m.anchor || ''} | ${m.voice?.near?.id || ''} | ${m.can.join(', ')} | ${m.voice?.recorded ? recordedLines(k).length : 0} |`);
   const rec = Object.keys(MODELS).filter((k) => MODELS[k].voice?.recorded).map((k) => `- \`${k}\`: ${recordedLines(k).slice(0, 6).map((l) => JSON.stringify(l.text)).join(' ')}${recordedLines(k).length > 6 ? ' ...' : ''}`);
   return `## The shipped cast (cast[].model, pets[].model)
@@ -165,7 +166,9 @@ Some of their recorded lines (the same words in the same voice play the recordin
 
 ${rec.join('\n')}
 
-A Mog that changes how one of them looks replaces the model with a sheet started from their seed sheet (given with the parent when it has them).`;
+A Mog that changes how one of them looks replaces the model with a sheet started from their seed sheet (given with the parent when it has them).${hand.length ? `
+
+Hand-built people (${hand.map((k) => `\`${k}\``).join(', ')}) belong to no world: polished by hand to the shipped cast's standard, they fit any story in any city, and can be its hero (\`{ "id": "...", "model": "${hand[0]}", "color": "..." }\`, set \`name\` to rename them; they have no recorded lines, so every line is voiced in their voice block). For a young man who carries the story, prefer one over a forged sheet on the same anchor.` : ''}`;
 }
 /** The seed sheets of the shipped people a parent pack uses (a Mog's request), or ''. */
 export function seedsFor(pack: PackV2) {

@@ -657,7 +657,11 @@ export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pe
 export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>; clips?: string } = {}): Json {
   const name = (id: string) => personName(pack.cast.find((c: Json) => c.id === id)) || pack.pets?.find((p: Json) => p.id === id)?.name || titleCase(id);
   // a shipped model's body: its GLB beside the page (the registry's), for a person who is seen
-  const bodyOf = (c: Json) => { const m = c.model && !c.voiceOnly ? modelOf(c.model) : null; return m?.glb ? { model: c.model, glb: m.glb } : null; };
+  // (a hand-built one (registry built: 'hand') is not Mog City's own: the runner draws it as a forged person, from the
+  // world's stored copy of its GLB (opts.cast, the work page stores it) or the registry's file, on the clip pack, with
+  // no model key: the runner reads a model as one of Mog City's people, and a model hero as Dan)
+  const bodyOf = (c: Json) => { const m = c.model && !c.voiceOnly ? modelOf(c.model) : null; if (!m?.glb) return null;
+    return m.built === 'hand' ? { glb: opts.cast?.[c.id] || m.glb, idle: m.clips?.idle, walk: m.clips?.walk } : { model: c.model, glb: m.glb }; };
   // a stock car is its engine id; a vehicle sheet is its own id (the engine registers it from car / rides)
   const stockOf = (rideId: string) => { const v = pack.vehicles.find((x: Json) => (x.id || x.stock) === rideId); return v ? (v.stock || v.id) : undefined; };
   const sheets = pack.vehicles.filter((v: Json) => !v.stock);

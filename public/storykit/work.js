@@ -93,7 +93,18 @@ async function forging(src, status, world) {
   const has = new Set(status.files.filter((f) => f.kind === 'glb').map((f) => f.name));
   const heads = new Set(status.files.filter((f) => f.kind === 'art' && f.name.startsWith('head-')).map((f) => f.name.replace(/\.[a-z]+$/, '').slice(5)));
   const glbOf = Object.fromEntries(status.files.filter((f) => f.kind === 'glb').map((f) => [f.name, f.url]));
-  for (const c of people) if (shipped(c)) { has.add(c.id); glbOf[c.id] = `/storykit/${shipped(c)}`; }
+  // (a hand-built one (registry built: 'hand') is not Mog City's own, so the world carries it: its GLB stored as the
+  // cast member's, as it is, never forged)
+  for (const c of people) if (shipped(c)) {
+    if (reg.models[c.model].built === 'hand' && !has.has(c.id)) {
+      try {
+        const b = await fetch(`/storykit/${shipped(c)}`).then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.blob(); });
+        const f = await put('glb', c.id, new Blob([b], { type: 'model/gltf-binary' }), 'model/gltf-binary');
+        log({ handBuilt: c.id, model: c.model, bytes: f.bytes });
+      } catch (e) { log({ handBuiltFailed: c.id, error: String(e && e.message || e) }); }
+    }
+    has.add(c.id); glbOf[c.id] = `/storykit/${shipped(c)}`;
+  }
   const card = (c, state, more = {}) => ({ id: c.id, name: c.sheet?.name || c.name || c.id, color: c.color, role: c.sheet?.role || c.role, state, ...more });
   W.cast = people.map((c) => card(c, has.has(c.id) ? 'done' : 'waiting'));
   report({ stage: 'forging', city: src.base.city, title: src.title, cast: W.cast });
