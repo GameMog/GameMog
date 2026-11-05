@@ -209,7 +209,7 @@ try {
   const cd = doneOf(create);
   const sys = api.requests.at(-1)?.system as string ?? '';
   const turn = JSON.stringify(api.requests.at(-1)?.messages ?? '');
-  ok('the build model is GAME_MODEL (claude-sonnet-5-5), streamed with the system prompt cached', api.requests.at(-1)?.model === 'claude-sonnet-5-5' && !!api.requests.at(-1)?.cache_control);
+  ok('the build model is STORY_MODEL (claude-opus-5-5) at high effort, streamed with the system prompt cached', api.requests.at(-1)?.model === 'claude-opus-5-5' && (api.requests.at(-1) as any)?.output_config?.effort === 'high' && !!api.requests.at(-1)?.cache_control);
   ok('the system prompt carries BUILDER.md (the rename rule, the Dognapped lessons, voice design), the anchors and the voice table',
     sys.includes('# Writing a Story Kit world') && sys.includes('## Never rename one kind of thing into another') && sys.includes('## Lessons: the Dognapped Mog') && sys.includes('## Voices')
       && sys.includes('`old-boss`') && sys.includes('| af_heart |'));

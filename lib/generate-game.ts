@@ -32,6 +32,8 @@ import { generateStorykit, isStoryParent, type StorykitInput } from './storykit-
 
 // Sonnet 5.5 (the owner, 30 Sep): half Opus 5.5's price per token, and faster
 export const GAME_MODEL = 'claude-sonnet-5-5';
+/** A story world's builder (Create or Mog, lib/storykit-build.ts): Opus 5.5 at high effort (the owner, 5 Nov: "we want the best"). */
+export const STORY_MODEL = 'claude-opus-5-5';
 export const RUNTIME_VERSION = 1;
 const MAX_ATTEMPTS = 3;
 
@@ -323,7 +325,7 @@ export async function generateGame(
   // a Story Kit world (4 Nov, behind STORYKIT=on; lib/storykit-build.ts): a Create in a picked city, or a Mog of one, is a
   // story pack built by its own loop (it refuses at once while the switch is off)
   if (input.storykit || (input.mog && isStoryParent(input.mog.parent))) {
-    return generateStorykit({ prompt: input.prompt, model: GAME_MODEL, signal: input.signal, usage: input.usage, consent: input.consent ?? null, storykit: input.mog ? { mog: input.mog } : { city: input.storykit!.city, hero: input.storykit!.hero ?? null } }, emit);
+    return generateStorykit({ prompt: input.prompt, model: STORY_MODEL, signal: input.signal, usage: input.usage, consent: input.consent ?? null, storykit: input.mog ? { mog: input.mog } : { city: input.storykit!.city, hero: input.storykit!.hero ?? null } }, emit);
   }
   // a Mog of a Mog City episode (3 Nov) is a story pack, built by its own loop
   if (input.mog && isEpisodeParent(input.mog.parent)) return generateEpisode({ ...input, mog: input.mog, model: GAME_MODEL, system: system('episode') }, emit);

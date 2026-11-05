@@ -24,7 +24,7 @@ import { storykitMc } from './storykit-publish';
  *   CREATE A WORLD   the creator picks a city (ny | sf) and writes a prompt
  *   MOG              the creator remixes a Story Kit world: its city (base) is copied and locked, the rest is remixed
  *
- * The builder model (GAME_MODEL, as every build) gets a prompt of its own: who GameMog is, storykit/BUILDER.md (the
+ * The builder model (STORY_MODEL, Opus 5.5 at high effort since 5 Nov) gets a prompt of its own: who GameMog is, storykit/BUILDER.md (the
  * chapter it reads: the pack, places, the city rule, the rename rule, verbs, people, voices, rides, dressing, steps,
  * words and the Dognapped lessons), then the picked city's place list and camera points, the anchors, the Kokoro voice
  * table, the three schemas (pack v2, the Character Forge sheet, the vehicle sheet) and Night Shift as the worked example.
@@ -499,6 +499,9 @@ export function storykitMeta(pack: PackV2, m: StorykitMeta, inherit: Inheritance
 
 /* ------------------------------------------------------------- the build -- */
 type Emit = (e: import('./generate-game').GameEvent) => void;
+/** The story builder's effort (the owner, 5 Nov: Opus 5.5 at high effort, lib/generate-game.ts STORY_MODEL). */
+const STORY_EFFORT = 'high' as const;
+
 type Hooks = { signal?: AbortSignal; usage?: (pass: { attempt: number; model: string; usage: Anthropic.Beta.BetaUsage; partial?: boolean }) => void };
 
 /** The independent check of real names over every batch; null when any batch could not be read (the build fails closed). */
@@ -546,7 +549,7 @@ export async function generateStorykit(
     try {
       const stream = live = client.beta.messages.stream({
         model: input.model, max_tokens: 64_000, system, messages,
-        thinking: { type: 'adaptive' }, output_config: { effort: 'medium' }, cache_control: { type: 'ephemeral' },
+        thinking: { type: 'adaptive' }, output_config: { effort: STORY_EFFORT }, cache_control: { type: 'ephemeral' },
         betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
       }, { signal: input.signal });
       let chars = 0, last = 0, writing = false;

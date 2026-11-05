@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateWorld, offlineWorld, readCatalogue, MODEL } from '@/lib/generate';
-import { generateGame, GAME_MODEL, type GameEvent } from '@/lib/generate-game';
+import { generateGame, GAME_MODEL, STORY_MODEL, type GameEvent } from '@/lib/generate-game';
 import { playtest } from '@/lib/playtest';
 import { logGeneration, recentSpecs, getGameBySlug, getGameBySlugForOwner, startBuild, setBuildUsage, endBuild } from '@/lib/db';
 import { admit, takeSlot, resting, priceBuild, BUSY, RESTING, type Lease, type PassUsage } from '@/lib/build-limits';
@@ -130,7 +130,7 @@ export async function POST(req: Request) {
     const leave = () => stop.abort();
     if (door.kind === 'queued') stop.signal.addEventListener('abort', door.ticket.leave, { once: true });
     if (req.signal.aborted) leave(); else req.signal.addEventListener('abort', leave, { once: true });
-    const model = GAME_MODEL + (image ? '+vision' : '') + (parent ? '+mog' : '') + (storyMog || storyCity ? '+storykit' : '');
+    const model = (storyMog || storyCity ? STORY_MODEL : GAME_MODEL) + (image ? '+vision' : '') + (parent ? '+mog' : '') + (storyMog || storyCity ? '+storykit' : '');
     type Line = { type: 'tick' } | { type: 'queued'; position: number; etaMin: number } | { type: 'admitted' } | { type: 'error'; error: string; resting: true };
     const stream = new ReadableStream({
       async start(controller) {
