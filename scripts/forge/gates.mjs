@@ -59,12 +59,12 @@ export const LIMITS = {
   pokeDepthMm: 4, pokeFrameMax: 40, pokeBellyMax: 12, helmetMeanMm: 14,
   hands: { male: [0.745, 0.785], female: [0.695, 0.725] }, creaseShare: 0.5,
   hairP90Mm: 34, hairVolumeP90Mm: 80, hairShellCv: 0.18, faceHairMax: 12, beardMouthMax: 6,
-  liningRatio: [0.45, 2.2], hueShiftDeg: 22, lidGap: [0.25, 0.9],
+  liningRatio: [0.45, 2.2], hueShiftDeg: 22, lidGap: [0.25, 0.9], irisL: 0.25,
   claw: { tipRad: 1.5, knuckleRad: 0.3 }, fist: 2.5,
 };
 
 /* ------------------------------------------------------------------ the model -- */
-async function load(file) {
+export async function load(file) {
   const doc = await io.read(file), R = doc.getRoot(), skin = R.listSkins()[0], J = skin.listJoints(), names = J.map((j) => j.getName());
   const IBM = J.map((_, k) => new T3.Matrix4().fromArray(skin.getInverseBindMatrices().getElement(k, [])));
   const parentOf = (n) => n.listParents().find((p) => p.propertyType === 'Node');
@@ -163,6 +163,37 @@ function family({ L, C, h }) { if (C < 0.035) return L < 0.3 ? 'black' : L > 0.8
   let name = bands.find(([x]) => h < x)[1]; if (name === 'red' && L < 0.42) name = 'wine'; if (name === 'pink-red' && L < 0.42) name = 'wine'; if (name === 'orange-brown' && L < 0.5) name = 'brown'; return name; }
 
 /* ------------------------------------------------------------------ the gates -- */
+// (EY: the iris as it reads: The Velvet Run's Aunt Rosa's brown iris was about (38, 15, 9) of 255, and in Mog City's
+// cutscene close-ups her eyes read as black holes. The texels of each iris's ring (the darkest 40-texel disk near the
+// eyeball's front, 18-48 texels of 512 out from its middle: the pupil and the white left out), their mean in OKLab L.
+// Calibration: Rosa's live GLB 0.17, Jane 0.20, Mr. Big 0.25 (red-brown); EY's anchors: dark brown 0.30, brown 0.35,
+// blue 0.41, hazel 0.53. Floor 0.25.)
+export async function irisRead(prims) {
+  const e = prims.find((p) => p.name === 'eyes'), t = e?.mat?.getBaseColorTexture();
+  if (!e || !t || !e.UV) return null;
+  const { data, info } = await sharp(Buffer.from(t.getImage())).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  // (each eyeball's front point (not the cornea: its shell over the iris is mapped to the texture's corner, cut out by its
+  // alpha) near the iris's middle in the texture; the ring 18-48 texels of 512 out from the pupil's middle, the pupil and
+  // the white left out)
+  const corner = (v) => e.UV[v * 2] > 0.8 && e.UV[v * 2 + 1] > 0.8, a = [0, 0, 0], at = []; let n = 0;
+  for (const s of [1, -1]) {
+    const vs = Array.from(e.V).filter((v) => e.P[v * 3] * s > 0 && !corner(v)); if (!vs.length) continue;
+    let fv = vs[0]; for (const v of vs) if (e.P[v * 3 + 2] > e.P[fv * 3 + 2]) fv = v;
+    // (the iris: the darkest 40-texel disk within 80 texels of it (the eyeball's front is a little off the iris's middle))
+    const k = info.width / 512, lum = (x, y) => { const i = (Math.round(y) * info.width + Math.round(x)) * info.channels; return data[i] + data[i + 1] + data[i + 2]; };
+    let cx = e.UV[fv * 2] * info.width, cy = e.UV[fv * 2 + 1] * info.height, best = Infinity;
+    { const x0 = cx, y0 = cy; for (let y = y0 - 80 * k; y <= y0 + 80 * k; y += 4 * k) for (let x = x0 - 80 * k; x <= x0 + 80 * k; x += 4 * k) { if (x < 10 * k || y < 10 * k || x >= info.width - 10 * k || y >= info.height - 10 * k) continue;
+      let sum = 0; for (let a2 = 0; a2 < 12; a2++) for (const r of [0, 10, 20, 30, 40]) sum += lum(x + r * k * Math.cos(a2 * 0.5236), y + r * k * Math.sin(a2 * 0.5236)); if (sum < best) { best = sum; cx = x; cy = y; } } }
+    at.push([+(cx / info.width).toFixed(3), +(cy / info.height).toFixed(3)]);
+    for (let y = Math.floor(cy - 48 * k); y <= cy + 48 * k; y++) for (let x = Math.floor(cx - 48 * k); x <= cx + 48 * k; x++) {
+      const d = Math.hypot(x - cx, y - cy) / k; if (d < 18 || d > 48 || x < 0 || y < 0 || x >= info.width || y >= info.height) continue;
+      const i = (y * info.width + x) * info.channels; for (let c = 0; c < 3; c++) a[c] += Math.pow(data[i + c] / 255, 2.2); n++;
+    }
+  }
+  const f = e.mat.getBaseColorFactor(), lin = a.map((x, c) => (x / Math.max(1, n)) * f[c]), L = lch(lin);
+  return { L: +L.L.toFixed(3), C: +L.C.toFixed(3), h: Math.round(L.h), samples: n, at, srgb: lin.map((x) => Math.round(255 * Math.pow(x, 1 / 2.2))) };
+}
+
 export async function runGates(glb, packFile) {
   const M = await load(glb), F = M.extras, lm = F.landmarks || {}, post = F.post || {}, sex = lm.sex || 'male', res = {};
   const pack = clipLib(await io.read(packFile));
@@ -324,6 +355,9 @@ export async function runGates(glb, packFile) {
 
   /* blink */
   { const L = lm.lidInfo; res.blink = { pass: !!L && L.gapRad >= LIMITS.lidGap[0] && L.gapRad <= LIMITS.lidGap[1], ...(L || { note: 'lids not found' }), limit: `face.js finds the lids, opening ${LIMITS.lidGap} rad` }; }
+
+  /* eyes (EY): the iris reads as an eye's colour, not a black hole, in a cutscene close-up */
+  { const r = await irisRead(M.prims); res.eyes = r ? { pass: r.samples >= 20 && r.L >= LIMITS.irisL, ...r, limit: `the iris ring's mean OKLab L >= ${LIMITS.irisL} (Rosa's live GLB 0.17)` } : { pass: false, note: 'no eye texture' }; }
 
   /* shoes (forge v2.3, SH) */
   { const IDS = ['work-boots', 'sneakers', 'dress-shoes'], upper = M.prims.find((p) => IDS.includes(p.name)), L0 = LIMITS.shoes;

@@ -979,8 +979,17 @@ const eyeImg = await (async () => {
   const { data, info } = await sharp(A + ATH + '/eye-' + (CFG.eyes || 'brown') + '.jpg').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) if (x > 0.82 * info.width && y > 0.82 * info.height) data[(y * info.width + x) * 4 + 3] = 0;
   // (the iris (its saturated texels) to a deeper brown: its own pattern's light kept)
-  if (CFG.iris) for (let i = 0; i < data.length; i += 4) { const r = data[i], g = data[i + 1], b = data[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx - mn < 40) continue;
-    const L = 0.3 * r + 0.59 * g + 0.11 * b, k = Math.min(1, (mx - mn - 40) / 40); for (let c = 0; c < 3; c++) data[i + c] = Math.round(data[i + c] * (1 - k) + Math.min(255, L * 1.6 * CFG.iris[c]) * k); }
+  // (EY: the iris's own light raised to its colour's: a brown at L*1.6 came out at about 20 of 255, under Jane's 31, and
+  // read as a black hole in Mog City's cutscene close-ups (The Velvet Run's Aunt Rosa). The gain now takes the iris's
+  // mean to IRIS_L x its colour's luminance (brown 76 of 255, dark brown 59), its pattern's light kept; gates.mjs 'eyes')
+  if (CFG.iris) {
+    const sat = (i) => { const mx = Math.max(data[i], data[i + 1], data[i + 2]), mn = Math.min(data[i], data[i + 1], data[i + 2]); return mx - mn < 40 ? 0 : Math.min(1, (mx - mn - 40) / 40); };
+    const lum = (r, g, b) => 0.3 * r + 0.59 * g + 0.11 * b, I = CFG.iris;
+    let sw = 0, sl = 0; for (let i = 0; i < data.length; i += 4) { const k = sat(i); if (k) { sw += k; sl += k * lum(data[i], data[i + 1], data[i + 2]); } }
+    const IRIS_L = 210, gain = Math.max(1.6, IRIS_L / Math.max(1, sl / Math.max(1, sw)));
+    for (let i = 0; i < data.length; i += 4) { const k = sat(i); if (!k) continue;
+      const L = lum(data[i], data[i + 1], data[i + 2]); for (let c = 0; c < 3; c++) data[i + c] = Math.round(data[i + c] * (1 - k) + Math.min(255, L * gain * I[c]) * k); }
+  }
   return sharp(data, { raw: info }).png().toBuffer();
 })();
 const rd = (f) => env.bytes(f);
