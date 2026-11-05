@@ -144,7 +144,8 @@ export function createCast(W, world) {
     requestAnimationFrame(tick);
     const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (W.paused) return;
-    for (const f of live.values()) try { f.update(dt); } catch {}
+    // (a body held still: an opening's name card freezes its frame on them, runner.js openCard)
+    for (const f of live.values()) if (!f.hold) try { f.update(dt); } catch {}
   })();
   return cast;
 }

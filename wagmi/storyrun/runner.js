@@ -8,7 +8,7 @@
 // banner (the GPS draws it in the car); cine.js's director for cutscenes (bars, hold Space to skip); calls.js's car
 // phone; combat's fights; pursuit's chases; m2-drive.js for a car to tail; the pause menu's checkpoints. hud.js adds a
 // choice, a timer and meters in the same look.
-//   createRunner(ctx) -> { play(def, { act }) -> Promise<'pass' | 'quit'>, stop(), state, M }
+//   createRunner(ctx) -> { play(def, { act }) -> Promise<'pass' | 'quit'>, opening(def.opening), stop(), state, M }
 // ctx: { W, world, places, cast, hud, host, save, flags: { autoAnswer, autoChoose, autoCard } }
 // Every kind of the pack schema is handled; the few with no Mog City part yet (convoy, patrol, roadblock, wallet, and a
 // stealth without a ref) say so in the console and pass, so a story still plays through (KINDS_STUB). `scene` plays
@@ -400,7 +400,9 @@ export function createRunner(ctx) {
     keyL.intensity = n < 6 ? 2.6 : 0;
     return n;
   }
-  async function shotList(shots, t, { skippable = true, beat = false } = {}) {
+  // (opening: the world's opening (opening()), its shots' place card, title and name cards played as Mog City's opening
+  // plays them; never on a mission's cutscene)
+  async function shotList(shots, t, { skippable = true, beat = false, opening = false } = {}) {
     const D = createDirector(W);
     const ssr0 = ssrOf()?.intensity.value ?? 0;
     W.cutscene = !beat; if (!beat) { ui.cine(true); ui.objective(null); }
@@ -415,31 +417,93 @@ export function createRunner(ctx) {
         if (skip) break;
         if (s.if && !cond(s.if)) continue;
         const dur = s.dur || 3, A = camPt(s.cam), B = s.to ? camPt(s.to) : A, LA = camPt(s.look, 1.4), LB = s.lookTo ? camPt(s.lookTo, 1.4) : LA;
-        const pos = keys([[0, A], [dur, B]]), look = keys([[0, LA], [dur, LB]]);
+        // (an opening's name card: the lens settles on its person through the first part of the shot, then the frame
+        // freezes on them, their body held mid-move, as their name and role come up: openCard())
+        const card = opening && s.card && s.card.who ? s.card : null, hold = card ? Math.min(dur * 0.42, 1.6) : dur;
+        const pos = keys([[0, A], [hold, B]]), look = keys([[0, LA], [hold, LB]]);
         const t0 = now();
         const sub = s.sub && (Array.isArray(s.sub) ? s.sub : ['', s.sub]);
         if (s.caption) ui.caption(s.caption, '', '#FFC93C', Math.min(dur, 3));
+        let frozen = null;
+        if (opening) openBeat(s, dur);
         if (s.say && Array.isArray(s.say)) { const [w, x] = s.say; ui.sub(castName(w), tokens(x), colorOf(castName(w))); mumble(castName(w), x, dur); }
-        else if (sub && sub[1]) { const w = castName(sub[0]); ui.sub(w || null, tokens(sub[1]), colorOf(w)); if (w) mumble(w, sub[1], dur); M.log.push(['say', w, sub[1]]); }
+        else if (sub && sub[1]) { const w = castName(sub[0]); ui.sub(w || null, tokens(sub[1]), colorOf(w)); if (w) mumble(w, sub[1], dur); M?.log.push(['say', w, sub[1]]); }
         else if (s.text) ui.sub(null, tokens(s.text));
         const len = Math.max(dur, sub && sub[1] ? Math.max(1.4, sub[1].length / 15, (W.voice?.dur?.(castName(sub[0]), tokens(sub[1])) || 0) + 0.15) : 0);
         try {
           await wait(() => {
-            const k = Math.min(dur, (now() - t0) / 1000), hh = handheld(k + t0 / 1000, 0.4);
-            const p = pos(k), l = look(k);
+            const k = Math.min(dur, (now() - t0) / 1000), still = card && k >= hold, hh = handheld(k + t0 / 1000, still ? 0 : 0.4);
+            if (still && !frozen) frozen = openCard(card, dur - hold);
+            const p = pos(Math.min(k, hold)), l = look(Math.min(k, hold));
             D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov: s.fov || 40, roll: 0, shake: hh };
             { const n = keyLight(p, l), ssr = ssrOf(); if (ssr) ssr.intensity.value = n < CLOSE ? 0 : ssr0; }
             if (!beat) stepSkip();
             return (now() - t0) / 1000 >= len;
           }, local);
         } catch (e) { if (!(e instanceof Stop) || !skip) throw e; }
+        finally { frozen?.(); if (opening && s.title) ui.gameTitle(false); }
         ui.sub(null);
       }
     } finally {
       ui.sub(null); ui.caption(null); ui.skip(null); keyL.intensity = 0; if (ssrOf()) ssrOf().intensity.value = ssr0;
+      if (opening) { ui.placeOff(); ui.gameTitle(false, true); }
       if (!beat) D.block(false);
       await D.release(0.6);
       W.cutscene = false; if (!beat) ui.cine(false);
+    }
+  }
+  /* ------------------------------------------------------------- the opening -- */
+  // A world's opening (def.opening), played once before Mission 1 as Mog City's own opening plays (intro.js): the city
+  // first, with the place card (ui.place: 'Murray Hill' / 'E 37th St · Midtown · 5:45 PM'), the people who matter each
+  // brought on with a name card (ui.caption: the name in white, the role in their colour, as 'Dan / the fall guy' and
+  // 'The Suits / Knox & Hooks · JPBank security'), here on a held frame, the premise in a few spoken lines, and the
+  // world's title in its own lockup (the start gate's: title.js). Hold Space to skip, as every cutscene.
+  //   opening: { place, time, stage: [{ who, at: '@place' | { rel: 'player', right, fwd }, heading }], shots: [{ cam,
+  //              to, look, lookTo, dur, fov, sub: [who, text], where: { name, sub }, card: { who, role }, title }] }
+  // The hero stands at `place` on foot by the car; each staged person is stood where `at` says, facing the hero when
+  // near him (else along the place); all of them are put away after it (a mission stands its own people up).
+  function openBeat(s, dur) {
+    if (s.where && s.where.name) { ui.place(tokens(s.where.name), tokens(s.where.sub || ''), Math.min(dur, 4.6)); sfx.play('stinger', { gain: 0.3 }); }
+    if (s.title) { ui.gameTitle(true); sfx.play('whoosh', { gain: 0.2 }); sfx.play('stinger', { gain: 0.42, notes: [130.81, 155.56, 196, 261.63] }); }
+  }
+  function openCard(card, secs) {
+    const who = castName(card.who), fig = cast.get(who), hero = cast.isHero(who) || who === heroName;
+    // (the card above the subtitle line, which sits where Mog City's captions do: its line is said under it)
+    const capEl = document.querySelector('#wg .wg-cap'); if (capEl) capEl.style.bottom = 'calc(var(--bar) + 10vh + 92px)';
+    ui.caption(who, tokens(card.role || world.castOf(who)?.role || ''), colorOf(who), Math.max(1.2, secs + 0.2));
+    sfx.play('thunk', { gain: 0.16, f: 140, ring: false }); sfx.play('whoosh', { gain: 0.12, dur: 0.35 });
+    // (the frame held: their clip stopped where it was, the lens still)
+    const mixer = hero ? W.dan?.mixer : null, ts = mixer ? mixer.timeScale : 1;
+    if (fig) fig.hold = true; if (mixer) mixer.timeScale = 0;
+    return () => { if (fig) fig.hold = false; if (mixer) mixer.timeScale = ts; setTimeout(() => { if (capEl && !capEl.classList.contains('on')) capEl.style.bottom = ''; }, 600); };
+  }
+  async function opening(o) {
+    const t = tokOf(null), staged = [];
+    if (o.place) putPlayer(placeOf(o.place), 'walk');
+    if (o.time) setTime(o.time);
+    const e = cm.getActiveEntity();
+    for (const s of o.stage || []) {
+      const who = castName(s.who);
+      if (!who || cast.isHero(who) || who === heroName) continue;
+      let x, z, h = null;
+      if (s.at && s.at.rel === 'player') {
+        const hh = e.heading, r = s.at.right || 0, f = s.at.fwd || 0;
+        x = e.position.x - Math.cos(hh) * r + Math.sin(hh) * f; z = e.position.z + Math.sin(hh) * r + Math.cos(hh) * f;
+      } else { const p = places.at(s.at); if (!p) { console.warn('[storyrun] opening: no place', s.at); continue; } x = p.x; z = p.z; h = p.heading ?? 0; }
+      if (s.heading != null) h = (s.heading * PI) / 180;
+      else if (h == null || Math.hypot(e.position.x - x, e.position.z - z) < 30) h = Math.atan2(e.position.x - x, e.position.z - z);
+      try { const fig = await cast.spawn(who, { x, z, heading: h }); if (fig) staged.push(who); } catch (err) { console.warn('[storyrun] opening: cast', who, err); }
+    }
+    host.tell('opening', { phase: 'start', shots: (o.shots || []).length });
+    const t0 = now();
+    try { await shotList(o.shots || [], t, { opening: true }); }
+    finally {
+      // (to black, and back up on Mission 1 once it has put him at its start)
+      try { await ui.fade(1, 0.45); } catch {}
+      setTimeout(() => ui.fade(0, 0.8), 650);
+      for (const n of staged) { const f = cast.get(n); if (f) f.hold = false; cast.hide(n); }
+      { const c = document.querySelector('#wg .wg-cap'); if (c) c.style.bottom = ''; }
+      host.tell('opening', { phase: 'end', secs: Math.round((now() - t0) / 1000) });
     }
   }
   STEPS.cutscene = async (d, t) => {
@@ -1144,5 +1208,5 @@ export function createRunner(ctx) {
       }
     } finally { registry(W).unregister?.(reg.id); }
   }
-  return { play, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo };
+  return { play, opening, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo };
 }

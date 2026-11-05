@@ -80,6 +80,21 @@ export function check(w) {
     if (m.vehicle != null && typeof m.vehicle !== 'string') bad(`${m.id}: vehicle`);
   }
   if (!Array.isArray(w.acts) || !w.acts.length) bad('acts');
+  // (the opening, before Mission 1: its shots are a cutscene's, plus a place card, a name card and the title)
+  if (w.opening != null) {
+    const o = w.opening;
+    if (typeof o !== 'object' || Array.isArray(o)) bad('opening');
+    else {
+      if (!Array.isArray(o.shots) || !o.shots.length || o.shots.length > 24) bad('opening.shots');
+      else for (const [i, s] of o.shots.entries()) {
+        if (!s || typeof s !== 'object' || Array.isArray(s)) { bad(`opening.shots[${i}]`); continue; }
+        if (s.card != null && (typeof s.card !== 'object' || typeof s.card.who !== 'string')) bad(`opening.shots[${i}].card`);
+        if (s.where != null && (typeof s.where !== 'object' || typeof s.where.name !== 'string')) bad(`opening.shots[${i}].where`);
+        if (s.dur != null && !(s.dur > 0 && s.dur <= 15)) bad(`opening.shots[${i}].dur`);
+      }
+      if (o.stage != null && (!Array.isArray(o.stage) || o.stage.length > 8 || o.stage.some((x) => !x || typeof x.who !== 'string'))) bad('opening.stage');
+    }
+  }
   // (what the city wears: closed words only, dressing.js reads nothing else)
   if (w.dressing != null) {
     const d = w.dressing;
