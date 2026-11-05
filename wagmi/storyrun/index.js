@@ -11,7 +11,7 @@
 //     start, marked the Mog City way (a letter corona in the giver's colour, the yellow route, a DM); MISSION PASSED,
 //     the save (localStorage, per world), the pause menu's Mission select (W.storyList / W.replay); the end card.
 //   - a framing GameMog told what happens (host.js), and the test drive (?autopilot: autopilot.js).
-// URL: ?pack=<world> [&host=<gamemog origin>&game=<id>] [&mission=<ID>] [&nogate] [&autopilot=1 &autoanswer=1
+// URL: ?pack=<world> [&host=<gamemog origin>&game=<id>] [&mission=<ID> [&step=<step id>]] [&nogate] [&autopilot=1 &autoanswer=1
 //      &autochoose=<n> &autocontinue=1 &autocard=1 &flowfast=1 &missionsecs=<s>] [&keyart=1]
 import * as THREE from 'three/webgpu';
 import { createUI } from '../mission/ui.js';
@@ -45,12 +45,29 @@ export async function install(W) {
   }
   const def = world.def;
   // the title: the world's under MOG CITY's lettering (the tab, the instant title's tag line)
-  try { document.title = story.title().replace(story.episode, def.title); } catch {}
-  try { const tag = document.querySelector('#wg-boot .wg-boot-tag'); if (tag) tag.textContent = def.title; const g = document.querySelector('#wg .wg-gtitle .tag'); if (g) g.textContent = def.title; } catch {}
+  // (a title that already says Mog City, 'Mog City: Night Shift', shows its own part under the lettering)
+  const shortTitle = String(def.title).replace(/^mog\s*city\s*[:·\-–—]\s*/i, '') || def.title;
+  try { document.title = story.title().replace(story.episode, shortTitle); } catch {}
+  try { const tag = document.querySelector('#wg-boot .wg-boot-tag'); if (tag) tag.textContent = shortTitle; const g = document.querySelector('#wg .wg-gtitle .tag'); if (g) g.textContent = shortTitle; } catch {}
   const heroName = world.heroName || 'Dan';
   if (W.dan && !W.dan.face) W.dan.face = createFace(W, { speaker: heroName, inner: W.dan.body, bones: W.dan.bones, hair: true, open: 0.42 });
   W.gps = W.gps || createGPS(W);
   const places = createPlaces(W, def), cast = createCast(W, world), hud = createHud(ui);
+  // the caller card: a forged caller's own headshot in its tile (the world's art 'head-<id>'), else Mog City's initial
+  // (Jane keeps her live feed: calls.js)
+  const heads = {};
+  for (const name of Object.keys(def.cast || {})) {
+    const id = def.voice?.cast?.[name]?.id || String(name).split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const u = def.art && typeof def.art['head-' + id] === 'string' ? world.asset(def.art['head-' + id]) : null;
+    if (u && /^[\w:/.-]+$/.test(u)) heads[name] = u;
+  }
+  const caller0 = ui.caller;
+  ui.caller = function (name, color, status) {
+    const r = caller0.apply(this, arguments);
+    const u = name && Object.prototype.hasOwnProperty.call(heads, name) ? heads[name] : null;
+    if (u) { const av = document.querySelector('#wg .wg-caller .av'); if (av) { av.textContent = ''; av.style.background = `${color || '#6CB8FF'} url("${u}") center / cover no-repeat`; } }
+    return r;
+  };
   const nClips = cast.registerVoices();
   // the save, per world (never Mog City's own)
   const KEY = `mc.pack.${def.id}.v1`;
@@ -83,8 +100,9 @@ export async function install(W) {
   tell('ready', { gameId: Q.get('game') || null, hash: world.hash, story: { v: 2, ok: true, id: def.id, hash: world.hash, clips: nClips } });
   console.log('[storyrun]', def.id, `${order.length} missions`, `${nClips} clips`, places.missing.length ? `places missing: ${places.missing.join(',')}` : '');
 
-  // the start: on foot by the car while the gate is up
+  // the start: on foot by the car while the gate is up, the city at the world's time of day (a night world's gate at night)
   outBesideCar(W);
+  { const T = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' }, first = order[0]?.def, id = first?.time || order[0]?.act?.timeline?.[first?.id]?.time || def.dressing?.time; try { if (id) W.app.selectTime(T[id] || id); } catch {} }
   const gate = Q.has('nogate') ? null : ui.gate({ when: () => W.app.ready, onStart: () => { W.audio?.unlock?.(); sfx.unlock(); }, fine: 'Community entertainment project. Have fun!' });
   if (!gate) ui.bootOff();
   for (let i = 0; i < 600 && !W.app.ready; i++) await sleep(100);
@@ -108,6 +126,7 @@ export async function install(W) {
   // the first mission: ?mission=, else the first not passed
   let k = Math.max(0, order.findIndex((o) => o.def.id === Q.get('mission')));
   if (!Q.get('mission')) { const n = order.findIndex((o) => !save.done[o.def.id]); k = n < 0 ? 0 : n; }
+  const k0 = k;
   const marker = createMarker(THREE, W.app.scene, { color: '#FFC93C', radius: 2.4, height: 2.2, alpha: 0.25 });
   let first = true;
   while (k < order.length) {
@@ -117,15 +136,19 @@ export async function install(W) {
     if (!first && !flags.flowFast) await between(m);
     first = false;
     if (replayAsk) { k = Math.max(0, order.findIndex((o) => o.def.id === replayAsk)); replayAsk = null; continue; }
-    const r = await runner.play(m, { act });
+    const r = await runner.play(m, { act, from: k === k0 && Q.get('step') ? Q.get('step') : null });
     if (replayAsk) { k = Math.max(0, order.findIndex((o) => o.def.id === replayAsk)); replayAsk = null; first = true; continue; }
     if (r.how === 'pass') {
       save.done[m.id] = true; Object.assign(save.meters, r.state.meters); Object.assign(save.flags, r.state.flags); writeSave();
       sfx.play('passed');
-      const stats = [['Time', fmt(r.secs)], ...((def.hud?.meters || []).filter((x) => x.kind !== 'hidden').map((x) => [x.label || x.id, String(Math.round(r.state.meters[x.id] ?? 0))]))];
+      // (the card's stats: the mission's own list, Mission 1's TIME, SUITS DOWN, HITS TAKEN; else the time and the meters)
+      const P0 = m.pass || {};
+      const STAT = { time: () => ['TIME', fmt(r.secs)], ko: () => [P0.koLabel || 'DOWN', `${r.stats?.ko || P0.koOf || 0}/${P0.koOf || r.stats?.ko || 0}`], hits: () => ['HITS TAKEN', String(r.stats?.hits || 0)] };
+      const stats = Array.isArray(P0.stats) ? P0.stats.filter((x) => STAT[x]).map((x) => STAT[x]())
+        : [['Time', fmt(r.secs)], ...((def.hud?.meters || []).filter((x) => x.kind !== 'hidden').map((x) => [x.label || x.id, String(Math.round(r.state.meters[x.id] ?? 0))]))];
       tell('mission-end', { id: m.id, how: 'pass', secs: Math.round(r.secs) });
       tellResult(world, m.id, r.secs);
-      await ui.passed({ title: m.title, stats, note: m.passLine || '' }, flags.autoCard ? 1.5 : 6);
+      await ui.passed({ title: m.title, stats, note: m.passLine || '', ...(P0.reward ? { reward: P0.reward } : {}) }, flags.autoCard ? 1.5 : 6);
       // (the act's end card, after its last mission)
       const last = act && (act.order || []).filter((id) => byId.has(id)).slice(-1)[0] === m.id;
       if (last && act.end) await actEnd(act.end);

@@ -3,7 +3,8 @@
 // & 42nd St, -z uptown). Each is the city's spawn point (NYC.TELEPORT_LOCATIONS) or a named corner of two real
 // streets (city-config.js ROADS), put on the nearest drivable lane and facing along it.
 //   createPlaces(W, world) -> { at(ref) -> { x, z, heading, name, mode } | null, list, missing }
-//   ref: '@key' | { '@': key, face, heading (deg), mode } | a pack alias (world.places: { alias: { '@': key, name } })
+//   ref: '@key' | { '@': key, face, heading (deg), mode } | a pack alias (world.places: { alias: { '@': key, name } }, or
+//   { at: [x, z, heading (deg)], name }: a mark of the world's own on this map)
 const CORNERS = [
   ['tower', 'Park Ave & E 51st St', 'Park Ave', 'E 51st St'],
   ['towergarage', 'Lexington Ave & E 52nd St', 'Lexington Ave', 'E 52nd St'],
@@ -104,7 +105,10 @@ export function createPlaces(W, world) {
   const aliases = (world && world.places) || {};
   function base(key) {
     if (Object.prototype.hasOwnProperty.call(aliases, key)) {
-      const a = aliases[key], p = lib[a['@']];
+      const a = aliases[key];
+      // (a world's own mark on this map: at [x, z, heading in degrees], Mog City's own story's marks, packs/mog-city.json)
+      if (Array.isArray(a.at) && a.at.length >= 2 && a.at.every((v) => Number.isFinite(v) && Math.abs(v) < 20000)) return { x: a.at[0], z: a.at[1], heading: (a.at[2] || 0) * Math.PI / 180, name: a.name || key, face: a.face };
+      const p = lib[a['@']];
       if (!p) return null;
       return { ...p, name: a.name || p.name, ...(a.heading != null ? { heading: a.heading * Math.PI / 180 } : {}), face: a.face };
     }

@@ -1,0 +1,309 @@
+{
+ "storykit": 1,
+ "id": "mog-city",
+ "title": "Unfinished Business",
+ "kicker": "MOG CITY",
+ "tagline": "Act I · Fall Guy",
+ "city": "ny",
+ "car": "roadster",
+ "cast": {
+  "Dan": {
+   "color": "#FFFFFF",
+   "role": "a fired first-year associate",
+   "model": "mogcity/dan"
+  },
+  "Jane": {
+   "color": "#6CB8FF",
+   "role": "his best friend, a hospital data analyst",
+   "model": "mogcity/jane",
+   "voiceOnly": true
+  },
+  "Knox": {
+   "color": "#B6FF3B",
+   "role": "the Suits' lead",
+   "model": "mogcity/suit-knox",
+   "voiceOnly": true
+  },
+  "Dash": {
+   "color": "#B6FF3B",
+   "role": "the Suit who misses the brief",
+   "model": "mogcity/suit-dash",
+   "voiceOnly": true
+  },
+  "Mr. Big": {
+   "color": "#FFC93C",
+   "role": "the boss who framed him",
+   "model": "mogcity/mrbig",
+   "voiceOnly": true
+  }
+ },
+ "hero": "Dan",
+ "places": {
+  "home": {
+   "at": [
+    88,
+    394.4,
+    -90
+   ],
+   "name": "Dan's car"
+  },
+  "door": {
+   "at": [
+    109,
+    390.8,
+    -80.79
+   ],
+   "name": "E 37th St"
+  },
+  "park": {
+   "at": [
+    -1139,
+    1160,
+    0
+   ],
+   "name": "Chelsea Park"
+  },
+  "lawn": {
+   "at": [
+    -1145.5,
+    1160,
+    -90
+   ],
+   "name": "Chelsea Park"
+  },
+  "crew": {
+   "at": [
+    -1153,
+    1160,
+    90
+   ],
+   "name": "Chelsea Park"
+  },
+  "dash": {
+   "at": [
+    -1262,
+    1124,
+    0
+   ],
+   "name": "W 28th St"
+  },
+  "van": {
+   "at": [
+    -1240,
+    1121.4,
+    0
+   ],
+   "name": "The Suits' van"
+  },
+  "vanside": {
+   "at": [
+    -1240,
+    1125.5,
+    180
+   ],
+   "name": "The Suits' van"
+  }
+ },
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ACT I · FALL GUY",
+   "order": [
+    "M1"
+   ]
+  }
+ ],
+ "missions": [
+  {
+   "id": "M1",
+   "title": "Bagged",
+   "card": false,
+   "stakes": "Follow the laptop's tracker to Chelsea Park.",
+   "passLine": "Jane, Moon and your mom. It's a start.",
+   "pass": {
+    "stats": [
+     "time",
+     "ko",
+     "hits"
+    ],
+    "koLabel": "SUITS DOWN",
+    "koOf": 5,
+    "reward": "+3"
+   },
+   "steps": [
+    {
+     "id": "opening",
+     "type": "scene",
+     "name": "opening"
+    },
+    {
+     "id": "car",
+     "type": "walk",
+     "enterCar": true,
+     "checkpoint": true,
+     "objective": "Get in your **car**.",
+     "from": {
+      "car": "home",
+      "dan": "door"
+     }
+    },
+    {
+     "id": "drive",
+     "type": "drive",
+     "to": "@park",
+     "radius": 7,
+     "stopSpeed": 20,
+     "card": false,
+     "objective": "Follow the laptop's tracker to **Chelsea Park**.",
+     "from": {
+      "@": "home",
+      "mode": "car"
+     },
+     "during": [
+      {
+       "type": "call",
+       "who": "Jane",
+       "ref": "m1-drive",
+       "wrapNear": 250,
+       "hurryNear": 400
+      }
+     ],
+     "help": [
+      [
+       2,
+       "Your destination is marked with a **●** on the Radar."
+      ],
+      [
+       8,
+       "GPS shows the quickest legal route with a **yellow line**.",
+       "car"
+      ],
+      [
+       20,
+       "Hold [Shift] to boost.",
+       "car"
+      ]
+     ],
+     "blip": {
+      "kind": "laptop",
+      "name": "Laptop tracker",
+      "secs": 20,
+      "path": [
+       [
+        3.6,
+        470
+       ],
+       [
+        3.6,
+        641
+       ],
+       [
+        -1134,
+        641
+       ],
+       [
+        -1134,
+        1117
+       ],
+       [
+        -1180,
+        1122
+       ]
+      ]
+     }
+    },
+    {
+     "id": "arrival",
+     "type": "scene",
+     "name": "m1.arrival"
+    },
+    {
+     "id": "fight",
+     "type": "fight",
+     "checkpoint": true,
+     "from": {
+      "car": "park",
+      "dan": "lawn"
+     },
+     "arena": "@lawn",
+     "crewAt": "@crew",
+     "enemies": [
+      "Knox",
+      "Knox",
+      "Knox",
+      "Knox"
+     ],
+     "win": "ko-all",
+     "counter": "SUITS",
+     "objective": "Beat up the **Suits**.",
+     "why": "Dan got knocked out.",
+     "reinforce": {
+      "at": 2,
+      "count": 1,
+      "from": "@dash",
+      "say": [
+       [
+        "Dash",
+        "Wait! Did I miss the brief?"
+       ],
+       [
+        "Knox",
+        "You always miss the brief!"
+       ]
+      ]
+     },
+     "barks": {
+      "1": [
+       "Knox",
+       "This is a performance review, kid! You're failing it!"
+      ],
+      "3": [
+       "Knox",
+       "Please stop hitting back! We value your feedback!"
+      ],
+      "4": [
+       "Knox",
+       "Okay! I'm escalating this to HR!"
+      ]
+     },
+     "dress": "m1.park",
+     "help": [
+      [
+       1.5,
+       "Suits are marked with a **red dot**{red} on the Radar."
+      ]
+     ],
+     "rules": "lesson"
+    },
+    {
+     "id": "search",
+     "type": "search",
+     "checkpoint": true,
+     "from": {
+      "car": "park",
+      "dan": "vanside"
+     },
+     "at": "@van",
+     "label": "search the van",
+     "noun": "the van",
+     "objective": "Search the **van**.",
+     "radius": 4.6,
+     "ring": 3.9,
+     "secs": 1.0,
+     "dress": "m1.park"
+    },
+    {
+     "id": "tracker",
+     "type": "scene",
+     "name": "m1.tracker"
+    }
+   ]
+  }
+ ],
+ "voice": {
+  "model": "none",
+  "dir": "",
+  "cast": {},
+  "lines": []
+ }
+}

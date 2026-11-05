@@ -87,3 +87,19 @@ test("the place library is the Story Kit's New York list (no drift)", () => {
   const theirs = new Set([...ny.matchAll(/^\s*'?([a-z0-9-]+)'?: \{ name:/gm)].map((m) => m[1]));
   assert.deepEqual([...theirs].filter((k) => !mine.has(k)), []);
 });
+
+test("Mog City's own story as a world (packs/mog-city.json): read from the game's own origin, passes the checks, names only real scenes", async () => {
+  for (const here of [new URL('https://mc.gamemog.com/'), new URL('http://127.0.0.1:4981/')]) assert.equal(packUrl('/packs/mog-city.json', here), new URL('/packs/mog-city.json', here).href);
+  assert.equal(packUrl('https://evil.com/packs/mog-city.json', new URL('https://mc.gamemog.com/')), null);
+  assert.equal(packUrl('/packs/../index.json', new URL('https://mc.gamemog.com/')), null);
+  const w = JSON.parse(fs.readFileSync(path.join(ROOT, 'packs/mog-city.json'), 'utf8'));
+  assert.deepEqual(check(w), []);
+  const src = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const scenes = new Set([...src.slice(src.indexOf('export const SCENES'), src.indexOf('};', src.indexOf('export const SCENES'))).matchAll(/^\s*'?([a-z0-9.]+)'?: \(W\)/gm)].map((m) => m[1]));
+  const named = w.missions.flatMap((m) => m.steps.flatMap((s) => [s.type === 'scene' ? s.name : null, s.dress || null])).filter(Boolean);
+  assert.ok(named.length >= 4);
+  assert.deepEqual(named.filter((n) => !scenes.has(n)), []);
+  // (its calls are Mog City's own, by id: calls.js CALLS)
+  const calls = fs.readFileSync(path.join(ROOT, 'wagmi/mission/calls.js'), 'utf8');
+  for (const m of w.missions) for (const s of m.steps) for (const x of s.during || []) if (x.ref) assert.ok(calls.includes(`'${x.ref}': {`), x.ref);
+});

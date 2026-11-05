@@ -1,7 +1,8 @@
 // Mog City story runner: the creator's test drive, inside the game (?autopilot=1). It plays the story through Mog City's
 // own controllers: the car's and Dan's input (controllerManager.setTouchInput, as the touch controls send it), along
 // the GPS's own route (W.gps.route), with the Story Kit work page's nudges moved in here:
-//   - a long leg jumped to its last 110 m (the car put on the route there, facing along it);
+//   - a long leg jumped to its last 110 m (the car put on the route there, facing along it), each leg of a stops step
+//     its own; braked to stop on the mark (a heavy car sails past it), and put on it after 40 s circling close by;
 //   - a wedged car (wagmi/game.js carStuck) put back on the road (W.recoverCar), or 40 m on along the route;
 //   - a held-up walk moved 6 m on;
 //   - into the car for a drive, out of it for a walk or a search (W.ride, the quick way);
@@ -18,6 +19,7 @@ const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null } = {}) {
   const app = W.app, cm = app.controllerManager, car = W.car, P = W.person, gps = W.gps;
   const log = [];
+  let legKey = null, legT = 0;
   let on = true, stepKey = null, stepT = 0, jumped = false, lastProg = { t: 0, d: Infinity, x: 0, z: 0 }, fightT = 0, lastFin = 0, lastStrike = 0, mKey = null, mT = 0;
   const note = (what) => { log.push({ t: +(performance.now() / 1000).toFixed(1), what }); if (log.length > 80) log.shift(); };
   const inCar = () => cm.activeMode === 'car';
@@ -46,7 +48,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null 
       const s = clamp(err * 2.2, -1, 1);
       cm.setTouchInput('left', s > 0 ? s : 0); cm.setTouchInput('right', s < 0 ? -s : 0);
       const v = car.speed || 0, slow = Math.abs(err) > 0.9 ? 6 : vt;
-      cm.setTouchInput('forward', v < slow ? 0.85 : 0); cm.setTouchInput('backward', v > slow + 3 ? 0.6 : 0);
+      cm.setTouchInput('forward', v < slow ? 0.85 : 0); cm.setTouchInput('backward', v > slow + 1.5 ? (v > slow + 5 ? 1 : 0.6) : 0);
     } else {
       // (on foot the controller walks the way the camera faces, which lags a turn: he is walked along the route
       // himself, at a jog, with the city's collision and his speed set so his gait plays)
@@ -76,6 +78,8 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null 
     if (mKey !== M.def.id) { mKey = M.def.id; mT = t; }
     if (t - mT > missionSecs && !M.tok.dead) { note(`timeout ${key} ${d?.type}`); onTimeout?.(M.def, d, M.i); mT = t; }
     if (key !== stepKey) { stepKey = key; stepT = t; jumped = false; lastProg = { t, d: Infinity, x: 0, z: 0 }; fightT = 0; release(); }
+    // (a new leg inside one step, a stops step's next stop: its own jump, its own clock)
+    { const dd = gps?.dest, lk = dd ? `${Math.round(dd.x)},${Math.round(dd.z)}` : null; if (lk !== legKey) { legKey = lk; legT = t; jumped = false; lastProg = { t, d: Infinity, x: 0, z: 0 }; } }
     if (!d || W.cutscene || W.directed) { release(); return; }
     const type = d.type;
     // a fight
@@ -131,10 +135,13 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null 
       else { const q = along(r, x, z, 6); P.position.set(q.x, cm.getGroundHeight(q.x, q.z, 'person'), q.z); note('unstuck walk'); }
       return;
     }
+    // circling the mark (a heavy car overshoots, the route goes round the block, again): on the mark after 40 s close by
+    if (inCar() && t - legT > 40 && L < 150 && type !== 'tail' && type !== 'pursuit') { legT = t; const q = fromEnd(r, 0.5); putCar(q.x, q.z, q.h); note('circling: on the mark'); return; }
     const radius = d.radius || 8, near = L < (inCar() ? Math.max(2.5, radius * 0.5) : 1.2);
     const tgt = inCar() && L < 25 ? (() => { const q = fromEnd(r, 0); return { x: q.x, z: q.z }; })() : along(r, x, z, inCar() ? 9 + Math.abs(car.speed || 0) * 0.6 : 3);
     if (near) { release(); if (inCar() && car.speed > 0.5) cm.setTouchInput('backward', 0.7); return; }
-    steerTo(tgt.x, tgt.z, type === 'tail' ? 11 : L < 40 ? 6 : 15);
+    // (the pace to stop on the mark: what a 3 m/s2 brake leaves to the radius, so a heavy car doesn't sail past it)
+    steerTo(tgt.x, tgt.z, type === 'tail' ? 11 : Math.min(15, 2.5 + Math.sqrt(2 * 3 * Math.max(0, L - radius * 0.4))));
   }
   tick();
   return { stop() { on = false; release(); }, log };

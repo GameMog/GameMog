@@ -11,7 +11,8 @@
 //   createRunner(ctx) -> { play(def, { act }) -> Promise<'pass' | 'quit'>, stop(), state, M }
 // ctx: { W, world, places, cast, hud, host, save, flags: { autoAnswer, autoChoose, autoCard } }
 // Every kind of the pack schema is handled; the few with no Mog City part yet (convoy, comfort, patrol, roadblock,
-// passenger, wallet, stealth, scene) say so in the console and pass, so a story still plays through (KINDS_STUB).
+// passenger, wallet, stealth) say so in the console and pass, so a story still plays through (KINDS_STUB). `scene` plays
+// one of Mog City's own authored set pieces by name (SCENES: the opening, Mission 1's swap and tracker), never a copy.
 import * as THREE from 'three/webgpu';
 import { createGPS } from '../mission/gps.js';
 import { createMarker } from '../mission/marker.js';
@@ -21,7 +22,15 @@ import { place as putAt, outBesideCar } from '../intro.js';
 import { test, value, flagName } from './cond.js';
 
 const PI = Math.PI;
-export const KINDS_STUB = new Set(['convoy', 'comfort', 'patrol', 'roadblock', 'passenger', 'wallet', 'stealth', 'scene']);
+export const KINDS_STUB = new Set(['convoy', 'comfort', 'patrol', 'roadblock', 'passenger', 'wallet', 'stealth']);
+// the authored set pieces a `scene` step can name: Mog City's own code, as the shipped game plays them
+export const SCENES = {
+  opening: (W) => import('../intro.js').then((m) => m.playOpening(W)),
+  'm1.arrival': (W) => import('../mission/m1.js').then((m) => m.playScene(W, 'arrival')),
+  'm1.tracker': (W) => import('../mission/m1.js').then((m) => m.playScene(W, 'tracker')),
+  // (set dressing, at once: the park as Mission 1 dresses it, the van at its mark, the street there held clear)
+  'm1.park': (W) => import('../mission/m1.js').then((m) => m.playScene(W, 'park')),
+};
 const TRAVEL = new Set(['drive', 'stops', 'walk', 'pursuit', 'tail', 'search']);
 const BACKGROUND = new Set(['trigger', 'comfort', 'patrol', 'stealth', 'roadblock']);
 const ENDS_WITH_HOST = new Set([...BACKGROUND, 'pursuit', 'beat', 'tail', 'convoy', 'call']);
@@ -67,10 +76,10 @@ export function createRunner(ctx) {
   const tokens = (s) => String(s ?? '')
     .replace(/\{ride\.name\}|\{ride\}/g, car.label || 'your car').replace(/\{ride\.board\}/g, 'Get in').replace(/\{ride\.go\}/g, 'Drive').replace(/\{ride\.park\}/g, 'Stop')
     .replace(/\{name\}/g, heroName);
-  // '**bold**' -> Mog City's one coloured noun (yellow: a place)
+  // '**bold**' -> Mog City's one coloured noun (yellow: a place); '**bold**{red}' names its colour (yellow, red, blue, green)
   const parts = (s, color = 'yellow') => {
-    const out = []; const re = /\*\*(.+?)\*\*/g; let at = 0, m; s = tokens(s);
-    while ((m = re.exec(s))) { if (m.index > at) out.push(s.slice(at, m.index)); out.push({ [m[1]]: color }); at = m.index + m[0].length; }
+    const out = []; const re = /\*\*(.+?)\*\*(?:\{(yellow|red|blue|green)\})?/g; let at = 0, m; s = tokens(s);
+    while ((m = re.exec(s))) { if (m.index > at) out.push(s.slice(at, m.index)); out.push({ [m[1]]: m[2] || color }); at = m.index + m[0].length; }
     if (at < s.length) out.push(s.slice(at));
     return out.length ? out : [s];
   };
@@ -174,26 +183,34 @@ export function createRunner(ctx) {
 
   // drive: the corona, the GPS ('get there' the Mog City way: gps.drive), there inside the radius and slowed down
   async function goTo(p, d, t, { name = p.name, objective = null, onFoot = 250, needsCar = false } = {}) {
-    const radius = d.radius || 8;
-    marker.at(p.x, 0, p.z);
+    const radius = d.radius || 8, stopV = d.stopSpeed ?? 4;
+    marker.at(p.x, 0, p.z); M.dest = p;
     const dest = { x: p.x, z: p.z, name };
     const nav = gps.drive({ dest, objective: objective ? parts(objective) : ['Go to ', { [name]: 'yellow' }, '.'], onFoot, needsCar });
     M.nav = nav;
     try {
       await wait(() => {
         nav.step();
-        if (inCar()) return dist(car.position, p.x, p.z) < radius && (d.stop === false || Math.abs(car.speed) < 4);
+        if (inCar()) return dist(car.position, p.x, p.z) < radius && (d.stop === false || Math.abs(car.speed) < stopV);
         return dist(P.position, p.x, p.z) < Math.max(3, radius * 0.75);
       }, t);
-    } finally { nav.stop(); M.nav = null; marker.hide(); gps.clear(); }
+    } finally { nav.stop(); M.nav = null; M.dest = null; marker.hide(); gps.clear(); }
     if (inCar() && d.stop !== false) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; }
-    sfx.play('ding', { gain: 0.22 });
-    ui.place(name, '', 3);
+    // (the arrival's ding and place card, unless a scene straight after is the arrival: card false)
+    if (d.card !== false) { sfx.play('ding', { gain: 0.22 }); ui.place(name, '', 3); }
   }
   STEPS.drive = async (d, t) => {
     const list = [].concat(d.to).map((r) => placeOf(r));
     const p = list.length > 1 ? list.reduce((a, b) => (dist(me(), b.x, b.z) < dist(me(), a.x, a.z) ? b : a)) : list[0];
-    await goTo(p, d, t, { objective: d.objective || `Drive to **${p.name}**.` });
+    // (a thing on the radar running ahead along a path over `secs`, then stopped where it ends: Mission 1's laptop tracker)
+    const bl = d.blip && Array.isArray(d.blip.path) && d.blip.path.length > 1 ? d.blip : null;
+    let blipOn = !!bl;
+    if (bl) {
+      const path = bl.path, segs = path.slice(1).map((q, i) => Math.hypot(q[0] - path[i][0], q[1] - path[i][1])), L = segs.reduce((a, b) => a + b, 0) || 1, t0 = now();
+      const at = (k) => { let s0 = k * L; for (let i = 0; i < segs.length; i++) { if (s0 <= segs[i]) { const u = s0 / (segs[i] || 1); return [path[i][0] + (path[i + 1][0] - path[i][0]) * u, path[i][1] + (path[i + 1][1] - path[i][1]) * u]; } s0 -= segs[i]; } return path[path.length - 1]; };
+      (function f() { if (!blipOn) return; const [x, z] = at(Math.min(1, (now() - t0) / 1000 / (bl.secs || 20))); gps.blip('tag', { x, z, kind: bl.kind || 'object', edge: true, name: bl.name || '' }); requestAnimationFrame(f); })();
+    }
+    try { await goTo(p, d, t, { objective: d.objective || `Drive to **${p.name}**.` }); } finally { blipOn = false; if (bl) gps.unblip('tag'); }
     M.timer.add(d.bonus || 0);
     if (d.flag) M.state.flags[flagName(d.flag)] = true;
   };
@@ -208,14 +225,14 @@ export function createRunner(ctx) {
     ui.counter('STOPS', `${n}/${n}`); await delay(1, t); ui.counter(null);
   };
   STEPS.walk = async (d, t) => {
-    const p = placeOf(d.to);
+    const p = d.enterCar && !d.to ? null : placeOf(d.to);
     if (d.leaveCar && inCar()) {
       gps.objective(['Get out of your ', { car: 'blue' }, '.'], null);
       ui.help('Press [F] to get out.', 8);
       await wait(() => !inCar() && !W.ride?.phase, t);
     }
     if (d.enterCar) {
-      gps.objective(['Get in your ', { [car.label || 'car']: 'blue' }, '.'], { follow: () => car.position, name: car.label });
+      gps.objective(d.objective ? parts(d.objective, 'blue') : ['Get in your ', { [car.label || 'car']: 'blue' }, '.'], { follow: () => car.position, name: car.label });
       gps.blip('car', { x: car.position.x, z: car.position.z, kind: 'car', edge: true, name: car.label });
       ui.help('Press [F] to get in a vehicle.', 8);
       try { await wait(inCar, t); } finally { gps.unblip('car'); ui.help(null); }
@@ -231,8 +248,8 @@ export function createRunner(ctx) {
     const p = placeOf(d.at), reach = d.radius || 3.2;
     gps.objective(parts(d.objective || `Search **${d.label}**.`, 'green'), { x: p.x, z: p.z, name: d.label }, { blip: false });
     gps.blip('search', { x: p.x, z: p.z, kind: 'object', edge: true, name: d.label });
-    const ring = createMarker(THREE, app.scene, { color: '#4ADE80', radius: reach * 0.8, height: 1.1, alpha: 0.2 }); ring.at(p.x, 0.02, p.z);
-    const act = ui.holdAct({ label: d.label, noun: d.label.replace(/^\w+\s+/, ''), secs: d.secs || 1.0, show: reach + 6, reach });
+    const ring = createMarker(THREE, app.scene, { color: '#4ADE80', radius: d.ring || reach * 0.8, height: 1.1, alpha: 0.2 }); ring.at(p.cx ?? p.x, 0.02, p.cz ?? p.z);
+    const act = ui.holdAct({ label: d.label, noun: d.noun || d.label.replace(/^\w+\s+/, ''), secs: d.secs || 1.0, show: reach + 6, reach });
     M.holding = { x: p.x, z: p.z, act };
     let last = now();
     try { await wait(() => { const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt; return act.step(dt, dist(P.position, p.x, p.z), !inCar()) || (M.auto && !inCar() && dist(P.position, p.x, p.z) < reach); }, t); }
@@ -267,6 +284,10 @@ export function createRunner(ctx) {
     }
     return [e.position.x, e.position.y + 1.5, e.position.z];
   }
+  // the cutscene's key light on the face it looks at (as Mog City's night scene does, m2-scenes.js burnerMeet's keyL): a
+  // warm point light between the lens and the subject, a little above; in the scene from the start at 0 (no material
+  // rebuilt when a cutscene starts), up only while a cutscene runs
+  const keyL = new THREE.PointLight('#FFE6CC', 0, 4.5, 2); app.scene.add(keyL);
   async function shotList(shots, t, { skippable = true, beat = false } = {}) {
     const D = createDirector(W);
     W.cutscene = !beat; if (!beat) { ui.cine(true); ui.objective(null); }
@@ -294,6 +315,7 @@ export function createRunner(ctx) {
             const k = Math.min(dur, (now() - t0) / 1000), hh = handheld(k + t0 / 1000, 0.4);
             const p = pos(k), l = look(k);
             D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov: s.fov || 40, roll: 0, shake: hh };
+            { const dx = p[0] - l[0], dy = p[1] - l[1], dz = p[2] - l[2], n = Math.hypot(dx, dy, dz) || 1, k = Math.min(0.9, n * 0.5); keyL.position.set(l[0] + dx / n * k, l[1] + dy / n * k + 0.35, l[2] + dz / n * k); keyL.intensity = n < 6 ? 2.6 : 0; }
             if (!beat) stepSkip();
             return (now() - t0) / 1000 >= len;
           }, local);
@@ -301,7 +323,7 @@ export function createRunner(ctx) {
         ui.sub(null);
       }
     } finally {
-      ui.sub(null); ui.caption(null); ui.skip(null);
+      ui.sub(null); ui.caption(null); ui.skip(null); keyL.intensity = 0;
       if (!beat) D.block(false);
       await D.release(0.6);
       W.cutscene = false; if (!beat) ui.cine(false);
@@ -373,6 +395,16 @@ export function createRunner(ctx) {
   STEPS.call = async (d, t, ride) => {
     const who = castName(d.who), color = colorOf(who);
     const lines = (d.lines || []).map(tuple), toTup = (l) => [castName(l.who), colorOf(castName(l.who)), tokens(l.text)];
+    // one of Mog City's own car-phone calls by its id (calls.js CALLS: its lines, recordings and rules), wrapped and
+    // hurried by the distance left to the leg's mark, as its mission does
+    if (d.ref && W.calls?.CALLS && Object.prototype.hasOwnProperty.call(W.calls.CALLS, d.ref)) {
+      const near = (k) => (k ? () => !!M.dest && dist(me(), M.dest.x, M.dest.z) < k : undefined);
+      W.calls.start(d.ref, { step: ui.stepId, wrapWhen: near(d.wrapNear), hurryWhen: near(d.hurryNear) });
+      M.log.push(['call', d.ref]);
+      if (ride) { await wait(() => false, t).catch(() => {}); if (W.calls.owes?.(d.ref)) W.calls.stop({ quiet: true, of: 'pack:' }); return; }
+      await wait(() => W.calls.state()?.id !== d.ref || W.calls.owes?.(d.ref) !== 'main', t);
+      return;
+    }
     if ((d.auto || d.inCar) && W.calls?.define) {
       const id = `pack:${M.def.id}:${M.i}:${ride ? 'd' : 's'}:${who}`;
       const f0 = {}; for (const n of new Set([who, ...lines.map((l) => castName(l.who))])) f0[n] = cast.f0(n);
@@ -434,24 +466,38 @@ export function createRunner(ctx) {
     const ax = P.position.x, az = P.position.z;
     app.trafficSystem.hold?.([{ minX: ax - 40, maxX: ax + 40, minZ: az - 40, maxZ: az + 40 }]);
     combat.clear?.();
-    const rules = d.rules || 'full';
-    try { combat.debug?.rules?.(rules); } catch {}
+    // (the rules: the step's, else combat's own: Mog City's first fight teaches, FIGHT BASICS)
+    if (d.rules) try { combat.debug?.rules?.(d.rules); } catch {}
     combat.player.maxHp = d.hp || combat.player.maxHp; combat.player.hp = combat.player.maxHp;
     const autoGetUp = combat.player.autoGetUp; combat.player.autoGetUp = d.win === 'survive';
     let down = false;
     const offDown = combat.player.onDown(() => { if (d.win !== 'survive') down = true; });
     const n = Math.max(1, d.enemies.length), f = P.heading;
-    const crew = combat.spawnCrew({ x: ax + Math.sin(f) * 7, z: az + Math.cos(f) * 7, count: n, props: true }).engage();
+    // (where they stand: the step's place, else 7 m ahead of him)
+    const at0 = d.crewAt ? placeOf(d.crewAt) : null;
+    const crews = [combat.spawnCrew({ x: at0 ? (at0.cx ?? at0.x) : ax + Math.sin(f) * 7, z: at0 ? (at0.cz ?? at0.z) : az + Math.cos(f) * 7, count: n, props: true }).engage()];
+    const crew = { alive: () => crews.reduce((a, c) => a + c.alive(), 0) };
     M.crew = crew;
-    const label = n > 1 ? 'DOWN' : 'DOWN';
+    let total = n, more = d.reinforce || null, lastK = 0, talk = false, lastHp = combat.player.hp;
+    const fightSay = (lines) => { talk = true; (async () => { for (const l of lines.map(tuple)) await say(castName(l.who), l.text, M.tok); })().catch(() => {}).finally(() => { talk = false; }); };
+    const label = d.counter || 'DOWN';
     ui.counter(label, `0/${n}`);
     gps.objective(parts(d.objective || (d.win === 'survive' ? 'Stay on your feet.' : 'Beat them all.'), 'red'), null);
     const t0 = now();
     if (d.win === 'survive' || d.timer) M.fightTimer = { left: d.timer || 60 };
     try {
       await wait(() => {
-        const alive = crew.alive(), k = n - alive;
-        ui.counter(label, `${k}/${n}`);
+        const alive = crew.alive(), k = total - alive;
+        // (the hits he takes, for the MISSION PASSED card)
+        const hp = combat.player.hp; if (hp < lastHp - 0.5) M.stats.hits++; lastHp = hp;
+        // more of them run in at `at` down (Mission 1's Dash), from about 30 m off him; a bark at each count
+        if (more && k >= (more.at ?? 1)) {
+          const src = more.from ? placeOf(more.from) : null, dx = src ? src.x - P.position.x : -Math.sin(f) * 30, dz = src ? src.z - P.position.z : -Math.cos(f) * 30, kk = Math.min(1, 30 / Math.max(1, Math.hypot(dx, dz)));
+          crews.push(combat.spawnCrew({ x: P.position.x + dx * kk, z: P.position.z + dz * kk, count: more.count || 1, props: false }).engage());
+          total += more.count || 1; if (more.say) fightSay(more.say); more = null; return false;
+        }
+        if (k !== lastK) { lastK = k; const b = d.barks?.[k]; if (b && !talk && alive > 0) fightSay([b]); }
+        ui.counter(label, `${k}/${total}`);
         for (const e of combat.enemies) if (e.alive) gps.blip('e:' + e.id, { x: e.pos.x, z: e.pos.z, kind: 'enemy' }); else gps.unblip('e:' + e.id);
         if (down) throw new Fail(tokens(d.why || `${heroName} got knocked out.`), 'ko');
         if (dist(me(), ax, az) > 150) throw new Fail('You left the fight.', 'left');
@@ -459,10 +505,11 @@ export function createRunner(ctx) {
         if (d.timer) hud.timer(d.timer - secs, d.win === 'survive' ? 'HOLD ON' : 'TIME');
         if (d.win === 'survive') return secs >= (d.timer || 60);
         if (d.timer && secs > d.timer) throw new Fail(tokens(d.why || 'You ran out of time.'), 'time');
-        return alive === 0;
+        return alive === 0 && !more;
       }, t);
+      M.stats.ko += total;
     } finally {
-      offDown?.(); combat.player.autoGetUp = autoGetUp; try { combat.debug?.rules?.(null); } catch {}
+      offDown?.(); combat.player.autoGetUp = autoGetUp; if (d.rules) try { combat.debug?.rules?.(null); } catch {}
       for (const id of [...gps.blips.keys()]) if (id.startsWith('e:')) gps.unblip(id);
       ui.counter(null); hud.timer(null); M.crew = null; M.fightTimer = null;
     }
@@ -547,6 +594,15 @@ export function createRunner(ctx) {
       return false;
     }, t);
   };
+  // scene: one of Mog City's own set pieces (SCENES), its camera, cast, lines and skip its own
+  STEPS.scene = async (d) => {
+    const play = Object.prototype.hasOwnProperty.call(SCENES, d.name) ? SCENES[d.name] : null;
+    if (!play) { console.info(`[storyrun] ${M.def.id}: no Mog City scene '${d.name}'; it passes`); return; }
+    M.log.push(['scene', d.name]);
+    ui.objective(null);
+    await play(W);
+    if (d.time) setTime(d.time);
+  };
   for (const k of KINDS_STUB) STEPS[k] = async (d) => { if (!M.stubbed.has(k)) { M.stubbed.add(k); console.info(`[storyrun] ${M.def.id}: '${k}' has no Mog City part yet; it passes`); } applySet(d.set); };
 
   /* ------------------------------------------------------- side steps -- */
@@ -573,7 +629,7 @@ export function createRunner(ctx) {
   /* --------------------------------------------------------- a mission -- */
   function snapshot(i) {
     const e = cm.getActiveEntity();
-    return { i, state: JSON.parse(JSON.stringify(M.state)), timer: { running: M.timer.running, left: M.timer.left, opts: M.timer.opts }, at: { x: e.position.x, z: e.position.z, heading: e.heading, mode: inCar() ? 'car' : 'walk' } };
+    return { i, stats: { ...M.stats }, state: JSON.parse(JSON.stringify(M.state)), timer: { running: M.timer.running, left: M.timer.left, opts: M.timer.opts }, at: { x: e.position.x, z: e.position.z, heading: e.heading, mode: inCar() ? 'car' : 'walk' } };
   }
   function tidy() {
     for (const s of M.sides) kill(s.tok, new Stop());
@@ -595,7 +651,7 @@ export function createRunner(ctx) {
     M = {
       def, i: cp ? cp.i : 0, tok: tokOf(), sides: new Set(), npcs: new Set(), stubbed: new Set(), log: [], t0: now(), timer: createTimer(),
       state: cp ? JSON.parse(JSON.stringify(cp.state)) : { meters: { ...ctx.save.meters }, flags: { ...ctx.save.flags }, forks: {} },
-      cp: cp || null, auto: !!ctx.flags.autopilot,
+      cp: cp || null, auto: !!ctx.flags.autopilot, stats: cp?.stats ? { ...cp.stats } : { hits: 0, ko: 0 },
       fail(e) { if (!M.tok.dead) kill(M.tok, e instanceof Fail ? e : new Fail(e?.reason || e?.message || String(e), 'timeout')); },
     };
     for (const m of meterDefs()) if (M.state.meters[m.id] == null) M.state.meters[m.id] = m.start ?? 0;
@@ -606,7 +662,13 @@ export function createRunner(ctx) {
       try { await wait(() => { const ex = M.timer.tick(); if (ex) { if (ex.fail === 'soft') { if (ex.flag) M.state.flags[flagName(ex.flag)] = true; applySet(ex.set); ui.help(tokens(ex.why || 'Late.'), 4); } else throw new Fail(tokens(ex.why || 'You ran out of time.'), 'time'); } return false; }, M.tok); }
       catch (e) { if (e instanceof Fail) M.fail(e); }
     })();
-    if (cp) {
+    if (cp && cp.from) {
+      // (a start at a step, Mission select or ?step=: where its `from` puts him)
+      const fr = cp.from;
+      if (fr.car || fr.dan) { const c = fr.car && placeOf(fr.car), q = fr.dan && placeOf(fr.dan); putAt(W, { ...(c ? { car: [c.x, c.z, c.heading ?? 0] } : {}), ...(q ? { dan: [q.x, q.z, q.heading ?? 0] } : {}) }); if (!q) putPlayer(c, fr.mode || 'car'); }
+      else { const p = placeOf(fr); putPlayer(p, (typeof fr === 'object' && fr.mode) || 'walk'); }
+      M.cp = snapshot(cp.i);
+    } else if (cp) {
       putPlayer(cp.at, cp.at.mode);
       if (cp.timer.running) M.timer.start(cp.timer.left, cp.timer.opts);
     } else {
@@ -614,7 +676,8 @@ export function createRunner(ctx) {
       if (def.start) { const p = placeOf(def.start); putPlayer(p, (typeof def.start === 'object' && def.start.mode) || (def.vehicle ? 'car' : 'walk')); M.cp = snapshot(0); }
     }
     setTime(def.time || (act?.timeline?.[def.id]?.time) || def0.dressing?.time);
-    ui.title(act?.name || '', def.title, ctx.flags.autoCard ? 1.2 : 2.6);
+    // (the title card, unless the mission's first scene draws its own: Mog City's opening ends on ACT I · BAGGED)
+    if (def.card !== false && !(cp && cp.from)) ui.title(act?.name || '', def.title, ctx.flags.autoCard ? 1.2 : 2.6);
     host.tell('mission-start', { id: def.id, title: def.title });
     let i = M.i;
     while (i < steps.length) {
@@ -625,7 +688,11 @@ export function createRunner(ctx) {
       ui.step(`pack:${def.id}:${i}`);
       host.tell('progress', { mission: def.id, step: d.id || null, kind: d.type, i, n: steps.length });
       if (BACKGROUND.has(d.type)) { side(d, M.tok, true); if (d.after) applySet(d.after); i++; continue; }
+      // (set dressing a step needs, a Mog City set piece: 'm1.park'; at once, before the step)
+      if (d.dress && Object.prototype.hasOwnProperty.call(SCENES, d.dress)) { try { await SCENES[d.dress](W); } catch (e) { console.warn('[storyrun] dress', d.dress, e); } }
       const st = tokOf(M.tok);
+      // (the step's help lines, Mog City's tips: [secs in, text, 'car' | 'person' only])
+      for (const h of Array.isArray(d.help) ? d.help : []) if (Array.isArray(h)) delay(h[0] || 0, st).then(() => ui.help(parts(String(h[1] || '')), h[3] || 7, h[2] ? { mode: h[2] } : {})).catch(() => {});
       for (const x of d.during || []) side(x, st);
       for (const k of ['trigger', 'comfort', 'patrol', 'stealth']) for (const x of [].concat(d[k] || [])) side({ at: 0, ...x, type: k }, st);
       let r;
@@ -644,12 +711,14 @@ export function createRunner(ctx) {
     }
     kill(M.tok, new Stop()); await timerLoop;
     applySet(def.reward);
-    return { secs: (now() - M.t0) / 1000 };
+    return { secs: (now() - M.t0) / 1000, stats: M.stats };
   }
 
   // a mission, with Mog City's fail screen: Retry (from its checkpoint), Quit, and Skip after three fails
-  async function play(def, { act = null } = {}) {
+  async function play(def, { act = null, from = null } = {}) {
     let cp = null, fails = 0;
+    // (?step=<id>: from that step, where its `from` puts him; a dev and Mission select start)
+    if (from) { const i = def.steps.findIndex((s) => s.id === from); if (i >= 0) cp = { i, from: def.steps[i].from || def.start, state: { meters: { ...ctx.save.meters }, flags: { ...ctx.save.flags }, forks: {} }, timer: { running: false } }; }
     const reg = registry(W).register({
       id: 'pack:' + def.id, title: def.title, act: act?.name || '',
       checkpoints: [{ id: 'start', label: 'Start' }, ...def.steps.map((s, i) => [s, i]).filter(([s]) => s.checkpoint).map(([s, i]) => ({ id: 'cp' + i, label: s.id || s.type }))],
@@ -663,7 +732,7 @@ export function createRunner(ctx) {
         try {
           const r = await attempt(def, cp, act);
           tidy();
-          return { how: 'pass', secs: r.secs, state: M.state, log: M.log };
+          return { how: 'pass', secs: r.secs, stats: r.stats, state: M.state, log: M.log };
         } catch (e) {
           const at = M; tidy();
           if (restartTo) { cp = restartTo === 'start' ? null : at.cp; restartTo = null; continue; }

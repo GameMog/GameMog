@@ -20,6 +20,7 @@ const BLOB_JSON = /^\/storykit\/f\/([0-9a-f]{64})\.json$/;
 const BLOB_FILE = /^\/storykit\/f\/[0-9a-f]{64}\.(glb|ogg|wav|jpg|webp|png)$/;
 const DRAFT = /^\/api\/storykit\/drafts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/pack$/;
 const TEST = /^\/tools\/storyrun\/test-packs\/([a-z0-9-]+)(\.json|\/world\.json)$/;
+const OWN = /^\/packs\/[a-z0-9-]+\.json$/;
 
 export { hostOf };
 const plain = (u) => !u.username && !u.password && !u.hash && !u.search;
@@ -28,6 +29,8 @@ export function packUrl(raw, here = location, host = null) {
   let u; try { u = new URL(raw, here.href); } catch { return null; }
   if (!plain(u) || !/^https?:$/.test(u.protocol)) return null;
   if (u.origin === GAMEMOG && BLOB_JSON.test(u.pathname)) return u.href;
+  // (Mog City's own story as a world, this repo's packs/: served by the game itself, on any host)
+  if (u.origin === here.origin && OWN.test(u.pathname)) return u.href;
   if (!LOCAL(here.hostname)) return null;
   const dev = host && DEV_ORIGIN.test(host) && u.origin === host;
   if (dev && (BLOB_JSON.test(u.pathname) || DRAFT.test(u.pathname))) return u.href;
