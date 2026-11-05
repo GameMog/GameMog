@@ -26,6 +26,7 @@ import { createHud } from './hud.js';
 import { createRunner } from './runner.js';
 import { tell, result as tellResult, log as hostLog } from './host.js';
 import { showTitle, plainTitle, isOwn, ownTitle } from './title.js';
+import { asksDressing } from './pack.js';
 
 const Q = new URLSearchParams(location.search);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -98,6 +99,11 @@ export async function install(W) {
   tell('ready', { gameId: Q.get('game') || null, hash: world.hash, story: { v: 2, ok: true, id: def.id, hash: world.hash, clips: nClips } });
   console.log('[storyrun]', def.id, `${order.length} missions`, `${nClips} clips`, places.missing.length ? `places missing: ${places.missing.join(',')}` : '');
 
+  // what the city wears (dressing.js: a blackout, Christmas, snow or rain), only when the world asks for one; before
+  // the time of day below, so the world's times keep its look
+  if (asksDressing(def.dressing)) {
+    try { const D = await import('./dressing.js'); W.storyrun.dressing = D.createDressing(W, def.dressing); } catch (e) { console.warn('[storyrun] dressing', e); }
+  }
   // the start: on foot by the car while the gate is up, the city at the world's time of day (a night world's gate at night)
   outBesideCar(W);
   { const T = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' }, first = order[0]?.def, id = first?.time || order[0]?.act?.timeline?.[first?.id]?.time || def.dressing?.time; try { if (id) W.app.selectTime(T[id] || id); } catch {} }

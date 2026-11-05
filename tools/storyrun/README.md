@@ -18,6 +18,11 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
 - `tow.json`: Night Hook, two tows in a vehicle-sheet wrecker (the Story Kit's `wrecker` sheet: tow rig, light bar,
   opening doors): TW-1 hooks a stalled van (a ride of the world's, from its sheet) on 6th Ave and tows it to 11th Ave;
   TW-2 a blue sedan (the city's own body) to Chelsea Park. Both pass under the autopilot (`&autopilot=1&mission=TW-1`).
+- `dressing-*.json`: still worlds (one mission that waits) for the set dressing (`wagmi/storyrun/dressing.js`), each
+  with the look its `dressing` asks for: `blackout` (midnight, `blackout: "midtown"`), `christmas` (midnight,
+  `holiday: ["christmas"]`), `xmasday` (the same at midday, for the hats), `snow` (midday), `rain` (twilight), and
+  the city as it is at the same times for the before shots: `night`, `day`, `dusk`. A world without these words (or
+  in the clear) is never dressed: `node --test tests/dressing.test.mjs`.
 
 On a local server (`python3 -m http.server 4981 --bind 127.0.0.1` in the repo):
 `http://127.0.0.1:4981/?pack=/tools/storyrun/test-packs/native.json`.

@@ -34,6 +34,13 @@ async function getBytes(url) {
   return b;
 }
 
+// what the city wears that Mog City draws (dressing.js): a blackout in one of these parts of Manhattan, Christmas, snow,
+// rain. Everything else in a world's dressing (its time, its season, other holidays and weather) leaves the city as it is
+export const BLACKOUTS = ['midtown', 'downtown', 'manhattan'];
+export function asksDressing(d) {
+  if (!d || typeof d !== 'object') return false;
+  return BLACKOUTS.includes(d.blackout) || (Array.isArray(d.holiday) && d.holiday.includes('christmas')) || ['snow', 'rain', 'storm'].includes(d.weather);
+}
 // Mog City's own mission phases a step may name by `ref` (runner.js PART_IDS: m2.js / m3.js playPart)
 export const PART_REFS = new Set(['m2.start', 'm2.go', 'm2.tail', 'm2.yard', 'm2.fight', 'm2.chase', 'm2.crash', 'm2.phone', 'm2.chat',
   'm3.garage', 'm3.square', 'm3.rally', 'm3.rigs', 'm3.dump', 'm3.escape', 'm3.ret', 'm3.home']);
@@ -71,6 +78,16 @@ export function check(w) {
     if (m.vehicle != null && typeof m.vehicle !== 'string') bad(`${m.id}: vehicle`);
   }
   if (!Array.isArray(w.acts) || !w.acts.length) bad('acts');
+  // (what the city wears: closed words only, dressing.js reads nothing else)
+  if (w.dressing != null) {
+    const d = w.dressing;
+    if (typeof d !== 'object' || Array.isArray(d)) bad('dressing');
+    else {
+      for (const k of ['time', 'season', 'weather']) if (d[k] != null && (typeof d[k] !== 'string' || !/^[a-z-]{1,24}$/.test(d[k]))) bad(`dressing.${k}`);
+      if (d.blackout != null && !BLACKOUTS.includes(d.blackout)) bad('dressing.blackout');
+      if (d.holiday != null && (!Array.isArray(d.holiday) || d.holiday.some((h) => typeof h !== 'string' || !/^[a-z-]{1,24}$/.test(h)))) bad('dressing.holiday');
+    }
+  }
   if (w.car != null && !(typeof w.car === 'string' ? STOCK.has(w.car) : w.car && typeof w.car.sheet === 'object')) bad('car');
   return errs;
 }
