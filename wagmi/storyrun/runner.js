@@ -281,7 +281,7 @@ export function createRunner(ctx) {
     gps.objective(parts(d.objective || `Search **${d.label}**.`, 'green'), { x: p.x, z: p.z, name: d.label }, { blip: false });
     gps.blip('search', { x: p.x, z: p.z, kind: 'object', edge: true, name: d.label });
     const ring = createMarker(THREE, app.scene, { color: '#4ADE80', radius: d.ring || reach * 0.8, height: 1.1, alpha: 0.2 }); ring.at(hx, 0.02, hz);
-    const act = ui.holdAct({ label: d.label, noun: d.noun || d.label.replace(/^\w+\s+/, ''), secs: d.secs || 1.0, show: reach + 6, reach });
+    const act = ui.holdAct({ label: d.label, noun: d.noun || d.label.replace(/^\w+\s+((over|off|up|in|out|down|back|on|away|through|for)\s+)?/i, ''), secs: d.secs || 1.0, show: reach + 6, reach });
     M.holding = { x: hx, z: hz, act };
     let last = now();
     try { await wait(() => { const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt; return act.step(dt, dist(P.position, hx, hz), !inCar()) || (M.auto && !inCar() && dist(P.position, hx, hz) < reach); }, t); }
