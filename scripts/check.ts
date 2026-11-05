@@ -24,6 +24,7 @@ import { runCastRegistryChecks } from './storykit-cast-check.ts';
 import { runAnchorChecks } from './storykit-anchors-check.ts';
 import { runStoryStoreChecks } from './storykit-store-check.ts';
 import { runStoryOwnerChecks } from './storykit-owner-check.ts';
+import { runStoryPatchChecks } from './storykit-patch-check.ts';
 import { runForgeBrowserChecks } from './storykit-forge-browser-check.ts';
 
 let failures = 0;
@@ -530,6 +531,8 @@ runAnchorChecks(ok);
 await runStoryStoreChecks(ok);
 // Story Kit (5 Nov): the switch's owner-only setting (STORYKIT=owner) at every door, and no machine-local paths
 runStoryOwnerChecks(ok);
+// Story Kit (5 Nov): the owner's patch of a published world (an opening added to a kept world, the old one kept)
+runStoryPatchChecks(ok);
 // Story Kit (B6): the Character Forge in a creator's browser: its sharp, and every anchor forged in Chrome under the store's cap
 await runForgeBrowserChecks(ok);
 

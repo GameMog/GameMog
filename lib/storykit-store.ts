@@ -69,6 +69,8 @@ const ART = /^(key-wide|key-square|head-[a-z][a-z0-9-]{0,39})\.(jpg|webp|png)$/;
 const DRAFT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export const blobUrl = (hash: string, ext: string) => `/storykit/f/${hash}.${ext}`;
+/** a blob's served address, read back: its SHA-256 and extension */
+const BLOB_REF = /^\/storykit\/f\/([0-9a-f]{64})\.([a-z]{3,4})$/;
 const sha = (b: Uint8Array | string) => createHash('sha256').update(b).digest('hex');
 const stable = (o: unknown): string => JSON.stringify(o, (_k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, v[k]])) : v));
 
@@ -353,6 +355,121 @@ export class StoryStore {
   /** A game taken down: its world goes back to being a draft, swept after the usual time unless kept again. */
   release(id: string): boolean {
     return this.db.prepare("UPDATE drafts SET state = 'draft', game_id = NULL, touched_at = ? WHERE id = ? AND state = 'kept'").run(this.now(), id).changes > 0;
+  }
+
+  /**
+   * The owner's patch of a published (kept) world (app/api/storykit/admin/patch/route.ts, lib/storykit-publish.ts
+   * patchStoryWorld): a new runner world in place of its sealed one, with the new clips it plays. Nothing changes
+   * unless all of it holds:
+   *   - `from`: the world the game plays now is this draft's sealed world (no patch over a patch the caller never saw);
+   *   - `world`: the same world (its id), a runner world (storykit: 1), no larger than a sealed world may be;
+   *   - `opening` (story-pack form, when given; null takes it out): the draft's own pack with it gates (rule 14, and the
+   *     city lock against its parent for a Mog), and the world's opening is exactly what that pack makes of it
+   *     (toRunnerPack), its voice plan's speakers and lines exactly the pack's (voicePlanOf);
+   *   - `files`: only voice clips the world's voice plan lists (voice.clips: <line hash>-<voice key>, a line of the
+   *     world in its speaker's voice), each a real Ogg or WAV under the clip limit, named in the world by its SHA-256;
+   *   - every /storykit/f/ file the world names is stored (or sent), and all of it is within a world's limits.
+   * Then the clips become the draft's (as clips the creator's browser stored: a Mog of the world carries them), the
+   * draft's pack takes the opening (a Mog keeps it), and the world is sealed as sent. The world it replaces stays (a
+   * `was-<sha256>.json` row of the draft, never swept), so patching back to it is a patch with that world.
+   */
+  patch(id: string, input: { world: unknown; files?: { ext: string; bytes: Uint8Array }[]; opening?: unknown; from?: string | null }):
+    { ok: true; hash: string; url: string; bytes: number; was: string | null; clips: number; stored: number; worldBytes: number } | (Fail & { problems?: string[] }) {
+    const d = this.draft(id);
+    if (!d || d.state !== 'kept' || !d.world) return fail(404, 'No published story world to patch.');
+    if (input.from !== undefined && input.from !== d.world) return fail(409, `The game plays ${input.from ?? 'no world'}, but its store draft is sealed as ${d.world}. Nothing was changed.`);
+    const w = input.world as Record<string, any>;
+    if (!w || typeof w !== 'object' || Array.isArray(w) || w.storykit !== 1) return fail(400, 'world: a runner world (storykit: 1).');
+    const body = new TextEncoder().encode(JSON.stringify(w));
+    if (body.length > 4 * LIMITS.pack) return fail(413, 'The world is too large.');
+    const old = this.read(`${d.world}.json`);
+    const was = old ? JSON.parse(old.bytes.toString('utf8')) : null;
+    if (!was || w.id !== was.id) return fail(422, `world: it is another world (${String(w.id)}), not ${was?.id ?? 'this one'}.`);
+
+    // the pack: the draft's own, with the opening when one is sent (null: none), gated as a pack is when it opens
+    const problems: string[] = [];
+    const pack = JSON.parse(d.pack);
+    if ('opening' in input && input.opening !== undefined) { if (input.opening === null) delete pack.opening; else pack.opening = input.opening; }
+    const parent = d.parent ? this.draft(d.parent) : undefined;
+    const g = gatePack(pack, { parent: parent ? JSON.parse(parent.pack) : null });
+    if (!g.ok || !g.pack) return { ...fail(422, 'The pack with this opening was refused.'), problems: g.problems };
+    const made = toRunnerPack(g.pack), plan = voicePlanOf(g.pack, '');
+    if (stable(w.opening ?? null) !== stable(made.opening ?? null)) problems.push(w.opening && !g.pack.opening ? 'world.opening: send the same opening in story-pack form (opening) so the pack is gated with it.' : 'world.opening: it is not the opening the pack makes (toRunnerPack).');
+    if (stable(w.voice?.cast ?? null) !== stable(plan.cast)) problems.push('world.voice.cast: not the pack\'s speakers and voices (voicePlanOf).');
+    if (stable(w.voice?.lines ?? null) !== stable(plan.lines)) problems.push('world.voice.lines: not the pack\'s lines (voicePlanOf).');
+
+    // the files sent: voice clips only, real, within the limits, by their SHA-256
+    const sent = new Map<string, { ext: string; bytes: Uint8Array }>();
+    for (const [i, f] of (input.files ?? []).entries()) {
+      if (!f || !/^(ogg|wav)$/.test(f.ext) || !(f.bytes instanceof Uint8Array)) { problems.push(`files[${i}]: a voice clip, .ogg or .wav.`); continue; }
+      if (f.bytes.length < 16 || f.bytes.length > LIMITS.voice.each) { problems.push(`files[${i}]: a clip is 16 bytes to ${LIMITS.voice.each / MB} MB.`); continue; }
+      const bad = checkMagic(f.ext, f.bytes); if (bad) { problems.push(`files[${i}]: ${bad}.`); continue; }
+      sent.set(sha(f.bytes), f);
+    }
+    // the voice plan's clips: each a line of the world, its file named by its line, its url a clip of its own format
+    const lineClips = new Set(plan.lines.map((l: any) => l.clip));
+    const clips = Object.entries((w.voice?.clips ?? {}) as Record<string, any>);
+    for (const [base, c] of clips) {
+      const m = c?.url ? BLOB_REF.exec(c.url) : null;
+      if (!lineClips.has(base)) problems.push(`world.voice.clips.${base}: no line of the world in its speaker's voice.`);
+      if (!m || !/^(ogg|wav)$/.test(m[2]) || c.file !== `${base}.${m[2]}`) problems.push(`world.voice.clips.${base}: its file is ${base}.<ogg|wav> at /storykit/f/<sha256>.<same ext>.`);
+    }
+    // every file the world names: stored already, or sent; nothing sent that it does not name
+    const refs = new Map<string, string>();
+    for (const m of JSON.stringify(w).matchAll(/\/storykit\/f\/([0-9a-f]{64})\.([a-z]{3,4})/g)) refs.set(m[1], m[2]);
+    let total = body.length, voice = 0, nVoice = 0;
+    for (const [h, ext] of refs) {
+      const known = this.db.prepare('SELECT ext, bytes FROM blobs WHERE hash = ?').get(h) as { ext: string; bytes: number } | undefined;
+      const s = sent.get(h), bytes = known?.bytes ?? s?.bytes.length;
+      if (known ? known.ext !== ext : !s || s.ext !== ext) { problems.push(`/storykit/f/${h}.${ext}: not stored, and not sent.`); continue; }
+      total += bytes!; if (ext === 'ogg' || ext === 'wav') { voice += bytes!; nVoice++; }
+    }
+    for (const h of sent.keys()) if (!refs.has(h)) problems.push(`a sent ${sent.get(h)!.ext} (${h.slice(0, 12)}…) is not named by the world.`);
+    if (total > LIMITS.world) problems.push(`A world is at most ${LIMITS.world / MB} MB in all (this one: ${(total / MB).toFixed(1)} MB).`);
+    if (voice > LIMITS.voice.total || nVoice > LIMITS.voice.count) problems.push(`A world's clips are at most ${LIMITS.voice.count} and ${LIMITS.voice.total / MB} MB in all.`);
+    if (problems.length) return { ...fail(422, 'The patch was refused. Nothing was changed.'), problems };
+    const fresh = [...sent].filter(([h]) => !this.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(h));
+    const hash = sha(body), t = this.now();
+    const add = fresh.reduce((n, [, f]) => n + f.bytes.length, 0) + (this.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(hash) ? 0 : body.length);
+    if (this.used() + add > LIMITS.disk) return fail(507, 'The Story Kit store is full.');
+
+    // write: the new blobs, then (one transaction) the clips, the pack, the sealed world and the one it replaces
+    const write = (h: string, ext: string, b: Uint8Array) => {
+      const f = this.blobPath(h, ext); mkdirSync(path.dirname(f), { recursive: true });
+      const tmp = `${f}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`; writeFileSync(tmp, b); renameSync(tmp, f);
+    };
+    for (const [h, f] of fresh) write(h, f.ext, f.bytes);
+    const newWorld = !this.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(hash);
+    if (newWorld) write(hash, 'json', body);
+    const prior = d.world;
+    let stored = 0;
+    this.db.exec('BEGIN');
+    try {
+      const blob = this.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)');
+      for (const [h, f] of fresh) blob.run(h, f.ext, f.bytes.length, t);
+      if (newWorld) blob.run(hash, 'json', body.length, t);
+      const file = this.db.prepare('INSERT OR REPLACE INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)');
+      for (const [base, c] of clips) {
+        const m = BLOB_REF.exec(c.url)!, h = m[1], ext = m[2];
+        if (this.db.prepare("SELECT 1 FROM files WHERE draft_id = ? AND kind = 'voice' AND name = ? AND hash = ?").get(d.id, `${base}.${ext}`, h)) continue;
+        const bytes = (this.db.prepare('SELECT bytes FROM blobs WHERE hash = ?').get(h) as { bytes: number }).bytes;
+        const line = plan.lines.find((l: any) => l.clip === base) as any;
+        const meta = { line: line.id, who: line.who, voice: line.voice, codec: ext === 'ogg' ? 'opus' : 'pcm16', secs: num(c.secs, 0, 120), renderMs: num(c.renderMs, 0, 6e5),
+          encodeMs: num(c.encodeMs, 0, 6e5), device: word(c.device, /^(webgpu|wasm)$/), dtype: word(c.dtype, /^(fp32|fp16|q8)$/) };
+        this.db.prepare("DELETE FROM files WHERE draft_id = ? AND kind = 'voice' AND name GLOB ?").run(d.id, `${base}.*`);
+        file.run(d.id, 'voice', `${base}.${ext}`, h, ext, bytes, JSON.stringify(meta), t); stored++;
+      }
+      // the world it replaces is kept (patching back is a patch with it); the sealed world is world.json, as seal() writes
+      if (prior !== hash) {
+        const pb = (this.db.prepare('SELECT bytes FROM blobs WHERE hash = ?').get(prior) as { bytes: number } | undefined)?.bytes ?? 0;
+        file.run(d.id, 'pack', `was-${prior}.json`, prior, 'json', pb, null, t);
+      }
+      this.db.prepare("DELETE FROM files WHERE draft_id = ? AND kind = 'pack' AND name = ?").run(d.id, `was-${hash}.json`);
+      file.run(d.id, 'pack', 'world.json', hash, 'json', body.length, null, t);
+      this.db.prepare('UPDATE drafts SET pack = ?, world = ?, touched_at = ? WHERE id = ?').run(JSON.stringify(g.pack), hash, t, d.id);
+      this.db.exec('COMMIT');
+    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+    return { ok: true, hash, url: blobUrl(hash, 'json'), bytes: body.length, was: prior, clips: clips.length, stored, worldBytes: total };
   }
 
   /** Abandon a draft now (the creator's DELETE): its rows go, then every blob nothing else points at. */

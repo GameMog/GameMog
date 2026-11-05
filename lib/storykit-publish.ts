@@ -184,3 +184,28 @@ export function sealStoryDraft(d: { meta: string }, open = storykitPublic()): { 
   return { ok: true, storeId, world: sealed.hash, meta: { storykit: { ...m.storykit, world: sealed.hash } } };
 }
 export const keepStoryWorld = (storeId: string, gameId: string) => storyStore().keep(storeId, gameId);
+
+/**
+ * The owner's patch of a published story world (app/api/storykit/admin/patch/route.ts): the game by its slug (hidden or
+ * not), its store draft patched (lib/storykit-store.ts StoryStore.patch: the checks, the clips, the pack's opening, the
+ * new sealed world, the old one kept), then everything that names the world it played names the new one: the game's
+ * meta (storykit.world, what /g/<slug>/play plays) and any GameMog draft of the same store draft that named it. A Mog of
+ * it reads the store draft's pack and files (lib/storykit-build.ts storyParentPack), so it keeps the opening and clips.
+ */
+export function patchStoryWorld(slug: unknown, input: { world: unknown; files?: { ext: string; bytes: Uint8Array }[]; opening?: unknown }) {
+  if (typeof slug !== 'string' || !/^[a-z0-9-]{1,80}$/.test(slug)) return { ok: false as const, status: 400, error: 'slug: a game\'s slug.' };
+  const game = db.prepare('SELECT id, meta FROM games WHERE slug = ?').get(slug) as { id: string; meta: string | null } | undefined;
+  const storeId = game ? storeDraftOf(game.meta) : null, was = game ? sealedWorldOf(game.meta) : null;
+  if (!game || !storeId || !was) return { ok: false as const, status: 404, error: 'No published story world has that slug.' };
+  const r = storyStore().patch(storeId, { ...input, from: was });
+  if (!r.ok) return r;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const m = JSON.parse(game.meta!) as Record<string, any>;
+    db.prepare('UPDATE games SET meta = ? WHERE id = ?').run(JSON.stringify({ ...m, storykit: { ...m.storykit, world: r.hash } }), game.id);
+    const drafts = db.prepare("SELECT id, meta FROM drafts WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.pack') = ? AND json_extract(meta, '$.storykit.world') = ?").all(storeId, was) as { id: string; meta: string }[];
+    for (const d of drafts) { const dm = JSON.parse(d.meta); db.prepare('UPDATE drafts SET meta = ? WHERE id = ?').run(JSON.stringify({ ...dm, storykit: { ...dm.storykit, world: r.hash } }), d.id); }
+    db.exec('COMMIT');
+    return { ...r, game: game.id, drafts: drafts.length };
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
