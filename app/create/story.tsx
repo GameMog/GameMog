@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { CharCount, MOG_PROMPT_MAX } from './char-count';
 import { STORY_CITIES, isStoryCity, type StoryCity } from '@/lib/storykit-site';
 import { useGeneration, GenerationProgress, DraftResult } from './generation';
@@ -97,6 +97,10 @@ export function useStoryConsent() {
   return { consent, setConsent, said: consentOf(consent) };
 }
 
+/** A phone or tablet (a story world is made in the creator's browser after the build: the people forged, the voices recorded, the test drive): true there, and no story build starts. */
+export function usePhone() { const [p, setP] = useState(false); useEffect(() => { const m = matchMedia('(max-width: 760px), (pointer: coarse)'); const f = () => setP(m.matches); f(); m.addEventListener('change', f); return () => m.removeEventListener('change', f); }, []); return p; }
+export const PHONE_NOTE = 'Story worlds are made and played on a desktop or laptop browser. Open this page on a computer to make yours.';
+
 const MOG_IDEAS = [
   'Make it a comedy: the driver is a failed magician',
   'Swap the hero for her grandmother',
@@ -113,6 +117,7 @@ export function StoryMogComposer({ slug, title, city, cityName, dare }: { slug: 
   const gen = useGeneration();
   const [idea, setIdea] = useState('');
   const { consent, setConsent, said } = useStoryConsent();
+  const phone = usePhone();
   const go = () => gen.run({ mogOf: slug, prompt: idea.trim(), consent: said.value });
   return (
     <>
@@ -147,7 +152,8 @@ export function StoryMogComposer({ slug, title, city, cityName, dare }: { slug: 
           {MOG_IDEAS.map((x) => <button key={x} className="tag" onClick={() => setIdea(x)}>{x}</button>)}
         </div>
         <ConsentStep value={consent} onChange={setConsent} disabled={gen.busy} />
-        <button className="btn" onClick={go} disabled={gen.busy || idea.trim().length < 4 || !said.ok}>
+        {phone && <p className="t-meta" style={{ margin: '0 0 8px' }}>{PHONE_NOTE}</p>}
+        <button className="btn" onClick={go} disabled={gen.busy || phone || idea.trim().length < 4 || !said.ok}>
           {gen.busy ? 'Mog in progress' : 'Mog it'}
         </button>
       </div>

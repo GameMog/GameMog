@@ -7,7 +7,7 @@ import type { WorldSpec } from '@/lib/worldspec';
 import { useGeneration, GenerationProgress, DraftResult } from './generation';
 import { WorldOptionsFields } from './options';
 import { DEFAULT_OPTIONS, type WorldOptions } from '@/lib/world-options';
-import { useStoryKit, StoryCityField, StoryCityCard, STORY_IDEAS, STORY_RULES, useStoryConsent } from './story';
+import { useStoryKit, StoryCityField, StoryCityCard, STORY_IDEAS, STORY_RULES, useStoryConsent, usePhone, PHONE_NOTE } from './story';
 import { ConsentStep } from './consent';
 import { CharCount, CREATE_PROMPT_MAX } from './char-count';
 import { storyCityName, STORY_HERO_MAX, type StoryCity } from '@/lib/storykit-site';
@@ -189,6 +189,7 @@ export default function Create() {
   const [heroLook, setHeroLook] = useState('');
   const [asDan, setAsDan] = useState(false);
   const telling = storykit && story;
+  const phone = usePhone();
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -310,8 +311,8 @@ export default function Create() {
                 <ConsentStep value={consent} onChange={setConsent} disabled={busy} what="story" />
               </div>
               <div className="cgo" style={{ marginTop: 0 }}>
-                <p className="dim-2">Three acts, 6 to 9 missions, its own people, cars and voices.</p>
-                <button className="btn big" onClick={generate} disabled={busy || prompt.trim().length < 8 || !said.ok}>
+                <p className={phone ? undefined : 'dim-2'}>{phone ? PHONE_NOTE : 'Three acts, 6 to 9 missions, its own people, cars and voices.'}</p>
+                <button className="btn big" onClick={generate} disabled={busy || phone || prompt.trim().length < 8 || !said.ok}>
                   {busy ? 'Writing your story' : 'Write the story'}
                 </button>
               </div>
