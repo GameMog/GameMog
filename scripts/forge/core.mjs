@@ -186,7 +186,8 @@ if (CFG.sculpt) {
 const BN0 = B.get('normal'), MH = CFG.mouthHalf ?? 0.0212;
 const beardOf = (P, v) => { const x = Math.abs(P[v * 3]), y = P[v * 3 + 1], z = P[v * 3 + 2], h = Math.min(1, headW(v) * 1.6 + 0.25);
   // (the cheeks' line: from over the mouth's corners up toward the ear; the area under it, in front of the ears)
-  const cheek = MOUTHY + 0.014 + Math.max(0, x - 0.026) * 0.62, ear = EZ - 0.072;
+  // (G7c: CFG.beard.trim { lift, slope, ear }: a full beard's line lower on the cheek and further from the ear)
+  const tr = CFG.beard?.trim || {}, cheek = MOUTHY + (tr.lift ?? 0.014) + Math.max(0, x - 0.026) * (tr.slope ?? 0.62), ear = EZ - (tr.ear ?? 0.072);
   let a = sm(cheek + 0.004, cheek - 0.003, y) * sm(ear - 0.006, ear + 0.006, z);
   // (the moustache: the band over the upper lip, under the nose, the mouth's width and a little more)
   const mo = (1 - sm(0.026, 0.032, x)) * sm(MOUTHY + 0.0215, MOUTHY + 0.0165, y) * sm(MOUTHY + 0.0035, MOUTHY + 0.0065, y) * sm(EZ + 0.0, EZ + 0.012, z);
@@ -749,8 +750,19 @@ if (LIB && CFG.suit) { const jacket = LIB.done.find((d) => /^suit-jacket/.test(d
     // showed their inside past the jacket's collar from the side))
     let lapTop = -9; for (const p of [...jacket.r.parts, ...jacket.r.extras]) if (p.name === 'suit-lapels') for (let i = 0; i < p.mesh.P.length; i += 3) if (p.mesh.P[i + 2] > nz + 0.03) lapTop = Math.max(lapTop, p.mesh.P[i + 1]);
     const bTop = lapTop > -9 ? Math.floor((lapTop - NECKY) / 0.01) : Math.max(...vb.keys()), xVf = (y) => { const f = (y - NECKY) / 0.01; if (f > bTop) return xV; const b0 = Math.floor(f), a = vb.get(b0), c = vb.get(b0 + 1); return a == null ? c ?? xV : c == null ? a : a + (c - a) * (f - b0); };
+    // (G7c: the shirt's cut edge laid along the lapels' line: a triangle with one point past it kept, two dropped, still
+    // left a saw edge of white teeth inside the lapels, the dark of the jacket's inside between them (the cloth gate's
+    // white-on-dark shards 286-364 px against Mr. Big's 28-92). Now the shirt's front points past the line and up to 4 cm
+    // beyond it (under the lapels, as high as they go) are moved onto it, half a millimetre in, before the cut: the kept
+    // triangles end on one smooth line, the lapels' own)
+    { const vs = new Set(); wearT.forEach((T, wi) => { if (CFG.wear[wi][3] === 'suit') for (const v of T) vs.add(v); }); let snap = 0;
+      for (const v of vs) { const y = pPos[v * 3 + 1], z = pPos[v * 3 + 2]; if (y <= yC || z <= nz + 0.02 || (y - NECKY) / 0.01 > bTop) continue;
+        const ax = Math.abs(pPos[v * 3]), xl = xVf(y); if (ax >= xl - 0.0005 && ax < xl + 0.04) { pPos[v * 3] = Math.sign(pPos[v * 3]) * (xl - 0.0005); snap++; } }
+      console.error('suit (G7c): shirt points laid on the lapels\' line', snap); }
+    // (and with the V's edge laid on the line, a triangle with any point still past it (at the collar's sides, behind the
+    // neck's front) dropped, not only one with two: the one-point triangles left white needles over the jacket's collar)
     const back = (v) => pPos[v * 3 + 1] > yC && !(pPos[v * 3 + 2] > nz + 0.02 && Math.abs(pPos[v * 3]) < xVf(pPos[v * 3 + 1]));
-    wearT.forEach((T, wi) => { if (CFG.wear[wi][3] !== 'suit') return; const keep = []; for (let q = 0; q < T.length; q += 3) { if ((back(T[q]) ? 1 : 0) + (back(T[q + 1]) ? 1 : 0) + (back(T[q + 2]) ? 1 : 0) >= 2) { cut++; continue; } keep.push(T[q], T[q + 1], T[q + 2]); } wearT[wi] = keep; });
+    wearT.forEach((T, wi) => { if (CFG.wear[wi][3] !== 'suit') return; const keep = []; for (let q = 0; q < T.length; q += 3) { if ((back(T[q]) ? 1 : 0) + (back(T[q + 1]) ? 1 : 0) + (back(T[q + 2]) ? 1 : 0) >= 1) { cut++; continue; } keep.push(T[q], T[q + 1], T[q + 2]); } wearT[wi] = keep; });
     console.error('suit (C5): shirt collar triangles under the jacket collar dropped', cut);
     // (F6: the jacket's own front edge kept out of the V: the few triangles of it inside the lapels' line dropped, and its
     // neckline and its front under the lapels given the collar's and the lapels' weights, so its inside does not ride up
@@ -1059,7 +1071,7 @@ async function paintFace(img) {
   if (CFG.scalp && hairT.length) {
     const hv = [...new Set(hairT)], HP = new Float32Array(hv.length * 3); hv.forEach((v, k) => { HP[k * 3] = pPos[v * 3]; HP[k * 3 + 1] = pPos[v * 3 + 1]; HP[k * 3 + 2] = pPos[v * 3 + 2]; });
     const near = new Float32Array(nB).fill(1);
-    for (const v of skinV) { if (headW(v) < 0.4 || bPos[v * 3 + 1] < EY - 0.06) continue; const x = bPos[v * 3], y = bPos[v * 3 + 1], z = bPos[v * 3 + 2]; let m = 1;
+    for (const v of skinV) { if (headW(v) < (CFG.scalp.nape ? 0.15 : 0.4) || bPos[v * 3 + 1] < EY - (CFG.scalp.nape ?? 0.06)) continue; const x = bPos[v * 3], y = bPos[v * 3 + 1], z = bPos[v * 3 + 2]; let m = 1;
       for (let k = 0; k < hv.length; k++) { const dx = HP[k * 3] - x, dy = HP[k * 3 + 1] - y, dz = HP[k * 3 + 2] - z, d2 = dx * dx + dy * dy + dz * dz; if (d2 < m) m = d2; } near[v] = Math.sqrt(m); }
     const { col, root, reach } = CFG.scalp, wv0 = (v) => 1 - sm(0.004, reach, near[v]);
     let n = 0;
@@ -1298,7 +1310,13 @@ async function garment(name, mode, opt = {}, T = null) {
   const sorted = Uint8Array.from(bl).sort(), mid = sorted[Math.floor(sorted.length * 0.6)] || 128;
   const o = new Uint8Array(info.width * info.height * 3);
   const floor = opt.floor ?? 0.35;
-  for (let i = 0; i < lum.length; i++) { const v = Math.max(floor, Math.min(1.25, bl[i] / mid)) * 200; o[i * 3] = o[i * 3 + 1] = o[i * 3 + 2] = Math.min(255, Math.round(v)); }
+  // (G7c: opt.hi: the folds' light capped lower, and opt.heather: a cotton's heathered grain in it (each texel its own
+  // shade, a little, and a slower mottle): a plain top's folds at 1.25 x its middle were near white under the warm key,
+  // a smooth sweep over the shoulders and chest that read as satin (the grandmother's tee, round 6))
+  const hi = opt.hi ?? 1.25, ht = opt.heather || 0, Wt = info.width;
+  for (let i = 0; i < lum.length; i++) { let v = Math.max(floor, Math.min(hi, bl[i] / mid)) * 200;
+    if (ht) { const x = i % Wt, y = Math.floor(i / Wt); v *= 1 + ht * ((hash3(x, y, 17) - 0.5) * 1.6 + (vnoise(x / 3, y / 3, 23) - 0.5) * 0.8); }
+    o[i * 3] = o[i * 3 + 1] = o[i * 3 + 2] = Math.min(255, Math.round(v)); }
   if (mode === 'bake') bakeCloth(o, data, info, opt, T);
   if (T && (opt.rips || opt.pocket || opt.check)) paint3D(o, info, T, opt);
   return sharp(o, { raw: { width: info.width, height: info.height, channels: 3 } }).jpeg({ quality: 90 }).toBuffer();
@@ -1361,16 +1379,33 @@ async function suitTex(f) {
   const { data, info } = await sharp(f).removeAlpha().raw().toBuffer({ resolveWithObject: true }), S = info.width, k = S / 1024;
   const at = (x, y) => (y * S + x) * 3, bg = [data[at(Math.round(260 * k), Math.round(12 * k))], data[at(Math.round(260 * k), Math.round(12 * k)) + 1], data[at(Math.round(260 * k), Math.round(12 * k)) + 2]];
   const { navy, tie } = CFG.suit; let nt = 0, nw = 0;
+  // (G7c: the tie itself in its patch: its blue-violet cloth, closed over 3 px so its white stripes are in it and the
+  // shirt's white beside it is not)
+  const tx0 = Math.floor(355 * k), tx1 = Math.ceil(440 * k), ty0 = Math.floor(70 * k), ty1 = Math.ceil(200 * k), TW = tx1 - tx0 + 1, TH = ty1 - ty0 + 1, R = Math.max(2, Math.round(3 * k));
+  const tieM = (() => { const b = new Uint8Array(TW * TH); for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) { const i = at(tx0 + x, ty0 + y); b[y * TW + x] = data[i + 2] > data[i] + 14 && data[i + 2] > 60 ? 1 : 0; }
+    const pass = (src, val) => { const t = new Uint8Array(TW * TH), o = new Uint8Array(TW * TH);
+      for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) { let v = val ? 0 : 1; for (let d = -R; d <= R; d++) { const xx = x + d, q = xx < 0 || xx >= TW ? 0 : src[y * TW + xx]; if (val ? q : !q) { v = val; break; } } t[y * TW + x] = v; }
+      for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) { let v = val ? 0 : 1; for (let d = -R; d <= R; d++) { const yy = y + d, q = yy < 0 || yy >= TH ? 0 : t[yy * TW + x]; if (val ? q : !q) { v = val; break; } } o[y * TW + x] = v; } return o; };
+    return pass(pass(b, 1), 0); })();
+  const inTie = (x, y) => x >= tx0 && x <= tx1 && y >= ty0 && y <= ty1 && tieM[(y - ty0) * TW + (x - tx0)];
   for (let y = 0; y < info.height; y++) for (let x = 0; x < S; x++) {
     const i = at(x, y), r = data[i], g = data[i + 1], b = data[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), L = 0.3 * r + 0.59 * g + 0.11 * b;
     if (x < 200 * k && y < 30 * k) { data[i] = bg[0]; data[i + 1] = bg[1]; data[i + 2] = bg[2]; continue; }
     if (x > 735 * k && y > 465 * k && y < 720 * k) continue; // (the shoes' part of the atlas: as it is)
+    // (G7c: the tie's stripes its own: the pack's tie has white bar stripes, kept as white with the shirt's whites, so
+    // the tie read as raw white bars stepped by the atlas's pixels with pink at their edges (the old boss's 'pink and
+    // white streaks'). Now every pixel of the tie itself (tieM) is the tie: its dark ground the burgundy by its light, its
+    // stripes a muted rose of it (as Mr. Big's), then softened a pixel (tieSoft) so a stripe has no steps)
+    if (inTie(x, y)) { const st = Math.max(0, Math.min(1, (L - 95) / 90)), m = Math.max(0.55, Math.min(1.15, L / 110)) * (1 - st) + 1.05 * st;
+      for (let c = 0; c < 3; c++) data[i + c] = Math.round(tie[c] * m * (1 - st * 0.55) + Math.min(255, tie[c] * 1.5 + [120, 92, 92][c]) * st * 0.55); nt++; continue; }
     const white = mn > 140 && mx - mn < 30;
     if (white) { nw++; continue; }
-    if (x > 355 * k && x < 440 * k && y > 70 * k && y < 200 * k) { const m = Math.max(0.45, Math.min(1.25, L / 110)); data[i] = Math.round(tie[0] * m); data[i + 1] = Math.round(tie[1] * m); data[i + 2] = Math.round(tie[2] * m); nt++; continue; }
+    if (x > 355 * k && x < 440 * k && y > 70 * k && y < 200 * k) { const m = Math.max(0.45, Math.min(1.25, L / 110)); data[i] = Math.round(tie[0] * m); data[i + 1] = Math.round(tie[1] * m); data[i + 2] = Math.round(tie[2] * m); continue; }
     const m = Math.max(0.35, Math.min(1.7, L / 47)); data[i] = Math.min(255, Math.round(navy[0] * m)); data[i + 1] = Math.min(255, Math.round(navy[1] * m)); data[i + 2] = Math.min(255, Math.round(navy[2] * m));
   }
   console.error('suit: tie px', nt, 'white px', nw);
+  // (tieSoft: the tie box-blurred 3 x 3, twice, over its own pixels only)
+  for (let it = 0; it < 2; it++) { const src = Uint8Array.from(data); for (let y = ty0 + 1; y < ty1; y++) for (let x = tx0 + 1; x < tx1; x++) { if (!inTie(x, y)) continue; for (let c = 0; c < 3; c++) { let s0 = 0, n0 = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inTie(x + dx, y + dy)) { s0 += src[at(x + dx, y + dy) + c]; n0++; } data[at(x, y) + c] = Math.round(s0 / n0); } } }
   return sharp(data, { raw: info }).jpeg({ quality: 92 }).toBuffer();
 }
 // the beard on the skin's texture: each skin triangle with some beard drawn in the texture's space (its uvs), the
@@ -1637,10 +1672,13 @@ const paintStubble = async (img) => (CFG.beard?.style === 'stubble' ? paintStubb
 // cut-out edges broken into strand ends and the hairline thinned to single strands (no stepped edge, no helmet line))
 const HAIRTEX = (CFG.hairStrands && !HAIR_BODY && hairTX.length) ? await (async () => {
   const H5 = CFG.hairStrands, hv = [...new Set(hairTX)], NB = B.get('normal');
-  const band = [...skinV].filter((v) => headW(v) > 0.5 && bPos[v * 3 + 1] > EY - 0.035 && bPos[v * 3 + 1] < EY + 0.11 && bPos[v * 3 + 2] > EZ - 0.085);
+  // (G7c: under hair drawn back off the neck (CFG.scalp.nape: a bun) the nape's bare skin too, so the cards' lowest edge
+  // at the back thins to strands as the front does: it was a hard cut line across the neck, the chef's, round 6)
+  const NAPE = CFG.scalp?.nape, napeZ = EZ - 0.11, atNape = (v) => NAPE && headW(v) > 0.3 && bPos[v * 3 + 1] > EY - NAPE && bPos[v * 3 + 1] < EY - 0.075 && bPos[v * 3 + 2] < napeZ;
+  const band = [...skinV].filter((v) => (headW(v) > 0.5 && bPos[v * 3 + 1] > EY - 0.035 && bPos[v * 3 + 1] < EY + 0.11 && bPos[v * 3 + 2] > EZ - 0.085) || atNape(v));
   const { dE, bare } = hairlineDist({ P: bPos, N: NB, V: band }, { P: pPosX, T: hairTX }, hv);
   // (below the eyes a lock beside the cheek is not the hairline: its distance eased away)
-  for (const v of hv) { const y = pPosX[v * 3 + 1]; dE[v] += (1 - sm(EY - 0.03, EY - 0.005, y)) * 0.05; }
+  for (const v of hv) { const y = pPosX[v * 3 + 1]; if (NAPE && pPosX[v * 3 + 2] < napeZ) continue; dE[v] += (1 - sm(EY - 0.03, EY - 0.005, y)) * 0.05; }
   // (the hug: the front edge's points to 2 mm off the head's skin, eased in over 1.2 cm from the edge)
   { const head = [...skinV].filter((v) => headW(v) > 0.5 && bPos[v * 3 + 1] > EY - 0.04), cell = 0.01, G = new Map(), key = (x, y, z) => x + ',' + y + ',' + z;
     for (const v of head) { const k = key(...[0, 1, 2].map((c) => Math.floor(bPos[v * 3 + c] / cell))); (G.get(k) || G.set(k, []).get(k)).push(v); }
@@ -1688,8 +1726,12 @@ async function packCloth(buf, kind) {
   // (luminance from the colour, here: the browser's sharp stand-in (sharp-web.mjs) has no greyscale)
   const { data, info } = await sharp(buf).removeAlpha().raw().toBuffer({ resolveWithObject: true }), W = info.width, H = info.height, ch = info.channels;
   const bl = await sharp(buf).removeAlpha().blur(7).raw().toBuffer(), Y = (a, i) => (ch >= 3 ? 0.3 * a[i * ch] + 0.59 * a[i * ch + 1] + 0.11 * a[i * ch + 2] : a[i * ch]), h = new Uint8Array(W * H * 3);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x, b = Y(bl, i), hp = (Y(data, i) - b) / Math.max(24, b) * 90;
-    const wv = kind === 'denim' ? 14 * ((((x + y) % 4) < 2) ? 1 : -1) : kind === 'suit' ? 8 * ((((x + y * 2) % 3) === 0) ? 1 : -1) : 9 * (x % 3 === 0 ? 1 : -0.5);
+  // (G7c: a baked plain top ('cotton') takes a third of the relief from its texture: its texture is the folds' broad
+  // light and shade, and high-passed at full strength it raised thin ridges along every fold that caught the key as
+  // bright lines, a satin's sweep (the grandmother's tee); its own grain is the jersey's ribs)
+  const hpK = kind === 'cotton' ? 30 : 90;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x, b = Y(bl, i), hp = (Y(data, i) - b) / Math.max(24, b) * hpK;
+    const wv = kind === 'denim' ? 14 * ((((x + y) % 4) < 2) ? 1 : -1) : kind === 'suit' ? 8 * ((((x + y * 2) % 3) === 0) ? 1 : -1) : (kind === 'cotton' ? 11 : 9) * (x % 3 === 0 ? 1 : -0.5);
     const v = Math.max(0, Math.min(255, Math.round(128 + Math.max(-60, Math.min(60, hp)) + wv))); h[i * 3] = h[i * 3 + 1] = h[i * 3 + 2] = v; }
   return sharp(bumpNormals(h, W, 1.6), { raw: { width: W, height: H, channels: 3 } }).png().toBuffer();
 }
@@ -1698,7 +1740,7 @@ for (const [wi, [name, part, tint0, mode, opt0]] of CFG.wear.entries()) {
   const opt = Object.assign({ tint: tint0 }, opt0 || {}), tint = mode === 'bake' ? [1, 1, 1] : tint0;
   const O = PK.J.outfits[name], img = await garment(name, mode, opt, wearT[wi]);
   // (a plain cloth has no print, so none of the print's relief either: the normal map only with the garment's own texture)
-  const own = O.normal && !['flat', 'bake', 'puffer'].includes(mode), kind = mode === 'suit' ? 'suit' : opt0?.desat ? 'denim' : 'jersey';
+  const own = O.normal && !['flat', 'bake', 'puffer'].includes(mode), kind = mode === 'suit' ? 'suit' : opt0?.desat ? 'denim' : mode === 'bake' && opt0?.heather ? 'cotton' : 'jersey';
   const C5 = !globalThis.process?.env?.C5_NOFABRIC && mode !== 'puffer' && !own;
   wearM.push(((m) => m.setExtras({ layer: CFG.wear[wi][1] === 'bottom' ? 1 : mode === 'puffer' ? 3 : 2, kind: 'cloth', garment: name }))(mat(mode === 'puffer' ? 'puffer' : 'clothes', { rough: mode === 'puffer' ? 0.5 : C5 ? 0.92 : 0.85, ds: true, spec: C5 ? CLOTHSPEC : null, map: await tex('', img, 'image/jpeg'), normal: own ? await tex('', await rd(A + PKD + '/' + O.normal), 'image/jpeg') : C5 ? await tex('', await packCloth(img, kind)) : null, color: tint })));
 }
@@ -1949,11 +1991,17 @@ if (LIB) for (const [li, { g, r }] of LIB.done.entries()) {
     // (C5: a made garment's cloth (library.mjs FABRIC): its weave, seams and folds as a normal map, the same relief a
     // little in its colour, its own roughness and a dielectric's specular turned down (no plastic sheen))
     const cloth = !globalThis.process?.env?.C5_NOFABRIC && p.paint && !p.bump && !/-buttons$/.test(p.name) ? (p.cloth || g.cloth || FABRIC[g.item]) : null;
-    const fsh = cloth ? fabricShade(LIB.ctx, cloth, p.name) : null, paint = fsh ? (q, n, f, c, ao, uv) => { const k = fsh(q, n, f, c), rgb = p.paint(q, n, f, c, ao, uv); return rgb.map((x) => Math.min(255, Math.max(0, 255 * Math.pow(Math.pow(x / 255, 2.2) * k, 1 / 2.2)))); } : p.paint;
+    // (G7c: on a light cloth the relief's shade a third as strong: the chef's white jacket showed its seams and folds as
+    // drawn grey lines, where white cotton shows them by its light (the normal map) more than by its colour)
+    const fsh = cloth ? fabricShade(LIB.ctx, cloth, p.name) : null, paint = fsh ? (q, n, f, c, ao, uv) => { const k0 = fsh(q, n, f, c), rgb = p.paint(q, n, f, c, ao, uv), Lb = rgb.reduce((a, x) => a + Math.pow(x / 255, 2.2), 0) / 3, k = 1 + (k0 - 1) * (1 - 0.65 * Math.min(1, Math.max(0, (Lb - 0.35) / 0.4)));
+      return rgb.map((x) => Math.min(255, Math.max(0, 255 * Math.pow(Math.pow(x / 255, 2.2) * k, 1 / 2.2)))); } : p.paint;
     let map = null; if (p.paint) { const img = rasterPaint({ ...m, N }, p.S, p.base, paint); map = await tex('', await sharp(img, { raw: { width: p.S, height: p.S, channels: 3 } }).jpeg({ quality: 90 }).toBuffer(), 'image/jpeg'); }
     // (forge v2.3, SH: a part's bump (a height painted as its colour is) as a normal map: grain, seams, stitches, tread)
     const bump = p.bump || (cloth ? fabricBump(LIB.ctx, cloth, p.name) : null), bS = p.bump ? p.S : Math.min(2048, Math.max(512, p.S));
-    const normal = bump ? await tex('', await sharp(bumpNormals(rasterPaint({ ...m, N }, bS, [128, 128, 128], bump), bS, p.bumpK ?? (cloth ? 3 : 2)), { raw: { width: bS, height: bS, channels: 3 } }).png().toBuffer()) : null;
+    // (G7c: and a light cloth's relief in its normal map 0.6 as deep: under the warm key a white jacket's folds and seams
+    // drew as thin grey lines)
+    const lightCloth = cloth && p.base && p.base.reduce((a, x) => a + Math.pow(x / 255, 2.2), 0) / 3 > 0.5;
+    const normal = bump ? await tex('', await sharp(bumpNormals(rasterPaint({ ...m, N }, bS, [128, 128, 128], bump), bS, p.bumpK ?? (cloth ? (lightCloth ? 1.8 : 3) : 2)), { raw: { width: bS, height: bS, channels: 3 } }).png().toBuffer()) : null;
     const mm = mat(p.name, { rough: p.rough ?? (cloth ? FABRIC_ROUGH[cloth] ?? 0.9 : 0.86), ds: true, map, normal, spec: cloth && cloth !== 'nylon' ? CLOTHSPEC : null, color: map ? [1, 1, 1] : p.base.map((c) => Math.pow(c / 255, 2.2)) }).setMetallicFactor(p.metal ?? 0).setExtras({ layer: p.name.endsWith('-buttons') ? layer + 0.5 : layer, kind: 'cloth', garment: g.item });
     addSkinned(p.name, m.P, m.UV, m.JI, m.WT, m.idx, mm, null, N);
     console.error('library emitted', p.name, m.P.length / 3, 'points', m.idx.length / 3, 'tris');
@@ -2222,7 +2270,7 @@ for (const k of keepMouth.filter((k) => { if (k.kind === 'teeth' && TEETH) { k.n
 if (CFG.cap?.make) {
   const { C, NP, NT, TH0, THN, rHead, thMin, cutY } = capGeom(CFG.cap), K = CFG.cap;
   const off = (t, ph) => (K.off ?? 0.006) + 0.012 * t * t + 0.004 * Math.max(0, Math.cos(ph)) * Math.sin(t * Math.PI);
-  const pts = [], col = [], tri = [], uvs = [];
+  const pts = [], col = [], tri = [], uvs = []; let peak0 = -1, peak1 = -1;
   const P3 = (ph, th, r) => [C[0] + r * Math.cos(th) * Math.sin(ph), C[1] + r * Math.sin(th), C[2] + r * Math.cos(th) * Math.cos(ph)];
   const seam = (ph) => { const k = ((ph / (Math.PI / 3)) % 1 + 1) % 1; return Math.min(k, 1 - k) < 0.035 ? 0.62 : 1; };
   const navy = K.color || [0.035, 0.05, 0.11];
@@ -2288,10 +2336,11 @@ if (CFG.cap?.make) {
     const PB = K.brimSpan ?? 1.05, NU = 24, NV = 8, L = K.brimLen ?? 0.055, pitch = K.pitch ?? 0.42, TK = 0.003;
     const pk = (u, v, lo) => { const ph = u * PB, { p } = base(ph), d = dirOf(ph), len = L * Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(u), 2.2) * 0.95)) * v;
       return [p[0] + d[0] * len, p[1] - Math.tan(pitch) * len - (lo ? TK : 0) + 0.002, p[2] + d[2] * len]; };
-    const bT = [], bB = [];
+    const bT = [], bB = []; peak0 = tri.length;
     for (let j = 0; j <= NV; j++) { const rt = [], rb = []; for (let i = 0; i <= NU; i++) { const u = -1 + (2 * i) / NU, v = j / NV; rt.push(add(pk(u, v, false), peakC.map((c) => c * (1.2 - 0.2 * v)))); rb.push(add(pk(u, v, true), peakC)); } bT.push(rt); bB.push(rb); }
     for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) { const a = bT[j][i], b = bT[j][i + 1], c = bT[j + 1][i], d = bT[j + 1][i + 1]; tri.push(a, b, c, b, d, c); const e = bB[j][i], f = bB[j][i + 1], g = bB[j + 1][i], h = bB[j + 1][i + 1]; tri.push(e, g, f, f, g, h); }
     for (let i = 0; i < NU; i++) { const a = bT[NV][i], b = bT[NV][i + 1], c = bB[NV][i], d = bB[NV][i + 1]; tri.push(a, b, c, b, d, c); }
+    peak1 = tri.length;
     // (a badge: a small gold oval on the band's front)
     { const { p } = base(0), base0 = pts.length / 3, R0 = 0.011; add([p[0], p[1] + bandH * 0.5 + 0.004, p[2] + 0.0035], bandC.map((c) => c * 1.25)); for (let i = 0; i < 18; i++) { const a = (i / 18) * 2 * Math.PI; add([p[0] + R0 * Math.cos(a), p[1] + bandH * 0.5 + 0.004 + R0 * 0.8 * Math.sin(a), p[2] + 0.0025], bandC.map((c) => c * 1.1)); }
       for (let i = 0; i < 18; i++) tri.push(base0, base0 + 1 + i, base0 + 1 + ((i + 1) % 18)); }
@@ -2303,15 +2352,26 @@ if (CFG.cap?.make) {
     for (const k of [a, b, c]) for (let m = 0; m < 3; m++) N[k * 3 + m] += n[m]; }
   for (let k = 0; k < N.length; k += 3) { const l = Math.hypot(N[k], N[k + 1], N[k + 2]) || 1; N[k] /= l; N[k + 1] /= l; N[k + 2] /= l; }
   const acc = (type, arr) => doc.createAccessor().setType(type).setArray(arr).setBuffer(buf);
-  const capM = doc.createMaterial('cap').setRoughnessFactor(K.rough ?? 0.88).setMetallicFactor(0).setDoubleSided(true).setBaseColorFactor([1, 1, 1, 1]);
-  const prim = doc.createPrimitive().setAttribute('POSITION', acc('VEC3', Float32Array.from(pts))).setAttribute('NORMAL', acc('VEC3', N)).setAttribute('COLOR_0', acc('VEC4', Float32Array.from(col)))
-    .setIndices(acc('SCALAR', pts.length / 3 > 65535 ? Uint32Array.from(tri) : Uint16Array.from(tri))).setMaterial(capM);
+  // (G7c: a peaked cap's crown and braided band are cloth: woven, rough, a cloth's turned-down specular (CLOTHSPEC). At
+  // roughness 0.72 and a plain F0 0.04 the gold band showed a lacquered streak in the study key (the cloth gate's
+  // highlight 4.5 % of the cap's pixels, its 99th percentile lift 0.045). The peak alone is the glossy patent part: its
+  // own primitive, 'cap-peak')
+  const peaked = STYLE === 'peaked' && peak0 >= 0, triCap = peaked ? [...tri.slice(0, peak0), ...tri.slice(peak1)] : tri;
+  const capM = doc.createMaterial('cap').setRoughnessFactor(peaked ? 0.92 : K.rough ?? 0.88).setMetallicFactor(0).setDoubleSided(true).setBaseColorFactor([1, 1, 1, 1]);
+  if (peaked) capM.setExtension('KHR_materials_specular', SPECX.createSpecular().setSpecularFactor(CLOTHSPEC[0]).setSpecularColorFactor(CLOTHSPEC[1]));
+  const big = pts.length / 3 > 65535, aP = acc('VEC3', Float32Array.from(pts)), aN = acc('VEC3', N), aC = acc('VEC4', Float32Array.from(col)), aUV = acc('VEC2', Float32Array.from(uvs));
+  const prim = doc.createPrimitive().setAttribute('POSITION', aP).setAttribute('NORMAL', aN).setAttribute('COLOR_0', aC)
+    .setIndices(acc('SCALAR', big ? Uint32Array.from(triCap) : Uint16Array.from(triCap))).setMaterial(capM);
+  const peakPrim = peaked ? doc.createPrimitive().setAttribute('POSITION', aP).setAttribute('NORMAL', aN).setAttribute('COLOR_0', aC).setAttribute('TEXCOORD_0', aUV)
+    .setIndices(acc('SCALAR', big ? Uint32Array.from(tri.slice(peak0, peak1)) : Uint16Array.from(tri.slice(peak0, peak1))))
+    .setMaterial(doc.createMaterial('cap-peak').setRoughnessFactor(0.4).setMetallicFactor(0).setDoubleSided(true).setBaseColorFactor([1, 1, 1, 1]).setExtras({ layer: 9, kind: 'cloth', garment: STYLE })) : null;
   // FORGE v2: a knit beanie's stitches: stockinette Vs over the crown, ribs in the cuff (library.knitTex), as a light map
   // under its colour and a normal map, so it reads knitted up close, not a plain dome (Oh Soon-ja, v1)
-  prim.setAttribute('TEXCOORD_0', acc('VEC2', Float32Array.from(uvs)));
+  prim.setAttribute('TEXCOORD_0', aUV);
   if (K.knit && STYLE === 'beanie') { const kt = knitTex(512, 96, 40, 0.3); capM.setBaseColorTexture(await tex('', await sharp(kt.img, { raw: { width: 512, height: 512, channels: 1 } }).toColourspace('srgb').jpeg({ quality: 90 }).toBuffer(), 'image/jpeg')).setNormalTexture(await tex('', await sharp(kt.nrm, { raw: { width: 512, height: 512, channels: 3 } }).png().toBuffer())); capM.setRoughnessFactor(0.95); }
   capM.setExtras({ layer: 9, kind: 'cloth', garment: STYLE });
-  const capNode = doc.createNode('cap').setMesh(doc.createMesh('cap').addPrimitive(prim)).setMatrix(Array.from(skin0.getInverseBindMatrices().getElement(joints.indexOf(headN), [])));
+  const capMesh = doc.createMesh('cap').addPrimitive(prim); if (peakPrim) capMesh.addPrimitive(peakPrim);
+  const capNode = doc.createNode('cap').setMesh(capMesh).setMatrix(Array.from(skin0.getInverseBindMatrices().getElement(joints.indexOf(headN), [])));
   headN.addChild(capNode);
   console.error('cap made', pts.length / 3, 'points', tri.length / 3, 'tris; band front', (cutY(0) - EY).toFixed(3), 'back', (cutY(Math.PI) - EY).toFixed(3));
 }

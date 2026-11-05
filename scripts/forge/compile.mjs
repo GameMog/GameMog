@@ -156,7 +156,10 @@ export function compile(S) {
     if (st === 'side-part') { C.hair = 'short01'; C.sidePart = { x: HS.x, sweep: fem ? HS.sweepF : HS.sweep }; C.scalp = { ...scalp, reach: 0.01 }; C.slick = HS.slick; }
     if (st === 'long-straight') { C.hair = 'long01'; C.scalp = scalp; C.trimFringe = HS.fringe; C.faceClear = HS.clear + (fem ? 0 : 0.009); }
     if (st === 'high-ponytail') { C.hair = 'ponytail01'; C.tail = { puff: fem ? 1.3 : 1.15, turn: 0.38, copies: 2, high: fem ? HS.high : HS.high * 0.75 }; C.scalp = scalp; }
-    if (st === 'bun') { C.hair = 'ponytail01'; C.tail = { puff: 1, turn: 0, copies: 0 }; C.bun = { ...HS, colors: [ramp[0], ramp[1], ramp[2]] }; C.scalp = scalp; }
+    // (G7c: under a bun's slicked-back hair the scalp's paint 1.2 cm past the cards and down the nape: at 6 mm, painted
+    // per skin point, it stopped on the skin's triangle edges (a stepped hairline at the temple) and not at all below the
+    // ears (a hard edge at the nape; the chef, round 6))
+    if (st === 'bun') { C.hair = 'ponytail01'; C.tail = { puff: 1, turn: 0, copies: 0 }; C.bun = { ...HS, colors: [ramp[0], ramp[1], ramp[2]] }; C.scalp = { ...scalp, reach: 0.012, nape: 0.11 }; }
     if (C.hair !== 'none') { C.hairCut = 0.32; C.hairAlpha = 0.3; C.hairNormal = 3.5; C.hairRough = 0.42; }
   }
 
@@ -182,8 +185,11 @@ export function compile(S) {
   // silver for a grey or white beard, no cards. H5's 5 shells to 9.5 mm under 11 mm cards were a steel-wool mass half as
   // big again as his, with no grain)
   else if (FH.style === 'full') { const sil = ['silver', 'white', 'grey'].includes(FH.color);
-    C.beard = { style: 'full', col: fc[2], mid: fc[1], root: fc[0], a: clamp(0.74 + 0.22 * dens, 0.6, 0.94), depth: 0.0028, grey: sil ? 0.5 : 0.15, len: 16, feather: 2 };
-    C.shells = { style: 'mrbig', layers: 4, depth: +(0.0075 * (0.8 + 0.2 * dens)).toFixed(4), alpha: [1, 0.86, 0.74, 0.62], shade: [0.55, 0.72, 0.86, 1], tex: 2048, taper: 0.55, cols: sil ? null : [fc[1], fc[2]] }; }
+    // (G7c: its outline about a fifth smaller, toward Mr. Big's silhouette: on the old boss's wide, jowly face his cheek
+    // line ran high up the cheek and back to the ear, and 7.4 mm of shells made it puffy. The cheek line 5 mm lower and
+    // flatter, 1 cm further from the ear, the shells to 6 mm)
+    C.beard = { style: 'full', col: fc[2], mid: fc[1], root: fc[0], a: clamp(0.74 + 0.22 * dens, 0.6, 0.94), depth: 0.0024, grey: sil ? 0.5 : 0.15, len: 16, feather: 2, trim: { lift: 0.009, slope: 0.52, ear: 0.062 } };
+    C.shells = { style: 'mrbig', layers: 4, depth: +(0.006 * (0.8 + 0.2 * dens)).toFixed(4), alpha: [1, 0.86, 0.74, 0.62], shade: [0.55, 0.72, 0.86, 1], tex: 2048, taper: 0.55, cols: sil ? null : [fc[1], fc[2]] }; }
   else if (GROOM && !globalThis.process?.env?.FORGE_SHELL_BEARDS) {
     C.beard = { style: GROOM, col: fc[2], mid: fc[1], root: fc[0], a: clamp(0.35 + 0.4 * dens, 0.3, 0.8), depth: GROOM === 'fullgrown' ? 0.0025 : 0.0012, grey: ['silver', 'white', 'grey', 'salt-and-pepper'].includes(FH.color) ? 0.5 : 0.15, len: 16, feather: 2 };
     C.cards = { groom: GROOM === 'fullgrown' ? 'full' : GROOM, grey: ['salt-and-pepper'].includes(FH.color) ? 0.35 : 0.1, seed: [...S.id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0 };
@@ -255,7 +261,8 @@ export function compile(S) {
     if (top.item === 'hoodie') C.hood = { extra: top.fit === 'oversized' ? 0.016 : 0.011, color: hex(G(top, [70, 72, 78])).map((x) => Math.round(x * 0.92)), r: 0.036, drop: 0.035, stringColor: hex(top.accent, [230, 230, 226]) };
   } else if (!suitTop && top.item !== 'overalls') {
     if (top.item === 'puffer-coat') { C.wear.push([fem ? 'female_casualsuit01' : 'male_casualsuit06', 'top', [1, 1, 1], 'bake', { tint: lin3(hex(top.accent, [58, 54, 52])), floor: 0.5 }]); C.wear.push([fem ? 'female_elegantsuit01' : 'male_casualsuit01', 'top', [1, 1, 1], 'puffer']); C.puffer = { loft: 0.014, amp: 0.013, pitch: 0.085, sleevePitch: 0.07, white: hex(G(top, [200, 30, 36])), smooth: 10, cutCollar: 0.02, stand: { from: 0.03, h: 0.06, gap: 0.018 } }; }
-    else C.wear.push([fem ? 'female_casualsuit01' : 'male_casualsuit06', 'top', [1, 1, 1], 'bake', { tint: lin3(hex(G(top, [200, 200, 196]))), floor: 0.4 }]);
+    // (G7c: a plain top is cotton: its folds' light capped at 1.08 x its middle and a heathered grain (core.mjs garment))
+    else C.wear.push([fem ? 'female_casualsuit01' : 'male_casualsuit06', 'top', [1, 1, 1], 'bake', { tint: lin3(hex(G(top, [200, 200, 196]))), floor: 0.4, hi: 1.08, heather: 0.05 }]);
   }
   // (forge v2.2: a suit's jacket is the library's (cut from the body, lapels, natural shoulders) over the base suit's shirt,
   // tie and trousers; a woman's over a plain shirt)

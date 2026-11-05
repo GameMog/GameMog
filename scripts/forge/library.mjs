@@ -502,9 +502,12 @@ export const GARMENTS = {
   // the doorman's / a uniform coat: mid-thigh, double-breasted gold buttons, a stand collar and cuffs in the trim colour
   'doorman-coat': (ctx, o) => coat(ctx, { ...o, kind: 'doorman', hemTop: ctx.crotch + 0.045, len: (ctx.crotch + 0.045) - ((ctx.crotch + ctx.knee) / 2 - 0.02), cloth: 'wool', thick: 0.01, collar: 'stand', db: true, trim: true }),
   'uniform-jacket': (ctx, o) => coat(ctx, { ...o, kind: 'uniform', hem: ctx.hip - 0.02, cloth: 'twill', thick: 0.009, collar: 'stand', db: false, trim: true, buttonsN: 5 }),
+  // (G7c: its neckline 1.6 cm under the neck's base and only 5 mm lower in front (the stand collar's 2.2 and 2 cm): the
+  // collar stands on the neck, and the skin at the neck's base in front of it, between the collar's foot and a neckline
+  // scooped 2 cm lower, showed either side of the collar as pale flaps (round 6))
   // the chef's jacket: hip length, double-breasted (the left front over the right, two columns of cloth knot buttons),
   // a mandarin collar, turned-back cuffs, white cotton drill
-  'chef-jacket': (ctx, o) => coat(ctx, { ...o, kind: 'chef', hem: ctx.hip - 0.03, cloth: 'cotton', thick: 0.009, collar: 'stand', db: true, flap: true, cuffBand: 0.05 }),
+  'chef-jacket': (ctx, o) => coat(ctx, { ...o, kind: 'chef', hem: ctx.hip - 0.03, cloth: 'cotton', thick: 0.009, collar: 'stand', db: true, flap: true, cuffBand: 0.05, neckFront: 0.005, neckBase: 0.016 }),
   // the hoodie: crew neck (the hood lies behind it), rib cuffs and hem band, a kangaroo pocket; loose
   hoodie: (ctx, o) => coat(ctx, { ...o, kind: 'hoodie', hem: ctx.hip - (o.fit === 'oversized' ? 0.06 : 0.035), cloth: 'fleece', thick: o.fit === 'oversized' ? 0.016 : 0.011, collar: 'rib', db: false, ribs: true, pocket: true, neckBase: 0.012, neckFront: 0.018, cuff: 0.01 }),
   // the puffer: quilted channels round the body and down the sleeves (the loft rises in each channel and falls to the
