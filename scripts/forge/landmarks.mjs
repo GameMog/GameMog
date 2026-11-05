@@ -117,3 +117,10 @@ export function findMouth(Pf, skinIx, eyeIx, eyeFront, ref = null) {
   const lidInfo = L ? { gapRad: +L.gap.toFixed(3), lo: +L.lo.toFixed(3), up: +L.up.toFixed(3), lidUp: +(L.up - L.lo + 0.21).toFixed(3), lidMidMm: +(r * (Math.sin(L.up) + Math.sin(L.lo)) / 2 * 1000).toFixed(2), openingMm: +(r * (Math.sin(L.up) - Math.sin(L.lo)) * 1000).toFixed(2) } : null;
   return { below: +((eyMid - lm.parting[0][1]) * 1000).toFixed(2), front: +((lm.lipZ - eyeFront) * 1000).toFixed(2), chin: lm.chin != null ? +((eyMid - lm.chin) * 1000).toFixed(1) : null, lids: !!lm.lids, lidInfo, eyeR: +(r * 1000).toFixed(2), corners: lm.parting.length, ey: eyMid, source, delta };
 }
+
+// (G8a) the parting across the mouth as face.js finds it on this body, for the forge to read face.js's mouthShade ahead
+// of it: { ey, front, parting: [[x, y, z]...], lipZ } (null: no parting found)
+export function faceParting(Pf, skinIx, eyeIx) {
+  const P = attr(Pf), eyes = fitEyes(P, new Set(eyeIx)), lm = landmarks(P, skinIx, eyes);
+  return lm && { ey: lm.ey, front: lm.front, parting: lm.parting, lipZ: lm.lipZ };
+}

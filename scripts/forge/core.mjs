@@ -8,7 +8,7 @@
 // runs it as the Node CLI does (forge.mjs -> pipeline.mjs). Files come from env.A (the asset library) and env.K (the
 // forge kit, kit.mjs); the raw GLB and the landmarks come back in memory.
 //   core(cfg, env) -> { glb: Uint8Array, lm (the landmarks post.mjs and the runtime read), info }
-import { findMouth } from './landmarks.mjs';
+import { findMouth, faceParting } from './landmarks.mjs';
 import { bumpNormals } from './shoes.mjs';
 import { applyFace, carry } from './targets.mjs';
 import { skinGuard, skinTone } from './colour.mjs';
@@ -146,7 +146,7 @@ const headW = (v) => { let w = 0; for (let j = 0; j < 4; j++) if (bSI[v * 4 + j]
 const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 // (G7a: the mouth's way out: straight forward (the bind space's +z; a little down let a low lamp in front light it up past the lips): the inside's normals and the
 // tongue's turn to it (paintMouthIn, mouthNormals, the teeth below))
-const MOUTH_OUT = [0, 0, 1];
+const MOUTH_OUT = [0, 0, 1], TONGUE_OUT = [0, -0.37, 0.93];
 let MOUTH_DEEP = null; // (mouthDeep's cache, below)
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const skinV = new Set(skinT);
@@ -370,10 +370,12 @@ const TEETH = CFG.teeth ? (() => {
       let e; if (t[2] === 'cusp') { const d = Math.abs(u - w / 2) / (w / 2); e = t[1] + sg * (0.75 * (Math.sqrt(d * d + 0.04) - 0.2) + cr(u, 0.9) + cr(w - u, 0.9)); } else e = t[1] + sg * (cr(u, t[2]) + cr(w - u, t[3]));
       const x = (u / w) * 2 - 1, tk = spans.indexOf(sp) * Math.sign(s || 1) + (lower ? 40 : 0), tv = 1 + 0.06 * SOFT * toothVar(tk + 7);
       const across = (1 - 0.22 * x * x) * (SOFT ? (0.84 + 0.16 * ss(0, 0.35, Math.min(u, w - u))) * tv : 0.72 + 0.28 * ss(0, 0.16, Math.min(u, w - u)));
-      const side = 1 - (lower ? 0.92 * ss(2.5 * ts, 12 * ts, a) : 0.88 * ss((SOFT ? 3.6 : 4.5) * ts, (SOFT ? 14 : 17) * ts, a));
+      // (G8a: Jane's open mouth shows a full upper row: here only the two centrals read, the laterals and canines faded to
+      // 12-30 % ('1-2 teeth', gappy). The upper row's light now falls off only past the canines, the lower row a hint)
+      const side = 1 - (lower ? 0.7 * ss(4 * ts, 16 * ts, a) : 0.5 * ss(9 * ts, 24 * ts, a));
       for (let j = T.r[0]; j < T.r[1]; j++) {
         const y = T.y0 + ((T.y1 - T.y0) * (j - T.r[0] + 0.5)) / (T.r[1] - T.r[0]), inn = sg * (y - e), al = Math.min(1, Math.max(0, inn / 0.09 + 0.5));
-        const g = ss(2.5, 7, inn), k = across * (0.88 + 0.12 * ss(0, 0.6, inn)) * side * (lower ? 0.5 * (0.5 + 0.5 * ss(-4, -0.8, y)) : 0.32 + 0.68 * ss(3.2, -2, y)) * (SOFT ? 0.86 : 1), o = (j * TW + i) * 4;
+        const g = ss(2.5, 7, inn), k = across * (0.88 + 0.12 * ss(0, 0.6, inn)) * side * (lower ? 0.62 * (0.55 + 0.45 * ss(-4, -0.8, y)) : 0.5 + 0.5 * ss(4, -1, y)) * (SOFT ? 0.95 : 1), o = (j * TW + i) * 4;
         img[o] = Math.round((tone[0] - 16 * g) * k); img[o + 1] = Math.round((tone[1] - 26 * g) * k); img[o + 2] = Math.round((tone[2] - 40 * g) * k); img[o + 3] = Math.round(al * 255);
       }
     }
@@ -382,8 +384,11 @@ const TEETH = CFG.teeth ? (() => {
   // 150/62/64 read as a pink slab under the study's rim))
   // (G7a: browner and darker toward its back and its root (u: round the tongue, its tip at u = 0.25; the back half in
   // the mouth's dark), the blue taken down (128/50/54 under the cool rim read as a lavender slab))
-  for (let j = 416; j < TH; j++) for (let i = 0; i < TW; i++) { const o = (j * TW + i) * 4, f = 0.45 + 0.4 * ((j - 416) / (TH - 416)), fr = 0.5 + 0.5 * Math.sin(2 * Math.PI * (i + 0.5) / TW), k = f * (0.6 + 0.4 * fr);
-    img[o] = Math.round(Math.min(255, 196 * k)); img[o + 1] = Math.round(72 * k); img[o + 2] = Math.round(60 * k); img[o + 3] = 255; }
+  // (G8a: 'a flat salmon patch catching the key light' in the front frames: a muted rose-brown, its top darker, a soft
+  // groove down its middle and its sides (the ellipsoid's middle band) rounding into shade, so it reads as a soft tongue lying low, not a lit slab)
+  for (let j = 416; j < TH; j++) for (let i = 0; i < TW; i++) { const o = (j * TW + i) * 4, v = (j - 416) / (TH - 416), f = 0.42 + 0.33 * v, ph = 2 * Math.PI * (i + 0.5) / TW, fr = 0.5 + 0.5 * Math.sin(ph);
+    const groove = 1 - 0.22 * Math.exp(-(((i + 0.5) / TW - 0.25) ** 2) / 0.0012) * ss(0.3, 0.9, v), rim = 0.72 + 0.28 * ss(0.5, 0.85, v), k = f * (0.55 + 0.45 * fr) * groove * rim;
+    img[o] = Math.round(Math.min(255, 150 * k)); img[o + 1] = Math.round(62 * k); img[o + 2] = Math.round(54 * k); img[o + 3] = 255; }
   // the geometry: each row a band round its arch (x across, the arch's curve going back), a few rows of points down it
   const pts = [], uvs = [], nrm = [], up = [], lo = [];
   const add = (p, uv, n) => { pts.push(...p); uvs.push(uv[0], uv[1]); const l = Math.hypot(...n) || 1; nrm.push(...n.map((c) => c / l)); return pts.length / 3 - 1; };
@@ -406,9 +411,11 @@ const TEETH = CFG.teeth ? (() => {
   // mid-word and showed pushed out between the teeth (young mother, office worker, mechanic). The talk gate measures it)
   { const base = pts.length / 3, SEG = 20, RNG = 10, TX = 0.013 * ts, TY = 0.0044, TZ = 0.0145;
     for (let r = 0; r <= RNG; r++) for (let k = 0; k <= SEG; k++) { const th = (r / RNG) * Math.PI, ph = (k / SEG) * 2 * Math.PI, x = Math.sin(th) * Math.cos(ph), y = Math.cos(th), z = Math.sin(th) * Math.sin(ph);
-      // (G7a: its normals turned out of the mouth (forward), so no light from above or behind lights its top)
-      const nl = Math.hypot(x / TX, y / TY, z / TZ), nn = [0.3 * x / TX / nl + MOUTH_OUT[0], 0.3 * y / TY / nl + MOUTH_OUT[1], 0.3 * z / TZ / nl + MOUTH_OUT[2]];
-      add([x * TX, part - 0.0099 + y * TY, lipZ - 0.028 + z * TZ], [k / SEG, (416 + (0.5 + 0.5 * y) * 95) / TH], CFG.mouthIn === false ? [x / TX, y / TY, z / TZ] : nn); }
+      // (G7a: its normals turned out of the mouth (forward), so no light from above or behind lights its top; G8a: and a
+      // little down (TONGUE_OUT), so the key from above in front, which reaches the floor of an open mouth past the upper
+      // lip's shadow, lights it at about half: the 'salmon patch' of the front frames)
+      const nl = Math.hypot(x / TX, y / TY, z / TZ), nn = [0.3 * x / TX / nl + TONGUE_OUT[0], 0.3 * y / TY / nl + TONGUE_OUT[1], 0.3 * z / TZ / nl + TONGUE_OUT[2]];
+      add([x * TX, part - 0.0112 + y * TY, lipZ - 0.028 + z * TZ], [k / SEG, (416 + (0.5 + 0.5 * y) * 95) / TH], CFG.mouthIn === false ? [x / TX, y / TY, z / TZ] : nn); }
     for (let r = 0; r < RNG; r++) for (let k = 0; k < SEG; k++) { const a = base + r * (SEG + 1) + k, b = a + SEG + 1; lo.push(a, b, a + 1, a + 1, b, b + 1); } }
   console.error('teeth', pts.length / 3, 'points; up', up.length / 3, 'lo+tongue', lo.length / 3, 'tris; parting', part.toFixed(4), 'lipZ', lipZ.toFixed(4));
   return { P: Float32Array.from(pts), UV: uvs, N: nrm, n: pts.length / 3, up, lo, img, TW, TH };
@@ -937,11 +944,17 @@ function mouthDeep(fresh = false) {
   if (MOUTH_DEEP && !fresh) return MOUTH_DEEP;
   const fm = EY - (CFG.mouth?.below ?? 63.5) / 1000, lipZ = EYEFRONT + (CFG.mouth?.front ?? 13.25) / 1000, deep = new Float32Array(bPos.length / 3);
   const T = []; for (let q = 0; q < skinT.length; q += 3) { const vs = [skinT[q], skinT[q + 1], skinT[q + 2]];
-    if (vs.some((v) => Math.abs(bPos[v * 3]) < 0.045 && bPos[v * 3 + 1] > fm - 0.035 && bPos[v * 3 + 1] < fm + 0.022 && bPos[v * 3 + 2] > lipZ - 0.11)) T.push(...vs); }
+    if (vs.some((v) => Math.abs(bPos[v * 3]) < 0.045 && bPos[v * 3 + 1] > fm - 0.055 && bPos[v * 3 + 1] < fm + 0.022 && bPos[v * 3 + 2] > lipZ - 0.11)) T.push(...vs); }
   for (const v of new Set(skinT)) {
     const x = bPos[v * 3], y = bPos[v * 3 + 1], z = bPos[v * 3 + 2];
     // (no further back than 10 cm behind the lips (the throat): the back of the head and neck also have skin 'in front' of them)
-    if (Math.abs(x) > 0.04 || y < fm - 0.03 || y > fm + 0.018 || z > lipZ - 0.0008 || z < lipZ - 0.1) continue;
+    // (G8a: and the mouth's floor below that, 3-5 cm under the parting, where it faces up (the jaw's underside, which has
+    // the chin in front of it, faces down): face.js leaves it as it is, and an open jaw showed it to the camera and the
+    // key as a lit salmon sheet of plain skin behind the lower teeth, in the front and 3/4 open frames)
+    // (and the throat's back wall, 10-12.5 cm behind the lips, where it faces forward (the nape, further back, faces
+    // back): the old cut at 10 cm left the bag's back wall the skin's own colour, lit through the open mouth: the 'flat
+    // salmon patch' of the front frames was this wall, not the tongue)
+    if (Math.abs(x) > 0.04 || y < fm - 0.05 || (y < fm - 0.03 && BN0[v * 3 + 1] / 127 < 0.3) || y > fm + 0.018 || z > lipZ - 0.0008 || z < lipZ - 0.125 || (z < lipZ - 0.095 && BN0[v * 3 + 2] / 127 < 0.2)) continue;
     let top = -Infinity;
     for (let i = 0; i < T.length; i += 3) { const a = T[i], b = T[i + 1], c = T[i + 2], x1 = bPos[a * 3], y1 = bPos[a * 3 + 1], x2 = bPos[b * 3], y2 = bPos[b * 3 + 1], x3 = bPos[c * 3], y3 = bPos[c * 3 + 1];
       const det = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3); if (Math.abs(det) < 1e-12) continue;
@@ -949,13 +962,66 @@ function mouthDeep(fresh = false) {
       if (l1 < 0 || l2 < 0 || l3 < 0) continue; const zh = l1 * bPos[a * 3 + 2] + l2 * bPos[b * 3 + 2] + l3 * bPos[c * 3 + 2]; if (zh > top) top = zh; }
     const d = top - z; if (d > 0.0008) deep[v] = d * (1 - sm(0.03, 0.04, Math.abs(x)));
   }
+  // (G8a: the cheeks' inner walls by the mouth's corners (1.8-2.8 cm out): nothing lies straight in front of them (the
+  // corners' front is 5-10 mm behind the middle's), so they read as outside, kept the skin's own colour and normals, and
+  // an open jaw turned them to the camera: the lit salmon sheet at one side of the open mouth in the front and 3/4 frames.
+  // A point behind the lips' front at its own distance from the middle (face.js's parting) and facing into the mouth
+  // (toward a point 3.5 cm behind the lips) is the inside too, its depth how far behind that front it lies)
+  { const lm = faceParting(bPos, skinT, eyesT), part = lm?.parting || [[0, fm, lipZ]], C = [0, fm - 0.004, lipZ - 0.035];
+    const lipZAt = (ax) => { let i = 0; while (i < part.length - 1 && part[i + 1][0] <= ax) i++; const a = part[i], b = part[i + 1]; return !b ? a[2] : a[2] + (b[2] - a[2]) * Math.min(1, Math.max(0, (ax - a[0]) / (b[0] - a[0]))); };
+    let w = 0;
+    for (const v of new Set(skinT)) { if (deep[v] > 0) continue; const x = bPos[v * 3], y = bPos[v * 3 + 1], z = bPos[v * 3 + 2], ax = Math.abs(x);
+      if (ax > 0.034 || y < fm - 0.03 || y > fm + 0.015 || z < lipZ - 0.06) continue;
+      const behind = lipZAt(ax) - z; if (behind < 0.002) continue;
+      const to = [C[0] - x, C[1] - y, C[2] - z], tl = Math.hypot(...to), nx = BN0[v * 3] / 127, ny = BN0[v * 3 + 1] / 127, nz = BN0[v * 3 + 2] / 127, nl = Math.hypot(nx, ny, nz) || 1;
+      if ((nx * to[0] + ny * to[1] + nz * to[2]) / (tl * nl) < 0.5) continue;
+      deep[v] = behind * (1 - sm(0.03, 0.04, ax)); w++; }
+    if (!fresh) console.error('mouth inside: cheek walls', w, 'points'); }
   let n = 0, mx = 0; for (const d of deep) if (d > 0) { n++; mx = Math.max(mx, d); }
   console.error('mouth inside', n, 'points, deepest', (mx * 1000).toFixed(1), 'mm');
   return fresh ? deep : (MOUTH_DEEP = deep);
 }
 // the inside's colour (sRGB, before face.js's own darkening): the lips' wet inner red where it begins, a deep warm
 // red-brown behind, near black toward the throat (CFG.mouthIn: false leaves the skin as it was)
-const MOUTH_IN = { lip: [132, 50, 44], deep: [74, 24, 18], throat: [28, 8, 6] };
+// (G8a, 'a puppet's black void': G7a's colours went through face.js's mouthShade too, which takes the albedo down to 12 %
+// (linear) from 8 mm behind the lips' front: the inside read near black past the lips' red edge (lightness 0.12, the
+// floor of the render). Now the stops are the colour as SEEN, after mouthShade, and the paint is that over face.js's own
+// shade at that point (faceShadeV; linear, each channel to 1 at most): a wet red at the inner lip, a warm red-brown over the
+// gums and the floor, darkening toward the throat. Both face.js copies (Mog City's and the cast's) shade alike.)
+const MOUTH_IN = [[0.0008, [128, 50, 43]], [0.004, [108, 41, 34]], [0.01, [88, 32, 27]], [0.02, [66, 23, 18]], [0.036, [48, 16, 12]], [0.08, [38, 12, 9]]];
+const lin8 = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+const srgb8 = (l) => 255 * (l <= 0.0031308 ? l * 12.92 : 1.055 * Math.pow(l, 1 / 2.4) - 0.055);
+// (face.js's mouthShade per body point, read as face.js reads it: its parting across the mouth (the lips' front by the
+// distance from the mid-line, found on this body as face.js finds it, or the carried one), points up to 1.5 mm behind
+// that front left as they are. With the forge's own depth (the lips' front at the middle) instead, the skin just behind
+// the lips' sides, which face.js leaves unshaded, was painted for its shade: a lit salmon sheet in the open mouth)
+let FACE_SHADE = null;
+function faceShadeV() {
+  if (FACE_SHADE) return FACE_SHADE;
+  const sh = (FACE_SHADE = new Float32Array(bPos.length / 3).fill(1));
+  const lm = faceParting(bPos, skinT, eyesT); if (!lm) return sh;
+  const carried = CFG.mouth?.source?.parting === 'carried';
+  const part = carried ? [[0, lm.ey - CFG.mouth.below / 1000, lm.front + CFG.mouth.front / 1000]] : lm.parting;
+  const lipZAt = (ax) => { let i = 0; while (i < part.length - 1 && part[i + 1][0] <= ax) i++; const a = part[i], b = part[i + 1]; return !b ? a[2] : a[2] + (b[2] - a[2]) * Math.min(1, Math.max(0, (ax - a[0]) / (b[0] - a[0]))); };
+  const fm = part[0][1], lipZ = part[0][2];
+  const inM = (v) => Math.abs(bPos[v * 3]) < 0.045 && bPos[v * 3 + 1] > fm - 0.035 && bPos[v * 3 + 1] < fm + 0.022 && bPos[v * 3 + 2] > lipZ - 0.11;
+  const T = []; for (let q = 0; q < skinT.length; q += 3) if (inM(skinT[q]) || inM(skinT[q + 1]) || inM(skinT[q + 2])) T.push(skinT[q], skinT[q + 1], skinT[q + 2]);
+  let n = 0;
+  for (const v of new Set(skinT)) {
+    const x = bPos[v * 3], y = bPos[v * 3 + 1], z = bPos[v * 3 + 2], ax = Math.abs(x);
+    if (ax > 0.04 || y < fm - 0.03 || y > fm + 0.018 || z > lipZAt(ax) - 0.0015) continue;
+    let top = -Infinity;
+    for (let i = 0; i < T.length; i += 3) { const a = T[i], b = T[i + 1], c = T[i + 2], x1 = bPos[a * 3], y1 = bPos[a * 3 + 1], x2 = bPos[b * 3], y2 = bPos[b * 3 + 1], x3 = bPos[c * 3], y3 = bPos[c * 3 + 1];
+      const det = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3); if (Math.abs(det) < 1e-12) continue;
+      const l1 = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / det, l2 = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / det, l3 = 1 - l1 - l2;
+      if (l1 < 0 || l2 < 0 || l3 < 0) continue; const zh = l1 * bPos[a * 3 + 2] + l2 * bPos[b * 3 + 2] + l3 * bPos[c * 3 + 2]; if (zh > top) top = zh; }
+    const d = top - z; if (d > 0.0015) { sh[v] = 1 - 0.88 * sm(0.0015, 0.008, d) * (1 - sm(0.03, 0.04, ax)); n++; }
+  }
+  console.error('mouth inside: face.js shades', n, 'points', carried ? '(carried parting)' : `(parting at ${part.length} points)`);
+  return sh;
+}
+const mouthSeen = (d) => { let i = 0; while (i < MOUTH_IN.length - 1 && MOUTH_IN[i + 1][0] <= d) i++; const [d0, c0] = MOUTH_IN[i], [d1, c1] = MOUTH_IN[Math.min(i + 1, MOUTH_IN.length - 1)];
+  const t = d1 > d0 ? sm(d0, d1, d) : 0; return [0, 1, 2].map((k) => lin8(c0[k]) * (1 - t) + lin8(c1[k]) * t); };
 // (G7b: hair painted on the skin's texture (the scalp under cards, a shaved or buzzed head, a beard's paint, the brows),
 // texel by texel how much of it is hair: the skin guard's per-channel gains (a dark skin leaning red: 0.77, 1.37, 1.58)
 // turned the grandmother's silver scalp paint teal at her temples; they are for skin, so painted hair keeps its colour)
@@ -963,21 +1029,22 @@ const HAIRPX = new Float32Array(2048 * 2048), hairPx = (i, a) => { if (a > HAIRP
 async function paintMouthIn(img) {
   if (CFG.mouthIn === false || !CFG.mouth) return img;
   const S = 2048, { data } = await sharp(img).removeAlpha().raw().toBuffer({ resolveWithObject: true }), uv = B.get('uv'), deep = mouthDeep();
-  const col = (d) => { const a = sm(0.0008, 0.004, d), b = sm(0.003, 0.01, d), c = sm(0.01, 0.03, d);
-    return [0, 1, 2].map((k) => (MOUTH_IN.lip[k] * (1 - b) + MOUTH_IN.deep[k] * b) * (1 - c) + MOUTH_IN.throat[k] * c).concat(a); };
+  const fs = faceShadeV(), col = (d, sh) => { const a = sm(0.0008, 0.004, d);
+    return mouthSeen(d).map((l) => srgb8(Math.min(1, l / sh))).concat(a); };
   let painted = 0;
   for (let q = 0; q < skinT.length; q += 3) {
     const vs = [skinT[q], skinT[q + 1], skinT[q + 2]], ds = vs.map((v) => deep[v]); if (ds.every((d) => d <= 0)) continue; painted++;
+    const fsh = vs.map((v) => fs[v]);
     const U = vs.map((v) => [uv[v * 2] / 65535 * S, (1 - uv[v * 2 + 1] / 65535) * S]);
     const x0 = Math.floor(Math.min(...U.map((u) => u[0]))), x1 = Math.ceil(Math.max(...U.map((u) => u[0]))), y0 = Math.floor(Math.min(...U.map((u) => u[1]))), y1 = Math.ceil(Math.max(...U.map((u) => u[1])));
     const det = (U[1][1] - U[2][1]) * (U[0][0] - U[2][0]) + (U[2][0] - U[1][0]) * (U[0][1] - U[2][1]); if (Math.abs(det) < 1e-9) continue;
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const l1 = ((U[1][1] - U[2][1]) * (x - U[2][0]) + (U[2][0] - U[1][0]) * (y - U[2][1])) / det, l2 = ((U[2][1] - U[0][1]) * (x - U[2][0]) + (U[0][0] - U[2][0]) * (y - U[2][1])) / det, l3 = 1 - l1 - l2;
       if (l1 < -0.02 || l2 < -0.02 || l3 < -0.02 || x < 0 || y < 0 || x >= S || y >= S) continue;
-      const [r, g, b, w] = col(Math.max(0, l1 * ds[0] + l2 * ds[1] + l3 * ds[2])), i = (y * S + x) * 3;
+      const [r, g, b, w] = col(Math.max(0, l1 * ds[0] + l2 * ds[1] + l3 * ds[2]), Math.max(0.12, l1 * fsh[0] + l2 * fsh[1] + l3 * fsh[2])), i = (y * S + x) * 3;
       // (the skin's own grain kept a little: its light against its mean)
       const grain = 0.85 + 0.15 * Math.min(1.6, (0.3 * data[i] + 0.59 * data[i + 1] + 0.11 * data[i + 2]) / 170);
-      data[i] = Math.round(data[i] * (1 - w) + r * grain * w); data[i + 1] = Math.round(data[i + 1] * (1 - w) + g * grain * w); data[i + 2] = Math.round(data[i + 2] * (1 - w) + b * grain * w);
+      const mx = (c0, c) => Math.min(255, Math.round(c0 * (1 - w) + c * grain * w)); data[i] = mx(data[i], r); data[i + 1] = mx(data[i + 1], g); data[i + 2] = mx(data[i + 2], b);
     }
   }
   console.error('mouth inside painted', painted, 'triangles');
@@ -1410,12 +1477,27 @@ async function suitTex(f) {
 }
 // the beard on the skin's texture: each skin triangle with some beard drawn in the texture's space (its uvs), the
 // silver hair over the skin by the area's share, a fine grain of darker roots and lighter tips in it
+// (G8a, the old boss's 'pale bare-skin ring between lips and beard': the beard is cleared over the lips' band and thins
+// over the 5 mm before the lips' outline (the shells must not cross the parting), which left a band of bare, pale skin
+// round the mouth inside a full beard, the mouth rimmed and swollen in every talking frame. A trimmed beard's skin there
+// is its roots' shadow and short hairs to the lip line: (a moustache alone has none: its ring painted dark corners under it, the cop's and the veteran's) the band (the skin round the mouth, not inside it, with a full
+// beard within 14 mm) is painted as the beard's own skin, texel by texel only where the texture is skin, not the lip's red)
+const RING = (() => {
+  const r = new Float32Array(nB); if (!CFG.beard || CFG.beard.style === 'stubble' || CFG.beard.style === 'moustache' || CFG.mouthRing === false) return r;
+  const full = []; for (const v of skinV) if (BEARD[v] > 0.5 && Math.abs(bPos[v * 3]) < MH + 0.03 && Math.abs(bPos[v * 3 + 1] - MOUTHY) < 0.035) full.push(v);
+  if (!full.length) return r; const d0 = mouthDeep(); let n = 0;
+  for (const v of skinV) { const x = Math.abs(bPos[v * 3]), y = bPos[v * 3 + 1] - MOUTHY, z = bPos[v * 3 + 2]; if (BEARD[v] > 0.6 || d0[v] > 0 || z < EZ - 0.012) continue;
+    const e = (x / (MH + 0.013)) ** 2 + (y / (y > 0 ? 0.02 : 0.024)) ** 2; if (e >= 1) continue;
+    let near = 1e9; for (const u of full) { const dd = (bPos[u * 3] - bPos[v * 3]) ** 2 + (bPos[u * 3 + 1] - bPos[v * 3 + 1]) ** 2 + (bPos[u * 3 + 2] - z) ** 2; if (dd < near) near = dd; }
+    near = Math.sqrt(near); if (near > 0.014) continue; r[v] = (1 - sm(0.007, 0.014, near)) * (1 - sm(0.85, 1, e)); n++; }
+  console.error('beard: lip ring', n, 'points'); return r; })();
 async function paintBeard(img) {
   if (!CFG.beard) return img;
   const S = 2048, { data } = await sharp(img).removeAlpha().raw().toBuffer({ resolveWithObject: true }), uv = B.get('uv'), { col, root, a: A0 } = CFG.beard;
   let n = 0; const done = new Uint8Array(S * S); // (H5: each texel once: the overlap at triangle edges drew the mesh)
   for (let q = 0; q < skinT.length; q += 3) {
-    const vs = [skinT[q], skinT[q + 1], skinT[q + 2]], ws = vs.map((v) => BEARD[v]); if (ws.every((w) => w <= 0.01)) continue;
+    const vs = [skinT[q], skinT[q + 1], skinT[q + 2]], ws0 = vs.map((v) => BEARD[v]), rs = vs.map((v) => RING[v]); if (ws0.every((w) => w <= 0.01) && rs.every((w) => w <= 0.01)) continue;
+    const ws = ws0;
     const U = vs.map((v) => [uv[v * 2] / 65535 * S, (1 - uv[v * 2 + 1] / 65535) * S]), Pv = vs.map((v) => [bPos[v * 3], bPos[v * 3 + 1], bPos[v * 3 + 2]]);
     const d = uvDir(Pv, U, growth(Pv[0]));
     const x0 = Math.floor(Math.min(...U.map((u) => u[0]))), x1 = Math.ceil(Math.max(...U.map((u) => u[0]))), y0 = Math.floor(Math.min(...U.map((u) => u[1]))), y1 = Math.ceil(Math.max(...U.map((u) => u[1])));
@@ -1423,8 +1505,10 @@ async function paintBeard(img) {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const l1 = ((U[1][1] - U[2][1]) * (x - U[2][0]) + (U[2][0] - U[1][0]) * (y - U[2][1])) / det, l2 = ((U[2][1] - U[0][1]) * (x - U[2][0]) + (U[0][0] - U[2][0]) * (y - U[2][1])) / det, l3 = 1 - l1 - l2;
       if (l1 < -0.03 || l2 < -0.03 || l3 < -0.03 || x < 0 || y < 0 || x >= S || y >= S) continue;
-      const wv = Math.max(0, Math.min(1, l1 * ws[0] + l2 * ws[1] + l3 * ws[2])); if (wv <= 0.01 || done[y * S + x]) continue; done[y * S + x] = 1;
       const i = (y * S + x) * 3;
+      // (G8a: the lip ring, where the texel is skin (the lip's red, its own (r - g) / r over 0.42, is left as it is; a little lighter than the beard's full shadow))
+      const rw = Math.max(0, l1 * rs[0] + l2 * rs[1] + l3 * rs[2]), red = (data[i] - data[i + 1]) / Math.max(1, data[i]);
+      const wv = Math.max(0, Math.min(1, Math.max(l1 * ws[0] + l2 * ws[1] + l3 * ws[2], sm(0, 0.6, rw) * 0.72 * (1 - sm(0.33, 0.42, red))))); if (wv <= 0.01 || done[y * S + x]) continue; done[y * S + x] = 1;
       // (the base: the skin under a dense beard darkened toward the roots' colour, by how full the beard is there)
       const base = sm(0.05, 0.75, wv) * A0;
       // (the strands over it: dark hairs along the growth, sparser toward the edge; grey ones as fine streaks)
