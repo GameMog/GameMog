@@ -108,7 +108,8 @@ try { window.__mcStory = { id: S.id, hash: S.hash, isDefault: S.isDefault, ok: S
 const framed = typeof window !== 'undefined' && window.parent && window.parent !== window;
 const parentAt = q.has('host') ? hostOf(q.get('host')) : GAMEMOG;
 const tell = (msg) => { if (framed && parentAt) try { window.parent.postMessage(msg, parentAt); } catch {} };
-tell({ source: 'gamemog', type: 'ready', gameId: q.get('game') || null, hash: S.hash, story: { ok: S.ok, id: S.id, hash: S.hash } });
+// (with ?pack= the story runner tells it instead, about its world: wagmi/storyrun/host.js)
+if (!q.has('pack')) tell({ source: 'gamemog', type: 'ready', gameId: q.get('game') || null, hash: S.hash, story: { ok: S.ok, id: S.id, hash: S.hash } });
 const told = new Set();
 S.result = (mission, secs) => {
   const game = q.get('game');
