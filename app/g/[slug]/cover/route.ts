@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gameArt, gameCover, getGameBySlug } from '@/lib/db';
+import { gameArt, gameCover, getGameBySlug, getUnlistedGameBySlug, getGameBySlugForOwner } from '@/lib/db';
+import { isAdmin } from '../../../admin/session';
 
 /** The screenshot the runtime playtest took mid-play, used as the game's cover. */
 export async function GET(req: Request, ctx: { params: Promise<{ slug: string }> }) {
@@ -11,20 +12,23 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   const path = join(process.cwd(), 'public', 'media', 'art', `${slug}-${suffix}.jpg`);
   // ?plain (10 Oct, the dare card and the dare pages): the playtest's own frame first, never key art with the title baked in
   const plain = new URL(req.url).searchParams.has('plain');
-  const jpg = plain ? gameCover(slug) ?? (existsSync(path) ? readFileSync(path) : gameArt(slug, shape))
-    : existsSync(path) ? readFileSync(path) : gameArt(slug, shape) ?? gameCover(slug);
+  // (a hidden game's art for the owner's session only, never cached by anyone else: 5 Nov, owner-only story worlds)
+  const listed = !!(getGameBySlug(slug) ?? getUnlistedGameBySlug(slug)), owner = !listed && (await isAdmin());
+  const jpg = plain ? gameCover(slug, owner) ?? (existsSync(path) ? readFileSync(path) : gameArt(slug, shape, owner))
+    : existsSync(path) ? readFileSync(path) : gameArt(slug, shape, owner) ?? gameCover(slug, owner);
+  const cache = owner ? 'private, no-store' : null;
   if (jpg) {
     return new Response(Buffer.from(jpg), {
-      headers: { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=3600' },
+      headers: { 'content-type': 'image/jpeg', 'cache-control': cache ?? 'public, max-age=3600' },
     });
   }
   // A game with no picture at all (1 Oct: a build whose test drive never ran)
   // still gets a card in its own colours, never a broken image; briefly
   // cached, so a cover that arrives later shows.
-  const game = getGameBySlug(slug);
+  const game = getGameBySlug(slug) ?? getUnlistedGameBySlug(slug) ?? (owner ? getGameBySlugForOwner(slug) : undefined);
   if (!game) return new Response('Not found', { status: 404 });
   const card = await paletteCard(game.meta, shape);
-  return new Response(new Uint8Array(card.body), { headers: { 'content-type': card.type, 'cache-control': 'public, max-age=300' } });
+  return new Response(new Uint8Array(card.body), { headers: { 'content-type': card.type, 'cache-control': cache ?? 'public, max-age=300' } });
 }
 
 const hex = (v: unknown, d: string) => (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v : d);

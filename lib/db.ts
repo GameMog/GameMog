@@ -382,21 +382,21 @@ export const listGames = (limit = 40) =>
     .prepare(`SELECT ${ROW} FROM games WHERE hidden = 0 ORDER BY featured DESC, created_at DESC LIMIT ?`)
     .all(limit) as GameRow[];
 
-export function gameCover(slug: string): Uint8Array | undefined {
-  // (an unlisted game's cover is served too: its own page shows it)
-  const r = db.prepare("SELECT cover FROM games WHERE slug = ? AND (hidden = 0 OR json_extract(meta, '$.unlisted') = 1)").get(slug) as { cover: Uint8Array | null } | undefined;
+export function gameCover(slug: string, owner = false): Uint8Array | undefined {
+  // (an unlisted game's cover is served too: its own page shows it; any hidden game's to the owner's session, 5 Nov)
+  const r = db.prepare(`SELECT cover FROM games WHERE slug = ? AND (${owner ? '1' : "hidden = 0 OR json_extract(meta, '$.unlisted') = 1"})`).get(slug) as { cover: Uint8Array | null } | undefined;
   return r?.cover ?? undefined;
 }
 
-export function gameArt(slug: string, shape: 'square' | 'wide'): Uint8Array | undefined {
+export function gameArt(slug: string, shape: 'square' | 'wide', owner = false): Uint8Array | undefined {
   const column = shape === 'square' ? 'art_icon' : 'art_wide';
-  const r = db.prepare(`SELECT ${column} AS art FROM games WHERE slug = ? AND (hidden = 0 OR json_extract(meta, '$.unlisted') = 1)`).get(slug) as { art: Uint8Array | null } | undefined;
+  const r = db.prepare(`SELECT ${column} AS art FROM games WHERE slug = ? AND (${owner ? '1' : "hidden = 0 OR json_extract(meta, '$.unlisted') = 1"})`).get(slug) as { art: Uint8Array | null } | undefined;
   return r?.art ?? undefined;
 }
 
 /** The hero's portrait (4 Nov), if the game has one; /g/<slug>/avatar falls back to a crop of its cover. */
-export function gameAvatar(slug: string): Uint8Array | undefined {
-  const r = db.prepare("SELECT art_avatar AS art FROM games WHERE slug = ? AND (hidden = 0 OR json_extract(meta, '$.unlisted') = 1)").get(slug) as { art: Uint8Array | null } | undefined;
+export function gameAvatar(slug: string, owner = false): Uint8Array | undefined {
+  const r = db.prepare(`SELECT art_avatar AS art FROM games WHERE slug = ? AND (${owner ? '1' : "hidden = 0 OR json_extract(meta, '$.unlisted') = 1"})`).get(slug) as { art: Uint8Array | null } | undefined;
   return r?.art ?? undefined;
 }
 
