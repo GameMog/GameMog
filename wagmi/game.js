@@ -12,10 +12,14 @@ import { createPlant } from './plant.js';
 import { drive, installDriveMode } from './audio/drivemode.js';
 // (the story pack, first: its top-level await holds the game until the pack is in; wagmi/story)
 import { S as story } from './story/index.js';
+// (?pack=: a Story Kit world played on this engine, wagmi/storyrun. Without ?pack= none of it is even imported, and every
+// PACK below is null: the game exactly as it is)
+const PACK = new URLSearchParams(location.search).has('pack') ? await import('./storyrun/pack.js').then((m) => m.load()) : null;
 
 const app = await new Promise((res) => { const t = setInterval(() => { if (window.__NYC_APP && window.__NYC_APP.controllerManager) { clearInterval(t); res(window.__NYC_APP); } }, 100); });
 const cm = app.controllerManager, person = cm.entities.person, car = cm.entities.car;
 const WAGMI = (window.WAGMI = { app, person, car });
+if (PACK) WAGMI.pack = PACK;
 // (the drive mode, engine or ALL ELECTRIC, on WAGMI from the start: Q and the speed panel's badge, below, use it)
 installDriveMode(WAGMI);
 
@@ -24,7 +28,10 @@ installDriveMode(WAGMI);
   // the taxi's body, decals, plates and tyres put away (its headlamps, suspension and physics kept)
   for (const o of car.chassisPivot.children) if (!o.isLight && !(o.isObject3D && o.children.some((k) => k.isLight))) o.visible = false;
   for (const w of car.wheels) w.tire.visible = false;
-  const rs = buildRoadster(THREE, story.paint ? { paint: story.paint } : undefined);   // (its own default paint; a Mog's, wagmi/story)
+  // (a world's own car, from its vehicle sheet: wagmi/storyrun/ride.js; else, and always without ?pack=, Dan's roadster)
+  const RIDE = PACK?.ok && PACK.sheetCar ? await import('./storyrun/ride.js').catch(() => null) : null;
+  let sheetRs = null; if (RIDE) try { sheetRs = RIDE.buildSheetCar(THREE, PACK.sheetCar); } catch (err) { console.warn('[storyrun] car', err); }
+  const rs = sheetRs || buildRoadster(THREE, story.paint ? { paint: story.paint } : undefined);   // (its own default paint; a Mog's, wagmi/story)
   rs.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   car.chassisPivot.add(rs.group);
   // its size: built at a sports car's, scaled up whole (S) to a big hypercar's, 4.8 m long, 2.2 m wide and 1.28 m tall;
@@ -33,7 +40,7 @@ installDriveMode(WAGMI);
   // axle: its axles' distance either side of its middle (the wheels' ground); chase: the chase camera's framing
   // (js/cameras.js): fov, the pull back per m/s, the lens widening with speed and more on the boost, the shake flat out
   // (kept small: at a cruise the car fills as much of the frame as parked, on the boost a little less)
-  const S = 1.1;
+  const S = sheetRs ? 1 : 1.1;
   rs.group.scale.setScalar(S); rs.anchor.scale.setScalar(1 / S); rs.scale = S;
   for (const k of Object.keys(rs.seat)) rs.seat[k] = rs.seat[k].map((v) => v * S);
   Object.assign(rs, { length: rs.length * S, width: rs.width * S, height: rs.height * S });
@@ -60,6 +67,7 @@ installDriveMode(WAGMI);
   // out at 76 mph about 81 degrees a second (a 24 m circle, a lane over in well under a second), on the boost wide
   // (a 65 m circle at 125 mph)
   car.handling = { rMin: 4.6, yawMax: 1.85, grip: 48, rampIn: [0.11, 0.17], rampOut: 0.08, vRef: 34 };
+  if (sheetRs) RIDE.fitSheet(car, rs);
   // (the speed panel's name for it, when the city started in the car before this ran)
   if (cm.activeMode === 'car') { const lab = document.getElementById('hud-active-mode'); if (lab) lab.textContent = car.label; }
   car.onUpdate = (dt, keys, throttle, steer) => {
@@ -387,7 +395,7 @@ installDriveMode(WAGMI);
 //  - hands: a reach for each hand (W.dan.reach), two-bone IK over the pose (holding, lifting, grabbing).
 // The fight sets W.dan.loco, W.dan.timeScale (hit-stop, slow motion) and the pre / post hooks it runs around the pose.
 {
-  const gltf = await loadGLB('assets/characters/dan.glb');
+  const gltf = PACK?.ok && PACK.heroGlb ? await PACK.heroGLTF(loadGLB) : await loadGLB('assets/characters/dan.glb');
   const body = gltf.scene;
   // (the export's armature node, the parent of the bone 'root', carries a fixed turn of 12.8 deg that no clip moves: 11
   // deg forward and 6 deg over to his right. Every clip stood him on it, his hips 24 cm ahead of his feet and 12 cm to
@@ -1096,6 +1104,7 @@ console.log('[wagmi] Dan and the car are in');
 WAGMI.trailerEarly = import('./trailer.js').then((m) => m.createTrailer(WAGMI)).catch((err) => { console.warn('[wagmi] trailer', err); return null; });
 
 // the rest of the game, a module each (one that fails to load leaves the others running)
-for (const m of ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
+// (with ?pack=, the world's story runner in place of the opening and Mog City's missions: wagmi/storyrun)
+for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './storyrun/index.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
   try { const mod = await import(m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); }
 }

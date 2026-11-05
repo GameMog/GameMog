@@ -16,12 +16,14 @@ try { ts = require('typescript'); } catch { throw new Error('tools/story needs t
 
 export const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 // the modules a Mog's words can live in: the game (wagmi/), less the story runtime itself and the voice build
+// (wagmi/storyrun, the Story Kit world runner, is not Mog City's own story: its words are the world's, so it is left
+// out here and has its own scrub, tests/storyrun.test.mjs)
 export function gameFiles(root = ROOT) {
   const out = [];
   const walk = (d) => {
     for (const f of fs.readdirSync(path.join(root, d)).sort()) {
       const p = path.join(d, f), st = fs.statSync(path.join(root, p));
-      if (st.isDirectory()) { if (!/^wagmi\/(story|radio\/build|physics)$/.test(p)) walk(p); }
+      if (st.isDirectory()) { if (!/^wagmi\/(story|storyrun|radio\/build|physics)$/.test(p)) walk(p); }
       else if (/\.js$/.test(f)) out.push(p);
     }
   };
