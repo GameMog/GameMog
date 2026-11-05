@@ -17,6 +17,7 @@ import * as THREE from 'three/webgpu';
 import { loadGLB } from '../glb.js';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { createFace, dropFace } from '../face.js';
+import { relaxArms } from '../combat/suitarms.js';
 
 const MAX = 6;
 // the registry's people this repo ships, by model key: [builder, file]
@@ -25,6 +26,11 @@ const NATIVE = {
   'mogcity/mrbig': ['glb', 'assets/characters/mrbig.glb'],
 };
 const SUIT = /^mogcity\/suit(-[a-z]+)?$/;
+// a Suit's clip for one of Dan's names (wagmi/game.js), from the Suits' pack (assets/anim/suits-dan.glb)
+const SUIT_CLIP = { idle: 'suitIdle', talk: 'suitIdle', phone: 'suitIdle', walk: 'suitWalk', walkCool: 'suitWalk2', walkHeavy: 'suitWalk', walkF: 'suitWalk',
+  walkBack: 'suitBack', jog: 'jog', run: 'suitRun', sprint: 'suitDash', dash: 'suitDash', arms: 'suitIdleGuide', wave: 'suitTauntBye', shrug: 'suitTauntByebye',
+  argue: 'suitIdleGuide', fight: 'guard', guardF: 'guard', guardL: 'suitLeft', guardR: 'suitRight', guardB: 'suitBack', jab: 'thugPunch1', cross: 'thugPunch2',
+  hook: 'bruteSlam', hit: 'hitReact', hitChest: 'hitReact', hitHead: 'hitReact', fall: 'thugKnockdown', death: 'thugKnockdown', getup: 'thugGetUp' };
 // a placeholder voice's pitch (Hz) for a line with no clip: the registry's where known, else by the cast's sheet
 const F0 = { 'mogcity/dan': 110, 'mogcity/jane': 205, 'mogcity/mrbig': 95, 'mogcity/gears': 92, 'mogcity/fiona': 230 };
 
@@ -91,10 +97,18 @@ export function createCast(W, world) {
     if (nat && nat[2]) try { W.combat?.dressSuit?.(inner, 'a'); } catch {}
     const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
     const mixer = new THREE.AnimationMixer(inner);
-    const own = g.animations.slice(), names = new Set(own.map((a) => a.name));
-    for (const a of await clipsOfDan()) if (!names.has(a.name)) own.push(a);
-    const clip = (n) => THREE.AnimationClip.findByName(own, n);
-    const idle = clip(c.idle) || clip('idle') || clip('thugIdle');
+    const own = g.animations.slice(), names = new Set(own.map((a) => a.name)), suit = !!(nat && nat[2]);
+    // (a Suit moves as the fight's Suits do: their pack, Dan's clips retargeted onto thug.glb's rig (combat/index.js),
+    // a name of Dan's played as its Suit clip, standing by default: Dan's own clips only move a Suit's head (the rigs share
+    // no other bone name), which left him in the rig's bind pose)
+    if (suit) {
+      const pack = await loadGLB('assets/anim/suits-dan.glb').catch(() => null);
+      for (const a of pack?.animations || []) { const i = own.findIndex((x) => x.name === a.name); if (i >= 0) own[i] = a; else own.push(a); names.add(a.name); }
+      try { relaxArms(own, g.scene); } catch {}
+    } else for (const a of await clipsOfDan()) if (!names.has(a.name)) own.push(a);
+    const find = (n) => (n ? THREE.AnimationClip.findByName(own, n) : null);
+    const clip = suit ? (n) => find(n) || find(SUIT_CLIP[n]) : find;
+    const idle = clip(c.idle) || (suit && find('suitIdle')) || clip('idle') || clip('thugIdle');
     if (idle) { const a = mixer.clipAction(idle); a.play(); }
     let face = null;
     try { face = createFace(W, { speaker: name, inner, bones, head: true, open: 0.45 }); } catch (err) { console.warn('[storyrun] face', name, err.message); }
