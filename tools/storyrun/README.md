@@ -11,7 +11,7 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
   cab, 24 Kokoro clips, a chase. Its `.glb` and `.ogg` files are not committed. Copy them from the Story Kit branch:
 
   ```
-  SK=/Users/sheed/Desktop/GameMog-storykit/public/storykit
+  SK=$GAMEMOG_DIR/public/storykit      # GAMEMOG_DIR: a GameMog checkout with the Story Kit
   cp $SK/cast/test-night-shift/*.glb tools/storyrun/test-packs/night-shift/
   mkdir -p tools/storyrun/test-packs/night-shift/voice && cp $SK/packs/test-night-shift/voice/*.ogg tools/storyrun/test-packs/night-shift/voice/
   ```

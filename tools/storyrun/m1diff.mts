@@ -3,8 +3,10 @@
 //   node --import ./scripts/ts-resolve.mjs <lock> tools/storyrun/m1diff.mts <base url> ship|pack <shots prefix>
 // getin: the ride's get-in played (the door, WAGMI.ride.phase) before he is at the wheel; area: the Garment District's
 // place card on the drive (the car put on 8th Ave there); van: the Suits' van at the park once 320 m out (not before).
-import { withBrowser } from '/Users/sheed/Desktop/GameMog/lib/browser.ts';
 import { writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+// (GameMog's headless Chrome driver: run from a GameMog checkout, or set GAMEMOG_DIR)
+const { withBrowser } = await import(new URL('lib/browser.ts', pathToFileURL((process.env.GAMEMOG_DIR || process.cwd()) + '/')).href);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const [BASE, MODE, OUT] = process.argv.slice(2);
 const url = BASE + (MODE === 'ship' ? '?nogate&trailer=0&m1=drive' : '?pack=/packs/mog-city.json&nogate&trailer=0&step=drive');

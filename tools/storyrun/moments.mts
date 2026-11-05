@@ -4,8 +4,10 @@
 // 2 the first mission under the test drive (&autopilot=1, no short cards): the first call on its caller card
 //   (-call), the choice panel (-choice), the car moving at night (-drive), the cutscene's close-up (-cutscene, its second
 //   shot), MISSION PASSED (-passed). Prints what was on screen at each and the page's errors.
-import { withBrowser } from '/Users/sheed/Desktop/GameMog/lib/browser.ts';
 import { writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+// (GameMog's headless Chrome driver: run from a GameMog checkout, or set GAMEMOG_DIR)
+const { withBrowser } = await import(new URL('lib/browser.ts', pathToFileURL((process.env.GAMEMOG_DIR || process.cwd()) + '/')).href);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const [BASE, WORLD, OUT, EXTRA = ''] = process.argv.slice(2);
 const q = `?pack=${encodeURIComponent(WORLD)}${EXTRA ? '&' + EXTRA : ''}&trailer=0`;

@@ -5,8 +5,10 @@
 // study), call (Jane's car-phone call on the drive), fight (the Suits on the lawn), tracker + passed (the van searched:
 // the tracker scene's close-up, then MISSION PASSED). The shipped game starts each at its own switch (?m1=...); the world
 // at its step (&step=...). Prints the page's errors per moment and what was on screen (objective, line, caller, counter).
-import { withBrowser } from '/Users/sheed/Desktop/GameMog/lib/browser.ts';
 import { writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+// (GameMog's headless Chrome driver: run from a GameMog checkout, or set GAMEMOG_DIR)
+const { withBrowser } = await import(new URL('lib/browser.ts', pathToFileURL((process.env.GAMEMOG_DIR || process.cwd()) + '/')).href);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const [BASE, MODE, OUT, LIST = 'opening,call,fight,passed'] = process.argv.slice(2);
 const PACK = '?pack=/packs/mog-city.json&nogate&trailer=0';

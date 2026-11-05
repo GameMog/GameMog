@@ -3,8 +3,10 @@
 // Loads <base>?pack=<world>&nogate&trailer=0&autopilot=1&autocard=1&flowfast=1, plays up to secs (default 200), and
 // prints every host message (ready, progress, mission-start/-end/-fail, story-end), the page's errors and a JPEG every
 // 20 s (and at each mission's first travel step) to <shots prefix>-<n>.jpg.
-import { withBrowser } from '/Users/sheed/Desktop/GameMog/lib/browser.ts';
 import { writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+// (GameMog's headless Chrome driver: run from a GameMog checkout, or set GAMEMOG_DIR)
+const { withBrowser } = await import(new URL('lib/browser.ts', pathToFileURL((process.env.GAMEMOG_DIR || process.cwd()) + '/')).href);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const [BASE, WORLD, SHOTS, SECS = '200', EXTRA = ''] = process.argv.slice(2);
 // (extra 'flowfast=0': the free roam between missions played too, the test drive driving into the next one's corona)

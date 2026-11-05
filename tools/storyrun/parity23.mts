@@ -7,8 +7,10 @@
 // (HEAT 2, the Suits' cars), m3passed (home, then MISSION PASSED · Occupied). The shipped game starts each at its own
 // switch (?nointro&m2=... / ?m3=...), the world at its step (&mission=M2&step=...). Prints the page's errors per moment
 // and what was on screen.
-import { withBrowser } from '/Users/sheed/Desktop/GameMog/lib/browser.ts';
 import { writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+// (GameMog's headless Chrome driver: run from a GameMog checkout, or set GAMEMOG_DIR)
+const { withBrowser } = await import(new URL('lib/browser.ts', pathToFileURL((process.env.GAMEMOG_DIR || process.cwd()) + '/')).href);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const [BASE, MODE, OUT, LIST = 'm2meet'] = process.argv.slice(2);
 const PACK = '?pack=/packs/mog-city.json&nogate&trailer=0';

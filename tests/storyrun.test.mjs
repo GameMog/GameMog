@@ -87,7 +87,8 @@ test("the place library is the Story Kit's New York list (no drift)", () => {
   const src = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/places.js'), 'utf8');
   const corners = [...src.matchAll(/^\s*\['([a-z0-9-]+)', '[^']+', '/gm)].map((m) => m[1]);
   const mine = new Set([...corners, 'empire', 'timessq', 'chrysler', 'grandcentral', 'bryant', 'flatiron', 'centralpark', 'owtc', 'timessquare', 'fdr', 'fdr-un']);
-  const ts = '/Users/sheed/Desktop/GameMog-storykit/storykit/pack/cities.ts';
+  // (GameMog's Story Kit checkout: GAMEMOG_DIR, else the GameMog checkout this one sits in; skipped when it has no Story Kit)
+  const ts = path.join(process.env.GAMEMOG_DIR || path.join(ROOT, '..'), 'storykit/pack/cities.ts');
   if (!fs.existsSync(ts)) return;
   const body = fs.readFileSync(ts, 'utf8'), ny = body.slice(body.indexOf('ny: {'), body.indexOf('sf: {'));
   const theirs = new Set([...ny.matchAll(/^\s*'?([a-z0-9-]+)'?: \{ name:/gm)].map((m) => m[1]));
