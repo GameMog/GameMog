@@ -141,6 +141,9 @@ export function createDressing(W, dressing = {}) {
       f.density *= snow ? 3.2 : storm ? 3.0 : 2.2;
       if (ls.uFogDensity) ls.uFogDensity.value = f.density;
       U.uSunColor.value.lerp(new THREE.Color(0xc8d0d8), 0.5);
+      // (snow: a low sun through the snow cloud is pale gold, not the clear evening's salmon; on white snow blue hour's
+      // 0xff9466 read pink. Only a warm sun is turned: midday's near-white and the night's moon keep theirs)
+      if (snow) { const c = ls.sunLight.color; c.lerp(new THREE.Color(0xf2e4c8), 0.75 * sstep(0.15, 0.45, c.r - c.b)); }
       ls.bakeEnvironmentMap();
     }
     const h = U.uSkyHorizonColor.value, top = U.uSkyTopColor.value, s = U.uSunColor.value;
@@ -155,7 +158,12 @@ export function createDressing(W, dressing = {}) {
       cg.bloomPass.threshold.value = Math.max(cg.bloomPass.threshold.value, 1.0 + 0.7 * n);
       cg.exposure.value *= 1 + 0.2 * n;
     }
-    if (want.weather === 'snow') cg.saturation.value *= 0.88;
+    if (want.weather === 'snow') {
+      cg.saturation.value *= 0.88;
+      // (blue hour's white balance lifts red and blue over green, a magenta cast that white snow shows: held level)
+      const v = cg.balance && cg.balance.value;
+      if (v && v.x > v.y && v.z > v.y) v.y = Math.min(v.x, v.z);
+    }
     if (want.weather === 'rain' || want.weather === 'storm') { cg.saturation.value *= 0.9; cg.contrast.value *= 0.97; }
   }
   if (ls && !ls.__dressed) {
@@ -492,7 +500,10 @@ export function createDressing(W, dressing = {}) {
     m.positionNode = cameraPosition.add(rel).add(camRight.mul(corner.x.mul(w))).add(up.mul(corner.y.mul(h)));
     const lit = vec3(precipLight);
     if (snow) {
-      m.colorNode = vec4(lit.mul(1.35).add(0.06), down(1.0, 0.35, length(corner)).mul(fade).mul(0.92));
+      // (a flake is white ice lit by the sky: its brightness, a little cool, and only a trace of the sky's hue; the
+      // horizon's own colour at blue hour, 0xb86b6c, made the flakes pink)
+      const g = dot(lit, vec3(0.3, 0.55, 0.15)), ice = mix(vec3(g.mul(0.97), g, g.mul(1.06)), lit, 0.15);
+      m.colorNode = vec4(ice.mul(1.35).add(0.06), down(1.0, 0.35, length(corner)).mul(fade).mul(0.92));
     } else {
       // (rain is grey water whatever the sky's colour: the light's brightness, a little blue)
       const g = dot(lit, vec3(0.3, 0.55, 0.15));
