@@ -32,6 +32,9 @@ async function getBytes(url) {
   return b;
 }
 
+// Mog City's own mission phases a step may name by `ref` (runner.js PART_IDS: m2.js / m3.js playPart)
+export const PART_REFS = new Set(['m2.start', 'm2.go', 'm2.tail', 'm2.yard', 'm2.fight', 'm2.chase', 'm2.crash', 'm2.phone', 'm2.chat',
+  'm3.garage', 'm3.square', 'm3.rally', 'm3.rigs', 'm3.dump', 'm3.escape', 'm3.ret', 'm3.home']);
 // the world's own checks (the store's gate ran before it was sealed; this is what the runner relies on)
 export function check(w) {
   const errs = [];
@@ -61,7 +64,7 @@ export function check(w) {
   else for (const m of w.missions) {
     if (!m || typeof m.id !== 'string' || !/^[A-Z0-9][A-Z0-9-]{0,11}$/.test(m.id)) { bad('mission id'); continue; }
     if (!Array.isArray(m.steps) || !m.steps.length) { bad(`${m.id}: steps`); continue; }
-    const kinds = (list, at) => { for (const [i, s] of (list || []).entries()) { if (!s || !STEP_KINDS.has(s.type)) bad(`${m.id} ${at}[${i}]: kind ${s && s.type}`); else { kinds(s.during, `${at}[${i}].during`); kinds(s.do, `${at}[${i}].do`); } } };
+    const kinds = (list, at) => { for (const [i, s] of (list || []).entries()) { if (!s || !STEP_KINDS.has(s.type)) bad(`${m.id} ${at}[${i}]: kind ${s && s.type}`); else if (s.ref != null && s.type !== 'call' && !PART_REFS.has(s.ref)) bad(`${m.id} ${at}[${i}]: no Mog City part ${s.ref}`); else { kinds(s.during, `${at}[${i}].during`); kinds(s.do, `${at}[${i}].do`); } } };
     kinds(m.steps, 'steps');
     if (m.vehicle != null && typeof m.vehicle !== 'string') bad(`${m.id}: vehicle`);
   }

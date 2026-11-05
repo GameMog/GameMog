@@ -7,6 +7,8 @@
 //                                  a timed choice over the objective line: number keys, a pad's D-pad (wagmi/pad.js sends
 //                                  arrow keys) and Enter, finger-sized rows; the skip ring's countdown
 //   hud.card({ kicker, text, sub }, secs)   a transition card in the title card's type (ui.title's), over a fade
+//   hud.bar(label, k, note)        a meter bar (0..1) in Mission 2's tail-meter look, bottom right (a passenger's
+//                                  comfort); null: away
 // All text goes in as textContent.
 const CSS = `
 #wg .sr-timer { position: absolute; right: 24px; bottom: 296px; text-align: right; opacity: 0; transition: opacity .3s; z-index: 4; }
@@ -35,6 +37,16 @@ const CSS = `
 #wg .sr-card .t { font: italic 800 clamp(40px, 7vw, 84px)/.95 'Barlow Condensed'; text-transform: uppercase; margin: 10px 0 8px; }
 #wg .sr-card .s { font: 600 20px/1.3 'Barlow Condensed'; color: rgba(255,255,255,.75); max-width: min(720px, calc(100vw - 32px)); }
 #wg .sr-card .r { width: 110px; height: 3px; background: #FFC93C; margin: 0 auto 4px; }
+#wg .sr-bar { position: absolute; right: 24px; bottom: 228px; width: 250px; padding: 10px 14px 12px; background: rgba(8,10,14,0.62); border-radius: 10px; opacity: 0; transition: opacity .3s; z-index: 4; pointer-events: none; }
+#wg .sr-bar.on { opacity: 1; }
+#wg .sr-bar .row { display: flex; justify-content: space-between; align-items: baseline; font: 700 14px/1 'Barlow Condensed'; letter-spacing: 3px; color: rgba(255,255,255,.75); }
+#wg .sr-bar .row b { font: 800 15px/1 'Barlow Condensed'; letter-spacing: 2px; color: #FFC93C; }
+#wg .sr-bar .row b.low { color: #EF4444; }
+#wg .sr-bar i { display: block; height: 10px; margin-top: 8px; border-radius: 5px; overflow: hidden; background: rgba(255,255,255,.14); }
+#wg .sr-bar i s { display: block; height: 100%; width: 100%; background: #4ADE80; transition: width .15s linear, background .3s; }
+#wg:has(.sr-bar.on) .wg-caller { bottom: 296px; }
+body.wg-cine #wg .sr-bar, body.wg-paused #wg .sr-bar { opacity: 0; }
+body.touch-enabled #wg .sr-bar { right: var(--wg-r); bottom: auto; top: calc(var(--wg-t) + 240px); }
 body.wg-cine #wg .sr-meters, body.wg-cine #wg .sr-timer, body.wg-paused #wg .sr-meters { opacity: 0; }
 #wg .sr-meters { transition: opacity .3s; }
 body.touch-enabled #wg .sr-timer { right: var(--wg-r); bottom: auto; top: calc(var(--wg-t) + 120px); }
@@ -50,6 +62,7 @@ export function createHud(ui) {
   const timerEl = mk('sr-timer', '<div class="l"></div><div class="v"></div>');
   const metersEl = mk('sr-meters');
   const choiceEl = mk('sr-choice');
+  const barEl = mk('sr-bar', '<div class="row"><span class="l"></span><b></b></div><i><s></s></i>');
   const cardEl = mk('sr-card', '<div><div class="k"></div><div class="r"></div><div class="t"></div><div class="s"></div></div>');
   const fmt = (s) => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
   let choosing = null;
@@ -66,6 +79,14 @@ export function createHud(ui) {
         const d = document.createElement('div'), l = document.createElement('span'), v = document.createElement('span');
         l.className = 'l'; v.className = 'v'; l.textContent = String(m.label).toUpperCase(); v.textContent = m.text; d.append(l, v); metersEl.appendChild(d);
       }
+    },
+    bar(label, k = 1, note = '') {
+      if (label == null) { barEl.classList.remove('on'); return; }
+      k = Math.max(0, Math.min(1, +k || 0));
+      barEl.querySelector('.l').textContent = String(label).toUpperCase();
+      const b = barEl.querySelector('b'); b.textContent = String(note || ''); b.classList.toggle('low', k < 0.3);
+      const f = barEl.querySelector('s'); f.style.width = `${(k * 100).toFixed(1)}%`; f.style.background = k < 0.3 ? '#EF4444' : k < 0.6 ? '#FFC93C' : '#4ADE80';
+      barEl.classList.add('on');
     },
     get choosing() { return choosing; },
     choice({ prompt = '', who = '', color = '#FFC93C', options = [], secs = 0 } = {}) {
@@ -122,7 +143,7 @@ export function createHud(ui) {
       cardEl.querySelector('.r').style.display = kicker ? '' : 'none';
       cardEl.classList.add('on'); await sleep(secs * 1000); cardEl.classList.remove('on'); await sleep(450);
     },
-    clear() { hud.timer(null); hud.meters([]); choosing?.cancel(); },
+    clear() { hud.timer(null); hud.meters([]); hud.bar(null); choosing?.cancel(); },
   };
   return hud;
 }

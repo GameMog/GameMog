@@ -10,9 +10,14 @@
 // choice, a timer and meters in the same look.
 //   createRunner(ctx) -> { play(def, { act }) -> Promise<'pass' | 'quit'>, stop(), state, M }
 // ctx: { W, world, places, cast, hud, host, save, flags: { autoAnswer, autoChoose, autoCard } }
-// Every kind of the pack schema is handled; the few with no Mog City part yet (convoy, comfort, patrol, roadblock,
-// passenger, wallet, stealth) say so in the console and pass, so a story still plays through (KINDS_STUB). `scene` plays
-// one of Mog City's own authored set pieces by name (SCENES: the opening, Mission 1's swap and tracker), never a copy.
+// Every kind of the pack schema is handled; the few with no Mog City part yet (convoy, patrol, roadblock, wallet, and a
+// stealth without a ref) say so in the console and pass, so a story still plays through (KINDS_STUB). `scene` plays
+// one of Mog City's own authored set pieces by name (SCENES: the opening, Mission 1's swap and tracker, Missions 2 and
+// 3's scenes), never a copy. A step with a `ref` (PART_REFS: 'm2.tail', 'm3.escape'...) is one of Mog City's own mission
+// phases, played by its own code (m2.js / m3.js playPart): its rules, objective, calls, cast and fail reasons; the
+// world keeps the order, the checkpoints, the fail screen and the card. `passenger`: a cast member walks to the car and
+// rides in a seat of it (the roadster's passenger seat, a sheet car's front or back), seen through the glass, and gets
+// out again; `comfort`: a passenger's comfort meter (braking, cornering and knocks drain it, smooth driving refills it).
 import * as THREE from 'three/webgpu';
 import { createGPS } from '../mission/gps.js';
 import { createMarker } from '../mission/marker.js';
@@ -22,7 +27,12 @@ import { place as putAt, outBesideCar } from '../intro.js';
 import { test, value, flagName } from './cond.js';
 
 const PI = Math.PI;
-export const KINDS_STUB = new Set(['convoy', 'comfort', 'patrol', 'roadblock', 'passenger', 'wallet', 'stealth']);
+export const KINDS_STUB = new Set(['convoy', 'patrol', 'roadblock', 'wallet', 'stealth']);
+// Mog City's own mission phases a step can play by ref ('m2.tail'): m2.js and m3.js playPart
+const PART_IDS = { m2: ['start', 'go', 'tail', 'yard', 'fight', 'chase', 'crash', 'phone', 'chat'], m3: ['garage', 'square', 'rally', 'rigs', 'dump', 'escape', 'ret', 'home'] };
+const PART_MOD = { m2: () => import('../mission/m2.js'), m3: () => import('../mission/m3.js') };
+export const partOf = (ref) => { const [m, n, x] = String(ref || '').split('.'); return !x && Object.prototype.hasOwnProperty.call(PART_IDS, m) && PART_IDS[m].includes(n) ? [m, n] : null; };
+export const PART_REFS = Object.entries(PART_IDS).flatMap(([m, l]) => l.map((n) => `${m}.${n}`));
 // the authored set pieces a `scene` step can name: Mog City's own code, as the shipped game plays them
 export const SCENES = {
   opening: (W) => import('../intro.js').then((m) => m.playOpening(W)),
@@ -30,6 +40,10 @@ export const SCENES = {
   'm1.tracker': (W) => import('../mission/m1.js').then((m) => m.playScene(W, 'tracker')),
   // (set dressing, at once: the park as Mission 1 dresses it, the van at its mark, the street there held clear)
   'm1.park': (W) => import('../mission/m1.js').then((m) => m.playScene(W, 'park')),
+  // (the Suits' van alone at its mark, as Mission 1's drive puts it there 320 m out: a drive's dressNear)
+  'm1.van': (W) => import('../mission/m1.js').then((m) => m.playScene(W, 'van')),
+  // Missions 2 and 3's authored scenes, their phases of the same name (the runner plays them as parts: runPart)
+  ...Object.fromEntries(['m2.start', 'm2.crash', 'm2.chat', 'm3.garage', 'm3.rally', 'm3.dump', 'm3.home'].map((id) => [id, (W, o) => PART_MOD[id.slice(0, 2)]().then((m) => m.playPart(W, id.slice(3), o))])),
 };
 const TRAVEL = new Set(['drive', 'stops', 'walk', 'pursuit', 'tail', 'search']);
 const BACKGROUND = new Set(['trigger', 'comfort', 'patrol', 'stealth', 'roadblock']);
@@ -41,7 +55,7 @@ const TIPS = {
   caught: ['Break their line of sight, then keep moving until the search circle runs out.'],
   lost: ['Stay close enough to keep them in sight, and back off if they slow down.'],
 };
-class Fail extends Error { constructor(reason, kind = null) { super(reason); this.reason = reason; this.kind = kind; } }
+class Fail extends Error { constructor(reason, kind = null, o = {}) { super(reason); this.reason = reason; this.kind = kind; this.tip = o.tip || null; this.sounded = !!o.sounded; } }
 class Stop extends Error {}
 
 export function createRunner(ctx) {
@@ -210,6 +224,17 @@ export function createRunner(ctx) {
       const at = (k) => { let s0 = k * L; for (let i = 0; i < segs.length; i++) { if (s0 <= segs[i]) { const u = s0 / (segs[i] || 1); return [path[i][0] + (path[i + 1][0] - path[i][0]) * u, path[i][1] + (path[i + 1][1] - path[i][1]) * u]; } s0 -= segs[i]; } return path[path.length - 1]; };
       (function f() { if (!blipOn) return; const [x, z] = at(Math.min(1, (now() - t0) / 1000 / (bl.secs || 20))); gps.blip('tag', { x, z, kind: bl.kind || 'object', edge: true, name: bl.name || '' }); requestAnimationFrame(f); })();
     }
+    // (the areas he drives through, each one's place card once, Mission 1's Garment District, Hell's Kitchen and
+    // Chelsea: a box on the map, { name, sub, minX, maxX, minZ, maxZ }; and a set piece dressed once he is `within` m of
+    // the mark, Mission 1's van at the park 320 m out: dressNear { dress, within })
+    const areas = Array.isArray(d.areas) ? d.areas.filter((a) => a && a.name) : [], seen = new Set();
+    let near = d.dressNear && Object.prototype.hasOwnProperty.call(SCENES, d.dressNear.dress) ? d.dressNear : null;
+    if (areas.length || near) wait(() => {
+      const q = me();
+      for (const a of areas) if (!seen.has(a) && q.x >= (a.minX ?? -Infinity) && q.x <= (a.maxX ?? Infinity) && q.z >= (a.minZ ?? -Infinity) && q.z <= (a.maxZ ?? Infinity)) { seen.add(a); ui.place(a.name, a.sub ?? '', 3); }
+      if (near && dist(q, p.x, p.z) < (near.within || 300)) { const n = near; near = null; SCENES[n.dress](W).catch((e) => console.warn('[storyrun] dress', n.dress, e)); }
+      return false;
+    }, t).catch(() => {});
     try { await goTo(p, d, t, { objective: d.objective || `Drive to **${p.name}**.` }); } finally { blipOn = false; if (bl) gps.unblip('tag'); }
     M.timer.add(d.bonus || 0);
     if (d.flag) M.state.flags[flagName(d.flag)] = true;
@@ -595,7 +620,8 @@ export function createRunner(ctx) {
     }, t);
   };
   // scene: one of Mog City's own set pieces (SCENES), its camera, cast, lines and skip its own
-  STEPS.scene = async (d) => {
+  STEPS.scene = async (d, t) => {
+    if (partOf(d.name)) { M.log.push(['scene', d.name]); ui.objective(null); await runPart(d.name, d, t); if (d.time) setTime(d.time); return; }
     const play = Object.prototype.hasOwnProperty.call(SCENES, d.name) ? SCENES[d.name] : null;
     if (!play) { console.info(`[storyrun] ${M.def.id}: no Mog City scene '${d.name}'; it passes`); return; }
     M.log.push(['scene', d.name]);
@@ -603,6 +629,124 @@ export function createRunner(ctx) {
     await play(W);
     if (d.time) setTime(d.time);
   };
+  // one of Mog City's own mission phases (a step's ref, a scene's name): m2.js / m3.js playPart, one instance per mission
+  // module through the world's mission (the van the go set rolling is the one tailed); fresh: the first step of this
+  // try, where the shipped restart puts him; keep: a retry (the card's stats carried, as the shipped restart does).
+  // Its fail is the world's fail screen with Mog City's own reason and tip; the step's token dying ends the phase.
+  async function runPart(ref, d, t) {
+    const [m, n] = partOf(ref);
+    const mod = await PART_MOD[m]();
+    M.partMods.set(m, mod);
+    const go = mod.playPart(W, n, { fresh: M.fresh, keep: M.keep, chat: d.chat !== false });
+    let r;
+    try { r = await Promise.race([go, wait(() => false, t)]); }
+    catch (e) { go.catch(() => {}); mod.endParts(W); M.partMods.delete(m); throw e; }
+    if (r?.stats) M.partStats = r.stats;
+    if (r?.fail != null) throw new Fail(r.fail, r.ko ? 'ko' : 'part', { tip: r.tip, sounded: r.sounded });
+    if (r?.quit) throw new Stop();
+    M.timer.add(d.bonus || 0); if (d.flag) M.state.flags[flagName(d.flag)] = true;
+    return r;
+  }
+
+  // a passenger: a cast member walks to the car's door and rides in a seat of it (the roadster's passenger seat; a sheet
+  // car's front or its back bench: 'rear' behind the passenger, 'rear-left' behind him), seated on the sit clip, his hips
+  // on the seat's mark in the car's own frame, so he is seen through the glass and goes where the car goes; board false:
+  // out at that door and a few steps off, then gone. A car with no seat left for him (the roadster's two taken): he
+  // rides unseen, and the console says so.
+  const riders = new Map();
+  const _rv = new THREE.Vector3();
+  function seatOf(rs, seat) {
+    const [hx, hy, hz] = rs.seat.hip, taken = new Set([...riders.values()].map((r) => r.seat));
+    const rear = rs.rear || null;
+    const marks = { front: [-hx, hy, hz], rear: rear ? rear.pass : null, 'rear-left': rear ? rear.drv : null };
+    const order = [seat || 'front', 'front', 'rear', 'rear-left'];
+    for (const k of order) if (marks[k] && !taken.has(k)) return [k, marks[k]];
+    return [null, null];
+  }
+  function doorPoint(side, out = 1.5) {
+    // (the car's side, in the world: x across it, +x the driver's side)
+    const h = car.heading, x = side * ((car.roadster?.width || 1.9) / 2 + out);
+    return { x: car.position.x + Math.cos(h) * x, z: car.position.z - Math.sin(h) * x };
+  }
+  STEPS.passenger = async (d, t) => {
+    const who = castName(d.who), rs = car.roadster;
+    if (d.board === false) {
+      const r = riders.get(who); if (!r) return;
+      await wait(() => Math.abs(car.speed || 0) < 1.5, t);
+      riders.delete(who);
+      const f = r.f, side = r.mark[0] > 0 ? 1 : -1, at = doorPoint(side, 0.9);
+      app.scene.attach(f.root); f.root.rotation.set(0, car.heading + side * PI / 2, 0); f.heading = f.root.rotation.y;
+      f.root.position.set(at.x, cm.getGroundHeight(at.x, at.z, 'person'), at.z);
+      f.play?.('walk') || f.play?.('idle');
+      const t0 = now(), secs = d.secs || 2.5, from = { x: at.x, z: at.z }, to = doorPoint(side, 3.2);
+      try { await wait(() => { const k = Math.min(1, (now() - t0) / 1000 / secs); f.root.position.x = from.x + (to.x - from.x) * k; f.root.position.z = from.z + (to.z - from.z) * k; return k >= 1; }, t); }
+      finally { f.play?.('idle'); cast.hide(who); M.log.push(['passenger-out', who]); }
+      return;
+    }
+    if (!rs?.anchor || !rs.seat?.hip) { console.info(`[storyrun] ${M.def.id}: no seat on this car for ${who}`); return; }
+    await wait(() => Math.abs(car.speed || 0) < 1.5, t);
+    const [seatName, mark] = seatOf(rs, d.seat);
+    const side = mark && mark[0] > 0 ? 1 : -1, door = doorPoint(side, 2.6), at = doorPoint(side, 0.7);
+    const f = await cast.spawn(who, { x: door.x, z: door.z, heading: Math.atan2(at.x - door.x, at.z - door.z) });
+    if (!f) { console.info(`[storyrun] ${M.def.id}: ${who} has no body to ride (a voice or a pet); passes`); return; }
+    // (to the door, walking)
+    f.play?.('walk');
+    const t0 = now(), secs = Math.max(1, (d.secs || 3) * 0.7);
+    await wait(() => { const k = Math.min(1, (now() - t0) / 1000 / secs), a = doorPoint(side, 2.6 - 1.9 * k); f.at(a.x, a.z, Math.atan2(car.position.x - a.x, car.position.z - a.z)); return k >= 1; }, t);
+    if (!mark) { cast.hide(who); riders.set(who, { f, seat: 'unseen', mark: [side, 0, 0] }); console.info(`[storyrun] ${M.def.id}: no seat left for ${who}; rides unseen`); return; }
+    // (in: the sit clip, his hips on the seat's mark, facing the way the car does)
+    rs.anchor.add(f.root); f.root.rotation.set(0, 0, 0); f.root.position.set(0, 0, 0); f.heading = 0;
+    if (!(f.play?.('sit'))) try { const nat = f.native; if (nat?.rig && (nat.clips || []).includes('sit')) nat.rig.set([[0, 'sit']]); } catch {}
+    f.mixer?.update?.(0.016); f.root.updateMatrixWorld(true);
+    const hip = f.bones?.root || f.bones?.pelvis || null;
+    if (hip) { rs.anchor.worldToLocal(hip.getWorldPosition(_rv)); f.root.position.set(mark[0] - _rv.x, mark[1] - _rv.y, mark[2] - _rv.z); }
+    else f.root.position.set(mark[0], mark[1] - 0.95, mark[2]);
+    f.root.visible = true;
+    riders.set(who, { f, seat: seatName, mark });
+    M.log.push(['passenger', who, seatName]);
+    sfx.play('thunk', { gain: 0.18, f: 120 });
+    await delay(0.4, t);
+  };
+  function dropRiders() { for (const [who, r] of riders) { app.scene.attach(r.f.root); cast.hide(who); } riders.clear(); }
+
+  // comfort: a passenger's comfort (1 calm .. 0 can't take it), a bar in the tail meter's look; hard braking, fast
+  // corners and knocks drain it (its drain weights), smooth driving refills it (refill /s); its lines at their levels;
+  // at 0 a soft one sets its flag and set and goes on, a hard one fails with its why
+  STEPS.comfort = async (d, t) => {
+    const who = castName(d.who), label = String(d.label || 'COMFORT').toUpperCase();
+    const w = { brake: 1, lateral: 1, hit: 1, bump: 0.5, time: 0, ...(d.drain || {}) }, refill = d.refill ?? 0.04;
+    let k = d.start ?? 1, out = false, last = now(), lv = car.speed || 0, lh = car.heading, lx = car.position.x, lz = car.position.z, calm = 0;
+    const said = new Set();
+    const offHit = W.crash?.on?.('hit', (e) => { if (inCar() && !W.cutscene) k -= 0.14 * w.hit * Math.min(2, Math.max(0.4, (e?.speed || 8) / 8)); });
+    try {
+      await wait(() => {
+        const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
+        if (!dt || W.cutscene) return false;
+        if (inCar()) {
+          const v = car.speed || 0, jumped = Math.hypot(car.position.x - lx, car.position.z - lz) > 12;
+          const acc = (v - lv) / dt, yaw = Math.atan2(Math.sin(car.heading - lh), Math.cos(car.heading - lh)) / dt;
+          lv = v; lh = car.heading; lx = car.position.x; lz = car.position.z;
+          if (!jumped) {
+            const brake = Math.max(0, -acc * Math.sign(v || 1) - 4), lat = Math.max(0, Math.abs(v * yaw) - 5);
+            const drain = brake * 0.02 * w.brake + lat * 0.015 * w.lateral + w.time;
+            if (drain > 0.002) { k -= drain * dt; calm = 0; } else { calm += dt; if (calm > 1) k += refill * dt; }
+            k = Math.max(0, Math.min(1, k));
+          }
+        }
+        hud.bar(label, k, k < 0.3 ? 'SHAKEN' : k < 0.6 ? 'UNEASY' : 'CALM');
+        for (const l of d.lines || []) if (k < l.below && !said.has(l)) { said.add(l); say(castName(l.who), l.text, M.tok).catch(() => {}); }
+        if (k <= 0 && !out) {
+          out = true;
+          if (d.fail === 'hard') throw new Fail(tokens(d.why || `${who} couldn't take any more.`), 'comfort');
+          if (d.flag) M.state.flags[flagName(d.flag)] = true;
+          applySet(d.set);
+          ui.help(tokens(d.why || `${who} is shaken. Drive smoother.`), 5);
+        }
+        return false;
+      }, t);
+    } finally { offHit?.(); hud.bar(null); }
+  };
+
   for (const k of KINDS_STUB) STEPS[k] = async (d) => { if (!M.stubbed.has(k)) { M.stubbed.add(k); console.info(`[storyrun] ${M.def.id}: '${k}' has no Mog City part yet; it passes`); } applySet(d.set); };
 
   /* ------------------------------------------------------- side steps -- */
@@ -614,7 +758,7 @@ export function createRunner(ctx) {
     (async () => {
       try {
         if (d.at) await delay(d.at, st);
-        const r = await STEPS[d.type](d, st, true);
+        const r = await (d.ref && partOf(d.ref) && d.type !== 'call' ? runPart(d.ref, d, st) : STEPS[d.type](d, st, true));
         if (d.after) applySet(d.after);
         if (r?.end) M.endNow = true;
         if (r?.goto) M.gotoNow = r.goto;
@@ -641,6 +785,10 @@ export function createRunner(ctx) {
     ui.objective(null); ui.sub(null); ui.help(null); ui.counter(null); ui.caller(null); ui.hold(null); ui.phone?.hide?.(); ui.offer?.(null);
     gps.clear(); app.mapSystem.waypoint = null; for (const id of [...gps.blips.keys()]) gps.unblip(id); marker.hide();
     for (const n of M.npcs) cast.hide(n); M.npcs.clear();
+    dropRiders();
+    // (Mog City's own mission phases it played: their instances stopped, all they put in the world put away)
+    for (const mod of M.partMods.values()) try { mod.endParts(W); } catch (e) { console.warn('[storyrun] parts', e); }
+    M.partMods.clear();
     app.trafficSystem.hold?.([]);
     if (W.cutscene) W.cutscene = false;
   }
@@ -650,6 +798,7 @@ export function createRunner(ctx) {
     const find = (id) => steps.findIndex((s) => s.id === id);
     M = {
       def, i: cp ? cp.i : 0, tok: tokOf(), sides: new Set(), npcs: new Set(), stubbed: new Set(), log: [], t0: now(), timer: createTimer(),
+      partMods: new Map(), partStats: null, fresh: true, keep: !!cp,
       state: cp ? JSON.parse(JSON.stringify(cp.state)) : { meters: { ...ctx.save.meters }, flags: { ...ctx.save.flags }, forks: {} },
       cp: cp || null, auto: !!ctx.flags.autopilot, stats: cp?.stats ? { ...cp.stats } : { hits: 0, ko: 0 },
       fail(e) { if (!M.tok.dead) kill(M.tok, e instanceof Fail ? e : new Fail(e?.reason || e?.message || String(e), 'timeout')); },
@@ -668,6 +817,9 @@ export function createRunner(ctx) {
       if (fr.car || fr.dan) { const c = fr.car && placeOf(fr.car), q = fr.dan && placeOf(fr.dan); putAt(W, { ...(c ? { car: [c.x, c.z, c.heading ?? 0] } : {}), ...(q ? { dan: [q.x, q.z, q.heading ?? 0] } : {}) }); if (!q) putPlayer(c, fr.mode || 'car'); }
       else { const p = placeOf(fr); putPlayer(p, (typeof fr === 'object' && fr.mode) || 'walk'); }
       M.cp = snapshot(cp.i);
+      // (getIn: a step from his car door, and in he gets, the door up and all: the shipped ?m1=drive's way in, the ride's)
+      if (fr.getIn && W.ride?.getIn && !inCar()) { W.ride.getIn(); await wait(() => !W.ride.phase, M.tok).catch(() => {}); }
+      if (fr.getIn && !inCar() && fr.car) putPlayer(placeOf(fr.car), 'car');
     } else if (cp) {
       putPlayer(cp.at, cp.at.mode);
       if (cp.timer.running) M.timer.start(cp.timer.left, cp.timer.opts);
@@ -687,7 +839,7 @@ export function createRunner(ctx) {
       M.i = i; W.mission.phase = d.id || `${d.type}:${i}`;
       ui.step(`pack:${def.id}:${i}`);
       host.tell('progress', { mission: def.id, step: d.id || null, kind: d.type, i, n: steps.length });
-      if (BACKGROUND.has(d.type)) { side(d, M.tok, true); if (d.after) applySet(d.after); i++; continue; }
+      if (BACKGROUND.has(d.type) && !d.ref) { side(d, M.tok, true); if (d.after) applySet(d.after); i++; continue; }
       // (set dressing a step needs, a Mog City set piece: 'm1.park'; at once, before the step)
       if (d.dress && Object.prototype.hasOwnProperty.call(SCENES, d.dress)) { try { await SCENES[d.dress](W); } catch (e) { console.warn('[storyrun] dress', d.dress, e); } }
       const st = tokOf(M.tok);
@@ -696,12 +848,14 @@ export function createRunner(ctx) {
       for (const x of d.during || []) side(x, st);
       for (const k of ['trigger', 'comfort', 'patrol', 'stealth']) for (const x of [].concat(d[k] || [])) side({ at: 0, ...x, type: k }, st);
       let r;
-      try { r = (await Promise.race([STEPS[d.type](d, st), wait(() => M.gotoNow || M.endNow, st).then(() => ({}))])) || {}; }
+      const run = d.ref && partOf(d.ref) && d.type !== 'call' ? runPart(d.ref, d, st) : STEPS[d.type](d, st);
+      try { r = (await Promise.race([run, wait(() => M.gotoNow || M.endNow, st).then(() => ({}))])) || {}; }
       finally {
         kill(st, new Stop());
         for (const s of [...M.sides]) if (s.tok.parent === st || (s.until && steps[i + 1]?.id === s.until)) kill(s.tok, new Stop());
       }
       if (deadOf(M.tok)) throw deadOf(M.tok).err || new Stop();
+      M.fresh = false;
       if (d.after) applySet(d.after);
       if (M.endNow || r.end || d.end) break;
       const to = M.gotoNow || r.goto || d.goto; M.gotoNow = null;
@@ -711,6 +865,9 @@ export function createRunner(ctx) {
     }
     kill(M.tok, new Stop()); await timerLoop;
     applySet(def.reward);
+    // (the card's counts from Mog City's own phases it played: their Suits down, takedowns, rigs, hits)
+    const ps = M.partStats;
+    if (ps) { M.stats.ko += ps.ko || 0; M.stats.hits += ps.hits || 0; for (const k of ['quiet', 'smashed', 'lookouts']) if (ps[k] != null) M.stats[k] = ps[k]; }
     return { secs: (now() - M.t0) / 1000, stats: M.stats };
   }
 
@@ -740,9 +897,9 @@ export function createRunner(ctx) {
           fails++;
           const step = def.steps[at.i];
           host.tell('mission-fail', { id: def.id, why: e.reason, step: step?.id || null, kind: step?.type || null });
-          sfx.play('failed');
+          if (!e.sounded) sfx.play('failed');
           if (ctx.flags.autopilot && (ctx.flags.failStop || fails >= 3 || e.kind === 'timeout' || e.kind === 'place')) return { how: 'fail', why: e.reason };
-          const pick = ctx.flags.autoRetry ? (await new Promise((r) => setTimeout(r, 1200)), 'retry') : await ui.failed(e.reason, { skip: fails >= 3, tip: TIPS[e.kind] || null, retryLabel: at.cp && at.cp.i > 0 ? 'Retry: from the checkpoint' : 'Retry: from the start' });
+          const pick = ctx.flags.autoRetry ? (await new Promise((r) => setTimeout(r, 1200)), 'retry') : await ui.failed(e.reason, { skip: fails >= 3, tip: e.tip || TIPS[e.kind] || null, retryLabel: at.cp && at.cp.i > 0 ? 'Retry: from the checkpoint' : 'Retry: from the start' });
           if (pick === 'quit') return { how: 'quit' };
           if (pick === 'skip') { cp = { ...at.cp, i: Math.min(def.steps.length, (at.i || 0) + 1) }; continue; }
           cp = at.cp && at.cp.i > 0 ? at.cp : null;

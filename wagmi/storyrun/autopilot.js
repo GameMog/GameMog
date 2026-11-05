@@ -8,6 +8,13 @@
 //   - into the car for a drive, out of it for a walk or a search (W.ride, the quick way);
 //   - a fight fought: strikes at the nearest man, counters when one swings close, and after 8 s the nearest man put down
 //     every 1.5 s, the hero kept on his feet (a test drive checks that the story plays through, not the difficulty);
+//   - a chase to lose, the pursuit's own (Mission 3's getaway, a world's pursuit step): the route away, boosting; seen too
+//     long, held up or pinned (a heavy car, a tow truck, can't outrun them), the car put 140 m on along that route round
+//     its corners, out of their sight: the pursuit's own search and escape bar then lose them ('lost'), never a count;
+//   - Mog City's own mission phases (a step's ref): the tail kept 30-50 m behind the van along its own path; the yard
+//     walked to the stash; Mack chased and rammed (after 40 s his car counted wrecked); the rigs walked up to and hit
+//     with J; Mack's phone walked to and F held;
+//   - &skipscenes=<s>: an authored scene skipped after s seconds (W.cineSkip, the held Space's), for a run inside its time;
 //   - a mission over its time (opts.missionSecs, 240 s by default) is failed with where it stuck.
 // Calls are answered and choices taken by the runner's flags (?autoanswer, ?autochoose=<n>).
 //   startAutopilot(W, runner, { missionSecs, onTimeout }) -> { stop(), log }
@@ -16,7 +23,7 @@ import * as THREE from 'three/webgpu';
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
-export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null } = {}) {
+export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null, skipScenes = 0 } = {}) {
   const app = W.app, cm = app.controllerManager, car = W.car, P = W.person, gps = W.gps;
   const log = [];
   let legKey = null, legT = 0;
@@ -67,6 +74,11 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null 
     if (inCar()) { P.position.copy(car.position); P.heading = h; }
     app.cameraSystem.resetForTeleport?.();
   }
+  // (a key pressed as a player would: the game's own listeners read it)
+  const key = (code, type = 'keydown') => dispatchEvent(new KeyboardEvent(type, { code, key: code.replace(/^Key/, '').toLowerCase(), bubbles: true }));
+  let held = null;
+  const hold = (code) => { if (held === code) return; if (held) key(held, 'keyup'); held = code; if (code) key(code); };
+  let cineT = 0, chaseJumpT = 0, seenT = 0, slowT = 0, tailS = null, lastKey = 0;
   let frameDt = 0.016, lastF = performance.now();
   function tick() {
     if (!on) return;
@@ -77,11 +89,14 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null 
     const d = M.def.steps[M.i], key = `${M.def.id}:${M.i}`, t = performance.now() / 1000;
     if (mKey !== M.def.id) { mKey = M.def.id; mT = t; }
     if (t - mT > missionSecs && !M.tok.dead) { note(`timeout ${key} ${d?.type}`); onTimeout?.(M.def, d, M.i); mT = t; }
-    if (key !== stepKey) { stepKey = key; stepT = t; jumped = false; lastProg = { t, d: Infinity, x: 0, z: 0 }; fightT = 0; release(); }
+    if (key !== stepKey) { stepKey = key; stepT = t; jumped = false; lastProg = { t, d: Infinity, x: 0, z: 0 }; fightT = 0; release(); hold(null); tailS = null; seenT = 0; slowT = 0; }
     // (a new leg inside one step, a stops step's next stop: its own jump, its own clock)
     { const dd = gps?.dest, lk = dd ? `${Math.round(dd.x)},${Math.round(dd.z)}` : null; if (lk !== legKey) { legKey = lk; legT = t; jumped = false; lastProg = { t, d: Infinity, x: 0, z: 0 }; } }
+    // (an authored scene, skipped after skipScenes s of it)
+    if (W.cutscene) { cineT += frameDt; if (skipScenes > 0 && cineT > skipScenes && W.cineSkip?.()) { note(`skip scene ${d?.id || ''}`); cineT = 0; } } else cineT = 0;
     if (!d || W.cutscene || W.directed) { release(); return; }
     const type = d.type;
+    if (d.ref && part(d, t)) return;
     // a fight
     if (type === 'fight' || M.crew) {
       const combat = W.combat; if (!combat) return;
@@ -97,17 +112,8 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null 
       return;
     }
     if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place'].includes(type)) { release(); return; }
-    // a chase: kept on his feet if they jump out, given a route away (the far side of the nearest of the city's spawn
-    // points, 600 m and more off), and after 30 s counted lost (a test drive checks the story, not the escape)
-    if (type === 'pursuit' && d.goal !== 'reach') {
-      if (W.combat?.player) W.combat.player.hp = W.combat.player.maxHp;
-      if (!gps.dest) {
-        const e = cm.getActiveEntity(), T = Object.values(window.NYC?.TELEPORT_LOCATIONS || {});
-        const far = T.filter((p) => Math.hypot(p.x - e.position.x, p.z - e.position.z) > 600).sort((a, b) => Math.hypot(a.x - e.position.x, a.z - e.position.z) - Math.hypot(b.x - e.position.x, b.z - e.position.z))[0];
-        if (far) { gps.to({ x: far.x, z: far.z, name: 'away' }); note('chase: a route away'); }
-      }
-      if (t - stepT > 30 && !M.loseAssist) { M.loseAssist = true; note('chase: lost (assist)'); }
-    }
+    // a chase to lose: escape() (the pursuit's own 'lost' ends it)
+    if (type === 'pursuit' && d.goal !== 'reach' && escape(t)) return;
     // in or out of the car as the step wants
     const wantsFoot = type === 'search' || (type === 'walk' && !d.enterCar);
     if (wantsFoot && inCar()) { release(); if (Math.abs(car.speed) > 0.5) cm.setTouchInput('backward', 0.8); else if (!W.ride?.phase) { W.ride?.getOut?.(true); note('out'); } return; }
@@ -143,6 +149,102 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null 
     // (the pace to stop on the mark: what a 3 m/s2 brake leaves to the radius, so a heavy car doesn't sail past it)
     steerTo(tgt.x, tgt.z, type === 'tail' ? 11 : Math.min(15, 2.5 + Math.sqrt(2 * 3 * Math.max(0, L - radius * 0.4))));
   }
+  // a chase to lose (W.pursuit's: a world's pursuit step, Mission 3's getaway): kept on his feet if they jump out, a
+  // route away (the far side of the nearest of the city's spawn points 600 m and more off) at the boost; seen for 7 s
+  // running, pinned (stopped with one of them on him) or held up 2.5 s, the car put 140 m on along the route away,
+  // round its corners and out of their sight, at most every 6 s: the pursuit then searches where it last saw him and
+  // its own escape bar loses them. A heavy car can't outrun them; this way it isn't wrecked or caught either.
+  function escape(t) {
+    const ch = W.pursuit?.chase;
+    if (W.combat?.player) W.combat.player.hp = W.combat.player.maxHp;
+    if (!ch || ch.state !== 'on') return false;
+    if (!inCar()) return false;
+    if (!gps.dest || gps.dest.name !== 'away') {
+      const e = cm.getActiveEntity(), T = Object.values(window.NYC?.TELEPORT_LOCATIONS || {});
+      const far = T.filter((p) => Math.hypot(p.x - e.position.x, p.z - e.position.z) > 600).sort((a, b) => Math.hypot(a.x - e.position.x, a.z - e.position.z) - Math.hypot(b.x - e.position.x, b.z - e.position.z))[0];
+      if (far) { gps.to({ x: far.x, z: far.z, name: 'away' }); note('chase: a route away'); }
+      return true;
+    }
+    const r = gps.route; if (!r || r.length < 2) { release(); return true; }
+    const dt = Math.min(0.05, frameDt);
+    seenT = ch.seen ? seenT + dt : 0;
+    slowT = Math.abs(car.speed || 0) < 4 ? slowT + dt : 0;
+    const pinned = (ch.caughtT || 0) > 1.2;
+    if ((seenT > 7 || slowT > 2.5 || pinned) && t - chaseJumpT > 6) {
+      chaseJumpT = t; seenT = 0; slowT = 0;
+      const x = car.position.x, z = car.position.z, q = along(r, x, z, 140), q2 = along(r, x, z, 146);
+      putCar(q.x, q.z, Math.atan2(q2.x - q.x, q2.z - q.z)); car.speed = 12;
+      note(`chase: out of their sight (${pinned ? 'pinned' : slowT > 2.5 ? 'held up' : 'seen'})`);
+      return true;
+    }
+    const x = car.position.x, z = car.position.z, tg = along(r, x, z, 10 + Math.abs(car.speed || 0) * 0.6);
+    steerTo(tg.x, tg.z, 30); cm.setTouchInput('boost', Math.abs(wrapA(Math.atan2(tg.x - x, tg.z - z) - car.heading)) < 0.3 ? 1 : 0);
+    return true;
+  }
+  // Mog City's own mission phases (a step's ref): what a player does in each; true when handled this frame
+  function part(d, t) {
+    const S2 = W._m2part?.S, S3 = W._m3, combat = W.combat;
+    if (combat?.player) combat.player.hp = combat.player.maxHp;
+    const getIn = () => { release(); if (!W.ride?.phase) { if (Math.hypot(car.position.x - P.position.x, car.position.z - P.position.z) > 4) P.position.set(car.position.x + Math.cos(car.heading) * 1.8, P.position.y, car.position.z - Math.sin(car.heading) * 1.8); W.ride?.getIn?.(true); note('in'); } };
+    const getOut = () => { release(); if (Math.abs(car.speed) > 0.5) cm.setTouchInput('backward', 0.8); else if (!W.ride?.phase) { W.ride?.getOut?.(true); note('out'); } };
+    const walkTo = (x, z, r = 1.2) => { const dd = Math.hypot(x - P.position.x, z - P.position.z); if (dd > r) steerTo(x, z, 3); else release(); return dd; };
+    switch (d.ref) {
+      case 'm2.tail': {
+        const vd = S2?.vanD; if (!vd) { release(); return true; }
+        if (!inCar()) { getIn(); return true; }
+        const dv = Math.hypot(vd.pos.x - car.position.x, vd.pos.z - car.position.z);
+        if (tailS == null) tailS = Math.max(0, vd.s - Math.max(20, dv));
+        for (let k = 0; k < 40 && tailS < vd.s - 6; k++) { const q = vd.at(tailS); if (Math.hypot(q.x - car.position.x, q.z - car.position.z) > 10) break; tailS += 1.5; }
+        const q = vd.at(tailS);
+        slowT = Math.abs(car.speed || 0) < 1 && dv > 55 ? slowT + frameDt : 0;
+        if (slowT > 4) { slowT = 0; const b = vd.at(Math.max(0, vd.s - 45)), b2 = vd.at(Math.max(0, vd.s - 40)); putCar(b.x, b.z, Math.atan2(b2.x - b.x, b2.z - b.z)); tailS = vd.s - 45; note('tail: back behind the van'); return true; }
+        steerTo(q.x, q.z, clamp(vd.v + (dv - 38) * 0.35, 0, 30));
+        return true;
+      }
+      case 'm2.go': {
+        // (Times Square reached: 'Find the van', no route: up to it, slowly, to 60 m)
+        const vd = S2?.vanD, r = gps.route;
+        if (!vd || (r && r.length > 1 && gps.dest)) return false;
+        if (!inCar()) { getIn(); return true; }
+        const dv = Math.hypot(vd.pos.x - car.position.x, vd.pos.z - car.position.z);
+        steerTo(vd.pos.x, vd.pos.z, dv > 65 ? 9 : 0); return true;
+      }
+      case 'm2.yard': {
+        const st = S2?.Y?.stash; if (!st) { release(); return true; }
+        if (inCar()) { getOut(); return true; }
+        walkTo(st.x, st.z, 3); return true;
+      }
+      case 'm2.chase': {
+        const md = S2?.mackD; if (!md) { release(); return true; }
+        if (!inCar()) { getIn(); return true; }
+        const x = car.position.x, z = car.position.z, dm = Math.hypot(md.pos.x - x, md.pos.z - z), r = gps.route;
+        if (dm < 45 || !r || r.length < 2) { const a = md.at(Math.min(md.length, md.s + 6)); steerTo(a.x, a.z, md.v + 9); cm.setTouchInput('boost', dm > 12 ? 1 : 0); }
+        else { const tg = along(r, x, z, 10 + Math.abs(car.speed || 0) * 0.6); steerTo(tg.x, tg.z, 32); cm.setTouchInput('boost', 1); }
+        slowT = Math.abs(car.speed || 0) < 2 ? slowT + frameDt : 0;
+        if (slowT > 3 && r && r.length > 1) { slowT = 0; const q = along(r, x, z, 40), q2 = along(r, x, z, 46); putCar(q.x, q.z, Math.atan2(q2.x - q.x, q2.z - q.z)); note('chase: unstuck 40 m on'); }
+        if (t - stepT > 40 && S2.mackHp > 0) { S2.mackHp = 0; note("chase: Mack's car counted wrecked (assist)"); }
+        return true;
+      }
+      case 'm2.phone': {
+        const p = gps.dest; if (!p) { release(); return true; }
+        if (inCar()) { getOut(); return true; }
+        const dd = walkTo(p.x, p.z, 1.0);
+        if (dd < 2.2) hold('KeyF'); return true;
+      }
+      case 'm3.rigs': {
+        const R = S3?.R; if (!R) { release(); return true; }
+        if (inCar()) { getOut(); return true; }
+        let b = null, bd = Infinity; for (const r of R.rigs) if (!r.down) { const q = Math.hypot(r.x - P.position.x, r.z - P.position.z); if (q < bd) { bd = q; b = r; } }
+        if (!b) { release(); return true; }
+        if (bd > 1.7) { steerTo(b.x, b.z, 3); if (t - stepT > 3 && t - lastProg.t > 6) { lastProg = { t, d: bd, x: 0, z: 0 }; const k = Math.max(0, (bd - 1.4) / bd); P.position.x += (b.x - P.position.x) * k; P.position.z += (b.z - P.position.z) * k; note('rigs: up to the rig'); } if (bd < lastProg.d - 0.5) lastProg = { t, d: bd, x: 0, z: 0 }; return true; }
+        release(); P.heading = Math.atan2(b.x - P.position.x, b.z - P.position.z);
+        if (t - lastKey > 0.5) { lastKey = t; key('KeyJ'); setTimeout(() => key('KeyJ', 'keyup'), 80); }
+        return true;
+      }
+      case 'm3.escape': return inCar() ? escape(t) : (getIn(), true);
+      default: return false;
+    }
+  }
   tick();
-  return { stop() { on = false; release(); }, log };
+  return { stop() { on = false; release(); hold(null); }, log };
 }

@@ -12,7 +12,7 @@
 //     the save (localStorage, per world), the pause menu's Mission select (W.storyList / W.replay); the end card.
 //   - a framing GameMog told what happens (host.js), and the test drive (?autopilot: autopilot.js).
 // URL: ?pack=<world> [&host=<gamemog origin>&game=<id>] [&mission=<ID> [&step=<step id>]] [&nogate] [&autopilot=1 &autoanswer=1
-//      &autochoose=<n> &autocontinue=1 &autocard=1 &flowfast=1 &missionsecs=<s>] [&keyart=1]
+//      &autochoose=<n> &autocontinue=1 &autocard=1 &flowfast=1 &missionsecs=<s> &skipscenes=<s>] [&keyart=1]
 import * as THREE from 'three/webgpu';
 import { createUI } from '../mission/ui.js';
 import { createAudio } from '../mission/audio.js';
@@ -114,7 +114,7 @@ export async function install(W) {
   if (flags.autopilot) {
     const { startAutopilot } = await import('./autopilot.js');
     autopilot = startAutopilot(W, runner, {
-      missionSecs: +(Q.get('missionsecs') || 240),
+      missionSecs: +(Q.get('missionsecs') || 240), skipScenes: +(Q.get('skipscenes') || 0),
       onTimeout: (m, d, i) => { tell('mission-fail', { id: m.id, why: `The test drive timed out at step ${i + 1} (${d?.type}${d?.id ? ' ' + d.id : ''}).`, step: d?.id || null, kind: d?.type || null, timeout: true }); runner.M?.fail?.({ reason: `The test drive timed out at step ${i + 1} (${d?.type}).` }); },
     });
     W.storyrun.autopilot = autopilot;
@@ -143,13 +143,17 @@ export async function install(W) {
       sfx.play('passed');
       // (the card's stats: the mission's own list, Mission 1's TIME, SUITS DOWN, HITS TAKEN; else the time and the meters)
       const P0 = m.pass || {};
-      const STAT = { time: () => ['TIME', fmt(r.secs)], ko: () => [P0.koLabel || 'DOWN', `${r.stats?.ko || P0.koOf || 0}/${P0.koOf || r.stats?.ko || 0}`], hits: () => ['HITS TAKEN', String(r.stats?.hits || 0)] };
-      const stats = Array.isArray(P0.stats) ? P0.stats.filter((x) => STAT[x]).map((x) => STAT[x]())
+      // (a stat by name, or { label, stat, of } for one of the run's counts: Mission 2's QUIET TAKEDOWNS n/3)
+      const STAT = { time: () => ['TIME', fmt(r.secs)], ko: () => [P0.koLabel || 'DOWN', P0.koOf ? `${r.stats?.ko || P0.koOf}/${P0.koOf}` : String(r.stats?.ko || 0)], hits: () => ['HITS TAKEN', String(r.stats?.hits || 0)] };
+      const statOf = (x) => (typeof x === 'string' ? STAT[x]?.() : x && x.label ? [x.label, x.stat ? `${r.stats?.[x.stat] ?? 0}${x.of ? '/' + x.of : ''}` : String(x.value ?? '')] : null);
+      const stats = Array.isArray(P0.stats) ? P0.stats.map(statOf).filter(Boolean)
         : [['Time', fmt(r.secs)], ...((def.hud?.meters || []).filter((x) => x.kind !== 'hidden').map((x) => [x.label || x.id, String(Math.round(r.state.meters[x.id] ?? 0))]))];
       tell('mission-end', { id: m.id, how: 'pass', secs: Math.round(r.secs) });
       tellResult(world, m.id, r.secs);
       await ui.passed({ title: m.title, stats, note: m.passLine || '', ...(P0.reward ? { reward: P0.reward } : {}) }, flags.autoCard ? 1.5 : 6);
       // (the act's end card, after its last mission)
+      // (after the card: the mission's own afterword, Mog City's way: DMs, a line of his; Mission 2's Jane and Rook)
+      await afterPass(m);
       const last = act && (act.order || []).filter((id) => byId.has(id)).slice(-1)[0] === m.id;
       if (last && act.end) await actEnd(act.end);
       k++;
@@ -168,28 +172,56 @@ export async function install(W) {
   }
   autopilot?.stop();
 
+  // (a mission's `between` says how its way in looks, Mog City's J and G: { letter, name, objective, step (the free-roam
+  // step its car call belongs to, calls.js: 'free:J' rings m2-handoff), dm: false (its afterword already said it),
+  // help, note (the GPS's one stall line: [who, text]), radius, carR (how near a stopped car counts) }; else the giver's letter and a DM of the stakes)
   async function between(m) {
     const p = places.at(m.start); if (!p) return;
+    const B = m.between || {};
     const giver = Object.keys(def.cast || {}).find((n) => (m.steps || []).some((s) => s.who === n && n !== heroName)) || heroName;
-    const color = cast.color(giver), letter = (giver[0] || 'M').toUpperCase();
-    marker.group.traverse?.((o) => { if (o.material?.color) o.material.color.set(color); });
-    marker.at(p.x, 0, p.z);
-    W.gps.objective(['Go to ', { [`${m.title}`]: 'yellow' }, '.'], { x: p.x, z: p.z, name: m.title }, { blip: false });
-    W.gps.blip('next', { x: p.x, z: p.z, kind: 'letter', letter, edge: true, name: m.title, label: true });
-    ui.step(`pack:free:${m.id}`);
-    if (giver !== heroName) { sfx.play('ding', { gain: 0.25 }); ui.dm(giver, `${m.stakes || m.title}`, 7); }
-    const cm = W.app.controllerManager;
+    const color = '#FFC93C', letter = String(B.letter || giver[0] || 'M').slice(0, 1).toUpperCase(), name = B.name || m.title;
+    marker.group.traverse?.((o) => { if (o.material?.color) o.material.color.set(B.letter ? color : cast.color(giver)); });
+    const cm = W.app.controllerManager, gy = cm.getGroundHeight(p.x, p.z, 'person');
+    marker.at(p.x, gy, p.z);
+    const words = (t) => { const out = []; const re = /\*\*(.+?)\*\*(?:\{(yellow|red|blue|green)\})?/g; let at = 0, x; while ((x = re.exec(t))) { if (x.index > at) out.push(t.slice(at, x.index)); out.push({ [x[1]]: x[2] || 'yellow' }); at = x.index + x[0].length; } if (at < t.length) out.push(t.slice(at)); return out; };
+    ui.step(B.step || `pack:free:${m.id}`);
+    W.gps.objective(B.objective ? words(B.objective) : ['Go to ', { [`${m.title}`]: 'yellow' }, '.'], { x: p.x, z: p.z, name }, { blip: false });
+    W.gps.unblip('dest');
+    W.gps.blip('next', { x: p.x, z: p.z, kind: 'letter', letter, pulse: 6, edge: true, name, label: true });
+    if (B.note) W.gps.stallNote = B.note;
+    // (the car call of this stretch of free roam wraps 200 m from the corona: calls.js reads W.between.at)
+    const wasB = W.between; W.between = { at: { x: p.x, z: p.z }, stop() {} };
+    if (B.dm !== false && giver !== heroName) { sfx.play('ding', { gain: 0.25 }); ui.dm(giver, `${m.stakes || m.title}`, 7); }
+    if (B.help) setTimeout(() => ui.help(words(B.help), 9), 1800);
+    const r = B.radius || 2.2, t0 = performance.now();
+    let jumped = false;
     await new Promise((res) => {
       const f = () => {
         if (replayAsk) return res();
-        const e = cm.getActiveEntity();
-        W.gps.update();
-        if (Math.hypot(e.position.x - p.x, e.position.z - p.z) < 6) return res();
+        const e = cm.getActiveEntity(), inCar = cm.activeMode === 'car', car = W.car;
+        if (!W.paused && !W.cutscene) W.gps.update();
+        // (a test drive drives into it: put down by the corona once its call has had a moment)
+        if (flags.autopilot && flags.autoContinue && !jumped && performance.now() - t0 > 4000) { jumped = true; W.storyrun.runner.putPlayer({ x: p.x, z: p.z + 3, heading: Math.PI }, 'car'); }
+        const d = Math.hypot(e.position.x - p.x, e.position.z - p.z);
+        if (inCar ? d < (B.carR ?? r + 4.5) && Math.abs(car.speed) < 3 : d < r + 0.6) return res();
         requestAnimationFrame(f);
       };
       f();
     });
-    marker.hide(); W.gps.unblip('next'); W.gps.clear(); ui.objective(null);
+    W.between = wasB === W.between ? null : wasB;
+    if (W.gps.stallNote === B.note) W.gps.stallNote = null;
+    marker.hide(); W.gps.unblip('next'); W.gps.unblip('car'); W.gps.clear(); ui.objective(null); ui.help(null);
+  }
+  // after a mission's card: its afterword, in order: { dm: { from, text, secs }, say: [who, text], wait: secs }
+  async function afterPass(m) {
+    const tok = { dead: false, err: null, parent: null };
+    for (const a of m.after || []) {
+      try {
+        if (a.dm) { sfx.play('buzz', { gain: 0.18, times: 1 }); sfx.play('ding', { gain: 0.16 }); W.audio?.play?.('phoneBuzz'); ui.dm(a.dm.from || 'Unknown number', a.dm.text, a.dm.secs || 9); await sleep((flags.flowFast ? 1.2 : (a.wait ?? Math.min(7, a.dm.secs || 9))) * 1000); }
+        else if (a.say) await runner.say(a.say[0], a.say[1], tok);
+        else if (a.wait) await sleep((flags.flowFast ? 0.3 : a.wait) * 1000);
+      } catch (e) { console.warn('[storyrun] after', e); }
+    }
   }
   async function actEnd(e) {
     await ui.fade(0.9, 0.5);

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 globalThis.location = new URL('http://127.0.0.1:4981/?pack=x');
 const { packUrl, assetUrl, packHash } = await import('../wagmi/storyrun/allow.js');
-const { check, STEP_KINDS } = await import('../wagmi/storyrun/pack.js');
+const { check, STEP_KINDS, PART_REFS } = await import('../wagmi/storyrun/pack.js');
 const { test: cond, value } = await import('../wagmi/storyrun/cond.js');
 
 const files = (dir) => fs.readdirSync(path.join(ROOT, dir), { recursive: true }).filter((f) => /\.(m?js|mts|json|md)$/.test(f)).map((f) => path.join(dir, f));
@@ -95,10 +95,21 @@ test("Mog City's own story as a world (packs/mog-city.json): read from the game'
   const w = JSON.parse(fs.readFileSync(path.join(ROOT, 'packs/mog-city.json'), 'utf8'));
   assert.deepEqual(check(w), []);
   const src = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
-  const scenes = new Set([...src.slice(src.indexOf('export const SCENES'), src.indexOf('};', src.indexOf('export const SCENES'))).matchAll(/^\s*'?([a-z0-9.]+)'?: \(W\)/gm)].map((m) => m[1]));
-  const named = w.missions.flatMap((m) => m.steps.flatMap((s) => [s.type === 'scene' ? s.name : null, s.dress || null])).filter(Boolean);
-  assert.ok(named.length >= 4);
+  const block = src.slice(src.indexOf('export const SCENES'), src.indexOf('\n};', src.indexOf('export const SCENES')));
+  const scenes = new Set([...block.matchAll(/^\s*'?([a-z0-9.]+)'?: \(W\)/gm)].map((m) => m[1]));
+  // (Missions 2 and 3's scenes: their phases of the same name, listed in the block)
+  for (const m of block.matchAll(/'(m[23]\.[a-z]+)'/g)) scenes.add(m[1]);
+  const named = w.missions.flatMap((m) => m.steps.flatMap((s) => [s.type === 'scene' ? s.name : null, s.dress || null, s.dressNear?.dress || null])).filter(Boolean);
+  assert.ok(named.length >= 10);
   assert.deepEqual(named.filter((n) => !scenes.has(n)), []);
+  // (its parts are Mog City's own mission phases: the runner's list is the checks' list, and each is a phase of m2.js / m3.js)
+  const ids = JSON.parse(src.match(/const PART_IDS = (\{[^\n]+\});/)[1].replace(/'/g, '"').replace(/(\w+):/g, '"$1":'));
+  assert.deepEqual(Object.entries(ids).flatMap(([m, l]) => l.map((n) => `${m}.${n}`)).sort(), [...PART_REFS].sort());
+  for (const [m, l] of Object.entries(ids)) { const ms = fs.readFileSync(path.join(ROOT, `wagmi/mission/${m}.js`), 'utf8'); for (const n of l) if (n !== 'chat') assert.ok(new RegExp(`\\n    async ${n}\\(`).test(ms), `${m}.${n}`); }
+  const refs = w.missions.flatMap((m) => m.steps.filter((s) => s.ref).map((s) => s.ref));
+  assert.ok(refs.length >= 10);
+  // (the missions chain the Mog City way: Jane's J and Gears' G, their free-roam calls)
+  assert.deepEqual(w.missions.map((m) => m.between?.step || null), [null, 'free:J', 'free:G']);
   // (its calls are Mog City's own, by id: calls.js CALLS)
   const calls = fs.readFileSync(path.join(ROOT, 'wagmi/mission/calls.js'), 'utf8');
   for (const m of w.missions) for (const s of m.steps) for (const x of s.during || []) if (x.ref) assert.ok(calls.includes(`'${x.ref}': {`), x.ref);

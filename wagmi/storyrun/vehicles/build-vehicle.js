@@ -1214,6 +1214,8 @@ export function buildVehicle(THREE, raw, o = {}) {
 
   const rs = {
     group: g, body, materials: M, wheels, childSeat, booster, anchor, seat: SEAT, tune, sound, springs,
+    // (the back bench's hip marks, in the anchor's frame: behind the passenger and behind the driver; null: no bench)
+    rear: sockets.rearLeft ? { pass: sockets.rearLeft, drv: sockets.rearRight } : null,
     length: dims.length, width: dims.width, height: dims.height,
     update, attach, onDrive,
     // the wheel (wheel) and where a driver's hand holds it (the wrist's mark, a touch out, under and back from the rim's

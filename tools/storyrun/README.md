@@ -19,10 +19,17 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
 On a local server (`python3 -m http.server 4981 --bind 127.0.0.1` in the repo):
 `http://127.0.0.1:4981/?pack=/tools/storyrun/test-packs/native.json`.
 
-- `packs/mog-city.json` (repo root, committed): Mog City's own Mission 1 as a world, the parity world. Its cutscenes are
-  `scene` steps naming Mog City's own set pieces (`opening`, `m1.arrival`, `m1.tracker`, and `m1.park` as a step's
-  `dress`), its car-phone call is Mog City's own by id (`{ "type": "call", "ref": "m1-drive" }`), the rest are the
-  runner's steps on Mog City's parts. Read from the game's own origin on any host: `?pack=/packs/mog-city.json`.
+- `packs/mog-city.json` (repo root, committed): Mog City's own story as a world, the parity world: the opening and
+  Missions 1-3 (Bagged, Burner, Occupied). Its cutscenes are `scene` steps naming Mog City's own set pieces (`opening`,
+  `m1.arrival`, `m1.tracker`, `m2.start`, `m2.crash`, `m2.chat`, `m3.garage`, `m3.rally`, `m3.dump`, `m3.home`; `m1.park`
+  as a step's `dress`, `m1.van` as the drive's `dressNear` 320 m out), its car-phone calls are Mog City's own by id
+  (`{ "type": "call", "ref": "m1-drive" }`; a mission's `between.step` 'free:J' / 'free:G' rings m2-handoff and
+  m3-handoff on the way to the J and the G). Mission 1's steps are the runner's own on Mog City's parts (the drive's
+  area cards are its `areas`, the get-in its `from.getIn`); Missions 2 and 3's play steps name Mog City's own mission
+  phases by `ref` (`m2.go`, `m2.tail`, `m2.yard`, `m2.fight`, `m2.chase`, `m2.phone`, `m3.square`, `m3.rigs`,
+  `m3.escape`, `m3.ret`: m2.js / m3.js `playPart`, their own rules, objectives, calls and fail reasons). A mission's
+  `after` is its afterword (DMs, a line) after MISSION PASSED; its `pass.stats` take `{ label, stat, of }` or
+  `{ label, value }`. Read from the game's own origin on any host: `?pack=/packs/mog-city.json`.
 
 ## A sealed world from a local Story Kit store
 
@@ -50,6 +57,15 @@ errors and the autopilot's nudges, and saves a JPEG every 20 s.
 close-up, MISSION PASSED. `moments.mts <base> <world> <prefix> [query]` takes a world's gate, first call, choice, night
 drive, cutscene close-up and MISSION PASSED.
 
+`parity23.mts <base> ship|pack <prefix> <moments>` does the same for Missions 2 and 3 (`m2meet`, `m2tail`, `m2yard`,
+`m2fight`, `m2chase`, `m2chat`, `m2passed`, `m3garage`, `m3rigs`, `m3escape`, `m3passed`; the shipped game at
+`?nointro&m2=...` / `?m3=...`, the world at `&mission=M2&step=...`). `m1diff.mts <base> ship|pack <prefix>` checks
+Mission 1's get-in, its Garment District card and the van at the park 320 m out in both.
+
+A test drive of a long mission inside the 4-minute Chrome budget: `drive.mts ... 225 "mission=M2&skipscenes=4&missionsecs=600"`
+(authored scenes skipped after 4 s, as a held Space would); `flowfast=0&autocontinue=1` plays the free roam between
+missions too (the test drive is put down by the next one's corona).
+
 ## Address switches
 
 | Switch | What it does |
@@ -63,4 +79,5 @@ drive, cutscene close-up and MISSION PASSED.
 | `&autoanswer=1`, `&autochoose=<n>` | answer calls; take option n of every choice |
 | `&autocard=1`, `&flowfast=1` | short cards; no free roam between missions |
 | `&missionsecs=<s>` | the test drive's time limit per mission (240) |
+| `&skipscenes=<s>` | under the autopilot, each authored scene skipped after s seconds |
 | `&keyart=1` | under the autopilot, a wide and a square JPEG of the first drive, posted as `keyart` |

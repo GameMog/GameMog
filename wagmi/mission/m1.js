@@ -571,7 +571,7 @@ function createMission(W, { keep = false, quiet = false } = {}) {
       M._phase = 'passed';
       await passed();
     },
-    fail, scene, end() { running = false; }, async dress() { const C = await getCast(W); setVan(C, true); parkHolds(); }, // (scene, end, dress: ?pack=, playScene below)
+    fail, scene, end() { running = false; }, async dress() { const C = await getCast(W); setVan(C, true); parkHolds(); }, async van() { const C = await getCast(W); setVan(C, true); }, // (scene, end, dress, van: ?pack=, playScene below)
   };
   // the pause menu's 'Restart checkpoint': any phase up to the one he is in, from its start
   const LABELS = { car: 'Get in the car', drive: 'Drive to Chelsea Park', arrival: 'Chelsea Park · the swap', fight: 'The fight', search: 'Search the van' };
@@ -668,8 +668,8 @@ function burnerHand(B) {
 
 // (?pack=: one of this mission's scenes, 'arrival' or 'tracker', as a world's scene step, wagmi/storyrun/runner.js: the
 // scene alone, no mission run and nothing in the pause menu; 'park' is the park dressed as its phases dress it, the
-// Suits' van at its mark and the street held clear. Never called without ?pack=.)
+// Suits' van at its mark and the street held clear; 'van' the van alone at its mark (the drive's, 320 m out). Never called without ?pack=.)
 export async function playScene(W, name) {
   const M = createMission(W, { quiet: true });
-  try { if (name === 'park') await M.dress(); else await M.scene(name); } finally { M.end(); }
+  try { if (name === 'park') await M.dress(); else if (name === 'van') await M.van(); else await M.scene(name); } finally { M.end(); }
 }

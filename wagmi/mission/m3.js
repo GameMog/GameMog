@@ -392,7 +392,7 @@ export async function endEpisode(W, { secs = 0 } = {}) {
 }
 
 /* ---------------------------------------------------------- the mission -- */
-function createMission(W, { keep = false } = {}) {
+function createMission(W, { keep = false, quiet = false } = {}) {
   const app = W.app, cm = app.controllerManager, P = W.person, car = W.car, ui = W.ui, sfx = W.sfx;
   const gps = W.gps || (W.gps = createGPS(W));
   const U = W.m2ui || (W.m2ui = createM2UI(ui));
@@ -1119,8 +1119,27 @@ function createMission(W, { keep = false } = {}) {
     },
     fail,
     S,
+    stats,
+    // (?pack=: one phase as a world's step, wagmi/storyrun/runner.js through playPart below, as m2.js's part)
+    async part(name, fresh) {
+      M._phase = name; tok = { dead: false, err: null };
+      ui.step('m3:' + name);
+      try {
+        await PHASES[name](fresh);
+        tok.dead = true; tok.err = new Quit();
+        return { ok: true, stats };
+      } catch (e) {
+        if (e instanceof Quit) return { quit: true };
+        if (!(e instanceof Fail)) throw e;
+        tidy(); cm.resetInput?.();
+        if (e.ko) { ui.ko(true); sfx?.play('failed'); await sleep(2600); ui.ko(false); }
+        W.combat?.clear?.(); S.crew = null; S.brute = null; S.extra = null; S.awake = false; S.bruteUp = false;
+        if (W.combat?.player) W.combat.player.hp = W.combat.player.maxHp;
+        return { fail: e.reason, ko: e.ko, sounded: e.ko, tip: TIPS[e.reason] || null, stats };
+      }
+    },
   };
-  missions(W).register({
+  if (!quiet) missions(W).register({
     id: 'm3', act: 'Act II · Mission 3', title: 'Occupied',
     checkpoints: ['garage', 'square', 'rigs', 'escape', 'return'].map((id) => ({ id, label: LABELS[id] })),
     active: () => running && !!M._phase && M._phase !== 'passed',
@@ -1129,3 +1148,13 @@ function createMission(W, { keep = false } = {}) {
   });
   return M;
 }
+
+// (?pack=: Mission 3's phases as a world's steps, wagmi/storyrun/runner.js: 'garage' (the night, if he comes in the dark,
+// and the garage), 'square', 'rally', 'rigs', 'dump', 'escape', 'ret', 'home'; one mission instance runs them in turn,
+// nothing in the pause menu; fresh: straight in, as the shipped restart. Never called without ?pack=.)
+export async function playPart(W, name, { fresh = false, keep = false } = {}) {
+  let M = W._m3part;
+  if (!M) M = W._m3part = createMission(W, { keep, quiet: true });
+  return M.part(name, fresh);
+}
+export function endParts(W) { const M = W._m3part; W._m3part = null; if (M) M.stop(); }

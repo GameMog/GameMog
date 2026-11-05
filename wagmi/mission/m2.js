@@ -189,7 +189,7 @@ export function handoff(W, { quick = false } = {}) {
 }
 
 /* ---------------------------------------------------------- the mission -- */
-function createMission(W, { keep = false } = {}) {
+function createMission(W, { keep = false, quiet = false } = {}) {
   const app = W.app, cm = app.controllerManager, P = W.person, car = W.car, ui = W.ui, sfx = W.sfx;
   const gps = W.gps || (W.gps = createGPS(W));
   const U = W.m2ui || (W.m2ui = createM2UI(ui));
@@ -704,7 +704,7 @@ function createMission(W, { keep = false } = {}) {
       await runScene(W, def);
       S.phoneAt = def.drop;
     },
-    async phone(fresh) {
+    async phone(fresh, o = {}) {
       await sets(); twilight();
       const at = S.crashAt || { ...CRASH };
       const drop = S.phoneAt || crashScene(W, { mackCar: S.L, mack: null, phone: S.phone, say, at }).drop;
@@ -748,7 +748,7 @@ function createMission(W, { keep = false } = {}) {
           return act.step(dt, dist(P.position, drop[0], drop[1]), foot);
         });
       } finally { act.stop(); spot.hide(); app.scene.remove(spot.group); S.chevG.hide(); }
-      gps.unblip('phone'); gps.clear(); S.phone.visible = false;
+      gps.unblip('phone'); gps.clear(); S.phone.visible = false; S.phoneDrop = drop; if (o.chat === false) return; // (o.chat false, ?pack=: the chat is its own step)
       const h = Math.atan2(drop[0] - P.position.x, drop[1] - P.position.z) + PI;
       const def = phoneScene(W, { U, say, at: [P.position.x, P.position.z, h] });
       def.setup();
@@ -880,8 +880,32 @@ function createMission(W, { keep = false } = {}) {
     },
     fail,
     S,
+    stats,
+    // (?pack=: one phase as a world's step, wagmi/storyrun/runner.js through playPart below: its own rules, objective,
+    // calls and fail reasons; a fail comes back as { fail, ko, tip } for the runner's fail screen, Mog City's)
+    async part(name, fresh, o = {}) {
+      M._phase = name; tok = { dead: false, err: null };
+      ui.step('m2:' + name);
+      try {
+        if (name === 'chat') {
+          await sets(); twilight();
+          const drop = S.phoneDrop || [P.position.x, P.position.z + 2], h = Math.atan2(drop[0] - P.position.x, drop[1] - P.position.z) + PI;
+          const def = phoneScene(W, { U, say, at: [P.position.x, P.position.z, h] });
+          def.setup();
+          await runScene(W, def);
+        } else await PHASES[name](fresh, o);
+        return { ok: true, stats };
+      } catch (e) {
+        if (e instanceof Quit) return { quit: true };
+        if (!(e instanceof Fail)) throw e;
+        tidy(); cm.resetInput?.();
+        if (e.ko) { ui.ko(true); sfx?.play('failed'); await sleep(2600); ui.ko(false); }
+        W.combat?.clear?.(); S.stealth?.dispose(); S.stealth = null; S.crew = null; S.alarm = false; S.flee = false;
+        return { fail: e.reason, ko: e.ko, sounded: e.ko, tip: TIPS[e.reason] || null, stats };
+      }
+    },
   };
-  missions(W).register({
+  if (!quiet) missions(W).register({
     id: 'm2', act: 'Act I · Mission 2', title: 'Burner',
     checkpoints: ['start', 'go', 'tail', 'yard', 'chase', 'phone'].map((id) => ({ id, label: LABELS[id] })),
     active: () => running && !!M._phase && M._phase !== 'passed',
@@ -890,3 +914,15 @@ function createMission(W, { keep = false } = {}) {
   });
   return M;
 }
+
+// (?pack=: Mission 2's phases as a world's steps, wagmi/storyrun/runner.js: 'start' (the meeting at Bryant Park), 'go',
+// 'tail', 'yard', 'fight', 'chase', 'crash', 'phone' (o.chat false: the pick-up alone) and 'chat' (Mack's phone, the
+// scene). One mission instance runs them in turn (the van the go set rolling is the one tailed), nothing in the pause
+// menu (the world's mission has the checkpoints); fresh: straight in, where the shipped restart puts him. Never called
+// without ?pack=.)
+export async function playPart(W, name, { fresh = false, keep = false, chat = true } = {}) {
+  let M = W._m2part;
+  if (!M) M = W._m2part = createMission(W, { keep, quiet: true });
+  return M.part(name, fresh, { chat });
+}
+export function endParts(W) { const M = W._m2part; W._m2part = null; if (M) M.stop(); }

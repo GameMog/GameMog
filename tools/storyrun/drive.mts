@@ -7,7 +7,9 @@ import { withBrowser } from '/Users/sheed/Desktop/GameMog/lib/browser.ts';
 import { writeFileSync } from 'node:fs';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const [BASE, WORLD, SHOTS, SECS = '200', EXTRA = ''] = process.argv.slice(2);
-const url = `${BASE}?pack=${encodeURIComponent(WORLD)}&nogate&trailer=0&autopilot=1&autocard=1&flowfast=1${EXTRA ? '&' + EXTRA : ''}`;
+// (extra 'flowfast=0': the free roam between missions played too, the test drive driving into the next one's corona)
+const FF = /(^|&)flowfast=0(&|$)/.test(EXTRA) ? '' : '&flowfast=1';
+const url = `${BASE}?pack=${encodeURIComponent(WORLD)}&nogate&trailer=0&autopilot=1&autocard=1${FF}${EXTRA ? '&' + EXTRA.replace(/(^|&)flowfast=0(?=&|$)/, '') : ''}`;
 await withBrowser(async (page) => {
   await page.preload(`window.__errs=[]; addEventListener('error',(e)=>window.__errs.push(String(e.message||e).slice(0,240)),true); addEventListener('unhandledrejection',(e)=>window.__errs.push('rej '+String(e.reason && e.reason.stack || e.reason).slice(0,300))); { const ce = console.error.bind(console); console.error = (...a) => { window.__errs.push('console '+a.map((x)=>x&&x.stack||String(x)).join(' ').slice(0,300)); ce(...a); }; const cw = console.warn.bind(console); console.warn = (...a) => { (window.__warns=window.__warns||[]).push(a.map(String).join(' ').slice(0,200)); cw(...a); }; const ci = console.info.bind(console); console.info = (...a) => { (window.__warns=window.__warns||[]).push('info '+a.map(String).join(' ').slice(0,200)); ci(...a); }; }`);
   await page.emulate({ width: 1280, height: 720 });
