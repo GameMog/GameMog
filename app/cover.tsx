@@ -377,7 +377,15 @@ function pickLayout(title: string, h: number) {
   return 'portrait';
 }
 
-export function Cover({ spec, seed = 0, wide = false }: { spec: WorldSpec; seed?: number; wide?: boolean }) {
+/**
+ * avatar (5 Nov, the owner: the homepage's round "Jump in" pictures "centered in the circle like this instagram"): the
+ * world's own creature alone, a headshot: its face centred left to right, its eyes 40% down, its head about half the
+ * square, the burst radiating from behind its head, no title and no rivals. The numbers are measured, not guessed: the
+ * creature's eyes sit 58 units over its feet and 17.9 apart at scale 1 (found from a render of the portrait layout), so
+ * at scale 3.1 with its feet at (150, 300) its eyes land at (150, 120) in the 300 square, 55 px apart.
+ */
+export const AVATAR_PLACE = { x: 150, y: 300, s: 3.1 };
+export function Cover({ spec, seed = 0, wide = false, avatar = false }: { spec: WorldSpec; seed?: number; wide?: boolean; avatar?: boolean }) {
   const W = 300, H = wide ? 169 : 300;
   const title = spec.meta.title;
   const h = hash(title);
@@ -387,13 +395,20 @@ export function Cover({ spec, seed = 0, wide = false }: { spec: WorldSpec; seed?
   const lead = rivals[rivals.length - 1] ?? me;
   const bg = backdrop(spec, me.fur);
   const accent = spec.palette.moodRamp[2].accent;
-  const layout = wide ? 'wide' : pickLayout(title, h);
+  const layout = avatar ? 'avatar' : wide ? 'wide' : pickLayout(title, h);
   const letter = h & 32 ? '#FFFFFF' : '#FFD84A';
   const id = (i: number) => `${uid}c${i}`;
 
   let art: React.ReactNode;
 
-  if (layout === 'portrait') {
+  if (layout === 'avatar') {
+    art = (
+      <>
+        <Burst cx={150} cy={120} a={bg.a} b={bg.b} n={20} />
+        <Placed r={me} x={AVATAR_PLACE.x} y={AVATAR_PLACE.y} s={AVATAR_PLACE.s} accent={accent} uid={id(0)} />
+      </>
+    );
+  } else if (layout === 'portrait') {
     art = (
       <>
         <Burst cx={150} cy={170} a={bg.a} b={bg.b} />
@@ -466,7 +481,7 @@ export function Cover({ spec, seed = 0, wide = false }: { spec: WorldSpec; seed?
   }
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label={`${title} cover`}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label={avatar ? `${title}: its hero` : `${title} cover`}>
       <defs><clipPath id={`${uid}clip`}><rect width={W} height={H} /></clipPath></defs>
       <g clipPath={`url(#${uid}clip)`}>{art}</g>
     </svg>

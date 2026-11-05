@@ -115,6 +115,19 @@ export const OLD_AVATARS = [
   { slug: 'zombie-beach', sha: '51581979dcdf19a7' },
 ];
 
+/**
+ * 5 Nov, the owner: "why aren't classic and up & coming centered in the circle like this instagram". The three creatures
+ * whose 4 Nov portraits were kept get a centred headshot: Mallow cut from a frontal reshoot, Lantern Hour and Ruse
+ * from their own 4 Nov portraits (they turn away from any lens that follows them), each cut round its eyes as found
+ * in the picture (.scratch eyes.cjs: the two dark round blobs most level and alike), the eyes 50% across and 40% down.
+ * Each replaces only the very 4 Nov portrait (old: its bytes) on the code it was shot from (code).
+ */
+export const CREATURE_HEADSHOTS = [
+  { slug: 'mallow-the-lantern-sea', id: 'bc676b38-450e-4120-bcfa-50f1b9a32d9a', code: 'aad04cc5e4ccb808', old: 'c84ea6cd7cd62a9e' },
+  { slug: 'lantern-hour-moon-whale-midway', id: '23f61497-cc86-43ee-adbb-061b099b4fd9', code: '28caf4905f640d0f', old: '83d6e3d763cc2782' },
+  { slug: 'ruse-cloudquake-carnival', id: 'b845718a-be6e-4d11-a87e-75afd2e1371e', code: 'f7d7f71b98c9854b', old: 'a16afa71388dfe2e' },
+];
+
 // (exported for the checks: scripts/kart-score/test-mog.mjs runs one on a database of its own)
 export const MIGRATIONS = [
   {
@@ -1154,6 +1167,25 @@ export const MIGRATIONS = [
         if (g && g.art_avatar && sha(g.art_avatar) === o.sha) cleared += Number(db.prepare('UPDATE games SET art_avatar = NULL WHERE id = ?').run(g.id).changes);
       }
       return `${n} of ${AVATARS.length} headshots; ${cleared} of the 4 Nov portraits cleared${left.length ? `; left alone: ${left.join(', ')}` : ''}`;
+    },
+  },
+  {
+    // 5 Nov: the three creatures' centred headshots (CREATURE_HEADSHOTS above)
+    id: '2026-11-05-creature-headshots',
+    run(db) {
+      const missing = CREATURE_HEADSHOTS.filter((a) => !file(`${a.slug}-avatar.jpg`)).map((a) => a.slug);
+      if (missing.length) throw new Error(`deploy/migrations/{${missing.join(',')}}-avatar.jpg are not in this build`);
+      const sha = (b) => (b ? createHash('sha256').update(Buffer.from(b)).digest('hex').slice(0, 16) : null);
+      let n = 0;
+      const left = [];
+      for (const a of CREATURE_HEADSHOTS) {
+        const g = db.prepare('SELECT id, code, art_avatar FROM games WHERE id = ? AND slug = ?').get(a.id, a.slug);
+        if (!g) { left.push(`${a.slug} (gone)`); continue; }
+        if (createHash('sha256').update(String(g.code ?? '')).digest('hex').slice(0, 16) !== a.code) { left.push(`${a.slug} (its code changed)`); continue; }
+        if (sha(g.art_avatar) !== a.old) { left.push(`${a.slug} (not its 4 Nov portrait)`); continue; }
+        n += Number(db.prepare('UPDATE games SET art_avatar = ? WHERE id = ?').run(file(`${a.slug}-avatar.jpg`), g.id).changes);
+      }
+      return `${n} of ${CREATURE_HEADSHOTS.length} headshots${left.length ? `; left alone: ${left.join(', ')}` : ''}`;
     },
   },
 ];

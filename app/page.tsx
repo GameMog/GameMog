@@ -215,7 +215,7 @@ function JumpIn({ worlds, classic, stats }: { worlds: GameRow[]; classic?: GameR
     { href: '/charts/trending', label: 'Top Trending', pic: art(trending) },
     { href: '/charts/up-and-coming', label: 'Up-and-Coming', pic: art(rising) },
     { href: '/charts/new-mogs', label: 'New Mogs', pic: art(mog) },
-    { href: '/classic', label: 'Classic', pic: classic ? <Cover spec={JSON.parse(classic.spec) as WorldSpec} seed={7} /> : null },
+    { href: '/classic', label: 'Classic', pic: classic ? <Cover spec={JSON.parse(classic.spec) as WorldSpec} seed={7} avatar /> : null },
     { href: '/charts/most-mogged', label: 'Most Mogged', pic: art(mogged) },
     { href: '/create', label: 'Create a world', pic: <span aria-hidden><Icon name="plus" size={44} /></span>, solid: true },
   ];
