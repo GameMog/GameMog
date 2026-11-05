@@ -102,6 +102,9 @@ export async function install(W) {
     W.storyrun.autopilot = autopilot;
   }
 
+  // the key art (?keyart=1, a test drive): one frame of the first drive, the HUD hidden, a wide and a square JPEG
+  if (Q.has('keyart')) keyArt(W, runner).then((art) => { if (art) { W.storyrun.keyart = { wide: art.wide.slice(0), square: art.square.slice(0) }; tell('keyart', art, [art.wide, art.square]); } else tell('keyart', { wide: null, square: null, why: 'no frame' }); });
+
   // the first mission: ?mission=, else the first not passed
   let k = Math.max(0, order.findIndex((o) => o.def.id === Q.get('mission')));
   if (!Q.get('mission')) { const n = order.findIndex((o) => !save.done[o.def.id]); k = n < 0 ? 0 : n; }
@@ -173,3 +176,41 @@ export async function install(W) {
   }
 }
 const fmt = (s) => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+
+// one frame straight after the city renders it (a WebGPU canvas is read in that task), cropped to 1280x720 and 512x512
+function grab(W) {
+  return new Promise((resolve) => {
+    const rp = W.app.renderPipeline, canvas = W.app.renderer?.domElement;
+    if (!rp || !canvas) return resolve(null);
+    const render = rp.render, own = Object.prototype.hasOwnProperty.call(rp, 'render');
+    let t = 0;
+    const done = (v) => { if (own) rp.render = render; else delete rp.render; clearTimeout(t); resolve(v); };
+    rp.render = function (...a) {
+      const r = render.apply(this, a);
+      try {
+        const out = (w, h) => {
+          const c = document.createElement('canvas'); c.width = w; c.height = h;
+          const k = Math.max(w / canvas.width, h / canvas.height), sw = w / k, sh = h / k;
+          c.getContext('2d').drawImage(canvas, (canvas.width - sw) / 2, (canvas.height - sh) / 2, sw, sh, 0, 0, w, h);
+          return new Promise((res) => c.toBlob((b) => (b ? b.arrayBuffer().then(res) : res(null)), 'image/jpeg', 0.84));
+        };
+        Promise.all([out(1280, 720), out(512, 512)]).then(([wide, square]) => done(wide && square ? { wide, square } : null));
+      } catch { done(null); }
+      return r;
+    };
+    t = setTimeout(() => done(null), 4000);
+  });
+}
+async function keyArt(W, runner) {
+  const TRAVEL = new Set(['drive', 'stops', 'pursuit', 'tail']);
+  for (let i = 0; i < 1800; i++) {
+    const M = runner.M, d = M?.def.steps[M.i];
+    if (d && TRAVEL.has(d.type) && !W.cutscene && W.app.controllerManager.activeMode === 'car') break;
+    await sleep(100);
+  }
+  await sleep(3500);
+  const st = document.createElement('style'); st.textContent = '#wg, .hud, #touch-controls, .hud-bottom-left, .hud-top-right { visibility: hidden !important; }';
+  document.head.appendChild(st);
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  try { return await grab(W); } finally { st.remove(); }
+}

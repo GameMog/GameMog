@@ -19,7 +19,13 @@ await withBrowser(async (page) => {
     await sleep(1000);
     const st = await page.eval<any>(`(() => { const S = window.WAGMI && WAGMI.storyrun; return { ready: !!(window.WAGMI && WAGMI.ready), log: S ? S.host.slice(${seen}) : [], phase: WAGMI && WAGMI.mission && WAGMI.mission.phase, mid: WAGMI && WAGMI.mission && WAGMI.mission.id, mode: window.__NYC_APP && __NYC_APP.controllerManager.activeMode, errs: window.__errs.splice(0), warns: (window.__warns||[]).splice(0), ap: S && S.autopilot ? S.autopilot.log.splice(0) : [] }; })()`).catch((e: any) => ({ evalErr: String(e) }));
     if (st.evalErr) continue;
-    for (const m of st.log) { console.log('MSG', JSON.stringify(m).slice(0, 300)); seen++; }
+    for (const m of st.log) {
+      console.log('MSG', JSON.stringify(m).slice(0, 300)); seen++;
+      if (m.type === 'keyart' && m.wide) {
+        const b64 = await page.eval<string>(`(() => { const a = new Uint8Array(WAGMI.storyrun.keyart.wide); let s = ''; for (let i = 0; i < a.length; i += 8192) s += String.fromCharCode(...a.subarray(i, i + 8192)); return btoa(s); })()`).catch(() => '');
+        if (b64) { writeFileSync(`${SHOTS}-keyart-wide.jpg`, Buffer.from(b64, 'base64')); console.log('KEYART', `${SHOTS}-keyart-wide.jpg`); }
+      }
+    }
     for (const e of st.errs) console.log('ERR', e);
     for (const w of st.warns) if (/storyrun|missions|calls|cast/.test(w)) console.log('WARN', w);
     for (const a of st.ap) console.log('AP', JSON.stringify(a));

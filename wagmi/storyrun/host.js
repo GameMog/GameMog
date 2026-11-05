@@ -15,7 +15,8 @@ export const log = [];
 
 export function tell(type, data = {}, transfer = []) {
   const msg = { source: 'gamemog', ...data, type };
-  log.push({ ...data, type, at: +(performance.now() / 1000).toFixed(2) }); if (log.length > 200) log.shift();
+  const shown = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v instanceof ArrayBuffer ? { bytes: v.byteLength } : v]));
+  log.push({ ...shown, type, at: +(performance.now() / 1000).toFixed(2) }); if (log.length > 200) log.shift();
   if (!framed || !parentAt) return false;
   try { window.parent.postMessage(msg, parentAt, transfer); return true; } catch { return false; }
 }

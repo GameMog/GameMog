@@ -348,10 +348,10 @@ export function createRunner(ctx) {
   async function choose(c, t) {
     const options = c.options.map((o) => ({ text: tokens(o.text), locked: false }));
     const who = castName(c.who);
-    let i;
-    if (ctx.flags.autoChoose != null) { await delay(0.8, t); i = Math.min(options.length - 1, ctx.flags.autoChoose); hud.choice({ prompt: tokens(c.prompt), who, color: colorOf(who), options, secs: 0 }); setTimeout(() => hud.choosing?.pick(i), 300); }
-    const r = await Promise.race([hud.choice({ prompt: tokens(c.prompt), who, color: colorOf(who), options, secs: c.timeout || 0 }), wait(() => false, t).catch((e) => { hud.choosing?.cancel(); throw e; })]);
-    i = r;
+    const shown = hud.choice({ prompt: tokens(c.prompt), who, color: colorOf(who), options, secs: c.timeout || 0 });
+    // (a test drive takes option n after a beat, as a player would)
+    if (ctx.flags.autoChoose != null) { const pick = hud.choosing; setTimeout(() => { if (hud.choosing === pick) pick?.pick(Math.min(options.length - 1, ctx.flags.autoChoose)); }, 1200); }
+    let i = await Promise.race([shown, wait(() => false, t).catch((e) => { hud.choosing?.cancel(); throw e; })]);
     if (i < 0 && c.default != null) i = c.default;
     M.log.push(['choice', c.prompt, i]);
     if (c.fork) M.state.forks = { ...(M.state.forks || {}), [c.fork]: i };
