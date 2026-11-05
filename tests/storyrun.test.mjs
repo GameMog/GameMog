@@ -140,3 +140,26 @@ test('the host hears page errors, rejections, load failures and the page going b
   for (const k of ["error('page'", "error('rejection'", "error('load'", "tell('hidden'"]) assert.ok(src.includes(k), k);
   assert.match(fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/pack.js'), 'utf8'), /export async function load\(\) \{\n  watch\(\);/);
 });
+
+test("a world's opening: checked, played once before Mission 1 on a first start, in Mog City's own lettering", () => {
+  const native = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/native.json'), 'utf8'));
+  const w = structuredClone(native);
+  w.opening = { place: '@murrayhill', stage: [{ who: 'Jane', at: '@bowery' }], shots: [
+    { cam: { rel: 'player', right: -30, up: 40, fwd: -60 }, look: 'player', dur: 7, where: { name: 'Murray Hill', sub: 'E 37th St · 5:45 PM' } },
+    { cam: { rel: 'player', fwd: 2.2, right: 0.6 }, look: { rel: 'player' }, dur: 6, card: { who: 'Dan', role: 'the fall guy', is: 'hero' }, sub: ['Dan', 'One more day.'] },
+    { cam: { rel: 'player', right: -8, up: 9, fwd: -16 }, look: 'player', dur: 5, title: true }] };
+  assert.deepEqual(check(w), []);
+  const bad = (f) => { const x = structuredClone(w); f(x.opening); return check(x); };
+  assert.ok(bad((o) => { o.shots = []; }).some((e) => /opening\.shots/.test(e)));
+  assert.ok(bad((o) => { o.shots[1].card = 'Dan'; }).some((e) => /opening\.shots\[1\]\.card/.test(e)));
+  assert.ok(bad((o) => { o.shots[0].where = { sub: 'x' }; }).some((e) => /\.where/.test(e)));
+  assert.ok(bad((o) => { o.shots[0].dur = 90; }).some((e) => /\.dur/.test(e)));
+  assert.ok(bad((o) => { o.stage = [{ at: '@bowery' }]; }).some((e) => /opening\.stage/.test(e)));
+  // (index.js: the opening only when the world has one, on a first start or ?opening=1, never with ?opening=0)
+  const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
+  assert.match(idx, /if \(def\.opening && Array\.isArray\(def\.opening\.shots\) && def\.opening\.shots\.length && Q\.get\('opening'\) !== '0'/);
+  assert.match(idx, /Q\.get\('opening'\) === '1' \|\| \(k === 0 && !Q\.get\('mission'\) && !Object\.keys\(save\.done\)\.length\)/);
+  // (runner.js: Mog City's own place card, name card (caption) and title lockup, on the cutscene director)
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  for (const k of ['ui.place(tokens(s.where.name)', 'ui.caption(who, ', 'ui.gameTitle(true)', "shotList(o.shots || [], t, { opening: true })", 'fig.hold = true']) assert.ok(run.includes(k), k);
+});

@@ -7,11 +7,12 @@
 //   - the start gate (ui.gate) with the world's own title in the lockup's lettering (no MOG CITY), over the live city;
 //   - the places (places.js), the cast (cast.js: registry people native, forged ones from the world's files), the
 //     voices (the world's clips into W.voice), the HUD additions (hud.js), a pet that follows the hero (pet.js);
+//   - the world's opening (def.opening, runner.js opening()) on a first start, before Mission 1, as Mog City's own;
 //   - the story: acts in order, each mission on the runner (runner.js); between missions free roam to the next one's
 //     start, marked the Mog City way (a letter corona in the giver's colour, the yellow route, a DM); MISSION PASSED,
 //     the save (localStorage, per world), the pause menu's Mission select (W.storyList / W.replay); the end card.
 //   - a framing GameMog told what happens (host.js), and the test drive (?autopilot: autopilot.js).
-// URL: ?pack=<world> [&host=<gamemog origin>&game=<id>] [&mission=<ID> [&step=<step id>]] [&nogate] [&autopilot=1 &autoanswer=1
+// URL: ?pack=<world> [&host=<gamemog origin>&game=<id>] [&mission=<ID> [&step=<step id>]] [&opening=0|1] [&nogate] [&autopilot=1 &autoanswer=1
 //      &autochoose=<n> &autocontinue=1 &autocard=1 &flowfast=1 &missionsecs=<s> &skipscenes=<s>] [&keyart=1]
 import * as THREE from 'three/webgpu';
 import { createUI } from '../mission/ui.js';
@@ -139,6 +140,12 @@ export async function install(W) {
   let k = Math.max(0, order.findIndex((o) => o.def.id === Q.get('mission')));
   if (!Q.get('mission')) { const n = order.findIndex((o) => !save.done[o.def.id]); k = n < 0 ? 0 : n; }
   const k0 = k;
+  // the world's opening (def.opening: runner.js opening()), before Mission 1 as Mog City's opening is before its Mission
+  // 1: on a story's first start (nothing passed, no ?mission=), or asked for (?opening=1); ?opening=0 leaves it out
+  if (def.opening && Array.isArray(def.opening.shots) && def.opening.shots.length && Q.get('opening') !== '0'
+    && (Q.get('opening') === '1' || (k === 0 && !Q.get('mission') && !Object.keys(save.done).length))) {
+    try { await runner.opening(def.opening); } catch (e) { console.warn('[storyrun] opening', e); }
+  }
   const marker = createMarker(THREE, W.app.scene, { color: '#FFC93C', radius: 2.4, height: 2.2, alpha: 0.25 });
   let first = true;
   while (k < order.length) {
