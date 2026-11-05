@@ -128,6 +128,9 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     const r = gps?.route;
     if (!r || r.length < 2) { release(); return; }
     const e = cm.getActiveEntity(), x = e.position.x, z = e.position.z, L = lenOf(r);
+    // (straight-line metres to the mark: a heavy car that sails past it gets a route round the block, long by the
+    // route but a few metres away; WP, 4 Nov: a tow truck circled Central Park South for 90 s in the framed drive)
+    const dd = gps?.dest, straight = dd ? Math.hypot(x - dd.x, z - dd.z) : Infinity;
     // a long leg: on to its last 110 m
     if (inCar() && !jumped && t - stepT > 1.2 && L > 250 && type !== 'tail' && type !== 'pursuit') { jumped = true; const q = fromEnd(r, 110); putCar(q.x, q.z, q.h); note(`jump ${Math.round(L)} m`); return; }
     if (!inCar() && !jumped && t - stepT > 1.2 && L > 60) { jumped = true; const q = fromEnd(r, 12); P.position.set(q.x, cm.getGroundHeight(q.x, q.z, 'person'), q.z); P.heading = q.h; note(`walk jump ${Math.round(L)} m`); return; }
@@ -136,13 +139,13 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     else if (t - lastProg.t > 5) {
       lastProg = { t, d: L, x, z };
       // (near the end: put down on it; else back on the road, or 40 m on along the route)
-      if (inCar() && L < 45) { const q = fromEnd(r, 0.5); putCar(q.x, q.z, q.h); note('unstuck car: on the mark'); }
+      if (inCar() && (L < 45 || straight < 30)) { const q = fromEnd(r, 0.5); putCar(q.x, q.z, q.h); note('unstuck car: on the mark'); }
       else if (inCar()) { const q = along(r, x, z, 40), q2 = along(r, x, z, 46); putCar(q.x, q.z, Math.atan2(q2.x - q.x, q2.z - q.z)); note('unstuck car: 40 m on'); }
       else { const q = along(r, x, z, 6); P.position.set(q.x, cm.getGroundHeight(q.x, q.z, 'person'), q.z); note('unstuck walk'); }
       return;
     }
     // circling the mark (a heavy car overshoots, the route goes round the block, again): on the mark after 40 s close by
-    if (inCar() && t - legT > 40 && L < 150 && type !== 'tail' && type !== 'pursuit') { legT = t; const q = fromEnd(r, 0.5); putCar(q.x, q.z, q.h); note('circling: on the mark'); return; }
+    if (inCar() && t - legT > 40 && (L < 150 || straight < 60) && type !== 'tail' && type !== 'pursuit') { legT = t; const q = fromEnd(r, 0.5); putCar(q.x, q.z, q.h); note('circling: on the mark'); return; }
     const radius = d.radius || 8, near = L < (inCar() ? Math.max(2.5, radius * 0.5) : 1.2);
     const tgt = inCar() && L < 25 ? (() => { const q = fromEnd(r, 0); return { x: q.x, z: q.z }; })() : along(r, x, z, inCar() ? 9 + Math.abs(car.speed || 0) * 0.6 : 3);
     if (near) { release(); if (inCar() && car.speed > 0.5) cm.setTouchInput('backward', 0.7); return; }
