@@ -1208,5 +1208,11 @@ export function createRunner(ctx) {
       }
     } finally { registry(W).unregister?.(reg.id); }
   }
-  return { play, opening, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo };
+  // the key light lent to the key art's hero shot (index.js heroShot): placed where it says, at its strength and reach,
+  // or back to off (null). Its position, strength and reach are uniforms: nothing is rebuilt
+  const lamp = (at, intensity = 0, reach = 4.5) => {
+    if (!at) { keyL.intensity = 0; keyL.distance = 4.5; return; }
+    keyL.position.set(at[0], at[1], at[2]); keyL.intensity = intensity; keyL.distance = reach;
+  };
+  return { play, opening, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo, lamp };
 }

@@ -28,6 +28,7 @@ import { createRunner } from './runner.js';
 import { tell, result as tellResult, log as hostLog } from './host.js';
 import { showTitle, plainTitle, isOwn, ownTitle } from './title.js';
 import { asksDressing } from './pack.js';
+import { createDirector } from '../mission/cine.js';
 
 const Q = new URLSearchParams(location.search);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -275,6 +276,13 @@ function grab(W) {
     t = setTimeout(() => done(null), 4000);
   });
 }
+// The key art (GameMog, 5 Nov: story thumbnails "need to pop like the rest"): a hero shot, not the chase camera's view of
+// the car's boot. A few seconds into the first drive the director takes the lens to a low three-quarter front of the hero
+// car (KEY_SHOT: 8 m ahead, 2.6 m to the side, 0.8 m off the road, looking back at the car on a long 30 degree lens), kept
+// on it frame by frame as it drives, the HUD hidden; the side whose line to the car is clear of the street's things is
+// used (cs.segClear), and with neither clear, the chase camera's own view as before. GameMog letters the title over it
+// (lib/story-art.ts). The lens is handed straight back after (a cut): the drive goes on as it was.
+const KEY_SHOT = { fwd: 8, side: 2.6, up: 0.8, fov: 30, lookUp: 0.85, lookFwd: 0.4, lamp: 9 };
 async function keyArt(W, runner) {
   const TRAVEL = new Set(['drive', 'stops', 'pursuit', 'tail', 'tow']);
   for (let i = 0; i < 1800; i++) {
@@ -285,6 +293,48 @@ async function keyArt(W, runner) {
   await sleep(3500);
   const st = document.createElement('style'); st.textContent = '#wg, .hud, #touch-controls, .hud-bottom-left, .hud-top-right { visibility: hidden !important; }';
   document.head.appendChild(st);
-  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-  try { return await grab(W); } finally { st.remove(); }
+  let D = null;
+  try {
+    D = heroShot(W, runner);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    if (D) await sleep(450);
+    return await grab(W);
+  } finally {
+    st.remove();
+    if (D) { runner.lamp?.(null); D.release(0).catch?.(() => {}); }
+  }
+}
+/** The director on the hero shot, or null (no car, or no clear side): the chase camera's view is shot instead. */
+function heroShot(W, runner) {
+  try {
+    const app = W.app, cs = app.cameraSystem, cm = app.controllerManager, ent = cm.getActiveEntity();
+    if (!ent || cm.activeMode !== 'car' || W.cutscene) return null;
+    const S = KEY_SHOT;
+    const at = (side) => {
+      const h = ent.heading, p = ent.position, g = p.y;
+      return {
+        pos: [p.x + Math.sin(h) * S.fwd - Math.cos(h) * S.side * side, g + S.up, p.z + Math.cos(h) * S.fwd + Math.sin(h) * S.side * side],
+        look: [p.x + Math.sin(h) * S.lookFwd, g + S.lookUp, p.z + Math.cos(h) * S.lookFwd],
+      };
+    };
+    const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+    // (the road's side first, the driver's: the kerb side has the pavement's people between the lens and the car)
+    let side = 0;
+    for (const s of [-1, 1]) {
+      const c = at(s);
+      if (!cs.segClear || cs.segClear(V(c.look), V(c.pos), ent) > 0.97) { side = s; break; }
+    }
+    if (!side) return null;
+    const D = createDirector(W);
+    // (and the car's face lit: the cutscenes' warm key light, 3 m out in front of the car on the lens's side, 1.7 m up;
+    // a night street leaves a car's paint black against its own headlights)
+    const frame = () => {
+      const c = at(side), h = ent.heading, p = ent.position;
+      D.camera = { pos: c.pos, look: c.look, fov: S.fov, roll: 0, shake: null, band: false };
+      runner.lamp?.([p.x + Math.sin(h) * 3 - Math.cos(h) * 1.2 * side, p.y + 1.7, p.z + Math.cos(h) * 3 + Math.sin(h) * 1.2 * side], S.lamp, 7.5);
+    };
+    frame(); D.onFrame = frame; D.take();
+    W.storyrun && (W.storyrun.keyShot = { side });
+    return D;
+  } catch (e) { console.warn('[storyrun] key shot', e); return null; }
 }
