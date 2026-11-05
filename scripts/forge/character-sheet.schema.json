@@ -558,7 +558,7 @@
    "properties": {
     "top": {
      "$ref": "#/$defs/garment",
-     "description": "item: tee | long-sleeve | hoodie | puffer-coat | suit-jacket (single-breasted) | suit-jacket-db (double-breasted) | doorman-coat | uniform-jacket | chef-jacket | overalls | overcoat (overcoat = a knee-length coat over a shirt)"
+     "description": "item: tee | long-sleeve | hoodie | puffer-coat | suit-jacket (single-breasted) | suit-jacket-db (double-breasted) | doorman-coat | uniform-jacket | chef-jacket | overalls (= dungarees: bib and straps over a tee; accent = the tee) | overcoat (overcoat = a knee-length coat over a shirt) | shirtless (a man only, a bare torso, only when the story asks for one)"
     },
     "bottom": {
      "$ref": "#/$defs/garment",

@@ -6,6 +6,7 @@ import { core } from './core.mjs';
 import { post } from './post.mjs';
 import { diet } from './diet.mjs';
 import { loadFaceKit } from './targets.mjs';
+import { uncoveredGlb } from './uncovered.mjs';
 
 const now = () => (globalThis.performance ? performance.now() : Date.now());
 export async function forgeSheet(S, env) {
@@ -14,10 +15,15 @@ export async function forgeSheet(S, env) {
   const t1 = now(); await loadFaceKit(env1); const a = await core(cfg, env1); const ta = now() - t1;
   const t2 = now(); const b = await post(a.glb, a.lm, env1); const tb = now() - t2;
   const t3 = now(); const glb = await diet(b.glb, env1); const td = now() - t3;
+  // (RZ: the uncovered gate on the finished GLB, here as in gates.mjs, so a creator's browser refuses a person with a hole
+  // in the body (skin taken out under a garment with nothing over it) instead of shipping it)
+  // (FORGE_UNCOVERED_WARN=1, Node only: kept as a warning in the record, to look at a failing build)
+  const t4 = now(), unc = await uncoveredGlb(glb, env), tu = now() - t4;
+  if (!unc.pass && !env.flag?.('FORGE_UNCOVERED_WARN')) { const e = new Error(`forge: ${S.id}: the body can be seen through where its skin was taken out (${unc.worst.cm2} cm2 at ${unc.worst.near}, ${unc.worst.view}; the limit ${unc.limit})`); e.uncovered = unc; e.cfg = cfg; throw e; }
   const lm = a.lm, coreLog = logs.join('\n');
   // checks the rules promise: teeth built, hands in band, the lips found (or carried: landmarks), shoulders inside their
   // band, no stray clamps
-  const checks = { teeth: /teeth \d+ points/.test(coreLog), lipsFound: !!lm.below, lids: lm.lids, landmarks: lm.source || null, hands: b.report.hands, shoulder: cfg.shoulder, rootScale: b.report.clips.rootScale, armSplay: b.report.clips.armSplay, groundFixMm: b.report.clips.groundFixMm, clips: b.report.clips.clips, clipPack: b.report.clips.pack, tris: a.info.tris, face: a.info.face };
+  const checks = { teeth: /teeth \d+ points/.test(coreLog), lipsFound: !!lm.below, lids: lm.lids, landmarks: lm.source || null, hands: b.report.hands, shoulder: cfg.shoulder, rootScale: b.report.clips.rootScale, armSplay: b.report.clips.armSplay, groundFixMm: b.report.clips.groundFixMm, clips: b.report.clips.clips, clipPack: b.report.clips.pack, tris: a.info.tris, face: a.info.face, uncovered: { pass: unc.pass, worstCm2: unc.worst.cm2, at: unc.worst.near || null, ms: Math.round(tu) } };
   const ms = { compile: Math.round(tc), core: Math.round(ta), post: Math.round(tb), diet: Math.round(td) }; ms.total = ms.compile + ms.core + ms.post + ms.diet;
   const rec = { id: S.id, name: S.name, platform: env.name, ms, sizeMB: +(glb.length / 1048576).toFixed(2), clamps: log, mouth: { below: lm.below, front: lm.front, chin: lm.chin }, checks };
   return { glb, rec, cfg, lm, coreInfo: a.info, coreLog, raw: a.glb, postGlb: b.glb, postReport: b.report };

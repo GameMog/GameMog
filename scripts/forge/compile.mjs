@@ -240,11 +240,22 @@ export function compile(S) {
   const G = (g, d) => { const w = capWhite(c3(g, d)); if (w.changed) log.push(`white cap ${g?.color || 'default'} -> #${w.rgb.map((x) => x.toString(16).padStart(2, '0')).join('')}`); const c = w.rgb, r = guard(c); if (r.changed) log.push(`colour guard ${g?.color || 'default'} -> #${r.rgb.map((x) => x.toString(16).padStart(2, '0')).join('')}`); return '#' + r.rgb.map((x) => x.toString(16).padStart(2, '0')).join(''); };
   const LIBTOP = { 'chef-jacket': 3, 'doorman-coat': 5, 'uniform-jacket': 3, hoodie: 3, overcoat: 5, 'puffer-coat': 4 };
   C.lib = [];
+  // (RZ: a bare torso only when the sheet asks for one (a man shirtless, a swimmer: the pack has no swimsuit, so not a
+  // woman's); anything else must end with a top on)
+  const OVERALLS = new Set(['overalls', 'dungarees']), BARE = new Set(['none', 'shirtless', 'bare-chest']);
   const libTop = LIBTOP[top.item] != null, suitTop = top.item === 'suit-jacket' || top.item === 'suit-jacket-db';
   // the bottom
-  if (bot.item === 'loose-trousers') C.lib.push({ item: 'loose-trousers', color: G(bot, [52, 50, 52]), layer: 1.2 });
+  // (RZ: overalls first: they bring their own bottom, whatever the sheet's says (loose trousers under them took the
+  // branch before, and a man's overalls then had no worksuit and no top). A man's are the pack's worksuit (bib, straps and
+  // tee in one); the female pack has no worksuit, so a woman's are the library's loose work trousers in the overalls' colour and a tee (the
+  // sheet's accent) with the bib, the straps (crossed at the back), the back panel and the waistband painted on it in the
+  // same cloth (core.mjs paint3D bib): the tee shows at the neck, the arms and the sides, as under real overalls)
+  if (OVERALLS.has(top.item) && fem) { const den = lin3(hex(G(top, [34, 44, 74])));
+    C.lib.push({ item: 'loose-trousers', color: G(top, [34, 44, 74]), layer: 1.2 });
+    C.wear.push(['female_casualsuit01', 'top', [1, 1, 1], 'bake', { tint: lin3(hex(G({ color: top.accent }, [200, 200, 196]))), floor: 0.4, hi: 1.08, heather: 0.05, bib: { tint: den } }]); }
+  else if (OVERALLS.has(top.item)) { C.wear.push(['male_worksuit01', 'all', [1, 1, 1], 'overalls']); C.overalls = { navy: c3(top, [34, 44, 74]), tee: hex(top.accent, [200, 200, 196]) }; }
+  else if (bot.item === 'loose-trousers') C.lib.push({ item: 'loose-trousers', color: G(bot, [52, 50, 52]), layer: 1.2 });
   else if (suitTop && !fem) { C.wear.push(['male_elegantsuit01', 'all', [1, 1, 1], 'suit']); C.suit = { navy: c3(top, [26, 36, 66]), tie: hex(top.accent, [20, 18, 20]) }; }
-  else if (top.item === 'overalls' && !fem) { C.wear.push(['male_worksuit01', 'all', [1, 1, 1], 'overalls']); C.overalls = { navy: c3(top, [34, 44, 74]), tee: [200, 200, 196] }; }
   else if (bot.item === 'suit-trousers' && !fem) { C.wear.push(['male_elegantsuit01', 'bottom', [1, 1, 1], 'suit']); C.suit = { navy: c3(bot, c3(top, [26, 36, 66]).map((x) => Math.round(x * 0.8))), tie: [20, 18, 20] }; }
   else {
     const [bf, bm] = BOT[bot.item] || BOT.trousers, bopt = {};
@@ -264,7 +275,7 @@ export function compile(S) {
     // (an overcoat as the top: a shirt under it, seen at the collar)
     if (top.item === 'overcoat') C.wear.push([fem ? 'female_casualsuit01' : 'male_casualsuit06', 'top', [1, 1, 1], 'bake', { tint: lin3(hex(top.accent, [214, 212, 206])), floor: 0.5 }]);
     if (top.item === 'hoodie') C.hood = { extra: top.fit === 'oversized' ? 0.016 : 0.011, color: hex(G(top, [70, 72, 78])).map((x) => Math.round(x * 0.92)), r: 0.036, drop: 0.035, stringColor: hex(top.accent, [230, 230, 226]) };
-  } else if (!suitTop && top.item !== 'overalls') {
+  } else if (!suitTop && !OVERALLS.has(top.item) && !BARE.has(top.item)) {
     if (top.item === 'puffer-coat') { C.wear.push([fem ? 'female_casualsuit01' : 'male_casualsuit06', 'top', [1, 1, 1], 'bake', { tint: lin3(hex(top.accent, [58, 54, 52])), floor: 0.5 }]); C.wear.push([fem ? 'female_elegantsuit01' : 'male_casualsuit01', 'top', [1, 1, 1], 'puffer']); C.puffer = { loft: 0.014, amp: 0.013, pitch: 0.085, sleevePitch: 0.07, white: hex(G(top, [200, 30, 36])), smooth: 10, cutCollar: 0.02, stand: { from: 0.03, h: 0.06, gap: 0.018 } }; }
     // (G7c: a plain top is cotton: its folds' light capped at 1.08 x its middle and a heathered grain (core.mjs garment))
     else C.wear.push([fem ? 'female_casualsuit01' : 'male_casualsuit06', 'top', [1, 1, 1], 'bake', { tint: lin3(hex(G(top, [200, 200, 196]))), floor: 0.4, hi: 1.08, heather: 0.05 }]);
@@ -276,6 +287,13 @@ export function compile(S) {
     C.lib.push({ item: top.item, color: G(top, [38, 40, 48]), pattern: top.pattern || 'plain', fit: top.fit || 'regular', layer: 3, ...(fem ? {} : { collarGap: 0.003 }) }); }
   for (const o of W.over || []) if (o.item === 'overcoat' && !libTop) C.lib.push({ item: 'overcoat', color: G(o, [60, 60, 66]), accent: o.accent || null, layer: 5 });
   for (const o of W.over || []) if (o.item === 'apron') C.apron = { len: fem ? 0.5 : 0.56, width: fem ? 0.36 : 0.4, curve: 5, color: c3(o, [236, 236, 232]), check: o.pattern === 'check' ? { a: c3(o, [40, 64, 120]), b: hex(o.accent, [236, 236, 232]), size: 0.022 } : null, band: hex(o.accent, null) || null, gap: 0.014, ties: true };
+  // (RZ: the wardrobe must end with something over the torso: a pack garment worn for its top or whole, or a library top,
+  // a suit's jacket or a coat. A sheet that would leave none is an error, never a silent hole (the skin under a garment's
+  // hide list is taken out of the body), unless it asks for a bare torso)
+  const TORSO_LIB = new Set([...Object.keys(LIBTOP), 'suit-jacket', 'suit-jacket-db', 'overcoat']);
+  C.torso = C.wear.some((w) => w[1] === 'top' || w[1] === 'all') || C.lib.some((l) => TORSO_LIB.has(l.item));
+  if (!C.torso && !(BARE.has(top.item) && !fem)) throw new Error(`forge compile: the wardrobe has nothing over the torso (top "${top.item}", bottom "${bot.item}", ${S.identity.body}): no garment for it`);
+  if (BARE.has(top.item) && !fem) { C.bareTorso = true; log.push(`bare torso: ${top.item}`); }
   const hw = W.headwear?.item || 'none';
   // (forge v2.2: the hood up (a hoodie's, or a hood on its own over any top), and a knit scarf over everything; the hair
   // under a hood is the scalp's shadow only, so no card comes through it)

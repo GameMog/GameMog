@@ -28,6 +28,9 @@
 //                   clip; room ahead of the toes; the sole's thickness; standing on the floor at rest and never sunk
 //                   into it in the walk, jog or run; each leather, rubber and canvas colour out of the warm hues under the
 //                   2700 K key (never turns orange)
+//   uncovered       (RZ, uncovered.mjs) no hole in the body: in a CPU render from 16 sides of the bind pose, no patch over
+//                   15 cm2 where the skin's inside shows or nothing is hit inside a bone's capsule (skin taken out under a
+//                   garment's hide list with no garment over it: The Velvet Run's Aunt Rosa)
 //   talk            (FC) in the engine's talking face (talkgate.mjs): the tongue behind the lower incisors, the open mouth's
 //                   corners level with its middle (no grimace), the brows rising from head to arch (no scowl)
 //   node gates.mjs <character.glb> [--clips cast-clips.glb] [--json out.json]
@@ -43,6 +46,8 @@ const T3 = createRequire(GAMEMOG + '/package.json')('three');
 import { drift, seen, lch as lchC, family as famC, skinTone, SKIN } from './colour.mjs';
 import { talkGate } from './talkgate.mjs';
 import { collarGate } from './gates-collar.mjs';
+import { uncoveredGlb } from './uncovered.mjs';
+import { nodeEnv } from './env-node.mjs';
 await MeshoptDecoder.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
 
@@ -351,6 +356,9 @@ export async function runGates(glb, packFile) {
 
   /* talking frames (FC): the tongue, the mouth's corners and the brows in the engine's own talking face (talkgate.mjs) */
   res.talk = await talkGate(M.doc);
+
+  /* uncovered (RZ): no see-through body where skin was taken out with no cloth over it (uncovered.mjs; the forge runs it too) */
+  res.uncovered = await uncoveredGlb(new Uint8Array(fs.readFileSync(glb)), await nodeEnv());
 
   const failed = Object.entries(res).filter(([, r]) => !r.pass).map(([k]) => k);
   return { pass: !failed.length, failed, gates: res };

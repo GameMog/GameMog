@@ -1,0 +1,118 @@
+{
+ "id": "probe-bib",
+ "name": "Probe: woman in overalls",
+ "role": "probe: the wardrobe check (not an anchor; the nurse anchor in overalls)",
+ "logline": "The nurse anchor in work overalls over a tee: a woman in overalls must get a top (RZ).",
+ "identity": {
+  "age": 52,
+  "body": "female",
+  "presentation": "woman",
+  "heightCm": 170,
+  "build": {
+   "frame": "medium",
+   "weight": "slim",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "Nigerian-American",
+  "blend": {
+   "african": 0.95,
+   "asian": 0,
+   "european": 0.05
+  },
+  "skin": {
+   "tone": "dark-brown",
+   "undertone": "neutral",
+   "weathered": false,
+   "makeup": "none",
+   "lipTint": "berry"
+  }
+ },
+ "face": {
+  "jaw": "average",
+  "cheeks": "full",
+  "cheekbones": "high",
+  "faceWidth": "wide",
+  "nose": {
+   "width": "wide",
+   "length": "average",
+   "tip": "average",
+   "bridge": "flat"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "black",
+   "weight": "average"
+  },
+  "eyeShape": "round",
+  "eyeBags": "light",
+  "mouth": {
+   "lips": "full",
+   "width": "wide",
+   "cupidsBow": "average",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "average"
+  },
+  "skull": {
+   "shape": "round"
+  },
+  "forehead": "average",
+  "jawWidth": "wide"
+ },
+ "hair": {
+  "style": "curls",
+  "color": "black",
+  "greying": 0.2
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "overalls",
+   "color": "#2F3C58",
+   "accent": "#C4C4C0"
+  },
+  "bottom": {
+   "item": "trousers",
+   "color": "#2F3C58"
+  },
+  "shoes": {
+   "item": "work-boots",
+   "color": "#2A211C"
+  }
+ },
+ "posture": {
+  "stance": "upright",
+  "pace": "steady",
+  "gestures": "hands folded, a nod before she speaks, a firm hand on the arm",
+  "idle": "arms",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "calm",
+   "firm",
+   "kind",
+   "tireless"
+  ],
+  "wants": "her ward to make it to morning, every night",
+  "speech": "low and even, never rushed, the last word always hers"
+ },
+ "voice": {
+  "id": "probe-bib-v1",
+  "description": "warm low alto, calm and level",
+  "pitch": "mid-low",
+  "rate": "slow"
+ }
+}

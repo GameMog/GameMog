@@ -123,6 +123,7 @@ const WAIST = B.J.landmarks.waist + 0.01;
 const triY = (idx, q, P) => (P[idx[q] * 3 + 1] + P[idx[q + 1] * 3 + 1] + P[idx[q + 2] * 3 + 1]) / 3;
 // (each garment's whole hide list, even where only its top or bottom is worn: what it hid is under the other one too,
 // and a cut at the waist left the skin showing between the two)
+// (RZ: where nothing worn ends up over it, the skin is given back below: see 'the skin left showing')
 for (const [name] of CFG.wear) hideBy(name);
 if (CFG.shoes !== 'none') hideBy(CFG.shoes); // (forge v2.2: 'none' when the library's shoes are worn)
 const skinT = []; for (let t = 0; t < nT; t++) if (!hidden[t]) { const q = bodyG.start + t * 3; skinT.push(bIdx[q], bIdx[q + 1], bIdx[q + 2]); }
@@ -808,8 +809,51 @@ if (LIB) { const shoeParts = LIB.done.filter((d) => /^(sneakers|work-boots|dress
       return false; };
     const cv = new Map(), keep = []; let n = 0; for (let q = 0; q < shoeT.length; q += 3) { const t = [shoeT[q], shoeT[q + 1], shoeT[q + 2]]; if (t.every((v) => (cv.has(v) ? cv.get(v) : cv.set(v, covered(v)).get(v)))) { n++; continue; } keep.push(...t); }
     shoeT.splice(0, shoeT.length, ...keep); console.error('shoes: triangles inside the trouser legs dropped', n); } }
+// (RZ: the pack's hide lists hide only skin that something worn covers. A garment's list is its whole cut (a suit's
+// long sleeves and legs, a sportsuit's top half), hidden even where only its top or bottom is worn or where its part
+// was dropped: The Velvet Run's Aunt Rosa (overalls on a woman made trousers only) had her chest and back taken out
+// with nothing over them, the street seen through her; a woman's skirt took her shins and arms. So a hidden triangle
+// not all of whose points have cloth over them (any worn piece's triangle on the point's outward ray: the pack's parts
+// as worn, its shoes, the library's garments), in a patch of such over 100 cm2, is given back, its edge row along a hem
+// or a boot's collar too. Under every anchor's clothes nothing comes back (their builds are unchanged); the uncovered
+// gate (uncovered.mjs) checks the result)
+{ const hv = new Set(); for (let t = 0; t < nT; t++) if (hidden[t] && !(LIB && LIB.hide.has(t))) { const q = bodyG.start + t * 3; hv.add(bIdx[q]); hv.add(bIdx[q + 1]); hv.add(bIdx[q + 2]); }
+  if (hv.size) {
+    // (every worn piece's triangles, in a 3 cm grid: the pack's parts as worn, its shoes, the library's garments)
+    const cell = 0.03, G = new Map(), TR = [], ck = (i, j, k) => i + ',' + j + ',' + k;
+    const add = (P, a, b, c) => { const t = TR.length / 9; TR.push(P[a * 3], P[a * 3 + 1], P[a * 3 + 2], P[b * 3], P[b * 3 + 1], P[b * 3 + 2], P[c * 3], P[c * 3 + 1], P[c * 3 + 2]);
+      const lo = [0, 1, 2].map((k) => Math.floor(Math.min(P[a * 3 + k], P[b * 3 + k], P[c * 3 + k]) / cell)), hi = [0, 1, 2].map((k) => Math.floor(Math.max(P[a * 3 + k], P[b * 3 + k], P[c * 3 + k]) / cell));
+      for (let i = lo[0]; i <= hi[0]; i++) for (let j = lo[1]; j <= hi[1]; j++) for (let k = lo[2]; k <= hi[2]; k++) { const key = ck(i, j, k); (G.get(key) || G.set(key, []).get(key)).push(t); } };
+    for (const T of [...wearT, shoeT]) for (let q = 0; q < T.length; q += 3) add(pPos, T[q], T[q + 1], T[q + 2]);
+    if (LIB) for (const d of LIB.done) for (const p of [...d.r.parts, ...d.r.extras]) { const P = p.mesh?.P, I = p.mesh?.idx; if (P && I) for (let q = 0; q < I.length; q += 3) add(P, I[q], I[q + 1], I[q + 2]); }
+    // (the body's normals, outward: MakeHuman's base is wound consistently, a garment's may not be)
+    const BN = new Float32Array(bPos.length); for (let q = bodyG.start; q < bodyG.start + bodyG.count; q += 3) { const a = bIdx[q] * 3, b = bIdx[q + 1] * 3, c = bIdx[q + 2] * 3, ux = bPos[b] - bPos[a], uy = bPos[b + 1] - bPos[a + 1], uz = bPos[b + 2] - bPos[a + 2], vx = bPos[c] - bPos[a], vy = bPos[c + 1] - bPos[a + 1], vz = bPos[c + 2] - bPos[a + 2], nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; for (const k of [a, b, c]) { BN[k] += nx; BN[k + 1] += ny; BN[k + 2] += nz; } }
+    // (a point is covered when its outward ray meets a worn triangle from 12 mm under the skin (cloth laid on it, a tight
+    // leg sunk into the knee) to 6 cm out (a skirt, a coat's skirt hang loose): skin past a cuff or a hem is not)
+    const hit = (o, n, t0) => { const A = TR[t0], B = TR[t0 + 1], C = TR[t0 + 2], e1 = [TR[t0 + 3] - A, TR[t0 + 4] - B, TR[t0 + 5] - C], e2 = [TR[t0 + 6] - A, TR[t0 + 7] - B, TR[t0 + 8] - C];
+      const px = n[1] * e2[2] - n[2] * e2[1], py = n[2] * e2[0] - n[0] * e2[2], pz = n[0] * e2[1] - n[1] * e2[0], det = e1[0] * px + e1[1] * py + e1[2] * pz; if (Math.abs(det) < 1e-12) return false;
+      const tv = [o[0] - A, o[1] - B, o[2] - C], u = (tv[0] * px + tv[1] * py + tv[2] * pz) / det; if (u < -0.02 || u > 1.02) return false;
+      const qx = tv[1] * e1[2] - tv[2] * e1[1], qy = tv[2] * e1[0] - tv[0] * e1[2], qz = tv[0] * e1[1] - tv[1] * e1[0], w = (n[0] * qx + n[1] * qy + n[2] * qz) / det; if (w < -0.02 || u + w > 1.04) return false;
+      const t = (e2[0] * qx + e2[1] * qy + e2[2] * qz) / det; return t >= -0.012 && t <= 0.06; };
+    const covered = (v) => { const p = [bPos[v * 3], bPos[v * 3 + 1], bPos[v * 3 + 2]], l = Math.hypot(BN[v * 3], BN[v * 3 + 1], BN[v * 3 + 2]) || 1, n = [BN[v * 3] / l, BN[v * 3 + 1] / l, BN[v * 3 + 2] / l], seen = new Set();
+      for (let s = -0.012; s <= 0.0601; s += 0.012) { const c = [0, 1, 2].map((k) => Math.floor((p[k] + n[k] * s) / cell)); for (const t of G.get(ck(c[0], c[1], c[2])) || []) { if (seen.has(t)) continue; seen.add(t); if (hit(p, n, t * 9)) return true; } }
+      return false; };
+    const cov = new Set(); for (const v of hv) if (covered(v)) cov.add(v);
+    // (only whole patches come back: the uncovered hidden triangles joined by their points, and a patch over 100 cm2
+    // given back (a chest, a shin, a forearm: a hole you would see); smaller ones, where a ray slips past a garment's
+    // seam, under a shoe's collar or into an armpit's fold, stay hidden as before (the anchors' are 15-70 cm2 and none
+    // shows: the uncovered gate's worst on them is 5 cm2 seen))
+    const un = []; for (let t = 0; t < nT; t++) { if (!hidden[t] || (LIB && LIB.hide.has(t))) continue; const q = bodyG.start + t * 3; if (!(cov.has(bIdx[q]) && cov.has(bIdx[q + 1]) && cov.has(bIdx[q + 2]))) un.push(t); }
+    const par = new Map(), find = (a) => { while (par.get(a) !== a) { par.set(a, par.get(par.get(a))); a = par.get(a); } return a; };
+    for (const t of un) { const q = bodyG.start + t * 3; for (let k = 0; k < 3; k++) if (!par.has(bIdx[q + k])) par.set(bIdx[q + k], bIdx[q + k]); const r = find(bIdx[q]); par.set(find(bIdx[q + 1]), r); par.set(find(bIdx[q + 2]), r); }
+    const area = new Map(), triA = (q) => { const a = bIdx[q] * 3, b = bIdx[q + 1] * 3, c = bIdx[q + 2] * 3, ux = bPos[b] - bPos[a], uy = bPos[b + 1] - bPos[a + 1], uz = bPos[b + 2] - bPos[a + 2], vx = bPos[c] - bPos[a], vy = bPos[c + 1] - bPos[a + 1], vz = bPos[c + 2] - bPos[a + 2]; return Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx) / 2; };
+    for (const t of un) { const q = bodyG.start + t * 3, r = find(bIdx[q]); area.set(r, (area.get(r) || 0) + triA(q)); }
+    const at = new Map(); for (const t of un) { const q = bodyG.start + t * 3, r = find(bIdx[q]), e = at.get(r) || [0, 0, 0, 0]; for (let k = 0; k < 3; k++) e[k] += bPos[bIdx[q] * 3 + k]; e[3]++; at.set(r, e); }
+    const patches = [...area.entries()].filter(([, a]) => a > 0.01).map(([r, a]) => { const e = at.get(r); return `${(a * 1e4).toFixed(0)}cm2@${[0, 1, 2].map((k) => (e[k] / e[3]).toFixed(2)).join(',')}`; }); let back = 0;
+    for (const t of un) { const q = bodyG.start + t * 3; if (area.get(find(bIdx[q])) > 0.01) { hidden[t] = 0; back++; } }
+    console.error('skin (RZ): hidden with nothing worn over it:', un.length, 'triangles;', back, 'given back in', patches.length, 'patches over 100 cm2', JSON.stringify(patches)); } }
 // (the skin left showing: the pack's hide lists and the library's)
-const skinOut = LIB ? (() => { const o = []; for (let t = 0; t < nT; t++) if (!hidden[t] && !LIB.hide.has(t)) { const q = bodyG.start + t * 3; o.push(bIdx[q], bIdx[q + 1], bIdx[q + 2]); } return o; })() : skinT;
+const skinOut = (() => { const o = []; for (let t = 0; t < nT; t++) if (!hidden[t] && !(LIB && LIB.hide.has(t))) { const q = bodyG.start + t * 3; o.push(bIdx[q], bIdx[q + 1], bIdx[q + 2]); } return o; })();
 /* ---------------------------------------------------------- the vertices -- */
 // a mesh's own vertices: the ones its triangles use, in first-use order
 function compact(lists, n) {
@@ -1278,6 +1322,26 @@ function grimeAt(p) {
   const wear = Math.min(1, knee * 0.9 * (0.5 + 0.7 * n1) + cuff * 0.4 + 0.1 * n1);
   return [grease, wear];
 }
+// (RZ) a woman's overalls on her tee (compile.mjs, paint3D's opt.bib): where each piece is, in bind space: at(p) its
+// distance inside the nearest piece's edge (m, > 0 inside): the bib (the chest's front from the waist to above the bust,
+// 19-21 cm wide), two 3.6 cm straps from its top corners over the shoulders and crossed at the back down to the back
+// panel, the back panel (to 9 cm over the waist), the waistband all round (to 4 cm over it); the sides between the bib
+// and the back panel open, the tee seen there, as under real overalls. button(p): a brass button where a strap meets the bib
+function bibShape() {
+  const spZ = jpos('spine03')[2], shL = jpos('shoulder01.L'), shY = shL[1], sX = 0.62 * Math.abs(shL[0]), top = WAIST + 0.62 * (NECKY - WAIST), hw = 0.097, sw = 0.018, over = shY - 0.075, back = WAIST + 0.09, band = WAIST + 0.04;
+  const seg = (x, y, ax, ay, bx, by) => { const vx = bx - ax, vy = by - ay, t = Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy))); return Math.hypot(ax + vx * t - x, ay + vy * t - y); };
+  return {
+    at(p) { const x = p[0], ax = Math.abs(x), y = p[1], front = p[2] > spZ + 0.01, rear = p[2] < spZ - 0.025, sx = Math.sign(x) || 1; let e = -1;
+      if (y < band) e = Math.max(e, band - y);
+      if (rear && y < back) e = Math.max(e, back - y);
+      if (front && y < top) e = Math.max(e, Math.min(top - y, hw + 0.012 * Math.max(0, (top - y) / (top - WAIST)) - ax));
+      if (y > over) e = Math.max(e, sw - Math.abs(ax - sX));
+      else if (front && y >= top - 0.01) e = Math.max(e, sw - seg(ax, y, hw - sw, top - 0.01, sX, over));
+      else if (!front && y >= back - 0.01) e = Math.max(e, sw - seg(x, y, sx * sX, over, -sx * 0.03, back - 0.01));
+      return e; },
+    button: (p) => p[2] > spZ + 0.01 && Math.hypot(Math.abs(p[0]) - (hw - sw), p[1] - (top - 0.016)) < 0.008,
+  };
+}
 // FORGE: paint by the garment's 3D shape (bind space), per pixel of its triangles T: ripped knees and thighs (the skin
 // under the tear, white weft threads across it, a frayed pale edge), a hoodie's kangaroo pocket (its seams), a check
 function paint3D(o, info, T, opt) {
@@ -1294,8 +1358,21 @@ function paint3D(o, info, T, opt) {
         const e = Math.min(Math.abs(p[1] - top), Math.abs(ax - wAt), Math.abs(p[1] - bot)), inside = p[1] < top && p[1] > bot && ax < wAt;
         if (inside || ax < wAt + 0.004) { if (e < 0.0025) return rgb.map((c) => c * 0.8); if (e < 0.005) return rgb.map((c) => c * 1.04); if (inside) return rgb.map((c) => c * 0.97); } } }
     if (opt.check) { const C = opt.check, k = Math.floor(p[0] / C.size) + Math.floor(p[1] / C.size), a = ((k % 2) + 2) % 2; return a ? C.a : C.b; }
+    if (BIB) return BIB(p, rgb);
     return null;
   };
+  // (RZ: a woman's overalls (compile.mjs): painted on her tee in the trousers' cloth and shade where bibShape puts them;
+  // no darker stitched edge (inside a 3.6 cm strap its two dark lines made the strap's middle a bright crest))
+  const BIB = opt.bib ? (() => {
+    const den = opt.bib.tint.map((t) => enc(lin(200) * t)), ref = opt.tint.map((t) => enc(lin(200) * t)), Lr = 0.3 * ref[0] + 0.59 * ref[1] + 0.11 * ref[2], E = bibShape();
+    return (p, rgb) => { const e = E.at(p); if (e <= 0) return null;
+      // (x 1.6: the tee's folds read darker than its colour and its cotton renders darker than the library trousers'
+      // twill; measured in the studio's turn, 1.6 brings the bib to the trousers' shade)
+      // (its edge eased over 8 mm, the denim's colour mixed into the tee's)
+      const L = 0.3 * rgb[0] + 0.59 * rgb[1] + 0.11 * rgb[2], k = 1.6 * Math.max(0.55, Math.min(1.25, L / Lr)), f = Math.min(1, e / 0.008), f2 = f * f * (3 - 2 * f);
+      if (E.button(p)) return [168, 132, 64].map((c) => c * Math.max(0.7, Math.min(1.15, L / Lr)));
+      return den.map((c, i) => rgb[i] + (c * k - rgb[i]) * f2); };
+  })() : null;
   for (let q = 0; q < T.length; q += 3) {
     const vs = [T[q], T[q + 1], T[q + 2]], U = vs.map((v) => [uv[v * 2] / 65535 * S, (1 - uv[v * 2 + 1] / 65535) * H0]), Pv = vs.map((v) => [pPos[v * 3], pPos[v * 3 + 1], pPos[v * 3 + 2]]);
     const x0 = Math.floor(Math.min(...U.map((u) => u[0]))), x1 = Math.ceil(Math.max(...U.map((u) => u[0]))), y0 = Math.floor(Math.min(...U.map((u) => u[1]))), y1 = Math.ceil(Math.max(...U.map((u) => u[1])));
@@ -1308,6 +1385,17 @@ function paint3D(o, info, T, opt) {
       if (c) { for (let ch = 0; ch < 3; ch++) o[i + ch] = Math.max(0, Math.min(255, Math.round(c[ch]))); n++; }
     }
   }
+  // (RZ: the bib's cloth grown 4 texels out over the atlas's empty texels round its islands: the texture's filtering
+  // reads them at an island's edge, and the tee's colour there drew a pale ragged line along the overalls' hem)
+  if (BIB) { const own = new Uint8Array(S * H0); let grown = 0;
+    for (let y = 0; y < H0; y++) for (let x = 0; x < S; x++) if (done[y * S + x]) { const p = y * S + x, i = p * 3; own[p] = 1; }
+    let front = []; for (let k = 0; k < S * H0; k++) if (own[k]) front.push(k);
+    for (let it = 0; it < 4; it++) { const next = [];
+      for (const k of front) { const x = k % S, y = (k / S) | 0;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= S || yy >= H0) continue; const kk = yy * S + xx; if (own[kk] || done[kk]) continue;
+          own[kk] = 2; for (let c = 0; c < 3; c++) o[kk * 3 + c] = o[k * 3 + c]; next.push(kk); grown++; } }
+      front = next; }
+    console.error('paint3D bib: texels grown past the islands', grown); }
   console.error('paint3D px', n);
 }
 function paintGrime(o, info, T, k) {
@@ -1441,7 +1529,7 @@ async function garment(name, mode, opt = {}, T = null) {
     if (ht) { const x = i % Wt, y = Math.floor(i / Wt); v *= 1 + ht * ((hash3(x, y, 17) - 0.5) * 1.6 + (vnoise(x / 3, y / 3, 23) - 0.5) * 0.8); }
     o[i * 3] = o[i * 3 + 1] = o[i * 3 + 2] = Math.min(255, Math.round(v)); }
   if (mode === 'bake') bakeCloth(o, data, info, opt, T);
-  if (T && (opt.rips || opt.pocket || opt.check)) paint3D(o, info, T, opt);
+  if (T && (opt.rips || opt.pocket || opt.check || opt.bib)) paint3D(o, info, T, opt);
   return sharp(o, { raw: { width: info.width, height: info.height, channels: 3 } }).jpeg({ quality: 90 }).toBuffer();
 }
 // a texture's lightness put onto a ramp (its alpha kept): the hair and brows silver
@@ -1995,7 +2083,18 @@ for (const [wi, K] of wearSm.entries()) { if (!K) continue;
     P.set(P2); }
   mem.forEach((L, i) => { const d = Math.hypot(...[0, 1, 2].map((c) => P[i * 3 + c] - pPosX[L[0] * 3 + c])); if (d > 1e-5) moved++; for (const v of L) for (let c = 0; c < 3; c++) pPosX[v * 3 + c] = P[i * 3 + c]; });
   console.error('cotton top (G8b): folds filled,', moved, 'of', n, 'points moved'); }
-const pack = build('pack', PKX, pPosX, HAIR_BODY ? [...wearT, shoeT] : [hairTX, ...wearT, shoeT], HAIR_BODY ? [...wearM, M.shoes] : [M.hair, ...wearM, M.shoes], HAIR_BODY ? [...wearT.map(() => false), false] : [true, ...wearT.map(() => false), false], null, HAIR_BODY ? [...wearSm, 0] : [0, ...wearSm, 0]);
+// (RZ: a woman's overalls painted on her tee are their own piece: the tee's triangles the bib, straps, back panel and
+// waistband reach (a point within 6 mm of them) drawn with a material of their own, 'overalls' (the same texture): the
+// cloth gate measures each piece apart, and the painted edge inside the one light tee read to its ridge check as a
+// bright line along every edge (0.05-0.06 > 0.03); at a piece's edge it is not)
+const wearL = [], wearML = [], wearSL = [];
+CFG.wear.forEach(([name, , , , opt], wi) => { if (!opt?.bib || !wearT[wi].length) { wearL.push(wearT[wi]); wearML.push(wearM[wi]); wearSL.push(wearSm[wi]); return; }
+  const E = bibShape(), inV = new Map(), on = (v) => (inV.has(v) ? inV.get(v) : inV.set(v, E.at([pPosX[v * 3], pPosX[v * 3 + 1], pPosX[v * 3 + 2]]) > -0.006).get(v)), T = wearT[wi], tee = [], bib = [];
+  for (let q = 0; q < T.length; q += 3) (on(T[q]) || on(T[q + 1]) || on(T[q + 2]) ? bib : tee).push(T[q], T[q + 1], T[q + 2]);
+  const mb = wearM[wi].clone().setName('overalls').setExtras({ ...wearM[wi].getExtras(), garment: name + ':overalls' });
+  wearL.push(tee, bib); wearML.push(wearM[wi], mb); wearSL.push(wearSm[wi], wearSm[wi]);
+  console.error('overalls (RZ): the tee', tee.length / 3, 'triangles, the overalls painted on it', bib.length / 3); });
+const pack = build('pack', PKX, pPosX, HAIR_BODY ? [...wearL, shoeT] : [hairTX, ...wearL, shoeT], HAIR_BODY ? [...wearML, M.shoes] : [M.hair, ...wearML, M.shoes], HAIR_BODY ? [...wearL.map(() => false), false] : [true, ...wearL.map(() => false), false], null, HAIR_BODY ? [...wearSL, 0] : [0, ...wearSL, 0]);
 
 /* ----------------------------------------------------- FORGE: made garments -- */
 // an extra skinned mesh: points in the bind space, uvs, B-skeleton joint indices + weights (4 per point), triangles;
