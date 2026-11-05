@@ -64,6 +64,7 @@ export async function createVoice(W, out) {
       const left = cur ? cur.end - ctx.currentTime : 0, wait = left > 0 && left <= HOLD ? left + 0.04 : 0;
       const late = wait ? 0 : Math.max(0, ctx.currentTime - asked); if (late > buf.duration - 0.2) return;
       if (!wait) V.stop(0.05);
+      if (!l.dur) l.dur = buf.duration; // (a world's clip: its length known once decoded, wagmi/storyrun)
       const src = ctx.createBufferSource(); src.buffer = buf;
       const g = ctx.createGain(); g.gain.value = 1;
       const chain = filters(l.speaker in fxOf ? fxOf[l.speaker] : l.fx);
@@ -142,6 +143,14 @@ export async function createVoice(W, out) {
       return Math.min(1, Math.sqrt(e / data.length) * 3.5);
     },
     fx(speaker, kind) { if (kind === undefined) delete fxOf[speaker]; else fxOf[speaker] = kind; },
+    // a world's own recording of a line (wagmi/storyrun: a Story Kit voice clip, by its URL), played as a recorded line
+    // is (its subtitle, the music ducked, the call filters, the speaker's mouth); never over one of Mog City's own
+    clip(speaker, text, file, { dur = 0, fx = null } = {}) {
+      const k = key(speaker, text); if (!file || (byKey.has(k) && !byKey.get(k).pack)) return false;
+      const l = { id: 'pack:' + k, speaker, text, file, dur, fx, pack: true };
+      byKey.set(k, l); man.lines.push(l);
+      return true;
+    },
     warm,
   };
   // (decoding needs the sound up: the first key or click after the gate)

@@ -1,0 +1,685 @@
+// Mog City story runner: plays one mission of a world, step by step, on Mog City's own parts. The semantics are the
+// Story Kit's (GameMog storykit/BUILDER.md, public/storykit/framework/missions/README.md): steps in order, `during`
+// side steps alongside (a call while driving: from `at` s in, ended with their step unless persist or until), `if`
+// skips a step, `goto` / `end` jump, `checkpoint: true` is where Retry goes back to, a set's meters and flags, the one
+// mission timer (hard: fails; soft: LATE and on). The presentation is Mog City's, every piece of it: mission/ui.js's
+// objective line, tracker, subtitles, place card, caller card, DMs, counter, hold ring, MISSION PASSED / FAILED (Retry,
+// Quit, Skip after three fails) and title cards; gps.js routes and blips, marker.js coronas, turns.js's next-turn
+// banner (the GPS draws it in the car); cine.js's director for cutscenes (bars, hold Space to skip); calls.js's car
+// phone; combat's fights; pursuit's chases; m2-drive.js for a car to tail; the pause menu's checkpoints. hud.js adds a
+// choice, a timer and meters in the same look.
+//   createRunner(ctx) -> { play(def, { act }) -> Promise<'pass' | 'quit'>, stop(), state, M }
+// ctx: { W, world, places, cast, hud, host, save, flags: { autoAnswer, autoChoose, autoCard } }
+// Every kind of the pack schema is handled; the few with no Mog City part yet (convoy, comfort, patrol, roadblock,
+// passenger, wallet, stealth, scene) say so in the console and pass, so a story still plays through (KINDS_STUB).
+import * as THREE from 'three/webgpu';
+import { createGPS } from '../mission/gps.js';
+import { createMarker } from '../mission/marker.js';
+import { createDirector, keys, handheld, clamp } from '../mission/cine.js';
+import { missions as registry } from '../mission/pause.js';
+import { place as putAt, outBesideCar } from '../intro.js';
+import { test, value, flagName } from './cond.js';
+
+const PI = Math.PI;
+export const KINDS_STUB = new Set(['convoy', 'comfort', 'patrol', 'roadblock', 'passenger', 'wallet', 'stealth', 'scene']);
+const TRAVEL = new Set(['drive', 'stops', 'walk', 'pursuit', 'tail', 'search']);
+const BACKGROUND = new Set(['trigger', 'comfort', 'patrol', 'stealth', 'roadblock']);
+const ENDS_WITH_HOST = new Set([...BACKGROUND, 'pursuit', 'beat', 'tail', 'convoy', 'call']);
+const TIPS = {
+  ko: ['Hit with [J]. When the cue over a man turns ', { yellow: 'yellow' }, ', counter with [Q]; when it is ', { red: 'red' }, ', roll away with [C].'],
+  left: ['Stay with the fight until it is over: it is lost past 150 m.'],
+  time: ['Take the quickest route: the ', { 'yellow line': 'yellow' }, ' on the radar. Hold [Shift] to boost.'],
+  caught: ['Break their line of sight, then keep moving until the search circle runs out.'],
+  lost: ['Stay close enough to keep them in sight, and back off if they slow down.'],
+};
+class Fail extends Error { constructor(reason, kind = null) { super(reason); this.reason = reason; this.kind = kind; } }
+class Stop extends Error {}
+
+export function createRunner(ctx) {
+  const { W, world, places, cast, hud, host } = ctx;
+  const app = W.app, cm = app.controllerManager, P = W.person, car = W.car, ui = W.ui, sfx = W.sfx;
+  const gps = W.gps || (W.gps = createGPS(W));
+  const marker = W.marker || (W.marker = createMarker(THREE, app.scene, { color: '#FFC93C', radius: 3 }));
+  const def0 = world.def;
+  const now = () => (W.clock ? W.clock.now() : performance.now());
+  const inCar = () => cm.activeMode === 'car';
+  const me = () => (inCar() ? car.position : P.position);
+  const dist = (a, x, z) => Math.hypot(a.x - x, a.z - z);
+  const heroName = world.heroName || def0.hero || 'Dan';
+  let M = null;
+
+  /* ------------------------------------------------------------------ tokens -- */
+  const tokOf = (parent = null) => ({ dead: false, err: null, parent });
+  const deadOf = (t) => { for (let x = t; x; x = x.parent) if (x.dead) return x; return null; };
+  const wait = (cond, t) => new Promise((res, rej) => {
+    const f = () => {
+      const d = deadOf(t); if (d) return rej(d.err || new Stop());
+      if (W.paused) return requestAnimationFrame(f);
+      let ok = false; try { ok = cond(); } catch (e) { return rej(e); }
+      if (ok) res(); else requestAnimationFrame(f);
+    };
+    f();
+  });
+  const delay = (secs, t) => { const end = now() + secs * 1000; return wait(() => now() >= end, t); };
+  const kill = (t, err = null) => { if (t && !t.dead) { t.dead = true; t.err = err; } };
+
+  /* -------------------------------------------------------------- the words -- */
+  const tokens = (s) => String(s ?? '')
+    .replace(/\{ride\.name\}|\{ride\}/g, car.label || 'your car').replace(/\{ride\.board\}/g, 'Get in').replace(/\{ride\.go\}/g, 'Drive').replace(/\{ride\.park\}/g, 'Stop')
+    .replace(/\{name\}/g, heroName);
+  // '**bold**' -> Mog City's one coloured noun (yellow: a place)
+  const parts = (s, color = 'yellow') => {
+    const out = []; const re = /\*\*(.+?)\*\*/g; let at = 0, m; s = tokens(s);
+    while ((m = re.exec(s))) { if (m.index > at) out.push(s.slice(at, m.index)); out.push({ [m[1]]: color }); at = m.index + m[0].length; }
+    if (at < s.length) out.push(s.slice(at));
+    return out.length ? out : [s];
+  };
+  const colorOf = (who) => (who ? cast.color(who) : '#FFFFFF');
+  const VOICED = (who, text) => !!W.voice?.speaks?.(who, text) || !!W.voice?.has?.(who, text);
+  function mumble(who, text, secs) {
+    if (!sfx || VOICED(who, text)) return;
+    const f0 = cast.f0(who), ph = text.match(/[^.?!]+[.?!']*/g) || [text];
+    let at = 0;
+    for (const p of ph) { const n = p.trim().length; if (!n) continue; setTimeout(() => sfx.play('mumble', { f0: f0 * (0.96 + Math.random() * 0.08), dur: Math.min(0.5, Math.max(0.2, 0.1 + n * 0.02)), gain: 0.26, q: /\?/.test(p) }), at * 1000 + 30); at += p.length / text.length * secs; }
+  }
+  // a line: its subtitle (its recording or clip plays from it: radio/voices.js), held for its reading time or its voice
+  async function say(who, text, t, { secs = null, phone = false } = {}) {
+    text = tokens(text);
+    const rec = W.voice?.dur?.(who, text) || 0;
+    const hold = Math.max(1.4, text.length / 15, rec + 0.15, secs || 0);
+    if (phone) W.voice?.fx?.(who, 'phone');
+    ui.sub(who || null, text, colorOf(who));
+    mumble(who, text, hold);
+    M?.log.push(['say', who, text]);
+    try { await delay(hold, t); } finally { ui.sub(null); if (phone) W.voice?.fx?.(who); }
+    await delay(0.25, t);
+  }
+  const tuple = (l) => (Array.isArray(l) ? { who: l[0], text: l[1], secs: l[2] } : l);
+  // the runner pack writes call speakers upper-cased: back to the cast's own name
+  const castName = (w) => { if (!w) return w; if (world.castOf(w)) return w; const k = Object.keys(def0.cast || {}).find((n) => n.toUpperCase() === String(w).toUpperCase()); return k || w; };
+
+  /* ---------------------------------------------------------- state and sets -- */
+  const meterDefs = () => (def0.hud?.meters || []);
+  function showMeters() {
+    const hidden = new Set(M?.def.hiddenMeters || []);
+    hud.meters(meterDefs().filter((m) => m.kind !== 'hidden' && !hidden.has(m.id)).map((m) => {
+      const v = Math.round(M.state.meters[m.id] ?? m.start ?? 0);
+      return { label: m.label || m.id, text: m.kind === 'money' ? `${m.prefix ?? '$'}${v}` : m.kind === 'pips' ? '●'.repeat(Math.max(0, Math.min(m.pips || 5, v))) + '○'.repeat(Math.max(0, (m.pips || 5) - v)) : `${m.prefix ?? ''}${v}` };
+    }));
+  }
+  const cond = (c) => test(c, M.state, ctx.save.done);
+  function applySet(set) {
+    if (!set) return;
+    if (Array.isArray(set)) { for (const e of set) applySet(e); return; }
+    if (set.if && !cond(set.if)) return;
+    for (const [k, raw] of Object.entries(set.meters || {})) {
+      const cur = M.state.meters[k] || 0, md = meterDefs().find((m) => m.id === k);
+      let next = raw && typeof raw === 'object' ? (raw.to != null ? raw.to : cur + (raw.add || 0)) : cur + raw;
+      if (md) { if (md.min != null) next = Math.max(md.min, next); if (md.max != null) next = Math.min(md.max, next); }
+      M.state.meters[k] = next;
+    }
+    for (const [k0, v] of Object.entries(set.flags || {})) { const k = flagName(k0); M.state.flags[k] = v && typeof v === 'object' && 'add' in v ? (+M.state.flags[k] || 0) + v.add : v; }
+    if (set.label) M.state.label = set.label;
+    showMeters();
+  }
+
+  /* --------------------------------------------------------------- the world -- */
+  const placeOf = (ref, why) => { const p = places.at(ref); if (!p) throw new Fail(`The story names a place this city doesn't have (${typeof ref === 'string' ? ref : ref?.['@']}).`, 'place'); return p; };
+  // the player at a place: at the wheel (the car on its lane) or on foot beside the car
+  function putPlayer(p, mode = 'car') {
+    if (mode === 'walk' || mode === 'person') {
+      putAt(W, { car: [p.x, p.z, p.heading ?? 0] });
+      outBesideCar(W);
+    } else {
+      putAt(W, { car: [p.x, p.z, p.heading ?? 0], dan: [p.x, p.z, p.heading ?? 0] });
+      P.inVehicle = true; P.mesh.visible = false; P.speed = 0; app.selectMode('car');
+    }
+    app.cameraSystem.resetForTeleport?.();
+  }
+  const setTime = (id) => { const T = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' }; try { if (id) app.selectTime(T[id] || id); } catch {} };
+
+  /* ---------------------------------------------------------- the timer -- */
+  function createTimer() {
+    const T = { running: false, left: 0, opts: {}, late: false, over: 0, fired: false };
+    let last = now();
+    T.start = (secs, o = {}) => Object.assign(T, { running: true, left: secs, opts: o, late: false, over: 0, fired: false });
+    T.stop = () => { T.running = false; hud.timer(null); };
+    T.add = (s) => { if (T.running && !T.late) T.left += s; };
+    T.tick = () => {
+      const t = now(), dt = (t - last) / 1000; last = t;
+      if (!T.running || W.paused || W.cutscene) return null;
+      if (T.late) { T.over += dt; hud.timer(T.over, T.opts.label, true); return null; }
+      T.left -= dt; hud.timer(T.left, T.opts.label || 'TIME');
+      if (T.left <= 0 && !T.fired) { T.fired = true; if (T.opts.fail === 'soft') T.late = true; else T.running = false; return T.opts; }
+      return null;
+    };
+    return T;
+  }
+
+  /* --------------------------------------------------------------- the steps -- */
+  const STEPS = {};
+  // place: the player there (in the car, or on foot), the time of day
+  STEPS.place = async (d) => { const p = placeOf(d.at); putPlayer(p, (typeof d.at === 'object' && d.at.mode) || (M.def.vehicle ? 'car' : 'walk')); setTime(d.time); M.timer.add(d.bonus || 0); };
+  STEPS.say = async (d, t) => { const who = castName(d.who); if (d.wait === false) { say(who, d.text, M.tok, { secs: d.secs }).catch(() => {}); return; } await say(who, d.text, t, { secs: d.secs }); };
+  STEPS.wait = async (d, t) => { const end = now() + (d.secs || 0) * 1000; await wait(() => now() >= end || (d.call && !W.calls?.live && now() > end - (d.secs || 0) * 1000 + 300), t); };
+  STEPS.dm = async (d, t) => { sfx.play('ding', { gain: 0.3 }); ui.dm(d.from || d.name || 'Unknown number', tokens(d.text), d.secs || 8); M.log.push(['dm', d.from, d.text]); await delay(d.wait ? (d.secs || 8) : 1.2, t); };
+  STEPS.set = async (d) => applySet(d.set);
+  STEPS.label = async (d) => { M.state.label = d.label; };
+  STEPS.goto = async (d) => ({ goto: d.to });
+  STEPS.end = async (d) => { if (d.fail) throw new Fail(tokens(d.fail)); return { end: true }; };
+  STEPS.timer = async (d) => {
+    if (d.stop) { M.timer.stop(); return; }
+    M.timer.start(value(d.seconds, M.state, ctx.save.done) || 60, { label: d.label, fail: d.fail || 'hard', why: d.why, flag: d.flag, set: d.set, lateLabel: d.lateLabel });
+  };
+
+  // drive: the corona, the GPS ('get there' the Mog City way: gps.drive), there inside the radius and slowed down
+  async function goTo(p, d, t, { name = p.name, objective = null, onFoot = 250, needsCar = false } = {}) {
+    const radius = d.radius || 8;
+    marker.at(p.x, 0, p.z);
+    const dest = { x: p.x, z: p.z, name };
+    const nav = gps.drive({ dest, objective: objective ? parts(objective) : ['Go to ', { [name]: 'yellow' }, '.'], onFoot, needsCar });
+    M.nav = nav;
+    try {
+      await wait(() => {
+        nav.step();
+        if (inCar()) return dist(car.position, p.x, p.z) < radius && (d.stop === false || Math.abs(car.speed) < 4);
+        return dist(P.position, p.x, p.z) < Math.max(3, radius * 0.75);
+      }, t);
+    } finally { nav.stop(); M.nav = null; marker.hide(); gps.clear(); }
+    if (inCar() && d.stop !== false) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; }
+    sfx.play('ding', { gain: 0.22 });
+    ui.place(name, '', 3);
+  }
+  STEPS.drive = async (d, t) => {
+    const list = [].concat(d.to).map((r) => placeOf(r));
+    const p = list.length > 1 ? list.reduce((a, b) => (dist(me(), b.x, b.z) < dist(me(), a.x, a.z) ? b : a)) : list[0];
+    await goTo(p, d, t, { objective: d.objective || `Drive to **${p.name}**.` });
+    M.timer.add(d.bonus || 0);
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
+  };
+  STEPS.stops = async (d, t) => {
+    const n = d.stops.length;
+    for (let k = 0; k < n; k++) {
+      const s = d.stops[k], p = placeOf(s), label = (typeof s === 'object' && s.name) || p.name;
+      ui.counter('STOPS', `${k}/${n}`);
+      await goTo({ ...p, name: label }, d, t, { name: label, objective: d.objective ? d.objective.replace(/\{n\}/g, k + 1).replace(/\{of\}/g, n).replace(/\{name\}/g, label) : `Stop at **${label}**.` });
+      if (typeof s === 'object') { applySet(s.set); M.timer.add(s.bonus || 0); }
+    }
+    ui.counter('STOPS', `${n}/${n}`); await delay(1, t); ui.counter(null);
+  };
+  STEPS.walk = async (d, t) => {
+    const p = placeOf(d.to);
+    if (d.leaveCar && inCar()) {
+      gps.objective(['Get out of your ', { car: 'blue' }, '.'], null);
+      ui.help('Press [F] to get out.', 8);
+      await wait(() => !inCar() && !W.ride?.phase, t);
+    }
+    if (d.enterCar) {
+      gps.objective(['Get in your ', { [car.label || 'car']: 'blue' }, '.'], { follow: () => car.position, name: car.label });
+      gps.blip('car', { x: car.position.x, z: car.position.z, kind: 'car', edge: true, name: car.label });
+      ui.help('Press [F] to get in a vehicle.', 8);
+      try { await wait(inCar, t); } finally { gps.unblip('car'); ui.help(null); }
+      return;
+    }
+    const r = d.radius || 3;
+    gps.objective(parts(d.objective || `Walk to **${p.name}**.`), { x: p.x, z: p.z, name: p.name });
+    const ring = createMarker(THREE, app.scene, { color: '#FFC93C', radius: Math.max(1.2, r * 0.6), height: d.beam ? 6 : 1.1, alpha: 0.22 }); ring.at(p.x, 0, p.z);
+    try { await wait(() => !inCar() && dist(P.position, p.x, p.z) < r, t); } finally { ring.hide(); app.scene.remove(ring.group); gps.clear(); }
+  };
+  // search: hold F there on foot (the van's search, ui.holdAct)
+  STEPS.search = async (d, t) => {
+    const p = placeOf(d.at), reach = d.radius || 3.2;
+    gps.objective(parts(d.objective || `Search **${d.label}**.`, 'green'), { x: p.x, z: p.z, name: d.label }, { blip: false });
+    gps.blip('search', { x: p.x, z: p.z, kind: 'object', edge: true, name: d.label });
+    const ring = createMarker(THREE, app.scene, { color: '#4ADE80', radius: reach * 0.8, height: 1.1, alpha: 0.2 }); ring.at(p.x, 0.02, p.z);
+    const act = ui.holdAct({ label: d.label, noun: d.label.replace(/^\w+\s+/, ''), secs: d.secs || 1.0, show: reach + 6, reach });
+    M.holding = { x: p.x, z: p.z, act };
+    let last = now();
+    try { await wait(() => { const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt; return act.step(dt, dist(P.position, p.x, p.z), !inCar()) || (M.auto && !inCar() && dist(P.position, p.x, p.z) < reach); }, t); }
+    finally { act.stop(); ring.hide(); app.scene.remove(ring.group); gps.unblip('search'); gps.clear(); M.holding = null; }
+    sfx.play('ding', { gain: 0.25 });
+  };
+
+  // npc: a cast member at a place, or beside the player, facing him
+  STEPS.npc = async (d) => {
+    const who = castName(d.who);
+    if (d.remove) { cast.hide(castName(d.remove)); return; }
+    let x, z;
+    if (d.at && d.at.rel === 'player') {
+      const e = cm.getActiveEntity(), h = e.heading, r = d.at.right || 0, f = d.at.fwd || 0;
+      x = e.position.x - Math.cos(h) * r + Math.sin(h) * f; z = e.position.z + Math.sin(h) * r + Math.cos(h) * f;
+    } else { const p = placeOf(d.at || '@' + Object.keys(def0.places || {})[0]); x = p.x; z = p.z; }
+    const fig = await cast.spawn(who, { x, z, heading: Math.atan2(me().x - x, me().z - z) });
+    if (fig) M.npcs.add(who);
+  };
+
+  // the cutscene camera: a point is 'player' (his head), '@place', or { rel: 'player' | <cast name>, right, up, fwd }
+  const _v = new THREE.Vector3();
+  function camPt(ref, fallbackUp = 1.5) {
+    const e = cm.getActiveEntity();
+    if (!ref || ref === 'player') return [e.position.x, e.position.y + (inCar() ? 1.2 : 1.55), e.position.z];
+    if (typeof ref === 'string' && ref.startsWith('@')) { const p = places.at(ref); if (p) return [p.cx ?? p.x, cm.getGroundHeight(p.cx ?? p.x, p.cz ?? p.z, 'person') + fallbackUp, p.cz ?? p.z]; }
+    if (typeof ref === 'object' && ref.rel) {
+      const fig = ref.rel !== 'player' ? cast.get(castName(ref.rel)) : null;
+      const base = fig ? fig.head(_v) : _v.set(e.position.x, e.position.y + (inCar() ? 1.2 : 1.55), e.position.z);
+      const h = fig ? fig.heading : e.heading, f = ref.fwd || 0, r = ref.right || 0;
+      return [base.x + Math.sin(h) * f - Math.cos(h) * r, base.y + (ref.up || 0), base.z + Math.cos(h) * f + Math.sin(h) * r];
+    }
+    return [e.position.x, e.position.y + 1.5, e.position.z];
+  }
+  async function shotList(shots, t, { skippable = true, beat = false } = {}) {
+    const D = createDirector(W);
+    W.cutscene = !beat; if (!beat) { ui.cine(true); ui.objective(null); }
+    let skip = false;
+    const local = tokOf(t);
+    if (skippable && !beat) D.block(true, { onSkip: () => { skip = true; kill(local); } });
+    D.take();
+    let lastFrame = now();
+    const stepSkip = () => { const tt = now(); D.skipStep(Math.min(0.05, (tt - lastFrame) / 1000), ui); lastFrame = tt; };
+    try {
+      for (const s of shots) {
+        if (skip) break;
+        if (s.if && !cond(s.if)) continue;
+        const dur = s.dur || 3, A = camPt(s.cam), B = s.to ? camPt(s.to) : A, LA = camPt(s.look, 1.4), LB = s.lookTo ? camPt(s.lookTo, 1.4) : LA;
+        const pos = keys([[0, A], [dur, B]]), look = keys([[0, LA], [dur, LB]]);
+        const t0 = now();
+        const sub = s.sub && (Array.isArray(s.sub) ? s.sub : ['', s.sub]);
+        if (s.caption) ui.caption(s.caption, '', '#FFC93C', Math.min(dur, 3));
+        if (s.say && Array.isArray(s.say)) { const [w, x] = s.say; ui.sub(castName(w), tokens(x), colorOf(castName(w))); mumble(castName(w), x, dur); }
+        else if (sub && sub[1]) { const w = castName(sub[0]); ui.sub(w || null, tokens(sub[1]), colorOf(w)); if (w) mumble(w, sub[1], dur); M.log.push(['say', w, sub[1]]); }
+        else if (s.text) ui.sub(null, tokens(s.text));
+        const len = Math.max(dur, sub && sub[1] ? Math.max(1.4, sub[1].length / 15, (W.voice?.dur?.(castName(sub[0]), tokens(sub[1])) || 0) + 0.15) : 0);
+        try {
+          await wait(() => {
+            const k = Math.min(dur, (now() - t0) / 1000), hh = handheld(k + t0 / 1000, 0.4);
+            const p = pos(k), l = look(k);
+            D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov: s.fov || 40, roll: 0, shake: hh };
+            if (!beat) stepSkip();
+            return (now() - t0) / 1000 >= len;
+          }, local);
+        } catch (e) { if (!(e instanceof Stop) || !skip) throw e; }
+        ui.sub(null);
+      }
+    } finally {
+      ui.sub(null); ui.caption(null); ui.skip(null);
+      if (!beat) D.block(false);
+      await D.release(0.6);
+      W.cutscene = false; if (!beat) ui.cine(false);
+    }
+  }
+  STEPS.cutscene = async (d, t) => {
+    if (d.place) { const p = placeOf(d.place); putPlayer(p, inCar() ? 'car' : 'walk'); }
+    await shotList(d.shots, t);
+  };
+  STEPS.beat = async (d, t) => {
+    if (d.say) { const s = tuple(d.say); say(castName(s.who), s.text, M.tok).catch(() => {}); }
+    await shotList([{ ...d.shot, dur: d.dur || 1.8 }], t, { beat: true });
+  };
+  STEPS.vignette = async (d, t) => {
+    const filmed = d.shots.filter((s) => s.cam);
+    if (filmed.length === d.shots.length) return shotList(d.shots, t);
+    // (an off-map room: the city behind a veil, each shot's words over it)
+    await ui.fade(0.92, 0.5); ui.cine(true);
+    try {
+      for (const s of d.shots) {
+        if (s.if && !cond(s.if)) continue;
+        if (s.caption) ui.caption(s.caption, '', s.color || '#FFC93C', s.dur || 3);
+        if (s.say) { const sy = tuple(s.say); await say(castName(sy.who), sy.text, t); }
+        else { if (s.text || s.sub) ui.sub(null, tokens(s.text || s.sub)); await delay(s.dur || 3, t); ui.sub(null); }
+      }
+    } finally { ui.cine(false); ui.caption(null); await ui.fade(0, 0.5); }
+  };
+  STEPS.transition = async (d, t) => {
+    await ui.fade(0.97, 0.6);
+    try {
+      if (d.place) putPlayer(placeOf(d.place), inCar() ? 'car' : 'walk');
+      setTime(d.time); applySet(d.set);
+      await hud.card({ kicker: d.kicker || d.clock || '', text: tokens(d.text), sub: tokens(d.sub || '') }, ctx.flags.flowFast ? 0.8 : (d.secs || 2.6));
+    } finally { await ui.fade(0, 0.6); }
+  };
+  STEPS.actEnd = async (d, t) => {
+    const stats = (d.stats || []).map((s) => [s.label, s.value]);
+    ui.passed({ title: tokens(d.heading || d.title || ''), stats, note: d.quote ? `"${d.quote.text}"${d.quote.by ? ' · ' + d.quote.by : ''}` : '' }, ctx.flags.autoCard ? 1.5 : Math.max(4, d.minSecs || 0));
+    await delay(ctx.flags.autoCard ? 1.6 : Math.max(4, d.minSecs || 0) + 0.4, t);
+    if (d.next) await hud.card({ kicker: d.next.kicker || 'NEXT', text: d.next.text, sub: d.next.sub || '' }, ctx.flags.autoCard ? 0.8 : (d.next.secs || 3));
+  };
+
+  // a choice: hud.choice; each option's set, reply and goto; the silence when it times out
+  async function choose(c, t) {
+    const options = c.options.map((o) => ({ text: tokens(o.text), locked: false }));
+    const who = castName(c.who);
+    let i;
+    if (ctx.flags.autoChoose != null) { await delay(0.8, t); i = Math.min(options.length - 1, ctx.flags.autoChoose); hud.choice({ prompt: tokens(c.prompt), who, color: colorOf(who), options, secs: 0 }); setTimeout(() => hud.choosing?.pick(i), 300); }
+    const r = await Promise.race([hud.choice({ prompt: tokens(c.prompt), who, color: colorOf(who), options, secs: c.timeout || 0 }), wait(() => false, t).catch((e) => { hud.choosing?.cancel(); throw e; })]);
+    i = r;
+    if (i < 0 && c.default != null) i = c.default;
+    M.log.push(['choice', c.prompt, i]);
+    if (c.fork) M.state.forks = { ...(M.state.forks || {}), [c.fork]: i };
+    if (i < 0) {
+      if (c.silenceValue && c.flag) M.state.flags[flagName(c.flag)] = c.silenceValue;
+      if (c.silenceReply) { const s = tuple(c.silenceReply); await say(castName(s.who), s.text, t); }
+      return {};
+    }
+    const o = c.options[i];
+    if (c.flag) M.state.flags[flagName(c.flag)] = o.value ?? i;
+    applySet(o.set);
+    if (o.reply) { const s = tuple(o.reply); await say(castName(s.who), s.text, t); }
+    return o.goto ? { goto: o.goto } : {};
+  }
+  STEPS.choice = async (d, t) => choose(d, t);
+
+  // a call: the car phone (auto / inCar: calls.js, its rules: only at the wheel, on hold on foot, wraps when its leg
+  // ends) or a phone that rings (E or Y answers, X or N declines; the caller card, Mog City's), then its choice
+  STEPS.call = async (d, t, ride) => {
+    const who = castName(d.who), color = colorOf(who);
+    const lines = (d.lines || []).map(tuple), toTup = (l) => [castName(l.who), colorOf(castName(l.who)), tokens(l.text)];
+    if ((d.auto || d.inCar) && W.calls?.define) {
+      const id = `pack:${M.def.id}:${M.i}:${ride ? 'd' : 's'}:${who}`;
+      const f0 = {}; for (const n of new Set([who, ...lines.map((l) => castName(l.who))])) f0[n] = cast.f0(n);
+      W.calls.define(id, { who, color, f0, step: ui.stepId, main: lines.map(toTup), extra: (d.extra || []).map((b) => b.map(tuple).map(toTup)), wrap: (d.wrap || []).map(tuple).map(toTup),
+        pause: (d.hold?.pause || []).map(tuple).map(toTup), resume: (d.hold?.resume || []).map(tuple).map(toTup), trigger: d.inCar || d.auto ? 'enter-car' : 'phase-start', delay: 2, wrapAfterMain: !ride });
+      const hostDone = { v: false };
+      W.calls.start(id, { step: ui.stepId, wrapWhen: () => hostDone.v });
+      M.log.push(['call', who]);
+      if (ride) { await wait(() => false, t).catch(() => {}); hostDone.v = true; W.calls.wrap?.(); return; }
+      // (as its own step: until it has said its main lines, at the wheel)
+      await wait(() => W.calls.live === id || !W.calls.state() || W.calls.state()?.id !== id, t);
+      await wait(() => W.calls.state()?.id !== id || W.calls.owes?.(id) !== 'main', t);
+      if (d.choice) return choose(d.choice, t);
+      return;
+    }
+    sfx.play('ring', { gain: 0.16, times: 2 });
+    ui.caller(who, color, 'Incoming call');
+    let answer = null;
+    const onKey = (e) => { if (W.paused || e.repeat) return; if (['KeyE', 'KeyY'].includes(e.code)) { answer = true; e.stopImmediatePropagation(); } else if (['KeyX', 'KeyN'].includes(e.code)) { answer = false; e.stopImmediatePropagation(); } };
+    addEventListener('keydown', onKey, true);
+    ui.help('Press [E|ANSWER] to answer, [X|DECLINE] to decline.', (d.ring || 8) + 1);
+    const t0 = now();
+    try {
+      await wait(() => answer != null || (ctx.flags.autoAnswer && now() - t0 > 1500) || (now() - t0) / 1000 > (d.ring || 8), t);
+    } finally { removeEventListener('keydown', onKey, true); ui.help(null); }
+    if (answer == null && ctx.flags.autoAnswer) answer = true;
+    if (!answer) {
+      ui.caller(null); sfx.play('hangup', { gain: 0.12 });
+      applySet(d.decline);
+      M.state.declined = (M.state.declined || 0) + 1;
+      if (d.voicemail) { await voicemail({ who: castName(d.voicemail.from) || who, text: d.voicemail.text, secs: d.voicemail.secs }, t); applySet(d.voicemail.set); }
+      return;
+    }
+    applySet(d.answer);
+    ui.caller(who, color, 'On call');
+    M.log.push(['call', who]);
+    try {
+      for (const l of lines) await say(castName(l.who), l.text, t, { secs: l.secs, phone: castName(l.who) !== heroName });
+      if (d.choice) return await choose(d.choice, t);
+    } finally { ui.caller(null); sfx.play('hangup', { gain: 0.12 }); }
+  };
+  async function voicemail(d, t, label = 'Voicemail') {
+    const who = castName(d.who);
+    sfx.play('ding', { gain: 0.25 });
+    ui.caller(who, colorOf(who), label);
+    try { await say(who, d.text, t, { secs: d.secs, phone: true }); } finally { ui.caller(null); }
+  }
+  STEPS.voicemail = async (d, t) => { await voicemail(d, t); applySet(d.set); };
+  STEPS.voicenote = async (d, t) => { await voicemail(d, t, 'Voice note'); applySet(d.set); };
+
+  // a fight on foot: combat's crew at the arena (the Suits' men, as many as the step names: a man the forge made
+  // fights in a Suit's body until the cast66 enemy adapter lands), the counter, out cold or 150 m off fails
+  STEPS.fight = async (d, t) => {
+    const combat = W.combat;
+    if (!combat?.spawnCrew) { console.warn('[storyrun] no fight on this page'); return; }
+    const p = placeOf(d.arena);
+    if (inCar()) { putAt(W, { car: [car.position.x, car.position.z, car.heading] }); outBesideCar(W); }
+    if (dist(P.position, p.x, p.z) > 30) { putPlayer(p, 'walk'); }
+    const ax = P.position.x, az = P.position.z;
+    app.trafficSystem.hold?.([{ minX: ax - 40, maxX: ax + 40, minZ: az - 40, maxZ: az + 40 }]);
+    combat.clear?.();
+    const rules = d.rules || 'full';
+    try { combat.debug?.rules?.(rules); } catch {}
+    combat.player.maxHp = d.hp || combat.player.maxHp; combat.player.hp = combat.player.maxHp;
+    const autoGetUp = combat.player.autoGetUp; combat.player.autoGetUp = d.win === 'survive';
+    let down = false;
+    const offDown = combat.player.onDown(() => { if (d.win !== 'survive') down = true; });
+    const n = Math.max(1, d.enemies.length), f = P.heading;
+    const crew = combat.spawnCrew({ x: ax + Math.sin(f) * 7, z: az + Math.cos(f) * 7, count: n, props: true }).engage();
+    M.crew = crew;
+    const label = n > 1 ? 'DOWN' : 'DOWN';
+    ui.counter(label, `0/${n}`);
+    gps.objective(parts(d.objective || (d.win === 'survive' ? 'Stay on your feet.' : 'Beat them all.'), 'red'), null);
+    const t0 = now();
+    if (d.win === 'survive' || d.timer) M.fightTimer = { left: d.timer || 60 };
+    try {
+      await wait(() => {
+        const alive = crew.alive(), k = n - alive;
+        ui.counter(label, `${k}/${n}`);
+        for (const e of combat.enemies) if (e.alive) gps.blip('e:' + e.id, { x: e.pos.x, z: e.pos.z, kind: 'enemy' }); else gps.unblip('e:' + e.id);
+        if (down) throw new Fail(tokens(d.why || `${heroName} got knocked out.`), 'ko');
+        if (dist(me(), ax, az) > 150) throw new Fail('You left the fight.', 'left');
+        const secs = (now() - t0) / 1000;
+        if (d.timer) hud.timer(d.timer - secs, d.win === 'survive' ? 'HOLD ON' : 'TIME');
+        if (d.win === 'survive') return secs >= (d.timer || 60);
+        if (d.timer && secs > d.timer) throw new Fail(tokens(d.why || 'You ran out of time.'), 'time');
+        return alive === 0;
+      }, t);
+    } finally {
+      offDown?.(); combat.player.autoGetUp = autoGetUp; try { combat.debug?.rules?.(null); } catch {}
+      for (const id of [...gps.blips.keys()]) if (id.startsWith('e:')) gps.unblip(id);
+      ui.counter(null); hud.timer(null); M.crew = null; M.fightTimer = null;
+    }
+    if (d.win === 'survive') combat.clear?.();
+    await delay(1.0, t);
+  };
+
+  // a chase: pursuit's heat and cars; lose them, reach a place with them on you, or keep going (escort) for `until` s
+  STEPS.pursuit = async (d, t, ride) => {
+    const pu = W.pursuit; if (!pu?.start) { console.warn('[storyrun] no pursuit on this page'); return; }
+    if (!inCar()) { /* (the chase needs the car: the GPS sends him back to it) */ }
+    const chase = pu.start({ heat: d.level || 2, kind: d.kind === 'police' ? 'police' : 'suits', count: value(d.count, M.state, ctx.save.done) || undefined, lose: d.goal !== 'escort', ...(d.loseTime ? { escape: d.loseTime } : {}) });
+    let lost = false, caught = false;
+    chase?.on?.('lost', () => { lost = true; }); chase?.on?.('caught', () => { caught = true; });
+    M.chase = chase;
+    try {
+      if (d.goal === 'reach' && d.to) {
+        const p = placeOf(d.to);
+        await Promise.race([goTo(p, d, t, { objective: d.objective || `Get to **${p.name}**.`, needsCar: true }), wait(() => { if (caught) throw new Fail('They caught you.', 'caught'); return false; }, t)]);
+      } else if (ride) {
+        await wait(() => { if (caught) throw new Fail('They caught you.', 'caught'); return false; }, t);
+      } else {
+        gps.objective(parts(d.objective || (d.goal === 'escort' ? 'Keep going.' : 'Lose them.'), 'red'), null);
+        const t0 = now();
+        await wait(() => { if (caught) throw new Fail('They caught you.', 'caught'); return d.goal === 'escort' ? (now() - t0) / 1000 > (d.until || 45) : lost || (M.auto && M.loseAssist); }, t);
+      }
+      M.timer.add(d.bonus || 0); if (d.flag) M.state.flags[flagName(d.flag)] = true;
+    } finally { try { chase?.stop?.(); } catch {} M.chase = null; M.loseAssist = false; gps.clear(); }
+  };
+
+  // a tail: a car on the planner's route through the step's places (m2-drive.js: it lives in the traffic, brakes for
+  // what is ahead of it), the city's own body in the step's colour; too close for too long and it bolts, too far and it
+  // is lost
+  STEPS.tail = async (d, t) => {
+    const route = d.route.map((r) => placeOf(r));
+    const pts = [];
+    for (let k = 0; k + 1 < route.length; k++) { const seg = gps.plan({ x: route[k].x, z: route[k].z }, { x: route[k + 1].x, z: route[k + 1].z }, route[k].heading) || [[route[k].x, route[k].z], [route[k + 1].x, route[k + 1].z]]; for (const q of seg) if (!pts.length || Math.hypot(q[0] - pts[pts.length - 1][0], q[1] - pts[pts.length - 1][1]) > 3) pts.push(q); }
+    const { createDriver } = await import('../mission/m2-drive.js');
+    const N = window.NYC, g = new THREE.Group(), spec = N.BODY_SPECS?.[d.car === 'lowered' ? 'sedan' : d.car || 'sedan'];
+    if (spec && N.buildCarGeometry) { const m = new THREE.Mesh(N.buildCarGeometry(spec, true), N.createLoftedCarMaterial(spec, new THREE.Color(d.color || '#1b1d22').getHex())); m.castShadow = true; g.add(m); }
+    else { const m = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.4, 4.6), new THREE.MeshStandardMaterial({ color: d.color || '#1b1d22' })); m.position.y = 0.8; g.add(m); }
+    app.scene.add(g);
+    const D = createDriver(W, { obj: g, path: pts, halfW: 1.0, halfL: 2.4 });
+    D.place(0);
+    const name = d.name || 'the car';
+    gps.objective(parts(d.objective || `Follow **${name}**. Don't get too close.`, 'red'), { follow: () => D.pos, name });
+    gps.blip('tail', { x: D.pos.x, z: D.pos.z, kind: 'enemy', edge: true, name });
+    let close = 0, far = 0, last = now();
+    const ring = d.ring || 25, lostDist = d.lostDist || 160;
+    try {
+      await wait(() => {
+        const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
+        const dd = dist(me(), D.pos.x, D.pos.z);
+        const want = dd < ring ? (d.speed || 13) * 1.4 : dd > lostDist * 0.6 ? (d.speed || 13) * 0.5 : (d.speed || 13);
+        D.step(dt, want);
+        gps.blip('tail', { x: D.pos.x, z: D.pos.z, kind: 'enemy', edge: true, name });
+        close = dd < ring * 0.5 ? close + dt : Math.max(0, close - dt);
+        far = dd > lostDist ? far + dt : 0;
+        if (close > (d.spotTime || 4)) throw new Fail(`${name.replace(/^the /, 'The ')} spotted you.`, 'lost');
+        if (far > (d.lostTime || 8)) throw new Fail(`You lost ${name}.`, 'lost');
+        return D.done;
+      }, t);
+    } finally { app.scene.remove(g); gps.unblip('tail'); gps.clear(); }
+  };
+
+  // a trigger: once (or every time) the player is in an area, on a street, or a condition holds: its line, set and side steps
+  STEPS.trigger = async (d, t) => {
+    const area = d.area ? placeOf('@' + d.area['@']) : null;
+    let fired = false;
+    const turns = gps.turns;
+    await wait(() => {
+      const hit = (area ? dist(me(), area.x, area.z) < d.area.r : true) && (d.when ? cond(d.when) : true) && (d.street ? String(turns?.nameAt?.(me().x, me().z) || '').toLowerCase().includes(d.street.toLowerCase()) : true);
+      if (hit && !fired) {
+        fired = true;
+        if (d.cue) try { sfx.play(d.cue, { gain: 0.3 }); } catch {}
+        if (d.say) { const s = tuple(d.say); say(castName(s.who), s.text, M.tok).catch(() => {}); }
+        applySet(d.set); if (d.flag) M.state.flags[flagName(d.flag)] = true;
+        for (const x of d.do || []) side(x, M.tok, true);
+        if (d.once !== false) return true;
+      }
+      if (!hit) fired = false;
+      return false;
+    }, t);
+  };
+  for (const k of KINDS_STUB) STEPS[k] = async (d) => { if (!M.stubbed.has(k)) { M.stubbed.add(k); console.info(`[storyrun] ${M.def.id}: '${k}' has no Mog City part yet; it passes`); } applySet(d.set); };
+
+  /* ------------------------------------------------------- side steps -- */
+  function side(d, hostTok, persist = false) {
+    if (d.if && !cond(d.if)) return null;
+    const st = tokOf(persist || d.persist || d.until ? M.tok : hostTok);
+    const s = { def: d, tok: st, until: typeof d.until === 'string' ? d.until : null };
+    M.sides.add(s);
+    (async () => {
+      try {
+        if (d.at) await delay(d.at, st);
+        const r = await STEPS[d.type](d, st, true);
+        if (d.after) applySet(d.after);
+        if (r?.end) M.endNow = true;
+        if (r?.goto) M.gotoNow = r.goto;
+      } catch (e) {
+        if (e instanceof Fail) M.fail(e);
+        else if (!(e instanceof Stop)) console.warn('[storyrun] side step', d.type, e);
+      } finally { M.sides.delete(s); }
+    })();
+    return s;
+  }
+
+  /* --------------------------------------------------------- a mission -- */
+  function snapshot(i) {
+    const e = cm.getActiveEntity();
+    return { i, state: JSON.parse(JSON.stringify(M.state)), timer: { running: M.timer.running, left: M.timer.left, opts: M.timer.opts }, at: { x: e.position.x, z: e.position.z, heading: e.heading, mode: inCar() ? 'car' : 'walk' } };
+  }
+  function tidy() {
+    for (const s of M.sides) kill(s.tok, new Stop());
+    M.sides.clear();
+    W.calls?.stop({ quiet: true, of: 'pack:' });
+    try { M.chase?.stop?.(); } catch {}
+    if (M.crew) W.combat?.clear?.();
+    hud.clear(); M.timer.stop();
+    ui.objective(null); ui.sub(null); ui.help(null); ui.counter(null); ui.caller(null); ui.hold(null); ui.phone?.hide?.(); ui.offer?.(null);
+    gps.clear(); app.mapSystem.waypoint = null; for (const id of [...gps.blips.keys()]) gps.unblip(id); marker.hide();
+    for (const n of M.npcs) cast.hide(n); M.npcs.clear();
+    app.trafficSystem.hold?.([]);
+    if (W.cutscene) W.cutscene = false;
+  }
+
+  async function attempt(def, cp, act) {
+    const steps = def.steps;
+    const find = (id) => steps.findIndex((s) => s.id === id);
+    M = {
+      def, i: cp ? cp.i : 0, tok: tokOf(), sides: new Set(), npcs: new Set(), stubbed: new Set(), log: [], t0: now(), timer: createTimer(),
+      state: cp ? JSON.parse(JSON.stringify(cp.state)) : { meters: { ...ctx.save.meters }, flags: { ...ctx.save.flags }, forks: {} },
+      cp: cp || null, auto: !!ctx.flags.autopilot,
+      fail(e) { if (!M.tok.dead) kill(M.tok, e instanceof Fail ? e : new Fail(e?.reason || e?.message || String(e), 'timeout')); },
+    };
+    for (const m of meterDefs()) if (M.state.meters[m.id] == null) M.state.meters[m.id] = m.start ?? 0;
+    W.mission = { id: def.id, phase: null, stop: () => kill(M.tok, new Stop()), pack: true };
+    showMeters();
+    // the mission timer and the countdown's end
+    const timerLoop = (async () => {
+      try { await wait(() => { const ex = M.timer.tick(); if (ex) { if (ex.fail === 'soft') { if (ex.flag) M.state.flags[flagName(ex.flag)] = true; applySet(ex.set); ui.help(tokens(ex.why || 'Late.'), 4); } else throw new Fail(tokens(ex.why || 'You ran out of time.'), 'time'); } return false; }, M.tok); }
+      catch (e) { if (e instanceof Fail) M.fail(e); }
+    })();
+    if (cp) {
+      putPlayer(cp.at, cp.at.mode);
+      if (cp.timer.running) M.timer.start(cp.timer.left, cp.timer.opts);
+    } else {
+      M.cp = { ...snapshot(0) };
+      if (def.start) { const p = placeOf(def.start); putPlayer(p, (typeof def.start === 'object' && def.start.mode) || (def.vehicle ? 'car' : 'walk')); M.cp = snapshot(0); }
+    }
+    setTime(def.time || (act?.timeline?.[def.id]?.time) || def0.dressing?.time);
+    ui.title(act?.name || '', def.title, ctx.flags.autoCard ? 1.2 : 2.6);
+    host.tell('mission-start', { id: def.id, title: def.title });
+    let i = M.i;
+    while (i < steps.length) {
+      const d = steps[i];
+      if (d.if && !cond(d.if)) { i++; continue; }
+      if (d.checkpoint && (!M.cp || M.cp.i !== i)) M.cp = snapshot(i);
+      M.i = i; W.mission.phase = d.id || `${d.type}:${i}`;
+      ui.step(`pack:${def.id}:${i}`);
+      host.tell('progress', { mission: def.id, step: d.id || null, kind: d.type, i, n: steps.length });
+      if (BACKGROUND.has(d.type)) { side(d, M.tok, true); if (d.after) applySet(d.after); i++; continue; }
+      const st = tokOf(M.tok);
+      for (const x of d.during || []) side(x, st);
+      for (const k of ['trigger', 'comfort', 'patrol', 'stealth']) for (const x of [].concat(d[k] || [])) side({ at: 0, ...x, type: k }, st);
+      let r;
+      try { r = (await Promise.race([STEPS[d.type](d, st), wait(() => M.gotoNow || M.endNow, st).then(() => ({}))])) || {}; }
+      finally {
+        kill(st, new Stop());
+        for (const s of [...M.sides]) if (s.tok.parent === st || (s.until && steps[i + 1]?.id === s.until)) kill(s.tok, new Stop());
+      }
+      if (deadOf(M.tok)) throw deadOf(M.tok).err || new Stop();
+      if (d.after) applySet(d.after);
+      if (M.endNow || r.end || d.end) break;
+      const to = M.gotoNow || r.goto || d.goto; M.gotoNow = null;
+      const j = to ? find(to) : -1;
+      if (to && j < 0) console.warn('[storyrun] no step', to);
+      i = j >= 0 ? j : i + 1;
+    }
+    kill(M.tok, new Stop()); await timerLoop;
+    applySet(def.reward);
+    return { secs: (now() - M.t0) / 1000 };
+  }
+
+  // a mission, with Mog City's fail screen: Retry (from its checkpoint), Quit, and Skip after three fails
+  async function play(def, { act = null } = {}) {
+    let cp = null, fails = 0;
+    const reg = registry(W).register({
+      id: 'pack:' + def.id, title: def.title, act: act?.name || '',
+      checkpoints: [{ id: 'start', label: 'Start' }, ...def.steps.map((s, i) => [s, i]).filter(([s]) => s.checkpoint).map(([s, i]) => ({ id: 'cp' + i, label: s.id || s.type }))],
+      active: () => !!M && M.def === def && !M.tok.dead,
+      at: () => (M?.cp && M.cp.i > 0 ? 'cp' + M.cp.i : 'start'),
+      restart: (id) => { restartTo = id; kill(M.tok, new Stop()); },
+    });
+    let restartTo = null;
+    try {
+      for (;;) {
+        try {
+          const r = await attempt(def, cp, act);
+          tidy();
+          return { how: 'pass', secs: r.secs, state: M.state, log: M.log };
+        } catch (e) {
+          const at = M; tidy();
+          if (restartTo) { cp = restartTo === 'start' ? null : at.cp; restartTo = null; continue; }
+          if (!(e instanceof Fail)) { if (!(e instanceof Stop)) console.error('[storyrun]', def.id, e); return { how: 'quit' }; }
+          fails++;
+          const step = def.steps[at.i];
+          host.tell('mission-fail', { id: def.id, why: e.reason, step: step?.id || null, kind: step?.type || null });
+          sfx.play('failed');
+          if (ctx.flags.autopilot && (ctx.flags.failStop || fails >= 3 || e.kind === 'timeout' || e.kind === 'place')) return { how: 'fail', why: e.reason };
+          const pick = ctx.flags.autoRetry ? (await new Promise((r) => setTimeout(r, 1200)), 'retry') : await ui.failed(e.reason, { skip: fails >= 3, tip: TIPS[e.kind] || null, retryLabel: at.cp && at.cp.i > 0 ? 'Retry: from the checkpoint' : 'Retry: from the start' });
+          if (pick === 'quit') return { how: 'quit' };
+          if (pick === 'skip') { cp = { ...at.cp, i: Math.min(def.steps.length, (at.i || 0) + 1) }; continue; }
+          cp = at.cp && at.cp.i > 0 ? at.cp : null;
+        }
+      }
+    } finally { registry(W).unregister?.(reg.id); }
+  }
+  return { play, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo };
+}
