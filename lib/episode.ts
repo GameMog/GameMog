@@ -188,8 +188,8 @@ export function readConsent(input: unknown, now = Date.now()): { ok: true; conse
   const o = input as Record<string, unknown>;
   const names = (Array.isArray(o.names) ? o.names : []).filter((x): x is string => typeof x === 'string')
     .map((s) => s.normalize('NFKC').replace(/\s+/g, ' ').trim()).filter(Boolean);
-  if (!names.length) return { ok: false, error: 'Name the real person your Mog names.' };
-  if (names.length > CONSENT_MAX_NAMES) return { ok: false, error: `Up to ${CONSENT_MAX_NAMES} real people in one Mog.` };
+  if (!names.length) return { ok: false, error: 'Name the real person your story names.' };
+  if (names.length > CONSENT_MAX_NAMES) return { ok: false, error: `Up to ${CONSENT_MAX_NAMES} real people in one story.` };
   if (!names.every((n) => nameRe.test(n))) return { ok: false, error: 'Write each name in letters (2 to 40).' };
   if (names.some((n) => isBlocked(n) || isReserved(n))) return { ok: false, error: 'Pick another name.' };
   if (o.basis !== 'self' && o.basis !== 'permission') return { ok: false, error: 'Say whether you are this person or have their permission.' };
