@@ -9,6 +9,7 @@ import { WorldOptionsFields } from './options';
 import { DEFAULT_OPTIONS, type WorldOptions } from '@/lib/world-options';
 import { useStoryKit, StoryCityField, StoryCityCard, STORY_IDEAS, STORY_RULES, useStoryConsent } from './story';
 import { ConsentStep } from './consent';
+import { CharCount, CREATE_PROMPT_MAX } from './char-count';
 import { storyCityName, type StoryCity } from '@/lib/storykit-site';
 
 type Finding = { level: 'error' | 'warn'; code: string; message: string };
@@ -278,10 +279,11 @@ export default function Create() {
               </div>
               <label className="lbl" htmlFor="p">Your story</label>
               <textarea
-                id="p" rows={6} value={prompt}
+                id="p" rows={6} value={prompt} maxLength={CREATE_PROMPT_MAX}
                 placeholder={`Who is your hero, what do they want tonight, and who is in their way in ${storyCityName(city)}? Name the people, the cars and the hour. The more specific, the better.`}
-                onChange={(e) => setPrompt(e.target.value)}
+                onChange={(e) => setPrompt(e.target.value.slice(0, CREATE_PROMPT_MAX))}
               />
+              <CharCount n={prompt.length} max={CREATE_PROMPT_MAX} />
               <div style={{ marginTop: 12 }}>
                 <ConsentStep value={consent} onChange={setConsent} disabled={busy} what="story" />
               </div>
@@ -297,10 +299,11 @@ export default function Create() {
           <section className="panel cidea">
             <label className="lbl" htmlFor="p">Your world</label>
             <textarea
-              id="p" rows={6} value={prompt}
+              id="p" rows={6} value={prompt} maxLength={CREATE_PROMPT_MAX}
               placeholder="Where is the race, who runs it, and what is in the way? Name the place, its light and its obstacles. The more specific, the better."
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={(e) => setPrompt(e.target.value.slice(0, CREATE_PROMPT_MAX))}
             />
+            <CharCount n={prompt.length} max={CREATE_PROMPT_MAX} />
             <WorldOptionsFields value={options} onChange={setOptions} disabled={busy} />
             <div className="cgo">
               <p className="dim-2">You describe the world. The rules below come with it.</p>

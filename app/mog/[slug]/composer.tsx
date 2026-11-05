@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { CharCount, MOG_PROMPT_MAX } from '@/app/create/char-count';
 import { useGeneration, GenerationProgress, DraftResult } from '../../create/generation';
 import { WorldOptionsFields } from '../../create/options';
 import type { WorldOptions } from '@/lib/world-options';
@@ -85,9 +86,10 @@ export function MogComposer({ slug, title, inherited, dare, kind }: { slug: stri
             Lines you rewrite are read by the player&apos;s browser voice; the rest keep their recordings.
           </p>
         ) : null}
-        <textarea id="idea" rows={3} maxLength={600} value={idea}
+        <textarea id="idea" rows={3} maxLength={MOG_PROMPT_MAX} value={idea}
           placeholder={`One line is enough: what would make ${title} better?`}
           onChange={(e) => setIdea(e.target.value)} />
+        <CharCount n={idea.length} max={MOG_PROMPT_MAX} />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
           {(shootout ? SHOOTOUT_IDEAS : gp ? GP_IDEAS : episode ? EPISODE_IDEAS : IDEAS).map((x) => <button key={x} className="tag" onClick={() => setIdea(x)}>{x}</button>)}
         </div>

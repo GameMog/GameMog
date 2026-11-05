@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useContext, useState } from 'react';
+import { CharCount, MOG_PROMPT_MAX } from './char-count';
 import { STORY_CITIES, isStoryCity, type StoryCity } from '@/lib/storykit-site';
 import { useGeneration, GenerationProgress, DraftResult } from './generation';
 import { ConsentStep, consentOf, type ConsentState } from './consent';
@@ -138,9 +139,10 @@ export function StoryMogComposer({ slug, title, city, cityName, dare }: { slug: 
             </ul>
           </div>
         </div>
-        <textarea id="idea" rows={3} maxLength={600} value={idea}
+        <textarea id="idea" rows={3} maxLength={MOG_PROMPT_MAX} value={idea}
           placeholder={`One line is enough: how would you retell ${title}?`}
           onChange={(e) => setIdea(e.target.value)} />
+        <CharCount n={idea.length} max={MOG_PROMPT_MAX} />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
           {MOG_IDEAS.map((x) => <button key={x} className="tag" onClick={() => setIdea(x)}>{x}</button>)}
         </div>

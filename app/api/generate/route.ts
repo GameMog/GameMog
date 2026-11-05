@@ -60,7 +60,11 @@ export async function POST(req: Request) {
   // anything is spent; every kind can be today, a penalty shootout too since 13 Oct)
   if (parent && !canMog(parent)) return NextResponse.json({ error: MOG_SOON }, { status: 409 });
   if (parent && (text.length < 4 || text.length > 600)) {
-    return NextResponse.json({ error: 'Say in a line how your Mog should beat the original.' }, { status: 400 });
+    return NextResponse.json({ error: 'Say in a line how your Mog should beat the original (up to 600 characters).' }, { status: 400 });
+  }
+  // a Create (a world or a story world): at most 2000 characters, as the counter under /create's box shows
+  if (!parent && text.length > 2000) {
+    return NextResponse.json({ error: 'Keep it to 2,000 characters.', field: 'prompt' }, { status: 400 });
   }
   if (!parent && text.length < 8) {
     return NextResponse.json({ error: 'Describe the world in a sentence or two.' }, { status: 400 });
