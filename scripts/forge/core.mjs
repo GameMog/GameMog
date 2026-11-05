@@ -322,7 +322,7 @@ const shell = (() => {
   }
   if (layers) console.error('beard shells', layers, 'x', T.length / 3, 'triangles,', nS, 'points each');
   const SX = CC ? 0.75 : 1, nSh = nS * layers;
-  const C0 = CC ? beardCards({ P: bPos, N: N0, T: skinT, mask: BEARD }, { MOUTHY, EZ, EY, half: MH }, CC.groom, CC.seed || 7, { u0: SX }) : null;
+  const C0 = CC ? beardCards({ P: bPos, N: N0, T: skinT, mask: BEARD }, { MOUTHY, EZ, EY, half: MH }, CC.groom, CC.seed || 7, { u0: SX, tune: CC.tune }) : null;
   if (C0) console.error('beard cards', CC.groom, C0.count, 'cards,', C0.P.length / 3, 'points; cut short at the lips', C0.cut, 'dropped', C0.dropped);
   const nC = C0 ? C0.P.length / 3 : 0, P = new Float32Array((nSh + nC) * 3); P.set(PS); if (C0) P.set(C0.P, nSh * 3);
   const triC = C0 ? Array.from(C0.idx, (i) => nB + nSh + i) : [];
@@ -944,6 +944,10 @@ function mouthDeep(fresh = false) {
 // the inside's colour (sRGB, before face.js's own darkening): the lips' wet inner red where it begins, a deep warm
 // red-brown behind, near black toward the throat (CFG.mouthIn: false leaves the skin as it was)
 const MOUTH_IN = { lip: [132, 50, 44], deep: [74, 24, 18], throat: [28, 8, 6] };
+// (G7b: hair painted on the skin's texture (the scalp under cards, a shaved or buzzed head, a beard's paint, the brows),
+// texel by texel how much of it is hair: the skin guard's per-channel gains (a dark skin leaning red: 0.77, 1.37, 1.58)
+// turned the grandmother's silver scalp paint teal at her temples; they are for skin, so painted hair keeps its colour)
+const HAIRPX = new Float32Array(2048 * 2048), hairPx = (i, a) => { if (a > HAIRPX[i]) HAIRPX[i] = a; };
 async function paintMouthIn(img) {
   if (CFG.mouthIn === false || !CFG.mouth) return img;
   const S = 2048, { data } = await sharp(img).removeAlpha().raw().toBuffer({ resolveWithObject: true }), uv = B.get('uv'), deep = mouthDeep();
@@ -1073,7 +1077,7 @@ async function paintFace(img) {
           part = 1 - (1 - sm(0.0008, 0.0022, Math.abs(px - (CFG.sidePart.x ?? 0.026)))) * sm(EY + 0.04, EY + 0.06, py) * sm(EZ - 0.13, EZ - 0.1, pz); }
         const st = strand(x, y, d, 22, 5), a = Math.pow(Math.min(1, w * 1.15), 1.6) * (0.72 + 0.28 * st) * part, i = (y * S + x) * 3, k = 0.94 + 0.1 * st;
         for (let c = 0; c < 3; c++) data[i + c] = Math.round(data[i + c] * (1 - a) + Math.min(255, (root[c] + (col[c] - root[c]) * st) * k) * a);
-        n++;
+        hairPx(i / 3, a); n++;
       }
     }
     console.error('scalp px', n);
@@ -1398,7 +1402,7 @@ async function paintBeard(img) {
         c = c * (1 - ha) + hc * ha;
         data[i + ch] = Math.max(0, Math.min(255, Math.round(c)));
       }
-      n++;
+      hairPx(i / 3, Math.max(base, ha)); n++;
     }
   }
   console.error('beard px', n);
@@ -1474,7 +1478,7 @@ async function paintBrows(img) {
       const ends = sm(e.a0 - 0.001, e.a0 + 0.007, px) * (1 - sm(e.a1 - 0.008, e.a1 + 0.001, px)), dens = (0.5 + 0.5 * sm(0.0, 0.32, t)) * (1 - 0.5 * sm(0.68, 1.0, t));
       const a = Math.min(0.95, (BP.a ?? 0.4) * edge * ends * dens * lie * (0.92 + 0.16 * (vnoise(x / 9, y / 9, 3.7) - 0.5))); if (a <= 0.004) continue; const i = (y * S + x) * 3;
       for (let ch = 0; ch < 3; ch++) data[i + ch] = Math.max(0, Math.min(255, Math.round(data[i + ch] * (1 - a) + col[ch] * a)));
-      n++; } }
+      hairPx(i / 3, a); n++; } }
   console.error('brows painted (soft)', n, 'px');
   return sharp(data, { raw: { width: S, height: S, channels: 3 } }).jpeg({ quality: 92 }).toBuffer();
 }
@@ -1603,8 +1607,8 @@ async function paintMask(img, MASK, a0, col) {
       const l1 = ((U[1][1] - U[2][1]) * (x - U[2][0]) + (U[2][0] - U[1][0]) * (y - U[2][1])) / det, l2 = ((U[2][1] - U[0][1]) * (x - U[2][0]) + (U[0][0] - U[2][0]) * (y - U[2][1])) / det, l3 = 1 - l1 - l2;
       if (l1 < -0.03 || l2 < -0.03 || l3 < -0.03 || x < 0 || y < 0 || x >= S || y >= S) continue;
       const wv = Math.max(0, Math.min(1, l1 * ws[0] + l2 * ws[1] + l3 * ws[2])); if (wv <= 0) continue;
-      const grain = MASK === SCALP && CFG.shaved?.buzz ? 0.55 + 0.45 * hash(x, y) * hash(x + 3, y >> 1) : 0.8 + 0.2 * hash(x, y), w = Math.min(1, wv * 1.3) * a0 * grain, pi = y * S + x; if (w > WMAX[pi]) WMAX[pi] = w; } }
-  for (let pi = 0; pi < S * S; pi++) { const w = WMAX[pi]; if (w <= 0) continue; for (let ch = 0; ch < 3; ch++) data[pi * 3 + ch] = Math.round(data[pi * 3 + ch] * (1 - w) + col[ch] * w); }
+      const grain = MASK === SCALP && CFG.shaved?.buzz ? (CFG.fuzz?.lift != null ? 0.78 + 0.22 * vnoise(x / 2.2, y / 2.2, 13) : 0.55 + 0.45 * hash(x, y) * hash(x + 3, y >> 1)) : 0.8 + 0.2 * hash(x, y), w = Math.min(1, wv * 1.3) * a0 * grain, pi = y * S + x; if (w > WMAX[pi]) WMAX[pi] = w; } }
+  for (let pi = 0; pi < S * S; pi++) { const w = WMAX[pi]; if (w <= 0) continue; for (let ch = 0; ch < 3; ch++) data[pi * 3 + ch] = Math.round(data[pi * 3 + ch] * (1 - w) + col[ch] * w); hairPx(pi, w); }
   return sharp(data, { raw: { width: S, height: S, channels: 3 } }).jpeg({ quality: 92 }).toBuffer();
 }
 // (forge v2.5, MV: the skin guard (colour.mjs skinGuard), on the finished skin (its brows, scalp and beard painted): the
@@ -1621,7 +1625,7 @@ async function guardSkin(img) {
     for (let c = 0; c < 3; c++) ch[c].push(Math.pow(o[i + c] / 255, 2.2)); }
   if (ch[0].length > 50) { const med = ch.map((a) => a.sort((x, y) => x - y)[Math.floor(a.length / 2)]), g = skinGuard(med); console.error('skin tone', ch[0].length, 'samples', JSON.stringify(skinTone(med)));
     if (g) { const lut = [0, 1, 2].map((c) => Uint8Array.from({ length: 256 }, (_, v) => Math.min(255, Math.round(255 * Math.pow(Math.pow(v / 255, 2.2) * g[c], 1 / 2.2)))));
-      for (let i = 0; i < o.length; i++) o[i] = lut[i % 3][o[i]];
+      for (let i = 0; i < o.length; i++) { const h = HAIRPX[(i / 3) | 0]; o[i] = h > 0 ? Math.round(lut[i % 3][o[i]] * (1 - h) + o[i] * h) : lut[i % 3][o[i]]; }
       console.error('skin guard', skinTone(med).why.join('; '), '-> gains', g.map((x) => x.toFixed(3)).join(','), '->', skinTone(med.map((x, c) => x * g[c])).srgb.join(',')); } }
   return sharp(o, { raw: { width: 2048, height: 2048, channels: 3 } }).jpeg({ quality: 92 }).toBuffer();
 }
@@ -1758,8 +1762,17 @@ const NKBIND = [];
       const keep = []; let cut = 0; for (let q = 0; q < skinOut.length; q += 3) { if (under(skinOut[q]) && under(skinOut[q + 1]) && under(skinOut[q + 2])) { cut++; continue; } keep.push(skinOut[q], skinOut[q + 1], skinOut[q + 2]); }
       skinOut.splice(0, skinOut.length, ...keep); console.error('neckline (NK): skin triangles hidden under the neckline', cut); }
     NKBIND.push({ name, b, wi }); console.error('neckline (NK):', name, b.edge, 'edge points,', b.moved, 'evened (at most', b.maxMm, 'mm), bound'); }); }
-const body = HAIR_BODY ? build('', BSRC, BPOS, [skinOut, eyesT, browT, lashT, hairT, ...SH], [M.skin, M.eyes, M.brows, M.lashes, M.hair, ...SHM], [false, true, true, true, true, ...SHK], shellColor)
-  : build('', BSRC, BPOS, [skinOut, eyesT, browT, lashT, ...SH], [M.skin, M.eyes, M.brows, M.lashes, ...SHM], [false, true, true, true, ...SHK], shellColor);
+// (G7b, the dark rectangle on the nape: face.js's mouthShade darkens every skin point of the skin's primitive within
+// 4 cm of the middle at the mouth's height that has skin in front of it, with no limit on how far behind: the back of
+// the neck at that height, under a short cut, read as a dark 8 cm patch above the collar (club promoter, mechanic,
+// veteran, cop, chef). Baked, so any copy of face.js reads it right: the skin's triangles at the nape (10 cm or more
+// behind the lips, the mouth's band with a margin) a second primitive of the same skin material, after the face's
+// pieces; face.js takes the first 'skin' primitive as the skin and shades only its points)
+const NAPE = (() => { const lipZ = EYEFRONT + (CFG.mouth?.front ?? 13.25) / 1000, isN = (v) => Math.abs(bPos[v * 3]) < 0.055 && bPos[v * 3 + 1] > MOUTHY - 0.05 && bPos[v * 3 + 1] < MOUTHY + 0.035 && bPos[v * 3 + 2] < lipZ - 0.1;
+  const main = [], nape = []; for (let q = 0; q < skinOut.length; q += 3) { const t = [skinOut[q], skinOut[q + 1], skinOut[q + 2]]; (t.some(isN) ? nape : main).push(...t); }
+  console.error('nape (G7b):', nape.length / 3, 'skin triangles in their own primitive'); return { main, nape }; })();
+const body = HAIR_BODY ? build('', BSRC, BPOS, [NAPE.main, eyesT, browT, lashT, hairT, ...SH, NAPE.nape], [M.skin, M.eyes, M.brows, M.lashes, M.hair, ...SHM, M.skin], [false, true, true, true, true, ...SHK, false], shellColor)
+  : build('', BSRC, BPOS, [NAPE.main, eyesT, browT, lashT, ...SH, NAPE.nape], [M.skin, M.eyes, M.brows, M.lashes, ...SHM, M.skin], [false, true, true, true, ...SHK, false], shellColor);
 // (G7a: the mouth's inside facing out through the opening: the skin's points in it, the body's shared NORMAL)
 console.error('mouth inside normals', mouthNormals(body.node.getMesh().listPrimitives()[0].getAttribute('NORMAL'), body.order));
 const pack = build('pack', PKX, pPosX, HAIR_BODY ? [...wearT, shoeT] : [hairTX, ...wearT, shoeT], HAIR_BODY ? [...wearM, M.shoes] : [M.hair, ...wearM, M.shoes], HAIR_BODY ? [...wearT.map(() => false), false] : [true, ...wearT.map(() => false), false]);
@@ -1946,6 +1959,23 @@ if (LIB) for (const [li, { g, r }] of LIB.done.entries()) {
     console.error('library emitted', p.name, m.P.length / 3, 'points', m.idx.length / 3, 'tris');
   }
 }
+// (G7b) a ringlet band's fibres (RGBA, u across the band, v along its winding, seamless in v): fine fibres along v, each
+// its own lightness (a grey: the vertex colour is the lock's), a little wave; the band's middle dense, its edges
+// thinning into single fibres that end at their own place (the cut-out frays), a few flyaways past the edge
+async function curlFibres(Rb) {
+  const W = Rb.tw ?? 128, H = Rb.th ?? 512, img = new Uint8Array(W * H * 4), NF = Rb.fibres ?? 40, hsh = (i) => { let h = (i * 2654435761) >>> 0; h = ((h ^ (h >>> 15)) * 2246822519) >>> 0; return ((h ^ (h >>> 13)) >>> 0) / 4294967296; };
+  const cov = new Float32Array(W * H), lum = new Float32Array(W * H);
+  for (let f = 0; f < NF; f++) { const u0 = hsh(f * 3 + 1), ph = hsh(f * 3 + 2) * 6.28, L = 0.45 + 0.55 * hsh(f * 3 + 3), wid = 0.9 + 1.4 * hsh(f * 7 + 5), edge = Math.min(u0, 1 - u0);
+    // (a fibre near the band's edge is broken: present over a share of its length, by noise along v)
+    const keep = sm(0.0, 0.22, edge);
+    for (let y = 0; y < H; y++) { const v = y / H, on = keep >= 1 ? 1 : sm(0.45, 0.55, vnoise(v * 9 + f * 3.1, f, 4) * 0.6 + keep * 0.6); if (on <= 0) continue;
+      const cx = (u0 + 0.018 * Math.sin(v * 2 * Math.PI * 3 + ph) + 0.008 * Math.sin(v * 2 * Math.PI * 11 + ph * 2)) * W;
+      for (let x = Math.max(0, Math.floor(cx - wid - 1)); x <= Math.min(W - 1, Math.ceil(cx + wid + 1)); x++) { const d = Math.abs(x + 0.5 - cx), a = Math.max(0, 1 - d / wid) * on, i = y * W + x; if (a > cov[i]) { cov[i] = a; lum[i] = L * (0.75 + 0.25 * (1 - d / wid)); } } } }
+  for (let i = 0; i < W * H; i++) { const y = Math.floor(i / W), x = i % W, u = (x + 0.5) / W, core = sm(0.12, 0.3, Math.min(u, 1 - u)), a = Math.max(cov[i], core * 0.92 * (0.7 + 0.3 * vnoise(x / 3, y / 9, 6)));
+    const L = cov[i] > 0.05 ? lum[i] : 0.35 * core, k = Math.round(255 * Math.min(1, L));
+    img[i * 4] = img[i * 4 + 1] = img[i * 4 + 2] = k; img[i * 4 + 3] = Math.round(255 * Math.min(1, a)); }
+  return sharp(img, { raw: { width: W, height: H, channels: 4 } }).png().toBuffer();
+}
 if (CFG.boxBraids) {
   const Bb = CFG.boxBraids, cols = Bb.colors || [[14, 10, 9], [40, 30, 25], [86, 66, 54]], R0 = Bb.r ?? 0.0042, L = Bb.len ?? 0.42, NBR = Bb.count ?? 90;
   const N0 = B.get('normal'), headV = [...skinV].filter((v) => headW(v) > 0.5), near = nearestOf(bPos, headV), zc = SKL('neck01')[2];
@@ -1970,7 +2000,7 @@ if (CFG.boxBraids) {
   for (const [P, set] of [[bPos, skinV], [pPos, new Set(wearT.flat())], [LPf, LPset]]) for (const v of set) { const y = P[v * 3 + 1]; if (y > EY + 0.02 || y < EY - 0.8) continue; if (P === bPos && headW(v) > 0.3 && P[v * 3 + 2] > EZ - 0.075) continue;
     const x = P[v * 3], z = P[v * 3 + 2] - zc, an = Math.atan2(x, z), r = Math.hypot(x, z), k = pk(y, an); if (r > (prof.get(k) || 0)) prof.set(k, r); }
   const outR = (y, an) => { let m = 0; for (const dy of [-0.01, 0, 0.01]) for (const da of [-1, 0, 1]) m = Math.max(m, prof.get(pk(y + dy, an + da * Math.PI / 18)) || 0); return m; };
-  const P = [], UV = [], JI = [], WT = [], CO = [], idx = [], head = BI('head'), neck = BI('neck01'), sp = BI('spine01');
+  const P = [], UV = [], JI = [], WT = [], CO = [], RN = [], idx = [], head = BI('head'), neck = BI('neck01'), sp = BI('spine01');
   const hsh = (i) => { let h = (i * 374761393) >>> 0; h = ((h ^ (h >>> 13)) * 1274126177) >>> 0; return (h & 0xffff) / 65535; };
   const off = R0 + 0.0015 + (Bb.coil ? Bb.coil.R + 0.002 : 0), snap = (p) => { const q = near(p); const n = [N0[q * 3] / 127, N0[q * 3 + 1] / 127, N0[q * 3 + 2] / 127], d = (p[0] - bPos[q * 3]) * n[0] + (p[1] - bPos[q * 3 + 1]) * n[1] + (p[2] - bPos[q * 3 + 2]) * n[2] - off; return [p[0] - n[0] * d, p[1] - n[1] * d, p[2] - n[2] * d, n]; };
   let nb = 0;
@@ -1999,13 +2029,35 @@ if (CFG.boxBraids) {
     // standing out sideways to clear them)
     while (len < Lb) { const y = q[1] - 0.012, x0 = q[0], z0 = q[2] - zc, rr = Math.hypot(x0, z0); let an = Math.atan2(x0, z0), need = outR(y, an) + 0.006 + R0;
       for (let t = 0; t < 8 && need > rr + 0.012 && Math.abs(an) < Math.PI * 0.92; t++) { an += Math.sign(an || 1) * 0.12; need = outR(y, an) + 0.006 + R0; }
-      const r2 = Math.max(rr, need) + 0.0008; const nq = [Math.sin(an) * r2, y, zc + Math.cos(an) * r2]; len += Math.hypot(nq[0] - q[0], nq[1] - q[1], nq[2] - q[2]); path.push(nq); q = nq; }
+      const r2 = Math.max(rr, need) + 0.0008; const nq = [Math.sin(an) * r2, y, zc + Math.cos(an) * r2];
+      len += Math.hypot(nq[0] - q[0], nq[1] - q[1], nq[2] - q[2]); path.push(nq); q = nq; }
     }
     // (forge v2.2, curls (Bb.coil { R, pitch }): the strand's middle line wound round its path as a helix, so each strand
     // is a spring-like ringlet; the path resampled every 3 mm (F6: was 2.2 mm round a 4-sided tube: the nurse's curls
     // made a 4.4 MB person, over the store's 3 MB; now a 3-sided tube, 4 to 5 points a turn, about 2.4 MB))
-    if (Bb.coil) { const rs = [path[0]]; let acc = 0; for (let k = 1; k < path.length; k++) { const a = path[k - 1], b = path[k], d = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), m = Math.max(1, Math.round(d / 0.003));
+    if (Bb.coil) { const rs = [path[0]]; let acc = 0; for (let k = 1; k < path.length; k++) { const a = path[k - 1], b = path[k], d = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), m = Math.max(1, Math.round(d / (Bb.ribbon ? 0.002 : 0.003)));
       for (let j = 1; j <= m; j++) rs.push(a.map((x, i) => x + (b[i] - x) * j / m)); acc += d; } path.splice(0, path.length, ...rs); }
+    // (G7b, curls that read as hair: a ringlet is a clump of fine fibres wound round its path, not a wire. Each one now a
+    // band (Bb.ribbon.w of the coil's pitch wide, along the path) wound as the helix, its face out from the coil's axis
+    // (a soft cylinder of hair with a helical groove), drawn with a fibre texture along the winding whose edges fray into
+    // single fibres (rUV: the band's u across, v along its own length); the 3-sided tubes read as wire springs or
+    // chain-link netting in every head close-up (rounds 5 and 6))
+    if (Bb.coil && Bb.ribbon) { const base = P.length / 3, col = cols[Math.floor(hsh(ri + 11) * 0.999 * (cols.length - 1))], tone = 0.8 + 0.4 * hsh(ri + 23), Wb = Bb.coil.pitch * Bb.ribbon.w, vo = hsh(ri + 31); let s0 = 0, sh = 0, prev = null;
+      for (let k = 0; k < path.length; k++) {
+        const a0 = path[Math.max(0, k - 1)], b0 = path[Math.min(path.length - 1, k + 1)], t = [b0[0] - a0[0], b0[1] - a0[1], b0[2] - a0[2]], tl = Math.hypot(...t) || 1; t[0] /= tl; t[1] /= tl; t[2] /= tl;
+        let u = [-t[2], 0, t[0]]; if (Math.hypot(...u) < 0.2) u = [1, 0, 0]; const ul = Math.hypot(...u); u = u.map((x) => x / ul);
+        const w = [t[1] * u[2] - t[2] * u[1], t[2] * u[0] - t[0] * u[2], t[0] * u[1] - t[1] * u[0]];
+        if (k) s0 += Math.hypot(...path[k].map((x, i) => x - path[k - 1][i]));
+        const hold = Bb.headHold ?? 0, hw = Math.max(hold * (1 - Math.min(1, (EY - 0.05 - path[k][1]) / 0.45)), Math.min(1, 1 - (EY - 0.05 - path[k][1]) / 0.1));
+        const cph = s0 / Bb.coil.pitch * 2 * Math.PI + hsh(ri + 5) * 6.28, cR = Bb.coil.R * Math.min(1, s0 / 0.012) * (0.8 + 0.4 * hsh(ri + 9)), rad = [0, 1, 2].map((i) => u[i] * Math.cos(cph) + w[i] * Math.sin(cph));
+        const c = [0, 1, 2].map((i) => path[k][i] + rad[i] * cR), wk = Wb * (k === 0 ? 0.4 : k > path.length - 3 ? 0.6 : Math.min(1, 0.4 + s0 / 0.01));
+        if (prev) sh += Math.hypot(c[0] - prev[0], c[1] - prev[1], c[2] - prev[2]); prev = c;
+        for (const sg of [-0.5, 0.5]) { P.push(c[0] + t[0] * wk * sg, c[1] + t[1] * wk * sg, c[2] + t[2] * wk * sg); UV.push(sg + 0.5, vo + sh / (Bb.ribbon.v ?? 0.04)); RN.push(rad[0], rad[1], rad[2]);
+          CO.push(...col.map((x) => Math.pow(Math.min(1, x * tone / 255), 2.2)), 1);
+          if (hw >= 1) { JI.push(head, 0, 0, 0); WT.push(1, 0, 0, 0); } else { JI.push(head, neck, sp, 0); WT.push(hw, (1 - hw) * 0.35, (1 - hw) * 0.65, 0); } }
+        if (k) { const a1 = base + (k - 1) * 2; idx.push(a1, a1 + 1, a1 + 2, a1 + 1, a1 + 3, a1 + 2); }
+      }
+      nb++; continue; }
     const base = P.length / 3, NS = Bb.coil ? 3 : 6, col = cols[Math.floor(hsh(ri + 11) * 0.999 * (cols.length - 1))], col2 = cols[cols.length - 1]; let s0 = 0;
     for (let k = 0; k < path.length; k++) {
       const a0 = path[Math.max(0, k - 1)], b0 = path[Math.min(path.length - 1, k + 1)], t = [b0[0] - a0[0], b0[1] - a0[1], b0[2] - a0[2]], tl = Math.hypot(...t) || 1; t[0] /= tl; t[1] /= tl; t[2] /= tl;
@@ -2026,8 +2078,8 @@ if (CFG.boxBraids) {
     }
     nb++;
   }
-  const bM = mat(Bb.coil ? 'curls' : Bb.lumps ? 'locs' : 'braids', { spec: HAIRSPEC, rough: Bb.rough ?? 0.68, color: [1, 1, 1] }); if (Bb.stand) bM.setExtras({ style: 'twists' });
-  addSkinned('braids', P, UV, JI, WT, idx, bM, CO);
+  const bM = mat(Bb.coil ? 'curls' : Bb.lumps ? 'locs' : 'braids', { spec: HAIRSPEC, rough: Bb.rough ?? 0.68, color: [1, 1, 1], ...(Bb.ribbon ? { ds: true, alpha: Bb.ribbon.cut ?? 0.4, map: await tex('', await curlFibres(Bb.ribbon)) } : {}) }); if (Bb.stand) bM.setExtras({ style: 'twists' });
+  addSkinned('braids', P, UV, JI, WT, idx, bM, CO, Bb.ribbon ? Float32Array.from(RN) : null);
   console.error('box braids', nb, 'braids,', P.length / 3, 'points');
 }
 // (forge v2.3, HB) the afro (CFG.afro { size (m), front, colors }): a volume of tight coils, made as Mr. Big's beard is: fur
@@ -2086,14 +2138,14 @@ if (CFG.fuzz && CFG.shaved) {
     // (none down the face's sides under the brows' height (the sideburns stay painted): the gates' hair on the face)
     if ([a, b, c].some((v) => bPos[v * 3 + 1] < EY + 0.016 && Math.abs(bPos[v * 3]) < 0.066)) continue; T.push(a, b, c); }
   const verts = [...new Set(T)], ix = new Map(verts.map((v, k) => [v, k])), nS = verts.length, P = [], UV = [], JI = [], WT = [], CO = [], idx = [];
-  for (let L = 0; L < NL; L++) { const f = (L + 1) / NL, k = 0.62 + 0.38 * f, al = 1 - 0.42 * L / Math.max(1, NL - 1);
+  for (let L = 0; L < NL; L++) { const f = (L + 1) / NL, k = FZ.contrast != null ? 0.86 + 0.14 * f : 0.62 + 0.38 * f, al = 1 - 0.42 * L / Math.max(1, NL - 1);
     for (const v of verts) { const n = [NB[v * 3] / 127, NB[v * 3 + 1] / 127, NB[v * 3 + 2] / 127], nl = Math.hypot(...n) || 1, p = [bPos[v * 3], bPos[v * 3 + 1], bPos[v * 3 + 2]];
       const tp = sm(0.0, 0.5, SCALP[v]) * (0.8 + 0.4 * vnoise(p[0] * 140, p[1] * 140 + 4, p[2] * 140)), d = 0.0003 + depth * f * tp;
       P.push(...p.map((c, i) => c + n[i] / nl * d)); UV.push(uvB[v * 2] / 65535, 1 - uvB[v * 2 + 1] / 65535);
       for (let j = 0; j < 4; j++) { JI.push(SI[v * 4 + j]); WT.push(SW[v * 4 + j] / 255); } CO.push(k, k, k, al); }
     for (const v of T) idx.push(L * nS + ix.get(v)); }
   // (the texture: 2048 in the skin's uv space, over the shells' triangles only)
-  const S = 2048, img = new Uint8Array(S * S * 4), cols = FZ.colors, gS = FZ.grey ?? 0, len = FZ.len ?? 3.2, CR = [0, EY + 0.115, EZ - 0.115];
+  const S = 2048, img = new Uint8Array(S * S * 4), cols = FZ.colors, gS = FZ.grey ?? 0, len = FZ.len ?? 3.2, fw = FZ.w ?? 0.9, lift = FZ.lift ?? 0.35, con = FZ.contrast ?? 1, sc = CFG.shaved.col || [40, 36, 33], CR = [0, EY + 0.115, EZ - 0.115];
   for (let q = 0; q < T.length; q += 3) {
     const vs = [T[q], T[q + 1], T[q + 2]], ws = vs.map((v) => SCALP[v]), U = vs.map((v) => [uvB[v * 2] / 65535 * S, (1 - uvB[v * 2 + 1] / 65535) * S]), Pv = vs.map((v) => [bPos[v * 3], bPos[v * 3 + 1], bPos[v * 3 + 2]]);
     const c3 = [0, 1, 2].map((c) => (Pv[0][c] + Pv[1][c] + Pv[2][c]) / 3), D0 = c3.map((c, i) => c - CR[i]); D0[1] -= 0.02; const dl = Math.hypot(...D0) || 1, d = uvDir(Pv, U, D0.map((c) => c / dl));
@@ -2103,10 +2155,17 @@ if (CFG.fuzz && CFG.shaved) {
       const l1 = ((U[1][1] - U[2][1]) * (x - U[2][0]) + (U[2][0] - U[1][0]) * (y - U[2][1])) / det, l2 = ((U[2][1] - U[0][1]) * (x - U[2][0]) + (U[0][0] - U[2][0]) * (y - U[2][1])) / det, l3 = 1 - l1 - l2;
       if (l1 < -0.08 || l2 < -0.08 || l3 < -0.08 || x < 0 || y < 0 || x >= S || y >= S) continue;
       const wv = Math.max(0, Math.min(1, l1 * ws[0] + l2 * ws[1] + l3 * ws[2])), i = (y * S + x) * 4;
-      const fine = strand(x, y, d, len, 31), clump = vnoise(x / 4, y / 4, 33), h = 0.85 * fine + 0.15 * clump;
-      const cov = sm(0.1, 0.75, wv + (vnoise(x / 6, y / 6, 35) - 0.5) * 0.5), a = cov * sm(0.42, 0.8, h); if (a * 255 <= img[i + 3]) continue;
-      const tone = vnoise(x / 1.2, y / 1.2, 37), isL = vnoise(x / 1.1, y / 1.1 + 50, 39) < gS, c = isL ? cols[2].map((v, j) => v * 0.9 + cols[1][j] * 0.1 * tone) : cols[0].map((v, j) => v + (cols[1][j] - v) * (0.35 + 0.65 * tone));
-      img[i] = Math.round(c[0]); img[i + 1] = Math.round(c[1]); img[i + 2] = Math.round(c[2]); img[i + 3] = Math.round(255 * a); } }
+      // (G7b: hairs, not pepper: each a streak FZ.w px across and len px along its growth, its tone and whether it is a
+      // light one the same all along it (a tone per texel read as dark grains), and none darker than FZ.lift of the way
+      // from the root's colour to the middle's (the darkest roots on a pale scalp were the pepper))
+      const al = x * d[0] + y * d[1], ac = -x * d[1] + y * d[0];
+      const fine = vnoise(ac / fw + 31, al / len, 31 * 0.37), clump = vnoise(x / 4, y / 4, 33), h = 0.85 * fine + 0.15 * clump;
+      const cov = sm(0.1, 0.75, wv + (vnoise(x / 6, y / 6, 35) - 0.5) * 0.5), a = cov * sm(0.38, 0.74, h); if (a * 255 <= img[i + 3]) continue;
+      const tone = vnoise(ac / fw + 77, al / (len * 1.7), 37), isL = vnoise(ac / fw + 50, al / (len * 1.3), 39) < gS, c = isL ? cols[2].map((v, j) => v * 0.9 + cols[1][j] * 0.1 * tone) : cols[0].map((v, j) => v + (cols[1][j] - v) * (lift + (1 - lift) * tone));
+      // (and each hair only FZ.contrast of the way from the painted scalp's colour under it to its own: at the study's
+      // 1 mm a pixel a crop is a tone with a grain, its hairs never resolved; full contrast read as dots or a crackle)
+      const cc = c.map((v, j) => sc[j] + (v - sc[j]) * con);
+      img[i] = Math.round(cc[0]); img[i + 1] = Math.round(cc[1]); img[i + 2] = Math.round(cc[2]); img[i + 3] = Math.round(255 * a); } }
   // (the clear texels the nearest hair's colour along the row, for the mips)
   for (let y = 0; y < S; y++) { let last = -1; for (let x = 0; x < S; x++) { const i = (y * S + x) * 4; if (img[i + 3] > 8) last = i; else if (last >= 0) { img[i] = img[last]; img[i + 1] = img[last + 1]; img[i + 2] = img[last + 2]; } } }
   const fM = mat('hairShell', { spec: HAIRSPEC, rough: FZ.rough ?? 0.82, alpha: 0.5, map: await tex('', await sharp(img, { raw: { width: S, height: S, channels: 4 } }).png().toBuffer()) }); fM.setExtras({ style: 'fuzz' });

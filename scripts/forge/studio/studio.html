@@ -118,6 +118,17 @@ const eyesWorld = () => { const m = head.matrixWorld.clone().multiply(sk.boneInv
 // bone, not the studio's glasses), the tongue blue, the teeth green, the rest of the person black, the set
 // and background white)
 const maskMats = new Map();
+// (G7b: mask: 'hair' draws the head's hair white (its cut-out kept), everything else and the set black: the hair-read
+// gate (hairgate.mjs, studio/hair.mts))
+const hairMats = new Map();
+function hairMaskMat(o) {
+  const n = o.material?.name || '', key = o.uuid; if (hairMats.has(key)) return hairMats.get(key);
+  let mine = false; for (let p = o; p; p = p.parent) if (p === M) { mine = true; break; }
+  const m = new THREE.MeshBasicNodeMaterial({ color: mine && /^(hair|curls|braids|locs)/.test(n) ? 0xffffff : 0x000000 }); m.side = o.material.side;
+  // (a cropped head's fur shells drawn whole: the crop is the shells' area, its hairs and the painted scalp between them)
+  if (n !== 'hairShell' && o.material.map && (o.material.alphaTest || o.material.transparent)) { m.opacityNode = TSL.texture(o.material.map).a; m.alphaTest = Math.max(0.3, o.material.alphaTest || 0); }
+  hairMats.set(key, m); return m;
+}
 function maskMat(o) {
   const n = o.material?.name || '', key = o.uuid; if (maskMats.has(key)) return maskMats.get(key);
   // (the set (backdrop, chair, floor) and the background white: a white hole inside the mouth is the dark behind it)
@@ -169,13 +180,14 @@ window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, 
     camera.fov = 22; camera.position.set(e.x + 0.16, e.y + 0.015, e.z + 0.62); camera.lookAt(e.x, e.y - 0.045, e.z);
   }
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  if (mask) { const back = []; scene.traverse((o) => { if (o.isMesh) { back.push([o, o.material]); o.material = maskMat(o); } }); const bg = scene.background; scene.background = new THREE.Color(1, 1, 1);
+  if (mask) { const back = []; scene.traverse((o) => { if (o.isMesh) { back.push([o, o.material]); o.material = mask === 'hair' ? hairMaskMat(o) : maskMat(o); } }); const bg = scene.background; scene.background = new THREE.Color(mask === 'hair' ? 0 : 1, mask === 'hair' ? 0 : 1, mask === 'hair' ? 0 : 1);
     renderer.render(scene, camera); renderer.render(scene, camera); for (const [o, m] of back) o.material = m; scene.background = bg; }
   else { renderer.render(scene, camera); renderer.render(scene, camera); }
   // checks: the feet on the floor (the lowest point of the body in this pose) and the spine's lean from upright
   const sp = M.getObjectByName('spine05'), nk = M.getObjectByName('neck01'), a = sp.getWorldPosition(new THREE.Vector3()), b = nk.getWorldPosition(new THREE.Vector3());
   return { floor: +box.min.y.toFixed(3), height: +ht.toFixed(3), spineLeanDeg: +(Math.acos(Math.min(1, (b.y - a.y) / b.distanceTo(a))) * 180 / Math.PI).toFixed(1) };
 };
+{ const hm = new Set(); M.traverse((o) => { if (o.isMesh && /^(hair|curls|braids|locs)/.test(o.material?.name || '')) hm.add(o.material.name); }); info.hairMats = [...hm]; } // (G7b: the hair gate's rope rule)
 info.clips = CLIPS.length; info.clipSource = pack ? 'pack' : 'baked'; info.extras = { mouth: extras.landmarks?.below, hands: extras.post?.hands };
 window.__dur = (n) => (THREE.AnimationClip.findByName(CLIPS, n) || CLIPS[0]).duration;
 window.__info = info; window.__ready = true;

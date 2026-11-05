@@ -46,7 +46,7 @@ export async function talkGate(doc) {
   for (const p of prims) { if (p.getAttribute('POSITION') !== acc) continue; const g = new T3.BufferGeometry(); g.setAttribute('position', posAttr); g.setIndex(new T3.BufferAttribute(Uint32Array.from(p.getIndices().getArray()), 1)); meshes.push({ material: { name: p.getMaterial()?.getName() || '' }, geometry: g }); }
   const { faceMorphs } = await face(), fm = faceMorphs(meshes, { forged });
   if (!fm) return { pass: true, note: 'no face (no skin or eyes)' };
-  const by = Object.fromEntries(meshes.map((m) => [m.material.name, m])), mo = (m, k) => m?.geometry.morphAttributes.position?.find((a) => a.name === k)?.array;
+  const by = Object.fromEntries(meshes.slice().reverse().map((m) => [m.material.name, m])), mo = (m, k) => m?.geometry.morphAttributes.position?.find((a) => a.name === k)?.array;
   const J = mo(by.skin, 'jaw'), L = mo(by.skin, 'lip'), verts = (m) => (m ? [...new Set(m.geometry.index.array)] : []);
   const at = (v, jaw, lip) => [P[v * 3] + (J ? J[v * 3] * jaw + L[v * 3] * lip : 0), P[v * 3 + 1] + (J ? J[v * 3 + 1] * jaw + L[v * 3 + 1] * lip : 0), P[v * 3 + 2] + (J ? J[v * 3 + 2] * jaw + L[v * 3 + 2] * lip : 0)];
   const ey = fm.eyes[0].c.y, eyeFront = fm.eyes[0].c.z + fm.eyes[0].r, F = fm.found, partY = ey - F.parting[0][1] / 1000, lipZ = eyeFront + F.lipZ / 1000;

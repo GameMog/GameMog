@@ -728,7 +728,7 @@ export const BRAIDS = {
   // (forge v2.2) curls: ringlets: a thin strand wound as a helix round its path (3.5 cm on the scalp at most, then hanging
   // to about the jaw), dense, matte, fuzzy (F6: 215 strands, was 250: with core.mjs's lighter tube the nurse's GLB 4.4 ->
   // 2.65 MB, under the store's 3 MB a person)
-  curls: { count: 215, r: 0.0019, len: 0.11, edge: 0.009, plait: 0, lumps: 0.1, pitch: 0.008, rough: 0.9, partLines: false, headHold: 0.97, fuzz: 0.25, coil: { R: 0.0055, pitch: 0.013 } },
+  curls: { count: 260, r: 0.0019, len: 0.11, edge: 0.009, plait: 0, lumps: 0.1, pitch: 0.008, rough: 0.9, partLines: false, headHold: 0.97, fuzz: 0.25, coil: { R: 0.0062, pitch: 0.013 }, ribbon: { w: 0.92, v: 0.04, cut: 0.4 } },
   locs: { count: 72, r: 0.0058, len: 0.34, edge: 0.016, plait: 0, lumps: 0.22, pitch: 0.012, rough: 0.94, partLines: true, headHold: 0.97, fuzz: 0.18 },
 };
 // (forge v2.3, HB) the six styles' settings (compile.mjs reads them; core.mjs builds them):
@@ -839,7 +839,8 @@ export function mouthGap(L) {
 // atlas: the cards' strip of the beard's texture (u from u0 to 1); returns { P, UV, src (root's nearest skin point),
 // shade, idx, count, cut (cards shortened at the lips), dropped }
 export function beardCards(skin, L, groom, seed = 1, atlas = { u0: 0 }) {
-  const G = GROOMS[groom] || GROOMS.boxed, { P: bP, N: bN, T, mask } = skin, { MOUTHY, EZ } = L, gap = mouthGap(L), U0 = atlas.u0 || 0, XC = lensHalf(L) + 0.0065;
+  // (G7b: atlas.tune overrides the groom's numbers for one person: a moustache's density and length by the sheet's)
+  const G = { ...(GROOMS[groom] || GROOMS.boxed), ...(atlas.tune || {}) }, { P: bP, N: bN, T, mask } = skin, { MOUTHY, EZ } = L, gap = mouthGap(L), U0 = atlas.u0 || 0, XC = lensHalf(L) + 0.0065;
   let s0 = (seed * 2654435761) >>> 0; const rnd = () => ((s0 = (Math.imul(s0, 1664525) + 1013904223) >>> 0) / 4294967296);
   const nrm = (v) => { const l = Math.hypot(...v) || 1; return v.map((c) => c / l); }, cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   // (the growth by place: the cheeks down and a little forward; the lip's middle out and down; under the jaw down and back)

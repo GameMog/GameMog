@@ -135,10 +135,10 @@ export function compile(S) {
   if (st === 'slicked') { C.slick = 0.42; C.shaved = { a: 0.55, col: ramp[0] }; }
   // (H5: balding is the horseshoe cropped close (painted and fur shells, Mr. Big's beard's make), not the short cut's cards
   // cut round the crown: their cut edges stood as pasted patches over the ears)
-  if (st === 'balding') { C.hair = 'none'; C.bald = { crown: age > 60 ? 0.055 : 0.07 }; C.shaved = { a: 0.5, col: mix(ramp[0], ramp[1], 0.6).map(Math.round), horseshoe: true }; C.fuzz = { layers: 3, depth: 0.0026, colors: [ramp[0], ramp[1], ramp[2]], grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 4 }; }
+  if (st === 'balding') { C.hair = 'none'; C.bald = { crown: age > 60 ? 0.055 : 0.07 }; C.shaved = { a: 0.62, col: mix(ramp[0], ramp[1], 0.6).map(Math.round), horseshoe: true }; C.fuzz = { layers: 3, depth: 0.0026, colors: [ramp[0], ramp[1], ramp[2]], grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 9, w: 0.8, lift: 0.75, contrast: 0.55 }; }
   // (a buzz is the scalp painted, no cards: a card cap that short reads as a helmet (the gates' helmet check))
   // (H5: and fur shells over it, 1.8 mm, short hairs along their growth: a buzz reads as hair at 2 m and in silhouette)
-  if (st === 'buzz') { C.hair = 'none'; C.shaved = { a: 0.62, col: ramp[0].map((x, i) => Math.round((x + ramp[1][i]) / 2)), buzz: true }; C.fuzz = { layers: 3, depth: 0.0013, colors: [ramp[0], ramp[1], ramp[2]], grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 3 }; }
+  if (st === 'buzz') { C.hair = 'none'; C.shaved = { a: 0.7, col: ramp[0].map((x, i) => Math.round((x + ramp[1][i]) / 2)), buzz: true }; C.fuzz = { layers: 3, depth: 0.0013, colors: [ramp[0], ramp[1], ramp[2]], grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 8, w: 0.8, lift: 0.75, contrast: 0.55 }; }
   // (short card cuts tousled, so they read as hair, not a shell: the gates' helmet check)
   if (['short01', 'short02', 'short03', 'short04', 'bob02'].includes(C.hair)) C.hairTousle = { amp: 0.018, size: 0.024 };
   if (C.hair !== 'none' && !C.hair.startsWith('body:')) { C.hairCut = 0.32; C.hairAlpha = 0.3; C.hairNormal = 3.2; C.hairRough = 0.45; }
@@ -201,7 +201,15 @@ export function compile(S) {
     // grey roots, never pure white))
     if (C.cards.groom === 'moustache') { const lt = ['silver', 'white', 'grey'].includes(FH.color);
       C.beard.a = clamp(0.18 + 0.2 * dens, 0.15, 0.4); C.shells.gap = 0.24; C.shells.clump = 0.35;
-      C.shells.cols = lt ? [mix(fc[0], fc[1], 0.15), mix(fc[1], fc[2], 0.3)] : [mix(fc[0], fc[1], 0.8), mix(fc[2], [140, 130, 122], 0.35)]; }
+      C.shells.cols = lt ? [mix(fc[0], fc[1], 0.15), mix(fc[1], fc[2], 0.3)] : [mix(fc[0], fc[1], 0.8), mix(fc[2], [140, 130, 122], 0.35)];
+      // (G7b: from the front the cop's black one still read thick and dark and the veteran's white one a bright cotton
+      // wedge: fewer, shorter cards by the sheet's density, the shells three quarters as deep, and a white or silver one
+      // an old man's: its cards' and shells' ramp taken a fifth toward a warm grey and down (no strand brighter than 200),
+      // so it reads as hairs over skin, not as a lit white mass)
+      C.cards.tune = { density: +(GROOMS.moustache.density * (0.5 + 0.3 * dens)).toFixed(1), len: +(GROOMS.moustache.len * (0.8 + 0.1 * dens)).toFixed(4) };
+      C.shells.depth = +(C.shells.depth * 0.75).toFixed(4);
+      if (lt) { const old = (c) => mix(c, [150, 140, 128], 0.2).map((x) => Math.round(Math.min(200, x * 0.84)));
+        C.beard.root = old(fc[0]); C.beard.mid = old(fc[1]); C.beard.col = old(fc[2]); C.shells.cols = C.shells.cols.map(old); } }
   }
   else if (FH.style !== 'none') {
     C.beard = { style: { moustache: 'moustache', goatee: 'goatee', 'full-trimmed': 'full', 'short-boxed': 'full', full: 'full', 'chin-strap': 'full' }[FH.style], col: fc[2], mid: fc[1], root: fc[0], a: clamp(0.6 + 0.35 * dens, 0.4, 0.95), depth: clamp(0.0015 + 0.0015 * dens, 0.001, 0.003), grey: 0.4, len: 16, feather: 2 };

@@ -69,6 +69,10 @@ async function load(file) {
     for (const p of mesh.listPrimitives()) { const m = p.getMaterial(), get = (k) => p.getAttribute(k); if (!get('POSITION')) continue;
       const A = (a) => { if (!a) return null; const n = a.getCount(), w = a.getElementSize(), o = new Float32Array(n * w), t = []; for (let i = 0; i < n; i++) { a.getElement(i, t); for (let c = 0; c < w; c++) o[i * w + c] = t[c]; } return o; };
       prims.push({ node, skinned: !!node.getSkin(), name: m?.getName() || '', ex: m?.getExtras() || {}, mat: m, P: A(get('POSITION')), N: A(get('NORMAL')), UV: A(get('TEXCOORD_0')), JI: A(get('JOINTS_0')), WT: A(get('WEIGHTS_0')), C: A(get('COLOR_0')), idx: Uint32Array.from(p.getIndices().getArray()) }); prims[prims.length - 1].V = Uint32Array.from(new Set(prims[prims.length - 1].idx)); } }
+  // (G7b: the skin may come as two primitives of one material (the nape's triangles kept apart from face.js's mouth
+  // shading, core.mjs): one skin for every gate, the first's points with every skin primitive's triangles)
+  const skins = prims.filter((p) => p.name === 'skin');
+  if (skins.length > 1) { const s0 = skins[0], idx = []; for (const s of skins) idx.push(...s.idx); s0.idx = Uint32Array.from(idx); s0.V = Uint32Array.from(new Set(idx)); for (const s of skins.slice(1)) prims.splice(prims.indexOf(s), 1); }
   return { doc, R, J, names, IBM, armature, prims, parentOf, extras: R.getAsset().extras?.forge || {} };
 }
 // a clip's local transforms (by bone name) at time t: the pack's channels retargeted as clips-runtime.mjs does it
@@ -220,7 +224,7 @@ export async function runGates(glb, packFile) {
     res.teeth = { pass: !!(up && lo && up.idx.length > 300 && lo.idx.length > 300 && behind > 1 && behind < 12 && bu[1] > part), tris: { up: up ? up.idx.length / 3 : 0, lowAndTongue: lo ? lo.idx.length / 3 : 0 }, behindLipsMm: behind != null ? +behind.toFixed(1) : null, limit: 'both rows built, upper row 1-12 mm behind the lips, reaching above the parting' }; }
 
   /* helmet hair */
-  { const hairs = M.prims.filter((p) => /^(hair|braids|locs)/.test(p.name));
+  { const hairs = M.prims.filter((p) => /^(hair|braids|locs|curls)/.test(p.name));
     if (!hairs.length) res.helmetHair = { pass: true, note: 'no hair geometry (shaved / buzz painted)' };
     else { const P = bindP(skinP), headV = []; for (const v of skinP.V) { let w = 0; for (let k = 0; k < 4; k++) if (skinP.JI[v * 4 + k] === headI) w += skinP.WT[v * 4 + k]; if (w > 0.5) headV.push(v); }
       const near = grid(P, headV, 0.02), d = [], eyW = BW(ey);
@@ -231,7 +235,7 @@ export async function runGates(glb, packFile) {
       for (const h of hairs) { const H = bindP(h); for (const v of h.V) { if (H[v * 3 + 1] < eyW + 0.01) continue; let q = -1; for (const r of reach) { q = near(H[v * 3], H[v * 3 + 1], H[v * 3 + 2], r); if (q >= 0) break; } if (q < 0) { hang++; continue; } d.push(Math.hypot(H[v * 3] - P[q * 3], H[v * 3 + 1] - P[q * 3 + 1], H[v * 3 + 2] - P[q * 3 + 2])); } }
       const p90 = pct(d, 0.9) * 1000, outer = d.filter((x) => x > pct(d, 0.6)), m = outer.reduce((a, x) => a + x, 0) / Math.max(1, outer.length), cv = Math.sqrt(outer.reduce((a, x) => a + (x - m) ** 2, 0) / Math.max(1, outer.length)) / (m || 1);
       // (braids and locs lie in rows on the scalp by design: an even offset there is their look, only p90 applies)
-      const ropes = hairs.every((h) => /^(braids|locs)$/.test(h.name));
+      const ropes = hairs.every((h) => /^(braids|locs|curls)$/.test(h.name)); // (G7b: ringlets too: rows of separate locks, not a shell)
       const p90Max = volume ? LIMITS.hairVolumeP90Mm : LIMITS.hairP90Mm;
       res.helmetHair = { pass: p90 <= p90Max && (ropes || cv >= LIMITS.hairShellCv || m * 1000 < LIMITS.helmetMeanMm), p90Mm: +p90.toFixed(1), outerMeanMm: +(m * 1000).toFixed(1), outerCv: +cv.toFixed(2), hangPoints: hang, volume, limit: `p90 standoff <= ${p90Max} mm; a shell (outer mean >= ${LIMITS.helmetMeanMm} mm) must vary (cv >= ${LIMITS.hairShellCv})` }; } }
 
@@ -247,11 +251,15 @@ export async function runGates(glb, packFile) {
     res.clawHands = { pass: !claw.length && !fist.length, claw: claw.slice(0, 8), fist: fist.slice(0, 8), limit: 'no >= 3 fingers tip-curled over a straight knuckle, no >= 6 fingers in a fist, in the everyday clips' }; }
 
   /* hair on the face */
-  { const hairs = M.prims.filter((p) => /^(hair|braids|locs)/.test(p.name)), P = bindP(skinP), eyW = BW(ey), chin = eyW - BW((lm.chin ?? 110) / 1000);
+  { const hairs = M.prims.filter((p) => /^(hair|braids|locs|curls)/.test(p.name)), P = bindP(skinP), eyW = BW(ey), chin = eyW - BW((lm.chin ?? 110) / 1000);
     if (!hairs.length) res.hairOnFace = { pass: true, note: 'no hair geometry' };
     else { // (the face's front by (x, y) in 5 mm cells: the skin's frontmost point)
       const C = 0.005, front = new Map(), k2 = (x, y) => Math.round(x / C) + ',' + Math.round(y / C);
       for (const v of skinP.V) { const x = P[v * 3], y = P[v * 3 + 1]; if (Math.abs(x) > 0.08 || y > eyW + 0.03 || y < chin) continue; const k = k2(x, y); front.set(k, Math.max(front.get(k) ?? -9, P[v * 3 + 2])); }
+      // (G7b: each cell's front (a cell with skin in it) the frontmost of it and its 8 neighbours: the skin's mesh is coarser than 5 mm under the
+      // lip, so a cell there held only the mouth's inside, the face's front read 16 cm back, and a ringlet hanging behind
+      // the neck counted as on the face)
+      const frontAt = (x, y) => { const i = Math.round(x / C), j = Math.round(y / C); if (!front.has(i + ',' + j)) return null; let m = null; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const f = front.get((i + a) + ',' + (j + b)); if (f != null && (m == null || f > m)) m = f; } return m; };
       let worst = { n: 0 };
       for (const [clipName, u] of [[null, 0], ['talk', 0.5], ['walk', 0.3], ['idle', 0.6], ['shift', 0.5]]) { const clip = clipName && pack.get(clipName), W = clip ? poseWorld(M, clip, clip.dur * u) : rest;
         // (posed: into the head's frame, so the face's map applies)
@@ -259,7 +267,7 @@ export async function runGates(glb, packFile) {
         for (const h of hairs) { const H = clip ? skinPrim(M, h, W) : bindP(h), v3 = new T3.Vector3();
           for (const v of h.V) { v3.set(H[v * 3], H[v * 3 + 1], H[v * 3 + 2]); if (clip) v3.applyMatrix4(inv); const x = v3.x, y = v3.y, z = v3.z;
             // (the face: under the brows (a fringe above them is hair's), over the chin, inside the cheeks' width)
-            if (y > eyW + 0.012 || y < chin || Math.abs(x) > 0.062) continue; const f = front.get(k2(x, y)); if (f == null) continue; if (z > f - 0.003) n++; } }
+            if (y > eyW + 0.012 || y < chin || Math.abs(x) > 0.062) continue; const f = frontAt(x, y); if (f == null) continue; if (z > f - 0.003) n++; } }
         if (n > worst.n) worst = { n, at: clipName || 'rest' }; if (!clipName) worst.rest = n; }
       res.hairOnFace = { pass: worst.n <= LIMITS.faceHairMax, worst, limit: `<= ${LIMITS.faceHairMax} hair points in front of the face (brows to chin, cheek to cheek)` }; } }
 
