@@ -235,7 +235,8 @@ export class StoryStore {
     const pack = JSON.parse(d.pack);
     let ext: string, max: number, total: number, count = Infinity, m: RegExpExecArray | null, keep: unknown = null;
     if (kind === 'glb') {
-      if (!CAST_ID.test(name) || !pack.cast.some((c: any) => c.id === name && c.sheet)) return fail(404, `${name} is no one in this world with a sheet.`);
+      // a forged person (a sheet) or a hand-built one (the work page stores the registry's GLB as theirs, never forged)
+      if (!CAST_ID.test(name) || !pack.cast.some((c: any) => c.id === name && (c.sheet || (!c.voiceOnly && handBuilt(c.model))))) return fail(404, `${name} is no one in this world with a sheet or a hand-built body.`);
       ext = 'glb'; max = LIMITS.glb.each; total = LIMITS.glb.total;
     } else if (kind === 'voice') {
       if (!(m = CLIP.exec(name))) return fail(400, 'A clip is <line hash>-<voice key>.ogg or .wav.');
