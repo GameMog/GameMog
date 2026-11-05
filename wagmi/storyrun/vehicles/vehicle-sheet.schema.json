@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gamemog.com/storykit/vehicles/vehicle-sheet.schema.json",
+  "title": "Story Kit vehicle sheet",
+  "description": "One ride in a Story Kit world, written as data an LLM can fill in: word lists and bounded numbers only, never curves, code or real names. buildVehicle(THREE, sheet) (storykit/vehicles/build-vehicle.js) turns it into a drivable model with its own handling and engine sound. Every knob is -1..1 around the class preset (0 = the preset) and is clamped, not refused; every enum value is a thing the builder draws. Only the four-wheel car family is built today; bikes, scooters and heavy trucks are planned (x-planned) and a sheet asking for them is refused, never faked.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "id", "label", "noun", "family", "class"],
+  "$defs": {
+    "knob": { "type": "number", "minimum": -1, "maximum": 1, "default": 0, "description": "A designer knob: -1..1 around the class preset, clamped." },
+    "colour": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+    "text": { "type": "string", "maxLength": 24, "pattern": "^[A-Za-z0-9 .,'&-]*$", "description": "Original words only; checked against the real-name list." }
+  },
+  "properties": {
+    "v": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,47}$", "description": "Stable id inside the world, e.g. rides.night-cab." },
+    "label": { "$ref": "#/$defs/text", "description": "What the HUD and GPS call it ({ride.name})." },
+    "noun": { "enum": ["car", "cab", "van", "truck", "suv", "coupe", "sedan", "wagon", "hatch", "pickup", "limo", "cruiser", "roadster"], "description": "{ride} in copy." },
+    "family": { "enum": ["car4"], "x-planned": ["heavy4", "motorbike", "scooter", "bicycle"], "description": "Decides physics, mount and animation. car4 = four wheels, a driver seated inside." },
+    "class": {
+      "enum": ["compact-hatch", "sedan", "coupe", "wagon", "muscle", "sports", "supercar", "suv", "crossover", "pickup", "minivan", "van", "taxi", "cruiser", "limo"],
+      "description": "A hand-tuned base shape within the family; the knobs move it."
+    },
+    "era": { "type": "integer", "minimum": 1955, "maximum": 2026, "default": 2010, "description": "Snapped to a decade: trim, lamp tech, gearbox." },
+    "condition": { "enum": ["showroom", "daily", "tired", "beater"], "default": "daily", "description": "Dirt low on the body, dull clear coat; tired adds scuffs and dings, beater adds rust spots and a mismatched panel." },
+    "proportions": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "length": { "$ref": "#/$defs/knob" }, "width": { "$ref": "#/$defs/knob" }, "height": { "$ref": "#/$defs/knob" },
+        "rideHeight": { "$ref": "#/$defs/knob" }, "wheelSize": { "$ref": "#/$defs/knob" }, "bonnet": { "$ref": "#/$defs/knob" },
+        "cabinForward": { "$ref": "#/$defs/knob" }, "roofline": { "$ref": "#/$defs/knob" }, "windscreenRake": { "$ref": "#/$defs/knob" },
+        "beltline": { "$ref": "#/$defs/knob" }, "flare": { "$ref": "#/$defs/knob" }, "tumblehome": { "$ref": "#/$defs/knob" }
+      }
+    },
+    "body": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "rear": { "enum": ["notchback", "fastback", "hatch", "wagon", "box", "bed"], "description": "The class default if left out." },
+        "doors": { "enum": [2, 3, 4, 5] },
+        "doorType": { "enum": ["conventional", "sliding", "up"], "description": "sliding: a side door on a rail (vans); up: doors hinged at the windscreen." },
+        "roof": { "enum": ["fixed", "sunroof", "convertible-up", "convertible-down", "high"], "description": "high: a tall cargo roof (vans)." },
+        "crease": { "enum": ["none", "single", "double", "muscle-hips"] },
+        "hood": { "enum": ["flat", "dome", "scoop", "vents"] },
+        "aero": { "enum": ["none", "lip", "ducktail", "wing", "roof-spoiler"] },
+        "cladding": { "type": "boolean", "description": "Grey plastic over the rockers and round the arches." },
+        "sideScoop": { "type": "boolean" },
+        "roofRails": { "type": "boolean" },
+        "trim": { "enum": ["black", "chrome", "body"], "description": "Window surrounds, rub strips, mirrors." }
+      }
+    },
+    "face": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "lamps": { "enum": ["round-pair", "quad-round", "square", "wraparound", "slim-led", "projector-pair"] },
+        "grille": { "enum": ["none", "slot", "horizontal-bars", "mesh", "egg-crate", "honeycomb", "closed-ev"] },
+        "grilleSize": { "$ref": "#/$defs/knob" },
+        "bumper": { "enum": ["chrome-blade", "body", "black-plastic", "bull-bar"] },
+        "fog": { "type": "boolean" }
+      }
+    },
+    "tail": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "lamps": { "enum": ["full-width", "vertical", "round", "wrap", "bars"] },
+        "exhaust": { "enum": ["none", "single", "twin", "quad"] },
+        "plate": { "enum": ["center", "bumper"] }
+      }
+    },
+    "paint": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "base": { "$ref": "#/$defs/colour" },
+        "finish": { "enum": ["gloss", "metallic", "pearl", "satin", "matte", "primer"] },
+        "second": { "oneOf": [{ "$ref": "#/$defs/colour" }, { "type": "null" }] },
+        "split": { "enum": ["none", "roof", "lower", "beltline"] },
+        "stripes": { "enum": ["none", "twin-racing", "side", "pinstripe"] },
+        "stripeColour": { "$ref": "#/$defs/colour" },
+        "livery": {
+          "oneOf": [{ "type": "null" }, {
+            "type": "object", "additionalProperties": false, "required": ["kind"],
+            "properties": {
+              "kind": { "enum": ["taxi", "delivery", "security", "custom"] },
+              "text": { "$ref": "#/$defs/text", "description": "Door lettering (taxi: the roof sign's word)." },
+              "number": { "type": "string", "pattern": "^[A-Z0-9]{0,5}$", "description": "A fleet or medallion number (original)." }
+            }
+          }]
+        }
+      }
+    },
+    "wheels": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "style": { "enum": ["steel-hubcap", "steel-bare", "five-spoke", "split-five", "multi-spoke", "mesh", "turbine"] },
+        "finish": { "enum": ["silver", "black", "gunmetal", "chrome", "white", "bronze"] },
+        "tyre": { "enum": ["road", "low-profile", "balloon", "all-terrain"] },
+        "whitewall": { "type": "boolean" }
+      }
+    },
+    "interior": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "seat": { "$ref": "#/$defs/colour" },
+        "material": { "enum": ["cloth", "vinyl", "leather", "alcantara"] },
+        "dash": { "enum": ["analog", "twin-cowl", "screen"] },
+        "wheel": { "enum": ["two-spoke", "three-spoke", "four-spoke", "yoke"] },
+        "partition": { "type": "boolean", "description": "A divider behind the front seats (cabs, cruisers)." }
+      }
+    },
+    "props": {
+      "type": "array", "maxItems": 10, "uniqueItems": true,
+      "items": { "enum": ["child-seat", "booster", "diaper-bag", "gym-bag", "coffee-cups", "fuzzy-dice", "parking-tickets", "toolbox", "ladder-rack", "roof-box", "delivery-boxes", "dog-crate", "christmas-tree-on-roof", "air-freshener", "clipboard"] },
+      "description": "Story props on the class's sockets (rear seats, load bay, roof, dash, mirror)."
+    },
+    "sound": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "engine": { "enum": ["i4", "v6", "v8", "v8-cammed", "v12", "flat6", "diesel", "ev"] },
+        "character": { "$ref": "#/$defs/knob", "description": "-1 quiet and smooth .. 1 loud and raw (gain, drive, wet, pops, lope)." },
+        "gears": { "type": "integer", "minimum": 3, "maximum": 8, "description": "Forward gears before the overdrive; the era picks it if left out." },
+        "horn": { "enum": ["toot", "twin", "air", "musical"] }
+      }
+    },
+    "handling": {
+      "type": "object", "additionalProperties": false,
+      "description": "Adjectives inside the family's range; the builder maps them to the drive model's numbers (a sheet can never make a 60 m/s van).",
+      "properties": {
+        "pace": { "$ref": "#/$defs/knob", "description": "Top speed." },
+        "pull": { "$ref": "#/$defs/knob", "description": "Acceleration and the boost's top end." },
+        "grip": { "$ref": "#/$defs/knob" },
+        "weight": { "$ref": "#/$defs/knob", "description": "Mass, and how much the body leans, dives and squats." },
+        "turnIn": { "$ref": "#/$defs/knob", "description": "Turning circle and yaw rate." },
+        "brakes": { "$ref": "#/$defs/knob" },
+        "character": { "enum": ["planted", "floaty", "tail-happy", "twitchy", "tank"] }
+      }
+    },
+    "abilities": {
+      "type": "array", "uniqueItems": true,
+      "items": { "enum": ["boost", "ram", "hop", "dash"] },
+      "description": "Mission verbs this ride can do (car4: boost = nitrous or a kick-down, ram = a reinforced nose, hop/dash = thrusters, which also draws the nozzles)."
+    },
+    "story": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "owner": { "type": "string", "pattern": "^[a-z0-9-]{0,32}$" },
+        "nickname": { "$ref": "#/$defs/text" },
+        "oneLine": { "type": "string", "maxLength": 160 }
+      }
+    },
+    "plate": { "type": "string", "pattern": "^[A-Z0-9 ]{0,8}$", "description": "The plate's characters (original; the plate carries no state name)." }
+  }
+}
