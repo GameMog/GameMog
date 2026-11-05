@@ -9,6 +9,8 @@
 //              or a shipped model from the cast registry (public/storykit/cast/registry.json: { model: 'mogcity/dan' })
 //   pets[]     animals, as animals (a dog is a pet with species "dog", never a person renamed); a registry pet by model
 //   vehicles[] rides: a vehicle sheet (storykit/vehicles/vehicle-sheet.schema.json) or one of the engine's stock cars
+//   opening    the world's opening, before Mission 1: the city, the place card, a name card for each person who matters,
+//              the premise in a few spoken lines, the title (Mog City's runner plays it as Mog City's own opening)
 //   acts[]     of missions[], each with its vehicle, its verbs and the runner's steps (Mog City wagmi/storyrun/runner.js)
 //   voices     the voice manifest: line id -> { voice, status: ready | pending, clip, hash }
 // Places are names: "@key" from the city's place list (storykit/pack/cities.ts) or the pack's own aliases of them.
@@ -60,6 +62,9 @@ export const MOGCITY_STUBS = ['convoy', 'comfort', 'patrol', 'roadblock', 'passe
 // its recorded lines), voice-only people with recorded lines, and pets. storykit/cast/README.md
 export const CAST_MODELS = Object.entries(REGISTRY.models).filter(([, m]) => m.kind !== 'pet').map(([k]) => k);
 export const PET_MODELS = Object.entries(REGISTRY.models).filter(([, m]) => m.kind === 'pet').map(([k]) => k);
+// the world's opening (Mog City's runner plays it once before Mission 1, as Mog City's own opening: the city, the place
+// card, a name card for each person who matters, the premise in a few lines, the title): gate.ts rule 14
+export const OPENING = { secs: [30, 75], lines: [2, 4], allies: 3, shots: 16, wide: 8 };
 export const LIMITS = { bytes: 160_000, acts: 3, missions: 9, steps: 60, cast: 12, pets: 3, vehicles: 6, lines: 600 };
 
 // ── builders ──
@@ -199,6 +204,27 @@ const STEPS = {
 
 
 
+// the opening's shots: a cutscene's (camera, a spoken line), plus the place card, a name card and the title
+const openingShot = O({
+  cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), say: R('castRef'), line: R('speech'), sub: R('line'),
+  where: O({ name: R('label'), sub: R('label') }, ['name'], { description: "the place card (Mog City's 'Murray Hill' / 'E 37th St · Midtown · 5:45 PM'): the name of where we are, and under it the street, the part of town and the time" }),
+  card: O({
+    who: R('castRef'), role: S(60, { description: 'one line under the name: who they are to this story ("the fall guy", "the fixer running the auction")' }),
+    is: E(['hero', 'antagonist', 'ally'], { description: "hero: the player (the pack's hero); antagonist: who is in their way; ally: one of up to 3 others who matter" })
+  }, ['who', 'is'], { description: "a name card: the frame freezes on this person (the shot looks at them: look { rel: <who> }, or 'player' for the hero) and their name comes up with the role in their colour" }),
+  title: { ...B, description: "the world's title in its own lockup over this shot (exactly one shot; the last is the usual place)" }
+}, ['cam']);
+const opening = O({
+  place: { ...R('placeRef'), description: 'where the hero stands while it plays (on foot, by their car); the establishing shots look at the city around it' },
+  time: E(TIMES, { description: "the time of day it plays at (Mission 1's when left out)" }),
+  stage: A(O({
+    who: R('beingRef'),
+    at: ONE(R('placeRef'), O({ rel: { const: 'player' }, right: N(-30, 30), fwd: N(-30, 30) }, ['rel'])),
+    heading: R('heading')
+  }, ['who', 'at']), 6, 0, { description: 'who else is on the street for it, and where: every person a shot looks at or a card names, but the hero' }),
+  shots: A(openingShot, OPENING.shots, 4)
+}, ['place', 'shots'], { description: `the world's opening, played once before Mission 1 (hold Space to skip): an establishing shot of the city with the place card first, a name card for the hero, the antagonist and up to ${OPENING.allies} others, the premise in ${OPENING.lines[0]} to ${OPENING.lines[1]} spoken lines, the title; ${OPENING.secs[0]} to ${OPENING.secs[1]} s in all` });
+
 const mission = O({
   id: R('missionId'), title: S(48), vehicle: R('rideRef'), verbs: A(E(VERBS), 8, 0, { uniqueItems: true }),
   start: R('placeRef'), traffic: N(0, 1), stakes: R('line'), passLine: R('line'), note: R('line'), timerLine: S(80), label: S(24),
@@ -235,6 +261,7 @@ export const SCHEMA = {
     dressing: O({ time: E(TIMES), season: E(SEASONS), weather: E(WEATHER), holiday: A(E(HOLIDAYS), 2, 0, { uniqueItems: true }),
       blackout: E(BLACKOUTS, { description: 'the power is out there (midtown: 34th to 59th St; downtown: below 34th St; manhattan: all of it, the boroughs over the rivers lit): dark windows, street lights and billboards, dead signals, emergency cars, stranded cars, generator-lit islands. Left out, the power is on' }) }, ['time', 'season', 'weather']),
     hero: { ...R('castRef'), description: 'the player character (a cast id)' },
+    opening,
     ride: { ...R('rideId'), description: 'the free-drive ride (a vehicle id); the first vehicle when left out' },
     hud: O({
       clock: O({ label: S(12), format: E(['count', 'age', 'text']), unit: S(12, { pattern: '^[a-z]{1,12}$' }), unitLabel: S(12), zero: S(24) }),

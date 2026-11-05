@@ -8,7 +8,7 @@ import { isBlocked } from './names';
 import { STORY_HERO_MAX, STORY_HERO_MODELS } from './storykit-site';
 import { MODELS, seeds as castSeeds, recordedClip, recordedLines } from '../storykit/pack/registry.ts';
 import { PLACES, CAM_POINTS, CITY_NAME, MOGCITY_BUILDS, buildsFor, type CityId } from '../storykit/pack/cities.ts';
-import { ANCHORS, MOGCITY_SCENES, MOGCITY_STUBS } from '../storykit/pack/schema.mjs';
+import { ANCHORS, MOGCITY_SCENES, MOGCITY_STUBS, OPENING } from '../storykit/pack/schema.mjs';
 import { KOKORO_VOICES, COLOUR_VOICES, lintVoiceBlock, voiceKey, clipBase } from '../storykit/voices/voice-design.js';
 import { realNameProblems as sheetBrandProblems } from '../storykit/vehicles/sheet.js';
 import { NAMES_CHECK_SYSTEM, readNamesCheck, consented, type Consent } from './episode';
@@ -190,6 +190,29 @@ export function exampleWorld(): PackV2 {
   p.dressing = { ...p.dressing, weather: 'clear' };
   const stubs = new Set(MOGCITY_STUBS as string[]);
   for (const a of p.acts) for (const m of a.missions) m.steps = m.steps.filter((x: PackV2) => !stubs.has(x.type)).map((x: PackV2) => (x.during ? { ...x, during: x.during.filter((d: PackV2) => !stubs.has(d.type)) } : x));
+  // (the opening, BUILDER.md: Night Shift was written before it, so the example gives it one, and the man in the grey
+  // car who wants Mrs. Kwon's books, the antagonist it brings on, a forged person from the fixer anchor)
+  const ray = p.cast.find((c: PackV2) => c.id === 'ray');
+  if (ray && !p.cast.some((c: PackV2) => c.id === 'vic')) {
+    const vic = JSON.parse(JSON.stringify(ray));
+    vic.id = 'vic'; vic.anchor = 'fixer'; vic.color = '#9B2D3A';
+    vic.voice = { id: 'vic-v1', kokoro: 'bm_lewis', speed: 0.92, pitch: -0.8, description: 'a man in his fifties, low and unhurried, never raises his voice' };
+    Object.assign(vic.sheet, { id: 'vic', name: 'Vic Lasko', role: 'the loan shark in the grey car', logline: 'Fifty-two, lends to the shops on Orchard Street and wants the only record of it burned.' });
+    vic.sheet.identity = { ...vic.sheet.identity, age: 52 };
+    vic.sheet.voice = { ...vic.sheet.voice, id: 'vic-v1' };
+    p.cast.push(vic);
+  }
+  p.opening = {
+    place: '@bowery', time: 'midnight',
+    stage: [{ who: 'kwon', at: '@kwon-corner' }, { who: 'vic', at: '@foley' }],
+    shots: [
+      { cam: { rel: 'player', right: -8, up: 34, fwd: -55 }, to: { rel: 'player', right: -11, up: 13, fwd: -25 }, look: 'player', dur: 7.5, where: { name: 'The Bowery', sub: 'E Houston St · Lower East Side · 12:30 AM' } },
+      { cam: { rel: 'player', right: 0.7, up: 0.05, fwd: 2.3 }, look: { rel: 'player' }, dur: 6.5, card: { who: 'dez', is: 'hero', role: 'night-shift cab driver' }, say: 'dez', line: 'Five years of nights in this cab. One more fare, then home before the snow shuts the city.' },
+      { cam: { rel: 'kwon', right: 1, up: 0.25, fwd: 3.2 }, look: { rel: 'kwon' }, dur: 6, card: { who: 'kwon', is: 'ally', role: 'the last fare of the night' }, say: 'kwon', line: 'Fifty years of the shop\'s books, and only one bag to carry them in.' },
+      { cam: { rel: 'vic', right: -1.2, up: 0.2, fwd: 3 }, look: { rel: 'vic' }, dur: 6.5, card: { who: 'vic', is: 'antagonist', role: 'the loan shark in the grey car' }, say: 'vic', line: 'Every name in that bag owes me. Find the old woman before the snow stops.' },
+      { cam: { rel: 'player', right: -9, up: 10, fwd: -18 }, look: 'player', dur: 6, title: true },
+    ],
+  };
   return p;
 }
 
@@ -257,14 +280,14 @@ The challenger's idea:
 
 ${input.mog.instruction}
 
-Start from the original's pack and change what the idea asks for, and nothing else: it must be recognisably a remix of "${p.title}". Copy every person, sheet, voice block, ride and line the idea does not change exactly as they are, so their bodies, voices and recorded lines carry over. A Mog keeps the original's framework: the same meters (a label may be reworded), the same clock, and only the kinds of step, fight rules and fight wins the original uses; it changes the story, the cast, the cars, the voices and the dressing. Give it its own title and tagline, never naming Mog City (Mog City is the engine, not a world's name). Reply with the two blocks.`;
+Start from the original's pack and change what the idea asks for, and nothing else: it must be recognisably a remix of "${p.title}". Copy every person, sheet, voice block, ride and line the idea does not change exactly as they are, so their bodies, voices and recorded lines carry over. A Mog keeps the original's framework: the same meters (a label may be reworded), the same clock, and only the kinds of step, fight rules and fight wins the original uses; it changes the story, the cast, the cars, the voices and the dressing. Give it its own title and tagline, never naming Mog City (Mog City is the engine, not a world's name). ${pack.opening ? 'Keep the original\'s opening exactly as it is (copy its "opening": its clips carry over), unless the idea changes the story or its people (a new hero, a new villain, a new night); then write the Mog\'s own opening by the same rules (BUILDER.md, The opening).' : 'The original has no opening: when the idea changes the story or its people, give the Mog an opening of its own (BUILDER.md, The opening).'} Reply with the two blocks.`;
   }
   const city = input.city!;
   return `CREATE A WORLD in ${CITY_NAME[city]}. The creator picked ${CITY_NAME[city]} and wrote:
 
 ${prompt}
 
-Its base is exactly ${JSON.stringify(baseOf(city))}. Write a new story pack: ${CREATE_MISSIONS.min} to ${CREATE_MISSIONS.max} missions in 1 to 3 acts, its own cast, rides and voices, set in ${CITY_NAME[city]}, with a title of its own that never names Mog City (Mog City is the engine, not a world's name). A new world sets its own rules from the runtime's parts: its meters, its clock, its mission rules and HUD items.${heroTurn(input.hero)} Reply with the two blocks.`;
+Its base is exactly ${JSON.stringify(baseOf(city))}. Write a new story pack: ${CREATE_MISSIONS.min} to ${CREATE_MISSIONS.max} missions in 1 to 3 acts, its own cast, rides and voices, set in ${CITY_NAME[city]}, with a title of its own that never names Mog City (Mog City is the engine, not a world's name), and an opening (BUILDER.md, The opening) that sets the place, brings on the hero and the antagonist with name cards and says the premise before Mission 1. A new world sets its own rules from the runtime's parts: its meters, its clock, its mission rules and HUD items.${heroTurn(input.hero)} Reply with the two blocks.`;
 }
 
 /**
@@ -389,6 +412,10 @@ export function builderProblems(pack: PackV2, input: StorykitInput, meta?: Story
       if (/\b(trunk|boot|tailgate|glove ?box)\b/i.test(words) || (name && new RegExp(`\\b${name.replace(/\W/g, '')}\\b`, 'i').test(words))) out.push(`mission ${m.id}: the search "${x.label}" is of the hero's own car: write "on": "ride" (and "part": "trunk", "door" or "hood"), so the hold is at the car wherever the player parks it.`);
     }
   }
+  // the opening (the owner, 5 Nov, after The Velvet Run: "no opening cinematic explaining the situation and introducing
+  // the main characters"): a Create has one, and the gate holds it to the rules (storykit/pack/gate.ts rule 14); a Mog
+  // keeps its parent's (the gate refuses one dropped) or writes its own
+  if (!input.mog && !pack.opening) out.push(`opening: a new story opens with an opening before Mission 1 (BUILDER.md, The opening): a wide shot of ${CITY_NAME[(pack.base?.city ?? input.city ?? 'ny') as CityId] ?? 'the city'} with the place card (where), a name card for the hero ("is": "hero") and for who is in their way ("is": "antagonist"), the premise in ${OPENING.lines[0]} to ${OPENING.lines[1]} spoken lines, and the title; ${OPENING.secs[0]} to ${OPENING.secs[1]} s. Never leave the premise or the villain for a later voicemail.`);
   // Mission 1 ends on a payoff the player does (the owner's review of the first build, 4 Nov)
   const m1 = all[0];
   if (m1?.steps?.length) {

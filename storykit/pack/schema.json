@@ -137,6 +137,174 @@
    "$ref": "#/$defs/castRef",
    "description": "the player character (a cast id)"
   },
+  "opening": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "place",
+    "shots"
+   ],
+   "properties": {
+    "place": {
+     "$ref": "#/$defs/placeRef",
+     "description": "where the hero stands while it plays (on foot, by their car); the establishing shots look at the city around it"
+    },
+    "time": {
+     "enum": [
+      "golden",
+      "midday",
+      "twilight",
+      "midnight",
+      "dawn"
+     ],
+     "description": "the time of day it plays at (Mission 1's when left out)"
+    },
+    "stage": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "who",
+       "at"
+      ],
+      "properties": {
+       "who": {
+        "$ref": "#/$defs/beingRef"
+       },
+       "at": {
+        "oneOf": [
+         {
+          "$ref": "#/$defs/placeRef"
+         },
+         {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+           "rel"
+          ],
+          "properties": {
+           "rel": {
+            "const": "player"
+           },
+           "right": {
+            "type": "number",
+            "minimum": -30,
+            "maximum": 30
+           },
+           "fwd": {
+            "type": "number",
+            "minimum": -30,
+            "maximum": 30
+           }
+          }
+         }
+        ]
+       },
+       "heading": {
+        "$ref": "#/$defs/heading"
+       }
+      }
+     },
+     "minItems": 0,
+     "maxItems": 6,
+     "description": "who else is on the street for it, and where: every person a shot looks at or a card names, but the hero"
+    },
+    "shots": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "cam"
+      ],
+      "properties": {
+       "cam": {
+        "$ref": "#/$defs/camRef"
+       },
+       "to": {
+        "$ref": "#/$defs/camRef"
+       },
+       "look": {
+        "$ref": "#/$defs/camRef"
+       },
+       "lookTo": {
+        "$ref": "#/$defs/camRef"
+       },
+       "dur": {
+        "type": "number",
+        "minimum": 0.5,
+        "maximum": 12
+       },
+       "fov": {
+        "type": "number",
+        "minimum": 20,
+        "maximum": 90
+       },
+       "say": {
+        "$ref": "#/$defs/castRef"
+       },
+       "line": {
+        "$ref": "#/$defs/speech"
+       },
+       "sub": {
+        "$ref": "#/$defs/line"
+       },
+       "where": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "name"
+        ],
+        "properties": {
+         "name": {
+          "$ref": "#/$defs/label"
+         },
+         "sub": {
+          "$ref": "#/$defs/label"
+         }
+        },
+        "description": "the place card (Mog City's 'Murray Hill' / 'E 37th St · Midtown · 5:45 PM'): the name of where we are, and under it the street, the part of town and the time"
+       },
+       "card": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "who",
+         "is"
+        ],
+        "properties": {
+         "who": {
+          "$ref": "#/$defs/castRef"
+         },
+         "role": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "one line under the name: who they are to this story (\"the fall guy\", \"the fixer running the auction\")"
+         },
+         "is": {
+          "enum": [
+           "hero",
+           "antagonist",
+           "ally"
+          ],
+          "description": "hero: the player (the pack's hero); antagonist: who is in their way; ally: one of up to 3 others who matter"
+         }
+        },
+        "description": "a name card: the frame freezes on this person (the shot looks at them: look { rel: <who> }, or 'player' for the hero) and their name comes up with the role in their colour"
+       },
+       "title": {
+        "type": "boolean",
+        "description": "the world's title in its own lockup over this shot (exactly one shot; the last is the usual place)"
+       }
+      }
+     },
+     "minItems": 4,
+     "maxItems": 16
+    }
+   },
+   "description": "the world's opening, played once before Mission 1 (hold Space to skip): an establishing shot of the city with the place card first, a name card for the hero, the antagonist and up to 3 others, the premise in 2 to 4 spoken lines, the title; 30 to 75 s in all"
+  },
   "ride": {
    "$ref": "#/$defs/rideId",
    "description": "the free-drive ride (a vehicle id); the first vehicle when left out"

@@ -58,6 +58,9 @@ people and places.
   its name: no Create's or Mog's `title` or `kicker` names Mog City, however it is written ("Night Shift", never "Mog
   City: Night Shift", "MOGCITY Nights" or "Night Shift in Mog-City"). The gate refuses one that does. Each world, and
   each Mog, gets a title of its own.
+- **The opening.** After the start screen your `opening` plays (the chapter after this one): the city, the place card,
+  a name card for the hero, the antagonist and the others who matter, the premise in a few spoken lines, your title.
+  Then Mission 1.
 - **The HUD.** The objective line at the bottom of the screen is each step's `objective`: one short imperative, the
   goal in `**bold**` (shown in Mog City's yellow): "Drive to **Foley Square**." The radar, the yellow route line, the
   next-turn banner and the street names come with every drive. Your `hud.meters` show as Mog City's counter pills,
@@ -118,6 +121,7 @@ The whole schema follows this chapter (JSON Schema, with every closed word list 
   "base": { "engine": "mogcity-1", "city": "ny", "cityBuild": "ny-mogcity-1" },
   "dressing": { "time": "midnight", "season": "winter", "weather": "clear", "holiday": ["christmas"] },
   "hero": "<cast id>", "ride": "<vehicle id>",
+  "opening": { "place": "@...", "stage": [ ... ], "shots": [ ... ] },
   "hud": { "meters": [{ "id": "cash", "label": "FARES", "kind": "money", "start": 0 }] },
   "places": { "my-key": { "@": "<city place key>", "name": "the green door on Bank St" } },
   "cast": [ { "id": "...", "anchor": "...", "color": "#RRGGBB", "voice": { ... }, "sheet": { ... } } ],
@@ -136,6 +140,60 @@ The whole schema follows this chapter (JSON Schema, with every closed word list 
 - Mission ids are short capitals (`NS-1`); step ids, flags and meter ids are lowercase slugs.
 - Write every number inside its range. The gate clamps numbers (and tells you), but refuses an age out of range.
 - Under 160 KB. Write the pack as compact JSON.
+
+## The opening: where we are, who they are, what tonight is
+
+Every Create has an `opening`: the first thing the player sees after the start screen, before Mission 1, played as
+Mog City's own opening plays (black bars, hold Space to skip). A player who starts a story with no opening is lost:
+the Velvet Run's first build opened on a ten-second close-up of the aunt, the hero was never introduced, and the
+villain and the premise only arrived later in a voicemail, so the first player asked whether the father in the
+voicemail was a dead man or a ghost. The opening answers the questions a player has before they touch the controls:
+**where am I, who am I, what do I want tonight, who is in my way, why now.**
+
+```jsonc
+"opening": {
+  "place": "@towergarage",            // where the hero stands for it, on foot by their car (often Mission 1's start)
+  "time": "golden",                   // optional: Mission 1's time when left out
+  "stage": [                          // everyone else a shot looks at or a card names, stood on the street
+    { "who": "silas", "at": "@westyards" },
+    { "who": "rosa", "at": { "rel": "player", "right": 3.4, "fwd": 1 } }
+  ],
+  "shots": [
+    { "cam": { "rel": "player", "right": -8, "up": 34, "fwd": -55 }, "to": { "rel": "player", "right": -11, "up": 13, "fwd": -25 },
+      "look": "player", "dur": 6, "where": { "name": "Midtown East", "sub": "Lexington Ave · E 52nd St · 5:40 PM" } },
+    { "cam": { "rel": "player", "right": 0.6, "up": 0.05, "fwd": 2.2 }, "look": { "rel": "player" }, "dur": 6,
+      "card": { "who": "lena", "is": "hero", "role": "former getaway driver, the heir" },
+      "say": "lena", "line": "Buried my father this morning. Then his car turned up with my name on it." },
+    { "cam": { "rel": "silas", "right": -1.2, "up": 0.2, "fwd": 3 }, "look": { "rel": "silas" }, "dur": 6,
+      "card": { "who": "silas", "is": "antagonist", "role": "the fixer running the auction" },
+      "say": "silas", "line": "Midnight, the names go to the highest bidder. Find me that car first." },
+    { "cam": { "rel": "player", "right": -8, "up": 9, "fwd": -16 }, "look": "player", "dur": 5, "title": true }
+  ]
+}
+```
+
+- **Open wide on the city.** The first shot is an establishing shot: high and far (a place, a camera point, or a lens
+  8 m or more from who it is near; drifting in with `to` is good; 30 to 40 m up and 50 m back down the street keeps
+  the lens out of the buildings), with the **place card** (`where`): the name of where
+  we are, and under it the street, the part of town and the time, as Mog City's own "Murray Hill / E 37th St · Midtown ·
+  5:45 PM". Never open on a close-up of one person, least of all a minor one.
+- **Bring on the people who matter with a name card** (`card`): the frame settles on them and freezes, and their name
+  comes up with one line under it in their colour, as "Dan / the fall guy" and "The Suits / Knox & Hooks · JPBank
+  security" do in Mog City. The **hero** first (`"is": "hero"`, the pack's hero): who they are and what they want
+  tonight. Then **who is in their way** (`"is": "antagonist"`): seen, named, and wanting something, in the opening, not
+  saved for a voicemail in Mission 2. Then at most three others the story rests on (`"is": "ally"`). A card's shot looks
+  at its person (`look: { "rel": "<id>" }`; the hero may be `"player"`); stand everyone but the hero in `stage`. The
+  role is a few plain words a stranger understands ("Lena's estranged brother", not "the brother").
+- **Say the premise** in 2 to 4 spoken lines (`say` + `line`, voiced like any line): what happened, what the hero wants
+  tonight, what the one in their way wants, and the hook that starts Mission 1. Each line is said by someone we can
+  see or have just met. Never leave the premise for a later call or voicemail: those add to it, they don't explain it.
+- **End on the title** (`"title": true` on one shot, usually the last, a wide or a hero shot): the world's title in
+  its own lockup, then Mission 1 begins.
+- **30 to 75 seconds in all** (each shot its `dur`, or its line's reading time when that is longer): 5 to 10 shots
+  of 4 to 8 s. Shots use the same cameras as a `cutscene`. Mission 1 can still open on its own short scene; it no
+  longer has to explain the story.
+- **A Mog keeps its parent's opening**, copied exactly (its clips carry over), unless the idea changes the story or
+  its people (a new hero, a new villain, a new night); then write the Mog's own, by the same rules.
 
 ## Mission 1: a payoff the player plays
 

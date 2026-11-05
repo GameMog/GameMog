@@ -18,6 +18,9 @@
  * consent allows, a Mission 1 with no playable payoff, a step Mog City has no part for), and a Mog that keeps moving the
  * city refused to the end of the pass limit. The hero (5 Nov): a look sent to the builder for the hero's sheet, Dan as
  * the shipped hero (the gate accepts him, he is never forged), and the route refusing a bad hero before anything is spent.
+ * The opening (5 Nov): BUILDER.md's chapter and the worked example's opening in the prompt, a Create with none and one
+ * that opens on a close-up sent back, and the gate's rule 14 offline (place card, name cards, stage, lines, title,
+ * length, a Mog keeping its parent's), the runner's world carrying it.
  */
 import { register } from 'node:module';
 import { createServer, type ServerResponse } from 'node:http';
@@ -215,6 +218,9 @@ try {
       && sys.includes('`old-boss`') && sys.includes('| af_heart |'));
   ok('BUILDER.md is written for Mog City\'s runtime (its HUD, calls, cutscenes, fights, chases, free roam), with Mission 1\'s playable payoff and the kinds Mog City has no part for',
     sys.includes('## How Mog City plays your story') && sys.includes('**Free roam between missions.**') && sys.includes('## Mission 1: a payoff the player plays') && sys.includes('## What Mog City has no part for yet') && sys.includes('"engine": "mogcity-1"'));
+  ok('BUILDER.md has the opening chapter (place card, name cards for the hero and the antagonist, the premise, the title; the Velvet Run lesson), and the worked example opens with one',
+    sys.includes('## The opening: where we are, who they are, what tonight is') && sys.includes('"is": "antagonist"') && sys.includes('Never open on a close-up of one person') && sys.includes('Never leave the premise for a later call or voicemail')
+      && /"opening":\{"place":"@bowery"/.test(sys.slice(sys.indexOf('## Worked example'))) && turn.includes('an opening (BUILDER.md, The opening)'));
   ok('the system prompt carries Mog City\'s set pieces (the scene step) and the shipped cast',
     sys.includes("## Mog City's set pieces (the scene step)") && sys.includes('| `m1.arrival` |') && sys.includes('## The shipped cast'));
   ok('the system prompt carries the three schemas (pack v2 with mogcity-1 and the scene kind, the Character Forge sheet, the vehicle sheet) and Night Shift on Mog City\'s engine as the worked example',
@@ -234,8 +240,8 @@ try {
   const cStore = cd?.story ? store.auth(cd.story.draft, cd.story.token) : null;
   ok('its store draft is open for the creator\'s browser (id and write token in the done event, the token works), and the meta names it',
     !!cStore && cMeta.storykit.pack === cd?.story?.draft && JSON.parse(cStore.pack).id === cPack.id);
-  ok('nothing inherited, everything to make in the browser: forge Dez, Mrs. Kwon and Ray, voice every line; the show hears the cast',
-    cRep?.inherit?.todo?.forge?.join() === 'dez,kwon,ray' && cRep.inherit.lines.inherited === 0 && cd?.story?.forge?.join() === 'dez,kwon,ray' && create.events.some((e) => e.type === 'story' && e.cast?.[0]?.id === 'dez' && e.city === 'ny') && cRep.status === 'unverified',
+  ok('nothing inherited, everything to make in the browser: forge Dez, Mrs. Kwon, Ray and Vic, voice every line; the show hears the cast',
+    cRep?.inherit?.todo?.forge?.join() === 'dez,kwon,ray,vic' && cRep.inherit.lines.inherited === 0 && cd?.story?.forge?.join() === 'dez,kwon,ray,vic' && create.events.some((e) => e.type === 'story' && e.cast?.[0]?.id === 'dez' && e.city === 'ny') && cRep.status === 'unverified',
     JSON.stringify(cRep?.inherit?.todo));
 
   /* 1b. the hero: "Your hero" (a look) and "Play as Dan" (5 Nov) */
@@ -279,7 +285,7 @@ try {
   ok('Dan: the first turn tells the builder the hero is the shipped Dan ({ id dan, model mogcity/dan }, no sheet, his voice), the rest a new story',
     dturn.includes('THE HERO IS DAN') && dturn.includes('\\"model\\": \\"mogcity/dan\\"') && dturn.includes('no sheet') && dturn.includes('recorded lines') && !dturn.includes("THE HERO'S LOOK"), dturn.slice(-900));
   ok('Dan: a pass with a forged hero is sent back, the pass with Dan passes; Dan is never forged (not in the forge list, done in the show)',
-    sentBack(asDan).some((p) => /plays this story as Dan/.test(p)) && !!dd && dd.attempts === 2 && !dd.story?.forge?.includes('dan') && dd.story?.forge?.join() === 'kwon,ray'
+    sentBack(asDan).some((p) => /plays this story as Dan/.test(p)) && !!dd && dd.attempts === 2 && !dd.story?.forge?.includes('dan') && dd.story?.forge?.join() === 'kwon,ray,vic'
       && asDan.events.some((e) => e.type === 'story' && e.cast?.find((c: any) => c.id === 'dan')?.state === 'done'),
     JSON.stringify([sentBack(asDan).slice(0, 2), dd?.story?.forge]));
   const dRow = dd ? db.prepare('SELECT code FROM drafts WHERE id = ?').get(dd.draftId) as any : null;
@@ -353,6 +359,12 @@ try {
   const trunkOf = (on: boolean) => { const p = nyStory(); p.acts[0].missions[1].steps.unshift({ type: 'search', at: '@un', label: 'search the trunk', secs: 2, objective: 'Search the **trunk**.', ...(on ? { on: 'ride', part: 'trunk' } : {}) }); return p; };
   await bad('a search of the hero\'s own car written at the place (no on: "ride"); with it, the same pack passes', { prompt: `A cab driver checks his trunk ${tag}`, storykit: { city: 'ny' } }, reply(trunkOf(false)), reply(trunkOf(true)), /the search "search the trunk" is of the hero's own car: write "on": "ride"/);
 
+  // the opening (5 Nov, the owner after The Velvet Run): a Create with none is sent back; with one, it passes
+  const bare0 = nyStory(); delete bare0.opening;
+  await bad('a Create with no opening (the premise and the villain left for later)', { prompt: `A cab driver works the night ${tag}`, storykit: { city: 'ny' } }, reply(bare0), reply(nyStory()), /opening: a new story opens with an opening before Mission 1/);
+  const closeUp = nyStory(); closeUp.opening.shots.unshift({ cam: { rel: 'kwon', fwd: 1.05, up: 0.03, right: 0.22 }, look: { rel: 'kwon' }, fov: 30, dur: 4, say: 'kwon', line: 'Your father\'s car, kid.' });
+  await bad('an opening that opens on a close-up of one person (the Velvet Run\'s Aunt Rosa)', { prompt: `A cab driver works the night ${tag}`, storykit: { city: 'ny' } }, reply(closeUp), reply(nyStory()), /never opens on a close-up of one person/);
+
   /* 4. a Mog that keeps moving the city: refused to the end of the pass limit */
   const moved = holly(nsSrc); moved.base = { engine: 'mogcity-1', city: 'sf', cityBuild: 'ny-mogcity-1' };
   api.replies = [reply(moved), reply(moved), reply(moved)];
@@ -361,6 +373,44 @@ try {
   const err = lock.events.find((e) => e.type === 'error');
   ok('a Mog that moves the city is sent back every pass and ends after the pass limit (3) with the lock named, no draft',
     api.builds - n0 === 3 && !doneOf(lock) && !!err && /after 3 attempts/.test(err.error) && (err.problems as string[]).some((p) => /keeps its parent's city and build exactly/.test(p)), JSON.stringify(err).slice(0, 400));
+
+  /* 5. the opening's rules (storykit/pack/gate.ts rule 14), offline */
+  console.log('\n  the opening (gate rule 14)');
+  {
+    const { toRunnerPack } = await import('../storykit/pack/gate.ts');
+    const gOk = gatePack(nyStory());
+    const rp = gOk.ok ? toRunnerPack(gOk.pack) : null, plan = gOk.ok ? voicePlanOf(gOk.pack, '') : null;
+    ok('a good opening passes: its lines are voiced (OPEN.c<shot>), and the runner\'s world carries it with display names (cards, stage, a line under its shot)',
+      gOk.ok && gOk.lines.filter((l: any) => /^OPEN\.c\d+$/.test(l.id)).length === 3 && !!plan && plan.lines.some((l: any) => l.id === 'OPEN.c3' && l.who === 'Vic Lasko')
+        && rp.opening?.place === '@bowery' && rp.opening.stage[1].who === 'Vic Lasko' && rp.opening.shots[3].card.who === 'Vic Lasko' && rp.opening.shots[3].look.rel === 'Vic Lasko'
+        && rp.opening.shots[1].sub[0] === 'Dez Amaro' && !('say' in rp.opening.shots[1]) && rp.opening.shots[4].title === true, JSON.stringify(gOk.problems.slice(0, 3)));
+    const refusedBy = (name: string, edit: (o: any, p: any) => void, re: RegExp, opts: any = {}) => {
+      const p = nyStory(); edit(p.opening, p); const r = gatePack(p, opts);
+      ok(`opening refused: ${name}`, !r.ok && r.problems.some((x) => re.test(x)), (r.problems.join(' | ') || 'passed').slice(0, 400));
+    };
+    refusedBy('no place card on the first shot', (o) => { delete o.shots[0].where; }, /opens on the city with the place card/);
+    refusedBy('no name card for the hero', (o) => { delete o.shots[1].card; }, /the hero \("dez"\) gets a name card/);
+    refusedBy('no antagonist (the villain left for a later voicemail)', (o) => { o.shots[3].card.is = 'ally'; }, /who is in the hero's way gets a name card too/);
+    refusedBy('a hero card for someone else', (o) => { o.shots[2].card.is = 'hero'; }, /the hero's card is the pack's hero, "dez", not "kwon"/);
+    refusedBy('a name card not framed on its person', (o) => { o.shots[3].look = 'player'; }, /a name card is framed on its person: the shot looks at "vic"/);
+    refusedBy('a carded person nobody stood on the street', (o) => { o.stage = o.stage.filter((s: any) => s.who !== 'vic'); }, /"vic" is not on the street for the opening/);
+    refusedBy('one person carded twice', (o) => { o.shots[5 - 1].card = { who: 'kwon', is: 'ally' }; o.shots[4].look = { rel: 'kwon' }; }, /"kwon" already has a name card/);
+    refusedBy('a voice-only person in it', (o, p) => { p.cast.push({ id: 'desk', anchor: 'none', color: '#999999', voiceOnly: true, voice: { id: 'desk-v1', kokoro: 'bf_emma', description: 'a night desk' } }); o.stage.push({ who: 'desk', at: '@ludlow' }); }, /"desk" is voiceOnly/);
+    refusedBy('one spoken line (the premise is 2 to 4)', (o) => { for (const sh of o.shots.slice(2)) { delete sh.say; delete sh.line; } }, /1 spoken line; the premise is said in 2 to 4/);
+    refusedBy('five spoken lines', (o) => { o.shots[0].say = 'dez'; o.shots[0].line = 'Snow on the Bowery.'; o.shots[4].say = 'dez'; o.shots[4].line = 'Last fare.'; }, /5 spoken lines/);
+    refusedBy('no title', (o) => { delete o.shots[4].title; }, /the world's title is shown once/);
+    refusedBy('too short (under 30 s)', (o) => { for (const sh of o.shots) sh.dur = 3; }, /an opening is 30 to 75 s/);
+    refusedBy('too long (over 75 s)', (o) => { for (const sh of o.shots) sh.dur = 12; o.shots.push({ cam: 'player', look: 'player', dur: 12 }, { cam: 'player', look: 'player', dur: 12 }); }, /an opening is 30 to 75 s/);
+    refusedBy('a place the city does not have', (o) => { o.stage[1].at = '@brooklyn-bridge'; }, /"@brooklyn-bridge" is not a place in New York/);
+    refusedBy('Chicago on its place card', (o) => { o.shots[0].where.name = 'The Chicago Loop'; }, /names Chicago/);
+    // a Mog keeps its parent's opening (or writes its own by the same rules)
+    const parent = gatePack(nyStory()).pack;
+    const mogOf = (edit: (p: any) => void) => { const p = clone(parent); p.id = 'night-rounds-mog'; p.parent = parent.id; p.title = 'Night Rounds Again'; edit(p); return gatePack(p, { parent }); };
+    const kept = mogOf(() => {}), dropped = mogOf((p) => { delete p.opening; }), own = mogOf((p) => { p.opening.shots[1].line = 'Christmas Eve, and still one more fare before home.'; });
+    ok('a Mog that keeps its parent\'s opening passes, one that drops it is refused, one that writes its own (by the rules) passes',
+      kept.ok && !dropped.ok && dropped.problems.some((x) => /A Mog keeps it: copy the original's "opening" exactly/.test(x)) && own.ok, JSON.stringify([kept.problems, dropped.problems, own.problems]).slice(0, 400));
+    ok('a world from before openings (no opening, no parent) still passes the gate (the store re-gates older worlds)', gatePack(R('storykit/packs/test-night-shift.json')).ok);
+  }
 } catch (e) {
   failed++; console.log('  FAIL  the check threw:', (e as Error).stack);
 } finally {

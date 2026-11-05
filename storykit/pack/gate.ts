@@ -44,6 +44,12 @@
  *  13. a search of the hero's own car (search on: 'ride', its part: trunk, door, hood): only on a mission with a vehicle and
  *      on Mog City's engine, its `at` a drive place (where he drives the car to); a part only with on: 'ride'.
  *
+ *  14. the opening (openingProblems): wide on the city with the place card first, never a close-up of one person; a name
+ *      card for the hero and the antagonist (and up to 3 others), each framed on its person and stood on the street;
+ *      the premise in 2 to 4 spoken lines; the title once; 30 to 75 s. A Mog keeps its parent's (or writes its own by
+ *      the same rules). Its lines are voiced as every other (ids OPEN.c<shot>). A Create without one passes the gate (a
+ *      world from before it); the builder sends a new Create without one back (lib/storykit-build.ts).
+ *
  * toRunnerPack(pack) turns a passed pack into the runner's pack format (storykit: 1, with its engine): what the store
  * seals as a world and Mog City's runner plays (Mog City wagmi/storyrun/pack.js).
  */
@@ -52,7 +58,7 @@ import FORGE from '../../scripts/forge/character-sheet.schema.json' with { type:
 import VEHICLE_SCHEMA from '../vehicles/vehicle-sheet.schema.json' with { type: 'json' };
 import { Validator, type Schema } from './validate.ts';
 import { PLACES, CAM_POINTS, CITY_NAME, foreignIn, buildsFor, type CityId } from './cities.ts';
-import { MOGCITY_STUBS } from './schema.mjs';
+import { MOGCITY_STUBS, OPENING } from './schema.mjs';
 import { lintVoiceBlock, KOKORO_VOICES, lineHash as vdLineHash } from '../voices/voice-design.js';
 import { isBlocked } from '../../lib/names.ts';
 import { modelOf, nearVoice, can as modelCan } from './registry.ts';
@@ -544,6 +550,13 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   for (const mt of pack.hud?.meters || []) collect({ label: mt.label }, `hud.meters "${mt.id}"`, texts);
   if (pack.hud?.clock) collect({ label: pack.hud.clock.label, unitLabel: pack.hud.clock.unitLabel, zero: pack.hud.clock.zero }, 'hud.clock', texts);
 
+  // 14. the opening: the world's own, before Mission 1 (openingProblems); a Mog keeps its parent's unless it writes its own
+  if (pack.opening) {
+    for (const p of openingProblems(pack, { cast, pets, placeOf, camPoints: CAM_POINTS[city], cityName: CITY_NAME[city], keys: [...Object.keys(cityPlaces), ...Object.keys(aliases)] })) refuse(p);
+    collect(pack.opening, 'opening', texts);
+    pack.opening.shots.forEach((sh: Json, j: number) => { if (sh.say && sh.line && cast.has(sh.say)) lines.push({ id: `OPEN.c${j}`, who: sh.say, text: sh.line, hash: lineHash(sh.line), status: 'pending', clip: null }); });
+  } else if (opts.parent?.opening) refuse(`opening: the original has an opening (its place card, its people's name cards, its premise). A Mog keeps it: copy the original's "opening" exactly, or, when the idea changes the story or its people, write the Mog's own, by the same rules.`);
+
   // 5, 6, 7: every text
   for (const t of texts) {
     if (/<\s*\/?\s*[a-z!]/i.test(t.text)) refuse(`${t.at}: "${clip(t.text)}" carries markup; a pack is words only.`);
@@ -574,6 +587,70 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
     l.status = e.status; l.clip = e.clip ?? null;
   }
   return done(pack, lines);
+}
+
+/** The seconds an opening's shot is on screen: its dur (3), or its line's reading time when longer (the runner's). */
+export const shotSecs = (sh: Json) => Math.max(sh?.dur ?? 3, sh?.line ? Math.max(1.4, String(sh.line).length / 15) : 0);
+/**
+ * Rule 14, the opening (Mog City's runner plays it before Mission 1, as Mog City's own opening plays before its Mission 1):
+ * it opens wide on the city with the place card (never on a close-up of one person); it brings on the hero (the pack's
+ * hero, card is "hero") and who is in their way (card is "antagonist") with a name card each, and up to OPENING.allies
+ * others ("ally"), each once, each card framed on its person (the shot looks at them: { rel: <who> }, the hero also
+ * 'player'), every person a shot looks at or a card names stood on the street (stage) unless they are the hero; it says
+ * the premise in OPENING.lines spoken lines (say + line); the title once; OPENING.secs seconds in all.
+ */
+export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pets: Map<string, Json>; placeOf: (k: string) => Json; camPoints: string[]; cityName: string; keys: string[] }): string[] {
+  const out: string[] = [], o = pack.opening, at = 'opening', { cast } = ctx;
+  const placeOk = (ref: Json, where: string) => { const key = typeof ref === 'string' ? ref.slice(1) : ref?.['@']; if (key && !ctx.placeOf(key)) out.push(`${where}: "@${key}" is not a place in ${ctx.cityName}${suggest(key, ctx.keys)}.`); };
+  const body = (id: string, where: string) => { const c = cast.get(id); if (!c) { out.push(`${where}: "${id}" is not in the cast${suggest(id, [...cast.keys()])}.`); return false; } if (c.voiceOnly) { out.push(`${where}: "${id}" is voiceOnly (heard, never seen); they can't be seen in the opening.`); return false; } return true; };
+  placeOk(o.place, `${at}.place`);
+  const staged = new Set<string>();
+  (o.stage || []).forEach((s: Json, i: number) => {
+    const w = `${at}.stage[${i}]`;
+    if (s.who === pack.hero) { out.push(`${w}: "${s.who}" is the hero, who stands at the opening's place already.`); return; }
+    if (ctx.pets.has(s.who)) staged.add(s.who); else if (body(s.who, `${w}.who`)) staged.add(s.who);
+    if (s.at && !s.at.rel) placeOk(s.at, `${w}.at`);
+  });
+  const seen = (id: string) => id === 'player' || id === pack.hero || staged.has(id);
+  const camOk = (ref: Json, where: string) => {
+    if (ref && typeof ref === 'object') { if (ref.rel && !seen(ref.rel)) out.push(`${where}.rel: "${ref.rel}" is not on the street for the opening: stand them there (opening.stage).`); return; }
+    if (typeof ref !== 'string' || ref === 'player') return;
+    if (ref.startsWith('@')) return placeOk(ref, where);
+    if (!ctx.camPoints.includes(ref)) out.push(`${where}: "${ref}" is not a camera point of ${ctx.cityName}.`);
+  };
+  const lens = (r: Json) => (r && typeof r === 'object' ? Math.hypot(r.right || 0, r.up || 0, r.fwd || 0) : Infinity);
+  const shots: Json[] = o.shots || [];
+  let lines = 0, titles = 0, secs = 0;
+  const cards = new Map<string, { is: string; j: number }>();
+  shots.forEach((sh: Json, j: number) => {
+    const w = `${at}.shots[${j}]`;
+    for (const k of ['cam', 'look', 'to', 'lookTo']) if (sh[k] != null) camOk(sh[k], `${w}.${k}`);
+    if (sh.line && !sh.say) out.push(`${w}: a line needs a speaker (say).`);
+    if (sh.say) { if (cast.has(sh.say)) lines++; else out.push(`${w}.say: "${sh.say}" is not in the cast.`); }
+    if (sh.title) titles++;
+    secs += shotSecs(sh);
+    const c = sh.card;
+    if (c) {
+      if (cards.has(c.who)) out.push(`${w}.card: "${c.who}" already has a name card (shot ${cards.get(c.who)!.j}); each person is brought on once.`);
+      else cards.set(c.who, { is: c.is, j });
+      if (!seen(c.who) && body(c.who, `${w}.card.who`)) out.push(`${w}.card: "${c.who}" is not on the street for the opening: stand them there (opening.stage).`);
+      if (c.is === 'hero' && c.who !== pack.hero) out.push(`${w}.card: the hero's card is the pack's hero, "${pack.hero}", not "${c.who}".`);
+      if (c.is !== 'hero' && c.who === pack.hero) out.push(`${w}.card: "${c.who}" is the hero; their card is "is": "hero".`);
+      const on = (r: Json) => r && typeof r === 'object' && (r.rel === c.who || (c.who === pack.hero && r.rel === 'player'));
+      if (!on(sh.look) && !on(sh.lookTo)) out.push(`${w}.card: a name card is framed on its person: the shot looks at "${c.who}" (look { "rel": "${c.who === pack.hero ? 'player' : c.who}" }).`);
+    }
+  });
+  const first = shots[0];
+  if (first && !first.where) out.push(`${at}.shots[0]: an opening opens on the city with the place card (where: { name, sub }): where we are, the street and the time.`);
+  if (first && (first.card || (first.cam && typeof first.cam === 'object' && first.cam.rel !== 'player' && lens(first.cam) < OPENING.wide))) out.push(`${at}.shots[0]: an opening never opens on a close-up of one person: its first shot is wide on the city (a place, a camera point, or ${OPENING.wide} m or more from who it is near).`);
+  const of = (is: string) => [...cards.entries()].filter(([, v]) => v.is === is).map(([k]) => k);
+  if (!of('hero').length) out.push(`${at}: the hero ("${pack.hero}") gets a name card (card { "who": "${pack.hero}", "is": "hero", "role": "..." }), on a shot that looks at them.`);
+  if (!of('antagonist').length) out.push(`${at}: who is in the hero's way gets a name card too (card { "is": "antagonist" }): the player meets them here, not in a later voicemail.`);
+  if (of('ally').length > OPENING.allies) out.push(`${at}: ${of('ally').length} others have name cards; at most ${OPENING.allies} besides the hero and the antagonist (the rest meet the player in the missions).`);
+  if (lines < OPENING.lines[0] || lines > OPENING.lines[1]) out.push(`${at}: ${lines} spoken line${lines === 1 ? '' : 's'}; the premise is said in ${OPENING.lines[0]} to ${OPENING.lines[1]} (say + line): what the hero wants tonight, who is in the way, what is at stake.`);
+  if (titles !== 1) out.push(`${at}: the world's title is shown once (title: true on one shot, the last is the usual place); this opening has ${titles}.`);
+  if (secs < OPENING.secs[0] || secs > OPENING.secs[1]) out.push(`${at}: ${Math.round(secs)} s; an opening is ${OPENING.secs[0]} to ${OPENING.secs[1]} s (each shot its dur, or its line's reading time when longer).`);
+  return out;
 }
 
 /** A passed v2 pack as the runner's pack format (storykit: 1): the world Mog City's runner plays (wagmi/storyrun/pack.js). */
@@ -642,6 +719,12 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     // the player: the hero's display name, when they have a body (the engine puts it on foot and at the wheel)
     ...(pack.hero && (opts.cast?.[pack.hero] || bodyOf(pack.cast.find((c: Json) => c.id === pack.hero) || {})) ? { hero: name(pack.hero) } : {}),
     places: pack.places,
+    // the opening, as the runner plays it: speakers, cards and stage by display name, a line under its shot
+    ...(pack.opening ? { opening: {
+      place: pack.opening.place, ...(pack.opening.time ? { time: pack.opening.time } : {}),
+      stage: (pack.opening.stage || []).map((s: Json) => ({ ...s, who: name(s.who) })),
+      shots: shots(pack.opening.shots).map((sh: Json) => { const c = { ...sh }; if (c.say) c.sub = tuple(c.say, c.line); else if (typeof c.sub === 'string') c.sub = ['', c.sub]; delete c.say; delete c.line; if (c.card) c.card = { ...c.card, who: name(c.card.who) }; return c; }),
+    } } : {}),
     acts: pack.acts.map((a: Json) => ({ id: a.id, name: a.name, order: a.missions.map((m: Json) => m.id), timeline: a.timeline, ...(a.end ? { end: end(a.end) } : {}) })),
     missions,
   };
