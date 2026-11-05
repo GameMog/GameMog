@@ -10,7 +10,7 @@ import { PlayFrame } from './play-frame';
 import { playSrc } from '@/lib/play-page';
 import { mcFrameSrc, storyUrl } from '@/lib/episode-play';
 import { mcOrigin, storyOf } from '@/lib/episode';
-import { storyOf as storyWorldOf } from '@/lib/storykit-site';
+import { storyOf as storyWorldOf, isStoryCity, storyCityName } from '@/lib/storykit-site';
 import { storyPlaySrc, storykitMc, sealedWorldOf } from '@/lib/storykit-publish';
 import { YouLine } from './you-line';
 import { GameActions } from './actions';
@@ -27,6 +27,12 @@ import { KartBoard } from './kart-score-ui';
  * the model declared about its own game (controls, cast, how it scores) in
  * place of the race engine's laps and windows.
  */
+// a story world plays on Mog City's engine: its controls (Mog City's own fight card and HUD) and how a story plays
+const STORY_CONTROLS = 'On foot: WASD moves, Shift runs, the mouse looks. F gets in or out of a car; in a car W/S drive and brake, A/D steer. In a fight: left click or J strikes, right click or K throws a heavy, Q counters a yellow cue, C or Space dodges a red one, E grabs. M opens the map, Esc pauses.';
+function storyHow(city: string) {
+  return `A story in three acts on the streets of ${city}. Follow the objective and the GPS to each mission: drives, chases, tails, fights and calls move the story on, with cutscenes between them. Between missions the city is yours to roam. Finish every mission to reach the story's end.`;
+}
+
 export function CustomGamePage({ game, kdiag = null, storyOpen }: { game: GameRow; kdiag?: string | null; storyOpen?: boolean }) {
   const meta = JSON.parse(game.meta ?? '{}') as Omit<GameMeta, 'scoring'> & { scoring?: GameMeta['scoring'] | 'level' | 'survival' };
   const world = game.format === 'world';
@@ -48,6 +54,9 @@ export function CustomGamePage({ game, kdiag = null, storyOpen }: { game: GameRo
   // (a Story Kit world, STORYKIT=on: Mog City with its sealed world, lib/storykit-publish.ts; framed as an episode is,
   // Mog City's own origin, its messages heard from there only, a played mission counted for this very world)
   const storyWorld = world && storyWorldOf(game, storyOpen) ? storyPlaySrc(game.meta, game.id) : null;
+  // (a story world's own page lines: its city instead of rivals, Mog City's controls, how a story plays; 5 Nov, the owner)
+  const storyCity = (meta as { storykit?: { city?: unknown } }).storykit?.city;
+  const storyCityLabel = isStoryCity(storyCity) ? storyCityName(storyCity) : 'New York';
   const said = meta as { consent?: { names?: unknown }; consentInherited?: unknown };
   const consent = episode && Array.isArray(said.consent?.names) && said.consent.names.length > 0;
   // (review F6: a Mog that keeps a consented person's words from the episode it came from carries their line too)
@@ -152,20 +161,20 @@ export function CustomGamePage({ game, kdiag = null, storyOpen }: { game: GameRo
                     <div><dt>Generation</dt><dd>{game.generation}</dd></div>
                     <div><dt>Created</dt><dd>{created}</dd></div>
                     <div><dt>Genre</dt><dd>{meta.genre}</dd></div>
-                    <div><dt>Rivals</dt><dd>{page ? page.rivals : rivals}</dd></div>
+                    {storyWorld ? <div><dt>City</dt><dd>{storyCityLabel}</dd></div> : <div><dt>Rivals</dt><dd>{page ? page.rivals : rivals}</dd></div>}
                   </dl>
                   <h2 style={{ marginTop: 26, marginBottom: 6 }}>Controls</h2>
-                  <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{storyWorld ? 'W/S or the arrows drive and brake, A/D steer, Shift boosts, F gets in or out of a car, M opens the map, J the journal, Esc pauses.' : controls}</p>
+                  <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{storyWorld ? STORY_CONTROLS : controls}</p>
                   <h2 style={{ marginTop: 26, marginBottom: 8 }}>Media</h2>
                   <div className="gmedia">
                     {hasFilm && <video src={`${filmBase}.mp4`} poster={`${filmBase}.jpg`} controls muted loop playsInline aria-label="Gameplay film" />}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={`/g/${game.slug}/cover`} alt={`${game.title} key art`} />
                   </div>
-                  {page && (
+                  {(page || storyWorld) && (
                     <>
                       <h2 style={{ marginTop: 26, marginBottom: 6 }}>How it works</h2>
-                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{noGm ? NO_GM_HOW : mode === 'kart' ? kartHow(kartDna?.laps, kartDna?.itemsOn) : page.how}</p>
+                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{storyWorld ? storyHow(storyCityLabel) : noGm ? NO_GM_HOW : mode === 'kart' ? kartHow(kartDna?.laps, kartDna?.itemsOn) : page!.how}</p>
                     </>
                   )}
                 </div>

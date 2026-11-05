@@ -795,7 +795,7 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode
       {note}
       <label className="lbl" htmlFor="creator-name">Your name on it</label>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input id="creator-name" type="text" value={name} maxLength={20} placeholder="Optional" autoComplete="nickname" spellCheck={false}
+        <input id="creator-name" type="text" value={name} maxLength={20} placeholder="Optional" autoComplete="off" data-1p-ignore data-lpignore="true" spellCheck={false}
           aria-invalid={!!nameError} aria-describedby={nameError ? 'creator-name-error' : undefined} style={{ flex: '1 1 220px', width: 'auto', maxWidth: 320 }}
           onChange={(e) => { setName(e.target.value); setNameError(''); }}
           onKeyDown={(e) => { if (e.key === 'Enter' && !publishing) onPublish(); }} />
@@ -957,7 +957,7 @@ function SendDare({ game, title, mode, parentTitle, name: name0, answering }: {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="sd-preview" src={preview ?? cover} alt={preview ? `Your dare card for ${title}` : ''} />
           <label className="gl-cap" htmlFor="sd-name">Your name on it</label>
-          <input id="sd-name" className="gl-field" type="text" value={name} maxLength={20} placeholder="Optional" autoComplete="nickname" spellCheck={false}
+          <input id="sd-name" className="gl-field" type="text" value={name} maxLength={20} placeholder="Optional" autoComplete="off" data-1p-ignore data-lpignore="true" spellCheck={false}
             aria-invalid={error?.field === 'name'} onChange={(e) => { setName(e.target.value); setError(null); }} onBlur={commit}
             onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
           {error?.field === 'name' ? <p className="sd-err" role="alert">{error.text}</p> : null}

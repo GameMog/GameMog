@@ -1188,6 +1188,15 @@ export const MIGRATIONS = [
       return `${n} of ${CREATURE_HEADSHOTS.length} headshots${left.length ? `; left alone: ${left.join(', ')}` : ''}`;
     },
   },
+  {
+    // 5 Nov: the owner's first live story world was signed "Mt. Browser" (the creator-name field took a browser autofill,
+    // now off): no name, so the page says "By a GameMog creator" until the owner gives one
+    id: '2026-11-05-velvet-run-creator',
+    run(db) {
+      const r = db.prepare("UPDATE games SET creator = NULL WHERE slug = 'the-velvet-run' AND creator = 'Mt. Browser'").run();
+      return r.changes ? 'cleared' : 'nothing to clear';
+    },
+  },
 ];
 
 export function migrate(path = 'data/gamemog.db') {
