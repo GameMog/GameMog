@@ -28,6 +28,7 @@ import { missions as registry } from '../mission/pause.js';
 import { place as putAt, outBesideCar } from '../intro.js';
 import { test, value, flagName } from './cond.js';
 import { createTimers, meterText, deltaText, progress, seen as inSight, band as bandRule, speedRule, MPH } from './rules.js';
+import { createSets } from './sets.js';
 
 const PI = Math.PI;
 export const KINDS_STUB = new Set(['patrol', 'wallet']);
@@ -422,6 +423,8 @@ export function createRunner(ctx) {
   function camPt(ref, fallbackUp = 1.5) {
     const e = cm.getActiveEntity();
     if (!ref || ref === 'player') return [e.position.x, e.position.y + (inCar() ? 1.2 : 1.55), e.position.z];
+    // (a shot in a set: its own room's points, sets.js)
+    if (setRun?.active) return setRun.point(ref, fallbackUp);
     if (typeof ref === 'string' && ref.startsWith('@')) { const p = places.at(ref); if (p) return [p.cx ?? p.x, cm.getGroundHeight(p.cx ?? p.x, p.cz ?? p.z, 'person') + fallbackUp, p.cz ?? p.z]; }
     if (typeof ref === 'object' && ref.rel) {
       const fig = ref.rel !== 'player' ? cast.get(castName(ref.rel)) : null;
@@ -454,7 +457,37 @@ export function createRunner(ctx) {
   }
   // (opening: the world's opening (opening()), its shots' place card, title and name cards played as Mog City's opening
   // plays them; never on a mission's cutscene)
-  async function shotList(shots, t, { skippable = true, beat = false, opening = false } = {}) {
+  // a cutscene staged in a set (sets.js: Mr. Big's study's way, a room of its own drawn in place of the city's frame),
+  // made the first time a world asks for one; on the street, the traffic is held clear round the hero for it (nobody
+  // is driven through), and let go after
+  let setRun = null;
+  const setsOf = () => setRun || (setRun = createSets(W, { cast, castName, heroName }));
+  function holdStreet() {
+    const e = cm.getActiveEntity(), x = e.position.x, z = e.position.z;
+    try { app.trafficSystem.hold?.([{ minX: x - 45, maxX: x + 45, minZ: z - 45, maxZ: z + 45 }]); } catch {}
+    return () => { try { app.trafficSystem.hold?.([]); } catch {} };
+  }
+  // (a cutscene on the street on foot: the hero and whoever stands with him are walked up onto the pavement first, the
+  // same step for all of them so they keep their places to each other, each then onto the kerb's paving if still off
+  // it; the road's own sidewalk map: road-network.js onSidewalk)
+  function toPavement() {
+    const net = app.trafficSystem?.network; if (!net?.onSidewalk || inCar()) return;
+    // (on the paving: off every roadway, curb to curb, past the ends of its block into the crossing too, and on the
+    // map's sidewalk where it has one)
+    const onRoad = (x, z) => { for (const e of net.edges || []) { if (!e.len) continue; const qx = x - e.sx, qz = z - e.sz, al = qx * e.dx + qz * e.dz; if (al < -12 || al > e.len + 12) continue; if (Math.abs(qx * e.rx + qz * e.rz) < (e.half || 4) + 0.6) return true; } return false; };
+    const on = (x, z) => { try { return !onRoad(x, z) && !!net.onSidewalk(x, z); } catch { return true; } };
+    const near = (x, z) => { if (on(x, z)) return [x, z]; for (let r = 0.5; r <= 14; r += 0.5) for (let a = 0; a < 24; a++) { const q = (a * PI) / 12, px = x + Math.cos(q) * r, pz = z + Math.sin(q) * r; if (on(px, pz)) return [px, pz]; } return null; };
+    const hx = P.position.x, hz = P.position.z, hp = near(hx, hz); if (!hp) return;
+    let dx = hp[0] - hx, dz = hp[1] - hz;
+    if (dx || dz) { const n = Math.hypot(dx, dz), ex = hp[0] + (dx / n) * 1.0, ez = hp[1] + (dz / n) * 1.0; if (on(ex, ez)) { hp[0] = ex; hp[1] = ez; } dx = hp[0] - hx; dz = hp[1] - hz; putAt(W, { dan: [hp[0], hp[1], P.heading] }); }
+    for (const n of M?.npcs || []) {
+      const f = cast.get(n); if (!f || !f.root.visible) continue;
+      const q = near(f.root.position.x + dx, f.root.position.z + dz); if (!q) continue;
+      f.at(q[0], q[1], Math.atan2(hp[0] - q[0], hp[1] - q[1]));
+    }
+    app.cameraSystem.resetForTeleport?.();
+  }
+  async function shotList(shots, t, { skippable = true, beat = false, opening = false, set = null } = {}) {
     const D = createDirector(W);
     const ssr0 = ssrOf()?.intensity.value ?? 0;
     W.cutscene = !beat; if (!beat) { ui.cine(true); ui.objective(null); }
@@ -470,6 +503,8 @@ export function createRunner(ctx) {
         if (s.if && !cond(s.if)) continue;
         const dur = s.dur || 3, A = camPt(s.cam), B = s.to ? camPt(s.to) : A, LA = camPt(s.look, 1.4), LB = s.lookTo ? camPt(s.lookTo, 1.4) : LA;
         // (an opening's name card: the lens settles on its person through the first part of the shot, then the frame
+        // (the shot's set: its own, else the cutscene's; false or none, the street)
+        if (setRun) { const id = s.set === false ? null : (s.set || set); setRun.use(id && setRun.has(id) ? id : null); if (s.act) setRun.act(s.act); }
         // freezes on them, their body held mid-move, as their name and role come up: openCard())
         const card = opening && s.card && s.card.who ? s.card : null, hold = card ? Math.min(dur * 0.42, 1.6) : dur;
         const pos = keys([[0, A], [hold, B]]), look = keys([[0, LA], [hold, LB]]);
@@ -490,6 +525,7 @@ export function createRunner(ctx) {
             D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov: s.fov || 40, roll: 0, shake: hh };
             { const n = keyLight(p, l), ssr = ssrOf(); if (ssr) ssr.intensity.value = n < CLOSE ? 0 : ssr0; }
             if (!beat) stepSkip();
+            if (setRun?.active) setRun.frame({ pos: D.camera.pos, look: l, fov: s.fov || 40 });
             return (now() - t0) / 1000 >= len;
           }, local);
         } catch (e) { if (!(e instanceof Stop) || !skip) throw e; }
@@ -500,6 +536,7 @@ export function createRunner(ctx) {
       ui.sub(null); ui.caption(null); ui.skip(null); keyL.intensity = 0; if (ssrOf()) ssrOf().intensity.value = ssr0;
       if (opening) { ui.placeOff(); ui.gameTitle(false, true); }
       if (!beat) D.block(false);
+      setRun?.use(null);
       await D.release(0.6);
       W.cutscene = false; if (!beat) ui.cine(false);
     }
@@ -519,13 +556,13 @@ export function createRunner(ctx) {
     if (s.title) { ui.gameTitle(true); sfx.play('whoosh', { gain: 0.2 }); sfx.play('stinger', { gain: 0.42, notes: [130.81, 155.56, 196, 261.63] }); }
   }
   function openCard(card, secs) {
-    const who = castName(card.who), fig = cast.get(who), hero = cast.isHero(who) || who === heroName;
+    const who = castName(card.who), hero = cast.isHero(who) || who === heroName, inSet = setRun?.active ? setRun.figure(who) : null, fig = inSet || cast.get(who);
     // (the card above the subtitle line, which sits where Mog City's captions do: its line is said under it)
     const capEl = document.querySelector('#wg .wg-cap'); if (capEl) capEl.style.bottom = 'calc(var(--bar) + 10vh + 92px)';
     ui.caption(who, tokens(card.role || world.castOf(who)?.role || ''), colorOf(who), Math.max(1.2, secs + 0.2));
     sfx.play('thunk', { gain: 0.16, f: 140, ring: false }); sfx.play('whoosh', { gain: 0.12, dur: 0.35 });
     // (the frame held: their clip stopped where it was, the lens still)
-    const mixer = hero ? W.dan?.mixer : null, ts = mixer ? mixer.timeScale : 1;
+    const mixer = hero && !inSet ? W.dan?.mixer : null, ts = mixer ? mixer.timeScale : 1;
     if (fig) fig.hold = true; if (mixer) mixer.timeScale = 0;
     return () => { if (fig) fig.hold = false; if (mixer) mixer.timeScale = ts; setTimeout(() => { if (capEl && !capEl.classList.contains('on')) capEl.style.bottom = ''; }, 600); };
   }
@@ -549,10 +586,15 @@ export function createRunner(ctx) {
     }
     host.tell('opening', { phase: 'start', shots: (o.shots || []).length });
     const t0 = now();
+    // (its sets, stood up and compiled before the first shot; the street round the hero held clear of traffic)
+    if (o.sets && Object.keys(o.sets).length) try { await setsOf().prepare(o.sets); } catch (err) { console.warn('[storyrun] opening: sets', err); }
+    const free = holdStreet();
+    try { toPavement(); } catch (err) { console.warn('[storyrun] pavement', err); }
     try { await shotList(o.shots || [], t, { opening: true }); }
     finally {
       // (to black, and back up on Mission 1 once it has put him at its start)
       try { await ui.fade(1, 0.45); } catch {}
+      free(); if (setRun) await setRun.release();
       setTimeout(() => ui.fade(0, 0.8), 650);
       for (const n of staged) { const f = cast.get(n); if (f) f.hold = false; cast.hide(n); }
       { const c = document.querySelector('#wg .wg-cap'); if (c) c.style.bottom = ''; }
@@ -561,7 +603,15 @@ export function createRunner(ctx) {
   }
   STEPS.cutscene = async (d, t) => {
     if (d.place) { const p = placeOf(d.place); putPlayer(p, inCar() ? 'car' : 'walk'); }
-    await shotList(d.shots, t);
+    // (in a set: its room and its people; else on the street with the traffic held)
+    if (d.set && typeof d.set === 'object') {
+      try { await setsOf().prepare({ cut: d.set }); } catch (err) { console.warn('[storyrun] set', err); }
+      try { await shotList(d.shots, t, { set: 'cut' }); } finally { await setRun?.release(); }
+      return;
+    }
+    const free = holdStreet();
+    try { toPavement(); } catch (err) { console.warn('[storyrun] pavement', err); }
+    try { await shotList(d.shots, t); } finally { free(); }
   };
   STEPS.beat = async (d, t) => {
     if (d.say) { const s = tuple(d.say); say(castName(s.who), s.text, M.tok).catch(() => {}); }
