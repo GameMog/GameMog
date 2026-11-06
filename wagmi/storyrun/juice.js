@@ -47,7 +47,7 @@ export function createJuice(W) {
       if (d < R && v > 15) { if (!close.has(o)) close.set(o, { t, d }); else close.get(o).d = Math.min(close.get(o).d, d); }
       else if (close.has(o) && d > R + 1.2) {
         const c = close.get(o); close.delete(o);
-        if (lastHit < c.t - 150 && t - lastMiss > 6000 && v > 16) {
+        if (lastHit < c.t - 150 && c.d > 2.1 && t - lastMiss > 6000 && v > 16) {
           lastMiss = t; api.nearMisses++;
           api.alert('Near miss', { tone: 'yellow', secs: 1.1 }); sfx?.play?.('whoosh', { gain: 0.28 });
           try { W.crash?.jolt?.(0.18, 0, 0); } catch {}
