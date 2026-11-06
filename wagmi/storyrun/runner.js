@@ -492,7 +492,12 @@ export function createRunner(ctx) {
   async function shotList(shots, t, { skippable = true, beat = false, opening = false, set = null } = {}) {
     const D = createDirector(W);
     const ssr0 = ssrOf()?.intensity.value ?? 0;
-    W.cutscene = !beat; if (!beat) { ui.cine(true); ui.objective(null); }
+    W.cutscene = !beat;
+    // (a recorded line still playing, a car-phone call's or the last step's, is heard out before the first shot, up to
+    // 4 s: the cutscene's first line cut it with a second left, PT-3's 'Dino sticker' as the minivan scene began. The
+    // scene is on first, so a call hangs up after the line it is saying and starts no other: calls.js end())
+    if (!beat && W.voice?.left?.() > 0.08) { const t0 = now(); try { await wait(() => !(W.voice.left() > 0.08) || now() - t0 > 4000, t); } catch (e) { W.cutscene = false; throw e; } }
+    if (!beat) { ui.cine(true); ui.objective(null); }
     let skip = false;
     const local = tokOf(t);
     if (skippable && !beat) D.block(true, { onSkip: () => { skip = true; kill(local); } });
