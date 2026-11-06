@@ -1,4 +1,5 @@
 import type { WorldSpec } from '@/lib/worldspec';
+import { SKY } from '@/lib/portrait-sky';
 
 /**
  * Cover art, drawn from the world itself.
@@ -380,7 +381,7 @@ function pickLayout(title: string, h: number) {
 /**
  * avatar (5 Nov, the owner: the homepage's round "Jump in" pictures "centered in the circle like this instagram"): the
  * world's own creature alone, a headshot: its face centred left to right, its eyes 40% down, its head about half the
- * square, the burst radiating from behind its head, no title and no rivals. The numbers are measured, not guessed: the
+ * square, on the light-blue sky every Jump in headshot has (6 Nov, lib/portrait-sky.ts), no title and no rivals. The numbers are measured, not guessed: the
  * creature's eyes sit 58 units over its feet and 17.9 apart at scale 1 (found from a render of the portrait layout), so
  * at scale 3.1 with its feet at (150, 300) its eyes land at (150, 120) in the 300 square, 55 px apart.
  */
@@ -404,7 +405,9 @@ export function Cover({ spec, seed = 0, wide = false, avatar = false }: { spec: 
   if (layout === 'avatar') {
     art = (
       <>
-        <Burst cx={150} cy={120} a={bg.a} b={bg.b} n={20} />
+        {/* (6 Nov, the owner: every Jump in headshot on light blue; the same sky as the worlds' portraits) */}
+        <linearGradient id={`${uid}sky`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={SKY.top} /><stop offset="1" stopColor={SKY.bottom} /></linearGradient>
+        <rect x={-50} y={-50} width={400} height={400} fill={`url(#${uid}sky)`} />
         <Placed r={me} x={AVATAR_PLACE.x} y={AVATAR_PLACE.y} s={AVATAR_PLACE.s} accent={accent} uid={id(0)} />
       </>
     );

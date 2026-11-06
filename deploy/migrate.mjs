@@ -130,6 +130,58 @@ export const CREATURE_HEADSHOTS = [
   { slug: 'ruse-cloudquake-carnival', id: 'b845718a-be6e-4d11-a87e-75afd2e1371e', code: 'f7d7f71b98c9854b', old: 'a16afa71388dfe2e' },
 ];
 
+/**
+ * 6 Nov, the owner: "for Jump In section, it should show main character headshot against a light blue background, not
+ * car, for ASPEN GP show the darklord headshot". Every listed world's hero re-shot as a headshot on the light-blue sky
+ * (lib/runtime/portrait.js backdrop: the world out of the picture, the hero laid on the sky through his matte), on the
+ * Mac in headless Chrome from each game's own code by the platform's portrait pass (lib/key-art.ts capturePortrait); a
+ * kart or car world's is its driver's face, Aspen GP's is Lord Black Diamond's. Each judged by eye; a few framed by
+ * hand (darkmog-frostbite-gp zoomed to the driver, mog-kart-canyon-gp, Lantern Hour and Ruse from turned lenses, Oaktown
+ * and Zcity with their guard up). Las Vegas Night GP (a helmet behind glass), MogDune and Mog City (not a Runtime
+ * world) have none: they show the card. deploy/migrations/<slug>-sky.jpg. Code:
+ * sha256 of the row's code, first 16 hex. Set by 2026-11-06-sky-headshots only on the code it was shot from (a game
+ * rebuilt since keeps the portrait its own build shot); a world with no headshot here shows the headshot card
+ * (app/g/[slug]/avatar/route.ts, lib/portrait-sky.ts).
+ */
+export const SKY_HEADSHOTS = [
+  { slug: 'ai-alps', id: 'd7625caf-7e78-41f2-af35-08cd4fb63dac', code: 'f3dbb1dd7732cb8b' },
+  { slug: 'amazon-gold-2026', id: '20583b14-077c-4fd9-a92f-1a3ed0b37412', code: '0ef9226c0b2556db' },
+  { slug: 'artificial1', id: '82667fc6-d77e-4bfd-b466-cf174645587f', code: '745abbb65d5779b5' },
+  { slug: 'aspen-gp', id: 'c1093f21-d3d3-4735-9b40-1d532ca13892', code: 'f2722635e78362eb' },
+  { slug: 'country-box', id: '3859e557-f2ae-49f1-a59b-6fbd3796fb4b', code: 'f94abd878f595637' },
+  { slug: 'darkmog-frostbite-gp', id: 'f3603ade-68bc-40ea-8322-1665c1edeb83', code: 'a36f20e76a91e887' },
+  { slug: 'dead-tide-disco', id: 'c5b2f6b5-d813-49eb-b5ab-287482b6240f', code: 'b4d5afee9a7908e2' },
+  { slug: 'eye-of-the-meme-storm', id: 'e77b2a60-2974-4215-8e02-86162bfce883', code: 'a1e77bc8680bd193' },
+  { slug: 'great-wall-shinobi', id: '09438e11-8062-4952-8b21-9720e89574b3', code: '26731bc8f8bfe63c' },
+  { slug: 'iara-of-the-amazon', id: '0e1fd6e5-8255-4631-8cde-2ae482d0fa8c', code: 'af544bd362aad190' },
+  { slug: 'invisible-world', id: '3a646312-8002-4cbc-9386-0be572a2a5b4', code: '51a860a8fab19398' },
+  { slug: 'lantern-hour-moon-whale-midway', id: '23f61497-cc86-43ee-adbb-061b099b4fd9', code: '28caf4905f640d0f' },
+  { slug: 'magma-crown', id: 'ae46cc09-9dfb-4975-b8f4-6138b7b4e66f', code: 'bf6f3bf50c66462e' },
+  { slug: 'mallow-the-lantern-sea', id: 'bc676b38-450e-4120-bcfa-50f1b9a32d9a', code: 'aad04cc5e4ccb808' },
+  { slug: 'mane-event-savanna-run', id: '7bf331a3-5abd-4995-baf3-61b89f70399c', code: 'c83015a449b2300d' },
+  { slug: 'manila-thrilla-2026', id: '8262aaea-e57d-4f2b-9674-7cdb9f4ee21f', code: '63796cac6ddbfc9d' },
+  { slug: 'meme-kart', id: '88cd2bad-86fb-45a0-87ce-d312e1acb244', code: '1b48b6d7a19ef083' },
+  { slug: 'meme-kart-midnight-mog', id: '90da1a00-0272-4e56-8b38-ffc088699026', code: '7d253a8fb6fed54b' },
+  { slug: 'meme-match', id: '427f5849-f0c1-4f39-8dc6-d5c2f3166427', code: 'c708847ae9228521' },
+  { slug: 'mog-derby', id: '5e118e8c-07b0-4f15-b551-1a1b3ab4101a', code: '3a46566445504402' },
+  { slug: 'mog-kart-canyon-gp', id: '670ab5a5-0ef9-44cc-b216-345904f419e8', code: '4a8adbdf4067b34d' },
+  { slug: 'moonrover-ranger', id: 'a25ab539-c8bc-4521-a2f7-ef972a28cd11', code: '76652426b83b09a1' },
+  { slug: 'neon-canvas-alley', id: '51c2b800-189f-4208-b996-4572c9018a63', code: '0f3d95dba9c4035a' },
+  { slug: 'oaktown-testarossa', id: 'adb6a723-6655-481f-b1d4-ecd1464b4e46', code: 'd37706db0d309392' },
+  { slug: 'qatar-gp-golden-dunes', id: '37d7b3a3-91cc-4c3e-b545-00157c3b5a99', code: 'dc83b96ec3854b0a' },
+  { slug: 'ruse-cloudquake-carnival', id: 'b845718a-be6e-4d11-a87e-75afd2e1371e', code: 'f7d7f71b98c9854b' },
+  { slug: 'rustwalker-ranger', id: '529675fa-ff03-432f-963b-c11d5347c5b4', code: '25e332d215767b16' },
+  { slug: 'sandrider', id: 'f7663e89-bcfa-471d-876a-68a79836938f', code: '1ad4d82e385301fb' },
+  { slug: 'santa-south-beach-gp', id: '29042c94-6772-4b6a-a2ff-34fe48ced3f1', code: '2d504c013594e881' },
+  { slug: 'shootout', id: '70a68452-134f-4a25-bfbe-89edaacb1fc1', code: '2c35cc8615404c3b' },
+  { slug: 'sunset-voltline', id: 'af42bd6b-3f93-4e62-ba55-ca313d768825', code: '973613a330f1a6c1' },
+  { slug: 'three-on-the-line', id: '7f16dd2e-26f5-4600-b3d5-feab7b8aa175', code: '208b9fcf24810249' },
+  { slug: 'wanderer-of-the-ring', id: '19d07fac-41e7-4c7f-8f69-ef5f4ff4086c', code: '87f4ffabc5fa8956' },
+  { slug: 'wonderwake-skywhale-rally', id: '68d184f8-4d2c-4846-ba72-2f0036971ef0', code: '1f0826eae18cc40b' },
+  { slug: 'zcity', id: '4ce0c82d-b16b-48ff-96db-d400ba9f34f3', code: '92e96d7b160228c7' },
+  { slug: 'zombie-beach', id: '7ecfbbb2-5697-4903-844e-40a6b79f0348', code: '20387636c75517cd' },
+];
+
 // (exported for the checks: scripts/kart-score/test-mog.mjs runs one on a database of its own)
 export const MIGRATIONS = [
   {
@@ -1260,6 +1312,36 @@ export const MIGRATIONS = [
         try { const d = s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(storeId); if (d) { s.release(storeId); s.abandon(d); } } catch { /* swept later */ }
         throw e;
       }
+    },
+  },
+  {
+    // 6 Nov: every listed world's headshot on the light-blue sky (SKY_HEADSHOTS above); replaces the portrait of a game
+    // whose code is still the code it was shot from. A world whose old portrait was a square of its car or a scene
+    // behind the hero and that has no sky headshot keeps no portrait, so it shows the headshot card on the same sky
+    id: '2026-11-06-sky-headshots',
+    run(db) {
+      const has = db.prepare('PRAGMA table_info(games)').all().some((c) => c.name === 'art_avatar');
+      if (!has) db.exec('ALTER TABLE games ADD COLUMN art_avatar BLOB');
+      const missing = SKY_HEADSHOTS.filter((a) => !file(`${a.slug}-sky.jpg`)).map((a) => a.slug);
+      if (missing.length) throw new Error(`deploy/migrations/{${missing.join(',')}}-sky.jpg are not in this build`);
+      let n = 0;
+      const left = [];
+      for (const a of SKY_HEADSHOTS) {
+        const g = db.prepare('SELECT id, code FROM games WHERE id = ? AND slug = ?').get(a.id, a.slug);
+        if (!g) { left.push(`${a.slug} (gone)`); continue; }
+        if (createHash('sha256').update(String(g.code ?? '')).digest('hex').slice(0, 16) !== a.code) { left.push(`${a.slug} (its code changed)`); continue; }
+        n += Number(db.prepare('UPDATE games SET art_avatar = ? WHERE id = ?').run(file(`${a.slug}-sky.jpg`), g.id).changes);
+      }
+      // (the 5 Nov headshots with no sky one to replace them: cleared, so the card on the sky shows, not the old scene)
+      const sky = new Set(SKY_HEADSHOTS.map((a) => a.slug));
+      const sha = (b) => (b ? createHash('sha256').update(Buffer.from(b)).digest('hex').slice(0, 16) : null);
+      let cleared = 0;
+      for (const a of [...AVATARS, ...CREATURE_HEADSHOTS]) {
+        if (sky.has(a.slug)) continue;
+        const shipped = file(`${a.slug}-avatar.jpg`), g = db.prepare('SELECT id, art_avatar FROM games WHERE id = ? AND slug = ?').get(a.id, a.slug);
+        if (g && g.art_avatar && shipped && sha(g.art_avatar) === sha(shipped)) cleared += Number(db.prepare('UPDATE games SET art_avatar = NULL WHERE id = ?').run(g.id).changes);
+      }
+      return `${n} of ${SKY_HEADSHOTS.length} sky headshots; ${cleared} old headshots cleared${left.length ? `; left alone: ${left.join(', ')}` : ''}`;
     },
   },
 ];
