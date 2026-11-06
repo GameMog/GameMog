@@ -469,7 +469,7 @@ export function createRunner(ctx) {
   // made the first time a world asks for one; on the street, the traffic is held clear round the hero for it (nobody
   // is driven through), and let go after
   let setRun = null;
-  const setsOf = () => setRun || (setRun = createSets(W, { cast, castName, heroName }));
+  const setsOf = () => setRun || (setRun = createSets(W, { cast, castName, heroName, idleOf: (n) => world.castOf(n)?.idle || null }));
   function holdStreet() {
     const e = cm.getActiveEntity(), x = e.position.x, z = e.position.z;
     try { app.trafficSystem.hold?.([{ minX: x - 45, maxX: x + 45, minZ: z - 45, maxZ: z + 45 }]); } catch {}
