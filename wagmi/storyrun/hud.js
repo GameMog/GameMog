@@ -9,6 +9,10 @@
 //   hud.card({ kicker, text, sub }, secs)   a transition card in the title card's type (ui.title's), over a fade
 //   hud.bar(label, k, note)        a meter bar (0..1) in Mission 2's tail-meter look, bottom right (a passenger's
 //                                  comfort); null: away
+//   hud.meters(list)               (a meter with a goal: { label, text: '$430,000 / $1,000,000', k: 0.43 } is the big
+//                                  money pill, its progress under it); hud.delta(label, '+$85,000', good) flashes beside it
+//   hud.passed(card, secs)         the story's MISSION PASSED card (rules.js passCard: the title, what was gained, the
+//                                  meter's progress filling from before to after, the pass line, NEXT); a sting with it
 // All text goes in as textContent.
 const CSS = `
 #wg .sr-timer { position: absolute; right: 24px; bottom: 296px; text-align: right; opacity: 0; transition: opacity .3s; z-index: 4; }
@@ -45,6 +49,9 @@ const CSS = `
 #wg .sr-bar i { display: block; height: 10px; margin-top: 8px; border-radius: 5px; overflow: hidden; background: rgba(255,255,255,.14); }
 #wg .sr-bar i s { display: block; height: 100%; width: 100%; background: #4ADE80; transition: width .15s linear, background .3s; }
 #wg:has(.sr-bar.on) .wg-caller { bottom: 296px; }
+body:not(.touch-enabled) #wg:has(.sr-bar.on) .wg-count { bottom: 292px; }
+body:not(.touch-enabled) #wg:has(.sr-bar.on):has(.wg-count.on) .sr-timer { bottom: 352px; }
+body:not(.touch-enabled) #wg:has(.sr-bar.on):has(.wg-count.on) .sr-meters { bottom: 414px; }
 body.wg-cine #wg .sr-bar, body.wg-paused #wg .sr-bar { opacity: 0; }
 body.touch-enabled #wg .sr-bar { right: var(--wg-r); bottom: auto; top: calc(var(--wg-t) + 240px); }
 body.wg-cine #wg .sr-meters, body.wg-cine #wg .sr-timer, body.wg-paused #wg .sr-meters { opacity: 0; }
@@ -52,6 +59,40 @@ body.wg-cine #wg .sr-meters, body.wg-cine #wg .sr-timer, body.wg-paused #wg .sr-
 body.touch-enabled #wg .sr-timer { right: var(--wg-r); bottom: auto; top: calc(var(--wg-t) + 120px); }
 body.touch-enabled #wg .sr-meters { right: var(--wg-r); top: calc(var(--wg-t) + 180px); }
 @media (max-width: 700px) { #wg .sr-choice { bottom: 120px; } }
+#wg .sr-meters > div.goal { flex-direction: column; align-items: flex-end; gap: 4px; padding: 8px 14px 9px; min-width: 230px; }
+#wg .sr-meters > div.goal .v { font-size: 30px; color: #4ADE80; letter-spacing: .5px; font-variant-numeric: tabular-nums; }
+#wg .sr-meters > div.goal i { display: block; width: 100%; height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255,255,255,.14); }
+#wg .sr-meters > div.goal i s { display: block; height: 100%; background: #4ADE80; transition: width .6s cubic-bezier(.2,.7,.2,1); }
+#wg .sr-meters .d { position: absolute; right: calc(100% + 10px); top: 6px; font: 800 26px/1 'Barlow Condensed'; color: #4ADE80; white-space: nowrap; opacity: 0; transform: translateX(8px); transition: opacity .25s, transform .4s; text-shadow: 0 2px 8px rgba(0,0,0,.7); }
+#wg .sr-meters .d.bad { color: #EF4444; }
+#wg .sr-meters .d.on { opacity: 1; transform: none; }
+#wg .sr-meters > div { position: relative; }
+#wg .sr-timer .v { font-size: 40px; }
+#wg .sr-timer.low .v { color: #EF4444; animation: sr-pulse 1s steps(2, start) infinite; }
+@keyframes sr-pulse { 50% { opacity: .45; } }
+#wg .sr-pass { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 8; opacity: 0; transition: opacity .5s; pointer-events: none; text-align: center;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.55) 0%, rgba(0,0,0,.25) 55%, rgba(0,0,0,0) 80%); }
+#wg .sr-pass.on { opacity: 1; }
+#wg .sr-pass .h { font: italic 800 clamp(56px, 10vw, 120px)/.9 'Barlow Condensed'; color: #FFC93C; letter-spacing: 1px; text-shadow: 0 4px 28px rgba(0,0,0,.7); transform: scale(1.25); transition: transform .7s cubic-bezier(.2,.7,.2,1); }
+#wg .sr-pass.on .h { transform: none; }
+#wg .sr-pass .t { font: 700 clamp(26px, 4vw, 40px)/1.05 'Barlow Condensed'; text-transform: uppercase; margin-top: 8px; text-shadow: 0 2px 10px rgba(0,0,0,.7); }
+#wg .sr-pass .box { margin-top: 20px; min-width: min(420px, calc(100vw - 32px)); max-width: calc(100vw - 32px); padding: 14px 22px 16px; background: rgba(8,10,14,0.7); border-radius: 10px; }
+#wg .sr-pass .g { display: flex; justify-content: space-between; align-items: baseline; gap: 40px; font: 700 18px/1.2 'Barlow Condensed'; letter-spacing: 2px; color: rgba(255,255,255,.7); margin: 2px 0 6px; }
+#wg .sr-pass .g b { font: 800 40px/1 'Barlow Condensed'; letter-spacing: .5px; color: #4ADE80; font-variant-numeric: tabular-nums; }
+#wg .sr-pass .g b.bad { color: #EF4444; }
+#wg .sr-pass .st { display: flex; justify-content: space-between; font: 700 16px/1.6 'Barlow Condensed'; letter-spacing: 2px; color: rgba(255,255,255,.6); }
+#wg .sr-pass .p { margin-top: 8px; text-align: left; }
+#wg .sr-pass .p .row { display: flex; justify-content: space-between; font: 700 15px/1 'Barlow Condensed'; letter-spacing: 2.5px; color: rgba(255,255,255,.7); }
+#wg .sr-pass .p .row span:last-child { font: 800 22px/1 'Barlow Condensed'; letter-spacing: .5px; color: #fff; }
+#wg .sr-pass .p i { display: block; position: relative; height: 12px; margin-top: 8px; border-radius: 6px; overflow: hidden; background: rgba(255,255,255,.14); }
+#wg .sr-pass .p i s, #wg .sr-pass .p i u { position: absolute; left: 0; top: 0; bottom: 0; display: block; }
+#wg .sr-pass .p i s { background: rgba(74,222,128,.45); } #wg .sr-pass .p i u { background: #4ADE80; transition: width 1.4s cubic-bezier(.2,.7,.2,1) .5s; }
+#wg .sr-pass .ln { margin-top: 12px; font: 600 19px/1.3 'Barlow Condensed'; color: rgba(255,255,255,.85); }
+#wg .sr-pass .nx { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.14); text-align: left; }
+#wg .sr-pass .nx .k { font: 700 13px/1 'Barlow Condensed'; letter-spacing: 4px; color: #FFC93C; }
+#wg .sr-pass .nx .n { font: 800 24px/1.1 'Barlow Condensed'; text-transform: uppercase; margin-top: 4px; }
+#wg .sr-pass .nx .s { font: 600 16px/1.3 'Barlow Condensed'; color: rgba(255,255,255,.75); margin-top: 2px; }
+body.touch-enabled #wg .sr-pass .box { padding: 10px 16px 12px; } body.touch-enabled #wg .sr-pass .g b { font-size: 30px; }
 `;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -64,6 +105,9 @@ export function createHud(ui) {
   const choiceEl = mk('sr-choice');
   const barEl = mk('sr-bar', '<div class="row"><span class="l"></span><b></b></div><i><s></s></i>');
   const cardEl = mk('sr-card', '<div><div class="k"></div><div class="r"></div><div class="t"></div><div class="s"></div></div>');
+  const passEl = mk('sr-pass');
+  const tx = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = String(text); return e; };
+  const deltas = new Map();
   const fmt = (s) => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
   let choosing = null;
   const hud = {
@@ -78,7 +122,38 @@ export function createHud(ui) {
       for (const m of list || []) {
         const d = document.createElement('div'), l = document.createElement('span'), v = document.createElement('span');
         l.className = 'l'; v.className = 'v'; l.textContent = String(m.label).toUpperCase(); v.textContent = m.text; d.append(l, v); metersEl.appendChild(d);
+        // (a meter with a goal: the big pill, its progress under it)
+        if (m.k != null) { d.classList.add('goal'); const i = document.createElement('i'), f = document.createElement('s'); f.style.width = `${(Math.max(0, Math.min(1, m.k)) * 100).toFixed(1)}%`; i.appendChild(f); d.appendChild(i); }
+        const dl = deltas.get(String(m.label).toUpperCase());
+        if (dl && performance.now() < dl.until) { const e = tx('span', `d on${dl.good ? '' : ' bad'}`, dl.text); d.appendChild(e); }
       }
+    },
+    // a meter's change, flashed beside it for a few seconds ('+$85,000'); the next meters() call draws it
+    delta(label, text, good = true) {
+      if (!text) return;
+      const k = String(label).toUpperCase(); deltas.set(k, { text, good, until: performance.now() + 3200 });
+      for (const d of metersEl.children) if (d.querySelector('.l')?.textContent === k) { d.querySelector('.d')?.remove(); d.appendChild(tx('span', `d on${good ? '' : ' bad'}`, text)); }
+      setTimeout(() => { for (const e of metersEl.querySelectorAll('.d')) if (deltas.get(k)?.until <= performance.now()) e.classList.remove('on'); }, 3300);
+    },
+    // the story's MISSION PASSED card (rules.js passCard), held secs; its meter's bar fills from before to after
+    async passed(c, secs = 6) {
+      passEl.replaceChildren();
+      passEl.append(tx('div', 'h', 'MISSION PASSED'), tx('div', 't', c.title || ''));
+      const box = tx('div', 'box');
+      for (const g of c.gains || []) { const r = tx('div', 'g'); r.append(tx('span', '', g.label)); const b = tx('b', g.good ? '' : 'bad', g.text); r.appendChild(b); box.appendChild(r); }
+      for (const [a, b] of c.stats || []) { const r = tx('div', 'st'); r.append(tx('span', '', a), tx('span', '', b)); box.appendChild(r); }
+      let fill = null;
+      if (c.progress) {
+        const p = tx('div', 'p'), row = tx('div', 'row'); row.append(tx('span', '', c.progress.label), tx('span', '', c.progress.text));
+        const i = tx('i'), s0 = tx('s'), u = tx('u'); s0.style.width = `${((c.progress.k1 ?? 0) * 100).toFixed(1)}%`; u.style.width = `${((c.progress.k0 ?? 0) * 100).toFixed(1)}%`;
+        i.append(s0, u); p.append(row, i); box.appendChild(p); fill = () => { u.style.width = `${((c.progress.k1 ?? 0) * 100).toFixed(1)}%`; };
+      }
+      if (c.line) box.appendChild(tx('div', 'ln', c.line));
+      if (c.next && c.next.title) { const n = tx('div', 'nx'); n.append(tx('div', 'k', 'NEXT'), tx('div', 'n', c.next.title)); if (c.next.sub) n.appendChild(tx('div', 's', c.next.sub)); box.appendChild(n); }
+      if (box.childNodes.length) passEl.appendChild(box);
+      passEl.classList.add('on');
+      requestAnimationFrame(() => requestAnimationFrame(() => fill?.()));
+      await sleep(secs * 1000); passEl.classList.remove('on'); await sleep(500);
     },
     bar(label, k = 1, note = '') {
       if (label == null) { barEl.classList.remove('on'); return; }
@@ -143,7 +218,7 @@ export function createHud(ui) {
       cardEl.querySelector('.r').style.display = kicker ? '' : 'none';
       cardEl.classList.add('on'); await sleep(secs * 1000); cardEl.classList.remove('on'); await sleep(450);
     },
-    clear() { hud.timer(null); hud.meters([]); hud.bar(null); choosing?.cancel(); },
+    clear() { hud.timer(null); hud.meters([]); hud.bar(null); choosing?.cancel(); passEl.classList.remove('on'); },
   };
   return hud;
 }

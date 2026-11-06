@@ -125,11 +125,13 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       return;
     }
     if (type === 'tow' && held) hold(null);
-    if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow'].includes(type)) { release(); return; }
+    // (a convoy: kept in its band behind the car it follows, convoy())
+    if (type === 'convoy' && M.convoy) { convoy(M.convoy, t); return; }
+    if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow', 'passenger', 'roadblock', 'stealth'].includes(type)) { release(); return; }
     // a chase to lose: escape() (the pursuit's own 'lost' ends it)
     if (type === 'pursuit' && d.goal !== 'reach' && escape(t)) return;
     // in or out of the car as the step wants
-    const wantsFoot = type === 'search' || (type === 'walk' && !d.enterCar);
+    const wantsFoot = type === 'search' || (type === 'walk' && !d.enterCar) || (type === 'stealth' && d.mode !== 'car');
     if (wantsFoot && inCar()) { release(); if (Math.abs(car.speed) > 0.5) cm.setTouchInput('backward', 0.8); else if (!W.ride?.phase) { W.ride?.getOut?.(true); note('out'); } return; }
     if (!wantsFoot && !inCar() && type !== 'place') {
       release();
@@ -184,7 +186,26 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     const tgt = inCar() && L < 25 ? (() => { const q = fromEnd(r, 0); return { x: q.x, z: q.z }; })() : along(r, x, z, inCar() ? 9 + Math.abs(car.speed || 0) * 0.6 : 3);
     if (near) { release(); if (inCar() && car.speed > 0.5) cm.setTouchInput('backward', 0.7); return; }
     // (the pace to stop on the mark: what a 3 m/s2 brake leaves to the radius, so a heavy car doesn't sail past it)
-    steerTo(tgt.x, tgt.z, type === 'tail' ? 11 : Math.min(15, 2.5 + Math.sqrt(2 * 3 * Math.max(0, L - radius * 0.4))));
+    // (a passenger's speed limit kept, under it by a margin)
+    const cap = M.ride?.limit ? M.ride.limit / 2.23694 * 0.85 : Infinity;
+    steerTo(tgt.x, tgt.z, Math.min(cap, type === 'tail' ? 11 : Math.min(15, 2.5 + Math.sqrt(2 * 3 * Math.max(0, L - radius * 0.4)))));
+  }
+  // a convoy (runner.js STEPS.convoy): the route ends at the car to stay with; kept between its band's near end (off the
+  // gas inside 1.3 of it, braking inside it) and 0.6 of its far end (put back behind it on its own path past 0.75, at most
+  // every 6 s); a long one, after 12 s, the car put on to its last 300 m and he put in the band behind it
+  let convoyJumped = null;
+  function convoy(C, t) {
+    const D = C.A?.D;
+    if (!D) { release(); return; }
+    if (!inCar()) { release(); if (!W.ride?.phase) { if (Math.hypot(car.position.x - P.position.x, car.position.z - P.position.z) > 4) P.position.set(car.position.x + Math.cos(car.heading) * 1.8, P.position.y, car.position.z - Math.sin(car.heading) * 1.8); W.ride?.getIn?.(true); note('in'); } return; }
+    const mid = (C.near + C.far) / 2, behind = (s) => { const a = D.at(Math.max(0, s)), b = D.at(Math.max(0, s) + 3); putCar(a.x, a.z, Math.atan2(b.x - a.x, b.z - a.z)); };
+    if (convoyJumped !== stepKey && t - stepT > 12 && D.length - D.s > 500) { convoyJumped = stepKey; D.place(D.length - 300); behind(D.s - Math.min(mid, C.near * 2.5)); note(`convoy jump ${Math.round(D.length)} m`); return; }
+    const dd = Math.hypot(D.pos.x - car.position.x, D.pos.z - car.position.z);
+    if (dd > C.far * 0.75 && t - tailJumpT > 6) { tailJumpT = t; behind(D.s - Math.min(mid, C.near * 2.5)); note('convoy: back in the band'); return; }
+    if (dd < C.near * 1.3) { release(); if (dd < C.near && car.speed > -2) cm.setTouchInput('backward', car.speed > 0.5 ? 1 : 0.4); return; }
+    const r = gps.route;
+    const tg = r && r.length > 1 ? along(r, car.position.x, car.position.z, 8 + Math.abs(car.speed || 0) * 0.6) : { x: D.pos.x, z: D.pos.z };
+    steerTo(tg.x, tg.z, Math.max(4, (D.v || 0) + (dd - C.near * 2) * 0.25));
   }
   // a chase to lose (W.pursuit's: a world's pursuit step, Mission 3's getaway): kept on his feet if they jump out, a
   // route away (the far side of the nearest of the city's spawn points 600 m and more off) at the boost; seen for 7 s

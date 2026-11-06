@@ -4,7 +4,8 @@
 // streets (city-config.js ROADS), put on the nearest drivable lane and facing along it.
 //   createPlaces(W, world) -> { at(ref) -> { x, z, heading, name, mode } | null, list, missing }
 //   ref: '@key' | { '@': key, face, heading (deg), mode } | a pack alias (world.places: { alias: { '@': key, name } }, or
-//   { at: [x, z, heading (deg)], name }: a mark of the world's own on this map)
+//   { at: [x, z, heading (deg)], name }: a mark of the world's own on this map; an alias's offset { right, fwd } m moves it
+//   along its facing: a sub-place)
 const CORNERS = [
   ['tower', 'Park Ave & E 51st St', 'Park Ave', 'E 51st St'],
   ['towergarage', 'Lexington Ave & E 52nd St', 'Lexington Ave', 'E 52nd St'],
@@ -125,6 +126,13 @@ export function createPlaces(W, world) {
       if (ref.face) p.face = ref.face;
     }
     if (p.face) { const f = base(p.face); if (f && Math.hypot(f.x - p.x, f.z - p.z) > 2) p.heading = Math.atan2(f.x - p.x, f.z - p.z); }
+    // (a sub-place: an alias's offset { right, fwd } m, up to 60, in its facing's frame: the side door round the corner)
+    const off = Object.prototype.hasOwnProperty.call(aliases, key) ? aliases[key].offset : null;
+    if (off && typeof off === 'object') {
+      const r = Math.max(-60, Math.min(60, +off.right || 0)), f = Math.max(-60, Math.min(60, +off.fwd || 0)), h = p.heading ?? 0;
+      const dx = Math.sin(h) * f - Math.cos(h) * r, dz = Math.cos(h) * f + Math.sin(h) * r;
+      p.x += dx; p.z += dz; if (p.cx != null) { p.cx += dx; p.cz += dz; }
+    }
     return p;
   }
   return { at, lib, missing };

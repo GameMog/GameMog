@@ -28,6 +28,7 @@ import { createRunner } from './runner.js';
 import { tell, result as tellResult, log as hostLog } from './host.js';
 import { showTitle, plainTitle, isOwn, ownTitle } from './title.js';
 import { asksDressing } from './pack.js';
+import { passCard } from './rules.js';
 import { createDirector } from '../mission/cine.js';
 
 const Q = new URLSearchParams(location.search);
@@ -116,7 +117,9 @@ export async function install(W) {
   }
   // the start: on foot by the car while the gate is up, the city at the world's time of day (a night world's gate at night)
   outBesideCar(W);
-  { const T = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' }, first = order[0]?.def, id = first?.time || order[0]?.act?.timeline?.[first?.id]?.time || def.dressing?.time; try { if (id) W.app.selectTime(T[id] || id); } catch {} }
+  // (a world that says no time at all, in its dressing or its first mission, is in daylight)
+  const firstTime = (() => { const first = order[0]?.def; return first?.time || order[0]?.act?.timeline?.[first?.id]?.time || def.dressing?.time || (def.dressing ? 'day' : null); })();
+  { const T = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' }, id = firstTime; try { if (id) W.app.selectTime(T[id] || id); } catch {} }
   const gate = Q.has('nogate') ? null : ui.gate({ when: () => W.app.ready, onStart: () => { W.audio?.unlock?.(); sfx.unlock(); }, fine: 'Community entertainment project. Have fun!' });
   if (!gate) ui.bootOff();
   for (let i = 0; i < 600 && !W.app.ready; i++) await sleep(100);
@@ -145,7 +148,7 @@ export async function install(W) {
   // 1: on a story's first start (nothing passed, no ?mission=), or asked for (?opening=1); ?opening=0 leaves it out
   if (def.opening && Array.isArray(def.opening.shots) && def.opening.shots.length && Q.get('opening') !== '0'
     && (Q.get('opening') === '1' || (k === 0 && !Q.get('mission') && !Object.keys(save.done).length))) {
-    try { await runner.opening(def.opening); } catch (e) { console.warn('[storyrun] opening', e); }
+    try { await runner.opening(def.opening, { time: firstTime }); } catch (e) { console.warn('[storyrun] opening', e); }
   }
   const marker = createMarker(THREE, W.app.scene, { color: '#FFC93C', radius: 2.4, height: 2.2, alpha: 0.25 });
   let first = true;
@@ -156,6 +159,8 @@ export async function install(W) {
     if (!first && !flags.flowFast) await between(m);
     first = false;
     if (replayAsk) { k = Math.max(0, order.findIndex((o) => o.def.id === replayAsk)); replayAsk = null; continue; }
+    // (what the meters stood at going in: the MISSION PASSED card's gains are from here)
+    const before = Object.fromEntries((def.hud?.meters || []).map((x) => [x.id, save.meters[x.id] ?? x.start ?? 0]));
     const r = await runner.play(m, { act, from: k === k0 && Q.get('step') ? Q.get('step') : null });
     if (replayAsk) { k = Math.max(0, order.findIndex((o) => o.def.id === replayAsk)); replayAsk = null; first = true; continue; }
     if (r.how === 'pass') {
@@ -170,7 +175,17 @@ export async function install(W) {
         : [['Time', fmt(r.secs)], ...((def.hud?.meters || []).filter((x) => x.kind !== 'hidden').map((x) => [x.label || x.id, String(Math.round(r.state.meters[x.id] ?? 0))]))];
       tell('mission-end', { id: m.id, how: 'pass', secs: Math.round(r.secs) });
       tellResult(world, m.id, r.secs);
-      await ui.passed({ title: m.title, stats, note: m.passLine || '', ...(P0.reward ? { reward: P0.reward } : {}) }, flags.autoCard ? 1.5 : 6);
+      // the card: Mog City's own (its stats, as the shipped game's: a world that lists pass.stats, Mog City's own story),
+      // else the story's MISSION PASSED (hud.passed): what was gained ('+$85,000'), the meter's way to its goal ('$430,000
+      // / $1,000,000', the bar filling), the pass line, and NEXT: the next mission's title and stakes; with a sting
+      if (Array.isArray(P0.stats)) await ui.passed({ title: m.title, stats, note: m.passLine || '', ...(P0.reward ? { reward: P0.reward } : {}) }, flags.autoCard ? 1.5 : 6);
+      else {
+        sfx.play('stinger', { gain: 0.42, notes: [261.63, 329.63, 392, 523.25] });
+        const nx = order[k + 1]?.def || null;
+        const card = passCard({ title: m.title, passLine: m.passLine || '', meters: def.hud?.meters || [], before, after: r.state.meters, next: nx ? { title: nx.title, stakes: nx.stakes } : null });
+        W.storyrun.lastCard = card;
+        await hud.passed({ ...card, stats: [['TIME', fmt(r.secs)]] }, flags.autoCard ? 2.2 : 7);
+      }
       // (the act's end card, after its last mission)
       // (after the card: the mission's own afterword, Mog City's way: DMs, a line of his; Mission 2's Jane and Rook)
       await afterPass(m);
@@ -213,6 +228,8 @@ export async function install(W) {
     const wasB = W.between; W.between = { at: { x: p.x, z: p.z }, stop() {} };
     if (B.dm !== false && giver !== heroName) { sfx.play('ding', { gain: 0.25 }); ui.dm(giver, `${m.stakes || m.title}`, 7); }
     if (B.help) setTimeout(() => ui.help(words(B.help), 9), 1800);
+    // (the world's meters stay up between missions: the ransom raised so far)
+    runner.showMeters(save.meters, []);
     const r = B.radius || 2.2, t0 = performance.now();
     let jumped = false;
     await new Promise((res) => {
@@ -230,7 +247,7 @@ export async function install(W) {
     });
     W.between = wasB === W.between ? null : wasB;
     if (W.gps.stallNote === B.note) W.gps.stallNote = null;
-    marker.hide(); W.gps.unblip('next'); W.gps.unblip('car'); W.gps.clear(); ui.objective(null); ui.help(null);
+    marker.hide(); W.gps.unblip('next'); W.gps.unblip('car'); W.gps.clear(); ui.objective(null); ui.help(null); hud.meters([]);
   }
   // after a mission's card: its afterword, in order: { dm: { from, text, secs }, say: [who, text], wait: secs }
   async function afterPass(m) {

@@ -16,7 +16,7 @@ import { showTitle, plainTitle, isOwn } from './title.js';
 
 export const STEP_KINDS = new Set(['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
-  'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow']);
+  'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car']);
 const STOCK = new Set(['roadster', 'trailhand', 'vandal']);
 // the hero cars Mog City builds in code besides Dan's roadster, by the name a world's `car.model` gives (wagmi/storyrun/gt.js)
 export const MODEL_CARS = new Set(['mogcity/gt']);
@@ -79,9 +79,21 @@ export function check(w) {
     if (!Array.isArray(m.steps) || !m.steps.length) { bad(`${m.id}: steps`); continue; }
     const kinds = (list, at) => { for (const [i, s] of (list || []).entries()) { if (!s || !STEP_KINDS.has(s.type)) bad(`${m.id} ${at}[${i}]: kind ${s && s.type}`); else if (s.ref != null && s.type !== 'call' && !PART_REFS.has(s.ref)) bad(`${m.id} ${at}[${i}]: no Mog City part ${s.ref}`); else { kinds(s.during, `${at}[${i}].during`); kinds(s.do, `${at}[${i}].do`); } } };
     kinds(m.steps, 'steps');
+    // (the shapes the play steps read: a stealth's watchers, a convoy's route, an ally's way there)
+    const shapes = (list, at) => { for (const [i, s] of (list || []).entries()) {
+      if (!s) continue;
+      if (s.type === 'stealth' && !s.ref && !(Array.isArray(s.units) && s.units.length && s.units.length <= 8)) bad(`${m.id} ${at}[${i}]: stealth units`);
+      if (s.type === 'convoy' && !(Array.isArray(s.route) && s.route.length >= 2)) bad(`${m.id} ${at}[${i}]: convoy route`);
+      if (s.type === 'ally' && s.to !== 'player' && !(typeof s.to === 'string' || (s.to && typeof s.to === 'object'))) bad(`${m.id} ${at}[${i}]: ally to`);
+      if (s.type === 'roadblock' && !s.at) bad(`${m.id} ${at}[${i}]: roadblock at`);
+      if (s.type === 'convoy' && s.band != null && !(Array.isArray(s.band) && s.band.length === 2 && s.band[0] < s.band[1])) bad(`${m.id} ${at}[${i}]: convoy band`);
+      shapes(s.during, `${at}[${i}].during`);
+    } };
+    shapes(m.steps, 'steps');
     if (m.vehicle != null && typeof m.vehicle !== 'string') bad(`${m.id}: vehicle`);
   }
   if (!Array.isArray(w.acts) || !w.acts.length) bad('acts');
+  for (const mt of w.hud?.meters || []) if (mt && mt.goal != null && !(typeof mt.goal === 'number' && mt.goal > 0)) bad(`hud meter ${mt.id}: goal`);
   // (the opening, before Mission 1: its shots are a cutscene's, plus a place card, a name card and the title)
   if (w.opening != null) {
     const o = w.opening;

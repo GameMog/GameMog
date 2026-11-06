@@ -772,7 +772,7 @@ export function createCalls(W) {
     }
     if (t < C.gapEnd) return;
     // out of the car: on hold after 1.5 s, a pause line once he's been talked to
-    if (!inCar()) {
+    if (!inCar() || C.extHold) {
       if (C.wrapOnly) { end(C, true); return; }
       if (!C.outAt) C.outAt = t;
       if (!C.held && (C.pauseNow || t - C.outAt >= OUT_HOLD * 1000)) {
@@ -874,7 +874,7 @@ export function createCalls(W) {
     },
     wrap() { if (cur) cur.wrapReq = true; },
     // (out of the car, the mission moving on: on hold now, its pause line after the line playing, no 1.5 s wait)
-    pause() { if (cur && !cur.dead && cur.state === 'talk') cur.pauseNow = true; },
+    pause() { if (cur && !cur.dead && cur.state === 'talk') cur.pauseNow = true; }, hold(on) { if (cur && !cur.dead && cur.state === 'talk') { cur.extHold = !!on; if (on) cur.pauseNow = true; } }, // (hold: on hold for another call, a story's call waiting (wagmi/storyrun), as if he were out of the car; hold(false) back on)
     // what the live call `id` still owes before a scene may cut it: 'main' (its protected main lines, wrapAfterMain),
     // 'wrap' (the line playing and its wrap), null (another call, not rung yet, or over)
     owes(id) { const C = cur; if (!C || C.dead || C.id !== id || C.state === 'wait') return null; return C.def.wrapAfterMain && mainLeft(C) ? 'main' : 'wrap'; },
