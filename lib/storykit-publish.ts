@@ -4,7 +4,7 @@ import { codeHash } from './test-drive';
 import { storykitPublic } from './storykit-switch';
 import { storyStore } from './storykit-store';
 import { MC_PROD, mcOrigin } from './episode';
-import { onSky } from './portrait-sky';
+import { onSky } from './portrait-sky-key';
 import { storyKeyArt } from './story-art';
 
 /**
@@ -183,7 +183,7 @@ export async function recordStoryReport(storeId: string, pack: { title?: unknown
   if (wide) next.coverHash = codeHash(d.code);
   const art = wide ? await storyKeyArt({ wide, square }, typeof pack.title === 'string' ? pack.title : '', typeof pack.kicker === 'string' ? pack.kicker : '').catch(() => null) : null;
   // the world's round headshot (6 Nov, the owner: every game carries a headshot so it can be featured): its hero on the
-  // sky's flat key (art avatar, work.js), laid on the sky's gradient (lib/portrait-sky.ts onSky); none, the hero's own
+  // sky's flat key (art avatar, work.js), laid on the sky's gradient (lib/portrait-sky-key.ts onSky); none, the hero's own
   // headshot (head-<hero>) is not used (it is on the studio's dark ground, which cannot be keyed out cleanly)
   const av = blob('avatar'), avatar = av ? await onSky(av).catch(() => null) : null;
   db.prepare('UPDATE drafts SET report = ?, cover = COALESCE(?, cover), art_wide = COALESCE(?, art_wide), art_icon = COALESCE(?, art_icon), art_avatar = COALESCE(?, art_avatar) WHERE id = ?')

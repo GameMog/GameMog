@@ -66,7 +66,7 @@ export const TYPES: Record<string, string> = {
 export const BLOB_FILE = /^([0-9a-f]{64})\.(glb|ogg|wav|jpg|webp|png|json)$/;
 const CAST_ID = /^[a-z][a-z0-9-]{0,39}$/;
 const CLIP = /^([0-9a-f]{8})-([0-9a-f]{8})\.(ogg|wav)$/;
-// (avatar: the world's round headshot, its hero on the sky's flat key, 6 Nov; lib/portrait-sky.ts onSky)
+// (avatar: the world's round headshot, its hero on the sky's flat key, 6 Nov; lib/portrait-sky-key.ts onSky)
 const ART = /^(key-wide|key-square|avatar|head-[a-z][a-z0-9-]{0,39})\.(jpg|webp|png)$/;
 const DRAFT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 

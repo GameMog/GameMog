@@ -187,7 +187,7 @@ export const SKY_HEADSHOTS = [
  * the first sky headshots missed, on the same sky. Las Vegas Night GP and MogDune by the portrait pass's new ladder
  * (wider, turned, then the best moment: lib/runtime/portrait.js take); The Velvet Run's Lena Vale and Mog City's Dan by
  * the Story Kit's portrait studio from their own bodies (public/storykit/forge/portrait.html, frame 'avatar', on the
- * sky's key, laid on the sky by lib/portrait-sky.ts onSky). deploy/migrations/<slug>-sky.jpg. Code: sha256 of the
+ * sky's key, laid on the sky by lib/portrait-sky-key.ts onSky). deploy/migrations/<slug>-sky.jpg. Code: sha256 of the
  * row's code, first 16 hex. Set by 2026-11-06-sky-headshots-2 only on that code and only where the game still has no
  * portrait of its own.
  */
