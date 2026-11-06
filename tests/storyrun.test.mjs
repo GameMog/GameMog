@@ -163,3 +163,12 @@ test("a world's opening: checked, played once before Mission 1 on a first start,
   const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
   for (const k of ['ui.place(tokens(s.where.name)', 'ui.caption(who, ', 'ui.gameTitle(true)', "shotList(o.shots || [], t, { opening: true })", 'fig.hold = true']) assert.ok(run.includes(k), k);
 });
+
+test("a side step waits only on a number of seconds: a roadblock's or a car's `at` is its place", () => {
+  // (a roadblock kept beside the steps after it, { type: 'roadblock', at: '@toll' }, is started as a side step: its place
+  // must never be read as the side step's seconds-in delay, or it waits for ever and never stands up)
+  const src = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const fn = src.slice(src.indexOf('function side(d, hostTok'), src.indexOf('/* --------------------------------------------------------- a mission --'));
+  assert.match(fn, /typeof d\.at === 'number'/);
+  assert.doesNotMatch(fn, /if \(d\.at\) await delay/);
+});

@@ -1455,7 +1455,9 @@ export function createRunner(ctx) {
     M.sides.add(s);
     (async () => {
       try {
-        if (d.at) await delay(d.at, st);
+        // (a side step's at is seconds in; a roadblock's or a car's at is its place, never a delay: a roadblock kept
+        // beside the steps after it waited on delay('@toll') for ever and never stood up)
+        if (typeof d.at === 'number' && d.at > 0) await delay(d.at, st);
         const r = await (d.ref && partOf(d.ref) && d.type !== 'call' ? runPart(d.ref, d, st) : STEPS[d.type](d, st, true));
         if (d.after) applySet(d.after);
         if (r?.end) M.endNow = true;
