@@ -32,6 +32,25 @@ export type Draft = {
     kind?: string; shootout?: { kicks?: number; results?: number; goals?: number } };
 };
 
+/**
+ * A story world's draft, kept in this browser until it is published (localStorage, one at a time): its work runs in
+ * this tab after the build (forge, voices, a test drive of up to ~9 minutes), so a reload, a closed tab or a drive cut
+ * short must not lose the way to its Publish card. The page that built it carries on with it when opened again (the
+ * work page skips what is stored and the missions already banked, public/storykit/work.js); another page that builds
+ * says where it is. Kept for a day, as its store draft is (lib/storykit-store.ts).
+ */
+const STORY_BUILD_KEY = 'gamemog:story-build';
+type SavedStoryBuild = { v: 1; path: string; at: number; draft: Draft };
+function saveStoryBuild(draft: Draft) { try { localStorage.setItem(STORY_BUILD_KEY, JSON.stringify({ v: 1, path: location.pathname, at: Date.now(), draft } satisfies SavedStoryBuild)); } catch { /* private mode: not kept */ } }
+function forgetStoryBuild() { try { localStorage.removeItem(STORY_BUILD_KEY); } catch { /* nothing kept */ } }
+function savedStoryBuild(): SavedStoryBuild | null {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORY_BUILD_KEY) ?? 'null') as SavedStoryBuild | null;
+    if (!s || s.v !== 1 || typeof s.path !== 'string' || !s.path.startsWith('/') || !(Date.now() - s.at < 23 * 3600_000)) { if (s) forgetStoryBuild(); return null; }
+    return s.draft?.draftId && s.draft.story?.draft && s.draft.story.token && s.draft.meta?.title ? s : null;
+  } catch { return null; }
+}
+
 export function useGeneration() {
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<{ stage: string; attempt: number; chars: number } | null>(null);
@@ -48,6 +67,8 @@ export function useGeneration() {
   // a Story Kit world's browser work (STORYKIT=on, app/create/story-show.tsx): the cast, the voices, the test drive and
   // the key art, reported by the creator's browser (reportStory) or by the build stream ({ type: 'story', ... })
   const [story, setStory] = useState<StoryWork | null>(null);
+  // a story world's draft this browser kept (savedStoryBuild) that was built on another page: where to go back to it
+  const [elsewhere, setElsewhere] = useState<{ path: string; title: string } | null>(null);
   useEffect(() => {
     if (!busy) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -67,9 +88,28 @@ export function useGeneration() {
     working.current = startStoryWork(story, {
       patch: (p) => setStory((s) => storyPatch(s, p)),
       // the world's draft is kept; what could not be made here is said, and the draft shows as it is (unverified)
-      error: (e) => { setStory((s) => storyPatch(s, { done: true })); setError(e); working.current?.(); working.current = null; },
+      error: (e) => {
+        setStory((s) => storyPatch(s, { done: true })); setError(e); working.current?.(); working.current = null;
+        // (its store draft is gone, a day on: nothing is left to carry on with)
+        if (/^No such draft/.test(e)) { forgetStoryBuild(); setDraft(null); }
+      },
       done: () => { working.current?.(); working.current = null; },
     });
+  }
+  // a story world this browser was making when the page went (a reload, the tab closed): its draft and its work again,
+  // here on the page that built it (savedStoryBuild); on another page, where it is
+  useEffect(() => {
+    const s = savedStoryBuild(); if (!s) return;
+    if (s.path !== location.pathname) { setElsewhere({ path: s.path, title: s.draft.meta.title }); return; }
+    setDraft(s.draft); setStartedAt(Date.now()); setNow(Date.now());
+    storyWork(s.draft.story!);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  /** A story world's work again, on the draft as it is (a drive that stopped short): the missions banked are kept. */
+  function retryStory() {
+    if (!draft?.story || working.current) return;
+    setError(''); setStory(null); setStartedAt(Date.now()); setNow(Date.now());
+    storyWork(draft.story);
   }
 
   /** Streams a written world; any other response comes back as JSON for the caller. */
@@ -77,6 +117,7 @@ export function useGeneration() {
     reading.current?.abort();
     working.current?.(); working.current = null;
     const stop = (reading.current = new AbortController());
+    forgetStoryBuild(); setElsewhere(null);
     setBusy(true); setError(''); setDraft(null); setRounds([]); setStage(null); setDrive(null); setQueue(null); setStory(null);
     setStartedAt(Date.now()); setNow(Date.now());
     try {
@@ -101,7 +142,7 @@ export function useGeneration() {
             else if (e.type === 'problems') setRounds((r) => [...r, { attempt: e.attempt, problems: e.problems }]);
             else if (e.type === 'drive') setDrive({ draftId: e.draftId, token: e.token, attempt: e.attempt, mc: typeof e.mc === 'string' ? e.mc : undefined });
             else if (e.type === 'story') { const { type: _t, ...patch } = e; void _t; setStory((s) => storyPatch(s, patch as StoryWork)); }
-            else if (e.type === 'done') { ended = true; setDraft(e); if (e.story?.draft && e.story?.token) storyWork(e.story as StoryDone); }
+            else if (e.type === 'done') { ended = true; setDraft(e); if (e.story?.draft && e.story?.token) { saveStoryBuild(e as Draft); storyWork(e.story as StoryDone); } }
             else if (e.type === 'error') {
               ended = true;
               setError(e.error);
@@ -141,7 +182,7 @@ export function useGeneration() {
         body: JSON.stringify({ draftId: draft.draftId, creator: who.creator || undefined, player: playerId(), dare: who.dare || undefined }),
       });
       const data = await res.json().catch(() => ({})) as { id?: string; slug?: string; creator?: string | null; error?: string; field?: string };
-      if (res.ok && data.id && data.slug) return { ok: true, game: { id: data.id, slug: data.slug, creator: data.creator ?? null } };
+      if (res.ok && data.id && data.slug) { forgetStoryBuild(); return { ok: true, game: { id: data.id, slug: data.slug, creator: data.creator ?? null } }; }
       if (data.field === 'creator') return { ok: false, error: data.error ?? 'Pick another name.', field: 'creator' };
       setError(data.error ?? 'Publish failed');
       return { ok: false, error: data.error ?? 'Publish failed' };
@@ -152,7 +193,7 @@ export function useGeneration() {
   }
 
   const reportStory = (p: StoryWork) => setStory((s) => storyPatch(s, p));
-  return { busy, stage, rounds, draft, error, setError, publishing, startedAt, now, run, publish, drive, endDrive: () => setDrive(null), queue, story, reportStory };
+  return { busy, stage, rounds, draft, error, setError, publishing, startedAt, now, run, publish, drive, endDrive: () => setDrive(null), queue, story, reportStory, retryStory, elsewhere };
 }
 export type Generation = ReturnType<typeof useGeneration>;
 /** A published game, as POST /api/games answers it. */
@@ -682,6 +723,8 @@ function LimitNote({ error }: { error: string }) {
 export function GenerationProgress({ gen, mode = 'create', subject, open, kind, city }: { gen: Generation; mode?: Mode; subject?: string; open?: boolean; kind?: Kind; city?: string }) {
   const { error, rounds } = gen;
   // (a story world's show stays up while the browser works after the stream: forge, voices, test drive, key art)
+  // (a story world's draft carried on after a reload is one whatever page kind the page now thinks it is)
+  if (gen.draft?.story) kind = 'story';
   const browserWork = kind === 'story' && !!gen.story?.stage && !gen.story.done;
   const busy = gen.busy || browserWork;
   const limit = /^(GameMog is busy building|Building is resting)/.test(error);
@@ -690,6 +733,11 @@ export function GenerationProgress({ gen, mode = 'create', subject, open, kind, 
   useEffect(() => { if (busy) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [busy]);
   return (
     <div ref={ref} style={{ scrollMarginTop: 96 }}>
+      {!busy && gen.elsewhere && !gen.draft ? (
+        <div className="panel" role="status" style={{ marginBottom: 16 }}>
+          <p style={{ margin: 0, fontSize: 16 }}>Your story world <b>{gen.elsewhere.title}</b> is not published yet. <a href={gen.elsewhere.path}>Go back to it</a> to finish its test drive and publish it.</p>
+        </div>
+      ) : null}
       {busy && (gen.queue ? <InLine gen={gen} mode={mode} subject={subject} kind={kind} />
         : kind === 'story' ? <StoryShow mode={mode} stage={gen.stage?.stage as never} chars={gen.stage?.chars ?? 0} startedAt={gen.startedAt} now={gen.busy && gen.now ? gen.now : Date.now()} story={gen.story} subject={subject} cityName={city} />
         : <BuildShow gen={gen} mode={mode} subject={subject} open={open} kind={kind} />)}
@@ -731,6 +779,7 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode
   // another take is another game to publish
   useEffect(() => { setLive(null); }, [draft?.draftId]);
   if (!draft) return null;
+  if (draft.story) kind = 'story';
   // (a Story Kit world: the draft waits until the browser has forged, voiced, driven and framed it)
   if (kind === 'story' && gen.story?.stage && !gen.story.done) return null;
   // (a Mog City episode, 3 Nov: no dares at launch; the published game is the next step)
@@ -793,6 +842,12 @@ export function DraftResult({ gen, publishLabel, againLabel, onAgain, note, mode
         {' '}Built in {Math.max(1, Math.round(draft.ms / 60000))} minutes.
       </p>
       {note}
+      {draft.story && gen.story?.result?.status !== 'passed' ? (
+        <p className="t-meta" style={{ marginBottom: 16 }}>
+          <button className="btn outline" style={{ height: 40 }} onClick={gen.retryStory} disabled={busy || publishing}>Run the test drive again</button>
+          <span className="dim" style={{ marginLeft: 10 }}>It carries on from the missions already played through. Keep this tab in front while it drives.</span>
+        </p>
+      ) : null}
       <label className="lbl" htmlFor="creator-name">Your name on it</label>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <input id="creator-name" type="text" value={name} maxLength={20} placeholder="Optional" autoComplete="off" data-1p-ignore data-lpignore="true" spellCheck={false}

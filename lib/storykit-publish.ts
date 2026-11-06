@@ -135,6 +135,21 @@ function playHashOf(storeId: string): string | null {
 }
 
 /**
+ * The missions a store draft's test drive has banked (GET /api/storykit/drafts/<id>, read by public/storykit/work.js):
+ * the ones an earlier sitting passed with no errors on the world as it plays now (the same rule recordStoryReport carries
+ * by), so a sitting after a reload or a stop drives only what is left, and a drive that has all of them goes straight to
+ * its report. Empty when nothing is banked, or the world has changed since.
+ */
+export function bankedMissions(storeId: string): string[] {
+  const d = draftOfStore(storeId); if (!d) return [];
+  type Prev = { play?: string; errors?: number; missions?: DriveReport['missions'] };
+  let prev: Prev | null = null;
+  try { prev = (JSON.parse(d.report) as { drive?: Prev }).drive ?? null; } catch { return []; }
+  if (!prev || prev.errors !== 0 || !prev.play || prev.play !== playHashOf(storeId)) return [];
+  return (prev.missions ?? []).filter((m) => m.state === 'passed').map((m) => m.id);
+}
+
+/**
  * The creator's browser's report for a store draft: its GameMog draft's test drive (passed: every mission of the pack,
  * 0 page errors), and the store's key art as the draft's cover. Null when no draft names that store draft.
  */

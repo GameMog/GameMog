@@ -197,11 +197,21 @@ const site = () => (/(^|\.)gamemog\.com$/.test(location.hostname) ? 'https://gam
 const toDataUrl = (bytes) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(null); r.readAsDataURL(new Blob([bytes], { type: 'image/jpeg' })); });
 
 async function driving(world, status) {
-  const list = world.missions.filter((m) => !m.hidden).map((m) => ({ id: m.id, title: m.title, state: 'waiting' }));
+  // (the missions an earlier sitting passed on this same world, status.banked (lib/storykit-publish.ts bankedMissions):
+  // ticked off as they are, never played again; the drive starts at the first one left, and a drive with none left goes
+  // straight to its report. A long story's drive cut short (a reload, the tab closed, a stop) so carries on where it was)
+  const bank = new Set(Array.isArray(status.banked) ? status.banked : []);
+  const list = world.missions.filter((m) => !m.hidden).map((m) => ({ id: m.id, title: m.title, state: bank.has(m.id) ? 'passed' : 'waiting', ...(bank.has(m.id) ? { banked: true } : {}) }));
   W.missions = list;
   const show = () => { $('#missions').innerHTML = list.map((m) => `<li class="${m.state}">${m.title.replace(/[<>&]/g, '')}</li>`).join(''); };
   show();
-  report({ stage: 'driving', drive: { missions: list } });
+  report({ stage: 'driving', drive: { missions: list.map((x) => ({ id: x.id, title: x.title, state: x.state })) } });
+  const left = list.find((m) => m.state !== 'passed');
+  if (!left) {
+    log({ banked: list.length, drive: 'skipped' });
+    W.drive = { ms: 0, live: 0, hidden: 0, ended: true, reason: null, stuck: null, banked: list.length, errors: [], errorCount: 0, pauses: 0, art: false };
+    return { list, errors: [], art: null, frame: null, reason: null, stuck: null, live: 0, hidden: 0 };
+  }
   say('Test drive: the autopilot is playing every mission in Mog City...');
   const LIMIT = DRIVE_LIMITS;
   // the world as it is now, frozen (a content-hashed .json: what Mog City reads)
@@ -210,7 +220,7 @@ async function driving(world, status) {
   const pack = `${site()}${sealed.url}`;
   // (?from=<mission id>, probes only: the drive starts at that mission and plays on from there; the ones before it are not
   // played, so such a report never passes)
-  const from = /^[A-Za-z0-9_.-]{1,40}$/.test(Q.get('from') || '') ? Q.get('from') : null;
+  const from = /^[A-Za-z0-9_.-]{1,40}$/.test(Q.get('from') || '') ? Q.get('from') : bank.size ? left.id : null;
   const src = `${mc}/?pack=${encodeURIComponent(pack)}&host=${encodeURIComponent(location.origin)}&game=${encodeURIComponent(`draft-${draft}`)}`
     + `&nogate&trailer=0&autopilot=1&autoanswer=1&autochoose=0&autocontinue=1&autocard=1&flowfast=1&noaudio=1&keyart=1&missionsecs=${Math.round(LIMIT.mission / 1000)}`
     + (from ? `&mission=${encodeURIComponent(from)}` : '');
@@ -283,7 +293,7 @@ async function driving(world, status) {
   // (lib/storykit-publish.ts recordStoryReport); never with an error, which no later sitting can carry
   const banked = () => {
     if (errors.length) return;
-    const missions = list.filter((m) => m.state === 'passed').map((m) => ({ id: m.id, state: 'passed', ...(m.ms ? { ms: m.ms } : {}) }));
+    const missions = list.filter((m) => m.state === 'passed' && !m.banked).map((m) => ({ id: m.id, state: 'passed', ...(m.ms ? { ms: m.ms } : {}) }));
     fetch(`${API}/report`, { method: 'POST', headers: { ...auth(), 'content-type': 'application/json' }, body: JSON.stringify({ missions, errors: 0, partial: true, ms: Math.round(performance.now() - W.t0), live: Math.round(live), hidden: Math.round(hidden) }) })
       .then((r) => log({ banked: missions.length, status: r.status })).catch(() => {});
   };
@@ -380,11 +390,13 @@ async function keyArt(art, hero) {
   let world = await getJson(`${API}/pack`);
   await timed('voice', () => voicing(world));
   world = await getJson(`${API}/pack`);
-  const drive = await timed('drive', () => driving(world, status));
+  // (the draft's status again: what is banked is judged on the world as it is after the voices)
+  const drive = await timed('drive', async () => driving(world, await getJson(API)));
   await timed('art', () => keyArt(drive.art, hero));
   // the drive's frame goes: the world has been played, and its city is a gigabyte of memory
-  drive.frame.remove();
-  const rep = { missions: drive.list.filter((m) => m.state === 'passed' || m.state === 'failed').map((m) => ({ id: m.id, state: m.state, ...(m.ms ? { ms: m.ms } : {}) })),
+  drive.frame?.remove();
+  // (a banked mission is the server's to carry, recordStoryReport: only what this sitting played is reported)
+  const rep = { missions: drive.list.filter((m) => !m.banked && (m.state === 'passed' || m.state === 'failed')).map((m) => ({ id: m.id, state: m.state, ...(m.ms ? { ms: m.ms } : {}) })),
     errors: drive.errors.length, ms: Math.round(performance.now() - W.t0), stages: W.stages,
     ...(drive.reason ? { reason: drive.reason } : {}), ...(drive.stuck ? { stuck: drive.stuck } : {}), live: Math.round(drive.live), hidden: Math.round(drive.hidden) };
   W.report = await getJson(`${API}/report`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(rep) });
