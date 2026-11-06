@@ -29,6 +29,7 @@ import { place as putAt, outBesideCar } from '../intro.js';
 import { test, value, flagName } from './cond.js';
 import { createTimers, meterText, deltaText, progress, seen as inSight, band as bandRule, speedRule, MPH } from './rules.js';
 import { createSets } from './sets.js';
+import { createJuice } from './juice.js';
 
 const PI = Math.PI;
 export const KINDS_STUB = new Set(['patrol', 'wallet']);
@@ -76,6 +77,8 @@ export function createRunner(ctx) {
   const app = W.app, cm = app.controllerManager, P = W.person, car = W.car, ui = W.ui, sfx = W.sfx;
   const gps = W.gps || (W.gps = createGPS(W));
   const marker = W.marker || (W.marker = createMarker(THREE, app.scene, { color: '#FFC93C', radius: 3 }));
+  // (the action beats' punch: alerts, stings, a beat of slow motion, the clock's red edge: juice.js)
+  const juice = W.juice || (W.juice = createJuice(W));
   const def0 = world.def;
   const now = () => (W.clock ? W.clock.now() : performance.now());
   const inCar = () => cm.activeMode === 'car';
@@ -212,7 +215,7 @@ export function createRunner(ctx) {
         else if (sh.late) hud.timer(sh.over, sh.opts.lateLabel || sh.opts.label || 'LATE', true);
         else {
           hud.timer(sh.left, sh.opts.label || 'TIME');
-          const sec = Math.ceil(sh.left); if (sh.left <= 10 && sec !== tickAt) { tickAt = sec; sfx.play('thunk', { gain: 0.12, f: 880, ring: false }); }
+          const sec = Math.ceil(sh.left); if (sh.left <= 10 && sec !== tickAt) { tickAt = sec; sfx.play('thunk', { gain: 0.12, f: 880, ring: false }); if (sh.opts.fail !== 'soft') juice.pulse(1 - sh.left / 10); }
         }
         return out;
       },
@@ -237,7 +240,10 @@ export function createRunner(ctx) {
     const name = d.name || 'mission';
     if (d.stop) { M.timer.stop(d.name || null); return; }
     if (d.add != null && d.seconds == null) { M.timer.add(d.add, name); return; }
-    M.timer.start(value(d.seconds, M.state, ctx.save.done) || 60, { label: d.label, fail: d.fail || 'hard', why: d.why, flag: d.flag, set: d.set, lateLabel: d.lateLabel }, name);
+    const secs = value(d.seconds, M.state, ctx.save.done) || 60;
+    M.timer.start(secs, { label: d.label, fail: d.fail || 'hard', why: d.why, flag: d.flag, set: d.set, lateLabel: d.lateLabel }, name);
+    // (a clock that fails the mission says so as it starts: its label, its time, and what running out costs)
+    if ((d.fail || 'hard') === 'hard' && d.label) juice.alert(`${d.label} · ${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`, { sub: d.why ? tokens(d.why) : '', tone: 'yellow', sting: 'up', secs: 2.8 });
   };
 
   // drive: the corona, the GPS ('get there' the Mog City way: gps.drive), there inside the radius and slowed down
@@ -905,7 +911,9 @@ export function createRunner(ctx) {
     if (!inCar()) { /* (the chase needs the car: the GPS sends him back to it) */ }
     const chase = pu.start({ heat: d.level || 2, kind: d.kind === 'police' ? 'police' : 'suits', count: value(d.count, M.state, ctx.save.done) || undefined, lose: d.goal !== 'escort', ...(d.loseTime ? { escape: d.loseTime } : {}) });
     let lost = false, caught = false;
-    chase?.on?.('lost', () => { lost = true; }); chase?.on?.('caught', () => { caught = true; });
+    chase?.on?.('lost', () => { lost = true; juice.alert('Lost them', { tone: 'green', sting: 'down', secs: 1.8 }); }); chase?.on?.('caught', () => { caught = true; });
+    // (the chase's alarm: who is on him, and the camera jolted)
+    juice.alert(d.kind === 'police' ? 'Police' : "Delgado's crew", { sub: d.alert ? tokens(d.alert) : d.kind === 'police' ? 'Lose the cops.' : ride ? 'They found you. Keep moving.' : 'Lose them.', tone: 'red', sting: 'up', jolt: 0.35 });
     M.chase = chase;
     // (a chase that starts with his car standing, parked or in a queue at a light: the traffic round it cleared, and for
     // a chase to a place the first 180 m of the way there too (d.clear m round the car, 32 by default; 0 leaves it),
@@ -967,7 +975,7 @@ export function createRunner(ctx) {
     const name = d.name || 'the car';
     gps.objective(parts(d.objective || `Follow **${name}**. Don't get too close.`, 'red'), { follow: () => D.pos, name });
     gps.blip('tail', { x: D.pos.x, z: D.pos.z, kind: 'enemy', edge: true, name });
-    let close = 0, far = 0, last = now(), opened = false, lastLeft = 0;
+    let close = 0, far = 0, last = now(), opened = false, lastLeft = 0, warnAt = 0;
     const ring = d.ring || 25, lostDist = d.lostDist || 160, t0 = now();
     // (a tail that starts where the last leg ended, on top of the car to follow: being close counts only once it has
     // pulled away to half the ring, or after 6 s; MM, 5 Nov: Mission 2's van "spotted" a player parked at its mark)
@@ -983,6 +991,8 @@ export function createRunner(ctx) {
         if (dd >= ring * 0.5 || now() - t0 > 6000) opened = true;
         close = dd < ring * 0.5 && opened ? close + dt : Math.max(0, close - dt);
         far = dd > lostDist ? far + dt : 0;
+        // (the warning before the fail: too close, or about to lose it)
+        if (tt - warnAt > 3500 && (close > (d.spotTime || 4) * 0.4 || far > (d.lostTime || 8) * 0.35)) { warnAt = tt; juice.alert(close > 0 ? 'Too close' : 'Losing them', { sub: close > 0 ? 'Back off or they make you.' : `Catch up to ${name}.`, tone: 'yellow', secs: 1.6 }); }
         if (close > (d.spotTime || 4)) throw new Fail(`${name.replace(/^the /, 'The ')} spotted you.`, 'lost');
         if (far > (d.lostTime || 8)) throw new Fail(`You lost ${name}.`, 'lost');
         return D.done;
@@ -1571,12 +1581,17 @@ export function createRunner(ctx) {
       best.v = { x: s * e.speed * 0.6 + co * side * 4, z: co * e.speed * 0.6 - s * side * 4, spin: side * 3.2, t: 0 };
       car.speed = Math.max(car.speed || 0, e.speed * 0.55);
       sfx.play('boom', { gain: 0.35 }); M.state.flags[flagName(d.flag || 'rammed roadblock')] = true; M.log.push(['roadblock', 'rammed']);
+      // (through it: a beat of slow motion on the hit, the camera thrown, the word)
+      juice.slow(0.7, 0.3); juice.alert('Through!', { tone: 'green', sting: 'hit', secs: 1.6, jolt: 0.6 });
     });
     const anim = () => {
       const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
+      if (!warned && dist(me(), c0.x, c0.z) < 170) { warned = true; juice.alert(police ? 'Police roadblock' : 'Roadblock', { sub: 'Ram it at speed, or find a way round.', tone: 'red', sting: 'hit', secs: 2.6 }); }
       for (const c of B.cars) if (c.v && c.v.t < 1.6) { c.v.t += dt; const f = Math.max(0, 1 - c.v.t / 1.6); c.g.position.x += c.v.x * dt * f; c.g.position.z += c.v.z * dt * f; c.g.rotation.y += c.v.spin * dt * f; c.g.position.y = cm.getGroundHeight(c.g.position.x, c.g.position.z, 'car'); }
     };
     if (d.text) ui.help(parts(d.text), 6);
+    // (its alarm as he comes up on it, not when it is stood up blocks away)
+    let warned = false;
     const dest = d.to ? placeOf(d.to) : null;
     try {
       if (dest) await Promise.race([goTo(dest, d, t, { objective: d.objective || `Get past the roadblock to **${dest.name}**.`, needsCar: !!M.def.vehicle }), wait(() => { anim(); return false; }, t)]);
@@ -1629,7 +1644,7 @@ export function createRunner(ctx) {
     W.calls?.stop({ quiet: true, of: 'pack:' });
     try { M.chase?.stop?.(); } catch {}
     if (M.crew) W.combat?.clear?.();
-    hud.clear(); M.timer.stop();
+    hud.clear(); M.timer.stop(); juice.clear(); juice.live = false;
     ui.objective(null); ui.sub(null); ui.help(null); ui.counter(null); ui.caller(null); ui.hold(null); ui.phone?.hide?.(); ui.offer?.(null);
     gps.clear(); app.mapSystem.waypoint = null; for (const id of [...gps.blips.keys()]) gps.unblip(id); marker.hide();
     for (const n of M.npcs) cast.hide(n); M.npcs.clear();
@@ -1662,6 +1677,7 @@ export function createRunner(ctx) {
     };
     for (const m of meterDefs()) if (M.state.meters[m.id] == null) M.state.meters[m.id] = m.start ?? 0;
     W.mission = { id: def.id, phase: null, stop: () => kill(M.tok, new Stop()), pack: true };
+    juice.live = true;
     showMeters();
     // the mission timer and the countdown's end
     const timerLoop = (async () => {

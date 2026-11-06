@@ -129,6 +129,8 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     if (type === 'tow' && held) hold(null);
     // (a convoy: kept in its band behind the car it follows, convoy())
     if (type === 'convoy' && M.convoy) { convoy(M.convoy, t); return; }
+    // (a chase beside a step with nowhere to go, a call taken with the crew on him: kept moving and away from them)
+    if (M.chase && ['call', 'wait', 'say', 'voicemail', 'voicenote', 'dm', 'set', 'timer', 'trigger'].includes(type) && escape(t)) return;
     if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow', 'passenger', 'roadblock', 'stealth'].includes(type)) { release(); return; }
     // a chase to lose: escape() (the pursuit's own 'lost' ends it)
     if (type === 'pursuit' && d.goal !== 'reach' && escape(t)) return;
@@ -230,7 +232,8 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     seenT = ch.seen ? seenT + dt : 0;
     slowT = Math.abs(car.speed || 0) < 4 ? slowT + dt : 0;
     const pinned = (ch.caughtT || 0) > 1.2;
-    if ((seenT > 7 || slowT > 2.5 || pinned) && t - chaseJumpT > 6) {
+    // (&realpace: no hop out of their sight just for being seen, so a chase lasts about as long as a player's)
+    if (((seenT > 7 && !realPace) || slowT > 2.5 || pinned) && t - chaseJumpT > 6) {
       chaseJumpT = t; seenT = 0; slowT = 0;
       const x = car.position.x, z = car.position.z, q = along(r, x, z, 140), q2 = along(r, x, z, 146);
       putCar(q.x, q.z, Math.atan2(q2.x - q.x, q2.z - q.z)); car.speed = 12;

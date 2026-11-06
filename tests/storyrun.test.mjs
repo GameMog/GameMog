@@ -266,3 +266,26 @@ test("the story's end reads MISSION PASSED, the act's stats, STORY COMPLETE, the
   assert.match(pu, /Math\.abs\(car\.speed \|\| 0\) < 4/);
   assert.match(pu, /finally \{ if \(clearT\) \{ clearInterval\(clearT\); try \{ app\.trafficSystem\.hold\?\.\(\[\]\); \} catch \{\} \}/);
 });
+
+test("the action beats have punch: a chase's alarm, a roadblock rammed in slow motion, a tail's warnings, a hard clock's stakes and red edge; the autopilot keeps moving in a chase beside a call", () => {
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const juice = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/juice.js'), 'utf8');
+  assert.match(run, /import \{ createJuice \} from '\.\/juice\.js'/);
+  assert.match(juice, /export function createJuice\(W\)/);
+  // (nothing in it touches a rule: it draws, sounds, and borrows the crash's slow motion and jolt)
+  assert.doesNotMatch(juice, /M\.(timer|state|tok)|throw new/);
+  assert.match(juice, /if \(!text \|\| W\.cutscene\) return;/);
+  const pu = run.slice(run.indexOf('STEPS.pursuit = '), run.indexOf('STEPS.tail = '));
+  assert.match(pu, /juice\.alert\(d\.kind === 'police' \? 'Police' : "Delgado's crew"/);
+  assert.match(pu, /juice\.alert\('Lost them'/);
+  const rb = run.slice(run.indexOf('STEPS.roadblock = '), run.indexOf('function dropBlock'));
+  assert.match(rb, /juice\.slow\(0\.7, 0\.3\)/);
+  const tail = run.slice(run.indexOf('STEPS.tail = '), run.indexOf('function cue('));
+  assert.ok(tail.indexOf("'Too close'") > 0 && tail.indexOf("'Too close'") < tail.indexOf('spotted you'));
+  assert.match(run, /if \(sh\.opts\.fail !== 'soft'\) juice\.pulse\(1 - sh\.left \/ 10\)/);
+  assert.match(run, /hud\.clear\(\); M\.timer\.stop\(\); juice\.clear\(\); juice\.live = false;/);
+  // (a near miss: only in a mission, at speed, past one of the city's cars untouched)
+  assert.match(juice, /if \(!api\.live \|\| W\.cutscene/); assert.match(juice, /lastHit < c\.t - 150/);
+  const ap = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/autopilot.js'), 'utf8');
+  assert.ok(ap.indexOf("if (M.chase && ['call'") > 0 && ap.indexOf("if (M.chase && ['call'") < ap.indexOf("if (!['drive', 'stops', 'walk'"));
+});
