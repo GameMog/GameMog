@@ -423,10 +423,10 @@ export function createRunner(ctx) {
   // the cutscene camera: a point is 'player' (his head), '@place', or { rel: 'player' | <cast name>, right, up, fwd }
   const _v = new THREE.Vector3();
   function camPt(ref, fallbackUp = 1.5) {
-    const e = cm.getActiveEntity();
-    if (!ref || ref === 'player') return [e.position.x, e.position.y + (inCar() ? 1.2 : 1.55), e.position.z];
     // (a shot in a set: its own room's points, sets.js)
     if (setRun?.active) return setRun.point(ref, fallbackUp);
+    const e = cm.getActiveEntity();
+    if (!ref || ref === 'player') return [e.position.x, e.position.y + (inCar() ? 1.2 : 1.55), e.position.z];
     if (typeof ref === 'string' && ref.startsWith('@')) { const p = places.at(ref); if (p) return [p.cx ?? p.x, cm.getGroundHeight(p.cx ?? p.x, p.cz ?? p.z, 'person') + fallbackUp, p.cz ?? p.z]; }
     if (typeof ref === 'object' && ref.rel) {
       const fig = ref.rel !== 'player' ? cast.get(castName(ref.rel)) : null;
@@ -503,10 +503,10 @@ export function createRunner(ctx) {
       for (const s of shots) {
         if (skip) break;
         if (s.if && !cond(s.if)) continue;
-        const dur = s.dur || 3, A = camPt(s.cam), B = s.to ? camPt(s.to) : A, LA = camPt(s.look, 1.4), LB = s.lookTo ? camPt(s.lookTo, 1.4) : LA;
-        // (an opening's name card: the lens settles on its person through the first part of the shot, then the frame
         // (the shot's set: its own, else the cutscene's; false or none, the street)
         if (setRun) { const id = s.set === false ? null : (s.set || set); setRun.use(id && setRun.has(id) ? id : null); if (s.act) setRun.act(s.act); }
+        const dur = s.dur || 3, A = camPt(s.cam), B = s.to ? camPt(s.to) : A, LA = camPt(s.look, 1.4), LB = s.lookTo ? camPt(s.lookTo, 1.4) : LA;
+        // (an opening's name card: the lens settles on its person through the first part of the shot, then the frame
         // freezes on them, their body held mid-move, as their name and role come up: openCard())
         const card = opening && s.card && s.card.who ? s.card : null, hold = card ? Math.min(dur * 0.42, 1.6) : dur;
         const pos = keys([[0, A], [hold, B]]), look = keys([[0, LA], [hold, LB]]);
@@ -525,9 +525,9 @@ export function createRunner(ctx) {
             if (still && !frozen) frozen = openCard(card, dur - hold);
             const p = pos(Math.min(k, hold)), l = look(Math.min(k, hold));
             D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov: s.fov || 40, roll: 0, shake: hh };
+            if (setRun?.active) setRun.frame({ pos: D.camera.pos, look: l, fov: s.fov || 40 });
             { const n = keyLight(p, l), ssr = ssrOf(); if (ssr) ssr.intensity.value = n < CLOSE ? 0 : ssr0; }
             if (!beat) stepSkip();
-            if (setRun?.active) setRun.frame({ pos: D.camera.pos, look: l, fov: s.fov || 40 });
             return (now() - t0) / 1000 >= len;
           }, local);
         } catch (e) { if (!(e instanceof Stop) || !skip) throw e; }
@@ -536,9 +536,9 @@ export function createRunner(ctx) {
       }
     } finally {
       ui.sub(null); ui.caption(null); ui.skip(null); keyL.intensity = 0; if (ssrOf()) ssrOf().intensity.value = ssr0;
+      setRun?.use(null);
       if (opening) { ui.placeOff(); ui.gameTitle(false, true); }
       if (!beat) D.block(false);
-      setRun?.use(null);
       await D.release(0.6);
       W.cutscene = false; if (!beat) ui.cine(false);
     }
@@ -586,17 +586,18 @@ export function createRunner(ctx) {
       else if (h == null || Math.hypot(e.position.x - x, e.position.z - z) < 30) h = Math.atan2(e.position.x - x, e.position.z - z);
       try { const fig = await cast.spawn(who, { x, z, heading: h }); if (fig) staged.push(who); } catch (err) { console.warn('[storyrun] opening: cast', who, err); }
     }
-    host.tell('opening', { phase: 'start', shots: (o.shots || []).length });
-    const t0 = now();
     // (its sets, stood up and compiled before the first shot; the street round the hero held clear of traffic)
     if (o.sets && Object.keys(o.sets).length) try { await setsOf().prepare(o.sets); } catch (err) { console.warn('[storyrun] opening: sets', err); }
+    // (the hero stays where the world's wide shots are framed on him, by his car, and the traffic is held off him: the
+    // people who talk are in the sets)
     const free = holdStreet();
-    try { toPavement(); } catch (err) { console.warn('[storyrun] pavement', err); }
+    host.tell('opening', { phase: 'start', shots: (o.shots || []).length });
+    const t0 = now();
     try { await shotList(o.shots || [], t, { opening: true }); }
     finally {
+      free(); if (setRun) await setRun.release();
       // (to black, and back up on Mission 1 once it has put him at its start)
       try { await ui.fade(1, 0.45); } catch {}
-      free(); if (setRun) await setRun.release();
       setTimeout(() => ui.fade(0, 0.8), 650);
       for (const n of staged) { const f = cast.get(n); if (f) f.hold = false; cast.hide(n); }
       { const c = document.querySelector('#wg .wg-cap'); if (c) c.style.bottom = ''; }
