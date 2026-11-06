@@ -93,17 +93,19 @@ export function speedRule(state, v, dt, { max = 15, grace = 3 } = {}) {
 
 /* ----------------------------------------------------------- MISSION PASSED -- */
 // o: { title, passLine, meters (the HUD's defs), before, after (meters by id), next ({ title, stakes } | null) }
-// -> { title, line, gains: [{ label, text, good }], progress: { label, text, k0, k1 } | null, next }
+// -> { title, line, gains: [{ label, text, good }], progress: { label, text, k0, k1 } | null, stands: [[label, text]], next }
+// (the story's last card, no next: where every other meter with a goal ended, 'CLUES 10 / 10', as stat rows)
 export function passCard({ title = '', passLine = '', meters = [], before = {}, after = {}, next = null } = {}) {
-  const gains = [];
+  const gains = [], stands = [];
   let prog = null;
   for (const m of meters) {
     if (m.kind === 'hidden') continue;
     const a = +before[m.id] || 0, b = +after[m.id] || 0, d = b - a;
     if (Math.round(d)) gains.push({ label: String(m.label || m.id).toUpperCase(), text: deltaText(m, d), good: d > 0 });
     if (!prog && m.goal) prog = { label: String(m.label || m.id).toUpperCase(), text: meterText(m, b), k0: progress(m, a), k1: progress(m, b) };
+    else if (!next && m.goal) stands.push([String(m.label || m.id).toUpperCase(), meterText(m, b)]);
   }
-  return { title, line: passLine || '', gains, progress: prog, next: next ? { title: next.title || '', sub: next.stakes || next.objective || '' } : null };
+  return { title, line: passLine || '', gains, progress: prog, stands, next: next ? { title: next.title || '', sub: next.stakes || next.objective || '' } : null };
 }
 
 /* -------------------------------------------------------- the GPS held off -- */

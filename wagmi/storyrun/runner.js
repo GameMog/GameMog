@@ -907,6 +907,32 @@ export function createRunner(ctx) {
     let lost = false, caught = false;
     chase?.on?.('lost', () => { lost = true; }); chase?.on?.('caught', () => { caught = true; });
     M.chase = chase;
+    // (a chase that starts with his car standing, parked or in a queue at a light: the traffic round it cleared, and for
+    // a chase to a place the first 180 m of the way there too (d.clear m round the car, 32 by default; 0 leaves it),
+    // kept clear until he has driven past it, 25 s at most. PT-14's chase began with the car boxed in by a bus and two
+    // taxis on Broadway at W 64th, and the queue at the W 65th light behind them; they caught him before he got going)
+    const cr = d.clear ?? 32;
+    let clearT = 0;
+    if (cr > 0 && Math.abs(car.speed || 0) < 4 && dist(me(), car.position.x, car.position.z) < 60) {
+      const c0 = { x: car.position.x, z: car.position.z }, rects = [{ minX: c0.x - cr, maxX: c0.x + cr, minZ: c0.z - cr, maxZ: c0.z + cr }];
+      const way = [[c0.x, c0.z]];
+      if (d.goal === 'reach' && d.to) {
+        try {
+          const p = placeOf(d.to), r = gps.plan({ x: c0.x, z: c0.z }, { x: p.x, z: p.z }, car.heading) || [];
+          let L = 0;
+          for (let k = 1; k < r.length && L < 180; k++) {
+            const [ax, az] = r[k - 1], [bx, bz] = r[k], seg = Math.hypot(bx - ax, bz - az);
+            for (let u = 0; u < seg && L + u < 180; u += 15) { const x = ax + (bx - ax) * u / seg, z = az + (bz - az) * u / seg; rects.push({ minX: x - 14, maxX: x + 14, minZ: z - 14, maxZ: z + 14 }); way.push([x, z]); }
+            L += seg;
+          }
+        } catch (e) { console.warn('[storyrun] chase clear', e); }
+      }
+      try { app.trafficSystem.hold?.(rects); } catch {}
+      const t0 = now(), end = way[way.length - 1];
+      clearT = setInterval(() => {
+        if (now() - t0 > 25000 || (dist(car.position, c0.x, c0.z) > cr + 12 && dist(car.position, end[0], end[1]) < 20) || dist(car.position, c0.x, c0.z) > 230) { clearInterval(clearT); clearT = 0; try { app.trafficSystem.hold?.([]); } catch {} }
+      }, 250);
+    }
     try {
       if (d.goal === 'reach' && d.to) {
         const p = placeOf(d.to);
@@ -919,7 +945,7 @@ export function createRunner(ctx) {
         await wait(() => { if (caught) throw new Fail('They caught you.', 'caught'); return d.goal === 'escort' ? (now() - t0) / 1000 > (d.until || 45) : lost || (M.auto && M.loseAssist); }, t);
       }
       M.timer.add(d.bonus || 0); if (d.flag) M.state.flags[flagName(d.flag)] = true;
-    } finally { try { chase?.stop?.(); } catch {} M.chase = null; M.loseAssist = false; gps.clear(); }
+    } finally { if (clearT) { clearInterval(clearT); try { app.trafficSystem.hold?.([]); } catch {} } try { chase?.stop?.(); } catch {} M.chase = null; M.loseAssist = false; gps.clear(); }
   };
 
   // a tail: a car on the planner's route through the step's places (m2-drive.js: it lives in the traffic, brakes for

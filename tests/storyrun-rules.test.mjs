@@ -92,6 +92,15 @@ test('the MISSION PASSED card: what was gained, the meter toward its goal, the l
   const lost = R.passCard({ meters, before: { ransom: 10000 }, after: { ransom: 5000 } });
   assert.deepEqual(lost.gains, [{ label: 'RANSOM', text: '-$5,000', good: false }]);
   assert.equal(lost.next, null);
+  assert.deepEqual(c.stands, []); // (a card with a next mission: no standings)
+});
+
+test("the story's last MISSION PASSED card shows where its other goal meters ended: Pickup Time's CLUES 10 / 10", () => {
+  const meters = [{ id: 'ransom', label: 'RANSOM', kind: 'money', goal: 1_000_000 }, { id: 'clues', label: 'CLUES', kind: 'count', goal: 10 }];
+  const fin = R.passCard({ title: 'Pickup', meters, before: { ransom: 975200, clues: 10 }, after: { ransom: 1_000_000, clues: 10 }, next: null });
+  assert.deepEqual(fin.gains, [{ label: 'RANSOM', text: '+$24,800', good: true }]);
+  assert.equal(fin.progress.text, '$1,000,000 / $1,000,000');
+  assert.deepEqual(fin.stands, [['CLUES', '10 / 10']]);
 });
 
 test("the GPS's held-off streets (a roadblock's circle)", () => {

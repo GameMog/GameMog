@@ -175,7 +175,7 @@ test("a side step waits only on a number of seconds: a roadblock's or a car's `a
 
 test("an act's end card shows its stats and its quote: the big card, headed with the act's title", () => {
   const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
-  const fn = idx.slice(idx.indexOf('async function actEnd(e)'), idx.indexOf('const fmt = '));
+  const fn = idx.slice(idx.indexOf('async function actEnd(e'), idx.indexOf('const fmt = '));
   assert.match(fn, /e\.stats/);
   assert.match(fn, /hud\.passed\(\{ head: e\.title/);
   const hud = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/hud.js'), 'utf8');
@@ -251,4 +251,18 @@ test("a failed attempt is over: its token killed, so its timer loop never ticks 
   const play = run.slice(run.indexOf('async function play('), run.indexOf("if (pick === 'quit')"));
   // (a step's thrown Fail left the attempt's token alive: after PT-14's retry its timer loop held PT-15's midnight over free roam)
   assert.match(play, /const at = M; kill\(at\.tok, e instanceof Fail \? e : new Stop\(\)\); tidy\(\);/);
+});
+
+test("the story's end reads MISSION PASSED, the act's stats, STORY COMPLETE, the title, FREE ROAM; a chase from a standing car starts in a clear street", () => {
+  const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
+  assert.match(idx, /await actEnd\(act\.end, \{ holdNext: k === order\.length - 1 \}\)/);
+  assert.match(idx, /if \(e\.next && !holdNext\)/);
+  const end = idx.slice(idx.indexOf("head: 'STORY COMPLETE'"), idx.indexOf("ui.objective(['Free roam. '"));
+  assert.ok(end.indexOf('text: def.title') < end.indexOf('const fin = order[order.length - 1]?.act?.end?.next'));
+  assert.match(idx, /stats: \[\['TIME', fmt\(r\.secs\)\], \.\.\.card\.stands\]/);
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const pu = run.slice(run.indexOf('STEPS.pursuit = '), run.indexOf('STEPS.tail = '));
+  assert.match(pu, /const cr = d\.clear \?\? 32/); assert.match(pu, /gps\.plan\(/);
+  assert.match(pu, /Math\.abs\(car\.speed \|\| 0\) < 4/);
+  assert.match(pu, /finally \{ if \(clearT\) \{ clearInterval\(clearT\); try \{ app\.trafficSystem\.hold\?\.\(\[\]\); \} catch \{\} \}/);
 });

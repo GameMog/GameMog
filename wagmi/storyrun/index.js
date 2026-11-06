@@ -186,13 +186,15 @@ export async function install(W) {
         const nx = order[k + 1]?.def || null;
         const card = passCard({ title: m.title, passLine: m.passLine || '', meters: def.hud?.meters || [], before, after: r.state.meters, next: nx ? { title: nx.title, stakes: nx.stakes } : null });
         W.storyrun.lastCard = card;
-        await hud.passed({ ...card, stats: [['TIME', fmt(r.secs)]] }, flags.autoCard ? 2.2 : 7);
+        await hud.passed({ ...card, stats: [['TIME', fmt(r.secs)], ...card.stands] }, flags.autoCard ? 2.2 : 7);
       }
       // (the act's end card, after its last mission)
       // (after the card: the mission's own afterword, Mog City's way: DMs, a line of his; Mission 2's Jane and Rook)
       await afterPass(m);
       const last = act && (act.order || []).filter((id) => byId.has(id)).slice(-1)[0] === m.id;
-      if (last && act.end) await actEnd(act.end);
+      // (the story's last act: its NEXT card (Pickup Time's FREE ROAM) is held back until after STORY COMPLETE and the
+      // title lockup, so the end reads MISSION PASSED, the act's stats, STORY COMPLETE, the title, FREE ROAM)
+      if (last && act.end) await actEnd(act.end, { holdNext: k === order.length - 1 });
       k++;
     } else if (r.how === 'fail') {
       tell('mission-end', { id: m.id, how: 'fail', why: r.why }); break;
@@ -213,6 +215,8 @@ export async function install(W) {
     try {
       try { W.app.selectTime('midday'); } catch {}
       await hud.card({ kicker: def.kicker || '', text: def.title, sub: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 1 : 4);
+      const fin = order[order.length - 1]?.act?.end?.next;
+      if (fin) await hud.card({ kicker: fin.kicker || 'NEXT', text: fin.text, sub: fin.sub || '' }, flags.autoCard ? 0.8 : (fin.secs || 3));
     } finally { await ui.fade(0, 0.6); }
     ui.objective(['Free roam. ', { 'Esc': 'yellow' }, ' for Mission select.'], 8);
   }
@@ -271,7 +275,7 @@ export async function install(W) {
       } catch (e) { console.warn('[storyrun] after', e); }
     }
   }
-  async function actEnd(e) {
+  async function actEnd(e, { holdNext = false } = {}) {
     await ui.fade(0.9, 0.5);
     await hud.card({ kicker: e.title || 'END OF ACT', text: e.heading || (isOwn(world) ? def.title : ownTitle(def.title)), sub: (e.story || []).join(' ') || (e.quote ? `"${e.quote.text}"` : '') }, flags.autoCard ? 1 : Math.max(3, e.minSecs || 0));
     // (its numbers and its last word, when it has them: the big card, its head the act's title (the story's end: the
@@ -281,7 +285,7 @@ export async function install(W) {
       await hud.passed({ head: e.title || 'END OF ACT', title: e.heading || '', stats: e.stats.map((x) => [x.label, x.value]), line: e.quote ? `"${e.quote.text}"${e.quote.by ? ' · ' + e.quote.by : ''}` : '' }, flags.autoCard ? 1.6 : Math.max(5, e.minSecs || 0));
       await ui.fade(0.9, 0.4);
     }
-    if (e.next) await hud.card({ kicker: e.next.kicker || 'NEXT', text: e.next.text, sub: e.next.sub || '' }, flags.autoCard ? 0.8 : (e.next.secs || 3));
+    if (e.next && !holdNext) await hud.card({ kicker: e.next.kicker || 'NEXT', text: e.next.text, sub: e.next.sub || '' }, flags.autoCard ? 0.8 : (e.next.secs || 3));
     await ui.fade(0, 0.5);
   }
 }
