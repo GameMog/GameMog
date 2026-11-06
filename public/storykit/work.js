@@ -81,10 +81,14 @@ function auxFrame(src, ready, ms = 90_000) {
 
 /* ---------------------------------------------------------------- forging -- */
 let studio = null;
-async function portraitOf(src) {
+async function portraitOf(src, o) {
   studio ??= auxFrame('/storykit/forge/portrait.html', (w) => (w.__portrait ? true : w.__portraitError || null)).then((x) => x.win.__portrait);
-  return (await studio)(src);
+  return (await studio)(src, o);
 }
+// (6 Nov, the owner: "every game should include media with a headshot so it can be featured") the world's own round
+// headshot: its hero straight on, on the sky's flat key (lib/portrait-sky.ts SKY_KEY), stored as art avatar.jpg; the
+// server lays it on the sky's gradient when the drive reports (lib/storykit-publish.ts recordStoryReport)
+const SKY_KEY = '#3D9BE9';
 async function forging(src, status, world) {
   // (a shipped person from the cast registry, { model }: never forged, their headshot made from their own GLB)
   const reg = src.cast.some((c) => c.model) ? await fetch('/storykit/cast/registry.json').then((r) => r.json()).catch(() => ({ models: {} })) : { models: {} };
@@ -134,6 +138,12 @@ async function forging(src, status, world) {
       portrait = await portraitOf(glbOf[c.id]);
       if (!heads.has(c.id)) await put('art', `head-${c.id}.jpg`, new Blob([dataBytes(portrait)], { type: 'image/jpeg' }), 'image/jpeg');
     } catch (e) { log({ portraitFailed: c.id, error: String(e && e.message || e) }); }
+    if (c.id === src.hero && !status.files.some((f) => f.kind === 'art' && f.name.replace(/\.[a-z]+$/, '') === 'avatar')) {
+      try {
+        const av = await portraitOf(glbOf[c.id], { w: 512, h: 512, bg: SKY_KEY, frame: 'avatar' });
+        await put('art', 'avatar.jpg', new Blob([dataBytes(av)], { type: 'image/jpeg' }), 'image/jpeg');
+      } catch (e) { log({ avatarFailed: c.id, error: String(e && e.message || e) }); }
+    }
     W.cast[i] = card(c, 'done', { ...(portrait ? { portrait } : {}), ...(ms ? { ms } : {}) });
     report({ cast: [W.cast[i]] });
   }

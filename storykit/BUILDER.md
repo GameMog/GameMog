@@ -120,7 +120,7 @@ The whole schema follows this chapter (JSON Schema, with every closed word list 
 { "storykit": 2, "id": "...", "title": "2 to 48 chars", "kicker": "NEW YORK", "tagline": "...",
   "base": { "engine": "mogcity-1", "city": "ny", "cityBuild": "ny-mogcity-1" },
   "dressing": { "time": "midnight", "season": "winter", "weather": "clear", "holiday": ["christmas"] },
-  "hero": "<cast id>", "ride": "<vehicle id>",
+  "hero": "<cast id>", "ride": "<vehicle id>",   // the hero is also the world's face: its headshot on GameMog's homepage
   "opening": { "place": "@...", "stage": [ ... ], "shots": [ ... ] },
   "hud": { "meters": [{ "id": "cash", "label": "FARES", "kind": "money", "start": 0 }] },
   "places": { "my-key": { "@": "<city place key>", "name": "the green door on Bank St" } },

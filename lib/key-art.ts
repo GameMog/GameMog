@@ -19,7 +19,7 @@ const portraitSource = () => {
  * is up faces him from (the key art's; `behind` for a camera that chases him). Recording-only, as the key art is; never
  * a reason for a drive to fail: undefined when it cannot be shot.
  */
-export async function capturePortrait(page: Page, opts: { behind?: boolean; key?: number; zoom?: number; lift?: number; stance?: string; settle?: number; yaw?: number; dy?: number; out?: number; fixed?: boolean; backdrop?: boolean; any?: boolean } = {}): Promise<Uint8Array | undefined> {
+export async function capturePortrait(page: Page, opts: { behind?: boolean; key?: number; zoom?: number; lift?: number; stance?: string; settle?: number; yaw?: number; dy?: number; out?: number; fixed?: boolean; backdrop?: boolean; any?: boolean; once?: boolean } = {}): Promise<Uint8Array | undefined> {
   try {
     if (await artBlocked(page)) return undefined;
     await page.eval(portraitSource());

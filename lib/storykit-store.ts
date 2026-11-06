@@ -66,7 +66,8 @@ export const TYPES: Record<string, string> = {
 export const BLOB_FILE = /^([0-9a-f]{64})\.(glb|ogg|wav|jpg|webp|png|json)$/;
 const CAST_ID = /^[a-z][a-z0-9-]{0,39}$/;
 const CLIP = /^([0-9a-f]{8})-([0-9a-f]{8})\.(ogg|wav)$/;
-const ART = /^(key-wide|key-square|head-[a-z][a-z0-9-]{0,39})\.(jpg|webp|png)$/;
+// (avatar: the world's round headshot, its hero on the sky's flat key, 6 Nov; lib/portrait-sky.ts onSky)
+const ART = /^(key-wide|key-square|avatar|head-[a-z][a-z0-9-]{0,39})\.(jpg|webp|png)$/;
 const DRAFT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export const blobUrl = (hash: string, ext: string) => `/storykit/f/${hash}.${ext}`;
@@ -225,8 +226,8 @@ export class StoryStore {
 
   /**
    * Store one file of a draft: a forged person (glb, named by cast id), a voice clip (voice, <line hash>-<voice
-   * key>.ogg|wav, a current line in its speaker's current voice), key art or a headshot (art: key-wide, key-square or
-   * head-<cast id>, .jpg|.webp|.png). Replaces the draft's earlier file of that name.
+   * key>.ogg|wav, a current line in its speaker's current voice), key art or a headshot (art: key-wide, key-square,
+   * avatar (the world's round headshot) or head-<cast id>, .jpg|.webp|.png). Replaces the draft's earlier file of that name.
    */
   put(d: DraftRow, kind: string, name: string, bytes: Uint8Array, meta: Record<string, unknown> = {}): { ok: true; file: { kind: Kind; name: string; hash: string; url: string; bytes: number; meta: unknown } } | Fail {
     this.sweep();
@@ -246,7 +247,7 @@ export class StoryStore {
       keep = { line: line.id, who: line.who, voice: line.voice, codec: ext === 'ogg' ? 'opus' : 'pcm16', secs: num(meta.secs, 0, 120), renderMs: num(meta.renderMs, 0, 6e5),
         encodeMs: num(meta.encodeMs, 0, 6e5), device: word(meta.device, /^(webgpu|wasm)$/), dtype: word(meta.dtype, /^(fp32|fp16|q8)$/) };
     } else if (kind === 'art') {
-      if (!(m = ART.exec(name))) return fail(400, 'Art is key-wide, key-square or head-<cast id>, as .jpg, .webp or .png.');
+      if (!(m = ART.exec(name))) return fail(400, 'Art is key-wide, key-square, avatar or head-<cast id>, as .jpg, .webp or .png.');
       if (m[1].startsWith('head-') && !pack.cast.some((c: any) => c.id === m![1].slice(5))) return fail(404, `${m[1].slice(5)} is no one in this world.`);
       ext = m[2]; max = LIMITS.art.each; total = LIMITS.art.total; count = LIMITS.art.count;
     } else return fail(400, 'A file is a glb, a voice clip or art.');

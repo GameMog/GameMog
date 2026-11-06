@@ -20,7 +20,7 @@
 <script type="module">
 // The portrait studio: a forged person's headshot, made in the creator's browser for the build show's cast cards and the
 // world's headshot portrait (app/create/story-show.tsx portraitOf loads this page in a hidden frame and calls it).
-//   window.__portrait(src, { w, h, bg })  src: a GLB's URL or its bytes (an ArrayBuffer, as the browser forge gives it);
+//   window.__portrait(src, { w, h, bg, frame })  src: a GLB's URL or its bytes (an ArrayBuffer, as the browser forge gives it);
 //                                         resolves to a JPEG data URL of the head and shoulders, in the idle pose
 // The set is the forge studio's (scripts/forge/studio/studio.html): a warm key from the front left, a cool rim from
 // behind, a soft fill. The body is posed on the shared clip pack's idle (cast-clips.glb), as it stands in the story.
@@ -48,7 +48,7 @@ try {
   const clipPack = async () => (pack ??= loader.loadAsync('/storykit/cast/cast-clips.glb').then((g) => g.animations).catch(() => []));
   let queue = Promise.resolve();
 
-  async function one(src, { w = 384, h = 480, bg = '#16171C' } = {}) {
+  async function one(src, { w = 384, h = 480, bg = '#16171C', frame = null } = {}) {
     const gltf = typeof src === 'string' ? await loader.loadAsync(src) : await loader.parseAsync(src, '/storykit/cast/');
     const M = gltf.scene; M.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
     const root = M.getObjectByName('root'); if (root && root.parent && root.parent !== M) root.parent.quaternion.identity();
@@ -62,9 +62,13 @@ try {
     const head = M.getObjectByName('head'), e = new THREE.Vector3();
     if (head) { head.getWorldPosition(e); e.y += 0.075; } else e.set(0, (extras.landmarks?.height || 1.7) * 0.93, 0);
     // a slight three-quarter from the key's side, the eyes a third down the frame, head and shoulders in
-    const a = -0.32, d = 1.75;
+    // (frame 'avatar', the world's round headshot (6 Nov; app/g/[slug]/avatar, lib/portrait-sky.ts): straight on, his
+    // eyes 40% down a square, his head about half of it; shot on the sky's flat key (bg), which the server swaps for
+    // the sky's gradient)
+    const av = frame === 'avatar', a = av ? 0 : -0.32, d = av ? 1.55 : 1.75;
     camera.aspect = w / h; camera.updateProjectionMatrix();
-    camera.position.set(e.x + Math.sin(a) * d, e.y + 0.02, e.z + Math.cos(a) * d); camera.lookAt(e.x, e.y - 0.13, e.z);
+    const V = 2 * d * Math.tan((camera.fov / 2) * Math.PI / 180);
+    camera.position.set(e.x + Math.sin(a) * d, e.y + 0.02, e.z + Math.cos(a) * d); camera.lookAt(e.x, av ? e.y - 0.1 * V : e.y - 0.13, e.z);
     key.target.position.copy(e);
     scene.background = new THREE.Color(bg);
     renderer.setSize(w, h);

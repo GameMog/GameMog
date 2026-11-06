@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
  *   PUT /api/storykit/drafts/<id>/files/glb/<cast id>                       a forged person (GLB 2.0, at most 3 MB)
  *   PUT /api/storykit/drafts/<id>/files/voice/<line hash>-<voice key>.ogg   a voice clip (Ogg Opus or .wav, 1 MB)
  *       headers x-voice-secs, x-voice-render-ms, x-voice-encode-ms, x-voice-device, x-voice-dtype
- *   PUT /api/storykit/drafts/<id>/files/art/<key-wide|key-square|head-<cast id>>.<jpg|webp|png>   (512 KB)
+ *   PUT /api/storykit/drafts/<id>/files/art/<key-wide|key-square|avatar|head-<cast id>>.<jpg|webp|png>   (512 KB)
  *     -> { ok, file: { kind, name, hash, url: /storykit/f/<sha256>.<ext>, bytes } }
  * The limits per world are in lib/storykit-store.ts (LIMITS).
  *

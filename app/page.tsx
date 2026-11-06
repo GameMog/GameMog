@@ -7,7 +7,7 @@ import { Tile, short } from './tile';
 import { HeroFilm, type Film } from './hero-film';
 import { HeroReel, type ReelClip } from './hero-reel';
 import { Rail as Shelf } from './rail';
-import { listGames, bestTimes, topScores, tileStats, type GameRow, type TileStats } from '@/lib/db';
+import { listGames, bestTimes, topScores, tileStats, avatarIds, type GameRow, type TileStats } from '@/lib/db';
 import { CHARTS, sortGames, type ChartSort } from '@/lib/catalog';
 import { Cover } from './cover';
 import type { WorldSpec } from '@/lib/worldspec';
@@ -197,9 +197,10 @@ function Section({ sort, games, best, stats, seed }: {
 function JumpIn({ worlds, classic, stats }: { worlds: GameRow[]; classic?: GameRow; stats: Record<string, TileStats> }) {
   // each bubble gets its own picture: a chart's natural pick, or the next
   // world nobody else is showing, so no two circles repeat
-  const used = new Set<string>();
+  // (6 Nov, the owner: a featured bubble always shows a face: a world with no portrait yet, only the card, is skipped)
+  const used = new Set<string>(), faces = avatarIds();
   const pick = (...order: (GameRow | undefined)[]) => {
-    const g = [...order, ...worlds].find((w) => w && !used.has(w.id));
+    const g = [...order, ...worlds].find((w) => w && !used.has(w.id) && faces.has(w.id));
     if (g) used.add(g.id);
     return g;
   };

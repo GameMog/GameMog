@@ -182,6 +182,22 @@ export const SKY_HEADSHOTS = [
   { slug: 'zombie-beach', id: '7ecfbbb2-5697-4903-844e-40a6b79f0348', code: '20387636c75517cd' },
 ];
 
+/**
+ * 6 Nov, round 2 (the owner: "every game should include media with a headshot so it can be featured"): the live worlds
+ * the first sky headshots missed, on the same sky. Las Vegas Night GP and MogDune by the portrait pass's new ladder
+ * (wider, turned, then the best moment: lib/runtime/portrait.js take); The Velvet Run's Lena Vale and Mog City's Dan by
+ * the Story Kit's portrait studio from their own bodies (public/storykit/forge/portrait.html, frame 'avatar', on the
+ * sky's key, laid on the sky by lib/portrait-sky.ts onSky). deploy/migrations/<slug>-sky.jpg. Code: sha256 of the
+ * row's code, first 16 hex. Set by 2026-11-06-sky-headshots-2 only on that code and only where the game still has no
+ * portrait of its own.
+ */
+export const SKY_HEADSHOTS_2 = [
+  { slug: 'las-vegas-night-gp', id: '993a0020-bd75-4c2e-9e71-7fecb5e2b39c', code: 'aee21ad9419b0e0e' },
+  { slug: 'mogdune', id: '6326cf02-b83d-4bbc-89b9-cb4d743ff97e', code: '14038421900f37a9' },
+  { slug: 'the-velvet-run', id: '568083ce-a342-49fd-a564-061c59f6efad', code: '1001eaf24b2823e7' },
+  { slug: 'mog-city', id: '5b0c2d0e-6f4a-4c1e-9a43-0d7c1e3a9b21', code: 'ecb9219e25fc7155' },
+];
+
 // (exported for the checks: scripts/kart-score/test-mog.mjs runs one on a database of its own)
 export const MIGRATIONS = [
   {
@@ -1342,6 +1358,24 @@ export const MIGRATIONS = [
         if (g && g.art_avatar && shipped && sha(g.art_avatar) === sha(shipped)) cleared += Number(db.prepare('UPDATE games SET art_avatar = NULL WHERE id = ?').run(g.id).changes);
       }
       return `${n} of ${SKY_HEADSHOTS.length} sky headshots; ${cleared} old headshots cleared${left.length ? `; left alone: ${left.join(', ')}` : ''}`;
+    },
+  },
+  {
+    // 6 Nov, round 2: the headshots the first pass missed (SKY_HEADSHOTS_2 above), where a game still has none
+    id: '2026-11-06-sky-headshots-2',
+    run(db) {
+      const missing = SKY_HEADSHOTS_2.filter((a) => !file(`${a.slug}-sky.jpg`)).map((a) => a.slug);
+      if (missing.length) throw new Error(`deploy/migrations/{${missing.join(',')}}-sky.jpg are not in this build`);
+      let n = 0;
+      const left = [];
+      for (const a of SKY_HEADSHOTS_2) {
+        const g = db.prepare('SELECT id, code, art_avatar FROM games WHERE id = ? AND slug = ?').get(a.id, a.slug);
+        if (!g) { left.push(`${a.slug} (not here)`); continue; }
+        if (createHash('sha256').update(String(g.code ?? '')).digest('hex').slice(0, 16) !== a.code) { left.push(`${a.slug} (its code changed)`); continue; }
+        if (g.art_avatar) { left.push(`${a.slug} (has its own)`); continue; }
+        n += Number(db.prepare('UPDATE games SET art_avatar = ? WHERE id = ? AND art_avatar IS NULL').run(file(`${a.slug}-sky.jpg`), g.id).changes);
+      }
+      return `${n} of ${SKY_HEADSHOTS_2.length} headshots${left.length ? `; left alone: ${left.join(', ')}` : ''}`;
     },
   },
 ];

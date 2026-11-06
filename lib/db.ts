@@ -394,7 +394,12 @@ export function gameArt(slug: string, shape: 'square' | 'wide', owner = false): 
   return r?.art ?? undefined;
 }
 
-/** The hero's portrait (4 Nov), if the game has one; /g/<slug>/avatar falls back to a crop of its cover. */
+/** The games with a portrait of their own (6 Nov: the homepage's Jump in features only a face, never the card). */
+export function avatarIds(): Set<string> {
+  return new Set((db.prepare('SELECT id FROM games WHERE art_avatar IS NOT NULL').all() as { id: string }[]).map((r) => r.id));
+}
+
+/** The hero's portrait (4 Nov), if the game has one; /g/<slug>/avatar falls back to the headshot card. */
 export function gameAvatar(slug: string, owner = false): Uint8Array | undefined {
   const r = db.prepare(`SELECT art_avatar AS art FROM games WHERE slug = ? AND (${owner ? '1' : "hidden = 0 OR json_extract(meta, '$.unlisted') = 1"})`).get(slug) as { art: Uint8Array | null } | undefined;
   return r?.art ?? undefined;

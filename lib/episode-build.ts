@@ -215,8 +215,10 @@ export async function generateEpisode(
       insertDraft({ id: draftId, prompt: input.prompt, meta: stored, code, report: { pending: true }, format: 'world', parentId: input.mog.parent.id, mogPrompt: input.mog.instruction });
       // its pictures are made, not shot (lib/episode/art.ts): the poster plate with its own title, the plain plate as its
       // cover (the dare card's ?plain never gets a second title); if they cannot be made, the parent's, never a failed build
-      db.prepare('UPDATE drafts SET cover = (SELECT cover FROM games WHERE id = ?), art_icon = (SELECT art_icon FROM games WHERE id = ?), art_wide = (SELECT art_wide FROM games WHERE id = ?) WHERE id = ?')
-        .run(input.mog.parent.id, input.mog.parent.id, input.mog.parent.id, draftId);
+      // (and its hero's headshot, 6 Nov: an episode's hero is its parent's, Mog City's Dan, so it carries the parent's
+      // round headshot; every game carries one so it can be featured)
+      db.prepare('UPDATE drafts SET cover = (SELECT cover FROM games WHERE id = ?), art_icon = (SELECT art_icon FROM games WHERE id = ?), art_wide = (SELECT art_wide FROM games WHERE id = ?), art_avatar = (SELECT art_avatar FROM games WHERE id = ?) WHERE id = ?')
+        .run(input.mog.parent.id, input.mog.parent.id, input.mog.parent.id, input.mog.parent.id, draftId);
       try {
         const { episodeArt, plainCover } = await import('./episode/art');
         const art = await episodeArt(render(pack.title.episode, pack), ['wide', 'icon']);
