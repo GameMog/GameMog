@@ -60,6 +60,8 @@ const TIPS = {
   time: ['Take the quickest route: the ', { 'yellow line': 'yellow' }, ' on the radar. Hold [Shift] to boost.'],
   caught: ['Break their line of sight, then keep moving until the search circle runs out.'],
   seen: ['Keep out of the cones on the ground. Go round behind them, or take one down from behind with [E].'],
+  // (in a car with no boost, a van or a truck: wagmi/storyrun/ride.js setClass)
+  timeSlow: ['Take the quickest route: the ', { 'yellow line': 'yellow' }, ' on the radar, and keep your foot down on the straights.'],
   speed: ['Watch the ', { 'speed limit': 'yellow' }, ' on the right: ease off before it counts.'],
   wreck: ['Give the car room: hold back in the ', { 'band': 'blue' }, ', and brake early when it stops.'],
   lost: ['Stay close enough to keep them in sight, and back off if they slow down.'],
@@ -1629,7 +1631,7 @@ export function createRunner(ctx) {
           host.tell('mission-fail', { id: def.id, why: e.reason, step: step?.id || null, kind: step?.type || null });
           if (!e.sounded) sfx.play('failed');
           if (ctx.flags.autopilot && (ctx.flags.failStop || fails >= 3 || e.kind === 'timeout' || e.kind === 'place')) return { how: 'fail', why: e.reason };
-          const pick = ctx.flags.autoRetry ? (await new Promise((r) => setTimeout(r, 1200)), 'retry') : await ui.failed(e.reason, { skip: fails >= 3, tip: e.tip || TIPS[e.kind] || null, retryLabel: at.cp && at.cp.i > 0 ? 'Retry: from the checkpoint' : 'Retry: from the start' });
+          const pick = ctx.flags.autoRetry ? (await new Promise((r) => setTimeout(r, 1200)), 'retry') : await ui.failed(e.reason, { skip: fails >= 3, tip: e.tip || TIPS[e.kind === 'time' && car.noBoost ? 'timeSlow' : e.kind] || null, retryLabel: at.cp && at.cp.i > 0 ? 'Retry: from the checkpoint' : 'Retry: from the start' });
           if (pick === 'quit') return { how: 'quit' };
           if (pick === 'skip') { cp = { ...at.cp, i: Math.min(def.steps.length, (at.i || 0) + 1) }; continue; }
           cp = at.cp && at.cp.i > 0 ? at.cp : null;

@@ -320,7 +320,8 @@ function motorVoice(context, resources, kind, output) {
     for (const source of sources) try { source.stop(now + 0.05); } catch {}
   }
 
-  return { kind, update, dispose };
+  // (rpm, gear: what it is doing, for a voice played as the player's own car, wagmi/audio/utility.js)
+  return { kind, update, dispose, get rpm() { return rpm; }, get gear() { return gear + 1; } };
 }
 
 // the bank: the shared buffers (baked a slice at a time) and voices over them

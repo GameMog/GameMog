@@ -139,7 +139,7 @@ export function install(W) {
     if (cm.activeMode !== 'car' || W.cutscene) return;
     const c = car, sp = Math.abs(c.speed), keys = cm.keys || {};
     if (sp < 4) return;
-    const onWalk = c.position.y > 0.12, boost = keys.boost && sp > 10;
+    const onWalk = c.position.y > 0.12, boost = keys.boost && sp > 10 && !c.noBoost;
     if (!onWalk && !boost) return;
     // up on the sidewalk, or flat out on the boost: those near it (in front, more so) run; some scream
     const r = boost ? 20 : 15, fx = Math.sin(c.heading) * Math.sign(c.speed), fz = Math.cos(c.heading) * Math.sign(c.speed);

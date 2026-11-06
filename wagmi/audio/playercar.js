@@ -13,9 +13,12 @@
 // one faded out is taken down (a switch back makes it again, in the gear for the speed, the engine catching with a blip).
 // The graph exists only while Dan is at the wheel (built when he gets in, taken down a few seconds after he gets out).
 // The engine's loops are fetched once, when the mixer starts (ready: a promise for them).
+// A car that is not a sports car (s.voice: a story world's van, truck, suv or sedan, wagmi/storyrun/ride.js) has its
+// own engine instead of the supercar's (utility.js: the city's diesel or petrol), and none of the boost's sounds.
 import { createSupercar, preloadEngine } from './supercar.js';
 import { createElectric, driveCue } from './electric.js';
 import { drive } from './drivemode.js';
+import { createUtility, utilityKinds } from './utility.js';
 
 const XFADE = 0.4;
 // the car's level in the mix (sfx bus): 1.65 = +4.4 dB over the street (the owner, 3 Nov)
@@ -30,13 +33,16 @@ export function createPlayerCar(M, E, dest = M.bus.sfx, opt = {}) {
   // the drive mode: the one it plays (mode), how far it is into electric (ev 0..1), the change last seen (seen)
   let mode = drive.mode, ev = mode === 'electric' ? 1 : 0, seen = drive.n, settled = 0;
   const ramp = (p, v, k = 0.04) => p.setTargetAtTime(v, M.now(), k);
+  // the engine for the car's class (voice): the supercar, or a van's, truck's, suv's or sedan's
+  let voice = null;
+  const makeEngine = (bus) => (utilityKinds.includes(voice) ? createUtility(M, bus, voice) : createSupercar(M, bus, { voice: opt.voice }));
 
   function build() {
     const out = M.gain(0, dest), S = [];
     const add = (s) => (S.push(s), s);
     // the engine and the electric drive each into its own level (the crossfade); only the one heard is made
     const engBus = M.gain(Math.cos(ev * Math.PI / 2), out), evBus = M.gain(Math.sin(ev * Math.PI / 2), out);
-    const eng = ev < 1 ? createSupercar(M, engBus, { voice: opt.voice }) : null, elec = ev > 0 ? createElectric(M, evBus) : null;
+    const eng = ev < 1 ? makeEngine(engBus) : null, elec = ev > 0 ? createElectric(M, evBus) : null;
     const tn = add(M.src(M.white)), tbp = M.filt('bandpass', 2000, 14), tg = M.gain(0); tn.connect(tbp); tbp.connect(tg); tg.connect(out);
     const tw = add(M.osc('sine', 1800)), twg = M.gain(0); tw.connect(twg); twg.connect(out);
     const ty = add(M.src(M.pink)), tlp = M.filt('lowpass', 400, 0.7), tyg = M.gain(0); ty.connect(tlp); tlp.connect(tyg); tyg.connect(out);
@@ -69,6 +75,8 @@ export function createPlayerCar(M, E, dest = M.bus.sfx, opt = {}) {
   // s: { on, speed m/s (signed), throttle -1..1, boost, latAcc m/s^2, slide 0..1, rough 0..1 (kerb, pavement, grass), jolt (a kerb's bump) }
   function update(dt, s) {
     follow(s);
+    const want = s.voice || null;
+    if (want !== voice) { voice = want; if (G?.eng) { G.eng.stop(M.now()); G.eng = null; } }
     if (s.on && !G) { ev = mode === 'electric' ? 1 : 0; build(); }
     if (!G) { ev = mode === 'electric' ? 1 : 0; revAt = 0; return; }
     onW += Math.sign((s.on ? 1 : 0) - onW) * Math.min(Math.abs((s.on ? 1 : 0) - onW), dt / 0.35);
@@ -76,7 +84,7 @@ export function createPlayerCar(M, E, dest = M.bus.sfx, opt = {}) {
     const v = Math.abs(s.speed), v01 = Math.min(1, v / 56), th = s.throttle || 0;
     const fwd = s.speed >= -0.5 ? 1 : -1;
     const load = Math.max(0, th * fwd), braking = th * fwd < 0 ? Math.min(1, v / 10) : 0;
-    const boost = !!s.boost && th > 0 && s.on;
+    const boost = !!s.boost && th > 0 && s.on && !utilityKinds.includes(voice);
     // the boost: a whump as it lights, the burn easing up, a crackling tail as it cuts
     if (boost && !lastBoost) { E.play('boostIgnite', { vol: 0.8 }); launch = v < 10 ? 0.6 : 0; }
     if (!boost && lastBoost) tail = 0.6;
@@ -91,7 +99,7 @@ export function createPlayerCar(M, E, dest = M.bus.sfx, opt = {}) {
     // one not heard is made when the switch starts and taken down once the fade is done
     const evWant = mode === 'electric' ? 1 : 0;
     ev += Math.sign(evWant - ev) * Math.min(Math.abs(evWant - ev), dt / XFADE);
-    if (ev < 1 && !G.eng) G.eng = createSupercar(M, G.engBus, { voice: opt.voice });
+    if (ev < 1 && !G.eng) G.eng = makeEngine(G.engBus);
     if (ev > 0 && !G.elec) G.elec = createElectric(M, G.evBus);
     if (revAt > 0 && G.eng) { G.eng.rev(revAt); revAt = 0; }
     ramp(G.engBus.gain, Math.cos(ev * Math.PI / 2), 0.02); ramp(G.evBus.gain, Math.sin(ev * Math.PI / 2), 0.02);
@@ -131,7 +139,7 @@ export function createPlayerCar(M, E, dest = M.bus.sfx, opt = {}) {
     get engine() {
       if (!G) return null;
       const x = mode === 'electric' ? G.elec || G.eng : G.eng || G.elec;
-      return { mode, ev: +ev.toFixed(2), gear: x.state.gear, rpm: Math.round(x.state.rpm), load: +x.state.load.toFixed(2), loops: G.eng ? G.eng.loaded : null, voices: (G.eng ? 1 : 0) + (G.elec ? 1 : 0) };
+      return { mode, voice: voice || 'supercar', ev: +ev.toFixed(2), gear: x.state.gear, rpm: Math.round(x.state.rpm), load: +x.state.load.toFixed(2), loops: G.eng ? G.eng.loaded : null, voices: (G.eng ? 1 : 0) + (G.elec ? 1 : 0) };
     },
   };
 }

@@ -81,8 +81,10 @@ installDriveMode(WAGMI);
   car.onUpdate = (dt, keys, throttle, steer) => {
     // (stopping for him to get out: car.halt m/s² of brakes, whatever is pressed)
     if (car.halt) { car.speed -= Math.sign(car.speed) * Math.min(Math.abs(car.speed), car.halt * dt); throttle = 0; steer = 0; car.steerAngle *= 0.8; }
-    car.boosting = !!keys.boost && throttle > 0;
-    rs.setThrust(keys.boost && throttle > 0 ? 1 : 0, keys.boost && throttle > 0 ? 0.85 : 0);
+    // (a car with no boost, a world's van or truck (wagmi/storyrun/ride.js setClass): no push, no flame)
+    const boost = !!keys.boost && throttle > 0 && !car.noBoost;
+    car.boosting = boost;
+    rs.setThrust(boost ? 1 : 0, boost ? 0.85 : 0);
     rs.update(dt, car.speed, -steer * 0.9);
     alongWall(dt, throttle);
     curbAssist(dt, steer);
