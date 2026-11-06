@@ -278,8 +278,11 @@ export function createRunner(ctx) {
     const p = placeOf(d.at), on = carSearch(d);
     if (on) return searchCar(d, p, on, t);
     const reach = d.radius || 3.2, hx = p.cx ?? p.x, hz = p.cz ?? p.z;
-    gps.objective(parts(d.objective || `Search **${d.label}**.`, 'green'), { x: p.x, z: p.z, name: d.label }, { blip: false });
-    gps.blip('search', { x: p.x, z: p.z, kind: 'object', edge: true, name: d.label });
+    // (the route and the blip lead to that same spot: they went to the place's lane point, up to 7 m off the corner's
+    // centre, so the autopilot stood at the lane point beside a ring it never reached; MCM, 5 Nov: a Mog of Mog City's
+    // own story stuck at Mission 1's '@chelseapark' van search)
+    gps.objective(parts(d.objective || `Search **${d.label}**.`, 'green'), { x: hx, z: hz, name: d.label }, { blip: false });
+    gps.blip('search', { x: hx, z: hz, kind: 'object', edge: true, name: d.label });
     const ring = createMarker(THREE, app.scene, { color: '#4ADE80', radius: d.ring || reach * 0.8, height: 1.1, alpha: 0.2 }); ring.at(hx, 0.02, hz);
     const act = ui.holdAct({ label: d.label, noun: d.noun || d.label.replace(/^\w+\s+((over|off|up|in|out|down|back|on|away|through|for)\s+)?/i, ''), secs: d.secs || 1.0, show: reach + 6, reach });
     M.holding = { x: hx, z: hz, act };
