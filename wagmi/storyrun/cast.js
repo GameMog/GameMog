@@ -55,7 +55,8 @@ export function createCast(W, world) {
         const c = plan.clips?.[l.clip];
         const raw = c?.url || (plan.dir != null && l.clip ? `${plan.dir}${l.clip}.ogg` : null);
         const url = raw && world.asset(raw);
-        if (url && V.clip(l.who, l.text, url, { dur: c?.secs || 0 })) n++;
+        // (fx: a line heard down a phone, a call's caller or a voicemail, plays through Mog City's phone band: the car phone too)
+        if (url && V.clip(l.who, l.text, url, { dur: c?.secs || 0, fx: l.fx === 'phone' ? 'phone' : null })) n++;
       }
       return n;
     },
