@@ -477,9 +477,9 @@ export function createRunner(ctx) {
     // (on the paving: off every roadway, curb to curb, past the ends of its block into the crossing too, and on the
     // map's sidewalk where it has one)
     const onRoad = (x, z) => { for (const e of net.edges || []) { if (!e.len) continue; const qx = x - e.sx, qz = z - e.sz, al = qx * e.dx + qz * e.dz; if (al < -12 || al > e.len + 12) continue; if (Math.abs(qx * e.rx + qz * e.rz) < (e.half || 4) + 0.6) return true; } return false; };
-    const on = (x, z) => { try { return !onRoad(x, z) && !!net.onSidewalk(x, z); } catch { return true; } };
-    const near = (x, z) => { if (on(x, z)) return [x, z]; for (let r = 0.5; r <= 14; r += 0.5) for (let a = 0; a < 24; a++) { const q = (a * PI) / 12, px = x + Math.cos(q) * r, pz = z + Math.sin(q) * r; if (on(px, pz)) return [px, pz]; } return null; };
-    const hx = P.position.x, hz = P.position.z, hp = near(hx, hz); if (!hp) return;
+    const on = (x, z) => { try { return !onRoad(x, z) && (!!net.onSidewalk?.(x, z) || !!net.walkable?.(x - 0.35, x + 0.35, z - 0.35, z + 0.35)); } catch { return true; } };
+    const near = (x, z) => { if (on(x, z)) return [x, z]; for (let r = 0.5; r <= 22; r += 0.5) for (let a = 0; a < 24; a++) { const q = (a * PI) / 12, px = x + Math.cos(q) * r, pz = z + Math.sin(q) * r; if (on(px, pz)) return [px, pz]; } return null; };
+    const hx = P.position.x, hz = P.position.z, hp = near(hx, hz); if (!hp) { console.warn('[storyrun] pavement: none within 22 m of', Math.round(hx), Math.round(hz)); return; }
     let dx = hp[0] - hx, dz = hp[1] - hz;
     if (dx || dz) { const n = Math.hypot(dx, dz), ex = hp[0] + (dx / n) * 1.0, ez = hp[1] + (dz / n) * 1.0; if (on(ex, ez)) { hp[0] = ex; hp[1] = ez; } dx = hp[0] - hx; dz = hp[1] - hz; putAt(W, { dan: [hp[0], hp[1], P.heading] }); }
     for (const n of M?.npcs || []) {
