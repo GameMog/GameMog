@@ -245,3 +245,10 @@ test("a recorded line is heard out: the call waiting waits for the hold line, a 
   assert.match(calls, /if \(subNow\(\) \|\| W\.voice\?\.left\?\.\(\) > 0\.08\)/);
   assert.match(fs.readFileSync(path.join(ROOT, 'wagmi/radio/voices.js'), 'utf8'), /left: \(\) => \(cur && ctx \? Math\.max\(0, cur\.end - ctx\.currentTime\) : 0\)/);
 });
+
+test("a failed attempt is over: its token killed, so its timer loop never ticks or pins a later mission's time", () => {
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const play = run.slice(run.indexOf('async function play('), run.indexOf("if (pick === 'quit')"));
+  // (a step's thrown Fail left the attempt's token alive: after PT-14's retry its timer loop held PT-15's midnight over free roam)
+  assert.match(play, /const at = M; kill\(at\.tok, e instanceof Fail \? e : new Stop\(\)\); tidy\(\);/);
+});

@@ -1737,7 +1737,10 @@ export function createRunner(ctx) {
           tidy();
           return { how: 'pass', secs: r.secs, stats: r.stats, state: M.state, log: M.log };
         } catch (e) {
-          const at = M; tidy();
+          // (the attempt is over: its token killed, as a pass kills it. A step that throws its Fail (a pursuit's 'They
+          // caught you') left it alive, and that attempt's timer loop ran on for good, ticking and pinning whatever
+          // mission came after: after PT-14's retry it held PT-15's midnight over the story's free roam)
+          const at = M; kill(at.tok, e instanceof Fail ? e : new Stop()); tidy();
           if (restartTo) { cp = restartTo === 'start' ? null : at.cp; restartTo = null; continue; }
           if (!(e instanceof Fail)) { if (!(e instanceof Stop)) console.error('[storyrun]', def.id, e); return { how: 'quit' }; }
           fails++;
