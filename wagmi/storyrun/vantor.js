@@ -2,8 +2,9 @@
 // wagmi/storyrun/gt.js, and the same interface, but its skin, wheels, doors, lamps and cabin are a ready-made model's:
 // assets/vehicles/vantor/vantor-gt.glb, made from "Porsche GT3 RS" by Black Snow (CC BY 4.0, assets/vehicles/vantor/
 // CREDITS.md) with every badge, crest, maker's name and model lettering taken out, its hidden mechanicals removed and
-// simplified. Here it is painted the Vantor's gloss black, its wheels black over red calipers, its lamps lit, 'VANTOR GT'
-// and the plate put on its tail; it is scaled to the GT's wheelbase and set on the GT's axles.
+// simplified. Here it is finished in the Vantor's matte black (its trim, carbon, glass, wheels and lamps to match, the
+// crest's empty well capped), its calipers red, its lamps lit, 'VANTOR GT' and the plate put on its tail;
+// it is scaled to the GT's wheelbase and set on the GT's axles.
 //
 // What it keeps of gt.js (buildGT is built first and its own body hidden): the driver's anchor and seat marks, the wheel
 // his hands hold (moved to the model's own wheel, which turns with it), the boost's flame (moved to the model's tips),
@@ -56,27 +57,111 @@ export async function buildVantor(THREE, o = {}) {
   g.updateMatrixWorld(true);
 
   /* -------------------------------------------------------------- paint -- */
-  // by each part's own name (its first material's name is in it): gloss black body, black wheels, red calipers, lamps lit
-  const wheelM = M.wheel, rubber = M.rubber;
-  const discM = M.disc;
-  const lit = M.drl, tailM = M.tail, glassM = M.glass;
-  // (the lamp's LED body: dark chrome with a faint cold glow, its projector (lit) bright)
-  const ledM = new THREE.MeshPhysicalNodeMaterial({ color: '#2A2D31', metalness: 0.8, roughness: 0.2, emissive: '#DCE6F2', emissiveIntensity: 0.18 });
-  const paintRe = /carPaint(?!008)|carbon_roof|carbon_Wing.*carbon|carbon_hood.*carbon|spoiler/i;
+  // (the owner, 6 Nov: "the car needs a matte finish and polish") A satin black like a factory matte wrap: rough, a thin
+  // soft clear coat and a faint sheen, so the sun leaves broad soft highlights along the body lines and no mirror of the
+  // sky, and it still reads as black paint. Round it, everything that is not paint finished so it holds up beside it:
+  // satin carbon (the roof, the wing's blades, the lid's stripes), satin black trim, piano-black glass trim, smoked glass,
+  // dark gunmetal wheels with gloss black centres on matte rubber, clear lamp lenses, the lamps lit. o.finish 'gloss'
+  // keeps the old gloss black. Every part is matched by its node's name and its own material's name (m.userData.mat);
+  // the model's own materials (most of them mirror-smooth, the glTF default metal) are left only inside the cabin.
+  const P = (p) => new THREE.MeshPhysicalNodeMaterial(p), S = (p) => new THREE.MeshStandardNodeMaterial(p), DS = THREE.DoubleSide;
+  const gloss = o.finish === 'gloss';
+  const paint = gloss ? M.paint : P({ color: o.paint ?? '#060607', metalness: 0, roughness: 0.6, specularIntensity: 0.42, clearcoat: 0.1, clearcoatRoughness: 0.4, sheen: 0.25, sheenColor: '#1E2126', sheenRoughness: 0.45, side: DS });
+  let carbonTex = null; src.traverse((m) => { if (!carbonTex && m.isMesh && /carbon_roof/.test(m.material?.name || '')) carbonTex = m.material.map || null; });
+  const X = {
+    paint,
+    carbon: P({ color: '#34363A', map: carbonTex, metalness: 0, roughness: 0.5, specularIntensity: 0.5, clearcoat: 0.3, clearcoatRoughness: 0.3, side: DS }),   // satin carbon
+    trim: S({ color: '#0E0F11', metalness: 0, roughness: 0.68, side: DS }),         // satin black plastic, a shade off the paint
+    piano: P({ color: '#050506', metalness: 0, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.03, side: DS }),   // the black glass round the windows
+    seal: S({ color: '#08090A', metalness: 0, roughness: 0.85, side: DS }),        // rubber seals, the underside
+    grille: S({ color: '#141518', metalness: 0.6, roughness: 0.5, alphaTest: 0.5, side: DS }),
+    darkChrome: P({ color: '#3A3D42', metalness: 1, roughness: 0.22, side: DS }),
+    tip: P({ color: '#6E6A66', metalness: 1, roughness: 0.32, side: DS }),        // the tips: brushed titanium
+    rim: P({ color: '#26282C', metalness: 0.9, roughness: 0.34, clearcoat: 0.5, clearcoatRoughness: 0.2, side: DS }),   // dark gunmetal
+    hub: P({ color: '#060607', metalness: 0.2, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.05, side: DS }),     // gloss black
+    tyre: S({ color: '#141416', metalness: 0, roughness: 0.94 }),
+    window: P({ color: '#06070A', metalness: 0, roughness: 0.03, specularIntensity: 1, clearcoat: 1, clearcoatRoughness: 0.02, transparent: true, opacity: 0.84, depthWrite: false, side: DS }),
+    lens: P({ color: '#FFFFFF', metalness: 0, roughness: 0.02, transparent: true, opacity: 0.06, clearcoat: 1, clearcoatRoughness: 0.02, depthWrite: false, side: DS }),
+    redLens: P({ color: '#5A0A0E', metalness: 0, roughness: 0.05, transparent: true, opacity: 0.55, clearcoat: 1, depthWrite: false, side: DS }),
+    reflector: P({ color: '#4A0508', metalness: 0, roughness: 0.15, clearcoat: 1, emissive: '#C0101A', emissiveIntensity: 0.25 }),
+    housing: S({ color: '#0B0C0E', metalness: 0.3, roughness: 0.4, side: DS }),
+    // the lamp's LED body: dark chrome with a faint cold glow, its projector (lit) bright
+    led: P({ color: '#2A2D31', metalness: 0.8, roughness: 0.2, emissive: '#DCE6F2', emissiveIntensity: 0.18 }),
+  };
+  if (X.carbon.map) X.carbon.map.anisotropy = 8;
+  const MAT = { caliper: M.caliper, disc: M.disc, nut: M.nut, lit: M.drl, tail: M.tail, tailCore: M.tailCore, under: M.under };
+  const pick = (n, mt) => {
+    if (/caliper/i.test(n)) return MAT.caliper;
+    if (/amdb11_brake|brakedisc/i.test(n)) return /misc_chrome/i.test(mt) ? MAT.nut : MAT.disc;
+    if (/wheels_chrome/i.test(n)) return /GT3RS_black/.test(mt) ? X.hub : X.rim;
+    if (/^Object_4/i.test(n)) return X.tyre;
+    if (/headlight_[LR]_led/i.test(n)) return /headlight_high/.test(mt) ? MAT.lit : /led_lights/.test(mt) ? X.led : /headlight_1\.001$/.test(mt) ? X.darkChrome : X.housing;
+    if (/headlightglass/i.test(n)) return X.lens;
+    if (/fascia_glass/i.test(n)) return /antichrome/.test(mt) ? X.redLens : X.lens;
+    if (/fascia_mid/i.test(n)) return /brakelight/.test(mt) ? MAT.tailCore : /taillight/.test(mt) ? MAT.tail : X.housing;
+    if (/windshield|doorglass|quarterglass|backlight/i.test(n)) return /glass_int/.test(mt) ? null : X.window;
+    if (/exhausttip/i.test(n)) return /exhausttip_antichrome/.test(mt) ? X.tip : X.seal;
+    if (/carPaint\.003/.test(mt)) return paint;
+    if (/carPaint\.008/.test(mt)) return X.seal;
+    if (/carbon_roof/.test(mt)) return X.carbon;
+    if (/plastic_mgl_060606FF\.001|plastic_mgl\.00[12]/.test(mt)) return X.trim;
+    if (/metal_radiator/.test(mt)) return null;
+    if (/blackGlass/.test(mt)) return X.piano;
+    if (/headlight_1\.001_1/.test(mt)) return X.seal;
+    if (/^TwiXeR_992\.001$/.test(mt)) return MAT.under;
+    if (/chrome\.003/.test(mt)) return X.darkChrome;
+    if (/red\.001$/.test(mt)) return X.reflector;
+    return undefined;
+  };
   src.traverse((m) => {
     if (!m.isMesh) return;
-    const n = m.name;
+    const mt = (m.userData.mat ??= m.material?.name || '');
     m.castShadow = true; m.receiveShadow = true;
-    if (/caliper/i.test(n)) m.material = M.caliper;
-    else if (/amdb11_brake|brakedisc/i.test(n)) m.material = /misc_chrome/i.test(n) ? M.nut : discM;
-    else if (/wheels_chrome|GT3RS_black/i.test(n)) m.material = wheelM;
-    else if (/^Object_4/i.test(n)) m.material = rubber;
-    else if (paintRe.test(n)) m.material = M.paint;
-    else if (/headlight_[LR]_led.*headlight_high/i.test(n)) m.material = lit;
-    else if (/headlight_[LR]_led.*led_lights/i.test(n)) m.material = ledM;
-    else if (/brakelight|taillight|fascia_mid/i.test(n)) m.material = tailM;
-    else if (/windshield|doorglass|quarterglass|backlight/i.test(n) && /glass/i.test(n)) m.material = glassM;
+    const to = pick(m.name, mt);
+    if (to === null) {
+      if (/glass_int/.test(mt)) m.visible = false;   // (the windows' inner pane: one pane of smoked glass, no second layer sorting against it)
+      else if (/metal_radiator/.test(mt)) { const map = m.material.map; m.material = X.grille.clone(); m.material.map = map; m.material.alphaMap = null; }
+    } else if (to) m.material = to;
   });
+
+  /* ------------------------------------------------------ the crest's well -- */
+  // the crest taken off the front lid left its shield-shaped hole (the well under it showing, a maker's crest in outline):
+  // capped with a patch of the lid's own carbon, its height and its weave's UVs fitted to the lid round the hole, 1.5 mm
+  // under the lid's skin so only the hole shows it
+  {
+    let lid = null; src.traverse((m) => { if (!lid && m.isMesh && /carbon_hood/.test(m.name) && /carbon_roof/.test(m.userData.mat)) lid = m; });
+    if (lid) {
+      g.updateMatrixWorld(true);
+      const rc = new THREE.Raycaster(), down = V3(0, -1, 0).transformDirection(g.matrixWorld), hits = [], miss = [];
+      const lb = g.worldToLocal(box(lid).getCenter(V3())), top = 3;
+      // the lid's front middle, where the crest sat: scanned 1 cm apart
+      const fz = (() => { let z1 = null; for (let z = lb.z; z < lb.z + 1.5; z += 0.01) { rc.set(g.localToWorld(V3(0.12, top, z)), down); if (rc.intersectObject(lid, false).length) z1 = z; } return z1; })();
+      if (fz != null) {
+        for (let z = fz - 0.22; z <= fz + 0.001; z += 0.01) for (let x = -0.1; x <= 0.1001; x += 0.01) {
+          rc.set(g.localToWorld(V3(x, top, z)), down); const h = rc.intersectObject(lid, false)[0];
+          if (h && h.uv) { const p = g.worldToLocal(h.point.clone()); hits.push([x, z, p.y, h.uv.x, h.uv.y]); } else if (z < fz - 0.02) miss.push([x, z]);
+        }
+      }
+      if (miss.length && miss.length < 120 && hits.length > 40) {
+        const mx = [Math.min(...miss.map((m) => m[0])) - 0.015, Math.max(...miss.map((m) => m[0])) + 0.015], mz = [Math.min(...miss.map((m) => m[1])) - 0.015, Math.max(...miss.map((m) => m[1])) + 0.015];
+        const cx = (mx[0] + mx[1]) / 2, cz = (mz[0] + mz[1]) / 2;
+        // a quadratic in x and z through the lid round the hole (least squares), for its height and each UV
+        const near = hits.filter((h) => Math.abs(h[0] - cx) < 0.09 && Math.abs(h[1] - cz) < 0.09), terms = (x, z) => { x -= cx; z -= cz; return [1, x, z, x * x, x * z, z * z]; };
+        const fit = (k) => {
+          const A = Array.from({ length: 6 }, () => new Array(7).fill(0));
+          for (const h of near) { const t = terms(h[0], h[1]); for (let i = 0; i < 6; i++) { for (let j = 0; j < 6; j++) A[i][j] += t[i] * t[j]; A[i][6] += t[i] * h[k]; } }
+          for (let i = 0; i < 6; i++) A[i][i] += 1e-9;
+          for (let c = 0; c < 6; c++) { let p = c; for (let r = c + 1; r < 6; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r; [A[c], A[p]] = [A[p], A[c]]; for (let r = 0; r < 6; r++) if (r !== c) { const f = A[r][c] / A[c][c]; for (let j = c; j < 7; j++) A[r][j] -= f * A[c][j]; } }
+          const w = A.map((r, i) => r[6] / r[i]); return (x, z) => terms(x, z).reduce((s, t, i) => s + t * w[i], 0);
+        };
+        const fy = fit(2), fu = fit(3), fv = fit(4);
+        const geo = new THREE.PlaneGeometry(mx[1] - mx[0], mz[1] - mz[0], 8, 8).rotateX(-Math.PI / 2), pos = geo.attributes.position, uv = geo.attributes.uv;
+        for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + cx, z = pos.getZ(i) + cz; pos.setXYZ(i, x, fy(x, z) - 0.0015, z); uv.setXY(i, fu(x, z), fv(x, z)); }
+        geo.computeVertexNormals();
+        if ([...pos.array, ...uv.array].every(Number.isFinite)) { const cap = new THREE.Mesh(geo, X.carbon); cap.name = 'vantor-crest-cap'; cap.receiveShadow = true; g.add(cap); }
+      }
+    }
+  }
 
   /* -------------------------------------------------------------- wheels -- */
   // each corner's rim, tyre and disc turn in a spin group on its axle (x), inside a group that steers (y); the caliper
@@ -150,7 +235,7 @@ export async function buildVantor(THREE, o = {}) {
     const pm = new THREE.MeshStandardNodeMaterial({ map: ptex, roughness: 0.4, metalness: 0.1 });
     const py = o.plateY ?? 0.5, zb = skinZ(py, 1) ?? -2.3;
     const back = new THREE.Mesh(new THREE.PlaneGeometry(0.305, 0.155), pm); back.position.set(0, py, zb - 0.008); back.rotation.y = Math.PI; g.add(back);
-    const fy = o.frontPlateY ?? 0.3, zf = skinZ(fy, -1);
+    const fy = o.frontPlateY ?? 0.285, zf = skinZ(fy, -1);   // (its top clear of the bumper's lip)
     if (zf != null) { const front = new THREE.Mesh(new THREE.PlaneGeometry(0.305, 0.155), pm); front.position.set(0, fy, zf + 0.008); g.add(front); }
   }
 

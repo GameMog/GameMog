@@ -30,7 +30,7 @@
 //   doors | doorsRear | doorsSide | doorIn  the driver's door open (?door=0..1, ?doorL / ?doorR one of them)
 //   driver | climb  Dan at the wheel, and getting in and out on a loop (?k=0..1 a pose on the way in, ?play=1 the
 //           loop, ?scale= the car scaled as the game does)
-// and ?paint=#hex, ?matte=1, ?cold=0..1, ?burn=0..1, ?spin=1, ?steer=-1..1, ?floor=#hex, ?cam=x,y,z&at=x,y,z&fov=deg (a
+// and ?paint=#hex, ?finish=gloss (the downloaded body's old gloss black; it is matte), ?matte=1, ?cold=0..1, ?burn=0..1, ?spin=1, ?steer=-1..1, ?floor=#hex, ?cam=x,y,z&at=x,y,z&fov=deg (a
 // camera of your own), ?id=1 (the materials recoloured, to tell the parts apart), ?bg=#hex
 import * as THREE from 'three/webgpu';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -90,7 +90,7 @@ const floor = new THREE.Mesh(new THREE.CircleGeometry(40, 96), new THREE.MeshSta
 floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 
 const num = (k, d) => (q.has(k) ? +q.get(k) : d);
-const car = await (q.get('body') === 'ext' ? buildVantor : buildGT)(THREE, { ...(q.get('paint') ? { paint: q.get('paint') } : {}), ...(q.has('hax') ? { hingeAxis: vec('hax') } : {}), ...(q.has('hinge') ? { hinge: vec('hinge') } : {}), ...(q.has('hang') ? { hingeAngle: +q.get('hang') } : {}), matte: q.get('matte') === '1', cold: num('cold', firing ? 1 : 0), burn: num('burn', firing ? 0.85 : 0) });
+const car = await (q.get('body') === 'ext' ? buildVantor : buildGT)(THREE, { ...(q.get('paint') ? { paint: q.get('paint') } : {}), ...(q.has('hax') ? { hingeAxis: vec('hax') } : {}), ...(q.has('hinge') ? { hinge: vec('hinge') } : {}), ...(q.has('hang') ? { hingeAngle: +q.get('hang') } : {}), matte: q.get('matte') === '1', ...(q.get('finish') ? { finish: q.get('finish') } : {}), cold: num('cold', firing ? 1 : 0), burn: num('burn', firing ? 0.85 : 0) });
 scene.add(car.group);
 window.car = car;
 // (?scale=: the car scaled up whole as the game does it, a driver in it staying his own size)
