@@ -228,7 +228,10 @@ export function createRunner(ctx) {
   // place: the player there (in the car, or on foot), the time of day
   STEPS.place = async (d) => { const p = placeOf(d.at); putPlayer(p, (typeof d.at === 'object' && d.at.mode) || (M.def.vehicle ? 'car' : 'walk')); if (d.time) { if (M.pin) pinTo(d.time); else setTime(d.time); } M.timer.add(d.bonus || 0); };
   STEPS.say = async (d, t) => { const who = castName(d.who); if (d.wait === false) { say(who, d.text, M.tok, { secs: d.secs }).catch(() => {}); return; } await say(who, d.text, t, { secs: d.secs }); };
-  STEPS.wait = async (d, t) => { const end = now() + (d.secs || 0) * 1000; await wait(() => now() >= end || (d.call && !W.calls?.live && now() > end - (d.secs || 0) * 1000 + 300), t); };
+  // (a wait for the calls, call: true: up to secs, over once the car phone is done and no call that rang beside the
+  // step before (a persist call waiting, Delgado ringing mid-chase) is still being said)
+  const ringingBeside = () => [...M.sides].some((s) => s.def.type === 'call' && !(s.def.inCar || (s.def.auto && !s.def.interrupts)) && !deadOf(s.tok));
+  STEPS.wait = async (d, t) => { const end = now() + (d.secs || 0) * 1000; await wait(() => now() >= end || (d.call && !W.calls?.live && !ringingBeside() && now() > end - (d.secs || 0) * 1000 + 300), t); };
   STEPS.dm = async (d, t) => { sfx.play('ding', { gain: 0.3 }); ui.dm(d.from || d.name || 'Unknown number', tokens(d.text), d.secs || 8); M.log.push(['dm', d.from, d.text]); await delay(d.wait ? (d.secs || 8) : 1.2, t); };
   STEPS.set = async (d) => applySet(d.set);
   STEPS.label = async (d) => { M.state.label = d.label; };
@@ -1470,13 +1473,17 @@ export function createRunner(ctx) {
       if (kerb == null) { kerb = 6.5; for (let k = 2; k <= 16; k += 0.5) if (cm.isPointOnSidewalk?.(p.x + Math.cos(h) * k * side, p.z - Math.sin(h) * k * side)) { kerb = k + 1.2; break; } }
       const x = p.x + Math.cos(h) * kerb * side, z = p.z - Math.sin(h) * kerb * side;
       const yaw = u.heading != null ? (u.heading * PI) / 180 : h - (PI / 2) * side;
-      if (u.roam > 0) { const r = Math.min(80, u.roam); return { path: [[x, z], [x + Math.sin(h) * r, z + Math.cos(h) * r]], yaw, speed: 1.1, pause: 2.5, name: u.name }; }
+      // (a beat along its lane, or `dir` degrees (0 the lane's way, 90 +x: down a cross street from a corner's place))
+      if (u.roam > 0) { const r = Math.min(80, u.roam), hd = u.dir != null ? (u.dir * PI) / 180 : h; return { path: [[x, z], [x + Math.sin(hd) * r, z + Math.cos(hd) * r]], yaw: u.heading != null ? yaw : hd, speed: u.speed || 1.1, pause: u.pause ?? 2.5, name: u.name }; }
       return { at: [x, z], yaw, sweep: u.sweep ?? 0.8, period: 7, name: u.name };
     });
     const S = createStealth(W, { posts, U });
     await S.spawn();
     // (a moment to see them before they can see him: the step starts with him wherever the last one left him)
     S.grace = d.grace ?? 3;
+    // (detect: the seconds a lookout has to keep him in sight 10 m off before he is seen; Mission 2's own is about 0.9 s.
+    // Pickup Time's sneak says 2.5: time to see the bar empty and step back out of the cone. Up close it is at once.)
+    if (d.detect > 0) S.rate = 0.92 / d.detect;
     M.stealth = S;
     const dest = d.to ? placeOf(d.to) : null, secs = d.secs || 0, onD = d.onDetect || 'fail';
     if (d.hint) ui.help(parts(d.hint), 8);
@@ -1491,11 +1498,18 @@ export function createRunner(ctx) {
         const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
         if (!dt || W.cutscene) return false;
         // (the test drive is never seen: it checks that the story plays through, the cones and all, not the sneaking)
-        if (M.auto) S.grace = 5;
+        // (&stealthfair: the test drive sneaks for itself, seen if it is seen: a check that the sneak can be done)
+        if (M.auto && !ctx.flags.stealthFair) S.grace = 5;
         const r0 = S.step(dt); blipAll();
         // (the cones read on a sunlit street: Mog City's are drawn for its twilight yard)
         for (const L of S.lookouts) if (L.cone.visible) L.cone.material.opacity = Math.max(L.cone.material.opacity * 2.4, 0.2);
         if (secs) { unseen += dt; hud.timer(Math.max(0, secs - unseen), d.label || 'STAY HIDDEN'); }
+        // (how close he is to being seen, on the HUD: the most suspicious lookout's '?' as a bar, full while nobody has
+        // noticed him, emptying as one does, so a player sees it coming, not just the SPOTTED! when it has)
+        if (d.meter !== false && (dest || secs)) {
+          const k = S.lookouts.reduce((a, L) => (L.watching && L.e.alive ? Math.max(a, L.sus) : a), 0);
+          hud.bar(d.label || 'UNSEEN', 1 - k, k >= 0.66 ? 'THEY SEE YOU' : k > 0.05 ? 'SUSPICIOUS' : 'HIDDEN');
+        }
         if (r0) {
           M.log.push(['stealth', 'seen', S.by?.name || '']);
           U.banner('SPOTTED!', tokens(d.why || `${S.by?.name || 'A lookout'} saw you.`), { color: '#EF4444', secs: 2.2 });
@@ -1511,6 +1525,7 @@ export function createRunner(ctx) {
       }, t);
     } finally {
       if (secs) hud.timer(null);
+      if (d.meter !== false && (dest || secs)) hud.bar(null);
       ring?.hide(); if (ring) app.scene.remove(ring.group);
       for (const L of S.lookouts) gps.unblip('lk:' + L.id);
       try { S.dispose(); } catch {} U.banner?.(null);

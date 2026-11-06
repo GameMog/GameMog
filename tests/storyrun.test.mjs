@@ -289,3 +289,26 @@ test("the action beats have punch: a chase's alarm, a roadblock rammed in slow m
   const ap = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/autopilot.js'), 'utf8');
   assert.ok(ap.indexOf("if (M.chase && ['call'") > 0 && ap.indexOf("if (M.chase && ['call'") < ap.indexOf("if (!['drive', 'stops', 'walk'"));
 });
+
+test("pacing 2: a clock or a meter never under a call's card; a sneak's UNSEEN bar; a wait hears out a call ringing beside it; the autopilot sneaks, tails and races at a player's pace", () => {
+  const hud = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/hud.js'), 'utf8');
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const ap = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/autopilot.js'), 'utf8');
+  // (the clock first, then the meters, moved clear of the card: up on a desk, down on a phone)
+  assert.match(hud, /for \(const e of \[count, timerEl, metersEl\]\)/);
+  assert.match(hud, /const down = document\.body\.classList\.contains\('touch-enabled'\)/);
+  assert.match(hud, /setInterval\(unstack, 200\)/);
+  const st = run.slice(run.indexOf('STEPS.stealth = '), run.indexOf('a parked car --'));
+  assert.match(st, /hud\.bar\(d\.label \|\| 'UNSEEN', 1 - k/);
+  assert.match(st, /if \(d\.meter !== false && \(dest \|\| secs\)\) hud\.bar\(null\)/);
+  assert.match(st, /u\.dir != null/);
+  assert.match(st, /if \(d\.detect > 0\) S\.rate = 0\.92 \/ d\.detect;/);
+  const m2 = fs.readFileSync(path.join(ROOT, 'wagmi/mission/m2-stealth.js'), 'utf8');
+  assert.match(m2, /by: null, rate: 1 \};/); assert.match(m2, /\* S\.rate; if \(d < CLOSE\) L\.sus = 1;/);
+  assert.match(st, /if \(M\.auto && !ctx\.flags\.stealthFair\) S\.grace = 5;/);
+  assert.match(run, /d\.call && !W\.calls\?\.live && !ringingBeside\(\)/);
+  assert.match(ap, /if \(realPace && type === 'stealth' && !inCar\(\)\) \{\n\s+footSp = 1\.7;/);
+  assert.match(ap, /L > 60 && !\(realPace && type === 'stealth'\)/);
+  assert.match(ap, /vt = clamp\(\(T\.v \|\| 0\) \+ \(dv - ring \* 1\.6\) \* 0\.3, 0, 20\)/);
+  assert.match(ap, /if \(raceKey === stepKey \|\| \(L \+ rest\) \/ 20 > sh\.left\)/);
+});

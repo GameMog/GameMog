@@ -20,7 +20,8 @@ const angWrap = (a) => { a = (a + PI) % (2 * PI); if (a < 0) a += 2 * PI; return
 
 export function createStealth(W, { posts, U, center }) {
   const app = W.app, cm = app.controllerManager, P = W.person, car = W.car, combat = W.combat, scene = app.scene, cam = app.cameraSystem.camera;
-  const S = { lookouts: [], crew: null, down: 0, quiet: 0, alarmed: false, grace: 0, by: null };
+  // (rate: how fast suspicion fills, 1 Mission 2's own; a story's stealth sets it from its step's detect)
+  const S = { lookouts: [], crew: null, down: 0, quiet: 0, alarmed: false, grace: 0, by: null, rate: 1 };
   // a wall, a container or a building between two points (the city's colliders, the yard's among them)
   function blocked(ax, ay, az, bx, by, bz) {
     const L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / 0.6);
@@ -140,8 +141,8 @@ export function createStealth(W, { posts, U, center }) {
       const inCone = d < range && (off < HALF || (d < CLOSE * 1.6 && off < HALF * 1.6));
       const sees = S.grace <= 0 && inCone && !blocked(e.pos.x, e.pos.y + 1.6, e.pos.z, p.x, p.y + 1.1, p.z);
       const heard = S.grace <= 0 && !car_ && sp > 5.4 && d < 7;
-      if (sees) { L.sus += dt * (0.55 + (range - d) / range * 1.6) * (sp > 4 ? 1.6 : 1) * (car_ ? 1.8 : 1); if (d < CLOSE) L.sus = 1; L.look = { x: p.x, z: p.z }; }
-      else if (heard) { L.sus += dt * 0.9; L.look = { x: p.x, z: p.z }; }
+      if (sees) { L.sus += dt * (0.55 + (range - d) / range * 1.6) * (sp > 4 ? 1.6 : 1) * (car_ ? 1.8 : 1) * S.rate; if (d < CLOSE) L.sus = 1; L.look = { x: p.x, z: p.z }; }
+      else if (heard) { L.sus += dt * 0.9 * S.rate; L.look = { x: p.x, z: p.z }; }
       else L.sus = Math.max(0, L.sus - dt * 0.22);
       // (the one who saw him stays sure of it: his mark red until the alarm)
       if (L === S.by) L.sus = 1;

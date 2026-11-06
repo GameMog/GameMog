@@ -92,6 +92,10 @@ body.touch-enabled #wg .sr-meters { right: var(--wg-r); top: calc(var(--wg-t) + 
 #wg .sr-pass .nx .k { font: 700 13px/1 'Barlow Condensed'; letter-spacing: 4px; color: #FFC93C; }
 #wg .sr-pass .nx .n { font: 800 24px/1.1 'Barlow Condensed'; text-transform: uppercase; margin-top: 4px; }
 #wg .sr-pass .nx .s { font: 600 16px/1.3 'Barlow Condensed'; color: rgba(255,255,255,.75); margin-top: 2px; }
+/* (on a phone the meters are pills a size down, so the right edge's column fits beside the objective) */
+body.touch-enabled #wg .sr-meters > div.goal { min-width: 0; padding: 5px 10px 6px; }
+body.touch-enabled #wg .sr-meters > div.goal .v { font-size: 20px; }
+body.touch-enabled #wg .sr-meters .l { font-size: 11px; letter-spacing: 2px; }
 body.touch-enabled #wg .sr-pass .box { padding: 10px 16px 12px; } body.touch-enabled #wg .sr-pass .g b { font-size: 30px; }
 `;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -110,6 +114,41 @@ export function createHud(ui) {
   const deltas = new Map();
   const fmt = (s) => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
   let choosing = null;
+  // a clock or a meter never under a call's card: Mog City's count (STOPS 0/3), the clock, then the meters, each moved
+  // clear of the caller card (and of what was moved before it), up where the column stacks up from the bottom (a desk),
+  // down where it hangs from the top (a phone, body.touch-enabled, where the car's pills down the right edge are in the
+  // way too). Mog City's card moves with what else is up (a tail meter, a damage bar), so this looks at where it is, five
+  // times a second. (PT-3's van: the BANK SWEEP clock sat half under Carissa's card)
+  const shown = (e) => e.classList.contains('on') || (e === metersEl && e.children.length > 0);
+  const unstack = () => {
+    const down = document.body.classList.contains('touch-enabled');
+    const C = root.querySelector('.wg-caller'), count = root.querySelector('.wg-count');
+    const obst = C && C.classList.contains('on') && !document.body.classList.contains('wg-cine') ? [C.getBoundingClientRect()] : [];
+    const pills = down ? document.querySelector('.pills') : null, pr = pills && pills.getBoundingClientRect();
+    if (pr && pr.height && getComputedStyle(pills).display !== 'none' && getComputedStyle(pills).visibility !== 'hidden') obst.push(pr);
+    for (const e of [count, timerEl, metersEl]) {
+      if (!e) continue;
+      const was = e.style.translate;
+      if (!obst.length || !shown(e)) { if (was) e.style.translate = ''; continue; }
+      e.style.translate = '';
+      const R = e.getBoundingClientRect();
+      if (!R.height) continue;
+      let dy = 0;
+      for (let n = 0; n < 3; n++) {
+        let moved = false;
+        for (const O of obst) {
+          const top = R.top + dy, bot = R.bottom + dy;
+          if (R.left >= O.right || O.left >= R.right || top >= O.bottom + 6 || O.top - 6 >= bot) continue;
+          dy = down ? dy + (O.bottom + 8 - top) : dy - (bot - O.top + 8); moved = true;
+        }
+        if (!moved) break;
+      }
+      const v = dy ? `0 ${Math.round(dy)}px` : '';
+      if (v !== was) e.style.translate = v;
+      obst.push({ left: R.left, right: R.right, top: R.top + dy, bottom: R.bottom + dy });
+    }
+  };
+  setInterval(unstack, 200);
   const hud = {
     timer(secs, label = 'TIME', late = false) {
       if (secs == null) { timerEl.classList.remove('on'); return; }
