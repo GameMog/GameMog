@@ -561,7 +561,7 @@
  },
  "copy": {
   "index.text.hit-the-suits": { "text": "Hit the Suits", "at": "wagmi/combat/index.js:735", "ctx": "t" },
-  "gps.name.dan-s-car": { "text": "Dan's car", "at": "wagmi/game.js:59", "ctx": "t" },
+  "gps.name.dan-s-car": { "text": "Dan's car", "at": "wagmi/game.js:62", "ctx": "t" },
   "intro.sign.dan": { "text": "@dan", "at": "wagmi/intro.js:262", "ctx": "canvas" },
   "intro.sign.comments-18-4k": { "text": "COMMENTS · 18.4K", "at": "wagmi/intro.js:263", "ctx": "canvas" },
   "intro.sign.unknown": { "text": "UNKNOWN", "at": "wagmi/intro.js:276", "ctx": "canvas" },

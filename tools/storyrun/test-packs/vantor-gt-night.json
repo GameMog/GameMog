@@ -8,7 +8,8 @@
  "car": {
   "model": "mogcity/gt",
   "label": "John's car",
-  "plate": "JM 0838"
+  "plate": "JM 0838",
+  "body": "built"
  },
  "dressing": {
   "time": "midnight",

@@ -33,7 +33,10 @@ installDriveMode(WAGMI);
   let sheetRs = null; if (RIDE) try { sheetRs = RIDE.buildSheetCar(THREE, PACK.sheetCar); } catch (err) { console.warn('[storyrun] car', err); }
   // (or one of Mog City's own models a world names, wagmi/storyrun/gt.js: the Vantor GT, on the roadster's handling)
   const MODEL = PACK?.ok && !sheetRs && PACK.modelCar ? await import('./storyrun/gt.js').catch(() => null) : null;
-  let modelRs = null; if (MODEL) try { modelRs = MODEL.buildGT(THREE, PACK.modelCar); } catch (err) { console.warn('[storyrun] car model', err); }
+  // (it wears its downloaded body, wagmi/storyrun/vantor.js, the same interface; gt.js's own with car.body 'built' or if
+  // that fails to load)
+  let modelRs = MODEL && PACK.modelCar.body !== 'built' ? await import('./storyrun/vantor.js').then((m) => m.buildVantor(THREE, PACK.modelCar)).catch((err) => { console.warn('[storyrun] car body', err); return null; }) : null;
+  if (MODEL && !modelRs) try { modelRs = MODEL.buildGT(THREE, PACK.modelCar); } catch (err) { console.warn('[storyrun] car model', err); }
   const rs = sheetRs || modelRs || buildRoadster(THREE, story.paint ? { paint: story.paint } : undefined);   // (its own default paint; a Mog's, wagmi/story)
   rs.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   car.chassisPivot.add(rs.group);

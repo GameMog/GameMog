@@ -120,11 +120,13 @@ export function check(w) {
     }
   }
   if (w.car != null && !(typeof w.car === 'string' ? STOCK.has(w.car) : w.car && (typeof w.car.sheet === 'object' || MODEL_CARS.has(w.car.model)))) bad('car');
-  // (a Mog City model as the hero's car: { model: 'mogcity/gt', paint?, plate?, label? }, wagmi/storyrun/gt.js)
+  // (a Mog City model as the hero's car: { model: 'mogcity/gt', paint?, plate?, label?, body? }, wagmi/storyrun/gt.js;
+  // it wears the downloaded body, wagmi/storyrun/vantor.js; body: 'built' the one built in code, gt.js)
   if (w.car && typeof w.car === 'object' && MODEL_CARS.has(w.car.model)) {
     if (w.car.paint != null && !COLOUR.test(w.car.paint)) bad('car.paint');
     if (w.car.plate != null && (typeof w.car.plate !== 'string' || !/^[A-Z0-9 ]{0,8}$/.test(w.car.plate))) bad('car.plate');
     if (w.car.label != null && (typeof w.car.label !== 'string' || w.car.label.length > 32)) bad('car.label');
+    if (w.car.body != null && w.car.body !== 'ext' && w.car.body !== 'built') bad('car.body');
   }
   return errs;
 }

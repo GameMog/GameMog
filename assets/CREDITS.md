@@ -113,6 +113,16 @@ License: non-commercial use only. `NOTICE` lists exactly which files and what wa
 The trash cans in `assets/props/trash-cans.glb` are "Metal Trash Can" by GurJas Studios, from
 [Poly Haven](https://polyhaven.com/a/metal_trash_can), under [CC0 1.0](https://polyhaven.com/license).
 
+## Vehicles
+
+The Vantor GT's downloaded body (`assets/vehicles/vantor/vantor-gt.glb`, used only by a Story Kit world whose car is
+`{ model: 'mogcity/gt' }`, never by Mog City's own game) is based on "Porsche GT3 RS" by
+[Black Snow](https://sketchfab.com/BlackSnow02), from
+[Sketchfab](https://sketchfab.com/3d-models/porsche-gt3-rs-e738eae819c34d19a31dd066c45e0f3d), under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modified: its badges, crest and model lettering removed, its
+mechanicals removed, simplified and repainted; `assets/vehicles/vantor/CREDITS.md` has the details. The game's car is
+a look-alike named "Vantor GT" and has no connection with any car maker.
+
 ## Voices
 
 Dan's, Jane's, Knox's, Mack's, Gears', Fiona's, Brick's, Dash's and Ms. Bea's lines are synthesised with
