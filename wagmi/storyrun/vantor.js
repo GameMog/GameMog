@@ -62,16 +62,19 @@ export async function buildVantor(THREE, o = {}) {
   // sky, and it still reads as black paint. Round it, everything that is not paint finished so it holds up beside it:
   // satin carbon (the roof, the wing's blades, the lid's stripes), satin black trim, piano-black glass trim, smoked glass,
   // dark gunmetal wheels with gloss black centres on matte rubber, clear lamp lenses, the lamps lit. o.finish 'gloss'
-  // keeps the old gloss black. Every part is matched by its node's name and its own material's name (m.userData.mat);
-  // the model's own materials (most of them mirror-smooth, the glTF default metal) are left only inside the cabin.
+  // keeps the old gloss black. (The owner again: "make it inkier". The taupe at night was the rough paint's own broad
+  // reflection of the lit street, not its colour: so the base is near-black, its reflectance cut to 0.15 of a plain
+  // dielectric's, the clear coat and sheen thin and cold, and the trim and carbon beside it toned down to match; the
+  // sun is strong enough to still draw soft highlights.) Every part is matched by its node's name and its own material's name
+  // (m.userData.mat); the model's own materials (most of them mirror-smooth, the glTF default metal) are left only inside the cabin.
   const P = (p) => new THREE.MeshPhysicalNodeMaterial(p), S = (p) => new THREE.MeshStandardNodeMaterial(p), DS = THREE.DoubleSide;
   const gloss = o.finish === 'gloss';
-  const paint = gloss ? M.paint : P({ color: o.paint ?? '#060607', metalness: 0, roughness: 0.6, specularIntensity: 0.42, clearcoat: 0.1, clearcoatRoughness: 0.4, sheen: 0.25, sheenColor: '#1E2126', sheenRoughness: 0.45, side: DS });
+  const paint = gloss ? M.paint : P({ color: o.paint ?? '#020203', metalness: 0, roughness: 0.6, specularIntensity: 0.15, clearcoat: 0.06, clearcoatRoughness: 0.35, sheen: 0.1, sheenColor: '#12151A', sheenRoughness: 0.45, side: DS });
   let carbonTex = null; src.traverse((m) => { if (!carbonTex && m.isMesh && /carbon_roof/.test(m.material?.name || '')) carbonTex = m.material.map || null; });
   const X = {
     paint,
-    carbon: P({ color: '#34363A', map: carbonTex, metalness: 0, roughness: 0.5, specularIntensity: 0.5, clearcoat: 0.3, clearcoatRoughness: 0.3, side: DS }),   // satin carbon
-    trim: S({ color: '#0E0F11', metalness: 0, roughness: 0.68, side: DS }),         // satin black plastic, a shade off the paint
+    carbon: P({ color: '#2C2E32', map: carbonTex, metalness: 0, roughness: 0.5, specularIntensity: 0.25, clearcoat: 0.15, clearcoatRoughness: 0.3, side: DS }),   // satin carbon
+    trim: P({ color: '#0C0D0F', metalness: 0, roughness: 0.68, specularIntensity: 0.35, side: DS }),         // satin black plastic, a shade off the paint
     piano: P({ color: '#050506', metalness: 0, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.03, side: DS }),   // the black glass round the windows
     seal: S({ color: '#08090A', metalness: 0, roughness: 0.85, side: DS }),        // rubber seals, the underside
     grille: S({ color: '#141518', metalness: 0.6, roughness: 0.5, alphaTest: 0.5, side: DS }),
