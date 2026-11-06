@@ -7,9 +7,9 @@
 //   boost    the cold-gas thrusters' hiss in bursts, the rocket's saturated roar, its crackle and its low rumble, lit by a
 //            whump; the crackle lingers a moment when it cuts
 // ALL ELECTRIC (the drive mode, drivemode.js: WAGMI.setDriveMode / toggleDriveMode): the engine gives way to the
-// electric drive (electric.js: the motor's whine, a hum, the pedestrian warning) and the tyres and the wind come up a
-// little to carry it; the boost sounds the same. (The motor's whine rises with the speed up to about the top speed and
-// only a little past it, evSpeed: on the boost it sings higher, it doesn't scream.) A switch crossfades the two over 0.4 s with its cue (driveCue); the
+// electric drive (electric.js: the motor's quiet, nearly monotone whine over the inverter's hum, no revs) and the tyres
+// and the wind carry it; the boost sounds the same. (The whine glides with the speed up to about the top
+// speed and only a little past it, evSpeed.) A switch crossfades the two over 0.4 s with its cue (driveCue); the
 // one faded out is taken down (a switch back makes it again, in the gear for the speed, the engine catching with a blip).
 // The graph exists only while Dan is at the wheel (built when he gets in, taken down a few seconds after he gets out).
 // The engine's loops are fetched once, when the mixer starts (ready: a promise for them).
@@ -24,7 +24,7 @@ const XFADE = 0.4;
 // the car's level in the mix (sfx bus): 1.65 = +4.4 dB over the street (the owner, 3 Nov)
 const CAR_LEVEL = 1.65;
 // the speed the electric drive's voice is given: the road speed up to 30 m/s, then easing off toward ~44 (34 m/s plays
-// as 33.5, the boost's 56 as 42: its whine about 1140 Hz there, not 1500)
+// as 33.5, the boost's 56 as 42: its whine about 715 Hz there)
 const evSpeed = (vs) => { const v = Math.abs(vs); return v <= 30 ? vs : Math.sign(vs) * (30 + 14 * (1 - Math.exp(-(v - 30) / 14))); };
 
 export function createPlayerCar(M, E, dest = M.bus.sfx, opt = {}) {
@@ -116,7 +116,7 @@ export function createPlayerCar(M, E, dest = M.bus.sfx, opt = {}) {
     ramp(G.tw.frequency, 1600 + 2600 * burn + v * 40, 0.25); ramp(G.twg.gain, on * burn * 0.035, 0.2);
     const vr = Math.min(1, v / 30), rough = s.rough || 0;
     // (with no engine over them the road and the air carry it: a little more of each, and of the tyres' top)
-    const quiet = 1 + 0.15 * ev;
+    const quiet = 1 + 0.05 * ev;
     ramp(G.tlp.frequency, (260 + v * 20 + rough * 300) * (1 + 0.35 * ev)); ramp(G.tyg.gain, on * (0.32 * Math.pow(vr, 1.3)) * (1 + rough * 0.6) * quiet);
     ramp(G.gg.gain, on * Math.min(1, v / 8) * (0.06 + 0.4 * rough) * (1 + 0.15 * ev));
     ramp(G.wbp.frequency, 600 + v * 26); ramp(G.wng.gain, on * 0.2 * v01 * v01 * quiet);
