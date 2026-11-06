@@ -33,3 +33,51 @@ export function fitSheet(car, rs) {
   try { rs.attach?.(car); } catch (err) { console.warn('[storyrun] lamps', err); }
   return car;
 }
+
+// a mission's own ride (a world's `rides` sheet named by a mission's `vehicle`, Pickup Time's Slice Marin van): the hero's
+// car wears it for that mission and takes its own body back for the next. The car entity, its rig object (car.roadster:
+// game.js's onUpdate, the doors and the driver hold it) and the driver stay; the hero car's meshes are hidden (the
+// driver's seat anchor kept), the sheet's body shown on the same chassis, the car's numbers (box, axles, chase framing,
+// pace, brakes, handling, name) the sheet's while it is worn and the hero car's again after.
+//   wearRide(THREE, car, sheet | null)
+const WORN_KEYS = ['body', 'axle', 'mass', 'chaseDistance', 'chaseHeight', 'chase', 'topSpeed', 'boostSpeed', 'accel', 'boostAccel', 'rolling', 'drag', 'coast', 'brake', 'boostBrake', 'label'];
+export function wearRide(THREE, car, sheet) {
+  const rs = car.roadster; if (!rs) return false;
+  const st = rs.__worn || (rs.__worn = { id: null, base: null, rigs: {} });
+  const id = sheet ? sheet.id : null;
+  if (st.id === id) return false;
+  if (st.id) {
+    st.rigs[st.id].group.visible = false;
+    for (const [m, v] of st.base.meshes) m.visible = v;
+    for (const k of WORN_KEYS) car[k] = st.base.car[k];
+    car.handling = { ...st.base.handling };
+    rs.update = st.base.update; rs.setThrust = st.base.setThrust;
+    st.id = null;
+  }
+  if (id) {
+    if (!st.base) {
+      // (the hero car's own meshes, not the seat anchor's subtree: the driver sits on that)
+      const meshes = [], skip = new Set(); rs.anchor?.traverse((o) => skip.add(o));
+      rs.group.traverse((o) => { if (o.isMesh && !skip.has(o)) meshes.push([o, o.visible]); });
+      st.base = { meshes, car: Object.fromEntries(WORN_KEYS.map((k) => [k, car[k]])), handling: { ...car.handling }, update: rs.update, setThrust: rs.setThrust };
+    }
+    let w = st.rigs[id];
+    if (!w) {
+      w = st.rigs[id] = buildSheetCar(THREE, sheet);
+      w.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      car.chassisPivot.add(w.group);
+    }
+    for (const [m] of st.base.meshes) m.visible = false;
+    w.group.visible = true;
+    const T = w.tune || {};
+    for (const k of WORN_KEYS) if (T[k] != null) car[k] = T[k];
+    if (T.handling) car.handling = { ...T.handling };
+    car.label = w.label || sheet.label || car.label;
+    // (the hero rig still runs (its wheel the hands hold), its flame off; the sheet's body turns its own wheels)
+    rs.update = (dt, v, s) => { st.base.update.call(rs, dt, v, s); w.update(dt, v, s); };
+    rs.setThrust = (a, b) => { st.base.setThrust.call(rs, 0, 0); w.setThrust?.(a, b); };
+    st.id = id;
+  }
+  const lab = typeof document !== 'undefined' && document.getElementById('hud-active-mode'); if (lab) lab.textContent = car.label;
+  return true;
+}

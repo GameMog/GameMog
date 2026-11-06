@@ -1528,6 +1528,10 @@ export function createRunner(ctx) {
       }
       catch (e) { if (e instanceof Fail) M.fail(e); }
     })();
+    // (the mission's own ride: a world's rides sheet its vehicle names is worn by the hero's car for it (ride.js
+    // wearRide); every other mission puts the hero car's own body back)
+    { const sheet = (def0.rides && def.vehicle && def0.rides[def.vehicle]) || null;
+      if (sheet || car.roadster?.__worn?.id) { try { const R = await import('./ride.js'); R.wearRide(THREE, car, sheet); } catch (e) { console.warn('[storyrun] ride', e); } } }
     if (cp && cp.from) {
       // (a start at a step, Mission select or ?step=: where its `from` puts him)
       const fr = cp.from;
