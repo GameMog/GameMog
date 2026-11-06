@@ -711,7 +711,12 @@ export function createCalls(W) {
     if (!C || C.dead) return;
     C.dead = true;
     for (const t of C.timers) clearTimeout(t); C.timers.length = 0;
-    if (C.line && subNow() === C.line.mine) { W.ui?.sub(null); try { W.voice?.stop?.(0.12); } catch {} }
+    // (its line playing is heard out, the subtitle down when it ends: a step ending or the next call never cuts a
+    // recorded line mid-word; a line with no recording goes at once)
+    if (C.line && subNow() === C.line.mine) {
+      const mine = C.line.mine, left = W.voice?.left?.() || 0;
+      if (left > 0.08) setTimeout(() => { if (subNow() === mine) W.ui?.sub(null); }, left * 1000 + 60); else W.ui?.sub(null);
+    }
     C.line = null;
     if (C.rang) { W.ui?.caller?.(null); if (sound) W.sfx?.play('hangup', { gain: 0.12 }); }
     if (next === C) next = null;
@@ -789,8 +794,8 @@ export function createCalls(W) {
     }
     C.outAt = 0; C.pauseNow = false;
     if (C.held) { C.held = false; card('On call'); if (C.said && D.resume.length) C.resumeDue = true; }
-    // the mission's own line up: the call waits for it, and goes on 0.4 s after it clears
-    if (subNow()) { C.otherAt = t; return; }
+    // the mission's own line up: the call waits for it, and goes on 0.4 s after it clears (and its recording ends)
+    if (subNow() || W.voice?.left?.() > 0.08) { C.otherAt = t; return; }
     if (t - C.otherAt < AFTER_OTHER * 1000) return;
     if (C.resumeDue) { C.resumeDue = false; say(C, D.resume[C.resumeI++ % D.resume.length], 'resume'); return; }
     if (C.again) { const a = C.again; C.again = null; say(C, a.tup, a.kind, true); return; }

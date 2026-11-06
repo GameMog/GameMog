@@ -233,3 +233,15 @@ test("after STORY COMPLETE free roam is in daylight; a forged man fights in his 
   assert.match(run, /thugPunch1: 'jab'/); assert.match(run, /thugKnockdown: 'fall'/);
   assert.match(run, /if \(!c \|\| c\.model \|\| !c\.glb \|\| cast\.isHero\(who\)\) return null;/); // (a Suit stays a Suit)
 });
+
+test("a recorded line is heard out: the call waiting waits for the hold line, a step's end or the next call never cuts a clip", () => {
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const cw = run.slice(run.indexOf('async function callWaiting('), run.indexOf('async function voicemail('));
+  assert.match(cw, /W\.calls\.state\(\)\?\.held && !W\.calls\.talking/); // ('Go, I'll hold.' said before the new caller)
+  assert.match(run, /if \(W\.voice\?\.left\?\.\(\) > 0\.08\) \{ const t0 = now\(\); await wait\(\(\) => !\(W\.voice\.left\(\) > 0\.08\)/);
+  const calls = fs.readFileSync(path.join(ROOT, 'wagmi/mission/calls.js'), 'utf8');
+  const end = calls.slice(calls.indexOf('function end(C, sound = true)'), calls.indexOf('function stepGone('));
+  assert.doesNotMatch(end, /W\.voice\?\.stop/);
+  assert.match(calls, /if \(subNow\(\) \|\| W\.voice\?\.left\?\.\(\) > 0\.08\)/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'wagmi/radio/voices.js'), 'utf8'), /left: \(\) => \(cur && ctx \? Math\.max\(0, cur\.end - ctx\.currentTime\) : 0\)/);
+});

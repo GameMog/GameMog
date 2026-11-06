@@ -121,6 +121,8 @@ export function createRunner(ctx) {
   // a line: its subtitle (its recording or clip plays from it: radio/voices.js), held for its reading time or its voice
   async function say(who, text, t, { secs = null, phone = false } = {}) {
     text = tokens(text);
+    // (a recorded line still playing, a car-phone call's or the last step's, is heard out first, up to 6 s)
+    if (W.voice?.left?.() > 0.08) { const t0 = now(); await wait(() => !(W.voice.left() > 0.08) || now() - t0 > 6000, t); }
     const rec = W.voice?.dur?.(who, text) || 0;
     const hold = Math.max(1.4, text.length / 15, rec + 0.15, secs || 0);
     if (phone) W.voice?.fx?.(who, 'phone');
@@ -766,7 +768,8 @@ export function createRunner(ctx) {
     }
     // (the live call on hold: its line playing finished, its pause line, then this one's card over it)
     W.calls.hold?.(true);
-    await wait(() => !W.calls.talking || W.calls.state()?.id !== live, t).catch(() => {});
+    // (on hold once its line playing is done, its hold line said: 'Go, I'll hold.' heard out before the new caller)
+    { const t0 = now(); await wait(() => W.calls.state()?.id !== live || (W.calls.state()?.held && !W.calls.talking) || now() - t0 > 15000, t).catch(() => {}); }
     await delay(0.3, t);
     applySet(d.answer); show(d.role || 'On call');
     try {
