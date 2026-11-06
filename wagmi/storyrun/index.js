@@ -115,6 +115,8 @@ export async function install(W) {
   if (asksDressing(def.dressing)) {
     try { const D = await import('./dressing.js'); W.storyrun.dressing = D.createDressing(W, def.dressing); } catch (e) { console.warn('[storyrun] dressing', e); }
   }
+  // a story's night is a lit city night, readable (nightlit.js: its fill, moon and exposure lifted at night only)
+  try { const NL = await import('./nightlit.js'); W.storyrun.nightLit = NL.createNightLit(W, def.dressing || {}); } catch (e) { console.warn('[storyrun] night', e); }
   // the start: on foot by the car while the gate is up, the city at the world's time of day (a night world's gate at night)
   outBesideCar(W);
   // (a world that says no time at all, in its dressing or its first mission, is in daylight)
@@ -202,6 +204,9 @@ export async function install(W) {
   }
   if (k >= order.length) {
     tell('story-end', { id: def.id });
+    // (the story's end, unmistakable: STORY COMPLETE over the world's title and its closing line, held, then its title
+    // lockup, then free roam)
+    await hud.passed({ head: 'STORY COMPLETE', title: def.title, line: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 2.2 : 6);
     await hud.card({ kicker: def.kicker || '', text: def.title, sub: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 1 : 4);
     ui.objective(['Free roam. ', { 'Esc': 'yellow' }, ' for Mission select.'], 8);
   }

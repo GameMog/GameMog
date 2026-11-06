@@ -440,7 +440,11 @@ export function createRunner(ctx) {
     const dx = p[0] - l[0], dz = p[2] - l[2], dy = p[1] - l[1], n = Math.hypot(dx, dy, dz) || 1, h = Math.hypot(dx, dz) || 1;
     const fx = dx / h, fz = dz / h, out = Math.min(1.9, n * 0.9);
     keyL.position.set(l[0] + fx * out - fz * 0.8, l[1] + 0.5, l[2] + fz * out + fx * 0.8);
-    keyL.intensity = n < 6 ? 2.6 : 0;
+    // (at night a lamp, a doorway, headlights: the face's key is warmer and stronger, and a wide shot keeps a softer
+    // practical on its people, 2 m out, so the cast reads on a night street)
+    const nt = W.storyrun?.nightLit?.night?.() || 0;
+    keyL.color.set(nt > 0.5 ? '#FFD9AE' : '#FFE6CC'); keyL.distance = n < 6 ? 4.5 : 9;
+    keyL.intensity = n < 6 ? 2.6 * (1 + 0.9 * nt) : 3.2 * nt;
     return n;
   }
   // (opening: the world's opening (opening()), its shots' place card, title and name cards played as Mog City's opening
