@@ -35,11 +35,15 @@ const CSS = `
 #wg .sr-choice button.sel { border-color: #FFC93C; background: rgba(255,201,60,.12); }
 #wg .sr-choice button.lock { opacity: .4; cursor: default; }
 #wg .sr-choice kbd { display: inline-block; min-width: 22px; padding: 0 6px; border: 1px solid rgba(255,255,255,.55); border-radius: 5px; background: rgba(255,255,255,.12); font: 700 15px/22px 'Barlow Condensed'; text-align: center; }
-#wg .sr-card { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; z-index: 7; pointer-events: none; opacity: 0; transition: opacity .5s; }
+/* (a card is a title over the game: above ui.fade's cover (.wg-fade, z 20), so a fade under it dims the city, never the
+   words; its own soft vignette behind the words, about 30% in the middle and none at the edges, so with an act's half dim
+   (index.js ACT_DIM) the frame is at most about half dark and the words read bright on a sunlit street) */
+#wg .sr-card { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; z-index: 21; pointer-events: none; opacity: 0; transition: opacity .5s;
+  background: radial-gradient(ellipse 60% 45% at 50% 50%, rgba(0,0,0,.3), rgba(0,0,0,.14) 60%, rgba(0,0,0,0)); text-shadow: 0 2px 12px rgba(0,0,0,.6), 0 1px 2px rgba(0,0,0,.85); }
 #wg .sr-card.on { opacity: 1; }
 #wg .sr-card .k { font: 700 16px/1 'Barlow Condensed'; letter-spacing: 6px; text-transform: uppercase; color: #FFC93C; }
 #wg .sr-card .t { font: italic 800 clamp(40px, 7vw, 84px)/.95 'Barlow Condensed'; text-transform: uppercase; margin: 10px 0 8px; }
-#wg .sr-card .s { font: 600 20px/1.3 'Barlow Condensed'; color: rgba(255,255,255,.75); max-width: min(720px, calc(100vw - 32px)); }
+#wg .sr-card .s { font: 600 20px/1.3 'Barlow Condensed'; color: rgba(255,255,255,.92); max-width: min(720px, calc(100vw - 32px)); }
 #wg .sr-card .r { width: 110px; height: 3px; background: #FFC93C; margin: 0 auto 4px; }
 #wg .sr-bar { position: absolute; right: 24px; bottom: 228px; width: 250px; padding: 10px 14px 12px; background: rgba(8,10,14,0.62); border-radius: 10px; opacity: 0; transition: opacity .3s; z-index: 4; pointer-events: none; }
 #wg .sr-bar.on { opacity: 1; }
@@ -113,7 +117,7 @@ export function createHud(ui) {
   const tx = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = String(text); return e; };
   const deltas = new Map();
   const fmt = (s) => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-  let choosing = null;
+  let choosing = null, cardN = 0;
   // a clock or a meter never under a call's card: Mog City's count (STOPS 0/3), the clock, then the meters, each moved
   // clear of the caller card (and of what was moved before it), up where the column stacks up from the bottom (a desk),
   // down where it hangs from the top (a phone, body.touch-enabled, where the car's pills down the right edge are in the
@@ -256,7 +260,9 @@ export function createHud(ui) {
     async card({ kicker = '', text = '', sub = '' } = {}, secs = 2.6) {
       cardEl.querySelector('.k').textContent = kicker; cardEl.querySelector('.t').textContent = text; cardEl.querySelector('.s').textContent = sub;
       cardEl.querySelector('.r').style.display = kicker ? '' : 'none';
-      cardEl.classList.add('on'); await sleep(secs * 1000); cardEl.classList.remove('on'); await sleep(450);
+      // (only the last card shown takes it down: a second card while one is up is not cut short by the first's end)
+      const my = ++cardN;
+      cardEl.classList.add('on'); await sleep(secs * 1000); if (my === cardN) cardEl.classList.remove('on'); await sleep(450);
     },
     clear() { hud.timer(null); hud.meters([]); hud.bar(null); choosing?.cancel(); passEl.classList.remove('on'); },
   };

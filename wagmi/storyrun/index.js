@@ -275,20 +275,27 @@ export async function install(W) {
       } catch (e) { console.warn('[storyrun] after', e); }
     }
   }
+  // an act's cards (END OF ACT, its stats, the next act's title) are titles over the game, not a blackout: the city under
+  // a light dim (ACT_DIM, module scope; the card's own vignette behind its words, hud.js .sr-card, which sits above the
+  // dim), each card about 3-4 s, and the dim always taken off after, whatever happens meanwhile (was 0.9 over the cards:
+  // the owner's "the screen goes black" at ACT II, the card's words dark grey under it)
   async function actEnd(e, { holdNext = false } = {}) {
-    await ui.fade(0.9, 0.5);
-    await hud.card({ kicker: e.title || 'END OF ACT', text: e.heading || (isOwn(world) ? def.title : ownTitle(def.title)), sub: (e.story || []).join(' ') || (e.quote ? `"${e.quote.text}"` : '') }, flags.autoCard ? 1 : Math.max(3, e.minSecs || 0));
-    // (its numbers and its last word, when it has them: the big card, its head the act's title (the story's end: the
-    // story's own title), its stats in rows, the quote and who said it under them)
-    if ((e.stats || []).length) {
-      await ui.fade(0, 0.4);
-      await hud.passed({ head: e.title || 'END OF ACT', title: e.heading || '', stats: e.stats.map((x) => [x.label, x.value]), line: e.quote ? `"${e.quote.text}"${e.quote.by ? ' · ' + e.quote.by : ''}` : '' }, flags.autoCard ? 1.6 : Math.max(5, e.minSecs || 0));
-      await ui.fade(0.9, 0.4);
-    }
-    if (e.next && !holdNext) await hud.card({ kicker: e.next.kicker || 'NEXT', text: e.next.text, sub: e.next.sub || '' }, flags.autoCard ? 0.8 : (e.next.secs || 3));
-    await ui.fade(0, 0.5);
+    try {
+      await ui.fade(ACT_DIM, 0.5);
+      await hud.card({ kicker: e.title || 'END OF ACT', text: e.heading || (isOwn(world) ? def.title : ownTitle(def.title)), sub: (e.story || []).join(' ') || (e.quote ? `"${e.quote.text}"` : '') }, flags.autoCard ? 1 : Math.min(4, Math.max(3, e.minSecs || 0)));
+      // (its numbers and its last word, when it has them: the big card, its head the act's title (the story's end: the
+      // story's own title), its stats in rows, the quote and who said it under them)
+      if ((e.stats || []).length) {
+        await ui.fade(0, 0.4);
+        await hud.passed({ head: e.title || 'END OF ACT', title: e.heading || '', stats: e.stats.map((x) => [x.label, x.value]), line: e.quote ? `"${e.quote.text}"${e.quote.by ? ' · ' + e.quote.by : ''}` : '' }, flags.autoCard ? 1.6 : Math.max(5, e.minSecs || 0));
+        await ui.fade(ACT_DIM, 0.4);
+      }
+      if (e.next && !holdNext) await hud.card({ kicker: e.next.kicker || 'NEXT', text: e.next.text, sub: e.next.sub || '' }, flags.autoCard ? 0.8 : Math.min(4, e.next.secs || 3.4));
+    } finally { await ui.fade(0, 0.5); }
   }
 }
+// (an act card's dim: at most half, so the city reads under the card: actEnd)
+const ACT_DIM = 0.3;
 const fmt = (s) => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 // one frame straight after the city renders it (a WebGPU canvas is read in that task), cropped to 1280x720 and 512x512

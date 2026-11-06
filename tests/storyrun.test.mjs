@@ -312,3 +312,32 @@ test("pacing 2: a clock or a meter never under a call's card; a sneak's UNSEEN b
   assert.match(ap, /vt = clamp\(\(T\.v \|\| 0\) \+ \(dv - ring \* 1\.6\) \* 0\.3, 0, 20\)/);
   assert.match(ap, /if \(raceKey === stepKey \|\| \(L \+ rest\) \/ 20 > sh\.left\)/);
 });
+
+test("an act card is a legible title, never a blackout: its words above the fade, a light dim, about 3-4 s, and the dim always comes off", () => {
+  const hud = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/hud.js'), 'utf8');
+  const ui = fs.readFileSync(path.join(ROOT, 'wagmi/mission/ui.js'), 'utf8');
+  const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  // (the card is drawn above ui.fade's cover: a fade dims the city under it, never its words; the owner's ACT II card
+  // was dark grey words under a 0.9 cover)
+  const z = (css, sel) => +css.match(new RegExp(sel.replace(/[.]/g, '\\.') + ' \\{[^}]*z-index: (\\d+)'))[1];
+  assert.ok(z(hud, '#wg .sr-card') > z(ui, '.wg-fade'), 'the card above the fade');
+  // (the act's dim: at most half, and taken off in a finally whatever happens during the cards)
+  // (at module scope: declared inside install() after the story loop, actEnd hit it before it was set, a TDZ error)
+  const dim = +idx.match(/^const ACT_DIM = ([\d.]+);/m)[1];
+  assert.ok(dim > 0 && dim <= 0.5, `act dim ${dim}`);
+  const ae = idx.slice(idx.indexOf('async function actEnd('), idx.indexOf('\n  }\n', idx.indexOf('async function actEnd(')));
+  assert.doesNotMatch(ae, /ui\.fade\(0\.[6-9]/);
+  assert.match(ae, /try \{[\s\S]*\} finally \{ await ui\.fade\(0, [\d.]+\); \}/);
+  // (each act card held about 3-4 s)
+  for (const m of ae.matchAll(/hud\.card\([^\n]*?flags\.autoCard \? [\d.]+ : ([^\n]+?)\);/g)) assert.match(m[1], /^Math\.min\(4,/, m[1]);
+  // (every other dark cover in the runner comes off in a finally: a set's veil, a transition, the story's end)
+  for (const src of [run, idx]) {
+    for (const m of src.matchAll(/await ui\.fade\(0\.9\d*, [\d.]+\);/g)) {
+      const after = src.slice(m.index, m.index + 1200);
+      assert.match(after, /finally \{[^\n]*ui\.fade\(0, /, after.slice(0, 120));
+    }
+  }
+  // (a second card while one is up is not taken down by the first's end)
+  assert.match(hud, /const my = \+\+cardN;/); assert.match(hud, /if \(my === cardN\) cardEl\.classList\.remove\('on'\)/);
+});
