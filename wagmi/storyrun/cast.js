@@ -18,6 +18,7 @@ import { loadGLB } from '../glb.js';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { createFace, dropFace } from '../face.js';
 import { relaxArms } from '../combat/suitarms.js';
+import { unhang } from './pack.js';
 
 // (8: a set's cutscene stands up to seven at once, the hero's double besides: sets.js)
 const MAX = 8;
@@ -100,6 +101,8 @@ export function createCast(W, world) {
     const g = await loadGLB(url);
     const root = new THREE.Group(); root.name = 'storyrun-' + name.replace(/[^A-Za-z0-9]+/g, '-');
     const inner = skClone(g.scene); root.add(inner);
+    // (a hand-built body's arm-hang bones levelled, as the hero's: pack.js unhang)
+    unhang(inner);
     // (the export's armature turn out, as Dan's: wagmi/game.js)
     const arm = inner.getObjectByName('root')?.parent;
     if (arm && arm !== inner) { arm.quaternion.identity(); arm.position.y += c.model ? 0 : 0.02; }

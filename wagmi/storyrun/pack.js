@@ -131,6 +131,16 @@ export function check(w) {
   return errs;
 }
 
+// a forged body on Dan's clips: the hand-built cast (John, Milo, Pell, the old boss, the young hero) carry an extra node
+// between each shoulder and upper arm, armhang_L / _R (not one of the skin's joints), turned 13 degrees in at rest.
+// Dan's rig has none, so no clip of his moves it and it stayed at that turn under every clip: on top of Dan's upper-arm
+// turn (made for an upper arm hung straight off the shoulder) it swung each arm in and forward, the hands in front of the
+// belly and the arms inside the jacket (the owner: "i can't see John's arms", from behind square shoulders and nothing
+// hanging). Levelled, the upper arm hangs off the shoulder as Dan's does and the clips put the arms where they put his.
+export function unhang(root) {
+  root?.traverse?.((o) => { if (/^armhang_[LR]$/.test(o.name)) o.quaternion.identity(); });
+}
+
 export async function load() {
   watch();
   const raw = q.get('pack');
@@ -164,6 +174,7 @@ export async function load() {
       const g = await loadGLB(W.heroGlb);
       const names = new Set(dan.animations.map((c) => c.name));
       g.animations = [...dan.animations, ...g.animations.filter((c) => !names.has(c.name))];
+      unhang(g.scene);
       return g;
     } catch (err) { console.warn('[storyrun] hero body', err); return dan; }
   };

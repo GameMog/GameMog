@@ -341,3 +341,21 @@ test("an act card is a legible title, never a blackout: its words above the fade
   // (a second card while one is up is not taken down by the first's end)
   assert.match(hud, /const my = \+\+cardN;/); assert.match(hud, /if \(my === cardN\) cardEl\.classList\.remove\('on'\)/);
 });
+
+test("a hand-built body's arms hang at its sides on Dan's clips: its armhang bones are levelled, the hero's and the cast's", () => {
+  const pack = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/pack.js'), 'utf8');
+  const cast = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/cast.js'), 'utf8');
+  // (Dan's clips have no armhang track: left at its 13 degree rest turn it swung each arm into the body)
+  assert.match(pack, /export function unhang\(root\) \{\n\s+root\?\.traverse\?\.\(\(o\) => \{ if \(\/\^armhang_\[LR\]\$\/\.test\(o\.name\)\) o\.quaternion\.identity\(\); \}\);/);
+  const hero = pack.slice(pack.indexOf('W.heroGLTF = async'), pack.indexOf('};', pack.indexOf('W.heroGLTF = async')));
+  assert.match(hero, /unhang\(g\.scene\);\n\s+return g;/);
+  assert.match(cast, /const inner = skClone\(g\.scene\); root\.add\(inner\);\n[^\n]*\n\s+unhang\(inner\);/);
+  // (the clips really have none, and Pickup Time's hero really has them: else this is moot)
+  const glbJson = (f) => { const b = fs.readFileSync(path.join(ROOT, f)); return JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString()); };
+  assert.ok(glbJson('tools/storyrun/test-packs/pickup-time/cast/john.glb').nodes.some((n) => n.name === 'armhang_L'));
+  const dan = glbJson('assets/characters/dan.glb');
+  assert.ok(!dan.nodes.some((n) => /^armhang/.test(n.name)));
+  assert.ok(!dan.animations.some((a) => a.channels.some((c) => /^armhang/.test(dan.nodes[c.target.node].name))));
+  // (the live check: tools/storyrun/arms.mts, after every kind of beat)
+  assert.ok(fs.existsSync(path.join(ROOT, 'tools/storyrun/arms.mts')));
+});
