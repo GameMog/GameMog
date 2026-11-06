@@ -19,7 +19,7 @@ export async function mogOpenFor(game: Pick<GameRow, 'slug' | 'format' | 'code' 
   return isMogCityEpisode(game) && !!(await mogCityStoryFor(storyOpen));
 }
 
-/** /mog/mog-city's story composer (app/create/story.tsx StoryMogComposer): Mog City's people are remade, its missions and its city stay. */
+/** /mog/mog-city's story composer (app/create/story.tsx StoryMogComposer): Mog City's people and story are remade; its city, meters, clock and kinds of mission stay. */
 export const MOG_CITY_STORY_MOG = {
   change: [
     'The people: Dan, Jane, Mr. Big and the Suits, remade: their looks, their roles, their names',
@@ -28,7 +28,7 @@ export const MOG_CITY_STORY_MOG = {
     'The season, the hour and the weather',
   ],
   stays: [
-    'The missions, the meters and the clock',
+    'The kinds of mission, the meters and the clock',
   ],
   ideas: [
     'A Christmas story: Jane is the boss and Dan drives a vintage pickup',

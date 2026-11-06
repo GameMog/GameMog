@@ -66,9 +66,9 @@ export default async function MogPage({ params, searchParams }: { params: Promis
         {/* (a penalty shootout is played, not raced, before it can publish, 13 Oct) */}
         {mcCity ? (
           <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
-            Remix Mog City&apos;s story. The city stays {storyCityName(mcCity.city)}, street for street, and the
-            missions stay as they are; Dan, Jane, Mr. Big and the Suits, their cars, their lines and the season are yours
-            to change. Your browser forges the remade people and records the changed lines, and plays every mission
+            Remix Mog City&apos;s story. The city stays {storyCityName(mcCity.city)}, street for street, and so do its kinds
+            of mission (drives, chases, fights, searches); the story, Dan, Jane, Mr. Big and the Suits, their cars, their
+            lines and the season are yours to change. Your browser forges the remade people and records the changed lines, and plays every mission
             before it can publish. The original is always credited.
           </p>
         ) : story ? (
