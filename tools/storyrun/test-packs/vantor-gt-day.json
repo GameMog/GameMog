@@ -1,0 +1,59 @@
+{
+ "storykit": 1,
+ "id": "vantor-gt-day",
+ "title": "Vantor GT: Day",
+ "kicker": "NEW YORK",
+ "tagline": "John's car, the Vantor GT, for the stills",
+ "city": "ny",
+ "car": {
+  "model": "mogcity/gt",
+  "label": "John's car",
+  "plate": "JM 0838"
+ },
+ "dressing": {
+  "time": "midday",
+  "season": "autumn",
+  "weather": "clear",
+  "holiday": []
+ },
+ "cast": {
+  "Dan": {
+   "color": "#FFFFFF",
+   "role": "the hero",
+   "model": "mogcity/dan"
+  }
+ },
+ "hero": "Dan",
+ "places": {},
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ACT I",
+   "order": [
+    "GT-1"
+   ]
+  }
+ ],
+ "missions": [
+  {
+   "id": "GT-1",
+   "title": "Take It Out",
+   "start": "@timessquare",
+   "stakes": "Nothing yet.",
+   "passLine": "Done.",
+   "steps": [
+    {
+     "type": "wait",
+     "secs": 900
+    }
+   ],
+   "vehicle": "hero"
+  }
+ ],
+ "voice": {
+  "model": "kokoro-82m-v1.0",
+  "dir": "",
+  "cast": {},
+  "lines": []
+ }
+}

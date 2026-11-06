@@ -9,7 +9,7 @@
 // as it is (free roam: the gate says why in the console). Its text is never put into HTML unescaped (ui.js esc and
 // textContent; hud.js the same).
 //   await load() -> world | null      world: { ok, why, url, hash, id, title, def (the checked JSON), asset(path) -> URL
-//                                     or null, heroGLTF(loadGLB), sheetCar, ... }
+//                                     or null, heroGLTF(loadGLB), sheetCar, modelCar, ... }
 import { packUrl, packHash, assetUrl, hostOf } from './allow.js';
 import { watch, error as hostError } from './host.js';
 import { showTitle, plainTitle, isOwn } from './title.js';
@@ -18,6 +18,8 @@ export const STEP_KINDS = new Set(['drive', 'stops', 'walk', 'pursuit', 'timer',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
   'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow']);
 const STOCK = new Set(['roadster', 'trailhand', 'vandal']);
+// the hero cars Mog City builds in code besides Dan's roadster, by the name a world's `car.model` gives (wagmi/storyrun/gt.js)
+export const MODEL_CARS = new Set(['mogcity/gt']);
 const MAX_BYTES = 1_000_000, MAX_TEXT = 600;
 const q = new URLSearchParams(location.search);
 const COLOUR = /^#[0-9A-Fa-f]{6}$/;
@@ -105,7 +107,13 @@ export function check(w) {
       if (d.holiday != null && (!Array.isArray(d.holiday) || d.holiday.some((h) => typeof h !== 'string' || !/^[a-z-]{1,24}$/.test(h)))) bad('dressing.holiday');
     }
   }
-  if (w.car != null && !(typeof w.car === 'string' ? STOCK.has(w.car) : w.car && typeof w.car.sheet === 'object')) bad('car');
+  if (w.car != null && !(typeof w.car === 'string' ? STOCK.has(w.car) : w.car && (typeof w.car.sheet === 'object' || MODEL_CARS.has(w.car.model)))) bad('car');
+  // (a Mog City model as the hero's car: { model: 'mogcity/gt', paint?, plate?, label? }, wagmi/storyrun/gt.js)
+  if (w.car && typeof w.car === 'object' && MODEL_CARS.has(w.car.model)) {
+    if (w.car.paint != null && !COLOUR.test(w.car.paint)) bad('car.paint');
+    if (w.car.plate != null && (typeof w.car.plate !== 'string' || !/^[A-Z0-9 ]{0,8}$/.test(w.car.plate))) bad('car.plate');
+    if (w.car.label != null && (typeof w.car.label !== 'string' || w.car.label.length > 32)) bad('car.label');
+  }
   return errs;
 }
 
@@ -148,6 +156,8 @@ export async function load() {
   // the player's car: a vehicle sheet (wagmi/storyrun/vehicles) or a stock one (the roadster is Dan's own)
   W.sheetCar = def.car && typeof def.car === 'object' && def.car.sheet ? def.car.sheet : null;
   W.stockCar = typeof def.car === 'string' ? def.car : null;
+  // (or one of Mog City's own models: the Vantor GT, built by wagmi/storyrun/gt.js with the roadster's handling)
+  W.modelCar = def.car && typeof def.car === 'object' && MODEL_CARS.has(def.car.model) ? def.car : null;
   // (trailhand and vandal are their sheets: none in this repo yet, so Dan's roadster stands in for them)
   return W;
 }
