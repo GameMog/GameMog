@@ -190,3 +190,46 @@ test("a story's night is lit (nightlit.js) and its end is unmistakable (STORY CO
   assert.match(idx, /createNightLit\(W, def\.dressing/);
   assert.match(idx, /head: 'STORY COMPLETE'/);
 });
+
+test("a van or a truck is not a sports car: its own engine, no boost (owner: \"the truck shouldn't make the same noise as the porsche or have the booster\")", () => {
+  const ride = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/ride.js'), 'utf8');
+  // (the class table: only sports, supercar, coupe and muscle boost; the van and minivan are vans, the pickup and wrecker trucks)
+  for (const k of ["van: 'van'", "minivan: 'van'", "pickup: 'truck'", "wrecker: 'truck'", "sports: 'sports'", "supercar: 'sports'"]) assert.ok(ride.includes(k), k);
+  assert.match(ride, /car\.noBoost = vclass !== 'sports'/);
+  assert.match(ride, /boostSpeed: car\.topSpeed, boostAccel: car\.accel/); // (Shift does nothing to its pace)
+  assert.match(ride, /'vclass', 'noBoost'\]/); // (the hero car's own class back after the ride)
+  const game = fs.readFileSync(path.join(ROOT, 'wagmi/game.js'), 'utf8');
+  assert.match(game, /const boost = !!keys\.boost && throttle > 0 && !car\.noBoost;/); // (no flame)
+  const audio = fs.readFileSync(path.join(ROOT, 'wagmi/audio/index.js'), 'utf8');
+  assert.match(audio, /boost: !!k\.boost && !c\.noBoost, voice: c\.noBoost \? c\.vclass/);
+  const pc = fs.readFileSync(path.join(ROOT, 'wagmi/audio/playercar.js'), 'utf8');
+  assert.match(pc, /utilityKinds\.includes\(voice\) \? createUtility\(M, bus, voice\) : createSupercar/);
+  const ut = fs.readFileSync(path.join(ROOT, 'wagmi/audio/utility.js'), 'utf8');
+  assert.match(ut, /van: \{ motor: 'bus'/); assert.match(ut, /truck: \{ motor: 'bus'/);
+  assert.doesNotMatch(ut, /fetch\(|\.m4a|\.ogg/); // (synthesized: no recordings)
+  // (the HUD: no BOOST button, no Boost hint, the meter not yellow)
+  assert.match(fs.readFileSync(path.join(ROOT, 'wagmi/touch.js'), 'utf8'), /show\('boost', !W\.car\?\.noBoost\)/);
+  const main = fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8');
+  assert.match(main, /!\(hintNoBoost && action === 'Boost'\)/);
+  assert.match(main, /!\(mode === 'car' && activeEnt\.noBoost\)/);
+});
+
+test('a ride-along call finishes what it is saying when its step ends; a call step takes the last objective down', () => {
+  const calls = fs.readFileSync(path.join(ROOT, 'wagmi/mission/calls.js'), 'utf8');
+  assert.match(calls, /if \(C\.def\.finish && C\.state === 'talk' && inCar\(\)\) \{ C\.finishing = true;/);
+  assert.match(calls, /cur\.carrying \|\| cur\.wrapOnly \|\| cur\.finishing/); // (the next step's call waits for it)
+  assert.match(calls, /if \(C\.finishing && C\.yieldNow\) \{ end\(C, true\); return; \}/); // (a story's next call: after the line it is saying)
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  assert.match(run, /wrapAfterMain: !ride, finish: !!ride \}/);
+  assert.match(run, /if \(QUIET_STEPS\.has\(d\.type\) && !d\.ref\) ui\.objective\(d\.objective \? parts\(d\.objective\) : null\)/);
+});
+
+test("after STORY COMPLETE free roam is in daylight; a forged man fights in his own body", () => {
+  const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
+  const end = idx.slice(idx.indexOf("head: 'STORY COMPLETE'"), idx.indexOf("ui.objective(['Free roam. '"));
+  assert.match(end, /W\.app\.selectTime\('midday'\)/);
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  assert.match(run, /function puppet\(e, who\)/);
+  assert.match(run, /thugPunch1: 'jab'/); assert.match(run, /thugKnockdown: 'fall'/);
+  assert.match(run, /if \(!c \|\| c\.model \|\| !c\.glb \|\| cast\.isHero\(who\)\) return null;/); // (a Suit stays a Suit)
+});

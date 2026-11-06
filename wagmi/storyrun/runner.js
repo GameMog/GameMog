@@ -53,6 +53,7 @@ const BACKGROUND = new Set(['trigger', 'comfort', 'patrol', 'stealth', 'roadbloc
 // (a stealth with somewhere to get to or a time to last, and a roadblock with somewhere past it, are steps of their own;
 // without, they run beside the steps after them until the mission ends)
 const background = (d) => BACKGROUND.has(d.type) && !d.ref && !((d.type === 'stealth' && (d.to || d.secs)) || (d.type === 'roadblock' && d.to));
+const QUIET_STEPS = new Set(['call', 'wait', 'say', 'choice', 'dm', 'voicemail', 'voicenote']);
 const ENDS_WITH_HOST = new Set([...BACKGROUND, 'pursuit', 'beat', 'tail', 'convoy', 'call']);
 const TIPS = {
   ko: ['Hit with [J]. When the cue over a man turns ', { yellow: 'yellow' }, ', counter with [Q]; when it is ', { red: 'red' }, ', roll away with [C].'],
@@ -405,6 +406,8 @@ export function createRunner(ctx) {
     const who = castName(d.who);
     if (d.remove) { cast.hide(castName(npcIds.get(d.remove) || d.remove)); return; }
     if (d.id) npcIds.set(d.id, who);
+    // (back on his feet after a fight in his own body: STEPS.fight puppet)
+    cast.get(who)?.restore?.();
     let x, z;
     if (d.at && d.at.rel === 'player') {
       const e = cm.getActiveEntity(), h = e.heading, r = d.at.right || 0, f = d.at.fwd || 0;
@@ -636,6 +639,15 @@ export function createRunner(ctx) {
     // WAITING; answered, the live call goes on hold (its pause line, as when he gets out: calls.js hold), this one is
     // said on the phone, then the live one is back (its resume line) and goes on from where it was; declined (or not
     // answered), its voicemail, and the live call never stopped
+    // (a ride-along call of the step before still finishing (calls.js def.finish): it hangs up after the line it is
+    // saying, then this one rings; a call waiting is the exception, it holds the call instead)
+    if (!d.interrupts && !ride && W.calls?.yieldFinishing?.()) { const t0 = now(); await wait(() => !W.calls.state()?.finishing || now() - t0 > 9000, t); await delay(0.4, t); }
+    // (a ride-along call of this step still ringing, or about to (rung after the car rolls, 1.5 s of ringing): it is
+    // given up to 6 s to be answered, so the call waiting finds it on the line instead of ringing over it)
+    if (d.interrupts && W.calls?.state) {
+      const pending = () => { const s = W.calls.state(); return !!s?.id && String(s.id).startsWith('pack:') && (s.state === 'wait' || s.state === 'ring'); };
+      if (pending()) { const t0 = now(); await wait(() => !pending() || now() - t0 > 6000, t); }
+    }
     if (d.interrupts && W.calls?.live && W.calls.state?.()?.state === 'talk') return callWaiting(d, t, who, color, lines);
     // (the car phone: an inCar call, or one that answers itself while he drives or is at the wheel; an `auto` call on
     // foot, as a video call outside his building, is answered at once and played on the phone below: calls.js would
@@ -644,7 +656,7 @@ export function createRunner(ctx) {
       const id = `pack:${M.def.id}:${M.i}:${ride ? 'd' : 's'}:${who}`;
       const f0 = {}; for (const n of new Set([who, ...lines.map((l) => castName(l.who))])) f0[n] = cast.f0(n);
       W.calls.define(id, { who, color, f0, step: ui.stepId, main: lines.map(toTup), extra: (d.extra || []).map((b) => b.map(tuple).map(toTup)), wrap: (d.wrap || []).map(tuple).map(toTup),
-        pause: (d.hold?.pause || []).map(tuple).map(toTup), resume: (d.hold?.resume || []).map(tuple).map(toTup), trigger: d.inCar || d.auto ? 'enter-car' : 'phase-start', delay: 2, wrapAfterMain: !ride });
+        pause: (d.hold?.pause || []).map(tuple).map(toTup), resume: (d.hold?.resume || []).map(tuple).map(toTup), trigger: d.inCar || d.auto ? 'enter-car' : 'phase-start', delay: 2, wrapAfterMain: !ride, finish: !!ride });
       const hostDone = { v: false };
       W.calls.start(id, { step: ui.stepId, wrapWhen: () => hostDone.v });
       M.log.push(['call', who]);
@@ -721,8 +733,48 @@ export function createRunner(ctx) {
   STEPS.voicemail = async (d, t) => { await voicemail(d, t); applySet(d.set); };
   STEPS.voicenote = async (d, t) => { await voicemail(d, t, 'Voice note'); applySet(d.set); };
 
-  // a fight on foot: combat's crew at the arena (the Suits' men, as many as the step names: a man the forge made
-  // fights in a Suit's body until the cast66 enemy adapter lands), the counter, out cold or 150 m off fails
+  // a fight on foot: combat's crew at the arena (the Suits' men, as many as the step names), the counter, out cold or
+  // 150 m off fails. A man the forge made (a cast member with his own body: Pickup Time's Pedro Delgado) fights in it:
+  // the Suit combat spawns for him (its brain, its hits, its knockdowns and ragdoll) is not drawn, and his own body is its
+  // puppet (puppet): where it stands and how it tumbles, and each of its clips played as Dan's clip for the same move
+  // (DAN_OF: a jab as his jab, a knockdown as his fall), at the same point through it, so his blows land when its do
+  const DAN_OF = { suitIdle: 'fight', thugIdle: 'fight', suitIdleGuide: 'argue', guard: 'fight', suitWalk: 'guardF', suitWalk2: 'guardF', walk: 'guardF', jog: 'jog', suitRun: 'jog', run: 'run', sprint: 'sprint', suitDash: 'run',
+    suitBack: 'guardB', suitLeft: 'guardL', suitRight: 'guardR', thugPunch1: 'jab', thugPunch2: 'cross', thugKick: 'ffKick', bruteSlam: 'hook', hitReact: 'hit', thugKnockdown: 'fall', thugGetUp: 'getup',
+    thugStumbleBack: 'hitChest', thugStumbleLeft: 'hitHead', thugStumbleRight: 'hitHead', suitTauntBye: 'shrug', suitTauntByebye: 'shrug' };
+  function puppet(e, who) {
+    const c = def0.cast?.[who];
+    if (!c || c.model || !c.glb || cast.isHero(who)) return null;
+    const hide = () => e.inner.traverse((o) => { if (o.isMesh) o.visible = false; });
+    hide();
+    const P0 = { e, fig: null, sync() {} };
+    cast.get(who)?.restore?.();
+    cast.spawn(who, { x: e.pos.x, z: e.pos.z, heading: e.root.rotation.y }).then((fig) => {
+      if (!fig?.clip || !fig.mixer) { e.inner.traverse((o) => { if (o.isMesh) o.visible = true; }); return; }
+      M.npcs.add(who); P0.fig = fig;
+      const inner = fig.root.children[0], q0 = inner.quaternion.clone(), p0 = inner.position.clone();
+      fig.mixer.stopAllAction();
+      let curN = null, act = null;
+      P0.sync = () => {
+        if (!e.root.parent) return;
+        hide();
+        fig.root.visible = true; fig.root.position.copy(e.root.position); fig.root.rotation.y = fig.heading = e.root.rotation.y;
+        inner.quaternion.copy(e.inner.quaternion).multiply(q0); inner.position.copy(p0).add(e.inner.position);
+        const n = e.curName, idle = e.state === 'idle';
+        const want = idle && /^(suitIdle|thugIdle|guard)$/.test(n) ? 'idle' : idle && /walk/i.test(n || '') ? 'walk' : DAN_OF[n] || 'fight';
+        if (want !== curN) {
+          curN = want;
+          const cl = fig.clip(want) || fig.clip('fight') || fig.clip('idle');
+          if (cl) { const a = fig.mixer.clipAction(cl); a.reset(); a.enabled = true; a.setLoop(THREE.LoopRepeat, Infinity); a.timeScale = 0; a.play(); if (act && act !== a) a.crossFadeFrom(act, 0.12, false); act = a; }
+        }
+        if (act && e.cur) {
+          const dur = e.cur.getClip().duration || 1, k = e.cur.loop === THREE.LoopOnce ? Math.min(1, e.cur.time / dur) : ((e.cur.time / dur) % 1 + 1) % 1;
+          act.time = k * act.getClip().duration * 0.999;
+        }
+      };
+      fig.restore = () => { inner.quaternion.copy(q0); inner.position.copy(p0); fig.mixer.stopAllAction(); fig.play?.(c.idle || 'idle'); fig.restore = null; };
+    }).catch((err) => console.warn('[storyrun] fight body', who, err));
+    return P0;
+  }
   STEPS.fight = async (d, t) => {
     const combat = W.combat;
     if (!combat?.spawnCrew) { console.warn('[storyrun] no fight on this page'); return; }
@@ -742,6 +794,8 @@ export function createRunner(ctx) {
     // (where they stand: the step's place, else 7 m ahead of him)
     const at0 = d.crewAt ? placeOf(d.crewAt) : null;
     const crews = [combat.spawnCrew({ x: at0 ? (at0.cx ?? at0.x) : ax + Math.sin(f) * 7, z: at0 ? (at0.cz ?? at0.z) : az + Math.cos(f) * 7, count: n, props: true }).engage()];
+    // (a forged man in his own body: puppet)
+    const puppets = d.enemies.map((who, k) => (crews[0].enemies[k] ? puppet(crews[0].enemies[k], castName(who)) : null)).filter(Boolean);
     const crew = { alive: () => crews.reduce((a, c) => a + c.alive(), 0) };
     M.crew = crew;
     let total = n, more = d.reinforce || null, lastK = 0, talk = false, lastHp = combat.player.hp;
@@ -753,6 +807,7 @@ export function createRunner(ctx) {
     if (d.win === 'survive' || d.timer) M.fightTimer = { left: d.timer || 60 };
     try {
       await wait(() => {
+        for (const pp of puppets) pp.sync();
         const alive = crew.alive(), k = total - alive;
         // (the hits he takes, for the MISSION PASSED card)
         const hp = combat.player.hp; if (hp < lastHp - 0.5) M.stats.hits++; lastHp = hp;
@@ -780,7 +835,9 @@ export function createRunner(ctx) {
       ui.counter(null); hud.timer(null); M.crew = null; M.fightTimer = null;
     }
     if (d.win === 'survive') combat.clear?.();
-    await delay(1.0, t);
+    // (a puppet goes on with its man's fall for the beat after)
+    if (puppets.length) { const t1 = now(); await wait(() => { for (const pp of puppets) pp.sync(); return now() - t1 > 1000; }, t); }
+    else await delay(1.0, t);
   };
 
   // a chase: pursuit's heat and cars; lose them, reach a place with them on you, or keep going (escort) for `until` s
@@ -1575,6 +1632,9 @@ export function createRunner(ctx) {
       // (set dressing a step needs, a Mog City set piece: 'm1.park'; at once, before the step)
       if (d.dress && Object.prototype.hasOwnProperty.call(SCENES, d.dress)) { try { await SCENES[d.dress](W); } catch (e) { console.warn('[storyrun] dress', d.dress, e); } }
       const st = tokOf(M.tok);
+      // (a step with nothing to go and do, a call after a drive, a wait, a line, a choice: the last step's objective, done
+      // now ('Take the van to Murray Hill Grammar' under the headmaster's call), comes down; its own objective if it has one)
+      if (QUIET_STEPS.has(d.type) && !d.ref) ui.objective(d.objective ? parts(d.objective) : null);
       // (the step's help lines, Mog City's tips: [secs in, text, 'car' | 'person' only])
       for (const h of Array.isArray(d.help) ? d.help : []) if (Array.isArray(h)) delay(h[0] || 0, st).then(() => ui.help(parts(String(h[1] || '')), h[3] || 7, h[2] ? { mode: h[2] } : {})).catch(() => {});
       for (const x of d.during || []) side(x, st);

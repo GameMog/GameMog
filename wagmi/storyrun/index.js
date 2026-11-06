@@ -133,7 +133,7 @@ export async function install(W) {
   if (flags.autopilot) {
     const { startAutopilot } = await import('./autopilot.js');
     autopilot = startAutopilot(W, runner, {
-      missionSecs: +(Q.get('missionsecs') || 240), skipScenes: +(Q.get('skipscenes') || 0),
+      missionSecs: +(Q.get('missionsecs') || 240), skipScenes: +(Q.get('skipscenes') || 0), realPace: Q.has('realpace'),
       onTimeout: (m, d, i) => { tell('mission-fail', { id: m.id, why: `The test drive timed out at step ${i + 1} (${d?.type}${d?.id ? ' ' + d.id : ''}).`, step: d?.id || null, kind: d?.type || null, timeout: true }); runner.M?.fail?.({ reason: `The test drive timed out at step ${i + 1} (${d?.type}).` }); },
     });
     W.storyrun.autopilot = autopilot;
@@ -207,7 +207,13 @@ export async function install(W) {
     // (the story's end, unmistakable: STORY COMPLETE over the world's title and its closing line, held, then its title
     // lockup, then free roam)
     await hud.passed({ head: 'STORY COMPLETE', title: def.title, line: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 2.2 : 6);
-    await hud.card({ kicker: def.kicker || '', text: def.title, sub: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 1 : 4);
+    // (the title lockup over a fade, and under it the city back in daylight: a story that ends at night (Pickup Time's
+    // PT-15) does not leave free roam in the dark)
+    await ui.fade(0.97, 0.6);
+    try {
+      try { W.app.selectTime('midday'); } catch {}
+      await hud.card({ kicker: def.kicker || '', text: def.title, sub: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 1 : 4);
+    } finally { await ui.fade(0, 0.6); }
     ui.objective(['Free roam. ', { 'Esc': 'yellow' }, ' for Mission select.'], 8);
   }
   autopilot?.stop();

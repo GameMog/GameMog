@@ -19,13 +19,15 @@
 //   - &skipscenes=<s>: an authored scene skipped after s seconds (W.cineSkip, the held Space's), for a run inside its time;
 //   - a mission over its time (opts.missionSecs, 240 s by default) is failed with where it stuck.
 // Calls are answered and choices taken by the runner's flags (?autoanswer, ?autochoose=<n>).
-//   startAutopilot(W, runner, { missionSecs, onTimeout }) -> { stop(), log }
+// &realpace=1: a player's pace, to time what is timed to one (a call waiting `at` s into a drive): no leg, tail or convoy
+// jumped, the cruise 20 m/s (45 mph) where it is 15.
+//   startAutopilot(W, runner, { missionSecs, onTimeout, realPace }) -> { stop(), log }
 import * as THREE from 'three/webgpu';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
-export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null, skipScenes = 0 } = {}) {
+export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null, skipScenes = 0, realPace = false } = {}) {
   const app = W.app, cm = app.controllerManager, car = W.car, P = W.person, gps = W.gps;
   const log = [];
   let legKey = null, legT = 0;
@@ -148,7 +150,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     // route but a few metres away; WP, 4 Nov: a tow truck circled Central Park South for 90 s in the framed drive)
     const dd = gps?.dest, straight = dd ? Math.hypot(x - dd.x, z - dd.z) : Infinity;
     // a long leg: on to its last 110 m
-    if (inCar() && !jumped && t - stepT > 1.2 && L > 250 && type !== 'tail' && type !== 'pursuit') { jumped = true; const q = fromEnd(r, 110); putCar(q.x, q.z, q.h); note(`jump ${Math.round(L)} m`); return; }
+    if (!realPace && inCar() && !jumped && t - stepT > 1.2 && L > 250 && type !== 'tail' && type !== 'pursuit') { jumped = true; const q = fromEnd(r, 110); putCar(q.x, q.z, q.h); note(`jump ${Math.round(L)} m`); return; }
     if (!inCar() && !jumped && t - stepT > 1.2 && L > 60) { jumped = true; const q = fromEnd(r, 12); P.position.set(q.x, cm.getGroundHeight(q.x, q.z, 'person'), q.z); P.heading = q.h; note(`walk jump ${Math.round(L)} m`); return; }
     // a world's tail (no ref): the route ends at the car being followed, so it is kept between the step's ring and its
     // lost distance (MM, 5 Nov: steering on to the van's bumper, the autopilot was spotted in 15 s): off the gas inside
@@ -159,7 +161,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       // (a long tail, as a long leg: after 12 s of following, the followed car is put on to its last 240 m and the
       // car 1.4 rings behind it on its way; the city's traffic makes a 2.5 km tail a five-minute drive)
       const T = M.tail;
-      if (T && !tailJumped && t - stepT > 12 && T.length - T.s > 420) {
+      if (!realPace && T && !tailJumped && t - stepT > 12 && T.length - T.s > 420) {
         tailJumped = true; T.place(T.length - 240);
         const a = T.at(Math.max(0, T.s - ring * 1.4)), b = T.at(Math.max(0, T.s - ring * 1.4) + 3);
         putCar(a.x, a.z, Math.atan2(b.x - a.x, b.z - a.z)); note(`tail jump ${Math.round(T.length)} m`); return;
@@ -188,7 +190,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     // (the pace to stop on the mark: what a 3 m/s2 brake leaves to the radius, so a heavy car doesn't sail past it)
     // (a passenger's speed limit kept, under it by a margin)
     const cap = M.ride?.limit ? M.ride.limit / 2.23694 * 0.85 : Infinity;
-    steerTo(tgt.x, tgt.z, Math.min(cap, type === 'tail' ? 11 : Math.min(15, 2.5 + Math.sqrt(2 * 3 * Math.max(0, L - radius * 0.4)))));
+    steerTo(tgt.x, tgt.z, Math.min(cap, type === 'tail' ? 11 : Math.min(realPace ? 20 : 15, 2.5 + Math.sqrt(2 * 3 * Math.max(0, L - radius * 0.4)))));
   }
   // a convoy (runner.js STEPS.convoy): the route ends at the car to stay with; kept between its band's near end (off the
   // gas inside 1.3 of it, braking inside it) and 0.6 of its far end (put back behind it on its own path past 0.75, at most
@@ -199,7 +201,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     if (!D) { release(); return; }
     if (!inCar()) { release(); if (!W.ride?.phase) { if (Math.hypot(car.position.x - P.position.x, car.position.z - P.position.z) > 4) P.position.set(car.position.x + Math.cos(car.heading) * 1.8, P.position.y, car.position.z - Math.sin(car.heading) * 1.8); W.ride?.getIn?.(true); note('in'); } return; }
     const mid = (C.near + C.far) / 2, behind = (s) => { const a = D.at(Math.max(0, s)), b = D.at(Math.max(0, s) + 3); putCar(a.x, a.z, Math.atan2(b.x - a.x, b.z - a.z)); };
-    if (convoyJumped !== stepKey && t - stepT > 12 && D.length - D.s > 500) { convoyJumped = stepKey; D.place(D.length - 300); behind(D.s - Math.min(mid, C.near * 2.5)); note(`convoy jump ${Math.round(D.length)} m`); return; }
+    if (!realPace && convoyJumped !== stepKey && t - stepT > 12 && D.length - D.s > 500) { convoyJumped = stepKey; D.place(D.length - 300); behind(D.s - Math.min(mid, C.near * 2.5)); note(`convoy jump ${Math.round(D.length)} m`); return; }
     const dd = Math.hypot(D.pos.x - car.position.x, D.pos.z - car.position.z);
     if (dd > C.far * 0.75 && t - tailJumpT > 6) { tailJumpT = t; behind(D.s - Math.min(mid, C.near * 2.5)); note('convoy: back in the band'); return; }
     if (dd < C.near * 1.3) { release(); if (dd < C.near && car.speed > -2) cm.setTouchInput('backward', car.speed > 0.5 ? 1 : 0.4); return; }

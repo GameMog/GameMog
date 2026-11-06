@@ -119,6 +119,8 @@ export function createCast(W, world) {
       if (face) try { dropFace(W, face); } catch {}
       inner.traverse((o) => { if (o.isMesh) { o.geometry?.dispose?.(); for (const m of [].concat(o.material || [])) { for (const k of Object.keys(m)) if (m[k]?.isTexture) m[k].dispose(); m.dispose?.(); } } });
     });
+    // (its clips by name, Dan's under its own: a fight's puppet (runner.js STEPS.fight) crossfades them itself)
+    f.clip = clip;
     f.play = (n, loop = true) => { const cl = clip(n); if (!cl) return false; mixer.stopAllAction(); const a = mixer.clipAction(cl); a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); a.clampWhenFinished = !loop; a.play(); return true; };
     return f;
   }
