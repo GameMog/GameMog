@@ -172,3 +172,12 @@ test("a side step waits only on a number of seconds: a roadblock's or a car's `a
   assert.match(fn, /typeof d\.at === 'number'/);
   assert.doesNotMatch(fn, /if \(d\.at\) await delay/);
 });
+
+test("an act's end card shows its stats and its quote: the big card, headed with the act's title", () => {
+  const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
+  const fn = idx.slice(idx.indexOf('async function actEnd(e)'), idx.indexOf('const fmt = '));
+  assert.match(fn, /e\.stats/);
+  assert.match(fn, /hud\.passed\(\{ head: e\.title/);
+  const hud = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/hud.js'), 'utf8');
+  assert.match(hud, /c\.head \|\| 'MISSION PASSED'/);
+});

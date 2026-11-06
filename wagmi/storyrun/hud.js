@@ -138,7 +138,8 @@ export function createHud(ui) {
     // the story's MISSION PASSED card (rules.js passCard), held secs; its meter's bar fills from before to after
     async passed(c, secs = 6) {
       passEl.replaceChildren();
-      passEl.append(tx('div', 'h', 'MISSION PASSED'), tx('div', 't', c.title || ''));
+      // (head: the big word, MISSION PASSED unless the card says otherwise: an act's end card names the act or the story)
+      passEl.append(tx('div', 'h', c.head || 'MISSION PASSED'), tx('div', 't', c.title || ''));
       const box = tx('div', 'box');
       for (const g of c.gains || []) { const r = tx('div', 'g'); r.append(tx('span', '', g.label)); const b = tx('b', g.good ? '' : 'bad', g.text); r.appendChild(b); box.appendChild(r); }
       for (const [a, b] of c.stats || []) { const r = tx('div', 'st'); r.append(tx('span', '', a), tx('span', '', b)); box.appendChild(r); }

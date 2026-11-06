@@ -263,6 +263,13 @@ export async function install(W) {
   async function actEnd(e) {
     await ui.fade(0.9, 0.5);
     await hud.card({ kicker: e.title || 'END OF ACT', text: e.heading || (isOwn(world) ? def.title : ownTitle(def.title)), sub: (e.story || []).join(' ') || (e.quote ? `"${e.quote.text}"` : '') }, flags.autoCard ? 1 : Math.max(3, e.minSecs || 0));
+    // (its numbers and its last word, when it has them: the big card, its head the act's title (the story's end: the
+    // story's own title), its stats in rows, the quote and who said it under them)
+    if ((e.stats || []).length) {
+      await ui.fade(0, 0.4);
+      await hud.passed({ head: e.title || 'END OF ACT', title: e.heading || '', stats: e.stats.map((x) => [x.label, x.value]), line: e.quote ? `"${e.quote.text}"${e.quote.by ? ' · ' + e.quote.by : ''}` : '' }, flags.autoCard ? 1.6 : Math.max(5, e.minSecs || 0));
+      await ui.fade(0.9, 0.4);
+    }
     if (e.next) await hud.card({ kicker: e.next.kicker || 'NEXT', text: e.next.text, sub: e.next.sub || '' }, flags.autoCard ? 0.8 : (e.next.secs || 3));
     await ui.fade(0, 0.5);
   }
