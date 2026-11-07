@@ -185,8 +185,10 @@ async function voicing(world) {
 // The drive's limits, in the time this tab was in front (see driving()): the world's load, one step with no progress
 // (a step, or 5 m less to go), one mission, the gap between two missions, the whole drive; and the longest the drive
 // waits for a tab left in the background before it gives up. ?limits=<step s>,<mission s> shortens them for probes.
+// (mission: 10 min since 7 Nov, the owner: "go with the 10-minute cap". A Create's finale, Blackout Tow's chase to the
+// precinct, drove on with progress past 6 min, 1,863 m still to go; every other mission fits well inside it)
 const DRIVE_LIMITS = (() => {
-  const L = { load: 120_000, step: 90_000, mission: 6 * 60_000, between: 60_000, drive: 20 * 60_000, hidden: 30 * 60_000 };
+  const L = { load: 120_000, step: 90_000, mission: 10 * 60_000, between: 60_000, drive: 20 * 60_000, hidden: 30 * 60_000 };
   const q = (Q.get('limits') || '').split(',').map(Number);
   if (q[0] > 0) L.step = q[0] * 1000; if (q[1] > 0) L.mission = q[1] * 1000;
   return L;
