@@ -36,7 +36,7 @@ export function SiteHeader({ on = '' }: { on?: string }) {
           </form>
           <nav className="hicons" aria-label="Shortcuts">
             <Link href="/charts/new-mogs" className="hicon"><Icon name="remix" size={22} /><span>Mogs</span></Link>
-            <Link href="/library" className="hicon"><Icon name="library" size={22} /><span>Library</span></Link>
+            <Link href="/create" className="hicon"><Icon name="create" size={22} /><span>Create</span></Link>
             {SHOW_CREATE_BUTTON && <Link href="/create" className="btn createworld">Create a world</Link>}
             <SiteMenu items={NAV} on={on} />
           </nav>
@@ -163,6 +163,8 @@ const PATHS: Record<string, React.ReactNode> = {
   thumbDown: <g transform="rotate(180 10 10)"><path d="M2.2 8.6h3.2v9.2H2.2zM7 17.8V8.7l3.7-6c.3-.5 1-.7 1.5-.4.6.3.9 1 .7 1.6l-1 3.6h4.4c1.1 0 1.9 1 1.7 2l-1.3 6.6c-.2 1-1 1.7-1.9 1.7z" /></g>,
   remix: <path d="M15.6 5.2A7.2 7.2 0 003 8.1l2 .6a5.1 5.1 0 019-2L12 8.8h6.2V2.6zM4.4 14.8A7.2 7.2 0 0017 11.9l-2-.6a5.1 5.1 0 01-9 2L8 11.2H1.8v6.2z" />,
   library: <path d="M3 3.2h3.2v13.6H3zM7.6 3.2h3.2v13.6H7.6zM12.3 4.1l3-.8 3.5 13.1-3 .8z" />,
+  // a pencil with a spark: the header's Create (7 Nov, the owner: "something that signals you can create")
+  create: <path d="M13.6 3.3a1.6 1.6 0 012.3 0l.8.8a1.6 1.6 0 010 2.3l-8.6 8.6-3.6 1 1-3.6zM4.2 1.6l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6zM16.4 12.4l.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5z" />,
   plus: <path d="M9 3.5h2v5.5h5.5v2H11v5.5H9V11H3.5V9H9z" />,
   // a paper plane: the game page's Dare (send a dare)
   share: <path d="M17.6 2.2a.9.9 0 011.2 1.2l-5.3 13.9a.9.9 0 01-1.6.2l-2.7-4.5 4.2-5.6-5.6 4.2-4.5-2.7a.9.9 0 01.2-1.6z" />,

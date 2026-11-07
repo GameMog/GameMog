@@ -7,10 +7,8 @@ import { Tile, short } from './tile';
 import { HeroFilm, type Film } from './hero-film';
 import { HeroReel, type ReelClip } from './hero-reel';
 import { Rail as Shelf } from './rail';
-import { listGames, bestTimes, topScores, tileStats, avatarIds, type GameRow, type TileStats } from '@/lib/db';
+import { listGames, bestTimes, topScores, tileStats, type GameRow, type TileStats } from '@/lib/db';
 import { CHARTS, sortGames, type ChartSort } from '@/lib/catalog';
-import { Cover } from './cover';
-import type { WorldSpec } from '@/lib/worldspec';
 import { worldMode, MOGGABLE } from '@/lib/custom-game';
 import { DEFAULT_DESCRIPTION, pageMeta } from './seo';
 import { mogCityStoryFor } from './mog-city-mog';
@@ -191,54 +189,6 @@ function Section({ sort, games, best, stats, seed }: {
 }
 
 /**
- * GameStop's round category bubbles: every way into GameMog, each with a
- * picture from a real game where there is one.
- */
-function JumpIn({ worlds, classic, stats }: { worlds: GameRow[]; classic?: GameRow; stats: Record<string, TileStats> }) {
-  // each bubble gets its own picture: a chart's natural pick, or the next
-  // world nobody else is showing, so no two circles repeat
-  // (6 Nov, the owner: a featured bubble always shows a face: a world with no portrait yet, only the card, is skipped)
-  const used = new Set<string>(), faces = avatarIds();
-  const pick = (...order: (GameRow | undefined)[]) => {
-    const g = [...order, ...worlds].find((w) => w && !used.has(w.id) && faces.has(w.id));
-    if (g) used.add(g.id);
-    return g;
-  };
-  const byPlays = [...worlds].sort((a, b) => b.plays - a.plays);
-  const mog = pick(worlds.find((g) => g.parent_id), ...byPlays);
-  const trending = pick(...byPlays);
-  const mogged = pick(...[...worlds].sort((a, b) => (stats[b.id]?.mogs ?? 0) - (stats[a.id]?.mogs ?? 0)));
-  const rising = pick(...[...worlds].sort((a, b) => b.created_at - a.created_at));
-  // (4 Nov, the owner: profile pictures of each game's main character) the hero's portrait, head and shoulders
-  // (app/g/[slug]/avatar/route.ts: a square from the centre of the cover for a game that has none yet)
-  // (4 Nov: browsers keep a portrait for an hour (max-age=3600), so a re-shot one would not show; each deploy's commit
-  // tags the URL so a new release's portraits load at once)
-  const v = (process.env.RENDER_GIT_COMMIT ?? 'dev').slice(0, 8);
-  const art = (g?: GameRow) => (g ? <img src={`/g/${g.slug}/avatar?v=${v}`} alt="" loading="lazy" width={512} height={512} /> : null);
-  const items: { href: string; label: string; pic: React.ReactNode; solid?: boolean }[] = [
-    { href: '/charts/trending', label: 'Top Trending', pic: art(trending) },
-    { href: '/charts/up-and-coming', label: 'Up-and-Coming', pic: art(rising) },
-    { href: '/charts/new-mogs', label: 'New Mogs', pic: art(mog) },
-    { href: '/classic', label: 'Classic', pic: classic ? <Cover spec={JSON.parse(classic.spec) as WorldSpec} seed={7} avatar /> : null },
-    { href: '/charts/most-mogged', label: 'Most Mogged', pic: art(mogged) },
-    { href: '/create', label: 'Create a world', pic: <span aria-hidden><Icon name="plus" size={44} /></span>, solid: true },
-  ];
-  return (
-    <section className="sec">
-      <div className="sechead"><div className="sectext"><h2 className="sectitle">Jump in</h2><p className="secsub">Every way into GameMog.</p></div></div>
-      <div className="bubbles">
-        {items.map((it) => (
-          <Link key={it.label} href={it.href} className="bubble">
-            <i className={it.solid ? 'solid' : undefined}>{it.pic}</i>
-            {it.label}
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/**
  * The featured world across the top, playing, with the two things you can do
  * with any game here: play it, or Mog it.
  */
@@ -344,7 +294,6 @@ export default async function Home() {
             <div className="empty"><h2>No worlds here yet</h2><p>Charts appear when at least four worlds qualify.</p></div>
           </section>
         )}
-        <JumpIn worlds={worlds} classic={games.find((g) => g.slug === 'muse-sprint') ?? games.find((g) => g.format === 'race')} stats={stats} />
 
       </main>
       <SiteFooter />
