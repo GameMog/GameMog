@@ -1367,7 +1367,11 @@ class TreeNodeMaterial extends THREE.MeshStandardNodeMaterial {
 // Prevailing wind (xz, blowing from the west-north-west across Manhattan)
 const TREE_WIND = vec2(0.86, 0.51);
 // (Mog City) the near trees' canopy shell: gone within [0] m of the camera, whole beyond [1] m (js/trees.js)
-const SHELL_FADE = [5, 14];
+// (2-5 m, was 5-14: the chase camera rides ~6 m behind the car and the street trees stand ~4 m off the lane, so
+// with 14 m every tree beside the car or just ahead of it lost its shell and showed only its twig cards: bare
+// branches next to full crowns further up the street (owner, Pickup Time on Centre St at White St). Now only a crown
+// between the lens and the player, or over the lens, opens up)
+const SHELL_FADE = [2, 5];
 
 /**
  * Instanced street & park tree material (js/trees.js): bark tubes and alpha-tested leaf cards in ONE draw per mesh.
