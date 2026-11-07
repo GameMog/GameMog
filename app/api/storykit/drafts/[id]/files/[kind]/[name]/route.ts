@@ -1,4 +1,4 @@
-import { storyStore, bearer, readCapped, LIMITS } from '@/lib/storykit-store';
+import { storyStore, bearer, readCapped, FILE_MAX } from '@/lib/storykit-store';
 import { storykitOff, json } from '@/lib/storykit-http';
 import { saveVoiceClip } from '@/storykit/pack/voice-store.mjs';
 
@@ -6,10 +6,10 @@ export const runtime = 'nodejs';
 
 /**
  * Store one file the creator's browser made for a draft (authorization: Bearer <token>; body: the file's bytes):
- *   PUT /api/storykit/drafts/<id>/files/glb/<cast id>                       a forged person (GLB 2.0, at most 3 MB)
- *   PUT /api/storykit/drafts/<id>/files/voice/<line hash>-<voice key>.ogg   a voice clip (Ogg Opus or .wav, 1 MB)
+ *   PUT /api/storykit/drafts/<id>/files/glb/<cast id>                       a forged person (GLB 2.0, at most 6 MB)
+ *   PUT /api/storykit/drafts/<id>/files/voice/<line hash>-<voice key>.ogg   a voice clip (Ogg Opus or .wav, 2 MB)
  *       headers x-voice-secs, x-voice-render-ms, x-voice-encode-ms, x-voice-device, x-voice-dtype
- *   PUT /api/storykit/drafts/<id>/files/art/<key-wide|key-square|avatar|head-<cast id>>.<jpg|webp|png>   (512 KB)
+ *   PUT /api/storykit/drafts/<id>/files/art/<key-wide|key-square|avatar|head-<cast id>>.<jpg|webp|png>   (1 MB)
  *     -> { ok, file: { kind, name, hash, url: /storykit/f/<sha256>.<ext>, bytes } }
  * The limits per world are in lib/storykit-store.ts (LIMITS).
  *
@@ -17,7 +17,7 @@ export const runtime = 'nodejs';
  * same address with the id repo-<pack id>, on the local dev server only, without a token.
  */
 type Ctx = { params: Promise<{ id: string; kind: string; name: string }> };
-const MAX = { glb: LIMITS.glb.each, voice: LIMITS.voice.each, art: LIMITS.art.each } as Record<string, number>;
+const MAX = FILE_MAX;
 
 export async function PUT(req: Request, ctx: Ctx) {
   const off = storykitOff(req); if (off) return off;

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { dareView } from '@/lib/dare';
+import { PLATFORM } from '@/lib/byline';
 import { clip, pageMeta } from '../../../../seo';
 import { DiscordPill, GlassFont } from '../../../../discord-pill';
 import { DarePlay, DareOpened } from './landing';
@@ -73,7 +74,7 @@ export default async function DareLanding({ params }: Params) {
           <h2 className="gl-ttl dl-title">{g.title}</h2>
           {credit ? (
             <p className="dl-credit">
-              {g.creator ? <>Created by <b>{g.creator}</b></> : null}
+              {g.creator ? <>{g.creator === PLATFORM ? 'By' : 'Created by'} <b>{g.creator}</b></> : null}
               {g.creator && g.parent ? <span aria-hidden style={{ opacity: 0.5 }}> · </span> : null}
               {g.parent ? <>Remixed from <Link href={`/g/${g.parent.slug}`}>{g.parent.title}</Link></> : null}
             </p>

@@ -429,7 +429,7 @@ Story worlds (`storykit/README.md`: a creator's 3-act story played on Mog City's
   draft's runner pack by their unguessable names without the cookie.
 - `STORYKIT=on`: on for everyone.
 
-The world store sits on the Render disk (`data/storykit`, `STORYKIT_DISK_MB`, 400 by default). At 90% of it, new story
+The world store sits on the Render disk (`data/storykit`, `STORYKIT_DISK_MB`, 8,000 by default for the 10 GB disk). At 90% of it, new story
 worlds are refused with a clear message before anything is spent; published worlds are kept. /admin shows the usage
 while the switch is on or owner. The rules: `docs/RULES.md` section 1h.
 

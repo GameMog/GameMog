@@ -63,10 +63,11 @@ Every write sends `authorization: Bearer <token>`. The voice studio takes it in 
 gate locks the parent's city, and every person whose sheet is unchanged and every line unchanged in an unchanged voice
 points at the parent's blobs, so it costs no bytes.
 
-**Limits per world:** a source pack of 160 KB (the gate's); GLBs 3 MB each and 16 MB in all; clips 1 MB each, 600 of
-them and 8 MB in all; art 512 KB each, 16 pictures and 3 MB in all; 24 MB for the whole world (each distinct file
-once, inherited ones included). **For the store:** 400 MB of the 1 GB disk (`STORYKIT_DISK_MB`), at most 60 drafts
-open at once and 200 opened in any 24 hours. Night Shift is about 3.8 MB (3.5 MB of GLBs, 253 KB of clips, a 19 KB
+**Limits per world** (raised 7 Nov): a source pack of 160 KB (the gate's); GLBs 6 MB each and 48 MB in all; clips 2 MB
+each, 1,500 of them and 24 MB in all; art 1 MB each, 32 pictures and 8 MB in all; 64 MB for the whole world (each
+distinct file once, inherited ones included). A Mog of a showcase (Pickup Time) gets a 640 KB pack, 128 MB of GLBs,
+3,000 clips in 64 MB and 200 MB in all (`SHOWCASE_LIMITS`). **For the store:** 8,000 MB of the 10 GB disk
+(`STORYKIT_DISK_MB`), at most 60 drafts open at once and 200 opened in any 24 hours. Night Shift is about 3.8 MB (3.5 MB of GLBs, 253 KB of clips, a 19 KB
 pack), so the store holds about 100 such worlds; a Mog that keeps its cast costs only what it changed.
 
 **Cleanup:** a draft that is not kept (published) and untouched for 24 hours (`STORYKIT_DRAFT_TTL_H`) is abandoned.

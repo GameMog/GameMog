@@ -1,3 +1,5 @@
+import { createReadStream } from 'node:fs';
+import { Readable } from 'node:stream';
 import { storyStore, BLOB_FILE } from '@/lib/storykit-store';
 import { storykitOn } from '@/lib/storykit-store';
 import { storyCors, storyPreflight } from '@/lib/storykit-http';
@@ -20,11 +22,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ file: string }>
   const m = BLOB_FILE.exec(file);
   if (!m) return new Response('Not found', { status: 404, headers: storyCors(req) });
   const etag = `"${m[1]}"`;
-  const b = storyStore().read(file);
+  // (streamed from the disk, never read whole: a world's bodies and clips are tens of MB, and many players load at once)
+  const b = storyStore().stat(file);
   if (!b) return new Response('Not found', { status: 404, headers: { 'cache-control': 'no-store' } });
   const headers = { 'content-type': b.type, 'cache-control': FOREVER, etag, 'x-content-type-options': 'nosniff', ...storyCors(req) };
   if (req.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers });
-  return new Response(new Uint8Array(b.bytes), { headers: { ...headers, 'content-length': String(b.bytes.length) } });
+  if (req.method === 'HEAD') return new Response(null, { headers: { ...headers, 'content-length': String(b.size) } });
+  const body = Readable.toWeb(createReadStream(b.path)) as ReadableStream<Uint8Array>;
+  return new Response(body, { headers: { ...headers, 'content-length': String(b.size) } });
 }
 
 export async function OPTIONS(req: Request) {

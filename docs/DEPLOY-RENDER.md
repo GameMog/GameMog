@@ -8,8 +8,8 @@ Everything is described in `render.yaml` at the repository root (a Render Bluepr
 
 | Item | Price |
 |---|---|
-| Web service, `0.5c-512mb` (was "Starter"): 0.5 CPU, 512 MB | $7 a month |
-| Persistent disk, 1 GB, holds `data/gamemog.db` | $0.25 a month |
+| Web service, `1c-2g` (Standard, since 7 Nov 2026; was `0.5c-512mb`, "Starter"): 1 CPU, 2 GB | $25 a month |
+| Persistent disk, 10 GB (since 7 Nov 2026; was 1 GB), holds `data/gamemog.db` and the Story Kit store (`data/storykit`, `STORYKIT_DISK_MB`, 8,000 MB by default) | $2.50 a month |
 | Outbound bandwidth beyond the workspace allowance | billed per GB |
 
 The films are the heavy part: each hero film is about 15 MB. For a small invite beta that is fine. If traffic grows, move `public/media` to Cloudflare R2 (no egress fees) before it shows up on the bill.
@@ -18,7 +18,7 @@ The films are the heavy part: each hero film is about 15 MB. For a small invite 
 
 1. Render dashboard: **New > Blueprint**. The code lives at `GameMog/GameMog` (the GameMog organisation, since 1 Oct; it moved from `whyagents/GameMog`). Render's GitHub app must be installed on the GameMog organisation with access to the repo; then pick `GameMog/GameMog`.
 2. Render reads `render.yaml` and asks for one value, `ADMIN_PASSWORD`. Use a new one, not the password on the Mac.
-3. Check the plan it shows ($7 service + $0.25 disk), then **Apply**.
+3. Check the plan it shows ($25 service + $2.50 disk), then **Apply**.
 4. The first build takes a few minutes. On first boot `deploy/boot.mjs` finds the empty disk and copies in `deploy/seed.db.gz` (all 38 worlds, scores and plays as of the snapshot).
 5. Open the `onrender.com` address Render gives you, play a world, and sign in at `/admin` once so your own visits stop counting.
 

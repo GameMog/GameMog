@@ -9,6 +9,7 @@
  * white sheen at 150 degrees, a lit top rim and a hairline border. The cover is blurred once, and every glass shape
  * draws its own region of that one copy. Browser only.
  */
+import { PLATFORM } from './byline';
 
 export type DareCardInput = {
   /** the game's cover, same origin (/g/<slug>/cover), so the canvas stays readable */
@@ -17,7 +18,7 @@ export type DareCardInput = {
   /** the sender's name: "A DARE FROM <NAME>"; none given: "A DARE" (never the creator's: the sender may be anyone, and the
    *  landing says "You have been dared" for a dare with no name) */
   from?: string | null;
-  /** the game's creator: "Created by <creator>" */
+  /** the game's creator: "Created by <creator>" ("By GameMog" for a first-party world, lib/byline.ts) */
   creator?: string | null;
   /** the game it was mogged from: "Remixed from <parent>" */
   parentTitle?: string | null;
@@ -305,7 +306,7 @@ export async function renderDareCard(input: DareCardInput): Promise<Blob> {
   // the title and its credit, from the panel's foot up
   {
     const credit: { text: string; bold?: boolean; line?: boolean; dim?: boolean }[] = [];
-    if (input.creator?.trim()) credit.push({ text: 'Created by ' }, { text: input.creator.trim(), bold: true });
+    if (input.creator?.trim()) credit.push({ text: input.creator.trim() === PLATFORM ? 'By ' : 'Created by ' }, { text: input.creator.trim(), bold: true });
     if (input.parentTitle?.trim()) {
       if (credit.length) credit.push({ text: ' · ', dim: true });
       credit.push({ text: 'Remixed from ' }, { text: input.parentTitle.trim(), bold: true, line: true });

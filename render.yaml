@@ -7,8 +7,9 @@ services:
   - type: web
     name: gamemog
     runtime: node
-    # Starter, $7 a month. Mog mode may want 1c-2g (Standard, $25).
-    plan: 0.5c-512mb
+    # Standard, $25 a month: 1 CPU, 2 GB (the owner, 7 Nov, for launch; was
+    # Starter 0.5c-512mb). Story worlds' files stream from the disk.
+    plan: 1c-2g
     region: virginia
     # next.config.ts builds with one worker, so the build's fresh database is safe
     buildCommand: npm ci && npm run build
@@ -20,11 +21,13 @@ services:
     # GoDaddy (docs/DEPLOY-RENDER.md); Render issues and renews the certificate.
     domains:
       - gamemog.com
-    # the database lives here, and survives deploys; $0.25 a month
+    # the database and the Story Kit store (data/storykit) live here, and
+    # survive deploys; 10 GB (the owner, 7 Nov; was 1 GB), $2.50 a month. The
+    # store may use STORYKIT_DISK_MB of it (8,000 by default, guard at 90%).
     disk:
       name: gamemog-data
       mountPath: /opt/render/project/src/data
-      sizeGB: 1
+      sizeGB: 10
     envVars:
       - key: NODE_VERSION
         value: "24"

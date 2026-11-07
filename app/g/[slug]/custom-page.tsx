@@ -18,6 +18,7 @@ import { Tabs } from './tabs';
 import { Rail as Shelf } from '../../rail';
 import { Lineage, MogOffPanel, MogsPanel } from './mog';
 import { mogsOf, tileStats } from '@/lib/db';
+import { isFirstParty, PLATFORM } from '@/lib/byline';
 import { kartConstants, kartMeasured } from '@/lib/kart-score';
 import { dna } from '@/lib/mog-dna';
 import { KartBoard } from './kart-score-ui';
@@ -131,7 +132,7 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
           <div className="gbar">
             <div className="gtitle">
               <h1>{game.title}</h1>
-              <p className="by">{game.creator ? <>Created by <b>{game.creator}</b></> : <>By <b>a GameMog creator</b></>} <span className="maturity">· {storyWorld ? 'Story world · Story Kit' : page ? `${page.label} · ${episode ? 'Mog City' : 'GameMog Runtime'}` : 'Written by GameMog'}</span></p>
+              <p className="by">{isFirstParty(game) ? <>By <b>{PLATFORM}</b></> : game.creator ? <>Created by <b>{game.creator}</b></> : <>By <b>a GameMog creator</b></>} <span className="maturity">· {storyWorld ? 'Story world · Story Kit' : page ? `${page.label} · ${episode ? 'Mog City' : 'GameMog Runtime'}` : 'Written by GameMog'}</span></p>
               <Lineage game={game} />
               {world && !episode && <YouLine slug={game.slug} />}
               {consent && <p className="t-meta dim" data-consent>Names a real person, with consent stated by its creator.</p>}

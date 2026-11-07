@@ -48,6 +48,8 @@ import { storykitMc } from './storykit-publish';
  */
 
 export const STORYKIT_MAX_ATTEMPTS = 3;
+/** A story pass's reply: a Create's or a Mog's (64,000 tokens), and a Mog of a showcase's, whose pack is about 150 KB. */
+export const STORYKIT_MAX_TOKENS = 64_000, STORYKIT_SHOWCASE_MAX_TOKENS = 128_000;
 /** The cities a story can be set in: the ones Mog City's engine plays (New York so far; a city map added there joins). */
 export const STORYKIT_CITIES = Object.keys(MOGCITY_BUILDS) as CityId[];
 /** The server switch (lib/storykit-switch.ts): the build worker runs a story build when it is on or owner-only; who may
@@ -509,7 +511,9 @@ export function inheritance(pack: PackV2, lines: { id: string; who: string; text
   let parentClips = new Set<string>();
   if (parent) {
     const bare = { ...parent }; delete bare.parent;
-    parentClips = new Set(clipsOf(parent, gatePack(bare).lines).map((l) => l.clip));
+    // (the parent is a stored, gated world: read for its lines under the longest limits, so a showcase parent such as
+    // Pickup Time, longer than a Create, still lists its lines and its clips carry over)
+    parentClips = new Set(clipsOf(parent, gatePack(bare, { showcaseLine: true }).lines).map((l) => l.clip));
   }
   const all = clipsOf(pack, lines), recorded = all.filter((l) => l.rec).length;
   const clips = all.filter((l) => !l.rec).map((l) => ({ id: l.id, clip: l.clip, from: parentClips.has(l.clip) ? parent!.id as string : null }));
@@ -573,6 +577,9 @@ export async function generateStorykit(
 ) {
   if (!storykitOn()) return emit({ type: 'error', error: STORY_CLOSED });
   const sk = input.storykit, from = parentOf(sk), parent = from?.pack ?? null;
+  // a Mog of a showcase (Pickup Time, or a Mog of one: the store traces its line) keeps the showcase's limits (gate rule
+  // 15), and its whole pack is written back, so its reply may be twice as long (the owner, 7 Nov: Mogs of Pickup Time open)
+  const showcaseLine = !!from?.store && storyStore().showcaseLine(from.store);
   if (sk.mog && !parent) return emit({ type: 'error', error: 'The story world you are mogging could not be read.' });
   const city = (parent?.base.city ?? sk.city) as CityId;
   if (!city || !PLACES[city]) return emit({ type: 'error', error: 'Pick a city for the story world.' });
@@ -593,7 +600,7 @@ export async function generateStorykit(
     let live: { currentMessage: Anthropic.Beta.BetaMessage | undefined } | undefined;
     try {
       const stream = live = client.beta.messages.stream({
-        model: input.model, max_tokens: 64_000, system, messages,
+        model: input.model, max_tokens: showcaseLine ? STORYKIT_SHOWCASE_MAX_TOKENS : STORYKIT_MAX_TOKENS, system, messages,
         thinking: { type: 'adaptive' }, output_config: { effort: STORY_EFFORT }, cache_control: { type: 'ephemeral' },
         betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
       }, { signal: input.signal });
@@ -624,7 +631,7 @@ export async function generateStorykit(
     let gated: ReturnType<typeof gatePack> | null = null;
     if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
       problems.push(...platformFields(raw, packId, sk));
-      gated = gatePack(raw, { parent });
+      gated = gatePack(raw, { parent, showcaseLine });
       problems.push(...gated.problems.slice(0, 40));
       if (gated.problems.length > 40) problems.push(`... and ${gated.problems.length - 40} more of the same kinds: check the whole pack against the rules.`);
       problems.push(...builderProblems(raw, sk, meta));

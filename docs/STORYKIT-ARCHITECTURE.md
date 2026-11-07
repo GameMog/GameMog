@@ -115,7 +115,7 @@ One server environment variable, read in `lib/storykit-switch.ts`:
 | `on` | on for everyone. Public story worlds (Pickup Time included) play only with this value. |
 
 `/create` is prerendered, so changing the switch needs a rebuild (on Render: "Save, rebuild, and deploy"). The store
-is capped by `STORYKIT_DISK_MB` (400 by default). The rules are in `docs/RULES.md`, section 1h.
+is capped by `STORYKIT_DISK_MB` (8,000 by default, for the 10 GB disk). The rules are in `docs/RULES.md`, section 1h.
 
 ## 3. First-party worlds: the showcase exemption and shipping by migration
 
@@ -129,6 +129,21 @@ and a migration in `deploy/migrate.mjs` writes them into the store at boot.
 | Mog City's own story | `storykit/packs/mog-city.json` | `{ own: true }` (the one world whose title may name Mog City) | `2026-11-05-mog-city-own-story` (`deploy/migrations/mog-city-story.json`; `scripts/storykit-own-world.ts` on a dev database) | a hidden world with no public page: the parent that Mogs of `/g/mog-city` remix (`lib/storykit-mogcity.ts`). No files of its own. |
 | **Pickup Time** | `storykit/packs/pickup-time.json` | `{ showcase: true }` | `2026-11-07-pickup-time` (`deploy/migrations/pickup-time-story.json`, `pickup-time/world.json`, `pickup-time/voice/*.ogg`, `pickup-time-{cover,wide,icon,sky}.jpg`) | public at `/g/pickup-time`: 15 missions in 3 acts, 9 hand-built bodies, 910 voice clips |
 
+### The byline: "By GameMog"
+
+A first-party world reads "By GameMog" wherever its byline shows: the game page, the family page, a dare's page and
+card, link previews (`authors`) and the charts' search. `lib/byline.ts` decides it:
+
+- `games.creator` is `GameMog`. Only a migration writes it, because `lib/names.ts` reserves the name. Migration
+  `2026-11-07-by-gamemog` sets it on every first-party world (by slug and its `first-party world: ...` prompt) and on
+  Mog City's own story.
+- A showcase (`meta.storykit.showcase`) or Mog City's own story (`meta.storykit.own`) with no parent. Pickup Time reads
+  "By GameMog" from its meta even before that migration reaches its row.
+- A featured game with no creator name of its own.
+
+A Mog is always its creator's ("Created by <name>" or "By a GameMog creator"). A new first-party world's migration
+should write `creator: 'GameMog'`.
+
 ### The showcase exemption (gate rule 15)
 
 `storykit/pack/schema.mjs` defines both lists:
@@ -141,7 +156,15 @@ A Create gets `LIMITS`: 160,000 bytes, 3 acts, 9 missions, 60 steps, 12 cast, 60
 
 `gatePack(pack, { showcase: true })` applies the larger limits. Only the repo's own scripts pass that option. The
 store, the builder and Mogs never do. The gate refuses it with a parent, and it refuses any id that is not listed.
+No other pack may take a listed id (a Create named `pickup-time` is refused).
 Everything else is gated the same way: places, verbs, words and voices.
+
+**A Mog of a showcase gets the showcase's limits** (the owner, 7 Nov: "DO NOT close Mogs for Pickup Time"). The gate
+applies `SHOWCASE` to a pack whose parent is a listed showcase, or when the caller passes `showcaseLine: true`. The
+store passes it when `StoryStore.showcaseLine(parent)` walks the draft's parents back to a kept showcase draft with no
+parent of its own, so a Mog of a Mog of Pickup Time keeps the limits too. The builder (`lib/storykit-build.ts`) asks the
+store the same question for its gate pass. A Mog may also keep the showcase steps and the GT, as it keeps its parent's
+framework.
 
 The showcase steps (`passenger`, `comfort`, `convoy`, `ally`, `roadblock`, `stealth`, `car`) play in any world, but a
 Create may not write them yet (`BUILDER.md`, "What a Create does not write yet").
@@ -210,32 +233,46 @@ byte (checked on 7 Nov).
 
    The patch route is for creators' worlds (a new opening, a reforged body).
 
-## 4. Store limits, and the open issue with Mogs of Pickup Time
+## 4. Store limits, and Mogs of Pickup Time
 
-`lib/storykit-store.ts` `LIMITS`:
+Raised for launch on 7 Nov (the owner: "raise all limits on MOG and Render to prepare for success and GTM"). Render
+runs the service on Standard (`1c-2g`: 1 CPU, 2 GB) with a 10 GB disk (`render.yaml`).
 
-| what | limit |
-|---|---|
-| source pack | 160,000 bytes (the gate's own limit) |
-| GLB | 3 MB each, 16 MB per world |
-| voice | 1 MB each, 600 clips, 8 MB per world |
-| art | 512 KB each, 16 files, 3 MB |
-| a world's distinct blobs (inherited ones included) | 24 MB |
-| disk | `STORYKIT_DISK_MB` (400 MB). At 90%, no new draft opens and the build route refuses a story build. |
-| drafts | 60 open at once, 200 opened per day, swept after `STORYKIT_DRAFT_TTL_H` (24 h) |
+`lib/storykit-store.ts` `LIMITS` (a Create, or a Mog of a Create) and `SHOWCASE_LIMITS` (a Mog of a showcase,
+`StoryStore.limitsOf`):
 
-Pickup Time does not fit these limits, because it was written to a showcase's: a pack of 152 KB with 15 missions,
-979 spoken lines, 910 clips (about 13 MB) and 9 bodies (about 21 MB).
+| what | a Create (was, before 7 Nov) | a Mog of a showcase |
+|---|---|---|
+| source pack | 160,000 bytes (the gate's own limit; unchanged) | 640,000 bytes (`SHOWCASE.bytes`) |
+| GLB | 6 MB each, 48 MB per world (3 MB, 16 MB) | 6 MB each, 128 MB per world |
+| voice | 2 MB each, 1,500 clips, 24 MB per world (1 MB, 600, 8 MB) | 2 MB each, 3,000 clips, 64 MB per world |
+| art | 1 MB each, 32 files, 8 MB (512 KB, 16, 3 MB) | the same |
+| a world's distinct blobs (inherited ones included) | 64 MB (24 MB) | 200 MB |
+| a sealed world (`/storykit/f/<sha256>.json`) | 2,560,000 bytes, `LIMITS.sealed` (640,000) | the same |
+| disk | `STORYKIT_DISK_MB`: 8,000 MB by default (400). At 90% (7,200 MB), no new draft opens and the build route refuses a story build. | the same store |
+| drafts | 60 open at once, 200 opened per day, swept after `STORYKIT_DRAFT_TTL_H` (24 h); unchanged | the same |
 
-The migration writes it directly into the store, so the limits never apply to it.
+`STORYKIT_DISK_MB` follows the disk: set it on Render's Environment page when the disk changes size (about 80% of
+the disk; gamemog.db and its backups use the rest).
 
-**Open issue: a Mog of Pickup Time cannot be built yet.** A Mog is gated without the exemption and stored as a normal
-draft. The parent's pack already breaks the mission and line limits (15 missions against 9, 979 lines against 600),
-and the parent's files break the voice count and the GLB and world totals. A Mog of `/g/pickup-time` would therefore be
-refused, and nothing in the build route makes an exception for it yet. It needs a decision, either:
+The upload route (`PUT .../files/<kind>/<name>`) reads at most `FILE_MAX` of a kind before the store looks at the
+draft; `POST /api/storykit/drafts` takes a pack of up to 640,000 bytes, and the gate holds each pack to its own limit.
+A file is read whole only once, on its way in. `/storykit/f/<sha256>.<ext>` streams it from the disk
+(`StoryStore.stat`, `fs.createReadStream`), with the same immutable caching, content type and etag.
 
-- Mogs of a showcase inherit the showcase limits (and the store counts inherited blobs only once), or
-- a Mog of a showcase is refused up front with a clear message.
+**A Mog of Pickup Time fits.** Pickup Time has a pack of 152 KB with 15 missions, 979 spoken lines, 910 clips
+(11.5 MB), 9 hand-built bodies (21.6 MB) and a sealed world of 543 KB, about 33 MB in all. A Mog of it is gated with the
+showcase's limits (§3), and the store opens it with the showcase's file limits. It inherits every hand-built body
+whose person keeps the same model, and every clip of an unchanged line in an unchanged voice. They are the same blobs,
+so they cost no disk. What the Mog adds (new people and new lines) has room on top: up to 24 people and 2,400 lines,
+in 128 MB of bodies and 64 MB of clips.
+
+The migration writes Pickup Time itself directly into the store, so no store limit ever applies to it.
+
+The paid story build keeps its cost controls: the same prompt, the same 3 attempts, and the same daily ceiling
+(`BUILD_DAILY_USD`, $50). One limit is raised, because it blocked a Mog of Pickup Time. A Mog in a showcase's line
+writes the whole pack back (about 150 KB of compact JSON, some 45,000 tokens before any thinking), so its reply may
+be 128,000 tokens (`STORYKIT_SHOWCASE_MAX_TOKENS`). Every other story build stays at 64,000 (`STORYKIT_MAX_TOKENS`).
 
 ## 5. Headshots and Jump In
 

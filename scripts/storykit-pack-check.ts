@@ -205,17 +205,25 @@ export function runStoryPackChecks(ok: Ok) {
     const mk = (a: number, k: number) => ({ ...clone(m1(p)), id: `PT-${a * 6 + k + 1}`, title: `Mission ${a * 6 + k + 1}` });
     p.acts = [0, 1, 2].map((a) => ({ id: `act${a + 1}`, name: `ACT ${'I'.repeat(a + 1)}`, missions: [0, 1, 2, 3, 4, 5].map((k) => mk(a, k)) }));
   });
-  { const L = long(SHOWCASE_PACKS[0]), r = gatePack(L, { showcase: true }), plain = gatePack(L);
+  { const L = long(SHOWCASE_PACKS[0]), r = gatePack(L, { showcase: true }), plain = gatePack({ ...L, id: 'a-creators-world' });
     ok(`a showcase (${SHOWCASE_PACKS[0]}) may hold ${L.acts.flatMap((a: any) => a.missions).length} missions in acts of 6 (up to ${SHOWCASE.missionsPerAct} each, ${SHOWCASE.acts} acts)`, r.ok, r.problems.slice(0, 3).join(' | '));
     ok('the same pack without the showcase flag is held to a Create\'s limits', !plain.ok && plain.problems.some((x) => /the limit is 6|at most 9/.test(x)), plain.problems.slice(0, 2).join(' | ')); }
   { const r = gatePack(long('a-creators-world'), { showcase: true });
     ok('only a world listed in SHOWCASE_PACKS may be gated as a showcase', !r.ok && r.problems.some((x) => /A showcase is one of GameMog's own worlds/.test(x)), r.problems.join(' | ')); }
   { const r = gatePack(long(SHOWCASE_PACKS[0]), { showcase: true, parent: gatePack(onMc()).pack });
     ok('a Mog is never a showcase', !r.ok && r.problems.some((x) => /never a Mog/.test(x)), r.problems.join(' | ')); }
-  { const G = (sc: boolean) => { const p = long(SHOWCASE_PACKS[0]); p.vehicles = [{ stock: 'gt', id: 'johns-car', label: "John's car", plate: 'JM 0838' }]; p.ride = 'johns-car'; for (const a of p.acts) for (const m of a.missions) m.vehicle = 'johns-car'; return gatePack(p, { showcase: sc }); };
+  { const G = (sc: boolean) => { const p = long(SHOWCASE_PACKS[0]); p.vehicles = [{ stock: 'gt', id: 'johns-car', label: "John's car", plate: 'JM 0838' }]; p.ride = 'johns-car'; for (const a of p.acts) for (const m of a.missions) m.vehicle = 'johns-car'; return gatePack(sc ? p : { ...p, id: 'a-creators-world' }, { showcase: sc }); };
     const r = G(true), w = r.ok ? toRunnerPack(r.pack!) as any : null, plain = G(false);
     ok("a showcase drives the Marin GT (stock gt): the runner gets car { model: 'mogcity/gt', label, plate }", r.ok && w?.car?.model === 'mogcity/gt' && w.car.plate === 'JM 0838' && w.car.label === "John's car", r.problems.slice(0, 2).join(' | ') + JSON.stringify(w?.car));
     ok('a Create never drives it', !plain.ok && plain.problems.some((x) => /driven only in GameMog's own showcase worlds/.test(x)), plain.problems.slice(0, 2).join(' | ')); }
+  // a Mog of a showcase keeps the showcase's limits (the owner, 7 Nov: "DO NOT close Mogs for Pickup Time")
+  { const parent = gatePack(long(SHOWCASE_PACKS[0]), { showcase: true }).pack!;
+    const mog = { ...long('pt-mog'), parent: SHOWCASE_PACKS[0] }, r = gatePack(mog, { parent });
+    ok(`a Mog of a showcase (${SHOWCASE_PACKS[0]}) is held to the showcase's limits, not a Create's (${mog.acts.flatMap((a: any) => a.missions).length} missions pass)`, r.ok, r.problems.slice(0, 3).join(' | '));
+    const deeper = { ...long('pt-mog-2'), parent: 'pt-mog' }, r2 = gatePack(deeper, { parent: r.pack, showcaseLine: true }), r3 = gatePack(deeper, { parent: r.pack });
+    ok('a Mog of that Mog keeps them when the store traced its line to the showcase (showcaseLine), and only then', r2.ok && !r3.ok && r3.problems.some((x) => /the limit is 6|at most 9/.test(x)), [...r2.problems, ...r3.problems].slice(0, 3).join(' | ')); }
+  { const r = gatePack({ ...play(), id: SHOWCASE_PACKS[0] });
+    ok(`no Create may take a showcase's id (${SHOWCASE_PACKS[0]})`, !r.ok && r.problems.some((x) => /id of one of GameMog's own worlds/.test(x)), r.problems.join(' | ')); }
   { const users = ['lib', 'app'].flatMap((d) => readdirSync(d, { recursive: true }).map(String).filter((f) => /\.(ts|tsx|mjs|js)$/.test(f)).map((f) => `${d}/${f}`)).filter((f) => /showcase\s*:/.test(R(f)));
     ok('the store, the builder and the pages never gate a showcase (no "showcase:" in lib/ or app/)', users.length === 0, users.join(', ')); }
   { const r = gatePack(onMc((p) => { p.dressing.weather = 'rain'; }));

@@ -15,6 +15,7 @@ import { isBot } from './analytics';
 import { COOKIE, validSession } from '../app/admin/session';
 import { worldMode, canMog, gpLaps, gpMinLapMs } from './custom-game';
 import { optionsOf } from './world-options';
+import { byName } from './byline';
 import { dna } from './mog-dna';
 import { KartScore, kartConstants, checkKartRun, raceClock, ordinal, type KartConstants } from './kart-score';
 
@@ -256,7 +257,7 @@ export function dareView(id: string, slug?: string): DareView | null {
   return {
     id: d.id, url: dareUrl(g.slug, d.id), card: dareCardUrl(g.slug, d.id), hasCard: !!d.has_card, createdAt: d.created_at,
     name: d.name, message: d.message, board: d.board, target: target(d, g), parent: d.parent_dare,
-    game: { id: g.id, slug: g.slug, title: g.title, tagline: g.tagline, cover: `/g/${g.slug}/cover?plain`, creator: g.creator, parent: p ? { slug: p.slug, title: p.title } : null, mog: canMog(g) },
+    game: { id: g.id, slug: g.slug, title: g.title, tagline: g.tagline, cover: `/g/${g.slug}/cover?plain`, creator: byName(g), parent: p ? { slug: p.slug, title: p.title } : null, mog: canMog(g) },
   };
 }
 

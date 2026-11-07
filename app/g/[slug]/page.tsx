@@ -19,6 +19,7 @@ import { Lineage, MogsPanel } from './mog';
 import { mogsOf, tileStats, getGameById } from '@/lib/db';
 import type { Metadata } from 'next';
 import { clip, pageMeta } from '../../seo';
+import { byName, isFirstParty, PLATFORM } from '@/lib/byline';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,10 +37,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const parts = [...(parent ? [`A Mog of ${parent.title}.`] : []), ...sentences(game.tagline), ...sentences(game.blurb)];
   let pitch = '';
   for (const p of parts) { if (`${pitch} ${p}`.trim().length > 128) break; pitch = `${pitch} ${p}`.trim(); }
-  return pageMeta({
-    name: game.title, path: `/g/${slug}`, image: { url: `/g/${slug}/cover`, alt: game.title },
-    description: `${pitch || clip(parts.join(' '), 126)} Play it free in your browser.`,
-  });
+  // (who it is by: GameMog for a first-party world, else its creator's name when they gave one; lib/byline.ts)
+  const by = byName(game);
+  return {
+    ...pageMeta({
+      name: game.title, path: `/g/${slug}`, image: { url: `/g/${slug}/cover`, alt: game.title },
+      description: `${pitch || clip(parts.join(' '), 126)} Play it free in your browser.`,
+    }),
+    ...(by ? { authors: [{ name: by }], creator: by } : {}),
+  };
 }
 
 /**
@@ -108,7 +114,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
             <div className="gtitle">
               <span className="tag solid classic-label">Classic</span>
               <h1>{game.title}</h1>
-              <p className="by">{game.creator ? <>Created by <b>{game.creator}</b></> : <>By <b>{game.featured ? 'GameMog' : 'a GameMog creator'}</b></>} <span className="maturity">· Difficulty: {difficulty}</span></p>
+              <p className="by">{isFirstParty(game) ? <>By <b>{PLATFORM}</b></> : game.creator ? <>Created by <b>{game.creator}</b></> : <>By <b>a GameMog creator</b></>} <span className="maturity">· Difficulty: {difficulty}</span></p>
               <Lineage game={game} />
             </div>
             <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />

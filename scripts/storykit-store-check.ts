@@ -3,13 +3,15 @@
  * and separation (public/storykit/vendor/gpl). Part of `npm run check`. The store runs in a temporary folder with a
  * fake clock; nothing touches data/. No live world reads any of this.
  */
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { StoryStore, LIMITS, checkGlb, readCapped, storykitOn, BLOB_FILE, STORE_FULL, storeGuard } from '../lib/storykit-store.ts';
+import { StoryStore, LIMITS, SHOWCASE_LIMITS, checkGlb, readCapped, storykitOn, BLOB_FILE, STORE_FULL, storeGuard } from '../lib/storykit-store.ts';
 import { voicePlanOf } from '../storykit/pack/runner.ts';
+import { gatePack } from '../storykit/pack/gate.ts';
+import { SHOWCASE_PACKS } from '../storykit/pack/schema.mjs';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
 const R = (p: string) => readFileSync(p, 'utf8');
@@ -112,8 +114,9 @@ export async function runStoryStoreChecks(ok: Ok) {
       !guardOpen.ok && guardOpen.status === 507 && guardOpen.error === STORE_FULL && /nearly full/.test(STORE_FULL) && /storeGuard\(storyStore\(\)\)/.test(R('app/api/generate/route.ts')), guardOpen.ok ? 'opened' : guardOpen.error);
     ok('at the guard a draft already open can still store its files, up to the whole store', finish.ok, finish.ok ? '' : finish.error);
     ok('the usage the owner sees: bytes, disk, guard, files and drafts', u.guarded && u.used === s.used() && u.used > at && u.disk === at + 1000 && u.guard === at && u.share === u.used / u.disk && u.blobs > 0 && u.open >= 1 && u.today >= 1, JSON.stringify(u));
-    ok('below the guard nothing is refused; the guard is 90% of STORYKIT_DISK_MB (400 MB by default)', storeGuard(s) === null && LIMITS.guardShare === 0.9 && LIMITS.guard === Math.floor(0.9 * (400 << 20)));
-    ok('the per-world limits are stated', LIMITS.glb.each === 3 << 20 && LIMITS.voice.each === 1 << 20 && LIMITS.world === 24 << 20 && LIMITS.disk === 400 << 20);
+    ok('below the guard nothing is refused; the guard is 90% of STORYKIT_DISK_MB (8,000 MB by default, for the 10 GB disk)', storeGuard(s) === null && LIMITS.guardShare === 0.9 && LIMITS.guard === Math.floor(0.9 * 8000 * (1 << 20)));
+    ok('the per-world limits are stated (raised for launch, 7 Nov)', LIMITS.glb.each === 6 << 20 && LIMITS.glb.total === 48 << 20 && LIMITS.voice.each === 2 << 20 && LIMITS.voice.count === 1500 && LIMITS.voice.total === 24 << 20 && LIMITS.world === 64 << 20 && LIMITS.disk === 8000 * (1 << 20));
+    ok('a Mog of a showcase may hold what Pickup Time holds, with room to spare (SHOWCASE_LIMITS)', SHOWCASE_LIMITS.glb.total >= 2 * 21_634_560 && SHOWCASE_LIMITS.voice.count >= 2 * 910 && SHOWCASE_LIMITS.voice.total >= 2 * 11_513_215 && SHOWCASE_LIMITS.world >= 2 * (21_634_560 + 11_513_215) && LIMITS.sealed >= 2 * 542_546);
 
     // ── a Mog: the parent's city locked, unchanged people and lines inherited (same blobs, no bytes)
     ok('a world is kept (published) with its game', s.keep(o.id, 'game-1') && s.auth(o.id, o.token)!.state === 'kept');
@@ -131,6 +134,38 @@ export async function runStoryStoreChecks(ok: Ok) {
     ok('a Mog that moves its parent\'s city is refused by the gate', !mm.ok && mm.status === 422);
     const orphanMog = s.open(asMog(NY), { parent: '00000000-0000-0000-0000-000000000000' });
     ok('a Mog of no kept world is refused', !orphanMog.ok && orphanMog.status === 404);
+
+    // ── a Mog of a showcase (the owner, 7 Nov: "DO NOT close Mogs for Pickup Time"): its line leads back to Pickup Time
+    // (kept, written as deploy/migrate.mjs writes it), so it gets the showcase's limits and keeps the hand-built bodies
+    {
+      const PT = gatePack(JSON.parse(R(`storykit/packs/${SHOWCASE_PACKS[0]}.json`)), { showcase: true }).pack!;
+      const root = randomUUID(), body = tinyGlb('pt-john');
+      s.db.prepare("INSERT INTO drafts (id, token_hash, pack, parent, state, created_at, touched_at) VALUES (?, ?, ?, NULL, 'kept', ?, ?)").run(root, sha('x'), JSON.stringify(PT), now, now);
+      const bh = sha(body), bp = s.blobPath(bh, 'glb'); mkdirSync(path.dirname(bp), { recursive: true }); writeFileSync(bp, body);
+      s.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)').run(bh, 'glb', body.length, now);
+      s.db.prepare("INSERT INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, 'glb', 'john', ?, 'glb', ?, NULL, 0, ?)").run(root, bh, body.length, now);
+      const clip0 = voicePlanOf(PT, '').lines[0].clip, cb = ogg(`pt-${clip0}`), ch = sha(cb), cp = s.blobPath(ch, 'ogg');
+      mkdirSync(path.dirname(cp), { recursive: true }); writeFileSync(cp, cb);
+      s.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)').run(ch, 'ogg', cb.length, now);
+      s.db.prepare("INSERT INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, 'voice', ?, ?, 'ogg', ?, NULL, 0, ?)").run(root, `${clip0}.ogg`, ch, cb.length, now);
+      const mogPT = { ...clone(PT), id: 'pt-check-mog', parent: PT.id, title: 'Pickup Time Again' };
+      const pm = s.open(mogPT, { parent: root });
+      ok(`a Mog of ${SHOWCASE_PACKS[0]} opens (${PT.acts.flatMap((x: any) => x.missions).length} missions, held to the showcase's limits)`, pm.ok, pm.ok ? '' : `${pm.error} ${((pm as any).problems ?? []).slice(0, 2).join(' | ')}`);
+      if (pm.ok) {
+        const pf = s.db.prepare("SELECT name, inherited FROM files WHERE draft_id = ? AND kind = 'glb'").all(pm.id) as any[];
+        const pv = s.db.prepare("SELECT name, inherited FROM files WHERE draft_id = ? AND kind = 'voice'").all(pm.id) as any[];
+        ok('it keeps a hand-built body its original has (same model: same blob, no bytes)', pf.some((f) => f.name === 'john' && f.inherited));
+        ok(`it keeps its original's voiced lines (its voice plan lists all ${voicePlanOf(PT, '').lines.length} of the showcase's)`, pv.some((f) => f.name === `${clip0}.ogg` && f.inherited) && voicePlanOf(JSON.parse((s.db.prepare('SELECT pack FROM drafts WHERE id = ?').get(pm.id) as any).pack), '').lines.length === voicePlanOf(PT, '').lines.length);
+        ok('its limits are the showcase\'s, a Create\'s are not', s.showcaseLine(pm.id) && s.limitsOf(pm.id) === SHOWCASE_LIMITS && s.limitsOf(o.id) === LIMITS);
+        const pd = s.auth(pm.id, pm.token)!, deep = s.open({ ...clone(mogPT), id: 'pt-check-mog-2', parent: 'pt-check-mog', title: 'Pickup Time Thrice' }, { parent: (s.keep(pd.id, 'game-pt-mog'), pm.id) });
+        ok('a Mog of that Mog is in the line too', deep.ok && s.limitsOf(deep.id) === SHOWCASE_LIMITS, deep.ok ? '' : `${deep.error} ${((deep as any).problems ?? []).slice(0, 2).join(' | ')}`);
+        if (deep.ok) s.abandon(s.auth(deep.id, deep.token)!);
+        s.release(pm.id); s.abandon(s.auth(pm.id, pm.token)!);
+      }
+      const fake = s.open({ ...clone(NY), id: SHOWCASE_PACKS[0] });
+      ok('no Create opens under a showcase\'s id', !fake.ok && fake.status === 422);
+      s.db.prepare('DELETE FROM drafts WHERE id = ?').run(root);
+    }
 
     // ── cleanup: abandon now, or untouched for the TTL; kept worlds stay
     const a = s.open(NY); const ad = a.ok ? s.auth(a.id, a.token)! : null;
@@ -160,6 +195,7 @@ export async function runStoryStoreChecks(ok: Ok) {
   ok('every Story Kit store route exists and answers only with STORYKIT=on (or owner: lib/storykit-switch.ts)', routes.every((r) => existsSync(r) && /storykitOff\(req[,)]|storykitOn\(\)/.test(R(r))));
   ok('the dev-only PUT /api/storykit/voice is replaced by the per-draft upload', !existsSync('app/api/storykit/voice/route.ts') && !/\/api\/storykit\/voice\b/.test(R('storykit/voices/studio.js')) && /authorization: `Bearer \$\{token\}`/.test(R('storykit/voices/studio.js')));
   ok('a stored file is served immutable for a year, by its hash', /max-age=31536000, immutable/.test(R('app/storykit/f/[file]/route.ts')) && /etag/.test(R('app/storykit/f/[file]/route.ts')));
+  ok('a stored file is streamed from the disk, never read whole (createReadStream, its length from stat)', /createReadStream\(b\.path\)/.test(R('app/storykit/f/[file]/route.ts')) && /storyStore\(\)\.stat\(file\)/.test(R('app/storykit/f/[file]/route.ts')) && !/\.read\(file\)/.test(R('app/storykit/f/[file]/route.ts')));
   ok('the store lives on the Render disk (data/), never committed', /mountPath: \/opt\/render\/project\/src\/data/.test(R('render.yaml')) && /^data\/storykit\/$/m.test(R('.gitignore')));
 
   runGplChecks(ok);

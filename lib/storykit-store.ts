@@ -19,11 +19,12 @@
  */
 import { DatabaseSync } from 'node:sqlite';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { gatePack, toRunnerPack } from '../storykit/pack/gate.ts';
 import { voicePlanOf } from '../storykit/pack/runner.ts';
 import { handBuilt } from '../storykit/pack/registry.ts';
+import { SHOWCASE, SHOWCASE_PACKS } from '../storykit/pack/schema.mjs';
 import { storykitLive } from './storykit-switch.ts';
 
 /** The store is there when the switch is on or owner-only (lib/storykit-switch.ts); who may write is the routes' check. */
@@ -34,17 +35,24 @@ const envNum = (k: string, d: number) => { const v = Number(process.env[k]); ret
 
 /**
  * The limits. A world (Night Shift: 3 people, 24 lines) is about 3.8 MB: 3.5 MB of GLBs, 253 KB of clips, a 19 KB
- * pack. The disk is 1 GB in all and holds gamemog.db too, so the Story Kit gets STORYKIT_DISK_MB (400) of it.
+ * pack. Pickup Time, the showcase (deploy/migrate.mjs 2026-11-07-pickup-time), is about 33 MB: 9 hand-built bodies
+ * (21.6 MB), 910 clips (11.5 MB), a 152 KB pack and a 543 KB sealed world. Raised for launch (the owner, 7 Nov: "raise
+ * all limits ... to prepare for success"; the Render disk is 10 GB, on a 2 GB plan): a Create gets these, at least
+ * twice what they were, and a Mog of a showcase gets SHOWCASE_LIMITS (what its original has, with room to spare).
+ * Each file is read whole once, on its way in (readCapped), so the per-file caps are what one upload holds in memory.
  */
 export const LIMITS = {
   /** the source pack: the gate's own limit (storykit/pack/schema.mjs LIMITS.bytes) */
   pack: 160_000,
-  glb: { each: 3 * MB, total: 16 * MB },
-  voice: { each: 1 * MB, count: 600, total: 8 * MB },
-  art: { each: 512 * KB, count: 16, total: 3 * MB },
+  glb: { each: 6 * MB, total: 48 * MB },
+  voice: { each: 2 * MB, count: 1500, total: 24 * MB },
+  art: { each: 1 * MB, count: 32, total: 8 * MB },
   /** every distinct blob the world points at, inherited ones included */
-  world: 24 * MB,
-  get disk() { return envNum('STORYKIT_DISK_MB', 400) * MB; },
+  world: 64 * MB,
+  /** a sealed world (the runner's pack, its addresses and voice plan): four times a showcase's pack */
+  sealed: 4 * SHOWCASE.bytes,
+  /** the whole store: STORYKIT_DISK_MB, or 8,000 MB of the 10 GB disk (gamemog.db and its backups have the rest) */
+  get disk() { return envNum('STORYKIT_DISK_MB', 8000) * MB; },
   /**
    * The size guard (the owner, 5 Nov): published worlds are kept for ever, so the store only grows. At this share of
    * the disk no new draft opens (and the build route refuses a story build before anything is spent); drafts already
@@ -58,6 +66,22 @@ export const LIMITS = {
   /** the sweep runs at most this often on its own (open and put call it) */
   sweepEveryMs: 10 * 60_000,
 };
+
+/**
+ * A Mog of a showcase (lib/storykit-store.ts showcaseLine: its parents lead back to one of GameMog's own worlds, as
+ * Pickup Time's Mogs do): the showcase's pack (schema.mjs SHOWCASE) and room for everything its original has, twice
+ * over and more: up to 24 people, up to 2,400 lines.
+ */
+export const SHOWCASE_LIMITS = {
+  pack: SHOWCASE.bytes,
+  glb: { each: LIMITS.glb.each, total: 128 * MB },
+  voice: { each: LIMITS.voice.each, count: 3000, total: 64 * MB },
+  art: { each: LIMITS.art.each, count: 32, total: 8 * MB },
+  world: 200 * MB,
+};
+export type WorldLimits = Pick<typeof LIMITS, 'pack' | 'glb' | 'voice' | 'art' | 'world'>;
+/** The most any one file of a kind may be, whatever the world (the upload route's cap before it reads a byte). */
+export const FILE_MAX = { glb: Math.max(LIMITS.glb.each, SHOWCASE_LIMITS.glb.each), voice: Math.max(LIMITS.voice.each, SHOWCASE_LIMITS.voice.each), art: Math.max(LIMITS.art.each, SHOWCASE_LIMITS.art.each) } as Record<string, number>;
 
 export type Kind = 'glb' | 'voice' | 'art' | 'pack';
 export const TYPES: Record<string, string> = {
@@ -167,6 +191,25 @@ export class StoryStore {
     };
   }
 
+  /**
+   * Is this draft in a showcase's line: do its parents lead back to one of GameMog's own worlds (schema.mjs
+   * SHOWCASE_PACKS), kept, with no parent of its own (as deploy/migrate.mjs writes Pickup Time)? A Create can never be:
+   * the gate refuses a showcase's id to anything but the repo's own world.
+   */
+  showcaseLine(id: string | null | undefined): boolean {
+    let d = id ? this.draft(id) : undefined;
+    for (let i = 0; d && i < 64; i++) {
+      if (!d.parent) { try { return d.state === 'kept' && SHOWCASE_PACKS.includes(JSON.parse(d.pack).id); } catch { return false; } }
+      d = this.draft(d.parent);
+    }
+    return false;
+  }
+  /** A draft's world limits: a Create's, or a showcase's for a Mog in a showcase's line. */
+  limitsOf(id: string | null | undefined): WorldLimits {
+    const d = id ? this.draft(id) : undefined;
+    return d?.parent && this.showcaseLine(d.parent) ? SHOWCASE_LIMITS : LIMITS;
+  }
+
   private draft(id: string) { return DRAFT_ID.test(id) ? (this.db.prepare('SELECT * FROM drafts WHERE id = ?').get(id) as DraftRow | undefined) : undefined; }
   private files(id: string) { return this.db.prepare('SELECT * FROM files WHERE draft_id = ? ORDER BY kind, name').all(id) as FileRow[]; }
   /** the distinct blobs a draft points at, and their bytes (a blob used twice counts once) */
@@ -199,7 +242,8 @@ export class StoryStore {
     let parent: DraftRow | undefined;
     if (opts.parent) { parent = this.draft(opts.parent); if (!parent || parent.state !== 'kept') return fail(404, 'No published world to remix.'); }
     const parentPack = parent ? JSON.parse(parent.pack) : null;
-    const g = gatePack(input, { parent: parentPack });
+    // (a Mog of a showcase, at any depth, keeps the showcase's limits: gate rule 15)
+    const g = gatePack(input, { parent: parentPack, showcaseLine: !!parent && this.showcaseLine(parent.id) });
     if (!g.ok || !g.pack) return { ...fail(422, 'The story pack was refused.'), problems: g.problems };
 
     const id = randomUUID(), token = randomBytes(24).toString('base64url');
@@ -210,7 +254,8 @@ export class StoryStore {
       this.db.prepare('INSERT INTO opened (at) VALUES (?)').run(t);
       this.db.prepare('DELETE FROM opened WHERE at < ?').run(t - 86400_000);
       if (parent) {
-        const sheet = (p: any) => new Map<string, string>((p.cast || []).filter((c: any) => c.sheet).map((c: any) => [c.id, stable(c.sheet)]));
+        // (a person's body: their sheet, or a hand-built one's model, as Pickup Time's people are)
+        const sheet = (p: any) => new Map<string, string>((p.cast || []).filter((c: any) => c.sheet || (!c.voiceOnly && handBuilt(c.model))).map((c: any) => [c.id, c.sheet ? stable(c.sheet) : `model:${c.model}`]));
         const was = sheet(parentPack), now = sheet(g.pack);
         const clips = new Set(voicePlanOf(g.pack, '').lines.map((l: any) => l.clip));
         const ins = this.db.prepare('INSERT INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)');
@@ -233,23 +278,23 @@ export class StoryStore {
     this.sweep();
     if (!this.draft(d.id)) return fail(404, 'That draft no longer exists.');
     if (d.state === 'kept') return fail(409, 'A published world is not changed. Mog it instead.');
-    const pack = JSON.parse(d.pack);
+    const pack = JSON.parse(d.pack), L = this.limitsOf(d.id);
     let ext: string, max: number, total: number, count = Infinity, m: RegExpExecArray | null, keep: unknown = null;
     if (kind === 'glb') {
       // a forged person (a sheet) or a hand-built one (the work page stores the registry's GLB as theirs, never forged)
       if (!CAST_ID.test(name) || !pack.cast.some((c: any) => c.id === name && (c.sheet || (!c.voiceOnly && handBuilt(c.model))))) return fail(404, `${name} is no one in this world with a sheet or a hand-built body.`);
-      ext = 'glb'; max = LIMITS.glb.each; total = LIMITS.glb.total;
+      ext = 'glb'; max = L.glb.each; total = L.glb.total;
     } else if (kind === 'voice') {
       if (!(m = CLIP.exec(name))) return fail(400, 'A clip is <line hash>-<voice key>.ogg or .wav.');
       const line = voicePlanOf(pack, '').lines.find((l: any) => l.clip === `${m![1]}-${m![2]}` && !l.rec);
       if (!line) return fail(409, `${m[1]}-${m[2]} is no line of this world in its speaker's current voice.`);
-      ext = m[3]; max = LIMITS.voice.each; total = LIMITS.voice.total; count = LIMITS.voice.count;
+      ext = m[3]; max = L.voice.each; total = L.voice.total; count = L.voice.count;
       keep = { line: line.id, who: line.who, voice: line.voice, codec: ext === 'ogg' ? 'opus' : 'pcm16', secs: num(meta.secs, 0, 120), renderMs: num(meta.renderMs, 0, 6e5),
         encodeMs: num(meta.encodeMs, 0, 6e5), device: word(meta.device, /^(webgpu|wasm)$/), dtype: word(meta.dtype, /^(fp32|fp16|q8)$/) };
     } else if (kind === 'art') {
       if (!(m = ART.exec(name))) return fail(400, 'Art is key-wide, key-square, avatar or head-<cast id>, as .jpg, .webp or .png.');
       if (m[1].startsWith('head-') && !pack.cast.some((c: any) => c.id === m![1].slice(5))) return fail(404, `${m[1].slice(5)} is no one in this world.`);
-      ext = m[2]; max = LIMITS.art.each; total = LIMITS.art.total; count = LIMITS.art.count;
+      ext = m[2]; max = L.art.each; total = L.art.total; count = L.art.count;
     } else return fail(400, 'A file is a glb, a voice clip or art.');
     if (!(bytes instanceof Uint8Array) || bytes.length < 16) return fail(400, 'The file is empty.');
     if (bytes.length > max) return fail(413, `A ${kind} file is at most ${max / KB >= 1024 ? `${max / MB} MB` : `${max / KB} KB`}.`);
@@ -269,7 +314,7 @@ export class StoryStore {
     const nameCount = (this.db.prepare(`SELECT COUNT(*) AS n FROM files WHERE draft_id = ? AND kind = ? AND ${notReplaced}`).get(d.id, kind, ...rep) as { n: number }).n;
     if (nameCount + 1 > count) return fail(413, `A world has at most ${count} ${kind} files.`);
     if (others(kind as Kind) + (usedHere(kind as Kind) ? 0 : bytes.length) > total) return fail(413, `A world's ${kind} files are at most ${total / MB} MB in all.`);
-    if (others() + (usedHere() ? 0 : bytes.length) > LIMITS.world) return fail(413, `A world is at most ${LIMITS.world / MB} MB in all.`);
+    if (others() + (usedHere() ? 0 : bytes.length) > L.world) return fail(413, `A world is at most ${L.world / MB} MB in all.`);
     if (!known && this.used() + bytes.length > LIMITS.disk) return fail(507, 'The Story Kit store is full. Try again later.');
 
     if (!known) {
@@ -326,7 +371,7 @@ export class StoryStore {
         voice: lines.filter((l: any) => !l.rec && !has('voice', l.clip)).map((l: any) => l.clip),
       },
       bytes: { glb: this.footprint(d.id, 'glb').bytes, voice: this.footprint(d.id, 'voice').bytes, art: this.footprint(d.id, 'art').bytes, world: this.footprint(d.id).bytes },
-      limits: { glb: LIMITS.glb, voice: LIMITS.voice, art: LIMITS.art, world: LIMITS.world },
+      limits: (({ glb, voice, art, world }) => ({ glb, voice, art, world }))(this.limitsOf(d.id)),
       expires: d.state === 'kept' ? null : d.touched_at + LIMITS.ttlMs,
     };
   }
@@ -335,7 +380,7 @@ export class StoryStore {
   seal(d: DraftRow): { ok: true; url: string; hash: string; bytes: number } | Fail {
     if (d.state === 'kept' && d.world) return { ok: true, url: blobUrl(d.world, 'json'), hash: d.world, bytes: (this.db.prepare('SELECT bytes FROM blobs WHERE hash = ?').get(d.world) as { bytes: number }).bytes };
     const body = new TextEncoder().encode(JSON.stringify(this.world(d.id)));
-    if (body.length > 4 * LIMITS.pack) return fail(413, 'The built world is too large.');
+    if (body.length > LIMITS.sealed) return fail(413, 'The built world is too large.');
     const hash = sha(body), t = this.now();
     if (!this.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(hash)) {
       if (this.used() + body.length > LIMITS.disk) return fail(507, 'The Story Kit store is full. Try again later.');
@@ -389,7 +434,7 @@ export class StoryStore {
     const w = input.world as Record<string, any>;
     if (!w || typeof w !== 'object' || Array.isArray(w) || w.storykit !== 1) return fail(400, 'world: a runner world (storykit: 1).');
     const body = new TextEncoder().encode(JSON.stringify(w));
-    if (body.length > 4 * LIMITS.pack) return fail(413, 'The world is too large.');
+    if (body.length > LIMITS.sealed) return fail(413, 'The world is too large.');
     const old = this.read(`${d.world}.json`);
     const was = old ? JSON.parse(old.bytes.toString('utf8')) : null;
     if (!was || w.id !== was.id) return fail(422, `world: it is another world (${String(w.id)}), not ${was?.id ?? 'this one'}.`);
@@ -399,7 +444,7 @@ export class StoryStore {
     const pack = JSON.parse(d.pack);
     if ('opening' in input && input.opening !== undefined) { if (input.opening === null) delete pack.opening; else pack.opening = input.opening; }
     const parent = d.parent ? this.draft(d.parent) : undefined;
-    const g = gatePack(pack, { parent: parent ? JSON.parse(parent.pack) : null });
+    const g = gatePack(pack, { parent: parent ? JSON.parse(parent.pack) : null, showcaseLine: !!parent && this.showcaseLine(parent.id) });
     if (!g.ok || !g.pack) return { ...fail(422, 'The pack with this opening was refused.'), problems: g.problems };
     const made = toRunnerPack(g.pack), plan = voicePlanOf(g.pack, '');
     if (stable(w.opening ?? null) !== stable(made.opening ?? null)) problems.push(w.opening && !g.pack.opening ? 'world.opening: send the same opening in story-pack form (opening) so the pack is gated with it.' : 'world.opening: it is not the opening the pack makes (toRunnerPack).');
@@ -424,10 +469,11 @@ export class StoryStore {
     const newBodies = new Set([...bodies.values()].map((b) => b.hash));
 
     // the files sent: voice clips and new bodies only, real, within the limits, by their SHA-256
+    const PL = this.limitsOf(d.id);
     const sent = new Map<string, { ext: string; bytes: Uint8Array }>();
     for (const [i, f] of (input.files ?? []).entries()) {
       if (!f || !/^(ogg|wav|glb)$/.test(f.ext) || !(f.bytes instanceof Uint8Array)) { problems.push(`files[${i}]: a voice clip (.ogg or .wav) or a person's body (.glb).`); continue; }
-      const max = f.ext === 'glb' ? LIMITS.glb.each : LIMITS.voice.each;
+      const max = f.ext === 'glb' ? PL.glb.each : PL.voice.each;
       if (f.bytes.length < 16 || f.bytes.length > max) { problems.push(`files[${i}]: a ${f.ext === 'glb' ? 'body' : 'clip'} is 16 bytes to ${max / MB} MB.`); continue; }
       const bad = f.ext === 'glb' ? checkGlb(f.bytes) : checkMagic(f.ext, f.bytes); if (bad) { problems.push(`files[${i}]: ${bad}.`); continue; }
       const h = sha(f.bytes);
@@ -453,9 +499,9 @@ export class StoryStore {
       total += bytes!; if (ext === 'ogg' || ext === 'wav') { voice += bytes!; nVoice++; } else if (ext === 'glb') glb += bytes!;
     }
     for (const h of sent.keys()) if (!refs.has(h)) problems.push(`a sent ${sent.get(h)!.ext} (${h.slice(0, 12)}…) is not named by the world.`);
-    if (total > LIMITS.world) problems.push(`A world is at most ${LIMITS.world / MB} MB in all (this one: ${(total / MB).toFixed(1)} MB).`);
-    if (voice > LIMITS.voice.total || nVoice > LIMITS.voice.count) problems.push(`A world's clips are at most ${LIMITS.voice.count} and ${LIMITS.voice.total / MB} MB in all.`);
-    if (glb > LIMITS.glb.total) problems.push(`A world's bodies are at most ${LIMITS.glb.total / MB} MB in all.`);
+    if (total > PL.world) problems.push(`A world is at most ${PL.world / MB} MB in all (this one: ${(total / MB).toFixed(1)} MB).`);
+    if (voice > PL.voice.total || nVoice > PL.voice.count) problems.push(`A world's clips are at most ${PL.voice.count} and ${PL.voice.total / MB} MB in all.`);
+    if (glb > PL.glb.total) problems.push(`A world's bodies are at most ${PL.glb.total / MB} MB in all.`);
     if (problems.length) return { ...fail(422, 'The patch was refused. Nothing was changed.'), problems };
     const fresh = [...sent].filter(([h]) => !this.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(h));
     const hash = sha(body), t = this.now();
@@ -548,6 +594,18 @@ export class StoryStore {
       freed += b.bytes;
     }
     return freed;
+  }
+
+  /**
+   * A stored blob by its served name, without reading it: its path on disk, size, type and hash (the file route streams
+   * it, so a 6 MB body is never held in memory whole), or null.
+   */
+  stat(file: string): { path: string; size: number; type: string; hash: string } | null {
+    const m = BLOB_FILE.exec(file); if (!m) return null;
+    const b = this.db.prepare('SELECT ext FROM blobs WHERE hash = ?').get(m[1]) as { ext: string } | undefined;
+    if (!b || b.ext !== m[2]) return null;
+    const f = this.blobPath(m[1], m[2]);
+    try { const st = statSync(f); return st.isFile() ? { path: f, size: st.size, type: TYPES[m[2]], hash: m[1] } : null; } catch { return null; }
   }
 
   /** A stored blob by its served name (<sha256>.<ext>), or null. Only blobs a draft points at are in the table. */

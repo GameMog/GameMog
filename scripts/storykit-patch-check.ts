@@ -96,7 +96,7 @@ export function runStoryPatchChecks(ok: Ok) {
     ok('a Mog of the patched world inherits the opening\'s clips', mog.ok && opening.every((l: any) => s.db.prepare("SELECT 1 FROM files WHERE draft_id = ? AND kind = 'voice' AND name = ? AND inherited = 1").get(mog.id, `${l.clip}.ogg`)), mog.ok ? '' : JSON.stringify(mog));
     const back = p.ok ? r({ world: wasWorld, files: [], opening: null, from: p.hash }) : null;
     ok('patching back to the old world restores it, and keeps the patched one', !!back && back.ok && back.hash === was && kept().world === was && !JSON.parse(kept().pack).opening && p.ok && !!s.read(`${p.hash}.json`), JSON.stringify(back));
-    ok('the limits are the store\'s (a world at most 24 MB, clips at most 1 MB each)', LIMITS.world === 24 << 20 && LIMITS.voice.each === 1 << 20);
+    ok('the limits are the store\'s (a world at most 64 MB, clips at most 2 MB each)', LIMITS.world === 64 << 20 && LIMITS.voice.each === 2 << 20);
 
     // a new body: a cast member re-forged, the new GLB in place of the old one under the same name
     const now0 = kept().world, w0 = JSON.parse(s.read(`${now0}.json`)!.bytes.toString());
@@ -113,7 +113,7 @@ export function runStoryPatchChecks(ok: Ok) {
     const notGlb = body.slice(); notGlb.set([0, 0, 0, 0], 0); const wn = clone(w0); wn.cast[who].glb = `/storykit/f/${sha(notGlb)}.glb`;
     ok('a body that is not a glTF binary (bad magic) is refused', (() => { const x = asBody(wn, notGlb); return !x.ok && (x as any).problems.some((p: string) => /no glTF magic/.test(p)); })());
     const big = tinyGlb('too big', LIMITS.glb.each); const wbig = clone(w0); wbig.cast[who].glb = `/storykit/f/${sha(big)}.glb`;
-    ok('a body over the per-person cap is refused', (() => { const x = asBody(wbig, big); return !x.ok && (x as any).problems.some((p: string) => /body is 16 bytes to 3 MB/.test(p)); })());
+    ok('a body over the per-person cap is refused', (() => { const x = asBody(wbig, big); return !x.ok && (x as any).problems.some((p: string) => /body is 16 bytes to 6 MB/.test(p)); })());
     const recolour = clone(wb); recolour.cast[who].color = '#000000';
     ok('a person changed in anything but the body is refused', (() => { const x = asBody(recolour, body); return !x.ok && (x as any).problems.some((p: string) => p.startsWith(`world.cast.${who}:`)); })());
     ok('a refused body stores nothing and changes nothing', blobs() === b1 && kept().world === now0 && (s.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'glb' AND name = 'nico'").get(o.id) as any).hash === oldBody);

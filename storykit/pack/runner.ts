@@ -22,8 +22,10 @@ export function voiceBlockOf(c: any) {
 export function voicePlanOf(pack: any, dir = `packs/${pack.id}/voice/`) {
   const name = (id: string) => personName(pack.cast.find((c: any) => c.id === id)) || id.replace(/(^|-)([a-z])/g, (_: string, a: string, b: string) => (a ? ' ' : '') + b.toUpperCase());
   const blocks = new Map(pack.cast.map((c: any) => [c.id, voiceBlockOf(c)]));
-  // (a showcase (SHOWCASE_PACKS) is gated as one: longer than a Create, so the plain gate refuses it and lists no lines)
-  const lines = gatePack(pack, SHOWCASE_PACKS.includes(pack.id) ? { showcase: true } : {}).lines.filter((l) => !/\.p$/.test(l.id));
+  // (a showcase (SHOWCASE_PACKS) is gated as one, and every other pack under the showcase's longer limits, as a Mog of a
+  // showcase is (showcaseLine): longer than a Create, the plain gate would refuse it before it lists a line. Only the
+  // lines are read here; the pack was gated with its own limits where it was stored)
+  const lines = gatePack(pack, SHOWCASE_PACKS.includes(pack.id) ? { showcase: true } : { showcaseLine: true }).lines.filter((l) => !/\.p$/.test(l.id));
   return {
     model: VOICE_MODEL, dir,
     cast: Object.fromEntries(pack.cast.map((c: any) => { const b: any = blocks.get(c.id); return [name(c.id), { id: c.id, voice: b.id, key: voiceKey(b), block: b }]; })),

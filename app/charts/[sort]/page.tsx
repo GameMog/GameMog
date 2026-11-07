@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { byName } from '@/lib/byline';
 import { notFound } from 'next/navigation';
 import { SiteFooter, SiteHeader } from '../../header';
 import { GenreFilter } from '../../genre-filter';
@@ -30,7 +31,8 @@ export default async function ChartPage({ params, searchParams }: {
   const genre = requested && genres.includes(requested) ? requested : 'All';
   const byGenre = genre === 'All' ? base : base.filter((g) => genreOf(g) === genre);
   const q = query.q?.trim().toLocaleLowerCase() ?? '';
-  const games = q ? byGenre.filter((g) => `${g.title} ${g.tagline} ${genreOf(g)}`.toLocaleLowerCase().includes(q)) : byGenre;
+  // (who it is by too: "GameMog" finds the first-party worlds, a creator's name finds theirs; lib/byline.ts)
+  const games = q ? byGenre.filter((g) => `${g.title} ${g.tagline} ${genreOf(g)} ${byName(g) ?? ''}`.toLocaleLowerCase().includes(q)) : byGenre;
 
   return (
     <>

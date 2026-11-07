@@ -149,10 +149,14 @@ The whole schema follows this chapter (JSON Schema, with every closed word list 
 ```
 
 - A story is 1 to 3 acts and **6 to 9 missions** in all for a Create (a Mog keeps its parent's count unless the idea
-  asks for more or fewer; never more than 9). Each mission is 4 to 12 steps: a goal, a complication, a pay-off.
+  asks for more or fewer; never more than 9, except a Mog of one of GameMog's own showcase worlds, below). Each mission
+  is 4 to 12 steps: a goal, a complication, a pay-off.
 - Mission ids are short capitals (`NS-1`); step ids, flags and meter ids are lowercase slugs.
 - Write every number inside its range. The gate clamps numbers (and tells you), but refuses an age out of range.
-- Under 160 KB. Write the pack as compact JSON.
+- Under 160 KB (a Mog of a showcase: under 640 KB). Write the pack as compact JSON.
+- What the store holds for a world (lib/storykit-store.ts): bodies of up to 6 MB each and 48 MB in all, up to 1,500
+  clips of up to 2 MB each and 24 MB in all, and 64 MB for the whole world. A Mog of a showcase gets 128 MB of bodies,
+  3,000 clips in 64 MB, and 200 MB in all.
 
 ## The opening: where we are, who they are, what tonight is
 
@@ -286,6 +290,11 @@ How Mog City plays them, for the first-party worlds written in the repo (storyki
 SHOWCASE_PACKS and gated with `{ showcase: true }` by the repo's own scripts, never by the store or the builder). A
 showcase may also be longer than a Create: up to 5 acts of up to 8 missions, 120 steps a mission, an opening of up to
 150 s (schema.mjs SHOWCASE).
+
+**A Mog of a showcase** (Pickup Time, or a Mog of one) is held to the showcase's limits, not a Create's: it may keep
+all of its original's missions (Pickup Time's 15), steps, lines (up to 2,400), cast (up to 24) and its longer opening,
+and the showcase steps and the GT it uses. Write it as every Mog: copy what the idea does not change, so the hand-built
+bodies and the voiced lines carry over. Its reply may be up to 128,000 tokens; still write the pack as compact JSON.
 
 - **Lookouts.** A `stealth` stands Mog City's own lookouts at its `units` (places: on the pavement there, looking
   across the street or `heading` degrees, sweeping, or walking `roam` m up and down the block). Each sees down a cone

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { familyByRoot, getGameBySlug, getUnlistedGameBySlug, getPlayableGameById, type FamilyMember, type GameRow } from '@/lib/db';
 import { canMog, MOG_SOON } from '@/lib/custom-game';
+import { byName } from '@/lib/byline';
 import { pageMeta } from '../../../seo';
 import { mogCityStoryFor } from '../../../mog-city-mog';
 import { isMogCityEpisode } from '@/lib/storykit-mogcity';
@@ -87,7 +88,7 @@ export default async function FamilyPage({ params }: Params) {
         <ol className="fp-list">
           {rows.map(({ m, depth }) => {
             const here = m.id === f.game.id;
-            const by = m.creator ?? (m.featured ? 'GameMog' : null);
+            const by = byName(m);
             const fought = m.wins + m.losses;
             return (
               <li key={m.id} className={`gl-glass fp-row${here ? ' gl-lit fp-here' : ''}`} data-depth={Math.min(depth, 3)} aria-current={here ? true : undefined}>

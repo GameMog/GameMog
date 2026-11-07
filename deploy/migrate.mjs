@@ -1469,6 +1469,25 @@ export const MIGRATIONS = [
       }
     },
   },
+  {
+    // 7 Nov, the owner: "change it to By GameMog". A first-party world read "By a GameMog creator" (Pickup Time, and every
+    // world GameMog published by migration, whose creator column was empty). GameMog's own worlds are now by GameMog:
+    // games.creator "GameMog" (lib/byline.ts; lib/names.ts reserves the name, so no creator can give it at publish). Each
+    // is found by its slug and its first-party prompt (a migration's own, 'first-party world: ...'), and Mog City's own
+    // story by its meta (storykit.own, written "Mog City"); a row whose creator is anything else is left alone, and a world
+    // not in this database (Pickup Time before its migration runs) is by GameMog from its meta anyway (meta.storykit.showcase)
+    id: '2026-11-07-by-gamemog',
+    run(db) {
+      if (!columns(db, 'games').has('creator')) return 'no creator column yet (the app adds it at its first start, and lib/byline.ts reads first-party worlds from their meta meanwhile)';
+      const slugs = ['la-olympics-2028', 'tideline', 'velodrome-2028', 'road-race-2028', 'speed-skating-2030', 'great-wall-shinobi', 'las-vegas-night-gp',
+        'zombie-beach', 'mog-derby', 'mogdune', 'zcity', 'ai-alps', 'meme-kart', 'meme-kart-original', 'aspen-gp', 'shootout', 'mogatron', 'artificial1',
+        'invisible-world', 'mog-city', 'superintelligence-sprint', 'pickup-time'];
+      const one = db.prepare("UPDATE games SET creator = 'GameMog' WHERE slug = ? AND prompt LIKE 'first-party world:%' AND creator IS NULL");
+      const done = slugs.filter((slug) => one.run(slug).changes > 0);
+      const own = db.prepare("UPDATE games SET creator = 'GameMog' WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.own') = 1 AND parent_id IS NULL AND (creator IS NULL OR creator = 'Mog City')").run().changes;
+      return `${done.length} of ${slugs.length} first-party worlds by GameMog${done.length < slugs.length ? ` (left alone or not here: ${slugs.filter((x) => !done.includes(x)).join(', ')})` : ''}; Mog City's own story: ${own}`;
+    },
+  },
 ];
 
 /** A table's columns (the app adds some at its first start, lib/db.ts: a fresh disk's database may lack them). */

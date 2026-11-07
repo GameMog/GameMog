@@ -53,6 +53,9 @@
  *  15. a showcase (gatePack(pack, { showcase: true })): one of GameMog's own first-party worlds shipped from the repo
  *      (schema.mjs SHOWCASE_PACKS, gated so by the repo's checks only, like { own: true }; never the store, the builder or
  *      a Mog) may be longer than a Create: SHOWCASE's bytes, acts, missions per act, steps, lines, cast and opening length.
+ *      A Mog of a showcase (its parent is one, or `showcaseLine`: the store walked its parents back to one,
+ *      lib/storykit-store.ts showcaseLine) gets the same longer limits, so it can keep what its original has (the owner,
+ *      7 Nov: "DO NOT close Mogs for Pickup Time"). A showcase's id is GameMog's own: no other pack may take it.
  *
  * toRunnerPack(pack) turns a passed pack into the runner's pack format (storykit: 1, with its engine): what the store
  * seals as a world and Mog City's runner plays (Mog City wagmi/storyrun/pack.js).
@@ -231,7 +234,7 @@ export function frameworkProblems(pack: PackV2, parent: PackV2): string[] {
  * The gate. `parent` is the pack a Mog remixes (its base and framework must be kept). `own`: Mog City's own story as a
  * world (storykit/packs/mog-city.json), whose title is Mog City's; only the repo's own checks pass it.
  */
-export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: boolean; showcase?: boolean } = {}): GateResult {
+export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: boolean; showcase?: boolean; showcaseLine?: boolean } = {}): GateResult {
   const problems: string[] = [], warnings: string[] = [], clamped: string[] = [];
   const refuse = (s: string) => problems.push(s);
   const done = (pack: PackV2 | null, lines: Line[] = []): GateResult => ({ ok: problems.length === 0, problems, warnings, clamped, pack: problems.length ? null : pack, lines });
@@ -240,8 +243,11 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   const bytes = new TextEncoder().encode(JSON.stringify(input)).length;
   // 15. a showcase (a first-party world shipped from the repo, SHOWCASE_PACKS: never the builder's or the store's) may be
   // longer: SHOWCASE's bytes, acts, missions, steps, lines, cast and opening
-  const show = !!opts.showcase;
-  if (show && (opts.parent || !SHOWCASE_PACKS.includes((input as Json).id))) { refuse(`A showcase is one of GameMog's own worlds (${SHOWCASE_PACKS.join(', ')}), never a Mog; "${(input as Json).id}" is not one.`); return done(null); }
+  if (opts.showcase && (opts.parent || !SHOWCASE_PACKS.includes((input as Json).id))) { refuse(`A showcase is one of GameMog's own worlds (${SHOWCASE_PACKS.join(', ')}), never a Mog; "${(input as Json).id}" is not one.`); return done(null); }
+  // (a showcase's id is GameMog's own: a Create or a Mog under it would pass for the showcase's line)
+  if (!opts.showcase && !opts.showcaseLine && SHOWCASE_PACKS.includes((input as Json).id)) { refuse(`"${(input as Json).id}" is the id of one of GameMog's own worlds: give this world an id of its own.`); return done(null); }
+  // a Mog of a showcase (its parent is one, or the store traced its parents back to one) keeps the showcase's limits
+  const show = !!opts.showcase || !!opts.showcaseLine || (!!opts.parent && SHOWCASE_PACKS.includes(opts.parent.id));
   const maxBytes = show ? SHOWCASE.bytes : LIMIT_BYTES;
   if (bytes > maxBytes) { refuse(`The pack is ${bytes} bytes; the limit is ${maxBytes}.`); return done(null); }
   // a likeness field anywhere, even one the schema would only call unknown, gets its own refusal

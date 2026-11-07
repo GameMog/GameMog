@@ -16,7 +16,7 @@ export const runtime = 'nodejs';
  * it replaces is kept: patching back is the same call with that world (fetch /storykit/f/<was>.json) and its opening
  * (null when it had none).
  */
-const MAX = 4 * LIMITS.pack + Math.ceil((LIMITS.world * 4) / 3) + 64 * 1024;   // (the files: at most a whole world, as base64)
+const MAX = LIMITS.sealed + Math.ceil((LIMITS.world * 4) / 3) + 64 * 1024;   // (the files: at most a whole world, as base64)
 
 export async function POST(req: Request) {
   const off = storykitOff(req); if (off) return off;
