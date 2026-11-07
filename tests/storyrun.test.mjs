@@ -359,3 +359,16 @@ test("a hand-built body's arms hang at its sides on Dan's clips: its armhang bon
   // (the live check: tools/storyrun/arms.mts, after every kind of beat)
   assert.ok(fs.existsSync(path.join(ROOT, 'tools/storyrun/arms.mts')));
 });
+
+test("a tail says how far it has to go, and free roam names the place, not the mission's title (owner, PT-7: \"I followed for 5 minutes but nothing happened\", \"i think i'm in the VIG\")", () => {
+  const hud = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/hud.js'), 'utf8');
+  const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
+  // (the tail meter: the followed car's metres left and the bar, off the runner's M.tail, never over a bar of the runner's)
+  assert.match(hud, /D = M\?\.tail; d = M\?\.def\?\.steps\?\.\[M\.i\]/);
+  assert.match(hud, /if \(barOwn \|\| !D \|\| !d \|\| d\.type !== 'tail'/);
+  assert.match(hud, /const left = Math\.max\(0, Math\.round\(D\.length - D\.s\)\), k = Math\.max\(0, Math\.min\(1, D\.s \/ D\.length\)\)/);
+  assert.match(hud, /barOwn = label != null;/);
+  // (between missions: the first step's own walk or drive objective, else the place and then the title; never "Go to <title>.")
+  assert.match(idx, /const own = at0 && Math\.hypot\(at0\.x - p\.x, at0\.z - p\.z\) < 40 \? words\(s0\.objective\) : null;/);
+  assert.doesNotMatch(idx, /\['Go to ', \{ \[`\$\{m\.title\}`\]: 'yellow' \}, '\.'\]/);
+});

@@ -8,7 +8,8 @@
 //                                  arrow keys) and Enter, finger-sized rows; the skip ring's countdown
 //   hud.card({ kicker, text, sub }, secs)   a transition card in the title card's type (ui.title's), over a fade
 //   hud.bar(label, k, note)        a meter bar (0..1) in Mission 2's tail-meter look, bottom right (a passenger's
-//                                  comfort); null: away
+//                                  comfort); null: away. While a tail runs and nothing else has the bar, it is the
+//                                  tail's way to go: who is followed, to where, the metres he has left, the bar filling
 //   hud.meters(list)               (a meter with a goal: { label, text: '$430,000 / $1,000,000', k: 0.43 } is the big
 //                                  money pill, its progress under it); hud.delta(label, '+$85,000', good) flashes beside it
 //   hud.passed(card, secs)         the story's MISSION PASSED card (rules.js passCard: the title, what was gained, the
@@ -57,6 +58,12 @@ body:not(.touch-enabled) #wg:has(.sr-bar.on) .wg-count { bottom: 292px; }
 body:not(.touch-enabled) #wg:has(.sr-bar.on):has(.wg-count.on) .sr-timer { bottom: 352px; }
 body:not(.touch-enabled) #wg:has(.sr-bar.on):has(.wg-count.on) .sr-meters { bottom: 414px; }
 body.wg-cine #wg .sr-bar, body.wg-paused #wg .sr-bar { opacity: 0; }
+#wg .sr-bar.go { width: auto; min-width: 250px; max-width: min(380px, calc(100vw - 32px)); }
+#wg .sr-bar.go .row { gap: 18px; } #wg .sr-bar.go .row b { color: #fff; font-variant-numeric: tabular-nums; }
+/* (on a phone the card stays up top (it was stretched from there down to the bar's bottom: a tall dark panel down the
+   right), and the tail meter sits low on the left over the stick, clear of the clock and the meters' column) */
+body.touch-enabled #wg:has(.sr-bar.on) .wg-caller { bottom: auto; }
+body.touch-enabled #wg .sr-bar.go { left: var(--wg-l); right: auto; top: auto; bottom: 200px; min-width: 0; max-width: calc(100vw - 32px); }
 body.touch-enabled #wg .sr-bar { right: var(--wg-r); bottom: auto; top: calc(var(--wg-t) + 240px); }
 body.wg-cine #wg .sr-meters, body.wg-cine #wg .sr-timer, body.wg-paused #wg .sr-meters { opacity: 0; }
 #wg .sr-meters { transition: opacity .3s; }
@@ -153,6 +160,24 @@ export function createHud(ui) {
     }
   };
   setInterval(unstack, 200);
+  // a tail's way to go, in the bar (Mog City's tail-meter slot, so the caller card and the clock already clear it):
+  // 'DASH -> WASHINGTON MEWS 420 m', the bar filling as the followed car gets there (the owner, PT-7: "I followed for 5
+  // minutes but nothing happened": a tail said nothing of how far it had to go). Read off the runner's followed car
+  // (runner.js STEPS.tail: M.tail, the step's route and name); away when the tail ends, never over a bar of the runner's
+  let barOwn = false, tailOn = false;
+  const who = (n) => { const m = /^(.+?)'s\b/.exec(String(n || '')); return (m ? m[1] : String(n || 'them')).replace(/^the /i, ''); };
+  setInterval(() => {
+    let R = null, M = null, D = null, d = null;
+    try { R = window.WAGMI?.storyrun?.runner; M = R?.M; D = M?.tail; d = M?.def?.steps?.[M.i]; } catch {}
+    if (barOwn || !D || !d || d.type !== 'tail' || !(D.length > 0)) { if (tailOn) { tailOn = false; if (!barOwn) barEl.classList.remove('on', 'go'); } return; }
+    let to = '';
+    try { const r = Array.isArray(d.route) ? d.route[d.route.length - 1] : null; to = (r && R.placeOf?.(r)?.name) || ''; } catch {}
+    const left = Math.max(0, Math.round(D.length - D.s)), k = Math.max(0, Math.min(1, D.s / D.length));
+    barEl.querySelector('.l').textContent = (to ? `${who(d.name)} \u2192 ${to}` : `${who(d.name)}: to go`).toUpperCase();
+    const b = barEl.querySelector('b'); b.textContent = left >= 1000 ? `${(left / 1000).toFixed(1)} km` : `${left} m`; b.classList.remove('low');
+    const f = barEl.querySelector('s'); f.style.width = `${(k * 100).toFixed(1)}%`; f.style.background = '#60A5FA';
+    barEl.classList.add('on', 'go'); tailOn = true;
+  }, 250);
   const hud = {
     timer(secs, label = 'TIME', late = false) {
       if (secs == null) { timerEl.classList.remove('on'); return; }
@@ -200,7 +225,9 @@ export function createHud(ui) {
       await sleep(secs * 1000); passEl.classList.remove('on'); await sleep(500);
     },
     bar(label, k = 1, note = '') {
+      barOwn = label != null;
       if (label == null) { barEl.classList.remove('on'); return; }
+      barEl.classList.remove('go');
       k = Math.max(0, Math.min(1, +k || 0));
       barEl.querySelector('.l').textContent = String(label).toUpperCase();
       const b = barEl.querySelector('b'); b.textContent = String(note || ''); b.classList.toggle('low', k < 0.3);

@@ -235,7 +235,12 @@ export async function install(W) {
     marker.at(p.x, gy, p.z);
     const words = (t) => { const out = []; const re = /\*\*(.+?)\*\*(?:\{(yellow|red|blue|green)\})?/g; let at = 0, x; while ((x = re.exec(t))) { if (x.index > at) out.push(t.slice(at, x.index)); out.push({ [x[1]]: x[2] || 'yellow' }); at = x.index + x[0].length; } if (at < t.length) out.push(t.slice(at)); return out; };
     ui.step(B.step || `pack:free:${m.id}`);
-    W.gps.objective(B.objective ? words(B.objective) : ['Go to ', { [`${m.title}`]: 'yellow' }, '.'], { x: p.x, z: p.z, name }, { blip: false });
+    // (none of its own: the mission's first step's, when that step is the walk or drive to where it starts ('Find Bunny at
+    // the chess tables'), else where to go and for what ('Go to the chess tables, Washington Square for The Vig'). It was
+    // 'Go to The Vig', the mission's title read as a place: the owner after PT-7's fail, "i think i'm in the VIG")
+    const s0 = (m.steps || [])[0], at0 = s0 && (s0.type === 'walk' || s0.type === 'drive') && !s0.if && typeof s0.objective === 'string' && !/[{}]/.test(s0.objective) ? places.at([].concat(s0.to)[0]) : null;
+    const own = at0 && Math.hypot(at0.x - p.x, at0.z - p.z) < 40 ? words(s0.objective) : null;
+    W.gps.objective(B.objective ? words(B.objective) : own || ['Go to ', { [p.name || name]: 'yellow' }, ' for ', { [`${m.title}`]: 'yellow' }, '.'], { x: p.x, z: p.z, name }, { blip: false });
     W.gps.unblip('dest');
     W.gps.blip('next', { x: p.x, z: p.z, kind: 'letter', letter, pulse: 6, edge: true, name, label: true });
     if (B.note) W.gps.stallNote = B.note;
