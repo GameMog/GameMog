@@ -353,7 +353,7 @@ try {
   await bad('a Mission 1 with no playable payoff (it ends on a choice)', { prompt: `A cab driver works the night ${tag}`, storykit: { city: 'ny' } }, reply(flat), reply(nyStory()), /Mission 1\): it ends on a 'choice' step; end Mission 1 on a payoff the player plays/);
   // a new story never writes a kind Mog City has no part for (it would pass unplayed)
   const ride = nyStory(); ride.acts[0].missions[1].steps.unshift({ type: 'passenger', who: 'kwon', seat: 'rear' });
-  await bad('a step Mog City has no part for yet (a passenger)', { prompt: `A cab driver and his fare ${tag}`, storykit: { city: 'ny' } }, reply(ride), reply(nyStory()), /'passenger': Mog City has no part for this yet/);
+  await bad('a step Mog City has no part for yet (a passenger)', { prompt: `A cab driver and his fare ${tag}`, storykit: { city: 'ny' } }, reply(ride), reply(nyStory()), /'passenger': a Create does not write this yet/);
   // a search of the hero's own car says so (on: "ride", held at the car wherever he parks it): one written at the place
   // is sent back, and the same search with on: "ride" passes the gate (the Velvet Run, 5 Nov: the trunk at First Avenue)
   const trunkOf = (on: boolean) => { const p = nyStory(); p.acts[0].missions[1].steps.unshift({ type: 'search', at: '@un', label: 'search the trunk', secs: 2, objective: 'Search the **trunk**.', ...(on ? { on: 'ride', part: 'trunk' } : {}) }); return p; };

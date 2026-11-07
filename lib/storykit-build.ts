@@ -8,7 +8,7 @@ import { isBlocked } from './names';
 import { STORY_HERO_MAX, STORY_HERO_MODELS } from './storykit-site';
 import { MODELS, seeds as castSeeds, recordedClip, recordedLines } from '../storykit/pack/registry.ts';
 import { PLACES, CAM_POINTS, CITY_NAME, MOGCITY_BUILDS, buildsFor, type CityId } from '../storykit/pack/cities.ts';
-import { ANCHORS, MOGCITY_SCENES, MOGCITY_STUBS, OPENING } from '../storykit/pack/schema.mjs';
+import { ANCHORS, MOGCITY_SCENES, CREATE_HELD, OPENING } from '../storykit/pack/schema.mjs';
 import { KOKORO_VOICES, COLOUR_VOICES, lintVoiceBlock, voiceKey, clipBase } from '../storykit/voices/voice-design.js';
 import { realNameProblems as sheetBrandProblems } from '../storykit/vehicles/sheet.js';
 import { NAMES_CHECK_SYSTEM, readNamesCheck, consented, type Consent } from './episode';
@@ -191,7 +191,7 @@ export function exampleWorld(): PackV2 {
   const p = JSON.parse(read('storykit', 'packs', 'test-night-shift.json')) as PackV2;
   p.base = baseOf('ny');
   p.dressing = { ...p.dressing, weather: 'clear' };
-  const stubs = new Set(MOGCITY_STUBS as string[]);
+  const stubs = new Set(CREATE_HELD as string[]);
   for (const a of p.acts) for (const m of a.missions) m.steps = m.steps.filter((x: PackV2) => !stubs.has(x.type)).map((x: PackV2) => (x.during ? { ...x, during: x.during.filter((d: PackV2) => !stubs.has(d.type)) } : x));
   // (the opening, BUILDER.md: Night Shift was written before it, so the example gives it one, and the man in the grey
   // car who wants Mrs. Kwon's books, the antagonist it brings on, a forged person from the fixer anchor)
@@ -389,11 +389,12 @@ export function builderProblems(pack: PackV2, input: StorykitInput, meta?: Story
   for (const v of pack.vehicles ?? []) if (v && !v.stock && typeof v === 'object') for (const p of sheetBrandProblems(v) as string[]) out.push(`vehicles "${v.id}": ${p}.`);
   const all = (pack.acts ?? []).flatMap((a: PackV2) => a?.missions ?? []);
   const kinds = (steps: PackV2[] = []): PackV2[] => steps.flatMap((x) => [x, ...kinds(x?.during), ...kinds(x?.do)]);
-  // a new story is written for what Mog City plays: none of the kinds it has no part for yet (a Mog may keep its parent's)
-  const stubs = new Set(MOGCITY_STUBS as string[]);
+  // a new story is written for what a Create may use: none of the kinds held back (CREATE_HELD: Mog City's stubs and the
+  // play steps kept for GameMog's own showcase worlds first; a Mog may keep its parent's)
+  const stubs = new Set(CREATE_HELD as string[]);
   if (!input.mog) {
     const used = [...new Set(all.flatMap((m: PackV2) => kinds(m.steps)).map((x: PackV2) => x?.type).filter((k: string) => stubs.has(k)))];
-    if (used.length) out.push(`${used.map((k) => `'${k}'`).join(', ')}: Mog City has no part for ${used.length > 1 ? 'these' : 'this'} yet (${[...stubs].join(', ')}): ${used.length > 1 ? 'they pass' : 'it passes'} at once without playing. Write the story without ${used.length > 1 ? 'them' : 'it'}: a person rides along in the story's words and calls, a deadline is a timer, a lookout is a fight or a chase.`);
+    if (used.length) out.push(`${used.map((k) => `'${k}'`).join(', ')}: a Create does not write ${used.length > 1 ? 'these' : 'this'} yet (${[...stubs].join(', ')}; BUILDER.md, What a Create does not write yet). Write the story without ${used.length > 1 ? 'them' : 'it'}: a person rides along in the story's words and calls, a deadline is a timer, a lookout is a fight or a chase.`);
     // (a title naming Mog City, a Create's or a Mog's, is the gate's: storykit/pack/gate.ts rule 11)
     const hero = (pack.cast ?? []).find((c: PackV2) => c?.id === pack.hero);
     if (hero?.model !== 'mogcity/dan' && all.some((m: PackV2) => kinds(m.steps).some((x: PackV2) => x?.type === 'scene'))) out.push('A scene step plays Mog City\'s own set pieces with its own people, so only a story whose hero is Dan (mogcity/dan) writes one: write this story\'s own cutscenes instead.');
@@ -441,7 +442,7 @@ const AFTER = new Set(['say', 'cutscene', 'beat', 'scene', 'set', 'dm', 'wait', 
  */
 export function payoffProblem(m: PackV2): string | null {
   // (a step Mog City has no part for passes unplayed: it is neither the payoff nor in its way)
-  const stubs = new Set(MOGCITY_STUBS as string[]);
+  const stubs = new Set(CREATE_HELD as string[]);
   const steps: PackV2[] = (m.steps ?? []).filter((x: PackV2) => !stubs.has(x?.type));
   let i = steps.length - 1;
   while (i >= 0 && AFTER.has(steps[i]?.type)) i--;

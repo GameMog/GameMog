@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gatePack, toRunnerPack } from '../storykit/pack/gate.ts';
+import { SHOWCASE_PACKS } from '../storykit/pack/schema.mjs';
 import { voiceBlockOf, voicePlanOf } from '../storykit/pack/runner.ts';
 import { voiceStatus } from '../storykit/pack/voice-store.mjs';
 import { TOOLBOX_DIR } from './forge/paths.mjs';
@@ -53,7 +54,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const P = packPaths(id);
   if (!existsSync(P.src)) { console.error(`no pack at ${path.relative(ROOT, P.src)}`); process.exit(2); }
   // (Mog City's own story, the one pack whose title may be Mog City's: gate rule 11's own exemption, as the check reads it)
-  const g = gatePack(JSON.parse(readFileSync(P.src, 'utf8')), { own: id === 'mog-city' });
+  // (and a showcase, a first-party world from the repo: gate rule 15, SHOWCASE_PACKS)
+  const g = gatePack(JSON.parse(readFileSync(P.src, 'utf8')), { own: id === 'mog-city', showcase: SHOWCASE_PACKS.includes(id) });
   for (const w of g.warnings) console.log('warning:', w);
   for (const c of g.clamped) console.log('clamped:', c);
   if (!g.ok) { for (const p of g.problems) console.error('refused:', p); process.exit(1); }

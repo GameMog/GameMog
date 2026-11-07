@@ -64,8 +64,11 @@ people and places.
 - **The HUD.** The objective line at the bottom of the screen is each step's `objective`: one short imperative, the
   goal in `**bold**` (shown in Mog City's yellow): "Drive to **Foley Square**." The radar, the yellow route line, the
   next-turn banner and the street names come with every drive. Your `hud.meters` show as Mog City's counter pills,
-  top right (`money` with a $, `count` a plain number, `pips` and `bar` as chips; `hidden` is not shown); a `timer`
-  step shows a countdown chip there (LATE in red when a soft one runs out).
+  top right (`money` as dollars with commas, `count` a plain number, `pips` and `bar` as chips; `hidden` is not
+  shown). A meter with a `goal` is the big pill with a bar under it: `"goal": 1000000` on a money meter reads
+  "$430,000 / $1,000,000", and every change to it while the player plays flashes beside it ("+$85,000", "-$5,000").
+  A `timer` step shows a countdown chip there, its last ten seconds red, pulsing and ticking (LATE in red when a soft
+  one runs out). Meters stay up between missions.
 - **Lines.** A `say` is a subtitle with the speaker's name in their `color`, voiced (their clip, or a recording of a
   shipped person), and their face moves. Keep each line short: one or two sentences, said in 2 to 5 seconds.
 - **Calls.** The phone is Mog City's caller card: the caller's name, their headshot and their voice through the phone.
@@ -101,16 +104,26 @@ people and places.
   livery), the player drives up to it, backs the truck's tail up to its nose and holds F at the wheel; the light bar
   flashes, the wheel-lift goes under its front wheels and lifts it, and it rides on the hook, swinging behind the
   truck in the turns, to `to`, where it is let down. Name it on screen with `name` ("the ambulance").
-- **MISSION PASSED.** Each mission ends on Mog City's MISSION PASSED card: the mission's title, its time, your shown
-  meters and its `passLine` under them. A failed mission shows MISSION FAILED with the reason (a step's `why`, or
-  Mog City's own: "got knocked out", "You left the fight") and Retry from the last `checkpoint: true` step.
+- **MISSION PASSED.** Each mission ends on the big MISSION PASSED card, with a sting: the mission's title, what it
+  gained (each shown meter's change over the mission, its `reward` included: "+$85,000"), the goal meter's progress
+  ("$430,000 / $1,000,000", its bar filling from before to after), its time, its `passLine`, and NEXT: the next
+  mission's title and its `stakes`. So every mission has a `passLine` (one line of what was won) and a `stakes` that
+  reads as what comes next. A failed mission shows MISSION FAILED with the reason (a step's `why`, or Mog City's
+  own: "got knocked out", "You left the fight"), a tip, and Retry from the last `checkpoint: true` step.
+- **Timers.** A `timer` runs across the steps after it (a drive, a call, a search) until a `timer` step with
+  `"stop": true` (and its `name`) stops it, a drive's `"stopTimer": "<name>"` beats it on arrival, or it runs out:
+  `"fail": "hard"` fails the mission, `"fail": "soft"` costs its `set` (money off the meter: `{ "meters": { "cash": {
+  "add": -5000 } } }`) and runs on as LATE. Name them (`"name": "school"`) to run more than one; `{ "type": "timer",
+  "name": "school", "add": -30 }` takes 30 s off a running one: the clock tightens as the hero gets closer.
 - **Free roam between missions.** After a mission passes, the player is free in the city. The next mission's
   `start` is marked on the map with a letter in its giver's colour (the first cast member other than the hero who
   speaks in it), and the giver texts its `stakes` to the phone. The mission starts when the player gets there. So:
   every mission's `start` is a place on the lanes the player can drive to, its giver speaks in it, and its `stakes`
   reads as a text from them ("Bring the van to Foley. Quiet.").
-- **Time.** The city's light is the mission's time of day (`dressing.time`, or the act's `timeline` time for that
-  mission); a `transition` step can move it on mid-mission.
+- **Time.** The city's light is the mission's time of day: its own `time` (`"midday"`, `"golden"`, `"twilight"`,
+  `"midnight"`, `"dawn"`), else the act's `timeline` time for it, else `dressing.time`; a story that says none is in
+  daylight. A mission's own `time` is pinned: held through its cutscenes and set pieces. A `transition` (or `place`)
+  step with a `time` moves it on mid-mission.
 
 ## The pack
 
@@ -256,12 +269,61 @@ This is the rule the gate holds hardest, because breaking it is what made a Mog 
 
 ## What Mog City has no part for yet
 
-These step kinds are in the schema but Mog City has no part for them yet: **`passenger`, `comfort`, `convoy`,
-`patrol`, `roadblock`, `wallet`, `stealth`**. Each passes at once without playing. A new story never writes them, and
-nothing in any story rests on one:
+Two step kinds are in the schema but Mog City has no part for them yet: **`patrol`, `wallet`**. Each passes at once
+without playing. No story writes them, and nothing in any story rests on one.
+
+### What a Create does not write yet
+
+Mog City now plays **`passenger`, `comfort`, `convoy`, `ally`, `roadblock`, `stealth`, `car`** (below), but they are held for
+GameMog's own showcase worlds first: **a Create never writes them** (the builder sends one back). In a Create:
 
 - someone riding along: they are in the story's words and calls (a `say` from them in the car, a call), not a seat;
 - a deadline is a `timer`; a lookout or a guard is a `fight` or a `pursuit`; money owed is a meter and a line.
+
+### The showcase steps (GameMog's own worlds)
+
+How Mog City plays them, for the first-party worlds written in the repo (storykit/packs, listed in schema.mjs
+SHOWCASE_PACKS and gated with `{ showcase: true }` by the repo's own scripts, never by the store or the builder). A
+showcase may also be longer than a Create: up to 5 acts of up to 8 missions, 120 steps a mission, an opening of up to
+150 s (schema.mjs SHOWCASE).
+
+- **Lookouts.** A `stealth` stands Mog City's own lookouts at its `units` (places: on the pavement there, looking
+  across the street or `heading` degrees, sweeping, or walking `roam` m up and down the block). Each sees down a cone
+  drawn on the ground, yellow going red, a '?' over his head filling to '!'; a sprint near one is heard; E from
+  behind takes one down. Write `to` (get there without being seen) or `secs` (stay unseen that long); seen, the
+  mission fails (SPOTTED!), unless `onDetect` says `{ "set": ... }` (it costs), `{ "goto": "<step>" }` or `{ "pursuit":
+  { "level": 2 } }`. Without `to` or `secs` the watch is kept beside the steps after it.
+- **Someone else's car.** An `ally` step is a friend's car driving itself through the city (its blue blip on the radar
+  the whole way) from `from` to a place, or to wherever the hero is (`"to": "player"`: it pulls up by him). Out of the
+  hero's sight it makes up time (`secs`: about how long it takes). As a step of its own the mission waits for it; in
+  a drive's `during` it drives while he does. `"out": true`: its driver gets out there. Give it an `ally` id: a later
+  `convoy` with the same `ally` follows that very car (`band` [near, far] m to stay in, a bar that empties outside
+  it; knocks into it are its damage, and wrecked fails).
+- **A passenger's ride.** A `passenger` with `from` and `to` is the whole pick-up: drive to `from`, they get in (seen
+  through the glass), drive them to `to`, they get out. `limit` (mph) is their speed limit, shown with his speed; over
+  it for `limitSecs` s, a hard one fails and a soft one costs its `set`. `comfort` (a comfort step's fields: its bar,
+  its lines when it drops) rides along.
+- **Roadblocks.** A `roadblock` parks `cars` cars across the street before `at`'s corner (`"kind": "police"`
+  cruisers, or `"crew"` black cars with `crew` men beside them). The GPS routes round it; a ram at speed knocks a car
+  aside. With `to` it is a step of its own: get past it to there.
+- **Parked cars.** A `car` step parks one of the story's cars at the kerb before `at`'s corner (a city body in a
+  `color`, or a vehicle by id); `name` it, and `{ "type": "car", "name": "van", "remove": true }` takes it away.
+- **Call waiting.** A `call` with `"interrupts": true` in a drive's `during`, ringing while a car-phone call is on,
+  comes up as CALL WAITING: answered, the car-phone call holds (its `hold.pause` line), this one is said, then the
+  car-phone call resumes (its `hold.resume` line) where it was; declined, its `voicemail`, and the call never stopped.
+- **Sub-places.** A place alias may carry `"offset": { "right": 24, "fwd": 0 }` (metres, up to 60, along its facing):
+  the side door round the corner from its key.
+- **Walkie-talkies.** A `trigger`'s `cue` may be `walkie`, `walkie2` or `walkie3` (one, two, three beeps with a
+  squelch): nested area triggers make the crew's radio closing in.
+
+| want | write |
+|---|---|
+| sneak past lookouts | `{ "type": "stealth", "units": [{ "@": "soho" }, { "@": "soho", "roam": 20, "side": 1 }], "to": "@gallery", "objective": "Get to **the gallery** without being seen." }` (or `"secs": 20`: stay unseen) |
+| a friend drives over | `{ "type": "ally", "who": "rae", "ally": "rae", "name": "Rae's car", "from": "@tribeca", "to": "player", "secs": 60, "objective": "Wait for **Rae**." }` |
+| follow a friend's car | `{ "type": "convoy", "ally": "rae", "route": ["@soho", "@les"], "band": [6, 55], "label": "RAE", "objective": "Follow **Rae's car**." }` |
+| pick someone up and drive them | `{ "type": "passenger", "who": "rae", "from": "@soho", "to": "@pickup", "limit": 35, "fail": "soft", "set": { "meters": { "cash": { "add": -1000 } } }, "comfort": { "label": "RAE" } }` |
+| a roadblock | `{ "type": "roadblock", "at": "@les", "cars": 3, "kind": "crew", "crew": 2, "to": "@gallery", "text": "They blocked Orchard St. Go round, or ram through." }` |
+
 
 ## People: the cast
 
@@ -353,7 +415,7 @@ plays clear until then. Let the story's words and the people's clothes carry the
 
 ## Missions and steps
 
-A mission is `{ id, title, vehicle, verbs, start, traffic, stakes, passLine, reward, steps }`. The step kinds and
+A mission is `{ id, title, vehicle, verbs, start, time, traffic, stakes, passLine, reward, steps }`. The step kinds and
 their fields are in the schema (`$defs.step`); speakers (`who`, `say`, `by`, `from`) are cast ids. What they do:
 
 | want | write |
@@ -373,7 +435,8 @@ their fields are in the schema (`$defs.step`); speakers (`who`, `say`, `by`, `fr
 | a close-up of them talking | `{ "type": "cutscene", "shots": [{ "cam": { "rel": "kwon", "fwd": 1.05, "right": 0.22 }, "look": { "rel": "kwon", "up": -0.04 }, "fov": 30, "dur": 3.8, "say": "kwon", "line": "..." }] }` |
 | Mog City's own set piece (a Mog of Mog City) | `{ "type": "scene", "name": "m1.arrival" }` |
 | a chase to lose | `{ "type": "pursuit", "goal": "lose", "count": 1, "level": 1, "kind": "crew", "loseDist": 150, "loseTime": 3.5, "los": 4 }` |
-| a deadline | `{ "type": "timer", "seconds": 300, "label": "DROPS", "fail": "hard", "why": "..." }`, later `{ "type": "timer", "stop": true }` |
+| a deadline | `{ "type": "timer", "name": "drops", "seconds": 300, "label": "DROPS", "fail": "hard", "why": "..." }`, later `{ "type": "timer", "name": "drops", "stop": true }` (or a drive's `"stopTimer": "drops"`) |
+| a deadline that costs | `{ "type": "timer", "name": "school", "seconds": 240, "label": "SCHOOL", "fail": "soft", "why": "Late. That cost you.", "set": { "meters": { "cash": { "add": -5000 } } } }`; tighter later: `{ "type": "timer", "name": "school", "add": -30 }` |
 | a time skip | `{ "type": "transition", "kicker": "LATER", "text": "...", "time": "dawn" }` |
 | follow a car unseen | `{ "type": "tail", "route": ["@a", "@b", "@c"], "car": "sedan" }` |
 | a street fight (on foot, fists and kicks, never weapons) | `{ "type": "fight", "enemies": ["vance", "marko", "tomas"], "arena": "@the-corner", "win": "ko-all", "timer": 180, "objective": "Put all three **down**." }`; or `"win": "survive", "timer": 40` (stay on your feet that long); `"rules": "lesson"` for a first, forgiving fight |
@@ -418,7 +481,7 @@ car verbs ("ram", "hop") under bike words. Players saw through all of it. So:
 
 The owner's review of the first story built this way: it played, but **Mission 1 had no clear payoff**. The tow-truck
 driver reached a dead ambulance in Times Square, then talked, made a choice and drove a nurse to a clinic as a
-`passenger` (which Mog City does not play): nothing was ever done at the ambulance. The owner asked for Mission 1 to
+`passenger` (which Mog City did not play then): nothing was ever done at the ambulance. The owner asked for Mission 1 to
 end in a clear playable payoff, such as reaching and towing the ambulance. In a pack that is a `tow` (the truck a
 `wrecker` with the `tow` ability): up to the ambulance, hook it with F, tow it to the depot; then a line or a short
 cutscene of what it won, then MISSION PASSED (see "Mission 1").

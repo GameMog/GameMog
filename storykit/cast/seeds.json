@@ -1477,6 +1477,822 @@
     "pitch": "mid-high",
     "rate": "quick"
    }
+  },
+  "hand/pedro": {
+   "id": "pedro",
+   "name": "Pedro Delgado",
+   "role": "an underboss",
+   "logline": "Mid-fifties, heavy-set and controlled, a black beard under silver hair; lost everything in Miami and has come to collect.",
+   "identity": {
+    "age": 55,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 178,
+    "build": {
+     "frame": "broad",
+     "weight": "heavy",
+     "muscle": "average"
+    }
+   },
+   "heritage": {
+    "note": "Miami, Cuban-American",
+    "blend": {
+     "african": 0.04,
+     "asian": 0.08,
+     "european": 0.88
+    },
+    "skin": {
+     "tone": "light-medium",
+     "undertone": "warm",
+     "weathered": true,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "heavy",
+    "cheeks": "full",
+    "faceWidth": "wide",
+    "browRidge": "strong",
+    "eyes": "dark-brown",
+    "brows": {
+     "color": "salt-and-pepper",
+     "weight": "heavy"
+    },
+    "eyeShape": "hooded",
+    "eyeBags": "light",
+    "mouth": {
+     "lips": "thin",
+     "width": "wide",
+     "corners": "neutral"
+    }
+   },
+   "hair": {
+    "style": "swept-back",
+    "color": "silver",
+    "greying": 1
+   },
+   "facialHair": {
+    "style": "full-trimmed",
+    "color": "black",
+    "density": 0.9
+   },
+   "wardrobe": {
+    "top": {
+     "item": "suit-jacket",
+     "color": "#1C2442",
+     "fit": "regular"
+    },
+    "bottom": {
+     "item": "suit-trousers",
+     "color": "#1C2442"
+    },
+    "shoes": {
+     "item": "dress",
+     "color": "#1A120E"
+    }
+   },
+   "props": [],
+   "posture": {
+    "stance": "proud",
+    "pace": "slow",
+    "gestures": "still hands, a finger raised to make a point",
+    "idle": "idle",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "controlled",
+     "patient",
+     "vengeful",
+     "ruthless"
+    ],
+    "wants": "what he says he is owed, to the dollar",
+    "speech": "low and measured, never raises his voice"
+   },
+   "voice": {
+    "id": "hand-pedro",
+    "description": "a man in his fifties, low controlled baritone, quiet and precise, menace under the calm",
+    "pitch": "low",
+    "rate": "slow"
+   }
+  },
+  "hand/agnes": {
+   "id": "agnes",
+   "name": "Agnes Teodoro",
+   "role": "the Nanny: a retired nanny hired to sign a child out of school",
+   "logline": "Seventy-four, forty-one years a nanny, white hair in a neat bun, so polite it hurts, and sorry about all of it.",
+   "identity": {
+    "age": 90,
+    "body": "female",
+    "presentation": "woman",
+    "heightCm": 158,
+    "build": {
+     "frame": "small",
+     "weight": "average",
+     "muscle": "soft"
+    }
+   },
+   "heritage": {
+    "note": "Italian-American, Lower East Side",
+    "blend": {
+     "african": 0,
+     "asian": 0.05,
+     "european": 0.95
+    },
+    "skin": {
+     "tone": "light",
+     "undertone": "neutral",
+     "weathered": true,
+     "makeup": "natural",
+     "lipTint": "rose"
+    }
+   },
+   "face": {
+    "jaw": "soft",
+    "cheeks": "average",
+    "cheekbones": "high",
+    "faceWidth": "narrow",
+    "nose": {
+     "width": "average",
+     "length": "average",
+     "tip": "drooping",
+     "bridge": "straight"
+    },
+    "browRidge": "soft",
+    "chin": {
+     "projection": "average",
+     "length": "average",
+     "width": "average"
+    },
+    "eyes": "grey-blue",
+    "brows": {
+     "color": "grey",
+     "weight": "fine"
+    },
+    "eyeShape": "downturned",
+    "eyeBags": "heavy",
+    "mouth": {
+     "lips": "thin",
+     "width": "average",
+     "corners": "neutral"
+    },
+    "ears": {
+     "size": "large"
+    },
+    "skull": {
+     "shape": "oval"
+    },
+    "forehead": "average",
+    "faceLength": "long"
+   },
+   "hair": {
+    "style": "bun",
+    "color": "white",
+    "greying": 1
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "uniform-jacket",
+     "color": "#2C364E"
+    },
+    "bottom": {
+     "item": "trousers",
+     "color": "#4A4744"
+    },
+    "shoes": {
+     "item": "dress",
+     "color": "#2E2522"
+    }
+   },
+   "posture": {
+    "stance": "upright",
+    "pace": "steady",
+    "gestures": "hands folded, a small apologetic nod",
+    "idle": "idle",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "polite",
+     "professional",
+     "apologetic",
+     "steely"
+    ],
+    "wants": "to be left out of it, and her son home",
+    "speech": "careful, formal, a soft New York vowel, sorry before every sentence"
+   },
+   "voice": {
+    "id": "hand-agnes",
+    "description": "an older woman's soft, careful alto, formal and apologetic",
+    "pitch": "mid-low",
+    "rate": "slow"
+   },
+   "props": [
+    {
+     "kind": "round-glasses",
+     "color": "#B8A890"
+    }
+   ]
+  },
+  "hand/milo": {
+   "id": "milo",
+   "name": "Milo Marin",
+   "role": "John and Carissa's son, a first grader",
+   "logline": "Six, first grade, wants to be a delivery driver, then an astronaut, then a tree.",
+   "identity": {
+    "age": 16,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 160,
+    "build": {
+     "frame": "small",
+     "weight": "slim",
+     "muscle": "soft"
+    }
+   },
+   "heritage": {
+    "note": "Southern Californian, his mother's Mexican and Irish and his father's side",
+    "blend": {
+     "african": 0,
+     "asian": 0.05,
+     "european": 0.95
+    },
+    "skin": {
+     "tone": "light-medium",
+     "undertone": "warm",
+     "weathered": false,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "soft",
+    "cheeks": "average",
+    "cheekbones": "average",
+    "faceWidth": "average",
+    "nose": {
+     "width": "average",
+     "length": "short",
+     "tip": "upturned",
+     "bridge": "straight"
+    },
+    "browRidge": "soft",
+    "chin": {
+     "projection": "average",
+     "length": "average",
+     "width": "average"
+    },
+    "eyes": "brown",
+    "brows": {
+     "color": "brown",
+     "weight": "fine"
+    },
+    "eyeShape": "round",
+    "eyeBags": "none",
+    "mouth": {
+     "lips": "average",
+     "width": "average",
+     "corners": "neutral"
+    },
+    "ears": {
+     "size": "average",
+     "angle": "average"
+    },
+    "skull": {
+     "shape": "round"
+    },
+    "forehead": "high",
+    "faceLength": "short"
+   },
+   "hair": {
+    "style": "short-curly",
+    "color": "brown"
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "hoodie",
+     "color": "#C8402F",
+     "fit": "fitted"
+    },
+    "bottom": {
+     "item": "jeans",
+     "color": "#3A4A66"
+    },
+    "shoes": {
+     "item": "sneakers",
+     "color": "#E8E4DC",
+     "accent": "#2F6FB0"
+    }
+   },
+   "posture": {
+    "stance": "relaxed",
+    "pace": "quick",
+    "gestures": "fidgets, swings his arms",
+    "idle": "idle",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "curious",
+     "chatty",
+     "brave"
+    ],
+    "wants": "to go home and to know if it's pickup time",
+    "speech": "a little kid's clear high voice"
+   },
+   "voice": {
+    "id": "hand-milo",
+    "description": "a six-year-old boy, small and clear",
+    "pitch": "high",
+    "rate": "steady"
+   }
+  },
+  "hand/john": {
+   "id": "john",
+   "name": "John Marin",
+   "role": "a tired, decent man of 38, ex-getaway planner gone straight with a pizza chain",
+   "logline": "Thirty-eight, the planner who went straight; owns Slice Marin pizza and has one day to bring his son home.",
+   "identity": {
+    "age": 38,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 180,
+    "build": {
+     "frame": "medium",
+     "weight": "slim",
+     "muscle": "average"
+    }
+   },
+   "heritage": {
+    "note": "invented; Southern European / Latin American mix",
+    "blend": {
+     "african": 0.08,
+     "asian": 0.07,
+     "european": 0.85
+    },
+    "skin": {
+     "tone": "light-medium",
+     "undertone": "olive",
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "square",
+    "cheeks": "average",
+    "cheekbones": "average",
+    "faceWidth": "average",
+    "nose": {
+     "width": "average",
+     "length": "average",
+     "tip": "average",
+     "bridge": "straight"
+    },
+    "browRidge": "strong",
+    "chin": {
+     "projection": "average",
+     "length": "average",
+     "width": "average"
+    },
+    "eyes": "brown",
+    "brows": {
+     "color": "dark-brown",
+     "weight": "average"
+    },
+    "eyeShape": "hooded",
+    "eyeBags": "light",
+    "mouth": {
+     "lips": "average",
+     "width": "average",
+     "cupidsBow": "average",
+     "corners": "neutral"
+    },
+    "ears": {
+     "size": "average",
+     "angle": "flat"
+    },
+    "skull": {
+     "shape": "oval"
+    },
+    "forehead": "average",
+    "faceLength": "average"
+   },
+   "hair": {
+    "style": "swept-back",
+    "color": "dark-brown",
+    "greying": 0.15
+   },
+   "facialHair": {
+    "style": "stubble",
+    "color": "dark-brown",
+    "density": 0.85
+   },
+   "wardrobe": {
+    "top": {
+     "item": "suit-jacket",
+     "color": "#2E3136",
+     "accent": "#5A1E24"
+    },
+    "bottom": {
+     "item": "jeans",
+     "color": "#2A3240"
+    },
+    "shoes": {
+     "item": "sneakers",
+     "color": "#E4E1DA",
+     "accent": "#2B2D31"
+    }
+   },
+   "posture": {
+    "stance": "relaxed",
+    "pace": "quick",
+    "gestures": "rubs the back of his neck, plans out loud with his hands",
+    "idle": "phone",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "decent",
+     "tired",
+     "careful",
+     "dry"
+    ],
+    "wants": "his son home before dark",
+    "speech": "low, even, a planner's short sentences"
+   },
+   "voice": {
+    "id": "hand-john",
+    "description": "a man of thirty-eight, a warm, slightly tired baritone, even and low, a planner's short sentences",
+    "pitch": "mid-low",
+    "rate": "steady"
+   }
+  },
+  "hand/carissa": {
+   "id": "carissa",
+   "name": "Carissa",
+   "role": "a warm, quick-witted mother in her mid-thirties, once half of a crime duo",
+   "logline": "Thirty-six, warm and quick, funnier than her husband, a stay-at-home mom who used to plan heists.",
+   "identity": {
+    "age": 36,
+    "body": "female",
+    "presentation": "woman",
+    "heightCm": 168,
+    "build": {
+     "frame": "medium",
+     "weight": "slim",
+     "muscle": "average"
+    }
+   },
+   "heritage": {
+    "note": "Southern Californian, mixed Mexican and Irish heritage",
+    "blend": {
+     "african": 0.05,
+     "asian": 0.1,
+     "european": 0.85
+    },
+    "skin": {
+     "tone": "medium",
+     "undertone": "warm",
+     "weathered": false,
+     "makeup": "natural",
+     "lipTint": "rose"
+    }
+   },
+   "face": {
+    "jaw": "average",
+    "cheeks": "average",
+    "cheekbones": "high",
+    "faceWidth": "average",
+    "nose": {
+     "width": "average",
+     "length": "average",
+     "tip": "average",
+     "bridge": "straight"
+    },
+    "browRidge": "average",
+    "chin": {
+     "projection": "average",
+     "length": "average",
+     "width": "average"
+    },
+    "eyes": "brown",
+    "brows": {
+     "color": "dark-brown",
+     "weight": "average"
+    },
+    "eyeShape": "almond",
+    "eyeBags": "light",
+    "mouth": {
+     "lips": "average",
+     "width": "wide",
+     "cupidsBow": "defined",
+     "corners": "up"
+    },
+    "ears": {
+     "size": "average",
+     "angle": "flat"
+    },
+    "skull": {
+     "shape": "oval"
+    },
+    "forehead": "average",
+    "faceLength": "long",
+    "jawWidth": "average",
+    "eyeSpacing": "average"
+   },
+   "hair": {
+    "style": "long",
+    "color": "dark-brown"
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "long-sleeve",
+     "color": "#CEC2B0"
+    },
+    "bottom": {
+     "item": "jeans",
+     "color": "#262E3E"
+    },
+    "shoes": {
+     "item": "boots",
+     "color": "#3A2A22"
+    },
+    "over": [
+     {
+      "item": "overcoat",
+      "color": "#2C3020"
+     }
+    ]
+   },
+   "posture": {
+    "stance": "relaxed",
+    "pace": "quick",
+    "gestures": "talks with her free hand, laughs at her own jokes",
+    "idle": "phone",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "warm",
+     "quick",
+     "funny",
+     "fearless"
+    ],
+    "wants": "her son home, and the quiet life they earned",
+    "speech": "fast and warm, a joke even when it's bad, steel underneath"
+   },
+   "voice": {
+    "id": "hand-carissa",
+    "description": "a woman of thirty-six, warm mezzo, quick and funny, a laugh under it and steel when it counts",
+    "pitch": "mid",
+    "rate": "quick"
+   }
+  },
+  "hand/bunny": {
+   "id": "bunny",
+   "name": "Bunny Ferraby",
+   "role": "a loan shark who plays chess for money in Washington Square",
+   "logline": "Fifty-eight, a plum tracksuit and a chess clock; she lends at the tables and collects on time.",
+   "identity": {
+    "age": 68,
+    "body": "female",
+    "presentation": "woman",
+    "heightCm": 160,
+    "build": {
+     "frame": "small",
+     "weight": "average",
+     "muscle": "average"
+    }
+   },
+   "heritage": {
+    "note": "invented; Southern European / Anglo mix",
+    "blend": {
+     "african": 0.05,
+     "asian": 0.05,
+     "european": 0.9
+    },
+    "skin": {
+     "tone": "light-medium",
+     "undertone": "warm",
+     "weathered": true,
+     "makeup": "natural",
+     "lipTint": "berry"
+    }
+   },
+   "face": {
+    "jaw": "soft",
+    "cheeks": "full",
+    "cheekbones": "high",
+    "faceWidth": "average",
+    "nose": {
+     "width": "wide",
+     "length": "short",
+     "tip": "average",
+     "bridge": "flat"
+    },
+    "browRidge": "soft",
+    "chin": {
+     "projection": "average",
+     "length": "short",
+     "width": "average"
+    },
+    "eyes": "dark-brown",
+    "brows": {
+     "color": "grey",
+     "weight": "fine"
+    },
+    "eyeShape": "downturned",
+    "eyeBags": "light",
+    "mouth": {
+     "lips": "average",
+     "width": "average",
+     "corners": "up"
+    },
+    "ears": {
+     "size": "average"
+    },
+    "skull": {
+     "shape": "round"
+    },
+    "forehead": "average",
+    "faceLength": "short",
+    "eyeSpacing": "wide"
+   },
+   "hair": {
+    "style": "short-curly",
+    "color": "blonde",
+    "greying": 0.6
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "uniform-jacket",
+     "color": "#5B2A5E"
+    },
+    "bottom": {
+     "item": "track-pants",
+     "color": "#5B2A5E"
+    },
+    "shoes": {
+     "item": "white-sneakers",
+     "color": "#F2F2F2"
+    }
+   },
+   "props": [],
+   "posture": {
+    "stance": "upright",
+    "pace": "steady",
+    "gestures": "taps the chess clock, never hurries",
+    "idle": "idle",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "amused",
+     "patient",
+     "shrewd",
+     "unsentimental"
+    ],
+    "wants": "every debt paid by the clock",
+    "speech": "smoky and slow, calls everyone sugar"
+   },
+   "voice": {
+    "id": "hand-bunny",
+    "description": "a woman near sixty, smoky low alto, unhurried, amused",
+    "pitch": "low",
+    "rate": "slow"
+   }
+  },
+  "hand/pell": {
+   "id": "pell",
+   "name": "Gordon Pell",
+   "role": "the loan officer who said no",
+   "logline": "Forty-five, thin, pale and precise; a grey suit, a pale blue tie and a lanyard badge; he says no for a living.",
+   "identity": {
+    "age": 52,
+    "body": "male",
+    "presentation": "man",
+    "heightCm": 184,
+    "build": {
+     "frame": "small",
+     "weight": "slim",
+     "muscle": "soft"
+    }
+   },
+   "heritage": {
+    "note": "invented; Anglo-Irish",
+    "blend": {
+     "african": 0.0,
+     "asian": 0.0,
+     "european": 1.0
+    },
+    "skin": {
+     "tone": "light",
+     "undertone": "neutral",
+     "weathered": false,
+     "makeup": "none",
+     "lipTint": "natural"
+    }
+   },
+   "face": {
+    "jaw": "square",
+    "cheeks": "average",
+    "cheekbones": "average",
+    "faceWidth": "narrow",
+    "nose": {
+     "width": "average",
+     "length": "average",
+     "tip": "average",
+     "bridge": "straight"
+    },
+    "browRidge": "strong",
+    "chin": {
+     "projection": "average",
+     "length": "average",
+     "width": "average"
+    },
+    "eyes": "brown",
+    "brows": {
+     "color": "dark-brown",
+     "weight": "average"
+    },
+    "eyeShape": "hooded",
+    "eyeBags": "light",
+    "mouth": {
+     "lips": "average",
+     "width": "average",
+     "cupidsBow": "average",
+     "corners": "neutral"
+    },
+    "ears": {
+     "size": "average",
+     "angle": "flat"
+    },
+    "skull": {
+     "shape": "oval"
+    },
+    "forehead": "average",
+    "faceLength": "long"
+   },
+   "hair": {
+    "style": "side-part",
+    "color": "brown",
+    "greying": 0.15
+   },
+   "facialHair": {
+    "style": "none"
+   },
+   "wardrobe": {
+    "top": {
+     "item": "suit-jacket",
+     "color": "#6B6F75",
+     "accent": "#A9C3DE"
+    },
+    "bottom": {
+     "item": "suit-trousers",
+     "color": "#6B6F75"
+    },
+    "shoes": {
+     "item": "dress",
+     "color": "#2A2420"
+    }
+   },
+   "posture": {
+    "stance": "relaxed",
+    "pace": "quick",
+    "gestures": "rubs the back of his neck, plans out loud with his hands",
+    "idle": "phone",
+    "walk": "walk"
+   },
+   "personality": {
+    "traits": [
+     "precise",
+     "bored",
+     "officious",
+     "nervous"
+    ],
+    "wants": "to go home on time",
+    "speech": "nasal, precise, faintly bored"
+   },
+   "voice": {
+    "id": "hand-pell",
+    "description": "a man in his forties, nasal, precise, faintly bored",
+    "pitch": "mid",
+    "rate": "steady"
+   },
+   "props": []
   }
  }
 }

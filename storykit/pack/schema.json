@@ -210,6 +210,263 @@
      "maxItems": 6,
      "description": "who else is on the street for it, and where: every person a shot looks at or a card names, but the hero"
     },
+    "sets": {
+     "type": "object",
+     "maxProperties": 6,
+     "propertyNames": {
+      "$ref": "#/$defs/slug"
+     },
+     "additionalProperties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "room"
+      ],
+      "properties": {
+       "room": {
+        "enum": [
+         "bank-office",
+         "school",
+         "hideout",
+         "pizzeria",
+         "apartment",
+         "garage",
+         "steps",
+         "park",
+         "lobby",
+         "plaza",
+         "alley"
+        ]
+       },
+       "light": {
+        "enum": [
+         "day",
+         "golden",
+         "night"
+        ]
+       },
+       "sign": {
+        "type": "string",
+        "maxLength": 40
+       },
+       "people": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "who",
+          "at"
+         ],
+         "properties": {
+          "who": {
+           "$ref": "#/$defs/beingRef"
+          },
+          "at": {
+           "type": "array",
+           "items": {
+            "type": "number",
+            "minimum": -30,
+            "maximum": 30
+           },
+           "minItems": 2,
+           "maxItems": 2
+          },
+          "face": {
+           "oneOf": [
+            {
+             "$ref": "#/$defs/slug"
+            },
+            {
+             "type": "number",
+             "minimum": -360,
+             "maximum": 360
+            }
+           ]
+          },
+          "pose": {
+           "enum": [
+            "idle",
+            "talk",
+            "phone",
+            "arms",
+            "argue",
+            "shrug",
+            "wave",
+            "cheer",
+            "drink",
+            "leanBar",
+            "sit",
+            "sitTalk",
+            "kneel",
+            "crouch",
+            "walk",
+            "walkCool",
+            "jog"
+           ]
+          },
+          "seat": {
+           "type": "number",
+           "minimum": 0,
+           "maximum": 1.2
+          },
+          "y": {
+           "type": "number",
+           "minimum": -1,
+           "maximum": 1
+          },
+          "k": {
+           "type": "number",
+           "minimum": 0,
+           "maximum": 1
+          },
+          "hidden": {
+           "type": "boolean"
+          },
+          "walk": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [
+            "to"
+           ],
+           "properties": {
+            "to": {
+             "type": "array",
+             "items": {
+              "type": "number",
+              "minimum": -30,
+              "maximum": 30
+             },
+             "minItems": 2,
+             "maxItems": 2
+            },
+            "secs": {
+             "type": "number",
+             "minimum": 0.5,
+             "maximum": 12
+            },
+            "after": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 30
+            },
+            "clip": {
+             "enum": [
+              "walk",
+              "walkCool",
+              "walkHeavy",
+              "jog"
+             ]
+            },
+            "then": {
+             "enum": [
+              "idle",
+              "talk",
+              "phone",
+              "arms",
+              "argue",
+              "shrug",
+              "wave",
+              "cheer",
+              "drink",
+              "leanBar",
+              "sit",
+              "sitTalk",
+              "kneel",
+              "crouch",
+              "walk",
+              "walkCool",
+              "jog"
+             ]
+            }
+           }
+          },
+          "hug": {
+           "$ref": "#/$defs/slug",
+           "description": "both arms round this person (in the same set)"
+          },
+          "hold": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [
+            "who"
+           ],
+           "properties": {
+            "who": {
+             "$ref": "#/$defs/slug"
+            },
+            "side": {
+             "enum": [
+              "L",
+              "R"
+             ]
+            },
+            "their": {
+             "enum": [
+              "L",
+              "R"
+             ]
+            },
+            "k": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 1
+            }
+           },
+           "description": "a hand in this person's hand"
+          },
+          "hand": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [
+            "at"
+           ],
+           "properties": {
+            "side": {
+             "enum": [
+              "L",
+              "R"
+             ]
+            },
+            "at": {
+             "type": "array",
+             "items": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2.5
+             },
+             "minItems": 3,
+             "maxItems": 3
+            },
+            "k": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 1
+            }
+           },
+           "description": "a hand to a point of their own: [right, up, fwd] m from their feet (a phone held up to look at)"
+          },
+          "prop": {
+           "enum": [
+            "phone",
+            "walkie"
+           ],
+           "description": "a thing in the right hand"
+          },
+          "look": {
+           "$ref": "#/$defs/slug",
+           "description": "where their eyes go: 'lens' (into the camera), 'prop', or someone in the set"
+          }
+         }
+        },
+        "minItems": 0,
+        "maxItems": 7
+       }
+      },
+      "description": "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand"
+     },
+     "description": "the opening's sets by name, for its shots' set: the people who matter each in a room of their own"
+    },
     "shots": {
      "type": "array",
      "items": {
@@ -296,6 +553,223 @@
        "title": {
         "type": "boolean",
         "description": "the world's title in its own lockup over this shot (exactly one shot; the last is the usual place)"
+       },
+       "set": {
+        "$ref": "#/$defs/slug",
+        "description": "the set this shot is in (one of the opening's sets); left out, the city"
+       },
+       "act": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "who"
+         ],
+         "properties": {
+          "who": {
+           "$ref": "#/$defs/beingRef"
+          },
+          "at": {
+           "type": "array",
+           "items": {
+            "type": "number",
+            "minimum": -30,
+            "maximum": 30
+           },
+           "minItems": 2,
+           "maxItems": 2
+          },
+          "face": {
+           "oneOf": [
+            {
+             "$ref": "#/$defs/slug"
+            },
+            {
+             "type": "number",
+             "minimum": -360,
+             "maximum": 360
+            }
+           ]
+          },
+          "pose": {
+           "enum": [
+            "idle",
+            "talk",
+            "phone",
+            "arms",
+            "argue",
+            "shrug",
+            "wave",
+            "cheer",
+            "drink",
+            "leanBar",
+            "sit",
+            "sitTalk",
+            "kneel",
+            "crouch",
+            "walk",
+            "walkCool",
+            "jog"
+           ]
+          },
+          "seat": {
+           "type": "number",
+           "minimum": 0,
+           "maximum": 1.2
+          },
+          "y": {
+           "type": "number",
+           "minimum": -1,
+           "maximum": 1
+          },
+          "k": {
+           "type": "number",
+           "minimum": 0,
+           "maximum": 1
+          },
+          "hidden": {
+           "type": "boolean"
+          },
+          "walk": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [
+            "to"
+           ],
+           "properties": {
+            "to": {
+             "type": "array",
+             "items": {
+              "type": "number",
+              "minimum": -30,
+              "maximum": 30
+             },
+             "minItems": 2,
+             "maxItems": 2
+            },
+            "secs": {
+             "type": "number",
+             "minimum": 0.5,
+             "maximum": 12
+            },
+            "after": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 30
+            },
+            "clip": {
+             "enum": [
+              "walk",
+              "walkCool",
+              "walkHeavy",
+              "jog"
+             ]
+            },
+            "then": {
+             "enum": [
+              "idle",
+              "talk",
+              "phone",
+              "arms",
+              "argue",
+              "shrug",
+              "wave",
+              "cheer",
+              "drink",
+              "leanBar",
+              "sit",
+              "sitTalk",
+              "kneel",
+              "crouch",
+              "walk",
+              "walkCool",
+              "jog"
+             ]
+            }
+           }
+          },
+          "hug": {
+           "$ref": "#/$defs/slug",
+           "description": "both arms round this person (in the same set)"
+          },
+          "hold": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [
+            "who"
+           ],
+           "properties": {
+            "who": {
+             "$ref": "#/$defs/slug"
+            },
+            "side": {
+             "enum": [
+              "L",
+              "R"
+             ]
+            },
+            "their": {
+             "enum": [
+              "L",
+              "R"
+             ]
+            },
+            "k": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 1
+            }
+           },
+           "description": "a hand in this person's hand"
+          },
+          "hand": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [
+            "at"
+           ],
+           "properties": {
+            "side": {
+             "enum": [
+              "L",
+              "R"
+             ]
+            },
+            "at": {
+             "type": "array",
+             "items": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2.5
+             },
+             "minItems": 3,
+             "maxItems": 3
+            },
+            "k": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 1
+            }
+           },
+           "description": "a hand to a point of their own: [right, up, fwd] m from their feet (a phone held up to look at)"
+          },
+          "prop": {
+           "enum": [
+            "phone",
+            "walkie"
+           ],
+           "description": "a thing in the right hand"
+          },
+          "look": {
+           "$ref": "#/$defs/slug",
+           "description": "where their eyes go: 'lens' (into the camera), 'prop', or someone in the set"
+          }
+         }
+        },
+        "minItems": 0,
+        "maxItems": 7,
+        "description": "a shot's changes to its set's people as it starts: where they stand, whom they face, their pose, a walk, a hug"
        }
       }
      },
@@ -403,6 +877,12 @@
        "prefix": {
         "type": "string",
         "maxLength": 2
+       },
+       "goal": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 10000000,
+        "description": "what it is raised toward: the HUD shows '$430,000 / $1,000,000' and a bar, the MISSION PASSED card its progress"
        }
       }
      },
@@ -436,6 +916,24 @@
      },
      "heading": {
       "$ref": "#/$defs/heading"
+     },
+     "offset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+       "right": {
+        "type": "number",
+        "minimum": -60,
+        "maximum": 60
+       },
+       "fwd": {
+        "type": "number",
+        "minimum": -60,
+        "maximum": 60
+       }
+      },
+      "description": "a sub-place: metres from the key's point along its facing (right, forward): the side door round the corner"
      }
     }
    },
@@ -502,7 +1000,14 @@
        "mogcity/camp",
        "hand/young-hero",
        "hand/old-boss",
-       "hand/young-mother"
+       "hand/young-mother",
+       "hand/pedro",
+       "hand/agnes",
+       "hand/milo",
+       "hand/john",
+       "hand/carissa",
+       "hand/bunny",
+       "hand/pell"
       ],
       "description": "a shipped person from the cast registry (public/storykit/cast/registry.json), as they are: their own body, clips, face and recorded lines. No sheet. anchor and voice default to the registry's"
      },
@@ -744,15 +1249,27 @@
         "enum": [
          "trailhand",
          "vandal",
-         "roadster"
+         "roadster",
+         "gt"
         ],
-        "description": "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own)"
+        "description": "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, a showcase's only)"
        },
        "id": {
         "$ref": "#/$defs/rideId"
        },
        "paint": {
         "$ref": "#/$defs/colour"
+       },
+       "label": {
+        "type": "string",
+        "maxLength": 32,
+        "description": "gt only: the speed panel's name for it (\"John's car\")"
+       },
+       "plate": {
+        "type": "string",
+        "maxLength": 8,
+        "pattern": "^[A-Z0-9 ]{0,8}$",
+        "description": "gt only: its plate"
        }
       }
      },
@@ -898,6 +1415,16 @@
         "label": {
          "type": "string",
          "maxLength": 24
+        },
+        "time": {
+         "enum": [
+          "golden",
+          "midday",
+          "twilight",
+          "midnight",
+          "dawn"
+         ],
+         "description": "the mission's time of day, pinned: held through its cutscenes and set pieces (left out: the act's timeline's, else the dressing's)"
         },
         "reward": {
          "$ref": "#/$defs/set"
@@ -1681,6 +2208,19 @@
       },
       "snap": {
        "type": "boolean"
+      },
+      "stopTimer": {
+       "oneOf": [
+        {
+         "type": "boolean"
+        },
+        {
+         "$ref": "#/$defs/slug"
+        },
+        {
+         "description": "on arrival, stop a running timer by its name (true: every one): the clock beaten"
+        }
+       ]
       }
      }
     },
@@ -2073,6 +2613,9 @@
        "minItems": 0,
        "maxItems": 6
       },
+      "name": {
+       "$ref": "#/$defs/slug"
+      },
       "seconds": {
        "$ref": "#/$defs/value"
       },
@@ -2101,6 +2644,12 @@
       },
       "stop": {
        "type": "boolean"
+      },
+      "add": {
+       "type": "number",
+       "minimum": -600,
+       "maximum": 600,
+       "description": "with a name and no seconds: seconds onto that running timer (negative takes them off)"
       }
      }
     },
@@ -2293,6 +2842,10 @@
       },
       "carry": {
        "type": "boolean"
+      },
+      "interrupts": {
+       "type": "boolean",
+       "description": "call waiting: ringing while a car-phone call is on, it comes up as a second card (CALL WAITING); answered, the live call holds (its hold.pause line), this one is said, then the live one resumes (its hold.resume line) where it was; declined, its voicemail"
       },
       "choice": {
        "type": "object",
@@ -2832,6 +3385,219 @@
          },
          "caption": {
           "$ref": "#/$defs/label"
+         },
+         "act": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [
+            "who"
+           ],
+           "properties": {
+            "who": {
+             "$ref": "#/$defs/beingRef"
+            },
+            "at": {
+             "type": "array",
+             "items": {
+              "type": "number",
+              "minimum": -30,
+              "maximum": 30
+             },
+             "minItems": 2,
+             "maxItems": 2
+            },
+            "face": {
+             "oneOf": [
+              {
+               "$ref": "#/$defs/slug"
+              },
+              {
+               "type": "number",
+               "minimum": -360,
+               "maximum": 360
+              }
+             ]
+            },
+            "pose": {
+             "enum": [
+              "idle",
+              "talk",
+              "phone",
+              "arms",
+              "argue",
+              "shrug",
+              "wave",
+              "cheer",
+              "drink",
+              "leanBar",
+              "sit",
+              "sitTalk",
+              "kneel",
+              "crouch",
+              "walk",
+              "walkCool",
+              "jog"
+             ]
+            },
+            "seat": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 1.2
+            },
+            "y": {
+             "type": "number",
+             "minimum": -1,
+             "maximum": 1
+            },
+            "k": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 1
+            },
+            "hidden": {
+             "type": "boolean"
+            },
+            "walk": {
+             "type": "object",
+             "additionalProperties": false,
+             "required": [
+              "to"
+             ],
+             "properties": {
+              "to": {
+               "type": "array",
+               "items": {
+                "type": "number",
+                "minimum": -30,
+                "maximum": 30
+               },
+               "minItems": 2,
+               "maxItems": 2
+              },
+              "secs": {
+               "type": "number",
+               "minimum": 0.5,
+               "maximum": 12
+              },
+              "after": {
+               "type": "number",
+               "minimum": 0,
+               "maximum": 30
+              },
+              "clip": {
+               "enum": [
+                "walk",
+                "walkCool",
+                "walkHeavy",
+                "jog"
+               ]
+              },
+              "then": {
+               "enum": [
+                "idle",
+                "talk",
+                "phone",
+                "arms",
+                "argue",
+                "shrug",
+                "wave",
+                "cheer",
+                "drink",
+                "leanBar",
+                "sit",
+                "sitTalk",
+                "kneel",
+                "crouch",
+                "walk",
+                "walkCool",
+                "jog"
+               ]
+              }
+             }
+            },
+            "hug": {
+             "$ref": "#/$defs/slug",
+             "description": "both arms round this person (in the same set)"
+            },
+            "hold": {
+             "type": "object",
+             "additionalProperties": false,
+             "required": [
+              "who"
+             ],
+             "properties": {
+              "who": {
+               "$ref": "#/$defs/slug"
+              },
+              "side": {
+               "enum": [
+                "L",
+                "R"
+               ]
+              },
+              "their": {
+               "enum": [
+                "L",
+                "R"
+               ]
+              },
+              "k": {
+               "type": "number",
+               "minimum": 0,
+               "maximum": 1
+              }
+             },
+             "description": "a hand in this person's hand"
+            },
+            "hand": {
+             "type": "object",
+             "additionalProperties": false,
+             "required": [
+              "at"
+             ],
+             "properties": {
+              "side": {
+               "enum": [
+                "L",
+                "R"
+               ]
+              },
+              "at": {
+               "type": "array",
+               "items": {
+                "type": "number",
+                "minimum": -2,
+                "maximum": 2.5
+               },
+               "minItems": 3,
+               "maxItems": 3
+              },
+              "k": {
+               "type": "number",
+               "minimum": 0,
+               "maximum": 1
+              }
+             },
+             "description": "a hand to a point of their own: [right, up, fwd] m from their feet (a phone held up to look at)"
+            },
+            "prop": {
+             "enum": [
+              "phone",
+              "walkie"
+             ],
+             "description": "a thing in the right hand"
+            },
+            "look": {
+             "$ref": "#/$defs/slug",
+             "description": "where their eyes go: 'lens' (into the camera), 'prop', or someone in the set"
+            }
+           }
+          },
+          "minItems": 0,
+          "maxItems": 7,
+          "description": "a shot's changes to its set's people as it starts: where they stand, whom they face, their pose, a walk, a hug"
          }
         }
        },
@@ -2840,6 +3606,255 @@
       },
       "place": {
        "$ref": "#/$defs/placeRef"
+      },
+      "set": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "room"
+       ],
+       "properties": {
+        "room": {
+         "enum": [
+          "bank-office",
+          "school",
+          "hideout",
+          "pizzeria",
+          "apartment",
+          "garage",
+          "steps",
+          "park",
+          "lobby",
+          "plaza",
+          "alley"
+         ]
+        },
+        "light": {
+         "enum": [
+          "day",
+          "golden",
+          "night"
+         ]
+        },
+        "sign": {
+         "type": "string",
+         "maxLength": 40
+        },
+        "people": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+           "who",
+           "at"
+          ],
+          "properties": {
+           "who": {
+            "$ref": "#/$defs/beingRef"
+           },
+           "at": {
+            "type": "array",
+            "items": {
+             "type": "number",
+             "minimum": -30,
+             "maximum": 30
+            },
+            "minItems": 2,
+            "maxItems": 2
+           },
+           "face": {
+            "oneOf": [
+             {
+              "$ref": "#/$defs/slug"
+             },
+             {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360
+             }
+            ]
+           },
+           "pose": {
+            "enum": [
+             "idle",
+             "talk",
+             "phone",
+             "arms",
+             "argue",
+             "shrug",
+             "wave",
+             "cheer",
+             "drink",
+             "leanBar",
+             "sit",
+             "sitTalk",
+             "kneel",
+             "crouch",
+             "walk",
+             "walkCool",
+             "jog"
+            ]
+           },
+           "seat": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1.2
+           },
+           "y": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+           },
+           "k": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+           },
+           "hidden": {
+            "type": "boolean"
+           },
+           "walk": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+             "to"
+            ],
+            "properties": {
+             "to": {
+              "type": "array",
+              "items": {
+               "type": "number",
+               "minimum": -30,
+               "maximum": 30
+              },
+              "minItems": 2,
+              "maxItems": 2
+             },
+             "secs": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 12
+             },
+             "after": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 30
+             },
+             "clip": {
+              "enum": [
+               "walk",
+               "walkCool",
+               "walkHeavy",
+               "jog"
+              ]
+             },
+             "then": {
+              "enum": [
+               "idle",
+               "talk",
+               "phone",
+               "arms",
+               "argue",
+               "shrug",
+               "wave",
+               "cheer",
+               "drink",
+               "leanBar",
+               "sit",
+               "sitTalk",
+               "kneel",
+               "crouch",
+               "walk",
+               "walkCool",
+               "jog"
+              ]
+             }
+            }
+           },
+           "hug": {
+            "$ref": "#/$defs/slug",
+            "description": "both arms round this person (in the same set)"
+           },
+           "hold": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+             "who"
+            ],
+            "properties": {
+             "who": {
+              "$ref": "#/$defs/slug"
+             },
+             "side": {
+              "enum": [
+               "L",
+               "R"
+              ]
+             },
+             "their": {
+              "enum": [
+               "L",
+               "R"
+              ]
+             },
+             "k": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+             }
+            },
+            "description": "a hand in this person's hand"
+           },
+           "hand": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+             "at"
+            ],
+            "properties": {
+             "side": {
+              "enum": [
+               "L",
+               "R"
+              ]
+             },
+             "at": {
+              "type": "array",
+              "items": {
+               "type": "number",
+               "minimum": -2,
+               "maximum": 2.5
+              },
+              "minItems": 3,
+              "maxItems": 3
+             },
+             "k": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+             }
+            },
+            "description": "a hand to a point of their own: [right, up, fwd] m from their feet (a phone held up to look at)"
+           },
+           "prop": {
+            "enum": [
+             "phone",
+             "walkie"
+            ],
+            "description": "a thing in the right hand"
+           },
+           "look": {
+            "$ref": "#/$defs/slug",
+            "description": "where their eyes go: 'lens' (into the camera), 'prop', or someone in the set"
+           }
+          }
+         },
+         "minItems": 0,
+         "maxItems": 7
+        }
+       },
+       "description": "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand"
       }
      }
     },
@@ -4280,15 +5295,51 @@
          },
          "heading": {
           "$ref": "#/$defs/heading"
+         },
+         "side": {
+          "enum": [
+           -1,
+           1
+          ],
+          "description": "which pavement: -1 the kerb side of the place's lane (the default), 1 across the street"
+         },
+         "name": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "who saw him, on the SPOTTED! banner ('The lookout at the gate')"
          }
         }
        },
        "minItems": 1,
        "maxItems": 8
       },
+      "to": {
+       "$ref": "#/$defs/placeRef",
+       "description": "get here unseen (the step ends there)"
+      },
+      "secs": {
+       "type": "number",
+       "minimum": 5,
+       "maximum": 300,
+       "description": "stay unseen this long (the step ends then)"
+      },
+      "mode": {
+       "enum": [
+        "walk",
+        "car"
+       ],
+       "description": "on foot (the default: he gets out) or at the wheel"
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      },
+      "label": {
+       "type": "string",
+       "maxLength": 16
+      },
       "radius": {
        "type": "number",
-       "minimum": 10,
+       "minimum": 1,
        "maximum": 80
       },
       "detect": {
@@ -4365,6 +5416,9 @@
            }
           }
          }
+        },
+        {
+         "description": "seen: fail (the default: SPOTTED!, then MISSION FAILED), a set (it costs, and they look away a moment), a goto, or a pursuit to lose"
         }
        ]
       },
@@ -4634,6 +5688,174 @@
        "type": "number",
        "minimum": 0,
        "maximum": 0.5
+      },
+      "ally": {
+       "$ref": "#/$defs/slug",
+       "description": "an ally step's car (its ally id), taken on from where it stopped"
+      },
+      "name": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "who": {
+       "$ref": "#/$defs/castRef"
+      },
+      "car": {
+       "type": "string",
+       "maxLength": 48,
+       "pattern": "^(sedan|suv|taxi|pickup|van|minivan|[a-z0-9][a-z0-9.-]{0,47})$"
+      },
+      "color": {
+       "$ref": "#/$defs/colour"
+      },
+      "hp": {
+       "type": "number",
+       "minimum": 20,
+       "maximum": 400
+      },
+      "knock": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 30
+      },
+      "set": {
+       "$ref": "#/$defs/set"
+      },
+      "why": {
+       "$ref": "#/$defs/line"
+      },
+      "wreckWhy": {
+       "$ref": "#/$defs/line"
+      },
+      "hitLine": {
+       "$ref": "#/$defs/line"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "to"
+     ],
+     "properties": {
+      "type": {
+       "const": "ally"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "who": {
+       "$ref": "#/$defs/castRef"
+      },
+      "ally": {
+       "$ref": "#/$defs/slug",
+       "description": "its car's id (default 'ally'): a later ally or convoy step takes the same car on"
+      },
+      "name": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "car": {
+       "type": "string",
+       "maxLength": 48,
+       "pattern": "^(sedan|suv|taxi|pickup|van|minivan|[a-z0-9][a-z0-9.-]{0,47})$",
+       "description": "a city body or one of the pack's vehicles by id"
+      },
+      "color": {
+       "$ref": "#/$defs/colour"
+      },
+      "from": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "to": {
+       "oneOf": [
+        {
+         "$ref": "#/$defs/placeRef"
+        },
+        {
+         "const": "player"
+        }
+       ]
+      },
+      "speed": {
+       "type": "number",
+       "minimum": 4,
+       "maximum": 30
+      },
+      "secs": {
+       "type": "number",
+       "minimum": 10,
+       "maximum": 900
+      },
+      "near": {
+       "type": "number",
+       "minimum": 6,
+       "maximum": 60
+      },
+      "out": {
+       "type": "boolean"
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      },
+      "flag": {
+       "$ref": "#/$defs/flag"
       }
      }
     },
@@ -4735,7 +5957,8 @@
       "cue": {
        "type": "string",
        "maxLength": 16,
-       "pattern": "^[a-z][a-z-]{0,15}$"
+       "pattern": "^[a-z][a-z0-9-]{0,15}$",
+       "description": "a sound when it fires: one of Mog City's by name, or a walkie-talkie's: walkie (one beep), walkie2, walkie3"
       },
       "say": {
        "$ref": "#/$defs/sayLine"
@@ -4946,6 +6169,33 @@
       },
       "text": {
        "$ref": "#/$defs/label"
+      },
+      "to": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "crew": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 4
+      },
+      "ram": {
+       "type": "boolean"
+      },
+      "ramSpeed": {
+       "type": "number",
+       "minimum": 5,
+       "maximum": 30
+      },
+      "back": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 40
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      },
+      "flag": {
+       "$ref": "#/$defs/flag"
       }
      }
     },
@@ -5040,6 +6290,238 @@
        "type": "number",
        "minimum": 1,
        "maximum": 8
+      },
+      "limit": {
+       "type": "number",
+       "minimum": 10,
+       "maximum": 120,
+       "description": "mph"
+      },
+      "limitSecs": {
+       "type": "number",
+       "minimum": 0.5,
+       "maximum": 15
+      },
+      "fail": {
+       "enum": [
+        "hard",
+        "soft"
+       ]
+      },
+      "why": {
+       "$ref": "#/$defs/line"
+      },
+      "warn": {
+       "$ref": "#/$defs/line"
+      },
+      "set": {
+       "$ref": "#/$defs/set"
+      },
+      "flag": {
+       "$ref": "#/$defs/flag"
+      },
+      "drop": {
+       "type": "boolean"
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      },
+      "pickObjective": {
+       "$ref": "#/$defs/objective"
+      },
+      "radius": {
+       "type": "number",
+       "minimum": 3,
+       "maximum": 60
+      },
+      "comfort": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "label": {
+         "type": "string",
+         "maxLength": 24
+        },
+        "start": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "refill": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 0.5
+        },
+        "fail": {
+         "enum": [
+          "hard",
+          "soft"
+         ]
+        },
+        "flag": {
+         "$ref": "#/$defs/flag"
+        },
+        "why": {
+         "$ref": "#/$defs/line"
+        },
+        "set": {
+         "$ref": "#/$defs/set"
+        },
+        "drain": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [],
+         "properties": {
+          "brake": {
+           "type": "number",
+           "minimum": 0,
+           "maximum": 1
+          },
+          "lateral": {
+           "type": "number",
+           "minimum": 0,
+           "maximum": 1
+          },
+          "hit": {
+           "type": "number",
+           "minimum": 0,
+           "maximum": 1
+          },
+          "bump": {
+           "type": "number",
+           "minimum": 0,
+           "maximum": 1
+          },
+          "time": {
+           "type": "number",
+           "minimum": 0,
+           "maximum": 0.2
+          }
+         }
+        },
+        "lines": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+           "below",
+           "who",
+           "text"
+          ],
+          "properties": {
+           "below": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+           },
+           "who": {
+            "$ref": "#/$defs/castRef"
+           },
+           "text": {
+            "$ref": "#/$defs/speech"
+           }
+          }
+         },
+         "minItems": 0,
+         "maxItems": 6
+        }
+       }
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type"
+     ],
+     "properties": {
+      "type": {
+       "const": "car"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "name": {
+       "$ref": "#/$defs/slug",
+       "description": "what a later car step calls it, to take it away"
+      },
+      "car": {
+       "type": "string",
+       "maxLength": 48,
+       "pattern": "^(sedan|suv|taxi|pickup|van|minivan|[a-z0-9][a-z0-9.-]{0,47})$"
+      },
+      "color": {
+       "$ref": "#/$defs/colour"
+      },
+      "heading": {
+       "$ref": "#/$defs/heading"
+      },
+      "back": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 60
+      },
+      "kerb": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 8
+      },
+      "remove": {
+       "type": "boolean"
       }
      }
     },

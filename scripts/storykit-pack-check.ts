@@ -7,9 +7,10 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { runnerPackOf } from './storykit-pack.ts';
 import { ownRecord, OWN_RECORD } from './storykit-own-world.ts';
+import { showcaseProblems, SHOWCASE_ID, SHOWCASE_RECORD } from './storykit-showcase.ts';
 import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/pack/gate.ts';
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
-import { SCHEMA } from '../storykit/pack/schema.mjs';
+import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS } from '../storykit/pack/schema.mjs';
 import { voiceStatus, saveVoiceClip, readManifest } from '../storykit/pack/voice-store.mjs';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
@@ -152,8 +153,71 @@ export function runStoryPackChecks(ok: Ok) {
   const onMc = (edit: (p: any) => void = () => {}) => { const p = clone(NY); p.base = { ...MC }; edit(p); return p; };
   { const r = gatePack(onMc()); const w = r.ok ? toRunnerPack(r.pack!) as any : null;
     ok('a New York pack on Mog City\'s engine passes, and its world names the engine', r.ok && w?.engine === 'mogcity-1' && w?.city === 'ny', r.problems.join(' | ')); }
-  { const r = gatePack(onMc());
-    ok('a step Mog City has no part for (passenger) is a warning there, never silent', r.warnings.some((x) => /'passenger' has no Mog City part yet/.test(x)), r.warnings.join(' | ')); }
+  { const r = gatePack(onMc((p) => { m1(p).steps.push({ type: 'patrol', count: 1 }); }));
+    ok('a step Mog City has no part for (patrol) is a warning there, never silent', r.warnings.some((x) => /'patrol' has no Mog City part yet/.test(x)), r.warnings.join(' | ')); }
+
+  console.log('\n  the play steps a long story needs (Mog City\'s runner plays them: stealth, convoy, ally, roadblock, a passenger\'s ride, timers by name, the money goal)');
+  ok('only patrol and wallet are still unplayed on Mog City (the rest are played)', JSON.stringify(MOGCITY_STUBS) === '["patrol","wallet"]', JSON.stringify(MOGCITY_STUBS));
+  const play = (edit: (p: any) => void = () => {}) => onMc((p) => {
+    p.hud.meters[0] = { id: 'cash', label: 'RANSOM', kind: 'money', start: 345000, min: 0, max: 1000000, goal: 1000000 };
+    m1(p).time = 'midday';
+    m1(p).steps = [
+      { type: 'timer', name: 'school', seconds: 240, label: 'SCHOOL', fail: 'soft', set: { meters: { cash: { add: -5000 } } } },
+      { type: 'ally', id: 'rae-drives', who: 'rae', ally: 'rae', name: "Rae's car", from: '@tribeca', to: 'player', secs: 60 },
+      { type: 'convoy', ally: 'rae', route: ['@soho', '@les'], band: [6, 55], label: 'RAE', fail: 'hard' },
+      { type: 'timer', name: 'school', add: -30 },
+      { type: 'passenger', who: 'rae', from: '@soho', to: '@pickup', limit: 35, fail: 'soft', set: { meters: { cash: { add: -1000 } } }, comfort: { label: 'RAE', lines: [{ below: 0.4, who: 'rae', text: 'Easy. Please.' }] } },
+      { type: 'roadblock', at: '@les', cars: 3, kind: 'crew', crew: 2, to: '@gallery', text: 'They blocked Orchard St.' },
+      { type: 'drive', to: '@gallery', stopTimer: 'school' },
+      { type: 'stealth', units: [{ '@': 'soho' }, { '@': 'soho', roam: 20, side: 1 }], to: '@gallery', hint: 'Keep out of the cones.' },
+      { type: 'stealth', units: [{ '@': 'soho' }], secs: 15, onDetect: { set: { meters: { cash: { add: -2000 } } } } },
+      { type: 'car', name: 'van', car: 'minivan', color: '#2F5D3A', at: '@sidedoor' },
+      { type: 'trigger', area: { '@': 'soho', r: 120 }, cue: 'walkie2' },
+      { type: 'drive', to: '@sidedoor', during: [
+        { at: 1, type: 'call', who: 'rae', auto: true, inCar: true, lines: [{ who: 'rae', text: 'I see the van on the map.' }], hold: { pause: [{ who: 'rae', text: 'Who is it? I will hold.' }], resume: [{ who: 'rae', text: 'Back. Where was I.' }] } },
+        { at: 8, type: 'call', who: 'dispatch', interrupts: true, lines: [{ who: 'dispatch', text: 'Car nine, where are you?' }] }] },
+      { type: 'car', name: 'van', remove: true },
+    ];
+    p.places.sidedoor = { '@': 'soho', name: 'the side door', offset: { right: 24, fwd: 0 } };
+    edit(p);
+  });
+  { const r = gatePack(play()), w = r.ok ? toRunnerPack(r.pack!) as any : null, st = w?.missions[0].steps || [];
+    ok('stealth, an ally\'s car, a convoy with it, a passenger\'s ride with a limit and comfort, a roadblock, timers by name: all pass on mogcity-1, none a stub', r.ok && !r.warnings.some((x) => /has no Mog City part/.test(x)), r.problems.concat(r.warnings).slice(0, 4).join(' | '));
+    ok('the runner gets them with display names (an ally\'s driver, a passenger\'s comfort lines), the money goal and the mission\'s pinned time',
+      !!w && st[1].who === 'Rae Okafor' && st[1].to === 'player' && st[4].comfort.lines[0].who === 'Rae Okafor' && w.hud.meters[0].goal === 1000000 && w.missions[0].time === 'midday', JSON.stringify(st[4]?.comfort || null));
+    ok('a parked car, a walkie cue, call waiting and a sub-place (offset) pass and reach the runner', r.ok && st[9]?.type === 'car' && st[10]?.cue === 'walkie2' && st[11]?.during?.[1]?.interrupts === true && w.places.sidedoor.offset.right === 24, JSON.stringify(st[11]?.during?.[1] || null));
+    ok("the passenger's comfort line is voiced as every other line", r.lines.some((l) => l.text === 'Easy. Please.' && l.who === 'rae'), r.lines.map((l) => l.id).join(',')); }
+  const stepAt = (p: any, type: string) => m1(p).steps.find((s: any) => s.type === type);
+  bad("a convoy taking on an ally's car no ally step drives", play(), (p) => { stepAt(p, 'convoy').ally = 'nobody'; }, /no ally step before it .* drives a car "nobody"/);
+  bad('a timer tightened that never started', play(), (p) => { m1(p).steps.splice(0, 1); }, /adds to the timer "school", which no timer step before it starts/);
+  bad("a drive that beats a timer that isn't running", play(), (p) => { stepAt(p, 'drive').stopTimer = 'bank'; }, /stopTimer: no timer step before it starts "bank"/);
+  bad('a speed limit on a passenger going nowhere', play(), (p) => { delete stepAt(p, 'passenger').to; delete stepAt(p, 'passenger').from; }, /a speed limit or comfort goes with a ride somewhere/);
+  bad('a stealth with no watchers', play(), (p) => { stepAt(p, 'stealth').units = []; }, /units/);
+  bad('a parked car taken away with no id', play(), (p) => { m1(p).steps.push({ type: 'car', remove: true }); }, /a car is taken away by its name/);
+  { const r = gatePack(play((p) => { p.places.sidedoor.offset.right = 400; })); ok('a sub-place more than 60 m off its key is clamped to 60', r.ok && r.clamped.some((x) => /offset\.right/.test(x)), r.problems.concat(r.clamped).join(' | ')); }
+  bad('an ally driving to a place the city does not have', play(), (p) => { stepAt(p, 'ally').to = '@atlantis'; }, /"@atlantis" is not a place in New York/);
+  { const r = gatePack(play((p) => { p.hud.meters[0].goal = 0; })); ok('a money goal below $1 is clamped, as every number', r.ok && r.clamped.some((x) => /goal/.test(x)), r.problems.concat(r.clamped).join(' | ')); }
+  bad('a roadblock on the older engine', NY, (p) => { m1(p).steps.push({ type: 'roadblock', at: '@les' }); }, /roadblock plays on Mog City's engine/);
+
+  console.log('\n  a showcase (a first-party world from the repo, longer than a Create: gate rule 15)');
+  const long = (id: string) => play((p) => {
+    p.id = id;
+    const mk = (a: number, k: number) => ({ ...clone(m1(p)), id: `PT-${a * 6 + k + 1}`, title: `Mission ${a * 6 + k + 1}` });
+    p.acts = [0, 1, 2].map((a) => ({ id: `act${a + 1}`, name: `ACT ${'I'.repeat(a + 1)}`, missions: [0, 1, 2, 3, 4, 5].map((k) => mk(a, k)) }));
+  });
+  { const L = long(SHOWCASE_PACKS[0]), r = gatePack(L, { showcase: true }), plain = gatePack(L);
+    ok(`a showcase (${SHOWCASE_PACKS[0]}) may hold ${L.acts.flatMap((a: any) => a.missions).length} missions in acts of 6 (up to ${SHOWCASE.missionsPerAct} each, ${SHOWCASE.acts} acts)`, r.ok, r.problems.slice(0, 3).join(' | '));
+    ok('the same pack without the showcase flag is held to a Create\'s limits', !plain.ok && plain.problems.some((x) => /the limit is 6|at most 9/.test(x)), plain.problems.slice(0, 2).join(' | ')); }
+  { const r = gatePack(long('a-creators-world'), { showcase: true });
+    ok('only a world listed in SHOWCASE_PACKS may be gated as a showcase', !r.ok && r.problems.some((x) => /A showcase is one of GameMog's own worlds/.test(x)), r.problems.join(' | ')); }
+  { const r = gatePack(long(SHOWCASE_PACKS[0]), { showcase: true, parent: gatePack(onMc()).pack });
+    ok('a Mog is never a showcase', !r.ok && r.problems.some((x) => /never a Mog/.test(x)), r.problems.join(' | ')); }
+  { const G = (sc: boolean) => { const p = long(SHOWCASE_PACKS[0]); p.vehicles = [{ stock: 'gt', id: 'johns-car', label: "John's car", plate: 'JM 0838' }]; p.ride = 'johns-car'; for (const a of p.acts) for (const m of a.missions) m.vehicle = 'johns-car'; return gatePack(p, { showcase: sc }); };
+    const r = G(true), w = r.ok ? toRunnerPack(r.pack!) as any : null, plain = G(false);
+    ok("a showcase drives the Marin GT (stock gt): the runner gets car { model: 'mogcity/gt', label, plate }", r.ok && w?.car?.model === 'mogcity/gt' && w.car.plate === 'JM 0838' && w.car.label === "John's car", r.problems.slice(0, 2).join(' | ') + JSON.stringify(w?.car));
+    ok('a Create never drives it', !plain.ok && plain.problems.some((x) => /driven only in GameMog's own showcase worlds/.test(x)), plain.problems.slice(0, 2).join(' | ')); }
+  { const users = ['lib', 'app'].flatMap((d) => readdirSync(d, { recursive: true }).map(String).filter((f) => /\.(ts|tsx|mjs|js)$/.test(f)).map((f) => `${d}/${f}`)).filter((f) => /showcase\s*:/.test(R(f)));
+    ok('the store, the builder and the pages never gate a showcase (no "showcase:" in lib/ or app/)', users.length === 0, users.join(', ')); }
   { const r = gatePack(onMc((p) => { p.dressing.weather = 'rain'; }));
     ok('weather other than clear is kept as the setting and noted (Mog City draws none yet)', r.ok && r.warnings.some((x) => /Mog City shows no weather yet/.test(x)), r.warnings.join(' | ')); }
   { const r = gatePack(onMc((p) => { m1(p).steps.unshift({ type: 'scene', name: 'm1.arrival' }); }));
@@ -208,13 +272,17 @@ export function runStoryPackChecks(ok: Ok) {
   const forgeRt = R('scripts/forge/clips-runtime.mjs'), served = R('public/storykit/forge/clips.js');
   ok('the headshots\' clip binder (forge/clips.js) is the forge\'s clips-runtime.mjs', served.endsWith(forgeRt));
   for (const f of readdirSync('storykit/packs').filter((x) => x.endsWith('.json'))) {
-    const id = f.replace(/\.json$/, ''), src = JSON.parse(R(`storykit/packs/${f}`)), g = gatePack(src, { own: id === 'mog-city' });
-    ok(`${id}: passes the gate with no warnings`, g.ok && !g.warnings.length && !g.clamped.length, g.problems.concat(g.warnings, g.clamped).slice(0, 3).join(' | '));
+    const id = f.replace(/\.json$/, ''), src = JSON.parse(R(`storykit/packs/${f}`)), g = gatePack(src, { own: id === 'mog-city', showcase: SHOWCASE_PACKS.includes(id) });
+    // (a showcase's story may name another city in its dialogue, as Pickup Time names Miami: the gate notes it, never on screen)
+    const warns = g.warnings.filter((w: string) => !(SHOWCASE_PACKS.includes(id) && /\(dialogue, so allowed\)$/.test(w)));
+    ok(`${id}: passes the gate with no warnings${SHOWCASE_PACKS.includes(id) ? ' (but another city named in dialogue)' : ''}`, g.ok && !warns.length && !g.clamped.length, g.problems.concat(warns, g.clamped).slice(0, 3).join(' | '));
     if (!g.ok) continue;
     const out = `public/storykit/packs/${id}.json`, want = JSON.stringify(runnerPackOf(g.pack), null, 1) + '\n';
     ok(`${id}: its built pack is current (npm run storykit:pack -- ${id})`, existsSync(out) && R(out) === want);
     // (Mog City's own story world, as deploy/migrate.mjs publishes it on the server: the record is this pack's, 5 Nov)
     if (id === 'mog-city') ok(`mog-city: ${OWN_RECORD}, the own world the migration publishes, is current (node --import ./scripts/ts-resolve.mjs scripts/storykit-own-world.ts --export)`, existsSync(OWN_RECORD) && R(OWN_RECORD) === ownRecord());
+    // (Pickup Time, the showcase deploy/migrate.mjs publishes with its files: the record names each by its SHA-256, 7 Nov)
+    if (id === SHOWCASE_ID) { const sp = showcaseProblems(); ok(`${id}: ${SHOWCASE_RECORD}, the showcase the migration publishes, its world and its clips are current (node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase.ts --export)`, !sp.length, sp.slice(0, 3).join(' | ')); }
     const v1 = JSON.parse(want), glbs = Object.values(v1.cast).map((c: any) => c.glb).filter(Boolean) as string[];
     const stamps = g.pack.cast.filter((c: any) => c.sheet).every((c: any) => existsSync(`public/storykit/cast/${id}/${c.id}.sheet.json`) && R(`public/storykit/cast/${id}/${c.id}.sheet.json`) === JSON.stringify(c.sheet, null, 1) + '\n');
     ok(`${id}: every seen person has a GLB forged from their current sheet (or a shipped one, cast[].model), and the clip pack is there`, glbs.length === g.pack.cast.filter((c: any) => c.sheet || (c.model && !c.voiceOnly)).length && glbs.every((p) => existsSync(`public/storykit/${p}`)) && stamps && existsSync(`public/storykit/${v1.clips}`), glbs.join(' '));

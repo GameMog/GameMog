@@ -6,7 +6,7 @@
  * and each is written to be harmless if what it changes is already changed.
  */
 import { DatabaseSync } from 'node:sqlite';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { register } from 'node:module';
@@ -1376,6 +1376,97 @@ export const MIGRATIONS = [
         n += Number(db.prepare('UPDATE games SET art_avatar = ? WHERE id = ? AND art_avatar IS NULL').run(file(`${a.slug}-sky.jpg`), g.id).changes);
       }
       return `${n} of ${SKY_HEADSHOTS_2.length} headshots${left.length ? `; left alone: ${left.join(', ')}` : ''}`;
+    },
+  },
+  {
+    // 7 Nov, the owner: Pickup Time, GameMog's first showcase story world (15 missions on Mog City's engine, the owner's
+    // story), published PUBLIC at /g/pickup-time as a first-party world. Its record, deploy/migrations/pickup-time-story.json
+    // (scripts/storykit-showcase.ts --export; `npm run check` holds it current), names the gated pack (a showcase,
+    // gated { showcase: true }, which the store's open never passes, so the store draft is written here as
+    // 2026-11-05-mog-city-own-story writes Mog City's), the game's meta and every file of the world by its SHA-256: the
+    // nine hand-built bodies (the cast registry's GLBs in this build, public/storykit/cast/hand), its 910 voice clips
+    // (deploy/migrations/pickup-time/voice) and the sealed world (deploy/migrations/pickup-time/world.json). A file
+    // whose bytes are not the record's is refused and nothing is written. The files go into the Story Kit store beside
+    // this database as a kept draft (never swept), served at /storykit/f/<sha256>.<ext> like every story world's; the
+    // game gets its cover, key art and John's headshot (the homepage's Jump in). Once only: a showcase already there
+    // (meta.storykit.packId) is left alone, so is another game at /g/pickup-time or with its id. It waits (unrecorded,
+    // tried at the next boot) while the Story Kit is off on this server or the store has no room for it
+    id: '2026-11-07-pickup-time',
+    async: true,
+    async run(db, path) {
+      if (!['on', 'owner'].includes(String(process.env.STORYKIT ?? '').trim().toLowerCase())) throw new Error('waiting: the Story Kit is off on this server (STORYKIT)');
+      const rec = file('pickup-time-story.json'), worldBytes = file('pickup-time/world.json');
+      if (!rec || !worldBytes) throw new Error('deploy/migrations/pickup-time-story.json or pickup-time/world.json is not in this build');
+      const R = JSON.parse(rec.toString('utf8'));
+      if (R.v !== 1 || R.slug !== 'pickup-time' || R.pack?.id !== 'pickup-time' || R.pack.storykit !== 2 || R.meta?.mode !== 'storykit' || R.meta.storykit?.showcase !== true || !Array.isArray(R.files)) throw new Error('pickup-time-story.json is not the Pickup Time showcase');
+      const sha = (b) => createHash('sha256').update(b).digest('hex');
+      const had = db.prepare("SELECT slug, hidden FROM games WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.packId') = 'pickup-time' AND json_extract(meta, '$.storykit.showcase') = 1").get();
+      if (had) return `already there: /g/${had.slug} (hidden ${had.hidden})`;
+      if (db.prepare('SELECT 1 FROM games WHERE slug = ?').get(R.slug)) return `left alone: /g/${R.slug} is another game`;
+      if (db.prepare('SELECT 1 FROM games WHERE id = ?').get(R.id)) return 'left alone: its id is taken';
+      const cover = file('pickup-time-cover.jpg'), icon = file('pickup-time-icon.jpg'), wide = file('pickup-time-wide.jpg'), avatar = file('pickup-time-sky.jpg');
+      if (!cover || !icon || !wide || !avatar) throw new Error('deploy/migrations/pickup-time-{cover,icon,wide,sky}.jpg are not in this build');
+
+      // every file, read and checked against the record before anything is written
+      if (sha(worldBytes) !== R.world?.hash || worldBytes.length !== R.world.bytes) throw new Error('pickup-time/world.json is not the record\'s world');
+      const SRC = /^(public\/storykit\/cast\/hand\/[a-z0-9-]+\.glb|deploy\/migrations\/pickup-time\/voice\/[0-9a-f]{8}-[0-9a-f]{8}\.ogg)$/;
+      const blobs = new Map([[R.world.hash, { ext: 'json', bytes: worldBytes }]]);
+      for (const f of R.files) {
+        if (!['glb', 'voice'].includes(f.kind) || !SRC.test(String(f.src)) || !/^[0-9a-f]{64}$/.test(f.hash) || f.ext !== (f.kind === 'glb' ? 'glb' : 'ogg')) throw new Error(`pickup-time-story.json: a bad file (${f.kind} ${f.name})`);
+        if (!existsSync(f.src)) throw new Error(`${f.src} is not in this build`);
+        const b = readFileSync(f.src);
+        if (sha(b) !== f.hash || b.length !== f.bytes) throw new Error(`${f.src} is not the file the world names (its SHA-256 differs)`);
+        if (f.kind === 'glb' ? b.readUInt32LE(0) !== 0x46546c67 : b.subarray(0, 4).toString('latin1') !== 'OggS') throw new Error(`${f.src} is not a ${f.kind === 'glb' ? 'GLB' : 'Ogg file'}`);
+        blobs.set(f.hash, { ext: f.ext, bytes: b });
+      }
+      const named = new Set(R.files.map((f) => f.hash));
+      for (const m of worldBytes.toString('utf8').matchAll(/\/storykit\/f\/([0-9a-f]{64})\.([a-z]{3,4})/g)) if (!named.has(m[1])) throw new Error(`the world names /storykit/f/${m[1]}.${m[2]}, which the record does not hold`);
+
+      // (a fresh disk's database may lack the columns the app adds at its first start: added here as lib/db.ts adds them)
+      if (!columns(db, 'games').has('art_avatar')) db.exec('ALTER TABLE games ADD COLUMN art_avatar BLOB');
+      const cols = columns(db, 'games');
+      if (!cols.has('hidden')) throw new Error('the games table has no hidden column');
+      const { StoryStore, LIMITS } = await storykit();
+      const s = new StoryStore(join(dirname(resolve(path)), 'storykit'));
+      const fresh = [...blobs].filter(([h]) => !s.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(h));
+      const need = fresh.reduce((n, [, b]) => n + b.bytes.length, 0);
+      if (s.used() + need > LIMITS.disk) throw new Error(`waiting: the Story Kit store has no room for Pickup Time (${need} bytes more than ${s.used()} used of ${LIMITS.disk})`);
+
+      const storeId = randomUUID(), t = Date.now();
+      for (const [h, b] of fresh) {
+        const p = s.blobPath(h, b.ext);
+        if (existsSync(p) && sha(readFileSync(p)) === h) continue;
+        mkdirSync(dirname(p), { recursive: true });
+        const tmp = `${p}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+        writeFileSync(tmp, b.bytes); renameSync(tmp, p);
+      }
+      s.db.exec('BEGIN');
+      try {
+        const blob = s.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)');
+        for (const [h, b] of blobs) blob.run(h, b.ext, b.bytes.length, t);
+        s.db.prepare("INSERT INTO drafts (id, token_hash, pack, parent, state, created_at, touched_at) VALUES (?, ?, ?, NULL, 'draft', ?, ?)")
+          .run(storeId, sha(randomBytes(24)), JSON.stringify(R.pack), t, t);
+        const row = s.db.prepare('INSERT INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)');
+        for (const f of R.files) row.run(storeId, f.kind, f.name, f.hash, f.ext, f.bytes, f.meta ? JSON.stringify(f.meta) : null, t);
+        row.run(storeId, 'pack', 'world.json', R.world.hash, 'json', R.world.bytes, null, t);
+        s.db.exec('COMMIT');
+      } catch (e) { s.db.exec('ROLLBACK'); throw e; }
+      try {
+        const meta = { ...R.meta, storykit: { ...R.meta.storykit, pack: storeId, world: R.world.hash } };
+        const code = `GameMog.world({ storykit: ${JSON.stringify(R.pack)} });\n`;
+        const g = { id: R.id, slug: R.slug, title: R.meta.title, tagline: R.meta.tagline, blurb: R.meta.blurb, difficulty: 'endless', spec: '{}',
+          prompt: 'first-party world: pickup-time', featured: 0, created_at: t, format: 'world', code, meta: JSON.stringify(meta),
+          cover, art_icon: icon, art_wide: wide, art_avatar: avatar, parent_id: null, root_id: null, generation: 0, mog_prompt: null, hidden: 0 };
+        const keys = Object.keys(g).filter((k) => cols.has(k));
+        db.prepare(`INSERT INTO games (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`).run(...keys.map((k) => g[k]));
+        // kept with the game: sealed as the record's world, never swept
+        if (!s.db.prepare("UPDATE drafts SET state = 'kept', world = ?, game_id = ? WHERE id = ?").run(R.world.hash, R.id, storeId).changes) throw new Error('the store could not keep the world');
+        return `published /g/${R.slug} (store draft ${storeId}, world ${R.world.hash.slice(0, 12)}, ${R.files.length} files, ${need} bytes stored)`;
+      } catch (e) {
+        // (the games row is rolled back with the transaction; the store draft goes with it, and the blobs only it held)
+        try { const d = s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(storeId); if (d) { s.release(storeId); s.abandon(s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(storeId)); } } catch { /* swept later */ }
+        throw e;
+      }
     },
   },
 ];

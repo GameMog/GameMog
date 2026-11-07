@@ -610,7 +610,7 @@
    "name": "Mateo",
    "role": "a young man in his twenties who carries the story (the Story Kit's hand-built young hero)",
    "glb": "cast/hand/young-hero.glb",
-   "bytes": 2729776,
+   "bytes": 2723584,
    "rig": "cast66",
    "clips": {
     "from": "cast/cast-clips.glb",
@@ -657,7 +657,7 @@
    "name": "Augustin",
    "role": "a silver-bearded boss in his sixties who runs the block from a back office, soft-spoken and ruthless (the Story Kit's hand-built old boss; a villain or a boss by default, a hero when the story is his)",
    "glb": "cast/hand/old-boss.glb",
-   "bytes": 2263444,
+   "bytes": 2259316,
    "rig": "cast66",
    "clips": {
     "from": "cast/cast-clips.glb",
@@ -744,6 +744,242 @@
    "seed": "storykit/cast/seeds.json#hand/young-mother",
    "credit": "An original Story Kit character (an invented person, no real likeness): the Character Forge's young-mother anchor (MakeHuman base body, clothes and hair, CC0 1.0) polished by hand; moves from the Story Kit's clip pack (cast/cast-clips.glb: CMU Graphics Lab Motion Capture Database clips)."
   },
+  "hand/pedro": {
+   "kind": "person",
+   "world": "Story Kit",
+   "built": "hand",
+   "name": "Pedro Delgado",
+   "role": "an underboss in his fifties, black-bearded and silver-haired, controlled and menacing, who lost everything on a job gone wrong and wants it back (the Story Kit's hand-built underboss; a villain by default, a hero when the story is his)",
+   "glb": "cast/hand/pedro.glb",
+   "bytes": 2072512,
+   "rig": "cast66",
+   "clips": {
+    "from": "own",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "face": {
+    "open": 0.45,
+    "gaze": 0.18
+   },
+   "props": [],
+   "height": 1.78,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "drive",
+    "fight",
+    "hero"
+   ],
+   "anchor": "old-boss",
+   "voice": {
+    "f0": 98,
+    "near": {
+     "id": "hand-pedro",
+     "kokoro": "am_onyx",
+     "speed": 0.92,
+     "pitch": -0.6,
+     "description": "a man in his fifties, low controlled baritone, quiet and precise, menace under the calm, never shouts"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#hand/pedro",
+   "credit": "An original Story Kit character (an invented person, no real likeness): Mog City's Mr. Big (MakeHuman base body, clothes and hair, CC0 1.0) with a trimmed black beard, warmer skin, wet eyes, brown irises and teeth by hand; his own clips (CMU Graphics Lab Motion Capture Database), filled from the Story Kit's clip pack (cast/cast-clips.glb). cast/hand/CREDITS.md"
+  },
+  "hand/agnes": {
+   "kind": "person",
+   "world": "Story Kit",
+   "built": "hand",
+   "name": "Agnes",
+   "role": "a white-haired retired nanny in her seventies, polite, professional and a little apologetic (the Story Kit's hand-built Nanny, Pickup Time's Agnes Teodoro)",
+   "glb": "cast/hand/agnes.glb",
+   "bytes": 2260304,
+   "rig": "cast66",
+   "clips": {
+    "from": "cast/cast-clips.glb",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "face": {
+    "open": 0.3,
+    "hair": true
+   },
+   "props": [],
+   "height": 1.58,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "drive",
+    "fight",
+    "hero"
+   ],
+   "anchor": "grandmother",
+   "voice": {
+    "f0": 150,
+    "near": {
+     "id": "hand-agnes",
+     "blend": {
+      "af_nicole": 0.7,
+      "af_kore": 0.3
+     },
+     "speed": 0.9,
+     "pitch": -0.4,
+     "description": "a woman in her seventies, a soft careful alto, formal and apologetic, a faint New York vowel"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#hand/agnes",
+   "credit": "An original Story Kit character (an invented person, no real likeness): the Character Forge's grandmother anchor (MakeHuman base body, clothes and hair, CC0 1.0) polished by hand; moves from the Story Kit's clip pack (cast/cast-clips.glb: CMU Graphics Lab Motion Capture Database clips)."
+  },
+  "hand/milo": {
+   "kind": "person",
+   "world": "Story Kit",
+   "built": "hand",
+   "child": true,
+   "name": "Milo",
+   "role": "a six-year-old boy, a first grader in a hoodie (the Story Kit's hand-built child, Pickup Time's Milo Marin)",
+   "glb": "cast/hand/milo.glb",
+   "bytes": 2973220,
+   "rig": "cast66",
+   "clips": {
+    "from": "cast/cast-clips.glb",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "face": {
+    "open": 0.4,
+    "hair": true
+   },
+   "props": [],
+   "height": 1.15,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "hero"
+   ],
+   "anchor": "teen",
+   "voice": {
+    "f0": 230,
+    "near": {
+     "id": "hand-milo",
+     "kokoro": "af_heart",
+     "speed": 1.04,
+     "pitch": 2.5,
+     "description": "a six-year-old boy, small, clear and high (Kokoro has no child voice: its best young woman's voice pitched up 2.5 semitones)"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#hand/milo",
+   "credit": "An original Story Kit character (an invented child, no real likeness): a child body made from MakeHuman's CC0 macro targets (child and baby shapes, CC0 1.0) on the Character Forge's base body, clothes and hair (CC0 1.0), polished by hand; moves from the Story Kit's clip pack (cast/cast-clips.glb: CMU Graphics Lab Motion Capture Database clips)."
+  },
+  "hand/john": {
+   "kind": "person",
+   "world": "Story Kit",
+   "built": "hand",
+   "name": "John",
+   "role": "a tired, decent man of thirty-eight in a dark jacket and open-collar shirt, a former getaway planner gone straight who runs a pizza business (Pickup Time's John Marin; a hero by default)",
+   "glb": "cast/hand/john.glb",
+   "bytes": 2209340,
+   "rig": "cast66",
+   "clips": {
+    "from": "cast/cast-clips.glb",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "face": {
+    "open": 0.4,
+    "hair": true
+   },
+   "props": [],
+   "height": 1.8,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "drive",
+    "fight",
+    "hero"
+   ],
+   "anchor": "club-promoter",
+   "voice": {
+    "f0": 108,
+    "near": {
+     "id": "hand-john",
+     "kokoro": "am_michael",
+     "speed": 0.97,
+     "pitch": -0.4,
+     "description": "a man of thirty-eight, a warm, slightly tired baritone, even and low, a planner's short sentences; strain under it when it counts"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#hand/john",
+   "credit": "An original Story Kit character (an invented person, no real likeness): the Character Forge (MakeHuman base body, clothes and hair, CC0 1.0) from his own sheet (storykit/handbuilt/john/john-marin.sheet.json) with the base suit worn whole, polished by hand; moves from the Story Kit's clip pack (cast/cast-clips.glb: CMU Graphics Lab Motion Capture Database clips)."
+  },
+  "hand/carissa": {
+   "kind": "person",
+   "world": "Story Kit",
+   "built": "hand",
+   "name": "Carissa",
+   "role": "a warm, quick-witted mother in her mid-thirties, once half of a crime duo (Pickup Time's Carissa Marin)",
+   "glb": "cast/hand/carissa.glb",
+   "bytes": 2274904,
+   "rig": "cast66",
+   "clips": {
+    "from": "cast/cast-clips.glb",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "face": {
+    "open": 0.45,
+    "hair": true
+   },
+   "props": [],
+   "height": 1.68,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "drive",
+    "fight",
+    "hero"
+   ],
+   "anchor": "office-worker",
+   "voice": {
+    "f0": 192,
+    "near": {
+     "id": "hand-carissa",
+     "kokoro": "af_bella",
+     "speed": 1.06,
+     "pitch": -0.9,
+     "description": "a woman of thirty-six, warm mezzo, quick and funny, a laugh under it and steel when it counts"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#hand/carissa",
+   "credit": "An original Story Kit character (an invented person, no real likeness): the Character Forge (MakeHuman base body, clothes and hair, CC0 1.0) from her own sheet (storykit/handbuilt/carissa/sheet.json), polished by hand; moves from the Story Kit's clip pack (cast/cast-clips.glb: CMU Graphics Lab Motion Capture Database clips)."
+  },
   "mogcity/moon": {
    "kind": "pet",
    "world": "Mog City",
@@ -759,6 +995,103 @@
     "ride"
    ],
    "credit": "Built in code for Mog City (MIT): a Maltese / Havanese type, about 4,000 combed fur clumps."
+  },
+  "hand/bunny": {
+   "kind": "person",
+   "world": "Story Kit",
+   "built": "hand",
+   "name": "Bunny Ferraby",
+   "role": "a silver-blonde loan shark in her late fifties in a plum velour tracksuit, who plays speed chess for money in the park, amused and unhurried (the Story Kit's hand-built loan shark, Pickup Time's Bunny Ferraby)",
+   "glb": "cast/hand/bunny.glb",
+   "bytes": 2492868,
+   "rig": "cast66",
+   "clips": {
+    "from": "cast/cast-clips.glb",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "face": {
+    "open": 0.4,
+    "hair": true
+   },
+   "props": [],
+   "height": 1.6,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "drive",
+    "fight",
+    "hero"
+   ],
+   "anchor": "grandmother",
+   "voice": {
+    "f0": 165,
+    "near": {
+     "id": "hand-bunny",
+     "blend": {
+      "af_alloy": 0.7,
+      "af_nicole": 0.3
+     },
+     "speed": 0.95,
+     "pitch": -1.8,
+     "description": "a woman near sixty, a smoky low alto, unhurried and amused, calls everyone sugar"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#hand/bunny",
+   "credit": "An original Story Kit character (an invented person, no real likeness): the Character Forge (MakeHuman base body, clothes and hair, CC0 1.0) from her own sheet (storykit/handbuilt/bunny/bunny.sheet.json), polished by hand (scripts/handbuilt/bunny); moves from the Story Kit's clip pack (cast/cast-clips.glb: CMU Graphics Lab Motion Capture Database clips)."
+  },
+  "hand/pell": {
+   "kind": "person",
+   "world": "Story Kit",
+   "built": "hand",
+   "name": "Pell",
+   "role": "a thin, pale loan officer in his mid-forties in a grey suit, pale blue tie, wire glasses and a lanyard badge, precise and faintly bored (the Story Kit's hand-built bank clerk, Pickup Time's Gordon Pell)",
+   "glb": "cast/hand/pell.glb",
+   "bytes": 2368512,
+   "rig": "cast66",
+   "clips": {
+    "from": "cast/cast-clips.glb",
+    "idle": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitTalk": "sitTalk",
+    "fill": "cast/cast-clips.glb"
+   },
+   "face": {
+    "open": 0.4,
+    "hair": true
+   },
+   "props": [],
+   "height": 1.84,
+   "can": [
+    "stand",
+    "walk",
+    "talk",
+    "sit",
+    "drive",
+    "fight",
+    "hero"
+   ],
+   "anchor": "office-worker",
+   "voice": {
+    "f0": 120,
+    "near": {
+     "id": "hand-pell",
+     "kokoro": "am_eric",
+     "speed": 1.04,
+     "pitch": 0,
+     "description": "a man in his forties, nasal, precise, faintly bored"
+    }
+   },
+   "seed": "storykit/cast/seeds.json#hand/pell",
+   "credit": "An original Story Kit character (an invented person, no real likeness): the Character Forge (MakeHuman base body, clothes and hair, CC0 1.0) from his own sheet (storykit/handbuilt/pell/pell.sheet.json) with the base suit worn whole (scripts/handbuilt/john/forge-base.mjs), polished by hand (scripts/handbuilt/pell); moves from the Story Kit's clip pack (cast/cast-clips.glb: CMU Graphics Lab Motion Capture Database clips)."
   }
  }
 }

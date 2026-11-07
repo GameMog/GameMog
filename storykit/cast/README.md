@@ -81,6 +81,11 @@ and can be any story's hero.
 | `hand/young-hero` | Mateo, a young man in his twenties who carries the story | `young-hero` | `hand-young-hero` (am_puck) | `cast/hand/young-hero.glb` |
 | `hand/old-boss` | Augustin, a silver-bearded boss in his sixties who runs the block from a back office, soft-spoken and ruthless | `old-boss` | `hand-old-boss` (bm_george) | `cast/hand/old-boss.glb` |
 | `hand/young-mother` | Marisol, a young woman in her twenties who carries the story | `young-mother` | `hand-young-mother` (af_heart) | `cast/hand/young-mother.glb` |
+| `hand/pedro` | Pedro Delgado, an underboss in his fifties, black-bearded and silver-haired, controlled and menacing, who lost everything on a job gone wrong and wants it back | `old-boss` | `hand-pedro` (am_onyx) | `cast/hand/pedro.glb` |
+| `hand/agnes` | Agnes, a white-haired retired nanny in her seventies, polite, professional and a little apologetic | `grandmother` | `hand-agnes` () | `cast/hand/agnes.glb` |
+| `hand/milo` | Milo, a six-year-old boy, a first grader in a hoodie | `teen` | `hand-milo` (af_heart) | `cast/hand/milo.glb` |
+| `hand/john` | John, a tired, decent man of thirty-eight in a dark jacket and open-collar shirt, a former getaway planner gone straight who runs a pizza business | `club-promoter` | `hand-john` (am_michael) | `cast/hand/john.glb` |
+| `hand/carissa` | Carissa, a warm, quick-witted mother in her mid-thirties, once half of a crime duo | `office-worker` | `hand-carissa` (af_bella) | `cast/hand/carissa.glb` |
 
 To ship a new build of one: copy its GLB to `public/storykit/cast/hand/` and set the registry's `bytes`.
 

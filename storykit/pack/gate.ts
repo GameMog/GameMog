@@ -50,6 +50,10 @@
  *      the same rules). Its lines are voiced as every other (ids OPEN.c<shot>). A Create without one passes the gate (a
  *      world from before it); the builder sends a new Create without one back (lib/storykit-build.ts).
  *
+ *  15. a showcase (gatePack(pack, { showcase: true })): one of GameMog's own first-party worlds shipped from the repo
+ *      (schema.mjs SHOWCASE_PACKS, gated so by the repo's checks only, like { own: true }; never the store, the builder or
+ *      a Mog) may be longer than a Create: SHOWCASE's bytes, acts, missions per act, steps, lines, cast and opening length.
+ *
  * toRunnerPack(pack) turns a passed pack into the runner's pack format (storykit: 1, with its engine): what the store
  * seals as a world and Mog City's runner plays (Mog City wagmi/storyrun/pack.js).
  */
@@ -58,7 +62,7 @@ import FORGE from '../../scripts/forge/character-sheet.schema.json' with { type:
 import VEHICLE_SCHEMA from '../vehicles/vehicle-sheet.schema.json' with { type: 'json' };
 import { Validator, type Schema } from './validate.ts';
 import { PLACES, CAM_POINTS, CITY_NAME, foreignIn, buildsFor, type CityId } from './cities.ts';
-import { MOGCITY_STUBS, OPENING } from './schema.mjs';
+import { MOGCITY_STUBS, OPENING, SHOWCASE, SHOWCASE_PACKS, SHOWCASE_CARS } from './schema.mjs';
 import { lintVoiceBlock, KOKORO_VOICES, lineHash as vdLineHash } from '../voices/voice-design.js';
 import { isBlocked } from '../../lib/names.ts';
 import { modelOf, nearVoice, can as modelCan } from './registry.ts';
@@ -73,7 +77,7 @@ export type GateResult = { ok: boolean; problems: string[]; warnings: string[]; 
 export const PACK_ID = (SCHEMA as Schema).$id as string;
 const LIMIT_BYTES = 160_000;
 // the step kinds whose own `at` is a place (not the side step's seconds)
-const AT_PLACE = new Set(['npc', 'roadblock', 'place', 'search']);
+const AT_PLACE = new Set(['npc', 'roadblock', 'place', 'search', 'car']);
 /** Mog City's engine (mc.gamemog.com): every Create and Mog is written for it. */
 export const MOGCITY = 'mogcity-1';
 const STUBS = new Set<string>(MOGCITY_STUBS as string[]);
@@ -92,6 +96,17 @@ export function mogBase(base: { engine: string; city: string; cityBuild: string 
 const VEHICLE: Schema | null = VEHICLE_SCHEMA as Schema;
 const PLANNED: string[] = VEHICLE?.properties?.family?.['x-planned'] || ['heavy4', 'motorbike', 'scooter', 'bicycle'];
 const validator = new Validator([SCHEMA as Schema, FORGE as Schema, ...(VEHICLE ? [VEHICLE] : [])], [/\.sheet\.identity\.age$/]);
+// a showcase's schema (rule 15): the same schema with SHOWCASE's longer lists, under its own id
+const SHOWCASE_ID = PACK_ID.replace(/\.json$/, '.showcase.json');
+const showcaseValidator = (() => {
+  const s: Json = JSON.parse(JSON.stringify(SCHEMA)); s.$id = SHOWCASE_ID;
+  const acts = s.properties.acts, missions = acts.items.properties.missions, steps = missions.items.properties.steps;
+  acts.maxItems = SHOWCASE.acts; missions.maxItems = SHOWCASE.missionsPerAct; steps.maxItems = SHOWCASE.steps;
+  acts.items.properties.timeline.maxProperties = SHOWCASE.missionsPerAct;
+  s.properties.voices.maxProperties = SHOWCASE.lines; s.properties.cast.maxItems = SHOWCASE.cast;
+  s.properties.opening.properties.shots.maxItems = SHOWCASE.openingShots; s.properties.places.maxProperties = SHOWCASE.places;
+  return new Validator([s as Schema, FORGE as Schema, ...(VEHICLE ? [VEHICLE] : [])], [/\.sheet\.identity\.age$/]);
+})();
 
 // ── rides ──
 type Family = 'car4' | 'heavy4' | 'motorbike' | 'scooter' | 'bicycle' | 'foot';
@@ -101,6 +116,7 @@ export const STOCK: Record<string, Ride> = {
   trailhand: { id: 'trailhand', label: 'Trailhand', family: 'car4', abilities: new Set(['boost']), seats: 5, stock: 'trailhand' },
   vandal: { id: 'vandal', label: 'Vandal GT', family: 'car4', abilities: new Set(['boost']), seats: 4, stock: 'vandal' },
   roadster: { id: 'roadster', label: 'Roadster', family: 'car4', abilities: new Set(['boost']), seats: 2, stock: 'roadster' },
+  gt: { id: 'gt', label: 'Vantor GT', family: 'car4', abilities: new Set(['boost']), seats: 2, stock: 'gt' },
 };
 const FOOT: Ride = { id: 'on-foot', label: 'on foot', family: 'foot', abilities: new Set(['dash']), seats: 1 };
 const TWO_WHEEL: Family[] = ['motorbike', 'scooter', 'bicycle'];
@@ -215,14 +231,19 @@ export function frameworkProblems(pack: PackV2, parent: PackV2): string[] {
  * The gate. `parent` is the pack a Mog remixes (its base and framework must be kept). `own`: Mog City's own story as a
  * world (storykit/packs/mog-city.json), whose title is Mog City's; only the repo's own checks pass it.
  */
-export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: boolean } = {}): GateResult {
+export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: boolean; showcase?: boolean } = {}): GateResult {
   const problems: string[] = [], warnings: string[] = [], clamped: string[] = [];
   const refuse = (s: string) => problems.push(s);
   const done = (pack: PackV2 | null, lines: Line[] = []): GateResult => ({ ok: problems.length === 0, problems, warnings, clamped, pack: problems.length ? null : pack, lines });
 
   if (!input || typeof input !== 'object' || Array.isArray(input)) { refuse('The story pack is not a JSON object.'); return done(null); }
   const bytes = new TextEncoder().encode(JSON.stringify(input)).length;
-  if (bytes > LIMIT_BYTES) { refuse(`The pack is ${bytes} bytes; the limit is ${LIMIT_BYTES}.`); return done(null); }
+  // 15. a showcase (a first-party world shipped from the repo, SHOWCASE_PACKS: never the builder's or the store's) may be
+  // longer: SHOWCASE's bytes, acts, missions, steps, lines, cast and opening
+  const show = !!opts.showcase;
+  if (show && (opts.parent || !SHOWCASE_PACKS.includes((input as Json).id))) { refuse(`A showcase is one of GameMog's own worlds (${SHOWCASE_PACKS.join(', ')}), never a Mog; "${(input as Json).id}" is not one.`); return done(null); }
+  const maxBytes = show ? SHOWCASE.bytes : LIMIT_BYTES;
+  if (bytes > maxBytes) { refuse(`The pack is ${bytes} bytes; the limit is ${maxBytes}.`); return done(null); }
   // a likeness field anywhere, even one the schema would only call unknown, gets its own refusal
   scanKeys(input, '', (at, k, o) => {
     if (LIKENESS_KEY.test(k)) refuse(`${at ? at + '.' : ''}${k}: a pack has no field for a real person's face, voice or likeness.`);
@@ -236,7 +257,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   }
   if (problems.length) return done(null);
 
-  const checked = validator.check(PACK_ID, input);
+  const checked = show ? showcaseValidator.check(SHOWCASE_ID, input) : validator.check(PACK_ID, input);
   clamped.push(...checked.clamped);
   if (checked.problems.length) { problems.push(...dedupe(checked.problems)); return done(null); }
   const pack: PackV2 = checked.value;
@@ -288,7 +309,9 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
       c.anchor ??= m.anchor || 'none'; c.name ??= m.name; c.role ??= m.role;
       if (!c.voice) { c.voice = nearVoice(c.model); if (!c.voice) refuse(`${at}: "${c.model}" has no voice; give it a voice block.`); }
     } else {
-      if (c.name || c.role) refuse(`${at}: name and role are a model person's; a sheet carries its own (sheet.name, sheet.role).`);
+      // (a voice-only person has no sheet to carry them: their name and role are their own, on the caller card)
+      if ((c.name || c.role) && !c.voiceOnly) refuse(`${at}: name and role are a model person's; a sheet carries its own (sheet.name, sheet.role).`);
+      if (c.voiceOnly) c.anchor ??= 'none';
       if (!c.anchor) refuse(`${at}: needs an anchor (the archetype the sheet varies from; none for the base body).`);
       if (!c.voice) refuse(`${at}: needs a voice block.`);
       // a Mog's forged replacement of a shipped person: from the nearest anchor (the registry's)
@@ -301,6 +324,8 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
       ? { ...STOCK[v.stock], id: v.id || v.stock }
       : { id: v.id, label: v.label, family: v.family, abilities: new Set(v.abilities || []), seats: seatsOf(v) };
     if (rides.has(r.id) || r.id === 'on-foot') refuse(`vehicles[${i}]: "${r.id}" is already used.`);
+    if (v.stock && SHOWCASE_CARS.includes(v.stock) && !show) refuse(`vehicles[${i}]: the ${STOCK[v.stock].label} is driven only in GameMog's own showcase worlds.`);
+    if (v.stock && !SHOWCASE_CARS.includes(v.stock) && (v.label || v.plate)) refuse(`vehicles[${i}]: a label and a plate are the Vantor GT's (stock "gt") only.`);
     // (a tow rig sits on a bed: a wrecker's or a pickup's; storykit/vehicles/sheet.js)
     if (!v.stock && r.abilities.has('tow') && (!TOW_CLASSES.includes(v.class) || (v.body?.rear && v.body.rear !== 'bed'))) refuse(`vehicles[${i}] (${r.id}): "tow" needs a tow rig, which only a ${TOW_CLASSES.join(' or a ')} with its bed carries (this is a ${v.class}).`);
     rides.set(r.id, r);
@@ -380,7 +405,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   const texts: Text[] = [], lines: Line[] = [];
   const missionIds = new Set<string>(), actIds = new Set<string>();
   const allMissions = pack.acts.flatMap((a: Json) => a.missions);
-  if (allMissions.length > 9) refuse(`${allMissions.length} missions; a story has at most 9.`);
+  { const most = show ? SHOWCASE.acts * SHOWCASE.missionsPerAct : 9; if (allMissions.length > most) refuse(`${allMissions.length} missions; a story has at most ${most}.`); }
   for (const m of allMissions) { if (missionIds.has(m.id)) refuse(`Two missions are ${m.id}.`); missionIds.add(m.id); }
   for (const act of pack.acts) {
     if (actIds.has(act.id)) refuse(`Two acts are "${act.id}".`); actIds.add(act.id);
@@ -452,6 +477,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
     set(m.reward, `${M}.reward`);
     collect({ title: m.title, stakes: m.stakes, passLine: m.passLine, note: m.note, timerLine: m.timerLine, label: m.label }, M, texts, m.id);
 
+    const allyIds = new Set<string>(), timerNames = new Set<string>(), carNames = new Set<string>();
     eachStep(m.steps, (s, at, lid, side) => {
       if (!side && s.at != null && !AT_PLACE.has(s.type)) warnings.push(`${at}: "at" only means something on a side step (during, do).`);
       if (side && (s.during || s.do)) refuse(`${at}: a side step can't carry its own side steps.`);
@@ -463,20 +489,48 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
       // (Mog City's runner has no part for these yet: they pass at once, unplayed; MOGCITY_STUBS)
       if (mc && STUBS.has(s.type)) warnings.push(`${at}: '${s.type}' has no Mog City part yet; it passes at once without playing, so nothing in the story may rest on it.`);
       switch (s.type) {
-        case 'drive': need.set('drive', at); [s.to].flat().forEach((p: Json, j: number) => place(p, Array.isArray(s.to) ? `${at}.to[${j}]` : `${at}.to`, 'drive')); break;
+        case 'drive': need.set('drive', at); [s.to].flat().forEach((p: Json, j: number) => place(p, Array.isArray(s.to) ? `${at}.to[${j}]` : `${at}.to`, 'drive'));
+          if (typeof s.stopTimer === 'string' && !timerNames.has(s.stopTimer)) refuse(`${at}.stopTimer: no timer step before it starts "${s.stopTimer}".`);
+          break;
         case 'stops': need.set('drive', at); s.stops.forEach((p: Json, j: number) => { place(p, `${at}.stops[${j}]`, 'drive'); if (p.set) set(p.set, `${at}.stops[${j}].set`); }); break;
         case 'walk': need.set('walk', at); place(s.to, `${at}.to`, 'walk'); break;
         case 'pursuit': need.set(s.goal === 'lose' ? 'escape' : 'chase', at); if (s.to) place(s.to, `${at}.to`, 'drive'); break;
         case 'tail': need.set('tail', at); s.route.forEach((p: Json, j: number) => place(p, `${at}.route[${j}]`, 'drive')); break;
-        case 'convoy': need.set('follow', at); s.route.forEach((p: Json, j: number) => place(p, `${at}.route[${j}]`, 'drive')); break;
-        case 'stealth': need.set('sneak', at); s.units.forEach((u: Json, j: number) => place(u, `${at}.units[${j}]`, 'any')); if (s.onDetect?.goto && !ids.has(s.onDetect.goto)) refuse(`${at}.onDetect.goto: no step is "${s.onDetect.goto}".`); if (s.onDetect?.set) set(s.onDetect.set, `${at}.onDetect.set`); break;
+        case 'convoy':
+          need.set('follow', at); s.route.forEach((p: Json, j: number) => place(p, `${at}.route[${j}]`, 'drive'));
+          if (s.who) who(s.who, `${at}.who`);
+          // (an ally's car by its id: an ally step before it in the mission drives it there first)
+          if (s.ally && !allyIds.has(s.ally)) refuse(`${at}.ally: no ally step before it in ${M} drives a car "${s.ally}".`);
+          if (s.car && !TOW_BODIES.includes(s.car) && !pack.vehicles.some((x: Json) => x.id === s.car)) refuse(`${at}.car: "${s.car}" is neither a city body (${TOW_BODIES.join(', ')}) nor a vehicle sheet of this pack.`);
+          break;
+        case 'car':
+          if (s.remove) { if (!s.name) refuse(`${at}: a car is taken away by its name.`); else if (!carNames.has(s.name)) refuse(`${at}: no car step before it parks a car "${s.name}".`); break; }
+          if (s.name) carNames.add(s.name);
+          if (!s.at) refuse(`${at}: a parked car stands at a place (at).`); else place(s.at, `${at}.at`, 'drive');
+          if (!mc) refuse(`${at}: a parked car plays on Mog City's engine (base.engine "mogcity-1").`);
+          if (s.car && !TOW_BODIES.includes(s.car) && !pack.vehicles.some((x: Json) => x.id === s.car)) refuse(`${at}.car: "${s.car}" is neither a city body (${TOW_BODIES.join(', ')}) nor a vehicle sheet of this pack.`);
+          break;
+        case 'ally':
+          if (s.who) who(s.who, `${at}.who`);
+          if (s.from) place(s.from, `${at}.from`, 'drive'); if (s.to !== 'player') place(s.to, `${at}.to`, 'drive');
+          if (!mc) refuse(`${at}: an ally's car plays on Mog City's engine (base.engine "mogcity-1").`);
+          if (s.car && !TOW_BODIES.includes(s.car) && !pack.vehicles.some((x: Json) => x.id === s.car)) refuse(`${at}.car: "${s.car}" is neither a city body (${TOW_BODIES.join(', ')}) nor a vehicle sheet of this pack.`);
+          allyIds.add(s.ally || 'ally');
+          break;
+        case 'timer':
+          // (a timer stopped, or tightened, by its name: one a timer step before it in the mission started)
+          if (!s.stop && s.add == null) timerNames.add(s.name || 'mission');
+          else if (s.add != null && !timerNames.has(s.name || 'mission')) refuse(`${at}: it adds to the timer "${s.name || 'mission'}", which no timer step before it starts.`);
+          else if (s.stop && s.name && !timerNames.has(s.name)) refuse(`${at}: it stops the timer "${s.name}", which no timer step before it starts.`);
+          break;
+        case 'stealth': need.set(s.mode === 'car' ? 'drive' : 'sneak', at); s.units.forEach((u: Json, j: number) => place(u, `${at}.units[${j}]`, 'any')); if (s.to) place(s.to, `${at}.to`, 'any'); if (s.onDetect?.goto && !ids.has(s.onDetect.goto)) refuse(`${at}.onDetect.goto: no step is "${s.onDetect.goto}".`); if (s.onDetect?.set) set(s.onDetect.set, `${at}.onDetect.set`); break;
         case 'patrol': if (s.near) place(s.near, `${at}.near`, 'any'); break;
-        case 'roadblock': place(s.at, `${at}.at`, 'any'); break;
+        case 'roadblock': place(s.at, `${at}.at`, 'drive'); if (s.to) { place(s.to, `${at}.to`, 'drive'); need.set('drive', at); } if (!mc) refuse(`${at}: a roadblock plays on Mog City's engine (base.engine "mogcity-1").`); break;
         case 'trigger': if (s.area) place(s.area, `${at}.area`, 'any'); if (s.say) { who(s.say.who, `${at}.say.who`); line(`${lid}.say`, s.say.who, s.say.text); } break;
         case 'beat': for (const k of ['cam', 'look', 'to', 'lookTo']) cam(s.shot[k], `${at}.shot.${k}`); if (s.say) { who(s.say.who, `${at}.say.who`); line(`${lid}.say`, s.say.who, s.say.text); } break;
         case 'place': place(s.at, `${at}.at`, 'start'); break;
         case 'transition': if (s.place) place(s.place, `${at}.place`, 'start'); break;
-        case 'cutscene': if (s.place) place(s.place, `${at}.place`, 'any'); s.shots.forEach((sh: Json, j: number) => { for (const k of ['cam', 'look', 'to', 'lookTo']) cam(sh[k], `${at}.shots[${j}].${k}`); if (sh.line && !sh.say) refuse(`${at}.shots[${j}]: a line needs a speaker (say).`); if (sh.say) { who(sh.say, `${at}.shots[${j}].say`); line(`${lid}.c${j}`, sh.say, sh.line); } }); break;
+        case 'cutscene': if (s.place) place(s.place, `${at}.place`, 'any'); if (s.set) { for (const p of setProblems(s.set, `${at}.set`, cast, pack.hero)) refuse(p); s.shots.forEach((sh: Json, j: number) => { for (const p of setShotProblems(s.set, sh, `${at}.shots[${j}]`, pack.hero)) refuse(p); }); } s.shots.forEach((sh: Json, j: number) => { for (const k of ['cam', 'look', 'to', 'lookTo']) cam(sh[k], `${at}.shots[${j}].${k}`); if (sh.line && !sh.say) refuse(`${at}.shots[${j}]: a line needs a speaker (say).`); if (sh.say) { who(sh.say, `${at}.shots[${j}].say`); line(`${lid}.c${j}`, sh.say, sh.line); } }); break;
         case 'vignette': if (s.place) place(s.place, `${at}.place`, 'any'); s.shots.forEach((sh: Json, j: number) => { for (const k of ['cam', 'look', 'to', 'lookTo']) cam(sh[k], `${at}.shots[${j}].${k}`); if (sh.line && !sh.say) refuse(`${at}.shots[${j}]: a line needs a speaker (say).`); if (sh.say) { who(sh.say, `${at}.shots[${j}].say`); line(`${lid}.v${j}`, sh.say, sh.line); } }); break;
         case 'say': who(s.who, `${at}.who`); line(lid, s.who, s.text); break;
         case 'voicemail': case 'voicenote': who(s.who, `${at}.who`); line(lid, s.who, s.text); break;
@@ -488,6 +542,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
           (s.wrap || []).forEach((l: Json, j: number) => { who(l.who, `${at}.wrap[${j}].who`); line(`${lid}.w.l${j}`, l.who, l.text); });
           for (const k of ['pause', 'resume'] as const) (s.hold?.[k] || []).forEach((l: Json, j: number) => { who(l.who, `${at}.hold.${k}[${j}].who`); line(`${lid}.h${k[0]}.l${j}`, l.who, l.text); });
           if (s.hold && !s.inCar) warnings.push(`${at}: hold lines only play on a call with inCar: true.`);
+          if (s.interrupts && !side) warnings.push(`${at}: interrupts (call waiting) only waits on a live car-phone call; as a step of its own it is an ordinary call unless one is on.`);
           if (s.auto && (s.decline || s.voicemail || s.outgoing)) refuse(`${at}: an auto call answers itself; it has no decline, voicemail or dialling.`);
           if (s.voicemail) { who(s.voicemail.from, `${at}.voicemail.from`); line(`${lid}.vm`, s.voicemail.from || s.who, s.voicemail.text); if (s.voicemail.set) set(s.voicemail.set, `${at}.voicemail.set`); }
           if (s.choice) choice(s.choice, `${at}.choice`, `${lid}.ch`);
@@ -513,7 +568,11 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
           who(s.who, `${at}.who`, true);
           { const c = cast.get(s.who); if (c?.model && !modelCan(c.model, 'sit')) refuse(`${at}: ${c.name} (${c.model}) has no seated clips, so can't ride as a passenger.`); }
           if (s.board !== false) need.set('carry', at);
-          if (s.from) place(s.from, `${at}.from`, 'any'); if (s.to) place(s.to, `${at}.to`, 'any');
+          if (s.from) place(s.from, `${at}.from`, 'drive'); if (s.to) place(s.to, `${at}.to`, 'drive');
+          if (s.set) set(s.set, `${at}.set`);
+          (s.comfort?.lines || []).forEach((l: Json, j: number) => { who(l.who, `${at}.comfort.lines[${j}].who`); line(`${lid}.c${j}`, l.who, l.text); });
+          if (s.comfort?.set) set(s.comfort.set, `${at}.comfort.set`);
+          if ((s.limit || s.comfort) && !s.to) refuse(`${at}: a speed limit or comfort goes with a ride somewhere (to).`);
           break;
         case 'scene': if (!mc) refuse(`${at}: a scene plays one of Mog City's own set pieces; it needs Mog City's engine (base.engine "mogcity-1").`);
           else if (!heroIsDan) warnings.push(`${at}: "${s.name}" is Mog City's own set piece, with Dan, the Suits and Mr. Big as they are; it fits a story whose hero is Dan (mogcity/dan).`);
@@ -555,7 +614,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
 
   // 14. the opening: the world's own, before Mission 1 (openingProblems); a Mog keeps its parent's unless it writes its own
   if (pack.opening) {
-    for (const p of openingProblems(pack, { cast, pets, placeOf, camPoints: CAM_POINTS[city], cityName: CITY_NAME[city], keys: [...Object.keys(cityPlaces), ...Object.keys(aliases)] })) refuse(p);
+    for (const p of openingProblems(pack, { cast, pets, placeOf, camPoints: CAM_POINTS[city], cityName: CITY_NAME[city], keys: [...Object.keys(cityPlaces), ...Object.keys(aliases)], secs: show ? SHOWCASE.openingSecs : undefined })) refuse(p);
     collect(pack.opening, 'opening', texts);
     pack.opening.shots.forEach((sh: Json, j: number) => { if (sh.say && sh.line && cast.has(sh.say)) lines.push({ id: `OPEN.c${j}`, who: sh.say, text: sh.line, hash: lineHash(sh.line), status: 'pending', clip: null }); });
   } else if (opts.parent?.opening) refuse(`opening: the original has an opening (its place card, its people's name cards, its premise). A Mog keeps it: copy the original's "opening" exactly, or, when the idea changes the story or its people, write the Mog's own, by the same rules.`);
@@ -592,6 +651,38 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   return done(pack, lines);
 }
 
+/**
+ * A set (a cutscene's `set`, one of the opening's `sets`: Mog City's runner stages it in a room of its own, sets.js):
+ * its people are the cast's seen people (or the hero), each once; whom they face, hug or hold is one of them.
+ */
+export function setProblems(def: Json, at: string, cast: Map<string, Json>, hero: string): string[] {
+  const out: string[] = [], ids = new Set<string>();
+  (def.people || []).forEach((p: Json, i: number) => {
+    const w = `${at}.people[${i}]`, c = cast.get(p.who);
+    if (!c) out.push(`${w}.who: "${p.who}" is not in the cast.`);
+    else if (c.voiceOnly) out.push(`${w}.who: "${p.who}" is voiceOnly (heard, never seen); they can't stand in a set.`);
+    if (ids.has(p.who)) out.push(`${w}.who: "${p.who}" stands in this set twice.`);
+    ids.add(p.who);
+  });
+  const known = (id: Json) => id == null || typeof id === 'number' || id === 'player' || ids.has(id) || (id === hero && ids.has(hero));
+  (def.people || []).forEach((p: Json, i: number) => {
+    const w = `${at}.people[${i}]`;
+    if (!known(p.face)) out.push(`${w}.face: "${p.face}" is not in this set.`);
+    if (p.hug && !known(p.hug)) out.push(`${w}.hug: "${p.hug}" is not in this set.`);
+    if (p.hold && !known(p.hold.who)) out.push(`${w}.hold: "${p.hold.who}" is not in this set.`);
+    if (p.look && p.look !== 'lens' && p.look !== 'prop' && !known(p.look)) out.push(`${w}.look: "${p.look}" is not in this set.`);
+  });
+  return out;
+}
+/** A shot in a set: the people its camera is on, and its act's, stand in that set (the hero as 'player' or by id). */
+export function setShotProblems(def: Json, sh: Json, at: string, hero: string): string[] {
+  const out: string[] = [], ids = new Set<string>((def.people || []).map((p: Json) => p.who));
+  const inSet = (id: string) => ids.has(id) || ((id === 'player' || id === hero) && ids.has(hero));
+  for (const k of ['cam', 'look', 'to', 'lookTo']) { const r = sh[k]; if (r && typeof r === 'object' && r.rel && !inSet(r.rel)) out.push(`${at}.${k}.rel: "${r.rel}" is not in the set (${[...ids].join(', ') || 'nobody'}).`); }
+  (sh.act || []).forEach((a: Json, i: number) => { if (!inSet(a.who)) out.push(`${at}.act[${i}].who: "${a.who}" is not in the set.`); for (const k of ['face', 'hug']) if (typeof a[k] === 'string' && !inSet(a[k])) out.push(`${at}.act[${i}].${k}: "${a[k]}" is not in the set.`); });
+  return out;
+}
+
 /** The seconds an opening's shot is on screen: its dur (3), or its line's reading time when longer (the runner's). */
 export const shotSecs = (sh: Json) => Math.max(sh?.dur ?? 3, sh?.line ? Math.max(1.4, String(sh.line).length / 15) : 0);
 /**
@@ -602,7 +693,8 @@ export const shotSecs = (sh: Json) => Math.max(sh?.dur ?? 3, sh?.line ? Math.max
  * 'player'), every person a shot looks at or a card names stood on the street (stage) unless they are the hero; it says
  * the premise in OPENING.lines spoken lines (say + line); the title once; OPENING.secs seconds in all.
  */
-export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pets: Map<string, Json>; placeOf: (k: string) => Json; camPoints: string[]; cityName: string; keys: string[] }): string[] {
+export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pets: Map<string, Json>; placeOf: (k: string) => Json; camPoints: string[]; cityName: string; keys: string[]; secs?: number[] }): string[] {
+  const SECS = ctx.secs || OPENING.secs;
   const out: string[] = [], o = pack.opening, at = 'opening', { cast } = ctx;
   const placeOk = (ref: Json, where: string) => { const key = typeof ref === 'string' ? ref.slice(1) : ref?.['@']; if (key && !ctx.placeOf(key)) out.push(`${where}: "@${key}" is not a place in ${ctx.cityName}${suggest(key, ctx.keys)}.`); };
   const body = (id: string, where: string) => { const c = cast.get(id); if (!c) { out.push(`${where}: "${id}" is not in the cast${suggest(id, [...cast.keys()])}.`); return false; } if (c.voiceOnly) { out.push(`${where}: "${id}" is voiceOnly (heard, never seen); they can't be seen in the opening.`); return false; } return true; };
@@ -614,6 +706,9 @@ export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pe
     if (ctx.pets.has(s.who)) staged.add(s.who); else if (body(s.who, `${w}.who`)) staged.add(s.who);
     if (s.at && !s.at.rel) placeOk(s.at, `${w}.at`);
   });
+  // (a set's people are seen too: the shot in the set looks at them there)
+  const sets: Record<string, Json> = o.sets || {};
+  for (const [k, def] of Object.entries(sets)) { for (const p of setProblems(def, `${at}.sets.${k}`, cast, pack.hero)) out.push(p); for (const p of def.people || []) if (p.who !== pack.hero) staged.add(p.who); }
   const seen = (id: string) => id === 'player' || id === pack.hero || staged.has(id);
   const camOk = (ref: Json, where: string) => {
     if (ref && typeof ref === 'object') { if (ref.rel && !seen(ref.rel)) out.push(`${where}.rel: "${ref.rel}" is not on the street for the opening: stand them there (opening.stage).`); return; }
@@ -628,6 +723,8 @@ export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pe
   shots.forEach((sh: Json, j: number) => {
     const w = `${at}.shots[${j}]`;
     for (const k of ['cam', 'look', 'to', 'lookTo']) if (sh[k] != null) camOk(sh[k], `${w}.${k}`);
+    if (sh.set != null) { if (!sets[sh.set]) out.push(`${w}.set: "${sh.set}" is not one of the opening's sets (${Object.keys(sets).join(', ') || 'none'}).`); else out.push(...setShotProblems(sets[sh.set], sh, w, pack.hero)); }
+    else if (sh.act) out.push(`${w}.act: a shot on the street has no set to change.`);
     if (sh.line && !sh.say) out.push(`${w}: a line needs a speaker (say).`);
     if (sh.say) { if (cast.has(sh.say)) lines++; else out.push(`${w}.say: "${sh.say}" is not in the cast.`); }
     if (sh.title) titles++;
@@ -644,6 +741,7 @@ export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pe
     }
   });
   const first = shots[0];
+  if (first && first.set) out.push(`${at}.shots[0]: an opening opens on the city (no set): the place card over the street, wide.`);
   if (first && !first.where) out.push(`${at}.shots[0]: an opening opens on the city with the place card (where: { name, sub }): where we are, the street and the time.`);
   if (first && (first.card || (first.cam && typeof first.cam === 'object' && first.cam.rel !== 'player' && lens(first.cam) < OPENING.wide))) out.push(`${at}.shots[0]: an opening never opens on a close-up of one person: its first shot is wide on the city (a place, a camera point, or ${OPENING.wide} m or more from who it is near).`);
   const of = (is: string) => [...cards.entries()].filter(([, v]) => v.is === is).map(([k]) => k);
@@ -652,7 +750,7 @@ export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pe
   if (of('ally').length > OPENING.allies) out.push(`${at}: ${of('ally').length} others have name cards; at most ${OPENING.allies} besides the hero and the antagonist (the rest meet the player in the missions).`);
   if (lines < OPENING.lines[0] || lines > OPENING.lines[1]) out.push(`${at}: ${lines} spoken line${lines === 1 ? '' : 's'}; the premise is said in ${OPENING.lines[0]} to ${OPENING.lines[1]} (say + line): what the hero wants tonight, who is in the way, what is at stake.`);
   if (titles !== 1) out.push(`${at}: the world's title is shown once (title: true on one shot, the last is the usual place); this opening has ${titles}.`);
-  if (secs < OPENING.secs[0] || secs > OPENING.secs[1]) out.push(`${at}: ${Math.round(secs)} s; an opening is ${OPENING.secs[0]} to ${OPENING.secs[1]} s (each shot its dur, or its line's reading time when longer).`);
+  if (secs < SECS[0] || secs > SECS[1]) out.push(`${at}: ${Math.round(secs)} s; an opening is ${SECS[0]} to ${SECS[1]} s (each shot its dur, or its line's reading time when longer).`);
   return out;
 }
 
@@ -668,11 +766,17 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   // a stock car is its engine id; a vehicle sheet is its own id (the engine registers it from car / rides)
   const stockOf = (rideId: string) => { const v = pack.vehicles.find((x: Json) => (x.id || x.stock) === rideId); return v ? (v.stock || v.id) : undefined; };
   const sheets = pack.vehicles.filter((v: Json) => !v.stock);
+  // (the Vantor GT, a showcase's: Mog City builds it in code, wagmi/storyrun/gt.js; the runner reads car { model, label, plate, paint })
+  const carOf = (rideId: string) => { const v = pack.vehicles.find((x: Json) => (x.id || x.stock) === rideId); return v?.stock === 'gt' ? { model: 'mogcity/gt', ...(v.label ? { label: v.label } : {}), ...(v.plate ? { plate: v.plate } : {}), ...(v.paint ? { paint: v.paint } : {}) } : stockOf(rideId); };
   const heroRide = pack.ride || (pack.vehicles[0].id || pack.vehicles[0].stock);
   const heroSheet = sheets.find((v: Json) => v.id === heroRide);
   // a camera point on a cast member ({ rel: id }) names them as the runner does (by name)
   const camRef = (r: Json) => (r && typeof r === 'object' && r.rel && r.rel !== 'player' ? { ...r, rel: name(r.rel) } : r);
-  const shots = (list: Json[]) => list.map((sh: Json) => { const c: Json = { ...sh }; for (const k of ['cam', 'look', 'to', 'lookTo']) if (c[k]) c[k] = camRef(c[k]); return c; });
+  // a set's people by name (who, whom they face, hug or hold), as the runner reads them (sets.js)
+  const ref = (id: Json) => (typeof id === 'string' && id !== 'player' ? name(id) : id);
+  const personOf = (p: Json) => { const o: Json = { ...p, who: ref(p.who) }; if (typeof p.face === 'string') o.face = ref(p.face); if (p.look && p.look !== 'lens' && p.look !== 'prop') o.look = ref(p.look); if (p.hug) o.hug = ref(p.hug); if (p.hold) o.hold = { ...p.hold, who: ref(p.hold.who) }; return o; };
+  const setOf = (d: Json) => (d ? { ...d, people: (d.people || []).map(personOf) } : d);
+  const shots = (list: Json[]) => list.map((sh: Json) => { const c: Json = { ...sh }; for (const k of ['cam', 'look', 'to', 'lookTo']) if (c[k]) c[k] = camRef(c[k]); if (c.act) c.act = c.act.map(personOf); return c; });
   const choiceOf = (s: Json): Json => {
     const o: Json = { ...s, who: s.who ? name(s.who) : s.who };
     o.options = s.options.map((op: Json) => (op.reply ? { ...op, reply: tuple(s.who, op.reply) } : op));
@@ -693,11 +797,13 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     if (s.type === 'call' && o.hold) o.hold = { pause: callLines(o.hold.pause || []), resume: callLines(o.hold.resume || []) };
     if (s.type === 'dm') { o.from = s.from ? name(s.from) : s.name; delete o.name; }
     if (s.type === 'comfort' && o.lines) o.lines = o.lines.map((l: Json) => ({ ...l, who: name(l.who) }));
+    if (s.type === 'passenger' && o.comfort?.lines) o.comfort = { ...o.comfort, lines: o.comfort.lines.map((l: Json) => ({ ...l, who: name(l.who) })) };
     if (o.voicemail?.from) o.voicemail = { ...o.voicemail, from: name(o.voicemail.from) };
     if ((s.type === 'trigger' || s.type === 'beat') && o.say) o.say = tuple(o.say.who, o.say.text);
     if (s.type === 'choice') Object.assign(o, choiceOf(s));
     if (s.type === 'call' && s.choice) o.choice = choiceOf(s.choice);
     // a cutscene's line: [speaker, text] under the shot; a bare sub has no speaker
+    if (s.type === 'cutscene' && s.set) o.set = setOf(s.set);
     if (s.type === 'cutscene') o.shots = shots(s.shots).map((sh: Json) => { const c = { ...sh }; if (c.say) c.sub = tuple(c.say, c.line); else if (typeof c.sub === 'string') c.sub = ['', c.sub]; delete c.say; delete c.line; return c; });
     if (s.type === 'beat' && o.shot) o.shot = shots([o.shot])[0];
     if (s.type === 'fight') o.enemies = s.enemies.map(name);
@@ -714,7 +820,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   const end = (e: Json) => (e?.quote?.by ? { ...e, quote: { ...e.quote, by: name(e.quote.by) } } : e);
   return {
     storykit: 1, engine: pack.base.engine, id: pack.id, title: pack.title, kicker: pack.kicker, tagline: pack.tagline, city: pack.base.city,
-    car: heroSheet ? { sheet: heroSheet } : stockOf(heroRide), hud: pack.hud, dressing: pack.dressing,
+    car: heroSheet ? { sheet: heroSheet } : carOf(heroRide), hud: pack.hud, dressing: pack.dressing,
     ...(sheets.some((v: Json) => v !== heroSheet) ? { rides: Object.fromEntries(sheets.filter((v: Json) => v !== heroSheet).map((v: Json) => [v.id, v])) } : {}),
     // a seen person's body: their forged GLB (opts.cast: cast id -> path next to the page) and the shared clip pack
     cast: Object.fromEntries([
@@ -730,6 +836,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     ...(pack.opening ? { opening: {
       place: pack.opening.place, ...(pack.opening.time ? { time: pack.opening.time } : {}),
       stage: (pack.opening.stage || []).map((s: Json) => ({ ...s, who: name(s.who) })),
+      ...(pack.opening.sets ? { sets: Object.fromEntries(Object.entries(pack.opening.sets).map(([k, d]) => [k, setOf(d)])) } : {}),
       shots: shots(pack.opening.shots).map((sh: Json) => { const c = { ...sh }; if (c.say) c.sub = tuple(c.say, c.line); else if (typeof c.sub === 'string') c.sub = ['', c.sub]; delete c.say; delete c.line; if (c.card) c.card = { ...c.card, who: name(c.card.who) }; return c; }),
     } } : {}),
     acts: pack.acts.map((a: Json) => ({ id: a.id, name: a.name, order: a.missions.map((m: Json) => m.id), timeline: a.timeline, ...(a.end ? { end: end(a.end) } : {}) })),

@@ -51,13 +51,20 @@ export const ANCHORS = ['none', 'old-boss', 'young-hero', 'grandmother', 'grandf
   'young-mother', 'club-promoter', 'veteran'];
 // what a mission asks the player to do; gate.ts VERBS says which ride (or none) can do each
 export const VERBS = ['drive', 'walk', 'boost', 'hop', 'dash', 'ram', 'escape', 'chase', 'tail', 'follow', 'carry', 'sneak', 'deliver', 'pedal', 'lean', 'wheelie', 'tow', 'fight'];
-export const STOCK_CARS = ['trailhand', 'vandal', 'roadster'];
+export const STOCK_CARS = ['trailhand', 'vandal', 'roadster', 'gt'];
+// stock cars only GameMog's own showcase worlds drive (gate.ts rule 15): gt, Mog City's Vantor GT (wagmi/storyrun/gt.js: a black
+// rear-engined coupe with the roadster's handling and boost), which the runner gets as car { model: 'mogcity/gt' }
+export const SHOWCASE_CARS = ['gt'];
 export const STEP_KINDS = ['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
-  'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow'];
+  'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car'];
 // the kinds Mog City's runner has no part for yet (Mog City wagmi/storyrun/runner.js KINDS_STUB): on mogcity-1 they pass
 // at once without playing, so a story never rests on one (gate.ts warns; the builder refuses them in a new story)
-export const MOGCITY_STUBS = ['convoy', 'comfort', 'patrol', 'roadblock', 'passenger', 'wallet', 'stealth'];
+export const MOGCITY_STUBS = ['patrol', 'wallet'];
+// the kinds a Create (the builder) does not write yet: the stubs, and the play steps Mog City's runner plays now
+// (passenger rides, comfort, convoy, an ally's car, roadblocks, stealth) held for GameMog's own showcase worlds first.
+// lib/storykit-build.ts drops them from its worked example and sends a Create that writes one back
+export const CREATE_HELD = [...MOGCITY_STUBS, 'passenger', 'comfort', 'convoy', 'ally', 'roadblock', 'stealth', 'car'];
 // the cast registry (public/storykit/cast/registry.json): shipped, hand-polished people (a GLB with its own clips and face,
 // its recorded lines), voice-only people with recorded lines, and pets. storykit/cast/README.md
 export const CAST_MODELS = Object.entries(REGISTRY.models).filter(([, m]) => m.kind !== 'pet').map(([k]) => k);
@@ -66,6 +73,12 @@ export const PET_MODELS = Object.entries(REGISTRY.models).filter(([, m]) => m.ki
 // card, a name card for each person who matters, the premise in a few lines, the title): gate.ts rule 14
 export const OPENING = { secs: [30, 75], lines: [2, 4], allies: 3, shots: 16, wide: 8 };
 export const LIMITS = { bytes: 160_000, acts: 3, missions: 9, steps: 60, cast: 12, pets: 3, vehicles: 6, lines: 600 };
+// A first-party showcase world (gate.ts gatePack(pack, { showcase: true })): hand-authored by GameMog and shipped from the
+// repo (storykit/packs/<id>.json, listed in SHOWCASE_PACKS), like Mog City's own story ({ own: true }); never the
+// builder's or the store's. It may be longer than a Create: up to 5 acts of up to 8 missions (15+ in all), longer
+// missions, more lines, a longer opening. Everything else (places, verbs, kinds, words, voices) is gated the same.
+export const SHOWCASE = { bytes: 640_000, acts: 5, missionsPerAct: 8, steps: 120, lines: 2400, cast: 24, openingSecs: [30, 150], openingShots: 24, places: 48 };
+export const SHOWCASE_PACKS = ['pickup-time'];
 
 // ── builders ──
 const S = (maxLength, extra = {}) => ({ type: 'string', maxLength, ...extra });
@@ -85,8 +98,25 @@ const COMMON = {
 };
 const step = (type, props, required = []) => O({ type: { const: type }, ...COMMON, during: A(R('sideStep'), 6), ...props }, ['type', ...required]);
 const camRef = R('camRef');
+// a set (Mog City's runner: wagmi/storyrun/sets.js): a cutscene staged in a room or a closed exterior of its own, drawn
+// in place of the street as Mog City's opening draws Mr. Big's study, its people stood in it (x right, z toward the way
+// in, metres from its middle; the hero by his id too), so nobody is on a street with the traffic
+export const SET_ROOMS = ['bank-office', 'school', 'hideout', 'pizzeria', 'apartment', 'garage', 'steps', 'park', 'lobby', 'plaza', 'alley'];
+export const SET_POSES = ['idle', 'talk', 'phone', 'arms', 'argue', 'shrug', 'wave', 'cheer', 'drink', 'leanBar', 'sit', 'sitTalk', 'kneel', 'crouch', 'walk', 'walkCool', 'jog'];
+const XZ = A(N(-30, 30), 2, 2);
+const setPersonProps = {
+  who: R('beingRef'), at: XZ, face: ONE(R('slug'), N(-360, 360)), pose: E(SET_POSES), seat: N(0, 1.2), y: N(-1, 1), k: N(0, 1), hidden: B,
+  walk: O({ to: XZ, secs: N(0.5, 12), after: N(0, 30), clip: E(['walk', 'walkCool', 'walkHeavy', 'jog']), then: E(SET_POSES) }, ['to']),
+  hug: { ...R('slug'), description: 'both arms round this person (in the same set)' },
+  hold: O({ who: R('slug'), side: E(['L', 'R']), their: E(['L', 'R']), k: N(0, 1) }, ['who'], { description: "a hand in this person's hand" }),
+  hand: O({ side: E(['L', 'R']), at: A(N(-2, 2.5), 3, 3), k: N(0, 1) }, ['at'], { description: 'a hand to a point of their own: [right, up, fwd] m from their feet (a phone held up to look at)' }),
+  prop: E(['phone', 'walkie'], { description: 'a thing in the right hand' }), look: { ...R('slug'), description: "where their eyes go: 'lens' (into the camera), 'prop', or someone in the set" }
+};
+const setDef = O({ room: E(SET_ROOMS), light: E(['day', 'golden', 'night']), sign: S(40), people: A(O(setPersonProps, ['who', 'at']), 7) }, ['room'],
+  { description: "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand" });
+const setAct = A(O(setPersonProps, ['who']), 7, 0, { description: "a shot's changes to its set's people as it starts: where they stand, whom they face, their pose, a walk, a hug" });
 // a cutscene shot: `say` + `line` is a cast member's spoken line under the shot (a subtitle until its clip is ready)
-const shot = O({ cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), sub: R('line'), say: R('castRef'), line: R('speech'), caption: R('label') }, ['cam']);
+const shot = O({ cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), sub: R('line'), say: R('castRef'), line: R('speech'), caption: R('label'), act: setAct }, ['cam']);
 // a choice's fields: a choice step, or the choice at the end of an answered call (call.choice)
 const CHOICE = {
   prompt: S(120), who: R('castRef'), timeout: N(3, 30), default: ONE(I(0, 3), { type: 'null' }), defaultText: S(80),
@@ -102,7 +132,8 @@ const actEndCard = O({
 });
 
 const STEPS = {
-  drive: step('drive', { to: ONE(R('placeRef'), A(R('placeRef'), 6, 1)), radius: N(3, 60), stop: B, objective: R('objective'), bonus: N(0, 600), flag: R('flag'), uTurns: B, snap: B }, ['to']),
+  drive: step('drive', { to: ONE(R('placeRef'), A(R('placeRef'), 6, 1)), radius: N(3, 60), stop: B, objective: R('objective'), bonus: N(0, 600), flag: R('flag'), uTurns: B, snap: B,
+    stopTimer: ONE(B, R('slug'), { description: "on arrival, stop a running timer by its name (true: every one): the clock beaten" }) }, ['to']),
   stops: step('stops', { stops: A(R('stopRef'), 8, 1), radius: N(3, 60), objective: R('objective') }, ['stops']),
   walk: step('walk', { to: R('placeRef'), radius: N(1, 20), leaveCar: B, enterCar: B, beam: B, objective: R('objective') }, ['to']),
   pursuit: step('pursuit', {
@@ -110,7 +141,12 @@ const STEPS = {
     los: N(0, 20), roles: A(E(['chaser', 'cutter', 'pacer', 'blocker']), 6), until: N(5, 600), loseDist: N(40, 400), loseTime: N(1, 30),
     alert: R('label'), peelText: R('label'), objective: R('objective'), bonus: N(0, 600), flag: R('flag')
   }, ['goal']),
-  timer: step('timer', { seconds: R('value'), label: S(16), fail: E(['hard', 'soft']), flag: R('flag'), why: R('line'), set: R('set'), lateLabel: S(16), stop: B }),
+  // a mission timer, by name: it runs across the steps after it (a drive, a call, a search...) until a timer step stops
+  // it, a drive's stopTimer beats it, or it runs out: hard fails the mission (MISSION FAILED, Retry), soft costs its set
+  // (money off the meter) and runs on as LATE. Several may run; the HUD shows the soonest, its last 10 s red and ticking.
+  // { name, add } puts seconds on a running one (negative: takes them off; the clock tightens)
+  timer: step('timer', { name: R('slug'), seconds: R('value'), label: S(16), fail: E(['hard', 'soft']), flag: R('flag'), why: R('line'), set: R('set'), lateLabel: S(16), stop: B,
+    add: N(-600, 600, { description: 'with a name and no seconds: seconds onto that running timer (negative takes them off)' }) }),
   call: step('call', {
     who: R('castRef'), role: S(40), ring: N(2, 20), lines: A(R('spoken'), 40), answer: R('set'), decline: R('set'),
     // the car phone (Mog City's): it answers itself, talks only while the hero is at the wheel (on hold when he gets out,
@@ -122,12 +158,13 @@ const STEPS = {
     hold: O({ pause: A(R('spoken'), 2), resume: A(R('spoken'), 2) }, [], { description: 'inCar: what is said when he gets out, and when he is back at the wheel' }),
     voicemail: O({ text: R('speech'), secs: N(0.5, 20), from: R('castRef'), flag: R('flag'), set: R('set') }, ['text']),
     outgoing: B, pickup: B, tag: R('slug'), duck: B, carry: B,
+    interrupts: { ...B, description: "call waiting: ringing while a car-phone call is on, it comes up as a second card (CALL WAITING); answered, the live call holds (its hold.pause line), this one is said, then the live one resumes (its hold.resume line) where it was; declined, its voicemail" },
     choice: O(CHOICE, ['prompt', 'options'], { description: 'a timed choice when the call is answered, after its lines' })
   }, ['who']),
   voicemail: step('voicemail', { who: R('castRef'), role: S(40), text: R('speech'), secs: N(0.5, 20), time: R('clock'), set: R('set') }, ['who', 'text']),
   voicenote: step('voicenote', { who: R('castRef'), role: S(40), text: R('speech'), secs: N(0.5, 20), time: R('clock'), set: R('set') }, ['who', 'text']),
   choice: step('choice', CHOICE, ['prompt', 'options']),
-  cutscene: step('cutscene', { shots: A(shot, 12, 1), place: R('placeRef') }, ['shots']),
+  cutscene: step('cutscene', { shots: A(shot, 12, 1), place: R('placeRef'), set: setDef }, ['shots']),
   place: step('place', { at: R('placeRef'), time: E(TIMES), bonus: N(0, 600) }, ['at']),
   set: step('set', { set: R('set') }, ['set']),
   say: step('say', { who: R('castRef'), text: R('speech'), secs: N(0.5, 12), wait: B }, ['who', 'text']),
@@ -151,25 +188,63 @@ const STEPS = {
     name: S(40), car: E(['lowered', 'sedan', 'suv']), color: R('colour'), route: A(R('placeRef'), 12, 2), ahead: N(20, 200), speed: N(3, 30),
     ring: N(10, 60), spotTime: N(1, 10), lostDist: N(60, 400), lostTime: N(3, 30), objective: R('objective')
   }, ['route']),
+  // stealth (Mog City's own lookouts, Mission 2's: a cone on the ground each, yellow going red, a '?' filling to '!' over
+  // the head; E from behind takes one down): its units stand on the pavement at their places, looking across the street
+  // (or `heading`), sweeping, or walking `roam` m up and down the block. A step of its own with `to` (get there unseen)
+  // or `secs` (stay unseen that long); with neither, a watch kept beside the steps after it
   stealth: step('stealth', {
-    units: A(O({ '@': R('placeKey'), kind: E(['police', 'scout']), roam: N(0, 200), radius: N(10, 80), heading: R('heading') }, ['@']), 8, 1),
-    radius: N(10, 80), detect: N(0.5, 10), lightsOff: N(0, 1), call: N(1, 2), foot: N(0, 1),
-    onDetect: ONE(E(['fail']), O({ goto: R('stepId') }, ['goto']), O({ set: R('set') }, ['set']), O({ pursuit: O({ count: R('value'), level: I(1, 5) }) }, ['pursuit'])),
+    units: A(O({ '@': R('placeKey'), kind: E(['police', 'scout']), roam: N(0, 200), radius: N(10, 80), heading: R('heading'),
+      side: E([-1, 1], { description: "which pavement: -1 the kerb side of the place's lane (the default), 1 across the street" }), name: S(40, { description: "who saw him, on the SPOTTED! banner ('The lookout at the gate')" }) }, ['@']), 8, 1),
+    to: { ...R('placeRef'), description: 'get here unseen (the step ends there)' }, secs: N(5, 300, { description: 'stay unseen this long (the step ends then)' }),
+    mode: E(['walk', 'car'], { description: 'on foot (the default: he gets out) or at the wheel' }), objective: R('objective'), label: S(16),
+    radius: N(1, 80), detect: N(0.5, 10), lightsOff: N(0, 1), call: N(1, 2), foot: N(0, 1),
+    onDetect: ONE(E(['fail']), O({ goto: R('stepId') }, ['goto']), O({ set: R('set') }, ['set']), O({ pursuit: O({ count: R('value'), level: I(1, 5) }) }, ['pursuit']), { description: "seen: fail (the default: SPOTTED!, then MISSION FAILED), a set (it costs, and they look away a moment), a goto, or a pursuit to lose" }),
     why: R('line'), hint: R('label')
   }, ['units']),
   patrol: step('patrol', { count: I(1, 4), near: R('placeRef'), roam: N(50, 600), radius: N(10, 120), limit: N(5, 40), heat: N(0, 100), escalate: I(1, 6), pursuit: O({ count: R('value'), level: I(1, 5) }) }),
+  // convoy: stay with a car to its place (an ally's car by its ally id, Carissa's; else one of the story's: lead / car in
+  // a colour): it drives the route at its pace, slowing when he falls behind; keep within band [near, far] m (a bar:
+  // WITH THEM, TOO CLOSE, TOO FAR); knocks into it are its damage (hp). The bar empty: hard fails, soft costs its set,
+  // null only says so; wrecked fails
   convoy: step('convoy', {
     route: A(R('placeRef'), 12, 2), cars: I(1, 8), lead: E(['hearse', 'van', 'sedan', 'suv']), speed: N(3, 20), gap: N(6, 40),
     band: A(N(2, 80), 2, 2), refill: N(0, 0.5), fail: ONE(E(['hard', 'soft']), { type: 'null' }), flag: R('flag'), label: S(24), objective: R('objective'),
-    drain: N(0, 0.5)
+    drain: N(0, 0.5), ally: { ...R('slug'), description: "an ally step's car (its ally id), taken on from where it stopped" }, name: S(40), who: R('castRef'),
+    car: S(48, { pattern: '^(sedan|suv|taxi|pickup|van|minivan|[a-z0-9][a-z0-9.-]{0,47})$' }), color: R('colour'), hp: N(20, 400), knock: N(0, 30), set: R('set'),
+    why: R('line'), wreckWhy: R('line'), hitLine: R('line')
   }, ['route']),
+  // ally: a friend's car driving itself through the city (Carissa's), from `from` (or where it last stopped) to a place, or
+  // to wherever the hero is (to: "player": it arrives where he is). Its blue blip the whole way; out of his sight it makes
+  // up time (secs: about how long it takes). A step of its own waits for it; in a step's during it drives while he plays.
+  // out: its driver gets out beside it there. Its car stays where it stopped, for a convoy or a later ally step (ally id)
+  ally: step('ally', {
+    who: R('castRef'), ally: { ...R('slug'), description: "its car's id (default 'ally'): a later ally or convoy step takes the same car on" }, name: S(40),
+    car: S(48, { pattern: '^(sedan|suv|taxi|pickup|van|minivan|[a-z0-9][a-z0-9.-]{0,47})$', description: "a city body or one of the pack's vehicles by id" }), color: R('colour'),
+    from: R('placeRef'), to: ONE(R('placeRef'), { const: 'player' }), speed: N(4, 30), secs: N(10, 900), near: N(6, 60), out: B, objective: R('objective'), flag: R('flag')
+  }, ['to']),
   trigger: step('trigger', {
-    street: S(40), area: O({ '@': R('placeKey'), r: N(5, 200) }, ['@', 'r']), when: R('cond'), once: B, cue: S(16, { pattern: '^[a-z][a-z-]{0,15}$' }),
+    street: S(40), area: O({ '@': R('placeKey'), r: N(5, 200) }, ['@', 'r']), when: R('cond'), once: B, cue: S(16, { pattern: '^[a-z][a-z0-9-]{0,15}$', description: "a sound when it fires: one of Mog City's by name, or a walkie-talkie's: walkie (one beep), walkie2, walkie3" }),
     say: R('sayLine'), set: R('set'), flag: R('flag'), atStart: B, do: A(R('sideStep'), 6)
   }),
   beat: step('beat', { shot: O({ cam: camRef, look: camRef, to: camRef, lookTo: camRef, fov: N(20, 90) }, ['cam']), dur: N(0.5, 6), say: R('sayLine') }, ['shot']),
-  roadblock: step('roadblock', { at: R('placeRef'), r: N(6, 40), cars: I(1, 4), kind: E(['police', 'crew']), text: R('label') }, ['at']),
-  passenger: step('passenger', { who: R('beingRef'), board: B, seat: E(['front', 'rear', 'rear-left']), from: R('placeRef'), to: R('placeRef'), secs: N(1, 8) }, ['who']),
+  // roadblock: cars parked across the street before `at`'s corner (police cruisers, or the crew's black cars, `crew` men
+  // beside them); the GPS routes round it (r m), a ram at ramSpeed m/s (ram: false, never) knocks a car aside. With `to`, a
+  // step of its own (get past it to there); without, it stays up beside the steps after it
+  roadblock: step('roadblock', { at: R('placeRef'), r: N(6, 40), cars: I(1, 4), kind: E(['police', 'crew']), text: R('label'), to: R('placeRef'), crew: I(0, 4),
+    ram: B, ramSpeed: N(5, 30), back: N(0, 40), objective: R('objective'), flag: R('flag') }, ['at']),
+  // passenger: who gets in (board) and out (board: false). With from / to: pick them up at `from`, drive them to `to` (they
+  // get out there unless drop: false) under their rules: a speed limit (limit mph, on the HUD; over it limitSecs s: hard
+  // fails, soft costs its set) and their comfort (a comfort step's fields)
+  passenger: step('passenger', { who: R('beingRef'), board: B, seat: E(['front', 'rear', 'rear-left']), from: R('placeRef'), to: R('placeRef'), secs: N(1, 8),
+    limit: N(10, 120, { description: 'mph' }), limitSecs: N(0.5, 15), fail: E(['hard', 'soft']), why: R('line'), warn: R('line'), set: R('set'), flag: R('flag'), drop: B,
+    objective: R('objective'), pickObjective: R('objective'), radius: N(3, 60),
+    comfort: O({ label: S(24), start: N(0, 1), refill: N(0, 0.5), fail: E(['hard', 'soft']), flag: R('flag'), why: R('line'), set: R('set'),
+      drain: O({ brake: N(0, 1), lateral: N(0, 1), hit: N(0, 1), bump: N(0, 1), time: N(0, 0.2) }),
+      lines: A(O({ below: N(0, 1), who: R('castRef'), text: R('speech') }, ['below', 'who', 'text']), 6) }) }, ['who']),
+  // a parked car (one of the story's): a city body in a colour or a pack vehicle by id, at the kerb `back` m short of
+  // `at`'s corner, along its lane or `heading`; solid. { name, remove: true } takes it away
+  car: step('car', { name: { ...R('slug'), description: 'what a later car step calls it, to take it away' }, car: S(48, { pattern: '^(sedan|suv|taxi|pickup|van|minivan|[a-z0-9][a-z0-9.-]{0,47})$' }), color: R('colour'), at: R('placeRef'), heading: R('heading'),
+    back: N(0, 60), kerb: N(0, 8), remove: B }),
   // a street fight on foot (Mog City's W.combat): the hero against cast members with a body
   fight: step('fight', {
     enemies: A(R('castRef'), 8, 1, { description: 'who he fights: cast ids with a body (a seen person, never the hero); an id twice is two of them' }),
@@ -212,7 +287,8 @@ const openingShot = O({
     who: R('castRef'), role: S(60, { description: 'one line under the name: who they are to this story ("the fall guy", "the fixer running the auction")' }),
     is: E(['hero', 'antagonist', 'ally'], { description: "hero: the player (the pack's hero); antagonist: who is in their way; ally: one of up to 3 others who matter" })
   }, ['who', 'is'], { description: "a name card: the frame freezes on this person (the shot looks at them: look { rel: <who> }, or 'player' for the hero) and their name comes up with the role in their colour" }),
-  title: { ...B, description: "the world's title in its own lockup over this shot (exactly one shot; the last is the usual place)" }
+  title: { ...B, description: "the world's title in its own lockup over this shot (exactly one shot; the last is the usual place)" },
+  set: { ...R('slug'), description: "the set this shot is in (one of the opening's sets); left out, the city" }, act: setAct
 }, ['cam']);
 const opening = O({
   place: { ...R('placeRef'), description: 'where the hero stands while it plays (on foot, by their car); the establishing shots look at the city around it' },
@@ -222,12 +298,14 @@ const opening = O({
     at: ONE(R('placeRef'), O({ rel: { const: 'player' }, right: N(-30, 30), fwd: N(-30, 30) }, ['rel'])),
     heading: R('heading')
   }, ['who', 'at']), 6, 0, { description: 'who else is on the street for it, and where: every person a shot looks at or a card names, but the hero' }),
+  sets: { type: 'object', maxProperties: 6, propertyNames: R('slug'), additionalProperties: setDef, description: "the opening's sets by name, for its shots' set: the people who matter each in a room of their own" },
   shots: A(openingShot, OPENING.shots, 4)
 }, ['place', 'shots'], { description: `the world's opening, played once before Mission 1 (hold Space to skip): an establishing shot of the city with the place card first, a name card for the hero, the antagonist and up to ${OPENING.allies} others, the premise in ${OPENING.lines[0]} to ${OPENING.lines[1]} spoken lines, the title; ${OPENING.secs[0]} to ${OPENING.secs[1]} s in all` });
 
 const mission = O({
   id: R('missionId'), title: S(48), vehicle: R('rideRef'), verbs: A(E(VERBS), 8, 0, { uniqueItems: true }),
   start: R('placeRef'), traffic: N(0, 1), stakes: R('line'), passLine: R('line'), note: R('line'), timerLine: S(80), label: S(24),
+  time: E(TIMES, { description: "the mission's time of day, pinned: held through its cutscenes and set pieces (left out: the act's timeline's, else the dressing's)" }),
   reward: R('set'), hiddenMeters: A(R('slug'), 4), next: R('missionId'), hidden: B, steps: A({ $ref: '#/$defs/step' }, LIMITS.steps, 1)
 }, ['id', 'title', 'vehicle', 'start', 'steps']);
 
@@ -265,9 +343,11 @@ export const SCHEMA = {
     ride: { ...R('rideId'), description: 'the free-drive ride (a vehicle id); the first vehicle when left out' },
     hud: O({
       clock: O({ label: S(12), format: E(['count', 'age', 'text']), unit: S(12, { pattern: '^[a-z]{1,12}$' }), unitLabel: S(12), zero: S(24) }),
-      meters: A(O({ id: R('slug'), label: S(12), kind: E(['money', 'count', 'pips', 'bar', 'hidden'], { description: 'count: a plain number that only adds up (supporters), money without the dollars or the choices' }), start: N(-1e6, 1e6), min: N(-1e6, 1e6), max: N(-1e6, 1e6), pips: I(1, 10), cool: N(0, 100), heat: B, prefix: S(2) }, ['id', 'kind']), 4)
+      meters: A(O({ id: R('slug'), label: S(12), kind: E(['money', 'count', 'pips', 'bar', 'hidden'], { description: 'count: a plain number that only adds up (supporters), money without the dollars or the choices' }), start: N(-1e6, 1e6), min: N(-1e6, 1e6), max: N(-1e6, 1e6), pips: I(1, 10), cool: N(0, 100), heat: B, prefix: S(2),
+        goal: N(1, 1e7, { description: "what it is raised toward: the HUD shows '$430,000 / $1,000,000' and a bar, the MISSION PASSED card its progress" }) }, ['id', 'kind']), 4)
     }),
-    places: { type: 'object', maxProperties: 24, propertyNames: R('placeKey'), additionalProperties: O({ '@': R('placeKey'), name: S(60), face: R('placeKey'), heading: R('heading') }, ['@']),
+    places: { type: 'object', maxProperties: 24, propertyNames: R('placeKey'), additionalProperties: O({ '@': R('placeKey'), name: S(60), face: R('placeKey'), heading: R('heading'),
+      offset: O({ right: N(-60, 60), fwd: N(-60, 60) }, [], { description: "a sub-place: metres from the key's point along its facing (right, forward): the side door round the corner" }) }, ['@']),
       description: 'the pack\'s own names for city places: { key: { "@": cityKey, name } }. Never a coordinate.' },
     cast: A(O({
       id: R('slug'), anchor: E(ANCHORS), color: R('colour'), voiceOnly: { ...B, description: 'heard, never seen (a dispatcher on the phone): no sheet, no body' },
@@ -279,7 +359,8 @@ export const SCHEMA = {
       model: E(PET_MODELS, { description: 'a shipped pet from the cast registry (mogcity/moon: Moon, a small white fluffy dog); without one a dog is built the same way in its coat and size' }),
       follows: { ...B, description: 'stays with its owner, the hero, as the player plays: trots after them on foot, rides in the car beside them, sits when they stop' } }, ['id', 'name', 'species']), LIMITS.pets),
     vehicles: A({ oneOf: [
-      O({ stock: E(STOCK_CARS, { description: "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own)" }), id: R('rideId'), paint: R('colour') }, ['stock']),
+      O({ stock: E(STOCK_CARS, { description: "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, a showcase's only)" }), id: R('rideId'), paint: R('colour'),
+        label: S(32, { description: "gt only: the speed panel's name for it (\"John's car\")" }), plate: S(8, { pattern: '^[A-Z0-9 ]{0,8}$', description: 'gt only: its plate' }) }, ['stock']),
       { $ref: VEHICLE_SHEET }
     ] }, LIMITS.vehicles, 1),
     acts: A(O({

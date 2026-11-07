@@ -2,6 +2,7 @@
 // public/) and the world store (lib/storykit-store.ts, a creator's world on GameMog's own disk). No file system here.
 import { gatePack, personName } from './gate.ts';
 import { recordedClip } from './registry.ts';
+import { SHOWCASE_PACKS } from './schema.mjs';
 import { lintVoiceBlock, KOKORO_VOICES, VOICE_MODEL, voiceKey, clipBase } from '../voices/voice-design.js';
 
 /** A cast member's voice block as the voice pass reads it (the gate's base: kokoro, or the heaviest English voice). */
@@ -21,7 +22,8 @@ export function voiceBlockOf(c: any) {
 export function voicePlanOf(pack: any, dir = `packs/${pack.id}/voice/`) {
   const name = (id: string) => personName(pack.cast.find((c: any) => c.id === id)) || id.replace(/(^|-)([a-z])/g, (_: string, a: string, b: string) => (a ? ' ' : '') + b.toUpperCase());
   const blocks = new Map(pack.cast.map((c: any) => [c.id, voiceBlockOf(c)]));
-  const lines = gatePack(pack).lines.filter((l) => !/\.p$/.test(l.id));
+  // (a showcase (SHOWCASE_PACKS) is gated as one: longer than a Create, so the plain gate refuses it and lists no lines)
+  const lines = gatePack(pack, SHOWCASE_PACKS.includes(pack.id) ? { showcase: true } : {}).lines.filter((l) => !/\.p$/.test(l.id));
   return {
     model: VOICE_MODEL, dir,
     cast: Object.fromEntries(pack.cast.map((c: any) => { const b: any = blocks.get(c.id); return [name(c.id), { id: c.id, voice: b.id, key: voiceKey(b), block: b }]; })),
