@@ -256,9 +256,15 @@ export function createRunner(ctx) {
     const dest = { x: p.x, z: p.z, name };
     const nav = gps.drive({ dest, objective: objective ? parts(objective) : ['Go to ', { [name]: 'yellow' }, '.'], onFoot, needsCar });
     M.nav = nav;
+    // (the metres left along the route, told to a framing GameMog each second as a tail's are: a long leg or a long chase
+    // to a place is progress, not stuck. 7 Nov: PT-11's pursuit to Bryant Park ran 137 s, past the test drive's 90 s,
+    // and every Mog of Pickup Time and a Create's chase to the precinct were stopped there)
+    let told = 0;
     try {
       await wait(() => {
         nav.step();
+        const tt = now();
+        if (tt - told > 1000) { told = tt; const q = me(), L = gps.length; host.tell('progress', { mission: M.def?.id, step: d.id || null, kind: d.type, i: M.i, n: M.def?.steps.length, left: Math.max(0, Math.round(Number.isFinite(L) && L > 0 ? L : dist(q, p.x, p.z))) }); }
         if (inCar()) return dist(car.position, p.x, p.z) < radius && (d.stop === false || Math.abs(car.speed) < stopV);
         return dist(P.position, p.x, p.z) < Math.max(3, radius * 0.75);
       }, t);
