@@ -1488,6 +1488,25 @@ export const MIGRATIONS = [
       return `${done.length} of ${slugs.length} first-party worlds by GameMog${done.length < slugs.length ? ` (left alone or not here: ${slugs.filter((x) => !done.includes(x)).join(', ')})` : ''}; Mog City's own story: ${own}`;
     },
   },
+  {
+    // 7 Nov, the owner: Pickup Time "needs a MUCH more compelling thumbnail with main characters, john & family in front
+    // of the porsche" (the Vantor GT). New cover, key art and icon: the family with the car, rendered in the runtime
+    // (deploy/migrations/pickup-time-*-2.jpg). Swapped only where the row still has the art its first migration wrote
+    // (byte for byte), so art changed since by hand is left alone; the headshot (art_avatar) stays
+    id: '2026-11-07-pickup-time-art',
+    run(db) {
+      const was = { cover: file('pickup-time-cover.jpg'), art_icon: file('pickup-time-icon.jpg'), art_wide: file('pickup-time-wide.jpg') };
+      const now = { cover: file('pickup-time-cover-2.jpg'), art_icon: file('pickup-time-icon-2.jpg'), art_wide: file('pickup-time-wide-2.jpg') };
+      if (Object.values(was).some((b) => !b) || Object.values(now).some((b) => !b)) throw new Error('deploy/migrations/pickup-time-{cover,icon,wide}{,-2}.jpg are not all in this build');
+      const row = db.prepare("SELECT id, cover, art_icon, art_wide FROM games WHERE slug = 'pickup-time'").get();
+      if (!row) throw new Error('waiting: /g/pickup-time is not in this database yet');
+      const same = (a, b) => a != null && Buffer.from(a).equals(b);
+      const swap = Object.keys(now).filter((k) => same(row[k], was[k]));
+      if (!swap.length) return 'left alone: Pickup Time\'s art was changed since its migration';
+      db.prepare(`UPDATE games SET ${swap.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...swap.map((k) => now[k]), row.id);
+      return `Pickup Time's new art: ${swap.join(', ')}`;
+    },
+  },
 ];
 
 /** A table's columns (the app adds some at its first start, lib/db.ts: a fresh disk's database may lack them). */
