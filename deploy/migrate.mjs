@@ -1507,6 +1507,18 @@ export const MIGRATIONS = [
       return `Pickup Time's new art: ${swap.join(', ')}`;
     },
   },
+  {
+    // 7 Nov, the owner: the live test's two worlds (a Mog of Pickup Time and a Create, published from the test's own
+    // browser under the creator name "Nov7 Live Test") read "By GameMog": "change it to By GameMog". Only those two rows,
+    // and only while they still carry the test's name
+    id: '2026-11-07-live-test-by-gamemog',
+    run(db) {
+      if (!columns(db, 'games').has('creator')) return 'no creator column yet';
+      const one = db.prepare("UPDATE games SET creator = 'GameMog' WHERE slug = ? AND creator = 'Nov7 Live Test'");
+      const done = ['silent-night-pickup', 'blackout-tow'].filter((slug) => one.run(slug).changes > 0);
+      return `by GameMog: ${done.join(', ') || 'none (renamed already or not here)'}`;
+    },
+  },
 ];
 
 /** A table's columns (the app adds some at its first start, lib/db.ts: a fresh disk's database may lack them). */
