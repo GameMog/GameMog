@@ -1,0 +1,208 @@
+{
+ "_": "Pickup Time voice casting (Kokoro-82M stock voices, blends of up to 3; pitch in semitones). merge.mjs (voice-attach.mjs) puts each block on its cast member; the table and reasons are in ../VOICES.md. Hand-built people keep their registry voice (public/storykit/cast/registry.json voice.near) under a pt- id; Mog City's Suits keep theirs (their recorded lines play).",
+ "john": {
+  "id": "pt-john",
+  "kokoro": "am_michael",
+  "blend": {
+   "am_michael": 1
+  },
+  "speed": 0.97,
+  "pitch": -0.4,
+  "description": "a man of thirty-eight, a warm, slightly tired baritone, even and low, a planner's short sentences; strain under it when it counts"
+ },
+ "carissa": {
+  "id": "pt-carissa",
+  "kokoro": "af_bella",
+  "blend": {
+   "af_bella": 1
+  },
+  "speed": 1.06,
+  "pitch": -0.9,
+  "description": "a woman of thirty-six, warm mezzo, quick and funny, a laugh under it and steel when it counts"
+ },
+ "delgado": {
+  "id": "pt-delgado",
+  "kokoro": "am_onyx",
+  "blend": {
+   "am_onyx": 1
+  },
+  "speed": 0.92,
+  "pitch": -0.6,
+  "description": "a man in his fifties, low controlled baritone, quiet and precise, menace under the calm, never shouts"
+ },
+ "agnes": {
+  "id": "pt-agnes",
+  "kokoro": "af_nicole",
+  "blend": {
+   "af_nicole": 0.7,
+   "af_kore": 0.3
+  },
+  "speed": 0.9,
+  "pitch": -0.4,
+  "description": "a woman in her seventies, a soft careful alto, formal and apologetic, a faint New York vowel"
+ },
+ "milo": {
+  "id": "pt-milo",
+  "kokoro": "af_heart",
+  "blend": {
+   "af_heart": 0.75,
+   "af_jessica": 0.25
+  },
+  "speed": 1.0,
+  "pitch": 2.5,
+  "description": "a six-year-old boy, small, clear and high (Kokoro has no child voice: its brightest young voices pitched up the full 2.5 semitones)"
+ },
+ "teddy": {
+  "id": "pt-teddy",
+  "kokoro": "am_puck",
+  "blend": {
+   "am_puck": 0.8,
+   "am_liam": 0.2
+  },
+  "speed": 1.1,
+  "pitch": 0.4,
+  "description": "a young man, nervous, quick light voice"
+ },
+ "rollo": {
+  "id": "pt-rollo",
+  "kokoro": "am_fenrir",
+  "blend": {
+   "am_fenrir": 0.7,
+   "am_echo": 0.3
+  },
+  "speed": 0.95,
+  "pitch": -1.6,
+  "description": "a thick-set man, amused, gravelly mid voice"
+ },
+ "lou": {
+  "id": "pt-lou",
+  "kokoro": "am_santa",
+  "blend": {
+   "am_santa": 0.65,
+   "bm_lewis": 0.35
+  },
+  "speed": 1.05,
+  "pitch": -2.2,
+  "description": "an older man, gravelly, quick, cheerful"
+ },
+ "bunny": {
+  "id": "pt-bunny",
+  "kokoro": "af_alloy",
+  "blend": {
+   "af_alloy": 0.7,
+   "af_kore": 0.3
+  },
+  "speed": 0.95,
+  "pitch": -1.8,
+  "description": "a woman near sixty, smoky low alto, unhurried, amused"
+ },
+ "pell": {
+  "id": "pt-pell",
+  "kokoro": "am_eric",
+  "blend": {
+   "am_eric": 1
+  },
+  "speed": 1.04,
+  "pitch": -0.6,
+  "description": "a man in his forties, nasal, precise, faintly bored"
+ },
+ "okafor": {
+  "id": "pt-okafor",
+  "kokoro": "bf_emma",
+  "blend": {
+   "bf_emma": 0.75,
+   "af_nicole": 0.25
+  },
+  "speed": 0.98,
+  "pitch": -1.2,
+  "description": "a woman around forty, calm warm teacher voice, crisp, kind and quick"
+ },
+ "headmaster": {
+  "id": "pt-headmaster",
+  "kokoro": "bm_fable",
+  "blend": {
+   "bm_fable": 0.8,
+   "bm_george": 0.2
+  },
+  "speed": 0.95,
+  "pitch": -0.3,
+  "description": "an older man, precise British tenor-baritone, careful and procedural, kind underneath"
+ },
+ "ma": {
+  "id": "pt-ma",
+  "kokoro": "af_sarah",
+  "blend": {
+   "af_sarah": 0.6,
+   "af_river": 0.4
+  },
+  "speed": 1.12,
+  "pitch": 0.8,
+  "description": "an older woman, bright and chatty, fast, a warm nasal edge"
+ },
+ "benny": {
+  "id": "pt-benny",
+  "kokoro": "am_liam",
+  "blend": {
+   "am_liam": 0.7,
+   "am_puck": 0.3
+  },
+  "speed": 1.15,
+  "pitch": 2.5,
+  "description": "a young man, quick and eager, slightly breathless"
+ },
+ "calloway": {
+  "id": "pt-calloway",
+  "kokoro": "af_nova",
+  "blend": {
+   "af_nova": 0.7,
+   "af_kore": 0.3
+  },
+  "speed": 0.95,
+  "pitch": -2.0,
+  "description": "a woman of fifty, flat dry low voice, unhurried, amused"
+ },
+ "odette": {
+  "id": "pt-odette",
+  "kokoro": "bf_isabella",
+  "blend": {
+   "bf_isabella": 0.8,
+   "ff_siwis": 0.2
+  },
+  "speed": 1.0,
+  "pitch": -0.6,
+  "description": "a woman in her fifties, silky, amused, a little French colour"
+ },
+ "marjorie": {
+  "id": "pt-marjorie",
+  "kokoro": "af_aoede",
+  "blend": {
+   "af_aoede": 0.7,
+   "af_sky": 0.3
+  },
+  "speed": 1.1,
+  "pitch": -0.4,
+  "description": "a brisk businesswoman, bright, fast, unsentimental"
+ },
+ "coach": {
+  "id": "pt-coach",
+  "kokoro": "am_echo",
+  "blend": {
+   "am_echo": 0.6,
+   "am_eric": 0.4
+  },
+  "speed": 1.12,
+  "pitch": 0.6,
+  "description": "a wiry man, fast-talking, raspy"
+ },
+ "tank": {
+  "id": "pt-tank",
+  "kokoro": "am_onyx",
+  "blend": {
+   "am_onyx": 0.5,
+   "am_echo": 0.5
+  },
+  "speed": 0.88,
+  "pitch": 2.0,
+  "description": "a huge man, flat low voice, one word at a time"
+ }
+}

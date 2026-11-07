@@ -433,6 +433,35 @@ The world store sits on the Render disk (`data/storykit`, `STORYKIT_DISK_MB`, 40
 worlds are refused with a clear message before anything is spent; published worlds are kept. /admin shows the usage
 while the switch is on or owner. The rules: `docs/RULES.md` section 1h.
 
+[`docs/STORYKIT-ARCHITECTURE.md`](docs/STORYKIT-ARCHITECTURE.md) covers the whole path:
+
+- the pack, the gate, the store (drafts, seal, keep, `/storykit/f/<sha256>` files) and the game row;
+- the play page framing mc.gamemog.com and the messages Mog City posts back;
+- the switch, the showcase exemption and first-party worlds shipped by migration;
+- the store's limits, headshots, and which checks to run.
+
+## Pickup Time
+
+[gamemog.com/g/pickup-time](https://gamemog.com/g/pickup-time) is GameMog's first showcase story world, played on
+Mog City's engine. John Marin was a getaway planner and now owns a pizza chain. He has one afternoon to drive from
+Wall St to Harlem and raise a $1,000,000 ransom for his son, with his wife Carissa on the phone the whole way. It has
+15 missions in 3 acts and uses:
+
+- tails, lookouts, chases, convoys, a roadblock and fights;
+- cutscenes staged in sets, and MISSION PASSED cards with a money meter;
+- daylight until the last mission's night.
+
+![Pickup Time: MISSION PASSED](docs/media/pickup-time/08-mission-passed.jpg)
+
+- The pack is `storykit/packs/pickup-time.json`. It is generated from
+  [`storykit/showcase/pickup-time/`](storykit/showcase/pickup-time/README.md).
+- It is gated as a showcase (`SHOWCASE_PACKS`: longer than a Create allows).
+- It ships through the `deploy/migrate.mjs` migration `2026-11-07-pickup-time`: its record, world and 910 voice clips
+  are in `deploy/migrations/`.
+- Its nine people are hand-built bodies in `public/storykit/cast/hand/` (credits in `CREDITS.md` there).
+- To change it and ship an update (this needs a new migration id), see
+  [`docs/STORYKIT-ARCHITECTURE.md`](docs/STORYKIT-ARCHITECTURE.md) section 3.
+
 ## Data
 
 SQLite via Node's built-in `node:sqlite`: no native module, no build step, one file in `data/`.
