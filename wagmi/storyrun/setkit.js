@@ -310,6 +310,28 @@ export function facade(style = 'brick', { night = false, seed = 5, tone = null }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
   t.userData.keep = true; FAC.set(key, t); return t;
 }
+// a shop window from the street: the interior behind the glass (its back wall, shelves of goods as dots of colour, a
+// counter, pendant lights warm at the top), a door in one bay, the sky's reflection as soft diagonal bands
+const SHOP = new Map();
+export function shopfront(seed, { night = false } = {}) {
+  const key = seed + '|' + night; if (SHOP.has(key)) return SHOP.get(key);
+  const [c, x] = canvas(512, 256), r = rng(seed);
+  const g = x.createLinearGradient(0, 0, 0, 256); g.addColorStop(0, night ? '#E8B878' : '#7A6A58'); g.addColorStop(0.35, night ? '#9A6A3A' : '#4A4038'); g.addColorStop(1, night ? '#3A2818' : '#1E1A16');
+  x.fillStyle = g; x.fillRect(0, 0, 512, 256);
+  for (let k = 0; k < 4; k++) { const ly = 70 + k * 38; x.fillStyle = 'rgba(30,22,16,0.8)'; x.fillRect(20, ly, 472, 5); for (let i = 0; i < 40; i++) { x.fillStyle = `hsl(${Math.floor(r() * 360)},${15 + r() * 25}%,${night ? 50 : 30 + r() * 12}%)`; x.fillRect(24 + i * 11.6 + r() * 3, ly - 10 - r() * 14, 8, 10 + r() * 12); } }
+  x.fillStyle = night ? '#5A3E24' : '#3A2C20'; x.fillRect(60, 200, 300, 56);
+  for (let i = 0; i < 4; i++) { const lx = 70 + i * 120, gg = x.createRadialGradient(lx, 18, 2, lx, 18, 60); gg.addColorStop(0, night ? 'rgba(255,230,180,1)' : 'rgba(255,230,180,0.85)'); gg.addColorStop(1, 'rgba(255,230,180,0)'); x.fillStyle = gg; x.fillRect(lx - 60, 0, 120, 90); }
+  if (r() < 0.6) { const dx = r() < 0.5 ? 380 : 30; x.fillStyle = night ? '#2A1E14' : '#1A1612'; x.fillRect(dx, 20, 100, 236); x.fillStyle = 'rgba(200,170,90,0.9)'; x.fillRect(dx + 80, 130, 6, 30); }
+  if (!night) { x.globalCompositeOperation = 'screen'; for (let i = 0; i < 4; i++) { const sx = r() * 512; const sg = x.createLinearGradient(sx, 0, sx + 140, 256); sg.addColorStop(0, 'rgba(170,200,230,0)'); sg.addColorStop(0.5, `rgba(170,200,230,${0.18 + r() * 0.15})`); sg.addColorStop(1, 'rgba(170,200,230,0)'); x.fillStyle = sg; x.beginPath(); x.moveTo(sx, 0); x.lineTo(sx + 90, 0); x.lineTo(sx + 230, 256); x.lineTo(sx + 140, 256); x.fill(); } x.globalCompositeOperation = 'source-over'; }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.userData.keep = true; SHOP.set(key, t); return t;
+}
+// an awning's canvas: stripes of its colour and cream, a scalloped edge's shade
+const AWN = new Map();
+export function awning(col) {
+  if (AWN.has(col)) return AWN.get(col);
+  const [c, x] = canvas(64, 64); x.fillStyle = '#EDE6D6'; x.fillRect(0, 0, 64, 64); x.fillStyle = col; x.fillRect(0, 0, 32, 64); x.fillStyle = 'rgba(0,0,0,0.12)'; x.fillRect(0, 56, 64, 8);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.userData.keep = true; AWN.set(col, t); return t;
+}
 // a blob of soft shadow under someone's feet (the light's shadow does the rest)
 let BLOB = null;
 export function blobTexture() {
@@ -602,13 +624,22 @@ export function kit(scene, { night = false, golden = false } = {}) {
     K.box(w + 0.5, 0.45, d + 0.5, std({ color: night ? '#1A1814' : '#CFC6B4', roughness: 0.7 }), 0, h, 0, { parent: G });
     K.box(w + 0.2, 0.3, d + 0.2, std({ color: night ? '#12100E' : '#D8D0C0', roughness: 0.7 }), 0, 4, 0, { parent: G });
     if (shop) {
-      const r = rng(seed + 9), glassM = std({ color: night ? '#FFE0B0' : '#46596C', roughness: 0.05, metalness: 0.65, emissive: night ? '#FFC880' : '#000000', emissiveIntensity: night ? 0.9 : 0 });
-      const n = Math.max(1, Math.floor(w / 6));
+      // (each shop: a recessed front of its own, its window a drawn interior (shelves, a counter, warm lights, the
+      // street's reflection across the glass), a door in one bay, a stall riser, a fascia board in its colour (no
+      // name), a striped awning on its arms, a sill)
+      const r = rng(seed + 9), n = Math.max(1, Math.floor(w / 6)), frameM = std({ color: night ? '#141414' : '#22262A', roughness: 0.4, metalness: 0.6 });
       for (let i = 0; i < n; i++) {
-        const sx = -w / 2 + (i + 0.5) * (w / n), sw = (w / n) * 0.78;
-        K.box(sw, 2.9, 0.05, glassM, sx, 0.4, d / 2 + 0.02, { parent: G, shadow: false });
-        const aw = std({ color: ['#2B5E3B', '#7A1F1F', '#1F3A5F', '#4A4A4A', '#8C5A1F'][Math.floor(r() * 5)], roughness: 0.8, side: THREE.DoubleSide });
-        const a = K.box(sw + 0.3, 0.06, 1.3, aw, sx, 3.35, d / 2 + 0.65, { parent: G }); a.rotation.x = 0.28;
+        const sx = -w / 2 + (i + 0.5) * (w / n), sw = (w / n) * 0.82, col = ['#2B5E3B', '#7A1F1F', '#1F3A5F', '#4A4A4A', '#8C5A1F', '#5A2E5A'][Math.floor(r() * 6)], z0 = d / 2;
+        const gm = std({ map: shopfront(seed * 13 + i, { night }), roughness: 0.06, metalness: 0.2, emissive: '#FFFFFF', emissiveMap: shopfront(seed * 13 + i, { night }), emissiveIntensity: night ? 1.0 : 0.22 });
+        K.box(sw, 2.6, 0.04, gm, sx, 0.62, z0 + 0.02, { parent: G, shadow: false });
+        K.box(sw + 0.3, 0.62, 0.2, std({ color: shade(col, 0.8), roughness: 0.5 }), sx, 0, z0 + 0.05, { parent: G });
+        for (const f of [-0.5, 0, 0.5]) K.box(0.07, 2.6, 0.1, frameM, sx + f * sw, 0.62, z0 + 0.06, { parent: G, shadow: false });
+        K.box(sw + 0.12, 0.07, 0.12, frameM, sx, 3.2, z0 + 0.06, { parent: G, shadow: false }); K.box(sw + 0.2, 0.06, 0.24, std({ color: '#B8B2A6', roughness: 0.6 }), sx, 0.6, z0 + 0.1, { parent: G });
+        K.box(sw + 0.36, 0.6, 0.16, std({ color: col, roughness: 0.45 }), sx, 3.3, z0 + 0.1, { parent: G });
+        K.box(sw * 0.8, 0.05, 0.03, std({ color: '#E8D9A8', roughness: 0.4, metalness: 0.6 }), sx, 3.57, z0 + 0.19, { parent: G, shadow: false });
+        const at = awning(col).clone(); at.userData = {}; at.repeat.set(Math.round(sw / 0.5), 1); at.needsUpdate = true; const aw = std({ map: at, roughness: 0.85, side: THREE.DoubleSide });
+        const a = K.box(sw + 0.3, 0.04, 1.4, aw, sx, 3.05, z0 + 0.8, { parent: G }); a.rotation.x = 0.3;
+        for (const f of [-1, 1]) { const arm = K.cyl(0.015, 0.015, 1.45, frameM, sx + f * (sw / 2 + 0.1), 3.0, z0 + 0.72, { parent: G, rx: PI / 2 - 0.3 }); arm.position.y = 3.25; }
       }
     }
     if (tank) { const tm = std({ color: night ? '#141210' : '#6E5644', roughness: 0.9 }); K.cyl(1.4, 1.4, 2.6, tm, w * 0.2, h + 2.4, -d * 0.1, { parent: G, seg: 16 }); K.cyl(0.2, 1.55, 1.0, tm, w * 0.2, h + 5.0, -d * 0.1, { parent: G, seg: 16 }); for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) K.box(0.12, 2.4, 0.12, M.black, w * 0.2 + a * 1.0, h + 0.4, -d * 0.1 + b * 1.0, { parent: G }); }

@@ -50,7 +50,7 @@ function shelfThings(K, G, w, ys, seed) { const r = K.rng(seed); for (const y of
 // his desk with its banker's lamp, the credenza of photographs, the bookcases; the visitor's wall with its diplomas
 function bankOffice(K, def) {
   const M = K.mat, w = 6.4, d = 5.6, h = 3.0;
-  const wall = K.scan('plaster', { tint: '#CFC3AE', rough: 0.95, nscale: 0.5, color: false });
+  const wall = K.scan('plaster', { tint: '#B3A68F', rough: 0.95, nscale: 0.55, color: false });
   const walnut = K.std({ color: '#4A2E1C', roughness: 0.42 });
   K.room({ w, d, h, floor: K.surf(SURF.carpet('#3E4858', 5), [5, 5], { roughness: 1 }), wall, wainscot: null, skirting: walnut, crown: K.std({ color: '#E9E2D4', roughness: 0.7 }),
     holes: [{ wall: 'back', x: -1.45, y: 0.75, w: 1.7, h: 1.95 }, { wall: 'back', x: 1.45, y: 0.75, w: 1.7, h: 1.95 }], lightsAt: [[-1.6, 0.2], [1.6, 0.2]] });
@@ -91,7 +91,7 @@ function bankOffice(K, def) {
   K.rug(3.4, 2.5, 0, -0.45, '#2B3546', '#C8B98F', 99);
   return {
     light: { sun: { from: [3.5, 7, -9], to: [0, 0, 0.5], ext: 6, k: 2.8 }, hemi: 0.8,
-      points: [{ at: [-1.6, 2.8, 0.2], k: 1.6, color: '#FFF3E0', dist: 6 }, { at: [1.6, 2.8, 0.2], k: 1.6, color: '#FFF3E0', dist: 6 }, { at: [-0.7, 1.12, -1.2], k: 1.4, color: '#FFD08A', dist: 3.5 }, { at: [-1.45, 1.35, d / 2 - 0.45], k: 1.1, color: '#FFD49A', dist: 3.5 }] },
+      points: [{ at: [-1.6, 2.8, 0.2], k: 1.0, color: '#FFF3E0', dist: 5 }, { at: [1.6, 2.8, 0.2], k: 1.0, color: '#FFF3E0', dist: 5 }, { at: [-0.7, 1.12, -1.2], k: 1.4, color: '#FFD08A', dist: 3.5 }, { at: [-1.45, 1.35, d / 2 - 0.45], k: 1.1, color: '#FFD49A', dist: 3.5 }] },
     marks: { desk: [0, 1.0, -0.95], door: [1.9, 1.2, d / 2], window: [0, 1.6, -d / 2] },
   };
 }
@@ -443,7 +443,7 @@ function park(K, def) {
 function lobby(K, def) {
   const M = K.mat, w = 12, d = 9, h = 5.5;
   const stone = K.surf(SURF.marble('#E4E0D8', '#8F887D', 241), [4, 3], { roughness: 0.08, metalness: 0.05 }); stone.envMapIntensity = 1.4;
-  K.room({ w, d, h, floor: stone, wall: K.surf(SURF.marble('#A49C90', '#7A7266', 243), [3, 1.5], { roughness: 0.25 }), ceiling: K.std({ color: '#ECECEA', roughness: 0.8 }), skirting: null, crown: null,
+  K.room({ w, d, h, floor: stone, wall: K.surf(SURF.marble('#968E82', '#6E665A', 243), [3, 1.5], { roughness: 0.45 }), ceiling: K.std({ color: '#ECECEA', roughness: 0.8 }), skirting: null, crown: null,
     holes: [{ wall: 'back', x: 0, y: 0, w: 11.8, h: 5.3 }], panels: false });
   // (the ceiling's slots of light, warm)
   for (let i = 0; i < 4; i++) K.box(w - 1, 0.02, 0.12, M.panel, 0, h - 0.02, -3 + i * 2, { shadow: false });
@@ -465,8 +465,8 @@ function lobby(K, def) {
   K.box(3.0, 0.42, 0.6, M.leather, -3.2, 0, -3.4, { r: 0.04 }); K.box(3.0, 0.42, 0.6, M.leather, 2.6, 0, -3.4, { r: 0.04 });
   for (const [x, z] of [[-4.8, -3.6], [4.8, -3.6], [-5.2, 3.6], [5.2, 3.2]]) K.potted(x, z, 1.4, { pot: '#2A2A2A', h: 0.7 });
   return {
-    light: { sun: { from: [-5, 9, -14], to: [0, 0, 1], ext: 10, k: K.night ? 0.3 : 3.0 }, hemi: 0.9, windowK: 0.35,
-      points: [[-3, 0], [0, 0], [3, 0]].map(([x, z]) => ({ at: [x, h - 0.4, z], k: 1.5, color: '#FFF0DA', dist: 9 })).concat([{ at: [3.8, 1.5, 0.9], k: 0.8, color: '#FFE2B0', dist: 3 }]) },
+    light: { sun: { from: [-5, 9, -14], to: [0, 0, 1], ext: 10, k: K.night ? 0.3 : 3.0 }, hemi: 0.75, windowK: 0.25,
+      points: [[-3, 0], [0, 0], [3, 0]].map(([x, z]) => ({ at: [x, h - 0.4, z], k: 1.1, color: '#FFF0DA', dist: 8 })).concat([{ at: [3.8, 1.5, 0.9], k: 0.8, color: '#FFE2B0', dist: 3 }]) },
     marks: { desk: [2.5, 1.2, 0.8], glass: [0, 2, -d / 2] },
   };
 }

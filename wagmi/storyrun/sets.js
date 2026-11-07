@@ -120,7 +120,7 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       scene.add(sl, sl.target);
     }
     // the people's key (soft shadows on the face and the body), fill and rim: placed every frame with the lens (update)
-    const key = new THREE.SpotLight(night ? '#FFD2A0' : golden ? '#FFE0B8' : '#FFF2E2', 0, 7, 0.5, 0.95, 2);
+    const key = new THREE.SpotLight(night ? '#FFD2A0' : golden ? '#FFE0B8' : '#FFF2E2', 0, 4.5, 0.42, 0.95, 2);
     key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0006; key.shadow.normalBias = 0.015; key.shadow.radius = 6; key.shadow.camera.near = 0.2; key.shadow.camera.far = 7;
     const fill = new THREE.PointLight(night ? '#8EA2D8' : '#FFE9D2', 0, 5, 2);
     const rim = new THREE.SpotLight(night ? '#A9C0FF' : golden ? '#FFC98A' : '#F2F6FF', 0, 7, 0.6, 0.9, 2);
@@ -211,7 +211,7 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     if (p.prop) P.prop = propOf(S, p.prop);
     const blob = new THREE.Mesh(new THREE.PlaneGeometry(isHero || !/milo/i.test(raw) ? 0.9 : 0.6, isHero || !/milo/i.test(raw) ? 0.9 : 0.6), new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false }));
     blob.rotation.x = -PI / 2; blob.renderOrder = 1; S.scene.add(blob); P.blob = blob;
-    S.people.set(raw, P);
+    P.isHero = isHero; S.people.set(raw, P);
     // (their arms after their clip, every frame: a hug, a hand held)
     fig.post = () => { if (active === S) arms(S, P); };
   }
@@ -244,9 +244,12 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     o.position.y = (P.y || 0) - (crouch ? 0.4 : 0.44); o.updateMatrixWorld(true);
     const fx = Math.sin(h), fz = Math.cos(h), lx = Math.cos(h), lz = -Math.sin(h), X = o.position.x, Z = o.position.z, Y = P.y || 0;
     const pt = (l, f, y) => V(X + lx * l + fx * f, Y + y, Z + lz * l + fz * f);
-    if (crouch) { for (const [side, sl] of [['L', 1], ['R', -1]]) try { armTo(B, side, pt(sl * 0.16, 0.2, 0.09), pt(sl * 0.25, 1.2, 0.7), 1, LEG); } catch {} return; }
-    try { armTo(B, 'L', pt(0.13, 0.36, 0.09), pt(0.15, 1.2, 0.7), 1, LEG); } catch {}
-    try { armTo(B, 'R', pt(-0.13, -0.4, 0.07), pt(-0.13, 0.9, -0.3), 1, LEG); } catch {}
+    // (crouched beside someone: down on the other knee, the right foot ahead, so two people down together are not one
+    // pose twice; the old both-feet crouch read as a squat with the knees up at the chest)
+    const m = crouch ? -1 : 1, A = crouch ? 'R' : 'L', K = crouch ? 'L' : 'R';
+    if (crouch) o.position.y = (P.y || 0) - 0.44, o.updateMatrixWorld(true);
+    try { armTo(B, A, pt(m * 0.13, 0.36, 0.09), pt(m * 0.15, 1.2, 0.7), 1, LEG); } catch {}
+    try { armTo(B, K, pt(-m * 0.13, -0.4, 0.07), pt(-m * 0.13, 0.9, -0.3), 1, LEG); } catch {}
   }
   function arms(S, P) {
     const B = P.fig.bones; if (!B) return;
@@ -272,15 +275,21 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
           if (mv > 0) { P.x += (dx / n) * mv - lx * 0.12 * sd; P.z += (dz / n) * mv - lz * 0.12 * sd; P.fig.root.position.x = P.x; P.fig.root.position.z = P.z; if (P.blob) P.blob.position.set(P.x, 0.012, P.z); P.h = Math.atan2(dx, dz); P.fig.root.rotation.y = P.h; P.fig.heading = P.h; P.fig.root.updateMatrixWorld(true); } }
       }
       const u = Math.min(1, Math.max(0, ((S.clock || 0) - P.hugT0) / 0.55)), ease = u * u * (3 - 2 * u);
-      const nk = ob.neck01 || ob.neck02, neck = !!nk && (P.hugAt === 'neck' || (P.hugAt !== 'back' && !!O.kneel && !P.kneel));
+      // (round their upper back: the hands on it, either side of the spine, as far out and back as their own torso is wide,
+      // so the arms go round them, not into them; a child to a father on one knee the same, under his shoulders: the
+      // neck-hug before put a forearm through his face from the side the child's head was on)
+      const nk = ob.neck01 || ob.neck02, neck = !!nk && P.hugAt === 'neck';
+      let hw = 0.17; if (ob.upperarm01_L && ob.upperarm01_R) { ob.upperarm01_L.getWorldPosition(_a); ob.upperarm01_R.getWorldPosition(_b); hw = Math.min(0.24, Math.max(0.1, _a.distanceTo(_b) / 2)); }
       (neck ? nk : sp).getWorldPosition(_a);
       // (round them from where we stand: our side of them, then behind)
       const dx = _a.x - P.fig.root.position.x, dz = _a.z - P.fig.root.position.z, n = Math.hypot(dx, dz) || 1;
       _f.set(dx / n, 0, dz / n); _r.set(_f.z, 0, -_f.x);
-      const k = (P.hugK ?? 1) * ease, lift = P.hugUp ?? (neck ? 0.03 : 0.02);
+      const k = (P.hugK ?? 0.95) * ease, lift = P.hugUp ?? (neck ? 0.03 : 0.0);
+      const back = neck ? 0.1 : hw * 0.18, lat = neck ? 0.03 : hw * 0.6;
       for (const [side, s] of [['L', 1], ['R', -1]]) {
-        const t = _b.copy(_a).addScaledVector(_f, neck ? 0.1 : 0.1).addScaledVector(_r, s * (neck ? 0.03 : 0.13)); t.y += lift + (side === 'L' ? (neck ? -0.02 : 0.04) : (neck ? -0.05 : -0.04));
-        const pole = V().copy(P.fig.root.position).addScaledVector(_r, s * 0.9); pole.y = t.y + (neck ? 0.1 : -0.4);
+        const t = _b.copy(_a).addScaledVector(_f, back).addScaledVector(_r, s * lat); t.y += lift + (side === 'L' ? 0.035 : -0.045);
+        // (the elbows out wide round their sides, a little below the hands)
+        const pole = V().copy(_a).addScaledVector(_f, -0.15).addScaledVector(_r, s * (hw + 0.55)); pole.y = t.y + (neck ? 0.1 : -0.25);
         try { armTo(B, side, t.clone(), pole, k, MH_ARM); } catch {}
       }
     }
@@ -291,6 +300,7 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       const pole = V(o.x + Math.cos(h) * 0.6 * sx * -1 * -1, o.y + 0.6, o.z - Math.sin(h) * 0.6 * sx);
       try { armTo(B, side, t, pole, P.hand.k ?? 1, MH_ARM); } catch {}
     }
+    rest(S, P);
     if (P.prop) holdProp(P);
     if (P.hold) {
       const O = S.people.get(castName(P.hold.who) || P.hold.who); if (!O) return;
@@ -298,6 +308,27 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       if (!h) return;
       h.getWorldPosition(_a); const pole = V().copy(_a).add(V(0, -0.3, 0)); pole.addScaledVector(_r.set(Math.cos(P.h), 0, -Math.sin(P.h)), side === 'R' ? -0.5 : 0.5);
       try { armTo(B, side, _a.clone(), pole, P.hold.k ?? 0.9, MH_ARM); } catch {}
+    }
+  }
+  // (waiting their turn: someone standing in their plain idle, not talking, with nothing in their hands, does not stand
+  // to attention with the arms hanging dead straight (Pell, owner: "stiff arms"): the hands come together in front, one
+  // over the other's wrist, low, the elbows easy and a little out, drifting with the breath; it eases out as they start
+  // to talk (their talk clip's hands) and back in after. The hero's double is left to his clip (the arms check)
+  const _c = V(), _d = V();
+  function rest(S, P) {
+    const B = P.fig.bones, t = S.clock || 0, dt = Math.min(0.1, Math.max(0, t - (P.restT ?? t))); P.restT = t;
+    const want = !P.isHero && !P.talking && !P.walk && !P.hug && !P.hand && !P.hold && !P.prop && !P.kneel && (!P.pose || P.pose === 'idle') && (!P.idle || P.idle === 'idle') && !!P.fig.clip && !!B?.wrist_L && !!B?.upperarm01_L && !P.fig.native && !P.fig.clip('suitIdle');
+    P.restW = (P.restW || 0) + ((want ? 1 : 0) - (P.restW || 0)) * Math.min(1, dt * 2.5);
+    if (P.restW < 0.01) return;
+    const h = P.fig.heading ?? P.h ?? 0, fx = Math.sin(h), fz = Math.cos(h), lx = Math.cos(h), lz = -Math.sin(h);
+    // (where the clip has the hands now: the clasp a little above that, in front of the body's middle)
+    B.wrist_L.getWorldPosition(_c); B.wrist_R.getWorldPosition(_d);
+    const o = P.fig.root.position, y = (_c.y + _d.y) / 2 + 0.1 + 0.006 * Math.sin(t * 1.7 + (P.name.length || 0));
+    B.upperarm01_L.getWorldPosition(_a); B.upperarm01_R.getWorldPosition(_b); const sw = _a.distanceTo(_b) / 2;
+    for (const [side, s] of [['L', 1], ['R', -1]]) {
+      const tg = V(o.x + fx * (0.17 + sw * 0.25) + lx * s * 0.035, y + (side === 'L' ? 0.012 : -0.012), o.z + fz * (0.17 + sw * 0.25) + lz * s * 0.035);
+      const pole = V(o.x + lx * s * (sw + 0.45) - fx * 0.25, y + 0.05, o.z + lz * s * (sw + 0.45) - fz * 0.25);
+      try { armTo(B, side, tg, pole, P.restW * 0.85, MH_ARM); } catch {}
     }
   }
   // a thing in a hand (made here, small): a phone lit with a call, Milo's dinosaur walkie-talkie
