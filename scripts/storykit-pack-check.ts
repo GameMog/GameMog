@@ -226,8 +226,10 @@ export function runStoryPackChecks(ok: Ok) {
     ok(`no Create may take a showcase's id (${SHOWCASE_PACKS[0]})`, !r.ok && r.problems.some((x) => /id of one of GameMog's own worlds/.test(x)), r.problems.join(' | ')); }
   { const users = ['lib', 'app'].flatMap((d) => readdirSync(d, { recursive: true }).map(String).filter((f) => /\.(ts|tsx|mjs|js)$/.test(f)).map((f) => `${d}/${f}`)).filter((f) => /showcase\s*:/.test(R(f)));
     ok('the store, the builder and the pages never gate a showcase (no "showcase:" in lib/ or app/)', users.length === 0, users.join(', ')); }
+  { const r = gatePack(onMc((p) => { p.dressing.weather = 'fog'; }));
+    ok('weather Mog City does not draw yet (fog) is kept as the setting and noted', r.ok && r.warnings.some((x) => /Mog City does not show fog yet/.test(x)), r.warnings.join(' | ')); }
   { const r = gatePack(onMc((p) => { p.dressing.weather = 'rain'; }));
-    ok('weather other than clear is kept as the setting and noted (Mog City draws none yet)', r.ok && r.warnings.some((x) => /Mog City shows no weather yet/.test(x)), r.warnings.join(' | ')); }
+    ok('weather Mog City draws (rain) passes with no weather note', r.ok && !r.warnings.some((x) => /dressing\.weather/.test(x)), r.warnings.join(' | ')); }
   { const r = gatePack(onMc((p) => { m1(p).steps.unshift({ type: 'scene', name: 'm1.arrival' }); }));
     ok('a scene step (one of Mog City\'s set pieces) passes on mogcity-1, with a note when the hero is not Dan', r.ok && r.warnings.some((x) => /m1\.arrival" is Mog City's own set piece/.test(x)), r.problems.concat(r.warnings).join(' | ')); }
   bad('a scene step on the older engine', NY, (p) => { m1(p).steps.unshift({ type: 'scene', name: 'opening' }); }, /needs Mog City's engine/);

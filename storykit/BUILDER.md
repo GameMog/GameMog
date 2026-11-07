@@ -418,9 +418,10 @@ Copy says what the ride is with tokens, so a Mog that swaps the car keeps its li
 to two `holiday`s. They must agree: snow is winter weather; Christmas, New Year and Hanukkah are winter, Halloween and
 Thanksgiving autumn, Independence Day summer. A Christmas story is a winter story.
 
-Mog City draws the time of day; it **draws no weather yet**. Write `"weather": "clear"` unless the creator asked for
-weather: anything else is kept as the pack's setting for when Mog City can show it (the gate notes it), and the city
-plays clear until then. Let the story's words and the people's clothes carry the season and the weather.
+Mog City draws the time of day and three weathers: `snow` (falling snow, snow on roofs, sidewalks, parks and cars, the
+road wet), `rain` and `storm` (rain round the camera, the road soaked). `overcast` and `fog` are kept as the pack's
+setting for when Mog City can show them (the gate notes it), and the city plays clear until then. Write `"weather":
+"clear"` unless the creator asked for weather, and let the story's words and the people's clothes carry it too.
 
 ## Missions and steps
 

@@ -32,7 +32,7 @@
  *
  *  10. Mog City's engine (mogcity-1): a `scene` step (one of Mog City's authored set pieces, schema MOGCITY_SCENES) only
  *      there, and a warning when its hero is not Dan; the kinds its runner has no part for yet (MOGCITY_STUBS) and any
- *      weather but clear (Mog City draws none yet) are warnings.
+ *      weather Mog City does not draw yet (overcast, fog) is a warning.
  *  11. the title (the owner, 4 Nov): Mog City is the engine and the template, never a world's name, so no Create's or
  *      Mog's title or kicker names it, however it is written ("Mog City: Night Shift", "MOGCITY", "Mog-City", "M0G
  *      CITY"; namesMogCity). Only Mog City's own story as a world (storykit/packs/mog-city.json, gated with { own: true }
@@ -289,9 +289,9 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
     refuse(`${k}: "${pack[k]}" names Mog City. Mog City is the engine this world plays on, never its name: give ${opts.parent ? 'this Mog' : 'this world'} a title of its own${k === 'kicker' ? ' and a kicker without it (or none)' : ' ("Night Shift", never "Mog City: Night Shift")'}.`);
   }
 
-  // Mog City draws no weather yet: anything but clear is kept as the pack's setting and not shown until the owner has
-  // seen it (weather is behind this setting only, never on by default)
-  if (mc && pack.dressing.weather !== 'clear') warnings.push(`dressing.weather "${pack.dressing.weather}": Mog City shows no weather yet; the city plays clear (the setting is kept for when it does). Let the words carry it.`);
+  // Mog City draws snow, rain and storm (wagmi/storyrun/dressing.js, live on mc.gamemog.com since 7 Nov); overcast and
+  // fog are kept as the pack's setting and not shown yet
+  if (mc && !['clear', 'snow', 'rain', 'storm'].includes(pack.dressing.weather)) warnings.push(`dressing.weather "${pack.dressing.weather}": Mog City does not show ${pack.dressing.weather} yet; the city plays clear (the setting is kept for when it does). Let the words carry it.`);
   const heroIsDan = pack.cast.some((c: Json) => c.id === pack.hero && c.model === 'mogcity/dan');
 
   // dressing: a season and holiday that agree (a Christmas story in a summer city was the Dognapped complaint)
