@@ -992,7 +992,10 @@ export function createRunner(ctx) {
         // (the metres the followed car has left, told to a framing GameMog each second: a long tail is progress, not stuck)
         if (tt - lastLeft > 1000) { lastLeft = tt; host.tell('progress', { mission: M.def.id, step: d.id || null, kind: 'tail', i: M.i, n: M.def.steps.length, left: Math.max(0, Math.round(D.length - D.s)) }); }
         if (dd >= ring * 0.5 || now() - t0 > 6000) opened = true;
-        close = dd < ring * 0.5 && opened ? close + dt : Math.max(0, close - dt);
+        // (held up in traffic, the followed car is a car in a queue: one car back at a light is not being made, only on
+        // its bumper is; owner's PT-8 run, 6 Nov: the SUV stopped on W 23rd St and the car queued behind it was "spotted")
+        const held = (D.v || 0) < 3, tooClose = held ? dd < 7 : dd < ring * 0.5;
+        close = tooClose && opened ? close + dt : Math.max(0, close - dt);
         far = dd > lostDist ? far + dt : 0;
         // (the warning before the fail: too close, or about to lose it)
         if (tt - warnAt > 3500 && (close > (d.spotTime || 4) * 0.4 || far > (d.lostTime || 8) * 0.35)) { warnAt = tt; juice.alert(close > 0 ? 'Too close' : 'Losing them', { sub: close > 0 ? 'Back off or they make you.' : `Catch up to ${name}.`, tone: 'yellow', secs: 1.6 }); }
