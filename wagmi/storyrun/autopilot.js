@@ -19,13 +19,15 @@
 //   - &skipscenes=<s>: an authored scene skipped after s seconds (W.cineSkip, the held Space's), for a run inside its time;
 //   - a mission over its time (opts.missionSecs, 240 s by default) is failed with where it stuck.
 // Calls are answered and choices taken by the runner's flags (?autoanswer, ?autochoose=<n>).
-//   startAutopilot(W, runner, { missionSecs, onTimeout }) -> { stop(), log }
+// &realpace=1: a player's pace, to time what is timed to one (a call waiting `at` s into a drive): no leg, tail or convoy
+// jumped, the cruise 20 m/s (45 mph) where it is 15.
+//   startAutopilot(W, runner, { missionSecs, onTimeout, realPace }) -> { stop(), log }
 import * as THREE from 'three/webgpu';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
-export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null, skipScenes = 0 } = {}) {
+export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null, skipScenes = 0, realPace = false } = {}) {
   const app = W.app, cm = app.controllerManager, car = W.car, P = W.person, gps = W.gps;
   const log = [];
   let legKey = null, legT = 0;
@@ -62,7 +64,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       // (on foot the controller walks the way the camera faces, which lags a turn: he is walked along the route
       // himself, at a jog, with the city's collision and his speed set so his gait plays)
       release();
-      const dt = Math.min(0.05, frameDt), sp = 3.6;
+      const dt = Math.min(0.05, frameDt), sp = footSp;
       P.heading += clamp(err, -6 * dt, 6 * dt);
       P.position.x += Math.sin(P.heading) * sp * dt; P.position.z += Math.cos(P.heading) * sp * dt;
       cm.resolveHorizontalCollision(P.position, 0.48, P.position.y + 1.0);
@@ -81,7 +83,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
   let held = null;
   const hold = (code) => { if (held === code) return; if (held) key(held, 'keyup'); held = code; if (code) key(code); };
   let cineT = 0, chaseJumpT = 0, seenT = 0, slowT = 0, tailS = null, tailJumpT = 0, tailJumped = false, lastKey = 0, tPhase = null, tPhaseT = 0;
-  let frameDt = 0.016, lastF = performance.now();
+  let frameDt = 0.016, lastF = performance.now(), footSp = 3.6, sneakWait = 0, raceKey = null;
   function tick() {
     if (!on) return;
     requestAnimationFrame(tick);
@@ -125,11 +127,15 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       return;
     }
     if (type === 'tow' && held) hold(null);
-    if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow'].includes(type)) { release(); return; }
+    // (a convoy: kept in its band behind the car it follows, convoy())
+    if (type === 'convoy' && M.convoy) { convoy(M.convoy, t); return; }
+    // (a chase beside a step with nowhere to go, a call taken with the crew on him: kept moving and away from them)
+    if (M.chase && ['call', 'wait', 'say', 'voicemail', 'voicenote', 'dm', 'set', 'timer', 'trigger'].includes(type) && escape(t)) return;
+    if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow', 'passenger', 'roadblock', 'stealth'].includes(type)) { release(); return; }
     // a chase to lose: escape() (the pursuit's own 'lost' ends it)
     if (type === 'pursuit' && d.goal !== 'reach' && escape(t)) return;
     // in or out of the car as the step wants
-    const wantsFoot = type === 'search' || (type === 'walk' && !d.enterCar);
+    const wantsFoot = type === 'search' || (type === 'walk' && !d.enterCar) || (type === 'stealth' && d.mode !== 'car');
     if (wantsFoot && inCar()) { release(); if (Math.abs(car.speed) > 0.5) cm.setTouchInput('backward', 0.8); else if (!W.ride?.phase) { W.ride?.getOut?.(true); note('out'); } return; }
     if (!wantsFoot && !inCar() && type !== 'place') {
       release();
@@ -142,12 +148,38 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     const r = gps?.route;
     if (!r || r.length < 2) { release(); return; }
     const e = cm.getActiveEntity(), x = e.position.x, z = e.position.z, L = lenOf(r);
+    footSp = 3.6;
+    // (&realpace: a stealth on foot is sneaked as a player sneaks it, not jogged and jumped: at a walk (1.7 m/s), and
+    // stopped while a lookout's cone (m2-stealth.js: 15 m, 41 degrees each side) takes in the next steps, 10 s at most
+    // for each wait, so it is timed as a player would play it. The runner keeps the test drive unseen whatever it does.)
+    if (realPace && type === 'stealth' && !inCar()) {
+      footSp = 1.7;
+      const S = M.stealth, ah = along(r, x, z, 2.5);
+      // (one getting suspicious, his '?' filling: back out of his cone, away from him, as the bar empties)
+      const sus = S && S.lookouts.filter((L0) => L0.watching && L0.e.alive && L0.sus > 0.06).sort((a, b) => b.sus - a.sus)[0];
+      if (sus) { const dx = x - sus.e.pos.x, dz = z - sus.e.pos.z, dd = Math.hypot(dx, dz) || 1; steerTo(x + dx / dd * 3, z + dz / dd * 3, 3); sneakWait = 0; return; }
+      // (one walking his beat toward him, within 22 m: across the street, out of the line he walks, 16 m to the side of
+      // it (the cone never reaches past 15 m), and wait there till he has gone by, as the hint says: cross over when one turns)
+      const walker = S && S.lookouts.find((L0) => { if (!L0.watching || !L0.e.alive || !L0.post.path) return false; const dx = x - L0.e.pos.x, dz = z - L0.e.pos.z; return Math.hypot(dx, dz) < 22 && Math.abs(wrapA(Math.atan2(dx, dz) - L0.yaw)) < 1.0; });
+      if (walker) {
+        const nx = Math.cos(walker.yaw), nz = -Math.sin(walker.yaw), lat = (x - walker.e.pos.x) * nx + (z - walker.e.pos.z) * nz;
+        // (the side with room: no building 16 m out that way)
+        const wall = (k) => { const px = walker.e.pos.x + nx * k * 16, pz = walker.e.pos.z + nz * k * 16; return cm.nearColliders(px, pz, 0.5).some((c) => c.maxY > 1.5 && px >= c.minX && px <= c.maxX && pz >= c.minZ && pz <= c.maxZ); };
+        let sd = lat >= 0 ? 1 : -1; if (wall(sd) && !wall(-sd)) sd = -sd;
+        if (Math.abs(lat) < 16) { steerTo(x + nx * sd * 4, z + nz * sd * 4, 3); return; }
+        release(); P.speed = 0; return;
+      }
+      // (the next steps in a cone, or close to one stopped at the end of his beat and looking round: wait)
+      const watched = S && S.lookouts.some((L0) => { if (!L0.watching || !L0.e.alive) return false; const dx = ah.x - L0.e.pos.x, dz = ah.z - L0.e.pos.z, dd = Math.hypot(dx, dz); return (dd < 15.5 && Math.abs(wrapA(Math.atan2(dx, dz) - L0.yaw)) < 0.85) || (L0.wait > 0 && dd < 13); });
+      if (watched && sneakWait < 12) { sneakWait += frameDt; release(); P.speed = 0; return; }
+      if (!watched) sneakWait = 0;
+    }
     // (straight-line metres to the mark: a heavy car that sails past it gets a route round the block, long by the
     // route but a few metres away; WP, 4 Nov: a tow truck circled Central Park South for 90 s in the framed drive)
     const dd = gps?.dest, straight = dd ? Math.hypot(x - dd.x, z - dd.z) : Infinity;
     // a long leg: on to its last 110 m
-    if (inCar() && !jumped && t - stepT > 1.2 && L > 250 && type !== 'tail' && type !== 'pursuit') { jumped = true; const q = fromEnd(r, 110); putCar(q.x, q.z, q.h); note(`jump ${Math.round(L)} m`); return; }
-    if (!inCar() && !jumped && t - stepT > 1.2 && L > 60) { jumped = true; const q = fromEnd(r, 12); P.position.set(q.x, cm.getGroundHeight(q.x, q.z, 'person'), q.z); P.heading = q.h; note(`walk jump ${Math.round(L)} m`); return; }
+    if (!realPace && inCar() && !jumped && t - stepT > 1.2 && L > 250 && type !== 'tail' && type !== 'pursuit') { jumped = true; const q = fromEnd(r, 110); putCar(q.x, q.z, q.h); note(`jump ${Math.round(L)} m`); return; }
+    if (!inCar() && !jumped && t - stepT > 1.2 && L > 60 && !(realPace && type === 'stealth')) { jumped = true; const q = fromEnd(r, 12); P.position.set(q.x, cm.getGroundHeight(q.x, q.z, 'person'), q.z); P.heading = q.h; note(`walk jump ${Math.round(L)} m`); return; }
     // a world's tail (no ref): the route ends at the car being followed, so it is kept between the step's ring and its
     // lost distance (MM, 5 Nov: steering on to the van's bumper, the autopilot was spotted in 15 s): off the gas inside
     // 0.8 of the ring (braking, then backing off, inside 0.6), the boost past a third of the lost distance, and put back on the route at
@@ -157,10 +189,20 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       // (a long tail, as a long leg: after 12 s of following, the followed car is put on to its last 240 m and the
       // car 1.4 rings behind it on its way; the city's traffic makes a 2.5 km tail a five-minute drive)
       const T = M.tail;
-      if (T && !tailJumped && t - stepT > 12 && T.length - T.s > 420) {
+      if (!realPace && T && !tailJumped && t - stepT > 12 && T.length - T.s > 420) {
         tailJumped = true; T.place(T.length - 240);
         const a = T.at(Math.max(0, T.s - ring * 1.4)), b = T.at(Math.max(0, T.s - ring * 1.4) + 3);
         putCar(a.x, a.z, Math.atan2(b.x - a.x, b.z - a.z)); note(`tail jump ${Math.round(T.length)} m`); return;
+      }
+      // (&realpace: the gap a player keeps, 1.6 rings back by the straight line the tail counts, the car's speed matched
+      // and closed on, not driven at it and braked: at 20 m/s up to the ring the autopilot was spotted every time in PT-5)
+      if (realPace && T) {
+        const dv = Math.hypot(T.pos.x - x, T.pos.z - z), vt = clamp((T.v || 0) + (dv - ring * 1.6) * 0.3, 0, 20);
+        // (too close (it stopped, or a corner brought it back): backed off, in reverse if need be, out past the ring)
+        if (dv < ring * 0.9) { release(); if (car.speed > -4) cm.setTouchInput('backward', 1); return; }
+        if (L > lost * 0.85 && t - tailJumpT > 6) { tailJumpT = t; const q = fromEnd(r, ring * 1.4); putCar(q.x, q.z, q.h); note('tail: back in range'); return; }
+        const tg = along(r, x, z, 9 + Math.abs(car.speed || 0) * 0.6);
+        steerTo(tg.x, tg.z, vt); return;
       }
       if (L < ring * 0.8) { release(); if (L < ring * 0.6 && car.speed > -5) cm.setTouchInput('backward', 0.8); return; }
       if (L > lost * 0.7 && t - tailJumpT > 6) { tailJumpT = t; const q = fromEnd(r, ring * 1.4); putCar(q.x, q.z, q.h); note('tail: back in range'); return; }
@@ -184,7 +226,44 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     const tgt = inCar() && L < 25 ? (() => { const q = fromEnd(r, 0); return { x: q.x, z: q.z }; })() : along(r, x, z, inCar() ? 9 + Math.abs(car.speed || 0) * 0.6 : 3);
     if (near) { release(); if (inCar() && car.speed > 0.5) cm.setTouchInput('backward', 0.7); return; }
     // (the pace to stop on the mark: what a 3 m/s2 brake leaves to the radius, so a heavy car doesn't sail past it)
-    steerTo(tgt.x, tgt.z, type === 'tail' ? 11 : Math.min(15, 2.5 + Math.sqrt(2 * 3 * Math.max(0, L - radius * 0.4))));
+    // (a passenger's speed limit kept, under it by a margin)
+    const cap = M.ride?.limit ? M.ride.limit / 2.23694 * 0.85 : Infinity;
+    // (&realpace, a stops step against a clock that fails the mission (PT-12's yard race: 1:55): a player races it.
+    // What is left, this leg by the route and the stops after it by the line between them (x1.3 for the streets), at
+    // 20 m/s, longer than the clock has: flat out, up to 34 m/s and the boost on the straights)
+    if (realPace && inCar() && type === 'stops' && L > 40) {
+      const sh = M.timer?.running && M.timer.timers.shown?.();
+      if (sh && !sh.late && sh.opts?.fail !== 'soft') {
+        const ps = d.stops.map((q) => { try { return runner.placeOf(q); } catch { return null; } });
+        let k = ps.findIndex((p) => p && dd && Math.hypot(p.x - dd.x, p.z - dd.z) < 30), rest = 0;
+        for (let j = Math.max(0, k); k >= 0 && j + 1 < ps.length; j++) if (ps[j] && ps[j + 1]) rest += Math.hypot(ps[j + 1].x - ps[j].x, ps[j + 1].z - ps[j].z) * 1.3;
+        // (once racing, raced to the end of the step: a player who sees he is late does not ease off)
+        if (raceKey === stepKey || (L + rest) / 20 > sh.left) {
+          raceKey = stepKey;
+          const straightish = Math.abs(wrapA(Math.atan2(tgt.x - x, tgt.z - z) - car.heading)) < 0.25;
+          steerTo(tgt.x, tgt.z, Math.min(cap, 34, 2.5 + Math.sqrt(2 * 3 * Math.max(0, L - radius * 0.4)))); cm.setTouchInput('boost', straightish && L > 60 ? 1 : 0);
+          return;
+        }
+      }
+    }
+    steerTo(tgt.x, tgt.z, Math.min(cap, type === 'tail' ? 11 : Math.min(realPace ? 20 : 15, 2.5 + Math.sqrt(2 * 3 * Math.max(0, L - radius * 0.4)))));
+  }
+  // a convoy (runner.js STEPS.convoy): the route ends at the car to stay with; kept between its band's near end (off the
+  // gas inside 1.3 of it, braking inside it) and 0.6 of its far end (put back behind it on its own path past 0.75, at most
+  // every 6 s); a long one, after 12 s, the car put on to its last 300 m and he put in the band behind it
+  let convoyJumped = null;
+  function convoy(C, t) {
+    const D = C.A?.D;
+    if (!D) { release(); return; }
+    if (!inCar()) { release(); if (!W.ride?.phase) { if (Math.hypot(car.position.x - P.position.x, car.position.z - P.position.z) > 4) P.position.set(car.position.x + Math.cos(car.heading) * 1.8, P.position.y, car.position.z - Math.sin(car.heading) * 1.8); W.ride?.getIn?.(true); note('in'); } return; }
+    const mid = (C.near + C.far) / 2, behind = (s) => { const a = D.at(Math.max(0, s)), b = D.at(Math.max(0, s) + 3); putCar(a.x, a.z, Math.atan2(b.x - a.x, b.z - a.z)); };
+    if (!realPace && convoyJumped !== stepKey && t - stepT > 12 && D.length - D.s > 500) { convoyJumped = stepKey; D.place(D.length - 300); behind(D.s - Math.min(mid, C.near * 2.5)); note(`convoy jump ${Math.round(D.length)} m`); return; }
+    const dd = Math.hypot(D.pos.x - car.position.x, D.pos.z - car.position.z);
+    if (dd > C.far * 0.75 && t - tailJumpT > 6) { tailJumpT = t; behind(D.s - Math.min(mid, C.near * 2.5)); note('convoy: back in the band'); return; }
+    if (dd < C.near * 1.3) { release(); if (dd < C.near && car.speed > -2) cm.setTouchInput('backward', car.speed > 0.5 ? 1 : 0.4); return; }
+    const r = gps.route;
+    const tg = r && r.length > 1 ? along(r, car.position.x, car.position.z, 8 + Math.abs(car.speed || 0) * 0.6) : { x: D.pos.x, z: D.pos.z };
+    steerTo(tg.x, tg.z, Math.max(4, (D.v || 0) + (dd - C.near * 2) * 0.25));
   }
   // a chase to lose (W.pursuit's: a world's pursuit step, Mission 3's getaway): kept on his feet if they jump out, a
   // route away (the far side of the nearest of the city's spawn points 600 m and more off) at the boost; seen for 7 s
@@ -207,7 +286,8 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     seenT = ch.seen ? seenT + dt : 0;
     slowT = Math.abs(car.speed || 0) < 4 ? slowT + dt : 0;
     const pinned = (ch.caughtT || 0) > 1.2;
-    if ((seenT > 7 || slowT > 2.5 || pinned) && t - chaseJumpT > 6) {
+    // (&realpace: no hop out of their sight just for being seen, so a chase lasts about as long as a player's)
+    if (((seenT > 7 && !realPace) || slowT > 2.5 || pinned) && t - chaseJumpT > 6) {
       chaseJumpT = t; seenT = 0; slowT = 0;
       const x = car.position.x, z = car.position.z, q = along(r, x, z, 140), q2 = along(r, x, z, 146);
       putCar(q.x, q.z, Math.atan2(q2.x - q.x, q2.z - q.z)); car.speed = 12;

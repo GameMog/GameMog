@@ -117,6 +117,8 @@ export async function createVoice(W, out) {
     has: (speaker, text) => byKey.has(key(speaker, text)),
     speaks: (speaker, text) => byKey.has(key(speaker, text)) || (!!text && story.changed(speaker, text)),
     dur: (speaker, text) => byKey.get(key(speaker, text))?.dur || 0,
+    // (how long the line playing has left, s: a story's next line, a call's, waits it out instead of cutting it)
+    left: () => (cur && ctx ? Math.max(0, cur.end - ctx.currentTime) : 0),
     line: (speaker, text) => byKey.get(key(speaker, text)) || null,
     // the subtitles' hook: a line shown plays it (once per showing)
     sub(speaker, text) {

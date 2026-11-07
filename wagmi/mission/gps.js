@@ -38,7 +38,7 @@ const FOOT_LINE = 150; // m: on foot and this close, the route is the straight l
 export function createGPS(W) {
   const app = W.app, ms = app.mapSystem, cm = app.controllerManager, net = app.trafficSystem.network;
   const edges = net.edges;
-  const endOf = (e) => [e.sx + e.dx * e.len, e.sz + e.dz * e.len];
+  const endOf = (e) => [e.sx + e.dx * e.len, e.sz + e.dz * e.len]; const avoid = [], held = (e) => avoid.some((c) => [0, 0.5, 1].some((k) => Math.hypot(e.sx + e.dx * e.len * k - c.x, e.sz + e.dz * e.len * k - c.z) < c.r)); // (avoid: streets a route is kept off, a story's roadblocks [{ x, z, r }]: empty in Mog City's own game)
   // the nearest lane edge to (x, z), favouring one that runs the way `h` faces: across it (a cross street's lane met in
   // the middle of a junction, where the avenue's own lanes are 17 m off) counts as 20 m further off, against it as 40
   // (so driving straight through a junction it stays on the avenue ahead and never routes round the block)
@@ -70,7 +70,7 @@ export function createGPS(W) {
       if (e === Bn.e && e !== A.e) { found = e; break; }
       const [ex, ez] = endOf(e);
       for (const m of e.moves) {
-        const f = m.to; if (!f || closed.has(f)) continue;
+        const f = m.to; if (!f || closed.has(f)) continue; if (avoid.length && f !== Bn.e && held(f)) continue;
         // (a turn costs as much as 40 m of straight road: the route keeps to the long avenues, as a driver would)
         const ng = g.get(e) + Math.hypot(f.sx - ex, f.sz - ez) + f.len + (m.turn && m.turn !== 'S' ? 40 : 0);
         if (ng < (g.get(f) ?? Infinity)) { g.set(f, ng); came.set(f, e); push(f, ng + hcost(f)); }
@@ -309,7 +309,7 @@ export function createGPS(W) {
         stop() { live = false; gps.unblip('car'); },
       };
     },
-    plan, planWalk, walkGraph,
+    plan, planWalk, walkGraph, avoid,
   };
   // the stall watch (see the top): headway is the route getting shorter; the time is play time (the clock stops in the
   // pause menu, and a cutscene starts it over)

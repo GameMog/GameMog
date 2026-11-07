@@ -18,8 +18,10 @@ import { loadGLB } from '../glb.js';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { createFace, dropFace } from '../face.js';
 import { relaxArms } from '../combat/suitarms.js';
+import { unhang } from './pack.js';
 
-const MAX = 6;
+// (8: a set's cutscene stands up to seven at once, the hero's double besides: sets.js)
+const MAX = 8;
 // the registry's people this repo ships, by model key: [builder, file]
 const NATIVE = {
   'mogcity/jane': ['jane'], 'mogcity/gears': ['gears'], 'mogcity/fiona': ['fiona'],
@@ -35,7 +37,7 @@ const SUIT_CLIP = { idle: 'suitIdle', talk: 'suitIdle', phone: 'suitIdle', walk:
 const F0 = { 'mogcity/dan': 110, 'mogcity/jane': 205, 'mogcity/mrbig': 95, 'mogcity/gears': 92, 'mogcity/fiona': 230 };
 
 export function createCast(W, world) {
-  const def = world.def, live = new Map(), order = [];
+  const def = world.def, live = new Map(), order = [], doubles = new Map();
   const scene = W.app.scene, cm = W.app.controllerManager;
   let danClips = null;
   const clipsOfDan = () => danClips || (danClips = loadGLB('assets/characters/dan.glb').then((g) => g.animations).catch(() => []));
@@ -55,7 +57,8 @@ export function createCast(W, world) {
         const c = plan.clips?.[l.clip];
         const raw = c?.url || (plan.dir != null && l.clip ? `${plan.dir}${l.clip}.ogg` : null);
         const url = raw && world.asset(raw);
-        if (url && V.clip(l.who, l.text, url, { dur: c?.secs || 0 })) n++;
+        // (fx: a line heard down a phone, a call's caller or a voicemail, plays through Mog City's phone band: the car phone too)
+        if (url && V.clip(l.who, l.text, url, { dur: c?.secs || 0, fx: l.fx === 'phone' ? 'phone' : null })) n++;
       }
       return n;
     },
@@ -72,6 +75,14 @@ export function createCast(W, world) {
       if (at) f.at(at.x, at.z, at.heading ?? 0);
       f.root.visible = true;
       return f;
+    },
+    // the hero's double: his own body as the cast's (his GLB on the clip pack, with a face), for a set's cutscene
+    // (sets.js), where Dan's body (the player's, with the car) can't go; built once, kept
+    async double(name) {
+      if (doubles.has(name)) { const f = doubles.get(name); f.root.visible = true; return f; }
+      const c = entry(name); if (!c || !(c.glb || c.model)) return null;
+      let f = null; try { f = await build(name, c); } catch (err) { console.warn('[storyrun] double', name, err); return null; }
+      if (f) doubles.set(name, f); return f;
     },
     remove(name) { const f = live.get(name); if (!f) return; f.dispose(); live.delete(name); const i = order.indexOf(name); if (i >= 0) order.splice(i, 1); },
     hide(name) { const f = live.get(name); if (f) f.root.visible = false; },
@@ -90,6 +101,8 @@ export function createCast(W, world) {
     const g = await loadGLB(url);
     const root = new THREE.Group(); root.name = 'storyrun-' + name.replace(/[^A-Za-z0-9]+/g, '-');
     const inner = skClone(g.scene); root.add(inner);
+    // (a hand-built body's arm-hang bones levelled, as the hero's: pack.js unhang)
+    unhang(inner);
     // (the export's armature turn out, as Dan's: wagmi/game.js)
     const arm = inner.getObjectByName('root')?.parent;
     if (arm && arm !== inner) { arm.quaternion.identity(); arm.position.y += c.model ? 0 : 0.02; }
@@ -118,6 +131,8 @@ export function createCast(W, world) {
       if (face) try { dropFace(W, face); } catch {}
       inner.traverse((o) => { if (o.isMesh) { o.geometry?.dispose?.(); for (const m of [].concat(o.material || [])) { for (const k of Object.keys(m)) if (m[k]?.isTexture) m[k].dispose(); m.dispose?.(); } } });
     });
+    // (its clips by name, Dan's under its own: a fight's puppet (runner.js STEPS.fight) crossfades them itself)
+    f.clip = clip;
     f.play = (n, loop = true) => { const cl = clip(n); if (!cl) return false; mixer.stopAllAction(); const a = mixer.clipAction(cl); a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); a.clampWhenFinished = !loop; a.play(); return true; };
     return f;
   }
@@ -145,7 +160,8 @@ export function createCast(W, world) {
     const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (W.paused) return;
     // (a body held still: an opening's name card freezes its frame on them, runner.js openCard)
-    for (const f of live.values()) if (!f.hold) try { f.update(dt); } catch {}
+    // (then a set's arms over the clip: a hug, a hand held: sets.js post)
+    for (const f of [...live.values(), ...doubles.values()]) if (!f.hold) try { f.update(dt); f.post?.(dt); } catch {}
   })();
   return cast;
 }

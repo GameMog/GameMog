@@ -10,8 +10,10 @@
 // choice, a timer and meters in the same look.
 //   createRunner(ctx) -> { play(def, { act }) -> Promise<'pass' | 'quit'>, opening(def.opening), stop(), state, M }
 // ctx: { W, world, places, cast, hud, host, save, flags: { autoAnswer, autoChoose, autoCard } }
-// Every kind of the pack schema is handled; the few with no Mog City part yet (convoy, patrol, roadblock, wallet, and a
-// stealth without a ref) say so in the console and pass, so a story still plays through (KINDS_STUB). `scene` plays
+// Every kind of the pack schema is handled; the two with no Mog City part yet (patrol, wallet) say so in the console and
+// pass, so a story still plays through (KINDS_STUB). stealth stands Mog City's own lookouts (m2-stealth.js) at the
+// story's places; convoy and ally drive the story's own cars through the city (m2-drive.js); roadblock parks cars across
+// a street (the GPS routes round it, a ram at speed goes through); passenger has a pick-up, a drop-off and rules. `scene` plays
 // one of Mog City's own authored set pieces by name (SCENES: the opening, Mission 1's swap and tracker, Missions 2 and
 // 3's scenes), never a copy. A step with a `ref` (PART_REFS: 'm2.tail', 'm3.escape'...) is one of Mog City's own mission
 // phases, played by its own code (m2.js / m3.js playPart): its rules, objective, calls, cast and fail reasons; the
@@ -25,9 +27,12 @@ import { createDirector, keys, handheld, clamp } from '../mission/cine.js';
 import { missions as registry } from '../mission/pause.js';
 import { place as putAt, outBesideCar } from '../intro.js';
 import { test, value, flagName } from './cond.js';
+import { createTimers, meterText, deltaText, progress, seen as inSight, band as bandRule, speedRule, MPH } from './rules.js';
+import { createSets } from './sets.js';
+import { createJuice } from './juice.js';
 
 const PI = Math.PI;
-export const KINDS_STUB = new Set(['convoy', 'patrol', 'roadblock', 'wallet', 'stealth']);
+export const KINDS_STUB = new Set(['patrol', 'wallet']);
 // Mog City's own mission phases a step can play by ref ('m2.tail'): m2.js and m3.js playPart
 const PART_IDS = { m2: ['start', 'go', 'tail', 'yard', 'fight', 'chase', 'crash', 'phone', 'chat'], m3: ['garage', 'square', 'rally', 'rigs', 'dump', 'escape', 'ret', 'home'] };
 const PART_MOD = { m2: () => import('../mission/m2.js'), m3: () => import('../mission/m3.js') };
@@ -47,12 +52,21 @@ export const SCENES = {
 };
 const TRAVEL = new Set(['drive', 'stops', 'walk', 'pursuit', 'tail', 'search', 'tow']);
 const BACKGROUND = new Set(['trigger', 'comfort', 'patrol', 'stealth', 'roadblock']);
+// (a stealth with somewhere to get to or a time to last, and a roadblock with somewhere past it, are steps of their own;
+// without, they run beside the steps after them until the mission ends)
+const background = (d) => BACKGROUND.has(d.type) && !d.ref && !((d.type === 'stealth' && (d.to || d.secs)) || (d.type === 'roadblock' && d.to));
+const QUIET_STEPS = new Set(['call', 'wait', 'say', 'choice', 'dm', 'voicemail', 'voicenote']);
 const ENDS_WITH_HOST = new Set([...BACKGROUND, 'pursuit', 'beat', 'tail', 'convoy', 'call']);
 const TIPS = {
   ko: ['Hit with [J]. When the cue over a man turns ', { yellow: 'yellow' }, ', counter with [Q]; when it is ', { red: 'red' }, ', roll away with [C].'],
   left: ['Stay with the fight until it is over: it is lost past 150 m.'],
   time: ['Take the quickest route: the ', { 'yellow line': 'yellow' }, ' on the radar. Hold [Shift] to boost.'],
   caught: ['Break their line of sight, then keep moving until the search circle runs out.'],
+  seen: ['Keep out of the cones on the ground. Go round behind them, or take one down from behind with [E].'],
+  // (in a car with no boost, a van or a truck: wagmi/storyrun/ride.js setClass)
+  timeSlow: ['Take the quickest route: the ', { 'yellow line': 'yellow' }, ' on the radar, and keep your foot down on the straights.'],
+  speed: ['Watch the ', { 'speed limit': 'yellow' }, ' on the right: ease off before it counts.'],
+  wreck: ['Give the car room: hold back in the ', { 'band': 'blue' }, ', and brake early when it stops.'],
   lost: ['Stay close enough to keep them in sight, and back off if they slow down.'],
 };
 class Fail extends Error { constructor(reason, kind = null, o = {}) { super(reason); this.reason = reason; this.kind = kind; this.tip = o.tip || null; this.sounded = !!o.sounded; } }
@@ -63,6 +77,8 @@ export function createRunner(ctx) {
   const app = W.app, cm = app.controllerManager, P = W.person, car = W.car, ui = W.ui, sfx = W.sfx;
   const gps = W.gps || (W.gps = createGPS(W));
   const marker = W.marker || (W.marker = createMarker(THREE, app.scene, { color: '#FFC93C', radius: 3 }));
+  // (the action beats' punch: alerts, stings, a beat of slow motion, the clock's red edge: juice.js)
+  const juice = W.juice || (W.juice = createJuice(W));
   const def0 = world.def;
   const now = () => (W.clock ? W.clock.now() : performance.now());
   const inCar = () => cm.activeMode === 'car';
@@ -108,6 +124,8 @@ export function createRunner(ctx) {
   // a line: its subtitle (its recording or clip plays from it: radio/voices.js), held for its reading time or its voice
   async function say(who, text, t, { secs = null, phone = false } = {}) {
     text = tokens(text);
+    // (a recorded line still playing, a car-phone call's or the last step's, is heard out first, up to 6 s)
+    if (W.voice?.left?.() > 0.08) { const t0 = now(); await wait(() => !(W.voice.left() > 0.08) || now() - t0 > 6000, t); }
     const rec = W.voice?.dur?.(who, text) || 0;
     const hold = Math.max(1.4, text.length / 15, rec + 0.15, secs || 0);
     if (phone) W.voice?.fx?.(who, 'phone');
@@ -123,11 +141,13 @@ export function createRunner(ctx) {
 
   /* ---------------------------------------------------------- state and sets -- */
   const meterDefs = () => (def0.hud?.meters || []);
-  function showMeters() {
-    const hidden = new Set(M?.def.hiddenMeters || []);
+  // the world's meters on the HUD (rules.js meterText: money with commas, and its goal: '$430,000 / $1,000,000', its
+  // progress under it); from = a mission's state, or the save between missions
+  function showMeters(from = M?.state.meters, hiddenIds = M?.def.hiddenMeters) {
+    const hidden = new Set(hiddenIds || []);
     hud.meters(meterDefs().filter((m) => m.kind !== 'hidden' && !hidden.has(m.id)).map((m) => {
-      const v = Math.round(M.state.meters[m.id] ?? m.start ?? 0);
-      return { label: m.label || m.id, text: m.kind === 'money' ? `${m.prefix ?? '$'}${v}` : m.kind === 'pips' ? '●'.repeat(Math.max(0, Math.min(m.pips || 5, v))) + '○'.repeat(Math.max(0, (m.pips || 5) - v)) : `${m.prefix ?? ''}${v}` };
+      const v = Math.round(from?.[m.id] ?? m.start ?? 0);
+      return { label: m.label || m.id, text: meterText(m, v), k: progress(m, v) };
     }));
   }
   const cond = (c) => test(c, M.state, ctx.save.done);
@@ -140,6 +160,8 @@ export function createRunner(ctx) {
       let next = raw && typeof raw === 'object' ? (raw.to != null ? raw.to : cur + (raw.add || 0)) : cur + raw;
       if (md) { if (md.min != null) next = Math.max(md.min, next); if (md.max != null) next = Math.min(md.max, next); }
       M.state.meters[k] = next;
+      // (a change while he plays, flashed beside the meter: '+$85,000', '-$5,000'; with a till's ring for money)
+      if (M.live && md && md.kind !== 'hidden' && Math.round(next - cur)) { hud.delta?.(md.label || md.id, deltaText(md, next - cur), next > cur); if (md.kind === 'money') sfx.play(next > cur ? 'ding' : 'thunk', next > cur ? { gain: 0.22 } : { gain: 0.2, f: 110, ring: false }); }
     }
     for (const [k0, v] of Object.entries(set.flags || {})) { const k = flagName(k0); M.state.flags[k] = v && typeof v === 'object' && 'add' in v ? (+M.state.flags[k] || 0) + v.add : v; }
     if (set.label) M.state.label = set.label;
@@ -159,22 +181,44 @@ export function createRunner(ctx) {
     }
     app.cameraSystem.resetForTeleport?.();
   }
-  const setTime = (id) => { const T = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' }; try { if (id) app.selectTime(T[id] || id); } catch {} };
+  const TIME_IDS = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' };
+  const setTime = (id) => { try { if (id) app.selectTime(TIME_IDS[id] || id); } catch {} };
+  // a mission's own time of day (its `time`, or its act's timeline's) is pinned: held through its cutscenes and Mog City's
+  // set pieces (which set their own: twilight, golden), put back the moment anything else changes it; a step's own time
+  // (place, transition, scene) moves the pin. A mission without one keeps the city's time as its scenes leave it
+  const pinTo = (id) => { if (M) M.pin = id ? (TIME_IDS[id] || id) : null; if (id) setTime(id); };
+  function holdPin() {
+    if (!M?.pin || M.inScene) return;
+    const cur = app.lightingSystem?.activePresetId;
+    if (cur && cur !== M.pin) setTime(M.pin);
+  }
 
   /* ---------------------------------------------------------- the timer -- */
+  // the mission's timers (rules.js createTimers), by name: a timer step starts one ('mission' when it names none), and it
+  // runs across the steps after it until a timer step stops it, the mission ends, or it runs out: a hard one fails the
+  // mission, a soft one costs its set (money off the meter) and runs on as LATE. The HUD shows the soonest to run out,
+  // its last ten seconds red, pulsing and ticking. Paused in the pause menu and in cutscenes.
   function createTimer() {
-    const T = { running: false, left: 0, opts: {}, late: false, over: 0, fired: false };
-    let last = now();
-    T.start = (secs, o = {}) => Object.assign(T, { running: true, left: secs, opts: o, late: false, over: 0, fired: false });
-    T.stop = () => { T.running = false; hud.timer(null); };
-    T.add = (s) => { if (T.running && !T.late) T.left += s; };
-    T.tick = () => {
-      const t = now(), dt = (t - last) / 1000; last = t;
-      if (!T.running || W.paused || W.cutscene) return null;
-      if (T.late) { T.over += dt; hud.timer(T.over, T.opts.label, true); return null; }
-      T.left -= dt; hud.timer(T.left, T.opts.label || 'TIME');
-      if (T.left <= 0 && !T.fired) { T.fired = true; if (T.opts.fail === 'soft') T.late = true; else T.running = false; return T.opts; }
-      return null;
+    const TT = createTimers();
+    let last = now(), tickAt = -1;
+    const T = {
+      timers: TT,
+      get running() { return TT.running; },
+      start: (secs, o = {}, name = 'mission') => TT.start(name, secs, o),
+      stop: (name = null) => { TT.stop(name); if (!TT.running) hud.timer(null); },
+      add: (s, name = null) => TT.add(name, s),
+      tick() {
+        const t = now(), dt = (t - last) / 1000; last = t;
+        if (!TT.running || W.paused || W.cutscene) return [];
+        const out = TT.tick(dt), sh = TT.shown();
+        if (!sh) hud.timer(null);
+        else if (sh.late) hud.timer(sh.over, sh.opts.lateLabel || sh.opts.label || 'LATE', true);
+        else {
+          hud.timer(sh.left, sh.opts.label || 'TIME');
+          const sec = Math.ceil(sh.left); if (sh.left <= 10 && sec !== tickAt) { tickAt = sec; sfx.play('thunk', { gain: 0.12, f: 880, ring: false }); if (sh.opts.fail !== 'soft') juice.pulse(1 - sh.left / 10); }
+        }
+        return out;
+      },
     };
     return T;
   }
@@ -182,17 +226,27 @@ export function createRunner(ctx) {
   /* --------------------------------------------------------------- the steps -- */
   const STEPS = {};
   // place: the player there (in the car, or on foot), the time of day
-  STEPS.place = async (d) => { const p = placeOf(d.at); putPlayer(p, (typeof d.at === 'object' && d.at.mode) || (M.def.vehicle ? 'car' : 'walk')); setTime(d.time); M.timer.add(d.bonus || 0); };
+  STEPS.place = async (d) => { const p = placeOf(d.at); putPlayer(p, (typeof d.at === 'object' && d.at.mode) || (M.def.vehicle ? 'car' : 'walk')); if (d.time) { if (M.pin) pinTo(d.time); else setTime(d.time); } M.timer.add(d.bonus || 0); };
   STEPS.say = async (d, t) => { const who = castName(d.who); if (d.wait === false) { say(who, d.text, M.tok, { secs: d.secs }).catch(() => {}); return; } await say(who, d.text, t, { secs: d.secs }); };
-  STEPS.wait = async (d, t) => { const end = now() + (d.secs || 0) * 1000; await wait(() => now() >= end || (d.call && !W.calls?.live && now() > end - (d.secs || 0) * 1000 + 300), t); };
+  // (a wait for the calls, call: true: up to secs, over once the car phone is done and no call that rang beside the
+  // step before (a persist call waiting, Delgado ringing mid-chase) is still being said)
+  const ringingBeside = () => [...M.sides].some((s) => s.def.type === 'call' && !(s.def.inCar || (s.def.auto && !s.def.interrupts)) && !deadOf(s.tok));
+  STEPS.wait = async (d, t) => { const end = now() + (d.secs || 0) * 1000; await wait(() => now() >= end || (d.call && !W.calls?.live && !ringingBeside() && now() > end - (d.secs || 0) * 1000 + 300), t); };
   STEPS.dm = async (d, t) => { sfx.play('ding', { gain: 0.3 }); ui.dm(d.from || d.name || 'Unknown number', tokens(d.text), d.secs || 8); M.log.push(['dm', d.from, d.text]); await delay(d.wait ? (d.secs || 8) : 1.2, t); };
   STEPS.set = async (d) => applySet(d.set);
   STEPS.label = async (d) => { M.state.label = d.label; };
   STEPS.goto = async (d) => ({ goto: d.to });
   STEPS.end = async (d) => { if (d.fail) throw new Fail(tokens(d.fail)); return { end: true }; };
+  // timer: { name, seconds, label, fail: hard | soft, why, set, flag, lateLabel } starts one; { name, stop: true } stops
+  // it (every one when it names none); { name, add: s } puts seconds on (or, negative, takes them off) a running one
   STEPS.timer = async (d) => {
-    if (d.stop) { M.timer.stop(); return; }
-    M.timer.start(value(d.seconds, M.state, ctx.save.done) || 60, { label: d.label, fail: d.fail || 'hard', why: d.why, flag: d.flag, set: d.set, lateLabel: d.lateLabel });
+    const name = d.name || 'mission';
+    if (d.stop) { M.timer.stop(d.name || null); return; }
+    if (d.add != null && d.seconds == null) { M.timer.add(d.add, name); return; }
+    const secs = value(d.seconds, M.state, ctx.save.done) || 60;
+    M.timer.start(secs, { label: d.label, fail: d.fail || 'hard', why: d.why, flag: d.flag, set: d.set, lateLabel: d.lateLabel }, name);
+    // (a clock that fails the mission says so as it starts: its label, its time, and what running out costs)
+    if ((d.fail || 'hard') === 'hard' && d.label) juice.alert(`${d.label} · ${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`, { sub: d.why ? tokens(d.why) : '', tone: 'yellow', sting: 'up', secs: 2.8 });
   };
 
   // drive: the corona, the GPS ('get there' the Mog City way: gps.drive), there inside the radius and slowed down
@@ -237,6 +291,7 @@ export function createRunner(ctx) {
     }, t).catch(() => {});
     try { await goTo(p, d, t, { objective: d.objective || `Drive to **${p.name}**.` }); } finally { blipOn = false; if (bl) gps.unblip('tag'); }
     M.timer.add(d.bonus || 0);
+    if (d.stopTimer) M.timer.stop(d.stopTimer === true ? null : d.stopTimer);
     if (d.flag) M.state.flags[flagName(d.flag)] = true;
   };
   STEPS.stops = async (d, t) => {
@@ -363,6 +418,8 @@ export function createRunner(ctx) {
     const who = castName(d.who);
     if (d.remove) { cast.hide(castName(npcIds.get(d.remove) || d.remove)); return; }
     if (d.id) npcIds.set(d.id, who);
+    // (back on his feet after a fight in his own body: STEPS.fight puppet)
+    cast.get(who)?.restore?.();
     let x, z;
     if (d.at && d.at.rel === 'player') {
       const e = cm.getActiveEntity(), h = e.heading, r = d.at.right || 0, f = d.at.fwd || 0;
@@ -375,6 +432,8 @@ export function createRunner(ctx) {
   // the cutscene camera: a point is 'player' (his head), '@place', or { rel: 'player' | <cast name>, right, up, fwd }
   const _v = new THREE.Vector3();
   function camPt(ref, fallbackUp = 1.5) {
+    // (a shot in a set: its own room's points, sets.js)
+    if (setRun?.active) return setRun.point(ref, fallbackUp);
     const e = cm.getActiveEntity();
     if (!ref || ref === 'player') return [e.position.x, e.position.y + (inCar() ? 1.2 : 1.55), e.position.z];
     if (typeof ref === 'string' && ref.startsWith('@')) { const p = places.at(ref); if (p) return [p.cx ?? p.x, cm.getGroundHeight(p.cx ?? p.x, p.cz ?? p.z, 'person') + fallbackUp, p.cz ?? p.z]; }
@@ -400,15 +459,54 @@ export function createRunner(ctx) {
     const dx = p[0] - l[0], dz = p[2] - l[2], dy = p[1] - l[1], n = Math.hypot(dx, dy, dz) || 1, h = Math.hypot(dx, dz) || 1;
     const fx = dx / h, fz = dz / h, out = Math.min(1.9, n * 0.9);
     keyL.position.set(l[0] + fx * out - fz * 0.8, l[1] + 0.5, l[2] + fz * out + fx * 0.8);
-    keyL.intensity = n < 6 ? 2.6 : 0;
+    // (at night a lamp, a doorway, headlights: the face's key is warmer and stronger, and a wide shot keeps a softer
+    // practical on its people, 2 m out, so the cast reads on a night street)
+    const nt = W.storyrun?.nightLit?.night?.() || 0;
+    keyL.color.set(nt > 0.5 ? '#FFD9AE' : '#FFE6CC'); keyL.distance = n < 6 ? 4.5 : 9;
+    keyL.intensity = n < 6 ? 2.6 * (1 + 0.9 * nt) : 3.2 * nt;
     return n;
   }
   // (opening: the world's opening (opening()), its shots' place card, title and name cards played as Mog City's opening
   // plays them; never on a mission's cutscene)
-  async function shotList(shots, t, { skippable = true, beat = false, opening = false } = {}) {
+  // a cutscene staged in a set (sets.js: Mr. Big's study's way, a room of its own drawn in place of the city's frame),
+  // made the first time a world asks for one; on the street, the traffic is held clear round the hero for it (nobody
+  // is driven through), and let go after
+  let setRun = null;
+  const setsOf = () => setRun || (setRun = createSets(W, { cast, castName, heroName, idleOf: (n) => world.castOf(n)?.idle || null }));
+  function holdStreet() {
+    const e = cm.getActiveEntity(), x = e.position.x, z = e.position.z;
+    try { app.trafficSystem.hold?.([{ minX: x - 45, maxX: x + 45, minZ: z - 45, maxZ: z + 45 }]); } catch {}
+    return () => { try { app.trafficSystem.hold?.([]); } catch {} };
+  }
+  // (a cutscene on the street on foot: the hero and whoever stands with him are walked up onto the pavement first, the
+  // same step for all of them so they keep their places to each other, each then onto the kerb's paving if still off
+  // it; the road's own sidewalk map: road-network.js onSidewalk)
+  function toPavement() {
+    const net = app.trafficSystem?.network; if (!net?.onSidewalk || inCar()) return;
+    // (on the paving: off every roadway, curb to curb, past the ends of its block into the crossing too, and on the
+    // map's sidewalk where it has one)
+    const onRoad = (x, z) => { for (const e of net.edges || []) { if (!e.len) continue; const qx = x - e.sx, qz = z - e.sz, al = qx * e.dx + qz * e.dz; if (al < -12 || al > e.len + 12) continue; if (Math.abs(qx * e.rx + qz * e.rz) < (e.half || 4) + 0.6) return true; } return false; };
+    const on = (x, z) => { try { return !onRoad(x, z) && (!!net.onSidewalk?.(x, z) || !!net.walkable?.(x - 0.35, x + 0.35, z - 0.35, z + 0.35)); } catch { return true; } };
+    const near = (x, z) => { if (on(x, z)) return [x, z]; for (let r = 0.5; r <= 22; r += 0.5) for (let a = 0; a < 24; a++) { const q = (a * PI) / 12, px = x + Math.cos(q) * r, pz = z + Math.sin(q) * r; if (on(px, pz)) return [px, pz]; } return null; };
+    const hx = P.position.x, hz = P.position.z, hp = near(hx, hz); if (!hp) { console.warn('[storyrun] pavement: none within 22 m of', Math.round(hx), Math.round(hz)); return; }
+    let dx = hp[0] - hx, dz = hp[1] - hz;
+    if (dx || dz) { const n = Math.hypot(dx, dz), ex = hp[0] + (dx / n) * 1.0, ez = hp[1] + (dz / n) * 1.0; if (on(ex, ez)) { hp[0] = ex; hp[1] = ez; } dx = hp[0] - hx; dz = hp[1] - hz; putAt(W, { dan: [hp[0], hp[1], P.heading] }); }
+    for (const n of M?.npcs || []) {
+      const f = cast.get(n); if (!f || !f.root.visible) continue;
+      const q = near(f.root.position.x + dx, f.root.position.z + dz); if (!q) continue;
+      f.at(q[0], q[1], Math.atan2(hp[0] - q[0], hp[1] - q[1]));
+    }
+    app.cameraSystem.resetForTeleport?.();
+  }
+  async function shotList(shots, t, { skippable = true, beat = false, opening = false, set = null } = {}) {
     const D = createDirector(W);
     const ssr0 = ssrOf()?.intensity.value ?? 0;
-    W.cutscene = !beat; if (!beat) { ui.cine(true); ui.objective(null); }
+    W.cutscene = !beat;
+    // (a recorded line still playing, a car-phone call's or the last step's, is heard out before the first shot, up to
+    // 4 s: the cutscene's first line cut it with a second left, PT-3's 'Dino sticker' as the minivan scene began. The
+    // scene is on first, so a call hangs up after the line it is saying and starts no other: calls.js end())
+    if (!beat && W.voice?.left?.() > 0.08) { const t0 = now(); try { await wait(() => !(W.voice.left() > 0.08) || now() - t0 > 4000, t); } catch (e) { W.cutscene = false; throw e; } }
+    if (!beat) { ui.cine(true); ui.objective(null); }
     let skip = false;
     const local = tokOf(t);
     if (skippable && !beat) D.block(true, { onSkip: () => { skip = true; kill(local); } });
@@ -419,6 +517,8 @@ export function createRunner(ctx) {
       for (const s of shots) {
         if (skip) break;
         if (s.if && !cond(s.if)) continue;
+        // (the shot's set: its own, else the cutscene's; false or none, the street)
+        if (setRun) { const id = s.set === false ? null : (s.set || set); setRun.use(id && setRun.has(id) ? id : null); if (s.act) setRun.act(s.act); }
         const dur = s.dur || 3, A = camPt(s.cam), B = s.to ? camPt(s.to) : A, LA = camPt(s.look, 1.4), LB = s.lookTo ? camPt(s.lookTo, 1.4) : LA;
         // (an opening's name card: the lens settles on its person through the first part of the shot, then the frame
         // freezes on them, their body held mid-move, as their name and role come up: openCard())
@@ -439,6 +539,7 @@ export function createRunner(ctx) {
             if (still && !frozen) frozen = openCard(card, dur - hold);
             const p = pos(Math.min(k, hold)), l = look(Math.min(k, hold));
             D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov: s.fov || 40, roll: 0, shake: hh };
+            if (setRun?.active) setRun.frame({ pos: D.camera.pos, look: l, fov: s.fov || 40 });
             { const n = keyLight(p, l), ssr = ssrOf(); if (ssr) ssr.intensity.value = n < CLOSE ? 0 : ssr0; }
             if (!beat) stepSkip();
             return (now() - t0) / 1000 >= len;
@@ -449,6 +550,7 @@ export function createRunner(ctx) {
       }
     } finally {
       ui.sub(null); ui.caption(null); ui.skip(null); keyL.intensity = 0; if (ssrOf()) ssrOf().intensity.value = ssr0;
+      setRun?.use(null);
       if (opening) { ui.placeOff(); ui.gameTitle(false, true); }
       if (!beat) D.block(false);
       await D.release(0.6);
@@ -470,20 +572,21 @@ export function createRunner(ctx) {
     if (s.title) { ui.gameTitle(true); sfx.play('whoosh', { gain: 0.2 }); sfx.play('stinger', { gain: 0.42, notes: [130.81, 155.56, 196, 261.63] }); }
   }
   function openCard(card, secs) {
-    const who = castName(card.who), fig = cast.get(who), hero = cast.isHero(who) || who === heroName;
+    const who = castName(card.who), hero = cast.isHero(who) || who === heroName, inSet = setRun?.active ? setRun.figure(who) : null, fig = inSet || cast.get(who);
     // (the card above the subtitle line, which sits where Mog City's captions do: its line is said under it)
     const capEl = document.querySelector('#wg .wg-cap'); if (capEl) capEl.style.bottom = 'calc(var(--bar) + 10vh + 92px)';
     ui.caption(who, tokens(card.role || world.castOf(who)?.role || ''), colorOf(who), Math.max(1.2, secs + 0.2));
     sfx.play('thunk', { gain: 0.16, f: 140, ring: false }); sfx.play('whoosh', { gain: 0.12, dur: 0.35 });
     // (the frame held: their clip stopped where it was, the lens still)
-    const mixer = hero ? W.dan?.mixer : null, ts = mixer ? mixer.timeScale : 1;
+    const mixer = hero && !inSet ? W.dan?.mixer : null, ts = mixer ? mixer.timeScale : 1;
     if (fig) fig.hold = true; if (mixer) mixer.timeScale = 0;
     return () => { if (fig) fig.hold = false; if (mixer) mixer.timeScale = ts; setTimeout(() => { if (capEl && !capEl.classList.contains('on')) capEl.style.bottom = ''; }, 600); };
   }
-  async function opening(o) {
+  async function opening(o, { time = null } = {}) {
     const t = tokOf(null), staged = [];
     if (o.place) putPlayer(placeOf(o.place), 'walk');
-    if (o.time) setTime(o.time);
+    // (its own time, else Mission 1's: index.js firstTime)
+    if (o.time || time) setTime(o.time || time);
     const e = cm.getActiveEntity();
     for (const s of o.stage || []) {
       const who = castName(s.who);
@@ -497,10 +600,16 @@ export function createRunner(ctx) {
       else if (h == null || Math.hypot(e.position.x - x, e.position.z - z) < 30) h = Math.atan2(e.position.x - x, e.position.z - z);
       try { const fig = await cast.spawn(who, { x, z, heading: h }); if (fig) staged.push(who); } catch (err) { console.warn('[storyrun] opening: cast', who, err); }
     }
+    // (its sets, stood up and compiled before the first shot; the street round the hero held clear of traffic)
+    if (o.sets && Object.keys(o.sets).length) try { await setsOf().prepare(o.sets); } catch (err) { console.warn('[storyrun] opening: sets', err); }
+    // (the hero stays where the world's wide shots are framed on him, by his car, and the traffic is held off him: the
+    // people who talk are in the sets)
+    const free = holdStreet();
     host.tell('opening', { phase: 'start', shots: (o.shots || []).length });
     const t0 = now();
     try { await shotList(o.shots || [], t, { opening: true }); }
     finally {
+      free(); if (setRun) await setRun.release();
       // (to black, and back up on Mission 1 once it has put him at its start)
       try { await ui.fade(1, 0.45); } catch {}
       setTimeout(() => ui.fade(0, 0.8), 650);
@@ -511,7 +620,15 @@ export function createRunner(ctx) {
   }
   STEPS.cutscene = async (d, t) => {
     if (d.place) { const p = placeOf(d.place); putPlayer(p, inCar() ? 'car' : 'walk'); }
-    await shotList(d.shots, t);
+    // (in a set: its room and its people; else on the street with the traffic held)
+    if (d.set && typeof d.set === 'object') {
+      try { await setsOf().prepare({ cut: d.set }); } catch (err) { console.warn('[storyrun] set', err); }
+      try { await shotList(d.shots, t, { set: 'cut' }); } finally { await setRun?.release(); }
+      return;
+    }
+    const free = holdStreet();
+    try { toPavement(); } catch (err) { console.warn('[storyrun] pavement', err); }
+    try { await shotList(d.shots, t); } finally { free(); }
   };
   STEPS.beat = async (d, t) => {
     if (d.say) { const s = tuple(d.say); say(castName(s.who), s.text, M.tok).catch(() => {}); }
@@ -535,7 +652,7 @@ export function createRunner(ctx) {
     await ui.fade(0.97, 0.6);
     try {
       if (d.place) putPlayer(placeOf(d.place), inCar() ? 'car' : 'walk');
-      setTime(d.time); applySet(d.set);
+      if (d.time) { if (M.pin) pinTo(d.time); else setTime(d.time); } applySet(d.set);
       await hud.card({ kicker: d.kicker || d.clock || '', text: tokens(d.text), sub: tokens(d.sub || '') }, ctx.flags.flowFast ? 0.8 : (d.secs || 2.6));
     } finally { await ui.fade(0, 0.6); }
   };
@@ -585,6 +702,20 @@ export function createRunner(ctx) {
       await wait(() => W.calls.state()?.id !== d.ref || W.calls.owes?.(d.ref) !== 'main', t);
       return;
     }
+    // call waiting (interrupts: true): a call that rings while a car-phone call is on comes up as a second card, CALL
+    // WAITING; answered, the live call goes on hold (its pause line, as when he gets out: calls.js hold), this one is
+    // said on the phone, then the live one is back (its resume line) and goes on from where it was; declined (or not
+    // answered), its voicemail, and the live call never stopped
+    // (a ride-along call of the step before still finishing (calls.js def.finish): it hangs up after the line it is
+    // saying, then this one rings; a call waiting is the exception, it holds the call instead)
+    if (!d.interrupts && !ride && W.calls?.yieldFinishing?.()) { const t0 = now(); await wait(() => !W.calls.state()?.finishing || now() - t0 > 9000, t); await delay(0.4, t); }
+    // (a ride-along call of this step still ringing, or about to (rung after the car rolls, 1.5 s of ringing): it is
+    // given up to 6 s to be answered, so the call waiting finds it on the line instead of ringing over it)
+    if (d.interrupts && W.calls?.state) {
+      const pending = () => { const s = W.calls.state(); return !!s?.id && String(s.id).startsWith('pack:') && (s.state === 'wait' || s.state === 'ring'); };
+      if (pending()) { const t0 = now(); await wait(() => !pending() || now() - t0 > 6000, t); }
+    }
+    if (d.interrupts && W.calls?.live && W.calls.state?.()?.state === 'talk') return callWaiting(d, t, who, color, lines);
     // (the car phone: an inCar call, or one that answers itself while he drives or is at the wheel; an `auto` call on
     // foot, as a video call outside his building, is answered at once and played on the phone below: calls.js would
     // hold it for a car he is not in)
@@ -592,7 +723,7 @@ export function createRunner(ctx) {
       const id = `pack:${M.def.id}:${M.i}:${ride ? 'd' : 's'}:${who}`;
       const f0 = {}; for (const n of new Set([who, ...lines.map((l) => castName(l.who))])) f0[n] = cast.f0(n);
       W.calls.define(id, { who, color, f0, step: ui.stepId, main: lines.map(toTup), extra: (d.extra || []).map((b) => b.map(tuple).map(toTup)), wrap: (d.wrap || []).map(tuple).map(toTup),
-        pause: (d.hold?.pause || []).map(tuple).map(toTup), resume: (d.hold?.resume || []).map(tuple).map(toTup), trigger: d.inCar || d.auto ? 'enter-car' : 'phase-start', delay: 2, wrapAfterMain: !ride });
+        pause: (d.hold?.pause || []).map(tuple).map(toTup), resume: (d.hold?.resume || []).map(tuple).map(toTup), trigger: d.inCar || d.auto ? 'enter-car' : 'phase-start', delay: 2, wrapAfterMain: !ride, finish: !!ride });
       const hostDone = { v: false };
       W.calls.start(id, { step: ui.stepId, wrapWhen: () => hostDone.v });
       M.log.push(['call', who]);
@@ -630,6 +761,37 @@ export function createRunner(ctx) {
       if (d.choice) return await choose(d.choice, t);
     } finally { ui.caller(null); sfx.play('hangup', { gain: 0.12 }); }
   };
+  async function callWaiting(d, t, who, color, lines) {
+    const live = W.calls.state()?.id;
+    sfx.play('ring', { gain: 0.12, times: 1 });
+    const show = (status) => ui.caller(who, color, status);
+    show('Call waiting');
+    let answer = d.auto ? true : null;
+    const onKey = (e) => { if (W.paused || e.repeat) return; if (['KeyE', 'KeyY'].includes(e.code)) { answer = true; e.stopImmediatePropagation(); } else if (['KeyX', 'KeyN'].includes(e.code)) { answer = false; e.stopImmediatePropagation(); } };
+    addEventListener('keydown', onKey, true);
+    if (!d.auto) ui.help('Call waiting: [E|ANSWER] to answer, [X|DECLINE] to decline.', (d.ring || 8) + 1);
+    const t0 = now();
+    try { await wait(() => answer != null || (ctx.flags.autoAnswer && now() - t0 > 1500) || (now() - t0) / 1000 > (d.ring || 8), t); }
+    finally { removeEventListener('keydown', onKey, true); ui.help(null); }
+    if (answer == null && ctx.flags.autoAnswer) answer = true;
+    M.log.push(['call-waiting', who, live, !!answer]);
+    if (!answer) {
+      applySet(d.decline); M.state.declined = (M.state.declined || 0) + 1;
+      if (W.calls.state()?.id === live) ui.caller(null);
+      if (d.voicemail) { await voicemail({ who: castName(d.voicemail.from) || who, text: d.voicemail.text, secs: d.voicemail.secs }, t); applySet(d.voicemail.set); }
+      return;
+    }
+    // (the live call on hold: its line playing finished, its pause line, then this one's card over it)
+    W.calls.hold?.(true);
+    // (on hold once its line playing is done, its hold line said: 'Go, I'll hold.' heard out before the new caller)
+    { const t0 = now(); await wait(() => W.calls.state()?.id !== live || (W.calls.state()?.held && !W.calls.talking) || now() - t0 > 15000, t).catch(() => {}); }
+    await delay(0.3, t);
+    applySet(d.answer); show(d.role || 'On call');
+    try {
+      for (const l of lines) { show(d.role || 'On call'); await say(castName(l.who), l.text, t, { secs: l.secs, phone: castName(l.who) !== heroName }); }
+      if (d.choice) return await choose(d.choice, t);
+    } finally { sfx.play('hangup', { gain: 0.1 }); ui.caller(null); W.calls.hold?.(false); }
+  }
   async function voicemail(d, t, label = 'Voicemail') {
     const who = castName(d.who);
     sfx.play('ding', { gain: 0.25 });
@@ -639,8 +801,48 @@ export function createRunner(ctx) {
   STEPS.voicemail = async (d, t) => { await voicemail(d, t); applySet(d.set); };
   STEPS.voicenote = async (d, t) => { await voicemail(d, t, 'Voice note'); applySet(d.set); };
 
-  // a fight on foot: combat's crew at the arena (the Suits' men, as many as the step names: a man the forge made
-  // fights in a Suit's body until the cast66 enemy adapter lands), the counter, out cold or 150 m off fails
+  // a fight on foot: combat's crew at the arena (the Suits' men, as many as the step names), the counter, out cold or
+  // 150 m off fails. A man the forge made (a cast member with his own body: Pickup Time's Pedro Delgado) fights in it:
+  // the Suit combat spawns for him (its brain, its hits, its knockdowns and ragdoll) is not drawn, and his own body is its
+  // puppet (puppet): where it stands and how it tumbles, and each of its clips played as Dan's clip for the same move
+  // (DAN_OF: a jab as his jab, a knockdown as his fall), at the same point through it, so his blows land when its do
+  const DAN_OF = { suitIdle: 'fight', thugIdle: 'fight', suitIdleGuide: 'argue', guard: 'fight', suitWalk: 'guardF', suitWalk2: 'guardF', walk: 'guardF', jog: 'jog', suitRun: 'jog', run: 'run', sprint: 'sprint', suitDash: 'run',
+    suitBack: 'guardB', suitLeft: 'guardL', suitRight: 'guardR', thugPunch1: 'jab', thugPunch2: 'cross', thugKick: 'ffKick', bruteSlam: 'hook', hitReact: 'hit', thugKnockdown: 'fall', thugGetUp: 'getup',
+    thugStumbleBack: 'hitChest', thugStumbleLeft: 'hitHead', thugStumbleRight: 'hitHead', suitTauntBye: 'shrug', suitTauntByebye: 'shrug' };
+  function puppet(e, who) {
+    const c = def0.cast?.[who];
+    if (!c || c.model || !c.glb || cast.isHero(who)) return null;
+    const hide = () => e.inner.traverse((o) => { if (o.isMesh) o.visible = false; });
+    hide();
+    const P0 = { e, fig: null, sync() {} };
+    cast.get(who)?.restore?.();
+    cast.spawn(who, { x: e.pos.x, z: e.pos.z, heading: e.root.rotation.y }).then((fig) => {
+      if (!fig?.clip || !fig.mixer) { e.inner.traverse((o) => { if (o.isMesh) o.visible = true; }); return; }
+      M.npcs.add(who); P0.fig = fig;
+      const inner = fig.root.children[0], q0 = inner.quaternion.clone(), p0 = inner.position.clone();
+      fig.mixer.stopAllAction();
+      let curN = null, act = null;
+      P0.sync = () => {
+        if (!e.root.parent) return;
+        hide();
+        fig.root.visible = true; fig.root.position.copy(e.root.position); fig.root.rotation.y = fig.heading = e.root.rotation.y;
+        inner.quaternion.copy(e.inner.quaternion).multiply(q0); inner.position.copy(p0).add(e.inner.position);
+        const n = e.curName, idle = e.state === 'idle';
+        const want = idle && /^(suitIdle|thugIdle|guard)$/.test(n) ? 'idle' : idle && /walk/i.test(n || '') ? 'walk' : DAN_OF[n] || 'fight';
+        if (want !== curN) {
+          curN = want;
+          const cl = fig.clip(want) || fig.clip('fight') || fig.clip('idle');
+          if (cl) { const a = fig.mixer.clipAction(cl); a.reset(); a.enabled = true; a.setLoop(THREE.LoopRepeat, Infinity); a.timeScale = 0; a.play(); if (act && act !== a) a.crossFadeFrom(act, 0.12, false); act = a; }
+        }
+        if (act && e.cur) {
+          const dur = e.cur.getClip().duration || 1, k = e.cur.loop === THREE.LoopOnce ? Math.min(1, e.cur.time / dur) : ((e.cur.time / dur) % 1 + 1) % 1;
+          act.time = k * act.getClip().duration * 0.999;
+        }
+      };
+      fig.restore = () => { inner.quaternion.copy(q0); inner.position.copy(p0); fig.mixer.stopAllAction(); fig.play?.(c.idle || 'idle'); fig.restore = null; };
+    }).catch((err) => console.warn('[storyrun] fight body', who, err));
+    return P0;
+  }
   STEPS.fight = async (d, t) => {
     const combat = W.combat;
     if (!combat?.spawnCrew) { console.warn('[storyrun] no fight on this page'); return; }
@@ -660,6 +862,8 @@ export function createRunner(ctx) {
     // (where they stand: the step's place, else 7 m ahead of him)
     const at0 = d.crewAt ? placeOf(d.crewAt) : null;
     const crews = [combat.spawnCrew({ x: at0 ? (at0.cx ?? at0.x) : ax + Math.sin(f) * 7, z: at0 ? (at0.cz ?? at0.z) : az + Math.cos(f) * 7, count: n, props: true }).engage()];
+    // (a forged man in his own body: puppet)
+    const puppets = d.enemies.map((who, k) => (crews[0].enemies[k] ? puppet(crews[0].enemies[k], castName(who)) : null)).filter(Boolean);
     const crew = { alive: () => crews.reduce((a, c) => a + c.alive(), 0) };
     M.crew = crew;
     let total = n, more = d.reinforce || null, lastK = 0, talk = false, lastHp = combat.player.hp;
@@ -671,6 +875,7 @@ export function createRunner(ctx) {
     if (d.win === 'survive' || d.timer) M.fightTimer = { left: d.timer || 60 };
     try {
       await wait(() => {
+        for (const pp of puppets) pp.sync();
         const alive = crew.alive(), k = total - alive;
         // (the hits he takes, for the MISSION PASSED card)
         const hp = combat.player.hp; if (hp < lastHp - 0.5) M.stats.hits++; lastHp = hp;
@@ -698,7 +903,9 @@ export function createRunner(ctx) {
       ui.counter(null); hud.timer(null); M.crew = null; M.fightTimer = null;
     }
     if (d.win === 'survive') combat.clear?.();
-    await delay(1.0, t);
+    // (a puppet goes on with its man's fall for the beat after)
+    if (puppets.length) { const t1 = now(); await wait(() => { for (const pp of puppets) pp.sync(); return now() - t1 > 1000; }, t); }
+    else await delay(1.0, t);
   };
 
   // a chase: pursuit's heat and cars; lose them, reach a place with them on you, or keep going (escort) for `until` s
@@ -707,8 +914,36 @@ export function createRunner(ctx) {
     if (!inCar()) { /* (the chase needs the car: the GPS sends him back to it) */ }
     const chase = pu.start({ heat: d.level || 2, kind: d.kind === 'police' ? 'police' : 'suits', count: value(d.count, M.state, ctx.save.done) || undefined, lose: d.goal !== 'escort', ...(d.loseTime ? { escape: d.loseTime } : {}) });
     let lost = false, caught = false;
-    chase?.on?.('lost', () => { lost = true; }); chase?.on?.('caught', () => { caught = true; });
+    chase?.on?.('lost', () => { lost = true; juice.alert('Lost them', { tone: 'green', sting: 'down', secs: 1.8 }); }); chase?.on?.('caught', () => { caught = true; });
+    // (the chase's alarm: who is on him, and the camera jolted)
+    juice.alert(d.kind === 'police' ? 'Police' : "Delgado's crew", { sub: d.alert ? tokens(d.alert) : d.kind === 'police' ? 'Lose the cops.' : ride ? 'They found you. Keep moving.' : 'Lose them.', tone: 'red', sting: 'up', jolt: 0.35 });
     M.chase = chase;
+    // (a chase that starts with his car standing, parked or in a queue at a light: the traffic round it cleared, and for
+    // a chase to a place the first 180 m of the way there too (d.clear m round the car, 32 by default; 0 leaves it),
+    // kept clear until he has driven past it, 25 s at most. PT-14's chase began with the car boxed in by a bus and two
+    // taxis on Broadway at W 64th, and the queue at the W 65th light behind them; they caught him before he got going)
+    const cr = d.clear ?? 32;
+    let clearT = 0;
+    if (cr > 0 && Math.abs(car.speed || 0) < 4 && dist(me(), car.position.x, car.position.z) < 60) {
+      const c0 = { x: car.position.x, z: car.position.z }, rects = [{ minX: c0.x - cr, maxX: c0.x + cr, minZ: c0.z - cr, maxZ: c0.z + cr }];
+      const way = [[c0.x, c0.z]];
+      if (d.goal === 'reach' && d.to) {
+        try {
+          const p = placeOf(d.to), r = gps.plan({ x: c0.x, z: c0.z }, { x: p.x, z: p.z }, car.heading) || [];
+          let L = 0;
+          for (let k = 1; k < r.length && L < 180; k++) {
+            const [ax, az] = r[k - 1], [bx, bz] = r[k], seg = Math.hypot(bx - ax, bz - az);
+            for (let u = 0; u < seg && L + u < 180; u += 15) { const x = ax + (bx - ax) * u / seg, z = az + (bz - az) * u / seg; rects.push({ minX: x - 14, maxX: x + 14, minZ: z - 14, maxZ: z + 14 }); way.push([x, z]); }
+            L += seg;
+          }
+        } catch (e) { console.warn('[storyrun] chase clear', e); }
+      }
+      try { app.trafficSystem.hold?.(rects); } catch {}
+      const t0 = now(), end = way[way.length - 1];
+      clearT = setInterval(() => {
+        if (now() - t0 > 25000 || (dist(car.position, c0.x, c0.z) > cr + 12 && dist(car.position, end[0], end[1]) < 20) || dist(car.position, c0.x, c0.z) > 230) { clearInterval(clearT); clearT = 0; try { app.trafficSystem.hold?.([]); } catch {} }
+      }, 250);
+    }
     try {
       if (d.goal === 'reach' && d.to) {
         const p = placeOf(d.to);
@@ -721,7 +956,7 @@ export function createRunner(ctx) {
         await wait(() => { if (caught) throw new Fail('They caught you.', 'caught'); return d.goal === 'escort' ? (now() - t0) / 1000 > (d.until || 45) : lost || (M.auto && M.loseAssist); }, t);
       }
       M.timer.add(d.bonus || 0); if (d.flag) M.state.flags[flagName(d.flag)] = true;
-    } finally { try { chase?.stop?.(); } catch {} M.chase = null; M.loseAssist = false; gps.clear(); }
+    } finally { if (clearT) { clearInterval(clearT); try { app.trafficSystem.hold?.([]); } catch {} } try { chase?.stop?.(); } catch {} M.chase = null; M.loseAssist = false; gps.clear(); }
   };
 
   // a tail: a car on the planner's route through the step's places (m2-drive.js: it lives in the traffic, brakes for
@@ -743,7 +978,7 @@ export function createRunner(ctx) {
     const name = d.name || 'the car';
     gps.objective(parts(d.objective || `Follow **${name}**. Don't get too close.`, 'red'), { follow: () => D.pos, name });
     gps.blip('tail', { x: D.pos.x, z: D.pos.z, kind: 'enemy', edge: true, name });
-    let close = 0, far = 0, last = now(), opened = false, lastLeft = 0;
+    let close = 0, far = 0, last = now(), opened = false, lastLeft = 0, warnAt = 0;
     const ring = d.ring || 25, lostDist = d.lostDist || 160, t0 = now();
     // (a tail that starts where the last leg ended, on top of the car to follow: being close counts only once it has
     // pulled away to half the ring, or after 6 s; MM, 5 Nov: Mission 2's van "spotted" a player parked at its mark)
@@ -757,8 +992,13 @@ export function createRunner(ctx) {
         // (the metres the followed car has left, told to a framing GameMog each second: a long tail is progress, not stuck)
         if (tt - lastLeft > 1000) { lastLeft = tt; host.tell('progress', { mission: M.def.id, step: d.id || null, kind: 'tail', i: M.i, n: M.def.steps.length, left: Math.max(0, Math.round(D.length - D.s)) }); }
         if (dd >= ring * 0.5 || now() - t0 > 6000) opened = true;
-        close = dd < ring * 0.5 && opened ? close + dt : Math.max(0, close - dt);
+        // (held up in traffic, the followed car is a car in a queue: one car back at a light is not being made, only on
+        // its bumper is; owner's PT-8 run, 6 Nov: the SUV stopped on W 23rd St and the car queued behind it was "spotted")
+        const held = (D.v || 0) < 3, tooClose = held ? dd < 7 : dd < ring * 0.5;
+        close = tooClose && opened ? close + dt : Math.max(0, close - dt);
         far = dd > lostDist ? far + dt : 0;
+        // (the warning before the fail: too close, or about to lose it)
+        if (tt - warnAt > 3500 && (close > (d.spotTime || 4) * 0.4 || far > (d.lostTime || 8) * 0.35)) { warnAt = tt; juice.alert(close > 0 ? 'Too close' : 'Losing them', { sub: close > 0 ? 'Back off or they make you.' : `Catch up to ${name}.`, tone: 'yellow', secs: 1.6 }); }
         if (close > (d.spotTime || 4)) throw new Fail(`${name.replace(/^the /, 'The ')} spotted you.`, 'lost');
         if (far > (d.lostTime || 8)) throw new Fail(`You lost ${name}.`, 'lost');
         return D.done;
@@ -766,6 +1006,15 @@ export function createRunner(ctx) {
     } finally { app.scene.remove(g); gps.unblip('tail'); gps.clear(); if (M.tail === D) M.tail = null; }
   };
 
+  // a cue's sound (a trigger's `cue`): one of Mog City's sounds by name, or a walkie-talkie's: 'walkie' one beep with a
+  // squelch, 'walkie2' two, 'walkie3' three (the crew closing in), made from the sound bank's own tones
+  function cue(name) {
+    const m = /^walkie(\d)?$/.exec(name);
+    if (!m) { sfx.play(name, { gain: 0.3 }); return; }
+    const n = Math.min(3, +(m[1] || 1));
+    sfx.play('glitch', { gain: 0.06 });
+    for (let i = 0; i < n; i++) setTimeout(() => sfx.play('thunk', { gain: 0.16, f: 1250, ring: false }), 90 + i * 170);
+  }
   // a trigger: once (or every time) the player is in an area, on a street, or a condition holds: its line, set and side steps
   STEPS.trigger = async (d, t) => {
     const area = d.area ? placeOf('@' + d.area['@']) : null;
@@ -775,7 +1024,7 @@ export function createRunner(ctx) {
       const hit = (area ? dist(me(), area.x, area.z) < d.area.r : true) && (d.when ? cond(d.when) : true) && (d.street ? String(turns?.nameAt?.(me().x, me().z) || '').toLowerCase().includes(d.street.toLowerCase()) : true);
       if (hit && !fired) {
         fired = true;
-        if (d.cue) try { sfx.play(d.cue, { gain: 0.3 }); } catch {}
+        if (d.cue) try { cue(d.cue); } catch {}
         if (d.say) { const s = tuple(d.say); say(castName(s.who), s.text, M.tok).catch(() => {}); }
         applySet(d.set); if (d.flag) M.state.flags[flagName(d.flag)] = true;
         for (const x of d.do || []) side(x, M.tok, true);
@@ -787,13 +1036,15 @@ export function createRunner(ctx) {
   };
   // scene: one of Mog City's own set pieces (SCENES), its camera, cast, lines and skip its own
   STEPS.scene = async (d, t) => {
-    if (partOf(d.name)) { M.log.push(['scene', d.name]); ui.objective(null); await runPart(d.name, d, t); if (d.time) setTime(d.time); return; }
+    if (partOf(d.name)) { M.log.push(['scene', d.name]); ui.objective(null); M.inScene = true; try { await runPart(d.name, d, t); } finally { M.inScene = false; } if (d.time) pinTo(d.time); holdPin(); if (d.time && !M.pin) setTime(d.time); return; }
     const play = Object.prototype.hasOwnProperty.call(SCENES, d.name) ? SCENES[d.name] : null;
     if (!play) { console.info(`[storyrun] ${M.def.id}: no Mog City scene '${d.name}'; it passes`); return; }
     M.log.push(['scene', d.name]);
     ui.objective(null);
-    await play(W);
-    if (d.time) setTime(d.time);
+    M.inScene = true;
+    try { await play(W); } finally { M.inScene = false; }
+    if (d.time) { if (M.pin) pinTo(d.time); else setTime(d.time); }
+    holdPin();
   };
   // one of Mog City's own mission phases (a step's ref, a scene's name): m2.js / m3.js playPart, one instance per mission
   // module through the world's mission (the van the go set rolling is the one tailed); fresh: the first step of this
@@ -805,8 +1056,11 @@ export function createRunner(ctx) {
     M.partMods.set(m, mod);
     const go = mod.playPart(W, n, { fresh: M.fresh, keep: M.keep, chat: d.chat !== false });
     let r;
+    // (Mog City's own phases set their own time of day: a pinned mission's is put back after, holdPin)
+    M.inScene = true;
     try { r = await Promise.race([go, wait(() => false, t)]); }
     catch (e) { go.catch(() => {}); mod.endParts(W); M.partMods.delete(m); throw e; }
+    finally { M.inScene = false; }
     if (r?.stats) M.partStats = r.stats;
     if (r?.fail != null) throw new Fail(r.fail, r.ko ? 'ko' : 'part', { tip: r.tip, sounded: r.sounded });
     if (r?.quit) throw new Stop();
@@ -1047,6 +1301,331 @@ export function createRunner(ctx) {
     M.log.push(['tow', 'dropped', name]);
   };
 
+  /* ------------------------------------------------- a passenger's ride -- */
+  // passenger with from / to: he drives to `from` (the pick-up), they get in (boardStep, above), and he drives them to
+  // `to` under their rules: a speed limit (limit, in mph, on the HUD with his speed: over it for limitSecs s, a hard
+  // one fails, a soft one costs its set and is said), and their comfort (comfort: a comfort step's own fields, run
+  // beside the drive: its bar, its lines). At `to` they get out (drop: false keeps them in, for a later step).
+  const boardStep = STEPS.passenger;
+  STEPS.passenger = async (d, t) => {
+    if (d.board === false || (!d.from && !d.to)) return boardStep(d, t);
+    const who = castName(d.who);
+    if (d.from) { const p = placeOf(d.from); await goTo(p, { radius: d.radius || 10 }, t, { objective: d.pickObjective || `Pick up **${who}**{blue} at **${p.name}**.`, needsCar: true }); }
+    await boardStep({ ...d, from: null, to: null }, t);
+    if (!d.to) return;
+    const q = placeOf(d.to), st = tokOf(t), limit = d.limit || 0, rule = { over: 0 };
+    if (d.comfort) side({ ...d.comfort, type: 'comfort', who: d.who, at: 0 }, st);
+    let warned = 0, last = now();
+    M.ride = { who, limit };
+    try {
+      await Promise.race([
+        goTo(q, { radius: d.radius || 10 }, st, { objective: d.objective || `Take **${who}**{blue} to **${q.name}**.`, needsCar: true }),
+        limit ? wait(() => {
+          const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
+          if (!inCar() || W.cutscene) return false;
+          const mph = Math.abs(car.speed || 0) * MPH;
+          ui.counter(mph > limit ? 'SLOW DOWN' : 'SPEED LIMIT', `${Math.round(mph)} / ${limit} MPH`);
+          const r = speedRule(rule, car.speed || 0, dt, { max: limit / MPH, grace: d.limitSecs ?? 3 });
+          if (r === 'warn' && tt - warned > 6000) { warned = tt; ui.help(tokens(d.warn || `${who} wants you to slow down.`), 3); }
+          if (r === 'over') {
+            if (d.fail === 'hard') throw new Fail(tokens(d.why || `You drove too fast with ${who} in the car.`), 'speed');
+            rule.over = 0; applySet(d.set); if (d.flag) M.state.flags[flagName(d.flag)] = true;
+            ui.help(tokens(d.why || `Too fast. ${who} didn't like that.`), 4);
+          }
+          return false;
+        }, st) : new Promise(() => {}),
+      ]);
+    } finally { kill(st, new Stop()); for (const s of [...M.sides]) if (s.tok.parent === st) kill(s.tok, new Stop()); ui.counter(null); M.ride = null; }
+    if (d.drop !== false) await boardStep({ who: d.who, board: false, secs: d.secs }, t);
+  };
+
+  /* ------------------------------------------- cars of the story's, driving -- */
+  // A car the story drives (an ally's, a convoy's lead): its body as a tow's (towCar: a ride of the world's by id, or the
+  // city's own body in a colour), on the planner's route through its places (m2-drive.js createDriver: it lives in the
+  // traffic, brakes for what is ahead of it, and is solid to his car: a knock is onHit). M.allies by id: an ally's car
+  // stays where it stopped for the rest of the mission, and a later ally or convoy step takes it on from there.
+  function routeOf(list) {
+    const pts = [];
+    for (let k = 0; k + 1 < list.length; k++) {
+      const a = list[k], b = list[k + 1];
+      const seg = gps.plan({ x: a.x, z: a.z }, { x: b.x, z: b.z }, a.heading) || [[a.x, a.z], [b.x, b.z]];
+      for (const q of seg) if (!pts.length || Math.hypot(q[0] - pts[pts.length - 1][0], q[1] - pts[pts.length - 1][1]) > 3) pts.push(q);
+    }
+    return pts.length > 1 ? pts : [[list[0].x, list[0].z], [list[0].x + Math.sin(list[0].heading || 0) * 5, list[0].z + Math.cos(list[0].heading || 0) * 5]];
+  }
+  const ALLY_BODY = { hearse: 'van', van: 'van', sedan: 'sedan', suv: 'suv' };
+  async function storyCar(id, d, at, name) {
+    let A = M.allies.get(id);
+    if (A) { if (d.name) A.name = name; return A; }
+    const T = await towCar({ car: d.car || ALLY_BODY[d.lead] || 'sedan', color: d.color || '#5B1E2B' });
+    T.obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    app.scene.add(T.obj);
+    A = { id, T, name, who: castName(d.who) || null, x: at.x, z: at.z, h: at.heading ?? 0, D: null };
+    T.obj.position.set(at.x, cm.getGroundHeight(at.x, at.z, 'car'), at.z); T.obj.rotation.set(0, A.h, 0);
+    M.allies.set(id, A);
+    return A;
+  }
+  // drive A through `to` (a list of places, or 'player': to wherever he is, re-planned when it gets there and he has
+  // moved on, up to 4 times). rules: { want(D, pd) -> m/s, hit(sp), tick(D, pd, dt) -> true when done }. Far from him
+  // (300 m+, out of sight) it goes at twice its pace or more: `secs` is about how long it takes to get there.
+  async function driveCar(A, to, d, t, rules = {}) {
+    const { createDriver } = await import('../mission/m2-drive.js');
+    const toPlayer = to === 'player', near = d.near || 14, base = d.speed || 13;
+    const plan = () => routeOf([{ x: A.x, z: A.z, heading: A.h }, ...(toPlayer ? [{ x: me().x, z: me().z }] : to)]);
+    let D = null, replans = 0, planned = now();
+    const make = () => {
+      D = createDriver(W, { obj: A.T.obj, path: plan(), halfW: A.T.half || 1.0, halfL: 2.35, onWheels: (dt, v, steer) => { try { A.T.rs?.update?.(dt, v, steer); } catch {} }, onHit: (sp) => rules.hit?.(sp) });
+      D.place(0); A.D = D; planned = now();
+    };
+    make();
+    const pace = d.secs ? D.length / d.secs : 0;
+    let last = now(), told = 0;
+    const blip = () => gps.blip('ally:' + A.id, { x: D.pos.x, z: D.pos.z, kind: 'friend', edge: true, name: A.name, label: true });
+    blip();
+    try {
+      await wait(() => {
+        const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
+        if (!dt || W.cutscene) return false;
+        const pd = dist(me(), D.pos.x, D.pos.z);
+        let want = rules.want ? rules.want(D, pd) : base;
+        // (out of his sight it makes up the time: on along its route at the pace that gets it there in secs)
+        if (!rules.want && pd > 300) { want = Math.max(want, base * 2); if (pace > D.v && D.s < D.length - 60) D.s = Math.min(D.length - 60, D.s + (pace - D.v) * dt); }
+        D.step(dt, want);
+        A.x = D.pos.x; A.z = D.pos.z; A.h = D.heading;
+        blip();
+        if (tt - told > 1000) { told = tt; host.tell('progress', { mission: M.def.id, step: d.id || null, kind: d.type, i: M.i, n: M.def.steps.length, left: Math.max(0, Math.round(D.length - D.s)) }); }
+        if (rules.tick && rules.tick(D, pd, dt)) return true;
+        // (to him: there once it has pulled up beside or behind him, stopped (its route ends at his car, which it brakes for))
+        if (toPlayer && pd < near && D.v < 0.8 && D.s > D.length * 0.5) return true;
+        if (!D.done) return false;
+        if (toPlayer && pd > near * 1.6 && replans < 4 && tt - planned > 2500) { replans++; make(); return false; }
+        return !rules.tick;
+      }, t);
+    } finally { A.x = D.pos.x; A.z = D.pos.z; A.h = D.heading; A.D = null; gps.unblip('ally:' + A.id); }
+  }
+  // ally: a friend's car driving itself through the city (Carissa's): from `from` (or where it last stopped) to `to`, a
+  // place or 'player' (wherever he is: it arrives where he is). Its blue blip on the radar the whole way; a step of its
+  // own waits for it (the objective says so: d.objective, else 'Wait for <name>.'); as a side step (during) it drives
+  // while the steps go on. There, its driver gets out beside it with out: true.
+  STEPS.ally = async (d, t) => {
+    const who = castName(d.who), name = tokens(d.name || (who ? `${who}'s car` : 'the car'));
+    const A = await storyCar(d.ally || 'ally', d, placeOf(d.from || M.def.start), name);
+    if (d.objective) gps.objective(parts(d.objective, 'blue'), null);
+    M.ally = A;
+    try { await driveCar(A, d.to === 'player' ? 'player' : [placeOf(d.to)], d, t); } finally { if (M.ally === A) M.ally = null; }
+    M.log.push(['ally', A.id, 'arrived']);
+    if (d.out && who) {
+      const h = A.h, x = A.x + Math.cos(h) * 2.2, z = A.z - Math.sin(h) * 2.2;
+      const f = await cast.spawn(who, { x, z, heading: Math.atan2(me().x - x, me().z - z) }); if (f) M.npcs.add(who);
+    }
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
+  };
+  // convoy: a car to stay with to its place (Carissa's, by its ally id; else one of the story's: lead, car, colour): its
+  // route through the step's places at its pace, slowing for him when he falls behind; a band [near, far] m to keep in
+  // (a bar: WITH THEM, TOO CLOSE, TOO FAR, draining outside it, refilling in it); knocks into it are its damage (hp, 100).
+  // Out of the band too long (the bar empty): hard (the default) fails, soft costs its set and goes on, null only says
+  // so. Wrecked: fails. Done when it is there and he is in the band's far end.
+  STEPS.convoy = async (d, t) => {
+    const route = d.route.map((r) => placeOf(r));
+    const known = d.ally && M.allies.get(d.ally);
+    const A = await storyCar(d.ally || 'convoy', d, route[0], tokens(d.name || known?.name || 'the car'));
+    const [near, far] = Array.isArray(d.band) ? d.band : [6, 60];
+    const st = { k: 1, out: 0 }, label = String(d.label || 'CONVOY').toUpperCase(), speed = d.speed || 11;
+    let hp = d.hp || 100, wrecked = false, lastHit = 0;
+    gps.objective(parts(d.objective || `Follow **${A.name}**{blue}.`, 'blue'), { follow: () => (A.D ? A.D.pos : { x: A.x, z: A.z }), name: A.name });
+    M.convoy = { A, near, far };
+    try {
+      await driveCar(A, known ? route : route.slice(1), { ...d, near: far }, t, {
+        want: (D, pd) => (pd > far * 0.8 ? speed * 0.3 : pd < near ? speed * 1.15 : speed),
+        hit: (sp) => {
+          if (now() - lastHit < 400 || sp < 1.5) return; lastHit = now();
+          hp -= sp * (d.knock ?? 7); sfx.play('hit', { gain: 0.3 });
+          if (hp <= 0) wrecked = true; else ui.help(tokens(d.hitLine || `Careful: that's ${A.name}.`), 2.5);
+        },
+        tick: (D, pd, dt) => {
+          if (wrecked) throw new Fail(tokens(d.wreckWhy || `You wrecked ${A.name}.`), 'wreck');
+          const w = bandRule(st, pd, dt, { near, far, drain: d.drain ?? 0.1, refill: d.refill ?? 0.08 });
+          hud.bar(label, st.k, w === 'far' ? 'TOO FAR' : w === 'close' ? 'TOO CLOSE' : 'WITH THEM');
+          if ((d.hp || hp < 100)) ui.counter('DAMAGE', `${Math.round(100 - Math.max(0, hp) / (d.hp || 100) * 100)}%`);
+          if (st.k <= 0) {
+            if (d.fail === 'soft') { st.k = 0.5; applySet(d.set); if (d.flag) M.state.flags[flagName(d.flag)] = true; ui.help(tokens(d.why || `You fell behind ${A.name}.`), 4); }
+            else if (d.fail !== null) throw new Fail(tokens(d.why || `You lost ${A.name}.`), 'lost');
+          }
+          return D.done && pd < far;
+        },
+      });
+    } finally { hud.bar(null); ui.counter(null); gps.clear(); M.convoy = null; }
+    if (d.flag && d.fail !== 'soft') M.state.flags[flagName(d.flag)] = true;
+  };
+
+  /* --------------------------------------------------------------- stealth -- */
+  // stealth: Mog City's own lookouts (m2-stealth.js, Mission 2's yard: a crew of one each, a cone on the ground going
+  // yellow to red, the '?' over the head filling to '!', a sprint near one heard, E from behind takes one down) stood at
+  // the step's units: '@place', on the kerb beside its lane, looking `heading` (degrees; across the street when left out),
+  // sweeping, or walking `roam` m up and down the block. Goals: secs (stay unseen that long), to (get there unseen), or
+  // neither (a watch kept beside the steps after it, the mission long). Seen (or one of them hit in the open):
+  // onDetect 'fail' (the default: SPOTTED!, then the fail screen), { set } (it costs, and they look away a moment),
+  // { goto } (the story goes on there), { pursuit } (they come after him: a chase to lose).
+  STEPS.stealth = async (d, t) => {
+    const [{ createStealth }, { createM2UI }] = await Promise.all([import('../mission/m2-stealth.js'), import('../mission/m2-ui.js')]);
+    const U = W.m2ui || (W.m2ui = createM2UI(ui));
+    const posts = d.units.map((u) => {
+      // (on the pavement on the kerb side of its lane: the first point that is pavement going out from the lane, 2 to 16 m)
+      const p = placeOf(u['@'] ? '@' + u['@'] : u), h = p.heading ?? 0, side = u.side ?? -1;
+      let kerb = u.kerb ?? null;
+      if (kerb == null) { kerb = 6.5; for (let k = 2; k <= 16; k += 0.5) if (cm.isPointOnSidewalk?.(p.x + Math.cos(h) * k * side, p.z - Math.sin(h) * k * side)) { kerb = k + 1.2; break; } }
+      const x = p.x + Math.cos(h) * kerb * side, z = p.z - Math.sin(h) * kerb * side;
+      const yaw = u.heading != null ? (u.heading * PI) / 180 : h - (PI / 2) * side;
+      // (a beat along its lane, or `dir` degrees (0 the lane's way, 90 +x: down a cross street from a corner's place))
+      if (u.roam > 0) { const r = Math.min(80, u.roam), hd = u.dir != null ? (u.dir * PI) / 180 : h; return { path: [[x, z], [x + Math.sin(hd) * r, z + Math.cos(hd) * r]], yaw: u.heading != null ? yaw : hd, speed: u.speed || 1.1, pause: u.pause ?? 2.5, name: u.name }; }
+      return { at: [x, z], yaw, sweep: u.sweep ?? 0.8, period: 7, name: u.name };
+    });
+    const S = createStealth(W, { posts, U });
+    await S.spawn();
+    // (a moment to see them before they can see him: the step starts with him wherever the last one left him)
+    S.grace = d.grace ?? 3;
+    // (detect: the seconds a lookout has to keep him in sight 10 m off before he is seen; Mission 2's own is about 0.9 s.
+    // Pickup Time's sneak says 2.5: time to see the bar empty and step back out of the cone. Up close it is at once.)
+    if (d.detect > 0) S.rate = 0.92 / d.detect;
+    M.stealth = S;
+    const dest = d.to ? placeOf(d.to) : null, secs = d.secs || 0, onD = d.onDetect || 'fail';
+    if (d.hint) ui.help(parts(d.hint), 8);
+    if (dest) gps.objective(parts(d.objective || `Get to **${dest.name}** without being seen.`, 'yellow'), { x: dest.cx ?? dest.x, z: dest.cz ?? dest.z, name: dest.name });
+    else if (secs) gps.objective(parts(d.objective || "Stay out of their sight."), null);
+    let ring = null;
+    if (dest) { ring = createMarker(THREE, app.scene, { color: '#FFC93C', radius: d.radius || 2.5, height: 1.1, alpha: 0.22 }); ring.at(dest.cx ?? dest.x, 0.02, dest.cz ?? dest.z); }
+    let last = now(), unseen = 0, pursuing = null;
+    const blipAll = () => { for (const L of S.lookouts) if (L.watching && L.e.alive) gps.blip('lk:' + L.id, { x: L.e.pos.x, z: L.e.pos.z, kind: 'enemy' }); else gps.unblip('lk:' + L.id); };
+    try {
+      await wait(() => {
+        const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
+        if (!dt || W.cutscene) return false;
+        // (the test drive is never seen: it checks that the story plays through, the cones and all, not the sneaking)
+        // (&stealthfair: the test drive sneaks for itself, seen if it is seen: a check that the sneak can be done)
+        if (M.auto && !ctx.flags.stealthFair) S.grace = 5;
+        const r0 = S.step(dt); blipAll();
+        // (the cones read on a sunlit street: Mog City's are drawn for its twilight yard)
+        for (const L of S.lookouts) if (L.cone.visible) L.cone.material.opacity = Math.max(L.cone.material.opacity * 2.4, 0.2);
+        if (secs) { unseen += dt; hud.timer(Math.max(0, secs - unseen), d.label || 'STAY HIDDEN'); }
+        // (how close he is to being seen, on the HUD: the most suspicious lookout's '?' as a bar, full while nobody has
+        // noticed him, emptying as one does, so a player sees it coming, not just the SPOTTED! when it has)
+        if (d.meter !== false && (dest || secs)) {
+          const k = S.lookouts.reduce((a, L) => (L.watching && L.e.alive ? Math.max(a, L.sus) : a), 0);
+          hud.bar(d.label || 'UNSEEN', 1 - k, k >= 0.66 ? 'THEY SEE YOU' : k > 0.05 ? 'SUSPICIOUS' : 'HIDDEN');
+        }
+        if (r0) {
+          M.log.push(['stealth', 'seen', S.by?.name || '']);
+          U.banner('SPOTTED!', tokens(d.why || `${S.by?.name || 'A lookout'} saw you.`), { color: '#EF4444', secs: 2.2 });
+          sfx.play('stinger', { gain: 0.35, notes: [146.83, 138.59, 130.81, 123.47] });
+          if (onD === 'fail') throw new Fail(tokens(d.why || 'You were spotted.'), 'seen');
+          if (onD.set) { applySet(onD.set); for (const L of S.lookouts) { L.sus = 0; L.look = null; } S.by = null; S.grace = 4; unseen = 0; return false; }
+          if (onD.goto) { M.gotoNow = onD.goto; return true; }
+          if (onD.pursuit && !pursuing) { S.alarm(); pursuing = side({ type: 'pursuit', goal: 'lose', level: onD.pursuit.level || 2, count: onD.pursuit.count }, M.tok, true); return !dest && !secs; }
+        }
+        if (dest) return dist(me(), dest.cx ?? dest.x, dest.cz ?? dest.z) < (d.radius || 2.5) * (inCar() ? 3 : 1);
+        if (secs) return unseen >= secs;
+        return false;
+      }, t);
+    } finally {
+      if (secs) hud.timer(null);
+      if (d.meter !== false && (dest || secs)) hud.bar(null);
+      ring?.hide(); if (ring) app.scene.remove(ring.group);
+      for (const L of S.lookouts) gps.unblip('lk:' + L.id);
+      try { S.dispose(); } catch {} U.banner?.(null);
+      W.combat?.clear?.();
+      if (M.stealth === S) M.stealth = null;
+      gps.clear();
+    }
+  };
+
+  /* ------------------------------------------------------------- a parked car -- */
+  // car: one of the story's cars parked at the kerb at a place (a city body in a colour, or a ride of the world's by id:
+  // the green minivan at Canal, Carissa's SUV), along its lane or `heading` degrees, `back` m short of the corner; solid
+  // to his car (crash's standing vehicles). `name` names it; { name, remove: true } takes it away. A search beside it is a
+  // search at the place
+  STEPS.car = async (d) => {
+    const id = d.name || d.id || d.car || 'car';
+    if (d.remove) { const c = M.parked.get(id); if (c) { app.scene.remove(c.obj); M.parked.delete(id); } return; }
+    const p = placeOf(d.at), h = d.heading != null ? (d.heading * PI) / 180 : p.heading ?? 0, back = d.back ?? 16, side = d.kerb ?? 3.2;
+    const T = await towCar({ car: d.car, color: d.color || '#2F5D3A' });
+    T.obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    const x = (p.cx ?? p.x) - Math.cos(h) * side - Math.sin(h) * back, z = (p.cz ?? p.z) + Math.sin(h) * side - Math.cos(h) * back;
+    // (ahead of the car's body: the lane point is its middle)
+    T.obj.position.set(x, cm.getGroundHeight(x, z, 'car'), z); T.obj.rotation.set(0, h, 0);
+    T.obj.name = 'wagmi-parked';
+    const old = M.parked.get(id); if (old) app.scene.remove(old.obj);
+    app.scene.add(T.obj); M.parked.set(id, T);
+  };
+
+  /* -------------------------------------------------------------- roadblock -- */
+  // roadblock: `cars` cars (2 by default; police: NYPD cruisers, their bars lit; crew: the black cars of the story's
+  // crew) parked across the street at `at`, before its corner, with `crew` men stood beside them (they don't fight unless
+  // he gets out among them). The GPS routes round it (gps.avoid: r m round it); the traffic goes round them. Rammed at
+  // speed (ramSpeed m/s, 11: ram false stops that) a car is knocked out of the way and he is through, slowed.
+  // With `to` it is a step of its own: get past it to there; without, the block stays up beside the steps after it.
+  STEPS.roadblock = async (d, t) => {
+    const p = placeOf(d.at), h = p.heading ?? 0, n = Math.max(1, Math.min(4, d.cars || 2));
+    const fx = Math.sin(h), fz = Math.cos(h), rx = Math.cos(h), rz = -Math.sin(h);
+    const back = d.back ?? 10, c0 = { x: (p.cx ?? p.x) - fx * back, z: (p.cz ?? p.z) - fz * back };
+    // (across the whole street: centred on its middle, the corner's line, not the lane's)
+    const { buildChaseCar } = await import('../pursuit/cars.js');
+    const TS = app.trafficSystem, police = d.kind === 'police';
+    const B = { id: 'rb:' + (++blockSeq), at: c0, r: d.r || 16, cars: [], avoid: { x: c0.x, z: c0.z, r: d.r || 16 }, crew: null, hit: null };
+    for (let i = 0; i < n; i++) {
+      const c = buildChaseCar(police ? 'police' : 'suits', i), g = c.group, off = (i - (n - 1) / 2) * 3.6;
+      g.name = 'wagmi-parked';
+      const x = c0.x + rx * off + fx * (i % 2 ? 1.2 : -1.2), z = c0.z + rz * off + fz * (i % 2 ? 1.2 : -1.2), yaw = h + PI / 2 + (i % 2 ? 0.32 : -0.32);
+      g.position.set(x, cm.getGroundHeight(x, z, 'car'), z); g.rotation.set(0, yaw, 0);
+      g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      app.scene.add(g);
+      const bl = { x, z, yaw, halfW: c.hw || 0.95, halfL: c.hl || 2.3, vx: 0, vz: 0 };
+      if (Array.isArray(TS.blockers)) TS.blockers.push(bl);
+      B.cars.push({ g, bl, knocked: false, v: null });
+    }
+    gps.avoid?.push(B.avoid);
+    if (d.crew && W.combat?.spawnCrew) try { B.crew = W.combat.spawnCrew({ x: c0.x + fx * 4 + rx * 5, z: c0.z + fz * 4 + rz * 5, count: Math.min(4, d.crew), aggro: false, props: false }); } catch (e) { console.warn('[storyrun] roadblock crew', e); }
+    gps.blip(B.id, { x: c0.x, z: c0.z, kind: 'enemy', edge: false, name: tokens(d.text || 'Roadblock') });
+    M.blocks.push(B);
+    // rammed: a hit on one of them at speed knocks it aside (no longer solid), spinning, and he goes on through slowed
+    const ramAt = d.ram === false ? Infinity : (d.ramSpeed || 11);
+    let last = now();
+    B.hit = W.crash?.on?.('hit', (e) => {
+      if (e?.other !== 'wagmi-parked' || !(e.speed >= ramAt)) return;
+      let best = null, bd = 6; for (const c of B.cars) { if (c.knocked) continue; const q = Math.hypot(c.g.position.x - car.position.x, c.g.position.z - car.position.z); if (q < bd) { bd = q; best = c; } }
+      if (!best) return;
+      best.knocked = true; best.g.name = 'wagmi-knocked';
+      const k = TS.blockers?.indexOf(best.bl); if (k >= 0) TS.blockers.splice(k, 1);
+      const s = Math.sin(car.heading), co = Math.cos(car.heading), side = ((best.g.position.x - car.position.x) * co - (best.g.position.z - car.position.z) * s) >= 0 ? 1 : -1;
+      best.v = { x: s * e.speed * 0.6 + co * side * 4, z: co * e.speed * 0.6 - s * side * 4, spin: side * 3.2, t: 0 };
+      car.speed = Math.max(car.speed || 0, e.speed * 0.55);
+      sfx.play('boom', { gain: 0.35 }); M.state.flags[flagName(d.flag || 'rammed roadblock')] = true; M.log.push(['roadblock', 'rammed']);
+      // (through it: a beat of slow motion on the hit, the camera thrown, the word)
+      juice.slow(0.7, 0.3); juice.alert('Through!', { tone: 'green', sting: 'hit', secs: 1.6, jolt: 0.6 });
+    });
+    const anim = () => {
+      const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
+      if (!warned && dist(me(), c0.x, c0.z) < 170) { warned = true; juice.alert(police ? 'Police roadblock' : 'Roadblock', { sub: 'Ram it at speed, or find a way round.', tone: 'red', sting: 'hit', secs: 2.6 }); }
+      for (const c of B.cars) if (c.v && c.v.t < 1.6) { c.v.t += dt; const f = Math.max(0, 1 - c.v.t / 1.6); c.g.position.x += c.v.x * dt * f; c.g.position.z += c.v.z * dt * f; c.g.rotation.y += c.v.spin * dt * f; c.g.position.y = cm.getGroundHeight(c.g.position.x, c.g.position.z, 'car'); }
+    };
+    if (d.text) ui.help(parts(d.text), 6);
+    // (its alarm as he comes up on it, not when it is stood up blocks away)
+    let warned = false;
+    const dest = d.to ? placeOf(d.to) : null;
+    try {
+      if (dest) await Promise.race([goTo(dest, d, t, { objective: d.objective || `Get past the roadblock to **${dest.name}**.`, needsCar: !!M.def.vehicle }), wait(() => { anim(); return false; }, t)]);
+      else await wait(() => { anim(); return false; }, t);
+    } finally { dropBlock(B); }
+  };
+  let blockSeq = 0;
+  function dropBlock(B) {
+    const i = M.blocks.indexOf(B); if (i < 0) return;
+    M.blocks.splice(i, 1); gps.unblip(B.id);
+    const TS = app.trafficSystem;
+    for (const c of B.cars) { app.scene.remove(c.g); const k = TS.blockers?.indexOf(c.bl); if (k >= 0) TS.blockers.splice(k, 1); }
+    const k = gps.avoid?.indexOf(B.avoid); if (k >= 0) gps.avoid.splice(k, 1);
+    try { B.hit?.(); } catch {}
+  }
+
   for (const k of KINDS_STUB) STEPS[k] = async (d) => { if (!M.stubbed.has(k)) { M.stubbed.add(k); console.info(`[storyrun] ${M.def.id}: '${k}' has no Mog City part yet; it passes`); } applySet(d.set); };
 
   /* ------------------------------------------------------- side steps -- */
@@ -1057,7 +1636,9 @@ export function createRunner(ctx) {
     M.sides.add(s);
     (async () => {
       try {
-        if (d.at) await delay(d.at, st);
+        // (a side step's at is seconds in; a roadblock's or a car's at is its place, never a delay: a roadblock kept
+        // beside the steps after it waited on delay('@toll') for ever and never stood up)
+        if (typeof d.at === 'number' && d.at > 0) await delay(d.at, st);
         const r = await (d.ref && partOf(d.ref) && d.type !== 'call' ? runPart(d.ref, d, st) : STEPS[d.type](d, st, true));
         if (d.after) applySet(d.after);
         if (r?.end) M.endNow = true;
@@ -1073,7 +1654,7 @@ export function createRunner(ctx) {
   /* --------------------------------------------------------- a mission -- */
   function snapshot(i) {
     const e = cm.getActiveEntity();
-    return { i, stats: { ...M.stats }, state: JSON.parse(JSON.stringify(M.state)), timer: { running: M.timer.running, left: M.timer.left, opts: M.timer.opts }, at: { x: e.position.x, z: e.position.z, heading: e.heading, mode: inCar() ? 'car' : 'walk' } };
+    return { i, stats: { ...M.stats }, state: JSON.parse(JSON.stringify(M.state)), timers: M.timer.timers.snapshot(), pin: M.pin, at: { x: e.position.x, z: e.position.z, heading: e.heading, mode: inCar() ? 'car' : 'walk' } };
   }
   function tidy() {
     for (const s of M.sides) kill(s.tok, new Stop());
@@ -1081,7 +1662,7 @@ export function createRunner(ctx) {
     W.calls?.stop({ quiet: true, of: 'pack:' });
     try { M.chase?.stop?.(); } catch {}
     if (M.crew) W.combat?.clear?.();
-    hud.clear(); M.timer.stop();
+    hud.clear(); M.timer.stop(); juice.clear(); juice.live = false;
     ui.objective(null); ui.sub(null); ui.help(null); ui.counter(null); ui.caller(null); ui.hold(null); ui.phone?.hide?.(); ui.offer?.(null);
     gps.clear(); app.mapSystem.waypoint = null; for (const id of [...gps.blips.keys()]) gps.unblip(id); marker.hide();
     for (const n of M.npcs) cast.hide(n); M.npcs.clear();
@@ -1090,6 +1671,11 @@ export function createRunner(ctx) {
     if (M.towing) { app.scene.remove(M.towing.obj); M.towing = null; }
     if (M.towKeep) { Object.assign(car, M.towKeep); M.towKeep = null; }
     M.tow = null; W.carF = null; car.roadster?.tow?.set(0, 0); car.roadster?.setBeacon?.(false);
+    // (the story's cars, its roadblocks, its lookouts: put away)
+    for (const A of M.allies.values()) { app.scene.remove(A.T.obj); gps.unblip('ally:' + A.id); } M.allies.clear(); M.ally = null; M.convoy = null; M.ride = null;
+    for (const B of [...M.blocks]) dropBlock(B);
+    for (const c of M.parked.values()) app.scene.remove(c.obj); M.parked.clear();
+    if (M.stealth) { try { M.stealth.dispose(); } catch {} M.stealth = null; W.m2ui?.clear?.(); }
     // (Mog City's own mission phases it played: their instances stopped, all they put in the world put away)
     for (const mod of M.partMods.values()) try { mod.endParts(W); } catch (e) { console.warn('[storyrun] parts', e); }
     M.partMods.clear();
@@ -1104,17 +1690,32 @@ export function createRunner(ctx) {
       def, i: cp ? cp.i : 0, tok: tokOf(), sides: new Set(), npcs: new Set(), stubbed: new Set(), log: [], t0: now(), timer: createTimer(),
       partMods: new Map(), partStats: null, fresh: true, keep: !!cp,
       state: cp ? JSON.parse(JSON.stringify(cp.state)) : { meters: { ...ctx.save.meters }, flags: { ...ctx.save.flags }, forks: {} },
-      cp: cp || null, auto: !!ctx.flags.autopilot, stats: cp?.stats ? { ...cp.stats } : { hits: 0, ko: 0 },
+      cp: cp || null, auto: !!ctx.flags.autopilot, stats: cp?.stats ? { ...cp.stats } : { hits: 0, ko: 0 }, live: false, pin: null, inScene: false, allies: new Map(), blocks: [], parked: new Map(),
       fail(e) { if (!M.tok.dead) kill(M.tok, e instanceof Fail ? e : new Fail(e?.reason || e?.message || String(e), 'timeout')); },
     };
     for (const m of meterDefs()) if (M.state.meters[m.id] == null) M.state.meters[m.id] = m.start ?? 0;
     W.mission = { id: def.id, phase: null, stop: () => kill(M.tok, new Stop()), pack: true };
+    juice.live = true;
     showMeters();
     // the mission timer and the countdown's end
     const timerLoop = (async () => {
-      try { await wait(() => { const ex = M.timer.tick(); if (ex) { if (ex.fail === 'soft') { if (ex.flag) M.state.flags[flagName(ex.flag)] = true; applySet(ex.set); ui.help(tokens(ex.why || 'Late.'), 4); } else throw new Fail(tokens(ex.why || 'You ran out of time.'), 'time'); } return false; }, M.tok); }
+      try {
+        await wait(() => {
+          for (const x of M.timer.tick()) {
+            const o = x.opts;
+            if (o.fail === 'soft') { if (o.flag) M.state.flags[flagName(o.flag)] = true; applySet(o.set); ui.help(tokens(o.why || 'Late.'), 4); sfx.play('failed', { gain: 0.18 }); }
+            else throw new Fail(tokens(o.why || 'You ran out of time.'), 'time');
+          }
+          holdPin();
+          return false;
+        }, M.tok);
+      }
       catch (e) { if (e instanceof Fail) M.fail(e); }
     })();
+    // (the mission's own ride: a world's rides sheet its vehicle names is worn by the hero's car for it (ride.js
+    // wearRide); every other mission puts the hero car's own body back)
+    { const sheet = (def0.rides && def.vehicle && def0.rides[def.vehicle]) || null;
+      if (sheet || car.roadster?.__worn?.id) { try { const R = await import('./ride.js'); R.wearRide(THREE, car, sheet); } catch (e) { console.warn('[storyrun] ride', e); } } }
     if (cp && cp.from) {
       // (a start at a step, Mission select or ?step=: where its `from` puts him)
       const fr = cp.from;
@@ -1126,12 +1727,15 @@ export function createRunner(ctx) {
       if (fr.getIn && !inCar() && fr.car) putPlayer(placeOf(fr.car), 'car');
     } else if (cp) {
       putPlayer(cp.at, cp.at.mode);
-      if (cp.timer.running) M.timer.start(cp.timer.left, cp.timer.opts);
+      M.timer.timers.restore(cp.timers);
     } else {
       M.cp = { ...snapshot(0) };
       if (def.start) { const p = placeOf(def.start); putPlayer(p, (typeof def.start === 'object' && def.start.mode) || (def.vehicle ? 'car' : 'walk')); M.cp = snapshot(0); }
     }
-    setTime(def.time || (act?.timeline?.[def.id]?.time) || def0.dressing?.time);
+    // (the mission's time of day: its own, pinned (holdPin), else the world's; a world that says none is in daylight)
+    const own = def.time || act?.timeline?.[def.id]?.time || null;
+    if (cp?.pin) pinTo(cp.pin); else if (own) pinTo(own); else setTime(def0.dressing ? (def0.dressing.time || 'day') : null);
+    M.live = true;
     // (the title card, unless the mission's first scene draws its own: Mog City's opening ends on ACT I · BAGGED)
     if (def.card !== false && !(cp && cp.from)) ui.title(act?.name || '', def.title, ctx.flags.autoCard ? 1.2 : 2.6);
     host.tell('mission-start', { id: def.id, title: def.title });
@@ -1143,10 +1747,13 @@ export function createRunner(ctx) {
       M.i = i; W.mission.phase = d.id || `${d.type}:${i}`;
       ui.step(`pack:${def.id}:${i}`);
       host.tell('progress', { mission: def.id, step: d.id || null, kind: d.type, i, n: steps.length });
-      if (BACKGROUND.has(d.type) && !d.ref) { side(d, M.tok, true); if (d.after) applySet(d.after); i++; continue; }
+      if (background(d)) { side(d, M.tok, true); if (d.after) applySet(d.after); i++; continue; }
       // (set dressing a step needs, a Mog City set piece: 'm1.park'; at once, before the step)
       if (d.dress && Object.prototype.hasOwnProperty.call(SCENES, d.dress)) { try { await SCENES[d.dress](W); } catch (e) { console.warn('[storyrun] dress', d.dress, e); } }
       const st = tokOf(M.tok);
+      // (a step with nothing to go and do, a call after a drive, a wait, a line, a choice: the last step's objective, done
+      // now ('Take the van to Murray Hill Grammar' under the headmaster's call), comes down; its own objective if it has one)
+      if (QUIET_STEPS.has(d.type) && !d.ref) ui.objective(d.objective ? parts(d.objective) : null);
       // (the step's help lines, Mog City's tips: [secs in, text, 'car' | 'person' only])
       for (const h of Array.isArray(d.help) ? d.help : []) if (Array.isArray(h)) delay(h[0] || 0, st).then(() => ui.help(parts(String(h[1] || '')), h[3] || 7, h[2] ? { mode: h[2] } : {})).catch(() => {});
       for (const x of d.during || []) side(x, st);
@@ -1179,7 +1786,7 @@ export function createRunner(ctx) {
   async function play(def, { act = null, from = null } = {}) {
     let cp = null, fails = 0;
     // (?step=<id>: from that step, where its `from` puts him; a dev and Mission select start)
-    if (from) { const i = def.steps.findIndex((s) => s.id === from); if (i >= 0) cp = { i, from: def.steps[i].from || def.start, state: { meters: { ...ctx.save.meters }, flags: { ...ctx.save.flags }, forks: {} }, timer: { running: false } }; }
+    if (from) { const i = def.steps.findIndex((s) => s.id === from); if (i >= 0) cp = { i, from: def.steps[i].from || def.start, state: { meters: { ...ctx.save.meters }, flags: { ...ctx.save.flags }, forks: {} }, timers: [] }; }
     const reg = registry(W).register({
       id: 'pack:' + def.id, title: def.title, act: act?.name || '',
       checkpoints: [{ id: 'start', label: 'Start' }, ...def.steps.map((s, i) => [s, i]).filter(([s]) => s.checkpoint).map(([s, i]) => ({ id: 'cp' + i, label: s.id || s.type }))],
@@ -1195,7 +1802,10 @@ export function createRunner(ctx) {
           tidy();
           return { how: 'pass', secs: r.secs, stats: r.stats, state: M.state, log: M.log };
         } catch (e) {
-          const at = M; tidy();
+          // (the attempt is over: its token killed, as a pass kills it. A step that throws its Fail (a pursuit's 'They
+          // caught you') left it alive, and that attempt's timer loop ran on for good, ticking and pinning whatever
+          // mission came after: after PT-14's retry it held PT-15's midnight over the story's free roam)
+          const at = M; kill(at.tok, e instanceof Fail ? e : new Stop()); tidy();
           if (restartTo) { cp = restartTo === 'start' ? null : at.cp; restartTo = null; continue; }
           if (!(e instanceof Fail)) { if (!(e instanceof Stop)) console.error('[storyrun]', def.id, e); return { how: 'quit' }; }
           fails++;
@@ -1203,7 +1813,7 @@ export function createRunner(ctx) {
           host.tell('mission-fail', { id: def.id, why: e.reason, step: step?.id || null, kind: step?.type || null });
           if (!e.sounded) sfx.play('failed');
           if (ctx.flags.autopilot && (ctx.flags.failStop || fails >= 3 || e.kind === 'timeout' || e.kind === 'place')) return { how: 'fail', why: e.reason };
-          const pick = ctx.flags.autoRetry ? (await new Promise((r) => setTimeout(r, 1200)), 'retry') : await ui.failed(e.reason, { skip: fails >= 3, tip: e.tip || TIPS[e.kind] || null, retryLabel: at.cp && at.cp.i > 0 ? 'Retry: from the checkpoint' : 'Retry: from the start' });
+          const pick = ctx.flags.autoRetry ? (await new Promise((r) => setTimeout(r, 1200)), 'retry') : await ui.failed(e.reason, { skip: fails >= 3, tip: e.tip || TIPS[e.kind === 'time' && car.noBoost ? 'timeSlow' : e.kind] || null, retryLabel: at.cp && at.cp.i > 0 ? 'Retry: from the checkpoint' : 'Retry: from the start' });
           if (pick === 'quit') return { how: 'quit' };
           if (pick === 'skip') { cp = { ...at.cp, i: Math.min(def.steps.length, (at.i || 0) + 1) }; continue; }
           cp = at.cp && at.cp.i > 0 ? at.cp : null;
@@ -1217,5 +1827,5 @@ export function createRunner(ctx) {
     if (!at) { keyL.intensity = 0; keyL.distance = 4.5; return; }
     keyL.position.set(at[0], at[1], at[2]); keyL.intensity = intensity; keyL.distance = reach;
   };
-  return { play, opening, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo, lamp };
+  return { play, opening, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo, lamp, showMeters };
 }

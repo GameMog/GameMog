@@ -68,7 +68,7 @@ test('the test worlds pass the checks; bad worlds are refused', () => {
   assert.ok(bad((w) => { w.city = 'sf'; }).some((e) => /city sf/.test(e)));
   assert.ok(bad((w) => { w.storykit = 2; }).length);
   assert.ok(bad((w) => { w.car = 'tank'; }).some((e) => /car/.test(e)));
-  assert.ok(STEP_KINDS.has('scene') && STEP_KINDS.has('tow') && STEP_KINDS.size === 36);
+  assert.ok(STEP_KINDS.has('scene') && STEP_KINDS.has('tow') && STEP_KINDS.size === 38);
   // (the tow world: a wrecker sheet as the car, a ride of the world's on the hook)
   assert.deepEqual(check(JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/tow.json'), 'utf8'))), []);
 });
@@ -162,4 +162,215 @@ test("a world's opening: checked, played once before Mission 1 on a first start,
   // (runner.js: Mog City's own place card, name card (caption) and title lockup, on the cutscene director)
   const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
   for (const k of ['ui.place(tokens(s.where.name)', 'ui.caption(who, ', 'ui.gameTitle(true)', "shotList(o.shots || [], t, { opening: true })", 'fig.hold = true']) assert.ok(run.includes(k), k);
+});
+
+test("a side step waits only on a number of seconds: a roadblock's or a car's `at` is its place", () => {
+  // (a roadblock kept beside the steps after it, { type: 'roadblock', at: '@toll' }, is started as a side step: its place
+  // must never be read as the side step's seconds-in delay, or it waits for ever and never stands up)
+  const src = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const fn = src.slice(src.indexOf('function side(d, hostTok'), src.indexOf('/* --------------------------------------------------------- a mission --'));
+  assert.match(fn, /typeof d\.at === 'number'/);
+  assert.doesNotMatch(fn, /if \(d\.at\) await delay/);
+});
+
+test("an act's end card shows its stats and its quote: the big card, headed with the act's title", () => {
+  const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
+  const fn = idx.slice(idx.indexOf('async function actEnd(e'), idx.indexOf('const fmt = '));
+  assert.match(fn, /e\.stats/);
+  assert.match(fn, /hud\.passed\(\{ head: e\.title/);
+  const hud = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/hud.js'), 'utf8');
+  assert.match(hud, /c\.head \|\| 'MISSION PASSED'/);
+});
+
+test("a story's night is lit (nightlit.js) and its end is unmistakable (STORY COMPLETE)", () => {
+  const nl = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/nightlit.js'), 'utf8');
+  assert.match(nl, /if \(dressing && dressing\.blackout\) return null/); // (a blackout world keeps its own dressing's lift)
+  assert.match(nl, /if \(!\(n > 0\)\) return;/); // (day and dusk untouched)
+  const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
+  assert.match(idx, /createNightLit\(W, def\.dressing/);
+  assert.match(idx, /head: 'STORY COMPLETE'/);
+});
+
+test("a van or a truck is not a sports car: its own engine, no boost (owner: \"the truck shouldn't make the same noise as the porsche or have the booster\")", () => {
+  const ride = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/ride.js'), 'utf8');
+  // (the class table: only sports, supercar, coupe and muscle boost; the van and minivan are vans, the pickup and wrecker trucks)
+  for (const k of ["van: 'van'", "minivan: 'van'", "pickup: 'truck'", "wrecker: 'truck'", "sports: 'sports'", "supercar: 'sports'"]) assert.ok(ride.includes(k), k);
+  assert.match(ride, /car\.noBoost = vclass !== 'sports'/);
+  assert.match(ride, /boostSpeed: car\.topSpeed, boostAccel: car\.accel/); // (Shift does nothing to its pace)
+  assert.match(ride, /'vclass', 'noBoost'\]/); // (the hero car's own class back after the ride)
+  const game = fs.readFileSync(path.join(ROOT, 'wagmi/game.js'), 'utf8');
+  assert.match(game, /const boost = !!keys\.boost && throttle > 0 && !car\.noBoost;/); // (no flame)
+  const audio = fs.readFileSync(path.join(ROOT, 'wagmi/audio/index.js'), 'utf8');
+  assert.match(audio, /boost: !!k\.boost && !c\.noBoost, voice: c\.noBoost \? c\.vclass/);
+  const pc = fs.readFileSync(path.join(ROOT, 'wagmi/audio/playercar.js'), 'utf8');
+  assert.match(pc, /utilityKinds\.includes\(voice\) \? createUtility\(M, bus, voice\) : createSupercar/);
+  const ut = fs.readFileSync(path.join(ROOT, 'wagmi/audio/utility.js'), 'utf8');
+  assert.match(ut, /van: \{ motor: 'bus'/); assert.match(ut, /truck: \{ motor: 'bus'/);
+  assert.doesNotMatch(ut, /fetch\(|\.m4a|\.ogg/); // (synthesized: no recordings)
+  // (the HUD: no BOOST button, no Boost hint, the meter not yellow)
+  assert.match(fs.readFileSync(path.join(ROOT, 'wagmi/touch.js'), 'utf8'), /show\('boost', !W\.car\?\.noBoost\)/);
+  const main = fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8');
+  assert.match(main, /!\(hintNoBoost && action === 'Boost'\)/);
+  assert.match(main, /!\(mode === 'car' && activeEnt\.noBoost\)/);
+});
+
+test('a ride-along call finishes what it is saying when its step ends; a call step takes the last objective down', () => {
+  const calls = fs.readFileSync(path.join(ROOT, 'wagmi/mission/calls.js'), 'utf8');
+  assert.match(calls, /if \(C\.def\.finish && C\.state === 'talk' && inCar\(\)\) \{ C\.finishing = true;/);
+  assert.match(calls, /cur\.carrying \|\| cur\.wrapOnly \|\| cur\.finishing/); // (the next step's call waits for it)
+  assert.match(calls, /if \(C\.finishing && C\.yieldNow\) \{ end\(C, true\); return; \}/); // (a story's next call: after the line it is saying)
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  assert.match(run, /wrapAfterMain: !ride, finish: !!ride \}/);
+  assert.match(run, /if \(QUIET_STEPS\.has\(d\.type\) && !d\.ref\) ui\.objective\(d\.objective \? parts\(d\.objective\) : null\)/);
+});
+
+test("after STORY COMPLETE free roam is in daylight; a forged man fights in his own body", () => {
+  const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
+  const end = idx.slice(idx.indexOf("head: 'STORY COMPLETE'"), idx.indexOf("ui.objective(['Free roam. '"));
+  assert.match(end, /W\.app\.selectTime\('midday'\)/);
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  assert.match(run, /function puppet\(e, who\)/);
+  assert.match(run, /thugPunch1: 'jab'/); assert.match(run, /thugKnockdown: 'fall'/);
+  assert.match(run, /if \(!c \|\| c\.model \|\| !c\.glb \|\| cast\.isHero\(who\)\) return null;/); // (a Suit stays a Suit)
+});
+
+test("a recorded line is heard out: the call waiting waits for the hold line, a step's end or the next call never cuts a clip", () => {
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const cw = run.slice(run.indexOf('async function callWaiting('), run.indexOf('async function voicemail('));
+  assert.match(cw, /W\.calls\.state\(\)\?\.held && !W\.calls\.talking/); // ('Go, I'll hold.' said before the new caller)
+  assert.match(run, /if \(W\.voice\?\.left\?\.\(\) > 0\.08\) \{ const t0 = now\(\); await wait\(\(\) => !\(W\.voice\.left\(\) > 0\.08\)/);
+  const calls = fs.readFileSync(path.join(ROOT, 'wagmi/mission/calls.js'), 'utf8');
+  const end = calls.slice(calls.indexOf('function end(C, sound = true)'), calls.indexOf('function stepGone('));
+  assert.doesNotMatch(end, /W\.voice\?\.stop/);
+  assert.match(calls, /if \(subNow\(\) \|\| W\.voice\?\.left\?\.\(\) > 0\.08\)/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'wagmi/radio/voices.js'), 'utf8'), /left: \(\) => \(cur && ctx \? Math\.max\(0, cur\.end - ctx\.currentTime\) : 0\)/);
+});
+
+test("a failed attempt is over: its token killed, so its timer loop never ticks or pins a later mission's time", () => {
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const play = run.slice(run.indexOf('async function play('), run.indexOf("if (pick === 'quit')"));
+  // (a step's thrown Fail left the attempt's token alive: after PT-14's retry its timer loop held PT-15's midnight over free roam)
+  assert.match(play, /const at = M; kill\(at\.tok, e instanceof Fail \? e : new Stop\(\)\); tidy\(\);/);
+});
+
+test("the story's end reads MISSION PASSED, the act's stats, STORY COMPLETE, the title, FREE ROAM; a chase from a standing car starts in a clear street", () => {
+  const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
+  assert.match(idx, /await actEnd\(act\.end, \{ holdNext: k === order\.length - 1 \}\)/);
+  assert.match(idx, /if \(e\.next && !holdNext\)/);
+  const end = idx.slice(idx.indexOf("head: 'STORY COMPLETE'"), idx.indexOf("ui.objective(['Free roam. '"));
+  assert.ok(end.indexOf('text: def.title') < end.indexOf('const fin = order[order.length - 1]?.act?.end?.next'));
+  assert.match(idx, /stats: \[\['TIME', fmt\(r\.secs\)\], \.\.\.card\.stands\]/);
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const pu = run.slice(run.indexOf('STEPS.pursuit = '), run.indexOf('STEPS.tail = '));
+  assert.match(pu, /const cr = d\.clear \?\? 32/); assert.match(pu, /gps\.plan\(/);
+  assert.match(pu, /Math\.abs\(car\.speed \|\| 0\) < 4/);
+  assert.match(pu, /finally \{ if \(clearT\) \{ clearInterval\(clearT\); try \{ app\.trafficSystem\.hold\?\.\(\[\]\); \} catch \{\} \}/);
+});
+
+test("the action beats have punch: a chase's alarm, a roadblock rammed in slow motion, a tail's warnings, a hard clock's stakes and red edge; the autopilot keeps moving in a chase beside a call", () => {
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const juice = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/juice.js'), 'utf8');
+  assert.match(run, /import \{ createJuice \} from '\.\/juice\.js'/);
+  assert.match(juice, /export function createJuice\(W\)/);
+  // (nothing in it touches a rule: it draws, sounds, and borrows the crash's slow motion and jolt)
+  assert.doesNotMatch(juice, /M\.(timer|state|tok)|throw new/);
+  assert.match(juice, /if \(!text \|\| W\.cutscene\) return;/);
+  const pu = run.slice(run.indexOf('STEPS.pursuit = '), run.indexOf('STEPS.tail = '));
+  assert.match(pu, /juice\.alert\(d\.kind === 'police' \? 'Police' : "Delgado's crew"/);
+  assert.match(pu, /juice\.alert\('Lost them'/);
+  const rb = run.slice(run.indexOf('STEPS.roadblock = '), run.indexOf('function dropBlock'));
+  assert.match(rb, /juice\.slow\(0\.7, 0\.3\)/);
+  const tail = run.slice(run.indexOf('STEPS.tail = '), run.indexOf('function cue('));
+  assert.ok(tail.indexOf("'Too close'") > 0 && tail.indexOf("'Too close'") < tail.indexOf('spotted you'));
+  assert.match(run, /if \(sh\.opts\.fail !== 'soft'\) juice\.pulse\(1 - sh\.left \/ 10\)/);
+  assert.match(run, /hud\.clear\(\); M\.timer\.stop\(\); juice\.clear\(\); juice\.live = false;/);
+  // (a near miss: only in a mission, at speed, past one of the city's cars untouched)
+  assert.match(juice, /if \(!api\.live \|\| W\.cutscene/); assert.match(juice, /lastHit < c\.t - 150/);
+  const ap = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/autopilot.js'), 'utf8');
+  assert.ok(ap.indexOf("if (M.chase && ['call'") > 0 && ap.indexOf("if (M.chase && ['call'") < ap.indexOf("if (!['drive', 'stops', 'walk'"));
+});
+
+test("pacing 2: a clock or a meter never under a call's card; a sneak's UNSEEN bar; a wait hears out a call ringing beside it; the autopilot sneaks, tails and races at a player's pace", () => {
+  const hud = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/hud.js'), 'utf8');
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const ap = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/autopilot.js'), 'utf8');
+  // (the clock first, then the meters, moved clear of the card: up on a desk, down on a phone)
+  assert.match(hud, /for \(const e of \[count, timerEl, metersEl\]\)/);
+  assert.match(hud, /const down = document\.body\.classList\.contains\('touch-enabled'\)/);
+  assert.match(hud, /setInterval\(unstack, 200\)/);
+  const st = run.slice(run.indexOf('STEPS.stealth = '), run.indexOf('a parked car --'));
+  assert.match(st, /hud\.bar\(d\.label \|\| 'UNSEEN', 1 - k/);
+  assert.match(st, /if \(d\.meter !== false && \(dest \|\| secs\)\) hud\.bar\(null\)/);
+  assert.match(st, /u\.dir != null/);
+  assert.match(st, /if \(d\.detect > 0\) S\.rate = 0\.92 \/ d\.detect;/);
+  const m2 = fs.readFileSync(path.join(ROOT, 'wagmi/mission/m2-stealth.js'), 'utf8');
+  assert.match(m2, /by: null, rate: 1 \};/); assert.match(m2, /\* S\.rate; if \(d < CLOSE\) L\.sus = 1;/);
+  assert.match(st, /if \(M\.auto && !ctx\.flags\.stealthFair\) S\.grace = 5;/);
+  assert.match(run, /d\.call && !W\.calls\?\.live && !ringingBeside\(\)/);
+  assert.match(ap, /if \(realPace && type === 'stealth' && !inCar\(\)\) \{\n\s+footSp = 1\.7;/);
+  assert.match(ap, /L > 60 && !\(realPace && type === 'stealth'\)/);
+  assert.match(ap, /vt = clamp\(\(T\.v \|\| 0\) \+ \(dv - ring \* 1\.6\) \* 0\.3, 0, 20\)/);
+  assert.match(ap, /if \(raceKey === stepKey \|\| \(L \+ rest\) \/ 20 > sh\.left\)/);
+});
+
+test("an act card is a legible title, never a blackout: its words above the fade, a light dim, about 3-4 s, and the dim always comes off", () => {
+  const hud = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/hud.js'), 'utf8');
+  const ui = fs.readFileSync(path.join(ROOT, 'wagmi/mission/ui.js'), 'utf8');
+  const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  // (the card is drawn above ui.fade's cover: a fade dims the city under it, never its words; the owner's ACT II card
+  // was dark grey words under a 0.9 cover)
+  const z = (css, sel) => +css.match(new RegExp(sel.replace(/[.]/g, '\\.') + ' \\{[^}]*z-index: (\\d+)'))[1];
+  assert.ok(z(hud, '#wg .sr-card') > z(ui, '.wg-fade'), 'the card above the fade');
+  // (the act's dim: at most half, and taken off in a finally whatever happens during the cards)
+  // (at module scope: declared inside install() after the story loop, actEnd hit it before it was set, a TDZ error)
+  const dim = +idx.match(/^const ACT_DIM = ([\d.]+);/m)[1];
+  assert.ok(dim > 0 && dim <= 0.5, `act dim ${dim}`);
+  const ae = idx.slice(idx.indexOf('async function actEnd('), idx.indexOf('\n  }\n', idx.indexOf('async function actEnd(')));
+  assert.doesNotMatch(ae, /ui\.fade\(0\.[6-9]/);
+  assert.match(ae, /try \{[\s\S]*\} finally \{ await ui\.fade\(0, [\d.]+\); \}/);
+  // (each act card held about 3-4 s)
+  for (const m of ae.matchAll(/hud\.card\([^\n]*?flags\.autoCard \? [\d.]+ : ([^\n]+?)\);/g)) assert.match(m[1], /^Math\.min\(4,/, m[1]);
+  // (every other dark cover in the runner comes off in a finally: a set's veil, a transition, the story's end)
+  for (const src of [run, idx]) {
+    for (const m of src.matchAll(/await ui\.fade\(0\.9\d*, [\d.]+\);/g)) {
+      const after = src.slice(m.index, m.index + 1200);
+      assert.match(after, /finally \{[^\n]*ui\.fade\(0, /, after.slice(0, 120));
+    }
+  }
+  // (a second card while one is up is not taken down by the first's end)
+  assert.match(hud, /const my = \+\+cardN;/); assert.match(hud, /if \(my === cardN\) cardEl\.classList\.remove\('on'\)/);
+});
+
+test("a hand-built body's arms hang at its sides on Dan's clips: its armhang bones are levelled, the hero's and the cast's", () => {
+  const pack = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/pack.js'), 'utf8');
+  const cast = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/cast.js'), 'utf8');
+  // (Dan's clips have no armhang track: left at its 13 degree rest turn it swung each arm into the body)
+  assert.match(pack, /export function unhang\(root\) \{\n\s+root\?\.traverse\?\.\(\(o\) => \{ if \(\/\^armhang_\[LR\]\$\/\.test\(o\.name\)\) o\.quaternion\.identity\(\); \}\);/);
+  const hero = pack.slice(pack.indexOf('W.heroGLTF = async'), pack.indexOf('};', pack.indexOf('W.heroGLTF = async')));
+  assert.match(hero, /unhang\(g\.scene\);\n\s+return g;/);
+  assert.match(cast, /const inner = skClone\(g\.scene\); root\.add\(inner\);\n[^\n]*\n\s+unhang\(inner\);/);
+  // (the clips really have none, and Pickup Time's hero really has them: else this is moot)
+  const glbJson = (f) => { const b = fs.readFileSync(path.join(ROOT, f)); return JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString()); };
+  // (Pickup Time's test world is a local fixture, not shipped: checked where it is there)
+  const john = 'tools/storyrun/test-packs/pickup-time/cast/john.glb';
+  if (fs.existsSync(path.join(ROOT, john))) assert.ok(glbJson(john).nodes.some((n) => n.name === 'armhang_L'));
+  const dan = glbJson('assets/characters/dan.glb');
+  assert.ok(!dan.nodes.some((n) => /^armhang/.test(n.name)));
+  assert.ok(!dan.animations.some((a) => a.channels.some((c) => /^armhang/.test(dan.nodes[c.target.node].name))));
+  // (the live check: tools/storyrun/arms.mts, after every kind of beat)
+  assert.ok(fs.existsSync(path.join(ROOT, 'tools/storyrun/arms.mts')));
+});
+
+test("a tail says how far it has to go, and free roam names the place, not the mission's title (owner, PT-7: \"I followed for 5 minutes but nothing happened\", \"i think i'm in the VIG\")", () => {
+  const hud = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/hud.js'), 'utf8');
+  const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
+  // (the tail meter: the followed car's metres left and the bar, off the runner's M.tail, never over a bar of the runner's)
+  assert.match(hud, /D = M\?\.tail; d = M\?\.def\?\.steps\?\.\[M\.i\]/);
+  assert.match(hud, /if \(barOwn \|\| !D \|\| !d \|\| d\.type !== 'tail'/);
+  assert.match(hud, /const left = Math\.max\(0, Math\.round\(D\.length - D\.s\)\), k = Math\.max\(0, Math\.min\(1, D\.s \/ D\.length\)\)/);
+  assert.match(hud, /barOwn = label != null;/);
+  // (between missions: the first step's own walk or drive objective, else the place and then the title; never "Go to <title>.")
+  assert.match(idx, /const own = at0 && Math\.hypot\(at0\.x - p\.x, at0\.z - p\.z\) < 40 \? words\(s0\.objective\) : null;/);
+  assert.doesNotMatch(idx, /\['Go to ', \{ \[`\$\{m\.title\}`\]: 'yellow' \}, '\.'\]/);
 });

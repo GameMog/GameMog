@@ -711,7 +711,12 @@ export function createCalls(W) {
     if (!C || C.dead) return;
     C.dead = true;
     for (const t of C.timers) clearTimeout(t); C.timers.length = 0;
-    if (C.line && subNow() === C.line.mine) { W.ui?.sub(null); try { W.voice?.stop?.(0.12); } catch {} }
+    // (its line playing is heard out, the subtitle down when it ends: a step ending or the next call never cuts a
+    // recorded line mid-word; a line with no recording goes at once)
+    if (C.line && subNow() === C.line.mine) {
+      const mine = C.line.mine, left = W.voice?.left?.() || 0;
+      if (left > 0.08) setTimeout(() => { if (subNow() === mine) W.ui?.sub(null); }, left * 1000 + 60); else W.ui?.sub(null);
+    }
     C.line = null;
     if (C.rang) { W.ui?.caller?.(null); if (sound) W.sfx?.play('hangup', { gain: 0.12 }); }
     if (next === C) next = null;
@@ -721,6 +726,10 @@ export function createCalls(W) {
   // way finishes in the car; else it hangs up
   function stepGone(C, step) {
     if (C.state !== 'wait' && (C.def.carry || []).includes(step) && mainLeft(C)) { C.carrying = true; C.step = step; return false; }
+    // (a story world's ride-along call (def.finish, wagmi/storyrun): talking at the wheel, it is not cut by its step
+    // ending (a quick escape): it carries on into the next, says its main lines and the exchange under way, then its
+    // wrap, and hangs up; a call of the next step waits for it)
+    if (C.def.finish && C.state === 'talk' && inCar()) { C.finishing = true; C.step = step; return false; }
     if (C.wrapping && C.state === 'talk' && inCar()) { C.step = step; C.wrapOnly = true; return false; }
     return true;
   }
@@ -735,14 +744,14 @@ export function createCalls(W) {
       id, def, opt, step: opt.step || def.step, state: 'wait', armedAt: now(), inAt: 0, rollAt: 0, ringEnd: 0, rang: false, dead: false,
       mode: (typeof opt.mode === 'string' && opt.mode) || def.mode || 'normal', retry: H.main,
       mainI: H.main ? def.main.length : 0, block: -1, blockI: 0, quietFrom: 0, extrasDone: false,
-      wrapping: false, wrapI: 0, wrapReq: false, wrapOnly: false, carrying: false,
+      wrapping: false, wrapI: 0, wrapReq: false, wrapOnly: false, carrying: false, finishing: false,
       held: false, pauseNow: false, outAt: 0, resumeDue: false, said: 0, pauseI: 0, resumeI: 0,
       line: null, again: null, gapEnd: 0, otherAt: -1e9, q: [], reactI: {}, reactAt: -1e9, lastReact: null, reactUsed: new Set(), cueUsed: new Set(),
       timers: [], log: [],
     };
     if (cur && !cur.dead) {
       // (the call before it still carrying its main lines into this step, or finishing its wrap: this one waits for its end)
-      if (cur.carrying || cur.wrapOnly || (cur.step !== C.step && !stepGone(cur, C.step))) { if (next && next !== C) end(next, false); next = C; return C; }
+      if (cur.carrying || cur.wrapOnly || cur.finishing || (cur.step !== C.step && !stepGone(cur, C.step))) { if (next && next !== C) end(next, false); next = C; return C; }
       end(cur, cur.rang);
     }
     cur = C;
@@ -771,9 +780,11 @@ export function createCalls(W) {
       return;
     }
     if (t < C.gapEnd) return;
+    // (finishing after its step, and another call wants the line: hung up after the line it was saying)
+    if (C.finishing && C.yieldNow) { end(C, true); return; }
     // out of the car: on hold after 1.5 s, a pause line once he's been talked to
-    if (!inCar()) {
-      if (C.wrapOnly) { end(C, true); return; }
+    if (!inCar() || C.extHold) {
+      if (C.wrapOnly || (C.finishing && !inCar())) { end(C, true); return; }
       if (!C.outAt) C.outAt = t;
       if (!C.held && (C.pauseNow || t - C.outAt >= OUT_HOLD * 1000)) {
         C.held = true; card('On hold');
@@ -783,15 +794,17 @@ export function createCalls(W) {
     }
     C.outAt = 0; C.pauseNow = false;
     if (C.held) { C.held = false; card('On call'); if (C.said && D.resume.length) C.resumeDue = true; }
-    // the mission's own line up: the call waits for it, and goes on 0.4 s after it clears
-    if (subNow()) { C.otherAt = t; return; }
+    // the mission's own line up: the call waits for it, and goes on 0.4 s after it clears (and its recording ends)
+    if (subNow() || W.voice?.left?.() > 0.08) { C.otherAt = t; return; }
     if (t - C.otherAt < AFTER_OTHER * 1000) return;
     if (C.resumeDue) { C.resumeDue = false; say(C, D.resume[C.resumeI++ % D.resume.length], 'resume'); return; }
     if (C.again) { const a = C.again; C.again = null; say(C, a.tup, a.kind, true); return; }
     // react and cue lines, between the call's own (a stale one dropped)
     while (C.q.length && t - C.q[0].at > STALE * 1000) C.q.shift();
     if (C.q.length) { const x = C.q.shift(); say(C, x.tup, x.kind); return; }
-    if (!C.wrapping && (C.wrapReq || (C.opt.wrapWhen?.() && !(D.wrapAfterMain && mainLeft(C))))) { C.wrapping = true; C.block = -1; }
+    // (finishing after its step: the main lines and the block under way first, then the wrap; no new block)
+    const owed = (C.finishing || (C.def.finish && C.wrapReq)) && !C.wrapping && (C.mainI < D.main.length || (C.block >= 0 && C.blockI < D.extra[C.block].length));
+    if (!C.wrapping && !owed && (C.wrapReq || C.finishing || (C.opt.wrapWhen?.() && !(D.wrapAfterMain && mainLeft(C))))) { C.wrapping = true; C.block = -1; }
     if (C.wrapping) { if (C.wrapI < D.wrap.length) say(C, D.wrap[C.wrapI++], 'wrap'); else end(C, true); return; }
     if (C.mainI < D.main.length) { say(C, D.main[C.mainI++], 'main'); return; }
     if (C.carrying) { end(C, true); return; }
@@ -873,8 +886,10 @@ export function createCalls(W) {
       if (mine(cur)) end(cur, !quiet);
     },
     wrap() { if (cur) cur.wrapReq = true; },
+    // (a story's next call is up: a ride-along call still finishing after its step hangs up after the line it is saying)
+    yieldFinishing() { if (cur && !cur.dead && cur.finishing) { cur.yieldNow = true; return true; } return false; },
     // (out of the car, the mission moving on: on hold now, its pause line after the line playing, no 1.5 s wait)
-    pause() { if (cur && !cur.dead && cur.state === 'talk') cur.pauseNow = true; },
+    pause() { if (cur && !cur.dead && cur.state === 'talk') cur.pauseNow = true; }, hold(on) { if (cur && !cur.dead && cur.state === 'talk') { cur.extHold = !!on; if (on) cur.pauseNow = true; } }, // (hold: on hold for another call, a story's call waiting (wagmi/storyrun), as if he were out of the car; hold(false) back on)
     // what the live call `id` still owes before a scene may cut it: 'main' (its protected main lines, wrapAfterMain),
     // 'wrap' (the line playing and its wrap), null (another call, not rung yet, or over)
     owes(id) { const C = cur; if (!C || C.dead || C.id !== id || C.state === 'wait') return null; return C.def.wrapAfterMain && mainLeft(C) ? 'main' : 'wrap'; },
@@ -886,7 +901,7 @@ export function createCalls(W) {
     get heard() { return [...heard].filter(([, h]) => h.main).map(([id]) => id); },
     state() {
       const C = cur;
-      return C ? { id: C.id, state: C.state, step: C.step, held: C.held, mode: C.mode, main: `${C.mainI}/${C.def.main.length}`, block: C.block, wrapping: C.wrapping, carrying: C.carrying, retry: C.retry, line: C.line?.mine || null, q: C.q.length, next: next?.id || null, log: C.log.slice(-14) } : { id: null, next: next?.id || null };
+      return C ? { id: C.id, state: C.state, step: C.step, held: C.held, mode: C.mode, main: `${C.mainI}/${C.def.main.length}`, block: C.block, wrapping: C.wrapping, carrying: C.carrying, finishing: C.finishing, retry: C.retry, line: C.line?.mine || null, q: C.q.length, next: next?.id || null, log: C.log.slice(-14) } : { id: null, next: next?.id || null };
     },
     // (for tests: the main lines from line i)
     seek(i) { if (cur) cur.mainI = Math.max(0, Math.min(cur.def.main.length, i)); },

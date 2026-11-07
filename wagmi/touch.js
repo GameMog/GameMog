@@ -431,7 +431,7 @@ ${T} #wg .m2-prompt kbd::after { content: 'TAKE DOWN'; }`;
       const g = grabWhat(); show('grab', !!g); if (g) label('grab', g);
     } else if (c === 'car') {
       const th = W.thrusters, u = th?.unlocked || {}, rd = th?.ready || { hop: 1, dash: 1 };
-      show('boost', true);
+      show('boost', !W.car?.noBoost);
       show('hop', !!u.hop && !ride);
       show('dashL', !!u.dash && !ride); show('dashR', !!u.dash && !ride);
       if (u.hop) { const k = Math.max(0, Math.min(1, +rd.hop || 0)); cls('hop', 'ring', k < 1); cls('hop', 'cool', k < 1); els.hop.style.setProperty('--k', k.toFixed(3)); }

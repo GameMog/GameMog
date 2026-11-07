@@ -415,16 +415,20 @@ async function initApp() {
     const v = Math.abs(c.speed), v1 = c.topSpeed ?? 34, v2 = c.boostSpeed ?? 56;
     const at = v <= v1 ? 152 * v / v1 : 152 + 24 * Math.min(1, (v - v1) / (v2 - v1));
     // (held at a top: at the boost's while it burns, at the cruise's otherwise; the boost dying away is no top)
-    const cap = (c.boosting ?? boosting) ? v2 : v1;
-    if (Math.abs(v - cap) > cap * 0.005) return (dialLast = Math.round(at));
-    const top = cap === v2 ? 176 : 152;
+    // (Mog City story runner: a car with no boost, its boost pace its plain pace, tops out at the cruise's 152)
+    const nb = c.noBoost || v2 <= v1, cap = (c.boosting ?? boosting) && !nb ? v2 : v1;
+    if (Math.abs(v - cap) > cap * 0.005) return (dialLast = Math.round(nb ? 152 * Math.min(v, v1) / v1 : at));
+    const top = cap === v2 && !nb ? 176 : 152;
     let n; do n = top - Math.floor(Math.random() * 4); while (n === dialLast);
     return (dialLast = n);
   }
 
+  // (Mog City story runner: a car with no boost, a world's van or truck, has no Boost line)
+  let hintNoBoost = false;
   function renderControlHints(mode) {
     if (!elControlsHint) return;
-    const items = ((hintPad ? controlHintsPad : controlHints)[mode] || []).map(([keys, action]) => {
+    hintNoBoost = mode === 'car' && !!controllerManager.entities.car?.noBoost;
+    const items = ((hintPad ? controlHintsPad : controlHints)[mode] || []).filter(([, action]) => !(hintNoBoost && action === 'Boost')).map(([keys, action]) => {
       const item = document.createElement('span');
       item.className = 'hint';
       for (const key of keys) {
@@ -948,7 +952,8 @@ async function initApp() {
       }
       if (elSpeed) elSpeed.textContent = String(mph);
       if (elSpeedMeter) elSpeedMeter.style.transform = `scaleX(${Math.min(1, mph / (topSpeedMph[mode] || 80))})`;
-      document.body.classList.toggle('is-boosting', controllerManager.keys.boost && mph > 0);
+      if (mode === 'car' && !!activeEnt.noBoost !== hintNoBoost) renderControlHints(mode);
+      document.body.classList.toggle('is-boosting', controllerManager.keys.boost && mph > 0 && !(mode === 'car' && activeEnt.noBoost));
       if (elAltitude) elAltitude.textContent = altFt.toLocaleString('en-US');
       // The street corner of the player on the follow cameras, of the camera itself on the scenic ones
       const where = cameraSystem.getActivePreset().category === 'follow' ? activeEnt.position : cameraSystem.currentPos;

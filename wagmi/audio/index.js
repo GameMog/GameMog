@@ -146,7 +146,7 @@ export function install(W) {
     const side = cm.isPointOnSidewalk?.(c.position.x, c.position.z);
     // (sliding: a handbrake or drift if the car has one, or the sideways slip a knock leaves)
     const slide = Math.max(c.handbrake || c.drifting ? Math.min(1, Math.abs(c.speed) / 8) : 0, Math.min(1, Math.max(0, (Math.hypot(c.vx || 0, c.vz || 0) - 2) / 6)));
-    return { on, speed: c.speed, throttle, boost: !!k.boost, latAcc: C.lat, slide, rough: parkAt(c.position.x, c.position.z) ? 0.8 : side ? 0.5 : 0, jolt: on && Math.abs(dy) > 0.05 ? Math.min(1, Math.abs(dy) * 4) : 0 };
+    return { on, speed: c.speed, throttle, boost: !!k.boost && !c.noBoost, voice: c.noBoost ? c.vclass || 'sedan' : null, latAcc: C.lat, slide, rough: parkAt(c.position.x, c.position.z) ? 0.8 : side ? 0.5 : 0, jolt: on && Math.abs(dy) > 0.05 ? Math.min(1, Math.abs(dy) * 4) : 0 };
   }
 
   let last = performance.now(), inside = -1;

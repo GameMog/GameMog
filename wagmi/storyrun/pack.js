@@ -9,15 +9,17 @@
 // as it is (free roam: the gate says why in the console). Its text is never put into HTML unescaped (ui.js esc and
 // textContent; hud.js the same).
 //   await load() -> world | null      world: { ok, why, url, hash, id, title, def (the checked JSON), asset(path) -> URL
-//                                     or null, heroGLTF(loadGLB), sheetCar, ... }
+//                                     or null, heroGLTF(loadGLB), sheetCar, modelCar, ... }
 import { packUrl, packHash, assetUrl, hostOf } from './allow.js';
 import { watch, error as hostError } from './host.js';
 import { showTitle, plainTitle, isOwn } from './title.js';
 
 export const STEP_KINDS = new Set(['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
-  'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow']);
+  'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car']);
 const STOCK = new Set(['roadster', 'trailhand', 'vandal']);
+// the hero cars Mog City builds in code besides Dan's roadster, by the name a world's `car.model` gives (wagmi/storyrun/gt.js)
+export const MODEL_CARS = new Set(['mogcity/gt']);
 const MAX_BYTES = 1_000_000, MAX_TEXT = 600;
 const q = new URLSearchParams(location.search);
 const COLOUR = /^#[0-9A-Fa-f]{6}$/;
@@ -77,9 +79,21 @@ export function check(w) {
     if (!Array.isArray(m.steps) || !m.steps.length) { bad(`${m.id}: steps`); continue; }
     const kinds = (list, at) => { for (const [i, s] of (list || []).entries()) { if (!s || !STEP_KINDS.has(s.type)) bad(`${m.id} ${at}[${i}]: kind ${s && s.type}`); else if (s.ref != null && s.type !== 'call' && !PART_REFS.has(s.ref)) bad(`${m.id} ${at}[${i}]: no Mog City part ${s.ref}`); else { kinds(s.during, `${at}[${i}].during`); kinds(s.do, `${at}[${i}].do`); } } };
     kinds(m.steps, 'steps');
+    // (the shapes the play steps read: a stealth's watchers, a convoy's route, an ally's way there)
+    const shapes = (list, at) => { for (const [i, s] of (list || []).entries()) {
+      if (!s) continue;
+      if (s.type === 'stealth' && !s.ref && !(Array.isArray(s.units) && s.units.length && s.units.length <= 8)) bad(`${m.id} ${at}[${i}]: stealth units`);
+      if (s.type === 'convoy' && !(Array.isArray(s.route) && s.route.length >= 2)) bad(`${m.id} ${at}[${i}]: convoy route`);
+      if (s.type === 'ally' && s.to !== 'player' && !(typeof s.to === 'string' || (s.to && typeof s.to === 'object'))) bad(`${m.id} ${at}[${i}]: ally to`);
+      if (s.type === 'roadblock' && !s.at) bad(`${m.id} ${at}[${i}]: roadblock at`);
+      if (s.type === 'convoy' && s.band != null && !(Array.isArray(s.band) && s.band.length === 2 && s.band[0] < s.band[1])) bad(`${m.id} ${at}[${i}]: convoy band`);
+      shapes(s.during, `${at}[${i}].during`);
+    } };
+    shapes(m.steps, 'steps');
     if (m.vehicle != null && typeof m.vehicle !== 'string') bad(`${m.id}: vehicle`);
   }
   if (!Array.isArray(w.acts) || !w.acts.length) bad('acts');
+  for (const mt of w.hud?.meters || []) if (mt && mt.goal != null && !(typeof mt.goal === 'number' && mt.goal > 0)) bad(`hud meter ${mt.id}: goal`);
   // (the opening, before Mission 1: its shots are a cutscene's, plus a place card, a name card and the title)
   if (w.opening != null) {
     const o = w.opening;
@@ -105,8 +119,26 @@ export function check(w) {
       if (d.holiday != null && (!Array.isArray(d.holiday) || d.holiday.some((h) => typeof h !== 'string' || !/^[a-z-]{1,24}$/.test(h)))) bad('dressing.holiday');
     }
   }
-  if (w.car != null && !(typeof w.car === 'string' ? STOCK.has(w.car) : w.car && typeof w.car.sheet === 'object')) bad('car');
+  if (w.car != null && !(typeof w.car === 'string' ? STOCK.has(w.car) : w.car && (typeof w.car.sheet === 'object' || MODEL_CARS.has(w.car.model)))) bad('car');
+  // (a Mog City model as the hero's car: { model: 'mogcity/gt', paint?, plate?, label?, body? }, wagmi/storyrun/gt.js;
+  // it wears the downloaded body, wagmi/storyrun/vantor.js; body: 'built' the one built in code, gt.js)
+  if (w.car && typeof w.car === 'object' && MODEL_CARS.has(w.car.model)) {
+    if (w.car.paint != null && !COLOUR.test(w.car.paint)) bad('car.paint');
+    if (w.car.plate != null && (typeof w.car.plate !== 'string' || !/^[A-Z0-9 ]{0,8}$/.test(w.car.plate))) bad('car.plate');
+    if (w.car.label != null && (typeof w.car.label !== 'string' || w.car.label.length > 32)) bad('car.label');
+    if (w.car.body != null && w.car.body !== 'ext' && w.car.body !== 'built') bad('car.body');
+  }
   return errs;
+}
+
+// a forged body on Dan's clips: the hand-built cast (John, Milo, Pell, the old boss, the young hero) carry an extra node
+// between each shoulder and upper arm, armhang_L / _R (not one of the skin's joints), turned 13 degrees in at rest.
+// Dan's rig has none, so no clip of his moves it and it stayed at that turn under every clip: on top of Dan's upper-arm
+// turn (made for an upper arm hung straight off the shoulder) it swung each arm in and forward, the hands in front of the
+// belly and the arms inside the jacket (the owner: "i can't see John's arms", from behind square shoulders and nothing
+// hanging). Levelled, the upper arm hangs off the shoulder as Dan's does and the clips put the arms where they put his.
+export function unhang(root) {
+  root?.traverse?.((o) => { if (/^armhang_[LR]$/.test(o.name)) o.quaternion.identity(); });
 }
 
 export async function load() {
@@ -142,12 +174,15 @@ export async function load() {
       const g = await loadGLB(W.heroGlb);
       const names = new Set(dan.animations.map((c) => c.name));
       g.animations = [...dan.animations, ...g.animations.filter((c) => !names.has(c.name))];
+      unhang(g.scene);
       return g;
     } catch (err) { console.warn('[storyrun] hero body', err); return dan; }
   };
   // the player's car: a vehicle sheet (wagmi/storyrun/vehicles) or a stock one (the roadster is Dan's own)
   W.sheetCar = def.car && typeof def.car === 'object' && def.car.sheet ? def.car.sheet : null;
   W.stockCar = typeof def.car === 'string' ? def.car : null;
+  // (or one of Mog City's own models: the Vantor GT, built by wagmi/storyrun/gt.js with the roadster's handling)
+  W.modelCar = def.car && typeof def.car === 'object' && MODEL_CARS.has(def.car.model) ? def.car : null;
   // (trailhand and vandal are their sheets: none in this repo yet, so Dan's roadster stands in for them)
   return W;
 }

@@ -1,0 +1,467 @@
+{
+ "storykit": 1,
+ "id": "test-pickup-eng",
+ "title": "Engine Check",
+ "kicker": "NEW YORK",
+ "tagline": "The play steps a long story needs, one mission each",
+ "city": "ny",
+ "car": "roadster",
+ "hud": {
+  "meters": [
+   {
+    "id": "ransom",
+    "label": "RANSOM",
+    "kind": "money",
+    "start": 345000,
+    "min": 0,
+    "max": 1000000,
+    "goal": 1000000
+   }
+  ]
+ },
+ "dressing": {
+  "time": "midday",
+  "season": "autumn",
+  "weather": "clear",
+  "holiday": []
+ },
+ "cast": {
+  "Dan": {
+   "color": "#FFFFFF",
+   "role": "the driver",
+   "model": "mogcity/dan"
+  },
+  "Jane": {
+   "color": "#6CB8FF",
+   "role": "his wife, in her own car",
+   "model": "mogcity/jane"
+  },
+  "Ma": {
+   "color": "#E8A0BF",
+   "role": "his mother, on the phone"
+  }
+ },
+ "hero": "Dan",
+ "places": {
+  "bank": {
+   "@": "murrayhill",
+   "name": "the bank on Madison"
+  },
+  "school": {
+   "@": "heraldsq",
+   "name": "the school on 34th"
+  },
+  "office": {
+   "@": "chelseapark",
+   "name": "the office on 9th Ave"
+  },
+  "sidedoor": {
+   "@": "heraldsq",
+   "name": "the side door",
+   "offset": {
+    "right": 24,
+    "fwd": 0
+   }
+  }
+ },
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ACT I",
+   "order": [
+    "EN-1",
+    "EN-2",
+    "EN-3",
+    "EN-4",
+    "EN-5",
+    "EN-7",
+    "EN-6"
+   ]
+  }
+ ],
+ "missions": [
+  {
+   "id": "EN-1",
+   "title": "Money on the Clock",
+   "vehicle": "roadster",
+   "start": "@bank",
+   "time": "midday",
+   "stakes": "Get the loan money to the drop before the timer runs out.",
+   "passLine": "The bank said yes. Barely.",
+   "reward": {
+    "meters": {
+     "ransom": {
+      "add": 60000
+     }
+    }
+   },
+   "steps": [
+    {
+     "type": "timer",
+     "id": "clock",
+     "name": "drop",
+     "seconds": 150,
+     "label": "THE DROP",
+     "fail": "soft",
+     "why": "Late. That cost you.",
+     "set": {
+      "meters": {
+       "ransom": {
+        "add": -5000
+       }
+      }
+     }
+    },
+    {
+     "type": "drive",
+     "id": "to-school",
+     "to": "@school",
+     "radius": 10,
+     "objective": "Get to **the school** before the clock runs out.",
+     "checkpoint": true
+    },
+    {
+     "type": "set",
+     "set": {
+      "meters": {
+       "ransom": {
+        "add": 25000
+       }
+      }
+     }
+    },
+    {
+     "type": "timer",
+     "id": "tighter",
+     "name": "drop",
+     "add": -30
+    },
+    {
+     "type": "say",
+     "who": "Dan",
+     "text": "Twenty-five grand. Thirty seconds less to do the rest.",
+     "secs": 2.5
+    },
+    {
+     "type": "drive",
+     "id": "to-office",
+     "to": "@office",
+     "radius": 10,
+     "objective": "Now **the office**. The clock is tighter.",
+     "stopTimer": "drop"
+    }
+   ]
+  },
+  {
+   "id": "EN-2",
+   "title": "Out of Sight",
+   "start": {
+    "@": "soho",
+    "mode": "walk"
+   },
+   "time": "midday",
+   "stakes": "Two of the crew watch the block. Don't let them see you.",
+   "passLine": "Nobody saw a thing.",
+   "reward": {
+    "meters": {
+     "ransom": {
+      "add": 15000
+     }
+    }
+   },
+   "steps": [
+    {
+     "type": "stealth",
+     "id": "hide",
+     "units": [
+      {
+       "@": "soho",
+       "side": 1
+      },
+      {
+       "@": "soho",
+       "roam": 22,
+       "side": 1,
+       "heading": 0
+      }
+     ],
+     "secs": 12,
+     "label": "STAY HIDDEN",
+     "objective": "Stay out of their sight.",
+     "checkpoint": true
+    },
+    {
+     "type": "stealth",
+     "id": "sneak",
+     "units": [
+      {
+       "@": "heraldsq"
+      },
+      {
+       "@": "heraldsq",
+       "side": 1,
+       "heading": 180
+      }
+     ],
+     "to": "@school",
+     "objective": "Get to **the school** without being seen.",
+     "hint": "Keep out of the **cones**{red} on the ground. **E** from behind takes one down."
+    }
+   ]
+  },
+  {
+   "id": "EN-3",
+   "title": "She's Coming",
+   "vehicle": "roadster",
+   "start": "@bank",
+   "time": "midday",
+   "stakes": "Jane drives over. Then you follow her.",
+   "passLine": "Together again.",
+   "steps": [
+    {
+     "type": "ally",
+     "id": "jane-drives",
+     "who": "Jane",
+     "ally": "jane",
+     "name": "Jane's car",
+     "color": "#2E5E8C",
+     "from": "@grandcentral",
+     "to": "player",
+     "secs": 30,
+     "objective": "Wait for **Jane**{blue}. She's on her way.",
+     "checkpoint": true
+    },
+    {
+     "type": "say",
+     "who": "Jane",
+     "text": "I'm here. Stay right behind me.",
+     "secs": 2
+    },
+    {
+     "type": "convoy",
+     "id": "follow-jane",
+     "ally": "jane",
+     "route": [
+      "@empire",
+      "@school"
+     ],
+     "band": [
+      6,
+      55
+     ],
+     "label": "JANE",
+     "fail": "hard",
+     "objective": "Follow **Jane's car**{blue}. Don't lose her, don't hit her.",
+     "speed": 10
+    }
+   ]
+  },
+  {
+   "id": "EN-4",
+   "title": "Easy Does It",
+   "vehicle": "roadster",
+   "start": "@bank",
+   "time": "midday",
+   "stakes": "Pick Jane up and get her there gently.",
+   "passLine": "Not a hair out of place.",
+   "steps": [
+    {
+     "type": "passenger",
+     "id": "ride",
+     "who": "Jane",
+     "from": "@school",
+     "to": "@office",
+     "limit": 40,
+     "fail": "soft",
+     "set": {
+      "meters": {
+       "ransom": {
+        "add": -1000
+       }
+      }
+     },
+     "why": "Too fast with Jane in the car: -$1,000.",
+     "comfort": {
+      "label": "JANE",
+      "start": 1,
+      "fail": "soft"
+     },
+     "checkpoint": true
+    }
+   ]
+  },
+  {
+   "id": "EN-5",
+   "title": "Blocked",
+   "vehicle": "roadster",
+   "start": "@bank",
+   "time": "midday",
+   "stakes": "The crew blocked 34th St.",
+   "passLine": "Through.",
+   "steps": [
+    {
+     "type": "roadblock",
+     "id": "block",
+     "at": "@school",
+     "cars": 3,
+     "kind": "crew",
+     "crew": 2,
+     "to": "@office",
+     "text": "The crew blocked **34th St**{red}. Go round, or ram through.",
+     "checkpoint": true
+    }
+   ]
+  },
+  {
+   "id": "EN-7",
+   "title": "Call Waiting",
+   "vehicle": "roadster",
+   "start": "@bank",
+   "time": "midday",
+   "stakes": "Jane is on the line. So is your mother.",
+   "passLine": "Everyone got through.",
+   "steps": [
+    {
+     "type": "car",
+     "car": "minivan",
+     "color": "#2F5D3A",
+     "at": "@sidedoor",
+     "name": "van"
+    },
+    {
+     "type": "trigger",
+     "area": {
+      "@": "heraldsq",
+      "r": 120
+     },
+     "cue": "walkie2",
+     "say": [
+      "Dan",
+      "That's their radio. Close."
+     ]
+    },
+    {
+     "type": "drive",
+     "id": "to-office",
+     "to": "@office",
+     "radius": 12,
+     "objective": "Get to **the office**. Jane is on the line.",
+     "checkpoint": true,
+     "during": [
+      {
+       "type": "call",
+       "at": 0.5,
+       "who": "Jane",
+       "auto": true,
+       "inCar": true,
+       "lines": [
+        [
+         "JANE",
+         "Okay. I'm looking at the map."
+        ],
+        [
+         "JANE",
+         "Herald Square, the side door, a green van."
+        ],
+        [
+         "JANE",
+         "Keep going. Don't stop for anything."
+        ],
+        [
+         "DAN",
+         "Not stopping."
+        ],
+        [
+         "JANE",
+         "Good."
+        ]
+       ],
+       "hold": {
+        "pause": [
+         [
+          "JANE",
+          "Who is it? Fine, I'll hold."
+         ]
+        ],
+        "resume": [
+         [
+          "JANE",
+          "Back? Good. Where was I."
+         ]
+        ]
+       },
+       "wrap": [
+        [
+         "JANE",
+         "Call me when you see it."
+        ]
+       ]
+      },
+      {
+       "type": "call",
+       "at": 3.5,
+       "who": "Ma",
+       "interrupts": true,
+       "lines": [
+        [
+         "MA",
+         "It's your mother. Are you eating?"
+        ],
+        [
+         "DAN",
+         "Ma. Not now. I'll call you."
+        ]
+       ]
+      }
+     ]
+    },
+    {
+     "type": "drive",
+     "id": "to-van",
+     "to": "@sidedoor",
+     "radius": 14,
+     "objective": "Find **the green van** at the side door."
+    },
+    {
+     "type": "car",
+     "remove": true,
+     "name": "van"
+    },
+    {
+     "type": "say",
+     "who": "Dan",
+     "text": "Van's gone. Fine.",
+     "secs": 2
+    }
+   ]
+  },
+  {
+   "id": "EN-6",
+   "title": "Too Late",
+   "vehicle": "roadster",
+   "start": "@bank",
+   "time": "midday",
+   "stakes": "Five seconds. No chance.",
+   "steps": [
+    {
+     "type": "timer",
+     "seconds": 5,
+     "label": "HURRY",
+     "fail": "hard",
+     "why": "You ran out of time."
+    },
+    {
+     "type": "drive",
+     "to": "@office",
+     "objective": "Get to **the office**. Now."
+    }
+   ]
+  }
+ ],
+ "voice": {
+  "model": "kokoro-82m-v1.0",
+  "dir": "",
+  "cast": {},
+  "lines": []
+ }
+}

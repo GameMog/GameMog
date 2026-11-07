@@ -113,6 +113,53 @@ License: non-commercial use only. `NOTICE` lists exactly which files and what wa
 The trash cans in `assets/props/trash-cans.glb` are "Metal Trash Can" by GurJas Studios, from
 [Poly Haven](https://polyhaven.com/a/metal_trash_can), under [CC0 1.0](https://polyhaven.com/license).
 
+## Sets (the story runner's cutscene sets)
+
+The models and surfaces in `assets/sets/` are Poly Haven scans under [CC0 1.0](https://polyhaven.com/license), copied
+from GameMog's licensed asset library (`public/assets`, its `library.json` names each source) in the library's own
+format (`gmasset/1`), their maps resized to 512 px (models) or 1024 px (surfaces). Read by `wagmi/storyrun/setkit.js`.
+
+- `assets/sets/bar-stool`: "Bar Chair Round 01 (model)" by Dairon Sanchez, Poly Haven, from [Poly Haven](https://polyhaven.com/a/bar_chair_round_01), CC0-1.0
+- `assets/sets/blue-drum`: "Barrel 03 (model)" by Serhii Khromov, Poly Haven, from [Poly Haven](https://polyhaven.com/a/barrel_03), CC0-1.0
+- `assets/sets/cafe-set`: "Outdoor Table Chair Set 01 (model)" by James Ray Cock, Poly Haven, from [Poly Haven](https://polyhaven.com/a/outdoor_table_chair_set_01), CC0-1.0
+- `assets/sets/cardboard-box`: "Cardboard Box 01 (model)" by Rahul Chaudhary, Poly Haven, from [Poly Haven](https://polyhaven.com/a/cardboard_box_01), CC0-1.0
+- `assets/sets/coffee-table`: "Coffee Table Round 01 (model)" by Ulan Cabanilla, Poly Haven, from [Poly Haven](https://polyhaven.com/a/coffee_table_round_01), CC0-1.0
+- `assets/sets/covered-car`: "Covered Car (model)" by MP, Poly Haven, from [Poly Haven](https://polyhaven.com/a/covered_car), CC0-1.0
+- `assets/sets/door-shutter`: "Rollershutter Door (model)" by MP, Poly Haven, from [Poly Haven](https://polyhaven.com/a/rollershutter_door), CC0-1.0
+- `assets/sets/drainpipes`: "Modular Metal Gutter (model)" by Maxim Domnin, Poly Haven, from [Poly Haven](https://polyhaven.com/a/modular_metal_gutter), CC0-1.0
+- `assets/sets/fern`: "Fern 02 (model)" by Rico Cilliers and Rob Tuytel, Poly Haven, from [Poly Haven](https://polyhaven.com/a/fern_02), CC0-1.0
+- `assets/sets/fire-escape`: "Modular Fire Escape (model)" by Juniix, Poly Haven, from [Poly Haven](https://polyhaven.com/a/modular_fire_escape), CC0-1.0
+- `assets/sets/fire-hydrant`: "Fire Hydrant (model)" by Gonçalo Felício, Poly Haven, from [Poly Haven](https://polyhaven.com/a/fire_hydrant), CC0-1.0
+- `assets/sets/lounge-chair`: "Mid Century Lounge Chair (model)" by Kuutti Siitonen, Poly Haven, from [Poly Haven](https://polyhaven.com/a/mid_century_lounge_chair), CC0-1.0
+- `assets/sets/old-tyre`: "Old Tyre (model)" by MP, Poly Haven, from [Poly Haven](https://polyhaven.com/a/old_tyre), CC0-1.0
+- `assets/sets/plastic-chair`: "Plastic Monobloc Chair 01 (model)" by Kuutti Siitonen, Poly Haven, from [Poly Haven](https://polyhaven.com/a/plastic_monobloc_chair_01), CC0-1.0
+- `assets/sets/plastic-crate`: "Plastic Crate 02 (model)" by Fabi_G, Poly Haven, from [Poly Haven](https://polyhaven.com/a/plastic_crate_02), CC0-1.0
+- `assets/sets/red-drum`: "Barrel_01 (model)" by Jorge Camacho, Poly Haven, from [Poly Haven](https://polyhaven.com/a/Barrel_01), CC0-1.0
+- `assets/sets/shrub`: "Shrub 01 (model)" by Rico Cilliers, Poly Haven, from [Poly Haven](https://polyhaven.com/a/shrub_01), CC0-1.0
+- `assets/sets/street-lamp`: "Street Lamp 01 (model)" by Josh Dean, Poly Haven, from [Poly Haven](https://polyhaven.com/a/street_lamp_01), CC0-1.0
+- `assets/sets/street-seating`: "Modular Street Seating (model)" by Stuart Attenborrow, Poly Haven, from [Poly Haven](https://polyhaven.com/a/modular_street_seating), CC0-1.0
+- `assets/sets/tex-asphalt-clean`: "Clean Asphalt (textures)" by Dimitrios Savva, Poly Haven, from [Poly Haven](https://polyhaven.com/a/clean_asphalt), CC0-1.0
+- `assets/sets/tex-brick`: "Red Brick 03 (textures)" by Rob Tuytel, Poly Haven, from [Poly Haven](https://polyhaven.com/a/red_brick_03), CC0-1.0
+- `assets/sets/tex-cobblestone`: "Cobblestone Floor 04 (textures)" by Rob Tuytel, Poly Haven, from [Poly Haven](https://polyhaven.com/a/cobblestone_floor_04), CC0-1.0
+- `assets/sets/tex-concrete`: "Concrete Floor 02 (textures)" by Rob Tuytel, Poly Haven, from [Poly Haven](https://polyhaven.com/a/concrete_floor_02), CC0-1.0
+- `assets/sets/tex-corrugated-metal`: "Corrugated Iron (textures)" by Dimitrios Savva and Jenelle van Heerden, Poly Haven, from [Poly Haven](https://polyhaven.com/a/corrugated_iron), CC0-1.0
+- `assets/sets/tex-grass`: "Leafy Grass (textures)" by Charlotte Baglioni, Poly Haven, from [Poly Haven](https://polyhaven.com/a/leafy_grass), CC0-1.0
+- `assets/sets/tex-planks`: "Weathered Brown Planks (textures)" by Dimitrios Savva and Rico Cilliers, Poly Haven, from [Poly Haven](https://polyhaven.com/a/weathered_brown_planks), CC0-1.0
+- `assets/sets/tex-plaster`: "White Plaster 02 (textures)" by Rob Tuytel, Poly Haven, from [Poly Haven](https://polyhaven.com/a/white_plaster_02), CC0-1.0
+- `assets/sets/tex-stone-wall`: "Rustic Stone Wall 02 (textures)" by Amal Kumar, Poly Haven, from [Poly Haven](https://polyhaven.com/a/rustic_stone_wall_02), CC0-1.0
+- `assets/sets/trash-cans`: "Metal Trash Can (model)" by GurJas Studios, Poly Haven, from [Poly Haven](https://polyhaven.com/a/metal_trash_can), CC0-1.0
+- `assets/sets/wall-lantern`: "Street Lamp 02 (model)" by Josh Dean, Poly Haven, from [Poly Haven](https://polyhaven.com/a/street_lamp_02), CC0-1.0
+
+## Vehicles
+
+The Vantor GT's downloaded body (`assets/vehicles/vantor/vantor-gt.glb`, used only by a Story Kit world whose car is
+`{ model: 'mogcity/gt' }`, never by Mog City's own game) is based on "Porsche GT3 RS" by
+[Black Snow](https://sketchfab.com/BlackSnow02), from
+[Sketchfab](https://sketchfab.com/3d-models/porsche-gt3-rs-e738eae819c34d19a31dd066c45e0f3d), under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modified: its badges, crest and model lettering removed, its
+mechanicals removed, simplified and repainted; `assets/vehicles/vantor/CREDITS.md` has the details. The game's car is
+a look-alike named "Vantor GT" and has no connection with any car maker.
+
 ## Voices
 
 Dan's, Jane's, Knox's, Mack's, Gears', Fiona's, Brick's, Dash's and Ms. Bea's lines are synthesised with

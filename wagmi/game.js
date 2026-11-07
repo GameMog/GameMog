@@ -31,7 +31,13 @@ installDriveMode(WAGMI);
   // (a world's own car, from its vehicle sheet: wagmi/storyrun/ride.js; else, and always without ?pack=, Dan's roadster)
   const RIDE = PACK?.ok && PACK.sheetCar ? await import('./storyrun/ride.js').catch(() => null) : null;
   let sheetRs = null; if (RIDE) try { sheetRs = RIDE.buildSheetCar(THREE, PACK.sheetCar); } catch (err) { console.warn('[storyrun] car', err); }
-  const rs = sheetRs || buildRoadster(THREE, story.paint ? { paint: story.paint } : undefined);   // (its own default paint; a Mog's, wagmi/story)
+  // (or one of Mog City's own models a world names, wagmi/storyrun/gt.js: the Vantor GT, on the roadster's handling)
+  const MODEL = PACK?.ok && !sheetRs && PACK.modelCar ? await import('./storyrun/gt.js').catch(() => null) : null;
+  // (it wears its downloaded body, wagmi/storyrun/vantor.js, the same interface; gt.js's own with car.body 'built' or if
+  // that fails to load)
+  let modelRs = MODEL && PACK.modelCar.body !== 'built' ? await import('./storyrun/vantor.js').then((m) => m.buildVantor(THREE, PACK.modelCar)).catch((err) => { console.warn('[storyrun] car body', err); return null; }) : null;
+  if (MODEL && !modelRs) try { modelRs = MODEL.buildGT(THREE, PACK.modelCar); } catch (err) { console.warn('[storyrun] car model', err); }
+  const rs = sheetRs || modelRs || buildRoadster(THREE, story.paint ? { paint: story.paint } : undefined);   // (its own default paint; a Mog's, wagmi/story)
   rs.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   car.chassisPivot.add(rs.group);
   // its size: built at a sports car's, scaled up whole (S) to a big hypercar's, 4.8 m long, 2.2 m wide and 1.28 m tall;
@@ -40,7 +46,7 @@ installDriveMode(WAGMI);
   // axle: its axles' distance either side of its middle (the wheels' ground); chase: the chase camera's framing
   // (js/cameras.js): fov, the pull back per m/s, the lens widening with speed and more on the boost, the shake flat out
   // (kept small: at a cruise the car fills as much of the frame as parked, on the boost a little less)
-  const S = sheetRs ? 1 : 1.1;
+  const S = sheetRs ? 1 : modelRs ? 1.05 : 1.1;
   rs.group.scale.setScalar(S); rs.anchor.scale.setScalar(1 / S); rs.scale = S;
   for (const k of Object.keys(rs.seat)) rs.seat[k] = rs.seat[k].map((v) => v * S);
   Object.assign(rs, { length: rs.length * S, width: rs.width * S, height: rs.height * S });
@@ -68,13 +74,17 @@ installDriveMode(WAGMI);
   // (a 65 m circle at 125 mph)
   car.handling = { rMin: 4.6, yawMax: 1.85, grip: 48, rampIn: [0.11, 0.17], rampOut: 0.08, vRef: 34 };
   if (sheetRs) RIDE.fitSheet(car, rs);
+  // (a model keeps every number of the roadster's but its own box, axles and name)
+  if (modelRs) { const B = modelRs.body; Object.assign(car, { body: { hx: B.hx * S, z0: B.z0 * S, z1: B.z1 * S, top: B.top * S }, axle: modelRs.axle * S, label: PACK.modelCar.label || 'Vantor GT' }); }
   // (the speed panel's name for it, when the city started in the car before this ran)
   if (cm.activeMode === 'car') { const lab = document.getElementById('hud-active-mode'); if (lab) lab.textContent = car.label; }
   car.onUpdate = (dt, keys, throttle, steer) => {
     // (stopping for him to get out: car.halt m/s² of brakes, whatever is pressed)
     if (car.halt) { car.speed -= Math.sign(car.speed) * Math.min(Math.abs(car.speed), car.halt * dt); throttle = 0; steer = 0; car.steerAngle *= 0.8; }
-    car.boosting = !!keys.boost && throttle > 0;
-    rs.setThrust(keys.boost && throttle > 0 ? 1 : 0, keys.boost && throttle > 0 ? 0.85 : 0);
+    // (a car with no boost, a world's van or truck (wagmi/storyrun/ride.js setClass): no push, no flame)
+    const boost = !!keys.boost && throttle > 0 && !car.noBoost;
+    car.boosting = boost;
+    rs.setThrust(boost ? 1 : 0, boost ? 0.85 : 0);
     rs.update(dt, car.speed, -steer * 0.9);
     alongWall(dt, throttle);
     curbAssist(dt, steer);

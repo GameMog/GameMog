@@ -28,6 +28,7 @@ import { createRunner } from './runner.js';
 import { tell, result as tellResult, log as hostLog } from './host.js';
 import { showTitle, plainTitle, isOwn, ownTitle } from './title.js';
 import { asksDressing } from './pack.js';
+import { passCard } from './rules.js';
 import { createDirector } from '../mission/cine.js';
 
 const Q = new URLSearchParams(location.search);
@@ -76,7 +77,7 @@ export async function install(W) {
   const writeSave = () => { try { localStorage.setItem(KEY, JSON.stringify({ v: 1, done: Object.keys(save.done), meters: save.meters, flags: save.flags, at: Date.now() })); } catch {} };
   const flags = {
     autopilot: Q.has('autopilot'), autoAnswer: Q.has('autoanswer') || Q.has('autopilot'), autoChoose: Q.has('autochoose') ? Math.max(0, +Q.get('autochoose') || 0) : (Q.has('autopilot') ? 0 : null),
-    autoCard: Q.has('autocard'), autoContinue: Q.has('autocontinue'), flowFast: Q.has('flowfast'), autoRetry: Q.has('autopilot'), failStop: Q.has('failstop'),
+    autoCard: Q.has('autocard'), autoContinue: Q.has('autocontinue'), flowFast: Q.has('flowfast'), autoRetry: Q.has('autopilot'), failStop: Q.has('failstop'), stealthFair: Q.has('stealthfair'),
   };
   const host = { tell };
   const runner = createRunner({ W, world, places, cast, hud, host, save, flags });
@@ -114,9 +115,13 @@ export async function install(W) {
   if (asksDressing(def.dressing)) {
     try { const D = await import('./dressing.js'); W.storyrun.dressing = D.createDressing(W, def.dressing); } catch (e) { console.warn('[storyrun] dressing', e); }
   }
+  // a story's night is a lit city night, readable (nightlit.js: its fill, moon and exposure lifted at night only)
+  try { const NL = await import('./nightlit.js'); W.storyrun.nightLit = NL.createNightLit(W, def.dressing || {}); } catch (e) { console.warn('[storyrun] night', e); }
   // the start: on foot by the car while the gate is up, the city at the world's time of day (a night world's gate at night)
   outBesideCar(W);
-  { const T = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' }, first = order[0]?.def, id = first?.time || order[0]?.act?.timeline?.[first?.id]?.time || def.dressing?.time; try { if (id) W.app.selectTime(T[id] || id); } catch {} }
+  // (a world that says no time at all, in its dressing or its first mission, is in daylight)
+  const firstTime = (() => { const first = order[0]?.def; return first?.time || order[0]?.act?.timeline?.[first?.id]?.time || def.dressing?.time || (def.dressing ? 'day' : null); })();
+  { const T = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' }, id = firstTime; try { if (id) W.app.selectTime(T[id] || id); } catch {} }
   const gate = Q.has('nogate') ? null : ui.gate({ when: () => W.app.ready, onStart: () => { W.audio?.unlock?.(); sfx.unlock(); }, fine: 'Community entertainment project. Have fun!' });
   if (!gate) ui.bootOff();
   for (let i = 0; i < 600 && !W.app.ready; i++) await sleep(100);
@@ -128,7 +133,7 @@ export async function install(W) {
   if (flags.autopilot) {
     const { startAutopilot } = await import('./autopilot.js');
     autopilot = startAutopilot(W, runner, {
-      missionSecs: +(Q.get('missionsecs') || 240), skipScenes: +(Q.get('skipscenes') || 0),
+      missionSecs: +(Q.get('missionsecs') || 240), skipScenes: +(Q.get('skipscenes') || 0), realPace: Q.has('realpace'),
       onTimeout: (m, d, i) => { tell('mission-fail', { id: m.id, why: `The test drive timed out at step ${i + 1} (${d?.type}${d?.id ? ' ' + d.id : ''}).`, step: d?.id || null, kind: d?.type || null, timeout: true }); runner.M?.fail?.({ reason: `The test drive timed out at step ${i + 1} (${d?.type}).` }); },
     });
     W.storyrun.autopilot = autopilot;
@@ -145,7 +150,7 @@ export async function install(W) {
   // 1: on a story's first start (nothing passed, no ?mission=), or asked for (?opening=1); ?opening=0 leaves it out
   if (def.opening && Array.isArray(def.opening.shots) && def.opening.shots.length && Q.get('opening') !== '0'
     && (Q.get('opening') === '1' || (k === 0 && !Q.get('mission') && !Object.keys(save.done).length))) {
-    try { await runner.opening(def.opening); } catch (e) { console.warn('[storyrun] opening', e); }
+    try { await runner.opening(def.opening, { time: firstTime }); } catch (e) { console.warn('[storyrun] opening', e); }
   }
   const marker = createMarker(THREE, W.app.scene, { color: '#FFC93C', radius: 2.4, height: 2.2, alpha: 0.25 });
   let first = true;
@@ -156,6 +161,8 @@ export async function install(W) {
     if (!first && !flags.flowFast) await between(m);
     first = false;
     if (replayAsk) { k = Math.max(0, order.findIndex((o) => o.def.id === replayAsk)); replayAsk = null; continue; }
+    // (what the meters stood at going in: the MISSION PASSED card's gains are from here)
+    const before = Object.fromEntries((def.hud?.meters || []).map((x) => [x.id, save.meters[x.id] ?? x.start ?? 0]));
     const r = await runner.play(m, { act, from: k === k0 && Q.get('step') ? Q.get('step') : null });
     if (replayAsk) { k = Math.max(0, order.findIndex((o) => o.def.id === replayAsk)); replayAsk = null; first = true; continue; }
     if (r.how === 'pass') {
@@ -170,12 +177,24 @@ export async function install(W) {
         : [['Time', fmt(r.secs)], ...((def.hud?.meters || []).filter((x) => x.kind !== 'hidden').map((x) => [x.label || x.id, String(Math.round(r.state.meters[x.id] ?? 0))]))];
       tell('mission-end', { id: m.id, how: 'pass', secs: Math.round(r.secs) });
       tellResult(world, m.id, r.secs);
-      await ui.passed({ title: m.title, stats, note: m.passLine || '', ...(P0.reward ? { reward: P0.reward } : {}) }, flags.autoCard ? 1.5 : 6);
+      // the card: Mog City's own (its stats, as the shipped game's: a world that lists pass.stats, Mog City's own story),
+      // else the story's MISSION PASSED (hud.passed): what was gained ('+$85,000'), the meter's way to its goal ('$430,000
+      // / $1,000,000', the bar filling), the pass line, and NEXT: the next mission's title and stakes; with a sting
+      if (Array.isArray(P0.stats)) await ui.passed({ title: m.title, stats, note: m.passLine || '', ...(P0.reward ? { reward: P0.reward } : {}) }, flags.autoCard ? 1.5 : 6);
+      else {
+        sfx.play('stinger', { gain: 0.42, notes: [261.63, 329.63, 392, 523.25] });
+        const nx = order[k + 1]?.def || null;
+        const card = passCard({ title: m.title, passLine: m.passLine || '', meters: def.hud?.meters || [], before, after: r.state.meters, next: nx ? { title: nx.title, stakes: nx.stakes } : null });
+        W.storyrun.lastCard = card;
+        await hud.passed({ ...card, stats: [['TIME', fmt(r.secs)], ...card.stands] }, flags.autoCard ? 2.2 : 7);
+      }
       // (the act's end card, after its last mission)
       // (after the card: the mission's own afterword, Mog City's way: DMs, a line of his; Mission 2's Jane and Rook)
       await afterPass(m);
       const last = act && (act.order || []).filter((id) => byId.has(id)).slice(-1)[0] === m.id;
-      if (last && act.end) await actEnd(act.end);
+      // (the story's last act: its NEXT card (Pickup Time's FREE ROAM) is held back until after STORY COMPLETE and the
+      // title lockup, so the end reads MISSION PASSED, the act's stats, STORY COMPLETE, the title, FREE ROAM)
+      if (last && act.end) await actEnd(act.end, { holdNext: k === order.length - 1 });
       k++;
     } else if (r.how === 'fail') {
       tell('mission-end', { id: m.id, how: 'fail', why: r.why }); break;
@@ -187,7 +206,18 @@ export async function install(W) {
   }
   if (k >= order.length) {
     tell('story-end', { id: def.id });
-    await hud.card({ kicker: def.kicker || '', text: def.title, sub: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 1 : 4);
+    // (the story's end, unmistakable: STORY COMPLETE over the world's title and its closing line, held, then its title
+    // lockup, then free roam)
+    await hud.passed({ head: 'STORY COMPLETE', title: def.title, line: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 2.2 : 6);
+    // (the title lockup over a fade, and under it the city back in daylight: a story that ends at night (Pickup Time's
+    // PT-15) does not leave free roam in the dark)
+    await ui.fade(0.97, 0.6);
+    try {
+      try { W.app.selectTime('midday'); } catch {}
+      await hud.card({ kicker: def.kicker || '', text: def.title, sub: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 1 : 4);
+      const fin = order[order.length - 1]?.act?.end?.next;
+      if (fin) await hud.card({ kicker: fin.kicker || 'NEXT', text: fin.text, sub: fin.sub || '' }, flags.autoCard ? 0.8 : (fin.secs || 3));
+    } finally { await ui.fade(0, 0.6); }
     ui.objective(['Free roam. ', { 'Esc': 'yellow' }, ' for Mission select.'], 8);
   }
   autopilot?.stop();
@@ -205,7 +235,12 @@ export async function install(W) {
     marker.at(p.x, gy, p.z);
     const words = (t) => { const out = []; const re = /\*\*(.+?)\*\*(?:\{(yellow|red|blue|green)\})?/g; let at = 0, x; while ((x = re.exec(t))) { if (x.index > at) out.push(t.slice(at, x.index)); out.push({ [x[1]]: x[2] || 'yellow' }); at = x.index + x[0].length; } if (at < t.length) out.push(t.slice(at)); return out; };
     ui.step(B.step || `pack:free:${m.id}`);
-    W.gps.objective(B.objective ? words(B.objective) : ['Go to ', { [`${m.title}`]: 'yellow' }, '.'], { x: p.x, z: p.z, name }, { blip: false });
+    // (none of its own: the mission's first step's, when that step is the walk or drive to where it starts ('Find Bunny at
+    // the chess tables'), else where to go and for what ('Go to the chess tables, Washington Square for The Vig'). It was
+    // 'Go to The Vig', the mission's title read as a place: the owner after PT-7's fail, "i think i'm in the VIG")
+    const s0 = (m.steps || [])[0], at0 = s0 && (s0.type === 'walk' || s0.type === 'drive') && !s0.if && typeof s0.objective === 'string' && !/[{}]/.test(s0.objective) ? places.at([].concat(s0.to)[0]) : null;
+    const own = at0 && Math.hypot(at0.x - p.x, at0.z - p.z) < 40 ? words(s0.objective) : null;
+    W.gps.objective(B.objective ? words(B.objective) : own || ['Go to ', { [p.name || name]: 'yellow' }, ' for ', { [`${m.title}`]: 'yellow' }, '.'], { x: p.x, z: p.z, name }, { blip: false });
     W.gps.unblip('dest');
     W.gps.blip('next', { x: p.x, z: p.z, kind: 'letter', letter, pulse: 6, edge: true, name, label: true });
     if (B.note) W.gps.stallNote = B.note;
@@ -213,6 +248,8 @@ export async function install(W) {
     const wasB = W.between; W.between = { at: { x: p.x, z: p.z }, stop() {} };
     if (B.dm !== false && giver !== heroName) { sfx.play('ding', { gain: 0.25 }); ui.dm(giver, `${m.stakes || m.title}`, 7); }
     if (B.help) setTimeout(() => ui.help(words(B.help), 9), 1800);
+    // (the world's meters stay up between missions: the ransom raised so far)
+    runner.showMeters(save.meters, []);
     const r = B.radius || 2.2, t0 = performance.now();
     let jumped = false;
     await new Promise((res) => {
@@ -230,7 +267,7 @@ export async function install(W) {
     });
     W.between = wasB === W.between ? null : wasB;
     if (W.gps.stallNote === B.note) W.gps.stallNote = null;
-    marker.hide(); W.gps.unblip('next'); W.gps.unblip('car'); W.gps.clear(); ui.objective(null); ui.help(null);
+    marker.hide(); W.gps.unblip('next'); W.gps.unblip('car'); W.gps.clear(); ui.objective(null); ui.help(null); hud.meters([]);
   }
   // after a mission's card: its afterword, in order: { dm: { from, text, secs }, say: [who, text], wait: secs }
   async function afterPass(m) {
@@ -243,13 +280,27 @@ export async function install(W) {
       } catch (e) { console.warn('[storyrun] after', e); }
     }
   }
-  async function actEnd(e) {
-    await ui.fade(0.9, 0.5);
-    await hud.card({ kicker: e.title || 'END OF ACT', text: e.heading || (isOwn(world) ? def.title : ownTitle(def.title)), sub: (e.story || []).join(' ') || (e.quote ? `"${e.quote.text}"` : '') }, flags.autoCard ? 1 : Math.max(3, e.minSecs || 0));
-    if (e.next) await hud.card({ kicker: e.next.kicker || 'NEXT', text: e.next.text, sub: e.next.sub || '' }, flags.autoCard ? 0.8 : (e.next.secs || 3));
-    await ui.fade(0, 0.5);
+  // an act's cards (END OF ACT, its stats, the next act's title) are titles over the game, not a blackout: the city under
+  // a light dim (ACT_DIM, module scope; the card's own vignette behind its words, hud.js .sr-card, which sits above the
+  // dim), each card about 3-4 s, and the dim always taken off after, whatever happens meanwhile (was 0.9 over the cards:
+  // the owner's "the screen goes black" at ACT II, the card's words dark grey under it)
+  async function actEnd(e, { holdNext = false } = {}) {
+    try {
+      await ui.fade(ACT_DIM, 0.5);
+      await hud.card({ kicker: e.title || 'END OF ACT', text: e.heading || (isOwn(world) ? def.title : ownTitle(def.title)), sub: (e.story || []).join(' ') || (e.quote ? `"${e.quote.text}"` : '') }, flags.autoCard ? 1 : Math.min(4, Math.max(3, e.minSecs || 0)));
+      // (its numbers and its last word, when it has them: the big card, its head the act's title (the story's end: the
+      // story's own title), its stats in rows, the quote and who said it under them)
+      if ((e.stats || []).length) {
+        await ui.fade(0, 0.4);
+        await hud.passed({ head: e.title || 'END OF ACT', title: e.heading || '', stats: e.stats.map((x) => [x.label, x.value]), line: e.quote ? `"${e.quote.text}"${e.quote.by ? ' · ' + e.quote.by : ''}` : '' }, flags.autoCard ? 1.6 : Math.max(5, e.minSecs || 0));
+        await ui.fade(ACT_DIM, 0.4);
+      }
+      if (e.next && !holdNext) await hud.card({ kicker: e.next.kicker || 'NEXT', text: e.next.text, sub: e.next.sub || '' }, flags.autoCard ? 0.8 : Math.min(4, e.next.secs || 3.4));
+    } finally { await ui.fade(0, 0.5); }
   }
 }
+// (an act card's dim: at most half, so the city reads under the card: actEnd)
+const ACT_DIM = 0.3;
 const fmt = (s) => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 // one frame straight after the city renders it (a WebGPU canvas is read in that task), cropped to 1280x720 and 512x512

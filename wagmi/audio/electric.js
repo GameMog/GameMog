@@ -1,85 +1,73 @@
-// Mog City: Dan's car ALL ELECTRIC (the quiet mode, drivemode.js): no exhaust, no gearbox, no pops. One motor
-// geared straight to the wheels, so everything it says follows the road speed smoothly, up and down:
-//   whine     the motor and its reduction gear: three orders of the motor's speed (its poles, twice that, the gear's
-//             teeth high and faint), louder with the torque it makes, pulling (on the throttle) or giving back (the
-//             regen, lifting and braking); rising from nothing at a walk to a high clean note flat out
-//   inverter  a faint high fizz of its switching, under torque at low speed
-//   hum       a soft low hum while it is on, a touch up with the load
-//   warning   the pedestrian warning, at walking and town pace only: a gentle two-voice tone a fifth apart that rises
-//             with the speed and fades out by 9 m/s (and pulses slowly in reverse)
-// The tyres and the wind (playercar.js) are what is heard at speed; the boost's thrusters keep their own sound.
+// Mog City: the car's ALL ELECTRIC (the quiet mode, drivemode.js): no exhaust, no gearbox, no revs, no pops. One motor
+// geared straight to the wheels, heard faintly from the cabin (the owner, 6 Nov: "more monotone and quietly ... it
+// should have electric motor", not an engine with revs):
+//   whine     the motor and its reduction gear: one clean high note (two orders over it, faint) that glides with the road
+//             speed over a narrow range, about 520 Hz rolling to 700 at the top speed (half an octave; the boost's
+//             speed only a little higher), never stepping: no gears, no launch flare, no wheelspin bounce. Its pitch
+//             follows the speed only (not the pedal) and slowly; its level comes up with the speed and only a touch
+//             with the torque (pulling or the regen giving back), so a stab of the throttle swells it, never revs it
+//   inverter  a soft low hum under it while it is on (a steady 100 Hz and its octave, a faint high switching fizz),
+//             a touch up with the torque, never changing pitch
+// About 11 dB under the engine mode's engine. The tyres and the wind (playercar.js) carry the speed; the boost's
+// thrusters keep their own sound.
 // createElectric(M, out) -> { update(dt, s) -> state, stop(t), state } (as createSupercar: s { speed, throttle, on })
+//   state.f: the whine's note now (Hz)
 // driveCue(M, dest, mode, { moving, t }) -> its length: the switch's cue ('electric' a contactor's click and a soft
-// rising chime; 'engine' the starter (at rest), the engine catching; the car's own engine adds the blip)
+// chime; 'engine' the starter (at rest), the engine catching; the car's own engine adds the blip)
+
+// the whine's note (Hz) for the motor's speed (as road speed, m/s): 520 rolling, 700 at the top speed (34), the
+// boost's 42 about 715; a smooth curve, flattening as it goes
+const F_LO = 520, F_UP = 180, F_K = 20;
+export const whineHz = (m) => F_LO + F_UP * (1 - Math.exp(-Math.abs(m) / F_K)) / (1 - Math.exp(-34 / F_K));
+// levels (into the drive's bus): the whine at speed, the hum, the fizz under torque
+const WHINE = 0.03, HUM = 0.011, FIZZ = 0.004;
 
 export function createElectric(M, out) {
   const now = () => M.now();
   const ramp = (p, v, k = 0.03) => p.setTargetAtTime(v, now(), k);
   const level = M.gain(0, out), src = [];
   const add = (s) => (src.push(s), s);
-  // the whine: three orders through a gentle top cut (the cabin)
-  const wl = M.filt('lowpass', 5200, 0.5, level);
-  const w = [['sine', 1], ['sine', 2], ['triangle', 6.2]].map(([type, ord]) => { const g = M.gain(0, wl), o = add(M.osc(type, 40 * ord, g)); return { o, g, ord }; });
-  w[1].o.detune.value = 4;
-  // the inverter's fizz
-  const fz = add(M.src(M.white)), fbp = M.filt('bandpass', 8200, 3.5), fg = M.gain(0, level); fz.connect(fbp); fbp.connect(fg);
-  // the hum
-  const hl = M.filt('lowpass', 320, 0.7, level), hg = M.gain(0, hl);
-  const h1 = add(M.osc('sine', 58, hg)), h2 = add(M.osc('triangle', 116)), h2g = M.gain(0.3, hg); h2.connect(h2g);
-  // the pedestrian warning: a fifth, a sub under it, softened and gently swelling
-  const ag = M.gain(0, level), swell = M.gain(0.85, ag), ah = M.filt('highpass', 150, 0.7, swell), al = M.filt('lowpass', 1100, 0.6, ah);
-  const a1 = add(M.osc('triangle', 260)), a2 = add(M.osc('triangle', 390)), a3 = add(M.osc('sine', 130, al)), am = M.gain(0.4, al);
-  a1.connect(am); a2.connect(am); a2.detune.value = 6;
-  const lfo = add(M.osc('sine', 0.7)), lfg = M.gain(0.15); lfo.connect(lfg); lfg.connect(swell.gain);
+  // the whine: a pure note and two faint orders over it (the reduction gear), through the cabin's top cut
+  const wl = M.filt('lowpass', 2600, 0.5, level), wg = M.gain(0, wl);
+  const w = [[1, 1], [2, 0.2], [3, 0.06]].map(([ord, amp]) => ({ ord, o: add(M.osc('sine', whineHz(0) * ord, M.gain(amp, wg))) }));
+  // the inverter: its hum (100 Hz and its octave, low-passed) and a faint high fizz of its switching
+  const hl = M.filt('lowpass', 420, 0.6, level), hg = M.gain(0, hl);
+  add(M.osc('sine', 100, hg)); add(M.osc('sine', 200, M.gain(0.35, hg)));
+  const fz = add(M.src(M.white)), fbp = M.filt('bandpass', 7800, 6), fg = M.gain(0, level); fz.connect(fbp); fbp.connect(fg);
   for (const s of src) s.start(now(), s.buffer ? M.R() * 1.5 : undefined);
 
-  // the motor: its speed (as road speed, m/s), the torque it makes (-1 regen .. 1), the wheels spinning against a wall
-  const S = { gear: 'D', rpm: 0, load: 0, torque: 0, motor: 0, acc: 0, lastV: null, stuck: 0, rev: false };
+  // the motor: its speed (as road speed, m/s), the torque it makes (-1 regen .. 1), the whine's note
+  const S = { gear: 'D', rpm: 0, load: 0, torque: 0, motor: 0, f: whineHz(0), stuck: 0, rev: false };
   let stopped = false;
 
   // s: { speed (m/s, signed), throttle -1..1, on, boost }
   function update(dt, s) {
     const vs = s.speed || 0, v = Math.abs(vs), th = s.throttle || 0, on = s.on === false ? 0 : 1;
-    if (S.lastV == null) { S.lastV = v; S.motor = v; }
     const fwd = vs >= -0.3 ? 1 : -1;
     const gas = th > 0 ? (fwd > 0 ? th : 0) : th < 0 ? (fwd < 0 || v < 0.3 ? -th : 0) : 0;
     const braking = th !== 0 && gas === 0 && v > 0.5;
-    S.acc += (((v - S.lastV) / Math.max(1e-3, dt)) - S.acc) * Math.min(1, dt * 8); S.lastV = v;
     S.rev = vs < -0.3 || (th < 0 && v < 0.3); S.gear = S.rev ? 'R' : 'D';
-    // flat out against something: the wheels spin up a little, the traction control pulling them back
-    S.stuck = gas > 0.5 && v < 3 && S.acc < 1 ? S.stuck + dt : 0;
-    const spin = S.stuck > 0.4 ? 7 + 3 * Math.sin(S.stuck * 11) : 0;
-    S.motor += (Math.max(v, spin) - S.motor) * Math.min(1, dt * (spin ? 4 : 14));
-    // the torque: the throttle's pull (harder out of a standstill, easing toward the top), the regen's push back
-    // lifting off (light) and braking (strong), nothing at rest
-    const want = gas > 0 ? gas * (s.boost ? 1 : 0.55 + 0.45 * Math.max(0, 1 - v / 40)) : braking ? -0.85 : v > 1.5 ? -0.28 * Math.min(1, v / 12) : 0;
-    S.torque += (want - S.torque) * Math.min(1, dt / (Math.abs(want) > Math.abs(S.torque) ? 0.06 : 0.12));
+    // (against a wall the traction control holds the wheels: the motor stays with the road speed)
+    S.stuck = gas > 0.5 && v < 3 ? S.stuck + dt : 0;
+    S.motor += (v - S.motor) * Math.min(1, dt * 6);
+    // the torque: the throttle's pull, the regen's push back lifting off (light) and braking (stronger)
+    const want = gas > 0 ? gas * (s.boost ? 1 : 0.7) : braking ? -0.6 : v > 1.5 ? -0.2 * Math.min(1, v / 12) : 0;
+    S.torque += (want - S.torque) * Math.min(1, dt / 0.25);
     S.load = Math.abs(S.torque);
     S.rpm = S.motor * 520;   // (as a 9:1 reduction on a 0.35 m wheel)
+    S.f = whineHz(S.motor);
     voice(on);
     return S;
   }
 
   function voice(on) {
-    const m = S.motor, k = S.load, regen = S.torque < 0 ? 1 : 0;
-    // the whine: its fundamental 50 Hz + 26 Hz per m/s (about 930 Hz at the top speed, 1500 on the boost)
-    const f = 50 + m * 26, rise = Math.min(1, m / 10), top = Math.min(1, m / 34);
-    for (const x of w) ramp(x.o.frequency, f * x.ord, 0.02);
-    const pull = 0.3 + 0.7 * k;
-    ramp(w[0].g.gain, on * rise * pull * (0.075 - 0.02 * top), 0.04);
-    ramp(w[1].g.gain, on * rise * pull * (regen ? 0.05 : 0.032), 0.04);
-    ramp(w[2].g.gain, on * rise * pull * 0.012 * (0.4 + 0.6 * top), 0.04);
-    ramp(wl.frequency, 3200 + 3600 * top, 0.1);
-    // the inverter: under torque, fading as it gathers speed
-    ramp(fbp.frequency, 7400 + 1600 * top, 0.1); ramp(fg.gain, on * 0.05 * k * Math.max(0.25, 1 - m / 30), 0.05);
-    // the hum
-    ramp(h1.frequency, 58 + 8 * k, 0.1); ramp(h2.frequency, 116 + 16 * k, 0.1); ramp(hg.gain, on * (0.022 + 0.014 * k), 0.08);
-    // the warning: 260 Hz at rest to 420 at 9 m/s; quiet at rest, fading out from 6 m/s
-    const av = Math.min(1, m / 9), aw = m < 0.3 ? 0.25 : Math.max(0, Math.min(1, (9 - m) / 3));
-    const af = 260 + 160 * av;
-    ramp(a1.frequency, af, 0.05); ramp(a2.frequency, af * 1.5, 0.05); ramp(a3.frequency, af / 2, 0.05);
-    ramp(lfo.frequency, S.rev ? 1.6 : 0.7, 0.1); ramp(lfg.gain, S.rev ? 0.6 : 0.15, 0.1);
-    ramp(ag.gain, on * aw * 0.04, 0.08);
+    const m = S.motor, k = S.load;
+    // the note glides with the speed (slowly: no step anywhere); the level comes up with the speed, a touch with torque
+    for (const x of w) ramp(x.o.frequency, S.f * x.ord, 0.2);
+    const r = Math.min(1, m / 7), rise = r * r * (3 - 2 * r), top = Math.min(1, m / 34);
+    ramp(wg.gain, on * WHINE * rise * (0.75 + 0.25 * top) * (0.8 + 0.25 * k), 0.25);
+    ramp(hg.gain, on * HUM * (0.85 + 0.3 * k), 0.25);
+    ramp(fg.gain, on * FIZZ * k * Math.max(0.3, 1 - m / 30), 0.25);
     ramp(level.gain, on, 0.05);
   }
 
@@ -103,9 +91,8 @@ export function driveCue(M, dest, mode, { moving = false, t = M.now() + 0.005 } 
       M.tone(out, { t: t + at, f0: fr, dur: 0.75, peak: pk, a: 0.006 });
       M.tone(out, { t: t + at, f0: fr * 2.01, dur: 0.22, peak: pk * 0.18, a: 0.003 });
     }
-    // and the motor's note sweeping up under it, quietly
-    M.tone(out, { t: t + 0.03, f0: 300, f1: 1500, dur: 0.42, peak: 0.035, a: 0.12 });
-    M.burst(out, { t: t + 0.03, dur: 0.35, type: 'bandpass', f0: 5000, f1: 9000, q: 3, peak: 0.015, a: 0.1 });
+    // and the inverter waking under it, a breath of its fizz (no sweep: nothing that revs)
+    M.burst(out, { t: t + 0.03, dur: 0.3, type: 'bandpass', f0: 7800, q: 4, peak: 0.012, a: 0.08 });
     if (M.live) setTimeout(() => { try { out.disconnect(); } catch {} }, 1600);
     return 1.1;
   }
