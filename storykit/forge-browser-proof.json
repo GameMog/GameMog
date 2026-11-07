@@ -1,85 +1,85 @@
 {
  "$comment": "npm run storykit:forge-browser-check (B6): every anchor forged in headless Chrome with this forge.js (key: sha256 of forge.js, the kit and the anchors' sheets); bytes under the store's 6291456 a person",
- "key": "ab1ed3f664d9047470283b3e146a9d3ea97ceb684a69aeeeebe018aa3f910879",
- "at": "2026-11-07T15:24:23.417Z",
+ "key": "3eb5c2322d30a74b9d2187ff05285d8b13691e2627a15b2f5490600ce97f7855",
+ "at": "2026-11-07T22:52:27.225Z",
  "chrome": "Chrome/156.0.0.0",
  "runs": [
   {
    "id": "old-boss",
-   "bytes": 2387280,
-   "ms": 9804,
-   "uncoveredCm2": 3
+   "bytes": 2389360,
+   "ms": 8168,
+   "uncoveredCm2": 5.1
   },
   {
    "id": "young-hero",
    "bytes": 3018040,
-   "ms": 18704,
+   "ms": 16157,
    "uncoveredCm2": 0
   },
   {
    "id": "grandmother",
-   "bytes": 2367192,
-   "ms": 12720,
-   "uncoveredCm2": 5
+   "bytes": 2374208,
+   "ms": 11325,
+   "uncoveredCm2": 2.2
   },
   {
    "id": "cop",
    "bytes": 2865272,
-   "ms": 13786,
+   "ms": 13087,
    "uncoveredCm2": 0.5
   },
   {
    "id": "teen",
    "bytes": 2483396,
-   "ms": 10183,
+   "ms": 10084,
    "uncoveredCm2": 0
   },
   {
    "id": "young-mother",
    "bytes": 2674084,
-   "ms": 17782,
+   "ms": 17814,
    "uncoveredCm2": 2.6
   },
   {
    "id": "office-worker",
    "bytes": 2410920,
-   "ms": 16324,
+   "ms": 16769,
    "uncoveredCm2": 0.2
   },
   {
    "id": "chef",
    "bytes": 2587560,
-   "ms": 20894,
+   "ms": 21004,
    "uncoveredCm2": 0.2
   },
   {
    "id": "club-promoter",
    "bytes": 2829832,
-   "ms": 17083,
+   "ms": 16559,
    "uncoveredCm2": 0.3
   },
   {
    "id": "nurse",
    "bytes": 2456164,
-   "ms": 7829,
+   "ms": 7435,
    "uncoveredCm2": 3.4
   },
   {
    "id": "mechanic",
    "bytes": 2791976,
-   "ms": 12550,
+   "ms": 11982,
    "uncoveredCm2": 0
   },
   {
    "id": "veteran",
    "bytes": 2965808,
-   "ms": 15623,
+   "ms": 12331,
    "uncoveredCm2": 1.4
   },
   {
    "id": "probe-bib",
    "bytes": 2805664,
-   "ms": 12617,
+   "ms": 9339,
    "uncoveredCm2": 3.2
   }
  ]

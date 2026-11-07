@@ -125,6 +125,8 @@ const triY = (idx, q, P) => (P[idx[q] * 3 + 1] + P[idx[q + 1] * 3 + 1] + P[idx[q
 // and a cut at the waist left the skin showing between the two)
 // (RZ: where nothing worn ends up over it, the skin is given back below: see 'the skin left showing')
 for (const [name] of CFG.wear) hideBy(name);
+// (Blackout Tow's Fern, 7 Nov: the skin the pack shoes' list alone takes out, for the given-back pass below)
+const wearHid = hidden.slice();
 if (CFG.shoes !== 'none') hideBy(CFG.shoes); // (forge v2.2: 'none' when the library's shoes are worn)
 const skinT = []; for (let t = 0; t < nT; t++) if (!hidden[t]) { const q = bodyG.start + t * 3; skinT.push(bIdx[q], bIdx[q + 1], bIdx[q + 2]); }
 // the eyes' middles (for the lashes: the lower ones off, as on the cast's other faces)
@@ -797,6 +799,7 @@ if (LIB) { const shoeParts = LIB.done.filter((d) => /^(sneakers|work-boots|dress
     wearT.forEach((T, wi) => { const part = CFG.wear[wi][1]; if (part === 'top') return; const low = [...new Set(T)].filter((v) => pPos[v * 3 + 1] < ank), cov = coveredBy(pPos, low, shoeParts, 0.03, 0.03);
       const keep = []; for (let q = 0; q < T.length; q += 3) { if (cov.has(T[q]) && cov.has(T[q + 1]) && cov.has(T[q + 2])) { cut++; continue; } keep.push(T[q], T[q + 1], T[q + 2]); } wearT[wi] = keep; });
     console.error('shoes (C5): trouser triangles inside the shoes dropped', cut); } }
+const shoeDropped = []; // (the dropped triangles' points: the skin under them, below)
 // FORGE v2: the shoes' tops inside a trouser leg dropped (a shoe point with trouser cloth outside it, round the ankle's
 // axis, and at least 8 mm above it): when the ankle bends in a walk they would come out through the hem (the gates'
 // cloth check found Sal's shoes through his trousers in every run and jog)
@@ -807,7 +810,7 @@ if (LIB) { const shoeParts = LIB.done.filter((d) => /^(sneakers|work-boots|dress
     const covered = (v) => { const p = [pPos[v * 3], pPos[v * 3 + 1], pPos[v * 3 + 2]], a = ax[p[0] >= 0 ? 'L' : 'R'], rv = Math.hypot(p[0] - a[0], p[2] - a[2]), c = p.map((x) => Math.floor(x / cell));
       for (let i = -1; i <= 1; i++) for (let j = 0; j <= 2; j++) for (let k = -1; k <= 1; k++) for (const q of G.get((c[0] + i) + ',' + (c[1] + j) + ',' + (c[2] + k)) || []) { if (q[1] < p[1] + 0.008) continue; const rq = Math.hypot(q[0] - a[0], q[2] - a[2]), da = Math.abs(Math.atan2(q[0] - a[0], q[2] - a[2]) - Math.atan2(p[0] - a[0], p[2] - a[2])); if (rq > rv + 0.001 && (da < 0.5 || da > 2 * Math.PI - 0.5)) return true; }
       return false; };
-    const cv = new Map(), keep = []; let n = 0; for (let q = 0; q < shoeT.length; q += 3) { const t = [shoeT[q], shoeT[q + 1], shoeT[q + 2]]; if (t.every((v) => (cv.has(v) ? cv.get(v) : cv.set(v, covered(v)).get(v)))) { n++; continue; } keep.push(...t); }
+    const cv = new Map(), keep = []; let n = 0; for (let q = 0; q < shoeT.length; q += 3) { const t = [shoeT[q], shoeT[q + 1], shoeT[q + 2]]; if (t.every((v) => (cv.has(v) ? cv.get(v) : cv.set(v, covered(v)).get(v)))) { n++; for (const v of t) shoeDropped.push(pPos[v * 3], pPos[v * 3 + 1], pPos[v * 3 + 2]); continue; } keep.push(...t); }
     shoeT.splice(0, shoeT.length, ...keep); console.error('shoes: triangles inside the trouser legs dropped', n); } }
 // (RZ: the pack's hide lists hide only skin that something worn covers. A garment's list is its whole cut (a suit's
 // long sleeves and legs, a sportsuit's top half), hidden even where only its top or bottom is worn or where its part
@@ -850,7 +853,18 @@ if (LIB) { const shoeParts = LIB.done.filter((d) => /^(sneakers|work-boots|dress
     for (const t of un) { const q = bodyG.start + t * 3, r = find(bIdx[q]); area.set(r, (area.get(r) || 0) + triA(q)); }
     const at = new Map(); for (const t of un) { const q = bodyG.start + t * 3, r = find(bIdx[q]), e = at.get(r) || [0, 0, 0, 0]; for (let k = 0; k < 3; k++) e[k] += bPos[bIdx[q] * 3 + k]; e[3]++; at.set(r, e); }
     const patches = [...area.entries()].filter(([, a]) => a > 0.01).map(([r, a]) => { const e = at.get(r); return `${(a * 1e4).toFixed(0)}cm2@${[0, 1, 2].map((k) => (e[k] / e[3]).toFixed(2)).join(',')}`; }); let back = 0;
-    for (const t of un) { const q = bodyG.start + t * 3; if (area.get(find(bIdx[q])) > 0.01) { hidden[t] = 0; back++; } }
+    // (Blackout Tow's Fern, 7 Nov: the skin the pack shoes' hide list alone took out comes back at any size where nothing
+    // worn is over it: the shoes' tops inside a trouser leg are dropped above (FORGE v2), and under a hem that stops short
+    // of the shoe (a loose leg, a thin ankle) the ankle the dropped collar hid was a hole seen from above and behind
+    // (24.8 cm2 at foot_R, the uncovered gate), under the 100 cm2 a patch needs here)
+    // (only there: in or beside a 1.5 cm cell holding a dropped shoe triangle's point; the rest of the foot stays under its shoe as before)
+    const DG = new Set(), dk = (x, y, z) => Math.floor(x / 0.015) + ',' + Math.floor(y / 0.015) + ',' + Math.floor(z / 0.015);
+    for (let i = 0; i < shoeDropped.length; i += 3) DG.add(dk(shoeDropped[i], shoeDropped[i + 1], shoeDropped[i + 2]));
+    const nearDrop = (q) => { for (let k = 0; k < 3; k++) { const v = bIdx[q + k], c = [bPos[v * 3], bPos[v * 3 + 1], bPos[v * 3 + 2]].map((x) => Math.floor(x / 0.015));
+      for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (let l = -1; l <= 1; l++) if (DG.has((c[0] + i) + ',' + (c[1] + j) + ',' + (c[2] + l))) return true; } return false; };
+    let shoeBack = 0;
+    for (const t of un) { const q = bodyG.start + t * 3; if (area.get(find(bIdx[q])) > 0.01) { hidden[t] = 0; back++; } else if (!wearHid[t] && DG.size && nearDrop(q)) { hidden[t] = 0; shoeBack++; } }
+    if (shoeBack) console.error('skin (RZ): hidden by the shoes alone with nothing worn over it, given back:', shoeBack, 'triangles');
     console.error('skin (RZ): hidden with nothing worn over it:', un.length, 'triangles;', back, 'given back in', patches.length, 'patches over 100 cm2', JSON.stringify(patches)); } }
 // (the skin left showing: the pack's hide lists and the library's)
 const skinOut = (() => { const o = []; for (let t = 0; t < nT; t++) if (!hidden[t] && !(LIB && LIB.hide.has(t))) { const q = bodyG.start + t * 3; o.push(bIdx[q], bIdx[q + 1], bIdx[q + 2]); } return o; })();
