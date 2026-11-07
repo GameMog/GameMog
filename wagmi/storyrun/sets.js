@@ -271,7 +271,7 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
         P.snapped = true; const mb = B.spine03 || B.spine02;
         if (mb) { mb.getWorldPosition(_b); sp.getWorldPosition(_a); const dx = _a.x - _b.x, dz = _a.z - _b.z, n = Math.hypot(dx, dz) || 1, mv = n - (P.hugGap ?? 0.2);
           // (and a little to one side, so the heads go cheek by cheek over a shoulder: P.hugSide, + their right)
-          const sd = P.hugSide ?? 1, lx = -dz / n, lz = dx / n;
+          const sd = P.hugSide ?? 0.5, lx = -dz / n, lz = dx / n;
           if (mv > 0) { P.x += (dx / n) * mv - lx * 0.12 * sd; P.z += (dz / n) * mv - lz * 0.12 * sd; P.fig.root.position.x = P.x; P.fig.root.position.z = P.z; if (P.blob) P.blob.position.set(P.x, 0.012, P.z); P.h = Math.atan2(dx, dz); P.fig.root.rotation.y = P.h; P.fig.heading = P.h; P.fig.root.updateMatrixWorld(true); } }
       }
       const u = Math.min(1, Math.max(0, ((S.clock || 0) - P.hugT0) / 0.55)), ease = u * u * (3 - 2 * u);
@@ -279,17 +279,22 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       // so the arms go round them, not into them; a child to a father on one knee the same, under his shoulders: the
       // neck-hug before put a forearm through his face from the side the child's head was on)
       const nk = ob.neck01 || ob.neck02, neck = !!nk && P.hugAt === 'neck';
+      // (someone standing who hugs someone down on one knee: round the shoulders, the forearms over them and the hands on
+      // the upper back either side of the neck's base, wider than the head, so from behind him they are seen holding on)
+      const over = !!nk && !neck && !!O.kneel && !P.kneel;
       let hw = 0.17; if (ob.upperarm01_L && ob.upperarm01_R) { ob.upperarm01_L.getWorldPosition(_a); ob.upperarm01_R.getWorldPosition(_b); hw = Math.min(0.24, Math.max(0.1, _a.distanceTo(_b) / 2)); }
-      (neck ? nk : sp).getWorldPosition(_a);
+      sp.getWorldPosition(_a); const small = _a.y - O.fig.root.position.y < 1.15 && !O.kneel; (neck || over ? nk : sp).getWorldPosition(_a); if (over) _a.y -= 0.07;
       // (round them from where we stand: our side of them, then behind)
       const dx = _a.x - P.fig.root.position.x, dz = _a.z - P.fig.root.position.z, n = Math.hypot(dx, dz) || 1;
       _f.set(dx / n, 0, dz / n); _r.set(_f.z, 0, -_f.x);
       const k = (P.hugK ?? 0.95) * ease, lift = P.hugUp ?? (neck ? 0.03 : 0.0);
-      const back = neck ? 0.1 : hw * 0.18, lat = neck ? 0.03 : hw * 0.6;
+      // (a grown man's spine bone sits in the middle of his chest, a child's near his back: the hands go to the back's
+      // surface either way)
+      const back = neck ? 0.1 : over ? 0.09 : small ? hw * 0.12 : hw * 0.62, lat = neck ? 0.03 : over ? Math.max(0.12, hw * 0.65) : hw * 0.6;
       for (const [side, s] of [['L', 1], ['R', -1]]) {
         const t = _b.copy(_a).addScaledVector(_f, back).addScaledVector(_r, s * lat); t.y += lift + (side === 'L' ? 0.035 : -0.045);
         // (the elbows out wide round their sides, a little below the hands)
-        const pole = V().copy(_a).addScaledVector(_f, -0.15).addScaledVector(_r, s * (hw + 0.55)); pole.y = t.y + (neck ? 0.1 : -0.25);
+        const pole = V().copy(_a).addScaledVector(_f, -0.15).addScaledVector(_r, s * (hw + 0.55)); pole.y = t.y + (neck || over ? 0.15 : -0.25);
         try { armTo(B, side, t.clone(), pole, k, MH_ARM); } catch {}
       }
     }
@@ -323,12 +328,15 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     const h = P.fig.heading ?? P.h ?? 0, fx = Math.sin(h), fz = Math.cos(h), lx = Math.cos(h), lz = -Math.sin(h);
     // (where the clip has the hands now: the clasp a little above that, in front of the body's middle)
     B.wrist_L.getWorldPosition(_c); B.wrist_R.getWorldPosition(_d);
-    const o = P.fig.root.position, y = (_c.y + _d.y) / 2 + 0.1 + 0.006 * Math.sin(t * 1.7 + (P.name.length || 0));
+    const o = P.fig.root.position, y = (_c.y + _d.y) / 2 + 0.05 + 0.006 * Math.sin(t * 1.7 + (P.name.length || 0));
     B.upperarm01_L.getWorldPosition(_a); B.upperarm01_R.getWorldPosition(_b); const sw = _a.distanceTo(_b) / 2;
     for (const [side, s] of [['L', 1], ['R', -1]]) {
-      const tg = V(o.x + fx * (0.17 + sw * 0.25) + lx * s * 0.035, y + (side === 'L' ? 0.012 : -0.012), o.z + fz * (0.17 + sw * 0.25) + lz * s * 0.035);
-      const pole = V(o.x + lx * s * (sw + 0.45) - fx * 0.25, y + 0.05, o.z + lz * s * (sw + 0.45) - fz * 0.25);
-      try { armTo(B, side, tg, pole, P.restW * 0.85, MH_ARM); } catch {}
+      // (low and close to the body, the elbows back by the sides: reached further out, the upper arms swung forward
+      // and the shoulders read rounded)
+      const fw = 0.1 + sw * 0.12;
+      const tg = V(o.x + fx * fw + lx * s * 0.045, y + (side === 'L' ? 0.012 : -0.012), o.z + fz * fw + lz * s * 0.045);
+      const pole = V(o.x + lx * s * (sw + 0.3) - fx * 0.45, y + 0.15, o.z + lz * s * (sw + 0.3) - fz * 0.45);
+      try { armTo(B, side, tg, pole, P.restW * 0.8, MH_ARM); } catch {}
     }
   }
   // a thing in a hand (made here, small): a phone lit with a call, Milo's dinosaur walkie-talkie

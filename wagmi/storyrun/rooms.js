@@ -515,7 +515,9 @@ function alley(K, def) {
   { const leaf = K.box(dw, dh - 0.02, 0.06, K.std({ color: '#3E4A4F', roughness: 0.45, metalness: 0.6 }), 0, 0, 0, { parent: K.grp(dx + dw / 2, 0, -3.15, -1.9) }); leaf.position.x = -dw / 2; }
   const SW = K.grp(dx, 0, -3.2);
   const green = K.std({ color: '#7E9A7E', roughness: 0.8 });
-  K.box(2.2, 3.4, 0.05, green, 0, 0, -2.4, { parent: SW }); K.box(0.05, 3.4, 2.4, green, -1.1, 0, -1.2, { parent: SW }); K.box(0.05, 3.4, 2.4, green, 1.1, 0, -1.2, { parent: SW });
+  K.box(2.2, 3.4, 0.05, green, 0, 0, -2.4, { parent: SW }); K.box(0.05, 3.4, 2.34, green, -1.1, 0, -1.23, { parent: SW }); K.box(0.05, 3.4, 2.34, green, 1.1, 0, -1.23, { parent: SW });
+  // (the stairwell's side walls start 6 cm behind the alley wall: flush with it, their 5 cm edges fought the brick and
+  // showed up the wall as two thin pale-green lines either side of the door)
   K.box(2.2, 0.02, 2.4, K.std({ color: '#5D5A55', roughness: 0.8 }), 0, 0.001, -1.2, { parent: SW });
   for (let i = 0; i < 8; i++) { K.box(1.0, 0.18, 0.28, K.std({ color: '#6E6A64', roughness: 0.8 }), 0.45, i * 0.18, -0.6 - i * 0.24, { parent: SW }); K.box(1.0, 0.02, 0.04, K.std({ color: '#B8A24A', roughness: 0.5 }), 0.45, i * 0.18 + 0.17, -0.48 - i * 0.24, { parent: SW, shadow: false }); }
   K.cyl(0.03, 0.03, 1.4, M.black, -0.05, 0.9, -1.4, { parent: SW, rx: 0.64 });

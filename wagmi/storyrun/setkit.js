@@ -620,7 +620,10 @@ export function kit(scene, { night = false, golden = false } = {}) {
     if (night) { fm.emissiveMap = fm.map; fm.emissive = new THREE.Color('#FFFFFF'); fm.emissiveIntensity = 0.35; }
     const body = K.box(w, h - 4, d, fm, 0, 4, 0, { parent: G, tile: [3, 3.3], shadow: false }); body.castShadow = true;
     const base = std({ color: style === 'glass' ? '#2E353C' : shade(tone || '#8C7C6A', 0.7), roughness: 0.6 });
-    K.box(w, 4, d, base, 0, 0, 0, { parent: G });
+    // (with shops, the ground floor stands DEP back under the floors over it: the shops' insides fill the space, their
+    // glass on the building's line)
+    const DEP = shop ? 0.9 : 0;
+    K.box(w, 4, d - DEP, base, 0, 0, -DEP / 2, { parent: G });
     K.box(w + 0.5, 0.45, d + 0.5, std({ color: night ? '#1A1814' : '#CFC6B4', roughness: 0.7 }), 0, h, 0, { parent: G });
     K.box(w + 0.2, 0.3, d + 0.2, std({ color: night ? '#12100E' : '#D8D0C0', roughness: 0.7 }), 0, 4, 0, { parent: G });
     if (shop) {
@@ -628,10 +631,24 @@ export function kit(scene, { night = false, golden = false } = {}) {
       // street's reflection across the glass), a door in one bay, a stall riser, a fascia board in its colour (no
       // name), a striped awning on its arms, a sill)
       const r = rng(seed + 9), n = Math.max(1, Math.floor(w / 6)), frameM = std({ color: night ? '#141414' : '#22262A', roughness: 0.4, metalness: 0.6 });
+      const pal = ['#B8432E', '#E0B44A', '#3E6E8E', '#7FA35A', '#E8E2D4', '#8C5A3A', '#5A4A7A', '#C97A4A', '#2E5E4A', '#D8C8A0'];
+      const GD = []; const goods = (cx, y, cz, len, dep, rr) => { let px = cx - len / 2; while (px < cx + len / 2 - 0.06) { const gw = 0.05 + rr() * 0.09, gh = 0.07 + rr() * 0.2, gd = 0.06 + rr() * Math.min(0.16, dep); if (rr() < 0.1) { px += gw; continue; } GD.push([px + gw / 2, y + gh / 2, cz + (rr() - 0.5) * (dep - gd), gw, gh, gd, pal[Math.floor(rr() * pal.length)], rr() < 0.3]); px += gw + 0.012; } };
+      // (the piers between the shops and at the ends, the depth of the insides)
+      const pw = (w / n) * 0.18;
+      for (let i = 0; i <= n; i++) { const px = -w / 2 + i * (w / n), wd = i === 0 || i === n ? pw / 2 : pw, cx = i === 0 ? px + wd / 2 : i === n ? px - wd / 2 : px; K.box(wd, 4, DEP, base, cx, 0, d / 2 - DEP / 2, { parent: G }); }
       for (let i = 0; i < n; i++) {
         const sx = -w / 2 + (i + 0.5) * (w / n), sw = (w / n) * 0.82, col = ['#2B5E3B', '#7A1F1F', '#1F3A5F', '#4A4A4A', '#8C5A1F', '#5A2E5A'][Math.floor(r() * 6)], z0 = d / 2;
-        const gm = std({ map: shopfront(seed * 13 + i, { night }), roughness: 0.06, metalness: 0.2, emissive: '#FFFFFF', emissiveMap: shopfront(seed * 13 + i, { night }), emissiveIntensity: night ? 1.0 : 0.22 });
-        K.box(sw, 2.6, 0.04, gm, sx, 0.62, z0 + 0.02, { parent: G, shadow: false });
+        // (inside: the back wall (the drawn interior, lit), the floor, the ceiling, shelves along the back and a low table
+        // by the glass, the goods on them as little boxes and tins (one instanced mesh for the block); the glass clear,
+        // catching the sky)
+        const zb = z0 - DEP, ins = shopfront(seed * 13 + i, { night });
+        K.plane(sw, 2.6, std({ map: ins, emissive: '#FFFFFF', emissiveMap: ins, emissiveIntensity: night ? 0.9 : 0.35, roughness: 0.9 }), sx, 0.62 + 1.3, zb + 0.005, { parent: G });
+        K.box(sw, 0.02, DEP, std({ color: shade(col, 0.45), roughness: 0.7 }), sx, 0.6, zb + DEP / 2, { parent: G, shadow: false });
+        K.box(sw, 0.8, DEP, std({ color: '#EDE7DA', roughness: 0.9, emissive: '#FFF2DA', emissiveIntensity: night ? 0.8 : 0.25 }), sx, 3.22, zb + DEP / 2, { parent: G, shadow: false });
+        const shelfM = std({ color: '#6B5440', roughness: 0.7 });
+        for (const y of [1.05, 1.5, 1.95, 2.4]) { K.box(sw - 0.16, 0.03, 0.3, shelfM, sx, y, zb + 0.16, { parent: G, shadow: false }); goods(sx, y + 0.03, zb + 0.16, sw - 0.24, 0.24, r); }
+        K.box(sw * 0.45, 0.06, 0.34, shelfM, sx + (r() - 0.5) * sw * 0.3, 1.05, z0 - 0.3, { parent: G, shadow: false }); goods(sx, 1.11, z0 - 0.3, sw * 0.4, 0.28, r);
+        { const gl = std({ color: night ? '#FFE8C8' : '#C8D8E6', roughness: 0.03, metalness: 0.15, transparent: true, opacity: night ? 0.08 : 0.16, depthWrite: false }); gl.envMapIntensity = 1.8; K.plane(sw, 2.6, gl, sx, 0.62 + 1.3, z0 + 0.02, { parent: G }); }
         K.box(sw + 0.3, 0.62, 0.2, std({ color: shade(col, 0.8), roughness: 0.5 }), sx, 0, z0 + 0.05, { parent: G });
         for (const f of [-0.5, 0, 0.5]) K.box(0.07, 2.6, 0.1, frameM, sx + f * sw, 0.62, z0 + 0.06, { parent: G, shadow: false });
         K.box(sw + 0.12, 0.07, 0.12, frameM, sx, 3.2, z0 + 0.06, { parent: G, shadow: false }); K.box(sw + 0.2, 0.06, 0.24, std({ color: '#B8B2A6', roughness: 0.6 }), sx, 0.6, z0 + 0.1, { parent: G });
@@ -640,6 +657,11 @@ export function kit(scene, { night = false, golden = false } = {}) {
         const at = awning(col).clone(); at.userData = {}; at.repeat.set(Math.round(sw / 0.5), 1); at.needsUpdate = true; const aw = std({ map: at, roughness: 0.85, side: THREE.DoubleSide });
         const a = K.box(sw + 0.3, 0.04, 1.4, aw, sx, 3.05, z0 + 0.8, { parent: G }); a.rotation.x = 0.3;
         for (const f of [-1, 1]) { const arm = K.cyl(0.015, 0.015, 1.45, frameM, sx + f * (sw / 2 + 0.1), 3.0, z0 + 0.72, { parent: G, rx: PI / 2 - 0.3 }); arm.position.y = 3.25; }
+      }
+      if (GD.length) {
+        const I = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), std({ roughness: 0.55, emissive: '#FFFFFF', emissiveIntensity: night ? 0.25 : 0.06 }), GD.length), o = new THREE.Object3D(), c = new THREE.Color();
+        GD.forEach(([x0, y0, z1, gw, gh, gd, col, tin], k) => { o.position.set(x0, y0, z1); o.scale.set(gw, gh, gd); o.updateMatrix(); I.setMatrixAt(k, o.matrix); I.setColorAt(k, c.set(col).multiplyScalar(tin ? 1.1 : 0.85 + Math.random() * 0.2)); });
+        I.instanceMatrix.needsUpdate = true; if (I.instanceColor) I.instanceColor.needsUpdate = true; I.castShadow = false; I.receiveShadow = true; G.add(I);
       }
     }
     if (tank) { const tm = std({ color: night ? '#141210' : '#6E5644', roughness: 0.9 }); K.cyl(1.4, 1.4, 2.6, tm, w * 0.2, h + 2.4, -d * 0.1, { parent: G, seg: 16 }); K.cyl(0.2, 1.55, 1.0, tm, w * 0.2, h + 5.0, -d * 0.1, { parent: G, seg: 16 }); for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) K.box(0.12, 2.4, 0.12, M.black, w * 0.2 + a * 1.0, h + 0.4, -d * 0.1 + b * 1.0, { parent: G }); }
