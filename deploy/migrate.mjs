@@ -1519,6 +1519,16 @@ export const MIGRATIONS = [
       return `by GameMog: ${done.join(', ') || 'none (renamed already or not here)'}`;
     },
   },
+  {
+    // 7 Nov: Blackout Tow, the live test's Create, was published after 2026-11-07-live-test-by-gamemog had run; every
+    // world still under the test's creator name reads "By GameMog" too (the owner: "change it to By GameMog")
+    id: '2026-11-07-live-test-by-gamemog-2',
+    run(db) {
+      if (!columns(db, 'games').has('creator')) return 'no creator column yet';
+      const n = db.prepare("UPDATE games SET creator = 'GameMog' WHERE creator = 'Nov7 Live Test'").run().changes;
+      return `by GameMog: ${n} more`;
+    },
+  },
 ];
 
 /** A table's columns (the app adds some at its first start, lib/db.ts: a fresh disk's database may lack them). */
