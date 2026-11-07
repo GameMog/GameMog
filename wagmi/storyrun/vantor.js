@@ -69,7 +69,16 @@ export async function buildVantor(THREE, o = {}) {
   // (m.userData.mat); the model's own materials (most of them mirror-smooth, the glTF default metal) are left only inside the cabin.
   const P = (p) => new THREE.MeshPhysicalNodeMaterial(p), S = (p) => new THREE.MeshStandardNodeMaterial(p), DS = THREE.DoubleSide;
   const gloss = o.finish === 'gloss';
-  const paint = gloss ? M.paint : P({ color: o.paint ?? '#020203', metalness: 0, roughness: 0.6, specularIntensity: 0.15, clearcoat: 0.06, clearcoatRoughness: 0.35, sheen: 0.1, sheenColor: '#12151A', sheenRoughness: 0.45, side: DS });
+  // (The owner, 7 Nov: "even more matte". Rougher, no clear coat, the sheen a touch broader, and the sky's reflection on it
+  // at PAINT_ENV of the scene's: three's node materials take a material's envMapIntensity only with its own envMap, so
+  // the scene's environment is lent to it as each of its meshes is drawn, city or set alike.)
+  const paint = gloss ? M.paint : P({ color: o.paint ?? '#020203', metalness: 0, roughness: 0.72, specularIntensity: 0.15, clearcoat: 0, sheen: 0.12, sheenColor: '#12151A', sheenRoughness: 0.5, side: DS });
+  const PAINT_ENV = 0.4;
+  const lendEnv = gloss ? null : (r, scene) => {
+    const env = scene?.environment; if (!env) return;   // (a pass with no environment of its own, a shadow's: left as it is)
+    if (paint.envMap !== env) { paint.envMap = env; paint.needsUpdate = true; }
+    paint.envMapIntensity = (scene.environmentIntensity ?? 1) * PAINT_ENV;
+  };
   let carbonTex = null; src.traverse((m) => { if (!carbonTex && m.isMesh && /carbon_roof/.test(m.material?.name || '')) carbonTex = m.material.map || null; });
   const X = {
     paint,
@@ -124,7 +133,7 @@ export async function buildVantor(THREE, o = {}) {
     if (to === null) {
       if (/glass_int/.test(mt)) m.visible = false;   // (the windows' inner pane: one pane of smoked glass, no second layer sorting against it)
       else if (/metal_radiator/.test(mt)) { const map = m.material.map; m.material = X.grille.clone(); m.material.map = map; m.material.alphaMap = null; }
-    } else if (to) m.material = to;
+    } else if (to) { m.material = to; if (to === paint && lendEnv) m.onBeforeRender = lendEnv; }
   });
 
   /* ------------------------------------------------------ the crest's well -- */
