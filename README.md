@@ -75,4 +75,8 @@ Start with [CONTRIBUTING.md](CONTRIBUTING.md): how to run it, the URL switches, 
 - `index.html` loads the title screen, the city (`js/`, from Slop New York) and the game (`wagmi/`: missions, the car-phone calls, combat, the car, audio, radio, characters, the visit counts).
 - `docs/STORY.md` is the story and the cast (their looks and voices); `docs/MISSIONS.md` is the same story plus how a mission is built; `docs/VOICE-LINES.md` is the line sheet and how voices are made.
 - `tests/` holds the city's tests (`node --test tests/*.test.*`).
+- `wagmi/storyrun/` is the story runner. With `?pack=`, Mog City plays a Story Kit world from GameMog on its own engine,
+  HUD and cars. That is how [Pickup Time](https://gamemog.com/g/pickup-time), GameMog's first showcase story world,
+  plays: 15 missions from Wall St to Harlem in John Marin's Vantor GT. [`tools/storyrun/README.md`](tools/storyrun/README.md)
+  is its reference: every step kind, the URL switches, the messages to the host, the staged sets and the test tools.
 - Every character, company and event in Mog City is fictional (JPBank, Blimpco and OCCUPY JPBANK included); the streets and parks are Manhattan's own. Nobody in the game is based on a real person.
