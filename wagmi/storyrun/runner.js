@@ -912,7 +912,11 @@ export function createRunner(ctx) {
   STEPS.pursuit = async (d, t, ride) => {
     const pu = W.pursuit; if (!pu?.start) { console.warn('[storyrun] no pursuit on this page'); return; }
     if (!inCar()) { /* (the chase needs the car: the GPS sends him back to it) */ }
-    const chase = pu.start({ heat: d.level || 2, kind: d.kind === 'police' ? 'police' : 'suits', count: value(d.count, M.state, ctx.save.done) || undefined, lose: d.goal !== 'escort', ...(d.loseTime ? { escape: d.loseTime } : {}) });
+    // (in a ride with no boost, a van or a truck (ride.js noBoost: 25.9 m/s flat out), the crew's cars are held to nine
+    // tenths of its top speed instead of the heat's own (30 m/s at heat 2, made to chase the GT): at real pace the slice
+    // van in PT-11 was run down and pinned by three faster cars; they still close in on a ram and on any mistake)
+    const h0 = d.level || 2, vcap = car.noBoost ? Math.min(pu.RULE?.vmax ? pu.RULE.vmax(h0) : 24 + 3 * h0, (car.topSpeed || 26) * 0.9) : null;
+    const chase = pu.start({ heat: h0, kind: d.kind === 'police' ? 'police' : 'suits', count: value(d.count, M.state, ctx.save.done) || undefined, lose: d.goal !== 'escort', ...(d.loseTime ? { escape: d.loseTime } : {}), ...(vcap ? { vmax: vcap } : {}) });
     let lost = false, caught = false;
     chase?.on?.('lost', () => { lost = true; juice.alert('Lost them', { tone: 'green', sting: 'down', secs: 1.8 }); }); chase?.on?.('caught', () => { caught = true; });
     // (the chase's alarm: who is on him, and the camera jolted)
