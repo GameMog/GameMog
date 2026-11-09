@@ -130,7 +130,7 @@ export function install(W) {
   const nav = { dir: null, t: 0 };
   function dirOf(s, L) {
     if (s.held[BTN.Up]) return 'Up'; if (s.held[BTN.Down]) return 'Down'; if (s.held[BTN.Left]) return 'Left'; if (s.held[BTN.Right]) return 'Right';
-    if (Math.max(Math.abs(L.x), Math.abs(L.y)) < 0.5) return null;
+    if (Math.max(Math.abs(L.x), Math.abs(L.y)) < 0.25) return null; // (the stick's curved value: about 60% of the way)
     return Math.abs(L.y) >= Math.abs(L.x) ? (L.y < 0 ? 'Up' : 'Down') : (L.x < 0 ? 'Left' : 'Right');
   }
   function navStep(s, L, repeat) {
@@ -156,7 +156,7 @@ export function install(W) {
     read(s) {
       const L = s.stick(0), R = s.stick(2), E = s.edges;
       fam(s.pad.id);
-      if (E.some(Boolean) || Math.hypot(L.x, L.y) > 0.35 || Math.hypot(R.x, R.y) > 0.35 || s.value(BTN.LT) > 0.3 || s.value(BTN.RT) > 0.3) usePad();
+      if (E.some(Boolean) || Math.hypot(L.x, L.y) > 0.12 || Math.hypot(R.x, R.y) > 0.12 || s.value(BTN.LT) > 0.3 || s.value(BTN.RT) > 0.3) usePad();
       // (a button let go lets go of its key)
       for (const [i] of down) if (!s.held[i]) letGo(i);
       const at = where();
