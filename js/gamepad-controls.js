@@ -6,7 +6,10 @@
 // frame loop (so the pad still works while the pause menu holds the city's) and reads it through its own map instead
 // of the sandbox's below: no travel-mode swap on the shoulders, no camera cycle on Y, no map on Start)
 const { isTypingInField } = window.NYC;
-const DEAD_ZONE = 0.15;
+// (Mog City, owner 8 Nov: "too sensitive ... all over the place" on a GameSir pad) a wider round dead zone for a stick
+// that rests a little off centre, and a curve past it (strength^CURVE): a light tilt moves a little, full tilt as before
+const DEAD_ZONE = 0.2;
+const CURVE = 2;
 const BUTTON_COUNT = 17;
 
 function axis(value) {
@@ -16,7 +19,7 @@ function axis(value) {
 function stick(pad, offset) {
   const x = axis(pad.axes?.[offset]), y = axis(pad.axes?.[offset + 1]);
   const distance = Math.hypot(x, y);
-  const strength = Math.max(0, (Math.min(distance, 1) - DEAD_ZONE) / (1 - DEAD_ZONE));
+  const strength = Math.max(0, (Math.min(distance, 1) - DEAD_ZONE) / (1 - DEAD_ZONE)) ** CURVE;
   return distance ? { x: x / distance * strength, y: y / distance * strength } : { x: 0, y: 0 };
 }
 
