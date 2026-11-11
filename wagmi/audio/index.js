@@ -82,7 +82,7 @@ export function install(W) {
       if (!M) return null;
       const vs = traffic.voices || {};
       const who = (list) => (list || []).map((x) => (x.v ? { w: +x.w.toFixed(2), d: +Math.hypot((x.v.edge ? x.v.x : x.x) - M.listener.x, (x.v.edge ? x.v.z : x.z) - M.listener.z).toFixed(1), mode: x.L?.mode, kind: x.kind, highway: !x.v.edge, engine: !!x.mv } : null));
-      return { state: M.ctx.state, paused, where: city.where, cars: who(vs.cars), sirens: who(vs.sirens), blocks: city.engines, car: car.built, engine: car.engine, babble: !!M.babble, motors: M.motors.bake, crunchMs: M.crunchMs, played: { ...E.count }, horns: { ...traffic.horns }, msPerFrame: cost.n ? +(cost.ms / cost.n).toFixed(3) : 0, latency: +(M.ctx.baseLatency || 0).toFixed(4) };
+      return { state: M.ctx.state, paused, where: city.where, cars: who(vs.cars), sirens: who(vs.sirens), blocks: city.engines, car: car.built, engine: car.engine, babble: !!M.babble, motors: M.motors.bake, crunchMs: M.crunchMs, played: { ...E.count }, horns: { ...traffic.horns }, msPerFrame: cost.n ? +(cost.ms / cost.n).toFixed(3) : 0, latency: +(M.ctx.baseLatency || 0).toFixed(4), hooves: hooves ? { ...hooves.count } : null };
     },
   });
 
@@ -152,6 +152,11 @@ export function install(W) {
   let last = performance.now(), inside = -1;
   const cost = { ms: 0, n: 0 };
   const cam = { x: 0, z: 0, init: false };
+  // (the ride a horse, wagmi/horse: no engine and no cabin; its hoofbeats and its tack from the library's sound packs,
+  // fetched now so the first beat is heard. Never imported for a car)
+  const horse = W.car?.kind === 'horse';
+  let hooves = null;
+  if (horse) import('../horse/hooves.js').then((m) => { hooves = m.createHooves(W); if (ensure()) import('../library/sounds.js').then((s) => s.preload(M, m.PACKS)); }).catch((err) => console.warn('[audio] hooves', err));
   function tick(now) {
     requestAnimationFrame(tick);
     const dt = Math.min(0.1, Math.max(0, (now - last) / 1000)); last = now;
@@ -170,18 +175,25 @@ export function install(W) {
       cam.x = L.x; cam.z = L.z;
       placeT -= dt; if (placeT <= 0) { place(); placeT = 0.25; }
       const P = W.person, c = W.car, inCar = cm.activeMode === 'car';
-      if (+inCar !== inside) { M.inside(+inCar); inside = +inCar; }
+      // (in a cabin: the street muffled; not on a horse)
+      const cabin = inCar && !horse;
+      if (+cabin !== inside) { M.inside(+cabin); inside = +cabin; }
       city.update(dt, where);
       const tr = app.trafficSystem, pe = inCar ? c : P;
       traffic.update(dt, tr?.cars || [], tr?.buses || [], {
         active: !W.cutscene, x: pe.position.x, z: pe.position.z, inCar, speed: Math.abs(pe.speed || 0),
         onSidewalk: inCar && !!cm.isPointOnSidewalk?.(c.position.x, c.position.z), self: c, highway: app.highwayTraffic,
       });
-      car.update(dt, carState(dt, inCar));
+      car.update(dt, carState(dt, cabin));
       // his feet (the bones' heights over where he stands)
       const B = W.dan?.bones, onFoot = cm.activeMode === 'person' && P.mesh.visible;
       const fy = (b) => (b ? b.matrixWorld.elements[13] - P.position.y : null);
       steps.update(dt, { on: onFoot && !!B, feet: [fy(B?.foot_L), fy(B?.foot_R)], speed: W.directed ? 1.5 : Math.abs(P.speed || 0) || (W.dan?.loco?.speed ?? 0), surface, inAir: Math.abs(P.verticalVel || 0) > 0.5 });
+      // the horse's hooves (their heights over its ground), ridden or not
+      if (hooves && c.roadster?.hooves && c.mesh.visible !== false) {
+        const S = W.horse?.drive?.S;
+        hooves.update(dt, { on: true, hooves: c.roadster.hooves(), base: c.position.y - (S?.jumpY || 0), speed: c.speed || 0, gait: c.roadster.gait, surface: parkAt(c.position.x, c.position.z) ? 'grass' : 'hard', air: !!S?.air, at: c.position });
+      }
       E.update();
     } catch (err) { if (!tick.warned) { tick.warned = true; console.warn('[audio] frame:', err); } }
     cost.ms += performance.now() - t0; cost.n++;
