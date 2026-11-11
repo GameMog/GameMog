@@ -17,7 +17,8 @@
   "Cal": {
    "color": "#FFFFFF",
    "role": "Cal Mercer, an ex-park ranger looking for his family",
-   "model": "mogcity/dan"
+   "model": "mogcity/dan",
+   "wear": "rider"
   },
   "Nina": {
    "color": "#6CB8FF",

@@ -20,6 +20,7 @@ import { createAudio } from '../mission/audio.js';
 import { createGPS } from '../mission/gps.js';
 import { createMarker } from '../mission/marker.js';
 import { createFace } from '../face.js';
+import { wear } from './wear.js';
 import { outBesideCar } from '../intro.js';
 import { createPlaces } from './places.js';
 import { createCast } from './cast.js';
@@ -53,6 +54,8 @@ export async function install(W) {
   showTitle(def, document.querySelector('#wg .wg-gtitle'), isOwn(world));
   const heroName = world.heroName || 'Dan';
   if (W.dan && !W.dan.face) W.dan.face = createFace(W, { speaker: heroName, inner: W.dan.body, bones: W.dan.bones, hair: true, open: 0.42 });
+  // (the hero dressed for the world: its cast entry's wear, wear.js; Dan's own body only)
+  { const h = world.castOf(heroName); if (h?.wear && !h.glb) wear(W, h.wear); }
   W.gps = W.gps || createGPS(W);
   const places = createPlaces(W, def), cast = createCast(W, world), hud = createHud(ui);
   // the caller card: a forged caller's own headshot in its tile (the world's art 'head-<id>'), else Mog City's initial
