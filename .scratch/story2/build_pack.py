@@ -400,7 +400,7 @@ M6 = {
               "say": ["June", "Dad! Three Saints, coming down Clay St!"]},
              {"foes": [{"id": "creature-centaur", "count": 2, "name": "Hybrid"}, {"id": "creature-knight", "count": 1, "name": "Iron Saint"}],
               "from": "@wavesouth", "pause": 7, "say": ["June", "Two hybrids from Steuart St! By the piers!"], "alert": "From Steuart St"},
-             {"boss": {"id": "creature-knight", "name": "Deacon Vale", "height": 2.3, "phases": [0.5], "stats": {"hp": 260}},
+             {"boss": {"id": "creature-knight", "name": "Deacon Vale", "height": 2.3, "look": "deacon", "phases": [0.5], "stats": {"hp": 260}},
               "foes": [{"id": "creature-ogre", "count": 2, "name": "Brute"}],
               "from": "@wavewest", "pause": 8, "say": ["June", "It's him! Big armour, by the Ferry Building!"], "alert": "Deacon Vale",
               "wake": ["Vale", "Rider. You owe me a city."]},

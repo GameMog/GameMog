@@ -2984,6 +2984,7 @@
         "id": "creature-knight",
         "name": "Deacon Vale",
         "height": 2.3,
+        "look": "deacon",
         "phases": [
          0.5
         ],
