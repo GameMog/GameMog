@@ -40,14 +40,29 @@
    "color": "#9FE3C4",
    "role": "a voice on the emergency band",
    "voiceOnly": true
+  },
+  "Vale": {
+   "color": "#C9C2B4",
+   "role": "Deacon Vale, who leads the Iron Saints",
+   "voiceOnly": true
+  },
+  "Pike": {
+   "color": "#A3D977",
+   "role": "a young Iron Saint",
+   "voiceOnly": true
+  },
+  "Warden": {
+   "color": "#FF6A5C",
+   "role": "WARDEN-7, the Preserve's security unit",
+   "voiceOnly": true
   }
  },
  "hero": "Cal",
  "places": {
   "camp": {
    "at": [
-    611,
-    -667,
+    578,
+    -668,
     -90
    ],
    "name": "the Embarcadero camp"
@@ -175,6 +190,78 @@
     0
    ],
    "name": "the front steps"
+  },
+  "marketmain": {
+   "at": [
+    490,
+    -486,
+    -135
+   ],
+   "name": "Market & Main"
+  },
+  "broodnest": {
+   "at": [
+    -2263,
+    2254,
+    -135
+   ],
+   "name": "the pharmacy's corner"
+  },
+  "corral": {
+   "at": [
+    -1222,
+    1003,
+    90
+   ],
+   "name": "the corral on Fulton St"
+  },
+  "vanness": {
+   "at": [
+    -1514,
+    1507,
+    -135
+   ],
+   "name": "Market & Van Ness"
+  },
+  "parkfoot": {
+   "at": [
+    -2091,
+    -239,
+    -90
+   ],
+   "name": "Sacramento & Gough"
+  },
+  "fleeend": {
+   "at": [
+    -1946,
+    -262,
+    90
+   ],
+   "name": "Sacramento & Franklin"
+  },
+  "wavenorth": {
+   "at": [
+    590,
+    -760,
+    180
+   ],
+   "name": "the Embarcadero, north"
+  },
+  "wavesouth": {
+   "at": [
+    700,
+    -600,
+    -90
+   ],
+   "name": "the piers, south"
+  },
+  "wavewest": {
+   "at": [
+    571,
+    -559,
+    -45
+   ],
+   "name": "Market & Spear"
   }
  },
  "opening": {
@@ -362,13 +449,50 @@
  "acts": [
   {
    "id": "act1",
-   "name": "SF 2040",
+   "name": "ACT I · THE CALL",
    "order": [
     "M1",
-    "M2",
+    "M2"
+   ],
+   "end": {
+    "title": "END OF ACT I",
+    "heading": "The Call",
+    "quote": {
+     "text": "Alive. Both of them.",
+     "by": "Cal Mercer"
+    },
+    "next": {
+     "kicker": "ACT II",
+     "text": "The Shepherd"
+    }
+   }
+  },
+  {
+   "id": "act2",
+   "name": "ACT II · THE SHEPHERD",
+   "order": [
     "M3",
-    "M4",
-    "M5"
+    "M4"
+   ],
+   "end": {
+    "title": "END OF ACT II",
+    "heading": "The Shepherd",
+    "quote": {
+     "text": "I opened every gate.",
+     "by": "Hollis"
+    },
+    "next": {
+     "kicker": "ACT III",
+     "text": "Home"
+    }
+   }
+  },
+  {
+   "id": "act3",
+   "name": "ACT III · HOME",
+   "order": [
+    "M5",
+    "M6"
    ],
    "end": {
     "title": "THE END",
@@ -385,7 +509,10 @@
    "id": "M1",
    "title": "Market Street",
    "vehicle": "horse",
-   "start": "@camp",
+   "start": {
+    "@": "camp",
+    "mode": "walk"
+   },
    "stakes": "Forty families. Two days of food left on Market St, if the Iron Saints haven't found it.",
    "passLine": "The camp eats tonight.",
    "steps": [
@@ -407,9 +534,40 @@
     },
     {
      "type": "say",
+     "who": "Hollis",
+     "text": "And take the bat. The Saints don't ask twice.",
+     "secs": 2.6
+    },
+    {
+     "type": "mount",
+     "id": "saddle",
+     "arm": "bat",
+     "objective": "Mount **Ranger**."
+    },
+    {
+     "type": "say",
      "who": "Cal",
      "text": "Come on, Ranger.",
      "secs": 1.6
+    },
+    {
+     "type": "drive",
+     "id": "tutorial",
+     "to": "@marketmain",
+     "radius": 22,
+     "card": false,
+     "checkpoint": true,
+     "objective": "Ride up **Market St**.",
+     "help": [
+      [
+       0.3,
+       "[W] trots. Hold [Shift] to gallop, and [Q] slows him to a walk."
+      ],
+      [
+       8,
+       "[Space] jumps Ranger over what's in the way. The yellow line is the way."
+      ]
+     ]
     },
     {
      "type": "collect",
@@ -447,6 +605,12 @@
      "need": 5,
      "checkpoint": true,
      "objective": "Scavenge **food** along Market St.",
+     "help": [
+      [
+       1,
+       "Ride over a crate to take it. You don't need to get down."
+      ]
+     ],
      "barks": {
       "1": [
        "Cal",
@@ -456,7 +620,35 @@
        "Cal",
        "Halfway there."
       ]
-     }
+     },
+     "during": [
+      {
+       "type": "call",
+       "at": 14,
+       "who": "Hollis",
+       "auto": true,
+       "inCar": true,
+       "role": "Radio · the camp",
+       "lines": [
+        [
+         "Hollis",
+         "Cal, you hear me? Keep off the side streets. Hybrids nest in the old garages."
+        ],
+        [
+         "Cal",
+         "Copy."
+        ],
+        [
+         "Hollis",
+         "And Cal. If Nina's out there, she's smart. She'll leave word."
+        ],
+        [
+         "Cal",
+         "She always does."
+        ]
+       ]
+      }
+     ]
     },
     {
      "type": "say",
@@ -478,6 +670,16 @@
      ],
      "objective": "Fight off the **Iron Saints**.",
      "counter": "SAINTS",
+     "help": [
+      [
+       0.5,
+       "In the saddle, [J] swings the bat at whoever is beside you. [K] and Ranger kicks out behind."
+      ],
+      [
+       9,
+       "Or get down with [F] and fight on foot: [J] hits, [Q] counters."
+      ]
+     ],
      "barks": {
       "1": [
        "Cal",
@@ -490,13 +692,83 @@
      }
     },
     {
+     "type": "say",
+     "who": "Pike",
+     "text": "Don't! Please. They make us wear it.",
+     "secs": 2.6
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "Then take it off and go home, kid.",
+     "secs": 2.4
+    },
+    {
+     "type": "say",
+     "who": "Pike",
+     "text": "It's Pike. My name's Pike. I won't forget this.",
+     "secs": 2.8
+    },
+    {
+     "type": "call",
+     "who": "Vale",
+     "auto": true,
+     "role": "Open band",
+     "lines": [
+      [
+       "Vale",
+       "Rider on Market. That's Saint property on your saddle."
+      ],
+      [
+       "Cal",
+       "It's food. For kids."
+      ],
+      [
+       "Vale",
+       "Everything in this city belongs to someone now. Tithe night is Sunday. Tell your camp."
+      ]
+     ]
+    },
+    {
      "type": "drive",
      "id": "home",
      "to": "@campgate",
      "radius": 18,
      "card": false,
+     "checkpoint": true,
      "objective": "Ride the food back to **the Embarcadero camp**.",
-     "checkpoint": true
+     "during": [
+      {
+       "type": "call",
+       "at": 5,
+       "who": "Hollis",
+       "auto": true,
+       "inCar": true,
+       "role": "Radio · the camp",
+       "lines": [
+        [
+         "Hollis",
+         "That was Deacon Vale. He runs the Saints out of the old Preserve trucks."
+        ],
+        [
+         "Cal",
+         "What's tithe night?"
+        ],
+        [
+         "Hollis",
+         "The night they come for what you owe. Camps that don't pay get visitors. The big kind."
+        ],
+        [
+         "Cal",
+         "Animals don't take orders, Hollis."
+        ],
+        [
+         "Hollis",
+         "Just get home, Cal."
+        ]
+       ]
+      }
+     ]
     },
     {
      "type": "dismount",
@@ -514,6 +786,7 @@
     },
     {
      "type": "cutscene",
+     "id": "m1camp",
      "shots": [
       {
        "cam": {
@@ -527,7 +800,7 @@
         "up": -0.05
        },
        "dur": 3,
-       "fov": 34,
+       "fov": 33,
        "sub": [
         "Hollis",
         "Five crates. The kids are already fighting over the peaches."
@@ -538,7 +811,7 @@
         "rel": "player",
         "fwd": 2.0,
         "right": -0.6,
-        "up": 0.1
+        "up": 0.05
        },
        "look": {
         "rel": "player",
@@ -554,7 +827,7 @@
       {
        "cam": {
         "rel": "Hollis",
-        "fwd": 2.1,
+        "fwd": 2.0,
         "right": -0.5,
         "up": 0.0
        },
@@ -562,11 +835,29 @@
         "rel": "Hollis",
         "up": -0.05
        },
-       "dur": 3.4,
-       "fov": 34,
+       "dur": 3.6,
+       "fov": 33,
        "sub": [
         "Hollis",
         "Then bring her medicine too. And watch Octavia. Something big nests under the ramps."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 2.8,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "Water first. Then we ride. Right, Ranger?"
        ]
       }
      ]
@@ -575,19 +866,84 @@
   },
   {
    "id": "M2",
-   "title": "Market & Church",
+   "title": "Quiet Hooves",
    "vehicle": "horse",
    "start": "@campgate",
-   "stakes": "Nina's last call came from the pharmacy at Market & Church. Medicine is still on its shelves.",
+   "stakes": "Nina's last call came from the pharmacy at Market & Church. Something sleeps on the street in front of it.",
    "passLine": "Medicine for the camp. And Nina's handwriting.",
+   "between": {
+    "radio": [
+     [
+      "Hollis",
+      "Octavia's west, up Market. Slow out there, Cal. Slow is alive."
+     ]
+    ]
+   },
    "steps": [
+    {
+     "type": "herd",
+     "id": "wild",
+     "creature": "creature-horse",
+     "at": [
+      -1530,
+      1480
+     ],
+     "count": 3,
+     "radius": 10
+    },
     {
      "type": "drive",
      "id": "toOctavia",
      "to": "@octavia",
      "radius": 30,
+     "checkpoint": true,
      "objective": "Ride up Market toward **Octavia**.",
-     "checkpoint": true
+     "trigger": {
+      "area": {
+       "@": "vanness",
+       "r": 70
+      },
+      "say": [
+       "Cal",
+       "Wild ones. Easy, Ranger. They're not ours."
+      ]
+     },
+     "during": [
+      {
+       "type": "call",
+       "at": 8,
+       "who": "Hollis",
+       "auto": true,
+       "inCar": true,
+       "role": "Radio · the camp",
+       "lines": [
+        [
+         "Hollis",
+         "Cal. The pharmacy's a block past the Octavia ramps. Something's been nesting there since the impact."
+        ],
+        [
+         "Cal",
+         "Something."
+        ],
+        [
+         "Hollis",
+         "Scorpions, big as dogs. And their mother. Bigger."
+        ],
+        [
+         "Cal",
+         "They sleep?"
+        ],
+        [
+         "Hollis",
+         "At dusk, like the dead. But don't run him in there. A trot sounds like a drum to them."
+        ]
+       ]
+      }
+     ]
+    },
+    {
+     "type": "herd",
+     "remove": "wild"
     },
     {
      "type": "say",
@@ -596,45 +952,65 @@
      "secs": 2.4
     },
     {
-     "type": "fight",
-     "id": "brood",
-     "arena": "@octavia",
+     "type": "sneak",
+     "id": "nest",
+     "to": "@pharmacy",
+     "radius": 12,
      "checkpoint": true,
-     "foes": [
+     "objective": "Walk **Ranger** past the nest to **the pharmacy**.",
+     "sleepers": [
       {
        "id": "creature-scorpion",
-       "count": 2,
+       "at": [
+        -2059,
+        2056
+       ],
        "height": 0.9,
-       "name": "Brood"
+       "name": "Brood",
+       "yaw": 40
+      },
+      {
+       "id": "creature-scorpion",
+       "at": [
+        -2165,
+        2137
+       ],
+       "height": 0.9,
+       "name": "Brood",
+       "yaw": 200
+      },
+      {
+       "id": "creature-scorpion",
+       "at": [
+        -2260,
+        2257
+       ],
+       "height": 2.4,
+       "name": "The Brood Mother",
+       "ears": 1.3,
+       "yaw": 135
+      },
+      {
+       "id": "creature-scorpion",
+       "at": [
+        -2328,
+        2302
+       ],
+       "height": 0.9,
+       "name": "Brood",
+       "yaw": 300
       }
      ],
-     "boss": {
-      "id": "creature-scorpion",
-      "name": "The Brood Mother",
-      "height": 2.4,
-      "phases": [
-       0.5
-      ],
-      "hold": {
-       "wake": 16,
-       "leash": 36
-      }
-     },
-     "objective": "Kill **The Brood Mother** and her brood.",
-     "counter": "BROOD",
-     "wake": [
+     "warn": [
       "Cal",
-      "There she is."
-     ]
+      "Shh. Shh. Easy, boy."
+     ],
+     "why": "The brood woke. They heard Ranger coming."
     },
     {
-     "type": "drive",
-     "id": "toPharmacy",
-     "to": "@pharmacy",
-     "radius": 20,
-     "card": false,
-     "objective": "Ride to **the pharmacy at Market & Church**.",
-     "checkpoint": true
+     "type": "dismount",
+     "id": "m2off",
+     "objective": "Get down. **Quietly**."
     },
     {
      "type": "collect",
@@ -658,21 +1034,22 @@
        2345
       ]
      ],
-     "objective": "Search the pharmacy for **medicine**.",
      "checkpoint": true,
+     "objective": "Search the pharmacy for **medicine**.",
      "barks": {
       "1": [
        "Cal",
        "Antibiotics. She'd want these."
+      ],
+      "2": [
+       "Cal",
+       "Inhalers. June's kind."
       ]
      }
     },
     {
-     "type": "dismount",
-     "id": "m2off"
-    },
-    {
      "type": "cutscene",
+     "id": "note1",
      "shots": [
       {
        "cam": {
@@ -703,10 +1080,10 @@
         "rel": "player",
         "up": -0.35
        },
-       "dur": 4.5,
+       "dur": 6.5,
        "fov": 36,
        "caption": "Nina's note",
-       "text": "\"Moving the patients to the hospital on Hyde St. Going the Civic Center way. June is with me. If you find this, Cal: we're alive. N.\""
+       "text": "\"Moving the patients to the hospital on Hyde St, the Civic Center way. June is with me. The animals' collars are still transmitting, Cal. Something is calling them. If you find this: we're alive. N.\""
       },
       {
        "cam": {
@@ -725,18 +1102,91 @@
         "Cal",
         "Alive. Both of them."
        ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": -2.4,
+        "right": 1.2,
+        "up": 0.5
+       },
+       "look": {
+        "rel": "player",
+        "fwd": 4,
+        "up": 0.3
+       },
+       "dur": 2.6,
+       "fov": 40,
+       "sub": [
+        "Cal",
+        "And that's the shop bell. Oh, no."
+       ]
       }
      ]
+    },
+    {
+     "type": "fight",
+     "id": "brood",
+     "arena": "@broodnest",
+     "checkpoint": true,
+     "foes": [
+      {
+       "id": "creature-scorpion",
+       "count": 2,
+       "height": 0.9,
+       "name": "Brood"
+      }
+     ],
+     "boss": {
+      "id": "creature-scorpion",
+      "name": "The Brood Mother",
+      "height": 2.4,
+      "phases": [
+       0.5
+      ],
+      "at": "@broodnest"
+     },
+     "objective": "Kill **The Brood Mother** and her brood.",
+     "counter": "BROOD",
+     "wake": [
+      "Cal",
+      "There she is."
+     ],
+     "barks": {
+      "2": [
+       "Cal",
+       "Her turn."
+      ]
+     }
+    },
+    {
+     "type": "mount",
+     "id": "m2on",
+     "objective": "Back on **Ranger**."
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "Hyde St, the Civic Center way. Hang on, Nina.",
+     "secs": 2.6
     }
    ]
   },
   {
    "id": "M3",
-   "title": "Civic Center",
+   "title": "Wild Horses",
    "vehicle": "horse",
    "start": "@pharmacy",
-   "stakes": "The herds came down from the Presidio. Something bigger came with them, and it sits on City Hall's steps.",
-   "passLine": "June's backpack. They came this way.",
+   "stakes": "Tithe night is Sunday. The camp needs horses to move, and a wild herd grazes on Civic Center Plaza under a silverback's eye.",
+   "passLine": "Horses for the camp. And a name: WARDEN-7.",
+   "between": {
+    "radio": [
+     [
+      "Hollis",
+      "Medicine's in the clinic tent. Cal, if we're moving people before Sunday, we need horses."
+     ]
+    ]
+   },
    "steps": [
     {
      "type": "herd",
@@ -754,8 +1204,44 @@
      "id": "toCivic",
      "to": "@civic",
      "radius": 30,
+     "checkpoint": true,
      "objective": "Ride to **Civic Center Plaza**.",
-     "checkpoint": true
+     "during": [
+      {
+       "type": "call",
+       "at": 8,
+       "who": "Vale",
+       "auto": true,
+       "inCar": true,
+       "role": "Open band",
+       "lines": [
+        [
+         "Vale",
+         "Rider. You took my crates and you woke my Brood Mother. That's a debt."
+        ],
+        [
+         "Cal",
+         "Your Brood Mother?"
+        ],
+        [
+         "Vale",
+         "Everything with a collar on it answers to someone. Sunday, rider."
+        ],
+        [
+         "Hollis",
+         "Cal, don't answer him. Just don't."
+        ],
+        [
+         "Cal",
+         "What did he mean, answers to someone?"
+        ],
+        [
+         "Hollis",
+         "Civic Center's coming up on your right."
+        ]
+       ]
+      }
+     ]
     },
     {
      "type": "say",
@@ -789,6 +1275,12 @@
      ]
     },
     {
+     "type": "say",
+     "who": "Cal",
+     "text": "A collar on him. Preserve tags. Still blinking.",
+     "secs": 2.6
+    },
+    {
      "type": "collect",
      "id": "pack",
      "kind": "clue",
@@ -809,6 +1301,7 @@
     },
     {
      "type": "cutscene",
+     "id": "pack1",
      "shots": [
       {
        "cam": {
@@ -845,26 +1338,144 @@
         "Cal",
         "Her inhaler's still in it. She's got the spare. Hyde St, then."
        ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.6,
+        "right": 1.3,
+        "up": 0.35
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.35
+       },
+       "dur": 6.5,
+       "fov": 36,
+       "caption": "A page of Nina's notebook",
+       "text": "\"Every collar answers one tone. WARDEN-7, the Preserve's security unit, sends it. Somebody turned it back on. The signal comes from Hyde St.\""
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.1
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 2.8,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "Somebody's herding them."
+       ]
       }
+     ]
+    },
+    {
+     "type": "mount",
+     "id": "m3on",
+     "objective": "Mount **Ranger**: the camp needs those horses."
+    },
+    {
+     "type": "drove",
+     "id": "herd",
+     "herd": "horses",
+     "to": "@corral",
+     "radius": 16,
+     "need": 3,
+     "label": "Horses",
+     "checkpoint": true,
+     "objective": "Drive the **wild horses** into **the corral on Fulton St**",
+     "barks": {
+      "1": [
+       "Cal",
+       "That's it. Go on."
+      ],
+      "3": [
+       "Cal",
+       "Three. Hollis gets his horses."
+      ]
+     }
+    },
+    {
+     "type": "call",
+     "who": "Hollis",
+     "auto": true,
+     "role": "Radio · the camp",
+     "lines": [
+      [
+       "Hollis",
+       "I see them on the rope line! Three horses, Cal. You beautiful man."
+      ],
+      [
+       "Cal",
+       "Hollis. What's WARDEN-7?"
+      ],
+      [
+       "Hollis",
+       "Where did you hear that name?"
+      ],
+      [
+       "Cal",
+       "Nina's notebook."
+      ],
+      [
+       "Hollis",
+       "Go to Hyde St. I'll tell you when you're back. I promise."
+      ]
      ]
     }
    ]
   },
   {
    "id": "M4",
-   "title": "Hyde Street",
+   "title": "The Shepherd",
    "vehicle": "horse",
    "start": "@civic",
-   "stakes": "The hospital on Hyde St. The Preserve's security mech walks its forecourt, still guarding a fence that isn't there.",
-   "passLine": "Empty wards. One more message.",
+   "stakes": "The hospital on Hyde St. The Preserve's security mech walks its forecourt, and every collar in the city answers its call.",
+   "passLine": "The shepherd is silent. Hollis's secret isn't.",
+   "between": {
+    "radio": [
+     [
+      "Pike",
+      "Rider? It's Pike. From Market. Vale parked the big machine at the hospital. It calls the animals."
+     ],
+     [
+      "Pike",
+      "Three relay boxes on the street keep it loud. Break those and it goes quiet."
+     ],
+     [
+      "Cal",
+      "Why tell me?"
+     ],
+     [
+      "Pike",
+      "You let me walk away."
+     ]
+    ]
+   },
    "steps": [
     {
      "type": "drive",
      "id": "toHyde",
      "to": "@hyde",
      "radius": 25,
+     "checkpoint": true,
      "objective": "Ride up **Hyde St** to the hospital.",
-     "checkpoint": true
+     "trigger": {
+      "area": {
+       "@": "hyde",
+       "r": 120
+      },
+      "say": [
+       "Warden",
+       "CONTAINMENT BREACH. ALL SPECIMENS RETURN TO ENCLOSURE."
+      ]
+     }
     },
     {
      "type": "say",
@@ -901,6 +1512,113 @@
      "wake": [
       "Cal",
       "Target me, then. Come on."
+     ],
+     "barks": {
+      "1": [
+       "Warden",
+       "SPECIMEN DOWN. DISPATCHING."
+      ],
+      "2": [
+       "Warden",
+       "UNAUTHORIZED PERSON. RESTRAIN."
+      ]
+     }
+    },
+    {
+     "type": "say",
+     "who": "Warden",
+     "text": "BROADCAST CONTINUING. ALL SPECIMENS: COME HOME.",
+     "secs": 3
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "It's still calling them. Pike said three relays.",
+     "secs": 2.6
+    },
+    {
+     "type": "timer",
+     "name": "call",
+     "seconds": 100,
+     "label": "THE CALL",
+     "fail": "hard",
+     "why": "The tone drew every creature for a mile onto the block."
+    },
+    {
+     "type": "collect",
+     "id": "relays",
+     "kind": "relay",
+     "label": "Relays",
+     "look": "case",
+     "color": "#6CB8FF",
+     "radius": 2.6,
+     "items": [
+      [
+       -1322,
+       -60
+      ],
+      [
+       -1330,
+       -130
+      ],
+      [
+       -1360,
+       -37
+      ]
+     ],
+     "checkpoint": true,
+     "objective": "Smash the **relays** before the herds arrive.",
+     "help": [
+      [
+       0.5,
+       "Ride over each relay box to smash it. They're on the radar."
+      ]
+     ],
+     "barks": {
+      "1": [
+       "Cal",
+       "One down."
+      ],
+      "2": [
+       "Pike",
+       "That's two! The last one's on Bush St!"
+      ]
+     }
+    },
+    {
+     "type": "timer",
+     "name": "call",
+     "stop": true
+    },
+    {
+     "type": "say",
+     "who": "Warden",
+     "text": "BROADCAST INTERRUPTED. AWAITING OPERATOR.",
+     "secs": 2.6
+    },
+    {
+     "type": "choice",
+     "id": "core",
+     "flag": "shepherd",
+     "who": "Cal",
+     "prompt": "WARDEN-7's core is open. One command left in it.",
+     "options": [
+      {
+       "text": "Smash it. Nobody calls them again.",
+       "value": "smashed",
+       "reply": [
+        "Cal",
+        "No more shepherds."
+       ]
+      },
+      {
+       "text": "Send one last tone: home, to the Preserve.",
+       "value": "home",
+       "reply": [
+        "Cal",
+        "Go home. All of you."
+       ]
+      }
      ]
     },
     {
@@ -914,6 +1632,7 @@
     },
     {
      "type": "cutscene",
+     "id": "chalk",
      "shots": [
       {
        "cam": {
@@ -969,6 +1688,68 @@
        ]
       }
      ]
+    },
+    {
+     "type": "call",
+     "who": "Vale",
+     "auto": true,
+     "role": "Open band",
+     "lines": [
+      [
+       "Vale",
+       "Rider. You broke my shepherd."
+      ],
+      [
+       "Cal",
+       "You were using it on people."
+      ],
+      [
+       "Vale",
+       "I was keeping order. Ask your radio man who let them out."
+      ],
+      [
+       "Cal",
+       "What?"
+      ],
+      [
+       "Vale",
+       "Ask Hollis who opened the Preserve gates the night Erebus fell."
+      ]
+     ]
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "Hollis.",
+     "secs": 1.6
+    },
+    {
+     "type": "call",
+     "who": "Hollis",
+     "auto": true,
+     "role": "Radio · the camp",
+     "lines": [
+      [
+       "Hollis",
+       "I was the night keeper. The fires were coming over the wall, Cal. They'd have burned in their pens."
+      ],
+      [
+       "Hollis",
+       "So I opened every gate. I thought they'd run for the hills."
+      ],
+      [
+       "Cal",
+       "They ran for us."
+      ],
+      [
+       "Hollis",
+       "I know. I've sat at this radio forty-one days trying to make it right."
+      ],
+      [
+       "Cal",
+       "We'll talk when I've got my family."
+      ]
+     ]
     }
    ]
   },
@@ -977,38 +1758,130 @@
    "title": "Lafayette Park",
    "vehicle": "horse",
    "start": "@hospital",
-   "between": {
-    "dm": false
-   },
-   "stakes": "The house on Washington St. Between it and Cal: the top of Lafayette Park, and The Matriarch's nest.",
+   "stakes": "The grey house on Washington St. Between it and Cal: the top of Lafayette Park, and something that nests there.",
    "passLine": "Home is three people and a horse.",
+   "between": {
+    "dm": false,
+    "radio": [
+     [
+      "Hollis",
+      "Cal. Does June still have her whistle? The ranger one?"
+     ],
+     [
+      "Cal",
+      "Three short. I'm here. I taught her when she was six."
+     ],
+     [
+      "Hollis",
+      "Then use yours. Sound carries up there."
+     ]
+    ]
+   },
    "steps": [
     {
      "type": "drive",
      "id": "toPark",
-     "to": "@lafayette",
-     "radius": 30,
-     "objective": "Ride to **Lafayette Park**.",
-     "checkpoint": true
+     "to": "@parkfoot",
+     "radius": 25,
+     "checkpoint": true,
+     "objective": "Ride to the foot of **Lafayette Park**.",
+     "during": [
+      {
+       "type": "call",
+       "at": 20,
+       "who": "Cal",
+       "auto": true,
+       "inCar": true,
+       "role": "Radio · the camp",
+       "lines": [
+        [
+         "Cal",
+         "Hollis. Why didn't you tell me?"
+        ],
+        [
+         "Hollis",
+         "Because you'd have stopped listening to the radio. And then you'd never have heard her."
+        ]
+       ]
+      }
+     ]
     },
     {
      "type": "say",
      "who": "Cal",
-     "text": "Brutes. And that's no tree on the hill.",
-     "secs": 2.6
+     "text": "She's up there somewhere. Come on, Junebug. Answer me.",
+     "secs": 3
+    },
+    {
+     "type": "track",
+     "id": "whistle",
+     "at": "@summit",
+     "radius": 22,
+     "label": "Whistle",
+     "cue": "whistle",
+     "every": 6,
+     "checkpoint": true,
+     "objective": "Follow **June's whistle** up the hill.",
+     "help": "Three short blasts, and an answer. No route for this one: listen, and watch the WHISTLE bar fill as you get closer."
+    },
+    {
+     "type": "say",
+     "who": "June",
+     "text": "Dad? Dad, is that you?",
+     "secs": 2.2
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "June! Stay inside! Stay in the house!",
+     "secs": 2.4
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "That's no hill. Ranger. GO!",
+     "secs": 2.0
+    },
+    {
+     "type": "flee",
+     "id": "run",
+     "to": "@fleeend",
+     "radius": 18,
+     "keep": true,
+     "checkpoint": true,
+     "creature": {
+      "id": "creature-trex",
+      "name": "The Matriarch",
+      "height": 5.8,
+      "boss": true,
+      "phases": [
+       0.66,
+       0.33
+      ]
+     },
+     "from": [
+      -2232,
+      -372
+     ],
+     "speed": 10.5,
+     "objective": "Lead **The Matriarch** away from the house. Ride for **Franklin St**!",
+     "alert": "Away from the house!",
+     "barks": {
+      "5": [
+       "Cal",
+       "Away from the house. Away from the house!"
+      ],
+      "14": [
+       "Cal",
+       "Come on, you big lizard. This way!"
+      ]
+     }
     },
     {
      "type": "fight",
      "id": "matriarch",
-     "arena": "@summit",
+     "arena": "@fleeend",
      "checkpoint": true,
-     "foes": [
-      {
-       "id": "creature-ogre",
-       "count": 2,
-       "name": "Brute"
-      }
-     ],
      "boss": {
       "id": "creature-trex",
       "name": "The Matriarch",
@@ -1017,22 +1890,35 @@
        0.66,
        0.33
       ],
-      "hold": {
-       "wake": 28,
-       "leash": 55
-      }
+      "from": "run"
      },
      "objective": "Bring down **The Matriarch**.",
      "counter": "DOWN",
-     "wake": [
-      "Cal",
-      "Not tonight. Not when I'm this close."
-     ],
-     "wakeCam": [
-      -2196,
-      116.8,
-      -357
+     "help": [
+      [
+       1,
+       "Keep moving. Strike when she's done snapping, then get clear."
+      ]
      ]
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "Stay down. Please. Just stay down.",
+     "secs": 2.4
+    },
+    {
+     "type": "drive",
+     "id": "toHouse",
+     "to": "@mansion",
+     "radius": 10,
+     "card": false,
+     "checkpoint": true,
+     "objective": "Ride back up to **the house on Washington St**."
+    },
+    {
+     "type": "dismount",
+     "id": "m5off"
     },
     {
      "type": "walk",
@@ -1280,6 +2166,593 @@
      ]
     }
    ]
+  },
+  {
+   "id": "M6",
+   "title": "Homecoming",
+   "vehicle": "horse",
+   "start": {
+    "@": "camp",
+    "mode": "walk"
+   },
+   "stakes": "Dawn. The Mercers ride into the Embarcadero camp, and Deacon Vale comes to collect.",
+   "passLine": "Nobody here owes anybody.",
+   "between": {
+    "dm": false,
+    "radio": [
+     [
+      "Hollis",
+      "Camp's awake, Cal. Everybody wants to see the doctor."
+     ]
+    ]
+   },
+   "steps": [
+    {
+     "type": "transition",
+     "id": "dawn",
+     "kicker": "SUNDAY",
+     "text": "Dawn",
+     "sub": "The Embarcadero camp"
+    },
+    {
+     "type": "npc",
+     "id": "hollis6",
+     "who": "Hollis",
+     "at": {
+      "rel": "player",
+      "fwd": 2.3,
+      "right": 0.8
+     }
+    },
+    {
+     "type": "npc",
+     "id": "nina6",
+     "who": "Nina",
+     "at": {
+      "rel": "player",
+      "fwd": 0.6,
+      "right": -1.4
+     }
+    },
+    {
+     "type": "npc",
+     "id": "june6",
+     "who": "June",
+     "at": {
+      "rel": "player",
+      "fwd": 1.0,
+      "right": 1.6
+     }
+    },
+    {
+     "type": "cutscene",
+     "id": "arrive",
+     "shots": [
+      {
+       "cam": {
+        "rel": "Hollis",
+        "fwd": 2.0,
+        "right": 0.5,
+        "up": 0.0
+       },
+       "look": {
+        "rel": "Hollis",
+        "up": -0.05
+       },
+       "dur": 1.8,
+       "fov": 33,
+       "sub": [
+        "Hollis",
+        "Cal."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 1.8,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "Hollis."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "Hollis",
+        "fwd": 2.0,
+        "right": 0.5,
+        "up": 0.0
+       },
+       "look": {
+        "rel": "Hollis",
+        "up": -0.05
+       },
+       "dur": 3.2,
+       "fov": 33,
+       "sub": [
+        "Hollis",
+        "Doctor Mercer. June. I'm glad. I'm so glad."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "June",
+        "fwd": 2.0,
+        "right": -0.5,
+        "up": 0.0
+       },
+       "look": {
+        "rel": "June",
+        "up": -0.05
+       },
+       "dur": 3.4,
+       "fov": 33,
+       "sub": [
+        "June",
+        "You're the radio man. You said Dad's name every night."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "Hollis",
+        "fwd": 2.0,
+        "right": 0.5,
+        "up": 0.0
+       },
+       "look": {
+        "rel": "Hollis",
+        "up": -0.05
+       },
+       "dur": 2.8,
+       "fov": 33,
+       "sub": [
+        "Hollis",
+        "Somebody had to keep saying it."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": -3.2,
+        "right": 1.6,
+        "up": 0.9
+       },
+       "look": {
+        "rel": "player",
+        "fwd": 6,
+        "up": 0.6
+       },
+       "dur": 4.2,
+       "fov": 42,
+       "sub": [
+        "Pike",
+        "Rider! Vale's coming down the Embarcadero. All of them. He's got brutes on chains."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "Nina, get the kids behind the trucks. June..."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "June",
+        "fwd": 2.0,
+        "right": -0.5,
+        "up": 0.0
+       },
+       "look": {
+        "rel": "June",
+        "up": -0.05
+       },
+       "dur": 3,
+       "fov": 33,
+       "sub": [
+        "June",
+        "I know. The radio tower. I'll call them out."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 2.2,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "That's my girl."
+       ]
+      }
+     ]
+    },
+    {
+     "type": "mount",
+     "id": "m6on",
+     "objective": "Mount **Ranger**."
+    },
+    {
+     "type": "fight",
+     "id": "defend",
+     "arena": "@camp",
+     "checkpoint": true,
+     "counter": "WAVE",
+     "objective": "Hold **the camp**.",
+     "waves": [
+      {
+       "foes": [
+        {
+         "id": "creature-knight",
+         "count": 3,
+         "name": "Iron Saint"
+        }
+       ],
+       "from": "@wavenorth",
+       "alert": "From the north"
+      },
+      {
+       "foes": [
+        {
+         "id": "creature-centaur",
+         "count": 2,
+         "name": "Hybrid"
+        },
+        {
+         "id": "creature-knight",
+         "count": 1,
+         "name": "Iron Saint"
+        }
+       ],
+       "from": "@wavesouth",
+       "pause": 6,
+       "say": [
+        "June",
+        "Dad! Two hybrids from the south, by the piers!"
+       ],
+       "alert": "From the piers"
+      },
+      {
+       "boss": {
+        "id": "creature-knight",
+        "name": "Deacon Vale",
+        "height": 2.3,
+        "phases": [
+         0.5
+        ],
+        "stats": {
+         "hp": 260
+        }
+       },
+       "foes": [
+        {
+         "id": "creature-ogre",
+         "count": 2,
+         "name": "Brute"
+        }
+       ],
+       "from": "@wavewest",
+       "pause": 7,
+       "say": [
+        "June",
+        "It's him! Big armour, coming up Market!"
+       ],
+       "alert": "Deacon Vale",
+       "wake": [
+        "Vale",
+        "Rider. You owe me a city."
+       ]
+      }
+     ]
+    },
+    {
+     "type": "say",
+     "who": "Vale",
+     "text": "Enough. Enough.",
+     "secs": 2
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "Stay down, Vale. Nobody here owes you anything.",
+     "secs": 3
+    },
+    {
+     "type": "dismount",
+     "id": "m6off"
+    },
+    {
+     "type": "cutscene",
+     "id": "keeper",
+     "shots": [
+      {
+       "cam": {
+        "rel": "Hollis",
+        "fwd": 2.0,
+        "right": 0.5,
+        "up": 0.0
+       },
+       "look": {
+        "rel": "Hollis",
+        "up": -0.05
+       },
+       "dur": 2.4,
+       "fov": 33,
+       "sub": [
+        "Hollis",
+        "Cal. About the gates."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "You opened them so they wouldn't burn."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 4,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "That's what a keeper does. So keep something. You're on Ranger duty."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "Hollis",
+        "fwd": 2.0,
+        "right": 0.5,
+        "up": 0.0
+       },
+       "look": {
+        "rel": "Hollis",
+        "up": -0.05
+       },
+       "dur": 2,
+       "fov": 33,
+       "sub": [
+        "Hollis",
+        "Yes, sir."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "June",
+        "fwd": 2.0,
+        "right": -0.5,
+        "up": 0.0
+       },
+       "look": {
+        "rel": "June",
+        "up": -0.05
+       },
+       "dur": 2.4,
+       "fov": 33,
+       "sub": [
+        "June",
+        "Can I ride him tomorrow?"
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3.4,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "He kept me alive forty-one days. You'll have to ask him."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "Nina",
+        "fwd": 2.0,
+        "right": 0.6,
+        "up": 0.0
+       },
+       "look": {
+        "rel": "Nina",
+        "up": -0.05
+       },
+       "dur": 3.2,
+       "fov": 33,
+       "sub": [
+        "Nina",
+        "Cal. Look. They're coming out of the tents."
+       ],
+       "warm": true
+      }
+     ]
+    },
+    {
+     "type": "cutscene",
+     "id": "endSmashed",
+     "if": "shepherd == smashed",
+     "shots": [
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 14,
+        "up": 4,
+        "right": 9
+       },
+       "to": {
+        "rel": "player",
+        "fwd": 22,
+        "up": 8,
+        "right": 4
+       },
+       "look": {
+        "rel": "player",
+        "fwd": -20,
+        "up": 3
+       },
+       "dur": 6,
+       "fov": 44,
+       "text": "No more shepherds. What came out of the Bio-Preserve runs wild in the city now, and it runs from people."
+      }
+     ]
+    },
+    {
+     "type": "cutscene",
+     "id": "endHome",
+     "if": "shepherd != smashed",
+     "shots": [
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 14,
+        "up": 4,
+        "right": 9
+       },
+       "to": {
+        "rel": "player",
+        "fwd": 22,
+        "up": 8,
+        "right": 4
+       },
+       "look": {
+        "rel": "player",
+        "fwd": -20,
+        "up": 3
+       },
+       "dur": 6,
+       "fov": 44,
+       "text": "One last tone went out from Hyde St. By morning the herds were walking west, home to the Presidio."
+      }
+     ]
+    }
+   ]
   }
- ]
+ ],
+ "coda": {
+  "place": {
+   "@": "summit",
+   "mode": "walk"
+  },
+  "shots": [
+   {
+    "cam": [
+     -2258,
+     106.9,
+     -411
+    ],
+    "to": [
+     -2254,
+     108.5,
+     -410
+    ],
+    "look": [
+     -2573,
+     106,
+     -430
+    ],
+    "lookTo": [
+     -2573,
+     104,
+     -432
+    ],
+    "dur": 5,
+    "fov": 36,
+    "where": {
+     "name": "The Presidio",
+     "sub": "Day 49 after Erebus"
+    }
+   },
+   {
+    "cam": [
+     -2258,
+     108,
+     -411
+    ],
+    "look": [
+     -2573,
+     104,
+     -432
+    ],
+    "dur": 5.5,
+    "fov": 30,
+    "sub": [
+     "Warden",
+     "Enclosure B. Seal failure. Enclosure B. Seal failure."
+    ]
+   },
+   {
+    "cam": [
+     -2256,
+     109,
+     -410
+    ],
+    "to": [
+     -2250,
+     112,
+     -409
+    ],
+    "look": [
+     -2573,
+     108,
+     -432
+    ],
+    "dur": 5,
+    "fov": 26,
+    "text": "Something in the crater is waking up."
+   }
+  ]
+ }
 }

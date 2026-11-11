@@ -76,14 +76,17 @@ export async function install(W) {
   const nClips = cast.registerVoices();
   // the save, per world (never Mog City's own)
   const KEY = `mc.pack.${def.id}.v1`;
-  const save = (() => { try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && Array.isArray(s.done)) return { done: Object.fromEntries(s.done.map((id) => [id, true])), meters: s.meters || {}, flags: s.flags || {} }; } catch {} return { done: {}, meters: {}, flags: {} }; })();
-  const writeSave = () => { try { localStorage.setItem(KEY, JSON.stringify({ v: 1, done: Object.keys(save.done), meters: save.meters, flags: save.flags, at: Date.now() })); } catch {} };
+  // (`resume`: the mission he was in and its last checkpoint, for Continue: { id, cp } (runner.js snapshot))
+  const save = (() => { try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && Array.isArray(s.done)) return { done: Object.fromEntries(s.done.map((id) => [id, true])), meters: s.meters || {}, flags: s.flags || {}, resume: s.resume && typeof s.resume.id === 'string' ? s.resume : null }; } catch {} return { done: {}, meters: {}, flags: {}, resume: null }; })();
+  const writeSave = () => { try { localStorage.setItem(KEY, JSON.stringify({ v: 1, done: Object.keys(save.done), meters: save.meters, flags: save.flags, resume: save.resume, at: Date.now() })); } catch {} };
   const flags = {
     autopilot: Q.has('autopilot'), autoAnswer: Q.has('autoanswer') || Q.has('autopilot'), autoChoose: Q.has('autochoose') ? Math.max(0, +Q.get('autochoose') || 0) : (Q.has('autopilot') ? 0 : null),
     autoCard: Q.has('autocard'), autoContinue: Q.has('autocontinue'), flowFast: Q.has('flowfast'), autoRetry: Q.has('autopilot'), failStop: Q.has('failstop'), stealthFair: Q.has('stealthfair'),
   };
   const host = { tell };
-  const runner = createRunner({ W, world, places, cast, hud, host, save, flags });
+  // (every checkpoint reached is saved for Continue, but not a test drive's: it would start the next one mid-story)
+  const onCheckpoint = (id, cp) => { if (flags.autopilot || Q.has('nosave')) return; save.resume = { id, cp }; writeSave(); };
+  const runner = createRunner({ W, world, places, cast, hud, host, save, flags, onCheckpoint });
   // a pet that goes with the hero (pets[] "follows": pet.js), only when the world has one
   let pets = null;
   if (Object.values(def.cast || {}).some((c) => c && c.pet && c.pet.follows)) {
@@ -144,7 +147,7 @@ export async function install(W) {
   if (flags.autopilot) {
     const { startAutopilot } = await import('./autopilot.js');
     autopilot = startAutopilot(W, runner, {
-      missionSecs: +(Q.get('missionsecs') || 240), skipScenes: +(Q.get('skipscenes') || 0), realPace: Q.has('realpace'),
+      missionSecs: +(Q.get('missionsecs') || 240), skipScenes: +(Q.get('skipscenes') || 0), realPace: Q.has('realpace'), fair: Q.has('fair'),
       onTimeout: (m, d, i) => { tell('mission-fail', { id: m.id, why: `The test drive timed out at step ${i + 1} (${d?.type}${d?.id ? ' ' + d.id : ''}).`, step: d?.id || null, kind: d?.type || null, timeout: true }); runner.M?.fail?.({ reason: `The test drive timed out at step ${i + 1} (${d?.type}).` }); },
     });
     W.storyrun.autopilot = autopilot;
@@ -156,11 +159,18 @@ export async function install(W) {
   // the first mission: ?mission=, else the first not passed
   let k = Math.max(0, order.findIndex((o) => o.def.id === Q.get('mission')));
   if (!Q.get('mission')) { const n = order.findIndex((o) => !save.done[o.def.id]); k = n < 0 ? 0 : n; }
+  // Continue: the mission he was in when he left, at its last checkpoint (not with ?mission=, ?step= or a test drive)
+  let resume = null;
+  if (!Q.get('mission') && !Q.get('step') && !flags.autopilot && save.resume && !save.done[save.resume.id]) {
+    const j = order.findIndex((o) => o.def.id === save.resume.id);
+    if (j >= 0) { k = j; resume = save.resume.cp; }
+  }
   const k0 = k;
+  if (resume) await hud.card({ kicker: 'CONTINUE', text: order[k].def.title, sub: 'From your last checkpoint' }, 2.4);
   // the world's opening (def.opening: runner.js opening()), before Mission 1 as Mog City's opening is before its Mission
   // 1: on a story's first start (nothing passed, no ?mission=), or asked for (?opening=1); ?opening=0 leaves it out
   if (def.opening && Array.isArray(def.opening.shots) && def.opening.shots.length && Q.get('opening') !== '0'
-    && (Q.get('opening') === '1' || (k === 0 && !Q.get('mission') && !Object.keys(save.done).length))) {
+    && (Q.get('opening') === '1' || (k === 0 && !resume && !Q.get('mission') && !Object.keys(save.done).length))) {
     try { await runner.opening(def.opening, { time: firstTime }); } catch (e) { console.warn('[storyrun] opening', e); }
   }
   const marker = createMarker(THREE, W.app.scene, { color: '#FFC93C', radius: 2.4, height: 2.2, alpha: 0.25 });
@@ -174,10 +184,11 @@ export async function install(W) {
     if (replayAsk) { k = Math.max(0, order.findIndex((o) => o.def.id === replayAsk)); replayAsk = null; continue; }
     // (what the meters stood at going in: the MISSION PASSED card's gains are from here)
     const before = Object.fromEntries((def.hud?.meters || []).map((x) => [x.id, save.meters[x.id] ?? x.start ?? 0]));
-    const r = await runner.play(m, { act, from: k === k0 && Q.get('step') ? Q.get('step') : null });
+    const r = await runner.play(m, { act, from: k === k0 && Q.get('step') ? Q.get('step') : null, resume: k === k0 ? resume : null });
+    resume = null;
     if (replayAsk) { k = Math.max(0, order.findIndex((o) => o.def.id === replayAsk)); replayAsk = null; first = true; continue; }
     if (r.how === 'pass') {
-      save.done[m.id] = true; Object.assign(save.meters, r.state.meters); Object.assign(save.flags, r.state.flags); writeSave();
+      save.done[m.id] = true; if (save.resume?.id === m.id) save.resume = null; Object.assign(save.meters, r.state.meters); Object.assign(save.flags, r.state.flags); writeSave();
       sfx.play('passed');
       // (the card's stats: the mission's own list, Mission 1's TIME, SUITS DOWN, HITS TAKEN; else the time and the meters)
       const P0 = m.pass || {};
@@ -229,6 +240,13 @@ export async function install(W) {
       const fin = order[order.length - 1]?.act?.end?.next;
       if (fin) await hud.card({ kicker: fin.kicker || 'NEXT', text: fin.text, sub: fin.sub || '' }, flags.autoCard ? 0.8 : (fin.secs || 3));
     } finally { await ui.fade(0, 0.6); }
+    // (after the credits: the world's coda, a post-credits scene (def.coda: an opening's shape, its place and shots),
+    // then free roam where it leaves him)
+    if (def.coda && Array.isArray(def.coda.shots) && def.coda.shots.length) {
+      try { await runner.opening(def.coda, { time: def.coda.time || null }); } catch (e) { console.warn('[storyrun] coda', e); }
+      tell('coda', { id: def.id });
+      try { W.app.selectTime('midday'); } catch {}
+    }
     ui.objective(['Free roam. ', { 'Esc': 'yellow' }, ' for Mission select.'], 8);
   }
   autopilot?.stop();
@@ -259,6 +277,13 @@ export async function install(W) {
     const wasB = W.between; W.between = { at: { x: p.x, z: p.z }, stop() {} };
     if (B.dm !== false && giver !== heroName) { sfx.play('ding', { gain: 0.25 }); ui.dm(giver, `${m.stakes || m.title}`, 7); }
     if (B.help) setTimeout(() => ui.help(words(B.help), 9), 1800);
+    // (the band on the way: `radio`, lines said over the radio a few seconds into the free roam, [who, text] each, its
+    // `radioAt` s in (4); cut off when he gets there)
+    const btok = { dead: false, err: null, parent: null };
+    if (Array.isArray(B.radio) && B.radio.length) (async () => {
+      await sleep((B.radioAt ?? 4) * 1000);
+      for (const l of B.radio) { if (btok.dead) return; const [who, text] = Array.isArray(l) ? l : [l.who, l.text]; await runner.say(who, text, btok, { phone: who !== heroName }); }
+    })().catch(() => {});
     // (the world's meters stay up between missions: the ransom raised so far)
     runner.showMeters(save.meters, []);
     const r = B.radius || 2.2, t0 = performance.now();
@@ -276,6 +301,7 @@ export async function install(W) {
       };
       f();
     });
+    btok.dead = true; ui.sub(null);
     W.between = wasB === W.between ? null : wasB;
     if (W.gps.stallNote === B.note) W.gps.stallNote = null;
     marker.hide(); W.gps.unblip('next'); W.gps.unblip('car'); W.gps.clear(); ui.objective(null); ui.help(null); hud.meters([]);

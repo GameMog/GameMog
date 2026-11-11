@@ -19,7 +19,7 @@ const WEARS = new Set(['rider']);
 export const STEP_KINDS = new Set(['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
   'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
-  'collect', 'mount', 'dismount', 'herd']);
+  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track']);
 const STOCK = new Set(['roadster', 'trailhand', 'vandal']);
 // the hero cars Mog City builds in code besides Dan's roadster, by the name a world's `car.model` gives (wagmi/storyrun/gt.js)
 export const MODEL_CARS = new Set(['mogcity/gt', 'mogcity/horse']);
@@ -63,7 +63,7 @@ const isPlaceRef = (v) => (typeof v === 'string' && /^@[\w-]{1,40}$/.test(v)) ||
 // a creature fight's and a collect's shapes (runner.js creatureFight, STEPS.collect): [] when sound, else what is wrong
 export function creatureStep(s, city) {
   const errs = [];
-  if (s.type === 'fight' && (s.foes != null || s.boss != null)) {
+  if (s.type === 'fight' && (s.foes != null || s.boss != null || s.waves != null)) {
     if (city !== 'sf') errs.push('creatures fight in San Francisco only');
     if (!isPlaceRef(s.arena)) errs.push('arena');
     let n = 0;
@@ -84,7 +84,41 @@ export function creatureStep(s, city) {
       if (B.at != null && !isPlaceRef(B.at)) errs.push('boss: at');
     }
     if (n > CREATURE_CAP) errs.push(`${n} creatures: ${CREATURE_CAP} fight at once at most`);
+    // (waves: each a crew of its own after the last is down, from the arena or its own place; a boss in one may be a
+    // creature an earlier flee kept: boss.from)
+    if (s.waves != null) {
+      if (!Array.isArray(s.waves) || !s.waves.length || s.waves.length > 6) errs.push('waves');
+      else s.waves.forEach((w, i) => {
+        if (!w || typeof w !== 'object' || (!w.foes && !w.boss)) { errs.push(`waves[${i}]`); return; }
+        let m = 0; const was = n; n = 0;
+        if (w.foes != null) { if (!Array.isArray(w.foes) || !w.foes.length) errs.push(`waves[${i}].foes`); else w.foes.forEach((o, j) => foe(o, `waves[${i}].foes[${j}]`)); }
+        if (w.boss != null) foe(w.boss, `waves[${i}].boss`);
+        m = n; n = was;
+        if (m > CREATURE_CAP) errs.push(`waves[${i}]: ${m} creatures: ${CREATURE_CAP} fight at once at most`);
+        if (w.from != null && !(isMark(w.from) || isPlaceRef(w.from))) errs.push(`waves[${i}].from`);
+      });
+    }
   }
+  if (s.type === 'sneak') {
+    if (!isPlaceRef(s.to)) errs.push('to');
+    if (city !== 'sf') errs.push('creatures sleep in San Francisco only');
+    if (!Array.isArray(s.sleepers) || !s.sleepers.length || s.sleepers.length > CREATURE_CAP) errs.push('sleepers');
+    else s.sleepers.forEach((o, i) => { const x = typeof o === 'string' ? { id: o } : o; if (!x || !CREATURES.has(x.id)) errs.push(`sleepers[${i}]: no creature ${x && x.id}`); else if (x.at != null && !(isMark(x.at) || isPlaceRef(x.at))) errs.push(`sleepers[${i}].at`); });
+  }
+  if (s.type === 'flee') {
+    if (!isPlaceRef(s.to)) errs.push('to');
+    if (city !== 'sf') errs.push('creatures chase in San Francisco only');
+    const x = typeof s.creature === 'string' ? { id: s.creature } : s.creature;
+    if (!x || !CREATURES.has(x.id)) errs.push(`no creature ${x && x.id}`);
+    if (s.from != null && !(isMark(s.from) || isPlaceRef(s.from))) errs.push('from');
+    if (s.keep && !s.id) errs.push('keep: needs an id');
+  }
+  if (s.type === 'drove') {
+    if (typeof s.herd !== 'string' || !s.herd) errs.push('herd');
+    if (!isPlaceRef(s.to)) errs.push('to');
+    if (s.need != null && !(Number.isInteger(s.need) && s.need >= 1 && s.need <= 8)) errs.push('need');
+  }
+  if (s.type === 'track' && !isPlaceRef(s.at)) errs.push('at');
   if (s.type === 'collect') {
     if (!Array.isArray(s.items) || !s.items.length || s.items.length > MAX_SUPPLIES) errs.push('items');
     else s.items.forEach((r, i) => { if (!(isMark(r) || isPlaceRef(r) || (r && typeof r === 'object' && isMark(r.at)))) errs.push(`items[${i}]`); });
@@ -172,6 +206,9 @@ export function check(w) {
       if (o.stage != null && (!Array.isArray(o.stage) || o.stage.length > 8 || o.stage.some((x) => !x || typeof x.who !== 'string'))) bad('opening.stage');
     }
   }
+  // (the coda, after the credits: an opening's shape, index.js plays it with runner.opening)
+  if (w.coda != null && (typeof w.coda !== 'object' || Array.isArray(w.coda) || !Array.isArray(w.coda.shots) || !w.coda.shots.length || w.coda.shots.length > 24
+    || w.coda.shots.some((s) => !s || typeof s !== 'object' || (s.dur != null && !(s.dur > 0 && s.dur <= 15))))) bad('coda');
   // (what the city wears: closed words only, dressing.js reads nothing else)
   if (w.dressing != null) {
     const d = w.dressing;

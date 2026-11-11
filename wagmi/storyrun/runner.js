@@ -69,6 +69,9 @@ const TIPS = {
   speed: ['Watch the ', { 'speed limit': 'yellow' }, ' on the right: ease off before it counts.'],
   wreck: ['Give the car room: hold back in the ', { 'band': 'blue' }, ', and brake early when it stops.'],
   lost: ['Stay close enough to keep them in sight, and back off if they slow down.'],
+  // (the wild steps: a sneak heard, a flee caught)
+  heard: ['Near them, walk: press [Q] and Ranger goes at a walk. Keep the ', { 'NOISE': 'yellow' }, ' bar from filling, and give them a wide berth.'],
+  chased: ['Hold [Shift] to gallop and keep to the ', { 'yellow line': 'yellow' }, ': it is never quite as fast as a gallop. Jump what is in the way with [Space].'],
 };
 class Fail extends Error { constructor(reason, kind = null, o = {}) { super(reason); this.reason = reason; this.kind = kind; this.tip = o.tip || null; this.sounded = !!o.sounded; } }
 class Stop extends Error {}
@@ -960,7 +963,7 @@ export function createRunner(ctx) {
     const combat = W.combat;
     if (!combat?.spawnCrew) { console.warn('[storyrun] no fight on this page'); return; }
     // (the library's creatures for foes, or a boss: creatureFight; New York's fights never name them)
-    if (d.foes || d.boss) return creatureFight(d, t);
+    if (d.foes || d.boss || d.waves) return creatureFight(d, t);
     const p = placeOf(d.arena);
     if (inCar()) { putAt(W, { car: [car.position.x, car.position.z, car.heading] }); outBesideCar(W); }
     if (dist(P.position, p.x, p.z) > 30) { putPlayer(p, 'walk'); }
@@ -1043,64 +1046,110 @@ export function createRunner(ctx) {
     const autoGetUp = combat.player.autoGetUp; combat.player.autoGetUp = true;
     let down = false;
     const offDown = combat.player.onDown(() => { down = true; });
-    const foes = (Array.isArray(d.foes) ? d.foes : []).map((x) => (typeof x === 'string' ? { id: x } : x));
-    const B = d.boss ? (typeof d.boss === 'string' ? { id: d.boss } : d.boss) : null;
     const handles = [];
-    if (foes.length) handles.push(C.fight({ foes, at: { x: cx, z: cz } }));
-    let bossName = null;
-    if (B) {
-      const bp = B.at ? placeOf(B.at) : null, at = bp ? { x: bp.cx ?? bp.x, z: bp.cz ?? bp.z } : { x: cx, z: cz };
-      bossName = B.name || null;
-      handles.push(C.spawn(B.id, { at, height: B.height, name: B.name, heavy: B.heavy, stats: B.stats, yaw: B.yaw != null ? (B.yaw * PI) / 180 : undefined,
-        boss: { name: B.name, phases: B.phases }, hold: B.hold ? { wake: B.hold.wake ?? 20, leash: B.hold.leash ?? 40 } : null, aggro: !B.hold }));
+    let lastK = 0, talk = false, lastHp = combat.player.hp, bossName = null, loading = 0;
+    const fightSay = (lines) => { talk = true; (async () => { for (const l of lines.map(tuple)) await say(castName(l.who), l.text, M.tok); })().catch(() => {}).finally(() => { talk = false; }); };
+    // (a wave: its foes round its place (the arena, or its own `from`: they come from there), its boss at the middle or
+    // at its own `at`, or a creature an earlier step kept (boss.from: a flee's id, already on him))
+    function spawnWave(w) {
+      const foes = (Array.isArray(w.foes) ? w.foes : []).map((x) => (typeof x === 'string' ? { id: x } : x));
+      const B = w.boss ? (typeof w.boss === 'string' ? { id: w.boss } : w.boss) : null;
+      const src = w.from ? markOf(w.from) : { x: cx, z: cz };
+      const mine = [];
+      if (foes.length) mine.push(C.fight({ foes, at: src }));
+      if (B) {
+        const kept = B.from ? M.kept?.get(B.from) : null;
+        let h = kept;
+        if (kept) M.kept.delete(B.from);
+        else {
+          const bp = B.at ? placeOf(B.at) : null, at = bp ? { x: bp.cx ?? bp.x, z: bp.cz ?? bp.z } : src;
+          h = C.spawn(B.id, { at, height: B.height, name: B.name, heavy: B.heavy, stats: B.stats, yaw: B.yaw != null ? (B.yaw * PI) / 180 : undefined,
+            boss: { name: B.name, phases: B.phases }, hold: B.hold ? { wake: B.hold.wake ?? 20, leash: B.hold.leash ?? 40 } : null, aggro: !B.hold });
+        }
+        bossName = B.name || bossName;
+        mine.push(h);
+        watchWake(h, B.name, w);
+        if (kept) { try { h.engage(); } catch {} }
+      }
+      // (a wave that comes from somewhere: in at a run, not waiting to be found)
+      if (w.from) for (const h of mine) { h.ready.then(() => { try { h.engage(); } catch {} }); }
+      for (const h of mine) { loading++; Promise.resolve(h.ready).finally(() => { loading--; }); }
+      handles.push(...mine);
+      M.creatures = handles;
+      return mine;
     }
-    M.creatures = handles;
-    await Promise.race([Promise.all(handles.map((h) => h.ready)), wait(() => false, t)]);
-    const fighters = handles.flatMap((h) => h.fighters), total = fighters.length;
-    const crew = { alive: () => fighters.filter((f) => !f.out).length, creatures: true };
+    // (the lair's boss woken: its name called, and the step's line for it)
+    function watchWake(boss, name, w) {
+      let woke = false;
+      boss.on('wake', () => {
+        if (woke) return; woke = true; juice.alert(name || 'Boss', { sub: (w.alert || d.alert) ? tokens(w.alert || d.alert) : '', tone: 'red', sting: 'up', jolt: 0.4, secs: 2.4 }); const wl = w.wake || d.wake; if (wl && !talk) fightSay([wl]);
+        // (the wake framed: a low lens behind his shoulder looking up at it, its whole height in the frame, while it shows
+        // itself; then the fight's own camera. wakeShot: false leaves it out)
+        const f = boss.fighters[0];
+        if (f && d.wakeShot !== false && w.wakeShot !== false) {
+          const hx = P.position.x, hz = P.position.z, dx = f.pos.x - hx, dz = f.pos.z - hz, n = Math.hypot(dx, dz) || 1, fx = dx / n, fz = dz / n, H = f.height || 3;
+          const back = 2.6 + H * 0.35, gy = cm.getGroundHeight(hx, hz, 'person');
+          const cam = [hx - fx * back + fz * 1.4, gy + 0.9 + H * 0.12, hz - fz * back - fx * 1.4], cam2 = [hx - fx * (back + 1.2) + fz * 1.8, gy + 1.2 + H * 0.18, hz - fz * (back + 1.2) - fx * 1.8];
+          const look = [f.pos.x, f.pos.y + H * 0.62, f.pos.z];
+          // (first close on it from low down, looking up: its size; then over his shoulder: the two of them)
+          const by = cm.getGroundHeight(f.pos.x, f.pos.z, 'person'), qx = f.pos.x - fx * H * 1.5 + fz * H * 0.55, qz = f.pos.z - fz * H * 1.5 - fx * H * 0.55;
+          const close = [qx, by + 0.5, qz], close2 = [qx - fx * H * 0.25, by + 0.7, qz - fz * H * 0.25], up = [f.pos.x, by + H * 0.78, f.pos.z];
+          // (a step's wakeCam: [x, y, z], the second a wide from there instead, the boss against what is behind it (The
+          // Matriarch on the hill's top against the crater's glow in the west), its lens rising a little)
+          const wc = Array.isArray(d.wakeCam) && d.wakeCam.length === 3 ? d.wakeCam : null;
+          const second = wc ? { cam: wc, to: [wc[0], wc[1] + 1.2, wc[2]], look: [f.pos.x, by + H * 0.55, f.pos.z], dur: 2.4, fov: d.wakeFov || 40 } : { cam, to: cam2, look, dur: 1.6, fov: 44 };
+          shotList([{ cam: close, to: close2, look: up, dur: 1.7, fov: 50 }, second], M.tok, { beat: true }).catch(() => {});
+        }
+      });
+    }
+    // waves: the step's own foes and boss first (when it has them), then each of `waves` in turn, once the last is down
+    const waves = [...(d.foes || d.boss ? [{ foes: d.foes, boss: d.boss }] : []), ...(Array.isArray(d.waves) ? d.waves : [])];
+    const nW = waves.length;
+    let wi = 0;
+    const first = spawnWave(waves[0]);
+    await Promise.race([Promise.all(first.map((h) => h.ready)), wait(() => false, t)]);
+    const fighters = () => handles.flatMap((h) => h.fighters);
+    const crew = { alive: () => fighters().filter((f) => !f.out).length, creatures: true };
     M.crew = crew;
     const label = d.counter || 'DOWN';
-    if (total > 1 && !cardLeft()) ui.counter(label, `0/${total}`);
+    const tally = () => { const all = fighters(), k = all.filter((f) => f.out).length; if (nW > 1) ui.counter('WAVE', `${wi + 1}/${nW}`); else if (all.length > 1 && !cardLeft()) ui.counter(label, `${k}/${all.length}`); return k; };
+    tally();
     gps.objective(parts(d.objective || (bossName ? `Beat **${bossName}**.` : 'Beat them all.'), 'red'), null);
-    let lastK = 0, talk = false, lastHp = combat.player.hp, woke = false;
-    const fightSay = (lines) => { talk = true; (async () => { for (const l of lines.map(tuple)) await say(castName(l.who), l.text, M.tok); })().catch(() => {}).finally(() => { talk = false; }); };
-    // (the lair's boss woken: its name called, and the step's line for it)
-    const boss = B ? handles[handles.length - 1] : null;
-    boss?.on('wake', () => {
-      if (woke) return; woke = true; juice.alert(bossName || 'Boss', { sub: d.alert ? tokens(d.alert) : '', tone: 'red', sting: 'up', jolt: 0.4, secs: 2.4 }); if (d.wake && !talk) fightSay([d.wake]);
-      // (the wake framed: a low lens behind his shoulder looking up at it, its whole height in the frame, while it shows
-      // itself; then the fight's own camera. wakeShot: false leaves it out)
-      const f = boss.fighters[0];
-      if (f && d.wakeShot !== false) {
-        const hx = P.position.x, hz = P.position.z, dx = f.pos.x - hx, dz = f.pos.z - hz, n = Math.hypot(dx, dz) || 1, fx = dx / n, fz = dz / n, H = f.height || 3;
-        const back = 2.6 + H * 0.35, gy = cm.getGroundHeight(hx, hz, 'person');
-        const cam = [hx - fx * back + fz * 1.4, gy + 0.9 + H * 0.12, hz - fz * back - fx * 1.4], cam2 = [hx - fx * (back + 1.2) + fz * 1.8, gy + 1.2 + H * 0.18, hz - fz * (back + 1.2) - fx * 1.8];
-        const look = [f.pos.x, f.pos.y + H * 0.62, f.pos.z];
-        // (first close on it from low down, looking up: its size; then over his shoulder: the two of them)
-        const by = cm.getGroundHeight(f.pos.x, f.pos.z, 'person'), cx = f.pos.x - fx * H * 1.5 + fz * H * 0.55, cz = f.pos.z - fz * H * 1.5 - fx * H * 0.55;
-        const close = [cx, by + 0.5, cz], close2 = [cx - fx * H * 0.25, by + 0.7, cz - fz * H * 0.25], up = [f.pos.x, by + H * 0.78, f.pos.z];
-        // (a step's wakeCam: [x, y, z], the second a wide from there instead, the boss against what is behind it (The
-        // Matriarch on the hill's top against the crater's glow in the west), its lens rising a little)
-        const wc = Array.isArray(d.wakeCam) && d.wakeCam.length === 3 ? d.wakeCam : null;
-        const second = wc ? { cam: wc, to: [wc[0], wc[1] + 1.2, wc[2]], look: [f.pos.x, by + H * 0.55, f.pos.z], dur: 2.4, fov: d.wakeFov || 40 } : { cam, to: cam2, look, dur: 1.6, fov: 44 };
-        shotList([{ cam: close, to: close2, look: up, dur: 1.7, fov: 50 }, second], M.tok, { beat: true }).catch(() => {});
-      }
-    });
+    if (nW > 1) juice.alert(`WAVE 1/${nW}`, { sub: waves[0].alert ? tokens(waves[0].alert) : '', tone: 'red', sting: 'up', secs: 2 });
     const t0 = now();
+    let between = 0;
     try {
       await wait(() => {
-        const alive = crew.alive(), k = total - alive;
+        const all = fighters(), alive = all.filter((f) => !f.out).length, k = all.length - alive;
         const hp = combat.player.hp; if (hp < lastHp - 0.5) M.stats.hits++; lastHp = hp;
         if (k !== lastK) { lastK = k; const b = d.barks?.[k]; if (b && !talk && alive > 0) fightSay([b]); }
-        if (total > 1 && !cardLeft()) ui.counter(label, `${k}/${total}`);
-        for (const f of fighters) if (!f.out && !f.disposed) gps.blip('e:' + f.id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: !!f.boss, name: f.boss ? (f.name || '') : '' }); else gps.unblip('e:' + f.id);
+        tally();
+        for (const f of all) if (!f.out && !f.disposed) gps.blip('e:' + f.id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: !!f.boss || nW > 1, name: f.boss ? (f.name || '') : '' }); else gps.unblip('e:' + f.id);
         if (down) throw new Fail(tokens(d.why || `${heroName} got knocked out.`), 'ko');
         if (dist(me(), cx, cz) > 150) throw new Fail('You left the fight.', 'left');
         const secs = (now() - t0) / 1000;
         if (d.timer) { hud.timer(d.timer - secs, 'TIME'); if (secs > d.timer) throw new Fail(tokens(d.why || 'You ran out of time.'), 'time'); }
-        return alive === 0;
+        if (alive > 0 || !all.length || loading > 0) return false;
+        if (wi + 1 >= nW) return true;
+        // (a wave down: a breather (`pause` s, 5), its line, then the next, called by name)
+        if (!between) {
+          between = now();
+          const w = waves[wi + 1];
+          if (w.say) fightSay([w.say]);
+          // (he is healed a little between waves: a third of what he has lost)
+          combat.player.hp = Math.min(combat.player.maxHp, combat.player.hp + (combat.player.maxHp - combat.player.hp) / 3);
+          gps.objective(parts(w.objective || 'Get ready.', 'red'), null);
+        }
+        if (now() - between > (waves[wi + 1].pause ?? 5) * 1000) {
+          between = 0; wi++;
+          const w = waves[wi];
+          spawnWave(w);
+          juice.alert(`WAVE ${wi + 1}/${nW}`, { sub: w.alert ? tokens(w.alert) : '', tone: 'red', sting: 'up', jolt: 0.3, secs: 2 });
+          gps.objective(parts(w.objective || d.objective || 'Beat them all.', 'red'), null);
+        }
+        return false;
       }, t);
-      M.stats.ko += total;
+      M.stats.ko += fighters().length;
     } finally {
       offDown?.(); combat.player.autoGetUp = autoGetUp;
       for (const id of [...gps.blips.keys()]) if (id.startsWith('e:')) gps.unblip(id);
@@ -1216,13 +1265,15 @@ export function createRunner(ctx) {
   // `at` stands the horse there first (W.horse.give); else it is where he left it (blipped, the route to it)
   STEPS.mount = async (d, t) => {
     const H = W.horse;
-    if (inCar()) return;
+    if (inCar()) { if (d.arm && H?.arm) try { H.arm(d.arm); } catch {} return; }
     if (H && d.at) { const p = placeOf(d.at); H.give({ x: p.cx ?? p.x, z: p.cz ?? p.z, heading: p.heading ?? 0 }); }
     const name = car.label || 'your horse';
     gps.objective(d.objective ? parts(d.objective, 'blue') : [`${rideWord('board', 'Get in')} `, { [name]: 'blue' }, '.'], { follow: () => car.position, name });
     gps.blip('car', { x: car.position.x, z: car.position.z, kind: 'car', edge: true, name });
     ui.help(`Press [F] to ${rideWord('board', 'get in').toLowerCase()}.`, 8);
     try { await wait(() => inCar() && !W.ride?.phase, t); } finally { gps.unblip('car'); ui.help(null); gps.clear(); }
+    // (something put in his hand for the saddle's blows: `arm` 'bat' | 'bottle', wagmi/horse arm)
+    if (d.arm && H?.arm) try { H.arm(d.arm); } catch (e) { console.warn('[storyrun] arm', e); }
   };
   STEPS.dismount = async (d, t) => {
     if (!inCar()) return;
@@ -1230,6 +1281,247 @@ export function createRunner(ctx) {
     ui.help(`Press [F] to ${W.horse ? 'dismount' : 'get out'}.`, 8);
     if (d.quick || M.auto) { await wait(() => Math.abs(car.speed || 0) < 1.5, t); W.ride?.getOut?.(true); }
     try { await wait(() => !inCar() && !W.ride?.phase, t); } finally { ui.help(null); }
+  };
+
+  /* ---------------------------------------------- the wild steps (SF 2040) -- */
+  // sneak, flee, drove and track: the verbs of a ride through a city of creatures (W.creatures, San Francisco only).
+  // Each tells the test drive what it needs in M.wild ({ kind, walk, push, near }: autopilot.js).
+  const markOf = (r) => { if (Array.isArray(r)) return { x: r[0], z: r[1] }; const pp = placeOf(r); return { x: pp.cx ?? pp.x, z: pp.cz ?? pp.z }; };
+  const paceNow = () => (inCar() ? Math.abs(car.speed || 0) : Math.abs(P.speed || 0));
+  // (how loud he is: a horse's walk, trot or gallop by its speed (wagmi/horse/drive.js PACE 1.8 / 4.5 / 12), a man's
+  // walk or run; and how far a sleeper hears each, in metres)
+  const gaitNow = () => { const v = paceNow(); return inCar() ? (v < 2.6 ? 'walk' : v < 7 ? 'trot' : 'gallop') : (v < 2.4 ? 'walk' : 'run'); };
+  const HEAR = { walk: 6, trot: 17, gallop: 36, run: 11 };
+  const arrived = (p, radius) => (inCar() ? dist(car.position, p.x, p.z) < radius : dist(P.position, p.x, p.z) < Math.max(3, radius * 0.75));
+  // a whistle, three short blasts (a ranger's "I'm here"), or one: synthesized, near (loud) or far (soft and dull)
+  function whistle(k = 1, n = 3) {
+    const ac = sfx?.unlock?.(); if (!ac || ac.state !== 'running') return;
+    const t0 = ac.currentTime + 0.02, lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800 + 4200 * k;
+    const out = ac.createGain(); out.gain.value = 0.05 + 0.2 * k; lp.connect(out); out.connect(ac.destination);
+    for (let i = 0; i < n; i++) {
+      const t = t0 + i * 0.32, o = ac.createOscillator(), v = ac.createOscillator(), vg = ac.createGain(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = 2650; v.frequency.value = 38; vg.gain.value = 70; v.connect(vg); vg.connect(o.frequency);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 0.02); g.gain.setValueAtTime(1, t + 0.17); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      o.connect(g); g.connect(lp); o.start(t); v.start(t); o.stop(t + 0.25); v.stop(t + 0.25);
+    }
+    setTimeout(() => { try { out.disconnect(); } catch {} }, 2000);
+  }
+  const growl = () => { sfx.play('thunk', { gain: 0.35, f: 55, ring: true }); sfx.play('grunt', { gain: 0.22, f0: 70, vowel: 'o', dur: 0.5 }); };
+  // the creatures a step keeps for a later one (flee's chaser, fought at the bottom of the hill: a fight's boss.from)
+  const keptOf = () => (M.kept = M.kept || new Map());
+
+  // sneak: past sleeping creatures to a place, without waking them. They lie in their lairs (`sleepers`, on the radar);
+  // each hears him within HEAR m for his gait (a horse's gallop 36, trot 17, walk 6; a man running 11, walking 6), times
+  // its `ears`. While one hears him the NOISE bar fills (faster the nearer he is), and drains when none does; at a
+  // half it stirs (a growl, the step's `warn` line); full, or hit, they wake: the step fails (`why`, the tip: walk) or,
+  // with `woke: <step id>`, goes there (a fight). There, they are let be (gone with the step).
+  //   { type: 'sneak', to: '@place', radius, sleepers: [{ id, at, name, height, yaw, ears }], objective, help, warn, why, woke }
+  STEPS.sneak = async (d, t) => {
+    const C = W.creatures, p = placeOf(d.to), radius = d.radius || 10;
+    const hs = [];
+    if (C?.spawn) for (const s of d.sleepers || []) {
+      const o = typeof s === 'string' ? { id: s, at: d.to } : s;
+      hs.push({ o, h: C.spawn(o.id, { at: markOf(o.at), height: o.height, name: o.name, yaw: o.yaw != null ? (o.yaw * PI) / 180 : undefined, hold: { wake: 1.5, leash: 30 }, aggro: false }) });
+    }
+    M.creatures = [...(M.creatures || []), ...hs.map((x) => x.h)];
+    await Promise.race([Promise.all(hs.map((x) => x.h.ready)), wait(() => false, t)]);
+    let noise = 0, warned = false, woke = false, last = now();
+    for (const x of hs) x.h.on('wake', () => { woke = true; });
+    marker.at(p.x, groundY(p.x, p.z), p.z); M.dest = p;
+    const nav = gps.drive({ dest: { x: p.x, z: p.z, name: p.name }, objective: parts(d.objective || `Get to **${p.name}** without waking them.`), onFoot: 250 });
+    M.nav = nav;
+    ui.help(parts(d.help || 'Near them, slow to a walk: [Q] walks Ranger. Keep the NOISE bar from filling.'), 10);
+    M.wild = { kind: 'sneak', walk: false, near: Infinity };
+    try {
+      await wait(() => {
+        nav.step();
+        const tt = now(), dt = Math.min(0.1, (tt - last) / 1000); last = tt;
+        const hear = HEAR[gaitNow()] || 10, q = me();
+        let heat = 0, near = Infinity, nearAt = null;
+        for (const x of hs) for (const f of x.h.fighters) {
+          if (f.out || f.disposed) continue;
+          const dd = dist(q, f.pos.x, f.pos.z) - (f.T?.radius || 0), r = hear * (x.o.ears || 1);
+          if (dd < near) { near = dd; nearAt = { x: f.pos.x, z: f.pos.z, r: hear * (x.o.ears || 1) + (f.T?.radius || 0) }; }
+          if (dd < r) heat = Math.max(heat, 1 - Math.max(0, dd) / r);
+          gps.blip('sl:' + f.id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', name: x.o.name || '' });
+        }
+        M.wild.near = near; M.wild.nearAt = nearAt; M.wild.walk = near < HEAR.trot * 1.6; M.wild.gait = gaitNow(); M.wild.noise = noise;
+        noise = clamp(noise + (heat > 0 ? (0.18 + heat * 1.1) * dt : -0.2 * dt), 0, 1);
+        hud.bar('NOISE', noise, heat > 0 ? (noise > 0.55 ? 'It stirs' : 'It can hear you') : near < 60 ? 'Quiet' : '');
+        if (noise > 0.5 && !warned) { warned = true; growl(); juice.pulse(0.5); if (d.warn) { const b = tuple(d.warn); say(castName(b.who), b.text, M.tok).catch(() => {}); } }
+        if (noise < 0.15) warned = false;
+        if (noise >= 1 || woke) { woke = true; return true; }
+        return arrived(p, radius);
+      }, t);
+    } finally {
+      nav.stop(); M.nav = null; M.dest = null; marker.hide(); gps.clear(); hud.bar(null); ui.help(null); M.wild = null;
+      for (const x of hs) { for (const f of x.h.fighters) gps.unblip('sl:' + f.id); }
+    }
+    if (woke) {
+      M.log.push(['sneak', 'woke']);
+      for (const x of hs) try { x.h.engage(); } catch {}
+      juice.alert(d.alert || 'They heard you', { tone: 'red', sting: 'up', jolt: 0.35, secs: 2 });
+      await delay(1.2, t);
+      for (const x of hs) try { x.h.remove(); } catch {}
+      M.creatures = (M.creatures || []).filter((h) => !hs.some((x) => x.h === h));
+      if (d.woke) return { goto: d.woke };
+      throw new Fail(tokens(d.why || 'They heard you.'), 'heard');
+    }
+    for (const x of hs) try { x.h.remove(); } catch {}
+    M.creatures = (M.creatures || []).filter((h) => !hs.some((x) => x.h === h));
+    if (d.card !== false) { sfx.play('ding', { gain: 0.22 }); ui.place(p.name, '', 3); M.cardAt = now(); }
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
+  };
+
+  // flee: a creature on his heels, to a place. It comes from `from` (a place, or `behind` m back along his way), fast:
+  // never quite as fast as a gallop, gaining on anything slower, and closing up when it falls far behind (it never
+  // loses him: the chase stays close). Within its reach (`catch` m past its body) for `grace` s in all, it has him: the
+  // step fails ('caught'). Knocked out, too. There, it stops; with `keep: true` it is kept for the next fight (its
+  // boss.from: this step's id), else it is let go.
+  //   { type: 'flee', to: '@place', radius, creature: { id, name, height, boss: true, phases }, from, behind, speed,
+  //     catch, grace, objective, alert, keep, barks: { <secs in>: [who, text] } }
+  STEPS.flee = async (d, t) => {
+    const C = W.creatures, p = placeOf(d.to), radius = d.radius || 14;
+    const B = typeof d.creature === 'string' ? { id: d.creature } : d.creature || {};
+    let h = null;
+    if (C?.spawn && B.id) {
+      const e = cm.getActiveEntity(), back = d.behind || 30;
+      const at = d.from ? markOf(d.from) : { x: e.position.x - Math.sin(e.heading) * back, z: e.position.z - Math.cos(e.heading) * back };
+      h = C.spawn(B.id, { at, height: B.height, name: B.name, stats: B.stats, boss: B.boss ? { name: B.name, phases: B.phases } : null, aggro: true });
+      M.creatures = [...(M.creatures || []), h];
+      await Promise.race([h.ready, wait(() => false, t)]);
+      try { h.engage(); } catch {}
+    }
+    const f = h?.fighters?.[0] || null, speed0 = f?.T?.speed;
+    juice.alert(B.name || 'Run', { sub: tokens(d.alert || 'Ride!'), tone: 'red', sting: 'up', jolt: 0.45, secs: 2.2 });
+    marker.at(p.x, groundY(p.x, p.z), p.z); M.dest = p;
+    const nav = gps.drive({ dest: { x: p.x, z: p.z, name: p.name }, objective: parts(d.objective || `Ride for **${p.name}**!`, 'red'), onFoot: 250 });
+    M.nav = nav;
+    const top = d.speed || 11, reach = d.catch ?? 2.5, grace = d.grace ?? 1.6, t0 = now();
+    let held = 0, last = now(), down = false;
+    const offDown = W.combat?.player?.onDown?.(() => { down = true; });
+    const barks = Object.entries(d.barks || {}).map(([k, l]) => [+k, l]).sort((a, b) => a[0] - b[0]);
+    M.wild = { kind: 'flee' };
+    try {
+      await wait(() => {
+        nav.step();
+        const tt = now(), dt = Math.min(0.1, (tt - last) / 1000); last = tt;
+        const secs = (tt - t0) / 1000;
+        while (barks.length && secs >= barks[0][0]) { const b = tuple(barks.shift()[1]); say(castName(b.who), b.text, M.tok).catch(() => {}); }
+        if (f && !f.out && !f.disposed) {
+          const q = me(), gap = dist(q, f.pos.x, f.pos.z) - (f.T?.radius || 0), v = paceNow();
+          // (its pace: a little under his when he gallops, its own top when he is slower; far behind, it closes up)
+          f.T.speed = Math.min(top, Math.max(top * 0.82, v * 0.94));
+          if (gap > 32) { const dx = q.x - f.pos.x, dz = q.z - f.pos.z, n = Math.hypot(dx, dz) || 1, s = Math.min(gap - 32, (v + 3) * dt); f.moveXZ?.(dx / n * s, dz / n * s); }
+          held = gap < reach ? held + dt : Math.max(0, held - dt * 0.5);
+          hud.bar(B.name ? B.name.toUpperCase() : 'BEHIND YOU', clamp(1 - gap / 40, 0, 1), `${Math.max(0, Math.round(gap))} m`);
+          gps.blip('chaser', { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: true, name: B.name || '' });
+          if (held > grace) throw new Fail(tokens(d.why || `${B.name || 'It'} caught you.`), 'chased');
+        }
+        if (down) throw new Fail(tokens(d.why || `${heroName} got knocked out.`), 'ko');
+        return arrived(p, radius);
+      }, t);
+    } finally {
+      offDown?.(); nav.stop(); M.nav = null; M.dest = null; marker.hide(); gps.clear(); hud.bar(null); gps.unblip('chaser'); M.wild = null;
+    }
+    if (f && speed0 != null) f.T.speed = speed0;
+    if (h && d.keep && d.id) keptOf().set(d.id, h);
+    else if (h) { try { h.remove(); } catch {} M.creatures = (M.creatures || []).filter((x) => x !== h); }
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
+  };
+
+  // drove: a herd (a herd step's, by its id) driven into a pen. They run from him (W.creatures.herd), so he rides round
+  // behind them; running, they drift toward the pen (`pull` m/s), and once in it (within `radius` m) they stay. The
+  // route goes to the herd, the pen is a ring and a blip; the counter keeps the tally ('HERD 2/3'). Done when `need`
+  // are in (all of them when it names none).
+  //   { type: 'drove', herd: '<herd id>', to: '@place', radius, need, pull, label, objective, help, barks }
+  STEPS.drove = async (d, t) => {
+    const hd = M.herds?.get(d.herd);
+    if (!hd) { console.warn('[storyrun] drove: no herd', d.herd); return; }
+    await Promise.race([hd.ready, wait(() => false, t)]);
+    const p = placeOf(d.to), px = p.cx ?? p.x, pz = p.cz ?? p.z, R = d.radius || 14, pull = d.pull ?? 1.6;
+    const A = hd.animals || [], need = Math.min(A.length, d.need || A.length), label = (d.label || 'Herd').toUpperCase();
+    const ring = createMarker(THREE, app.scene, { color: '#4ADE80', radius: R, height: 1.4, alpha: 0.16 }); ring.at(px, groundY(px, pz), pz);
+    gps.blip('pen', { x: px, z: pz, kind: 'object', edge: true, name: p.name || 'the pen' });
+    ui.counter(label, `0/${need}`);
+    if (d.help !== false) ui.help(parts(d.help || 'They run from Ranger. Ride round behind them and push them toward the **green ring**.'), 10);
+    const objective = parts(d.objective || `Drive the herd into **${p.name}**`, 'green');
+    let nav = null, navAt = 0, last = now(), got = 0;
+    const t0 = now(), penned = new Set();
+    M.wild = { kind: 'drove', push: null };
+    try {
+      await wait(() => {
+        const tt = now(), dt = Math.min(0.1, (tt - last) / 1000); last = tt;
+        const q = me(), assist = M.auto && (tt - t0) / 1000 > 45;
+        let cx = 0, cz = 0, n = 0;
+        for (const a of A) {
+          const dp = Math.hypot(a.pos.x - px, a.pos.z - pz);
+          if (penned.has(a)) {
+            // (in: kept in the pen, grazing)
+            if (dp > R * 0.8) { a.pos.x += (px - a.pos.x) / dp * Math.min(dp - R * 0.8, 3 * dt); a.pos.z += (pz - a.pos.z) / dp * Math.min(dp - R * 0.8, 3 * dt); }
+            if (a.state === 'flee') { a.state = 'graze'; a.t = 0; a.next = 6; }
+            continue;
+          }
+          if (dp < R) { penned.add(a); got++; sfx.play('ding', { gain: 0.26 }); juice.alert(`${d.label || 'Herd'} ${got}/${need}`, { tone: got >= need ? 'green' : 'yellow', secs: 1.3 });
+            if (d.barks?.[got]) { const b = tuple(d.barks[got]); say(castName(b.who), b.text, M.tok).catch(() => {}); }
+            continue; }
+          cx += a.pos.x; cz += a.pos.z; n++;
+          // (running from him, and he near: a drift toward the pen; the test drive's after 45 s is a firm one)
+          const dq = dist(q, a.pos.x, a.pos.z), k = assist ? 4 : a.state === 'flee' && dq < 45 ? pull : 0;
+          if (k > 0) { a.pos.x += (px - a.pos.x) / dp * k * dt; a.pos.z += (pz - a.pos.z) / dp * k * dt; }
+        }
+        ui.counter(label, `${got}/${need}`);
+        if (got >= need) return true;
+        if (n) {
+          cx /= n; cz /= n;
+          // (where to ride: behind the herd, the far side from the pen; the route there, re-aimed every 2 s)
+          const ax = cx - px, az = cz - pz, L = Math.hypot(ax, az) || 1, bx = cx + ax / L * 14, bz = cz + az / L * 14;
+          M.wild.push = { x: bx, z: bz, cx, cz };
+          if (!nav || tt - navAt > 2000) { nav?.stop(); navAt = tt; nav = gps.drive({ dest: { x: bx, z: bz, name: d.label || 'the herd' }, objective: [...objective, ` · ${got}/${need}`], onFoot: 250 }); M.dest = { x: bx, z: bz }; }
+          nav.step();
+          gps.blip('herd', { x: cx, z: cz, kind: 'object', name: d.label || 'the herd' });
+        }
+        return false;
+      }, t);
+    } finally {
+      nav?.stop(); M.dest = null; gps.clear(); gps.unblip('pen'); gps.unblip('herd'); ring.hide(); app.scene.remove(ring.group); ui.help(null); M.wild = null;
+    }
+    ui.counter(label, `${need}/${need}`); await delay(1.0, t); ui.counter(null);
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
+  };
+
+  // track: something heard, not seen. No route and no marker: a SIGNAL bar that fills as he gets nearer, and a sound
+  // from the place every `every` s (`cue`: 'whistle', three short blasts, louder and brighter the nearer he is), with a
+  // word ('Colder', 'Warmer', 'Close'). After `hint` s (90) the route is given as a last resort. Done within `radius` m.
+  //   { type: 'track', at: '@place', radius, label, every, cue: 'whistle' | 'ding', call: [who, text], objective, hint }
+  STEPS.track = async (d, t) => {
+    const p = placeOf(d.at), px = p.cx ?? p.x, pz = p.cz ?? p.z, radius = d.radius || 12, every = (d.every || 7) * 1000, label = (d.label || 'Signal').toUpperCase();
+    const d0 = Math.max(60, dist(me(), px, pz));
+    gps.objective(parts(d.objective || `Follow the sound to **${p.name}**.`), null);
+    let nav = null, lastPing = 0, best = d0, word = '';
+    const t0 = now(), hint = (d.hint ?? 90) * 1000;
+    const help = d.help ?? 'No route for this one: listen, and watch the bar fill as you get closer.';
+    if (help) ui.help(parts(help), 9);
+    M.wild = { kind: 'track' };
+    try {
+      await wait(() => {
+        const tt = now(), dd = dist(me(), px, pz), k = clamp(1 - dd / d0, 0, 1);
+        // (the test drive, or a player still lost after `hint` s: the route, as a last resort)
+        if (!nav && (M.auto || tt - t0 > hint)) { nav = gps.drive({ dest: { x: px, z: pz, name: p.name }, objective: parts(d.objective || `Follow the sound to **${p.name}**.`), onFoot: 250 }); M.dest = { x: px, z: pz }; if (!M.auto) ui.help('The route is on the map.', 5); }
+        nav?.step();
+        if (tt - lastPing > every * (0.45 + 0.55 * (1 - k))) {
+          lastPing = tt;
+          if ((d.cue || 'whistle') === 'whistle') whistle(0.15 + 0.85 * k); else sfx.play('ding', { gain: 0.08 + 0.3 * k });
+          word = dd < best - 8 ? 'Warmer' : dd > best + 15 ? 'Colder' : word; best = Math.min(best, dd);
+          if (d.call && tt - t0 < 1000) { const b = tuple(d.call); say(castName(b.who), b.text, M.tok).catch(() => {}); }
+        }
+        hud.bar(label, k, dd < radius * 3 ? 'Close' : word);
+        return dd < radius;
+      }, t);
+    } finally { nav?.stop(); M.dest = null; gps.clear(); hud.bar(null); ui.help(null); M.wild = null; }
+    sfx.play('ding', { gain: 0.24 });
+    if (d.card !== false) { ui.place(p.name, '', 3); M.cardAt = now(); }
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
   };
 
   // a chase: pursuit's heat and cars; lose them, reach a place with them on you, or keep going (escort) for `until` s
@@ -1991,6 +2283,8 @@ export function createRunner(ctx) {
     try { M.chase?.stop?.(); } catch {}
     if (M.crew) W.combat?.clear?.();
     if (M.creatures) dropCreatures();
+    if (M.kept) { for (const h of M.kept.values()) try { h.remove(); } catch {} M.kept = null; }
+    M.wild = null; hud.bar?.(null);
     if (M.herds) { for (const h of M.herds.values()) try { h.remove(); } catch {} M.herds = null; }
     hud.clear(); M.timer.stop(); juice.clear(); juice.live = false;
     ui.objective(null); ui.sub(null); ui.help(null); ui.counter(null); ui.caller(null); ui.hold(null); ui.phone?.hide?.(); ui.offer?.(null);
@@ -2073,7 +2367,7 @@ export function createRunner(ctx) {
     while (i < steps.length) {
       const d = steps[i];
       if (d.if && !cond(d.if)) { i++; continue; }
-      if (d.checkpoint && (!M.cp || M.cp.i !== i)) M.cp = snapshot(i);
+      if (d.checkpoint && (!M.cp || M.cp.i !== i)) { M.cp = snapshot(i); try { ctx.onCheckpoint?.(def.id, M.cp); } catch {} }
       M.i = i; W.mission.phase = d.id || `${d.type}:${i}`;
       ui.step(`pack:${def.id}:${i}`);
       host.tell('progress', { mission: def.id, step: d.id || null, kind: d.type, i, n: steps.length });
@@ -2113,8 +2407,9 @@ export function createRunner(ctx) {
   }
 
   // a mission, with Mog City's fail screen: Retry (from its checkpoint), Quit, and Skip after three fails
-  async function play(def, { act = null, from = null } = {}) {
-    let cp = null, fails = 0;
+  // (resume: a checkpoint saved in an earlier session (index.js Continue), its snapshot as attempt() took it)
+  async function play(def, { act = null, from = null, resume = null } = {}) {
+    let cp = resume && Number.isInteger(resume.i) && resume.i > 0 && resume.i < def.steps.length && resume.at ? resume : null, fails = 0;
     // (?step=<id>: from that step, where its `from` puts him; a dev and Mission select start)
     if (from) { const i = def.steps.findIndex((s) => s.id === from); if (i >= 0) cp = { i, from: def.steps[i].from || def.start, state: { meters: { ...ctx.save.meters }, flags: { ...ctx.save.flags }, forks: {} }, timers: [] }; }
     const reg = registry(W).register({
