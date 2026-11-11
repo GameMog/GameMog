@@ -75,6 +75,14 @@ alone, under his guard.
     (see Characters below), over the idle's legs
 
 
+Oswald and Manrope (a world's glass UI theme)
+---------------------------------------------
+assets/fonts/oswald/Oswald-Variable.woff2: Copyright 2016 The Oswald Project Authors
+(https://github.com/googlefonts/OswaldFont). assets/fonts/manrope/Manrope-Variable.woff2: Copyright 2018 The Manrope
+Project Authors (https://github.com/googlefonts/manrope). Both are licensed under the SIL Open Font License, Version 1.1
+(full text beside each font, OFL.txt; https://openfontlicense.org), NOT the MIT License in LICENSE. Modified: subset to
+Latin and converted to WOFF2 from google/fonts' Oswald[wght].ttf and Manrope[wght].ttf.
+
 Recast Navigation (the fights' pathfinding)
 -------------------------------------------
 js/vendor/recast/: recast-navigation-js 0.43.1 by Isaac Mason (https://github.com/isaac-mason/recast-navigation-js),

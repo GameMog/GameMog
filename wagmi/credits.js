@@ -61,6 +61,8 @@ export const CREDITS = [
   // (a model a Story Kit world's car wears adds its own line when it is built, wagmi/storyrun/vantor.js: empty, and so
   // left out, in Mog City's own game)
   { heading: 'Vehicles', lines: [] },
+  // (a world's UI theme adds its typefaces when it is applied, wagmi/storyrun/theme.js: empty in Mog City's own game)
+  { heading: 'Type', lines: [] },
   { heading: 'Voices', lines: [
     { what: 'Dan, Jane, Mr. Big, Knox, Mack, Gears, Fiona, Brick, Dash, Bea and the camp', who: 'synthesised voices', note: 'invented voices; the tools and their licences are in NOTICE', licence: 'Apache-2.0', licenceUrl: 'https://www.apache.org/licenses/LICENSE-2.0', src: null },
   ] },

@@ -138,7 +138,7 @@ export function createRunner(ctx) {
     const rec = W.voice?.dur?.(who, text) || 0;
     const hold = Math.max(1.4, text.length / 15, rec + 0.15, secs || 0);
     if (phone) W.voice?.fx?.(who, 'phone');
-    ui.sub(who || null, text, colorOf(who));
+    ui.sub(who || null, text, colorOf(who), phone || onAir(who));
     mumble(who, text, hold);
     M?.log.push(['say', who, text]);
     saying++;
@@ -146,6 +146,8 @@ export function createRunner(ctx) {
     await delay(0.25, t);
   }
   const tuple = (l) => (Array.isArray(l) ? { who: l[0], text: l[1], secs: l[2] } : l);
+  // (a voice only ever heard over the air: its lines are radio lines on screen too)
+  const onAir = (w) => !!(w && world.castOf?.(w)?.voiceOnly);
   // the runner pack writes call speakers upper-cased: back to the cast's own name
   const castName = (w) => { if (!w) return w; if (world.castOf(w)) return w; const k = Object.keys(def0.cast || {}).find((n) => n.toUpperCase() === String(w).toUpperCase()); return k || w; };
 
@@ -722,8 +724,8 @@ export function createRunner(ctx) {
         if (s.caption) ui.caption(s.caption, '', '#FFC93C', Math.min(dur, 3));
         let frozen = null;
         if (opening) openBeat(s, dur);
-        if (s.say && Array.isArray(s.say)) { const [w, x] = s.say; ui.sub(castName(w), tokens(x), colorOf(castName(w))); mumble(castName(w), x, dur); }
-        else if (sub && sub[1]) { const w = castName(sub[0]); ui.sub(w || null, tokens(sub[1]), colorOf(w)); if (w) mumble(w, sub[1], dur); M?.log.push(['say', w, sub[1]]); }
+        if (s.say && Array.isArray(s.say)) { const [w, x] = s.say; ui.sub(castName(w), tokens(x), colorOf(castName(w)), onAir(castName(w))); mumble(castName(w), x, dur); }
+        else if (sub && sub[1]) { const w = castName(sub[0]); ui.sub(w || null, tokens(sub[1]), colorOf(w), onAir(w)); if (w) mumble(w, sub[1], dur); M?.log.push(['say', w, sub[1]]); }
         else if (s.text) ui.sub(null, tokens(s.text));
         const len = Math.max(dur, sub && sub[1] ? Math.max(1.4, sub[1].length / 15, (W.voice?.dur?.(castName(sub[0]), tokens(sub[1])) || 0) + 0.15) : 0);
         try {

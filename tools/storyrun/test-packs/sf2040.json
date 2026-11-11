@@ -4,6 +4,9 @@
  "title": "SF 2040",
  "kicker": "SAN FRANCISCO",
  "tagline": "Forty-one days after Erebus. One rider, one horse, a city gone wild. Find them.",
+ "ui": {
+  "theme": "glass"
+ },
  "city": "sf",
  "car": {
   "model": "mogcity/horse",
