@@ -26,10 +26,14 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
 
 - `sf2040.json`: **SF 2040** (San Francisco, `?city=sf`), the owner's post-impact story: Cal Mercer rides Ranger (the
   world's car `{ "model": "mogcity/horse" }`) through the city after the asteroid Erebus, looking for his wife Nina and
-  their daughter June. An opening at the Embarcadero camp, then five missions: Market Street (collect food, the Iron
-  Saints), Market & Church (The Brood Mother's lair at Octavia, medicine, Nina's note), Civic Center (a wild herd, Old
-  Silver, June's backpack), Hyde Street (hybrids and WARDEN-7 at the hospital, a search), Lafayette Park (brutes and The
-  Matriarch, the reunion at the house on Washington St). `dressing.apocalypse: "dusk"`. Play it at
+  their daughter June, and finds the Iron Saints steering the Bio-Preserve's creatures with WARDEN-7's tone. An opening
+  at the Embarcadero camp, then six missions in three acts, each with its own verb: Market Street (mount, gaits, collect
+  in the saddle, the first saddle fight), Quiet Hooves (`sneak` past the Brood Mother's nest, medicine, Nina's note, the
+  Brood Mother), Wild Horses (Old Silver, June's backpack, `drove` the herd into the corral), The Shepherd (WARDEN-7,
+  three relays against a clock, the choice, Hollis's confession), Lafayette Park (`track` June's whistle, `flee` The
+  Matriarch downhill and fight her, the reunion), Homecoming (hold the camp: three `waves`, Deacon Vale last), then a
+  `coda`. Radio on the rides (`during` calls) and between missions (`between.radio`). Its design:
+  `.scratch/story2/DESIGN.md`. `dressing.apocalypse: "dusk"`. Play it at
   `/?city=sf&pack=/tools/storyrun/test-packs/sf2040.json` (`&autopilot=1&autocard=1&flowfast=1` for the test drive).
   Stand-ins: Cal is Dan's body, Nina is Jane's, Hollis is Gears'; June is GameMog's hand-built `young-mother` body
   (`sf2040/june.glb`, credits beside it) stood at 0.88 (the cast's `scale`) until she has a body of her own. Street
@@ -64,6 +68,42 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
   horse. Every leg, chase and the GPS work in the saddle: the horse is the car entity (wagmi/horse).
 - `herd`: `{ id, creature: 'creature-horse', at, count, radius }` wildlife for the mission (gone when it ends, or with
   `{ type: 'herd', remove: id }`).
+- `mount` takes `arm: 'bat' | 'bottle'` (something in his hand for the saddle's blows: J from the saddle).
+
+### The wild steps (the verbs of SF 2040's rides; each tells the test drive what it needs in `M.wild`)
+
+- `sneak`: `{ to, radius, sleepers: [{ id, at, name, height, yaw, ears }], objective, help, warn: [who, text], why, woke }`
+  past sleeping creatures to a place. Each hears him within a distance set by his gait (a horse's walk 6 m, trot 17,
+  gallop 36; a man walking 6, running 11) times its `ears`; while one does, the NOISE bar fills (faster the nearer), and
+  drains when none does. At half it stirs (a growl, `warn`); full, or hit, they wake: the step fails (`why`, the tip:
+  walk with Q) or, with `woke: <step id>`, goes there. They are on the radar, and gone when the step ends.
+- `flee`: `{ to, radius, creature: { id, name, height, boss, phases, stats, at }, behind, speed, catch, grace, keep,
+  objective, alert, barks: { <secs in>: [who, text] } }` a creature on his heels to a place (from its `at`, else `behind` m back). It is never quite as fast
+  as a gallop (`speed`, 11) and gains on anything slower; far behind (32 m) it closes up. Within `catch` m of its body
+  for `grace` s in all it has him (fails, tip: gallop); knocked out fails too. A bar shows how close it is. `keep: true`
+  (with an `id`) keeps it for the next fight: that fight's `boss.from: <the flee's id>` fights the same creature.
+- `drove`: `{ herd: <a herd step's id>, to, radius, need, pull, label, objective, help, barks }` a herd driven into a
+  pen: they run from him, so he rides round behind them; running and near him they drift toward the pen (`pull` m/s);
+  in, they stay. The route leads behind the herd, the pen is a green ring; the counter keeps the tally ('HORSES 2/3').
+- `track`: `{ at, radius, label, cue: 'whistle' | 'ding', every, objective, help, hint }` something heard, not seen: no
+  route, a bar that fills as he nears, and a sound from the place every `every` s (the whistle's three short blasts,
+  louder and brighter as he nears) with 'Warmer' / 'Colder'. After `hint` s (90) the route is given.
+- `fight` takes `waves: [{ foes, boss, from, pause, say, alert, objective, wake }]`: after the step's own foes and boss
+  (if any), each wave comes in turn once the last is down, `pause` s later (5), running in from its `from` place, its
+  `say` line in the breather; he gets back a third of what he lost between waves. The counter shows WAVE n/N. A boss
+  (in a wave or not) with `from: <flee id>` is the creature that flee kept.
+
+### Between missions, Continue, the coda
+
+- a mission's `between.radio: [[who, text], ...]` is said over the radio a few seconds into the free roam before it
+  (`radioAt` s, 4), cut off when he reaches the start.
+- Continue: every checkpoint reached is saved (`mc.pack.<id>.v1`'s `resume`, the runner's snapshot); loading the story
+  again (no `?mission=`, no test drive) puts him back in that mission at that checkpoint, under a CONTINUE card. Passing
+  the mission clears it. `&nosave` leaves the save alone.
+- a world's `coda` (an opening's shape: `place`, `shots`) plays after STORY COMPLETE and the title: a post-credits
+  scene.
+- the test drive's `&fair=1`: fights and chases without the autopilot's help (no health topped up, no finishing blow),
+  to see whether a fight can be won by a player pressing J; `&realpace=1` with it for a player's pace.
 
 On a local server (`python3 -m http.server 4981 --bind 127.0.0.1` in the repo):
 `http://127.0.0.1:4981/?pack=/tools/storyrun/test-packs/native.json`.
@@ -130,3 +170,6 @@ missions too (the test drive is put down by the next one's corona).
 | `&missionsecs=<s>` | the test drive's time limit per mission (240) |
 | `&skipscenes=<s>` | under the autopilot, each authored scene skipped after s seconds |
 | `&keyart=1` | under the autopilot, a wide and a square JPEG of the first drive, posted as `keyart` |
+| `&realpace=1` | under the autopilot, a player's pace: no leg jumped, a sneak walked round its sleepers |
+| `&fair=1` | under the autopilot, no health topped up and no finishing blow (is the fight winnable?) |
+| `&nosave` | no Continue checkpoint saved |

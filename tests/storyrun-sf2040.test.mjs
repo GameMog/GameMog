@@ -13,7 +13,7 @@ const { check, STEP_KINDS, MODEL_CARS, CREATURES, creatureStep } = await import(
 const read = (f) => JSON.parse(fs.readFileSync(path.join(ROOT, f), 'utf8'));
 
 test('the new step kinds and the horse are known', () => {
-  for (const k of ['collect', 'mount', 'dismount', 'herd', 'fight']) assert.ok(STEP_KINDS.has(k), k);
+  for (const k of ['collect', 'mount', 'dismount', 'herd', 'fight', 'sneak', 'flee', 'drove', 'track']) assert.ok(STEP_KINDS.has(k), k);
   assert.ok(MODEL_CARS.has('mogcity/horse') && MODEL_CARS.has('mogcity/gt'));
   assert.deepEqual([...CREATURES].sort(), ['creature-ape', 'creature-centaur', 'creature-knight', 'creature-mech', 'creature-ogre', 'creature-scorpion', 'creature-trex']);
 });
@@ -30,7 +30,18 @@ test('SF 2040: five missions or more, four bosses, food and medicine, Ranger, th
   const steps = w.missions.flatMap((m) => m.steps);
   const bosses = steps.filter((s) => s.type === 'fight' && s.boss).map((s) => s.boss.name);
   assert.deepEqual(bosses, ['The Brood Mother', 'Old Silver', 'WARDEN-7', 'The Matriarch']);
-  assert.ok(steps.every((s) => s.type !== 'fight' || !s.boss || s.boss.hold), 'every boss waits in its lair');
+  // (a boss either waits in its lair, or has been woken on purpose: the Brood Mother by the shop bell after the sneak,
+  // the Matriarch by the chase that a flee hands to her fight)
+  assert.ok(steps.every((s) => s.type !== 'fight' || !s.boss || s.boss.hold || s.boss.at || s.boss.from), 'every boss is placed');
+  // (the last fight is waves, Deacon Vale's the last)
+  const defend = steps.find((s) => s.id === 'defend');
+  assert.equal(defend.waves.length, 3); assert.equal(defend.waves[2].boss.name, 'Deacon Vale');
+  // (held from the saddle, a camp bar to keep, every wave from a place of its own)
+  assert.ok(defend.saddle && defend.guard && defend.guard.hp > 0);
+  assert.equal(new Set(defend.waves.map((x) => x.from)).size, 3);
+  // (the Matriarch comes down the hill on his heels and is fought where the chase ends: the same creature)
+  const run = steps.find((s) => s.type === 'flee'), mat = steps.find((s) => s.id === 'matriarch');
+  assert.ok(run.keep && mat.boss.from === run.id);
   const kinds = new Set(steps.filter((s) => s.type === 'collect').map((s) => s.kind));
   assert.ok(kinds.has('food') && kinds.has('medicine'));
   assert.ok(w.opening && w.opening.shots.length >= 6);
@@ -62,4 +73,48 @@ test('creature fights, collects and herds are refused when they are wrong', () =
   assert.ok(creatureStep({ type: 'herd', at: [0, 0] }, 'ny').some((e) => /San Francisco only/.test(e)));
   // (a fight of men is untouched by any of it)
   assert.deepEqual(creatureStep({ type: 'fight', arena: '@x', enemies: ['a', 'b'] }, 'ny'), []);
+});
+
+test('SF 2040: every mission has its own verb, a checkpoint, objectives, and the glue between them', () => {
+  const w = read('tools/storyrun/test-packs/sf2040.json');
+  const kinds = (m) => new Set(m.steps.map((s) => s.type));
+  const by = Object.fromEntries(w.missions.map((m) => [m.id, m]));
+  assert.ok(kinds(by.M2).has('sneak'), 'M2 sneaks');
+  assert.ok(kinds(by.M3).has('drove'), 'M3 drives a herd');
+  assert.ok(kinds(by.M4).has('timer') && kinds(by.M4).has('choice'), 'M4 a clock and the choice');
+  assert.ok(kinds(by.M5).has('track') && kinds(by.M5).has('flee'), 'M5 tracks and flees');
+  assert.ok(by.M6.steps.some((s) => s.waves), 'M6 holds the camp');
+  for (const m of w.missions) {
+    assert.ok(m.steps.some((s) => s.checkpoint), `${m.id} checkpoint`);
+    for (const s of m.steps) if (['drive', 'collect', 'fight', 'sneak', 'flee', 'drove', 'track', 'search', 'walk'].includes(s.type)) assert.ok(s.objective, `${m.id} ${s.id || s.type} objective`);
+  }
+  // (the radio on the rides, and between the missions)
+  assert.ok(w.missions.filter((m) => m.steps.some((s) => (s.during || []).some((x) => x.type === 'call'))).length >= 4);
+  assert.ok(w.missions.slice(1).every((m) => m.between?.radio?.length), 'radio between missions');
+  // (every speaker is in the cast, so the voice lane can find them)
+  const speakers = new Set();
+  const walk = (v) => { if (Array.isArray(v)) { if (v.length >= 2 && typeof v[0] === 'string' && typeof v[1] === 'string' && w.cast[v[0]]) speakers.add(v[0]); v.forEach(walk); } else if (v && typeof v === 'object') { if (v.who && v.text) speakers.add(v.who); Object.values(v).forEach(walk); } };
+  walk(w.missions); walk(w.opening); walk(w.coda);
+  for (const s of speakers) assert.ok(w.cast[s], `speaker ${s} in the cast`);
+  assert.ok(w.coda && w.coda.shots.length >= 2, 'a post-credits coda');
+});
+
+test('the wild steps are refused when they are wrong', () => {
+  const ok = { type: 'sneak', to: '@x', sleepers: [{ id: 'creature-scorpion', at: [0, 0] }] };
+  assert.deepEqual(creatureStep(ok, 'sf'), []);
+  assert.ok(creatureStep(ok, 'ny').some((e) => /San Francisco only/.test(e)));
+  assert.ok(creatureStep({ ...ok, sleepers: [] }, 'sf').some((e) => /sleepers/.test(e)));
+  assert.ok(creatureStep({ ...ok, sleepers: [{ id: 'creature-dragon' }] }, 'sf').some((e) => /no creature/.test(e)));
+  assert.deepEqual(creatureStep({ type: 'flee', id: 'run', to: '@x', creature: { id: 'creature-trex' }, keep: true }, 'sf'), []);
+  assert.ok(creatureStep({ type: 'flee', to: '@x', creature: { id: 'creature-trex' }, keep: true }, 'sf').some((e) => /keep/.test(e)));
+  assert.ok(creatureStep({ type: 'flee', to: '@x', creature: 'creature-horse' }, 'sf').some((e) => /no creature/.test(e)));
+  assert.ok(creatureStep({ type: 'drove', to: '@x' }, 'sf').some((e) => /herd/.test(e)));
+  assert.ok(creatureStep({ type: 'track', at: 'nowhere' }, 'sf').some((e) => /at/.test(e)));
+  const waves = { type: 'fight', arena: '@x', waves: [{ foes: ['creature-knight'] }, { boss: { id: 'creature-ogre' }, from: '@y' }] };
+  assert.deepEqual(creatureStep(waves, 'sf'), []);
+  assert.ok(creatureStep({ ...waves, waves: [{ foes: [{ id: 'creature-knight', count: 9 }] }] }, 'sf').some((e) => /fight at once/.test(e)));
+  assert.ok(creatureStep({ ...waves, waves: [{}] }, 'sf').some((e) => /waves\[0\]/.test(e)));
+  // (a coda is an opening's shape)
+  const w = read('tools/storyrun/test-packs/sf2040.json');
+  const x = structuredClone(w); x.coda = { shots: [] }; assert.ok(check(x).includes('coda'));
 });
