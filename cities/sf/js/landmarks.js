@@ -881,7 +881,8 @@ function buildLandmarks(scene) {
     const g = c.getContext('2d');
     g.fillStyle = '#1b1a18'; g.fillRect(0, 0, 1024, 128);
     g.fillStyle = '#fff8ec'; g.font = '700 104px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('GHIRARDELLI', 512, 68);
+    // (Mog City: the sign in the same letters, white and lit, but no company's name on it: CHOCOLATIER)
+    g.fillText('CHOCOLATIER', 512, 68);
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     const sign = new THREE.MeshStandardNodeMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.25, roughness: 0.6 });

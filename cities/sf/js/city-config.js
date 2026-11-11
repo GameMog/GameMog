@@ -20,7 +20,11 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 // DataSF street names -> display names: "CALIFORNIA ST" -> "California St", "03RD ST" -> "3rd St"
+// (Mog City: one alley off Bush St bears a name the game keeps off its screens, so it is shown as a plain "Lane"; the
+// data keeps its real name)
+const UNSHOWN = new Set(['CLAUDE LN']);
 function prettyName(n) {
+  if (UNSHOWN.has(String(n || '').trim().toUpperCase())) return 'Lane';
   return String(n || '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -367,9 +371,10 @@ for (const [key, name] of Object.entries(LANDMARK_TELEPORTS)) {
 }
 Object.assign(TELEPORT_LOCATIONS, window.NYC.PLACE_DATA?.regional || {});
 // Named places for labels & the map search: [id, display, short, OSM name, district]
+// (Mog City: no company's name on screen; a building known by one is called by what it is, its OSM name kept as the key)
 const NYC_LANDMARKS = [
-  ['salesforce', 'Salesforce Tower', 'Salesforce Tower', 'Salesforce Tower', 'Financial District'],
-  ['transamerica', 'Transamerica Pyramid', 'Transamerica', 'Transamerica Pyramid', 'Financial District'],
+  ['salesforce', 'Mission St Tower', 'Mission St Tower', 'Salesforce Tower', 'Financial District'],
+  ['transamerica', 'The Pyramid', 'The Pyramid', 'Transamerica Pyramid', 'Financial District'],
   ['ferrybuilding', 'Ferry Building', 'Ferry Building', 'San Francisco Ferry Building', 'Embarcadero'],
   ['gracecathedral', 'Grace Cathedral', 'Grace Cathedral', 'Grace Cathedral', 'Nob Hill'],
   ['coittower', 'Coit Tower', 'Coit Tower', 'Coit Tower', 'Telegraph Hill'],
@@ -378,7 +383,7 @@ const NYC_LANDMARKS = [
   ['unionsquare', 'Union Square', 'Union Square', 'Union Square', 'Union Square'],
   ['dragongate', 'Dragon Gate', 'Dragon Gate', 'Dragon Gate', 'Chinatown'],
   ['cityhall', 'City Hall', 'City Hall', 'San Francisco City Hall', 'Civic Center'],
-  ['oraclepark', 'Oracle Park', 'Oracle Park', 'Oracle Park', 'South Beach']
+  ['oraclepark', 'China Basin Ballpark', 'Ballpark', 'Oracle Park', 'South Beach']
 ]
   .filter(([, , , osm]) => LANDMARK_SITES[osm])
   .map(([id, name, short, osm, district]) => ({ id, name, short, x: LANDMARK_SITES[osm].x, z: LANDMARK_SITES[osm].z, district }));

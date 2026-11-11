@@ -8,10 +8,20 @@
 
 const { GEO } = window.NYC;
 
+// (Mog City) The data ships gzipped (cities/sf/data/*.bin.gz: 60 MB of it is 20 MB so, the 1 m ground mask 24 MB to
+// 0.3 MB), since GitHub Pages compresses no .bin: fetched as .gz and inflated here. A server that already inflated it
+// on the way (Content-Encoding: gzip) hands over the SFB1 file itself, which its first bytes tell
+const GZIP = (b) => b.byteLength > 2 && new Uint8Array(b, 0, 2)[0] === 0x1f && new Uint8Array(b, 0, 2)[1] === 0x8b;
+async function inflate(buf) {
+  const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).arrayBuffer();
+}
+
 async function fetchBin(url, onBytes) {
-  const res = await fetch(new URL(url, window.NYC.BASE || location.href)); // (Story Kit: data relative to the city's folder)
+  const res = await fetch(new URL(url + '.gz', window.NYC.BASE || location.href)); // (Story Kit: data relative to the city's folder)
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  const buf = await res.arrayBuffer();
+  let buf = await res.arrayBuffer();
+  if (GZIP(buf)) buf = await inflate(buf);
   if (onBytes) onBytes(buf.byteLength);
   const magic = new TextDecoder().decode(new Uint8Array(buf, 0, 4));
   if (magic !== 'SFB1') throw new Error(`${url}: not an SFB1 file`);

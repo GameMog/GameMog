@@ -238,7 +238,8 @@ export function createWrecks({ TS, cm, fx, play, props, camera, physics: PH = nu
       // the buildings: the city's wall test on a stand-in, and the speed into the wall taken off (a small bounce)
       proxy.heading = R.yaw; proxy.body.hx = hw; proxy.body.z0 = -hl; proxy.body.z1 = hl; proxy.vx = proxy.vz = 0; proxy.speed = 0;
       _pos.set(R.x, 0, R.z);
-      cm.resolveHorizontalCollision(_pos, 1.35, 1.0, proxy);
+      // (a metre over the bare ground there: a hill's, cm.baseHeight; New York's street is y 0)
+      cm.resolveHorizontalCollision(_pos, 1.35, (cm.baseHeight?.(R.x, R.z) || 0) + 1.0, proxy);
       const ox = _pos.x - R.x, oz = _pos.z - R.z, o = Math.hypot(ox, oz);
       if (o > 1e-4) {
         const nx = ox / o, nz = oz / o, vn = R.vx * nx + R.vz * nz;
@@ -326,7 +327,7 @@ export function createWrecks({ TS, cm, fx, play, props, camera, physics: PH = nu
     let x = R.x + (L.x - R.x) * k, z = R.z + (L.z - R.z) * k;
     // (kept out of the buildings, as it slides)
     proxy.heading = yaw; proxy.body.hx = hw; proxy.body.z0 = -hl; proxy.body.z1 = hl; proxy.vx = proxy.vz = 0; proxy.speed = 0;
-    _pos.set(x, 0, z); cm.resolveHorizontalCollision(_pos, 1.35, 1.0, proxy); x = _pos.x; z = _pos.z;
+    _pos.set(x, 0, z); cm.resolveHorizontalCollision(_pos, 1.35, (cm.baseHeight?.(x, z) || 0) + 1.0, proxy); x = _pos.x; z = _pos.z;
     // (not into another vehicle, nor Dan's car: no deeper into one than it already is)
     const deeper = (ox, oz, oy, ow, ol) => {
       if (Math.abs(ox - x) > 9 || Math.abs(oz - z) > 9 || !boxes(x, z, yaw, hw, hl, ox, oz, oy, ow, ol, hit)) return false;

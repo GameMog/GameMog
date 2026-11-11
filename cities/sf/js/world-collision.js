@@ -19,13 +19,27 @@ function axes(points) {
 }
 function project(points,n){let lo=Infinity,hi=-Infinity;for(const p of points){const v=p.x*n.x+p.z*n.z;lo=Math.min(lo,v);hi=Math.max(hi,v);}return [lo,hi];}
 function polygon(points){return {points,axes:axes(points)};}
-function carShape(pos,heading,padding=0){
+// (Mog City) A car's own footprint from its body's box (wagmi/game.js car.body: hx across, z0 and z1 its tail and nose
+// along it, in its own frame), its four corners cut back 12 cm as the robotaxi's are; kept per box
+const bodyFootprints=new WeakMap();
+function bodyFootprint(body){
+  if(!body)return CAR_FOOTPRINT;
+  let f=bodyFootprints.get(body);
+  if(f&&f.hx===body.hx&&f.z0===body.z0&&f.z1===body.z1)return f.pts;
+  const {hx,z0,z1}=body,k=Math.min(.12,hx*.2);
+  const pts=[[-hx+k,z1],[hx-k,z1],[hx,z1-k],[hx,z0+k],[hx-k,z0],[-hx+k,z0],[-hx,z0+k],[-hx,z1-k]];
+  bodyFootprints.set(body,{hx,z0,z1,pts});
+  return pts;
+}
+// (Mog City) how far a car's footprint reaches from its point (the robotaxi's without a body)
+function bodyReach(body){return body?Math.hypot(body.hx,Math.max(Math.abs(body.z0),Math.abs(body.z1))):CAR_REACH;}
+function carShape(pos,heading,padding=0,body=null){
   const cs=Math.cos(heading),sn=Math.sin(heading);
-  const shape=polygon(CAR_FOOTPRINT.map(([x,z])=>{
+  const shape=polygon(bodyFootprint(body).map(([x,z])=>{
     x+=Math.sign(x)*padding;z+=Math.sign(z)*padding;
     return {x:pos.x+x*cs+z*sn,z:pos.z-x*sn+z*cs};
   }));
-  shape.x=pos.x;shape.z=pos.z;shape.reach=CAR_REACH+padding*1.42;
+  shape.x=pos.x;shape.z=pos.z;shape.reach=bodyReach(body)+padding*1.42;
   shape.projections=shape.axes.map(n=>project(shape.points,n));return shape;
 }
 function circleShape(pos,radius){return {x:pos.x,z:pos.z,radius,reach:radius};}
@@ -137,5 +151,5 @@ function contact(a,c){
   }
   return hit;
 }
-N.WorldCollision={CAR_FOOTPRINT,CAR_REACH,SKIN,carShape,circleShape,colliderShape,contact,inside};
+N.WorldCollision={CAR_FOOTPRINT,CAR_REACH,SKIN,carShape,bodyReach,circleShape,colliderShape,contact,inside};
 })();

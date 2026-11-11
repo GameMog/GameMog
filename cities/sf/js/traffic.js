@@ -72,11 +72,12 @@ function createBusDestinationTexture() {
   ctx.font = '900 26px Inter, Arial, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('M1', 37, 33);
+  // (Mog City: a San Francisco route on San Francisco's buses; the fork still showed New York's M1 to Harlem)
+  ctx.fillText('1', 37, 33);
   ctx.fillStyle = '#ff9d1c';
   ctx.font = '800 22px JetBrains Mono, monospace';
   ctx.textAlign = 'left';
-  ctx.fillText('5 AV / HARLEM', 78, 33);
+  ctx.fillText('CALIFORNIA', 78, 33);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
@@ -581,9 +582,46 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     for (const n of nodes) if ((n.signal || n.stop) && Math.hypot(n.x - focusX, n.z - focusZ) < NEAR_RADIUS) nearSignals.push(n);
   }
 
+  // (Mog City, as New York's js/traffic.js: the game's own moving cars, a chase's (wagmi/pursuit) or the car just put back
+  // on the road (wagmi/game.js): { x, z, yaw, halfW, halfL, vx, vz } kept up to date by the game in
+  // trafficSystem.blockers. The traffic brakes for one ahead in its lane as for the player; nothing is placed by one)
+  const blockers = [];
+  // (Mog City, as New York's: hold zones, rects { minX, maxX, minZ, maxZ } a cutscene or a set keeps clear: nothing is
+  // placed in one, and a car or a pedestrian found in one is put somewhere else out of view. hold([...]) sets them,
+  // hold([]) lets the traffic back)
+  const holds = [];
+  const held = (x, z, m = 0) => {
+    for (const r of holds) if (x > r.minX - m && x < r.maxX + m && z > r.minZ - m && z < r.maxZ + m) return true;
+    return false;
+  };
+  function hold(rects = []) {
+    holds.length = 0;
+    for (const r of rects || []) if (r && [r.minX, r.maxX, r.minZ, r.maxZ].every(Number.isFinite)) holds.push(r);
+  }
+  // The nearest blocker ahead of v near its lane (v.kAhead, v.kRight, its half width and length across v's way, its
+  // speed v's way), as relateToPlayer finds the player
+  function relateToBlockers(v) {
+    v.kAhead = Infinity;
+    if (!blockers.length) return;
+    const fx = Math.sin(v.yaw), fz = Math.cos(v.yaw);
+    for (const k of blockers) {
+      const dx = k.x - v.x, dz = k.z - v.z;
+      if (Math.abs(dx) > LOOKAHEAD + 10 || Math.abs(dz) > LOOKAHEAD + 10) continue;
+      const ahead = dx * fx + dz * fz, right = dz * fx - dx * fz;
+      if (ahead < -8 || Math.abs(right) > 8 || (v.kAhead !== Infinity && Math.abs(ahead) >= Math.abs(v.kAhead))) continue;
+      const c = Math.abs(Math.cos((k.yaw || 0) - v.yaw)), sn = Math.abs(Math.sin((k.yaw || 0) - v.yaw));
+      v.kAhead = ahead;
+      v.kRight = right;
+      v.kW = (k.halfW || 1) * c + (k.halfL || 2.2) * sn;
+      v.kL = (k.halfW || 1) * sn + (k.halfL || 2.2) * c;
+      v.kSpeed = Math.max(0, (k.vx || 0) * fx + (k.vz || 0) * fz);
+    }
+  }
+
   // Where the player is relative to v: metres ahead, metres to the right, and how fast it moves v's way
   function relateToPlayer(v) {
     v.pAhead = Infinity;
+    relateToBlockers(v);
     if (!player.active) return;
     const dx = player.x - v.x;
     const dz = player.z - v.z;
@@ -1081,6 +1119,15 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
         v.leaderSpeed = v.pSpeed;
       }
     }
+    // (Mog City: and for a blocker ahead in its lane, as for the player)
+    if (v.kAhead >= 0 && v.kAhead < LOOKAHEAD && Math.abs(v.kRight) < v.halfWidth + v.kW + 0.4) {
+      const kg = v.kAhead - v.half - v.kL;
+      worst = Math.min(worst, brake(v, kg, v.kSpeed));
+      if (kg < v.gap) {
+        v.gap = kg;
+        v.leaderSpeed = v.kSpeed;
+      }
+    }
     // the grade: gravity along the slope (felt in part, more by a heavy bus: the engine & brakes do the rest), though
     // uphill it never takes a driver below a crawl of 0.3 m/s^2 (they put their foot down: California St, Jones St)
     const gravity = -GRAVITY * v.grade * (v.bus ? 0.8 : 0.5);
@@ -1492,6 +1539,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       const d = Math.hypot(x - focusX, z - focusZ);
       if (d < rMin || d > rMax || (hidden && visible(x, z, v.half + 4))) continue;
       if (player.active && Math.hypot(x - player.x, z - player.z) < 25) continue;
+      // (Mog City: never in a hold zone, nor by one of the game's own cars)
+      if (held(x, z, v.half + 4) || blockers.some((k) => Math.hypot(x - k.x, z - k.z) < 25)) continue;
       if (!laneClear(e.occ[lane], s, v.half + 8)) continue;
       place(v, e, lane, s);
       return true;
@@ -1593,6 +1642,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       const z = track.az + track.uz * t;
       const d = Math.hypot(x - focusX, z - focusZ);
       if (d < rMin || d > rMax || (hidden && visible(x, z, 2))) continue;
+      if (holds.length && held(x, z, 2)) continue; // (Mog City: never in a hold zone)
       if (crosswalk && track.node.curb.some((q) => Math.hypot(q.x - x, q.z - z) < QUEUE_GAP)) continue;
       Object.assign(p, track);
       p.t = t;
@@ -2036,6 +2086,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       const v = vehicles[i];
       if (v.disabled) continue;
       const d = v.edge ? Math.hypot(v.x - focusX, v.z - focusZ) : Infinity;
+      // (Mog City: one found in a hold zone is put somewhere else out of view)
+      if (v.edge && holds.length && held(v.x, v.z, v.half) && spawnVehicle(v, 100, 300, true)) continue;
       if (!v.edge || (jump && d > NEAR_RADIUS)) {
         spawnVehicle(v, 0, NEAR_RADIUS, false);
       } else if (budget > 0 && (d > 1200 || (d > VEHICLE_RADIUS && !visible(v.x, v.z, v.half + 2))) && spawnVehicle(v, 100, 300, true)) {
@@ -2068,6 +2120,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     for (let i = 0; i < NUM_PEDS; i++) {
       const p = peds[i];
       const d = p.placed ? Math.hypot(p.x - focusX, p.z - focusZ) : Infinity;
+      // (Mog City: one found in a hold zone is put somewhere else out of view)
+      if (p.placed && holds.length && held(p.x, p.z, 1)) spawnPed(p, 60, 260, true);
       if (!p.placed || (jump && d > NEAR_RADIUS)) {
         spawnPed(p, 0, NEAR_RADIUS, false);
       } else if (pedBudget > 0 && (d > 1000 || (d > PED_RADIUS && !visible(p.x, p.z, 2))) && spawnPed(p, 60, 260, true)) {
@@ -2183,6 +2237,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     buses,
     peds,
     network,
+    blockers, // (Mog City)
+    hold, // (Mog City)
     setDensity(fraction) {
       const count = Math.round(vehicles.length * Math.max(0, Math.min(1, fraction)));
       vehicles.forEach((v,i) => { v.disabled = i >= count; if(v.disabled) { v.edge=null; v.conn=null; v.commit=null; } });
@@ -2551,7 +2607,47 @@ function createHighwayTraffic(scene, lanes) {
     }
   }
 
-  return { group, update, cars, lanes };
+  // (Mog City, as New York's js/traffic.js: for what runs into the freeways' cars, Dan's car (wagmi/crash), and the chase
+  // camera (js/cameras.js highwayBoxes): where a car is, { x, y, z, yaw, hw, hl, c } (its body's half width & length,
+  // dipped as drawn at a lane's ends); the cars within r of (x, z); knock(c, dv): a blow along its lane, its speed
+  // changed by dv (never below 0: it stops, and the IDM brings it back up))
+  const bodyHalf = {};
+  for (const kind of KINDS) {
+    const spec = BODY_SPECS[kind];
+    bodyHalf[kind] = [spec && spec.halfWidth ? Math.max(...spec.halfWidth.map((p) => p[1])) : 0.93, (spec && spec.zFront) ?? HWY_CAR_LEN / 2];
+  }
+  function place(c, out = {}) {
+    const lane = c.lane, cum = lane.cum;
+    let i = Math.min(c.seg, cum.length - 2);
+    while (i < cum.length - 2 && cum[i + 1] < c.u) i++;
+    while (i > 0 && cum[i] > c.u) i--;
+    const t = Math.min(1, Math.max(0, (c.u - cum[i]) / ((cum[i + 1] - cum[i]) || 1)));
+    const a = lane.pts[i], b = lane.pts[i + 1];
+    const toEnd = lane.len - c.u, dip = c.u < toEnd ? c.u : toEnd;
+    out.x = a.x + (b.x - a.x) * t;
+    out.y = a.y + (b.y - a.y) * t - 2.4 * (1 - ease(dip));
+    out.z = a.z + (b.z - a.z) * t;
+    out.yaw = Math.atan2(b.x - a.x, b.z - a.z);
+    out.hw = bodyHalf[c.kind][0];
+    out.hl = bodyHalf[c.kind][1];
+    out.c = c;
+    return out;
+  }
+  function near(x, z, r, out = []) {
+    out.length = 0;
+    for (const lane of lanes) {
+      const [x0, x1, z0, z1] = lane.box;
+      if (x < x0 - r || x > x1 + r || z < z0 - r || z > z1 + r) continue;
+      for (const c of lane.cars) {
+        const p = place(c);
+        if (Math.abs(p.x - x) < r && Math.abs(p.z - z) < r) out.push(p);
+      }
+    }
+    return out;
+  }
+  const knock = (c, dv) => { c.v = Math.max(0, c.v + dv); };
+
+  return { group, update, cars, lanes, place, near, knock };
 }
 
 Object.assign(window.NYC, { createTrafficSystem, createHighwayTraffic });

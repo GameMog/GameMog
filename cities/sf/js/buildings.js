@@ -2594,11 +2594,13 @@ function buildCityBlocks(scene, opts = {}) {
   group.add(awningInst);
 
   const signThemes = [
-    { bg: '#161210', border: '#c89d54', text: 'FIFTH AVE BISTRO · EST. 1928', color: '#ffe4a8' },
-    { bg: '#0c2244', border: '#38b6ff', text: 'DUANE READE · PHARMACY', color: '#ffffff' },
-    { bg: '#142b20', border: '#d4af37', text: 'MANHATTAN BOOKS & ESPRESSO', color: '#fff2cc' },
-    { bg: '#280a10', border: '#ff5252', text: 'BROADWAY DELI & GRILL · 24HR', color: '#ffd180' },
-    { bg: '#101318', border: '#e0e6ed', text: 'EMPIRE WATCHES · NEW YORK', color: '#f5f9ff' }
+    // (Mog City: San Francisco's own shop names, made up, and no chain's: the fork still had New York's, a real chain's
+    // among them)
+    { bg: '#161210', border: '#c89d54', text: 'MARKET ST BISTRO · EST. 1928', color: '#ffe4a8' },
+    { bg: '#0c2244', border: '#38b6ff', text: 'POLK ST · PHARMACY', color: '#ffffff' },
+    { bg: '#142b20', border: '#d4af37', text: 'NOB HILL BOOKS & ESPRESSO', color: '#fff2cc' },
+    { bg: '#280a10', border: '#ff5252', text: 'MISSION DELI & GRILL · 24HR', color: '#ffd180' },
+    { bg: '#101318', border: '#e0e6ed', text: 'BAYSIDE WATCHES · SAN FRANCISCO', color: '#f5f9ff' }
   ];
   const MAX_SIGNS_PER_THEME = Math.ceil(MAX_AWNINGS / signThemes.length) + 32;
   const signInsts = signThemes.map((st) => {

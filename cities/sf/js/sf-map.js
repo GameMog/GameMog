@@ -20,6 +20,8 @@ const FONT = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 const MIN_ZOOM = 0.015; // full map, pixels per metre: the wider San Francisco bay
 const MAX_ZOOM = 3.0; // single lots
 const RADAR_SCALE = 0.32; // radar pixels per metre on the ground (zooms out with altitude)
+// (Mog City, as js/nyc-map.js: a click on the map teleports only behind ?debug, the sandbox's; in play it sets a waypoint)
+const DEBUG_TELEPORT = /[?&]debug\b/.test(location.search);
 const GRID_BEARING = GEO.frame?.bearingDeg ?? 0; // SF world north is true north
 
 // Map palette, shared by the radar & the atlas (in step with css/style.css): graphite ground with the streets a shade
@@ -450,6 +452,13 @@ class NYCMapSystem {
     // Start the map waypoint at the Ferry Building.
     const ts = NYC_LANDMARKS.find((l) => l.id === 'ferrybuilding') || { x: 0, z: 0 };
     this.waypoint = { x: ts.x, z: ts.z, name: ts.name || 'Market St & Montgomery St' };
+    // (Mog City, as js/nyc-map.js) the player's own waypoint (a click on the map, or Enter on a search hit); onWaypoint(wp)
+    // hands it to the game's GPS (wagmi/mission/gps.js), which routes there and draws it; searchExtra: () => [{ name, sub,
+    // x, z, kind }], the game's own places (a mission's), found first by the search
+    this.userWaypoint = null;
+    this.onWaypoint = null;
+    this.searchExtra = null;
+    this.searchPick = null;
 
     // Street names measured before the web font arrived would be spaced for the fallback font: measure & draw again
     if (document.fonts) {
@@ -514,6 +523,14 @@ class NYCMapSystem {
 
     if (this.elSearchInput) {
       this.elSearchInput.addEventListener('input', () => this.search(this.elSearchInput.value));
+      // (Mog City: Enter on a place the search found sets the waypoint there, as New York's map's 'Set waypoint')
+      this.elSearchInput.addEventListener('keydown', (e) => {
+        if (e.code !== 'Enter' && e.code !== 'NumpadEnter') return;
+        const p = this.searchPick;
+        if (!p) return;
+        e.preventDefault();
+        this.setWaypoint(p, { toggle: false });
+      });
     }
 
     window.addEventListener('keydown', (e) => {
@@ -570,7 +587,10 @@ class NYCMapSystem {
           const wPos = this.screenToWorld(mx, my, rect.width, rect.height);
           this.hoverWorld = wPos;
           if (this.elHoverInfo) {
-            this.elHoverInfo.textContent = `${getLocationLabel(wPos.x, wPos.z)} · Click to teleport here`;
+            const wp = this.userWaypoint;
+            const onWp = wp && Math.hypot(wp.x - wPos.x, wp.z - wPos.z) * this.viewZoom < 14;
+            this.elHoverInfo.textContent = `${getLocationLabel(wPos.x, wPos.z)} · ${
+              this.canTeleport() ? 'Click to teleport here' : onWp ? 'Click to remove the waypoint' : 'Click to set a waypoint'}`;
           }
         }
       });
@@ -585,13 +605,12 @@ class NYCMapSystem {
           const my = e.clientY - rect.top;
           if (mx >= 0 && mx <= rect.width && my >= 0 && my <= rect.height) {
             const wPos = this.clampToRegion(this.screenToWorld(mx, my, rect.width, rect.height));
-            this.waypoint = {
-              x: wPos.x,
-              z: wPos.z,
-              name: getLocationLabel(wPos.x, wPos.z)
-            };
-            if (this.onTeleport) {
+            // (Mog City: the sandbox's teleport behind ?debug; in play, the player's own waypoint)
+            if (this.canTeleport()) {
+              this.waypoint = { x: wPos.x, z: wPos.z, name: getLocationLabel(wPos.x, wPos.z) };
               this.onTeleport(wPos.x, wPos.z);
+            } else {
+              this.setWaypoint(wPos);
             }
             this.renderFullMap();
           }
@@ -631,8 +650,15 @@ class NYCMapSystem {
     const q = String(text || '').trim().toLowerCase();
     this.searchHighlight = q;
     this.searchPath = null;
+    this.searchPick = null;
     if (q.length > 0) {
-      const lmMatch = NYC_LANDMARKS.find((l) => (l.name || '').toLowerCase().includes(q) || (l.short || '').toLowerCase().includes(q));
+      // (Mog City: the game's own places first (searchExtra: a mission's), then the landmarks)
+      let extra = [];
+      try { extra = this.searchExtra ? this.searchExtra() || [] : []; } catch (e) { extra = []; }
+      const has = (s) => String(s || '').toLowerCase().includes(q);
+      const lmMatch = extra.find((p) => has(p.name) || (p.sub && p.sub !== 'Mission' && has(p.sub)))
+        || NYC_LANDMARKS.find((l) => has(l.name) || has(l.short));
+      if (lmMatch) this.searchPick = { name: lmMatch.name, x: lmMatch.x, z: lmMatch.z };
       const roads = ROAD_LABELS.filter((l) => l.lower.includes(q) || l.raw.includes(q));
       if (roads.length) {
         this.searchPath = new Path2D();
@@ -659,6 +685,26 @@ class NYCMapSystem {
         this.viewZoom = Math.max(0.05, Math.min(1.2, fit));
       }
     }
+    this.renderFullMap();
+  }
+
+  // (Mog City, as js/nyc-map.js) Teleporting is the sandbox's, behind ?debug (with the city's own handler); everywhere
+  // else a click sets a waypoint
+  canTeleport() {
+    return DEBUG_TELEPORT && typeof this.onTeleport === 'function';
+  }
+
+  /**
+   * (Mog City, as js/nyc-map.js) The player's own waypoint: set at p (a click on it again takes it away). The game's GPS
+   * takes it through onWaypoint (it routes there and draws it); without one, the map's own bearing points there.
+   */
+  setWaypoint(p, { toggle = true } = {}) {
+    const cur = this.userWaypoint;
+    const on = toggle && cur && Math.hypot(cur.x - p.x, cur.z - p.z) * this.viewZoom < 14;
+    const wp = on ? null : { x: p.x, z: p.z, name: p.name || getLocationLabel(p.x, p.z) };
+    this.userWaypoint = wp;
+    if (this.onWaypoint) this.onWaypoint(wp);
+    else this.waypoint = wp;
     this.renderFullMap();
   }
 

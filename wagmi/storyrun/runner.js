@@ -1285,7 +1285,7 @@ export function createRunner(ctx) {
       if (L > wb * 3) { dx = -Math.sin(car.heading); dz = -Math.cos(car.heading); L = 1; }
       st.rx = st.fx + dx / L * wb; st.rz = st.fz + dz / L * wb;
       // (into a wall: knocked back out of it)
-      const q = { x: st.rx, y: 0, z: st.rz }; cm.resolveHorizontalCollision(q, T.half, 1.0); st.rx = q.x; st.rz = q.z;
+      const q = { x: st.rx, y: 0, z: st.rz }; cm.resolveHorizontalCollision(q, T.half, (cm.baseHeight?.(st.rx, st.rz) || 0) + 1.0); st.rx = q.x; st.rz = q.z;
       // (the truck's starts and stops rock it on its back springs)
       const acc = dt > 0 ? ((car.speed || 0) - lastV) / dt : 0; lastV = car.speed || 0;
       st.pv += -acc * 0.006; st.spin = car.speed || 0;

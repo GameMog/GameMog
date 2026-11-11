@@ -79,6 +79,8 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
     meterPost: [],
     meterHead: []
   };
+  // (Mog City: which arm, in mats.arm, is each signal mast's (by its pole's index) and each lamp's, for the breakables)
+  const mastArm = [], lampArm = [];
   const push = (list, x, y, z, ry, sx, sy, sz, rz = 0) => {
     dummy.position.set(x, y, z);
     dummy.rotation.set(0, ry, rz);
@@ -109,6 +111,7 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
       const toX = lx + e.rx * mid, toZ = lz + e.rz * mid;
       const reach = Math.max(2, Math.min(9, Math.hypot(toX - spot.x, toZ - spot.z)));
       const ux = (toX - spot.x) / reach, uz = (toZ - spot.z) / reach;
+      mastArm.push(mats.arm.length);
       push(mats.arm, spot.x + ux * reach / 2, base + POLE_H - 0.3, spot.z + uz * reach / 2, Math.atan2(ux, uz), 0.11, 0.11, reach);
       push(mats.head, spot.x + ux * reach, base + HEAD_Y, spot.z + uz * reach, facing, 1, 1, 1);
       mats.lens.push(dummy.matrix.clone());
@@ -135,6 +138,7 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
       const base = groundAt(spot.x, spot.z) + CURB_H;
       const out = Math.atan2(-e.rx * side, -e.rz * side); // the arm leans out over the road
       push(mats.lampPole, spot.x, base + 4, spot.z, 0, 0.09, 8, 0.09);
+      lampArm.push(mats.arm.length);
       push(mats.arm, spot.x - e.rx * side * 0.7, base + 7.98, spot.z - e.rz * side * 0.7, out, 0.07, 0.07, 1.4);
       dummy.position.set(spot.x - e.rx * side * 1.4, base + 7.9, spot.z - e.rz * side * 1.4);
       dummy.rotation.set(0, out, 0);
@@ -389,15 +393,17 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
     group.add(mesh);
     return mesh;
   };
-  add(unitCyl, metal, mats.pole, 'SignalPoles');
-  add(unitBox, metal, mats.arm, 'SignalArms');
-  add(headGeo, housing, mats.head, 'SignalHeads');
-  add(lensGeo, lensMat, mats.lens, 'SignalLenses', false, { name: 'signalBase', data: mats.lensBase, size: 3 });
-  add(unitCyl, metal, mats.stopPole, 'StopSignPoles');
-  add(plateGeo, stopRed, mats.stopPlate, 'StopSigns');
-  add(unitCyl, metal, mats.lampPole, 'LampPoles');
-  add(lampHeadGeo, lampGlow, mats.lampHead, 'LampHeads', false);
-  add(hydrantGeo, hydrantMat, mats.hydrant, 'Hydrants');
+  // (Mog City: the meshes kept by name, for the breakables below)
+  const inst = {};
+  inst.pole = add(unitCyl, metal, mats.pole, 'SignalPoles');
+  inst.arm = add(unitBox, metal, mats.arm, 'SignalArms');
+  inst.head = add(headGeo, housing, mats.head, 'SignalHeads');
+  inst.lens = add(lensGeo, lensMat, mats.lens, 'SignalLenses', false, { name: 'signalBase', data: mats.lensBase, size: 3 });
+  inst.stopPole = add(unitCyl, metal, mats.stopPole, 'StopSignPoles');
+  inst.stopPlate = add(plateGeo, stopRed, mats.stopPlate, 'StopSigns');
+  inst.lampPole = add(unitCyl, metal, mats.lampPole, 'LampPoles');
+  inst.lampHead = add(lampHeadGeo, lampGlow, mats.lampHead, 'LampHeads', false);
+  inst.hydrant = add(hydrantGeo, hydrantMat, mats.hydrant, 'Hydrants');
   // Muni: a dark-grey pole with a yellow band; shelters: grey frame, see-through glass, an advert lit at night
   const muniYellow = new THREE.MeshStandardNodeMaterial({ color: 0xf2c230, roughness: 0.5 });
   const frame = new THREE.MeshStandardNodeMaterial({ color: 0x45494e, roughness: 0.45, metalness: 0.6 });
@@ -407,8 +413,8 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
   advert.emissiveNode = color(0xfff3dc).mul(smoothstep(0.4, 1.1, cityUniforms.uInteriorGlow).mul(0.9).add(0.08));
   const wireMat = new THREE.LineBasicNodeMaterial({ color: 0x2a2c2e });
   const meterMat = new THREE.MeshStandardNodeMaterial({ color: 0x3a3e42, roughness: 0.5, metalness: 0.5 });
-  add(unitCyl, frame, mats.muniPole, 'MuniStopPoles');
-  add(unitCyl, muniYellow, mats.muniBand, 'MuniStopBands');
+  inst.muniPole = add(unitCyl, frame, mats.muniPole, 'MuniStopPoles');
+  inst.muniBand = add(unitCyl, muniYellow, mats.muniBand, 'MuniStopBands');
   add(unitBox, frame, mats.shelterFrame, 'MuniShelterFrames');
   add(unitBox, glass, mats.shelterGlass, 'MuniShelterGlass', false);
   add(unitBox, advert, mats.shelterAd, 'MuniShelterAdverts');
@@ -420,8 +426,46 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
     group.add(lines);
   }
   add(unitCyl, metal, mats.trolleyPole, 'TrolleyPoles');
-  add(unitCyl, meterMat, mats.meterPost, 'ParkingMeterPosts', false);
-  add(unitBox, meterMat, mats.meterHead, 'ParkingMeterHeads', false);
+  inst.meterPost = add(unitCyl, meterMat, mats.meterPost, 'ParkingMeterPosts', false);
+  inst.meterHead = add(unitBox, meterMat, mats.meterHead, 'ParkingMeterHeads', false);
+
+  // (Mog City) What a car knocks over (window.NYC.breakables, wagmi/crash/props.js), in New York's form
+  // (js/street-details.js): each a kind, where its foot stands (x, y, z), how far round it is solid (r), and the
+  // instances drawing it ([instanced mesh, index] pairs; the crash finds them again in the culling's chunks itself).
+  // The signal masts, lamps, stop signs and Muni poles snap and fall, the hydrants and the parking meters fly, the
+  // street trees are solid, as New York's are
+  const breakables = [];
+  {
+    const at = (m) => [m.elements[12], m.elements[14]];
+    const foot = (x, z) => groundAt(x, z) + CURB_H;
+    const parts = (...p) => p.filter(([mesh]) => mesh);
+    mats.pole.forEach((m, k) => {
+      const [x, z] = at(m);
+      breakables.push({ kind: 'mast', x, y: foot(x, z), z, r: 0.2, h: POLE_H, parts: parts([inst.pole, k], [inst.arm, mastArm[k]], [inst.head, k], [inst.lens, k]) });
+    });
+    mats.lampPole.forEach((m, k) => {
+      const [x, z] = at(m);
+      breakables.push({ kind: 'cobra', x, y: foot(x, z), z, r: 0.18, h: 8.4, parts: parts([inst.lampPole, k], [inst.arm, lampArm[k]], [inst.lampHead, k]) });
+    });
+    mats.stopPole.forEach((m, k) => {
+      const [x, z] = at(m);
+      breakables.push({ kind: 'post', x, y: foot(x, z), z, r: 0.16, h: 2.8, parts: parts([inst.stopPole, k], [inst.stopPlate, k]) });
+    });
+    mats.muniPole.forEach((m, k) => {
+      const [x, z] = at(m);
+      breakables.push({ kind: 'post', x, y: foot(x, z), z, r: 0.16, h: 3.2, parts: parts([inst.muniPole, k], [inst.muniBand, k]) });
+    });
+    mats.hydrant.forEach((m, k) => {
+      const [x, z] = at(m);
+      breakables.push({ kind: 'hydrant', x, y: foot(x, z), z, r: 0.26, parts: parts([inst.hydrant, k]) });
+    });
+    mats.meterPost.forEach((m, k) => {
+      const [x, z] = at(m);
+      breakables.push({ kind: 'mailbox', x, y: foot(x, z), z, r: 0.2, parts: parts([inst.meterPost, k], [inst.meterHead, k]) });
+    });
+    // (the trees: their trunks, a little over their radius, sized as trees.js grows them)
+    for (const t of sites) breakables.push({ kind: 'tree', x: t.x, y: t.y, z: t.z, r: 0.3 * (t.scale || 1) + 0.05, solid: true });
+  }
 
   const sceneObstacles = footprints.concat(sites.map(p => ({ minX:p.x-.65,maxX:p.x+.65,minZ:p.z-.65,maxZ:p.z+.65 })));
   for (const matrix of [...mats.hydrant,...mats.meterPost]) {
@@ -431,6 +475,10 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
   const sidewalkScenes = window.NYC.buildSidewalkScenes(group, network, buildingColliders, sceneObstacles);
 
   scene.add(group);
+  // (Mog City: what the street crowd steps round (wagmi/street) and what a car knocks over (wagmi/crash), as New York's
+  // street-details.js publishes them)
+  window.NYC.streetFootprints = footprints;
+  window.NYC.breakables = breakables;
   console.info(`[details] ${sites.length} street trees (${snapped} moved up to ${TREE_SNAP} m onto the sidewalk, ${offSidewalk} further off left out)`);
   console.info(`[details] ${signals} signal masts, ${stops} stop signs, ${lamps} lamps, ${mats.hydrant.length} hydrants, ${muniStops} Muni stops (${shelters} shelters), ${wireKm.toFixed(1)} km of trolley wire pairs on ${trolleyPoles} poles, ${mats.meterHead.length} parking meters`);
   return { group, footprints, signalClock, trees: treeField, sidewalkScenes };

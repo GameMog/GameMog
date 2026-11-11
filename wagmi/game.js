@@ -99,7 +99,8 @@ installDriveMode(WAGMI);
   const boxClear = (x, z, h = car.heading) => {
     const B = car.body, cs = Math.cos(h), sn = Math.sin(h), p = new THREE.Vector3(x, 0, z);
     Object.assign(probe, { heading: h, speed: 0, vx: 0, vz: 0, body: B });
-    cm.resolveHorizontalCollision(p, 1.35, 1.0, probe);
+    // (the wall test a metre over the bare ground there: a hill's, cm.baseHeight; New York's street is y 0)
+    cm.resolveHorizontalCollision(p, 1.35, (cm.baseHeight?.(x, z) || 0) + 1.0, probe);
     if (Math.hypot(p.x - x, p.z - z) > 0.01) return false;
     for (const b of WAGMI.crash?.props?.around(x, z, 5) || []) {
       if (b.taken) continue;
@@ -120,7 +121,7 @@ installDriveMode(WAGMI);
     _wp.set(car.position.x + fx * 0.3, 0, car.position.z + fz * 0.3);
     Object.assign(probe, { heading: car.heading, speed: 0, vx: 0, vz: 0, body: car.body });
     const x0 = _wp.x, z0 = _wp.z;
-    cm.resolveHorizontalCollision(_wp, 1.35, 1.0, probe);
+    cm.resolveHorizontalCollision(_wp, 1.35, (cm.baseHeight?.(x0, z0) || 0) + 1.0, probe);
     let nx = _wp.x - x0, nz = _wp.z - z0;
     const n = Math.hypot(nx, nz);
     if (n < 0.05) return;
@@ -141,7 +142,9 @@ installDriveMode(WAGMI);
   function curbAssist(dt, steer) {
     if (car.halt || cm.activeMode !== 'car' || car.speed <= 3) { curb.t = 0; return; }
     const fx = Math.sin(car.heading) * (car.axle || 1.45), fz = Math.cos(car.heading) * (car.axle || 1.45);
-    const up = cm.getGroundHeight(car.position.x + fx, car.position.z + fz, 'car') - cm.getGroundHeight(car.position.x - fx, car.position.z - fz, 'car');
+    // (the curb's step alone: a hill's own rise between the axles taken off, cm.baseHeight; New York has none)
+    const kerb = (x, z) => cm.getGroundHeight(x, z, 'car') - (cm.baseHeight?.(x, z) || 0);
+    const up = kerb(car.position.x + fx, car.position.z + fz) - kerb(car.position.x - fx, car.position.z - fz);
     if (up >= 0.1 && up <= 0.3) {
       // (the street's way: the nearest lane's, either way along it)
       let best = null;
@@ -285,6 +288,9 @@ installDriveMode(WAGMI);
   // or the car 40 m or more off it, the way the car faces), on the route or near it, never in a junction (7 m or more
   // inside its lane's ends), with its lane clear 15 m ahead; none of those within 300 m, the old rule: the nearest lane
   // the car more or less faces along, with room for it. Either way the traffic round it is held back a moment
+  // (a spot up off the street, a park's lawn or a terrace: over 0.3 m above the bare ground there, a hill's
+  // cm.baseHeight, y 0 in New York)
+  const raised = (x, z) => cm.getGroundHeight(x, z, 'car') - (cm.baseHeight?.(x, z) || 0) > 0.3;
   function recoverCar() {
     if (WAGMI.cutscene || WAGMI.directed || WAGMI.ride?.phase) return false;
     const x = car.position.x, z = car.position.z;
@@ -308,7 +314,7 @@ installDriveMode(WAGMI);
         for (const k of [0, 5, -5, 10, -10, 16, -16, 24, -24]) {
           if (k < c.lo + 7 || k > c.hi - 7) continue;
           const px = c.x + c.ux * k, pz = c.z + c.uz * k;
-          if (cm.getGroundHeight(px, pz, 'car') > 0.3 || !boxClear(px, pz, c.h) || !carsClear(px, pz, c.h) || !laneClear(px, pz, c.h)) continue;
+          if (raised(px, pz) || !boxClear(px, pz, c.h) || !carsClear(px, pz, c.h) || !laneClear(px, pz, c.h)) continue;
           place(px, pz, c.h); held(px, pz, c.h);
           return true;
         }
@@ -323,7 +329,7 @@ installDriveMode(WAGMI);
         for (const k of [0, 5, -5, 10, -10, 16, -16, 24, -24]) {
           if (k < c.lo || k > c.hi) continue;
           const px = c.x + c.ux * k, pz = c.z + c.uz * k;
-          if (cm.getGroundHeight(px, pz, 'car') > 0.3 || !boxClear(px, pz, c.h) || !carsClear(px, pz, c.h)) continue;
+          if (raised(px, pz) || !boxClear(px, pz, c.h) || !carsClear(px, pz, c.h)) continue;
           place(px, pz, c.h); held(px, pz, c.h);
           return true;
         }
@@ -906,7 +912,7 @@ function coast(dt) {
   car.position.x += (Math.sin(car.heading) * car.speed + (car.vx || 0)) * dt; car.position.z += (Math.cos(car.heading) * car.speed + (car.vz || 0)) * dt;
   const g = Math.exp(-dt * 6.8); car.vx = (car.vx || 0) * g; car.vz = (car.vz || 0) * g;
   if (Math.abs(car.vx) + Math.abs(car.vz) < 0.02) car.vx = car.vz = 0;
-  cm.resolveHorizontalCollision(car.position, 1.35, 1.0, car);
+  cm.resolveHorizontalCollision(car.position, 1.35, (cm.baseHeight?.(car.position.x, car.position.z) || 0) + 1.0, car);
   car.position.y = cm.getGroundHeight(car.position.x, car.position.z, 'car');
   car.mesh.position.copy(car.position); car.mesh.rotation.y = car.heading;
   if (Math.abs(car.speed) < 0.05) { car.speed = 0; if (!ride.phase && door.want) doorTo(0, 0.6); }
@@ -1117,6 +1123,9 @@ WAGMI.trailerEarly = import('./trailer.js').then((m) => m.createTrailer(WAGMI)).
 
 // the rest of the game, a module each (one that fails to load leaves the others running)
 // (with ?pack=, the world's story runner in place of the opening and Mog City's missions: wagmi/storyrun)
-for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './storyrun/index.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
+// (another city with no world, ?city=sf alone: free roam there, wagmi/city.js, in place of the opening and the
+// missions, which are set on Manhattan's streets. The city by index.html's rule, wagmi/city.js CITY)
+const ROAM = !PACK && new URLSearchParams(location.search).get('city') === 'sf';
+for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
   try { const mod = await import(m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); }
 }

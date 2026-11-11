@@ -1,6 +1,9 @@
 (function () {
 // js/main.js
 // Main entry point for San Francisco in Three.js WebGPURenderer & TSL (three.js dev, see index.html)
+// (Mog City: San Francisco on Mog City's engine, ?city=sf. The city as Slop San Francisco builds it, with Mog City's
+// game on top (wagmi/): its HUD and pause menu, its game pad (js/gamepad-controls.js), Dan's car for the robotaxi.
+// Not here: the fork's settings dialog (Mog City's pause menu has the graphics and the sound) and its robotaxi ride)
 
 const { THREE } = window.NYC;
 const {
@@ -27,6 +30,7 @@ const { createTrafficSystem, createHighwayTraffic } = window.NYC;
 const { buildRoadPaint } = window.NYC;
 const { ThirdPersonControllerManager } = window.NYC;
 const { TouchControls } = window.NYC;
+const { GamepadControls } = window.NYC;
 const { CameraSystem, CAMERA_PRESETS } = window.NYC;
 const { LightingSystem } = window.NYC;
 const { NYCMapSystem } = window.NYC;
@@ -50,6 +54,48 @@ const BENCH_PATHS = {
   hill: [[-950, 8, -330, 0, -4], [-950, 8, -330, 360, -4]],
   'russian-hill-view': [[-1116, 8, -1052, 0, -4], [-1116, 8, -1052, 360, -4]]
 };
+// (Mog City) The fork's quality presets (its settings.js): low, medium and high set the region's and the trees' draw
+// distance, the reflections and the shadows. The choice is Mog City's graphics row (wagmi/mission/pause.js, saved for the
+// next load in 'wagmi.gfx', ?gfx= for this load): High or Low as they say, Auto the fork's own: high, then the frame
+// times of the first 3 s pick (chooseQuality). window.NYC.quality is what the pause menu reads; San Francisco runs on
+// WebGPU only, so there is no phone tier (Mog City's New York has one)
+const QUALITY_PRESETS = {
+  low: { distance: 3000, trees: 2500, reflections: false, shadows: false, reflectionScale: 0.25 },
+  medium: { distance: 5000, trees: 4000, reflections: true, shadows: true, reflectionScale: 0.25 },
+  high: { distance: 8500, trees: 6000, reflections: true, shadows: true, reflectionScale: 0.5 }
+};
+function chooseQuality(frameTimes) {
+  const sorted = frameTimes.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) return 'medium';
+  const median = sorted[Math.floor(sorted.length / 2)];
+  return median > 24 ? 'low' : median > 14 ? 'medium' : 'high';
+}
+const GFX_KEY = 'wagmi.gfx';
+function createQuality() {
+  let override = null, saved = null;
+  try { override = new URLSearchParams(location.search).get('gfx'); } catch (e) { /* no URL */ }
+  try { saved = localStorage.getItem(GFX_KEY); } catch (e) { /* private mode */ }
+  // (New York's phone tier is a low one here)
+  const asTier = (v) => (v === 'high' ? 'high' : v === 'low' || v === 'phone' ? 'low' : null);
+  override = asTier(override);
+  const choice = asTier(saved) || 'auto';
+  const tier = override || (choice === 'auto' ? 'high' : choice);
+  const q = {
+    tier, choice, auto: 'high', override, backend: 'webgpu', next: tier,
+    // (auto: the frame times settle it once the city is up, see the loop)
+    measuring: !override && choice === 'auto',
+    set(c) {
+      const v = c === 'high' || c === 'low' ? c : 'auto';
+      try { if (v === 'auto') localStorage.removeItem(GFX_KEY); else localStorage.setItem(GFX_KEY, v); } catch (e) { /* private mode */ }
+      q.choice = v;
+      q.next = q.override || (v === 'auto' ? q.auto : v);
+      return q.next;
+    }
+  };
+  return q;
+}
+window.NYC.quality = createQuality();
+
 function samplePath(keys, u) {
   const f = u * (keys.length - 1);
   const i = Math.min(keys.length - 2, Math.floor(f));
@@ -67,22 +113,29 @@ async function initApp() {
   const loadingFill = document.getElementById('loading-progress');
   // The loading bar sweeps while the city is being built (the main thread is busy) and fills as the shaders compile
   const setLoadingProgress = (p) => {
+    // (Mog City: the start gate's instant title, index.html, draws the same as a thin line: --wg-load, wg-load-fill)
+    const k = Math.min(1, Math.max(0, p));
+    document.documentElement.style.setProperty('--wg-load', k.toFixed(3));
+    document.documentElement.classList.add('wg-load-fill');
     if (!loadingFill) return;
     if (loadingTrack) loadingTrack.classList.remove('is-indeterminate');
-    loadingFill.style.transform = `scaleX(${Math.min(1, Math.max(0, p))})`;
+    loadingFill.style.transform = `scaleX(${k})`;
   };
+  // (Mog City: plain words for the player while it loads, not the engine's steps)
+  const LOADING_TEXT = 'Loading San Francisco…';
 
   if (loadingStatus) {
-    loadingStatus.textContent = `Initializing Three.js r${THREE.REVISION} WebGPURenderer & TSL Shaders...`;
+    loadingStatus.textContent = LOADING_TEXT;
   }
 
-  // Story Kit: no WebGPU (or no adapter) shows the needs-WebGPU card (framework/cutscenes/needs-webgpu.js)
+  // No WebGPU (or no adapter): the city can't run (its terrain, fog and crowd are WebGPU-only), so Mog City's card says
+  // so and offers New York, which runs on WebGL 2 too (sf-hud.js showNeedsWebGPU). ?webgpu=0 shows it anywhere
   let gpuOk = !!navigator.gpu && new URLSearchParams(location.search).get('webgpu') !== '0';
   if (gpuOk) { try { gpuOk = !!(await navigator.gpu.requestAdapter()); } catch { gpuOk = false; } }
   if (!gpuOk) {
-    showBootError('This demo needs a WebGPU browser (Chrome).');
-    window.__STORYKIT_NO_WEBGPU = true;
-    import(new URL('framework/cutscenes/needs-webgpu.js', document.baseURI).href).then((m) => m.showNeedsWebGPU()).catch(() => {});
+    window.__MC_NO_WEBGPU = true;
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
+    window.NYC.showNeedsWebGPU();
     return;
   }
 
@@ -122,12 +175,12 @@ async function initApp() {
   markInit('lighting');
 
   if (loadingStatus) {
-    loadingStatus.textContent = 'Loading San Francisco terrain & buildings...';
+    loadingStatus.textContent = LOADING_TEXT;
   }
   await loadCityData(setLoadingProgress);
   markInit('data');
   if (loadingStatus) {
-    loadingStatus.textContent = 'Building San Francisco streets & buildings...';
+    loadingStatus.textContent = LOADING_TEXT;
   }
 
   // 3. Build the city: ground & curb islands, buildings, street details & traffic
@@ -251,7 +304,7 @@ async function initApp() {
     pauseDirty = true;
   }
   function applyQuality(id) {
-    const q = window.NYC.QUALITY_PRESETS[id];
+    const q = QUALITY_PRESETS[id];
     region.setQuality?.(q.distance, q.trees);
     ssrPass.resolutionScale = q.reflectionScale;
     setShadows(q.shadows);
@@ -288,26 +341,60 @@ async function initApp() {
   const elAltitude = document.getElementById('hud-altitude');
   const elLocation = document.getElementById('hud-location');
   const elControlsHint = document.getElementById('hud-controls-hint');
+  // (Mog City: the game pad, as in New York: js/gamepad-controls.js, wagmi/pad.js)
+  const gamepadControls = new GamepadControls(controllerManager, cameraSystem, {
+    onCycleMode: (step) => {
+      const modes = ['person', 'car', 'cyclist', 'helicopter'];
+      selectMode(modes[(modes.indexOf(controllerManager.activeMode) + step + modes.length) % modes.length]);
+    },
+    onCycleCamera: cycleCamera,
+    onToggleMap: () => mapSystem.toggleFullMap(!mapSystem.isFullMapOpen),
+    onCloseMap: () => mapSystem.toggleFullMap(false)
+  });
 
-  // Keyboard guide for each mode: [keys, action] (the arrow keys work as W A S D, controllers.js bindKeyboard)
-  const WS = ['W ↑', 'S ↓'], AD = ['A ←', 'D →'];
+  // Keyboard guide for each mode: [keys, action]
+  // (Mog City's, as in New York (js/main.js): on foot he walks the way you press, relative to the camera; X puts the car
+  // back on the road (wagmi/game.js), R is the radio)
   const controlHints = {
-    person: [[WS, 'Walk'], [AD, 'Turn'], [['Shift'], 'Sprint'], [['Space'], 'Jump'], [['R'], 'Reset to road'], [['Drag'], 'Orbit']],
-    car: [[WS, 'Drive / Reverse'], [AD, 'Steer'], [['Shift'], 'Boost'], [['R'], 'Reset to road'], [['Drag'], 'Orbit']],
-    cyclist: [[WS, 'Pedal / Brake'], [AD, 'Lean & Turn'], [['Shift'], 'Sprint'], [['R'], 'Reset to road'], [['Drag'], 'Orbit']],
-    helicopter: [[WS, 'Pitch'], [AD, 'Yaw'], [['Space', 'E'], 'Ascend'], [['Q', 'C'], 'Descend'], [['Shift'], 'Boost']]
+    person: [[['W', 'A', 'S', 'D'], 'Move'], [['Shift'], 'Sprint'], [['Space'], 'Jump'], [['Drag'], 'Orbit']],
+    car: [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['Shift'], 'Boost'], [['Drag'], 'Orbit']],
+    cyclist: [[['W', 'S'], 'Pedal / Brake'], [['A', 'D'], 'Lean & Turn'], [['Shift'], 'Sprint'], [['Drag'], 'Orbit']],
+    helicopter: [[['W', 'S'], 'Pitch'], [['A', 'D'], 'Yaw'], [['Space', 'E'], 'Ascend'], [['Q', 'C'], 'Descend'], [['Shift'], 'Boost']]
   };
-  // Boosted top speeds in mph (controllers.js caps them at 8.2, 36, 19 & 52 m/s): full scale of the speed meter
-  const topSpeedMph = { person: 18, car: 81, cyclist: 43, helicopter: 116 };
-
+  // ...and the same guide on a game pad, when a pad was the last thing used (wagmi/pad.js: setHintInput)
+  const controlHintsPad = {
+    person: [[['LS'], 'Move'], [['RS'], 'Look'], [['L3'], 'Sprint'], [['A'], 'Jump']],
+    car: [[['RT', 'LT'], 'Drive / Reverse'], [['LS'], 'Steer'], [['X'], 'Boost'], [['RS'], 'Look']],
+    cyclist: [[['RT', 'LT'], 'Pedal / Brake'], [['LS'], 'Lean & Turn'], [['X'], 'Sprint'], [['RS'], 'Look']],
+    helicopter: [[['LS'], 'Pitch & Yaw'], [['RT', 'LT'], 'Ascend / Descend'], [['X'], 'Boost'], [['RS'], 'Look']]
+  };
+  let hintPad = false;
+  // Boosted top speeds in mph: full scale of the speed meter (Mog City: Dan's car has a dial of its own, carDial)
+  const topSpeedMph = { person: 18, car: 176, cyclist: 43, helicopter: 116 };
+  // (Mog City, as js/main.js: Dan's car's dial peaks at 176 and never shows a frozen number: double its real mph up to the
+  // cruise (34 m/s: 152), the boost's over the last 24 (56 m/s: 176); held at either top it wanders the 3 under it)
+  let dialLast = -1;
+  function carDial(c, boosting) {
+    const v = Math.abs(c.speed), v1 = c.topSpeed ?? 34, v2 = c.boostSpeed ?? 56;
+    const at = v <= v1 ? 152 * v / v1 : 152 + 24 * Math.min(1, (v - v1) / (v2 - v1));
+    const nb = c.noBoost || v2 <= v1, cap = (c.boosting ?? boosting) && !nb ? v2 : v1;
+    if (Math.abs(v - cap) > cap * 0.005) return (dialLast = Math.round(nb ? 152 * Math.min(v, v1) / v1 : at));
+    const top = cap === v2 && !nb ? 176 : 152;
+    let n; do n = top - Math.floor(Math.random() * 4); while (n === dialLast);
+    return (dialLast = n);
+  }
+  // (a car with no boost, a world's van or truck, has no Boost line)
+  let hintNoBoost = false;
   function renderControlHints(mode) {
     if (!elControlsHint) return;
-    const items = (controlHints[mode] || []).map(([keys, action]) => {
+    hintNoBoost = mode === 'car' && !!controllerManager.entities.car?.noBoost;
+    const items = ((hintPad ? controlHintsPad : controlHints)[mode] || []).filter(([, action]) => !(hintNoBoost && action === 'Boost')).map(([keys, action]) => {
       const item = document.createElement('span');
       item.className = 'hint';
       for (const key of keys) {
         const kbd = document.createElement('kbd');
         kbd.textContent = key;
+        if (hintPad) kbd.dataset.pad = key;
         item.appendChild(kbd);
       }
       const label = document.createElement('span');
@@ -318,6 +405,12 @@ async function initApp() {
     });
     elControlsHint.replaceChildren(...items);
   }
+  // (Mog City) the guide in the pad's buttons (true) or the keyboard's (false)
+  function setHintInput(pad) {
+    if (hintPad === !!pad) return;
+    hintPad = !!pad;
+    renderControlHints(controllerManager.activeMode);
+  }
 
   // The taxi-yellow pill under the selected mode glides from button to button
   function placeModeIndicator() {
@@ -327,11 +420,10 @@ async function initApp() {
     modeSwitch.style.setProperty('--ind-w', `${active.offsetWidth}px`);
   }
 
-  let rideExperience = null;
   function selectMode(mode) {
-    if (mode !== 'car') rideExperience?.cancel();
     controllerManager.setMode(mode);
     touchControls.setMode(controllerManager.activeMode);
+    gamepadControls.reset();
     modeButtons.forEach((btn) => {
       btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
     });
@@ -372,14 +464,17 @@ async function initApp() {
     });
   }
 
-  // Follow the real wrapped toolbar height; time labels, zoom and touch controls can change it.
+  // Follow the real wrapped toolbar height; time labels, zoom and touch controls can change it. (Mog City: its markup,
+  // New York's, has no shared top bar; its stylesheet places the HUD itself)
   const topbar = document.querySelector('.hud-topbar');
-  const placeHudContent = () => document.documentElement.style.setProperty(
-    '--hud-content-top', `${Math.ceil(topbar.getBoundingClientRect().bottom) + 12}px`
-  );
-  new ResizeObserver(placeHudContent).observe(topbar);
-  window.addEventListener('resize', placeHudContent);
-  placeHudContent();
+  if (topbar) {
+    const placeHudContent = () => document.documentElement.style.setProperty(
+      '--hud-content-top', `${Math.ceil(topbar.getBoundingClientRect().bottom) + 12}px`
+    );
+    new ResizeObserver(placeHudContent).observe(topbar);
+    window.addEventListener('resize', placeHudContent);
+    placeHudContent();
+  }
 
   // Popovers (native [popover]: light dismiss & Esc for free) open against the control that toggles them: data-anchor
   // names the element they sit above / below, data-align the one whose right edge they line up with
@@ -494,13 +589,30 @@ async function initApp() {
     elLocation.replaceChildren(...nodes);
   }
 
+  // (Mog City) The lane nearest (x, z) within R m (the road network's lane centrelines, as wagmi/storyrun/places.js finds
+  // them): { x, z, heading } facing along it, or null
+  function laneNear(x, z, R) {
+    let best = null;
+    for (const e of trafficSystem.network?.edges || []) {
+      if (e.len < 12) continue;
+      const mx = e.sx + e.dx * e.len / 2, mz = e.sz + e.dz * e.len / 2;
+      if (Math.abs(mx - x) > R + e.len / 2 || Math.abs(mz - z) > R + e.len / 2) continue;
+      const t = Math.max(6, Math.min(e.len - 6, (x - e.sx) * e.dx + (z - e.sz) * e.dz));
+      for (const l of e.lanes) {
+        const px = e.sx + e.dx * t + e.rx * l, pz = e.sz + e.dz * t + e.rz * l, d = Math.hypot(px - x, pz - z);
+        if (d < R && (!best || d < best.d)) best = { x: px, z: pz, heading: Math.atan2(e.dx, e.dz), d };
+      }
+    }
+    return best;
+  }
+
   // No heading: face along the nearest street (controllers.js roadHeading)
   function teleportTo(x, z, heading = NaN) {
-    rideExperience?.cancel();
     const box = window.NYC.GEO?.box;
     if (box && (x < box.x0 || x > box.x1 || z < box.z0 || z > box.z1)) selectMode('helicopter');
     const destination = controllerManager.teleportActiveTo(x, z, heading);
     touchControls.reset();
+    gamepadControls.reset();
     cameraSystem.resetForTeleport();
     selectCamera('chase', true);
     mapSystem.waypoint = {
@@ -516,9 +628,9 @@ async function initApp() {
     cameraSystem,
     trafficSystem,
     onToggle: (open) => {
-      rideExperience?.setPaused(open || paused);
       controllerManager.resetInput();
       touchControls.setEnabled(!open);
+      gamepadControls.setEnabled(!open);
       const mapHint = document.getElementById('fullmap-hover-info');
       if (open && touchControls.available && mapHint) {
         mapHint.textContent = 'Tap to teleport · Drag to pan · Use + / − to zoom';
@@ -587,13 +699,6 @@ async function initApp() {
       case 'Digit0':
         selectCamera('chryslerGCT', true);
         break;
-      case 'KeyR': {
-        if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || mapSystem.isFullMapOpen) break;
-        e.preventDefault();
-        const road = controllerManager.findRoadReset();
-        if (road) teleportTo(road.x, road.z, road.heading);
-        break;
-      }
       case 'KeyV':
         cycleCamera(e.shiftKey ? -1 : 1);
         break;
@@ -616,18 +721,20 @@ async function initApp() {
   // Initialize default selection, overridable from the URL (debug & screenshot harness, see debugParams below):
   // ?mode=person|car|cyclist|heli  ?time=golden|midday|twilight|midnight  ?teleport=x,z,headingDeg  ?hud=0
   const urlParams = new URLSearchParams(location.search);
-  const fogSelect = document.getElementById('fog-preset');
+  // (the fork's fog presets, ?fog=clear|haze|marine; Mog City has no fog menu: the haze, the fork's own default)
   lightingSystem.setFogPreset(urlParams.get('fog') || 'haze');
-  fogSelect.value = lightingSystem.fogPreset;
-  fogSelect.addEventListener('change', () => lightingSystem.setFogPreset(fogSelect.value));
   const urlMode = { heli: 'helicopter', helicopter: 'helicopter', person: 'person', car: 'car', cyclist: 'cyclist' }[urlParams.get('mode')];
-  // Every player model starts parked on the ground at the first teleport, clear of buildings & each other. Story Kit: the
-  // Mission District (Dolores St at 15th, facing south), Market St if that arrival is missing
-  const spawn = window.NYC.TELEPORT_LOCATIONS.mission || window.NYC.TELEPORT_LOCATIONS.market;
+  // Every player model starts parked on the ground at the first teleport, clear of buildings & each other. (Mog City:
+  // on the Embarcadero by the Ferry Building, the car first, onto the lane nearest Embarcadero Plaza (652, -683) and
+  // facing along it, and Dan by it (the game puts him out at its door: wagmi/city.js); the sandbox's bike and helicopter,
+  // which the game doesn't use, parked out of the way at Market & Montgomery. Market & Montgomery for all if the lanes
+  // are missing)
+  const spawn = laneNear(652, -683, 90) || window.NYC.TELEPORT_LOCATIONS.market;
+  const parking = window.NYC.TELEPORT_LOCATIONS.market || spawn;
   if (spawn) {
-    for (const mode of ['helicopter', 'cyclist', 'person', 'car']) {
+    for (const [mode, at] of [['car', spawn], ['person', spawn], ['cyclist', parking], ['helicopter', parking]]) {
       controllerManager.setMode(mode);
-      controllerManager.teleportActiveTo(spawn.x, spawn.z, spawn.heading);
+      controllerManager.teleportActiveTo(at.x, at.z, at.heading);
     }
   }
   selectMode(urlMode || 'car');
@@ -650,29 +757,18 @@ async function initApp() {
   // The loading screen stays up while the shaders compile (precompileShaders() & the warm-up frame, see the loop) and
   // until the first frame is on screen
   if (loadingStatus) {
-    loadingStatus.textContent = 'Compiling Shaders & Render Pipelines...';
+    loadingStatus.textContent = LOADING_TEXT;
   }
 
-  const settings = window.NYC.createSettings({
-    onPause(value) { rideExperience?.setPaused(value); paused=value; pauseDirty=true; controllerManager.resetInput(); touchControls.setEnabled(!value && !mapSystem.isFullMapOpen); },
-    onTime(id) { selectTime(id); pauseDirty=true; },
-    onFog(id) { lightingSystem.setFogPreset(id); fogSelect.value=id; pauseDirty=true; },
-    onQuality: applyQuality,
-    onShadows: setShadows,
-    onTraffic(value) { trafficSystem.setDensity?.(value); pauseDirty=true; },
-    getTime: () => lightingSystem.activePresetId,
-    getFog: () => lightingSystem.fogPreset
-  });
+  // (Mog City) the graphics for this load (window.NYC.quality, above): High or Low as chosen, set now before anything
+  // compiles; Auto starts high and the frame times of the city's first 3 s settle it (the loop). The fork's own
+  // ?quality=low|medium|high still pins one (its benchmarks)
+  const quality = window.NYC.quality;
   const qualityParam = urlParams.get('quality');
-  const requestedQuality = window.NYC.QUALITY_PRESETS[qualityParam] ? qualityParam : null;
-  if (requestedQuality) settings.setQuality(requestedQuality);
-  const autoFrames = []; let autoSeconds=0, autoDone=Boolean(requestedQuality || urlParams.has('bench') || urlParams.has('capture'));
-
-  rideExperience = window.NYC.createRideExperience({
-    scene, controller: controllerManager, map: mapSystem, traffic: trafficSystem,
-    startAt(x,z,heading) { selectMode('car'); teleportTo(x,z,heading); }
-  });
-  document.addEventListener('visibilitychange', () => rideExperience.setPaused(document.hidden || paused || mapSystem.isFullMapOpen));
+  const requestedQuality = QUALITY_PRESETS[qualityParam] ? qualityParam : null;
+  if (requestedQuality) quality.tier = requestedQuality;
+  if (quality.tier !== 'high') applyQuality(quality.tier);
+  const autoFrames = []; let autoSeconds=0, autoDone=Boolean(requestedQuality || !quality.measuring || urlParams.has('bench') || urlParams.has('capture'));
 
   // Debug & screenshot harness state (URL: ?cam=x,y,z,yawDeg,pitchDeg  ?freeze=1  ?bench=name):
   // `camera` pins the view to a fixed pose, `freeze` stops traffic, `bench` flies a scripted path (BENCH_PATHS) and logs
@@ -708,6 +804,9 @@ async function initApp() {
     cameraSystem,
     lightingSystem,
     mapSystem,
+    quality, // (Mog City: the graphics, also window.NYC.quality)
+    gamepadControls, // (Mog City: wagmi/pad.js)
+    setHintInput, // (Mog City: wagmi/pad.js)
     selectMode,
     selectCamera,
     cycleCamera,
@@ -725,7 +824,6 @@ async function initApp() {
         region: region.stats(),
         gpuMB: gpuMegabytes()
       }),
-      ride: () => rideExperience.summary(),
       heightAt: (x, z) => window.NYC.Terrain.heightAt(x, z),
       groundAt: (x, z) => window.NYC.Terrain.groundAt(x, z),
       teleport: (x, z, headingDeg = 180) => teleportTo(x, z, (headingDeg * Math.PI) / 180),
@@ -824,7 +922,7 @@ async function initApp() {
         for (const object of job) await compile(object);
         done++;
         if (loadingStatus) {
-          loadingStatus.textContent = `Compiling Shaders & Render Pipelines... ${Math.round((done / jobs.length) * 100)}%`;
+          loadingStatus.textContent = `${LOADING_TEXT} ${Math.round((done / jobs.length) * 100)}%`;
         }
         setLoadingProgress(done / jobs.length);
       }
@@ -896,13 +994,6 @@ async function initApp() {
     setCameraPose(pose);
   }
 
-  // Local, opt-in media tool; normal gameplay does not load the capture module.
-  const showcase = urlParams.has('showcase')
-    ? (await import('../tools/dev/showcase.mjs')).createShowcase({renderer,controller:controllerManager,cameraSystem,traffic:trafficSystem,selectMode})
-    : null;
-  const collisionReview=urlParams.get('debug')==='collisions'
-    ? (await import('../tools/dev/collision-review.mjs')).createCollisionReview({scene,renderer,controller:controllerManager,cameraSystem,selectMode})
-    : null;
   let gpuTimingPending = false;
   renderer.setAnimationLoop((now) => {
     const rawDt = (now - lastTime) * 0.001;
@@ -911,20 +1002,15 @@ async function initApp() {
       if (pauseDirty) { region.update(cameraSystem.camera, elapsed); lightingSystem.update(cameraSystem.currentPos, elapsed); renderPipeline.render(); pauseDirty=false; }
       return;
     }
-    // Inspecting the route pauses the whole crossing, including AI traffic.
-    // Braking only the taxi here could leave it rolling into a turning conflict.
-    if (mapSystem.isFullMapOpen) { mapSystem.update(); return; }
+    // (Mog City: the city runs on under the full map, as New York's does)
     const dt = Math.min(Math.max(rawDt, 0.001), 0.05);
     elapsed = fogCompare ? 10 : elapsed + dt;
 
     // Update 3rd-person controllers, camera, signals, traffic & vehicle collisions, building LODs, and dynamic shadow focus
-    rideExperience.update(dt, elapsed);
+    gamepadControls.update(dt);
     controllerManager.update(dt, elapsed);
-    showcase?.update(dt);
     cameraSystem.update(dt, elapsed);
     updateDebugCamera(rawDt);
-    showcase?.camera();
-    collisionReview?.update();
     // traffic divides by its step (traffic.js), so a frozen city still steps by a negligible 0.1 ms
     const trafficDt = debugState.freeze ? 1e-4 : dt;
     streetDetails.signalClock.value = elapsed;
@@ -967,9 +1053,13 @@ async function initApp() {
     renderPipeline.render();
     if (warmedUp && window.__NYC_APP.ready && !autoDone) {
       autoSeconds += rawDt; autoFrames.push(rawDt * 1000);
-      if (autoSeconds >= 3) { autoDone=true; settings.setAutomatic(window.NYC.chooseQuality(autoFrames)); }
+      if (autoSeconds >= 3) {
+        autoDone = true;
+        const id = chooseQuality(autoFrames);
+        quality.auto = quality.tier = quality.next = id;
+        if (id !== 'high') applyQuality(id);
+      }
     }
-    showcase?.afterRender(window.__NYC_APP.ready);
     const timedBench = debugState.bench;
     if (warmedUp && renderer.backend.trackTimestamp && timedBench && !timedBench.done && !gpuTimingPending) {
       gpuTimingPending = true;
@@ -1018,7 +1108,7 @@ async function initApp() {
 
       const activeEnt = controllerManager.getActiveEntity();
       const mode = controllerManager.activeMode;
-      const mph = Math.round(Math.abs(activeEnt.speed) * 2.237);
+      const mph = mode === 'car' ? carDial(activeEnt, controllerManager.keys.boost) : Math.round(Math.abs(activeEnt.speed) * 2.237);
       const altFt = Math.max(0, Math.round(activeEnt.position.y * 3.281));
 
       if (elFps) {
@@ -1027,7 +1117,8 @@ async function initApp() {
       }
       if (elSpeed) elSpeed.textContent = String(mph);
       if (elSpeedMeter) elSpeedMeter.style.transform = `scaleX(${Math.min(1, mph / (topSpeedMph[mode] || 80))})`;
-      document.body.classList.toggle('is-boosting', controllerManager.keys.boost && mph > 0);
+      if (mode === 'car' && !!activeEnt.noBoost !== hintNoBoost) renderControlHints(mode);
+      document.body.classList.toggle('is-boosting', controllerManager.keys.boost && mph > 0 && !(mode === 'car' && activeEnt.noBoost));
       if (elAltitude) elAltitude.textContent = altFt.toLocaleString('en-US');
       // The street corner of the player on the follow cameras, of the camera itself on the scenic ones
       const where = cameraSystem.getActivePreset().category === 'follow' ? activeEnt.position : cameraSystem.currentPos;

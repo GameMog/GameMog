@@ -21,6 +21,19 @@ from NYC Open Data (NYC DCP Borough Boundaries, NYC Street Centerline (CSCL), NY
 https://opendata.cityofnewyork.us).
 
 
+Slop San Francisco (?city=sf)
+-----------------------------
+cities/sf/ is a modified copy of Slop San Francisco by Kamil (@unable0_), derived from Slop New York by Mr.doob,
+under the MIT License (cities/sf/LICENSE: copyright Mr.doob, and Kamil for the San Francisco contributions); its own
+notices are in cities/sf/NOTICE.md and what Mog City changed in cities/sf/README.md. Its geographic data keeps its own
+terms: City and County of San Francisco open data (DataSF), PDDL / CC0; the USGS 3D Elevation Program, a US
+government work; and (c) OpenStreetMap contributors, available under the Open Database License (ODbL 1.0,
+https://opendatacommons.org/licenses/odbl/1-0/; https://www.openstreetmap.org/copyright), for the OSM-derived parts
+(cities/sf/js/sf-geodata.js, the landmark anchors in cities/sf/js/sf-places.js, the regional coast, islands and
+ferry routes in cities/sf/data/region). Sources and provenance: cities/sf/docs/data-sources.md. The data files ship
+gzipped (cities/sf/data/**/*.bin.gz), each byte for byte its original once inflated.
+
+
 Spiderbench (street combat)
 ---------------------------
 Copyright (c) 2026 Shikhar. Used with the author's permission. These parts are NOT covered by

@@ -23,6 +23,10 @@ export const MODEL_CARS = new Set(['mogcity/gt']);
 const MAX_BYTES = 1_000_000, MAX_TEXT = 600;
 const q = new URLSearchParams(location.search);
 const COLOUR = /^#[0-9A-Fa-f]{6}$/;
+// the cities Mog City's engine plays (index.html: ?city=sf San Francisco, New York without it): a world plays in the
+// city the page has loaded, one city a page (GameMog's frame names it with &city=)
+const CITY_NAMES = { ny: 'New York', sf: 'San Francisco' };
+const PAGE_CITY = q.get('city') === 'sf' ? 'sf' : 'ny';
 
 async function sha256(buf) {
   try { const d = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join(''); } catch { return null; }
@@ -66,7 +70,8 @@ export function check(w) {
   if (w.storykit !== 1) bad('storykit: not a runner world (1)');
   if (typeof w.id !== 'string' || !/^[a-z0-9][a-z0-9-]{1,39}$/.test(w.id)) bad('id');
   if (typeof w.title !== 'string' || !w.title) bad('title');
-  if (w.city && w.city !== 'ny') bad(`city ${w.city}: only New York runs on Mog City's engine so far`);
+  if (w.city && !CITY_NAMES[w.city]) bad(`city ${w.city}: Mog City's engine plays New York and San Francisco`);
+  else if ((w.city || 'ny') !== PAGE_CITY) bad(`city ${w.city || 'ny'}: this page plays ${CITY_NAMES[PAGE_CITY]} (?city=${w.city || 'ny'} for ${CITY_NAMES[w.city || 'ny']})`);
   if (!w.cast || typeof w.cast !== 'object') bad('cast');
   else for (const [name, c] of Object.entries(w.cast)) {
     if (!c || typeof c !== 'object') { bad(`cast ${name}`); continue; }
