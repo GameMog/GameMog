@@ -58,6 +58,9 @@ function createStreetSignBladeTexture(label) {
  * ground y, the junction's offset in the cycle (road-network.js signalOffset) and 1 for a group-0 (first phase) head,
  * else 0; `isAvenueHead` is then ignored.
  */
+// (SF 2040, wagmi/apocalypse: the signals' power, 1 on .. 0 dead dark)
+const SIGNAL_POWER = uniform(1);
+window.NYC.signalPower = SIGNAL_POWER;
 function createTrafficSignalLensMaterial(isAvenueHead, clock, perInstance = false) {
   const { cycle, avenueAmber, avenueRed, streetAmber } = SIGNAL_TIMING;
   const mat = new THREE.MeshBasicNodeMaterial();
@@ -90,7 +93,7 @@ function createTrafficSignalLensMaterial(isAvenueHead, clock, perInstance = fals
       color(0xff2424),
       isTopRed
     );
-    return mix(color(0x14181e), lensHue.mul(1.35), activeMask);
+    return mix(color(0x14181e), lensHue.mul(1.35), activeMask.mul(SIGNAL_POWER));
   })();
   return mat;
 }

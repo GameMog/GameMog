@@ -27,7 +27,7 @@ import { createHud } from './hud.js';
 import { createRunner } from './runner.js';
 import { tell, result as tellResult, log as hostLog } from './host.js';
 import { showTitle, plainTitle, isOwn, ownTitle } from './title.js';
-import { asksDressing } from './pack.js';
+import { asksDressing, asksApocalypse } from './pack.js';
 import { passCard } from './rules.js';
 import { createDirector } from '../mission/cine.js';
 
@@ -114,6 +114,11 @@ export async function install(W) {
   // the time of day below, so the world's times keep its look
   if (asksDressing(def.dressing)) {
     try { const D = await import('./dressing.js'); W.storyrun.dressing = D.createDressing(W, def.dressing); } catch (e) { console.warn('[storyrun] dressing', e); }
+  }
+  // (SF 2040: San Francisco after Erebus, wagmi/apocalypse, when a world for 'sf' asks for it in its dressing (or the
+  // address has ?apocalypse); loaded only then. Before the time of day below, which it then keeps in its own look)
+  if (asksApocalypse(def.dressing, def.city) || (def.city === 'sf' && Q.has('apocalypse'))) {
+    try { const A = await import('../apocalypse/index.js'); await A.createApocalypse(W, { time: typeof def.dressing?.apocalypse === 'string' ? def.dressing.apocalypse : Q.get('apocalypse') || 'dusk' }); } catch (e) { console.warn('[storyrun] apocalypse', e); }
   }
   // a story's night is a lit city night, readable (nightlit.js: its fill, moon and exposure lifted at night only)
   try { const NL = await import('./nightlit.js'); W.storyrun.nightLit = NL.createNightLit(W, def.dressing || {}); } catch (e) { console.warn('[storyrun] night', e); }

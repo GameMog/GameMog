@@ -56,5 +56,9 @@ export async function install(W) {
       W.creatures.spawn('creature-trex', { at: at(130, 0), boss: { name: 'The Matriarch', phases: [0.66, 0.33] }, hold: { wake: 35, leash: 60 } });
     } catch (e) { console.warn('[city] beasts', e); }
   }
+  // (?apocalypse[=dusk|day|night]: SF 2040's San Francisco after Erebus, wagmi/apocalypse; loaded only when asked for)
+  if (CITY === 'sf' && Q.has('apocalypse')) {
+    try { const A = await import('./apocalypse/index.js'); await A.createApocalypse(W, { time: Q.get('apocalypse') || 'dusk' }); } catch (e) { console.warn('[city] apocalypse', e); }
+  }
   console.log(`[wagmi] free roam in ${CITY === 'sf' ? 'San Francisco' : CITY}`);
 }

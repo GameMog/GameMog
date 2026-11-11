@@ -1022,8 +1022,10 @@ async function initApp() {
       controllerManager.activeMode,
       cameraSystem.camera
     );
-    highwayTraffic.update(trafficDt, cameraSystem.camera, controllerManager.getActiveEntity(), controllerManager.activeMode);
-    transit.update(debugState.freeze ? 0 : dt);
+    // (SF 2040, wagmi/apocalypse: trafficSystem.abandon(true) leaves the freeways' cars and the streetcars where they stand)
+    const stood = trafficSystem.abandoned;
+    highwayTraffic.update(stood ? 1e-4 : trafficDt, cameraSystem.camera, controllerManager.getActiveEntity(), controllerManager.activeMode);
+    transit.update(debugState.freeze || stood ? 0 : dt);
     bridges.update(cameraSystem.camera);
     region.update(cameraSystem.camera, elapsed);
     cityBlocks.update(cameraSystem.currentPos.x, cameraSystem.currentPos.z);

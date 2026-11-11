@@ -12,6 +12,8 @@ const LOOKS = {
   twilight: { exposure: 1.06, contrast: 1.10, saturation: 1.08, balance: [1.025, 0.995, 1.015], bloom: 0.28, threshold: 1.05 },
   midnight: { exposure: 1.04, contrast: 1.08, saturation: 1.06, balance: [0.985, 1.00, 1.035], bloom: 0.30, threshold: 1.00 }
 };
+// (wagmi/apocalypse adds SF 2040's looks here, by its lighting presets' ids; a look's vignette defaults to the lens's own)
+window.NYC.GRADE_LOOKS = LOOKS;
 
 function createPostProcessing(renderer, sceneColor, reflections, depth, camera, lighting) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -23,6 +25,9 @@ function createPostProcessing(renderer, sceneColor, reflections, depth, camera, 
   const contrast = uniform(1.0);
   const saturation = uniform(1.0);
   const balance = uniform(new THREE.Vector3(1, 1, 1));
+  const vignetteAmount = uniform(0.12);
+  // (SF 2040: greens dried toward olive and straw, 0 none .. 1)
+  const dryGreens = uniform(0);
   const fogEnabled = uniform(1);
   const inverseProjection = uniform(camera.projectionMatrixInverse);
   const cameraWorld = uniform(camera.matrixWorld);
@@ -61,6 +66,13 @@ function createPostProcessing(renderer, sceneColor, reflections, depth, camera, 
 
   const outputNode = Fn(() => {
     const color = exposed.add(bloomPass.rgb).toVar();
+    If(dryGreens.greaterThan(0.001), () => {
+      // how much greener than its red and blue a colour is; that much of it turned toward straw
+      const rb = max(color.r, color.b), excess = max(color.g.sub(rb), 0.0);
+      const k = smoothstep(0.0, 0.12, excess.div(max(color.g, 0.0001))).mul(dryGreens);
+      const straw = vec3(color.g.mul(0.92), color.g.mul(0.8), color.g.mul(0.55));
+      color.assign(mix(color, straw, k));
+    });
     const luma = dot(color, vec3(0.2126, 0.7152, 0.0722)).toVar();
 
     // Gentle cool shadow / warm highlight separation; multiply rather than lifting the black level.
@@ -78,7 +90,7 @@ function createPostProcessing(renderer, sceneColor, reflections, depth, camera, 
     // Normalize by the corner radius so the lens falloff remains subtle in portrait and landscape.
     const aspect = screenSize.x.div(screenSize.y);
     const radius = length(screenUV.sub(0.5).mul(vec2(aspect, 1))).div(length(vec2(aspect, 1).mul(0.5)));
-    const vignette = float(1).sub(smoothstep(0.35, 1.0, radius).mul(0.12));
+    const vignette = float(1).sub(smoothstep(0.35, 1.0, radius).mul(vignetteAmount));
     return vec4(color.mul(vignette), 1.0);
   })();
 
@@ -90,6 +102,8 @@ function createPostProcessing(renderer, sceneColor, reflections, depth, camera, 
     balance.value.set(...look.balance);
     bloomPass.strength.value = look.bloom;
     bloomPass.threshold.value = look.threshold;
+    vignetteAmount.value = look.vignette ?? 0.12;
+    dryGreens.value = look.dryGreens ?? 0;
   }
 
   applyPreset('golden');

@@ -594,6 +594,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     for (const r of holds) if (x > r.minX - m && x < r.maxX + m && z > r.minZ - m && z < r.maxZ + m) return true;
     return false;
   };
+  let abandoned = false, pedLimit = NUM_PEDS;
   function hold(rects = []) {
     holds.length = 0;
     for (const r of rects || []) if (r && [r.minX, r.maxX, r.minZ, r.maxZ].every(Number.isFinite)) holds.push(r);
@@ -1525,6 +1526,16 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     v.yawRate = v.steer = 0;
     v.move = chooseMove(v, false);
     occupy(e.occ[lane], v, s);
+    if (abandoned) strand(v);
+  }
+  // (SF 2040) a car left where it stopped: turned across its lane, pulled toward a curb or the middle, on its hazards
+  // now and then (a battery not yet flat)
+  function strand(v) {
+    const r = Math.random();
+    v.askew = (Math.random() - 0.5) * (r < 0.25 ? 1.9 : 0.7);
+    const side = (Math.random() - 0.5) * 2.2;
+    v.offX = v.edge ? v.edge.rx * side : 0; v.offZ = v.edge ? v.edge.rz * side : 0;
+    v.hazard = Math.random() < 0.08;
   }
 
   // Put v in a free spot of a random lane rMin..rMax metres from the focus, out of view if `hidden`
@@ -1787,7 +1798,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   }
 
   function renderCar(c) {
-    const rotY = c.yaw + c.yawOffset;
+    const rotY = c.yaw + c.yawOffset + (abandoned ? c.askew || 0 : 0);
     const sinY = Math.sin(rotY);
     const cosY = Math.cos(rotY);
     const spec = BODY_SPECS[c.bodyType];
@@ -1819,8 +1830,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     const state = attrs.carState.array;
     const o4 = slot * 4;
     const blinkOn = c.blink !== 0 && (clock + c.blinkPhase) % 0.8 <= 0.4;
-    const b0 = c.acc < -0.8 || c.speed < 0.3 ? 1 : 0;
-    const b1 = blinkOn && c.blink < 0 ? 1 : 0;
+    const b0 = !abandoned && (c.acc < -0.8 || c.speed < 0.3) ? 1 : 0;
+    const b1 = blinkOn && (c.blink < 0 || c.blink === 2) ? 1 : 0;
     const b2 = blinkOn && c.blink > 0 ? 1 : 0;
     const b3 = c.isNYPD ? 1 : 0;
     if (state[o4] !== b0 || state[o4 + 1] !== b1 || state[o4 + 2] !== b2 || state[o4 + 3] !== b3) {
@@ -1843,7 +1854,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     const dzCam = c.z - camZ;
     const dyCam = camY - c.y;
     const distSq = dxCam * dxCam + dzCam * dzCam + dyCam * dyCam;
-    if (distSq < MAX_LIGHT_DIST_SQ) {
+    if (distSq < MAX_LIGHT_DIST_SQ && !abandoned) {
       const d = Math.sqrt(distSq);
       const forwardDot = dxCam * camFwdX + dzCam * camFwdZ;
       const effDist = d + Math.max(0, 5.0 - forwardDot) * 3.2;
@@ -2088,9 +2099,11 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       const d = v.edge ? Math.hypot(v.x - focusX, v.z - focusZ) : Infinity;
       // (Mog City: one found in a hold zone is put somewhere else out of view)
       if (v.edge && holds.length && held(v.x, v.z, v.half) && spawnVehicle(v, 100, 300, true)) continue;
-      if (!v.edge || (jump && d > NEAR_RADIUS)) {
-        spawnVehicle(v, 0, NEAR_RADIUS, false);
-      } else if (budget > 0 && (d > 1200 || (d > VEHICLE_RADIUS && !visible(v.x, v.z, v.half + 2))) && spawnVehicle(v, 100, 300, true)) {
+      // (SF 2040: the cars left standing are kept closer round the camera, so its streets are full of them)
+      const nearR = abandoned ? 200 : NEAR_RADIUS, keepR = abandoned ? 210 : VEHICLE_RADIUS;
+      if (!v.edge || (jump && d > nearR)) {
+        spawnVehicle(v, 0, nearR, false);
+      } else if (budget > 0 && (d > 1200 || (d > keepR && !visible(v.x, v.z, v.half + 2))) && spawnVehicle(v, abandoned ? 40 : 100, abandoned ? 200 : 300, true)) {
         budget--;
       }
       if (!v.edge) continue;
@@ -2098,11 +2111,13 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       v.prevX = v.x;
       v.prevZ = v.z;
       relateToPlayer(v);
-      drive(v, dt);
+      // (SF 2040, abandon(true): nobody drives; each car left where it stopped, askew and off its lane's line)
+      if (abandoned) { v.speed = 0; v.acc = 0; v.blink = v.hazard ? 2 : 0; } else drive(v, dt);
       locate(v);
+      if (abandoned) { v.x += v.offX || 0; v.z += v.offZ || 0; }
       knock(v, dt);
       pose(v, dt);
-      if (player.active) collideWithPlayer(v, v.yaw + v.yawOffset, v.bus ? 1.30 : v.isSUV ? 0.92 : 0.86, v.bus ? 5.72 : v.isSUV ? 2.22 : 2.18);
+      if (player.active) collideWithPlayer(v, v.yaw + v.yawOffset + (abandoned ? v.askew || 0 : 0), v.bus ? 1.30 : v.isSUV ? 0.92 : 0.86, v.bus ? 5.72 : v.isSUV ? 2.22 : 2.18);
       if (v.vx * v.vx + v.vz * v.vz > 0.36) knockOn(v);
 
       if (headless) continue;
@@ -2119,6 +2134,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     if (!headless) pedCrowd.begin();
     for (let i = 0; i < NUM_PEDS; i++) {
       const p = peds[i];
+      // (SF 2040, setPeds(n): only the first n walk; the rest put away)
+      if (i >= pedLimit) { if (p.placed) { p.placed = false; p.node = null; } continue; }
       const d = p.placed ? Math.hypot(p.x - focusX, p.z - focusZ) : Infinity;
       // (Mog City: one found in a hold zone is put somewhere else out of view)
       if (p.placed && holds.length && held(p.x, p.z, 1)) spawnPed(p, 60, 260, true);
@@ -2239,6 +2256,27 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     network,
     blockers, // (Mog City)
     hold, // (Mog City)
+    // (SF 2040, wagmi/apocalypse) abandon(true): the city's cars left where they stand (no driving, no lamps, askew, some
+    // burnt out), the buses gone; abandon(false) as before. setPeds(n): how many of the walkers are out
+    abandon(on, { burnt = 0.3, paint = null } = {}) {
+      on = !!on;
+      if (on === abandoned) return;
+      abandoned = on;
+      for (const v of vehicles) {
+        if (v.bus) { v.disabled = on; if (on) { v.edge = null; v.conn = null; v.commit = null; } continue; }
+        if (on) {
+          v.paint0 = v.paint0 || v.paint;
+          const k = Math.random();
+          const c = paint ? paint(v, k < burnt) : null;
+          v.paint = c || v.paint0;
+          if (v.edge) strand(v);
+        } else {
+          v.paint = v.paint0 || v.paint; v.askew = v.offX = v.offZ = 0; v.hazard = false; v.blink = 0;
+        }
+      }
+    },
+    get abandoned() { return abandoned; },
+    setPeds(n) { pedLimit = Math.max(0, Math.min(NUM_PEDS, Math.round(n))); },
     setDensity(fraction) {
       const count = Math.round(vehicles.length * Math.max(0, Math.min(1, fraction)));
       vehicles.forEach((v,i) => { v.disabled = i >= count; if(v.disabled) { v.edge=null; v.conn=null; v.commit=null; } });

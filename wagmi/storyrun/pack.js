@@ -47,6 +47,10 @@ export function asksDressing(d) {
   if (!d || typeof d !== 'object') return false;
   return BLACKOUTS.includes(d.blackout) || (Array.isArray(d.holiday) && d.holiday.includes('christmas')) || ['snow', 'rain', 'storm'].includes(d.weather);
 }
+// (SF 2040) San Francisco after Erebus (wagmi/apocalypse): a world for city 'sf' asks with dressing.apocalypse: true |
+// 'dusk' | 'day' | 'night' (its look; true is dusk). New York's worlds cannot ask for it
+export const APOCALYPSE = [true, 'dusk', 'day', 'night'];
+export function asksApocalypse(d, city) { return city === 'sf' && !!d && typeof d === 'object' && APOCALYPSE.includes(d.apocalypse); }
 // Mog City's own mission phases a step may name by `ref` (runner.js PART_IDS: m2.js / m3.js playPart)
 export const PART_REFS = new Set(['m2.start', 'm2.go', 'm2.tail', 'm2.yard', 'm2.fight', 'm2.chase', 'm2.crash', 'm2.phone', 'm2.chat',
   'm3.garage', 'm3.square', 'm3.rally', 'm3.rigs', 'm3.dump', 'm3.escape', 'm3.ret', 'm3.home']);
@@ -121,6 +125,7 @@ export function check(w) {
     else {
       for (const k of ['time', 'season', 'weather']) if (d[k] != null && (typeof d[k] !== 'string' || !/^[a-z-]{1,24}$/.test(d[k]))) bad(`dressing.${k}`);
       if (d.blackout != null && !BLACKOUTS.includes(d.blackout)) bad('dressing.blackout');
+      if (d.apocalypse != null && d.apocalypse !== false && (!APOCALYPSE.includes(d.apocalypse) || w.city !== 'sf')) bad('dressing.apocalypse: San Francisco only (true, dusk, day or night)');
       if (d.holiday != null && (!Array.isArray(d.holiday) || d.holiday.some((h) => typeof h !== 'string' || !/^[a-z-]{1,24}$/.test(h)))) bad('dressing.holiday');
     }
   }

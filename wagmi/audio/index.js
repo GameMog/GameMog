@@ -180,9 +180,11 @@ export function install(W) {
       if (+cabin !== inside) { M.inside(+cabin); inside = +cabin; }
       city.update(dt, where);
       const tr = app.trafficSystem, pe = inCar ? c : P;
-      traffic.update(dt, tr?.cars || [], tr?.buses || [], {
+      // (SF 2040: the cars left standing, trafficSystem.abandon, make no sound)
+      const still = !!tr?.abandoned;
+      traffic.update(dt, still ? [] : tr?.cars || [], still ? [] : tr?.buses || [], {
         active: !W.cutscene, x: pe.position.x, z: pe.position.z, inCar, speed: Math.abs(pe.speed || 0),
-        onSidewalk: inCar && !!cm.isPointOnSidewalk?.(c.position.x, c.position.z), self: c, highway: app.highwayTraffic,
+        onSidewalk: inCar && !!cm.isPointOnSidewalk?.(c.position.x, c.position.z), self: c, highway: still ? null : app.highwayTraffic,
       });
       car.update(dt, carState(dt, cabin));
       // his feet (the bones' heights over where he stands)
