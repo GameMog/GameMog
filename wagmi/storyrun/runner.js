@@ -535,7 +535,32 @@ export function createRunner(ctx) {
   const REST = { 2: [[0.17, 0.08, 0.1], [0.11, 0.15, 0.14], [0.06, 0.09, 0.08]], 3: [[0.08, 0.1, 0.15], [0.12, 0.15, 0.19], [0.07, 0.08, 0.12]],
     4: [[0.04, 0.12, 0.2], [0.12, 0.14, 0.24], [0.06, 0.07, 0.15]], 5: [[0, 0.12, 0.21], [0.11, 0.11, 0.28], [0.07, 0.06, 0.17]] };
   const HINGE = { 2: [0.45, 0.66, 0.6], 3: [0.43, 0.56, 0.71], 4: [0.39, 0.46, 0.8], 5: [0.35, 0.35, 0.87] }, SOFT = [0.18, 0.3, 0.2];
-  const _hr0 = new THREE.Quaternion();
+  const _hr0 = new THREE.Quaternion(), _hq3 = new THREE.Vector3(), _hm = new THREE.Matrix4(), _hqa = new THREE.Quaternion(), _hqb = new THREE.Quaternion(), _hqw = new THREE.Quaternion();
+  // the hand turned to a frame: its fingers along `fin`, its palm facing -`out` (toward the one held); w blends
+  const BLADE_DEPTH = 0.05;
+  function squareHand(B, side, fin, out, w) {
+    const wr = B['wrist_' + side], m = B['finger3-1_' + side], m3 = B['finger3-3_' + side]; if (!wr || !m || !m3 || w < 0.01) return;
+    // (the palm's side read off the hand itself: the way its fingers curl, from the knuckle line to the fingertip's bone)
+    const p0 = wr.getWorldPosition(new THREE.Vector3()), pm = m.getWorldPosition(new THREE.Vector3()), f0 = pm.clone().sub(p0).normalize();
+    const n0 = m3.getWorldPosition(new THREE.Vector3()).sub(pm).normalize(); n0.addScaledVector(f0, -n0.dot(f0)); if (n0.lengthSq() < 1e-6) return; n0.normalize();
+    // (the wanted: fingers along fin, the palm toward the one held (-out), pressed to them)
+    const f1 = fin.clone().normalize(), n1 = out.clone().multiplyScalar(-1); n1.addScaledVector(f1, -n1.dot(f1)).normalize();
+    _hqa.setFromRotationMatrix(_hm.makeBasis(f0, n0, new THREE.Vector3().crossVectors(f0, n0))); _hqb.setFromRotationMatrix(_hm.makeBasis(f1, n1, new THREE.Vector3().crossVectors(f1, n1)));
+    const turn = _hqb.multiply(_hqa.invert()); if (w < 0.999) turn.slerpQuaternions(new THREE.Quaternion(), turn.clone(), w);
+    wr.getWorldQuaternion(_hqw); const q2 = turn.clone().multiply(_hqw); wr.parent.getWorldQuaternion(_hqw); wr.quaternion.copy(_hqw.invert().multiply(q2)); wr.updateMatrixWorld(true);
+    // (most of that roll taken by the forearm's twist bone, as the rider's hands: no wrung wrist)
+    const tw = B['lowerarm02_' + side];
+    if (tw && wr.parent === tw) { const dd = wr.position.clone().normalize(), qq = wr.quaternion, s2 = dd.x * qq.x + dd.y * qq.y + dd.z * qq.z;
+      const part = new THREE.Quaternion().slerp(new THREE.Quaternion(dd.x * s2, dd.y * s2, dd.z * s2, qq.w).normalize(), 0.6); tw.quaternion.multiply(part); wr.quaternion.premultiply(part.invert()); tw.updateMatrixWorld(true); }
+  }
+
+  // (a hand laid flat on someone's back: the fingers together and nearly straight, a quarter to three fifths of the relaxed
+  // hand's own curl (the index straightest, the little finger most bent), so each finger follows the back's curve)
+  const _hid = new THREE.Quaternion(), FLAT = { 2: 0.25, 3: 0.35, 4: 0.48, 5: 0.6 };
+  function flatHand(B, side, w) {
+    for (const n of [2, 3, 4, 5]) REST[n].forEach(([qx, qy, qz], j) => { const b = B[`finger${n}-${j + 1}_${side}`]; if (!b) return;
+      _hr0.set(qx, side === 'R' ? qy : -qy, side === 'R' ? qz : -qz, 1).normalize(); _hg.slerpQuaternions(_hid, _hr0, FLAT[n] * (j === 1 ? 1.25 : 1)); b.quaternion.slerp(_hg, w); });
+  }
   function softHand(B, side, w) {
     for (const n of [2, 3, 4, 5]) { const [x, y, z] = HINGE[n], ax = (side === 'R' ? _hq.set(x, y, z) : _hq.set(x, -y, -z)).normalize();
       SOFT.forEach((a, j) => { const b = B[`finger${n}-${j + 1}_${side}`]; if (!b) return; const [qx, qy, qz] = REST[n][j];
@@ -571,6 +596,17 @@ export function createRunner(ctx) {
       // from behind her, the forearms over her shoulders' backs; not down at her waist, his arms hanging)
       if (small) { const nk = ob.neck01 || ob.neck02; if (nk) { nk.getWorldPosition(_h3); _h1.y = Math.max(_h1.y, _h3.y - 0.13); } }
       const tg = _h2.copy(_h1).addScaledVector(_hf, small ? hw * 0.55 : back).addScaledVector(_hr, small ? sg * hw * 0.5 : reach); tg.y += side === 'L' ? 0.035 : -0.045;
+      // (round a child (the owner: 'his hands squarely on her back, placed on her shoulder blades'): each hand flat on the
+      // shoulder blade on its own side, found from her own rig: between her upper spine and that shoulder's joint, a little
+      // under the joint, on her back's surface; the palm flat on it, the wrist straight, the fingers up and in toward her neck)
+      let blade = null;
+      if (small) { const us = ob.spine01 || ob.spine02 || ob.spine03; let pick = null, pd = -9;
+        for (const s2 of ['L', 'R']) { const ua = ob['upperarm01_' + s2] || ob['shoulder01_' + s2]; if (!ua || !us) continue; ua.getWorldPosition(_hq); us.getWorldPosition(_hq2);
+          const bp = _hq2.clone().lerp(_hq, 0.62); bp.y = _hq.y - 0.06; const d = sg * bp.clone().sub(_h1).dot(_hr); if (d > pd) { pd = d; pick = bp; } }
+        if (pick) {
+          // (her back's surface there: the joints lie mid-depth, her back about 7 cm behind them; the palm's middle on it)
+          blade = pick.addScaledVector(_hf, BLADE_DEPTH); const fin = _hq3.copy(_hr).multiplyScalar(-sg * 0.55).add(_hq.set(0, 0.8, 0)).normalize();
+          tg.copy(blade).addScaledVector(fin, -0.055); blade.fin = fin.clone(); } }
       // (a shorter arm than the reach round them (a girl round her father): the hold goes down his back toward his waist,
       // where he is narrower, until her arm can get there; not straight out past his side)
       { const ua = B['upperarm01_' + side], la = B['lowerarm01_' + side], wr = B['wrist_' + side];
@@ -582,8 +618,9 @@ export function createRunner(ctx) {
             for (let i = 0; i < 10 && _h3.distanceTo(tg) > 0.96 * L; i++) tg.addScaledVector(_hf, -0.025); } } }
       const pole = new THREE.Vector3().copy(_h1).addScaledVector(_hf, small ? -0.15 : 0.05).addScaledVector(_hr, sg * (hw + 0.55)); pole.y = tg.y - (small ? 0.05 : 0.25);
       try { armTo(B, side, tg.clone(), pole, k, MH_ARM); } catch {}
-      // (the fingers soft-curled on the back they hold, not flat out)
-      softHand(B, side, k);
+      // (on a shoulder blade: the hand turned so its fingers run toward her spine along her back and its palm faces her)
+      // (the fingers soft-curled on the back they hold, not flat out; on a shoulder blade flatter, the palm on it)
+      if (blade) { flatHand(B, side, k); B['wrist_' + side].updateMatrixWorld(true); squareHand(B, side, blade.fin, _hf, k); } else softHand(B, side, k);
     }
   }
   // (into their arms: whoever runs to hug someone is brought in chest to chest as the hug begins, their spines HUG_GAP
