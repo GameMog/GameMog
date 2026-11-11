@@ -161,7 +161,7 @@ const HORSE_CONTROLS = [
   ['On foot', [['Move', 'W A S D', 'LS', 'stick'], ['Sprint', 'Shift', 'LT · L3', 'SPRINT'], ['Jump', 'Space', 'A', 'JUMP'], ['Mount Ranger', 'F', 'Y', 'GET IN'], ['Look round', 'drag the mouse', 'RS', 'drag the view']]],
   ['On Ranger', [['Ride · halt', 'W · S', 'RT · LT', 'stick up · down'], ['Steer', 'A · D', 'LS', 'stick left · right'], ['Gallop', 'Shift', 'X', 'BOOST'], ['Walk / trot', 'Q', '', ''], ['Jump (he clears rubble at a gallop)', 'Space', 'A', 'HOP'], ['Swing the bat', 'J · left click', '', ''], ['Buck: hind legs out', 'K · right click', '', ''], ['Dismount', 'F (slow down first)', 'Y', 'EXIT'], ['Back on the road', 'recover', 'B', 'RESET CAR'], ['Look round', 'drag the mouse', 'RS', 'drag the view']]],
 ];
-const controlsFor = () => (window.WAGMI?.car?.kind === 'horse' ? [...HORSE_CONTROLS, ...CONTROLS.slice(2)] : CONTROLS);
+const controlsFor = () => (window.WAGMI?.car?.kind === 'horse' ? [...HORSE_CONTROLS, ...CONTROLS.slice(2).map(([h, rows]) => [h === 'Fighting' ? 'Fighting on foot' : h, rows])] : CONTROLS);
 // Graphics: [the saved choice, its name, what it means] (window.NYC.quality.set(choice): the next load's)
 const GFX = [['auto', 'Auto', 'Phone settings on a phone'], ['high', 'High', 'Every effect'], ['low', 'Low', 'Lightest, for older phones']];
 const TIER = { high: 'High', phone: 'Phone', low: 'Low' };
