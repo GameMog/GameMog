@@ -45,5 +45,16 @@ export async function install(W) {
     try { W.gps.update(); } catch (e) { console.warn('[city] gps', e); }
     document.body.classList.toggle('wg-onfoot', app.controllerManager.activeMode !== 'car');
   })();
+  // (?beasts: a playtest of SF 2040's creatures before its missions exist: a wild herd on the green by the Ferry
+  // Building, knights and a centaur up the Embarcadero, and The Matriarch asleep in her lair further on)
+  if (CITY === 'sf' && new URLSearchParams(location.search).has('beasts')) {
+    for (let i = 0; i < 600 && !W.creatures; i++) await sleep(100);
+    const P = W.person.position, fx = 0.59, fz = 0.81, at = (d, s) => ({ x: P.x + fx * d - fz * s, z: P.z + fz * d + fx * s });
+    try {
+      W.creatures.herd('creature-horse', { at: at(30, 12), count: 5, radius: 9 });
+      W.creatures.fight({ foes: [{ id: 'creature-knight', count: 2 }, { id: 'creature-centaur', count: 1 }], at: at(45, -2), aggro: true });
+      W.creatures.spawn('creature-trex', { at: at(130, 0), boss: { name: 'The Matriarch', phases: [0.66, 0.33] }, hold: { wake: 35, leash: 60 } });
+    } catch (e) { console.warn('[city] beasts', e); }
+  }
   console.log(`[wagmi] free roam in ${CITY === 'sf' ? 'San Francisco' : CITY}`);
 }
