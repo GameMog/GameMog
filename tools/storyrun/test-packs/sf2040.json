@@ -241,27 +241,27 @@
   },
   "wavenorth": {
    "at": [
-    590,
-    -760,
+    600,
+    -718,
     180
    ],
-   "name": "the Embarcadero, north"
+   "name": "Clay St"
   },
   "wavesouth": {
    "at": [
-    700,
-    -600,
+    660,
+    -632,
     -90
    ],
-   "name": "the piers, south"
+   "name": "Steuart St"
   },
   "wavewest": {
    "at": [
-    571,
-    -559,
+    645,
+    -712,
     -45
    ],
-   "name": "Market & Spear"
+   "name": "the Ferry Building"
   },
   "civicgate": {
    "at": [
@@ -2728,15 +2728,30 @@
     {
      "type": "mount",
      "id": "m6on",
-     "objective": "Mount **Ranger**."
+     "arm": "bat",
+     "objective": "Mount **Ranger**: you hold this camp from the saddle."
     },
     {
      "type": "fight",
      "id": "defend",
      "arena": "@camp",
      "checkpoint": true,
-     "counter": "WAVE",
-     "objective": "Hold **the camp**.",
+     "saddle": true,
+     "hp": 140,
+     "guard": {
+      "radius": 18,
+      "hp": 100,
+      "drain": 5,
+      "label": "CAMP",
+      "why": "They reached the tents. The camp is lost."
+     },
+     "objective": "Ride out and stop each wave before it reaches **the tents**.",
+     "help": [
+      [
+       1,
+       "Each wave marches on the tents from the red marker. Meet them on the way and they turn on you instead. [J] swings the bat from the saddle."
+      ]
+     ],
      "waves": [
       {
        "foes": [
@@ -2747,7 +2762,11 @@
         }
        ],
        "from": "@wavenorth",
-       "alert": "From the north"
+       "alert": "From Clay St",
+       "say": [
+        "June",
+        "Dad! Three Saints, coming down Clay St!"
+       ]
       },
       {
        "foes": [
@@ -2763,12 +2782,12 @@
         }
        ],
        "from": "@wavesouth",
-       "pause": 6,
+       "pause": 7,
        "say": [
         "June",
-        "Dad! Two hybrids from the south, by the piers!"
+        "Two hybrids from Steuart St! By the piers!"
        ],
-       "alert": "From the piers"
+       "alert": "From Steuart St"
       },
       {
        "boss": {
@@ -2790,10 +2809,10 @@
         }
        ],
        "from": "@wavewest",
-       "pause": 7,
+       "pause": 8,
        "say": [
         "June",
-        "It's him! Big armour, coming up Market!"
+        "It's him! Big armour, by the Ferry Building!"
        ],
        "alert": "Deacon Vale",
        "wake": [

@@ -71,6 +71,7 @@ const TIPS = {
   lost: ['Stay close enough to keep them in sight, and back off if they slow down.'],
   // (the wild steps: a sneak heard, a flee caught)
   heard: ['Near them, walk: press [Q] and Ranger goes at a walk. Keep the ', { 'NOISE': 'yellow' }, ' bar from filling, and give them a wide berth.'],
+  overrun: ['Meet each wave before it reaches the tents: ride out toward the ', { 'red marker': 'red' }, ' and they turn on you instead.'],
   chased: ['Hold [Shift] to gallop and keep to the ', { 'yellow line': 'yellow' }, ': it is never quite as fast as a gallop. Jump what is in the way with [Space].'],
 };
 class Fail extends Error { constructor(reason, kind = null, o = {}) { super(reason); this.reason = reason; this.kind = kind; this.tip = o.tip || null; this.sounded = !!o.sounded; } }
@@ -1052,6 +1053,9 @@ export function createRunner(ctx) {
     const offDown = combat.player.onDown(() => { down = true; });
     const handles = [];
     let lastK = 0, talk = false, lastHp = combat.player.hp, bossName = null, loading = 0;
+    // (the guarded place and its integrity: `guard: { at, radius, hp, drain, label, why }`, a fight's camp. Every one of
+    // them still marching that is inside it takes `drain` a second off; at none left the fight is lost)
+    const G = d.guard ? (() => { const gp = d.guard.at ? placeOf(d.guard.at) : p; return { x: gp.cx ?? gp.x, z: gp.cz ?? gp.z, r: d.guard.radius || 18, hp: d.guard.hp || 100, left: d.guard.hp || 100, drain: d.guard.drain || 4, label: d.guard.label || 'CAMP' }; })() : null;
     const fightSay = (lines) => { talk = true; (async () => { for (const l of lines.map(tuple)) await say(castName(l.who), l.text, M.tok); })().catch(() => {}).finally(() => { talk = false; }); };
     // (a wave: its foes round its place (the arena, or its own `from`: they come from there), its boss at the middle or
     // at its own `at`, or a creature an earlier step kept (boss.from: a flee's id, already on him))
@@ -1064,7 +1068,15 @@ export function createRunner(ctx) {
       if (B) {
         const kept = B.from ? M.kept?.get(B.from) : null;
         let h = kept;
-        if (kept) M.kept.delete(B.from);
+        if (kept) {
+          M.kept.delete(B.from);
+          // (fought where the chase ended: a chaser more than 25 m off him (a block away) put on his trail 16 m back)
+          const f = kept.fighters[0], q = me();
+          if (f && !f.out && dist(q, f.pos.x, f.pos.z) > 25 && kept.trail?.length) {
+            let k = kept.trail.length - 1; while (k > 0 && dist(q, kept.trail[k].x, kept.trail[k].z) < 16) k--;
+            const b = kept.trail[k]; f.pos.set(b.x, cm.getGroundHeight(b.x, b.z, 'person'), b.z); f.yaw = Math.atan2(q.x - b.x, q.z - b.z);
+          }
+        }
         else {
           const bp = B.at ? placeOf(B.at) : null, at = bp ? { x: bp.cx ?? bp.x, z: bp.cz ?? bp.z } : src;
           h = C.spawn(B.id, { at, height: B.height, name: B.name, heavy: B.heavy, stats: B.stats, yaw: B.yaw != null ? (B.yaw * PI) / 180 : undefined,
@@ -1076,7 +1088,11 @@ export function createRunner(ctx) {
         if (kept) { try { h.engage(); } catch {} }
       }
       // (a wave that comes from somewhere: in at a run, not waiting to be found)
-      if (w.from) for (const h of mine) { h.ready.then(() => { try { h.engage(); } catch {} }); }
+      // (a fight with a `guard`: a wave from somewhere marches on the guarded place (their lair's home: the camp), and
+      // turns on him only when he meets them on the way (13 m) or hits one)
+      if (w.from && G) for (const h of mine) h.ready.then(() => { for (const f of h.fighters) { if (f.out) continue; f._march = f.T.speed; f.T.speed *= 1.8; f.lair = { home: new THREE.Vector3(G.x, 0, G.z), yaw: 0, wake: 13, leash: 90 }; f.set('home'); } });
+      else if (w.from) for (const h of mine) { h.ready.then(() => { try { h.engage(); } catch {} }); }
+      if (w.from && G) { const q = src; marker.at(q.x, groundY(q.x, q.z), q.z); gps.blip('wave', { x: q.x, z: q.z, kind: 'enemy', edge: true, name: w.alert || 'They come' }); }
       for (const h of mine) { loading++; Promise.resolve(h.ready).finally(() => { loading--; }); }
       handles.push(...mine);
       M.creatures = handles;
@@ -1120,6 +1136,7 @@ export function createRunner(ctx) {
     tally();
     gps.objective(parts(d.objective || (bossName ? `Beat **${bossName}**.` : 'Beat them all.'), 'red'), null);
     if (nW > 1) juice.alert(`WAVE 1/${nW}`, { sub: waves[0].alert ? tokens(waves[0].alert) : '', tone: 'red', sting: 'up', secs: 2 });
+    if (waves[0].say) fightSay([waves[0].say]);
     const t0 = now();
     let between = 0;
     try {
@@ -1130,6 +1147,22 @@ export function createRunner(ctx) {
         tally();
         for (const f of all) if (!f.out && !f.disposed) gps.blip('e:' + f.id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: !!f.boss || nW > 1, name: f.boss ? (f.name || '') : '' }); else gps.unblip('e:' + f.id);
         if (down) throw new Fail(tokens(d.why || `${heroName} got knocked out.`), 'ko');
+        if (G) {
+          const tt = now(), dt = Math.min(0.1, (tt - (G.t || tt)) / 1000); G.t = tt;
+          let marching = 0;
+          for (const f of all) {
+            if (f.out || f.disposed) continue;
+            const idle = f.state === 'home' || f.state === 'idle';
+            if (!idle && f._march) { f.T.speed = f._march; f._march = null; }
+            const inside = Math.hypot(f.pos.x - G.x, f.pos.z - G.z) < G.r;
+            // (one walking in unopposed takes the whole of it; a fight among the tents a quarter)
+            if (inside) G.left -= (idle && f.lair ? 1 : 0.25) * G.drain * dt;
+            if (idle && f._march) marching++;
+          }
+          if (!marching) { marker.hide(); gps.unblip('wave'); }
+          hud.bar(G.label, clamp(G.left / G.hp, 0, 1), `${Math.max(0, Math.round(G.left / G.hp * 100))}%`);
+          if (G.left <= 0) throw new Fail(tokens(d.guard.why || 'They overran the camp.'), 'overrun');
+        }
         const secs = (now() - t0) / 1000;
         // (not in its first seconds: a hero just put at the arena's edge (from 80 m out) is read where he was for a frame)
         if (secs > 2 && dist(me(), cx, cz) > 150) throw new Fail('You left the fight.', 'left');
@@ -1159,6 +1192,7 @@ export function createRunner(ctx) {
       offDown?.(); combat.player.autoGetUp = autoGetUp;
       for (const id of [...gps.blips.keys()]) if (id.startsWith('e:')) gps.unblip(id);
       ui.counter(null); hud.timer(null); M.crew = null;
+      if (G) { hud.bar(null); marker.hide(); gps.unblip('wave'); }
     }
     // (a beat for the last one's fall, then the street let go)
     await delay(1.6, t);
@@ -1403,7 +1437,10 @@ export function createRunner(ctx) {
     const nav = gps.drive({ dest: { x: p.x, z: p.z, name: p.name }, objective: parts(d.objective || `Ride for **${p.name}**!`, 'red'), onFoot: 250 });
     M.nav = nav;
     const top = d.speed || 11, reach = d.catch ?? 2.5, grace = d.grace ?? 1.6, t0 = now();
-    let held = 0, last = now(), down = false;
+    let held = 0, last = now(), down = false, trailT = 0;
+    // (his trail, a point every 0.25 s: a chaser left behind a block (the city's walls stop it) is put back on it, out of
+    // his sight behind him, never through a building)
+    const trail = [];
     const offDown = W.combat?.player?.onDown?.(() => { down = true; });
     const barks = Object.entries(d.barks || {}).map(([k, l]) => [+k, l]).sort((a, b) => a[0] - b[0]);
     M.wild = { kind: 'flee' };
@@ -1417,7 +1454,13 @@ export function createRunner(ctx) {
           const q = me(), gap = dist(q, f.pos.x, f.pos.z) - (f.T?.radius || 0), v = paceNow();
           // (its pace: a little under his when he gallops, its own top when he is slower; far behind, it closes up)
           f.T.speed = Math.min(top, Math.max(top * 0.82, v * 0.94));
-          if (gap > 32) { const dx = q.x - f.pos.x, dz = q.z - f.pos.z, n = Math.hypot(dx, dz) || 1, s = Math.min(gap - 32, (v + 3) * dt); f.moveXZ?.(dx / n * s, dz / n * s); }
+          if (tt - trailT > 250) { trailT = tt; trail.push({ x: q.x, z: q.z }); if (trail.length > 160) trail.shift(); }
+          if (gap > 36) {
+            // (the newest point of his trail at least 26 m back from him: there, on his way)
+            let k = trail.length - 1; while (k > 0 && dist(q, trail[k].x, trail[k].z) < 26) k--;
+            const b = trail[k];
+            if (b && dist(q, b.x, b.z) >= 20) { f.pos.x = b.x; f.pos.z = b.z; f.pos.y = cm.getGroundHeight(b.x, b.z, 'person'); f.yaw = Math.atan2(q.x - b.x, q.z - b.z); }
+          }
           held = gap < reach ? held + dt : Math.max(0, held - dt * 0.5);
           hud.bar(B.name ? B.name.toUpperCase() : 'BEHIND YOU', clamp(1 - gap / 40, 0, 1), `${Math.max(0, Math.round(gap))} m`);
           gps.blip('chaser', { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: true, name: B.name || '' });
@@ -1430,7 +1473,7 @@ export function createRunner(ctx) {
       offDown?.(); nav.stop(); M.nav = null; M.dest = null; marker.hide(); gps.clear(); hud.bar(null); gps.unblip('chaser'); M.wild = null;
     }
     if (f && speed0 != null) f.T.speed = speed0;
-    if (h && d.keep && d.id) keptOf().set(d.id, h);
+    if (h && d.keep && d.id) { h.trail = trail; keptOf().set(d.id, h); }
     else if (h) { try { h.remove(); } catch {} M.creatures = (M.creatures || []).filter((x) => x !== h); }
     if (d.flag) M.state.flags[flagName(d.flag)] = true;
   };

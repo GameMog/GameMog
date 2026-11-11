@@ -784,7 +784,7 @@ export async function install(W) {
     if (S.banger && (S.banger.state !== 'bang' || !S.banger.alive)) S.banger = null;
     if (S.banger || c.globalCd > 0) return;
     let best = null, bd = 7;
-    for (const e of standing) if (e.state === 'hold' && e.cd <= 0 && e.crew?.awake) { const d = carGap(e.pos); if (d < bd) { bd = d; best = e; } }
+    for (const e of standing) if (e.state === 'hold' && e.cd <= 0 && e.crew?.awake && e.bangCar) { const d = carGap(e.pos); if (d < bd) { bd = d; best = e; } }
     if (!best) return;
     // (to the car's side nearest him; the third blow comes from the driver's door: the one who drags him out)
     const L = carLocal(best.pos.x, best.pos.z, _l1), m = 0.55;
