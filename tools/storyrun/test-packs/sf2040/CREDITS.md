@@ -1,7 +1,19 @@
 # SF 2040's own cast files
 
-`june.glb` (June Mercer's stand-in body): GameMog's Story Kit hand-built cast `hand/young-mother` ("Marisol"), an
-original Story Kit character, an invented person with no real likeness, built by the Character Forge from MakeHuman's
-base body, clothes and hair (CC0 1.0) and polished by hand. Copied unchanged from GameMog's
-`public/storykit/cast/hand/young-mother.glb`; SF 2040 stands her a little shorter (the world's cast `scale`) to read as
-a teenager until June has a body of her own. She moves on Dan's clips (one rig), as every forged body does here.
+All four are original characters, invented people with no real likeness, built for SF 2040 on Mog City's cast rig (the
+66-bone skeleton every forged body shares; they move on Dan's clips, with a face from wagmi/face.js that talks).
+
+Each was made by GameMog's Story Kit Character Forge from a character sheet (MakeHuman's base body, clothes and hair,
+CC0 1.0, and MakeHuman's CC0 1.0 modelling targets), then polished by hand with the Story Kit hand-built cast's passes:
+skin repainted from where each texel is on the body (tone, mottling, pores, a normal and a roughness map, hands matched
+to the face), wet eyes, teeth. The build scripts and sheets live in the cast lane's scratch folder (.scratch/cast).
+
+- `cal.glb` (Cal Mercer, about 40, the rider): a lean man, a canvas work jacket with ash and dust, worn jeans, boots, a
+  red cotton neckerchief on the collar (a copy of the collar band with a knot and its fold); stubble, crow's feet and the
+  nasolabial fold painted and grooved, sun-darkened skin, grey at the temples.
+- `nina.glb` (Dr. Nina Mercer, 38, the ER doctor): an olive field jacket over scrub trousers, her hair tied back in a bun.
+- `june.glb` (June Mercer, 13): a girl's own proportions (the forge's body moved 80 % of the way to MakeHuman's CC0
+  child body for her heritage, its overall scale taken out, the eyes scaled to their sockets, the clothes carried with
+  it), long hair, a hoodie, jeans, sneakers.
+- `hollis.glb` (Hollis, 60s, the Ferry Building camp): a big frame, a dark work jacket, work boots, a trimmed grey
+  beard and buzz cut.
