@@ -28,7 +28,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { readWav, writeWav, lufs, pitch } from './wav.mjs';
-import { trim, squeeze, gainDb, radioFx } from './dsp.mjs';
+import { trim, squeeze, gainDb, radioFx, paFx } from './dsp.mjs';
 import { VOICES, TTS_SAY } from './tts-voices.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
@@ -76,6 +76,8 @@ function walk(o, where, ctx) {
 if (def.opening) walk(def.opening, 'opening', { phone: false });
 for (const m of def.missions || []) walk(m, m.id, { phone: false });
 for (const [i, a] of (def.acts || []).entries()) walk(a, `act${i}`, { phone: false });
+// (the rest of the world's top level: its closing coda, its idle nudge, anything later, in key order)
+for (const [k, v] of Object.entries(def)) if (!['opening', 'missions', 'acts', 'cast', 'places', 'voice', 'hero', 'car'].includes(k)) walk(v, k, { phone: false });
 // (the same words from the same speaker are one line: the first place found)
 const lines = [], seen = new Map();
 for (const L of found) { const k = `${L.who.toLowerCase()}|${L.text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}`; if (seen.has(k)) { seen.get(k).phone ||= L.phone; continue; } seen.set(k, L); lines.push(L); }
@@ -88,7 +90,11 @@ const spoken = (t) => { for (const [re, s] of SAY_TTS) t = t.replace(re, s); ret
 for (const L of lines) {
   const sp = CFG.speakers?.[L.who];
   if (!sp || !VOICES[sp.voice]) { unvoiced.add(L.who); continue; }
-  L.voice = sp.voice; L.fx = sp.fx || null; L.say = spoken(L.text);
+  // (fx only where its place matches fxWhere, if given, and never where it matches fxNot: Pike on the radio, but not in
+  // person in Mission 1)
+  const re = (l) => (l || []).some((x) => new RegExp(x).test(L.where));
+  const fxHere = sp.fx && (!sp.fxWhere || re(sp.fxWhere)) && !re(sp.fxNot);
+  L.voice = sp.voice; L.fx = fxHere ? sp.fx : null; L.say = spoken(L.text);
   L.hash = sha(`${L.who}|${L.text}|${L.fx || ''}`); L.key = vkey(L.voice, L.fx); L.clip = `${L.hash}-${L.key}`;
   L.file = path.join(OUT, `${L.clip}.m4a`);
   L.id = L.where.replace(/\.(steps|shots)\./g, '.').replace(/\.(sub|say|wake)$/, '').replace(/\.barks\./, '.bark');
@@ -153,7 +159,8 @@ if (todo.length) {
   for (const L of todo) {
     const r = rendered.get(L.clip); let x = squeeze(r.x, SR, GAP);
     if (L.fx === 'radio') x = radioFx(x, SR, { seed: parseInt(L.hash, 16) });
-    gainDb(x, (L.fx === 'radio' ? RADIO_TARGET : TARGET) - lufs(SR, [x]).lufs);
+    else if (L.fx === 'pa') x = paFx(x, SR);
+    gainDb(x, (L.fx ? RADIO_TARGET : TARGET) - lufs(SR, [x]).lufs);
     let pk = 0; for (const v of x) pk = Math.max(pk, Math.abs(v)); if (pk > 0.89) gainDb(x, 20 * Math.log10(0.89 / pk));
     const w = path.join(tmp, 'o.wav'); writeWav(w, SR, [x]);
     execFileSync('afconvert', ['-f', 'm4af', '-d', 'aac', '-b', '64000', w, L.file]);

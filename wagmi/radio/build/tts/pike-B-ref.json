@@ -1,0 +1,7 @@
+{
+ "design": "Male, 21 years old, American, a young man's mid-range voice, earnest and scared but steadying, talks fast, a grown man's voice, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 5612,
+ "refText": "Okay. Okay, I can do this. Just keep the channel open, alright? I counted four of them by the gate. Maybe five. If I go quiet, it means I moved. Not that I ran.",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

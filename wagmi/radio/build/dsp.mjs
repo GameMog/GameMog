@@ -168,3 +168,22 @@ export function radioFx(x, sr, { seed = 1, hiss = -27, drive = 2.2 } = {}) {
   }
   return v;
 }
+
+// a machine on a loudspeaker (SF 2040's WARDEN-7, baked into the clip): the voice through a horn's band, a metallic
+// comb (a short resonant tube), a faint ring modulation (the synthetic buzz under it), driven and sample-held a
+// little coarse (a cheap DAC), then the street's slaps off the buildings. -> a new, longer buffer
+export function paFx(x, sr, { ring = 0.28, ringHz = 92, drive = 2.0 } = {}) {
+  const tail = Math.round(0.45 * sr), n = x.length + tail, v = new Float32Array(n); v.set(x);
+  run(v, biquad('highpass', 280, 0.8, sr), biquad('peak', 2100, 1.2, sr, 6), biquad('lowpass', 4300, 0.8, sr));
+  const d1 = Math.round(0.0055 * sr), d2 = Math.round(0.0091 * sr);
+  for (let i = n - 1; i >= d1; i--) v[i] += 0.45 * v[i - d1];
+  for (let i = d2; i < n; i++) v[i] += 0.35 * v[i - d2];
+  for (let i = 0; i < n; i++) v[i] = v[i] * (1 - ring) + v[i] * Math.sin(2 * Math.PI * ringHz * i / sr) * ring;
+  let pk = 0; for (const a of v) pk = Math.max(pk, Math.abs(a));
+  const t = Math.tanh(drive); for (let i = 0; i < n; i++) v[i] = Math.tanh((v[i] / (pk || 1)) * drive) / t;
+  const hold = Math.max(1, Math.round(sr / 11025)); for (let i = 0; i < n; i++) if (i % hold) v[i] = v[i - (i % hold)];
+  run(v, biquad('lowpass', 4800, 0.7, sr));
+  const y = Float32Array.from(v);
+  for (const [s, g] of [[0.14, 0.3], [0.29, 0.15], [0.43, 0.07]]) { const k = Math.round(s * sr); for (let i = k; i < n; i++) y[i] += g * v[i - k]; }
+  return y;
+}
