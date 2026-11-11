@@ -751,6 +751,76 @@
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "homepage": "https://freesound.org/s/659544/"
     },
+    "patch-anymove": {
+      "title": "anymove creatures (horse, T-rex, knight, ogre, ape, centaur, mech, scorpion)",
+      "author": "Patch (New Save Labs, Inc.), made with anymove (mesh and motion generated with AI)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://github.com/patch-gg/anymove"
+    },
+    "kenney-impact-sounds": {
+      "title": "Impact Sounds (Kenney)",
+      "author": "Kenney (www.kenney.nl)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://kenney.nl/assets/impact-sounds"
+    },
+    "kenney-interface-sounds": {
+      "title": "Interface Sounds (Kenney)",
+      "author": "Kenney (www.kenney.nl)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://kenney.nl/assets/interface-sounds"
+    },
+    "kenney-voiceover-pack": {
+      "title": "Voiceover Pack (Kenney)",
+      "author": "Kenney (www.kenney.nl)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://kenney.nl/assets/voiceover-pack"
+    },
+    "kenney-sci-fi-sounds": {
+      "title": "Sci-fi Sounds (Kenney)",
+      "author": "Kenney (www.kenney.nl)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://kenney.nl/assets/sci-fi-sounds"
+    },
+    "kenney-digital-audio": {
+      "title": "Digital Audio (Kenney)",
+      "author": "Kenney (www.kenney.nl)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://kenney.nl/assets/digital-audio"
+    },
+    "kenney-casino-audio": {
+      "title": "Casino Audio (Kenney)",
+      "author": "Kenney (www.kenney.nl)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://kenney.nl/assets/casino-audio"
+    },
+    "kenney-rpg-audio": {
+      "title": "RPG Audio (Kenney)",
+      "author": "Kenney (www.kenney.nl)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://kenney.nl/assets/rpg-audio"
+    },
+    "kenney-ui-audio": {
+      "title": "UI Audio (Kenney)",
+      "author": "Kenney (www.kenney.nl)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://kenney.nl/assets/ui-audio"
+    },
+    "kenney-voiceover-pack-fighter": {
+      "title": "Voiceover Pack: Fighter (Kenney)",
+      "author": "Kenney (www.kenney.nl)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://kenney.nl/assets/voiceover-pack-fighter"
+    },
     "freesound-1563": {
       "title": "freesoundATcaixaforum, \"La audiencia disponible\" (Freesound pack 1563)",
       "author": "freesound (Freesound's own account; an audience of 300 recorded at CaixaForum Barcelona, 30 Aug 2006)",
@@ -6252,6 +6322,1530 @@
         }
       },
       "bytes": 19840977
+    },
+    "sounds-ui": {
+      "kind": "sounds",
+      "title": "UI clicks",
+      "description": "Clicks, mouse clicks, rollovers and switches for buttons. 51 short sounds, played by name.",
+      "sources": [
+        "kenney-ui-audio"
+      ],
+      "derived": "Each Ogg Vorbis sound decoded to 44.1 kHz mono (a stereo one folded), brought under full scale where it would clip, laid on one sheet with a gap after each and encoded once as AAC (96 kb/s); a cue table records where each starts.",
+      "meta": {
+        "sounds": 51,
+        "groups": 5,
+        "duration": 13.208,
+        "names": [
+          "click1",
+          "click2",
+          "click3",
+          "click4",
+          "click5",
+          "mouseclick1",
+          "mouserelease1",
+          "rollover1",
+          "rollover2",
+          "rollover3",
+          "rollover4",
+          "rollover5",
+          "rollover6",
+          "switch1",
+          "switch10",
+          "switch11",
+          "switch12",
+          "switch13",
+          "switch14",
+          "switch15",
+          "switch16",
+          "switch17",
+          "switch18",
+          "switch19",
+          "switch2",
+          "switch20",
+          "switch21",
+          "switch22",
+          "switch23",
+          "switch24",
+          "switch25",
+          "switch26",
+          "switch27",
+          "switch28",
+          "switch29",
+          "switch3",
+          "switch30",
+          "switch31",
+          "switch32",
+          "switch33",
+          "switch34",
+          "switch35",
+          "switch36",
+          "switch37",
+          "switch38",
+          "switch4",
+          "switch5",
+          "switch6",
+          "switch7",
+          "switch8",
+          "switch9"
+        ],
+        "groupNames": [
+          "click",
+          "mouseclick",
+          "mouserelease",
+          "rollover",
+          "switch"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "f74585c94217564f0ab8bd1dee613bb641a521d2eed8011bef2be80a588f00e2",
+          "bytes": 2684
+        },
+        "sounds.m4a": {
+          "sha256": "9d33ee62226d5464b1583e8aa47a4ac57e828e61f645c0b0cd7679b0d42dedbe",
+          "bytes": 230864
+        }
+      },
+      "bytes": 233548
+    },
+    "creature-horse": {
+      "kind": "creature",
+      "title": "Horse",
+      "description": "A bay horse with black legs and a roached mane, no tack, about 2.4 m tall at the head and 2.4 m long; its run is a trot. Rigged and animated (27 bones), 12,000 triangles: Idle, Walk, Run, Attack, Jump. Walks at 1.0 m/s, runs at 1.5 m/s.",
+      "sources": [
+        "patch-anymove"
+      ],
+      "derived": "Made by Patch with anymove (mesh and motion generated with AI; Patch dedicates it to the public domain). Triangles cut from 59,202 to 12,000 by meshoptimizer, skin weights kept; textures cut from 4K to 1024 px (colour also 512 px, metal-roughness 512 px); clips sampled at 24 fps, the travelling *_Root copies measured for pace and left out.",
+      "meta": {
+        "plan": "beast",
+        "clips": [
+          "Idle",
+          "Walk",
+          "Run",
+          "Attack",
+          "Jump"
+        ],
+        "moves": {
+          "idle": "Idle",
+          "walk": "Walk",
+          "run": "Run",
+          "strike": "Attack",
+          "jump": "Jump"
+        },
+        "speeds": {
+          "walk": 1.023,
+          "run": 1.529
+        },
+        "height": 2.396,
+        "length": 2.4,
+        "triangles": 12000
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "2613c621b94378274d880cffc3185b237c9441e39757faa9ba039701925b8e88",
+          "bytes": 7884
+        },
+        "color-lo.jpg": {
+          "sha256": "178769226b695eee51fb795a2838729c9314efee0f647d820080d2fe12efcc5f",
+          "bytes": 64103
+        },
+        "color.jpg": {
+          "sha256": "d9f6b8927c0e4d25a76756d5f059b10262f635076ec919c5ee3121d02b71cf14",
+          "bytes": 223303
+        },
+        "creature.bin.z": {
+          "sha256": "dcd8f7ed3821f24a39c0078aa6a5b56a70c804d11f9e41afeae55156e71c2296",
+          "bytes": 299142
+        },
+        "normal.jpg": {
+          "sha256": "25a65ff695c348135b9b39d342be9546545d11745eea92dc5486a94f47dc58c8",
+          "bytes": 93287
+        },
+        "orm.jpg": {
+          "sha256": "bde67f945d5c0fb64339d980f867a13160dab3000e9ed3ef73e576c82c8780d5",
+          "bytes": 61293
+        }
+      },
+      "bytes": 749012
+    },
+    "sounds-impact": {
+      "kind": "sounds",
+      "title": "Impact sounds",
+      "description": "Hits and impacts on bells, glass, metal, mining rock, planks, plates, punches, soft and heavy, a few variants of each. 130 short sounds, played by name.",
+      "sources": [
+        "kenney-impact-sounds"
+      ],
+      "derived": "Each Ogg Vorbis sound decoded to 44.1 kHz mono (a stereo one folded), brought under full scale where it would clip, laid on one sheet with a gap after each and encoded once as AAC (96 kb/s); a cue table records where each starts.",
+      "meta": {
+        "sounds": 130,
+        "groups": 26,
+        "duration": 51.9781,
+        "names": [
+          "footstep_carpet_000",
+          "footstep_carpet_001",
+          "footstep_carpet_002",
+          "footstep_carpet_003",
+          "footstep_carpet_004",
+          "footstep_concrete_000",
+          "footstep_concrete_001",
+          "footstep_concrete_002",
+          "footstep_concrete_003",
+          "footstep_concrete_004",
+          "footstep_grass_000",
+          "footstep_grass_001",
+          "footstep_grass_002",
+          "footstep_grass_003",
+          "footstep_grass_004",
+          "footstep_snow_000",
+          "footstep_snow_001",
+          "footstep_snow_002",
+          "footstep_snow_003",
+          "footstep_snow_004",
+          "footstep_wood_000",
+          "footstep_wood_001",
+          "footstep_wood_002",
+          "footstep_wood_003",
+          "footstep_wood_004",
+          "impactBell_heavy_000",
+          "impactBell_heavy_001",
+          "impactBell_heavy_002",
+          "impactBell_heavy_003",
+          "impactBell_heavy_004",
+          "impactGeneric_light_000",
+          "impactGeneric_light_001",
+          "impactGeneric_light_002",
+          "impactGeneric_light_003",
+          "impactGeneric_light_004",
+          "impactGlass_heavy_000",
+          "impactGlass_heavy_001",
+          "impactGlass_heavy_002",
+          "impactGlass_heavy_003",
+          "impactGlass_heavy_004",
+          "impactGlass_light_000",
+          "impactGlass_light_001",
+          "impactGlass_light_002",
+          "impactGlass_light_003",
+          "impactGlass_light_004",
+          "impactGlass_medium_000",
+          "impactGlass_medium_001",
+          "impactGlass_medium_002",
+          "impactGlass_medium_003",
+          "impactGlass_medium_004",
+          "impactMetal_heavy_000",
+          "impactMetal_heavy_001",
+          "impactMetal_heavy_002",
+          "impactMetal_heavy_003",
+          "impactMetal_heavy_004",
+          "impactMetal_light_000",
+          "impactMetal_light_001",
+          "impactMetal_light_002",
+          "impactMetal_light_003",
+          "impactMetal_light_004",
+          "impactMetal_medium_000",
+          "impactMetal_medium_001",
+          "impactMetal_medium_002",
+          "impactMetal_medium_003",
+          "impactMetal_medium_004",
+          "impactMining_000",
+          "impactMining_001",
+          "impactMining_002",
+          "impactMining_003",
+          "impactMining_004",
+          "impactPlank_medium_000",
+          "impactPlank_medium_001",
+          "impactPlank_medium_002",
+          "impactPlank_medium_003",
+          "impactPlank_medium_004",
+          "impactPlate_heavy_000",
+          "impactPlate_heavy_001",
+          "impactPlate_heavy_002",
+          "impactPlate_heavy_003",
+          "impactPlate_heavy_004",
+          "impactPlate_light_000",
+          "impactPlate_light_001",
+          "impactPlate_light_002",
+          "impactPlate_light_003",
+          "impactPlate_light_004",
+          "impactPlate_medium_000",
+          "impactPlate_medium_001",
+          "impactPlate_medium_002",
+          "impactPlate_medium_003",
+          "impactPlate_medium_004",
+          "impactPunch_heavy_000",
+          "impactPunch_heavy_001",
+          "impactPunch_heavy_002",
+          "impactPunch_heavy_003",
+          "impactPunch_heavy_004",
+          "impactPunch_medium_000",
+          "impactPunch_medium_001",
+          "impactPunch_medium_002",
+          "impactPunch_medium_003",
+          "impactPunch_medium_004",
+          "impactSoft_heavy_000",
+          "impactSoft_heavy_001",
+          "impactSoft_heavy_002",
+          "impactSoft_heavy_003",
+          "impactSoft_heavy_004",
+          "impactSoft_medium_000",
+          "impactSoft_medium_001",
+          "impactSoft_medium_002",
+          "impactSoft_medium_003",
+          "impactSoft_medium_004",
+          "impactTin_medium_000",
+          "impactTin_medium_001",
+          "impactTin_medium_002",
+          "impactTin_medium_003",
+          "impactTin_medium_004",
+          "impactWood_heavy_000",
+          "impactWood_heavy_001",
+          "impactWood_heavy_002",
+          "impactWood_heavy_003",
+          "impactWood_heavy_004",
+          "impactWood_light_000",
+          "impactWood_light_001",
+          "impactWood_light_002",
+          "impactWood_light_003",
+          "impactWood_light_004",
+          "impactWood_medium_000",
+          "impactWood_medium_001",
+          "impactWood_medium_002",
+          "impactWood_medium_003",
+          "impactWood_medium_004"
+        ],
+        "groupNames": [
+          "footstep_carpet",
+          "footstep_concrete",
+          "footstep_grass",
+          "footstep_snow",
+          "footstep_wood",
+          "impactBell_heavy",
+          "impactGeneric_light",
+          "impactGlass_heavy",
+          "impactGlass_light",
+          "impactGlass_medium",
+          "impactMetal_heavy",
+          "impactMetal_light",
+          "impactMetal_medium",
+          "impactMining",
+          "impactPlank_medium",
+          "impactPlate_heavy",
+          "impactPlate_light",
+          "impactPlate_medium",
+          "impactPunch_heavy",
+          "impactPunch_medium",
+          "impactSoft_heavy",
+          "impactSoft_medium",
+          "impactTin_medium",
+          "impactWood_heavy",
+          "impactWood_light",
+          "impactWood_medium"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "10718d94341a7b7f223d100ad2171585d8462506cb6f90c6e782ca15c886c0f4",
+          "bytes": 10342
+        },
+        "sounds.m4a": {
+          "sha256": "7f4a175b3b7cfed21a232846da4b5ece82fdb31bd5bd3d1d6a223ad1c4d32e46",
+          "bytes": 626211
+        }
+      },
+      "bytes": 636553
+    },
+    "sounds-interface": {
+      "kind": "sounds",
+      "title": "Interface sounds",
+      "description": "Menu and interface sounds: back, close, confirmation, drop, error, glass, glitch, maximize, minimize, open, pluck, question, scratch, scroll, select, switch, tick, toggle. 100 short sounds, played by name.",
+      "sources": [
+        "kenney-interface-sounds"
+      ],
+      "derived": "Each Ogg Vorbis sound decoded to 44.1 kHz mono (a stereo one folded), brought under full scale where it would clip, laid on one sheet with a gap after each and encoded once as AAC (96 kb/s); a cue table records where each starts.",
+      "meta": {
+        "sounds": 100,
+        "groups": 20,
+        "duration": 29.9253,
+        "names": [
+          "back_001",
+          "back_002",
+          "back_003",
+          "back_004",
+          "bong_001",
+          "click_001",
+          "click_002",
+          "click_003",
+          "click_004",
+          "click_005",
+          "close_001",
+          "close_002",
+          "close_003",
+          "close_004",
+          "confirmation_001",
+          "confirmation_002",
+          "confirmation_003",
+          "confirmation_004",
+          "drop_001",
+          "drop_002",
+          "drop_003",
+          "drop_004",
+          "error_001",
+          "error_002",
+          "error_003",
+          "error_004",
+          "error_005",
+          "error_006",
+          "error_007",
+          "error_008",
+          "glass_001",
+          "glass_002",
+          "glass_003",
+          "glass_004",
+          "glass_005",
+          "glass_006",
+          "glitch_001",
+          "glitch_002",
+          "glitch_003",
+          "glitch_004",
+          "maximize_001",
+          "maximize_002",
+          "maximize_003",
+          "maximize_004",
+          "maximize_005",
+          "maximize_006",
+          "maximize_007",
+          "maximize_008",
+          "maximize_009",
+          "minimize_001",
+          "minimize_002",
+          "minimize_003",
+          "minimize_004",
+          "minimize_005",
+          "minimize_006",
+          "minimize_007",
+          "minimize_008",
+          "minimize_009",
+          "open_001",
+          "open_002",
+          "open_003",
+          "open_004",
+          "pluck_001",
+          "pluck_002",
+          "question_001",
+          "question_002",
+          "question_003",
+          "question_004",
+          "scratch_001",
+          "scratch_002",
+          "scratch_003",
+          "scratch_004",
+          "scratch_005",
+          "scroll_001",
+          "scroll_002",
+          "scroll_003",
+          "scroll_004",
+          "scroll_005",
+          "select_001",
+          "select_002",
+          "select_003",
+          "select_004",
+          "select_005",
+          "select_006",
+          "select_007",
+          "select_008",
+          "switch_001",
+          "switch_002",
+          "switch_003",
+          "switch_004",
+          "switch_005",
+          "switch_006",
+          "switch_007",
+          "tick_001",
+          "tick_002",
+          "tick_004",
+          "toggle_001",
+          "toggle_002",
+          "toggle_003",
+          "toggle_004"
+        ],
+        "groupNames": [
+          "back",
+          "bong",
+          "click",
+          "close",
+          "confirmation",
+          "drop",
+          "error",
+          "glass",
+          "glitch",
+          "maximize",
+          "minimize",
+          "open",
+          "pluck",
+          "question",
+          "scratch",
+          "scroll",
+          "select",
+          "switch",
+          "tick",
+          "toggle"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "7350b5f45ab2e201728f6710f85755e007cbeeb0c2321ee9c76bfc4473bb5c4d",
+          "bytes": 5694
+        },
+        "sounds.m4a": {
+          "sha256": "bd7809219e4002afe6d8d6490bb77303cdb743879f5cf144c49297c03cc56de8",
+          "bytes": 409058
+        }
+      },
+      "bytes": 414752
+    },
+    "sounds-digital": {
+      "kind": "sounds",
+      "title": "Digital sounds",
+      "description": "Arcade and digital effects: lasers, phasers, power-ups, zaps, pew, tones up and down, space trash. 62 short sounds, played by name.",
+      "sources": [
+        "kenney-digital-audio"
+      ],
+      "derived": "Each Ogg Vorbis sound decoded to 44.1 kHz mono (a stereo one folded), brought under full scale where it would clip, laid on one sheet with a gap after each and encoded once as AAC (96 kb/s); a cue table records where each starts.",
+      "meta": {
+        "sounds": 62,
+        "groups": 12,
+        "duration": 48.1454,
+        "names": [
+          "highDown",
+          "highUp",
+          "laser1",
+          "laser2",
+          "laser3",
+          "laser4",
+          "laser5",
+          "laser6",
+          "laser7",
+          "laser8",
+          "laser9",
+          "lowDown",
+          "lowRandom",
+          "lowThreeTone",
+          "pepSound1",
+          "pepSound2",
+          "pepSound3",
+          "pepSound4",
+          "pepSound5",
+          "phaseJump1",
+          "phaseJump2",
+          "phaseJump3",
+          "phaseJump4",
+          "phaseJump5",
+          "phaserDown1",
+          "phaserDown2",
+          "phaserDown3",
+          "phaserUp1",
+          "phaserUp2",
+          "phaserUp3",
+          "phaserUp4",
+          "phaserUp5",
+          "phaserUp6",
+          "phaserUp7",
+          "powerUp1",
+          "powerUp10",
+          "powerUp11",
+          "powerUp12",
+          "powerUp2",
+          "powerUp3",
+          "powerUp4",
+          "powerUp5",
+          "powerUp6",
+          "powerUp7",
+          "powerUp8",
+          "powerUp9",
+          "spaceTrash1",
+          "spaceTrash2",
+          "spaceTrash3",
+          "spaceTrash4",
+          "spaceTrash5",
+          "threeTone1",
+          "threeTone2",
+          "tone1",
+          "twoTone1",
+          "twoTone2",
+          "zap1",
+          "zap2",
+          "zapThreeToneDown",
+          "zapThreeToneUp",
+          "zapTwoTone",
+          "zapTwoTone2"
+        ],
+        "groupNames": [
+          "laser",
+          "pepSound",
+          "phaseJump",
+          "phaserDown",
+          "phaserUp",
+          "powerUp",
+          "spaceTrash",
+          "threeTone",
+          "tone",
+          "twoTone",
+          "zap",
+          "zapTwoTone"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "debe2e6b589dc7366cb63ee987f4e3013975a3e6bdae94a953c4e8aff9aa9c61",
+          "bytes": 3356
+        },
+        "sounds.m4a": {
+          "sha256": "513dc79185c0388125b19177d8ed00cf54a47b38aa2effedd8fcc6d6f7fedf69",
+          "bytes": 661226
+        }
+      },
+      "bytes": 664582
+    },
+    "sounds-scifi": {
+      "kind": "sounds",
+      "title": "Sci-fi sounds",
+      "description": "Sci-fi effects: computer noise, doors, engines, explosions, force fields, impacts, lasers, slime, thrusters. 73 short sounds, played by name.",
+      "sources": [
+        "kenney-sci-fi-sounds"
+      ],
+      "derived": "Each Ogg Vorbis sound decoded to 44.1 kHz mono (a stereo one folded), brought under full scale where it would clip, laid on one sheet with a gap after each and encoded once as AAC (96 kb/s); a cue table records where each starts.",
+      "meta": {
+        "sounds": 73,
+        "groups": 17,
+        "duration": 197.3428,
+        "names": [
+          "computerNoise_000",
+          "computerNoise_001",
+          "computerNoise_002",
+          "computerNoise_003",
+          "doorClose_000",
+          "doorClose_001",
+          "doorClose_002",
+          "doorOpen_000",
+          "doorOpen_001",
+          "doorOpen_002",
+          "engineCircular_000",
+          "engineCircular_001",
+          "engineCircular_002",
+          "engineCircular_003",
+          "engineCircular_004",
+          "explosionCrunch_000",
+          "explosionCrunch_001",
+          "explosionCrunch_002",
+          "explosionCrunch_003",
+          "explosionCrunch_004",
+          "forceField_000",
+          "forceField_001",
+          "forceField_002",
+          "forceField_003",
+          "forceField_004",
+          "impactMetal_000",
+          "impactMetal_001",
+          "impactMetal_002",
+          "impactMetal_003",
+          "impactMetal_004",
+          "laserLarge_000",
+          "laserLarge_001",
+          "laserLarge_002",
+          "laserLarge_003",
+          "laserLarge_004",
+          "laserRetro_000",
+          "laserRetro_001",
+          "laserRetro_002",
+          "laserRetro_003",
+          "laserRetro_004",
+          "laserSmall_000",
+          "laserSmall_001",
+          "laserSmall_002",
+          "laserSmall_003",
+          "laserSmall_004",
+          "lowFrequency_explosion_000",
+          "lowFrequency_explosion_001",
+          "slime_000",
+          "slime_001",
+          "spaceEngineLarge_000",
+          "spaceEngineLarge_001",
+          "spaceEngineLarge_002",
+          "spaceEngineLarge_003",
+          "spaceEngineLarge_004",
+          "spaceEngineLow_000",
+          "spaceEngineLow_001",
+          "spaceEngineLow_002",
+          "spaceEngineLow_003",
+          "spaceEngineLow_004",
+          "spaceEngineSmall_000",
+          "spaceEngineSmall_001",
+          "spaceEngineSmall_002",
+          "spaceEngineSmall_003",
+          "spaceEngineSmall_004",
+          "spaceEngine_000",
+          "spaceEngine_001",
+          "spaceEngine_002",
+          "spaceEngine_003",
+          "thrusterFire_000",
+          "thrusterFire_001",
+          "thrusterFire_002",
+          "thrusterFire_003",
+          "thrusterFire_004"
+        ],
+        "groupNames": [
+          "computerNoise",
+          "doorClose",
+          "doorOpen",
+          "engineCircular",
+          "explosionCrunch",
+          "forceField",
+          "impactMetal",
+          "laserLarge",
+          "laserRetro",
+          "laserSmall",
+          "lowFrequency_explosion",
+          "slime",
+          "spaceEngineLarge",
+          "spaceEngineLow",
+          "spaceEngineSmall",
+          "spaceEngine",
+          "thrusterFire"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "342634a45b0df3650d6adbe2613e77610fc8f0bce9a79406f4a8f6720ec8b2c0",
+          "bytes": 5217
+        },
+        "sounds.m4a": {
+          "sha256": "836006da254e4ed636b5fd3b529fa533721067dd7f8d315cfa29982d44200446",
+          "bytes": 2489624
+        }
+      },
+      "bytes": 2494841
+    },
+    "sounds-rpg": {
+      "kind": "sounds",
+      "title": "RPG foley",
+      "description": "Everyday foley for adventures: belts, books, chops, cloth, coins, doors, drawers, footsteps, handles, knife slices, metal clicks and latches. 51 short sounds, played by name.",
+      "sources": [
+        "kenney-rpg-audio"
+      ],
+      "derived": "Each Ogg Vorbis sound decoded to 44.1 kHz mono (a stereo one folded), brought under full scale where it would clip, laid on one sheet with a gap after each and encoded once as AAC (96 kb/s); a cue table records where each starts.",
+      "meta": {
+        "sounds": 51,
+        "groups": 14,
+        "duration": 25.2223,
+        "names": [
+          "beltHandle1",
+          "beltHandle2",
+          "bookClose",
+          "bookFlip1",
+          "bookFlip2",
+          "bookFlip3",
+          "bookOpen",
+          "bookPlace1",
+          "bookPlace2",
+          "bookPlace3",
+          "chop",
+          "cloth1",
+          "cloth2",
+          "cloth3",
+          "cloth4",
+          "clothBelt",
+          "clothBelt2",
+          "creak1",
+          "creak2",
+          "creak3",
+          "doorClose_1",
+          "doorClose_2",
+          "doorClose_3",
+          "doorClose_4",
+          "doorOpen_1",
+          "doorOpen_2",
+          "drawKnife1",
+          "drawKnife2",
+          "drawKnife3",
+          "dropLeather",
+          "footstep00",
+          "footstep01",
+          "footstep02",
+          "footstep03",
+          "footstep04",
+          "footstep05",
+          "footstep06",
+          "footstep07",
+          "footstep08",
+          "footstep09",
+          "handleCoins",
+          "handleCoins2",
+          "handleSmallLeather",
+          "handleSmallLeather2",
+          "knifeSlice",
+          "knifeSlice2",
+          "metalClick",
+          "metalLatch",
+          "metalPot1",
+          "metalPot2",
+          "metalPot3"
+        ],
+        "groupNames": [
+          "beltHandle",
+          "bookFlip",
+          "bookPlace",
+          "cloth",
+          "clothBelt",
+          "creak",
+          "doorClose",
+          "doorOpen",
+          "drawKnife",
+          "footstep",
+          "handleCoins",
+          "handleSmallLeather",
+          "knifeSlice",
+          "metalPot"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "532cf33f1dd5a43ceb579ff00114bcfdfc8b35b922f2a72e923cff646c93d956",
+          "bytes": 2951
+        },
+        "sounds.m4a": {
+          "sha256": "13e54b281ac989638323d5749849a5685507924200c1f5d621c8e1676673ff03",
+          "bytes": 380459
+        }
+      },
+      "bytes": 383410
+    },
+    "sounds-casino": {
+      "kind": "sounds",
+      "title": "Casino sounds",
+      "description": "Cards (fan, place, shove, shuffle, slide), chips (collide, handle, lay, stack) and dice (grab, shake, throw). 54 short sounds, played by name.",
+      "sources": [
+        "kenney-casino-audio"
+      ],
+      "derived": "Each Ogg Vorbis sound decoded to 44.1 kHz mono (a stereo one folded), brought under full scale where it would clip, laid on one sheet with a gap after each and encoded once as AAC (96 kb/s); a cue table records where each starts.",
+      "meta": {
+        "sounds": 54,
+        "groups": 14,
+        "duration": 34.2455,
+        "names": [
+          "card-fan-1",
+          "card-fan-2",
+          "card-place-1",
+          "card-place-2",
+          "card-place-3",
+          "card-place-4",
+          "card-shove-1",
+          "card-shove-2",
+          "card-shove-3",
+          "card-shove-4",
+          "card-shuffle",
+          "card-slide-1",
+          "card-slide-2",
+          "card-slide-3",
+          "card-slide-4",
+          "card-slide-5",
+          "card-slide-6",
+          "card-slide-7",
+          "card-slide-8",
+          "cards-pack-open-1",
+          "cards-pack-open-2",
+          "cards-pack-take-out-1",
+          "cards-pack-take-out-2",
+          "chip-lay-1",
+          "chip-lay-2",
+          "chip-lay-3",
+          "chips-collide-1",
+          "chips-collide-2",
+          "chips-collide-3",
+          "chips-collide-4",
+          "chips-handle-1",
+          "chips-handle-2",
+          "chips-handle-3",
+          "chips-handle-4",
+          "chips-handle-5",
+          "chips-handle-6",
+          "chips-stack-1",
+          "chips-stack-2",
+          "chips-stack-3",
+          "chips-stack-4",
+          "chips-stack-5",
+          "chips-stack-6",
+          "dice-grab-1",
+          "dice-grab-2",
+          "dice-shake-1",
+          "dice-shake-2",
+          "dice-shake-3",
+          "dice-throw-1",
+          "dice-throw-2",
+          "dice-throw-3",
+          "die-throw-1",
+          "die-throw-2",
+          "die-throw-3",
+          "die-throw-4"
+        ],
+        "groupNames": [
+          "card-fan",
+          "card-place",
+          "card-shove",
+          "card-slide",
+          "cards-pack-open",
+          "cards-pack-take-out",
+          "chip-lay",
+          "chips-collide",
+          "chips-handle",
+          "chips-stack",
+          "dice-grab",
+          "dice-shake",
+          "dice-throw",
+          "die-throw"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "93084fb7225ee7f3441a7e5d2aa59624e4665ac348f8c0a671ceb7e58d59d6dc",
+          "bytes": 3519
+        },
+        "sounds.m4a": {
+          "sha256": "3950f0ec3ac1b1687ac82459958f7220392f6c8b86aed05c325c6d3a81b6906a",
+          "bytes": 489496
+        }
+      },
+      "bytes": 493015
+    },
+    "sounds-voice": {
+      "kind": "sounds",
+      "title": "Announcer voice",
+      "description": "A game announcer, male and female: countdowns and numbers, go, game over, level up, mission completed and failed, you win and lose, and more. 92 short sounds, played by name.",
+      "sources": [
+        "kenney-voiceover-pack"
+      ],
+      "derived": "Each Ogg Vorbis sound decoded to 44.1 kHz mono (a stereo one folded), brought under full scale where it would clip, laid on one sheet with a gap after each and encoded once as AAC (96 kb/s); a cue table records where each starts.",
+      "meta": {
+        "sounds": 92,
+        "groups": 0,
+        "duration": 79.7903,
+        "names": [
+          "female_1",
+          "female_10",
+          "female_2",
+          "female_3",
+          "female_4",
+          "female_5",
+          "female_6",
+          "female_7",
+          "female_8",
+          "female_9",
+          "female_congratulations",
+          "female_correct",
+          "female_final_round",
+          "female_game_over",
+          "female_go",
+          "female_hurry_up",
+          "female_its_a_tie",
+          "female_level",
+          "female_level_up",
+          "female_mission_completed",
+          "female_mission_failed",
+          "female_new_highscore",
+          "female_objective_achieved",
+          "female_power_up",
+          "female_ready",
+          "female_round",
+          "female_set",
+          "female_time_over",
+          "female_war_call_for_backup",
+          "female_war_cover_me",
+          "female_war_fire_in_the_hole",
+          "female_war_get_down",
+          "female_war_go_go_go",
+          "female_war_hold",
+          "female_war_look_out",
+          "female_war_medic",
+          "female_war_reloading",
+          "female_war_rpg",
+          "female_war_sniper",
+          "female_war_supressing_fire",
+          "female_war_target_destroyed",
+          "female_war_target_engaged",
+          "female_war_watch_my_back",
+          "female_wrong",
+          "female_you_lose",
+          "female_you_win",
+          "male_1",
+          "male_10",
+          "male_2",
+          "male_3",
+          "male_4",
+          "male_5",
+          "male_6",
+          "male_7",
+          "male_8",
+          "male_9",
+          "male_congratulations",
+          "male_correct",
+          "male_final_round",
+          "male_game_over",
+          "male_go",
+          "male_hold",
+          "male_hurry_up",
+          "male_its_a_tie",
+          "male_level",
+          "male_level_up",
+          "male_mission_completed",
+          "male_mission_failed",
+          "male_new_highscore",
+          "male_objective_achieved",
+          "male_power_up",
+          "male_ready",
+          "male_round",
+          "male_set",
+          "male_time_over",
+          "male_war_call_for_backup",
+          "male_war_cover_me",
+          "male_war_fire_in_the_hole",
+          "male_war_get_down",
+          "male_war_go_go_go",
+          "male_war_look_out",
+          "male_war_medic",
+          "male_war_reloading",
+          "male_war_rpg",
+          "male_war_sniper",
+          "male_war_suppressing_fire",
+          "male_war_target_destroyed",
+          "male_war_target_engaged",
+          "male_war_watch_my_back",
+          "male_wrong",
+          "male_you_lose",
+          "male_you_win"
+        ],
+        "groupNames": []
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "b2306a693d9374533303d594e8b0109700176547432a8c034ae8404b530fd3cd",
+          "bytes": 4304
+        },
+        "sounds.m4a": {
+          "sha256": "2da604ffe47229f94f6053ca7c7f30cc61f53763ee3a5e97ff5349340650cb68",
+          "bytes": 1092743
+        }
+      },
+      "bytes": 1097047
+    },
+    "sounds-voice-fighter": {
+      "kind": "sounds",
+      "title": "Fighting-game announcer",
+      "description": "A fighting-game announcer: fight, round 1 to 5, final round, knock out, flawless victory, combo calls, winner, you win, you lose, and more. 46 short sounds, played by name.",
+      "sources": [
+        "kenney-voiceover-pack-fighter"
+      ],
+      "derived": "Each Ogg Vorbis sound decoded to 44.1 kHz mono (a stereo one folded), brought under full scale where it would clip, laid on one sheet with a gap after each and encoded once as AAC (96 kb/s); a cue table records where each starts.",
+      "meta": {
+        "sounds": 46,
+        "groups": 0,
+        "duration": 61.5709,
+        "names": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10",
+          "arcade_mode",
+          "battle_mode",
+          "begin",
+          "championship_mode",
+          "choose_your_character",
+          "combo",
+          "combo_breaker",
+          "deathmatch",
+          "fight",
+          "final_round",
+          "flawless_victory",
+          "game_over",
+          "it_s_a_tie",
+          "kill_her",
+          "kill_him",
+          "kill_it",
+          "loser",
+          "multi_kill",
+          "player_1",
+          "player_2",
+          "prepare_yourself",
+          "ready",
+          "round_1",
+          "round_2",
+          "round_3",
+          "round_4",
+          "round_5",
+          "story_mode",
+          "sudden_death",
+          "survival_mode",
+          "tie",
+          "tie_breaker",
+          "time",
+          "winner",
+          "you_lose",
+          "you_win"
+        ],
+        "groupNames": []
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "b2e448b997ec7804d4b3f9b1938de1f6e900eb12221635d6c640ddf2af57dc5b",
+          "bytes": 1870
+        },
+        "sounds.m4a": {
+          "sha256": "a172eb09c17e613e7f11d5f0d591a303e96706492a0dc722b56ac42deafec1ea",
+          "bytes": 816764
+        }
+      },
+      "bytes": 818634
+    },
+    "creature-trex": {
+      "kind": "creature",
+      "title": "Tyrannosaurus rex",
+      "description": "A Tyrannosaurus rex with olive-brown scaly skin and a paler belly, about 5.8 m tall and 12 m long. Rigged and animated (25 bones), 11,999 triangles: Idle, Walk, Run, Attack, Hit, Jump, Roar. Walks at 1.6 m/s, runs at 3.0 m/s.",
+      "sources": [
+        "patch-anymove"
+      ],
+      "derived": "Made by Patch with anymove (mesh and motion generated with AI; Patch dedicates it to the public domain). Triangles cut from 57,914 to 11,999 by meshoptimizer, skin weights kept; textures cut from 4K to 1024 px (colour also 512 px, metal-roughness 512 px); clips sampled at 24 fps, the travelling *_Root copies measured for pace and left out.",
+      "meta": {
+        "plan": "beast",
+        "clips": [
+          "Idle",
+          "Walk",
+          "Run",
+          "Attack",
+          "Hit",
+          "Jump",
+          "Roar"
+        ],
+        "moves": {
+          "idle": "Idle",
+          "walk": "Walk",
+          "run": "Run",
+          "strike": "Attack",
+          "hit": "Hit",
+          "jump": "Jump",
+          "special": "Roar"
+        },
+        "speeds": {
+          "walk": 1.588,
+          "run": 2.961
+        },
+        "height": 5.748,
+        "length": 12,
+        "triangles": 11999
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "39c49cfd830a43e85994c8e5a2840495f5f5aa3bda70da1e6b7e39c8f30ff4c8",
+          "bytes": 8043
+        },
+        "color-lo.jpg": {
+          "sha256": "17699040349f23934b2de25e1961826b83de9016b4d11bc04465fb9bbf604110",
+          "bytes": 113630
+        },
+        "color.jpg": {
+          "sha256": "8a01e8d32cf55e448418c13494b83c441822cd68f67b9ccc38ea66bd11b2ec95",
+          "bytes": 439772
+        },
+        "creature.bin.z": {
+          "sha256": "d95904a645d84cf7c84c83d2d895ca5f59e480c15373f3b6a88535c6e6f4b298",
+          "bytes": 334385
+        },
+        "normal.jpg": {
+          "sha256": "d02c879f34f0e36bbb04202199c2e6f3ec0f48cdd6f1c7a27b9d5e42460202e9",
+          "bytes": 172363
+        },
+        "orm.jpg": {
+          "sha256": "c299d78b7d2cc8a9d7e601f94182ef17ca4fa68983cb375eeaa8192c00fb3992",
+          "bytes": 64820
+        }
+      },
+      "bytes": 1133013
+    },
+    "creature-knight": {
+      "kind": "creature",
+      "title": "Armoured knight",
+      "description": "A medieval knight in full steel plate with a closed visor and a mail skirt, 1.85 m tall, unarmed. Rigged and animated (22 bones), 11,975 triangles: Idle, Walk, Run, Attack, Hit, Jump, Kick. Walks at 1.1 m/s, runs at 2.9 m/s.",
+      "sources": [
+        "patch-anymove"
+      ],
+      "derived": "Made by Patch with anymove (mesh and motion generated with AI; Patch dedicates it to the public domain). Triangles cut from 59,281 to 11,975 by meshoptimizer, skin weights kept; textures cut from 4K to 1024 px (colour also 512 px, metal-roughness 512 px); clips sampled at 24 fps, the travelling *_Root copies measured for pace and left out.",
+      "meta": {
+        "plan": "biped",
+        "clips": [
+          "Idle",
+          "Walk",
+          "Run",
+          "Attack",
+          "Hit",
+          "Jump",
+          "Kick"
+        ],
+        "moves": {
+          "idle": "Idle",
+          "walk": "Walk",
+          "run": "Run",
+          "strike": "Attack",
+          "hit": "Hit",
+          "jump": "Jump",
+          "special": "Kick"
+        },
+        "speeds": {
+          "walk": 1.07,
+          "run": 2.926
+        },
+        "height": 1.85,
+        "length": 0.383,
+        "triangles": 11975
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "6c496bf64f6a3cdea1cfdaadcde51e10301eb5a26e994d35be718d8a2f63dc03",
+          "bytes": 7163
+        },
+        "color-lo.jpg": {
+          "sha256": "25f83ea2a8e00a83ec36f9bc427953927841a3cc5e0ff51af88a453341258d36",
+          "bytes": 114324
+        },
+        "color.jpg": {
+          "sha256": "139f3259faf76ebdec97213fa71da03acbc475301c1b6604c78e66d8db95f9dc",
+          "bytes": 389047
+        },
+        "creature.bin.z": {
+          "sha256": "60bbc34b2665b4a3dd0d0932c9e83ebf93c519d43d5b2e62dd2e1489012e80c9",
+          "bytes": 374445
+        },
+        "normal.jpg": {
+          "sha256": "ee89e3e10c96e8062a2a81dd485e9cfe2f0e4760ee76a39884ffc5d6b8e50e12",
+          "bytes": 287064
+        },
+        "orm.jpg": {
+          "sha256": "ef4146d4806ba5023e69168b7f9519f71a428c73e943896db9944d121ccac46f",
+          "bytes": 105646
+        }
+      },
+      "bytes": 1277689
+    },
+    "creature-ogre": {
+      "kind": "creature",
+      "title": "Ogre",
+      "description": "A huge green-grey ogre with a big belly, small tusks and a loincloth, about 2.8 m tall. Rigged and animated (22 bones), 12,000 triangles: Idle, Walk, Run, Attack, Hit, GroundSlam. Walks at 0.8 m/s, runs at 2.7 m/s.",
+      "sources": [
+        "patch-anymove"
+      ],
+      "derived": "Made by Patch with anymove (mesh and motion generated with AI; Patch dedicates it to the public domain). Triangles cut from 59,464 to 12,000 by meshoptimizer, skin weights kept; textures cut from 4K to 1024 px (colour also 512 px, metal-roughness 512 px); clips sampled at 24 fps, the travelling *_Root copies measured for pace and left out.",
+      "meta": {
+        "plan": "biped",
+        "clips": [
+          "Idle",
+          "Walk",
+          "Run",
+          "Attack",
+          "Hit",
+          "GroundSlam"
+        ],
+        "moves": {
+          "idle": "Idle",
+          "walk": "Walk",
+          "run": "Run",
+          "strike": "Attack",
+          "hit": "Hit",
+          "special": "GroundSlam"
+        },
+        "speeds": {
+          "walk": 0.818,
+          "run": 2.717
+        },
+        "height": 2.8,
+        "length": 0.901,
+        "triangles": 12000
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "630bd247b21eb41faeaaf95f7e9f6f77f3e9168307cbbb60f71e3259fc5f29d9",
+          "bytes": 6772
+        },
+        "color-lo.jpg": {
+          "sha256": "5cf66f54592c037b60c484f97e557af42b70b0c2f73a2eab689e7e770a5254cd",
+          "bytes": 77852
+        },
+        "color.jpg": {
+          "sha256": "7ed00c1a938cb7abab845742e2c1c21cc902b79d667b0c91cbf9e83dea4d5a55",
+          "bytes": 307814
+        },
+        "creature.bin.z": {
+          "sha256": "38a36afb5fdb2dc63b3bc4d173e251e36b273c460361e9fae0b7ab525f285dde",
+          "bytes": 305888
+        },
+        "normal.jpg": {
+          "sha256": "9625944104335fb0df08bb1154fac2f84520247dd7d223d0a0d45766e72e40e2",
+          "bytes": 124389
+        },
+        "orm.jpg": {
+          "sha256": "245f94972b633c0369353c3215a5672b724cd1fd490ace885afc09d2f1871959",
+          "bytes": 73186
+        }
+      },
+      "bytes": 895901
+    },
+    "creature-ape": {
+      "kind": "creature",
+      "title": "Giant ape",
+      "description": "A giant silverback ape with dark grey fur, knuckle-walking, about 2.4 m tall; it walks, never runs (a run is its walk, quicker). Rigged and animated (22 bones), 12,000 triangles: Idle, Walk, Hit, Jump, ChestBeat. Walks at 1.0 m/s.",
+      "sources": [
+        "patch-anymove"
+      ],
+      "derived": "Made by Patch with anymove (mesh and motion generated with AI; Patch dedicates it to the public domain). Triangles cut from 57,778 to 12,000 by meshoptimizer, skin weights kept; textures cut from 4K to 1024 px (colour also 512 px, metal-roughness 512 px); clips sampled at 24 fps, the travelling *_Root copies measured for pace and left out.",
+      "meta": {
+        "plan": "beast",
+        "clips": [
+          "Idle",
+          "Walk",
+          "Hit",
+          "Jump",
+          "ChestBeat"
+        ],
+        "moves": {
+          "idle": "Idle",
+          "walk": "Walk",
+          "strike": "Jump",
+          "hit": "Hit",
+          "jump": "Jump",
+          "special": "ChestBeat"
+        },
+        "speeds": {
+          "walk": 1.02,
+          "run": null
+        },
+        "height": 2.4,
+        "length": 2.774,
+        "triangles": 12000
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "e9dd975e815ff77bffd4b0acdbff637c937635d489610a232941ea5585d989ed",
+          "bytes": 6983
+        },
+        "color-lo.jpg": {
+          "sha256": "17615bf08ead6024b312253a6809a2cd175cbe1dfa10d4fc483123151699bd2b",
+          "bytes": 98155
+        },
+        "color.jpg": {
+          "sha256": "59220089c0e3dd4277df74dfae3880bc0ca4dc2a26cf7760dfe32f2fd7d257a8",
+          "bytes": 419474
+        },
+        "creature.bin.z": {
+          "sha256": "b24451ccf2e47e9d1784d654142bb221878ea860218d910f7f7f35c95646950e",
+          "bytes": 304411
+        },
+        "normal.jpg": {
+          "sha256": "3924b24610ccffaa2aa9b7d8bd0097b51a69324940948f170bb2a2c7fd3b7fb4",
+          "bytes": 173302
+        },
+        "orm.jpg": {
+          "sha256": "fb9a4b1ce9a5dbbceaa8dc8f56bf21df8d01b08c0b9a7271b5a5d1bbb645f227",
+          "bytes": 76824
+        }
+      },
+      "bytes": 1079149
+    },
+    "creature-centaur": {
+      "kind": "creature",
+      "title": "Centaur",
+      "description": "A centaur: a chestnut horse's body with a bearded man's bare torso, about 2.4 m tall. Rigged and animated (36 bones), 11,999 triangles: Idle, Walk, Run, Attack, Hit, Jump, Rear. Walks at 0.8 m/s, runs at 2.9 m/s.",
+      "sources": [
+        "patch-anymove"
+      ],
+      "derived": "Made by Patch with anymove (mesh and motion generated with AI; Patch dedicates it to the public domain). Triangles cut from 59,615 to 11,999 by meshoptimizer, skin weights kept; textures cut from 4K to 1024 px (colour also 512 px, metal-roughness 512 px); clips sampled at 24 fps, the travelling *_Root copies measured for pace and left out.",
+      "meta": {
+        "plan": "beast",
+        "clips": [
+          "Idle",
+          "Walk",
+          "Run",
+          "Attack",
+          "Hit",
+          "Jump",
+          "Rear"
+        ],
+        "moves": {
+          "idle": "Idle",
+          "walk": "Walk",
+          "run": "Run",
+          "strike": "Attack",
+          "hit": "Hit",
+          "jump": "Jump",
+          "special": "Rear"
+        },
+        "speeds": {
+          "walk": 0.825,
+          "run": 2.869
+        },
+        "height": 2.399,
+        "length": 1.786,
+        "triangles": 11999
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "cfc363e6bff6022cd9e6dcc7907f6121a985bcfced680cc7a68be0567885bd30",
+          "bytes": 10229
+        },
+        "color-lo.jpg": {
+          "sha256": "0dd4ed9b447aa7933642ea7ffd459c5a8bd580206de7a2172a6891d64f423f10",
+          "bytes": 66807
+        },
+        "color.jpg": {
+          "sha256": "314e9d74d3986a9949e7c21803daee62945f6bf3ef98c010b71bb94a277f7c7b",
+          "bytes": 244337
+        },
+        "creature.bin.z": {
+          "sha256": "cabfc4d40f5e6faa03f2b5cedcc3b6c08036e3225aba1facf3ba4599c6ab7664",
+          "bytes": 410677
+        },
+        "normal.jpg": {
+          "sha256": "2d2920b3c2dbf6dd28112b2ca110ad73dcaad9e0c755a2bfa4e691dbbdb35240",
+          "bytes": 101883
+        },
+        "orm.jpg": {
+          "sha256": "7c53d6ad18dfb031cb04df919e4b494185fd82f80ef1bc2c4c6ecadef02c435a",
+          "bytes": 55916
+        }
+      },
+      "bytes": 889849
+    },
+    "creature-mech": {
+      "kind": "creature",
+      "title": "Walking mech",
+      "description": "A two-legged walking mech in industrial yellow and dark grey, with reverse-jointed legs and clamp hands, about 4 m tall. Rigged and animated (18 bones), 11,996 triangles: Idle, Walk, Run, Attack, Hit, Jump, Stomp. Walks at 1.5 m/s, runs at 4.3 m/s.",
+      "sources": [
+        "patch-anymove"
+      ],
+      "derived": "Made by Patch with anymove (mesh and motion generated with AI; Patch dedicates it to the public domain). Triangles cut from 55,813 to 11,996 by meshoptimizer, skin weights kept; textures cut from 4K to 1024 px (colour also 512 px, metal-roughness 512 px); clips sampled at 24 fps, the travelling *_Root copies measured for pace and left out.",
+      "meta": {
+        "plan": "biped",
+        "clips": [
+          "Idle",
+          "Walk",
+          "Run",
+          "Attack",
+          "Hit",
+          "Jump",
+          "Stomp"
+        ],
+        "moves": {
+          "idle": "Idle",
+          "walk": "Walk",
+          "run": "Run",
+          "strike": "Attack",
+          "hit": "Hit",
+          "jump": "Jump",
+          "special": "Stomp"
+        },
+        "speeds": {
+          "walk": 1.48,
+          "run": 4.33
+        },
+        "height": 3.997,
+        "length": 1.784,
+        "triangles": 11996
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "18c5e0bda2d12779b9b82be4745b35f08129a369acfecf5662ba34f6781fec98",
+          "bytes": 6393
+        },
+        "color-lo.jpg": {
+          "sha256": "b2e579670bea7e03ba48709472b219f4d8dd719f457838a4a5de8e35d872856f",
+          "bytes": 139738
+        },
+        "color.jpg": {
+          "sha256": "dcaff1e43743717f2058db41ba1c4ba34c46fa154fd3e4d1e4cfb5888ee1c86f",
+          "bytes": 446457
+        },
+        "creature.bin.z": {
+          "sha256": "ac617c4935713694e936aa72e888f4c4df2b4186039a9ebf38878a036729588f",
+          "bytes": 288094
+        },
+        "normal.jpg": {
+          "sha256": "df097b6ac1aa8f7190ff8db04a745243dea60591534ce416362747789bf52f20",
+          "bytes": 290294
+        },
+        "orm.jpg": {
+          "sha256": "73005d0315797b3b86fc54601af51bd6d5002e4d59260bb7ab078aacd0a2f526",
+          "bytes": 60546
+        }
+      },
+      "bytes": 1231522
+    },
+    "creature-scorpion": {
+      "kind": "creature",
+      "title": "Giant scorpion",
+      "description": "A giant scorpion with a glossy brown-black shell, amber legs and a raised stinger, about 1.6 m tall and 2.8 m long; it fights where it stands and never walks (it has no walk: moved, it slides). Rigged and animated (44 bones), 11,993 triangles: Attack, Hit, Jump, ClawSnap.",
+      "sources": [
+        "patch-anymove"
+      ],
+      "derived": "Made by Patch with anymove (mesh and motion generated with AI; Patch dedicates it to the public domain). Triangles cut from 57,077 to 11,993 by meshoptimizer, skin weights kept; textures cut from 4K to 1024 px (colour also 512 px, metal-roughness 512 px); clips sampled at 24 fps, the travelling *_Root copies measured for pace and left out.",
+      "meta": {
+        "plan": "beast",
+        "clips": [
+          "Attack",
+          "Hit",
+          "Jump",
+          "ClawSnap"
+        ],
+        "moves": {
+          "idle": "ClawSnap",
+          "strike": "Attack",
+          "hit": "Hit",
+          "jump": "Jump",
+          "special": "ClawSnap"
+        },
+        "speeds": {
+          "walk": null,
+          "run": null
+        },
+        "height": 1.632,
+        "length": 2.599,
+        "triangles": 11993
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "8d0f090a15811194a5f5b1f084aa859a6a7fc07bbc310397602353c68936156a",
+          "bytes": 11477
+        },
+        "color-lo.jpg": {
+          "sha256": "0027dceb6c68da84bba1a016f69d4c96d7c088bd3573e6d5032e64429ad0bd3d",
+          "bytes": 119927
+        },
+        "color.jpg": {
+          "sha256": "69fe7fbec93c8b18f282d7e11aabc04f69cc638edb776e872e40635f26ade614",
+          "bytes": 442639
+        },
+        "creature.bin.z": {
+          "sha256": "ca69d2fc1f5b537567236a6f94a8d696f68be7d56995b8bae85c6aadf346e552",
+          "bytes": 345765
+        },
+        "normal.jpg": {
+          "sha256": "04844715862d5ae0734de57af173c2718b429dfe9a5622578da38321ed296dd7",
+          "bytes": 226108
+        },
+        "orm.jpg": {
+          "sha256": "0d5b94efd2bec54da034f791efa99d910e465bdf902e9abdce593a79495ea917",
+          "bytes": 30432
+        }
+      },
+      "bytes": 1176348
     }
   }
 }

@@ -42,7 +42,7 @@ The asset library in `public/assets` is built from pinned sources: those listed 
 `assets-src/sources.json`, and the penalty shootout crowd's two Freesound packs, which are listed, with each
 take pinned by its hash, in `scripts/assets/crowd-audio.ts`. `public/assets/library.json` records every
 source's title, author, licence and link, and every built file's hash. All of them are CC0-1.0
-(MakeHuman, Poly Haven, Quaternius, OpenGameArt, ambientCG, Freesound) except the motion capture from the
+(MakeHuman, Poly Haven, Quaternius, OpenGameArt, ambientCG, Freesound, Kenney, Patch) except the motion capture from the
 [CMU Graphics Lab Motion Capture Database](http://mocap.cs.cmu.edu), which Carnegie Mellon
 University provides free for all uses: it may be included in products, but the data itself may
 not be resold (the database was created with funding from NSF EIA-0196217), and the `city-midtown` textures,
@@ -56,6 +56,16 @@ The penalty shootout's recorded crowd (`audio-crowd-shootout`) is cut from two C
 recorded at CaixaForum Barcelona, by Freesound's own account), and the
 [GameSoundCon 2024 walla](https://freesound.org/people/ShangusBurger/packs/42098/) (pack 42098) by
 Shane Vincent, uploaded by ShangusBurger. Each take used is listed, with its link, under the asset in `public/assets/library.json`.
+
+The creatures (`creature-horse`, `-trex`, `-knight`, `-ogre`, `-ape`, `-centaur`, `-mech`, `-scorpion`) were made by
+[Patch](https://patch.gg) (New Save Labs, Inc.) with [anymove](https://github.com/patch-gg/anymove) (mesh and motion
+generated with AI) and dedicated by Patch to the public domain under
+[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/); credited with thanks though CC0 does not require it.
+We cut their triangles and textures to a browser game's budget.
+
+The sound packs (`sounds-*`) are [Kenney](https://kenney.nl)'s Impact Sounds, Interface Sounds, UI Audio, Digital
+Audio, Sci-fi Sounds, RPG Audio, Casino Audio, Voiceover Pack and Voiceover Pack: Fighter, each CC0 1.0 by the
+`License.txt` in its zip; credited with thanks to Kenney (www.kenney.nl) though CC0 does not require it.
 
 The WHY. V-07 race car (`model-why-v07`) is the GameMog owner's own work, built from the model
 [why.com/A1](https://why.com/A1/) serves, and dedicated by the owner to the public domain under

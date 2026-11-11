@@ -459,7 +459,9 @@ export function known(): Known {
   for (const [id, a] of Object.entries(L.assets)) {
     const words = new Set<string>();
     const walk = (v: unknown): void => { if (typeof v === 'string') words.add(v); else if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v === 'object') Object.values(v).forEach(walk); };
-    for (const k of ['parts', 'skins', 'hair', 'clips', 'outfits', 'morphs', 'maps', 'slots']) walk(a.meta?.[k]);
+    // (a sound pack's sounds and groups by name; a creature's clips and the moves they play)
+    for (const k of ['parts', 'skins', 'hair', 'clips', 'outfits', 'morphs', 'maps', 'slots', 'names', 'groupNames', 'moves']) walk(a.meta?.[k]);
+    if (a.meta?.moves && typeof a.meta.moves === 'object') for (const m of Object.keys(a.meta.moves as object)) words.add(m);
     for (const w of words) lib.add(w);
     assets[id] = { kind: a.kind, words, parts: Array.isArray(a.meta?.parts) ? a.meta!.parts as string[] : [] };
   }
@@ -579,6 +581,11 @@ export function checkManual(text: string): Report {
     // an event's name in a list after ctx.on, a value in a list after its key
     const q = QUOTED.exec(t);
     if (q && (s.arg || s.keyOf)) { stats.names++; const why = checkValue(q[1], s.keyOf ?? null, kind, { root: '?', chain: [] }, s.arg); if (why) fail(s.line, t, why); continue; }
+    // a table row's own words for a sound pack (its sounds and groups, card-fan and 1 included) or a creature (its moves)
+    if (s.row?.length && /^[\w-]+$/.test(t)) {
+      const own = s.row.map((id) => K.assets[id]).filter((a) => a && (a.kind === 'sounds' || a.kind === 'creature'));
+      if (own.length) { if (!own.some((a) => a.words.has(t))) fail(s.line, t, `${s.row.join(', ')} has no sound, group or move named so`); continue; }
+    }
     // a table row's own words: a model's part (or a piece of one: `_02`), a person's skin, hair or clip
     if (s.row?.length && /^[A-Za-z_][\w]*$/.test(t)) {
       const rows = s.row.map((id) => K.assets[id]).filter(Boolean);

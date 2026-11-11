@@ -23,12 +23,14 @@ const lockPath = join(ROOT, 'sources.lock.json');
 const lock: Record<string, { sha256: string; bytes: number }> = existsSync(lockPath) ? JSON.parse(readFileSync(lockPath, 'utf8')) : {};
 
 const sha = (b: Uint8Array) => createHash('sha256').update(b).digest('hex');
-async function get(url: string, range?: [number, number]): Promise<Uint8Array> {
+async function get(url: string, range?: [number, number], referer?: string): Promise<Uint8Array> {
   for (let attempt = 1; ; attempt++) {
     try {
       // GitHub's blob API (a file by its hash, no path in the address) answers with the raw bytes when asked to
       const headers: Record<string, string> = range ? { Range: `bytes=${range[0]}-${range[1]}` } : {};
       if (url.startsWith('https://api.github.com/')) headers.Accept = 'application/vnd.github.raw';
+      // (a publisher that serves its zip only to a request from its own page, as Kenney does: the source's `referer`)
+      if (referer) headers.Referer = referer;
       const res = await fetch(url, { headers });
       if (!res.ok) throw new Error(`${res.status} ${url}`);
       return new Uint8Array(await res.arrayBuffer());
@@ -84,7 +86,7 @@ for (const [name, src] of Object.entries(sources)) {
   const todo = (src.files as string[]).filter((f) => !have(`${name}/${f}`));
   if (!todo.length) continue;
   const size: number = src.zipBytes;
-  const tail = await get(src.zip, [size - 66000, size - 1]);
+  const tail = await get(src.zip, [size - 66000, size - 1], src.referer);
   const dv = new DataView(tail.buffer, tail.byteOffset, tail.byteLength);
   let eocd = -1;
   for (let i = tail.length - 22; i >= 0; i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
@@ -94,7 +96,7 @@ for (const [name, src] of Object.entries(sources)) {
     let z = -1; for (let i = eocd; i >= 0; i--) if (dv.getUint32(i, true) === 0x06064b50) { z = i; break; }
     cdSize = Number(dv.getBigUint64(z + 40, true)); cdOff = Number(dv.getBigUint64(z + 48, true));
   }
-  const cd = await get(src.zip, [cdOff, cdOff + cdSize - 1]);
+  const cd = await get(src.zip, [cdOff, cdOff + cdSize - 1], src.referer);
   const cv = new DataView(cd.buffer, cd.byteOffset, cd.byteLength);
   const entries = new Map<string, { method: number; csize: number; offset: number }>();
   for (let p = 0; p + 46 <= cd.length && cv.getUint32(p, true) === 0x02014b50;) {
@@ -116,10 +118,10 @@ for (const [name, src] of Object.entries(sources)) {
   for (const f of todo) {
     const e = entries.get(f);
     if (!e) throw new Error(`${name}: ${f} is not in the zip`);
-    const head = await get(src.zip, [e.offset, e.offset + 29]);
+    const head = await get(src.zip, [e.offset, e.offset + 29], src.referer);
     const hv = new DataView(head.buffer, head.byteOffset, head.byteLength);
     const start = e.offset + 30 + hv.getUint16(26, true) + hv.getUint16(28, true);
-    const raw = await get(src.zip, [start, start + e.csize - 1]);
+    const raw = await get(src.zip, [start, start + e.csize - 1], src.referer);
     const data = e.method === 8 ? new Uint8Array(inflateRawSync(raw)) : raw;
     save(`${name}/${f}`, data);
     console.log(`  ${name}/${f} (${(data.length / 1024).toFixed(0)} KB)`);

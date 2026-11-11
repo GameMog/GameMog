@@ -10,7 +10,7 @@ type Source = { title: string; author: string; license: string; licenseUrl: stri
 type Asset = { kind: string; title: string; description: string; sources: string[]; derived?: string; meta?: Record<string, unknown>; files: Record<string, { sha256: string; bytes: number }>; bytes: number };
 
 const LICENCE: Record<string, string> = { 'CC0-1.0': 'CC0 1.0 (public domain dedication)', 'LicenseRef-CMU-Mocap': 'Free for all uses (CMU Graphics Lab)', 'LicenseRef-Spiderbench-Permission': 'Used with the author’s permission, for GameMog only' };
-const KIND: Record<string, string> = { human: 'Character', 'human-pack': 'People pack', 'human-moves': 'Motion pack', hdri: 'Sky', texture: 'Surface', heightfield: 'Terrain', music: 'Music', sound: 'Sound', city: 'City' };
+const KIND: Record<string, string> = { human: 'Character', 'human-pack': 'People pack', 'human-moves': 'Motion pack', hdri: 'Sky', texture: 'Surface', heightfield: 'Terrain', music: 'Music', sound: 'Sound', sounds: 'Sound pack', creature: 'Creature', city: 'City' };
 const mb = (b: number) => `${(b / 1e6).toFixed(1)} MB`;
 
 /**

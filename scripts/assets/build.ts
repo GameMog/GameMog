@@ -23,6 +23,8 @@ import { buildEngineAudio, ENGINE_ID, ENGINE_SOURCE, ENGINE_SHOT_SOURCES } from 
 import { buildModel } from './model.ts';
 import { buildRaceCar } from './racecar.ts';
 import { buildHeightfield } from './heightfield.ts';
+import { buildSounds } from './sounds.ts';
+import { buildCreature, CREATURES } from './creature.ts';
 import { sha256, Packer, decodeImage } from './lib.ts';
 
 const LIVE = 'public/assets';
@@ -792,6 +794,41 @@ if (want(ENGINE_ID)) {
     derived: 'Rendered with engine-sim (MIT) from our own engine script and impulse response, shaped to our own order targets and cut into loops; each loop 16-bit with TPDF dither at a -1 dBFS peak (its gain back recorded), resampled circularly to 32 kHz for phones, and encoded to FLAC (lossless, checked sample for sample). The bangs and the blow-off are cut from Freesound\'s previews of three CC0 recordings. The fire-up\'s cranking spikes are cleaned.',
     meta: e.meta, files: {}, bytes: 0 };
   for (const l of e.checks) console.log(`${id}: ${l}`);
+}
+
+/* ---------------- Kenney's sound packs (CC0; the owner's go-ahead 10 Nov 2026) ---------------- */
+// [library id, source, title, what it holds]: each pack's sounds as published, on one AAC sheet with a cue table
+// (sounds.ts); a world plays them by name with ctx.assets.sound
+const SOUND_PACKS: [string, string, string, string][] = [
+  ['sounds-impact', 'kenney-impact-sounds', 'Impact sounds', 'Hits and impacts on bells, glass, metal, mining rock, planks, plates, punches, soft and heavy, a few variants of each'],
+  ['sounds-interface', 'kenney-interface-sounds', 'Interface sounds', 'Menu and interface sounds: back, close, confirmation, drop, error, glass, glitch, maximize, minimize, open, pluck, question, scratch, scroll, select, switch, tick, toggle'],
+  ['sounds-ui', 'kenney-ui-audio', 'UI clicks', 'Clicks, mouse clicks, rollovers and switches for buttons'],
+  ['sounds-digital', 'kenney-digital-audio', 'Digital sounds', 'Arcade and digital effects: lasers, phasers, power-ups, zaps, pew, tones up and down, space trash'],
+  ['sounds-scifi', 'kenney-sci-fi-sounds', 'Sci-fi sounds', 'Sci-fi effects: computer noise, doors, engines, explosions, force fields, impacts, lasers, slime, thrusters'],
+  ['sounds-rpg', 'kenney-rpg-audio', 'RPG foley', 'Everyday foley for adventures: belts, books, chops, cloth, coins, doors, drawers, footsteps, handles, knife slices, metal clicks and latches'],
+  ['sounds-casino', 'kenney-casino-audio', 'Casino sounds', 'Cards (fan, place, shove, shuffle, slide), chips (collide, handle, lay, stack) and dice (grab, shake, throw)'],
+  ['sounds-voice', 'kenney-voiceover-pack', 'Announcer voice', 'A game announcer, male and female: countdowns and numbers, go, game over, level up, mission completed and failed, you win and lose, and more'],
+  ['sounds-voice-fighter', 'kenney-voiceover-pack-fighter', 'Fighting-game announcer', 'A fighting-game announcer: fight, round 1 to 5, final round, knock out, flawless victory, combo calls, winner, you win, you lose, and more'],
+];
+for (const [id, src, title, what] of SOUND_PACKS) {
+  if (!want(id)) continue;
+  const dir = join(OUT, id);
+  const r = buildSounds(src, dir, { groups: !id.startsWith('sounds-voice') });
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify(r.asset));
+  library[id] = { kind: 'sounds', title, description: `${what}. ${r.meta.sounds} short sounds, played by name.`, sources: [src],
+    derived: 'Each Ogg Vorbis sound decoded to 44.1 kHz mono (a stereo one folded), brought under full scale where it would clip, laid on one sheet with a gap after each and encoded once as AAC (96 kb/s); a cue table records where each starts.',
+    meta: r.meta, files: {}, bytes: 0 };
+  console.log(`${id}: ${r.check}`);
+}
+
+/* ---------------- the anymove creatures (CC0, Patch; the owner's go-ahead 10 Nov 2026) ---------------- */
+for (const c of CREATURES) {
+  if (!want(c.id)) continue;
+  const dir = join(OUT, c.id);
+  const r = await buildCreature(c, dir);
+  writeFileSync(join(dir, 'asset.json'), JSON.stringify(r.asset));
+  library[c.id] = { kind: 'creature', title: c.title, description: r.description, sources: ['patch-anymove'], derived: r.derived, meta: r.meta, files: {}, bytes: 0 };
+  console.log(`${c.id}: ${r.check}`);
 }
 
 // hash every file, and record which licences cover each asset

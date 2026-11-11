@@ -188,6 +188,36 @@ world uses (up to 24); it all loads before `build()` runs.
 | `model-bar-stool` | a vintage wooden bar stool 0.75 m tall with a round seat 0.48 m across, beaded trim and a ring footrest |
 | `model-coffee-table` | a round coffee table 1.3 m across and 0.49 m tall, a white marble top on looping black metal legs |
 | `heightfield-massif` | not a surface: a terrain, a snow-capped mountain massif on a square 5 km a side (1024 x 1024 heights, 16-bit, about 4.9 m apart), about 4.5 km across and rising from 1.3 m on the flat plain at its edges to a summit of 1988 m a little east and south of the middle: sharp rocky ridges run west and south from the summit with cliffs on their flanks, a broad snow bowl opens to the north below them, and eroded spurs and gullies fall away all round. Its `colorMap` (1024 px) is the snow cover with bare grey rock on the steep faces. For mountains round a valley, seen from afar: `ctx.assets.heightfield` (below). 1.92 MB |
+| `creature-horse` | a creature (realistic, rigged and animated, about 1 MB), a `model` for a creature (Open worlds, below): a bay horse, about 2.4 m tall at the head and 2.4 m long; walks and trots (its run is a trot); moves `strike` (a rear and kick) and `jump` |
+| `creature-trex` | a creature (realistic, rigged and animated, about 1 MB), a `model` for a creature (Open worlds, below): a Tyrannosaurus rex, about 5.8 m tall and 12 m long; walks and runs; `strike` (a bite), `hit`, `jump` and a `special`, its roar |
+| `creature-knight` | a creature (realistic, rigged and animated, about 1 MB), a `model` for a creature (Open worlds, below): an armoured knight in full steel plate with a closed visor, 1.85 m tall, unarmed; walks and runs; `strike` (a punch), `hit`, `jump` and a `special`, a kick |
+| `creature-ogre` | a creature (realistic, rigged and animated, about 1 MB), a `model` for a creature (Open worlds, below): a huge green-grey ogre with a big belly and a loincloth, about 2.8 m tall; walks and runs; `strike`, `hit` and a `special`, a ground slam |
+| `creature-ape` | a creature (realistic, rigged and animated, about 1 MB), a `model` for a creature (Open worlds, below): a giant silverback ape, knuckle-walking, about 2.4 m tall; walks (never runs: quicker, it walks faster); `strike` (a leap), `hit`, `jump` and a `special`, a chest beat |
+| `creature-centaur` | a creature (realistic, rigged and animated, about 1 MB), a `model` for a creature (Open worlds, below): a centaur, a horse's body with a bearded man's bare torso, about 2.4 m tall; walks and runs; `strike`, `hit`, `jump` and a `special`, rearing up |
+| `creature-mech` | a creature (realistic, rigged and animated, about 1 MB), a `model` for a creature (Open worlds, below): a two-legged walking mech in industrial yellow and grey, about 4 m tall; walks and runs; `strike`, `hit`, `jump` and a `special`, a stomp |
+| `creature-scorpion` | a creature (realistic, rigged and animated, about 1 MB), a `model` for a creature (Open worlds, below): a giant scorpion, about 1.6 m tall and 2.8 m long; it fights where it stands and never walks (moved, it slides: keep it still, a boss in its lair); `strike` (the stinger), `hit`, `jump`, and its claws snapping as it waits |
+| `sounds-impact` | a sound pack (130 short sounds, played by name, below): impact sounds: hits on bells, glass, metal, rock (`impactMining`), planks, plates, punches (`impactPunch_heavy`, `impactPunch_medium`), soft, tin and wood, light to heavy, and footsteps on carpet, concrete, grass, snow and wood (`footstep_grass`) |
+| `sounds-interface` | a sound pack (100 short sounds, played by name, below): interface sounds: `back`, `close`, `confirmation`, `drop`, `error`, `glass`, `glitch`, `maximize`, `minimize`, `open`, `pluck`, `question`, `scratch`, `scroll`, `select`, `switch`, `tick`, `toggle` |
+| `sounds-ui` | a sound pack (51 short sounds, played by name, below): button clicks: `click`, `mouseclick`, `mouserelease`, `rollover`, `switch` |
+| `sounds-digital` | a sound pack (62 short sounds, played by name, below): arcade effects: lasers, phasers, power-ups, zaps (`laser`, `phaserUp`, `phaserDown`, `powerUp`, `zap`, `pepSound`, `tone`, `highUp`, `highDown`, `lowRandom`, `spaceTrash` and more) |
+| `sounds-scifi` | a sound pack (73 short sounds, played by name, below): sci-fi effects: `computerNoise`, `doorClose`, `doorOpen`, `engineCircular`, `explosionCrunch`, `forceField`, `impactMetal`, `laserLarge`, `laserRetro`, `laserSmall`, `lowFrequency_explosion`, `slime`, `spaceEngine`, `thrusterFire` and more |
+| `sounds-rpg` | a sound pack (51 short sounds, played by name, below): everyday foley: belts, books, chops, cloth, coins, doors (`doorOpen`, `doorClose`), drawers, footsteps (`footstep`), handles, `knifeSlice`, metal clicks and latches |
+| `sounds-casino` | a sound pack (54 short sounds, played by name, below): cards (`card-fan`, `card-place`, `card-shove`, `card-shuffle`, `card-slide`), chips (`chips-collide`, `chips-handle`, `chips-stack`) and dice (`dice-grab`, `dice-shake`, `dice-throw`) |
+| `sounds-voice` | a sound pack (92 short sounds, played by name, below): a game announcer, every line in a male and a female voice: `male_1` to `male_10` (each also `female_1` and so on), `male_ready`, `male_set`, `male_go`, `male_game_over`, `male_level_up`, `male_mission_completed`, `male_mission_failed`, `male_new_highscore`, `male_you_win`, `male_you_lose`, `male_hurry_up`, `male_time_over`, and soldiers' calls (`male_war_fire_in_the_hole`, `male_war_reloading`, `male_war_medic` and more) |
+| `sounds-voice-fighter` | a sound pack (46 short sounds, played by name, below): a fighting-game announcer: `fight`, `round_1` to `round_5`, `final_round`, `ready`, `begin`, `combo`, `combo_breaker`, `flawless_victory`, `winner`, `you_win`, `you_lose`, `game_over`, `prepare_yourself`, `sudden_death`, the numbers `1` to `10` and more |
+
+`ctx.assets.sound(id, name, { volume, rate, pan, delay })` plays one sound of a listed sound pack
+(`sounds-*`) by its name, or by a group's: a name without its variant number (`impactPunch_heavy`
+for `impactPunch_heavy_000` to `impactPunch_heavy_004`) plays one of them at random, so a blow never sounds the same
+twice. `volume` 0 to 2 (1), `rate` 0.25 to 4 (1; higher is higher and shorter), `pan` -1 to 1,
+`delay` in seconds. It returns how long the sound plays, or 0 before the player's first key or tap
+(there is no sound yet) and for a name the pack does not have. `ctx.assets.sound(id)` lists the
+pack's `{ names, groups }`. The runtime already plays the coin, level, crash and fight sounds: use a
+pack for what is the world's own (a door, a dice roll, a roar, an announcer's "Round 1").
+
+```js
+ctx.on('knockout', function () { ctx.assets.sound('sounds-impact', 'impactPunch_heavy', { volume: 0.8 }); });
+```
 
 `ctx.assets.human(id, options)` returns `{ object, animate, name, color }`: return it straight
 from `player()` or `rival()`. It idles when standing, plays a standing start when it first moves,
@@ -938,6 +968,11 @@ monsters, animals, ghosts), they must not be people in costume: give the crew ki
 anywhere else), animated by the runtime like a person: it walks, squares up, strikes, shoots,
 flinches and goes down. Its options, all optional:
 
+- `model`: a creature from the library (list it in `assets`): `'creature-horse'`, `'creature-trex'`,
+  `'creature-knight'`, `'creature-ogre'`, `'creature-ape'`, `'creature-centaur'`, `'creature-mech'` or
+  `'creature-scorpion'`, realistic and motion-captured, in place of a built one. Then only `height`
+  (it is scaled to it) and `name` count; leave the rest out. A model the world does not list is
+  built from the description instead. `body: { model: 'creature-ogre', height: 3.2 }`
 - `plan`: `'biped'` (two legs, two arms: aliens, robots, demons, mutants), `'beast'` (four legs,
   a long body, a neck and a tail: hounds, cats, lizards, insects), `'floater'` (hovers, no legs:
   drones, ghosts, jellyfish, orbs)
