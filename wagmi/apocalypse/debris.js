@@ -271,8 +271,12 @@ export function createDebris(W, fx, { clear = [] } = {}) {
   }));
 
   const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(), P = new THREE.Vector3();
+  // keep(x, z, r): true where nothing that stands in the way may go (the GPS route's corridor, set by index.js)
+  const out = { keep: null };
+  const FLAT = new Set(['sheet', 'shadow', 'mound', 'rubble-s', 'cardboard-box', 'dead-shrub', 'wheel-rim']);
   function put(name, x, z, yaw, { s = 1, tilt = 0, roll = 0, dy = 0, y = null } = {}) {
     const k = kinds[name]; if (!k || k.n >= k.cap) return false;
+    if (out.keep && !FLAT.has(name) && out.keep(x, z, (BODY[name] ? Math.max(BODY[name][0], BODY[name][1]) * s : 0.6))) return false;
     const gy = y ?? ground(x, z);
     P.set(x, gy + dy, z); E.set(tilt, yaw, roll, 'YXZ'); Q.setFromEuler(E); S.setScalar(s);
     M.compose(P, Q, S);
@@ -430,5 +434,5 @@ export function createDebris(W, fx, { clear = [] } = {}) {
     if (dirty || !at || Math.hypot(p.x - at.x, p.z - at.z) > RELAY) layout(p.x, p.z);
   }
   const count = () => Object.fromEntries(Object.entries(kinds).map(([k, v]) => [k, v.n]));
-  return { update, ready, group, count, fires, put, solids };
+  return Object.assign(out, { update, ready, group, count, fires, put, solids, relayout() { dirty = true; } });
 }

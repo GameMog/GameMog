@@ -9,6 +9,7 @@
 //   fx.js      falling ash and embers, fires with their smoke, the great plumes over the skyline
 //   debris.js  the broken streets round the camera: rubble, barriers, drums, tyres, sheets of metal, fallen poles, the
 //              dead lawns' mounds, shrubs and litter; the big pieces solid (colliders)
+//   corridor.js the GPS route kept rideable: wrecks pushed to the kerb or put away, no heap laid across it
 //   burning.js windows burning in some of the old fronts (soot up the wall over them), burnt-out cars still alight
 //   camps.js   tent camps and food lines on the plazas and squares, people round barrel fires
 //   sound.js   wind, rumble, crackle, far sirens and booms, a far roar; the living city's bed turned down (no music)
@@ -23,6 +24,7 @@ import { createDebris } from './debris.js';
 import { createCamps, CAMPS } from './camps.js';
 import { createSound } from './sound.js';
 import { createBurning } from './burning.js';
+import { createCorridor } from './corridor.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // how many of the city's walkers (of 340) and the street crowd's (of 560) are still out
@@ -66,6 +68,10 @@ export async function createApocalypse(W, { time = 'dusk', clear = [] } = {}) {
   const camps = createCamps(W, fx, { clear });
   const sound = createSound(W, fx);
   const burning = createBurning(W, fx);
+  // (the GPS's way kept rideable: no wreck or heap across it)
+  const corridor = createCorridor(W, debris);
+  debris.keep = (x, z, r) => corridor.near(x, z, r);
+  tr?.avoid?.((x, z) => corridor.near(x, z, 1.2));
 
   // the wild horses: a herd on the nearest open green within reach, two at most, gone when left far behind
   const herds = new Map();
@@ -94,6 +100,7 @@ export async function createApocalypse(W, { time = 'dusk', clear = [] } = {}) {
       fx.update(dt, c);
       debris.update(c);
       burning.update(c, dt);
+      corridor.update(dt);
       camps.update(dt, c);
       sound?.update(dt, c);
       herdsUpdate(dt, c);
@@ -101,9 +108,9 @@ export async function createApocalypse(W, { time = 'dusk', clear = [] } = {}) {
   })();
 
   Object.assign(out, {
-    look, fx, debris, camps, sound, burning, herds, CAMPS,
+    look, fx, debris, camps, sound, burning, corridor, herds, CAMPS,
     setTime(id) { const r = look.set(id); fx.setLook(lookNow()); return r; },
-    stats: () => ({ look: app.lightingSystem.activePresetId, fires: fx.fires, debris: debris.count(), burning: burning.count(), solids: debris.solids.length, campPeople: camps.people.length, herds: [...herds.keys()], abandoned: !!tr?.abandoned, sound: !!sound?.built }),
+    stats: () => ({ look: app.lightingSystem.activePresetId, fires: fx.fires, debris: debris.count(), burning: burning.count(), solids: debris.solids.length, corridor: corridor.stats(), campPeople: camps.people.length, herds: [...herds.keys()], abandoned: !!tr?.abandoned, sound: !!sound?.built }),
     ready: true,
   });
   console.log('[apocalypse] San Francisco after Erebus:', look?.base);
