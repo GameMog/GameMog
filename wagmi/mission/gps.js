@@ -143,14 +143,17 @@ export function createGPS(W) {
     for (let i = 1, n = Math.ceil(L / 5); i < n; i++) { const x = a[0] + (b[0] - a[0]) * i / n, z = a[1] + (b[1] - a[1]) * i / n; if (!net.walkable(x - 0.6, x + 0.6, z - 0.6, z + 0.6)) return false; }
     return true;
   };
-  function trim(pts) {
+  function trimWalk(pts) {
     if (!net.walkable || pts.length < 4) return pts;
     for (let j = Math.min(pts.length - 1, 8); j >= 2; j--) if (clear(pts[0], pts[j])) { pts = [pts[0], ...pts.slice(j)]; break; }
     const n = pts.length;
     for (let j = Math.max(0, n - 9); j <= n - 3; j++) if (clear(pts[j], pts[n - 1])) { pts = [...pts.slice(0, j + 1), pts[n - 1]]; break; }
     return pts;
   }
-  function planWalk(from, to) {
+  // (ride: a horse's: kept to the streets, no cut across a block: the ground's walkable test misses some of the city's
+  // buildings, and a cut that runs into one pins a horse against its wall)
+  function planWalk(from, to, ride = false) {
+    const trim = ride ? (p) => p : trimWalk;
     const G = walkGraph(), A = roadAt(G, from.x, from.z), B = roadAt(G, to.x, to.z);
     if (!A || !B) return null;
     const P = (q) => [q.r.a.x + q.r.dx * q.s, q.r.a.z + q.r.dz * q.s];
@@ -258,7 +261,7 @@ export function createGPS(W) {
       if (force || moved || swap || !gps.route || t0 - gps.lastPlan > 1000 || offRoute(p.x, p.z, gps.route) > 25) {
         gps.lastPlan = t0; gps._to = { x: t.x, z: t.z }; gps._foot = foot;
         // (a horse rides a one-way street either way, as a man walks it: the walking route, never round the block)
-        const r = foot && dist(p, t) < FOOT_LINE ? null : foot || W.car?.kind === 'horse' ? planWalk({ x: p.x, z: p.z }, t) : plan({ x: p.x, z: p.z }, t, ent.heading);
+        const r = foot && dist(p, t) < FOOT_LINE ? null : foot ? planWalk({ x: p.x, z: p.z }, t) : W.car?.kind === 'horse' ? planWalk({ x: p.x, z: p.z }, t, true) : plan({ x: p.x, z: p.z }, t, ent.heading);
         // (still on the route it had, a new plan much longer is not taken: crossing a junction straight on, a cross
         // street's lane can look like the way he is going for a moment, and the line must not flick round a block)
         const old = !force && !moved && !swap && r && gps.route && gps.route.length > 2 && offRoute(p.x, p.z, gps.route) < 10 ? onFrom(gps.route, p.x, p.z) : null;

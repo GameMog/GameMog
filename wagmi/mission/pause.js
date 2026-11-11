@@ -156,6 +156,12 @@ const CONTROLS = [
   ['Fighting', [['Strike', 'Left click · J', 'X', 'STRIKE'], ['Heavy', 'Right click · K', 'Y', 'HEAVY'], ['Counter (on the cue)', 'Q · L', 'LB', 'DODGE · COUNTER'], ['Dodge', 'C · Space', 'B', 'DODGE · COUNTER'], ['Grab · pick up · throw', 'E', 'RB', 'GRAB'], ['Lock the mouse to the view', 'click in a fight', '', '']]],
   ['Anywhere', [['Map', 'M', 'View', 'Map button'], ['Brief: the objective, the last lines', 'B', 'R3', 'tap the objective'], ['Pause', 'Esc · P', 'Start', 'Pause button'], ['Skip a cutscene', 'hold Space', 'hold A', 'hold anywhere'], ['Menus: choose · OK · back', '↑ ↓ · Enter · Esc', 'Up Down · A · B', 'tap'], ['Need a hand? options', '1 · 2 · 3', 'Up · Right · Down', 'tap one']]],
 ];
+// (a world ridden on Ranger (W.car.kind 'horse'): the car's column is the horse's, and on foot F mounts him)
+const HORSE_CONTROLS = [
+  ['On foot', [['Move', 'W A S D', 'LS', 'stick'], ['Sprint', 'Shift', 'LT · L3', 'SPRINT'], ['Jump', 'Space', 'A', 'JUMP'], ['Mount Ranger', 'F', 'Y', 'GET IN'], ['Look round', 'drag the mouse', 'RS', 'drag the view']]],
+  ['On Ranger', [['Ride · halt', 'W · S', 'RT · LT', 'stick up · down'], ['Steer', 'A · D', 'LS', 'stick left · right'], ['Gallop', 'Shift', 'X', 'BOOST'], ['Walk / trot', 'Q', '', ''], ['Jump (he clears rubble at a gallop)', 'Space', 'A', 'HOP'], ['Swing the bat', 'J · left click', '', ''], ['Buck: hind legs out', 'K · right click', '', ''], ['Dismount', 'F (slow down first)', 'Y', 'EXIT'], ['Back on the road', 'recover', 'B', 'RESET CAR'], ['Look round', 'drag the mouse', 'RS', 'drag the view']]],
+];
+const controlsFor = () => (window.WAGMI?.car?.kind === 'horse' ? [...HORSE_CONTROLS, ...CONTROLS.slice(2)] : CONTROLS);
 // Graphics: [the saved choice, its name, what it means] (window.NYC.quality.set(choice): the next load's)
 const GFX = [['auto', 'Auto', 'Phone settings on a phone'], ['high', 'High', 'Every effect'], ['low', 'Low', 'Lightest, for older phones']];
 const TIER = { high: 'High', phone: 'Phone', low: 'Low' };
@@ -264,15 +270,15 @@ export function createPause(ui) {
     return { M, list: M.checkpoints.map((c, i) => ({ ...c, cur: i === at, lock: i > at && !DEBUG })) };
   }
   function drawMenu() {
-    menuEl.innerHTML = ITEMS.map(([id, label], i) => `<button class="mi sh${i === sel ? ' sel' : ''}" data-i="${i}">${esc(label)}</button>`).join('');
+    menuEl.innerHTML = ITEMS.map(([id, label], i) => `<button class="mi sh${i === sel ? ' sel' : ''}" data-i="${i}">${esc(id === 'recover' && W.car?.kind === 'horse' ? 'Back on the road' : label)}</button>`).join('');
   }
   function drawPanel() {
     const id = ITEMS[sel][0];
     panel.classList.toggle('focus', inPanel);
     if (id === 'resume' || id === 'brief') panel.innerHTML = brief();
-    else if (id === 'controls' && touchUI()) panel.innerHTML = `<div class="cols ctl tch">${CONTROLS.map(([h, rows]) => `<div><div class="row th"><span class="t">${esc(h)}</span><span>Touch</span><span class="ky">Keys</span><span>Controller</span></div>${rows.filter(([, k]) => k !== 'recover' || W.recoverCar).map(([a, k, p, t]) => `<div class="row"><span>${esc(a)}</span><span class="tc">${esc(t || '—')}</span><span class="ky">${esc(k === 'recover' ? recoverKey() : k || '—')}</span><span class="pd">${padCol(p)}</span></div>`).join('')}</div>`).join('')}</div>`;
-    else if (id === 'controls') panel.innerHTML = `<div class="cols ctl">${CONTROLS.map(([h, rows]) => `<div><div class="row th"><span class="t">${esc(h)}</span><span>Keys</span><span>Controller</span></div>${rows.filter(([, k]) => k !== 'recover' || W.recoverCar).map(([a, k, p]) => `<div class="row"><span>${esc(a)}</span><span>${esc(k === 'recover' ? recoverKey() : k || '—')}</span><span class="pd">${padCol(p)}</span></div>`).join('')}</div>`).join('')}</div>`;
-    else if (id === 'recover') panel.innerHTML = `<div class="t">Reset car to road</div><div class="ln">Stuck on a wall, a kerb or a lamp post? Your car goes back on the nearest lane, upright and facing the way the traffic goes.</div>
+    else if (id === 'controls' && touchUI()) panel.innerHTML = `<div class="cols ctl tch">${controlsFor().map(([h, rows]) => `<div><div class="row th"><span class="t">${esc(h)}</span><span>Touch</span><span class="ky">Keys</span><span>Controller</span></div>${rows.filter(([, k]) => k !== 'recover' || W.recoverCar).map(([a, k, p, t]) => `<div class="row"><span>${esc(a)}</span><span class="tc">${esc(t || '—')}</span><span class="ky">${esc(k === 'recover' ? recoverKey() : k || '—')}</span><span class="pd">${padCol(p)}</span></div>`).join('')}</div>`).join('')}</div>`;
+    else if (id === 'controls') panel.innerHTML = `<div class="cols ctl">${controlsFor().map(([h, rows]) => `<div><div class="row th"><span class="t">${esc(h)}</span><span>Keys</span><span>Controller</span></div>${rows.filter(([, k]) => k !== 'recover' || W.recoverCar).map(([a, k, p]) => `<div class="row"><span>${esc(a)}</span><span>${esc(k === 'recover' ? recoverKey() : k || '—')}</span><span class="pd">${padCol(p)}</span></div>`).join('')}</div>`).join('')}</div>`;
+    else if (id === 'recover') panel.innerHTML = W.car?.kind === 'horse' ? `<div class="t">Back on the road</div><div class="ln">Ranger caught on rubble, a wall or a wreck? He's put back on the nearest street, facing along it.</div>` : `<div class="t">Reset car to road</div><div class="ln">Stuck on a wall, a kerb or a lamp post? Your car goes back on the nearest lane, upright and facing the way the traffic goes.</div>
       <div class="mu" style="margin-top:10px;font-size:15px"><kbd>Enter</kbd> to reset${W.recoverCar?.key ? ` · in the car, any time: <kbd>${esc(recoverKey())}</kbd>` : ''}</div>`;
     else if (id === 'restart') {
       const { M, list } = checkpoints();
