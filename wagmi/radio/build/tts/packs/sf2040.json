@@ -1,0 +1,11 @@
+{
+ "note": "SF 2040's cast (wagmi/radio/build/pack-voices.mjs): each speaker's voice in tts-voices.mjs; Radio is Nina on the emergency band (fx radio, baked in). Candidates and why: tts-voices.mjs; the auditions in .scratch/voice/audition/.",
+ "out": "assets/voice/sf2040",
+ "speakers": {
+  "Cal": { "voice": "cal-A" },
+  "Nina": { "voice": "nina-C" },
+  "June": { "voice": "june-F" },
+  "Hollis": { "voice": "hollis-B" },
+  "Radio": { "voice": "nina-C", "fx": "radio" }
+ }
+}

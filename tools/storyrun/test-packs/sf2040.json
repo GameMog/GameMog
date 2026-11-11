@@ -1281,5 +1281,461 @@
     }
    ]
   }
- ]
+ ],
+ "voice": {
+  "model": "qwen3-tts-12hz (wagmi/radio/build/pack-voices.mjs)",
+  "dir": "",
+  "cast": {
+   "Cal": {
+    "id": "cal",
+    "voice": "cal-A",
+    "key": "b7012458"
+   },
+   "Nina": {
+    "id": "nina",
+    "voice": "nina-C",
+    "key": "406c3254"
+   },
+   "June": {
+    "id": "june",
+    "voice": "june-F",
+    "key": "73cffda5"
+   },
+   "Hollis": {
+    "id": "hollis",
+    "voice": "hollis-B",
+    "key": "966bd272"
+   },
+   "Radio": {
+    "id": "radio",
+    "voice": "nina-C",
+    "key": "31f80898",
+    "fx": "radio"
+   }
+  },
+  "lines": [
+   {
+    "id": "opening.3",
+    "who": "Radio",
+    "voice": "nina-C",
+    "text": "...this is Nina Mercer... June and I are... Market and Church... medicine... anyone...",
+    "hash": "d1dcf2b0",
+    "clip": "d1dcf2b0-31f80898"
+   },
+   {
+    "id": "opening.5",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "That's her. That's Nina.",
+    "hash": "f6908396",
+    "clip": "f6908396-b7012458"
+   },
+   {
+    "id": "opening.6",
+    "who": "Hollis",
+    "voice": "hollis-B",
+    "text": "Message is three days old, Cal. And forty families here haven't eaten since Tuesday.",
+    "hash": "c4235d84",
+    "clip": "c4235d84-966bd272"
+   },
+   {
+    "id": "opening.7",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Then I ride Market for food, and I keep riding.",
+    "hash": "9158612b",
+    "clip": "9158612b-b7012458"
+   },
+   {
+    "id": "M1.1",
+    "who": "Hollis",
+    "voice": "hollis-B",
+    "text": "Crates fell off the relief trucks all down Market. Bring back five.",
+    "hash": "1488ac69",
+    "clip": "1488ac69-966bd272"
+   },
+   {
+    "id": "M1.2",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Come on, Ranger.",
+    "hash": "eda48c8b",
+    "clip": "eda48c8b-b7012458"
+   },
+   {
+    "id": "M1.3.bark1",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Beans. Good.",
+    "hash": "79033a3a",
+    "clip": "79033a3a-b7012458"
+   },
+   {
+    "id": "M1.3.bark3",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Halfway there.",
+    "hash": "d822e418",
+    "clip": "d822e418-b7012458"
+   },
+   {
+    "id": "M1.4",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Armour on the corner. Iron Saints. They want the crates.",
+    "hash": "1fd449ce",
+    "clip": "1fd449ce-b7012458"
+   },
+   {
+    "id": "M1.5.bark1",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Stay down.",
+    "hash": "a71f4180",
+    "clip": "a71f4180-b7012458"
+   },
+   {
+    "id": "M1.5.bark2",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "One more.",
+    "hash": "879fbe67",
+    "clip": "879fbe67-b7012458"
+   },
+   {
+    "id": "M1.9.0",
+    "who": "Hollis",
+    "voice": "hollis-B",
+    "text": "Five crates. The kids are already fighting over the peaches.",
+    "hash": "1885d8d7",
+    "clip": "1885d8d7-966bd272"
+   },
+   {
+    "id": "M1.9.1",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Market and Church. That's where she called from.",
+    "hash": "6fdb2bd1",
+    "clip": "6fdb2bd1-b7012458"
+   },
+   {
+    "id": "M1.9.2",
+    "who": "Hollis",
+    "voice": "hollis-B",
+    "text": "Then bring her medicine too. And watch Octavia. Something big nests under the ramps.",
+    "hash": "7506f3a1",
+    "clip": "7506f3a1-966bd272"
+   },
+   {
+    "id": "M2.1",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Egg sacs on the ramp. Easy, Ranger. Easy.",
+    "hash": "821a6f62",
+    "clip": "821a6f62-b7012458"
+   },
+   {
+    "id": "M2.2",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "There she is.",
+    "hash": "2a56f67e",
+    "clip": "2a56f67e-b7012458"
+   },
+   {
+    "id": "M2.4.bark1",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Antibiotics. She'd want these.",
+    "hash": "be48405f",
+    "clip": "be48405f-b7012458"
+   },
+   {
+    "id": "M2.6.0",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "A note, taped to the register. Her writing.",
+    "hash": "107c46f0",
+    "clip": "107c46f0-b7012458"
+   },
+   {
+    "id": "M2.6.2",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Alive. Both of them.",
+    "hash": "61267683",
+    "clip": "61267683-b7012458"
+   },
+   {
+    "id": "M3.2",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Wild horses on the plaza. And something sitting on the steps, watching them.",
+    "hash": "e33917a4",
+    "clip": "e33917a4-b7012458"
+   },
+   {
+    "id": "M3.3",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Okay, big fella. Okay.",
+    "hash": "dd31f1d3",
+    "clip": "dd31f1d3-b7012458"
+   },
+   {
+    "id": "M3.6.0",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "June's backpack. The patch her grandma sewed on.",
+    "hash": "809faf1c",
+    "clip": "809faf1c-b7012458"
+   },
+   {
+    "id": "M3.6.1",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Her inhaler's still in it. She's got the spare. Hyde St, then.",
+    "hash": "448fb877",
+    "clip": "448fb877-b7012458"
+   },
+   {
+    "id": "M4.1",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Hybrids. Preserve tags still on them.",
+    "hash": "d9c03c5b",
+    "clip": "d9c03c5b-b7012458"
+   },
+   {
+    "id": "M4.2",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Target me, then. Come on.",
+    "hash": "606ff32b",
+    "clip": "606ff32b-b7012458"
+   },
+   {
+    "id": "M4.4.0",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Empty. Every bed.",
+    "hash": "d707cdf5",
+    "clip": "d707cdf5-b7012458"
+   },
+   {
+    "id": "M4.4.2",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Lafayette Park. I'm coming.",
+    "hash": "096a7060",
+    "clip": "096a7060-b7012458"
+   },
+   {
+    "id": "M5.1",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Brutes. And that's no tree on the hill.",
+    "hash": "8e152fdc",
+    "clip": "8e152fdc-b7012458"
+   },
+   {
+    "id": "M5.2",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Not tonight. Not when I'm this close.",
+    "hash": "c6bdf232",
+    "clip": "c6bdf232-b7012458"
+   },
+   {
+    "id": "M5.7.0",
+    "who": "June",
+    "voice": "june-F",
+    "text": "Dad? DAD!",
+    "hash": "0db343fb",
+    "clip": "0db343fb-73cffda5"
+   },
+   {
+    "id": "M5.7.1",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Junebug. I've got you. I've got you.",
+    "hash": "64494116",
+    "clip": "64494116-b7012458"
+   },
+   {
+    "id": "M5.7.2",
+    "who": "Nina",
+    "voice": "nina-C",
+    "text": "Cal. You found the notes.",
+    "hash": "3112dabd",
+    "clip": "3112dabd-406c3254"
+   },
+   {
+    "id": "M5.7.3",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Three notes. A backpack. And one very angry lizard.",
+    "hash": "9e808880",
+    "clip": "9e808880-b7012458"
+   },
+   {
+    "id": "M5.7.4",
+    "who": "June",
+    "voice": "june-F",
+    "text": "Is that Ranger? You kept Ranger?",
+    "hash": "11e8fb6e",
+    "clip": "11e8fb6e-73cffda5"
+   },
+   {
+    "id": "M5.7.5",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "He kept me. Come on. The camp needs a doctor.",
+    "hash": "4179bf24",
+    "clip": "4179bf24-b7012458"
+   }
+  ],
+  "clips": {
+   "d1dcf2b0-31f80898": {
+    "url": "assets/voice/sf2040/d1dcf2b0-31f80898.m4a",
+    "secs": 4.86
+   },
+   "f6908396-b7012458": {
+    "url": "assets/voice/sf2040/f6908396-b7012458.m4a",
+    "secs": 1.49
+   },
+   "c4235d84-966bd272": {
+    "url": "assets/voice/sf2040/c4235d84-966bd272.m4a",
+    "secs": 5.17
+   },
+   "9158612b-b7012458": {
+    "url": "assets/voice/sf2040/9158612b-b7012458.m4a",
+    "secs": 2.62
+   },
+   "1488ac69-966bd272": {
+    "url": "assets/voice/sf2040/1488ac69-966bd272.m4a",
+    "secs": 4.39
+   },
+   "eda48c8b-b7012458": {
+    "url": "assets/voice/sf2040/eda48c8b-b7012458.m4a",
+    "secs": 0.84
+   },
+   "79033a3a-b7012458": {
+    "url": "assets/voice/sf2040/79033a3a-b7012458.m4a",
+    "secs": 1.31
+   },
+   "d822e418-b7012458": {
+    "url": "assets/voice/sf2040/d822e418-b7012458.m4a",
+    "secs": 0.74
+   },
+   "1fd449ce-b7012458": {
+    "url": "assets/voice/sf2040/1fd449ce-b7012458.m4a",
+    "secs": 3.53
+   },
+   "a71f4180-b7012458": {
+    "url": "assets/voice/sf2040/a71f4180-b7012458.m4a",
+    "secs": 0.64
+   },
+   "879fbe67-b7012458": {
+    "url": "assets/voice/sf2040/879fbe67-b7012458.m4a",
+    "secs": 0.63
+   },
+   "1885d8d7-966bd272": {
+    "url": "assets/voice/sf2040/1885d8d7-966bd272.m4a",
+    "secs": 3.7
+   },
+   "6fdb2bd1-b7012458": {
+    "url": "assets/voice/sf2040/6fdb2bd1-b7012458.m4a",
+    "secs": 2.29
+   },
+   "7506f3a1-966bd272": {
+    "url": "assets/voice/sf2040/7506f3a1-966bd272.m4a",
+    "secs": 5.63
+   },
+   "821a6f62-b7012458": {
+    "url": "assets/voice/sf2040/821a6f62-b7012458.m4a",
+    "secs": 3.75
+   },
+   "2a56f67e-b7012458": {
+    "url": "assets/voice/sf2040/2a56f67e-b7012458.m4a",
+    "secs": 0.85
+   },
+   "be48405f-b7012458": {
+    "url": "assets/voice/sf2040/be48405f-b7012458.m4a",
+    "secs": 2.04
+   },
+   "107c46f0-b7012458": {
+    "url": "assets/voice/sf2040/107c46f0-b7012458.m4a",
+    "secs": 2.75
+   },
+   "61267683-b7012458": {
+    "url": "assets/voice/sf2040/61267683-b7012458.m4a",
+    "secs": 1.67
+   },
+   "e33917a4-b7012458": {
+    "url": "assets/voice/sf2040/e33917a4-b7012458.m4a",
+    "secs": 4.17
+   },
+   "dd31f1d3-b7012458": {
+    "url": "assets/voice/sf2040/dd31f1d3-b7012458.m4a",
+    "secs": 1.59
+   },
+   "809faf1c-b7012458": {
+    "url": "assets/voice/sf2040/809faf1c-b7012458.m4a",
+    "secs": 2.78
+   },
+   "448fb877-b7012458": {
+    "url": "assets/voice/sf2040/448fb877-b7012458.m4a",
+    "secs": 3.53
+   },
+   "d9c03c5b-b7012458": {
+    "url": "assets/voice/sf2040/d9c03c5b-b7012458.m4a",
+    "secs": 2.6
+   },
+   "606ff32b-b7012458": {
+    "url": "assets/voice/sf2040/606ff32b-b7012458.m4a",
+    "secs": 1.6
+   },
+   "d707cdf5-b7012458": {
+    "url": "assets/voice/sf2040/d707cdf5-b7012458.m4a",
+    "secs": 1.49
+   },
+   "096a7060-b7012458": {
+    "url": "assets/voice/sf2040/096a7060-b7012458.m4a",
+    "secs": 1.67
+   },
+   "8e152fdc-b7012458": {
+    "url": "assets/voice/sf2040/8e152fdc-b7012458.m4a",
+    "secs": 2.25
+   },
+   "c6bdf232-b7012458": {
+    "url": "assets/voice/sf2040/c6bdf232-b7012458.m4a",
+    "secs": 2.32
+   },
+   "0db343fb-73cffda5": {
+    "url": "assets/voice/sf2040/0db343fb-73cffda5.m4a",
+    "secs": 1.13
+   },
+   "64494116-b7012458": {
+    "url": "assets/voice/sf2040/64494116-b7012458.m4a",
+    "secs": 2.56
+   },
+   "3112dabd-406c3254": {
+    "url": "assets/voice/sf2040/3112dabd-406c3254.m4a",
+    "secs": 1.59
+   },
+   "9e808880-b7012458": {
+    "url": "assets/voice/sf2040/9e808880-b7012458.m4a",
+    "secs": 3.72
+   },
+   "11e8fb6e-73cffda5": {
+    "url": "assets/voice/sf2040/11e8fb6e-73cffda5.m4a",
+    "secs": 1.89
+   },
+   "4179bf24-b7012458": {
+    "url": "assets/voice/sf2040/4179bf24-b7012458.m4a",
+    "secs": 2.69
+   }
+  }
+ }
 }

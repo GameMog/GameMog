@@ -228,6 +228,9 @@ Voices (assets/voice)
     mlx-community conversions (Apache-2.0) run with mlx-audio (MIT, https://github.com/Blaizzy/mlx-audio).
     The voices are invented: no real person's voice was used. Their reference clips are in
     wagmi/radio/build/tts/.
+  - SF 2040's Cal, Nina (and her radio calls), June and Hollis (assets/voice/sf2040): synthesised the same way with
+    Qwen3-TTS (designed with the 1.7B VoiceDesign model, cloned with the 0.6B Base, mlx-audio); invented voices.
+    The radio's band and static are made in wagmi/radio/build/dsp.mjs (radioFx).
   - Mr. Big: synthesised with Kokoro-82M by hexgrad (Apache-2.0, https://huggingface.co/hexgrad/Kokoro-82M),
     its stock voice bm_lewis, run with kokoro-onnx (MIT); heard as it is (no voice changer). The phonemizer
     kokoro-onnx uses is GPL-3.0 and was only run, never shipped or vendored.

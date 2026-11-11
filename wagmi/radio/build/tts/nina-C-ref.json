@@ -1,0 +1,7 @@
+{
+ "design": "Female, 38 years old, American, an emergency room doctor, a grown woman's warm low mezzo voice, steady and calm under pressure, tired but kind, clear and unhurried, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 5223,
+ "refText": "Okay. Sit down and let me look at it. It's not broken, it's a bad sprain. Keep it up, drink some water, and come and find me in the morning. You did good today.",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}
