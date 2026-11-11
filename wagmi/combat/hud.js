@@ -21,6 +21,14 @@ import * as THREE from 'three/webgpu';
 import { clamp } from './util.js';
 
 const Y = '#FFC93C', G = '#4ADE80', R = '#EF4444', PANEL = 'rgba(8,10,14,0.62)';
+// (the HUD's left column, for the edge markers to keep off: read twice a second, not every frame)
+const glassUI = () => typeof document !== 'undefined' && document.documentElement.classList.contains('ui-glass');
+let avoidAt = 0, avoidR = [];
+const hudAvoid = () => {
+  const t = performance.now(); if (t - avoidAt < 500) return avoidR; avoidAt = t;
+  avoidR = [...document.querySelectorAll('.hud-bottom-left, #wg .wg-help.on, #wf .wf-hint.wf-on')].map((e) => e.getBoundingClientRect()).filter((r) => r.width && r.height);
+  return avoidR;
+};
 const CSS = `
 #wf{position:fixed;inset:0;pointer-events:none;z-index:24;font-family:'Barlow Condensed',system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.55)}
 #wf .wf-hp{position:fixed;height:8px;border-radius:3px;background:${PANEL};box-shadow:0 0 0 1px rgba(255,255,255,.14),0 2px 10px rgba(0,0,0,.35);overflow:hidden;opacity:0;transition:opacity .4s}
@@ -304,7 +312,11 @@ export function createHud(c) {
           el.style.display = 'block';
           el.style.opacity = e.standing ? '1' : '0.5';
           el.classList.toggle('wf-last', standing === 1 && e.standing);
-          el.style.transform = `translate(${((Math.cos(a) / rr * 0.5 + 0.5) * W).toFixed(1)}px,${((1 - (Math.sin(a) / rr * 0.5 + 0.5)) * H).toFixed(1)}px)`;
+          let fx = (Math.cos(a) / rr * 0.5 + 0.5) * W, fy = (1 - (Math.sin(a) / rr * 0.5 + 0.5)) * H;
+          // (a world on the glass theme: never over the HUD's left column, the tracker, the signs and the radar; moved
+          // out to its right edge)
+          if (glassUI()) for (const R of hudAvoid()) if (fx > R.left - 24 && fx < R.right + 24 && fy > R.top - 24 && fy < R.bottom + 24) fx = R.right + 34;
+          el.style.transform = `translate(${fx.toFixed(1)}px,${fy.toFixed(1)}px)`;
           el._i.style.transform = `rotate(${-a}rad)`;
           const d = Math.round(Math.hypot(e.pos.x - q.x, e.pos.z - q.z)) + ' m';
           if (el._d.textContent !== d) el._d.textContent = d;
