@@ -469,7 +469,9 @@ export function createRunner(ctx) {
   // glass behind a face, a bus's windows, a shop front, would 'reflect' the face itself from the screen, stretched
   // and striped: VR, 5 Nov, 'a ghost in the bus window'. The reflection's strength is a uniform: nothing is rebuilt)
   const CLOSE = 3.5, ssrOf = () => app.postFX?.ssrPass || null;
-  function keyLight(p, l) {
+  // (a shot's warm: true, a scene's tender moment: the key a low sun's amber, stronger, and kept on the people in a
+  // wider shot too)
+  function keyLight(p, l, warm = false) {
     const dx = p[0] - l[0], dz = p[2] - l[2], dy = p[1] - l[1], n = Math.hypot(dx, dy, dz) || 1, h = Math.hypot(dx, dz) || 1;
     const fx = dx / h, fz = dz / h, out = Math.min(1.9, n * 0.9);
     keyL.position.set(l[0] + fx * out - fz * 0.8, l[1] + 0.5, l[2] + fz * out + fx * 0.8);
@@ -478,6 +480,7 @@ export function createRunner(ctx) {
     const nt = W.storyrun?.nightLit?.night?.() || 0;
     keyL.color.set(nt > 0.5 ? '#FFD9AE' : '#FFE6CC'); keyL.distance = n < 6 ? 4.5 : 9;
     keyL.intensity = n < 6 ? 2.6 * (1 + 0.9 * nt) : 3.2 * nt;
+    if (warm) { keyL.color.set('#FFB27A'); keyL.intensity = n < 6 ? 3.4 * (1 + 0.6 * nt) : 7; keyL.distance = n < 6 ? 5 : 11; }
     return n;
   }
   // (opening: the world's opening (opening()), its shots' place card, title and name cards played as Mog City's opening
@@ -521,22 +524,50 @@ export function createRunner(ctx) {
   const _h1 = new THREE.Vector3(), _h2 = new THREE.Vector3(), _h3 = new THREE.Vector3(), _hf = new THREE.Vector3(), _hr = new THREE.Vector3();
   const bonesOf = (who) => (who === 'player' || who === heroName ? W.dan?.bones : cast.get(castName(who))?.bones) || null;
   const rootOf = (who) => (who === 'player' || who === heroName ? P.position : cast.get(castName(who))?.root.position) || null;
-  function hugArms(fig, who, t0) {
-    const B = fig.bones, ob = bonesOf(who); if (!B || !ob) return;
-    const sp = ob.spine03 || ob.spine02 || ob.neck01; if (!sp) return;
-    const u = Math.min(1, Math.max(0, (now() - t0) / 550)), k = 0.95 * u * u * (3 - 2 * u);
-    let hw = 0.17; if (ob.upperarm01_L && ob.upperarm01_R) { ob.upperarm01_L.getWorldPosition(_h1); ob.upperarm01_R.getWorldPosition(_h2); hw = Math.min(0.24, Math.max(0.1, _h1.distanceTo(_h2) / 2)); }
-    sp.getWorldPosition(_h1);
-    const dx = _h1.x - fig.root.position.x, dz = _h1.z - fig.root.position.z, n = Math.hypot(dx, dz) || 1;
-    _hf.set(dx / n, 0, dz / n); _hr.set(_hf.z, 0, -_hf.x);
-    // (someone shorter reaches round lower: the hands under the other's shoulder blades, not above their own head)
-    const myTop = (B.neck01 ? B.neck01.getWorldPosition(_h3).y : fig.root.position.y + 1.5);
-    if (_h1.y > myTop - 0.12) _h1.y = myTop - 0.12;
+  // (hug: one name, both arms round that one; or { L: <who>, R: <who> }, an arm round each, as a father holds his wife
+  // and his daughter at once. Each arm comes round over half a second from when its own one is first named: t0 per side)
+  function hugArms(fig, hug, t0) {
+    const B = fig.bones; if (!B) return;
     for (const [side, sg] of [['L', 1], ['R', -1]]) {
-      const tg = _h2.copy(_h1).addScaledVector(_hf, hw * 0.62).addScaledVector(_hr, sg * hw * 0.6); tg.y += side === 'L' ? 0.035 : -0.045;
+      const who = typeof hug === 'string' ? hug : hug?.[side]; if (!who) continue;
+      const ob = bonesOf(who); if (!ob) continue;
+      const sp = ob.spine03 || ob.spine02 || ob.neck01; if (!sp) continue;
+      const ts = typeof t0 === 'number' ? t0 : t0?.[side] ?? now();
+      const u = Math.min(1, Math.max(0, (now() - ts) / 550)), k = 0.95 * u * u * (3 - 2 * u);
+      let hw = 0.17; if (ob.upperarm01_L && ob.upperarm01_R) { ob.upperarm01_L.getWorldPosition(_h1); ob.upperarm01_R.getWorldPosition(_h2); hw = Math.min(0.24, Math.max(0.1, _h1.distanceTo(_h2) / 2)); }
+      sp.getWorldPosition(_h1);
+      // (a child's spine bone sits near her back, a grown-up's mid-chest: the hands go to the back's surface either way)
+      const orr = rootOf(who), small = !!orr && _h1.y - orr.y < 1.15;
+      const dx = _h1.x - fig.root.position.x, dz = _h1.z - fig.root.position.z, n = Math.hypot(dx, dz) || 1;
+      _hf.set(dx / n, 0, dz / n); _hr.set(_hf.z, 0, -_hf.x);
+      // (someone shorter reaches round lower: the hands under the other's shoulder blades, not above their own head)
+      const myTop = (B.neck01 ? B.neck01.getWorldPosition(_h3).y : fig.root.position.y + 1.5);
+      if (_h1.y > myTop - 0.12) _h1.y = myTop - 0.12;
+      // (an arm round one of two goes round that one's far side: across their back to the shoulder blade away from him)
+      // (an arm round one of two: the hand on that one's back by the spine, the arm across their near side)
+      const one = typeof hug === 'string', reach = sg * hw * (one ? 0.6 : 0.3), back = small ? hw * 0.12 : hw * (one ? 0.62 : 0.95);
+      const tg = _h2.copy(_h1).addScaledVector(_hf, back).addScaledVector(_hr, reach); tg.y += side === 'L' ? 0.035 : -0.045;
       const pole = new THREE.Vector3().copy(_h1).addScaledVector(_hf, -0.15).addScaledVector(_hr, sg * (hw + 0.55)); pole.y = tg.y - 0.25;
       try { armTo(B, side, tg.clone(), pole, k, MH_ARM); } catch {}
     }
+  }
+  // (the hero's own arms in a street cutscene: { who: <hero>, hug, after } held over his clip each frame (W.dan.post,
+  // after his pose), let go when the cutscene ends (heroHug(null)))
+  let heroHugOn = null;
+  function heroHug(hug, after = 0) {
+    const Q = W.dan; if (!Q) return;
+    if (!hug) { heroHugOn = null; if (Q.post === heroPost) Q.post = null; return; }
+    const at = now() + after * 1000, prev = heroHugOn, t0 = {};
+    for (const side of ['L', 'R']) { const who = typeof hug === 'string' ? hug : hug[side]; const was = prev && (typeof prev.hug === 'string' ? prev.hug : prev.hug?.[side]); t0[side] = was && was === who ? prev.t0[side] : at; }
+    heroHugOn = { hug, t0, at };
+    Q.post = heroPost;
+  }
+  const heroFig = { get bones() { return W.dan?.bones; }, root: P };
+  function heroPost() {
+    const h = heroHugOn; if (!h || !W.cutscene) return;
+    // (until its own moment, the hug before it is kept: a hand that was round her stays round her)
+    if (now() < h.at && h.prev) { hugArms(heroFig, h.prev.hug, h.prev.t0); return; }
+    hugArms(heroFig, h.hug, h.t0);
   }
   function playClip(fig, name) {
     if (fig.play) return fig.play(name);
@@ -547,6 +578,7 @@ export function createRunner(ctx) {
   function streetAct(list) {
     for (const a of list || []) {
       if (!a || typeof a.who !== 'string') continue;
+      if (a.who === 'player' || castName(a.who) === heroName) { if ('hug' in a) { const prev = heroHugOn; heroHug(a.hug, a.after || 0); if (heroHugOn && prev && a.after) heroHugOn.prev = prev; } continue; }
       const fig = cast.get(castName(a.who)); if (!fig) continue;
       const faceTo = (who) => { const q = rootOf(who); if (q) { fig.heading = Math.atan2(q.x - fig.root.position.x, q.z - fig.root.position.z); fig.root.rotation.y = fig.heading; } };
       if (a.face) faceTo(a.face);
@@ -617,7 +649,7 @@ export function createRunner(ctx) {
             const p = pos(Math.min(k, hold)), l = look(Math.min(k, hold));
             D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov: s.fov || 40, roll: 0, shake: hh };
             if (setRun?.active) setRun.frame({ pos: D.camera.pos, look: l, fov: s.fov || 40 });
-            { const n = keyLight(p, l), ssr = ssrOf(); if (ssr) ssr.intensity.value = n < CLOSE ? 0 : ssr0; }
+            { const n = keyLight(p, l, !!s.warm), ssr = ssrOf(); if (ssr) ssr.intensity.value = n < CLOSE ? 0 : ssr0; }
             if (!beat) stepSkip();
             return (now() - t0) / 1000 >= len;
           }, local);
@@ -627,6 +659,7 @@ export function createRunner(ctx) {
       }
     } finally {
       ui.sub(null); ui.caption(null); ui.skip(null); keyL.intensity = 0; if (ssrOf()) ssrOf().intensity.value = ssr0;
+      if (!beat) heroHug(null);
       setRun?.use(null);
       if (opening) { ui.placeOff(); ui.gameTitle(false, true); }
       if (!beat) D.block(false);
