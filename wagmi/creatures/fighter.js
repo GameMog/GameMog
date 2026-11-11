@@ -274,7 +274,7 @@ export class CreatureFighter {
     this.playOne(name, { from: 0, ts: 1, fade: 0.2 });
     this.specT = Math.min(A.getClip().duration, 3.4) - 0.2;
     const V = this.P.voice || {};
-    if (V.roar) cue(this.c.W, V.roar, this.voiceAt(), { vol: this.boss ? 1 : 0.85 });
+    if (V.roar) { cue(this.c.W, V.roar, this.voiceAt(), { vol: this.boss ? 1 : 0.85 }); this.c.W.horseVoice?.fear?.(this.voiceAt(), this.boss || this.big); }
     if (this.P.beats && V.beat) for (const t of this.P.beats) if (t < this.specT) cue(this.c.W, V.beat.map((q) => ({ ...q, at: t })), this.voiceAt());
     if (this.big) this.c.shake(0.35);
   }
@@ -305,6 +305,8 @@ export class CreatureFighter {
     this.playOne(B.clip, { from: B.from, ts: 0, fade: Math.min(0.2, tele * 0.25) });
     this.c.threat(this, tele, B.counter ? 'counter' : 'dodge', { quake: !!B.quake });
     if (B.voice && this.P.voice?.[B.voice]) cue(this.c.W, this.P.voice[B.voice], this.voiceAt(), { at: B.voiceAt || 0 });
+    // (a roar near the horse: it shies, wagmi/horse/voice.js)
+    if (B.voice === 'roar') this.c.W.horseVoice?.fear?.(this.voiceAt(), true);
     if (B.phase && this.big) this.c.shake(0.3);
   }
   // the quake's middle now (where its fists or its foot come down)

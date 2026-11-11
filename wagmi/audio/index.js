@@ -82,7 +82,7 @@ export function install(W) {
       if (!M) return null;
       const vs = traffic.voices || {};
       const who = (list) => (list || []).map((x) => (x.v ? { w: +x.w.toFixed(2), d: +Math.hypot((x.v.edge ? x.v.x : x.x) - M.listener.x, (x.v.edge ? x.v.z : x.z) - M.listener.z).toFixed(1), mode: x.L?.mode, kind: x.kind, highway: !x.v.edge, engine: !!x.mv } : null));
-      return { state: M.ctx.state, paused, where: city.where, cars: who(vs.cars), sirens: who(vs.sirens), blocks: city.engines, car: car.built, engine: car.engine, babble: !!M.babble, motors: M.motors.bake, crunchMs: M.crunchMs, played: { ...E.count }, horns: { ...traffic.horns }, msPerFrame: cost.n ? +(cost.ms / cost.n).toFixed(3) : 0, latency: +(M.ctx.baseLatency || 0).toFixed(4), hooves: hooves ? { ...hooves.count } : null };
+      return { state: M.ctx.state, paused, where: city.where, cars: who(vs.cars), sirens: who(vs.sirens), blocks: city.engines, car: car.built, engine: car.engine, babble: !!M.babble, motors: M.motors.bake, crunchMs: M.crunchMs, played: { ...E.count }, horns: { ...traffic.horns }, msPerFrame: cost.n ? +(cost.ms / cost.n).toFixed(3) : 0, latency: +(M.ctx.baseLatency || 0).toFixed(4), hooves: hooves ? { ...hooves.count } : null, voice: voice ? { ...voice.count } : null };
     },
   });
 
@@ -157,6 +157,9 @@ export function install(W) {
   const horse = W.car?.kind === 'horse';
   let hooves = null;
   if (horse) import('../horse/hooves.js').then((m) => { hooves = m.createHooves(W); if (ensure()) import('../library/sounds.js').then((s) => s.preload(M, m.PACKS)); }).catch((err) => console.warn('[audio] hooves', err));
+  // (and its voice: wagmi/horse/voice.js, the library's horse pack; W.horse.voice for the creatures' roars and tests)
+  let voice = null;
+  if (horse) import('../horse/voice.js').then((m) => { voice = m.createVoice(W); W.horseVoice = voice; if (ensure()) import('../library/sounds.js').then((s) => s.preload(M, [m.PACK])); }).catch((err) => console.warn('[audio] horse voice', err));
   function tick(now) {
     requestAnimationFrame(tick);
     const dt = Math.min(0.1, Math.max(0, (now - last) / 1000)); last = now;
@@ -195,6 +198,12 @@ export function install(W) {
       if (hooves && c.roadster?.hooves && c.mesh.visible !== false) {
         const S = W.horse?.drive?.S;
         hooves.update(dt, { on: true, hooves: c.roadster.hooves(), base: c.position.y - (S?.jumpY || 0), speed: c.speed || 0, gait: c.roadster.gait, surface: parkAt(c.position.x, c.position.z) ? 'grass' : 'hard', air: !!S?.air, at: c.position });
+      }
+      if (voice && c.roadster && c.mesh.visible !== false) {
+        const H = W.horse, rs = c.roadster;
+        if (H && !H.voice) H.voice = voice;
+        voice.update(dt, { mounted: !!H?.mounted, phase: W.ride?.phase || null, gait: rs.gait, speed: c.speed || 0, air: !!H?.drive?.S?.air, one: rs.oneShot?.name || null, rs,
+          hp: W.combat?.player ? W.combat.player.hp : null, near: inCar ? null : Math.hypot(P.position.x - c.position.x, P.position.z - c.position.z) });
       }
       E.update();
     } catch (err) { if (!tick.warned) { tick.warned = true; console.warn('[audio] frame:', err); } }
