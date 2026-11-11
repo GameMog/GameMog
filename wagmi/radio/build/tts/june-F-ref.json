@@ -1,0 +1,7 @@
+{
+ "design": "Female, 13 years old, an American teenage girl, a natural mid-range speaking voice, not high-pitched, grounded and brave, plain and real, not a cartoon and not a little child, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 5353,
+ "refText": "Okay, so I counted, and there are nine birds on the roof right now. Mom says that means it's going to rain. I don't think that's even a real thing. I brought my jacket anyway.",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

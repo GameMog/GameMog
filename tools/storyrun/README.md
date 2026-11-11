@@ -39,6 +39,17 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
   (`sf2040/june.glb`, credits beside it) stood at 0.88 (the cast's `scale`) until she has a body of her own. Street
   cutscenes take a shot's `act` as a set's do (`walk` to a point, `hug`: the reunion), and a lair boss's wake is framed
   by a short beat (`wakeShot: false` leaves it out).
+  Every spoken line is voiced (Qwen3-TTS designs, `wagmi/radio/build/tts-voices.mjs` cal-*, nina-*, june-*, hollis-*;
+  the picks in `wagmi/radio/build/tts/packs/sf2040.json`; Radio is Nina on the emergency band, its static baked in).
+  The clips are `assets/voice/sf2040/<words hash>-<voice hash>.m4a`, listed in the pack's own `voice` plan (its `clips`
+  urls), so the runner plays them on their subtitles and the speaker's jaw follows (a stand-in's face answers to the
+  world's name: Jane's body moves with Nina's lines). After the script changes, voice it again (only new or changed
+  lines are rendered; the rest of the pack is left as it is):
+
+  ```
+  WAGMI_TTS=~/tts-local WAGMI_TTS_MODELS=~/tts-local node wagmi/radio/build/pack-voices.mjs tools/storyrun/test-packs/sf2040.json
+  ```
+  (`--dry` lists what it would make, `--prune` deletes clips no line uses; a new speaker needs a voice in the packs file.)
 - `sf-steps.json`: the SF 2040 steps close together by the Ferry Building (a test drive of about a minute): collect in
   the saddle, dismount, collect on foot, mount, a herd, two knights and a held scorpion boss.
 

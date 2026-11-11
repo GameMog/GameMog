@@ -142,3 +142,29 @@ export function whisper(x, sr, { order = 20, keep = 0.12, pre = 0.95, seed = 1 }
   for (let i = 0; i < n; i++) out[i] = (1 - keep) * gy * y[i] + keep * x[i];
   return run(out, biquad('highpass', 120, 0.7, sr));
 }
+
+// a voice on the emergency band (SF 2040's radio, baked into the clip: the game plays it clean): a narrow, driven
+// handheld's band, a fading carrier (slow and a little flutter), hiss and crackle under it and filling its pauses, and a
+// squelch's burst at the key-up and key-down. Seeded: the same line, the same static. -> a new, longer buffer
+export function radioFx(x, sr, { seed = 1, hiss = -27, drive = 2.2 } = {}) {
+  let s = seed >>> 0 || 1; const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const pre = Math.round(0.16 * sr), post = Math.round(0.22 * sr), n = x.length + pre + post;
+  const v = new Float32Array(n); v.set(x, pre);
+  run(v, biquad('highpass', 380, 0.8, sr), biquad('highpass', 380, 0.8, sr), biquad('peak', 1600, 1.1, sr, 5), biquad('lowpass', 2900, 0.8, sr), biquad('lowpass', 2900, 0.8, sr));
+  let pk = 0; for (const a of v) pk = Math.max(pk, Math.abs(a));
+  const t = Math.tanh(drive); for (let i = 0; i < n; i++) v[i] = Math.tanh((v[i] / (pk || 1)) * drive) / t;
+  // the carrier: a slow fade (two slow sines at seeded phases) and a faint fast flutter
+  const p1 = rnd() * 6.28, p2 = rnd() * 6.28;
+  for (let i = 0; i < n; i++) { const u = i / sr; v[i] *= 0.84 + 0.1 * Math.sin(u * 2.1 + p1) + 0.06 * Math.sin(u * 6.7 + p2) * Math.sin(u * 0.9); }
+  // the static: band-limited hiss, crackle (sparse clicks), louder in the squelch bursts at either end
+  const z = new Float32Array(n); for (let i = 0; i < n; i++) z[i] = rnd() * 2 - 1;
+  run(z, biquad('highpass', 900, 0.7, sr), biquad('lowpass', 5200, 0.7, sr));
+  let rms = 0; for (const a of x) rms += a * a; rms = Math.sqrt(rms / Math.max(1, x.length)) || 0.05;
+  const g = (rms / (pk || 1)) * 10 ** (hiss / 20) * 2.5;
+  for (let i = 0; i < n; i++) {
+    const burst = i < pre ? 1 - i / pre : i >= n - post ? Math.min(1, (i - (n - post)) / (0.05 * sr)) * (1 - (i - (n - post)) / post) : 0;
+    v[i] += z[i] * g * (1 + 7 * burst);
+    if (rnd() < 6 / sr) { const k = Math.min(n - 1, i + Math.round(0.002 * sr)); for (let j = i; j < k; j++) v[j] += (rnd() * 2 - 1) * g * 4; }
+  }
+  return v;
+}

@@ -13,6 +13,7 @@
 import { packUrl, packHash, assetUrl, hostOf } from './allow.js';
 import { watch, error as hostError } from './host.js';
 import { showTitle, plainTitle, isOwn } from './title.js';
+import { applyTheme, THEMES } from './theme.js';
 // (a hero's wear: wear.js WEARS, kept here too so the check needs no three.js)
 const WEARS = new Set(['rider']);
 
@@ -191,6 +192,8 @@ export function check(w) {
     if (m.vehicle != null && typeof m.vehicle !== 'string') bad(`${m.id}: vehicle`);
   }
   if (!Array.isArray(w.acts) || !w.acts.length) bad('acts');
+  // (the world's UI theme, wagmi/storyrun/theme.js: { theme: 'glass' }; none, Mog City's own look)
+  if (w.ui != null && (typeof w.ui !== 'object' || Array.isArray(w.ui) || (w.ui.theme != null && !THEMES.includes(w.ui.theme)))) bad(`ui.theme: one of ${THEMES.join(', ')}`);
   for (const mt of w.hud?.meters || []) if (mt && mt.goal != null && !(typeof mt.goal === 'number' && mt.goal > 0)) bad(`hud meter ${mt.id}: goal`);
   // (the opening, before Mission 1: its shots are a cutscene's, plus a place card, a name card and the title)
   if (w.opening != null) {
@@ -260,6 +263,7 @@ export async function load() {
     Object.assign(out, { ok: true, hash: h, id: def.id, title: def.title, def });
   } catch (err) { out.why = String(err.message || err); }
   if (!out.ok) { console.warn('[storyrun] world refused:', out.why); hostError('load', `the world did not load: ${out.why}`); plainTitle(); return out; }
+  applyTheme(out.def);
   showTitle(out.def, null, isOwn(out));
   const W = out, def = W.def;
   W.asset = (p) => (typeof p === 'string' && /^assets\/[\w/.-]+$/.test(p) && !p.includes('..') ? p : assetUrl(p, url));

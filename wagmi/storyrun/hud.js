@@ -35,6 +35,7 @@ const CSS = `
   border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 8px 12px; margin: 0 0 6px; cursor: pointer; }
 #wg .sr-choice button.sel { border-color: #FFC93C; background: rgba(255,201,60,.12); }
 #wg .sr-choice button.lock { opacity: .4; cursor: default; }
+#wg .sr-choice .sep { font-style: normal; } #wg .sr-choice .m { font-weight: inherit; }
 #wg .sr-choice kbd { display: inline-block; min-width: 22px; padding: 0 6px; border: 1px solid rgba(255,255,255,.55); border-radius: 5px; background: rgba(255,255,255,.12); font: 700 15px/22px 'Barlow Condensed'; text-align: center; }
 /* (a card is a title over the game: above ui.fade's cover (.wg-fade, z 20), so a fade under it dims the city, never the
    words; its own soft vignette behind the words, about 30% in the middle and none at the edges, so with an act's half dim
@@ -244,11 +245,16 @@ export function createHud(ui) {
       if (ring) { ring.setAttribute('viewBox', '0 0 22 22'); ring.innerHTML = '<circle cx="11" cy="11" r="9" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="3"/><circle class="p" cx="11" cy="11" r="9" fill="none" stroke="#FFC93C" stroke-width="3" stroke-dasharray="56.5" stroke-dashoffset="0"/>'; h.appendChild(ring); }
       const p = document.createElement('div'); p.className = 'p'; p.textContent = prompt;
       choiceEl.append(h, p);
+      // (an option 'SMASH THE CORE: what it does' as its name and what it does, the ': ' kept between them so it reads
+      // as one line as before; a theme can set them apart)
+      const opts = document.createElement('div'); opts.className = 'opts'; choiceEl.appendChild(opts);
+      choiceEl.classList.toggle('n2', options.length === 2);
       const btns = options.map((o, i) => {
         const b = document.createElement('button'); b.type = 'button'; if (o.locked) b.classList.add('lock');
         const k = document.createElement('kbd'); k.textContent = String(i + 1);
-        const t = document.createElement('span'); t.textContent = o.text;
-        b.append(k, t); choiceEl.appendChild(b); return b;
+        const t = document.createElement('span'), s = String(o.text ?? ''), at = s.indexOf(': ');
+        if (at > 0 && at < 48) t.append(tx('b', 'm', s.slice(0, at)), tx('i', 'sep', ': '), tx('span', 'c', s.slice(at + 2))); else t.append(tx('span', 'm', s));
+        b.append(k, t); opts.appendChild(b); return b;
       });
       let sel = Math.max(0, options.findIndex((o) => !o.locked));
       const mark = () => btns.forEach((b, i) => b.classList.toggle('sel', i === sel));

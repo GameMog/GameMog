@@ -138,7 +138,7 @@ export function createRunner(ctx) {
     const rec = W.voice?.dur?.(who, text) || 0;
     const hold = Math.max(1.4, text.length / 15, rec + 0.15, secs || 0);
     if (phone) W.voice?.fx?.(who, 'phone');
-    ui.sub(who || null, text, colorOf(who));
+    ui.sub(who || null, text, colorOf(who), phone || onAir(who));
     mumble(who, text, hold);
     M?.log.push(['say', who, text]);
     saying++;
@@ -146,6 +146,8 @@ export function createRunner(ctx) {
     await delay(0.25, t);
   }
   const tuple = (l) => (Array.isArray(l) ? { who: l[0], text: l[1], secs: l[2] } : l);
+  // (a voice only ever heard over the air: its lines are radio lines on screen too)
+  const onAir = (w) => !!(w && world.castOf?.(w)?.voiceOnly);
   // the runner pack writes call speakers upper-cased: back to the cast's own name
   const castName = (w) => { if (!w) return w; if (world.castOf(w)) return w; const k = Object.keys(def0.cast || {}).find((n) => n.toUpperCase() === String(w).toUpperCase()); return k || w; };
 
@@ -528,6 +530,44 @@ export function createRunner(ctx) {
   // The people stay as they are left until the step's cutscene ends (cast.hide at the mission's end lets them go).
   const MH_ARM = ['upperarm01_', 'lowerarm01_', 'wrist_'];
   const _h1 = new THREE.Vector3(), _h2 = new THREE.Vector3(), _h3 = new THREE.Vector3(), _hf = new THREE.Vector3(), _hr = new THREE.Vector3();
+  const _hq = new THREE.Vector3(), _hq2 = new THREE.Vector3(), _hg = new THREE.Quaternion();
+  // (a hand resting on someone: the fingers together and gently curled, palm to them: each finger's bones eased to the
+  // rig's own rest (MakeHuman's relaxed hand, the same on every cast body: one rig), then a little more about each
+  // finger's hinge (wagmi/horse/rider.js's), the middle joint most)
+  const REST = { 2: [[0.17, 0.08, 0.1], [0.11, 0.15, 0.14], [0.06, 0.09, 0.08]], 3: [[0.08, 0.1, 0.15], [0.12, 0.15, 0.19], [0.07, 0.08, 0.12]],
+    4: [[0.04, 0.12, 0.2], [0.12, 0.14, 0.24], [0.06, 0.07, 0.15]], 5: [[0, 0.12, 0.21], [0.11, 0.11, 0.28], [0.07, 0.06, 0.17]] };
+  const HINGE = { 2: [0.45, 0.66, 0.6], 3: [0.43, 0.56, 0.71], 4: [0.39, 0.46, 0.8], 5: [0.35, 0.35, 0.87] }, SOFT = [0.18, 0.3, 0.2];
+  const _hr0 = new THREE.Quaternion(), _hq3 = new THREE.Vector3(), _hm = new THREE.Matrix4(), _hqa = new THREE.Quaternion(), _hqb = new THREE.Quaternion(), _hqw = new THREE.Quaternion();
+  // the hand turned to a frame: its fingers along `fin`, its palm facing -`out` (toward the one held); w blends
+  const BLADE_DEPTH = 0.05;
+  function squareHand(B, side, fin, out, w) {
+    const wr = B['wrist_' + side], m = B['finger3-1_' + side], m3 = B['finger3-3_' + side]; if (!wr || !m || !m3 || w < 0.01) return;
+    // (the palm's side read off the hand itself: the way its fingers curl, from the knuckle line to the fingertip's bone)
+    const p0 = wr.getWorldPosition(new THREE.Vector3()), pm = m.getWorldPosition(new THREE.Vector3()), f0 = pm.clone().sub(p0).normalize();
+    const n0 = m3.getWorldPosition(new THREE.Vector3()).sub(pm).normalize(); n0.addScaledVector(f0, -n0.dot(f0)); if (n0.lengthSq() < 1e-6) return; n0.normalize();
+    // (the wanted: fingers along fin, the palm toward the one held (-out), pressed to them)
+    const f1 = fin.clone().normalize(), n1 = out.clone().multiplyScalar(-1); n1.addScaledVector(f1, -n1.dot(f1)).normalize();
+    _hqa.setFromRotationMatrix(_hm.makeBasis(f0, n0, new THREE.Vector3().crossVectors(f0, n0))); _hqb.setFromRotationMatrix(_hm.makeBasis(f1, n1, new THREE.Vector3().crossVectors(f1, n1)));
+    const turn = _hqb.multiply(_hqa.invert()); if (w < 0.999) turn.slerpQuaternions(new THREE.Quaternion(), turn.clone(), w);
+    wr.getWorldQuaternion(_hqw); const q2 = turn.clone().multiply(_hqw); wr.parent.getWorldQuaternion(_hqw); wr.quaternion.copy(_hqw.invert().multiply(q2)); wr.updateMatrixWorld(true);
+    // (most of that roll taken by the forearm's twist bone, as the rider's hands: no wrung wrist)
+    const tw = B['lowerarm02_' + side];
+    if (tw && wr.parent === tw) { const dd = wr.position.clone().normalize(), qq = wr.quaternion, s2 = dd.x * qq.x + dd.y * qq.y + dd.z * qq.z;
+      const part = new THREE.Quaternion().slerp(new THREE.Quaternion(dd.x * s2, dd.y * s2, dd.z * s2, qq.w).normalize(), 0.6); tw.quaternion.multiply(part); wr.quaternion.premultiply(part.invert()); tw.updateMatrixWorld(true); }
+  }
+
+  // (a hand laid flat on someone's back: the fingers together and nearly straight, a quarter to three fifths of the relaxed
+  // hand's own curl (the index straightest, the little finger most bent), so each finger follows the back's curve)
+  const _hid = new THREE.Quaternion(), FLAT = { 2: 0.25, 3: 0.35, 4: 0.48, 5: 0.6 };
+  function flatHand(B, side, w) {
+    for (const n of [2, 3, 4, 5]) REST[n].forEach(([qx, qy, qz], j) => { const b = B[`finger${n}-${j + 1}_${side}`]; if (!b) return;
+      _hr0.set(qx, side === 'R' ? qy : -qy, side === 'R' ? qz : -qz, 1).normalize(); _hg.slerpQuaternions(_hid, _hr0, FLAT[n] * (j === 1 ? 1.25 : 1)); b.quaternion.slerp(_hg, w); });
+  }
+  function softHand(B, side, w) {
+    for (const n of [2, 3, 4, 5]) { const [x, y, z] = HINGE[n], ax = (side === 'R' ? _hq.set(x, y, z) : _hq.set(x, -y, -z)).normalize();
+      SOFT.forEach((a, j) => { const b = B[`finger${n}-${j + 1}_${side}`]; if (!b) return; const [qx, qy, qz] = REST[n][j];
+        _hr0.set(qx, side === 'R' ? qy : -qy, side === 'R' ? qz : -qz, 1).normalize(); _hg.setFromAxisAngle(ax, a).multiply(_hr0); b.quaternion.slerp(_hg, w); }); }
+  }
   const bonesOf = (who) => (who === 'player' || who === heroName ? W.dan?.bones : cast.get(castName(who))?.bones) || null;
   const rootOf = (who) => (who === 'player' || who === heroName ? P.position : cast.get(castName(who))?.root.position) || null;
   // (hug: one name, both arms round that one; or { L: <who>, R: <who> }, an arm round each, as a father holds his wife
@@ -551,14 +591,51 @@ export function createRunner(ctx) {
       if (_h1.y > myTop - 0.12) _h1.y = myTop - 0.12;
       // (an arm round one of two goes round that one's far side: across their back to the shoulder blade away from him)
       // (an arm round one of two: the hand on that one's back by the spine, the arm across their near side)
-      const one = typeof hug === 'string', reach = sg * hw * (one ? 0.6 : 0.3), back = small ? hw * 0.12 : hw * (one ? 0.62 : 0.95);
+      // (SF 2040's cast: a forged body's chest is deeper about its spine bone than Dan's: the hands a torso's half-depth
+      // behind it (0.95 of the half-shoulder), so the forearm comes round the side to the back, not through the chest)
+      const one = typeof hug === 'string', reach = sg * hw * (one ? 0.55 : 0.3), back = small ? hw * 0.12 : hw * (one ? 0.95 : 1.05);
       // (round a child: high across her shoulder blades, just under her neck, the hands on her back where they are seen
       // from behind her, the forearms over her shoulders' backs; not down at her waist, his arms hanging)
       if (small) { const nk = ob.neck01 || ob.neck02; if (nk) { nk.getWorldPosition(_h3); _h1.y = Math.max(_h1.y, _h3.y - 0.13); } }
       const tg = _h2.copy(_h1).addScaledVector(_hf, small ? hw * 0.55 : back).addScaledVector(_hr, small ? sg * hw * 0.5 : reach); tg.y += side === 'L' ? 0.035 : -0.045;
-      const pole = new THREE.Vector3().copy(_h1).addScaledVector(_hf, -0.15).addScaledVector(_hr, sg * (hw + 0.55)); pole.y = tg.y - (small ? 0.05 : 0.25);
+      // (round a child (the owner: 'his hands squarely on her back, placed on her shoulder blades'): each hand flat on the
+      // shoulder blade on its own side, found from her own rig: between her upper spine and that shoulder's joint, a little
+      // under the joint, on her back's surface; the palm flat on it, the wrist straight, the fingers up and in toward her neck)
+      let blade = null;
+      if (small) { const us = ob.spine01 || ob.spine02 || ob.spine03; let pick = null, pd = -9;
+        for (const s2 of ['L', 'R']) { const ua = ob['upperarm01_' + s2] || ob['shoulder01_' + s2]; if (!ua || !us) continue; ua.getWorldPosition(_hq); us.getWorldPosition(_hq2);
+          const bp = _hq2.clone().lerp(_hq, 0.62); bp.y = _hq.y - 0.06; const d = sg * bp.clone().sub(_h1).dot(_hr); if (d > pd) { pd = d; pick = bp; } }
+        if (pick) {
+          // (her back's surface there: the joints lie mid-depth, her back about 7 cm behind them; the palm's middle on it)
+          blade = pick.addScaledVector(_hf, BLADE_DEPTH); const fin = _hq3.copy(_hr).multiplyScalar(-sg * 0.55).add(_hq.set(0, 0.8, 0)).normalize();
+          tg.copy(blade).addScaledVector(fin, -0.055); blade.fin = fin.clone(); } }
+      // (a shorter arm than the reach round them (a girl round her father): the hold goes down his back toward his waist,
+      // where he is narrower, until her arm can get there; not straight out past his side)
+      { const ua = B['upperarm01_' + side], la = B['lowerarm01_' + side], wr = B['wrist_' + side];
+        if (ua && la && wr && !small) { ua.getWorldPosition(_h3); const L = _h3.distanceTo(la.getWorldPosition(_hq)) + _hq.distanceTo(wr.getWorldPosition(_hq2));
+          const y0 = tg.y; for (let i = 0; i < 10 && _h3.distanceTo(tg) > 0.96 * L; i++) { tg.y -= 0.025; tg.addScaledVector(_hf, -0.008); tg.addScaledVector(_hr, -sg * 0.004); }
+          // (still out of reach (an arm on the far side of someone already held from the other side): the hand on their
+          // back on this arm's own side, by the shoulder blade, not in the air beside them)
+          if (_h3.distanceTo(tg) > 0.96 * L) { const sd = Math.sign(_hq.copy(_h3).sub(_h1).dot(_hr)) || sg; tg.copy(_h1).addScaledVector(_hf, back * 0.75).addScaledVector(_hr, sd * hw * 0.4); tg.y = y0 - 0.06;
+            for (let i = 0; i < 10 && _h3.distanceTo(tg) > 0.96 * L; i++) tg.addScaledVector(_hf, -0.025); } } }
+      const pole = new THREE.Vector3().copy(_h1).addScaledVector(_hf, small ? -0.15 : 0.05).addScaledVector(_hr, sg * (hw + 0.55)); pole.y = tg.y - (small ? 0.05 : 0.25);
       try { armTo(B, side, tg.clone(), pole, k, MH_ARM); } catch {}
+      // (on a shoulder blade: the hand turned so its fingers run toward her spine along her back and its palm faces her)
+      // (the fingers soft-curled on the back they hold, not flat out; on a shoulder blade flatter, the palm on it)
+      if (blade) { flatHand(B, side, k); B['wrist_' + side].updateMatrixWorld(true); squareHand(B, side, blade.fin, _hf, k); } else softHand(B, side, k);
     }
+  }
+  // (into their arms: whoever runs to hug someone is brought in chest to chest as the hug begins, their spines HUG_GAP
+  // apart on the line between them; marks left a body's width between them, and arms reaching round from there went
+  // through the other's chest: SF 2040's June and Nina to Cal)
+  const HUG_GAP = 0.24;
+  function snapIn(fig, who) {
+    if (typeof who !== 'string') return;
+    const mb = fig.bones?.spine03 || fig.bones?.spine02, ob = bonesOf(who), os = ob && (ob.spine03 || ob.spine02); if (!mb || !os) return;
+    mb.getWorldPosition(_h1); os.getWorldPosition(_h2);
+    const dx = _h2.x - _h1.x, dz = _h2.z - _h1.z, n = Math.hypot(dx, dz) || 1, mv = n - HUG_GAP; if (mv <= 0) return;
+    const x = fig.root.position.x + (dx / n) * mv, z = fig.root.position.z + (dz / n) * mv;
+    fig.root.position.set(x, cm.getGroundHeight(x, z, 'person'), z); fig.heading = Math.atan2(dx, dz); fig.root.rotation.y = fig.heading; fig.root.updateMatrixWorld(true);
   }
   // (the hero's own arms in a street cutscene: { who: <hero>, hug, after } held over his clip each frame (W.dan.post,
   // after his pose), let go when the cutscene ends (heroHug(null)))
@@ -609,7 +686,7 @@ export function createRunner(ctx) {
           if (u >= 1) { walking = null; playClip(fig, 'idle'); if (hug) faceTo(hug); }
           return;
         }
-        if (hug) { if (hugT == null) { hugT = now(); faceTo(hug); } hugArms(fig, hug, hugT); }
+        if (hug) { if (hugT == null) { hugT = now(); faceTo(hug); snapIn(fig, hug); } hugArms(fig, hug, hugT); }
       };
       if (hug === null && !walking) fig.post = null;
     }
@@ -647,8 +724,8 @@ export function createRunner(ctx) {
         if (s.caption) ui.caption(s.caption, '', '#FFC93C', Math.min(dur, 3));
         let frozen = null;
         if (opening) openBeat(s, dur);
-        if (s.say && Array.isArray(s.say)) { const [w, x] = s.say; ui.sub(castName(w), tokens(x), colorOf(castName(w))); mumble(castName(w), x, dur); }
-        else if (sub && sub[1]) { const w = castName(sub[0]); ui.sub(w || null, tokens(sub[1]), colorOf(w)); if (w) mumble(w, sub[1], dur); M?.log.push(['say', w, sub[1]]); }
+        if (s.say && Array.isArray(s.say)) { const [w, x] = s.say; ui.sub(castName(w), tokens(x), colorOf(castName(w)), onAir(castName(w))); mumble(castName(w), x, dur); }
+        else if (sub && sub[1]) { const w = castName(sub[0]); ui.sub(w || null, tokens(sub[1]), colorOf(w), onAir(w)); if (w) mumble(w, sub[1], dur); M?.log.push(['say', w, sub[1]]); }
         else if (s.text) ui.sub(null, tokens(s.text));
         const len = Math.max(dur, sub && sub[1] ? Math.max(1.4, sub[1].length / 15, (W.voice?.dur?.(castName(sub[0]), tokens(sub[1])) || 0) + 0.15) : 0);
         try {

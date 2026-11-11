@@ -96,6 +96,8 @@ export function createCast(W, world) {
     const nat = c.model ? (SUIT.test(c.model) ? ['glb', 'assets/characters/thug.glb', true] : NATIVE[c.model]) : null;
     if (nat && nat[0] !== 'glb') {
       const m = nat[0] === 'jane' ? await import('../mission/jane.js').then((x) => x.buildJane(W)) : await import('../mission/m3-set.js').then((x) => (nat[0] === 'gears' ? x.buildGears(W) : x.buildFiona(W)));
+      // (a stand-in's face answers to the world's name: Jane's body as Nina moves with Nina's lines, face.js face.speaker)
+      if (m.face) m.face.speaker = name;
       return figureOf(name, m.root, m.mixer, m.bones, m.clips ? null : null, m.face, () => { scene.remove(m.root); }, m);
     }
     const url = nat ? nat[1] : world.asset(c.glb);
