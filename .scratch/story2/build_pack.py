@@ -261,8 +261,8 @@ M4 = {
         {"type": "cutscene", "id": "coreScene", "shots": [
             {"cam": {"rel": "player", "fwd": -4.5, "right": 2.4, "up": 1.6}, "to": {"rel": "player", "fwd": -3.4, "right": 1.8, "up": 1.2}, "look": {"rel": "player", "fwd": 5, "up": 0.6}, "dur": 4.0, "fov": 44, "sub": ["Warden", "BROADCAST INTERRUPTED. OPERATOR DETECTED. AWAITING COMMAND."]},
             hero("It's asking me. It's asking me what to do with them.", right=-0.6, dur=3.4),
-            {"cam": {"rel": "player", "fwd": 1.0, "right": 3.2, "up": 0.4}, "look": {"rel": "player", "fwd": 6, "up": 0.5}, "dur": 4.8, "fov": 38, "caption": "Pike, on the radio", "sub": ["Pike", "Smash the core and nobody calls them ever again. Not Vale. Not anybody. They just run wild."]},
-            {"cam": {"rel": "player", "fwd": 1.0, "right": -3.2, "up": 0.6}, "look": {"rel": "player", "fwd": 6, "up": 0.5}, "dur": 4.8, "fov": 38, "caption": "Pike, on the radio", "sub": ["Pike", "Or send one last tone. Home. Every collar in the city walks back to the Preserve. Even the big ones."]},
+            {"cam": {"rel": "player", "fwd": -2.4, "right": 0.9, "up": 1.9}, "to": {"rel": "player", "fwd": -2.0, "right": 0.7, "up": 1.8}, "look": {"rel": "player", "fwd": 7, "up": 0.4}, "dur": 4.8, "fov": 40, "caption": "Pike, on the radio", "sub": ["Pike", "Smash the core and nobody calls them ever again. Not Vale. Not anybody. They just run wild."]},
+            {"cam": {"rel": "player", "fwd": -2.4, "right": -0.9, "up": 1.9}, "to": {"rel": "player", "fwd": -2.0, "right": -0.7, "up": 1.8}, "look": {"rel": "player", "fwd": 7, "up": 0.4}, "dur": 4.8, "fov": 40, "caption": "Pike, on the radio", "sub": ["Pike", "Or send one last tone. Home. Every collar in the city walks back to the Preserve. Even the big ones."]},
             hero("Back to the crater. Or loose for good.", right=-0.4, dur=3.0, fov=30),
         ]},
         {"type": "choice", "id": "core", "flag": "shepherd", "who": "Cal",

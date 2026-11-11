@@ -1686,17 +1686,23 @@
       {
        "cam": {
         "rel": "player",
-        "fwd": 1.0,
-        "right": 3.2,
-        "up": 0.4
+        "fwd": -2.4,
+        "right": 0.9,
+        "up": 1.9
+       },
+       "to": {
+        "rel": "player",
+        "fwd": -2.0,
+        "right": 0.7,
+        "up": 1.8
        },
        "look": {
         "rel": "player",
-        "fwd": 6,
-        "up": 0.5
+        "fwd": 7,
+        "up": 0.4
        },
        "dur": 4.8,
-       "fov": 38,
+       "fov": 40,
        "caption": "Pike, on the radio",
        "sub": [
         "Pike",
@@ -1706,17 +1712,23 @@
       {
        "cam": {
         "rel": "player",
-        "fwd": 1.0,
-        "right": -3.2,
-        "up": 0.6
+        "fwd": -2.4,
+        "right": -0.9,
+        "up": 1.9
+       },
+       "to": {
+        "rel": "player",
+        "fwd": -2.0,
+        "right": -0.7,
+        "up": 1.8
        },
        "look": {
         "rel": "player",
-        "fwd": 6,
-        "up": 0.5
+        "fwd": 7,
+        "up": 0.4
        },
        "dur": 4.8,
-       "fov": 38,
+       "fov": 40,
        "caption": "Pike, on the radio",
        "sub": [
         "Pike",

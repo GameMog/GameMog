@@ -93,3 +93,19 @@ Speakers (subtitle ids): Cal, Nina, June, Hollis, Radio (Nina's broken broadcast
 ## Rules kept
 Original names and places only; the park is the Presidio Bio-Preserve; no real people; family-level intensity (creatures
 are knocked down, people are "down", nobody dies on screen); no music.
+
+## Playtest log (11 Nov, headless Chrome, test drive at real pace `&realpace=1`, fair fights `&fair=1`)
+- Autopilot, every mission in turn (M1..M6 + coda): passes, 0 page errors. Test-drive times (legs jumped): M1 2:30,
+  M2 1:50, M3 2:40, M4 2:20 (new core scene), M5 1:00, M6 1:00 + coda.
+- Real pace / fair bot (no health top-up, no finishing blow; it only rides, presses J and steers):
+  M3 herd drive 1:34; M4 WARDEN-7 + hybrid won in 0:26 (hp 200), relays under the clock in 0:16, M4 from the fight to
+  the end 2:40; M5 the chase 1:33, The Matriarch won in 1:37 with 104/220 left (was lost at 900 hp: tuned to 520);
+  M6 three waves won on foot in 2:00; the M2 sneak about 4 min at the bot's careful pace (the GPS takes a side street).
+- Fixed from playtests: the opening stood Cal on the plaza that reads as water (camp spot and facing moved, people
+  staged behind him among the tents); a fight that started 151 m out failed at once ('You left the fight'); the
+  sneak's sleepers on the route's lane; the Matriarch stuck behind a block (now follows his trail) and cleared from
+  her own fight; creatures crashing the horse's siege code (bangCar); a marching wave never woke for a mounted rider;
+  the herd step started past its herd; M4's choice staged at the wreck with a prompt that says what each option does.
+- Still open: the plaza lawns (Sue Bierman Park, Lafayette Park) read as water in some light (world lane); the GPS
+  routes the horse round one-way streets (the M2 sneak's detour); the saddle fight's balance vs a human is untested by
+  hand; WARDEN-7's wreck may already have dissolved when the core scene plays.
