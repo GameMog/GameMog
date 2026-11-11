@@ -99,7 +99,9 @@ export function createNav(c) {
     };
     const R2 = HALF * 1.45;
     for (const col of [...cm.nearColliders(cx, cz, R2)]) {
-      if (col.carOnly || (col.minY != null && col.minY >= 2.2)) continue;
+      // (an overhang starting 2.2 m or more over the bare ground is no wall: by its height over a hill's ground,
+      // cm.baseHeight, San Francisco's colliders' minY being the ground they stand on; New York's street is y 0)
+      if (col.carOnly || (col.minY != null && col.minY - (cm.baseHeight?.((col.minX + col.maxX) / 2, (col.minZ + col.maxZ) / 2) || 0) >= 2.2)) continue;
       const o = col.obb;
       wall(o ? obbPoly(o.cx, o.cz, o.cs, o.sn, o.hx, o.hz) : [[col.minX, col.minZ], [col.maxX, col.minZ], [col.maxX, col.maxZ], [col.minX, col.maxZ]], col.maxY);
     }

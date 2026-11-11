@@ -1,0 +1,35 @@
+{
+  "storykit": 1,
+  "id": "test-sf-smoke",
+  "title": "Up the Hill",
+  "kicker": "SAN FRANCISCO",
+  "tagline": "A world set in San Francisco, on Mog City's engine (?city=sf)",
+  "city": "sf",
+  "car": "roadster",
+  "cast": {
+    "Dan": { "color": "#FFFFFF", "role": "a fired first-year associate", "model": "mogcity/dan" }
+  },
+  "hero": "Dan",
+  "places": {
+    "pier": { "@": "ferry", "name": "the Ferry Building" },
+    "hill": { "@": "powell", "name": "California & Powell" }
+  },
+  "acts": [
+    { "id": "act1", "name": "ACT I", "order": ["UH-1"], "end": { "title": "END OF ACT I", "heading": "Up the Hill", "next": { "text": "More soon" } } }
+  ],
+  "missions": [
+    {
+      "id": "UH-1",
+      "title": "Up the Hill",
+      "vehicle": "roadster",
+      "start": "@pier",
+      "stakes": "The top of California Street, before the light goes.",
+      "passLine": "Made it to the top.",
+      "steps": [
+        { "type": "say", "who": "Dan", "text": "Top of the hill. California and Powell.", "secs": 2 },
+        { "type": "drive", "id": "to-hill", "to": "@hill", "radius": 14, "objective": "Drive up to **California & Powell**.", "checkpoint": true },
+        { "type": "say", "who": "Dan", "text": "Made it.", "secs": 2 }
+      ]
+    }
+  ]
+}
