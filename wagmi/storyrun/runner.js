@@ -1068,6 +1068,9 @@ export function createRunner(ctx) {
     const crew = { alive: () => crews.reduce((a, c) => a + c.alive(), 0) };
     M.crew = crew;
     let total = n, more = d.reinforce || null, lastK = 0, talk = false, lastHp = combat.player.hp;
+    // (in the saddle, as in a creature fight: what the mission put in his hand is his again and lasts the fight)
+    const H = W.horse, armK = d.arm || (d.saddle ? 'bat' : null) || M.def.steps.slice(0, M.i).reverse().find((x) => x.type === 'mount' && x.arm)?.arm;
+    const arming = () => { if (H?.saddle && armK && H.mounted && !H.saddle.weapon) try { H.arm(armK); } catch {} };
     const fightSay = (lines) => { talk = true; (async () => { for (const l of lines.map(tuple)) await say(castName(l.who), l.text, M.tok); })().catch(() => {}).finally(() => { talk = false; }); };
     const label = d.counter || 'DOWN';
     ui.counter(label, `0/${n}`);
