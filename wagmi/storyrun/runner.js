@@ -522,6 +522,14 @@ export function createRunner(ctx) {
   // The people stay as they are left until the step's cutscene ends (cast.hide at the mission's end lets them go).
   const MH_ARM = ['upperarm01_', 'lowerarm01_', 'wrist_'];
   const _h1 = new THREE.Vector3(), _h2 = new THREE.Vector3(), _h3 = new THREE.Vector3(), _hf = new THREE.Vector3(), _hr = new THREE.Vector3();
+  const _hq = new THREE.Vector3(), _hq2 = new THREE.Vector3(), _hg = new THREE.Quaternion();
+  // (a hand resting on someone: each finger bent a little about its own hinge (wagmi/horse/rider.js's, the cast's one rig),
+  // more at the middle joint, the thumb along)
+  const HINGE = { 2: [0.45, 0.66, 0.6], 3: [0.43, 0.56, 0.71], 4: [0.39, 0.46, 0.8], 5: [0.35, 0.35, 0.87] }, SOFT = [0.32, 0.45, 0.28];
+  function softHand(B, side, w) {
+    for (const n of [2, 3, 4, 5]) { const [x, y, z] = HINGE[n], ax = (side === 'R' ? _hq.set(x, y, z) : _hq.set(x, -y, -z)).normalize();
+      SOFT.forEach((a, j) => { const b = B[`finger${n}-${j + 1}_${side}`]; if (b) b.quaternion.slerp(_hg.setFromAxisAngle(ax, a * (0.9 + 0.05 * n)), w); }); }
+  }
   const bonesOf = (who) => (who === 'player' || who === heroName ? W.dan?.bones : cast.get(castName(who))?.bones) || null;
   const rootOf = (who) => (who === 'player' || who === heroName ? P.position : cast.get(castName(who))?.root.position) || null;
   // (hug: one name, both arms round that one; or { L: <who>, R: <who> }, an arm round each, as a father holds his wife
@@ -552,8 +560,15 @@ export function createRunner(ctx) {
       // from behind her, the forearms over her shoulders' backs; not down at her waist, his arms hanging)
       if (small) { const nk = ob.neck01 || ob.neck02; if (nk) { nk.getWorldPosition(_h3); _h1.y = Math.max(_h1.y, _h3.y - 0.13); } }
       const tg = _h2.copy(_h1).addScaledVector(_hf, small ? hw * 0.55 : back).addScaledVector(_hr, small ? sg * hw * 0.5 : reach); tg.y += side === 'L' ? 0.035 : -0.045;
+      // (a shorter arm than the reach round them (a girl round her father): the hold goes down his back toward his waist,
+      // where he is narrower, until her arm can get there; not straight out past his side)
+      { const ua = B['upperarm01_' + side], la = B['lowerarm01_' + side], wr = B['wrist_' + side];
+        if (ua && la && wr && !small) { ua.getWorldPosition(_h3); const L = _h3.distanceTo(la.getWorldPosition(_hq)) + _hq.distanceTo(wr.getWorldPosition(_hq2));
+          for (let i = 0; i < 14 && _h3.distanceTo(tg) > 0.96 * L; i++) { tg.y -= 0.025; tg.addScaledVector(_hf, -0.008); tg.addScaledVector(_hr, -sg * 0.004); } } }
       const pole = new THREE.Vector3().copy(_h1).addScaledVector(_hf, small ? -0.15 : 0.05).addScaledVector(_hr, sg * (hw + 0.55)); pole.y = tg.y - (small ? 0.05 : 0.25);
       try { armTo(B, side, tg.clone(), pole, k, MH_ARM); } catch {}
+      // (the fingers soft-curled on the back they hold, not flat out)
+      softHand(B, side, k);
     }
   }
   // (into their arms: whoever runs to hug someone is brought in chest to chest as the hug begins, their spines HUG_GAP
