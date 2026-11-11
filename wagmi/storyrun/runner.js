@@ -1154,7 +1154,7 @@ export function createRunner(ctx) {
         }
         else {
           const bp = B.at ? placeOf(B.at) : null, at = bp ? { x: bp.cx ?? bp.x, z: bp.cz ?? bp.z } : src;
-          h = C.spawn(B.id, { at, height: B.height, name: B.name, heavy: B.heavy, stats: B.stats, yaw: B.yaw != null ? (B.yaw * PI) / 180 : undefined,
+          h = C.spawn(B.id, { at, height: B.height, name: B.name, heavy: B.heavy, stats: B.stats, look: B.look, yaw: B.yaw != null ? (B.yaw * PI) / 180 : undefined,
             boss: { name: B.name, phases: B.phases }, hold: B.hold ? { wake: B.hold.wake ?? 20, leash: B.hold.leash ?? 40 } : null, aggro: !B.hold });
         }
         bossName = B.name || bossName;

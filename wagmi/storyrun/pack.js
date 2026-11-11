@@ -82,6 +82,7 @@ export function creatureStep(s, city) {
       if (B.phases != null && !(Array.isArray(B.phases) && B.phases.length <= 4 && B.phases.every((k) => typeof k === 'number' && k > 0 && k < 1))) errs.push('boss: phases');
       if (B.hold != null && !(typeof B.hold === 'object' && ['wake', 'leash'].every((k) => B.hold[k] == null || (typeof B.hold[k] === 'number' && B.hold[k] > 0 && B.hold[k] <= 200)))) errs.push('boss: hold');
       if (B.at != null && !isPlaceRef(B.at)) errs.push('boss: at');
+      if (B.look != null && !['deacon'].includes(B.look)) errs.push('boss: look');
     }
     if (n > CREATURE_CAP) errs.push(`${n} creatures: ${CREATURE_CAP} fight at once at most`);
     // (waves: each a crew of its own after the last is down, from the arena or its own place; a boss in one may be a
