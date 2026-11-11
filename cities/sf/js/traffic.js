@@ -615,7 +615,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     for (const r of holds) if (x > r.minX - m && x < r.maxX + m && z > r.minZ - m && z < r.maxZ + m) return true;
     return false;
   };
-  let abandoned = false, pedLimit = NUM_PEDS;
+  let abandoned = false, pedLimit = NUM_PEDS, avoidAt = null;
   function hold(rects = []) {
     holds.length = 0;
     for (const r of rects || []) if (r && [r.minX, r.maxX, r.minZ, r.maxZ].every(Number.isFinite)) holds.push(r);
@@ -1578,6 +1578,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       if (player.active && Math.hypot(x - player.x, z - player.z) < 25) continue;
       // (Mog City: never in a hold zone, nor by one of the game's own cars)
       if (held(x, z, v.half + 4) || blockers.some((k) => Math.hypot(x - k.x, z - k.z) < 25)) continue;
+      // (SF 2040: never left standing on the way the GPS shows, wagmi/apocalypse/corridor.js)
+      if (abandoned && avoidAt && avoidAt(x, z)) continue;
       if (!laneClear(e.occ[lane], s, v.half + 8)) continue;
       place(v, e, lane, s);
       return true;
@@ -2318,6 +2320,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       }
     },
     get abandoned() { return abandoned; },
+    // (SF 2040) avoid(fn(x, z) -> true where no abandoned car may be placed: the GPS route's corridor), or null
+    avoid(fn) { avoidAt = typeof fn === 'function' ? fn : null; },
     setPeds(n) { pedLimit = Math.max(0, Math.min(NUM_PEDS, Math.round(n))); },
     setDensity(fraction) {
       const count = Math.round(vehicles.length * Math.max(0, Math.min(1, fraction)));
