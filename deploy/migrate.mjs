@@ -1529,6 +1529,94 @@ export const MIGRATIONS = [
       return `by GameMog: ${n} more`;
     },
   },
+  {
+    // 11 Nov: SF 2040, GameMog's second first-party story world (a horse-riding story in San Francisco after an impact,
+    // six missions on Mog City's engine), published PUBLIC at /g/sf2040, by GameMog. Its record,
+    // deploy/migrations/sf2040-story.json (scripts/storykit-sf2040.ts --export), names the sealed world
+    // (deploy/migrations/sf2040/world.json: Mog City's own world for it, packs/sf2040.json on mogcity bcd35463, written
+    // for Mog City directly, so there is no story-pack form to gate) by its SHA-256. Every file it names is one of Mog
+    // City's own (assets/characters/sf2040/*.glb, its four bodies; assets/voice/sf2040/*.m4a, its 151 clips), which Mog
+    // City loads from mc.gamemog.com itself: the store holds only the world. As Pickup Time's: the world is checked before
+    // anything is written, then goes into the Story Kit store beside this database as a kept draft (never swept, its pack
+    // the world itself), and the game gets its cover (the plain frame: ?plain, the dare card), key art (wide and square,
+    // titled) and Cal's headshot (Jump in), creator GameMog. Once only: SF 2040 already there (meta.storykit.packId) is
+    // left alone, so is another game at /g/sf2040 or with its id. It waits (unrecorded, tried at the next boot) while the
+    // Story Kit is off on this server or the store has no room for it
+    id: '2026-11-11-sf2040',
+    async: true,
+    async run(db, path) {
+      if (!['on', 'owner'].includes(String(process.env.STORYKIT ?? '').trim().toLowerCase())) throw new Error('waiting: the Story Kit is off on this server (STORYKIT)');
+      const rec = file('sf2040-story.json'), worldBytes = file('sf2040/world.json');
+      if (!rec || !worldBytes) throw new Error('deploy/migrations/sf2040-story.json or sf2040/world.json is not in this build');
+      const R = JSON.parse(rec.toString('utf8'));
+      if (R.v !== 1 || R.slug !== 'sf2040' || R.meta?.mode !== 'storykit' || R.meta.storykit?.packId !== 'sf2040' || R.meta.storykit.city !== 'sf' || R.meta.storykit.showcase !== true) throw new Error('sf2040-story.json is not SF 2040');
+      const sha = (b) => createHash('sha256').update(b).digest('hex');
+      const had = db.prepare("SELECT slug, hidden FROM games WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.packId') = 'sf2040' AND json_extract(meta, '$.storykit.showcase') = 1").get();
+      if (had) return `already there: /g/${had.slug} (hidden ${had.hidden})`;
+      if (db.prepare('SELECT 1 FROM games WHERE slug = ?').get(R.slug)) return `left alone: /g/${R.slug} is another game`;
+      if (db.prepare('SELECT 1 FROM games WHERE id = ?').get(R.id)) return 'left alone: its id is taken';
+      const plain = file('sf2040/cover-plain.jpg'), wide = file('sf2040/cover-wide.jpg'), icon = file('sf2040/cover-square.jpg'), avatar = file('sf2040/headshot.jpg');
+      if (!plain || !wide || !icon || !avatar) throw new Error('deploy/migrations/sf2040/{cover-plain,cover-wide,cover-square,headshot}.jpg are not in this build');
+      for (const [n, b] of [['cover-plain', plain], ['cover-wide', wide], ['cover-square', icon], ['headshot', avatar]]) if (!(b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff)) throw new Error(`deploy/migrations/sf2040/${n}.jpg is not a JPEG`);
+
+      // the world, checked against the record before anything is written: SF 2040's runner world, every file it names
+      // one of Mog City's own (an assets/ path, which Mog City loads from its own origin), none from this site's store
+      if (sha(worldBytes) !== R.world?.hash || worldBytes.length !== R.world.bytes) throw new Error('sf2040/world.json is not the record\'s world');
+      const text = worldBytes.toString('utf8'), W = JSON.parse(text);
+      if (W.storykit !== 1 || W.id !== 'sf2040' || W.city !== 'sf') throw new Error('sf2040/world.json is not SF 2040\'s runner world');
+      if (text.includes('/storykit/f/')) throw new Error('sf2040/world.json names a file in the store, which this migration does not write');
+      for (const [n, c] of Object.entries(W.cast ?? {})) if (c?.glb != null && !/^assets\/characters\/sf2040\/[a-z][a-z0-9-]{0,39}\.glb$/.test(String(c.glb))) throw new Error(`the world's ${n} is not one of Mog City's SF 2040 bodies`);
+      for (const [k, c] of Object.entries(W.voice?.clips ?? {})) if (!/^[0-9a-f]{8}-[0-9a-f]{8}$/.test(k) || String(c?.url) !== `assets/voice/sf2040/${k}.m4a`) throw new Error(`the world's clip ${k} is not one of Mog City's SF 2040 clips`);
+
+      // (a fresh disk's database may lack the columns the app adds at its first start: added here as lib/db.ts adds them)
+      if (!columns(db, 'games').has('art_avatar')) db.exec('ALTER TABLE games ADD COLUMN art_avatar BLOB');
+      if (!columns(db, 'games').has('creator')) db.exec('ALTER TABLE games ADD COLUMN creator TEXT');
+      const cols = columns(db, 'games');
+      if (!cols.has('hidden')) throw new Error('the games table has no hidden column');
+      const { StoryStore, LIMITS } = await storykit();
+      const s = new StoryStore(join(dirname(resolve(path)), 'storykit'));
+      if (worldBytes.length > LIMITS.sealed) throw new Error(`the world is ${worldBytes.length} bytes, over a sealed world's ${LIMITS.sealed}`);
+      const fresh = !s.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(R.world.hash);
+      const need = fresh ? worldBytes.length : 0;
+      if (s.used() + need > LIMITS.disk) throw new Error(`waiting: the Story Kit store has no room for SF 2040 (${need} bytes more than ${s.used()} used of ${LIMITS.disk})`);
+
+      const storeId = randomUUID(), t = Date.now();
+      if (fresh) {
+        const p = s.blobPath(R.world.hash, 'json');
+        if (!(existsSync(p) && sha(readFileSync(p)) === R.world.hash)) {
+          mkdirSync(dirname(p), { recursive: true });
+          const tmp = `${p}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+          writeFileSync(tmp, worldBytes); renameSync(tmp, p);
+        }
+      }
+      s.db.exec('BEGIN');
+      try {
+        s.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)').run(R.world.hash, 'json', worldBytes.length, t);
+        s.db.prepare("INSERT INTO drafts (id, token_hash, pack, parent, state, created_at, touched_at) VALUES (?, ?, ?, NULL, 'draft', ?, ?)")
+          .run(storeId, sha(randomBytes(24)), text, t, t);
+        s.db.prepare("INSERT INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, 'pack', 'world.json', ?, 'json', ?, NULL, 0, ?)")
+          .run(storeId, R.world.hash, worldBytes.length, t);
+        s.db.exec('COMMIT');
+      } catch (e) { s.db.exec('ROLLBACK'); throw e; }
+      try {
+        const meta = { ...R.meta, storykit: { ...R.meta.storykit, pack: storeId, world: R.world.hash } };
+        // (the game's module names the world; it plays from meta.storykit.world, lib/storykit-publish.ts storyPlaySrc)
+        const code = `GameMog.world({ storykit: ${JSON.stringify({ storykit: 1, id: 'sf2040', title: R.meta.title, city: 'sf', world: R.world.hash })} });\n`;
+        const g = { id: R.id, slug: R.slug, title: R.meta.title, tagline: R.meta.tagline, blurb: R.meta.blurb, difficulty: 'endless', spec: '{}',
+          prompt: 'first-party world: sf2040', featured: 0, created_at: t, format: 'world', code, meta: JSON.stringify(meta),
+          cover: plain, art_icon: icon, art_wide: wide, art_avatar: avatar, parent_id: null, root_id: null, generation: 0, mog_prompt: null, hidden: 0, creator: 'GameMog' };
+        const keys = Object.keys(g).filter((k) => cols.has(k));
+        db.prepare(`INSERT INTO games (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`).run(...keys.map((k) => g[k]));
+        // kept with the game: sealed as the record's world, never swept
+        if (!s.db.prepare("UPDATE drafts SET state = 'kept', world = ?, game_id = ? WHERE id = ?").run(R.world.hash, R.id, storeId).changes) throw new Error('the store could not keep the world');
+        return `published /g/${R.slug} (store draft ${storeId}, world ${R.world.hash.slice(0, 12)}, ${need} bytes stored; its bodies and clips are Mog City's own)`;
+      } catch (e) {
+        // (the games row is rolled back with the transaction; the store draft goes with it, and the world if only it held it)
+        try { const d = s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(storeId); if (d) { s.release(storeId); s.abandon(s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(storeId)); } } catch { /* swept later */ }
+        throw e;
+      }
+    },
+  },
 ];
 
 /** A table's columns (the app adds some at its first start, lib/db.ts: a fresh disk's database may lack them). */

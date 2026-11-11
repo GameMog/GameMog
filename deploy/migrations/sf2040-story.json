@@ -1,0 +1,79 @@
+{
+ "v": 1,
+ "id": "228beefa-0eb8-47ec-81de-d0ee72483d0b",
+ "slug": "sf2040",
+ "meta": {
+  "title": "SF 2040",
+  "tagline": "Forty-one days after Erebus. One rider, one horse, a city gone wild. Find them.",
+  "blurb": "Forty-one days after Erebus came down on the Presidio and the Bio-Preserve's walls fell, Cal Mercer, an ex-park ranger, rides his horse Ranger into a San Francisco gone wild to find his wife Nina and their daughter June. Scavenge Market Street, slip past what sleeps on it, round up a wild herd, get past the Preserve's security mech and stand up to the Iron Saints. Six missions, from the Embarcadero to the Presidio.",
+  "genre": "Story world",
+  "cast": [
+   {
+    "name": "Cal",
+    "color": "#FFFFFF",
+    "role": "player"
+   },
+   {
+    "name": "Nina",
+    "color": "#6CB8FF",
+    "role": "rival"
+   },
+   {
+    "name": "June",
+    "color": "#FFB86B",
+    "role": "rival"
+   },
+   {
+    "name": "Hollis",
+    "color": "#E8B04A",
+    "role": "rival"
+   }
+  ],
+  "palette": {
+   "sky": "#2A1714",
+   "ground": "#2B2420",
+   "accent": "#E8B04A"
+  },
+  "mode": "storykit",
+  "scoring": "none",
+  "runtime": 1,
+  "options": {
+   "hazards": "same",
+   "music": null,
+   "open": true,
+   "coins": false
+  },
+  "storykit": {
+   "city": "sf",
+   "pack": "",
+   "packId": "sf2040",
+   "base": {
+    "engine": "mogcity-1",
+    "city": "sf"
+   },
+   "parent": null,
+   "missions": 6,
+   "acts": 3,
+   "cast": 8,
+   "vehicles": 1,
+   "dressing": {
+    "apocalypse": "dusk",
+    "time": "dusk"
+   },
+   "showcase": true,
+   "ride": "horse",
+   "controls": "In the saddle: W trots, hold Shift to gallop, Q slows to a walk, A and D turn, Space jumps, the mouse looks. J swings the bat at whoever is beside you and K kicks out behind. F gets down or back up; on foot J hits and Q counters. M opens the map, Esc pauses.",
+   "how": "A story in three acts across San Francisco after the impact. Follow the objective and the yellow line on your map to each mission: rides, scavenging, a herd, creatures to sneak past or fight, a mech, and calls on the radio move the story on, with cutscenes between them. Between missions the city is yours to roam. Finish all six to bring the Mercers home."
+  }
+ },
+ "world": {
+  "hash": "18caf3e069a2f8948303631e8f8a28b0559c8339877ee1a9f3f1ee56ebd4c087",
+  "bytes": 72084
+ },
+ "mc": {
+  "bodies": 4,
+  "bodyBytes": 11696128,
+  "clips": 151,
+  "clipBytes": 4152127
+ }
+}
