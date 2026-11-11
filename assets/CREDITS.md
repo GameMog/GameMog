@@ -170,3 +170,18 @@ its stock voice bm_lewis, through kokoro-onnx (MIT), heard as it is. The Camp's 
 (am_michael, af_sarah, am_adam, af_bella, am_onyx, af_kore, am_eric and af_jessica) saying each line together, mixed into
 one. The voices are invented. Any character's lines not
 yet voiced are placeholders made with the macOS speech voices; `NOTICE` explains their terms, and `docs/VOICE-LINES.md` explains how to replace them.
+
+## Creatures and sound packs (the library)
+
+The creatures and sound packs in `assets/library/` are copied as they are from GameMog's licensed asset library
+(`public/assets`, its `library.json` names each source) in the library's own format (`gmasset/1`). Read by
+`wagmi/library/creature.js` and `wagmi/library/sounds.js`.
+
+- `assets/library/creature-horse`, `-trex`, `-knight`, `-ogre`, `-ape`, `-centaur`, `-mech`, `-scorpion`: made by
+  [Patch](https://patch.gg) (New Save Labs, Inc.) with [anymove](https://github.com/patch-gg/anymove), dedicated by Patch to
+  the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/); GameMog cut their triangles and
+  textures to a browser game's budget.
+- `assets/library/sounds-*`: [Kenney](https://kenney.nl)'s Impact Sounds, Interface Sounds, UI Audio, Digital Audio,
+  Sci-fi Sounds, RPG Audio, Casino Audio, Voiceover Pack and Voiceover Pack: Fighter, each under
+  [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) by the `License.txt` in its zip. Credited with thanks to
+  Kenney (www.kenney.nl), though CC0 does not require it.

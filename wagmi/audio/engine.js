@@ -3,6 +3,8 @@
 // voice limit (the oldest of it gives way). Unknown names stay silent.
 import { SOUNDS, META } from './sounds.js';
 import { LOOPS } from './loops.js';
+// (the library's recorded sound packs, by 'pack:<id>/<name>': wagmi/library/sounds.js)
+import { packSound } from '../library/sounds.js';
 
 export function createEngine(M) {
   const live = new Map();   // name -> [{ end, v, spot }]
@@ -11,7 +13,7 @@ export function createEngine(M) {
 
   const count = {};          // (how many of each have played, for tests)
   function play(name, o = {}) {
-    const fn = SOUNDS[name]; if (!fn) return null;
+    const fn = SOUNDS[name] || packSound(name); if (!fn) return null;
     count[name] = (count[name] || 0) + 1;
     const meta = META[name] || {}, t = M.now() + 0.004 + (o.delay || 0);
     // (a far sound is not worth making)
