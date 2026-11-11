@@ -76,6 +76,8 @@ export async function createVoice(W, out) {
       V.log.push({ id: l.id, at: +(performance.now() / 1000).toFixed(3), late: +late.toFixed(3), wait: +wait.toFixed(3), intro: W.intro?.t != null ? +W.intro.t.toFixed(2) : null }); if (V.log.length > 60) V.log.shift();
       src.onended = () => { live.delete(me); if (cur === me) cur = null; };
       if (out.via() === 'mixer') W.audio.duck('music', 0.6, wait + secs + 0.2); else W.radio?.duck?.(0.3, wait + secs + 0.2);
+      // (a story world's line dips the effects a little too: a creature's roar or a fight's hits never bury the words)
+      if (l.pack && out.via() === 'mixer') W.audio.duck('sfx', 0.3, wait + secs + 0.2);
     }).catch(() => {});
   }
   // ---- the browser's voice, for a Mog's changed lines

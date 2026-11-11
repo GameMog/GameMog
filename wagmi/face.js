@@ -495,7 +495,8 @@ export function createFace(W, { speaker, inner, bones, head = false, open = 0.5,
       L.t += dt; const t = L.t, turns = o.head ?? head;
       // the mouth: their voice when one of their lines is playing; with no voice to follow (none recorded, or no sound)
       // syllables while their line is up; else shut
-      const v = voiceOf(W, speaker), au = W.audio?.ctx?.state === 'running', rec = o.text ? !!W.voice?.has?.(speaker, o.text) : !!W.voice;
+      // (face.speaker: whose lines move it; a story world renames a stand-in's face to its own cast name, storyrun/cast.js)
+      const who = face.speaker, v = voiceOf(W, who), au = W.audio?.ctx?.state === 'running', rec = o.text ? !!W.voice?.has?.(who, o.text) : !!W.voice;
       const raw = v ? v.level : o.talking && (!au || !rec) ? chatter(t) : 0;
       const mouth = L.mouth(raw, dt); L.slow += (mouth - L.slow) * (1 - Math.exp(-dt / 0.18));
       face.jaw(mouth * open);
@@ -543,7 +544,7 @@ export function createFace(W, { speaker, inner, bones, head = false, open = 0.5,
     tick(dt) {
       if (face.hold || performance.now() - L.manual < 150 || W.paused) return;
       if (!face.shown()) { if (L.jaw) face.jaw(0); return; }
-      const sub = subLine(), mine = !!sub && sub.who.toLowerCase() === String(speaker).toLowerCase();
+      const sub = subLine(), mine = !!sub && sub.who.toLowerCase() === String(face.speaker).toLowerCase();
       let look = pointOf(face.look);
       if (!look) {
         const me = face.eyes(V()), fwd = V(0, 0, 1).transformDirection(headM());

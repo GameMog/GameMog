@@ -54,6 +54,7 @@ export async function install(W) {
   showTitle(def, document.querySelector('#wg .wg-gtitle'), isOwn(world));
   const heroName = world.heroName || 'Dan';
   if (W.dan && !W.dan.face) W.dan.face = createFace(W, { speaker: heroName, inner: W.dan.body, bones: W.dan.bones, hair: true, open: 0.42 });
+  else if (W.dan?.face) W.dan.face.speaker = heroName; // (Dan's face made before the world: it answers to the hero's lines)
   // (the hero dressed for the world: its cast entry's wear, wear.js; Dan's own body only)
   { const h = world.castOf(heroName); if (h?.wear && !h.glb) wear(W, h.wear); }
   W.gps = W.gps || createGPS(W);
