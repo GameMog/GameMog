@@ -546,8 +546,11 @@ export function createRunner(ctx) {
       // (an arm round one of two goes round that one's far side: across their back to the shoulder blade away from him)
       // (an arm round one of two: the hand on that one's back by the spine, the arm across their near side)
       const one = typeof hug === 'string', reach = sg * hw * (one ? 0.6 : 0.3), back = small ? hw * 0.12 : hw * (one ? 0.62 : 0.95);
-      const tg = _h2.copy(_h1).addScaledVector(_hf, back).addScaledVector(_hr, reach); tg.y += side === 'L' ? 0.035 : -0.045;
-      const pole = new THREE.Vector3().copy(_h1).addScaledVector(_hf, -0.15).addScaledVector(_hr, sg * (hw + 0.55)); pole.y = tg.y - 0.25;
+      // (round a child: high across her shoulder blades, just under her neck, the hands on her back where they are seen
+      // from behind her, the forearms over her shoulders' backs; not down at her waist, his arms hanging)
+      if (small) { const nk = ob.neck01 || ob.neck02; if (nk) { nk.getWorldPosition(_h3); _h1.y = Math.max(_h1.y, _h3.y - 0.13); } }
+      const tg = _h2.copy(_h1).addScaledVector(_hf, small ? hw * 0.55 : back).addScaledVector(_hr, small ? sg * hw * 0.5 : reach); tg.y += side === 'L' ? 0.035 : -0.045;
+      const pole = new THREE.Vector3().copy(_h1).addScaledVector(_hf, -0.15).addScaledVector(_hr, sg * (hw + 0.55)); pole.y = tg.y - (small ? 0.05 : 0.25);
       try { armTo(B, side, tg.clone(), pole, k, MH_ARM); } catch {}
     }
   }

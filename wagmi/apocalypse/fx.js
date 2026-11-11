@@ -125,49 +125,17 @@ export function createFX(W) {
     mesh(g, m, 'apoc-smoke', 7);
   }
 
-  // ── the crater: where Erebus came down, past the core's west edge in the Presidio. Scenery only, two draws: a low
-  // dome of red light standing over it (wide soft billboards, its lower half under the ground) and its thrown-up rim
-  // burning (a ring 1.3 km across of molten blobs 80-160 m up, flickering, hot enough to bloom: high enough to be seen over Pacific
-  // Heights from Lafayette Park's street), both seen through the haze but not lost in it, behind
-  // whatever stands between (depth tested). From Lafayette Park looking west it sits down the line of Washington St ──
+  // ── the crater: where Erebus came down, past the core's west edge in the Presidio (CRATER_AT, 1.3 km across). Its
+  // light is laid over the frame by the city's grade (cities/sf/js/post-processing.js CRATER_GLOW), after the haze: a
+  // deep red glow standing over it on the horizon and its thrown-up rim a molten band, on whatever is seen beyond most
+  // of the way to it (the sky, the far hills), the city and the ridges nearer in front of it. No geometry: one term in a
+  // pass that runs anyway. From Lafayette Park it sits at the far end of Washington St ──
   const CRATER = { x: CRATER_AT[0], z: CRATER_AT[1], r: 650 };
   {
-    const gy = (x, z) => { try { const y = app.controllerManager.getGroundHeight(x, z, 'person'); return Number.isFinite(y) ? y : 30; } catch { return 30; } };
-    const G = gy(CRATER.x, CRATER.z); CRATER.y = G;
-    // the dome: [x, y, z, w], h = w * 0.34 (three layers, the inner one hotter). Laid over the sky as colour, not added
-    // to it (the ash sky is bright: light added to it only paled it): a deep red, orange at the heart
-    const DOME = [[2600], [1500], [850]];
-    const g = quads(DOME.length, (i) => [CRATER.x, G - 20, CRATER.z, DOME[i][0] + i * 0.01]);
-    const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, fog: false });
-    const seed = attribute('seed', 'vec4'), corner = attribute('corner', 'vec2');
-    const w = seed.w, hgt = w.mul(0.3);
-    m.positionNode = seed.xyz.add(camRight.mul(corner.x.mul(w))).add(camUp.mul(corner.y.mul(hgt)));
-    // (the ash sky is bright, well over 1 before the exposure: the glow's colour is given at its strength, red out at
-    // the edges and orange at the heart, and goes to nothing well inside its quad's edges)
-    const r2 = dot(corner, corner), core = exp(r2.mul(-2.6)).mul(smoothstep(1.0, 0.55, abs(corner.x))).mul(smoothstep(1.0, 0.55, abs(corner.y))), inner = smoothstep(2000, 850, w);
-    const pulse = sin(time.mul(0.7)).mul(0.05).add(0.95);
-    const col = mix(vec3(1.7, 0.12, 0.02), vec3(2.0, 0.42, 0.05), inner.mul(core));
-    m.colorNode = vec4(col, core.mul(mix(float(0.55), float(0.85), inner)).mul(pulse));
-    mesh(g, m, 'apoc-crater-glow', 3);
-  }
-  {
-    const N = 96, G = CRATER.y;
-    const g = quads(N, (i) => { const a = (i / N) * Math.PI * 2 + R() * 0.05, rr = CRATER.r * (0.92 + R() * 0.16); return [CRATER.x + Math.cos(a) * rr, G + 80 + R() * 80, CRATER.z + Math.sin(a) * rr * 0.9, 34 + R() * 36]; });
-    const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
-    const seed = attribute('seed', 'vec4'), corner = attribute('corner', 'vec2');
-    const hsh = fract(sin(seed.x.mul(12.9898).add(seed.z.mul(78.233))).mul(43758.55));
-    const fl = sin(time.mul(hsh.mul(2.5).add(1.2)).add(hsh.mul(40))).mul(0.25).add(0.75);
-    const sz = seed.w.mul(fl.mul(0.3).add(0.85));
-    m.positionNode = seed.xyz.add(camRight.mul(corner.x.mul(sz).mul(1.6))).add(camUp.mul(corner.y.mul(sz).mul(0.7)));
-    const shape = smoothstep(1.0, 0.0, length(corner));
-    const d = length(seed.xyz.sub(cameraPosition)), tau = hazeDensity.mul(d).mul(0.75), fogged = float(1).sub(exp(tau.mul(tau).negate()));
-    // (the city's haze is laid over the depth behind it after: a rim 2 km off seen against the hills would come out
-    // mostly haze. Its light is raised by some of what the haze will take off it, at most 2.2 times: against the sky,
-    // where no haze is laid, it is not blown out)
-    const comp = float(1).div(max(float(1).sub(fogged), float(0.45)));
-    const hot = mix(vec3(1.3, 0.14, 0.015), vec3(1.9, 0.42, 0.04), shape.mul(fl));
-    m.colorNode = vec4(hot.mul(shape.mul(shape)).mul(comp).mul(0.5), 1.0);
-    mesh(g, m, 'apoc-crater-rim', 3);
+    let G = 30; try { const y = app.controllerManager.getGroundHeight(CRATER.x, CRATER.z, 'person'); if (Number.isFinite(y)) G = y; } catch {}
+    CRATER.y = G;
+    const CG = N.CRATER_GLOW;
+    if (CG) { CG.at.value.set(CRATER.x, G, CRATER.z, 1); CG.r.value = CRATER.r; }
   }
 
   // ── plumes over the skyline: each anchor (x, z, height scale, glow) ──
@@ -200,7 +168,7 @@ export function createFX(W) {
     const d = length(pos.sub(cameraPosition));
     const tau = hazeDensity.mul(d).mul(0.42), fogged = float(1).sub(exp(tau.mul(tau).negate())).mul(0.85);
     const glowK = smoothstep(max(float(0.18), pp.y.sub(1).mul(0.5).add(0.18)), 0.0, t).mul(min(pp.y, float(1.2)));
-    const smoke = mix(vec3(ambient).mul(0.22).add(0.02), vec3(1.5, 0.3, 0.06), glowK);
+    const smoke = mix(vec3(ambient).mul(0.16).add(0.012), vec3(1.1, 0.14, 0.025), glowK);
     m.colorNode = vec4(mix(smoke, vec3(haze), fogged), puff.mul(life).mul(0.5));
     mesh(g, m, 'apoc-plumes', 4);
   }

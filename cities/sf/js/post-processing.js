@@ -1,7 +1,7 @@
 (function () {
 // Scene-linear color grading and lens bloom, composed in the existing final render pass.
 const { THREE } = window.NYC;
-const { Fn, uniform, float, vec2, vec3, vec4, dot, mix, min, max, pow, smoothstep, length, screenUV, screenSize, If, normalize } = window.NYC.TSL;
+const { Fn, uniform, float, vec2, vec3, vec4, dot, mix, min, max, pow, smoothstep, length, screenUV, screenSize, If, normalize, exp, acos, clamp, sin, abs, time } = window.NYC.TSL;
 const { bloom } = window.NYC.PostFX;
 
 // Exposure and white balance belong to the camera, independently of the physical lighting presets.
@@ -14,6 +14,10 @@ const LOOKS = {
 };
 // (wagmi/apocalypse adds SF 2040's looks here, by its lighting presets' ids; a look's vignette defaults to the lens's own)
 window.NYC.GRADE_LOOKS = LOOKS;
+// (SF 2040, wagmi/apocalypse/fx.js: a crater's light on the horizon, laid over the frame after the haze, so the city's
+// aerial fog does not wash it to cream: at: its centre (x, y, z) and strength (w, 0 off); r its radius, m. Shared by
+// every grade built, the SSR toggle's rebuild too)
+const CRATER = window.NYC.CRATER_GLOW = { at: uniform(new THREE.Vector4(0, 0, 0, 0)), r: uniform(650) };
 
 function createPostProcessing(renderer, sceneColor, reflections, depth, camera, lighting) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -56,6 +60,34 @@ function createPostProcessing(renderer, sceneColor, reflections, depth, camera, 
     });
     return color;
   })();
+  // the crater's light: toward it on the horizon, on whatever stands beyond most of the way to it (the sky, the far
+  // hills: a building or a ridge nearer stays in front of it), a deep red glow rising off it and its rim a molten band
+  // (x: the glow, y: the band)
+  const craterLight = Fn(() => {
+    const out = vec2(0, 0).toVar();
+    If(CRATER.at.w.greaterThan(0.001), () => {
+      const eye = cameraWorld.mul(vec4(0, 0, 0, 1)).xyz;
+      const vh = inverseProjection.mul(vec4(screenUV.x.mul(2).sub(1), float(1).sub(screenUV.y.mul(2)), 0.5, 1));
+      const dir = normalize(cameraWorld.mul(vec4(vh.xyz.div(vh.w), 1)).xyz.sub(eye));
+      const c = CRATER.at.xyz.sub(eye), cd = max(length(c.xz), 1.0);
+      const ang = acos(clamp(dot(normalize(dir.xz), c.xz.div(cd)), -1, 1));
+      const w = CRATER.r.mul(1.7).div(cd);
+      const el = dir.y.div(max(length(dir.xz), 0.001)), hb = c.y.div(cd);
+      // (the depth's own distance: the sky is beyond everything)
+      const clip = vec4(screenUV.x.mul(2).sub(1), float(1).sub(screenUV.y.mul(2)), depth.r, 1);
+      const view = inverseProjection.mul(clip);
+      const far = depth.r.greaterThan(0).select(smoothstep(cd.mul(0.62), cd.mul(0.85), length(view.xyz.div(view.w))), float(1));
+      const across = exp(ang.div(w).pow(2).mul(-1.6));
+      const up = max(el.sub(hb), 0.0);
+      const glow = across.mul(exp(up.div(float(560).div(cd)).negate())).mul(far);
+      // (the rim: from its foot to 120 m up, across its width, flickering along it)
+      const rimTop = c.y.add(120).div(cd), rimIn = smoothstep(w.mul(0.5), w.mul(0.38), ang);
+      const fl = sin(ang.mul(cd).mul(0.045).add(time.mul(1.7))).mul(sin(ang.mul(cd).mul(0.017).sub(time.mul(0.9)))).mul(0.3).add(0.75);
+      const band = smoothstep(rimTop, rimTop.sub(float(70).div(cd)), el).mul(smoothstep(hb.sub(float(30).div(cd)), hb.add(float(20).div(cd)), el)).mul(rimIn).mul(fl).mul(far);
+      out.assign(vec2(glow, band).mul(CRATER.at.w));
+    });
+    return out;
+  })();
   const exposed = max(fogged, vec3(0)).mul(exposure).mul(balance);
 
   // Limit only bloom's peak radiance, scaling RGB together to retain neon and lamp colors.
@@ -92,6 +124,11 @@ function createPostProcessing(renderer, sceneColor, reflections, depth, camera, 
     const chroma = max(max(color.r, color.g), color.b).sub(min(min(color.r, color.g), color.b));
     const vibrance = float(0.10).mul(float(1).sub(chroma.div(max(max(max(color.r, color.g), color.b), 0.0001))));
     color.assign(max(mix(vec3(gray), color, saturation.add(vibrance)), vec3(0)));
+    // (the crater's light over the grade, so it keeps its red: a deep red glow laid over, the rim's molten orange added)
+    If(CRATER.at.w.greaterThan(0.001), () => {
+      color.assign(mix(color, vec3(1.1, 0.07, 0.015), craterLight.x.mul(0.88)));
+      color.addAssign(vec3(1.5, 0.26, 0.02).mul(craterLight.y));
+    });
 
     // Normalize by the corner radius so the lens falloff remains subtle in portrait and landscape.
     const aspect = screenSize.x.div(screenSize.y);
