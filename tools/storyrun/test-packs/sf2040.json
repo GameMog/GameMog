@@ -45,7 +45,10 @@
   "Vale": {
    "color": "#C9C2B4",
    "role": "Deacon Vale, who leads the Iron Saints",
-   "voiceOnly": true
+   "voiceOnly": true,
+   "present": [
+    "M6"
+   ]
   },
   "Pike": {
    "color": "#A3D977",

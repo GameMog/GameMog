@@ -55,6 +55,8 @@ places.update({
 
 cast = dict(old["cast"])
 cast.setdefault("Vale", {"color": "#C9C2B4", "role": "Deacon Vale, who leads the Iron Saints", "voiceOnly": True})
+# (Vale is there in person in Homecoming, the last wave's boss: his lines there are not radio lines)
+cast["Vale"]["present"] = ["M6"]
 cast.setdefault("Pike", {"color": "#A3D977", "role": "a young Iron Saint", "voiceOnly": True})
 cast.setdefault("Warden", {"color": "#FF6A5C", "role": "WARDEN-7, the Preserve's security unit", "voiceOnly": True})
 

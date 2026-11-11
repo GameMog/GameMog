@@ -131,14 +131,14 @@ export function createRunner(ctx) {
     for (const p of ph) { const n = p.trim().length; if (!n) continue; setTimeout(() => sfx.play('mumble', { f0: f0 * (0.96 + Math.random() * 0.08), dur: Math.min(0.5, Math.max(0.2, 0.1 + n * 0.02)), gain: 0.26, q: /\?/.test(p) }), at * 1000 + 30); at += p.length / text.length * secs; }
   }
   // a line: its subtitle (its recording or clip plays from it: radio/voices.js), held for its reading time or its voice
-  async function say(who, text, t, { secs = null, phone = false } = {}) {
+  async function say(who, text, t, { secs = null, phone = false, radio = null } = {}) {
     text = tokens(text);
     // (a recorded line still playing, a car-phone call's or the last step's, is heard out first, up to 6 s)
     if (W.voice?.left?.() > 0.08) { const t0 = now(); await wait(() => !(W.voice.left() > 0.08) || now() - t0 > 6000, t); }
     const rec = W.voice?.dur?.(who, text) || 0;
     const hold = Math.max(1.4, text.length / 15, rec + 0.15, secs || 0);
     if (phone) W.voice?.fx?.(who, 'phone');
-    ui.sub(who || null, text, colorOf(who), phone || onAir(who));
+    ui.sub(who || null, text, colorOf(who), radio ?? (phone || onAir(who)));
     mumble(who, text, hold);
     M?.log.push(['say', who, text]);
     saying++;
@@ -147,7 +147,9 @@ export function createRunner(ctx) {
   }
   const tuple = (l) => (Array.isArray(l) ? { who: l[0], text: l[1], secs: l[2] } : l);
   // (a voice only ever heard over the air: its lines are radio lines on screen too)
-  const onAir = (w) => !!(w && world.castOf?.(w)?.voiceOnly);
+  // (one heard only over the air, except in the missions where he is there in person: his cast entry's `present`,
+  // mission ids: Deacon Vale in M6, the last wave's boss)
+  const onAir = (w) => { const c = w && world.castOf?.(w); return !!(c?.voiceOnly && !(Array.isArray(c.present) && M && c.present.includes(M.def?.id))); };
   // the runner pack writes call speakers upper-cased: back to the cast's own name
   const castName = (w) => { if (!w) return w; if (world.castOf(w)) return w; const k = Object.keys(def0.cast || {}).find((n) => n.toUpperCase() === String(w).toUpperCase()); return k || w; };
 
@@ -239,7 +241,8 @@ export function createRunner(ctx) {
   const STEPS = {};
   // place: the player there (in the car, or on foot), the time of day
   STEPS.place = async (d) => { const p = placeOf(d.at); putPlayer(p, (typeof d.at === 'object' && d.at.mode) || (M.def.vehicle ? 'car' : 'walk')); if (d.time) { if (M.pin) pinTo(d.time); else setTime(d.time); } M.timer.add(d.bonus || 0); };
-  STEPS.say = async (d, t) => { const who = castName(d.who); if (d.wait === false) { say(who, d.text, M.tok, { secs: d.secs }).catch(() => {}); return; } await say(who, d.text, t, { secs: d.secs }); };
+  // (a say's `radio`: true or false forces the line's look, over the air or in person)
+  STEPS.say = async (d, t) => { const who = castName(d.who), o = { secs: d.secs, radio: typeof d.radio === 'boolean' ? d.radio : null }; if (d.wait === false) { say(who, d.text, M.tok, o).catch(() => {}); return; } await say(who, d.text, t, o); };
   // (a wait for the calls, call: true: up to secs, over once the car phone is done and no call that rang beside the
   // step before (a persist call waiting, Delgado ringing mid-chase) is still being said)
   const ringingBeside = () => [...M.sides].some((s) => s.def.type === 'call' && !(s.def.inCar || (s.def.auto && !s.def.interrupts)) && !deadOf(s.tok));
@@ -1498,7 +1501,7 @@ export function createRunner(ctx) {
         }
         M.wild.near = near; M.wild.nearAt = nearAt; M.wild.walk = near < 45; M.wild.trot = near < 90; M.wild.gait = gaitNow(); M.wild.noise = noise;
         noise = clamp(noise + (heat > 0 ? (0.12 + heat * 1.0) * dt : -0.25 * dt), 0, 1);
-        hud.bar('NOISE', noise, heat > 0 ? (noise > 0.55 ? 'It stirs' : 'It can hear you') : near < 60 ? 'Quiet' : '');
+        hud.bar('NOISE', noise, heat > 0 ? (noise > 0.55 ? 'It stirs' : 'It can hear you') : near < 60 ? 'Quiet' : '', { danger: true });
         if (noise > 0.5 && !warned) { warned = true; growl(); juice.pulse(0.5); if (d.warn) { const b = tuple(d.warn); say(castName(b.who), b.text, M.tok).catch(() => {}); } }
         if (noise < 0.15) warned = false;
         if (noise >= 1 || woke) { woke = true; return true; }
@@ -1574,7 +1577,7 @@ export function createRunner(ctx) {
             if (b && dist(q, b.x, b.z) >= 20) { f.pos.x = b.x; f.pos.z = b.z; f.pos.y = cm.getGroundHeight(b.x, b.z, 'person'); f.yaw = Math.atan2(q.x - b.x, q.z - b.z); }
           }
           held = gap < reach ? held + dt : Math.max(0, held - dt * 0.5);
-          hud.bar(B.name ? B.name.toUpperCase() : 'BEHIND YOU', clamp(1 - gap / 40, 0, 1), `${Math.max(0, Math.round(gap))} m`);
+          hud.bar(B.name ? B.name.toUpperCase() : 'BEHIND YOU', clamp(1 - gap / 40, 0, 1), `${Math.max(0, Math.round(gap))} m`, { danger: true });
           gps.blip('chaser', { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: true, name: B.name || '' });
           if (held > grace) throw new Fail(tokens(d.why || `${B.name || 'It'} caught you.`), 'chased');
         }

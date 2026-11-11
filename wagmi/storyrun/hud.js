@@ -52,6 +52,8 @@ const CSS = `
 #wg .sr-bar .row { display: flex; justify-content: space-between; align-items: baseline; font: 700 14px/1 'Barlow Condensed'; letter-spacing: 3px; color: rgba(255,255,255,.75); }
 #wg .sr-bar .row b { font: 800 15px/1 'Barlow Condensed'; letter-spacing: 2px; color: #FFC93C; }
 #wg .sr-bar .row b.low { color: #EF4444; }
+/* (a danger bar at its safe end: its note green, over the glass theme's amber too) */
+#wg .sr-bar .row b.ok, html.ui-glass #wg .sr-bar .row b.ok { color: #4ADE80; }
 #wg .sr-bar i { display: block; height: 10px; margin-top: 8px; border-radius: 5px; overflow: hidden; background: rgba(255,255,255,.14); }
 #wg .sr-bar i s { display: block; height: 100%; width: 100%; background: #4ADE80; transition: width .15s linear, background .3s; }
 #wg:has(.sr-bar.on) .wg-caller { bottom: 296px; }
@@ -225,14 +227,16 @@ export function createHud(ui) {
       requestAnimationFrame(() => requestAnimationFrame(() => fill?.()));
       await sleep(secs * 1000); passEl.classList.remove('on'); await sleep(500);
     },
-    bar(label, k = 1, note = '') {
+    // ({ danger: true }: a bar where full is bad (a NOISE bar, how close a chaser is): green low, red high)
+    bar(label, k = 1, note = '', { danger = false } = {}) {
       barOwn = label != null;
       if (label == null) { barEl.classList.remove('on'); return; }
       barEl.classList.remove('go');
       k = Math.max(0, Math.min(1, +k || 0));
       barEl.querySelector('.l').textContent = String(label).toUpperCase();
-      const b = barEl.querySelector('b'); b.textContent = String(note || ''); b.classList.toggle('low', k < 0.3);
-      const f = barEl.querySelector('s'); f.style.width = `${(k * 100).toFixed(1)}%`; f.style.background = k < 0.3 ? '#EF4444' : k < 0.6 ? '#FFC93C' : '#4ADE80';
+      const bad = danger ? k > 0.7 : k < 0.3, warn = danger ? k > 0.4 : k < 0.6;
+      const b = barEl.querySelector('b'); b.textContent = String(note || ''); b.classList.toggle('low', bad); b.classList.toggle('ok', danger && !warn);
+      const f = barEl.querySelector('s'); f.style.width = `${(k * 100).toFixed(1)}%`; f.style.background = bad ? '#EF4444' : warn ? '#FFC93C' : '#4ADE80';
       barEl.classList.add('on');
     },
     get choosing() { return choosing; },
