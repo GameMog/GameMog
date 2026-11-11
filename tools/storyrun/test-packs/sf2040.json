@@ -673,6 +673,7 @@
      "id": "saints",
      "arena": "@saints",
      "checkpoint": true,
+     "hp": 130,
      "foes": [
       {
        "id": "creature-knight",
@@ -1149,6 +1150,7 @@
      "id": "brood",
      "arena": "@broodnest",
      "checkpoint": true,
+     "hp": 150,
      "foes": [
       {
        "id": "creature-scorpion",
@@ -1278,6 +1280,7 @@
      "id": "silver",
      "arena": "@civic",
      "checkpoint": true,
+     "hp": 170,
      "boss": {
       "id": "creature-ape",
       "name": "Old Silver",
@@ -1525,10 +1528,11 @@
      "id": "warden",
      "arena": "@hospital",
      "checkpoint": true,
+     "hp": 200,
      "foes": [
       {
        "id": "creature-centaur",
-       "count": 2,
+       "count": 1,
        "name": "Hybrid"
       }
      ],
@@ -1553,11 +1557,7 @@
      "barks": {
       "1": [
        "Warden",
-       "SPECIMEN DOWN. DISPATCHING."
-      ],
-      "2": [
-       "Warden",
-       "UNAUTHORIZED PERSON. RESTRAIN."
+       "SPECIMEN DOWN. UNAUTHORIZED PERSON. RESTRAIN."
       ]
      }
     },
@@ -2210,6 +2210,7 @@
      "id": "matriarch",
      "arena": "@fleeend",
      "checkpoint": true,
+     "hp": 220,
      "boss": {
       "id": "creature-trex",
       "name": "The Matriarch",
@@ -2737,7 +2738,7 @@
      "arena": "@camp",
      "checkpoint": true,
      "saddle": true,
-     "hp": 140,
+     "hp": 180,
      "guard": {
       "radius": 18,
       "hp": 100,
