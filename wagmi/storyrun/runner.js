@@ -1150,8 +1150,13 @@ export function createRunner(ctx) {
         if (G) {
           const tt = now(), dt = Math.min(0.1, (tt - (G.t || tt)) / 1000); G.t = tt;
           let marching = 0;
+          const q = me();
           for (const f of all) {
             if (f.out || f.disposed) continue;
+            // (a body knocked to nowhere (a non-finite position): put back where it last stood)
+            if (!Number.isFinite(f.pos.x) || !Number.isFinite(f.pos.z)) { if (f._ok) f.pos.copy(f._ok); else f.pos.set(G.x, cm.getGroundHeight(G.x, G.z, 'person'), G.z); } else (f._ok || (f._ok = new THREE.Vector3())).copy(f.pos);
+            // (met on the way, in the saddle too (the fight's own wake reads him on foot): it turns on him)
+            if ((f.state === 'home' || f.state === 'idle') && dist(q, f.pos.x, f.pos.z) < 13) try { f.wake(true); } catch {}
             const idle = f.state === 'home' || f.state === 'idle';
             if (!idle && f._march) { f.T.speed = f._march; f._march = null; }
             const inside = Math.hypot(f.pos.x - G.x, f.pos.z - G.z) < G.r;
