@@ -121,7 +121,10 @@ export async function install(W) {
   // (SF 2040: San Francisco after Erebus, wagmi/apocalypse, when a world for 'sf' asks for it in its dressing (or the
   // address has ?apocalypse); loaded only then. Before the time of day below, which it then keeps in its own look)
   if (asksApocalypse(def.dressing, def.city) || (def.city === 'sf' && Q.has('apocalypse'))) {
-    try { const A = await import('../apocalypse/index.js'); await A.createApocalypse(W, { time: typeof def.dressing?.apocalypse === 'string' ? def.dressing.apocalypse : Q.get('apocalypse') || 'dusk' }); } catch (e) { console.warn('[storyrun] apocalypse', e); }
+    // (its camps kept clear of the story's lairs: 26 m round every boss fight's arena)
+    const clear = [];
+    for (const m of def.missions || []) for (const st of m.steps || []) if (st.type === 'fight' && st.boss && st.arena) { try { const p = places.at(st.arena); if (p) clear.push([p.cx ?? p.x, p.cz ?? p.z, 26]); } catch {} }
+    try { const A = await import('../apocalypse/index.js'); await A.createApocalypse(W, { time: typeof def.dressing?.apocalypse === 'string' ? def.dressing.apocalypse : Q.get('apocalypse') || 'dusk', clear }); } catch (e) { console.warn('[storyrun] apocalypse', e); }
   }
   // a story's night is a lit city night, readable (nightlit.js: its fill, moon and exposure lifted at night only)
   try { const NL = await import('./nightlit.js'); W.storyrun.nightLit = NL.createNightLit(W, def.dressing || {}); } catch (e) { console.warn('[storyrun] night', e); }

@@ -13,7 +13,7 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>>
 // [x, z, radius, tents, kind: 'camp' | 'line' | 'both', facing (deg, the line's table faces this way)]
 export const CAMPS = [
   [600, -668, 16, 9, 'both', 200],     // Sue Bierman Park, by the Ferry Building and the Embarcadero
-  [-1352, 1036, 32, 22, 'both', 90],   // Civic Center: the plaza before City Hall
+  [-1318, 1040, 24, 16, 'both', 90],   // Civic Center: the plaza's east end, by Larkin (its middle is Old Silver's lair)
   [-978, 905, 9, 4, 'line', 45],       // UN Plaza, off Market
   [-480, 92, 14, 8, 'camp', 0],        // Union Square
   [-289, -676, 10, 6, 'camp', 0],      // Portsmouth Square
@@ -22,12 +22,14 @@ export const CAMPS = [
 const TENT = [0x5c6458, 0x6a6150, 0x4f5a62, 0x7a6a52, 0x5a4e48, 0x67705e, 0x4a4640, 0x7c5a3c];
 const COAT = [0x4a4440, 0x56503f, 0x3e4448, 0x5e5248, 0x48403a, 0x5a5e52, 0x6a5a48];
 
-export function createCamps(W, fx) {
+export function createCamps(W, fx, { clear = [] } = {}) {
   const app = W.app, scene = app.scene, N = window.NYC;
   const ground = (x, z) => { try { const y = app.controllerManager.getGroundHeight(x, z, 'person'); return Number.isFinite(y) ? y : N.Terrain.groundAt(x, z); } catch { return 0; } };
   const solid = (x, z, r = 1.2) => { try { const q = new THREE.Vector3(x, ground(x, z), z), q0 = q.clone(); app.controllerManager.resolveHorizontalCollision?.(q, r, q.y + 1); return Math.hypot(q.x - q0.x, q.z - q0.z) > 0.05; } catch { return false; } };
   const mat = new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.95, side: THREE.DoubleSide });
   const fires = []; fx.sources.set('camps', fires);
+  // (circles kept clear of the camps, [x, z, r]: a story's lairs, where it fights)
+  const kept = (x, z, r = 0) => clear.some(([a, b, R]) => Math.hypot(x - a, z - b) < R + r);
   const crowd = N.PersonCrowd ? new N.PersonCrowd(96, { farDistance: 36, name: 'ApocCampPeople', farShadow: false }) : null;
   if (crowd) for (const m of crowd.meshes) scene.add(m);
   const people = [];
@@ -45,7 +47,7 @@ export function createCamps(W, fx) {
       for (let i = 0; i < col.length; i += 3) { col[i] = c.r; col[i + 1] = c.g; col[i + 2] = c.b; }
       g.setAttribute('color', new THREE.BufferAttribute(col, 3)); parts.push(g);
     }
-    const free = (x, z, r) => !solid(x, z, r);
+    const free = (x, z, r) => !solid(x, z, r) && !kept(x, z, r);
     // tents round the middle, doors inward
     const spots = [];
     // a thin pole or line from a to b
@@ -129,6 +131,7 @@ export function createCamps(W, fx) {
     for (let f = 0; f < nFires; f++) {
       let x = cx, z = cz;
       for (let k = 0; k < 20; k++) { const a = R() * 6.28, d = rad * 0.3 * R(); x = cx + Math.sin(a) * d; z = cz + Math.cos(a) * d; if (free(x, z, 1.4) && !spots.some((s) => Math.hypot(s[0] - x, s[1] - z) < 3)) break; }
+      if (kept(x, z, 1.4)) continue;
       const y = ground(x, z);
       part(new THREE.CylinderGeometry(0.29, 0.29, 0.88, 12, 1, true), 0x5a2a18, x, y + 0.44, z);
       part(new THREE.CylinderGeometry(0.27, 0.27, 0.05, 12), 0x1a1210, x, y + 0.78, z);
@@ -140,7 +143,7 @@ export function createCamps(W, fx) {
       }
     }
     // the food line: a table under a tarp, two behind it, the queue snaking away
-    if (kind !== 'camp') {
+    if (kind !== 'camp' && !kept(cx - Math.sin((faceDeg * Math.PI) / 180) * rad * 0.2, cz - Math.cos((faceDeg * Math.PI) / 180) * rad * 0.2, 16)) {
       const fh = (faceDeg * Math.PI) / 180, fx2 = Math.sin(fh), fz2 = Math.cos(fh), rx = Math.cos(fh), rz = -Math.sin(fh);
       const tx = cx - fx2 * rad * 0.2, tz = cz - fz2 * rad * 0.2, ty = ground(tx, tz);
       part(new THREE.BoxGeometry(3.2, 0.06, 0.9), 0x8a7a60, tx, ty + 0.8, tz, fh + Math.PI / 2);
@@ -189,6 +192,9 @@ export function createCamps(W, fx) {
     scene.add(mesh);
     camps.push({ x: cx, z: cz, mesh, kind });
   }
+  // (anyone or anything set down in a kept-clear circle after all: taken out)
+  for (let i = people.length - 1; i >= 0; i--) if (kept(people[i].x, people[i].z, 0.5)) people.splice(i, 1);
+  for (let i = scanAt.length - 1; i >= 0; i--) if (kept(scanAt[i][1], scanAt[i][3], 0.6)) scanAt.splice(i, 1);
   // the library's scans by the tents (one instanced draw a kind, every camp's)
   import('../storyrun/setkit.js').then(async ({ libModel }) => {
     const M4 = new THREE.Matrix4(), Q4 = new THREE.Quaternion(), V1 = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0);

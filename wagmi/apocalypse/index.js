@@ -13,7 +13,7 @@
 //   and here:  the traffic left where it stood (cities/sf/js/traffic.js abandon: no driving, askew, burnt out, no
 //              buses; the freeways and the streetcars stopped), far fewer people out and those in drab, dusty clothes,
 //              and wild horses grazing on the open green near the camera (W.creatures.herd)
-//   createApocalypse(W, { time }) -> W.apocalypse { look, fx, debris, camps, sound, setTime(id), stats() }
+//   createApocalypse(W, { time, clear: [[x, z, r]] (kept clear of the camps) }) -> W.apocalypse { look, fx, debris, camps, sound, setTime(id), stats() }
 import { installLook, PRESETS, lookOf } from './look.js';
 import { createFX } from './fx.js';
 import { createDebris } from './debris.js';
@@ -26,7 +26,7 @@ const WALKERS = 50, CROWD = 36;
 // the open green the wild horses graze on (the camps' plazas left to the people)
 const PASTURES = [[520, -740], [-2322, -402], [-2062, 871], [-699, -1347], [-333, -1573], [-345, 1300], [-644, 2602], [-1663, -1737], [-884, -1527]];
 
-export async function createApocalypse(W, { time = 'dusk' } = {}) {
+export async function createApocalypse(W, { time = 'dusk', clear = [] } = {}) {
   if (W.apocalypse) return W.apocalypse;
   const app = W.app, N = window.NYC;
   for (let i = 0; i < 1800 && !app.ready; i++) await sleep(100);
@@ -55,7 +55,7 @@ export async function createApocalypse(W, { time = 'dusk' } = {}) {
 
   // the streets, the camps
   const debris = createDebris(W, fx);
-  const camps = createCamps(W, fx);
+  const camps = createCamps(W, fx, { clear });
   const sound = createSound(W, fx);
 
   // the wild horses: a herd on the nearest open green within reach, two at most, gone when left far behind
