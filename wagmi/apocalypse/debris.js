@@ -91,13 +91,13 @@ export function createDebris(W, fx) {
     });
     return (kinds[name] = { meshes, cap, n: 0 });
   }
-  kind('rubble', 170, [{ geometry: rubbleGeo(), material: vmat }]);
-  kind('slab', 90, [{ geometry: slabGeo(), material: vmat }]);
+  kind('rubble', 220, [{ geometry: rubbleGeo(), material: vmat }]);
+  kind('slab', 130, [{ geometry: slabGeo(), material: vmat }]);
   kind('barrier', 40, [{ geometry: barrierGeo(), material: vmat }]);
-  kind('sheet', 60, [{ geometry: sheetGeo(), material: sheetMat }]);
+  kind('sheet', 90, [{ geometry: sheetGeo(), material: sheetMat }]);
   kind('pole', 16, [{ geometry: poleGeo(), material: vmat }]);
   // the scans (loaded in the background: their kinds appear once they are in)
-  const SCANS = { 'blue-drum': 50, 'red-drum': 50, 'old-tyre': 70, 'plastic-crate': 50, 'cardboard-box': 70, 'trash-cans': 40, 'covered-car': 8 };
+  const SCANS = { 'blue-drum': 70, 'red-drum': 70, 'old-tyre': 110, 'plastic-crate': 70, 'cardboard-box': 100, 'trash-cans': 60, 'covered-car': 10 };
   const SCAN_PARTS = { 'trash-cans': ['metal_trash_can_rust', 'metal_trash_can_rust_lid'] };
   const ready = Promise.all(Object.entries(SCANS).map(async ([id, cap]) => {
     try {
@@ -130,7 +130,7 @@ export function createDebris(W, fx) {
     const len = e.len;
     if (len < 30) return;
     // a barricade across this street (1 in 9 edges)
-    if (R() < 0.11 && len > 60) {
+    if (R() < 0.14 && len > 50) {
       const s = 20 + R() * (len - 40), gap = (R() - 0.5) * e.half;
       for (let r = -e.half + 0.6; r < e.half - 0.6; r += 3.1) {
         if (Math.abs(r - gap) < 2.6) continue;
@@ -146,7 +146,15 @@ export function createDebris(W, fx) {
     // a fallen pole now and then, across the gutter and the sidewalk
     if (R() < 0.08) { const s = 15 + R() * (len - 30), sd = R() < 0.5 ? 1 : -1; const [x, z] = along(s, sd * (e.half + 0.5)); put('pole', x, z, yaw0 + Math.PI / 2 + (R() - 0.5) * 0.8 + (sd < 0 ? Math.PI : 0), { tilt: 0, roll: 0.03 }); }
     // clutter in the gutters and on the sidewalks, every ~14 m
-    for (let s = 10 + R() * 8; s < len - 10; s += 9 + R() * 12) {
+    // fallen facade in the lanes: heaps and slabs out in the road now and then
+    for (let s = 14 + R() * 20; s < len - 14; s += 22 + R() * 30) {
+      if (R() < 0.45) continue;
+      const r = (R() - 0.5) * e.half * 1.4, [x, z] = along(s, r);
+      put('rubble', x, z, R() * 6, { s: 0.7 + R() * 0.9 });
+      if (R() < 0.6) put('slab', x + (R() - 0.5) * 3, z + (R() - 0.5) * 3, R() * 6, { tilt: (R() - 0.5) * 0.4, roll: (R() - 0.5) * 0.3, dy: 0.05 });
+      if (R() < 0.4) put(R() < 0.5 ? 'old-tyre' : 'sheet', x + (R() - 0.5) * 4, z + (R() - 0.5) * 4, R() * 6, { tilt: R() < 0.5 ? Math.PI / 2 : 0 });
+    }
+    for (let s = 8 + R() * 6; s < len - 8; s += 6 + R() * 9) {
       const sd = R() < 0.5 ? 1 : -1;
       const onWalk = R() < 0.45;
       const r = sd * (onWalk ? e.half + 0.9 + R() * 2.0 : e.half - 0.4 - R() * 1.6);

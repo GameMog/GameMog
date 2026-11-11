@@ -1532,7 +1532,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   // now and then (a battery not yet flat)
   function strand(v) {
     const r = Math.random();
-    v.askew = (Math.random() - 0.5) * (r < 0.25 ? 1.9 : 0.7);
+    v.askew = (Math.random() - 0.5) * (r < 0.4 ? 2.2 : 0.8);
     const side = (Math.random() - 0.5) * 2.2;
     v.offX = v.edge ? v.edge.rx * side : 0; v.offZ = v.edge ? v.edge.rz * side : 0;
     v.hazard = Math.random() < 0.08;

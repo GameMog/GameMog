@@ -124,7 +124,7 @@ export function createFX(W) {
 
   // ── plumes over the skyline: each anchor (x, z, height scale, glow) ──
   const PLUMES = [
-    [-3300, -1500, 1.6, 1.0], // the Presidio: where Erebus came down
+    [-3700, -1150, 1.7, 1.0], // the Presidio: where Erebus came down
     [-2700, -2200, 1.0, 0.6],
     [1500, 1900, 0.9, 0.3],   // Mission Bay
     [-1200, 2600, 0.8, 0.25], // the Mission

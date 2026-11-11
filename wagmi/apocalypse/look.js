@@ -15,20 +15,20 @@ export const IMPACT_DIR = V(-0.82, 0, -0.57);
 export const PRESETS = {
   'ash-dusk': {
     id: 'ash-dusk', name: 'Ash Dusk',
-    sunDir: V(-0.93, 0.13, 0.22), sunColor: 0xff7330, sunIntensity: 2.7,
-    hemiSky: 0xb08a72, hemiGround: 0x5e4636, hemiIntensity: 1.35,
+    sunDir: V(-0.93, 0.13, 0.22), sunColor: 0xff8448, sunIntensity: 1.6,
+    hemiSky: 0xb89480, hemiGround: 0x6a5040, hemiIntensity: 2.1,
     skyTop: 0x3a2a24, skyHorizon: 0xb8522a,
     fogColor: 0x7a5644, fogDensity: 0.00105,
-    interiorGlow: 0.04, roadWetness: 0.04, envIntensity: 0.7, canyonBounce: 0.45,
+    interiorGlow: 0.04, roadWetness: 0.04, envIntensity: 0.95, canyonBounce: 0.6,
     turbidity: 16, rayleigh: 1.1, mieCoefficient: 0.025, mieDirectionalG: 0.9,
     cloudCoverage: 0.74, cloudDensity: 0.62, cloudElevation: 0.42, skyExposure: 0.13, nightFactor: 0.0,
-    skyTint: 0xd8a080, glowColor: 0xff4a1a, glow: 0.7, glowDir: IMPACT_DIR,
+    skyTint: 0xd8a080, glowColor: 0xff3a10, glow: 1.5, glowDir: IMPACT_DIR,
     ash: 1, ashTop: 0x4a3a32, ashHorizon: 0xb07a58, ashSun: 0xff9a50, ashK: 1.6, ashSunK: 2.2,
   },
   'ash-day': {
     id: 'ash-day', name: 'Ash Day',
     sunDir: V(-0.55, 0.5, 0.3), sunColor: 0xffae6e, sunIntensity: 3.2,
-    hemiSky: 0xa89484, hemiGround: 0x5e4c40, hemiIntensity: 1.25,
+    hemiSky: 0xa89484, hemiGround: 0x6a5848, hemiIntensity: 1.8,
     skyTop: 0x5a4a40, skyHorizon: 0xb08068,
     fogColor: 0x9a8270, fogDensity: 0.00095,
     interiorGlow: 0.04, roadWetness: 0.03, envIntensity: 0.55, canyonBounce: 0.4,
@@ -40,7 +40,7 @@ export const PRESETS = {
   'ash-night': {
     id: 'ash-night', name: 'Ash Night',
     sunDir: V(0.35, 0.6, -0.5), sunColor: 0x9a8aa0, sunIntensity: 1.1,
-    hemiSky: 0x6a5058, hemiGround: 0x3e3028, hemiIntensity: 1.25,
+    hemiSky: 0x6a5058, hemiGround: 0x3e3028, hemiIntensity: 1.6,
     skyTop: 0x120c0c, skyHorizon: 0x5a2014,
     fogColor: 0x24160f, fogDensity: 0.0011,
     interiorGlow: 0.03, roadWetness: 0.04, envIntensity: 0.32, canyonBounce: 0.15,
@@ -51,7 +51,7 @@ export const PRESETS = {
   },
 };
 export const LOOKS = {
-  'ash-dusk': { exposure: 1.18, contrast: 1.08, saturation: 0.76, balance: [1.08, 0.98, 0.86], bloom: 0.34, threshold: 1.0, vignette: 0.3, dryGreens: 0.75 },
+  'ash-dusk': { exposure: 1.34, contrast: 1.08, saturation: 0.76, balance: [1.08, 0.98, 0.86], bloom: 0.34, threshold: 1.0, vignette: 0.3, dryGreens: 0.75 },
   'ash-day': { exposure: 1.04, contrast: 1.08, saturation: 0.68, balance: [1.06, 0.99, 0.9], bloom: 0.26, threshold: 1.15, vignette: 0.26, dryGreens: 0.75 },
   'ash-night': { exposure: 1.45, contrast: 1.04, saturation: 0.82, balance: [1.06, 0.97, 0.9], bloom: 0.42, threshold: 0.85, vignette: 0.32, dryGreens: 0.6 },
 };

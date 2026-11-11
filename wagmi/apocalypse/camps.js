@@ -13,7 +13,7 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>>
 // [x, z, radius, tents, kind: 'camp' | 'line' | 'both', facing (deg, the line's table faces this way)]
 export const CAMPS = [
   [600, -668, 16, 9, 'both', 200],     // Sue Bierman Park, by the Ferry Building and the Embarcadero
-  [-1372, 1046, 26, 16, 'both', 90],   // Civic Center: the plaza before City Hall
+  [-1352, 1036, 32, 22, 'both', 90],   // Civic Center: the plaza before City Hall
   [-978, 905, 9, 4, 'line', 45],       // UN Plaza, off Market
   [-480, 92, 14, 8, 'camp', 0],        // Union Square
   [-289, -676, 10, 6, 'camp', 0],      // Portsmouth Square
