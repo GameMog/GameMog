@@ -307,6 +307,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
         if (along0 > -2 && Math.abs(lat) < want) { const side = lat >= 0 ? -1 : 1; ax = n.x + dz * side * want + dx * 4; az = n.z - dx * side * want + dz * 4; }
       }
       steerTo(ax, az, 3); cm.setTouchInput('forward', Math.abs(car.speed || 0) < 2.2 ? 0.5 : 0); cm.setTouchInput('boost', 0); return; }
+    if (type === 'sneak' && M.wild?.trot && inCar()) { steerTo(tgt.x, tgt.z, 4.5); cm.setTouchInput('boost', 0); return; }
     if (type === 'flee' && inCar()) { steerTo(tgt.x, tgt.z, 30); cm.setTouchInput('boost', Math.abs(wrapA(Math.atan2(tgt.x - x, tgt.z - z) - car.heading)) < 0.5 ? 1 : 0); return; }
     steerTo(tgt.x, tgt.z, Math.min(cap, type === 'tail' ? 11 : Math.min(realPace ? 20 : 15, 2.5 + Math.sqrt(2 * 3 * Math.max(0, L - radius * 0.4)))));
   }

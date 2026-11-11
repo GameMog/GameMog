@@ -36,6 +36,12 @@ test('SF 2040: five missions or more, four bosses, food and medicine, Ranger, th
   // (the last fight is waves, Deacon Vale's the last)
   const defend = steps.find((s) => s.id === 'defend');
   assert.equal(defend.waves.length, 3); assert.equal(defend.waves[2].boss.name, 'Deacon Vale');
+  // (held from the saddle, a camp bar to keep, every wave from a place of its own)
+  assert.ok(defend.saddle && defend.guard && defend.guard.hp > 0);
+  assert.equal(new Set(defend.waves.map((x) => x.from)).size, 3);
+  // (the Matriarch comes down the hill on his heels and is fought where the chase ends: the same creature)
+  const run = steps.find((s) => s.type === 'flee'), mat = steps.find((s) => s.id === 'matriarch');
+  assert.ok(run.keep && mat.boss.from === run.id);
   const kinds = new Set(steps.filter((s) => s.type === 'collect').map((s) => s.kind));
   assert.ok(kinds.has('food') && kinds.has('medicine'));
   assert.ok(w.opening && w.opening.shots.length >= 6);

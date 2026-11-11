@@ -1384,8 +1384,8 @@ export function createRunner(ctx) {
           if (dd < r) heat = Math.max(heat, 1 - Math.max(0, dd) / r);
           gps.blip('sl:' + f.id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', name: x.o.name || '' });
         }
-        M.wild.near = near; M.wild.nearAt = nearAt; M.wild.walk = near < HEAR.trot * 1.6; M.wild.gait = gaitNow(); M.wild.noise = noise;
-        noise = clamp(noise + (heat > 0 ? (0.18 + heat * 1.1) * dt : -0.2 * dt), 0, 1);
+        M.wild.near = near; M.wild.nearAt = nearAt; M.wild.walk = near < 45; M.wild.trot = near < 90; M.wild.gait = gaitNow(); M.wild.noise = noise;
+        noise = clamp(noise + (heat > 0 ? (0.12 + heat * 1.0) * dt : -0.25 * dt), 0, 1);
         hud.bar('NOISE', noise, heat > 0 ? (noise > 0.55 ? 'It stirs' : 'It can hear you') : near < 60 ? 'Quiet' : '');
         if (noise > 0.5 && !warned) { warned = true; growl(); juice.pulse(0.5); if (d.warn) { const b = tuple(d.warn); say(castName(b.who), b.text, M.tok).catch(() => {}); } }
         if (noise < 0.15) warned = false;
