@@ -1,0 +1,20 @@
+{
+ "v": 1,
+ "id": "228beefa-0eb8-47ec-81de-d0ee72483d0b",
+ "slug": "sf2040",
+ "n": 2,
+ "from": {
+  "hash": "18caf3e069a2f8948303631e8f8a28b0559c8339877ee1a9f3f1ee56ebd4c087",
+  "bytes": 72084
+ },
+ "world": {
+  "hash": "135a0f3c85e5e60d4d431ced8f678b244a9b9f918fe040f685c68f84687e4f74",
+  "bytes": 72169
+ },
+ "mc": {
+  "bodies": 4,
+  "bodyBytes": 11696128,
+  "clips": 150,
+  "clipBytes": 4112937
+ }
+}

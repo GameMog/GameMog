@@ -3,7 +3,7 @@
  * an impact, six missions on Mog City's engine, published PUBLIC at /g/sf2040 by deploy/migrate.mjs (2026-11-11-sf2040),
  * which reads the record this script writes.
  *
- *   node --import ./scripts/ts-resolve.mjs scripts/storykit-sf2040.ts --export <a Mog City tree> [--art <wide> <square or portrait> <headshot>]
+ *   node --import ./scripts/ts-resolve.mjs scripts/storykit-sf2040.ts --export <a Mog City tree> [--next <n> | --art <wide> <square or portrait> <headshot>]
  *
  * Unlike Pickup Time (scripts/storykit-showcase.ts) SF 2040 was written for Mog City directly, and Mog City ships it as
  * one of its own worlds (packs/sf2040.json, mogcity bcd35463: a runner world already, storykit: 1, city 'sf'), so there
@@ -101,10 +101,28 @@ async function makeArt(wide: string, square0: string, headshot: string) {
   console.log(`wrote ${SF_DIR}/cover-plain.jpg, cover-wide.jpg, cover-square.jpg, headshot.jpg`);
 }
 
+/**
+ * A newer world for the game already published (11 Nov: Mog City's feel pass, mogcity cc88be61): --next <n> writes
+ * deploy/migrations/sf2040/world-<n>.json and its record sf2040-world-<n>.json ({ from: the world it replaces, world }),
+ * which a follow-up migration (2026-11-11-sf2040-world-<n>) seals in place of `from`. The first record and world stay
+ * as they were: they are what 2026-11-11-sf2040 published, and a fresh disk replays both migrations in order.
+ */
+function nextWorld(mc: string, n: number) {
+  const prevFile = n === 2 ? `${SF_DIR}/world.json` : `${SF_DIR}/world-${n - 1}.json`;
+  const prev = readFileSync(prevFile);
+  const w = sfWorld(mc), rec = JSON.parse(w.record);
+  if (rec.world.hash === sha(prev)) throw new Error(`Mog City's world is the same as ${prevFile}: nothing to refresh`);
+  const out = { v: 1, id: SF_GAME, slug: SF_ID, n, from: { hash: sha(prev), bytes: prev.length }, world: rec.world, mc: rec.mc };
+  writeFileSync(`${SF_DIR}/world-${n}.json`, w.world);
+  writeFileSync(`deploy/migrations/${SF_ID}-world-${n}.json`, JSON.stringify(out, null, 1) + '\n');
+  console.log(`wrote ${SF_DIR}/world-${n}.json (${rec.world.bytes} bytes, ${rec.world.hash.slice(0, 12)}) replacing ${out.from.hash.slice(0, 12)}; on Mog City: ${rec.mc.bodies} bodies, ${rec.mc.clips} clips`);
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const args = process.argv.slice(2), ei = args.indexOf('--export'), ai = args.indexOf('--art');
-  if (ei < 0 || !args[ei + 1]) { console.error('usage: storykit-sf2040.ts --export <mogcity tree> [--art <wide.jpg> <square.jpg> <headshot.jpg>]'); process.exit(2); }
+  const args = process.argv.slice(2), ei = args.indexOf('--export'), ai = args.indexOf('--art'), ni = args.indexOf('--next');
+  if (ei < 0 || !args[ei + 1]) { console.error('usage: storykit-sf2040.ts --export <mogcity tree> [--next <n> | --art <wide.jpg> <square.jpg> <headshot.jpg>]'); process.exit(2); }
   mkdirSync(SF_DIR, { recursive: true });
+  if (ni >= 0) { nextWorld(args[ei + 1], Number(args[ni + 1])); process.exit(0); }
   const w = sfWorld(args[ei + 1]);
   writeFileSync(SF_RECORD, w.record);
   writeFileSync(`${SF_DIR}/world.json`, w.world);

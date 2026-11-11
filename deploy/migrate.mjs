@@ -1617,6 +1617,89 @@ export const MIGRATIONS = [
       }
     },
   },
+  {
+    // 11 Nov, the owner ("yes refresh gamemog.com"): SF 2040 plays Mog City's world as it is now (mogcity cc88be61, the
+    // feel pass: M2, M3 and M6 start without the ride between missions, wave sizes, tips). Its record,
+    // deploy/migrations/sf2040-world-2.json (scripts/storykit-sf2040.ts --export <mogcity tree> --next 2), names the
+    // world it replaces (from: what 2026-11-11-sf2040 sealed) and the new one (deploy/migrations/sf2040/world-2.json),
+    // checked as that migration checks its world. The new world is sealed into the game's kept store draft as the patch
+    // route seals one (world.json; the old one kept as a was-<sha256>.json row, never swept, so a page or a play still on
+    // it loads and counts), the draft's pack becomes it, and the game's meta (storykit.world: what /g/sf2040 frames and
+    // what a played mission counts against) and module name it. Only where the game still plays `from`: a world changed
+    // since is left alone, as is a database without SF 2040 (it waits, unrecorded, for 2026-11-11-sf2040)
+    id: '2026-11-11-sf2040-world-2',
+    async: true,
+    async run(db, path) {
+      if (!['on', 'owner'].includes(String(process.env.STORYKIT ?? '').trim().toLowerCase())) throw new Error('waiting: the Story Kit is off on this server (STORYKIT)');
+      const rec = file('sf2040-world-2.json'), worldBytes = file('sf2040/world-2.json');
+      if (!rec || !worldBytes) throw new Error('deploy/migrations/sf2040-world-2.json or sf2040/world-2.json is not in this build');
+      const R = JSON.parse(rec.toString('utf8'));
+      const HEX = /^[0-9a-f]{64}$/;
+      if (R.v !== 1 || R.slug !== 'sf2040' || R.n !== 2 || !HEX.test(R.from?.hash) || !HEX.test(R.world?.hash)) throw new Error('sf2040-world-2.json is not SF 2040\'s second world');
+      const sha = (b) => createHash('sha256').update(b).digest('hex');
+      const g = db.prepare("SELECT id, code, meta FROM games WHERE slug = 'sf2040' AND id = ?").get(R.id);
+      if (!g) throw new Error('waiting: /g/sf2040 is not in this database yet');
+      const meta = JSON.parse(g.meta ?? '{}');
+      if (meta.mode !== 'storykit' || meta.storykit?.packId !== 'sf2040') return 'left alone: /g/sf2040 is not SF 2040';
+      if (meta.storykit.world === R.world.hash) return 'already there: /g/sf2040 plays the new world';
+      if (meta.storykit.world !== R.from.hash) return `left alone: /g/sf2040 plays ${String(meta.storykit.world).slice(0, 12)}, not ${R.from.hash.slice(0, 12)}`;
+
+      // the new world, checked as 2026-11-11-sf2040 checks its own before anything is written
+      if (sha(worldBytes) !== R.world.hash || worldBytes.length !== R.world.bytes) throw new Error('sf2040/world-2.json is not the record\'s world');
+      const text = worldBytes.toString('utf8'), W = JSON.parse(text);
+      if (W.storykit !== 1 || W.id !== 'sf2040' || W.city !== 'sf') throw new Error('sf2040/world-2.json is not SF 2040\'s runner world');
+      if (text.includes('/storykit/f/')) throw new Error('sf2040/world-2.json names a file in the store, which this migration does not write');
+      for (const [n, c] of Object.entries(W.cast ?? {})) if (c?.glb != null && !/^assets\/characters\/sf2040\/[a-z][a-z0-9-]{0,39}\.glb$/.test(String(c.glb))) throw new Error(`the world's ${n} is not one of Mog City's SF 2040 bodies`);
+      for (const [k, c] of Object.entries(W.voice?.clips ?? {})) if (!/^[0-9a-f]{8}-[0-9a-f]{8}$/.test(k) || String(c?.url) !== `assets/voice/sf2040/${k}.m4a`) throw new Error(`the world's clip ${k} is not one of Mog City's SF 2040 clips`);
+
+      const { StoryStore, LIMITS } = await storykit();
+      const s = new StoryStore(join(dirname(resolve(path)), 'storykit'));
+      const storeId = meta.storykit.pack;
+      const d = typeof storeId === 'string' ? s.db.prepare("SELECT id, world FROM drafts WHERE id = ? AND state = 'kept' AND game_id = ?").get(storeId, g.id) : null;
+      if (!d) throw new Error('SF 2040\'s kept store draft is not in the store');
+      if (d.world !== R.from.hash) return `left alone: the store draft holds ${String(d.world).slice(0, 12)}, not ${R.from.hash.slice(0, 12)}`;
+      if (worldBytes.length > LIMITS.sealed) throw new Error(`the world is ${worldBytes.length} bytes, over a sealed world's ${LIMITS.sealed}`);
+      const fresh = !s.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(R.world.hash);
+      if (fresh && s.used() + worldBytes.length > LIMITS.disk) throw new Error('waiting: the Story Kit store has no room for SF 2040\'s new world');
+      if (fresh) {
+        const p = s.blobPath(R.world.hash, 'json');
+        if (!(existsSync(p) && sha(readFileSync(p)) === R.world.hash)) {
+          mkdirSync(dirname(p), { recursive: true });
+          const tmp = `${p}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+          writeFileSync(tmp, worldBytes); renameSync(tmp, p);
+        }
+      }
+      const t = Date.now();
+      const oldBytes = s.db.prepare('SELECT bytes FROM blobs WHERE hash = ?').get(R.from.hash)?.bytes ?? R.from.bytes;
+      s.db.exec('BEGIN');
+      try {
+        s.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)').run(R.world.hash, 'json', worldBytes.length, t);
+        const row = s.db.prepare("INSERT OR REPLACE INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, 'pack', ?, ?, 'json', ?, NULL, 0, ?)");
+        // (the world it replaces stays the draft's, as a was- row: never swept, still served)
+        row.run(d.id, `was-${R.from.hash}.json`, R.from.hash, oldBytes, t);
+        row.run(d.id, 'world.json', R.world.hash, worldBytes.length, t);
+        s.db.prepare('UPDATE drafts SET pack = ?, world = ?, touched_at = ? WHERE id = ?').run(text, R.world.hash, t, d.id);
+        s.db.exec('COMMIT');
+      } catch (e) { s.db.exec('ROLLBACK'); throw e; }
+      try {
+        const next = { ...meta, storykit: { ...meta.storykit, world: R.world.hash } };
+        // (the module names the world it plays: 2026-11-11-sf2040's, with the new hash)
+        const code = String(g.code ?? '').includes(R.from.hash) ? String(g.code).split(R.from.hash).join(R.world.hash) : g.code;
+        db.prepare('UPDATE games SET meta = ?, code = ? WHERE id = ?').run(JSON.stringify(next), code, g.id);
+        return `/g/sf2040 plays ${R.world.hash.slice(0, 12)} (was ${R.from.hash.slice(0, 12)}, kept); store draft ${d.id}`;
+      } catch (e) {
+        // (the games row is rolled back with the transaction; the store draft goes back to the world it had)
+        try {
+          s.db.exec('BEGIN');
+          s.db.prepare("UPDATE files SET hash = ?, bytes = ? WHERE draft_id = ? AND kind = 'pack' AND name = 'world.json'").run(R.from.hash, oldBytes, d.id);
+          s.db.prepare("DELETE FROM files WHERE draft_id = ? AND kind = 'pack' AND name = ?").run(d.id, `was-${R.from.hash}.json`);
+          s.db.prepare('UPDATE drafts SET world = ? WHERE id = ?').run(R.from.hash, d.id);
+          s.db.exec('COMMIT');
+        } catch { try { s.db.exec('ROLLBACK'); } catch { /* as it is */ } }
+        throw e;
+      }
+    },
+  },
 ];
 
 /** A table's columns (the app adds some at its first start, lib/db.ts: a fresh disk's database may lack them). */
