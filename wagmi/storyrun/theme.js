@@ -37,6 +37,7 @@ html.ui-glass {
   --gl-drop: 0 10px 30px -12px rgba(0,0,0,.45), 0 1px 3px rgba(0,0,0,.12);
   --gl-ts: 0 1px 2px rgba(0,0,0,.6), 0 0 14px rgba(0,0,0,.38);
   --gl-label: 500 10.5px/1.1 var(--gl-font);
+  --wg-obj-secs: 2.5;
   --gl-ease: cubic-bezier(.2,.8,.2,1);
 }
 /* the panels' common glass */

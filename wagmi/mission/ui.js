@@ -640,7 +640,9 @@ export function createUI() {
       if (!parts) { objHtml = null; objEl.classList.add('hide'); return; }
       objHtml = rich(parts); objEl.innerHTML = `<span class="t">${objHtml}</span>`;
       if (!subOn) objEl.classList.remove('hide');
-      later('obj', secs * 1000, () => { objEl.classList.add('hide'); objHtml = null; });
+      // (a theme may hold the line shorter, --wg-obj-secs: the tracker keeps it, the line only announces it)
+      const cap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--wg-obj-secs'));
+      later('obj', (cap > 0 ? Math.min(secs, cap) : secs) * 1000, () => { objEl.classList.add('hide'); objHtml = null; });
     },
     // the brief: the tracker opened on the last lines and help (on: true / false, or a toggle); shut again after 10 s
     brief(on) {
