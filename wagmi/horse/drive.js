@@ -207,11 +207,23 @@ export function createDrive(THREE, { cm, car, W }) {
       else if (S.hop) S.hop -= Math.abs(car.speed) * dt;
       if (S.hop && !S.air && !car.halt && !S.busy && S.landT <= 0 && S.hop < 1 + Math.abs(car.speed) * 0.16) { S.hop = 0; jump(); }
       if (S.room < Infinity) { const cap = Math.sqrt(2 * ACC.stop * Math.max(0, S.room - 0.4)); if (Math.abs(car.speed) > cap) car.speed = Math.sign(car.speed) * Math.max(cap, Math.abs(car.speed) - 16 * dt); }
-    } else { S.lookT = 0; S.room = Infinity; S.hop = 0; S.dodge = 0; }
+    } else {
+      S.lookT = 0; S.room = Infinity; S.hop = 0;
+      // (pulled up against something with the reins loose and W held: he turns his own head to the clearer side and
+      // walks round it, as a horse does, rather than leaning on it)
+      if (thr > 0 && Math.abs(steer) < 0.2 && !S.busy && !car.halt) {
+        if ((S.stuckLook = (S.stuckLook || 0) - dt) <= 0) {
+          S.stuckLook = 0.25; S.dodge = 0;
+          const f = roomAhead(3.5);
+          if (f < 2.5) { const L = roomAhead(3.5, car.heading + 0.6), Rr = roomAhead(3.5, car.heading - 0.6); if (Math.max(L, Rr) > f + 0.5) S.dodge = L >= Rr ? 1 : -1; }
+        }
+      } else S.dodge = 0;
+    }
     // the turn: the city's keyboard steering on its handling; stopped, round on the spot
     const h0 = car.heading;
-    if (Math.abs(car.speed) > 0.3) cm.steerHandled(car, S.dodge && Math.abs(car.speed) > 2.5 ? S.dodge * 0.7 : steer, dt);
-    else { car.steerK = (car.steerK || 0) + (steer - (car.steerK || 0)) * Math.min(1, dt * 8); car.heading += car.steerK * 1.3 * dt; }
+    const turn = S.dodge ? S.dodge * 0.75 : steer;
+    if (Math.abs(car.speed) > 0.3) cm.steerHandled(car, turn, dt);
+    else { car.steerK = (car.steerK || 0) + (turn - (car.steerK || 0)) * Math.min(1, dt * 8); car.heading += car.steerK * 1.3 * dt; }
     car.heading += (car.angularVel || 0) * dt; car.angularVel = (car.angularVel || 0) * Math.exp(-dt * 8);
     S.yawRate += (wrap(car.heading - h0) / dt - S.yawRate) * Math.min(1, dt * 12);
     // the jump: Space, on the ground, not in a buck
@@ -242,5 +254,5 @@ export function createDrive(THREE, { cm, car, W }) {
     if (car.speed || car.vx || car.vz || S.air) move(dt);
     ground(dt);
   }
-  return { step, coast, jump, S, PACE };
+  return { step, coast, jump, S, PACE, roomAhead };
 }
