@@ -974,6 +974,9 @@ const coverage = (d) => {
 };
 
 const _carMaterialCache = new Map();
+// (SF 2040, wagmi/apocalypse) every car's and bus's lamps, 1 as they are, 0 dark (the batteries long flat)
+const CAR_LAMP_POWER = uniform(1);
+window.NYC.carLampPower = CAR_LAMP_POWER;
 
 /**
  * Creates the TSL material for lofted vehicles.
@@ -1211,6 +1214,8 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
   col = mix(col, color(0x1b1e21), isTrim);
   col = mix(col, alloyCol, isAlloy);
   col = mix(col, tyreCol, isTyre);
+  // (SF 2040: with the power gone (CAR_LAMP_POWER 0) the lamps are dull, dusty glass, not lit white)
+  col = mix(col, col.mul(0.3), lamp.mul(float(1.0).sub(CAR_LAMP_POWER)));
 
   // ---- Roughness & metalness ---------------------------------------------------------------------------------------
   const alloySpokes = max(spokes, rimRing).mul(isAlloy);
@@ -1245,7 +1250,7 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
   mat.colorNode = col;
   mat.roughnessNode = rough;
   mat.metalnessNode = spec.hero ? mix(metal, float(.12), one.sub(max(glass, max(lamp, max(isTyre, isAlloy))))) : metal;
-  mat.emissiveNode = headlamps.add(tail).add(stop).add(turn).add(sign);
+  mat.emissiveNode = headlamps.add(tail).add(stop).add(turn).add(sign).mul(CAR_LAMP_POWER);
 
   _carMaterialCache.set(cacheKey, mat);
   return mat;
@@ -1564,7 +1569,8 @@ function createLoftedBusMaterial() {
     .mul(pod.mul(0.45).add(headLamp.mul(1.35)))
     .mul(nightHeadlamp)
     .add(color(0xff9a14).mul(max(turnFront, turnRear).mul(blink).mul(2.0)))
-    .add(color(0xff0a12).mul(tailLamp.mul(brake.mul(1.5).add(0.75))));
+    .add(color(0xff0a12).mul(tailLamp.mul(brake.mul(1.5).add(0.75))))
+    .mul(CAR_LAMP_POWER);
 
   _busLoftedMat = mat;
   return mat;

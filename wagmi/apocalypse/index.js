@@ -7,11 +7,14 @@
 //   look.js    the ash sky, the copper sun low in the west, the red glow over the Presidio, the heavy warm haze and
 //              grade; the power out (windows and street lights dark)
 //   fx.js      falling ash and embers, fires with their smoke, the great plumes over the skyline
-//   debris.js  the broken streets round the camera: rubble, barriers, drums, tyres, sheets of metal, fallen poles
+//   debris.js  the broken streets round the camera: rubble, barriers, drums, tyres, sheets of metal, fallen poles, the
+//              dead lawns' mounds, shrubs and litter; the big pieces solid (colliders)
+//   burning.js windows burning in some of the old fronts (soot up the wall over them), burnt-out cars still alight
 //   camps.js   tent camps and food lines on the plazas and squares, people round barrel fires
 //   sound.js   wind, rumble, crackle, far sirens and booms, a far roar; the living city's bed turned down (no music)
-//   and here:  the traffic left where it stood (cities/sf/js/traffic.js abandon: no driving, askew, burnt out, no
-//              buses; the freeways and the streetcars stopped), far fewer people out and those in drab, dusty clothes,
+//   and here:  the traffic left where it stood (cities/sf/js/traffic.js abandon: no driving, askew, burnt out, doors
+//              open, solid and never shoved, no lamps lit (NYC.carLampPower 0), no buses; the freeways and the
+//              streetcars stopped), the lawns dead (cityUniforms.uDeadGround), far fewer people out and those in drab, dusty clothes,
 //              and wild horses grazing on the open green near the camera (W.creatures.herd)
 //   createApocalypse(W, { time, clear: [[x, z, r]] (kept clear of the camps) }) -> W.apocalypse { look, fx, debris, camps, sound, setTime(id), stats() }
 import { installLook, PRESETS, lookOf } from './look.js';
@@ -19,6 +22,7 @@ import { createFX } from './fx.js';
 import { createDebris } from './debris.js';
 import { createCamps, CAMPS } from './camps.js';
 import { createSound } from './sound.js';
+import { createBurning } from './burning.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // how many of the city's walkers (of 340) and the street crowd's (of 560) are still out
@@ -45,18 +49,23 @@ export async function createApocalypse(W, { time = 'dusk', clear = [] } = {}) {
   // the traffic left standing, the people fewer and worn
   const tr = app.trafficSystem;
   const charred = [Math.fround(0.035), Math.fround(0.031), Math.fround(0.028)];
-  const dust = (v) => { const p = v.paint0; const g = 0.42; return [Math.fround(p[0] * (1 - g) + 0.36 * g * 0.8), Math.fround(p[1] * (1 - g) + 0.32 * g * 0.8), Math.fround(p[2] * (1 - g) + 0.27 * g * 0.8)]; };
-  tr?.abandon?.(true, { burnt: 0.3, paint: (v, burnt) => (burnt ? charred : dust(v)) });
+  // (years of ash on them: the paint dulled most of the way to a grey-brown dust, a little of its colour left)
+  const dust = (v) => { const p = v.paint0; const g = 0.6 + Math.random() * 0.25, k = 0.55 + Math.random() * 0.3; return [Math.fround((p[0] * (1 - g) * 0.7 + 0.17 * g) * k), Math.fround((p[1] * (1 - g) * 0.7 + 0.15 * g) * k), Math.fround((p[2] * (1 - g) * 0.7 + 0.125 * g) * k)]; };
+  tr?.abandon?.(true, { burnt: 0.34, paint: (v, burnt) => (burnt ? charred : dust(v)) });
   tr?.setPeds?.(WALKERS);
   if (W.street?.crowd && 'limit' in W.street.crowd) W.street.crowd.limit = CROWD;
   if (N.peopleWorn) N.peopleWorn.value = 1;
-  // (the power is out: the signals dark)
+  // (the power is out: the signals dark, no car's lamps lit)
   if (N.signalPower) N.signalPower.value = 0;
+  if (N.carLampPower) N.carLampPower.value = 0;
+  // (the lawns dead: trampled straw, bare dirt, tracks and ash; cities/sf/js/tsl-materials.js deadGround)
+  if (N.cityUniforms?.uDeadGround) N.cityUniforms.uDeadGround.value = 1;
 
   // the streets, the camps
-  const debris = createDebris(W, fx);
+  const debris = createDebris(W, fx, { clear });
   const camps = createCamps(W, fx, { clear });
   const sound = createSound(W, fx);
+  const burning = createBurning(W, fx);
 
   // the wild horses: a herd on the nearest open green within reach, two at most, gone when left far behind
   const herds = new Map();
@@ -84,6 +93,7 @@ export async function createApocalypse(W, { time = 'dusk', clear = [] } = {}) {
     try {
       fx.update(dt, c);
       debris.update(c);
+      burning.update(c, dt);
       camps.update(dt, c);
       sound?.update(dt, c);
       herdsUpdate(dt, c);
@@ -91,9 +101,9 @@ export async function createApocalypse(W, { time = 'dusk', clear = [] } = {}) {
   })();
 
   Object.assign(out, {
-    look, fx, debris, camps, sound, herds, CAMPS,
+    look, fx, debris, camps, sound, burning, herds, CAMPS,
     setTime(id) { const r = look.set(id); fx.setLook(lookNow()); return r; },
-    stats: () => ({ look: app.lightingSystem.activePresetId, fires: fx.fires, debris: debris.count(), campPeople: camps.people.length, herds: [...herds.keys()], abandoned: !!tr?.abandoned, sound: !!sound?.built }),
+    stats: () => ({ look: app.lightingSystem.activePresetId, fires: fx.fires, debris: debris.count(), burning: burning.count(), solids: debris.solids.length, campPeople: camps.people.length, herds: [...herds.keys()], abandoned: !!tr?.abandoned, sound: !!sound?.built }),
     ready: true,
   });
   console.log('[apocalypse] San Francisco after Erebus:', look?.base);
