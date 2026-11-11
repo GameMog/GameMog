@@ -2953,7 +2953,7 @@
       "at": "@campgate",
       "radius": 18,
       "hp": 100,
-      "drain": 5,
+      "drain": 4,
       "label": "CAMP",
       "why": "They reached the tents. The camp is lost."
      },
@@ -2969,7 +2969,7 @@
        "foes": [
         {
          "id": "creature-knight",
-         "count": 4,
+         "count": 3,
          "name": "Iron Saint"
         }
        ],
@@ -3023,7 +3023,7 @@
         },
         {
          "id": "creature-knight",
-         "count": 2,
+         "count": 1,
          "name": "Iron Saint"
         }
        ],

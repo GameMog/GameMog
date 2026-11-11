@@ -114,9 +114,12 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       let n = live[0], nd = Infinity; for (const e of live) { const q = Math.hypot(e.pos.x - P.position.x, e.pos.z - P.position.z); if (q < nd) { nd = q; n = e; } }
       // (a fight to have in the saddle (the step's `saddle`): ridden at the nearest one, the bat swung at his side)
       if (inCar() && d.saddle) {
+        // (one on its feet, as a rider picks: a man lying in the street is no target from up there)
+        { let bd = Infinity; for (const e of live) { if (!(e.standing || e.state === 'getup')) continue; const q = Math.hypot(e.pos.x - P.position.x, e.pos.z - P.position.z); if (q < bd) { bd = q; n = e; nd = q; } } }
         const dx = n.pos.x - car.position.x, dz = n.pos.z - car.position.z, side = (dx * Math.cos(car.heading) - dz * Math.sin(car.heading)) > 0 ? 1 : -1;
         const rr0 = n.creature ? (n.T?.radius || 0.5) : 0;
-        if (nd > 2.4 + rr0) steerTo(n.pos.x - side * 1.6 * Math.cos(car.heading), n.pos.z + side * 1.6 * Math.sin(car.heading), 4.5); else { release(); }
+        // (ridden at, at a gallop from further off, past its flank)
+        if (nd > 2.4 + rr0) steerTo(n.pos.x - side * 1.6 * Math.cos(car.heading), n.pos.z + side * 1.6 * Math.sin(car.heading), nd > 12 ? 12 : 4.5); else { release(); }
         if (t - lastStrike > 0.6 && nd < 3.4 + rr0) { lastStrike = t; try { W.horse?.swing?.(side); } catch {} }
         if (!fightT && nd < 6 + rr0) fightT = t;
         if (!fair && fightT && t - fightT > 10 && t - lastFin > 1.5) { lastFin = t; try { n.hit({ kind: 'finisher', dmg: 9999, dir: new THREE.Vector3(dx, 0, dz).normalize(), w: 0.6, fly: 6, up: 4 }); note('assist ko'); } catch {} }
