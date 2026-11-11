@@ -12,6 +12,7 @@ import { mcFrameSrc, storyUrl } from '@/lib/episode-play';
 import { mcOrigin, storyOf } from '@/lib/episode';
 import { storyOf as storyWorldOf, isStoryCity, storyCityName } from '@/lib/storykit-site';
 import { storyPlaySrc, storykitMc, sealedWorldOf } from '@/lib/storykit-publish';
+import { NeedsWebGPU } from './needs-webgpu';
 import { YouLine } from './you-line';
 import { GameActions } from './actions';
 import { Tabs } from './tabs';
@@ -58,6 +59,9 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
   // (a story world's own page lines: its city instead of rivals, Mog City's controls, how a story plays; 5 Nov, the owner)
   const storyCity = (meta as { storykit?: { city?: unknown } }).storykit?.city;
   const storyCityLabel = isStoryCity(storyCity) ? storyCityName(storyCity) : 'New York';
+  // (a first-party story world's own controls and how-to-play, from its migration's meta: SF 2040 is ridden, 11 Nov)
+  const storyOwn = isFirstParty(game) ? (meta as { storykit?: { controls?: unknown; how?: unknown } }).storykit : undefined;
+  const ownLine = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null);
   const said = meta as { consent?: { names?: unknown }; consentInherited?: unknown };
   const consent = episode && Array.isArray(said.consent?.names) && said.consent.names.length > 0;
   // (review F6: a Mog that keeps a consented person's words from the episode it came from carries their line too)
@@ -128,6 +132,7 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
             <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game), game.id) : storyWorld ?? playSrc(game)} episode={episode || !!storyWorld} storykit={!!storyWorld} mc={storyWorld ? storykitMc() : mcOrigin()} story={episode ? storyOf(game.code)?.hash ?? null : storyWorld ? sealedWorldOf(game.meta) : null} scores={!episode && !storyWorld} you={game.format === 'world' && !episode && !storyWorld} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
               // eslint-disable-next-line @next/next/no-img-element
               poster={<img src={`/g/${game.slug}/cover`} alt="" />} />
+            {storyWorld && storyCity === 'sf' ? <NeedsWebGPU title={game.title} /> : null}
           </div>
           <div className="gbar">
             <div className="gtitle">
@@ -165,7 +170,7 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
                     {storyWorld ? <div><dt>City</dt><dd>{storyCityLabel}</dd></div> : <div><dt>Rivals</dt><dd>{page ? page.rivals : rivals}</dd></div>}
                   </dl>
                   <h2 style={{ marginTop: 26, marginBottom: 6 }}>Controls</h2>
-                  <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{storyWorld ? STORY_CONTROLS : controls}</p>
+                  <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{storyWorld ? ownLine(storyOwn?.controls) ?? STORY_CONTROLS : controls}</p>
                   <h2 style={{ marginTop: 26, marginBottom: 8 }}>Media</h2>
                   <div className="gmedia">
                     {hasFilm && <video src={`${filmBase}.mp4`} poster={`${filmBase}.jpg`} controls muted loop playsInline aria-label="Gameplay film" />}
@@ -175,7 +180,7 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
                   {(page || storyWorld) && (
                     <>
                       <h2 style={{ marginTop: 26, marginBottom: 6 }}>How it works</h2>
-                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{storyWorld ? storyHow(storyCityLabel) : noGm ? NO_GM_HOW : mode === 'kart' ? kartHow(kartDna?.laps, kartDna?.itemsOn) : page!.how}</p>
+                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{storyWorld ? ownLine(storyOwn?.how) ?? storyHow(storyCityLabel) : noGm ? NO_GM_HOW : mode === 'kart' ? kartHow(kartDna?.laps, kartDna?.itemsOn) : page!.how}</p>
                     </>
                   )}
                 </div>

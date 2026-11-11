@@ -9,7 +9,7 @@ import { MogComposer } from './composer';
 import { optionsOf } from '@/lib/world-options';
 import { clip, pageMeta } from '../../seo';
 import { getDare } from '@/lib/dare';
-import { canMog, MOG_SOON, worldMode } from '@/lib/custom-game';
+import { canMog, MOG_SOON, worldMode, storyMogClosed } from '@/lib/custom-game';
 import { storyOf, storyCityName } from '@/lib/storykit-site';
 import { storykitForViewer } from '@/lib/storykit-http';
 import { storykitMode } from '@/lib/storykit-switch';
@@ -56,7 +56,8 @@ export default async function MogPage({ params, searchParams }: { params: Promis
   const mcStory = isMogCityEpisode(game) ? await mogCityStoryFor(storyOpen) : undefined;
   const mcCity = mcStory ? storyOf(mcStory, true) : null;
   const story = mcCity ?? storyOf(game, storyOpen);
-  const open = story ? true : canMog(game);
+  // (a story world in a city the builder cannot build in yet, SF 2040: MOG Soon, lib/custom-game.ts storyMogClosed)
+  const open = mcCity ? true : story ? !storyMogClosed(game.meta) : canMog(game);
   const kind = worldMode(game.code, game.meta);
   return (
     <>

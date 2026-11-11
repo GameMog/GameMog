@@ -1,6 +1,7 @@
 import { readOptions, type WorldOptions } from './world-options';
 import { isEpisodeWorld, checkEpisode, EPISODE_CONTROLS } from './episode';
 import { z } from 'zod';
+import { MOGCITY_BUILDS, type CityId } from '../storykit/pack/cities.ts';
 import { Script, runInNewContext } from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -297,9 +298,21 @@ export function worldControls(code: string, o: { kartItems?: boolean } = {}) {
 export const MOGGABLE: Record<WorldMode, boolean> = { race: true, survival: true, derby: true, kart: true, shootout: true, gp: true, get episode() { return episodeMogsOn(); } };
 /** The episode switch (MOGGABLE.episode): off unless EPISODE_MOGS=on (the owner, 4 Nov: back to MOG Soon while Mogs are rethought). */
 export function episodeMogsOn() { return process.env.EPISODE_MOGS === 'on'; }
-/** Whether a game can be mogged: every game but a world of a kind MOGGABLE closes. */
+/** Whether a game can be mogged: every game but a world of a kind MOGGABLE closes, or a story world storyMogClosed closes. */
 export function canMog(game: { format: string; code?: string | null; meta?: string | null }) {
-  return game.format !== 'world' || MOGGABLE[worldMode(game.code, game.meta)];
+  return game.format !== 'world' || (MOGGABLE[worldMode(game.code, game.meta)] && !storyMogClosed(game.meta));
+}
+/**
+ * A story world set in a city the story builder cannot build in yet (storykit/pack/cities.ts MOGCITY_BUILDS: New York
+ * only; 11 Nov, SF 2040 plays San Francisco on Mog City's engine): its Mog would be refused by the gate after the
+ * builder had run, so it is MOG Soon (its page, /mog/<slug>, and the build route before anything is spent).
+ */
+export function storyMogClosed(meta?: string | null): boolean {
+  if (!meta || !meta.includes('"storykit"')) return false;
+  try {
+    const m = JSON.parse(meta) as { mode?: unknown; storykit?: { city?: unknown } };
+    return m.mode === 'storykit' && typeof m.storykit?.city === 'string' && !MOGCITY_BUILDS[m.storykit.city as CityId];
+  } catch { return false; }
 }
 export const MOG_SOON = 'Mogs of this kind of game are coming soon. Play it free in the meantime.';
 
