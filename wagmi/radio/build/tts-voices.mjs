@@ -33,6 +33,9 @@ const CAL_REF = 'Fed the horse, checked the water, walked the fence line twice. 
 const NINA_REF = 'Okay. Sit down and let me look at it. It\'s not broken, it\'s a bad sprain. Keep it up, drink some water, and come and find me in the morning. You did good today.';
 const JUNE_REF = 'Okay, so I counted, and there are nine birds on the roof right now. Mom says that means it\'s going to rain. I don\'t think that\'s even a real thing. I brought my jacket anyway.';
 const HOLLIS_REF = 'Radio\'s been quiet since noon. I keep the batteries warm, I keep the antenna up, and I keep listening. Somebody\'s always out there. You just have to be patient with the static.';
+const VALE_REF = 'Sit down. Please. Nobody here is going to raise their voice. You have something of mine, and I have all the time in the world. Let us be reasonable people about this.';
+const PIKE_REF = 'Okay. Okay, I can do this. Just keep the channel open, alright? I counted four of them by the gate. Maybe five. If I go quiet, it means I moved. Not that I ran.';
+const WARDEN_REF = 'Attention. This area is restricted. Remain where you are. Unauthorized persons will be detained. This message will repeat. Attention. This area is restricted.';
 const LOUD = 'close-mic, clean dry studio audio, a real person in the moment, not a radio announcer.'; // (raises the pitch: pin it)
 
 export const VOICES = {
@@ -196,6 +199,33 @@ export const VOICES = {
   // (C: Gears' own voice, gears-D, the owner's pick for Gears, on Hollis's words: the body is Gears')
   'hollis-C': { speaker: 'Hollis', engine: 'qwen', desc: 'qwen-old-gravel (gears-D)', seed: 2353, refText: GEARS_REF,
     design: `Male, early 60s, African-American New Yorker, deep gravelly low voice, weathered and husky, unhurried easy pace, kind and steady, a grown man's chest voice, ${STUDIO}` },
+  // Deacon Vale, who leads the Iron Saints (ex-Preserve security): calm, polite, never shouts, quiet menace. Picked of 3
+  // (11 Nov): B the low velvety preacher (reference 94 Hz, lines 94-98 Hz, spread 4 Hz: by far the evenest, the calm
+  // the part asks for); A the same pitch but wandering 88-129 Hz inside a line, C 80-142 Hz. He sits near Cal's pitch,
+  // apart in timbre and in the radio / phone band most of his lines go through. The pick: B
+  'vale-A': { speaker: 'Vale', engine: 'qwen', desc: 'qwen-soft-menace', seed: 5501, refText: VALE_REF,
+    design: `Male, early 50s, American, a smooth, soft-spoken baritone, calm and very polite, measured and unhurried, never raises his voice, quiet menace under the courtesy, a former security chief, a grown man's chest voice, ${STUDIO}` },
+  'vale-B': { speaker: 'Vale', engine: 'qwen', desc: 'qwen-velvet-deacon', seed: 5512, refText: VALE_REF,
+    design: `Male, about 50 years old, American, a low velvety voice, gentle like a preacher, every word placed carefully, cold patience, quietly dangerous, a grown man's voice, ${STUDIO}` },
+  'vale-C': { speaker: 'Vale', engine: 'qwen', desc: 'qwen-soft-menace-2', seed: 5523, refText: VALE_REF,
+    design: `Male, early 50s, American, a smooth, soft-spoken baritone, calm and very polite, measured and unhurried, never raises his voice, quiet menace under the courtesy, a former security chief, a grown man's chest voice, ${STUDIO}` },
+  // Pike: a young Iron Saint, early 20s, nervous then brave; mostly on the radio (radioFx where the pack's line is).
+  // Picked of 3: B a young man's mid-range (reference 186 Hz, lines 171-203 Hz, the evenest); A and C the light tenors
+  // came out 211-255 Hz, a boy more than a 21-year-old, and drifted 76-91 Hz. The pick: B
+  'pike-A': { speaker: 'Pike', engine: 'qwen', desc: 'qwen-young-nervous', seed: 5601, refText: PIKE_REF,
+    design: `Male, early 20s, American, a young man's light tenor in a normal adult range, nervous and quick, a little breathless, trying to sound brave, a grown man's voice, not a boy, ${STUDIO}` },
+  'pike-B': { speaker: 'Pike', engine: 'qwen', desc: 'qwen-young-earnest', seed: 5612, refText: PIKE_REF,
+    design: `Male, 21 years old, American, a young man's mid-range voice, earnest and scared but steadying, talks fast, a grown man's voice, ${STUDIO}` },
+  'pike-C': { speaker: 'Pike', engine: 'qwen', desc: 'qwen-young-nervous-2', seed: 5623, refText: PIKE_REF,
+    design: `Male, early 20s, American, a young man's light tenor in a normal adult range, nervous and quick, a little breathless, trying to sound brave, a grown man's voice, not a boy, ${STUDIO}` },
+  // WARDEN-7, the Preserve's security mech: a synthetic PA voice (paFx in dsp.mjs on every line: horn band, metal
+  // comb, ring buzz, street slaps). A and B Kokoro stock voices (flat, even, machine-like), C a Qwen design.
+  // Picked: A (am_onyx at 0.88: 86-89 Hz, spread 3 Hz, the flattest; a deep machine under the PA); B (af_nicole) said
+  // its lines at under 1 word/s, C (Qwen) still rose and fell 90-144 Hz like a person reading. The pick: A
+  'warden-A': { speaker: 'Warden', engine: 'kokoro', desc: 'kokoro-am_onyx-pa', voice: { am_onyx: 1 }, speed: 0.88 },
+  'warden-B': { speaker: 'Warden', engine: 'kokoro', desc: 'kokoro-af_nicole-pa', voice: { af_nicole: 1 }, speed: 0.9 },
+  'warden-C': { speaker: 'Warden', engine: 'qwen', desc: 'qwen-flat-announcer', seed: 5701, refText: WARDEN_REF,
+    design: `A synthetic automated security announcement voice, male, flat and monotone, emotionless, perfectly even pace, clipped and precise, like a computer on a public address system, ${STUDIO}` },
 };
 
 // how the synthesised voices should say a few words (on top of cast.mjs SAY; the subtitles keep the spelling)
