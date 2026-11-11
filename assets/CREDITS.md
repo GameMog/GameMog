@@ -199,3 +199,31 @@ The creatures and sound packs in `assets/library/` are copied as they are from G
   Sci-fi Sounds, RPG Audio, Casino Audio, Voiceover Pack and Voiceover Pack: Fighter, each under
   [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) by the `License.txt` in its zip. Credited with thanks to
   Kenney (www.kenney.nl), though CC0 does not require it.
+- `assets/library/sounds-horse` (Ranger's voice and the wild herds' calls, `wagmi/horse/voice.js`, `wagmi/creatures/herd.js`):
+  recordings of real horses from [Freesound](https://freesound.org), each file dedicated to the public domain under
+  [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) by its author (checked on each sound's own page, 11 Nov
+  2026). CC0 needs no credit; we give it anyway. Cut into single calls, lightly denoised, high-passed at 70 Hz, levelled
+  to one loudness, folded to mono and laid on one 44.1 kHz AAC sheet; the sources, their hashes and which calls come from
+  each are in `assets/library/sounds-horse/sources.json`, the recipe in `tools/sounds-horse/`.
+  - "Horse Snort.wav" by black_trillium, [freesound.org/s/397236](https://freesound.org/s/397236/) (snort)
+  - "horse snort.wav" by bruno.auzet, [freesound.org/s/538697](https://freesound.org/s/538697/) (blow)
+  - "G38-18-Agitated Horse Whinnies.wav" by craigsmith, [freesound.org/s/437109](https://freesound.org/s/437109/) (pain)
+  - "G38-15-Perfect Horse Whinny.wav" by craigsmith, [freesound.org/s/437110](https://freesound.org/s/437110/) (neigh)
+  - "G38-16-Four Horse Snorts.wav" by craigsmith, [freesound.org/s/437111](https://freesound.org/s/437111/) (snort)
+  - "R12-60-Horses Snort and Vocalize.wav" by craigsmith, [freesound.org/s/479672](https://freesound.org/s/479672/) (nicker, snort, blow)
+  - "R13-02-Scared Neighs.wav" by craigsmith, [freesound.org/s/479674](https://freesound.org/s/479674/) (scream, pain)
+  - "R13-03-Horse Whinny Loop.wav" by craigsmith, [freesound.org/s/479675](https://freesound.org/s/479675/) (neigh)
+  - "S01-06_Excited horse whinny; strange squealing; some distortion.wav" by craigsmith, [freesound.org/s/675419](https://freesound.org/s/675419/) (scream, pain)
+  - "Horse_whinnying_1.wav" by Forpus_Prod, [freesound.org/s/391321](https://freesound.org/s/391321/) (whinny, neigh)
+  - "Horse_Whinny.wav" by foxen10, [freesound.org/s/149024](https://freesound.org/s/149024/) (neigh)
+  - "horse's whinny" by Kubuzz, [freesound.org/s/347036](https://freesound.org/s/347036/) (neigh)
+  - "Whinnying horse-far away.WAV" by L.Finck, [freesound.org/s/636554](https://freesound.org/s/636554/) (herd)
+  - "Horse Breathing.wav" by metaepitome, [freesound.org/s/275388](https://freesound.org/s/275388/) (breath, breathloop)
+  - "Horse breathing.mp3" by mrrap4food, [freesound.org/s/619069](https://freesound.org/s/619069/) (blow)
+  - "Horse(snort)_3.wav" by o_ciz, [freesound.org/s/475483](https://freesound.org/s/475483/) (snort)
+  - "Horse" by poodaddy69, [freesound.org/s/521246](https://freesound.org/s/521246/) (whinny)
+  - "Renill de cavall / Horse Neigh" by Salsero_classic, [freesound.org/s/826753](https://freesound.org/s/826753/) (neigh)
+  - "horse.wav" by stomachache, [freesound.org/s/53261](https://freesound.org/s/53261/) (whinny, scream)
+  - "Horses - Soft Nicker" by TheKingOfGeeks360, [freesound.org/s/861234](https://freesound.org/s/861234/) (nicker)
+  - "Horses - Snort; Distant" by TheKingOfGeeks360, [freesound.org/s/868302](https://freesound.org/s/868302/) (snort)
+  - "Horses - Two Horses Neighing, Distant" by TheKingOfGeeks360, [freesound.org/s/868303](https://freesound.org/s/868303/) (herd)

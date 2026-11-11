@@ -795,6 +795,7 @@ export async function install(W) {
   }
   c.onCarBang = (e) => {
     S.bangs++; c.globalCd = rnd(0.45, 0.9) * c.crowdK();
+    if (car.kind === 'horse') W.horseVoice?.hurt?.(); // (a blow on the horse: its squeal, wagmi/horse/voice.js)
     c.sfx('wall'); c.sfx('clang', 0.35); c.shake(0.22); c.fx.dust(_v.copy(e.pos).lerp(car.position, 0.35).setY(car.position.y + 0.9), { amount: 0.25 });
     const L = carLocal(e.pos.x, e.pos.z, _l1);
     if (S.bangs >= 3 && L.x > CAR.hx && Math.abs(L.z) < 1.4 && Math.abs(car.speed || 0) < 4) {

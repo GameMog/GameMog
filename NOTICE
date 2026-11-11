@@ -227,6 +227,37 @@ Crowd sounds
     equal-power crossfades and the two sparse takes mixed under it; re-encoded to AAC.
 
 
+Horse sounds
+------------
+  - assets/library/sounds-horse (Ranger's voice and the wild herds' calls): cut from recordings of real horses on
+    Freesound, each dedicated to the public domain under CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+    by its author:
+      Horse Snort.wav (black_trillium)                                       https://freesound.org/s/397236/
+      horse snort.wav (bruno.auzet)                                          https://freesound.org/s/538697/
+      G38-18-Agitated Horse Whinnies.wav (craigsmith)                        https://freesound.org/s/437109/
+      G38-15-Perfect Horse Whinny.wav (craigsmith)                           https://freesound.org/s/437110/
+      G38-16-Four Horse Snorts.wav (craigsmith)                              https://freesound.org/s/437111/
+      R12-60-Horses Snort and Vocalize.wav (craigsmith)                      https://freesound.org/s/479672/
+      R13-02-Scared Neighs.wav (craigsmith)                                  https://freesound.org/s/479674/
+      R13-03-Horse Whinny Loop.wav (craigsmith)                              https://freesound.org/s/479675/
+      S01-06_Excited horse whinny; strange squealing; some (craigsmith)      https://freesound.org/s/675419/
+      Horse_whinnying_1.wav (Forpus_Prod)                                    https://freesound.org/s/391321/
+      Horse_Whinny.wav (foxen10)                                             https://freesound.org/s/149024/
+      horse's whinny (Kubuzz)                                                https://freesound.org/s/347036/
+      Whinnying horse-far away.WAV (L.Finck)                                 https://freesound.org/s/636554/
+      Horse Breathing.wav (metaepitome)                                      https://freesound.org/s/275388/
+      Horse breathing.mp3 (mrrap4food)                                       https://freesound.org/s/619069/
+      Horse(snort)_3.wav (o_ciz)                                             https://freesound.org/s/475483/
+      Horse (poodaddy69)                                                     https://freesound.org/s/521246/
+      Renill de cavall / Horse Neigh (Salsero_classic)                       https://freesound.org/s/826753/
+      horse.wav (stomachache)                                                https://freesound.org/s/53261/
+      Horses - Soft Nicker (TheKingOfGeeks360)                               https://freesound.org/s/861234/
+      Horses - Snort; Distant (TheKingOfGeeks360)                            https://freesound.org/s/868302/
+      Horses - Two Horses Neighing, Distant (TheKingOfGeeks360)              https://freesound.org/s/868303/
+    CC0 needs no credit; we give it anyway. Changed: cut into single calls, lightly denoised, high-passed, levelled,
+    folded to mono, laid on one sheet and encoded to AAC (sources and hashes: assets/library/sounds-horse/sources.json).
+
+
 Voices (assets/voice)
 ---------------------
   - Dan, Jane, Knox, Mack, Gears, Fiona, Brick, Dash and Ms. Bea: synthesised with Qwen3-TTS by the Qwen team,

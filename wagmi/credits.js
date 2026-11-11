@@ -48,6 +48,9 @@ export const CREDITS = [
   { heading: 'Engine sounds', lines: [
     { what: '"Maserati GranTurismo S Exhaust"', who: 'lmartins', note: 'Dan\'s car: loops cut at five engine speeds', licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://commons.wikimedia.org/wiki/File:Maserati_GranTurismo_S_Exhaust.ogg' },
   ] },
+  { heading: 'Horse sounds', lines: [
+    { what: 'Ranger\'s voice and the wild herds\' calls', who: 'craigsmith, TheKingOfGeeks360, Forpus_Prod, metaepitome, mrrap4food, bruno.auzet, black_trillium, o_ciz, Kubuzz, foxen10, Salsero_classic, L.Finck, poodaddy69 and stomachache, on Freesound', note: 'recordings of real horses (22 sounds, listed in NOTICE), cut into single calls, cleaned and levelled', licence: 'CC0 1.0', licenceUrl: LICENCES['CC0 1.0'], src: 'https://freesound.org' },
+  ] },
   { heading: 'Crowd sounds', lines: [
     { what: '"GameSoundCon2024 Walla XY-AKG214-96k"', who: 'ShangusBurger (Shane Vincent)', note: 'the street crowd\'s walla: five takes (Freesound 763895, 763896, 763898, 763848, 763851), reverb reduced, equalised to sound outdoors, levelled and looped', licence: 'CC0 1.0', licenceUrl: LICENCES['CC0 1.0'], src: 'https://freesound.org/people/ShangusBurger/packs/42098/' },
   ] },

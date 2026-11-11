@@ -23,7 +23,7 @@
 // code), graze (wildlife: its neck bones bent down to graze, and how far).
 // Sounds are the library's packs (wagmi/library/sounds.js names): no Kenney punch on Dan's blows (the owner's rule: his
 // fists keep the fight's own synthesised sounds); these are the creatures' own feet, roars, armour and slams.
-const IMP = 'pack:sounds-impact/', SCI = 'pack:sounds-scifi/';
+const IMP = 'pack:sounds-impact/', SCI = 'pack:sounds-scifi/', HORSE = 'pack:sounds-horse/';
 
 export const PROFILES = {
   'creature-knight': {
@@ -141,7 +141,8 @@ export const PROFILES = {
     graze: [['neck1', 0.62], ['neck2', 0.5], ['head', 0.32]],
     steps: [{ s: IMP + 'footstep_concrete', vol: 0.3, rate: 0.55 }],
     stepsGrass: [{ s: IMP + 'footstep_grass', vol: 0.32, rate: 1.05 }],
-    voice: {},
+    // (a herd's own: a far whinny across the herd now and then, a snort close by; a neigh as it bolts. herd.js)
+    voice: { call: [{ s: HORSE + 'herd', vol: 1.3, ref: 16 }], near: [{ s: HORSE + 'snort', vol: 0.45 }], alarm: [{ s: HORSE + 'neigh', vol: 1, ref: 12 }] },
   },
 };
 

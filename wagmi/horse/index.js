@@ -132,6 +132,7 @@ export function install(W, { THREE, rs, rider, drive, ride }) {
     drive.S.ground = null; drive.S.air = false; drive.S.jumpY = 0;
     car.chassisPivot.rotation.set(0, 0, 0); car.chassisPivot.position.y = 0;
     car.mesh.position.copy(car.position); car.mesh.rotation.y = h; car.mesh.visible = true;
+    W.horseVoice?.greet?.(); // (brought to him: its nicker, wagmi/horse/voice.js)
     return true;
   }
   const api = W.horse = {

@@ -8,7 +8,7 @@
 //   createHerd(c, kit, P, { at, count, radius, height }) -> { animals, update(dt), dispose(), center }
 import * as THREE from 'three/webgpu';
 import { clamp, damp, angWrap, hdist, rnd } from '../combat/util.js';
-import { cue, stepsAt } from './voice.js';
+import { cue, stepsAt, warm } from './voice.js';
 
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _ax = new THREE.Vector3(), _r = new THREE.Vector3();
 const turnTo = (cur, goal, rate, dt) => { const d = angWrap(goal - cur); return angWrap(cur + clamp(d * (1 - Math.exp(-6 * dt)), -rate * dt, rate * dt)); };
@@ -50,10 +50,26 @@ export function createHerd(c, kit, P, { at, count = 4, radius = 10, height } = {
     return { at: P0.position, reach: sp > 3.2 ? 22 : 11, run: sp > 3.2 ? 16 : 6.5, sp };
   }
   let frame = 0;
+  // its voice (P.voice: call, near, alarm): now and then one of them calls across the herd (every 14-35 s, heard far),
+  // or snorts when he is close; one cry as they bolt. voiced: how many, for tests
+  let callT = rnd(4, 12), fled = false;
+  warm(W, P);
+  const voiced = { call: 0, near: 0, alarm: 0 };
+  function speak(dt, T) {
+    if (animals.every((h) => h.state !== 'flee')) fled = false;
+    callT -= dt; if (callT > 0 || !P.voice) return;
+    callT = rnd(14, 35);
+    const calm = animals.filter((h) => h.state !== 'flee'); if (!calm.length) return;
+    const h = calm[Math.floor(Math.random() * calm.length)], d = hdist(h.pos, T.at);
+    const q = d < 18 && P.voice.near ? 'near' : 'call';
+    if (q === 'call' && d > 220) return;
+    cue(W, P.voice[q], [h.pos.x, h.pos.y + 1.7 * h.k, h.pos.z], { rate: rnd(0.93, 1.07) }); voiced[q]++;
+  }
   function update(dt) {
     if (dt <= 0) return;
     frame++;
     const T = threat(), cam = c.camera.position;
+    speak(dt, T);
     // (the herd's middle: where they are, to keep together)
     center.set(0, 0, 0); for (const h of animals) { center.x += h.pos.x / animals.length; center.z += h.pos.z / animals.length; }
     for (let i = 0; i < animals.length; i++) {
@@ -61,7 +77,12 @@ export function createHerd(c, kit, P, { at, count = 4, radius = 10, height } = {
       h.t += dt;
       const dT = hdist(h.pos, T.at);
       // ---- what it does
-      if (h.state !== 'flee' && dT < T.run) { h.state = 'flee'; h.t = 0; h.flee = { from: T.at.clone() }; if (i === 0) cue(W, stepsAt(P, h.pos.x, h.pos.z), [h.pos.x, h.pos.y, h.pos.z], { vol: 1.2 }); }
+      if (h.state !== 'flee' && dT < T.run) {
+        h.state = 'flee'; h.t = 0; h.flee = { from: T.at.clone() };
+        if (i === 0) cue(W, stepsAt(P, h.pos.x, h.pos.z), [h.pos.x, h.pos.y, h.pos.z], { vol: 1.2 });
+        // (the first to bolt cries out, once a flight)
+        if (!fled && P.voice?.alarm) { fled = true; cue(W, P.voice.alarm, [h.pos.x, h.pos.y + 1.7 * k, h.pos.z], { rate: rnd(0.95, 1.08), at: rnd(0.05, 0.3) }); voiced.alarm++; }
+      }
       else if ((h.state === 'graze' || h.state === 'wander') && dT < T.reach) { h.state = 'alert'; h.t = 0; }
       switch (h.state) {
         case 'graze': {
@@ -146,5 +167,5 @@ export function createHerd(c, kit, P, { at, count = 4, radius = 10, height } = {
     }
   }
   function dispose() { for (const h of animals) { scene.remove(h.made.object); h.made.dispose(); } animals.length = 0; }
-  return { animals, update, dispose, center };
+  return { animals, update, dispose, center, voiced };
 }
