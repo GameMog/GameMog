@@ -20,22 +20,22 @@
   "Cal": {
    "color": "#FFFFFF",
    "role": "Cal Mercer, an ex-park ranger looking for his family",
-   "glb": "sf2040/cal.glb"
+   "glb": "assets/characters/sf2040/cal.glb"
   },
   "Nina": {
    "color": "#6CB8FF",
    "role": "Dr. Nina Mercer, his wife, an ER doctor",
-   "glb": "sf2040/nina.glb"
+   "glb": "assets/characters/sf2040/nina.glb"
   },
   "June": {
    "color": "#FFB86B",
    "role": "June Mercer, their daughter, thirteen",
-   "glb": "sf2040/june.glb"
+   "glb": "assets/characters/sf2040/june.glb"
   },
   "Hollis": {
    "color": "#E8B04A",
    "role": "runs the camp's radio at the Ferry Building",
-   "glb": "sf2040/hollis.glb"
+   "glb": "assets/characters/sf2040/hollis.glb"
   },
   "Radio": {
    "color": "#9FE3C4",

@@ -46,7 +46,7 @@ test('SF 2040: five missions or more, four bosses, food and medicine, Ranger, th
   assert.ok(kinds.has('food') && kinds.has('medicine'));
   assert.ok(w.opening && w.opening.shots.length >= 6);
   // (June's own body file is beside the world, and the cast's scale is checked)
-  assert.ok(fs.existsSync(path.join(ROOT, 'tools/storyrun/test-packs', w.cast.June.glb)));
+  assert.ok(fs.existsSync(path.join(ROOT, w.cast.June.glb)));
   const x = structuredClone(w); x.cast.June.scale = 3; assert.ok(check(x).some((e) => /scale/.test(e)));
   // (no music: the world names none; the park the asteroid broke open is the Presidio's Bio-Preserve)
   const text = JSON.stringify(w).toLowerCase();
@@ -117,4 +117,11 @@ test('the wild steps are refused when they are wrong', () => {
   // (a coda is an opening's shape)
   const w = read('tools/storyrun/test-packs/sf2040.json');
   const x = structuredClone(w); x.coda = { shots: [] }; assert.ok(check(x).includes('coda'));
+});
+
+test('SF 2040 ships as one of the game\'s own worlds (packs/sf2040.json, the same world as the test pack, files under assets/)', () => {
+  const a = fs.readFileSync(path.join(ROOT, 'packs/sf2040.json'), 'utf8'), b = fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/sf2040.json'), 'utf8');
+  assert.equal(a, b);
+  const w = JSON.parse(a);
+  for (const c of Object.values(w.cast)) if (c.glb) { assert.ok(/^assets\//.test(c.glb), c.glb); assert.ok(fs.existsSync(path.join(ROOT, c.glb)), c.glb); }
 });
