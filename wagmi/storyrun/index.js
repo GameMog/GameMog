@@ -258,6 +258,17 @@ export async function install(W) {
   async function between(m) {
     const p = places.at(m.start); if (!p) return;
     const B = m.between || {};
+    // (`between.ride: false`: no ride there in free roam, the mission's start is cut to (its card covers it: a new day,
+    // a long ride already taken); its radio lines still said, over the start)
+    if (B.ride === false) {
+      // (a short fade over the cut, back up once the mission has put him at its start)
+      if (B.fade !== false) { try { await ui.fade(1, 0.5); } catch {} setTimeout(() => { try { ui.fade(0, 0.8); } catch {} }, 700); }
+      if (Array.isArray(B.radio) && B.radio.length) {
+        const btok = { dead: false, err: null, parent: null };
+        (async () => { await sleep((B.radioAt ?? 2.5) * 1000); for (const l of B.radio) { const [who, text] = Array.isArray(l) ? l : [l.who, l.text]; await runner.say(who, text, btok, { phone: who !== heroName }); } })().catch(() => {});
+      }
+      return;
+    }
     const giver = Object.keys(def.cast || {}).find((n) => (m.steps || []).some((s) => s.who === n && n !== heroName)) || heroName;
     const color = '#FFC93C', letter = String(B.letter || giver[0] || 'M').slice(0, 1).toUpperCase(), name = B.name || m.title;
     marker.group.traverse?.((o) => { if (o.material?.color) o.material.color.set(B.letter ? color : cast.color(giver)); });

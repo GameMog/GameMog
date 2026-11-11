@@ -15,7 +15,9 @@
 //   dismount), sd.arm(kind) (one put in his hand up there), sd.swing(side), sd.buck(), sd.weapon (kind or null)
 import { fist } from '../combat/items.js';
 
-const REACH = { side: 2.7, front: 1.7, back: 1.1 };
+// (a man's reach from up there, his body's own round added: a big one's middle stands further off)
+const REACH = { side: 3.2, front: 2.3, back: 1.4 };
+const rad = (e) => Math.min(1.4, e.footR || e.bodyR || 0.35);
 const KICK = { near: 0.9, far: 3.4, wide: 1.3, dmg: 34 };
 
 export function createSaddle(THREE, { W, rs, rider, drive }) {
@@ -35,31 +37,37 @@ export function createSaddle(THREE, { W, rs, rider, drive }) {
     let best = null, bd = Infinity;
     for (const e of W.combat?.enemies || []) {
       if (!standing(e)) continue;
-      const L = local(e.pos);
-      if (L.lz < -REACH.back - 0.4 || L.lz > REACH.front + 0.6 || Math.abs(L.lx) > REACH.side + 1) continue;
+      const L = local(e.pos), r = rad(e);
+      if (L.lz < -REACH.back - r - 0.4 || L.lz > REACH.front + r + 0.6 || Math.abs(L.lx) > REACH.side + r + 1) continue;
       const d = Math.abs(L.lx) + Math.max(0, Math.abs(L.lz) - 0.6);
       if (d < bd) { bd = d; best = L; }
     }
     return best ? (best.lx >= 0 ? 1 : -1) : -1;
   }
+  // (a press while a blow is still going is kept a moment and swung as it ends: mashing J lands every blow)
+  let queued = 0;
   function swing(side = sideFor()) {
-    if (!up() || rider.striking || rs.oneShot) return false;
+    if (!up() || rs.oneShot) return false;
+    if (rider.striking) { queued = performance.now(); return false; }
+    queued = 0;
     const I = held;
     return rider.strike(side, {
-      ts: 0.85,
+      ts: api.keep ? 1.05 : 0.85,
       onHit: () => {
         const v = Math.abs(car.speed || 0), out = { x: Math.cos(car.heading) * side, z: -Math.sin(car.heading) * side }, f = { x: Math.sin(car.heading), z: Math.cos(car.heading) };
         let n = 0;
         for (const e of W.combat?.enemies || []) {
           if (!standing(e)) continue;
-          const L = local(e.pos);
-          if (L.lx * side < 0.15 || Math.abs(L.lx) > REACH.side || L.lz < -REACH.back || L.lz > REACH.front) continue;
+          const L = local(e.pos), r = rad(e);
+          if (L.lx * side < -0.2 || Math.abs(L.lx) > REACH.side + r || L.lz < -REACH.back - r || L.lz > REACH.front + r) continue;
           const dir = _v.set(out.x + f.x * Math.min(1, v / 6), 0, out.z + f.z * Math.min(1, v / 6)).normalize().clone();
           hit(e, { dmg: (I?.kind === 'bottle' ? 48 : 52) + v * 2.2, kind: 'heavy', weapon: I?.kind || null, w: 0.85, heavy: 0.85, fly: 6 + v * 0.35, up: 3.4, dir, side, limb: 'item', stun: I?.kind === 'bottle' });
           n++;
         }
         if (!n) { W.audio?.play?.('whoosh', { pos: [car.position.x, car.position.y + 2, car.position.z], vol: 0.6, rate: 0.9 }); return; }
-        // (it wears out as it does on foot)
+        // (a story's saddle fight (api.keep): the lens kicked with each blow that lands, and what he holds lasts the
+        // fight; else it wears out as it does on foot)
+        if (api.keep) { try { W.combat?.debug?.c?.cam?.punch?.(0.35 + Math.min(0.45, v * 0.04)); } catch {} return; }
         if (I && I === held) {
           if (I.kind === 'bottle') { held = null; rider.weapon = null; W.combat?.items?.shatter?.(I, _v.set(out.x, 0, out.z), { neck: true }); }
           else if (--I.hits <= 0) { held = null; rider.weapon = null; W.combat?.items?.breakBat?.(I, _v.set(out.x, 0, out.z)); }
@@ -141,5 +149,8 @@ export function createSaddle(THREE, { W, rs, rider, drive }) {
   };
   rider.onAttach = () => take();
   rider.onDetach = () => giveBack();
-  return { swing, buck, attack, take, giveBack, arm, get weapon() { return held ? held.kind : null; } };
+  // (the press kept while a blow went on, swung as soon as it ends)
+  (function tick() { requestAnimationFrame(tick); if (queued && !rider.striking) { if (performance.now() - queued < 380) swing(); else queued = 0; } })();
+  const api = { swing, buck, attack, take, giveBack, arm, keep: false, get weapon() { return held ? held.kind : null; } };
+  return api;
 }

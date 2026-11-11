@@ -18,7 +18,7 @@
 //   const D = createDrive(THREE, { cm, car, W })   // D.step(dt) for updateCar, D.coast(dt) with nobody up, D.S its state
 const PACE = { walk: 1.8, trot: 4.5, gallop: 12, back: 1.0 };
 const ACC = { up: 3.0, gallop: 4.2, ease: 3.2, rein: 7, halt: 9, stop: 9 };
-const JUMP = { v: 4.6, perV: 0.06, g: 13, clear: 0.45, tuck: 0.4 };
+const JUMP = { v: 4.6, perV: 0.06, g: 13, clear: 0.45, tuck: 0.4, lift: 0.05, auto: 9, high: 1.25 };
 const RAM = 6;
 const PROBES = [0.95, 0.1, -0.85], R = 0.42;
 
@@ -37,7 +37,8 @@ export function createDrive(THREE, { cm, car, W }) {
     for (const off of PROBES) {
       _p.set(car.position.x + fx * off, 0, car.position.z + fz * off);
       const x0 = _p.x, z0 = _p.z;
-      cm.resolveHorizontalCollision(_p, R, y0 + 1.9);
+      // (in a jump, what its tucked hooves pass over is cleared: a rubble heap, a barrier, a wreck at a gallop)
+      cm.resolveHorizontalCollision(_p, R, (S.air ? car.position.y + JUMP.lift : y0) + 1.9);
       // (and the low things: fences, benches, granite, planters; over them in a jump, its hooves tucked under it)
       _p.y = y0 + (S.air ? JUMP.tuck : 0) + JUMP.clear;
       cm.resolveLowCollision(_p, R);
@@ -94,13 +95,15 @@ export function createDrive(THREE, { cm, car, W }) {
   }
   // the room ahead before a wall or a car: m from its nose (to `far`), along its middle and either side of it (its
   // width), sampled every 0.6 m
-  function roomAhead(far) {
-    const sg = Math.sign(car.speed || 1), fx = Math.sin(car.heading) * sg, fz = Math.cos(car.heading) * sg, rx = Math.cos(car.heading), rz = -Math.sin(car.heading);
+  // (yH: the height the walls are read at: a jump's (yH above ground + JUMP.high + 1.5) counts only what it can't clear;
+  // h: a heading to look along other than its own)
+  function roomAhead(far, h = car.heading, yH = 1.9) {
+    const sg = Math.sign(car.speed || 1), fx = Math.sin(h) * sg, fz = Math.cos(h) * sg, rx = Math.cos(h), rz = -Math.sin(h);
     const nose = car.speed >= 0 ? car.body.z1 : -car.body.z0;
     const y0 = hoofY(), list = W.crash?.bodies?.(car.position.x + fx * (nose + far / 2), car.position.z + fz * (nose + far / 2), far / 2 + 4) || [];
     for (let d = 0.6; d <= far; d += 0.6) for (const s of [0, 0.38, -0.38]) {
       const x = car.position.x + fx * (nose + d) + rx * s, z = car.position.z + fz * (nose + d) + rz * s;
-      _p.set(x, 0, z); cm.resolveHorizontalCollision(_p, 0.2, y0 + 1.9);
+      _p.set(x, 0, z); cm.resolveHorizontalCollision(_p, 0.2, y0 + yH);
       if (Math.hypot(_p.x - x, _p.z - z) > 0.02) return d;
       for (const [ox, oz, oy, ow, ol] of list) {
         const dx = x - ox, dz = z - oz, lx = dx * Math.cos(oy) - dz * Math.sin(oy), lz = dx * Math.sin(oy) + dz * Math.cos(oy);
@@ -159,8 +162,17 @@ export function createDrive(THREE, { cm, car, W }) {
     return into > 0.72 ? Math.abs(v0) - Math.abs(car.speed) : 0;
   }
 
+  // (in a fight (a foe of the fight's within 30 m) he reins harder: a tighter turn at speed, to come round for the next
+  // pass in a second or two rather than a wide sweep)
+  const BASE = car.handling, FIGHT = BASE && { ...BASE, yawMax: BASE.yawMax * 1.35, grip: BASE.grip * 1.6 };
+  let fightLook = 0;
   function step(dt) {
     if (!(dt > 0)) return;
+    if (BASE && (fightLook -= dt) <= 0) {
+      fightLook = 0.25;
+      const en = W.combat?.enemies, p = car.position;
+      car.handling = en && en.some((e) => e.alive && !e.out && Math.abs(e.pos.x - p.x) < 30 && Math.abs(e.pos.z - p.z) < 30) ? FIGHT : BASE;
+    }
     const keys = cm.keys;
     const thr = keys.forward ? +keys.forward : keys.backward ? -keys.backward : 0;
     const steer = keys.left ? +keys.left : keys.right ? -keys.right : 0;
@@ -176,12 +188,29 @@ export function createDrive(THREE, { cm, car, W }) {
     // 60 ms, the room since taken off what it travels)
     if (Math.abs(car.speed) > 2.5 && !S.air) {
       S.lookT -= dt; S.room -= Math.abs(car.speed) * dt;
-      if (S.lookT <= 0) { S.lookT = 0.06; S.room = roomAhead(Math.min(9, 1 + Math.abs(car.speed) * 0.75)); }
+      if (S.lookT <= 0) {
+        S.lookT = 0.06; const far = Math.min(9, 1 + Math.abs(car.speed) * 0.75);
+        S.room = roomAhead(far);
+        // (SF 2040's broken streets: a heap or a barrier across his way at a canter or more is jumped, as a horse
+        // jumps it, at the stride before it; what it can't clear (a wall, a bus) it still pulls up for. And with the
+        // reins loose (no turn asked) it picks its own way round what blocks it, the clearer side, a little at a time)
+        S.hop = 0; S.dodge = 0;
+        if (S.room < Infinity && car.speed > 0) {
+          const tall = roomAhead(far, car.heading, JUMP.high + 1.5);
+          if (car.speed > JUMP.auto && tall > S.room + 1.2) { S.hop = S.room; S.room = tall; }
+          else if (Math.abs(steer) < 0.2 && S.room < 7) {
+            const L = roomAhead(far, car.heading + 0.45), Rr = roomAhead(far, car.heading - 0.45);
+            if (Math.max(L, Rr) > S.room + 0.6) S.dodge = L >= Rr ? 1 : -1;
+          }
+        }
+      }
+      else if (S.hop) S.hop -= Math.abs(car.speed) * dt;
+      if (S.hop && !S.air && !car.halt && !S.busy && S.landT <= 0 && S.hop < 1 + Math.abs(car.speed) * 0.16) { S.hop = 0; jump(); }
       if (S.room < Infinity) { const cap = Math.sqrt(2 * ACC.stop * Math.max(0, S.room - 0.4)); if (Math.abs(car.speed) > cap) car.speed = Math.sign(car.speed) * Math.max(cap, Math.abs(car.speed) - 16 * dt); }
-    } else { S.lookT = 0; S.room = Infinity; }
+    } else { S.lookT = 0; S.room = Infinity; S.hop = 0; S.dodge = 0; }
     // the turn: the city's keyboard steering on its handling; stopped, round on the spot
     const h0 = car.heading;
-    if (Math.abs(car.speed) > 0.3) cm.steerHandled(car, steer, dt);
+    if (Math.abs(car.speed) > 0.3) cm.steerHandled(car, S.dodge && Math.abs(car.speed) > 2.5 ? S.dodge * 0.7 : steer, dt);
     else { car.steerK = (car.steerK || 0) + (steer - (car.steerK || 0)) * Math.min(1, dt * 8); car.heading += car.steerK * 1.3 * dt; }
     car.heading += (car.angularVel || 0) * dt; car.angularVel = (car.angularVel || 0) * Math.exp(-dt * 8);
     S.yawRate += (wrap(car.heading - h0) / dt - S.yawRate) * Math.min(1, dt * 12);
