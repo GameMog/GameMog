@@ -102,6 +102,8 @@ export async function install(W, c) {
     if (live().length >= CAP) { console.warn(`[creatures] ${CAP} creatures fight at once at most: ${id} left out`); return null; }
     const pos = o.pos, yaw = o.yaw ?? yawTo(pos, P.position);
     const f = new CreatureFighter(c, kit, Pf, { pos, yaw, height: o.height, name: o.name, heavy: o.heavy, stats: o.stats || {}, boss: o.boss || null, hold: o.hold || null });
+    // (a role's look over the creature (looks.js): SF 2040's Deacon Vale on the knight)
+    if (o.look) try { (await import('./looks.js')).dressLook(f, o.look); } catch (e) { console.warn('[creatures] look', o.look, e.message); }
     f.crew = h.crew; h.crew.enemies.push(f); c.enemies.push(f); h.fighters.push(f); h.crew.cleared = false;
     if (f.boss) { h.boss = f; c.boss = f; }
     if (h.crew.awake && !o.hold) f.wake(true);
