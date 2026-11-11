@@ -188,7 +188,8 @@ export class CreatureFighter {
   // ------------------------------------------------------------------ damage taken
   // h: as the Suits' (enemy.js hit): { dmg, dir (attacker -> it), kind, side, fly, up, w, weapon, stun }
   hit(h) {
-    if (this.out) return null;
+    // (already falling for good: another blow would start its fall over, and it would never be out)
+    if (this.out || this.state === 'dying') return null;
     const c = this.c;
     this.lastHitT = c.time; this.flash = 1;
     if (this.state === 'idle' || this.state === 'home') this.wake(true);

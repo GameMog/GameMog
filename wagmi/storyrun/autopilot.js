@@ -77,6 +77,8 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     const p = { x, z };
     car.position.set(p.x, cm.getGroundHeight(p.x, p.z, 'car'), p.z); car.heading = h; car.speed = 0; car.vx = car.vz = car.angularVel = 0;
     car.mesh.position.copy(car.position); car.mesh.rotation.y = h;
+    // (a horse's own way over the ground starts again where it is put: wagmi/horse/drive.js)
+    if (car.kind === 'horse' && W.horse?.drive?.S) Object.assign(W.horse.drive.S, { ground: null, air: false, jumpY: 0, jumpV: 0, rammed: 0 });
     if (inCar()) { P.position.copy(car.position); P.heading = h; }
     app.cameraSystem.resetForTeleport?.();
   }
@@ -85,15 +87,13 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
   let held = null;
   const hold = (code) => { if (held === code) return; if (held) key(held, 'keyup'); held = code; if (code) key(code); };
   let cineT = 0, chaseJumpT = 0, seenT = 0, slowT = 0, tailS = null, tailJumpT = 0, tailJumped = false, lastKey = 0, tPhase = null, tPhaseT = 0;
-  let frameDt = 0.016, lastF = performance.now(), footSp = 3.6, sneakWait = 0, raceKey = null, horseMv = null;
+  let frameDt = 0.016, lastF = performance.now(), footSp = 3.6, sneakWait = 0, raceKey = null, horseMv = null, parkedFor = null;
   function tick() {
     if (!on) return;
     requestAnimationFrame(tick);
     { const n = performance.now(); frameDt = (n - lastF) / 1000; lastF = n; }
     const M = runner.M;
     if (!M || W.paused || !M.def) { release(); return; }
-    // (on a horse a hard knock throws him (wagmi/game.js): the test drive keeps him in the saddle, as it keeps him on his feet)
-    if (car.kind === 'horse') car.rammed = 0;
     const d = M.def.steps[M.i], key = `${M.def.id}:${M.i}`, t = performance.now() / 1000;
     if (mKey !== M.def.id) { mKey = M.def.id; mT = t; }
     if (t - mT > missionSecs && !M.tok.dead) { note(`timeout ${key} ${d?.type}`); onTimeout?.(M.def, d, M.i); mT = t; }
@@ -109,15 +109,24 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     if (type === 'fight' || M.crew) {
       const combat = W.combat; if (!combat) return;
       combat.player.hp = combat.player.maxHp;
-      const live = (combat.enemies || []).filter((e) => e.alive && !e.out);
+      const live = (combat.enemies || []).filter((e) => e.alive && !e.out && e.state !== 'dying');
       if (!live.length) { release(); return; }
       let n = live[0], nd = Infinity; for (const e of live) { const q = Math.hypot(e.pos.x - P.position.x, e.pos.z - P.position.z); if (q < nd) { nd = q; n = e; } }
       if (inCar()) { W.ride?.getOut?.(true); return; }
+      // (off his horse to fight on foot: Ranger led a few metres back out of the fight, away from them, so the fight is
+      // seen; a player would leave him where he got down)
+      if (car.kind === 'horse' && W.horse?.give && parkedFor !== stepKey && !W.ride?.phase) {
+        parkedFor = stepKey;
+        const dx = P.position.x - n.pos.x, dz = P.position.z - n.pos.z, dn = Math.hypot(dx, dz) || 1;
+        if (Math.hypot(car.position.x - P.position.x, car.position.z - P.position.z) < 8) W.horse.give({ x: P.position.x + dx / dn * 9, z: P.position.z + dz / dn * 9, heading: Math.atan2(-dx, -dz) });
+      }
       // (a creature's body is bigger than a man's: his reach from its middle grows with it)
       const rr = n.creature ? (n.T?.radius || 0.5) : 0;
       if (nd > 2.2 + rr) steerTo(n.pos.x, n.pos.z, 4); else { release(); P.heading = Math.atan2(n.pos.x - P.position.x, n.pos.z - P.position.z); }
       if (t - lastStrike > 0.35 && nd < 3 + rr) { lastStrike = t; combat.debug?.press?.(Math.random() < 0.25 ? 'heavy' : 'strike'); }
-      if (!fightT) fightT = t;
+      // (the clock for the assist starts once he is up to them: a lair's boss is walked up to and fought a while first)
+      if (!fightT && (!n.creature || nd < 5 + rr || t - stepT > 25)) fightT = t;
+      if (!fightT) return;
       if (t - fightT > 8 && t - lastFin > 1.5) { lastFin = t; const dir = new THREE.Vector3(n.pos.x - P.position.x, 0, n.pos.z - P.position.z).normalize(); try { n.hit({ kind: 'finisher', dmg: 9999, dir, w: 0.6, fly: 6, up: 4 }); note('assist ko'); } catch {} }
       return;
     }

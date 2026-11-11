@@ -24,6 +24,33 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
   the city as it is at the same times for the before shots: `night`, `day`, `dusk`. A world without these words (or
   in the clear) is never dressed: `node --test tests/dressing.test.mjs`.
 
+- `sf2040.json`: **SF 2040** (San Francisco, `?city=sf`), the owner's post-impact story: Cal Mercer rides Ranger (the
+  world's car `{ "model": "mogcity/horse" }`) through the city after the asteroid Erebus, looking for his wife Nina and
+  their daughter June. An opening at the Embarcadero camp, then five missions: Market Street (collect food, the Iron
+  Saints), Market & Church (The Brood Mother's lair at Octavia, medicine, Nina's note), Civic Center (a wild herd, Old
+  Silver, June's backpack), Hyde Street (hybrids and WARDEN-7 at the hospital, a search), Lafayette Park (brutes and The
+  Matriarch, the reunion at the house on Washington St). `dressing.apocalypse: "dusk"`. Play it at
+  `/?city=sf&pack=/tools/storyrun/test-packs/sf2040.json` (`&autopilot=1&autocard=1&flowfast=1` for the test drive).
+  Stand-ins: Cal is Dan's body, Nina is Jane's, June is Fiona's (no child in the cast yet), Hollis is Gears'.
+- `sf-steps.json`: the SF 2040 steps close together by the Ferry Building (a test drive of about a minute): collect in
+  the saddle, dismount, collect on foot, mount, a herd, two knights and a held scorpion boss.
+
+### The SF 2040 steps (San Francisco; `node --test tests/storyrun-sf2040.test.mjs`)
+
+- `fight` with `foes` and/or `boss`: the library's creatures (`creature-knight`, `-ogre`, `-centaur`, `-ape`, `-mech`,
+  `-scorpion`, `-trex`) through `W.creatures`: `foes: [id | { id, count, height, name, heavy, stats }]` round the
+  `arena`, `boss: { id, name, height, phases: [0.66, 0.33], stats, at: '@place', hold: { wake, leash } }` under the boss
+  bar (with `hold` it waits in its lair until he comes within `wake` m or hits it, then fights within `leash` m of
+  home). `wake: [who, line]` is said when it wakes; `counter`, `barks`, `hp`, `timer`, `why` as a fight of men. Done when
+  every one is down. At most 8 creatures; refused outside San Francisco. A fight of men (`enemies`) is unchanged.
+- `collect`: `{ kind, label, items: ['@place' | [x, z] | { at: [x, z], name }], need, look: crate | case | bag | can,
+  color, radius, objective, barks }`: glowing pickups with a beam, on the radar, the route to the nearest one left, the
+  tally on the HUD ('FOOD 3/5'), taken on foot or in the saddle (1.6 m further). Done when `need` (all) are taken.
+- `mount` (`at`: Ranger stood there first) and `dismount`; `walk` with `enterCar` / `leaveCar` say Mount / dismount on a
+  horse. Every leg, chase and the GPS work in the saddle: the horse is the car entity (wagmi/horse).
+- `herd`: `{ id, creature: 'creature-horse', at, count, radius }` wildlife for the mission (gone when it ends, or with
+  `{ type: 'herd', remove: id }`).
+
 On a local server (`python3 -m http.server 4981 --bind 127.0.0.1` in the repo):
 `http://127.0.0.1:4981/?pack=/tools/storyrun/test-packs/native.json`.
 

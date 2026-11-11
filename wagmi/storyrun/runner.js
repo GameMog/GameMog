@@ -446,11 +446,11 @@ export function createRunner(ctx) {
     // (a shot in a set: its own room's points, sets.js)
     if (setRun?.active) return setRun.point(ref, fallbackUp);
     const e = cm.getActiveEntity();
-    if (!ref || ref === 'player') return [e.position.x, e.position.y + (inCar() ? 1.2 : 1.55), e.position.z];
+    if (!ref || ref === 'player') return [e.position.x, e.position.y + (inCar() ? (car.kind === 'horse' ? 2.55 : 1.2) : 1.55), e.position.z];
     if (typeof ref === 'string' && ref.startsWith('@')) { const p = places.at(ref); if (p) return [p.cx ?? p.x, cm.getGroundHeight(p.cx ?? p.x, p.cz ?? p.z, 'person') + fallbackUp, p.cz ?? p.z]; }
     if (typeof ref === 'object' && ref.rel) {
       const fig = ref.rel !== 'player' ? cast.get(castName(ref.rel)) : null;
-      const base = fig ? fig.head(_v) : _v.set(e.position.x, e.position.y + (inCar() ? 1.2 : 1.55), e.position.z);
+      const base = fig ? fig.head(_v) : _v.set(e.position.x, e.position.y + (inCar() ? (car.kind === 'horse' ? 2.55 : 1.2) : 1.55), e.position.z);
       const h = fig ? fig.heading : e.heading, f = ref.fwd || 0, r = ref.right || 0;
       return [base.x + Math.sin(h) * f - Math.cos(h) * r, base.y + (ref.up || 0), base.z + Math.cos(h) * f + Math.sin(h) * r];
     }

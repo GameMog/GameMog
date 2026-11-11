@@ -985,7 +985,8 @@ function step(dt) {
     case 'bail': bailStep(dt); break;
   }
   // (on a horse: a ram hard enough to stop it dead throws him: the same dive and roll as out of a fast car)
-  if (MOUNT && !ride.phase && mode === 'car' && (car.rammed || 0) > 6 && !WAGMI.directed && !WAGMI.cutscene) { car.rammed = 0; bail(); }
+  // (never under a story's test drive, which puts the horse on along its route: autopilot.js keeps him in the saddle)
+  if (MOUNT && !ride.phase && mode === 'car' && (car.rammed || 0) > 6 && !WAGMI.directed && !WAGMI.cutscene && !WAGMI.storyrun?.autopilot) { car.rammed = 0; bail(); }
   // in the car means at the wheel (unless a scene has him); on foot, out of it
   if (!ride.phase) {
     if (mode === 'car' && !WAGMI.directed) { if (!drv.attached) { person.inVehicle = true; person.mesh.visible = false; drv.attach(0); } ride.k = 1; }

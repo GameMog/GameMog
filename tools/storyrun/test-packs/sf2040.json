@@ -1,0 +1,1176 @@
+{
+ "storykit": 1,
+ "id": "sf2040",
+ "title": "SF 2040",
+ "kicker": "SAN FRANCISCO",
+ "tagline": "Forty-one days after Erebus. One rider, one horse, a city gone wild. Find them.",
+ "city": "sf",
+ "car": {
+  "model": "mogcity/horse",
+  "label": "Ranger"
+ },
+ "dressing": {
+  "apocalypse": "dusk",
+  "time": "dusk"
+ },
+ "cast": {
+  "Cal": {
+   "color": "#FFFFFF",
+   "role": "Cal Mercer, an ex-park ranger looking for his family",
+   "model": "mogcity/dan"
+  },
+  "Nina": {
+   "color": "#6CB8FF",
+   "role": "Dr. Nina Mercer, his wife, an ER doctor",
+   "model": "mogcity/jane"
+  },
+  "June": {
+   "color": "#FFB86B",
+   "role": "June Mercer, their daughter, thirteen",
+   "model": "mogcity/fiona"
+  },
+  "Hollis": {
+   "color": "#E8B04A",
+   "role": "runs the camp's radio at the Ferry Building",
+   "model": "mogcity/gears"
+  },
+  "Radio": {
+   "color": "#9FE3C4",
+   "role": "a voice on the emergency band",
+   "voiceOnly": true
+  }
+ },
+ "hero": "Cal",
+ "places": {
+  "camp": {
+   "at": [
+    624,
+    -664,
+    -90
+   ],
+   "name": "the Embarcadero camp"
+  },
+  "campgate": {
+   "at": [
+    630,
+    -660,
+    -90
+   ],
+   "name": "the Embarcadero camp"
+  },
+  "ferry": {
+   "@": "ferry",
+   "name": "the Ferry Building"
+  },
+  "fifth": {
+   "at": [
+    -529,
+    525,
+    -45
+   ],
+   "name": "Market & 5th"
+  },
+  "saints": {
+   "at": [
+    -262,
+    262,
+    -45
+   ],
+   "name": "Market St at 6th"
+  },
+  "octavia": {
+   "at": [
+    -1903,
+    1885,
+    -45
+   ],
+   "name": "Market & Octavia"
+  },
+  "pharmacy": {
+   "at": [
+    -2368,
+    2355,
+    -45
+   ],
+   "name": "the pharmacy at Market & Church"
+  },
+  "civic": {
+   "at": [
+    -1369,
+    1025,
+    -90
+   ],
+   "name": "Civic Center Plaza"
+  },
+  "cityhall": {
+   "at": [
+    -1440,
+    1040,
+    90
+   ],
+   "name": "City Hall's steps"
+  },
+  "hyde": {
+   "at": [
+    -1310,
+    0,
+    180
+   ],
+   "name": "Hyde St"
+  },
+  "hospital": {
+   "at": [
+    -1325,
+    -95,
+    180
+   ],
+   "name": "the hospital on Hyde St"
+  },
+  "hospdoor": {
+   "at": [
+    -1338,
+    -95,
+    -90
+   ],
+   "name": "the hospital doors"
+  },
+  "lafayette": {
+   "at": [
+    -2267,
+    -411,
+    180
+   ],
+   "name": "Lafayette Park"
+  },
+  "summit": {
+   "at": [
+    -2232,
+    -356,
+    0
+   ],
+   "name": "the top of Lafayette Park"
+  },
+  "mansion": {
+   "at": [
+    -2272,
+    -430,
+    0
+   ],
+   "name": "the house on Washington St"
+  }
+ },
+ "opening": {
+  "place": "@camp",
+  "stage": [
+   {
+    "who": "Hollis",
+    "at": {
+     "rel": "player",
+     "right": 1.6,
+     "fwd": 2.2
+    }
+   }
+  ],
+  "shots": [
+   {
+    "cam": {
+     "rel": "player",
+     "fwd": -55,
+     "up": 26,
+     "right": 12
+    },
+    "to": {
+     "rel": "player",
+     "fwd": -38,
+     "up": 16,
+     "right": 6
+    },
+    "look": {
+     "rel": "player",
+     "fwd": 45,
+     "up": 6
+    },
+    "dur": 5,
+    "fov": 50,
+    "where": {
+     "name": "San Francisco",
+     "sub": "The Embarcadero · Day 41 after Erebus"
+    }
+   },
+   {
+    "cam": {
+     "rel": "player",
+     "fwd": 9,
+     "up": 2.5,
+     "right": -6
+    },
+    "look": "player",
+    "dur": 4.5,
+    "fov": 38,
+    "text": "Erebus broke up over the Pacific. One piece came down on the Presidio, and the Bio-Preserve's walls came down with it."
+   },
+   {
+    "cam": {
+     "rel": "Hollis",
+     "fwd": 2.0,
+     "right": 0.5,
+     "up": 0.0
+    },
+    "look": {
+     "rel": "Hollis",
+     "up": -0.05
+    },
+    "dur": 3.4,
+    "fov": 32,
+    "card": {
+     "who": "Hollis",
+     "role": "runs the camp's radio"
+    }
+   },
+   {
+    "cam": {
+     "rel": "Hollis",
+     "fwd": 2.2,
+     "right": -0.6,
+     "up": 0.05
+    },
+    "look": {
+     "rel": "Hollis",
+     "up": -0.05
+    },
+    "dur": 3.4,
+    "fov": 32,
+    "sub": [
+     "Radio",
+     "...this is Nina Mercer... June and I are... Market and Church... medicine... anyone..."
+    ]
+   },
+   {
+    "cam": {
+     "rel": "player",
+     "fwd": 1.9,
+     "right": 0.4,
+     "up": 0.0
+    },
+    "look": {
+     "rel": "player",
+     "up": -0.05
+    },
+    "dur": 3.6,
+    "fov": 32,
+    "card": {
+     "who": "Cal",
+     "role": "Cal Mercer · forty-one days looking"
+    }
+   },
+   {
+    "cam": {
+     "rel": "player",
+     "fwd": 2.0,
+     "right": -0.5,
+     "up": 0.05
+    },
+    "look": {
+     "rel": "player",
+     "up": -0.05
+    },
+    "dur": 3.0,
+    "fov": 34,
+    "sub": [
+     "Cal",
+     "That's her. That's Nina."
+    ]
+   },
+   {
+    "cam": {
+     "rel": "Hollis",
+     "fwd": 2.1,
+     "right": 0.6,
+     "up": 0.0
+    },
+    "look": {
+     "rel": "Hollis",
+     "up": -0.05
+    },
+    "dur": 4.0,
+    "fov": 32,
+    "sub": [
+     "Hollis",
+     "Message is three days old, Cal. And forty families here haven't eaten since Tuesday."
+    ]
+   },
+   {
+    "cam": {
+     "rel": "player",
+     "fwd": 2.0,
+     "right": -0.5,
+     "up": 0.05
+    },
+    "look": {
+     "rel": "player",
+     "up": -0.05
+    },
+    "dur": 3.6,
+    "fov": 34,
+    "sub": [
+     "Cal",
+     "Then I ride Market for food, and I keep riding."
+    ]
+   },
+   {
+    "cam": {
+     "rel": "player",
+     "fwd": 14,
+     "up": 4,
+     "right": 9
+    },
+    "to": {
+     "rel": "player",
+     "fwd": 22,
+     "up": 7,
+     "right": 4
+    },
+    "look": {
+     "rel": "player",
+     "fwd": -20,
+     "up": 3
+    },
+    "dur": 4.2,
+    "fov": 44,
+    "title": true
+   }
+  ]
+ },
+ "acts": [
+  {
+   "id": "act1",
+   "name": "SF 2040",
+   "order": [
+    "M1",
+    "M2",
+    "M3",
+    "M4",
+    "M5"
+   ],
+   "end": {
+    "title": "THE END",
+    "heading": "SF 2040",
+    "quote": {
+     "text": "Ranger knew the way home before I did.",
+     "by": "Cal Mercer"
+    }
+   }
+  }
+ ],
+ "missions": [
+  {
+   "id": "M1",
+   "title": "Market Street",
+   "vehicle": "horse",
+   "start": "@camp",
+   "stakes": "Forty families. Two days of food left on Market St, if the Iron Saints haven't found it.",
+   "passLine": "The camp eats tonight.",
+   "steps": [
+    {
+     "type": "npc",
+     "id": "hollis0",
+     "who": "Hollis",
+     "at": {
+      "rel": "player",
+      "fwd": 3.0,
+      "right": 2.2
+     }
+    },
+    {
+     "type": "say",
+     "who": "Hollis",
+     "text": "Crates fell off the relief trucks all down Market. Bring back five.",
+     "secs": 3
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "Come on, Ranger.",
+     "secs": 1.6
+    },
+    {
+     "type": "collect",
+     "id": "food",
+     "kind": "food",
+     "label": "Food",
+     "look": "crate",
+     "color": "#E8B04A",
+     "items": [
+      [
+       531,
+       -519
+      ],
+      [
+       348,
+       -352
+      ],
+      [
+       179,
+       -170
+      ],
+      [
+       -4,
+       -2
+      ],
+      [
+       -173,
+       179
+      ],
+      [
+       -356,
+       347
+      ]
+     ],
+     "need": 5,
+     "checkpoint": true,
+     "objective": "Scavenge **food** along Market St.",
+     "barks": {
+      "1": [
+       "Cal",
+       "Beans. Good."
+      ],
+      "3": [
+       "Cal",
+       "Halfway there."
+      ]
+     }
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "Armour on the corner. Iron Saints. They want the crates.",
+     "secs": 2.6
+    },
+    {
+     "type": "fight",
+     "id": "saints",
+     "arena": "@saints",
+     "checkpoint": true,
+     "foes": [
+      {
+       "id": "creature-knight",
+       "count": 3,
+       "name": "Iron Saint"
+      }
+     ],
+     "objective": "Fight off the **Iron Saints**.",
+     "counter": "SAINTS",
+     "barks": {
+      "1": [
+       "Cal",
+       "Stay down."
+      ],
+      "2": [
+       "Cal",
+       "One more."
+      ]
+     }
+    },
+    {
+     "type": "drive",
+     "id": "home",
+     "to": "@campgate",
+     "radius": 18,
+     "card": false,
+     "objective": "Ride the food back to **the Embarcadero camp**.",
+     "checkpoint": true
+    },
+    {
+     "type": "dismount",
+     "id": "m1off"
+    },
+    {
+     "type": "npc",
+     "id": "hollis",
+     "who": "Hollis",
+     "at": {
+      "rel": "player",
+      "fwd": 2.3,
+      "right": 0.8
+     }
+    },
+    {
+     "type": "cutscene",
+     "shots": [
+      {
+       "cam": {
+        "rel": "Hollis",
+        "fwd": 2.0,
+        "right": 0.5,
+        "up": 0.0
+       },
+       "look": {
+        "rel": "Hollis",
+        "up": -0.05
+       },
+       "dur": 3,
+       "fov": 34,
+       "sub": [
+        "Hollis",
+        "Five crates. The kids are already fighting over the peaches."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.1
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "Market and Church. That's where she called from."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "Hollis",
+        "fwd": 2.1,
+        "right": -0.5,
+        "up": 0.0
+       },
+       "look": {
+        "rel": "Hollis",
+        "up": -0.05
+       },
+       "dur": 3.4,
+       "fov": 34,
+       "sub": [
+        "Hollis",
+        "Then bring her medicine too. And watch Octavia. Something big nests under the ramps."
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "M2",
+   "title": "Market & Church",
+   "vehicle": "horse",
+   "start": "@campgate",
+   "stakes": "Nina's last call came from the pharmacy at Market & Church. Medicine is still on its shelves.",
+   "passLine": "Medicine for the camp. And Nina's handwriting.",
+   "steps": [
+    {
+     "type": "drive",
+     "id": "toOctavia",
+     "to": "@octavia",
+     "radius": 30,
+     "objective": "Ride up Market toward **Octavia**.",
+     "checkpoint": true
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "Egg sacs on the ramp. Easy, Ranger. Easy.",
+     "secs": 2.4
+    },
+    {
+     "type": "fight",
+     "id": "brood",
+     "arena": "@octavia",
+     "checkpoint": true,
+     "foes": [
+      {
+       "id": "creature-scorpion",
+       "count": 2,
+       "height": 0.9,
+       "name": "Brood"
+      }
+     ],
+     "boss": {
+      "id": "creature-scorpion",
+      "name": "The Brood Mother",
+      "height": 2.4,
+      "phases": [
+       0.5
+      ],
+      "hold": {
+       "wake": 16,
+       "leash": 36
+      }
+     },
+     "objective": "Kill **The Brood Mother** and her brood.",
+     "counter": "BROOD",
+     "wake": [
+      "Cal",
+      "There she is."
+     ]
+    },
+    {
+     "type": "drive",
+     "id": "toPharmacy",
+     "to": "@pharmacy",
+     "radius": 20,
+     "card": false,
+     "objective": "Ride to **the pharmacy at Market & Church**.",
+     "checkpoint": true
+    },
+    {
+     "type": "collect",
+     "id": "meds",
+     "kind": "medicine",
+     "label": "Medicine",
+     "look": "case",
+     "color": "#E04848",
+     "radius": 2.2,
+     "items": [
+      [
+       -2374,
+       2361
+      ],
+      [
+       -2360,
+       2348
+      ],
+      [
+       -2380,
+       2345
+      ]
+     ],
+     "objective": "Search the pharmacy for **medicine**.",
+     "checkpoint": true,
+     "barks": {
+      "1": [
+       "Cal",
+       "Antibiotics. She'd want these."
+      ]
+     }
+    },
+    {
+     "type": "dismount",
+     "id": "m2off"
+    },
+    {
+     "type": "cutscene",
+     "shots": [
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 1.9,
+        "right": 0.5,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.1
+       },
+       "dur": 3,
+       "fov": 32,
+       "sub": [
+        "Cal",
+        "A note, taped to the register. Her writing."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.6,
+        "right": 1.3,
+        "up": 0.35
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.35
+       },
+       "dur": 4.5,
+       "fov": 36,
+       "caption": "Nina's note",
+       "text": "\"Moving the patients to the hospital on Hyde St. Going the Civic Center way. June is with me. If you find this, Cal: we're alive. N.\""
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.1
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "Alive. Both of them."
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "M3",
+   "title": "Civic Center",
+   "vehicle": "horse",
+   "start": "@pharmacy",
+   "stakes": "The herds came down from the Presidio. Something bigger came with them, and it sits on City Hall's steps.",
+   "passLine": "June's backpack. They came this way.",
+   "steps": [
+    {
+     "type": "herd",
+     "id": "horses",
+     "creature": "creature-horse",
+     "at": [
+      -1400,
+      985
+     ],
+     "count": 4,
+     "radius": 12
+    },
+    {
+     "type": "drive",
+     "id": "toCivic",
+     "to": "@civic",
+     "radius": 30,
+     "objective": "Ride to **Civic Center Plaza**.",
+     "checkpoint": true
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "Wild horses on the plaza. And something sitting on the steps, watching them.",
+     "secs": 3
+    },
+    {
+     "type": "fight",
+     "id": "silver",
+     "arena": "@civic",
+     "checkpoint": true,
+     "boss": {
+      "id": "creature-ape",
+      "name": "Old Silver",
+      "height": 3.2,
+      "phases": [
+       0.6,
+       0.3
+      ],
+      "hold": {
+       "wake": 22,
+       "leash": 45
+      },
+      "at": "@cityhall"
+     },
+     "objective": "Bring down **Old Silver**.",
+     "wake": [
+      "Cal",
+      "Okay, big fella. Okay."
+     ]
+    },
+    {
+     "type": "collect",
+     "id": "pack",
+     "kind": "clue",
+     "label": "Backpack",
+     "look": "bag",
+     "color": "#FFB86B",
+     "items": [
+      [
+       -1458,
+       1030
+      ]
+     ],
+     "objective": "Check **the backpack** on City Hall's steps."
+    },
+    {
+     "type": "dismount",
+     "id": "m3off"
+    },
+    {
+     "type": "cutscene",
+     "shots": [
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 1.9,
+        "right": 0.5,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.1
+       },
+       "dur": 3.4,
+       "fov": 32,
+       "sub": [
+        "Cal",
+        "June's backpack. The patch her grandma sewed on."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.1
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3.4,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "Her inhaler's still in it. She's got the spare. Hyde St, then."
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "M4",
+   "title": "Hyde Street",
+   "vehicle": "horse",
+   "start": "@civic",
+   "stakes": "The hospital on Hyde St. The Preserve's security mech walks its forecourt, still guarding a fence that isn't there.",
+   "passLine": "Empty wards. One more message.",
+   "steps": [
+    {
+     "type": "drive",
+     "id": "toHyde",
+     "to": "@hyde",
+     "radius": 25,
+     "objective": "Ride up **Hyde St** to the hospital.",
+     "checkpoint": true
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "Hybrids. Preserve tags still on them.",
+     "secs": 2.4
+    },
+    {
+     "type": "fight",
+     "id": "warden",
+     "arena": "@hospital",
+     "checkpoint": true,
+     "foes": [
+      {
+       "id": "creature-centaur",
+       "count": 2,
+       "name": "Hybrid"
+      }
+     ],
+     "boss": {
+      "id": "creature-mech",
+      "name": "WARDEN-7",
+      "height": 4.0,
+      "phases": [
+       0.5
+      ],
+      "hold": {
+       "wake": 20,
+       "leash": 40
+      }
+     },
+     "objective": "Get past the **hybrids** and **WARDEN-7**.",
+     "counter": "DOWN",
+     "wake": [
+      "Cal",
+      "Target me, then. Come on."
+     ]
+    },
+    {
+     "type": "search",
+     "id": "doors",
+     "at": "@hospdoor",
+     "label": "Search the doors",
+     "noun": "the doors",
+     "secs": 1.2,
+     "objective": "Search **the hospital doors**."
+    },
+    {
+     "type": "cutscene",
+     "shots": [
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 1.9,
+        "right": 0.5,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.1
+       },
+       "dur": 3,
+       "fov": 32,
+       "sub": [
+        "Cal",
+        "Empty. Every bed."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": -2.6,
+        "right": 1.4,
+        "up": 0.4
+       },
+       "look": {
+        "rel": "player",
+        "fwd": 3,
+        "up": 0.1
+       },
+       "dur": 4.6,
+       "fov": 40,
+       "caption": "Chalk on the doors",
+       "text": "\"Generator died. Took everyone up to the big grey house on Washington St, by Lafayette Park. High ground. Hurry. N.\""
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.1
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "Lafayette Park. I'm coming."
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "M5",
+   "title": "Lafayette Park",
+   "vehicle": "horse",
+   "start": "@hospital",
+   "stakes": "The house on Washington St. Between it and Cal: the top of Lafayette Park, and The Matriarch's nest.",
+   "passLine": "Home is three people and a horse.",
+   "steps": [
+    {
+     "type": "drive",
+     "id": "toPark",
+     "to": "@lafayette",
+     "radius": 30,
+     "objective": "Ride to **Lafayette Park**.",
+     "checkpoint": true
+    },
+    {
+     "type": "say",
+     "who": "Cal",
+     "text": "Brutes. And that's no tree on the hill.",
+     "secs": 2.6
+    },
+    {
+     "type": "fight",
+     "id": "matriarch",
+     "arena": "@summit",
+     "checkpoint": true,
+     "foes": [
+      {
+       "id": "creature-ogre",
+       "count": 2,
+       "name": "Brute"
+      }
+     ],
+     "boss": {
+      "id": "creature-trex",
+      "name": "The Matriarch",
+      "height": 5.8,
+      "phases": [
+       0.66,
+       0.33
+      ],
+      "hold": {
+       "wake": 28,
+       "leash": 55
+      }
+     },
+     "objective": "Bring down **The Matriarch**.",
+     "counter": "DOWN",
+     "wake": [
+      "Cal",
+      "Not tonight. Not when I'm this close."
+     ]
+    },
+    {
+     "type": "walk",
+     "id": "door",
+     "to": "@mansion",
+     "radius": 4,
+     "beam": true,
+     "objective": "Go to **the house on Washington St**."
+    },
+    {
+     "type": "npc",
+     "id": "nina",
+     "who": "Nina",
+     "at": {
+      "rel": "player",
+      "fwd": 2.4,
+      "right": 0.6
+     }
+    },
+    {
+     "type": "npc",
+     "id": "june",
+     "who": "June",
+     "at": {
+      "rel": "player",
+      "fwd": 1.8,
+      "right": -0.9
+     }
+    },
+    {
+     "type": "cutscene",
+     "shots": [
+      {
+       "cam": {
+        "rel": "June",
+        "fwd": 1.9,
+        "right": 0.5,
+        "up": 0.0
+       },
+       "look": {
+        "rel": "June",
+        "up": -0.08
+       },
+       "dur": 2.8,
+       "fov": 34,
+       "sub": [
+        "June",
+        "Dad? DAD!"
+       ]
+      },
+      {
+       "cam": {
+        "rel": "Nina",
+        "fwd": 1.9,
+        "right": 0.4
+       },
+       "look": {
+        "rel": "Nina",
+        "up": -0.05
+       },
+       "dur": 3.4,
+       "fov": 32,
+       "sub": [
+        "Nina",
+        "Cal. You found the notes."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 1.9,
+        "right": -0.4
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3.4,
+       "fov": 32,
+       "sub": [
+        "Cal",
+        "Three notes. A backpack. And one very angry lizard."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "June",
+        "fwd": 1.8,
+        "right": -0.4
+       },
+       "look": {
+        "rel": "June",
+        "up": -0.05
+       },
+       "dur": 3.0,
+       "fov": 32,
+       "sub": [
+        "June",
+        "Is that Ranger? You kept Ranger?"
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": 0.5
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3.4,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "He kept me. Come on. The camp needs a doctor."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 1.3,
+        "right": 5.5,
+        "up": 0.6
+       },
+       "to": {
+        "rel": "player",
+        "fwd": 1.3,
+        "right": 7.5,
+        "up": 1.4
+       },
+       "look": {
+        "rel": "player",
+        "fwd": 1.3,
+        "up": -0.5
+       },
+       "dur": 4.0,
+       "fov": 40
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 8,
+        "right": 10,
+        "up": 4
+       },
+       "to": {
+        "rel": "player",
+        "fwd": 14,
+        "right": 16,
+        "up": 12
+       },
+       "look": {
+        "rel": "player",
+        "fwd": 1,
+        "up": -0.5
+       },
+       "dur": 5.5,
+       "fov": 46,
+       "text": "West, over the Presidio, the crater still glows. But tonight the Mercers are together."
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
