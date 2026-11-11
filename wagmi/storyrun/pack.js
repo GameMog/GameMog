@@ -128,12 +128,13 @@ export function creatureStep(s, city) {
     if (s.color != null && !COLOUR.test(s.color)) errs.push('colour');
   }
   if (s.type === 'mount' && s.at != null && !isPlaceRef(s.at)) errs.push('at');
-  if (s.type === 'herd' && !s.remove) {
+  if (s.type === 'herd' && !s.remove && !(s.id && s.at == null && (s.hold || s.walkTo || s.scatter))) {
     if (city !== 'sf') errs.push('wildlife in San Francisco only');
     if (s.creature != null && !['creature-horse', ...CREATURES].includes(s.creature)) errs.push(`no creature ${s.creature}`);
     if (!(isMark(s.at) || isPlaceRef(s.at))) errs.push('at');
     if (s.count != null && !(Number.isInteger(s.count) && s.count >= 1 && s.count <= 8)) errs.push('count');
   }
+  if (s.type === 'herd' && s.walkTo != null && !(isMark(s.walkTo) || isPlaceRef(s.walkTo))) errs.push('walkTo');
   return errs;
 }
 // Mog City's own mission phases a step may name by `ref` (runner.js PART_IDS: m2.js / m3.js playPart)

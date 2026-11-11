@@ -1296,13 +1296,43 @@ export function createRunner(ctx) {
   // herd: wildlife set out where the story says (W.creatures.herd: they graze, drift and run from him), at once; they stay
   // until the mission ends, or a herd step with { remove: <its id> } lets them go. Not a step to wait on.
   //   { type: 'herd', id, creature: 'creature-horse', at: '@place' | [x, z], count, radius, height }
+  // a herd's behaviour, for a set piece (a cutscene's creatures): `hold: true` keeps each where it stands, quiet, never
+  // running from him (WARDEN-7's dead hulk); `walkTo: '@place' | [x, z]` walks them there together (the herds going
+  // home); `scatter: true` sends each its own way out from the herd's middle (loose for good). Given to a herd that
+  // already stands (the step names its id and no `at`), or with a new one. Kept up every frame until the mission ends
+  // or another herd step changes it.
+  function steerHerd(d, h) {
+    if (!(d.hold || d.walkTo || d.scatter)) return;
+    const tok = tokOf(M.tok); if (h._steer) kill(h._steer, new Stop()); h._steer = tok;
+    const goal = d.walkTo ? markOf(d.walkTo) : null;
+    let held = null, out = null;
+    wait(() => {
+      const A = h.animals || [];
+      if (!A.length) return false;
+      if (d.hold && !held) held = A.map((a) => ({ x: a.pos.x, z: a.pos.z, yaw: a.yaw }));
+      if (d.scatter && !out) { const cx = A.reduce((n, a) => n + a.pos.x, 0) / A.length, cz = A.reduce((n, a) => n + a.pos.z, 0) / A.length; out = A.map((a, i) => { const ang = Math.atan2(a.pos.x - cx, a.pos.z - cz) + i * 0.9; return { x: a.pos.x + Math.sin(ang) * 80, z: a.pos.z + Math.cos(ang) * 80 }; }); }
+      A.forEach((a, i) => {
+        if (held) { const k = held[i]; a.pos.x = k.x; a.pos.z = k.z; a.yaw = k.yaw; a.state = 'graze'; a.t = 0; a.next = 99; a.want = 0; return; }
+        const g = goal ? { x: goal.x + Math.sin(i * 2.1) * 4, z: goal.z + Math.cos(i * 2.1) * 4 } : out?.[i];
+        if (g) { a.state = 'wander'; a.t = 0; a.goal = new THREE.Vector3(g.x, 0, g.z); }
+      });
+      return false;
+    }, tok).catch(() => {});
+  }
   STEPS.herd = async (d) => {
     const C = W.creatures; M.herds = M.herds || new Map();
-    if (d.remove) { const h = M.herds.get(d.remove); if (h) { h.remove(); M.herds.delete(d.remove); } return; }
+    if (d.remove) { const h = M.herds.get(d.remove); if (h) { if (h._steer) kill(h._steer, new Stop()); h.remove(); M.herds.delete(d.remove); } return; }
+    if (d.id && d.at == null) {
+      // (a change to a standing herd; started past the step that stood it up (a checkpoint, ?step=): that step first)
+      if (!M.herds.has(d.id)) { const hs = M.def.steps.find((x) => x.type === 'herd' && x.id === d.id && x.at != null); if (hs) await STEPS.herd({ ...hs, hold: false, walkTo: null, scatter: false }); }
+      if (M.herds.has(d.id)) steerHerd(d, M.herds.get(d.id));
+      return;
+    }
     if (!C?.herd) { console.warn('[storyrun] no wildlife on this page'); return; }
     const q = Array.isArray(d.at) ? { x: d.at[0], z: d.at[1] } : (() => { const pp = placeOf(d.at); return { x: pp.cx ?? pp.x, z: pp.cz ?? pp.z }; })();
     const h = C.herd(d.creature || 'creature-horse', { at: q, count: d.count || 4, radius: d.radius || 10, height: d.height });
     M.herds.set(d.id || 'herd' + M.herds.size, h);
+    steerHerd(d, h);
   };
 
   // mount / dismount: on to the world's horse (its car { model: 'mogcity/horse' }: wagmi/horse), or off it. A mount with

@@ -235,6 +235,8 @@ M4 = {
         ["Pike", "You let me walk away."],
     ]},
     "steps": [
+        # (for the consequence beat: a big one far down Bush St, kept still till the choice sends it)
+        {"type": "herd", "id": "rex", "creature": "creature-trex", "at": [-1470, -20], "count": 1, "radius": 1, "height": 5.8, "hold": True},
         {"type": "drive", "id": "toHyde", "to": "@hyde", "radius": 25, "checkpoint": True,
          "objective": "Ride up **Hyde St** to the hospital.",
          "trigger": {"area": {"@": "hyde", "r": 120}, "say": ["Warden", "CONTAINMENT BREACH. ALL SPECIMENS RETURN TO ENCLOSURE."]}},
@@ -245,6 +247,8 @@ M4 = {
          "objective": "Get past the **hybrids** and **WARDEN-7**.", "counter": "DOWN",
          "wake": ["Cal", "Target me, then. Come on."],
          "barks": {"1": ["Warden", "SPECIMEN DOWN. UNAUTHORIZED PERSON. RESTRAIN."]}},
+        # (its hulk, standing dead on the forecourt for the scene at its core)
+        {"type": "herd", "id": "hulk", "creature": "creature-mech", "at": [-1327, -116], "count": 1, "radius": 1, "height": 4.0, "hold": True},
         say("Warden", "BROADCAST CONTINUING. ALL SPECIMENS: COME HOME.", 3),
         say("Cal", "It's still calling them. Pike said three relays.", 2.6),
         {"type": "timer", "name": "call", "seconds": 100, "label": "THE CALL", "fail": "hard", "why": "The tone drew every creature for a mile onto the block."},
@@ -254,15 +258,17 @@ M4 = {
          "help": [[0.5, "Ride over each relay box to smash it. They're on the radar."]],
          "barks": {"1": ["Cal", "One down."], "2": ["Pike", "That's two! The last one's on Bush St!"]}},
         {"type": "timer", "name": "call", "stop": True},
+        # (collared horses on Bush St, drawn in by the tone and standing in it, for the consequence)
+        {"type": "herd", "id": "loose", "creature": "creature-horse", "at": [-1352, -38], "count": 4, "radius": 6, "hold": True},
         {"type": "walk", "id": "toCore", "to": "@hospital", "radius": 5, "beam": True, "leaveCar": True, "objective": "Go to **WARDEN-7's core**, in its wreck on the forecourt."},
         # (the climax decision: wide on the wreck with him before it, the machine's own line, Pike on the radio over the
         # wreck (never a close-up of Cal under another speaker's line), Cal's face for his own; then the prompt, which
         # says what each choice does, and a beat that shows it)
         {"type": "cutscene", "id": "coreScene", "shots": [
-            {"cam": {"rel": "player", "fwd": -4.5, "right": 2.4, "up": 1.6}, "to": {"rel": "player", "fwd": -3.4, "right": 1.8, "up": 1.2}, "look": {"rel": "player", "fwd": 5, "up": 0.6}, "dur": 4.0, "fov": 44, "sub": ["Warden", "BROADCAST INTERRUPTED. OPERATOR DETECTED. AWAITING COMMAND."]},
+            {"cam": [-1322, 67.6, -82], "to": [-1323, 67.2, -86], "look": [-1327, 66.5, -116], "dur": 4.2, "fov": 46, "sub": ["Warden", "BROADCAST INTERRUPTED. OPERATOR DETECTED. AWAITING COMMAND."]},
             hero("It's asking me. It's asking me what to do with them.", right=-0.6, dur=3.4),
-            {"cam": {"rel": "player", "fwd": -2.4, "right": 0.9, "up": 1.9}, "to": {"rel": "player", "fwd": -2.0, "right": 0.7, "up": 1.8}, "look": {"rel": "player", "fwd": 7, "up": 0.4}, "dur": 4.8, "fov": 40, "caption": "Pike, on the radio", "sub": ["Pike", "Smash the core and nobody calls them ever again. Not Vale. Not anybody. They just run wild."]},
-            {"cam": {"rel": "player", "fwd": -2.4, "right": -0.9, "up": 1.9}, "to": {"rel": "player", "fwd": -2.0, "right": -0.7, "up": 1.8}, "look": {"rel": "player", "fwd": 7, "up": 0.4}, "dur": 4.8, "fov": 40, "caption": "Pike, on the radio", "sub": ["Pike", "Or send one last tone. Home. Every collar in the city walks back to the Preserve. Even the big ones."]},
+            {"cam": [-1320, 66.8, -88], "to": [-1321, 66.6, -91], "look": [-1328, 66.2, -116], "dur": 4.8, "fov": 38, "caption": "Pike, on the radio", "sub": ["Pike", "Smash the core and nobody calls them ever again. Not Vale. Not anybody. They just run wild."]},
+            {"cam": [-1330, 66.8, -88], "to": [-1329, 66.6, -91], "look": [-1326, 66.2, -116], "dur": 4.8, "fov": 38, "caption": "Pike, on the radio", "sub": ["Pike", "Or send one last tone. Home. Every collar in the city walks back to the Preserve. Even the big ones."]},
             hero("Back to the crater. Or loose for good.", right=-0.4, dur=3.0, fov=30),
         ]},
         {"type": "choice", "id": "core", "flag": "shepherd", "who": "Cal",
@@ -271,13 +277,19 @@ M4 = {
              {"text": "SMASH THE CORE: no one can ever call them again. They run wild, and free.", "value": "smashed", "reply": ["Cal", "No more shepherds."]},
              {"text": "SEND THEM HOME: one last tone, and every collar walks back to the Preserve.", "value": "home", "reply": ["Cal", "Go home. All of you."]},
          ]},
+        {"type": "herd", "id": "loose", "scatter": True, "if": "shepherd == smashed"},
+        {"type": "herd", "id": "rex", "scatter": True, "if": "shepherd == smashed"},
+        {"type": "herd", "id": "loose", "walkTo": [-1700, 15], "if": "shepherd != smashed"},
+        {"type": "herd", "id": "rex", "walkTo": [-1760, 25], "if": "shepherd != smashed"},
         {"type": "cutscene", "id": "coreDark", "if": "shepherd == smashed", "shots": [
-            {"cam": {"rel": "player", "fwd": -3, "right": 2, "up": 2}, "to": {"rel": "player", "fwd": -14, "right": 8, "up": 22}, "look": {"rel": "player", "fwd": 30, "up": 0}, "dur": 5.5, "fov": 46,
-             "text": "Across the city, every collar goes dark at once. Nothing calls the animals now. Not Vale. Not anyone."},
+            {"cam": [-1322, 69, -47], "to": [-1326, 71, -45], "look": [-1365, 61, -36], "dur": 4.2, "fov": 44,
+             "text": "Every collar goes dark at once. The horses on Bush St shake their heads, and scatter."},
+            {"cam": [-1326, 71, -45], "look": [-1480, 63, -18], "dur": 3.4, "fov": 34, "text": "Nothing calls them now. Not Vale. Not anyone."},
         ]},
         {"type": "cutscene", "id": "coreHome", "if": "shepherd != smashed", "shots": [
-            {"cam": {"rel": "player", "fwd": -3, "right": 2, "up": 2}, "to": {"rel": "player", "fwd": -14, "right": 8, "up": 22}, "look": {"rel": "player", "fwd": 30, "up": 0}, "dur": 5.5, "fov": 46,
-             "text": "Across the city, the herds lift their heads, turn west toward the red glow over the Presidio, and start walking."},
+            {"cam": [-1322, 69, -47], "to": [-1326, 71, -45], "look": [-1380, 61, -32], "dur": 4.2, "fov": 44,
+             "text": "The horses on Bush St lift their heads, turn as one, and start walking west."},
+            {"cam": [-1326, 71, -45], "to": [-1330, 72, -44], "look": [-1480, 63, -18], "dur": 4.0, "fov": 30, "text": "All over the city, the herds turn toward the red glow over the Presidio. Even the big ones."},
         ]},
         say("Warden", "CORE OFFLINE.", 2.2, **{"if": "shepherd == smashed"}),
         say("Warden", "RECALL TONE SENT. ALL SPECIMENS: RETURN HOME.", 3, **{"if": "shepherd != smashed"}),

@@ -56,7 +56,9 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
 - `mount` (`at`: Ranger stood there first) and `dismount`; `walk` with `enterCar` / `leaveCar` say Mount / dismount on a
   horse. Every leg, chase and the GPS work in the saddle: the horse is the car entity (wagmi/horse).
 - `herd`: `{ id, creature: 'creature-horse', at, count, radius }` wildlife for the mission (gone when it ends, or with
-  `{ type: 'herd', remove: id }`).
+  `{ type: 'herd', remove: id }`). For a set piece: `hold: true` keeps each where it stands, never running (WARDEN-7's
+  dead hulk); `walkTo: '@place' | [x, z]` walks them there together; `scatter: true` sends each its own way. A herd
+  step naming a standing herd's `id` and no `at` changes what that herd does (M4's consequence beat).
 - `mount` takes `arm: 'bat' | 'bottle'` (something in his hand for the saddle's blows: J from the saddle).
 
 ### The wild steps (the verbs of SF 2040's rides; each tells the test drive what it needs in `M.wild`)
