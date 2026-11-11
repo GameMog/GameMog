@@ -365,7 +365,7 @@ M6 = {
             hero("That's my girl.", right=-0.6, dur=2.2),
         ]},
         {"type": "mount", "id": "m6on", "arm": "bat", "objective": "Mount **Ranger**: you hold this camp from the saddle."},
-        {"type": "fight", "id": "defend", "arena": "@camp", "checkpoint": True, "saddle": True, "hp": 180,
+        {"type": "fight", "id": "defend", "arena": "@camp", "from": {"@": "camp", "mode": "car"}, "checkpoint": True, "saddle": True, "hp": 180,
          "guard": {"radius": 18, "hp": 100, "drain": 5, "label": "CAMP", "why": "They reached the tents. The camp is lost."},
          "objective": "Ride out and stop each wave before it reaches **the tents**.",
          "help": [[1, "Each wave marches on the tents from the red marker. Meet them on the way and they turn on you instead. [J] swings the bat from the saddle."]],

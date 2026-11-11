@@ -2736,6 +2736,10 @@
      "type": "fight",
      "id": "defend",
      "arena": "@camp",
+     "from": {
+      "@": "camp",
+      "mode": "car"
+     },
      "checkpoint": true,
      "saddle": true,
      "hp": 180,
