@@ -151,13 +151,12 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       if (!inCar()) { release(); if (!W.ride?.phase) W.ride?.getIn?.(true); return; }
       const w = M.wild?.push; if (!w) { release(); return; }
       const e = cm.getActiveEntity(), dw = Math.hypot(w.x - e.position.x, w.z - e.position.z);
-      steerTo(dw < 4 ? w.cx : w.x, dw < 4 ? w.cz : w.z, dw > 30 ? 12 : 5);
-      if (car.kind === 'horse') cm.setTouchInput('boost', dw > 30 ? 1 : 0);
-      return;
+      // (far from the herd: there by the route, as any leg (below); near it: straight in behind them and on)
+      if (dw < 40) { steerTo(dw < 4 ? w.cx : w.x, dw < 4 ? w.cz : w.z, dw > 20 ? 8 : 5); if (car.kind === 'horse') cm.setTouchInput('boost', 0); return; }
     }
     // (a flee: the hero kept on his feet in a test drive, a fair one excepted)
     if (type === 'flee' && !fair && W.combat?.player) W.combat.player.hp = W.combat.player.maxHp;
-    if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow', 'passenger', 'roadblock', 'stealth', 'collect', 'mount', 'sneak', 'flee', 'track'].includes(type)) { release(); return; }
+    if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow', 'passenger', 'roadblock', 'stealth', 'collect', 'mount', 'sneak', 'flee', 'track', 'drove'].includes(type)) { release(); return; }
     // a chase to lose: escape() (the pursuit's own 'lost' ends it)
     if (type === 'pursuit' && d.goal !== 'reach' && escape(t)) return;
     // in or out of the car as the step wants

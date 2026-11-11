@@ -66,8 +66,8 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
   gallop 36; a man walking 6, running 11) times its `ears`; while one does, the NOISE bar fills (faster the nearer), and
   drains when none does. At half it stirs (a growl, `warn`); full, or hit, they wake: the step fails (`why`, the tip:
   walk with Q) or, with `woke: <step id>`, goes there. They are on the radar, and gone when the step ends.
-- `flee`: `{ to, radius, creature: { id, name, height, boss, phases, stats }, from | behind, speed, catch, grace, keep,
-  objective, alert, barks: { <secs in>: [who, text] } }` a creature on his heels to a place. It is never quite as fast
+- `flee`: `{ to, radius, creature: { id, name, height, boss, phases, stats, at }, behind, speed, catch, grace, keep,
+  objective, alert, barks: { <secs in>: [who, text] } }` a creature on his heels to a place (from its `at`, else `behind` m back). It is never quite as fast
   as a gallop (`speed`, 11) and gains on anything slower; far behind (32 m) it closes up. Within `catch` m of its body
   for `grace` s in all it has him (fails, tip: gallop); knocked out fails too. A bar shows how close it is. `keep: true`
   (with an `id`) keeps it for the next fight: that fight's `boss.from: <the flee's id>` fights the same creature.

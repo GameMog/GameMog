@@ -110,7 +110,7 @@ export function creatureStep(s, city) {
     if (city !== 'sf') errs.push('creatures chase in San Francisco only');
     const x = typeof s.creature === 'string' ? { id: s.creature } : s.creature;
     if (!x || !CREATURES.has(x.id)) errs.push(`no creature ${x && x.id}`);
-    if (s.from != null && !(isMark(s.from) || isPlaceRef(s.from))) errs.push('from');
+    if (x && x.at != null && !(isMark(x.at) || isPlaceRef(x.at))) errs.push('creature.at');
     if (s.keep && !s.id) errs.push('keep: needs an id');
   }
   if (s.type === 'drove') {

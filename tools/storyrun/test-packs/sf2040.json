@@ -262,6 +262,14 @@
     -45
    ],
    "name": "Market & Spear"
+  },
+  "civicgate": {
+   "at": [
+    -1300,
+    1014,
+    -90
+   ],
+   "name": "Civic Center Plaza"
   }
  },
  "opening": {
@@ -515,6 +523,10 @@
    },
    "stakes": "Forty families. Two days of food left on Market St, if the Iron Saints haven't found it.",
    "passLine": "The camp eats tonight.",
+   "nudge": [
+    "Hollis",
+    "Cal, you there? The yellow line on your map. Follow it."
+   ],
    "steps": [
     {
      "type": "npc",
@@ -871,6 +883,10 @@
    "start": "@campgate",
    "stakes": "Nina's last call came from the pharmacy at Market & Church. Something sleeps on the street in front of it.",
    "passLine": "Medicine for the camp. And Nina's handwriting.",
+   "nudge": [
+    "Hollis",
+    "Cal? Talk to me. Slow and quiet, and keep going."
+   ],
    "between": {
     "radio": [
      [
@@ -955,6 +971,10 @@
      "type": "sneak",
      "id": "nest",
      "to": "@pharmacy",
+     "from": {
+      "@": "octavia",
+      "mode": "car"
+     },
      "radius": 12,
      "checkpoint": true,
      "objective": "Walk **Ranger** past the nest to **the pharmacy**.",
@@ -1179,6 +1199,10 @@
    "start": "@pharmacy",
    "stakes": "Tithe night is Sunday. The camp needs horses to move, and a wild herd grazes on Civic Center Plaza under a silverback's eye.",
    "passLine": "Horses for the camp. And a name: WARDEN-7.",
+   "nudge": [
+    "Hollis",
+    "Cal? Everything all right out there? The route's on your map."
+   ],
    "between": {
     "radio": [
      [
@@ -1202,8 +1226,8 @@
     {
      "type": "drive",
      "id": "toCivic",
-     "to": "@civic",
-     "radius": 30,
+     "to": "@civicgate",
+     "radius": 25,
      "checkpoint": true,
      "objective": "Ride to **Civic Center Plaza**.",
      "during": [
@@ -1385,11 +1409,20 @@
      "id": "herd",
      "herd": "horses",
      "to": "@corral",
+     "from": {
+      "@": "civicgate",
+      "mode": "car"
+     },
      "radius": 16,
      "need": 3,
      "label": "Horses",
      "checkpoint": true,
      "objective": "Drive the **wild horses** into **the corral on Fulton St**",
+     "idle": 15,
+     "nudge": [
+      "Hollis",
+      "Ride round behind them, Cal. They run away from Ranger, so push them toward the rope."
+     ],
      "barks": {
       "1": [
        "Cal",
@@ -1438,6 +1471,10 @@
    "start": "@civic",
    "stakes": "The hospital on Hyde St. The Preserve's security mech walks its forecourt, and every collar in the city answers its call.",
    "passLine": "The shepherd is silent. Hollis's secret isn't.",
+   "nudge": [
+    "Pike",
+    "Rider, you still there? Hyde St. Everything you need is on your radar."
+   ],
    "between": {
     "radio": [
      [
@@ -1591,10 +1628,107 @@
      "stop": true
     },
     {
-     "type": "say",
-     "who": "Warden",
-     "text": "BROADCAST INTERRUPTED. AWAITING OPERATOR.",
-     "secs": 2.6
+     "type": "cutscene",
+     "id": "coreScene",
+     "shots": [
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": -3.0,
+        "right": 1.5,
+        "up": 0.6
+       },
+       "to": {
+        "rel": "player",
+        "fwd": -2.2,
+        "right": 1.1,
+        "up": 0.5
+       },
+       "look": {
+        "rel": "player",
+        "fwd": 5,
+        "up": 0.4
+       },
+       "dur": 3.4,
+       "fov": 40,
+       "sub": [
+        "Warden",
+        "BROADCAST INTERRUPTED. OPERATOR DETECTED. AWAITING COMMAND."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3.4,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "It's asking me. It's asking me what to do with them."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": 0.6,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 4.6,
+       "fov": 32,
+       "sub": [
+        "Pike",
+        "Smash the core and nobody calls them ever again. Not Vale. Not anybody. They just run wild."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 1.7,
+        "right": -0.5,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 4.6,
+       "fov": 30,
+       "sub": [
+        "Pike",
+        "Or send one last tone. Home. Every collar in the city walks back to the Preserve. Even the big ones."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.4,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3.0,
+       "fov": 30,
+       "sub": [
+        "Cal",
+        "Back to the crater. Or loose for good."
+       ]
+      }
+     ]
     },
     {
      "type": "choice",
@@ -1620,6 +1754,20 @@
        ]
       }
      ]
+    },
+    {
+     "type": "say",
+     "who": "Warden",
+     "text": "CORE OFFLINE.",
+     "secs": 2.2,
+     "if": "shepherd == smashed"
+    },
+    {
+     "type": "say",
+     "who": "Warden",
+     "text": "RECALL TONE SENT. ALL SPECIMENS: RETURN HOME.",
+     "secs": 3,
+     "if": "shepherd != smashed"
     },
     {
      "type": "search",
@@ -1690,65 +1838,237 @@
      ]
     },
     {
-     "type": "call",
-     "who": "Vale",
-     "auto": true,
-     "role": "Open band",
-     "lines": [
-      [
-       "Vale",
-       "Rider. You broke my shepherd."
-      ],
-      [
-       "Cal",
-       "You were using it on people."
-      ],
-      [
-       "Vale",
-       "I was keeping order. Ask your radio man who let them out."
-      ],
-      [
-       "Cal",
-       "What?"
-      ],
-      [
-       "Vale",
-       "Ask Hollis who opened the Preserve gates the night Erebus fell."
-      ]
-     ]
-    },
-    {
-     "type": "say",
-     "who": "Cal",
-     "text": "Hollis.",
-     "secs": 1.6
-    },
-    {
-     "type": "call",
-     "who": "Hollis",
-     "auto": true,
-     "role": "Radio · the camp",
-     "lines": [
-      [
-       "Hollis",
-       "I was the night keeper. The fires were coming over the wall, Cal. They'd have burned in their pens."
-      ],
-      [
-       "Hollis",
-       "So I opened every gate. I thought they'd run for the hills."
-      ],
-      [
-       "Cal",
-       "They ran for us."
-      ],
-      [
-       "Hollis",
-       "I know. I've sat at this radio forty-one days trying to make it right."
-      ],
-      [
-       "Cal",
-       "We'll talk when I've got my family."
-      ]
+     "type": "cutscene",
+     "id": "reveal",
+     "shots": [
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 3.2,
+        "right": 1.2,
+        "up": 0.3
+       },
+       "to": {
+        "rel": "player",
+        "fwd": 2.6,
+        "right": 0.9,
+        "up": 0.2
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3.2,
+       "fov": 34,
+       "sub": [
+        "Vale",
+        "Rider. You broke my shepherd."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 2.6,
+       "fov": 34,
+       "sub": [
+        "Cal",
+        "You were using it on people."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.4,
+        "right": 0.9,
+        "up": 0.2
+       },
+       "to": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": 0.7,
+        "up": 0.1
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3.8,
+       "fov": 32,
+       "sub": [
+        "Vale",
+        "I was keeping order. Ask your radio man who let them out."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.5,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 1.6,
+       "fov": 30,
+       "sub": [
+        "Cal",
+        "What?"
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": 0.7,
+        "up": 0.1
+       },
+       "to": {
+        "rel": "player",
+        "fwd": 1.6,
+        "right": 0.5,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 4.2,
+       "fov": 30,
+       "sub": [
+        "Vale",
+        "Ask Hollis who opened the Preserve gates the night Erebus fell."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.4,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 2.4,
+       "fov": 28,
+       "sub": [
+        "Cal",
+        "Hollis."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": -3.4,
+        "right": 2.2,
+        "up": 1.2
+       },
+       "to": {
+        "rel": "player",
+        "fwd": -4.4,
+        "right": 3.0,
+        "up": 1.8
+       },
+       "look": {
+        "rel": "player",
+        "up": 0.2
+       },
+       "dur": 6.0,
+       "fov": 40,
+       "sub": [
+        "Hollis",
+        "I was the night keeper. The fires were coming over the wall, Cal. They'd have burned in their pens."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": -4.4,
+        "right": 3.0,
+        "up": 1.8
+       },
+       "to": {
+        "rel": "player",
+        "fwd": -5.4,
+        "right": 3.6,
+        "up": 2.4
+       },
+       "look": {
+        "rel": "player",
+        "up": 0.2
+       },
+       "dur": 4.6,
+       "fov": 40,
+       "sub": [
+        "Hollis",
+        "So I opened every gate. I thought they'd run for the hills."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.5,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 2.6,
+       "fov": 30,
+       "sub": [
+        "Cal",
+        "They ran for us."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": -5.4,
+        "right": 3.6,
+        "up": 2.4
+       },
+       "look": {
+        "rel": "player",
+        "up": 0.2
+       },
+       "dur": 4.6,
+       "fov": 40,
+       "sub": [
+        "Hollis",
+        "I know. I've sat at this radio forty-one days trying to make it right."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.0,
+        "right": -0.6,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.05
+       },
+       "dur": 3.2,
+       "fov": 30,
+       "sub": [
+        "Cal",
+        "We'll talk when I've got my family."
+       ]
+      }
      ]
     }
    ]
@@ -1760,6 +2080,10 @@
    "start": "@hospital",
    "stakes": "The grey house on Washington St. Between it and Cal: the top of Lafayette Park, and something that nests there.",
    "passLine": "Home is three people and a horse.",
+   "nudge": [
+    "Hollis",
+    "Cal? Listen for her. She's close."
+   ],
    "between": {
     "dm": false,
     "radio": [
@@ -1846,6 +2170,10 @@
      "type": "flee",
      "id": "run",
      "to": "@fleeend",
+     "from": {
+      "@": "summit",
+      "mode": "car"
+     },
      "radius": 18,
      "keep": true,
      "checkpoint": true,
@@ -1857,12 +2185,12 @@
       "phases": [
        0.66,
        0.33
+      ],
+      "at": [
+       -2262,
+       -366
       ]
      },
-     "from": [
-      -2232,
-      -372
-     ],
      "speed": 10.5,
      "objective": "Lead **The Matriarch** away from the house. Ride east for **Franklin St**!",
      "alert": "Away from the house!",
@@ -2177,6 +2505,10 @@
    },
    "stakes": "Dawn. The Mercers ride into the Embarcadero camp, and Deacon Vale comes to collect.",
    "passLine": "Nobody here owes anybody.",
+   "nudge": [
+    "Hollis",
+    "Cal, the camp needs you on that horse."
+   ],
    "between": {
     "dm": false,
     "radio": [
@@ -2754,5 +3086,9 @@
     "text": "Something in the crater is waking up."
    }
   ]
- }
+ },
+ "nudge": [
+  "Hollis",
+  "Cal? You still with me? The route's on your map."
+ ]
 }

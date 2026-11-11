@@ -43,6 +43,7 @@ places.update({
     "camp": {"at": [611, -667, 90], "name": "the Embarcadero camp"},
     "marketmain": {"at": [490, -486, -135], "name": "Market & Main"},
     "broodnest": {"at": [-2335, 2318, -135], "name": "the pharmacy's corner"},
+    "civicgate": {"at": [-1300, 1014, -90], "name": "Civic Center Plaza"},
     "corral": {"at": [-1222, 1003, 90], "name": "the corral on Fulton St"},
     "vanness": {"at": [-1514, 1507, -135], "name": "Market & Van Ness"},
     "parkfoot": {"at": [-2091, -239, -90], "name": "Sacramento & Gough"},
@@ -63,6 +64,7 @@ M1 = {
     "start": {"@": "camp", "mode": "walk"},
     "stakes": "Forty families. Two days of food left on Market St, if the Iron Saints haven't found it.",
     "passLine": "The camp eats tonight.",
+    "nudge": ["Hollis", "Cal, you there? The yellow line on your map. Follow it."],
     "steps": [
         {"type": "npc", "id": "hollis0", "who": "Hollis", "at": {"rel": "player", "fwd": -3.0, "right": 1.6}},
         say("Hollis", "Crates fell off the relief trucks all down Market. Bring back five.", 3),
@@ -122,6 +124,7 @@ M2 = {
     "id": "M2", "title": "Quiet Hooves", "vehicle": "horse", "start": "@campgate",
     "stakes": "Nina's last call came from the pharmacy at Market & Church. Something sleeps on the street in front of it.",
     "passLine": "Medicine for the camp. And Nina's handwriting.",
+    "nudge": ["Hollis", "Cal? Talk to me. Slow and quiet, and keep going."],
     "between": {"radio": [["Hollis", "Octavia's west, up Market. Slow out there, Cal. Slow is alive."]]},
     "steps": [
         {"type": "herd", "id": "wild", "creature": "creature-horse", "at": [-1530, 1480], "count": 3, "radius": 10},
@@ -137,7 +140,7 @@ M2 = {
          ], at=8, role="Radio · the camp")]},
         {"type": "herd", "remove": "wild"},
         say("Cal", "Egg sacs on the ramp. Easy, Ranger. Easy.", 2.4),
-        {"type": "sneak", "id": "nest", "to": "@pharmacy", "radius": 12, "checkpoint": True,
+        {"type": "sneak", "id": "nest", "to": "@pharmacy", "from": {"@": "octavia", "mode": "car"}, "radius": 12, "checkpoint": True,
          "objective": "Walk **Ranger** past the nest to **the pharmacy**.",
          "sleepers": [
              {"id": "creature-scorpion", "at": [-2059, 2056], "height": 0.9, "name": "Brood", "yaw": 40},
@@ -175,10 +178,11 @@ M3 = {
     "id": "M3", "title": "Wild Horses", "vehicle": "horse", "start": "@pharmacy",
     "stakes": "Tithe night is Sunday. The camp needs horses to move, and a wild herd grazes on Civic Center Plaza under a silverback's eye.",
     "passLine": "Horses for the camp. And a name: WARDEN-7.",
+    "nudge": ["Hollis", "Cal? Everything all right out there? The route's on your map."],
     "between": {"radio": [["Hollis", "Medicine's in the clinic tent. Cal, if we're moving people before Sunday, we need horses."]]},
     "steps": [
         {"type": "herd", "id": "horses", "creature": "creature-horse", "at": [-1400, 985], "count": 4, "radius": 12},
-        {"type": "drive", "id": "toCivic", "to": "@civic", "radius": 30, "checkpoint": True,
+        {"type": "drive", "id": "toCivic", "to": "@civicgate", "radius": 25, "checkpoint": True,
          "objective": "Ride to **Civic Center Plaza**.",
          "during": [radio([
              ["Vale", "Rider. You took my crates and you woke my Brood Mother. That's a debt."],
@@ -204,8 +208,9 @@ M3 = {
             {"cam": {"rel": "player", "fwd": 2.0, "right": -0.6, "up": 0.1}, "look": {"rel": "player", "up": -0.05}, "dur": 2.8, "fov": 34, "sub": ["Cal", "Somebody's herding them."]},
         ]},
         {"type": "mount", "id": "m3on", "objective": "Mount **Ranger**: the camp needs those horses."},
-        {"type": "drove", "id": "herd", "herd": "horses", "to": "@corral", "radius": 16, "need": 3, "label": "Horses", "checkpoint": True,
-         "objective": "Drive the **wild horses** into **the corral on Fulton St**",
+        {"type": "drove", "id": "herd", "herd": "horses", "to": "@corral", "from": {"@": "civicgate", "mode": "car"}, "radius": 16, "need": 3, "label": "Horses", "checkpoint": True,
+         "objective": "Drive the **wild horses** into **the corral on Fulton St**", "idle": 15,
+         "nudge": ["Hollis", "Ride round behind them, Cal. They run away from Ranger, so push them toward the rope."],
          "barks": {"1": ["Cal", "That's it. Go on."], "3": ["Cal", "Three. Hollis gets his horses."]}},
         radio_step([
             ["Hollis", "I see them on the rope line! Three horses, Cal. You beautiful man."],
@@ -222,6 +227,7 @@ M4 = {
     "id": "M4", "title": "The Shepherd", "vehicle": "horse", "start": "@civic",
     "stakes": "The hospital on Hyde St. The Preserve's security mech walks its forecourt, and every collar in the city answers its call.",
     "passLine": "The shepherd is silent. Hollis's secret isn't.",
+    "nudge": ["Pike", "Rider, you still there? Hyde St. Everything you need is on your radar."],
     "between": {"radio": [
         ["Pike", "Rider? It's Pike. From Market. Vale parked the big machine at the hospital. It calls the animals."],
         ["Pike", "Three relay boxes on the street keep it loud. Break those and it goes quiet."],
@@ -248,13 +254,21 @@ M4 = {
          "help": [[0.5, "Ride over each relay box to smash it. They're on the radar."]],
          "barks": {"1": ["Cal", "One down."], "2": ["Pike", "That's two! The last one's on Bush St!"]}},
         {"type": "timer", "name": "call", "stop": True},
-        say("Warden", "BROADCAST INTERRUPTED. AWAITING OPERATOR.", 2.6),
+        {"type": "cutscene", "id": "coreScene", "shots": [
+            {"cam": {"rel": "player", "fwd": -3.0, "right": 1.5, "up": 0.6}, "to": {"rel": "player", "fwd": -2.2, "right": 1.1, "up": 0.5}, "look": {"rel": "player", "fwd": 5, "up": 0.4}, "dur": 3.4, "fov": 40, "sub": ["Warden", "BROADCAST INTERRUPTED. OPERATOR DETECTED. AWAITING COMMAND."]},
+            hero("It's asking me. It's asking me what to do with them.", right=-0.6, dur=3.4),
+            {"cam": {"rel": "player", "fwd": 2.0, "right": 0.6, "up": 0.05}, "look": {"rel": "player", "up": -0.05}, "dur": 4.6, "fov": 32, "sub": ["Pike", "Smash the core and nobody calls them ever again. Not Vale. Not anybody. They just run wild."]},
+            {"cam": {"rel": "player", "fwd": 1.7, "right": -0.5, "up": 0.05}, "look": {"rel": "player", "up": -0.05}, "dur": 4.6, "fov": 30, "sub": ["Pike", "Or send one last tone. Home. Every collar in the city walks back to the Preserve. Even the big ones."]},
+            hero("Back to the crater. Or loose for good.", right=-0.4, dur=3.0, fov=30),
+        ]},
         {"type": "choice", "id": "core", "flag": "shepherd", "who": "Cal",
          "prompt": "WARDEN-7's core is open. One command left in it.",
          "options": [
              {"text": "Smash it. Nobody calls them again.", "value": "smashed", "reply": ["Cal", "No more shepherds."]},
              {"text": "Send one last tone: home, to the Preserve.", "value": "home", "reply": ["Cal", "Go home. All of you."]},
          ]},
+        say("Warden", "CORE OFFLINE.", 2.2, **{"if": "shepherd == smashed"}),
+        say("Warden", "RECALL TONE SENT. ALL SPECIMENS: RETURN HOME.", 3, **{"if": "shepherd != smashed"}),
         {"type": "search", "id": "doors", "at": "@hospdoor", "label": "Search the doors", "noun": "the doors", "secs": 1.2,
          "objective": "Search **the hospital doors**."},
         {"type": "cutscene", "id": "chalk", "shots": [
@@ -263,21 +277,19 @@ M4 = {
              "text": "\"Generator died. Took everyone up to the big grey house on Washington St, by Lafayette Park. High ground. Hurry. N.\""},
             {"cam": {"rel": "player", "fwd": 2.0, "right": -0.6, "up": 0.1}, "look": {"rel": "player", "up": -0.05}, "dur": 3, "fov": 34, "sub": ["Cal", "Lafayette Park. I'm coming."]},
         ]},
-        radio_step([
-            ["Vale", "Rider. You broke my shepherd."],
-            ["Cal", "You were using it on people."],
-            ["Vale", "I was keeping order. Ask your radio man who let them out."],
-            ["Cal", "What?"],
-            ["Vale", "Ask Hollis who opened the Preserve gates the night Erebus fell."],
-        ], role="Open band"),
-        say("Cal", "Hollis.", 1.6),
-        radio_step([
-            ["Hollis", "I was the night keeper. The fires were coming over the wall, Cal. They'd have burned in their pens."],
-            ["Hollis", "So I opened every gate. I thought they'd run for the hills."],
-            ["Cal", "They ran for us."],
-            ["Hollis", "I know. I've sat at this radio forty-one days trying to make it right."],
-            ["Cal", "We'll talk when I've got my family."],
-        ], role="Radio · the camp"),
+        {"type": "cutscene", "id": "reveal", "shots": [
+            {"cam": {"rel": "player", "fwd": 3.2, "right": 1.2, "up": 0.3}, "to": {"rel": "player", "fwd": 2.6, "right": 0.9, "up": 0.2}, "look": {"rel": "player", "up": -0.05}, "dur": 3.2, "fov": 34, "sub": ["Vale", "Rider. You broke my shepherd."]},
+            hero("You were using it on people.", right=-0.6, dur=2.6),
+            {"cam": {"rel": "player", "fwd": 2.4, "right": 0.9, "up": 0.2}, "to": {"rel": "player", "fwd": 2.0, "right": 0.7, "up": 0.1}, "look": {"rel": "player", "up": -0.05}, "dur": 3.8, "fov": 32, "sub": ["Vale", "I was keeping order. Ask your radio man who let them out."]},
+            hero("What?", right=-0.5, dur=1.6, fov=30),
+            {"cam": {"rel": "player", "fwd": 2.0, "right": 0.7, "up": 0.1}, "to": {"rel": "player", "fwd": 1.6, "right": 0.5, "up": 0.05}, "look": {"rel": "player", "up": -0.05}, "dur": 4.2, "fov": 30, "sub": ["Vale", "Ask Hollis who opened the Preserve gates the night Erebus fell."]},
+            hero("Hollis.", right=-0.4, dur=2.4, fov=28),
+            {"cam": {"rel": "player", "fwd": -3.4, "right": 2.2, "up": 1.2}, "to": {"rel": "player", "fwd": -4.4, "right": 3.0, "up": 1.8}, "look": {"rel": "player", "up": 0.2}, "dur": 6.0, "fov": 40, "sub": ["Hollis", "I was the night keeper. The fires were coming over the wall, Cal. They'd have burned in their pens."]},
+            {"cam": {"rel": "player", "fwd": -4.4, "right": 3.0, "up": 1.8}, "to": {"rel": "player", "fwd": -5.4, "right": 3.6, "up": 2.4}, "look": {"rel": "player", "up": 0.2}, "dur": 4.6, "fov": 40, "sub": ["Hollis", "So I opened every gate. I thought they'd run for the hills."]},
+            hero("They ran for us.", right=-0.5, dur=2.6, fov=30),
+            {"cam": {"rel": "player", "fwd": -5.4, "right": 3.6, "up": 2.4}, "look": {"rel": "player", "up": 0.2}, "dur": 4.6, "fov": 40, "sub": ["Hollis", "I know. I've sat at this radio forty-one days trying to make it right."]},
+            hero("We'll talk when I've got my family.", right=-0.6, dur=3.2, fov=30),
+        ]},
     ],
 }
 
@@ -287,6 +299,7 @@ M5 = {
     "id": "M5", "title": "Lafayette Park", "vehicle": "horse", "start": "@hospital",
     "stakes": "The grey house on Washington St. Between it and Cal: the top of Lafayette Park, and something that nests there.",
     "passLine": "Home is three people and a horse.",
+    "nudge": ["Hollis", "Cal? Listen for her. She's close."],
     "between": {"dm": False, "radio": [
         ["Hollis", "Cal. Does June still have her whistle? The ranger one?"],
         ["Cal", "Three short. I'm here. I taught her when she was six."],
@@ -306,9 +319,9 @@ M5 = {
         say("June", "Dad? Dad, is that you?", 2.2),
         say("Cal", "June! Stay inside! Stay in the house!", 2.4),
         say("Cal", "That's no hill. Ranger. GO!", 2.0),
-        {"type": "flee", "id": "run", "to": "@fleeend", "radius": 18, "keep": True, "checkpoint": True,
-         "creature": {"id": "creature-trex", "name": "The Matriarch", "height": 5.8, "boss": True, "phases": [0.66, 0.33]},
-         "from": [-2232, -372], "speed": 10.5,
+        {"type": "flee", "id": "run", "to": "@fleeend", "from": {"@": "summit", "mode": "car"}, "radius": 18, "keep": True, "checkpoint": True,
+         "creature": {"id": "creature-trex", "name": "The Matriarch", "height": 5.8, "boss": True, "phases": [0.66, 0.33], "at": [-2262, -366]},
+         "speed": 10.5,
          "objective": "Lead **The Matriarch** away from the house. Ride east for **Franklin St**!", "alert": "Away from the house!",
          "barks": {"5": ["Cal", "Away from the house. Away from the house!"], "14": ["Cal", "Come on, you big lizard. This way!"]}},
         {"type": "fight", "id": "matriarch", "arena": "@fleeend", "checkpoint": True,
@@ -332,6 +345,7 @@ M6 = {
     "id": "M6", "title": "Homecoming", "vehicle": "horse", "start": {"@": "camp", "mode": "walk"},
     "stakes": "Dawn. The Mercers ride into the Embarcadero camp, and Deacon Vale comes to collect.",
     "passLine": "Nobody here owes anybody.",
+    "nudge": ["Hollis", "Cal, the camp needs you on that horse."],
     "between": {"dm": False, "radio": [["Hollis", "Camp's awake, Cal. Everybody wants to see the doctor."]]},
     "steps": [
         {"type": "transition", "id": "dawn", "kicker": "SUNDAY", "text": "Dawn", "sub": "The Embarcadero camp"},
@@ -409,6 +423,7 @@ world["acts"] = [
 ]
 world["missions"] = [M1, M2, M3, M4, M5, M6]
 world["coda"] = coda
+world["nudge"] = ["Hollis", "Cal? You still with me? The route's on your map."]
 # (the opening's Hollis behind him among the tents, so his close-ups have the camp behind him too)
 world["opening"] = dict(old["opening"]); world["opening"]["stage"] = [{"who": "Hollis", "at": {"rel": "player", "right": 1.2, "fwd": -2.4}}]
 # (the opening: the same shots, Hollis's last word and the title kept; the bat is handed over in Mission 1)

@@ -121,6 +121,7 @@ export function createRunner(ctx) {
     return out.length ? out : [s];
   };
   const colorOf = (who) => (who ? cast.color(who) : '#FFFFFF');
+  let saying = 0; // (lines being said now: the idle nudge waits for them)
   const VOICED = (who, text) => !!W.voice?.speaks?.(who, text) || !!W.voice?.has?.(who, text);
   function mumble(who, text, secs) {
     if (!sfx || VOICED(who, text)) return;
@@ -139,7 +140,8 @@ export function createRunner(ctx) {
     ui.sub(who || null, text, colorOf(who));
     mumble(who, text, hold);
     M?.log.push(['say', who, text]);
-    try { await delay(hold, t); } finally { ui.sub(null); if (phone) W.voice?.fx?.(who); }
+    saying++;
+    try { await delay(hold, t); } finally { saying--; ui.sub(null); if (phone) W.voice?.fx?.(who); }
     await delay(0.25, t);
   }
   const tuple = (l) => (Array.isArray(l) ? { who: l[0], text: l[1], secs: l[2] } : l);
@@ -1379,9 +1381,9 @@ export function createRunner(ctx) {
   // flee: a creature on his heels, to a place. It comes from `from` (a place, or `behind` m back along his way), fast:
   // never quite as fast as a gallop, gaining on anything slower, and closing up when it falls far behind (it never
   // loses him: the chase stays close). Within its reach (`catch` m past its body) for `grace` s in all, it has him: the
-  // step fails ('caught'). Knocked out, too. There, it stops; with `keep: true` it is kept for the next fight (its
+  // step fails ('caught'). Knocked out, too. It comes from its own `creature.at` (a place or [x, z]), else `behind` m back. There, it stops; with `keep: true` it is kept for the next fight (its
   // boss.from: this step's id), else it is let go.
-  //   { type: 'flee', to: '@place', radius, creature: { id, name, height, boss: true, phases }, from, behind, speed,
+  //   { type: 'flee', to: '@place', radius, creature: { id, name, height, boss: true, phases, at }, behind, speed,
   //     catch, grace, objective, alert, keep, barks: { <secs in>: [who, text] } }
   STEPS.flee = async (d, t) => {
     const C = W.creatures, p = placeOf(d.to), radius = d.radius || 14;
@@ -1389,7 +1391,7 @@ export function createRunner(ctx) {
     let h = null;
     if (C?.spawn && B.id) {
       const e = cm.getActiveEntity(), back = d.behind || 30;
-      const at = d.from ? markOf(d.from) : { x: e.position.x - Math.sin(e.heading) * back, z: e.position.z - Math.cos(e.heading) * back };
+      const at = B.at ? markOf(B.at) : { x: e.position.x - Math.sin(e.heading) * back, z: e.position.z - Math.cos(e.heading) * back };
       h = C.spawn(B.id, { at, height: B.height, name: B.name, stats: B.stats, boss: B.boss ? { name: B.name, phases: B.phases } : null, aggro: true });
       M.creatures = [...(M.creatures || []), h];
       await Promise.race([h.ready, wait(() => false, t)]);
@@ -2276,6 +2278,32 @@ export function createRunner(ctx) {
     return s;
   }
 
+  /* ------------------------------------------------------- the idle nudge -- */
+  // a player who has stopped getting anywhere is told again what to do: on a step he travels or acts in, after `idle`
+  // s (the step's, the mission's, the world's; 25) with no 4 m covered and nothing said, the step's `nudge` line
+  // ([who, text], else the mission's or the world's `nudge`, its {objective} the step's objective in plain words) said
+  // over the radio, the objective flashed again with its help; then again every 40 s, at most three times a step.
+  const IDLE_STEPS = new Set(['drive', 'walk', 'collect', 'search', 'mount', 'sneak', 'drove', 'track', 'stops']);
+  const plain = (o) => tokens(String(o || '')).replace(/\*\*(.+?)\*\*(\{\w+\})?/g, '$1');
+  function idleNudge(d, t) {
+    const line = d.nudge || M.def.nudge || def0.nudge;
+    if (!line && !d.objective) return;
+    const after = (d.idle || M.def.idle || def0.idle || 25) * 1000;
+    let at = me(), since = now(), told = 0;
+    wait(() => {
+      const q = me(), tt = now();
+      if (W.cutscene || W.paused || saying > 0 || W.calls?.live || M.crew) { since = tt; return false; }
+      if (dist(q, at.x, at.z) > 4) { at = { x: q.x, z: q.z }; since = tt; return false; }
+      if (tt - since > (told ? 40000 : after) && told < 3) {
+        told++; since = tt;
+        if (d.objective) { ui.help(parts(d.objective), 6); juice.alert('Objective', { sub: plain(d.objective), tone: 'yellow', secs: 2.4 }); }
+        if (line) { const b = tuple(line); say(castName(b.who), String(b.text).replace(/\{objective\}/g, plain(d.objective).replace(/\.$/, '').toLowerCase()), M.tok, { phone: castName(b.who) !== heroName }).catch(() => {}); }
+        M.log.push(['nudge', d.id || d.type]);
+      }
+      return false;
+    }, t).catch(() => {});
+  }
+
   /* --------------------------------------------------------- a mission -- */
   function snapshot(i) {
     const e = cm.getActiveEntity();
@@ -2386,6 +2414,7 @@ export function createRunner(ctx) {
       // (the step's help lines, Mog City's tips: [secs in, text, 'car' | 'person' only])
       for (const h of Array.isArray(d.help) ? d.help : []) if (Array.isArray(h)) delay(h[0] || 0, st).then(() => ui.help(parts(String(h[1] || '')), h[3] || 7, h[2] ? { mode: h[2] } : {})).catch(() => {});
       for (const x of d.during || []) side(x, st);
+      if (IDLE_STEPS.has(d.type) && !d.ref) idleNudge(d, st);
       for (const k of ['trigger', 'comfort', 'patrol', 'stealth']) for (const x of [].concat(d[k] || [])) side({ at: 0, ...x, type: k }, st);
       let r;
       const run = d.ref && partOf(d.ref) && d.type !== 'call' ? runPart(d.ref, d, st) : STEPS[d.type](d, st);
