@@ -52,6 +52,17 @@ under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 `fifth-ave-glide.m4a`). They were composed as code in `wagmi/radio/build/music/` and are MIT-licensed with the rest of the
 game.
 
+## Type (a world's UI theme)
+
+A world that asks for the glass UI theme (`"ui": { "theme": "glass" }`, `wagmi/storyrun/theme.js`; SF 2040 does) sets
+its subtitles, objectives and cards in two typefaces kept in `assets/fonts/`, each with its licence beside it. Both are
+subset to Latin and converted to WOFF2 (pyftsubset), otherwise unchanged; neither has a Reserved Font Name.
+
+| File (`assets/fonts/`) | Typeface | Credit | Source | Licence |
+|---|---|---|---|---|
+| `oswald/Oswald-Variable.woff2` | Oswald (variable, 200-700) | The Oswald Project Authors | [google/fonts ofl/oswald](https://github.com/google/fonts/tree/main/ofl/oswald) | [SIL OFL 1.1](https://openfontlicense.org) (`oswald/OFL.txt`) |
+| `manrope/Manrope-Variable.woff2` | Manrope (variable, 200-800) | The Manrope Project Authors | [google/fonts ofl/manrope](https://github.com/google/fonts/tree/main/ofl/manrope) | [SIL OFL 1.1](https://openfontlicense.org) (`manrope/OFL.txt`) |
+
 ## Characters
 
 Dan, Gears, Jane, Fiona and Mr. Big (`assets/characters/*.glb`) are original characters made for Mog City (invented
