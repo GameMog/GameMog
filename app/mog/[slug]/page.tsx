@@ -72,7 +72,7 @@ export default async function MogPage({ params, searchParams }: { params: Promis
             lines and the season are yours to change. Your browser forges the remade people and records the changed lines, and plays every mission
             before it can publish. The original is always credited.
           </p>
-        ) : story ? (
+        ) : story && open ? (
           <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
             Remix the story. The city stays {storyCityName(story.city)}, street for street; the story, the missions, the
             people, their cars and their voices are yours to change. Your browser forges the new people and records the
@@ -116,7 +116,7 @@ export default async function MogPage({ params, searchParams }: { params: Promis
             </p>
           </div>
         </div>
-        {story
+        {story && open
           ? <StoryMogComposer slug={game.slug} title={mcCity ? 'Mog City' : game.title} city={story.city} cityName={storyCityName(story.city)} dare={dare} {...(mcCity ? MOG_CITY_STORY_MOG : {})} />
           : open
           ? <MogComposer slug={game.slug} title={game.title} inherited={optionsOf(game)} dare={dare} kind={kind} />
