@@ -1041,7 +1041,9 @@ export function createRunner(ctx) {
     if (dist(me(), cx, cz) > 80) putPlayer(p, inCar() ? 'car' : 'walk');
     const ex = me().x, ez = me().z;
     app.trafficSystem.hold?.([{ minX: Math.min(ex, cx) - 45, maxX: Math.max(ex, cx) + 45, minZ: Math.min(ez, cz) - 45, maxZ: Math.max(ez, cz) + 45 }]);
-    combat.clear?.();
+    // (the fight's slate cleared, unless it fights a creature an earlier step kept: a flee's chaser, on him already)
+    const keeps = [d.boss, ...(d.waves || []).map((w) => w.boss)].some((b) => b && b.from && M.kept?.has(b.from));
+    if (!keeps) combat.clear?.();
     combat.player.maxHp = d.hp || combat.player.maxHp; combat.player.hp = combat.player.maxHp;
     const autoGetUp = combat.player.autoGetUp; combat.player.autoGetUp = true;
     let down = false;
@@ -1126,8 +1128,9 @@ export function createRunner(ctx) {
         tally();
         for (const f of all) if (!f.out && !f.disposed) gps.blip('e:' + f.id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: !!f.boss || nW > 1, name: f.boss ? (f.name || '') : '' }); else gps.unblip('e:' + f.id);
         if (down) throw new Fail(tokens(d.why || `${heroName} got knocked out.`), 'ko');
-        if (dist(me(), cx, cz) > 150) throw new Fail('You left the fight.', 'left');
         const secs = (now() - t0) / 1000;
+        // (not in its first seconds: a hero just put at the arena's edge (from 80 m out) is read where he was for a frame)
+        if (secs > 2 && dist(me(), cx, cz) > 150) throw new Fail('You left the fight.', 'left');
         if (d.timer) { hud.timer(d.timer - secs, 'TIME'); if (secs > d.timer) throw new Fail(tokens(d.why || 'You ran out of time.'), 'time'); }
         if (alive > 0 || !all.length || loading > 0) return false;
         if (wi + 1 >= nW) return true;
@@ -1436,6 +1439,8 @@ export function createRunner(ctx) {
   // are in (all of them when it names none).
   //   { type: 'drove', herd: '<herd id>', to: '@place', radius, need, pull, label, objective, help, barks }
   STEPS.drove = async (d, t) => {
+    // (a start past the herd's own step (a checkpoint, ?step=): that step stood up now)
+    if (!M.herds?.get(d.herd)) { const hs = M.def.steps.find((s) => s.type === 'herd' && s.id === d.herd && !s.remove); if (hs) await STEPS.herd(hs, t); }
     const hd = M.herds?.get(d.herd);
     if (!hd) { console.warn('[storyrun] drove: no herd', d.herd); return; }
     await Promise.race([hd.ready, wait(() => false, t)]);

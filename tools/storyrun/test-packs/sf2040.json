@@ -61,9 +61,9 @@
  "places": {
   "camp": {
    "at": [
-    578,
-    -668,
-    -90
+    611,
+    -667,
+    90
    ],
    "name": "the Embarcadero camp"
   },
@@ -201,8 +201,8 @@
   },
   "broodnest": {
    "at": [
-    -2263,
-    2254,
+    -2335,
+    2318,
     -135
    ],
    "name": "the pharmacy's corner"
@@ -233,11 +233,11 @@
   },
   "fleeend": {
    "at": [
-    -1946,
-    -262,
+    -1978,
+    -457,
     90
    ],
-   "name": "Sacramento & Franklin"
+   "name": "Washington & Franklin"
   },
   "wavenorth": {
    "at": [
@@ -271,8 +271,8 @@
     "who": "Hollis",
     "at": {
      "rel": "player",
-     "right": 1.6,
-     "fwd": 2.2
+     "right": 1.2,
+     "fwd": -2.4
     }
    }
   ],
@@ -522,8 +522,8 @@
      "who": "Hollis",
      "at": {
       "rel": "player",
-      "fwd": 3.0,
-      "right": 2.2
+      "fwd": -3.0,
+      "right": 1.6
      }
     },
     {
@@ -1864,7 +1864,7 @@
       -372
      ],
      "speed": 10.5,
-     "objective": "Lead **The Matriarch** away from the house. Ride for **Franklin St**!",
+     "objective": "Lead **The Matriarch** away from the house. Ride east for **Franklin St**!",
      "alert": "Away from the house!",
      "barks": {
       "5": [
@@ -2200,8 +2200,8 @@
      "who": "Hollis",
      "at": {
       "rel": "player",
-      "fwd": 2.3,
-      "right": 0.8
+      "fwd": -2.4,
+      "right": 0.9
      }
     },
     {
@@ -2210,8 +2210,8 @@
      "who": "Nina",
      "at": {
       "rel": "player",
-      "fwd": 0.6,
-      "right": -1.4
+      "fwd": -1.2,
+      "right": -1.6
      }
     },
     {
@@ -2220,8 +2220,8 @@
      "who": "June",
      "at": {
       "rel": "player",
-      "fwd": 1.0,
-      "right": 1.6
+      "fwd": -0.8,
+      "right": 2.0
      }
     },
     {

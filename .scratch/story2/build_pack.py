@@ -36,16 +36,17 @@ def radio_step(lines, role="Radio", who=None):
 # ------------------------------------------------------------------ the world
 places = dict(old["places"])
 places.update({
-    # (the opening and the camp's beats: west of Sue Bierman Park's tents (apocalypse camps.js CAMPS[0], 600,-668),
-    # facing west, so a close-up from in front has the tents, the fires and the Ferry Building's tower behind him on
-    # dry ground; at 611 he stood on the plaza the city draws as water (the voice lane's capture, 11 Nov))
-    "camp": {"at": [578, -668, -90], "name": "the Embarcadero camp"},
+    # (the opening and the camp's beats: on the east edge of Sue Bierman Park's tents (apocalypse camps.js CAMPS[0],
+    # 600,-668), facing east, so a close-up from in front has the tents and the barrel fires behind him on the lawn; the
+    # people he talks to stand behind him, among the tents. Facing west he had the plaza in front of the Ferry Building
+    # behind him, which reads as water (the voice lane's capture, 11 Nov))
+    "camp": {"at": [611, -667, 90], "name": "the Embarcadero camp"},
     "marketmain": {"at": [490, -486, -135], "name": "Market & Main"},
-    "broodnest": {"at": [-2263, 2254, -135], "name": "the pharmacy's corner"},
+    "broodnest": {"at": [-2335, 2318, -135], "name": "the pharmacy's corner"},
     "corral": {"at": [-1222, 1003, 90], "name": "the corral on Fulton St"},
     "vanness": {"at": [-1514, 1507, -135], "name": "Market & Van Ness"},
     "parkfoot": {"at": [-2091, -239, -90], "name": "Sacramento & Gough"},
-    "fleeend": {"at": [-1946, -262, 90], "name": "Sacramento & Franklin"},
+    "fleeend": {"at": [-1978, -457, 90], "name": "Washington & Franklin"},
     "wavenorth": {"at": [590, -760, 180], "name": "the Embarcadero, north"},
     "wavesouth": {"at": [700, -600, -90], "name": "the piers, south"},
     "wavewest": {"at": [571, -559, -45], "name": "Market & Spear"},
@@ -63,7 +64,7 @@ M1 = {
     "stakes": "Forty families. Two days of food left on Market St, if the Iron Saints haven't found it.",
     "passLine": "The camp eats tonight.",
     "steps": [
-        {"type": "npc", "id": "hollis0", "who": "Hollis", "at": {"rel": "player", "fwd": 3.0, "right": 2.2}},
+        {"type": "npc", "id": "hollis0", "who": "Hollis", "at": {"rel": "player", "fwd": -3.0, "right": 1.6}},
         say("Hollis", "Crates fell off the relief trucks all down Market. Bring back five.", 3),
         say("Hollis", "And take the bat. The Saints don't ask twice.", 2.6),
         {"type": "mount", "id": "saddle", "arm": "bat", "objective": "Mount **Ranger**."},
@@ -308,7 +309,7 @@ M5 = {
         {"type": "flee", "id": "run", "to": "@fleeend", "radius": 18, "keep": True, "checkpoint": True,
          "creature": {"id": "creature-trex", "name": "The Matriarch", "height": 5.8, "boss": True, "phases": [0.66, 0.33]},
          "from": [-2232, -372], "speed": 10.5,
-         "objective": "Lead **The Matriarch** away from the house. Ride for **Franklin St**!", "alert": "Away from the house!",
+         "objective": "Lead **The Matriarch** away from the house. Ride east for **Franklin St**!", "alert": "Away from the house!",
          "barks": {"5": ["Cal", "Away from the house. Away from the house!"], "14": ["Cal", "Come on, you big lizard. This way!"]}},
         {"type": "fight", "id": "matriarch", "arena": "@fleeend", "checkpoint": True,
          "boss": {"id": "creature-trex", "name": "The Matriarch", "height": 5.8, "phases": [0.66, 0.33], "from": "run"},
@@ -334,9 +335,9 @@ M6 = {
     "between": {"dm": False, "radio": [["Hollis", "Camp's awake, Cal. Everybody wants to see the doctor."]]},
     "steps": [
         {"type": "transition", "id": "dawn", "kicker": "SUNDAY", "text": "Dawn", "sub": "The Embarcadero camp"},
-        {"type": "npc", "id": "hollis6", "who": "Hollis", "at": {"rel": "player", "fwd": 2.3, "right": 0.8}},
-        {"type": "npc", "id": "nina6", "who": "Nina", "at": {"rel": "player", "fwd": 0.6, "right": -1.4}},
-        {"type": "npc", "id": "june6", "who": "June", "at": {"rel": "player", "fwd": 1.0, "right": 1.6}},
+        {"type": "npc", "id": "hollis6", "who": "Hollis", "at": {"rel": "player", "fwd": -2.4, "right": 0.9}},
+        {"type": "npc", "id": "nina6", "who": "Nina", "at": {"rel": "player", "fwd": -1.2, "right": -1.6}},
+        {"type": "npc", "id": "june6", "who": "June", "at": {"rel": "player", "fwd": -0.8, "right": 2.0}},
         {"type": "cutscene", "id": "arrive", "shots": [
             close("Hollis", "Cal.", dur=1.8),
             hero("Hollis.", right=-0.6, dur=1.8),
@@ -408,6 +409,8 @@ world["acts"] = [
 ]
 world["missions"] = [M1, M2, M3, M4, M5, M6]
 world["coda"] = coda
+# (the opening's Hollis behind him among the tents, so his close-ups have the camp behind him too)
+world["opening"] = dict(old["opening"]); world["opening"]["stage"] = [{"who": "Hollis", "at": {"rel": "player", "right": 1.2, "fwd": -2.4}}]
 # (the opening: the same shots, Hollis's last word and the title kept; the bat is handed over in Mission 1)
 out = json.dumps(world, indent=1, ensure_ascii=False)
 open(PACK, 'w').write(out + "\n")
