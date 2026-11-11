@@ -545,14 +545,28 @@ export function createRunner(ctx) {
       if (_h1.y > myTop - 0.12) _h1.y = myTop - 0.12;
       // (an arm round one of two goes round that one's far side: across their back to the shoulder blade away from him)
       // (an arm round one of two: the hand on that one's back by the spine, the arm across their near side)
-      const one = typeof hug === 'string', reach = sg * hw * (one ? 0.6 : 0.3), back = small ? hw * 0.12 : hw * (one ? 0.62 : 0.95);
+      // (SF 2040's cast: a forged body's chest is deeper about its spine bone than Dan's: the hands a torso's half-depth
+      // behind it (0.95 of the half-shoulder), so the forearm comes round the side to the back, not through the chest)
+      const one = typeof hug === 'string', reach = sg * hw * (one ? 0.55 : 0.3), back = small ? hw * 0.12 : hw * (one ? 0.95 : 1.05);
       // (round a child: high across her shoulder blades, just under her neck, the hands on her back where they are seen
       // from behind her, the forearms over her shoulders' backs; not down at her waist, his arms hanging)
       if (small) { const nk = ob.neck01 || ob.neck02; if (nk) { nk.getWorldPosition(_h3); _h1.y = Math.max(_h1.y, _h3.y - 0.13); } }
       const tg = _h2.copy(_h1).addScaledVector(_hf, small ? hw * 0.55 : back).addScaledVector(_hr, small ? sg * hw * 0.5 : reach); tg.y += side === 'L' ? 0.035 : -0.045;
-      const pole = new THREE.Vector3().copy(_h1).addScaledVector(_hf, -0.15).addScaledVector(_hr, sg * (hw + 0.55)); pole.y = tg.y - (small ? 0.05 : 0.25);
+      const pole = new THREE.Vector3().copy(_h1).addScaledVector(_hf, small ? -0.15 : 0.05).addScaledVector(_hr, sg * (hw + 0.55)); pole.y = tg.y - (small ? 0.05 : 0.25);
       try { armTo(B, side, tg.clone(), pole, k, MH_ARM); } catch {}
     }
+  }
+  // (into their arms: whoever runs to hug someone is brought in chest to chest as the hug begins, their spines HUG_GAP
+  // apart on the line between them; marks left a body's width between them, and arms reaching round from there went
+  // through the other's chest: SF 2040's June and Nina to Cal)
+  const HUG_GAP = 0.24;
+  function snapIn(fig, who) {
+    if (typeof who !== 'string') return;
+    const mb = fig.bones?.spine03 || fig.bones?.spine02, ob = bonesOf(who), os = ob && (ob.spine03 || ob.spine02); if (!mb || !os) return;
+    mb.getWorldPosition(_h1); os.getWorldPosition(_h2);
+    const dx = _h2.x - _h1.x, dz = _h2.z - _h1.z, n = Math.hypot(dx, dz) || 1, mv = n - HUG_GAP; if (mv <= 0) return;
+    const x = fig.root.position.x + (dx / n) * mv, z = fig.root.position.z + (dz / n) * mv;
+    fig.root.position.set(x, cm.getGroundHeight(x, z, 'person'), z); fig.heading = Math.atan2(dx, dz); fig.root.rotation.y = fig.heading; fig.root.updateMatrixWorld(true);
   }
   // (the hero's own arms in a street cutscene: { who: <hero>, hug, after } held over his clip each frame (W.dan.post,
   // after his pose), let go when the cutscene ends (heroHug(null)))
@@ -603,7 +617,7 @@ export function createRunner(ctx) {
           if (u >= 1) { walking = null; playClip(fig, 'idle'); if (hug) faceTo(hug); }
           return;
         }
-        if (hug) { if (hugT == null) { hugT = now(); faceTo(hug); } hugArms(fig, hug, hugT); }
+        if (hug) { if (hugT == null) { hugT = now(); faceTo(hug); snapIn(fig, hug); } hugArms(fig, hug, hugT); }
       };
       if (hug === null && !walking) fig.post = null;
     }
