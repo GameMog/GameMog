@@ -540,7 +540,10 @@ export function createUI() {
   const plain = (parts) => (Array.isArray(parts) ? parts : [parts]).map((p) => (typeof p === 'string' ? p : Object.keys(p)[0])).join('');
   const shown = (parts) => (Array.isArray(parts) ? parts : [parts]).map((p) => story.t(typeof p === 'string' ? p : Object.keys(p)[0])).join('');
   function track(parts) {
+    const was = trackHtml;
     trackHtml = parts ? rich(parts) : null; trackText = parts ? shown(parts) : '';
+    // (a new objective: .upd for a moment, for a theme to pulse the tracker once; re-added a frame later, no reflow)
+    if (trackHtml && trackHtml !== was) { trackEl.classList.remove('upd'); requestAnimationFrame(() => trackEl.classList.add('upd')); }
     trackO.innerHTML = trackHtml || 'No objective right now.'; trackO.classList.toggle('none', !trackHtml);
     trackEl.classList.toggle('off', !trackHtml && !trackEl.classList.contains('open'));
   }
@@ -610,14 +613,16 @@ export function createUI() {
       later('cap', secs * 1000, () => capEl.classList.remove('on'));
     },
     // the objective line: a subtitle takes it while someone speaks, the objective waits for the gap
-    sub(speaker, text, color = '#FFFFFF') {
+    sub(speaker, text, color = '#FFFFFF', radio = false) {
       // (the line's recorded voice, if it has one: wagmi/radio/voices.js plays it once per showing)
       window.WAGMI?.voice?.sub?.(speaker, text);
       if (!text) { subOn = false; subEl.classList.add('hide'); if (objHtml) objEl.classList.remove('hide'); return; }
       // (the label the speaker's name as the story has it; the id kept on the line for whoever asks who speaks: face.js
       // subLine. The words come already as the story has them: the say loops' S.line)
-      subEl.innerHTML = (speaker ? `<b style="color:${color}">${esc(story.name(speaker).toUpperCase())}</b>` : '') + esc(text);
-      subEl.dataset.who = speaker || '';
+      // (the words in a span of their own, so a theme can set them under the name and bring each line in; radio: a line
+      // over the radio or a phone, for a theme to mark)
+      subEl.innerHTML = (speaker ? `<b style="color:${color}">${esc(story.name(speaker).toUpperCase())}</b>` : '') + `<span class="t">${esc(text)}</span>`;
+      subEl.dataset.who = speaker || ''; subEl.classList.toggle('radio', !!radio);
       subOn = true; subEl.classList.remove('hide'); objEl.classList.add('hide');
       const last = said[said.length - 1];
       if (!last || last[2] !== text) { said.push([speaker, color, text]); if (said.length > 12) said.shift(); }
@@ -633,9 +638,11 @@ export function createUI() {
       }
       if (keep) track(parts || null);
       if (!parts) { objHtml = null; objEl.classList.add('hide'); return; }
-      objHtml = rich(parts); objEl.innerHTML = objHtml;
+      objHtml = rich(parts); objEl.innerHTML = `<span class="t">${objHtml}</span>`;
       if (!subOn) objEl.classList.remove('hide');
-      later('obj', secs * 1000, () => { objEl.classList.add('hide'); objHtml = null; });
+      // (a theme may hold the line shorter, --wg-obj-secs: the tracker keeps it, the line only announces it)
+      const cap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--wg-obj-secs'));
+      later('obj', (cap > 0 ? Math.min(secs, cap) : secs) * 1000, () => { objEl.classList.add('hide'); objHtml = null; });
     },
     // the brief: the tracker opened on the last lines and help (on: true / false, or a toggle); shut again after 10 s
     brief(on) {
@@ -738,7 +745,10 @@ export function createUI() {
     },
     counter(label, value) {
       if (label == null) { countEl.classList.remove('on'); return; }
-      countEl.querySelector('.l').textContent = story.t(label); countEl.querySelector('.v').textContent = value; countEl.classList.add('on');
+      const v = countEl.querySelector('.v'), was = v.textContent, on = countEl.classList.contains('on');
+      countEl.querySelector('.l').textContent = story.t(label); v.textContent = value; countEl.classList.add('on');
+      // (a count that changed while up: .pop for a moment, for a theme to pop it)
+      if (on && was !== String(value)) { v.classList.remove('pop'); requestAnimationFrame(() => v.classList.add('pop')); }
     },
     passed({ title = '', stats = [], reward = '', note = '' } = {}, secs = 6) {
       window.mcStat?.('pass', title);

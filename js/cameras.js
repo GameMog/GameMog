@@ -5,6 +5,26 @@
 
 const { THREE } = window.NYC;
 
+// (Mog City, from Slop San Francisco's cameras) A city with ground of its own, San Francisco's hills (?city=sf:
+// window.NYC.Terrain, cities/sf/js/terrain.js): the ground under (x, z), or in a tunnel or on a bridge
+// (grade-separation.js, picked by the followed entity's height, `level`) its floor; the cameras stay CAMERA_CLEARANCE
+// above it and under a tunnel's roof, and a hill between the player and the lens shortens the boom. New York has no
+// Terrain: none of it runs there (hilly() is false), its floor stays y 0.55 as ever
+const level = { y: null };
+const hilly = () => !!(window.NYC.Terrain && window.NYC.Terrain.loaded);
+const groundY = (x, z) => {
+  const T = window.NYC.Terrain;
+  if (!(T && T.loaded)) return 0;
+  const G = window.NYC.GradeSeparation;
+  const d = G && level.y !== null ? G.floorAt(x, z, level.y) : null;
+  return d !== null ? d : T.groundAt(x, z);
+};
+const roofY = (x, z) => {
+  const G = window.NYC.GradeSeparation;
+  return G && level.y !== null ? G.roofAt(x, z, level.y) : Infinity;
+};
+const CAMERA_CLEARANCE = 0.55;
+
 const CAMERA_PRESETS = [
   { id: 'chase',       name: '3rd-Person Chase',         short: 'Chase',       category: 'follow', fov: 56 },
   { id: 'action',      name: 'Low-Angle Action',         short: 'Action',      category: 'follow', fov: 60 },
@@ -18,6 +38,10 @@ const CAMERA_PRESETS = [
   { id: 'waterfront',  name: 'East River & Skyline',     short: 'Skyline',     category: 'scenic', fov: 46 },
   { id: 'drone',       name: 'Auto-Director Aerial',     short: 'Director',    category: 'scenic', fov: 50 }
 ];
+// (Mog City) a city's own scenic shots by the same ids (San Francisco's: cities/sf/js/sf-hud.js SCENIC_CAMERAS): their
+// names here, their shots in update()
+const SCENIC = window.NYC.SCENIC_CAMERAS || null;
+if (SCENIC) for (const p of CAMERA_PRESETS) if (SCENIC[p.id]) Object.assign(p, { name: SCENIC[p.id].name, short: SCENIC[p.id].short });
 
 // The follow cameras' lens keeps LENS_PAD m off the buildings (the near plane, 0.35 m out, stays clear of a wall); on
 // foot, LENS_PAD_FOOT (Mog City: the lens a man's height off the pavement had a facade grazing the frame's edge)
@@ -42,15 +66,66 @@ function easePolar(cur, want, k) {
 }
 // (the box the last rayClear stopped at, or null)
 let rayHit = null;
+// (Mog City) How far along a line from p (unit direction ux, uy, uz), up to len, it comes within pad of an outline (a
+// building's exact footprint, San Francisco's colliders: c.polygon, { x, z } points) standing from y0 to y1: the walls
+// as segments grown by pad, in plan, then the line's height there checked; Infinity if it never does
+function polyClear(p, ux, uy, uz, len, pts, y0, y1, pad) {
+  let t = Infinity;
+  const h = Math.hypot(ux, uz);
+  if (h < 1e-6) return t;
+  const dx = ux / h, dz = uz / h, L = len * h;
+  // (the line's plan distance s along (dx, dz) where it is within pad of segment a-b)
+  const hitSeg = (ax, az, bx, bz) => {
+    const ex = bx - ax, ez = bz - az, el = Math.hypot(ex, ez);
+    if (el < 1e-6) return Infinity;
+    const nx = -ez / el, nz = ex / el, ox = p.x - ax, oz = p.z - az;
+    let best = Infinity;
+    // into the strip through either side (or, starting within the pad of the wall, across the wall itself: then it
+    // counts at its own size, as a box does)
+    const vn = dx * nx + dz * nz, on = ox * nx + oz * nz;
+    if (Math.abs(vn) > 1e-9) for (const side of Math.abs(on) < pad ? [0] : [pad, -pad]) {
+      if (side > 0 ? vn > 0 : side < 0 ? vn < 0 : on * vn > 0) continue;
+      const s = (side - on) / vn;
+      if (s < 0 || s > L) continue;
+      const along = (ox + dx * s) * ex / el + (oz + dz * s) * ez / el;
+      if (along >= 0 && along <= el && s < best) best = s;
+    }
+    // the round ends
+    for (const [cx, cz] of [[ax, az], [bx, bz]]) {
+      const fx = p.x - cx, fz = p.z - cz, b = fx * dx + fz * dz, c = fx * fx + fz * fz - pad * pad, disc = b * b - c;
+      if (disc < 0) continue;
+      const s = -b - Math.sqrt(disc);
+      if (s >= 0 && s <= L && s < best) best = s;
+    }
+    return best;
+  };
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const s = hitSeg(a.x, a.z, b.x, b.z);
+    if (s === Infinity) continue;
+    const y = p.y + uy * (s / h);
+    if (y < y0 - pad || y > y1 + pad) continue;
+    t = Math.min(t, s / h);
+  }
+  return t;
+}
 // How far a line from p (unit direction ux, uy, uz) runs, up to len, before it comes within LENS_PAD of one of the
 // boxes: the controllers' colliders, boxes from the ground up to maxY, some turned (obb); (Mog City) a box with a minY
 // starts there instead (a sign, a screen up on its truss). A box the line starts within the pad of counts at its own
 // size, one it starts inside not at all. (Mog City: pad, the way off them; buildings: the street's things skipped)
+// (Mog City: a collider with an exact outline, c.polygon (San Francisco's buildings), is met at its walls, not its box)
 function rayClear(p, ux, uy, uz, len, boxes, pad0 = LENS_PAD, buildings = false) {
   let t = len;
   rayHit = null;
   for (const c of boxes) {
     if (c.carOnly || p.y - pad0 > c.maxY && uy >= 0 || buildings && c.street) continue;
+    if (c.polygon) {
+      const inside = window.NYC.WorldCollision?.inside;
+      if (inside && inside(p, c.polygon) && p.y < c.maxY && p.y > (c.minY ?? -1e4)) continue;
+      const tp = polyClear(p, ux, uy, uz, t, c.polygon, c.minY != null ? c.minY - 3 : -1e4, c.maxY, pad0);
+      if (tp < t) { t = tp; rayHit = c; }
+      continue;
+    }
     const y0 = c.minY != null ? c.minY : -1e4;
     let ox = p.x, oz = p.z, dx = ux, dz = uz, x0 = c.minX, x1 = c.maxX, z0 = c.minZ, z1 = c.maxZ;
     if (c.obb) {
@@ -294,6 +369,9 @@ class CameraSystem {
     const entity = this.controllerManager.getActiveEntity();
     const desiredPos = this._desiredPos;
     const desiredLook = this._desiredLook;
+    // (a city with ground of its own: see groundY; null in New York)
+    const hills = hilly();
+    level.y = entity.position.y;
 
     if (this.userOrbitTimer > 0 && !this.isDragging) {
       this.userOrbitTimer = Math.max(0, this.userOrbitTimer - dt);
@@ -342,7 +420,9 @@ class CameraSystem {
       this.camera.updateProjectionMatrix();
     }
 
-    switch (this.activePresetId) {
+    // (Mog City: a city's own scenic shot for this id, SCENIC, in place of New York's)
+    const scenic = SCENIC && SCENIC[this.activePresetId];
+    switch (scenic ? 'cityScenic' : this.activePresetId) {
       case 'chase': {
         // (Mog City: a car that frames itself, entity.chase: its own lens, a short pull back with speed instead of the
         // long one, and the lens widening with speed and more on the boost, so the car stays big and speed still reads;
@@ -368,9 +448,24 @@ class CameraSystem {
 
         desiredPos.set(
           entity.position.x - Math.sin(totalYaw) * horizDist,
-          Math.max(0.65, entity.position.y + height),
+          hills ? entity.position.y + height : Math.max(0.65, entity.position.y + height),
           entity.position.z - Math.cos(totalYaw) * horizDist
         );
+        if (hills) {
+          // A hill between the player and the camera shortens the boom: four samples along it, from the player out (Slop
+          // San Francisco's); and the lens over the ground there
+          const ax = entity.position.x, ay = entity.position.y + 1.5, az = entity.position.z;
+          let reach = 1;
+          for (const t of [0.25, 0.5, 0.75, 1]) {
+            const x = ax + (desiredPos.x - ax) * t, y = ay + (desiredPos.y - ay) * t, z = az + (desiredPos.z - az) * t;
+            if (groundY(x, z) + CAMERA_CLEARANCE + 0.1 > y) {
+              reach = Math.max(0.2, t - 0.25);
+              break;
+            }
+          }
+          if (reach < 1) desiredPos.set(ax + (desiredPos.x - ax) * reach, ay + (desiredPos.y - ay) * reach, az + (desiredPos.z - az) * reach);
+          desiredPos.y = Math.max(groundY(desiredPos.x, desiredPos.z) + 0.65, desiredPos.y);
+        }
 
         // (Mog City: ahead the way the camera faces round him, not the way he faces: dragged round to his front or
         // side, he stays in the middle of the frame)
@@ -391,9 +486,10 @@ class CameraSystem {
 
         desiredPos.set(
           entity.position.x - Math.sin(entity.heading) * backDist + Math.cos(entity.heading) * sideOffset,
-          Math.max(0.55, lowY),
+          hills ? lowY : Math.max(0.55, lowY),
           entity.position.z - Math.cos(entity.heading) * backDist - Math.sin(entity.heading) * sideOffset
         );
+        if (hills) desiredPos.y = Math.max(groundY(desiredPos.x, desiredPos.z) + CAMERA_CLEARANCE, desiredPos.y);
         desiredLook.set(
           entity.position.x + Math.sin(entity.heading) * 3.2,
           entity.position.y + 1.05,
@@ -426,6 +522,16 @@ class CameraSystem {
           entity.position.y + eyeY + Math.sin(-this.orbitPitchOffset) * 18.0 + 1.5,
           entity.position.z + Math.cos(totalYaw) * 40.0
         );
+        break;
+      }
+
+      // (Mog City: a city's own scenic shot, SCENIC: the lens `from` [dx, dz] m off its landmark (GEO.landmarks by name)
+      // and `up` m over the ground there, looking at `look` m over the landmark's base)
+      case 'cityScenic': {
+        const sc = scenic, site = window.NYC.LANDMARK_SITES?.[sc.site] || { x: 0, z: 0, base: 0 };
+        const x = site.x + sc.from[0], z = site.z + sc.from[1];
+        desiredPos.set(x, groundY(x, z) + sc.up, z);
+        desiredLook.set(site.x, (site.base || 0) + sc.look, site.z);
         break;
       }
 
@@ -538,18 +644,26 @@ class CameraSystem {
       easePolar(this.followLookOffset, desiredLook.sub(entity.position), k);
       this.currentPos.set(entity.position.x, this.followBaseY, entity.position.z).add(this.followOffset);
       this.currentLookAt.set(entity.position.x, this.followBaseY, entity.position.z).add(this.followLookOffset);
-      this.currentPos.y = Math.max(0.55, this.currentPos.y);
+      this.currentPos.y = hills ? Math.max(groundY(this.currentPos.x, this.currentPos.z) + CAMERA_CLEARANCE, this.currentPos.y) : Math.max(0.55, this.currentPos.y);
     } else {
       this.followEntity = null;
       const k = 1 - Math.exp(-dt * 8.5);
       this.currentPos.lerp(desiredPos, k);
       this.currentLookAt.lerp(desiredLook, k);
+      if (hills) this.currentPos.y = Math.max(groundY(this.currentPos.x, this.currentPos.z) + CAMERA_CLEARANCE, this.currentPos.y);
     }
+    // (under a tunnel's roof, San Francisco's: grade-separation.js)
+    if (hills) this.currentPos.y = Math.min(this.currentPos.y, roofY(this.currentPos.x, this.currentPos.z) - 0.4);
 
     this.camera.position.copy(this.currentPos);
     this._look.copy(this.currentLookAt);
     if ((this.activePresetId === 'chase' || this.activePresetId === 'action') && this.followEntity === entity) this.keepInView(entity, dt);
     else this._view = null;
+    // (the lens kept over a hill's ground and under a tunnel's roof wherever the clear view put it)
+    if (hills) {
+      const cp = this.camera.position;
+      cp.y = Math.min(Math.max(cp.y, groundY(cp.x, cp.z) + CAMERA_CLEARANCE), roofY(cp.x, cp.z) - 0.4);
+    }
     // (Mog City: a car's own lens trembles a little flat out, from about its top speed up to its boost's: the speed
     // reads without the camera dropping back off it)
     const ch = this._lens && entity.chase;

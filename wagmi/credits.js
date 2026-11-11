@@ -7,6 +7,20 @@
 // there is credited here with nothing else to do.
 import { STATIONS, LICENCES } from './radio/stations.js';
 
+// (the city this page plays, by index.html's rule (wagmi/city.js): its own map's credits under 'The city')
+const SF = typeof location !== 'undefined' && new URLSearchParams(location.search).get('city') === 'sf';
+const cityLines = () => SF ? [
+  { what: 'Slop San Francisco', who: 'Kamil (@unable0_) and Mr.doob', note: 'the city: San Francisco\'s streets, hills, buildings, landmarks and traffic', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: 'https://github.com/unable12/slop-sanfrancisco' },
+  { what: 'Slop New York', who: 'Mr.doob', note: 'the city engine both of Mog City\'s cities are built on', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: null },
+  { what: 'Map data', who: '© OpenStreetMap contributors', note: 'San Francisco\'s piers, water, landmarks\' footprints, bridges, lanes, coast and ferry routes', licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
+  { what: 'City data', who: 'City and County of San Francisco, DataSF', note: 'the streets, curbs, building footprints, street trees, signals, stop signs, Muni stops and neighbourhoods', licence: 'PDDL / CC0', licenceUrl: 'https://opendatacommons.org/licenses/pddl/1-0/', src: 'https://datasf.org/opendata/' },
+  { what: 'Elevation', who: 'USGS 3D Elevation Program', note: 'the hills: San Francisco\'s 1 m terrain', licence: 'public domain', licenceUrl: null, src: 'https://www.usgs.gov/3d-elevation-program' },
+] : [
+  { what: 'Slop New York', who: 'Mr.doob', note: 'the city this game is built on; some city code is ported from its newer commits', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: null },
+  { what: 'Map data', who: '© OpenStreetMap contributors', note: 'Central Park, the piers, the landmarks\' footprints and the New Jersey shore', licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
+  { what: 'City data', who: 'NYC Open Data', note: 'the borough line, the street centrelines and the parks (NYC DCP Borough Boundaries, NYC Street Centerline (CSCL), NYC Parks Properties)', licence: null, licenceUrl: null, src: 'https://opendata.cityofnewyork.us' },
+];
+
 const music = () => {
   const lines = [], seen = new Set();
   for (const s of STATIONS) for (const t of s.tracks) {
@@ -37,11 +51,7 @@ export const CREDITS = [
   { heading: 'Crowd sounds', lines: [
     { what: '"GameSoundCon2024 Walla XY-AKG214-96k"', who: 'ShangusBurger (Shane Vincent)', note: 'the street crowd\'s walla: five takes (Freesound 763895, 763896, 763898, 763848, 763851), reverb reduced, equalised to sound outdoors, levelled and looped', licence: 'CC0 1.0', licenceUrl: LICENCES['CC0 1.0'], src: 'https://freesound.org/people/ShangusBurger/packs/42098/' },
   ] },
-  { heading: 'The city', lines: [
-    { what: 'Slop New York', who: 'Mr.doob', note: 'the city this game is built on; some city code is ported from its newer commits', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: null },
-    { what: 'Map data', who: '© OpenStreetMap contributors', note: 'Central Park, the piers, the landmarks\' footprints and the New Jersey shore', licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
-    { what: 'City data', who: 'NYC Open Data', note: 'the borough line, the street centrelines and the parks (NYC DCP Borough Boundaries, NYC Street Centerline (CSCL), NYC Parks Properties)', licence: null, licenceUrl: null, src: 'https://opendata.cityofnewyork.us' },
-  ] },
+  { heading: 'The city', lines: cityLines() },
   { heading: 'Street combat', lines: [
     { what: 'Spiderbench combat', who: 'Shikhar', note: 'the street fight, the Suits\' rig and the freeflow clips, used with the author\'s permission (not MIT)', licence: null, licenceUrl: null, src: null },
   ] },
@@ -51,6 +61,8 @@ export const CREDITS = [
   // (a model a Story Kit world's car wears adds its own line when it is built, wagmi/storyrun/vantor.js: empty, and so
   // left out, in Mog City's own game)
   { heading: 'Vehicles', lines: [] },
+  // (a world's UI theme adds its typefaces when it is applied, wagmi/storyrun/theme.js: empty in Mog City's own game)
+  { heading: 'Type', lines: [] },
   { heading: 'Voices', lines: [
     { what: 'Dan, Jane, Mr. Big, Knox, Mack, Gears, Fiona, Brick, Dash, Bea and the camp', who: 'synthesised voices', note: 'invented voices; the tools and their licences are in NOTICE', licence: 'Apache-2.0', licenceUrl: 'https://www.apache.org/licenses/LICENSE-2.0', src: null },
   ] },

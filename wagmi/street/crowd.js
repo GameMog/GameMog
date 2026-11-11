@@ -153,7 +153,7 @@ export function createCrowd(W) {
   }
 
   // blocks round where he's headed (refreshed as it moves), weighted by their curb length (busier in the commercial districts)
-  let near = [], nearW = 0, nearAt = { x: 1e9, z: 1e9 }, active = MAX;
+  let near = [], nearW = 0, nearAt = { x: 1e9, z: 1e9 }, active = MAX, limit = MAX;
   function refreshNear() {
     if (Math.hypot(lead.x - nearAt.x, lead.z - nearAt.z) < 15) return;
     nearAt = { x: lead.x, z: lead.z };
@@ -165,7 +165,7 @@ export function createCrowd(W) {
     nearW = near.reduce((s, n) => s + n.w, 0);
     // (how many of them are out: all of them in the commercial districts, under half on the quieter streets)
     const cw = near.reduce((s, n) => s + (COMMERCIAL.has(n.b.district) ? n.w : 0), 0);
-    active = Math.round(MAX * (0.45 + 0.55 * (nearW ? cw / nearW : 1)));
+    active = Math.min(limit, Math.round(MAX * (0.45 + 0.55 * (nearW ? cw / nearW : 1))));
   }
 
   // the view (with a margin for the people's own height and shadows)
@@ -509,6 +509,9 @@ export function createCrowd(W) {
     people, taken, drawn, knock, scare, aside, scream, take, backOnLane,
     update,
     hold(rects) { holds = (rects || []).slice(); },
+    // (SF 2040, wagmi/apocalypse: at most this many of the crowd out, the rest put away once out of sight)
+    get limit() { return limit; },
+    set limit(v) { limit = Math.max(0, Math.min(MAX, Math.round(v))); nearAt = { x: 1e9, z: 1e9 }; },
     // (off: none of the crowd's own drawn or moved, those taken over from the city still are; on again, placed afresh)
     get enabled() { return enabled; },
     set enabled(v) { enabled = !!v; if (!enabled) for (const p of people) { if (p.state === 'wait' || p.state === 'cross') leaveCorner(p); p.placed = false; p.fresh = true; p.body = null; p.state = 'walk'; } },

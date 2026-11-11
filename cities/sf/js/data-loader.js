@@ -1,0 +1,56 @@
+(function () {
+// js/data-loader.js
+// Fetches the pipeline's binary data (docs/formats.md) named in GEO.data before the city is built (main.js):
+//   window.NYC.DATA.terrain   { header, q: Uint16Array }                  height field (tools/geo-terrain.mjs)
+//   window.NYC.DATA.buildings { header, table, verts, masses: Float32Array }   footprints (tools/geo-buildings.mjs)
+//   window.NYC.DATA.groundMask { header, mask: Uint8Array }                 ground classes, 1 m (tools/geo-groundmask.mjs)
+//   window.NYC.DATA.fullRegion City/horizon tiles, footprint boxes, trees and ground mask (tools/geo-region.mjs)
+
+const { GEO } = window.NYC;
+
+// (Mog City) The data ships gzipped (cities/sf/data/*.bin.gz: 60 MB of it is 20 MB so, the 1 m ground mask 24 MB to
+// 0.3 MB), since GitHub Pages compresses no .bin: fetched as .gz and inflated here. A server that already inflated it
+// on the way (Content-Encoding: gzip) hands over the SFB1 file itself, which its first bytes tell
+const GZIP = (b) => b.byteLength > 2 && new Uint8Array(b, 0, 2)[0] === 0x1f && new Uint8Array(b, 0, 2)[1] === 0x8b;
+async function inflate(buf) {
+  const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).arrayBuffer();
+}
+
+async function fetchBin(url, onBytes) {
+  const res = await fetch(new URL(url + '.gz', window.NYC.BASE || location.href)); // (Story Kit: data relative to the city's folder)
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  let buf = await res.arrayBuffer();
+  if (GZIP(buf)) buf = await inflate(buf);
+  if (onBytes) onBytes(buf.byteLength);
+  const magic = new TextDecoder().decode(new Uint8Array(buf, 0, 4));
+  if (magic !== 'SFB1') throw new Error(`${url}: not an SFB1 file`);
+  const n = new DataView(buf).getUint32(4, true);
+  const header = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, n)));
+  return { header, buf, offset: 8 + n };
+}
+
+async function loadCityData(onProgress) {
+  const d = GEO.data;
+  let done = 0;
+  const step = () => onProgress && onProgress(++done / 3);
+  const [t, b, m, fullRegion] = await Promise.all([fetchBin(d.terrain.url, step), fetchBin(d.buildings.url, step), fetchBin(d.groundMask.url, step), window.NYC.loadSFRegion(fetchBin)]);
+  const DATA = {
+    terrain: { header: t.header, q: new Uint16Array(t.buf, t.offset, t.header.w * t.header.h) },
+    buildings: {
+      header: b.header,
+      table: new Float32Array(b.buf, b.offset, b.header.tableFloats),
+      verts: new Float32Array(b.buf, b.offset + b.header.tableFloats * 4, b.header.vertexFloats),
+      masses: new Float32Array(b.buf, b.offset + (b.header.tableFloats + b.header.vertexFloats) * 4, b.header.massFloats || 0)
+    },
+    groundMask: { header: m.header, mask: new Uint8Array(m.buf, m.offset, m.header.w * m.header.h) }
+  };
+  DATA.fullRegion = fullRegion;
+  window.NYC.DATA = DATA;
+  window.NYC.Terrain.load(DATA.terrain.header, DATA.terrain.q);
+  window.NYC.installRegionTerrain(fullRegion);
+  return DATA;
+}
+
+Object.assign(window.NYC, { loadCityData });
+})();

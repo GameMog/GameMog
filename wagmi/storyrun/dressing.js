@@ -28,6 +28,9 @@ const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a)
 
 export function createDressing(W, dressing = {}) {
   if (!asks(dressing)) return null;
+  // (every look here is New York's: Manhattan's streets and avenues, its blocks' and parks' groups, its sets'
+  // corners. Another city (?city=sf: window.NYC.CITY) wears none of them: the world plays in the city as it is)
+  if ((window.NYC?.CITY || 'ny') !== 'ny') { console.info('[storyrun] dressing: New York only; this city is left as it is'); return null; }
   const N = window.NYC, T = N.TSL, app = W.app, scene = app.scene;
   const { Fn, float, vec2, vec3, vec4, uniform, mix, smoothstep, step, max, min, abs, fract, sin, cos, dot, length, floor, mod,
     positionWorld, normalWorld, cameraPosition, materialColor, attribute, instanceIndex, time, varying, mrt, color } = T;

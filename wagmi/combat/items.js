@@ -427,7 +427,7 @@ export function createItems(c) {
     if (I.thrower === c.me) {
       for (const e of c.enemies) {
         if (!e.alive || I.hitSet.has(e) || !e.standing) continue;
-        if (bodyDist(p, e.pos, e.scale) > I.def.r + 0.3 * e.scale) continue;
+        if (e.creature ? e.hurtDist(p) > I.def.r : bodyDist(p, e.pos, e.scale) > I.def.r + 0.3 * e.scale) continue; // (a creature: its own body, wagmi/creatures/body.js)
         I.hitSet.add(e);
         const dir = _v.copy(I.vel).setY(0).normalize().clone();
         c.itemHit(e, I, sp, dir);

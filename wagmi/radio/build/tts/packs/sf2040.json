@@ -1,0 +1,40 @@
+{
+ "note": "SF 2040's cast (wagmi/radio/build/pack-voices.mjs): each speaker's voice in tts-voices.mjs. fx: radio (Nina's emergency-band call; Pike on the radio everywhere but in person in Mission 1's say steps; Vale where he speaks in a cutscene shot, heard over Cal's radio; his calls get the game's phone band live), pa (WARDEN-7's loudspeaker). fxWhere / fxNot: regexes on the line's place in the pack. Candidates and why: tts-voices.mjs; the auditions in .scratch/voice/audition/.",
+ "out": "assets/voice/sf2040",
+ "speakers": {
+  "Cal": {
+   "voice": "cal-A"
+  },
+  "Nina": {
+   "voice": "nina-C"
+  },
+  "June": {
+   "voice": "june-F"
+  },
+  "Hollis": {
+   "voice": "hollis-B"
+  },
+  "Radio": {
+   "voice": "nina-C",
+   "fx": "radio"
+  },
+  "Vale": {
+   "voice": "vale-B",
+   "fx": "radio",
+   "fxWhere": [
+    "\\.shots\\.\\d+\\.sub$"
+   ]
+  },
+  "Pike": {
+   "voice": "pike-B",
+   "fx": "radio",
+   "fxNot": [
+    "^M1\\.steps\\.\\d+$"
+   ]
+  },
+  "Warden": {
+   "voice": "warden-A",
+   "fx": "pa"
+  }
+ }
+}

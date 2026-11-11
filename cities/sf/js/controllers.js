@@ -1,0 +1,1572 @@
+(function () {
+// js/controllers.js
+// Sculpted, non-blocky GTA 6-style 3D models, animations, and physics controllers
+// for Third-Person Navigation:
+// 1. Person (Skinned Pedestrian: planted-footstep IK walk/run/jump, see pedestrians.js)
+// 2. Car (Aerodynamic Sculpted NYC Medallion Yellow Taxi with Sloped Windshield & Clearcoat)
+// 3. Cyclist (Sculpted Road Cyclist with Drop-Bar Frame & Aero Helmet)
+// 4. Helicopter (Manhattan Sightseeing Twin-Turbine Chopper)
+// (Mog City: San Francisco's controllers, its own terrain, decks, bay and exact building outlines (world-collision.js),
+// with what Mog City's game (wagmi/) reads from New York's (js/controllers.js), ported here: the camera-relative walk
+// (readFootMove, walkToward), the fight's and Dan's own hooks (p.control, p.model, p.collide, jumpHeld), the game pad's
+// input (setGamepadInput), the car's drive model and keyboard handling (driveSpeed, steerHandled) with its own body's
+// box against the walls, the crash's hooks (car.crash.wall, car.crash.step) and car.onUpdate, and the low things on foot
+// (lowObstacles, lowAhead, resolveLowCollision: the street's benches and planters, NYC.breakables). Also baseHeight(x,
+// z), the bare ground (New York's is y 0 everywhere and has none), for the game's few flat-city checks)
+
+const { THREE } = window.NYC;
+const { ISLAND_BOUNDS, LANDMARK_SITES, getIslandBoundsAtZ, isTypingInField, blockAt, streetZ } = window.NYC;
+// Spawn on 5th Ave at 37th St, facing south down the avenue toward the Empire State Building (34th St)
+const SPAWN_Z = streetZ(37);
+const {
+  cityUniforms,
+  createCarPaintMaterial,
+  createContactShadowMaterial
+} = window.NYC;
+const {
+  BODY_SPECS,
+  buildCarGeometry,
+  buildSteerableWheelGeo,
+  createLoftedCarMaterial,
+  buildHelicopterBodyGeometry,
+  buildHelicopterMainRotorGeometry,
+  buildHelicopterTailRotorGeometry,
+  createLoftedHelicopterMaterial
+} = window.NYC;
+const { PersonCrowd, PersonRig } = window.NYC;
+const { HEADLIGHTS, createVehicleHeadlight, placeVehicleHeadlight } = window.NYC;
+// Walking surface for the player's pedestrian (its rig samples it around its feet)
+const personGround = (controllers, x, z) => controllers.getGroundHeight(x, z, 'person');
+// The ground (js/terrain.js, metres NAVD88) once the terrain is loaded, else the flat y = 0 world; the bay. Where a
+// road leaves the ground (grade-separation.js) the active entity's height (`level`, set every update) says whether it
+// is in the tunnel or on the hill above, on the bridge or under it
+const level = { y: null };
+const deckY = (x, z) => {
+  const G = window.NYC.GradeSeparation;
+  return G && level.y !== null ? G.floorAt(x, z, level.y) : null;
+};
+const terrainY = (x, z) => {
+  const T = window.NYC.Terrain;
+  if (!(T && T.loaded)) return 0;
+  const d = deckY(x, z);
+  return d !== null ? d : T.groundAt(x, z);
+};
+const inBay = (x, z) => {
+  const T = window.NYC.Terrain;
+  return !!(T && T.loaded) && T.heightAt(x, z) <= T.waterLevel + 0.05 && deckY(x, z) === null;
+};
+// Terrain pose of the car & the bike: critically damped towards the ground's pitch & roll (time constant TERRAIN_TAU)
+const TERRAIN_TAU = 0.1;
+const CAR_AXLES = { wheelbase: 2.8, track: 1.6 };
+const BIKE_WHEELBASE = 1.05;
+const GRAVITY = 9.81;
+const CAR_GRADE = 0.6; // share of gravity along the slope the car feels (P2.6)
+const BIKE_GRADE_UP = 0.9; // ... and the bike going uphill
+const HELI_CEILING = 380;
+const STEP_DOWN = 0.4;
+// Colliders are ignored more than this far below the building's lowest ground (minY): tunnels run under buildings, but a
+// road a little below a building's terrace must still bump into it (PLAN.md P2-8)
+const BELOW_COLLIDER = 3;
+// (Mog City) on foot the way to go is the camera's (readFootMove, walkToward): how briskly he turns to it, and how
+// lazily the view comes round behind him as he walks away from it
+const FOOT_TURN = 11; // rad/s
+const FOOT_FOLLOW = 0.35; // 1/s
+const _footView = new THREE.Vector3();
+const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+// (Mog City, as js/controllers.js, after Slop New York f3132b6) a car's speed along its way after dt, from its pace d
+// (speed, boostSpeed, reverse: a share of either, accel, boostAccel) and how it slows (rolling, drag, coast, brake,
+// boostBrake): a steady rolling resistance and the air's drag always; lifted off, coast more on top; against its way of
+// travel, the brakes; under power its pull up to its top, net of that, and over its top the extra dies away
+function driveSpeed(speed, throttle, boost, dt, d) {
+  if (speed * throttle < 0 && Math.abs(speed) < 0.05) speed = 0;
+  const braking = speed * throttle < 0, magnitude = Math.abs(speed);
+  const brake = boost || magnitude > d.speed ? d.boostBrake : d.brake;
+  const deceleration = d.rolling + (!throttle ? d.coast : braking ? Math.abs(throttle) * brake : 0);
+  const coasting = Math.max(0, magnitude - deceleration * dt) / (1 + d.drag * magnitude * dt);
+  if (!throttle || braking) return Math.sign(speed) * coasting;
+  const top = boost ? d.boostSpeed : d.speed, limit = throttle < 0 ? top * d.reverse : top;
+  const pull = Math.abs(throttle) * (boost ? d.boostAccel : d.accel) * dt;
+  return Math.sign(throttle) * Math.min(Math.max(limit, coasting), magnitude + pull);
+}
+const _drive = {};
+
+// (Mog City) The turned box that fits an outline closest (the least area over its edges' directions), in the colliders'
+// obb form { cx, cz, hx, hz, cs, sn } (along: lx = dx * cs - dz * sn across it, lz = dx * sn + dz * cs along it)
+function fitObb(pts) {
+  let best = null;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length], L = Math.hypot(b.x - a.x, b.z - a.z);
+    if (L < 0.2) continue;
+    const ux = (b.x - a.x) / L, uz = (b.z - a.z) / L;
+    let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+    for (const p of pts) {
+      const u = p.x * ux + p.z * uz, v = p.x * uz - p.z * ux;
+      if (u < u0) u0 = u; if (u > u1) u1 = u; if (v < v0) v0 = v; if (v > v1) v1 = v;
+    }
+    const area = (u1 - u0) * (v1 - v0);
+    if (!best || area < best.area) best = { area, ux, uz, u: (u0 + u1) / 2, v: (v0 + v1) / 2, hu: (u1 - u0) / 2, hv: (v1 - v0) / 2 };
+  }
+  if (!best) return null;
+  // (along the box: (sn, cs) = (ux, uz); across it: (cs, -sn) = (uz, -ux))
+  const { ux, uz, u, v } = best;
+  return { cx: u * ux + v * uz, cz: u * uz - v * ux, hx: best.hv, hz: best.hu, cs: uz, sn: ux };
+}
+
+function dampTowards(state, key, target, dt) {
+  const w = 1 / TERRAIN_TAU;
+  const v = key + 'Vel';
+  const vel = state[v] || 0;
+  state[v] = vel + (w * w * (target - state[key]) - 2 * w * vel) * dt;
+  state[key] += state[v] * dt;
+}
+
+// The player's car carries a California plate (P4.6): white, the state's name in red across the top, dark blue
+// characters (a made-up number)
+function createCALicensePlateTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#f4f4f0';
+  ctx.fillRect(0, 0, 256, 128);
+  ctx.fillStyle = '#c8202f';
+  ctx.font = 'italic 700 22px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('California', 128, 30);
+  ctx.fillStyle = '#16245a';
+  ctx.font = '900 48px JetBrains Mono, monospace';
+  ctx.fillText('9SLP415', 128, 90);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+class ThirdPersonControllerManager {
+  constructor(scene, colliders = []) {
+    this.scene = scene;
+    this.colliders = colliders;
+    // (Mog City) The game's own readers of the colliders (the fight's navmesh and camera, the physics' walls, the chases'
+    // sight lines, the crowd) know boxes, a turned one by its obb: an exact outline (c.polygon, the buildings) gets the
+    // turned box that fits it closest. The city's own collision keeps the outline itself (world-collision.js)
+    for (const c of colliders) if (c.polygon && !c.obb && c.polygon.length >= 3) c.obb = fitObb(c.polygon) || undefined;
+    this._colliderCells = null; // built on first use, see nearColliders()
+    this.activeMode = 'car'; // 'person' | 'car' | 'cyclist' | 'helicopter'
+    // (Mog City: on foot, the way they point from the camera: readFootMove)
+    this.footMove = { mag: 0, x: 0, z: 0, away: 0 };
+    // (Mog City: counts the controllers' updates: a car's wall knock is felt once an update, see resolveHorizontalCollision)
+    this._step = 0;
+
+    this.keys = {
+      forward: false,
+      backward: false,
+      left: false,
+      right: false,
+      up: false,
+      down: false,
+      boost: false
+    };
+
+    this.entities = {
+      person: this.createPersonEntity(),
+      car: this.createCarEntity(),
+      cyclist: this.createCyclistEntity(),
+      helicopter: this.createHelicopterEntity()
+    };
+
+    Object.values(this.entities).forEach((ent) => {
+      if (ent.mesh) {
+        ent.mesh.traverse((child) => {
+          if (
+            child.isMesh &&
+            !child.material?.isMeshBasicNodeMaterial &&
+            child.material?.type !== 'MeshBasicNodeMaterial' &&
+            !child.material?.transparent
+          ) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+      }
+    });
+
+    this.bindKeyboard();
+  }
+
+  bindKeyboard() {
+    const bindings = {
+      forward: ['KeyW', 'ArrowUp'],
+      backward: ['KeyS', 'ArrowDown'],
+      left: ['KeyA', 'ArrowLeft'],
+      right: ['KeyD', 'ArrowRight'],
+      up: ['Space'], // (Mog City: E is the fight's grab, no longer a second jump key)
+      down: ['KeyQ', 'KeyC'],
+      boost: ['ShiftLeft', 'ShiftRight']
+    };
+    const actionsByCode = new Map(Object.entries(bindings).flatMap(([action, codes]) => codes.map((code) => [code, action])));
+    this._pressedCodes = new Set();
+    this._keyboardKeys = {};
+    this._touchKeys = {};
+    this._gamepadKeys = {};
+
+    const onKey = (e, isDown) => {
+      const action = actionsByCode.get(e.code);
+      if (!action || (isDown && isTypingInField(e))) return;
+      if (isDown) this._pressedCodes.add(e.code);
+      else this._pressedCodes.delete(e.code);
+      // Releasing one binding must not cancel another key held for the same action.
+      this._keyboardKeys[action] = bindings[action].some((code) => this._pressedCodes.has(code));
+      this._blendInput(action);
+    };
+
+    window.addEventListener('keydown', (e) => onKey(e, true));
+    window.addEventListener('keyup', (e) => onKey(e, false));
+    window.addEventListener('blur', () => this.resetInput());
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) this.resetInput();
+    });
+  }
+
+  // (Mog City, as js/controllers.js: the keyboard, the touch stick and a game pad blended, the strongest winning)
+  _blendInput(action) {
+    const keyboard = this._keyboardKeys[action] || false;
+    const touch = this._touchKeys[action] || false;
+    const gamepad = this._gamepadKeys[action] || false;
+    const strength = Math.max(keyboard, touch, gamepad);
+    // Preserve digital button values while allowing either analog source to be strongest.
+    this.keys[action] = keyboard === true || touch === true || gamepad === true ? true : strength || false;
+  }
+
+  _setAnalogInput(source, action, value) {
+    if (!Object.hasOwn(this.keys, action)) return;
+    const strength = Number(value);
+    source[action] = typeof value === 'boolean' ? value : Number.isFinite(strength) ? Math.max(0, Math.min(1, strength)) : 0;
+    this._blendInput(action);
+  }
+
+  setTouchInput(action, value) {
+    this._setAnalogInput(this._touchKeys, action, value);
+  }
+
+  setGamepadInput(action, value) {
+    this._setAnalogInput(this._gamepadKeys, action, value);
+  }
+
+  clearTouchInput() {
+    this._touchKeys = {};
+    for (const action of Object.keys(this.keys)) this._blendInput(action);
+  }
+
+  clearGamepadInput() {
+    this._gamepadKeys = {};
+    for (const action of Object.keys(this.keys)) this._blendInput(action);
+  }
+
+  resetInput() {
+    this._pressedCodes.clear();
+    this._keyboardKeys = {};
+    this._touchKeys = {};
+    this._gamepadKeys = {};
+    for (const action of Object.keys(this.keys)) this.keys[action] = false;
+  }
+
+  setMode(mode) {
+    if (!this.entities[mode]) return;
+    this.activeMode = mode;
+  }
+
+  getActiveEntity() {
+    return this.entities[this.activeMode];
+  }
+
+  teleportActiveTo(x, z, heading = Math.PI) {
+    const ent = this.getActiveEntity();
+    this.resetInput();
+    level.y = null; // arrivals are on the ground
+    // No heading given: face along the nearest street
+    if (!Number.isFinite(heading)) heading = this.roadHeading(x, z, ent.heading);
+    const heli = this.activeMode === 'helicopter';
+    // the helicopter keeps its height above the ground, within its band
+    const ground0 = terrainY(ent.position.x, ent.position.z);
+    const above = heli ? Math.max(92, Math.min(380, ent.position.y - ground0)) : 0;
+    const destination = this.findTeleportPosition(x, z, heading, heli ? terrainY(x, z) + above : 0);
+    if (destination) {
+      ent.position.x = destination.x;
+      ent.position.z = destination.z;
+      ent.heading = heading;
+      ent.position.y = heli ? terrainY(destination.x, destination.z) + above : this.getGroundHeight(destination.x, destination.z, this.activeMode);
+    }
+    ent.speed = 0;
+    if (this.activeMode === 'person') {
+      ent.verticalVel = 0;
+      ent.rig.reset(ent.position.x, ent.position.z, ent.heading, personGround, this);
+      ent.crowd.begin();
+      ent.crowd.add(ent.rig, 0);
+      ent.crowd.end();
+    } else if (this.activeMode === 'car') {
+      ent.vx = ent.vz = ent.angularVel = ent.steerAngle = ent.steerK = 0;
+      ent.pitchVel = ent.rollVel = ent.heaveY = ent.heaveVel = ent.fallVel = 0;
+      ent.chassisPivot.rotation.x = ent.chassisPivot.rotation.z = 0;
+      ent.chassisPivot.position.y = 0;
+      ent.lastCollisionSpark = null;
+      for (const wheel of ent.wheels) if (wheel.isFront) wheel.steerPivot.rotation.y = 0;
+      if (ent.carState) ent.carState.value.x = 1;
+      this.settleOnTerrain(ent, true);
+    } else if (this.activeMode === 'cyclist') {
+      ent.leanAngle = ent.leanPivot.rotation.z = 0;
+      this.settleOnTerrain(ent, true);
+    } else if (heli) {
+      ent.verticalSpeed = ent.pitchAngle = ent.rollAngle = 0;
+      ent.tiltPivot.rotation.x = ent.tiltPivot.rotation.z = 0;
+      ent.tiltPivot.position.y = 0;
+    }
+    ent.mesh.position.copy(ent.position);
+    ent.mesh.rotation.y = ent.heading;
+    return { x: ent.position.x, z: ent.position.z };
+  }
+
+  // Recover to a nearby surface street, using the same clearance checks as teleports.
+  findRoadReset() {
+    const ent = this.getActiveEntity();
+    const candidates = [];
+    for (const road of window.NYC.ROADS || []) {
+      if (road.flags & (1 | 2 | 4 | 8 | 16)) continue;
+      for (let i = 1; i < road.pts.length; i++) {
+        const a = road.pts[i - 1], b = road.pts[i];
+        const dx = b.x - a.x, dz = b.z - a.z, length2 = dx * dx + dz * dz;
+        if (!length2) continue;
+        const t = Math.max(0, Math.min(1, ((ent.position.x - a.x) * dx + (ent.position.z - a.z) * dz) / length2));
+        const x = a.x + t * dx, z = a.z + t * dz;
+        candidates.push({ x, z, heading: Math.atan2(dx, dz) + (road.dir < 0 ? Math.PI : 0), distance: Math.hypot(x - ent.position.x, z - ent.position.z) });
+      }
+    }
+    candidates.sort((a, b) => a.distance - b.distance);
+    for (const p of candidates.slice(0, 64)) {
+      const safe = this.findTeleportPosition(p.x, p.z, p.heading, this.activeMode === 'helicopter' ? terrainY(p.x, p.z) + 92 : 0);
+      // The teleport search may find a courtyard: recovery must stay on the chosen road.
+      if (safe && Math.hypot(safe.x - p.x, safe.z - p.z) < 1) return p;
+    }
+    return null;
+  }
+
+  // Find a fully clear arrival before moving the player. Sequential collision pushes can leave a player trapped
+  // between overlapping buildings, so test whole candidate footprints instead; retain the old position if none fits.
+  findTeleportPosition(x, z, heading, altitude) {
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return null;
+    const heli = this.activeMode === 'helicopter';
+    const sinH = Math.sin(heading), cosH = Math.cos(heading);
+    const bounds = heli && window.NYC.FLIGHT_BOUNDS || ISLAND_BOUNDS;
+    const margin = heli && !window.NYC.FLIGHT_BOUNDS ? 6000 : 0;
+    const entity = this.getActiveEntity();
+    // Conservative body cylinders, including the taxi's corners, bicycle wheels and helicopter tail/rotor.
+    const body = { person: [0.48, 1.9], car: [2.4, 1.9], cyclist: [1.0, 1.9], helicopter: [6.2, 3.2] };
+    const others = Object.values(this.entities).filter(e => e !== entity).map(e => ({
+      x: e.position.x, z: e.position.z, radius: body[e.type][0],
+      bottom: e.position.y - (e.type === 'helicopter' ? 0.7 : 0), top: e.position.y + body[e.type][1]
+    }));
+    const cameraBack = Math.cos(0.09) * entity.chaseDistance;
+    const cameraUp = entity.chaseHeight + Math.sin(0.09) * entity.chaseDistance * 0.85;
+    const clampPoint = (px, pz) => {
+      pz = Math.max(bounds.minZ + (heli ? -margin : 30), Math.min(bounds.maxZ + margin, pz));
+      px = Math.max(bounds.minX - margin, Math.min(bounds.maxX + margin, px));
+      if (!heli && getIslandBoundsAtZ) {
+        const shore = getIslandBoundsAtZ(pz);
+        const west = shore.westX + 8, east = shore.eastX - 8;
+        if (west > east) return null;
+        px = Math.max(west, Math.min(east, px));
+      }
+      if (!heli && inBay(px, pz)) return null;
+      return { x: px, z: pz };
+    };
+    const clear = (p) => {
+      if (!p) return false;
+      const baseY = heli ? altitude : this.getGroundHeight(p.x, p.z, this.activeMode);
+      const y = heli ? altitude : baseY + 1;
+      // Keep other player models out of both the arrival and its default chase view. A corridor also prevents a
+      // parked car between camera and character from hiding the character even when the camera itself is outside it.
+      const viewTop = baseY + Math.max(body[entity.type][1], cameraUp);
+      for (const other of others) {
+        if (other.bottom > viewTop + 0.3 || other.top < baseY - (heli ? 0.7 : 0) - 0.3) continue;
+        const dx = other.x - p.x, dz = other.z - p.z;
+        const back = Math.max(0, Math.min(cameraBack, -dx * sinH - dz * cosH));
+        if (Math.hypot(dx + sinH * back, dz + cosH * back) < other.radius + Math.max(body[entity.type][0], 0.5) + 0.1) return false;
+      }
+      if (!this.isWorldPositionClear({x:p.x,z:p.z,y:baseY},heading,this.activeMode,.1)) return false;
+      return true;
+    };
+    const origin = clampPoint(x, z);
+    if (clear(origin)) return origin;
+    // Four-metre rings cover nearby streets and courtyards, with bounded work even for a click inside a large block.
+    const cx = origin ? origin.x : Math.max(ISLAND_BOUNDS.minX, Math.min(ISLAND_BOUNDS.maxX, x));
+    const cz = origin ? origin.z : Math.max(ISLAND_BOUNDS.minZ + 30, Math.min(ISLAND_BOUNDS.maxZ, z));
+    for (let distance = 4; distance <= 256; distance += 4) {
+      for (let i = 0; i < 32; i++) {
+        const angle = i * Math.PI / 16;
+        const p = clampPoint(cx + Math.cos(angle) * distance, cz + Math.sin(angle) * distance);
+        if (clear(p)) return p;
+      }
+    }
+    return null;
+  }
+
+  // =========================================================================
+  // 1. PERSON (SKINNED NYC PEDESTRIAN WITH PLANTED-FOOTSTEP IK GAIT, see pedestrians.js)
+  // =========================================================================
+  createPersonEntity() {
+    const root = new THREE.Group();
+    root.name = 'PlayerPerson';
+
+    // One skinned person, posed in world space every frame by its rig (walk, run, turn, jump)
+    const crowd = new PersonCrowd(1, { farDistance: Infinity });
+    crowd.meshes.forEach((m) => this.scene.add(m));
+    const rig = new PersonRig({ seed: 4.2, scale: 1.0, girth: 1.02, hair: 0.18, armSwing: 1.0 });
+
+    // Soft Under-Foot Contact Shadow (AO)
+    const shadowGeo = new THREE.PlaneGeometry(0.95, 0.95);
+    shadowGeo.rotateX(-Math.PI * 0.5);
+    const pedShadow = new THREE.Mesh(shadowGeo, createContactShadowMaterial());
+    pedShadow.position.y = 0.02;
+    pedShadow.renderOrder = 998;
+    root.add(pedShadow);
+
+    this.scene.add(root);
+
+    return {
+      type: 'person',
+      label: 'Pedestrian',
+      mesh: root,
+      crowd,
+      rig,
+      position: new THREE.Vector3(-11.6, ISLAND_BOUNDS.sidewalkHeight, SPAWN_Z + 12),
+      heading: 0,
+      speed: 0,
+      verticalVel: 0,
+      cameraTargetOffset: new THREE.Vector3(0, 1.55, 0),
+      chaseDistance: 4.3,
+      chaseHeight: 1.95
+    };
+  }
+
+  // =========================================================================
+  // 2. CAR (3D LOFTED ROBOTAXI: WHITE BODY, ROOF LIDAR DOME & PERIMETER SENSOR PODS)
+  // =========================================================================
+  createCarEntity() {
+    const root = new THREE.Group();
+    root.name = 'PlayerTaxiCar';
+
+    const chassisPivot = new THREE.Group();
+    root.add(chassisPivot);
+
+    const spec = window.NYC.createRobotaxiHeroSpec();
+    const taxiLoftMat = createLoftedCarMaterial(spec, 0xd2d8dd);
+
+    // 1. 3D Lofted Robotaxi Body + Curved Windscreens + Crowned Roof + Side Mirrors + Lidar Dome & Sensor Pods
+    const carBodyGeo = buildCarGeometry(spec, false);
+    const carBodyMesh = new THREE.Mesh(carBodyGeo, taxiLoftMat);
+    carBodyMesh.castShadow = true;
+    carBodyMesh.receiveShadow = true;
+    chassisPivot.add(carBodyMesh);
+
+    window.NYC.addRobotaxiHeroDetails(chassisPivot, spec);
+
+    // California license plates on the bumpers
+    const nyPlateTex = createCALicensePlateTexture();
+    const nyPlateMat = new THREE.MeshStandardNodeMaterial({ map: nyPlateTex, roughness: 0.28 });
+    const rearPlate = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.02), nyPlateMat);
+    rearPlate.position.set(0, spec.plates[1], spec.zRear - 0.006);
+    chassisPivot.add(rearPlate);
+
+    const frontPlate = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.02), nyPlateMat);
+    frontPlate.position.set(0, spec.plates[0], spec.zFront + 0.006);
+    chassisPivot.add(frontPlate);
+
+    // 3b. Brake lights, CHMSL & turn signals are lit by the taxi material from its carState uniform (see updateCar)
+    const carState = taxiLoftMat.userData.carState;
+
+    // 4. Steerable & Spinning 3D LatheGeometry Tyres + Recessed 5-Spoke Alloy Wheels
+    // The hero wheels use modeled split spokes, brake discs and lug nuts.
+
+    const wheels = [];
+    const wheelCoords = [
+      { side: -1, z: spec.wheelZ, isFront: true },
+      { side: 1, z: spec.wheelZ, isFront: true },
+      { side: -1, z: -spec.wheelZ, isFront: false },
+      { side: 1, z: -spec.wheelZ, isFront: false }
+    ];
+    for (const wc of wheelCoords) {
+      const steerPivot = new THREE.Group();
+      steerPivot.position.set(wc.side * spec.wheelX, spec.wheelRadius, wc.z);
+      const tire = window.NYC.buildRobotaxiHeroWheel(spec, wc.side);
+      tire.castShadow = true;
+      tire.receiveShadow = true;
+      steerPivot.add(tire);
+      root.add(steerPivot);
+      wheels.push({ steerPivot, tire, isFront: wc.isFront });
+    }
+
+    // 5. Soft Under-Car Contact Shadow (AO) + Clustered Dual LED Headlight SpotLights & Rear Brake PointLight
+    const carShadowGeo = new THREE.PlaneGeometry(2.22, 5.05);
+    carShadowGeo.rotateX(-Math.PI * 0.5);
+    const carShadow = new THREE.Mesh(carShadowGeo, createContactShadowMaterial());
+    carShadow.position.set(0, 0.02, 0.0);
+    carShadow.renderOrder = 998;
+    root.add(carShadow);
+
+    const headLights = [];
+    for (const side of [-1, 1]) {
+      const spot = createVehicleHeadlight();
+      placeVehicleHeadlight(spot, spec, side);
+      chassisPivot.add(spot, spot.target);
+      headLights.push(spot);
+    }
+
+    this.scene.add(root);
+
+    return {
+      type: 'car',
+      label: 'Robotaxi',
+      mesh: root,
+      chassisPivot,
+      carState,
+      headLights,
+      wheels,
+      position: new THREE.Vector3(3.6, 0.0, SPAWN_Z + 12),
+      heading: 0,
+      speed: 0,
+      vx: 0,
+      vz: 0,
+      angularVel: 0,
+      pitchVel: 0,
+      rollVel: 0,
+      heaveY: 0,
+      heaveVel: 0,
+      lastCollisionSpark: null,
+      steerAngle: 0,
+      wheelSpin: 0,
+      cameraTargetOffset: new THREE.Vector3(0, 0.96, 0),
+      chaseDistance: 6.9,
+      chaseHeight: 2.12
+    };
+  }
+
+  // =========================================================================
+  // 3. CYCLIST (3D LOFTED RIDER + ROAD/CITI BICYCLE)
+  // =========================================================================
+  createCyclistEntity() {
+    const root = new THREE.Group();
+    root.name = 'PlayerCyclist';
+
+    const leanPivot = new THREE.Group();
+    root.add(leanPivot);
+
+    const frameMat = createCarPaintMaterial(0x0078e8);
+    const tireMat = new THREE.MeshStandardNodeMaterial({
+      color: 0x181a1e,
+      roughness: 0.60
+    });
+    const chromeMat = new THREE.MeshStandardNodeMaterial({
+      color: 0xe0e8f0,
+      roughness: 0.16,
+      metalness: 0.78
+    });
+    const shortsMat = new THREE.MeshStandardNodeMaterial({
+      color: 0x1c2028,
+      roughness: 0.55
+    });
+    const helmetMat = new THREE.MeshStandardNodeMaterial({
+      color: 0xf4f7fb,
+      emissive: 0x181c22,
+      roughness: 0.22,
+      metalness: 0.25
+    });
+
+    const wheelTorusGeo = new THREE.TorusGeometry(0.35, 0.038, 12, 24);
+    wheelTorusGeo.rotateY(Math.PI * 0.5);
+    const rimTorusGeo = new THREE.TorusGeometry(0.31, 0.018, 8, 24);
+    rimTorusGeo.rotateY(Math.PI * 0.5);
+
+    const frontWheel = new THREE.Mesh(wheelTorusGeo, tireMat);
+    frontWheel.add(new THREE.Mesh(rimTorusGeo, chromeMat));
+    frontWheel.position.set(0, 0.38, 0.58);
+    leanPivot.add(frontWheel);
+
+    const rearWheel = new THREE.Mesh(wheelTorusGeo, tireMat);
+    rearWheel.add(new THREE.Mesh(rimTorusGeo, chromeMat));
+    rearWheel.position.set(0, 0.38, -0.58);
+    leanPivot.add(rearWheel);
+
+    // Rear red LED safety strobe on seatpost
+    const tailLed = new THREE.Mesh(
+      new THREE.SphereGeometry(0.032, 8, 8),
+      new THREE.MeshBasicNodeMaterial({ color: 0xff1e26 })
+    );
+    tailLed.position.set(0, 0.86, -0.32);
+    leanPivot.add(tailLed);
+
+    const topTube = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.72, 10), frameMat);
+    topTube.rotation.x = Math.PI * 0.46;
+    topTube.position.set(0, 0.78, 0.04);
+    leanPivot.add(topTube);
+
+    const downTube = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.78, 10), frameMat);
+    downTube.rotation.x = Math.PI * 0.28;
+    downTube.position.set(0, 0.58, 0.16);
+    leanPivot.add(downTube);
+
+    const seatTube = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.64, 10), frameMat);
+    seatTube.rotation.x = -0.22;
+    seatTube.position.set(0, 0.66, -0.22);
+    leanPivot.add(seatTube);
+
+    const saddle = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.16, 8, 10), shortsMat);
+    saddle.rotation.x = Math.PI * 0.5;
+    saddle.scale.set(1.15, 1.0, 0.55);
+    saddle.position.set(0, 0.96, -0.28);
+    leanPivot.add(saddle);
+
+    const fork = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.016, 0.68, 10), chromeMat);
+    fork.rotation.x = -0.24;
+    fork.position.set(0, 0.68, 0.48);
+    leanPivot.add(fork);
+
+    const handlebar = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.48, 10), chromeMat);
+    handlebar.rotation.z = Math.PI * 0.5;
+    handlebar.position.set(0, 0.98, 0.40);
+    leanPivot.add(handlebar);
+
+    // Pedal cranks at the bottom bracket (they turn with the pedal phase, the pedals stay level)
+    const bikeFrame = {
+      seat: new THREE.Vector3(0, 0.98, -0.28),
+      bars: new THREE.Vector3(0, 0.98, 0.4),
+      gripHalf: 0.22,
+      bracket: new THREE.Vector3(0, 0.34, -0.145),
+      crankLength: 0.17
+    };
+    const crankPivot = new THREE.Group();
+    crankPivot.position.copy(bikeFrame.bracket);
+    const crankGeo = new THREE.BoxGeometry(0.016, bikeFrame.crankLength, 0.03).translate(0, -bikeFrame.crankLength / 2, 0);
+    const pedalGeo = new THREE.BoxGeometry(0.09, 0.018, 0.07);
+    const pedals = [];
+    for (const side of [1, -1]) {
+      const arm = new THREE.Group();
+      arm.rotation.x = side > 0 ? 0 : Math.PI;
+      const crank = new THREE.Mesh(crankGeo, chromeMat);
+      crank.position.x = side * 0.065;
+      const pedal = new THREE.Mesh(pedalGeo, tireMat);
+      pedal.position.set(side * 0.1, -bikeFrame.crankLength, 0);
+      arm.add(crank, pedal);
+      crankPivot.add(arm);
+      pedals.push(pedal);
+    }
+    leanPivot.add(crankPivot);
+
+    // Skinned rider (see pedestrians.js), posed every frame with its hands on the grips and feet on the pedals; the
+    // helmet rides on its head
+    const riderCrowd = new PersonCrowd(1, { farDistance: Infinity });
+    riderCrowd.meshes.forEach((m) => this.scene.add(m));
+    const riderRig = new PersonRig({ seed: 12.8, scale: 1.0, girth: 0.97, hair: 0.1 });
+    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.125, 14, 12), helmetMat);
+    helmet.scale.set(0.95, 0.68, 1.28);
+    this.scene.add(helmet);
+
+    const bikeShadowGeo = new THREE.PlaneGeometry(0.85, 2.25);
+    bikeShadowGeo.rotateX(-Math.PI * 0.5);
+    const bikeShadow = new THREE.Mesh(bikeShadowGeo, createContactShadowMaterial());
+    bikeShadow.position.set(0, 0.02, 0.0);
+    bikeShadow.renderOrder = 998;
+    root.add(bikeShadow);
+
+    const headLight = new THREE.SpotLight(0xf2f7ff, 0, 20, 0.34, 0.76, 1.25);
+    headLight.position.set(0, 1.32, 0.62);
+    headLight.target.position.set(0, 0.0, 7.6);
+    leanPivot.add(headLight, headLight.target);
+
+    this.scene.add(root);
+
+    return {
+      type: 'cyclist',
+      label: 'Bike Lane Cyclist',
+      mesh: root,
+      leanPivot,
+      frontWheel,
+      rearWheel,
+      crankPivot,
+      pedals,
+      bikeFrame,
+      riderCrowd,
+      riderRig,
+      helmet,
+      headLight,
+      position: new THREE.Vector3(5.2, 0.0, SPAWN_Z - 8),
+      heading: 0,
+      speed: 0,
+      leanAngle: 0,
+      pedalPhase: 0,
+      cameraTargetOffset: new THREE.Vector3(0, 1.35, 0),
+      chaseDistance: 4.8,
+      chaseHeight: 2.05
+    };
+  }
+
+  // =========================================================================
+  // 4. HELICOPTER (3D LOFTED MANHATTAN SIGHTSEEING TWIN-TURBINE CHOPPER)
+  // =========================================================================
+  createHelicopterEntity() {
+    const root = new THREE.Group();
+    root.name = 'PlayerHelicopter';
+
+    const tiltPivot = new THREE.Group();
+    root.add(tiltPivot);
+
+    const heliLoftMat = createLoftedHelicopterMaterial();
+    const blurDiscMat = new THREE.MeshBasicNodeMaterial({
+      color: 0xc8d8e8,
+      transparent: true,
+      opacity: 0.13,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+
+    // 1. 3D Lofted Monocoque Fuselage + Tailboom + Twin-Turbine Cowling + Swept Fin + Stabilizers + Tubular Skids
+    const heliBodyGeo = buildHelicopterBodyGeometry();
+    const heliBodyMesh = new THREE.Mesh(heliBodyGeo, heliLoftMat);
+    heliBodyMesh.castShadow = true;
+    heliBodyMesh.receiveShadow = true;
+    tiltPivot.add(heliBodyMesh);
+
+    // 2. 4-Blade Main Rotor Assembly with Swashplate, Hub Dome & Yellow Safety Blade Tips
+    const mainRotorPivot = new THREE.Group();
+    mainRotorPivot.position.set(0, 2.66, -0.35);
+    const mainRotorGeo = buildHelicopterMainRotorGeometry();
+    const mainRotorMesh = new THREE.Mesh(mainRotorGeo, heliLoftMat);
+    mainRotorMesh.castShadow = true;
+    mainRotorPivot.add(mainRotorMesh);
+
+    const blurDisc = new THREE.Mesh(new THREE.CylinderGeometry(4.85, 4.85, 0.015, 32), blurDiscMat);
+    mainRotorPivot.add(blurDisc);
+    tiltPivot.add(mainRotorPivot);
+
+    // 3. 4-Blade Tail Rotor Assembly on Swept Vertical Fin
+    const tailRotorPivot = new THREE.Group();
+    tailRotorPivot.position.set(0.18, 2.02, -5.62);
+    const tailRotorGeo = buildHelicopterTailRotorGeometry();
+    const tailRotorMesh = new THREE.Mesh(tailRotorGeo, heliLoftMat);
+    tailRotorPivot.add(tailRotorMesh);
+    tiltPivot.add(tailRotorPivot);
+
+    // 4. FAA Port (Red), Starboard (Green) & Anti-Collision Fin Beacon (Red) Navigation Strobes
+    const navRed = new THREE.Mesh(
+      new THREE.SphereGeometry(0.036, 8, 8),
+      new THREE.MeshBasicNodeMaterial({ color: 0xff2b2b })
+    );
+    navRed.position.set(-1.09, 1.54, -4.35);
+    const navGreen = new THREE.Mesh(
+      new THREE.SphereGeometry(0.036, 8, 8),
+      new THREE.MeshBasicNodeMaterial({ color: 0x22ff66 })
+    );
+    navGreen.position.set(1.09, 1.54, -4.35);
+    const navTail = new THREE.Mesh(
+      new THREE.SphereGeometry(0.042, 8, 8),
+      new THREE.MeshBasicNodeMaterial({ color: 0xff3b2b })
+    );
+    navTail.position.set(0, 2.84, -6.04);
+    tiltPivot.add(navRed, navGreen, navTail);
+
+    this.scene.add(root);
+
+    return {
+      type: 'helicopter',
+      label: 'Sightseeing Helicopter',
+      mesh: root,
+      tiltPivot,
+      mainRotorPivot,
+      tailRotorPivot,
+      position: new THREE.Vector3(-110, 96, SPAWN_Z - 60),
+      heading: 0.62,
+      speed: 0,
+      verticalSpeed: 0,
+      pitchAngle: 0,
+      rollAngle: 0,
+      cameraTargetOffset: new THREE.Vector3(0, 1.55, 0),
+      chaseDistance: 11.4,
+      chaseHeight: 3.3
+    };
+  }
+
+  // On a raised curb island (city-config.js BLOCKS: the real blocks, malls & plazas), not in a park
+  isPointOnSidewalk(x, z) {
+    const b = blockAt(x, z);
+    return !!b && !(b.park > 0.6 && !b.median);
+  }
+
+  // The terrain (the roadway), plus the curb on a curb island: for the pedestrian, and (Mog City, as New York's) for a
+  // car's wheels too, so a car driven up the curb rides on the sidewalk (updateCar) and the game's curb checks see it
+  // (wagmi/game.js). Not the bike's (the fork's own, unused by the game)
+  getGroundHeight(x, z, mode = 'person') {
+    const ground = terrainY(x, z);
+    if ((mode === 'person' || mode === 'car') && this.isPointOnSidewalk(x, z)) return ground + ISLAND_BOUNDS.sidewalkHeight;
+    return ground;
+  }
+
+  // (Mog City) The bare ground under (x, z), no curb: the terrain, or a bridge deck or tunnel floor at the active
+  // entity's level. New York's controllers have none (their street is y 0 everywhere): the game reads
+  // `cm.baseHeight?.(x, z) || 0` where it asks whether something stands up off the street (a raised lawn, an overhang,
+  // a curb) rather than how high it is
+  baseHeight(x, z) {
+    return terrainY(x, z);
+  }
+
+  // (Mog City) New York's Central Park water (js/controllers.js), kept out of on foot and in the car; San Francisco has
+  // no park water (the bay is kept out of by resolveHorizontalCollision, inBay)
+  inParkWater() {
+    return false;
+  }
+
+  // Heading (0 = +z) along the street nearest (x, z), the side of it closest to `prefer`
+  roadHeading(x, z, prefer = Math.PI) {
+    const near = window.NYC.nearestRoads ? window.NYC.nearestRoads(x, z, 60) : [];
+    const pts = near.length ? near[0].road.pts : null;
+    if (!pts) return prefer;
+    let best = null, bd = Infinity;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const dx = b.x - a.x, dz = b.z - a.z, L2 = dx * dx + dz * dz || 1e-9;
+      const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / L2));
+      const d = Math.hypot(a.x + t * dx - x, a.z + t * dz - z);
+      if (d < bd) { bd = d; best = Math.atan2(dx, dz); }
+    }
+    const diff = Math.atan2(Math.sin(prefer - best), Math.cos(prefer - best));
+    return Math.abs(diff) > Math.PI / 2 ? best + Math.PI : best;
+  }
+
+  // Car / bike on the terrain: y between the axles, smoothed pitch (& roll for the car) towards the ground under
+  // the wheels, written to the model (rotation order YXZ: heading, then pitch, then roll). `snap` skips the smoothing.
+  settleOnTerrain(ent, snap = false, dt = 0) {
+    const sh = Math.sin(ent.heading), ch = Math.cos(ent.heading);
+    const car = ent.type === 'car';
+    const half = (car ? CAR_AXLES.wheelbase : BIKE_WHEELBASE) / 2;
+    const x = ent.position.x, z = ent.position.z;
+    const front = terrainY(x + sh * half, z + ch * half);
+    const rear = terrainY(x - sh * half, z - ch * half);
+    const pitch = Math.atan2(front - rear, half * 2);
+    let roll = 0;
+    if (car) {
+      // local +x is the car's left (it faces +z)
+      const t = CAR_AXLES.track / 2;
+      const left = terrainY(x + ch * t, z - sh * t);
+      const right = terrainY(x - ch * t, z + sh * t);
+      roll = Math.atan2(left - right, t * 2);
+    }
+    if (snap || ent.terrainPitch === undefined) {
+      ent.terrainPitch = pitch;
+      ent.terrainRoll = roll;
+      ent.terrainPitchVel = ent.terrainRollVel = 0;
+    } else {
+      dampTowards(ent, 'terrainPitch', pitch, dt);
+      dampTowards(ent, 'terrainRoll', roll, dt);
+    }
+    ent.position.y = (front + rear) / 2;
+    if (ent.mesh) {
+      ent.mesh.rotation.order = 'YXZ';
+      ent.mesh.rotation.x = -ent.terrainPitch; // nose up is a negative turn about +x
+      ent.mesh.rotation.z = car ? ent.terrainRoll : 0;
+    }
+    return pitch;
+  }
+
+  // The colliders whose bounds come within `r` of (x, z), in their original order. They never move, so they are
+  // bucketed once into 48 m cells (tens of thousands of buildings: testing them all every frame cost ~0.5 ms)
+  nearColliders(x, z, r) {
+    const CELL = 48;
+    const key = (ix, iz) => (ix + 4096) * 8192 + (iz + 4096);
+    if (!this._colliderCells) {
+      this._colliderCells = new Map();
+      this.colliders.forEach((c, i) => {
+        c._order = i;
+        for (let ix = Math.floor(c.minX / CELL); ix <= Math.floor(c.maxX / CELL); ix++) {
+          for (let iz = Math.floor(c.minZ / CELL); iz <= Math.floor(c.maxZ / CELL); iz++) {
+            const k = key(ix, iz);
+            let list = this._colliderCells.get(k);
+            if (!list) this._colliderCells.set(k, (list = []));
+            list.push(c);
+          }
+        }
+      });
+      this._nearList = [];
+      this._nearStamp = 0;
+    }
+    const out = this._nearList;
+    out.length = 0;
+    const stamp = ++this._nearStamp;
+    for (let ix = Math.floor((x - r) / CELL); ix <= Math.floor((x + r) / CELL); ix++) {
+      for (let iz = Math.floor((z - r) / CELL); iz <= Math.floor((z + r) / CELL); iz++) {
+        const list = this._colliderCells.get(key(ix, iz));
+        if (!list) continue;
+        for (const c of list) {
+          if (c._seen === stamp) continue;
+          c._seen = stamp;
+          out.push(c);
+        }
+      }
+    }
+    if (out.length > 1) out.sort((a, b) => a._order - b._order);
+    return out;
+  }
+
+  // (Mog City, as js/controllers.js) The low things in his way on foot: the street's benches, the plazas' granite and
+  // planters (window.NYC.breakables; one the car has knocked flying is gone till it is put back) and any fence collider.
+  // Solid to the player below their tops, nothing to him above them; hurdled (wagmi/vault.js). Each a turned box { cx, cz,
+  // cs, sn, hx, hz, top } as the colliders' obb, bucketed once in 16 m cells. The fight's men know them too
+  // (wagmi/combat/enemy.js moveXZ)
+  lowObstacles(x, z, r) {
+    const CELL = 16;
+    const key = (ix, iz) => (ix + 8192) * 16384 + (iz + 8192);
+    if (!this._lowCells) {
+      const N = window.NYC, all = [];
+      for (const c of this.colliders) if (c.fence && c.obb) all.push({ ...c.obb, top: c.maxY, fence: true });
+      const HEIGHT = { bench: 0.92, granite: 0.46, planter: 0.85 };
+      for (const b of N.breakables || []) {
+        if (!(b.kind in HEIGHT) || !b.w) continue;
+        const yaw = b.yaw || 0;
+        all.push({ cx: b.x, cz: b.z, cs: Math.cos(yaw), sn: Math.sin(yaw), hx: b.w * 0.5, hz: b.d * 0.5, top: (b.y || 0.24) + HEIGHT[b.kind], b, kind: b.kind });
+      }
+      this._lowCells = new Map();
+      for (const o of all) {
+        const ex = Math.abs(o.cs) * o.hx + Math.abs(o.sn) * o.hz, ez = Math.abs(o.sn) * o.hx + Math.abs(o.cs) * o.hz;
+        for (let ix = Math.floor((o.cx - ex) / CELL); ix <= Math.floor((o.cx + ex) / CELL); ix++) {
+          for (let iz = Math.floor((o.cz - ez) / CELL); iz <= Math.floor((o.cz + ez) / CELL); iz++) {
+            const k = key(ix, iz);
+            let list = this._lowCells.get(k);
+            if (!list) this._lowCells.set(k, (list = []));
+            list.push(o);
+          }
+        }
+      }
+      this._lowList = [];
+      this._lowSeen = new Set();
+    }
+    const out = this._lowList, seen = this._lowSeen;
+    out.length = 0;
+    seen.clear();
+    for (let ix = Math.floor((x - r) / CELL); ix <= Math.floor((x + r) / CELL); ix++) {
+      for (let iz = Math.floor((z - r) / CELL); iz <= Math.floor((z + r) / CELL); iz++) {
+        const list = this._lowCells.get(key(ix, iz));
+        if (!list) continue;
+        for (const o of list) if (!seen.has(o) && !(o.b && o.b.taken)) { seen.add(o); out.push(o); }
+      }
+    }
+    return out;
+  }
+
+  // (Mog City, as js/controllers.js) Kept out of the low things whose tops are above his feet (pos.y), a body r m round:
+  // out the nearest side of the box grown by r. this.vaultPass: the ones he is going over now (wagmi/vault.js), let
+  // through. True when moved
+  resolveLowCollision(pos, r) {
+    let hit = false;
+    for (const o of this.lowObstacles(pos.x, pos.z, r + 1)) {
+      if (pos.y >= o.top - 0.04 || (this.vaultPass && this.vaultPass.includes(o))) continue;
+      const dx = pos.x - o.cx, dz = pos.z - o.cz;
+      const lx = dx * o.cs - dz * o.sn, lz = dx * o.sn + dz * o.cs;
+      const ex = o.hx + r, ez = o.hz + r;
+      if (Math.abs(lx) >= ex || Math.abs(lz) >= ez) continue;
+      let qx = lx, qz = lz;
+      if (ex - Math.abs(lx) < ez - Math.abs(lz)) qx = Math.sign(lx || 1) * ex; else qz = Math.sign(lz || 1) * ez;
+      pos.x = o.cx + qx * o.cs + qz * o.sn;
+      pos.z = o.cz - qx * o.sn + qz * o.cs;
+      hit = true;
+    }
+    return hit;
+  }
+
+  // (Mog City, as js/controllers.js) The nearest low thing a body r m round, at (x, z) and going along (ux, uz), meets
+  // within `reach` m: { o, enter, exit, mid, depth }, or null. y: his feet (the things below them don't count); skip:
+  // ones not to count
+  lowAhead(x, z, y, ux, uz, r, reach, skip = null) {
+    let best = null;
+    const slab = (p, v, h) => {
+      if (Math.abs(v) < 1e-9) return Math.abs(p) < h ? [-Infinity, Infinity] : null;
+      const a = (-h - p) / v, b = (h - p) / v;
+      return a < b ? [a, b] : [b, a];
+    };
+    for (const o of this.lowObstacles(x + ux * reach * 0.5, z + uz * reach * 0.5, reach * 0.5 + r + 1)) {
+      if (y >= o.top - 0.04 || (skip && skip.includes(o))) continue;
+      const dx = x - o.cx, dz = z - o.cz;
+      const lx = dx * o.cs - dz * o.sn, lz = dx * o.sn + dz * o.cs;
+      const vx = ux * o.cs - uz * o.sn, vz = ux * o.sn + uz * o.cs;
+      const sx = slab(lx, vx, o.hx + r), sz = slab(lz, vz, o.hz + r);
+      if (!sx || !sz) continue;
+      const enter = Math.max(sx[0], sz[0]), exit = Math.min(sx[1], sz[1]);
+      if (exit <= enter || exit <= 0 || enter > reach) continue;
+      const ix = slab(lx, vx, o.hx), iz = slab(lz, vz, o.hz);
+      const depth = ix && iz ? Math.max(0, Math.min(ix[1], iz[1]) - Math.max(ix[0], iz[0])) : 0;
+      if (!best || enter < best.enter) best = { o, enter, exit, mid: (enter + exit) * 0.5, depth };
+    }
+    return best;
+  }
+
+  isWorldPositionClear(pos, heading=0, mode=this.activeMode, padding=0) {
+    const G=window.NYC.WorldCollision;
+    // (Mog City: the car's own body, wagmi/game.js car.body, when it has one)
+    const shape=mode==='car'?G.carShape(pos,heading,padding,this.entities.car&&this.entities.car.body):G.circleShape(pos,({person:.48,cyclist:.65,helicopter:4.5}[mode]||.48)+padding);
+    const y=pos.y+(mode==='helicopter'?0:1);
+    for(const c of this.nearColliders(pos.x,pos.z,shape.reach)){
+      if(y>c.maxY+1.5||y<(c.minY??-Infinity)-BELOW_COLLIDER)continue;
+      if(G.contact(shape,c))return false;
+    }
+    return true;
+  }
+
+  resolveHorizontalCollision(pos, radius, yHeight = 1.0, carEntity = null) {
+    // Ground modes stay in the detailed core; helicopters can explore the measured region.
+    const heli = this.activeMode === 'helicopter';
+    const bounds = heli && window.NYC.FLIGHT_BOUNDS || ISLAND_BOUNDS;
+    const m = heli && !window.NYC.FLIGHT_BOUNDS ? 6000 : 0;
+    pos.x = Math.max(bounds.minX - m, Math.min(bounds.maxX + m, pos.x));
+    pos.z = Math.max(bounds.minZ + (heli ? -m : 30), Math.min(bounds.maxZ + m, pos.z));
+    // never into the bay: back to the last dry spot. (Mog City: the player's own models only; the game's probes and the
+    // other things it moves pass their own scratch vectors in, one shared by many, whose last dry spot would be another
+    // thing's. They are kept off the water as New York's are, by the shore bounds below)
+    const own = this.entities && (pos === this.entities.person.position || pos === this.entities.car.position || pos === this.entities.cyclist.position);
+    if (!heli && own) {
+      if (!this._dry) this._dry = new WeakMap();
+      const dry = this._dry.get(pos);
+      if (inBay(pos.x, pos.z)) {
+        if (dry) {
+          pos.x = dry.x;
+          pos.z = dry.z;
+          if (carEntity && carEntity.speed) carEntity.speed *= 0.4;
+        }
+      } else if (dry) {
+        dry.x = pos.x;
+        dry.z = pos.z;
+      } else {
+        this._dry.set(pos, { x: pos.x, z: pos.z });
+      }
+    }
+    if (this.activeMode !== 'helicopter' && getIslandBoundsAtZ) {
+      const shore = getIslandBoundsAtZ(pos.z);
+      const minShoreX = shore.westX + 8.0;
+      const maxShoreX = shore.eastX - 8.0;
+      if (pos.x < minShoreX) {
+        pos.x = minShoreX;
+        if (carEntity && carEntity.speed) carEntity.speed *= 0.4;
+      } else if (pos.x > maxShoreX) {
+        pos.x = maxShoreX;
+        if (carEntity && carEntity.speed) carEntity.speed *= 0.4;
+      }
+    }
+
+    // (Mog City) A wall probe made at a flat city's height (the game's older ones ask at y 1, New York's street being y 0)
+    // counts at a metre over the ground here: below it, on a hill, every building would be passed through
+    if (!heli) {
+      const g = terrainY(pos.x, pos.z);
+      if (yHeight < g + 0.5) yHeight = g + 1.0;
+    }
+    const G=window.NYC.WorldCollision;
+    // (Mog City: a car's own body against the walls, wagmi/game.js car.body: Dan's car, a world's car; else the fork's
+    // robotaxi footprint)
+    const body=carEntity&&carEntity.body;
+    const shapeAt=()=>carEntity?G.carShape(pos,carEntity.heading,0,body):G.circleShape(pos,radius);
+    // Revisit intersecting walls at corners, but keep deep-spawn recovery bounded.
+    for(let pass=0;pass<4;pass++){
+      let shape=shapeAt(),moved=false;
+      const near=this.nearColliders(pos.x,pos.z,shape.reach+1);
+      for(const c of near){
+        if(yHeight>c.maxY+1.5||yHeight<(c.minY??-Infinity)-BELOW_COLLIDER)continue;
+        const hit=G.contact(shape,c);if(!hit)continue;
+        const {nx,nz,depth,point}=hit;
+        pos.x+=nx*(depth+G.SKIN);pos.z+=nz*(depth+G.SKIN);moved=true;
+        this.lastWorldContact={...point,nx,nz,depth,collider:c};
+        this.worldContactCount=(this.worldContactCount||0)+1;
+        if(carEntity)this.carWallHit(carEntity,nx,nz,point,c);
+        shape=shapeAt();
+      }
+      if(!moved)break;
+    }
+    // (Mog City: the player on foot, by whatever moves him (his walk, the fight's footwork and moves, a dive out of
+    // the car), is kept out of the low things too: benches, the plazas' granite and planters)
+    if (!carEntity && pos === this.entities?.person?.position) this.resolveLowCollision(pos, radius);
+  }
+
+  // (Mog City) A car against a wall (normal nx, nz out of it, at point): Mog City's knock, as New York's
+  // js/controllers.js gives it, once an update: some of the speed into the wall thrown back off it, square on a bounce
+  // back, at a slant a spin; the chassis pitched, rolled and heaved; the crash told (wagmi/crash: car.crash.wall(how
+  // hard, the normal, how square on, where, what)) and a spark. The fork's own inelastic wall for the rest of the update
+  // (its steps are 15 cm, several a frame) and for a graze: the way into the wall taken out, the rest kept
+  carWallHit(car, nx, nz, point, c) {
+    const sinH = Math.sin(car.heading), cosH = Math.cos(car.heading);
+    const vx = sinH * car.speed + (car.vx || 0), vz = cosH * car.speed + (car.vz || 0);
+    const vn = -(vx * nx + vz * nz);
+    if (vn <= 0) return;
+    if (vn <= 0.5 || car._wallStep === this._step) {
+      const tx = vx + nx * vn, tz = vz + nz * vn;
+      car.speed = tx * sinH + tz * cosH;
+      car.vx = tx - sinH * car.speed;
+      car.vz = tz - cosH * car.speed;
+      return;
+    }
+    car._wallStep = this._step;
+    const headOn = Math.abs(sinH * nx + cosH * nz);
+    const sideDot = cosH * nx - sinH * nz;
+    car.vx = (car.vx || 0) + nx * vn * 0.42;
+    car.vz = (car.vz || 0) + nz * vn * 0.42;
+    if (headOn > 0.72) {
+      car.speed = -car.speed * 0.25;
+    } else {
+      car.speed *= (1.0 - 0.62 * headOn);
+      car.angularVel = (car.angularVel || 0) + sideDot * (sinH * nx + cosH * nz >= 0 ? -1 : 1) * Math.min(3.2, vn * 0.22);
+    }
+    car.pitchVel = (car.pitchVel || 0) + (sinH * nx + cosH * nz) * Math.min(14.0, vn) * 0.16;
+    car.rollVel = (car.rollVel || 0) - sideDot * Math.min(14.0, vn) * 0.22;
+    car.heaveVel = (car.heaveVel || 0) + Math.min(1.4, vn * 0.11);
+    if (car.crash) car.crash.wall(vn, nx, nz, headOn, point.x, point.z, c);
+    if (vn > 2.2) car.lastCollisionSpark = { x: point.x, y: (car.position ? car.position.y : 0) + 0.56, z: point.z, nx, nz, speed: vn };
+  }
+
+  // Pose the skinned characters once every entity has moved: the pedestrian's rig walks (or runs, turns, jumps) it to
+  // where it now is, planting its feet on the ground; the cyclist sits on the bike, hands on the grips, feet on the
+  // pedals, helmet on its head
+  poseCharacters(dt) {
+    const p = this.entities.person;
+    const air = p.position.y - this.getGroundHeight(p.position.x, p.position.z, 'person');
+    // (Mog City: a player model of its own animates itself; the procedural walker only without one)
+    if (p.model) p.model.update(dt, p, air > 0.02 ? air : 0);
+    else {
+      p.rig.update(dt, p.position.x, p.position.z, p.heading, personGround, this, air > 0.02 ? air : 0);
+      p.crowd.begin();
+      p.crowd.add(p.rig, 0);
+      p.crowd.end();
+    }
+
+    const b = this.entities.cyclist;
+    b.riderRig.ride(b.leanPivot, b.pedalPhase, b.bikeFrame);
+    b.riderCrowd.begin();
+    b.riderCrowd.add(b.riderRig, 0);
+    b.riderCrowd.end();
+    b.helmet.quaternion.copy(b.riderRig.headQuaternion);
+    b.helmet.position.set(0, 0.175, -0.012).applyQuaternion(b.helmet.quaternion).add(b.riderRig.headPosition);
+  }
+
+  update(dt, elapsed) {
+    this._step++;
+    level.y = this.getActiveEntity().position.y;
+    const heli = this.entities.helicopter;
+    heli.mainRotorPivot.rotation.y += dt * 24.0;
+    heli.tailRotorPivot.rotation.x += dt * 32.0;
+
+    if (this.activeMode === 'person') {
+      this.updatePerson(dt, elapsed);
+    } else if (this.entities.person.inVehicle) {
+      // (Mog City: the player is in the car, the body put away until they get out)
+      this.entities.person.speed = 0;
+    } else {
+      // Keep the sidewalk pedestrian walking naturally when not actively controlled
+      const p = this.entities.person;
+      const walkSpeed = 1.48;
+      p.speed = walkSpeed;
+      p.position.x += Math.sin(p.heading) * walkSpeed * dt;
+      p.position.z += Math.cos(p.heading) * walkSpeed * dt;
+      p.position.y = this.getGroundHeight(p.position.x, p.position.z, 'person');
+      if (p.position.z < -340) p.heading = 0;
+      else if (p.position.z > 340) p.heading = Math.PI;
+    }
+
+    if (this.activeMode === 'car') {
+      this.updateCar(dt, elapsed);
+    } else if (this.activeMode === 'cyclist') {
+      this.updateCyclist(dt, elapsed);
+    } else if (this.activeMode === 'helicopter') {
+      this.updateHelicopter(dt, elapsed);
+    }
+
+    for (const key of Object.keys(this.entities)) {
+      const e = this.entities[key];
+      e.mesh.position.copy(e.position);
+      e.mesh.rotation.y = e.heading;
+    }
+
+    // Modulate clustered vehicle & bike lights by time of day (off during Midday & Golden Hour; fade in at Dusk & Night)
+    const glow = cityUniforms && cityUniforms.uInteriorGlow ? cityUniforms.uInteriorGlow.value : 0.48;
+    const beamScale = Math.min(1.28, Math.max(0.0, (glow - 0.60) * 1.45));
+    const car = this.entities.car;
+    if (car.headLights) {
+      for (const spot of car.headLights) {
+        // Accelerating does not change the headlamp output or range.
+        spot.intensity = HEADLIGHTS.intensity * beamScale;
+      }
+    }
+    const bike = this.entities.cyclist;
+    if (bike.headLight) {
+      const bikeActive = this.activeMode === 'cyclist';
+      bike.headLight.intensity = bikeActive ? 115 * beamScale : 0;
+    }
+
+    this.poseCharacters(dt);
+  }
+
+  // (Mog City, as js/controllers.js) On foot the move keys, the touch stick and a game pad's stick all point the way to
+  // go from the camera: W (the stick up) away from the lens, S toward it, A and D to its left and right; the same in a
+  // fight (wagmi/combat/hero.js). This frame's, in this.footMove: { mag 0..1, x, z (the way in the world, unit), away
+  // (1: straight away from the lens, 0: across it, -1: toward it) }, also read by the hurdle and the fight's camera
+  readFootMove() {
+    const k = this.keys;
+    const m = this.footMove;
+    const f = (+k.forward || 0) - (+k.backward || 0), s = (+k.right || 0) - (+k.left || 0), L = Math.hypot(f, s);
+    m.mag = Math.min(1, L);
+    m.away = L > 1e-6 ? f / L : 0;
+    const cs = (this._footCam = this.cameraSystem || window.__NYC_APP?.cameraSystem || null);
+    if (L < 1e-6 || !cs) { m.x = 0; m.z = 0; return m; }
+    cs.camera.getWorldDirection(_footView);
+    const yaw = Math.atan2(_footView.x, _footView.z), fx = Math.sin(yaw), fz = Math.cos(yaw);
+    // (along the view, and its screen right: (-cos, sin))
+    const dx = fx * f - fz * s, dz = fz * f + fx * s, n = Math.hypot(dx, dz) || 1;
+    m.x = dx / n; m.z = dz / n;
+    return m;
+  }
+
+  // (Mog City, as js/controllers.js) He turns briskly to the way he is sent; the view stays where it looks while he
+  // turns and comes round behind him only lazily, only while he walks away from it (unless another camera holds the
+  // view: p.viewHeld()). Returns the share of the walk he makes this frame (less while turning right round)
+  walkToward(p, mv, cs, dt) {
+    const d = wrapAngle(Math.atan2(mv.x, mv.z) - p.heading);
+    const turn = Math.sign(d) * Math.min(Math.abs(d), FOOT_TURN * dt);
+    p.heading += turn;
+    if (!(p.viewHeld && p.viewHeld())) {
+      cs.orbitYawOffset = wrapAngle(cs.orbitYawOffset - turn);
+      const w = Math.max(0, Math.min(1, (mv.away - 0.2) / 0.8));
+      if (w > 0 && !cs.isDragging && cs.userOrbitTimer < 2.5) cs.orbitYawOffset *= Math.exp(-FOOT_FOLLOW * w * dt);
+    }
+    cs.userOrbitTimer = Math.max(cs.userOrbitTimer, mv.away > 0.6 ? 0.25 : 0.65);
+    return Math.abs(d) > 2.2 ? 0.3 : 1;
+  }
+
+  updatePerson(dt) {
+    const p = this.entities.person;
+    const mv = this.readFootMove();
+    // (Mog City: in a fight, or in the middle of a move, the fight moves him itself, with the same collision and ground
+    // as below. True when it did)
+    if (p.control && p.control(dt, this.keys, this)) return;
+    const maxWalk = this.keys.boost ? 8.2 : 4.4;
+    const turnRate = 2.6;
+
+    let targetSpeed = 0;
+    const cs = this._footCam;
+    if (cs) {
+      if (mv.mag > 0.02) targetSpeed = maxWalk * mv.mag * this.walkToward(p, mv, cs, dt);
+    } else {
+      // (no camera to go by: the keys turn him)
+      if (this.keys.forward) targetSpeed = maxWalk * this.keys.forward;
+      else if (this.keys.backward) targetSpeed = -maxWalk * 0.65 * this.keys.backward;
+      if (this.keys.left) p.heading += turnRate * dt * this.keys.left;
+      if (this.keys.right) p.heading -= turnRate * dt * this.keys.right;
+    }
+
+    // slower uphill: the grade along the way it walks (or backs)
+    if (targetSpeed !== 0) targetSpeed *= 1 - Math.min(0.5, Math.max(0, this.gradeAlong(p, Math.sign(targetSpeed)) * 0.8));
+    p.speed += (targetSpeed - p.speed) * Math.min(1, dt * 10);
+
+    p.position.x += Math.sin(p.heading) * p.speed * dt;
+    p.position.z += Math.cos(p.heading) * p.speed * dt;
+    this.resolveHorizontalCollision(p.position, 0.48, p.position.y + 1.0);
+    // (Mog City: what else is solid to him, his parked car)
+    if (p.collide) p.collide(p.position, 0.48);
+
+    const groundY = this.getGroundHeight(p.position.x, p.position.z, 'person');
+    // (Mog City: a hurdle taken on Space (wagmi/vault.js) sets jumpHeld: no jump on landing till Space is let go)
+    if (!this.keys.up) p.jumpHeld = false;
+    if (this.keys.up && !p.jumpHeld && p.position.y <= groundY + 0.02) {
+      p.verticalVel = 5.2;
+    }
+    // Walking down a slope (or off a curb) the feet stay on the ground: a step down of under STEP_DOWN m while not
+    // jumping follows the ground instead of falling
+    const wasGrounded = p.verticalVel === 0;
+    p.verticalVel -= 14.5 * dt;
+    p.position.y += p.verticalVel * dt;
+    if (p.position.y < groundY || (wasGrounded && p.position.y - groundY < STEP_DOWN)) {
+      p.position.y = groundY;
+      p.verticalVel = 0;
+    }
+  }
+
+  // Rise over run of the ground along the entity's heading (dir -1: backwards), over the next metre
+  gradeAlong(ent, dir = 1) {
+    const sh = Math.sin(ent.heading) * dir, ch = Math.cos(ent.heading) * dir;
+    const x = ent.position.x, z = ent.position.z;
+    return terrainY(x + sh * 0.5, z + ch * 0.5) - terrainY(x - sh * 0.5, z - ch * 0.5);
+  }
+
+  // (Mog City, as js/controllers.js) Keyboard steering for a car with c.handling { rMin, yawMax, grip, rampIn: [slow,
+  // fast], rampOut, vRef }: the key moves a steer (c.steerK) at a steady slew to full lock and back; full lock turns it
+  // a circle of rMin m at walking pace, no faster than yawMax rad/s and no harder than grip m/s² sideways; its front
+  // wheels at the angle that turn takes (c.steerAngle). Returns full lock's yaw rate now (rad/s)
+  steerHandled(c, input, dt) {
+    const H = c.handling;
+    const v = Math.abs(c.speed);
+    let s = c.steerK || 0;
+    if (input * s < 0 || Math.abs(input) < Math.abs(s)) {
+      s += Math.max(-dt / H.rampOut, Math.min(dt / H.rampOut, input - s));
+    } else {
+      const k = Math.min(1, v / H.vRef);
+      const T = H.rampIn[0] + (H.rampIn[1] - H.rampIn[0]) * k;
+      s += Math.max(-dt / T, Math.min(dt / T, input - s));
+    }
+    c.steerK = s;
+    const full = (u) => Math.min(u / H.rMin, H.yawMax, H.grip / Math.max(u, 0.1));
+    const yawFull = full(v);
+    if (v > 0.2) c.heading += s * yawFull * (c.speed >= 0 ? 1 : -1) * dt;
+    const u = Math.max(v, 1.5);
+    c.steerAngle = s * Math.atan(((c.axle || 1.45) * 2 * full(u)) / u);
+    return yawFull;
+  }
+
+  // (Mog City) The car on the ground under its wheels: y between its axles (c.axle either side of its middle, the
+  // fork's wheelbase without one) and pitch and roll toward the ground there (the terrain, a deck, up the curb on a
+  // sidewalk: getGroundHeight 'car'), eased as the fork's settleOnTerrain eases them; up a step (a curb) with a jolt
+  // through the springs and over a crest or off a step falling to the ground, as New York's car does
+  settleCar(c, dt) {
+    const sh = Math.sin(c.heading), ch = Math.cos(c.heading);
+    const half = c.axle || CAR_AXLES.wheelbase / 2, t = c.body ? c.body.hx * 0.78 : CAR_AXLES.track / 2;
+    const x = c.position.x, z = c.position.z;
+    const g = (px, pz) => this.getGroundHeight(px, pz, 'car');
+    const front = g(x + sh * half, z + ch * half), rear = g(x - sh * half, z - ch * half);
+    // local +x is the car's left (it faces +z)
+    const left = g(x + ch * t, z - sh * t), right = g(x - ch * t, z + sh * t);
+    const pitch = Math.atan2(front - rear, half * 2), roll = Math.atan2(left - right, t * 2);
+    if (c.terrainPitch === undefined) { c.terrainPitch = pitch; c.terrainRoll = roll; c.terrainPitchVel = c.terrainRollVel = 0; }
+    dampTowards(c, 'terrainPitch', pitch, dt);
+    dampTowards(c, 'terrainRoll', roll, dt);
+    const gy = (front + rear) * 0.5;
+    if (gy >= c.position.y || !(c.position.y - gy < 1.5)) {
+      if (gy - c.position.y > 0.03 && gy - c.position.y < 0.6) c.heaveVel -= (gy - c.position.y) * Math.min(10, 3 + Math.abs(c.speed) * 0.4);
+      c.position.y = gy;
+      c.fallVel = 0;
+    } else {
+      c.fallVel = (c.fallVel || 0) + GRAVITY * dt;
+      c.position.y = Math.max(gy, c.position.y - c.fallVel * dt);
+      if (c.position.y === gy) c.fallVel = 0;
+    }
+    c.mesh.rotation.order = 'YXZ';
+    c.mesh.rotation.x = -c.terrainPitch; // nose up is a negative turn about +x
+    c.mesh.rotation.z = c.terrainRoll;
+  }
+
+  updateCar(dt) {
+    const c = this.entities.car;
+    const oldHeading=c.heading;
+    c.collisionCooldown=Math.max(0,(c.collisionCooldown||0)-dt);
+    // (Mog City: a car may bring its own pace: topSpeed, boostSpeed, accel, boostAccel; and how it slows: rolling, drag,
+    // coast, brake, boostBrake. Its speed from them: driveSpeed; the defaults are the fork's numbers)
+    const maxSpeed = this.keys.boost ? (c.boostSpeed ?? 36.0) : (c.topSpeed ?? 23.5);
+    const brake = c.brake ?? 9.0;
+    const drive = Object.assign(_drive, {
+      speed: c.topSpeed ?? 23.5, boostSpeed: c.boostSpeed ?? 36.0, reverse: 0.45, accel: c.accel ?? 14.0, boostAccel: c.boostAccel ?? 21.0,
+      rolling: c.rolling ?? 0.18, drag: c.drag ?? 0.0012, coast: c.coast ?? 0.6, brake, boostBrake: c.boostBrake ?? brake
+    });
+
+    let throttle = 0;
+    if (this.keys.forward) throttle = this.keys.forward;
+    else if (this.keys.backward) throttle = -this.keys.backward;
+
+    const speed0 = c.speed;
+    c.speed = driveSpeed(c.speed, throttle, this.keys.boost, dt, drive);
+    // Grade: gravity along the slope (scaled down: the engine & brakes do the rest); a car left without throttle
+    // below walking pace holds on the brake instead of rolling
+    if (c.terrainPitch !== undefined && (throttle !== 0 || Math.abs(c.speed) > 1)) {
+      c.speed -= GRAVITY * Math.sin(c.terrainPitch) * CAR_GRADE * dt;
+    }
+    // (what the drive did to its speed, m/s^2: the chassis pitches with it, below)
+    const acceleration = dt > 0 ? (c.speed - speed0) / dt : 0;
+
+    let steerInput = 0;
+    if (this.keys.left) steerInput = this.keys.left;
+    if (this.keys.right) steerInput = -this.keys.right;
+    const steerHeld = +steerInput; // (the player's steer as held: a key, the touch stick or the pad's stick, analog)
+
+    // (Mog City: a car with its own handling, c.handling, steers for a keyboard: see steerHandled)
+    let yawFull = 0;
+    if (c.handling) {
+      yawFull = this.steerHandled(c, steerInput, dt);
+      steerInput = c.steerK;
+    } else {
+      c.steerAngle += (steerInput * 0.52 - c.steerAngle) * Math.min(1, dt * 10);
+      if (Math.abs(c.speed) > 0.2) {
+        const dirSign = c.speed >= 0 ? 1 : -1;
+        const speedFactor = Math.min(1.0, Math.abs(c.speed) / 8.0);
+        c.heading += c.steerAngle * 2.4 * speedFactor * dirSign * dt;
+      }
+    }
+
+    // Integrate collision yaw spin & lateral tire slip velocity with asphalt grip damping
+    const tireGripDamp = Math.exp(-dt * 6.8);
+    c.heading += c.angularVel * dt;
+    // (Mog City: steering against a knock's spin catches it about twice as fast)
+    const counter = Math.abs(steerHeld) > 0.2 && steerHeld * (c.speed < 0 ? -1 : 1) * c.angularVel < 0;
+    c.angularVel *= Math.exp(-dt * (counter ? 14 : 7.8));
+
+    const prevX = c.position.x;
+    const prevZ = c.position.z;
+    const finalHeading=c.heading,headingStep=finalHeading-oldHeading;
+    const reach=window.NYC.WorldCollision.bodyReach?window.NYC.WorldCollision.bodyReach(c.body):window.NYC.WorldCollision.CAR_REACH;
+    const travel=Math.hypot(Math.sin(finalHeading)*c.speed+c.vx,Math.cos(finalHeading)*c.speed+c.vz)*dt;
+    // Bound both translation and the arc travelled by the bumper during a turn (the fork's 15 cm steps). (Mog City:
+    // c.crash.step after each, what else it runs into: the traffic, the street furniture, the trees, wagmi/crash)
+    const steps=Math.max(1,Math.ceil((travel+Math.abs(headingStep)*reach)/.15));
+    const contacts=this.worldContactCount||0;
+    for(let step=1;step<=steps;step++){
+      c.heading=oldHeading+headingStep*step/steps;
+      c.position.x+=(Math.sin(c.heading)*c.speed+c.vx)*dt/steps;
+      c.position.z+=(Math.cos(c.heading)*c.speed+c.vz)*dt/steps;
+      this.resolveHorizontalCollision(c.position,reach,c.position.y+1,c);
+      if (c.crash) c.crash.step(dt / steps);
+    }
+    c.vx*=tireGripDamp;c.vz*=tireGripDamp;
+    if(c.rideMetrics)c.rideMetrics.worldContacts+=(this.worldContactCount||0)-contacts;
+    this.settleCar(c, dt);
+
+    // 3-DOF Spring-Damper Chassis Suspension (Pitch, Roll & Vertical Heave)
+    // (Mog City, after Slop New York f3132b6: nose up as it pulls, down as it slows, level at a steady cruise; full at
+    // its accel. A handled car rolls with its turn's sideways pull)
+    const targetPitch = -Math.max(-1, Math.min(1, acceleration / drive.accel)) * 0.026;
+    const targetRoll = c.handling ? -c.steerK * yawFull * c.speed * 0.0016 : -c.steerAngle * (c.speed / maxSpeed) * 0.092;
+    const springK = 68.0;
+    const dampC = 11.2;
+    c.pitchVel += ((targetPitch - c.chassisPivot.rotation.x) * springK - c.pitchVel * dampC) * dt;
+    c.rollVel += ((targetRoll - c.chassisPivot.rotation.z) * springK - c.rollVel * dampC) * dt;
+    c.chassisPivot.rotation.x = Math.max(-0.22, Math.min(0.22, c.chassisPivot.rotation.x + c.pitchVel * dt));
+    c.chassisPivot.rotation.z = Math.max(-0.26, Math.min(0.26, c.chassisPivot.rotation.z + c.rollVel * dt));
+
+    c.heaveVel += (-c.heaveY * 85.0 - c.heaveVel * 12.0) * dt;
+    c.heaveY = Math.max(-0.08, Math.min(0.14, c.heaveY + c.heaveVel * dt));
+    c.chassisPivot.position.y = c.heaveY;
+    if (c.onUpdate) c.onUpdate(dt, this.keys, throttle, steerInput);
+
+    if (c.carState) {
+      c.carState.value.x = throttle < 0 || Math.abs(c.speed) < 0.6 ? 1 : 0;
+    }
+
+    const forwardDist = (c.position.x - prevX) * Math.sin(c.heading) + (c.position.z - prevZ) * Math.cos(c.heading);
+    const rawWheelStep = forwardDist / 0.35;
+    const wheelStep = Math.sign(rawWheelStep) * Math.min(Math.abs(rawWheelStep), 0.48);
+    c.wheelSpin = (c.wheelSpin + wheelStep) % (Math.PI * 2);
+    for (const w of c.wheels) {
+      w.tire.rotation.x = c.wheelSpin + (w.isFront ? 0.0 : 0.55);
+      if (w.isFront) {
+        w.steerPivot.rotation.y = c.steerAngle;
+      }
+    }
+  }
+
+  updateCyclist(dt) {
+    const b = this.entities.cyclist;
+    const maxSpeed = this.keys.boost ? 19.0 : 12.8;
+    const accel = this.keys.boost ? 13.5 : 9.0;
+
+    let throttle = 0;
+    if (this.keys.forward) throttle = this.keys.forward;
+    else if (this.keys.backward) throttle = -0.6 * this.keys.backward;
+
+    if (throttle !== 0) {
+      b.speed += throttle * accel * dt;
+      b.speed = Math.max(-4.5, Math.min(maxSpeed, b.speed));
+    } else {
+      b.speed *= Math.max(0, 1 - dt * 2.4);
+      if (Math.abs(b.speed) < 0.05) b.speed = 0;
+    }
+    // Grade: legs feel the climbs more than an engine does
+    if (b.terrainPitch !== undefined && (throttle !== 0 || Math.abs(b.speed) > 1)) {
+      const k = b.terrainPitch * Math.sign(b.speed || 1) > 0 ? BIKE_GRADE_UP : CAR_GRADE;
+      b.speed -= GRAVITY * Math.sin(b.terrainPitch) * k * dt;
+    }
+
+    let turnInput = 0;
+    if (this.keys.left) turnInput = this.keys.left;
+    if (this.keys.right) turnInput = -this.keys.right;
+
+    if (Math.abs(b.speed) > 0.15) {
+      const dirSign = b.speed >= 0 ? 1 : -1;
+      b.heading += turnInput * 2.15 * dirSign * dt;
+    }
+
+    b.position.x += Math.sin(b.heading) * b.speed * dt;
+    b.position.z += Math.cos(b.heading) * b.speed * dt;
+    this.resolveHorizontalCollision(b.position, 0.65, b.position.y + 1.0);
+    this.settleOnTerrain(b, false, dt);
+
+    const targetLean = -turnInput * Math.min(1.0, Math.abs(b.speed) / 9.0) * 0.34;
+    b.leanAngle += (targetLean - b.leanAngle) * Math.min(1, dt * 9);
+    b.leanPivot.rotation.z = b.leanAngle;
+
+    const wheelDelta = (b.speed / 0.35) * dt;
+    b.frontWheel.rotation.x += wheelDelta;
+    b.rearWheel.rotation.x += wheelDelta;
+
+    // The cranks turn with the rear wheel through the gears while pedalling (~110 rpm at cruising speed) and
+    // freewheel otherwise; the rider's feet follow the pedals (see poseCharacters)
+    if (throttle > 0 && wheelDelta > 0) b.pedalPhase += wheelDelta / 3.2;
+    b.crankPivot.rotation.x = b.pedalPhase;
+    for (const pedal of b.pedals) pedal.rotation.x = -b.pedalPhase;
+  }
+
+  updateHelicopter(dt, elapsed) {
+    const h = this.entities.helicopter;
+    const maxHorizSpeed = this.keys.boost ? 52.0 : 32.0;
+    const maxVertSpeed = 16.0;
+
+    let fwdInput = 0;
+    if (this.keys.forward) fwdInput = this.keys.forward;
+    else if (this.keys.backward) fwdInput = -this.keys.backward;
+
+    let yawInput = 0;
+    if (this.keys.left) yawInput = this.keys.left;
+    if (this.keys.right) yawInput = -this.keys.right;
+
+    let vertInput = 0;
+    if (this.keys.up) vertInput = this.keys.up;
+    else if (this.keys.down) vertInput = -this.keys.down;
+
+    if (fwdInput !== 0) {
+      h.speed += fwdInput * 24.0 * dt;
+      h.speed = Math.max(-maxHorizSpeed * 0.6, Math.min(maxHorizSpeed, h.speed));
+    } else {
+      h.speed *= Math.max(0, 1 - dt * 1.8);
+    }
+
+    if (vertInput !== 0) {
+      h.verticalSpeed += vertInput * 22.0 * dt;
+      h.verticalSpeed = Math.max(-maxVertSpeed, Math.min(maxVertSpeed, h.verticalSpeed));
+    } else {
+      h.verticalSpeed *= Math.max(0, 1 - dt * 3.5);
+    }
+
+    h.heading += yawInput * 1.45 * dt;
+
+    h.position.x += Math.sin(h.heading) * h.speed * dt;
+    h.position.z += Math.cos(h.heading) * h.speed * dt;
+    h.position.y += h.verticalSpeed * dt;
+
+    // No lower than 2 m over the ground under the rotor disc, and a soft ceiling HELI_CEILING m above the ground
+    let floorY = -Infinity;
+    for (const [ox, oz] of [[0, 0], [4.5, 0], [-4.5, 0], [0, 4.5], [0, -4.5]]) floorY = Math.max(floorY, terrainY(h.position.x + ox, h.position.z + oz));
+    const ceiling = floorY + HELI_CEILING;
+    if (h.position.y > ceiling) {
+      h.position.y += (ceiling - h.position.y) * Math.min(1, dt * 2);
+      h.verticalSpeed = Math.min(h.verticalSpeed, 0);
+    }
+    if (h.position.y < floorY + 2) {
+      h.position.y = floorY + 2;
+      h.verticalSpeed = Math.max(h.verticalSpeed, 0);
+    }
+    this.resolveHorizontalCollision(h.position, 4.5, h.position.y);
+
+    const targetPitch = (h.speed / maxHorizSpeed) * 0.24;
+    const targetRoll = -yawInput * 0.28;
+    h.pitchAngle += (targetPitch - h.pitchAngle) * Math.min(1, dt * 5);
+    h.rollAngle += (targetRoll - h.rollAngle) * Math.min(1, dt * 5);
+
+    h.tiltPivot.rotation.x = h.pitchAngle;
+    h.tiltPivot.rotation.z = h.rollAngle;
+    h.tiltPivot.position.y = Math.sin(elapsed * 2.6) * 0.18;
+  }
+}
+
+Object.assign(window.NYC, { ThirdPersonControllerManager });
+})();

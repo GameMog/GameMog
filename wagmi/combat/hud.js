@@ -14,10 +14,21 @@
 //  - over a man lying near: the ground finisher's button
 //  - over a bat, a bottle or a trash can by him: the grab key and what it picks up; in his hands: what it is, how much
 //    is left of it (a bat's hits) and its buttons, by his health
+//  - a boss (a creature with a boss's name, wagmi/creatures: c.boss): its name and its health across the top, ticks at
+//    the thresholds where it changes (its phases), the bar pulsing once it is in its last; made the first time there is
+//    one (New York's own game never has one)
 import * as THREE from 'three/webgpu';
 import { clamp } from './util.js';
 
 const Y = '#FFC93C', G = '#4ADE80', R = '#EF4444', PANEL = 'rgba(8,10,14,0.62)';
+// (the HUD's left column, for the edge markers to keep off: read twice a second, not every frame)
+const glassUI = () => typeof document !== 'undefined' && document.documentElement.classList.contains('ui-glass');
+let avoidAt = 0, avoidR = [];
+const hudAvoid = () => {
+  const t = performance.now(); if (t - avoidAt < 500) return avoidR; avoidAt = t;
+  avoidR = [...document.querySelectorAll('.hud-bottom-left, #wg .wg-help.on, #wf .wf-hint.wf-on')].map((e) => e.getBoundingClientRect()).filter((r) => r.width && r.height);
+  return avoidR;
+};
 const CSS = `
 #wf{position:fixed;inset:0;pointer-events:none;z-index:24;font-family:'Barlow Condensed',system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.55)}
 #wf .wf-hp{position:fixed;height:8px;border-radius:3px;background:${PANEL};box-shadow:0 0 0 1px rgba(255,255,255,.14),0 2px 10px rgba(0,0,0,.35);overflow:hidden;opacity:0;transition:opacity .4s}
@@ -116,6 +127,17 @@ body.wf-fight .hud-top-left,body.wf-fight .hud-top-right,body.wf-fight .hud-bott
 #wf .wf-held .wf-pips.wf-low i.wf-gone{background:rgba(255,255,255,.16)}
 #wf .wf-held small{font:600 13px/1 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.05em;opacity:.85}
 #wf .wf-held kbd{font:700 11px/1 'Barlow Condensed',system-ui,sans-serif;border:1.5px solid rgba(255,255,255,.75);border-radius:4px;padding:2px 4px;margin-right:3px}
+#wf .wf-boss{position:fixed;left:50%;top:calc(max(16px,2.4vh) + env(safe-area-inset-top,0px));transform:translate(-50%,-8px);width:min(560px,calc(100vw - 32px));display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transition:opacity .35s,transform .35s}
+#wf .wf-boss.wf-on{opacity:1;transform:translate(-50%,0)}
+#wf .wf-boss .wf-bn{font:italic 800 26px/.95 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+#wf .wf-boss .wf-bk{font:700 11px/1 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.32em;text-transform:uppercase;color:rgba(255,255,255,.72)}
+#wf .wf-boss .wf-bb{position:relative;width:100%;height:10px;border-radius:3px;background:${PANEL};box-shadow:0 0 0 1px rgba(255,255,255,.18),0 2px 12px rgba(0,0,0,.4);overflow:hidden}
+#wf .wf-boss .wf-bb i{position:absolute;left:0;top:0;bottom:0;width:100%;transform-origin:0 50%}
+#wf .wf-boss .wf-bb .wf-trail{background:rgba(255,255,255,.85)}
+#wf .wf-boss .wf-bb .wf-fill{background:linear-gradient(180deg,#FF6B6B,${R} 60%,#B91C1C)}
+#wf .wf-boss .wf-bb b{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:rgba(8,10,14,.8)}
+#wf .wf-boss.wf-rage .wf-bb .wf-fill{animation:wfLow .7s ease-in-out infinite}
+@media (max-width:640px){#wf .wf-boss .wf-bn{font-size:21px}#wf .wf-boss .wf-bb{height:8px}}
 `;
 
 export function createHud(c) {
@@ -144,6 +166,35 @@ export function createHud(c) {
   let trailV = 1, hold = 0, lastHp = 100, vigV = 0, bannerT = 0, msgT = 0, hintT = 0, hinted = false, lastN = 0, fightKeys = false;
   const _v = new THREE.Vector3();
   const minimap = () => document.getElementById('minimap-card');
+  // the boss bar (made the first time there is a boss): shown while it is in the fight near him, held a moment after it
+  // goes down (the bar run out), then faded
+  let boss = null, bossOn = false;
+  function bossBar(rdt, S) {
+    const B = c.boss;
+    if (!B && !boss) return;
+    if (!boss) {
+      const el = document.createElement('div'); el.className = 'wf-boss';
+      el.innerHTML = '<div class="wf-bk"></div><div class="wf-bn"></div><div class="wf-bb"><i class="wf-trail"></i><i class="wf-fill"></i></div>';
+      root.appendChild(el);
+      boss = { el, name: el.querySelector('.wf-bn'), kind: el.querySelector('.wf-bk'), bar: el.querySelector('.wf-bb'), fill: el.querySelector('.wf-fill'), trail: el.querySelector('.wf-trail'), who: null, trailV: 1, hold: 0, last: 1, ticks: '' };
+    }
+    const P = c.W.person.position;
+    const on = !!B && !S.cutscene && !['idle', 'home'].includes(B.state) && Math.hypot(B.pos.x - P.x, B.pos.z - P.z) < 45;
+    boss.el.classList.toggle('wf-on', on); bossOn = on;
+    if (!B) return;
+    if (boss.who !== B) {
+      boss.who = B; boss.trailV = 1; boss.last = 1;
+      // (its name, and over it what it is when the name is its own: THE MATRIARCH under T. REX)
+      boss.name.textContent = B.boss?.name || B.name || ''; boss.kind.textContent = B.P?.name && B.P.name !== boss.name.textContent ? B.P.name : '';
+      const ticks = (B.boss?.phases || []).map((t) => `<b style="left:${(t * 100).toFixed(2)}%"></b>`).join('');
+      boss.bar.querySelectorAll('b').forEach((x) => x.remove()); boss.bar.insertAdjacentHTML('beforeend', ticks);
+    }
+    const f = clamp(B.hp / B.maxHp, 0, 1);
+    if (f < boss.last) boss.hold = 0.5; boss.last = f;
+    boss.hold -= rdt; if (f >= boss.trailV) boss.trailV = f; else if (boss.hold <= 0) boss.trailV = Math.max(f, boss.trailV - rdt * 0.5);
+    boss.fill.style.transform = `scaleX(${f})`; boss.trail.style.transform = `scaleX(${boss.trailV})`;
+    const ph = B.boss?.phases || []; boss.el.classList.toggle('wf-rage', !!ph.length && f > 0 && f <= ph[ph.length - 1]);
+  }
   return {
     hurt(k) { vigV = Math.min(1, vigV + 0.45 + k); },
     banner(text, color = Y) { banner.textContent = text; banner.style.color = color; bannerT = 1.0; },
@@ -188,23 +239,26 @@ export function createHud(c) {
       for (const e of c.enemies) {
         if (!S.fighting && !e.engagedOnce) continue;
         let el = tagEls.get(e);
-        const p = e.headPos(_v); p.y += 0.32 * e.scale;
+        // (a creature: over the top of its body, wherever its head is: a scorpion's is down by its claws)
+        const p = e.tagPos ? e.tagPos(_v) : e.headPos(_v); if (!e.tagPos) p.y += 0.32 * e.scale;
         const d = cam.position.distanceTo(p);
         p.project(cam);
         const vis = e.alive && p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && d < 30 && !S.cutscene && e.state !== 'idle';
         if (!vis) { if (el) el.style.display = 'none'; continue; }
         if (!el) {
-          el = document.createElement('div'); el.className = 'wf-tag' + (e.type === 'brute' ? ' wf-brute' : '');
+          el = document.createElement('div'); el.className = 'wf-tag' + (e.type === 'brute' || e.big ? ' wf-brute' : '');
           el.innerHTML = '<div class="wf-bar"><i></i></div><div class="wf-tell">!<i></i></div><div class="wf-cue">!</div><div class="wf-daze"><kbd>E</kbd>GRAB</div><div class="wf-fin"><kbd>RMB</kbd><span>FINISH</span></div>';
           tags.appendChild(el); tagEls.set(e, el); el._bar = el.querySelector('.wf-bar i'); el._cue = el.querySelector('.wf-cue'); el._tell = el.querySelector('.wf-tell'); el._ring = el.querySelector('.wf-tell i'); el._daze = el.querySelector('.wf-daze'); el._fin = el.querySelector('.wf-fin'); el._finT = el.querySelector('.wf-fin span');
         }
         shown.add(e);
         el.style.display = 'block';
         const sc = clamp(9 / Math.max(3, d), 0.6, 1.25);
-        el.style.transform = `translate(${((p.x * 0.5 + 0.5) * W).toFixed(1)}px,${((1 - (p.y * 0.5 + 0.5)) * H).toFixed(1)}px) scale(${sc.toFixed(3)})`;
+        // (under the boss bar while it shows: a big creature's cue over its head would sit behind it)
+        const ty0 = (1 - (p.y * 0.5 + 0.5)) * H, ty = bossOn ? Math.max(118, ty0) : ty0;
+        el.style.transform = `translate(${((p.x * 0.5 + 0.5) * W).toFixed(1)}px,${ty.toFixed(1)}px) scale(${sc.toFixed(3)})`;
         el._bar.style.transform = `scaleX(${clamp(e.hp / e.maxHp, 0, 1)})`;
-        // (his health only over the man Dan is on, or one just hurt)
-        el._bar.parentNode.style.opacity = e === me.target && c.time - me.lastAttackT < 3 || e === me.focus || e.lastHitT > c.time - 3 ? 1 : 0;
+        // (his health only over the man Dan is on, or one just hurt; a boss's is the bar across the top)
+        el._bar.parentNode.style.opacity = !e.boss && (e === me.target && c.time - me.lastAttackT < 3 || e === me.focus || e.lastHitT > c.time - 3) ? 1 : 0;
         const t = S.threats.find((x) => x.e === e), lead = t ? t.at - c.time : 9, open = !!t && c.cueOpen(t);
         el._cue.classList.toggle('wf-on', !!t && lead > -0.1 && open);
         // (winding up, the window not open yet: white, the ring closing on it as the window comes)
@@ -258,7 +312,11 @@ export function createHud(c) {
           el.style.display = 'block';
           el.style.opacity = e.standing ? '1' : '0.5';
           el.classList.toggle('wf-last', standing === 1 && e.standing);
-          el.style.transform = `translate(${((Math.cos(a) / rr * 0.5 + 0.5) * W).toFixed(1)}px,${((1 - (Math.sin(a) / rr * 0.5 + 0.5)) * H).toFixed(1)}px)`;
+          let fx = (Math.cos(a) / rr * 0.5 + 0.5) * W, fy = (1 - (Math.sin(a) / rr * 0.5 + 0.5)) * H;
+          // (a world on the glass theme: never over the HUD's left column, the tracker, the signs and the radar; moved
+          // out to its right edge)
+          if (glassUI()) for (const R of hudAvoid()) if (fx > R.left - 24 && fx < R.right + 24 && fy > R.top - 24 && fy < R.bottom + 24) fx = R.right + 34;
+          el.style.transform = `translate(${fx.toFixed(1)}px,${fy.toFixed(1)}px)`;
           el._i.style.transform = `rotate(${-a}rad)`;
           const d = Math.round(Math.hypot(e.pos.x - q.x, e.pos.z - q.z)) + ' m';
           if (el._d.textContent !== d) el._d.textContent = d;
@@ -292,6 +350,7 @@ export function createHud(c) {
         if (rr && rr.width) { held.style.left = (rr.right - held.offsetWidth) + 'px'; held.style.top = (rr.top - held.offsetHeight - 10) + 'px'; }
         else { const hb = hp.getBoundingClientRect(); held.style.left = (hb.width ? hb.left : 24) + 'px'; held.style.top = (hb.width ? hb.top - 44 : H - 80) + 'px'; }
       }
+      bossBar(rdt, S);
       vigV = Math.max(0, vigV - rdt * 1.5); vig.style.opacity = (Math.max(vigV, f < 0.25 && onFoot ? 0.35 + 0.15 * Math.sin(c.rtime * 6) : 0)).toFixed(3);
       slow.style.opacity = c.slowK > 0.05 ? (c.slowK).toFixed(2) : '0';
       bannerT -= rdt; banner.classList.toggle('wf-on', bannerT > 0);

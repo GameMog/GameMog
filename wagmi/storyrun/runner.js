@@ -30,6 +30,7 @@ import { test, value, flagName } from './cond.js';
 import { createTimers, meterText, deltaText, progress, seen as inSight, band as bandRule, speedRule, MPH } from './rules.js';
 import { createSets } from './sets.js';
 import { createJuice } from './juice.js';
+import { armTo } from '../mission/m3-set.js';
 
 const PI = Math.PI;
 export const KINDS_STUB = new Set(['patrol', 'wallet']);
@@ -68,6 +69,10 @@ const TIPS = {
   speed: ['Watch the ', { 'speed limit': 'yellow' }, ' on the right: ease off before it counts.'],
   wreck: ['Give the car room: hold back in the ', { 'band': 'blue' }, ', and brake early when it stops.'],
   lost: ['Stay close enough to keep them in sight, and back off if they slow down.'],
+  // (the wild steps: a sneak heard, a flee caught)
+  heard: ['Near them, walk: press [Q] and Ranger goes at a walk. Keep the ', { 'NOISE': 'yellow' }, ' bar from filling, and give them a wide berth.'],
+  overrun: ['Meet each wave before it reaches the tents: ride out toward the ', { 'red marker': 'red' }, ' and they turn on you instead.'],
+  chased: ['Hold [Shift] to gallop and keep to the ', { 'yellow line': 'yellow' }, ': it is never quite as fast as a gallop. Jump what is in the way with [Space].'],
 };
 class Fail extends Error { constructor(reason, kind = null, o = {}) { super(reason); this.reason = reason; this.kind = kind; this.tip = o.tip || null; this.sounded = !!o.sounded; } }
 class Stop extends Error {}
@@ -103,8 +108,11 @@ export function createRunner(ctx) {
   const kill = (t, err = null) => { if (t && !t.dead) { t.dead = true; t.err = err; } };
 
   /* -------------------------------------------------------------- the words -- */
+  // (the ride's own words where it has them, a horse's 'Mount', 'Ride', 'Halt': wagmi/horse fitHorse; a car's Mog City's)
+  const rideWord = (k, dflt) => (car.words && car.words[k]) || dflt;
+  const COLOUR6 = /^#[0-9A-Fa-f]{6}$/;
   const tokens = (s) => String(s ?? '')
-    .replace(/\{ride\.name\}|\{ride\}/g, car.label || 'your car').replace(/\{ride\.board\}/g, 'Get in').replace(/\{ride\.go\}/g, 'Drive').replace(/\{ride\.park\}/g, 'Stop')
+    .replace(/\{ride\.name\}|\{ride\}/g, car.label || 'your car').replace(/\{ride\.board\}/g, rideWord('board', 'Get in')).replace(/\{ride\.go\}/g, rideWord('go', 'Drive')).replace(/\{ride\.park\}/g, rideWord('park', 'Stop'))
     .replace(/\{name\}/g, heroName);
   // '**bold**' -> Mog City's one coloured noun (yellow: a place); '**bold**{red}' names its colour (yellow, red, blue, green)
   const parts = (s, color = 'yellow') => {
@@ -114,6 +122,7 @@ export function createRunner(ctx) {
     return out.length ? out : [s];
   };
   const colorOf = (who) => (who ? cast.color(who) : '#FFFFFF');
+  let saying = 0; // (lines being said now: the idle nudge waits for them)
   const VOICED = (who, text) => !!W.voice?.speaks?.(who, text) || !!W.voice?.has?.(who, text);
   function mumble(who, text, secs) {
     if (!sfx || VOICED(who, text)) return;
@@ -122,20 +131,25 @@ export function createRunner(ctx) {
     for (const p of ph) { const n = p.trim().length; if (!n) continue; setTimeout(() => sfx.play('mumble', { f0: f0 * (0.96 + Math.random() * 0.08), dur: Math.min(0.5, Math.max(0.2, 0.1 + n * 0.02)), gain: 0.26, q: /\?/.test(p) }), at * 1000 + 30); at += p.length / text.length * secs; }
   }
   // a line: its subtitle (its recording or clip plays from it: radio/voices.js), held for its reading time or its voice
-  async function say(who, text, t, { secs = null, phone = false } = {}) {
+  async function say(who, text, t, { secs = null, phone = false, radio = null } = {}) {
     text = tokens(text);
     // (a recorded line still playing, a car-phone call's or the last step's, is heard out first, up to 6 s)
     if (W.voice?.left?.() > 0.08) { const t0 = now(); await wait(() => !(W.voice.left() > 0.08) || now() - t0 > 6000, t); }
     const rec = W.voice?.dur?.(who, text) || 0;
     const hold = Math.max(1.4, text.length / 15, rec + 0.15, secs || 0);
     if (phone) W.voice?.fx?.(who, 'phone');
-    ui.sub(who || null, text, colorOf(who));
+    ui.sub(who || null, text, colorOf(who), radio ?? (phone || onAir(who)));
     mumble(who, text, hold);
     M?.log.push(['say', who, text]);
-    try { await delay(hold, t); } finally { ui.sub(null); if (phone) W.voice?.fx?.(who); }
+    saying++;
+    try { await delay(hold, t); } finally { saying--; ui.sub(null); if (phone) W.voice?.fx?.(who); }
     await delay(0.25, t);
   }
   const tuple = (l) => (Array.isArray(l) ? { who: l[0], text: l[1], secs: l[2] } : l);
+  // (a voice only ever heard over the air: its lines are radio lines on screen too)
+  // (one heard only over the air, except in the missions where he is there in person: his cast entry's `present`,
+  // mission ids: Deacon Vale in M6, the last wave's boss)
+  const onAir = (w) => { const c = w && world.castOf?.(w); return !!(c?.voiceOnly && !(Array.isArray(c.present) && M && c.present.includes(M.def?.id))); };
   // the runner pack writes call speakers upper-cased: back to the cast's own name
   const castName = (w) => { if (!w) return w; if (world.castOf(w)) return w; const k = Object.keys(def0.cast || {}).find((n) => n.toUpperCase() === String(w).toUpperCase()); return k || w; };
 
@@ -227,7 +241,8 @@ export function createRunner(ctx) {
   const STEPS = {};
   // place: the player there (in the car, or on foot), the time of day
   STEPS.place = async (d) => { const p = placeOf(d.at); putPlayer(p, (typeof d.at === 'object' && d.at.mode) || (M.def.vehicle ? 'car' : 'walk')); if (d.time) { if (M.pin) pinTo(d.time); else setTime(d.time); } M.timer.add(d.bonus || 0); };
-  STEPS.say = async (d, t) => { const who = castName(d.who); if (d.wait === false) { say(who, d.text, M.tok, { secs: d.secs }).catch(() => {}); return; } await say(who, d.text, t, { secs: d.secs }); };
+  // (a say's `radio`: true or false forces the line's look, over the air or in person)
+  STEPS.say = async (d, t) => { const who = castName(d.who), o = { secs: d.secs, radio: typeof d.radio === 'boolean' ? d.radio : null }; if (d.wait === false) { say(who, d.text, M.tok, o).catch(() => {}); return; } await say(who, d.text, t, o); };
   // (a wait for the calls, call: true: up to secs, over once the car phone is done and no call that rang beside the
   // step before (a persist call waiting, Delgado ringing mid-chase) is still being said)
   const ringingBeside = () => [...M.sides].some((s) => s.def.type === 'call' && !(s.def.inCar || (s.def.auto && !s.def.interrupts)) && !deadOf(s.tok));
@@ -252,7 +267,7 @@ export function createRunner(ctx) {
   // drive: the corona, the GPS ('get there' the Mog City way: gps.drive), there inside the radius and slowed down
   async function goTo(p, d, t, { name = p.name, objective = null, onFoot = 250, needsCar = false } = {}) {
     const radius = d.radius || 8, stopV = d.stopSpeed ?? 4;
-    marker.at(p.x, 0, p.z); M.dest = p;
+    marker.at(p.x, groundY(p.x, p.z), p.z); M.dest = p;
     const dest = { x: p.x, z: p.z, name };
     const nav = gps.drive({ dest, objective: objective ? parts(objective) : ['Go to ', { [name]: 'yellow' }, '.'], onFoot, needsCar });
     M.nav = nav;
@@ -271,7 +286,7 @@ export function createRunner(ctx) {
     } finally { nav.stop(); M.nav = null; M.dest = null; marker.hide(); gps.clear(); }
     if (inCar() && d.stop !== false) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; }
     // (the arrival's ding and place card, unless a scene straight after is the arrival: card false)
-    if (d.card !== false) { sfx.play('ding', { gain: 0.22 }); ui.place(name, '', 3); }
+    if (d.card !== false) { sfx.play('ding', { gain: 0.22 }); ui.place(name, '', 3); if (M) M.cardAt = now(); }
   }
   STEPS.drive = async (d, t) => {
     const list = [].concat(d.to).map((r) => placeOf(r));
@@ -295,7 +310,7 @@ export function createRunner(ctx) {
       if (near && dist(q, p.x, p.z) < (near.within || 300)) { const n = near; near = null; SCENES[n.dress](W).catch((e) => console.warn('[storyrun] dress', n.dress, e)); }
       return false;
     }, t).catch(() => {});
-    try { await goTo(p, d, t, { objective: d.objective || `Drive to **${p.name}**.` }); } finally { blipOn = false; if (bl) gps.unblip('tag'); }
+    try { await goTo(p, d, t, { objective: d.objective || `${rideWord('go', 'Drive')} to **${p.name}**.` }); } finally { blipOn = false; if (bl) gps.unblip('tag'); }
     M.timer.add(d.bonus || 0);
     if (d.stopTimer) M.timer.stop(d.stopTimer === true ? null : d.stopTimer);
     if (d.flag) M.state.flags[flagName(d.flag)] = true;
@@ -313,14 +328,16 @@ export function createRunner(ctx) {
   STEPS.walk = async (d, t) => {
     const p = d.enterCar && !d.to ? null : placeOf(d.to);
     if (d.leaveCar && inCar()) {
-      gps.objective(['Get out of your ', { car: 'blue' }, '.'], null);
-      ui.help('Press [F] to get out.', 8);
+      const horse = car.kind === 'horse';
+      gps.objective(horse ? ['Get down from ', { [car.label || 'your horse']: 'blue' }, '.'] : ['Get out of your ', { car: 'blue' }, '.'], null);
+      ui.help(horse ? 'Press [F] to dismount.' : 'Press [F] to get out.', 8);
       await wait(() => !inCar() && !W.ride?.phase, t);
     }
     if (d.enterCar) {
-      gps.objective(d.objective ? parts(d.objective, 'blue') : ['Get in your ', { [car.label || 'car']: 'blue' }, '.'], { follow: () => car.position, name: car.label });
+      const horse = car.kind === 'horse';
+      gps.objective(d.objective ? parts(d.objective, 'blue') : horse ? [`${rideWord('board', 'Mount')} `, { [car.label || 'your horse']: 'blue' }, '.'] : ['Get in your ', { [car.label || 'car']: 'blue' }, '.'], { follow: () => car.position, name: car.label });
       gps.blip('car', { x: car.position.x, z: car.position.z, kind: 'car', edge: true, name: car.label });
-      ui.help('Press [F] to get in a vehicle.', 8);
+      ui.help(horse ? 'Press [F] to mount.' : 'Press [F] to get in a vehicle.', 8);
       try { await wait(inCar, t); } finally { gps.unblip('car'); ui.help(null); }
       return;
     }
@@ -440,12 +457,14 @@ export function createRunner(ctx) {
   function camPt(ref, fallbackUp = 1.5) {
     // (a shot in a set: its own room's points, sets.js)
     if (setRun?.active) return setRun.point(ref, fallbackUp);
+    // (a point the runner works out itself: a boss's wake beat)
+    if (Array.isArray(ref) && ref.length === 3) return ref;
     const e = cm.getActiveEntity();
-    if (!ref || ref === 'player') return [e.position.x, e.position.y + (inCar() ? 1.2 : 1.55), e.position.z];
+    if (!ref || ref === 'player') return [e.position.x, e.position.y + (inCar() ? (car.kind === 'horse' ? 2.55 : 1.2) : 1.55), e.position.z];
     if (typeof ref === 'string' && ref.startsWith('@')) { const p = places.at(ref); if (p) return [p.cx ?? p.x, cm.getGroundHeight(p.cx ?? p.x, p.cz ?? p.z, 'person') + fallbackUp, p.cz ?? p.z]; }
     if (typeof ref === 'object' && ref.rel) {
       const fig = ref.rel !== 'player' ? cast.get(castName(ref.rel)) : null;
-      const base = fig ? fig.head(_v) : _v.set(e.position.x, e.position.y + (inCar() ? 1.2 : 1.55), e.position.z);
+      const base = fig ? fig.head(_v) : _v.set(e.position.x, e.position.y + (inCar() ? (car.kind === 'horse' ? 2.55 : 1.2) : 1.55), e.position.z);
       const h = fig ? fig.heading : e.heading, f = ref.fwd || 0, r = ref.right || 0;
       return [base.x + Math.sin(h) * f - Math.cos(h) * r, base.y + (ref.up || 0), base.z + Math.cos(h) * f + Math.sin(h) * r];
     }
@@ -461,7 +480,9 @@ export function createRunner(ctx) {
   // glass behind a face, a bus's windows, a shop front, would 'reflect' the face itself from the screen, stretched
   // and striped: VR, 5 Nov, 'a ghost in the bus window'. The reflection's strength is a uniform: nothing is rebuilt)
   const CLOSE = 3.5, ssrOf = () => app.postFX?.ssrPass || null;
-  function keyLight(p, l) {
+  // (a shot's warm: true, a scene's tender moment: the key a low sun's amber, stronger, and kept on the people in a
+  // wider shot too)
+  function keyLight(p, l, warm = false) {
     const dx = p[0] - l[0], dz = p[2] - l[2], dy = p[1] - l[1], n = Math.hypot(dx, dy, dz) || 1, h = Math.hypot(dx, dz) || 1;
     const fx = dx / h, fz = dz / h, out = Math.min(1.9, n * 0.9);
     keyL.position.set(l[0] + fx * out - fz * 0.8, l[1] + 0.5, l[2] + fz * out + fx * 0.8);
@@ -470,6 +491,7 @@ export function createRunner(ctx) {
     const nt = W.storyrun?.nightLit?.night?.() || 0;
     keyL.color.set(nt > 0.5 ? '#FFD9AE' : '#FFE6CC'); keyL.distance = n < 6 ? 4.5 : 9;
     keyL.intensity = n < 6 ? 2.6 * (1 + 0.9 * nt) : 3.2 * nt;
+    if (warm) { keyL.color.set('#FFB27A'); keyL.intensity = n < 6 ? 3.4 * (1 + 0.6 * nt) : 7; keyL.distance = n < 6 ? 5 : 11; }
     return n;
   }
   // (opening: the world's opening (opening()), its shots' place card, title and name cards played as Mog City's opening
@@ -504,6 +526,174 @@ export function createRunner(ctx) {
     }
     app.cameraSystem.resetForTeleport?.();
   }
+  // a street cutscene's people moved by its shots (`act` on a shot, as a set's: [{ who, walk: { to, secs, after, clip },
+  // face, hug }]): `walk.to` a point as a camera's ({ rel: 'player' | <who>, fwd, right }), walked or run there over
+  // `secs` (clip 'run' | 'walk'), then stood; `hug: 'player' | <who>` their arms round that one's upper back (a two-bone
+  // reach on the clip, every frame after it, as sets.js hugs), `hug: null` lets go; `face` turns them to someone.
+  // The people stay as they are left until the step's cutscene ends (cast.hide at the mission's end lets them go).
+  const MH_ARM = ['upperarm01_', 'lowerarm01_', 'wrist_'];
+  const _h1 = new THREE.Vector3(), _h2 = new THREE.Vector3(), _h3 = new THREE.Vector3(), _hf = new THREE.Vector3(), _hr = new THREE.Vector3();
+  const _hq = new THREE.Vector3(), _hq2 = new THREE.Vector3(), _hg = new THREE.Quaternion();
+  // (a hand resting on someone: the fingers together and gently curled, palm to them: each finger's bones eased to the
+  // rig's own rest (MakeHuman's relaxed hand, the same on every cast body: one rig), then a little more about each
+  // finger's hinge (wagmi/horse/rider.js's), the middle joint most)
+  const REST = { 2: [[0.17, 0.08, 0.1], [0.11, 0.15, 0.14], [0.06, 0.09, 0.08]], 3: [[0.08, 0.1, 0.15], [0.12, 0.15, 0.19], [0.07, 0.08, 0.12]],
+    4: [[0.04, 0.12, 0.2], [0.12, 0.14, 0.24], [0.06, 0.07, 0.15]], 5: [[0, 0.12, 0.21], [0.11, 0.11, 0.28], [0.07, 0.06, 0.17]] };
+  const HINGE = { 2: [0.45, 0.66, 0.6], 3: [0.43, 0.56, 0.71], 4: [0.39, 0.46, 0.8], 5: [0.35, 0.35, 0.87] }, SOFT = [0.18, 0.3, 0.2];
+  const _hr0 = new THREE.Quaternion(), _hq3 = new THREE.Vector3(), _hm = new THREE.Matrix4(), _hqa = new THREE.Quaternion(), _hqb = new THREE.Quaternion(), _hqw = new THREE.Quaternion();
+  // the hand turned to a frame: its fingers along `fin`, its palm facing -`out` (toward the one held); w blends
+  const BLADE_DEPTH = 0.05;
+  function squareHand(B, side, fin, out, w) {
+    const wr = B['wrist_' + side], m = B['finger3-1_' + side], m3 = B['finger3-3_' + side]; if (!wr || !m || !m3 || w < 0.01) return;
+    // (the palm's side read off the hand itself: the way its fingers curl, from the knuckle line to the fingertip's bone)
+    const p0 = wr.getWorldPosition(new THREE.Vector3()), pm = m.getWorldPosition(new THREE.Vector3()), f0 = pm.clone().sub(p0).normalize();
+    const n0 = m3.getWorldPosition(new THREE.Vector3()).sub(pm).normalize(); n0.addScaledVector(f0, -n0.dot(f0)); if (n0.lengthSq() < 1e-6) return; n0.normalize();
+    // (the wanted: fingers along fin, the palm toward the one held (-out), pressed to them)
+    const f1 = fin.clone().normalize(), n1 = out.clone().multiplyScalar(-1); n1.addScaledVector(f1, -n1.dot(f1)).normalize();
+    _hqa.setFromRotationMatrix(_hm.makeBasis(f0, n0, new THREE.Vector3().crossVectors(f0, n0))); _hqb.setFromRotationMatrix(_hm.makeBasis(f1, n1, new THREE.Vector3().crossVectors(f1, n1)));
+    const turn = _hqb.multiply(_hqa.invert()); if (w < 0.999) turn.slerpQuaternions(new THREE.Quaternion(), turn.clone(), w);
+    wr.getWorldQuaternion(_hqw); const q2 = turn.clone().multiply(_hqw); wr.parent.getWorldQuaternion(_hqw); wr.quaternion.copy(_hqw.invert().multiply(q2)); wr.updateMatrixWorld(true);
+    // (most of that roll taken by the forearm's twist bone, as the rider's hands: no wrung wrist)
+    const tw = B['lowerarm02_' + side];
+    if (tw && wr.parent === tw) { const dd = wr.position.clone().normalize(), qq = wr.quaternion, s2 = dd.x * qq.x + dd.y * qq.y + dd.z * qq.z;
+      const part = new THREE.Quaternion().slerp(new THREE.Quaternion(dd.x * s2, dd.y * s2, dd.z * s2, qq.w).normalize(), 0.6); tw.quaternion.multiply(part); wr.quaternion.premultiply(part.invert()); tw.updateMatrixWorld(true); }
+  }
+
+  // (a hand laid flat on someone's back: the fingers together and nearly straight, a quarter to three fifths of the relaxed
+  // hand's own curl (the index straightest, the little finger most bent), so each finger follows the back's curve)
+  const _hid = new THREE.Quaternion(), FLAT = { 2: 0.25, 3: 0.35, 4: 0.48, 5: 0.6 };
+  function flatHand(B, side, w) {
+    for (const n of [2, 3, 4, 5]) REST[n].forEach(([qx, qy, qz], j) => { const b = B[`finger${n}-${j + 1}_${side}`]; if (!b) return;
+      _hr0.set(qx, side === 'R' ? qy : -qy, side === 'R' ? qz : -qz, 1).normalize(); _hg.slerpQuaternions(_hid, _hr0, FLAT[n] * (j === 1 ? 1.25 : 1)); b.quaternion.slerp(_hg, w); });
+  }
+  function softHand(B, side, w) {
+    for (const n of [2, 3, 4, 5]) { const [x, y, z] = HINGE[n], ax = (side === 'R' ? _hq.set(x, y, z) : _hq.set(x, -y, -z)).normalize();
+      SOFT.forEach((a, j) => { const b = B[`finger${n}-${j + 1}_${side}`]; if (!b) return; const [qx, qy, qz] = REST[n][j];
+        _hr0.set(qx, side === 'R' ? qy : -qy, side === 'R' ? qz : -qz, 1).normalize(); _hg.setFromAxisAngle(ax, a).multiply(_hr0); b.quaternion.slerp(_hg, w); }); }
+  }
+  const bonesOf = (who) => (who === 'player' || who === heroName ? W.dan?.bones : cast.get(castName(who))?.bones) || null;
+  const rootOf = (who) => (who === 'player' || who === heroName ? P.position : cast.get(castName(who))?.root.position) || null;
+  // (hug: one name, both arms round that one; or { L: <who>, R: <who> }, an arm round each, as a father holds his wife
+  // and his daughter at once. Each arm comes round over half a second from when its own one is first named: t0 per side)
+  function hugArms(fig, hug, t0) {
+    const B = fig.bones; if (!B) return;
+    for (const [side, sg] of [['L', 1], ['R', -1]]) {
+      const who = typeof hug === 'string' ? hug : hug?.[side]; if (!who) continue;
+      const ob = bonesOf(who); if (!ob) continue;
+      const sp = ob.spine03 || ob.spine02 || ob.neck01; if (!sp) continue;
+      const ts = typeof t0 === 'number' ? t0 : t0?.[side] ?? now();
+      const u = Math.min(1, Math.max(0, (now() - ts) / 550)), k = 0.95 * u * u * (3 - 2 * u);
+      let hw = 0.17; if (ob.upperarm01_L && ob.upperarm01_R) { ob.upperarm01_L.getWorldPosition(_h1); ob.upperarm01_R.getWorldPosition(_h2); hw = Math.min(0.24, Math.max(0.1, _h1.distanceTo(_h2) / 2)); }
+      sp.getWorldPosition(_h1);
+      // (a child's spine bone sits near her back, a grown-up's mid-chest: the hands go to the back's surface either way)
+      const orr = rootOf(who), small = !!orr && _h1.y - orr.y < 1.15;
+      const dx = _h1.x - fig.root.position.x, dz = _h1.z - fig.root.position.z, n = Math.hypot(dx, dz) || 1;
+      _hf.set(dx / n, 0, dz / n); _hr.set(_hf.z, 0, -_hf.x);
+      // (someone shorter reaches round lower: the hands under the other's shoulder blades, not above their own head)
+      const myTop = (B.neck01 ? B.neck01.getWorldPosition(_h3).y : fig.root.position.y + 1.5);
+      if (_h1.y > myTop - 0.12) _h1.y = myTop - 0.12;
+      // (an arm round one of two goes round that one's far side: across their back to the shoulder blade away from him)
+      // (an arm round one of two: the hand on that one's back by the spine, the arm across their near side)
+      // (SF 2040's cast: a forged body's chest is deeper about its spine bone than Dan's: the hands a torso's half-depth
+      // behind it (0.95 of the half-shoulder), so the forearm comes round the side to the back, not through the chest)
+      const one = typeof hug === 'string', reach = sg * hw * (one ? 0.55 : 0.3), back = small ? hw * 0.12 : hw * (one ? 0.95 : 1.05);
+      // (round a child: high across her shoulder blades, just under her neck, the hands on her back where they are seen
+      // from behind her, the forearms over her shoulders' backs; not down at her waist, his arms hanging)
+      if (small) { const nk = ob.neck01 || ob.neck02; if (nk) { nk.getWorldPosition(_h3); _h1.y = Math.max(_h1.y, _h3.y - 0.13); } }
+      const tg = _h2.copy(_h1).addScaledVector(_hf, small ? hw * 0.55 : back).addScaledVector(_hr, small ? sg * hw * 0.5 : reach); tg.y += side === 'L' ? 0.035 : -0.045;
+      // (round a child (the owner: 'his hands squarely on her back, placed on her shoulder blades'): each hand flat on the
+      // shoulder blade on its own side, found from her own rig: between her upper spine and that shoulder's joint, a little
+      // under the joint, on her back's surface; the palm flat on it, the wrist straight, the fingers up and in toward her neck)
+      let blade = null;
+      if (small) { const us = ob.spine01 || ob.spine02 || ob.spine03; let pick = null, pd = -9;
+        for (const s2 of ['L', 'R']) { const ua = ob['upperarm01_' + s2] || ob['shoulder01_' + s2]; if (!ua || !us) continue; ua.getWorldPosition(_hq); us.getWorldPosition(_hq2);
+          const bp = _hq2.clone().lerp(_hq, 0.62); bp.y = _hq.y - 0.06; const d = sg * bp.clone().sub(_h1).dot(_hr); if (d > pd) { pd = d; pick = bp; } }
+        if (pick) {
+          // (her back's surface there: the joints lie mid-depth, her back about 7 cm behind them; the palm's middle on it)
+          blade = pick.addScaledVector(_hf, BLADE_DEPTH); const fin = _hq3.copy(_hr).multiplyScalar(-sg * 0.55).add(_hq.set(0, 0.8, 0)).normalize();
+          tg.copy(blade).addScaledVector(fin, -0.055); blade.fin = fin.clone(); } }
+      // (a shorter arm than the reach round them (a girl round her father): the hold goes down his back toward his waist,
+      // where he is narrower, until her arm can get there; not straight out past his side)
+      { const ua = B['upperarm01_' + side], la = B['lowerarm01_' + side], wr = B['wrist_' + side];
+        if (ua && la && wr && !small) { ua.getWorldPosition(_h3); const L = _h3.distanceTo(la.getWorldPosition(_hq)) + _hq.distanceTo(wr.getWorldPosition(_hq2));
+          const y0 = tg.y; for (let i = 0; i < 10 && _h3.distanceTo(tg) > 0.96 * L; i++) { tg.y -= 0.025; tg.addScaledVector(_hf, -0.008); tg.addScaledVector(_hr, -sg * 0.004); }
+          // (still out of reach (an arm on the far side of someone already held from the other side): the hand on their
+          // back on this arm's own side, by the shoulder blade, not in the air beside them)
+          if (_h3.distanceTo(tg) > 0.96 * L) { const sd = Math.sign(_hq.copy(_h3).sub(_h1).dot(_hr)) || sg; tg.copy(_h1).addScaledVector(_hf, back * 0.75).addScaledVector(_hr, sd * hw * 0.4); tg.y = y0 - 0.06;
+            for (let i = 0; i < 10 && _h3.distanceTo(tg) > 0.96 * L; i++) tg.addScaledVector(_hf, -0.025); } } }
+      const pole = new THREE.Vector3().copy(_h1).addScaledVector(_hf, small ? -0.15 : 0.05).addScaledVector(_hr, sg * (hw + 0.55)); pole.y = tg.y - (small ? 0.05 : 0.25);
+      try { armTo(B, side, tg.clone(), pole, k, MH_ARM); } catch {}
+      // (on a shoulder blade: the hand turned so its fingers run toward her spine along her back and its palm faces her)
+      // (the fingers soft-curled on the back they hold, not flat out; on a shoulder blade flatter, the palm on it)
+      if (blade) { flatHand(B, side, k); B['wrist_' + side].updateMatrixWorld(true); squareHand(B, side, blade.fin, _hf, k); } else softHand(B, side, k);
+    }
+  }
+  // (into their arms: whoever runs to hug someone is brought in chest to chest as the hug begins, their spines HUG_GAP
+  // apart on the line between them; marks left a body's width between them, and arms reaching round from there went
+  // through the other's chest: SF 2040's June and Nina to Cal)
+  const HUG_GAP = 0.24;
+  function snapIn(fig, who) {
+    if (typeof who !== 'string') return;
+    const mb = fig.bones?.spine03 || fig.bones?.spine02, ob = bonesOf(who), os = ob && (ob.spine03 || ob.spine02); if (!mb || !os) return;
+    mb.getWorldPosition(_h1); os.getWorldPosition(_h2);
+    const dx = _h2.x - _h1.x, dz = _h2.z - _h1.z, n = Math.hypot(dx, dz) || 1, mv = n - HUG_GAP; if (mv <= 0) return;
+    const x = fig.root.position.x + (dx / n) * mv, z = fig.root.position.z + (dz / n) * mv;
+    fig.root.position.set(x, cm.getGroundHeight(x, z, 'person'), z); fig.heading = Math.atan2(dx, dz); fig.root.rotation.y = fig.heading; fig.root.updateMatrixWorld(true);
+  }
+  // (the hero's own arms in a street cutscene: { who: <hero>, hug, after } held over his clip each frame (W.dan.post,
+  // after his pose), let go when the cutscene ends (heroHug(null)))
+  let heroHugOn = null;
+  function heroHug(hug, after = 0) {
+    const Q = W.dan; if (!Q) return;
+    if (!hug) { heroHugOn = null; if (Q.post === heroPost) Q.post = null; return; }
+    const at = now() + after * 1000, prev = heroHugOn, t0 = {};
+    for (const side of ['L', 'R']) { const who = typeof hug === 'string' ? hug : hug[side]; const was = prev && (typeof prev.hug === 'string' ? prev.hug : prev.hug?.[side]); t0[side] = was && was === who ? prev.t0[side] : at; }
+    heroHugOn = { hug, t0, at };
+    Q.post = heroPost;
+  }
+  const heroFig = { get bones() { return W.dan?.bones; }, root: P };
+  function heroPost() {
+    const h = heroHugOn; if (!h || !W.cutscene) return;
+    // (until its own moment, the hug before it is kept: a hand that was round her stays round her)
+    if (now() < h.at && h.prev) { hugArms(heroFig, h.prev.hug, h.prev.t0); return; }
+    hugArms(heroFig, h.hug, h.t0);
+  }
+  function playClip(fig, name) {
+    if (fig.play) return fig.play(name);
+    const R = fig.native?.rig, have = fig.native?.clips || [];
+    if (R && have.includes(name)) { try { R.set([[0, name]]); return true; } catch {} }
+    return false;
+  }
+  function streetAct(list) {
+    for (const a of list || []) {
+      if (!a || typeof a.who !== 'string') continue;
+      if (a.who === 'player' || castName(a.who) === heroName) { if ('hug' in a) { const prev = heroHugOn; heroHug(a.hug, a.after || 0); if (heroHugOn && prev && a.after) heroHugOn.prev = prev; } continue; }
+      const fig = cast.get(castName(a.who)); if (!fig) continue;
+      const faceTo = (who) => { const q = rootOf(who); if (q) { fig.heading = Math.atan2(q.x - fig.root.position.x, q.z - fig.root.position.z); fig.root.rotation.y = fig.heading; } };
+      if (a.face) faceTo(a.face);
+      let walking = null;
+      if (a.walk && a.walk.to) {
+        const to = camPt(a.walk.to), x0 = fig.root.position.x, z0 = fig.root.position.z, t0 = now() + (a.walk.after || 0) * 1000, dur = Math.max(0.3, a.walk.secs || 1.2) * 1000;
+        walking = { to, x0, z0, t0, dur, started: false };
+      }
+      const hug = 'hug' in a ? a.hug : undefined;
+      let hugT = null;
+      fig.post = (dt) => {
+        if (walking) {
+          const tt = now(); if (tt < walking.t0) return;
+          if (!walking.started) { walking.started = true; playClip(fig, a.walk.clip || 'run'); }
+          const u = Math.min(1, (tt - walking.t0) / walking.dur), e = 1 - (1 - u) * (1 - u);
+          const x = walking.x0 + (walking.to[0] - walking.x0) * e, z = walking.z0 + (walking.to[2] - walking.z0) * e;
+          fig.heading = Math.atan2(walking.to[0] - walking.x0, walking.to[2] - walking.z0);
+          fig.root.position.set(x, cm.getGroundHeight(x, z, 'person'), z); fig.root.rotation.y = fig.heading;
+          if (u >= 1) { walking = null; playClip(fig, 'idle'); if (hug) faceTo(hug); }
+          return;
+        }
+        if (hug) { if (hugT == null) { hugT = now(); faceTo(hug); snapIn(fig, hug); } hugArms(fig, hug, hugT); }
+      };
+      if (hug === null && !walking) fig.post = null;
+    }
+  }
   async function shotList(shots, t, { skippable = true, beat = false, opening = false, set = null } = {}) {
     const D = createDirector(W);
     const ssr0 = ssrOf()?.intensity.value ?? 0;
@@ -525,6 +715,8 @@ export function createRunner(ctx) {
         if (s.if && !cond(s.if)) continue;
         // (the shot's set: its own, else the cutscene's; false or none, the street)
         if (setRun) { const id = s.set === false ? null : (s.set || set); setRun.use(id && setRun.has(id) ? id : null); if (s.act) setRun.act(s.act); }
+        // (on the street: the shot's changes to the people in it, a run to someone and a hug: streetAct)
+        if (s.act && !setRun?.active) streetAct(s.act);
         const dur = s.dur || 3, A = camPt(s.cam), B = s.to ? camPt(s.to) : A, LA = camPt(s.look, 1.4), LB = s.lookTo ? camPt(s.lookTo, 1.4) : LA;
         // (an opening's name card: the lens settles on its person through the first part of the shot, then the frame
         // freezes on them, their body held mid-move, as their name and role come up: openCard())
@@ -535,8 +727,8 @@ export function createRunner(ctx) {
         if (s.caption) ui.caption(s.caption, '', '#FFC93C', Math.min(dur, 3));
         let frozen = null;
         if (opening) openBeat(s, dur);
-        if (s.say && Array.isArray(s.say)) { const [w, x] = s.say; ui.sub(castName(w), tokens(x), colorOf(castName(w))); mumble(castName(w), x, dur); }
-        else if (sub && sub[1]) { const w = castName(sub[0]); ui.sub(w || null, tokens(sub[1]), colorOf(w)); if (w) mumble(w, sub[1], dur); M?.log.push(['say', w, sub[1]]); }
+        if (s.say && Array.isArray(s.say)) { const [w, x] = s.say; ui.sub(castName(w), tokens(x), colorOf(castName(w)), onAir(castName(w))); mumble(castName(w), x, dur); }
+        else if (sub && sub[1]) { const w = castName(sub[0]); ui.sub(w || null, tokens(sub[1]), colorOf(w), onAir(w)); if (w) mumble(w, sub[1], dur); M?.log.push(['say', w, sub[1]]); }
         else if (s.text) ui.sub(null, tokens(s.text));
         const len = Math.max(dur, sub && sub[1] ? Math.max(1.4, sub[1].length / 15, (W.voice?.dur?.(castName(sub[0]), tokens(sub[1])) || 0) + 0.15) : 0);
         try {
@@ -546,7 +738,7 @@ export function createRunner(ctx) {
             const p = pos(Math.min(k, hold)), l = look(Math.min(k, hold));
             D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov: s.fov || 40, roll: 0, shake: hh };
             if (setRun?.active) setRun.frame({ pos: D.camera.pos, look: l, fov: s.fov || 40 });
-            { const n = keyLight(p, l), ssr = ssrOf(); if (ssr) ssr.intensity.value = n < CLOSE ? 0 : ssr0; }
+            { const n = keyLight(p, l, !!s.warm), ssr = ssrOf(); if (ssr) ssr.intensity.value = n < CLOSE ? 0 : ssr0; }
             if (!beat) stepSkip();
             return (now() - t0) / 1000 >= len;
           }, local);
@@ -556,6 +748,7 @@ export function createRunner(ctx) {
       }
     } finally {
       ui.sub(null); ui.caption(null); ui.skip(null); keyL.intensity = 0; if (ssrOf()) ssrOf().intensity.value = ssr0;
+      if (!beat) heroHug(null);
       setRun?.use(null);
       if (opening) { ui.placeOff(); ui.gameTitle(false, true); }
       if (!beat) D.block(false);
@@ -852,6 +1045,8 @@ export function createRunner(ctx) {
   STEPS.fight = async (d, t) => {
     const combat = W.combat;
     if (!combat?.spawnCrew) { console.warn('[storyrun] no fight on this page'); return; }
+    // (the library's creatures for foes, or a boss: creatureFight; New York's fights never name them)
+    if (d.foes || d.boss || d.waves) return creatureFight(d, t);
     const p = placeOf(d.arena);
     if (inCar()) { putAt(W, { car: [car.position.x, car.position.z, car.heading] }); outBesideCar(W); }
     if (dist(P.position, p.x, p.z) > 30) { putPlayer(p, 'walk'); }
@@ -912,6 +1107,586 @@ export function createRunner(ctx) {
     // (a puppet goes on with its man's fall for the beat after)
     if (puppets.length) { const t1 = now(); await wait(() => { for (const pp of puppets) pp.sync(); return now() - t1 > 1000; }, t); }
     else await delay(1.0, t);
+  };
+
+  // a fight with the library's creatures (W.creatures, where the city has them: San Francisco): `foes` a crew round the
+  // arena ([id | { id, count, height, name, heavy, stats }], ids creature-knight / -ogre / -centaur / -ape / -mech /
+  // -scorpion / -trex), and a `boss` ({ id, name, height, phases, stats, at, hold: { wake, leash } }) at the arena's
+  // middle (or its own `at` place) under the boss bar, in its lair when it has `hold` (it waits at home until he comes
+  // within `wake` m or hits it, then fights within `leash` m of home). Done when every one of them is down; out cold,
+  // or 150 m off, fails. On a horse he may stay in the saddle and fight from it (wagmi/horse/saddle.js); on foot as ever.
+  //   { type: 'fight', arena: '@place', foes: [...], boss: {...}, objective, counter, hp, timer, why, barks }
+  async function creatureFight(d, t) {
+    const combat = W.combat, C = W.creatures;
+    if (!C?.fight) { console.warn('[storyrun] no creatures on this page: the fight passes'); return; }
+    const p = placeOf(d.arena), cx = p.cx ?? p.x, cz = p.cz ?? p.z;
+    // (too far to have ridden there: put at the arena's edge, as a fight of men puts him in it)
+    if (dist(me(), cx, cz) > 80) putPlayer(p, inCar() ? 'car' : 'walk');
+    const ex = me().x, ez = me().z;
+    app.trafficSystem.hold?.([{ minX: Math.min(ex, cx) - 45, maxX: Math.max(ex, cx) + 45, minZ: Math.min(ez, cz) - 45, maxZ: Math.max(ez, cz) + 45 }]);
+    // (the fight's slate cleared, unless it fights a creature an earlier step kept: a flee's chaser, on him already)
+    const keeps = [d.boss, ...(d.waves || []).map((w) => w.boss)].some((b) => b && b.from && M.kept?.has(b.from));
+    if (!keeps) combat.clear?.();
+    combat.player.maxHp = d.hp || combat.player.maxHp; combat.player.hp = combat.player.maxHp;
+    const autoGetUp = combat.player.autoGetUp; combat.player.autoGetUp = true;
+    let down = false;
+    const offDown = combat.player.onDown(() => { down = true; });
+    const handles = [];
+    let lastK = 0, talk = false, lastHp = combat.player.hp, bossName = null, loading = 0;
+    // (the guarded place and its integrity: `guard: { at, radius, hp, drain, label, why }`, a fight's camp. Every one of
+    // them still marching that is inside it takes `drain` a second off; at none left the fight is lost)
+    const G = d.guard ? (() => { const gp = d.guard.at ? placeOf(d.guard.at) : p; return { x: gp.cx ?? gp.x, z: gp.cz ?? gp.z, r: d.guard.radius || 18, hp: d.guard.hp || 100, left: d.guard.hp || 100, drain: d.guard.drain || 4, label: d.guard.label || 'CAMP' }; })() : null;
+    const fightSay = (lines) => { talk = true; (async () => { for (const l of lines.map(tuple)) await say(castName(l.who), l.text, M.tok); })().catch(() => {}).finally(() => { talk = false; }); };
+    // (a wave: its foes round its place (the arena, or its own `from`: they come from there), its boss at the middle or
+    // at its own `at`, or a creature an earlier step kept (boss.from: a flee's id, already on him))
+    function spawnWave(w) {
+      const foes = (Array.isArray(w.foes) ? w.foes : []).map((x) => (typeof x === 'string' ? { id: x } : x));
+      const B = w.boss ? (typeof w.boss === 'string' ? { id: w.boss } : w.boss) : null;
+      const src = w.from ? markOf(w.from) : { x: cx, z: cz };
+      const mine = [];
+      if (foes.length) mine.push(C.fight({ foes, at: src }));
+      if (B) {
+        const kept = B.from ? M.kept?.get(B.from) : null;
+        let h = kept;
+        if (kept) {
+          M.kept.delete(B.from);
+          // (fought where the chase ended: a chaser more than 25 m off him (a block away) put on his trail 16 m back)
+          const f = kept.fighters[0], q = me();
+          if (f && !f.out && dist(q, f.pos.x, f.pos.z) > 25 && kept.trail?.length) {
+            let k = kept.trail.length - 1; while (k > 0 && dist(q, kept.trail[k].x, kept.trail[k].z) < 16) k--;
+            const b = kept.trail[k]; f.pos.set(b.x, cm.getGroundHeight(b.x, b.z, 'person'), b.z); f.yaw = Math.atan2(q.x - b.x, q.z - b.z);
+          }
+        }
+        else {
+          const bp = B.at ? placeOf(B.at) : null, at = bp ? { x: bp.cx ?? bp.x, z: bp.cz ?? bp.z } : src;
+          h = C.spawn(B.id, { at, height: B.height, name: B.name, heavy: B.heavy, stats: B.stats, look: B.look, yaw: B.yaw != null ? (B.yaw * PI) / 180 : undefined,
+            boss: { name: B.name, phases: B.phases }, hold: B.hold ? { wake: B.hold.wake ?? 20, leash: B.hold.leash ?? 40 } : null, aggro: !B.hold });
+        }
+        bossName = B.name || bossName;
+        mine.push(h);
+        watchWake(h, B.name, w);
+        if (kept) { try { h.engage(); } catch {} }
+      }
+      // (a wave that comes from somewhere: in at a run, not waiting to be found)
+      // (a fight with a `guard`: a wave from somewhere marches on the guarded place (their lair's home: the camp), and
+      // turns on him only when he meets them on the way (13 m) or hits one)
+      if (w.from && G) for (const h of mine) h.ready.then(() => { for (const f of h.fighters) { if (f.out) continue; f._march = f.T.speed; f.T.speed *= 1.8; f.lair = { home: new THREE.Vector3(G.x, 0, G.z), yaw: 0, wake: 13, leash: 90 }; f.set('home'); } });
+      else if (w.from) for (const h of mine) { h.ready.then(() => { try { h.engage(); } catch {} }); }
+      if (w.from && G) { const q = src; marker.at(q.x, groundY(q.x, q.z), q.z); gps.blip('wave', { x: q.x, z: q.z, kind: 'enemy', edge: true, name: w.alert || 'They come' }); }
+      for (const h of mine) { loading++; Promise.resolve(h.ready).finally(() => { loading--; }); }
+      handles.push(...mine);
+      M.creatures = handles;
+      return mine;
+    }
+    // (the lair's boss woken: its name called, and the step's line for it)
+    function watchWake(boss, name, w) {
+      let woke = false;
+      boss.on('wake', () => {
+        if (woke) return; woke = true; juice.alert(name || 'Boss', { sub: (w.alert || d.alert) ? tokens(w.alert || d.alert) : '', tone: 'red', sting: 'up', jolt: 0.4, secs: 2.4 }); const wl = w.wake || d.wake; if (wl && !talk) fightSay([wl]);
+        // (the wake framed: a low lens behind his shoulder looking up at it, its whole height in the frame, while it shows
+        // itself; then the fight's own camera. wakeShot: false leaves it out)
+        const f = boss.fighters[0];
+        if (f && d.wakeShot !== false && w.wakeShot !== false) {
+          const hx = P.position.x, hz = P.position.z, dx = f.pos.x - hx, dz = f.pos.z - hz, n = Math.hypot(dx, dz) || 1, fx = dx / n, fz = dz / n, H = f.height || 3;
+          const back = 2.6 + H * 0.35, gy = cm.getGroundHeight(hx, hz, 'person');
+          const cam = [hx - fx * back + fz * 1.4, gy + 0.9 + H * 0.12, hz - fz * back - fx * 1.4], cam2 = [hx - fx * (back + 1.2) + fz * 1.8, gy + 1.2 + H * 0.18, hz - fz * (back + 1.2) - fx * 1.8];
+          const look = [f.pos.x, f.pos.y + H * 0.62, f.pos.z];
+          // (first close on it from low down, looking up: its size; then over his shoulder: the two of them)
+          const by = cm.getGroundHeight(f.pos.x, f.pos.z, 'person'), qx = f.pos.x - fx * H * 1.5 + fz * H * 0.55, qz = f.pos.z - fz * H * 1.5 - fx * H * 0.55;
+          const close = [qx, by + 0.5, qz], close2 = [qx - fx * H * 0.25, by + 0.7, qz - fz * H * 0.25], up = [f.pos.x, by + H * 0.78, f.pos.z];
+          // (a step's wakeCam: [x, y, z], the second a wide from there instead, the boss against what is behind it (The
+          // Matriarch on the hill's top against the crater's glow in the west), its lens rising a little)
+          const wc = Array.isArray(d.wakeCam) && d.wakeCam.length === 3 ? d.wakeCam : null;
+          const second = wc ? { cam: wc, to: [wc[0], wc[1] + 1.2, wc[2]], look: [f.pos.x, by + H * 0.55, f.pos.z], dur: 2.4, fov: d.wakeFov || 40 } : { cam, to: cam2, look, dur: 1.6, fov: 44 };
+          shotList([{ cam: close, to: close2, look: up, dur: 1.7, fov: 50 }, second], M.tok, { beat: true }).catch(() => {});
+        }
+      });
+    }
+    // waves: the step's own foes and boss first (when it has them), then each of `waves` in turn, once the last is down
+    const waves = [...(d.foes || d.boss ? [{ foes: d.foes, boss: d.boss }] : []), ...(Array.isArray(d.waves) ? d.waves : [])];
+    const nW = waves.length;
+    let wi = 0;
+    const first = spawnWave(waves[0]);
+    await Promise.race([Promise.all(first.map((h) => h.ready)), wait(() => false, t)]);
+    const fighters = () => handles.flatMap((h) => h.fighters);
+    const crew = { alive: () => fighters().filter((f) => !f.out).length, creatures: true };
+    M.crew = crew;
+    const label = d.counter || 'DOWN';
+    const tally = () => { const all = fighters(), k = all.filter((f) => f.out).length; if (nW > 1) ui.counter('WAVE', `${wi + 1}/${nW}`); else if (all.length > 1 && !cardLeft()) ui.counter(label, `${k}/${all.length}`); return k; };
+    tally();
+    gps.objective(parts(d.objective || (bossName ? `Beat **${bossName}**.` : 'Beat them all.'), 'red'), null);
+    if (nW > 1) juice.alert(`WAVE 1/${nW}`, { sub: waves[0].alert ? tokens(waves[0].alert) : '', tone: 'red', sting: 'up', secs: 2 });
+    if (waves[0].say) fightSay([waves[0].say]);
+    const t0 = now();
+    let between = 0;
+    try {
+      await wait(() => {
+        const all = fighters(), alive = all.filter((f) => !f.out).length, k = all.length - alive;
+        const hp = combat.player.hp; if (hp < lastHp - 0.5) M.stats.hits++; lastHp = hp;
+        if (k !== lastK) { lastK = k; const b = d.barks?.[k]; if (b && !talk && alive > 0) fightSay([b]); }
+        tally();
+        for (const f of all) if (!f.out && !f.disposed) gps.blip('e:' + f.id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: !!f.boss || nW > 1, name: f.boss ? (f.name || '') : '' }); else gps.unblip('e:' + f.id);
+        if (down) throw new Fail(tokens(d.why || `${heroName} got knocked out.`), 'ko');
+        if (G) {
+          const tt = now(), dt = Math.min(0.1, (tt - (G.t || tt)) / 1000); G.t = tt;
+          let marching = 0;
+          const q = me();
+          for (const f of all) {
+            if (f.out || f.disposed) continue;
+            // (a body knocked to nowhere (a non-finite position): put back where it last stood)
+            if (!Number.isFinite(f.pos.x) || !Number.isFinite(f.pos.z)) { if (f._ok) f.pos.copy(f._ok); else f.pos.set(G.x, cm.getGroundHeight(G.x, G.z, 'person'), G.z); } else (f._ok || (f._ok = new THREE.Vector3())).copy(f.pos);
+            // (met on the way, in the saddle too (the fight's own wake reads him on foot): it turns on him)
+            if ((f.state === 'home' || f.state === 'idle') && dist(q, f.pos.x, f.pos.z) < 13) try { f.wake(true); } catch {}
+            const idle = f.state === 'home' || f.state === 'idle';
+            if (!idle && f._march) { f.T.speed = f._march; f._march = null; }
+            const inside = Math.hypot(f.pos.x - G.x, f.pos.z - G.z) < G.r;
+            // (one walking in unopposed takes the whole of it; a fight among the tents a quarter)
+            if (inside) G.left -= (idle && f.lair ? 1 : 0.25) * G.drain * dt;
+            if (idle && f._march) marching++;
+          }
+          if (!marching) { marker.hide(); gps.unblip('wave'); }
+          hud.bar(G.label, clamp(G.left / G.hp, 0, 1), `${Math.max(0, Math.round(G.left / G.hp * 100))}%`);
+          if (G.left <= 0) throw new Fail(tokens(d.guard.why || 'They overran the camp.'), 'overrun');
+        }
+        const secs = (now() - t0) / 1000;
+        // (not in its first seconds: a hero just put at the arena's edge (from 80 m out) is read where he was for a frame)
+        if (secs > 2 && dist(me(), cx, cz) > 150) throw new Fail('You left the fight.', 'left');
+        if (d.timer) { hud.timer(d.timer - secs, 'TIME'); if (secs > d.timer) throw new Fail(tokens(d.why || 'You ran out of time.'), 'time'); }
+        if (alive > 0 || !all.length || loading > 0) return false;
+        if (wi + 1 >= nW) return true;
+        // (a wave down: a breather (`pause` s, 5), its line, then the next, called by name)
+        if (!between) {
+          between = now();
+          const w = waves[wi + 1];
+          if (w.say) fightSay([w.say]);
+          // (he is healed a little between waves: a third of what he has lost)
+          combat.player.hp = Math.min(combat.player.maxHp, combat.player.hp + (combat.player.maxHp - combat.player.hp) / 3);
+          gps.objective(parts(w.objective || 'Get ready.', 'red'), null);
+        }
+        if (now() - between > (waves[wi + 1].pause ?? 5) * 1000) {
+          between = 0; wi++;
+          const w = waves[wi];
+          spawnWave(w);
+          juice.alert(`WAVE ${wi + 1}/${nW}`, { sub: w.alert ? tokens(w.alert) : '', tone: 'red', sting: 'up', jolt: 0.3, secs: 2 });
+          gps.objective(parts(w.objective || d.objective || 'Beat them all.', 'red'), null);
+        }
+        return false;
+      }, t);
+      M.stats.ko += fighters().length;
+    } finally {
+      offDown?.(); combat.player.autoGetUp = autoGetUp;
+      for (const id of [...gps.blips.keys()]) if (id.startsWith('e:')) gps.unblip(id);
+      ui.counter(null); hud.timer(null); M.crew = null;
+      if (G) { hud.bar(null); marker.hide(); gps.unblip('wave'); }
+    }
+    // (a beat for the last one's fall, then the street let go)
+    await delay(1.6, t);
+    app.trafficSystem.hold?.([]);
+  }
+  // (the counter's corner is the place card's: how long the card just put up (a ride's arrival) has left)
+  const cardLeft = () => Math.max(0, (M?.cardAt || 0) + 3300 - now());
+  const dropCreatures = () => { for (const h of M?.creatures || []) try { h.remove(); } catch {} if (M) M.creatures = null; };
+
+  // collect: supplies set out at spots (`items`: '@place' | { at: [x, z] } | [x, z]), each a glowing pickup with a soft
+  // beam over it (crate, case, bag or can: `look`), on the radar; ridden or walked over it is taken (within `radius` m,
+  // more in the saddle). The HUD's counter keeps the tally ('FOOD 3/5'); done when `need` are taken (all of them when it
+  // names none). The route goes to the nearest one left.
+  //   { type: 'collect', kind: 'food', label: 'Food', items: [...], need, look, color, radius, objective }
+  const LOOKS = { crate: '#A8743C', case: '#E8E4DA', bag: '#8A7A55', can: '#B9C2C8' };
+  function supplyMesh(look, color) {
+    const g = new THREE.Group(), glow = new THREE.Color(color);
+    const mat = (c, e = 0.18) => { const m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.75, metalness: look === 'can' ? 0.6 : 0 }); m.emissive = glow.clone(); m.emissiveIntensity = e; return m; };
+    if (look === 'case') {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.42, 0.22), mat(LOOKS.case, 0.12)); b.position.y = 0.21; g.add(b);
+      const crossM = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 }); crossM.emissive = glow.clone(); crossM.emissiveIntensity = 0.9;
+      for (const [w, h] of [[0.26, 0.08], [0.08, 0.26]]) { const c = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.232), crossM); c.position.y = 0.21; g.add(c); }
+      const hdl = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.05), mat('#333333', 0)); hdl.position.y = 0.45; g.add(hdl);
+    } else if (look === 'bag') {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), mat(LOOKS.bag)); b.scale.set(1, 1.15, 0.8); b.position.y = 0.32; g.add(b);
+      const n = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, 0.14, 8), mat(LOOKS.bag)); n.position.y = 0.66; g.add(n);
+    } else if (look === 'can') {
+      for (const [x, z] of [[-0.12, 0], [0.12, 0.02], [0, 0.18]]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.26, 12), mat(LOOKS.can, 0.25)); c.position.set(x, 0.13, z); g.add(c); }
+    } else {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.46, 0.5), mat(LOOKS.crate)); b.position.y = 0.23; g.add(b);
+      const lid = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.05, 0.54), mat('#6E4A26', 0.1)); lid.position.y = 0.47; g.add(lid);
+      const band = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.06, 0.06), mat(color, 0.9)); band.position.set(0, 0.32, 0.26); g.add(band);
+    }
+    g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    return g;
+  }
+  const groundY = (x, z) => (window.NYC?.CITY === 'sf' ? cm.getGroundHeight(x, z, 'person') : 0);
+  STEPS.collect = async (d, t) => {
+    const kind = d.kind || 'supplies', label = d.label || kind.charAt(0).toUpperCase() + kind.slice(1), color = COLOUR6.test(d.color || '') ? d.color : '#FFC93C';
+    const items = (d.items || []).map((r, i) => {
+      const q = Array.isArray(r) ? { x: r[0], z: r[1] } : r && Array.isArray(r.at) ? { x: r.at[0], z: r.at[1] } : (() => { const pp = placeOf(r); return { x: pp.cx ?? pp.x, z: pp.cz ?? pp.z }; })();
+      return { i, x: q.x, z: q.z, taken: false, name: (r && r.name) || label };
+    });
+    const need = Math.min(items.length, d.need || items.length);
+    const look = d.look || ({ food: 'crate', medicine: 'case', water: 'can' }[kind] || 'crate');
+    // (each one drawn: the pickup, a soft beam over it seen down the street, a slow bob and turn)
+    for (const it of items) {
+      const y = groundY(it.x, it.z);
+      it.obj = supplyMesh(look, color); it.obj.position.set(it.x, y, it.z); it.obj.rotation.y = it.i * 1.7; app.scene.add(it.obj);
+      it.beam = createMarker(THREE, app.scene, { color, radius: 0.55, height: 9, alpha: 0.32 }); it.beam.at(it.x, y, it.z); it.y = y;
+      gps.blip('sup:' + it.i, { x: it.x, z: it.z, kind: 'object', name: it.name });
+    }
+    M.collect = { items, need, kind };
+    let n = 0, cur = null, nav = null, last = now();
+    const COUNTER = label.toUpperCase();
+    // (the tally's corner is the place card's: after a card just up (a ride's arrival), it comes up once the card has gone)
+    const tally = (txt) => { const w = cardLeft(); if (w > 0) setTimeout(() => { if (M?.collect) ui.counter(COUNTER, txt); }, w); else ui.counter(COUNTER, txt); };
+    tally(`0/${need}`);
+    // (the objective with the tally after it: 'Scavenge food along Market St · 3/5', its full stop dropped for it)
+    const objective = parts(d.objective || `Collect **${label.toLowerCase()}**.`, 'green');
+    if (typeof objective[objective.length - 1] === 'string') objective[objective.length - 1] = objective[objective.length - 1].replace(/\.\s*$/, '');
+    const next = () => { let b = null, bd = Infinity; const q = me(); for (const it of items) if (!it.taken) { const dd = dist(q, it.x, it.z); if (dd < bd) { bd = dd; b = it; } } return b; };
+    const stopNav = () => { if (nav) { nav.stop(); nav = null; } };
+    try {
+      await wait(() => {
+        const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
+        for (const it of items) if (!it.taken) { it.obj.rotation.y += dt * 0.9; it.obj.position.y = it.y + 0.06 + Math.sin(tt / 420 + it.i) * 0.05; }
+        const q = me(), r = (d.radius || 2.2) + (inCar() ? 1.6 : 0);
+        for (const it of items) if (!it.taken && dist(q, it.x, it.z) < r) {
+          it.taken = true; n++; app.scene.remove(it.obj); it.beam.hide(); app.scene.remove(it.beam.group); gps.unblip('sup:' + it.i);
+          sfx.play('ding', { gain: 0.28 }); tally(`${n}/${need}`);
+          juice.alert(`${label} ${n}/${need}`, { tone: n >= need ? 'green' : 'yellow', secs: 1.3 });
+          M.log.push(['collect', kind, n]);
+          host.tell('progress', { mission: M.def?.id, step: d.id || null, kind: 'collect', i: M.i, n: M.def?.steps.length, got: n, need });
+          if (d.barks?.[n]) { const b = tuple(d.barks[n]); say(castName(b.who), b.text, M.tok).catch(() => {}); }
+        }
+        if (n >= need) return true;
+        // (the route to the nearest one left, re-aimed when another is nearer by a margin or that one is taken)
+        const b = next();
+        if (b && (b !== cur || !nav) && (!cur || cur.taken || dist(q, b.x, b.z) < dist(q, cur.x, cur.z) - 15)) {
+          stopNav(); cur = b; M.dest = b;
+          nav = gps.drive({ dest: { x: b.x, z: b.z, name: b.name }, objective: [...objective, ` · ${n}/${need}`], onFoot: 250 });
+        }
+        nav?.step();
+        return false;
+      }, t);
+    } finally {
+      stopNav(); M.dest = null; gps.clear();
+      for (const it of items) { if (!it.taken) { app.scene.remove(it.obj); it.beam.hide(); app.scene.remove(it.beam.group); } gps.unblip('sup:' + it.i); }
+      M.collect = null;
+    }
+    ui.counter(COUNTER, `${need}/${need}`); await delay(1.0, t); ui.counter(null);
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
+  };
+
+  // herd: wildlife set out where the story says (W.creatures.herd: they graze, drift and run from him), at once; they stay
+  // until the mission ends, or a herd step with { remove: <its id> } lets them go. Not a step to wait on.
+  //   { type: 'herd', id, creature: 'creature-horse', at: '@place' | [x, z], count, radius, height }
+  // a herd's behaviour, for a set piece (a cutscene's creatures): `hold: true` keeps each where it stands, quiet, never
+  // running from him (WARDEN-7's dead hulk); `walkTo: '@place' | [x, z]` walks them there together (the herds going
+  // home); `scatter: true` sends each its own way out from the herd's middle (loose for good). Given to a herd that
+  // already stands (the step names its id and no `at`), or with a new one. Kept up every frame until the mission ends
+  // or another herd step changes it.
+  function steerHerd(d, h) {
+    if (!(d.hold || d.walkTo || d.scatter)) return;
+    const tok = tokOf(M.tok); if (h._steer) kill(h._steer, new Stop()); h._steer = tok;
+    const goal = d.walkTo ? markOf(d.walkTo) : null;
+    let held = null, out = null;
+    wait(() => {
+      const A = h.animals || [];
+      if (!A.length) return false;
+      if (d.hold && !held) held = A.map((a) => ({ x: a.pos.x, z: a.pos.z, yaw: a.yaw }));
+      if (d.scatter && !out) { const cx = A.reduce((n, a) => n + a.pos.x, 0) / A.length, cz = A.reduce((n, a) => n + a.pos.z, 0) / A.length; out = A.map((a, i) => { const ang = Math.atan2(a.pos.x - cx, a.pos.z - cz) + i * 0.9; return { x: a.pos.x + Math.sin(ang) * 80, z: a.pos.z + Math.cos(ang) * 80 }; }); }
+      A.forEach((a, i) => {
+        if (held) { const k = held[i]; a.pos.x = k.x; a.pos.z = k.z; a.yaw = k.yaw; a.state = 'graze'; a.t = 0; a.next = 99; a.want = 0; return; }
+        const g = goal ? { x: goal.x + Math.sin(i * 2.1) * 4, z: goal.z + Math.cos(i * 2.1) * 4 } : out?.[i];
+        if (g) { a.state = 'wander'; a.t = 0; a.goal = new THREE.Vector3(g.x, 0, g.z); }
+      });
+      return false;
+    }, tok).catch(() => {});
+  }
+  STEPS.herd = async (d) => {
+    const C = W.creatures; M.herds = M.herds || new Map();
+    if (d.remove) { const h = M.herds.get(d.remove); if (h) { if (h._steer) kill(h._steer, new Stop()); h.remove(); M.herds.delete(d.remove); } return; }
+    if (d.id && d.at == null) {
+      // (a change to a standing herd; started past the step that stood it up (a checkpoint, ?step=): that step first)
+      if (!M.herds.has(d.id)) { const hs = M.def.steps.find((x) => x.type === 'herd' && x.id === d.id && x.at != null); if (hs) await STEPS.herd({ ...hs, hold: false, walkTo: null, scatter: false }); }
+      if (M.herds.has(d.id)) steerHerd(d, M.herds.get(d.id));
+      return;
+    }
+    if (!C?.herd) { console.warn('[storyrun] no wildlife on this page'); return; }
+    const q = Array.isArray(d.at) ? { x: d.at[0], z: d.at[1] } : (() => { const pp = placeOf(d.at); return { x: pp.cx ?? pp.x, z: pp.cz ?? pp.z }; })();
+    const h = C.herd(d.creature || 'creature-horse', { at: q, count: d.count || 4, radius: d.radius || 10, height: d.height });
+    M.herds.set(d.id || 'herd' + M.herds.size, h);
+    steerHerd(d, h);
+  };
+
+  // mount / dismount: on to the world's horse (its car { model: 'mogcity/horse' }: wagmi/horse), or off it. A mount with
+  // `at` stands the horse there first (W.horse.give); else it is where he left it (blipped, the route to it)
+  STEPS.mount = async (d, t) => {
+    const H = W.horse;
+    if (inCar()) { if (d.arm && H?.arm) try { H.arm(d.arm); } catch {} return; }
+    if (H && d.at) { const p = placeOf(d.at); H.give({ x: p.cx ?? p.x, z: p.cz ?? p.z, heading: p.heading ?? 0 }); }
+    const name = car.label || 'your horse';
+    gps.objective(d.objective ? parts(d.objective, 'blue') : [`${rideWord('board', 'Get in')} `, { [name]: 'blue' }, '.'], { follow: () => car.position, name });
+    gps.blip('car', { x: car.position.x, z: car.position.z, kind: 'car', edge: true, name });
+    ui.help(`Press [F] to ${rideWord('board', 'get in').toLowerCase()}.`, 8);
+    try { await wait(() => inCar() && !W.ride?.phase, t); } finally { gps.unblip('car'); ui.help(null); gps.clear(); }
+    // (something put in his hand for the saddle's blows: `arm` 'bat' | 'bottle', wagmi/horse arm)
+    if (d.arm && H?.arm) try { H.arm(d.arm); } catch (e) { console.warn('[storyrun] arm', e); }
+  };
+  STEPS.dismount = async (d, t) => {
+    if (!inCar()) return;
+    gps.objective(d.objective ? parts(d.objective, 'blue') : [W.horse ? 'Get down.' : 'Get out.'], null);
+    ui.help(`Press [F] to ${W.horse ? 'dismount' : 'get out'}.`, 8);
+    if (d.quick || M.auto) { await wait(() => Math.abs(car.speed || 0) < 1.5, t); W.ride?.getOut?.(true); }
+    try { await wait(() => !inCar() && !W.ride?.phase, t); } finally { ui.help(null); }
+  };
+
+  /* ---------------------------------------------- the wild steps (SF 2040) -- */
+  // sneak, flee, drove and track: the verbs of a ride through a city of creatures (W.creatures, San Francisco only).
+  // Each tells the test drive what it needs in M.wild ({ kind, walk, push, near }: autopilot.js).
+  const markOf = (r) => { if (Array.isArray(r)) return { x: r[0], z: r[1] }; const pp = placeOf(r); return { x: pp.cx ?? pp.x, z: pp.cz ?? pp.z }; };
+  const paceNow = () => (inCar() ? Math.abs(car.speed || 0) : Math.abs(P.speed || 0));
+  // (how loud he is: a horse's walk, trot or gallop by its speed (wagmi/horse/drive.js PACE 1.8 / 4.5 / 12), a man's
+  // walk or run; and how far a sleeper hears each, in metres)
+  const gaitNow = () => { const v = paceNow(); return inCar() ? (v < 2.6 ? 'walk' : v < 7 ? 'trot' : 'gallop') : (v < 2.4 ? 'walk' : 'run'); };
+  const HEAR = { walk: 6, trot: 17, gallop: 36, run: 11 };
+  const arrived = (p, radius) => (inCar() ? dist(car.position, p.x, p.z) < radius : dist(P.position, p.x, p.z) < Math.max(3, radius * 0.75));
+  // a whistle, three short blasts (a ranger's "I'm here"), or one: synthesized, near (loud) or far (soft and dull)
+  function whistle(k = 1, n = 3) {
+    const ac = sfx?.unlock?.(); if (!ac || ac.state !== 'running') return;
+    const t0 = ac.currentTime + 0.02, lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800 + 4200 * k;
+    const out = ac.createGain(); out.gain.value = 0.05 + 0.2 * k; lp.connect(out); out.connect(ac.destination);
+    for (let i = 0; i < n; i++) {
+      const t = t0 + i * 0.32, o = ac.createOscillator(), v = ac.createOscillator(), vg = ac.createGain(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = 2650; v.frequency.value = 38; vg.gain.value = 70; v.connect(vg); vg.connect(o.frequency);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 0.02); g.gain.setValueAtTime(1, t + 0.17); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      o.connect(g); g.connect(lp); o.start(t); v.start(t); o.stop(t + 0.25); v.stop(t + 0.25);
+    }
+    setTimeout(() => { try { out.disconnect(); } catch {} }, 2000);
+  }
+  const growl = () => { sfx.play('thunk', { gain: 0.35, f: 55, ring: true }); sfx.play('grunt', { gain: 0.22, f0: 70, vowel: 'o', dur: 0.5 }); };
+  // the creatures a step keeps for a later one (flee's chaser, fought at the bottom of the hill: a fight's boss.from)
+  const keptOf = () => (M.kept = M.kept || new Map());
+
+  // sneak: past sleeping creatures to a place, without waking them. They lie in their lairs (`sleepers`, on the radar);
+  // each hears him within HEAR m for his gait (a horse's gallop 36, trot 17, walk 6; a man running 11, walking 6), times
+  // its `ears`. While one hears him the NOISE bar fills (faster the nearer he is), and drains when none does; at a
+  // half it stirs (a growl, the step's `warn` line); full, or hit, they wake: the step fails (`why`, the tip: walk) or,
+  // with `woke: <step id>`, goes there (a fight). There, they are let be (gone with the step).
+  //   { type: 'sneak', to: '@place', radius, sleepers: [{ id, at, name, height, yaw, ears }], objective, help, warn, why, woke }
+  STEPS.sneak = async (d, t) => {
+    const C = W.creatures, p = placeOf(d.to), radius = d.radius || 10;
+    const hs = [];
+    if (C?.spawn) for (const s of d.sleepers || []) {
+      const o = typeof s === 'string' ? { id: s, at: d.to } : s;
+      hs.push({ o, h: C.spawn(o.id, { at: markOf(o.at), height: o.height, name: o.name, yaw: o.yaw != null ? (o.yaw * PI) / 180 : undefined, hold: { wake: 1.5, leash: 30 }, aggro: false }) });
+    }
+    M.creatures = [...(M.creatures || []), ...hs.map((x) => x.h)];
+    await Promise.race([Promise.all(hs.map((x) => x.h.ready)), wait(() => false, t)]);
+    let noise = 0, warned = false, woke = false, last = now();
+    for (const x of hs) x.h.on('wake', () => { woke = true; });
+    marker.at(p.x, groundY(p.x, p.z), p.z); M.dest = p;
+    const nav = gps.drive({ dest: { x: p.x, z: p.z, name: p.name }, objective: parts(d.objective || `Get to **${p.name}** without waking them.`), onFoot: 250 });
+    M.nav = nav;
+    ui.help(parts(d.help || 'Near them, slow to a walk: [Q] walks Ranger. Keep the NOISE bar from filling.'), 10);
+    M.wild = { kind: 'sneak', walk: false, near: Infinity };
+    try {
+      await wait(() => {
+        nav.step();
+        const tt = now(), dt = Math.min(0.1, (tt - last) / 1000); last = tt;
+        const hear = HEAR[gaitNow()] || 10, q = me();
+        let heat = 0, near = Infinity, nearAt = null;
+        for (const x of hs) for (const f of x.h.fighters) {
+          if (f.out || f.disposed) continue;
+          const dd = dist(q, f.pos.x, f.pos.z) - (f.T?.radius || 0), r = hear * (x.o.ears || 1);
+          if (dd < near) { near = dd; nearAt = { x: f.pos.x, z: f.pos.z, r: hear * (x.o.ears || 1) + (f.T?.radius || 0) }; }
+          if (dd < r) heat = Math.max(heat, 1 - Math.max(0, dd) / r);
+          gps.blip('sl:' + f.id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', name: x.o.name || '' });
+        }
+        M.wild.near = near; M.wild.nearAt = nearAt; M.wild.walk = near < 45; M.wild.trot = near < 90; M.wild.gait = gaitNow(); M.wild.noise = noise;
+        noise = clamp(noise + (heat > 0 ? (0.12 + heat * 1.0) * dt : -0.25 * dt), 0, 1);
+        hud.bar('NOISE', noise, heat > 0 ? (noise > 0.55 ? 'It stirs' : 'It can hear you') : near < 60 ? 'Quiet' : '', { danger: true });
+        if (noise > 0.5 && !warned) { warned = true; growl(); juice.pulse(0.5); if (d.warn) { const b = tuple(d.warn); say(castName(b.who), b.text, M.tok).catch(() => {}); } }
+        if (noise < 0.15) warned = false;
+        if (noise >= 1 || woke) { woke = true; return true; }
+        return arrived(p, radius);
+      }, t);
+    } finally {
+      nav.stop(); M.nav = null; M.dest = null; marker.hide(); gps.clear(); hud.bar(null); ui.help(null); M.wild = null;
+      for (const x of hs) { for (const f of x.h.fighters) gps.unblip('sl:' + f.id); }
+    }
+    if (woke) {
+      M.log.push(['sneak', 'woke']);
+      for (const x of hs) try { x.h.engage(); } catch {}
+      juice.alert(d.alert || 'They heard you', { tone: 'red', sting: 'up', jolt: 0.35, secs: 2 });
+      await delay(1.2, t);
+      for (const x of hs) try { x.h.remove(); } catch {}
+      M.creatures = (M.creatures || []).filter((h) => !hs.some((x) => x.h === h));
+      if (d.woke) return { goto: d.woke };
+      throw new Fail(tokens(d.why || 'They heard you.'), 'heard');
+    }
+    for (const x of hs) try { x.h.remove(); } catch {}
+    M.creatures = (M.creatures || []).filter((h) => !hs.some((x) => x.h === h));
+    if (d.card !== false) { sfx.play('ding', { gain: 0.22 }); ui.place(p.name, '', 3); M.cardAt = now(); }
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
+  };
+
+  // flee: a creature on his heels, to a place. It comes from `from` (a place, or `behind` m back along his way), fast:
+  // never quite as fast as a gallop, gaining on anything slower, and closing up when it falls far behind (it never
+  // loses him: the chase stays close). Within its reach (`catch` m past its body) for `grace` s in all, it has him: the
+  // step fails ('caught'). Knocked out, too. It comes from its own `creature.at` (a place or [x, z]), else `behind` m back. There, it stops; with `keep: true` it is kept for the next fight (its
+  // boss.from: this step's id), else it is let go.
+  //   { type: 'flee', to: '@place', radius, creature: { id, name, height, boss: true, phases, at }, behind, speed,
+  //     catch, grace, objective, alert, keep, barks: { <secs in>: [who, text] } }
+  STEPS.flee = async (d, t) => {
+    const C = W.creatures, p = placeOf(d.to), radius = d.radius || 14;
+    const B = typeof d.creature === 'string' ? { id: d.creature } : d.creature || {};
+    let h = null;
+    if (C?.spawn && B.id) {
+      const e = cm.getActiveEntity(), back = d.behind || 30;
+      const at = B.at ? markOf(B.at) : { x: e.position.x - Math.sin(e.heading) * back, z: e.position.z - Math.cos(e.heading) * back };
+      h = C.spawn(B.id, { at, height: B.height, name: B.name, stats: B.stats, boss: B.boss ? { name: B.name, phases: B.phases } : null, aggro: true });
+      M.creatures = [...(M.creatures || []), h];
+      await Promise.race([h.ready, wait(() => false, t)]);
+      try { h.engage(); } catch {}
+    }
+    const f = h?.fighters?.[0] || null, speed0 = f?.T?.speed;
+    juice.alert(B.name || 'Run', { sub: tokens(d.alert || 'Ride!'), tone: 'red', sting: 'up', jolt: 0.45, secs: 2.2 });
+    marker.at(p.x, groundY(p.x, p.z), p.z); M.dest = p;
+    const nav = gps.drive({ dest: { x: p.x, z: p.z, name: p.name }, objective: parts(d.objective || `Ride for **${p.name}**!`, 'red'), onFoot: 250 });
+    M.nav = nav;
+    const top = d.speed || 11, reach = d.catch ?? 2.5, grace = d.grace ?? 1.6, t0 = now();
+    let held = 0, last = now(), down = false, trailT = 0;
+    // (his trail, a point every 0.25 s: a chaser left behind a block (the city's walls stop it) is put back on it, out of
+    // his sight behind him, never through a building)
+    const trail = [];
+    const offDown = W.combat?.player?.onDown?.(() => { down = true; });
+    const barks = Object.entries(d.barks || {}).map(([k, l]) => [+k, l]).sort((a, b) => a[0] - b[0]);
+    M.wild = { kind: 'flee' };
+    try {
+      await wait(() => {
+        nav.step();
+        const tt = now(), dt = Math.min(0.1, (tt - last) / 1000); last = tt;
+        const secs = (tt - t0) / 1000;
+        while (barks.length && secs >= barks[0][0]) { const b = tuple(barks.shift()[1]); say(castName(b.who), b.text, M.tok).catch(() => {}); }
+        if (f && !f.out && !f.disposed) {
+          const q = me(), gap = dist(q, f.pos.x, f.pos.z) - (f.T?.radius || 0), v = paceNow();
+          // (its pace: a little under his when he gallops, its own top when he is slower; far behind, it closes up)
+          f.T.speed = Math.min(top, Math.max(top * 0.82, v * 0.94));
+          if (tt - trailT > 250) { trailT = tt; trail.push({ x: q.x, z: q.z }); if (trail.length > 160) trail.shift(); }
+          if (gap > 36) {
+            // (the newest point of his trail at least 26 m back from him: there, on his way)
+            let k = trail.length - 1; while (k > 0 && dist(q, trail[k].x, trail[k].z) < 26) k--;
+            const b = trail[k];
+            if (b && dist(q, b.x, b.z) >= 20) { f.pos.x = b.x; f.pos.z = b.z; f.pos.y = cm.getGroundHeight(b.x, b.z, 'person'); f.yaw = Math.atan2(q.x - b.x, q.z - b.z); }
+          }
+          held = gap < reach ? held + dt : Math.max(0, held - dt * 0.5);
+          hud.bar(B.name ? B.name.toUpperCase() : 'BEHIND YOU', clamp(1 - gap / 40, 0, 1), `${Math.max(0, Math.round(gap))} m`, { danger: true });
+          gps.blip('chaser', { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: true, name: B.name || '' });
+          if (held > grace) throw new Fail(tokens(d.why || `${B.name || 'It'} caught you.`), 'chased');
+        }
+        if (down) throw new Fail(tokens(d.why || `${heroName} got knocked out.`), 'ko');
+        return arrived(p, radius);
+      }, t);
+    } finally {
+      offDown?.(); nav.stop(); M.nav = null; M.dest = null; marker.hide(); gps.clear(); hud.bar(null); gps.unblip('chaser'); M.wild = null;
+    }
+    if (f && speed0 != null) f.T.speed = speed0;
+    if (h && d.keep && d.id) { h.trail = trail; keptOf().set(d.id, h); }
+    else if (h) { try { h.remove(); } catch {} M.creatures = (M.creatures || []).filter((x) => x !== h); }
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
+  };
+
+  // drove: a herd (a herd step's, by its id) driven into a pen. They run from him (W.creatures.herd), so he rides round
+  // behind them; running, they drift toward the pen (`pull` m/s), and once in it (within `radius` m) they stay. The
+  // route goes to the herd, the pen is a ring and a blip; the counter keeps the tally ('HERD 2/3'). Done when `need`
+  // are in (all of them when it names none).
+  //   { type: 'drove', herd: '<herd id>', to: '@place', radius, need, pull, label, objective, help, barks }
+  STEPS.drove = async (d, t) => {
+    // (a start past the herd's own step (a checkpoint, ?step=): that step stood up now)
+    if (!M.herds?.get(d.herd)) { const hs = M.def.steps.find((s) => s.type === 'herd' && s.id === d.herd && !s.remove); if (hs) await STEPS.herd(hs, t); }
+    const hd = M.herds?.get(d.herd);
+    if (!hd) { console.warn('[storyrun] drove: no herd', d.herd); return; }
+    await Promise.race([hd.ready, wait(() => false, t)]);
+    const p = placeOf(d.to), px = p.cx ?? p.x, pz = p.cz ?? p.z, R = d.radius || 14, pull = d.pull ?? 1.6;
+    const A = hd.animals || [], need = Math.min(A.length, d.need || A.length), label = (d.label || 'Herd').toUpperCase();
+    const ring = createMarker(THREE, app.scene, { color: '#4ADE80', radius: R, height: 1.4, alpha: 0.16 }); ring.at(px, groundY(px, pz), pz);
+    gps.blip('pen', { x: px, z: pz, kind: 'object', edge: true, name: p.name || 'the pen' });
+    ui.counter(label, `0/${need}`);
+    if (d.help !== false) ui.help(parts(d.help || 'They run from Ranger. Ride round behind them and push them toward the **green ring**.'), 10);
+    const objective = parts(d.objective || `Drive the herd into **${p.name}**`, 'green');
+    let nav = null, navAt = 0, last = now(), got = 0;
+    const t0 = now(), penned = new Set();
+    M.wild = { kind: 'drove', push: null };
+    try {
+      await wait(() => {
+        const tt = now(), dt = Math.min(0.1, (tt - last) / 1000); last = tt;
+        const q = me(), assist = M.auto && (tt - t0) / 1000 > 45;
+        let cx = 0, cz = 0, n = 0;
+        for (const a of A) {
+          const dp = Math.hypot(a.pos.x - px, a.pos.z - pz);
+          if (penned.has(a)) {
+            // (in: kept in the pen, grazing)
+            if (dp > R * 0.8) { a.pos.x += (px - a.pos.x) / dp * Math.min(dp - R * 0.8, 3 * dt); a.pos.z += (pz - a.pos.z) / dp * Math.min(dp - R * 0.8, 3 * dt); }
+            if (a.state === 'flee') { a.state = 'graze'; a.t = 0; a.next = 6; }
+            continue;
+          }
+          if (dp < R) { penned.add(a); got++; sfx.play('ding', { gain: 0.26 }); juice.alert(`${d.label || 'Herd'} ${got}/${need}`, { tone: got >= need ? 'green' : 'yellow', secs: 1.3 });
+            if (d.barks?.[got]) { const b = tuple(d.barks[got]); say(castName(b.who), b.text, M.tok).catch(() => {}); }
+            continue; }
+          cx += a.pos.x; cz += a.pos.z; n++;
+          // (running from him, and he near: a drift toward the pen; the test drive's after 45 s is a firm one)
+          const dq = dist(q, a.pos.x, a.pos.z), k = assist ? 4 : a.state === 'flee' && dq < 45 ? pull : 0;
+          if (k > 0) { a.pos.x += (px - a.pos.x) / dp * k * dt; a.pos.z += (pz - a.pos.z) / dp * k * dt; }
+        }
+        ui.counter(label, `${got}/${need}`);
+        if (got >= need) return true;
+        if (n) {
+          cx /= n; cz /= n;
+          // (where to ride: behind the herd, the far side from the pen; the route there, re-aimed every 2 s)
+          const ax = cx - px, az = cz - pz, L = Math.hypot(ax, az) || 1, bx = cx + ax / L * 14, bz = cz + az / L * 14;
+          M.wild.push = { x: bx, z: bz, cx, cz };
+          if (!nav || tt - navAt > 2000) { nav?.stop(); navAt = tt; nav = gps.drive({ dest: { x: bx, z: bz, name: d.label || 'the herd' }, objective: [...objective, ` · ${got}/${need}`], onFoot: 250 }); M.dest = { x: bx, z: bz }; }
+          nav.step();
+          gps.blip('herd', { x: cx, z: cz, kind: 'object', name: d.label || 'the herd' });
+        }
+        return false;
+      }, t);
+    } finally {
+      nav?.stop(); M.dest = null; gps.clear(); gps.unblip('pen'); gps.unblip('herd'); ring.hide(); app.scene.remove(ring.group); ui.help(null); M.wild = null;
+    }
+    ui.counter(label, `${need}/${need}`); await delay(1.0, t); ui.counter(null);
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
+  };
+
+  // track: something heard, not seen. No route and no marker: a SIGNAL bar that fills as he gets nearer, and a sound
+  // from the place every `every` s (`cue`: 'whistle', three short blasts, louder and brighter the nearer he is), with a
+  // word ('Colder', 'Warmer', 'Close'). After `hint` s (90) the route is given as a last resort. Done within `radius` m.
+  //   { type: 'track', at: '@place', radius, label, every, cue: 'whistle' | 'ding', call: [who, text], objective, hint }
+  STEPS.track = async (d, t) => {
+    const p = placeOf(d.at), px = p.cx ?? p.x, pz = p.cz ?? p.z, radius = d.radius || 12, every = (d.every || 7) * 1000, label = (d.label || 'Signal').toUpperCase();
+    const d0 = Math.max(60, dist(me(), px, pz));
+    gps.objective(parts(d.objective || `Follow the sound to **${p.name}**.`), null);
+    let nav = null, lastPing = 0, best = d0, word = '';
+    const t0 = now(), hint = (d.hint ?? 90) * 1000;
+    const help = d.help ?? 'No route for this one: listen, and watch the bar fill as you get closer.';
+    if (help) ui.help(parts(help), 9);
+    M.wild = { kind: 'track' };
+    try {
+      await wait(() => {
+        const tt = now(), dd = dist(me(), px, pz), k = clamp(1 - dd / d0, 0, 1);
+        // (the test drive, or a player still lost after `hint` s: the route, as a last resort)
+        if (!nav && (M.auto || tt - t0 > hint)) { nav = gps.drive({ dest: { x: px, z: pz, name: p.name }, objective: parts(d.objective || `Follow the sound to **${p.name}**.`), onFoot: 250 }); M.dest = { x: px, z: pz }; if (!M.auto) ui.help('The route is on the map.', 5); }
+        nav?.step();
+        if (tt - lastPing > every * (0.45 + 0.55 * (1 - k))) {
+          lastPing = tt;
+          if ((d.cue || 'whistle') === 'whistle') whistle(0.15 + 0.85 * k); else sfx.play('ding', { gain: 0.08 + 0.3 * k });
+          word = dd < best - 8 ? 'Warmer' : dd > best + 15 ? 'Colder' : word; best = Math.min(best, dd);
+          if (d.call && tt - t0 < 1000) { const b = tuple(d.call); say(castName(b.who), b.text, M.tok).catch(() => {}); }
+        }
+        hud.bar(label, k, dd < radius * 3 ? 'Close' : word);
+        return dd < radius;
+      }, t);
+    } finally { nav?.stop(); M.dest = null; gps.clear(); hud.bar(null); ui.help(null); M.wild = null; }
+    sfx.play('ding', { gain: 0.24 });
+    if (d.card !== false) { ui.place(p.name, '', 3); M.cardAt = now(); }
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
   };
 
   // a chase: pursuit's heat and cars; lose them, reach a place with them on you, or keep going (escort) for `until` s
@@ -1285,7 +2060,7 @@ export function createRunner(ctx) {
       if (L > wb * 3) { dx = -Math.sin(car.heading); dz = -Math.cos(car.heading); L = 1; }
       st.rx = st.fx + dx / L * wb; st.rz = st.fz + dz / L * wb;
       // (into a wall: knocked back out of it)
-      const q = { x: st.rx, y: 0, z: st.rz }; cm.resolveHorizontalCollision(q, T.half, 1.0); st.rx = q.x; st.rz = q.z;
+      const q = { x: st.rx, y: 0, z: st.rz }; cm.resolveHorizontalCollision(q, T.half, (cm.baseHeight?.(st.rx, st.rz) || 0) + 1.0); st.rx = q.x; st.rz = q.z;
       // (the truck's starts and stops rock it on its back springs)
       const acc = dt > 0 ? ((car.speed || 0) - lastV) / dt : 0; lastV = car.speed || 0;
       st.pv += -acc * 0.006; st.spin = car.speed || 0;
@@ -1661,6 +2436,32 @@ export function createRunner(ctx) {
     return s;
   }
 
+  /* ------------------------------------------------------- the idle nudge -- */
+  // a player who has stopped getting anywhere is told again what to do: on a step he travels or acts in, after `idle`
+  // s (the step's, the mission's, the world's; 25) with no 4 m covered and nothing said, the step's `nudge` line
+  // ([who, text], else the mission's or the world's `nudge`, its {objective} the step's objective in plain words) said
+  // over the radio, the objective flashed again with its help; then again every 40 s, at most three times a step.
+  const IDLE_STEPS = new Set(['drive', 'walk', 'collect', 'search', 'mount', 'sneak', 'drove', 'track', 'stops']);
+  const plain = (o) => tokens(String(o || '')).replace(/\*\*(.+?)\*\*(\{\w+\})?/g, '$1');
+  function idleNudge(d, t) {
+    const line = d.nudge || M.def.nudge || def0.nudge;
+    if (!line && !d.objective) return;
+    const after = (d.idle || M.def.idle || def0.idle || 25) * 1000;
+    let at = me(), since = now(), told = 0;
+    wait(() => {
+      const q = me(), tt = now();
+      if (W.cutscene || W.paused || saying > 0 || W.calls?.live || M.crew) { since = tt; return false; }
+      if (dist(q, at.x, at.z) > 4) { at = { x: q.x, z: q.z }; since = tt; return false; }
+      if (tt - since > (told ? 40000 : after) && told < 3) {
+        told++; since = tt;
+        if (d.objective) { ui.help(parts(d.objective), 6); juice.alert('Objective', { sub: plain(d.objective), tone: 'yellow', secs: 2.4 }); }
+        if (line) { const b = tuple(line); say(castName(b.who), String(b.text).replace(/\{objective\}/g, plain(d.objective).replace(/\.$/, '').toLowerCase()), M.tok, { phone: castName(b.who) !== heroName }).catch(() => {}); }
+        M.log.push(['nudge', d.id || d.type]);
+      }
+      return false;
+    }, t).catch(() => {});
+  }
+
   /* --------------------------------------------------------- a mission -- */
   function snapshot(i) {
     const e = cm.getActiveEntity();
@@ -1672,6 +2473,10 @@ export function createRunner(ctx) {
     W.calls?.stop({ quiet: true, of: 'pack:' });
     try { M.chase?.stop?.(); } catch {}
     if (M.crew) W.combat?.clear?.();
+    if (M.creatures) dropCreatures();
+    if (M.kept) { for (const h of M.kept.values()) try { h.remove(); } catch {} M.kept = null; }
+    M.wild = null; hud.bar?.(null);
+    if (M.herds) { for (const h of M.herds.values()) try { h.remove(); } catch {} M.herds = null; }
     hud.clear(); M.timer.stop(); juice.clear(); juice.live = false;
     ui.objective(null); ui.sub(null); ui.help(null); ui.counter(null); ui.caller(null); ui.hold(null); ui.phone?.hide?.(); ui.offer?.(null);
     gps.clear(); app.mapSystem.waypoint = null; for (const id of [...gps.blips.keys()]) gps.unblip(id); marker.hide();
@@ -1753,7 +2558,7 @@ export function createRunner(ctx) {
     while (i < steps.length) {
       const d = steps[i];
       if (d.if && !cond(d.if)) { i++; continue; }
-      if (d.checkpoint && (!M.cp || M.cp.i !== i)) M.cp = snapshot(i);
+      if (d.checkpoint && (!M.cp || M.cp.i !== i)) { M.cp = snapshot(i); try { ctx.onCheckpoint?.(def.id, M.cp); } catch {} }
       M.i = i; W.mission.phase = d.id || `${d.type}:${i}`;
       ui.step(`pack:${def.id}:${i}`);
       host.tell('progress', { mission: def.id, step: d.id || null, kind: d.type, i, n: steps.length });
@@ -1767,6 +2572,7 @@ export function createRunner(ctx) {
       // (the step's help lines, Mog City's tips: [secs in, text, 'car' | 'person' only])
       for (const h of Array.isArray(d.help) ? d.help : []) if (Array.isArray(h)) delay(h[0] || 0, st).then(() => ui.help(parts(String(h[1] || '')), h[3] || 7, h[2] ? { mode: h[2] } : {})).catch(() => {});
       for (const x of d.during || []) side(x, st);
+      if (IDLE_STEPS.has(d.type) && !d.ref) idleNudge(d, st);
       for (const k of ['trigger', 'comfort', 'patrol', 'stealth']) for (const x of [].concat(d[k] || [])) side({ at: 0, ...x, type: k }, st);
       let r;
       const run = d.ref && partOf(d.ref) && d.type !== 'call' ? runPart(d.ref, d, st) : STEPS[d.type](d, st);
@@ -1793,8 +2599,9 @@ export function createRunner(ctx) {
   }
 
   // a mission, with Mog City's fail screen: Retry (from its checkpoint), Quit, and Skip after three fails
-  async function play(def, { act = null, from = null } = {}) {
-    let cp = null, fails = 0;
+  // (resume: a checkpoint saved in an earlier session (index.js Continue), its snapshot as attempt() took it)
+  async function play(def, { act = null, from = null, resume = null } = {}) {
+    let cp = resume && Number.isInteger(resume.i) && resume.i > 0 && resume.i < def.steps.length && resume.at ? resume : null, fails = 0;
     // (?step=<id>: from that step, where its `from` puts him; a dev and Mission select start)
     if (from) { const i = def.steps.findIndex((s) => s.id === from); if (i >= 0) cp = { i, from: def.steps[i].from || def.start, state: { meters: { ...ctx.save.meters }, flags: { ...ctx.save.flags }, forks: {} }, timers: [] }; }
     const reg = registry(W).register({
@@ -1837,5 +2644,5 @@ export function createRunner(ctx) {
     if (!at) { keyL.intensity = 0; keyL.distance = 4.5; return; }
     keyL.position.set(at[0], at[1], at[2]); keyL.intensity = intensity; keyL.distance = reach;
   };
-  return { play, opening, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo, lamp, showMeters };
+  return { play, opening, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo, lamp, showMeters, streetAct };
 }

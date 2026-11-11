@@ -97,9 +97,12 @@ export function createPhysics({ cm, car }) {
     let nw = 0;
     const q = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0);
     for (const c of cm.nearColliders(cx, cz, HALF * 1.45)) {
-      if (c.minY != null && c.minY >= 2.2) continue;
+      // (heights over the bare ground there: a hill's, cm.baseHeight, San Francisco's colliders standing from the ground
+      // they are on; New York's street is y 0, so there b is 0 and this is as it was)
+      const b = cm.baseHeight?.((c.minX + c.maxX) / 2, (c.minZ + c.maxZ) / 2) || 0;
+      if (c.minY != null && c.minY - b >= 2.2) continue;
       const o = c.obb;
-      const y0 = c.minY != null ? Math.min(c.minY, -1) : -1, y1 = Math.min(c.maxY ?? 30, 60);
+      const y0 = c.minY != null ? Math.min(c.minY, b - 1) : b - 1, y1 = Math.min(c.maxY ?? b + 30, b + 60);
       if (y1 - y0 < 0.3) continue;
       let px, pz, hx, hz;
       if (o) { px = o.cx; pz = o.cz; hx = o.hx; hz = o.hz; q.setFromAxisAngle(Y, Math.atan2(o.sn, o.cs)); }

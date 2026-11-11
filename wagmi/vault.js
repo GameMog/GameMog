@@ -50,7 +50,9 @@ export function installVault(W, c) {
   function landingOk(L, over, g0) {
     const gL = ground(L.x, L.z);
     if (gL < g0 - 0.3 || gL > g0 + 0.55) return 'drop';
-    if (gL < 0.1 && g0 > 0.15) return 'road';
+    // (the road and the curb by their height over the bare ground: a hill's, cm.baseHeight; New York's street is y 0)
+    const bare = (x, z) => cm.baseHeight?.(x, z) || 0;
+    if (gL - bare(L.x, L.z) < 0.1 && g0 - bare(pos.x, pos.z) > 0.15) return 'road';
     if (cm.inParkWater(L.x, L.z)) return 'water';
     _probe.set(L.x, gL, L.z);
     cm.resolveHorizontalCollision(_probe, R, gL + 1.0);

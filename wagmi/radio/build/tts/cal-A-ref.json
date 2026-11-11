@@ -1,0 +1,7 @@
+{
+ "design": "Male, about 40 years old, American, a low weathered baritone with a little gravel, a grown man's chest voice, quiet and steady, a man of few words, warm underneath, tired but determined, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 5101,
+ "refText": "Fed the horse, checked the water, walked the fence line twice. Nothing moving out there tonight. That's good. Quiet means we all get a little sleep. I'll take first watch.",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

@@ -27,6 +27,15 @@ const FIONA_REF = 'Hi, everybody! Oh my gosh, look at all of you! This is the be
 const DASH_REF = 'Sorry, sorry, I\'m here, I\'m here! The train was late, then my phone died, then I went to the wrong park. Did I miss it? Please tell me I didn\'t miss it.';
 const BRICK_REF = 'Let\'s go, let\'s go! Hands up, phones out, nobody past the rope! You, back up. You, you\'re good. Everybody else, keep that energy up!';
 const BEA_REF = 'Alright, everybody, settle down. I taught science for thirty-one years, so I know what not listening sounds like. Soup is at six. Bring a bowl, bring a friend, and bring some patience.';
+// SF 2040 (tools/storyrun/test-packs/sf2040.json, built by pack-voices.mjs): the Mercers and the Ferry Building camp,
+// forty-one days after the impact. Their reference words: in character, not a game line
+const CAL_REF = 'Fed the horse, checked the water, walked the fence line twice. Nothing moving out there tonight. That\'s good. Quiet means we all get a little sleep. I\'ll take first watch.';
+const NINA_REF = 'Okay. Sit down and let me look at it. It\'s not broken, it\'s a bad sprain. Keep it up, drink some water, and come and find me in the morning. You did good today.';
+const JUNE_REF = 'Okay, so I counted, and there are nine birds on the roof right now. Mom says that means it\'s going to rain. I don\'t think that\'s even a real thing. I brought my jacket anyway.';
+const HOLLIS_REF = 'Radio\'s been quiet since noon. I keep the batteries warm, I keep the antenna up, and I keep listening. Somebody\'s always out there. You just have to be patient with the static.';
+const VALE_REF = 'Sit down. Please. Nobody here is going to raise their voice. You have something of mine, and I have all the time in the world. Let us be reasonable people about this.';
+const PIKE_REF = 'Okay. Okay, I can do this. Just keep the channel open, alright? I counted four of them by the gate. Maybe five. If I go quiet, it means I moved. Not that I ran.';
+const WARDEN_REF = 'Attention. This area is restricted. Remain where you are. Unauthorized persons will be detained. This message will repeat. Attention. This area is restricted.';
 const LOUD = 'close-mic, clean dry studio audio, a real person in the moment, not a radio announcer.'; // (raises the pitch: pin it)
 
 export const VOICES = {
@@ -140,6 +149,83 @@ export const VOICES = {
       { voice: 'am_onyx', speed: 1.03, delay: 0.05, gain: -2 }, { voice: 'af_kore', speed: 1.05, delay: 0.04, gain: -3 },
       { voice: 'am_eric', speed: 1.07, delay: 0.06, gain: -3 }, { voice: 'af_jessica', speed: 1.01, delay: 0.025, gain: -4 },
     ] },
+  // ---- SF 2040 (pack-voices.mjs; the picks per pack in wagmi/radio/build/tts/packs/sf2040.json) ----
+  // Cal Mercer, the hero: about 40, an ex-park ranger, weathered, quiet and determined, gravel but warm. Picked of 3 (11 Nov,
+  // by pitch and how evenly the clone holds it over three lines, .scratch/voice/audition): A a low weathered baritone
+  // (reference 93 Hz, lines 98-106 Hz, spread 8 Hz, steady), B the steadiest but lowest (85-91 Hz: too near Hollis's
+  // 78-90), C the same words on another seed (99-106 Hz, more wobble inside a line, 32 Hz). The pick: A
+  'cal-A': { speaker: 'Cal', engine: 'qwen', desc: 'qwen-weathered-baritone', seed: 5101, refText: CAL_REF,
+    design: `Male, about 40 years old, American, a low weathered baritone with a little gravel, a grown man's chest voice, quiet and steady, a man of few words, warm underneath, tired but determined, ${STUDIO}` },
+  'cal-B': { speaker: 'Cal', engine: 'qwen', desc: 'qwen-husky-low-calm', seed: 5112, refText: CAL_REF,
+    design: `Male, early 40s, American, deep husky low-pitched voice, slightly rough, calm and unhurried, speaks softly and plainly, grounded and kind, a grown man's chest voice, ${STUDIO}` },
+  'cal-C': { speaker: 'Cal', engine: 'qwen', desc: 'qwen-weathered-baritone-2', seed: 5123, refText: CAL_REF,
+    design: `Male, about 40 years old, American, a low weathered baritone with a little gravel, a grown man's chest voice, quiet and steady, a man of few words, warm underneath, tired but determined, ${STUDIO}` },
+  // Dr. Nina Mercer: about 38, an ER doctor; steady, warm, tired (Jane's body, her own voice). Picked of 3: C (reference
+  // 178 Hz, lines 161-175 Hz, spread 14 Hz: the evenest), A the same words (141-192 Hz, spread 51), B the huskier alto
+  // (163-198 Hz, and slow: 1.7 words/s on a four-word line). The pick: C; on the radio too (Radio: nina-C + radioFx)
+  'nina-A': { speaker: 'Nina', engine: 'qwen', desc: 'qwen-steady-low-mezzo', seed: 5201, refText: NINA_REF,
+    design: `Female, 38 years old, American, an emergency room doctor, a grown woman's warm low mezzo voice, steady and calm under pressure, tired but kind, clear and unhurried, ${STUDIO}` },
+  'nina-B': { speaker: 'Nina', engine: 'qwen', desc: 'qwen-warm-husky-alto', seed: 5212, refText: NINA_REF,
+    design: `Female, late 30s, American, a warm, slightly husky alto, a grown woman's voice, composed and gentle, a doctor who has not slept in days, quiet strength, ${STUDIO}` },
+  'nina-C': { speaker: 'Nina', engine: 'qwen', desc: 'qwen-steady-low-mezzo-2', seed: 5223, refText: NINA_REF,
+    design: `Female, 38 years old, American, an emergency room doctor, a grown woman's warm low mezzo voice, steady and calm under pressure, tired but kind, clear and unhurried, ${STUDIO}` },
+  // June Mercer: 13, brave; a real teenager's voice, young but not a cartoon. Picked of 7: F (reference 286 Hz, her plain
+  // lines 270-273 Hz, the lowest of all seven: a teenager's pitch, not a child's; her shout 'Dad? DAD!' 338 Hz), B
+  // (reference 247 Hz but lines 270-358 Hz), A (276-333 Hz); C, D, E and G drifted 57-149 Hz inside a line or sat at
+  // 320-350 Hz. The pick: F (A and B the alternates)
+  'june-A': { speaker: 'June', engine: 'qwen', desc: 'qwen-teen-clear', seed: 5301, refText: JUNE_REF,
+    design: `Female, 13 years old, an American teenage girl, a natural young teenager's voice, clear and bright but not childish and not a cartoon, brave and earnest, talks a little fast, ${STUDIO}` },
+  'june-B': { speaker: 'June', engine: 'qwen', desc: 'qwen-teen-low-natural', seed: 5312, refText: JUNE_REF,
+    design: `Female, 13 years old, a teenage girl from California, a slightly low, natural adolescent voice, thoughtful and brave, a little breathless, a real kid, not a cartoon character, ${STUDIO}` },
+  'june-C': { speaker: 'June', engine: 'qwen', desc: 'qwen-teen-clear-2', seed: 5323, refText: JUNE_REF,
+    design: `Female, 13 years old, an American teenage girl, a natural young teenager's voice, clear and bright but not childish and not a cartoon, brave and earnest, talks a little fast, ${STUDIO}` },
+  // (round 2: A to C came out 280-350 Hz, a child's pitch more than a teenager's; 'not high-pitched' and 'mid-range' pin it)
+  'june-D': { speaker: 'June', engine: 'qwen', desc: 'qwen-teen-mid-range', seed: 5331, refText: JUNE_REF,
+    design: `Female, 13 years old, an American teenage girl, a natural mid-range speaking voice, not high-pitched, grounded and brave, plain and real, not a cartoon and not a little child, ${STUDIO}` },
+  'june-E': { speaker: 'June', engine: 'qwen', desc: 'qwen-teen-low-husky', seed: 5342, refText: JUNE_REF,
+    design: `Female, 14 years old, a teenage girl, a low-mid pitched young voice with a slight husk, calm and earnest, brave, talks like a real teenager, not high-pitched, ${STUDIO}` },
+  'june-F': { speaker: 'June', engine: 'qwen', desc: 'qwen-teen-mid-range-2', seed: 5353, refText: JUNE_REF,
+    design: `Female, 13 years old, an American teenage girl, a natural mid-range speaking voice, not high-pitched, grounded and brave, plain and real, not a cartoon and not a little child, ${STUDIO}` },
+  'june-G': { speaker: 'June', engine: 'qwen', desc: 'qwen-teen-low-husky-2', seed: 5364, refText: JUNE_REF,
+    design: `Female, 14 years old, a teenage girl, a low-mid pitched young voice with a slight husk, calm and earnest, brave, talks like a real teenager, not high-pitched, ${STUDIO}` },
+  // Hollis: runs the camp's radio at the Ferry Building, keeps forty families going; older, patient (Gears' body).
+  // Picked of 3: B a deep warm fatherly voice with gravel (reference 76 Hz, lines 78-90 Hz, spread 12 Hz, drift 19), A
+  // the radio man (87-103 Hz, drift 43), C Gears' own voice (gears-D: the steadiest, 76-85 Hz). The pick: B, his own
+  // voice (so Mog City's Gears and SF 2040's Hollis don't sound like one man); C the alternate if the owner wants Gears
+  'hollis-A': { speaker: 'Hollis', engine: 'qwen', desc: 'qwen-old-radio-man', seed: 5401, refText: HOLLIS_REF,
+    design: `Male, mid 60s, American, an old camp leader and radio man, a low gravelly voice, slow and patient, worn by the years, dry kindness, a grown man's chest voice, ${STUDIO}` },
+  'hollis-B': { speaker: 'Hollis', engine: 'qwen', desc: 'qwen-old-deep-fatherly', seed: 5412, refText: HOLLIS_REF,
+    design: `Male, about 65 years old, African-American, a deep warm low voice with some gravel, unhurried, an old mechanic who keeps everyone going, steady and fatherly, a grown man's chest voice, ${STUDIO}` },
+  // (C: Gears' own voice, gears-D, the owner's pick for Gears, on Hollis's words: the body is Gears')
+  'hollis-C': { speaker: 'Hollis', engine: 'qwen', desc: 'qwen-old-gravel (gears-D)', seed: 2353, refText: GEARS_REF,
+    design: `Male, early 60s, African-American New Yorker, deep gravelly low voice, weathered and husky, unhurried easy pace, kind and steady, a grown man's chest voice, ${STUDIO}` },
+  // Deacon Vale, who leads the Iron Saints (ex-Preserve security): calm, polite, never shouts, quiet menace. Picked of 3
+  // (11 Nov): B the low velvety preacher (reference 94 Hz, lines 94-98 Hz, spread 4 Hz: by far the evenest, the calm
+  // the part asks for); A the same pitch but wandering 88-129 Hz inside a line, C 80-142 Hz. He sits near Cal's pitch,
+  // apart in timbre and in the radio / phone band most of his lines go through. The pick: B
+  'vale-A': { speaker: 'Vale', engine: 'qwen', desc: 'qwen-soft-menace', seed: 5501, refText: VALE_REF,
+    design: `Male, early 50s, American, a smooth, soft-spoken baritone, calm and very polite, measured and unhurried, never raises his voice, quiet menace under the courtesy, a former security chief, a grown man's chest voice, ${STUDIO}` },
+  'vale-B': { speaker: 'Vale', engine: 'qwen', desc: 'qwen-velvet-deacon', seed: 5512, refText: VALE_REF,
+    design: `Male, about 50 years old, American, a low velvety voice, gentle like a preacher, every word placed carefully, cold patience, quietly dangerous, a grown man's voice, ${STUDIO}` },
+  'vale-C': { speaker: 'Vale', engine: 'qwen', desc: 'qwen-soft-menace-2', seed: 5523, refText: VALE_REF,
+    design: `Male, early 50s, American, a smooth, soft-spoken baritone, calm and very polite, measured and unhurried, never raises his voice, quiet menace under the courtesy, a former security chief, a grown man's chest voice, ${STUDIO}` },
+  // Pike: a young Iron Saint, early 20s, nervous then brave; mostly on the radio (radioFx where the pack's line is).
+  // Picked of 3: B a young man's mid-range (reference 186 Hz, lines 171-203 Hz, the evenest); A and C the light tenors
+  // came out 211-255 Hz, a boy more than a 21-year-old, and drifted 76-91 Hz. The pick: B
+  'pike-A': { speaker: 'Pike', engine: 'qwen', desc: 'qwen-young-nervous', seed: 5601, refText: PIKE_REF,
+    design: `Male, early 20s, American, a young man's light tenor in a normal adult range, nervous and quick, a little breathless, trying to sound brave, a grown man's voice, not a boy, ${STUDIO}` },
+  'pike-B': { speaker: 'Pike', engine: 'qwen', desc: 'qwen-young-earnest', seed: 5612, refText: PIKE_REF,
+    design: `Male, 21 years old, American, a young man's mid-range voice, earnest and scared but steadying, talks fast, a grown man's voice, ${STUDIO}` },
+  'pike-C': { speaker: 'Pike', engine: 'qwen', desc: 'qwen-young-nervous-2', seed: 5623, refText: PIKE_REF,
+    design: `Male, early 20s, American, a young man's light tenor in a normal adult range, nervous and quick, a little breathless, trying to sound brave, a grown man's voice, not a boy, ${STUDIO}` },
+  // WARDEN-7, the Preserve's security mech: a synthetic PA voice (paFx in dsp.mjs on every line: horn band, metal
+  // comb, ring buzz, street slaps). A and B Kokoro stock voices (flat, even, machine-like), C a Qwen design.
+  // Picked: A (am_onyx at 0.88: 86-89 Hz, spread 3 Hz, the flattest; a deep machine under the PA); B (af_nicole) said
+  // its lines at under 1 word/s, C (Qwen) still rose and fell 90-144 Hz like a person reading. The pick: A
+  'warden-A': { speaker: 'Warden', engine: 'kokoro', desc: 'kokoro-am_onyx-pa', voice: { am_onyx: 1 }, speed: 0.88 },
+  'warden-B': { speaker: 'Warden', engine: 'kokoro', desc: 'kokoro-af_nicole-pa', voice: { af_nicole: 1 }, speed: 0.9 },
+  'warden-C': { speaker: 'Warden', engine: 'qwen', desc: 'qwen-flat-announcer', seed: 5701, refText: WARDEN_REF,
+    design: `A synthetic automated security announcement voice, male, flat and monotone, emotionless, perfectly even pace, clipped and precise, like a computer on a public address system, ${STUDIO}` },
 };
 
 // how the synthesised voices should say a few words (on top of cast.mjs SAY; the subtitles keep the spelling)

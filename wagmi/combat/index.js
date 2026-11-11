@@ -43,6 +43,9 @@
 //   ignores input and freezes the Suits while WAGMI.cutscene is true. URL ?fight: a crew of 4 grunts (a bat, a bottle)
 //   and a brute in front of Dan, on foot, cans and bottles about. debug: press(action), fixed(on) / step(n)
 //   (deterministic frames), slow(k), spawn(), give(kind), prop(kind, dist, deg), state()
+// The library's creatures (wagmi/creatures, W.creatures, where a world has them) fight as enemies of the same fight: an
+// enemy with `creature` set brings its own size (ring: its slot round Dan; spacing, bodyR, footR; heavy: not moved by a
+// man; a body of capsules his blows land on) and lands its own blows; everything here reads those where it has them.
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadGLB } from '../glb.js';
@@ -126,6 +129,9 @@ export async function install(W) {
     enemies: [], crews: [], threats: [], loose: [], combo: { n: 0 }, tokens: [], globalCd: 0, standingN: 0,
     fixed: false, steps: 0, stepNow: false, debugScale: 1, quiet: false, cost: 0, frames: 0,
     cap: null, // (a mission's pressure on the fight: { max, circle, calm }, see the API)
+    // (the library's creatures, where a world has them: wagmi/creatures: their per-frame steps on the fight's clock, and
+    // the boss the overlays show a bar for)
+    tickers: [], boss: null,
   };
   c.playerFeet = new THREE.Vector3().copy(P.position);
   // the rules (see the top): Mission 1's lesson, or the full ones; ?fightrules=lesson|full, or debug.rules(), pins them
@@ -572,8 +578,10 @@ export async function install(W) {
   let crewSeq = 0;
   function wake(cr) {
     if (!cr || cr.awake) return; cr.awake = true;
-    for (const e of cr.enemies) if (e.alive && e.state === 'idle') { e.set('hold'); e.engagedOnce = true; e.cd = rnd(0.8, 2.2); }
+    // (a creature wakes its own way: a lair's with its display, wagmi/creatures/fighter.js)
+    for (const e of cr.enemies) if (e.alive && e.state === 'idle') { if (e.creature) { e.wake(); continue; } e.set('hold'); e.engagedOnce = true; e.cd = rnd(0.8, 2.2); }
   }
+  c.wake = wake;
   function spawnCrew({ x, z, count = 4, brute = 0, weapons = [], aggro = true, props = true } = {}) {
     if (!fightOn) c.rules = rulesNow(); // (the rules its men pick their blows by)
     if (x == null || z == null) { const f = fwd(P.heading, _v); x = P.position.x + f.x * 8; z = P.position.z + f.z * 8; }
@@ -642,7 +650,8 @@ export async function install(W) {
       }
     }
     items.forEach((o, i) => {
-      let r = o.e.type === 'brute' ? 3.8 : 3.0 + (i % 2) * 0.7;
+      // (a creature's slot is its own size's: a T-rex circles at about 7 m, its bite's reach)
+      let r = o.e.ring ? o.e.ring + (i % 2) * 0.4 : o.e.type === 'brute' ? 3.8 : 3.0 + (i % 2) * 0.7;
       if (c.me.down()) r += 1.5;
       // (pressure's circling: a man waiting his turn prowls round him further out, his slot 0.22 rad on round from where
       // he stands and, once he is out there (3.8-7 m), no more than 0.6 m in or out from him: a slot about a metre off, so he
@@ -679,10 +688,10 @@ export async function install(W) {
       let best = null, bs = Infinity;
       for (const e of standing) {
         if (e.state !== 'hold' || e.cd > 0 || c.hasToken(e)) continue;
-        const d = hdist(e.pos, pf); if (d > 9) continue;
+        const d = hdist(e.pos, pf); if (d > (e.ring ? e.ring + 4 : 9)) continue;
         // (under a mission's pressure the man who has waited longest counts nearer too: up to 3 m after 12 s, so the
         // ones circling furthest out still get their turns)
-        const sc = d + Math.random() * 2 - (e.type === 'brute' ? 2.5 : 0) - (cap ? Math.min(3, (c.time - (e.tokAt ?? c.time)) * 0.25) : 0);
+        const sc = d + Math.random() * 2 - (e.type === 'brute' ? 2.5 : e.pickBias || 0) - (e.ring ? e.ring - 3 : 0) - (cap ? Math.min(3, (c.time - (e.tokAt ?? c.time)) * 0.25) : 0);
         if (sc < bs && !c.lineBlocked(e.pos, pf)) { bs = sc; best = e; }
       }
       if (best) { best.chooseBlow(hdist(best.pos, pf)); best.set('approach'); best.tokAt = c.time; }
@@ -775,7 +784,7 @@ export async function install(W) {
     if (S.banger && (S.banger.state !== 'bang' || !S.banger.alive)) S.banger = null;
     if (S.banger || c.globalCd > 0) return;
     let best = null, bd = 7;
-    for (const e of standing) if (e.state === 'hold' && e.cd <= 0 && e.crew?.awake) { const d = carGap(e.pos); if (d < bd) { bd = d; best = e; } }
+    for (const e of standing) if (e.state === 'hold' && e.cd <= 0 && e.crew?.awake && e.bangCar) { const d = carGap(e.pos); if (d < bd) { bd = d; best = e; } }
     if (!best) return;
     // (to the car's side nearest him; the third blow comes from the driver's door: the one who drags him out)
     const L = carLocal(best.pos.x, best.pos.z, _l1), m = 0.55;
@@ -815,22 +824,33 @@ export async function install(W) {
       if (e.out && hdist(e.pos, P.position) > 90 && e.st > 15) { e.dispose(); c.enemies.splice(i, 1); }
     }
     // standing men keep apart, and off him
+    // (a creature keeps the others its own spacing off; a heavy one is not moved by a man: he gives way to it, and Dan is
+    // kept out of its body where it comes below his head, its legs, its tail, not walked through)
     for (let i = 0; i < c.enemies.length; i++) {
       const a = c.enemies[i]; if (!a.standing) continue;
       for (let j = i + 1; j < c.enemies.length; j++) {
         const b = c.enemies[j]; if (!b.standing) continue;
-        const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, d = Math.hypot(dx, dz), m = 0.85 * Math.max(a.scale, b.scale);
-        if (d < m && d > 1e-4) { const k = (m - d) * 0.5 / d; a.moveXZ(-dx * k, -dz * k); b.moveXZ(dx * k, dz * k); }
+        const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, d = Math.hypot(dx, dz), m = Math.max(a.spacing ?? 0.85 * a.scale, b.spacing ?? 0.85 * b.scale);
+        if (d < m && d > 1e-4) { const k = (m - d) * 0.5 / d, ka = a.heavy && !b.heavy ? 0 : b.heavy && !a.heavy ? 2 : 1; a.moveXZ(-dx * k * ka, -dz * k * ka); b.moveXZ(dx * k * (2 - ka), dz * k * (2 - ka)); }
       }
       if (cm.activeMode === 'person' && !P.inVehicle && c.me.moveName() !== 'slam') {
-        const dx = a.pos.x - P.position.x, dz = a.pos.z - P.position.z, d = Math.hypot(dx, dz), m = 0.72 * a.scale;
+        if (a.heavy && a.body?.ok) { if (a.body.pushOut(P.position, 0.32, 1.85, P.position.y)) cm.resolveHorizontalCollision(P.position, 0.48, P.position.y + 1.0); continue; }
+        const dx = a.pos.x - P.position.x, dz = a.pos.z - P.position.z, d = Math.hypot(dx, dz), m = a.bodyR ?? 0.72 * a.scale;
         if (d < m && d > 1e-4 && Math.abs(a.pos.y - P.position.y) < 1) a.moveXZ(dx / d * (m - d), dz / d * (m - d));
       }
+    }
+    // (a creature down, knocked flying, getting up or lying dead is still a body in the street: he is kept out of it
+    // as from one standing, never stood in or on its back (a knock-back that threw him at a fallen WARDEN-7 left him
+    // standing on it). Its whole height counts, it being low now)
+    if (cm.activeMode === 'person' && !P.inVehicle) for (const a of c.enemies) {
+      if (!a.creature || a.standing || a.disposed || !a.body?.ok || (a.state === 'out' && c.time - a.outAt > 14)) continue;
+      if (a.body.pushOut(P.position, 0.32, 3.5, P.position.y)) cm.resolveHorizontalCollision(P.position, 0.48, P.position.y + 1.0);
     }
     if (!frozen && cm.activeMode === 'car' && car) carContact(dt);
     // (a man lying in the road is shoved along by a car that comes onto him, never driven through)
     if (c.vehs.length) for (const e of c.enemies) if (e.state === 'down' || e.state === 'out' || e.state === 'getup') vehPush(e.pos, 0.85);
     for (const e of c.enemies) e.late(dt);
+    for (const f of c.tickers) f(frozen ? 0 : dt, rdt);
     c.items.update(dt);
     // (a thrown bottle's cue lasts while it flies, whatever its thrower does)
     c.threats = c.threats.filter((t) => t.at > c.time - 0.15 && (t.item ? t.item.state === 'fly' && t.item.thrower : t.e.alive && t.e.state === 'attack'));
@@ -878,7 +898,7 @@ export async function install(W) {
     const sp = Math.abs(car.speed || 0), sg = Math.sign(car.speed || 0) || 1;
     for (const e of c.enemies) {
       if (e.state === 'knock' || e.state === 'grabbed') continue;
-      const L = carLocal(e.pos.x, e.pos.z, _l1), r = 0.32 * e.scale, up = e.standing || e.state === 'getup';
+      const L = carLocal(e.pos.x, e.pos.z, _l1), r = e.bodyR ?? 0.32 * e.scale, up = e.standing || e.state === 'getup';
       // (coming at him: a dive out of the way, when he sees it in time)
       const ahead = L.z * sg - CAR.hz;
       if (up && sp > 6 && ahead > 0 && ahead / sp < 0.45 && Math.abs(L.x) < CAR.hx + 0.6 && !(e.diveT > c.time - 2)) {
@@ -900,7 +920,7 @@ export async function install(W) {
         c.fx.hit(e.chest(_v2), _v3.copy(dir).negate(), { heavy: 0.9, color: [3.5, 3.5, 3.8] });
         c.sfx('body', 1); c.sfx('wall'); if (Math.random() < 0.7) c.sfx('grunt', 0.8);
         c.shake(clamp(0.25 + sp * 0.02, 0.3, 0.8), dir); c.hitStop(sp > 12 ? 0.07 : 0.04, 0.1);
-        car.speed *= e.type === 'brute' ? 0.7 : 0.86;
+        car.speed *= e.carDrag ?? (e.type === 'brute' ? 0.7 : 0.86); // (a heavy creature all but stops it)
         c.combo.n++;
         if (dead) c.hud.flash(['Roadkill', 'Hit and run', 'Bumpered'][Math.floor(Math.random() * 3)]);
         emit('hit', { enemy: e, kind: 'car', dmg: 0, weapon: 'car' });
@@ -948,7 +968,7 @@ export async function install(W) {
       flee();
       obst.length = 0;
       const q = P.position;
-      for (const e of c.enemies) if (hdist(e.pos, q) < 70) obst.push({ x: e.pos.x, z: e.pos.z, r: e.state === 'down' || e.state === 'out' || e.state === 'knock' ? 0.9 : 0.4 });
+      for (const e of c.enemies) if (hdist(e.pos, q) < 70) obst.push({ x: e.pos.x, z: e.pos.z, r: e.footR ? e.footR + 0.4 : e.state === 'down' || e.state === 'out' || e.state === 'knock' ? 0.9 : 0.4 });
       for (const I of c.items.list) if (I.kind === 'trashcan' && !I.holder && hdist(I.obj.position, q) < 70) obst.push({ x: I.obj.position.x, z: I.obj.position.z, r: 0.45 });
       if (fightOn && cm.activeMode === 'person') obst.push({ x: q.x, z: q.z, r: 0.4 });
       if (!obst.length) return;
@@ -1065,5 +1085,12 @@ export async function install(W) {
       c.items.scatter(P.position.x, P.position.z, { cans: 1, bottles: 2, bats: 1, r0: 1.5, r1: 5 });
     })();
   }
+  // ------------------------------------------------------------------ the library's creatures (W.creatures)
+  // (only where a world has them: San Francisco, ?city=sf, or the creatures' own test scenes, ?dev=creatures; New York's
+  // own game never loads them)
+  { const U = new URLSearchParams(location.search);
+    if (U.get('city') === 'sf' || U.get('dev') === 'creatures') {
+      try { const m = await import('../creatures/index.js'); await m.install(W, c); } catch (err) { console.error('[combat] creatures', err); }
+    } }
   return api;
 }

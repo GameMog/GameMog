@@ -21,6 +21,19 @@ from NYC Open Data (NYC DCP Borough Boundaries, NYC Street Centerline (CSCL), NY
 https://opendata.cityofnewyork.us).
 
 
+Slop San Francisco (?city=sf)
+-----------------------------
+cities/sf/ is a modified copy of Slop San Francisco by Kamil (@unable0_), derived from Slop New York by Mr.doob,
+under the MIT License (cities/sf/LICENSE: copyright Mr.doob, and Kamil for the San Francisco contributions); its own
+notices are in cities/sf/NOTICE.md and what Mog City changed in cities/sf/README.md. Its geographic data keeps its own
+terms: City and County of San Francisco open data (DataSF), PDDL / CC0; the USGS 3D Elevation Program, a US
+government work; and (c) OpenStreetMap contributors, available under the Open Database License (ODbL 1.0,
+https://opendatacommons.org/licenses/odbl/1-0/; https://www.openstreetmap.org/copyright), for the OSM-derived parts
+(cities/sf/js/sf-geodata.js, the landmark anchors in cities/sf/js/sf-places.js, the regional coast, islands and
+ferry routes in cities/sf/data/region). Sources and provenance: cities/sf/docs/data-sources.md. The data files ship
+gzipped (cities/sf/data/**/*.bin.gz), each byte for byte its original once inflated.
+
+
 Spiderbench (street combat)
 ---------------------------
 Copyright (c) 2026 Shikhar. Used with the author's permission. These parts are NOT covered by
@@ -61,6 +74,13 @@ alone, under his guard.
     first frame) and Fiona's run (dataset-1: dash, masculinity style); Gears' talk keeps its arms from his CMU talk
     (see Characters below), over the idle's legs
 
+
+Geist (a world's glass UI theme)
+--------------------------------
+assets/fonts/geist/Geist-Variable.woff2: Copyright 2024 The Geist Project Authors
+(https://github.com/vercel/geist-font.git), licensed under the SIL Open Font License, Version 1.1 (full text beside the
+font, assets/fonts/geist/OFL.txt; https://openfontlicense.org), NOT the MIT License in LICENSE. Modified: subset to
+Latin and converted to WOFF2 from google/fonts' Geist[wght].ttf.
 
 Recast Navigation (the fights' pathfinding)
 -------------------------------------------
@@ -215,6 +235,11 @@ Voices (assets/voice)
     mlx-community conversions (Apache-2.0) run with mlx-audio (MIT, https://github.com/Blaizzy/mlx-audio).
     The voices are invented: no real person's voice was used. Their reference clips are in
     wagmi/radio/build/tts/.
+  - SF 2040's Cal, Nina (and her radio calls), June and Hollis (assets/voice/sf2040): synthesised the same way with
+    Qwen3-TTS (designed with the 1.7B VoiceDesign model, cloned with the 0.6B Base, mlx-audio); invented voices.
+    The radio's band and static are made in wagmi/radio/build/dsp.mjs (radioFx). Deacon Vale and Pike the same way
+    (Qwen3-TTS, invented voices). WARDEN-7: Kokoro-82M (Apache-2.0), its stock voice am_onyx, through a loudspeaker
+    made in dsp.mjs (paFx).
   - Mr. Big: synthesised with Kokoro-82M by hexgrad (Apache-2.0, https://huggingface.co/hexgrad/Kokoro-82M),
     its stock voice bm_lewis, run with kokoro-onnx (MIT); heard as it is (no voice changer). The phonemizer
     kokoro-onnx uses is GPL-3.0 and was only run, never shipped or vendored.

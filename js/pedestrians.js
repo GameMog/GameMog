@@ -1004,6 +1004,10 @@ function pickColorFromPalette(hexArray, tNode) {
 // v rotated by unit quaternion q
 const qrot = (q, v) => v.add(cross(q.xyz, cross(q.xyz, v).add(v.mul(q.w))).mul(2.0));
 
+// (SF 2040, wagmi/apocalypse) San Francisco's people can wear the city's dust: window.NYC.peopleWorn.value 0 (as they
+// are) .. 1 (drab and dusty, each their own amount). San Francisco only: New York's people are drawn as ever
+const PEOPLE_WORN = document.documentElement.dataset.city === 'sf' ? window.NYC.TSL.uniform(0) : null;
+if (PEOPLE_WORN) window.NYC.peopleWorn = PEOPLE_WORN;
 // One person's looks from their seed (info: seed, female, girth, hair): skin, hair, the outfit's colours & kind
 function personLooks(info) {
   const lane = (salt) => fract(sin(info.x.add(salt).mul(12.9898)).mul(43758.5453));
@@ -1051,6 +1055,12 @@ function personLooks(info) {
   const fh = lane(59.0);
   const beard = step(0.74, fh).mul(float(1.0).sub(female));
   const stubble = step(0.42, fh).mul(step(fh, 0.74)).mul(float(1.0).sub(female));
+  if (PEOPLE_WORN) {
+    // (worn: greyed toward a dusty brown, darker, more so for some than others)
+    const k = PEOPLE_WORN.mul(lane(131.0).mul(0.45).add(0.55));
+    const wear = (c) => mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))).mul(vec3(1.06, 0.97, 0.84)).mul(0.78).add(vec3(0.025, 0.02, 0.012)), k);
+    return { lane, female, skin, skinT, hair, hairBase, grey, coat: wear(coat), shirt: wear(shirt), legs: wear(legs), denim: denim.mul(float(1).sub(PEOPLE_WORN.mul(0.6))), tailored, zip, knit, hoodie, tee, puffer, bald, beard, stubble };
+  }
   return { lane, female, skin, skinT, hair, hairBase, grey, coat, shirt, legs, denim, tailored, zip, knit, hoodie, tee, puffer, bald, beard, stubble };
 }
 

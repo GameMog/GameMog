@@ -99,7 +99,9 @@ export function createNav(c) {
     };
     const R2 = HALF * 1.45;
     for (const col of [...cm.nearColliders(cx, cz, R2)]) {
-      if (col.carOnly || (col.minY != null && col.minY >= 2.2)) continue;
+      // (an overhang starting 2.2 m or more over the bare ground is no wall: by its height over a hill's ground,
+      // cm.baseHeight, San Francisco's colliders' minY being the ground they stand on; New York's street is y 0)
+      if (col.carOnly || (col.minY != null && col.minY - (cm.baseHeight?.((col.minX + col.maxX) / 2, (col.minZ + col.maxZ) / 2) || 0) >= 2.2)) continue;
       const o = col.obb;
       wall(o ? obbPoly(o.cx, o.cz, o.cs, o.sn, o.hx, o.hz) : [[col.minX, col.minZ], [col.maxX, col.minZ], [col.maxX, col.maxZ], [col.minX, col.maxZ]], col.maxY);
     }
@@ -164,7 +166,7 @@ export function createNav(c) {
   const inArea = (p, m = 3) => area && Math.abs(p.x - area.cx) < HALF - m && Math.abs(p.z - area.cz) < HALF - m;
   function agentFor(e) {
     let A = agents.get(e); if (A) return A;
-    if (!inArea(e.pos)) return null;
+    if (!inArea(e.pos) || e.navOff) return null; // (a creature too big for the crowd's agents walks by the fight's own steering)
     const r = Math.min(0.62, 0.45 * e.scale);
     const a = crowd.addAgent({ x: e.pos.x, y: e.pos.y, z: e.pos.z }, { ...AGENT, radius: r, maxSpeed: 1 });
     A = { a, held: false, tgt: null, sp: 1, at: new THREE.Vector3().copy(e.pos) };

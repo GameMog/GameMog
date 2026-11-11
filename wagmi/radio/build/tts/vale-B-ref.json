@@ -1,0 +1,7 @@
+{
+ "design": "Male, about 50 years old, American, a low velvety voice, gentle like a preacher, every word placed carefully, cold patience, quietly dangerous, a grown man's voice, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 5512,
+ "refText": "Sit down. Please. Nobody here is going to raise their voice. You have something of mine, and I have all the time in the world. Let us be reasonable people about this.",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

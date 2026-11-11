@@ -52,6 +52,16 @@ under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 `fifth-ave-glide.m4a`). They were composed as code in `wagmi/radio/build/music/` and are MIT-licensed with the rest of the
 game.
 
+## Type (a world's UI theme)
+
+A world that asks for the glass UI theme (`"ui": { "theme": "glass" }`, `wagmi/storyrun/theme.js`; SF 2040 does) sets
+every label, line, number and card on screen in one typeface kept in `assets/fonts/`, with its licence beside it. It is
+subset to Latin and converted to WOFF2 (pyftsubset), otherwise unchanged; it has no Reserved Font Name.
+
+| File (`assets/fonts/`) | Typeface | Credit | Source | Licence |
+|---|---|---|---|---|
+| `geist/Geist-Variable.woff2` | Geist (variable, 100-900) | The Geist Project Authors | [google/fonts ofl/geist](https://github.com/google/fonts/tree/main/ofl/geist) | [SIL OFL 1.1](https://openfontlicense.org) (`geist/OFL.txt`) |
+
 ## Characters
 
 Dan, Gears, Jane, Fiona and Mr. Big (`assets/characters/*.glb`) are original characters made for Mog City (invented
@@ -121,10 +131,13 @@ format (`gmasset/1`), their maps resized to 512 px (models) or 1024 px (surfaces
 
 - `assets/sets/bar-stool`: "Bar Chair Round 01 (model)" by Dairon Sanchez, Poly Haven, from [Poly Haven](https://polyhaven.com/a/bar_chair_round_01), CC0-1.0
 - `assets/sets/blue-drum`: "Barrel 03 (model)" by Serhii Khromov, Poly Haven, from [Poly Haven](https://polyhaven.com/a/barrel_03), CC0-1.0
+- `assets/sets/burn-barrel`: "Barrel Stove (model)" by MP, Poly Haven, from [Poly Haven](https://polyhaven.com/a/barrel_stove), CC0-1.0
 - `assets/sets/cafe-set`: "Outdoor Table Chair Set 01 (model)" by James Ray Cock, Poly Haven, from [Poly Haven](https://polyhaven.com/a/outdoor_table_chair_set_01), CC0-1.0
 - `assets/sets/cardboard-box`: "Cardboard Box 01 (model)" by Rahul Chaudhary, Poly Haven, from [Poly Haven](https://polyhaven.com/a/cardboard_box_01), CC0-1.0
 - `assets/sets/coffee-table`: "Coffee Table Round 01 (model)" by Ulan Cabanilla, Poly Haven, from [Poly Haven](https://polyhaven.com/a/coffee_table_round_01), CC0-1.0
+- `assets/sets/concrete-block`: "Concrete Road Barrier 02 (model)" by Amal Kumar, Poly Haven, from [Poly Haven](https://polyhaven.com/a/concrete_road_barrier_02), CC0-1.0
 - `assets/sets/covered-car`: "Covered Car (model)" by MP, Poly Haven, from [Poly Haven](https://polyhaven.com/a/covered_car), CC0-1.0
+- `assets/sets/dead-trunk`: "Dead Tree Trunk 02 (model)" by Jenelle van Heerden and Rico Cilliers, Poly Haven, from [Poly Haven](https://polyhaven.com/a/dead_tree_trunk_02), CC0-1.0
 - `assets/sets/door-shutter`: "Rollershutter Door (model)" by MP, Poly Haven, from [Poly Haven](https://polyhaven.com/a/rollershutter_door), CC0-1.0
 - `assets/sets/drainpipes`: "Modular Metal Gutter (model)" by Maxim Domnin, Poly Haven, from [Poly Haven](https://polyhaven.com/a/modular_metal_gutter), CC0-1.0
 - `assets/sets/fern`: "Fern 02 (model)" by Rico Cilliers and Rob Tuytel, Poly Haven, from [Poly Haven](https://polyhaven.com/a/fern_02), CC0-1.0
@@ -149,6 +162,7 @@ format (`gmasset/1`), their maps resized to 512 px (models) or 1024 px (surfaces
 - `assets/sets/tex-stone-wall`: "Rustic Stone Wall 02 (textures)" by Amal Kumar, Poly Haven, from [Poly Haven](https://polyhaven.com/a/rustic_stone_wall_02), CC0-1.0
 - `assets/sets/trash-cans`: "Metal Trash Can (model)" by GurJas Studios, Poly Haven, from [Poly Haven](https://polyhaven.com/a/metal_trash_can), CC0-1.0
 - `assets/sets/wall-lantern`: "Street Lamp 02 (model)" by Josh Dean, Poly Haven, from [Poly Haven](https://polyhaven.com/a/street_lamp_02), CC0-1.0
+- `assets/sets/wheel-rim`: "Rusted Wheel Rim 01 (model)" by John Hutcheson, Poly Haven, from [Poly Haven](https://polyhaven.com/a/rusted_wheel_rim_01), CC0-1.0
 
 ## Vehicles
 
@@ -170,3 +184,18 @@ its stock voice bm_lewis, through kokoro-onnx (MIT), heard as it is. The Camp's 
 (am_michael, af_sarah, am_adam, af_bella, am_onyx, af_kore, am_eric and af_jessica) saying each line together, mixed into
 one. The voices are invented. Any character's lines not
 yet voiced are placeholders made with the macOS speech voices; `NOTICE` explains their terms, and `docs/VOICE-LINES.md` explains how to replace them.
+
+## Creatures and sound packs (the library)
+
+The creatures and sound packs in `assets/library/` are copied as they are from GameMog's licensed asset library
+(`public/assets`, its `library.json` names each source) in the library's own format (`gmasset/1`). Read by
+`wagmi/library/creature.js` and `wagmi/library/sounds.js`.
+
+- `assets/library/creature-horse`, `-trex`, `-knight`, `-ogre`, `-ape`, `-centaur`, `-mech`, `-scorpion`: made by
+  [Patch](https://patch.gg) (New Save Labs, Inc.) with [anymove](https://github.com/patch-gg/anymove), dedicated by Patch to
+  the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/); GameMog cut their triangles and
+  textures to a browser game's budget.
+- `assets/library/sounds-*`: [Kenney](https://kenney.nl)'s Impact Sounds, Interface Sounds, UI Audio, Digital Audio,
+  Sci-fi Sounds, RPG Audio, Casino Audio, Voiceover Pack and Voiceover Pack: Fighter, each under
+  [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) by the `License.txt` in its zip. Credited with thanks to
+  Kenney (www.kenney.nl), though CC0 does not require it.

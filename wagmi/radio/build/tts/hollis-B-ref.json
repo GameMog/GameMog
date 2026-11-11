@@ -1,0 +1,7 @@
+{
+ "design": "Male, about 65 years old, African-American, a deep warm low voice with some gravel, unhurried, an old mechanic who keeps everyone going, steady and fatherly, a grown man's chest voice, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 5412,
+ "refText": "Radio's been quiet since noon. I keep the batteries warm, I keep the antenna up, and I keep listening. Somebody's always out there. You just have to be patient with the static.",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}
