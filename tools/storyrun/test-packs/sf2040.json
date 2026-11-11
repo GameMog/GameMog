@@ -27,7 +27,8 @@
   "June": {
    "color": "#FFB86B",
    "role": "June Mercer, their daughter, thirteen",
-   "model": "mogcity/fiona"
+   "glb": "sf2040/june.glb",
+   "scale": 0.88
   },
   "Hollis": {
    "color": "#E8B04A",
@@ -153,10 +154,26 @@
   "mansion": {
    "at": [
     -2272,
-    -430,
-    0
+    -418,
+    180
    ],
    "name": "the house on Washington St"
+  },
+  "door": {
+   "at": [
+    -2271,
+    -431,
+    0
+   ],
+   "name": "the front steps"
+  },
+  "door2": {
+   "at": [
+    -2274,
+    -432,
+    0
+   ],
+   "name": "the front steps"
   }
  },
  "opening": {
@@ -753,13 +770,13 @@
      "boss": {
       "id": "creature-ape",
       "name": "Old Silver",
-      "height": 3.2,
+      "height": 3.6,
       "phases": [
        0.6,
        0.3
       ],
       "hold": {
-       "wake": 22,
+       "wake": 18,
        "leash": 45
       },
       "at": "@cityhall"
@@ -959,6 +976,9 @@
    "title": "Lafayette Park",
    "vehicle": "horse",
    "start": "@hospital",
+   "between": {
+    "dm": false
+   },
    "stakes": "The house on Washington St. Between it and Cal: the top of Lafayette Park, and The Matriarch's nest.",
    "passLine": "Home is three people and a horse.",
    "steps": [
@@ -1017,57 +1037,113 @@
      "objective": "Go to **the house on Washington St**."
     },
     {
+     "type": "place",
+     "id": "yard",
+     "at": {
+      "@": "mansion",
+      "mode": "walk"
+     }
+    },
+    {
      "type": "npc",
      "id": "nina",
      "who": "Nina",
-     "at": {
-      "rel": "player",
-      "fwd": 2.4,
-      "right": 0.6
-     }
+     "at": "@door2"
     },
     {
      "type": "npc",
      "id": "june",
      "who": "June",
-     "at": {
-      "rel": "player",
-      "fwd": 1.8,
-      "right": -0.9
-     }
+     "at": "@door"
     },
     {
      "type": "cutscene",
+     "id": "reunion",
      "shots": [
       {
        "cam": {
-        "rel": "June",
-        "fwd": 1.9,
-        "right": 0.5,
-        "up": 0.0
+        "rel": "player",
+        "fwd": -3.0,
+        "right": -1.3,
+        "up": -0.2
        },
        "look": {
         "rel": "June",
-        "up": -0.08
+        "up": -0.3
        },
-       "dur": 2.8,
-       "fov": 34,
+       "dur": 2.6,
+       "fov": 38,
        "sub": [
         "June",
         "Dad? DAD!"
+       ],
+       "act": [
+        {
+         "who": "June",
+         "walk": {
+          "to": {
+           "rel": "player",
+           "fwd": 0.4,
+           "right": 0.18
+          },
+          "secs": 1.6,
+          "after": 0.4
+         },
+         "hug": "player"
+        }
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 1.8,
+        "right": 0.3,
+        "up": 0.3
+       },
+       "to": {
+        "rel": "player",
+        "fwd": 1.5,
+        "right": 0.25,
+        "up": 0.26
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.12
+       },
+       "dur": 3.6,
+       "fov": 38,
+       "sub": [
+        "Cal",
+        "Junebug. I've got you. I've got you."
+       ],
+       "act": [
+        {
+         "who": "Nina",
+         "walk": {
+          "to": {
+           "rel": "player",
+           "fwd": 0.42,
+           "right": -0.32
+          },
+          "secs": 1.5,
+          "clip": "walk"
+         },
+         "hug": "player"
+        }
        ]
       },
       {
        "cam": {
         "rel": "Nina",
-        "fwd": 1.9,
-        "right": 0.4
+        "fwd": 0.6,
+        "right": 0.85,
+        "up": 0.04
        },
        "look": {
         "rel": "Nina",
-        "up": -0.05
+        "up": -0.04
        },
-       "dur": 3.4,
+       "dur": 3.2,
        "fov": 32,
        "sub": [
         "Nina",
@@ -1077,12 +1153,13 @@
       {
        "cam": {
         "rel": "player",
-        "fwd": 1.9,
-        "right": -0.4
+        "fwd": 0.95,
+        "right": 0.75,
+        "up": 0.12
        },
        "look": {
         "rel": "player",
-        "up": -0.05
+        "up": -0.04
        },
        "dur": 3.4,
        "fov": 32,
@@ -1094,12 +1171,13 @@
       {
        "cam": {
         "rel": "June",
-        "fwd": 1.8,
-        "right": -0.4
+        "fwd": 0.6,
+        "right": -0.85,
+        "up": 0.04
        },
        "look": {
         "rel": "June",
-        "up": -0.05
+        "up": -0.04
        },
        "dur": 3.0,
        "fov": 32,
@@ -1111,15 +1189,16 @@
       {
        "cam": {
         "rel": "player",
-        "fwd": 2.0,
-        "right": 0.5
+        "fwd": 0.95,
+        "right": -0.85,
+        "up": 0.12
        },
        "look": {
         "rel": "player",
-        "up": -0.05
+        "up": -0.04
        },
        "dur": 3.4,
-       "fov": 34,
+       "fov": 32,
        "sub": [
         "Cal",
         "He kept me. Come on. The camp needs a doctor."
@@ -1128,44 +1207,42 @@
       {
        "cam": {
         "rel": "player",
-        "fwd": 1.3,
-        "right": 5.5,
-        "up": 0.6
+        "fwd": 2.6,
+        "right": 1.6,
+        "up": 0.3
        },
        "to": {
         "rel": "player",
-        "fwd": 1.3,
-        "right": 7.5,
-        "up": 1.4
+        "fwd": 3.4,
+        "right": 2.2,
+        "up": 0.7
        },
        "look": {
         "rel": "player",
-        "fwd": 1.3,
-        "up": -0.5
+        "fwd": 0.2,
+        "up": -0.35
        },
        "dur": 4.0,
        "fov": 40
       },
       {
-       "cam": {
-        "rel": "player",
-        "fwd": 8,
-        "right": 10,
-        "up": 4
-       },
-       "to": {
-        "rel": "player",
-        "fwd": 14,
-        "right": 16,
-        "up": 12
-       },
-       "look": {
-        "rel": "player",
-        "fwd": 1,
-        "up": -0.5
-       },
+       "cam": [
+        -2257,
+        107.5,
+        -413
+       ],
+       "to": [
+        -2249,
+        111,
+        -409
+       ],
+       "look": [
+        -2300,
+        109,
+        -424
+       ],
        "dur": 5.5,
-       "fov": 46,
+       "fov": 50,
        "text": "West, over the Presidio, the crater still glows. But tonight the Mercers are together."
       }
      ]

@@ -34,6 +34,9 @@ test('SF 2040: five missions or more, four bosses, food and medicine, Ranger, th
   const kinds = new Set(steps.filter((s) => s.type === 'collect').map((s) => s.kind));
   assert.ok(kinds.has('food') && kinds.has('medicine'));
   assert.ok(w.opening && w.opening.shots.length >= 6);
+  // (June's own body file is beside the world, and the cast's scale is checked)
+  assert.ok(fs.existsSync(path.join(ROOT, 'tools/storyrun/test-packs', w.cast.June.glb)));
+  const x = structuredClone(w); x.cast.June.scale = 3; assert.ok(check(x).some((e) => /scale/.test(e)));
   // (no music: the world names none; the park the asteroid broke open is the Presidio's Bio-Preserve)
   const text = JSON.stringify(w).toLowerCase();
   assert.ok(!/music|soundtrack/.test(text));

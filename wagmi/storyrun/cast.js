@@ -73,6 +73,8 @@ export function createCast(W, world) {
       live.set(name, f); order.push(name);
       while (order.length > MAX) { const old = order.shift(); live.get(old)?.dispose(); live.delete(old); }
       if (at) f.at(at.x, at.z, at.heading ?? 0);
+      // (a world may stand someone a little shorter or taller: its cast's `scale`, 0.7 to 1.15; a stand-in teenager)
+      if (typeof c.scale === 'number' && c.scale >= 0.7 && c.scale <= 1.15) f.root.scale.setScalar(c.scale);
       f.root.visible = true;
       return f;
     },

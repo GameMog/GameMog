@@ -31,7 +31,10 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
   Silver, June's backpack), Hyde Street (hybrids and WARDEN-7 at the hospital, a search), Lafayette Park (brutes and The
   Matriarch, the reunion at the house on Washington St). `dressing.apocalypse: "dusk"`. Play it at
   `/?city=sf&pack=/tools/storyrun/test-packs/sf2040.json` (`&autopilot=1&autocard=1&flowfast=1` for the test drive).
-  Stand-ins: Cal is Dan's body, Nina is Jane's, June is Fiona's (no child in the cast yet), Hollis is Gears'.
+  Stand-ins: Cal is Dan's body, Nina is Jane's, Hollis is Gears'; June is GameMog's hand-built `young-mother` body
+  (`sf2040/june.glb`, credits beside it) stood at 0.88 (the cast's `scale`) until she has a body of her own. Street
+  cutscenes take a shot's `act` as a set's do (`walk` to a point, `hug`: the reunion), and a lair boss's wake is framed
+  by a short beat (`wakeShot: false` leaves it out).
 - `sf-steps.json`: the SF 2040 steps close together by the Ferry Building (a test drive of about a minute): collect in
   the saddle, dismount, collect on foot, mount, a herd, two knights and a held scorpion boss.
 

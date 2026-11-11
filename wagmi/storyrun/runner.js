@@ -30,6 +30,7 @@ import { test, value, flagName } from './cond.js';
 import { createTimers, meterText, deltaText, progress, seen as inSight, band as bandRule, speedRule, MPH } from './rules.js';
 import { createSets } from './sets.js';
 import { createJuice } from './juice.js';
+import { armTo } from '../mission/m3-set.js';
 
 const PI = Math.PI;
 export const KINDS_STUB = new Set(['patrol', 'wallet']);
@@ -274,7 +275,7 @@ export function createRunner(ctx) {
     } finally { nav.stop(); M.nav = null; M.dest = null; marker.hide(); gps.clear(); }
     if (inCar() && d.stop !== false) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; }
     // (the arrival's ding and place card, unless a scene straight after is the arrival: card false)
-    if (d.card !== false) { sfx.play('ding', { gain: 0.22 }); ui.place(name, '', 3); }
+    if (d.card !== false) { sfx.play('ding', { gain: 0.22 }); ui.place(name, '', 3); if (M) M.cardAt = now(); }
   }
   STEPS.drive = async (d, t) => {
     const list = [].concat(d.to).map((r) => placeOf(r));
@@ -445,6 +446,8 @@ export function createRunner(ctx) {
   function camPt(ref, fallbackUp = 1.5) {
     // (a shot in a set: its own room's points, sets.js)
     if (setRun?.active) return setRun.point(ref, fallbackUp);
+    // (a point the runner works out itself: a boss's wake beat)
+    if (Array.isArray(ref) && ref.length === 3) return ref;
     const e = cm.getActiveEntity();
     if (!ref || ref === 'player') return [e.position.x, e.position.y + (inCar() ? (car.kind === 'horse' ? 2.55 : 1.2) : 1.55), e.position.z];
     if (typeof ref === 'string' && ref.startsWith('@')) { const p = places.at(ref); if (p) return [p.cx ?? p.x, cm.getGroundHeight(p.cx ?? p.x, p.cz ?? p.z, 'person') + fallbackUp, p.cz ?? p.z]; }
@@ -509,6 +512,67 @@ export function createRunner(ctx) {
     }
     app.cameraSystem.resetForTeleport?.();
   }
+  // a street cutscene's people moved by its shots (`act` on a shot, as a set's: [{ who, walk: { to, secs, after, clip },
+  // face, hug }]): `walk.to` a point as a camera's ({ rel: 'player' | <who>, fwd, right }), walked or run there over
+  // `secs` (clip 'run' | 'walk'), then stood; `hug: 'player' | <who>` their arms round that one's upper back (a two-bone
+  // reach on the clip, every frame after it, as sets.js hugs), `hug: null` lets go; `face` turns them to someone.
+  // The people stay as they are left until the step's cutscene ends (cast.hide at the mission's end lets them go).
+  const MH_ARM = ['upperarm01_', 'lowerarm01_', 'wrist_'];
+  const _h1 = new THREE.Vector3(), _h2 = new THREE.Vector3(), _h3 = new THREE.Vector3(), _hf = new THREE.Vector3(), _hr = new THREE.Vector3();
+  const bonesOf = (who) => (who === 'player' || who === heroName ? W.dan?.bones : cast.get(castName(who))?.bones) || null;
+  const rootOf = (who) => (who === 'player' || who === heroName ? P.position : cast.get(castName(who))?.root.position) || null;
+  function hugArms(fig, who, t0) {
+    const B = fig.bones, ob = bonesOf(who); if (!B || !ob) return;
+    const sp = ob.spine03 || ob.spine02 || ob.neck01; if (!sp) return;
+    const u = Math.min(1, Math.max(0, (now() - t0) / 550)), k = 0.95 * u * u * (3 - 2 * u);
+    let hw = 0.17; if (ob.upperarm01_L && ob.upperarm01_R) { ob.upperarm01_L.getWorldPosition(_h1); ob.upperarm01_R.getWorldPosition(_h2); hw = Math.min(0.24, Math.max(0.1, _h1.distanceTo(_h2) / 2)); }
+    sp.getWorldPosition(_h1);
+    const dx = _h1.x - fig.root.position.x, dz = _h1.z - fig.root.position.z, n = Math.hypot(dx, dz) || 1;
+    _hf.set(dx / n, 0, dz / n); _hr.set(_hf.z, 0, -_hf.x);
+    // (someone shorter reaches round lower: the hands under the other's shoulder blades, not above their own head)
+    const myTop = (B.neck01 ? B.neck01.getWorldPosition(_h3).y : fig.root.position.y + 1.5);
+    if (_h1.y > myTop - 0.12) _h1.y = myTop - 0.12;
+    for (const [side, sg] of [['L', 1], ['R', -1]]) {
+      const tg = _h2.copy(_h1).addScaledVector(_hf, hw * 0.62).addScaledVector(_hr, sg * hw * 0.6); tg.y += side === 'L' ? 0.035 : -0.045;
+      const pole = new THREE.Vector3().copy(_h1).addScaledVector(_hf, -0.15).addScaledVector(_hr, sg * (hw + 0.55)); pole.y = tg.y - 0.25;
+      try { armTo(B, side, tg.clone(), pole, k, MH_ARM); } catch {}
+    }
+  }
+  function playClip(fig, name) {
+    if (fig.play) return fig.play(name);
+    const R = fig.native?.rig, have = fig.native?.clips || [];
+    if (R && have.includes(name)) { try { R.set([[0, name]]); return true; } catch {} }
+    return false;
+  }
+  function streetAct(list) {
+    for (const a of list || []) {
+      if (!a || typeof a.who !== 'string') continue;
+      const fig = cast.get(castName(a.who)); if (!fig) continue;
+      const faceTo = (who) => { const q = rootOf(who); if (q) { fig.heading = Math.atan2(q.x - fig.root.position.x, q.z - fig.root.position.z); fig.root.rotation.y = fig.heading; } };
+      if (a.face) faceTo(a.face);
+      let walking = null;
+      if (a.walk && a.walk.to) {
+        const to = camPt(a.walk.to), x0 = fig.root.position.x, z0 = fig.root.position.z, t0 = now() + (a.walk.after || 0) * 1000, dur = Math.max(0.3, a.walk.secs || 1.2) * 1000;
+        walking = { to, x0, z0, t0, dur, started: false };
+      }
+      const hug = 'hug' in a ? a.hug : undefined;
+      let hugT = null;
+      fig.post = (dt) => {
+        if (walking) {
+          const tt = now(); if (tt < walking.t0) return;
+          if (!walking.started) { walking.started = true; playClip(fig, a.walk.clip || 'run'); }
+          const u = Math.min(1, (tt - walking.t0) / walking.dur), e = 1 - (1 - u) * (1 - u);
+          const x = walking.x0 + (walking.to[0] - walking.x0) * e, z = walking.z0 + (walking.to[2] - walking.z0) * e;
+          fig.heading = Math.atan2(walking.to[0] - walking.x0, walking.to[2] - walking.z0);
+          fig.root.position.set(x, cm.getGroundHeight(x, z, 'person'), z); fig.root.rotation.y = fig.heading;
+          if (u >= 1) { walking = null; playClip(fig, 'idle'); if (hug) faceTo(hug); }
+          return;
+        }
+        if (hug) { if (hugT == null) { hugT = now(); faceTo(hug); } hugArms(fig, hug, hugT); }
+      };
+      if (hug === null && !walking) fig.post = null;
+    }
+  }
   async function shotList(shots, t, { skippable = true, beat = false, opening = false, set = null } = {}) {
     const D = createDirector(W);
     const ssr0 = ssrOf()?.intensity.value ?? 0;
@@ -530,6 +594,8 @@ export function createRunner(ctx) {
         if (s.if && !cond(s.if)) continue;
         // (the shot's set: its own, else the cutscene's; false or none, the street)
         if (setRun) { const id = s.set === false ? null : (s.set || set); setRun.use(id && setRun.has(id) ? id : null); if (s.act) setRun.act(s.act); }
+        // (on the street: the shot's changes to the people in it, a run to someone and a hug: streetAct)
+        if (s.act && !setRun?.active) streetAct(s.act);
         const dur = s.dur || 3, A = camPt(s.cam), B = s.to ? camPt(s.to) : A, LA = camPt(s.look, 1.4), LB = s.lookTo ? camPt(s.lookTo, 1.4) : LA;
         // (an opening's name card: the lens settles on its person through the first part of the shot, then the frame
         // freezes on them, their body held mid-move, as their name and role come up: openCard())
@@ -958,20 +1024,35 @@ export function createRunner(ctx) {
     const crew = { alive: () => fighters.filter((f) => !f.out).length, creatures: true };
     M.crew = crew;
     const label = d.counter || 'DOWN';
-    if (total > 1) ui.counter(label, `0/${total}`);
+    if (total > 1 && !cardLeft()) ui.counter(label, `0/${total}`);
     gps.objective(parts(d.objective || (bossName ? `Beat **${bossName}**.` : 'Beat them all.'), 'red'), null);
     let lastK = 0, talk = false, lastHp = combat.player.hp, woke = false;
     const fightSay = (lines) => { talk = true; (async () => { for (const l of lines.map(tuple)) await say(castName(l.who), l.text, M.tok); })().catch(() => {}).finally(() => { talk = false; }); };
     // (the lair's boss woken: its name called, and the step's line for it)
     const boss = B ? handles[handles.length - 1] : null;
-    boss?.on('wake', () => { if (woke) return; woke = true; juice.alert(bossName || 'Boss', { sub: d.alert ? tokens(d.alert) : '', tone: 'red', sting: 'up', jolt: 0.4, secs: 2.4 }); if (d.wake && !talk) fightSay([d.wake]); });
+    boss?.on('wake', () => {
+      if (woke) return; woke = true; juice.alert(bossName || 'Boss', { sub: d.alert ? tokens(d.alert) : '', tone: 'red', sting: 'up', jolt: 0.4, secs: 2.4 }); if (d.wake && !talk) fightSay([d.wake]);
+      // (the wake framed: a low lens behind his shoulder looking up at it, its whole height in the frame, while it shows
+      // itself; then the fight's own camera. wakeShot: false leaves it out)
+      const f = boss.fighters[0];
+      if (f && d.wakeShot !== false) {
+        const hx = P.position.x, hz = P.position.z, dx = f.pos.x - hx, dz = f.pos.z - hz, n = Math.hypot(dx, dz) || 1, fx = dx / n, fz = dz / n, H = f.height || 3;
+        const back = 2.6 + H * 0.35, gy = cm.getGroundHeight(hx, hz, 'person');
+        const cam = [hx - fx * back + fz * 1.4, gy + 0.9 + H * 0.12, hz - fz * back - fx * 1.4], cam2 = [hx - fx * (back + 1.2) + fz * 1.8, gy + 1.2 + H * 0.18, hz - fz * (back + 1.2) - fx * 1.8];
+        const look = [f.pos.x, f.pos.y + H * 0.62, f.pos.z];
+        // (first close on it from low down, looking up: its size; then over his shoulder: the two of them)
+        const by = cm.getGroundHeight(f.pos.x, f.pos.z, 'person'), cx = f.pos.x - fx * H * 1.5 + fz * H * 0.55, cz = f.pos.z - fz * H * 1.5 - fx * H * 0.55;
+        const close = [cx, by + 0.5, cz], close2 = [cx - fx * H * 0.25, by + 0.7, cz - fz * H * 0.25], up = [f.pos.x, by + H * 0.78, f.pos.z];
+        shotList([{ cam: close, to: close2, look: up, dur: 1.7, fov: 50 }, { cam, to: cam2, look, dur: 1.6, fov: 44 }], M.tok, { beat: true }).catch(() => {});
+      }
+    });
     const t0 = now();
     try {
       await wait(() => {
         const alive = crew.alive(), k = total - alive;
         const hp = combat.player.hp; if (hp < lastHp - 0.5) M.stats.hits++; lastHp = hp;
         if (k !== lastK) { lastK = k; const b = d.barks?.[k]; if (b && !talk && alive > 0) fightSay([b]); }
-        if (total > 1) ui.counter(label, `${k}/${total}`);
+        if (total > 1 && !cardLeft()) ui.counter(label, `${k}/${total}`);
         for (const f of fighters) if (!f.out && !f.disposed) gps.blip('e:' + f.id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: !!f.boss, name: f.boss ? (f.name || '') : '' }); else gps.unblip('e:' + f.id);
         if (down) throw new Fail(tokens(d.why || `${heroName} got knocked out.`), 'ko');
         if (dist(me(), cx, cz) > 150) throw new Fail('You left the fight.', 'left');
@@ -989,6 +1070,8 @@ export function createRunner(ctx) {
     await delay(1.6, t);
     app.trafficSystem.hold?.([]);
   }
+  // (the counter's corner is the place card's: how long the card just put up (a ride's arrival) has left)
+  const cardLeft = () => Math.max(0, (M?.cardAt || 0) + 3300 - now());
   const dropCreatures = () => { for (const h of M?.creatures || []) try { h.remove(); } catch {} if (M) M.creatures = null; };
 
   // collect: supplies set out at spots (`items`: '@place' | { at: [x, z] } | [x, z]), each a glowing pickup with a soft
@@ -1037,7 +1120,9 @@ export function createRunner(ctx) {
     M.collect = { items, need, kind };
     let n = 0, cur = null, nav = null, last = now();
     const COUNTER = label.toUpperCase();
-    ui.counter(COUNTER, `0/${need}`);
+    // (the tally's corner is the place card's: after a card just up (a ride's arrival), it comes up once the card has gone)
+    const tally = (txt) => { const w = cardLeft(); if (w > 0) setTimeout(() => { if (M?.collect) ui.counter(COUNTER, txt); }, w); else ui.counter(COUNTER, txt); };
+    tally(`0/${need}`);
     // (the objective with the tally after it: 'Scavenge food along Market St · 3/5', its full stop dropped for it)
     const objective = parts(d.objective || `Collect **${label.toLowerCase()}**.`, 'green');
     if (typeof objective[objective.length - 1] === 'string') objective[objective.length - 1] = objective[objective.length - 1].replace(/\.\s*$/, '');
@@ -1050,7 +1135,7 @@ export function createRunner(ctx) {
         const q = me(), r = (d.radius || 2.2) + (inCar() ? 1.6 : 0);
         for (const it of items) if (!it.taken && dist(q, it.x, it.z) < r) {
           it.taken = true; n++; app.scene.remove(it.obj); it.beam.hide(); app.scene.remove(it.beam.group); gps.unblip('sup:' + it.i);
-          sfx.play('ding', { gain: 0.28 }); ui.counter(COUNTER, `${n}/${need}`);
+          sfx.play('ding', { gain: 0.28 }); tally(`${n}/${need}`);
           juice.alert(`${label} ${n}/${need}`, { tone: n >= need ? 'green' : 'yellow', secs: 1.3 });
           M.log.push(['collect', kind, n]);
           host.tell('progress', { mission: M.def?.id, step: d.id || null, kind: 'collect', i: M.i, n: M.def?.steps.length, got: n, need });
@@ -2032,5 +2117,5 @@ export function createRunner(ctx) {
     if (!at) { keyL.intensity = 0; keyL.distance = 4.5; return; }
     keyL.position.set(at[0], at[1], at[2]); keyL.intensity = intensity; keyL.distance = reach;
   };
-  return { play, opening, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo, lamp, showMeters };
+  return { play, opening, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo, lamp, showMeters, streetAct };
 }

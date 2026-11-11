@@ -130,6 +130,7 @@ export function check(w) {
     if (!c || typeof c !== 'object') { bad(`cast ${name}`); continue; }
     if (c.color != null && !COLOUR.test(c.color)) bad(`cast ${name}: colour`);
     if (c.model != null && !/^mogcity\/[a-z0-9-]{2,30}$/.test(c.model)) bad(`cast ${name}: model ${c.model}`);
+    if (c.scale != null && !(typeof c.scale === 'number' && c.scale >= 0.7 && c.scale <= 1.15)) bad(`cast ${name}: scale`);
   }
   if (!Array.isArray(w.missions) || !w.missions.length) bad('missions');
   else for (const m of w.missions) {
