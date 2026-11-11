@@ -2189,7 +2189,11 @@
       "at": [
        -2262,
        -366
-      ]
+      ],
+      "stats": {
+       "hp": 520,
+       "dmg": 15
+      }
      },
      "speed": 10.5,
      "objective": "Lead **The Matriarch** away from the house. Ride east for **Franklin St**!",
@@ -2735,15 +2739,16 @@
     {
      "type": "fight",
      "id": "defend",
-     "arena": "@camp",
+     "arena": "@campgate",
      "from": {
-      "@": "camp",
+      "@": "campgate",
       "mode": "car"
      },
      "checkpoint": true,
      "saddle": true,
      "hp": 180,
      "guard": {
+      "at": "@campgate",
       "radius": 18,
       "hp": 100,
       "drain": 5,
