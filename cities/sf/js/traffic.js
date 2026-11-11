@@ -292,6 +292,27 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   const nypdBarInst = new THREE.InstancedMesh(buildLightbarGeometry(BODY_SPECS.sedan), createLightbarMaterial(), Math.max(1, nypdCount));
   const carShadowInst = new THREE.InstancedMesh(unitPlane, contactShadowMat, NUM_CARS);
   carShadowInst.renderOrder = 998;
+  // (SF 2040, abandon: a front door left hanging open on some of the near cars; the panel's origin at its hinge, the
+  // door running back along -z, painted by the instance's colour, its window dark)
+  const doorInst = (() => {
+    const L = 1.1, parts = [];
+    const panel = new THREE.BoxGeometry(0.05, 0.52, L).translate(0, 0.56, -L / 2);
+    const frameT = new THREE.BoxGeometry(0.04, 0.05, L * 0.86).translate(0, 1.27, -L * 0.5);
+    const frameB = new THREE.BoxGeometry(0.04, 0.42, 0.05).translate(0, 1.04, -L * 0.07);
+    const frameR = new THREE.BoxGeometry(0.04, 0.42, 0.05).translate(0, 1.04, -L * 0.93);
+    const glass = new THREE.BoxGeometry(0.015, 0.4, L * 0.84).translate(0, 1.04, -L * 0.5);
+    for (const [g, c] of [[panel, 1], [frameT, 0.55], [frameB, 0.55], [frameR, 0.55], [glass, 0.05]]) {
+      const n = g.attributes.position.count, col = new Float32Array(n * 3).fill(c);
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.deleteAttribute('uv'); parts.push(g);
+    }
+    const geo = window.NYC.Addons.mergeGeometries(parts);
+    const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.2 }), NUM_CARS);
+    m.name = 'AbandonedCarDoors'; m.count = 0; m.castShadow = m.receiveShadow = true; m.frustumCulled = false;
+    m.setColorAt(0, new THREE.Color(1, 1, 1));
+    return m;
+  })();
+  let doorsDrawn = 0;
+  const _doorM = new THREE.Matrix4(), _doorR = new THREE.Matrix4(), _doorC = new THREE.Color();
 
   for (const m of bodyMeshes) m.castShadow = m.receiveShadow = true;
   nypdBarInst.castShadow = true;
@@ -386,7 +407,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   group.add(...pedCrowd.meshes);
 
   // Add vehicle contact shadows last + pre-allocated Clustered SpotLight / PointLight pools
-  group.add(carShadowInst, busShadowInst);
+  group.add(carShadowInst, busShadowInst, doorInst);
 
   const HEADLIGHT_POOL_SIZE = 96;
   const NYPD_LIGHT_POOL_SIZE = 6;
@@ -1431,7 +1452,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     if (!hit) return;
     const { nx, nz, pen, localX, localZ, pSin, pCos } = hit;
     if(pe.rideMetrics && pen>.01)pe.rideMetrics.trafficOverlaps=(pe.rideMetrics.trafficOverlaps||0)+1;
-    const massRatio = v.bus ? 0.15 : v.isSUV ? 0.58 : 1.0 - player.push;
+    // (SF 2040, abandon: a wreck stands where it was left: the player is stopped by it, never shoves it)
+    const massRatio = abandoned ? 0 : v.bus ? 0.15 : v.isSUV ? 0.58 : 1.0 - player.push;
     const pPush = 1.0 - massRatio;
     pe.position.x += nx * pen * pPush;
     pe.position.z += nz * pen * pPush;
@@ -1450,6 +1472,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     if(pe.rideMetrics && approachSpeed>.5){pe.rideMetrics.trafficContacts++;if(pe.rideMetrics.contacts?.length<10)pe.rideMetrics.contacts.push({road:v.edge?.name,approachSpeed,playerSpeed:pe.speed,trafficSpeed:v.speed,playerHeading:pe.heading,trafficHeading:rotY,relX,relZ});}
 
     const jImpulse = (1.0 + 0.28) * approachSpeed;
+    if (abandoned) { if (typeof pe.speed === 'number') pe.speed *= 0.3; return; }
     const cImpulse = v.bus ? approachSpeed * 0.22 : jImpulse * massRatio * 0.92;
     v.vx -= nx * cImpulse;
     v.vz -= nz * cImpulse;
@@ -1535,7 +1558,10 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     v.askew = (Math.random() - 0.5) * (r < 0.4 ? 2.2 : 0.8);
     const side = (Math.random() - 0.5) * 2.2;
     v.offX = v.edge ? v.edge.rx * side : 0; v.offZ = v.edge ? v.edge.rz * side : 0;
-    v.hazard = Math.random() < 0.08;
+    v.hazard = false; // (the batteries long flat: no lamp lit, not even the hazards)
+    // (some crashed nose-first into the curb or across the lane; a door or two left open by whoever ran)
+    if (r > 0.85) v.askew = (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.random() * 0.5);
+    v.doors = Math.random() < 0.35 ? (Math.random() < 0.6 ? 1 : Math.random() < 0.5 ? 2 : 3) : 0; // 1 driver's, 2 passenger's, 3 both
   }
 
   // Put v in a free spot of a random lane rMin..rMax metres from the focus, out of view if `hidden`
@@ -1817,6 +1843,18 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     dummy.updateMatrix();
     bodyInst.setMatrixAt(slot, dummy.matrix);
     if (c.isNYPD) nypdBarInst.setMatrixAt(nypdDrawn++, dummy.matrix);
+    // (SF 2040: its doors left open)
+    if (abandoned && near && c.doors) {
+      const hingeZ = spec.doors ? spec.doors[0] : 0.8, hw = (spec.halfWidth ? spec.halfWidth[1][1] : 0.92) - 0.02;
+      _doorC.setRGB(c.paint[0], c.paint[1], c.paint[2]);
+      for (const side of [1, -1]) {
+        if (!(c.doors & (side > 0 ? 1 : 2))) continue;
+        const open = 0.75 + ((c.doorPhase ??= Math.random()) * 0.5);
+        _doorR.makeRotationY(-side * open).setPosition(side * hw, 0, hingeZ);
+        _doorM.multiplyMatrices(dummy.matrix, _doorR);
+        doorInst.setMatrixAt(doorsDrawn, _doorM); doorInst.setColorAt(doorsDrawn, _doorC); doorsDrawn++;
+      }
+    }
 
     const attrs = bodyInst.geometry.attributes;
     const paint = attrs.paintColor.array;
@@ -2091,6 +2129,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     wheelCars = 0;
     visibleCars = 0;
     nypdDrawn = 0;
+    doorsDrawn = 0;
     visibleBuses = 0;
     let budget = jump ? Infinity : 4;
     for (let i = 0; i < vehicles.length; i++) {
@@ -2199,6 +2238,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     syncInst(carWheelRightInst, wheelCars * 2);
     syncInst(nypdBarInst, nypdDrawn);
     syncInst(carShadowInst, visibleCars);
+    doorInst.count = doorsDrawn; doorInst.visible = doorsDrawn > 0;
+    if (doorsDrawn) { flagRange(doorInst.instanceMatrix, doorsDrawn); doorInst.instanceColor.needsUpdate = true; }
     syncInst(busBodyInst, visibleBuses);
     syncInst(busHeaderInst, visibleBuses);
     syncInst(busWheelLeftInst, visibleBuses * 2);
@@ -2267,11 +2308,12 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
         if (on) {
           v.paint0 = v.paint0 || v.paint;
           const k = Math.random();
-          const c = paint ? paint(v, k < burnt) : null;
+          v.burnt = k < burnt;
+          const c = paint ? paint(v, v.burnt) : null;
           v.paint = c || v.paint0;
           if (v.edge) strand(v);
         } else {
-          v.paint = v.paint0 || v.paint; v.askew = v.offX = v.offZ = 0; v.hazard = false; v.blink = 0;
+          v.paint = v.paint0 || v.paint; v.askew = v.offX = v.offZ = 0; v.hazard = false; v.blink = 0; v.burnt = false; v.doors = 0;
         }
       }
     },
@@ -2602,7 +2644,7 @@ function createHighwayTraffic(scene, lanes) {
     }
     dirtyPaint.clear();
     dirtyState.clear();
-    flares.visible = flareCount > 0;
+    flares.visible = flareCount > 0 && !(window.NYC.carLampPower && window.NYC.carLampPower.value < 0.01); // (SF 2040: dark)
     flares.count = flareCount;
     if (flareCount > 0) {
       flagRange(flareGeo.attributes.flarePos, flareCount);

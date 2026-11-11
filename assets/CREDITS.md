@@ -131,10 +131,13 @@ format (`gmasset/1`), their maps resized to 512 px (models) or 1024 px (surfaces
 
 - `assets/sets/bar-stool`: "Bar Chair Round 01 (model)" by Dairon Sanchez, Poly Haven, from [Poly Haven](https://polyhaven.com/a/bar_chair_round_01), CC0-1.0
 - `assets/sets/blue-drum`: "Barrel 03 (model)" by Serhii Khromov, Poly Haven, from [Poly Haven](https://polyhaven.com/a/barrel_03), CC0-1.0
+- `assets/sets/burn-barrel`: "Barrel Stove (model)" by MP, Poly Haven, from [Poly Haven](https://polyhaven.com/a/barrel_stove), CC0-1.0
 - `assets/sets/cafe-set`: "Outdoor Table Chair Set 01 (model)" by James Ray Cock, Poly Haven, from [Poly Haven](https://polyhaven.com/a/outdoor_table_chair_set_01), CC0-1.0
 - `assets/sets/cardboard-box`: "Cardboard Box 01 (model)" by Rahul Chaudhary, Poly Haven, from [Poly Haven](https://polyhaven.com/a/cardboard_box_01), CC0-1.0
 - `assets/sets/coffee-table`: "Coffee Table Round 01 (model)" by Ulan Cabanilla, Poly Haven, from [Poly Haven](https://polyhaven.com/a/coffee_table_round_01), CC0-1.0
+- `assets/sets/concrete-block`: "Concrete Road Barrier 02 (model)" by Amal Kumar, Poly Haven, from [Poly Haven](https://polyhaven.com/a/concrete_road_barrier_02), CC0-1.0
 - `assets/sets/covered-car`: "Covered Car (model)" by MP, Poly Haven, from [Poly Haven](https://polyhaven.com/a/covered_car), CC0-1.0
+- `assets/sets/dead-trunk`: "Dead Tree Trunk 02 (model)" by Jenelle van Heerden and Rico Cilliers, Poly Haven, from [Poly Haven](https://polyhaven.com/a/dead_tree_trunk_02), CC0-1.0
 - `assets/sets/door-shutter`: "Rollershutter Door (model)" by MP, Poly Haven, from [Poly Haven](https://polyhaven.com/a/rollershutter_door), CC0-1.0
 - `assets/sets/drainpipes`: "Modular Metal Gutter (model)" by Maxim Domnin, Poly Haven, from [Poly Haven](https://polyhaven.com/a/modular_metal_gutter), CC0-1.0
 - `assets/sets/fern`: "Fern 02 (model)" by Rico Cilliers and Rob Tuytel, Poly Haven, from [Poly Haven](https://polyhaven.com/a/fern_02), CC0-1.0
@@ -159,6 +162,7 @@ format (`gmasset/1`), their maps resized to 512 px (models) or 1024 px (surfaces
 - `assets/sets/tex-stone-wall`: "Rustic Stone Wall 02 (textures)" by Amal Kumar, Poly Haven, from [Poly Haven](https://polyhaven.com/a/rustic_stone_wall_02), CC0-1.0
 - `assets/sets/trash-cans`: "Metal Trash Can (model)" by GurJas Studios, Poly Haven, from [Poly Haven](https://polyhaven.com/a/metal_trash_can), CC0-1.0
 - `assets/sets/wall-lantern`: "Street Lamp 02 (model)" by Josh Dean, Poly Haven, from [Poly Haven](https://polyhaven.com/a/street_lamp_02), CC0-1.0
+- `assets/sets/wheel-rim`: "Rusted Wheel Rim 01 (model)" by John Hutcheson, Poly Haven, from [Poly Haven](https://polyhaven.com/a/rusted_wheel_rim_01), CC0-1.0
 
 ## Vehicles
 

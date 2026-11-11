@@ -72,7 +72,11 @@ const cityUniforms = {
   uSkySunDir: uniform(new THREE.Vector3(-0.66, 0.34, -0.67).normalize()),
   uInteriorGlow: uniform(0.78),
   uRoadWetness: uniform(0.38),
-  uCanyonBounce: uniform(0.52)
+  uCanyonBounce: uniform(0.52),
+  // (SF 2040, wagmi/apocalypse) 0 the city's lawns as they are, 1 dead: trampled, ash-dusted grass and bare dirt
+  uDeadGround: uniform(0),
+  // (SF 2040) 0 no fires, 1 a few windows burning in the walk-ups (createPreWarBuildingMaterial: flicker, soot above)
+  uFireWindows: uniform(0)
 };
 
 // Fast deterministic 2D -> 1D hash in TSL
@@ -106,6 +110,50 @@ const bumpNormal = Fn(([height]) => {
   const det = dpdx.dot(r1);
   const grad = det.sign().mul(h.dFdx().mul(r1).add(h.dFdy().mul(r2)));
   return det.abs().mul(normalView).sub(grad).normalize();
+});
+
+/**
+ * (SF 2040) The lawns after Erebus: dead grass trampled to straw and olive-grey, bare dirt where the camps and the
+ * horses have worn it through, hoof and tyre tracks across it, ash drifted against the dips, a fine grain of stalks
+ * and clods everywhere so it reads as matte ground from any height (never a smooth dark sheet: never water).
+ * deadGround(xz) -> rgb; deadGroundHeight(xz): the stalks' relief, for a bump
+ */
+const deadGround = Fn(([xzIn]) => {
+  const xz = vec2(xzIn).toVar();
+  // (the fine grain fades out with distance: no shimmer, no blocky aliasing seen from a roof)
+  const near = smoothstep(70.0, 12.0, length(positionWorld.sub(cameraPosition))).toVar();
+  // a slow warp so nothing lines up into tiles
+  const w = xz.add(vec2(noise2D(xz.mul(0.021)), noise2D(xz.mul(0.019).add(17.3))).mul(14.0)).toVar();
+  const big = noise2D(w.mul(0.035)).toVar();
+  const mid = noise2D(w.mul(0.17)).toVar();
+  const fine = noise2D(w.mul(1.9)).toVar();
+  const grain = noise2D(xz.mul(9.0)).toVar();
+  const speck = hash2D(floor(xz.mul(22.0))).toVar();
+  // dry grass: olive-grey through straw
+  const cOlive = color(0x5b573f), cStraw = color(0x857654), cDry = color(0x6b6247);
+  const grass = mix(mix(cOlive, cDry, smoothstep(0.25, 0.75, big)), cStraw, smoothstep(0.45, 0.95, mid).mul(0.55)).toVar();
+  // bare dirt patches, ragged at the edge
+  const cDirt = color(0x4a3e31), cDirtDry = color(0x6a5a47);
+  const patchN = big.mul(0.62).add(mid.mul(0.33)).add(fine.sub(0.5).mul(0.08).mul(near));
+  const bare = smoothstep(0.53, 0.66, patchN).toVar();
+  const dirt = mix(cDirt, cDirtDry, mix(smoothstep(0.2, 0.8, mid), smoothstep(0.3, 0.8, fine), near.mul(0.6)));
+  // tracks: two sets of worn ruts (wheels, hooves) curving across, broken up
+  const t1 = abs(sin(w.x.mul(0.11).add(w.y.mul(0.07)).add(noise2D(w.mul(0.05)).mul(5.0)))).toVar();
+  const t2 = abs(sin(w.x.mul(-0.05).add(w.y.mul(0.13)).add(noise2D(w.mul(0.043).add(9.1)).mul(6.0)))).toVar();
+  const rut = max(smoothstep(0.06, 0.0, t1).mul(smoothstep(0.35, 0.6, noise2D(w.mul(0.08)))), smoothstep(0.05, 0.0, t2).mul(smoothstep(0.4, 0.65, noise2D(w.mul(0.07).add(3.3))))).toVar();
+  // ash drifted in the low spots
+  const cAsh = color(0x8d8a83);
+  const ash = smoothstep(0.6, 0.85, noise2D(w.mul(0.09).add(31.0)).mul(0.8).add(mix(float(0.1), fine.mul(0.2), near))).mul(0.45).toVar();
+  let col = mix(grass, dirt, max(bare, rut.mul(0.85)));
+  col = mix(col, cAsh, ash);
+  // stalks and clods: a high-contrast grain (the eye reads it as a rough, dry surface)
+  col = col.mul(mix(float(0.98), grain.mul(0.36).add(0.8), near.mul(0.7).add(0.3))).mul(mix(float(0.99), speck.mul(0.22).add(0.88), near));
+  return col;
+});
+// its relief for a bump (cheap: the stalks and clods only)
+const deadGroundHeight = Fn(([xzIn]) => {
+  const xz = vec2(xzIn);
+  return noise2D(xz.mul(9.0)).mul(0.6).add(hash2D(floor(xz.mul(22.0))).mul(0.4));
 });
 
 /**
@@ -780,6 +828,11 @@ function createPreWarBuildingMaterial(opts = {}) {
   );
   const aptRoom = evaluateApartmentInterior(uCoord, vCoord, winUV, cellId, bayWidth, facade.floorH, uSeed, uWarmth, paint ? paintTrim.w.mul(0.62) : uLitProbability.mul(0.62), fw);
   const shopLit = step(0.24, hash2D(cellId.add(vec2(uSeed, 19.4))));
+  // (SF 2040, cityUniforms.uFireWindows) the windows still burning: clusters of a few windows over a floor or two, in
+  // about one front in thirty, never the ground floor; 1 in the window at cell cid
+  const burning = (cid) => step(0.966, hash2D(floor(cid.div(vec2(3.0, 2.0))).add(vec2(tone.mul(97.0).add(uSeed), tone.mul(13.0)))))
+    .mul(step(0.3, hash2D(cid.add(vec2(tone.mul(31.0), uSeed.mul(0.7))))))
+    .mul(step(1.0, cid.y)).mul(front).mul(cityUniforms.uFireWindows);
   const bulbCol = mix(cCoolWindow, cWarmWindow, step(float(1.0).sub(uWarmth), hash2D(cellId.add(vec2(uSeed.mul(1.9), 83.1)))));
   // Window AC units (~12% of upper-floor windows), none in the floor the band course covers
   const beltFloor = step(5.0, mod(floor(gridV), 6.0)).mul(front);
@@ -985,6 +1038,14 @@ function createPreWarBuildingMaterial(opts = {}) {
       const doorCol = mix(doorPaint.mul(float(1.0).sub(doorPanels.mul(0.5))), mix(cGlass, cityUniforms.uSkyHorizonColor, 0.18), transom);
       finalCol.assign(mix(mix(withAC, cTrim.mul(0.85), surround), doorCol, inDoorway));
     });
+    // (SF 2040) soot licked up the wall over a burning window, and the window's own wall charred round it
+    If(cityUniforms.uFireWindows.greaterThan(0.001), () => {
+      const below = burning(cellId.sub(vec2(0.0, 1.0)));
+      const here = burning(cellId);
+      const lick = smoothstep(0.5, 0.0, abs(cellUV.x.sub(0.5)).add(noise2D(vec2(cellUV.x.mul(9.0), cellUV.y.mul(2.0)).add(cellId)).mul(0.25)));
+      const soot = max(below.mul(smoothstep(0.85, 0.0, cellUV.y)).mul(lick), here.mul(smoothstep(0.35, 0.9, cellUV.y)).mul(lick).mul(0.9));
+      finalCol.assign(finalCol.mul(float(1.0).sub(soot.mul(0.85))).mul(float(1.0).sub(here.mul(0.25))));
+    });
     return finalCol;
   })();
 
@@ -1092,7 +1153,12 @@ function createPreWarBuildingMaterial(opts = {}) {
     const transomGlow = door.mul(filteredPulse(cellUV.x, 0.27, 0.73, fw.x)).mul(filteredPulse(cellUV.y, 0.67, 0.78, fw.y));
     const doorEmit = cWarmWindow.mul(transomGlow).mul(cityUniforms.uInteriorGlow).mul(0.32);
 
-    return winEmit.add(crownFlood).add(doorEmit);
+    // (SF 2040) the fire behind a burning window: orange, brightest low, flickering, gusting
+    const fireK = burning(cellId).mul(isWindow);
+    const fseed = hash2D(cellId.add(7.7)).mul(40.0);
+    const flick = sin(time.mul(8.3).add(fseed)).mul(sin(time.mul(3.1).add(fseed.mul(1.7)))).mul(0.3).add(sin(time.mul(1.1).add(fseed)).mul(0.15)).add(0.85);
+    const fireCol = mix(vec3(2.4, 0.85, 0.14), vec3(0.7, 0.12, 0.02), smoothstep(0.1, 0.95, winUV.y)).mul(flick).mul(1.2);
+    return winEmit.add(crownFlood).add(doorEmit).add(fireCol.mul(fireK));
   })();
 
   _preWarCache.set(cacheKey, mat);
@@ -1975,7 +2041,16 @@ function createTerrainMaterial(maskTexture, mask) {
     .div(max(ow00.add(ow10).add(ow01).add(ow11), 0.0001));
   const tone = noise2D(positionWorld.xz.mul(0.35)).mul(0.2).add(noise2D(positionWorld.xz.mul(2.1)).mul(0.08)).add(0.86);
 
-  mat.colorNode = mix(otherColor.mul(tone), asphaltColor, asphalt);
+  // (SF 2040, cityUniforms.uDeadGround) the lawn class dead as the lawns are: its share of the other classes
+  const lawnW = ow00.mul(float(1.0).sub(step(0.5, abs(c00.sub(2))))).add(ow10.mul(float(1.0).sub(step(0.5, abs(c10.sub(2))))))
+    .add(ow01.mul(float(1.0).sub(step(0.5, abs(c01.sub(2)))))).add(ow11.mul(float(1.0).sub(step(0.5, abs(c11.sub(2))))))
+    .div(max(ow00.add(ow10).add(ow01).add(ow11), 0.0001));
+  mat.colorNode = Fn(() => {
+    const other = otherColor.mul(tone).toVar();
+    const k = lawnW.mul(cityUniforms.uDeadGround).mul(float(1.0).sub(asphalt));
+    If(k.greaterThan(0.001), () => { other.assign(mix(other, deadGround(positionWorld.xz), k)); });
+    return mix(other, asphaltColor, asphalt);
+  })();
   mat.roughnessNode = mix(float(0.92), asphaltRoughness, asphalt);
   mat.metalnessNode = asphaltMetalness.mul(asphalt);
   mat.emissiveNode = asphaltEmissive.mul(asphalt);
@@ -2930,7 +3005,11 @@ function createParkLawnMaterial(isMeadow = false) {
       cGrassMid,
       macroPatch.mul(0.45).add(midClover.mul(0.35)).add(mowStripe.mul(0.20))
     );
-    return mix(baseLawn, cGrassSun, microBlade.mul(0.38));
+    const live = mix(baseLawn, cGrassSun, microBlade.mul(0.38));
+    // (SF 2040) dead, by cityUniforms.uDeadGround
+    const out = vec3(live).toVar();
+    If(cityUniforms.uDeadGround.greaterThan(0.001), () => { out.assign(mix(live, deadGround(wp), cityUniforms.uDeadGround)); });
+    return out;
   })();
 
   mat.normalNode = Fn(() => {
@@ -2938,16 +3017,21 @@ function createParkLawnMaterial(isMeadow = false) {
     const camDist = length(positionWorld.sub(cameraPosition));
     const detail = smoothstep(85.0, 10.0, camDist);
     const turf = noise2D(wp.mul(7.5)).sub(0.5).mul(0.008);
-    return bumpNormal(turf.mul(detail));
+    // (dead ground: the stalks' and the ruts' relief, stronger, out to 140 m)
+    const rough = deadGroundHeight(wp).sub(0.5).mul(0.03).mul(smoothstep(140.0, 6.0, camDist));
+    return bumpNormal(mix(turf.mul(detail), rough, cityUniforms.uDeadGround));
   })();
+  mat.roughnessNode = mix(float(0.86), float(0.98), cityUniforms.uDeadGround);
 
   // Grass is a canopy of blades that shadow each other, not a flat dielectric: at grazing angles a plain F0 = 0.04 /
-  // F90 = 1 Fresnel mirrors the sky and turns lawns teal, so weaken the specular and cap its grazing rise
+  // F90 = 1 Fresnel mirrors the sky and turns lawns teal, so weaken the specular and cap its grazing rise (dead ground:
+  // dry dirt and straw, hardly any)
   const { specularColor, specularColorBlended, specularF90 } = window.NYC.TSL;
   mat.setupSpecular = function () {
-    specularColor.assign(vec3(0.025));
-    specularColorBlended.assign(vec3(0.025));
-    specularF90.assign(0.3);
+    const k = mix(float(0.025), float(0.008), cityUniforms.uDeadGround);
+    specularColor.assign(vec3(k));
+    specularColorBlended.assign(vec3(k));
+    specularF90.assign(mix(float(0.3), float(0.08), cityUniforms.uDeadGround));
   };
 
   return mat;
