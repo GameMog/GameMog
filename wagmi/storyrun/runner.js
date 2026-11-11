@@ -523,12 +523,17 @@ export function createRunner(ctx) {
   const MH_ARM = ['upperarm01_', 'lowerarm01_', 'wrist_'];
   const _h1 = new THREE.Vector3(), _h2 = new THREE.Vector3(), _h3 = new THREE.Vector3(), _hf = new THREE.Vector3(), _hr = new THREE.Vector3();
   const _hq = new THREE.Vector3(), _hq2 = new THREE.Vector3(), _hg = new THREE.Quaternion();
-  // (a hand resting on someone: each finger bent a little about its own hinge (wagmi/horse/rider.js's, the cast's one rig),
-  // more at the middle joint, the thumb along)
-  const HINGE = { 2: [0.45, 0.66, 0.6], 3: [0.43, 0.56, 0.71], 4: [0.39, 0.46, 0.8], 5: [0.35, 0.35, 0.87] }, SOFT = [0.32, 0.45, 0.28];
+  // (a hand resting on someone: the fingers together and gently curled, palm to them: each finger's bones eased to the
+  // rig's own rest (MakeHuman's relaxed hand, the same on every cast body: one rig), then a little more about each
+  // finger's hinge (wagmi/horse/rider.js's), the middle joint most)
+  const REST = { 2: [[0.17, 0.08, 0.1], [0.11, 0.15, 0.14], [0.06, 0.09, 0.08]], 3: [[0.08, 0.1, 0.15], [0.12, 0.15, 0.19], [0.07, 0.08, 0.12]],
+    4: [[0.04, 0.12, 0.2], [0.12, 0.14, 0.24], [0.06, 0.07, 0.15]], 5: [[0, 0.12, 0.21], [0.11, 0.11, 0.28], [0.07, 0.06, 0.17]] };
+  const HINGE = { 2: [0.45, 0.66, 0.6], 3: [0.43, 0.56, 0.71], 4: [0.39, 0.46, 0.8], 5: [0.35, 0.35, 0.87] }, SOFT = [0.18, 0.3, 0.2];
+  const _hr0 = new THREE.Quaternion();
   function softHand(B, side, w) {
     for (const n of [2, 3, 4, 5]) { const [x, y, z] = HINGE[n], ax = (side === 'R' ? _hq.set(x, y, z) : _hq.set(x, -y, -z)).normalize();
-      SOFT.forEach((a, j) => { const b = B[`finger${n}-${j + 1}_${side}`]; if (b) b.quaternion.slerp(_hg.setFromAxisAngle(ax, a * (0.9 + 0.05 * n)), w); }); }
+      SOFT.forEach((a, j) => { const b = B[`finger${n}-${j + 1}_${side}`]; if (!b) return; const [qx, qy, qz] = REST[n][j];
+        _hr0.set(qx, side === 'R' ? qy : -qy, side === 'R' ? qz : -qz, 1).normalize(); _hg.setFromAxisAngle(ax, a).multiply(_hr0); b.quaternion.slerp(_hg, w); }); }
   }
   const bonesOf = (who) => (who === 'player' || who === heroName ? W.dan?.bones : cast.get(castName(who))?.bones) || null;
   const rootOf = (who) => (who === 'player' || who === heroName ? P.position : cast.get(castName(who))?.root.position) || null;
@@ -564,7 +569,11 @@ export function createRunner(ctx) {
       // where he is narrower, until her arm can get there; not straight out past his side)
       { const ua = B['upperarm01_' + side], la = B['lowerarm01_' + side], wr = B['wrist_' + side];
         if (ua && la && wr && !small) { ua.getWorldPosition(_h3); const L = _h3.distanceTo(la.getWorldPosition(_hq)) + _hq.distanceTo(wr.getWorldPosition(_hq2));
-          for (let i = 0; i < 14 && _h3.distanceTo(tg) > 0.96 * L; i++) { tg.y -= 0.025; tg.addScaledVector(_hf, -0.008); tg.addScaledVector(_hr, -sg * 0.004); } } }
+          const y0 = tg.y; for (let i = 0; i < 10 && _h3.distanceTo(tg) > 0.96 * L; i++) { tg.y -= 0.025; tg.addScaledVector(_hf, -0.008); tg.addScaledVector(_hr, -sg * 0.004); }
+          // (still out of reach (an arm on the far side of someone already held from the other side): the hand on their
+          // back on this arm's own side, by the shoulder blade, not in the air beside them)
+          if (_h3.distanceTo(tg) > 0.96 * L) { const sd = Math.sign(_hq.copy(_h3).sub(_h1).dot(_hr)) || sg; tg.copy(_h1).addScaledVector(_hf, back * 0.75).addScaledVector(_hr, sd * hw * 0.4); tg.y = y0 - 0.06;
+            for (let i = 0; i < 10 && _h3.distanceTo(tg) > 0.96 * L; i++) tg.addScaledVector(_hf, -0.025); } } }
       const pole = new THREE.Vector3().copy(_h1).addScaledVector(_hf, small ? -0.15 : 0.05).addScaledVector(_hr, sg * (hw + 0.55)); pole.y = tg.y - (small ? 0.05 : 0.25);
       try { armTo(B, side, tg.clone(), pole, k, MH_ARM); } catch {}
       // (the fingers soft-curled on the back they hold, not flat out)
