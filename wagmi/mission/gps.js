@@ -338,10 +338,10 @@ export function createGPS(W) {
         offered = true;
         const inCar = cm.activeMode === 'car', M = W.missions?.active?.(), opts = [];
         if (why === 'lost' || !inCar) opts.push({ key: '1', label: ['Show me the way (the ', { 'yellow line': 'yellow' }, ')'], run: () => S.showWay() });
-        if (inCar && W.recoverCar) opts.push({ key: String(opts.length + 1), label: 'Put my car back on the road', run: () => { W.recoverCar?.(); S.reset(); } });
+        if (inCar && W.recoverCar) opts.push({ key: String(opts.length + 1), label: W.car?.kind === 'horse' ? `Put ${W.car.label || 'my horse'} back on the road` : 'Put my car back on the road', run: () => { W.recoverCar?.(); S.reset(); } });
         if (M && W.ui?.pause?.restartCurrent) opts.push({ key: String(opts.length + 1), label: 'Restart the checkpoint', run: () => W.ui.pause.restartCurrent() });
         if (!opts.length) return;
-        ui.offer({ title: why === 'stuck' ? 'Stuck?' : 'Need a hand?', note: why === 'stuck' ? 'The car is going nowhere.' : null, options: opts });
+        ui.offer({ title: why === 'stuck' ? 'Stuck?' : 'Need a hand?', note: why === 'stuck' ? (W.car?.kind === 'horse' ? `${W.car.label || 'The horse'} is going nowhere.` : 'The car is going nowhere.') : null, options: opts });
         if (!noted && gps.stallNote && why === 'lost') { noted = true; const [from, text] = gps.stallNote; W.sfx?.play?.('buzz', { gain: 0.14, times: 1 }); W.audio?.play?.('phoneBuzz'); ui.dm(from, text, 8); }
       },
       // the way, again: his own waypoint away, the route planned afresh, the objective's line up, the place's blip pulsing

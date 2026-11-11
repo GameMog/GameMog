@@ -60,6 +60,8 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       cm.setTouchInput('left', s > 0 ? s : 0); cm.setTouchInput('right', s < 0 ? -s : 0);
       const v = car.speed || 0, slow = Math.abs(err) > 0.9 ? 6 : vt;
       cm.setTouchInput('forward', v < slow ? 0.85 : 0); cm.setTouchInput('backward', v > slow + 1.5 ? (v > slow + 5 ? 1 : 0.6) : 0);
+      // (on a horse W alone is a trot: a gallop (Shift) wherever the pace wanted is past it, as a rider would)
+      if (car.kind === 'horse') cm.setTouchInput('boost', slow > (car.topSpeed || 4.5) + 1 && Math.abs(err) < 0.6 ? 1 : 0);
     } else {
       // (on foot the controller walks the way the camera faces, which lags a turn: he is walked along the route
       // himself, at a jog, with the city's collision and his speed set so his gait plays)
@@ -83,13 +85,15 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
   let held = null;
   const hold = (code) => { if (held === code) return; if (held) key(held, 'keyup'); held = code; if (code) key(code); };
   let cineT = 0, chaseJumpT = 0, seenT = 0, slowT = 0, tailS = null, tailJumpT = 0, tailJumped = false, lastKey = 0, tPhase = null, tPhaseT = 0;
-  let frameDt = 0.016, lastF = performance.now(), footSp = 3.6, sneakWait = 0, raceKey = null;
+  let frameDt = 0.016, lastF = performance.now(), footSp = 3.6, sneakWait = 0, raceKey = null, horseMv = null;
   function tick() {
     if (!on) return;
     requestAnimationFrame(tick);
     { const n = performance.now(); frameDt = (n - lastF) / 1000; lastF = n; }
     const M = runner.M;
     if (!M || W.paused || !M.def) { release(); return; }
+    // (on a horse a hard knock throws him (wagmi/game.js): the test drive keeps him in the saddle, as it keeps him on his feet)
+    if (car.kind === 'horse') car.rammed = 0;
     const d = M.def.steps[M.i], key = `${M.def.id}:${M.i}`, t = performance.now() / 1000;
     if (mKey !== M.def.id) { mKey = M.def.id; mT = t; }
     if (t - mT > missionSecs && !M.tok.dead) { note(`timeout ${key} ${d?.type}`); onTimeout?.(M.def, d, M.i); mT = t; }
@@ -109,8 +113,10 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       if (!live.length) { release(); return; }
       let n = live[0], nd = Infinity; for (const e of live) { const q = Math.hypot(e.pos.x - P.position.x, e.pos.z - P.position.z); if (q < nd) { nd = q; n = e; } }
       if (inCar()) { W.ride?.getOut?.(true); return; }
-      if (nd > 2.2) steerTo(n.pos.x, n.pos.z, 4); else { release(); P.heading = Math.atan2(n.pos.x - P.position.x, n.pos.z - P.position.z); }
-      if (t - lastStrike > 0.35 && nd < 3) { lastStrike = t; combat.debug?.press?.(Math.random() < 0.25 ? 'heavy' : 'strike'); }
+      // (a creature's body is bigger than a man's: his reach from its middle grows with it)
+      const rr = n.creature ? (n.T?.radius || 0.5) : 0;
+      if (nd > 2.2 + rr) steerTo(n.pos.x, n.pos.z, 4); else { release(); P.heading = Math.atan2(n.pos.x - P.position.x, n.pos.z - P.position.z); }
+      if (t - lastStrike > 0.35 && nd < 3 + rr) { lastStrike = t; combat.debug?.press?.(Math.random() < 0.25 ? 'heavy' : 'strike'); }
       if (!fightT) fightT = t;
       if (t - fightT > 8 && t - lastFin > 1.5) { lastFin = t; const dir = new THREE.Vector3(n.pos.x - P.position.x, 0, n.pos.z - P.position.z).normalize(); try { n.hit({ kind: 'finisher', dmg: 9999, dir, w: 0.6, fly: 6, up: 4 }); note('assist ko'); } catch {} }
       return;
@@ -131,19 +137,28 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     if (type === 'convoy' && M.convoy) { convoy(M.convoy, t); return; }
     // (a chase beside a step with nowhere to go, a call taken with the crew on him: kept moving and away from them)
     if (M.chase && ['call', 'wait', 'say', 'voicemail', 'voicenote', 'dm', 'set', 'timer', 'trigger'].includes(type) && escape(t)) return;
-    if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow', 'passenger', 'roadblock', 'stealth'].includes(type)) { release(); return; }
+    if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow', 'passenger', 'roadblock', 'stealth', 'collect', 'mount'].includes(type)) { release(); return; }
     // a chase to lose: escape() (the pursuit's own 'lost' ends it)
     if (type === 'pursuit' && d.goal !== 'reach' && escape(t)) return;
     // in or out of the car as the step wants
     const wantsFoot = type === 'search' || (type === 'walk' && !d.enterCar) || (type === 'stealth' && d.mode !== 'car');
     if (wantsFoot && inCar()) { release(); if (Math.abs(car.speed) > 0.5) cm.setTouchInput('backward', 0.8); else if (!W.ride?.phase) { W.ride?.getOut?.(true); note('out'); } return; }
-    if (!wantsFoot && !inCar() && type !== 'place') {
+    // (a collect is done in the saddle or on foot, whichever he is: neither is forced)
+    if (!wantsFoot && !inCar() && type !== 'place' && type !== 'collect') {
       release();
       if (!W.ride?.phase) {
         if (Math.hypot(car.position.x - P.position.x, car.position.z - P.position.z) > 4) { P.position.set(car.position.x + Math.cos(car.heading) * 1.8, P.position.y, car.position.z - Math.sin(car.heading) * 1.8); }
         W.ride?.getIn?.(true); note('in');
       }
       return;
+    }
+    // (a collect: the last 20 m straight at the supply, which may stand off the lane the route ends on)
+    if (type === 'collect' && M.dest) {
+      const e = cm.getActiveEntity(), sd = Math.hypot(M.dest.x - e.position.x, M.dest.z - e.position.z);
+      if (sd < 20) { if (!inCar() || Math.abs(car.speed || 0) < 6 || sd > 8) steerTo(M.dest.x, M.dest.z, inCar() ? 4 : 3.6); else { release(); cm.setTouchInput('backward', 0.6); }
+        if (sd < 6 && t - lastProg.t > 6) { lastProg = { t, d: sd, x: 0, z: 0 }; const k = Math.max(0, (sd - 1) / sd); e.position.x += (M.dest.x - e.position.x) * k; e.position.z += (M.dest.z - e.position.z) * k; note('collect: on to it'); }
+        else if (sd < lastProg.d - 0.5) lastProg = { t, d: sd, x: 0, z: 0 };
+        return; }
     }
     const r = gps?.route;
     if (!r || r.length < 2) { release(); return; }
@@ -219,6 +234,12 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       else if (inCar()) { const q = along(r, x, z, 40), q2 = along(r, x, z, 46); putCar(q.x, q.z, Math.atan2(q2.x - q.x, q2.z - q.z)); note('unstuck car: 40 m on'); }
       else { const q = along(r, x, z, 6); P.position.set(q.x, cm.getGroundHeight(q.x, q.z, 'person'), q.z); note('unstuck walk'); }
       return;
+    }
+    // (a horse against a car left in the street, the city's abandoned traffic: the route's length can wobble as it is
+    // re-planned, so it is the ground he covers that counts; 6 s without 2.5 m of it, 40 m on along the route)
+    if (car.kind === 'horse' && inCar()) {
+      if (!horseMv || Math.hypot(x - horseMv.x, z - horseMv.z) > 2.5) horseMv = { t, x, z };
+      else if (t - horseMv.t > 6 && L > 12) { horseMv = { t, x, z }; const q = along(r, x, z, 40), q2 = along(r, x, z, 46); putCar(q.x, q.z, Math.atan2(q2.x - q.x, q2.z - q.z)); note('unstuck horse: 40 m on'); return; }
     }
     // circling the mark (a heavy car overshoots, the route goes round the block, again): on the mark after 40 s close by
     if (inCar() && t - legT > 40 && (L < 150 || straight < 60) && type !== 'tail' && type !== 'pursuit') { legT = t; const q = fromEnd(r, 0.5); putCar(q.x, q.z, q.h); note('circling: on the mark'); return; }

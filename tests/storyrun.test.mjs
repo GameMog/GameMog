@@ -68,7 +68,7 @@ test('the test worlds pass the checks; bad worlds are refused', () => {
   assert.ok(bad((w) => { w.city = 'sf'; }).some((e) => /city sf/.test(e)));
   assert.ok(bad((w) => { w.storykit = 2; }).length);
   assert.ok(bad((w) => { w.car = 'tank'; }).some((e) => /car/.test(e)));
-  assert.ok(STEP_KINDS.has('scene') && STEP_KINDS.has('tow') && STEP_KINDS.size === 38);
+  assert.ok(STEP_KINDS.has('scene') && STEP_KINDS.has('tow') && STEP_KINDS.has('collect') && STEP_KINDS.size === 42);
   // (the tow world: a wrecker sheet as the car, a ride of the world's on the hook)
   assert.deepEqual(check(JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/tow.json'), 'utf8'))), []);
 });

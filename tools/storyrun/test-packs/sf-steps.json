@@ -1,0 +1,27 @@
+{
+ "storykit": 1, "id": "test-sf-steps", "title": "SF Steps", "kicker": "SAN FRANCISCO",
+ "tagline": "The runner's SF 2040 steps, close together: collect, dismount and mount, a herd, creatures and a lair boss",
+ "city": "sf",
+ "car": { "model": "mogcity/horse", "label": "Ranger" },
+ "dressing": { "apocalypse": "dusk", "time": "dusk" },
+ "cast": { "Cal": { "color": "#FFFFFF", "role": "the rider", "model": "mogcity/dan" } },
+ "hero": "Cal",
+ "places": {
+  "camp": { "at": [652, -683, -45], "name": "the Embarcadero camp" },
+  "steuart": { "at": [560, -555, -45], "name": "Market & Spear" },
+  "arena": { "at": [470, -468, -45], "name": "Market & Main" }
+ },
+ "acts": [ { "id": "a1", "name": "TEST", "order": ["ST-1"] } ],
+ "missions": [ { "id": "ST-1", "title": "Steps", "vehicle": "horse", "start": "@camp", "steps": [
+  { "type": "collect", "id": "food", "kind": "food", "label": "Food", "items": [[600, -610], [580, -572], [541, -538]], "need": 2, "objective": "Collect **food**." },
+  { "type": "dismount", "id": "off" },
+  { "type": "collect", "id": "meds", "kind": "medicine", "label": "Medicine", "items": [[541, -538]], "objective": "Pick up the **medicine** on foot." },
+  { "type": "mount", "id": "on" },
+  { "type": "herd", "id": "horses", "creature": "creature-horse", "at": "@steuart", "count": 3, "radius": 8 },
+  { "type": "fight", "id": "lair", "arena": "@arena", "foes": [ { "id": "creature-knight", "count": 2 } ],
+    "boss": { "id": "creature-scorpion", "name": "Test Mother", "height": 2.0, "phases": [0.5], "hold": { "wake": 14, "leash": 30 } },
+    "objective": "Beat **Test Mother** and her knights." },
+  { "type": "herd", "remove": "horses" },
+  { "type": "say", "who": "Cal", "text": "Done.", "secs": 1.5 }
+ ] } ]
+}

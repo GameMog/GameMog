@@ -16,10 +16,11 @@ import { showTitle, plainTitle, isOwn } from './title.js';
 
 export const STEP_KINDS = new Set(['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
-  'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car']);
+  'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
+  'collect', 'mount', 'dismount', 'herd']);
 const STOCK = new Set(['roadster', 'trailhand', 'vandal']);
 // the hero cars Mog City builds in code besides Dan's roadster, by the name a world's `car.model` gives (wagmi/storyrun/gt.js)
-export const MODEL_CARS = new Set(['mogcity/gt']);
+export const MODEL_CARS = new Set(['mogcity/gt', 'mogcity/horse']);
 const MAX_BYTES = 1_000_000, MAX_TEXT = 600;
 const q = new URLSearchParams(location.search);
 const COLOUR = /^#[0-9A-Fa-f]{6}$/;
@@ -51,6 +52,54 @@ export function asksDressing(d) {
 // 'dusk' | 'day' | 'night' (its look; true is dusk). New York's worlds cannot ask for it
 export const APOCALYPSE = [true, 'dusk', 'day', 'night'];
 export function asksApocalypse(d, city) { return city === 'sf' && !!d && typeof d === 'object' && APOCALYPSE.includes(d.apocalypse); }
+// (SF 2040) the library's creatures a fight may name (wagmi/creatures/profiles.js: the ones that fight), only in a city
+// that has them (San Francisco); how many at once (W.creatures.CAP); a collect step's looks and how many it sets out
+export const CREATURES = new Set(['creature-knight', 'creature-ogre', 'creature-centaur', 'creature-ape', 'creature-mech', 'creature-scorpion', 'creature-trex']);
+const CREATURE_CAP = 8, LOOKS = new Set(['crate', 'case', 'bag', 'can']), MAX_SUPPLIES = 24;
+const isMark = (v) => Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) < 20000);
+const isPlaceRef = (v) => (typeof v === 'string' && /^@[\w-]{1,40}$/.test(v)) || (v && typeof v === 'object' && !Array.isArray(v) && typeof v['@'] === 'string');
+// a creature fight's and a collect's shapes (runner.js creatureFight, STEPS.collect): [] when sound, else what is wrong
+export function creatureStep(s, city) {
+  const errs = [];
+  if (s.type === 'fight' && (s.foes != null || s.boss != null)) {
+    if (city !== 'sf') errs.push('creatures fight in San Francisco only');
+    if (!isPlaceRef(s.arena)) errs.push('arena');
+    let n = 0;
+    const foe = (o, at) => {
+      const x = typeof o === 'string' ? { id: o } : o;
+      if (!x || typeof x !== 'object' || !CREATURES.has(x.id)) { errs.push(`${at}: no creature ${x && x.id}`); return; }
+      if (x.count != null && !(Number.isInteger(x.count) && x.count >= 1 && x.count <= CREATURE_CAP)) errs.push(`${at}: count`);
+      if (x.height != null && !(typeof x.height === 'number' && x.height >= 0.5 && x.height <= 12)) errs.push(`${at}: height`);
+      if (x.name != null && (typeof x.name !== 'string' || x.name.length > 32)) errs.push(`${at}: name`);
+      n += x.count || 1;
+    };
+    if (s.foes != null) { if (!Array.isArray(s.foes) || !s.foes.length) errs.push('foes'); else s.foes.forEach((o, i) => foe(o, `foes[${i}]`)); }
+    if (s.boss != null) {
+      foe(s.boss, 'boss');
+      const B = typeof s.boss === 'object' ? s.boss : {};
+      if (B.phases != null && !(Array.isArray(B.phases) && B.phases.length <= 4 && B.phases.every((k) => typeof k === 'number' && k > 0 && k < 1))) errs.push('boss: phases');
+      if (B.hold != null && !(typeof B.hold === 'object' && ['wake', 'leash'].every((k) => B.hold[k] == null || (typeof B.hold[k] === 'number' && B.hold[k] > 0 && B.hold[k] <= 200)))) errs.push('boss: hold');
+      if (B.at != null && !isPlaceRef(B.at)) errs.push('boss: at');
+    }
+    if (n > CREATURE_CAP) errs.push(`${n} creatures: ${CREATURE_CAP} fight at once at most`);
+  }
+  if (s.type === 'collect') {
+    if (!Array.isArray(s.items) || !s.items.length || s.items.length > MAX_SUPPLIES) errs.push('items');
+    else s.items.forEach((r, i) => { if (!(isMark(r) || isPlaceRef(r) || (r && typeof r === 'object' && isMark(r.at)))) errs.push(`items[${i}]`); });
+    if (s.need != null && !(Number.isInteger(s.need) && s.need >= 1 && s.need <= (s.items?.length || 0))) errs.push('need');
+    if (s.kind != null && (typeof s.kind !== 'string' || !/^[a-z-]{1,20}$/.test(s.kind))) errs.push('kind');
+    if (s.look != null && !LOOKS.has(s.look)) errs.push('look');
+    if (s.color != null && !COLOUR.test(s.color)) errs.push('colour');
+  }
+  if (s.type === 'mount' && s.at != null && !isPlaceRef(s.at)) errs.push('at');
+  if (s.type === 'herd' && !s.remove) {
+    if (city !== 'sf') errs.push('wildlife in San Francisco only');
+    if (s.creature != null && !['creature-horse', ...CREATURES].includes(s.creature)) errs.push(`no creature ${s.creature}`);
+    if (!(isMark(s.at) || isPlaceRef(s.at))) errs.push('at');
+    if (s.count != null && !(Number.isInteger(s.count) && s.count >= 1 && s.count <= 8)) errs.push('count');
+  }
+  return errs;
+}
 // Mog City's own mission phases a step may name by `ref` (runner.js PART_IDS: m2.js / m3.js playPart)
 export const PART_REFS = new Set(['m2.start', 'm2.go', 'm2.tail', 'm2.yard', 'm2.fight', 'm2.chase', 'm2.crash', 'm2.phone', 'm2.chat',
   'm3.garage', 'm3.square', 'm3.rally', 'm3.rigs', 'm3.dump', 'm3.escape', 'm3.ret', 'm3.home']);
@@ -96,6 +145,7 @@ export function check(w) {
       if (s.type === 'ally' && s.to !== 'player' && !(typeof s.to === 'string' || (s.to && typeof s.to === 'object'))) bad(`${m.id} ${at}[${i}]: ally to`);
       if (s.type === 'roadblock' && !s.at) bad(`${m.id} ${at}[${i}]: roadblock at`);
       if (s.type === 'convoy' && s.band != null && !(Array.isArray(s.band) && s.band.length === 2 && s.band[0] < s.band[1])) bad(`${m.id} ${at}[${i}]: convoy band`);
+      for (const e of creatureStep(s, w.city || 'ny')) bad(`${m.id} ${at}[${i}]: ${e}`);
       shapes(s.during, `${at}[${i}].during`);
     } };
     shapes(m.steps, 'steps');

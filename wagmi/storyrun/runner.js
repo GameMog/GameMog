@@ -103,8 +103,11 @@ export function createRunner(ctx) {
   const kill = (t, err = null) => { if (t && !t.dead) { t.dead = true; t.err = err; } };
 
   /* -------------------------------------------------------------- the words -- */
+  // (the ride's own words where it has them, a horse's 'Mount', 'Ride', 'Halt': wagmi/horse fitHorse; a car's Mog City's)
+  const rideWord = (k, dflt) => (car.words && car.words[k]) || dflt;
+  const COLOUR6 = /^#[0-9A-Fa-f]{6}$/;
   const tokens = (s) => String(s ?? '')
-    .replace(/\{ride\.name\}|\{ride\}/g, car.label || 'your car').replace(/\{ride\.board\}/g, 'Get in').replace(/\{ride\.go\}/g, 'Drive').replace(/\{ride\.park\}/g, 'Stop')
+    .replace(/\{ride\.name\}|\{ride\}/g, car.label || 'your car').replace(/\{ride\.board\}/g, rideWord('board', 'Get in')).replace(/\{ride\.go\}/g, rideWord('go', 'Drive')).replace(/\{ride\.park\}/g, rideWord('park', 'Stop'))
     .replace(/\{name\}/g, heroName);
   // '**bold**' -> Mog City's one coloured noun (yellow: a place); '**bold**{red}' names its colour (yellow, red, blue, green)
   const parts = (s, color = 'yellow') => {
@@ -252,7 +255,7 @@ export function createRunner(ctx) {
   // drive: the corona, the GPS ('get there' the Mog City way: gps.drive), there inside the radius and slowed down
   async function goTo(p, d, t, { name = p.name, objective = null, onFoot = 250, needsCar = false } = {}) {
     const radius = d.radius || 8, stopV = d.stopSpeed ?? 4;
-    marker.at(p.x, 0, p.z); M.dest = p;
+    marker.at(p.x, groundY(p.x, p.z), p.z); M.dest = p;
     const dest = { x: p.x, z: p.z, name };
     const nav = gps.drive({ dest, objective: objective ? parts(objective) : ['Go to ', { [name]: 'yellow' }, '.'], onFoot, needsCar });
     M.nav = nav;
@@ -295,7 +298,7 @@ export function createRunner(ctx) {
       if (near && dist(q, p.x, p.z) < (near.within || 300)) { const n = near; near = null; SCENES[n.dress](W).catch((e) => console.warn('[storyrun] dress', n.dress, e)); }
       return false;
     }, t).catch(() => {});
-    try { await goTo(p, d, t, { objective: d.objective || `Drive to **${p.name}**.` }); } finally { blipOn = false; if (bl) gps.unblip('tag'); }
+    try { await goTo(p, d, t, { objective: d.objective || `${rideWord('go', 'Drive')} to **${p.name}**.` }); } finally { blipOn = false; if (bl) gps.unblip('tag'); }
     M.timer.add(d.bonus || 0);
     if (d.stopTimer) M.timer.stop(d.stopTimer === true ? null : d.stopTimer);
     if (d.flag) M.state.flags[flagName(d.flag)] = true;
@@ -313,14 +316,16 @@ export function createRunner(ctx) {
   STEPS.walk = async (d, t) => {
     const p = d.enterCar && !d.to ? null : placeOf(d.to);
     if (d.leaveCar && inCar()) {
-      gps.objective(['Get out of your ', { car: 'blue' }, '.'], null);
-      ui.help('Press [F] to get out.', 8);
+      const horse = car.kind === 'horse';
+      gps.objective(horse ? ['Get down from ', { [car.label || 'your horse']: 'blue' }, '.'] : ['Get out of your ', { car: 'blue' }, '.'], null);
+      ui.help(horse ? 'Press [F] to dismount.' : 'Press [F] to get out.', 8);
       await wait(() => !inCar() && !W.ride?.phase, t);
     }
     if (d.enterCar) {
-      gps.objective(d.objective ? parts(d.objective, 'blue') : ['Get in your ', { [car.label || 'car']: 'blue' }, '.'], { follow: () => car.position, name: car.label });
+      const horse = car.kind === 'horse';
+      gps.objective(d.objective ? parts(d.objective, 'blue') : horse ? [`${rideWord('board', 'Mount')} `, { [car.label || 'your horse']: 'blue' }, '.'] : ['Get in your ', { [car.label || 'car']: 'blue' }, '.'], { follow: () => car.position, name: car.label });
       gps.blip('car', { x: car.position.x, z: car.position.z, kind: 'car', edge: true, name: car.label });
-      ui.help('Press [F] to get in a vehicle.', 8);
+      ui.help(horse ? 'Press [F] to mount.' : 'Press [F] to get in a vehicle.', 8);
       try { await wait(inCar, t); } finally { gps.unblip('car'); ui.help(null); }
       return;
     }
@@ -852,6 +857,8 @@ export function createRunner(ctx) {
   STEPS.fight = async (d, t) => {
     const combat = W.combat;
     if (!combat?.spawnCrew) { console.warn('[storyrun] no fight on this page'); return; }
+    // (the library's creatures for foes, or a boss: creatureFight; New York's fights never name them)
+    if (d.foes || d.boss) return creatureFight(d, t);
     const p = placeOf(d.arena);
     if (inCar()) { putAt(W, { car: [car.position.x, car.position.z, car.heading] }); outBesideCar(W); }
     if (dist(P.position, p.x, p.z) > 30) { putPlayer(p, 'walk'); }
@@ -912,6 +919,192 @@ export function createRunner(ctx) {
     // (a puppet goes on with its man's fall for the beat after)
     if (puppets.length) { const t1 = now(); await wait(() => { for (const pp of puppets) pp.sync(); return now() - t1 > 1000; }, t); }
     else await delay(1.0, t);
+  };
+
+  // a fight with the library's creatures (W.creatures, where the city has them: San Francisco): `foes` a crew round the
+  // arena ([id | { id, count, height, name, heavy, stats }], ids creature-knight / -ogre / -centaur / -ape / -mech /
+  // -scorpion / -trex), and a `boss` ({ id, name, height, phases, stats, at, hold: { wake, leash } }) at the arena's
+  // middle (or its own `at` place) under the boss bar, in its lair when it has `hold` (it waits at home until he comes
+  // within `wake` m or hits it, then fights within `leash` m of home). Done when every one of them is down; out cold,
+  // or 150 m off, fails. On a horse he may stay in the saddle and fight from it (wagmi/horse/saddle.js); on foot as ever.
+  //   { type: 'fight', arena: '@place', foes: [...], boss: {...}, objective, counter, hp, timer, why, barks }
+  async function creatureFight(d, t) {
+    const combat = W.combat, C = W.creatures;
+    if (!C?.fight) { console.warn('[storyrun] no creatures on this page: the fight passes'); return; }
+    const p = placeOf(d.arena), cx = p.cx ?? p.x, cz = p.cz ?? p.z;
+    // (too far to have ridden there: put at the arena's edge, as a fight of men puts him in it)
+    if (dist(me(), cx, cz) > 80) putPlayer(p, inCar() ? 'car' : 'walk');
+    const ex = me().x, ez = me().z;
+    app.trafficSystem.hold?.([{ minX: Math.min(ex, cx) - 45, maxX: Math.max(ex, cx) + 45, minZ: Math.min(ez, cz) - 45, maxZ: Math.max(ez, cz) + 45 }]);
+    combat.clear?.();
+    combat.player.maxHp = d.hp || combat.player.maxHp; combat.player.hp = combat.player.maxHp;
+    const autoGetUp = combat.player.autoGetUp; combat.player.autoGetUp = true;
+    let down = false;
+    const offDown = combat.player.onDown(() => { down = true; });
+    const foes = (Array.isArray(d.foes) ? d.foes : []).map((x) => (typeof x === 'string' ? { id: x } : x));
+    const B = d.boss ? (typeof d.boss === 'string' ? { id: d.boss } : d.boss) : null;
+    const handles = [];
+    if (foes.length) handles.push(C.fight({ foes, at: { x: cx, z: cz } }));
+    let bossName = null;
+    if (B) {
+      const bp = B.at ? placeOf(B.at) : null, at = bp ? { x: bp.cx ?? bp.x, z: bp.cz ?? bp.z } : { x: cx, z: cz };
+      bossName = B.name || null;
+      handles.push(C.spawn(B.id, { at, height: B.height, name: B.name, heavy: B.heavy, stats: B.stats, yaw: B.yaw != null ? (B.yaw * PI) / 180 : undefined,
+        boss: { name: B.name, phases: B.phases }, hold: B.hold ? { wake: B.hold.wake ?? 20, leash: B.hold.leash ?? 40 } : null, aggro: !B.hold }));
+    }
+    M.creatures = handles;
+    await Promise.race([Promise.all(handles.map((h) => h.ready)), wait(() => false, t)]);
+    const fighters = handles.flatMap((h) => h.fighters), total = fighters.length;
+    const crew = { alive: () => fighters.filter((f) => !f.out).length, creatures: true };
+    M.crew = crew;
+    const label = d.counter || 'DOWN';
+    if (total > 1) ui.counter(label, `0/${total}`);
+    gps.objective(parts(d.objective || (bossName ? `Beat **${bossName}**.` : 'Beat them all.'), 'red'), null);
+    let lastK = 0, talk = false, lastHp = combat.player.hp, woke = false;
+    const fightSay = (lines) => { talk = true; (async () => { for (const l of lines.map(tuple)) await say(castName(l.who), l.text, M.tok); })().catch(() => {}).finally(() => { talk = false; }); };
+    // (the lair's boss woken: its name called, and the step's line for it)
+    const boss = B ? handles[handles.length - 1] : null;
+    boss?.on('wake', () => { if (woke) return; woke = true; juice.alert(bossName || 'Boss', { sub: d.alert ? tokens(d.alert) : '', tone: 'red', sting: 'up', jolt: 0.4, secs: 2.4 }); if (d.wake && !talk) fightSay([d.wake]); });
+    const t0 = now();
+    try {
+      await wait(() => {
+        const alive = crew.alive(), k = total - alive;
+        const hp = combat.player.hp; if (hp < lastHp - 0.5) M.stats.hits++; lastHp = hp;
+        if (k !== lastK) { lastK = k; const b = d.barks?.[k]; if (b && !talk && alive > 0) fightSay([b]); }
+        if (total > 1) ui.counter(label, `${k}/${total}`);
+        for (const f of fighters) if (!f.out && !f.disposed) gps.blip('e:' + f.id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: !!f.boss, name: f.boss ? (f.name || '') : '' }); else gps.unblip('e:' + f.id);
+        if (down) throw new Fail(tokens(d.why || `${heroName} got knocked out.`), 'ko');
+        if (dist(me(), cx, cz) > 150) throw new Fail('You left the fight.', 'left');
+        const secs = (now() - t0) / 1000;
+        if (d.timer) { hud.timer(d.timer - secs, 'TIME'); if (secs > d.timer) throw new Fail(tokens(d.why || 'You ran out of time.'), 'time'); }
+        return alive === 0;
+      }, t);
+      M.stats.ko += total;
+    } finally {
+      offDown?.(); combat.player.autoGetUp = autoGetUp;
+      for (const id of [...gps.blips.keys()]) if (id.startsWith('e:')) gps.unblip(id);
+      ui.counter(null); hud.timer(null); M.crew = null;
+    }
+    // (a beat for the last one's fall, then the street let go)
+    await delay(1.6, t);
+    app.trafficSystem.hold?.([]);
+  }
+  const dropCreatures = () => { for (const h of M?.creatures || []) try { h.remove(); } catch {} if (M) M.creatures = null; };
+
+  // collect: supplies set out at spots (`items`: '@place' | { at: [x, z] } | [x, z]), each a glowing pickup with a soft
+  // beam over it (crate, case, bag or can: `look`), on the radar; ridden or walked over it is taken (within `radius` m,
+  // more in the saddle). The HUD's counter keeps the tally ('FOOD 3/5'); done when `need` are taken (all of them when it
+  // names none). The route goes to the nearest one left.
+  //   { type: 'collect', kind: 'food', label: 'Food', items: [...], need, look, color, radius, objective }
+  const LOOKS = { crate: '#A8743C', case: '#E8E4DA', bag: '#8A7A55', can: '#B9C2C8' };
+  function supplyMesh(look, color) {
+    const g = new THREE.Group(), glow = new THREE.Color(color);
+    const mat = (c, e = 0.18) => { const m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.75, metalness: look === 'can' ? 0.6 : 0 }); m.emissive = glow.clone(); m.emissiveIntensity = e; return m; };
+    if (look === 'case') {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.42, 0.22), mat(LOOKS.case, 0.12)); b.position.y = 0.21; g.add(b);
+      const crossM = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 }); crossM.emissive = glow.clone(); crossM.emissiveIntensity = 0.9;
+      for (const [w, h] of [[0.26, 0.08], [0.08, 0.26]]) { const c = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.232), crossM); c.position.y = 0.21; g.add(c); }
+      const hdl = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.05), mat('#333333', 0)); hdl.position.y = 0.45; g.add(hdl);
+    } else if (look === 'bag') {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), mat(LOOKS.bag)); b.scale.set(1, 1.15, 0.8); b.position.y = 0.32; g.add(b);
+      const n = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, 0.14, 8), mat(LOOKS.bag)); n.position.y = 0.66; g.add(n);
+    } else if (look === 'can') {
+      for (const [x, z] of [[-0.12, 0], [0.12, 0.02], [0, 0.18]]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.26, 12), mat(LOOKS.can, 0.25)); c.position.set(x, 0.13, z); g.add(c); }
+    } else {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.46, 0.5), mat(LOOKS.crate)); b.position.y = 0.23; g.add(b);
+      const lid = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.05, 0.54), mat('#6E4A26', 0.1)); lid.position.y = 0.47; g.add(lid);
+      const band = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.06, 0.06), mat(color, 0.9)); band.position.set(0, 0.32, 0.26); g.add(band);
+    }
+    g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    return g;
+  }
+  const groundY = (x, z) => (window.NYC?.CITY === 'sf' ? cm.getGroundHeight(x, z, 'person') : 0);
+  STEPS.collect = async (d, t) => {
+    const kind = d.kind || 'supplies', label = d.label || kind.charAt(0).toUpperCase() + kind.slice(1), color = COLOUR6.test(d.color || '') ? d.color : '#FFC93C';
+    const items = (d.items || []).map((r, i) => {
+      const q = Array.isArray(r) ? { x: r[0], z: r[1] } : r && Array.isArray(r.at) ? { x: r.at[0], z: r.at[1] } : (() => { const pp = placeOf(r); return { x: pp.cx ?? pp.x, z: pp.cz ?? pp.z }; })();
+      return { i, x: q.x, z: q.z, taken: false, name: (r && r.name) || label };
+    });
+    const need = Math.min(items.length, d.need || items.length);
+    const look = d.look || ({ food: 'crate', medicine: 'case', water: 'can' }[kind] || 'crate');
+    // (each one drawn: the pickup, a soft beam over it seen down the street, a slow bob and turn)
+    for (const it of items) {
+      const y = groundY(it.x, it.z);
+      it.obj = supplyMesh(look, color); it.obj.position.set(it.x, y, it.z); it.obj.rotation.y = it.i * 1.7; app.scene.add(it.obj);
+      it.beam = createMarker(THREE, app.scene, { color, radius: 0.55, height: 9, alpha: 0.32 }); it.beam.at(it.x, y, it.z); it.y = y;
+      gps.blip('sup:' + it.i, { x: it.x, z: it.z, kind: 'object', name: it.name });
+    }
+    M.collect = { items, need, kind };
+    let n = 0, cur = null, nav = null, last = now();
+    const COUNTER = label.toUpperCase();
+    ui.counter(COUNTER, `0/${need}`);
+    // (the objective with the tally after it: 'Scavenge food along Market St · 3/5', its full stop dropped for it)
+    const objective = parts(d.objective || `Collect **${label.toLowerCase()}**.`, 'green');
+    if (typeof objective[objective.length - 1] === 'string') objective[objective.length - 1] = objective[objective.length - 1].replace(/\.\s*$/, '');
+    const next = () => { let b = null, bd = Infinity; const q = me(); for (const it of items) if (!it.taken) { const dd = dist(q, it.x, it.z); if (dd < bd) { bd = dd; b = it; } } return b; };
+    const stopNav = () => { if (nav) { nav.stop(); nav = null; } };
+    try {
+      await wait(() => {
+        const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
+        for (const it of items) if (!it.taken) { it.obj.rotation.y += dt * 0.9; it.obj.position.y = it.y + 0.06 + Math.sin(tt / 420 + it.i) * 0.05; }
+        const q = me(), r = (d.radius || 2.2) + (inCar() ? 1.6 : 0);
+        for (const it of items) if (!it.taken && dist(q, it.x, it.z) < r) {
+          it.taken = true; n++; app.scene.remove(it.obj); it.beam.hide(); app.scene.remove(it.beam.group); gps.unblip('sup:' + it.i);
+          sfx.play('ding', { gain: 0.28 }); ui.counter(COUNTER, `${n}/${need}`);
+          juice.alert(`${label} ${n}/${need}`, { tone: n >= need ? 'green' : 'yellow', secs: 1.3 });
+          M.log.push(['collect', kind, n]);
+          host.tell('progress', { mission: M.def?.id, step: d.id || null, kind: 'collect', i: M.i, n: M.def?.steps.length, got: n, need });
+          if (d.barks?.[n]) { const b = tuple(d.barks[n]); say(castName(b.who), b.text, M.tok).catch(() => {}); }
+        }
+        if (n >= need) return true;
+        // (the route to the nearest one left, re-aimed when another is nearer by a margin or that one is taken)
+        const b = next();
+        if (b && (b !== cur || !nav) && (!cur || cur.taken || dist(q, b.x, b.z) < dist(q, cur.x, cur.z) - 15)) {
+          stopNav(); cur = b; M.dest = b;
+          nav = gps.drive({ dest: { x: b.x, z: b.z, name: b.name }, objective: [...objective, ` · ${n}/${need}`], onFoot: 250 });
+        }
+        nav?.step();
+        return false;
+      }, t);
+    } finally {
+      stopNav(); M.dest = null; gps.clear();
+      for (const it of items) { if (!it.taken) { app.scene.remove(it.obj); it.beam.hide(); app.scene.remove(it.beam.group); } gps.unblip('sup:' + it.i); }
+      M.collect = null;
+    }
+    ui.counter(COUNTER, `${need}/${need}`); await delay(1.0, t); ui.counter(null);
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
+  };
+
+  // herd: wildlife set out where the story says (W.creatures.herd: they graze, drift and run from him), at once; they stay
+  // until the mission ends, or a herd step with { remove: <its id> } lets them go. Not a step to wait on.
+  //   { type: 'herd', id, creature: 'creature-horse', at: '@place' | [x, z], count, radius, height }
+  STEPS.herd = async (d) => {
+    const C = W.creatures; M.herds = M.herds || new Map();
+    if (d.remove) { const h = M.herds.get(d.remove); if (h) { h.remove(); M.herds.delete(d.remove); } return; }
+    if (!C?.herd) { console.warn('[storyrun] no wildlife on this page'); return; }
+    const q = Array.isArray(d.at) ? { x: d.at[0], z: d.at[1] } : (() => { const pp = placeOf(d.at); return { x: pp.cx ?? pp.x, z: pp.cz ?? pp.z }; })();
+    const h = C.herd(d.creature || 'creature-horse', { at: q, count: d.count || 4, radius: d.radius || 10, height: d.height });
+    M.herds.set(d.id || 'herd' + M.herds.size, h);
+  };
+
+  // mount / dismount: on to the world's horse (its car { model: 'mogcity/horse' }: wagmi/horse), or off it. A mount with
+  // `at` stands the horse there first (W.horse.give); else it is where he left it (blipped, the route to it)
+  STEPS.mount = async (d, t) => {
+    const H = W.horse;
+    if (inCar()) return;
+    if (H && d.at) { const p = placeOf(d.at); H.give({ x: p.cx ?? p.x, z: p.cz ?? p.z, heading: p.heading ?? 0 }); }
+    const name = car.label || 'your horse';
+    gps.objective(d.objective ? parts(d.objective, 'blue') : [`${rideWord('board', 'Get in')} `, { [name]: 'blue' }, '.'], { follow: () => car.position, name });
+    gps.blip('car', { x: car.position.x, z: car.position.z, kind: 'car', edge: true, name });
+    ui.help(`Press [F] to ${rideWord('board', 'get in').toLowerCase()}.`, 8);
+    try { await wait(() => inCar() && !W.ride?.phase, t); } finally { gps.unblip('car'); ui.help(null); gps.clear(); }
+  };
+  STEPS.dismount = async (d, t) => {
+    if (!inCar()) return;
+    gps.objective(d.objective ? parts(d.objective, 'blue') : [W.horse ? 'Get down.' : 'Get out.'], null);
+    ui.help(`Press [F] to ${W.horse ? 'dismount' : 'get out'}.`, 8);
+    if (d.quick || M.auto) { await wait(() => Math.abs(car.speed || 0) < 1.5, t); W.ride?.getOut?.(true); }
+    try { await wait(() => !inCar() && !W.ride?.phase, t); } finally { ui.help(null); }
   };
 
   // a chase: pursuit's heat and cars; lose them, reach a place with them on you, or keep going (escort) for `until` s
@@ -1672,6 +1865,8 @@ export function createRunner(ctx) {
     W.calls?.stop({ quiet: true, of: 'pack:' });
     try { M.chase?.stop?.(); } catch {}
     if (M.crew) W.combat?.clear?.();
+    if (M.creatures) dropCreatures();
+    if (M.herds) { for (const h of M.herds.values()) try { h.remove(); } catch {} M.herds = null; }
     hud.clear(); M.timer.stop(); juice.clear(); juice.live = false;
     ui.objective(null); ui.sub(null); ui.help(null); ui.counter(null); ui.caller(null); ui.hold(null); ui.phone?.hide?.(); ui.offer?.(null);
     gps.clear(); app.mapSystem.waypoint = null; for (const id of [...gps.blips.keys()]) gps.unblip(id); marker.hide();
