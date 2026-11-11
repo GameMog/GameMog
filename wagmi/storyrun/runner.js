@@ -1117,6 +1117,7 @@ export function createRunner(ctx) {
   // within `wake` m or hits it, then fights within `leash` m of home). Done when every one of them is down; out cold,
   // or 150 m off, fails. On a horse he may stay in the saddle and fight from it (wagmi/horse/saddle.js); on foot as ever.
   //   { type: 'fight', arena: '@place', foes: [...], boss: {...}, objective, counter, hp, timer, why, barks }
+  const nW0 = (d) => (d.foes || d.boss ? 1 : 0) + (Array.isArray(d.waves) ? d.waves.length : 0);
   async function creatureFight(d, t) {
     const combat = W.combat, C = W.creatures;
     if (!C?.fight) { console.warn('[storyrun] no creatures on this page: the fight passes'); return; }
@@ -1132,6 +1133,7 @@ export function createRunner(ctx) {
     const autoGetUp = combat.player.autoGetUp; combat.player.autoGetUp = true;
     // (in the saddle: what the mission put in his hand (a mount step's `arm`, or the step's own) is his again, a retry
     // from the checkpoint too, and it lasts the fight: J is always a blow, never the buck in its place)
+    if (nW0(d) > 1) combat.waves = true; // (its own WAVE CLEARED, not the fight's ALL CLEAR after each)
     const H = W.horse, armK = d.arm || (d.saddle ? 'bat' : null) || M.def.steps.slice(0, M.i).reverse().find((x) => x.type === 'mount' && x.arm)?.arm;
     const arming = () => { if (H?.saddle && armK && H.mounted && !H.saddle.weapon) try { H.arm(armK); } catch {} };
     if (H?.saddle && armK) { H.saddle.keep = true; arming(); }
@@ -1242,7 +1244,7 @@ export function createRunner(ctx) {
           if (roaring && !f._roar && (f.big || f.boss)) { const q = me(), dd = dist(q, f.pos.x, f.pos.z); if (dd < 45) { try { W.crash?.jolt?.(clamp(0.7 - dd / 70, 0.15, 0.6), 0, 0); } catch {} juice.pulse(0.35); } }
           f._roar = roaring;
         }
-        if (alive === 0 && all.length && loading <= 0 && k !== lastClear) { lastClear = k; juice.slow(wi + 1 >= nW ? 0.9 : 0.6, 0.3); if (nW > 1 && wi + 1 < nW) juice.alert('Wave cleared', { sub: waves[wi + 1].alert ? `Next: ${tokens(waves[wi + 1].alert)}` : '', tone: 'green', sting: 'win', secs: 2 }); }
+        if (alive === 0 && all.length && loading <= 0 && k !== lastClear) { lastClear = k; if (nW > 1) juice.alert(wi + 1 < nW ? 'Wave cleared' : 'All clear', { sub: wi + 1 < nW && waves[wi + 1].alert ? `Next: ${tokens(waves[wi + 1].alert)}` : '', tone: 'green', sting: 'win', secs: 2 }); }
         for (const f of all) if (!f.out && !f.disposed) gps.blip('e:' + f.id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: !!f.boss || nW > 1, name: f.boss ? (f.name || '') : '' }); else gps.unblip('e:' + f.id);
         if (down) throw new Fail(tokens(d.why || `${heroName} got knocked out.`), 'ko');
         if (G) {
@@ -1294,6 +1296,7 @@ export function createRunner(ctx) {
     } finally {
       offDown?.(); combat.player.autoGetUp = autoGetUp;
       if (H?.saddle) H.saddle.keep = false;
+      combat.waves = false;
       for (const id of [...gps.blips.keys()]) if (id.startsWith('e:')) gps.unblip(id);
       ui.counter(null); hud.timer(null); M.crew = null;
       if (G) { hud.bar(null); marker.hide(); gps.unblip('wave'); }

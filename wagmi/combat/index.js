@@ -523,7 +523,7 @@ export async function install(W) {
     emit('enemyDown', { enemy: e });
     const cr = e.crew;
     if (cr && !cr.cleared && cr.enemies.length && cr.enemies.every((x) => !x.alive)) {
-      cr.cleared = true; c.hud.banner(c.crews.some((x) => !x.cleared && x.enemies.length) ? 'CREW DOWN' : 'ALL CLEAR', '#4ADE80'); c.slowmo(0.7, 0.4, 0.4);
+      cr.cleared = true; if (!W.combat?.waves) c.hud.banner(c.crews.some((x) => !x.cleared && x.enemies.length) ? 'CREW DOWN' : 'ALL CLEAR', '#4ADE80'); c.slowmo(0.7, 0.4, 0.4); // (a story fight in waves calls its own: WAVE CLEARED)
       for (const cb of cr._cleared) { try { cb(cr); } catch (err) { console.error('[combat] onCleared', err); } }
       emit('cleared', cr);
     }
