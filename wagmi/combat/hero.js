@@ -29,6 +29,8 @@
 // A roll, a flip, a fall goes only where his body has room (walls, his car, trunks, poles, cans, the traffic: the
 // nearest way round, or as far as there is) and never straight at the lens; a dash or a takedown never goes at a man
 // across the car or behind a wall.
+// A creature (wagmi/creatures): he aims at its body where he can reach it (a T-rex's leg, an ogre's belly), runs in to
+// his reach of that, and his blow lands on its skin's capsules (body.js); no grab or slam on one.
 import * as THREE from 'three/webgpu';
 import { clamp, smooth, lerp, yawTo, hdist, angWrap, fwd, right } from './util.js';
 import { S as story } from '../story/index.js';
@@ -135,7 +137,8 @@ export function createHero(c) {
     let best = null, bs = Infinity;
     for (const e of c.enemies) {
       if (downed ? !e.grounded : !e.targetable) continue;
-      const d = hdist(pos, e.pos); if (d > maxD) continue;
+      // (a creature counts from the edge of its footprint: a T-rex's root is metres inside its legs)
+      const d = hdist(pos, e.pos) - (e.creature ? e.footR : 0); if (d > maxD) continue;
       if (Math.abs(e.pos.y - pos.y) > 2) continue;
       // (a man across the car or behind a wall is not one to dash at)
       if (reach && d > 1.5 && (c.carCross(pos, e.pos, 0.3) || c.lineBlocked(pos, e.pos))) continue;
@@ -149,7 +152,7 @@ export function createHero(c) {
     return best;
   }
   me.pickTarget = pickTarget;
-  function nearest(maxD) { let d = Infinity, b = null; for (const e of c.enemies) if (e.standing || e.state === 'getup') { const k = hdist(e.pos, pos); if (k < d) { d = k; b = e; } } return d <= maxD ? b : null; }
+  function nearest(maxD) { let d = Infinity, b = null; for (const e of c.enemies) if (e.standing || e.state === 'getup') { const k = hdist(e.pos, pos) - (e.creature ? e.footR : 0); if (k < d) { d = k; b = e; } } return d <= maxD ? b : null; }
   // the stick, camera-relative (W ahead along the view, D to its right)
   function stick(keys, out = new THREE.Vector3()) {
     const f = (+keys.forward || 0) - (+keys.backward || 0), s = (+keys.right || 0) - (+keys.left || 0);
@@ -177,13 +180,19 @@ export function createHero(c) {
 
   // ------------------------------------------------------------------ strikes (run in, then the blow)
   let lastMove = '';
-  const rangeOf = (S, T) => S.range * (T.type === 'brute' ? 1.14 : 1);
+  // (a creature: his reach from its body's surface, not root to root: the ranges were measured on a man, his fist to a
+  // man's middle, 0.26 m inside him)
+  const rangeOf = (S, T) => (T.creature ? Math.max(0.3, S.range - 0.26) : S.range * (T.type === 'brute' ? 1.14 : 1));
+  // where he aims at T from p: a man's root; a creature's body where he can reach it (a T-rex's shin, an ogre's belly)
+  const aimOf = (T, p, out) => (T.creature ? T.aimAt(p, out) : out.copy(T.pos));
+  const _aim = new THREE.Vector3();
+  const aimYaw = (T) => yawTo(pos, aimOf(T, pos, _aim));
   function dashDist(u, D, T, v0, v1) { const u2 = u * u, u3 = u2 * u; return (u3 - 2 * u2 + u) * v0 * T + (-2 * u3 + 3 * u2) * D + (u3 - u2) * v1 * T; }
   function strikeWith(T, S, o = {}) {
     const P0 = pos.clone();
-    const range = rangeOf(S, T);
-    const gap = Math.max(0, hdist(P0, T.pos) - range);
-    const dir0 = _v.set(P0.x - T.pos.x, 0, P0.z - T.pos.z); if (dir0.lengthSq() < 1e-6) fwd(p.heading + Math.PI, dir0); dir0.normalize();
+    const range = rangeOf(S, T), A0 = aimOf(T, P0, new THREE.Vector3());
+    const gap = Math.max(0, hdist(P0, A0) - range);
+    const dir0 = _v.set(P0.x - A0.x, 0, P0.z - A0.z); if (dir0.lengthSq() < 1e-6) fwd(p.heading + Math.PI, dir0); dir0.normalize();
     let { clip, hit, ts, kind, dmg, side, limb, fly, up } = S, from = S.from || 0;
     if (o.counter || c.time < me.counterUntil) { dmg *= DODGE.mult; if (kind === 'light') kind = 'ender'; me.counterUntil = 0; o.counter = true; }
     if (o.ts) ts = o.ts;
@@ -205,7 +214,7 @@ export function createHero(c) {
       if (M.clipAt <= 0) playStrikeClip(); else Q.stop(0.12);
       c.sfx('whoosh', kind === 'light' ? 0.6 : 1);
     }
-    face(yawTo(P0, T.pos) + (M.yawOff || 0));
+    face(yawTo(P0, A0) + (M.yawOff || 0));
     me.target = T; me.lastAttackT = c.time;
   }
   function playStrikeClip() {
@@ -243,8 +252,8 @@ export function createHero(c) {
   // the takedown (combo meter full): a flying kick that lays him out, then the fist from overhead into him on the ground
   function takedown(T) {
     me.meter = 0; c.releaseToken(T); c.clearThreats(T);
-    T.set('stagger'); T.stagT = 1.5; T.play('thugStumbleBack', { once: true, ts: 0.3, fade: 0.1 }); // held for the moment
-    const brute = T.type === 'brute';
+    T.set('stagger'); T.stagT = T.heavy ? 0.6 : 1.5; T.play('thugStumbleBack', { once: true, ts: 0.3, fade: 0.1 }); // held for the moment (a heavy creature shrugs it off sooner)
+    const brute = T.type === 'brute' || !!T.heavy; // (a heavy creature takes it as a brute does: a big blow, not the end of it)
     strikeWith(T, { ...MOVES.leap, kind: 'takedown', dmg: brute ? 70 : 999, fly: brute ? 2 : 4.2, up: 3.2 }, { leap: true, name: 'strike' });
     me.followUp = { target: T, until: c.time + 2.2 }; me.invulnUntil = c.time + 1.0; me.lastCounterT = c.time;
     c.cine(T, 1.7);
@@ -588,6 +597,7 @@ export function createHero(c) {
   // ------------------------------------------------------------------ per frame motion of the move
   // (the flying kick of a takedown goes for his chest where it is: a man reeling back leans well behind his feet)
   const contactPoint = (T, dir0, range, out, chest = false) => {
+    if (T.creature) { aimOf(T, pos, out); out.y = T.pos.y; return out.addScaledVector(dir0, range); } // (its body where he can reach it)
     if (chest && T.bones.spine2) { T.bones.spine2.getWorldPosition(out); out.y = T.pos.y; out.lerp(T.pos, 0.25); } else out.copy(T.pos);
     return out.addScaledVector(dir0, range);
   };
@@ -619,6 +629,14 @@ export function createHero(c) {
   // the item swept from (a0, b0) to (a1, b1) in 8 steps against that capsule: the closest it comes (less the radius), the
   // point, and the first step that meets him (of the sweep, 0..1; 1 when it never does) in sweep.v
   function sweep(T, lo, a0, b0, a1, b1, at) {
+    if (T.creature) { // (a creature: its own body's capsules, body.js)
+      let best = 9; sweep.v = 1;
+      for (let s = 0; s <= 8; s++) {
+        const v = s / 8; _p0.lerpVectors(a0, a1, v); _p1.lerpVectors(b0, b1, v);
+        for (let k = 0; k <= 10; k++) { _q0v.lerpVectors(_p0, _p1, 0.25 + 0.75 * k / 10); const d = T.hurtDist(_q0v); if (d < best) { best = d; at.copy(_q0v); } if (d < 0.03 && sweep.v === 1) sweep.v = v; }
+      }
+      return best;
+    }
     bodyCap(T, lo); const ab = _ax.subVectors(_c1, _c0), L2 = Math.max(1e-6, ab.lengthSq()), r = bodyCap.r; let best = 9; sweep.v = 1;
     for (let s = 0; s <= 8; s++) {
       const v = s / 8; _p0.lerpVectors(a0, a1, v); _p1.lerpVectors(b0, b1, v);
@@ -634,7 +652,7 @@ export function createHero(c) {
   const loOf = (low, lo0) => lo0 ?? (low ? 0.08 : 0.45);
   // (what he swings over the last frame; a bottle is for his head: its distance from his head, less the head's size)
   function itemDist(T, low, at, head = false, lo0 = null) {
-    if (head) return headDist(T, at);
+    if (head && !T.creature) return headDist(T, at);
     return sweep(T, loOf(low, lo0), seg.a0, seg.b0, seg.a, seg.b, at);
   }
   function headDist(T, at) {
@@ -656,6 +674,7 @@ export function createHero(c) {
     if (M.limb === 'item' && !I) return false; // (it went from his hand mid-swing)
     let r = 0.26 * T.scale, d; const at = new THREE.Vector3();
     if (I) { d = itemDist(T, M.low, at, M.head, M.lo); r = 0; } // (an item's distance is to his body's surface already)
+    else if (T.creature) { const lp = Q.limb(M.limb, _v); at.copy(lp); d = T.hurtDist(lp, true); r = 0; } // (a creature: its body's capsules; a low one's back too)
     else {
       const lp = Q.limb(M.limb, _v); at.copy(lp);
       // distance from the limb to his body: a capsule from his thighs to his crown, along his own spine (a man reeling
@@ -689,7 +708,7 @@ export function createHero(c) {
         if (!T.alive && !M.hitDone) { free(0.2); break; }
         if (M.long) { // the flying kick: an arc onto the contact point
           const u = clamp(M.t / M.flyT, 0, 1), e = 1 - (1 - u) * (1 - u);
-          if (!M.hitDone) { const cp = contactPoint(T, M.dir0, M.range, _v2, M.kind === 'takedown'); setXZ(lerp(M.P0.x, cp.x, e), lerp(M.P0.z, cp.z, e)); M.yawGoal = yawTo(pos, T.pos); }
+          if (!M.hitDone) { const cp = contactPoint(T, M.dir0, M.range, _v2, M.kind === 'takedown'); setXZ(lerp(M.P0.x, cp.x, e), lerp(M.P0.z, cp.z, e)); M.yawGoal = T.creature ? aimYaw(T) : yawTo(pos, T.pos); }
         } else if (!M.hitDone && T.alive && M.t <= M.dashDur + 0.02) { // run in, then step into the blow
           const cp = contactPoint(T, M.dir0, M.range, _v2);
           let d;
@@ -697,7 +716,7 @@ export function createHero(c) {
           else { const u = clamp((M.t - M.runT) / Math.max(1e-3, M.windup), 0, 1); d = M.runD + (M.D0 - M.runD) * (1 - (1 - u) * (1 - u)); }
           const k = clamp(d / M.D0, 0, 1.02);
           setXZ(lerp(M.P0.x, cp.x, k), lerp(M.P0.z, cp.z, k));
-          M.yawGoal = yawTo(pos, T.pos) + M.yawOff;
+          M.yawGoal = (T.creature ? aimYaw(T) : yawTo(pos, T.pos)) + M.yawOff;
         }
         if (!M.clipOn && M.t >= M.clipAt) playStrikeClip();
         const clipT = M.clipOn && M.track ? M.track.t : -1;
@@ -861,7 +880,7 @@ export function createHero(c) {
       const it = c.items.nearest(pos, 1.9, p.heading);
       if (it) { pickup(it); return true; }
       const any = nearest(2.6);
-      if (any) c.hud.flash(any.type === 'brute' ? 'Stun him first' : 'Daze him first: three in a row');
+      if (any && !any.creature) c.hud.flash(any.type === 'brute' ? 'Stun him first' : 'Daze him first: three in a row'); // (a creature is never grabbed)
       return false;
     }
     return false;

@@ -13,6 +13,7 @@
 // Blows shake it, jolt it the way they go (and roll it a touch) and punch it in; a takedown gets a side angle on the two,
 // a body slam a low one looking up at the man overhead (a brute's from wider and higher). It holds a beat on him and the
 // last man after the fight while it comes round behind him, so the city's camera takes over looking the way he faces.
+// A big creature in the fight (wagmi/creatures: a T-rex, an ogre, a mech) pulls it back and up, by its height.
 import * as THREE from 'three/webgpu';
 import { clamp, damp, smooth, angWrap, hdist, fwd } from './util.js';
 
@@ -333,7 +334,11 @@ export function createFightCamera(c) {
     st.frame.x = damp(st.frame.x, off.x, 2.2, dt); st.frame.z = damp(st.frame.z, off.z, 2.2, dt);
     // (down: the view on his chest as he lies, looking down on him from further back)
     st.downK = damp(st.downK, down ? 1 : 0, down ? 4 : 2, dt);
-    const piv = _v.set(q.x + st.frame.x, q.y + 1.15, q.z + st.frame.z);
+    // (a big creature in the fight, a T-rex, an ogre, a mech (wagmi/creatures): the view pulls back and up and looks a
+    // little flatter, to take it in from its feet to its head with him in front of it)
+    let bigH = 0; for (const e of c.enemies) if (e.creature && e.alive && e.state !== 'idle' && e.height > 2.2 && hdist(e.pos, q) < 22) bigH = Math.max(bigH, e.height);
+    st.bigK = damp(st.bigK || 0, clamp((bigH - 2.0) / 3.8, 0, 1), 1.2, dt);
+    const piv = _v.set(q.x + st.frame.x, q.y + 1.15 + 1.15 * st.bigK, q.z + st.frame.z);
     if (st.downK > 0.01 && Q.bones.spine03) { Q.bones.spine03.getWorldPosition(_t1); piv.lerp(_t1.setY(Math.max(q.y + 0.45, _t1.y + 0.3)), st.downK); }
     // (mid-dodge or going down, the view keeps right up with him)
     const follow = mv === 'dodge' || down ? 22 : 9;
@@ -341,12 +346,12 @@ export function createFightCamera(c) {
     // a cue showing: a little higher; a can going up over his head: higher and further back, to see where it goes
     const cue = c.threats.length > 0, canUp = !!me.holding && me.holding.def.hands === 2 && (mv === 'throw' || mv === 'canSlam');
     st.cueK = damp(st.cueK, cue ? 1 : 0, cue ? 6 : 2, dt); st.canK = damp(st.canK, canUp ? 1 : 0, canUp ? 6 : 2, dt);
-    const wantD = clamp(4.0 + (spread - 3) * 0.22, 3.8, few.length ? 6.8 : 6.2) * cs.zoomMultiplier + 1.3 * st.downK + 0.6 * st.canK;
+    const wantD = clamp(4.0 + (spread - 3) * 0.22, 3.8, few.length ? 6.8 : 6.2) * cs.zoomMultiplier + 1.3 * st.downK + 0.6 * st.canK + 3.6 * st.bigK;
     st.dist = damp(st.dist, wantD, 1.6, dt);
     // (a crowd round him: a little higher, to see over the ones nearest the lens)
     let crowd = 0; for (const e of c.enemies) if (e.standing && hdist(e.pos, q) < 4.2) crowd++;
     st.crowdK = damp(st.crowdK || 0, clamp((crowd - 2) * 0.045, 0, 0.16), 1.5, dt);
-    const el0 = clamp(0.27 + st.crowdK + (cs.orbitPitchOffset - 0.09) * 0.9 + 0.08 * st.cueK + 0.32 * st.downK + 0.18 * st.canK, 0.06, 1.15);
+    const el0 = clamp(0.27 + st.crowdK + (cs.orbitPitchOffset - 0.09) * 0.9 + 0.08 * st.cueK + 0.32 * st.downK + 0.18 * st.canK - 0.07 * st.bigK, 0.06, 1.15);
     // ---- what is in the way. Not enough room along the yaw: up over it when that clears it (a car, a can, a man's
     // head), else round to the nearest clear angle (a trunk, a pole, a wall right behind him, his man behind a pole),
     // never in a hurry
@@ -394,7 +399,7 @@ export function createFightCamera(c) {
     let lift = 0;
     for (const e of c.enemies) {
       if (!e.alive || e.state === 'down' || e.state === 'idle') continue;
-      const top = e.pos.y + 1.75 * e.scale, r = 0.42 * e.scale;
+      const top = e.pos.y + (e.creature ? e.height : 1.75 * e.scale), r = e.creature ? e.footR + 0.2 : 0.42 * e.scale;
       for (let k = 0.1; k <= 0.62; k += 0.13) { // along the lens half of the view (men by Dan are the fight, not in the way)
         const x = lerpN(lens.x, st.pivot.x, k), y = lerpN(lens.y, st.pivot.y, k), z = lerpN(lens.z, st.pivot.z, k);
         if (y > top + 0.1 || y < e.pos.y) continue;
@@ -535,7 +540,7 @@ export function createFightCamera(c) {
     refresh(P.position, 0);
     const a = _v.copy(P.position); a.y += 1.0;
     const tp = S.target.chest(_v2);
-    const mid = a.clone().lerp(tp, 0.5), span = a.distanceTo(tp), big = S.target.type === 'brute';
+    const mid = a.clone().lerp(tp, 0.5), span = a.distanceTo(tp), big = S.target.type === 'brute' || !!S.target.big;
     const wide = S.low && big ? 1.3 : 0;
     if (!S.side) {
       const ax = new THREE.Vector3(tp.x - a.x, 0, tp.z - a.z).normalize(), want = 2.8 + span * 0.8 + wide;

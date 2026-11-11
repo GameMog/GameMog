@@ -164,7 +164,7 @@ export function createNav(c) {
   const inArea = (p, m = 3) => area && Math.abs(p.x - area.cx) < HALF - m && Math.abs(p.z - area.cz) < HALF - m;
   function agentFor(e) {
     let A = agents.get(e); if (A) return A;
-    if (!inArea(e.pos)) return null;
+    if (!inArea(e.pos) || e.navOff) return null; // (a creature too big for the crowd's agents walks by the fight's own steering)
     const r = Math.min(0.62, 0.45 * e.scale);
     const a = crowd.addAgent({ x: e.pos.x, y: e.pos.y, z: e.pos.z }, { ...AGENT, radius: r, maxSpeed: 1 });
     A = { a, held: false, tgt: null, sp: 1, at: new THREE.Vector3().copy(e.pos) };
