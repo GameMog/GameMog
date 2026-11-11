@@ -93,18 +93,21 @@ function bandana(W, body, bones, colour) {
   const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(body.getWorldQuaternion(new THREE.Quaternion())); fwd.y = 0; fwd.normalize();
   const mat = new THREE.MeshStandardNodeMaterial({ color: colour, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
   const g = new THREE.Group(); g.name = 'wear-bandana';
-  const roll = new THREE.Mesh(new THREE.TorusGeometry(0.072, 0.025, 8, 22), mat);
+  const roll = new THREE.Mesh(new THREE.TorusGeometry(0.074, 0.022, 8, 22), mat);
   roll.scale.set(1.05, 1.12, 0.75); // (wider front to back than side to side once turned: the torus's y is his forward)
-  const knot = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.13, 3, 1), mat);
-  knot.scale.set(1, 1, 0.35);
+  // (the fold's triangle down the front, flat against his chest under the knot: in the group's frame x across him,
+  // y forward, z up his neck; the chest leans out a little going down)
+  const tg = new THREE.BufferGeometry();
+  tg.setAttribute('position', new THREE.Float32BufferAttribute([-0.075, 0, 0, 0.075, 0, 0, 0, 0.022, -0.115], 3)); tg.computeVertexNormals();
+  const knot = new THREE.Mesh(tg, mat);
   g.add(roll, knot);
   // (the ring's plane across his neck: its axis along the neck, its y forward; the knot in front, hanging point down)
   const zA = axis, yA = fwd.clone().addScaledVector(zA, -fwd.dot(zA)).normalize(), xA = new THREE.Vector3().crossVectors(yA, zA);
   const basis = new THREE.Matrix4().makeBasis(xA, yA, zA);
-  const centre = a.clone().lerp(h, 0.22).addScaledVector(fwd, 0.01);
+  const centre = a.clone().lerp(h, 0.1).addScaledVector(fwd, 0.01);
   const worldM = new THREE.Matrix4().compose(centre, new THREE.Quaternion().setFromRotationMatrix(basis), new THREE.Vector3(1, 1, 1));
   roll.position.set(0, 0.0, 0);
-  knot.position.set(0, 0.078, -0.07); knot.rotation.set(-Math.PI / 2 - 0.3, 0, 0);
+  knot.position.set(0, 0.07, -0.01);
   const local = nk.matrixWorld.clone().invert().multiply(worldM);
   local.decompose(g.position, g.quaternion, g.scale);
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });

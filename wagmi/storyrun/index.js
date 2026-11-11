@@ -353,7 +353,7 @@ async function keyArt(W, runner) {
     await sleep(100);
   }
   await sleep(3500);
-  const st = document.createElement('style'); st.textContent = '#wg, .hud, #touch-controls, .hud-bottom-left, .hud-top-right { visibility: hidden !important; }';
+  const st = document.createElement('style'); st.textContent = '#wg, #wg-tick, #wg-prompt, .hud, #touch-controls, .hud-bottom-left, .hud-top-right { visibility: hidden !important; }';
   document.head.appendChild(st);
   let D = null;
   try {
