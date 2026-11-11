@@ -10,7 +10,7 @@ import * as THREE from 'three/webgpu';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z).normalize();
 // toward the impact: the Presidio, north-west of downtown (-x west, -z north)
-export const IMPACT_DIR = V(-0.92, 0, -0.4);
+export const IMPACT_DIR = V(-0.98, 0, -0.15);
 
 export const PRESETS = {
   'ash-dusk': {

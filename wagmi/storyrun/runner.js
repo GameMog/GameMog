@@ -1076,7 +1076,11 @@ export function createRunner(ctx) {
         // (first close on it from low down, looking up: its size; then over his shoulder: the two of them)
         const by = cm.getGroundHeight(f.pos.x, f.pos.z, 'person'), cx = f.pos.x - fx * H * 1.5 + fz * H * 0.55, cz = f.pos.z - fz * H * 1.5 - fx * H * 0.55;
         const close = [cx, by + 0.5, cz], close2 = [cx - fx * H * 0.25, by + 0.7, cz - fz * H * 0.25], up = [f.pos.x, by + H * 0.78, f.pos.z];
-        shotList([{ cam: close, to: close2, look: up, dur: 1.7, fov: 50 }, { cam, to: cam2, look, dur: 1.6, fov: 44 }], M.tok, { beat: true }).catch(() => {});
+        // (a step's wakeCam: [x, y, z], the second a wide from there instead, the boss against what is behind it (The
+        // Matriarch on the hill's top against the crater's glow in the west), its lens rising a little)
+        const wc = Array.isArray(d.wakeCam) && d.wakeCam.length === 3 ? d.wakeCam : null;
+        const second = wc ? { cam: wc, to: [wc[0], wc[1] + 1.2, wc[2]], look: [f.pos.x, by + H * 0.55, f.pos.z], dur: 2.4, fov: d.wakeFov || 40 } : { cam, to: cam2, look, dur: 1.6, fov: 44 };
+        shotList([{ cam: close, to: close2, look: up, dur: 1.7, fov: 50 }, second], M.tok, { beat: true }).catch(() => {});
       }
     });
     const t0 = now();
