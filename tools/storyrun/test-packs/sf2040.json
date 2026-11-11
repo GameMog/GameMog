@@ -1628,29 +1628,38 @@
      "stop": true
     },
     {
+     "type": "walk",
+     "id": "toCore",
+     "to": "@hospital",
+     "radius": 5,
+     "beam": true,
+     "leaveCar": true,
+     "objective": "Go to **WARDEN-7's core**, in its wreck on the forecourt."
+    },
+    {
      "type": "cutscene",
      "id": "coreScene",
      "shots": [
       {
        "cam": {
         "rel": "player",
-        "fwd": -3.0,
-        "right": 1.5,
-        "up": 0.6
+        "fwd": -4.5,
+        "right": 2.4,
+        "up": 1.6
        },
        "to": {
         "rel": "player",
-        "fwd": -2.2,
-        "right": 1.1,
-        "up": 0.5
+        "fwd": -3.4,
+        "right": 1.8,
+        "up": 1.2
        },
        "look": {
         "rel": "player",
         "fwd": 5,
-        "up": 0.4
+        "up": 0.6
        },
-       "dur": 3.4,
-       "fov": 40,
+       "dur": 4.0,
+       "fov": 44,
        "sub": [
         "Warden",
         "BROADCAST INTERRUPTED. OPERATOR DETECTED. AWAITING COMMAND."
@@ -1677,16 +1686,18 @@
       {
        "cam": {
         "rel": "player",
-        "fwd": 2.0,
-        "right": 0.6,
-        "up": 0.05
+        "fwd": 1.0,
+        "right": 3.2,
+        "up": 0.4
        },
        "look": {
         "rel": "player",
-        "up": -0.05
+        "fwd": 6,
+        "up": 0.5
        },
-       "dur": 4.6,
-       "fov": 32,
+       "dur": 4.8,
+       "fov": 38,
+       "caption": "Pike, on the radio",
        "sub": [
         "Pike",
         "Smash the core and nobody calls them ever again. Not Vale. Not anybody. They just run wild."
@@ -1695,16 +1706,18 @@
       {
        "cam": {
         "rel": "player",
-        "fwd": 1.7,
-        "right": -0.5,
-        "up": 0.05
+        "fwd": 1.0,
+        "right": -3.2,
+        "up": 0.6
        },
        "look": {
         "rel": "player",
-        "up": -0.05
+        "fwd": 6,
+        "up": 0.5
        },
-       "dur": 4.6,
-       "fov": 30,
+       "dur": 4.8,
+       "fov": 38,
+       "caption": "Pike, on the radio",
        "sub": [
         "Pike",
         "Or send one last tone. Home. Every collar in the city walks back to the Preserve. Even the big ones."
@@ -1735,10 +1748,10 @@
      "id": "core",
      "flag": "shepherd",
      "who": "Cal",
-     "prompt": "WARDEN-7's core is open. One command left in it.",
+     "prompt": "WARDEN-7's core. One command left. What does Cal send?",
      "options": [
       {
-       "text": "Smash it. Nobody calls them again.",
+       "text": "SMASH THE CORE: no one can ever call them again. They run wild, and free.",
        "value": "smashed",
        "reply": [
         "Cal",
@@ -1746,12 +1759,70 @@
        ]
       },
       {
-       "text": "Send one last tone: home, to the Preserve.",
+       "text": "SEND THEM HOME: one last tone, and every collar walks back to the Preserve.",
        "value": "home",
        "reply": [
         "Cal",
         "Go home. All of you."
        ]
+      }
+     ]
+    },
+    {
+     "type": "cutscene",
+     "id": "coreDark",
+     "if": "shepherd == smashed",
+     "shots": [
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": -3,
+        "right": 2,
+        "up": 2
+       },
+       "to": {
+        "rel": "player",
+        "fwd": -14,
+        "right": 8,
+        "up": 22
+       },
+       "look": {
+        "rel": "player",
+        "fwd": 30,
+        "up": 0
+       },
+       "dur": 5.5,
+       "fov": 46,
+       "text": "Across the city, every collar goes dark at once. Nothing calls the animals now. Not Vale. Not anyone."
+      }
+     ]
+    },
+    {
+     "type": "cutscene",
+     "id": "coreHome",
+     "if": "shepherd != smashed",
+     "shots": [
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": -3,
+        "right": 2,
+        "up": 2
+       },
+       "to": {
+        "rel": "player",
+        "fwd": -14,
+        "right": 8,
+        "up": 22
+       },
+       "look": {
+        "rel": "player",
+        "fwd": 30,
+        "up": 0
+       },
+       "dur": 5.5,
+       "fov": 46,
+       "text": "Across the city, the herds lift their heads, turn west toward the red glow over the Presidio, and start walking."
       }
      ]
     },
