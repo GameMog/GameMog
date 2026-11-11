@@ -839,6 +839,13 @@ export async function install(W) {
         if (d < m && d > 1e-4 && Math.abs(a.pos.y - P.position.y) < 1) a.moveXZ(dx / d * (m - d), dz / d * (m - d));
       }
     }
+    // (a creature down, knocked flying, getting up or lying dead is still a body in the street: he is kept out of it
+    // as from one standing, never stood in or on its back (a knock-back that threw him at a fallen WARDEN-7 left him
+    // standing on it). Its whole height counts, it being low now)
+    if (cm.activeMode === 'person' && !P.inVehicle) for (const a of c.enemies) {
+      if (!a.creature || a.standing || a.disposed || !a.body?.ok || (a.state === 'out' && c.time - a.outAt > 14)) continue;
+      if (a.body.pushOut(P.position, 0.32, 3.5, P.position.y)) cm.resolveHorizontalCollision(P.position, 0.48, P.position.y + 1.0);
+    }
     if (!frozen && cm.activeMode === 'car' && car) carContact(dt);
     // (a man lying in the road is shoved along by a car that comes onto him, never driven through)
     if (c.vehs.length) for (const e of c.enemies) if (e.state === 'down' || e.state === 'out' || e.state === 'getup') vehPush(e.pos, 0.85);
