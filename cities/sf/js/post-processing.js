@@ -28,6 +28,8 @@ function createPostProcessing(renderer, sceneColor, reflections, depth, camera, 
   const vignetteAmount = uniform(0.12);
   // (SF 2040: greens dried toward olive and straw, 0 none .. 1)
   const dryGreens = uniform(0);
+  // (and the deepest shadows lifted a little toward a warm haze, so a street in shade stays readable: 0 none)
+  const shadowLift = uniform(0);
   const fogEnabled = uniform(1);
   const inverseProjection = uniform(camera.projectionMatrixInverse);
   const cameraWorld = uniform(camera.matrixWorld);
@@ -74,6 +76,10 @@ function createPostProcessing(renderer, sceneColor, reflections, depth, camera, 
       color.assign(mix(color, straw, k));
     });
     const luma = dot(color, vec3(0.2126, 0.7152, 0.0722)).toVar();
+    If(shadowLift.greaterThan(0.0001), () => {
+      color.addAssign(vec3(1.0, 0.8, 0.62).mul(shadowLift).mul(float(1).sub(smoothstep(0.0, 0.12, luma))));
+      luma.assign(dot(color, vec3(0.2126, 0.7152, 0.0722)));
+    });
 
     // Gentle cool shadow / warm highlight separation; multiply rather than lifting the black level.
     const shadows = mix(vec3(0.965, 1.005, 1.045), vec3(1), smoothstep(0.02, 0.60, luma));
@@ -104,6 +110,7 @@ function createPostProcessing(renderer, sceneColor, reflections, depth, camera, 
     bloomPass.threshold.value = look.threshold;
     vignetteAmount.value = look.vignette ?? 0.12;
     dryGreens.value = look.dryGreens ?? 0;
+    shadowLift.value = look.shadowLift ?? 0;
   }
 
   applyPreset('golden');

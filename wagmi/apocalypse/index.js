@@ -24,7 +24,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // how many of the city's walkers (of 340) and the street crowd's (of 560) are still out
 const WALKERS = 50, CROWD = 36;
 // the open green the wild horses graze on (the camps' plazas left to the people)
-const PASTURES = [[520, -740], [-2345, -372], [-2062, 871], [-699, -1347], [-333, -1573], [-345, 1300], [-644, 2602], [-1663, -1737], [-884, -1527]];
+const PASTURES = [[520, -740], [-2322, -402], [-2062, 871], [-699, -1347], [-333, -1573], [-345, 1300], [-644, 2602], [-1663, -1737], [-884, -1527]];
 
 export async function createApocalypse(W, { time = 'dusk' } = {}) {
   if (W.apocalypse) return W.apocalypse;

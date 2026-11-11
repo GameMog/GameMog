@@ -100,7 +100,7 @@ export function createFX(W) {
     m.positionNode = A.xyz.add(off).add(camRight.mul(corner.x.mul(size).mul(0.7))).add(camUp.mul(corner.y.add(0.6).mul(size)));
     const shape = smoothstep(1.0, 0.0, length(vec3(corner.x.mul(1.2), corner.y.mul(0.8), 0))).mul(float(1).sub(t));
     const hot = mix(vec3(5.0, 2.4, 0.7), vec3(3.2, 0.6, 0.08), t);
-    m.colorNode = vec4(hot.mul(shape).mul(0.55), 1.0);
+    m.colorNode = vec4(hot.mul(shape).mul(0.38), 1.0);
     mesh(g, m, 'apoc-flames', 8);
   }
   {
@@ -147,7 +147,7 @@ export function createFX(W) {
     const pos = base.add(lean).add(wob).add(vec3(0, hgt.add(20), 0));
     m.positionNode = pos.add(camRight.mul(corner.x.mul(size))).add(camUp.mul(corner.y.mul(size)));
     const puff = smoothstep(1.0, 0.2, length(corner));
-    const life = smoothstep(0.0, 0.05, t).mul(smoothstep(1.0, 0.6, t));
+    const life = smoothstep(0.0, 0.14, t).mul(smoothstep(1.0, 0.6, t));
     // (a column a long way off is seen through the haze: toward its colour with distance, as the city's fog does)
     const d = length(pos.sub(cameraPosition));
     const tau = hazeDensity.mul(d).mul(0.42), fogged = float(1).sub(exp(tau.mul(tau).negate())).mul(0.85);

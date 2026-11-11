@@ -184,7 +184,7 @@ class LightingSystem {
         // (below the horizon: the haze's own colour, darkening)
         const below = mix(grad, this.uAshHorizon.mul(0.6), smoothstep(0.0, -0.2, dir.y));
         const sunDot = max(dot(dir, normalize(this.sky.sunPosition)), 0.0);
-        const sunGlow = this.uAshSun.mul(sunDot.pow(48.0).mul(1.6).add(sunDot.pow(6.0).mul(0.22)).add(smoothstep(0.9993, 0.9998, sunDot).mul(3.0)));
+        const sunGlow = this.uAshSun.mul(sunDot.pow(64.0).mul(1.2).add(sunDot.pow(8.0).mul(0.12)).add(smoothstep(0.9993, 0.9998, sunDot).mul(1.1)));
         const flat = vec3(dir.x, 0, dir.z).div(max(up.add(0.12), 0.12));
         const bands = mx_noise_float(flat.mul(vec3(0.9, 0, 2.2)).add(vec3(this.uAshTime.mul(0.006), 0, this.uAshTime.mul(0.002)))).mul(0.5).add(0.5);
         const fine = mx_noise_float(flat.mul(4.0).add(vec3(this.uAshTime.mul(0.01), 0, 0))).mul(0.5).add(0.5);
@@ -195,8 +195,8 @@ class LightingSystem {
       If(this.uGlowColor.r.add(this.uGlowColor.g).greaterThan(0.0001), () => {
         const dir = normalize(positionWorld.sub(cameraPosition));
         const along = max(dot(normalize(vec3(dir.x, 0.0001, dir.z)), this.uGlowDir), 0.0);
-        const low = exp(max(dir.y, -0.05).mul(-7.0));
-        finalSky.addAssign(this.uGlowColor.mul(along.mul(along).mul(along).mul(0.75).add(along.mul(0.25))).mul(low));
+        const low = exp(max(dir.y, -0.05).mul(-4.5));
+        finalSky.addAssign(this.uGlowColor.mul(along.mul(along).mul(0.6).add(along.mul(0.4))).mul(low));
       });
       return vec4(finalSky, float(1.0));
     })();
