@@ -55,13 +55,12 @@ game.
 ## Type (a world's UI theme)
 
 A world that asks for the glass UI theme (`"ui": { "theme": "glass" }`, `wagmi/storyrun/theme.js`; SF 2040 does) sets
-its subtitles, objectives and cards in two typefaces kept in `assets/fonts/`, each with its licence beside it. Both are
-subset to Latin and converted to WOFF2 (pyftsubset), otherwise unchanged; neither has a Reserved Font Name.
+every label, line, number and card on screen in one typeface kept in `assets/fonts/`, with its licence beside it. It is
+subset to Latin and converted to WOFF2 (pyftsubset), otherwise unchanged; it has no Reserved Font Name.
 
 | File (`assets/fonts/`) | Typeface | Credit | Source | Licence |
 |---|---|---|---|---|
-| `oswald/Oswald-Variable.woff2` | Oswald (variable, 200-700) | The Oswald Project Authors | [google/fonts ofl/oswald](https://github.com/google/fonts/tree/main/ofl/oswald) | [SIL OFL 1.1](https://openfontlicense.org) (`oswald/OFL.txt`) |
-| `manrope/Manrope-Variable.woff2` | Manrope (variable, 200-800) | The Manrope Project Authors | [google/fonts ofl/manrope](https://github.com/google/fonts/tree/main/ofl/manrope) | [SIL OFL 1.1](https://openfontlicense.org) (`manrope/OFL.txt`) |
+| `geist/Geist-Variable.woff2` | Geist (variable, 100-900) | The Geist Project Authors | [google/fonts ofl/geist](https://github.com/google/fonts/tree/main/ofl/geist) | [SIL OFL 1.1](https://openfontlicense.org) (`geist/OFL.txt`) |
 
 ## Characters
 

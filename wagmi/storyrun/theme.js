@@ -3,38 +3,40 @@
 // <style> and one class on <html> (html.ui-glass), every rule below scoped under it.
 //   applyTheme(def)   as soon as the world is in (pack.js load()); ?uitheme=plain turns it off for an A/B look
 //
-// "glass" (SF 2040, the owner 11 Nov: "use Glassmorphism and better cooler modern text for mission and subtitles"):
-// frosted warm panels (ash-orange dusk: amber for what is asked, red for danger and bosses, teal for friends and the
-// radio), Oswald for names, labels, numbers and cards, Manrope for what is said and asked. Both SIL OFL 1.1, self-hosted
-// in assets/fonts/ (subset to Latin, woff2; licences beside them, assets/CREDITS.md). Readability first: the glass is
-// dark enough (~0.62-0.74) for white text to hold about 4.5:1 over a bright sky, with a soft shadow under the letters.
-// Cost: backdrop blur only on the small panels (the line, the tracker, the pill, the meters, a card's slab), motion on
-// opacity and transform only (one letter-spacing settle on a card's title, a second long, and nothing else in layout).
+// "glass" (SF 2040, the owner 11 Nov: "use Glassmorphism and better cooler modern text for mission and subtitles";
+// then "yes extend glass everywhere even more transparent than current styling, more sleek and modern font"): every
+// surface on screen (the story's words, the city's HUD, the fight's, the pause menu, the full map, the prompts) on clear
+// glass: a ~0.10 tint, the blur doing the work (with the backdrop dimmed a little, brightness .8, so white text holds over
+// a bright sky), a crisp 1 px light edge, an inner highlight and a soft shadow; ash-orange dusk accents (amber for what
+// is asked, red for danger and bosses, teal for friends and the radio). One typeface throughout, Geist (SIL OFL 1.1,
+// self-hosted in assets/fonts/geist, subset to Latin, woff2; licence beside it, assets/CREDITS.md): thin tracked caps for
+// labels, tight bold tabular figures for numbers, tight semibold sentence case for titles. Readability from a soft text
+// shadow and slightly heavier weights rather than darker fills. Cost: backdrop blur only on panels, motion on opacity and
+// transform only (one letter-spacing settle on a card's title).
 import { CREDITS } from '../credits.js';
 export const THEMES = ['glass'];
 const OFL = 'https://openfontlicense.org';
 const TYPE_CREDITS = [
-  { what: 'Oswald', who: 'The Oswald Project Authors', note: 'names, labels, numbers and cards; subset to Latin, woff2', licence: 'SIL OFL 1.1', licenceUrl: OFL, src: 'https://github.com/googlefonts/OswaldFont' },
-  { what: 'Manrope', who: 'The Manrope Project Authors', note: 'subtitles, objectives and help; subset to Latin, woff2', licence: 'SIL OFL 1.1', licenceUrl: OFL, src: 'https://github.com/googlefonts/manrope' },
+  { what: 'Geist', who: 'The Geist Project Authors', note: 'the type of every label, line, number and card; subset to Latin, woff2', licence: 'SIL OFL 1.1', licenceUrl: OFL, src: 'https://github.com/vercel/geist-font' },
 ];
 
 const FONTS = [
-  ['Oswald', 'assets/fonts/oswald/Oswald-Variable.woff2', '200 700'],
-  ['Manrope', 'assets/fonts/manrope/Manrope-Variable.woff2', '200 800'],
+  ['Geist', 'assets/fonts/geist/Geist-Variable.woff2', '100 900'],
 ];
 
 const CSS = `
 ${FONTS.map(([f, u, w]) => `@font-face { font-family: '${f}'; src: url('${u}') format('woff2'); font-weight: ${w}; font-style: normal; font-display: swap; }`).join('\n')}
 html.ui-glass {
-  --gl-disp: 'Oswald', 'Barlow Condensed', system-ui, sans-serif;
-  --gl-body: 'Manrope', 'Inter', system-ui, sans-serif;
-  --gl-amber: #FFB547; --gl-amber2: #FF8A3D; --gl-red: #FF5A4F; --gl-teal: #5FE3BE; --gl-ink: #F8F4EC;
-  --gl-bg: linear-gradient(155deg, rgba(64,42,30,.62), rgba(20,17,20,.70) 55%, rgba(12,12,16,.74));
-  --gl-bg-soft: linear-gradient(155deg, rgba(60,40,30,.44), rgba(16,14,18,.52));
-  --gl-blur: blur(18px) saturate(140%);
-  --gl-edge: inset 0 0 0 1px rgba(255,255,255,.16), inset 0 1px 0 rgba(255,255,255,.22);
-  --gl-drop: 0 12px 32px -12px rgba(0,0,0,.65), 0 2px 8px rgba(0,0,0,.22);
-  --gl-ts: 0 1px 2px rgba(0,0,0,.55), 0 0 12px rgba(0,0,0,.25);
+  --gl-font: 'Geist', 'Inter', system-ui, -apple-system, sans-serif;
+  --gl-disp: var(--gl-font); --gl-body: var(--gl-font);
+  --gl-amber: #FFB547; --gl-amber2: #FF8A3D; --gl-red: #FF5A4F; --gl-teal: #5FE3BE; --gl-ink: #FBF8F3;
+  --gl-bg: linear-gradient(160deg, rgba(255,255,255,.13), rgba(255,255,255,.04) 48%, rgba(255,255,255,.02)), rgba(16,11,10,.10);
+  --gl-bg-soft: linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 55%), rgba(16,11,10,.08);
+  --gl-blur: blur(20px) saturate(165%) brightness(.8);
+  --gl-edge: inset 0 0 0 1px rgba(255,255,255,.20), inset 0 1px 0 rgba(255,255,255,.34);
+  --gl-drop: 0 10px 30px -12px rgba(0,0,0,.45), 0 1px 3px rgba(0,0,0,.12);
+  --gl-ts: 0 1px 2px rgba(0,0,0,.6), 0 0 14px rgba(0,0,0,.38);
+  --gl-label: 500 10.5px/1.1 var(--gl-font);
   --gl-ease: cubic-bezier(.2,.8,.2,1);
 }
 /* the panels' common glass */
@@ -167,18 +169,18 @@ html.ui-glass #wg .wg-title { top: 36%; }
 html.ui-glass #wg .wg-title .name { margin-top: 10px; }
 html.ui-glass #wg .wg-title.on .name { animation: glTrackIn 1s var(--gl-ease) both; }
 html.ui-glass #wg .wg-title::before { content: ''; position: absolute; left: 50%; top: 50%; width: min(760px, 92vw); height: calc(100% + 56px); transform: translate(-50%, -50%); z-index: -1; border-radius: 22px;
-  background: var(--gl-bg-soft); -webkit-backdrop-filter: blur(16px) saturate(130%); backdrop-filter: blur(16px) saturate(130%); box-shadow: var(--gl-edge), var(--gl-drop); opacity: 0; transition: opacity .4s; }
+  background: var(--gl-bg-soft); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); box-shadow: var(--gl-edge), var(--gl-drop); opacity: 0; transition: opacity .4s; }
 html.ui-glass #wg .wg-title.on::before { opacity: 1; } html.ui-glass #wg .wg-title.out::before { opacity: 0; transition: opacity .6s; }
 html.ui-glass #wg .sr-card { background: radial-gradient(ellipse 60% 45% at 50% 50%, rgba(0,0,0,.22), rgba(0,0,0,0)); }
 html.ui-glass #wg .sr-card > div { position: relative; padding: 30px clamp(24px, 5vw, 64px) 28px; max-width: min(860px, calc(100vw - 32px)); border-radius: 24px;
-  background: var(--gl-bg-soft); -webkit-backdrop-filter: blur(20px) saturate(130%); backdrop-filter: blur(20px) saturate(130%); box-shadow: var(--gl-edge), var(--gl-drop); }
+  background: var(--gl-bg-soft); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); box-shadow: var(--gl-edge), var(--gl-drop); }
 html.ui-glass #wg .sr-card .r { display: none; }
 html.ui-glass #wg .sr-card .t { margin: 14px 0 12px; }
 html.ui-glass #wg .sr-card .s { font: 500 17px/1.5 var(--gl-body); color: rgba(248,244,236,.9); margin: 0 auto; max-width: 620px; }
 html.ui-glass #wg .sr-card.on .t { animation: glTrackIn 1s var(--gl-ease) both; }
 html.ui-glass #wg .sr-card.on .k::before, html.ui-glass #wg .sr-card.on .k::after, html.ui-glass #wg .wg-title.on .act::before, html.ui-glass #wg .wg-title.on .act::after { animation: glRule .8s .15s var(--gl-ease) both; }
 html.ui-glass #wg .sr-card.on .s { animation: glUp .6s .35s var(--gl-ease) both; }
-html.ui-glass #wg .wg-cap { border-left: 0; padding: 14px 24px 15px 20px; border-radius: 16px; background: var(--gl-bg-soft); -webkit-backdrop-filter: blur(16px) saturate(130%); backdrop-filter: blur(16px) saturate(130%);
+html.ui-glass #wg .wg-cap { border-left: 0; padding: 14px 24px 15px 20px; border-radius: 16px; background: var(--gl-bg-soft); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
   box-shadow: inset 3px 0 0 var(--c, #fff), var(--gl-edge), var(--gl-drop); }
 html.ui-glass #wg .wg-cap .n { font: 600 50px/1 var(--gl-disp); font-style: normal; letter-spacing: .08em; }
 html.ui-glass #wg .wg-cap .r { margin-top: 8px; font: 700 12.5px/1.2 var(--gl-body); letter-spacing: .2em; }
@@ -242,20 +244,146 @@ html.ui-glass #wg-boot .wg-boot-logo, html.ui-glass #wg .wg-gtitle .logo { font-
 html.ui-glass #wg-boot .wg-boot-logo b span, html.ui-glass #wg .wg-gtitle .logo b span { background: linear-gradient(180deg, #FFE2A6, var(--gl-amber) 48%, var(--gl-amber2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 html.ui-glass #wg-boot .wg-boot-rule, html.ui-glass #wg .wg-gtitle .rule { width: 220px; height: 1px; background: linear-gradient(90deg, rgba(255,181,71,0), var(--gl-amber), rgba(255,181,71,0)); margin-top: 18px; }
 html.ui-glass #wg-boot .wg-boot-tag, html.ui-glass #wg .wg-gtitle .tag { margin-top: 16px; padding: 9px 22px 8px; border-radius: 999px; font-family: var(--gl-disp); font-weight: 500; letter-spacing: .5em;
-  background: rgba(20,16,18,.42); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: var(--gl-edge); }
+  background: var(--gl-bg-soft); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); box-shadow: var(--gl-edge); }
 html.ui-glass #wg .wg-gate .go { font-family: var(--gl-disp); font-weight: 500; letter-spacing: .4em; }
 html.ui-glass #wg .wg-gate .fine { font-family: var(--gl-body); font-weight: 500; letter-spacing: .04em; }
 html.ui-glass #wg .wg-skip { font: 600 12.5px/1 var(--gl-body); letter-spacing: .04em; }
 html.ui-glass #wg .wg-skip kbd { font: 600 11px/18px var(--gl-disp); }
 html.ui-glass #wg .wg-hold { font: 600 16px/1 var(--gl-body); background: var(--gl-bg); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); box-shadow: var(--gl-edge), var(--gl-drop); border-radius: 999px; }
 
+/* ====================================================================================================================
+   v2 (the owner: glass everywhere, clearer, sleeker type). One face throughout; then every other surface in the frame.
+   ==================================================================================================================== */
+html.ui-glass :is(#wg, #wf, #wg-pause, #wg-toast, #wg-prompt, #sr-juice, #wg-boot, .hud, #fullmap-modal, .popover),
+html.ui-glass :is(#wg, #wf, #wg-pause, #wg-toast, #wg-prompt, #sr-juice, #wg-boot, .hud, #fullmap-modal, .popover) :not(svg, svg *) {
+  font-family: var(--gl-font) !important; font-style: normal !important; font-synthesis: none; }
+html.ui-glass { --glass: rgba(16,11,10,.10); --glass-strong: rgba(16,11,10,.18); --glass-border: rgba(255,255,255,.20); --glass-highlight: rgba(255,255,255,.34);
+  --grain: linear-gradient(160deg, rgba(255,255,255,.13), rgba(255,255,255,.04) 48%, rgba(255,255,255,.02));
+  --shadow: 0 10px 30px -12px rgba(0,0,0,.45), 0 1px 3px rgba(0,0,0,.12); --font-sans: var(--gl-font); --font-sign: var(--gl-font);
+  --text-2: rgba(251,248,243,.82); --text-3: rgba(251,248,243,.66); }
+/* (the city's own glass panels: the toolbar, the speed card, the map's header, zoom and footer, the popovers) */
+html.ui-glass .panel { -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); text-shadow: var(--gl-ts); }
+/* (labels: thin tracked caps; numbers: tight bold tabular) */
+html.ui-glass :is(#wg .wg-sub b, #wg .wg-obj::before, .wg-track .k, #wg .wg-count .l, #wg .sr-timer .l, #wg .sr-meters .l, #wg .sr-bar .row, #wf .wf-boss .wf-bk,
+  #wg .wg-title .act, #wg .sr-card .k, #wg .sr-choice .h, #wg .sr-pass .g, #wg .sr-pass .st, #wg .sr-pass .p .row, #wg .sr-pass .nx .k, #wg .wg-offer .h, #wg .wg-place .s,
+  #wg .wg-big:not(.wg-ep) .tip b, .wg-track .log .h, .gauge-label, .gauge-unit, .gauge-alt-label, .location-place, .location-near, #wf .wf-combo .wf-t) {
+  font-weight: 500; font-size: 10.5px; letter-spacing: .24em; text-transform: uppercase; }
+html.ui-glass #wg .wg-sub b { font-weight: 600; font-size: 11px; }
+html.ui-glass :is(#wg .wg-count .v, #wg .sr-timer .v, #wg .sr-meters .v, #wg .sr-pass .g b, #hud-speed, #wf .wf-combo .wf-n, #wg .sr-bar .row b, #wg .wg-turn .d) {
+  font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+html.ui-glass #wg .sr-bar .row b { font-size: 13px; letter-spacing: -.01em; }
+/* (the words: Geist is wider than the condensed face, a size down, a weight up) */
+html.ui-glass #wg .wg-sub, html.ui-glass #wg .wg-obj { font-size: 18px; font-weight: 500; letter-spacing: -.005em; }
+html.ui-glass .wg-track .o { font-weight: 500; font-size: 14.5px; }
+html.ui-glass #wg .wg-turn { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+html.ui-glass #wg .wg-turn .w { font-weight: 700; }
+/* (titles: sentence case, tight, settling in from wide) */
+@keyframes glTrackIn { from { opacity: 0; letter-spacing: .32em; } }
+html.ui-glass :is(#wg .wg-title .name, #wg .sr-card .t) { font-weight: 650; font-size: clamp(38px, 5.6vw, 76px); letter-spacing: -.03em; text-transform: none; }
+html.ui-glass #wg .wg-cap .n { font-weight: 650; font-size: 44px; letter-spacing: -.03em; text-transform: none; }
+html.ui-glass #wg .wg-cap .r { font-weight: 500; font-size: 11px; letter-spacing: .24em; }
+html.ui-glass #wf .wf-boss .wf-bn { font-weight: 650; font-size: 22px; letter-spacing: .02em; padding-left: 0; text-transform: none; }
+html.ui-glass #wg .wg-place .n { font-weight: 600; font-size: 26px; letter-spacing: -.02em; }
+html.ui-glass :is(#wg .sr-pass .h, #wg .wg-big .h) { font-weight: 700; font-size: clamp(44px, 7vw, 92px) !important; letter-spacing: -.035em; text-transform: none; }
+html.ui-glass #wg .sr-pass .t, html.ui-glass #wg .wg-big .t { font-weight: 500; font-size: clamp(16px, 1.8vw, 22px); letter-spacing: .26em; text-transform: uppercase; }
+html.ui-glass #wg .sr-pass .nx .n { font-weight: 650; font-size: 20px; letter-spacing: -.02em; text-transform: none; }
+html.ui-glass #wg .sr-choice button .m { font-weight: 650; font-size: 19px; letter-spacing: -.01em; }
+html.ui-glass #wg .sr-choice .p { font-weight: 500; font-size: 18px; }
+html.ui-glass #sr-juice .h, html.ui-glass #wf .wf-banner { font-weight: 700; letter-spacing: -.02em; padding-left: 0; font-size: 40px; }
+html.ui-glass #wf .wf-banner { font-size: 30px; }
+html.ui-glass #wg .wg-big button { font-weight: 600; font-size: 14px; letter-spacing: .18em; }
+html.ui-glass #wg .wg-big .why { font-weight: 500; font-size: 19px; }
+html.ui-glass #wg kbd, html.ui-glass .wg-track kbd, html.ui-glass #wf kbd, html.ui-glass #wg-pause kbd, html.ui-glass #wg-toast kbd, html.ui-glass .hud kbd {
+  font-family: var(--gl-font); font-weight: 600; letter-spacing: .02em; border-radius: 6px; border: 0; background: rgba(255,255,255,.12) !important; color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.28), inset 0 -1px 0 rgba(0,0,0,.25); text-shadow: none; }
+html.ui-glass #wg .sr-choice button.sel kbd { background: var(--gl-amber) !important; color: #1A1208; box-shadow: 0 0 12px rgba(255,181,71,.6); }
+/* (the title screen: SF 2040 tight and bold) */
+html.ui-glass #wg-boot .wg-boot-logo, html.ui-glass #wg .wg-gtitle .logo { font-weight: 750; letter-spacing: -.035em; }
+html.ui-glass #wg-boot .wg-boot-tag, html.ui-glass #wg .wg-gtitle .tag { font-weight: 500; letter-spacing: .42em; }
+html.ui-glass #wg .wg-gate .go { font-weight: 500; letter-spacing: .34em; font-size: clamp(12px, 1.4vw, 18px); }
+
+/* ---- the city's HUD ---- */
+html.ui-glass .location-place, html.ui-glass .location-near { color: #fff; text-shadow: var(--gl-ts); }
+html.ui-glass .street-sign { font-weight: 600; font-size: 14px; letter-spacing: -.005em; padding: 8px 13px 8px; border-radius: 999px; outline: 0;
+  background: linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.03)), rgba(12,110,72,.30);
+  -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); box-shadow: inset 0 0 0 1px rgba(120,255,190,.40), inset 0 1px 0 rgba(255,255,255,.3), var(--gl-drop); text-shadow: var(--gl-ts); }
+html.ui-glass .radar { border-radius: 20px; box-shadow: 0 0 0 1px rgba(255,255,255,.22), inset 0 1px 0 rgba(255,255,255,.3), var(--gl-drop); background: rgba(10,17,24,.55); }
+html.ui-glass .radar::after { box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), inset 0 1px 0 rgba(255,255,255,.22), inset 0 0 26px rgba(0,0,0,.35); }
+html.ui-glass .radar-north, html.ui-glass .radar-key { background: rgba(255,255,255,.14); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
+html.ui-glass #hud-speed { font-size: 40px; }
+html.ui-glass .gauge-meter { height: 4px; border-radius: 999px; background: rgba(255,255,255,.16); }
+html.ui-glass #hud-speed-meter { background: linear-gradient(90deg, rgba(255,255,255,.75), #fff); box-shadow: 0 0 10px rgba(255,255,255,.5); }
+html.ui-glass body.is-boosting #hud-speed-meter { background: linear-gradient(90deg, var(--gl-amber2), var(--gl-amber)); box-shadow: 0 0 12px rgba(255,181,71,.7); }
+html.ui-glass .tool-btn { font-weight: 550; }
+html.ui-glass .tool-btn:hover, html.ui-glass .tool-btn.is-open { background: rgba(255,255,255,.12); }
+/* (the prompt under him, 'F · Mount': inline styles, so these win with !important) */
+html.ui-glass #wg-prompt { background: var(--gl-bg) !important; -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); border-radius: 999px !important;
+  box-shadow: var(--gl-edge), var(--gl-drop); font-weight: 600 !important; font-size: 14px !important; letter-spacing: .02em !important; padding: 9px 18px !important; text-shadow: var(--gl-ts); }
+html.ui-glass #wg-toast { background: var(--gl-bg); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); border-radius: 14px; box-shadow: var(--gl-edge), var(--gl-drop);
+  font-weight: 500; font-size: 15px; line-height: 1.45; text-shadow: var(--gl-ts); }
+/* (the full map: its title, search, zoom, compass, close and footer are .panel, glass above; the hover chip and labels) */
+html.ui-glass #fullmap-modal .fullmap-title h2 { font-weight: 650; letter-spacing: -.01em; }
+html.ui-glass #fullmap-modal .fullmap-search-wrap input { font-family: var(--gl-font); }
+html.ui-glass .popover { -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); }
+
+/* ---- the fight ---- */
+html.ui-glass #wf { text-shadow: var(--gl-ts); }
+html.ui-glass #wf :is(.wf-hint, .wf-msg, .wf-held, .wf-lesson, .wf-offer div) { background: var(--gl-bg); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
+  box-shadow: var(--gl-edge), var(--gl-drop); border-radius: 14px; }
+html.ui-glass #wf .wf-msg { border-radius: 999px; font-weight: 600; font-size: 14px; letter-spacing: .04em; }
+html.ui-glass #wf .wf-hint { font-weight: 500; font-size: 13.5px; gap: 8px; }
+/* (the fight's key list under the story's help, top left, not behind it) */
+html.ui-glass body.wg-story:not(.touch-enabled):has(#wg .wg-help.on) #wf .wf-hint { top: 128px; }
+html.ui-glass #wf .wf-combo .wf-n { font-weight: 750; font-size: 56px; letter-spacing: -.05em; }
+html.ui-glass #wf .wf-combo .wf-t { margin-top: 6px; }
+html.ui-glass #wf .wf-combo .wf-m { height: 4px; border-radius: 999px; background: rgba(255,255,255,.16); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+html.ui-glass #wf .wf-combo .wf-td { font-weight: 600; font-size: 12.5px; letter-spacing: .2em; background: var(--gl-bg); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
+  box-shadow: inset 0 0 0 1px rgba(255,181,71,.55), var(--gl-drop); border-radius: 999px; padding: 6px 12px; }
+html.ui-glass #wf .wf-keys { font-weight: 500; font-size: 12.5px; letter-spacing: .02em; gap: 6px 14px; padding: 8px 16px; border-radius: 999px;
+  background: var(--gl-bg-soft); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); box-shadow: var(--gl-edge), var(--gl-drop); }
+html.ui-glass #wf .wf-keys kbd { font-size: 10.5px; padding: 2px 5px; }
+html.ui-glass #wf .wf-hp { height: 6px; border-radius: 999px; background: rgba(255,255,255,.14); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2), var(--gl-drop); }
+html.ui-glass #wf .wf-hp .wf-fill { border-radius: 999px; box-shadow: 0 0 10px rgba(74,222,128,.55); }
+html.ui-glass #wf .wf-tag .wf-bar { height: 4px; border-radius: 999px; background: rgba(255,255,255,.16); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+html.ui-glass #wf .wf-foe span { font-weight: 600; font-size: 11.5px; letter-spacing: .04em; }
+html.ui-glass #wf .wf-lesson .wf-lt { font-weight: 700; letter-spacing: -.01em; }
+html.ui-glass #wf .wf-lesson .wf-ls { font-weight: 500; letter-spacing: .26em; }
+
+/* ---- the pause menu (and in it Mission select, Sound, Graphics, Controls, Credits) ---- */
+html.ui-glass #wg-pause { background: radial-gradient(90% 80% at 30% 40%, rgba(0,0,0,.18), rgba(0,0,0,.42)); -webkit-backdrop-filter: blur(6px) saturate(120%); backdrop-filter: blur(6px) saturate(120%); text-shadow: var(--gl-ts); }
+html.ui-glass #wg-pause .hd { font-weight: 700; font-size: clamp(40px, 5.2vw, 64px); letter-spacing: -.04em; text-transform: none; }
+html.ui-glass #wg-pause .hd b { color: var(--gl-amber); font-weight: 700; }
+html.ui-glass #wg-pause .rule { width: 72px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--gl-amber), rgba(255,181,71,0)); }
+html.ui-glass #wg-pause .mi { font-weight: 500; font-size: 15px; letter-spacing: .16em; padding-top: 11px; padding-bottom: 11px; border-left: 0; border-radius: 12px; transition: background .2s, box-shadow .2s, color .2s; }
+html.ui-glass #wg-pause .mi.sel { background: var(--gl-bg); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); color: #fff; font-weight: 650;
+  box-shadow: inset 2px 0 0 var(--gl-amber), var(--gl-edge), var(--gl-drop); }
+html.ui-glass #wg-pause .mi:hover:not(.sel) { background: rgba(255,255,255,.07); }
+html.ui-glass #wg-pause .panel { background: var(--gl-bg); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); border: 0; border-radius: 20px; box-shadow: var(--gl-edge), var(--gl-drop); }
+html.ui-glass #wg-pause .panel.focus { box-shadow: inset 0 0 0 1px rgba(255,181,71,.55), var(--gl-drop); }
+html.ui-glass #wg-pause .t { font-weight: 500; font-size: 10.5px; letter-spacing: .26em; color: var(--gl-amber); }
+html.ui-glass #wg-pause .t.g { color: rgba(255,255,255,.66); }
+html.ui-glass #wg-pause .ms { font-weight: 650; font-size: 26px; letter-spacing: -.025em; text-transform: none; }
+html.ui-glass #wg-pause .ob { font-weight: 500; font-size: 19px; line-height: 1.4; }
+html.ui-glass #wg-pause :is(.ln, .mu, .gn) { font-weight: 450; font-size: 15px; line-height: 1.5; }
+html.ui-glass #wg-pause .ln b, html.ui-glass #wg-pause .gn b { font-weight: 650; font-size: 14px; letter-spacing: .01em; }
+html.ui-glass #wg-pause .mu { color: rgba(255,255,255,.72); }
+html.ui-glass #wg-pause .row { font-weight: 450; font-size: 14px; border-bottom-color: rgba(255,255,255,.1); }
+html.ui-glass #wg-pause .keys { font-weight: 450; font-size: 12px; letter-spacing: .02em; color: rgba(255,255,255,.72); }
+html.ui-glass #wg-pause .opt { font-weight: 600; font-size: 16px; letter-spacing: -.01em; text-transform: none; border: 0; border-radius: 12px; background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+html.ui-glass #wg-pause .opt small { font-weight: 500; font-size: 10px; letter-spacing: .2em; }
+html.ui-glass #wg-pause .opt.sel { background: linear-gradient(155deg, rgba(255,181,71,.2), rgba(255,181,71,.05)); box-shadow: inset 0 0 0 1px var(--gl-amber), 0 0 22px -8px rgba(255,181,71,.7); }
+html.ui-glass #wg-pause .sl span { font-weight: 550; font-size: 15px; }
+html.ui-glass #wg-pause .sl .bar { height: 4px; border-radius: 999px; background: rgba(255,255,255,.16); }
+html.ui-glass #wg-pause .sl .bar > i { border-radius: 999px; background: var(--gl-amber); box-shadow: 0 0 10px rgba(255,181,71,.6); }
+
 /* ---- a phone (touch): a size down, as the plain theme does ---- */
-html.ui-glass body.touch-enabled #wg .wg-sub, html.ui-glass body.touch-enabled #wg .wg-obj { font-size: 16px; padding: 8px 14px 9px; }
+html.ui-glass body.touch-enabled #wg .wg-sub, html.ui-glass body.touch-enabled #wg .wg-obj { font-size: 15px; padding: 8px 14px 9px; }
 html.ui-glass body.touch-enabled.wg-cine #wg .wg-sub { font-size: 17px; }
 html.ui-glass body.touch-enabled #wg .wg-turn { font-size: 16px; padding: 7px 13px 7px 10px; }
 html.ui-glass body.touch-enabled #wg .wg-count { display: flex; align-items: baseline; gap: 8px; padding: 6px 12px; }
 html.ui-glass body.touch-enabled #wg .wg-count .v { font-size: 22px; margin: 0; }
-html.ui-glass body.touch-enabled #wg .wg-cap .n { font-size: 36px; }
+html.ui-glass body.touch-enabled #wg .wg-cap .n { font-size: 32px; }
+html.ui-glass body.touch-enabled #wg-pause .mi { font-size: 14px; }
 @media (max-width: 700px) {
   html.ui-glass #wg .sr-choice.n2 .opts { grid-template-columns: 1fr; gap: 8px; }
   html.ui-glass #wg .sr-choice button .m { font-size: 18px; }
