@@ -90,7 +90,10 @@ test('SF 2040: every mission has its own verb, a checkpoint, objectives, and the
   }
   // (the radio on the rides, and between the missions)
   assert.ok(w.missions.filter((m) => m.steps.some((s) => (s.during || []).some((x) => x.type === 'call'))).length >= 4);
-  assert.ok(w.missions.slice(1).every((m) => m.between?.radio?.length), 'radio between missions');
+  // (between two missions: the band on the ride there, or the ride cut (between.ride false: a new day, a long ride
+  // already taken) and the mission's own first ride on the band instead)
+  const onBand = (m) => m.steps.some((s) => (s.during || []).some((x) => x.type === 'call'));
+  assert.ok(w.missions.slice(1).every((m) => m.between?.radio?.length || m.between?.ride === false || onBand(m)), 'radio between missions');
   // (every speaker is in the cast, so the voice lane can find them)
   const speakers = new Set();
   const walk = (v) => { if (Array.isArray(v)) { if (v.length >= 2 && typeof v[0] === 'string' && typeof v[1] === 'string' && w.cast[v[0]]) speakers.add(v[0]); v.forEach(walk); } else if (v && typeof v === 'object') { if (v.who && v.text) speakers.add(v.who); Object.values(v).forEach(walk); } };

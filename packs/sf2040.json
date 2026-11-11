@@ -274,6 +274,22 @@
     -90
    ],
    "name": "Civic Center Plaza"
+  },
+  "m2start": {
+   "at": [
+    -1060,
+    1053,
+    -45
+   ],
+   "name": "Market St"
+  },
+  "m3start": {
+   "at": [
+    -1700,
+    1690,
+    135
+   ],
+   "name": "Market St"
   }
  },
  "opening": {
@@ -885,7 +901,7 @@
    "id": "M2",
    "title": "Quiet Hooves",
    "vehicle": "horse",
-   "start": "@campgate",
+   "start": "@m2start",
    "stakes": "Nina's last call came from the pharmacy at Market & Church. Something sleeps on the street in front of it.",
    "passLine": "Medicine for the camp. And Nina's handwriting.",
    "nudge": [
@@ -898,7 +914,8 @@
       "Hollis",
       "Octavia's west, up Market. Slow out there, Cal. Slow is alive."
      ]
-    ]
+    ],
+    "ride": false
    },
    "steps": [
     {
@@ -1202,7 +1219,7 @@
    "id": "M3",
    "title": "Wild Horses",
    "vehicle": "horse",
-   "start": "@pharmacy",
+   "start": "@m3start",
    "stakes": "Tithe night is Sunday. The camp needs horses to move, and a wild herd grazes on Civic Center Plaza under a silverback's eye.",
    "passLine": "Horses for the camp. And a name: WARDEN-7.",
    "nudge": [
@@ -1215,7 +1232,8 @@
       "Hollis",
       "Medicine's in the clinic tent. Cal, if we're moving people before Sunday, we need horses."
      ]
-    ]
+    ],
+    "ride": false
    },
    "steps": [
     {
@@ -1482,26 +1500,7 @@
     "Pike",
     "Rider, you still there? Hyde St. Everything you need is on your radar."
    ],
-   "between": {
-    "radio": [
-     [
-      "Pike",
-      "Rider? It's Pike. From Market. Vale parked the big machine at the hospital. It calls the animals."
-     ],
-     [
-      "Pike",
-      "Three relay boxes on the street keep it loud. Break those and it goes quiet."
-     ],
-     [
-      "Cal",
-      "Why tell me?"
-     ],
-     [
-      "Pike",
-      "You let me walk away."
-     ]
-    ]
-   },
+   "between": {},
    "steps": [
     {
      "type": "herd",
@@ -1532,7 +1531,35 @@
        "Warden",
        "CONTAINMENT BREACH. ALL SPECIMENS RETURN TO ENCLOSURE."
       ]
-     }
+     },
+     "during": [
+      {
+       "type": "call",
+       "at": 4,
+       "who": "Pike",
+       "auto": true,
+       "inCar": true,
+       "role": "Open band",
+       "lines": [
+        [
+         "Pike",
+         "Rider? It's Pike. From Market. Vale parked the big machine at the hospital. It calls the animals."
+        ],
+        [
+         "Pike",
+         "Three relay boxes on the street keep it loud. Break those and it goes quiet."
+        ],
+        [
+         "Cal",
+         "Why tell me?"
+        ],
+        [
+         "Pike",
+         "You let me walk away."
+        ]
+       ]
+      }
+     ]
     },
     {
      "type": "say",
@@ -2696,12 +2723,7 @@
    ],
    "between": {
     "dm": false,
-    "radio": [
-     [
-      "Hollis",
-      "Camp's awake, Cal. Everybody wants to see the doctor."
-     ]
-    ]
+    "ride": false
    },
    "steps": [
     {
@@ -2947,7 +2969,7 @@
        "foes": [
         {
          "id": "creature-knight",
-         "count": 3,
+         "count": 4,
          "name": "Iron Saint"
         }
        ],
@@ -2967,7 +2989,7 @@
         },
         {
          "id": "creature-knight",
-         "count": 1,
+         "count": 2,
          "name": "Iron Saint"
         }
        ],
@@ -2990,13 +3012,19 @@
         ],
         "stats": {
          "hp": 260
-        }
+        },
+        "kind": "Iron Saints"
        },
        "foes": [
         {
          "id": "creature-ogre",
          "count": 2,
          "name": "Brute"
+        },
+        {
+         "id": "creature-knight",
+         "count": 2,
+         "name": "Iron Saint"
         }
        ],
        "from": "@wavewest",
@@ -3005,7 +3033,7 @@
         "June",
         "It's him! Big armour, by the Ferry Building!"
        ],
-       "alert": "Deacon Vale",
+       "alert": "By the Ferry Building",
        "wake": [
         "Vale",
         "Rider. You owe me a city."
@@ -3953,39 +3981,7 @@
     "clip": "1c4b988c-7dec096b"
    },
    {
-    "id": "M4.between.radio.0",
-    "who": "Pike",
-    "voice": "pike-B",
-    "text": "Rider? It's Pike. From Market. Vale parked the big machine at the hospital. It calls the animals.",
-    "hash": "2b6927f9",
-    "clip": "2b6927f9-7dec096b"
-   },
-   {
-    "id": "M4.between.radio.1",
-    "who": "Pike",
-    "voice": "pike-B",
-    "text": "Three relay boxes on the street keep it loud. Break those and it goes quiet.",
-    "hash": "786ceb57",
-    "clip": "786ceb57-7dec096b"
-   },
-   {
-    "id": "M4.between.radio.2",
-    "who": "Cal",
-    "voice": "cal-A",
-    "text": "Why tell me?",
-    "hash": "18471cda",
-    "clip": "18471cda-b7012458"
-   },
-   {
-    "id": "M4.between.radio.3",
-    "who": "Pike",
-    "voice": "pike-B",
-    "text": "You let me walk away.",
-    "hash": "3298f5f3",
-    "clip": "3298f5f3-7dec096b"
-   },
-   {
-    "id": "M4.0.trigger",
+    "id": "M4.1.trigger",
     "who": "Warden",
     "voice": "warden-A",
     "text": "CONTAINMENT BREACH. ALL SPECIMENS RETURN TO ENCLOSURE.",
@@ -3993,7 +3989,42 @@
     "clip": "3ec582ad-9a45c85b"
    },
    {
-    "id": "M4.1",
+    "id": "M4.1.during.0.lines.0",
+    "who": "Pike",
+    "voice": "pike-B",
+    "text": "Rider? It's Pike. From Market. Vale parked the big machine at the hospital. It calls the animals.",
+    "hash": "2b6927f9",
+    "clip": "2b6927f9-7dec096b",
+    "fx": "phone"
+   },
+   {
+    "id": "M4.1.during.0.lines.1",
+    "who": "Pike",
+    "voice": "pike-B",
+    "text": "Three relay boxes on the street keep it loud. Break those and it goes quiet.",
+    "hash": "786ceb57",
+    "clip": "786ceb57-7dec096b",
+    "fx": "phone"
+   },
+   {
+    "id": "M4.1.during.0.lines.2",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Why tell me?",
+    "hash": "18471cda",
+    "clip": "18471cda-b7012458"
+   },
+   {
+    "id": "M4.1.during.0.lines.3",
+    "who": "Pike",
+    "voice": "pike-B",
+    "text": "You let me walk away.",
+    "hash": "3298f5f3",
+    "clip": "3298f5f3-7dec096b",
+    "fx": "phone"
+   },
+   {
+    "id": "M4.2",
     "who": "Cal",
     "voice": "cal-A",
     "text": "Hybrids. Preserve tags still on them.",
@@ -4001,7 +4032,7 @@
     "clip": "d9c03c5b-b7012458"
    },
    {
-    "id": "M4.2",
+    "id": "M4.3",
     "who": "Cal",
     "voice": "cal-A",
     "text": "Target me, then. Come on.",
@@ -4009,7 +4040,7 @@
     "clip": "606ff32b-b7012458"
    },
    {
-    "id": "M4.2.bark1",
+    "id": "M4.3.bark1",
     "who": "Warden",
     "voice": "warden-A",
     "text": "SPECIMEN DOWN. UNAUTHORIZED PERSON. RESTRAIN.",
@@ -4017,7 +4048,7 @@
     "clip": "5c3e1f25-9a45c85b"
    },
    {
-    "id": "M4.3",
+    "id": "M4.5",
     "who": "Warden",
     "voice": "warden-A",
     "text": "BROADCAST CONTINUING. ALL SPECIMENS: COME HOME.",
@@ -4025,7 +4056,7 @@
     "clip": "171b61fd-9a45c85b"
    },
    {
-    "id": "M4.4",
+    "id": "M4.6",
     "who": "Cal",
     "voice": "cal-A",
     "text": "It's still calling them. Pike said three relays.",
@@ -4033,7 +4064,7 @@
     "clip": "4ecf02f5-b7012458"
    },
    {
-    "id": "M4.6.bark1",
+    "id": "M4.8.bark1",
     "who": "Cal",
     "voice": "cal-A",
     "text": "One down.",
@@ -4041,7 +4072,7 @@
     "clip": "7e64af0a-b7012458"
    },
    {
-    "id": "M4.6.bark2",
+    "id": "M4.8.bark2",
     "who": "Pike",
     "voice": "pike-B",
     "text": "That's two! The last one's on Bush St!",
@@ -4049,7 +4080,7 @@
     "clip": "3c6d9187-7dec096b"
    },
    {
-    "id": "M4.9.0",
+    "id": "M4.12.0",
     "who": "Warden",
     "voice": "warden-A",
     "text": "BROADCAST INTERRUPTED. OPERATOR DETECTED. AWAITING COMMAND.",
@@ -4057,7 +4088,7 @@
     "clip": "b9b0ea84-9a45c85b"
    },
    {
-    "id": "M4.9.1",
+    "id": "M4.12.1",
     "who": "Cal",
     "voice": "cal-A",
     "text": "It's asking me. It's asking me what to do with them.",
@@ -4065,7 +4096,7 @@
     "clip": "52e15cee-b7012458"
    },
    {
-    "id": "M4.9.2",
+    "id": "M4.12.2",
     "who": "Pike",
     "voice": "pike-B",
     "text": "Smash the core and nobody calls them ever again. Not Vale. Not anybody. They just run wild.",
@@ -4073,7 +4104,7 @@
     "clip": "64173340-7dec096b"
    },
    {
-    "id": "M4.9.3",
+    "id": "M4.12.3",
     "who": "Pike",
     "voice": "pike-B",
     "text": "Or send one last tone. Home. Every collar in the city walks back to the Preserve. Even the big ones.",
@@ -4081,7 +4112,7 @@
     "clip": "0b279002-7dec096b"
    },
    {
-    "id": "M4.9.4",
+    "id": "M4.12.4",
     "who": "Cal",
     "voice": "cal-A",
     "text": "Back to the crater. Or loose for good.",
@@ -4089,7 +4120,7 @@
     "clip": "049bdcd3-b7012458"
    },
    {
-    "id": "M4.10.options.0.reply",
+    "id": "M4.13.options.0.reply",
     "who": "Cal",
     "voice": "cal-A",
     "text": "No more shepherds.",
@@ -4097,7 +4128,7 @@
     "clip": "4f8f7de7-b7012458"
    },
    {
-    "id": "M4.10.options.1.reply",
+    "id": "M4.13.options.1.reply",
     "who": "Cal",
     "voice": "cal-A",
     "text": "Go home. All of you.",
@@ -4105,7 +4136,7 @@
     "clip": "710af5f9-b7012458"
    },
    {
-    "id": "M4.13",
+    "id": "M4.20",
     "who": "Warden",
     "voice": "warden-A",
     "text": "CORE OFFLINE.",
@@ -4113,7 +4144,7 @@
     "clip": "5f1723cb-9a45c85b"
    },
    {
-    "id": "M4.14",
+    "id": "M4.21",
     "who": "Warden",
     "voice": "warden-A",
     "text": "RECALL TONE SENT. ALL SPECIMENS: RETURN HOME.",
@@ -4121,7 +4152,7 @@
     "clip": "75a4c52f-9a45c85b"
    },
    {
-    "id": "M4.16.0",
+    "id": "M4.23.0",
     "who": "Cal",
     "voice": "cal-A",
     "text": "Empty. Every bed.",
@@ -4129,7 +4160,7 @@
     "clip": "d707cdf5-b7012458"
    },
    {
-    "id": "M4.16.2",
+    "id": "M4.23.2",
     "who": "Cal",
     "voice": "cal-A",
     "text": "Lafayette Park. I'm coming.",
@@ -4137,7 +4168,7 @@
     "clip": "096a7060-b7012458"
    },
    {
-    "id": "M4.17.0",
+    "id": "M4.24.0",
     "who": "Vale",
     "voice": "vale-B",
     "text": "Rider. You broke my shepherd.",
@@ -4145,7 +4176,7 @@
     "clip": "0a19b90a-7f436389"
    },
    {
-    "id": "M4.17.1",
+    "id": "M4.24.1",
     "who": "Cal",
     "voice": "cal-A",
     "text": "You were using it on people.",
@@ -4153,7 +4184,7 @@
     "clip": "82030576-b7012458"
    },
    {
-    "id": "M4.17.2",
+    "id": "M4.24.2",
     "who": "Vale",
     "voice": "vale-B",
     "text": "I was keeping order. Ask your radio man who let them out.",
@@ -4161,7 +4192,7 @@
     "clip": "66132c0f-7f436389"
    },
    {
-    "id": "M4.17.3",
+    "id": "M4.24.3",
     "who": "Cal",
     "voice": "cal-A",
     "text": "What?",
@@ -4169,7 +4200,7 @@
     "clip": "2e6de125-b7012458"
    },
    {
-    "id": "M4.17.4",
+    "id": "M4.24.4",
     "who": "Vale",
     "voice": "vale-B",
     "text": "Ask Hollis who opened the Preserve gates the night Erebus fell.",
@@ -4177,7 +4208,7 @@
     "clip": "88bf9529-7f436389"
    },
    {
-    "id": "M4.17.5",
+    "id": "M4.24.5",
     "who": "Cal",
     "voice": "cal-A",
     "text": "Hollis.",
@@ -4185,7 +4216,7 @@
     "clip": "bf83a677-b7012458"
    },
    {
-    "id": "M4.17.6",
+    "id": "M4.24.6",
     "who": "Hollis",
     "voice": "hollis-B",
     "text": "I was the night keeper. The fires were coming over the wall, Cal. They'd have burned in their pens.",
@@ -4193,7 +4224,7 @@
     "clip": "462ef641-966bd272"
    },
    {
-    "id": "M4.17.7",
+    "id": "M4.24.7",
     "who": "Hollis",
     "voice": "hollis-B",
     "text": "So I opened every gate. I thought they'd run for the hills.",
@@ -4201,7 +4232,7 @@
     "clip": "a3c118a3-966bd272"
    },
    {
-    "id": "M4.17.8",
+    "id": "M4.24.8",
     "who": "Cal",
     "voice": "cal-A",
     "text": "They ran for us.",
@@ -4209,7 +4240,7 @@
     "clip": "d5b7f140-b7012458"
    },
    {
-    "id": "M4.17.9",
+    "id": "M4.24.9",
     "who": "Hollis",
     "voice": "hollis-B",
     "text": "I know. I've sat at this radio forty-one days trying to make it right.",
@@ -4217,7 +4248,7 @@
     "clip": "733683ba-966bd272"
    },
    {
-    "id": "M4.17.10",
+    "id": "M4.24.10",
     "who": "Cal",
     "voice": "cal-A",
     "text": "We'll talk when I've got my family.",
@@ -4384,14 +4415,6 @@
     "text": "Cal, the camp needs you on that horse.",
     "hash": "960966ca",
     "clip": "960966ca-966bd272"
-   },
-   {
-    "id": "M6.between.radio.0",
-    "who": "Hollis",
-    "voice": "hollis-B",
-    "text": "Camp's awake, Cal. Everybody wants to see the doctor.",
-    "hash": "c7ef7130",
-    "clip": "c7ef7130-966bd272"
    },
    {
     "id": "M6.4.0",
@@ -4871,6 +4894,10 @@
     "url": "assets/voice/sf2040/1c4b988c-7dec096b.m4a",
     "secs": 3.99
    },
+   "3ec582ad-9a45c85b": {
+    "url": "assets/voice/sf2040/3ec582ad-9a45c85b.m4a",
+    "secs": 4.162
+   },
    "2b6927f9-7dec096b": {
     "url": "assets/voice/sf2040/2b6927f9-7dec096b.m4a",
     "secs": 6.44
@@ -4886,10 +4913,6 @@
    "3298f5f3-7dec096b": {
     "url": "assets/voice/sf2040/3298f5f3-7dec096b.m4a",
     "secs": 1.58
-   },
-   "3ec582ad-9a45c85b": {
-    "url": "assets/voice/sf2040/3ec582ad-9a45c85b.m4a",
-    "secs": 4.162
    },
    "d9c03c5b-b7012458": {
     "url": "assets/voice/sf2040/d9c03c5b-b7012458.m4a",
@@ -5086,10 +5109,6 @@
    "960966ca-966bd272": {
     "url": "assets/voice/sf2040/960966ca-966bd272.m4a",
     "secs": 2.57
-   },
-   "c7ef7130-966bd272": {
-    "url": "assets/voice/sf2040/c7ef7130-966bd272.m4a",
-    "secs": 4.06
    },
    "63a2f1dc-966bd272": {
     "url": "assets/voice/sf2040/63a2f1dc-966bd272.m4a",

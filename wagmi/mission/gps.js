@@ -257,7 +257,8 @@ export function createGPS(W) {
       const foot = cm.activeMode !== 'car', swap = gps._foot !== foot;
       if (force || moved || swap || !gps.route || t0 - gps.lastPlan > 1000 || offRoute(p.x, p.z, gps.route) > 25) {
         gps.lastPlan = t0; gps._to = { x: t.x, z: t.z }; gps._foot = foot;
-        const r = foot && dist(p, t) < FOOT_LINE ? null : foot ? planWalk({ x: p.x, z: p.z }, t) : plan({ x: p.x, z: p.z }, t, ent.heading);
+        // (a horse rides a one-way street either way, as a man walks it: the walking route, never round the block)
+        const r = foot && dist(p, t) < FOOT_LINE ? null : foot || W.car?.kind === 'horse' ? planWalk({ x: p.x, z: p.z }, t) : plan({ x: p.x, z: p.z }, t, ent.heading);
         // (still on the route it had, a new plan much longer is not taken: crossing a junction straight on, a cross
         // street's lane can look like the way he is going for a moment, and the line must not flick round a block)
         const old = !force && !moved && !swap && r && gps.route && gps.route.length > 2 && offRoute(p.x, p.z, gps.route) < 10 ? onFrom(gps.route, p.x, p.z) : null;

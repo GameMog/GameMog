@@ -68,7 +68,7 @@ export class CreatureFighter {
     this.state = 'idle'; this.st = 0; this.cd = rnd(0.8, 2.0); this.stun = 0; this.poise = 0; this.poiseLock = -9; this.backing = false;
     this.vel = new THREE.Vector3(); this.flinch = 0; this.flinchDir = 1; this.flash = 0; this.fall = 0; this.fallSide = 1; this.spd = 0;
     this.out = false; this.lastHitT = -9; this.weapon = null; this.atk = null; this.rage = 0; this.dipK = 0; this.walkPh = 0;
-    this.boss = boss ? { name: boss.name || this.name, phases: (boss.phases || [0.66, 0.33]).slice().sort((a, b) => b - a), next: 0 } : null;
+    this.boss = boss ? { name: boss.name || this.name, kind: boss.kind, phases: (boss.phases || [0.66, 0.33]).slice().sort((a, b) => b - a), next: 0 } : null;
     this.lair = hold ? { home: pos.clone(), yaw, wake: hold.wake ?? 9, leash: hold.leash ?? 24 } : null;
     this.feet = this.shape.feet.map((f) => ({ bone: made.skeleton.bones[f.bone], floor: Infinity, up: false }));
     this.initAnim();

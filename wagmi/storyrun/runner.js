@@ -1080,6 +1080,7 @@ export function createRunner(ctx) {
         const alive = crew.alive(), k = total - alive;
         // (the hits he takes, for the MISSION PASSED card)
         const hp = combat.player.hp; if (hp < lastHp - 0.5) M.stats.hits++; lastHp = hp;
+        if (armK) arming();
         // more of them run in at `at` down (Mission 1's Dash), from about 30 m off him; a bark at each count
         if (more && k >= (more.at ?? 1)) {
           const src = more.from ? placeOf(more.from) : null, dx = src ? src.x - P.position.x : -Math.sin(f) * 30, dz = src ? src.z - P.position.z : -Math.cos(f) * 30, kk = Math.min(1, 30 / Math.max(1, Math.hypot(dx, dz)));
@@ -1129,6 +1130,11 @@ export function createRunner(ctx) {
     if (!keeps) combat.clear?.();
     combat.player.maxHp = d.hp || combat.player.maxHp; combat.player.hp = combat.player.maxHp;
     const autoGetUp = combat.player.autoGetUp; combat.player.autoGetUp = true;
+    // (in the saddle: what the mission put in his hand (a mount step's `arm`, or the step's own) is his again, a retry
+    // from the checkpoint too, and it lasts the fight: J is always a blow, never the buck in its place)
+    const H = W.horse, armK = d.arm || (d.saddle ? 'bat' : null) || M.def.steps.slice(0, M.i).reverse().find((x) => x.type === 'mount' && x.arm)?.arm;
+    const arming = () => { if (H?.saddle && armK && H.mounted && !H.saddle.weapon) try { H.arm(armK); } catch {} };
+    if (H?.saddle && armK) { H.saddle.keep = true; arming(); }
     let down = false;
     const offDown = combat.player.onDown(() => { down = true; });
     const handles = [];
@@ -1160,7 +1166,7 @@ export function createRunner(ctx) {
         else {
           const bp = B.at ? placeOf(B.at) : null, at = bp ? { x: bp.cx ?? bp.x, z: bp.cz ?? bp.z } : src;
           h = C.spawn(B.id, { at, height: B.height, name: B.name, heavy: B.heavy, stats: B.stats, look: B.look, yaw: B.yaw != null ? (B.yaw * PI) / 180 : undefined,
-            boss: { name: B.name, phases: B.phases }, hold: B.hold ? { wake: B.hold.wake ?? 20, leash: B.hold.leash ?? 40 } : null, aggro: !B.hold });
+            boss: { name: B.name, phases: B.phases, kind: B.kind }, hold: B.hold ? { wake: B.hold.wake ?? 20, leash: B.hold.leash ?? 40 } : null, aggro: !B.hold });
         }
         bossName = B.name || bossName;
         mine.push(h);
@@ -1188,7 +1194,8 @@ export function createRunner(ctx) {
         const f = boss.fighters[0];
         if (f && d.wakeShot !== false && w.wakeShot !== false) {
           const hx = P.position.x, hz = P.position.z, dx = f.pos.x - hx, dz = f.pos.z - hz, n = Math.hypot(dx, dz) || 1, fx = dx / n, fz = dz / n, H = f.height || 3;
-          const back = 2.6 + H * 0.35, gy = cm.getGroundHeight(hx, hz, 'person');
+          // (in the saddle the lens starts from his seat, 1.5 m up and a little further back, not the horse's flank)
+          const back = 2.6 + H * 0.35 + (inCar() ? 1.6 : 0), gy = cm.getGroundHeight(hx, hz, 'person') + (inCar() ? 1.5 : 0);
           const cam = [hx - fx * back + fz * 1.4, gy + 0.9 + H * 0.12, hz - fz * back - fx * 1.4], cam2 = [hx - fx * (back + 1.2) + fz * 1.8, gy + 1.2 + H * 0.18, hz - fz * (back + 1.2) - fx * 1.8];
           const look = [f.pos.x, f.pos.y + H * 0.62, f.pos.z];
           // (first close on it from low down, looking up: its size; then over his shoulder: the two of them)
@@ -1218,13 +1225,24 @@ export function createRunner(ctx) {
     if (nW > 1) juice.alert(`WAVE 1/${nW}`, { sub: waves[0].alert ? tokens(waves[0].alert) : '', tone: 'red', sting: 'up', secs: 2 });
     if (waves[0].say) fightSay([waves[0].say]);
     const t0 = now();
-    let between = 0;
+    let between = 0, lastClear = -1;
     try {
       await wait(() => {
         const all = fighters(), alive = all.filter((f) => !f.out).length, k = all.length - alive;
         const hp = combat.player.hp; if (hp < lastHp - 0.5) M.stats.hits++; lastHp = hp;
+        if (armK) arming();
         if (k !== lastK) { lastK = k; const b = d.barks?.[k]; if (b && !talk && alive > 0) fightSay([b]); }
         tally();
+        // (the beats a player should feel: a boss's phase called out, a big one's roar felt through the screen, the
+        // last of a wave and the last of the fight landed in slow motion)
+        for (const f of all) {
+          if (f.out) continue;
+          if (f.boss && (f._ph ?? 0) !== f.boss.next) { f._ph = f.boss.next; juice.alert(f.boss.next >= f.boss.phases.length ? 'Last stand' : 'Enraged', { sub: `${f.boss.name || f.name} is faster now. Keep moving.`, tone: 'red', sting: 'hit', jolt: 0.45, secs: 2.2 }); juice.pulse(0.8); }
+          const roaring = f.state === 'intro' || f.state === 'special';
+          if (roaring && !f._roar && (f.big || f.boss)) { const q = me(), dd = dist(q, f.pos.x, f.pos.z); if (dd < 45) { try { W.crash?.jolt?.(clamp(0.7 - dd / 70, 0.15, 0.6), 0, 0); } catch {} juice.pulse(0.35); } }
+          f._roar = roaring;
+        }
+        if (alive === 0 && all.length && loading <= 0 && k !== lastClear) { lastClear = k; juice.slow(wi + 1 >= nW ? 0.9 : 0.6, 0.3); if (nW > 1 && wi + 1 < nW) juice.alert('Wave cleared', { sub: waves[wi + 1].alert ? `Next: ${tokens(waves[wi + 1].alert)}` : '', tone: 'green', sting: 'win', secs: 2 }); }
         for (const f of all) if (!f.out && !f.disposed) gps.blip('e:' + f.id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: !!f.boss || nW > 1, name: f.boss ? (f.name || '') : '' }); else gps.unblip('e:' + f.id);
         if (down) throw new Fail(tokens(d.why || `${heroName} got knocked out.`), 'ko');
         if (G) {
@@ -1275,6 +1293,7 @@ export function createRunner(ctx) {
       M.stats.ko += fighters().length;
     } finally {
       offDown?.(); combat.player.autoGetUp = autoGetUp;
+      if (H?.saddle) H.saddle.keep = false;
       for (const id of [...gps.blips.keys()]) if (id.startsWith('e:')) gps.unblip(id);
       ui.counter(null); hud.timer(null); M.crew = null;
       if (G) { hud.bar(null); marker.hide(); gps.unblip('wave'); }

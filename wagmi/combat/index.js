@@ -903,7 +903,7 @@ export async function install(W) {
       const ahead = L.z * sg - CAR.hz;
       if (up && sp > 6 && ahead > 0 && ahead / sp < 0.45 && Math.abs(L.x) < CAR.hx + 0.6 && !(e.diveT > c.time - 2)) {
         e.diveT = c.time; wake(e.crew);
-        if (e.state !== 'attack' && Math.random() < (Math.abs(L.x) > CAR.hx * 0.5 ? 0.5 : 0.3)) {
+        if (e.state !== 'attack' && Math.random() < (Math.abs(L.x) > CAR.hx * 0.5 ? 0.5 : 0.3) * (car.kind === 'horse' ? 0.35 : 1)) { // (a horse at them is on them before they can dive, mostly)
           const side = Math.sign(L.x) || (Math.random() < 0.5 ? -1 : 1);
           e.dive(_v.set(Math.cos(car.heading) * side, 0, -Math.sin(car.heading) * side)); // (the car's own side his way)
           continue;

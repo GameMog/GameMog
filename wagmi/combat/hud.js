@@ -185,7 +185,7 @@ export function createHud(c) {
     if (boss.who !== B) {
       boss.who = B; boss.trailV = 1; boss.last = 1;
       // (its name, and over it what it is when the name is its own: THE MATRIARCH under T. REX)
-      boss.name.textContent = B.boss?.name || B.name || ''; boss.kind.textContent = B.P?.name && B.P.name !== boss.name.textContent ? B.P.name : '';
+      boss.name.textContent = B.boss?.name || B.name || ''; const kind = B.boss?.kind ?? B.P?.name; boss.kind.textContent = kind && kind !== boss.name.textContent ? kind : '';
       const ticks = (B.boss?.phases || []).map((t) => `<b style="left:${(t * 100).toFixed(2)}%"></b>`).join('');
       boss.bar.querySelectorAll('b').forEach((x) => x.remove()); boss.bar.insertAdjacentHTML('beforeend', ticks);
     }
