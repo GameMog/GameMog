@@ -239,13 +239,15 @@ export function install(W) {
   }
   // every body near (x, z) a car may run into, but this one (for wagmi/game.js recoverCar: a clear spot): the city's
   // cars and buses, the highways', the mission's standing vehicles; [x, z, yaw, half width, half length]
-  api.bodies = (x, z, r = 12) => {
+  // (y: the height it is asked at, a horse's hooves: a freeway's cars more than 2.6 m over or under it are not in its
+  // way: the Central Freeway's traffic over the street under it, a ramp's above the road beside it)
+  api.bodies = (x, z, r = 12, y = null) => {
     const out = [];
     if (wrecks) for (const v of wrecks.vehicles) {
       if (!v.edge || Math.abs(v.x - x) > r || Math.abs(v.z - z) > r) continue;
       const [hw, vl] = dims(v); out.push([v.x, v.z, v.wreck && v._wreck ? v._wreck.yaw : v.yaw + v.yawOffset, hw, vl]);
     }
-    if (HW) for (const p of HW.near(x, z, r, [])) out.push([p.x, p.z, p.yaw, p.hw, p.hl]);
+    if (HW) for (const p of HW.near(x, z, r, [])) if (y == null || Math.abs(p.y - y) < 2.6) out.push([p.x, p.z, p.yaw, p.hw, p.hl]);
     for (const s of solids.values()) if (s && s.on && Math.abs(s.x - x) < r && Math.abs(s.z - z) < r) out.push([s.x, s.z, s.yaw, s.hw, s.hl]);
     return out;
   };
@@ -296,6 +298,7 @@ export function install(W) {
       const x = car.position.x + s * cz, z = car.position.z + c * cz;
       for (const p of HW.near(x, z, 10, hwList)) {
         if (air > (p.c.roof || (p.c.kind === 'suv' ? 1.76 : 1.45)) * 0.9) continue; // (c.roof: its kind's, js/traffic.js)
+        if (Math.abs(p.y - car.position.y) > 2.6 + air) continue; // (a freeway over the street he is on, or under it)
         if (!boxes(x, z, car.heading, B.hx, hl, p.x, p.z, p.yaw, p.hw, p.hl, hit)) continue;
         Object.assign(HB, { x: p.x, z: p.z, yaw: p.yaw, vx: Math.sin(p.yaw) * p.c.v, vz: Math.cos(p.yaw) * p.c.v, c: p.c, key: p.c, paint: p.c.col });
         meetBody(HB);
