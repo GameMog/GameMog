@@ -1,6 +1,6 @@
 # SF 2040's own cast files
 
-All four are original characters, invented people with no real likeness, built for SF 2040 on Mog City's cast rig (the
+All five are original characters, invented people with no real likeness, built for SF 2040 on Mog City's cast rig (the
 66-bone skeleton every forged body shares; they move on Dan's clips, with a face from wagmi/face.js that talks).
 
 Each was made by GameMog's Story Kit Character Forge from a character sheet (MakeHuman's base body, clothes and hair,
@@ -17,3 +17,6 @@ to the face), wet eyes, teeth. The build scripts and sheets live in the cast lan
   it), long hair, a hoodie, jeans, sneakers.
 - `hollis.glb` (Hollis, 60s, the Ferry Building camp): a big frame, a dark work jacket, work boots, a trimmed grey
   beard and buzz cut.
+- `pike.glb` (Pike, early 20s, a young Iron Saint): a lean young man in dark clothes under dented, worn steel pieces (a
+  breastplate, pauldrons and vambraces made from his jacket's own cloth where it covers him, pushed out into plate),
+  no helmet, so his face reads.
