@@ -1,7 +1,7 @@
 // Mog City: the city this page plays, and free roam in a city with no story told there yet.
-//   CITY            'sf' with ?city=sf (San Francisco: cities/sf, Slop San Francisco by Kamil (@unable0_) and Mr.doob,
-//                   MIT), else 'ny' (New York, as ever). index.html picks the city's scripts by the same rule; one
-//                   city a page.
+//   CITY            'sf' in San Francisco (cities/sf, Slop San Francisco by Kamil (@unable0_) and Mr.doob, MIT), else
+//                   'ny' (New York, as ever): the world contract's city (wagmi/world: world.id), which index.html
+//                   picks its scripts by; one city a page.
 //   install(W)      (game.js, off New York and without ?pack=, in place of New York's opening and missions, which are
 //                   set on Manhattan's streets) free roam: Dan on foot by his car where the city puts them (San
 //                   Francisco: the Embarcadero by the Ferry Building, cities/sf/js/main.js), with Mog City's own HUD
@@ -15,9 +15,10 @@ import { createAudio } from './mission/audio.js';
 import { createGPS } from './mission/gps.js';
 import { createFace } from './face.js';
 import { outBesideCar } from './intro.js';
+import { world } from './world/index.js';
 
 const Q = new URLSearchParams(location.search);
-export const CITY = Q.get('city') === 'sf' ? 'sf' : 'ny';
+export const CITY = world.id;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -47,7 +48,7 @@ export async function install(W) {
   })();
   // (?beasts: a playtest of SF 2040's creatures before its missions exist: a wild herd on the green by the Ferry
   // Building, knights and a centaur up the Embarcadero, and The Matriarch asleep in her lair further on)
-  if (CITY === 'sf' && new URLSearchParams(location.search).has('beasts')) {
+  if (CITY === 'sf' && Q.has('beasts')) {
     for (let i = 0; i < 600 && !W.creatures; i++) await sleep(100);
     const P = W.person.position, fx = 0.59, fz = 0.81, at = (d, s) => ({ x: P.x + fx * d - fz * s, z: P.z + fz * d + fx * s });
     try {

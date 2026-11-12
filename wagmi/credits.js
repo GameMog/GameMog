@@ -6,9 +6,10 @@
 // The music comes from the radio's own list (radio/stations.js: each track's by, lic, src, samples), so a track added
 // there is credited here with nothing else to do.
 import { STATIONS, LICENCES } from './radio/stations.js';
+import { world } from './world/index.js';
 
-// (the city this page plays, by index.html's rule (wagmi/city.js): its own map's credits under 'The city')
-const SF = typeof location !== 'undefined' && new URLSearchParams(location.search).get('city') === 'sf';
+// (the city this page plays (wagmi/world: world.id): its own map's credits under 'The city')
+const SF = world.id === 'sf';
 const cityLines = () => SF ? [
   { what: 'Slop San Francisco', who: 'Kamil (@unable0_) and Mr.doob', note: 'the city: San Francisco\'s streets, hills, buildings, landmarks and traffic', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: 'https://github.com/unable12/slop-sanfrancisco' },
   { what: 'Slop New York', who: 'Mr.doob', note: 'the city engine both of Mog City\'s cities are built on', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: null },

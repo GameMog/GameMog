@@ -7,6 +7,8 @@ const vm = require('node:vm');
 const html = readFileSync(join(__dirname, '../index.html'), 'utf8');
 // (the city's script list: the plain <script> that makes nycAppScripts, not the first one, the audio shim)
 const preloadScript = [...html.matchAll(/<script>([^]*?)<\/script>/g)].find((m) => m[1].includes('const nycAppScripts'));
+// (the head's one read of the address's city, MC_CITY, which the list and the module below go by)
+const cityScript = [...html.matchAll(/<script>([^]*?)<\/script>/g)].find((m) => /^\s*const MC_CITY = /m.test(m[1]));
 const moduleScript = html.match(/<script type="module">([^]*?)<\/script>/);
 
 test('city script preloads start before stylesheets can block the loader', () => {
@@ -46,6 +48,7 @@ function boot(search) {
   };
   const location = { search, href: 'https://mc.gamemog.com/' + search };
   const context = vm.createContext({ window, document, location, URL, URLSearchParams, THREE, TSL: {}, ...imports });
+  vm.runInContext(cityScript[1], context);
   vm.runInContext(preloadScript[1], context);
   assert.equal(scripts.length, 0);
   assert.equal(new Set(links).size, links.length, 'each script is preloaded once');
@@ -64,7 +67,8 @@ test('preloaded URLs match ordered scripts and execution waits for Three.js impo
   assert.match(scripts[0], /^\.\/js\/nyc-geodata\.js\?v=/);
   assert.match(scripts.at(-1), /^\.\/js\/main\.js\?v=/);
   assert.equal(NYC.BASE, undefined);
-  assert.equal(NYC.CITY, undefined);
+  // (the city the page plays, for the world contract: wagmi/world/city.js)
+  assert.equal(NYC.CITY, 'ny');
   // (any other ?city= is New York too)
   assert.deepEqual(boot('?city=xx').scripts, scripts);
 });

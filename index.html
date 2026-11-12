@@ -48,6 +48,13 @@
     })();
   </script>
   <script>
+    // Which city this page plays, read from the address once, here: ?city=sf is San Francisco (cities/sf: Slop San
+    // Francisco, by Kamil (@unable0_) and Mr.doob, MIT; its own scripts and data, the shared engine modules from js/),
+    // anything else New York, exactly as before. One city a page: another city is another page load. The title below
+    // and the city's scripts are picked by it, and window.NYC.CITY carries it to the game (wagmi/world/city.js)
+    const MC_CITY = new URLSearchParams(location.search).get('city') === 'sf' ? 'sf' : 'ny';
+  </script>
+  <script>
     // (Mog City: the instant title, #wg-boot in the body. On every start that shows the start gate the first thing
     // on screen is the gate itself, its title over a still of its own aerial, while the city loads behind it; the
     // other starts (?nointro, ?nogate, ?fight, ?m1=, ?m2=, ?m3=) keep the loading screen. wg-t-save: a saved game,
@@ -59,7 +66,7 @@
       if (Q.has('pack')) H.classList.add('wg-pk');
       // (?city=sf: San Francisco, html[data-city=sf]. With no story told there yet it starts in free roam, as ?nointro
       // does: wagmi/city.js. Midtown's aerial is never its still)
-      const sf = Q.get('city') === 'sf';
+      const sf = MC_CITY === 'sf';
       if (sf) H.dataset.city = 'sf';
       if (Q.has('nointro') || Q.has('nogate') || Q.has('fight') || Q.get('m1') || Q.get('m2') || Q.get('m3') || (sf && !Q.has('pack'))) return;
       H.classList.add('wg-t');
@@ -112,10 +119,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&display=block" />
   <script>
-    // Which city this page plays: ?city=sf is San Francisco (cities/sf: Slop San Francisco, by Kamil (@unable0_) and
-    // Mr.doob, MIT; its own scripts and data, the shared engine modules from js/), anything else New York, exactly as
-    // before. One city a page: another city is another page load.
-    const MC_CITY = new URLSearchParams(location.search).get('city') === 'sf' ? 'sf' : 'ny';
+    // (the city's scripts: MC_CITY, read from the address in the head's first city script)
     // Download the city scripts while Three.js loads; execute them only after its imports are ready below.
     const nycAppScripts = MC_CITY === 'sf' ? (() => {
       // (San Francisco's own modules from cities/sf/js; the ones both cities share as they are (the people, the touch
@@ -815,7 +819,8 @@
       }
     };
     // (San Francisco's data is fetched from its own folder: cities/sf/js/data-loader.js, region.js)
-    if (MC_CITY === 'sf') Object.assign(window.NYC, { CITY: 'sf', BASE: new URL('./cities/sf/', document.baseURI).href });
+    window.NYC.CITY = MC_CITY;
+    if (MC_CITY === 'sf') Object.assign(window.NYC, { BASE: new URL('./cities/sf/', document.baseURI).href });
 
     for (const src of nycAppScripts) {
       const s = document.createElement('script');

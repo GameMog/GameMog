@@ -10,6 +10,7 @@ import { buildRoadster, createDriver } from './roadster.js';
 import { createStand } from './stand.js';
 import { createPlant } from './plant.js';
 import { drive, installDriveMode } from './audio/drivemode.js';
+import { world } from './world/index.js';
 // (the story pack, first: its top-level await holds the game until the pack is in; wagmi/story)
 import { S as story } from './story/index.js';
 // (?pack=: a Story Kit world played on this engine, wagmi/storyrun. Without ?pack= none of it is even imported, and every
@@ -24,7 +25,7 @@ let HD = null;
 
 const app = await new Promise((res) => { const t = setInterval(() => { if (window.__NYC_APP && window.__NYC_APP.controllerManager) { clearInterval(t); res(window.__NYC_APP); } }, 100); });
 const cm = app.controllerManager, person = cm.entities.person, car = cm.entities.car;
-const WAGMI = (window.WAGMI = { app, person, car });
+const WAGMI = (window.WAGMI = { app, person, car, world });
 if (PACK) WAGMI.pack = PACK;
 // (the drive mode, engine or ALL ELECTRIC, on WAGMI from the start: Q and the speed panel's badge, below, use it)
 installDriveMode(WAGMI);
@@ -1162,8 +1163,8 @@ WAGMI.trailerEarly = import('./trailer.js').then((m) => m.createTrailer(WAGMI)).
 // the rest of the game, a module each (one that fails to load leaves the others running)
 // (with ?pack=, the world's story runner in place of the opening and Mog City's missions: wagmi/storyrun)
 // (another city with no world, ?city=sf alone: free roam there, wagmi/city.js, in place of the opening and the
-// missions, which are set on Manhattan's streets. The city by index.html's rule, wagmi/city.js CITY)
-const ROAM = !PACK && new URLSearchParams(location.search).get('city') === 'sf';
+// missions, which are set on Manhattan's streets. The city: the world contract's, wagmi/world world.id)
+const ROAM = !PACK && world.id === 'sf';
 for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
   try { const mod = await import(m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); }
 }
