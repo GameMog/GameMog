@@ -23,6 +23,7 @@
 // jumped, the cruise 20 m/s (45 mph) where it is 15.
 //   startAutopilot(W, runner, { missionSecs, onTimeout, realPace }) -> { stop(), log }
 import * as THREE from 'three/webgpu';
+import { world } from '../world/index.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -342,7 +343,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     if (!ch || ch.state !== 'on') return false;
     if (!inCar()) return false;
     if (!gps.dest || gps.dest.name !== 'away') {
-      const e = cm.getActiveEntity(), T = Object.values(window.NYC?.TELEPORT_LOCATIONS || {});
+      const e = cm.getActiveEntity(), T = world.spawnPoints('all');
       const far = T.filter((p) => Math.hypot(p.x - e.position.x, p.z - e.position.z) > 600).sort((a, b) => Math.hypot(a.x - e.position.x, a.z - e.position.z) - Math.hypot(b.x - e.position.x, b.z - e.position.z))[0];
       if (far) { gps.to({ x: far.x, z: far.z, name: 'away' }); note('chase: a route away'); }
       return true;
