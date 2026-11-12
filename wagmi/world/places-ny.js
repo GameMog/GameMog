@@ -1,0 +1,40 @@
+// New York's place library data (GameMog storykit/pack/cities.ts PLACES.ny, 42 keys), moved here unchanged from
+// wagmi/storyrun/places.js: the named corners of two real streets (city-config.js ROADS), the arrivals' display names
+// (NYC.TELEPORT_LOCATIONS keys) and the FDR's two points. wagmi/world/ny.js lays them on the map (world.places).
+export const CORNERS = [
+  ['tower', 'Park Ave & E 51st St', 'Park Ave', 'E 51st St'],
+  ['towergarage', 'Lexington Ave & E 52nd St', 'Lexington Ave', 'E 52nd St'],
+  ['les', 'Orchard St & Rivington St', 'Orchard St', 'Rivington St'],
+  ['ludlow', 'Ludlow St & E Houston St', 'Ludlow St', 'E Houston St'],
+  ['delancey', 'Delancey St & Essex St', 'Delancey St', 'Essex St'],
+  ['soho', 'Prince St & Greene St', 'Prince St', 'Greene St'],
+  ['bowery', 'Bowery & E Houston St', 'Bowery', 'E Houston St'],
+  ['meatpacking', 'Gansevoort St & Washington St', 'Gansevoort St', 'Washington St'],
+  ['chelsea', 'W 24th St & 10th Ave', 'W 24th St', '10th Ave'],
+  ['tribeca', 'Franklin St & Hudson St', 'Franklin St', 'Hudson St'],
+  ['canal', 'Canal St & Varick St', 'Canal St', 'Varick St'],
+  ['westvillage', 'Bank St & Greenwich St', 'Bank St', 'Greenwich St'],
+  ['foley', 'Foley Square', 'Centre St', 'Worth St'],
+  ['hudsonyards', 'W 33rd St & 11th Ave', 'W 33rd St', '11th Ave'],
+  ['lincoln', 'Lincoln Center', 'Columbus Ave', 'W 63rd St'],
+  ['amnh', 'Columbus Ave & W 79th St', 'Columbus Ave', 'W 79th St'],
+  ['ues', 'Park Ave & E 97th St', 'Park Ave', 'E 97th St'],
+  ['un', 'E 42nd St & 1st Ave', 'E 42nd St', '1st Ave'],
+  ['harlem', 'W 125th St & Frederick Douglass Blvd', 'W 125th St', 'Frederick Douglass Blvd'],
+  ['timessquare', 'Times Square', '7th Ave', 'W 46th St'],
+  ['wallst', 'Wall St & Broad St', 'Wall St', 'Broad St'],
+  ['murrayhill', 'Madison Ave & E 37th St', 'Madison Ave', 'E 37th St'],
+  ['chelseapark', 'Chelsea Park', '9th Ave', 'W 28th St'],
+  ['tenth47', '10th Ave & W 47th St', '10th Ave', 'W 47th St'],
+  ['tenth55', '10th Ave & W 55th St', '10th Ave', 'W 55th St'],
+  ['westyards', '12th Ave & W 55th St', '12th Ave', 'W 55th St'],
+  ['javits', '11th Ave & W 34th St', '11th Ave', 'W 34th St'],
+  ['heraldsq', 'Herald Square', '6th Ave', 'W 34th St'],
+  ['westchelsea', '11th Ave & W 22nd St', '11th Ave', 'W 22nd St'],
+  ['washsq', 'Washington Square', '5th Ave', 'Washington Sq N'],
+  ['washmews', '5th Ave & W 8th St', '5th Ave', 'W 8th St'],
+  ['sdrpark', 'Sara D. Roosevelt Park', 'Forsyth St', 'Rivington St'],
+];
+export const SPAWN_NAMES = { empire: 'Empire State Building', timessq: 'Times Square', chrysler: 'Chrysler Building', grandcentral: 'Grand Central',
+  bryant: 'Bryant Park', flatiron: 'Flatiron', centralpark: 'Central Park South', owtc: 'One World Trade Center' };
+export const FDR = [['fdr', 'FDR Drive at E 34th St', 640, Math.PI], ['fdr-un', 'FDR Drive by the UN', -250, 0]];

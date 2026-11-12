@@ -23,7 +23,7 @@ export function gameFiles(root = ROOT) {
   const walk = (d) => {
     for (const f of fs.readdirSync(path.join(root, d)).sort()) {
       const p = path.join(d, f), st = fs.statSync(path.join(root, p));
-      if (st.isDirectory()) { if (!/^wagmi\/(story|storyrun|radio\/build|physics)$/.test(p)) walk(p); }
+      if (st.isDirectory()) { if (!/^wagmi\/(story|storyrun|radio\/build|physics|world)$/.test(p)) walk(p); }
       else if (/\.js$/.test(f)) out.push(p);
     }
   };
