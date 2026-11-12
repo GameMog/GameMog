@@ -53,7 +53,10 @@
   "Pike": {
    "color": "#A3D977",
    "role": "a young Iron Saint",
-   "voiceOnly": true
+   "glb": "assets/characters/sf2040/pike.glb",
+   "present": [
+    "M1"
+   ]
   },
   "Warden": {
    "color": "#FF6A5C",
@@ -290,6 +293,22 @@
     135
    ],
    "name": "Market St"
+  },
+  "homestretch": {
+   "at": [
+    420,
+    -410,
+    135
+   ],
+   "name": "Market & Main"
+  },
+  "nestedge": {
+   "at": [
+    -2180,
+    2162,
+    -45
+   ],
+   "name": "past the Octavia ramps"
   }
  },
  "opening": {
@@ -725,22 +744,132 @@
      }
     },
     {
-     "type": "say",
-     "who": "Pike",
-     "text": "Don't! Please. They make us wear it.",
-     "secs": 2.6
+     "type": "mount",
+     "id": "m1mercyUp",
+     "quick": true
     },
     {
-     "type": "say",
-     "who": "Cal",
-     "text": "Then take it off and go home, kid.",
-     "secs": 2.4
+     "type": "npc",
+     "id": "pike",
+     "who": "Pike",
+     "at": {
+      "rel": "player",
+      "fwd": 3.6,
+      "right": 0.9
+     }
     },
     {
-     "type": "say",
-     "who": "Pike",
-     "text": "It's Pike. My name's Pike. I won't forget this.",
-     "secs": 2.8
+     "type": "cutscene",
+     "id": "mercy",
+     "shots": [
+      {
+       "cam": {
+        "rel": "Pike",
+        "fwd": -2.0,
+        "right": 0.5,
+        "up": -0.6
+       },
+       "to": {
+        "rel": "Pike",
+        "fwd": -1.8,
+        "right": 0.42,
+        "up": -0.7
+       },
+       "look": {
+        "rel": "player",
+        "up": -0.9
+       },
+       "dur": 3.0,
+       "fov": 44,
+       "sub": [
+        "Pike",
+        "Don't! Please. They make us wear it."
+       ],
+       "act": [
+        {
+         "who": "Pike",
+         "face": "player",
+         "play": "getup",
+         "time": 0.95
+        }
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.4,
+        "right": -0.5,
+        "up": -1.1
+       },
+       "look": {
+        "rel": "player",
+        "up": 0.0
+       },
+       "dur": 2.8,
+       "fov": 38,
+       "sub": [
+        "Cal",
+        "Then take it off and go home, kid."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "Pike",
+        "fwd": 1.5,
+        "right": 0.45,
+        "up": 0.05
+       },
+       "look": {
+        "rel": "Pike",
+        "up": -0.05
+       },
+       "dur": 3.2,
+       "fov": 34,
+       "sub": [
+        "Pike",
+        "It's Pike. My name's Pike. I won't forget this."
+       ],
+       "act": [
+        {
+         "who": "Pike",
+         "play": "getup",
+         "from": 0.95,
+         "speed": 0.55
+        }
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": -2.6,
+        "right": 2.2,
+        "up": 0.2
+       },
+       "look": {
+        "rel": "Pike",
+        "up": -0.4
+       },
+       "dur": 2.0,
+       "fov": 42,
+       "act": [
+        {
+         "who": "Pike",
+         "walk": {
+          "to": {
+           "rel": "Pike",
+           "fwd": -12
+          },
+          "secs": 1.8,
+          "clip": "run"
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "npc",
+     "remove": "pike"
     },
     {
      "type": "call",
@@ -761,6 +890,18 @@
        "Everything in this city belongs to someone now. Tithe night is Sunday. Tell your camp."
       ]
      ]
+    },
+    {
+     "type": "transition",
+     "id": "rideHome",
+     "kicker": "LATER",
+     "text": "Home with the food",
+     "sub": "Market St, the camp in sight",
+     "place": {
+      "@": "homestretch",
+      "mode": "car"
+     },
+     "secs": 2.2
     },
     {
      "type": "drive",
@@ -932,8 +1073,8 @@
     {
      "type": "drive",
      "id": "toOctavia",
-     "to": "@octavia",
-     "radius": 30,
+     "to": "@nestedge",
+     "radius": 20,
      "checkpoint": true,
      "objective": "Ride up Market toward **Octavia**.",
      "trigger": {
@@ -994,7 +1135,7 @@
      "id": "nest",
      "to": "@pharmacy",
      "from": {
-      "@": "octavia",
+      "@": "nestedge",
       "mode": "car"
      },
      "radius": 12,
@@ -1004,22 +1145,12 @@
       {
        "id": "creature-scorpion",
        "at": [
-        -2059,
-        2056
+        -2222,
+        2204
        ],
        "height": 0.9,
        "name": "Brood",
        "yaw": 40
-      },
-      {
-       "id": "creature-scorpion",
-       "at": [
-        -2165,
-        2137
-       ],
-       "height": 0.9,
-       "name": "Brood",
-       "yaw": 200
       },
       {
        "id": "creature-scorpion",
@@ -1585,11 +1716,16 @@
       "name": "WARDEN-7",
       "height": 4.0,
       "phases": [
-       0.5
+       0.66,
+       0.33
       ],
       "hold": {
        "wake": 20,
        "leash": 40
+      },
+      "stats": {
+       "hp": 1400,
+       "dmg": 18
       }
      },
      "objective": "Get past the **hybrids** and **WARDEN-7**.",
@@ -1603,7 +1739,13 @@
        "Warden",
        "SPECIMEN DOWN. UNAUTHORIZED PERSON. RESTRAIN."
       ]
-     }
+     },
+     "help": [
+      [
+       1.5,
+       "WARDEN-7 shells where you stand: when a red ring opens under you, move. Hit it between its stomps."
+      ]
+     ]
     },
     {
      "type": "herd",
@@ -3518,7 +3660,7 @@
     "clip": "879fbe67-b7012458"
    },
    {
-    "id": "M1.9",
+    "id": "M1.11.0",
     "who": "Pike",
     "voice": "pike-B",
     "text": "Don't! Please. They make us wear it.",
@@ -3526,7 +3668,7 @@
     "clip": "adf908e3-109fe3f9"
    },
    {
-    "id": "M1.10",
+    "id": "M1.11.1",
     "who": "Cal",
     "voice": "cal-A",
     "text": "Then take it off and go home, kid.",
@@ -3534,7 +3676,7 @@
     "clip": "b77ed3a4-b7012458"
    },
    {
-    "id": "M1.11",
+    "id": "M1.11.2",
     "who": "Pike",
     "voice": "pike-B",
     "text": "It's Pike. My name's Pike. I won't forget this.",
@@ -3542,7 +3684,7 @@
     "clip": "9d72b4d8-109fe3f9"
    },
    {
-    "id": "M1.12.lines.0",
+    "id": "M1.13.lines.0",
     "who": "Vale",
     "voice": "vale-B",
     "text": "Rider on Market. That's Saint property on your saddle.",
@@ -3551,7 +3693,7 @@
     "fx": "phone"
    },
    {
-    "id": "M1.12.lines.1",
+    "id": "M1.13.lines.1",
     "who": "Cal",
     "voice": "cal-A",
     "text": "It's food. For kids.",
@@ -3559,7 +3701,7 @@
     "clip": "04142783-b7012458"
    },
    {
-    "id": "M1.12.lines.2",
+    "id": "M1.13.lines.2",
     "who": "Vale",
     "voice": "vale-B",
     "text": "Everything in this city belongs to someone now. Tithe night is Sunday. Tell your camp.",
@@ -3568,7 +3710,7 @@
     "fx": "phone"
    },
    {
-    "id": "M1.13.during.0.lines.0",
+    "id": "M1.15.during.0.lines.0",
     "who": "Hollis",
     "voice": "hollis-B",
     "text": "That was Deacon Vale. He runs the Saints out of the old Preserve trucks.",
@@ -3577,7 +3719,7 @@
     "fx": "phone"
    },
    {
-    "id": "M1.13.during.0.lines.1",
+    "id": "M1.15.during.0.lines.1",
     "who": "Cal",
     "voice": "cal-A",
     "text": "What's tithe night?",
@@ -3585,7 +3727,7 @@
     "clip": "841718c6-b7012458"
    },
    {
-    "id": "M1.13.during.0.lines.2",
+    "id": "M1.15.during.0.lines.2",
     "who": "Hollis",
     "voice": "hollis-B",
     "text": "The night they come for what you owe. Camps that don't pay get visitors. The big kind.",
@@ -3594,7 +3736,7 @@
     "fx": "phone"
    },
    {
-    "id": "M1.13.during.0.lines.3",
+    "id": "M1.15.during.0.lines.3",
     "who": "Cal",
     "voice": "cal-A",
     "text": "Animals don't take orders, Hollis.",
@@ -3602,7 +3744,7 @@
     "clip": "8d3a199a-b7012458"
    },
    {
-    "id": "M1.13.during.0.lines.4",
+    "id": "M1.15.during.0.lines.4",
     "who": "Hollis",
     "voice": "hollis-B",
     "text": "Just get home, Cal.",
@@ -3611,7 +3753,7 @@
     "fx": "phone"
    },
    {
-    "id": "M1.16.0",
+    "id": "M1.18.0",
     "who": "Hollis",
     "voice": "hollis-B",
     "text": "Five crates. The kids are already fighting over the peaches.",
@@ -3619,7 +3761,7 @@
     "clip": "1885d8d7-966bd272"
    },
    {
-    "id": "M1.16.1",
+    "id": "M1.18.1",
     "who": "Cal",
     "voice": "cal-A",
     "text": "Market and Church. That's where she called from.",
@@ -3627,7 +3769,7 @@
     "clip": "6fdb2bd1-b7012458"
    },
    {
-    "id": "M1.16.2",
+    "id": "M1.18.2",
     "who": "Hollis",
     "voice": "hollis-B",
     "text": "Then bring her medicine too. And watch Octavia. Something big nests under the ramps.",
@@ -3635,7 +3777,7 @@
     "clip": "7506f3a1-966bd272"
    },
    {
-    "id": "M1.16.3",
+    "id": "M1.18.3",
     "who": "Cal",
     "voice": "cal-A",
     "text": "Water first. Then we ride. Right, Ranger?",

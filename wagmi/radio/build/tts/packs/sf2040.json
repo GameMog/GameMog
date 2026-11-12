@@ -29,7 +29,7 @@
    "voice": "pike-B",
    "fx": "radio",
    "fxNot": [
-    "^M1\\.steps\\.\\d+$"
+    "^M1\\."
    ]
   },
   "Warden": {
