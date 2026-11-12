@@ -37,6 +37,8 @@ export async function install(W, c) {
   function kitOf(id) {
     if (kits.has(id)) return kits.get(id);
     const p = loadCreature(id, { low: low() }).then(async (kit) => {
+      // (a kind with a face (snarl.js: Old Silver's jaw, snarl and scowl): its morphs and mouth made before the precompile)
+      if (PROFILES[id]?.face) try { (await import('./snarl.js')).faceKit(kit, PROFILES[id].face); } catch (err) { console.warn('[creatures] face', id, err); }
       try {
         const probe = kit.make({}), mat = probe.mesh.material.clone(); mat.alphaHash = true;
         const twin = kit.make({}); twin.mesh.material = mat;

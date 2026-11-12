@@ -71,6 +71,8 @@ export const PROFILES = {
   },
   'creature-ape': {
     name: 'Ape', hp: 240, dmg: 14, speed: 2.1, turn: 6, poise: 2, ring: 3.6, foot: 0.8, spacing: 1.6, heavy: true,
+    // (its face: snarl.js gives it a jaw, a snarl and a scowl, and the fight drives them (fighter.js late()))
+    face: 'ape',
     alias: { hips: 'pelvis', spine1: 'spine1', spine2: 'chest', neck: 'head', head: 'head' },
     blows: {
       // up on its legs, arms high (to 3 m at 1.4 s), and both fists down into the street (2.15 s), lunging at him on the way

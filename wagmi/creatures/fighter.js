@@ -48,6 +48,8 @@ export class CreatureFighter {
     // (its own material: it flashes when hit, and dissolves right at the lens as a Suit does; the skin, its maps and
     // its clips stay shared by every one of its kind)
     const mat = made.mesh.material.clone(); mat.alphaHash = true; made.mesh.material = mat; this.mats = [mat];
+    // (a face's mouth (snarl.js): its own copies of the materials, flashing and dissolving with the body)
+    if (made.face) for (const m of made.face.meshes) { m.material = m.material.clone(); m.material.alphaHash = true; this.mats.push(m.material); }
     this.shape = shapeOf(kit, made); this.body = new Body(made, this.shape);
     // the fight's bone names (hips, spine1, spine2, neck, head) on its own bones, its own names kept too
     this.bones = {}; for (const b of made.skeleton.bones) this.bones[b.name] = b;
@@ -552,6 +554,8 @@ export class CreatureFighter {
       // (out for good, a while later: it sinks out of sight)
       if (this.state === 'out' && this.c.time - this.outAt > 14) body.position.y -= Math.min(1, (this.c.time - this.outAt - 14) / 2.5) * H * 0.9;
     } else if (body.rotation.x || body.rotation.z || body.position.lengthSq()) { body.rotation.x = 0; body.rotation.z = 0; body.position.set(0, 0, 0); }
+    // its face (snarl.js): fierce at rest, a snarl winding up, a roar at the blow and the chest beat
+    if (M.face) M.face.update(dt, this);
     // the hit's flash
     const e = this.flash * this.flash * 0.06;
     for (const m of this.mats) m.emissive.setRGB(e, e * 0.92, e * 0.85);
