@@ -26,7 +26,12 @@ export function createSound(W, fx) {
       const w = Math.random() * 2 - 1;
       if (kind === 'brown') { l = (l + 0.02 * w) / 1.02; d[i] = l * 3.5; }
       else if (kind === 'pink') { b0 = 0.997 * b0 + 0.029591 * w; b1 = 0.985 * b1 + 0.032534 * w; b2 = 0.95 * b2 + 0.048056 * w; d[i] = (b0 + b1 + b2 + w * 0.1) * 0.6; }
-      else if (kind === 'crackle') { d[i] = Math.random() < 0.0016 ? (Math.random() * 2 - 1) * (0.4 + Math.random() * 0.6) : 0; if (Math.random() < 0.00005) for (let k = 0; k < 400 && i + k < n; k++) d[i + k] += (Math.random() * 2 - 1) * 0.12 * (1 - k / 400); }
+      else if (kind === 'crackle') {
+        // (a wood fire's pops: each a few ms of soft noise dying away, never a bare one-sample click, which reads as
+        // digital static, owner 12 Nov; the odd bigger snap)
+        if (Math.random() < 0.00045) { const big = Math.random() < 0.12, len = Math.floor(ctx.sampleRate * (big ? 0.012 : 0.004 + Math.random() * 0.004)), amp = (big ? 0.5 : 0.12 + Math.random() * 0.18);
+          let s1 = 0; for (let k = 0; k < len && i + k < n; k++) { s1 = 0.55 * s1 + 0.45 * (Math.random() * 2 - 1); d[i + k] += s1 * amp * Math.exp(-5 * k / len) * Math.min(1, k / 12); } }
+      }
       else d[i] = w;
     }
     // (the loop's ends meet)
@@ -53,8 +58,9 @@ export function createSound(W, fx) {
     const rum = src(brown), rf = ctx.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 75;
     const rg = ctx.createGain(); rg.gain.value = 0.55; rum.connect(rf); rf.connect(rg); rg.connect(out); lfo(0.02, 0.2, rg.gain);
     // the fires' crackle (its level from the nearest fire)
-    const cr = src(noise(ctx, 5, 'crackle')), cf = ctx.createBiquadFilter(); cf.type = 'highpass'; cf.frequency.value = 900;
-    const cg = ctx.createGain(); cg.gain.value = 0; cr.connect(cf); cf.connect(cg); cg.connect(out);
+    const cr = src(noise(ctx, 5, 'crackle')), cf = ctx.createBiquadFilter(); cf.type = 'bandpass'; cf.frequency.value = 1800; cf.Q.value = 0.6;
+    const cl = ctx.createBiquadFilter(); cl.type = 'lowpass'; cl.frequency.value = 5000;
+    const cg = ctx.createGain(); cg.gain.value = 0; cr.connect(cf); cf.connect(cl); cl.connect(cg); cg.connect(out);
     const roast = src(brown), rof = ctx.createBiquadFilter(); rof.type = 'bandpass'; rof.frequency.value = 260; rof.Q.value = 0.8;
     const rog = ctx.createGain(); rog.gain.value = 0; roast.connect(rof); rof.connect(rog); rog.connect(out);
     preload({ ctx }, PACKS);
@@ -90,7 +96,7 @@ export function createSound(W, fx) {
     let dn = 1e9; for (const f of fx.sources.get('debris') || []) dn = Math.min(dn, Math.hypot(f.x - c.position.x, f.z - c.position.z));
     for (const f of fx.sources.get('camps') || []) dn = Math.min(dn, Math.hypot(f.x - c.position.x, f.z - c.position.z));
     const near = Math.max(0, 1 - dn / 45);
-    built.cg.gain.setTargetAtTime(near * near * 0.9, built.ctx.currentTime, 0.3);
+    built.cg.gain.setTargetAtTime(near * near * 0.35, built.ctx.currentTime, 0.3);
     built.rog.gain.setTargetAtTime(near * near * 0.25, built.ctx.currentTime, 0.3);
     for (const k of Object.keys(timers)) timers[k] -= dt;
     if (timers.siren <= 0) { timers.siren = 25 + R() * 40; siren(built); }
