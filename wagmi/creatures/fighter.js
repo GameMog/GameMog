@@ -388,7 +388,11 @@ export class CreatureFighter {
       // (a volley's first round comes down here and now: its blast)
       if (B.shell && this.shellMain) { this.shellMain.land(); this.shellMain = null; }
       if (B.shell) { c.shake(0.4); c.sfx('slam', 1.1); cue(c.W, this.P.voice?.land, [at.x, at.y, at.z]); }
-      else if (!B.phase) { c.groundPound(at, 1.3, 'slam'); c.fx.dust(at, { amount: 1.2 + 0.4 * this.k }); cue(c.W, this.P.voice?.land, [at.x, at.y, at.z]); }
+      else if (!B.phase) {
+        c.groundPound(at, 1.3, 'slam'); c.fx.dust(at, { amount: 1.2 + 0.4 * this.k }); cue(c.W, this.P.voice?.land, [at.x, at.y, at.z]);
+        // (a story fight's: the dust thrown out to the ring's edge, and the blow felt harder through the view)
+        if (c.fierce) { c.fx.burst(at, R); c.shake(0.55 + 0.2 * Math.min(2, this.k)); }
+      }
       else c.sfx('whoosh', 1.5);
       c.shake(0.7 + 0.2 * Math.min(2, this.k));
       c.fx.ring(null);

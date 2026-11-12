@@ -326,6 +326,7 @@ export async function install(W) {
   c.items = createItems(c);
   await c.items.load();
   c.fx = createFx(scene);
+  c.fx.decalWhen = () => !!c.fierce; // (SF 2040's story fights: a slam's ring is a mark on the street, fx.js groundRing)
   c.sfx = createSfx();
   c.hud = createHud(c);
   c.live = () => c.enabled && !W.cutscene && !W.directed && cm.activeMode === 'person' && !P.inVehicle;
@@ -1027,6 +1028,9 @@ export async function install(W) {
     pressure(o) { c.cap = o ? { max: Math.max(1, o.max ?? 2), circle: !!o.circle, calm: !!o.calm } : null; return c.cap; },
     get fighting() { return c.me.fighting && c.live(); },
     get enemies() { return c.enemies; },
+    // (a story fight's fierce creatures, SF 2040: the runner sets it here; read inside as c.fierce. Without it the
+    // runner's flag sat on this object and never reached the fight)
+    get fierce() { return !!c.fierce; }, set fierce(v) { c.fierce = !!v; },
     get crews() { return c.crews; },
     nav: c.nav, // (the pathfinding: nav.statsNow(), nav.ready(); ?nav=0 turns it off, ?navdebug draws it)
     player: {
