@@ -71,6 +71,8 @@ export const PROFILES = {
   },
   'creature-ape': {
     name: 'Ape', hp: 240, dmg: 14, speed: 3.4, turn: 6, poise: 2, ring: 3.6, foot: 0.8, spacing: 1.6, heavy: true,
+    // (its face: snarl.js gives it a jaw, a snarl and a scowl, and the fight drives them (fighter.js late()))
+    face: 'ape',
     alias: { hips: 'pelvis', spine1: 'spine1', spine2: 'chest', neck: 'head', head: 'head' },
     blows: {
       // up on its legs, arms high (to 3 m at 1.4 s), and both fists down into the street (2.15 s), lunging at him on the way
@@ -95,9 +97,10 @@ export const PROFILES = {
       leap: { clip: 'Jump', from: 0.3, hit: 2.3, until: 3.2, tele: 1.6, quake: { r: 3.4, ahead: 0 }, travel: { from: 1.1, to: 2.25, max: 7 }, range: 1.0, use: [4.5, 11], dmg: 2, counter: false, heavy: true, w: 2 },
       // the swipe (its right arm through 2.7-3.0 m: over a man on foot) only at a rider up on a horse
       swipe: { clip: 'Attack', from: 0.2, hit: 0.86, until: 1.8, tele: 0.85, limbs: ['hand_R', 'forearm_R', 'hand_L', 'forearm_L'], range: 1.5, use: [0, 2.4], dmg: 1.5, counter: false, heavy: true, mounted: true, w: 3 },
-      // a shell from its arm at a man kept at range: the ring falls where he stood as it fired (quake.target), held
-      // there for the whole wind-up: keep moving and it lands behind him
-      volley: { clip: 'Attack', from: 0.2, hit: 0.86, until: 1.8, tele: 1.5, quake: { r: 2.4, target: true }, range: 6, use: [5, 22], dmg: 1.2, counter: false, heavy: true, w: 3, voice: 'fire' },
+      // three shells off its arms at a man kept at range (shell: the rounds seen up on their arc, a blast where each
+      // comes down): the ring falls where he stood as it fired (quake.target), held there for the whole wind-up: keep
+      // moving and they land behind him. Due every 9 s (due) from 3.75 m out, so it is in every fight with it
+      volley: { clip: 'Attack', from: 0.2, hit: 0.86, until: 1.8, tele: 1.5, quake: { r: 2.4, target: true }, shell: { n: 3 }, due: 9, range: 6, use: [5, 22], dmg: 1.2, counter: false, heavy: true, w: 3, voice: 'fire' },
     },
     special: 'Stomp',
     steps: [{ s: IMP + 'impactMetal_heavy', vol: 0.5, rate: 0.5 }, { s: SCI + 'doorClose', vol: 0.18, rate: 0.55 }],

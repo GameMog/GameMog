@@ -341,7 +341,12 @@ export function createFightCamera(c) {
     // little flatter, to take it in from its feet to its head with him in front of it)
     let bigH = 0; for (const e of c.enemies) if (e.creature && e.alive && e.state !== 'idle' && e.height > 2.2 && hdist(e.pos, q) < 22) bigH = Math.max(bigH, e.height);
     st.bigK = damp(st.bigK || 0, clamp((bigH - 2.0) / 3.8, 0, 1), 1.2, dt);
-    const piv = _v.set(q.x + st.frame.x, q.y + 1.15 + 1.15 * st.bigK, q.z + st.frame.z);
+    // (a story fight's boss (c.fierce: The Matriarch, WARDEN-7): its head kept in the frame with him. The view looks up
+    // toward it, the lens further back and higher with it, so its jaws and its wind-ups read and he stays in the shot)
+    let boss = null; if (c.fierce) for (const e of c.enemies) if (e.boss && e.creature && e.alive && e.state !== 'idle' && e.state !== 'dying' && hdist(e.pos, q) < 24) { boss = e; break; }
+    st.bossK = damp(st.bossK || 0, boss ? 1 : 0, boss ? 1.6 : 0.8, dt);
+    if (boss) { boss.headPos(_t3); st.bossUp = damp(st.bossUp || 0, clamp((_t3.y - q.y - 1.6) * 0.42, 0, 2.6), 3, dt); st.bossD = damp(st.bossD || 0, clamp((_t3.y - q.y - 2.5) * 0.7 + Math.max(0, 9 - hdist(boss.pos, q)) * 0.18, 0, 4.2), 2, dt); }
+    const piv = _v.set(q.x + st.frame.x, q.y + 1.15 + 1.15 * st.bigK + (st.bossUp || 0) * st.bossK, q.z + st.frame.z);
     if (st.downK > 0.01 && Q.bones.spine03) { Q.bones.spine03.getWorldPosition(_t1); piv.lerp(_t1.setY(Math.max(q.y + 0.45, _t1.y + 0.3)), st.downK); }
     // (mid-dodge or going down, the view keeps right up with him)
     const follow = mv === 'dodge' || down ? 22 : 9;
@@ -349,7 +354,7 @@ export function createFightCamera(c) {
     // a cue showing: a little higher; a can going up over his head: higher and further back, to see where it goes
     const cue = c.threats.length > 0, canUp = !!me.holding && me.holding.def.hands === 2 && (mv === 'throw' || mv === 'canSlam');
     st.cueK = damp(st.cueK, cue ? 1 : 0, cue ? 6 : 2, dt); st.canK = damp(st.canK, canUp ? 1 : 0, canUp ? 6 : 2, dt);
-    const wantD = clamp(4.0 + (spread - 3) * 0.22, 3.8, few.length ? 6.8 : 6.2) * cs.zoomMultiplier + 1.3 * st.downK + 0.6 * st.canK + 3.6 * st.bigK;
+    const wantD = clamp(4.0 + (spread - 3) * 0.22, 3.8, few.length ? 6.8 : 6.2) * cs.zoomMultiplier + 1.3 * st.downK + 0.6 * st.canK + 3.6 * st.bigK + (st.bossD || 0) * st.bossK;
     st.dist = damp(st.dist, wantD, 1.6, dt);
     // (a crowd round him: a little higher, to see over the ones nearest the lens)
     let crowd = 0; for (const e of c.enemies) if (e.standing && hdist(e.pos, q) < 4.2) crowd++;

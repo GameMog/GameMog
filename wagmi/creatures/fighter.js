@@ -48,6 +48,8 @@ export class CreatureFighter {
     // (its own material: it flashes when hit, and dissolves right at the lens as a Suit does; the skin, its maps and
     // its clips stay shared by every one of its kind)
     const mat = made.mesh.material.clone(); mat.alphaHash = true; made.mesh.material = mat; this.mats = [mat];
+    // (a face's mouth (snarl.js): its own copies of the materials, flashing and dissolving with the body)
+    if (made.face) for (const m of made.face.meshes) { m.material = m.material.clone(); m.material.alphaHash = true; this.mats.push(m.material); }
     this.shape = shapeOf(kit, made); this.body = new Body(made, this.shape);
     // the fight's bone names (hips, spine1, spine2, neck, head) on its own bones, its own names kept too
     this.bones = {}; for (const b of made.skeleton.bones) this.bones[b.name] = b;
@@ -58,6 +60,8 @@ export class CreatureFighter {
     const HP = story.knob('enemyHp'), DMG = story.knob('enemyDamage'), bulk = Math.pow(this.k, 1.5);
     this.T = { hp: Math.round((stats.hp ?? P.hp * bulk) * HP), dmg: (stats.dmg ?? P.dmg * Math.sqrt(this.k)) * DMG, speed: stats.speed ?? P.speed * this.k, scale: this.scale, radius: P.foot * this.k };
     this.ring = P.ring ? P.ring * this.k : null;
+    // (a blow it throws from range, a shell: its turn can come while he is that far off, combat's pickNext)
+    this.reach = Math.max(0, ...Object.values(P.blows).filter((B) => B.shell).map((B) => B.use[1] * this.k * 0.8));
     this.footR = P.foot * this.k; this.spacing = P.spacing * this.k; this.bodyR = this.footR;
     this.navOff = this.footR > 0.62; // (the navmesh's crowd is for men: the big ones walk by the fight's own steering)
     this.carDrag = this.heavy ? 0.3 : 0.86;
@@ -296,19 +300,47 @@ export class CreatureFighter {
     let r = Math.random() * tot, pick = pool[0][0];
     for (const [n, B] of pool) { r -= B.w || 1; if (r <= 0) { pick = n; break; } }
     if (pick === this.lastAtk && pool.length > 1 && Math.random() < 0.5) pick = pool.find(([n]) => n !== pick)[0];
+    // (a blow that is due (B.due s since it was last thrown, or never yet): it comes next whenever he is anywhere near
+    // its distances, so a boss's signature move is seen in every fight, not only by the one who stands off)
+    for (const [n, B] of all) if (B.due && dist >= B.use[0] * k * 0.75 && dist <= B.use[1] * k && this.c.time - (this.thrown?.[n] ?? -1e9) > B.due) { pick = n; break; }
+    (this.thrown || (this.thrown = {}))[pick] = this.c.time;
     this.atk = this.lastAtk = pick;
   }
   startSwing() {
     const B = this.B; if (!B) return;
     const tele = B.tele * (this.rage ? Math.pow(0.86, this.rage) : 1);
-    this.set('attack'); this.swung = false; this.landed = false; this.dodged = false; this.tele = tele; this.lunge = null;
+    this.set('attack'); this.swung = false; this.landed = false; this.dodged = false; this.breather = false; this.tele = tele; this.lunge = null;
     if (B.quake?.target) { const P = this.c.W.person.position; (this.qT || (this.qT = new THREE.Vector3())).set(P.x, this.c.W.app?.controllerManager?.getGroundHeight?.(P.x, P.z, 'person') ?? P.y, P.z); }
     this.playOne(B.clip, { from: B.from, ts: 0, fade: Math.min(0.2, tele * 0.25) });
     this.c.threat(this, tele, B.counter ? 'counter' : 'dodge', { quake: !!B.quake });
+    if (B.shell && B.quake?.target) this.fireShells(B, tele);
     if (B.voice && this.P.voice?.[B.voice]) cue(this.c.W, this.P.voice[B.voice], this.voiceAt(), { at: B.voiceAt || 0 });
     // (a roar near the horse: it shies, wagmi/horse/voice.js)
     if (B.voice === 'roar') this.c.W.horseVoice?.fear?.(this.voiceAt(), true);
     if (B.phase && this.big) this.c.shake(0.3);
+  }
+  // a volley (B.shell { n }): its rounds off its arms, one after another, up on a high arc to come down in the red ring
+  // where he stood: the first at the blow's moment (contact() brings it down there: its blast is the blow), the others
+  // a beat apart inside the ring, each with its own blast
+  fireShells(B, tele) {
+    const c = this.c, n = B.shell.n || 1, R = B.quake.r * this.k, T = this.qT, k = Math.min(1.5, Math.max(0.8, this.k));
+    this.shellMain = null;
+    for (let i = 0; i < n; i++) {
+      const at = i * 0.16, hand = this.bones[i % 2 ? 'hand_L' : 'hand_R'];
+      const go = () => {
+        if (this.out || this.state === 'dying') return;
+        const from = hand ? hand.getWorldPosition(new THREE.Vector3()) : this.chest(new THREE.Vector3());
+        from.y += 0.25 * this.k;
+        const a = rnd(0, Math.PI * 2), r = i ? R * rnd(0.35, 0.65) : 0;
+        const to = new THREE.Vector3(T.x + Math.cos(a) * r, T.y, T.z + Math.sin(a) * r);
+        to.y = c.W.app?.controllerManager?.getGroundHeight?.(to.x, to.z, 'person') ?? T.y;
+        c.fx.muzzle(from, _v2.set(to.x - from.x, 0, to.z - from.z).normalize().setY(0.9).normalize());
+        if (i) cue(c.W, this.P.voice?.[B.voice], [from.x, from.y, from.z], { vol: 0.6 }); // (the first's is the blow's own, startSwing)
+        const S = c.fx.shell(from, to, Math.max(0.3, tele - at + i * 0.12), { k, onLand: i ? (p) => { c.shake(0.35); cue(c.W, this.P.voice?.land, [p.x, p.y, p.z], { vol: 0.6 }); } : null });
+        if (!i) this.shellMain = S;
+      };
+      if (!i) go(); else setTimeout(go, at * 1000);
+    }
   }
   // the quake's middle now (where its fists or its foot come down)
   quakeAt(B, out) {
@@ -328,7 +360,17 @@ export class CreatureFighter {
   landBlow(B, at, dir) {
     const c = this.c, me = c.me;
     this.landed = true;
-    const dmg = this.T.dmg * B.dmg;
+    let dmg = this.T.dmg * B.dmg;
+    // (a story fight's boss (c.fierce, SF 2040): one mistake is never the end of him. From over a third of his health a
+    // blow leaves him at least an eighth of it, and once it has landed it gives him room to get up and away: a breather
+    // after the swing (attackStep), no blow on top of a man getting up. On his last 30% it hits him at half and stands
+    // off him longer: he can still lose it, but never pinned to death under it)
+    if (this.boss && c.fierce) {
+      const low = me.hp <= me.maxHp * 0.3;
+      if (low) dmg *= 0.5;
+      const floor = me.hp > me.maxHp * 0.34 ? Math.round(me.maxHp * 0.125) : 0;
+      dmg = Math.min(dmg, Math.max(0, me.hp - floor)); this.breather = low ? 2 : 1;
+    }
     me.takeHit(this, dmg, !!B.heavy);
     c.fx.hit(at, _v2.copy(dir).negate(), { heavy: B.heavy ? 0.9 : 0.45, color: [5.5, 1.6, 1.2] });
     c.hitStop(B.heavy ? 0.1 : 0.06, B.heavy ? 0.03 : 0.06); c.shake(B.heavy ? 0.85 : 0.45, dir);
@@ -345,7 +387,14 @@ export class CreatureFighter {
       const at = this.quakeAt(B, _v);
       const R = B.quake.r * this.k;
       // (a slam into the street: dust, the thud; a roar's blast: only the air)
-      if (!B.phase) { c.groundPound(at, 1.3, 'slam'); c.fx.dust(at, { amount: 1.2 + 0.4 * this.k }); cue(c.W, this.P.voice?.land, [at.x, at.y, at.z]); }
+      // (a volley's first round comes down here and now: its blast)
+      if (B.shell && this.shellMain) { this.shellMain.land(); this.shellMain = null; }
+      if (B.shell) { c.shake(0.4); c.sfx('slam', 1.1); cue(c.W, this.P.voice?.land, [at.x, at.y, at.z]); }
+      else if (!B.phase) {
+        c.groundPound(at, 1.3, 'slam'); c.fx.dust(at, { amount: 1.2 + 0.4 * this.k }); cue(c.W, this.P.voice?.land, [at.x, at.y, at.z]);
+        // (a story fight's: the dust thrown out to the ring's edge, and the blow felt harder through the view)
+        if (c.fierce) { c.fx.burst(at, R); c.shake(0.55 + 0.2 * Math.min(2, this.k)); }
+      }
       else c.sfx('whoosh', 1.5);
       c.shake(0.7 + 0.2 * Math.min(2, this.k));
       c.fx.ring(null);
@@ -422,7 +471,8 @@ export class CreatureFighter {
         if (!this.B) this.chooseBlow(dist);
         // (he went somewhere else on the way, under it or well out: once, the blow for where he is now)
         if (!this.repicked && this.st > 0.3 && this.B.use && (dist < this.B.use[0] * this.k - 0.6 || dist > this.B.use[1] * this.k + 2.5)) { this.repicked = true; this.chooseBlow(dist); }
-        const range = this.blowRange();
+        // (a shell is fired from where it stands, anywhere in its distances: it only turns to face him)
+        const range = this.B.shell ? this.B.use[1] * this.k * 0.9 : this.blowRange();
         if (dist > range + 0.35 * this.k) this.stepTo(P, this.T.speed * (c.fierce ? 1.3 : 1), faceP, dt);
         else { this.spd = damp(this.spd, 0, 8, dt); this.yaw = turnTo(this.yaw, faceP, this.P.turn, dt); }
         const facing = Math.abs(angWrap(faceP - this.yaw)) < (this.big ? 0.32 : 0.5);
@@ -522,6 +572,8 @@ export class CreatureFighter {
     if (this.swung && clipT >= (B.until || a.getClip().duration) - 0.05) {
       this.whooshed = false; this.stopOne(0.35); this.set('hold');
       this.cd = rnd(1.1, 2.3) * (this.boss ? 0.85 : 1) * (this.rage ? Math.pow(0.8, this.rage) : 1) * (c.fierce ? 0.55 : 1) * c.crowdK(); c.releaseToken(this);
+      // (it put him down: it stands over him a beat (its display when it has room for one) before it comes again)
+      if (this.breather) { this.cd = Math.max(this.cd, this.breather > 1 ? rnd(3.4, 4.0) : rnd(2.6, 3.2)); this.breather = false; }
     }
   }
   // ------------------------------------------------------------------ over the clip (after the mixer)
@@ -571,6 +623,8 @@ export class CreatureFighter {
         if (this.sinkT != null) body.position.y -= Math.min(1, (this.c.time - this.sinkT) / 2.5) * H * 0.9;
       }
     } else if (body.rotation.x || body.rotation.z || body.position.lengthSq()) { body.rotation.x = 0; body.rotation.z = 0; body.position.set(0, 0, 0); }
+    // its face (snarl.js): fierce at rest, a snarl winding up, a roar at the blow and the chest beat
+    if (M.face) M.face.update(dt, this);
     // the hit's flash
     const e = this.flash * this.flash * 0.06;
     for (const m of this.mats) m.emissive.setRGB(e, e * 0.92, e * 0.85);
