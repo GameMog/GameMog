@@ -2,10 +2,10 @@
 // assets/CREDITS.md), through the game's mixer and placed at its head, so it pans, fades with distance and dips under
 // the story's lines (the sfx bus is ducked under them). What it says and when:
 //   nicker   a soft greeting: as he goes to mount, when it is brought to him (W.horse.give), when he walks up to it
-//   snort    standing (now and then, never back to back), and the odd one at a walk; a buck's effort; some jumps' take-off
-//   blow     the long flutter of the lips: standing, and once when it pulls up out of a long gallop
-//   breath   at a gallop one breath a stride (a horse breathes in step with its gallop), louder the longer it runs
-//   neigh    a jump's take-off now and then; a big creature's roar near it (fear)
+//   snort    as it sets off from a stand; a buck's effort
+//   blow     the long flutter of the lips as it comes to a stop after a run
+//   neigh    a big creature's roar near it (fear)
+// Nothing while it stands, walks, gallops or jumps (owner, 12 Nov: only when it starts and stops).
 //   whinny   a creature's roar near it (fear)
 //   scream   a rear; a heavy blow
 //   pain     when it is hit (the blows that reach him up there, the crew's bangs on it)
@@ -22,7 +22,7 @@ export function createVoice(W) {
   const count = { nicker: 0, snort: 0, blow: 0, breath: 0, neigh: 0, whinny: 0, scream: 0, pain: 0 };
   const cd = {};                 // group -> time it may play again
   let t = 0, lineUntil = 0;      // (one voice line at a time: when the one in hand ends)
-  let idleT = rnd(6, 12), walkT = rnd(15, 30), exert = 0, lastPh = 0, strides = 0, galloped = 0, blowAfter = -1;
+  let moving = false, ran = 0;
   let wasMounted = false, wasPhase = null, wasAir = false, wasOne = null, lastHp = null, nickerAt = -99, nearWas = false;
   const head = (c) => { const h = c.heading || 0; return [c.position.x + Math.sin(h) * 1.15, c.position.y + 1.85, c.position.z + Math.cos(h) * 1.15]; };
 
@@ -71,12 +71,6 @@ export function createVoice(W) {
       else if (one === 'buck' && Math.random() < 0.6) say('snort', { vol: 0.75, gap: 1.5, force: true, rate: rnd(0.9, 1.0) });
     }
     wasOne = one;
-    // a jump's take-off: now and then a neigh, more often a snort of effort
-    if (s.air && !wasAir) {
-      const r = Math.random();
-      if (r < 0.3) say('neigh', { vol: 0.75, gap: 8, rate: rnd(0.98, 1.08) });
-      else if (r < 0.75) say('snort', { vol: 0.65, gap: 1.2, rate: rnd(0.92, 1.02) });
-    }
     wasAir = !!s.air;
 
     // hit: the fight's hp for him dropping while he is up there, a squeal (a heavy one, the scream)
@@ -85,29 +79,12 @@ export function createVoice(W) {
       lastHp = s.hp;
     }
 
-    // breathing: at a gallop a breath on every stride, louder as it tires; it rests off slowly
-    const sp = Math.abs(s.speed || 0), gallop = s.gait === 'gallop';
-    exert = gallop ? Math.min(1, exert + dt / 9) : Math.max(0, exert - dt / (sp < 0.3 ? 14 : 25));
-    if (gallop) galloped += dt; else if (sp < 2.5) { if (galloped > 6 && blowAfter < 0) blowAfter = t + rnd(0.6, 1.2); galloped = 0; }
-    const ph = s.rs?.phase?.('gallop');
-    if (gallop && ph != null) {
-      if (ph < lastPh - 0.5) { strides++; say('breath', { vol: 0.16 + 0.34 * exert, gap: 0.2, rate: rnd(0.96, 1.04) * (1 + 0.04 * exert) }); }
-      lastPh = ph;
-    } else if (s.gait === 'trot' && exert > 0.45) {
-      // (trotting on after a long gallop: a breath every other stride, softer)
-      const pt = s.rs?.phase?.('trot');
-      if (pt != null) { if (pt < lastPh - 0.5 && ++strides % 2 === 0) say('breath', { vol: 0.1 + 0.18 * exert, gap: 0.3, rate: rnd(0.9, 0.98) }); lastPh = pt; }
-    } else lastPh = 0;
-    if (blowAfter > 0 && t > blowAfter) { blowAfter = -1; say('blow', { vol: 0.7, gap: 4 }); idleT = rnd(6, 12); }
-
-    // standing: a snort or a blow, now and then (not while it breathes hard); at a walk the odd snort
-    if (sp < 0.3 && !one) {
-      idleT -= dt;
-      if (idleT <= 0) { idleT = rnd(11, 26); Math.random() < 0.6 ? say('snort', { vol: rnd(0.4, 0.55), gap: 4 }) : say('blow', { vol: rnd(0.4, 0.55), gap: 6 }); }
-    } else if (s.gait === 'walk') {
-      walkT -= dt;
-      if (walkT <= 0) { walkT = rnd(16, 34); say('snort', { vol: rnd(0.35, 0.5), gap: 5 }); }
-    }
+    // moving off and pulling up, and nothing in between (owner, 12 Nov: no constant noise): a snort as it sets off
+    // from a stand, a blow as it comes to a stop after a real run
+    const sp = Math.abs(s.speed || 0);
+    if (!s.mounted) { moving = false; ran = 0; }
+    else if (!moving && sp > 3) { moving = true; ran = 0; say('snort', { vol: 0.6, gap: 4, rate: rnd(0.94, 1.02) }); }
+    else if (moving) { ran += dt; if (sp < 0.4) { moving = false; if (ran > 2.5) say('blow', { vol: 0.65, gap: 4 }); } }
   }
   function hurt(heavy = false) {
     if (heavy) return say('scream', { vol: 0.95, gap: 2.5, force: true }) || say('pain', { vol: 0.9, gap: 0.9, force: true });
