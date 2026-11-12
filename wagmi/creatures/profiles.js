@@ -92,10 +92,13 @@ export const PROFILES = {
       leap: { clip: 'Jump', from: 0.3, hit: 2.3, until: 3.2, tele: 1.6, quake: { r: 3.4, ahead: 0 }, travel: { from: 1.1, to: 2.25, max: 7 }, range: 1.0, use: [4.5, 11], dmg: 2, counter: false, heavy: true, w: 2 },
       // the swipe (its right arm through 2.7-3.0 m: over a man on foot) only at a rider up on a horse
       swipe: { clip: 'Attack', from: 0.2, hit: 0.86, until: 1.8, tele: 0.85, limbs: ['hand_R', 'forearm_R', 'hand_L', 'forearm_L'], range: 1.5, use: [0, 2.4], dmg: 1.5, counter: false, heavy: true, mounted: true, w: 3 },
+      // a shell from its arm at a man kept at range: the ring falls where he stood as it fired (quake.target), held
+      // there for the whole wind-up: keep moving and it lands behind him
+      volley: { clip: 'Attack', from: 0.2, hit: 0.86, until: 1.8, tele: 1.5, quake: { r: 2.4, target: true }, range: 6, use: [5, 22], dmg: 1.2, counter: false, heavy: true, w: 3, voice: 'fire' },
     },
     special: 'Stomp',
     steps: [{ s: IMP + 'impactMetal_heavy', vol: 0.5, rate: 0.5 }, { s: SCI + 'doorClose', vol: 0.18, rate: 0.55 }],
-    voice: { hurt: [{ s: SCI + 'impactMetal', vol: 0.35, rate: 1 }], land: [{ s: IMP + 'impactMetal_heavy', vol: 0.9, rate: 0.45 }, { s: SCI + 'lowFrequency_explosion', vol: 0.55, rate: 1.1 }] },
+    voice: { hurt: [{ s: SCI + 'impactMetal', vol: 0.35, rate: 1 }], land: [{ s: IMP + 'impactMetal_heavy', vol: 0.9, rate: 0.45 }, { s: SCI + 'lowFrequency_explosion', vol: 0.55, rate: 1.1 }], fire: [{ s: SCI + 'laserLarge_000', vol: 0.5, rate: 0.6 }] },
   },
   'creature-trex': {
     name: 'T. rex', hp: 900, dmg: 20, speed: 3.4, turn: 2.2, poise: 3, ring: 7.4, foot: 1.3, spacing: 3.6, heavy: true,
