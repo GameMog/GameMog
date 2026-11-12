@@ -55,7 +55,7 @@ export function createDrive(THREE, { cm, car, W }) {
     const B = car.body, hl = (B.z1 - B.z0) / 2, cz = (B.z1 + B.z0) / 2, h = car.heading;
     const cx = car.position.x + Math.sin(h) * cz, czw = car.position.z + Math.cos(h) * cz;
     let into = 0;
-    const list = (W.crash?.bodies?.(cx, czw, 9) || []);
+    const list = (W.crash?.bodies?.(cx, czw, 9, hoofY()) || []);
     for (const [ox, oz, oy, ow, ol] of list) {
       if (!overlap(cx, czw, h, B.hx, hl, ox, oz, oy, ow, ol)) continue;
       car.position.x += _o.nx * _o.pen; car.position.z += _o.nz * _o.pen;
@@ -100,7 +100,7 @@ export function createDrive(THREE, { cm, car, W }) {
   function roomAhead(far, h = car.heading, yH = 1.9) {
     const sg = Math.sign(car.speed || 1), fx = Math.sin(h) * sg, fz = Math.cos(h) * sg, rx = Math.cos(h), rz = -Math.sin(h);
     const nose = car.speed >= 0 ? car.body.z1 : -car.body.z0;
-    const y0 = hoofY(), list = W.crash?.bodies?.(car.position.x + fx * (nose + far / 2), car.position.z + fz * (nose + far / 2), far / 2 + 4) || [];
+    const y0 = hoofY(), list = W.crash?.bodies?.(car.position.x + fx * (nose + far / 2), car.position.z + fz * (nose + far / 2), far / 2 + 4, y0) || [];
     for (let d = 0.6; d <= far; d += 0.6) for (const s of [0, 0.38, -0.38]) {
       const x = car.position.x + fx * (nose + d) + rx * s, z = car.position.z + fz * (nose + d) + rz * s;
       _p.set(x, 0, z); cm.resolveHorizontalCollision(_p, 0.2, y0 + yH);

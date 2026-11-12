@@ -326,6 +326,7 @@ export async function install(W) {
   c.items = createItems(c);
   await c.items.load();
   c.fx = createFx(scene);
+  c.fx.decalWhen = () => !!c.fierce; // (SF 2040's story fights: a slam's ring is a mark on the street, fx.js groundRing)
   c.sfx = createSfx();
   c.hud = createHud(c);
   c.live = () => c.enabled && !W.cutscene && !W.directed && cm.activeMode === 'person' && !P.inVehicle;
@@ -690,7 +691,8 @@ export async function install(W) {
       let best = null, bs = Infinity;
       for (const e of standing) {
         if (e.state !== 'hold' || e.cd > 0 || c.hasToken(e)) continue;
-        const d = hdist(e.pos, pf); if (d > (e.ring ? e.ring + 4 : 9)) continue;
+        // (one with a blow from range, WARDEN-7's volley (e.reach): its turn comes from out there too)
+        const d = hdist(e.pos, pf); if (d > Math.max(e.reach || 0, e.ring ? e.ring + 4 : 9)) continue;
         // (under a mission's pressure the man who has waited longest counts nearer too: up to 3 m after 12 s, so the
         // ones circling furthest out still get their turns)
         const sc = d + Math.random() * 2 - (e.type === 'brute' ? 2.5 : e.pickBias || 0) - (e.ring ? e.ring - 3 : 0) - (cap ? Math.min(3, (c.time - (e.tokAt ?? c.time)) * 0.25) : 0);
@@ -1026,6 +1028,9 @@ export async function install(W) {
     pressure(o) { c.cap = o ? { max: Math.max(1, o.max ?? 2), circle: !!o.circle, calm: !!o.calm } : null; return c.cap; },
     get fighting() { return c.me.fighting && c.live(); },
     get enemies() { return c.enemies; },
+    // (a story fight's fierce creatures, SF 2040: the runner sets it here; read inside as c.fierce. Without it the
+    // runner's flag sat on this object and never reached the fight)
+    get fierce() { return !!c.fierce; }, set fierce(v) { c.fierce = !!v; },
     get crews() { return c.crews; },
     nav: c.nav, // (the pathfinding: nav.statsNow(), nav.ready(); ?nav=0 turns it off, ?navdebug draws it)
     player: {

@@ -57,6 +57,8 @@ export function createCorridor(W, debris) {
   }
   // (&apoccorridor=0: left as the traffic leaves it, for comparing)
   const on = new URLSearchParams(location.search).get('apoccorridor') !== '0';
+  // (&apochw=0: the freeways' cars left where they stand, for comparing)
+  const hwOn = new URLSearchParams(location.search).get('apochw') !== '0';
   function update(dt) {
     if (!on || (t -= dt) > 0) return; t = 0.5;
     const r = W.gps?.route, d = W.gps?.dest;
@@ -72,6 +74,28 @@ export function createCorridor(W, debris) {
     }
     if (!segs.length) return;
     for (const v of app.trafficSystem?.cars || []) clearCar(v);
+    const HW = app.highwayTraffic;
+    if (hwOn && HW?.cars && HW.place) for (const c of HW.cars) clearHw(HW, c);
+  }
+  // the freeways' cars (standing too, SF 2040: cities/sf/js/main.js steps them at no time): a ramp's foot, the Octavia
+  // ramp up to the Central Freeway, is street level, and one standing there on the route stopped Ranger on the climb.
+  // One on the route at the street's own height is moved along its lane, back or on, to the nearest spot clear of the
+  // route and of the cars there (as if it stopped there); with none within 150 m, on round its lane out of the way.
+  // A deck over the street (or a cut under it) is left as it is: its cars are not in his way (crash bodies(y))
+  const _hp = {};
+  function clearHw(HW, c) {
+    const p = HW.place(c, _hp);
+    if (!blocks(null, p.x, p.z, p.yaw)) return;
+    const gy = app.controllerManager?.getGroundHeight?.(p.x, p.z, 'person');
+    if (Number.isFinite(gy) && Math.abs(p.y - gy) > 3) return;
+    const L = c.lane, u0 = c.u, wrap = (u) => ((u % L.len) + L.len) % L.len;
+    const free = (u) => L.cars.every((o) => o === c || Math.min(Math.abs(o.u - u), L.len - Math.abs(o.u - u)) > 6.5);
+    for (let d = 7; d <= 150; d += 7) for (const s of [-1, 1]) {
+      const u = wrap(u0 + s * d); c.u = u; c.seg = 0;
+      const q = HW.place(c, _hp);
+      if (!blocks(null, q.x, q.z, q.yaw) && free(u)) { moved++; return; }
+    }
+    c.u = wrap(u0 + L.len / 2); c.seg = 0; hidden++;
   }
   return { update, near, dist, stats: () => ({ segs: segs.length, moved, hidden }) };
 }
