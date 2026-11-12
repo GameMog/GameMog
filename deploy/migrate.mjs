@@ -1758,6 +1758,14 @@ export const MIGRATIONS = [
     async: true,
     run: (db, path) => sf2040World(4, db, path),
   },
+  {
+    // 12 Nov, the owner ("nothing building, push it"): SF 2040 plays Mog City's world as it is now (mogcity 018eb316:
+    // Ranger heard only as he sets off and pulls up, wood-fire crackle, Cal's hair, Hollis's beard, Old Silver's face,
+    // fair bosses, fierce creatures, LATER follows Cal). As world-4: sealed in place of world-4's only while it plays it
+    id: '2026-11-12-sf2040-world-5',
+    async: true,
+    run: (db, path) => sf2040World(5, db, path),
+  },
 ];
 
 /**
