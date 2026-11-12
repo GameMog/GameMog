@@ -302,6 +302,7 @@ export class CreatureFighter {
     const B = this.B; if (!B) return;
     const tele = B.tele * (this.rage ? Math.pow(0.86, this.rage) : 1);
     this.set('attack'); this.swung = false; this.landed = false; this.dodged = false; this.tele = tele; this.lunge = null;
+    if (B.quake?.target) { const P = this.c.W.person.position; (this.qT || (this.qT = new THREE.Vector3())).set(P.x, this.c.W.app?.controllerManager?.getGroundHeight?.(P.x, P.z, 'person') ?? P.y, P.z); }
     this.playOne(B.clip, { from: B.from, ts: 0, fade: Math.min(0.2, tele * 0.25) });
     this.c.threat(this, tele, B.counter ? 'counter' : 'dodge', { quake: !!B.quake });
     if (B.voice && this.P.voice?.[B.voice]) cue(this.c.W, this.P.voice[B.voice], this.voiceAt(), { at: B.voiceAt || 0 });
@@ -312,6 +313,8 @@ export class CreatureFighter {
   // the quake's middle now (where its fists or its foot come down)
   quakeAt(B, out) {
     const Q = B.quake;
+    // (a shell's ring: where he stood when it fired, held there, not where its body is)
+    if (Q.target && this.qT) return out.copy(this.qT);
     if (Q.at && this.bones[Q.at]) { this.bones[Q.at].getWorldPosition(out); out.y = this.ground(); return out; }
     return out.copy(this.pos).addScaledVector(fwd(this.yaw, _a), (Q.ahead || 0) * this.k);
   }
@@ -346,7 +349,7 @@ export class CreatureFighter {
       else c.sfx('whoosh', 1.5);
       c.shake(0.7 + 0.2 * Math.min(2, this.k));
       c.fx.ring(null);
-      const inside = onFoot && hdist(at, P) <= R + 0.2 && Math.abs(P.y - this.pos.y) < 1.4 && !me.down();
+      const inside = onFoot && hdist(at, P) <= R + 0.2 && Math.abs(P.y - (B.quake.target ? at.y : this.pos.y)) < 1.4 && !me.down();
       if (!inside) { this.stun = 1.6; this.cd = Math.max(this.cd, 1.6); return; }
       me.invulnUntil = 0; this.landBlow(B, _v2.copy(P).setY(P.y + 0.6), _v3.set(P.x - at.x, 0, P.z - at.z).normalize());
       if (!c.quakeTold) { c.quakeTold = true; c.hud.flash('Inside the red ring: get out of it, a roll won’t save you', 'danger'); }

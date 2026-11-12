@@ -149,7 +149,8 @@ export function createRunner(ctx) {
   // (a voice only ever heard over the air: its lines are radio lines on screen too)
   // (one heard only over the air, except in the missions where he is there in person: his cast entry's `present`,
   // mission ids: Deacon Vale in M6, the last wave's boss)
-  const onAir = (w) => { const c = w && world.castOf?.(w); return !!(c?.voiceOnly && !(Array.isArray(c.present) && M && c.present.includes(M.def?.id))); };
+  // (a body of his own and `present`: in person only in those missions, on the air in every other: Pike in M1)
+  const onAir = (w) => { const c = w && world.castOf?.(w); return !!((c?.voiceOnly || Array.isArray(c?.present)) && !(Array.isArray(c.present) && M && c.present.includes(M.def?.id))); };
   // the runner pack writes call speakers upper-cased: back to the cast's own name
   const castName = (w) => { if (!w) return w; if (world.castOf(w)) return w; const k = Object.keys(def0.cast || {}).find((n) => n.toUpperCase() === String(w).toUpperCase()); return k || w; };
 
@@ -675,6 +676,12 @@ export function createRunner(ctx) {
       if (a.walk && a.walk.to) {
         const to = camPt(a.walk.to), x0 = fig.root.position.x, z0 = fig.root.position.z, t0 = now() + (a.walk.after || 0) * 1000, dur = Math.max(0.3, a.walk.secs || 1.2) * 1000;
         walking = { to, x0, z0, t0, dur, started: false };
+      }
+      // (a clip of their own: { play: 'getup', time: 0.9 } held there (on his knees), or played on from it: { play,
+      // from, speed })
+      if (a.play && fig.mixer && fig.clip) {
+        const cl = fig.clip(a.play);
+        if (cl) { fig.mixer.stopAllAction(); const ac = fig.mixer.clipAction(cl); ac.reset(); ac.setLoop(THREE.LoopOnce, 1); ac.clampWhenFinished = true; ac.time = a.time ?? a.from ?? 0; ac.timeScale = a.time != null ? 0 : (a.speed ?? 1); ac.play(); }
       }
       const hug = 'hug' in a ? a.hug : undefined;
       let hugT = null;
@@ -1444,6 +1451,8 @@ export function createRunner(ctx) {
   // `at` stands the horse there first (W.horse.give); else it is where he left it (blipped, the route to it)
   STEPS.mount = async (d, t) => {
     const H = W.horse;
+    // (quick: put up into the saddle at once, for a scene that wants him up there whether he fought on foot or not)
+    if (d.quick && H && !inCar()) { H.mount(true); await wait(() => inCar() && !W.ride?.phase, t); if (d.arm && H.arm) try { H.arm(d.arm); } catch {} return; }
     if (inCar()) { if (d.arm && H?.arm) try { H.arm(d.arm); } catch {} return; }
     if (H && d.at) { const p = placeOf(d.at); H.give({ x: p.cx ?? p.x, z: p.cz ?? p.z, heading: p.heading ?? 0 }); }
     const name = car.label || 'your horse';
