@@ -1492,8 +1492,8 @@
        0.3
       ],
       "hold": {
-       "wake": 18,
-       "leash": 45
+       "wake": 40,
+       "leash": 70
       },
       "at": "@cityhall"
      },
@@ -1786,8 +1786,8 @@
        0.33
       ],
       "hold": {
-       "wake": 20,
-       "leash": 40
+       "wake": 32,
+       "leash": 50
       },
       "stats": {
        "hp": 1400,
