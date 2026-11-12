@@ -23,7 +23,7 @@
 import * as THREE from 'three/webgpu';
 import { createGPS } from '../mission/gps.js';
 import { createMarker } from '../mission/marker.js';
-import { createDirector, keys, handheld, clamp } from '../mission/cine.js';
+import { createDirector, keys, handheld, clamp, ease } from '../mission/cine.js';
 import { missions as registry } from '../mission/pause.js';
 import { place as putAt, outBesideCar } from '../intro.js';
 import { test, value, flagName } from './cond.js';
@@ -854,15 +854,43 @@ export function createRunner(ctx) {
       }
     } finally { ui.cine(false); ui.caption(null); await ui.fade(0, 0.5); }
   };
+  // a camera that rides with him (a transition's drone): each frame from where he and his ride are now, not a path
+  // laid down when it began. Its place round him in polar terms, eased from `from` to `to` over secs: a (rad round him
+  // from straight behind, + to his right), r (m out), h (m up); it looks at the rider (his chest up in the saddle, his
+  // head on foot) with `lead` m of the way ahead of him in the frame. His heading is smoothed, so a turn of the reins
+  // swings the shot round him rather than snapping it. The director is handed back by the caller (D.release)
+  function followShot(D, t, { secs = 2.5, from, to, lead = [3, 3], fov = [46, 46], ez = 'inOut' }) {
+    const e0 = cm.getActiveEntity(); let hs = e0.heading;
+    const t0 = now(), E = ease[ez] || ease.inOut;
+    const lp = (a, b, k) => a + (b - a) * k;
+    return wait(() => {
+      const e = cm.getActiveEntity(), dt = Math.min(0.05, Math.max(0, (now() - (D._ft || now())) / 1000)); D._ft = now();
+      hs += Math.atan2(Math.sin(e.heading - hs), Math.cos(e.heading - hs)) * (1 - Math.exp(-3 * dt));
+      const u = clamp((now() - t0) / 1000 / secs, 0, 1), k = E(u);
+      const a = hs + Math.PI + lp(from.a, to.a, k), r = lp(from.r, to.r, k), h = lp(from.h, to.h, k);
+      const up = inCar() ? (car.kind === 'horse' ? 2.05 : 1.1) : 1.5, y = e.position.y;
+      const lx = e.position.x + Math.sin(hs) * lp(lead[0], lead[1], k), lz = e.position.z + Math.cos(hs) * lp(lead[0], lead[1], k);
+      // (a+pi from his heading: behind him; + turns it round to his right)
+      const cx = e.position.x + Math.sin(a) * r, cz = e.position.z + Math.cos(a) * r;
+      const gy = cm.getGroundHeight?.(cx, cz, 'person') ?? y, cy = Math.max(y + h, gy + 1.2);
+      const hh = handheld(now() / 1000, 0.25);
+      D.camera = { pos: [cx + hh.x, cy + hh.y, cz], look: [lx, y + up, lz], fov: lp(fov[0], fov[1], k), roll: 0, shake: hh };
+      return u >= 1;
+    }, t);
+  }
   STEPS.transition = async (d, t) => {
-    // (drone: the lens lifts off him and away up the street as the picture goes, a ride's cut that doesn't jump; ride:
-    // m/s he is still going when it comes back, a canter on, not stood still)
-    let lift = null;
-    if (d.drone && !ctx.flags.flowFast && !W.cutscene) {
-      const e = cm.getActiveEntity(), h = e.heading, sx = Math.sin(h), sz = Math.cos(h), y = e.position.y;
-      lift = shotList([{ cam: [e.position.x - sx * 7, y + 3.2, e.position.z - sz * 7], to: [e.position.x - sx * 2, y + 16, e.position.z - sz * 2], look: [e.position.x + sx * 12, y + 1.5, e.position.z + sz * 12], lookTo: [e.position.x + sx * 60, y, e.position.z + sz * 60], dur: 2.6, fov: 50 }], t, { beat: true }).catch(() => {});
-      await delay(1.2, t);
+    // (drone: the lens rides with him, lifting off his shoulder and up and out over the street as the picture goes, him
+    // and his horse kept in the frame wherever he rides them (followShot); behind the card he is put on the far side,
+    // and the picture comes back on him from out in front as he canters on, the lens swinging round behind him into the
+    // ride's own view. ride: m/s he is still going when it comes back, a canter on, not stood still)
+    const drone = d.drone && !ctx.flags.flowFast && !W.cutscene;
+    let lift = null, D = null;
+    if (drone) {
+      D = createDirector(W); D.take();
+      lift = followShot(D, t, { secs: 2.7, from: { a: 0.08, r: 7, h: 3.0 }, to: { a: 0.62, r: 16, h: 11 }, lead: [3, 10], fov: [46, 52] }).catch((e) => { if (!(e instanceof Stop)) console.warn('[storyrun] drone', e); });
+      await delay(1.2, t).catch((e) => { D.release(0); throw e; });
     }
+    let back = null;
     await ui.fade(0.97, d.drone ? 1.1 : 0.6);
     try {
       if (lift) await lift;
@@ -870,7 +898,11 @@ export function createRunner(ctx) {
       if (d.time) { if (M.pin) pinTo(d.time); else setTime(d.time); } applySet(d.set);
       await hud.card({ kicker: d.kicker || d.clock || '', text: tokens(d.text), sub: tokens(d.sub || '') }, ctx.flags.flowFast ? 0.8 : (d.secs || 2.6));
       if (d.ride && inCar()) { car.speed = d.ride; app.cameraSystem.resetForTeleport?.(); }
-    } finally { await ui.fade(0, d.drone ? 1.0 : 0.6); }
+      if (D) back = followShot(D, t, { secs: 3.4, from: { a: 2.7, r: 9, h: 1.6 }, to: { a: 0.12, r: 7.5, h: 3.1 }, lead: [1, 4], fov: [40, 46] }).catch((e) => { if (!(e instanceof Stop)) console.warn('[storyrun] drone', e); });
+    } finally {
+      await ui.fade(0, d.drone ? 1.0 : 0.6);
+      if (D) { try { if (back) await back; } finally { await D.release(0.6); } }
+    }
   };
   STEPS.actEnd = async (d, t) => {
     const stats = (d.stats || []).map((s) => [s.label, s.value]);
