@@ -3,7 +3,7 @@
  * an impact, six missions on Mog City's engine, published PUBLIC at /g/sf2040 by deploy/migrate.mjs (2026-11-11-sf2040),
  * which reads the record this script writes.
  *
- *   node --import ./scripts/ts-resolve.mjs scripts/storykit-sf2040.ts --export <a Mog City tree> [--next <n> | --art <wide> <square or portrait> <headshot>]
+ *   node --import ./scripts/ts-resolve.mjs scripts/storykit-sf2040.ts --export <a Mog City tree> [--next <n> | --art <wide> <square or portrait> <headshot | -> [--suffix -2]]
  *
  * Unlike Pickup Time (scripts/storykit-showcase.ts) SF 2040 was written for Mog City directly, and Mog City ships it as
  * one of its own worlds (packs/sf2040.json, mogcity bcd35463: a runner world already, storykit: 1, city 'sf'), so there
@@ -85,7 +85,7 @@ export function sfWorld(mc: string) {
 }
 
 /** The art the migration writes, from a plain wide frame, a square (or portrait) frame and a headshot on light blue. */
-async function makeArt(wide: string, square0: string, headshot: string) {
+async function makeArt(wide: string, square0: string, headshot: string | null, suffix = '') {
   const sharp = (await import('sharp')).default;
   const { storyKeyArt } = await import('../lib/story-art.ts');
   const plain = await sharp(readFileSync(wide)).resize(1280, 720, { fit: 'cover' }).jpeg({ quality: 88, mozjpeg: true }).toBuffer();
@@ -93,12 +93,12 @@ async function makeArt(wide: string, square0: string, headshot: string) {
   const square = await sharp(readFileSync(square0)).resize(512, 512, { fit: 'cover', position: 'centre' }).jpeg({ quality: 90 }).toBuffer();
   const art = await storyKeyArt({ wide: plain, square }, 'SF 2040', 'SAN FRANCISCO');
   if (!art) throw new Error('the title could not be set');
-  writeFileSync(`${SF_DIR}/cover-plain.jpg`, plain);
-  writeFileSync(`${SF_DIR}/cover-wide.jpg`, art.wide);
-  writeFileSync(`${SF_DIR}/cover-square.jpg`, art.icon);
+  writeFileSync(`${SF_DIR}/cover-plain${suffix}.jpg`, plain);
+  writeFileSync(`${SF_DIR}/cover-wide${suffix}.jpg`, art.wide);
+  writeFileSync(`${SF_DIR}/cover-square${suffix}.jpg`, art.icon);
   // (the headshot is shot on the light blue already: only sized, as onSky's keying bands a gradient ground)
-  writeFileSync(`${SF_DIR}/headshot.jpg`, await sharp(readFileSync(headshot)).resize(512, 512, { fit: 'cover', position: 'top' }).jpeg({ quality: 88, mozjpeg: true }).toBuffer());
-  console.log(`wrote ${SF_DIR}/cover-plain.jpg, cover-wide.jpg, cover-square.jpg, headshot.jpg`);
+  if (headshot) writeFileSync(`${SF_DIR}/headshot${suffix}.jpg`, await sharp(readFileSync(headshot)).resize(512, 512, { fit: 'cover', position: 'top' }).jpeg({ quality: 88, mozjpeg: true }).toBuffer());
+  console.log(`wrote ${SF_DIR}/cover-{plain,wide,square}${suffix}.jpg${headshot ? `, headshot${suffix}.jpg` : ''}`);
 }
 
 /**
@@ -123,6 +123,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (ei < 0 || !args[ei + 1]) { console.error('usage: storykit-sf2040.ts --export <mogcity tree> [--next <n> | --art <wide.jpg> <square.jpg> <headshot.jpg>]'); process.exit(2); }
   mkdirSync(SF_DIR, { recursive: true });
   if (ni >= 0) { nextWorld(args[ei + 1], Number(args[ni + 1])); process.exit(0); }
+  // (--suffix -2: a later art set beside the first, for a swap migration (2026-11-12-sf2040-art-2), the published
+  // record and world left as they are; a headshot of '-' keeps the one there)
+  const si = args.indexOf('--suffix'), suffix = si >= 0 ? args[si + 1] : '';
+  if (suffix && ai >= 0) { await makeArt(args[ai + 1], args[ai + 2], args[ai + 3] === '-' ? null : args[ai + 3], suffix); process.exit(0); }
   const w = sfWorld(args[ei + 1]);
   writeFileSync(SF_RECORD, w.record);
   writeFileSync(`${SF_DIR}/world.json`, w.world);
