@@ -1687,6 +1687,29 @@ export const MIGRATIONS = [
       return `SF 2040's corner-titled art: ${swap.join(', ')}`;
     },
   },
+  {
+    // 12 Nov, the owner: a more prominent Rex face and giant ape. The art lane's final4 frames: the plain cover
+    // (deploy/migrations/sf2040/cover-plain-4.jpg) and the key art and icon titled in the top-left corner, clear of the
+    // Rex's head and Cal's bat (cover-{wide,square}-4.jpg; scripts/storykit-sf2040.ts --art ... --suffix -4 --place
+    // top-left). Each swapped only where the row still has what an earlier SF 2040 art migration wrote (the plain cover
+    // art-2's; the key art and icon art-3's, or art-2's should art-3 not have run); Cal's headshot stays
+    id: '2026-11-12-sf2040-art-4',
+    async: true,
+    async run(db) {
+      const was = { cover: [file('sf2040/cover-plain-2.jpg')], art_wide: [file('sf2040/cover-wide-3.jpg'), file('sf2040/cover-wide-2.jpg')], art_icon: [file('sf2040/cover-square-3.jpg'), file('sf2040/cover-square-2.jpg')] };
+      const now = { cover: file('sf2040/cover-plain-4.jpg'), art_wide: file('sf2040/cover-wide-4.jpg'), art_icon: file('sf2040/cover-square-4.jpg') };
+      if (Object.values(was).flat().some((b) => !b) || Object.values(now).some((b) => !b)) throw new Error('deploy/migrations/sf2040/cover-{plain,wide,square}-{2,3,4}.jpg are not all in this build');
+      for (const [k, b] of Object.entries(now)) if (!(b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff)) throw new Error(`the new ${k} is not a JPEG`);
+      const row = db.prepare("SELECT id, cover, art_icon, art_wide FROM games WHERE slug = 'sf2040'").get();
+      if (!row) throw new Error('waiting: /g/sf2040 is not in this database yet');
+      const same = (a, b) => a != null && Buffer.from(a).equals(b);
+      if (Object.keys(now).every((k) => same(row[k], now[k]))) return 'already there: SF 2040 has its final4 art';
+      const swap = Object.keys(now).filter((k) => was[k].some((b) => same(row[k], b)));
+      if (!swap.length) return 'left alone: SF 2040\'s art is not what its art migrations wrote';
+      db.prepare(`UPDATE games SET ${swap.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...swap.map((k) => now[k]), row.id);
+      return `SF 2040's final4 art: ${swap.join(', ')}`;
+    },
+  },
 ];
 
 /**
