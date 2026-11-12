@@ -85,13 +85,13 @@ export function sfWorld(mc: string) {
 }
 
 /** The art the migration writes, from a plain wide frame, a square (or portrait) frame and a headshot on light blue. */
-async function makeArt(wide: string, square0: string, headshot: string | null, suffix = '') {
+async function makeArt(wide: string, square0: string, headshot: string | null, suffix = '', place: 'head' | 'top-left' = 'head') {
   const sharp = (await import('sharp')).default;
   const { storyKeyArt } = await import('../lib/story-art.ts');
   const plain = await sharp(readFileSync(wide)).resize(1280, 720, { fit: 'cover' }).jpeg({ quality: 88, mozjpeg: true }).toBuffer();
   // (the square frame, or a portrait's middle square)
   const square = await sharp(readFileSync(square0)).resize(512, 512, { fit: 'cover', position: 'centre' }).jpeg({ quality: 90 }).toBuffer();
-  const art = await storyKeyArt({ wide: plain, square }, 'SF 2040', 'SAN FRANCISCO');
+  const art = await storyKeyArt({ wide: plain, square }, 'SF 2040', 'SAN FRANCISCO', place);
   if (!art) throw new Error('the title could not be set');
   writeFileSync(`${SF_DIR}/cover-plain${suffix}.jpg`, plain);
   writeFileSync(`${SF_DIR}/cover-wide${suffix}.jpg`, art.wide);
@@ -126,7 +126,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // (--suffix -2: a later art set beside the first, for a swap migration (2026-11-12-sf2040-art-2), the published
   // record and world left as they are; a headshot of '-' keeps the one there)
   const si = args.indexOf('--suffix'), suffix = si >= 0 ? args[si + 1] : '';
-  if (suffix && ai >= 0) { await makeArt(args[ai + 1], args[ai + 2], args[ai + 3] === '-' ? null : args[ai + 3], suffix); process.exit(0); }
+  // (--place top-left: the lockup in the top-left corner, clear of a hook in the middle of the frame's head: the Rex)
+  const pi = args.indexOf('--place'), place = pi >= 0 && args[pi + 1] === 'top-left' ? 'top-left' as const : 'head' as const;
+  if (suffix && ai >= 0) { await makeArt(args[ai + 1], args[ai + 2], args[ai + 3] === '-' ? null : args[ai + 3], suffix, place); process.exit(0); }
   const w = sfWorld(args[ei + 1]);
   writeFileSync(SF_RECORD, w.record);
   writeFileSync(`${SF_DIR}/world.json`, w.world);

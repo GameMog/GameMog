@@ -1664,6 +1664,29 @@ export const MIGRATIONS = [
       return `SF 2040's new art: ${swap.join(', ')}`;
     },
   },
+  {
+    // 12 Nov, the owner's review: the titled key art set SF 2040's wordmark and its SAN FRANCISCO plate over the Rex's
+    // head, the art's hook. Titled again with the lockup in the top-left corner, over the dark sky (lib/story-art.ts
+    // LockupPlace 'top-left'; scripts/storykit-sf2040.ts --art ... --suffix -3 --place top-left), the Rex, Cal and
+    // Ranger clear: deploy/migrations/sf2040/cover-{wide,square}-3.jpg. As 2026-11-12-sf2040-art-2: each swapped only
+    // where the row still has what that migration wrote; the plain cover and the headshot stay
+    id: '2026-11-12-sf2040-art-3',
+    async: true,
+    async run(db) {
+      const was = { art_wide: file('sf2040/cover-wide-2.jpg'), art_icon: file('sf2040/cover-square-2.jpg') };
+      const now = { art_wide: file('sf2040/cover-wide-3.jpg'), art_icon: file('sf2040/cover-square-3.jpg') };
+      if (Object.values(was).some((b) => !b) || Object.values(now).some((b) => !b)) throw new Error('deploy/migrations/sf2040/cover-{wide,square}-{2,3}.jpg are not all in this build');
+      for (const [k, b] of Object.entries(now)) if (!(b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff)) throw new Error(`the new ${k} is not a JPEG`);
+      const row = db.prepare("SELECT id, art_icon, art_wide FROM games WHERE slug = 'sf2040'").get();
+      if (!row) throw new Error('waiting: /g/sf2040 is not in this database yet');
+      const same = (a, b) => a != null && Buffer.from(a).equals(b);
+      if (Object.keys(now).every((k) => same(row[k], now[k]))) return 'already there: SF 2040 has its corner-titled art';
+      const swap = Object.keys(now).filter((k) => same(row[k], was[k]));
+      if (!swap.length) return 'left alone: SF 2040\'s art is not the art 2026-11-12-sf2040-art-2 wrote';
+      db.prepare(`UPDATE games SET ${swap.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...swap.map((k) => now[k]), row.id);
+      return `SF 2040's corner-titled art: ${swap.join(', ')}`;
+    },
+  },
 ];
 
 /**
