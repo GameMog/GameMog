@@ -893,6 +893,7 @@
  },
  "copy": {
   "index.text.hit-the-suits": "Hit the {suits}",
+  "index.name.hollow-claw": "Hollow Claw",
   "gps.name.dan-s-car": "{dan}'s car",
   "intro.sign.dan": "@{dan:lower}",
   "intro.sign.comments-18-4k": "COMMENTS · 18.4K",
@@ -939,6 +940,7 @@
   "gps.name.is-quicker-walk-up": " is quicker: walk up to it and press [F].",
   "gps.offer.stuck": "Stuck?",
   "gps.offer.need-a-hand": "Need a hand?",
+  "gps.offer.the-horse": "The horse",
   "gps.offer.the-car-is-going": "The car is going nowhere.",
   "jane.sign.twin-7-av-w": "TWIN · 7 AV & W 47 ST",
   "jane.sign.jpb": "JPB-",
