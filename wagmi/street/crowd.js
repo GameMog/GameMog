@@ -173,11 +173,13 @@ export function createCrowd(W) {
   function seen(x, y, z, r = 1.6) { _sph.center.set(x, y + 0.9, z); _sph.radius = r; return frustum.intersectsSphere(_sph); }
   let camOK = false;
   // behind a building from the camera: a point on the way from (x, z) to it inside one taller than the line of sight
+  // (heights from the ground they stand on: San Francisco's streets climb 100 m; a flat y 0 put every person on a hill
+  // out of the view's test, and they vanished while in plain sight)
   function behindWall(x, z) {
-    const dx = cam.x - x, dz = cam.z - z, L = Math.hypot(dx, dz);
+    const dx = cam.x - x, dz = cam.z - z, L = Math.hypot(dx, dz), y0 = groundXZ(x, z) + 1.7;
     for (const s of [3, 6, 10, 15, 22, 32, 45]) {
       if (s > L - 2) break;
-      const k = s / L, qx = x + dx * k, qz = z + dz * k, y = 1.7 + (cam.y - 1.7) * k;
+      const k = s / L, qx = x + dx * k, qz = z + dz * k, y = y0 + (cam.y - y0) * k;
       for (const c of cm.nearColliders(qx, qz, 0)) {
         if (c.carOnly || c.maxY < y || qx < c.minX || qx > c.maxX || qz < c.minZ || qz > c.maxZ) continue;
         if (c.obb) { const o = c.obb, ox = qx - o.cx, oz = qz - o.cz; if (Math.abs(ox * o.cs - oz * o.sn) > o.hx || Math.abs(ox * o.sn + oz * o.cs) > o.hz) continue; }
@@ -187,7 +189,7 @@ export function createCrowd(W) {
     return false;
   }
   // out of sight: out of the view, behind a building, or far enough off not to be noticed arriving
-  const unseen = (x, z) => !camOK || !seen(x, 0.2, z, 2.5) || Math.hypot(x - cam.x, z - cam.z) > POP || behindWall(x, z);
+  const unseen = (x, z) => !camOK || !seen(x, groundXZ(x, z), z, 2.5) || Math.hypot(x - cam.x, z - cam.z) > POP || behindWall(x, z);
 
   // put p on a random sidewalk rMin m or more from him and up to rMax from where he's headed (out of sight if hidden);
   // some near a corner, some standing
@@ -489,7 +491,9 @@ export function createCrowd(W) {
       if (p.vis) { p.body.pose(); drawn.add(p.rig, Math.hypot(x - focus.x, z - focus.z)); }
       return;
     }
-    p.vis = !camOK || seen(x, 0.2, z);
+    // (the ground under them, kept while they're within a metre of where it was read)
+    if (!(Math.abs((p.gx ?? 1e9) - x) < 1 && Math.abs((p.gz ?? 1e9) - z) < 1)) { p.gx = x; p.gz = z; p.gy = groundXZ(x, z); }
+    p.vis = !camOK || seen(x, p.gy, z);
     p.rig.update(dt, x, z, p.yaw, ground, p, 0, p.vis);
     if (p.vis) drawn.add(p.rig, Math.hypot(x - focus.x, z - focus.z));
   }

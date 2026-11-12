@@ -70,11 +70,14 @@ export const PROFILES = {
     voice: { land: [{ s: IMP + 'impactMining', vol: 0.8, rate: 0.6 }, { s: SCI + 'lowFrequency_explosion', vol: 0.5, rate: 1.3 }] },
   },
   'creature-ape': {
-    name: 'Ape', hp: 240, dmg: 14, speed: 2.1, turn: 6, poise: 2, ring: 3.6, foot: 0.8, spacing: 1.6, heavy: true,
+    name: 'Ape', hp: 240, dmg: 14, speed: 3.4, turn: 6, poise: 2, ring: 3.6, foot: 0.8, spacing: 1.6, heavy: true,
     alias: { hips: 'pelvis', spine1: 'spine1', spine2: 'chest', neck: 'head', head: 'head' },
     blows: {
       // up on its legs, arms high (to 3 m at 1.4 s), and both fists down into the street (2.15 s), lunging at him on the way
       pound: { clip: 'Jump', from: 0.15, hit: 2.15, until: 2.85, tele: 1.45, quake: { r: 1.9, ahead: 0.9 }, travel: { from: 0.75, to: 2.1, max: 2.6 }, range: 1.5, use: [0, 4.2], dmg: 1.7, counter: false, heavy: true, w: 1 },
+      // the same leap from well out: a bound across the gap and both fists down on him (a wider ring, the whole wind-up to
+      // see it coming)
+      leap: { clip: 'Jump', from: 0.15, hit: 2.15, until: 2.85, tele: 1.35, quake: { r: 2.3, ahead: 0.9 }, travel: { from: 0.6, to: 2.1, max: 8 }, range: 1.5, use: [4.2, 13], dmg: 1.8, counter: false, heavy: true, w: 2 },
     },
     special: 'ChestBeat',
     steps: [{ s: IMP + 'impactSoft_medium', vol: 0.35, rate: 0.6 }],
@@ -125,11 +128,13 @@ export const PROFILES = {
     shake: 0.22, // (its footfalls shake the view this much, close by)
   },
   'creature-scorpion': {
-    name: 'Scorpion', hp: 70, dmg: 10, speed: 2.4, turn: 5, poise: 2, ring: 3.2, foot: 1.0, spacing: 1.7, gaitless: true,
+    name: 'Scorpion', hp: 70, dmg: 10, speed: 4.2, turn: 5, poise: 2, ring: 3.2, foot: 1.0, spacing: 1.7, gaitless: true,
     alias: { hips: 'pelvis', spine1: 'pelvis', spine2: 'abdomen', neck: 'head', head: 'head' },
     blows: {
       // the claws opened wide (to 0.62 s) and snapped shut in front of it (1.02 s), at a man's shins
       pinch: { clip: 'Attack', from: 0.3, hit: 1.02, until: 2.0, tele: 0.85, limbs: ['chela_L', 'chela_R', 'finger_fixed_L', 'finger_move_L', 'finger_fixed_R', 'finger_move_R'], range: 1.3, use: [0, 2.0], dmg: 1, counter: true, w: 1, win: [-0.12, 0.12] },
+      // a pounce: up off its legs and the tail down where he stands (a small ring), covering the gap on the way
+      pounce: { clip: 'Jump', from: 0.2, hit: 1.45, until: 2.4, tele: 0.95, quake: { r: 1.5, ahead: 0.9 }, travel: { from: 0.35, to: 1.4, max: 4.5 }, range: 1.2, use: [2.0, 6.5], dmg: 1.1, counter: false, w: 2 },
     },
     special: 'ClawSnap', idle: 'ClawSnap',
     steps: [{ s: IMP + 'impactGeneric_light', vol: 0.12, rate: 1.7 }],
