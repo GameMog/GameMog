@@ -2107,10 +2107,16 @@ function buildCityBlocks(scene, opts = {}) {
     const FACADE_PAINT = { 2: [0xb9b4aa, 0xc8c2b4, 0xa9a7a2, 0xd2cab8], 3: [0xd6ccb8, 0xc9bda4, 0xe0d8c6], 5: [0xe2d6c0, 0xd9c9ab] }; // concrete, stone, terracotta
     const { sfPaint } = window.NYC.SFStyle;
     const details = { bays: [], garages: [], steps: [], gables: [], spires: [] };
-    function styleOf(i, type, palette, era, facade, height) {
+    // (Victorian neighbourhoods: the plain low apartment, office and midrise blocks there get the painted fronts of
+    // the row houses round them: pastel walls with contrasting trim, stacked bay windows, a cornice and an entry)
+    const VICTORIAN = new Set(['pacific_heights', 'nob_hill', 'western_addition', 'russian_hill', 'marina', 'presidio_heights', 'japantown', 'hayes_valley', 'haight_ashbury', 'lone_mountain_usf', 'inner_richmond', 'noe_valley', 'mission', 'castro_upper_market']);
+    const victorianOn = new URLSearchParams(location.search).get('victorian') !== '0'; // (&victorian=0: as before, for comparing)
+    const victorianBlock = (type, height, x, z) => victorianOn && (type === 'apartment' || type === 'office-low' || (type === 'midrise' && height < 45)) && VICTORIAN.has(window.NYC.blockAt?.(x, z)?.district);
+    function styleOf(i, type, palette, era, facade, height, vict = false) {
       const h1 = hash(i, 3.1), h2 = hash(i, 7.7), h3 = hash(i, 11.3);
       let mat = 0;
       let paint = sfPaint(type, palette, h1, h2, h3);
+      if (vict) return { mat: 1, paint: sfPaint(h3 < 0.5 ? 'rowhouse' : 'flats', 0, h1, h2, h3) };
       if (type === 'rowhouse' || type === 'flats' || type === 'apartment' || type === 'shed') mat = 1;
       else if (type === 'warehouse' || (type === 'office-low' && palette === 4)) mat = 2;
       else if (type === 'tower' || type === 'landmark' || (type === 'midrise' && height >= 45)) {
@@ -2134,7 +2140,8 @@ function buildCityBlocks(scene, opts = {}) {
       const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
       const height = roof - base;
       const tone = hash(i, base);
-      const { mat, paint } = styleOf(i, type, rec[FI.palette], rec[FI.era], rec[FI.facade], height);
+      const vict = victorianBlock(type, height, (minX + maxX) * 0.5, (minZ + maxZ) * 0.5);
+      const { mat, paint } = styleOf(i, type, rec[FI.palette], rec[FI.era], rec[FI.facade], height, vict);
       const storeyH = rec[FI.storeyH] || (type === 'tower' ? 3.9 : 0);
       const blk = {
         id: `sf_${i}`, cx: (minX + maxX) * 0.5, cz: (minZ + maxZ) * 0.5, minX, maxX, minZ, maxZ, district: 'sf', ry: theta,
@@ -2225,10 +2232,10 @@ function buildCityBlocks(scene, opts = {}) {
         if (!top || m.w * m.d > top.w * top.d) { top = m; topBox = box; }
       }
       // row houses, flats & apartments: bay windows, garage door, stoop & false-front gable on the main front (sf-buildings.js)
-      if (mat === 1 && topBox && (type === 'rowhouse' || type === 'flats' || type === 'apartment')) {
+      if (mat === 1 && topBox && (type === 'rowhouse' || type === 'flats' || type === 'apartment' || vict)) {
         window.NYC.sfFrontDetails(details, topBox, {
-          i, roof, bays: rec[FI.bays], garage: rec[FI.garage] > 0, storey: storeys[1], windowWidth: facades[1][1].windowWidth,
-          cornerPier: facades[1][1].cornerPier, groundAt: (x, z) => T.groundAt(x, z), roadAt: onRoadway, gable: type !== 'apartment' && hash(i, 13.7) < 0.3, hash: (a) => hash(i, a)
+          i, roof, bays: vict ? Math.max(rec[FI.bays], 2 + Math.floor(hash(i, 21.7) * 3)) : rec[FI.bays], garage: rec[FI.garage] > 0, storey: storeys[1], windowWidth: facades[1][1].windowWidth,
+          cornerPier: facades[1][1].cornerPier, groundAt: (x, z) => T.groundAt(x, z), roadAt: onRoadway, gable: type !== 'apartment' && !vict && hash(i, 13.7) < 0.3, hash: (a) => hash(i, a)
         });
       }
       // warehouses: roll-up doors & loading docks; civic buildings: a colonnade (sf-buildings.js)
