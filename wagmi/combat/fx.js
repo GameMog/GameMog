@@ -6,7 +6,7 @@ import * as THREE from 'three/webgpu';
 import { attribute, uv, texture, vec2, vec4, float, length, select, modelViewMatrix, cameraProjectionMatrix, positionGeometry, floor, mod } from 'three/tsl';
 import { clamp, rnd } from './util.js';
 
-const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
+const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _bp = new THREE.Vector3(), _bq = new THREE.Vector3();
 
 function canvasTex(size, draw) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -132,9 +132,10 @@ function groundRing(scene) {
 
 export function createFx(scene) {
   const atlas = atlasTex();
-  const add = new Particles(scene, atlas, true, 900);
-  const alpha = new Particles(scene, atlas, false, 300);
+  const add = new Particles(scene, atlas, true, 1400);
+  const alpha = new Particles(scene, atlas, false, 520);
   const gr = groundRing(scene);
+  const shells = [];
   const fx = {
     add, alpha,
     ring: gr.set, ringOn: gr.on,
@@ -216,8 +217,58 @@ export function createFx(scene) {
       add.emit({ pos, dir: _v.set(1, 1, 0), life: 0.22, size: 0.08, size1: 0.32, color: [6, 5.6, 4.2], alpha: 0.9, tile: 1 });
       add.emit({ pos, life: 0.16, size: 0.06, size1: 0.14, color: [4, 4, 3.6], alpha: 0.7, tile: 0 });
     },
-    clear() { add.list.length = 0; alpha.list.length = 0; },
-    update(dt) { add.update(dt); alpha.update(dt); },
+    // a gun's muzzle flash: a hot white-orange burst and a cone of sparks out along dir
+    muzzle(pos, dir) {
+      add.emit({ pos, life: 0.09, size: 0.45, size1: 1.1, color: [3.6, 2.2, 0.8], alpha: 0.95, tile: 0 });
+      add.emit({ pos, dir: _v.set(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)), life: 0.08, size: 0.6, size1: 1.2, color: [3.2, 1.8, 0.5], tile: 1 });
+      for (let i = 0; i < 10; i++) add.emit({ pos, vel: _v2.set(rnd(-0.35, 0.35), rnd(-0.35, 0.35), rnd(-0.35, 0.35)).add(dir).normalize().multiplyScalar(rnd(6, 14)), life: rnd(0.08, 0.18), size: 0.03, size1: 0.01, stretch: 6, color: [3.4, 1.6, 0.4], drag: 4 });
+      for (let i = 0; i < 4; i++) alpha.emit({ pos, vel: _v2.copy(dir).multiplyScalar(rnd(1, 2.5)).add(_v3.set(rnd(-0.4, 0.4), rnd(0, 0.6), rnd(-0.4, 0.4))), life: rnd(0.5, 0.9), size: 0.35, size1: 1.0, color: [0.4, 0.38, 0.36], alpha: 0.35, tile: 3, drag: 2.5, fadeIn: 0.05 });
+    },
+    // a shell on a high arc from `from` to `to` over `secs`: a glowing round with a smoke trail and embers, and a blast
+    // where it comes down (onLand once there). Returns { land() } to bring it down now (the blow's own moment)
+    shell(from, to, secs, { k = 1, onLand = null } = {}) {
+      const L = Math.hypot(to.x - from.x, to.z - from.z), h = Math.max(3, L * 0.32) * Math.min(1.6, k);
+      const S = { from: from.clone(), to: to.clone(), secs: Math.max(0.25, secs), t: 0, h, k, onLand, done: false, last: from.clone() };
+      S.land = () => { if (S.done) return; S.done = true; fx.blast(S.to, { k: S.k }); try { S.onLand?.(S.to); } catch {} };
+      shells.push(S); return S;
+    },
+    // a shell's blast: the flash, a fireball rolling up, sparks and grit thrown out, a column of smoke left standing,
+    // a shock ring along the street
+    blast(at, { k = 1 } = {}) {
+      const p = _bp.copy(at); p.y += 0.4; // (its own vector: emit() borrows _v for a particle with no velocity)
+      add.emit({ pos: p, life: 0.09, size: 0.7 * k, size1: 1.7 * k, color: [3.2, 1.9, 0.7], alpha: 0.85, tile: 0 });
+      add.emit({ pos: p, dir: _v2.set(1, 0, 0), life: 0.08, size: 0.8 * k, size1: 1.8 * k, color: [3, 1.5, 0.4], tile: 1 });
+      // (the fireball: hot orange billows rolling up and out, darkening as they go)
+      for (let i = 0; i < 16; i++) add.emit({ pos: _bq.copy(p).add(_v2.set(rnd(-0.7, 0.7) * k, rnd(0, 0.9) * k, rnd(-0.7, 0.7) * k)), vel: _v3.set(rnd(-2.2, 2.2), rnd(1.5, 4.5), rnd(-2.2, 2.2)).multiplyScalar(k), life: rnd(0.45, 0.85), size: rnd(0.7, 1.1) * k, size1: rnd(1.6, 2.5) * k, color: [rnd(1.25, 1.8), rnd(0.28, 0.48), rnd(0.03, 0.07)], alpha: 0.9, tile: 3, drag: 3 });
+      // (sparks and burning bits thrown out, grit and stones falling back)
+      for (let i = 0; i < 30; i++) add.emit({ pos: p, vel: _v2.set(rnd(-1, 1), rnd(0.2, 1.4), rnd(-1, 1)).normalize().multiplyScalar(rnd(6, 15) * k), life: rnd(0.3, 0.7), size: rnd(0.03, 0.06), size1: 0.01, stretch: 6, color: [3, 1.2, 0.25], drag: 2.5, grav: 14 });
+      for (let i = 0; i < 18; i++) alpha.emit({ pos: p, vel: _v2.set(rnd(-1, 1), rnd(0.6, 1.6), rnd(-1, 1)).normalize().multiplyScalar(rnd(4, 9) * k), life: rnd(0.6, 1.1), size: rnd(0.04, 0.09), size1: 0.03, color: [0.1, 0.09, 0.08], alpha: 1, grav: 18, drag: 0.6 });
+      // (black smoke left standing over the crater a few seconds)
+      for (let i = 0; i < 14; i++) alpha.emit({ pos: _bq.copy(at).add(_v2.set(rnd(-1, 1) * k, rnd(0.3, 1.4), rnd(-1, 1) * k)), vel: _v3.set(rnd(-1, 1), rnd(1, 2.6), rnd(-1, 1)), life: rnd(1.8, 3.4), size: rnd(0.8, 1.2) * k, size1: rnd(2.2, 3.4) * k, color: [0.075, 0.07, 0.065], alpha: 0.62, tile: 3, drag: 1.4, fadeIn: 0.15 });
+      fx.dust(at, { amount: 0.6 * k });
+    },
+    clear() { add.list.length = 0; alpha.list.length = 0; shells.length = 0; },
+    update(dt) {
+      // (the shells in the air: each frame its glowing round where it is now, a smoke trail behind it, an ember or two)
+      for (let i = shells.length - 1; i >= 0; i--) {
+        const S = shells[i];
+        if (S.done) { shells.splice(i, 1); continue; }
+        S.t += dt; const u = Math.min(1, S.t / S.secs);
+        // (its own vectors: emit() borrows _v for a particle with no velocity)
+        const p = _bp.copy(S.from).lerp(S.to, u); p.y += 4 * S.h * u * (1 - u);
+        const dir = _bq.copy(p).sub(S.last);
+        // (the round: a hot orange core and a white-hot heart, a streak of flame behind it, embers, and a dark trail of
+        // smoke hanging where it went)
+        add.emit({ pos: p, dir, life: Math.max(0.03, dt * 1.6), size: 0.38 * S.k, size1: 0.34 * S.k, color: [2.6, 0.55, 0.06], alpha: 1, tile: 0 });
+        add.emit({ pos: p, life: Math.max(0.03, dt * 1.6), size: 0.11 * S.k, size1: 0.11 * S.k, color: [3.2, 2.2, 0.9], alpha: 1, tile: 0 });
+        add.emit({ pos: p, vel: _v3.copy(dir).multiplyScalar(-4 / Math.max(1e-3, dt * 60)), dir: dir.clone(), life: 0.1, size: 0.2 * S.k, size1: 0.06, stretch: 12, color: [2.6, 0.6, 0.08], alpha: 1, tile: 0, drag: 4 });
+        if (Math.random() < 0.6) add.emit({ pos: p, vel: _v3.set(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)), life: rnd(0.15, 0.3), size: 0.04, size1: 0.01, color: [3, 1.1, 0.2], tile: 0, grav: 4 });
+        alpha.emit({ pos: p, vel: _v3.set(rnd(-0.3, 0.3), rnd(0, 0.5), rnd(-0.3, 0.3)), life: rnd(0.9, 1.4), size: 0.28 * S.k, size1: 1.0 * S.k, color: [0.42, 0.4, 0.38], alpha: 0.55, tile: 3, drag: 1.5 });
+        S.last.copy(p);
+        if (u >= 1) S.land();
+      }
+      add.update(dt); alpha.update(dt);
+    },
     meshes: [add.mesh, alpha.mesh, ...gr.meshes],
   };
   return fx;

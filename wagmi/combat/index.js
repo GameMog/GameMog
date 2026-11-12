@@ -690,7 +690,8 @@ export async function install(W) {
       let best = null, bs = Infinity;
       for (const e of standing) {
         if (e.state !== 'hold' || e.cd > 0 || c.hasToken(e)) continue;
-        const d = hdist(e.pos, pf); if (d > (e.ring ? e.ring + 4 : 9)) continue;
+        // (one with a blow from range, WARDEN-7's volley (e.reach): its turn comes from out there too)
+        const d = hdist(e.pos, pf); if (d > Math.max(e.reach || 0, e.ring ? e.ring + 4 : 9)) continue;
         // (under a mission's pressure the man who has waited longest counts nearer too: up to 3 m after 12 s, so the
         // ones circling furthest out still get their turns)
         const sc = d + Math.random() * 2 - (e.type === 'brute' ? 2.5 : e.pickBias || 0) - (e.ring ? e.ring - 3 : 0) - (cap ? Math.min(3, (c.time - (e.tokAt ?? c.time)) * 0.25) : 0);

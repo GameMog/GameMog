@@ -2624,8 +2624,8 @@
        -366
       ],
       "stats": {
-       "hp": 520,
-       "dmg": 15
+       "hp": 460,
+       "dmg": 13
       }
      },
      "speed": 10.5,
@@ -2663,7 +2663,7 @@
      "help": [
       [
        1,
-       "Keep moving. Strike when she's done snapping, then get clear."
+       "Don't stand under her: when a red ring opens round her feet, get out of it. Strike when she's done snapping, then get clear."
       ]
      ]
     },
