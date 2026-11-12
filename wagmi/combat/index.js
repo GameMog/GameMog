@@ -353,7 +353,7 @@ export async function install(W) {
     for (let i = 1; i < n; i++) { const u = i / n; if (camx.solid(a.x + (b.x - a.x) * u, Math.max(a.y, b.y) + 1.1, a.z + (b.z - a.z) * u)) return true; }
     return false;
   };
-  c.attackable = () => c.live() && !c.me.down() && !c.quiet;
+  c.attackable = () => (c.live() || (c.fierce && cm.activeMode === 'car' && !W.cutscene && !W.directed && !W.paused)) && !c.me.down() && !c.quiet;
   // the clocks: Dan's moves and pose, the Suits and the effects step on the fight's clock (this frame's scale was set
   // at the end of the last one, so all of them agree); in fixed mode (debug) only on requested steps of 1/60 s
   const realDt = (dt) => (c.fixed ? (c.stepNow ? 1 / 60 : 0) : dt);
@@ -629,7 +629,9 @@ export async function install(W) {
   function director(dt) {
     const pf = c.playerFeet;
     c.globalCd -= dt;
-    for (const cr of c.crews) if (!cr.awake && cr.aggro && c.live() && cr.enemies.some((e) => e.alive && hdist(e.pos, pf) < 22)) wake(cr);
+    // (a story fight's fierce creatures (c.fierce, SF 2040) come for him from 40 m, in the saddle or not)
+    const fierce = (cr) => c.fierce && cr.creatures && !W.cutscene && !W.directed;
+    for (const cr of c.crews) if (!cr.awake && cr.aggro && (c.live() || fierce(cr)) && cr.enemies.some((e) => e.alive && hdist(e.pos, pf) < (fierce(cr) ? 40 : 22))) wake(cr);
     const standing = c.enemies.filter((e) => e.alive && ['hold', 'approach', 'attack', 'stagger', 'getup', 'dazed'].includes(e.state));
     // surround him at ~3 m (a brute further out), spread round, never a slot inside a wall
     const items = standing.map((e) => { const a = Math.atan2(e.pos.x - pf.x, e.pos.z - pf.z); return { e, a, a0: a }; });
@@ -699,7 +701,8 @@ export async function install(W) {
     };
     c.standingN = standing.length;
     for (let i = c.tokens.length - 1; i >= 0; i--) { const e = c.tokens[i]; if (!e.alive || (e.state !== 'approach' && e.state !== 'attack')) c.releaseToken(e); }
-    const max = Math.min(standing.length >= 5 ? 3 : standing.length >= 3 ? 2 : 1, cap ? cap.max : 9), last = c.tokens[c.tokens.length - 1];
+    // (fierce creatures: two at him at once from two up, a pincer from both flanks more often)
+    const max = Math.min(standing.length >= 5 ? 3 : standing.length >= (c.fierce ? 2 : 3) ? 2 : 1, cap ? cap.max : 9), last = c.tokens[c.tokens.length - 1];
     // (a man with a bottle hanging back throws it from where he stands, whoever has the token, one bottle in the air at a
     // time; under a mission's pressure only while fewer than cap.max are in)
     if (c.ranged && (!c.ranged.alive || (c.ranged.state !== 'approach' && c.ranged.state !== 'attack'))) c.ranged = null;
@@ -708,7 +711,7 @@ export async function install(W) {
       if (th) { th.atk = 'bottleThrow'; th.set('approach'); c.ranged = th; }
     }
     if (c.globalCd <= 0 && c.tokens.length < max) {
-      if (!last && c.rules.pincer && standing.length >= 2 && (!cap || cap.max >= 2) && c.time > pincerT && ((pincerT = c.time + rnd(5, 9)), Math.random() < 0.6) && pincer(standing, pf)) { /* (two at once) */ }
+      if (!last && c.rules.pincer && standing.length >= 2 && (!cap || cap.max >= 2) && c.time > pincerT && ((pincerT = c.time + (c.fierce ? rnd(3, 5) : rnd(5, 9))), Math.random() < (c.fierce ? 0.85 : 0.6)) && pincer(standing, pf)) { /* (two at once) */ }
       else if (!last) { const e = pickNext(); if (e) c.tokens.push(e); }
       else {
         // (a gang-up or not: decided once for each man who goes first)
@@ -822,7 +825,7 @@ export async function install(W) {
       const e = c.enemies[i];
       if (!frozen) e.update(dt);
       // the fallen are cleared away once he has long left them
-      if (e.out && hdist(e.pos, P.position) > 90 && e.st > 15) { e.dispose(); c.enemies.splice(i, 1); }
+      if (e.out && !(e.creature && (e.boss || e.keepBody)) && hdist(e.pos, P.position) > 90 && e.st > 15) { e.dispose(); c.enemies.splice(i, 1); }
     }
     // standing men keep apart, and off him
     // (a creature keeps the others its own spacing off; a heavy one is not moved by a man: he gives way to it, and Dan is
@@ -844,7 +847,7 @@ export async function install(W) {
     // as from one standing, never stood in or on its back (a knock-back that threw him at a fallen WARDEN-7 left him
     // standing on it). Its whole height counts, it being low now)
     if (cm.activeMode === 'person' && !P.inVehicle) for (const a of c.enemies) {
-      if (!a.creature || a.standing || a.disposed || !a.body?.ok || (a.state === 'out' && c.time - a.outAt > 14)) continue;
+      if (!a.creature || a.standing || a.disposed || !a.body?.ok || (a.state === 'out' && !a.boss && c.time - a.outAt > 60)) continue;
       if (a.body.pushOut(P.position, 0.32, 3.5, P.position.y)) cm.resolveHorizontalCollision(P.position, 0.48, P.position.y + 1.0);
     }
     if (!frozen && cm.activeMode === 'car' && car) carContact(dt);

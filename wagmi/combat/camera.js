@@ -77,7 +77,10 @@ export function createBlockers(c) {
     const now = performance.now();
     if (now - scanT > 1500 || scene.children.length !== scanN) { scanT = now; scanN = scene.children.length; scan(); }
     // his car, parked
-    if (all && onFoot && car?.mesh?.visible && car.body && Math.abs(car.position.x - x) < r + 4 && Math.abs(car.position.z - z) < r + 4) {
+    // (not a horse: a lens that swung round and rose over Ranger stood beside him, then let go and came back, swung and
+    // rose again, five times a second: SF 2040's whole world shaking at Mission 1's start. A horse is no wall to hide
+    // behind; the view may pass his flank)
+    if (all && onFoot && car?.kind !== 'horse' && car?.mesh?.visible && car.body && Math.abs(car.position.x - x) < r + 4 && Math.abs(car.position.z - z) < r + 4) {
       const B = car.body, h = car.heading, m = (B.z0 + B.z1) / 2;
       out.push(set(box(k++), car.position.x + Math.sin(h) * m, car.position.z + Math.cos(h) * m, h, B.hx, (B.z1 - B.z0) / 2, -1e4, car.position.y + B.top + 0.75));
     }

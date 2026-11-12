@@ -349,10 +349,24 @@ export class CreatureFighter {
       else c.sfx('whoosh', 1.5);
       c.shake(0.7 + 0.2 * Math.min(2, this.k));
       c.fx.ring(null);
-      const inside = onFoot && hdist(at, P) <= R + 0.2 && Math.abs(P.y - (B.quake.target ? at.y : this.pos.y)) < 1.4 && !me.down();
+      const rider = !onFoot && c.fierce && c.W.app?.controllerManager?.activeMode === 'car';
+      const inside = (onFoot || rider) && hdist(at, P) <= R + (rider ? 0.9 : 0.2) && Math.abs(P.y - (B.quake.target ? at.y : this.pos.y)) < 1.8 && !me.down();
       if (!inside) { this.stun = 1.6; this.cd = Math.max(this.cd, 1.6); return; }
+      // (a rider in the ring: the blow's hurt and Ranger checked, never a fall from the saddle)
+      if (rider) { this.landed = true; me.hp = Math.max(1, me.hp - this.T.dmg * B.dmg * 0.7); c.hitStop(0.08, 0.05); c.shake(0.9); try { c.hud.hurt?.(0.5); } catch {} if (c.W.car) c.W.car.speed *= 0.35; return; }
       me.invulnUntil = 0; this.landBlow(B, _v2.copy(P).setY(P.y + 0.6), _v3.set(P.x - at.x, 0, P.z - at.z).normalize());
       if (!c.quakeTold) { c.quakeTold = true; c.hud.flash('Inside the red ring: get out of it, a roll won’t save you', 'danger'); }
+      return;
+    }
+    // (a story fight's fierce creatures (c.fierce) land on a man up on his horse too: no fall from the saddle, the blow's
+    // hurt (never the last of him: a fall from a horse is no way to lose a fight) and Ranger checked in his stride)
+    if (!onFoot && c.fierce && c.W.app?.controllerManager?.activeMode === 'car' && !this.landed && !this.dodged) {
+      if (hdist(this.pos, P) > this.blowRange() + 1.4 + this.footR) return;
+      this.landed = true;
+      const dmg = this.T.dmg * B.dmg * 0.7; me.hp = Math.max(1, me.hp - dmg);
+      _v2.copy(P).setY(P.y + 1.9); c.fx.hit(_v2, _v3.set(P.x - this.pos.x, 0, P.z - this.pos.z).normalize(), { heavy: B.heavy ? 0.9 : 0.5, color: [5.5, 1.6, 1.2] });
+      c.hitStop(0.07, 0.05); c.shake(B.heavy ? 0.8 : 0.45); try { c.hud.hurt?.(B.heavy ? 0.5 : 0.3); } catch {}
+      const car = c.W.car; if (car) car.speed *= 0.45;
       return;
     }
     if (this.landed || this.dodged || !onFoot || me.invuln() || me.down()) return;
@@ -400,7 +414,7 @@ export class CreatureFighter {
         // (a boss's phase: its roar, a blow of its own when it has one (a blast round it), else its display)
         if (this.wantSpecial && !c.hasToken(this)) { this.wantSpecial = false; const ph = Object.keys(this.P.blows).find((n) => this.P.blows[n].phase); if (ph) { this.atk = ph; this.startSwing(); } else this.special(); break; }
         const slot = c.slotFor(this), d = hdist(slot, this.pos);
-        const sp = d > 6 ? this.T.speed * 0.85 : d > 1.0 * this.k ? this.T.speed * 0.4 : 0;
+        const sp = d > 6 ? this.T.speed * (c.fierce ? 1.15 : 0.85) : d > 1.0 * this.k ? this.T.speed * (c.fierce ? 0.7 : 0.4) : 0;
         this.stepTo(slot, sp, faceP, dt);
         break;
       }
@@ -409,7 +423,7 @@ export class CreatureFighter {
         // (he went somewhere else on the way, under it or well out: once, the blow for where he is now)
         if (!this.repicked && this.st > 0.3 && this.B.use && (dist < this.B.use[0] * this.k - 0.6 || dist > this.B.use[1] * this.k + 2.5)) { this.repicked = true; this.chooseBlow(dist); }
         const range = this.blowRange();
-        if (dist > range + 0.35 * this.k) this.stepTo(P, this.T.speed, faceP, dt);
+        if (dist > range + 0.35 * this.k) this.stepTo(P, this.T.speed * (c.fierce ? 1.3 : 1), faceP, dt);
         else { this.spd = damp(this.spd, 0, 8, dt); this.yaw = turnTo(this.yaw, faceP, this.P.turn, dt); }
         const facing = Math.abs(angWrap(faceP - this.yaw)) < (this.big ? 0.32 : 0.5);
         if (dist <= range + 0.8 * this.k && facing && this.stun <= 0 && c.swingOk(this, this.B.tele)) this.startSwing();
@@ -507,7 +521,7 @@ export class CreatureFighter {
     if (this.swung && !this.whooshed && !this.landed && !B.quake && clipT > B.hit + win[1]) { this.whooshed = true; c.sfx('whoosh', this.big ? 1.3 : 0.8); }
     if (this.swung && clipT >= (B.until || a.getClip().duration) - 0.05) {
       this.whooshed = false; this.stopOne(0.35); this.set('hold');
-      this.cd = rnd(1.1, 2.3) * (this.boss ? 0.85 : 1) * (this.rage ? Math.pow(0.8, this.rage) : 1) * c.crowdK(); c.releaseToken(this);
+      this.cd = rnd(1.1, 2.3) * (this.boss ? 0.85 : 1) * (this.rage ? Math.pow(0.8, this.rage) : 1) * (c.fierce ? 0.55 : 1) * c.crowdK(); c.releaseToken(this);
     }
   }
   // ------------------------------------------------------------------ over the clip (after the mixer)
@@ -550,7 +564,12 @@ export class CreatureFighter {
       if (M.creature === 'beast') { body.rotation.z = this.fallSide * e * 1.45; body.rotation.x = 0; body.position.set(0, e * H * 0.12, 0); }
       else { body.rotation.x = -e * 1.4; body.rotation.z = 0; body.position.set(0, e * H * 0.04, -e * H * 0.12); }
       // (out for good, a while later: it sinks out of sight)
-      if (this.state === 'out' && this.c.time - this.outAt > 14) body.position.y -= Math.min(1, (this.c.time - this.outAt - 14) / 2.5) * H * 0.9;
+      // (a boss never: it lies where it fell for the rest of the mission; the small ones only after a minute and only
+      // out of the camera's sight, never sinking in front of him: the owner, 'his body disappeared off the ground')
+      if (this.state === 'out' && !this.boss && !this.keepBody && this.c.time - this.outAt > 60) {
+        if (this.sinkT == null) { const cam = this.c.W.app?.cameraSystem?.camera; const far = !cam || cam.position.distanceTo(this.pos) > 40; if (far) this.sinkT = this.c.time; }
+        if (this.sinkT != null) body.position.y -= Math.min(1, (this.c.time - this.sinkT) / 2.5) * H * 0.9;
+      }
     } else if (body.rotation.x || body.rotation.z || body.position.lengthSq()) { body.rotation.x = 0; body.rotation.z = 0; body.position.set(0, 0, 0); }
     // the hit's flash
     const e = this.flash * this.flash * 0.06;

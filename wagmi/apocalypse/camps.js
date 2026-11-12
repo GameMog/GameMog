@@ -188,7 +188,7 @@ export function createCamps(W, fx, { clear = [] } = {}) {
       part(new THREE.BoxGeometry(0.32, 0.16, 0.5), 0x34383c, px + Math.sin(a) * 0.25, py + 0.42, pz + Math.cos(a) * 0.25, a);
     }
     const g = mergeGeometries(parts); parts.forEach((p) => p.dispose());
-    const mesh = new THREE.Mesh(g, mat); mesh.position.set(cx, y0, cz); mesh.castShadow = true; mesh.receiveShadow = true; mesh.name = 'apoc-camp-' + ci;
+    const mesh = new THREE.Mesh(g, mat); mesh.position.set(cx, y0, cz); mesh.castShadow = true; mesh.receiveShadow = true; mesh.name = 'apoc-camp-' + ci; mesh.userData.noCamBlock = true; // (the camp merged into one mesh: its whole box is no wall for the lens, which shook the view at Mission 1's start)
     scene.add(mesh);
     camps.push({ x: cx, z: cz, mesh, kind });
   }
@@ -205,7 +205,7 @@ export function createCamps(W, fx, { clear = [] } = {}) {
         for (const subs of Object.values(L.parts)) for (const sub of subs) {
           const m = new THREE.InstancedMesh(sub.geometry, sub.material, list.length);
           list.forEach(([, x, y, z, yaw], i) => m.setMatrixAt(i, M4.compose(new THREE.Vector3(x, y, z), Q4.setFromAxisAngle(up, yaw), V1)));
-          m.castShadow = false; m.receiveShadow = true; m.frustumCulled = false; m.name = 'apoc-camp-' + id; scene.add(m);
+          m.castShadow = false; m.receiveShadow = true; m.frustumCulled = false; m.name = 'apoc-camp-' + id; m.userData.noCamBlock = true; scene.add(m);
         }
       } catch (e) { console.warn('[apocalypse] camp scan', id, e); }
     }

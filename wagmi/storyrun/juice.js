@@ -22,6 +22,11 @@ export function createJuice(W) {
 #sr-juice.on{opacity:1;transform:translateX(-50%) scale(1)}
 #sr-juice .h{font:italic 800 46px/1 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.1em;text-shadow:0 3px 18px rgba(0,0,0,.7),0 0 2px rgba(0,0,0,.9)}
 #sr-juice .s{margin-top:6px;font:600 18px/1.2 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.06em;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.8)}
+#sr-ptr{position:fixed;left:0;top:0;z-index:58;pointer-events:none;opacity:0;transition:opacity .4s;will-change:transform}
+#sr-ptr.on{opacity:1}
+#sr-ptr .a{width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-bottom:30px solid #EF4444;filter:drop-shadow(0 2px 6px rgba(0,0,0,.7));margin:0 auto}
+#sr-ptr .l{margin-top:4px;font:700 14px/1.1 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.08em;color:#fff;text-transform:uppercase;text-align:center;white-space:nowrap;text-shadow:0 2px 8px rgba(0,0,0,.85)}
+#sr-ptr .l b{color:#EF4444}
 #sr-pulse{position:fixed;inset:0;z-index:59;pointer-events:none;opacity:0;box-shadow:inset 0 0 120px 30px rgba(239,68,68,.55);transition:opacity .35s}
 @media (max-width:700px){#sr-juice .h{font-size:32px}#sr-juice .s{font-size:14px}}`;
   document.head.appendChild(css);
@@ -30,7 +35,31 @@ export function createJuice(W) {
   const s = document.createElement('div'); s.className = 's';
   el.append(h, s);
   const pl = document.createElement('div'); pl.id = 'sr-pulse';
-  document.body.append(pl, el);
+  // (a pointer: an arrow at the screen's edge toward a place off screen (over it when it is in view), its name and how
+  // far: where a wave is coming from)
+  const pt = document.createElement('div'); pt.id = 'sr-ptr'; pt.innerHTML = '<div class="a"></div><div class="l"></div>';
+  const ptA = pt.querySelector('.a'), ptL = pt.querySelector('.l');
+  document.body.append(pl, el, pt);
+  let ptr = null;
+  const _p = { x: 0, y: 0, z: 0 };
+  const ptrLoop = () => {
+    requestAnimationFrame(ptrLoop);
+    if (!ptr || W.cutscene || W.paused) { pt.classList.remove('on'); return; }
+    const cam = W.app?.cameraSystem?.camera, e = W.app?.controllerManager?.getActiveEntity?.(); if (!cam || !e) return;
+    const v = cam.position.clone().set(ptr.x, (ptr.y ?? e.position.y) + 1.5, ptr.z).project(cam);
+    const W0 = innerWidth, H0 = innerHeight, behind = v.z > 1;
+    let x = v.x, y = v.y; if (behind) { x = -x; y = -y; }
+    const inView = !behind && Math.abs(x) < 0.85 && Math.abs(y) < 0.8;
+    let ang = 0;
+    if (!inView) { const m = Math.max(Math.abs(x) / 0.88, Math.abs(y) / 0.78) || 1; ang = Math.atan2(x, y); x /= m; y /= m; if (behind && Math.abs(y) < 0.5) y = -0.78; }
+    const sx = (x + 1) / 2 * W0, sy = (1 - y) / 2 * H0;
+    const d = Math.round(Math.hypot(ptr.x - e.position.x, ptr.z - e.position.z));
+    ptA.style.transform = inView ? 'rotate(180deg)' : `rotate(${ang}rad)`;
+    ptL.innerHTML = `${ptr.label ? ptr.label + ' · ' : ''}<b>${d} m</b>`;
+    pt.style.transform = `translate(${Math.round(sx - 60)}px, ${Math.round(sy - 20)}px)`; pt.style.width = '120px';
+    pt.classList.add('on');
+  };
+  requestAnimationFrame(ptrLoop);
   let hideT = 0, pulseT = 0, lastAt = 0;
   // (near misses: the city's cars within reach of his car's side, at speed; touched on the way past: no near miss)
   const close = new Map();
@@ -79,7 +108,9 @@ export function createJuice(W) {
     },
     // a beat of slow motion (real seconds), Mog City's own (the crash's)
     slow(secs = 0.6, scale = 0.32) { try { W.crash?.slowmo?.(secs, scale); } catch {} },
-    clear() { clearTimeout(hideT); el.classList.remove('on'); pl.style.opacity = '0'; },
+    clear() { clearTimeout(hideT); el.classList.remove('on'); pl.style.opacity = '0'; ptr = null; },
+    // pointer({ x, z, label }) | pointer(null)
+    pointer(p) { ptr = p ? { ...p } : null; },
   };
   return api;
 }
