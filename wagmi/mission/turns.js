@@ -1,6 +1,6 @@
 // Mog City: the turn-by-turn cue. In the car, with a place to go, the next turn on the GPS route and the street it
 // turns onto, at the top of the screen ('Right on W 42nd St · 120 m'); past the last turn, the place itself and how far
-// ('Times Square · 80 m'). The streets are named by the city's own roads (window.NYC.nearestRoads). Hidden on foot, in a
+// ('Times Square · 80 m'). The streets are named by the city's own roads (wagmi/world: world.streetNameAt). Hidden on foot, in a
 // cutscene, paused, on the full map, in the clean view, and for a target on the move (a car he chases: the radar's line
 // does that job, a cue would flick with its every turn).
 //   const turns = createTurns(W, gps);  turns.step() (the GPS calls it from the radar's draw: 5 times a second at most)
@@ -10,6 +10,8 @@
 // Where it sits: on a computer, the top middle. On a phone it heads the column beside the radar (sideways) or under it
 // (upright): the objective tracker, the help, an offer or a DM, and M2's meters move down a row while it shows
 // (body.wg-turnon), so it covers none of them, the toolbar, the car's pills or a call.
+
+import { world } from '../world/index.js';
 
 // route = gps.route: pts[0] is where he is, pts[1] the lane under him (the snap: never a turn), the last point the
 // target itself (the arrival leg: never a turn); x east, z south, so cross > 0 is a RIGHT turn
@@ -46,9 +48,7 @@ export function nextTurn(route, nameAt) {
 
 // the street at (x, z): of the city's roads within 30 m, the nearest that runs the way the route does
 export function nameAt(x, z, horiz) {
-  const N = window.NYC; if (!N?.nearestRoads) return null;
-  const near = N.nearestRoads(x, z, 30);
-  return (near.find((r) => r.horizontal === horiz) || near[0])?.road.name || null;
+  return world.streetNameAt(x, z, { horizontal: horiz, r: 30 });
 }
 
 // '120 m' (10 m steps), '1.2 km', 'now' under 25 m (at a place: 'here')

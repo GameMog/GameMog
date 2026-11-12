@@ -31,6 +31,7 @@ import { createTimers, meterText, deltaText, progress, seen as inSight, band as 
 import { createSets } from './sets.js';
 import { createJuice } from './juice.js';
 import { armTo } from '../mission/m3-set.js';
+import { world as cityWorld } from '../world/index.js';
 
 const PI = Math.PI;
 export const KINDS_STUB = new Set(['patrol', 'wallet']);
@@ -1396,7 +1397,7 @@ export function createRunner(ctx) {
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     return g;
   }
-  const groundY = (x, z) => (window.NYC?.CITY === 'sf' ? cm.getGroundHeight(x, z, 'person') : 0);
+  const groundY = (x, z) => (cityWorld.id === 'sf' ? cm.getGroundHeight(x, z, 'person') : 0);
   STEPS.collect = async (d, t) => {
     const kind = d.kind || 'supplies', label = d.label || kind.charAt(0).toUpperCase() + kind.slice(1), color = COLOUR6.test(d.color || '') ? d.color : '#FFC93C';
     const items = (d.items || []).map((r, i) => {

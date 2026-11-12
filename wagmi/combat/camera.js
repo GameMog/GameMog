@@ -16,6 +16,7 @@
 // A big creature in the fight (wagmi/creatures: a T-rex, an ogre, a mech) pulls it back and up, by its height.
 import * as THREE from 'three/webgpu';
 import { clamp, damp, smooth, angWrap, hdist, fwd } from './util.js';
+import { world } from '../world/index.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 const lerpN = (a, b, t) => a + (b - a) * t;
@@ -130,7 +131,7 @@ export function createFightCamera(c) {
     poles = [];
     const M = new THREE.Matrix4(), W = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
     c.scene.traverse((o) => {
-      if (!o.isInstancedMesh || o.parent?.name !== 'ManhattanStreetDetails') return;
+      if (!o.isInstancedMesh || o.parent?.name !== world.sceneGroups.streetDetails) return;
       const g = o.geometry; if (!g.boundingBox) g.computeBoundingBox(); const b = g.boundingBox;
       o.updateWorldMatrix(true, false);
       for (let i = 0; i < o.count; i++) {

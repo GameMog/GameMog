@@ -13,6 +13,7 @@
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { libModel } from '../storyrun/setkit.js';
+import { world } from '../world/index.js';
 
 const RADIUS = 230, RELAY = 45;
 const hashI = (n) => { let t = (n + 0x6D2B79F5) >>> 0; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -422,7 +423,7 @@ export function createDebris(W, fx, { clear = [] } = {}) {
       if (e.dx < -0.01 || (Math.abs(e.dx) <= 0.01 && e.dz < 0)) continue;
       dressEdge(e, Math.round(e.sx * 3.1 + e.sz * 7.7), cx, cz);
     }
-    for (const b of N.BLOCKS || []) {
+    for (const b of world.blocks) {
       if (!(b.park > 0.5) || b.median || b.area < 400) continue;
       if (b.maxX < cx - RADIUS || b.minX > cx + RADIUS || b.maxZ < cz - RADIUS || b.minZ > cz + RADIUS) continue;
       dressLawn(b);

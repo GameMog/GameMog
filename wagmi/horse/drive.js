@@ -22,6 +22,8 @@ const JUMP = { v: 4.6, perV: 0.06, g: 13, clear: 0.45, tuck: 0.4, lift: 0.05, au
 const RAM = 6;
 const PROBES = [0.95, 0.1, -0.85], R = 0.42;
 
+import { world } from '../world/index.js';
+
 export function createDrive(THREE, { cm, car, W }) {
   const S = { air: false, jumpY: 0, jumpV: 0, jumpHeld: false, walk: false, yawRate: 0, rammed: 0, ground: null, landT: 0, pitchJ: 0, busy: null, lookT: 0, room: Infinity };
   const _p = new THREE.Vector3(), _o = { nx: 0, nz: 0 };
@@ -153,7 +155,7 @@ export function createDrive(THREE, { cm, car, W }) {
     }
     // (Central Park's water: stopped at its edge)
     const fx = Math.sin(car.heading), fz = Math.cos(car.heading);
-    if (cm.inParkWater?.(car.position.x + fx * 1.2, car.position.z + fz * 1.2)) { car.position.x = prevX; car.position.z = prevZ; into = 1; }
+    if (world.inWater(car.position.x + fx * 1.2, car.position.z + fz * 1.2)) { car.position.x = prevX; car.position.z = prevZ; into = 1; }
     // (what it ran into takes the speed into it: head on, all of it; a glancing touch it slides along, a little slowed)
     if (into > 0.05) car.speed *= into > 0.72 ? 1 - Math.min(1, into * 1.1) : 1 - into * 0.45;
     const vx = car.vx || 0, vz = car.vz || 0, g = Math.exp(-dt * 6);
