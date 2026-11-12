@@ -1729,6 +1729,25 @@ export const MIGRATIONS = [
       db.prepare(`UPDATE games SET ${swap.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...swap.map((k) => now[k]), row.id);
       return `SF 2040's art-3 cover back: ${swap.join(', ')}`;
     },
+  },  {
+    // 12 Nov, the owner: "thumbnail should have SF 2040 in the center lettering like Velvet Run, it was before". The key
+    // art and icon go back to art-2's, titled in the centre (cover-{wide,square}-2.jpg); only where the row still has
+    // art-3's (what art-5 put back). The plain cover and Cal's headshot stay
+    id: '2026-11-12-sf2040-art-6',
+    async: true,
+    async run(db) {
+      const was = { art_wide: file('sf2040/cover-wide-3.jpg'), art_icon: file('sf2040/cover-square-3.jpg') };
+      const now = { art_wide: file('sf2040/cover-wide-2.jpg'), art_icon: file('sf2040/cover-square-2.jpg') };
+      if (Object.values(was).some((b) => !b) || Object.values(now).some((b) => !b)) throw new Error('deploy/migrations/sf2040/cover-{wide,square}-{2,3}.jpg are not all in this build');
+      const row = db.prepare("SELECT id, art_icon, art_wide FROM games WHERE slug = 'sf2040'").get();
+      if (!row) throw new Error('waiting: /g/sf2040 is not in this database yet');
+      const same = (a, b) => a != null && Buffer.from(a).equals(b);
+      if (Object.keys(now).every((k) => same(row[k], now[k]))) return 'already there: SF 2040 is titled in the centre';
+      const swap = Object.keys(now).filter((k) => same(row[k], was[k]));
+      if (!swap.length) return 'left alone: SF 2040\'s art is not art-3\'s';
+      db.prepare(`UPDATE games SET ${swap.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...swap.map((k) => now[k]), row.id);
+      return `SF 2040 titled in the centre again: ${swap.join(', ')}`;
+    },
   },
 ];
 
