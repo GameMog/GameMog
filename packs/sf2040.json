@@ -746,7 +746,11 @@
     {
      "type": "mount",
      "id": "m1mercyUp",
-     "quick": true
+     "quick": true,
+     "from": {
+      "@": "saints",
+      "mode": "car"
+     }
     },
     {
      "type": "npc",
@@ -756,6 +760,10 @@
       "rel": "player",
       "fwd": 3.6,
       "right": 0.9
+     },
+     "from": {
+      "@": "saints",
+      "mode": "car"
      }
     },
     {
@@ -865,7 +873,11 @@
         }
        ]
       }
-     ]
+     ],
+     "from": {
+      "@": "saints",
+      "mode": "car"
+     }
     },
     {
      "type": "npc",
@@ -901,7 +913,9 @@
       "@": "homestretch",
       "mode": "car"
      },
-     "secs": 2.2
+     "secs": 2.2,
+     "drone": true,
+     "ride": 8
     },
     {
      "type": "drive",
@@ -1116,6 +1130,23 @@
          "Hollis",
          "At dusk, like the dead. But don't run him in there. A trot sounds like a drum to them."
         ]
+       ]
+      },
+      {
+       "type": "ambush",
+       "along": 0.5,
+       "foes": [
+        {
+         "id": "creature-centaur",
+         "count": 2,
+         "name": "Hybrid"
+        }
+       ],
+       "alert": "Hybrids",
+       "sub": "Fight from the saddle, or outride them",
+       "say": [
+        "Cal",
+        "Hybrids, off the ramp. Go, Ranger!"
        ]
       }
      ]
@@ -1419,6 +1450,24 @@
          "Civic Center's coming up on your right."
         ]
        ]
+      },
+      {
+       "type": "ambush",
+       "along": 0.55,
+       "foes": [
+        {
+         "id": "creature-scorpion",
+         "count": 3,
+         "height": 0.9,
+         "name": "Brood"
+        }
+       ],
+       "alert": "Ambush",
+       "sub": "Out of the rubble",
+       "say": [
+        "Cal",
+        "Out of the rubble! Move, Ranger!"
+       ]
       }
      ]
     },
@@ -1689,6 +1738,23 @@
          "You let me walk away."
         ]
        ]
+      },
+      {
+       "type": "ambush",
+       "along": 0.5,
+       "foes": [
+        {
+         "id": "creature-knight",
+         "count": 3,
+         "name": "Iron Saint"
+        }
+       ],
+       "alert": "Saints checkpoint",
+       "sub": "Ride through, or put them down",
+       "say": [
+        "Pike",
+        "Rider! Saints checkpoint ahead. Ride through or put them down."
+       ]
       }
      ]
     },
@@ -1758,7 +1824,8 @@
      "count": 1,
      "radius": 1,
      "height": 4.0,
-     "hold": true
+     "hold": true,
+     "corpse": true
     },
     {
      "type": "say",
@@ -2475,6 +2542,23 @@
          "Hollis",
          "Because you'd have stopped listening to the radio. And then you'd never have heard her."
         ]
+       ]
+      },
+      {
+       "type": "ambush",
+       "along": 0.6,
+       "foes": [
+        {
+         "id": "creature-ogre",
+         "count": 1,
+         "name": "Brute"
+        }
+       ],
+       "alert": "Brute",
+       "sub": "In the road",
+       "say": [
+        "Cal",
+        "A brute in the road. Through it, Ranger."
        ]
       }
      ]
@@ -3852,6 +3936,14 @@
     "fx": "phone"
    },
    {
+    "id": "M2.1.during.1",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Hybrids, off the ramp. Go, Ranger!",
+    "hash": "c6e5e8ae",
+    "clip": "c6e5e8ae-b7012458"
+   },
+   {
     "id": "M2.3",
     "who": "Cal",
     "voice": "cal-A",
@@ -3998,6 +4090,14 @@
     "hash": "cc0a8ede",
     "clip": "cc0a8ede-966bd272",
     "fx": "phone"
+   },
+   {
+    "id": "M3.1.during.1",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "Out of the rubble! Move, Ranger!",
+    "hash": "e397e0fe",
+    "clip": "e397e0fe-b7012458"
    },
    {
     "id": "M3.2",
@@ -4164,6 +4264,14 @@
     "hash": "3298f5f3",
     "clip": "3298f5f3-7dec096b",
     "fx": "phone"
+   },
+   {
+    "id": "M4.1.during.1",
+    "who": "Pike",
+    "voice": "pike-B",
+    "text": "Rider! Saints checkpoint ahead. Ride through or put them down.",
+    "hash": "2462bff4",
+    "clip": "2462bff4-7dec096b"
    },
    {
     "id": "M4.2",
@@ -4445,6 +4553,14 @@
     "hash": "7a062bdc",
     "clip": "7a062bdc-966bd272",
     "fx": "phone"
+   },
+   {
+    "id": "M5.0.during.1",
+    "who": "Cal",
+    "voice": "cal-A",
+    "text": "A brute in the road. Through it, Ranger.",
+    "hash": "b950b9b0",
+    "clip": "b950b9b0-b7012458"
    },
    {
     "id": "M5.1",
@@ -4904,6 +5020,10 @@
     "url": "assets/voice/sf2040/022d3ea0-966bd272.m4a",
     "secs": 5.15
    },
+   "c6e5e8ae-b7012458": {
+    "url": "assets/voice/sf2040/c6e5e8ae-b7012458.m4a",
+    "secs": 2.2
+   },
    "821a6f62-b7012458": {
     "url": "assets/voice/sf2040/821a6f62-b7012458.m4a",
     "secs": 3.75
@@ -4975,6 +5095,10 @@
    "cc0a8ede-966bd272": {
     "url": "assets/voice/sf2040/cc0a8ede-966bd272.m4a",
     "secs": 1.98
+   },
+   "e397e0fe-b7012458": {
+    "url": "assets/voice/sf2040/e397e0fe-b7012458.m4a",
+    "secs": 1.61
    },
    "e33917a4-b7012458": {
     "url": "assets/voice/sf2040/e33917a4-b7012458.m4a",
@@ -5055,6 +5179,10 @@
    "3298f5f3-7dec096b": {
     "url": "assets/voice/sf2040/3298f5f3-7dec096b.m4a",
     "secs": 1.58
+   },
+   "2462bff4-7dec096b": {
+    "url": "assets/voice/sf2040/2462bff4-7dec096b.m4a",
+    "secs": 4.13
    },
    "d9c03c5b-b7012458": {
     "url": "assets/voice/sf2040/d9c03c5b-b7012458.m4a",
@@ -5195,6 +5323,10 @@
    "7a062bdc-966bd272": {
     "url": "assets/voice/sf2040/7a062bdc-966bd272.m4a",
     "secs": 4.33
+   },
+   "b950b9b0-b7012458": {
+    "url": "assets/voice/sf2040/b950b9b0-b7012458.m4a",
+    "secs": 2.43
    },
    "5614d8b6-b7012458": {
     "url": "assets/voice/sf2040/5614d8b6-b7012458.m4a",

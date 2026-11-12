@@ -855,12 +855,22 @@ export function createRunner(ctx) {
     } finally { ui.cine(false); ui.caption(null); await ui.fade(0, 0.5); }
   };
   STEPS.transition = async (d, t) => {
-    await ui.fade(0.97, 0.6);
+    // (drone: the lens lifts off him and away up the street as the picture goes, a ride's cut that doesn't jump; ride:
+    // m/s he is still going when it comes back, a canter on, not stood still)
+    let lift = null;
+    if (d.drone && !ctx.flags.flowFast && !W.cutscene) {
+      const e = cm.getActiveEntity(), h = e.heading, sx = Math.sin(h), sz = Math.cos(h), y = e.position.y;
+      lift = shotList([{ cam: [e.position.x - sx * 7, y + 3.2, e.position.z - sz * 7], to: [e.position.x - sx * 2, y + 16, e.position.z - sz * 2], look: [e.position.x + sx * 12, y + 1.5, e.position.z + sz * 12], lookTo: [e.position.x + sx * 60, y, e.position.z + sz * 60], dur: 2.6, fov: 50 }], t, { beat: true }).catch(() => {});
+      await delay(1.2, t);
+    }
+    await ui.fade(0.97, d.drone ? 1.1 : 0.6);
     try {
+      if (lift) await lift;
       if (d.place) putPlayer(placeOf(d.place), inCar() ? 'car' : 'walk');
       if (d.time) { if (M.pin) pinTo(d.time); else setTime(d.time); } applySet(d.set);
       await hud.card({ kicker: d.kicker || d.clock || '', text: tokens(d.text), sub: tokens(d.sub || '') }, ctx.flags.flowFast ? 0.8 : (d.secs || 2.6));
-    } finally { await ui.fade(0, 0.6); }
+      if (d.ride && inCar()) { car.speed = d.ride; app.cameraSystem.resetForTeleport?.(); }
+    } finally { await ui.fade(0, d.drone ? 1.0 : 0.6); }
   };
   STEPS.actEnd = async (d, t) => {
     const stats = (d.stats || []).map((s) => [s.label, s.value]);
@@ -896,8 +906,11 @@ export function createRunner(ctx) {
   // a call: the car phone (auto / inCar: calls.js, its rules: only at the wheel, on hold on foot, wraps when its leg
   // ends) or a phone that rings (E or Y answers, X or N declines; the caller card, Mog City's), then its choice
   STEPS.call = async (d, t, ride) => {
-    const who = castName(d.who), color = colorOf(who);
-    const lines = (d.lines || []).map(tuple), toTup = (l) => [castName(l.who), colorOf(castName(l.who)), tokens(l.text)];
+    // (the card is the far end of the line: a call the hero makes (who: Cal) shows the one he calls, the first other
+    // speaker; the hero never shows on a call card of his own)
+    const lines0 = (d.lines || []).map(tuple), far = castName(d.who) === heroName ? lines0.map((l) => castName(l.who)).find((w) => w && w !== heroName) : null;
+    const who = far || castName(d.who), color = colorOf(who);
+    const lines = lines0, toTup = (l) => [castName(l.who), colorOf(castName(l.who)), tokens(l.text)];
     // one of Mog City's own car-phone calls by its id (calls.js CALLS: its lines, recordings and rules), wrapped and
     // hurried by the distance left to the leg's mark, as its mission does
     if (d.ref && W.calls?.CALLS && Object.prototype.hasOwnProperty.call(W.calls.CALLS, d.ref)) {
@@ -1143,6 +1156,9 @@ export function createRunner(ctx) {
     const autoGetUp = combat.player.autoGetUp; combat.player.autoGetUp = true;
     // (in the saddle: what the mission put in his hand (a mount step's `arm`, or the step's own) is his again, a retry
     // from the checkpoint too, and it lasts the fight: J is always a blow, never the buck in its place)
+    // (SF 2040's creatures fight fiercely: the owner, 'way more aggressive in their approach of Cal': from 40 m, at a run,
+    // more often, two at once, at him in the saddle too: wagmi/combat c.fierce)
+    const fierce0 = combat.fierce; combat.fierce = d.fierce !== false;
     if (nW0(d) > 1) combat.waves = true; // (its own WAVE CLEARED, not the fight's ALL CLEAR after each)
     const H = W.horse, armK = d.arm || (d.saddle ? 'bat' : null) || M.def.steps.slice(0, M.i).reverse().find((x) => x.type === 'mount' && x.arm)?.arm;
     const arming = () => { if (H?.saddle && armK && H.mounted && !H.saddle.weapon) try { H.arm(armK); } catch {} };
@@ -1190,7 +1206,7 @@ export function createRunner(ctx) {
       // turns on him only when he meets them on the way (13 m) or hits one)
       if (w.from && G) for (const h of mine) h.ready.then(() => { for (const f of h.fighters) { if (f.out) continue; f._march = f.T.speed; f.T.speed *= 1.8; f.lair = { home: new THREE.Vector3(G.x, 0, G.z), yaw: 0, wake: 13, leash: 90 }; f.set('home'); } });
       else if (w.from) for (const h of mine) { h.ready.then(() => { try { h.engage(); } catch {} }); }
-      if (w.from && G) { const q = src; marker.at(q.x, groundY(q.x, q.z), q.z); gps.blip('wave', { x: q.x, z: q.z, kind: 'enemy', edge: true, name: w.alert || 'They come' }); }
+      if (w.from && G) { const q = src; marker.at(q.x, groundY(q.x, q.z), q.z); gps.blip('wave', { x: q.x, z: q.z, kind: 'enemy', edge: true, name: w.alert || 'They come' }); juice.pointer({ x: q.x, z: q.z, label: w.alert || 'They come' }); }
       for (const h of mine) { loading++; Promise.resolve(h.ready).finally(() => { loading--; }); }
       handles.push(...mine);
       M.creatures = handles;
@@ -1274,7 +1290,8 @@ export function createRunner(ctx) {
             if (inside) G.left -= (idle && f.lair ? 1 : 0.25) * G.drain * dt;
             if (idle && f._march) marching++;
           }
-          if (!marching) { marker.hide(); gps.unblip('wave'); }
+          // (the next wave's way shown from June's call, before it comes: kept up through the breather)
+          if (!marching && !between) { marker.hide(); gps.unblip('wave'); juice.pointer(null); }
           hud.bar(G.label, clamp(G.left / G.hp, 0, 1), `${Math.max(0, Math.round(G.left / G.hp * 100))}%`);
           if (G.left <= 0) throw new Fail(tokens(d.guard.why || 'They overran the camp.'), 'overrun');
         }
@@ -1289,6 +1306,7 @@ export function createRunner(ctx) {
           between = now();
           const w = waves[wi + 1];
           if (w.say) fightSay([w.say]);
+          if (w.from && G) { const q = markOf(w.from); marker.at(q.x, groundY(q.x, q.z), q.z); gps.blip('wave', { x: q.x, z: q.z, kind: 'enemy', edge: true, name: w.alert || 'They come' }); juice.pointer({ x: q.x, z: q.z, label: w.alert || 'They come' }); }
           // (he is healed a little between waves: a third of what he has lost)
           combat.player.hp = Math.min(combat.player.maxHp, combat.player.hp + (combat.player.maxHp - combat.player.hp) / 3);
           gps.objective(parts(w.objective || 'Get ready.', 'red'), null);
@@ -1306,10 +1324,10 @@ export function createRunner(ctx) {
     } finally {
       offDown?.(); combat.player.autoGetUp = autoGetUp;
       if (H?.saddle) H.saddle.keep = false;
-      combat.waves = false;
+      combat.waves = false; combat.fierce = fierce0;
       for (const id of [...gps.blips.keys()]) if (id.startsWith('e:')) gps.unblip(id);
       ui.counter(null); hud.timer(null); M.crew = null;
-      if (G) { hud.bar(null); marker.hide(); gps.unblip('wave'); }
+      if (G) { hud.bar(null); marker.hide(); gps.unblip('wave'); juice.pointer(null); }
     }
     // (a beat for the last one's fall, then the street let go)
     await delay(1.6, t);
@@ -1441,6 +1459,23 @@ export function createRunner(ctx) {
       return;
     }
     if (!C?.herd) { console.warn('[storyrun] no wildlife on this page'); return; }
+    // (corpse: the fight's own dead one of this kind, if it still lies there, is the one: moved to `at` once he is
+    // away from it and it is out of the lens's sight (WARDEN-7's wreck), no second one stood up)
+    if (d.corpse) {
+      const dead = (W.combat?.enemies || []).find((e) => e.creature && e.model === (d.creature || 'creature-horse') && e.out && !e.disposed);
+      if (dead) {
+        const q0 = Array.isArray(d.at) ? { x: d.at[0], z: d.at[1] } : (() => { const pp = placeOf(d.at); return { x: pp.cx ?? pp.x, z: pp.cz ?? pp.z }; })();
+        dead.keepBody = true;
+        if (dist(q0, dead.pos.x, dead.pos.z) > 3) (function look() {
+          if (dead.disposed || !M?.live) return;
+          const cam = app.cameraSystem?.camera, p = me();
+          const seen = cam && (() => { const v = dead.pos.clone().setY(dead.pos.y + 1).project(cam); return v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1; })();
+          if ((!seen && dist(p, dead.pos.x, dead.pos.z) > 25) || W.cutscene) { dead.pos.set(q0.x, cm.getGroundHeight(q0.x, q0.z, 'person'), q0.z); dead.root.updateMatrixWorld(true); return; }
+          setTimeout(look, 400);
+        })();
+        return;
+      }
+    }
     const q = Array.isArray(d.at) ? { x: d.at[0], z: d.at[1] } : (() => { const pp = placeOf(d.at); return { x: pp.cx ?? pp.x, z: pp.cz ?? pp.z }; })();
     const h = C.herd(d.creature || 'creature-horse', { at: q, count: d.count || 4, radius: d.radius || 10, height: d.height });
     M.herds.set(d.id || 'herd' + M.herds.size, h);
@@ -1469,6 +1504,57 @@ export function createRunner(ctx) {
     ui.help(`Press [F] to ${W.horse ? 'dismount' : 'get out'}.`, 8);
     if (d.quick || M.auto) { await wait(() => Math.abs(car.speed || 0) < 1.5, t); W.ride?.getOut?.(true); }
     try { await wait(() => !inCar() && !W.ride?.phase, t); } finally { ui.help(null); }
+  };
+
+  // ambush: a ride broken up (SF 2040, the owner: "the 2 mile trek ... put a fight with an animal or character to break
+  // it up"). A `during` item of a drive: once he has covered `along` of the ride (0.45), `foes` come at him out of the
+  // street 40 m ahead on his route, with a line and an alert; he can fight them from the saddle (the bat is in his
+  // hand for it) or ride on: it is over when they are all down or when he is `escape` m (60) clear of every one of them
+  // still up. Never a fail: knocked down, he gets up.
+  //   { type: 'ambush', along, foes: [...], say: [who, text], alert, sub, escape }
+  STEPS.ambush = async (d, t) => {
+    const C = W.creatures, combat = W.combat; if (!C?.fight || !combat) return;
+    await wait(() => gps.length > 0, t);
+    const L0 = gps.length, along = d.along ?? 0.45;
+    await wait(() => gps.length > 0 && gps.length <= L0 * (1 - along) && !W.cutscene, t);
+    // (40 m on along his route, else ahead of him)
+    const q = me(), r = gps.route; let at = null;
+    if (r && r.length > 1) { let left = 40, px = q.x, pz = q.z; for (let i = 1; i < r.length && left > 0; i++) { const Lg = Math.hypot(r[i][0] - px, r[i][1] - pz); if (Lg >= left) { px += (r[i][0] - px) / Lg * left; pz += (r[i][1] - pz) / Lg * left; left = 0; } else { left -= Lg; px = r[i][0]; pz = r[i][1]; } } at = { x: px, z: pz }; }
+    if (!at) { const e = cm.getActiveEntity(); at = { x: q.x + Math.sin(e.heading) * 40, z: q.z + Math.cos(e.heading) * 40 }; }
+    const foes = (d.foes || []).map((x) => (typeof x === 'string' ? { id: x } : x));
+    const h = C.fight({ foes, at });
+    const H = W.horse, autoGetUp = combat.player.autoGetUp, fierce0 = combat.fierce; combat.player.autoGetUp = true; combat.fierce = true;
+    let keep = false;
+    const arming = () => { if (H?.saddle && H.mounted && !H.saddle.weapon) try { H.arm('bat'); } catch {} };
+    if (H?.saddle) { H.saddle.keep = true; arming(); }
+    const ids = new Set();
+    try {
+      await Promise.race([h.ready, wait(() => false, t)]);
+      try { h.engage(); } catch {}
+      juice.alert(d.alert || 'Ambush', { sub: d.sub ? tokens(d.sub) : '', tone: 'red', sting: 'up', jolt: 0.3, secs: 2 });
+      if (d.say) { const l = tuple(d.say); say(castName(l.who), l.text, M.tok, l.radio != null ? { radio: l.radio } : undefined).catch(() => {}); }
+      const t0 = now();
+      let how = null;
+      await wait(() => {
+        arming();
+        const up = h.fighters.filter((f) => !f.out);
+        for (const f of h.fighters) { const id = 'amb:' + f.id; if (!f.out && !f.disposed) { ids.add(id); gps.blip(id, { x: f.pos.x, z: f.pos.z, kind: 'enemy', edge: true }); } else gps.unblip(id); }
+        if (!up.length) { how = 'down'; return true; }
+        const p = me();
+        if (now() - t0 > 3000 && up.every((f) => dist(p, f.pos.x, f.pos.z) > (d.escape ?? 60))) { how = 'gone'; return true; }
+        return false;
+      }, t);
+      if (how === 'down') { keep = true; juice.alert(d.done || 'Clear', { tone: 'green', sting: 'win', secs: 1.6 }); }
+      else juice.alert(d.lost || 'Left them behind', { tone: 'green', sting: 'down', secs: 1.6 });
+      M.stats.ko += h.fighters.filter((f) => f.out).length;
+      await delay(1.5, t).catch(() => {});
+    } finally {
+      for (const id of ids) gps.unblip(id);
+      combat.player.autoGetUp = autoGetUp; combat.fierce = fierce0;
+      if (H?.saddle && !M.crew) H.saddle.keep = false;
+      // (put down, they lie where they fell for the rest of the mission; ridden past, they go)
+      if (keep) M.creatures = [...(M.creatures || []), h]; else try { h.remove(); } catch {}
+    }
   };
 
   /* ---------------------------------------------- the wild steps (SF 2040) -- */
