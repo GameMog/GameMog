@@ -44,7 +44,7 @@ type Posted = { score: number; tier: KartTier; rank: number | null; review: bool
  *
  * A result posted from a frame is a claim, not a fact. It is stored as one.
  */
-export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`, scores = true, you: wantsYou = false, kart = false, shootout = false, kartScore = null, kdiag = null, episode = false, mc = MC_ORIGIN, story = null, storykit = false }: {
+export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`, scores = true, you: wantsYou = false, kart = false, shootout = false, kartScore = null, kdiag = null, episode = false, mc = MC_ORIGIN, story = null, storykit = false, posterUntilPlay = false }: {
   slug: string; gameId: string; poster: React.ReactNode; src?: string;
   /** Off for drafts: a run in a preview has no leaderboard to post to. */
   scores?: boolean;
@@ -86,6 +86,12 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
    * has its own loading screen, so the poster goes when the frame has loaded.
    */
   storykit?: boolean;
+  /**
+   * The poster stays until Play (11 Nov, SF 2040): Mog City's San Francisco has no still of its own while it loads (its
+   * loading screen is dark, then its title over the live city), so the page's key art holds the frame until the player
+   * starts it (the page's Play, a dare's PLAY: 'gamemog:play'), then the frame shows as it is.
+   */
+  posterUntilPlay?: boolean;
 }) {
   const diag = kart ? readKdiag(kdiag) : { info: false, switches: [] as string[] };
   // (an episode's frame is Mog City's own origin: messages go to it by name, never '*')
@@ -107,6 +113,13 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
   const router = useRouter();
   const [loaded, setLoaded] = useState(false);
   const [live, setLive] = useState(false);
+  const [played, setPlayed] = useState(false);
+  useEffect(() => {
+    if (!posterUntilPlay) return;
+    const on = () => setPlayed(true);
+    addEventListener('gamemog:play', on);
+    return () => removeEventListener('gamemog:play', on);
+  }, [posterUntilPlay]);
   const [stalled, setStalled] = useState(false);
   // a kart race's boot step (8 Oct, lib/runtime/kart-guard.js), for the stall line to say where it got to
   const [bootStep, setBootStep] = useState<string | null>(null);
@@ -385,7 +398,9 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
           title={`${slug}, game`}
           onLoad={() => { setLoaded(true); if (storykit) setLive(true); }}
         />}
-        <div className="poster" data-hide={live ? '1' : '0'} aria-hidden>{poster}</div>
+        <div className="poster" data-hide={live && (!posterUntilPlay || played) ? '1' : '0'} aria-hidden
+          // (held until Play: a tap on the art is Play, as the page's button is, never a click lost in the frame under it)
+          {...(posterUntilPlay && !played ? { onClick: startPlay, style: { pointerEvents: 'auto' as const, cursor: 'pointer' } } : {})}>{poster}</div>
         {!live && stalled && (
           <p className="stall" role="status">
             {loaded ? 'The game has not started yet.' : 'The game has not loaded in this frame.'}{' '}

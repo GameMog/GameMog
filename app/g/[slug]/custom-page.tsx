@@ -130,6 +130,7 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
         <div className="gtop">
           <div className="gstage">
             <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game), game.id) : storyWorld ?? playSrc(game)} episode={episode || !!storyWorld} storykit={!!storyWorld} mc={storyWorld ? storykitMc() : mcOrigin()} story={episode ? storyOf(game.code)?.hash ?? null : storyWorld ? sealedWorldOf(game.meta) : null} scores={!episode && !storyWorld} you={game.format === 'world' && !episode && !storyWorld} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
+              posterUntilPlay={!!storyWorld && storyCity === 'sf'}
               // eslint-disable-next-line @next/next/no-img-element
               poster={<img src={`/g/${game.slug}/cover`} alt="" />} />
             {storyWorld && storyCity === 'sf' ? <NeedsWebGPU title={game.title} /> : null}
