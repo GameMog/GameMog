@@ -1397,7 +1397,8 @@ export function createRunner(ctx) {
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     return g;
   }
-  const groundY = (x, z) => (cityWorld.id === 'sf' ? cm.getGroundHeight(x, z, 'person') : 0);
+  // (the ground a pickup, a marker or a ring stands on: the world's surface there, a hill's or a sidewalk's)
+  const groundY = (x, z) => cityWorld.sampleSurface(x, z).y;
   STEPS.collect = async (d, t) => {
     const kind = d.kind || 'supplies', label = d.label || kind.charAt(0).toUpperCase() + kind.slice(1), color = COLOUR6.test(d.color || '') ? d.color : '#FFC93C';
     const items = (d.items || []).map((r, i) => {
@@ -2213,7 +2214,7 @@ export function createRunner(ctx) {
       if (L > wb * 3) { dx = -Math.sin(car.heading); dz = -Math.cos(car.heading); L = 1; }
       st.rx = st.fx + dx / L * wb; st.rz = st.fz + dz / L * wb;
       // (into a wall: knocked back out of it)
-      const q = { x: st.rx, y: 0, z: st.rz }; cm.resolveHorizontalCollision(q, T.half, (cm.baseHeight?.(st.rx, st.rz) || 0) + 1.0); st.rx = q.x; st.rz = q.z;
+      const q = { x: st.rx, y: 0, z: st.rz }; cm.resolveHorizontalCollision(q, T.half, cityWorld.roadY(st.rx, st.rz) + 1.0); st.rx = q.x; st.rz = q.z;
       // (the truck's starts and stops rock it on its back springs)
       const acc = dt > 0 ? ((car.speed || 0) - lastV) / dt : 0; lastV = car.speed || 0;
       st.pv += -acc * 0.006; st.spin = car.speed || 0;

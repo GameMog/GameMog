@@ -9,7 +9,7 @@
 // friction, bounces off the buildings and the other wrecks, rides up the curb, settles on its wheels, its side or its
 // roof. Upright and still it is handed back to its lane as before; on its side or its roof it stays a wreck until it
 // is out of view. The city's cars still in their lanes, the street furniture and Dan's car meet it as before.
-import * as THREE from 'three/webgpu';
+import * as THREE from 'three/webgpu'; import { world } from '../world/index.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const wrap = (a) => a - Math.round(a / (Math.PI * 2)) * Math.PI * 2;
@@ -239,7 +239,7 @@ export function createWrecks({ TS, cm, fx, play, props, camera, physics: PH = nu
       proxy.heading = R.yaw; proxy.body.hx = hw; proxy.body.z0 = -hl; proxy.body.z1 = hl; proxy.vx = proxy.vz = 0; proxy.speed = 0;
       _pos.set(R.x, 0, R.z);
       // (a metre over the bare ground there: a hill's, cm.baseHeight; New York's street is y 0)
-      cm.resolveHorizontalCollision(_pos, 1.35, (cm.baseHeight?.(R.x, R.z) || 0) + 1.0, proxy);
+      cm.resolveHorizontalCollision(_pos, 1.35, world.roadY(R.x, R.z) + 1.0, proxy);
       const ox = _pos.x - R.x, oz = _pos.z - R.z, o = Math.hypot(ox, oz);
       if (o > 1e-4) {
         const nx = ox / o, nz = oz / o, vn = R.vx * nx + R.vz * nz;
@@ -327,7 +327,7 @@ export function createWrecks({ TS, cm, fx, play, props, camera, physics: PH = nu
     let x = R.x + (L.x - R.x) * k, z = R.z + (L.z - R.z) * k;
     // (kept out of the buildings, as it slides)
     proxy.heading = yaw; proxy.body.hx = hw; proxy.body.z0 = -hl; proxy.body.z1 = hl; proxy.vx = proxy.vz = 0; proxy.speed = 0;
-    _pos.set(x, 0, z); cm.resolveHorizontalCollision(_pos, 1.35, (cm.baseHeight?.(x, z) || 0) + 1.0, proxy); x = _pos.x; z = _pos.z;
+    _pos.set(x, 0, z); cm.resolveHorizontalCollision(_pos, 1.35, world.roadY(x, z) + 1.0, proxy); x = _pos.x; z = _pos.z;
     // (not into another vehicle, nor Dan's car: no deeper into one than it already is)
     const deeper = (ox, oz, oy, ow, ol) => {
       if (Math.abs(ox - x) > 9 || Math.abs(oz - z) > 9 || !boxes(x, z, yaw, hw, hl, ox, oz, oy, ow, ol, hit)) return false;

@@ -10,7 +10,7 @@
 //   const P = createPhysics({ cm, car });  P.want() (load now) · P.ready · P.frame(dt) (once a frame) ·
 //   P.addBox/addCar(...) -> body · P.remove(body) · P.read(body) (its pose into body.p, body.q) · P.impulse(...)
 //   URL ?physics=0: off (the game's own fakes, as before)
-import * as THREE from 'three/webgpu';
+import * as THREE from 'three/webgpu'; import { world } from '../world/index.js';
 
 const VENDOR = new URL('../../js/vendor/jolt/', import.meta.url).href;
 const QS = new URLSearchParams(location.search);
@@ -99,7 +99,7 @@ export function createPhysics({ cm, car }) {
     for (const c of cm.nearColliders(cx, cz, HALF * 1.45)) {
       // (heights over the bare ground there: a hill's, cm.baseHeight, San Francisco's colliders standing from the ground
       // they are on; New York's street is y 0, so there b is 0 and this is as it was)
-      const b = cm.baseHeight?.((c.minX + c.maxX) / 2, (c.minZ + c.maxZ) / 2) || 0;
+      const b = world.roadY((c.minX + c.maxX) / 2, (c.minZ + c.maxZ) / 2);
       if (c.minY != null && c.minY - b >= 2.2) continue;
       const o = c.obb;
       const y0 = c.minY != null ? Math.min(c.minY, b - 1) : b - 1, y1 = Math.min(c.maxY ?? b + 30, b + 60);

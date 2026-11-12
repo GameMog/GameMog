@@ -8,7 +8,7 @@
 // The ground under the parks, plazas and Bryant Park's terrace: js/city-grid.js, js/landmarks.js groundPatches, read by
 // js/controllers.js getGroundHeight.
 // API (window.WAGMI.street): crowd, hits (people hit this session), near(r) -> { n, inView }, on('hit', cb)
-import { createCrowd } from './crowd.js';
+import { createCrowd } from './crowd.js'; import { world } from '../world/index.js';
 
 const CAR = { hx: 0.95, z0: -2.12, z1: 2.26 }; // Dan's car's body in its own frame (wagmi/game.js car.body, at install)
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -164,7 +164,7 @@ export function install(W) {
     for (const list of [crowd.people, crowd.taken]) {
       for (const p of list) {
         if (!p.placed && !p.body) continue;
-        const inRoad = p.body ? p.body.pos.y < 0.45 : p.state === 'cross' || (p.state === 'free' && cm.getGroundHeight(p.x, p.z, 'person') < 0.1);
+        const inRoad = p.body ? p.body.pos.y - world.roadY(p.body.pos.x, p.body.pos.z) < 0.45 : p.state === 'cross' || (p.state === 'free' && cm.getGroundHeight(p.x, p.z, 'person') - world.roadY(p.x, p.z) < 0.1);
         if (inRoad && Math.abs(p.x - f.x) < 100 && Math.abs(p.z - f.z) < 100) obst.push({ x: p.x, z: p.z, r: p.body ? 0.9 : 0.4 });
       }
     }

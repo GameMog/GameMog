@@ -120,7 +120,7 @@ installDriveMode(WAGMI);
     const B = car.body, cs = Math.cos(h), sn = Math.sin(h), p = new THREE.Vector3(x, 0, z);
     Object.assign(probe, { heading: h, speed: 0, vx: 0, vz: 0, body: B });
     // (the wall test a metre over the bare ground there: a hill's, cm.baseHeight; New York's street is y 0)
-    cm.resolveHorizontalCollision(p, 1.35, (cm.baseHeight?.(x, z) || 0) + 1.0, probe);
+    cm.resolveHorizontalCollision(p, 1.35, world.roadY(x, z) + 1.0, probe);
     if (Math.hypot(p.x - x, p.z - z) > 0.01) return false;
     for (const b of WAGMI.crash?.props?.around(x, z, 5) || []) {
       if (b.taken) continue;
@@ -141,7 +141,7 @@ installDriveMode(WAGMI);
     _wp.set(car.position.x + fx * 0.3, 0, car.position.z + fz * 0.3);
     Object.assign(probe, { heading: car.heading, speed: 0, vx: 0, vz: 0, body: car.body });
     const x0 = _wp.x, z0 = _wp.z;
-    cm.resolveHorizontalCollision(_wp, 1.35, (cm.baseHeight?.(x0, z0) || 0) + 1.0, probe);
+    cm.resolveHorizontalCollision(_wp, 1.35, world.roadY(x0, z0) + 1.0, probe);
     let nx = _wp.x - x0, nz = _wp.z - z0;
     const n = Math.hypot(nx, nz);
     if (n < 0.05) return;
@@ -163,7 +163,7 @@ installDriveMode(WAGMI);
     if (car.halt || cm.activeMode !== 'car' || car.speed <= 3) { curb.t = 0; return; }
     const fx = Math.sin(car.heading) * (car.axle || 1.45), fz = Math.cos(car.heading) * (car.axle || 1.45);
     // (the curb's step alone: a hill's own rise between the axles taken off, cm.baseHeight; New York has none)
-    const kerb = (x, z) => cm.getGroundHeight(x, z, 'car') - (cm.baseHeight?.(x, z) || 0);
+    const kerb = (x, z) => cm.getGroundHeight(x, z, 'car') - world.roadY(x, z);
     const up = kerb(car.position.x + fx, car.position.z + fz) - kerb(car.position.x - fx, car.position.z - fz);
     if (up >= 0.1 && up <= 0.3) {
       // (the street's way: the nearest lane's, either way along it)
@@ -310,7 +310,7 @@ installDriveMode(WAGMI);
   // the car more or less faces along, with room for it. Either way the traffic round it is held back a moment
   // (a spot up off the street, a park's lawn or a terrace: over 0.3 m above the bare ground there, a hill's
   // cm.baseHeight, y 0 in New York)
-  const raised = (x, z) => cm.getGroundHeight(x, z, 'car') - (cm.baseHeight?.(x, z) || 0) > 0.3;
+  const raised = (x, z) => cm.getGroundHeight(x, z, 'car') - world.roadY(x, z) > 0.3;
   function recoverCar() {
     if (WAGMI.cutscene || WAGMI.directed || WAGMI.ride?.phase) return false;
     const x = car.position.x, z = car.position.z;
@@ -944,7 +944,7 @@ function coast(dt) {
   car.position.x += (Math.sin(car.heading) * car.speed + (car.vx || 0)) * dt; car.position.z += (Math.cos(car.heading) * car.speed + (car.vz || 0)) * dt;
   const g = Math.exp(-dt * 6.8); car.vx = (car.vx || 0) * g; car.vz = (car.vz || 0) * g;
   if (Math.abs(car.vx) + Math.abs(car.vz) < 0.02) car.vx = car.vz = 0;
-  cm.resolveHorizontalCollision(car.position, 1.35, (cm.baseHeight?.(car.position.x, car.position.z) || 0) + 1.0, car);
+  cm.resolveHorizontalCollision(car.position, 1.35, world.roadY(car.position.x, car.position.z) + 1.0, car);
   car.position.y = cm.getGroundHeight(car.position.x, car.position.z, 'car');
   car.mesh.position.copy(car.position); car.mesh.rotation.y = car.heading;
   if (Math.abs(car.speed) < 0.05) { car.speed = 0; if (!ride.phase && door.want) doorTo(0, 0.6); }

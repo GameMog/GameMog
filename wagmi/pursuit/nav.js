@@ -4,14 +4,17 @@
 //   const nav = createNav(app);  nav.route(from {x, z, h}, to {x, z}) -> [[x, z], ...] (corners, then the target)
 //   nav.nearest(x, z) -> node;  nav.sees(ax, az, bx, bz) -> true when no building stands between; nav.solid(x, z)
 //   nav.spot(x, z, rMin, rMax, ok) -> { x, z, h } a point in a lane rMin..rMax m from (x, z) that ok(x, z, h) accepts
+import { world } from '../world/index.js';
+
 export function createNav(app) {
   const net = app.trafficSystem.network, cm = app.controllerManager;
   const nodes = net.nodes, edges = net.edges;
   // (a lane the graph lays over a park's walks or lawn, as round Washington Square, isn't a street: its benches, lamps
-  // and trees stop a car dead. The parks stand 0.26 m up and more, the city's streets at 0 and its medians at 0.22.)
+  // and trees stop a car dead. The parks stand 0.26 m up and more over the road's own level there (world.roadY: a
+  // hill's bare ground, New York's streets at 0), the medians 0.22.)
   const inPark = (e) => {
     let n = 0, up = 0;
-    for (let s = 2; s < e.len - 1; s += 6) { n++; if (cm.getGroundHeight(e.sx + e.dx * s, e.sz + e.dz * s, 'car') > 0.245) up++; }
+    for (let s = 2; s < e.len - 1; s += 6) { n++; { const x = e.sx + e.dx * s, z = e.sz + e.dz * s; if (cm.getGroundHeight(x, z, 'car') - world.roadY(x, z) > 0.245) up++; } }
     return n > 0 && up / n > 0.5;
   };
   // the corners each corner leads to (both ways), and how far

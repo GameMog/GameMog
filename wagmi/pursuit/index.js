@@ -53,7 +53,7 @@ import { createNav } from './nav.js';
 import { createHud } from './hud.js';
 import { createVapor } from './vapor.js';
 import { createThrusters } from './thrusters.js';
-import { boxes, dims, massOf } from '../crash/wrecks.js';
+import { boxes, dims, massOf } from '../crash/wrecks.js'; import { world } from '../world/index.js';
 
 const Q = new URLSearchParams(location.search);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -337,7 +337,7 @@ export function install(W) {
       P.x += (Math.sin(P.h) * P.speed + P.vx) * h; P.z += (Math.cos(P.h) * P.speed + P.vz) * h;
       Object.assign(proxy, { heading: P.h, speed: P.speed, vx: P.vx, vz: P.vz, angularVel: P.w, pitchVel: 0, rollVel: 0, heaveVel: 0, lastCollisionSpark: null });
       proxy.body.hx = P.hw; proxy.body.z0 = -P.hl; proxy.body.z1 = P.hl;
-      _pos.set(P.x, 0, P.z); cm.resolveHorizontalCollision(_pos, 1.35, (cm.baseHeight?.(P.x, P.z) || 0) + 1.0, proxy); // (a metre over the bare ground: a hill's, cm.baseHeight; New York's is y 0)
+      _pos.set(P.x, 0, P.z); cm.resolveHorizontalCollision(_pos, 1.35, world.roadY(P.x, P.z) + 1.0, proxy); // (a metre over the bare ground: a hill's, cm.baseHeight; New York's is y 0)
       P.x = _pos.x; P.z = _pos.z; P.speed = proxy.speed; P.vx = proxy.vx; P.vz = proxy.vz; P.w = proxy.angularVel;
       P.pitchV += proxy.pitchVel * 0.6; P.rollV += proxy.rollVel * 0.6;
       const sp = proxy.lastCollisionSpark;
@@ -595,7 +595,7 @@ export function install(W) {
       const s = nav.onRoad(from.x, from.z) || { x: from.x, z: from.z, h: Math.atan2(T.x - from.x, T.z - from.z) };
       const h = facing(s, T), fx = Math.sin(h), fz = Math.cos(h);
       for (let i = 0; i < ch.want; i++) {
-        _pos.set(s.x - fx * i * 9.5, 0, s.z - fz * i * 9.5); cm.resolveHorizontalCollision(_pos, 1.35, (cm.baseHeight?.(_pos.x, _pos.z) || 0) + 1.0);
+        _pos.set(s.x - fx * i * 9.5, 0, s.z - fz * i * 9.5); cm.resolveHorizontalCollision(_pos, 1.35, world.roadY(_pos.x, _pos.z) + 1.0);
         ch.cars.push(makeCar(ch, i, { x: _pos.x, z: _pos.z, h, speed: opts.speed ?? 8 }));
       }
     } else {
