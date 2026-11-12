@@ -6,7 +6,8 @@
 //   const turns = createTurns(W, gps);  turns.step() (the GPS calls it from the radar's draw: 5 times a second at most)
 //   turns.cue             { kind: 'turn', dir: 'L' | 'R' | 'U', dist, name, at: [x, z], ux, uz } | { kind: 'arrive', dist }
 //                         | null (hidden); at is the corner, (ux, uz) the way out of it (the radar's turn chevron)
-//   nextTurn(route, nameAt)   the pure part: the next turn on a route (gps.route), its street named by nameAt(x, z, horiz)
+//   nextTurn(route, nameAt)   the pure part: the next turn on a route (gps.route), its street named by nameAt(x, z, ux, uz)
+//                         (the way the route runs there); a bend that keeps to the same street is not a turn
 // Where it sits: on a computer, the top middle. On a phone it heads the column beside the radar (sideways) or under it
 // (upright): the objective tracker, the help, an offer or a DM, and M2's meters move down a row while it shows
 // (body.wg-turnon), so it covers none of them, the toolbar, the car's pills or a call.
@@ -31,7 +32,10 @@ export function nextTurn(route, nameAt) {
     let j = i; while (j + 1 < S.length && S[j + 1].at - S[i].at < 30) j++;
     const out = S.slice(i, j + 1).reduce((m, s) => (s.L > m.L ? s : m)), net = ang(S[i - 1], out);
     if (Math.abs(net) < 35 * D) { i = j; continue; }                            // a jog: not a turn
-    const name = nameAt(out.a[0] + out.ux * Math.min(18, out.L * 0.5), out.a[1] + out.uz * Math.min(18, out.L * 0.5), Math.abs(out.ux) > Math.abs(out.uz));
+    const name = nameAt(out.a[0] + out.ux * Math.min(18, out.L * 0.5), out.a[1] + out.uz * Math.min(18, out.L * 0.5), out.ux, out.uz);
+    // (the street the route is on before it: the same name after the bend, it only bends with the road)
+    const inn = S[i - 1], was = Math.abs(net) > 150 * D ? null : nameAt(S[i].a[0] - inn.ux * Math.min(18, inn.L * 0.5), S[i].a[1] - inn.uz * Math.min(18, inn.L * 0.5), inn.ux, inn.uz);
+    if (name && was === name) { i = j; continue; }
     return { kind: 'turn', dir: Math.abs(net) > 150 * D ? 'U' : net > 0 ? 'R' : 'L', dist: S[i].at, name, at: [S[i].a[0], S[i].a[1]], ux: out.ux, uz: out.uz };
   }
   // (the arrival leg is a turn only when it is a real stretch: a place off the traffic's roads, the yard on 12th Ave
@@ -39,16 +43,16 @@ export function nextTurn(route, nameAt) {
   if (last > 40 && S.length) {
     const p = S[S.length - 1], q = seg(route[n - 2], route[n - 1]), net = ang(p, q);
     if (Math.abs(net) >= 35 * D) {
-      const name = nameAt(q.a[0] + q.ux * 18, q.a[1] + q.uz * 18, Math.abs(q.ux) > Math.abs(q.uz));
+      const name = nameAt(q.a[0] + q.ux * 18, q.a[1] + q.uz * 18, q.ux, q.uz);
       return { kind: 'turn', dir: Math.abs(net) > 150 * D ? 'U' : net > 0 ? 'R' : 'L', dist: along, name, at: [q.a[0], q.a[1]], ux: q.ux, uz: q.uz };
     }
   }
   return { kind: 'arrive', dist: total };
 }
 
-// the street at (x, z): of the city's roads within 30 m, the nearest that runs the way the route does
-export function nameAt(x, z, horiz) {
-  return world.streetNameAt(x, z, { horizontal: horiz, r: 30 });
+// the street at (x, z): of the city's roads within 30 m, the nearest that runs the way the route does (ux, uz)
+export function nameAt(x, z, ux, uz) {
+  return world.streetNameAt(x, z, ux == null ? { r: 30 } : { dir: { ux, uz }, r: 30 });
 }
 
 // '120 m' (10 m steps), '1.2 km', 'now' under 25 m (at a place: 'here')

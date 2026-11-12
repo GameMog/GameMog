@@ -94,12 +94,25 @@ export function createWorld(city) {
     if (mode === 'foot') return W?.gps?.planWalk?.(a, b) || null;
     return W?.gps?.plan?.(a, b, a.h ?? null) || null;
   }
-  // the street at (x, z): of the city's roads within r m (30), the nearest; with horizontal given (true: the way the
-  // route runs is more east-west than north-south), the nearest that runs that way
-  function streetNameAt(x, z, { horizontal = null, r = 30 } = {}) {
+  // the street at (x, z): of the city's roads within r m (30), the nearest; with dir { ux, uz } (the way a route runs
+  // there), the nearest whose centreline runs that way there (within 45 degrees, either direction), any city's grid or
+  // none; (horizontal: the old grid test, the nearest whose nearest stretch is more east-west, or not)
+  function roadDir(road, x, z) {
+    const P = road.pts || []; let best = null, bd = Infinity;
+    for (let i = 0; i + 1 < P.length; i++) {
+      const a = P[i], b = P[i + 1], dx = b.x - a.x, dz = b.z - a.z, L2 = dx * dx + dz * dz || 1e-9;
+      const t = clamp(((x - a.x) * dx + (z - a.z) * dz) / L2, 0, 1), d = Math.hypot(a.x + dx * t - x, a.z + dz * t - z);
+      if (d < bd) { bd = d; const L = Math.sqrt(L2); best = { ux: dx / L, uz: dz / L }; }
+    }
+    return best;
+  }
+  function streetNameAt(x, z, { dir = null, horizontal = null, r = 30 } = {}) {
     const n = N(); if (!n.nearestRoads) return null;
     const near = n.nearestRoads(x, z, r);
-    return (horizontal == null ? near[0] : near.find((q) => q.horizontal === horizontal) || near[0])?.road.name || null;
+    let pick = near[0];
+    if (dir) pick = near.find((q) => { const u = roadDir(q.road, x, z); return u && Math.abs(u.ux * dir.ux + u.uz * dir.uz) >= Math.SQRT1_2; }) || near[0];
+    else if (horizontal != null) pick = near.find((q) => q.horizontal === horizontal) || near[0];
+    return pick?.road.name || null;
   }
   const districtAt = (x, z) => N().districtAt?.(x, z) ?? null;
   // a busy shopping and office district (more people on its sidewalks)

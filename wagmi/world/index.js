@@ -9,7 +9,7 @@
 //   roads    nearestLane(x, z, mode = 'car', R = 80) -> { x, z, heading, d, edge } | null;  throughRoad({ x, z }) -> a
 //            long main road's lane near there { x, z, heading, edge } | null;  route(a, b, mode) -> Promise
 //            of [[x, z], ...] ('car' the GPS's legal route, 'foot' a walk, 'chase' a chase car's);  roadClass(edge),
-//            isAvenue(edge);  streetNameAt(x, z, { horizontal, r });  districtAt(x, z);  commercial(district)
+//            isAvenue(edge);  streetNameAt(x, z, { dir: { ux, uz }, r });  districtAt(x, z);  commercial(district)
 //   signals  walkSignal({ dx, dz }, t) (a crossing walked that way has the WALK);  signalAt(road, t) -> 'green' | ...
 //   blocks   blockAt(x, z), blocksInRect(minX, maxX, minZ, maxZ), blocks (the curb islands)
 //   places   places (key -> { x, z, heading, name, cx?, cz?, foot? }), placesMissing, spawnPoints('all' | 'ground'),
