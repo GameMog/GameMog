@@ -1749,6 +1749,15 @@ export const MIGRATIONS = [
       return `SF 2040 titled in the centre again: ${swap.join(', ')}`;
     },
   },
+  {
+    // 12 Nov, the owner (refreshes approved): SF 2040 plays Mog City's world as it is now (mogcity 99337dce, the
+    // playtest fixes: a fight on every long ride, a smooth LATER, wave arrows, Pike's mercy on Market St, 4 new lines).
+    // As 2026-11-11-sf2040-world-2: deploy/migrations/sf2040-world-4.json (from: world-3's) and sf2040/world-4.json,
+    // sealed in place of world-3's only while the game still plays it; every world it played before stays served
+    id: '2026-11-12-sf2040-world-4',
+    async: true,
+    run: (db, path) => sf2040World(4, db, path),
+  },
 ];
 
 /**
