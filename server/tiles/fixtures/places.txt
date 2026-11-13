@@ -1,0 +1,5 @@
+# one place id per line; blank lines and # comments are skipped
+okemah-ok
+sf-union-square
+phoenix-az-downtown
+marfa-tx
