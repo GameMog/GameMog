@@ -15,7 +15,7 @@
 // (terrain-mesh.js), and the street network was built on the core alone (main.js patchesEnabled). Sets
 // NYC.FLIGHT_BOUNDS to the 10 km tier (the helicopter), DATA.pkgFar = { tiers, extent, stats } (no .city: sf-map.js
 // reads that as map bounds), and the fog: an arid majority in the near tier asks for 'clear' (an explicit ?fog wins).
-//   ?far=0     the fill and apron only (no tiles)          ?far=none  nothing (region.js returns before; the old sea)
+//   ?far=0     the fill and apron only (no tiles)          ?far=none  nothing (the old 60 km sea plane, sf-ground.js)
 //   ?farDebug=1  far water drawn #00FFFF, the fill and apron #00FF00 (the sea test: no SF bay plane is left to show)
 const N = (window.NYC = window.NYC || {});
 
@@ -26,6 +26,7 @@ const COLORS = { land: 0x6f7b4f, arid: 0xb49f7a, rock: 0x7d776c, water: 0x40525c
 function build(scene) {
   const { THREE, Terrain: T, createWaterMaterial } = N;
   const P = N.PKG, Q = new URLSearchParams(location.search), mode = Q.get('far'), debug = Q.get('farDebug') === '1';
+  if (mode === 'none') return { update() {}, setQuality() {}, stats: () => ({ far: 'none' }) };
   const group = new THREE.Group();
   group.name = 'PkgFar';
   scene.add(group);
