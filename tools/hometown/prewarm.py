@@ -28,8 +28,9 @@ ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 REGIONS = re.compile(r'fetch\.py --regions ([a-z]+:[0-9,;]+)')
 
 
-def build_id(store):
-    out = subprocess.run([sys.executable, os.path.join(HERE, 'compile.py'), '--print-build', '--store', store], capture_output=True, text=True, check=True, cwd=ROOT)
+def build_id(store, data):
+    # (with --data: the buildId commits to the OSM lane table under <data>/osm, as the compiles below read it)
+    out = subprocess.run([sys.executable, os.path.join(HERE, 'compile.py'), '--print-build', '--store', store, '--data', data], capture_output=True, text=True, check=True, cwd=ROOT)
     return json.loads(out.stdout)['buildId']
 
 
@@ -96,7 +97,7 @@ if __name__ == '__main__':
     a.places, a.store, a.data = os.path.abspath(a.places), os.path.abspath(a.store), os.path.abspath(a.data)
     g = json.load(open(a.places))
     ids = a.only.split(',') if a.only else g.get('order') or list(g['places'])
-    bid = build_id(a.store)
+    bid = build_id(a.store, a.data)
     state = os.path.join(a.store, 'state', 'prewarm-%s.jsonl' % bid)
     os.makedirs(os.path.dirname(state), exist_ok=True)
     done = set()
