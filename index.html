@@ -68,7 +68,8 @@
       // does: wagmi/city.js. Midtown's aerial is never its still)
       const sf = MC_CITY === 'sf';
       if (sf) H.dataset.city = 'sf';
-      if (Q.has('nointro') || Q.has('nogate') || Q.has('fight') || Q.get('m1') || Q.get('m2') || Q.get('m3') || (sf && !Q.has('pack'))) return;
+      // (?start=chase: the chase-first opening, wagmi/chase-start.js, straight in, no gate)
+      if (Q.has('nointro') || Q.has('nogate') || Q.has('fight') || Q.get('m1') || Q.get('m2') || Q.get('m3') || (sf && !Q.has('pack')) || (Q.get('start') === 'chase' && !Q.has('pack'))) return;
       H.classList.add('wg-t');
       // (a Mog's own save (wagmi/story S.save: the key with its story's id), Mog City's without ?story=)
       let key = 'wagmi.save.v1';
@@ -469,7 +470,7 @@
   <script>
     (() => {
       const H = document.documentElement, boot = document.getElementById('wg-boot'), load = document.getElementById('wg-load');
-      if (/[?&](nointro|nogate|fight)\b/.test(location.search) || (H.dataset.city === 'sf' && !/[?&]pack=/.test(location.search))) { boot.remove(); load.remove(); return; }
+      if (/[?&](nointro|nogate|fight)\b/.test(location.search) || ((H.dataset.city === 'sf' || /[?&]start=chase\b/.test(location.search)) && !/[?&]pack=/.test(location.search))) { boot.remove(); load.remove(); return; }
       const T = (window.__wgTitle = { adopted: false, started: null, typeAt: 0 });
       const t = setInterval(() => {
         if (!window.__NYC_APP || !window.__NYC_APP.ready) return;

@@ -2,7 +2,8 @@
 //   CITY            'sf' in San Francisco (cities/sf, Slop San Francisco by Kamil (@unable0_) and Mr.doob, MIT), else
 //                   'ny' (New York, as ever): the world contract's city (wagmi/world: world.id), which index.html
 //                   picks its scripts by; one city a page.
-//   install(W)      (game.js, off New York and without ?pack=, in place of New York's opening and missions, which are
+//   install(W)      (game.js, off New York and without ?pack=, or with ?start=chase in any city: chase-start.js, the
+//                   opening a chase; in place of New York's opening and missions, which are
 //                   set on Manhattan's streets) free roam: Dan on foot by his car where the city puts them (San
 //                   Francisco: the Embarcadero by the Ferry Building, cities/sf/js/main.js), with Mog City's own HUD
 //                   (mission/ui.js in story mode: the radar, the speed panel, the map and the pause menu), the GPS for
@@ -16,6 +17,7 @@ import { createGPS } from './mission/gps.js';
 import { createFace } from './face.js';
 import { outBesideCar } from './intro.js';
 import { world } from './world/index.js';
+import { CHASE_START, chaseStart } from './chase-start.js';
 
 const Q = new URLSearchParams(location.search);
 export const CITY = world.id;
@@ -23,7 +25,7 @@ export const CITY = world.id;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export async function install(W) {
-  if (CITY === 'ny') return;
+  if (CITY === 'ny' && !CHASE_START) return;
   const app = W.app;
   if (W.dan && !W.dan.face) W.dan.face = createFace(W, { speaker: 'Dan', inner: W.dan.body, bones: W.dan.bones, hair: true, open: 0.42 });
   const ui = (W.ui = createUI()), sfx = (W.sfx = createAudio());
@@ -37,8 +39,10 @@ export async function install(W) {
   app.mapSystem.waypoint = null; app.mapSystem.onTeleport = null;
   W.gps = W.gps || createGPS(W);
   for (let i = 0; i < 1800 && !app.ready; i++) await sleep(100);
-  // (the city starts the player in the car: out beside it, on foot)
-  if (app.controllerManager.activeMode !== 'person') outBesideCar(W);
+  // (the city starts the player in the car: out beside it, on foot; ?start=chase: at the wheel on a through-road, the
+  // police on him, chase-start.js)
+  if (CHASE_START) chaseStart(W).catch((e) => console.warn('[city] chase', e));
+  else if (app.controllerManager.activeMode !== 'person') outBesideCar(W);
   // every frame, as the missions do: the GPS route followed, the HUD told whether he is on foot
   (function frame() {
     requestAnimationFrame(frame);

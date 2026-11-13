@@ -11,6 +11,7 @@ import { createStand } from './stand.js';
 import { createPlant } from './plant.js';
 import { drive, installDriveMode } from './audio/drivemode.js';
 import { world } from './world/index.js';
+import { CHASE_START } from './chase-start.js';
 // (the story pack, first: its top-level await holds the game until the pack is in; wagmi/story)
 import { S as story } from './story/index.js';
 // (?pack=: a Story Kit world played on this engine, wagmi/storyrun. Without ?pack= none of it is even imported, and every
@@ -1163,8 +1164,9 @@ WAGMI.trailerEarly = import('./trailer.js').then((m) => m.createTrailer(WAGMI)).
 // the rest of the game, a module each (one that fails to load leaves the others running)
 // (with ?pack=, the world's story runner in place of the opening and Mog City's missions: wagmi/storyrun)
 // (another city with no world, ?city=sf alone: free roam there, wagmi/city.js, in place of the opening and the
-// missions, which are set on Manhattan's streets. The city: the world contract's, wagmi/world world.id)
-const ROAM = !PACK && world.id === 'sf';
+// missions, which are set on Manhattan's streets. The city: the world contract's, wagmi/world world.id. And
+// ?start=chase in any city: free roam opened on a chase, wagmi/chase-start.js)
+const ROAM = !PACK && (world.id === 'sf' || CHASE_START);
 for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
   try { const mod = await import(m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); }
 }
