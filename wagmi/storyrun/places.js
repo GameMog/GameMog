@@ -76,6 +76,8 @@ export function createPlaces(W, world) {
   // a mission's sites, all of them, once
   function prepare(m) {
     if (!m || done.has(m)) return done.get(m) || [];
+    // (not before the city's roads are up: nothing would be found, and nothing is kept)
+    if (!Object.keys(cityWorld.places || {}).length) return [];
     const ids = new Map(), used = [], list = [];
     done.set(m, list);
     let prev = null;
@@ -96,10 +98,11 @@ export function createPlaces(W, world) {
   }
   function siteAt(ref) {
     const m = owner.get(ref);
-    if (m) { prepare(m); return picked.get(ref) || null; }
+    if (m) { prepare(m); return picked.has(ref) ? picked.get(ref) : null; }
     // (a ref the world doesn't hold, a copy of one: picked on its own, by what it says)
     if (typeof ref.site === 'string') return null;
     const k = JSON.stringify(ref.site);
+    if (!Object.keys(cityWorld.places || {}).length) return null;
     if (!loose.has(k)) { const n = nearOf(ref.site.near, null, new Map(), null); loose.set(k, pickSite(ref.site, null, k, n.at, n.implicit, [])); }
     return loose.get(k);
   }
