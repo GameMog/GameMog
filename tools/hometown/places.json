@@ -64,12 +64,12 @@
   },
   "phoenix-stack": {
    "bbox": [
-    -112.118,
-    33.452,
-    -112.094,
-    33.472
+    -112.102,
+    33.455,
+    -112.088,
+    33.47
    ],
-   "bboxSource": "grade-lanes check box (spec section 6): round the I-10/I-17 Stack",
+   "bboxSource": "grade-lanes check box (spec section 6), moved 1.6 km east to the fetched regions: the I-10/I-17 Stack's east half in the play box, all of it in the tiles",
    "domain": "conus",
    "name": "Phoenix Stack (grade test box)"
   }
