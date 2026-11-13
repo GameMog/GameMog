@@ -121,6 +121,8 @@ export function createPkg() {
     // (its tiles on the compiler's grid, above)
     tileSource,
     pois,
+    // (the map: the tiles the package compiled; world.onRoadway is off the road outside them)
+    inExtent: (x, z) => { const s = tileSize(); return compiledSet().has(gridKey(Math.floor(x / s), Math.floor(z / s))); },
     // (a sidewalk or a paved square where a man stands: the package's ground mask, San Francisco's classes)
     sidewalkAt: (x, z) => maskClass(x, z) === 1,
   });
