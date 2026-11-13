@@ -11,7 +11,7 @@ Python 3.11+ with `duckdb` (with its `httpfs` and `spatial` extensions, installe
 ```bash
 # 1. fetch the place's raw inputs, by bounding box only (into .scratch/hometown-m2/data/<id>/, git-ignored)
 python tools/hometown/fetch.py --id okemah --place "Okemah, OK"
-python tools/hometown/fetch.py --id phoenix --bbox -112.083,33.452,-112.065,33.465
+python tools/hometown/fetch.py --id phoenix --bbox -112.080,33.444,-112.062,33.458
 # 2. compile it (offline: reads only what fetch.py saved) into cities/pkg/packages/<id>/ (git-ignored)
 python tools/hometown/compile.py --id okemah --name "Okemah, OK"
 # 3. play it

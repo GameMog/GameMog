@@ -310,6 +310,7 @@ def network_stage(P, S, place_name):
             names.append(n)
         return name_of[n]
     links = []
+    bridges = []
     stats = {'segments': 0, 'skipped': 0, 'links': 0, 'oneway': 0}
     for s in S['segments']:
         if s['subtype'] != 'road':
@@ -340,6 +341,15 @@ def network_stage(P, S, place_name):
             flags |= FLAGS['private']
         if flagged(s['road_flags'], 'is_tunnel') and not any(r.get('between') for r in s['road_flags'] or [] if 'is_tunnel' in (r.get('values') or [])):
             flags |= FLAGS['tunnel']
+        # spans on a bridge or in a tunnel (road_flags `between`: linear references; none: the whole segment)
+        spans = {'is_bridge': [], 'is_tunnel': []}
+        for r in s['road_flags'] or []:
+            for k in spans:
+                if k in (r.get('values') or []):
+                    spans[k].append(tuple(r['between']) if r.get('between') else (0.0, 1.0))
+        for b0, b1 in spans['is_bridge']:
+            if b1 - b0 > 1e-6:
+                bridges.append((shapely.ops.substring(wg, b0 * L, b1 * L), w))
         if d:
             stats['oneway'] += 1
             # a one-way carriageway of a divided road carries half the lanes in less width
@@ -357,18 +367,45 @@ def network_stage(P, S, place_name):
             piece = shapely.ops.substring(wg, a0 * L, a1 * L)
             if piece.length < 0.3:
                 continue
+            # a piece mostly in a tunnel span is underground (Phoenix's I-10 under Hance Park): not on the surface
+            under = sum(max(0, min(a1, t1) - max(a0, t0)) for t0, t1 in spans['is_tunnel'] if (t0, t1) != (0.0, 1.0))
+            if under > 0.5 * (a1 - a0):
+                stats['tunnelPieces'] = stats.get('tunnelPieces', 0) + 1
+                continue
             pts = [tuple(p) for p in shapely.get_coordinates(piece.simplify(0.4))]
             na, nb = node(c0, conn[c0]), node(c1, conn[c1])
             if na == nb:
                 continue
             links.append({'a': na, 'b': nb, 'ni': nm, 'w': w, 'lanes': lanes, 'dir': d, 'inner': pts[1:-1], 'flags': flags,
                           'sw': sw, 'cls': cls, 'rank': rank, 'seg': s['id']})
-    # keep the links that touch the terrain extent (a road leaving it ends in a dead end at its edge)
+    # keep the links inside the terrain extent (6 m in from its edge); one that leaves it is cut at the edge, where it
+    # ends in a new dead-end node (beyond the terrain is no ground: a road there would fall off a cliff)
+    inner_ext = ext.buffer(-6, join_style='mitre')
     keep = []
     for l in links:
-        line = LineString([nodes[l['a']], *l['inner'], nodes[l['b']]])
-        if line.intersects(ext):
+        A, Bn = nodes[l['a']], nodes[l['b']]
+        line = LineString([A, *l['inner'], Bn])
+        if line.within(inner_ext):
             keep.append(l)
+            continue
+        ina, inb = inner_ext.contains(Point(A)), inner_ext.contains(Point(Bn))
+        if ina == inb:
+            continue
+        keepend = A if ina else Bn
+        part = next((g for g in lines_of(line.intersection(inner_ext)) if Point(keepend).distance(g) < 0.01), None)
+        if part is None or part.length < 4:
+            continue
+        cs = [tuple(c) for c in part.coords]
+        if Point(cs[0]).distance(Point(keepend)) > 0.01:
+            cs.reverse()
+        cut = node(('cut', l['seg'], l['a'], l['b']), cs[-1])
+        l = dict(l, inner=cs[1:-1])
+        if ina:
+            l['b'] = cut
+        else:
+            l['a'], l['inner'] = cut, list(reversed(cs[1:-1]))
+        keep.append(l)
+        stats['cutAtEdge'] = stats.get('cutAtEdge', 0) + 1
     links = keep
     # renumber the nodes the kept links use, in first-use order (deterministic: segments are read in id order)
     used, remap = [], {}
@@ -426,6 +463,12 @@ def network_stage(P, S, place_name):
         line = LineString([nodes[l['a']], *l['inner'], nodes[l['b']]])
         roads.append(line.buffer(l['w'] / 2, quad_segs=4))
     roadway = unary_union(roads) if roads else Polygon()
+    curbs = []
+    for l in links:
+        if l['flags'] & FLAGS['pedestrian']:
+            continue
+        line = LineString([nodes[l['a']], *l['inner'], nodes[l['b']]])
+        curbs.append(line.buffer(l['w'] / 2 + max(l['sw'], 0.6), quad_segs=4))
     land = ext.buffer(-2, join_style='mitre')
     if P['water'] is not None:
         land = land.difference(P['water'].buffer(1.5))
@@ -458,7 +501,15 @@ def network_stage(P, S, place_name):
                 rect = pp.area / max(1e-9, (bx1 - bx0) * (bz1 - bz0)) > 0.97
                 blocks.append([flat(pts), [], round(share, 2) if share > 0.5 else 0, pname if share > 0.5 else '', 1 if rect else 0,
                                [[round(theta, 4), q1((bx0 + bx1) / 2), q1((bz0 + bz1) / 2), []]], kind])
-    return {'roadGraph': rg, 'blocks': blocks, 'roadway': roadway, 'road_parts': roads, 'links': links, 'nodes': nodes, 'stats': stats, 'parks': parks}
+    return {'roadGraph': rg, 'blocks': blocks, 'roadway': roadway, 'road_parts': curbs, 'bridges': [(g, w) for g, w in bridges if g.length > 3 and g.intersects(ext)], 'links': links, 'nodes': nodes, 'stats': stats, 'parks': parks}
+
+
+def lines_of(g):
+    if g.is_empty:
+        return []
+    if g.geom_type == 'LineString':
+        return [g]
+    return [h for k in getattr(g, 'geoms', []) for h in lines_of(k)]
 
 
 def polygons(g):
@@ -561,6 +612,28 @@ def terrain_tile(P, dem, tile):
     H = 2
     a0, a1, b0, b1 = max(0, i0 - H), min(T['w'], i1 + H), max(0, j0 - H), min(T['h'], j1 + H)
     h = terrain_samples(P, dem, a0, a1, b0, b1)
+    # bridges with nothing driven under them (a street over a ravine): the ground raised to the deck, a straight line
+    # between the bridge's ends, with a 0.7 embankment either side (3DEP is bare earth: the deck itself is not in it)
+    T = P['terrain']
+    for line, w, e0, e1 in P.get('bridges', []):
+        bx0, bz0, bx1, bz1 = line.bounds
+        reach = w / 2 + 10
+        ii = np.arange(a0, a1)
+        jj = np.arange(b0, b1)
+        xs, zs = T['x0'] + ii * CELL, T['z0'] + jj * CELL
+        ci = (xs >= bx0 - reach) & (xs <= bx1 + reach)
+        cj = (zs >= bz0 - reach) & (zs <= bz1 + reach)
+        if not ci.any() or not cj.any():
+            continue
+        X, Z = np.meshgrid(xs[ci], zs[cj])
+        pts = shapely.points(X.ravel(), Z.ravel())
+        d = shapely.distance(line, pts).reshape(X.shape)
+        t = shapely.line_locate_point(line, pts, normalized=True).reshape(X.shape)
+        deck = e0 + (e1 - e0) * t
+        core = w / 2 + 1.5
+        target = np.where(d <= core, deck, deck - (d - core) * 0.7)
+        sub = h[np.ix_(cj, ci)]
+        h[np.ix_(cj, ci)] = np.where(d <= reach, np.maximum(sub, target), sub)
     wl = P['waterLevel']
     wet = np.abs(h - wl) < 0.005
     K = np.array([0.0545, 0.2442, 0.4026, 0.2442, 0.0545])
@@ -695,19 +768,30 @@ def building_records(P, S, ground, net, downtown_poly):
                 continue
             o['g'] = Polygon(g2.exterior).simplify(0.25)
         out.append(o)
+    T = P['terrain']
+    inside = sbox(T['x0'], T['z0'], T['x0'] + (T['w'] - 1) * CELL, T['z0'] + (T['h'] - 1) * CELL).buffer(-4, join_style='mitre')
+    kx0, kz0, kx1, kz1 = P['box']['x0'], P['box']['z0'], P['box']['x1'], P['box']['z1']
+    km2 = (kx1 - kx0) * (kz1 - kz0) / 1e6
+    dense = sum(1 for o in out if kx0 <= o['cx'] <= kx1 and kz0 <= o['cz'] <= kz1) / max(km2, 0.1) > 1200
+    out = [o for o in out if inside.contains(o['g'])]
     for o in out:
         r, g = o['r'], o['g']
         pts = neg_ring(list(g.exterior.coords))
         xs, zs = np.array([p[0] for p in pts]), np.array([p[1] for p in pts])
         gr = ground.at(np.append(xs, o['cx']), np.append(zs, o['cz']))
         base = float(gr.min())
+        # on a slope the footprint's foundation is its lowest ground and its walls stand from its highest (a row house on
+        # the South Side Slopes keeps its storeys above the uphill street), up to 8 m of rise
+        rise = min(8.0, float(gr.max()) - base)
         area = g.area
         downtown = downtown_poly is not None and downtown_poly.contains(Point(o['cx'], o['cz']))
         h = r['height']
         if h is None and r['num_floors']:
             h = r['num_floors'] * 3.3 + 0.8
         if h is None:
-            h = 4.5 if area < 250 else 7.0 if area < 1500 else 9.0
+            # (no height in Overture: a dense place's small footprints are two- and three-storey row houses, a small
+            # town's one-storey houses)
+            h = (6.5 if area < 60 else 8.5 if area < 250 else 9.5 if area < 1500 else 9.0) if dense else (4.5 if area < 250 else 7.0 if area < 1500 else 9.0)
         h = float(h)
         btype, pal = classify(r, area, h, downtown)
         # Overture's ML heights are the eaves of most houses: a one-storey house stands at least 3.4 m, its roof above
@@ -715,7 +799,7 @@ def building_records(P, S, ground, net, downtown_poly):
         stories = r['num_floors'] or max(1, int(round(h / 3.4)))
         peak = h + (1.6 if btype == 'rowhouse' and area < 300 else 0.6)
         theta = -dominant_angle(pts)
-        o['rec'] = [base, base + h, base + peak, 0, len(pts), theta, 0, 0, 1 if (r['class'] or '') in SHOPS or (downtown and btype == 'office-low') else 0,
+        o['rec'] = [base, base + rise + h, base + rise + peak, 0, len(pts), theta, 0, 0, 1 if (r['class'] or '') in SHOPS or (downtown and btype == 'office-low') else 0,
                     BTYPES.index(btype), pal, 0, 0, 0, 0, 1, 3.4, stories, 0, 0]
         o['pts'] = pts
         o['btype'] = btype
@@ -997,6 +1081,22 @@ def compile_place(pid, raw, out_root, name=None):
     P = place_stage(fetch, S, dem)
     mark('place')
     net = network_stage(P, S, name.split(',')[0])
+    # bridges to raise the ground for: their ends' heights from the DEM; none where a road passes under (an overpass:
+    # raising it would bury the road below, so v0 leaves those at grade)
+    lines = [LineString([net['nodes'][l['a']], *l['inner'], net['nodes'][l['b']]]) for l in net['links']]
+    ltree = shapely.STRtree(lines)
+    P['bridges'] = []
+    for line, w in net['bridges']:
+        under = [i for i in ltree.query(line, predicate='crosses')]
+        if under:
+            continue
+        (x0, z0), (x1, z1) = line.coords[0], line.coords[-1]
+        lon, lat = P['frame'].from_world(np.array([x0, x1]), np.array([z0, z1]))
+        e = dem_sample(dem, lon, lat) - P['frame'].y_offset
+        if np.isfinite(e).all():
+            P['bridges'].append((line, w, float(e[0]), float(e[1])))
+    net['stats']['bridgesRaised'] = len(P['bridges'])
+    net['stats']['bridgesAtGrade'] = len(net['bridges']) - len(P['bridges'])
     mark('network')
     tiles = tiles_of(P)
     terr = [terrain_tile(P, dem, t) for t in tiles]
@@ -1078,7 +1178,8 @@ def compile_place(pid, raw, out_root, name=None):
     stats = {
         'buildings': bcount, 'buildingsDroppedOnRoads': dropped, 'roadLinks': len(net['roadGraph']['links']), 'roadNodes': len(net['roadGraph']['nodes']) // 2,
         'blocks': len(net['blocks']), 'islands': sum(1 for b in net['blocks'] if b[6] == 'island'), 'places': len(places),
-        'heightsFromOverture': sum(1 for o in brecs if o['r']['height'] is not None), 'oneway': net['stats']['oneway'], 'trees': len(trees),
+        'bridgesRaised': net['stats']['bridgesRaised'], 'bridgesAtGrade': net['stats']['bridgesAtGrade'], 'cutAtEdge': net['stats'].get('cutAtEdge', 0),
+        'tunnelPiecesDropped': net['stats'].get('tunnelPieces', 0), 'heightsFromOverture': sum(1 for o in brecs if o['r']['height'] is not None), 'oneway': net['stats']['oneway'], 'trees': len(trees),
     }
     manifest = {
         'format': 'hometown-package', 'version': 1, 'id': pid, 'name': name,

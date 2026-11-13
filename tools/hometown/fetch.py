@@ -5,7 +5,7 @@
 #   fetch.json                        what was read: the box, the Overture release, the DEM files' ETags, row counts
 # No account, no API key, no national or state extract. Usage:
 #   python fetch.py --id okemah --place "Okemah, OK"            (resolved through Overture divisions; see resolve())
-#   python fetch.py --id phx --bbox -112.083,33.452,-112.065,33.465
+#   python fetch.py --id phoenix --bbox -112.080,33.444,-112.062,33.458
 import argparse
 import json
 import math
