@@ -4,7 +4,8 @@
 //   Drape.polygon(ring, ground, normal, offset, out)  top surface at ground + offset. The ring's bounding square is cut
 //       into a quadtree whose leaves stop splitting once the terrain inside departs less than TOL from the plane through
 //       their corners (or at MIN_LEAF); the ring is clipped to each leaf and the pieces triangulated.
-//   Drape.wall(ring, ground, bottom, top, out)       outward-facing quads along the ring from ground + bottom to ground + top
+//   Drape.wall(ring, ground, bottom, top, out, skip?) outward-facing quads along the ring from ground + bottom to ground + top
+//                                                    (skip(a, b): true leaves that edge's quad out)
 //   Drape.densify(ring, step)                        the ring with points added so no edge is longer than `step`
 // Rings are [{x, z}], either winding. `ground(x, z)` gives the height, `normal(x, z, out)` the unit normal.
 // `out` = { pos: [], nrm: [], idx: [] } (world x, y, z triples; triangles counter-clockwise seen from outside).
@@ -176,13 +177,13 @@ function polygon(ring, ground, normal, offset, out) {
   return out;
 }
 
-function wall(ring, ground, bottom, top, out) {
+function wall(ring, ground, bottom, top, out, skip) {
   const ccw = signedArea(ring) < 0 ? ring : ring.slice().reverse();
   for (let i = 0; i < ccw.length; i++) {
     const a = ccw[i], b = ccw[(i + 1) % ccw.length];
     const dx = b.x - a.x, dz = b.z - a.z;
     const len = Math.hypot(dx, dz);
-    if (len < 1e-4) continue;
+    if (len < 1e-4 || (skip && skip(a, b))) continue;
     // outward = right of the direction of travel for a counter-clockwise ring (seen from above, north up)
     const nx = -dz / len, nz = dx / len;
     const ga = ground(a.x, a.z), gb = ground(b.x, b.z);

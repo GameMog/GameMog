@@ -155,12 +155,19 @@ function buildSFGround(scene) {
     return c;
   };
   const sidewalks = [];
+  // (a Hometown package: a block the compiler cut at the core's edge has no curb there, the land goes on past it
+  // (cities/pkg/js/pkg-far.js): a dark granite line along the box edge would draw the box)
+  const pkgEdge = window.NYC.PKG && Terrain.loaded ? (() => {
+    const x0 = Terrain.originX, z0 = Terrain.originZ, x1 = x0 + (Terrain.w - 1) * Terrain.cell, z1 = z0 + (Terrain.h - 1) * Terrain.cell;
+    const near = (p) => Math.min(Math.abs(p.x - x0), Math.abs(x1 - p.x), Math.abs(p.z - z0), Math.abs(z1 - p.z)) < 4;
+    return (a, b) => near(a) && near(b);
+  })() : undefined;
   for (const b of BLOCKS) {
     if (b.poly.length < 3) continue;
     const ring = Drape.densify(b.poly, OUTLINE_STEP);
     const c = cellOf(b);
     Drape.polygon(ring, ground, normal, CURB_H, c.top);
-    Drape.wall(ring, ground, -CURB_BURY, CURB_H, c.curb);
+    Drape.wall(ring, ground, -CURB_BURY, CURB_H, c.curb, pkgEdge);
     if (b.park > 0.5 && !b.median) Drape.polygon(ring, ground, normal, CURB_H + 0.012, c.lawn);
     sidewalks.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ, block: b });
   }

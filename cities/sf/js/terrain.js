@@ -5,7 +5,8 @@
 // cameras, road network, traffic, pedestrians, street details) asks here. Heights are metres NAVD88 = world y.
 //
 //   Terrain.load(header, q)        Uint16 samples, row-major, row j = z originZ + j * cell, column i = x originX + i * cell
-//   Terrain.heightAt(x, z)         bilinear; outside the data -> the region ground (addPatch), else waterLevel - 5
+//   Terrain.heightAt(x, z)         bilinear; outside the data -> the region ground (addPatch), else waterLevel - 5;
+//                                  with edgeBlend > 0 the patch ground fades into the core's own edge over that band
 //   Terrain.groundAt(x, z)         max(heightAt, waterLevel): what stands on land or floats on the bay (a `surface`
 //                                  patch's height as it is: a Hometown far tile's 3DEP is hydro-flattened, its water IS
 //                                  the surface, cities/pkg/js/pkg-far.js)
@@ -27,6 +28,7 @@ const Terrain = {
   heights: null, // Float32Array of decoded samples (decoding once keeps heightAt to 4 loads)
   patches: [], // ground outside the data (the interim region ground, P5-1): { x0, z0, step | stepX + stepZ, nx, nz, h, rect | cx, cz, rx, rz, surface? }
   _surface: false, // (the last heightAt came from a `surface` patch)
+  edgeBlend: 0, // m: the patches past the core take up its edge over this band (0: off; cities/pkg/js/pkg-far.js sets it)
   patchesEnabled: true, // off while main.js builds the street network: it stays on the core's own terrain
 
   load(header, q) {
@@ -48,7 +50,27 @@ const Terrain = {
     const fi = (x - this.originX) / this.cell;
     const fj = (z - this.originZ) / this.cell;
     this._surface = false;
-    if (!(fi >= 0 && fj >= 0 && fi <= this.w - 1 && fj <= this.h - 1)) return this.patchAt(x, z);
+    if (!(fi >= 0 && fj >= 0 && fi <= this.w - 1 && fj <= this.h - 1)) {
+      const y = this.patchAt(x, z);
+      if (!(this.edgeBlend > 0) || !this.patchesEnabled) return y;
+      // (edgeBlend: the ground just past the core takes up the core's own edge, fading out over edgeBlend m, so
+      // heightAt is continuous across the core's edge whatever the patch's step; a Hometown far field sets it)
+      const x1 = this.originX + (this.w - 1) * this.cell, z1 = this.originZ + (this.h - 1) * this.cell;
+      const cx = Math.min(x1, Math.max(this.originX, x)), cz = Math.min(z1, Math.max(this.originZ, z));
+      const d = Math.hypot(x - cx, z - cz);
+      if (d >= this.edgeBlend) return y;
+      // (the patch read 1 mm outside the edge point: exactly on it, rounding could put it in a coarser patch)
+      const e = 0.001 / (d || 1), surface = this._surface, edge = this.patchAt(cx + (x - cx) * e, cz + (z - cz) * e), core = this.coreAt(cx, cz);
+      this._surface = surface;
+      return y + (core - edge) * (1 - d / this.edgeBlend);
+    }
+    return this.coreAt(x, z);
+  },
+
+  // the core's own bilinear, its grid clamped (heightAt inside the core; the edge blend's read at the edge)
+  coreAt(x, z) {
+    const fi = Math.min(this.w - 1, Math.max(0, (x - this.originX) / this.cell));
+    const fj = Math.min(this.h - 1, Math.max(0, (z - this.originZ) / this.cell));
     const i = Math.min(this.w - 2, fi | 0);
     const j = Math.min(this.h - 2, fj | 0);
     const tx = fi - i;

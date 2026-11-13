@@ -1,6 +1,7 @@
 // The Hometown far field's runtime pieces: terrain.js patches with their own x / z steps, `surface` patches (groundAt
-// is their height, not the dry sentinel), removePatch / hasCore, San Francisco's patches unchanged; and, when the
-// packages are compiled locally, every package's far tiles placed on one uniform grid in its frame with shared edges.
+// is their height, not the dry sentinel), removePatch / hasCore, San Francisco's patches unchanged, the edge blend
+// (heightAt continuous across the core's edge); and, when the packages are compiled locally, every package's far tiles
+// placed on one uniform grid in its frame with shared edges, tier A's posts on the core's edge the core's own heights.
 //   node --test tests/pkg-far.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -40,6 +41,24 @@ test('terrain.js: stepX / stepZ patches, surface patches unclamped, removePatch,
   assert.ok(T.removePatch(sf));
 });
 
+test('terrain.js edgeBlend: off by default; on, heightAt continuous across the core edge, the patch itself past the band', () => {
+  const T = terrain();
+  // a patch east of the core (core x 0..20 at 5 m), 100 m step, 9 m: a 4 m step at the core's edge
+  const p = T.addPatch({ x0: 20, z0: -100, stepX: 100, stepZ: 100, nx: 3, nz: 3, h: new Float32Array(9).fill(9), rect: true, surface: true });
+  assert.equal(T.heightAt(20.01, 10), 9, 'off: the patch as it is');
+  T.edgeBlend = 32;
+  assert.ok(Math.abs(T.heightAt(20.0001, 10) - 5) < 0.01, 'on: the core edge just past it');
+  let prev = T.heightAt(20, 10), worst = 0;
+  for (let x = 20.5; x <= 60; x += 0.5) { const h = T.heightAt(x, 10); worst = Math.max(worst, Math.abs(h - prev)); prev = h; }
+  assert.ok(worst < 0.1, 'no step over the band: ' + worst);
+  assert.equal(T.heightAt(52, 10), 9, 'past the band: the patch');
+  assert.equal(T.heightAt(10, 10), 5, 'the core unchanged');
+  T.groundAt(30, 10);
+  assert.ok(T._surface, 'the surface flag of the patch kept through the blend');
+  T.edgeBlend = 0;
+  T.removePatch(p);
+});
+
 const PKGS = ['okemah', 'phoenix', 'pittsburgh'].filter((p) => existsSync(`${root}cities/pkg/packages/${p}/geodata.js`));
 function pkg(id) {
   const window = { NYC: {} };
@@ -71,5 +90,30 @@ for (const id of PKGS) {
     const b = F.tiles.filter((t) => t.tier === 'b'), sz = F.tiers.b.size;
     assert.ok(Math.min(...b.map((t) => t.C)) * sz <= gx0 && (Math.max(...b.map((t) => t.C)) + 1) * sz >= gx1);
     assert.ok(Math.min(...b.map((t) => t.R)) * sz <= gs0 && (Math.max(...b.map((t) => t.R)) + 1) * sz >= gs1);
+  });
+}
+
+function terrainOf(id) {
+  const b = gunzipSync(readFileSync(`${root}cities/pkg/packages/${id}/data/terrain.bin.gz`)), n = b.readUInt32LE(4), h = JSON.parse(b.subarray(8, 8 + n).toString());
+  return { h, q: new Uint16Array(b.buffer.slice(b.byteOffset + 8 + n, b.byteOffset + 8 + n + 2 * h.w * h.h)) };
+}
+for (const id of PKGS) {
+  test(`${id}: tier A meets the core: its posts on the core's edge are the core's heights`, { skip: !(pkg(id).far && pkg(id).far.tiers.a) && 'package compiled without tier A' }, () => {
+    const P = pkg(id), F = P.far, { h: th, q: tq } = terrainOf(id), [gx0, gs0, gx1, gs1] = F.core;
+    const d = [];
+    for (const t of F.tiles.filter((t) => t.tier === 'a')) {
+      const { h, q } = sfb1(gunzipSync(readFileSync(`${root}cities/pkg/packages/${id}/${t.url}.gz`))), n = h.n;
+      for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+        const gx = (h.C * 64 + i) * h.step, gs = (h.R * 64 + j) * h.step;
+        if (gx < gx0 || gx > gx1 || gs < gs0 || gs > gs1 || !(gx === gx0 || gx === gx1 || gs === gs0 || gs === gs1) || !q[j * n + i]) continue;
+        const ci = (gx - gx0) / 2, cj = (gs - gs0) / 2;
+        d.push(Math.abs(h.minH + q[j * n + i] * h.scale - P.yOffset - (th.minH + tq[cj * th.w + ci] * th.scale)));
+      }
+    }
+    d.sort((a, b) => a - b);
+    assert.ok(d.length > 100, 'edge posts ' + d.length);
+    assert.ok(d[Math.floor(d.length * 0.95)] <= 0.06, 'p95 ' + d[Math.floor(d.length * 0.95)]);
+    // (the core's water flattening and bridges differ: the runtime takes those up, pkg-far.js)
+    assert.ok(d.filter((v) => v > 0.5).length / d.length < 0.05);
   });
 }
