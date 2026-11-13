@@ -83,6 +83,34 @@ changes bump `COMPILER_VERSION`; library, image or source changes change only `b
   `2 / k0`, mask cell `1 / k0`, the interim water shim. `PKG` carries buildId, grid, domain, origin, k0, gamma0, the
   tile ids and their headers.
 
+## Building shapes (sf-buildings v4)
+
+Each building record is a function of its own Overture row and Sources queries round its footprint (places inside it
+and within 20 m, the land use under it, buildings within 0.5 m, roads within 12 m), never of a whole place, so a tile
+stays the same bytes in any compile that holds it (the seam / block / overlap proofs, `.scratch/hg1/proofs.sh`).
+
+- **kind** (`compile.py shape_building`): Overture `class`, then the places inside the footprint (`basic_category`
+  `christian_place_of_worship`: church; `jewish_ / muslim_ / buddhist_ / hindu_place_of_worship`, `place_of_worship`:
+  civic, no religious detail; `elementary_ / middle_ / high_school`, `preschool`: school; `gas_station`,
+  `fueling_station` within 20 m: a `roof` / `carport` / `shelter` footprint or one with `min_height` >= 3.5 m is a
+  canopy; store / restaurant / cafe / bar / salon / bank ... names: shop), the land use (retail / commercial with a road
+  front: shop; industrial: warehouse), then size, height and `row` (1 + the buildings within 0.5 m).
+- **masses**: `rects.py`, a port of Slop San Francisco's `tools/rect-cover.mjs` (MIT): rectangles over the footprint
+  in its turn, written for coverage >= 0.9 (houses, garages and churches always, their roofs are laid over them).
+- **roofs**: Overture `roof_shape` / `roof_height` where present (`roofShape`; `roof` = eave, `peak` = ridge), else the
+  engine picks by kind and the region table (`cities/pkg/js/pkg-buildings.js`); houses get the eave at height - roof.
+- **parts**: a building whose `building_part`s cover 90% of it is written as its parts (own heights, `minH` =
+  `min_height`), in the parent's tile; towers without parts get an estimated podium setback on broad plans and a
+  penthouse crown on half of them.
+- **front / frontDist**: the direction and distance to the nearest roadway edge within 12 m (porches, awnings).
+- **region**: the tile's centre by coarse US regions (`region_of`), in the tile header and the package's buildings header.
+- Elevated footprints (`min_height` >= 3 m) are not dropped by the in-the-roadway rule.
+
+Step 0 (Overture 2026-10-21.0, the fetched regions): `roof_shape` on 0 of 3,186 Okemah buildings, 225 of 182,368
+round Phoenix, 538 of 272,900 round Pittsburgh; `roof_height` and facade / roof colours on none (they are not fetched;
+`wall`, `wallRGB`, `roofRGB` stay 0 until they are); `building_part` 0 / 205 / 144 rows (on 0 / 91 / 63 buildings);
+`min_height` > 0 on 0 / 4 / 0 buildings. So the look rests on the rules and the region tables.
+
 ## Rules that are estimates, not data
 
 Road widths, lanes and sidewalks by class; building type by Overture class, footprint area, height and the downtown
