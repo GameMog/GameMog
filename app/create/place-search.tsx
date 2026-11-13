@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useId, useReducer, useRef } from 'react';
 import type { Place, PlaceSelection } from '@/lib/places/types';
+import type { CityRequest, TownProgress } from '@/lib/places/request-city';
 import { boxReducer, enterPick, initialBox, type Option } from '@/lib/places/combobox';
 
 const people = (n: number | null) => (n === null ? '' : `${n.toLocaleString('en-US')} people`);
@@ -99,6 +100,37 @@ export function PlaceSearch({ onPick, disabled }: { onPick: (place: PlaceSelecti
       <span className="sr-only" aria-live="polite">
         {showList ? (options.length ? `${options.length} towns. Up and down to choose, Enter to pick.` : 'No US town by that name.') : ''}
       </span>
+    </div>
+  );
+}
+
+/**
+ * The picked town's card (Hometown): its build while it runs (the stage in plain words, tiles done of all, the wait and
+ * its place in line), then ready (its places and streets) or why not. The story can be typed meanwhile; Write the
+ * story waits for ready (app/create/page.tsx).
+ */
+export function TownCard({ town, onClear }: { town: { place: Place; progress: TownProgress | null; request: CityRequest | null }; onClear?: () => void }) {
+  const { place, progress, request } = town;
+  const name = `${place.name}, ${place.stateName}`;
+  const pct = progress && progress.total ? Math.round((100 * progress.done) / progress.total) : 0;
+  const wait = (s: number | null) => (s == null ? '' : s < 90 ? `about ${Math.max(10, Math.round(s / 10) * 10)} seconds` : `about ${Math.round(s / 60)} minutes`);
+  return (
+    <div className={`ttown ${request?.status ?? 'building'}`} data-place-id={place.placeId} data-state={request ? request.status : progress?.state ?? 'asking'} role="status" aria-live="polite">
+      <div className="ttown-head">
+        <b>{name}</b>
+        {onClear && <button type="button" className="ttown-x" onClick={onClear} aria-label="Pick another town">Change</button>}
+      </div>
+      {!request && (
+        <>
+          <p className="ttown-stage">{progress ? progress.stage : 'Finding your town'}{progress && progress.position > 1 ? ` (number ${progress.position} in line)` : ''}</p>
+          <div className="ttown-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></div>
+          <p className="ttown-note">
+            {progress && progress.total ? `${progress.done} of ${progress.total} map tiles` : 'Building its real streets'}{progress?.etaS != null ? `, ${wait(progress.etaS)} left` : ''}. You can write your story meanwhile.
+          </p>
+        </>
+      )}
+      {request?.status === 'ready' && <p className="ttown-stage">Ready: {request.town.places} places on {request.town.streets} streets.</p>}
+      {request?.status === 'error' && <p className="ttown-stage">{request.error}</p>}
     </div>
   );
 }

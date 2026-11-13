@@ -783,7 +783,10 @@ export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pe
 }
 
 /** A passed v2 pack as the runner's pack format (storykit: 1): the world Mog City's runner plays (wagmi/storyrun/pack.js). */
-export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>; clips?: string } = {}): Json {
+export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>; clips?: string; townName?: string } = {}): Json {
+  // (a hometown's missions name the town, not a static city: opts.townName, its CityPackage's "Okemah, Oklahoma")
+  const town = (pack.base.city as string) === HOMETOWN;
+  const cityName = town ? (opts.townName || 'your town') : CITY_NAME[pack.base.city as CityId];
   const name = (id: string) => personName(pack.cast.find((c: Json) => c.id === id)) || pack.pets?.find((p: Json) => p.id === id)?.name || titleCase(id);
   // a shipped model's body: its GLB beside the page (the registry's), for a person who is seen
   // (a hand-built one (registry built: 'hand') is not Mog City's own: the runner draws it as a forged person, from the
@@ -840,7 +843,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     return o;
   };
   const missions = pack.acts.flatMap((a: Json) => a.missions.map((m: Json) => {
-    const o: Json = { ...m, city: CITY_NAME[pack.base.city as CityId], steps: m.steps.map(step) };
+    const o: Json = { ...m, city: cityName, steps: m.steps.map(step) };
     delete o.verbs;
     if (m.vehicle === 'on-foot') { delete o.vehicle; o.start = typeof m.start === 'string' ? { '@': m.start.slice(1), mode: 'walk' } : { ...m.start, mode: 'walk' }; } else o.vehicle = stockOf(m.vehicle);
     return o;
@@ -848,6 +851,9 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   const end = (e: Json) => (e?.quote?.by ? { ...e, quote: { ...e.quote, by: name(e.quote.by) } } : e);
   return {
     storykit: 1, engine: pack.base.engine, id: pack.id, title: pack.title, kicker: pack.kicker, tagline: pack.tagline, city: pack.base.city,
+    // (a hometown: the town it plays, exactly as base.hometown pins it; Mog City plays it only on a page that loaded that
+    // town, wagmi/storyrun/pack.js, comparing it field by field with the bundle's lock, compiler = the bundle's buildId)
+    ...(town && pack.base.hometown ? { hometown: pack.base.hometown } : {}),
     car: heroSheet ? { sheet: heroSheet } : carOf(heroRide), hud: pack.hud, dressing: pack.dressing,
     ...(sheets.some((v: Json) => v !== heroSheet) ? { rides: Object.fromEntries(sheets.filter((v: Json) => v !== heroSheet).map((v: Json) => [v.id, v])) } : {}),
     // a seen person's body: their forged GLB (opts.cast: cast id -> path next to the page) and the shared clip pack

@@ -27,6 +27,7 @@ import { runStoryOwnerChecks } from './storykit-owner-check.ts';
 import { runStoryPatchChecks } from './storykit-patch-check.ts';
 import { runForgeBrowserChecks } from './storykit-forge-browser-check.ts';
 import { runHometownChecks } from './storykit-hometown-check.ts';
+import { runTownChecks } from './hometown-towns-check.ts';
 import { runPlacesChecks } from './places-check.ts';
 
 let failures = 0;
@@ -537,6 +538,7 @@ runStoryOwnerChecks(ok);
 runStoryPatchChecks(ok);
 // Hometown (12 Nov): the builder reads a town's CityPackage, the town lock on Mogs, and the real-place safety rules
 runHometownChecks(ok);
+await runTownChecks(ok);
 // Story Kit (B6): the Character Forge in a creator's browser: its sharp, and every anchor forged in Chrome under the store's cap
 await runForgeBrowserChecks(ok);
 runPlacesChecks(ok);

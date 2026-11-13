@@ -26,6 +26,19 @@ import { voicePlanOf } from '../storykit/pack/runner.ts';
 import { handBuilt } from '../storykit/pack/registry.ts';
 import { SHOWCASE, SHOWCASE_PACKS } from '../storykit/pack/schema.mjs';
 import { storykitLive } from './storykit-switch.ts';
+import { cityPackageByLock } from './hometown/towns.ts';
+import { cityTableOf } from '../storykit/hometown/hometown-gate.ts';
+import { townName } from '../storykit/hometown/city-package.ts';
+
+/**
+ * A hometown pack's town (base.city 'hometown'): the city table its gate reads (rule 16) and its name, from the town
+ * bundle its lock names (lib/hometown/towns.ts cityPackageByLock); none for any other pack, or a town not stored here.
+ */
+function townOf(pack: any): { city?: ReturnType<typeof cityTableOf>; townName?: string } {
+  if (pack?.base?.city !== 'hometown' || !pack.base.hometown) return {};
+  const pkg = cityPackageByLock(pack.base.hometown);
+  return pkg ? { city: cityTableOf(pkg), townName: townName(pkg) } : {};
+}
 
 /** The store is there when the switch is on or owner-only (lib/storykit-switch.ts); who may write is the routes' check. */
 export const storykitOn = () => storykitLive();
@@ -243,7 +256,7 @@ export class StoryStore {
     if (opts.parent) { parent = this.draft(opts.parent); if (!parent || parent.state !== 'kept') return fail(404, 'No published world to remix.'); }
     const parentPack = parent ? JSON.parse(parent.pack) : null;
     // (a Mog of a showcase, at any depth, keeps the showcase's limits: gate rule 15)
-    const g = gatePack(input, { parent: parentPack, showcaseLine: !!parent && this.showcaseLine(parent.id) });
+    const g = gatePack(input, { parent: parentPack, showcaseLine: !!parent && this.showcaseLine(parent.id), city: townOf(input).city });
     if (!g.ok || !g.pack) return { ...fail(422, 'The story pack was refused.'), problems: g.problems };
 
     const id = randomUUID(), token = randomBytes(24).toString('base64url');
@@ -354,7 +367,7 @@ export class StoryStore {
       else if (f.kind === 'voice') { const base = f.name.replace(/\.(ogg|wav)$/, ''); clips[base] = { file: f.name, url, bytes: f.bytes, ...(f.meta ? JSON.parse(f.meta) : {}) }; }
     }
     const voice: Record<string, unknown> = { ...voicePlanOf(pack, ''), clips };
-    return { ...toRunnerPack(pack, { cast, clips: 'cast/cast-clips.glb' }), voice, ...(Object.keys(art).length ? { art } : {}) };
+    return { ...toRunnerPack(pack, { cast, clips: 'cast/cast-clips.glb', townName: townOf(pack).townName }), voice, ...(Object.keys(art).length ? { art } : {}) };
   }
 
   /** What the creator's page shows: every file, what is missing, the bytes against the limits. */
@@ -444,9 +457,9 @@ export class StoryStore {
     const pack = JSON.parse(d.pack);
     if ('opening' in input && input.opening !== undefined) { if (input.opening === null) delete pack.opening; else pack.opening = input.opening; }
     const parent = d.parent ? this.draft(d.parent) : undefined;
-    const g = gatePack(pack, { parent: parent ? JSON.parse(parent.pack) : null, showcaseLine: !!parent && this.showcaseLine(parent.id) });
+    const g = gatePack(pack, { parent: parent ? JSON.parse(parent.pack) : null, showcaseLine: !!parent && this.showcaseLine(parent.id), city: townOf(pack).city });
     if (!g.ok || !g.pack) return { ...fail(422, 'The pack with this opening was refused.'), problems: g.problems };
-    const made = toRunnerPack(g.pack), plan = voicePlanOf(g.pack, '');
+    const made = toRunnerPack(g.pack, { townName: townOf(g.pack).townName }), plan = voicePlanOf(g.pack, '');
     if (stable(w.opening ?? null) !== stable(made.opening ?? null)) problems.push(w.opening && !g.pack.opening ? 'world.opening: send the same opening in story-pack form (opening) so the pack is gated with it.' : 'world.opening: it is not the opening the pack makes (toRunnerPack).');
     if (stable(w.voice?.cast ?? null) !== stable(plan.cast)) problems.push('world.voice.cast: not the pack\'s speakers and voices (voicePlanOf).');
     if (stable(w.voice?.lines ?? null) !== stable(plan.lines)) problems.push('world.voice.lines: not the pack\'s lines (voicePlanOf).');

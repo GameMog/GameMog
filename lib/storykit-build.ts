@@ -15,6 +15,9 @@ import { NAMES_CHECK_SYSTEM, readNamesCheck, consented, type Consent } from './e
 import { storykitLive } from './storykit-switch';
 import { storyStore } from './storykit-store';
 import { storykitMc } from './storykit-publish';
+import { hometownSystem, hometownTurn, checkHometownReply } from './storykit-hometown';
+import { townName, type CityPackage } from '../storykit/hometown/city-package.ts';
+import { cityPackageByLock } from './hometown/towns';
 
 /**
  * The Story Kit builder (4 Nov 2026; .scratch/storykit/STORY-KIT-PLAN.md 2.2 stage 1 and 5): GameMog's build route
@@ -268,7 +271,9 @@ ${JSON.stringify(exampleWorld())}
 /** `mog.lineage`: the game the published Mog's family credits (its draft's parent) when it is not the story world it was
  * built from: a Mog of /g/mog-city is built from Mog City's own story world and joins /g/mog-city's family
  * (lib/storykit-mogcity.ts). */
-export type StorykitInput = { city?: CityId; hero?: StoryHero | null; mog?: { parent: GameRow; instruction: string; lineage?: GameRow } };
+export type StorykitInput = { city?: CityId; hero?: StoryHero | null; mog?: { parent: GameRow; instruction: string; lineage?: GameRow };
+  /** a hometown Create (base.city 'hometown'): the town's CityPackage, read from its bundle by the build route (lib/hometown/towns.ts) */
+  town?: CityPackage };
 const parentOf = (input: StorykitInput) => (input.mog ? storyParentPack(input.mog.parent) : null);
 
 /** The first turn: a Create's city and request, or a Mog's parent pack whole, its locks and the idea. */
@@ -542,6 +547,8 @@ export function storykitMeta(pack: PackV2, m: StorykitMeta, inherit: Inheritance
     ...(consent ? { consent } : {}),
     storykit: {
       city: pack.base.city, pack: store, packId: pack.id, base: pack.base, parent: inherit.parent,
+      // (a hometown: the town it plays, as base.hometown pins it; the play address names it, lib/storykit-publish.ts)
+      ...(pack.base.hometown ? { hometown: pack.base.hometown } : {}),
       missions: pack.acts.reduce((n: number, a: PackV2) => n + a.missions.length, 0), acts: pack.acts.length,
       cast: pack.cast.length, vehicles: pack.vehicles.length, dressing: pack.dressing,
     },
@@ -573,6 +580,18 @@ async function checkNames(client: Anthropic, model: string, batches: { at: strin
   return found;
 }
 
+/**
+ * STORYKIT_FAKE_REPLY=<file> (development only, refused when NODE_ENV=production): the builder replays that file's
+ * { meta, pack } as the model's reply on every pass and the real-name check finds nothing, with no model call at all.
+ * For local end-to-end runs (a hometown Create from the search to the play page) without spending a generation.
+ */
+export function fakeReply(): string | null {
+  const f = process.env.STORYKIT_FAKE_REPLY;
+  if (!f || process.env.NODE_ENV === 'production') return null;
+  const r = JSON.parse(readFileSync(join(process.cwd(), f), 'utf8')) as { meta: unknown; pack: unknown };
+  return '```json\n' + JSON.stringify(r.meta) + '\n```\n\n```json\n' + JSON.stringify(r.pack) + '\n```';
+}
+
 export async function generateStorykit(
   input: { prompt: string; model: string; storykit: StorykitInput; consent?: Consent | null } & Hooks,
   emit: Emit,
@@ -583,15 +602,23 @@ export async function generateStorykit(
   // 15), and its whole pack is written back, so its reply may be twice as long (the owner, 7 Nov: Mogs of Pickup Time open)
   const showcaseLine = !!from?.store && storyStore().showcaseLine(from.store);
   if (sk.mog && !parent) return emit({ type: 'error', error: 'The story world you are mogging could not be read.' });
-  const city = (parent?.base.city ?? sk.city) as CityId;
-  if (!city || !PLACES[city]) return emit({ type: 'error', error: 'Pick a city for the story world.' });
-  // (every story world plays on Mog City's engine, which plays New York so far: an older world set elsewhere is not mogged)
-  if (!STORYKIT_CITIES.includes(city)) return emit({ type: 'error', error: `Story worlds play on Mog City's engine, which plays ${STORYKIT_CITIES.map((c) => CITY_NAME[c]).join(' and ')} so far.` });
+  // a hometown (base.city 'hometown'): a Create in the town the build route read (sk.town), or a Mog of a hometown world,
+  // whose town is read by its parent's lock (never the town's current build): the town is locked
+  const town: CityPackage | null = sk.town ?? (parent?.base.city === 'hometown' ? cityPackageByLock(parent.base.hometown) : null);
+  if (parent?.base.city === 'hometown' && !town) return emit({ type: 'error', error: 'The town this story world is set in could not be read.' });
+  const city = (town ? 'hometown' : parent?.base.city ?? sk.city) as CityId;
+  if (!town) {
+    if (!city || !PLACES[city]) return emit({ type: 'error', error: 'Pick a city for the story world.' });
+    // (every story world plays on Mog City's engine, which plays New York so far: an older world set elsewhere is not mogged)
+    if (!STORYKIT_CITIES.includes(city)) return emit({ type: 'error', error: `Story worlds play on Mog City's engine, which plays ${STORYKIT_CITIES.map((c) => CITY_NAME[c]).join(' and ')} so far.` });
+  }
   const stopped = () => !!input.signal?.aborted;
   const started = Date.now();
-  const client = new Anthropic();
-  const system = storykitSystem(city);
-  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: storykitTurn(input.prompt, sk) }];
+  const fake = fakeReply();
+  const client = fake ? (null as unknown as Anthropic) : new Anthropic();
+  const system = town ? hometownSystem(town) : storykitSystem(city);
+  const first = town ? hometownTurn(input.prompt, town, sk.mog && parent ? { parent, instruction: sk.mog.instruction } : undefined) + (sk.mog ? '' : heroTurn(sk.hero)) : storykitTurn(input.prompt, sk);
+  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: first }];
   const draftId = randomUUID(), packId = `sk-${draftId.slice(0, 8)}`;
   let lastProblems: string[] = [];
   const passes: { attempt: number; stop: string | null; replyChars: number; sentBack: string[] }[] = [];
@@ -600,7 +627,10 @@ export async function generateStorykit(
     emit({ type: 'stage', stage: attempt === 1 ? 'thinking' : 'repairing', attempt });
     let final: Anthropic.Beta.BetaMessage;
     let live: { currentMessage: Anthropic.Beta.BetaMessage | undefined } | undefined;
-    try {
+    if (fake) {
+      emit({ type: 'stage', stage: 'writing', attempt });
+      final = { content: [{ type: 'text', text: fake }], stop_reason: 'end_turn', model: 'fixture', usage: {} } as unknown as Anthropic.Beta.BetaMessage;
+    } else try {
       const stream = live = client.beta.messages.stream({
         model: input.model, max_tokens: showcaseLine ? STORYKIT_SHOWCASE_MAX_TOKENS : STORYKIT_MAX_TOKENS, system, messages,
         thinking: { type: 'adaptive' }, output_config: { effort: STORY_EFFORT }, cache_control: { type: 'ephemeral' },
@@ -621,7 +651,7 @@ export async function generateStorykit(
         : e instanceof Anthropic.APIError ? `The Anthropic API returned ${e.status}: ${e.message}` : (e as Error).message;
       return emit({ type: 'error', error });
     }
-    input.usage?.({ attempt, model: final.model, usage: final.usage });
+    if (!fake) input.usage?.({ attempt, model: final.model, usage: final.usage });
     if (final.stop_reason === 'refusal') return emit({ type: 'error', error: 'The model declined this request. Try describing the story differently.' });
 
     const text = final.content.filter((b) => b.type === 'text').map((b) => (b as Anthropic.Beta.BetaTextBlock).text).join('\n');
@@ -631,19 +661,28 @@ export async function generateStorykit(
     passes.push(account);
     if (final.stop_reason === 'max_tokens') problems.push('The reply was cut off at the length limit. Reply again with both blocks, the pack as compact JSON (no indentation), and shorter texts where you can.');
     let gated: ReturnType<typeof gatePack> | null = null;
-    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    if (town && raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      // (a hometown pass: the town's base (a Mog: its parent's, locked), its gate (rule 16 with the town's table) and the
+      // real-place safety rules, then the builder's own rules on a Create: lib/storykit-hometown.ts)
+      const h = checkHometownReply(text, { pkg: town, id: packId, parent });
+      problems.push(...h.problems.slice(0, 40));
+      if (h.problems.length > 40) problems.push(`... and ${h.problems.length - 40} more of the same kinds: check the whole pack against the rules.`);
+      gated = h.gated;
+    } else if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
       problems.push(...platformFields(raw, packId, sk));
       gated = gatePack(raw, { parent, showcaseLine });
       problems.push(...gated.problems.slice(0, 40));
       if (gated.problems.length > 40) problems.push(`... and ${gated.problems.length - 40} more of the same kinds: check the whole pack against the rules.`);
       problems.push(...builderProblems(raw, sk, meta));
+    } else if (raw) problems.push('The story pack is not a JSON object.');
+    if (raw && typeof raw === 'object' && !Array.isArray(raw) && gated) {
       if (!problems.length && meta && gated.pack) {
-        const checked = await checkNames(client, input.model, namesBatches(gated.pack, meta, parent), gated.pack, attempt, input);
+        const checked = fake ? { people: [], brands: [] } : await checkNames(client, input.model, namesBatches(gated.pack, meta, parent), gated.pack, attempt, input);
         if (stopped()) return;
         if (!checked) return emit({ type: 'error', error: 'The names in this story could not be checked right now. Try again in a minute.' });
         problems.push(...realNameSentBack({ people: [...meta.people, ...checked.people], brands: [...meta.brands, ...checked.brands] }, input.consent));
       }
-    } else if (raw) problems.push('The story pack is not a JSON object.');
+    }
 
     if (!problems.length && meta && gated?.pack) {
       const pack = gated.pack;
@@ -667,7 +706,7 @@ export async function generateStorykit(
       // the show's first word on the browser's work (app/create/story-show.tsx StoryWork): who is to be forged and who is
       // inherited, and how many lines are voiced already
       const name = (c: PackV2) => String(personName(c) || c.id);
-      emit({ type: 'story', city, title: pack.title, voices: { done: inherit.lines.inherited, total: inherit.lines.total },
+      emit({ type: 'story', city, ...(town ? { town: townName(town) } : {}), title: pack.title, voices: { done: inherit.lines.inherited, total: inherit.lines.total },
         cast: pack.cast.filter((c: PackV2) => c.sheet || (c.model && !c.voiceOnly)).map((c: PackV2) => { const st = inherit.cast.find((x) => x.id === c.id)?.sheet;
           return { id: c.id, name: name(c), color: c.color, role: c.sheet?.role ?? c.role, state: st === 'model' || (st === 'inherited' && opened.inherited) ? 'done' : 'waiting' }; }) });
       return emit({ type: 'done', draftId, meta: stored as never, runtime: report as never, attempts: attempt, ms: Date.now() - started, mc: storykitMc(),

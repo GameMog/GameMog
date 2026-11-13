@@ -11,9 +11,9 @@ import { useStoryKit, StoryCityField, StoryCityCard, STORY_IDEAS, STORY_RULES, u
 import { ConsentStep } from './consent';
 import { CharCount, CREATE_PROMPT_MAX } from './char-count';
 import { storyCityName, STORY_HERO_MAX, type StoryCity } from '@/lib/storykit-site';
-import { PlaceSearch } from './place-search';
+import { PlaceSearch, TownCard } from './place-search';
 import { hometownSearchOn } from '@/lib/places/flag';
-import { requestCity, type CityRequest } from '@/lib/places/request-city';
+import { requestCity, type CityRequest, type TownProgress } from '@/lib/places/request-city';
 import type { Place } from '@/lib/places/types';
 
 // Hometown (Milestone 6): the town box, off unless NEXT_PUBLIC_HOMETOWN_SEARCH=on at build time
@@ -183,7 +183,19 @@ export default function Create() {
   const [report, setReport] = useState<Report | null>(null);
   const [offline, setOffline] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [town, setTown] = useState<{ place: Place; request: CityRequest } | null>(null);
+  // a story world in the creator's hometown (NEXT_PUBLIC_HOMETOWN_SEARCH=on): the picked town, its build while it runs
+  // (lib/places/request-city.ts), then its answer; Write the story waits for it to be ready
+  const [town, setTown] = useState<{ place: Place; progress: TownProgress | null; request: CityRequest | null } | null>(null);
+  const townAsk = useRef<AbortController | null>(null);
+  function pickTown(sel: Parameters<typeof requestCity>[0], place: Place) {
+    townAsk.current?.abort();
+    const ctl = (townAsk.current = new AbortController());
+    setTown({ place, progress: null, request: null });
+    requestCity(sel, (progress) => { if (!ctl.signal.aborted) setTown({ place, progress, request: null }); }, ctl.signal)
+      .then((request) => { if (!ctl.signal.aborted) setTown({ place, progress: null, request }); });
+  }
+  function clearTown() { townAsk.current?.abort(); setTown(null); }
+  const townReady = town?.request?.status === 'ready' ? town.request : null;
   // 'game': Opus writes the whole game. 'race': the tuned rhythm-race template.
   // every future game is a world on the runtime; the race template remains for
   // the worlds already built on it and for running without an API key
@@ -228,7 +240,9 @@ export default function Create() {
   async function generate() {
     if (telling) {
       const hero = asDan ? { model: 'dan' } : heroLook.trim() || undefined;
-      await gen.run({ prompt: prompt.trim(), story: { city, ...(hero ? { hero } : {}) }, consent: said.value });
+      // (a hometown: the town's id only; the server reads its built town, lib/hometown/towns.ts)
+      const where = HOMETOWN && town ? { city: 'hometown', place: town.place.placeId } : { city };
+      await gen.run({ prompt: prompt.trim(), story: { ...where, ...(hero ? { hero } : {}) }, consent: said.value });
       return;
     }
     setSpec(null); setReport(null); setCharacter(null); setAdjustments([]);
@@ -291,12 +305,19 @@ export default function Create() {
           {telling ? (
             <section className="panel cidea">
               <div className="copts" style={{ marginTop: 0 }}>
-                <StoryCityField value={city} onChange={setCity} disabled={busy} />
+                <StoryCityField value={city} onChange={setCity} disabled={busy || !!town} />
               </div>
+              {HOMETOWN && (
+                <div className="ctown">
+                  <p className="lbl">Or your hometown</p>
+                  <PlaceSearch disabled={busy} onPick={pickTown} />
+                  {town && <TownCard town={town} onClear={busy ? undefined : clearTown} />}
+                </div>
+              )}
               <label className="lbl" htmlFor="p">Your story</label>
               <textarea
                 id="p" rows={6} value={prompt} maxLength={CREATE_PROMPT_MAX}
-                placeholder={`Who is your hero, what do they want tonight, and who is in their way in ${storyCityName(city)}? Name the people, the cars and the hour. The more specific, the better.`}
+                placeholder={`Who is your hero, what do they want tonight, and who is in their way in ${town ? town.place.name : storyCityName(city)}? Name the people, the cars and the hour. The more specific, the better.`}
                 onChange={(e) => setPrompt(e.target.value.slice(0, CREATE_PROMPT_MAX))}
               />
               <CharCount n={prompt.length} max={CREATE_PROMPT_MAX} />
@@ -320,7 +341,7 @@ export default function Create() {
               </div>
               <div className="cgo" style={{ marginTop: 0 }}>
                 <p className={phone ? undefined : 'dim-2'}>{phone ? PHONE_NOTE : 'Three acts, 6 to 9 missions, its own people, cars and voices.'}</p>
-                <button className="btn big" onClick={generate} disabled={busy || phone || prompt.trim().length < 8 || !said.ok}>
+                <button className="btn big" onClick={generate} disabled={busy || phone || prompt.trim().length < 8 || !said.ok || (!!town && !townReady)}>
                   {busy ? 'Writing your story' : 'Write the story'}
                 </button>
               </div>
@@ -328,18 +349,6 @@ export default function Create() {
             </section>
           ) : (
           <section className="panel cidea">
-            {HOMETOWN && (
-              <div className="ctown">
-                <p className="lbl">Your hometown</p>
-                <PlaceSearch disabled={busy} onPick={async (sel, place) => setTown({ place, request: await requestCity(sel) })} />
-                {town && (
-                  <div className="msg info" data-place-id={town.place.placeId}>
-                    <b>town</b>
-                    <span>{town.place.name}, {town.place.stateName}. Its real streets load here when Hometown opens.</span>
-                  </div>
-                )}
-              </div>
-            )}
             <label className="lbl" htmlFor="p">Your world</label>
             <textarea
               id="p" rows={6} value={prompt} maxLength={CREATE_PROMPT_MAX}
@@ -358,7 +367,7 @@ export default function Create() {
           </section>
           )}
 
-          {telling ? <StoryCityCard city={city} /> : (
+          {telling ? <StoryCityCard city={city} town={HOMETOWN && town ? { name: `${town.place.name}, ${town.place.state}`, note: 'Your hometown, built from open map data: its real streets, buildings and places.' } : null} /> : (
           <aside className="panel cchar">
             <label className="lbl">Your character <span className="opt">(optional)</span></label>
             <div
@@ -400,7 +409,7 @@ export default function Create() {
         </div>
 
         {telling
-          ? <GenerationProgress gen={gen} mode="create" subject={prompt} kind="story" city={storyCityName(city)} />
+          ? <GenerationProgress gen={gen} mode="create" subject={prompt} kind="story" city={HOMETOWN && town ? `${town.place.name}, ${town.place.stateName}` : storyCityName(city)} />
           : <GenerationProgress gen={gen} mode="create" subject={prompt} open={options.open} />}
 
         {report && report.findings.length > 0 && (
