@@ -182,7 +182,12 @@ def fetch_regions(dom, blocks, data_dir, use_index=True, parallel=True):
     W = min(t[3][0] for t in todo); S_ = min(t[3][1] for t in todo); E_ = max(t[3][2] for t in todo); N = max(t[3][3] for t in todo)
     ix = load_index(data_dir) if use_index else None
     c = connect(threads=FETCH_THREADS, memory_limit=FETCH_MEMORY, object_cache=True)
-    tmp = os.path.join(data_dir, 'regions', '.tmp')
+    # (the union files are kept across a crash for a resume, so their folder is named by what they hold: the release, the
+    # union envelope and whether the index chose the files. A run for other regions never reuses another run's union, the
+    # rows of a different envelope, which would write those regions short of rows and mark them fetched)
+    import hashlib
+    tag = hashlib.sha256(json.dumps([RELEASE, round(W, 9), round(S_, 9), round(E_, 9), round(N, 9), ix is not None]).encode()).hexdigest()[:16]
+    tmp = os.path.join(data_dir, 'regions', '.tmp-' + tag)
     os.makedirs(tmp, exist_ok=True)
     recs = {(C, R): {'grid': 'hg1', 'domain': dom, 'block': [C, R], 'halo': REGION_HALO, 'envelope': list(env),
                      'overture': {'release': RELEASE, 'layers': {}}} for C, R, _, env in todo}
@@ -226,11 +231,16 @@ def fetch_regions(dom, blocks, data_dir, use_index=True, parallel=True):
             recs[(C, R)]['overture']['layers'][key] = {'rows': nrows}
     print(f'regions split {time.time() - t_split:.1f}s', flush=True)
     for C, R, out, _ in todo:
-        json.dump(recs[(C, R)], open(os.path.join(out, 'region.json'), 'w'), indent=1, sort_keys=True)
+        # (region.json marks a region fetched: written whole or not at all)
+        rj = os.path.join(out, 'region.json')
+        with open(rj + '.part', 'w') as fh:
+            json.dump(recs[(C, R)], fh, indent=1, sort_keys=True)
+        os.replace(rj + '.part', rj)
         print('region', dom, C, R, recs[(C, R)]['overture']['layers'], flush=True)
     print(json.dumps({'regionsFetched': len(todo), 'seconds': round(time.time() - t_all, 1), 'index': ix is not None, 'parallel': parallel}), flush=True)
     for name in os.listdir(tmp):
         os.remove(os.path.join(tmp, name))
+    os.rmdir(tmp)
 
 
 # Segment extras (grade-lanes): the OSM way ids (`sources[].record_id`) and `speed_limits` of every segment of a fetched
