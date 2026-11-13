@@ -55,10 +55,13 @@ export const TOWN_WORDS = {
 };
 
 const MAX_SIDE_M = 4500;
+/** The descriptor's limit: a capped town's reads the map round its internal point for its downtown (its ctx blocks). */
+const STAGE1_MS = 300_000;
 /**
  * The canonical box of a picked place: the search's square (lib/places/search.ts, sized from the Census area), capped at
  * 4,500 m a side round the Census internal point (the compiler's own cap, tools/hometown/fetch.py MAX_SIDE_M), to 1e-5
- * degrees. With the internal point it is the compiler's input; changing this rule changes towns, so it needs a new build.
+ * degrees. With the internal point and the uncapped search box it is the compiler's input: a capped box moves onto the
+ * place's downtown (tools/hometown/assemble.py downtown_box); changing this rule changes towns, so it needs a new build.
  */
 export function canonicalBox(p: Pick<Place, 'lat' | 'lon' | 'bbox'>): [number, number, number, number] {
   const kx = 111_320 * Math.max(0.05, Math.cos((p.lat * Math.PI) / 180)), ky = 111_320;
@@ -293,11 +296,21 @@ async function buildTown(placeId: string) {
   try {
     // the compiler's input: this place under its canonical id (its own places file, so the compiler's places.json is untouched)
     const placesFile = path.join(work, 'places.json');
+    // (searchBbox: the search's whole square; when the cap cuts it, the compiler centres the capped box on the place's
+    // downtown, tools/hometown/assemble.py downtown_box, reading the map round it: fetched first like the compile's)
     writeFileSync(placesFile, JSON.stringify({ format: 'hometown-places', places: { [placeId]: {
-      name: `${place.name}, ${place.state}`, geoid: place.geoid, anchor: [place.lon, place.lat], bbox: canonicalBox(place),
+      name: `${place.name}, ${place.state}`, geoid: place.geoid, anchor: [place.lon, place.lat], bbox: canonicalBox(place), searchBbox: place.bbox,
       anchorSource: 'Census Gazetteer INTPTLAT/INTPTLONG', bboxSource: 'GameMog place search box, capped at 4500 m (lib/hometown/towns.ts canonicalBox)' } } }));
     const common = ['--places', placesFile, '--data', cfg.sources, '--store', cfg.store];
-    const d1 = await run(cfg, 'compile.py', ['--descriptor', placeId, '--stage', '1', ...common], undefined, Math.min(60_000, left()));
+    let d1: Run = await run(cfg, 'compile.py', ['--descriptor', placeId, '--stage', '1', ...common], undefined, Math.min(STAGE1_MS, left()));
+    for (let tries = 0; tries < 2 && d1.code === 3; tries++) {
+      const m = /--regions ([a-z]+:[0-9,;]+)/.exec(d1.err);
+      if (!m) break;
+      set({ state: 'fetching', fetched: true });
+      const f = await run(cfg, 'fetch.py', ['--regions', m[1], '--data', cfg.sources], undefined, left());
+      if (f.code !== 0) return fail(`fetch ${m[1]}: exit ${f.code}: ${f.err}`, f);
+      d1 = await run(cfg, 'compile.py', ['--descriptor', placeId, '--stage', '1', ...common], undefined, Math.min(STAGE1_MS, left()));
+    }
     if (d1.code !== 0) return fail(`descriptor: ${d1.err}`, d1);
     const desc = JSON.parse(d1.out) as { tiles: string[]; buildId: string };
     if (desc.buildId !== job.buildId) return fail(`the compiler is at ${desc.buildId}, the job at ${job.buildId}`);
