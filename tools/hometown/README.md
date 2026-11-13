@@ -37,7 +37,7 @@ them, `geodata.js` repeats them in its header, the game's map and credits show t
 
 | File | Content |
 |---|---|
-| `manifest.json` | `format: hometown-package`, `version: 1`; `compiler` (name, version, tile size); `sources` (Overture release and per-layer row counts, the DEM files' URLs + ETags + Last-Modified, the bbox and how it was resolved); `attribution`; `frame`; `box`; `waterLevel`; `tiles`; `stats`; `files` (bytes + sha256 each); `size` |
+| `manifest.json` | `format: hometown-package`, `version: 1`; `compiler` (name, version, tile size, `libs`: the library versions); `placeInputs` (dense, density, downtown: see Stages); `sources` (Overture release and per-layer row counts, the DEM files' URLs + ETags + Last-Modified, the bbox and how it was resolved); `attribution`; `frame`; `box`; `waterLevel`; `tiles`; `stats`; `files` (bytes + sha256 each); `size` |
 | `geodata.js` | `window.NYC.GEO` in the SF engine's schema (`cities/sf/docs/formats.md`, `tools/geo-roadgraph.mjs`): `frame`, `box`, `data` (the bins' urls), `land`, `blocks` (curb islands), `roadGraph` (nodes, names, links `[a, b, name, width, lanes, dir, inner, flags, swL, swR]`, `control`, `stopMask`, `nhoods`, `linkNhood`, `decks`), `parks`, `water`, and empty SF-only tables (`piers`, `rail`, `transit`, `landmarks`, `bridges`...); `window.NYC.PLACE_DATA` (`regional`: the arrivals, as the teleport list); `window.NYC.PKG` (id, name, compiler, tile size, density, spawn, spawns, places, frame, box, tiles, downtown) |
 | `data/terrain.bin.gz` | SFB1 `sf-terrain` v1: 2 m cells, uint16, 1 cm steps; y = NAVD88 m minus `frame.yOffset` |
 | `data/buildings.bin.gz` | SFB1 `sf-buildings` v3: the SF engine's 20 fields per footprint (base/roof/peak in frame y, type by rule), outlines only (`massCount` 0) in v0 |
@@ -60,12 +60,29 @@ place sits near y 0 as San Francisco does.
    approaches elsewhere (a rule: Overture has no signals). Curb islands ("blocks") = the land minus every roadway
    buffered to its curb-to-curb width (round ends make the corner radii), minus the water; holes cut open; under 120 m2
    or narrower than 6 m: an island (median).
-3. **tiles** (512 m squares, `compile_tile` = `terrain_tile` + `buildings_tile` + `mask_tile`): each tile's output
-   depends only on the place stage, the network and its own sources. Terrain is computed with a 2-sample halo so the
-   Gaussian smoothing matches across tile seams.
+3. **tiles** (512 m squares: `terrain_tile`, `buildings_tile`, `mask_tile`, `trees_tile`). A tile's output depends on
+   the place stage, the network, its own sources **and these whole-place inputs** (v0 computes them from every building
+   and place in the box, so a tile cannot yet be compiled from its own sources alone):
+   - `dense` (buildings per km2 of the box > 1200): switches the default height of every building with no Overture
+     height;
+   - the downtown disc (`downtown_of`, from all the box's Overture places): building type, shop fronts, and the paved lot
+     buffer (12 m downtown, 8 m elsewhere);
+   - `density` (`PKG.density`, the traffic and crowd level, from the whole place's building count);
+   - a building halo: `mask_tile`'s paved lots (`net.paved`, the union over all buildings) and `trees_tile`'s
+     building clearances (3 m clear, within 25 m) read neighbouring tiles' buildings, up to 25 m beyond the tile.
+
+   The first three are written to `manifest.json` `placeInputs`. Terrain is computed with a 2-sample halo so the
+   Gaussian smoothing matches across tile seams; raised bridges (no road and no water under them) reach 10 m past the
+   deck's half-width.
 4. **assemble**: tiles concatenated (tile order, then Overture id) into the engine's single-file containers.
 
-v1 plan: compile on first request, cache by `compiler.version` + tile; the network stage per tile with a halo.
+v1 plan: compile on first request, cache by a key of `compiler.version` + `compiler.libs` (python, duckdb, shapely,
+GEOS, numpy, Pillow: the outputs depend on GEOS's buffer/union vertex order, numpy's percentile/median and Pillow's
+rasterisation) + the source versions (`sources.overture.release`, the DEM files' ETags: the 3DEP URLs are `/current/`,
+so the ETag, not the URL, names the data) + tile; the whole-place inputs above as a cheap place-wide query before any
+tile; the network stage per tile with a halo. `COMPILER_VERSION` is bumped on any change to a package's bytes. Same
+machine, same inputs give the same bytes; the tree lattice's hash is integer-only so it does not depend on the
+platform's libm.
 
 ## Rules that are estimates, not data
 

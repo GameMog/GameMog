@@ -15,7 +15,8 @@
 #
 # Stages: place (frame, height datum, water level, quantisation: a few numbers for the whole place), network (road graph
 # and curb islands over the place, they cross tiles), then per tile (TILE m squares: terrain samples, buildings, ground
-# mask cells; compile_tile(), each tile's output depends only on the place stage, the network and that tile's sources),
+# mask cells, trees; each tile depends on the place stage, the network, its sources and the whole-place inputs that
+# README.md lists: dense, the downtown disc, density, and a 25 m building halo for paved lots and trees),
 # then assemble (tiles concatenated in tile order into the engine's single-file containers).
 import argparse
 import gzip
@@ -38,7 +39,10 @@ from shapely.ops import unary_union
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-COMPILER_VERSION = '0.1.0'
+# bump on ANY change to a package's bytes (a rule, a constant, an output field): packages are cached by it
+# 0.1.0 90bae8c; 0.2.0 water rule, 1 cm steps, density, paved lots, yard trees, edge cuts, tunnels, bridges, slopes,
+# no bridge raised over water, integer tree hash
+COMPILER_VERSION = '0.2.0'
 TILE = 512          # m: the compile unit
 CELL = 2            # m: terrain samples
 MARGIN = 120        # m of terrain round the place's box
@@ -772,7 +776,10 @@ def building_records(P, S, ground, net, downtown_poly):
     inside = sbox(T['x0'], T['z0'], T['x0'] + (T['w'] - 1) * CELL, T['z0'] + (T['h'] - 1) * CELL).buffer(-4, join_style='mitre')
     kx0, kz0, kx1, kz1 = P['box']['x0'], P['box']['z0'], P['box']['x1'], P['box']['z1']
     km2 = (kx1 - kx0) * (kz1 - kz0) / 1e6
+    # (a whole-place input, not a tile's: the box's building count switches every building's default heights; kept on
+    # P and in the manifest's placeInputs)
     dense = sum(1 for o in out if kx0 <= o['cx'] <= kx1 and kz0 <= o['cz'] <= kz1) / max(km2, 0.1) > 1200
+    P['dense'] = dense
     out = [o for o in out if inside.contains(o['g'])]
     for o in out:
         r, g = o['r'], o['g']
@@ -920,8 +927,15 @@ def mask_tile(P, net, ground, tile, mx0, mz0, mw, mh):
 
 
 def hash01(x, z, k):
-    v = math.sin(x * 12.9898 + z * 78.233 + k * 37.719) * 43758.5453
-    return v - math.floor(v)
+    """[0, 1) from integer lattice coordinates: integer arithmetic only (a sin()-based hash depends on the platform's
+    libm in its low bits, which flip keep/drop thresholds), so every machine gives the same trees."""
+    v = (int(x) * 0x9E3779B1 + int(z) * 0x85EBCA77 + int(k) * 0xC2B2AE3D) & 0xFFFFFFFFFFFFFFFF
+    v ^= v >> 33
+    v = (v * 0xFF51AFD7ED558CCD) & 0xFFFFFFFFFFFFFFFF
+    v ^= v >> 33
+    v = (v * 0xC4CEB9FE1A85EC53) & 0xFFFFFFFFFFFFFFFF
+    v ^= v >> 33
+    return (v >> 11) / float(1 << 53)
 
 
 def trees_tile(P, net, bidx, tile, desert):
@@ -1062,6 +1076,14 @@ def build_places(P, S, net, ground, center):
 
 
 # ------------------------------------------------------------------------------------------------------------- compile
+def lib_versions():
+    """The libraries a package's bytes depend on (GEOS buffer/union vertex order, numpy percentile/median, Pillow
+    rasterisation, duckdb's spatial reads): recorded in the manifest and part of the cache key."""
+    import PIL
+    return {'python': '%d.%d.%d' % sys.version_info[:3], 'duckdb': duckdb.__version__, 'shapely': shapely.__version__,
+            'geos': shapely.geos_version_string, 'numpy': np.__version__, 'pillow': PIL.__version__}
+
+
 def compile_place(pid, raw, out_root, name=None):
     t0 = time.time()
     timings = {}
@@ -1188,9 +1210,13 @@ def compile_place(pid, raw, out_root, name=None):
         'bridgesRaised': net['stats']['bridgesRaised'], 'bridgesAtGrade': net['stats']['bridgesAtGrade'], 'bridgesOverWater': net['stats']['bridgesOverWater'], 'cutAtEdge': net['stats'].get('cutAtEdge', 0),
         'tunnelPiecesDropped': net['stats'].get('tunnelPieces', 0), 'heightsFromOverture': sum(1 for o in brecs if o['r']['height'] is not None), 'oneway': net['stats']['oneway'], 'trees': len(trees),
     }
+    # how busy its streets are (the engine's traffic and the street crowd, 0.15..1): buildings per km2 of the box
+    km2 = (B['x1'] - B['x0']) * (B['z1'] - B['z0']) / 1e6
+    density = round(min(1.0, max(0.15, 0.15 + bcount / max(km2, 0.1) / 2000)), 2)
+    stats['density'] = density
     manifest = {
         'format': 'hometown-package', 'version': 1, 'id': pid, 'name': name,
-        'compiler': {'name': 'hometown', 'version': COMPILER_VERSION, 'tile': TILE},
+        'compiler': {'name': 'hometown', 'version': COMPILER_VERSION, 'tile': TILE, 'libs': lib_versions()},
         'sources': {
             'overture': {'release': fetch['overture']['release'], 'layers': fetch['overture']['layers'], 'licenses': LICENSES},
             'dem': fetch['dem'],
@@ -1202,6 +1228,10 @@ def compile_place(pid, raw, out_root, name=None):
         'box': {k: q1(v) for k, v in B.items()},
         'waterLevel': P['waterLevel'],
         'tiles': [list(t) for t in tiles],
+        # whole-place inputs every tile depends on (computed from all the box's buildings and places, not one tile's):
+        # a per-tile compile must have these first
+        'placeInputs': {'dense': bool(P.get('dense')), 'density': density,
+                        'downtown': None if downtown_poly is None else {'x': q1(center[0]), 'z': q1(center[1]), 'r': 350}},
         'stats': stats,
         'files': {},
     }
@@ -1217,10 +1247,6 @@ def compile_place(pid, raw, out_root, name=None):
     PLACE_DATA = {'source': 'hometown ' + COMPILER_VERSION, 'neighborhoods': [], 'regional': {}}
     for k, s in spawns.items():
         PLACE_DATA['regional']['pkg_' + k] = {'x': s['x'], 'z': s['z'], 'heading': s['heading'], 'name': s['name']}
-    # how busy its streets are (the engine's traffic and the street crowd, 0.15..1): buildings per km2 of the box
-    km2 = (B['x1'] - B['x0']) * (B['z1'] - B['z0']) / 1e6
-    density = round(min(1.0, max(0.15, 0.15 + bcount / max(km2, 0.1) / 2000)), 2)
-    stats['density'] = density
     PKG = {'id': pid, 'name': name, 'compiler': COMPILER_VERSION, 'tileSize': TILE, 'density': density, 'spawn': spawn, 'spawns': spawns, 'places': places,
            'attribution': ATTRIBUTION, 'frame': manifest['frame'], 'box': manifest['box'], 'tiles': manifest['tiles'],
            'downtown': {'x': q1(center[0]), 'z': q1(center[1])}}
