@@ -15,6 +15,8 @@ import { watch, error as hostError } from './host.js';
 import { showTitle, plainTitle, isOwn } from './title.js';
 import { applyTheme, THEMES } from './theme.js';
 import { world as cityWorld, CITIES, cityQuery } from '../world/index.js';
+import { SITE_KINDS } from '../world/common.js';
+import { isSiteRef, siteRefs, SITE_KEYS } from './places.js';
 // (a hero's wear: wear.js WEARS, kept here too so the check needs no three.js)
 const WEARS = new Set(['rider']);
 
@@ -61,7 +63,31 @@ export function asksApocalypse(d, city) { return city === 'sf' && !!d && typeof 
 export const CREATURES = new Set(['creature-knight', 'creature-ogre', 'creature-centaur', 'creature-ape', 'creature-mech', 'creature-scorpion', 'creature-trex']);
 const CREATURE_CAP = 8, LOOKS = new Set(['crate', 'case', 'bag', 'can']), MAX_SUPPLIES = 24;
 const isMark = (v) => Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) < 20000);
-const isPlaceRef = (v) => (typeof v === 'string' && /^@[\w-]{1,40}$/.test(v)) || (v && typeof v === 'object' && !Array.isArray(v) && typeof v['@'] === 'string');
+const isPlaceRef = (v) => (typeof v === 'string' && /^@[\w-]{1,40}$/.test(v)) || (v && typeof v === 'object' && !Array.isArray(v) && typeof v['@'] === 'string') || isSiteRef(v);
+// a mission's sites (places.js, wagmi/world/MISSION-SITES.md): the closed vocabulary, every number in range, every
+// { site: '<id>' } naming a site the mission picks before it. [] when sound
+const SITE_ID = /^[a-z][a-z0-9_-]{0,31}$/;
+export function siteErrors(m) {
+  const errs = [], ids = new Set(), num = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+  siteRefs(m).forEach((r, i) => {
+    const at = `site ${i}`;
+    if (typeof r.site === 'string') { if (!ids.has(r.site)) errs.push(`${at}: no earlier site ${r.site}`); return; }
+    const s = r.site;
+    for (const k of Object.keys(s)) if (!SITE_KEYS.includes(k)) errs.push(`${at}: ${k}`);
+    if (!SITE_KINDS.includes(s.kind)) errs.push(`${at}: kind ${s.kind} (one of ${SITE_KINDS.join(', ')})`);
+    if (s.id != null) { if (typeof s.id !== 'string' || !SITE_ID.test(s.id) || ids.has(s.id)) errs.push(`${at}: id`); else ids.add(s.id); }
+    const n = s.near;
+    if (n != null && !(n === 'start' || isMark(n) || (typeof n === 'string' && (/^@[\w-]{1,40}$/.test(n) || (SITE_ID.test(n) && ids.has(n)))))) errs.push(`${at}: near`);
+    for (const k of ['min', 'max', 'reach', 'minLen', 'maxLen', 'apart']) if (s[k] != null && !num(s[k], 0, 20000)) errs.push(`${at}: ${k}`);
+    if (s.open != null && !num(s.open, 0, 60)) errs.push(`${at}: open`);
+    if (s.road != null && !['avenue', 'street', 'any'].includes(s.road)) errs.push(`${at}: road`);
+    if (s.access != null && !['car', 'foot'].includes(s.access)) errs.push(`${at}: access`);
+    for (const k of ['roadView', 'signal', 'fallback']) if (s[k] != null && typeof s[k] !== 'boolean') errs.push(`${at}: ${k}`);
+    if (s.name != null && (typeof s.name !== 'string' || s.name.length > 80)) errs.push(`${at}: name`);
+    if (s.seed != null && !(typeof s.seed === 'string' || num(s.seed, -1e12, 1e12))) errs.push(`${at}: seed`);
+  });
+  return errs;
+}
 // a creature fight's and a collect's shapes (runner.js creatureFight, STEPS.collect): [] when sound, else what is wrong
 export function creatureStep(s, city) {
   const errs = [];
@@ -191,6 +217,7 @@ export function check(w) {
       shapes(s.during, `${at}[${i}].during`);
     } };
     shapes(m.steps, 'steps');
+    for (const e of siteErrors(m)) bad(`${m.id} ${e}`);
     if (m.vehicle != null && typeof m.vehicle !== 'string') bad(`${m.id}: vehicle`);
   }
   if (!Array.isArray(w.acts) || !w.acts.length) bad('acts');
