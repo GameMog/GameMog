@@ -174,7 +174,7 @@ function buildSFGround(scene) {
   // (a Hometown package: a block is mostly yards, fields and hillsides, not one paved slab: its top shows the ground
   // mask under it, flags only along the streets (createGroundCoverMaterial))
   const cover = window.NYC.PKG && window.NYC.DATA && window.NYC.DATA.groundMask && window.NYC.createGroundCoverMaterial && window.NYC.groundMaskTexture;
-  const sidewalkMat = cover ? window.NYC.createGroundCoverMaterial(window.NYC.groundMaskTexture(), window.NYC.DATA.groundMask.header) : createSidewalkMaterial();
+  const sidewalkMat = cover ? window.NYC.createGroundCoverMaterial(window.NYC.groundMaskTexture(), window.NYC.DATA.groundMask.header, window.NYC.PKG.climate) : createSidewalkMaterial();
   const curbMat = createCurbMaterial();
   const lawnMat = createParkLawnMaterial(false);
   let islandTris = 0;

@@ -104,9 +104,10 @@ function build(scene) {
   // the ground the core shows at its own edge (what the far ground fades from): the park lawns on a curb island
   // (sf-ground.js), else the ground mask's class there (a block's top shows it too: createGroundCoverMaterial), as
   // albedo (roughly the materials' mean colours)
-  const CORE_COLORS = { concrete: 0x84837b, park: 0x63903a, asphalt: 0x45474b, lawn: 0x4f6a2e, sand: 0xb5a17b, rock: 0x6f6658, seawall: 0x5a5650,
+  const CORE_COLORS = { concrete: 0x84837b, park: 0x63903a, asphalt: 0x45474b, lawn: 0x4f6a2e, sand: 0xa8936f, rock: 0x6f6658, seawall: 0x5a5650,
     lot: 0x515254, scrub: 0x7f7c4e, woods: 0x3a4424 };
   const cc = Object.fromEntries(Object.entries(CORE_COLORS).map(([k, v]) => [k, new THREE.Color(v)]));
+  if (clim === 'humid') cc.scrub = new THREE.Color(0x5f6835); // (createGroundCoverMaterial: a humid place's rough ground is weedy green)
   const byClass = [cc.asphalt, cc.concrete, cc.lawn, cc.sand, cc.rock, cc.seawall, cc.seawall, cc.lot, cc.scrub, cc.woods];
   function coreGroundAt(x, z) {
     const b = N.blockAt && N.blockAt(x, z);

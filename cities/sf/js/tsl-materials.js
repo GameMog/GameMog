@@ -2069,9 +2069,10 @@ function createTerrainMaterial(maskTexture, mask) {
  * (2), bare ground (3), rock (4), the water's edge (5), dry scrub (8) or woodland floor (9) (tools/hometown/compile.py
  * MASK). The cells are read as the terrain material reads them: the four round the fragment, the flags' share
  * sharpened to about a pixel, the other classes blended among themselves.
- * `maskTexture`: the terrain's own R8 DataTexture (terrain-mesh.js groundMaskTexture); `mask`: its header.
+ * `maskTexture`: the terrain's own R8 DataTexture (terrain-mesh.js groundMaskTexture); `mask`: its header; `climate`: the
+ * package's (tools/hometown/climate.py): its rough ground (8) is weedy green in a humid place, dry scrub elsewhere.
  */
-function createGroundCoverMaterial(maskTexture, mask) {
+function createGroundCoverMaterial(maskTexture, mask, climate = 'humid') {
   const slab = createSidewalkMaterial();
   const lawn = createParkLawnMaterial(false);
   const mat = new THREE.MeshStandardNodeMaterial({ metalness: 0.0, roughness: 0.9 });
@@ -2094,12 +2095,17 @@ function createGroundCoverMaterial(maskTexture, mask) {
   const xz = positionWorld.xz;
   const n1 = noise2D(xz.mul(0.09));
   const n2 = noise2D(xz.mul(0.7));
-  const grass = lawn.colorNode;
+  // (open land, not a park's mown lawn: some of it drier and olive, in broad patches)
+  const grass = mix(lawn.colorNode, color(0x66703b), n1.mul(0.35).add(0.15));
   const cLot = mix(color(0x47484b), color(0x5a5a5b), n2).mul(n1.mul(0.12).add(0.94));
-  const cSand = mix(color(0xa8936d), color(0xc3b08a), n1).mul(n2.mul(0.1).add(0.95));
+  // (bare ground: a desert yard's gravel and decomposed granite, speckled, not beach sand)
+  const grit = noise2D(xz.mul(9.0));
+  const cSand = mix(color(0x9a8565), color(0xb19d78), n1).mul(n2.mul(0.1).add(0.93)).mul(grit.mul(0.12).add(0.94));
   const cRock = mix(color(0x6a6152), color(0x7f7666), n2);
   const cEdge = color(0x5f5b54);
-  const cScrub = mix(mix(color(0x7b7a4c), color(0x958c5e), n1), grass, n2.mul(0.35).add(0.1));
+  const cScrub = climate === 'humid'
+    ? mix(mix(color(0x58602f), color(0x6f6f3e), n1), grass, n2.mul(0.4).add(0.3))
+    : mix(mix(color(0x7b7a4c), color(0x958c5e), n1), grass, n2.mul(0.35).add(0.1));
   const cWoods = mix(color(0x2c3d1d), color(0x45402a), n2.mul(0.6)).mul(n1.mul(0.25).add(0.85));
   const is = (c, k) => float(1.0).sub(step(0.5, abs(c.sub(k))));
   const landColor = (c) => grass.mul(is(c, 2)).add(cSand.mul(is(c, 3))).add(cRock.mul(is(c, 4))).add(cEdge.mul(is(c, 5)))
