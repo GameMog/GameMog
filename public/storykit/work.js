@@ -235,8 +235,10 @@ async function driving(world, status) {
   // played, so such a report never passes)
   const from = /^[A-Za-z0-9_.-]{1,40}$/.test(Q.get('from') || '') ? Q.get('from') : bank.size ? left.id : null;
   // (the city part of the address, the server's (the draft status's frame: lib/storykit-publish.ts storyFrameQuery): '' for
-  // New York, city=sf& for San Francisco, a hometown's city=pkg&town=...&tc=...&ts=...&, so the drive plays the built town)
-  const frame = /^(city=(sf|pkg)&([a-z]{2,4}=[A-Za-z0-9._%-]{1,80}&){0,3})?$/.test(status.frame || '') ? status.frame || '' : '';
+  // New York, city=sf for San Francisco, a hometown's city=pkg&town=...&tc=...&ts=..., so the drive plays the built town;
+  // an older server's ended in '&', read the same)
+  const frame0 = /^(city=(sf|pkg)(&[a-z]{2,4}=[A-Za-z0-9._%-]{1,80}){0,3})?&?$/.test(status.frame || '') ? (status.frame || '').replace(/&$/, '') : '';
+  const frame = frame0 ? `${frame0}&` : '';
   const src = `${mc}/?${frame}pack=${encodeURIComponent(pack)}&host=${encodeURIComponent(location.origin)}&game=${encodeURIComponent(`draft-${draft}`)}`
     + `&nogate&trailer=0&autopilot=1&autoanswer=1&autochoose=0&autocontinue=1&autocard=1&flowfast=1&noaudio=1&keyart=1&missionsecs=${Math.round(LIMIT.mission / 1000)}`
     + (from ? `&mission=${encodeURIComponent(from)}` : '');

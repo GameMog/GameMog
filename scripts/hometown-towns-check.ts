@@ -18,7 +18,7 @@ import { TOWN_ID, canonicalPlaceId, serviceLock, storyLock, sameServiceLock, LOC
 import { canonicalBox, TOWN_WORDS, cityPackageByLock, bundleFile, requestTown, townStatus, markInterrupted, printBuildArgs, storedTiles, type Job } from '../lib/hometown/towns.ts';
 import { townClientKey } from '../lib/hometown/client.ts';
 import { townsConfig } from '../lib/hometown/config.ts';
-import { storyFrameQuery } from '../lib/storykit-publish.ts';
+import { storyFrameQuery, storyFrameSrc } from '../lib/storykit-publish.ts';
 import { StoryStore } from '../lib/storykit-store.ts';
 import { placeById } from '../lib/places/search.ts';
 
@@ -64,7 +64,8 @@ export async function runTownChecks(ok: Ok) {
   ok('the runner pack carries the lock (hometown) and the town\'s name as its missions\' city', JSON.stringify(runner.hometown) === JSON.stringify(lock) && runner.city === 'hometown' && runner.missions.every((m: { city: string }) => m.city === 'Okemah, Oklahoma'));
   ok('a New York runner pack has no hometown and keeps "New York"', (() => { const ny = gatePack(JSON.parse(readFileSync('storykit/pack/fixtures/good-ny.json', 'utf8'))).pack; const r = ny ? toRunnerPack(ny) : null; return !!r && !('hometown' in r) && r.missions.every((m: { city: string }) => m.city === 'New York'); })());
   ok('the play address boots the built town (city=pkg&town&tc&ts), New York and San Francisco as before',
-    storyFrameQuery('hometown', lock) === `city=pkg&town=us-4054200&tc=${lock.compiler}&ts=${lock.tiles}&` && storyFrameQuery('ny') === '' && storyFrameQuery('sf') === 'city=sf&' && storyFrameQuery('hometown', null) === '');
+    storyFrameQuery('hometown', lock) === `city=pkg&town=us-4054200&tc=${lock.compiler}&ts=${lock.tiles}` && storyFrameQuery('ny') === '' && storyFrameQuery('sf') === 'city=sf' && storyFrameQuery('hometown', null) === '');
+  ok('the frame address joins the city part with one \'&\' (none stray), New York with none', /\/\?city=pkg&town=us-4054200&tc=[^&]+&ts=[0-9a-f]{64}&pack=/.test(storyFrameSrc('a'.repeat(64), 'g', 'http://localhost:1', 'hometown', lock)) && /\/\?pack=/.test(storyFrameSrc('a'.repeat(64), 'g', 'http://localhost:1', 'ny')) && /\/\?city=sf&pack=/.test(storyFrameSrc('a'.repeat(64), 'g', 'http://localhost:1', 'sf')) && !/&&/.test(storyFrameSrc('a'.repeat(64), 'g', 'http://localhost:1', 'hometown', lock)));
 
   // the store: gates the pack with its town's table (read by its lock from the bundles), seals the runner pack with it
   const tmp = mkdtempSync(path.join(tmpdir(), 'hometown-towns-'));
