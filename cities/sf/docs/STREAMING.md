@@ -117,6 +117,15 @@ rebased is what the GPU sees:
   absolute frame exactly as before. A nested render, such as the shadow cascades, runs inside the shifted one.
 - **Rebase**: when the camera is more than `threshold` m (`?originN=`, default 1000) from the origin, the origin moves
   to the camera, on a grid of `originSnap` m. Nothing else moves: the next frame simply draws with the new offset.
+- **Frozen objects**: three never recomputes the world matrix of an object whose `matrixWorldAutoUpdate` is false,
+  so shifting the scene root does not move it. New York freezes its static city that way (the culling roots,
+  `RoadMarkings` and the shadow stand-ins, `js/main.js`) and its trees (`js/trees.js`); San Francisco freezes nothing.
+  For each shifted render, `origin.js` therefore moves the translation of every frozen object's world matrix by
+  `-origin` itself (elements 12 and 14: a shift is a pure translation in world space), and puts the exact old values
+  back afterwards. The matrices under a frozen object that three does recompute follow from it. The list comes from one
+  walk of the scene at each rebase (and at the first shifted render), not every frame. In New York that is 6,511
+  objects, found in 0.6 ms per rebase (`world.origin.frozen`, `frozenMs`, `frozenWalks`). Before this, a rebase in
+  New York drew its whole static city displaced by the origin.
 - **Lights** whose direction is their position (the `SunLight`, the hemisphere light, a target-less directional light)
   are held where they are, so the sun does not turn. Positional lights move with the scene.
 - **Shaders**: TSL's `positionWorld` and `cameraPosition` are swapped, in `window.NYC.TSL` (`index.html`), for
@@ -126,7 +135,9 @@ rebased is what the GPU sees:
   already absolute again. `NYC.renderOrigin` gives the same offset, during a render, to scripts that read the camera
   from inside it (the tree LODs' `scene.onBeforeRender`).
 - **Cost**: one extra matrix pass over the scene per frame (2,892 objects), paid only once the origin is off zero.
-  In San Francisco it runs about 0.6 ms a frame (0.3 to 1.0 ms across runs; see section 6).
+  In San Francisco it runs about 0.6 ms a frame (0.3 to 1.0 ms across runs; see section 6). In New York, on the
+  title screen's aerial view, the pass and the frozen matrices put back together cost 1.19 ms a render
+  (`.scratch/fo/nyAfter2.log`).
 - **What streaming adds**: a tile's vertices must be stored **tile-local** (relative to the tile's corner), with the
   tile's mesh placed at its corner. Today's city meshes carry world coordinates in their float32 vertices, so they
   keep the precision they have now. Rebasing makes the matrices exact; tile-local vertices make the geometry exact.
@@ -134,7 +145,9 @@ rebased is what the GPU sees:
 **Known limits.** A module that imports `positionWorld` straight from `three/tsl` rather than `window.NYC.TSL` is not
 patched, so its world-anchored pattern would follow render space. In San Francisco only three's own addons do this,
 and they use it relative to the camera. `wagmi/mission/m2-set.js`, New York's mission 2 set, also does it. Shadow
-texel snapping is relative to the camera, so a rebase can move a shadow edge by up to a texel for one frame.
+texel snapping is relative to the camera, so a rebase can move a shadow edge by up to a texel for one frame. An
+object frozen (`matrixWorldAutoUpdate = false`) after the last rebase is not on the frozen list until the next one,
+so it draws displaced by the origin until then; today both cities freeze only at start-up, before the first rebase.
 
 ## 6. Measurements
 
@@ -170,13 +183,15 @@ time per frame inside the city's loop: update plus render submission, not GPU ti
 
 ## 7. Verification
 
-Runs on 12 Nov 2026, scripts and logs in `.scratch/st/` and `.scratch/hometown/` (git-ignored).
+Runs on 12 Nov 2026, scripts and logs in `.scratch/st/`, `.scratch/hometown/` and `.scratch/fo/` (git-ignored).
 
 - **Unit tests**: `node --test tests/tiles.test.mjs` passes 6 of 6 (rings, upgrades, LRU eviction, `ensureLoaded`
   as a Promise, rectangles and `has`, failures and retries). The repo's whole node suite has the same failures with and
   without this branch: 39 test cases fail on both, all of them in files this branch does not touch.
 - **Flags off, behaviour unchanged**: `fixcheck` gives `errors: []` on all 5 worlds (sf2040, ny-free, pickup-eng,
-  night-shift, native). The full SF 2040 test drive reaches `story-end` at 894 s with 0 errors.
+  night-shift, native). The full SF 2040 test drive reaches `story-end` at 894 s with 0 errors. Re-run on the code
+  with the frozen-object fix: `fixcheck` `errors: []` on all 5 worlds (`.scratch/fo/fix-fo.log`), and the full drive
+  reaches `story-end` at 924 s with 0 errors (`.scratch/fo/driveOff.log`).
 - **Flags on**: the full SF 2040 drive with `?origin=float&originN=300&tiles=1` reaches `story-end` at 930 s with 0
   errors. Along the way it makes 15 rebases (origins from (-2364, 2353) to (626, -621)) and loads 437 tiles,
   evicting 277 of them under the 160-tile budget, with 0 tile errors (`driveOn.log`). An earlier run with the same
@@ -188,17 +203,40 @@ Runs on 12 Nov 2026, scripts and logs in `.scratch/st/` and `.scratch/hometown/`
   the sky move). A sample of the scene's world matrices and the player's position read back identical after every
   rebase. The screenshots (`rbA-*.jpg`) show the same street, shadows, crowd and car; a cutscene at an origin 3.2 km
   off renders normally (`rbB-3-far.jpg`).
-- **A 2-3 km drive under a chase** (`chase2k.mts`, `?start=chase`, the car steered along the GPS route to Civic
-  Center, sampled every second): 7 runs with `originN=250` drove 1.4-3.0 km each, with 2-9 rebases per run and 1-5
-  of them during the chase. The largest one-second move was 33-49 m (the car's own speed). No sample showed a jump,
-  and the pursuit stayed `on` across every rebase.
-  **Open**: the chase ended as lost before the 100-160 s mark in 5 of 7 rebasing runs, against 1 of 6 runs without
-  the flag. Every lost chase traced so far went the same way as the one lost without the flag: the player's ramming
-  wrecks one car (heat 2 sends no reinforcement), and the other loses sight. The pursuit's inputs were checked at its
-  own step: the camera's matrix matches its position (0 mismatches in 704 frames), and its frustum, sight lines,
-  colliders and routes are all JavaScript-side. So no mechanism linking the rebase to it has been found, but the
-  skew has not been explained either. Re-check it with a seeded `Math.random` before relying on `?origin=float` in
-  chase-heavy play.
+- **New York, no displacement** (`.scratch/fo/rebase.mts`, the same test on New York's title-screen aerial view,
+  `?origin=float&originN=1000000`): before the frozen-object fix, each forced rebase changed the image by a mean abs
+  difference of 12.7-21.3 (20-33% of pixels changed) against 4.7-4.8 for two frames with no rebase: the static city
+  was drawn displaced by the origin (`nyBefore-0-start.jpg` against `nyBefore-3-far.jpg`, a different stretch of the
+  city entirely). After it, every rebase changes the image by 4.2-4.5 against a no-rebase noise of 4.2-4.5
+  (`nyAfter.log`, `nyAfter2.log`; `nyAfter-3-far.jpg` shows the start view). San Francisco's rebase test still passes
+  on the same code (`sfAfter.log`: 1.1-1.36 against 0.98-0.99; San Francisco has no frozen objects, so the fix does
+  nothing there), and the scene's matrices and the player read back identical after every rebase in both cities.
+- **A chase drive with rebasing** (`chase2k.mts`, `?start=chase`, the car steered along the GPS route to Civic Center,
+  sampled about every second; logs `.scratch/st/rO1-8.log` and `roff*.log`): 8 runs with `originN=250` drove 767 m
+  (`rO8`) to 1,835 m (`rO4`) each (`rO1`: 1,248 m), with 1-5 rebases per run and 1-5 of them while the pursuit was on.
+  The largest one-second move was 29.4-36.3 m in 7 of the runs (the car's own speed). `rO7` had 1 jump: 63.4 m between
+  two samples, from a car reading 0.2 m/s to one at 24.8 m/s, across a sample interval stretched by a screenshot, and
+  not at a rebase (its rebases came 6 samples before and 2 samples after it). In the runs logged every second
+  (`rO6`-`rO8`), the pursuit was still on in the sample after every rebase made while it was on.
+- **Chase losses with and without rebasing.** The builder's runs ended as lost in 5 of 8 rebasing runs (`rO2`, `rO3`,
+  `rO5`, `rO6`, `rO7`) against 1 of 7 without the flag (`roff4`). That split, alone, has a one-sided Fisher p of 0.084.
+  Re-run on 12 Nov with `Math.random` seeded (`.scratch/fo/chase.mts`, seeds 1-6, `originN=250` and off interleaved,
+  150 s each, no tiles, final code): **4 of 6 rebasing runs lost (seeds 1, 2, 3, 5), 3 of 6 without (seeds 2, 4, 6)**
+  (`cOn1-6.log`, `cOff1-6.log`). The seeds do not pair: the chase steps on the real frame time, so runs with one seed
+  part ways within seconds, and the two modes agree on only 1 of 6 seeds. Over all 27 runs that is 9 of 14 against
+  4 of 13 (p 0.087).
+  What was checked for a link: the pursuit keeps everything in world metres in JavaScript (its cars, the target, where
+  he was last seen, search points, routes, the sight test against the colliders' boxes, `wagmi/pursuit/nav.js`); a
+  rebase changes none of it, and every world matrix (frozen or not) and the camera are back in the absolute frame
+  before the next step. The frustums the pursuit, the traffic and the wrecks test against are rebuilt from
+  `camera.updateMatrixWorld()` in the update, before the render shifts anything. Nothing in the chase raycasts against
+  meshes. Where the chases were lost does not follow the rebases either: sight was lost at the same few places in both
+  modes (about (610-640, -775..-820) at 12-22 s in `cOn3`, `cOn5`, `cOff2`, `cOff4`; further along the route near
+  (775, -491), (655, -373) and (550, -269)). In 2 of the 4 seeded rebasing losses (`cOn3`, `cOn5`) no rebase happened
+  while they had lost him; in the other 2 (`cOn1`, `cOn2`) the rebase came 5 and 10 samples after sight was lost. In the builder's `rO6`, sight was
+  lost one sample before a rebase; in `rO7`, one sample after one, at (723, -440): on the stretch from about (775, -491)
+  to (550, -269) where `cOn1`, `cOn2` and, without the flag, `cOff6` lost them too. **No cause was found**; the
+  difference is within the run-to-run spread of these chases.
 
 ## 8. Left for Milestone 3
 
