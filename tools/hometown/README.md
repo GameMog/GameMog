@@ -20,8 +20,10 @@ python tools/hometown/compile.py --tile hg1-conus/0/5806/8582 --out -      # HTL
 python tools/hometown/compile.py --block hg1-conus/2/1451/2145 --out -     # HTB1: the 16 children
 python tools/hometown/compile.py --ctx hg1-conus/4/362/536
 python tools/hometown/compile.py --descriptor okemah --stage 1             # JSON
-python tools/hometown/compile.py --print-build                             # the buildId and its record
-python tools/hometown/compile.py --dem-snapshot                            # pin the DEM (once per build)
+python tools/hometown/compile.py --print-build --data <data>               # the buildId and its record (pass the
+                                                                           # same --data as the compiles: the OSM
+                                                                           # lane table under it is in the id)
+python tools/hometown/compile.py --dem-snapshot                            # re-pin the DEM to a NEW listing
 ```
 
 ### Pre-warm a list of towns (hosting, phase 1)
@@ -42,8 +44,11 @@ the peak RSS of the children so far) and are skipped on the next run. Peak RSS m
 a stage-1 descriptor 65 MB, and `fetch.py --regions` (duckdb over S3, no memory limit) about 3 GB.
 
 The 3DEP heights are read lazily from the USGS cloud-optimized GeoTIFFs (HTTP range reads of 512 px internal tiles,
-If-Match the store's DEM snapshot, so run `compile.py --dem-snapshot` against the pre-warm store once first) and mirrored
-in the store's `dem/` prefix; after the first read everything is offline.
+If-Match the store's DEM snapshot) and mirrored
+in the store's `dem/` prefix; after the first read everything is offline. A store with no `dem/current.json` (a new
+GameMog or Render disk) is seeded with the snapshot the compiler ships, `dem-snapshots/dem-12b3e06663843b4d.json.gz`
+(`dem.PINNED`, the one the pre-warmed packages were built at), so it reaches the same buildId with no USGS listing;
+`compile.py --dem-snapshot` moves a store to a newer listing (a new buildId).
 
 ## The grid (`grid.py`, frozen as hg1)
 

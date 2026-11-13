@@ -154,9 +154,29 @@ class DemPin(unittest.TestCase):
         self.assertIn('n36w097: not in the DEM snapshot', s.missing)
         self.assertEqual(dem.Sampler(self.mirror, product='1').RES, 3600)
 
+    def test_empty_store_starts_at_the_shipped_pin(self):
+        self.assertIsNone(self.store.get('dem/current.json'))
+        sid, snap = C.dem_snapshot(self.store)
+        self.assertEqual(sid, dem.PINNED)
+        self.assertEqual(dem.snapshot_id(snap), dem.PINNED)
+        self.assertEqual(json.loads(self.store.get('dem/current.json'))['snapshot'], dem.PINNED, 'the pin is made current')
+        self.assertIsNotNone(self.store.get('dem/snapshots/%s.json' % dem.PINNED))
+        b1 = C.build_id_of(C.build_record(self.store))
+        other = C.Store(os.path.join(self.tmp.name, 'store2'))
+        os.environ['HOMETOWN_DEM_SNAPSHOT'] = dem.PINNED
+        try:
+            self.assertEqual(C.build_id_of(C.build_record(other)), b1, 'the pin named explicitly on an empty store: the same build')
+        finally:
+            del os.environ['HOMETOWN_DEM_SNAPSHOT']
+        self.assertIsNone(dem.shipped_snapshot('dem-0000000000000000'))
+
     def test_build_id_commits_to_the_snapshot(self):
-        with self.assertRaises(C.NoDemSnapshot):
-            C.build_record(self.store)
+        pinned, dem.PINNED = dem.PINNED, None
+        try:
+            with self.assertRaises(C.NoDemSnapshot):
+                C.build_record(self.store)
+        finally:
+            dem.PINNED = pinned
         s1 = {'format': 'hometown-dem-snapshot', 'version': 1, 'products': {'13': {'n36w097': {'etag': 'a'}}}}
         s2 = {'format': 'hometown-dem-snapshot', 'version': 1, 'products': {'13': {'n36w097': {'etag': 'b'}}}}
         dem.store_snapshot(self.store, s1)

@@ -122,14 +122,46 @@ def store_snapshot(store, snap, current=True):
     return sid
 
 
+# THE SHIPPED PIN. The compiler carries the snapshot its pre-warmed builds were made at (dem-snapshots/{id}.json.gz,
+# gzip -n of the exact snapshot bytes), so a NEW store (a fresh GameMog or Render disk) starts at the same pin and so
+# the same buildId as the pre-warm, instead of failing NoDemSnapshot or listing USGS anew (a new id, a new build).
+# A store that has a dem/current.json keeps it; `compile.py --dem-snapshot` still moves a store to a newer listing.
+HERE = os.path.dirname(os.path.abspath(__file__))
+SHIPPED_DIR = os.path.join(HERE, 'dem-snapshots')
+PINNED = 'dem-12b3e06663843b4d'
+
+
+def shipped_snapshot(sid):
+    """The snapshot bytes the compiler ships for sid, checked against the id; None when it ships none."""
+    import gzip
+    f = os.path.join(SHIPPED_DIR, '%s.json.gz' % sid) if sid and re.match(r'^dem-[0-9a-f]{16}$', sid) else None
+    if not f or not os.path.exists(f):
+        return None
+    b = gzip.decompress(open(f, 'rb').read())
+    assert 'dem-' + hashlib.sha256(b).hexdigest()[:16] == sid, 'shipped DEM snapshot %s does not hash to its id' % sid
+    return b
+
+
 def load_snapshot(store, sid=None):
-    """(id, snapshot) of sid, else of dem/current.json; (None, None) when the store has none."""
+    """(id, snapshot) of sid, else of dem/current.json, else of the shipped PINNED (seeded into the store and made
+    current); (None, None) when the store has none and the compiler ships none."""
     if sid is None:
         b = store.get('dem/current.json')
         if b is None:
-            return None, None
+            seed = shipped_snapshot(PINNED)
+            if seed is None:
+                return None, None
+            store.put_if_absent('dem/snapshots/%s.json' % PINNED, seed)
+            if store.get('dem/current.json') is None:
+                store.put('dem/current.json', (json.dumps({'snapshot': PINNED}) + '\n').encode())
+            b = store.get('dem/current.json')
         sid = json.loads(b)['snapshot']
     b = store.get('dem/snapshots/%s.json' % sid)
+    if b is None:
+        seed = shipped_snapshot(sid)
+        if seed is not None:
+            store.put_if_absent('dem/snapshots/%s.json' % sid, seed)
+            b = store.get('dem/snapshots/%s.json' % sid)
     if b is None:
         raise KeyError('DEM snapshot %s not in the store' % sid)
     snap = json.loads(b)
