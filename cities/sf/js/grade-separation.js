@@ -79,11 +79,11 @@ function buildGradeSeparation(scene, network) {
   const lateral = (e, x, z) => (x - e.x0) * e.rx + (z - e.z0) * e.rz;
   const discAt = new Map(); // (package decks) node -> { x, z, y, r, n }: deckEnds()
   let linkOnly = 0; // (package decks built from the road graph's links alone: linkDecks())
+  const MERGE_GAP = 14;
+  const branchy = (n) => (n.in || []).length + (n.out || []).length > 4 || new Set([...(n.in || []), ...(n.out || [])].map((x) => x.name)).size > 1;
   const parapetQ = []; // (package decks' parapet pieces, placed by parapets() once every deck stands)
   const columnQ = []; // (package decks' column stations, placed by columns() once every deck stands)
   let bents = 0;
-  const MERGE_GAP = 14;
-  const branchy = (n) => (n.in || []).length + (n.out || []).length > 4 || new Set([...(n.in || []), ...(n.out || [])].map((x) => x.name)).size > 1;
   for (const e of network.edges) {
     if (!e.bore || done.has(e)) continue;
     done.add(e);
@@ -234,16 +234,19 @@ function buildGradeSeparation(scene, network) {
         }
       }
     }
-    const beside = (seg, x, z, y) => (grid.get(Math.floor(x / C) + ',' + Math.floor(z / C)) || []).some((f) => {
+    const discs = [...discAt.values()];
+    const beside = (seg, x, z, y, dy = 1.2) => discs.some((d) => Math.hypot(x - d.x, z - d.z) < d.r && Math.abs(d.y - y) < dy) ||
+      (grid.get(Math.floor(x / C) + ',' + Math.floor(z / C)) || []).some((f) => {
       if (f === seg) return false;
       const px = x - f.x0, pz = z - f.z0, t = px * f.dx + pz * f.dz, o = px * f.rx + pz * f.rz;
       if (t < f.t0 || t > f.t1 || o < f.L || o > f.R) return false;
-      return Math.abs(P(f, t, o)[1] - y) < 1.2;
+      return Math.abs(P(f, t, o)[1] - y) < dy;
     });
-    for (const { seg, ta, tb, tm, o, len, out } of parapetQ) {
+    const GAP_DY = 3.0;
+    for (const { seg, ta, tb, tm, o, len, out, gap } of parapetQ) {
       const [cx, y, cz] = P(seg, tm, o);
       const [bx, , bz] = P(seg, tm, o + out * 0.9);
-      if (beside(seg, bx, bz, y)) continue;
+      if (beside(seg, bx, bz, y, gap ? GAP_DY : 1.2)) continue;
       // (nor where the deck is still on the ground beside it: a deck's ends at grade, where the road comes onto it)
       if (y - ground(bx, bz) < PARAPET_MIN_DROP) continue;
       // (a package deck's parapet follows its slope: sloped faces, not a stair of boxes)
@@ -416,12 +419,14 @@ function buildGradeSeparation(scene, network) {
       quad(geo.concrete, P(seg, ta, seg.R, -DECK_T), P(seg, tb, seg.R, -DECK_T), P(seg, tb, seg.R), P(seg, ta, seg.R));
       quad(geo.concrete, P(seg, tb, seg.L, -DECK_T), P(seg, ta, seg.L, -DECK_T), P(seg, ta, seg.L), P(seg, tb, seg.L));
       const len = tb - ta, tm = (ta + tb) / 2;
-      // (a package deck's parapets stay open over the last MERGE_GAP m before a node where decks merge or part)
-      if (seg.kind === 'deck' && ((tm < MERGE_GAP && branchy(e.from)) || (tm > e.span - MERGE_GAP && branchy(e.to)))) continue;
+      // (a package deck's parapets are left out piece by piece where another deck's floor carries on beside them:
+      // parapets(); over the last MERGE_GAP m before a node where decks merge or part, beside one up to GAP_DY m higher
+      // or lower. Not the whole stretch: that left the gore between two parting decks open, a hole a car fell through)
+      const gap = seg.kind === 'deck' && ((tm < MERGE_GAP && branchy(e.from)) || (tm > e.span - MERGE_GAP && branchy(e.to)));
       for (const o of [seg.L + 0.15, seg.R - 0.15]) {
         const [cx, y, cz] = P(seg, tm, o);
         // (a package deck's parapets are placed once every deck stands: parapets())
-        if (seg.kind === 'deck') { parapetQ.push({ seg, ta, tb, tm, o, len, out: o < (seg.L + seg.R) / 2 ? -1 : 1 }); continue; }
+        if (seg.kind === 'deck') { parapetQ.push({ seg, ta, tb, tm, o, len, out: o < (seg.L + seg.R) / 2 ? -1 : 1, gap }); continue; }
         box(geo.concrete, cx, cz, seg.dx, seg.dz, len + 0.02, 0.3, y, y + PARAPET_H);
         collider(cx, cz, seg.dx, seg.dz, len + 0.5, 0.3, y - 1, y + PARAPET_H);
       }
