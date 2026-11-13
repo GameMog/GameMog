@@ -612,7 +612,7 @@ def terrain_tile(P, dem, tile):
     H = 2
     a0, a1, b0, b1 = max(0, i0 - H), min(T['w'], i1 + H), max(0, j0 - H), min(T['h'], j1 + H)
     h = terrain_samples(P, dem, a0, a1, b0, b1)
-    # bridges with nothing driven under them (a street over a ravine): the ground raised to the deck, a straight line
+    # bridges with nothing driven under them and no water under them (a street over a dry ravine): the ground raised to the deck, a straight line
     # between the bridge's ends, with a 0.7 embankment either side (3DEP is bare earth: the deck itself is not in it)
     T = P['terrain']
     for line, w, e0, e1 in P.get('bridges', []):
@@ -1086,9 +1086,15 @@ def compile_place(pid, raw, out_root, name=None):
     lines = [LineString([net['nodes'][l['a']], *l['inner'], net['nodes'][l['b']]]) for l in net['links']]
     ltree = shapely.STRtree(lines)
     P['bridges'] = []
+    over_water = 0
     for line, w in net['bridges']:
         under = [i for i in ltree.query(line, predicate='crosses')]
         if under:
+            continue
+        # none over the water either: raising the ground under a river bridge would fill the river with an embankment
+        # (terrain_tile lifts every sample within w/2 + 10 m of the deck, the water polygons' too)
+        if P['water'] is not None and line.buffer(w / 2 + 10).intersects(P['water']):
+            over_water += 1
             continue
         (x0, z0), (x1, z1) = line.coords[0], line.coords[-1]
         lon, lat = P['frame'].from_world(np.array([x0, x1]), np.array([z0, z1]))
@@ -1097,6 +1103,7 @@ def compile_place(pid, raw, out_root, name=None):
             P['bridges'].append((line, w, float(e[0]), float(e[1])))
     net['stats']['bridgesRaised'] = len(P['bridges'])
     net['stats']['bridgesAtGrade'] = len(net['bridges']) - len(P['bridges'])
+    net['stats']['bridgesOverWater'] = over_water
     mark('network')
     tiles = tiles_of(P)
     terr = [terrain_tile(P, dem, t) for t in tiles]
@@ -1178,7 +1185,7 @@ def compile_place(pid, raw, out_root, name=None):
     stats = {
         'buildings': bcount, 'buildingsDroppedOnRoads': dropped, 'roadLinks': len(net['roadGraph']['links']), 'roadNodes': len(net['roadGraph']['nodes']) // 2,
         'blocks': len(net['blocks']), 'islands': sum(1 for b in net['blocks'] if b[6] == 'island'), 'places': len(places),
-        'bridgesRaised': net['stats']['bridgesRaised'], 'bridgesAtGrade': net['stats']['bridgesAtGrade'], 'cutAtEdge': net['stats'].get('cutAtEdge', 0),
+        'bridgesRaised': net['stats']['bridgesRaised'], 'bridgesAtGrade': net['stats']['bridgesAtGrade'], 'bridgesOverWater': net['stats']['bridgesOverWater'], 'cutAtEdge': net['stats'].get('cutAtEdge', 0),
         'tunnelPiecesDropped': net['stats'].get('tunnelPieces', 0), 'heightsFromOverture': sum(1 for o in brecs if o['r']['height'] is not None), 'oneway': net['stats']['oneway'], 'trees': len(trees),
     }
     manifest = {
