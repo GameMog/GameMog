@@ -78,15 +78,26 @@ const RULE = {
   hide: 3,                      // how much slower the escape fills hiding inside the circle
 };
 // a Hometown town (world.id 'pkg': long straight roads with nothing across them, his car flat out at 34 m/s for a
-// mile; New York and San Francisco keep their own): while they have him, one more than keepFrom m behind him and out
-// of view closes on him (his speed + keep m/s for each metre over, at most keepMax: under his boost, so the boost
-// still loses them); one INTERCEPT.after s more than INTERCEPT.far m behind, out of view, is put on a street ahead of
-// him (rMin..rMax m, within the cone ahead, out of view or behind a building) facing him (at most one every
-// INTERCEPT.every s; he is going INTERCEPT.v m/s or more); a chase opens with one car close behind him (30-60 m) and
-// every other one ahead (on his own road 160-240 m off, coming at him, else a street ahead out of view); a car is
-// only ever put down on the asphalt; and one stuck off the road out of view (or in view but more than viewFar m off:
-// a speck) is put back after offRespawn s (REJOIN.respawn elsewhere)
-const INTERCEPT = { after: 2, far: 110, rMin: 100, rMax: 170, cone: 0.35, every: 5, v: 10, keep: 0.1, keepMax: 50, keepFrom: 45, offRespawn: 1.5, viewFar: 150 };
+// mile; New York and San Francisco keep their own): while they have him, one behind him out of view and past their
+// sight (and keepFrom m) closes back to within sight (his speed + keep m/s for each metre over, at most keepMax: under
+// his boost); one INTERCEPT.after s more than INTERCEPT.far m behind, out of view, is put on a street ahead of him
+// (rMin..rMax m, within the cone ahead, out of view or behind a building) facing him (at most one every
+// INTERCEPT.every s: every 5 s kept him seen a minute in Pittsburgh; he is going INTERCEPT.v m/s or more); a chase
+// opens with one car close behind him (30-60 m) and every other one ahead (on his own road 160-240 m off and in his
+// sight, coming at him; else 120-220 m off within ~25 degrees; else a street ahead out of view); a car is only ever
+// put down on the asphalt; and one stuck off the road out of view (or in view but more than viewFar m off: a speck)
+// is put back after offRespawn s (REJOIN.respawn elsewhere)
+const INTERCEPT = { after: 2, far: 110, rMin: 100, rMax: 170, cone: 0.35, every: 15, v: 10, keep: 0.1, keepMax: 50, keepFrom: 45, offRespawn: 1.5, viewFar: 150 };
+// a town's rams: straight at him at most RAM.over m/s over its top speed (it came at his speed + 8, faster than his
+// car, and rammed him 20-27 times a minute in Okemah); after one on him the car drops back (RAM.back of his speed, at
+// least 4 m/s) for RAM.cool s, and no car comes in again until RAM.gap s after the last. Behind him within their sight
+// and more than RAM.close m back, a car can't quite match him flat out (RAM.give m/s under his speed, at least RAM.slow
+// of its top speed): driven flat out he pulls away out of their sight; slowed (a corner, a crash) they close and ram
+const RAM = { cool: 4.5, gap: 3, back: 0.75, over: 3, close: 20, give: 4, slow: 0.8 };
+// a town's car out of the camera's sight (out of its view, or a speck past INTERCEPT.viewFar m): off the road
+// SNAP.off s, it is set back on its lane right there; turning round on a street too narrow for it, it comes round
+// where it stands (no three-point turn on the lawns where nobody sees it)
+const SNAP = { off: 0.35, v: 8 };
 // held up behind the city's traffic this long (s; crawling behind it GHOST.crawl s), a chase car noses through it for
 // GHOST.t s (at most GHOST.vView m/s while the camera sees it)
 const GHOST = { after: 1.0, t: 2.6, vView: 9, crawl: 2.5 };
@@ -172,7 +183,11 @@ export function install(W) {
     // far behind and out of view: a little faster (it can always be outrun on the boost)
     if (P.mode === 'chase' && !inView(P.x, P.z, 4) && d > 70) vt += Math.min(12, (d - 70) * 0.08);
     // (a town's: behind him out of view while they have him, it keeps up with him)
-    if (ch.open && P.mode === 'chase' && ch.seen && d > INTERCEPT.keepFrom && behind(P, T) && !inView(P.x, P.z, 4)) vt = Math.max(vt, Math.min(T.speed + (d - INTERCEPT.keepFrom) * INTERCEPT.keep, INTERCEPT.keepMax));
+    // (only past their sight: it closes back to within sight of him, never on in to his bumper; within it, he outruns it)
+    if (ch.open && P.mode === 'chase' && ch.seen && d > Math.max(INTERCEPT.keepFrom, RULE.sight(ch._heat)) && behind(P, T) && !inView(P.x, P.z, 4)) vt = Math.max(vt, Math.min(T.speed + (d - Math.max(INTERCEPT.keepFrom, RULE.sight(ch._heat))) * INTERCEPT.keep, INTERCEPT.keepMax));
+    // (a town's: just rammed him, or another has: dropping back a beat)
+    const cooling = ch.open && P.mode === 'chase' && !T.onFoot && (P.ramCool > 0 || ch.t - ch.ramAt < RAM.gap) && d < 60;
+    if (cooling) vt = Math.min(vt, Math.max(4, T.speed * RAM.back));
     if (direct) {
       if (T.onFoot) {
         // (on foot: the run-down, or the pull-up beside him, see onFoot)
@@ -184,7 +199,9 @@ export function install(W) {
         const close = P.speed - (T.vx * dx + T.vz * dz) / (d || 1), lead = clamp(d / Math.max(8, close), 0, 1.1);
         const th = T.h, rx = -Math.cos(th), rz = Math.sin(th);
         ax = T.x + T.vx * lead + rx * P.side * 1.1 - Math.sin(th) * 1.2; az = T.z + T.vz * lead + rz * P.side * 1.1 - Math.cos(th) * 1.2;
-        vt = P.ramCool > 0 ? Math.max(6, T.speed - 3) : Math.min(vmax0 + 8, Math.max(vmax0, T.speed + 5)) + (d < 30 ? 3 : 0);
+        vt = cooling ? Math.max(4, T.speed * RAM.back) : P.ramCool > 0 ? Math.max(6, T.speed - 3) : Math.min(vmax0 + 8, Math.max(vmax0, T.speed + 5)) + (d < 30 ? 3 : 0);
+        // (a town's: at most RAM.over m/s over its top speed: him flat out down a straight road gets away; slowed, rammed)
+        if (ch.open && !cooling && !(P.ramCool > 0)) vt = Math.max(vmax0, Math.min(T.speed + 5, vmax0 + RAM.over));
         // (no faster than it can come round to it: an overshoot at a corner is a car on the lawn)
         vt = Math.min(vt, Math.max(8, reach(P, ax, az)));
       }
@@ -205,6 +222,8 @@ export function install(W) {
       ax = F.ax; az = F.az; vt = Math.min(vt, F.vt);
       if (T.onFoot && P.mode === 'chase' && ch.seen) vt = Math.min(vt, clamp((d - 6) * 1.4, 0, vmax0));
     }
+    // (a town's: behind him within their sight, not on his bumper: RAM.give m/s under his speed, see RAM)
+    if (ch.open && P.mode === 'chase' && !T.onFoot && d > RAM.close && d <= RULE.sight(ch._heat) && behind(P, T)) vt = Math.min(vt, Math.max(RAM.slow * vmax0, T.speed - RAM.give));
     // something slow in the way (the traffic, another chase car): round it, or brake
     const av = avoid(P, dt);
     if (av) { if (av.pass) { ax = av.x; az = av.z; } vt = Math.min(vt, av.v); }
@@ -327,6 +346,8 @@ export function install(W) {
       const exempt = !!(P.ram || (P.crew && P.crew.alive() > 0) || P.ghost > 0 || (g.direct && excused(onRoad, T, g.d)));
       const R = rejoin(P, dt, { onRoadway: roadAt(P.y), locate: laneAt(P.y), exempt, vmax: g.vt });
       if (R) { g.ax = R.ax; g.az = R.az; g.vt = Math.min(R.vt, Math.max(4, reach(P, R.ax, R.az))); }
+      // (a town's, where the camera can't see it: off the road a moment, back on its lane right there)
+      if (ch.open && !exempt && P.mode === 'chase' && P.offT > SNAP.off && unseen(P) && snap(P, g)) return;
       if (!exempt && P.offT > (ch.open ? INTERCEPT.offRespawn : REJOIN.respawn) && P.mode === 'chase' && (!inView(P.x, P.z, 4) || (ch.open && camDist(P.x, P.z) > INTERCEPT.viewFar))) { P.offT = 0; P.rejoin = false; respawn(P, T); }
       const err = wrap(Math.atan2(g.ax - P.x, g.az - P.z) - P.h);
       st = clamp(err * 1.8, -0.62, 0.62); vt = g.vt;
@@ -336,7 +357,11 @@ export function install(W) {
       if (T.onFoot && (P.crew?.alive() > 0 || (P.ram && !P.ram.go))) { P.back = 0; P.stuck = 0; P.prog.want = 0; }
       // turned away from where it must go, and slow: back up turning, so the nose comes round (a J-turn)
       // (or turning hard and slow with its nose about to leave the road: a three-point turn, steer.js noseOff)
-      if (P.back <= 0 && (Math.abs(err) > 2.0 || noseOff(roadAt(P.y), P, err)) && Math.abs(P.speed) < 8 && vt > 2) { P.back = 1.0; P.backSteer = -Math.sign(err) * 0.62; }
+      if (P.back <= 0 && (Math.abs(err) > 2.0 || noseOff(roadAt(P.y), P, err)) && Math.abs(P.speed) < 8 && vt > 2) {
+        // (a town's, where the camera can't see it: round where it stands, no backing about)
+        if (ch.open && P.mode === 'chase' && unseen(P) && onRoad(P.x, P.z)) { P.h = Math.atan2(g.ax - P.x, g.az - P.z); P.speed = Math.max(0, P.speed); P.w = 0; P.vx = P.vz = 0; P.turns = (P.turns || 0) + 1; st = 0; P.steer = 0; }
+        else { P.back = 1.0; P.backSteer = -Math.sign(err) * 0.62; }
+      }
       // stuck (against a wall, a wreck): back off a little the other way
       if (vt > 3 && Math.abs(P.speed) < 1.2 && P.back <= 0) P.stuck += dt; else P.stuck = Math.max(0, P.stuck - dt * 2);
       if (P.stuck > 1.2) { P.back = 1.1; P.backSteer = -Math.sign(err || 1) * 0.62; P.stuck = 0; }
@@ -472,7 +497,7 @@ export function install(W) {
       if (sp > 2.5 && P.hitCool <= 0) {
         P.hitCool = 0.25;
         feel(sp, -hit.nx, -hit.nz, P.kind === 'police' ? WHITE : BLACK);
-        if (inCar) { P.ramCool = 1.3; ch.emit('hit', { speed: sp, car: P }); }
+        if (inCar) { P.ramCool = ch.open ? RAM.cool : 1.3; ch.ramAt = ch.t; ch.emit('hit', { speed: sp, car: P }); }
       }
       // (his ram is his; its own ram into him, stopped or slower, is its own: that can't wreck it)
       if (sp > 1.5) damage(P, sp * rammed, share > 0.35 ? 'hero' : 'ram');
@@ -592,9 +617,11 @@ export function install(W) {
   }
   // a town's opening: a lane spot on his own road ahead (within ~14 degrees of the way he is going, along it),
   // rMin..rMax m off: a cruiser he sees coming down the road at him (that far off it is a speck as it appears)
-  function roadAheadSpot(T, rMin, rMax) {
+  // (cone: the cosine off the way he is going; a winding road (Pittsburgh's) gets a second, wider look (~25 degrees, a
+  // little nearer) before the street out of view, which left the camera with no car to see in 2 of 6 openings)
+  function roadAheadSpot(T, rMin, rMax, cone = 0.97) {
     const [hx, hz] = motion(T);
-    return nav.spot(T.x, T.z, rMin, rMax, (x, z, h) => { const dx = x - T.x, dz = z - T.z; return (dx * hx + dz * hz) / (Math.hypot(dx, dz) || 1) > 0.97 && Math.abs(Math.sin(h) * hx + Math.cos(h) * hz) > 0.9 && onRoad(x, z); }, 240);
+    return nav.spot(T.x, T.z, rMin, rMax, (x, z, h) => { const dx = x - T.x, dz = z - T.z; return (dx * hx + dz * hz) / (Math.hypot(dx, dz) || 1) > cone && Math.abs(Math.sin(h) * hx + Math.cos(h) * hz) > 0.85 && onRoad(x, z) && nav.sees(T.x, T.z, x, z); }, 240);
   }
   // (put down at s facing him, rolling)
   function putAt(P, s, T, speed, more = null) {
@@ -609,6 +636,18 @@ export function install(W) {
   }
   // (along its lane, whichever way faces him)
   const facing = (s, T) => (Math.sin(s.h) * (T.x - s.x) + Math.cos(s.h) * (T.z - s.z) >= 0 ? s.h : s.h + Math.PI);
+  // (a town's: where the camera can't see it: out of its view, or a speck down the road)
+  const unseen = (P) => !inView(P.x, P.z, 4) || camDist(P.x, P.z) > INTERCEPT.viewFar;
+  // (set back on its lane where it is, along the lane the way it was heading for, on the asphalt only; slowed)
+  function snap(P, g) {
+    const L = nav.locate(P.x, P.z, P.h, P.y);
+    if (!L || Math.hypot(L.x - P.x, L.z - P.z) > 30 || !onRoad(L.x, L.z)) return false;
+    const ax = g.ax ?? P.x + Math.sin(P.h), az = g.az ?? P.z + Math.cos(P.h);
+    const h = Math.sin(L.heading) * (ax - L.x) + Math.cos(L.heading) * (az - L.z) >= 0 ? L.heading : L.heading + Math.PI;
+    Object.assign(P, { x: L.x, z: L.z, h, speed: Math.min(Math.abs(P.speed), SNAP.v), vx: 0, vz: 0, w: 0, path: null, back: 0, stuck: 0, offT: 0, rejoin: false, steer: 0, snaps: (P.snaps || 0) + 1 });
+    Object.assign(P.prog, { t: 0, want: 0, x: L.x, z: L.z });
+    return true;
+  }
   // (round him while they have him; round where they last saw him while they search)
   function respawn(P, T) {
     const ch = P.ch, at = ch.seen ? T : { x: ch.lastSeen.x, z: ch.lastSeen.z, h: T.h };
@@ -628,7 +667,7 @@ export function install(W) {
     const ch = {
       kind, cars: [], state: 'on', seen: true, lastSeen: { x: 0, z: 0 }, esc: 0, hideT: 0, prog: 0, inCircle: true, hidT: 0, t: 0, lose, target,
       reinforce: opts.reinforce, want: 0, refill: 0, caughtT: 0, caughtSent: false, _heat: clamp(opts.heat ?? 2, 1, 5),
-      crews: [], ramNext: 0, brute: false, escN: opts.escape ?? null, vmaxN: opts.vmax ?? null, open: world.id === 'pkg', icAt: -99, ics: 0,
+      crews: [], ramNext: 0, brute: false, escN: opts.escape ?? null, vmaxN: opts.vmax ?? null, open: world.id === 'pkg', icAt: -99, ics: 0, ramAt: -99,
       on(ev, cb) { (listeners[ev] || (listeners[ev] = [])).push(cb); return ch; },
       off(ev, cb) { listeners[ev] = (listeners[ev] || []).filter((x) => x !== cb); return ch; },
       emit(ev, d) { for (const cb of listeners[ev] || []) { try { cb(d); } catch (e) { console.error('[pursuit]', ev, e); } } },
@@ -655,7 +694,7 @@ export function install(W) {
       }
     } else {
       for (let i = 0; i < ch.want; i++) {
-        const s = (ch.open && i % 2 === 1 && (roadAheadSpot(T, 160, 240) || aheadSpot(T, 90, 160))) || (ch.open ? hiddenSpot(T, 30, 60, true) : hiddenSpot(T, 45, 90)) || { x: T.x - Math.sin(T.h) * (50 + i * 10), z: T.z - Math.cos(T.h) * (50 + i * 10), h: T.h };
+        const s = (ch.open && i % 2 === 1 && (roadAheadSpot(T, 160, 240) || roadAheadSpot(T, 120, 220, 0.9) || aheadSpot(T, 90, 160))) || (ch.open ? hiddenSpot(T, 30, 60, true) : hiddenSpot(T, 45, 90)) || { x: T.x - Math.sin(T.h) * (50 + i * 10), z: T.z - Math.cos(T.h) * (50 + i * 10), h: T.h };
         ch.cars.push(makeCar(ch, i, { x: s.x, z: s.z, h: facing(s, T), speed: opts.speed ?? 14 }));
       }
     }
@@ -946,7 +985,7 @@ export function install(W) {
       cost: () => ({ msPerFrame: cost.frames ? +(cost.ms / cost.frames).toFixed(3) : 0, frames: cost.frames, ms: +cost.ms.toFixed(1) }),
       state: () => chase && {
         state: chase.state, seen: chase.seen, intercepts: chase.ics, esc: +chase.esc.toFixed(2), hide: +chase.hideT.toFixed(2), prog: +chase.prog.toFixed(3), heat: chase._heat, last: chase.lastSeen, view: view(chase),
-        cars: chase.cars.map((P) => ({ i: P.i, x: +P.x.toFixed(1), z: +P.z.toFixed(1), h: +P.h.toFixed(2), speed: +P.speed.toFixed(1), hp: Math.round(P.hp), mode: P.mode, sees: P.sees, wrecked: P.wrecked, gone: P.gone, d: +Math.hypot(P.x - tgtState.x, P.z - tgtState.z).toFixed(1), path: P.path ? P.path.length : 0, ghost: +Math.max(0, P.ghost).toFixed(1), ghosts: P.ghosts, dmg: P.dmg })),
+        cars: chase.cars.map((P) => ({ i: P.i, x: +P.x.toFixed(1), z: +P.z.toFixed(1), h: +P.h.toFixed(2), speed: +P.speed.toFixed(1), hp: Math.round(P.hp), mode: P.mode, sees: P.sees, wrecked: P.wrecked, gone: P.gone, d: +Math.hypot(P.x - tgtState.x, P.z - tgtState.z).toFixed(1), path: P.path ? P.path.length : 0, ghost: +Math.max(0, P.ghost).toFixed(1), ghosts: P.ghosts, snaps: P.snaps || 0, turns: P.turns || 0, dmg: P.dmg })),
       },
       vapor, nav, target: tgtState,
       // (a chase car stood still at x, z facing h: a test's obstacle)
