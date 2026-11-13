@@ -1894,17 +1894,18 @@ def tile_window(c0, r0, c1, r1):
 
 def far_tiles(dom, bid, data, store, keys, log=print, dem_store=None):
     """Far tiles [(tier, C, R)] -> {key: gzipped SFB1 bytes}, compiled or read from the store (far.py)."""
-    Wd = None
+    Wd = {}  # product -> Sampler (A reads the 1/3" product, B / C the 1")
     out = {}
     for tier, C_, R_ in keys:
         k = farlib.far_key(bid, dom, tier, C_, R_)
         b = store.get(k) if store else None
         if b is None:
-            if Wd is None:
+            prod = farlib.TIERS[tier]['product']
+            if prod not in Wd:
                 dsn = dem_snapshot(dem_store or store)[1]
-                Wd = Sampler(os.path.join(data, 'dem'), dem_store or store, dsn, product='1')
+                Wd[prod] = Sampler(os.path.join(data, 'dem'), dem_store or store, dsn, product=prod)
             t0 = time.time()
-            b = gz(farlib.compile_far(dom, tier, C_, R_, Wd, bid))
+            b = gz(farlib.compile_far(dom, tier, C_, R_, Wd[prod], bid))
             if store:
                 store.put_if_absent(k, b)
                 b = store.get(k)
@@ -1935,7 +1936,7 @@ if __name__ == '__main__':
     ap.add_argument('--tile')
     ap.add_argument('--block')
     ap.add_argument('--ctx')
-    ap.add_argument('--far', help='one far tile hg1-{d}/{3|5}/{C}/{R} (far.py)')
+    ap.add_argument('--far', help='one far tile hg1-{d}/{1|3|5}/{C}/{R} (far.py)')
     ap.add_argument('--descriptor')
     ap.add_argument('--stage', type=int, default=2)
     ap.add_argument('--id')

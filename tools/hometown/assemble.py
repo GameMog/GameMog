@@ -364,7 +364,7 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
     fkeys = [(t, a_, b_) for t, ks in F.place_far(core_gm, dom).items() for a_, b_ in ks]
     fb = C.far_tiles(dom, bid, data, store, fkeys, log, dem_store=W.dem_store)
     far_list = []
-    for (t, a_, b_), body in sorted(fb.items(), key=lambda kv: ('bc'.index(kv[0][0]), kv[0][2], kv[0][1])):
+    for (t, a_, b_), body in sorted(fb.items(), key=lambda kv: ('abc'.index(kv[0][0]), kv[0][2], kv[0][1])):
         files[F.far_file(t, a_, b_) + '.gz'] = body
         far_list.append({'tier': t, 'C': a_, 'R': b_, 'url': F.far_file(t, a_, b_)})
     FAR = {'format': 'hometown-far-set', 'version': 1, 'n': F.N + 1, 'minH': F.MIN_H, 'scale': F.SCALE, 'classes': F.CLASSES,
