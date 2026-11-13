@@ -31,6 +31,8 @@ export async function prewarm({ service, placeIds, version, concurrency = 2, sta
   const done = stateFile ? await readState(stateFile, version) : new Map();
   const todo = placeIds.filter((id) => !done.has(id));
   const result = { version, total: placeIds.length, skipped: placeIds.length - todo.length, warmed: [], failed: [], interrupted: false };
+  // (tiles are global: neighbouring places share them, each compiled once and stored once; counted here)
+  const seen = new Map();
   let i = 0;
   const worker = async () => {
     while (i < todo.length) {
@@ -38,8 +40,10 @@ export async function prewarm({ service, placeIds, version, concurrency = 2, sta
       const placeId = todo[i++];
       const t0 = Date.now();
       try {
-        const r = await service.prewarmPlace(placeId, version);
-        const rec = { ...r, ms: Date.now() - t0 };
+        const { tileIds = [], ...r } = await service.prewarmPlace(placeId, version);
+        let shared = 0;
+        for (const id of tileIds) { const n = seen.get(id) || 0; if (n) shared++; seen.set(id, n + 1); }
+        const rec = { ...r, sharedTiles: shared, ms: Date.now() - t0 };
         if (stateFile) await fs.appendFile(stateFile, `${JSON.stringify(rec)}\n`);
         result.warmed.push(rec);
         onEvent({ event: 'warmed', ...rec });
@@ -51,5 +55,7 @@ export async function prewarm({ service, placeIds, version, concurrency = 2, sta
   };
   await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, todo.length)) }, worker));
   if (signal?.aborted && result.warmed.length + result.failed.length < todo.length) result.interrupted = true;
+  result.tilesUnique = seen.size;
+  result.tilesShared = [...seen.values()].filter((n) => n > 1).length;
   return result;
 }

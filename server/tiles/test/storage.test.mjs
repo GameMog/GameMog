@@ -8,7 +8,7 @@ import { signV4 } from '../src/storage/sigv4.mjs';
 import { sha256 } from '../src/util.mjs';
 import { startMockS3 } from './mock-s3.mjs';
 
-const PORT_S3 = 4693;
+const PORT_S3 = Number(process.env.TILES_TEST_PORT || 4693);
 
 test('SigV4 matches the AWS documentation example (GET Object, examplebucket/test.txt)', () => {
   // AWS's published example values (docs: "Signature Calculations for the Authorization Header", GET Object).

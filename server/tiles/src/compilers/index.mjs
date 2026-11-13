@@ -1,18 +1,23 @@
-// Compiler interface. A compiler turns one tile key into one tile's bytes, and must be deterministic: the same
-// version + tile + inputs give the same bytes (the cache keeps the first bytes it stored either way).
+// Compiler interface (hg1). A compiler is one BUILD (its version is the buildId: htc-{compilerVersion}-hg1-b{8 hex});
+// it must be deterministic: the same build + tile id give the same bytes (the cache keeps the first bytes it stored).
 //
 //   compiler = {
-//     version: string,                       // the URL's {compilerVersion}; bump it on ANY change to the output
-//     compileTile(key) -> Promise<{          // key = { version, z, x, y, bbox: [west, south, east, north] }
-//       body: Buffer | Uint8Array,           // the tile, as stored and served
-//       contentType?: string,                // default application/octet-stream
-//       contentEncoding?: 'identity' | 'gzip' | 'br',   // how body is encoded (passed through to clients that accept it)
-//     }>,
+//     version: string,                                    // the buildId in every URL and storage key
+//     compileTile(key) -> Promise<{ body, contentType?, contentEncoding? }>
+//                                                         // key = { buildId, grid 'hg1', domain, L 0, c, r, id }
+//     compileBlock?(block) -> Promise<{ children: [{ id, body, contentEncoding? } | { id, refused }] }>
+//                                                         // an L2 block (4 x 4 tiles) in one process: the service
+//                                                         // single-flights the block and stores the children ifAbsent
+//     compileCtx?(key) -> Promise<{ body, ... }>          // a context block, key L 4
+//     describePlace(place, stage 1 | 2) -> Promise<descriptor>
+//                                                         // stage 1: { domain, origin {c0, r0}, k0, gamma0, tiles: [ids] }
+//                                                         // (the tile list; the service never derives it), stage 2:
+//                                                         // { yOffset, waterLevel, ... } once the tiles exist
+//     buildRecord?() -> object                            // stored at builds/{buildId}.json
 //   }
-//
-// The service never calls a compiler for a version that is not registered (an unknown version is a 404, so a typo
-// or a scan cannot fill the cache), never calls it twice at once for one key (single-flight), and caps concurrent
-// compiles across all keys (maxConcurrentCompiles).
+// A refusal (the tile has no DEM under it) is an error with .refused = reason: 422, never cached.
+// The service never compiles for a build that is not registered (410), never runs one block twice at once
+// (single-flight), and caps concurrent compiles across all keys (maxConcurrentCompiles).
 export { createFakeCompiler } from './fake.mjs';
 export { createSubprocessCompiler } from './subprocess.mjs';
 

@@ -1,6 +1,13 @@
-// Key grammar for the tile service. Every storage key is built here from validated parts, never from raw URL text.
-//   tile      tiles/{compilerVersion}/{z}/{x}/{y}
-//   manifest  manifests/{compilerVersion}/{placeId}.json
+// Key grammar for the tile service on the national grid hg1 (src/grid.mjs). Every storage key is built here from
+// validated parts, never from raw URL text.
+//   tile      tiles/{buildId}/hg1-{domain}/0/{c}/{r}
+//   ctx       ctx/{buildId}/hg1-{domain}/4/{C}/{R}            (context blocks: internal / admin)
+//   manifest  manifests/{buildId}/{placeId}.json              (the session descriptor + tile set)
+//   build     builds/{buildId}.json                           (what the buildId's hash covers)
+//   dem       dem/{etag}/...                                  (the mirrored 3DEP blocks; written by the compiler)
+// buildId = htc-{compilerVersion}-hg1-b{8 hex} (tools/hometown/compile.py build_id_of): it fits VERSION_RE.
+import { checkTile, GRID, BLOCK_L } from './grid.mjs';
+
 export const VERSION_RE = /^[0-9A-Za-z][0-9A-Za-z._-]{0,47}$/;
 export const PLACE_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const HASH_RE = /^[0-9a-f]{64}$/;
@@ -14,56 +21,40 @@ export class HttpError extends Error {
 }
 
 export function checkVersion(v) {
-  if (typeof v !== 'string' || !VERSION_RE.test(v) || v.includes('..')) throw new HttpError(400, `bad compiler version: ${String(v).slice(0, 60)}`);
+  if (typeof v !== 'string' || !VERSION_RE.test(v) || v.includes('..')) throw new HttpError(400, `bad build id: ${String(v).slice(0, 60)}`);
   return v;
 }
+export const checkBuild = checkVersion;
 
 export function checkPlace(id) {
   if (typeof id !== 'string' || !PLACE_RE.test(id)) throw new HttpError(400, `bad place id: ${String(id).slice(0, 80)}`);
   return id;
 }
 
-function int(s, name) {
-  if (typeof s === 'number' && Number.isInteger(s)) return s;
-  if (typeof s !== 'string' || !/^(0|[1-9][0-9]{0,9})$/.test(s)) throw new HttpError(400, `bad tile ${name}`);
-  return Number(s);
+function grid400(fn) {
+  try { return fn(); } catch (e) { throw new HttpError(400, e.message); }
 }
 
-// { version, z, x, y } with z inside [minZoom, maxZoom] and x, y inside the zoom's grid.
-export function parseTileKey(version, z, x, y, { minZoom = 0, maxZoom = 22 } = {}) {
-  checkVersion(version);
-  const Z = int(z, 'z'), X = int(x, 'x'), Y = int(y, 'y');
-  if (Z < minZoom || Z > maxZoom) throw new HttpError(400, `tile z ${Z} outside ${minZoom}..${maxZoom}`);
-  const n = 2 ** Z;
-  if (X >= n || Y >= n) throw new HttpError(400, `tile ${Z}/${X}/${Y} outside the grid`);
-  return { version, z: Z, x: X, y: Y };
+// (buildId, 'hg1-conus', L, c, r) -> { buildId, grid, domain, L, c, r, id: 'hg1-conus/0/c/r' }; 400 on a bad domain,
+// level, digit string, negative or out-of-bounds key
+export function parseTileKey(buildId, gd, L, c, r, { levels = [0] } = {}) {
+  checkVersion(buildId);
+  const t = grid400(() => checkTile(gd, L, c, r, { levels }));
+  return { buildId, ...t };
 }
+export const parseCtxKey = (buildId, gd, L, C, R) => parseTileKey(buildId, gd, L, C, R, { levels: [4] });
 
-export const tileStorageKey = (k) => `tiles/${k.version}/${k.z}/${k.x}/${k.y}`;
-export const manifestStorageKey = (version, placeId) => `manifests/${version}/${placeId}.json`;
-export const tileId = (k) => `${k.z}/${k.x}/${k.y}`;
-
-// Web-Mercator (slippy map) tile maths.
-export function lonToX(lon, z) { return Math.floor(((lon + 180) / 360) * 2 ** z); }
-export function latToY(lat, z) {
-  const r = (lat * Math.PI) / 180;
-  return Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z);
-}
-export function tileBbox(z, x, y) {
-  const n = 2 ** z;
-  const lon = (i) => (i / n) * 360 - 180;
-  const lat = (j) => (Math.atan(Math.sinh(Math.PI * (1 - (2 * j) / n))) * 180) / Math.PI;
-  return [lon(x), lat(y + 1), lon(x + 1), lat(y)]; // [west, south, east, north]
-}
-
-// Every tile at zoom z touching bbox [w, s, e, n], row-major (y, then x): the order is part of the manifest's bytes.
-export function tilesForBbox(bbox, z, maxTiles = 1024) {
-  const [w, s, e, n] = bbox;
-  if (![w, s, e, n].every(Number.isFinite) || w >= e || s >= n || s < -85 || n > 85) throw new HttpError(400, 'bad bbox');
-  const x0 = lonToX(w, z), x1 = lonToX(e, z), y0 = latToY(n, z), y1 = latToY(s, z);
-  const count = (x1 - x0 + 1) * (y1 - y0 + 1);
-  if (count > maxTiles) throw new HttpError(413, `place covers ${count} tiles at z${z}, over the ${maxTiles} cap`);
-  const out = [];
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) out.push({ z, x, y });
+export const tileId = (k) => `${GRID}-${k.domain}/${k.L ?? 0}/${k.c}/${k.r}`;
+export const tileStorageKey = (k) => `tiles/${k.buildId}/${GRID}-${k.domain}/0/${k.c}/${k.r}`;
+export const ctxStorageKey = (k) => `ctx/${k.buildId}/${GRID}-${k.domain}/4/${k.c}/${k.r}`;
+export const manifestStorageKey = (buildId, placeId) => `manifests/${buildId}/${placeId}.json`;
+export const buildStorageKey = (buildId) => `builds/${buildId}.json`;
+export const demStorageKey = (etag, rest) => `dem/${etag}/${rest}`;
+// the L2 compile block a tile belongs to (never in a client key)
+export const blockOf = (k, level = BLOCK_L) => ({ buildId: k.buildId, grid: k.grid || GRID, domain: k.domain, L: level, c: k.c >> level, r: k.r >> level });
+export const blockId = (b) => `${GRID}-${b.domain}/${b.L}/${b.c}/${b.r}`;
+export function blockChildren(b) {
+  const n = 1 << b.L, out = [];
+  for (let r = b.r * n; r < b.r * n + n; r++) for (let c = b.c * n; c < b.c * n + n; c++) out.push({ buildId: b.buildId, grid: GRID, domain: b.domain, L: 0, c, r, id: `${GRID}-${b.domain}/0/${c}/${r}` });
   return out;
 }

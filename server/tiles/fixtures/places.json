@@ -1,9 +1,11 @@
 {
-  "note": "Test gazetteer for the tile service. Small boxes (well under the 4.5 km cap) so tests stay fast.",
+  "note": "Test gazetteer for the tile service (hg1). Small boxes so tests stay fast. geoid -> domain by its state prefix; anchor = the Census internal point, else the bbox centre.",
   "places": {
-    "okemah-ok": { "name": "Okemah, OK", "bbox": [-96.318, 35.424, -96.300, 35.438] },
-    "sf-union-square": { "name": "Union Square, San Francisco, CA", "bbox": [-122.412, 37.785, -122.402, 37.791] },
-    "phoenix-az-downtown": { "name": "Downtown Phoenix, AZ", "bbox": [-112.083, 33.452, -112.065, 33.465] },
-    "marfa-tx": { "name": "Marfa, TX", "bbox": [-104.030, 30.304, -104.012, 30.316] }
+    "okemah-ok": { "name": "Okemah, OK", "geoid": "4054200", "anchor": [-96.300309, 35.429269], "bbox": [-96.318, 35.424, -96.300, 35.438] },
+    "okemah-ne": { "name": "Okemah NE (overlap)", "domain": "conus", "bbox": [-96.309, 35.430, -96.291, 35.444] },
+    "sf-union-square": { "name": "Union Square, San Francisco, CA", "geoid": "0667000", "bbox": [-122.412, 37.785, -122.402, 37.791] },
+    "phoenix-az-downtown": { "name": "Downtown Phoenix, AZ", "domain": "conus", "bbox": [-112.083, 33.452, -112.065, 33.465] },
+    "marfa-tx": { "name": "Marfa, TX", "geoid": "4846620", "bbox": [-104.030, 30.304, -104.012, 30.316] },
+    "honolulu-hi": { "name": "Honolulu, HI", "geoid": "1571550", "bbox": [-157.865, 21.305, -157.855, 21.312] }
   }
 }

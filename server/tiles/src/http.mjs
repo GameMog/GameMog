@@ -1,15 +1,19 @@
-// HTTP front for the tile service, on node:http only (no framework).
-//   GET|HEAD /tiles/{compilerVersion}/{z}/{x}/{y}            the tile (immutable)
-//   GET|HEAD /places/{placeId}/manifest[?version=v]          the place's tile set (immutable when ?version= is given)
-//   GET|HEAD /places/{placeId}/lock[?version=v]              a city lock record for that place + version
-//   GET|HEAD /locks/{placeId}/{compilerVersion}/{tileSetHash} the manifest a lock names; 409 if it does not match
-//   GET|HEAD /locks/{placeId}/{compilerVersion}/{tileSetHash}/tiles/{z}/{x}/{y}
-//                                                           a tile of that locked set, checked against its manifest;
-//                                                           409 drifted, 410 lost and its compiler is gone
-//   GET      /admin/verify/{placeId}/{compilerVersion}/{tileSetHash}
-//                                                           verifyLock (re-hash + repair every tile): local requests
-//                                                           or Authorization: Bearer <adminToken> only, else 403
-//   GET      /healthz                                       ok + counts; the store and versions only to local/admin
+// HTTP front for the tile service (the national grid hg1), on node:http only (no framework).
+//   GET|HEAD /tiles/{buildId}/hg1-{domain}/0/{c}/{r}                 the tile (immutable)
+//   GET|HEAD /manifests/{buildId}/{placeId}                          the place's descriptor + tile set in that build
+//   GET|HEAD /places/{placeId}/manifest[?version=buildId]            the same, the current build by default
+//   GET|HEAD /places/{placeId}/lock[?version=buildId]                a lock v2 for that place + build
+//   GET|HEAD /locks/{placeId}/{buildId}/{tileSetHash}                the manifest a lock names; 409 if it does not match
+//   GET|HEAD /locks/{placeId}/{buildId}/{tileSetHash}/tiles/hg1-{domain}/0/{c}/{r}
+//                                                                    a tile of that locked set (checked against its
+//                                                                    manifest; 409 drifted, 410 lost + build gone); a tile
+//                                                                    outside the set: served unlocked at the same build
+//   GET      /ctx/{buildId}/hg1-{domain}/4/{C}/{R}                   a context block: local or admin only
+//   GET      /admin/verify/{placeId}/{buildId}/{tileSetHash}         verifyLock (re-hash + repair every tile): local or
+//                                                                    Authorization: Bearer <adminToken> only, else 403
+//   GET      /healthz                                                ok + counts; store and builds to local/admin only
+// 400 a bad build id, domain, level or key (negative, not decimal, out of the domain's bounds); 410 a tile of an
+// unregistered build that is not stored; 422 a tile the compiler refused (no DEM: the reason in the body).
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { HttpError } from './keys.mjs';
@@ -111,28 +115,32 @@ export function createHttpHandler(service, { log = () => {}, adminToken, decoded
       const url = new URL(req.url, 'http://tiles.local');
       const p = url.pathname.split('/').slice(1).map(decodeURIComponent);
       const version = url.searchParams.get('version') || undefined;
-      if (p[0] === 'tiles' && p.length === 5) {
-        const e = await service.getTile(p[1], p[2], p[3], p[4]);
-        send(req, res, e);
+      const urlLock = (q) => ({ place: q[1], buildId: q[2], tiles: q[3] });
+      if (p[0] === 'tiles' && p.length === 6) {
+        send(req, res, await service.getTile(p[1], p[2], p[3], p[4], p[5]));
+      } else if (p[0] === 'manifests' && p.length === 3) {
+        send(req, res, await service.getManifest(p[2], p[1]));
       } else if (p[0] === 'places' && p.length === 3 && p[2] === 'manifest') {
         const e = await service.getManifest(p[1], version);
         send(req, res, e, { cache: version ? IMMUTABLE : SHORT });
       } else if (p[0] === 'places' && p.length === 3 && p[2] === 'lock') {
         sendJson(req, res, 200, await service.createLock(p[1], version), version ? IMMUTABLE : SHORT);
       } else if (p[0] === 'locks' && p.length === 4) {
-        const e = await service.resolveLock({ placeId: p[1], compilerVersion: p[2], tileSetHash: p[3] });
-        send(req, res, e);
-      } else if (p[0] === 'locks' && p.length === 8 && p[4] === 'tiles') {
-        const e = await service.getLockedTile({ placeId: p[1], compilerVersion: p[2], tileSetHash: p[3] }, p[5], p[6], p[7]);
-        send(req, res, e);
+        send(req, res, await service.resolveLock(urlLock(p)));
+      } else if (p[0] === 'locks' && p.length === 9 && p[4] === 'tiles') {
+        const e = await service.getLockedTile(urlLock(p), p[5], p[6], p[7], p[8]);
+        send(req, res, e, { extra: e.unlocked ? { 'x-tile-lock': 'outside the locked set (unlocked)' } : {} });
+      } else if (p[0] === 'ctx' && p.length === 6) {
+        if (!isAdmin(req)) throw new HttpError(403, 'context blocks: local requests, or Authorization: Bearer <TILES_ADMIN_TOKEN>');
+        send(req, res, await service.getCtx(p[1], p[2], p[3], p[4], p[5]));
       } else if (p[0] === 'admin') {
         if (!isAdmin(req)) throw new HttpError(403, 'admin route: local requests, or Authorization: Bearer <TILES_ADMIN_TOKEN>');
         if (p[1] === 'verify' && p.length === 5) {
-          sendJson(req, res, 200, await service.verifyLock({ placeId: p[2], compilerVersion: p[3], tileSetHash: p[4] }));
+          sendJson(req, res, 200, await service.verifyLock({ place: p[2], buildId: p[3], tiles: p[4] }));
         } else throw new HttpError(404, 'not found');
       } else if (p[0] === 'healthz' && p.length === 1) {
         const { stats, lru, flight } = service;
-        const counts = { ok: true, currentVersion: service.currentVersion || null, stats, lru: { entries: lru.size, bytes: lru.bytes, hits: lru.hits, misses: lru.misses, evictions: lru.evictions }, inflight: flight.size };
+        const counts = { ok: true, grid: 'hg1', currentVersion: service.currentVersion || null, stats, lru: { entries: lru.size, bytes: lru.bytes, hits: lru.hits, misses: lru.misses, evictions: lru.evictions }, inflight: flight.size };
         // The store's endpoint/bucket and the compiler list are deployment details: only for this machine or an admin.
         if (isAdmin(req)) Object.assign(counts, { versions: [...service.compilers.keys()], store: service.store.describe(), decodedCache: { entries: decodedCache.size, bytes: decodedCache.bytes } });
         sendJson(req, res, 200, counts);

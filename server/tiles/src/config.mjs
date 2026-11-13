@@ -3,10 +3,12 @@
 //   --store s3 --s3-endpoint <url> --s3-bucket <b> [--s3-region auto] [--s3-prefix p/]
 //        credentials from the environment only: TILES_S3_ACCESS_KEY_ID, TILES_S3_SECRET_ACCESS_KEY
 //   --compiler fake (default) [--fake-version fake-1] [--fake-delay-ms 0]
-//   --compiler cmd --compiler-version <v> --compiler-argv '<json array>' [--compiler-encoding gzip] [--compiler-type t]
-//   --current-version <v>   the version manifests/locks default to (default: the last compiler given)
+//   --compiler cmd --compiler-version <buildId> --compiler-argv '<json array>' [--compiler-block-argv '<json>']
+//        [--compiler-ctx-argv '<json>'] [--compiler-describe-argv '<json>'] [--compiler-encoding gzip] [--compiler-type t]
+//        (argv placeholders: src/compilers/subprocess.mjs; the buildId is tools/hometown/compile.py's, e.g. --print-build)
+//   --current-version <buildId>   the build manifests/locks default to (default: the last compiler given)
 //   --gazetteer <file>      default server/tiles/fixtures/places.json
-//   --zoom 16 --max-compiles 4 --lru-mb 64
+//   --block-level 2 (0: tile by tile) --max-compiles 4 --lru-mb 64
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -26,9 +28,10 @@ export const OPTIONS = {
   'fake-version': { type: 'string', default: 'fake-1' }, 'fake-delay-ms': { type: 'string', default: '0' },
   'compiler-version': { type: 'string' }, 'compiler-argv': { type: 'string' }, 'compiler-encoding': { type: 'string', default: 'identity' },
   'compiler-type': { type: 'string', default: 'application/octet-stream' }, 'compiler-cwd': { type: 'string' },
+  'compiler-block-argv': { type: 'string' }, 'compiler-ctx-argv': { type: 'string' }, 'compiler-describe-argv': { type: 'string' },
   'current-version': { type: 'string' },
   gazetteer: { type: 'string' },
-  zoom: { type: 'string', default: '16' }, 'max-compiles': { type: 'string', default: '4' }, 'lru-mb': { type: 'string', default: '64' },
+  'block-level': { type: 'string', default: '2' }, 'max-compiles': { type: 'string', default: '4' }, 'lru-mb': { type: 'string', default: '64' },
 };
 
 export function parse(argv, extra = {}) {
@@ -51,6 +54,9 @@ export function compilersFrom(o) {
   if (o.compiler === 'cmd') {
     return [createSubprocessCompiler({
       version: o['compiler-version'], argv: JSON.parse(o['compiler-argv'] || 'null'),
+      blockArgv: o['compiler-block-argv'] ? JSON.parse(o['compiler-block-argv']) : undefined,
+      ctxArgv: o['compiler-ctx-argv'] ? JSON.parse(o['compiler-ctx-argv']) : undefined,
+      describeArgv: o['compiler-describe-argv'] ? JSON.parse(o['compiler-describe-argv']) : undefined,
       contentEncoding: o['compiler-encoding'], contentType: o['compiler-type'], cwd: o['compiler-cwd'],
     })];
   }
@@ -64,7 +70,7 @@ export async function serviceFrom(o, { log } = {}) {
     compilers: compilerRegistry(list),
     places: await loadGazetteer(o.gazetteer || path.join(TILES_DIR, 'fixtures', 'places.json')),
     currentVersion: o['current-version'] || list[list.length - 1].version,
-    zoom: Number(o.zoom), maxConcurrentCompiles: Number(o['max-compiles']),
+    blockLevel: Number(o['block-level']), maxConcurrentCompiles: Number(o['max-compiles']),
     lru: new LRU({ maxBytes: Number(o['lru-mb']) * 1024 * 1024 }),
     log,
   });

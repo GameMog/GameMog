@@ -62,7 +62,7 @@ async function phase(name, paths) {
   return summary(name, rs, Date.now() - t0);
 }
 
-const tiles = Array.from({ length: N }, (_, i) => `/tiles/fake-1/16/${10400 + (i % 40)}/${25300 + Math.floor(i / 40)}`);
+const tiles = Array.from({ length: N }, (_, i) => `/tiles/fake-1/hg1-conus/0/${1400 + (i % 40)}/${7400 + Math.floor(i / 40)}`);
 const out = { config: { tiles: N, concurrency: C, compileMs: Number(o['compile-ms']), maxConcurrentCompiles: Number(o['max-compiles']), store: store.describe(), node: process.version } };
 out.cold = await phase('cold (miss: compile + store)', tiles);
 const hot = [];
@@ -74,7 +74,7 @@ out.hotStore = await phase('hot (store hit, cold LRU)', tiles);
 
 const before = fake.total;
 const t0 = Date.now();
-const key = '/tiles/fake-1/16/10999/25999';
+const key = '/tiles/fake-1/hg1-conus/0/1999/7999';
 const st = await Promise.all(Array.from({ length: Number(o.stampede) }, () => get(key)));
 out.stampede = { ...summary(`stampede (${o.stampede} concurrent misses, one key)`, st, Date.now() - t0), compiles: fake.total - before,
   identicalBodies: st.every((r) => r.bytes.equals(st[0].bytes)), sharedWaits: service.flight.shared };
