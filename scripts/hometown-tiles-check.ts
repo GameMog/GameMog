@@ -8,7 +8,7 @@
  *
  * Offline: a temp directory, fake tiles, a fake compiler. No server, no Python, no network.
  */
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync, utimesSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync, utimesSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -18,7 +18,7 @@ import { parseKey, parseKeyString, tileKey, manifestKey, buildKey, blockOf } fro
 import { TileStore, StoreFull, GB } from '../lib/hometown-tiles/store.ts';
 import { planGc, applyGc } from '../lib/hometown-tiles/gc.ts';
 import { gatherPins } from '../lib/hometown-tiles/pins.ts';
-import { publicResponse, adminResponse, allowedOrigin, verifyObject, type Deps } from '../lib/hometown-tiles/http.ts';
+import { publicResponse, adminResponse, allowedOrigin, verifyObject, currentBuilds, askable, type Deps } from '../lib/hometown-tiles/http.ts';
 import { hometownConfig } from '../lib/hometown-tiles/config.ts';
 import { createCompiler, childEnv, CompileError } from '../lib/hometown-tiles/compiler.ts';
 import { prewarmList, playBox, NAMED, PLAY_SIDE_M } from '../lib/hometown-tiles/prewarm-list.ts';
@@ -119,6 +119,20 @@ async function checks(ok: Ok, dir: string) {
   ok('with a target, the least recently served build goes first, and no more than needed', part.delete.builds.length === 1 && part.delete.builds[0] === D.id);
   const blind = planGc({ entries: gstore.list(), current: [A.id], pins: new Set(), pinsOk: false, now });
   ok('when the pins could not be read, nothing is collected (the guard never fails open)', blind.delete.keys.length === 0 && !!blind.refused);
+  const nan = planGc({ entries: gstore.list(), tmp: gstore.tmpFiles(), current: [A.id], pins: pins.builds, pinsOk: true, lastServed: served, now, targetBytes: Number('abc') * GB });
+  let nanThrew = false; try { applyGc(gstore, nan, nan.planId); } catch { nanThrew = true; }
+  ok('a NaN or negative target (the GC script\'s --target-gb abc) plans nothing and cannot be applied, never "no limit"', nan.delete.keys.length === 0 && nan.tmp.keys.length === 0 && /not a number/.test(nan.refused ?? '') && nanThrew
+    && planGc({ entries: gstore.list(), current: [A.id], pins: pins.builds, pinsOk: true, now, targetBytes: -1 }).delete.keys.length === 0 && gstore.list().length === 17);
+  // without HOMETOWN_BUILD: an older build touched lately (a tile compiled into it on demand) must not make the newest
+  // build collectable; both the newest record and the newest file are kept
+  const gcfg = hometownConfig({ HOMETOWN_DIR: path.join(dir, 'gc') });
+  const recT = (b: { id: string }, t: number) => utimesSync(gstore.file(buildKey(b.id)), t / 1000, t / 1000);
+  for (const [b, i] of [[A, 1], [B, 2], [C, 3], [D, 4], [E, 5]] as const) recT(b, now - (10 - i) * 86400_000);
+  for (const e of gstore.list()) if (!e.key.startsWith('builds/')) utimesSync(gstore.file(e.key), (now - 20 * 86400_000) / 1000, (now - 20 * 86400_000) / 1000);
+  utimesSync(gstore.file(tileKey(D.id, 'conus', 0, 0)), now / 1000, now / 1000);
+  const cur = currentBuilds(gstore, gcfg);
+  ok('without HOMETOWN_BUILD the newest build record stays current even when an older build has the newest file', cur.includes(E.id) && cur.includes(D.id) && cur.length === 2, cur.join(' '));
+  ok('with HOMETOWN_BUILD it is that build alone', JSON.stringify(currentBuilds(gstore, hometownConfig({ HOMETOWN_DIR: path.join(dir, 'gc'), HOMETOWN_BUILD: A.id }))) === JSON.stringify([A.id]));
   let threw = false;
   try { applyGc(gstore, plan, 'not-the-plan'); } catch { threw = true; }
   ok('apply refuses any plan id but the dry run\'s own', threw && gstore.list().length === 17);
@@ -182,6 +196,9 @@ async function checks(ok: Ok, dir: string) {
   ok('a half-uploaded place: its descriptor is refused (409, 1 tile missing)', half.status === 409 && hj.missing === 1);
   const pl0 = await publicResponse(req('places/us-4054200'), ['places', 'us-4054200'], on);
   ok('...and /places/{id} answers not-built (404), the ask kept for pre-warm', pl0.status === 404 && ((await pl0.json()) as { status: string }).status === 'not-built' && existsSync(store.statePath('requests.jsonl')));
+  const junk = await Promise.all(['us-9999999', 'us-0000001', 'zz-junk', 'okemah'].map((id) => publicResponse(req(`places/${id}`), ['places', id], on)));
+  const askLog = readFileSync(store.statePath('requests.jsonl'), 'utf8');
+  ok('/places/{id} for an id the gazetteer does not know is 404 too, but never kept as a pre-warm ask', junk.every((r) => r.status === 404) && !/us-9999999|us-0000001|zz-junk|okemah/.test(askLog) && askable('us-4054200') && !askable('us-9999999'));
   await put(kB, tb.gz, { 'x-content-sha256': tb.sha });
   const done = await put(mk, man);
   const again = await put(kA, ta.gz, { 'x-content-sha256': ta.sha });

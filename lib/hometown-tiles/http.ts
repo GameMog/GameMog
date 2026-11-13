@@ -36,6 +36,8 @@ import { planGc, applyGc } from './gc.ts';
 import { gatherPins, type Pins } from './pins.ts';
 import { CompileError, type createCompiler } from './compiler.ts';
 import type { HometownConfig } from './config.ts';
+import { TOWN_ID } from '../hometown/ids.ts';
+import { placeById } from '../places/search.ts';
 
 export const IMMUTABLE = 'public, max-age=31536000, immutable, no-transform';
 const SHORT = 'public, max-age=60';
@@ -64,27 +66,57 @@ const json = (req: Request, cfg: HometownConfig, status: number, body: unknown, 
   new Response(req.method === 'HEAD' ? null : JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': cache, ...cors(req, cfg), ...extra } });
 const notFound = () => new Response('Not found', { status: 404, headers: { 'cache-control': NO_STORE } });
 
-/** The build /places/{id} answers from: HOMETOWN_BUILD, else the newest build holding that place's manifest. */
+/**
+ * When each build was made: its build record's time (builds/<id>.json, stored once, ifAbsent, and never written again).
+ * Without HOMETOWN_BUILD the "current" build was the one with the newest file, which a tile compiled or uploaded into
+ * an older build on demand (or a re-uploaded manifest) moves: the record's time does not move.
+ */
+export function buildsBorn(store: TileStore): Map<string, number> {
+  const born = new Map<string, number>();
+  let names: string[] = [];
+  try { names = readdirSync(path.join(store.root, 'builds')); } catch { return born; }
+  for (const f of names) {
+    const b = f.replace(/\.json$/, '');
+    if (!f.endsWith('.json') || !BUILD_ID.test(b)) continue;
+    try { born.set(b, statSync(path.join(store.root, 'builds', f)).mtimeMs); } catch { /* gone */ }
+  }
+  return born;
+}
+
+/** The build /places/{id} answers from: HOMETOWN_BUILD, else the newest build (by its record) holding that place's manifest. */
 export function currentBuildFor(store: TileStore, cfg: HometownConfig, placeId: string): string | null {
   if (cfg.build) return store.has(manifestKey(cfg.build, placeId)) ? cfg.build : null;
   let best: string | null = null, at = -1;
   let builds: string[] = [];
   try { builds = readdirSync(path.join(store.root, 'manifests')).filter((b) => BUILD_ID.test(b)); } catch { return null; }
+  const born = buildsBorn(store);
   for (const b of builds) {
-    try { const t = statSync(store.file(manifestKey(b, placeId))).mtimeMs; if (t > at) { at = t; best = b; } } catch { /* not in this build */ }
+    try { const m = statSync(store.file(manifestKey(b, placeId))).mtimeMs, t = born.get(b) ?? m; if (t > at || (t === at && best !== null && b > best)) { at = t; best = b; } } catch { /* not in this build */ }
   }
   return best;
 }
 
-/** The builds never collected: HOMETOWN_BUILD, else the newest build in the store (by its newest file). */
+/**
+ * The builds never collected: HOMETOWN_BUILD; else, with no one build named, both the newest build by its record and
+ * the one with the newest file (which used to be the only one kept), so an old build touched lately can never get the
+ * new one collected. GC says which (currentFrom) and the owner should set HOMETOWN_BUILD.
+ */
 export function currentBuilds(store: TileStore, cfg: HometownConfig): string[] {
   if (cfg.build) return [cfg.build];
   const newest = new Map<string, number>();
   for (const e of store.list()) { const b = e.key.split('/')[1].replace(/\.json$/, ''); newest.set(b, Math.max(newest.get(b) ?? 0, e.mtimeMs)); }
-  const top = [...newest].sort((a, b) => b[1] - a[1])[0];
-  return top ? [top[0]] : [];
+  const top = [...newest].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? 1 : -1))[0]?.[0];
+  const rec = [...buildsBorn(store)].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? 1 : -1))[0]?.[0];
+  return [...new Set([rec, top].filter((b): b is string => !!b))];
 }
+/** Where currentBuilds' answer comes from, for the GC's plan and the status page. */
+export const currentFrom = (cfg: HometownConfig) => (cfg.build ? 'HOMETOWN_BUILD' : 'no HOMETOWN_BUILD: the newest build record and the build with the newest file are both kept');
 
+/** A pre-warm ask worth keeping: a canonical town id (us-<GEOID>) the place search's gazetteer knows. */
+export function askable(placeId: string): boolean {
+  if (!TOWN_ID.test(placeId)) return false;
+  try { return !!placeById(placeId); } catch { return false; }
+}
 const asked = new Map<string, number>();
 function recordAsk(store: TileStore, placeId: string, now: number) {
   if ((asked.get(placeId) ?? 0) > now - 3600_000) return;
@@ -113,7 +145,8 @@ export async function publicResponse(req: Request, parts: string[], d: Deps): Pr
     if (!PLACE_ID.test(placeId)) return json(req, cfg, 400, { error: 'bad place id' });
     const b = currentBuildFor(store, cfg, placeId);
     const got = b ? store.get(manifestKey(b, placeId)) : null;
-    if (!b || !got) { recordAsk(store, placeId, (d.now ?? Date.now)()); return json(req, cfg, 404, { status: 'not-built', placeId }, SHORT); }
+    // (only a real US place is kept as a pre-warm ask: the grammar alone let any made-up id fill requests.jsonl)
+    if (!b || !got) { if (askable(placeId)) recordAsk(store, placeId, (d.now ?? Date.now)()); return json(req, cfg, 404, { status: 'not-built', placeId }, SHORT); }
     const m = JSON.parse(got.body.toString('utf8'));
     return json(req, cfg, 200, { status: 'built', placeId, buildId: b, manifest: `/api/hometown/${manifestKey(b, placeId)}`, tileBase: '/api/hometown', tileSetHash: m.tileSetHash ?? null, tileCount: Array.isArray(m.tiles) ? m.tiles.length : null, lock: m.lock ?? null }, SHORT);
   }
@@ -210,7 +243,7 @@ export async function adminResponse(req: Request, parts: string[], d: Deps): Pro
       for (const e of store.list()) { const b = e.key.split('/')[1].replace(/\.json$/, ''); const x = builds.get(b) ?? { objects: 0, bytes: 0 }; x.objects++; x.bytes += e.bytes; builds.set(b, x); }
       return json(req, cfg, 200, {
         tiles: cfg.tiles, compile: cfg.compile, store: store.describe(), usage: { ...u, usedGB: +(u.used / GB).toFixed(3), capGB: +(u.cap / GB).toFixed(3), freeGB: u.free == null ? null : +(u.free / GB).toFixed(3) },
-        current: currentBuilds(store, cfg), builds: Object.fromEntries(builds), compiler: d.compiler ? { ...d.compiler.stats, waiting: d.compiler.waiting, active: d.compiler.active } : null,
+        current: currentBuilds(store, cfg), currentFrom: currentFrom(cfg), builds: Object.fromEntries(builds), compiler: d.compiler ? { ...d.compiler.stats, waiting: d.compiler.waiting, active: d.compiler.active } : null,
       });
     }
     if (req.method === 'PUT' && parts[0] === 'objects' && parts.length > 1) {
@@ -232,7 +265,7 @@ export async function adminResponse(req: Request, parts: string[], d: Deps): Pro
       // (a target that is not a number would compare false and plan to collect every unpinned build: refuse it)
       if (tg != null && tg !== '' && !(Number.isFinite(Number(tg)) && Number(tg) >= 0)) return json(req, cfg, 400, { error: 'target_gb is a number of GB, 0 or more' });
       const p = pins();
-      const plan = planGc({ entries: store.list(), tmp: store.tmpFiles(), current: currentBuilds(store, cfg), pins: p.builds, pinsOk: p.ok, pinSources: [...p.sources, ...p.errors.map((e) => `ERROR ${e}`)], lastServed: store.lastServed(), targetBytes: tg != null && tg !== '' ? Number(tg) * GB : null, now });
+      const plan = planGc({ entries: store.list(), tmp: store.tmpFiles(), current: currentBuilds(store, cfg), currentFrom: currentFrom(cfg), pins: p.builds, pinsOk: p.ok, pinSources: [...p.sources, ...p.errors.map((e) => `ERROR ${e}`)], lastServed: store.lastServed(), targetBytes: tg != null && tg !== '' ? Number(tg) * GB : null, now });
       const view = (pl: typeof plan) => ({ ...pl, pinned: [...p.builds].sort(), delete: { ...pl.delete, keys: url.searchParams.get('keys') === '1' ? pl.delete.keys : pl.delete.keys.length }, tmp: { ...pl.tmp, keys: pl.tmp.keys.length } });
       if (req.method === 'GET') return json(req, cfg, 200, { dryRun: true, ...view(plan) });
       let planId = '';
