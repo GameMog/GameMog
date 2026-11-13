@@ -58,7 +58,9 @@ export function placeTile(fr, { header: h, sections: s }) {
   const bv = s.bverts || new Int32Array(0), verts = new Float32Array(bv.length);
   for (let i = 0; i < bv.length; i++) verts[i] = loc(bv[i]);
   const nodes = (s.roads?.nodes || []).map((n) => ({ id: n.id, x: x0 + loc(n.u), z: z0 + loc(n.v), control: n.control ?? 0, border: !!n.border }));
-  const links = (s.roads?.links || []).map((l) => ({ ...l, pts: l.pts.map(([u, v]) => [x0 + loc(u), z0 + loc(v)]) }));
+  // (a deck's profile, elev [step cm, y cm NAVD88...]: session metres, as the legacy package's link field [12])
+  const links = (s.roads?.links || []).map((l) => ({ ...l, pts: l.pts.map(([u, v]) => [x0 + loc(u), z0 + loc(v)]),
+    ...(l.elev ? { elev: [l.elev[0] / (100 * k0), ...l.elev.slice(1).map((y) => y / 100 - fr.yOffset)] } : {}) }));
   return {
     header: h, x0, z0, size: TILE / k0,
     heights: { x0, z0, step: 2 / k0, n: P, h: hf },
