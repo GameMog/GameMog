@@ -832,11 +832,28 @@
     // (a Hometown package's data/*.bin.gz from its own folder)
     if (MC_CITY === 'pkg') Object.assign(window.NYC, { BASE: new URL(`./cities/pkg/packages/${MC_PKG}/`, document.baseURI).href });
 
-    for (const src of nycAppScripts) {
+    const addCityScript = (src) => {
       const s = document.createElement('script');
       s.src = src;
       s.async = false;
       document.head.appendChild(s);
+      return s;
+    };
+    // (a Hometown package: the engine's scripts only once its geodata.js has loaded. An id with no package compiled
+    // under cities/pkg/packages/ says so, instead of booting the engine on no data and failing on TypeErrors)
+    const pkgAt = MC_PKG ? nycAppScripts.findIndex((src) => src.includes('/cities/pkg/packages/')) : -1;
+    for (const src of pkgAt < 0 ? nycAppScripts : nycAppScripts.slice(0, pkgAt)) addCityScript(src);
+    if (pkgAt >= 0) {
+      const g = addCityScript(nycAppScripts[pkgAt]);
+      g.onload = () => { for (const src of nycAppScripts.slice(pkgAt + 1)) addCityScript(src); };
+      g.onerror = () => {
+        const overlay = document.getElementById('loading-overlay'), status = document.getElementById('loading-status');
+        overlay?.classList.remove('hidden');
+        overlay?.classList.add('boot-error');
+        const track = overlay?.querySelector('.loader-track'); if (track) track.hidden = true;
+        if (status) { status.textContent = `No city package "${MC_PKG}" here. Compile it with tools/hometown/compile.py --id ${MC_PKG}.`; status.setAttribute('role', 'alert'); }
+        console.warn('[pkg] no package', MC_PKG);
+      };
     }
   </script>
   <!-- Mog City: Dan, his car, getting in and out (waits for the city app) -->
