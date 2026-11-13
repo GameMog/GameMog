@@ -82,6 +82,9 @@ export function runPlacesChecks(ok: Ok) {
   ok('a result is {placeId, name, state, bbox, lat, lon}: Okemah is us-4054200, its bbox around its point',
     ok1?.placeId === 'us-4054200' && ok1.state === 'OK' && ok1.bbox.length === 4 && ok1.bbox[0] < ok1.lon && ok1.lon < ok1.bbox[2] && ok1.bbox[1] < ok1.lat && ok1.lat < ok1.bbox[3]
       && Math.abs(ok1.lat - 35.43) < 0.01 && Math.abs(ok1.lon + 96.30) < 0.01, JSON.stringify(ok1 && { placeId: ok1.placeId, bbox: ok1.bbox }));
+  ok('a result carries its GEOID and its hg1 grid domain from the state prefix (Okemah conus; Anchorage ak, Honolulu hi, San Juan pr)',
+    ok1?.geoid === '4054200' && ok1.domain === 'conus' && searchPlaces('anchorage ak')[0]?.domain === 'ak' && searchPlaces('honolulu hi')[0]?.domain === 'hi'
+      && searchPlaces('san juan pr')[0]?.domain === 'pr', JSON.stringify(ok1 && { geoid: ok1.geoid, domain: ok1.domain }));
 
   console.log('\nhometown place search: the town box');
   const go = (s0: BoxState, ...as: BoxAction[]) => as.reduce(boxReducer, s0);

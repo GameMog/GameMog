@@ -8,6 +8,7 @@ export type CityRequest = { status: 'stub'; place: PlaceSelection; requestedAt: 
  * For now it only hands the selection back, with no network call.
  */
 export async function requestCity(place: PlaceSelection): Promise<CityRequest> {
-  const { placeId, name, state, bbox, lat, lon } = place;
-  return { status: 'stub', place: { placeId, name, state, bbox, lat, lon }, requestedAt: Date.now() };
+  // (geoid and domain: the tile service's descriptor projects the town on the hg1 grid domain its GEOID names)
+  const { placeId, name, state, bbox, lat, lon, geoid, domain } = place;
+  return { status: 'stub', place: { placeId, name, state, bbox, lat, lon, geoid, domain }, requestedAt: Date.now() };
 }

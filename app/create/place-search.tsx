@@ -11,7 +11,7 @@ const people = (n: number | null) => (n === null ? '' : `${n.toLocaleString('en-
  * Up and Down move through it, Enter picks, Escape closes it and a second Escape clears the box.
  * Results come from /api/places as you type; every edit empties the list and aborts the search before,
  * and only the answer for the text in the box is shown (lib/places/combobox.ts). `onPick` gets
- * {placeId, name, state, bbox, lat, lon}.
+ * {placeId, name, state, bbox, lat, lon, geoid, domain} (domain: the hg1 tile grid's, from the GEOID's state prefix).
  */
 export function PlaceSearch({ onPick, disabled }: { onPick: (place: PlaceSelection, full: Place) => void; disabled?: boolean }) {
   const id = useId();
@@ -43,9 +43,9 @@ export function PlaceSearch({ onPick, disabled }: { onPick: (place: PlaceSelecti
   }, [active]);
 
   function pick(o: Option) {
-    const { placeId, name, state, bbox, lat, lon } = o;
+    const { placeId, name, state, bbox, lat, lon, geoid, domain } = o;
     dispatch({ t: 'input', text: `${name}, ${state}`, open: false });
-    onPick({ placeId, name, state, bbox, lat, lon }, o);
+    onPick({ placeId, name, state, bbox, lat, lon, geoid, domain }, o);
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {

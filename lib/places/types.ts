@@ -8,6 +8,13 @@ export type Place = {
   name: string;
   /** USPS code, e.g. "OK". */
   state: string;
+  /** The Census GEOID (state FIPS + place FIPS), e.g. "4054200". */
+  geoid: string;
+  /**
+   * The national tile grid's domain (Hometown grid hg1, MogCity tools/hometown/grid.py), from the GEOID's state
+   * prefix only, never from lon/lat: 02 ak, 15 hi, 72 / 78 pr, 66 / 69 gu, 60 as, anything else conus.
+   */
+  domain: HometownDomain;
   stateName: string;
   /** "city", "town", "village", "CDP", ... */
   kind: string;
@@ -25,4 +32,9 @@ export type Place = {
 };
 
 /** What the Create page passes on when a town is picked: the contract with the tile service. */
-export type PlaceSelection = Pick<Place, 'placeId' | 'name' | 'state' | 'bbox' | 'lat' | 'lon'>;
+export type PlaceSelection = Pick<Place, 'placeId' | 'name' | 'state' | 'bbox' | 'lat' | 'lon' | 'geoid' | 'domain'>;
+
+export type HometownDomain = 'conus' | 'ak' | 'hi' | 'pr' | 'gu' | 'as';
+const STATE_DOMAIN: Record<string, HometownDomain> = { '02': 'ak', '15': 'hi', '72': 'pr', '78': 'pr', '66': 'gu', '69': 'gu', '60': 'as' };
+/** The hg1 domain of a Census GEOID (its first two digits, the state FIPS). */
+export const domainOfGeoid = (geoid: string): HometownDomain => STATE_DOMAIN[String(geoid).slice(0, 2)] ?? 'conus';

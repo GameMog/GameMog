@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { EXPAND, STATES, fold, words } from './normalize.ts';
-import type { Place } from './types.ts';
+import { domainOfGeoid, type Place } from './types.ts';
 
 export type { Place } from './types.ts';
 
@@ -130,6 +130,7 @@ function toPlace(ix: Index, i: number): Place {
   const r = (v: number) => Math.round(v * 1e5) / 1e5;
   return {
     placeId: `us-${ix.geoid[i]}`, name: ix.name[i], state: ix.state[i], stateName: STATES[ix.state[i]] ?? ix.state[i],
+    geoid: ix.geoid[i], domain: domainOfGeoid(ix.geoid[i]),
     kind: KIND[ix.lsad[i]] ?? 'place', lat, lon, bbox: [r(lon - dLon), r(lat - dLat), r(lon + dLon), r(lat + dLat)],
     pop: ix.pop[i] >= 0 ? ix.pop[i] : null, landKm2: Math.round(ix.aland[i] / 1e4) / 100,
   };
