@@ -35,6 +35,7 @@ sys.path.insert(0, HERE)
 import grid  # noqa: E402
 import context  # noqa: E402
 from context import Context, building_owner_cm, downtown_at, floor_div, largest_polygon, water_polys, exact_centroid_cm  # noqa: E402
+import dem as demlib  # noqa: E402
 from dem import Sampler  # noqa: E402
 from sources import Sources, blocks_for, MissingRegion  # noqa: E402
 
@@ -253,15 +254,29 @@ def lib_versions():
 
 
 # ------------------------------------------------------------------------------------------------------------- build id
-DEM_SNAPSHOT = {'dataset': 'USGS 3DEP 1/3 arc-second, StagedProducts/Elevation/13/TIFF/current', 'mirror': 'dem/{etag}',
-                'policy': 'each file pinned at its first-seen ETag in the mirror; /current/ is never read twice; per-tile demSource names the files'}
+# The DEM a build reads is pinned by a snapshot (dem.py): the S3 listing of every 3DEP 1/3" and 1" file with its ETag,
+# stored content-addressed at dem/snapshots/{id}.json in the store. The build record names that id, so the buildId
+# changes when the DEM it reads does; every read is If-Match its pinned ETag. The snapshot is the store's
+# dem/current.json (compile.py --dem-snapshot lists USGS and points it at a new one) unless HOMETOWN_DEM_SNAPSHOT names one.
+class NoDemSnapshot(Exception):
+    pass
 
 
-def build_record():
-    snap = hashlib.sha256(jdump(DEM_SNAPSHOT).encode()).hexdigest()
+def dem_snapshot(store):
+    sid, snap = demlib.load_snapshot(store, os.environ.get('HOMETOWN_DEM_SNAPSHOT') or None)
+    if sid is None:
+        raise NoDemSnapshot('no DEM snapshot in the store %s: run tools/hometown/compile.py --dem-snapshot (lists USGS 3DEP once)' % store.root)
+    return sid, snap
+
+
+def build_record(store):
+    sid, snap = dem_snapshot(store)
     return {'format': 'hometown-build', 'version': 1, 'grid': grid.GRID, 'compilerVersion': COMPILER_VERSION, 'libs': lib_versions(),
             'image': os.environ.get('HOMETOWN_IMAGE_DIGEST', 'unpinned (local venv %s)' % '.'.join(map(str, sys.version_info[:2]))),
-            'overture': OVERTURE_RELEASE, 'demSnapshot': snap}
+            'overture': OVERTURE_RELEASE,
+            'demSnapshot': {'id': sid, 'key': 'dem/snapshots/%s.json' % sid, 'products': {p: len(v) for p, v in sorted(snap['products'].items())},
+                            'partial': snap.get('partial') or None,
+                            'policy': 'every 3DEP file at its snapshot ETag; range reads If-Match; bytes mirrored at dem/{product}/{name}/{etag}/'}}
 
 
 def build_id_of(rec):
@@ -279,6 +294,15 @@ class Store:
     def get(self, key):
         p = self.path(key)
         return open(p, 'rb').read() if os.path.exists(p) else None
+
+    def put(self, key, body):
+        """Overwrite (only the dem/current.json pointer)."""
+        p = self.path(key)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        tmp = '%s.%d.tmp' % (p, os.getpid())
+        with open(tmp, 'wb') as f:
+            f.write(body)
+        os.replace(tmp, p)
 
     def put_if_absent(self, key, body):
         p = self.path(key)
@@ -308,13 +332,16 @@ class World:
     """Everything a set of tile compiles shares: the regions' rows (projected once), the DEM sampler, the ctx blocks and
     per-feature caches (a segment's pieces, a building's record, a bridge). Every cached value is a pure function of
     one feature and the global data, so a tile compiled in a big World and alone in a small one gives the same bytes."""
-    def __init__(self, data, dom, window, store, bid, log=None):
+    def __init__(self, data, dom, window, store, bid, log=None, dem_store=None, dem_snap=None):
         x0, z0, x1, z1 = window
         self.dom_name = dom
         self.blocks = blocks_for(x0 - LOAD_REACH, z0 - LOAD_REACH, x1 + LOAD_REACH, z1 + LOAD_REACH)
         self.src = Sources(data, dom, self.blocks, skip_missing=True)
         self.d = self.src.dom
-        self.dem = Sampler(os.path.join(data, 'dem'))
+        # (the DEM is an input: read through the shared store's dem/ mirror even when the compile's own outputs are not)
+        self.dem_store = dem_store or store
+        self.dem_snap = dem_snap if dem_snap is not None else (dem_snapshot(self.dem_store)[1] if self.dem_store else None)
+        self.dem = Sampler(os.path.join(data, 'dem'), self.dem_store, self.dem_snap)
         self.store, self.bid = store, bid
         self.ctxs = {}
         self.pieces_c, self.junction_c, self.brec_c, self.bridge_c, self.k_c = {}, {}, {}, {}, {}
@@ -1042,7 +1069,7 @@ def default_paths():
 
 
 def register_build(store):
-    rec = build_record()
+    rec = build_record(store)
     bid = build_id_of(rec)
     store.put_if_absent('builds/%s.json' % bid, (jdump(rec) + '\n').encode())
     return bid, rec
@@ -1084,8 +1111,15 @@ if __name__ == '__main__':
     ap.add_argument('--places', default=os.path.join(HERE, 'places.json'))
     ap.add_argument('--no-store', action='store_true', help='--tile: compile without reading or writing the store (ctx included)')
     ap.add_argument('--print-build', action='store_true', help='the buildId and its record (the tile service registers it)')
+    ap.add_argument('--dem-snapshot', action='store_true', help='list USGS 3DEP (1/3" and 1") once, store the snapshot, make it current')
+    ap.add_argument('--dem-snapshot-from-mirror', action='store_true', help='offline: a partial snapshot of the files the local mirror holds')
     a = ap.parse_args()
     store = Store(os.path.abspath(a.store))
+    if a.dem_snapshot or a.dem_snapshot_from_mirror:
+        snap = demlib.list_snapshot() if a.dem_snapshot else demlib.snapshot_from_mirror(os.path.join(a.data, 'dem'))
+        sid = demlib.store_snapshot(store, snap)
+        print(jdump({'demSnapshot': sid, 'files': {p: len(v) for p, v in snap['products'].items()}}))
+        sys.exit(0)
     bid, rec = register_build(store)
     if a.print_build:
         print(jdump({'buildId': bid, 'record': rec}))
@@ -1095,7 +1129,7 @@ if __name__ == '__main__':
         if a.tile:
             dom, L, c, r = grid.parse_tile_id(a.tile)
             assert L == 0, 'tiles are L0'
-            Wd = World(a.data, dom, tile_window(c, r, c, r), None if a.no_store else store, bid)
+            Wd = World(a.data, dom, tile_window(c, r, c, r), None if a.no_store else store, bid, dem_store=store)
             b, info = compile_tile(Wd, c, r)
             log(jdump(info))
             if a.out in (None, '-'):

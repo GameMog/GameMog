@@ -21,10 +21,23 @@ python tools/hometown/compile.py --block hg1-conus/2/1451/2145 --out -     # HTB
 python tools/hometown/compile.py --ctx hg1-conus/4/362/536
 python tools/hometown/compile.py --descriptor okemah --stage 1             # JSON
 python tools/hometown/compile.py --print-build                             # the buildId and its record
+python tools/hometown/compile.py --dem-snapshot                            # pin the DEM (once per build)
 ```
 
-The 3DEP heights are read lazily from the USGS cloud-optimized GeoTIFFs (HTTP range reads of 512 px internal tiles) and
-mirrored by ETag under `<data>/dem/`; after the first read everything is offline.
+The 3DEP heights are read lazily from the USGS cloud-optimized GeoTIFFs (HTTP range reads of 512 px internal tiles).
+
+**The DEM snapshot pin.** USGS serves each file at a mutable `.../TIFF/current/` URL, so a build pins the DEM with a
+snapshot: `python tools/hometown/compile.py --dem-snapshot` lists the bucket once (S3 ListObjectsV2, ~10 s: every 1/3"
+and 1" `.tif` with its ETag) and stores it content-addressed at `dem/snapshots/dem-{16 hex}.json` in the store, with
+`dem/current.json` pointing at it (`HOMETOWN_DEM_SNAPSHOT=<id>` names another). The build record's `demSnapshot.id` is that
+id, so the buildId changes exactly when the DEM it reads does; a compile with no snapshot in its store refuses to start.
+Every read of a file (its IFD header and each internal tile) is a range read with `If-Match: "<snapshot ETag>"`: a file
+USGS replaced since answers 412 and the compile fails (`DemChanged`) rather than mixing bytes of two versions. The bytes
+are mirrored in the store at `dem/{13|1}/{nXXwYYY}/{etag}/` (`meta.json`, `{k}.bin`, written ifAbsent), so every worker
+sharing the store reads the same bytes and `/current/` is read once per internal tile; the old local mirror
+`<data>/dem/` seeds it when its ETag matches. A file the snapshot does not list has no data (a tile with none is refused,
+naming it). `--dem-snapshot-from-mirror` makes an offline, partial snapshot of the local mirror's files.
+`tools/hometown/test_dem_pin.py` tests all of this offline.
 
 ## The grid (`grid.py`, frozen as hg1)
 

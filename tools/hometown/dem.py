@@ -1,28 +1,137 @@
-# tools/hometown/dem.py: USGS 3DEP 1/3 arc-second elevation for a bounding box, read straight out of the national
-# map's cloud-optimized GeoTIFF tiles (1 x 1 degree, 512 px internal tiles, LZW + floating-point predictor) with HTTP
-# range requests: only the internal tiles under the box are fetched, never a whole file. Each fetched internal tile is
-# cached under <cache>/dem/ by the file's ETag, so a rebuild is offline and byte-identical.
+# tools/hometown/dem.py: USGS 3DEP elevation (1/3 and 1 arc-second products) read straight out of the national map's
+# cloud-optimized GeoTIFF tiles (1 x 1 degree, 512 px internal tiles, LZW + floating-point predictor) with HTTP range
+# requests: only the internal tiles under the box are fetched, never a whole file.
+#
+# THE SNAPSHOT PIN. USGS serves each file at a mutable ".../TIFF/current/" URL. A build pins the DEM with a SNAPSHOT: the
+# S3 listing of every product file with its ETag (list_snapshot, `compile.py --dem-snapshot`), stored content-addressed
+# in the shared store at dem/snapshots/{id}.json; the buildId commits to that id. Every read of a file is checked
+# against its snapshot ETag: the IFD header and each internal tile are range reads with If-Match: "<etag>" (a file USGS
+# replaced since the snapshot answers 412 and the read fails: DemChanged, never mixed bytes), and the bytes are
+# mirrored in the store under dem/{product}/{name}/{etag}/ (meta.json, {k}.bin, written ifAbsent) so every worker
+# sharing the store reads the same bytes and /current/ is read once per internal tile. A file the snapshot does not
+# list has no data (a refused tile names it). The old local mirror (<data>/dem/, keyed by the first 12 ETag chars) is
+# read as a seed when its ETag matches the snapshot's.
 #
 #   read_dem(bbox, cache) -> (grid float32 [rows, cols] north-up, lon0, lat0 (top-left pixel centre), res deg, sources)
+#   Sampler(mirror, store=, snapshot=, product='13')   bilinear heights at any lon/lat (hg1 compiles)
 #
-# No account, no key: https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n{lat}w{lon}/...
+# No account, no key: https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/{13|1}/TIFF/current/n{lat}w{lon}/...
 # (USGS 3D Elevation Program, a US government work in the public domain).
+import hashlib
 import json
 import math
 import os
+import re
 import struct
+import urllib.error
+import urllib.parse
 import urllib.request
 
 import numpy as np
 
-BASE = 'https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current'
+BUCKET = 'https://prd-tnm.s3.amazonaws.com'
+PREFIX = 'StagedProducts/Elevation/%s/TIFF/current/'
+BASE = BUCKET + '/' + PREFIX.rstrip('/') % '13'
+PRODUCTS = {'13': 10800, '1': 3600}   # product -> pixels per degree
 UA = 'hometown-compiler/0 (open-data city builder)'
 
 
-def _get(url, rng=None):
-    req = urllib.request.Request(url, headers={'User-Agent': UA, **({'Range': 'bytes=%d-%d' % rng} if rng else {})})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return r.read(), dict(r.headers)
+class DemChanged(Exception):
+    """USGS replaced a file since the snapshot pinned it (If-Match failed): its bytes are not the build's."""
+
+
+def file_name(latc, lonc):
+    return 'n%02dw%03d' % (latc + 1, -lonc)
+
+
+def file_url(product, name):
+    return '%s/%s%s/USGS_%s_%s.tif' % (BUCKET, PREFIX % product, name, product, name)
+
+
+def _get(url, rng=None, etag=None):
+    hdrs = {'User-Agent': UA}
+    if rng:
+        hdrs['Range'] = 'bytes=%d-%d' % rng
+    if etag:
+        hdrs['If-Match'] = '"%s"' % etag
+    req = urllib.request.Request(url, headers=hdrs)
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            return r.read(), dict(r.headers)
+    except urllib.error.HTTPError as e:
+        if e.code == 412:
+            raise DemChanged('%s changed since the DEM snapshot (If-Match "%s" failed)' % (url, etag))
+        raise
+
+
+# ------------------------------------------------------------------------------------------------------------ snapshot
+def list_snapshot(products=('13', '1'), lister=None):
+    """The S3 listing of every .tif of the products: {format, version, bucket, products: {p: {name: {etag, bytes,
+    lastModified}}}}. lister(url) -> XML text (tests pass a fake)."""
+    lister = lister or (lambda u: _get(u)[0].decode('utf-8'))
+    out = {'format': 'hometown-dem-snapshot', 'version': 1, 'bucket': BUCKET, 'products': {}}
+    rx = re.compile(r'<Contents><Key>([^<]+)</Key><LastModified>([^<]+)</LastModified><ETag>([^<]+)</ETag><Size>(\d+)</Size>')
+    for p in products:
+        files, token = {}, None
+        while True:
+            q = 'list-type=2&prefix=%s&max-keys=1000' % urllib.parse.quote(PREFIX % p)
+            if token:
+                q += '&continuation-token=' + urllib.parse.quote(token)
+            xml = lister('%s/?%s' % (BUCKET, q))
+            for key, lm, et, size in rx.findall(xml):
+                m = re.search(r'/(n\d\dw\d\d\d)/USGS_%s_\1\.tif$' % re.escape(p), key)
+                if m:
+                    files[m.group(1)] = {'etag': et.replace('&quot;', '').strip('"'), 'bytes': int(size), 'lastModified': lm}
+            t = re.search(r'<NextContinuationToken>([^<]+)</NextContinuationToken>', xml)
+            if '<IsTruncated>true</IsTruncated>' not in xml or not t:
+                break
+            token = t.group(1)
+        out['products'][p] = dict(sorted(files.items()))
+    return out
+
+
+def snapshot_bytes(snap):
+    return (json.dumps(snap, sort_keys=True, separators=(',', ':')) + '\n').encode()
+
+
+def snapshot_id(snap):
+    return 'dem-' + hashlib.sha256(snapshot_bytes(snap)).hexdigest()[:16]
+
+
+def snapshot_from_mirror(mirror, product='13'):
+    """A snapshot of only the files the local mirror holds metadata for (offline: a partial pin, every other file
+    has no data under it)."""
+    files = {}
+    for f in sorted(os.listdir(mirror)) if os.path.isdir(mirror) else []:
+        m = re.match(r'USGS_(13|1)_(n\d\dw\d\d\d)\.tif\.meta\.json$', f)
+        if m and m.group(1) == product:
+            meta = json.load(open(os.path.join(mirror, f)))
+            files[m.group(2)] = {'etag': meta['etag'], 'bytes': None, 'lastModified': meta.get('lastModified', '')}
+    return {'format': 'hometown-dem-snapshot', 'version': 1, 'bucket': BUCKET, 'products': {product: files}, 'partial': 'local mirror'}
+
+
+def store_snapshot(store, snap, current=True):
+    """Store the snapshot content-addressed (dem/snapshots/{id}.json) and, with current, point dem/current.json at it."""
+    sid = snapshot_id(snap)
+    store.put_if_absent('dem/snapshots/%s.json' % sid, snapshot_bytes(snap))
+    if current:
+        store.put('dem/current.json', (json.dumps({'snapshot': sid}) + '\n').encode())
+    return sid
+
+
+def load_snapshot(store, sid=None):
+    """(id, snapshot) of sid, else of dem/current.json; (None, None) when the store has none."""
+    if sid is None:
+        b = store.get('dem/current.json')
+        if b is None:
+            return None, None
+        sid = json.loads(b)['snapshot']
+    b = store.get('dem/snapshots/%s.json' % sid)
+    if b is None:
+        raise KeyError('DEM snapshot %s not in the store' % sid)
+    snap = json.loads(b)
+    assert snapshot_id(snap) == sid, 'DEM snapshot %s does not hash to its id' % sid
+    return sid, snap
 
 
 def lzw_decode(data):
@@ -69,19 +178,36 @@ def _undo_fp_predictor(raw, w, h):
 
 
 class COG:
-    def __init__(self, url, cache):
-        self.url, self.cache = url, cache
-        meta_file = os.path.join(cache, os.path.basename(url) + '.meta.json')
-        if os.path.exists(meta_file):
-            self.meta = json.load(open(meta_file))
-        else:
-            head, hdrs = _get(url, (0, 65535))
-            self.meta = self._parse(head)
-            self.meta['etag'] = hdrs.get('ETag', '').strip('"')
-            self.meta['lastModified'] = hdrs.get('Last-Modified', '')
-            self.meta['url'] = url
-            os.makedirs(cache, exist_ok=True)
-            json.dump(self.meta, open(meta_file, 'w'), sort_keys=True)
+    """One product file. etag: the snapshot's pin (None: the first-seen ETag, recorded in the local mirror's meta).
+    store: the shared store (dem/{product}/{name}/{etag}/ meta.json and {k}.bin, ifAbsent). cache: the local mirror,
+    read as a seed when its ETag matches, and written only without a store. Every network read carries If-Match."""
+    def __init__(self, url, cache, etag=None, store=None):
+        self.url, self.cache, self.store = url, cache, store
+        base = os.path.basename(url)
+        m = re.match(r'USGS_(13|1)_(n\d\dw\d\d\d)\.tif$', base)
+        self.skey = None
+        meta = None
+        if etag and store is not None and m:
+            self.skey = 'dem/%s/%s/%s' % (m.group(1), m.group(2), etag)
+            b = store.get(self.skey + '/meta.json')
+            meta = json.loads(b) if b is not None else None
+        meta_file = os.path.join(cache, base + '.meta.json')
+        if meta is None and os.path.exists(meta_file):
+            lm = json.load(open(meta_file))
+            if etag is None or lm.get('etag') == etag:
+                meta = lm
+        if meta is None:
+            head, hdrs = _get(url, (0, 65535), etag)
+            meta = self._parse(head)
+            meta['etag'] = etag or hdrs.get('ETag', '').strip('"')
+            meta['lastModified'] = hdrs.get('Last-Modified', '')
+            meta['url'] = url
+            if store is None:
+                os.makedirs(cache, exist_ok=True)
+                json.dump(meta, open(meta_file, 'w'), sort_keys=True)
+        if self.skey:
+            store.put_if_absent(self.skey + '/meta.json', json.dumps(meta, sort_keys=True).encode())
+        self.meta = meta
 
     def _parse(self, b):
         assert b[:4] == b'II*\x00', 'not a little-endian classic TIFF'
@@ -114,14 +240,24 @@ class COG:
         m = self.meta
         across = math.ceil(m['w'] / m['tw'])
         k = tj * across + ti
+        o, n = m['offsets'][k], m['counts'][k]
+        raw = None
+        if self.skey:
+            raw = self.store.get('%s/%d.bin' % (self.skey, k))
         f = os.path.join(self.cache, '%s-%s-%d.bin' % (os.path.basename(self.url), m['etag'][:12], k))
-        if os.path.exists(f):
+        if raw is None and os.path.exists(f):
             raw = open(f, 'rb').read()
-        else:
-            o, n = m['offsets'][k], m['counts'][k]
-            raw, _ = _get(self.url, (o, o + n - 1))
+            if len(raw) != n:
+                raw = None
+        if raw is None:
+            # (If-Match: the file the snapshot / the meta pinned, or 412, never another version's bytes at these offsets)
+            raw, _ = _get(self.url, (o, o + n - 1), m['etag'])
             assert len(raw) == n, 'short read'
-            open(f, 'wb').write(raw)
+            if not self.skey:
+                os.makedirs(self.cache, exist_ok=True)
+                open(f, 'wb').write(raw)
+        if self.skey:
+            self.store.put_if_absent('%s/%d.bin' % (self.skey, k), raw)
         return _undo_fp_predictor(lzw_decode(raw), m['tw'], m['th'])
 
     def window(self, c0, r0, c1, r1):
@@ -153,7 +289,7 @@ def read_dem(bbox, cache):
     for lat in range(math.floor(S), math.floor(N) + 1):
         for lon in range(math.floor(W), math.floor(E) + 1):
             name = 'n%02dw%03d' % (lat + 1, -lon)
-            url = '%s/%s/USGS_13_%s.tif' % (BASE, name, name)
+            url = file_url('13', name)
             cog = COG(url, os.path.join(cache, 'dem'))
             m = cog.meta
             # top-left pixel centre of this file
@@ -174,15 +310,16 @@ def read_dem(bbox, cache):
 
 # ------------------------------------------------------------------------------------------------- hg1 sampler
 class Sampler:
-    """3DEP 1/3" heights at any lon/lat, independent of what else was read: bilinear between the 4 global lattice
-    pixels round the point (column k's centre is (k + 0.5) / 10800 degrees, row r's -(r + 0.5) / 10800), each pixel
-    taken from the ONE file whose nominal 1 x 1 degree cell holds its centre (the files overlap by 6 px: a fixed owner
-    per pixel, so a mosaic's extent never changes a value). Internal tiles come from the ETag mirror under <mirror>
-    (fetched on first use, then offline). Records every file it read (demSource)."""
-    RES = 10800
+    """3DEP heights at any lon/lat, independent of what else was read: bilinear between the 4 global lattice pixels round
+    the point (column k's centre is (k + 0.5) / RES degrees, row r's -(r + 0.5) / RES; RES 10800 for the 1/3" product,
+    3600 for the 1"), each pixel taken from the ONE file whose nominal 1 x 1 degree cell holds its centre (the files
+    overlap by 6 px: a fixed owner per pixel, so a mosaic's extent never changes a value). Each file at its snapshot ETag
+    (snapshot given) or its first-seen one; bytes from the store's dem/ mirror, the local mirror or If-Match range reads.
+    Records every file it read (demSource)."""
 
-    def __init__(self, mirror):
-        self.mirror = mirror
+    def __init__(self, mirror, store=None, snapshot=None, product='13'):
+        self.mirror, self.store, self.snapshot, self.product = mirror, store, snapshot, product
+        self.RES = PRODUCTS[product]
         self.cogs, self.tiles, self.used = {}, {}, {}
         self.missing = set()
 
@@ -193,13 +330,23 @@ class Sampler:
                 # (the national map names n{lat}w{lon} files only: the east / south hemisphere tiles (Guam, American
                 # Samoa) are not in this naming scheme)
                 self.cogs[k] = None
-                self.missing.add('no 3DEP 1/3" file name for cell lat %d lon %d' % (latc, lonc))
+                self.missing.add('no 3DEP file name for cell lat %d lon %d' % (latc, lonc))
             else:
-                name = 'n%02dw%03d' % (latc + 1, -lonc)
-                url = '%s/%s/USGS_13_%s.tif' % (BASE, name, name)
+                name = file_name(latc, lonc)
+                url = file_url(self.product, name)
+                etag = None
+                if self.snapshot is not None:
+                    ent = self.snapshot['products'].get(self.product, {}).get(name)
+                    if ent is None:  # (no such file in the pinned snapshot: open ocean, outside the US, or not listed)
+                        self.cogs[k] = None
+                        self.missing.add('%s: not in the DEM snapshot' % name)
+                        return None
+                    etag = ent['etag']
                 try:
-                    cog = COG(url, self.mirror)
-                except Exception as e:  # (a cell 3DEP has no 1/3" file for: open ocean, outside the US)
+                    cog = COG(url, self.mirror, etag, self.store)
+                except DemChanged:
+                    raise
+                except Exception as e:  # (a cell 3DEP has no file for: open ocean, outside the US)
                     self.cogs[k] = None
                     self.missing.add('%s: %s' % (name, str(e)[:80]))
                     return None
