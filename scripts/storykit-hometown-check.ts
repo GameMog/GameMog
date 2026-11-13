@@ -129,6 +129,40 @@ export function runHometownChecks(ok: Ok) {
   passes('a fight passing by is fine: words about the depot and a fight at the old gin', story((p) => { p.acts[0].missions[2].steps[0].text = 'The fight is at the old gin, not the depot.'; }));
   passes('an opening that shows the hospital is fine (looked at, not targeted)', story((p) => { p.opening.stage[1].at = '@community-hospital'; }));
   passes('a hurt friend taken to the clinic (no violence in the sentence) is fine', story((p) => { p.acts[0].missions[1].steps[1].text = 'She is hurt. Get her to the clinic.'; }));
+
+  // ── a name's core and short forms (not only the full name) ──
+  const said = (text: string) => story((p) => { p.acts[0].missions[5].steps[1].text = text; });
+  refused('violence at a school by its short form ("Okemah High" for Okemah High School) is refused', said('They attack Okemah High tonight.'), /violence.*Okemah High School/);
+  refused('a withheld business by its core ("the Prairie Rose" for Prairie Rose Diner) is refused', said('Meet at the Prairie Rose.'), /Prairie Rose Diner/);
+  refused('a core is matched case- and punctuation-insensitively ("PRAIRIE-ROSE")', said('Meet at the PRAIRIE-ROSE.'), /Prairie Rose Diner/);
+  refused('a one-word distinctive core is matched ("the Thunderbird" for Thunderbird Motel)', said('We hide out at the Thunderbird.'), /Thunderbird Motel/);
+  refused('a home by its core ("Hollow Creek" for the Hollow Creek house) is refused', said('He grew up out at Hollow Creek.'), /Hollow Creek house/);
+  passes('the town\'s own name is not a core (Okemah High School, Okemah Police Department)', said('They fight their way out of Okemah tonight.'));
+  passes('a street is not a core ("First Street" for First Street Chapel)', said('They crash on First Street.'));
+  passes('a common word is not a core ("veterans" for Veterans Memorial, "crossroads" for Crossroads Fuel)', said('The veterans meet at the crossroads.'));
+  passes('a core\'s words in another order are not the name ("a rose on the prairie")', said('She left a rose on the prairie.'));
+  passes('"Okemah High" is a whole-word match ("Okemah Highway" is a road)', said('They attack the convoy on the Okemah Highway.'));
+
+  // ── names that make a place sensitive with a bare kind ──
+  ok('worship names with a bare kind are sensitive (denominations, masjid, parish, St. X\'s)', ['First Baptist', 'Grace Methodist', 'Trinity Lutheran', 'First Presbyterian', 'St. Paul\'s Episcopal', 'Holy Family Catholic', 'Okemah Pentecostal Holiness', 'Okemah Assembly of God', 'Okemah Church of Christ', 'Islamic Masjid', 'Beth El Synagogue', 'Hope Temple', 'Wayside Chapel', 'Sacred Heart Parish', "St. Mary's", "Saint Anne's"].every((n) => C('yes', n).sensitive === 'worship'), ['First Baptist', 'Grace Methodist', 'Islamic Masjid', "St. Mary's"].map((n) => `${n}: ${C('yes', n).sensitive}`).join(', '));
+  ok('childcare names with a bare kind are sensitive (learning center, daycare, preschool, montessori, head start, kindergarten)', ['Little Explorers Learning Center', 'Sunshine Daycare', 'Kids Day Care', 'Tiny Tots Preschool', 'Okemah Montessori', 'Okfuskee Head Start', 'Bright Kindergarten'].every((n) => C('yes', n).sensitive === 'childcare'), ['Little Explorers Learning Center', 'Okemah Montessori', 'Okfuskee Head Start'].map((n) => `${n}: ${C('yes', n).sensitive}`).join(', '));
+  ok('an academy with a bare kind is a school', C('yes', 'Okemah Christian Academy').sensitive !== null && C('yes', 'Prairie Academy').sensitive === 'school');
+  ok('"St. X\'s" a business by kind is a business, not a place of worship; tagged religion it is', !C('pub', "St. James's").sensitive && C('pub', "St. James's").business && C('yes', "St. Luke's", ['religion=christian']).sensitive === 'worship');
+  ok('a bare kind without those words stays plain ("Stevens Hardware", "St. Louis Street", "Learning Tree Books" as a shop)', !C('yes', 'Stevens Hardware').sensitive && !C('yes', 'St. Louis Street').sensitive && !C('books', 'Learning Tree Books').sensitive);
+  const withPlace = (q: { id: string; kind: string; name: string }) => ({ ...clone(OK), places: [...OK.places, { ...q, x: 10, z: 10, tags: [] }] });
+  for (const q of [{ id: 'first-baptist', kind: 'yes', name: 'First Baptist' }, { id: 'st-marys', kind: 'yes', name: "St. Mary's" }, { id: 'little-explorers', kind: 'yes', name: 'Little Explorers Learning Center' }]) {
+    const p = clone(okPack); p.acts[0].missions[2].steps[1].arena = `@${q.id}`;
+    const r = gateHometown(p, withPlace(q));
+    ok(`a fight at "${q.name}" (kind "yes") is refused`, !r.ok && r.safety.some((s) => new RegExp(`${q.id}.*never targets it`).test(s)), show(r.safety.length ? r.safety : r.problems));
+  }
+
+  // ── "shot" the camera word is not violence ──
+  passes('a camera shot of a sensitive place is not violence ("wide shot of the school")', said('Open on a wide shot of the school.'));
+  passes('"close shot" and "establishing shot" are camera words', said('Close shot: the clinic doors. Establishing shot of the hospital at dawn.'));
+  passes('"shot of" a sensitive place is a camera word', said('One last shot of the church steeple.'));
+  refused('"he was shot" at a sensitive place is still violence', said('He was shot outside the clinic.'), /violence \("shot"\)/);
+  refused('"shot at" a sensitive place is still violence', said('They shot at the school.'), /violence \("shot"\)/);
+  refused('"shoot" at a sensitive place is still violence', said('They shoot up the hospital.'), /violence \("shoot"\)/);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

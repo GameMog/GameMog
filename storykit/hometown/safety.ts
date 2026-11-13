@@ -15,6 +15,9 @@
  *      descriptor ("the diner", "the gas station"); its real name, its brand tag and the national chains below are
  *      refused.
  *
+ * A name counts as named by its full name or its distinctive core ("the Prairie Rose" for Prairie Rose Diner, "Okemah
+ * High" for Okemah High School; never a bare town, street or common word): nameForms below.
+ *
  * SENSITIVE_KINDS is the reviewed list of OSM and Overture kinds that map to "sensitive" (and RESIDENCE_KINDS,
  * BUSINESS_KINDS likewise); a kind not on a list falls back to the place's name (NAME_RULES), conservatively: a name
  * that reads as a church, a school or a hospital is sensitive whatever its kind says. Reviewed 12 Nov 2026 against the
@@ -80,14 +83,17 @@ export const CHAIN_BRANDS = ['Walmart', "McDonald's", 'Burger King', "Wendy's", 
 /** Names that make a place sensitive (or a home) whatever its kind says (kind 'yes', a bare building). */
 const NAME_RULES: [RegExp, Sensitive][] = [
   [/\b(?:elementary|middle|high|junior high|grade|primary|secondary|prep(?:aratory)?|charter|montessori)\s+school\b|\bschool\b|\bacademy\b|\buniversity\b|\bcollege\b|\bschool district\b/i, 'school'],
-  [/\b(?:pre-?school|day ?care|child ?care|kindergarten|nursery)\b/i, 'childcare'],
+  [/\b(?:pre-?school|day ?care|child ?care|kindergarten|nursery|learning cent(?:er|re)|early learning|montessori|head start)\b/i, 'childcare'],
   [/\b(?:hospital|clinic|medical|health (?:center|centre|clinic)|urgent care|emergency room|nursing home|hospice|rehab(?:ilitation)? center)\b/i, 'health'],
-  [/\b(?:church|cathedral|chapel|mosque|synagogue|temple|shrine|parish|tabernacle|kingdom hall|gurdwara|monastery|convent|ministr(?:y|ies)|congregation|assembly of god)\b/i, 'worship'],
+  [/\b(?:church|cathedral|chapel|mosque|synagogue|temple|shrine|parish|tabernacle|kingdom hall|gurdwara|monastery|convent|ministr(?:y|ies)|congregation|assembly of god|church of christ|masjid|baptist|methodist|lutheran|presbyterian|episcopal(?:ian)?|catholic|pentecostal|mennonite|adventist|nazarene|apostolic)\b/i, 'worship'],
   [/\b(?:police|sheriff|courthouse|county jail|jail|prison)\b/i, 'police'],
   [/\b(?:fire (?:station|department|dept|hall)|firehouse|fireboat station)\b/i, 'fire'],
   [/\b(?:memorial|cemetery|graveyard|grave yard|mausoleum|funeral|crematorium)\b/i, 'memorial'],
   [/\b(?:shelter|soup kitchen|food bank|food pantry|rescue mission)\b/i, 'shelter'],
 ];
+/** "St. Mary's", "Saint Anne's": a church's name, when its kind says nothing else (not a business or a home by kind).
+ * A place tagged with a religion (religion=*) is a place of worship whatever its name. */
+const SAINT_NAME = /^(?:[Tt]he\s+)?(?:S[Tt]\.?|[Ss]aint)\s+\p{Lu}\p{L}*['’]s\b/u;
 const RESIDENCE_NAME = /\b(?:residence|homestead|home of|'s house|house of)\b/i;
 
 const tagValues = (tags: string[] = []) => tags.map((t) => (t.includes('=') ? t.split('=').slice(1).join('=') : t).toLowerCase().replace(/[\s-]+/g, '_'));
@@ -97,11 +103,14 @@ const tagged = (tags: string[] = [], key: string) => tags.filter((t) => t.toLowe
 export function classify(p: { kind: string; name: string; tags?: string[] }): PlaceClass {
   const kinds = [p.kind.toLowerCase().replace(/[\s-]+/g, '_'), ...tagValues(p.tags)];
   const sens = kinds.map((k) => SENSITIVE_KINDS[k]).find(Boolean) ?? null;
-  const byName = NAME_RULES.find(([re]) => re.test(p.name));
+  const religion = tagged(p.tags, 'religion').length > 0;
+  const byKind = kinds.some((k) => k in BUSINESS_KINDS || RESIDENCE_KINDS.has(k));
+  const nameRule = NAME_RULES.find(([re]) => re.test(p.name))?.[1] ?? (SAINT_NAME.test(p.name) && !byKind ? 'worship' : null);
+  const byName: Sensitive | null = nameRule ?? (religion ? 'worship' : null);
   const residence = kinds.some((k) => RESIDENCE_KINDS.has(k)) || RESIDENCE_NAME.test(p.name) || (p.tags ?? []).some((t) => t === 'private' || t === 'access=private');
   const business = !sens && !residence && (kinds.some((k) => k in BUSINESS_KINDS) || tagged(p.tags, 'brand').length > 0 || tagged(p.tags, 'operator:type').includes('private'));
-  const sensitive = sens ?? (byName ? byName[1] : null);
-  return { sensitive, residence, business, why: sens ? `its kind (${kinds.find((k) => SENSITIVE_KINDS[k])})` : byName ? `its name` : residence ? 'a private home' : business ? 'a business' : '' };
+  const sensitive = sens ?? byName;
+  return { sensitive, residence, business, why: sens ? `its kind (${kinds.find((k) => SENSITIVE_KINDS[k])})` : byName ? (nameRule ? 'its name' : 'its religion tag') : residence ? 'a private home' : business ? 'a business' : '' };
 }
 
 const SENSITIVE_WORD: Record<Sensitive, string> = { school: 'a school', childcare: 'a childcare place', health: 'a hospital or clinic', worship: 'a place of worship',
@@ -143,6 +152,78 @@ const GENERIC = new Set(['the', 'a', 'an', 'and', 'of', 'on', 'at', 'in', 'store
 // salvage yard" is already a descriptor)
 const meaningful = (name: string) => name.split(/[^\p{L}\p{N}'’]+/u).some((w) => /^\p{Lu}/u.test(w) && w.length >= 2 && !GENERIC.has(norm(w).trim()));
 
+/**
+ * A name's forms that count as naming it in a player's words, normalised (norm): the full name, its CORE (the name
+ * with "the" and the words that say what it is, not which one, stripped: "Prairie Rose" of "Prairie Rose Diner",
+ * "Okemah High" of "Okemah High School" as its short form) and the short forms "X High", "X Elementary", "X Middle".
+ * A core counts only when it is distinctive: two or more words not all generic, street or town words ("First Street" of
+ * "First Street Chapel" is a street, "Okemah" of "Okemah Police Department" the town), or one word of 5 letters or more
+ * that is not a common word, a street or the town ("Thunderbird"; not "veterans", "crossroads", "highland").
+ */
+const KIND_SUFFIXES = ['junior high school', 'high school', 'middle school', 'elementary school', 'grade school', 'primary school', 'secondary school',
+  'school district', 'school', 'elementary', 'middle', 'academy', 'learning center', 'learning centre', 'day care', 'daycare', 'child care', 'childcare',
+  'preschool', 'kindergarten', 'montessori', 'medical center', 'medical centre', 'health center', 'health centre', 'health clinic', 'hospital', 'clinic',
+  'urgent care', 'nursing home', 'church of christ', 'church', 'chapel', 'cathedral', 'temple', 'mosque', 'masjid', 'synagogue', 'parish', 'tabernacle',
+  'cemetery', 'graveyard', 'memorial park', 'memorial', 'funeral home', 'police department', 'police station', 'police', 'sheriffs office',
+  'fire department', 'fire station', 'fire hall', 'department', 'station', 'shelter', 'center', 'centre', 'inc', 'llc', 'co', 'company', 'corp',
+  'diner', 'cafe', 'restaurant', 'grill', 'bar', 'pub', 'tavern', 'motel', 'hotel', 'inn', 'lodge', 'fuel', 'gas', 'store', 'shop', 'market', 'house',
+  'and', 'the'].map((x) => x.split(' '));
+/** Words that alone (or together, only with each other) are not a name: structure, streets, common prose. */
+const COMMON = new Set(['veterans', 'veteran', 'crossroads', 'community', 'central', 'national', 'american', 'united', 'country', 'valley', 'river',
+  'creek', 'hills', 'family', 'people', 'citizens', 'friends', 'peace', 'freedom', 'liberty', 'victory', 'pioneer', 'frontier', 'heritage', 'sunset',
+  'sunrise', 'golden', 'silver', 'highland', 'highlands', 'lakeside', 'riverside', 'hillside', 'westside', 'eastside', 'southside', 'northside', 'downtown',
+  'uptown', 'midtown', 'broadway', 'lincoln', 'washington', 'jefferson', 'madison', 'franklin', 'jackson', 'maple', 'cedar', 'walnut', 'chestnut',
+  'spruce', 'willow', 'magnolia', 'union', 'church', 'school', 'college', 'center', 'square', 'county', 'state', 'public', 'local', 'little', 'small',
+  'great', 'grand', 'royal', 'children', 'kids', 'senior', 'seniors', 'christian', 'faith', 'grace', 'trinity', 'saint', 'holy', 'sacred',
+  'harvest', 'prairie', 'meadow', 'garden', 'gardens', 'village', 'western', 'eastern', 'southern', 'northern', 'corner', 'station', 'crossing', 'junction',
+  'highway', 'interstate', 'route', 'third', 'second', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth', 'evening', 'morning', 'night',
+  'civic', 'foods', 'budget', 'ambassador', 'chase', 'waffle', 'holiday', 'chinese', 'mexican', 'italian', 'french', 'korean', 'filipino', 'indian',
+  'beacon', 'palms', 'canyon', 'metropolitan', 'capital', 'capitol', 'empire', 'eagle', 'eagles', 'falcon', 'phoenix', 'summit', 'pacific',
+  'atlantic', 'regional', 'general', 'premier', 'quality', 'economy', 'express', 'super', 'discount', 'friendly', 'happy', 'lucky',
+  'sunny', 'sunshine', 'rainbow', 'fire', 'fighters', 'firefighters', 'police', 'officers', 'volunteers', 'soldiers', 'sailors', 'marines', 'world', 'war',
+  // given names that are surnames too (a character may be called this)
+  'george', 'georges', 'allen', 'james', 'john', 'johns', 'mary', 'marys', 'peter', 'paul', 'thomas', 'charles', 'henry', 'william', 'joseph', 'michael',
+  'david', 'daniel', 'robert', 'richard', 'edward', 'martin', 'louis', 'arthur', 'walter', 'harold', 'wallace', 'grant', 'marshall', 'sherman', 'mason',
+  'carter', 'cooper', 'parker', 'turner', 'walker', 'miller', 'smith', 'jones', 'brown', 'davis', 'wilson', 'taylor', 'clark', 'lewis', 'young', 'hampton']);
+const STREET_WORDS = new Set(['street', 'st', 'avenue', 'ave', 'road', 'rd', 'drive', 'dr', 'lane', 'ln', 'boulevard', 'blvd', 'court', 'ct', 'way',
+  'place', 'pl', 'terrace', 'circle', 'parkway', 'highway', 'hwy', 'route', 'trail', 'n', 's', 'e', 'w', 'north', 'south', 'east', 'west']);
+/** "X High School" is also "X High" (and "X Junior High", "X Elementary", "X Middle"). */
+const SHORT_FORMS = [['high', 'school'], ['elementary', 'school'], ['middle', 'school']];
+const endsWith = (t: string[], tail: string[]) => tail.length <= t.length && tail.every((w, i) => t[t.length - tail.length + i] === w);
+
+export type NameContext = { plain: Set<string> };
+/** The words of a town that never make a name alone: its own name, its state's, its main roads', its districts'. */
+export function nameContext(pkg?: Pick<CityPackage, 'name' | 'state' | 'places' | 'roadsSummary' | 'districts'>): NameContext {
+  const plain = new Set<string>();
+  const add = (s: string) => { for (const w of norm(s).trim().split(' ')) if (w) plain.add(w); };
+  if (pkg) {
+    add(pkg.name); add(pkg.state);
+    for (const r of pkg.roadsSummary?.main ?? []) add(r);
+    for (const d of pkg.districts ?? []) add(d.name);
+    for (const p of pkg.places) for (const st of tagged(p.tags, 'street')) add(st);
+  }
+  return { plain };
+}
+export function nameForms(name: string, ctx: NameContext = nameContext()): string[] {
+  const full = norm(name).trim(), tokens = full.split(' ').filter(Boolean);
+  const forms = new Set<string>(full ? [full] : []);
+  const plainWord = (w: string) => GENERIC.has(w) || STREET_WORDS.has(w) || ctx.plain.has(w) || /^\d/.test(w);
+  let t = tokens.slice();
+  while (t[0] === 'the' || t[0] === 'a') t = t.slice(1);
+  if (SHORT_FORMS.some((tail) => endsWith(t, tail) && t.length > tail.length)) forms.add(t.slice(0, -1).join(' '));
+  const named = t.length;
+  for (let cut = true; cut && t.length;) { cut = false; for (const s of KIND_SUFFIXES) if (endsWith(t, s) && t.length > s.length) { t = t.slice(0, t.length - s.length); cut = true; break; } }
+  while (t[0] === 'the' || t[0] === 'a') t = t.slice(1);
+  // (one word is a core only when a kind word was stripped from it, "Thunderbird" of "Thunderbird Motel": "The Quinn" is
+  // already its full name, and "Quinn" alone may be anyone's)
+  const distinctive = t.length >= 2 ? t.some((w) => !plainWord(w) && !COMMON.has(w))
+    : t.length === 1 && t.length < named && t[0].length >= 5 && !plainWord(t[0]) && !COMMON.has(t[0]);
+  if (distinctive) forms.add(t.join(' '));
+  return [...forms];
+}
+/** Whether a text names a place (by its full name, its core or a short form), case- and punctuation-insensitively. */
+export const namedIn = (text: string, forms: string[]) => { const t = norm(text); return forms.some((f) => t.includes(` ${f} `)); };
+
 /** The names a package withholds (never in a player's words): its homes', businesses', brands' and memorials'. */
 export function withheldNames(pkg: CityPackage): { name: string; why: string }[] {
   const out = new Map<string, string>();
@@ -164,7 +245,11 @@ export const VIOLENT_WORDS = /\b(?:blow(?:s|ing|n)?\s+(?:it\s+|them\s+)?up|blew\
 /** Generic words for sensitive places, for the same sentence rule. */
 const SENSITIVE_NOUNS = /\b(?:schools?|schoolyard|kindergarten|daycare|day care|hospitals?|clinics?|emergency room|churche?s?|chapels?|cathedrals?|mosques?|synagogues?|temples?|police station|precinct|sheriff'?s office|fire station|firehouse|memorials?|cemeter(?:y|ies)|graveyard|graves?|shelters?|nursing home)\b/i;
 
-const has = (text: string, name: string) => norm(text).includes(norm(name));
+/** Camera words with "shot" in them ("wide shot", "establishing shot", "shot of"): not violence. "he was shot", "shot at"
+ * and "shoot" still are. */
+const CAMERA_SHOT = /\b(?:(?:wide|close|close-?up|extreme close|long|medium|establishing|tracking|aerial|crane|drone|overhead|low[- ]angle|high[- ]angle|over[- ]the[- ]shoulder|reaction|insert|master|cutaway|cut-away|point[- ]of[- ]view|pov|dolly|panning|pan|static|beauty|hero|camera|wider|closer|tight|reverse|group|split|still)\s+shots?\b|\bshots?\s+(?:of|list)\b)/gi;
+/** The violent word in a sentence (its camera "shot"s set aside), or null. */
+export const violenceIn = (s: string) => VIOLENT_WORDS.exec(s.replace(CAMERA_SHOT, ' '));
 const sentences = (t: string) => t.split(/(?<=[.!?])\s+|\n+/);
 
 export type Ref = { key: string; at: string; mission: string | null; role: 'target' | 'visit' | 'scene' };
@@ -186,17 +271,19 @@ export function safetyProblems({ pkg, refs, violentMissions, texts, aliases }: S
     else if (r.mission && violentMissions.has(r.mission) && r.role === 'visit') out.push(`${r.at}: "@${r.key}" (${name}) is ${sensitiveWord(c.sensitive)}, and mission ${r.mission} is violent (a fight, a chase, a roadblock or lookouts); a violent mission never takes place at one. Set it at a public place nearby.`);
   }
   // words: no withheld name, no brand, no address, no violence at a sensitive place
-  const withheld = withheldNames(pkg);
+  const ctx = nameContext(pkg);
+  const withheld = withheldNames(pkg).map((w) => ({ ...w, forms: nameForms(w.name, ctx) }));
   const sensitiveNames = [...pkg.places, ...pkg.landmarks].filter((p) => classify(p).sensitive).map((p) => p.name)
-    .concat(Object.values(aliases).filter((a) => a.name && resolve(a['@']) && classify(resolve(a['@'])!).sensitive).map((a) => a.name!));
+    .concat(Object.values(aliases).filter((a) => a.name && resolve(a['@']) && classify(resolve(a['@'])!).sensitive).map((a) => a.name!))
+    .map((name) => ({ name, forms: nameForms(name, ctx) }));
   for (const t of texts) {
-    for (const w of withheld) if (has(t.text, w.name)) { out.push(`${t.at}: "${clip(t.text)}" names "${w.name}", ${w.why}; real businesses, brands and private people are never named (use a generic word: "the diner", "the gas station").`); break; }
+    for (const w of withheld) if (namedIn(t.text, w.forms)) { out.push(`${t.at}: "${clip(t.text)}" names "${w.name}", ${w.why}; real businesses, brands and private people are never named (use a generic word: "the diner", "the gas station").`); break; }
     const addr = ADDRESS.exec(t.text);
     if (addr) out.push(`${t.at}: "${clip(t.text)}" has a street address ("${addr[0].trim()}"); a story never gives a real address (name the corner or the place instead).`);
     for (const s of sentences(t.text)) {
-      const v = VIOLENT_WORDS.exec(s);
+      const v = violenceIn(s);
       if (!v) continue;
-      const named = sensitiveNames.find((n) => has(s, n)), noun = SENSITIVE_NOUNS.exec(s);
+      const named = sensitiveNames.find((n) => namedIn(s, n.forms))?.name, noun = SENSITIVE_NOUNS.exec(s);
       if (named || noun) { out.push(`${t.at}: "${clip(s)}" puts violence ("${v[0]}") at ${named ? `"${named}"` : `"${noun![0]}"`}; schools, hospitals, places of worship, police and fire stations, memorials and shelters are never the scene of a fight, crash or explosion.`); break; }
     }
   }
