@@ -120,6 +120,9 @@ export function runHometownChecks(ok: Ok) {
   refused('violence at a school in words is refused', story((p) => { p.acts[0].missions[5].steps[1].text = 'Next time I blow up the school.'; }), /violence/);
   refused('violence at a named place of worship is refused', story((p) => { p.acts[0].missions[5].steps[1].text = 'Burn down First Street Chapel.'; }), /First Street Chapel/);
   refused('violence at an alias of a sensitive place is refused', story((p) => { p.places['white-chapel'] = { '@': 'first-street-chapel', name: 'the white steeple' }; p.acts[0].missions[5].steps[1].text = 'Torch the white steeple.'; }), /white steeple/);
+  refused('a brand in an end step\'s fail line (the MISSION FAILED text) is refused', story((p) => { p.acts[0].missions[1].steps.push({ type: 'end', fail: 'You never made it back to the Walmart.' }); }), /Walmart/);
+  refused('violence at a school in an end step\'s fail line is refused', story((p) => { p.acts[0].missions[1].steps.push({ type: 'end', fail: 'They blew up the school.' }); }), /violence/);
+  refused('a street address as a stop\'s on-screen name is refused', story((p) => { p.acts[0].missions[1].steps.unshift({ type: 'stops', stops: [{ '@': 'town-park', name: '412 N 4th Street' }] }); }), /street address/);
   refused('a memorial\'s name (maybe a private person\'s) is withheld', story((p) => { p.acts[0].missions[1].steps[1].text = 'Meet me by the Veterans Memorial.'; }), /Veterans Memorial/);
   refused('a fight at SF\'s cathedral (an arrival) is refused', (() => { const p = clone(sfPass.pack!); p.acts[0].missions[2].steps[1].arena = '@nobhill'; return gateHometown(p, SF); })(), /nobhill/);
   const passes = (name: string, r: ReturnType<typeof story>) => ok(name, r.ok, show(r.problems));

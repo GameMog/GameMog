@@ -72,11 +72,13 @@ export function storyPlan(pack: PackV2): Ref[] {
   return refs;
 }
 
-/** Keys whose strings are not words a player reads or hears (ids, enums, references, colours). */
+/** Keys whose strings are not words a player reads or hears (ids, enums, references, colours). Not here, though they
+ * hold enums or references too: 'fail' (an end step's fail line is the MISSION FAILED text), 'stops' and 'units' (a
+ * stop's and a lookout's `name` are on screen); their enum values ('hard', 'police') and "@key"s are skipped by the walk. */
 const NOT_TEXT = new Set(['id', 'type', '@', 'face', 'if', 'goto', 'until', 'flag', 'clip', 'hash', 'status', 'cue', 'tag', 'value', 'silenceValue', 'fork',
   'rel', 'cam', 'look', 'to', 'lookTo', 'place', 'start', 'who', 'say', 'by', 'owner', 'vehicle', 'ride', 'hero', 'anchor', 'kokoro', 'stock', 'storykit',
-  'parent', 'base', 'voices', 'blend', 'enemies', 'model', 'from', 'at', 'arena', 'target', 'near', 'route', 'stops', 'units', 'area', 'verbs', 'kind',
-  'family', 'class', 'time', 'season', 'weather', 'holiday', 'win', 'rules', 'mode', 'goal', 'roles', 'fail', 'seat', 'format', 'unit', 'item', 'style',
+  'parent', 'base', 'voices', 'blend', 'enemies', 'model', 'from', 'at', 'arena', 'target', 'near', 'route', 'area', 'verbs', 'kind',
+  'family', 'class', 'time', 'season', 'weather', 'holiday', 'win', 'rules', 'mode', 'goal', 'roles', 'seat', 'format', 'unit', 'item', 'style',
   'color', 'colour', 'tone', 'undertone', 'body', 'frame', 'weight', 'muscle', 'jaw', 'eyes', 'stance', 'pace', 'car', 'lead', 'on', 'part', 'name_key']);
 /** Every text of a pack a player reads or hears, with where it is. */
 export function playerTexts(pack: PackV2): { at: string; text: string }[] {
