@@ -134,6 +134,19 @@ mode), per piece where the rule has `between`. Segments' way ids and speed limit
 region has one). The side table: `--osm-roads <parquet>` or `<data>/osm/osm-roads-us.parquet`; its sha256 is in the
 build record (a new table, a new buildId).
 
+Building the side table (offline, the dev Mac, once per Overture release; never on Render):
+
+```bash
+mkdir -p <dl> && curl -L -o <dl>/us-YYMMDD.osm.pbf https://download.geofabrik.de/north-america/us-YYMMDD.osm.pbf   # ~12 GB
+# (check it against Geofabrik's .md5; pyosmium + pyarrow in their own venv; -I: never import from the download's dir)
+python -I tools/hometown/osm_roads.py <dl>/us-YYMMDD.osm.pbf <data>/osm/osm-roads-us.parquet
+python tools/hometown/fetch.py --extras "conus:C,R;C,R..."      # the regions' way ids + speed limits
+```
+
+First build (13 Nov 2026): `us-261112.osm.pbf` (12,264,531,947 B, md5 11b2a6f5dcfe611cbba52cafe354edf1), 52.2 M highway
+ways read, 3,670,803 kept, 17.1 MB, sha256 `555ea001a758b77b...`, 36 min on a loaded 10-core Mac. ODbL 1.0
+(© OpenStreetMap contributors), a derived database: keep `osm_roads.py` public with the compiler.
+
 ## Rules that are estimates, not data
 
 Road widths, lanes and sidewalks by class; building type by Overture class, footprint area, height and the downtown
