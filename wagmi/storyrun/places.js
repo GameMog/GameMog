@@ -14,7 +14,8 @@
 //   one of them is asked for (prepare(mission) at its start), seeded by the world's seed (or id), the mission's id and
 //   the site's own id (or its place in that order): the same world gives the same sites in the same city every run, a
 //   Mog of it the same ones as its parent. Each is then fixed for the page's life.
-//   prepare(mission) -> [{ i, kind, key, name, x, z, cx, cz }];  sites() -> every site picked so far
+//   prepare(mission) -> [{ i, kind, key, name, x, z, cx, cz }];  sites() -> every site picked so far;  siteName(mission,
+//   id) -> a site's name here (the runner's {site.<id>} in a line or an objective)
 import { world as cityWorld } from '../world/index.js';
 export { SF_PLACES } from '../world/places-sf.js';
 
@@ -135,5 +136,7 @@ export function createPlaces(W, world) {
     }
     return p;
   }
-  return { at, lib, missing, prepare, sites: () => all.slice() };
+  // (a mission's site by its id: its name here, for a line or an objective's {site.<id>})
+  const siteName = (m, id) => { const l = prepare(m); const e = l.find((x) => x.id === id); return e ? e.name : null; };
+  return { at, lib, missing, prepare, siteName, sites: () => all.slice() };
 }

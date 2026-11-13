@@ -114,7 +114,9 @@ export function createRunner(ctx) {
   const COLOUR6 = /^#[0-9A-Fa-f]{6}$/;
   const tokens = (s) => String(s ?? '')
     .replace(/\{ride\.name\}|\{ride\}/g, car.label || 'your car').replace(/\{ride\.board\}/g, rideWord('board', 'Get in')).replace(/\{ride\.go\}/g, rideWord('go', 'Drive')).replace(/\{ride\.park\}/g, rideWord('park', 'Stop'))
-    .replace(/\{name\}/g, heroName);
+    .replace(/\{name\}/g, heroName)
+    // (a site of the mission by its id, its name in this city: 'Fill up at **{site.gas}**', places.js)
+    .replace(/\{site\.([a-z][a-z0-9_-]{0,31})\}/g, (all, id) => (M && places.siteName?.(M.def, id)) || 'there');
   // '**bold**' -> Mog City's one coloured noun (yellow: a place); '**bold**{red}' names its colour (yellow, red, blue, green)
   const parts = (s, color = 'yellow') => {
     const out = []; const re = /\*\*(.+?)\*\*(?:\{(yellow|red|blue|green)\})?/g; let at = 0, m; s = tokens(s);
