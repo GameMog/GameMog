@@ -10,4 +10,4 @@ repository must remove this folder (the radio then has no songs to play and stay
 
 How they get here: `node tools/mog-music/build.mjs "<folder of mp3s>"` copies each song byte for byte under a safe
 name and writes `manifest.json` (file, display title, duration, bitrate, size). The game streams one song at a time
-and only after the player turns Mog Music on (`wagmi/radio/mog.js`).
+and only after the player turns Mog Music on (`wagmi/radio/radio.js`).

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Mog Music: the owner's own songs, copied into media/mog-music/ for the car radio (wagmi/radio/mog.js).
+// Mog Music: the owner's own songs, copied into media/mog-music/ for the car radio (wagmi/radio/radio.js).
 //   node tools/mog-music/build.mjs ["<folder of mp3s>"]   (default: ../Mog Music beside this repository's folder)
 // Reads the folder (never changes it), copies each .mp3 byte for byte under a safe name (lowercase, hyphens) and
 // writes media/mog-music/manifest.json: [{ file, title, dur, kbps, bytes }], the title from the file's name
