@@ -1,7 +1,8 @@
 // Mog City: how a chase car keeps to the road (pure: no scene, no globals; index.js and tests/chase-lane.test.mjs).
-//   follow(P, path, vmax) -> { ax, az, vt, seg, cross }: the car (P { x, z, speed, seg }) projected onto its planned
-//     path ([[x, z], ...], nav.route's), a point a lookahead on down it from there, and the speed it can be at for the
-//     corners in the next 120 m. P.seg (the segment it is on) only moves on; set it to 0 on a new plan.
+//   follow(P, path, vmax, lookCap?) -> { ax, az, vt, seg, cross }: the car (P { x, z, speed, seg }) projected onto its
+//     planned path ([[x, z], ...], nav.route's), a point a lookahead (at most lookCap m) on down it from there, and the
+//     speed it can be at for the corners in the next 120 m. P.seg (the segment it is on) only moves on; set it to 0 on
+//     a new plan.
 //   roadClear(onRoadway, x0, z0, x1, z1, maxOff = 2) -> true when the line between is on the road but for maxOff m in
 //     all (a junction's corner cut)
 //   rejoin(P, dt, ctx) -> null | { ax, az, vt }: off the road (ctx.onRoadway) over REJOIN.after s and not excused
@@ -27,7 +28,7 @@ export function reach(P, ax, az) {
 }
 const cornerV = (R) => Math.min(Math.sqrt(FOLLOW.aLat * R), FOLLOW.yaw * R);
 
-export function follow(P, path, vmax) {
+export function follow(P, path, vmax, lookCap = Infinity) {
   const n = path.length;
   if (!n) return { ax: P.x, az: P.z, vt: 0, seg: 0, cross: 0 };
   if (n === 1) return { ax: path[0][0], az: path[0][1], vt: vmax, seg: 0, cross: Math.hypot(path[0][0] - P.x, path[0][1] - P.z) };
@@ -44,7 +45,7 @@ export function follow(P, path, vmax) {
   const seg = Math.max(s0, bi);
   if (seg > bi) { bi = seg; bt = 0; }
   // the lookahead point, from the projection on down the path
-  const v = Math.abs(P.speed || 0), look = clamp(FOLLOW.look0 + FOLLOW.lookV * v, FOLLOW.lookMin, FOLLOW.lookMax);
+  const v = Math.abs(P.speed || 0), look = Math.min(clamp(FOLLOW.look0 + FOLLOW.lookV * v, FOLLOW.lookMin, FOLLOW.lookMax), lookCap);
   let i = bi, sx = path[i][0] + (path[i + 1][0] - path[i][0]) * bt, sz = path[i][1] + (path[i + 1][1] - path[i][1]) * bt;
   let left = look, ax = path[n - 1][0], az = path[n - 1][1];
   while (i + 1 < n) {
