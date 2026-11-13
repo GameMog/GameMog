@@ -78,6 +78,8 @@ class DemPin(unittest.TestCase):
         pre = 'StagedProducts/Elevation/13/TIFF/current/'
         pages = {None: page([(pre + 'n36w097/USGS_13_n36w097.tif', 'aa-89', 9), (pre + 'n36w097/USGS_13_n36w097.xml', 'x', 1)], 'T1'),
                  'T1': page([(pre + 'n36w098/USGS_13_n36w098.tif', 'bb', 8), (pre + 'n36w098/old/USGS_13_n36w098_2019.tif', 'cc', 1)])}
+        # (newer objects carry checksum fields between ETag and Size: n41w080 was missed by a fixed-order parse)
+        pages['T1'] = pages['T1'].replace('</ETag><Size>8</Size>', '</ETag><ChecksumAlgorithm>CRC64NVME</ChecksumAlgorithm><ChecksumType>FULL_OBJECT</ChecksumType><Size>8</Size>')
         seen = []
 
         def lister(u):

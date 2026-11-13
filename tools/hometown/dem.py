@@ -70,7 +70,9 @@ def list_snapshot(products=('13', '1'), lister=None):
     lastModified}}}}. lister(url) -> XML text (tests pass a fake)."""
     lister = lister or (lambda u: _get(u)[0].decode('utf-8'))
     out = {'format': 'hometown-dem-snapshot', 'version': 1, 'bucket': BUCKET, 'products': {}}
-    rx = re.compile(r'<Contents><Key>([^<]+)</Key><LastModified>([^<]+)</LastModified><ETag>([^<]+)</ETag><Size>(\d+)</Size>')
+    # (each <Contents> element by its own fields: S3 adds others between them, e.g. ChecksumAlgorithm on newer objects)
+    rc = re.compile(r'<Contents>(.*?)</Contents>', re.S)
+    field = lambda blk, f: (re.search(r'<%s>([^<]*)</%s>' % (f, f), blk) or [None, ''])[1]  # noqa: E731
     for p in products:
         files, token = {}, None
         while True:
@@ -78,7 +80,8 @@ def list_snapshot(products=('13', '1'), lister=None):
             if token:
                 q += '&continuation-token=' + urllib.parse.quote(token)
             xml = lister('%s/?%s' % (BUCKET, q))
-            for key, lm, et, size in rx.findall(xml):
+            for blk in rc.findall(xml):
+                key, lm, et, size = field(blk, 'Key'), field(blk, 'LastModified'), field(blk, 'ETag'), field(blk, 'Size')
                 m = re.search(r'/(n\d\dw\d\d\d)/USGS_%s_\1\.tif$' % re.escape(p), key)
                 if m:
                     files[m.group(1)] = {'etag': et.replace('&quot;', '').strip('"'), 'bytes': int(size), 'lastModified': lm}
