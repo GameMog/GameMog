@@ -6,6 +6,29 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const N = () => globalThis.window?.NYC || {};
 const APP = () => globalThis.window?.__NYC_APP || null;
 
+// ------------------------------------------------------------------ mission sites: the vocabulary (MISSION-SITES.md)
+// the kinds of place a mission can ask for by what it is, not where it is (findMissionSites({ kind }))
+export const SITE_KINDS = ['gas_station', 'store', 'park', 'plaza', 'bridge', 'parking', 'landmark', 'straight_road', 'junction', 'dead_end', 'waterfront'];
+// a string's 32-bit FNV-1a hash, and a small seeded generator over it (mulberry32): the same seed, the same numbers,
+// in every browser and in node
+export function hash32(s) {
+  let h = 0x811c9dc5;
+  for (const ch of String(s)) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h >>> 0;
+}
+export function seeded(seed) {
+  let a = hash32(seed) || 1;
+  return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+// list (each with a unique `key`) in the seed's order: sorted by key first, so the order the city's data came in never
+// matters, then shuffled by the seed (Fisher-Yates)
+export function seededOrder(list, seed) {
+  const out = list.slice().sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)), rnd = seeded(seed);
+  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  return out;
+}
+const pretty = (s) => (s ? String(s).toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase()) : s);
+
 export function createWorld(city) {
   const cm = () => APP()?.controllerManager;
   const net = () => APP()?.trafficSystem?.network;
@@ -139,9 +162,13 @@ export function createWorld(city) {
     for (const [key, p] of Object.entries(N().TELEPORT_LOCATIONS || {})) if (kind !== 'ground' || p.mode !== 'helicopter') out.push({ key, ...p });
     return out;
   }
-  // v0: mission sites from the place library. req { near: { x, z }, min, max (m), count, foot (true: a foot place
-  // too) } -> [{ key, x, z, heading, name, d }] nearest first
-  function findMissionSites(req = {}) {
+  // ------------------------------------------------------------------ mission sites (MISSION-SITES.md)
+  // findMissionSites(req): without a `kind`, the place library's keys as before (v0: { near, min, max, count, foot } ->
+  // [{ key, x, z, heading, name, d }] nearest first). With one, real places of that kind on this map, found from the
+  // city's own data (its roads, blocks, landmarks, piers, colliders), each { key, kind, name, x, z, heading (where a car
+  // stops: on its lane, facing along it), cx, cz (the place itself, on foot), road, d, ... } in the seed's order (req.seed)
+  // or nearest first. The same city and the same request give the same answer, every time.
+  function placeSites(req) {
     const L = places(), at = req.near, out = [];
     for (const [key, p] of Object.entries(L)) {
       if (!p || (p.foot && !req.foot)) continue;
@@ -152,6 +179,249 @@ export function createWorld(city) {
     }
     out.sort((a, b) => a.d - b.d);
     return req.count ? out.slice(0, req.count) : out;
+  }
+  // the lanes by 100 m cell, built once a road graph: the nearest lane to a point among the edges a test keeps
+  const CELL = 100;
+  let laneCells = null, laneNet = null;
+  function laneIndex() {
+    const n = net(); if (!n) return null;
+    if (laneNet === n && laneCells) return laneCells;
+    laneNet = n; laneCells = new Map();
+    for (const e of n.edges) {
+      if (!(e.len >= 8) || !e.lanes?.length) continue;
+      const ex = e.sx + e.dx * e.len, ez = e.sz + e.dz * e.len;
+      for (let ix = Math.floor(Math.min(e.sx, ex) / CELL); ix <= Math.floor(Math.max(e.sx, ex) / CELL); ix++)
+        for (let iz = Math.floor(Math.min(e.sz, ez) / CELL); iz <= Math.floor(Math.max(e.sz, ez) / CELL); iz++) {
+          const k = ix * 65536 + iz; let list = laneCells.get(k); if (!list) laneCells.set(k, (list = [])); list.push(e);
+        }
+    }
+    return laneCells;
+  }
+  const level = (e) => { const mx = e.sx + e.dx * e.len / 2, mz = e.sz + e.dz * e.len / 2; return Math.abs(groundY(mx, mz, 'car') - roadY(mx, mz)) <= 0.3; };
+  const roadKeep = (e) => !e.bore && level(e);
+  function laneAt(x, z, R = 80, keep = roadKeep) {
+    const cells = laneIndex(); if (!cells) return null;
+    let best = null; const seen = new Set();
+    for (let ix = Math.floor((x - R) / CELL); ix <= Math.floor((x + R) / CELL); ix++)
+      for (let iz = Math.floor((z - R) / CELL); iz <= Math.floor((z + R) / CELL); iz++) for (const e of cells.get(ix * 65536 + iz) || []) {
+        if (seen.has(e)) continue; seen.add(e);
+        if (keep && !keep(e)) continue;
+        const s = clamp((x - e.sx) * e.dx + (z - e.sz) * e.dz, 4, e.len - 4);
+        for (let l = 0; l < e.lanes.length; l++) {
+          const px = e.sx + e.dx * s + e.rx * e.lanes[l], pz = e.sz + e.dz * s + e.rz * e.lanes[l], d = Math.hypot(px - x, pz - z);
+          if (d <= R && (!best || d < best.d || (d === best.d && e.id < best.edge.id))) best = { x: px, z: pz, heading: Math.atan2(e.dx, e.dz), d, edge: e };
+        }
+      }
+    return best;
+  }
+  // a point s m along an edge on its lane l (the last: the kerb side), facing along it
+  const lanePt = (e, s, l = 0) => { const o = e.lanes[clamp(l, 0, e.lanes.length - 1)]; s = clamp(s, 2, e.len - 2); return { x: e.sx + e.dx * s + e.rx * o, z: e.sz + e.dz * s + e.rz * o, heading: Math.atan2(e.dx, e.dz), d: 0, edge: e }; };
+  // what stands at ground level near a point (a copy: the controllers' list is reused), how far a box is from a point
+  function solids(x, z, r) {
+    const y = groundY(x, z, 'person');
+    return queryColliders({ x, z, r }).filter((c) => !(c.minY >= y + 2) && !(c.maxY <= y + 0.3));
+  }
+  const boxD = (c, x, z) => Math.hypot(Math.max(c.minX - x, 0, x - c.maxX), Math.max(c.minZ - z, 0, z - c.maxZ));
+  const inSolid = (x, z) => solids(x, z, 3).some((c) => boxD(c, x, z) < 0.3);
+  // nothing solid within r m of (x, z), and dry
+  const openAt = (x, z, r) => !inWater(x, z) && !solids(x, z, r + 2).some((c) => boxD(c, x, z) < r);
+  // a clear line at a person's height from (ax, az) to (bx, bz): no collider on it (1 m steps)
+  function sightline(ax, az, bx, bz) {
+    const L = Math.hypot(bx - ax, bz - az); if (L < 1) return true;
+    const list = solids((ax + bx) / 2, (az + bz) / 2, L / 2 + 2), n = Math.ceil(L);
+    for (let k = 1; k < n; k++) { const x = ax + (bx - ax) * k / n, z = az + (bz - az) * k / n; if (list.some((c) => boxD(c, x, z) < 0.2)) return false; }
+    return true;
+  }
+  // the first point on the sidewalk from a lane toward (tx, tz) (1 m steps, up to `reach` m) that nothing stands on: a
+  // place's front, where a man on foot meets it; null when there is none
+  function frontPoint(lx, lz, tx, tz, reach = 16) {
+    const L = Math.hypot(tx - lx, tz - lz) || 1, ux = (tx - lx) / L, uz = (tz - lz) / L;
+    for (let k = 2; k <= Math.min(reach, L + 2); k++) {
+      const x = lx + ux * k, z = lz + uz * k;
+      if (inWater(x, z)) return null;
+      if (sampleSurface(x, z).curb && !inSolid(x, z)) return { x, z };
+    }
+    return null;
+  }
+  const streetOf = (x, z, e) => { const nm = streetNameAt(x, z, e ? { dir: { ux: e.dx, uz: e.dz } } : {}); return (nm && !(/tunnel/i.test(nm) && e && !e.bore && e.name) ? nm : pretty(e?.name) || nm) || null; };
+  const neighbours = (nd) => new Set([...(nd.in || []).map((e) => e.from), ...(nd.out || []).map((e) => e.to)]);
+  // a site on a lane: where a car stops (x, z, heading) and the place itself (cx, cz)
+  const site = (c, lane, cx, cz, more) => (lane ? { key: c.key, kind: c.kind, name: c.name, x: lane.x, z: lane.z, heading: lane.heading, cx, cz, road: lane.edge ? (city.isAvenue(lane.edge) ? 'avenue' : 'street') : null, reach: Math.hypot(cx - lane.x, cz - lane.z), ...(c.fallback ? { fallback: c.fallback } : {}), ...more } : null);
+  // a building's or a landmark's front: its nearest lane within R m, then the sidewalk in front of it
+  const frontSite = (c, R = 200) => { const lane = laneAt(c.fx, c.fz, R); if (!lane) return null; const f = frontPoint(lane.x, lane.z, c.fx, c.fz) || { x: lane.x, z: lane.z }; return site(c, lane, f.x, f.z); };
+  // the kerb side of an edge's last lane, s m along it (the sidewalk there, else 2 m off the lane)
+  const kerbSite = (c, e, s, more) => { const lane = lanePt(e, s, e.lanes.length - 1), f = frontPoint(lane.x, lane.z, lane.x + e.rx * 14, lane.z + e.rz * 14, 14) || { x: lane.x + e.rx * 2, z: lane.z + e.rz * 2 }; return site(c, lane, f.x, f.z, more); };
+  // a park's block: its nearest lane, then into the park from there (a few metres in)
+  const parkSite = (c, b) => {
+    const lane = laneAt(b.cx, b.cz, 600); if (!lane) return null;
+    const L = Math.hypot(b.cx - lane.x, b.cz - lane.z) || 1, ux = (b.cx - lane.x) / L, uz = (b.cz - lane.z) / L;
+    let at = null;
+    for (let k = 2; k <= Math.min(L, 200); k += 2) { const x = lane.x + ux * k, z = lane.z + uz * k; if (isPark(x, z) && !inWater(x, z)) { at = { x: lane.x + ux * Math.min(L, k + 5), z: lane.z + uz * Math.min(L, k + 5) }; break; } }
+    return site(c, lane, (at || { x: b.cx }).x, at ? at.z : b.cz, { area: Math.round(b.area || 0) });
+  };
+  const named = (k) => !/^\d+$/.test(k);
+  // how far the place itself may be from where the car stops, by kind (req.reach): a pier's end, a park's lawn
+  const REACH = { waterfront: 250, park: 150, plaza: 150, landmark: 150 };
+  const STORE = new Set(['retail', 'commercial', 'supermarket', 'convenience', 'mall', 'department_store', 'shop', 'kiosk']);
+  // each kind's candidates, once a road graph: { real, fallback } of { key, kind, name, fx, fz (about where it is), make }
+  let kindNet = null; const kinds = new Map();
+  function candidates(kind) {
+    const n = net(); if (!n) return null;
+    if (kindNet !== n) { kindNet = n; kinds.clear(); }
+    if (kinds.has(kind)) return kinds.get(kind);
+    const real = [], fallback = [], NN = N(), LM = NN.LANDMARK_SITES || {};
+    const add = (list, c) => { c.kind = kind; list.push(c); };
+    // (a compiled town's own points of interest, when its adapter has them: city.pois(kind) -> [{ id, name, x, z }])
+    for (const p of city.pois?.(kind) || []) add(real, { key: `poi:${p.id ?? p.name}`, name: p.name || pretty(kind.replace('_', ' ')), fx: p.x, fz: p.z, make: (c) => frontSite(c) });
+    const parkBlocks = () => (NN.BLOCKS || []).filter((b) => b.park > 0.5 && !b.median && (b.area || 0) >= 400 && Number.isFinite(b.cx));
+    const edges = n.edges.filter((e) => e.len >= 8 && e.lanes?.length && !e.bore);
+    const nodes = n.nodes || [];
+    if (kind === 'landmark') for (const l of NN.NYC_LANDMARKS || []) add(real, { key: `landmark:${l.id || l.name}`, name: l.name, fx: l.x, fz: l.z, make: (c) => frontSite(c) });
+    if (kind === 'store') {
+      for (const [k, v] of Object.entries(LM)) if (named(k) && STORE.has(v.kind)) add(real, { key: `store:${k}`, name: k, fx: v.x, fz: v.z, make: (c) => frontSite(c) });
+      // (none of the city's own: a shopfront on a street of a busy district, else on any street)
+      const mid = (e) => [e.sx + e.dx * e.len / 2, e.sz + e.dz * e.len / 2];
+      let shop = edges.filter((e) => e.len >= 40 && !city.isAvenue(e) && commercial(districtAt(...mid(e))));
+      if (!shop.length) shop = edges.filter((e) => e.len >= 40 && !city.isAvenue(e));
+      for (const e of shop) { const [mx, mz] = mid(e); add(fallback, { key: `shopfront:${e.id}`, fx: mx, fz: mz, fallback: 'shopfront', make: (c) => { const s = kerbSite(c, e, e.len / 2); if (s) s.name = `the shop on ${streetOf(mx, mz, e) || 'the street'}`; return s; } }); }
+    }
+    if (kind === 'parking') {
+      for (const [k, v] of Object.entries(LM)) if (v.kind === 'parking' || (named(k) && /garage|parking/i.test(k))) add(real, { key: `parking:${k}`, name: named(k) ? k : 'the parking garage', fx: v.x, fz: v.z, make: (c) => frontSite(c) });
+      for (const e of edges) if (e.len >= 50 && !city.isAvenue(e)) { const mx = e.sx + e.dx * e.len / 2, mz = e.sz + e.dz * e.len / 2; add(fallback, { key: `kerb:${e.id}`, fx: mx, fz: mz, fallback: 'kerb', make: (c) => { if (!level(e)) return null; const lane = lanePt(e, e.len / 2, e.lanes.length - 1); return site({ ...c, name: `parking on ${streetOf(mx, mz, e) || 'the street'}` }, lane, lane.x + e.rx * 1.6, lane.z + e.rz * 1.6); } }); }
+    }
+    if (kind === 'gas_station') {
+      for (const [k, v] of Object.entries(LM)) if (v.kind === 'fuel') add(real, { key: `fuel:${k}`, name: named(k) ? k : 'the gas station', fx: v.x, fz: v.z, make: (c) => frontSite(c) });
+      // (none of the city's own: the corner lot of a main road's junction, on the kerb side before it)
+      for (const nd of nodes) {
+        if (neighbours(nd).size < 3) continue;
+        const ins = (nd.in || []).filter((e) => e.len >= 30 && !e.bore && e.lanes?.length).sort((a, b) => (city.isAvenue(b) - city.isAvenue(a)) || b.len - a.len || a.id - b.id);
+        if (!ins.length || !(nd.in || []).concat(nd.out || []).some((e) => city.isAvenue(e))) continue;
+        add(fallback, { key: `corner:${nd.id}`, fx: nd.x, fz: nd.z, fallback: 'corner', make: (c) => { const e = ins[0]; if (!level(e)) return null; const s = kerbSite(c, e, e.len - 18); if (s) s.name = `the gas station at ${cornerName(nd) || streetOf(nd.x, nd.z, e) || 'the corner'}`; return s; } });
+      }
+    }
+    if (kind === 'park') for (const b of parkBlocks()) add(real, { key: `park:${b.id}`, name: b.parkName || 'the park', fx: b.cx, fz: b.cz, make: (c) => parkSite(c, b) });
+    if (kind === 'plaza') {
+      for (const b of parkBlocks()) if (/plaza|square|piazza|green|commons|mall/i.test(b.parkName || '')) add(real, { key: `plaza:${b.id}`, name: b.parkName, fx: b.cx, fz: b.cz, make: (c) => parkSite(c, b) });
+      for (const p of NN.GEO?.plazas || []) if (Array.isArray(p.a) && Array.isArray(p.b)) { const fx = (p.a[0] + p.b[0]) / 2, fz = (p.a[1] + p.b[1]) / 2; add(real, { key: `plaza:${p.name}`, name: p.name, fx, fz, make: (c) => { const lane = laneAt(fx, fz, 200); return site(c, lane, fx, fz); } }); }
+    }
+    // (a bridge or an overpass: where a raised deck of the city's highways, 5 m or more over the ground, crosses a
+    // street a car can drive: the street under it, every 80 m of deck)
+    if (kind === 'bridge') for (const [li, H] of ((APP()?.highwayTraffic?.lanes) || NN.highwayLanes || []).entries()) {
+      let last = -1e9, run = 0;
+      for (let i = 0; i + 1 < (H.pts || []).length; i++) {
+        const p = H.pts[i], q = H.pts[i + 1]; run += Math.hypot(q.x - p.x, q.z - p.z);
+        if (run - last < 80) continue;
+        const deck = (p.y || 0) - roadY(p.x, p.z);
+        if (!(deck >= 5)) continue;
+        last = run;
+        add(real, { key: `bridge:${li}:${i}`, fx: p.x, fz: p.z, make: (c) => {
+          const lane = laneAt(p.x, p.z, 40); if (!lane) return null;
+          const st = streetOf(lane.x, lane.z, lane.edge) || 'the street';
+          return site({ ...c, name: deck >= 30 ? `under the bridge on ${st}` : `under the overpass on ${st}` }, lane, lane.x, lane.z, { deck: Math.round(deck) });
+        } });
+      }
+    }
+    if (kind === 'straight_road') {
+      const dot = (a, b) => a.dx * b.dx + a.dz * b.dz;
+      const next = (cur) => (cur.to.out || []).filter((q) => q.to !== cur.from && !q.bore && q.lanes?.length && dot(q, cur) > 0.995).sort((a, b) => a.id - b.id)[0];
+      for (const e of edges) {
+        if ((e.from.in || []).some((p) => p.from !== e.to && !p.bore && dot(p, e) > 0.995)) continue;
+        const chain = [e], seen = new Set([e]); let L = e.len, cur = e;
+        for (let q = next(cur); q && !seen.has(q) && chain.length < 60 && L < 3000; q = next(cur)) { seen.add(q); chain.push(q); L += q.len; cur = q; }
+        const last = chain[chain.length - 1];
+        add(real, { key: `straight:${e.id}`, fx: e.sx + e.dx * Math.min(L, e.len) / 2, fz: e.sz + e.dz * Math.min(L, e.len) / 2, length: L, make: (c) => {
+          if (!level(e)) return null;
+          const a = lanePt(e, Math.min(10, e.len / 4), 0), b = lanePt(last, last.len - 4, 0);
+          return site({ ...c, name: streetOf(a.x, a.z, e) || 'the straight' }, a, a.x, a.z, { length: Math.round(L), ex: b.x, ez: b.z, edges: chain.length });
+        } });
+      }
+    }
+    if (kind === 'junction' || kind === 'dead_end') {
+      let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+      for (const nd of nodes) { minX = Math.min(minX, nd.x); maxX = Math.max(maxX, nd.x); minZ = Math.min(minZ, nd.z); maxZ = Math.max(maxZ, nd.z); }
+      for (const nd of nodes) {
+        const k = neighbours(nd).size;
+        if (kind === 'junction' ? k < 3 : k !== 1) continue;
+        // (a dead end at the map's edge is where the city's data stops, not a street's end)
+        if (kind === 'dead_end' && (nd.x < minX + 150 || nd.x > maxX - 150 || nd.z < minZ + 150 || nd.z > maxZ - 150)) continue;
+        const ins = (nd.in || []).filter((e) => e.len >= 15 && !e.bore && e.lanes?.length && (kind === 'junction' || !city.isAvenue(e))).sort((a, b) => b.len - a.len || a.id - b.id);
+        if (!ins.length) continue;
+        add(real, { key: `${kind === 'junction' ? 'junction' : 'deadend'}:${nd.id}`, fx: nd.x, fz: nd.z, signal: !!nd.signal, make: (c) => {
+          const e = ins[0]; if (!level(e)) return null;
+          const lane = lanePt(e, e.len - (kind === 'junction' ? 15 : 8), 0);
+          const name = kind === 'junction' ? cornerName(nd) || `the junction on ${streetOf(lane.x, lane.z, e) || 'the road'}` : `the end of ${streetOf(lane.x, lane.z, e) || 'the street'}`;
+          return site({ ...c, name }, lane, nd.x, nd.z, { signal: !!nd.signal, arms: neighbours(nd).size });
+        } });
+      }
+    }
+    if (kind === 'waterfront') for (const [i, p] of (NN.WATERFRONT_PIERS || []).entries()) {
+      if (!Number.isFinite(p.cx)) continue;
+      add(real, { key: `pier:${i}`, name: p.name || 'the waterfront', fx: p.cx, fz: p.cz, make: (c) => {
+        const lane = laneAt(p.cx, p.cz, 400); if (!lane) return null;
+        // (out on the pier from its landward end: the ring's corner nearest the lane, a fifth of the way to its middle)
+        const ring = (p.ring || []).filter((q) => Array.isArray(q) || (q && Number.isFinite(q.x))).map((q) => (Array.isArray(q) ? { x: q[0], z: q[1] } : q));
+        let root = { x: p.cx, z: p.cz }, bd = Infinity;
+        for (const q of ring) { const d = Math.hypot(q.x - lane.x, q.z - lane.z); if (d < bd) { bd = d; root = q; } }
+        return site(c, lane, root.x + (p.cx - root.x) * 0.2, root.z + (p.cz - root.z) * 0.2, { pier: p.name || null, reach: Math.hypot(root.x - lane.x, root.z - lane.z) });
+      } });
+    }
+    const out = { real, fallback };
+    kinds.set(kind, out);
+    return out;
+  }
+  // a junction's name, two of its roads that cross ('Market St & 3rd St')
+  function cornerName(nd) {
+    const arms = [...(nd.out || []), ...(nd.in || [])].filter((e) => e.lanes?.length).sort((a, b) => a.id - b.id), names = [];
+    for (const e of arms) {
+      const out = e.from === nd, ux = out ? e.dx : -e.dx, uz = out ? e.dz : -e.dz, x = nd.x + ux * 14, z = nd.z + uz * 14;
+      const nm = streetNameAt(x, z, { dir: { ux, uz } }) || pretty(e.name);
+      if (nm && !names.some((m) => m.nm === nm) && !names.some((m) => Math.abs(m.ux * ux + m.uz * uz) > 0.7)) names.push({ nm, ux, uz });
+      if (names.length === 2) break;
+    }
+    return names.length === 2 ? `${names[0].nm} & ${names[1].nm}` : null;
+  }
+  const built = (c) => { if (c.built === undefined) { try { c.built = c.make(c) || null; } catch { c.built = null; } } return c.built; };
+  function findMissionSites(req = {}) {
+    if (!req || !req.kind) return placeSites(req || {});
+    if (!SITE_KINDS.includes(req.kind)) return [];
+    const C = candidates(req.kind); if (!C) return [];
+    const at = Array.isArray(req.near) ? { x: req.near[0], z: req.near[1] } : req.near && Number.isFinite(req.near.x) ? req.near : null;
+    const avoid = (req.avoid || []).map((a) => (Array.isArray(a) ? { x: a[0], z: a[1], r: 40 } : a)).filter((a) => a && Number.isFinite(a.x));
+    const access = req.access || 'car', minLen = req.kind === 'straight_road' ? (req.minLen ?? 150) : req.minLen;
+    const want = req.count || Infinity;
+    function pass(list) {
+      // (the cheap tests first, on every candidate)
+      const ok = [];
+      for (const c of list) {
+        if (at && (req.max != null && Math.hypot(c.fx - at.x, c.fz - at.z) > req.max + 250)) continue;
+        if (minLen != null && c.length != null && c.length < minLen) continue;
+        if (req.signal != null && c.signal != null && c.signal !== !!req.signal) continue;
+        const s = built(c); if (!s) continue;
+        const d = at ? Math.hypot(s.cx - at.x, s.cz - at.z) : 0;
+        if (req.min != null && d < req.min) continue;
+        if (req.max != null && d > req.max) continue;
+        if (minLen != null && !(s.length >= minLen)) continue;
+        if (req.maxLen != null && s.length != null && s.length > req.maxLen) continue;
+        if (req.road && req.road !== 'any' && s.road !== req.road) continue;
+        if (avoid.some((a) => Math.hypot(s.cx - a.x, s.cz - a.z) < (a.r ?? 40) || Math.hypot(s.x - a.x, s.z - a.z) < (a.r ?? 40))) continue;
+        if (access === 'car' && s.reach > (req.reach ?? REACH[req.kind] ?? 80)) continue;
+        ok.push({ ...s, d: Math.round(d * 10) / 10 });
+      }
+      const ordered = req.seed != null ? seededOrder(ok, req.seed) : ok.sort((a, b) => a.d - b.d || (a.key < b.key ? -1 : 1));
+      // (then the costly ones, in that order, until there are enough)
+      const out = [];
+      for (const s of ordered) {
+        if (out.length >= want) break;
+        if (access === 'foot' && (inWater(s.cx, s.cz) || inSolid(s.cx, s.cz))) continue;
+        if (req.open && !openAt(s.cx, s.cz, req.open)) continue;
+        if (req.roadView && !sightline(s.cx, s.cz, s.x, s.z)) continue;
+        out.push(s);
+      }
+      return out;
+    }
+    let out = pass(C.real);
+    if (!out.length && C.fallback.length && req.fallback !== false) out = pass(C.fallback);
+    return out;
   }
 
   const W = {
@@ -168,7 +438,7 @@ export function createWorld(city) {
     get blocks() { return N().BLOCKS || []; },
     get places() { return places(); },
     get placesMissing() { places(); return missing; },
-    spawnPoints, findMissionSites,
+    spawnPoints, findMissionSites, siteKinds: SITE_KINDS,
     get landmarks() { return N().LANDMARK_SITES || {}; },
     sceneGroups: city.sceneGroups,
     // New York's street grid (null elsewhere): its avenues and numbered streets
