@@ -17,7 +17,6 @@ import { requestCity, type CityRequest, type TownProgress } from '@/lib/places/r
 import type { Place } from '@/lib/places/types';
 
 // Hometown (Milestone 6): the town box, off unless NEXT_PUBLIC_HOMETOWN_SEARCH=on at build time
-const HOMETOWN = hometownSearchOn();
 
 type Finding = { level: 'error' | 'warn'; code: string; message: string };
 type Report = { ok: boolean; findings: Finding[]; stats: Record<string, number> };
@@ -186,6 +185,14 @@ export default function Create() {
   // a story world in the creator's hometown (NEXT_PUBLIC_HOMETOWN_SEARCH=on): the picked town, its build while it runs
   // (lib/places/request-city.ts), then its answer; Write the story waits for it to be ready
   const [town, setTown] = useState<{ place: Place; progress: TownProgress | null; request: CityRequest | null } | null>(null);
+  // the town box: the build-time switch, or the server's runtime probe (HOMETOWN_BUILDER on, or owner: the owner's session)
+  const [HOMETOWN, setHometown] = useState(hometownSearchOn());
+  useEffect(() => {
+    if (HOMETOWN) return;
+    const ctl = new AbortController();
+    fetch('/api/towns/enabled', { cache: 'no-store', signal: ctl.signal }).then((r) => { if (r.ok) setHometown(true); }).catch(() => { /* no town box */ });
+    return () => ctl.abort();
+  }, [HOMETOWN]);
   const townAsk = useRef<AbortController | null>(null);
   function pickTown(sel: Parameters<typeof requestCity>[0], place: Place) {
     townAsk.current?.abort();

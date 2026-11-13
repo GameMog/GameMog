@@ -1,4 +1,6 @@
+import { ownerVisit } from '@/lib/dare';
 import { hometownSearchOn } from '@/lib/places/flag';
+import { townsAccess } from '@/lib/hometown-build/access';
 import { searchPlaces } from '@/lib/places/search';
 
 export const runtime = 'nodejs';
@@ -9,7 +11,8 @@ export const runtime = 'nodejs';
  * Hometown flag (lib/places/flag.ts): off, this route is not found.
  */
 export async function GET(req: Request) {
-  if (!hometownSearchOn()) return new Response('Not found', { status: 404 });
+  // (or the production builder's runtime switch: HOMETOWN_BUILDER on, or owner for the owner's session)
+  if (!hometownSearchOn() && townsAccess(req, process.env, ownerVisit) !== 'builder') return new Response('Not found', { status: 404 });
   const url = new URL(req.url);
   const q = (url.searchParams.get('q') ?? '').slice(0, 80);
   const limit = Math.max(1, Math.min(12, Number(url.searchParams.get('limit')) || 8));

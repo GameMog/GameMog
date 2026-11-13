@@ -13,6 +13,16 @@
  *   HOMETOWN_COMPILE=on            compile a missing tile's L2 block on this server (compiler.ts); off by default, and
  *                                  needs HOMETOWN_PYTHON and HOMETOWN_COMPILER_DIR (see the doc: not on today's plan)
  *   HOMETOWN_DIR                   the store's root (default data/hometown, on the Render disk)
+ *
+ * The production builder (docs/HOMETOWN-HOSTING.md "Production builder", lib/hometown-build/):
+ *   HOMETOWN_BUILDER=off|owner|on  off (default): the queue is inert, no town route answers from it. owner: every town
+ *                                  route answers only the owner's /admin session (ownerVisit). on: players
+ *   HOMETOWN_WORKER_TOKEN          the town-builder workers' bearer token (24+ characters, render.yaml sync:false; the
+ *                                  worker service reads it with fromService.envVarKey). Unset: /api/hometown/worker 404
+ *   HOMETOWN_SRC_CAP_GB=2          the staged Overture regions' own cap inside the store (GC'd least recently used)
+ *   HOMETOWN_MAX_WAIT_S=600        a new town is refused (busy, with the nearest built towns) over this wait to drive
+ *   HOMETOWN_FRAME=on              the compiler has --frame/--assemble (MogCity M2/M4): spawn-first towns with a district
+ *                                  bundle and lock v3. Off (default): the whole town's bundle, lock v2 (compiler 0.5.0)
  */
 import path from 'node:path';
 import { GB, TileStore } from './store.ts';
@@ -22,6 +32,7 @@ const num = (v: string | undefined, d: number) => { const n = Number(v); return 
 export type HometownConfig = {
   tiles: boolean; compile: boolean; adminToken: string | null; root: string; dataDir: string; capBytes: number; minFreeBytes: number;
   build: string | null; python: string | null; compilerDir: string | null; sourcesDir: string | null; production: boolean;
+  builder: 'off' | 'owner' | 'on'; workerToken: string | null; srcCapBytes: number; maxWaitS: number; frame: boolean;
 };
 
 export function hometownConfig(env: Record<string, string | undefined> = process.env): HometownConfig {
@@ -39,6 +50,11 @@ export function hometownConfig(env: Record<string, string | undefined> = process
     compilerDir: env.HOMETOWN_COMPILER_DIR || null,
     sourcesDir: env.HOMETOWN_SOURCES_DIR || null,
     production: env.NODE_ENV === 'production',
+    builder: env.HOMETOWN_BUILDER === 'on' ? 'on' : env.HOMETOWN_BUILDER === 'owner' ? 'owner' : 'off',
+    workerToken: env.HOMETOWN_WORKER_TOKEN && env.HOMETOWN_WORKER_TOKEN.length >= 24 ? env.HOMETOWN_WORKER_TOKEN : null,
+    srcCapBytes: Math.round(num(env.HOMETOWN_SRC_CAP_GB, 2) * GB),
+    maxWaitS: num(env.HOMETOWN_MAX_WAIT_S, 600),
+    frame: env.HOMETOWN_FRAME === 'on',
   };
 }
 

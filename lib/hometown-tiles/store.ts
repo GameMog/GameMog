@@ -16,9 +16,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, linkSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, statfsSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { parseKeyString, type Family } from './keys.ts';
-
-const FAMILIES: Family[] = ['tiles', 'ctx', 'manifests', 'builds'];
+import { FAMILIES, buildOfKey, parseKeyString } from './keys.ts';
 export const GB = 1024 ** 3;
 
 export class StoreFull extends Error {
@@ -235,7 +233,8 @@ export class TileStore {
   lastServed(): Map<string, number> { return new Map(this.access); }
 
   private touch(key: string) {
-    const b = key.split('/')[1]?.replace(/\.json$/, '');
+    // (a build's objects count towards its build; a staged source region towards its own entry, src LRU in gc.ts)
+    const b = buildOfKey(key) ?? (key.startsWith('src/') ? `src:${key.split('/').slice(2, 7).join('/')}` : null);
     if (!b) return;
     const t = this.now();
     // (day resolution is plenty for least-recently-served, and keeps the journal quiet)

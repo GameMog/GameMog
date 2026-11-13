@@ -125,11 +125,11 @@ export function TownCard({ town, onClear }: { town: { place: Place; progress: To
           <p className="ttown-stage">{progress ? progress.stage : 'Finding your town'}{progress && progress.position > 1 ? ` (number ${progress.position} in line)` : ''}</p>
           <div className="ttown-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></div>
           <p className="ttown-note">
-            {progress && progress.total ? `${progress.done} of ${progress.total} map tiles` : 'Building its real streets'}{progress?.etaS != null ? `, ${wait(progress.etaS)} left` : ''}. You can write your story meanwhile.
+            {progress && progress.total ? `${progress.done} of ${progress.total} map tiles` : 'Building its real streets'}{progress?.etaDriveS != null && progress.phase !== 'growing' ? `, ready to drive in ${wait(progress.etaDriveS)}` : progress?.etaS != null ? `, ${wait(progress.etaS)} left` : ''}. You can write your story meanwhile.
           </p>
         </>
       )}
-      {request?.status === 'ready' && <p className="ttown-stage">Ready: {request.town.places} places on {request.town.streets} streets.</p>}
+      {request?.status === 'ready' && <p className="ttown-stage">{request.growing ? `Ready to write: ${request.town.places} places. The rest of town keeps building.` : `Ready: ${request.town.places} places on ${request.town.streets} streets.`}</p>}
       {request?.status === 'error' && <p className="ttown-stage">{request.error}</p>}
     </div>
   );

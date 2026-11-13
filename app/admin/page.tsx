@@ -8,6 +8,8 @@ import { adminEnabled, isAdmin } from './session';
 import { storykitMode } from '@/lib/storykit-switch';
 import { storyStore } from '@/lib/storykit-store';
 import { Dashboard } from './dashboard';
+import { builderMode } from '@/lib/hometown-build/access';
+import { builderDeps, builderStatus } from '@/lib/hometown-build/server';
 import { Login } from './login';
 import './admin.css';
 
@@ -42,5 +44,8 @@ export default async function AdminPage() {
   // opened (data/storykit is not made) and nothing is shown
   const mode = storykitMode();
   const storykit = mode === 'off' ? null : { mode, ...storyStore().usage() };
-  return <Dashboard stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} slots={slots} loop={dareLoop(now)} mc={mc} storykit={storykit} />;
+  // the production town builder (lib/hometown-build): only while HOMETOWN_BUILDER is owner or on (off: the queue is never opened)
+  let towns = null;
+  if (builderMode() !== 'off') { try { towns = builderStatus(builderDeps()); } catch (e) { console.error('admin: town builder status', String((e as Error).message).slice(0, 200)); } }
+  return <Dashboard towns={towns} stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} slots={slots} loop={dareLoop(now)} mc={mc} storykit={storykit} />;
 }

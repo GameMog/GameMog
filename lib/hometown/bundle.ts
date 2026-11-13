@@ -66,7 +66,7 @@ function roadsOf(GEO: Json) {
  */
 export function cityPackageOf(g: Geodata, town: { placeId: string; name: string; stateName: string }): CityPackage {
   const P = g.PKG, lock = storyLock(P.lock as ServiceLock);
-  if (!lock) throw new Error('the bundle has no lock v2');
+  if (!lock) throw new Error('the bundle has no lock v2 or v3');
   if (lock.place !== town.placeId) throw new Error(`the bundle is ${lock.place}, not ${town.placeId}`);
   const places: PackagePlace[] = [];
   const spawnPoints: SpawnPoint[] = [], districts: District[] = [];
@@ -87,5 +87,6 @@ export function cityPackageOf(g: Geodata, town: { placeId: string; name: string;
     tileSet: { hash: lock.tiles, count: (P.tiles || []).length },
     places, landmarks, districts, spawnPoints, roadsSummary: roadsOf(g.GEO),
     grid: 'hg1', domain: lock.domain as CityPackage['domain'], buildId: lock.compiler, origin: lock.origin, k0: lock.k0, gamma0: lock.gamma0, yOffset: lock.yOffset, waterLevel: lock.waterLevel,
+    ...(lock.formatVersion === 3 ? { lockVersion: 3 as const } : {}),
   };
 }

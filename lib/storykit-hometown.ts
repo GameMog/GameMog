@@ -42,6 +42,7 @@ export function hometownPlaceList(pkg: CityPackage): string {
     if (c.business) notes.push(`a business: call it ${descriptor(p)} or an invented name, never its real one`);
     if (c.sensitive) notes.push(`**sensitive** (${sensitiveWord(c.sensitive)}): pass by or visit in a mission with no violence, never a target`);
     if (p.foot) notes.push('foot: off the lanes, walk there');
+    if (pkg.lockVersion === 3 && p.inDistrict) notes.push('near the start: Mission 1 may use it');
     rows.push(`- @${p.id}: ${name} (${notes.join('; ')})`);
   }
   const lm = pkg.landmarks.filter((l) => displayName(l) !== null && !classify(l).business).slice(0, LANDMARKS_SHOWN)
@@ -54,7 +55,7 @@ ${townName(pkg)} is a real town, built for the game from open map data (compiler
 ${rows.join('\n')}
 
 Parts of town: ${pkg.districts.map((d) => d.name).join(', ') || 'none named'}.
-Arrivals (a good Mission 1 start or opening place): ${spawns.join(', ') || 'any place on the lanes'}.
+Arrivals (a good Mission 1 start or opening place): ${spawns.join(', ') || 'any place on the lanes'}.${pkg.lockVersion === 3 ? '\nThe part of town near the start is ready first: Mission 1 and the story\'s start use ONLY places marked "near the start"; later missions may use any place.' : ''}
 Landmarks (words only, for lines and labels; not keys): ${lm.join('; ') || 'none'}${pkg.landmarks.length > lm.length ? ` (and ${pkg.landmarks.length - lm.length} more not listed)` : ''}.
 Roads: ${pkg.roadsSummary.streets} named streets, ${pkg.roadsSummary.km} km; the main ones: ${pkg.roadsSummary.main.join(', ')}.
 Named camera points: none (use a place, the player or a cast member).

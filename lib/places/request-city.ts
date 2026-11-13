@@ -1,11 +1,16 @@
 import type { PlaceSelection } from './types.ts';
 
 /** A town's build as the Create page shows it (POST /api/towns, then GET /api/towns/{placeId} every 2 s). */
-export type TownProgress = { state: string; stage: string; done: number; total: number; position: number; etaS: number | null };
+export type TownProgress = {
+  state: string; stage: string; done: number; total: number; position: number; etaS: number | null;
+  /** the production builder (lib/hometown-build/towns.ts): asked, framing, district (the story may start), growing (drive
+   *  now: the rest keeps building), full; the wait to drive and to the whole town */
+  phase?: string; district?: boolean; etaDriveS?: number | null; etaFullS?: number | null;
+};
 /** The lock a ready town pins (base.hometown); the page sends only the place id, the server reads the rest. */
 export type TownLockView = { place: string; compiler: string; tiles: string };
 export type CityRequest =
-  | { status: 'ready'; place: PlaceSelection; lock: TownLockView; town: { name: string; state: string; places: number; streets: number } }
+  | { status: 'ready'; place: PlaceSelection; lock: TownLockView; town: { name: string; state: string; places: number; streets: number }; growing?: boolean }
   | { status: 'error'; place: PlaceSelection; error: string };
 
 const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve) => {
@@ -35,6 +40,8 @@ export async function requestCity(place: PlaceSelection, onProgress?: (p: TownPr
     for (;;) {
       if (signal?.aborted) return { status: 'error', place, error: 'Stopped.' };
       if (a.status === 200 && a.body.state === 'ready') return { status: 'ready', place, lock: a.body.lock as TownLockView, town: a.body.town as Extract<CityRequest, { status: 'ready' }>['town'] };
+      // (the production builder: the town's frame is in, so the story may be written now while the rest builds)
+      if (a.status === 202 && a.body.lock && a.body.town && (a.body.phase === 'district' || a.body.phase === 'growing')) return { status: 'ready', place, lock: a.body.lock as TownLockView, town: a.body.town as Extract<CityRequest, { status: 'ready' }>['town'], growing: true };
       if (a.status === 202) onProgress?.(a.body as unknown as TownProgress);
       else if (a.status === 409 && a.body.state === 'interrupted' && !retried) { retried = true; a = await ask('POST'); continue; }
       else return { status: 'error', place, error: typeof a.body.error === 'string' ? a.body.error : NOT_NOW };

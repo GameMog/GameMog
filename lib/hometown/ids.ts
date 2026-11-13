@@ -14,7 +14,13 @@
  * lossless: serviceLock() is what is written to a bundle's lock.json and what the tile service and the engine compare
  * (NYC.PKG.lock), storyLock() is what a pack pins. Neither side's shape changes.
  */
+import { createHash } from 'node:crypto';
 import type { HometownLock } from '../../storykit/pack/cities.ts';
+
+/** Lock v3's tiles: sha256(buildId + "\n" + sorted tile ids joined by "\n"). The compiler's --frame computes the same. */
+export function tilesIdOf(buildId: string, tileIds: string[]): string {
+  return createHash('sha256').update(`${buildId}\n${[...tileIds].sort().join('\n')}`).digest('hex');
+}
 
 /** A canonical place id: "us-" + the 7-digit Census GEOID. */
 export const TOWN_ID = /^us-[0-9]{7}$/;
@@ -29,23 +35,30 @@ export function canonicalPlaceId(id: string): string | null {
   return Object.prototype.hasOwnProperty.call(LEGACY_PLACE_IDS, id) ? LEGACY_PLACE_IDS[id] : null;
 }
 
-/** The compiler's and the tile service's lock v2 (tools/hometown/assemble.py, server/tiles/src/service.mjs createLock). */
+/**
+ * The compiler's and the tile service's lock (tools/hometown/assemble.py, server/tiles/src/service.mjs createLock).
+ *   v2  tiles = the tile set's CONTENT hash (every tile compiled first)
+ *   v3  tiles = tilesIdOf(buildId, ids) = sha256(buildId + "\n" + the sorted tile ids joined by "\n"): known from the
+ *       frame, before any tile is compiled (production builder, SPEC 4.2). Tiles are pure functions of (key, build), so
+ *       it pins the same bytes; the content hashes stay in the full manifest, still checked on upload.
+ * Both are accepted everywhere; v2 worlds keep playing.
+ */
 export type ServiceLock = {
-  format: 'hometown-city-lock'; formatVersion: 2; place: string; buildId: string; tiles: string;
+  format: 'hometown-city-lock'; formatVersion: 2 | 3; place: string; buildId: string; tiles: string;
   grid: 'hg1'; domain: string; origin: { c0: number; r0: number }; k0: number; gamma0: number; yOffset: number; waterLevel: number;
 };
 export const LOCK_FORMAT = 'hometown-city-lock';
 
 /** The Story Kit's lock (base.hometown) as the tile service and the engine read it. */
 export function serviceLock(l: HometownLock): ServiceLock {
-  return { format: LOCK_FORMAT, formatVersion: 2, place: l.place, buildId: l.compiler, grid: 'hg1', domain: l.domain!, origin: { c0: l.origin!.c0, r0: l.origin!.r0 },
+  return { format: LOCK_FORMAT, formatVersion: l.formatVersion === 3 ? 3 : 2, place: l.place, buildId: l.compiler, grid: 'hg1', domain: l.domain!, origin: { c0: l.origin!.c0, r0: l.origin!.r0 },
     k0: l.k0!, gamma0: l.gamma0!, yOffset: l.yOffset!, waterLevel: l.waterLevel!, tiles: l.tiles };
 }
-/** A service lock as the Story Kit pins it (the inverse of serviceLock). Null when it is not a lock v2. */
+/** A service lock as the Story Kit pins it (the inverse of serviceLock). Null when it is not a lock v2 or v3. */
 export function storyLock(s: unknown): HometownLock | null {
   const l = s as ServiceLock;
-  if (!l || l.format !== LOCK_FORMAT || l.formatVersion !== 2 || l.grid !== 'hg1' || typeof l.place !== 'string' || typeof l.buildId !== 'string' || typeof l.tiles !== 'string') return null;
-  return { place: l.place, compiler: l.buildId, tiles: l.tiles, formatVersion: 2, grid: 'hg1', domain: l.domain, origin: { c0: l.origin.c0, r0: l.origin.r0 },
+  if (!l || l.format !== LOCK_FORMAT || (l.formatVersion !== 2 && l.formatVersion !== 3) || l.grid !== 'hg1' || typeof l.place !== 'string' || typeof l.buildId !== 'string' || typeof l.tiles !== 'string') return null;
+  return { place: l.place, compiler: l.buildId, tiles: l.tiles, formatVersion: l.formatVersion, grid: 'hg1', domain: l.domain, origin: { c0: l.origin.c0, r0: l.origin.r0 },
     k0: l.k0, gamma0: l.gamma0, yOffset: l.yOffset, waterLevel: l.waterLevel };
 }
 /** Every field equal (the engine's check, wagmi/storyrun/pack.js, compares the same fields). */

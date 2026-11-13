@@ -337,8 +337,9 @@ export const SCHEMA = {
     title: S(48), kicker: S(24), tagline: S(80),
     base: O({ engine: E(ENGINES), city: E(CITIES), cityBuild: S(40, { pattern: '^[a-z]{2,8}-[a-z0-9.-]{1,30}$' }),
       hometown: O({ place: S(80, { pattern: '^[a-z0-9][a-z0-9-]{1,79}$' }), compiler: S(30, { pattern: '^[a-z0-9][a-z0-9.-]{0,29}$' }), tiles: S(64, { pattern: '^[0-9a-f]{16,64}$' }),
-        // (lock v2, the national grid hg1: the session frame the town's descriptor pinned)
-        formatVersion: { const: 2 }, grid: { const: 'hg1' }, domain: E(['conus', 'ak', 'hi', 'pr', 'gu', 'as']), origin: O({ c0: I(0, 999999), r0: I(0, 999999) }, ['c0', 'r0']),
+        // (lock v2, the national grid hg1: the session frame the town's descriptor pinned; v3 the same, its tiles the hash
+        // of the build and the tile ids, pinned from the town's frame before the town is whole: the production builder)
+        formatVersion: E([2, 3]), grid: { const: 'hg1' }, domain: E(['conus', 'ak', 'hi', 'pr', 'gu', 'as']), origin: O({ c0: I(0, 999999), r0: I(0, 999999) }, ['c0', 'r0']),
         k0: N(0.9, 1.1), gamma0: N(-40, 40), yOffset: I(-1000, 10000), waterLevel: N(-1000, 1000) },
         ['place', 'compiler', 'tiles'], { description: "a hometown only (city 'hometown'): the town it plays, pinned (its place id, the build and the tile set's hash; on the national grid also its frame: grid, domain, origin, k0, gamma0, yOffset, waterLevel); copied exactly from the city package, and a Mog keeps it exactly" }) }, ['engine', 'city', 'cityBuild'],
       { description: 'what the story runs on; on a Mog, equal to the parent\'s (locked)' }),

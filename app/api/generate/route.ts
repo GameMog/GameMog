@@ -1,3 +1,4 @@
+import { ownerVisit } from '@/lib/dare';
 import { NextResponse } from 'next/server';
 import { generateWorld, offlineWorld, readCatalogue, MODEL } from '@/lib/generate';
 import { generateGame, GAME_MODEL, STORY_MODEL, type GameEvent } from '@/lib/generate-game';
@@ -15,7 +16,9 @@ import { isMogCityEpisode, mogCityStoryParent } from '@/lib/storykit-mogcity';
 import { storykitMode } from '@/lib/storykit-switch';
 import { storyStore, storeGuard } from '@/lib/storykit-store';
 import { fakeReply } from '@/lib/storykit-build';
-import { townsOn } from '@/lib/hometown/config';
+import { townsAccess } from '@/lib/hometown-build/access';
+import { builderDeps } from '@/lib/hometown-build/server';
+import { storyReadyLock, cityPackageFromStore } from '@/lib/hometown-build/towns';
 import { readyLock, cityPackageByLock, TOWN_WORDS } from '@/lib/hometown/towns';
 import { TOWN_ID, storyLock } from '@/lib/hometown/ids';
 import type { CityPackage } from '@/storykit/hometown/city-package';
@@ -69,11 +72,19 @@ export async function POST(req: Request) {
       // its CityPackage read from its bundle by the town's ready lock. Read here, before a slot is taken or anything is
       // spent: a town still being built holds no build slot
       if (storyAsk?.city === 'hometown') {
-        if (!townsOn()) return NextResponse.json({ error: STORY_CLOSED }, { status: 404 });
+        // (HOMETOWN_BUILDER on|owner: the production builder's town, story-ready once its FRAME is in (lock v3), so the
+        // story is written while the town builds; off: the in-process builder's, ready only when whole)
+        const access = townsAccess(req, process.env, ownerVisit);
+        if (!access) return NextResponse.json({ error: STORY_CLOSED }, { status: 404 });
         const place = typeof storyAsk.place === 'string' && TOWN_ID.test(storyAsk.place) ? storyAsk.place : null;
         if (!place) return NextResponse.json({ error: TOWN_WORDS.unknown, field: 'city' }, { status: 400 });
-        const lock = await readyLock(place), pin = lock && storyLock(lock);
-        storyTown = pin ? cityPackageByLock(pin) : null;
+        if (access === 'builder') {
+          const bd = builderDeps(), lock = storyReadyLock(bd, place), pin = lock && storyLock(lock);
+          storyTown = pin ? cityPackageFromStore(bd.store, pin) : null;
+        } else {
+          const lock = await readyLock(place), pin = lock && storyLock(lock);
+          storyTown = pin ? cityPackageByLock(pin) : null;
+        }
         if (!storyTown) return NextResponse.json({ error: TOWN_WORDS.notReady, field: 'city' }, { status: 409 });
       }
       storyCity = storyTown ? 'ny' : readCity(storyAsk?.city);

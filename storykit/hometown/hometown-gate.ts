@@ -108,8 +108,29 @@ export function gateHometown(input: unknown, pkg: CityPackage, opts: { parent?: 
   if (opts.meta?.tagline) texts.push({ at: 'meta.tagline', text: opts.meta.tagline });
   if (opts.meta?.blurb) texts.push({ at: 'meta.blurb', text: opts.meta.blurb });
   const safety = pack && typeof pack === 'object' ? safetyProblems({ pkg, refs: plan, violentMissions: violentMissions(pack), texts, aliases: pack.places ?? {} }) : [];
-  const problems = [...gated.problems, ...safety];
+  const district = pack && typeof pack === 'object' ? districtProblems(pack, pkg, plan) : [];
+  const problems = [...gated.problems, ...safety, ...district];
   return { ...gated, ok: problems.length === 0, problems, pack: problems.length ? null : gated.pack, safety, plan };
+}
+
+/**
+ * The spawn-district rule (production builder, lock v3): a town is playable in its spawn district first while the rest
+ * builds, so mission 1's places and the story's start must all be in it (inDistrict). Missions 2 and later may use any
+ * place. A package from a whole town (lock v2) has no district: the rule does not apply.
+ */
+export function districtProblems(pack: PackV2, pkg: CityPackage, plan: Ref[] = storyPlan(pack)): string[] {
+  if (pkg.lockVersion !== 3) return [];
+  const first = (pack.acts ?? [])[0]?.missions?.[0]?.id as string | undefined;
+  const aliases = (pack.places ?? {}) as Record<string, { '@'?: string }>;
+  const by = new Map(pkg.places.map((p) => [p.id, p]));
+  const out: string[] = [];
+  for (const r of plan) {
+    const early = (first && r.mission === first) || (r.mission === null && /^(spawn|start)/.test(r.at));
+    if (!early) continue;
+    const id = aliases[r.key]?.['@'] ?? r.key, p = by.get(id);
+    if (p && !p.inDistrict) out.push(`${r.at}: @${r.key} is outside the part of town built first; mission 1 and the start stay near the spawn (use a place marked near the start)`);
+  }
+  return out;
 }
 
 /** The package's places a plan names that do not exist (the gate refuses these too; this is the plan's own view). */

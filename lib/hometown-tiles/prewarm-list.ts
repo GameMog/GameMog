@@ -7,22 +7,16 @@
  * input of every manifest built for the town, so changing this rule needs a new build.
  */
 import { loadIndex, toPlace, type Place } from '../places/search.ts';
+import { playBox as canonicalPlayBox, BOX_SOURCE, MAX_SIDE_M } from '../hometown/box.ts';
 
-export const PLAY_SIDE_M = 4500;
+export const PLAY_SIDE_M = MAX_SIDE_M;
 /** The owner-named towns (the three demo towns), always on the list. */
 export const NAMED = ['us-4054200', 'us-0455000', 'us-4261000'];
 
 export type GazetteerPlace = { name: string; geoid: string; anchor: [number, number]; anchorSource: string; bbox: [number, number, number, number]; bboxSource: string; pop2010: number | null };
 
-const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
-
-/** A town's play box: the capped square around its internal point (degrees, [W, S, E, N]). */
-export function playBox(p: Pick<Place, 'lat' | 'lon' | 'bbox'>): [number, number, number, number] {
-  const kx = 111320 * Math.cos((p.lat * Math.PI) / 180), ky = 111132;
-  // the search box's half sides in metres (it is a square in metres), capped at half the play side
-  const half = Math.min(PLAY_SIDE_M / 2, ((p.bbox[3] - p.bbox[1]) / 2) * 111_320);
-  return [r6(p.lon - half / kx), r6(p.lat - half / ky), r6(p.lon + half / kx), r6(p.lat + half / ky)];
-}
+/** A town's play box: THE canonical box (lib/hometown/box.ts), the same as an on-demand ask's. */
+export const playBox = (p: Pick<Place, 'lat' | 'lon' | 'bbox'>) => canonicalPlayBox(p);
 
 let BY_GEOID: Map<string, number> | null = null;
 export function placeById(id: string): Place | null {
@@ -47,7 +41,7 @@ export function prewarmList(n: number, named: string[] = NAMED): { places: Recor
     places[id] = {
       name: `${p.name}, ${p.state}`, geoid: p.geoid, anchor: [p.lon, p.lat],
       anchorSource: `Census Gazetteer INTPTLAT/INTPTLONG (GEOID ${p.geoid})`, bbox: playBox(p),
-      bboxSource: `a square of at most ${PLAY_SIDE_M} m round the Census internal point (GameMog lib/hometown-tiles/prewarm-list.ts)`, pop2010: p.pop,
+      bboxSource: BOX_SOURCE, pop2010: p.pop,
     };
     order.push(id);
   }

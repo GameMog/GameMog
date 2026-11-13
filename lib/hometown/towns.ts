@@ -26,6 +26,10 @@ import type { HometownLock } from '../../storykit/pack/cities.ts';
 import { cityPackageOf, geodataJson, readGeodataJs } from './bundle.ts';
 import { TOWN_ID, serviceLock, storyLock, type ServiceLock } from './ids.ts';
 import { townsConfig, type TownsConfig } from './config.ts';
+import { playBox, BOX_SOURCE } from './box.ts';
+import { TOWN_WORDS } from './words.ts';
+import { cityPackageFromStore } from '../hometown-build/towns.ts';
+import { hometownStore } from '../hometown-tiles/config.ts';
 
 export type TownState = 'queued' | 'reading' | 'fetching' | 'compiling' | 'assembling' | 'ready' | 'error' | 'interrupted';
 export type Job = {
@@ -43,29 +47,10 @@ export type TownAnswer =
   | { status: 202; body: { state: TownState; placeId: string; stage: string; done: number; total: number; position: number; etaS: number | null } }
   | { status: 400 | 404 | 409 | 429 | 503; body: { state?: TownState; placeId?: string; error: string; stage?: string; reason?: Job['reason'] } };
 
-/** What a player reads (no tool, model or vendor names: scripts/hometown-words-check.ts). */
-export const TOWN_WORDS = {
-  unknown: 'No US town by that name.',
-  busy: 'Lots of towns are being built. Try again in a few minutes.',
-  failed: 'We couldn\'t build this town right now. Try again.',
-  slow: 'This town took too long to build. Try again in a few minutes.',
-  interrupted: 'The town build was cut short. Ask again to pick it up.',
-  notReady: 'Your town is still being built.',
-  stage: { queued: 'Waiting its turn', reading: 'Reading the map', fetching: 'Reading the map', compiling: 'Building streets', assembling: 'Putting it together', ready: 'Ready', error: 'Not built', interrupted: 'Cut short' } as Record<TownState, string>,
-};
+export { TOWN_WORDS } from './words.ts';
 
-const MAX_SIDE_M = 4500;
-/**
- * The canonical box of a picked place: the search's square (lib/places/search.ts, sized from the Census area), capped at
- * 4,500 m a side round the Census internal point (the compiler's own cap, tools/hometown/fetch.py MAX_SIDE_M), to 1e-5
- * degrees. With the internal point it is the compiler's input; changing this rule changes towns, so it needs a new build.
- */
-export function canonicalBox(p: Pick<Place, 'lat' | 'lon' | 'bbox'>): [number, number, number, number] {
-  const kx = 111_320 * Math.max(0.05, Math.cos((p.lat * Math.PI) / 180)), ky = 111_320;
-  const hx = Math.min((p.bbox[2] - p.bbox[0]) / 2, MAX_SIDE_M / 2 / kx), hy = Math.min((p.bbox[3] - p.bbox[1]) / 2, MAX_SIDE_M / 2 / ky);
-  const r = (v: number) => Math.round(v * 1e5) / 1e5;
-  return [r(p.lon - hx), r(p.lat - hy), r(p.lon + hx), r(p.lat + hy)];
-}
+/** The canonical box of a picked place: THE play box (lib/hometown/box.ts, one rule for on-demand and pre-warm). */
+export const canonicalBox = (p: Pick<Place, 'lat' | 'lon' | 'bbox'>) => playBox(p);
 
 // ------------------------------------------------------------------------------------------------------------ state
 type Runtime = { cfg: TownsConfig; queue: string[]; running: string | null; build: Promise<string> | null; ips: Map<string, number[]>; booted: boolean };
@@ -166,7 +151,8 @@ export function cityPackageByLock(lock: HometownLock): CityPackage | null {
   if (!lock || !TOWN_ID.test(lock.place) || !SAFE.test(lock.compiler) || !/^[0-9a-f]{64}$/.test(lock.tiles)) return null;
   const f = path.join(bundleDirOf(cfg, lock.compiler, lock.place, lock.tiles), 'citypackage.json');
   let stamp: string;
-  try { const st = statSync(f); stamp = `${st.size}:${st.mtimeMs}:${st.ino}`; } catch { PKG_CACHE.delete(f); return null; }
+  // (not a bundle of this builder: the production builder's store, a bundle or a frame (lock v3), lib/hometown-build)
+  try { const st = statSync(f); stamp = `${st.size}:${st.mtimeMs}:${st.ino}`; } catch { PKG_CACHE.delete(f); try { return cityPackageFromStore(hometownStore(), lock); } catch { return null; } }
   let hit = PKG_CACHE.get(f);
   if (!hit || hit.stamp !== stamp) {
     const pkg = readJson<CityPackage>(f);
@@ -295,7 +281,7 @@ async function buildTown(placeId: string) {
     const placesFile = path.join(work, 'places.json');
     writeFileSync(placesFile, JSON.stringify({ format: 'hometown-places', places: { [placeId]: {
       name: `${place.name}, ${place.state}`, geoid: place.geoid, anchor: [place.lon, place.lat], bbox: canonicalBox(place),
-      anchorSource: 'Census Gazetteer INTPTLAT/INTPTLONG', bboxSource: 'GameMog place search box, capped at 4500 m (lib/hometown/towns.ts canonicalBox)' } } }));
+      anchorSource: 'Census Gazetteer INTPTLAT/INTPTLONG', bboxSource: BOX_SOURCE } } }));
     const common = ['--places', placesFile, '--data', cfg.sources, '--store', cfg.store];
     const d1 = await run(cfg, 'compile.py', ['--descriptor', placeId, '--stage', '1', ...common], undefined, Math.min(60_000, left()));
     if (d1.code !== 0) return fail(`descriptor: ${d1.err}`, d1);

@@ -29,7 +29,7 @@ export const HOMETOWN = 'hometown';
  */
 export type HometownLock = {
   place: string; compiler: string; tiles: string;
-  formatVersion?: 2; grid?: 'hg1'; domain?: string; origin?: { c0: number; r0: number }; k0?: number; gamma0?: number; yOffset?: number; waterLevel?: number;
+  formatVersion?: 2 | 3; grid?: 'hg1'; domain?: string; origin?: { c0: number; r0: number }; k0?: number; gamma0?: number; yOffset?: number; waterLevel?: number;
 };
 /** every part of a lock the gate compares (a v1 lock has the first three) */
 export const LOCK_KEYS = ['place', 'compiler', 'tiles', 'formatVersion', 'grid', 'domain', 'origin', 'k0', 'gamma0', 'yOffset', 'waterLevel'] as const;

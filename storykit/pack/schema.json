@@ -90,7 +90,10 @@
        "pattern": "^[0-9a-f]{16,64}$"
       },
       "formatVersion": {
-       "const": 2
+       "enum": [
+        2,
+        3
+       ]
       },
       "grid": {
        "const": "hg1"

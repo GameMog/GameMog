@@ -28,10 +28,12 @@ import { createHash } from 'node:crypto';
 import { MOGCITY } from '../pack/gate.ts';
 import { HOMETOWN, type HometownLock } from '../pack/cities.ts';
 
-export type PackagePlace = { id: string; kind: string; name: string; x: number; z: number; tags: string[]; foot?: boolean; heading?: number; district?: string };
+export type PackagePlace = { id: string; kind: string; name: string; x: number; z: number; tags: string[]; foot?: boolean; heading?: number; district?: string;
+  /** inside the spawn district (5 x 5 tiles round the spawn, less 300 m): built first, so mission 1 may use it (lock v3) */
+  inDistrict?: boolean };
 export type PackageLandmark = { id: string; name: string; kind: string; x: number; z: number; tags?: string[] };
 export type District = { id: string; name: string; x: number; z: number };
-export type SpawnPoint = { id: string; x: number; z: number; heading: number; mode?: 'car' | 'foot'; name?: string };
+export type SpawnPoint = { id: string; x: number; z: number; heading: number; mode?: 'car' | 'foot'; name?: string; inDistrict?: boolean };
 export type RoadsSummary = { streets: number; km: number; main: string[] };
 export type CityPackage = {
   v: 1;
@@ -54,6 +56,11 @@ export type CityPackage = {
   gamma0?: number;
   yOffset?: number;
   waterLevel?: number;
+  /** 3: a package from a town's FRAME (production builder, lock v3: tiles = sha256 of the build and the tile ids, so
+   *  the story can pin the town while it is still being built); absent: lock v2 (the whole town's content hash) */
+  lockVersion?: 3;
+  /** lock v3: the spawn district's tiles [c0, r0, c1, r1] (inclusive), the part of town built first */
+  spawnDistrict?: [number, number, number, number];
 };
 export type HometownDomain = 'conus' | 'ak' | 'hi' | 'pr' | 'gu' | 'as';
 export const DOMAINS: HometownDomain[] = ['conus', 'ak', 'hi', 'pr', 'gu', 'as'];
@@ -81,7 +88,7 @@ export function tileSetHash(tiles: { id: string; sha256: string }[]): string {
  * gamma0, yOffset, waterLevel), so a Mog never plays a recompiled town nor one whose frame moved.
  */
 export const cityLock = (pkg: CityPackage): HometownLock => (pkg.grid === 'hg1'
-  ? { place: pkg.placeId, compiler: pkg.compilerVersion, tiles: pkg.tileSet.hash, formatVersion: 2, grid: 'hg1', domain: pkg.domain!, origin: { c0: pkg.origin!.c0, r0: pkg.origin!.r0 },
+  ? { place: pkg.placeId, compiler: pkg.compilerVersion, tiles: pkg.tileSet.hash, formatVersion: pkg.lockVersion === 3 ? 3 : 2, grid: 'hg1', domain: pkg.domain!, origin: { c0: pkg.origin!.c0, r0: pkg.origin!.r0 },
     k0: pkg.k0!, gamma0: pkg.gamma0!, yOffset: pkg.yOffset!, waterLevel: pkg.waterLevel! }
   : { place: pkg.placeId, compiler: pkg.compilerVersion, tiles: pkg.tileSet.hash });
 /** The cityBuild Mog City's engine plays the town at: one per compiler version. */

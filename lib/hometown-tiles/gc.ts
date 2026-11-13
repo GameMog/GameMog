@@ -11,9 +11,15 @@
  * served counts from its newest file). With a target, builds go until the store is at or under it; without one,
  * every collectable build goes. Temp files a killed writer left, an hour old or more, always go.
  * If the pins could not be read, the plan refuses to delete anything (a guard must never fail open).
+ *
+ * The shared sources (production builder, SPEC 3.1): staged Overture regions (src/) are never pinned (a region can be
+ * fetched again while its release is on S3), and are collected least recently served first, whole regions at a time,
+ * until they are at or under HOMETOWN_SRC_CAP_GB (srcCapBytes). The DEM mirror (dem/) is small and never collected.
+ * Bundles, frames and far tiles belong to their build and follow its pins like tiles do.
  */
 import { createHash } from 'node:crypto';
 import type { TileStore, Entry } from './store.ts';
+import { buildOfKey } from './keys.ts';
 
 export type GcBuild = { buildId: string; objects: number; bytes: number; lastServed: number | null; newestFile: number; status: 'current' | 'pinned' | 'collect' | 'keep' };
 export type GcPlan = {
@@ -22,7 +28,9 @@ export type GcPlan = {
   totalBytes: number;
   targetBytes: number | null;
   builds: GcBuild[];
-  delete: { keys: string[]; bytes: number; builds: string[] };
+  delete: { keys: string[]; bytes: number; builds: string[]; regions?: string[] };
+  /** the staged source regions: their bytes, the cap, and how many the plan collects */
+  src?: { regions: number; bytes: number; capBytes: number | null; collect: number };
   tmp: { keys: string[]; bytes: number };
   afterBytes: number;
   pinsOk: boolean;
@@ -34,15 +42,24 @@ export type GcPlan = {
 
 export function planGc(o: {
   entries: Entry[]; tmp?: Entry[]; current: string[]; pins: Set<string>; pinsOk: boolean; pinSources?: string[];
-  lastServed?: Map<string, number>; targetBytes?: number | null; now?: number; currentFrom?: string;
+  lastServed?: Map<string, number>; targetBytes?: number | null; now?: number; currentFrom?: string; srcCapBytes?: number | null;
 }): GcPlan {
   // (a target that is not a number of bytes, 0 or more (NaN from "--target-gb abc"), compared false with every size and
   // planned to collect every unpinned build: such a plan collects nothing and says why)
   const badTarget = o.targetBytes != null && !(Number.isFinite(o.targetBytes) && o.targetBytes >= 0);
   const now = o.now ?? Date.now();
   const by = new Map<string, { keys: string[]; bytes: number; newest: number }>();
+  const regions = new Map<string, { keys: string[]; bytes: number; newest: number }>();
   for (const e of o.entries) {
-    const b = e.key.split('/')[1].replace(/\.json$/, '');
+    if (e.key.startsWith('src/')) {
+      const rk = e.key.split('/').slice(2, 7).join('/');
+      const g = regions.get(rk) ?? { keys: [], bytes: 0, newest: 0 };
+      g.keys.push(e.key); g.bytes += e.bytes; g.newest = Math.max(g.newest, e.mtimeMs);
+      regions.set(rk, g);
+      continue;
+    }
+    const b = buildOfKey(e.key);
+    if (!b) continue;
     const g = by.get(b) ?? { keys: [], bytes: 0, newest: 0 };
     g.keys.push(e.key); g.bytes += e.bytes; g.newest = Math.max(g.newest, e.mtimeMs);
     by.set(b, g);
@@ -65,10 +82,20 @@ export function planGc(o: {
       del.push(b); b.status = 'collect'; after -= b.bytes;
     }
   }
-  const keys = del.flatMap((b) => by.get(b.buildId)!.keys);
+  // the staged regions over their own cap, least recently served first (never pinned: they can be fetched again)
+  const srcBytes = [...regions.values()].reduce((a, g) => a + g.bytes, 0);
+  const srcCap = o.srcCapBytes != null && Number.isFinite(o.srcCapBytes) && o.srcCapBytes >= 0 ? o.srcCapBytes : null;
+  const srcDel: string[] = [];
+  if (srcCap != null && !badTarget) {
+    let left = srcBytes;
+    const old = [...regions].sort((a, b) => (o.lastServed?.get(`src:${a[0]}`) ?? a[1].newest) - (o.lastServed?.get(`src:${b[0]}`) ?? b[1].newest) || (a[0] < b[0] ? -1 : 1));
+    for (const [rk, g] of old) { if (left <= srcCap) break; srcDel.push(rk); left -= g.bytes; after -= g.bytes; }
+  }
+  const keys = [...del.flatMap((b) => by.get(b.buildId)!.keys), ...srcDel.flatMap((rk) => regions.get(rk)!.keys)];
   const plan: Omit<GcPlan, 'planId'> = {
     at: now, totalBytes: total, targetBytes: target, builds: builds.sort((a, b) => (a.buildId < b.buildId ? -1 : 1)),
-    delete: { keys, bytes: del.reduce((a, b) => a + b.bytes, 0), builds: del.map((b) => b.buildId) },
+    delete: { keys, bytes: del.reduce((a, b) => a + b.bytes, 0) + srcDel.reduce((a, rk) => a + regions.get(rk)!.bytes, 0), builds: del.map((b) => b.buildId), regions: srcDel },
+    src: { regions: regions.size, bytes: srcBytes, capBytes: srcCap, collect: srcDel.length },
     tmp: { keys: badTarget ? [] : oldTmp.map((e) => e.key), bytes: badTarget ? 0 : tmpBytes }, afterBytes: badTarget ? total : after, pinsOk: o.pinsOk, pinSources: o.pinSources ?? [],
     ...(o.currentFrom ? { currentFrom: o.currentFrom } : {}),
     ...(!o.pinsOk ? { refused: 'the pins could not all be read: nothing is collected' } : badTarget ? { refused: `the target ${String(o.targetBytes)} is not a number of bytes, 0 or more: nothing is collected` } : {}),

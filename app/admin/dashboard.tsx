@@ -32,7 +32,14 @@ const ranged = (t: Tab) => t === 'overview' || t === 'traffic' || t === 'mogcity
 // its ceiling (BUILD_DAILY_USD)
 export type Capacity = { held: number; max: number; queue: number; queueMax: number; spent: number; inFlight: number; perBuild: number; ceiling: number };
 // mc: Mog City (mc.gamemog.com), counted apart from everything else here (lib/analytics.ts mcStats)
-export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null };
+/** The production town builder's status (lib/hometown-build/server.ts builderStatus), only while HOMETOWN_BUILDER is not off. */
+export type TownBuilderAdmin = {
+  mode: string; frame: boolean; build: { configured: string | null; current: string | null; workersReport: string[]; mismatch: boolean };
+  workers: { id: string; build: string | null; slots: number; seen: number }[]; slots: number; queue: { prio: number; state: string; n: number; weight: number }[];
+  costs: Record<string, { ewmaMs: number; n: number }>; towns: { byState: { state: string; source: string; n: number }[] };
+  canary: { runs: number; mismatches: number }; etaError: { n: number; meanPct: number } | null;
+};
+export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null };
 
 export function Dashboard(props: AdminData) {
   return <Toasts><Board {...props} /></Toasts>;
@@ -49,7 +56,7 @@ export function ago(at: number) {
   return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, slots, loop, mc, storykit = null }: AdminData) {
+function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, slots, loop, mc, storykit = null, towns = null }: AdminData) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('overview');
@@ -116,7 +123,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
 
       <main className="adm-main">
         <BlurIn k={ranged(tab) ? `${tab}-${range}` : tab}>
-          {tab === 'overview' && <Overview s={s} slots={slots} storykit={storykit} />}
+          {tab === 'overview' && <Overview s={s} slots={slots} storykit={storykit} towns={towns} />}
           {tab === 'dares' && <Dares loop={loop} />}
           {tab === 'worlds' && <Worlds worlds={worlds} hidden={hiddenCount} publish={publish} />}
           {tab === 'builds' && <Builds builds={builds} titles={new Map(worlds.map((w) => [w.slug, w.title]))} />}
@@ -157,7 +164,7 @@ function Kpi({ label, k, s, format, hint }: { label: string; k: keyof Kpis; s: S
   );
 }
 
-function Overview({ s, slots, storykit }: { s: Stats; slots: AdminData['slots']; storykit: StoryKitAdmin | null }) {
+function Overview({ s, slots, storykit, towns }: { s: Stats; slots: AdminData['slots']; storykit: StoryKitAdmin | null; towns: TownBuilderAdmin | null }) {
   const n = s.now;
   const funnel = [
     { label: 'Visited', value: n.visitors },
@@ -180,6 +187,7 @@ function Overview({ s, slots, storykit }: { s: Stats; slots: AdminData['slots'];
 
       <CapacityCard c={slots} />
       {storykit && <StoryKitCard k={storykit} />}
+      {towns && <TownBuilderCard t={towns} />}
 
       <section className="card">
         <div className="card-h">
@@ -257,6 +265,33 @@ function StoryKitCard({ k }: { k: StoryKitAdmin }) {
       <p className="fine">{k.guarded
         ? `New story worlds are paused: the store is past its guard (${guardPct}% of ${mb(k.disk)}). Published worlds still play. Raise STORYKIT_DISK_MB if the disk has room, or move the store off the disk.`
         : `New story worlds stop at ${guardPct}% (${mb(k.guard)}), ${mb(Math.max(0, k.guard - k.used))} from now; drafts already open can finish. STORYKIT_DISK_MB sets the size.`}</p>
+    </section>
+  );
+}
+
+// the production town builder (lib/hometown-build): the workers and their slots, the queue by priority, the build the
+// workers report against HOMETOWN_BUILD, the job costs, the determinism canary and the wait estimate's error
+const PRIO = ['P0 spawn path', 'P1 rest of town', 'P2 far + bundles', 'P3 rebuilds', 'P4', 'P5 pre-warm'];
+function TownBuilderCard({ t }: { t: TownBuilderAdmin }) {
+  const byPrio = new Map<number, { queued: number; leased: number }>();
+  for (const r of t.queue) { const x = byPrio.get(r.prio) ?? { queued: 0, leased: 0 }; if (r.state === 'leased') x.leased += r.n; else x.queued += r.n; byPrio.set(r.prio, x); }
+  const towns = (st: string) => t.towns.byState.filter((r) => r.state === st).reduce((a, r) => a + r.n, 0);
+  return (
+    <section className="card">
+      <div className="card-h"><h2>Town builder</h2></div>
+      <dl className="facts">
+        <div><dt>Switch</dt><dd>{t.mode === 'owner' ? 'Owner only' : 'On for everyone'}<small>{t.frame ? ' spawn first (frame)' : ' whole town'}</small></dd></div>
+        <div><dt>Workers</dt><dd>{t.workers.length}<small> {t.slots} slots live</small></dd></div>
+        <div><dt>Build</dt><dd>{t.build.current ?? 'none'}<small>{t.build.mismatch ? ` workers report ${t.build.workersReport.join(', ')}: not HOMETOWN_BUILD` : t.build.configured ? ' HOMETOWN_BUILD' : ' from the workers (set HOMETOWN_BUILD)'}</small></dd></div>
+        <div><dt>Towns</dt><dd>{towns('full')} built<small> {towns('asked') + towns('framing') + towns('district') + towns('growing')} building, {towns('failed')} failed</small></dd></div>
+        <div><dt>Canary</dt><dd>{t.canary.mismatches ? `${t.canary.mismatches} MISMATCH` : 'clean'}<small> {t.canary.runs} recompiled elsewhere</small></dd></div>
+        <div><dt>Wait estimate</dt><dd>{t.etaError ? `${t.etaError.meanPct}% off` : 'no data yet'}<small>{t.etaError ? ` over ${t.etaError.n} towns` : ''}</small></dd></div>
+      </dl>
+      <table className="lt" style={{ marginTop: 12 }}>
+        <thead><tr><th>Queue</th><th>Waiting</th><th>Running</th></tr></thead>
+        <tbody>{[...byPrio].sort((a, b) => a[0] - b[0]).map(([p, x]) => <tr key={p}><td>{PRIO[p] ?? `P${p}`}</td><td>{x.queued}</td><td>{x.leased}</td></tr>)}</tbody>
+      </table>
+      <p className="fine">Job time (moving average): {Object.entries(t.costs).map(([k, c]) => `${k} ${(c.ewmaMs / 1000).toFixed(1)} s (${c.n})`).join(', ') || 'none yet'}.</p>
     </section>
   );
 }

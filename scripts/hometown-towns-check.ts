@@ -39,9 +39,9 @@ export async function runTownChecks(ok: Ok) {
   ok('the search\'s place id is the town\'s id everywhere: us-4054200 is Okemah, OK', !!okemah && okemah.name === 'Okemah' && okemah.state === 'OK' && OK.placeId === 'us-4054200' && lock.place === 'us-4054200');
   ok('the compiler\'s old dev id maps to it; bare test boxes have none', canonicalPlaceId('okemah') === 'us-4054200' && canonicalPlaceId('us-4054200') === 'us-4054200' && canonicalPlaceId('phoenix') === null && !TOWN_ID.test('us-ok-okemah'));
   const box = okemah ? canonicalBox(okemah) : [0, 0, 0, 0];
-  ok('the canonical box is the search\'s box, at most 4,500 m a side, to 1e-5 degrees', !!okemah && box[0] <= okemah.lon && box[2] >= okemah.lon && (box[3] - box[1]) * 111_320 <= 4501 && box.every((v) => Math.round(v * 1e5) / 1e5 === v));
+  ok('the canonical box is the search\'s box, at most 4,500 m a side, to 1e-6 degrees (fetch.py\'s cap, lib/hometown/box.ts)', !!okemah && box[0] <= okemah.lon && box[2] >= okemah.lon && (box[3] - box[1]) * 111_132 <= 4501 && box.every((v) => Number(v.toFixed(6)) === v));
   const big = canonicalBox({ lat: 40, lon: -100, bbox: [-101, 39, -99, 41] });
-  ok('a sprawling place\'s box is capped at 4,500 m a side', Math.abs((big[3] - big[1]) * 111_320 - 4500) < 2 && Math.abs((big[2] - big[0]) * 111_320 * Math.cos((40 * Math.PI) / 180) - 4500) < 2);
+  ok('a sprawling place\'s box is capped at 4,500 m a side', Math.abs((big[3] - big[1]) * 111_132 - 4500) < 2 && Math.abs((big[2] - big[0]) * 111_320 * Math.cos((40 * Math.PI) / 180) - 4500) < 2);
 
   // ── the lock: the Story Kit's shape and the compiler's / tile service's, one adapter ──
   const svc = serviceLock(lock);
