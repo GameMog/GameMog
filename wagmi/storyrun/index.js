@@ -86,7 +86,12 @@ export async function install(W) {
   };
   const host = { tell };
   // (every checkpoint reached is saved for Continue, but not a test drive's: it would start the next one mid-story)
-  const onCheckpoint = (id, cp) => { if (flags.autopilot || Q.has('nosave')) return; save.resume = { id, cp }; writeSave(); };
+  const onCheckpoint = (id, cp) => {
+    // (a growing town swaps to the whole town at a checkpoint, wagmi/world/growing.js: told before the save is written,
+    // which it then waits for)
+    try { window.dispatchEvent(new CustomEvent('mc:checkpoint', { detail: { id } })); } catch {}
+    if (flags.autopilot || Q.has('nosave')) return; save.resume = { id, cp }; writeSave();
+  };
   const runner = createRunner({ W, world, places, cast, hud, host, save, flags, onCheckpoint });
   // a pet that goes with the hero (pets[] "follows": pet.js), only when the world has one
   let pets = null;

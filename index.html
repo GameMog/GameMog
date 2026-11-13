@@ -55,9 +55,9 @@
     // ?city=pkg&pkg=<id>: a Hometown package (cities/pkg: a place compiled from open map data by tools/hometown) on San
     // Francisco's engine base; MC_PKG its id (letters, digits, '-' only), its folder cities/pkg/packages/<id>/
     const MC_Q = new URLSearchParams(location.search);
-    // ?city=pkg&town=us-<GEOID>&tc=<buildId>&ts=<tile set hash>: a town GameMog built, its bundle fetched from GameMog
-    // (wagmi/world/town-src.js; the same rule as here, checked again there); MC_TOWN its place id
-    const MC_TOWN = MC_Q.get('city') === 'pkg' && /^us-[0-9]{7}$/.test(MC_Q.get('town') || '') && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(MC_Q.get('tc') || '') && /^[0-9a-f]{64}$/.test(MC_Q.get('ts') || '') ? MC_Q.get('town') : null;
+    // ?city=pkg&town=us-<GEOID>&tc=<buildId>&ts=<tile set hash>[&tv=district-<c>-<r>|full]: a town GameMog built, its
+    // bundle fetched from GameMog (wagmi/world/town-src.js; the same rule as here, checked again there); MC_TOWN its id
+    const MC_TOWN = MC_Q.get('city') === 'pkg' && /^us-[0-9]{7}$/.test(MC_Q.get('town') || '') && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(MC_Q.get('tc') || '') && /^[0-9a-f]{64}$/.test(MC_Q.get('ts') || '') && (!MC_Q.has('tv') || /^(full|district-[0-9]{1,7}-[0-9]{1,7})$/.test(MC_Q.get('tv'))) ? MC_Q.get('town') : null;
     const MC_PKG = MC_TOWN ? null : MC_Q.get('city') === 'pkg' && /^[a-z0-9-]{1,40}$/.test(MC_Q.get('pkg') || '') ? MC_Q.get('pkg') : null;
     const MC_CITY = MC_Q.get('city') === 'sf' ? 'sf' : MC_PKG || MC_TOWN ? 'pkg' : 'ny';
   </script>
@@ -872,6 +872,14 @@
         if (!t) throw new Error('not a town address');
         const b = await T.loadTown(t);
         Object.assign(window.NYC, { GEO: b.GEO, PLACE_DATA: b.PLACE_DATA, PKG: b.PKG, BASE: t.base, TOWN: t });
+        // (a growing town, &tv=: its far tiles by store key from GameMog's public store, and the district's edge, the
+        // swap to the whole town and the time-to-first-drive beacons, wagmi/world/growing.js; nothing of it without tv)
+        if (t.tv) {
+          try { performance.mark('mc:town:bundle'); } catch (e) {}
+          window.NYC.FAR_BASE = `${t.host}/api/hometown/`;
+          // (before the city's scripts: the traffic and the people are placed inside a district's window from the start)
+          try { (await import('./wagmi/world/growing.js')).startGrowing({ town: t, PKG: b.PKG }); } catch (e) { console.warn('[town] growing', e); }
+        }
         for (const src of nycAppScripts.slice(pkgAt + 1)) addCityScript(src);
       }).catch((e) => { bootError('This town could not be loaded. Try again.'); console.warn('[town]', MC_TOWN, String(e && e.message || e)); });
     } else if (pkgAt >= 0) {

@@ -17,8 +17,9 @@ async function inflate(buf) {
   return new Response(stream).arrayBuffer();
 }
 
-async function fetchBin(url, onBytes) {
-  const res = await fetch(new URL(url + '.gz', window.NYC.BASE || location.href)); // (Story Kit: data relative to the city's folder)
+// (exact: url is the object itself, no '.gz' added: a Hometown far tile by its store key, pkg-far.js)
+async function fetchBin(url, onBytes, exact = false) {
+  const res = await fetch(new URL(exact ? url : url + '.gz', window.NYC.BASE || location.href)); // (Story Kit: data relative to the city's folder)
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
   let buf = await res.arrayBuffer();
   if (GZIP(buf)) buf = await inflate(buf);

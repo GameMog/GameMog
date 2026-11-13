@@ -10,15 +10,20 @@ import { createMemoryTileSource } from './tiles-mem.js';
 import { maskClass } from './sf.js';
 import { tileId } from './grid.js';
 import { createNetTileSource } from './tiles-net.js';
+import { windowBox, inWindow, CLIP } from './growing.js';
 
 const PKG = () => globalThis.window?.NYC?.PKG || null;
 
 // the arrivals on the ground (city-config.js TELEPORT_LOCATIONS: PLACE_DATA.regional, the compiler's spawn points), then
 // the compiled mission places on their lanes (the compiler put each on its nearest drivable lane already; snapped again
 // onto the traffic's own lanes here, the ones the cars and the GPS drive)
+// (a growing town, wagmi/world/growing.js: a district bundle holds back every arrival and place outside its window less
+// 150 m until the whole town is there: they are listed missing, so no mission is sent where nothing is built yet)
 function buildPlaces({ N, lib, missing, nearestLane }) {
-  for (const [k, p] of Object.entries(N.TELEPORT_LOCATIONS || {})) if (p.mode !== 'helicopter') lib[k] = { x: p.x, z: p.z, heading: p.heading, name: p.name || p.landmark || k };
+  const box = windowBox(PKG()), ok = (x, z) => inWindow(box, x, z, CLIP);
+  for (const [k, p] of Object.entries(N.TELEPORT_LOCATIONS || {})) if (p.mode !== 'helicopter') { if (ok(p.x, p.z)) lib[k] = { x: p.x, z: p.z, heading: p.heading, name: p.name || p.landmark || k }; else missing.push(k); }
   for (const [key, p] of Object.entries(PKG()?.places || {})) {
+    if (!ok(p.x, p.z)) { missing.push(key); continue; }
     const lane = nearestLane(p.x, p.z, 60);
     if (lane) lib[key] = { x: lane.x, z: lane.z, heading: lane.heading, name: p.name, kind: p.kind, cx: p.cx, cz: p.cz };
     else missing.push(key);

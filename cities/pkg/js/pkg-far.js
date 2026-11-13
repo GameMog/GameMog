@@ -90,6 +90,39 @@ function build(scene) {
   ], flatMat, 'PkgFarFill');
   group.add(boot);
 
+  // ---- a growing town's edge (a district bundle, PKG.window not full: wagmi/world/growing.js): past the window the
+  // rest of town is still being built, so a soft warm haze stands there, layer behind layer from the window's edge to
+  // HAZE_D m out (the far field and the fill under it stay as they are: never a hole). Gone with the swap to the full
+  // bundle (a reload).
+  if (P.window && P.window.full === false && Q.get('haze') !== '0') {
+    const HAZE_D = 120, LAYERS = 7, TALL = 160, haze = new THREE.Group();
+    haze.name = 'PkgGrowingHaze';
+    const mat = new THREE.MeshBasicNodeMaterial({ color: 0xd8cfbd, transparent: true, opacity: 0.17, depthWrite: false, side: THREE.DoubleSide, fog: true });
+    const cx = (core.x0 + core.x1) / 2, cz = (core.z0 + core.z1) / 2, per = [];
+    const side = (ax, az, bx, bz) => { const L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / 32)); for (let i = 0; i < n; i++) per.push([ax + (bx - ax) * i / n, az + (bz - az) * i / n]); };
+    side(core.x0, core.z0, core.x1, core.z0); side(core.x1, core.z0, core.x1, core.z1); side(core.x1, core.z1, core.x0, core.z1); side(core.x0, core.z1, core.x0, core.z0);
+    for (let k = 0; k < LAYERS; k++) {
+      const off = 8 + (HAZE_D - 8) * k / (LAYERS - 1), m = per.length, pos = new Float32Array(m * 2 * 3), idx = [];
+      for (let i = 0; i < m; i++) {
+        const [px, pz] = per[i], dx = px - cx, dz = pz - cz, L = Math.hypot(dx, dz) || 1;
+        // (out from the edge along the edge's own normal, not radially: the corners stay square)
+        const nx = Math.abs(px - core.x0) < 0.5 ? -1 : Math.abs(px - core.x1) < 0.5 ? 1 : 0, nz = Math.abs(pz - core.z0) < 0.5 ? -1 : Math.abs(pz - core.z1) < 0.5 ? 1 : 0;
+        const ux = nx || nz ? nx : dx / L, uz = nx || nz ? nz : dz / L, x = px + ux * off, z = pz + uz * off, y0 = edgeY(px, pz) - 12;
+        pos.set([x, y0, z, x, y0 + TALL, z], i * 6);
+      }
+      for (let i = 0; i < m; i++) { const a = 2 * i, b = 2 * ((i + 1) % m); idx.push(a, b, a + 1, b, b + 1, a + 1); }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setIndex(idx);
+      geo.computeBoundingSphere();
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.name = 'PkgGrowingHaze' + k; mesh.castShadow = mesh.receiveShadow = false; mesh.renderOrder = 2;
+      haze.add(mesh);
+    }
+    group.add(haze);
+    stats.haze = { layers: LAYERS, depth: HAZE_D };
+  }
+
   // ---- the far tiles
   const tiers = {}, patches = [], chunks = [];
   let apron = null, farRect = null, lodTier = null;
@@ -137,8 +170,12 @@ function build(scene) {
     const F = P.far, k0 = P.k0, c0 = P.origin.c0, r0 = P.origin.r0, yOff = P.yOffset;
     const list = F.tiles.slice(), got = new Map();
     let next = 0;
+    // (a bundle lists its far tiles by store key, shared between towns and variants: far/{buildId}/hg1-{d}/{L}/{C}/{R}
+    // under N.FAR_BASE (a town from GameMog: its public store), else ?tileBase= (the compiler's local store); a package
+    // directory's own copies by url, data/far/... under its BASE)
+    const farBase = N.FAR_BASE || (Q.get('tileBase') || '/.scratch/hometown/store').replace(/\/?$/, '/');
     await Promise.all(Array.from({ length: 8 }, async () => {
-      while (next < list.length) { const t = list[next++]; got.set(t, await N.fetchBin(t.url)); }
+      while (next < list.length) { const t = list[next++]; got.set(t, await (t.key ? N.fetchBin(new URL(t.key, new URL(farBase, location.href)).href, null, true) : N.fetchBin(t.url))); }
     }));
     const dec = [];
     for (const t of list) {

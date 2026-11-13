@@ -212,6 +212,8 @@ export function createCrowd(W) {
       if (Math.random() < 0.22) p.a = p.dir > 0 ? a1 - rand(0, 6) : a0 + rand(0, 6); // (near a corner)
       p.a = Math.min(a1, Math.max(a0, p.a));
       laneXZ(p);
+      const tw = globalThis.window?.NYC?.townWindow; // (a growing town: no one outside its window less 150 m, growing.js)
+      if (tw && (p.x < tw.minX || p.x > tw.maxX || p.z < tw.minZ || p.z > tw.maxZ)) continue;
       if (Math.hypot(p.x - focus.x, p.z - focus.z) < rMin || Math.hypot(p.x - lead.x, p.z - lead.z) > rMax || held(p.x, p.z, 2) || furnitureAt(p.x, p.z, 0.45) || inWall(p.x, p.z) || (hidden && !unseen(p.x, p.z))) continue;
       p.placed = true; p.fresh = false; p.rig.placed = false; p.state = 'walk'; p.v = p.walk; p.t = 0; p.flee = 0; p.cross = null; p.shove = null;
       if (Math.random() < 0.1) {
