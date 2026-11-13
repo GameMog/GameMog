@@ -257,7 +257,7 @@ body.wg-cine .wr-card { display: none; }`;
   const active = () => (navigator.userActivation ? navigator.userActivation.hasBeenActive : true);
   // the pause menu (W.paused): the decks and a passing car's stereo stop where they are, the stations' clocks with them
   // (the mixer's context is held too, wagmi/audio), and all of it plays on from there on Resume
-  let heldAt = 0;
+  let heldAt = 0, woke = false;
   function hold(on) {
     // (what was playing and still wanted: a deck still live, the stereo while its car is still about)
     const els = [...(g ? g.decks.map((d) => [d.el, () => d.live]) : []), ...(boom.d ? [[boom.d, () => !!boom.v]] : [])];
@@ -272,6 +272,9 @@ body.wg-cine .wr-card { display: none; }`;
     if (R.paused) return;
     const inCar = cm.activeMode === 'car';
     if (!active()) { wasCar = inCar; return; }
+    // (a game that starts him at the wheel (a mission's drive): the card once, at the first key or click, so the
+    // radio's key is seen there too)
+    if (!woke) { woke = true; if (inCar && !cut()) show(); }
     if (inCar && !cut()) been = true;
     // getting in: the card (the first time ever, MOG FM from the top: the theme)
     if (inCar && !wasCar && !cut()) {
