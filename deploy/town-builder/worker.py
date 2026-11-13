@@ -593,7 +593,7 @@ class Worker:
         finally:
             job['done'] = True
             with self.lock:
-                self.used -= job.get('weight', 1)
+                self.used -= job.get('held', job.get('weight', 1))
                 self.running.pop(job['key'], None)
             self.evict()
 
@@ -675,7 +675,8 @@ class Worker:
             job['weight'] = 2 if job['kind'] == 'regions' else 1
             log(event='claimed', key=job['key'], kind=job['kind'], prio=job.get('prio'), inputs=len(job.get('inputs', [])))
             with self.lock:
-                self.used += min(job['weight'], self.slots)
+                job['held'] = min(job['weight'], self.slots)
+                self.used += job['held']
                 self.running[job['key']] = job
             threading.Thread(target=self.execute, args=(job,), daemon=True).start()
 

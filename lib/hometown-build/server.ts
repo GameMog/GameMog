@@ -32,6 +32,8 @@ export function builderDeps(cfg: HometownConfig = hometownConfig()): BuilderDeps
   const file = path.join(cfg.root, 'queue.db');
   if (G.__hometownBuilder?.file !== file) {
     const q = new BuildQueue({ file });
+    // (leases outlive a restart of this server: see graceLeases)
+    try { q.graceLeases(); } catch { /* the reaper's normal rules */ }
     const reaper = setInterval(() => { try { q.reap(); } catch { /* the next tick */ } }, 10_000);
     reaper.unref?.();
     G.__hometownBuilder = { file, q, reaper };

@@ -51,6 +51,8 @@ export const BACKOFF_MS = 5_000;
 export const LIVE_MS = 30_000;
 /** any build may claim these (a staged region is the same rows whatever compiler reads it) */
 export const ANY_BUILD = '*';
+/** a claim looks this deep into the queued rows at most (pages of 500) */
+export const CLAIM_SCAN_MAX = 20_000;
 const EWMA = 0.3;
 
 const SCHEMA = `
@@ -145,13 +147,19 @@ export class BuildQueue {
         keys.push(q.key);
       } else if (need) {
         const key = `${s.key}:${need.toString(16).padStart(4, '0')}`;
-        this.insert({ ...s, key, args: { ...s.args, mask: need } }, first, grp);
+        if (this.get(key)) {
+          // (a failed job of these very bits, asked again: a fresh run of it; inserting the key again would throw)
+          this.db.prepare("UPDATE jobs SET state = 'queued', attempts = 0, not_before = 0, prio = ?, ring = ?, first_asked = ?, deps = ?, error = NULL, lease_id = NULL, lease_worker = NULL, lease_until = NULL, updated = ? WHERE key = ?")
+            .run(s.prio, s.ring ?? 0, first, JSON.stringify(s.deps ?? []), t, key);
+        } else this.insert({ ...s, key, args: { ...s.args, mask: need } }, first, grp);
         keys.push(key);
       } else if (q && Number(q.args.mask) & mask) {
         this.db.prepare('UPDATE jobs SET prio = MIN(prio, ?), ring = MIN(ring, ?), first_asked = MIN(first_asked, ?), updated = ? WHERE key = ?').run(s.prio, s.ring ?? 0, first, t, q.key);
         keys.push(q.key);
       }
       for (const k of keys) want(k);
+      // (the block's failed jobs no longer hold this town: their bits are queued again above)
+      if (s.place) this.db.prepare("DELETE FROM wants WHERE place = ? AND job IN (SELECT key FROM jobs WHERE grp = ? AND state = 'failed')").run(s.place, grp);
       return [...new Set(keys)];
     }
     const had = this.get(s.key);
@@ -182,6 +190,17 @@ export class BuildQueue {
   addDeps(key: string, deps: string[]) {
     const j = this.get(key); if (!j) return;
     this.db.prepare('UPDATE jobs SET deps = ?, updated = ? WHERE key = ?').run(JSON.stringify([...new Set([...j.deps, ...deps])]), this.now(), key);
+  }
+
+  /**
+   * A web server just started: every lease gets a fresh LEASE_MS. A deploy of the web (a disk service: stop, then start)
+   * can be down longer than a lease, and its workers' heartbeats could not land meanwhile; without this the first
+   * claim's reap would requeue (and charge) every job still running fine on a worker. A worker that really died is
+   * reaped one lease later.
+   */
+  graceLeases(): number {
+    const t = this.now();
+    return Number(this.db.prepare("UPDATE jobs SET lease_until = MAX(lease_until, ?) WHERE state = 'leased'").run(t + LEASE_MS).changes);
   }
 
   /** Expired leases back to queued (with backoff), or failed after MAX_ATTEMPTS. */
@@ -227,19 +246,25 @@ export class BuildQueue {
     const got = this.tx(() => {
       this.seen(c);
       const t = this.now();
-      const rows = (this.db.prepare(`SELECT * FROM jobs WHERE state = 'queued' AND (build = ? OR build = ?) AND not_before <= ?
-        ORDER BY prio, first_asked, ring LIMIT 500`).all(c.build, ANY_BUILD, t) as Row[]).map(toJob);
-      if (!rows.length) return null;
       const states = new Map<string, JobState>();
       const depsDone = (j: Job) => j.deps.every((d) => {
         if (!states.has(d)) { const r = this.db.prepare('SELECT state FROM jobs WHERE key = ?').get(d) as Row | undefined; states.set(d, (r?.state as JobState) ?? 'failed'); }
         return states.get(d) === 'done';
       });
-      const ready = rows.filter(depsDone);
-      if (!ready.length) return null;
       const reserveP0 = (c.totalSlots ?? c.freeSlots) > 1 && c.freeSlots <= 1;
-      const interactive = ready.some((j) => j.prio <= 3);
-      const fits = ready.filter((j) => j.args.notWorker !== c.worker && Math.min(j.weight, Math.max(1, c.totalSlots ?? c.freeSlots)) <= c.freeSlots && (!reserveP0 || j.prio === 0) && (j.prio < 5 || !interactive));
+      // (pages of 500 in claim order: rows waiting on their deps (a whole town behind its regions) must not hide a ready
+      // job further down; the rows seen so far decide 'interactive', which the order makes exact for P5)
+      const page = this.db.prepare(`SELECT * FROM jobs WHERE state = 'queued' AND (build = ? OR build = ?) AND not_before <= ?
+        ORDER BY prio, first_asked, ring, key LIMIT 500 OFFSET ?`);
+      const ready: Job[] = [];
+      let fits: Job[] = [];
+      for (let off = 0; off < CLAIM_SCAN_MAX; off += 500) {
+        const rows = (page.all(c.build, ANY_BUILD, t, off) as Row[]).map(toJob);
+        ready.push(...rows.filter(depsDone));
+        const interactive = ready.some((j) => j.prio <= 3);
+        fits = ready.filter((j) => j.args.notWorker !== c.worker && Math.min(j.weight, Math.max(1, c.totalSlots ?? c.freeSlots)) <= c.freeSlots && (!reserveP0 || j.prio === 0) && (j.prio < 5 || !interactive));
+        if (fits.length || rows.length < 500) break;
+      }
       if (!fits.length) return null;
       const p = fits[0].prio;
       const top = fits.filter((j) => j.prio === p);
@@ -296,6 +321,21 @@ export class BuildQueue {
       if (!j || j.state !== 'leased' || j.leaseId !== leaseId) return { ok: false };
       const t = this.now();
       if (f.code === 3 && f.regions) {
+        const had = this.get(f.regions.key);
+        if (had?.state === 'done') {
+          // (said done, yet a worker could not stage it: its files are gone (src LRU GC). Fetch it again, and charge this
+          // job the attempt, so a region that never stages cannot loop a job forever with no backoff)
+          this.db.prepare("UPDATE jobs SET state = 'queued', attempts = 0, not_before = 0, error = NULL, updated = ? WHERE key = ?").run(t, f.regions.key);
+          for (const w of this.db.prepare('SELECT place FROM wants WHERE job = ?').all(key) as Row[]) this.db.prepare('INSERT OR IGNORE INTO wants (job, place) VALUES (?, ?)').run(f.regions.key, String(w.place));
+          this.db.prepare('UPDATE jobs SET deps = ? WHERE key = ?').run(JSON.stringify([...new Set([...j.deps, f.regions.key])]), key);
+          this.retryOrFail({ ...j, deps: [...new Set([...j.deps, f.regions.key])] }, `regions ${f.regions.key} were done but not stageable: fetched again`);
+          return { ok: true, regionsJob: f.regions.key };
+        }
+        if (had?.state === 'failed' && had.notBefore > t) {
+          // (its regions failed for good moments ago: this job fails too, rather than waiting on a failed dep forever)
+          this.retryOrFail({ ...j, attempts: MAX_ATTEMPTS }, `regions ${f.regions.key} failed: ${had.error ?? ''}`);
+          return { ok: true };
+        }
         this.enqueueIn({ key: f.regions.key, kind: 'regions', build: ANY_BUILD, prio: j.prio, ring: j.ring, args: f.regions.args, weight: 2, firstAsked: j.firstAsked });
         for (const w of this.db.prepare('SELECT place FROM wants WHERE job = ?').all(key) as Row[]) this.db.prepare('INSERT OR IGNORE INTO wants (job, place) VALUES (?, ?)').run(f.regions.key, String(w.place));
         this.db.prepare("UPDATE jobs SET state = 'queued', deps = ?, attempts = MAX(0, attempts - 1), lease_id = NULL, lease_worker = NULL, lease_until = NULL, updated = ? WHERE key = ?")

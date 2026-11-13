@@ -200,6 +200,32 @@ function g3(ok: Ok, dir: string) {
   ok('a worker claims only its own build\'s jobs', q2.claim(W('a', 2, 4)) === null);
   ok('live workers and slots are counted from claims', q2.liveSlots() === 4 && q2.liveWorkers()[0].build === B);
   q3.close(); q2.close();
+  // (review fixes) a failed tile job asked again, exit 3 on done/failed regions, blocked rows, leases over a restart
+  const q4 = new BuildQueue({ file: ':memory:', now: () => t });
+  const blk = { key: `tiles:${B}:hg1-conus/2/1/1`, kind: 'tiles' as const, build: B, prio: 0, args: { block: 'hg1-conus/2/1/1', mask: 3 }, place: 'us-9' };
+  const [tk] = q4.enqueue(blk);
+  for (let i = 0; i < MAX_ATTEMPTS; i++) { t += 600_000; const c = q4.claim(W('w', 2, 2))!; q4.fail(c.key, c.leaseId, { code: 1 }); }
+  t += 600_000;
+  let again: string[] = [];
+  try { again = q4.enqueue(blk); } catch { /* the old UNIQUE crash */ }
+  ok('a failed tile job asked again is queued afresh (no duplicate-key crash)', again[0] === tk && q4.get(tk)!.state === 'queued' && q4.get(tk)!.attempts === 0);
+  q4.enqueue({ key: 'ctx:q4', kind: 'ctx', build: B, prio: 0, args: {}, place: 'us-9' });
+  const rg = { key: 'regions:q4', args: {} };
+  let d1 = q4.claim(W("w", 2, 2))!; while (d1.key !== "ctx:q4") { q4.complete(d1.key, d1.leaseId, {}, () => []); d1 = q4.claim(W("w", 2, 2))!; }
+  q4.fail(d1.key, d1.leaseId, { code: 3, regions: rg });
+  const r1 = q4.claim(W('w', 2, 2))!; q4.complete(r1.key, r1.leaseId, {}, () => []);
+  const d2 = q4.claim(W("w", 2, 2))!;
+  q4.fail(d2.key, d2.leaseId, { code: 3, regions: rg });
+  ok('exit 3 on regions already done: the regions job runs again and the job is charged (no free hot loop)', q4.get('regions:q4')!.state === 'queued' && q4.get('ctx:q4')!.attempts === 1 && q4.get('ctx:q4')!.notBefore > t);
+  q4.enqueue({ key: 'gate', kind: 'far', build: B, prio: 0, args: {} });
+  for (let i = 0; i < 600; i++) q4.enqueue({ key: `blocked${i}`, kind: 'far', build: B, prio: 0, args: {}, deps: ['nope'] });
+  t += 1; q4.enqueue({ key: 'later', kind: 'far', build: B, prio: 1, args: {} });
+  const seen = new Set<string>(); for (let i = 0; i < 4; i++) { const x = q4.claim(W('z' + i, 2, 2)); if (x) seen.add(x.key); }
+  ok('600 dependency-blocked rows ahead do not hide a ready job further down', seen.has('later'));
+  const lease = q4.get('later')!.leaseUntil!;
+  t += LEASE_MS + 30_000; q4.graceLeases(); q4.reap();
+  ok('a server restart gives running leases a fresh LEASE_MS (a long web deploy does not requeue them)', q4.get('later')!.state === 'leased' && q4.get('later')!.leaseUntil! > lease);
+  q4.close();
 }
 
 // ------------------------------------------------------------------------- G4-G6: towns, the worker protocol, access
