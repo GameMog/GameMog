@@ -86,6 +86,23 @@ p = G.Piece(('s9', 0), 'A', 'B', 100, 0, 100, False, flat(100), fixed=[(5, 106.8
 out, st = G.solve([p], {'A': 100.0, 'B': 100.0}, set())
 check('too close to an anchor: relaxed, no step', st['gradeRelaxed'] == 1 and out[('s9', 0)][1] - 100 <= 0.5 + 1e-6, str(st))
 
+# 9b. a deck interval ending inside its piece 14 m past a road it crosses (the rest of the piece on fill, the ground
+#     climbing a hillside): the deck end moves out over the fill until the road is cleared, never a car's height over it
+L = 200
+gr = [100.0 + max(0.0, s - 150) * 0.4 for s in G.stations(L)]
+p = G.Piece(('s9b', 0), 'A', 'B', L, 0, 150, False, gr, fixed=[(136, 106.8)])
+out, st = G.solve([p], {'A': 100.0, 'B': gr[-1]}, set())
+ys = out[('s9b', 0)]
+check('deck end inside the piece moves out to clear a crossing near it', G.interp(p.ss, ys, 136) >= 106.8 - 0.05 and st['deckEndsMoved'] == 1 and st['unmet'] == 0,
+      '%.2f %s' % (G.interp(p.ss, ys, 136), st))
+check('... and lands on the ground beyond, no step', all(y >= g - 1e-9 for y, g in zip(ys, gr)) and abs(ys[-1] - gr[-1]) < 1e-9 and
+      max(abs(ys[k + 1] - ys[k]) for k in range(len(ys) - 1) if ys[k] - gr[k] > 1e-6 or ys[k + 1] - gr[k + 1] > 1e-6) <= G.RELAX * G.STEP + 0.05,
+      str([round(v, 1) for v in ys[25:]]))
+# 9c. ... the same end with no constraint near it stays where the data put it
+p = G.Piece(('s9c', 0), 'A', 'B', L, 0, 150, False, gr, fixed=[(60, 106.8)])
+out, st = G.solve([p], {'A': 100.0, 'B': gr[-1]}, set())
+check('deck end with nothing near it stays', st['deckEndsMoved'] == 0 and all(abs(y - g) < 1e-9 for y, g, s in zip(out[('s9c', 0)], gr, p.ss) if s > 150))
+
 # 10. determinism under shuffled input
 ps = lambda: [G.Piece(('m', 0), 'M0', 'J', 200, 0, 200, True, flat(200), fixed=[(100, 106.8)]), G.Piece(('m', 1), 'J', 'M1', 200, 0, 200, True, flat(200)),
               G.Piece(('r', 0), 'R0', 'J', 150, 0, 150, False, flat(150))]
