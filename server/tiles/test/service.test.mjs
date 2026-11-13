@@ -344,3 +344,30 @@ test('tileSetHash: the service\'s hash equals the Python descriptor\'s', { skip:
   assert.equal(d.lock.tiles, d.tileSetHash);
   assert.equal(d.lock.formatVersion, 2);
 });
+
+test('a failed or unusable descriptor stage 2 stores no manifest (no null yOffset / waterLevel cached forever); the next request retries', async () => {
+  const store = new MemoryStore();
+  const fake = createFakeCompiler({ version: 'fake-1' });
+  const real = fake.describePlace.bind(fake);
+  let mode = 'throw';
+  fake.describePlace = async (place, stage = 1) => {
+    if (stage === 2 && mode === 'throw') throw new Error('stage 2 exploded');
+    if (stage === 2 && mode === 'null') return { yOffset: null, waterLevel: -10 };
+    return real(place, stage);
+  };
+  const s = svc({ store, compilers: [fake] });
+  const manifests = () => [...store.objects.keys()].filter((k) => k.startsWith('manifests/'));
+  await assert.rejects(s.getManifest('okemah-ok', 'fake-1'), (x) => x.status === 502 && /stage 2/.test(x.message));
+  assert.deepEqual(manifests(), [], 'nothing stored after a failed stage 2');
+  mode = 'null';
+  await assert.rejects(s.getManifest('okemah-ok', 'fake-1'), (x) => x.status === 502 && /yOffset/.test(x.message));
+  assert.deepEqual(manifests(), [], 'nothing stored after a stage 2 without a datum');
+  await assert.rejects(s.createLock('okemah-ok', 'fake-1'), (x) => x.status === 502);
+  mode = 'ok';
+  const m = JSON.parse((await s.getManifest('okemah-ok', 'fake-1')).body);
+  assert.equal(m.yOffset, 0);
+  assert.equal(m.waterLevel, -10);
+  assert.equal(manifests().length, 1);
+  const lock = await s.createLock('okemah-ok', 'fake-1');
+  assert.equal(lock.yOffset, 0);
+});

@@ -66,3 +66,31 @@ test('the tile manager on a net source: global keys, the store bytes', { skip: !
   assert.deepEqual(tileOf((C0 + 1) * 51200, R0 * 51200), [C0 + 1, R0]);
   tm.dispose();
 });
+
+// The water shim on a shared edge post (the verifier's Pittsburgh 4,620 / 4,626: the post read its own tile's mask, and
+// the two tiles hold different cells there). Two synthetic tiles side by side: A's east column and B's west column are
+// the same posts at the same cm; A's mask says wet along its last cells, B's says dry. Both must place the same heights.
+test('water shim: an edge post decides the same on both tiles', () => {
+  const P = 257, yOffset = 0, waterLevel = 0.3, lvl = 30;
+  const tile = (c, wetEast) => {
+    const terrain = new Uint16Array(P * P), mask = new Uint8Array(512 * 512);
+    for (let j = 0; j < P; j++) for (let i = 0; i < P; i++) {
+      const g = (c - 10) * 256 + i; // global post column
+      // (the water: posts at exactly the level west of the line; a bank 40 cm over it beside; dry land further east)
+      terrain[j * P + i] = g < 256 ? lvl : g === 256 && j % 2 ? lvl : g <= 258 ? lvl + 40 : 500;
+    }
+    for (let j = 0; j < 512; j++) for (let i = 0; i < 512; i++) if (wetEast ? i >= 500 : false) mask[j * 512 + i] = 6;
+    if (!wetEast) for (let j = 0; j < 512; j++) mask[j * 512 + 0] = 0;
+    return { header: { c, r: 0, posts: P, base_cm: 0 }, sections: { terrain, terrainEnc: 'u16', mask } };
+  };
+  const fr = { c0: 10, r0: 0, k0: 1, yOffset, waterLevel };
+  const A = placeTile(fr, tile(10, true)), B = placeTile(fr, tile(11, false));
+  let same = 0;
+  for (let j = 0; j < P; j++) { assert.ok(Object.is(A.heights.h[j * P + P - 1], B.heights.h[j * P]), `post ${j}: ${A.heights.h[j * P + P - 1]} vs ${B.heights.h[j * P]}`); same++; }
+  assert.equal(same, P);
+  // (at the level: engine water on both sides; off it: land >= wl + 0.3)
+  assert.equal(A.heights.h[1 * P + P - 1], Math.fround(waterLevel));
+  assert.ok(A.heights.h[0 * P + P - 1] >= waterLevel + 0.3 - 1e-6);
+  // (an inner post still reads its mask cell: A's wet cells near the east edge flatten a post 0.4 m over the level)
+  assert.equal(A.heights.h[5 * P + 254], Math.fround(0.3 + 0)); // g = 254 < 256: at the level, wet cell -> water
+});

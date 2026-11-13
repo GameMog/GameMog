@@ -21,10 +21,23 @@ python tools/hometown/compile.py --block hg1-conus/2/1451/2145 --out -     # HTB
 python tools/hometown/compile.py --ctx hg1-conus/4/362/536
 python tools/hometown/compile.py --descriptor okemah --stage 1             # JSON
 python tools/hometown/compile.py --print-build                             # the buildId and its record
+python tools/hometown/compile.py --dem-snapshot                            # pin the DEM (once per build)
 ```
 
-The 3DEP heights are read lazily from the USGS cloud-optimized GeoTIFFs (HTTP range reads of 512 px internal tiles) and
-mirrored by ETag under `<data>/dem/`; after the first read everything is offline.
+The 3DEP heights are read lazily from the USGS cloud-optimized GeoTIFFs (HTTP range reads of 512 px internal tiles).
+
+**The DEM snapshot pin.** USGS serves each file at a mutable `.../TIFF/current/` URL, so a build pins the DEM with a
+snapshot: `python tools/hometown/compile.py --dem-snapshot` lists the bucket once (S3 ListObjectsV2, ~10 s: every 1/3"
+and 1" `.tif` with its ETag) and stores it content-addressed at `dem/snapshots/dem-{16 hex}.json` in the store, with
+`dem/current.json` pointing at it (`HOMETOWN_DEM_SNAPSHOT=<id>` names another). The build record's `demSnapshot.id` is that
+id, so the buildId changes exactly when the DEM it reads does; a compile with no snapshot in its store refuses to start.
+Every read of a file (its IFD header and each internal tile) is a range read with `If-Match: "<snapshot ETag>"`: a file
+USGS replaced since answers 412 and the compile fails (`DemChanged`) rather than mixing bytes of two versions. The bytes
+are mirrored in the store at `dem/{13|1}/{nXXwYYY}/{etag}/` (`meta.json`, `{k}.bin`, written ifAbsent), so every worker
+sharing the store reads the same bytes and `/current/` is read once per internal tile; the old local mirror
+`<data>/dem/` seeds it when its ETag matches. A file the snapshot does not list has no data (a tile with none is refused,
+naming it). `--dem-snapshot-from-mirror` makes an offline, partial snapshot of the local mirror's files.
+`tools/hometown/test_dem_pin.py` tests all of this offline.
 
 ## The grid (`grid.py`, frozen as hg1)
 
@@ -82,6 +95,27 @@ changes bump `COMPILER_VERSION`; library, image or source changes change only `b
   cut edges), trees, places, water and parks in session coordinates, `frame.bearingDeg = gamma0`, terrain cell
   `2 / k0`, mask cell `1 / k0`, the interim water shim. `PKG` carries buildId, grid, domain, origin, k0, gamma0, the
   tile ids and their headers.
+
+## The far field (`far.py`, `cities/pkg/js/pkg-far.js`)
+
+The land past a place's compiled tiles, to the horizon (no sea round a dry town). Far tiles are keyed on the hg1 grid
+itself at coarse levels, so in any session frame (session m = grid m / k0) they are an exact uniform grid, and they are
+self-contained and shared by neighbouring places:
+
+| tier | level | tile | posts | step | heights | reach past the core |
+|---|---|---|---|---|---|---|
+| b | L3 | 4096 grid m | 65 x 65 | 64 m | 3DEP 1" (`dem.Sampler(product='1')`, same snapshot), mean of 2 x 2 point samples per post | 10 km |
+| c | L5 | 16384 grid m | 65 x 65 | 256 m | 3DEP 1", mean of 8 x 8 | 30 km |
+
+A tile's edge posts are its neighbours' (same global post, same computation: byte-identical). Classes per post: water
+where the 3 x 3 block of 1" pixels nearest it is exactly flat (3DEP is hydro-flattened; no land is flat to 1 mm over
+~90 m), arid land by the compiler's desert rule (lon < -104, lat < 37.5, per post), else land. Store key
+`far/{buildId}/hg1-{d}/{L}/{C}/{R}`, `--far hg1-{d}/{3|5}/{C}/{R} --out -` for one; the legacy package carries them as
+`data/far/{b|c}-{C}-{R}.bin.gz` (SFB1 `hometown-far`: uint16 heights, NAVD88 = -100 + 0.1 q, q 0 no data; uint8
+class), listed in `PKG.far` and `manifest.json` `files` (so a Mog's pinned file hashes cover them). About 80 tiles,
+~0.5 MB a place. The runtime (`pkg-far.js`) draws a zero-byte fill and apron at boot, then the tiles after boot (off
+the critical path) as Terrain patches (`surface`: groundAt is the 3DEP height over far water) and meshes; the core is
+never changed. Tests: `test_far.py`, `tests/pkg-far.test.mjs`.
 
 ## Rules that are estimates, not data
 

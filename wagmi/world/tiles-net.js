@@ -36,6 +36,18 @@ async function gunzip(buf) {
   return new Uint8Array(await new Response(new Blob([buf]).stream().pipeThrough(ds)).arrayBuffer());
 }
 
+// The interim water shim for one post: engine water (y = wl) or land at least 0.3 m above it. An inner post reads its
+// 1 m mask cell (the post is the cell's NW corner). A post on the tile's edge is shared with the neighbour, which holds
+// none of this tile's mask cells (and this tile none of its), so a mask read there could decide differently on the two
+// sides and crack the seam: an edge post decides from its height alone, which both tiles hold to the cm. It is engine
+// water when it sits exactly at the engine level (the compiler sets a wet post to its water's level_cm, and only wet
+// posts land on it but for a chance cm-exact bank post).
+export function engineWater(postCm, y, i, j, P, mask, wl, wlCm) {
+  const edge = i === 0 || j === 0 || i === P - 1 || j === P - 1;
+  const wet = edge ? postCm === wlCm : mask[2 * j * 512 + 2 * i] === 6 && Math.abs(y - wl) <= 1;
+  return wet ? wl : Math.max(y, wl + 0.3);
+}
+
 // a decoded tile -> its layers in the session frame fr = { c0, r0, k0, yOffset, waterLevel }
 export function placeTile(fr, { header: h, sections: s }) {
   const k0 = fr.k0, c = h.c, r = h.r;
@@ -44,13 +56,14 @@ export function placeTile(fr, { header: h, sections: s }) {
   if (s.terrainEnc === 'u16') for (let i = 0; i < P * P; i++) cm[i] = s.terrain[i] + h.base_cm;
   else for (let i = 0; i < P * P; i++) cm[i] = s.terrain[i];
   const wl = fr.waterLevel, hasWater = Number.isFinite(wl) && wl > -9.99;
+  // (the engine level in absolute cm: the compiler flattens a wet post to its water's level_cm exactly, and the package's
+  // waterLevel is that level minus yOffset)
+  const wlCm = Math.round((wl + fr.yOffset) * 100);
   const hf = new Float32Array(P * P);
   for (let j = 0; j < P; j++) for (let i = 0; i < P; i++) {
     let y = cm[j * P + i] / 100 - fr.yOffset;
     if (hasWater) {
-      // (the post's 1 m mask cell: its NW corner is the post; the last row / column reads the cell before it)
-      const mi = Math.min(511, 2 * i), mj = Math.min(511, 2 * j), wet = s.mask[mj * 512 + mi] === 6;
-      y = wet && Math.abs(y - wl) <= 1 ? wl : Math.max(y, wl + 0.3);
+      y = engineWater(cm[j * P + i], y, i, j, P, s.mask, wl, wlCm);
     }
     hf[j * P + i] = y;
   }

@@ -128,7 +128,7 @@ One interface:
 - `delete(key)`
 - `describe()`
 
-The keys are `tiles/{buildId}/hg1-{domain}/0/{c}/{r}`, `ctx/{buildId}/hg1-{domain}/4/{C}/{R}`, `manifests/{buildId}/{placeId}.json`, `builds/{buildId}.json` and `dem/{etag}/...`.
+The keys are `tiles/{buildId}/hg1-{domain}/0/{c}/{r}`, `ctx/{buildId}/hg1-{domain}/4/{C}/{R}`, `manifests/{buildId}/{placeId}.json`, `builds/{buildId}.json` and the DEM mirror `dem/snapshots/{id}.json`, `dem/current.json`, `dem/{13|1}/{name}/{etag}/...` (tools/hometown/README.md, the DEM snapshot pin).
 
 - **Disk** (the default). There is one file per key: `HTT1` + uint32 meta length + meta JSON + body. Each object is
   written to a temp file in the same directory, then linked into place. Readers never see a partial file, and

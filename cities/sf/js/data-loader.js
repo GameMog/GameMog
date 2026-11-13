@@ -58,5 +58,5 @@ async function loadCityData(onProgress) {
   return DATA;
 }
 
-Object.assign(window.NYC, { loadCityData });
+Object.assign(window.NYC, { loadCityData, fetchBin });
 })();
