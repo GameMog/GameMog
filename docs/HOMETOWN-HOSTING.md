@@ -32,7 +32,7 @@ A refused put returns `507` and logs `disk-full`. Stored towns keep serving.
 
 **Eviction is "cache forever" with a GC.**
 - The GC never touches:
-  - the current build (`HOMETOWN_BUILD`, or else the newest build);
+  - the current build (`HOMETOWN_BUILD`; unset, both the newest build record and the build with the newest file are kept, so set it once a build is live);
   - any build a world names anywhere in `gamemog.db` or `data/storykit` (drafts and sealed worlds included).
 - Anything else goes as a whole build, least recently served first.
 - If the pins can't be read, nothing is deleted.

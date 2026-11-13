@@ -11,7 +11,7 @@ description: The pre-push checklist for GameMog. A push to main of the public Ga
 
 **2. Scan what is staged (the repo is public).**
 - Emails: `git diff --cached | grep -nEio '[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}' | sort -u`. Only noreply addresses and published third-party credits may appear.
-- Secrets: `git diff --cached | grep -nE '^\+.*(sk-ant-[A-Za-z0-9_-]{20,}|(ADMIN_PASSWORD|ANTHROPIC_API_KEY)=[A-Za-z0-9_+/-]{8,})'` must print nothing. It matches a key's or password's value, so the names alone (`.env.example`, this file) pass.
+- Secrets: `git diff --cached | grep -nE '^\+.*(sk-ant-[A-Za-z0-9_-]{20,}|(ADMIN_PASSWORD|ANTHROPIC_API_KEY|HOMETOWN_ADMIN_TOKEN|TILES_S3_[A-Z_]+)=[A-Za-z0-9_+/-]{8,})'` must print nothing. It matches a key's or password's value, so the names alone (`.env.example`, this file) pass.
 - Also check by eye that no personal name and no private address appears, the owner's admin address included.
 
 **3. Types:** `npx tsc --noEmit -p .` must exit 0 with no output.

@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
  *   GET     its files, what is still missing (GLBs, clips), its bytes against the limits and when it expires; and `mc`,
  *           Mog City's origin, where its test drive plays (lib/storykit-publish.ts storykitMc); and `banked`, the missions an
  *           earlier sitting of its test drive passed on the world as it plays now (bankedMissions); and `frame`, the city part
- *           of Mog City's address for this world ('' New York, 'city=sf&', a hometown's 'city=pkg&town=...&': storyFrameQuery),
+ *           of Mog City's address for this world ('' New York, 'city=sf', a hometown's 'city=pkg&town=...&ts=...': storyFrameQuery; the caller joins it with '&'),
  *           which the test drive (public/storykit/work.js) puts before its pack
  *   DELETE  abandon it now: its rows, then every stored file nothing else points at
  */

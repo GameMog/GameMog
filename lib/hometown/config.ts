@@ -8,7 +8,9 @@
  *   HOMETOWN_QUEUE_MAX       towns waiting or building at once (default 10)
  *   HOMETOWN_DAILY_COLD      new towns built per day (default 100)
  *   HOMETOWN_PER_IP_HOUR     new towns one address may ask for in an hour (default 3)
- *   HOMETOWN_JOB_SECS        one town's build, at most (default 900)
+ *   HOMETOWN_JOB_SECS        one town's whole build, at most (default 2400: a cold town on a busy server took over the old
+ *                            900, and was killed mid-compile)
+ *   HOMETOWN_STALL_SECS      a compile that writes nothing for this long is stuck and stopped (default 600)
  * A town that is built already is never limited.
  */
 import { existsSync } from 'node:fs';
@@ -34,7 +36,8 @@ export function townsConfig() {
     queueMax: num(process.env.HOMETOWN_QUEUE_MAX, 10),
     dailyCold: num(process.env.HOMETOWN_DAILY_COLD, 100),
     perIpHour: num(process.env.HOMETOWN_PER_IP_HOUR, 3),
-    jobMs: num(process.env.HOMETOWN_JOB_SECS, 900) * 1000,
+    jobMs: num(process.env.HOMETOWN_JOB_SECS, 2400) * 1000,
+    stallMs: num(process.env.HOMETOWN_STALL_SECS, 600) * 1000,
   };
 }
 export type TownsConfig = ReturnType<typeof townsConfig>;

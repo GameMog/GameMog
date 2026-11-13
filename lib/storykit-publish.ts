@@ -76,18 +76,20 @@ export function storySite(reqOrigin?: string | null) {
  */
 export function storyFrameSrc(world: string, game: string, site = storySite(), city?: string | null, town?: HometownLock | null) {
   const pack = `${site}/storykit/f/${world}.json`;
-  return `${storykitMc()}/?${storyFrameQuery(city, town)}pack=${encodeURIComponent(pack)}&host=${encodeURIComponent(site)}&game=${encodeURIComponent(game)}`;
+  const q = storyFrameQuery(city, town);
+  return `${storykitMc()}/?${q ? `${q}&` : ''}pack=${encodeURIComponent(pack)}&host=${encodeURIComponent(site)}&game=${encodeURIComponent(game)}`;
 }
 /**
- * The city part of Mog City's frame address, '' (New York) or ending in '&': ?city=sf for San Francisco; for a hometown
+ * The city part of Mog City's frame address, '' (New York), joined to the rest with '&' by whoever builds the address
+ * (it used to end in '&', which read as a stray '&' in the draft status): city=sf for San Francisco; for a hometown
  * (base.city 'hometown') the town's bundle by its lock, ?city=pkg&town=<place>&tc=<buildId>&ts=<tile set hash>, which
  * Mog City loads from the world's own host (?host=; gamemog.com in production: its index.html, wagmi/world/town-src.js).
  * One helper for every address that boots a world: the play page (storyPlaySrc), the frame (storyFrameSrc) and the test
  * drive (the draft status's `frame`, public/storykit/work.js).
  */
 export function storyFrameQuery(city?: string | null, town?: HometownLock | null): string {
-  if (city === 'sf') return 'city=sf&';
-  if (city === 'hometown' && town) return `city=pkg&town=${encodeURIComponent(town.place)}&tc=${encodeURIComponent(town.compiler)}&ts=${encodeURIComponent(town.tiles)}&`;
+  if (city === 'sf') return 'city=sf';
+  if (city === 'hometown' && town) return `city=pkg&town=${encodeURIComponent(town.place)}&tc=${encodeURIComponent(town.compiler)}&ts=${encodeURIComponent(town.tiles)}`;
   return '';
 }
 /** A story world's city as its meta names it (storykit.city), or null. */

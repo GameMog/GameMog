@@ -8,7 +8,8 @@
  *   HOMETOWN_DISK_CAP_GB=2         the store's own cap on the shared 10 GB disk (Story Kit has 8,000 MB of it)
  *   HOMETOWN_FREE_FLOOR_GB=2       no put when the disk's free space would drop below this
  *   HOMETOWN_BUILD                 the current build (htc-...): never collected, and what /places/{id} answers from.
- *                                  Unset: the newest build in the store
+ *                                  Unset: both the newest build record and the build with the newest file (http.ts
+ *                                  currentBuilds); set it once a build is live
  *   HOMETOWN_COMPILE=on            compile a missing tile's L2 block on this server (compiler.ts); off by default, and
  *                                  needs HOMETOWN_PYTHON and HOMETOWN_COMPILER_DIR (see the doc: not on today's plan)
  *   HOMETOWN_DIR                   the store's root (default data/hometown, on the Render disk)

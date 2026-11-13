@@ -27,13 +27,18 @@ export type GcPlan = {
   afterBytes: number;
   pinsOk: boolean;
   pinSources: string[];
+  /** how the current build(s) were chosen: HOMETOWN_BUILD, or the newest record and newest file both (http.ts) */
+  currentFrom?: string;
   refused?: string;
 };
 
 export function planGc(o: {
   entries: Entry[]; tmp?: Entry[]; current: string[]; pins: Set<string>; pinsOk: boolean; pinSources?: string[];
-  lastServed?: Map<string, number>; targetBytes?: number | null; now?: number;
+  lastServed?: Map<string, number>; targetBytes?: number | null; now?: number; currentFrom?: string;
 }): GcPlan {
+  // (a target that is not a number of bytes, 0 or more (NaN from "--target-gb abc"), compared false with every size and
+  // planned to collect every unpinned build: such a plan collects nothing and says why)
+  const badTarget = o.targetBytes != null && !(Number.isFinite(o.targetBytes) && o.targetBytes >= 0);
   const now = o.now ?? Date.now();
   const by = new Map<string, { keys: string[]; bytes: number; newest: number }>();
   for (const e of o.entries) {
@@ -51,10 +56,10 @@ export function planGc(o: {
   const tmpBytes = oldTmp.reduce((a, e) => a + e.bytes, 0);
   // least recently served first; a build never served by its newest file
   const order = builds.filter((b) => b.status === 'keep').sort((a, b) => (a.lastServed ?? a.newestFile) - (b.lastServed ?? b.newestFile) || (a.buildId < b.buildId ? -1 : 1));
-  const target = o.targetBytes ?? null;
+  const target = badTarget ? null : o.targetBytes ?? null;
   let after = total - tmpBytes;
   const del: GcBuild[] = [];
-  if (o.pinsOk) {
+  if (o.pinsOk && !badTarget) {
     for (const b of order) {
       if (target != null && after <= target) break;
       del.push(b); b.status = 'collect'; after -= b.bytes;
@@ -64,8 +69,9 @@ export function planGc(o: {
   const plan: Omit<GcPlan, 'planId'> = {
     at: now, totalBytes: total, targetBytes: target, builds: builds.sort((a, b) => (a.buildId < b.buildId ? -1 : 1)),
     delete: { keys, bytes: del.reduce((a, b) => a + b.bytes, 0), builds: del.map((b) => b.buildId) },
-    tmp: { keys: oldTmp.map((e) => e.key), bytes: tmpBytes }, afterBytes: after, pinsOk: o.pinsOk, pinSources: o.pinSources ?? [],
-    ...(o.pinsOk ? {} : { refused: 'the pins could not all be read: nothing is collected' }),
+    tmp: { keys: badTarget ? [] : oldTmp.map((e) => e.key), bytes: badTarget ? 0 : tmpBytes }, afterBytes: badTarget ? total : after, pinsOk: o.pinsOk, pinSources: o.pinSources ?? [],
+    ...(o.currentFrom ? { currentFrom: o.currentFrom } : {}),
+    ...(!o.pinsOk ? { refused: 'the pins could not all be read: nothing is collected' } : badTarget ? { refused: `the target ${String(o.targetBytes)} is not a number of bytes, 0 or more: nothing is collected` } : {}),
   };
   // (the id covers exactly what would be deleted: apply refuses if the store or the pins moved since the dry run)
   const planId = createHash('sha256').update(JSON.stringify([plan.delete.keys, plan.tmp.keys])).digest('hex').slice(0, 16);
@@ -74,7 +80,7 @@ export function planGc(o: {
 
 /** Delete what the plan names; only when `planId` is the plan's own (made just now from the same store and pins). */
 export function applyGc(store: TileStore, plan: GcPlan, planId: string): { deleted: number; bytes: number } {
-  if (!plan.pinsOk) throw new Error(plan.refused ?? 'pins not read');
+  if (!plan.pinsOk || plan.refused) throw new Error(plan.refused ?? 'pins not read');
   if (planId !== plan.planId) throw new Error(`plan ${planId} is not the current plan ${plan.planId}: run the dry run again`);
   let n = 0, bytes = 0;
   for (const k of plan.delete.keys) { bytes += store.delete(k); n++; }

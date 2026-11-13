@@ -17,7 +17,7 @@
  */
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { placeById } from '../places/search.ts';
 import type { Place } from '../places/types.ts';
@@ -31,18 +31,24 @@ export type TownState = 'queued' | 'reading' | 'fetching' | 'compiling' | 'assem
 export type Job = {
   placeId: string; buildId: string; state: TownState; done: number; total: number;
   queuedAt: number; startedAt?: number; endedAt?: number; error?: string; fetched?: boolean;
+  /** a failed job: the stage it failed in, and why (timeout: over HOMETOWN_JOB_SECS; stalled: nothing written for
+   *  HOMETOWN_STALL_SECS; error: the compiler or the package said no) */
+  failedAt?: TownState; reason?: 'timeout' | 'stalled' | 'error';
+  /** of `done`, the tiles that were in the store already (another town's build, or this one's cut short) */
+  stored?: number;
 };
 export type TownSummary = { name: string; state: string; places: number; streets: number };
 export type TownAnswer =
   | { status: 200; body: { state: 'ready'; placeId: string; lock: HometownLock; town: TownSummary } }
   | { status: 202; body: { state: TownState; placeId: string; stage: string; done: number; total: number; position: number; etaS: number | null } }
-  | { status: 400 | 404 | 409 | 429 | 503; body: { state?: TownState; placeId?: string; error: string } };
+  | { status: 400 | 404 | 409 | 429 | 503; body: { state?: TownState; placeId?: string; error: string; stage?: string; reason?: Job['reason'] } };
 
 /** What a player reads (no tool, model or vendor names: scripts/hometown-words-check.ts). */
 export const TOWN_WORDS = {
   unknown: 'No US town by that name.',
   busy: 'Lots of towns are being built. Try again in a few minutes.',
   failed: 'We couldn\'t build this town right now. Try again.',
+  slow: 'This town took too long to build. Try again in a few minutes.',
   interrupted: 'The town build was cut short. Ask again to pick it up.',
   notReady: 'Your town is still being built.',
   stage: { queued: 'Waiting its turn', reading: 'Reading the map', fetching: 'Reading the map', compiling: 'Building streets', assembling: 'Putting it together', ready: 'Ready', error: 'Not built', interrupted: 'Cut short' } as Record<TownState, string>,
@@ -97,21 +103,27 @@ function childEnv(): Record<string, string> {
   for (const k of keep) { const v = process.env[k]; if (v) env[k] = v; }
   return env;
 }
-type Run = { code: number | null; out: string; err: string };
-function run(cfg: TownsConfig, script: string, args: string[], onErrLine?: (l: string) => void, timeoutMs = cfg.jobMs): Promise<Run> {
+type Run = { code: number | null; out: string; err: string; killed?: 'timeout' | 'stalled' };
+/** One compiler run: stopped (SIGKILL) at `timeoutMs`, or after `stallMs` with nothing written (0: no stall limit). */
+function run(cfg: TownsConfig, script: string, args: string[], onErrLine?: (l: string) => void, timeoutMs = cfg.jobMs, stallMs = 0): Promise<Run> {
   return new Promise((resolve) => {
     const nice = process.platform !== 'win32';
     const cmd = nice ? 'nice' : cfg.python, argv = [...(nice ? ['-n', '10', cfg.python] : []), path.join(cfg.compiler, script), ...args];
     const p = spawn(cmd, argv, { cwd: cfg.compiler, env: childEnv() as NodeJS.ProcessEnv, stdio: ['ignore', 'pipe', 'pipe'] });
-    let out = '', err = '', buf = '';
-    const t = setTimeout(() => { err += '\n[timeout]'; p.kill('SIGKILL'); }, timeoutMs);
-    p.stdout.on('data', (d) => { out += d; if (out.length > 2e6) out = out.slice(-1e6); });
+    let out = '', err = '', buf = '', killed: Run['killed'];
+    const kill = (why: 'timeout' | 'stalled') => { if (killed) return; killed = why; err += `\n[${why}]`; p.kill('SIGKILL'); };
+    const t = setTimeout(() => kill('timeout'), Math.max(1000, timeoutMs));
+    let stall: NodeJS.Timeout | null = null;
+    const alive = () => { if (!stallMs) return; if (stall) clearTimeout(stall); stall = setTimeout(() => kill('stalled'), stallMs); };
+    alive();
+    const done = () => { clearTimeout(t); if (stall) clearTimeout(stall); };
+    p.stdout.on('data', (d) => { alive(); out += d; if (out.length > 2e6) out = out.slice(-1e6); });
     p.stderr.on('data', (d) => {
-      buf += d; err += d; if (err.length > 2e5) err = err.slice(-1e5);
+      alive(); buf += d; err += d; if (err.length > 2e5) err = err.slice(-1e5);
       let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); onErrLine?.(l); }
     });
-    p.on('error', (e) => { clearTimeout(t); resolve({ code: -1, out, err: err + String(e) }); });
-    p.on('close', (code) => { clearTimeout(t); resolve({ code, out, err }); });
+    p.on('error', (e) => { done(); resolve({ code: -1, out, err: err + String(e), killed }); });
+    p.on('close', (code) => { done(); resolve({ code, out, err, killed }); });
   });
 }
 
@@ -143,12 +155,27 @@ export function readyLockAt(buildId: string, placeId: string): ServiceLock | nul
 }
 export async function readyLock(placeId: string): Promise<ServiceLock | null> { return readyLockAt(await currentBuild(), placeId); }
 
-/** The CityPackage a lock names, from its bundle; null when no such bundle is stored or it is not that lock's. */
+/**
+ * The CityPackage a lock names, from its bundle; null when no such bundle is stored or it is not that lock's. Read and
+ * checked once per bundle file (its size and time; a bundle is written once, by rename), not on every ready POST and
+ * status poll: a big town's citypackage.json is megabytes of places.
+ */
+const PKG_CACHE = new Map<string, { stamp: string; pkg: CityPackage | null }>();
 export function cityPackageByLock(lock: HometownLock): CityPackage | null {
   const cfg = rt().cfg;
   if (!lock || !TOWN_ID.test(lock.place) || !SAFE.test(lock.compiler) || !/^[0-9a-f]{64}$/.test(lock.tiles)) return null;
-  const pkg = readJson<CityPackage>(path.join(bundleDirOf(cfg, lock.compiler, lock.place, lock.tiles), 'citypackage.json'));
-  if (!pkg || packageProblems(pkg).length) return null;
+  const f = path.join(bundleDirOf(cfg, lock.compiler, lock.place, lock.tiles), 'citypackage.json');
+  let stamp: string;
+  try { const st = statSync(f); stamp = `${st.size}:${st.mtimeMs}:${st.ino}`; } catch { PKG_CACHE.delete(f); return null; }
+  let hit = PKG_CACHE.get(f);
+  if (!hit || hit.stamp !== stamp) {
+    const pkg = readJson<CityPackage>(f);
+    hit = { stamp, pkg: pkg && !packageProblems(pkg).length ? pkg : null };
+    PKG_CACHE.delete(f); PKG_CACHE.set(f, hit);
+    if (PKG_CACHE.size > 64) PKG_CACHE.delete(PKG_CACHE.keys().next().value!);
+  }
+  const pkg = hit.pkg;
+  if (!pkg) return null;
   return JSON.stringify(cityLock(pkg)) === JSON.stringify({ ...cityLock(pkg), ...lock }) ? pkg : null;
 }
 
@@ -160,6 +187,14 @@ export function bundleFile(parts: string[]): { path: string; type: string } | nu
   if (!/^(geodata\.json|citypackage\.json|lock\.json|data\/(terrain|buildings|groundmask)\.bin\.gz)$/.test(file) && !FAR_FILE.test(file)) return null;
   const f = path.join(bundleDirOf(rt().cfg, build, place, tiles), file);
   return existsSync(f) ? { path: f, type: file.endsWith('.json') ? 'application/json' : 'application/octet-stream' } : null;
+}
+
+/** How many of a town's tiles (the descriptor's hg1 ids, "hg1-conus/0/c/r") the store holds at this build already. */
+export function storedTiles(cfg: Pick<TownsConfig, 'store'>, buildId: string, tiles: string[]): number {
+  if (!SAFE.test(buildId)) return 0;
+  let n = 0;
+  for (const t of tiles) if (/^hg1-[a-z]+\/0\/-?[0-9]{1,6}\/-?[0-9]{1,6}$/.test(t) && existsSync(path.join(cfg.store, 'tiles', buildId, ...t.split('/')))) n++;
+  return n;
 }
 
 const summaryOf = (pkg: CityPackage): TownSummary => ({ name: pkg.name, state: pkg.state, places: pkg.places.length, streets: pkg.roadsSummary.streets });
@@ -174,7 +209,10 @@ function etaS(cfg: TownsConfig, ahead: number, j?: Job | null): number | null {
   return Math.round(runningLeft + ahead * med);
 }
 function answerOf(cfg: TownsConfig, j: Job): TownAnswer {
-  if (j.state === 'error') return { status: 409, body: { state: 'error', placeId: j.placeId, error: TOWN_WORDS.failed } };
+  if (j.state === 'error') {
+    const slow = j.reason === 'timeout' || j.reason === 'stalled';
+    return { status: 409, body: { state: 'error', placeId: j.placeId, error: slow ? TOWN_WORDS.slow : TOWN_WORDS.failed, ...(j.failedAt ? { stage: TOWN_WORDS.stage[j.failedAt] } : {}), ...(j.reason ? { reason: j.reason } : {}) } };
+  }
   if (j.state === 'interrupted') return { status: 409, body: { state: 'interrupted', placeId: j.placeId, error: TOWN_WORDS.interrupted } };
   const r = rt(), pos = r.queue.indexOf(j.placeId);
   return { status: 202, body: { state: j.state, placeId: j.placeId, stage: TOWN_WORDS.stage[j.state], done: j.done, total: j.total, position: pos < 0 ? 0 : pos + 1, etaS: etaS(cfg, pos < 0 ? 0 : pos + (r.running ? 1 : 0), r.running === j.placeId ? j : null) } };
@@ -235,8 +273,21 @@ function pump() {
 async function buildTown(placeId: string) {
   const cfg = rt().cfg, job = readJob(cfg, placeId)!, place = placeById(placeId)!;
   const set = (patch: Partial<Job>) => { Object.assign(job, patch); saveJob(cfg, job); };
-  const fail = (why: string) => { console.error(`hometown: ${placeId}: ${why.slice(-1500)}`); set({ state: 'error', error: why.slice(-600), endedAt: Date.now() }); };
+  // (a failure names its stage and why: a run killed at the job's limit or for writing nothing is said so in the log
+  // and the job, not left as a bare "exit null")
+  const fail = (why: string, r?: Run) => {
+    const reason: Job['reason'] = r?.killed ?? 'error', at = job.state, secs = Math.round((Date.now() - (job.startedAt ?? Date.now())) / 1000);
+    const head = reason === 'timeout' ? `timed out ${TOWN_WORDS.stage[at].toLowerCase()} (${at}) after ${secs} s, the job's limit (HOMETOWN_JOB_SECS ${cfg.jobMs / 1000})`
+      : reason === 'stalled' ? `stopped ${TOWN_WORDS.stage[at].toLowerCase()} (${at}) after ${secs} s: nothing written for ${cfg.stallMs / 1000} s (HOMETOWN_STALL_SECS)`
+        : `failed ${TOWN_WORDS.stage[at].toLowerCase()} (${at}) after ${secs} s`;
+    const msg = `${head}, ${job.done} of ${job.total} tiles: ${why}`;
+    console.error(`hometown: ${placeId}: ${msg.slice(0, 300)}${msg.length > 300 ? ` ... ${msg.slice(-1200)}` : ''}`);
+    set({ state: 'error', failedAt: at, reason, error: `${head}: ${why}`.slice(-600), endedAt: Date.now() });
+  };
   set({ state: 'reading', startedAt: Date.now() });
+  // the job's limit is the whole build's (each run gets what is left of it); a compile that writes nothing for
+  // HOMETOWN_STALL_SECS is stuck (it writes a line per tile and per far tile)
+  const deadline = job.startedAt! + cfg.jobMs, left = () => deadline - Date.now();
   const work = path.join(cfg.scratch, `${placeId}-${process.pid}-${Date.now()}`);
   mkdirSync(work, { recursive: true });
   try {
@@ -246,26 +297,30 @@ async function buildTown(placeId: string) {
       name: `${place.name}, ${place.state}`, geoid: place.geoid, anchor: [place.lon, place.lat], bbox: canonicalBox(place),
       anchorSource: 'Census Gazetteer INTPTLAT/INTPTLONG', bboxSource: 'GameMog place search box, capped at 4500 m (lib/hometown/towns.ts canonicalBox)' } } }));
     const common = ['--places', placesFile, '--data', cfg.sources, '--store', cfg.store];
-    const d1 = await run(cfg, 'compile.py', ['--descriptor', placeId, '--stage', '1', ...common], undefined, 60_000);
-    if (d1.code !== 0) return fail(`descriptor: ${d1.err}`);
+    const d1 = await run(cfg, 'compile.py', ['--descriptor', placeId, '--stage', '1', ...common], undefined, Math.min(60_000, left()));
+    if (d1.code !== 0) return fail(`descriptor: ${d1.err}`, d1);
     const desc = JSON.parse(d1.out) as { tiles: string[]; buildId: string };
     if (desc.buildId !== job.buildId) return fail(`the compiler is at ${desc.buildId}, the job at ${job.buildId}`);
     set({ total: desc.tiles.length, done: 0 });
     const out = path.join(work, 'out');
     let compiled: Run | null = null;
     for (let tries = 0; tries < 3; tries++) {
-      set({ state: 'compiling', done: 0 });
-      let done = 0;
+      // (the tiles already in the store count as done: the compiler reads them back without a line, so a warm town's
+      // counter sat at 0 of N until it was ready)
+      const stored = storedTiles(cfg, job.buildId, desc.tiles);
+      set({ state: 'compiling', done: stored, stored });
+      let done = stored;
       compiled = await run(cfg, 'compile.py', ['--id', placeId, ...common, '--out', out], (l) => {
         if (l.startsWith('{"blocks"')) { done++; if (done % 4 === 0 || done === job.total) set({ done: Math.min(done, job.total) }); }
-      });
+      }, left(), cfg.stallMs);
       if (compiled.code === 0) break;
+      if (compiled.killed) return fail(`compile: ${compiled.err.slice(-400)}`, compiled);
       // (a map region the compiler has not read yet: fetch it, one read per layer for all of them, then compile again)
       const m = /--regions ([a-z]+:[0-9,;]+)/.exec(compiled.err);
       if (compiled.code !== 3 || !m) return fail(`compile: exit ${compiled.code}: ${compiled.err}`);
       set({ state: 'fetching', fetched: true });
-      const f = await run(cfg, 'fetch.py', ['--regions', m[1], '--data', cfg.sources]);
-      if (f.code !== 0) return fail(`fetch ${m[1]}: exit ${f.code}: ${f.err}`);
+      const f = await run(cfg, 'fetch.py', ['--regions', m[1], '--data', cfg.sources], undefined, left());
+      if (f.code !== 0) return fail(`fetch ${m[1]}: exit ${f.code}: ${f.err}`, f);
     }
     if (!compiled || compiled.code !== 0) return fail(`compile: still missing map regions after 3 tries: ${compiled?.err ?? ''}`);
     set({ state: 'assembling', done: job.total });
