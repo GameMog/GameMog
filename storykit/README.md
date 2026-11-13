@@ -14,6 +14,7 @@ night, three people, the Night Cab, two calls with timed choices, a chase and a 
 | `voices/` | Kokoro voice design, the in-browser voice pass and the creator's voice page (`voices/README.md`) |
 | `cast/` | the cast registry's rules and the seeds of Mog City's shipped people (`cast/README.md`) |
 | `cities/sf/` | San Francisco, kept for later as a city module (`cities/README.md`): no runtime plays it yet, and it is not served |
+| `hometown/` | Hometown: a town's CityPackage (`city-package.ts`), SF's place library as one (`sf-package.ts`), the hometown gate (`hometown-gate.ts`: gatePack with the town's table, the town lock) and the real-place safety rules (`safety.ts`); the builder's side is `../lib/storykit-hometown.ts`, the checks `../scripts/storykit-hometown-check.ts` |
 | `BUILDER.md` | the chapter GameMog's builder model reads to write a pack (`lib/storykit-build.ts`) |
 | `../scripts/forge/` | the Character Forge: a person's sheet becomes a rigged GLB on the 66-bone cast rig, in Node or in the creator's browser |
 | `../public/storykit/` | what the site serves for it: the forge, the voices, the work page, the cast registry (`../public/storykit/README.md`) |

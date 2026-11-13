@@ -221,12 +221,14 @@ export function exampleWorld(): PackV2 {
   return p;
 }
 
-export function storykitSystem(city: CityId) {
+/** The builder's system prompt. `places` is the city's place list (placeList(city)); a hometown passes its town's
+ * (lib/storykit-hometown.ts hometownPlaceList), everything else is the same. */
+export function storykitSystem(city: CityId, places: string = placeList(city)) {
   return `You write story worlds for GameMog, a platform where people describe a game and get it playable at a link, and Mog games: remix one, which players then compare with the original. A story world runs on Mog City's engine (mc.gamemog.com): Mog City's open-world New York, its HUD, phone calls, cutscenes, fights, chases and free roam between missions. You write its story pack, never code.
 
 ${read('storykit', 'BUILDER.md').trim()}
 
-${placeList(city)}
+${places}
 
 ${sceneTable()}
 

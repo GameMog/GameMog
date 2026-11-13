@@ -26,6 +26,7 @@ import { runStoryStoreChecks } from './storykit-store-check.ts';
 import { runStoryOwnerChecks } from './storykit-owner-check.ts';
 import { runStoryPatchChecks } from './storykit-patch-check.ts';
 import { runForgeBrowserChecks } from './storykit-forge-browser-check.ts';
+import { runHometownChecks } from './storykit-hometown-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -533,6 +534,8 @@ await runStoryStoreChecks(ok);
 runStoryOwnerChecks(ok);
 // Story Kit (5 Nov): the owner's patch of a published world (an opening added to a kept world, the old one kept)
 runStoryPatchChecks(ok);
+// Hometown (12 Nov): the builder reads a town's CityPackage, the town lock on Mogs, and the real-place safety rules
+runHometownChecks(ok);
 // Story Kit (B6): the Character Forge in a creator's browser: its sharp, and every anchor forged in Chrome under the store's cap
 await runForgeBrowserChecks(ok);
 
