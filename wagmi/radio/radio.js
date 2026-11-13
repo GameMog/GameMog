@@ -218,7 +218,13 @@ export function createRadio(W, out) {
 .wr-card .tr b { color: var(--c, #FFC93C); font-weight: 700; }
 .wr-card .ky { display: inline-block; margin-top: 9px; padding: 5px 10px; background: rgba(8,10,14,0.62); border-radius: 10px; font: 600 13px/1 'Barlow Condensed'; letter-spacing: 1px; color: rgba(255,255,255,.75); text-shadow: none; }
 .wr-card kbd { display: inline-block; min-width: 18px; padding: 2px 5px; margin: 0 3px; border-radius: 4px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28); font: 700 12px/1 'Barlow Condensed'; color: #fff; }
-body.wg-cine .wr-card { display: none; }`;
+body.wg-cine .wr-card { display: none; }
+/* (a phone on its side drops the track line to stay above the car's pills (css/style.css); Mog Music's song title is the
+   news, so there it drops the small RADIO line instead) */
+@media (orientation: landscape) {
+  body.touch-enabled .wr-card.mog .tr { display: block; }
+  body.touch-enabled .wr-card.mog .fq { display: none; }
+}`;
   document.head.appendChild(css);
   const card = document.createElement('div'); card.className = 'wr-card';
   card.innerHTML = '<div class="fq"></div><div class="nm"></div><div class="tr"></div><div class="ky"></div>';
@@ -227,7 +233,7 @@ body.wg-cine .wr-card { display: none; }`;
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function show() {
     const s = R.station, m = R.on && s?.mog, seg = s && R.on && !m ? s.segs[R.where(s).i] : null;
-    card.style.setProperty('--c', R.on ? s.color : 'rgba(255,255,255,.6)');
+    card.style.setProperty('--c', R.on ? s.color : 'rgba(255,255,255,.6)'); card.classList.toggle('mog', !!m);
     card.querySelector('.fq').textContent = m ? 'RADIO' : R.on ? s.freq + ' FM' : '';
     card.querySelector('.nm').textContent = R.on ? s.name : 'RADIO OFF';
     card.querySelector('.tr').innerHTML = m ? (mog.song ? `<b>${esc(mog.song.title)}</b>` : mog.list && !mog.list.length ? 'No songs' : '') : seg ? `<b>${esc(seg.t.title)}</b> · ${esc(seg.t.artist)}` : '';
