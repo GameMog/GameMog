@@ -77,9 +77,9 @@ const RULE = {
   drain: 3,                     // s seen to empty a full escape bar
   hide: 3,                      // how much slower the escape fills hiding inside the circle
 };
-// held up behind the city's traffic this long (s), a chase car noses through it for GHOST.t s (at most GHOST.vView m/s
-// while the camera sees it)
-const GHOST = { after: 1.0, t: 2.6, vView: 9 };
+// held up behind the city's traffic this long (s; crawling behind it GHOST.crawl s), a chase car noses through it for
+// GHOST.t s (at most GHOST.vView m/s while the camera sees it)
+const GHOST = { after: 1.0, t: 2.6, vView: 9, crawl: 2.5 };
 // Dan on foot: the pull-up (m past his level, in the lane next to him; how far off the lane he may be for it), the
 // jump-out (stopped within m of him), the run-down (him within m of a lane; the car facing him, dot, from m to m; the
 // tell s; its time out s; the next one after s; the blow by speed, at least and at most)
@@ -285,8 +285,12 @@ export function install(W) {
     if (!free(side)) side = free(-side) ? -side : 0;
     const cap = Math.sqrt(best.sp * best.sp + 2 * 12 * Math.max(0, bd - 5));
     if (cap < 6 && Math.abs(P.speed) < 5) P.blockT += dt; else P.blockT = Math.max(0, P.blockT - dt * 0.5);
-    // (held up behind the city's cars with no way by: it noses on through them, the traffic's way)
-    if (best.city && side === 0 && P.blockT > GHOST.after) { P.ghost = GHOST.t; P.ghosts++; P.blockT = 0; return null; }
+    // (crawling behind the city's cars: a queue it keeps not getting by, way by or not, as on the Embarcadero at
+    // Mission St, where a car could crawl 20 s at 2-7 m/s with a lane beside it that never cleared)
+    if (best.city && cap < 8 && Math.abs(P.speed) < 8) P.crawlT = (P.crawlT || 0) + dt; else P.crawlT = Math.max(0, (P.crawlT || 0) - dt);
+    // (held up behind the city's cars with no way by, or crawling behind them GHOST.crawl s: it noses on through them,
+    // the traffic's way)
+    if (best.city && ((side === 0 && P.blockT > GHOST.after) || P.crawlT > GHOST.crawl)) { P.ghost = GHOST.t; P.ghosts++; P.blockT = 0; P.crawlT = 0; return null; }
     if (P.blockT > 3.5) P.blockT = 0;
     _av.v = P.blockT > 1.5 ? 99 : cap;
     // (no way by, or still far off: on along its way, slowing)
