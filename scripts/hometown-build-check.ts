@@ -292,10 +292,12 @@ async function g4to6(ok: Ok, dir: string) {
   ok('when bundle.json lands, this server writes the bundle\'s citypackage.json (never uploaded)', dB.store.has(k('citypackage.json')));
   const full = dB.queue.jobsOf('us-4054200').find((j) => j.kind === 'bundle')!;
   ok('promised outputs: a bundle must report its bundle.json and the full one its manifest', promisedOutputs(dB.store, full, [k('bundle.json')]).length === 1 && promisedOutputs(dB.store, full, []).length === 2);
+  t.now += 90_000;
   afterJobDone(dB, full, [k('bundle.json')]);
   const ready = townStatus(dB, 'us-4054200');
   ok('the town is full: 200 ready with its lock (v2 here), the town summary and the play variant', ready.status === 200 && (ready.body as { lock: { tiles: string } }).lock.tiles === L.tiles && (ready.body as { play?: { variant: string } }).play?.variant === 'full', JSON.stringify(ready.body).slice(0, 200));
   ok('the story may pin it, and the package is read back from the store by its lock', storyReadyLock(dB, 'us-4054200')?.tiles === L.tiles && !!cityPackageFromStore(dB.store, storyLock(L)!));
+  ok('a town built in full logs its wait estimate\'s error (the status page\'s ETA error)', dB.queue.recentEvents(20).some((e) => e.kind === 'eta' && typeof e.errPct === 'number'));
   ok('the engine\'s poll answers the best variant and its URL', bestVariant(dB, 'us-4054200', BL)?.url === `/towns/us-4054200/${BL}/${L.tiles}/full/`);
 
   // ---- G6: who may use the towns

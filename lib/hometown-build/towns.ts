@@ -137,7 +137,7 @@ export function promisedOutputs(store: TileStore, j: Job, reported: string[] = [
 
 // ------------------------------------------------------------------------------------------------- towns rows
 type TownRow = { place: string; build: string; box: string; state: TownPhase; first_asked: number; frame_at: number | null; district_at: number | null; full_at: number | null; tiles_total: number; tiles_done: number; asks: number; source: TownSource; meta: string };
-export type TownMeta = { tiles?: string[]; anchor?: [number, number]; domain?: string; bundle?: string; full?: { tilesId: string }; district?: { tilesId: string; variant: string }; frame?: boolean; refused?: string[]; name?: string; stateName?: string };
+export type TownMeta = { promised?: { driveS: number | null; fullS: number | null }; tiles?: string[]; anchor?: [number, number]; domain?: string; bundle?: string; full?: { tilesId: string }; district?: { tilesId: string; variant: string }; frame?: boolean; refused?: string[]; name?: string; stateName?: string };
 const rowOf = (q: BuildQueue, place: string, build: string) => q.db.prepare('SELECT * FROM towns WHERE place = ? AND build = ?').get(place, build) as TownRow | undefined;
 const metaOf = (r: TownRow | undefined): TownMeta => { try { return r ? JSON.parse(r.meta) : {}; } catch { return {}; } };
 const setTown = (q: BuildQueue, place: string, build: string, patch: Partial<Omit<TownRow, 'meta'>> & { meta?: TownMeta }) => {
@@ -316,6 +316,10 @@ export function requestTown(d: BuilderDeps, placeId: string, ip: string, source:
   }
   if (d.store.fullReason(32 * 1024 * 1024)) return { status: 507, body: { placeId, error: TOWN_WORDS.failed } };
   enqueueTown(d, place, build, source, now, false);
+  const r = rowOf(q, placeId, build)!;
+  // (the wait it was promised, kept to measure the estimate's error when the town is built: the status page)
+  const e = estimate(d, placeId, build);
+  setTown(q, placeId, build, { meta: { ...metaOf(r), promised: { driveS: e.etaDriveS, fullS: e.etaFullS } } });
   return answer(d, rowOf(q, placeId, build)!);
 }
 
@@ -396,7 +400,13 @@ export function afterJobDone(d: BuilderDeps, j: Job, reported: string[], refused
       const b = reported.find((k) => /\/bundle\.json$/.test(k));
       const k = b ? parseKeyString(b) : null;
       if (!k) continue;
-      if (k.variant === 'full') { m.full = { tilesId: k.tilesId! }; setTown(q, place, r.build, { state: 'full', full_at: q.now(), meta: m }); continue; }
+      if (k.variant === 'full') {
+        m.full = { tilesId: k.tilesId! };
+        setTown(q, place, r.build, { state: 'full', full_at: q.now(), meta: m });
+        const actual = (q.now() - r.first_asked) / 1000, promised = m.promised?.fullS;
+        if (promised != null && actual > 0) q.log('eta', { place, promisedS: promised, actualS: Math.round(actual), errPct: Math.round(((promised - actual) / actual) * 100) });
+        continue;
+      }
       m.district = { tilesId: k.tilesId!, variant: k.variant! };
       setTown(q, place, r.build, { state: r.state === 'full' ? 'full' : 'growing', district_at: q.now(), meta: m });
       continue;

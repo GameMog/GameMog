@@ -349,18 +349,26 @@ class Worker:
         for t in ts:
             t.start()
         t0 = time.time()
+        hwm = 0
         while p.poll() is None:
             if job.get('lost') or time.time() - t0 > timeout:
                 os.killpg(p.pid, signal.SIGKILL)
+            # (this child's own peak RSS, Linux: VmHWM; the job's peak MB on the status page)
+            st = _read('/proc/%d/status' % p.pid)
+            m = re.search(r'^VmHWM:\s+(\d+) kB', st or '', re.M)
+            if m:
+                hwm = max(hwm, int(m.group(1)) // 1024)
             time.sleep(0.2)
         for t in ts:
             t.join(5)
-        try:
-            import resource
-            peak = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-            peak_mb = peak // 1024 if sys.platform.startswith('linux') else peak // (1024 * 1024)
-        except Exception:  # noqa: BLE001
-            peak_mb = None
+        peak_mb = hwm or None
+        if not peak_mb:
+            try:
+                import resource
+                peak = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss  # (the largest child so far: an upper bound)
+                peak_mb = peak // 1024 if sys.platform.startswith('linux') else peak // (1024 * 1024)
+            except Exception:  # noqa: BLE001
+                peak_mb = None
         job['child'] = None
         return p.returncode, ''.join(err), ''.join(out), peak_mb
 

@@ -194,7 +194,7 @@ export function builderStatus(d: BuilderDeps) {
     mode: d.cfg.builder, frame: d.cfg.frame, build: { configured: d.cfg.build, current: currentBuild(d), workersReport: seen, mismatch: !!d.cfg.build && seen.some((b) => b !== d.cfg.build) },
     workers, slots: q.liveSlots(), queue: q.depth(), costs: q.costs(), towns: townsStatus(d),
     canary: { runs: canary.length, mismatches: canary.filter((e) => e.match === false).length, last: canary.slice(0, 5) },
-    etaError: eta.length ? { n: eta.length, meanPct: Math.round(eta.reduce((a, e) => a + Number(e.errPct ?? 0), 0) / eta.length) } : null,
+    etaError: eta.length ? { n: eta.length, meanPct: Math.round(eta.reduce((a, e) => a + Math.abs(Number(e.errPct ?? 0)), 0) / eta.length) } : null,
     recent: ev.slice(0, 30),
   };
 }
