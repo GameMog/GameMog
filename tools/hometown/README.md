@@ -130,7 +130,7 @@ tiles, ~0.8-1 MB a place. The runtime (`pkg-far.js`) draws a zero-byte fill and 
 is never changed. Seams: tier A's last 64 m snaps to the core's own edge posts (the core's water flattening and bridges),
 `Terrain.edgeBlend` (32 m) takes up the core's 2 m ground between them, and each tier's outer 16 posts blend into the next
 coarser tier: heightAt is continuous core -> A -> B -> C. Near the core the far ground takes the core's own edge ground
-(sidewalk slabs, park lawns, mask classes) and fades to its own over 400 m; water shores are marching squares on the
+(sidewalk slabs, park lawns, mask classes) and fades to its own over 300 m; water shores are marching squares on the
 smoothed wetness. Budget (horizon.md): far draw calls (chunks merged: A by quadrant, B and C 2 x 2 tiles, one water mesh a
 tier) about 35 of <= 80; Low graphics / a short draw distance draws every other post (`DATA.pkgFar.stats.budget`:
 phone triangles <= 0.6 M). Tests: `test_far.py`, `tests/pkg-far.test.mjs`.

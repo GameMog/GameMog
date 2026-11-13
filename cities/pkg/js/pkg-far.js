@@ -28,8 +28,8 @@ const N = (window.NYC = window.NYC || {});
 const APRON_R = 80000;          // m: past the 60 km far plane
 const FILL_W = 400, FILL_DROP = 20;
 const EDGE_BLEND = 32;         // m: Terrain.edgeBlend, heightAt continuous across the core's edge
-const FADE = 400;
-const ISO = 0.4;               // the far water's shore: this much of the 3 x 3 round a post wet              // m: the far ground takes the core's edge ground this far out, fading
+const FADE = 300;              // m: the far ground takes the core's edge ground at the edge, fading (quadratically) to its own by this far out
+const ISO = 0.4;               // the far water's shore: this much of the 3 x 3 round a post wet
 const COLORS = { land: 0x6f7b4f, arid: 0xb49f7a, rock: 0x7d776c, water: 0x40525c, wet: 0x5f6e4f };
 
 function build(scene) {
@@ -311,7 +311,7 @@ function build(scene) {
       c.multiplyScalar(v);
       // (near the core: its own edge ground, fading out over FADE m, so the box edge is not a colour line)
       const dc = outside(core, x, z);
-      if (dc < FADE && cls[k] !== 1) c.lerp(edgeColor(Math.min(core.x1, Math.max(core.x0, x)), Math.min(core.z1, Math.max(core.z0, z))), 1 - smooth(dc / FADE));
+      if (dc < FADE && cls[k] !== 1) c.lerp(edgeColor(Math.min(core.x1, Math.max(core.x0, x)), Math.min(core.z1, Math.max(core.z0, z))), (1 - dc / FADE) ** 2);
       col.push(c.r, c.g, c.b);
     }
     // skirts round the tile (cracks against coarser / finer neighbours, and between strides)
