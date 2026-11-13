@@ -19,7 +19,8 @@ export async function chaseStart(W) {
   const { place: putAt } = await import('./intro.js');
   // the road: the through-road nearest where the city put the car
   const at = car?.position || cm.getActiveEntity()?.position || { x: 0, z: 0 };
-  const r = world.throughRoad({ x: at.x, z: at.z });
+  // (on the centre of a real lane, the road running on straight ahead of him for 300 m where the city has one)
+  const r = world.throughRoad({ x: at.x, z: at.z }, { runway: 300 });
   if (r) {
     putAt(W, { car: [r.x, r.z, r.heading], dan: [r.x, r.z, r.heading] });
     P.inVehicle = true; P.mesh.visible = false; P.speed = 0; app.selectMode('car');
