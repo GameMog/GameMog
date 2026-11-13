@@ -1160,6 +1160,11 @@ class World:
             return (ss, [float(v) for v in g], [bool(v) for v in wet], xs, zs)
         return self.memo(self.prof_c, self.pkey(p), f)
 
+    def road_ground(self, r, sr):
+        """The ground under piece r sr m along it (its own stations)."""
+        ssr, gr = self.pground(r)[:2]
+        return float(grade.interp(ssr, gr, sr))
+
     def crossings(self, p):
         """[(s along p, other piece, s along it)] where another drivable piece crosses p with no connector there."""
         k = self.pkey(p)
@@ -1375,7 +1380,9 @@ class World:
                     continue
                 riv = self.deck_iv(r)
                 if riv is None or not (riv[0] <= sr <= riv[1]):
-                    fixed.append((sq, grade.interp(ss, g, sq) + CLEAR_ROAD + CLEAR_MARGIN))
+                    # (over the road's own surface: its ground where it runs, which on an embankment or a hillside
+                    # stands over the ground sampled along this deck)
+                    fixed.append((sq, max(grade.interp(ss, g, sq), self.road_ground(r, sr)) + CLEAR_ROAD + CLEAR_MARGIN))
                     continue
                 # (both decks: the higher level goes over; on equal levels the lower segment id)
                 if (q['lvl'], r['seg'], r['i']) > (r['lvl'], q['seg'], q['i']):
@@ -1405,7 +1412,7 @@ class World:
                         under.append((s_, self.pkey(r), sr, CLEAR_ROAD + CLEAR_MARGIN))
                         ext_refs[self.pkey(r)] = r
                     else:
-                        fixed.append((s_, grade.interp(ss, g, s_) + CLEAR_ROAD + CLEAR_MARGIN))
+                        fixed.append((s_, max(grade.interp(ss, g, s_), self.road_ground(r, sr)) + CLEAR_ROAD + CLEAR_MARGIN))
             main = q['cls'] in MAINLINE and not q['link']
             gp.append(grade.Piece(kk, q['a'], q['b'], L, u0, u1, main, g, fixed, under))
         # (a node's ground: its first piece's (in key order) end station; every piece's end there is the same point)
@@ -2309,7 +2316,7 @@ if __name__ == '__main__':
             import assemble
             pid = a.descriptor or a.id
             if a.descriptor and a.stage == 1:
-                print(jdump(assemble.stage1(pid, json.load(open(a.places))['places'], bid)))
+                print(jdump(assemble.stage1(pid, json.load(open(a.places))['places'], bid, a.data, store)))
             else:
                 assemble.compile_place(pid, json.load(open(a.places))['places'], a.data, store, bid, a.out or (P['out'] if a.id else None), log=log)
         else:

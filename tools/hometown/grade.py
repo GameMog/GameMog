@@ -13,6 +13,10 @@
 #     (y <= y_anchor + RELAX |s - s_anchor|, so a deck never steps up at its abutment; a constraint that cannot be met
 #     that way is counted in gradeRelaxed), then rounded over the grade breaks (a box filter about as long as a
 #     vertical curve: VC_MAIN m on mainlines, VC_LINK on links and streets), the ends pinned.
+#   - a deck end INSIDE its piece (the data's bridge stretch ends there: the rest of the piece is on fill) too near a
+#     clearance constraint to meet it at RELAX moves out along the piece, over the fill, to the first station where
+#     the descent from the constraint at RELAX meets the ground (at most to the piece's end, its node): the deck lands
+#     beyond a road it crosses instead of passing a car's height over it (Liberty Bridge's north approach)
 #   - crossings on deck pieces of the same cluster use the other piece's current profile: up to SWEEPS sweeps, stopping
 #     when nothing moves more than 1 cm.
 import math
@@ -51,7 +55,7 @@ class Piece:
     u0, u1: its deck interval (arc m); main: a motorway or trunk mainline; ground: ground heights at stations(L);
     fixed: static constraints [(s, y_min)] (rail, water, at-grade roads under it); under: dynamic ones
     [(s, other_key, other_s, clearance)] (a deck piece under it)."""
-    __slots__ = ('key', 'a', 'b', 'L', 'u0', 'u1', 'main', 'ss', 'ground', 'fixed', 'under', 'ys')
+    __slots__ = ('key', 'a', 'b', 'L', 'u0', 'u1', 'main', 'ss', 'ground', 'fixed', 'under', 'ys', 'e0', 'e1')
 
     def __init__(self, key, a, b, L, u0, u1, main, ground, fixed=(), under=()):
         self.key, self.a, self.b, self.L, self.u0, self.u1 = key, a, b, float(L), float(u0), float(u1)
@@ -62,6 +66,7 @@ class Piece:
         self.fixed = sorted((float(s), float(y)) for s, y in fixed)
         self.under = sorted(under)
         self.ys = None
+        self.e0, self.e1 = self.u0, self.u1   # the deck ends the profile uses (moved out by solve(): reach())
 
     def g(self, s):
         return interp(self.ss, self.ground, s)
@@ -73,7 +78,7 @@ def solve(pieces, node_ground, free, ext=None):
     constraints naming it), None if unknown. -> ({key: [y per station]}, stats)"""
     ps = sorted(pieces, key=lambda p: p.key)
     by = {p.key: p for p in ps}
-    stats = {'gradeRelaxed': 0, 'sweeps': 0, 'maxGrade': 0.0, 'constraints': 0, 'unmet': 0, 'grades': []}
+    stats = {'gradeRelaxed': 0, 'sweeps': 0, 'maxGrade': 0.0, 'constraints': 0, 'unmet': 0, 'grades': [], 'deckEndsMoved': 0}
     nodes = sorted(set([p.a for p in ps] + [p.b for p in ps]))
     inc = {n: [] for n in nodes}
     for p in ps:
@@ -83,12 +88,30 @@ def solve(pieces, node_ground, free, ext=None):
     fr = [n for n in nodes if n in free]
     for p in ps:
         p.ys = None
+        p.e0, p.e1 = p.u0, p.u1
 
     def end_s(p, end):
         """(arc of the deck end next to `end`, is it the node itself)"""
         if end == 'a':
-            return (p.u0, p.u0 <= 0.5)
-        return (p.u1, p.u1 >= p.L - 0.5)
+            return (p.e0, p.e0 <= 0.5)
+        return (p.e1, p.e1 >= p.L - 0.5)
+
+    def reach(p, cons):
+        """The deck ends moved out over the fill: an end inside the piece (an anchor on its ground) from which a
+        constraint cannot be met at RELAX moves to the first station beyond it where the constraint's descent at RELAX
+        is at or under the ground, or to the piece's end (its node)."""
+        e0, e1 = p.u0, p.u1
+        if p.u1 < p.L - 0.5:
+            for sc, yc in cons:
+                if p.g(e1) + RELAX * (e1 - sc) >= yc - 1e-6:
+                    continue
+                e1 = next((s for s in p.ss if s > e1 and yc - RELAX * (s - sc) <= p.g(s)), p.L)
+        if p.u0 > 0.5:
+            for sc, yc in cons:
+                if p.g(e0) + RELAX * (sc - e0) >= yc - 1e-6:
+                    continue
+                e0 = next((s for s in reversed(p.ss) if s < e0 and yc - RELAX * (sc - s) <= p.g(s)), 0.0)
+        return (0.0 if e0 <= 0.5 else e0, p.L if e1 >= p.L - 0.5 else e1)
 
     def end_y(p, end):
         s, at_node = end_s(p, end)
@@ -171,6 +194,8 @@ def solve(pieces, node_ground, free, ext=None):
     for sweep in range(SWEEPS):
         stats['sweeps'] = sweep + 1
         cons = {p.key: constraints(p) for p in ps}
+        for p in ps:
+            p.e0, p.e1 = reach(p, cons[p.key])
         # node lower bounds: the tents at the node, its ground + LIFT
         lb = {}
         for n in fr:
@@ -210,6 +235,7 @@ def solve(pieces, node_ground, free, ext=None):
         prev = cur
     # stats: the steepest grade, constraints met
     for p in ps:
+        stats['deckEndsMoved'] += int(p.e0 != p.u0) + int(p.e1 != p.u1)
         for k in range(1, len(p.ss)):
             ds = p.ss[k] - p.ss[k - 1]
             if ds > 1 and p.u0 - 1e-6 <= p.ss[k - 1] and p.ss[k] <= p.u1 + 1e-6 and min(p.ys[k] - p.ground[k], p.ys[k - 1] - p.ground[k - 1]) > 0.6:
