@@ -6,6 +6,7 @@
 import { createWorld } from './common.js';
 import { SCENE_GROUPS } from './ny.js';
 import { createMemoryTileSource } from './tiles-mem.js';
+import { maskClass } from './sf.js';
 
 const PKG = () => globalThis.window?.NYC?.PKG || null;
 
@@ -19,6 +20,19 @@ function buildPlaces({ N, lib, missing, nearestLane }) {
     if (lane) lib[key] = { x: lane.x, z: lane.z, heading: lane.heading, name: p.name, kind: p.kind, cx: p.cx, cz: p.cz };
     else missing.push(key);
   }
+}
+
+// the compiled mission places as the world's points of interest by mission-site kind (city.pois, MISSION-SITES.md):
+// the compiler's Overture categories (compile.py GENERIC) that are each kind, at the place itself (cx, cz)
+const POI_KINDS = {
+  gas_station: ['gas_station', 'fuel'],
+  store: ['grocery_store', 'supermarket', 'convenience_store', 'pharmacy', 'hardware_store'],
+  parking: ['parking'],
+};
+function pois(kind) {
+  const want = POI_KINDS[kind]; if (!want) return [];
+  return Object.entries(PKG()?.places || {}).filter(([, p]) => want.includes(p.kind) && Number.isFinite(p.cx) && Number.isFinite(p.cz))
+    .map(([key, p]) => ({ id: key, name: p.name, x: p.cx, z: p.cz }));
 }
 
 // The package's tiles: one grid shared with the compiler (tools/hometown/compile.py TILE, PKG.tileSize: 512 m squares
@@ -72,6 +86,9 @@ export function createPkg() {
     grid: null,
     // (its tiles on the compiler's grid, above)
     tileSource,
+    pois,
+    // (a sidewalk or a paved square where a man stands: the package's ground mask, San Francisco's classes)
+    sidewalkAt: (x, z) => maskClass(x, z) === 1,
   });
   W.pkg = P.id || null;
   // how busy its streets are, 0..1 (the compiled density, buildings per km2: wagmi/street/crowd.js reads it, 1 elsewhere)

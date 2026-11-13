@@ -20,8 +20,9 @@ function buildPlaces({ N, lib, missing, nearestLane }) {
 }
 
 // the ground mask's class under (x, z) (cities/sf tools/geo-groundmask.mjs, one byte per 1 m cell: 0 asphalt, 1 sidewalk
-// or paved square, 2 lawn, 3 sand, 4 rock, 5 the water's edge); -1 off it or before it is loaded
-function maskClass(x, z) {
+// or paved square, 2 lawn, 3 sand, 4 rock, 5 the water's edge; a Hometown package's the same, compile.py MASK); -1 off
+// it or before it is loaded
+export function maskClass(x, z) {
   const M = globalThis.window?.NYC?.DATA?.groundMask, H = M && M.header;
   if (!H || !M.mask) return -1;
   const i = Math.floor((x - H.originX) / H.cell), j = Math.floor((z - H.originZ) / H.cell);
