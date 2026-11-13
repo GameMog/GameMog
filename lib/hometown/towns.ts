@@ -163,7 +163,9 @@ const summaryOf = (pkg: CityPackage): TownSummary => ({ name: pkg.name, state: p
 function etaS(cfg: TownsConfig, ahead: number, j?: Job | null): number | null {
   const past = (readJson<number[]>(path.join(cfg.root, 'build-secs.json')) || []).slice(-20).sort((a, b) => a - b);
   const med = past.length ? past[past.length >> 1] : 60;
-  const runningLeft = j && j.startedAt ? Math.max(5, med - (Date.now() - j.startedAt) / 1000) : med;
+  // (the running job: from its own pace once a few tiles are done, else the median less the time it has run)
+  const ran = j && j.startedAt ? (Date.now() - j.startedAt) / 1000 : 0;
+  const runningLeft = !j || !j.startedAt ? med : j.total && j.done >= 8 ? Math.max(5, (ran * (j.total - j.done)) / j.done + 5) : Math.max(5, med - ran);
   return Math.round(runningLeft + ahead * med);
 }
 function answerOf(cfg: TownsConfig, j: Job): TownAnswer {

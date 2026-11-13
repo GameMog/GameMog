@@ -74,8 +74,9 @@ export const STORY_IDEAS: Record<StoryCity, { title: string; text: string }[]> =
 };
 
 /** /create's side panel for a story: the city picked, and what every story gets. */
-export function StoryCityCard({ city }: { city: StoryCity }) {
-  const c = STORY_CITIES.find((x) => x.id === city)!;
+export function StoryCityCard({ city, town }: { city: StoryCity; town?: { name: string; note: string } | null }) {
+  // (a hometown picked on Create: the town's name, its real streets, in place of the city)
+  const c = town ?? STORY_CITIES.find((x) => x.id === city)!;
   return (
     <aside className="panel cchar skcard">
       <label className="lbl">Your city</label>

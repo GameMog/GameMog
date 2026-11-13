@@ -367,7 +367,7 @@ export default function Create() {
           </section>
           )}
 
-          {telling ? <StoryCityCard city={city} /> : (
+          {telling ? <StoryCityCard city={city} town={HOMETOWN && town ? { name: `${town.place.name}, ${town.place.state}`, note: 'Your hometown, built from open map data: its real streets, buildings and places.' } : null} /> : (
           <aside className="panel cchar">
             <label className="lbl">Your character <span className="opt">(optional)</span></label>
             <div
