@@ -5,10 +5,10 @@
 # tile writes may depend on which other rows happened to be loaded.
 import os
 
-import duckdb
 import numpy as np
 import shapely
 
+import duck
 import grid
 
 LAYER_SQL = {
@@ -74,8 +74,7 @@ class Sources:
             dirs.append(d)
         if not dirs:
             raise MissingRegion('no region of %s fetched' % sorted(set(blocks)))
-        c = duckdb.connect()
-        c.execute('INSTALL spatial; LOAD spatial;')
+        c = duck.connect('spatial')
         self.rows = {}
         for key, (theme, typ, cols) in LAYER_SQL.items():
             fl = [os.path.join(d, 'overture-%s-%s.parquet' % (theme, typ)) for d in dirs]

@@ -345,6 +345,9 @@ def read_dem(bbox, cache):
 
 
 # ------------------------------------------------------------------------------------------------- hg1 sampler
+RANGE_THREADS = int(os.environ.get('HOMETOWN_DEM_THREADS', '16'))   # parallel range reads (M5)
+
+
 class Sampler:
     """3DEP heights at any lon/lat, independent of what else was read: bilinear between the 4 global lattice pixels round
     the point (column k's centre is (k + 0.5) / RES degrees, row r's -(r + 0.5) / RES; RES 10800 for the 1/3" product,
@@ -393,6 +396,37 @@ class Sampler:
                 self.cogs[k] = cog
         return self.cogs[k]
 
+    def _load(self, cog, a, b):
+        m = cog.meta
+        t = cog.tile(a, b).astype(np.float64)
+        t[t <= m['nodata'] + 1] = np.nan
+        t[t < -1000] = np.nan
+        return t
+
+    def _prefetch(self, keys, flat_c, flat_r):
+        """Read every internal tile a pixels() call needs and does not hold yet, RANGE_THREADS at a time (a cold
+        place's terrain is hundreds of 512 px tiles: one HTTP range read each, from the store's mirror or USGS). Pure
+        I/O ahead of the same sequential loop: what is read and every value computed are unchanged."""
+        need = []
+        for la, lo in sorted(set(map(tuple, keys.tolist()))):
+            sel = np.nonzero((keys[:, 0] == la) & (keys[:, 1] == lo))[0]
+            cog = self._cog(la, lo)
+            if cog is None:
+                continue
+            m = cog.meta
+            lc, lr = flat_c[sel] - cog.fc0, flat_r[sel] - cog.fr0
+            ok = (lc >= 0) & (lr >= 0) & (lc < m['w']) & (lr < m['h'])
+            for a, b in sorted(set(zip((lc[ok] // m['tw']).tolist(), (lr[ok] // m['th']).tolist()))):
+                if (la, lo, a, b) not in self.tiles:
+                    need.append((cog, la, lo, a, b))
+        if len(need) < 2 or RANGE_THREADS < 2:
+            return
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(min(RANGE_THREADS, len(need))) as ex:
+            got = list(ex.map(lambda n: self._load(n[0], n[3], n[4]), need))
+        for (cog, la, lo, a, b), t in zip(need, got):
+            self.tiles[(la, lo, a, b)] = t
+
     def pixels(self, col, row):
         """Global lattice pixels (int arrays) -> float64 heights (NaN where no data)."""
         col = np.asarray(col, dtype=np.int64)
@@ -402,6 +436,7 @@ class Sampler:
         latc = np.floor(-(row + 0.5) / self.RES).astype(np.int64)
         keys = np.stack([latc, lonc], axis=-1).reshape(-1, 2)
         flat_c, flat_r, flat_o = col.ravel(), row.ravel(), out.ravel()
+        self._prefetch(keys, flat_c, flat_r)
         for la, lo in sorted(set(map(tuple, keys.tolist()))):
             sel = np.nonzero((keys[:, 0] == la) & (keys[:, 1] == lo))[0]
             cog = self._cog(la, lo)
@@ -414,10 +449,7 @@ class Sampler:
             for a, b in sorted(set(zip(ti[ok].tolist(), tj[ok].tolist()))):
                 tk = (la, lo, a, b)
                 if tk not in self.tiles:
-                    t = cog.tile(a, b).astype(np.float64)
-                    t[t <= m['nodata'] + 1] = np.nan
-                    t[t < -1000] = np.nan
-                    self.tiles[tk] = t
+                    self.tiles[tk] = self._load(cog, a, b)
                 self.used[m['url']] = {'url': m['url'], 'etag': m['etag'], 'lastModified': m['lastModified']}
                 self.add((m['url'],))
                 t = self.tiles[tk]

@@ -1,4 +1,4 @@
-# Hometown compiler 0.5.0 (the national grid hg1)
+# Hometown compiler 0.7.0 (the national grid hg1)
 
 Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
 so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
@@ -7,8 +7,18 @@ engine base: `?city=pkg&pkg=<id>`.
 
 ## Run it
 
-Python 3.11+ with `duckdb` (its `httpfs` and `spatial` extensions install on first use), `numpy`, `shapely` 2,
-`pillow`. No account, no API key. Raw data and the store live under `.scratch/` (git-ignored).
+Python 3.14 with the pins of `requirements.txt` (`duckdb`, `numpy`, `shapely` 2, `pillow`), installed from the
+hash-pinned `requirements.lock` (`lock_requirements.py` regenerates it from PyPI; `--check` says whether it is stale):
+
+```bash
+python3.14 -m venv venv && venv/bin/pip install --only-binary :all: --require-hashes -r tools/hometown/requirements.lock
+venv/bin/python tools/hometown/duck.py --install     # the ONE step that downloads duckdb's httpfs + spatial extensions
+```
+
+Nothing installs anything at run time: `duck.py connect()` only `LOAD`s the extensions, from `DUCKDB_EXTENSION_DIRECTORY`
+(the town-builder image installs them there at build time) or duckdb's default directory, with auto-install and
+auto-load off, and fails loudly (`MissingExtension`) when one is not there. No account, no API key. Raw data and the
+store live under `.scratch/` (git-ignored).
 
 ```bash
 # 1. Overture rows per L4 region (the regions a place's tiles + 3.2 km touch; one S3 read per layer for all of them)
@@ -24,6 +34,12 @@ python tools/hometown/compile.py --print-build --data <data>               # the
                                                                            # same --data as the compiles: the OSM
                                                                            # lane table under it is in the id)
 python tools/hometown/compile.py --dem-snapshot                            # re-pin the DEM to a NEW listing
+# the production builder's jobs (one process each, every product stored ifAbsent, or HTB1 on stdout with --out -):
+python tools/hometown/compile.py --tiles hg1-conus/0/5805/8582,hg1-conus/0/5806/8582 --out -   # a tile list, ONE World
+python tools/hometown/compile.py --far-list hg1-conus/1/2902/4291,hg1-conus/3/725/1072        # a far window
+python tools/hometown/compile.py --frame okemah --out frame.json                               # the frame (below)
+python tools/hometown/compile.py --assemble okemah --window district --frame frame.json --out <empty dir>   # a bundle
+python tools/hometown/fetch.py --index                                    # once per Overture release: the file index
 ```
 
 ### Pre-warm a list of towns (hosting, phase 1)
@@ -82,8 +98,10 @@ centres by non-max suppression within 2 km, downtown = within 350 m of a centre)
 A tile reads the ctx blocks within 3.2 km and the regions within 3.2 km (a tile whose regions are not fetched is refused
 with the fetch command to run).
 
-**buildId** `htc-0.5.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
-compiler version, libraries incl. GEOS and zlib, image digest, Overture release, DEM snapshot, grid). Compiler logic
+**buildId** `htc-0.7.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
+compiler version, libraries incl. GEOS and zlib, the CPU architecture (`machine`) and the duckdb `spatial` extension's
+version, image digest (`HOMETOWN_IMAGE_DIGEST` from the environment: the town-builder image sets a recipe id), Overture
+release, DEM snapshot, grid). Compiler logic
 changes bump `COMPILER_VERSION`; library, image or source changes change only `b`.
 
 ## Containers (gzip, mtime 0, sorted JSON)
@@ -93,6 +111,46 @@ changes bump `COMPILER_VERSION`; library, image or source changes change only `b
   `buildings` (JSON, heights in absolute cm), `bverts` (int32 cm, tile-local), `roads`, `blocks`, `trees`, `places`,
   `water`, `parks`. `wagmi/world/tiles-net.js` decodes it.
 - **HTC1** ctx, **HTB1** block stream (per child: u32 id length, id, u32 body length or 0xffffffff + reason).
+
+## The frame and lock v3 (`frame.py`, the production builder's spawn-first path)
+
+A town's **frame** (`--frame <placeId>`, stored at `frames/{buildId}/{placeId}.json`, format `hometown-frame` v1) is
+everything the story and the engine pin, computed from stage 1, the ctx blocks, the regions and the DEM and **never
+from a compiled tile**, so it exists seconds after a town is picked and is the same bytes whatever tiles the store holds
+(`test_frame.py`: none, some, all, and a store that fails on any `tiles/` read):
+
+- `yOffset`, `waterLevel`: stage 2's rule (0.5th percentile of dry ground; the largest water within 1 m above it) on the
+  tiles' own post function at every 8th post (16 m) over the play box (3DEP bilinear at the 5 x 5 posts round it, water
+  flattened to its ctx level, the sigma-1-post blur; `test_frame.py` proves it equals `World.posts_cm` there), less
+  the bridge raise (it never lowers ground).
+- spawns and story places: the tiles' own road pieces (`World.pieces`: same projection, cm, names) less motorways,
+  private, pedestrian, tunnel and any bridge or level > 0 stretch; places by the tiles' rule, snapped within 80 m;
+  downtown from ctx; nearest-lane ties broken by (segment, piece), never by an index's order.
+- the **spawn district**: the spawn's tile and 2 tiles each way (5 x 5); spawns and places inside it less 300 m carry
+  `district: true` (the Story Kit keeps mission 1 there).
+- `streets` (names and metres in the box) and `density` (ctx building counts per km2 of land).
+- **lock v3** `{format 'hometown-city-lock', formatVersion 3, place, buildId, grid, domain, origin, k0, gamma0,
+  yOffset, waterLevel, tiles}` with `tiles = sha256(buildId + '\n' + the sorted tile ids joined by '\n')` (no trailing
+  newline): the same for every bundle variant. The stage-2 manifest keeps the content `tileSetHash`.
+
+The assembler lays out spawns, places, the datum and density **from the frame** (one source of truth); `--id` computes
+and stores the frame first. `--assemble <placeId> --window district|full --frame <file> --out <dir>` writes a **bundle**
+over a window: `geodata.json` (`hometown-bundle` v1: GEO, PLACE_DATA, PKG), `lock.json`, `data/*.bin.gz`,
+`manifest.json` and, last, `bundle.json` (every file's sha256). `PKG.variant` (`district-{c}-{r}` | `full`),
+`PKG.window` (`{variant, tileRange, box, full}`), `PKG.district`, `PKG.tilesId`; far tiles are listed by store key
+(`far/{buildId}/hg1-{d}/{L}/{C}/{R}`, with sha256 and bytes) instead of copied, a district's only those already stored
+(`--far-mode stored`), and a district's arrivals (`PLACE_DATA.regional`) only those inside its window less 150 m. The
+bytes are a function of (frame, window, the tiles, the far tiles) (`test_assemble_window.py`).
+
+## Fast cold fetch (`fetch.py`, M5)
+
+- `fetch.py --index` lists, once per Overture release, every S3 file of the 8 layers with the bbox of its rows (its row
+  groups' `bbox` statistics) into `<data>/overture-index/{release}.json`; `--regions` then reads only the files whose
+  bbox meets the envelope (none: an empty layer), instead of opening every footer.
+- The 8 layers are read in parallel through one duckdb database (cursors share `memory_limit` 2GB; `threads` 4; the
+  object cache on; `HOMETOWN_FETCH_MEMORY` / `HOMETOWN_FETCH_THREADS`). `--no-index` / `--serial` give the old read.
+- `dem.py` reads every internal tile a sample needs ahead of the loop, 16 range reads at a time
+  (`HOMETOWN_DEM_THREADS`); the values are unchanged.
 
 ## The place: descriptor and legacy package (`assemble.py`)
 

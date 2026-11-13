@@ -13,9 +13,8 @@ import os
 import sys
 import time
 
-import duckdb
-
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import duck  # noqa: E402
 from dem import read_dem  # noqa: E402
 
 RELEASE = '2026-10-21.0'
@@ -35,9 +34,10 @@ STATES = {'AL': 'US-AL', 'AK': 'US-AK', 'AZ': 'US-AZ', 'AR': 'US-AR', 'CA': 'US-
 MAX_SIDE_M = 4500  # a place's box is capped at this many metres a side (v0 compiles a town, not a county)
 
 
-def connect():
-    c = duckdb.connect()
-    c.execute("INSTALL httpfs; LOAD httpfs; INSTALL spatial; LOAD spatial; SET s3_region='us-west-2'; SET s3_access_key_id=''; SET s3_secret_access_key='';")
+def connect(**kw):
+    """httpfs + spatial LOADED from the preinstalled extension directory (duck.py: never INSTALL at run time), anonymous S3."""
+    c = duck.connect('httpfs', 'spatial', **kw)
+    c.execute("SET s3_region='us-west-2'; SET s3_access_key_id=''; SET s3_secret_access_key='';")
     return c
 
 
@@ -97,7 +97,80 @@ def region_envelope(dom, C, R, halo=REGION_HALO):
     return (float(lon.min()) - pad, float(lat.min()) - pad, float(lon.max()) + pad, float(lat.max()) + pad)
 
 
-def fetch_regions(dom, blocks, data_dir):
+# ---- the per-release file index (M5): Overture's S3 layout makes a glob read open EVERY file's footer (hundreds of
+# ranged GETs, the main cost of a cold fetch far from us-west-2). index.json lists, per layer, each file with the bbox of
+# its rows (the union of its row groups' bbox statistics), built ONCE per release (a P5 job; stored by the builder at
+# src/overture/{release}/index.json); a region fetch then reads only the files whose bbox meets its envelope.
+INDEX_FORMAT = 'hometown-overture-index'
+
+
+def index_path(data_dir, release=RELEASE):
+    return os.path.join(data_dir, 'overture-index', '%s.json' % release)
+
+
+def build_index(data_dir, release=RELEASE, workers=8):
+    from concurrent.futures import ThreadPoolExecutor
+    c = connect(threads=4, object_cache=True)
+    out = {'format': INDEX_FORMAT, 'version': 1, 'release': release, 'layers': {}}
+
+    def one(layer):
+        theme, typ = layer
+        cur = c.cursor()
+        files = [r[0] for r in cur.execute(f"SELECT file FROM glob('s3://overturemaps-us-west-2/release/{release}/theme={theme}/type={typ}/*.parquet') ORDER BY file").fetchall()]
+        lst = ', '.join("'%s'" % f for f in files)
+        rows = cur.execute(f"""SELECT file_name, path_in_schema, min(TRY_CAST(stats_min AS DOUBLE)), max(TRY_CAST(stats_max AS DOUBLE)), sum(row_group_num_rows)
+            FROM parquet_metadata([{lst}]) WHERE path_in_schema IN ('bbox, xmin', 'bbox, ymin', 'bbox, xmax', 'bbox, ymax')
+            GROUP BY 1, 2 ORDER BY 1, 2""").fetchall()
+        fb = {}
+        for f, col, lo, hi, n in rows:
+            e = fb.setdefault(f, {})
+            e[col.split(', ')[1]] = (lo, hi)
+            e['rows'] = max(e.get('rows', 0), int(n or 0))
+        lst_out = []
+        for f in files:
+            e = fb.get(f)
+            if not e or any(k not in e or e[k][0] is None for k in ('xmin', 'ymin', 'xmax', 'ymax')):
+                lst_out.append({'file': f, 'bbox': None})   # (no statistics: always read)
+            else:
+                lst_out.append({'file': f, 'bbox': [e['xmin'][0], e['ymin'][0], e['xmax'][1], e['ymax'][1]]})
+        return '%s/%s' % (theme, typ), lst_out
+    with ThreadPoolExecutor(workers) as ex:
+        for k, v in ex.map(one, sorted({(t, y) for t, y, _ in LAYERS})):
+            out['layers'][k] = v
+    p = index_path(data_dir, release)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p + '.part', 'w') as f:
+        json.dump(out, f, sort_keys=True, separators=(',', ':'))
+    os.replace(p + '.part', p)
+    return out
+
+
+def load_index(data_dir, release=RELEASE):
+    p = index_path(data_dir, release)
+    if not os.path.exists(p):
+        return None
+    ix = json.load(open(p))
+    assert ix.get('format') == INDEX_FORMAT and ix.get('release') == release, p
+    return ix
+
+
+def layer_files(ix, theme, typ, W, S_, E_, N):
+    """The S3 files of a layer whose rows can meet the bbox (all of them without an index: the glob)."""
+    if ix is None:
+        return "'%s/theme=%s/type=%s/*.parquet'" % (S3, theme, typ)
+    fs = [e['file'] for e in ix['layers']['%s/%s' % (theme, typ)]
+          if e['bbox'] is None or not (e['bbox'][0] > E_ or e['bbox'][2] < W or e['bbox'][1] > N or e['bbox'][3] < S_)]
+    return '[%s]' % ', '.join("'%s'" % f for f in fs) if fs else None
+
+
+# duckdb limits for a region fetch (a 4c-8g builder slot): every layer read in parallel through one database (cursors
+# share its memory_limit), 4 threads, the object cache on (a file's footer read once per run)
+FETCH_THREADS = int(os.environ.get('HOMETOWN_FETCH_THREADS', '4'))
+FETCH_MEMORY = os.environ.get('HOMETOWN_FETCH_MEMORY', '2GB')
+
+
+def fetch_regions(dom, blocks, data_dir, use_index=True, parallel=True):
+    from concurrent.futures import ThreadPoolExecutor
     todo = []
     for C, R in blocks:
         out = region_dir(data_dir, dom, C, R)
@@ -107,20 +180,35 @@ def fetch_regions(dom, blocks, data_dir):
     if not todo:
         return
     W = min(t[3][0] for t in todo); S_ = min(t[3][1] for t in todo); E_ = max(t[3][2] for t in todo); N = max(t[3][3] for t in todo)
-    c = connect()
+    ix = load_index(data_dir) if use_index else None
+    c = connect(threads=FETCH_THREADS, memory_limit=FETCH_MEMORY, object_cache=True)
     tmp = os.path.join(data_dir, 'regions', '.tmp')
     os.makedirs(tmp, exist_ok=True)
     recs = {(C, R): {'grid': 'hg1', 'domain': dom, 'block': [C, R], 'halo': REGION_HALO, 'envelope': list(env),
                      'overture': {'release': RELEASE, 'layers': {}}} for C, R, _, env in todo}
-    for theme, typ, cols in LAYERS:
+    t_all = time.time()
+
+    def read(layer):
+        theme, typ, cols = layer
+        cur = c.cursor()
         f = os.path.join(tmp, f'{theme}-{typ}.parquet')
         t = time.time()
+        src = layer_files(ix, theme, typ, W, S_, E_, N)
+        nfiles = None if ix is None else (0 if src is None else src.count("'") // 2)
         if not os.path.exists(f):
-            c.execute(f"""COPY (SELECT {cols}, bbox FROM read_parquet('{S3}/theme={theme}/type={typ}/*.parquet', hive_partitioning=0)
-                WHERE bbox.xmin <= {E_} AND bbox.xmax >= {W} AND bbox.ymin <= {N} AND bbox.ymax >= {S_} ORDER BY id)
-                TO '{f}.part' (FORMAT parquet, COMPRESSION zstd)""")
+            if src is None:   # (no file can hold a row of the envelope: an empty layer of the same schema)
+                cur.execute(f"""COPY (SELECT {cols}, bbox FROM read_parquet('{S3}/theme={theme}/type={typ}/*.parquet', hive_partitioning=0) LIMIT 0)
+                    TO '{f}.part' (FORMAT parquet, COMPRESSION zstd)""")
+            else:
+                cur.execute(f"""COPY (SELECT {cols}, bbox FROM read_parquet({src}, hive_partitioning=0)
+                    WHERE bbox.xmin <= {E_} AND bbox.xmax >= {W} AND bbox.ymin <= {N} AND bbox.ymax >= {S_} ORDER BY id)
+                    TO '{f}.part' (FORMAT parquet, COMPRESSION zstd)""")
             os.replace(f + '.part', f)
-        print(f'regions {theme}/{typ}: union read {time.time() - t:.1f}s', flush=True)
+        return layer, f, time.time() - t, nfiles
+    with ThreadPoolExecutor(len(LAYERS) if parallel else 1) as ex:
+        res = list(ex.map(read, LAYERS))
+    for (theme, typ, cols), f, dt, nfiles in res:
+        print(f'regions {theme}/{typ}: union read {dt:.1f}s' + ('' if nfiles is None else f' ({nfiles} indexed files)'), flush=True)
         for C, R, out, (w, s, e, n) in todo:
             os.makedirs(out, exist_ok=True)
             g = os.path.join(out, f'overture-{theme}-{typ}.parquet')
@@ -131,6 +219,7 @@ def fetch_regions(dom, blocks, data_dir):
     for C, R, out, _ in todo:
         json.dump(recs[(C, R)], open(os.path.join(out, 'region.json'), 'w'), indent=1, sort_keys=True)
         print('region', dom, C, R, recs[(C, R)]['overture']['layers'], flush=True)
+    print(json.dumps({'regionsFetched': len(todo), 'seconds': round(time.time() - t_all, 1), 'index': ix is not None, 'parallel': parallel}), flush=True)
     for name in os.listdir(tmp):
         os.remove(os.path.join(tmp, name))
 
@@ -217,12 +306,20 @@ if __name__ == '__main__':
     ap.add_argument('--place')
     ap.add_argument('--bbox', help='lonW,latS,lonE,latN')
     ap.add_argument('--regions', help='hg1 L4 blocks: dom:C,R;C,R... (fetched with one S3 read per layer)')
+    ap.add_argument('--index', action='store_true', help='build the per-release file index (overture-index/{release}.json under --data)')
+    ap.add_argument('--no-index', action='store_true', help='--regions: glob every file (the pre-index read, for measuring)')
+    ap.add_argument('--serial', action='store_true', help='--regions: one layer at a time (the pre-M5 read, for measuring)')
     ap.add_argument('--extras', help='hg1 L4 blocks (as --regions): add the segments\' OSM way ids and speed limits (grade-lanes)')
     ap.add_argument('--data', default=os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../.scratch/hometown-m2/data'))
     a = ap.parse_args()
+    if a.index:
+        t = time.time()
+        ix = build_index(os.path.abspath(a.data))
+        print(json.dumps({'index': index_path(os.path.abspath(a.data)), 'files': {k: len(v) for k, v in ix['layers'].items()}, 'seconds': round(time.time() - t, 1)}))
+        raise SystemExit(0)
     if a.regions:
         dom, _, rest = a.regions.partition(':')
-        fetch_regions(dom, [tuple(int(v) for v in b.split(',')) for b in rest.split(';')], os.path.abspath(a.data))
+        fetch_regions(dom, [tuple(int(v) for v in b.split(',')) for b in rest.split(';')], os.path.abspath(a.data), use_index=not a.no_index, parallel=not a.serial)
         raise SystemExit(0)
     if a.extras:
         dom, _, rest = a.extras.partition(':')

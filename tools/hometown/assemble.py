@@ -65,10 +65,38 @@ def tile_set_hash(tiles):
 
 
 def compile_place(pid, places, data, store, bid, out_root, log=print):
-    D1 = stage1(pid, places, bid)
+    """--id: the frame (stored, else computed), the whole pinned tile set, the stage-2 manifest and the legacy package
+    (far tiles copied into it, so ?city=pkg&pkg=<id> plays from the package directory alone)."""
+    return assemble(pid, places, data, store, bid, out_root, window='full', far='compile', far_ref=False, log=log)
+
+
+def window_range(F, window):
+    if window == 'full':
+        return tuple(F['tileRange']), 'full'
+    if window == 'district':
+        return tuple(F['district']['tileRange']), F['district']['variant']
+    raise SystemExit('--window district|full, not %r' % window)
+
+
+def assemble(pid, places, data, store, bid, out_root, window='full', frame=None, far='compile', far_ref=True, bundle=False, log=print):
+    """The legacy package over a window of the place's tiles, laid out in the frame's session frame with the frame's
+    yOffset, waterLevel, spawns and places (frame.py: never recomputed here, so every variant of a town and its story
+    agree). window 'full' (the pinned tile set; also writes the stage-2 manifest) or 'district' (the frame's 5 x 5 spawn
+    district). far: 'compile' (every far tile, compiled when absent), 'stored' (only the far tiles already in the store)
+    or 'none'. far_ref: PKG.far lists the tiles by store key (bundles share them) instead of copying them in."""
+    import frame as FR
+    W = None
+    if frame is None:
+        F = FR.load_or_compute(pid, places, data, store, bid, log)
+    else:
+        F = frame
+        if F.get('format') != FR.FRAME_FORMAT or F.get('buildId') != bid or F.get('placeId') != pid:
+            raise SystemExit('--frame is %s/%s/%s, not a frame of %s at %s' % (F.get('format'), F.get('placeId'), F.get('buildId'), pid, bid))
+    D1 = F
     dom = D1['domain']
-    c0t, r0t, c1t, r1t = D1['tileRange']
-    W = C.World(data, dom, C.tile_window(c0t, r0t, c1t, r1t), store, bid, log)
+    (c0t, r0t, c1t, r1t), variant = window_range(F, window)
+    if W is None:
+        W = C.World(data, dom, C.tile_window(c0t, r0t, c1t, r1t), store, bid, log)
     order = [(c, r) for r in range(r0t, r1t + 1) for c in range(c0t, c1t + 1)]
     blobs = C.compile_tiles(W, store, order, log)
     dec = {k: C.read_htl1(b) for k, b in blobs.items()}
@@ -84,29 +112,8 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
     B = {'x0': bx0, 'x1': bx1, 'z0': bz0, 'z1': bz1}
     play = [k for k in order if not ((k[0] + 1) * TCM <= pb['gx0'] or k[0] * TCM > pb['gx1'] or (k[1] + 1) * TCM <= pb['gs0'] or k[1] * TCM > pb['gs1'])]
 
-    # ---- stage 2: height datum and water (v0's rule over the play box's tiles)
-    dry, allp, waters = [], [], {}
-    for k in play:
-        h, s, _ = dec[k]
-        t = s['terrain_cm']
-        m = s['mask']
-        wet = (m[::2, ::2] == C.MASK['water'])
-        wet = np.pad(wet, ((0, 1), (0, 1)), mode='edge')
-        allp.append(t.ravel())
-        dry.append(t[~wet].ravel())
-        for w in h['waters']:
-            if w['level_cm'] is None:
-                continue
-            e = waters.setdefault(w['id'], {'level_cm': w['level_cm'], 'cells': 0})
-            e['cells'] += w['cells']
-    allp = np.concatenate(allp)
-    dry = np.concatenate(dry) if dry else allp
-    low = float(np.percentile(dry, 0.5)) / 100 if dry.size else float(allp.min()) / 100
-    cand = sorted(((-v['cells'], wid, v['level_cm']) for wid, v in waters.items() if v['level_cm'] / 100 <= low + 1.0))
-    level = cand[0][2] / 100 if cand else None
-    gmin = float(allp.min()) / 100
-    y_off = int(math.floor(level)) if level is not None else int(math.floor(gmin))
-    water_level = round(level - y_off, 2) if level is not None else -10.0
+    # ---- the height datum and the water level: the frame's (frame.py), the same in every variant
+    y_off, water_level, level = F['yOffset'], F['waterLevel'], F['waterNAVD88']
 
     # ---- roads: links stitched by node id (border nodes: the lower (r, c) tile's along-edge cm wins)
     node_pos, node_ctl, node_from = {}, {}, {}
@@ -253,82 +260,28 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
     # (the engine's mask has no water class: water reads as the water's edge)
     mask_e = np.where(mask == C.MASK['water'], C.MASK['waterEdge'], mask).astype(np.uint8)
 
-    # ---- spawns and mission places on the lanes (session coordinates)
-    lines = []
-    for l in rl:
-        if l['flags'] & (C.FLAGS['private'] | C.FLAGS['pedestrian'] | C.FLAGS['deck'] | C.FLAGS['tunnel']) or l['cls'] == 'motorway' or l['elev']:
-            continue
-        lines.append((LineString([nodes[l['a']], *l['inner'], nodes[l['b']]]), l))
-    ltree = shapely.STRtree([g for g, _ in lines]) if lines else None
+    # ---- spawns, mission places, downtown and density: the frame's
+    sp, places, spawn, density = F['spawns'], F['places'], F['spawn'], F['density']
+    center = (F['downtown']['x'], F['downtown']['z']) if F.get('downtown') else ((B['x0'] + B['x1']) / 2, (B['z0'] + B['z1']) / 2)
 
-    def lane(x, z, R=80):
-        if ltree is None:
-            return None
-        i = ltree.nearest(Point(x, z))
-        if i is None:
-            return None
-        g, l = lines[int(i)]
-        dd = g.distance(Point(x, z))
-        if dd > R:
-            return None
-        s_ = min(max(g.project(Point(x, z)), 4), max(4, g.length - 4))
-        p, p2, p1 = g.interpolate(s_), g.interpolate(min(g.length, s_ + 1)), g.interpolate(max(0, s_ - 1))
-        return {'x': C.q1(p.x), 'z': C.q1(p.y), 'heading': round(math.atan2(p2.x - p1.x, p2.y - p1.y), 4), 'street': names[l['ni']], 'd': dd}
-    places, seen = {}, {}
-    for p in sorted(places_raw, key=lambda p: p['id']):
-        if not (B['x0'] <= p['x'] <= B['x1'] and B['z0'] <= p['z'] <= B['z1']):
-            continue
-        ln = lane(p['x'], p['z'])
-        if not ln:
-            continue
-        street = ln['street'].title() if ln['street'] else ''
-        name = p['name'] if (p['kind'] in C.PUBLIC and p['name']) else C.GENERIC[p['kind']] + (' on ' + street if street else '')
-        n = seen.get(p['kind'], 0)
-        seen[p['kind']] = n + 1
-        key = p['kind'] + ('' if n == 0 else str(n + 1))
-        places[key] = {'x': ln['x'], 'z': ln['z'], 'heading': ln['heading'], 'name': name, 'kind': p['kind'], 'cx': C.q1(p['x']), 'cz': C.q1(p['z'])}
-    # downtown: the strongest ctx centre inside the play box (else the box centre)
-    ctx = W.context_for(pb['gx0'] / 100 - 3000, pb['gs0'] / 100 - 3000, pb['gx1'] / 100 + 3000, pb['gs1'] / 100 + 3000)
-    cc = context.CELL
-    cent = ctx.centres(pb['gx0'] // cc, pb['gs0'] // cc, pb['gx1'] // cc, pb['gs1'] // cc)
-    top = None if cent else context.top_cell(ctx, pb['gx0'] // cc, pb['gs0'] // cc, pb['gx1'] // cc, pb['gs1'] // cc)
-    if cent or top:
-        ci, cj, sc = cent[0] if cent else top
-        center = S(ci * cc + cc // 2, cj * cc + cc // 2)
-        downtown = {'cell': [ci, cj], 'score': sc, 'rule': 'the strongest centre in the box' if cent else 'no centre in the box: its top-scoring cell'}
-    else:
-        center = ((B['x0'] + B['x1']) / 2, (B['z0'] + B['z1']) / 2)
-        downtown = None
-    sp = {}
-    cl = lane(*center, R=600)
-    if cl:
-        sp['downtown'] = {'x': cl['x'], 'z': cl['z'], 'heading': cl['heading'], 'name': 'Downtown'}
-    for key, (fx, fz) in {'north': (0.5, 0.2), 'south': (0.5, 0.8), 'east': (0.8, 0.5), 'west': (0.2, 0.5)}.items():
-        ln = lane(B['x0'] + (B['x1'] - B['x0']) * fx, B['z0'] + (B['z1'] - B['z0']) * fz, R=600)
-        if ln:
-            sp[key] = {'x': ln['x'], 'z': ln['z'], 'heading': ln['heading'], 'name': (ln['street'].title() or key.title())}
-    spawn = sp.get('downtown') or next(iter(sp.values()), None)
-    density = round(min(1.0, max(0.15, 0.15 + bcount_play / max(area_play / 1e6, 0.1) / 2000)), 2)
-
-    # ---- the descriptor (stage 2)
+    # ---- the stage-2 manifest (the full window only): the frame and the tiles' content hashes. Its lock is the frame's
+    # lock v3 (tiles named by id); tileSetHash keeps the content hash over every tile, which the store still checks.
     tiles = [{'id': grid.tile_id(dom, c, r), 'sha256': hashlib.sha256(dec[(c, r)][2]).hexdigest(), 'bytes': len(blobs[(c, r)])} for (c, r) in order]
-    D2 = dict(D1, stage=2, yOffset=y_off, waterLevel=water_level, waterNAVD88=level, spawn=spawn, spawns=sp, places=places,
-              downtown=None if downtown is None else dict(downtown, x=C.q1(center[0]), z=C.q1(center[1])),
-              districts=[D1['name'].split(',')[0]], density=density,
-              roadsSummary={'links': len(rl), 'nodes': len(nodes), 'names': len(names)}, tiles=tiles, tileSetHash=tile_set_hash(tiles),
-              lock={'format': 'hometown-city-lock', 'formatVersion': 2, 'place': pid, 'buildId': bid, 'grid': grid.GRID, 'domain': dom,
-                    'origin': {'c0': fr['c0'], 'r0': fr['r0']}, 'k0': k0, 'gamma0': D1['gamma0'], 'yOffset': y_off, 'waterLevel': water_level,
-                    'tiles': tile_set_hash(tiles)})
+    D2 = dict(F, stage=2, format='hometown-session', version=1, roadsSummary={'links': len(rl), 'nodes': len(nodes), 'names': len(names)},
+              tiles=tiles, tileSetHash=tile_set_hash(tiles), frameKey=FR.frame_key(bid, pid))
     mk = 'manifests/%s/%s.json' % (bid, pid)
-    body = (json.dumps(D2, sort_keys=True, indent=1) + '\n').encode()
-    if store and not store.put_if_absent(mk, body) and store.get(mk) != body:
-        log(jdump({'warning': 'descriptor %s differs from the stored one (kept the stored)' % mk}))
+    if variant == 'full':
+        body = (json.dumps(D2, sort_keys=True, indent=1) + '\n').encode()
+        if store and not store.put_if_absent(mk, body) and store.get(mk) != body:
+            log(jdump({'warning': 'descriptor %s differs from the stored one (kept the stored)' % mk}))
     if not out_root:
         print(jdump(D2))
         return D2
 
     # ---- the legacy package
-    out = os.path.join(out_root, pid)
+    out = out_root if bundle else os.path.join(out_root, pid)
+    if bundle and os.path.isdir(out) and os.listdir(out):
+        raise SystemExit('--assemble --out %s: not empty (a bundle is written into a fresh directory)' % out)
     os.makedirs(os.path.join(out, 'data'), exist_ok=True)
     btable.sort(key=lambda t: t[0])
     # (ringStart and massStart in assembled order; masses in record order)
@@ -359,17 +312,27 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
         'data/groundmask.bin.gz': C.gz(sfb1(mheader, mask_e.tobytes())),
     }
     # ---- the far field (far.py): hg1 far tiles round the core, the land to the horizon (they never touch the core)
-    import far as F
+    # (a bundle lists them by store key, far/{buildId}/hg1-{d}/{L}/{C}/{R}, shared between towns and variants; the
+    # package directory of --id copies them in. A district bundle lists only the far tiles already stored (far='stored'):
+    # the engine draws a flat skirt where none is.)
+    import far as FARM
     core_gm = (c0t * grid.TILE, r0t * grid.TILE, (c1t + 1) * grid.TILE, (r1t + 1) * grid.TILE)
-    fkeys = [(t, a_, b_) for t, ks in F.place_far(core_gm, dom).items() for a_, b_ in ks]
+    fkeys = [(t, a_, b_) for t, ks in FARM.place_far(core_gm, dom).items() for a_, b_ in ks] if far != 'none' else []
+    if far == 'stored':
+        fkeys = [k for k in fkeys if store and store.get(FARM.far_key(bid, dom, *k)) is not None]
     fb = C.far_tiles(dom, bid, data, store, fkeys, log, dem_store=W.dem_store)
     far_list = []
     for (t, a_, b_), body in sorted(fb.items(), key=lambda kv: ('abc'.index(kv[0][0]), kv[0][2], kv[0][1])):
-        files[F.far_file(t, a_, b_) + '.gz'] = body
-        far_list.append({'tier': t, 'C': a_, 'R': b_, 'url': F.far_file(t, a_, b_)})
-    FAR = {'format': 'hometown-far-set', 'version': 1, 'n': F.N + 1, 'minH': F.MIN_H, 'scale': F.SCALE, 'classes': F.CLASSES,
-           'tiers': {t: {'L': v['L'], 'size': F.tile_size(t), 'step': F.post_step(t)} for t, v in F.TIERS.items()},
-           'core': list(core_gm), 'tiles': far_list,
+        e = {'tier': t, 'C': a_, 'R': b_}
+        if far_ref:
+            e.update(key=FARM.far_key(bid, dom, t, a_, b_), sha256=hashlib.sha256(body).hexdigest(), bytes=len(body))
+        else:
+            files[FARM.far_file(t, a_, b_) + '.gz'] = body
+            e['url'] = FARM.far_file(t, a_, b_)
+        far_list.append(e)
+    FAR = {'format': 'hometown-far-set', 'version': 1, 'n': FARM.N + 1, 'minH': FARM.MIN_H, 'scale': FARM.SCALE, 'classes': FARM.CLASSES,
+           'tiers': {t: {'L': v['L'], 'size': FARM.tile_size(t), 'step': FARM.post_step(t)} for t, v in FARM.TIERS.items()},
+           'core': list(core_gm), 'tiles': far_list, 'complete': far == 'compile',
            'attribution': 'USGS 3D Elevation Program 1 arc-second (public domain)'}
     X0, Z0 = ox, oz
     X1, Z1 = S((c1t + 1) * TCM, (r1t + 1) * TCM)
@@ -423,13 +386,22 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
            'land': land, 'blocks': blocks, 'roadGraph': rg, 'parks': parks, 'piers': [], 'water': water, 'rail': [], 'trolley': [], 'muniStops': [],
            'bikeways': [], 'trees': trees, 'transit': [], 'landmarks': {}, 'bridges': {}}
     GEO['frame']['up'] = 'NAVD88 m minus %d' % y_off
-    PLACE_DATA = {'source': 'hometown ' + bid, 'neighborhoods': [], 'regional': {('pkg_' + k): {'x': s['x'], 'z': s['z'], 'heading': s['heading'], 'name': s['name']} for k, s in sp.items()}}
+    # (the arrivals a player can be sent to: a district bundle's are only those inside its window less 150 m, the engine's
+    # traffic margin, wagmi/world/growing.js; the frame's spawns all stay in PKG.spawns for the story)
+    def arrival_ok(s_):
+        return variant == 'full' or (X0 + 150 <= s_['x'] <= X1 - 150 and Z0 + 150 <= s_['z'] <= Z1 - 150)
+    PLACE_DATA = {'source': 'hometown ' + bid, 'neighborhoods': [],
+                  'regional': {('pkg_' + k): {'x': s['x'], 'z': s['z'], 'heading': s['heading'], 'name': s['name']} for k, s in sp.items() if arrival_ok(s)}}
     PKG = {'id': pid, 'name': D1['name'], 'compiler': bid, 'compilerVersion': C.COMPILER_VERSION, 'buildId': bid, 'grid': grid.GRID, 'domain': dom,
            'origin': {'c0': fr['c0'], 'r0': fr['r0']}, 'k0': k0, 'gamma0': D1['gamma0'], 'yOffset': y_off, 'waterLevel': water_level,
            'tileSize': grid.TILE / k0, 'density': density, 'spawn': spawn, 'spawns': sp, 'places': places, 'attribution': C.ATTRIBUTION,
            'frame': frame, 'box': box, 'tiles': tile_ids, 'tileSetHash': D2['tileSetHash'], 'lock': D2['lock'],
            'tileHeaders': {grid.tile_id(dom, c, r): {'bcount': dec[(c, r)][0]['bcount'], 'groundAreaM2': dec[(c, r)][0]['groundAreaM2']} for (c, r) in order},
-           'downtown': {'x': C.q1(center[0]), 'z': C.q1(center[1])}, 'far': FAR}
+           'downtown': {'x': C.q1(center[0]), 'z': C.q1(center[1])}, 'far': FAR,
+           # (the growing town: which tiles this variant holds; the engine keeps the player, traffic and missions in it)
+           'variant': variant, 'tilesId': F['lock']['tiles'], 'district': F['district'],
+           'window': {'variant': variant, 'tileRange': [c0t, r0t, c1t, r1t], 'box': {'x0': C.q1(X0), 'z0': C.q1(Z0), 'x1': C.q1(X1), 'z1': C.q1(Z1)},
+                      'full': variant == 'full'}}
     js = ('// geodata.js: GENERATED by tools/hometown/compile.py (hg1 legacy assembler) %s for "%s", do not edit by hand.\n'
           '// Map data: %s.\n(function () {\nwindow.NYC = window.NYC || {};\nwindow.NYC.GEO = %s;\nwindow.NYC.PLACE_DATA = %s;\nwindow.NYC.PKG = %s;\n})();\n') % (
         bid, D1['name'], '; '.join(C.ATTRIBUTION), json.dumps(GEO, separators=(',', ':')), json.dumps(PLACE_DATA, separators=(',', ':')), json.dumps(PKG, separators=(',', ':')))
@@ -438,7 +410,14 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
                 'compiler': {'name': 'hometown', 'version': C.COMPILER_VERSION, 'buildId': bid, 'tile': grid.TILE, 'grid': grid.GRID, 'libs': C.lib_versions()},
                 'sources': {'overture': {'release': C.OVERTURE_RELEASE, 'licenses': C.LICENSES}, 'dem': theader['source'], 'bbox': D1['bbox']},
                 'attribution': C.ATTRIBUTION, 'frame': frame, 'box': box, 'waterLevel': water_level, 'descriptor': mk, 'tiles': tile_ids,
-                'tileSetHash': D2['tileSetHash'], 'lock': D2['lock'], 'stats': stats, 'files': {}}
+                'tileSetHash': D2['tileSetHash'], 'lock': D2['lock'], 'stats': stats, 'files': {}, 'variant': variant, 'window': PKG['window'],
+                'farRefs': [e['key'] for e in far_list if 'key' in e]}
+    if bundle:
+        # (the bundle GameMog serves: geodata.json (the three objects as data), lock.json; bundle.json lists every
+        # file's sha256 and is written LAST, so a bundle with a bundle.json is whole)
+        files['geodata.json'] = (json.dumps({'format': 'hometown-bundle', 'formatVersion': 1, 'GEO': GEO, 'PLACE_DATA': PLACE_DATA, 'PKG': PKG},
+                                            separators=(',', ':'), sort_keys=True) + '\n').encode()
+        files['lock.json'] = (json.dumps(F['lock'], sort_keys=True, indent=1) + '\n').encode()
     for k_, b in sorted(files.items()):
         os.makedirs(os.path.dirname(os.path.join(out, k_)), exist_ok=True)
         with open(os.path.join(out, k_), 'wb') as f:
@@ -447,6 +426,14 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
     with open(os.path.join(out, 'manifest.json'), 'w') as f:
         json.dump(manifest, f, indent=1, sort_keys=True)
         f.write('\n')
+    if bundle:
+        bj = {'format': 'hometown-bundle-manifest', 'version': 1, 'place': pid, 'buildId': bid, 'tilesId': F['lock']['tiles'], 'variant': variant,
+              'files': {k_: v for k_, v in manifest['files'].items()}, 'farRefs': manifest['farRefs']}
+        bj['files']['manifest.json'] = {'bytes': os.path.getsize(os.path.join(out, 'manifest.json')),
+                                        'sha256': hashlib.sha256(open(os.path.join(out, 'manifest.json'), 'rb').read()).hexdigest()}
+        with open(os.path.join(out, 'bundle.json'), 'w') as f:
+            json.dump(bj, f, indent=1, sort_keys=True)
+            f.write('\n')
     print(jdump({'id': pid, 'buildId': bid, 'stats': stats, 'yOffset': y_off, 'waterLevel': water_level, 'tileSetHash': D2['tileSetHash'],
                  'bytes': sum(v['bytes'] for v in manifest['files'].values())}), flush=True)
     return D2

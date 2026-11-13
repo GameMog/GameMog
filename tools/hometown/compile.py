@@ -9,6 +9,12 @@
 #   --descriptor <placeId> --stage 1|2      the session descriptor: stage 1 (gazetteer + grid), stage 2 (+ tiles)
 #   --id <placeId>                          LEGACY ASSEMBLER: descriptor, the place's tiles, then today's single-package
 #                                           layout in session coordinates (cities/pkg/packages/<id>/, ?city=pkg)
+#   --tiles id,id,...                       a tile list in ONE World (a block subset; the builder's tile job), stored
+#                                           ifAbsent, or an HTB1 stream with --out -
+#   --far-list id,id,...                    far tiles (a far window), stored ifAbsent, or an HTB1 stream with --out -
+#   --frame <placeId>                       the frame descriptor (frame.py), stored at frames/{buildId}/{placeId}.json
+#   --assemble <placeId> --window district|full [--frame <file>] --out <dir>
+#                                           a bundle: the legacy package over a window, frame-pinned (assemble.py)
 # Raw inputs: fetch.py --regions (Overture rows per L4 region) and the 3DEP ETag mirror (dem.py Sampler).
 # Store (--store, default .scratch/hometown/store): tiles/{buildId}/hg1-{d}/0/{c}/{r}, ctx/{buildId}/hg1-{d}/4/{C}/{R},
 # manifests/{buildId}/{placeId}.json, builds/{buildId}.json. Every object deterministic (sorted JSON, gzip mtime 0).
@@ -48,8 +54,11 @@ import shapely.ops  # noqa: E402
 # per-tile compile from tile + halo sources and ctx blocks (no whole-place inputs), split-at-grid-line roads with border
 # nodes, centroid-owned buildings, absolute cm heights + wet mask, per-polygon water levels; 0.4.0 overnight merge: the
 # DEM snapshot pin (If-Match reads), far-field tiles, sf-buildings v4 shapes, decks at height and lanes from data; 0.5.0 round-2 merge: canonical grade groups (order-free), tunnel links,
-# curb islands by local width, demSource per tile (Sampler.record scopes), far tier A (16 m ring = the core's own posts)
-COMPILER_VERSION = '0.5.0'
+# curb islands by local width, demSource per tile (Sampler.record scopes), far tier A (16 m ring = the core's own posts);
+# 0.7.0 production builder: the frame descriptor (frame.py: yOffset / waterLevel / spawns / places from ctx, regions and
+# the DEM, never from tiles), lock v3 (tiles named by id), windowed bundles, machine + spatial in the build record. (Round
+# 3's 0.6.0 is a different rule set: a merge of both takes a version above both, never either one's.)
+COMPILER_VERSION = '0.7.0'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 ROAD_HALO = 160      # m: segments read round a tile (owned pieces, curb islands' roadway, sidewalk bands)
@@ -583,10 +592,19 @@ def shape_building(W, r, rec, near, downtown):
 
 
 def lib_versions():
+    """Everything below the compiler that decides a build's bytes. machine: the CPU architecture (x86_64 and arm64 builds
+    are different builds); spatial: the duckdb extension that decodes every geometry (loaded, never installed: duck.py)."""
     import PIL
+    import platform
     import zlib
+    import duck
+    try:
+        sp = duck.connect('spatial').execute("SELECT extension_version FROM duckdb_extensions() WHERE extension_name = 'spatial'").fetchone()[0]
+    except duck.MissingExtension:
+        sp = None
     return {'python': '%d.%d.%d' % sys.version_info[:3], 'duckdb': duckdb.__version__, 'shapely': shapely.__version__,
-            'geos': shapely.geos_version_string, 'numpy': np.__version__, 'pillow': PIL.__version__, 'zlib': zlib.ZLIB_RUNTIME_VERSION}
+            'geos': shapely.geos_version_string, 'numpy': np.__version__, 'pillow': PIL.__version__, 'zlib': zlib.ZLIB_RUNTIME_VERSION,
+            'machine': platform.machine(), 'spatial': sp}
 
 
 # ------------------------------------------------------------------------------------------------------------- build id
@@ -2114,6 +2132,23 @@ def far_tiles(dom, bid, data, store, keys, log=print, dem_store=None):
     return out
 
 
+def write_stream(dom, keys, body_of, id_of):
+    """HTB1 on stdout (the tile service's block contract, server/tiles/src/compilers/subprocess.mjs): per item u32 id
+    length, id, u32 body length (0xffffffff: refused, then u32 reason length, reason), body."""
+    w = sys.stdout.buffer
+    w.write(b'HTB1')
+    for k in keys:
+        tid = id_of(dom, *k).encode()
+        w.write(struct.pack('<I', len(tid)) + tid)
+        try:
+            b = body_of(*k)
+            w.write(struct.pack('<I', len(b)) + b)
+        except (RefusedTile, MissingRegion) as e:
+            why = str(e).encode()
+            w.write(struct.pack('<II', 0xffffffff, len(why)) + why)
+    w.flush()
+
+
 def compile_tiles(Wd, store, tiles, log=print):
     """Compile (or read from the store) each (c, r); children stored ifAbsent. -> {(c, r): bytes}"""
     out = {}
@@ -2137,6 +2172,12 @@ if __name__ == '__main__':
     ap.add_argument('--block')
     ap.add_argument('--ctx')
     ap.add_argument('--far', help='one far tile hg1-{d}/{1|3|5}/{C}/{R} (far.py)')
+    ap.add_argument('--tiles', help='a tile list hg1-{d}/0/{c}/{r},... compiled in one World (one domain)')
+    ap.add_argument('--far-list', help='far tiles hg1-{d}/{1|3|5}/{C}/{R},...')
+    ap.add_argument('--frame', help='--frame <placeId>: the frame descriptor; with --assemble: a frame JSON file')
+    ap.add_argument('--assemble', help='a bundle of <placeId> over --window, pinned to --frame')
+    ap.add_argument('--window', default='full', choices=['district', 'full'])
+    ap.add_argument('--far-mode', default=None, choices=['compile', 'stored', 'none'], help='--assemble: default compile (full), stored (district)')
     ap.add_argument('--descriptor')
     ap.add_argument('--stage', type=int, default=2)
     ap.add_argument('--id')
@@ -2202,6 +2243,48 @@ if __name__ == '__main__':
             else:
                 compile_tiles(Wd, store, kids, log)
                 print(jdump({'block': a.block, 'buildId': bid}))
+        elif a.tiles:
+            ids = [t for t in a.tiles.split(',') if t]
+            parsed = [grid.parse_tile_id(t) for t in ids]
+            doms = {p[0] for p in parsed}
+            assert len(doms) == 1 and all(p[1] == 0 for p in parsed), '--tiles: L0 tiles of one domain'
+            dom = parsed[0][0]
+            cs, rs = [p[2] for p in parsed], [p[3] for p in parsed]
+            Wd = World(a.data, dom, tile_window(min(cs), min(rs), max(cs), max(rs)), None if a.no_store else store, bid, dem_store=store)
+            kids = sorted({(p[2], p[3]) for p in parsed}, key=lambda t: (t[1], t[0]))
+            if a.out == '-':
+                write_stream(dom, kids, lambda c, r: compile_tiles(Wd, None if a.no_store else store, [(c, r)], log)[(c, r)], grid.tile_id)
+            else:
+                done = compile_tiles(Wd, store, kids, log)
+                print(jdump({'tiles': len(done), 'buildId': bid}))
+        elif a.far_list:
+            ids = [t for t in a.far_list.split(',') if t]
+            parsed = [farlib.parse_far_id(t) for t in ids]
+            assert len({p[0] for p in parsed}) == 1, '--far-list: one domain'
+            dom = parsed[0][0]
+            keys = sorted({(p[1], p[2], p[3]) for p in parsed})
+            st = None if a.no_store else store
+            if a.out == '-':
+                write_stream(dom, keys, lambda *k: far_tiles(dom, bid, a.data, st, [k], log, dem_store=store)[k],
+                             lambda d, t, C_, R_: '%s-%s/%d/%d/%d' % (grid.GRID, d, farlib.TIERS[t]['L'], C_, R_))
+            else:
+                far_tiles(dom, bid, a.data, store, keys, log, dem_store=store)
+                print(jdump({'far': len(keys), 'buildId': bid}))
+        elif a.assemble:
+            import assemble
+            fr = json.load(open(a.frame)) if a.frame else None
+            if not a.out or a.out == '-':
+                ap.error('--assemble needs --out <dir>')
+            assemble.assemble(a.assemble, json.load(open(a.places))['places'], a.data, store, bid, os.path.abspath(a.out), window=a.window, frame=fr,
+                              far=a.far_mode or ('compile' if a.window == 'full' else 'stored'), far_ref=True, bundle=True, log=log)
+        elif a.frame:
+            import frame as framelib
+            F, _ = framelib.compute(a.frame, json.load(open(a.places))['places'], a.data, store, bid, log)
+            F, k = framelib.store_frame(None if a.no_store else store, F, log)
+            if a.out in (None, '-'):
+                sys.stdout.buffer.write(framelib.body(F))
+            else:
+                open(a.out, 'wb').write(framelib.body(F))
         elif a.far:
             dom, tier, C_, R_ = farlib.parse_far_id(a.far)
             b = far_tiles(dom, bid, a.data, None if a.no_store else store, [(tier, C_, R_)], log, dem_store=store)[(tier, C_, R_)]
@@ -2227,7 +2310,7 @@ if __name__ == '__main__':
             else:
                 assemble.compile_place(pid, json.load(open(a.places))['places'], a.data, store, bid, a.out or (P['out'] if a.id else None), log=log)
         else:
-            ap.error('--tile, --block, --ctx, --descriptor or --id')
+            ap.error('--tile, --tiles, --block, --ctx, --far, --far-list, --frame, --assemble, --descriptor or --id')
     except (MissingRegion, RefusedTile) as e:
         print(jdump({'refused': str(e)}), file=sys.stderr)
         sys.exit(3)
