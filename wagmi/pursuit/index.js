@@ -1,6 +1,8 @@
 // Mog City: heat and pursuit (cars that chase and ram Dan, a GTA heat meter) and the car's thruster abilities. Installed by game.js.
 //   cars.js       the chase cars: the Suits' black SUVs and sedans on acid-green rims, the police's NYPD cruisers
-//   nav.js        their way through the streets (the traffic's road graph, A* corner to corner) and their sight
+//   nav.js        their way through the streets (the traffic's road graph, A* corner to corner, lane to lane) and their sight
+//   steer.js      keeping to the road: the path follower and its corner speeds, straight at him only along the road,
+//                 back to the lane when knocked off it (world.onRoadway)
 //   hud.js        the HEAT meter (top-right) and the radar's search circle, red blips and pulsing rim
 //   thrusters.js  the car's cold-gas hop (SPACE) and side dashes (Q / E), unlocked in Mission 3
 //   vapor.js      the cold-gas vapour and a wrecked car's smoke
@@ -11,6 +13,10 @@
 //   - They see him within 55 + 15h m (85 m) with no building between, and always within 22 m (they hear him). Seen, the
 //     search circle (90 + 55h m: 200 m) is centred on him; out of sight, it stays where they last saw him and they
 //     search round there.
+//   - On the road (steer.js): straight at him only where the line there (and the arc its momentum drives) is on the
+//     asphalt, or him off the road within 25 m (a lawn, a lot: on purpose); never faster than it can come round to
+//     where it aims; knocked off the road, back to its lane within a second (rejoin), and off it 4 s out of view, put
+//     back in a lane behind him; a U-turn too tight for the street is a three-point turn, never backing off the road.
 //   - Out of sight, the escape fills (0..1, view().progress): out of that circle in 4h s (8 s), hiding inside it three
 //     times as slowly; the circle shrinks with it and the HEAT pips go out one by one. Seen again, it drains (empty in
 //     RULE.drain s), so a glimpse costs a little and a long look all of it. Full: 'lost', and the cars drive off and are
@@ -53,6 +59,7 @@ import { createNav } from './nav.js';
 import { createHud } from './hud.js';
 import { createVapor } from './vapor.js';
 import { createThrusters } from './thrusters.js';
+import { follow, roadClear, directOK, excused, rejoin, reach, backOK, noseOff, REJOIN } from './steer.js';
 import { boxes, dims, massOf } from '../crash/wrecks.js'; import { world } from '../world/index.js';
 
 const Q = new URLSearchParams(location.search);
@@ -82,6 +89,11 @@ export function install(W) {
   const app = W.app, cm = app.controllerManager, car = W.car, TS = app.trafficSystem, scene = app.scene, cam = app.cameraSystem.camera;
   if (!car || !TS || !TS.network) return;
   const nav = createNav(app);
+  // the road (world.onRoadway: not a curb island, not water, inside the map; a deck at the car's own height), and the
+  // lane there by heading and height (nav.locate): what keeps them on the asphalt (steer.js)
+  const roadAt = (y) => (x, z) => world.onRoadway(x, z, y);
+  const onRoad = (x, z) => world.onRoadway(x, z);
+  const laneAt = (y) => (x, z, h) => nav.locate(x, z, h, y);
   const vapor = createVapor(scene);
   const hud = createHud(W);
   const thrusters = (W.thrusters = createThrusters(W, vapor));
@@ -131,7 +143,15 @@ export function install(W) {
       P.goal = T; vt = vmax0;
       // (in sight and this close, straight at him: the last corner's queue at a light doesn't hold it up; on foot, with a
       // clear line to him (not just heard through a wall), or close)
-      direct = T.onFoot ? (P.los && d < 60) || d < 18 : P.sees && d < 62;
+      // (and only along the road, steer.js directOK: the line there on the asphalt, its momentum's arc too; or him
+      // off the road within 25 m, a lawn, a lot: then on purpose. On foot the approach is by the lane next to him)
+      if (T.onFoot) {
+        direct = d < 18;
+        if (!direct && P.los && d < 60) { const L = footLane(P, T, dt); direct = !L || roadClear(roadAt(P.y), P.x, P.z, L.x, L.z); }
+      } else if (P.sees && d < 62) {
+        const close = P.speed - (T.vx * dx + T.vz * dz) / (d || 1), lead = clamp(d / Math.max(8, close), 0, 1.1);
+        direct = directOK(roadAt(P.y), P, T, d, T.x + T.vx * lead, T.z + T.vz * lead);
+      }
     } else {
       // out of sight: to where he was last seen, then round there
       const L = ch.lastSeen;
@@ -153,6 +173,8 @@ export function install(W) {
         const th = T.h, rx = -Math.cos(th), rz = Math.sin(th);
         ax = T.x + T.vx * lead + rx * P.side * 1.1 - Math.sin(th) * 1.2; az = T.z + T.vz * lead + rz * P.side * 1.1 - Math.cos(th) * 1.2;
         vt = P.ramCool > 0 ? Math.max(6, T.speed - 3) : Math.min(vmax0 + 8, Math.max(vmax0, T.speed + 5)) + (d < 30 ? 3 : 0);
+        // (no faster than it can come round to it: an overshoot at a corner is a car on the lawn)
+        vt = Math.min(vt, Math.max(8, reach(P, ax, az)));
       }
       P.path = null;
     } else {
@@ -160,46 +182,23 @@ export function install(W) {
       P.planT -= dt;
       const G = P.goal;
       if (!P.path || P.planT <= 0 || (P.planTo && Math.hypot(G.x - P.planTo.x, G.z - P.planTo.z) > 25)) {
-        P.path = nav.route({ x: P.x, z: P.z, h: P.speed < -1 ? P.h + Math.PI : P.h }, G); P.pi = 0; P.planT = ch.seen ? 1.0 : 1.8; P.planTo = { x: G.x, z: G.z };
+        P.path = nav.route({ x: P.x, z: P.z, h: P.speed < -1 ? P.h + Math.PI : P.h }, G); P.seg = 0; P.planT = ch.seen ? 1.0 : 1.8; P.planTo = { x: G.x, z: G.z };
       }
-      // along it: past each corner on to the next, aiming a lookahead down it
-      const path = P.path;
-      while (P.pi < path.length - 1) {
-        const a = P.pi ? path[P.pi - 1] : null, [bx, bz] = path[P.pi];
-        const ex = a ? bx - a[0] : 0, ez = a ? bz - a[1] : 0;
-        const past = a ? ((P.x - a[0]) * ex + (P.z - a[1]) * ez) / ((ex * ex + ez * ez) || 1) > 1 : false;
-        if (past || Math.hypot(bx - P.x, bz - P.z) < 7) P.pi++; else break;
-      }
-      // (a sharp corner within the lookahead: aimed at, not cut, until it is close; the narrow streets have buildings
-      // right at their corners)
-      const L0 = 7 + Math.abs(P.speed) * 0.5, soon = 5 + Math.abs(P.speed) * 0.3;
-      let left = L0, fx0 = P.x, fz0 = P.z, k = P.pi, lx = 0, lz = 0;
-      ax = path[path.length - 1][0]; az = path[path.length - 1][1];
-      while (k < path.length) {
-        const [bx, bz] = path[k], sl = Math.hypot(bx - fx0, bz - fz0);
-        if (sl > 1e-3) { lx = (bx - fx0) / sl; lz = (bz - fz0) / sl; }
-        if (sl >= left) { ax = fx0 + lx * left; az = fz0 + lz * left; break; }
-        if (k < path.length - 1 && L0 - left + sl > soon) {
-          const [nx2, nz2] = path[k + 1], mx = nx2 - bx, mz = nz2 - bz, ml = Math.hypot(mx, mz) || 1;
-          if ((lx * mx + lz * mz) / ml < 0.88) { ax = bx; az = bz; break; }
-        }
-        left -= sl; fx0 = bx; fz0 = bz; k++;
-      }
-      // slowing for the next corner: the sharper, the slower, from far enough out to make it
-      const c = path[P.pi], nx = path[P.pi + 1];
-      if (c && nx) {
-        const pv = P.pi > 0 ? path[P.pi - 1] : [P.x, P.z];
-        const ux = c[0] - pv[0], uz = c[1] - pv[1], vx = nx[0] - c[0], vz = nx[1] - c[1];
-        const turn = Math.acos(clamp((ux * vx + uz * vz) / ((Math.hypot(ux, uz) * Math.hypot(vx, vz)) || 1), -1, 1));
-        const vc = 9 + (vmax0 - 9) * (1 - Math.min(1, turn / 1.3)), dc = Math.hypot(c[0] - P.x, c[1] - P.z);
-        vt = Math.min(vt, Math.sqrt(vc * vc + 2 * 9 * Math.max(0, dc - 5)));
-      }
+      // along it (steer.js follow): the car projected onto it, a lookahead down it from there, and the speed for the
+      // corners in the next 120 m (and for coming round to it from the way it points now)
+      const F = follow(P, P.path, vt);
+      ax = F.ax; az = F.az; vt = Math.min(vt, F.vt);
       if (T.onFoot && P.mode === 'chase' && ch.seen) vt = Math.min(vt, clamp((d - 6) * 1.4, 0, vmax0));
     }
     // something slow in the way (the traffic, another chase car): round it, or brake
     const av = avoid(P, dt);
     if (av) { if (av.pass) { ax = av.x; az = av.z; } vt = Math.min(vt, av.v); }
-    return { ax, az, vt, d };
+    return { ax, az, vt, d, direct };
+  }
+  // (the lane next to him on foot, found again twice a second: where a car pulls up)
+  function footLane(P, T, dt) {
+    if ((P.laneT = (P.laneT ?? 0) - dt) <= 0 || !P.footL) { P.laneT = 0.5; P.footL = nav.onRoad(T.x, T.z); }
+    return P.footL;
   }
   // Dan on foot, a car with him in reach: where it heads and how fast. Its crew up: it waits. Running him down: the
   // tell (stopped, revving, the horn), then flat out along the line it fixed, past him, for FOOT.run s. Else the pull-up:
@@ -277,7 +276,7 @@ export function install(W) {
     const rx = -fz, rz = fx, room = best.hw + P.hw + 1.1;
     const crowded = (x, z) => { for (let i = 0; i < near.length; i += 2) if ((near[i] - x) ** 2 + (near[i + 1] - z) ** 2 < 5) return true; return false; };
     // (a way by: the road there and its outer edge, and half way to it, clear of buildings, the sidewalk and the others)
-    const clear = (x, z) => !nav.solid(x, z) && !cm.isPointOnSidewalk(x, z);
+    const clear = (x, z) => !nav.solid(x, z) && !cm.isPointOnSidewalk(x, z) && world.onRoadway(x, z, P.y);
     const free = (s) => {
       const x = best.x + rx * s * room, z = best.z + rz * s * room;
       return clear(x, z) && clear(x + rx * s * P.hw, z + rz * s * P.hw) && clear((x + P.x) / 2, (z + P.z) / 2) && !crowded(x, z);
@@ -304,6 +303,12 @@ export function install(W) {
     // (parked: standing where it was put, brakes on: a roadblock, or a test's)
     if (!P.wrecked && P.mode !== 'parked') {
       const g = steerFor(P, ch, dt, T);
+      // off the road (a bump, an overshoot) and not there on purpose: back to its lane, then on along its way
+      // (steer.js rejoin); off it REJOIN.respawn s and out of view, put back in a lane behind him
+      const exempt = !!(P.ram || (P.crew && P.crew.alive() > 0) || P.ghost > 0 || (g.direct && excused(onRoad, T, g.d)));
+      const R = rejoin(P, dt, { onRoadway: roadAt(P.y), locate: laneAt(P.y), exempt, vmax: g.vt });
+      if (R) { g.ax = R.ax; g.az = R.az; g.vt = Math.min(R.vt, Math.max(4, reach(P, R.ax, R.az))); }
+      if (!exempt && P.offT > REJOIN.respawn && P.mode === 'chase' && !inView(P.x, P.z, 4)) { P.offT = 0; P.rejoin = false; respawn(P, T); }
       const err = wrap(Math.atan2(g.ax - P.x, g.az - P.z) - P.h);
       st = clamp(err * 1.8, -0.62, 0.62); vt = g.vt;
       // (nosing through the traffic where the camera sees it: at a crawl, as the traffic's own do)
@@ -311,10 +316,13 @@ export function install(W) {
       // (stood waiting for its crew, or in the tell before a run at him: no backing about)
       if (T.onFoot && (P.crew?.alive() > 0 || (P.ram && !P.ram.go))) { P.back = 0; P.stuck = 0; P.prog.want = 0; }
       // turned away from where it must go, and slow: back up turning, so the nose comes round (a J-turn)
-      if (P.back <= 0 && Math.abs(err) > 2.0 && Math.abs(P.speed) < 8 && vt > 2) { P.back = 1.0; P.backSteer = -Math.sign(err) * 0.62; }
+      // (or turning hard and slow with its nose about to leave the road: a three-point turn, steer.js noseOff)
+      if (P.back <= 0 && (Math.abs(err) > 2.0 || noseOff(roadAt(P.y), P, err)) && Math.abs(P.speed) < 8 && vt > 2) { P.back = 1.0; P.backSteer = -Math.sign(err) * 0.62; }
       // stuck (against a wall, a wreck): back off a little the other way
       if (vt > 3 && Math.abs(P.speed) < 1.2 && P.back <= 0) P.stuck += dt; else P.stuck = Math.max(0, P.stuck - dt * 2);
       if (P.stuck > 1.2) { P.back = 1.1; P.backSteer = -Math.sign(err || 1) * 0.62; P.stuck = 0; }
+      // (backing only while the road is behind it: on the road, never back off it onto a lawn)
+      if (P.back > 0 && !backOK(roadAt(P.y), P)) P.back = 0;
       if (P.back > 0) { P.back -= dt; vt = -7; st = P.backSteer; }
       // (and over 3 s: wanting to go but hardly further on, wedged or rocking back and forth: back off; twice running,
       // out of view, it is put back in a lane behind him)
