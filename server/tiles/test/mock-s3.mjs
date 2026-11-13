@@ -8,6 +8,7 @@ import { signV4 } from '../src/storage/sigv4.mjs';
 export function startMockS3({ port, bucket = 'tiles', accessKeyId = 'TESTKEYID', secretAccessKey = 'test-secret-not-a-real-key', region = 'auto' }) {
   const objects = new Map();
   const log = [];
+  const state = { conflicts: 0 };
   const server = http.createServer((req, res) => {
     const chunks = [];
     req.on('data', (c) => chunks.push(c));
@@ -29,6 +30,8 @@ export function startMockS3({ port, bucket = 'tiles', accessKeyId = 'TESTKEYID',
       if (b !== bucket) return fail(404, 'NoSuchBucket');
       const key = rest.join('/');
       if (req.method === 'PUT') {
+        // state.conflicts > 0: answer that many PUTs with 409, as S3/R2 do while another write to the key is in flight
+        if (state.conflicts > 0) { state.conflicts--; return fail(409, 'ConditionalRequestConflict'); }
         if (req.headers['if-none-match'] === '*' && objects.has(key)) return fail(412, 'PreconditionFailed');
         const meta = Object.fromEntries(Object.entries(req.headers).filter(([h]) => h.startsWith('x-amz-meta-')));
         objects.set(key, { body, meta, contentType: req.headers['content-type'] });
@@ -48,7 +51,7 @@ export function startMockS3({ port, bucket = 'tiles', accessKeyId = 'TESTKEYID',
     });
   });
   return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve({
-    endpoint: `http://127.0.0.1:${port}`, bucket, accessKeyId, secretAccessKey, region, objects, log,
+    endpoint: `http://127.0.0.1:${port}`, bucket, accessKeyId, secretAccessKey, region, objects, log, state,
     close: () => new Promise((r) => { server.closeAllConnections?.(); server.close(r); }),
   })));
 }

@@ -61,6 +61,22 @@ await contract('s3 (local mock, signed requests)', async () => {
   return { store, cleanup: async () => {} };
 }, async (s, k) => { mock.objects.get(`hometown/${k}`).body[0] ^= 1; });
 
+test('s3: a 409 (write in progress) is retried with backoff, not reported as already stored', async () => {
+  const sleeps = [];
+  const store = new S3Store({ endpoint: mock.endpoint, bucket: mock.bucket, region: mock.region, accessKeyId: mock.accessKeyId, secretAccessKey: mock.secretAccessKey, prefix: 'c/', sleep: async (ms) => { sleeps.push(ms); } });
+  const body = Buffer.from('conflicted');
+  mock.state.conflicts = 2;
+  assert.deepEqual(await store.put('tiles/v/2/0/0', body, { hash: sha256(body) }), { created: true });
+  assert.equal(sleeps.length, 2);
+  assert.ok(sleeps[1] >= sleeps[0], 'backoff grows');
+  assert.deepEqual((await store.get('tiles/v/2/0/0')).body, body);
+  // a conflict that never clears is an error, not created:false
+  const few = new S3Store({ endpoint: mock.endpoint, bucket: mock.bucket, region: mock.region, accessKeyId: mock.accessKeyId, secretAccessKey: mock.secretAccessKey, prefix: 'c/', conflictRetries: 2, sleep: async () => {} });
+  mock.state.conflicts = 100;
+  await assert.rejects(few.put('tiles/v/2/0/1', body, { hash: sha256(body) }), /409/);
+  mock.state.conflicts = 0;
+});
+
 test('s3: keeps the tile encoding in metadata, sends If-None-Match, rejects a wrong secret', async () => {
   try {
     const store = new S3Store({ endpoint: mock.endpoint, bucket: mock.bucket, region: mock.region, accessKeyId: mock.accessKeyId, secretAccessKey: mock.secretAccessKey, prefix: 'p/' });

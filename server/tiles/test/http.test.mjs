@@ -8,7 +8,7 @@ import { createTileService } from '../src/service.mjs';
 import { createFakeCompiler, compilerRegistry } from '../src/compilers/index.mjs';
 import { MemoryStore } from '../src/storage/index.mjs';
 import { loadGazetteer } from '../src/places.mjs';
-import { createServer, acceptedEncodings, accepts } from '../src/http.mjs';
+import { createHttpHandler, acceptedEncodings, accepts } from '../src/http.mjs';
 
 const PORT = 4691;
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -16,7 +16,10 @@ const places = await loadGazetteer(path.join(here, '..', 'fixtures', 'places.jso
 const gz = createFakeCompiler({ version: 'fake-1', delayMs: 40 });
 const br = createFakeCompiler({ version: 'fake-br', contentEncoding: 'br' });
 const service = createTileService({ store: new MemoryStore(), compilers: compilerRegistry([br, gz]), places, currentVersion: 'fake-1' });
-const server = createServer(service);
+const ADMIN = 'test-admin-token';
+const DECODED_CAP = 3000; // bytes; a fake tile decodes to ~1.1 KB
+const handler = createHttpHandler(service, { adminToken: ADMIN, decodedCacheBytes: DECODED_CAP });
+const server = http.createServer(handler);
 await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
 const agent = new http.Agent({ keepAlive: true, maxSockets: 200 });
 
@@ -98,6 +101,51 @@ test('manifest, lock and lock resolution over HTTP', async () => {
   const h = JSON.parse((await get('/healthz')).body);
   assert.equal(h.ok, true);
   assert.deepEqual(h.versions.sort(), ['fake-1', 'fake-br']);
+});
+
+test('locked tiles over HTTP: served from the lock\'s set, 404 outside it', async () => {
+  const lock = JSON.parse((await get('/places/marfa-tx/lock')).body);
+  const m = JSON.parse((await get(`/locks/${lock.placeId}/${lock.compilerVersion}/${lock.tileSetHash}`)).body);
+  const t = m.tiles[0];
+  const base = `/locks/${lock.placeId}/${lock.compilerVersion}/${lock.tileSetHash}/tiles`;
+  const r = await get(`${base}/${t.z}/${t.x}/${t.y}`, { 'accept-encoding': 'gzip' });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers['x-content-sha256'], t.contentHash);
+  assert.deepEqual(r.body, (await get(`/tiles/fake-1/${t.z}/${t.x}/${t.y}`, { 'accept-encoding': 'gzip' })).body);
+  assert.equal((await get(`${base}/16/0/0`)).status, 404);
+  assert.equal((await get(`/locks/marfa-tx/fake-1/${'0'.repeat(64)}/tiles/${t.z}/${t.x}/${t.y}`)).status, 409);
+});
+
+test('admin verify route: local or bearer token only; healthz hides the store from non-local callers', async () => {
+  const lock = JSON.parse((await get('/places/marfa-tx/lock')).body);
+  const p = `/admin/verify/${lock.placeId}/${lock.compilerVersion}/${lock.tileSetHash}`;
+  const local = await get(p);
+  assert.equal(local.status, 200);
+  assert.equal(local.headers['cache-control'], 'no-store');
+  assert.equal(JSON.parse(local.body).ok, true);
+  const proxied = { 'x-forwarded-for': '203.0.113.9' }; // through a proxy: not local any more
+  assert.equal((await get(p, proxied)).status, 403);
+  assert.equal((await get(p, { ...proxied, authorization: 'Bearer wrong' })).status, 403);
+  assert.equal((await get(p, { ...proxied, authorization: `Bearer ${ADMIN}` })).status, 200);
+  assert.equal((await get(`/admin/verify/marfa-tx/fake-1/${'0'.repeat(64)}`)).status, 409);
+  const pub = JSON.parse((await get('/healthz', proxied)).body);
+  assert.equal(pub.ok, true);
+  assert.equal(pub.store, undefined);
+  assert.equal(pub.versions, undefined);
+  assert.equal(typeof pub.stats.compiles, 'number');
+  const priv = JSON.parse((await get('/healthz')).body);
+  assert.equal(priv.store, 'memory');
+});
+
+test('decoded-copy cache is capped by bytes', async () => {
+  for (let i = 0; i < 8; i++) {
+    const r = await get(`/tiles/fake-1/16/10483/${25400 + i}`, { 'accept-encoding': 'identity' });
+    assert.equal(r.status, 200);
+    assert.equal(r.headers['content-encoding'], undefined);
+  }
+  assert.ok(handler.decodedCache, 'the handler exposes its decoded-copy cache');
+  assert.ok(handler.decodedCache.bytes <= DECODED_CAP, `decoded cache holds ${handler.decodedCache.bytes} bytes, over ${DECODED_CAP}`);
+  assert.ok(handler.decodedCache.size >= 1);
 });
 
 test('Accept-Encoding parsing', () => {

@@ -7,16 +7,19 @@ import { sha256 } from '../util.mjs';
 //   MinIO: endpoint http://localhost:9000, region 'us-east-1'
 // Credentials are passed in by the caller (bin/ reads TILES_S3_* environment variables); nothing here reads files.
 // Immutability: put(ifAbsent) sends If-None-Match: * (conditional write, supported by S3 and R2); 412 = already there.
+// 409 (ConditionalRequestConflict) means another write to the key is still in progress, NOT that it is stored: the
+// PUT is retried with backoff until it lands (201/200) or the winner is visible (412), then the caller reads it back.
 // The tile's own encoding is kept in object metadata, NOT as the object's Content-Encoding: fetch() transparently
 // decompresses a response that carries Content-Encoding, which would break byte-exact passthrough and the hash check.
 const META_HEADER = 'x-amz-meta-tilemeta';
 
 export class S3Store {
-  constructor({ endpoint, bucket, region = 'auto', accessKeyId, secretAccessKey, prefix = '', fetch: f = globalThis.fetch, now = () => new Date() }) {
+  constructor({ endpoint, bucket, region = 'auto', accessKeyId, secretAccessKey, prefix = '', fetch: f = globalThis.fetch, now = () => new Date(),
+    conflictRetries = 6, conflictBackoffMs = 50, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
     if (!endpoint || !bucket) throw new Error('S3Store needs endpoint and bucket');
     if (!accessKeyId || !secretAccessKey) throw new Error('S3Store needs credentials');
     this.endpoint = endpoint.replace(/\/+$/, '');
-    Object.assign(this, { bucket, region, accessKeyId, secretAccessKey, prefix, fetch: f, now });
+    Object.assign(this, { bucket, region, accessKeyId, secretAccessKey, prefix, fetch: f, now, conflictRetries, conflictBackoffMs, sleep });
   }
   url(key) { return `${this.endpoint}/${this.bucket}/${this.prefix}${checkKey(key)}`; }
   async request(method, key, { body, headers = {} } = {}) {
@@ -39,11 +42,18 @@ export class S3Store {
   async put(key, body, meta, { ifAbsent = true } = {}) {
     const headers = { 'content-type': 'application/octet-stream', [META_HEADER]: Buffer.from(JSON.stringify(meta)).toString('base64url') };
     if (ifAbsent) headers['if-none-match'] = '*';
-    const r = await this.request('PUT', key, { body, headers });
-    await r.arrayBuffer().catch(() => {});
-    if (r.status === 412 || r.status === 409) return { created: false };
-    if (!r.ok) throw new Error(`S3 PUT ${key}: ${r.status}`);
-    return { created: true };
+    for (let attempt = 0; ; attempt++) {
+      const r = await this.request('PUT', key, { body, headers });
+      await r.arrayBuffer().catch(() => {});
+      if (r.status === 412) return { created: false };
+      if (r.status === 409) {
+        if (attempt >= this.conflictRetries) throw new Error(`S3 PUT ${key}: 409 conflict persisted after ${attempt + 1} attempts`);
+        await this.sleep(this.conflictBackoffMs * 2 ** attempt * (0.5 + Math.random() / 2));
+        continue;
+      }
+      if (!r.ok) throw new Error(`S3 PUT ${key}: ${r.status}`);
+      return { created: true };
+    }
   }
   async delete(key) {
     const r = await this.request('DELETE', key);

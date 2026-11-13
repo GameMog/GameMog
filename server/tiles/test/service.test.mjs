@@ -190,3 +190,111 @@ test('subprocess compiler adapter (how M2\'s compiler plugs in)', async () => {
   assert.equal(j.bbox.length, 4);
   await assert.rejects(s.getTile('cmd-1', '16', '13', '7'), (x) => x.status === 502 && /scripted failure/.test(x.message));
 });
+
+// --- Locked reads verify tiles against the lock's manifest (review finding 1) ---
+
+async function lockedSetup() {
+  const store = new MemoryStore();
+  const v1 = createFakeCompiler({ version: 'fake-1' });
+  const s1 = svc({ store, compilers: [v1] });
+  const lock = await s1.createLock('okemah-ok');
+  const m = JSON.parse((await s1.resolveLock(lock)).body);
+  return { store, lock, m, t0: m.tiles[0], key: (t) => `tiles/fake-1/${t.z}/${t.x}/${t.y}` };
+}
+
+test('locked tile: served only from the lock\'s tile set, checked against its manifest', async () => {
+  const { store, lock, m, t0, key } = await lockedSetup();
+  const s = svc({ store, compilers: [createFakeCompiler({ version: 'fake-2' })] });
+  const e = await s.getLockedTile(lock, t0.z, t0.x, t0.y);
+  assert.equal(e.meta.hash, t0.hash);
+  // a tile outside the locked set is not served under the lock
+  await assert.rejects(s.getLockedTile(lock, 16, 0, 0), (x) => x.status === 404 && /not in locked tile set/.test(x.message));
+  // a stored tile replaced by different bytes (with self-consistent meta, so the store's own check passes) is refused
+  const t1 = m.tiles[1];
+  const other = Buffer.from('replaced');
+  store.objects.set(key(t1), { body: other, meta: { ...store.objects.get(key(t1)).meta, hash: sha256(other), contentHash: sha256(other), contentEncoding: 'identity' } });
+  await assert.rejects(s.getLockedTile(lock, t1.z, t1.x, t1.y), (x) => x.status === 409);
+  assert.equal(s.stats.lockMismatches, 1);
+});
+
+test('locked tile: a lost tile is rebuilt with the pinned compiler, a drifted rebuild is refused and not stored, no compiler = 410', async () => {
+  const { store, lock, m, t0, key } = await lockedSetup();
+  const original = store.objects.get(key(t0)).body;
+  store.objects.delete(key(t0));
+  // pinned compiler still registered and deterministic: repaired, byte for byte, and stored again
+  const s = svc({ store, compilers: [createFakeCompiler({ version: 'fake-1' })] });
+  const e = await s.getLockedTile(lock, t0.z, t0.x, t0.y);
+  assert.equal(e.source, 'compiled');
+  assert.deepEqual(e.body, original);
+  assert.equal(s.stats.lockRepairs, 1);
+  assert.ok(store.objects.has(key(t0)));
+  // pinned version's compiler now produces different bytes: 409, and the drifted bytes are NOT cached forever
+  store.objects.delete(key(t0));
+  const drift = { version: 'fake-1', async compileTile() { return { body: Buffer.from('drifted') }; } };
+  const sd = svc({ store, compilers: [drift] });
+  await assert.rejects(sd.getLockedTile(lock, t0.z, t0.x, t0.y), (x) => x.status === 409 && /not stored/.test(x.message));
+  assert.equal(store.objects.has(key(t0)), false);
+  // no compiler for the pinned version: 410 with a clear reason
+  const sg = svc({ store, compilers: [createFakeCompiler({ version: 'fake-2' })] });
+  await assert.rejects(sg.getLockedTile(lock, t0.z, t0.x, t0.y), (x) => x.status === 410 && /missing from storage/.test(x.message) && /fake-1/.test(x.message));
+  await assert.rejects(sg.verifyLock(lock), (x) => x.status === 410);
+  // verifyLock repairs it with the pinned compiler
+  const sr = svc({ store, compilers: [createFakeCompiler({ version: 'fake-1' })] });
+  const proof = await sr.verifyLock(lock);
+  assert.equal(proof.ok, true);
+  assert.equal(proof.repaired, 1);
+  assert.equal(proof.tiles, m.tileCount);
+});
+
+test('resolveLock re-hashes the stored manifest\'s tile list, not only its meta', async () => {
+  const { store, lock } = await lockedSetup();
+  const mk = `manifests/fake-1/okemah-ok.json`;
+  const o = store.objects.get(mk);
+  const m = JSON.parse(o.body);
+  m.tiles[0] = { ...m.tiles[0], contentHash: 'f'.repeat(64) };
+  const body = Buffer.from(JSON.stringify(m));
+  store.objects.set(mk, { body, meta: { ...o.meta, hash: sha256(body) } }); // meta still claims the lock's hash
+  const s = svc({ store, compilers: [createFakeCompiler({ version: 'fake-2' })] });
+  await assert.rejects(s.resolveLock(lock), (x) => x.status === 409);
+});
+
+// --- Compiler output that cannot be decoded (review finding 5) ---
+
+test('compiler output that fails to decode is a 502 compile failure, counted as one, not cached', async () => {
+  const bad = { version: 'fake-1', async compileTile() { return { body: Buffer.from('not gzip at all'), contentEncoding: 'gzip' }; } };
+  const store = new MemoryStore();
+  const s = svc({ store, compilers: [bad] });
+  await assert.rejects(s.getTile('fake-1', T.z, T.x, T.y), (x) => x.status === 502 && /compile failed/.test(x.message));
+  assert.equal(s.stats.compiles, 0);
+  assert.equal(s.stats.compileErrors, 1);
+  assert.equal(store.objects.size, 0);
+  const none = { version: 'fake-1', async compileTile() { return {}; } };
+  await assert.rejects(svc({ compilers: [none] }).getTile('fake-1', T.z, T.x, T.y), (x) => x.status === 502);
+});
+
+// --- A lost put race whose winner is not readable yet (review finding 2) ---
+
+test('a lost put race never serves this process\'s unstored bytes', async () => {
+  const store = new MemoryStore();
+  store.put = async () => ({ created: false }); // "someone else has it" ...
+  store.get = async () => null; // ... but it is not readable yet
+  const s = svc({ store });
+  await assert.rejects(s.getTile('fake-1', T.z, T.x, T.y), (x) => x.status === 503);
+  assert.equal(s.lru.size, 0);
+});
+
+// --- The compiler child's environment (review finding 3) ---
+
+test('subprocess compiler: the child gets an allow-listed environment, not the storage secrets', async () => {
+  const saved = process.env.TILES_S3_SECRET_ACCESS_KEY;
+  process.env.TILES_S3_SECRET_ACCESS_KEY = 'test-value-not-a-real-secret';
+  try {
+    const cmd = createSubprocessCompiler({ version: 'env-1', argv: [process.execPath, '-e', 'process.stdout.write(JSON.stringify(Object.keys(process.env)))'], env: { EXTRA_FLAG: '1' } });
+    const keys = JSON.parse((await cmd.compileTile({ version: 'env-1', z: 16, x: 1, y: 1, bbox: [0, 0, 1, 1] })).body);
+    assert.ok(!keys.includes('TILES_S3_SECRET_ACCESS_KEY'), 'secret leaked to the compiler');
+    assert.ok(keys.includes('PATH'));
+    assert.ok(keys.includes('EXTRA_FLAG'));
+  } finally {
+    if (saved === undefined) delete process.env.TILES_S3_SECRET_ACCESS_KEY; else process.env.TILES_S3_SECRET_ACCESS_KEY = saved;
+  }
+});

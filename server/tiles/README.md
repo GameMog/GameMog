@@ -52,16 +52,22 @@ node server/tiles/bin/loadtest.mjs                     # port 4690
 | `GET /places/{placeId}/manifest?version=v` | the place's tile set at version `v` | immutable |
 | `GET /places/{placeId}/lock[?version=v]` | a lock record `{format, formatVersion, placeId, compilerVersion, tileSetHash}` | short / immutable as above |
 | `GET /locks/{placeId}/{compilerVersion}/{tileSetHash}` | the manifest that lock names, or **409** if the stored tile set does not hash to it | immutable |
-| `GET /healthz` | stats: compiles, hits, LRU, in-flight | `no-store` |
+| `GET /locks/{placeId}/{compilerVersion}/{tileSetHash}/tiles/{z}/{x}/{y}` | a tile of that locked set, checked against the lock's manifest on every read (see *City locks*) | immutable |
+| `GET /admin/verify/{placeId}/{compilerVersion}/{tileSetHash}` | **admin:** `verifyLock`, every tile re-read, re-hashed and repaired if lost: `{ok, tiles, bytes, tileSetHash, repaired}` | `no-store` |
+| `GET /healthz` | `ok`, current version and counts (compiles, hits, LRU, in-flight); the store and compiler list only to local/admin callers | `no-store` |
 
 `HEAD` works everywhere `GET` does. Errors are JSON `{ "error": ... }`:
 
 - **400:** a bad version, place id or tile coordinate (z outside 10..18 by default, x/y off the grid, `..`, bad percent-encoding)
 - **404:** an unknown place, or a version that is neither cached nor registered
 - **405:** any method other than GET or HEAD
-- **409:** a lock mismatch
+- **403:** an admin route from a caller that is neither local nor holding the admin token
+- **409:** a lock mismatch: the manifest, or a tile read under the lock, does not hash to what the lock pins
+- **410:** a tile of a locked set is missing from storage and its pinned compiler version is no longer registered
 - **413:** a place that covers more than `maxTilesPerPlace` tiles
-- **502:** a compile failure (not cached; the next request retries)
+- **502:** a compile failure, including compiler output that does not decode (not cached; the next request retries;
+  counted in `stats.compileErrors`, not `stats.compiles`)
+- **503:** another writer stored the object first but it is not readable yet (retry)
 
 **The manifest** (`format: hometown-tileset`) is written as sorted-key JSON with no timestamps, so the same inputs always
 give the same bytes. It contains:
@@ -99,6 +105,8 @@ GET /tiles/v/z/x/y
   compiler is removed from the service, because the store is consulted before the compiler registry. The service
   never compiles for a version it has no compiler for. **Bump the version on any change to the output**: code,
   source release (the Overture release, 3DEP), rules, or a place's bbox.
+- **Decoded copies** for clients that accept no stored encoding are kept in a cache capped by **bytes** (32 MB by
+  default, `decodedCacheBytes` in `createHttpHandler`) as well as by count (256).
 - **Encoding passthrough.** A tile is stored exactly as the compiler encoded it (`identity`, `gzip` or `br`).
   - A client that accepts the stored encoding gets the bytes untouched, with `Content-Encoding` set.
   - A client that accepts neither gets a decoded copy, with its own ETag (`"<hash>.identity"`). The service keeps a
@@ -130,6 +138,10 @@ The keys are `tiles/{v}/{z}/{x}/{y}` and `manifests/{v}/{placeId}.json`.
   Object example signature).
   - Tile meta goes in `x-amz-meta-tilemeta` (base64url JSON). The tile's encoding is **not** set as the object's
     Content-Encoding, because `fetch` would silently decompress it on the way back and break byte-exact passthrough.
+  - A **409** on the conditional PUT means another write to the key is still in progress, not that the key is stored.
+    The PUT is retried with exponential backoff (6 retries from 50 ms) until it lands or a 412 shows the winner; the
+    service then reads the stored object back. If it still cannot read it, it answers 503 rather than serving its own
+    unstored bytes.
   - Credentials come only from `TILES_S3_ACCESS_KEY_ID` / `TILES_S3_SECRET_ACCESS_KEY` in the environment (via
     `--store s3`). Nothing here reads a credentials file.
   - **Tested only against the local mock** (`test/mock-s3.mjs`). The mock checks every request's signature and
@@ -145,7 +157,15 @@ The keys are `tiles/{v}/{z}/{x}/{y}` and `manifests/{v}/{placeId}.json`.
 
 1. **Creating a lock.** A Mog creates its lock at publish time with `GET /places/{id}/lock`.
 2. **Playing a locked Mog.** Playback resolves the lock with `GET /locks/{id}/{version}/{hash}`, which returns that
-   version's manifest, then fetches the tiles at that version.
+   version's manifest, then fetches each tile **under the lock** with `GET /locks/{id}/{version}/{hash}/tiles/{z}/{x}/{y}`.
+   - The manifest is checked twice: its stored `tileSetHash` meta **and** the hash recomputed from its tile list.
+   - Every locked tile read is checked against the manifest's `hash` and `contentHash`. Drifted bytes are a 409.
+   - A tile that is **missing** from storage is recompiled with the lock's pinned compiler version if that compiler is
+     still registered. The rebuild is stored only if it matches the manifest byte for byte; otherwise 409 and nothing
+     is stored, so a drifted rebuild can never become the cached copy. With no compiler for that version: **410**.
+   - Tiles outside the locked set are a 404 on this route.
+   - The plain `/tiles/{v}/...` route knows nothing about locks: it compiles and stores a lost tile with whatever the
+     registered compiler produces. Locked playback should use the lock route.
 3. **Why the bytes cannot drift.**
    - The manifest and the tiles are immutable, version-keyed objects, so a newer compiler cannot change them.
    - If a stored object were lost and recompiled to different bytes, `resolveLock` (manifest hash) and `verifyLock`
@@ -158,7 +178,19 @@ The keys are `tiles/{v}/{z}/{x}/{y}` and `manifests/{v}/{placeId}.json`.
    - checks that resolving it compiled nothing
    - checks that a forged hash gives 409, and that a tile recompiled to different bytes is caught by `verifyLock`
 
-   The same flow also runs over the S3 backend against the mock.
+   The same flow also runs over the S3 backend against the mock. The locked-read checks, the repair and the 410 are
+   tested in *locked tile: ...*.
+
+**Admin: verify a lock.** `GET /admin/verify/{placeId}/{compilerVersion}/{tileSetHash}` runs `verifyLock`. It re-reads
+and re-hashes every tile and rebuilds lost ones the same way a locked read does. It answers only:
+
+- requests from this machine (loopback address **and** no `Forwarded` / `X-Forwarded-For` / `X-Real-IP` /
+  `CF-Connecting-IP` / `True-Client-IP` header, since a proxy on the same host also connects from loopback), or
+- requests with `Authorization: Bearer <token>`, where the token is `TILES_ADMIN_TOKEN` in `bin/serve.mjs`'s
+  environment (compared in constant time). Without that variable the route is local-only.
+
+Anyone else gets 403. `/healthz` uses the same rule to decide whether to include the store description and the
+compiler list.
 
 **Place resolution.** A place's bbox is an input of its manifest. Changing an existing place's bbox therefore needs a
 new compiler version (or a new place id). `src/places.mjs` reads a JSON gazetteer for now. The search box's place
@@ -213,12 +245,15 @@ There are two ways to connect it, and neither needs a change here.
    - **Placeholders:** `{version} {z} {x} {y} {west} {south} {east} {north}`.
    - The command runs **without a shell**.
    - **Limits:** a 120 s timeout and a 64 MB stdout cap.
+   - **Environment:** the child does **not** inherit the service's environment (which holds `TILES_S3_*`). It gets
+     only `PATH`, `HOME`, `TMPDIR`/`TMP`/`TEMP`, `LANG`, `LC_ALL`, `LC_CTYPE`, `TZ` and `SYSTEMROOT`, plus any names in
+     `envAllow` and explicit values in `env` (`createSubprocessCompiler` options).
    - **Errors are not cached:** empty output, a non-zero exit or a timeout is an error, and the next request retries.
    - The adapter is tested with `fixtures/fake-compiler-cmd.mjs`, which stands in for the Python command.
 2. **In-process.** A JS module that exports the object above can be registered with `compilerRegistry([...])` in
    `src/config.mjs`.
 
-**Open design point for M2.** The tile grid does not yet match M2's v1 plan, and M2 and M5 need to settle it before M2
+**Open design point for M2.** (Summary: *Grid alignment* below.) The tile grid does not yet match M2's v1 plan, and M2 and M5 need to settle it before M2
 adds `--tile`.
 
 - **What the service keys on.** Global web-mercator tiles at z16 by default (`--zoom`). A z16 tile is about
@@ -235,6 +270,27 @@ adds `--tile`.
 - **Determinism.** Whichever grid is chosen, tile bytes must be deterministic. The fake compiler writes gzip with
   mtime 0 and OS byte 255, as Python's `gzip` module does. Node's zlib otherwise stamps the host OS, so macOS and
   Linux would produce different bytes.
+
+## Grid alignment
+
+The service keys tiles on global web-mercator z16 (`keys.mjs`). M2's package is built in a per-place frame of 512 m
+squares. The two do not line up, and this pass deliberately does **not** change the grid: it is an integration
+decision for M2 and M5 together. The options:
+
+1. **Keep global web-mercator tiles (the service as it is).**
+   - Changes in **M2**: a per-tile compile mode that takes the tile's bbox, emits absolute heights (NAVD88) and
+     absolute or tile-local coordinates, and runs the network stage per tile with a halo.
+   - Changes in the **client**: it applies the place frame (`frame.yOffset`, water level, origin) when it loads tiles,
+     instead of reading them from the package.
+   - Changes **here**: none.
+   - Gains: neighbouring places share tiles and cache; a tile's key never depends on which search result loaded it.
+2. **Place-scoped 512 m tiles** (`/tiles/{v}/{placeId}/{i}/{j}`).
+   - Changes **here**: the key grammar and storage keys in `keys.mjs` (`parseTileKey`, `tileStorageKey`,
+     `tilesForBbox`, `tileBbox` become per-place grid maths from the place's frame), the manifest's tile entries
+     (`{i, j}` instead of `{z, x, y}`), the HTTP routes, and the compiler key passed to `compileTile`.
+   - Changes in **M2**: little; its v0 frame and 512 m squares are used as they are.
+   - Costs: no sharing between overlapping places, and a place's frame (origin, bbox) becomes part of every tile key,
+     so editing it needs a new compiler version or place id.
 
 ## Load test (local, fake compiler)
 
@@ -311,7 +367,7 @@ means unvisited tiles at a new version are never built.
 ## Not done here (on purpose)
 
 - **Deployment and real buckets.** No deploy, no real bucket, no credentials.
-- **Auth and rate limiting.** The service has no auth and no rate limiting. A deployment puts it behind a CDN and
+- **Auth and rate limiting.** Apart from the admin route (local or bearer token), the service has no auth and no rate limiting. A deployment puts it behind a CDN and
   needs a per-IP limit on misses: hits are cheap, but every miss costs a compile.
 - **Shared compile leases.** Single-flight is per process. A cross-instance compile lease is noted above if it is ever
   needed.

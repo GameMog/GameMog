@@ -3,10 +3,18 @@
 //   GET|HEAD /places/{placeId}/manifest[?version=v]          the place's tile set (immutable when ?version= is given)
 //   GET|HEAD /places/{placeId}/lock[?version=v]              a city lock record for that place + version
 //   GET|HEAD /locks/{placeId}/{compilerVersion}/{tileSetHash} the manifest a lock names; 409 if it does not match
-//   GET      /healthz                                       service stats
+//   GET|HEAD /locks/{placeId}/{compilerVersion}/{tileSetHash}/tiles/{z}/{x}/{y}
+//                                                           a tile of that locked set, checked against its manifest;
+//                                                           409 drifted, 410 lost and its compiler is gone
+//   GET      /admin/verify/{placeId}/{compilerVersion}/{tileSetHash}
+//                                                           verifyLock (re-hash + repair every tile): local requests
+//                                                           or Authorization: Bearer <adminToken> only, else 403
+//   GET      /healthz                                       ok + counts; the store and versions only to local/admin
 import http from 'node:http';
+import crypto from 'node:crypto';
 import { HttpError } from './keys.mjs';
 import { decode, stableJson } from './util.mjs';
+import { LRU } from './lru.mjs';
 
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 const SHORT = 'public, max-age=300';
@@ -36,8 +44,30 @@ function etagMatches(header, etag) {
   return header.split(',').map((s) => s.trim().replace(/^W\//, '')).includes(etag);
 }
 
-export function createHttpHandler(service, { log = () => {} } = {}) {
-  const decodedCache = new Map(); // small: identity copies of stored-compressed bodies, for clients that accept neither
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+const FORWARDED = ['forwarded', 'x-forwarded-for', 'x-real-ip', 'cf-connecting-ip', 'true-client-ip'];
+
+// A request straight from this machine. Anything carrying a forwarding header came through a proxy, which itself
+// connects from loopback, so it is NOT local.
+export function isLocalRequest(req) {
+  return LOOPBACK.has(req.socket?.remoteAddress) && !FORWARDED.some((h) => h in req.headers);
+}
+
+function bearerMatches(req, token) {
+  if (!token) return false;
+  const m = /^Bearer\s+(\S+)$/i.exec(String(req.headers.authorization || ''));
+  if (!m) return false;
+  const h = (s) => crypto.createHash('sha256').update(s).digest();
+  return crypto.timingSafeEqual(h(m[1]), h(token));
+}
+
+// adminToken: the bearer token for /admin/* from outside this machine (bin/serve.mjs reads TILES_ADMIN_TOKEN);
+// without one, admin routes are local-only. decodedCacheBytes caps the decoded-copy cache by total bytes.
+export function createHttpHandler(service, { log = () => {}, adminToken, decodedCacheBytes = 32 * 1024 * 1024 } = {}) {
+  // identity copies of stored-compressed bodies, for clients that accept neither; bounded by BYTES (a tile can decode
+  // to many MB, so an entry-count cap alone does not bound memory)
+  const decodedCache = new LRU({ maxBytes: decodedCacheBytes, maxEntries: 256 });
+  const isAdmin = (req) => isLocalRequest(req) || bearerMatches(req, adminToken);
 
   function representation(entry, req) {
     const enc = entry.meta.contentEncoding || 'identity';
@@ -48,8 +78,7 @@ export function createHttpHandler(service, { log = () => {} } = {}) {
     let body = decodedCache.get(entry.meta.hash);
     if (!body) {
       body = decode(entry.body, enc);
-      if (decodedCache.size > 256) decodedCache.delete(decodedCache.keys().next().value);
-      decodedCache.set(entry.meta.hash, body);
+      decodedCache.set(entry.meta.hash, body, body.length);
     }
     return { body, encoding: 'identity', etag: `"${tag}.identity"` };
   }
@@ -74,7 +103,7 @@ export function createHttpHandler(service, { log = () => {} } = {}) {
     res.end(req.method === 'HEAD' ? undefined : body);
   }
 
-  return async function handle(req, res) {
+  async function handle(req, res) {
     const t0 = process.hrtime.bigint();
     let status = 500;
     try {
@@ -93,9 +122,20 @@ export function createHttpHandler(service, { log = () => {} } = {}) {
       } else if (p[0] === 'locks' && p.length === 4) {
         const e = await service.resolveLock({ placeId: p[1], compilerVersion: p[2], tileSetHash: p[3] });
         send(req, res, e);
+      } else if (p[0] === 'locks' && p.length === 8 && p[4] === 'tiles') {
+        const e = await service.getLockedTile({ placeId: p[1], compilerVersion: p[2], tileSetHash: p[3] }, p[5], p[6], p[7]);
+        send(req, res, e);
+      } else if (p[0] === 'admin') {
+        if (!isAdmin(req)) throw new HttpError(403, 'admin route: local requests, or Authorization: Bearer <TILES_ADMIN_TOKEN>');
+        if (p[1] === 'verify' && p.length === 5) {
+          sendJson(req, res, 200, await service.verifyLock({ placeId: p[2], compilerVersion: p[3], tileSetHash: p[4] }));
+        } else throw new HttpError(404, 'not found');
       } else if (p[0] === 'healthz' && p.length === 1) {
         const { stats, lru, flight } = service;
-        sendJson(req, res, 200, { ok: true, currentVersion: service.currentVersion || null, versions: [...service.compilers.keys()], store: service.store.describe(), stats, lru: { entries: lru.size, bytes: lru.bytes, hits: lru.hits, misses: lru.misses, evictions: lru.evictions }, inflight: flight.size });
+        const counts = { ok: true, currentVersion: service.currentVersion || null, stats, lru: { entries: lru.size, bytes: lru.bytes, hits: lru.hits, misses: lru.misses, evictions: lru.evictions }, inflight: flight.size };
+        // The store's endpoint/bucket and the compiler list are deployment details: only for this machine or an admin.
+        if (isAdmin(req)) Object.assign(counts, { versions: [...service.compilers.keys()], store: service.store.describe(), decodedCache: { entries: decodedCache.size, bytes: decodedCache.bytes } });
+        sendJson(req, res, 200, counts);
       } else {
         throw new HttpError(404, 'not found');
       }
@@ -108,7 +148,9 @@ export function createHttpHandler(service, { log = () => {} } = {}) {
     } finally {
       log({ event: 'request', method: req.method, url: req.url, status, ms: Number(process.hrtime.bigint() - t0) / 1e6 });
     }
-  };
+  }
+  handle.decodedCache = decodedCache;
+  return handle;
 }
 
 export function createServer(service, opts) {

@@ -6,8 +6,20 @@ import { spawn } from 'node:child_process';
 //   createSubprocessCompiler({ version: '0.1.0', argv: ['python3', 'tools/hometown/compile.py', '--tile', '{z}/{x}/{y}',
 //     '--bbox', '{west},{south},{east},{north}', '--out', '-'], contentType: 'application/octet-stream',
 //     contentEncoding: 'gzip', cwd: repoRoot })
-export function createSubprocessCompiler({ version, argv, cwd, env, contentType = 'application/octet-stream', contentEncoding = 'identity', timeoutMs = 120000, maxBytes = 64 * 1024 * 1024 }) {
+// The child gets a minimal environment, never this process's: the service's environment holds the storage secrets
+// (TILES_S3_*), which a compiler has no use for. ENV_ALLOW names what is passed through; envAllow adds names; env sets
+// explicit values on top.
+export const ENV_ALLOW = ['PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TZ', 'SYSTEMROOT', 'SystemRoot'];
+
+export function childEnv({ env, envAllow = [] } = {}, from = process.env) {
+  const out = {};
+  for (const k of [...ENV_ALLOW, ...envAllow]) if (from[k] !== undefined) out[k] = from[k];
+  return { ...out, ...env };
+}
+
+export function createSubprocessCompiler({ version, argv, cwd, env, envAllow, contentType = 'application/octet-stream', contentEncoding = 'identity', timeoutMs = 120000, maxBytes = 64 * 1024 * 1024 }) {
   if (!version || !Array.isArray(argv) || !argv.length) throw new Error('subprocess compiler needs version and argv');
+  const baseEnv = childEnv({ env, envAllow });
   return {
     version,
     compileTile(key) {
@@ -15,7 +27,7 @@ export function createSubprocessCompiler({ version, argv, cwd, env, contentType 
       const vars = { version: key.version, z: key.z, x: key.x, y: key.y, west, south, east, north };
       const args = argv.map((a) => a.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)));
       return new Promise((resolve, reject) => {
-        const child = spawn(args[0], args.slice(1), { cwd, env: env || process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+        const child = spawn(args[0], args.slice(1), { cwd, env: baseEnv, stdio: ['ignore', 'pipe', 'pipe'] });
         const out = [];
         let size = 0, err = '';
         const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error(`compiler timed out after ${timeoutMs} ms`)); }, timeoutMs);
