@@ -80,6 +80,7 @@ NARROW_WATER = 20.0
 CLEAR_MARGIN = 0.3   # m added to every clearance (the vertical curves round crests off)
 DECK_SHRINK = 10.0   # m: the roadway (asphalt, no curb island, no building) runs this far onto a deck from each abutment
 DECK_UNDER = 1.4     # m: the deck's thickness (its underside: the profile minus this)
+ISLAND_W = 6.0       # m: a curb island narrower than this is a median or a strip (sidewalk), wider ground is a block
 TUNNEL_COVER = 6.0   # m: a building over a tunnel's road with less ground than this over it is dropped (a portal's cut)
 PORTAL_PAD = 30.0    # m: a tunnel link's roadway runs this far in from a portal (the cut before the bore)
 PROMOTE_PAD = 25.0   # m: a mis-tagged crossing's deck runs this far past the road under it, each side
@@ -1734,18 +1735,27 @@ def _compile_tile(Wd, c, r, dem_files):
     park_union = unary_union([pg for _, pg in parks]) if parks else None
     wb_edge = WB.exterior
     islands = []   # (unclipped polygon, kind)
-    for pp in sorted(polygons(raised), key=lambda g: (round(g.bounds[0], 2), round(g.bounds[1], 2), round(g.area, 2))):
+    okey = lambda g: (round(g.bounds[0], 2), round(g.bounds[1], 2), round(g.area, 2))  # noqa: E731
+    for pp in sorted(polygons(raised), key=okey):
         if pp.area < 6:
             continue
-        mrr = pp.minimum_rotated_rectangle
-        sides = sorted(LineString(mrr.exterior.coords[i:i + 2]).length for i in range(2)) if mrr.geom_type == 'Polygon' else [0, 0]
-        if pp.distance(wb_edge) < 1e-6:
-            # (cut by the window: its area is the window's, not its own, so it counts as large; but a strip narrower
-            # than 6 m is a median whatever its length, and its width is the same in every window that holds it)
-            kind = 'island' if sides[0] < 6 else 'block'
-        else:
-            kind = 'island' if (pp.area < 120 or sides[0] < 6) else 'block'
-        islands.append((pp, kind))
+        if pp.area < 120 and pp.distance(wb_edge) >= 1e-6:
+            islands.append((pp, 'island'))   # (a small one: whole, and inside every window that holds any of it)
+            continue
+        # the rest by local width, the same in every window that holds the place (a polygon cut by the window has the
+        # window's extent, not its own): the parts narrower than ISLAND_W m (medians, strips; the morphological opening
+        # leaves them out) are islands, the rest block; a narrow bit under 6 m2 stays with the block
+        # (the overlays on valid inputs and a 1 cm grid: robust where the opening's edges run along the polygon's own; a
+        # polygon GEOS still cannot split is one kind, block if any of it is wide)
+        pv = shapely.make_valid(pp)
+        op = shapely.make_valid(pv.buffer(-ISLAND_W / 2, join_style='mitre').buffer(ISLAND_W / 2, join_style='mitre'))
+        try:
+            wide = shapely.intersection(op, pv, grid_size=0.01)
+            narrow = [q for q in polygons(shapely.difference(pv, wide, grid_size=0.01)) if q.area >= 6]
+            block = polygons(shapely.difference(pv, unary_union(narrow), grid_size=0.01)) if narrow else [pp]
+        except shapely.errors.GEOSException:
+            narrow, block = ([], [pp]) if op.area > 1.0 else ([pp], [])
+        islands += sorted([(q, 'block') for q in block if q.area >= 1.0] + [(q, 'island') for q in narrow], key=lambda t: okey(t[0]))
     blocks = []
     for pp, kind in islands:
         if not pp.intersects(TB):
