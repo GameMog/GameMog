@@ -29,6 +29,7 @@ import { runForgeBrowserChecks } from './storykit-forge-browser-check.ts';
 import { runHometownChecks } from './storykit-hometown-check.ts';
 import { runTownChecks } from './hometown-towns-check.ts';
 import { runPlacesChecks } from './places-check.ts';
+import { runHometownTilesChecks } from './hometown-tiles-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -542,6 +543,8 @@ await runTownChecks(ok);
 // Story Kit (B6): the Character Forge in a creator's browser: its sharp, and every anchor forged in Chrome under the store's cap
 await runForgeBrowserChecks(ok);
 runPlacesChecks(ok);
+// Hometown hosting (12 Nov): the disk store's cap and floor, the GC's dry run and pins, the pre-warm list, the routes
+await runHometownTilesChecks(ok);
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);

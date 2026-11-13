@@ -1,0 +1,83 @@
+/**
+ * Hometown store GC: "cache forever", with guards. A plan is always made first (a dry run: what would go, and how
+ * many bytes); it deletes only when applied with the same plan's id, so nothing is removed that the owner did not see.
+ *
+ * Never collected:
+ *   current   the build(s) this server serves new towns from (HOMETOWN_BUILD; else the newest build in the store)
+ *   pinned    every build any world names: a published game in gamemog.db, or a Story Kit pack or sealed world in
+ *             data/storykit, drafts included (pins.ts). A Mog's lock (base.hometown) points at its build's tiles, so a
+ *             pinned build keeps every object it has
+ * Collectable: every other build, whole, least recently served first (the store's access journal; a build never
+ * served counts from its newest file). With a target, builds go until the store is at or under it; without one,
+ * every collectable build goes. Temp files a killed writer left, an hour old or more, always go.
+ * If the pins could not be read, the plan refuses to delete anything (a guard must never fail open).
+ */
+import { createHash } from 'node:crypto';
+import type { TileStore, Entry } from './store.ts';
+
+export type GcBuild = { buildId: string; objects: number; bytes: number; lastServed: number | null; newestFile: number; status: 'current' | 'pinned' | 'collect' | 'keep' };
+export type GcPlan = {
+  planId: string;
+  at: number;
+  totalBytes: number;
+  targetBytes: number | null;
+  builds: GcBuild[];
+  delete: { keys: string[]; bytes: number; builds: string[] };
+  tmp: { keys: string[]; bytes: number };
+  afterBytes: number;
+  pinsOk: boolean;
+  pinSources: string[];
+  refused?: string;
+};
+
+export function planGc(o: {
+  entries: Entry[]; tmp?: Entry[]; current: string[]; pins: Set<string>; pinsOk: boolean; pinSources?: string[];
+  lastServed?: Map<string, number>; targetBytes?: number | null; now?: number;
+}): GcPlan {
+  const now = o.now ?? Date.now();
+  const by = new Map<string, { keys: string[]; bytes: number; newest: number }>();
+  for (const e of o.entries) {
+    const b = e.key.split('/')[1].replace(/\.json$/, '');
+    const g = by.get(b) ?? { keys: [], bytes: 0, newest: 0 };
+    g.keys.push(e.key); g.bytes += e.bytes; g.newest = Math.max(g.newest, e.mtimeMs);
+    by.set(b, g);
+  }
+  const total = o.entries.reduce((a, e) => a + e.bytes, 0) + (o.tmp ?? []).reduce((a, e) => a + e.bytes, 0);
+  const builds: GcBuild[] = [...by].map(([buildId, g]) => ({
+    buildId, objects: g.keys.length, bytes: g.bytes, lastServed: o.lastServed?.get(buildId) ?? null, newestFile: g.newest,
+    status: o.current.includes(buildId) ? 'current' : o.pins.has(buildId) ? 'pinned' : 'keep',
+  }));
+  const oldTmp = (o.tmp ?? []).filter((e) => now - e.mtimeMs >= 3600_000);
+  const tmpBytes = oldTmp.reduce((a, e) => a + e.bytes, 0);
+  // least recently served first; a build never served by its newest file
+  const order = builds.filter((b) => b.status === 'keep').sort((a, b) => (a.lastServed ?? a.newestFile) - (b.lastServed ?? b.newestFile) || (a.buildId < b.buildId ? -1 : 1));
+  const target = o.targetBytes ?? null;
+  let after = total - tmpBytes;
+  const del: GcBuild[] = [];
+  if (o.pinsOk) {
+    for (const b of order) {
+      if (target != null && after <= target) break;
+      del.push(b); b.status = 'collect'; after -= b.bytes;
+    }
+  }
+  const keys = del.flatMap((b) => by.get(b.buildId)!.keys);
+  const plan: Omit<GcPlan, 'planId'> = {
+    at: now, totalBytes: total, targetBytes: target, builds: builds.sort((a, b) => (a.buildId < b.buildId ? -1 : 1)),
+    delete: { keys, bytes: del.reduce((a, b) => a + b.bytes, 0), builds: del.map((b) => b.buildId) },
+    tmp: { keys: oldTmp.map((e) => e.key), bytes: tmpBytes }, afterBytes: after, pinsOk: o.pinsOk, pinSources: o.pinSources ?? [],
+    ...(o.pinsOk ? {} : { refused: 'the pins could not all be read: nothing is collected' }),
+  };
+  // (the id covers exactly what would be deleted: apply refuses if the store or the pins moved since the dry run)
+  const planId = createHash('sha256').update(JSON.stringify([plan.delete.keys, plan.tmp.keys])).digest('hex').slice(0, 16);
+  return { planId, ...plan };
+}
+
+/** Delete what the plan names; only when `planId` is the plan's own (made just now from the same store and pins). */
+export function applyGc(store: TileStore, plan: GcPlan, planId: string): { deleted: number; bytes: number } {
+  if (!plan.pinsOk) throw new Error(plan.refused ?? 'pins not read');
+  if (planId !== plan.planId) throw new Error(`plan ${planId} is not the current plan ${plan.planId}: run the dry run again`);
+  let n = 0, bytes = 0;
+  for (const k of plan.delete.keys) { bytes += store.delete(k); n++; }
+  for (const k of plan.tmp.keys) { bytes += store.removeTmp(k); n++; }
+  return { deleted: n, bytes };
+}
