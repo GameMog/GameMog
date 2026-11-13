@@ -251,7 +251,9 @@ function buildGradeSeparation(scene, network) {
       quad(geo.concrete, P(seg, ta, o1), P(seg, tb, o1), P(seg, tb, o1, PARAPET_H), P(seg, ta, o1, PARAPET_H));
       quad(geo.concrete, P(seg, tb, o0), P(seg, ta, o0), P(seg, ta, o0, PARAPET_H), P(seg, tb, o0, PARAPET_H));
       quad(geo.concrete, P(seg, ta, o0, PARAPET_H), P(seg, ta, o1, PARAPET_H), P(seg, tb, o1, PARAPET_H), P(seg, tb, o0, PARAPET_H));
+      // (for what is on the deck only: a car under it, BELOW_COLLIDER m lower, is not stopped by it, controllers.js)
       collider(cx, cz, seg.dx, seg.dz, len + 0.5, 0.3, y - 1, y + PARAPET_H);
+      colliders[colliders.length - 1].below = 0.5;
     }
   }
   function linkDecks() {
