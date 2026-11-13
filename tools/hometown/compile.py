@@ -956,6 +956,31 @@ class World:
                     if (q['lvl'], r['seg'], r['i']) > (r['lvl'], q['seg'], q['i']):
                         under.append((sq, self.pkey(r), sr, CLEAR_ROAD + CLEAR_MARGIN))
                         byk[self.pkey(r)] = r
+                # roads of a LOWER level running under it along the way (a stacked deck: Fort Pitt's two; a viaduct over a
+                # street): every station within (w + w') / 2 of one, over 20 m of overlap, clear of a node they share
+                qa, qb = Point(line.coords[0]), Point(line.coords[-1])
+                for r in sorted(self.pieces_near(line.buffer(q['w'] / 2 + 15)), key=self.pkey):
+                    if r['seg'] == q['seg'] or r['lvl'] >= q['lvl'] or r['flags'] & (FLAGS['private'] | FLAGS['pedestrian'] | FLAGS['tunnel']):
+                        continue
+                    rl, Lr, _ = self.pgeom(r)
+                    shared = [Point(rl.coords[0]) if n == r['a'] else Point(rl.coords[-1]) for n in (r['a'], r['b']) if n in (q['a'], q['b'])]
+                    hits = []
+                    for i2, s_ in enumerate(ss):
+                        if not (u0 <= s_ <= u1):
+                            continue
+                        pt = Point(*self.at_arc(q, [s_]))
+                        if rl.distance(pt) > (q['w'] + r['w']) / 2 or any(sh.distance(pt) < 30 for sh in shared):
+                            continue
+                        hits.append((s_, float(rl.project(pt))))
+                    if len(hits) < 5:
+                        continue
+                    riv = self.deck_iv(r)
+                    for s_, sr in hits:
+                        if riv is not None and riv[0] <= sr <= riv[1]:
+                            under.append((s_, self.pkey(r), sr, CLEAR_ROAD + CLEAR_MARGIN))
+                            byk[self.pkey(r)] = r
+                        else:
+                            fixed.append((s_, grade.interp(ss, g, s_) + CLEAR_ROAD + CLEAR_MARGIN))
                 main = q['cls'] in MAINLINE and not q['link']
                 gp.append(grade.Piece(kk, q['a'], q['b'], L, u0, u1, main, g, fixed, under))
             # (a node's ground: its first piece's (in key order) end station; every piece's end there is the same point)
