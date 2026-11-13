@@ -305,7 +305,7 @@ export default function Create() {
           {telling ? (
             <section className="panel cidea">
               <div className="copts" style={{ marginTop: 0 }}>
-                <StoryCityField value={city} onChange={setCity} disabled={busy || !!town} />
+                <StoryCityField value={city} onChange={setCity} disabled={busy || !!town} town={HOMETOWN && town ? `${town.place.name}, ${town.place.state}` : null} />
               </div>
               {HOMETOWN && (
                 <div className="ctown">

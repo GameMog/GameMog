@@ -29,12 +29,13 @@ const Chevron = () => (
   <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden><path d="M5 8 L10 13 L15 8" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
 );
 
-export function StoryCityField({ value, onChange, disabled }: { value: StoryCity; onChange: (c: StoryCity) => void; disabled?: boolean }) {
+export function StoryCityField({ value, onChange, disabled, town }: { value: StoryCity; onChange: (c: StoryCity) => void; disabled?: boolean; town?: string | null }) {
+  // (a hometown picked: the field names it, locked, instead of a stale New York)
   return (
     <label className="cselect skcity">
       <span>City</span>
-      <select value={value} disabled={disabled} onChange={(e) => { if (isStoryCity(e.target.value)) onChange(e.target.value); }}>
-        {STORY_CITIES.map((c) => <option key={c.id} value={c.id} disabled={!c.ready}>{c.ready ? c.name : `${c.name} (coming soon)`}</option>)}
+      <select value={town ? 'town' : value} disabled={disabled || !!town} onChange={(e) => { if (isStoryCity(e.target.value)) onChange(e.target.value); }}>
+        {town ? <option value="town">{town}</option> : STORY_CITIES.map((c) => <option key={c.id} value={c.id} disabled={!c.ready}>{c.ready ? c.name : `${c.name} (coming soon)`}</option>)}
       </select>
       <Chevron />
     </label>
