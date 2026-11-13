@@ -596,6 +596,7 @@ async function initApp() {
     let best = null;
     for (const e of trafficSystem.network?.edges || []) {
       if (e.len < 12) continue;
+      if (e.bore && e.bore.kind === 'deck') continue; // (a Hometown package's deck: arrivals are on the ground)
       const mx = e.sx + e.dx * e.len / 2, mz = e.sz + e.dz * e.len / 2;
       if (Math.abs(mx - x) > R + e.len / 2 || Math.abs(mz - z) > R + e.len / 2) continue;
       const t = Math.max(6, Math.min(e.len - 6, (x - e.sx) * e.dx + (z - e.sz) * e.dz));

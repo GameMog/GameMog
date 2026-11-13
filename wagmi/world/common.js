@@ -85,6 +85,7 @@ export function createWorld(city) {
     let best = null;
     for (const e of n.edges) {
       if (e.len < 8) continue;
+      if (e.bore && e.bore.kind === 'deck') continue; // (a Hometown package's deck: places and spawns stay on the ground)
       const mx = e.sx + e.dx * e.len / 2, mz = e.sz + e.dz * e.len / 2;
       if (Math.abs(mx - x) > R + e.len / 2 || Math.abs(mz - z) > R + e.len / 2) continue;
       const s = clamp((x - e.sx) * e.dx + (z - e.sz) * e.dz, 4, e.len - 4);
