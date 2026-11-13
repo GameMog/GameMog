@@ -16,7 +16,7 @@ import type { HometownConfig } from './config.ts';
 import type { TileStore } from './store.ts';
 import { blockOf, type Domain } from './keys.ts';
 
-export const ENV_ALLOW = ['PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL', 'TZ', 'HOMETOWN_IMAGE_DIGEST'];
+export const ENV_ALLOW = ['PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL', 'TZ', 'HOMETOWN_IMAGE_DIGEST', 'HOMETOWN_OSM_ROADS', 'HOMETOWN_DEM_SNAPSHOT'];
 export const MAX_WAITING = 20;
 export const TIMEOUT_MS = 5 * 60_000;
 
@@ -51,7 +51,8 @@ export function createCompiler(cfg: HometownConfig, store: TileStore, run: (argv
     if (buildIdOf) return buildIdOf();
     if (ownBuild !== undefined) return ownBuild;
     if (!cfg.python || !cfg.compilerDir) return (ownBuild = null);
-    const r = spawnSync(cfg.python, ['tools/hometown/compile.py', '--print-build', '--store', store.root], { cwd: cfg.compilerDir, env: childEnv(), encoding: 'utf8', timeout: 60_000 });
+    // (with the blocks' own --data: the buildId includes the OSM lane table under it)
+    const r = spawnSync(cfg.python, ['tools/hometown/compile.py', '--print-build', '--store', store.root, ...(cfg.sourcesDir ? ['--data', cfg.sourcesDir] : [])], { cwd: cfg.compilerDir, env: childEnv(), encoding: 'utf8', timeout: 60_000 });
     try { ownBuild = JSON.parse(r.stdout).buildId ?? null; } catch { ownBuild = null; }
     return ownBuild ?? null;
   }

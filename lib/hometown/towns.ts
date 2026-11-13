@@ -91,7 +91,8 @@ export function markInterrupted(cfg: TownsConfig = townsConfig()) {
 // ---------------------------------------------------------------------------------------------- the compiler's build
 /** The child's environment: an allowlist, never the server's own (its keys and tokens). */
 function childEnv(): Record<string, string> {
-  const keep = ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR', 'DUCKDB_EXTENSION_DIRECTORY', 'HOMETOWN_IMAGE_DIGEST'];
+  // (HOMETOWN_OSM_ROADS and HOMETOWN_DEM_SNAPSHOT are read by compile.py and go into the buildId: the same in every child)
+  const keep = ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR', 'DUCKDB_EXTENSION_DIRECTORY', 'HOMETOWN_IMAGE_DIGEST', 'HOMETOWN_OSM_ROADS', 'HOMETOWN_DEM_SNAPSHOT'];
   const env: Record<string, string> = { PYTHONUNBUFFERED: '1', PYTHONDONTWRITEBYTECODE: '1' };
   for (const k of keep) { const v = process.env[k]; if (v) env[k] = v; }
   return env;
@@ -114,10 +115,13 @@ function run(cfg: TownsConfig, script: string, args: string[], onErrLine?: (l: s
   });
 }
 
-/** The compiler's current build id (compile.py --print-build: compiler version, libraries, sources, grid), once. */
+/** The compiler's current build id (compile.py --print-build: compiler version, libraries, sources, grid), once.
+ *  With the jobs' own --data: the id includes the OSM lane table under it, so without it the two disagree and every
+ *  job fails "the compiler is at X, the job at Y". */
+export const printBuildArgs = (cfg: TownsConfig) => ['--print-build', '--store', cfg.store, '--data', cfg.sources];
 export function currentBuild(): Promise<string> {
   const r = rt();
-  return (r.build ??= run(r.cfg, 'compile.py', ['--print-build', '--store', r.cfg.store], undefined, 60_000).then((x) => {
+  return (r.build ??= run(r.cfg, 'compile.py', printBuildArgs(r.cfg), undefined, 60_000).then((x) => {
     const id = x.code === 0 ? (JSON.parse(x.out) as { buildId: string }).buildId : null;
     if (!id) { r.build = null; throw new Error(`the compiler's build id could not be read: ${x.err.slice(-300)}`); }
     return id;

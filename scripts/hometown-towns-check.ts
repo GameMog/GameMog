@@ -15,7 +15,7 @@ import { checkHometownReply } from '../lib/storykit-hometown.ts';
 import { gatePack, toRunnerPack } from '../storykit/pack/gate.ts';
 import { cityTableOf } from '../storykit/hometown/hometown-gate.ts';
 import { TOWN_ID, canonicalPlaceId, serviceLock, storyLock, sameServiceLock, LOCK_FORMAT } from '../lib/hometown/ids.ts';
-import { canonicalBox, TOWN_WORDS, cityPackageByLock, bundleFile, requestTown, markInterrupted } from '../lib/hometown/towns.ts';
+import { canonicalBox, TOWN_WORDS, cityPackageByLock, bundleFile, requestTown, markInterrupted, printBuildArgs } from '../lib/hometown/towns.ts';
 import { townsConfig } from '../lib/hometown/config.ts';
 import { storyFrameQuery } from '../lib/storykit-publish.ts';
 import { StoryStore } from '../lib/storykit-store.ts';
@@ -100,6 +100,8 @@ export async function runTownChecks(ok: Ok) {
     ok('a full queue is 503 for a new town', (await requestTown('us-4000300', '198.51.100.2')).status === 503);
     ok('an unknown or bad place id is refused', (await requestTown('us-9999999', 'x')).status === 404 && (await requestTown('okemah', 'x')).status === 400);
     ok('a restart marks the jobs it cut short interrupted', markInterrupted(cfg) === 3);
+    const pb = printBuildArgs(cfg);
+    ok('the build id is read with the jobs\' own --data (it includes the OSM lane table under it)', pb[pb.indexOf('--data') + 1] === cfg.sources && pb[pb.indexOf('--store') + 1] === cfg.store);
     rt.queue = []; rt.running = null; rt.build = null;
     rmSync(dir, { recursive: true, force: true });
     ok('without its town\'s bundle a hometown pack is refused by the store', !s.open(pack).ok);
