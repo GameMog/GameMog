@@ -19,6 +19,15 @@ function buildPlaces({ N, lib, missing, nearestLane }) {
   for (const k of Object.keys(SF_SPAWN_NAMES)) if (!lib[k]) missing.push(k);
 }
 
+// the ground mask's class under (x, z) (cities/sf tools/geo-groundmask.mjs, one byte per 1 m cell: 0 asphalt, 1 sidewalk
+// or paved square, 2 lawn, 3 sand, 4 rock, 5 the water's edge); -1 off it or before it is loaded
+function maskClass(x, z) {
+  const M = globalThis.window?.NYC?.DATA?.groundMask, H = M && M.header;
+  if (!H || !M.mask) return -1;
+  const i = Math.floor((x - H.originX) / H.cell), j = Math.floor((z - H.originZ) / H.cell);
+  return i < 0 || j < 0 || i >= H.w || j >= H.h ? -1 : M.mask[j * H.w + i];
+}
+
 export function createSF() {
   return createWorld({
     id: 'sf', name: 'San Francisco',
@@ -35,5 +44,7 @@ export function createSF() {
     grid: null,
     // (no park lawn measured for a set's dressing)
     parkLawn: () => null,
+    // (a sidewalk or a paved square where a man stands, raised curb or not: the plazas have none)
+    sidewalkAt: (x, z) => maskClass(x, z) === 1,
   });
 }

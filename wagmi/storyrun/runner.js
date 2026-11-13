@@ -114,7 +114,9 @@ export function createRunner(ctx) {
   const COLOUR6 = /^#[0-9A-Fa-f]{6}$/;
   const tokens = (s) => String(s ?? '')
     .replace(/\{ride\.name\}|\{ride\}/g, car.label || 'your car').replace(/\{ride\.board\}/g, rideWord('board', 'Get in')).replace(/\{ride\.go\}/g, rideWord('go', 'Drive')).replace(/\{ride\.park\}/g, rideWord('park', 'Stop'))
-    .replace(/\{name\}/g, heroName);
+    .replace(/\{name\}/g, heroName)
+    // (a site of the mission by its id, its name in this city: 'Fill up at **{site.gas}**', places.js)
+    .replace(/\{site\.([a-z][a-z0-9_-]{0,31})\}/g, (all, id) => (M && places.siteName?.(M.def, id)) || 'there');
   // '**bold**' -> Mog City's one coloured noun (yellow: a place); '**bold**{red}' names its colour (yellow, red, blue, green)
   const parts = (s, color = 'yellow') => {
     const out = []; const re = /\*\*(.+?)\*\*(?:\{(yellow|red|blue|green)\})?/g; let at = 0, m; s = tokens(s);
@@ -185,7 +187,7 @@ export function createRunner(ctx) {
   }
 
   /* --------------------------------------------------------------- the world -- */
-  const placeOf = (ref, why) => { const p = places.at(ref); if (!p) throw new Fail(`The story names a place this city doesn't have (${typeof ref === 'string' ? ref : ref?.['@']}).`, 'place'); return p; };
+  const placeOf = (ref, why) => { const p = places.at(ref); if (!p) throw new Fail(`The story names a place this city doesn't have (${typeof ref === 'string' ? ref : ref?.site ? `a ${String(ref.site.kind || ref.site).replace('_', ' ')}` : ref?.['@']}).`, 'place'); return p; };
   // the player at a place: at the wheel (the car on its lane) or on foot beside the car
   function putPlayer(p, mode = 'car') {
     if (mode === 'walk' || mode === 'person') {
@@ -2755,6 +2757,8 @@ export function createRunner(ctx) {
   // a mission, with Mog City's fail screen: Retry (from its checkpoint), Quit, and Skip after three fails
   // (resume: a checkpoint saved in an earlier session (index.js Continue), its snapshot as attempt() took it)
   async function play(def, { act = null, from = null, resume = null } = {}) {
+    // (the mission's sites, the places it asks for by what they are: picked once, here at its start, and kept: places.js)
+    places.prepare?.(def);
     let cp = resume && Number.isInteger(resume.i) && resume.i > 0 && resume.i < def.steps.length && resume.at ? resume : null, fails = 0;
     // (?step=<id>: from that step, where its `from` puts him; a dev and Mission select start)
     if (from) { const i = def.steps.findIndex((s) => s.id === from); if (i >= 0) cp = { i, from: def.steps[i].from || def.start, state: { meters: { ...ctx.save.meters }, flags: { ...ctx.save.flags }, forks: {} }, timers: [] }; }

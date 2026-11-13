@@ -296,7 +296,7 @@ for (const r of ROADS) {
   ROAD_LABELS.push({
     text,
     lower: text.toLowerCase(),
-    raw: r.name.toLowerCase(),
+    raw: (text === 'Lane' ? text : r.raw || r.name).toLowerCase(), // (the data's own spelling too: 'ofarrell' finds O'Farrell St; a hidden name stays hidden)
     road: r,
     major: r.highway || r.w >= 15,
     highway: r.highway,

@@ -13,7 +13,9 @@
 //   signals  walkSignal({ dx, dz }, t) (a crossing walked that way has the WALK);  signalAt(road, t) -> 'green' | ...
 //   blocks   blockAt(x, z), blocksInRect(minX, maxX, minZ, maxZ), blocks (the curb islands)
 //   places   places (key -> { x, z, heading, name, cx?, cz?, foot? }), placesMissing, spawnPoints('all' | 'ground'),
-//            findMissionSites({ near, min, max, count, foot }), landmarks (name -> { x, z, ... })
+//            findMissionSites({ near, min, max, count, foot }) (the library's keys, nearest first) or
+//            findMissionSites({ kind, near, min, max, road, access, open, roadView, ..., seed, count }) (real places of a
+//            kind on this map, in the seed's order: MISSION-SITES.md), siteKinds, landmarks (name -> { x, z, ... })
 //   scene    sceneGroups (what the city's scene groups are called: grid, blocks, landmarks, streetDetails, traffic...)
 //   grid     New York's street grid (street(n), streetLine(n), avenue(id), avenueLine(id)); null in San Francisco
 //   ensureLoaded(bounds) -> Promise (v0: resolved, the whole city is in memory; a package: its data in and its tiles
