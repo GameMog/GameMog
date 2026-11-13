@@ -93,14 +93,21 @@ Next.js uses about 0.3-0.5 GB. On the 2 GB plan:
 
 So Phase 1 serves only.
 
-**Disk.**
-- Store size per town:
-  - Okemah (169 tiles): 11 MB.
-  - The 9-10 MB stores from the measurement runs: 6-10 MB.
-  - So about 10 MB a town on hg1.
-- The top 100 plus the named towns come to about 1 GB.
-- Story Kit already has 8,000 MB of the 10 GB on paper. A 2 GB cap makes the whole disk spoken for.
-- **Proposal:** resize the disk to 20 GB, which is +$2.50 a month at $0.25/GB. Then raise `HOMETOWN_DISK_CAP_GB` to 6, which holds about 500 towns. A disk can grow without downtime but never shrink.
+**Disk.** I pre-warmed the three named towns with their full capped boxes (`prewarm.py`, 13 Nov):
+
+| Town | Tiles | Size | Time |
+|---|---:|---:|---|
+| Okemah | 169 | 11 MB | 38 s |
+| Phoenix | 225 | 20 MB | 347 s, including fetching 4 regions |
+| Pittsburgh | 225 | 28 MB | 377 s |
+
+- A big city fills its whole 4.5 km box, so the top 100 is about **2-2.8 GB**. That is past the 2 GB cap: with the cap left at 2, the top 70 or so fit.
+- Story Kit already has 8,000 MB of the 10 GB on paper.
+- **Proposal:**
+  - resize the disk to **20 GB** (+$2.50 a month at $0.25/GB, so $5 in all);
+  - then set `HOMETOWN_DISK_CAP_GB=6`, which holds the top 100 plus about 150 more towns.
+- A disk can grow without downtime but never shrink.
+- Neighbouring towns share tiles, so the real total comes in under the sum of the towns.
 
 **Bandwidth.**
 - Render includes 5 GB a month on a Hobby workspace and 25 GB on Pro (render.com/docs/outbound-bandwidth), then charges $0.15/GB.
