@@ -441,7 +441,7 @@
        "@": "pkg_downtown"
       },
       "traffic": 0.4,
-      "stakes": "The ledger was last seen at the depot.",
+      "stakes": "The ledger was last seen at the county museum.",
       "passLine": "First Run: done.",
       "steps": [
        {
@@ -454,14 +454,14 @@
         "type": "drive",
         "to": "@museum",
         "radius": 10,
-        "objective": "Drive to **the old rail depot**."
+        "objective": "Drive to **the county museum**."
        },
        {
         "type": "walk",
         "to": "@museum",
         "radius": 6,
         "leaveCar": true,
-        "objective": "Walk up to **the old rail depot**."
+        "objective": "Walk up to **the county museum**."
        },
        {
         "type": "search",
@@ -496,7 +496,7 @@
         "type": "drive",
         "to": "@pharmacy2",
         "radius": 10,
-        "objective": "Take the box to **the county health clinic**."
+        "objective": "Take the box to **the pharmacy on Broadway**."
        },
        {
         "type": "say",
@@ -518,7 +518,7 @@
        "@": "stadium"
       },
       "traffic": 0.4,
-      "stakes": "Merle sent a message out back of the elevator.",
+      "stakes": "Merle sent a message out back of the stadium.",
       "passLine": "Words Out Back: done.",
       "steps": [
        {
@@ -576,7 +576,7 @@
         "type": "drive",
         "to": "@park",
         "radius": 10,
-        "objective": "Lie low at **the water tower**."
+        "objective": "Lie low at **Okemah Park**."
        }
       ]
      },
@@ -620,7 +620,7 @@
        "@": "june-diner"
       },
       "traffic": 0.4,
-      "stakes": "Merle's men are at the salvage yard.",
+      "stakes": "Merle's men are at the gas station on Columbia.",
       "passLine": "Last Light: done.",
       "steps": [
        {
