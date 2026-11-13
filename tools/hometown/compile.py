@@ -76,6 +76,7 @@ CLEAR_MARGIN = 0.3   # m added to every clearance (the vertical curves round cre
 DECK_SHRINK = 10.0   # m: the roadway (asphalt, no curb island, no building) runs this far onto a deck from each abutment
 DECK_UNDER = 1.4     # m: the deck's thickness (its underside: the profile minus this)
 PROMOTE_PAD = 25.0   # m: a mis-tagged crossing's deck runs this far past the road under it, each side
+OVERLAP_END = 40.0   # m: a lower road running under a deck counts from this far in from an abutment
 CLUSTER_CAP = 3000.0  # m: a grade cluster's extent; past it the cluster is cut (clusterSplit) at the next node
 URBAN_BLD = 340      # buildings within 300 m (1200 per km2): the urban lane defaults
 LANE_W = 3.4
@@ -966,7 +967,8 @@ class World:
                     shared = [Point(rl.coords[0]) if n == r['a'] else Point(rl.coords[-1]) for n in (r['a'], r['b']) if n in (q['a'], q['b'])]
                     hits = []
                     for i2, s_ in enumerate(ss):
-                        if not (u0 <= s_ <= u1):
+                        # (not within OVERLAP_END m of an abutment: there the two run side by side, the deck still low)
+                        if not (u0 + (OVERLAP_END if u0 > 0 or q['a'] not in free else 0) <= s_ <= u1 - (OVERLAP_END if u1 < L or q['b'] not in free else 0)):
                             continue
                         pt = Point(*self.at_arc(q, [s_]))
                         if rl.distance(pt) > (q['w'] + r['w']) / 2 or any(sh.distance(pt) < 30 for sh in shared):
