@@ -83,9 +83,10 @@ const RULE = {
 // still loses them); one INTERCEPT.after s more than INTERCEPT.far m behind, out of view, is put on a street ahead of
 // him (rMin..rMax m, within the cone ahead, out of view or behind a building) facing him (at most one every
 // INTERCEPT.every s; he is going INTERCEPT.v m/s or more); a chase opens with one car close behind him (30-60 m) and
-// every other one ahead; a car is only ever put down on the asphalt; and one stuck off the road out of view (or in
-// view but more than viewFar m off: a speck) is put back after offRespawn s (REJOIN.respawn elsewhere)
-const INTERCEPT = { after: 2, far: 110, rMin: 100, rMax: 170, cone: 0.35, every: 5, v: 10, keep: 0.1, keepMax: 46, keepFrom: 45, offRespawn: 1.5, viewFar: 150 };
+// every other one ahead (on his own road 160-240 m off, coming at him, else a street ahead out of view); a car is
+// only ever put down on the asphalt; and one stuck off the road out of view (or in view but more than viewFar m off:
+// a speck) is put back after offRespawn s (REJOIN.respawn elsewhere)
+const INTERCEPT = { after: 2, far: 110, rMin: 100, rMax: 170, cone: 0.35, every: 5, v: 10, keep: 0.1, keepMax: 50, keepFrom: 45, offRespawn: 1.5, viewFar: 150 };
 // held up behind the city's traffic this long (s; crawling behind it GHOST.crawl s), a chase car noses through it for
 // GHOST.t s (at most GHOST.vView m/s while the camera sees it)
 const GHOST = { after: 1.0, t: 2.6, vView: 9, crawl: 2.5 };
@@ -589,6 +590,12 @@ export function install(W) {
     const ok = (x, z) => { const dx = x - T.x, dz = z - T.z; return (dx * hx + dz * hz) / (Math.hypot(dx, dz) || 1) > INTERCEPT.cone && onRoad(x, z) && (!inView(x, z, 4) || !nav.sees(cx, cz, x, z)); };
     return nav.spot(T.x, T.z, rMin, rMax, ok, 120);
   }
+  // a town's opening: a lane spot on his own road ahead (within ~14 degrees of the way he is going, along it),
+  // rMin..rMax m off: a cruiser he sees coming down the road at him (that far off it is a speck as it appears)
+  function roadAheadSpot(T, rMin, rMax) {
+    const [hx, hz] = motion(T);
+    return nav.spot(T.x, T.z, rMin, rMax, (x, z, h) => { const dx = x - T.x, dz = z - T.z; return (dx * hx + dz * hz) / (Math.hypot(dx, dz) || 1) > 0.97 && Math.abs(Math.sin(h) * hx + Math.cos(h) * hz) > 0.9 && onRoad(x, z); }, 240);
+  }
   // (put down at s facing him, rolling)
   function putAt(P, s, T, speed, more = null) {
     Object.assign(P, { x: s.x, z: s.z, h: facing(s, T), speed, vx: 0, vz: 0, w: 0, path: null, back: 0, stuck: 0, farT: 0, y: cm.getGroundHeight(s.x, s.z, 'car') }, more);
@@ -648,7 +655,7 @@ export function install(W) {
       }
     } else {
       for (let i = 0; i < ch.want; i++) {
-        const s = (ch.open && i % 2 === 1 && aheadSpot(T, 90, 160)) || (ch.open ? hiddenSpot(T, 30, 60, true) : hiddenSpot(T, 45, 90)) || { x: T.x - Math.sin(T.h) * (50 + i * 10), z: T.z - Math.cos(T.h) * (50 + i * 10), h: T.h };
+        const s = (ch.open && i % 2 === 1 && (roadAheadSpot(T, 160, 240) || aheadSpot(T, 90, 160))) || (ch.open ? hiddenSpot(T, 30, 60, true) : hiddenSpot(T, 45, 90)) || { x: T.x - Math.sin(T.h) * (50 + i * 10), z: T.z - Math.cos(T.h) * (50 + i * 10), h: T.h };
         ch.cars.push(makeCar(ch, i, { x: s.x, z: s.z, h: facing(s, T), speed: opts.speed ?? 14 }));
       }
     }
