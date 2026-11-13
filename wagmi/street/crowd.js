@@ -28,8 +28,10 @@ export function createCrowd(W) {
   const { blockAt, blocksInRect } = world, busy = (b) => world.commercial(b.district);
   const drawn = new PersonCrowd(MAX + EXTRA, { farShadow: false, name: 'StreetPeople' });
   for (const m of drawn.meshes) app.scene.add(m);
-  const ground = (owner, x, z) => cm.getGroundHeight(x, z, 'person');
-  const groundXZ = (x, z) => cm.getGroundHeight(x, z, 'person');
+  // (a Hometown package's decks: the people on the sidewalks are on the ground, whatever level the player is on)
+  const PKG = !!globalThis.window?.NYC?.PKG && typeof cm.groundAt === 'function';
+  const groundXZ = PKG ? (x, z) => cm.getGroundHeight(x, z, 'person', cm.groundAt(x, z)) : (x, z) => cm.getGroundHeight(x, z, 'person');
+  const ground = (owner, x, z) => groundXZ(x, z);
   const collide = (pos, r) => cm.resolveHorizontalCollision(pos, r, pos.y + 1.0);
   // (under a body thrown about: the street, the sidewalk, a park's raised lawn; never Dan's car, see carAt)
   const bodyGround = groundXZ;
