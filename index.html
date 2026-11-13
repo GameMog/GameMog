@@ -813,9 +813,13 @@
     import { SunLightNode } from 'three/addons/lights/SunLightNode.js';
     import { ClusteredLighting } from 'three/addons/lighting/ClusteredLighting.js';
 
+    // (?origin=float, wagmi/world/origin.js: the scene is drawn rebased round the player; the city's shaders read
+    // positionWorld and cameraPosition in the absolute frame, NYC.ORIGIN (the render origin) added back)
+    const ORIGIN = new URLSearchParams(location.search).get('origin') === 'float' ? TSL.uniform(new THREE.Vector3()) : null;
     window.NYC = {
       THREE,
-      TSL,
+      TSL: ORIGIN ? { ...TSL, positionWorld: TSL.positionWorld.add(ORIGIN), cameraPosition: TSL.cameraPosition.add(ORIGIN) } : TSL,
+      ORIGIN,
       PostFX: { bloom, ssr },
       Addons: {
         mergeGeometries,

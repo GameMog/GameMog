@@ -2,7 +2,11 @@
 // classic scripts' tables and helpers; window.__NYC_APP: its runtime objects), read when asked, never at import (the
 // city is still loading when the game's modules are evaluated). wagmi/world/ny.js and sf.js give it what differs: the
 // frame, the place library, the road classes, the scene's group names. See wagmi/world/index.js for the API.
+import { createTileManager } from './tiles.js';
+import { createMemoryTileSource } from './tiles-mem.js';
+import { createFloatingOrigin, floatingOriginWanted } from './origin.js';
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const query = () => { try { return new URLSearchParams(globalThis.location?.search || ''); } catch { return new URLSearchParams(); } };
 const N = () => globalThis.window?.NYC || {};
 const APP = () => globalThis.window?.__NYC_APP || null;
 
@@ -542,13 +546,43 @@ export function createWorld(city) {
     sceneGroups: city.sceneGroups,
     // New York's street grid (null elsewhere): its avenues and numbered streets
     grid: city.grid || null,
-    // (v0: the whole city is in memory once the page has loaded it)
-    ensureLoaded: () => Promise.resolve(),
+    // ensureLoaded(x, z, r, lod = 'near') | ({ x, z, r }) | ({ minX, maxX, minZ, maxZ }) -> Promise<tile[]>: the tiles
+    // there loaded (wagmi/world/tiles.js; today sliced from the city in memory, tiles-mem.js)
+    ensureLoaded: (...a) => tiles().ensureLoaded(...a),
+    // the tile manager (made on first use; ?tiles=1 has it follow the camera, round the player, from the start)
+    get tiles() { return tiles(); },
+    // the floating origin (?origin=float, wagmi/world/origin.js); null when off
+    origin: null,
     // the city's running app (controllerManager, trafficSystem, lightingSystem, postFX, scene...): null till it is up
     get app() { return APP(); },
     // its three.js scene (null till the app is up)
     get scene() { return APP()?.scene || null; },
     assets, look, street,
   };
+  let tm = null;
+  function tiles() {
+    if (!tm) {
+      const q = query();
+      // (a city's own grid when its adapter has one: a Hometown package's compiled 512 m tiles, wagmi/world/pkg.js;
+      // else the city in memory sliced, ?tileSize= m a side)
+      tm = createTileManager(city.tileSource ? city.tileSource(W) : createMemoryTileSource(W, { size: +q.get('tileSize') || 256 }));
+    }
+    return tm;
+  }
+  // (the flags: nothing of this runs without them)
+  if (globalThis.window && globalThis.setInterval) {
+    const q = query(), follow = q.get('tiles') === '1';
+    if (floatingOriginWanted()) W.origin = createFloatingOrigin();
+    if (follow || W.origin) {
+      const tick = setInterval(() => {
+        const app = APP(); if (!app?.controllerManager || !app.renderer) return;
+        if (W.origin && !W.origin.enabled) W.origin.install(app);
+        if (!follow) { clearInterval(tick); return; }
+        // (round the camera: what is drawn, and the player's own place on the follow cameras)
+        const p = app.cameraSystem?.camera?.position || app.controllerManager.getActiveEntity?.()?.position;
+        if (p) tiles().update(p.x, p.z);
+      }, 250);
+    }
+  }
   return W;
 }

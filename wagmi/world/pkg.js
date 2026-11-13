@@ -5,6 +5,7 @@
 // NAVD88 height minus PKG.frame.yOffset (the place's water or lowest ground near 0). Heading 0 faces +z (south).
 import { createWorld } from './common.js';
 import { SCENE_GROUPS } from './ny.js';
+import { createMemoryTileSource } from './tiles-mem.js';
 
 const PKG = () => globalThis.window?.NYC?.PKG || null;
 
@@ -20,25 +21,40 @@ function buildPlaces({ N, lib, missing, nearestLane }) {
   }
 }
 
-// ensureLoaded(bounds): resolves true once the package's data is in memory and the city built on it (the road graph's
-// traffic network up), when every compiled tile the bounds { minX, maxX, minZ, maxZ } (or { x, z, r }) touch is in the
-// package; false for bounds reaching tiles the package never compiled (v1: compile on first request, cache by compiler
-// version). The whole package loads at boot in v0, so a true answer never waits on more than the boot itself.
-function tilesFor(b) {
-  const size = PKG()?.tileSize || 512;
-  const r = b.r != null ? b.r : 0;
-  const minX = b.minX ?? b.x - r, maxX = b.maxX ?? b.x + r, minZ = b.minZ ?? b.z - r, maxZ = b.maxZ ?? b.z + r;
+// The package's tiles: one grid shared with the compiler (tools/hometown/compile.py TILE, PKG.tileSize: 512 m squares
+// keyed floor(x / size), floor(z / size) in the package's own frame, PKG.tiles the ones it compiled) and the tile
+// manager (wagmi/world/tiles.js: world.tiles, its cache key 'pkg:<id>@<compiler>:ix,iz'). The source slices the
+// package already in memory (tiles-mem.js; v1: the compiled tiles fetched, compiled on first request and cached by
+// compiler version), and asks for no tile the package never compiled.
+const tileSize = () => PKG()?.tileSize || 512;
+let compiled = null;
+const compiledSet = () => compiled || (PKG() ? (compiled = new Set((PKG().tiles || []).map(([x, z]) => x + ',' + z))) : new Set());
+function tileSource(W) {
+  const P = PKG() || {};
+  return createMemoryTileSource(W, { size: tileSize(), id: 'pkg:' + (P.id || 'none'), version: P.compiler || '0', has: (ix, iz) => compiledSet().has(ix + ',' + iz) });
+}
+// the grid cells the bounds touch: (x, z, r) | ({ x, z, r }) | ({ minX, maxX, minZ, maxZ }), a box round a disc
+function tilesFor(a, b, c) {
+  const size = tileSize();
+  const x = typeof a === 'number' ? a : a.x, z = typeof a === 'number' ? b : a.z, r = (typeof a === 'number' ? c : a.r) || 0;
+  const minX = a.minX ?? x - r, maxX = a.maxX ?? x + r, minZ = a.minZ ?? z - r, maxZ = a.maxZ ?? z + r;
   const out = [];
+  if (![minX, maxX, minZ, maxZ].every(Number.isFinite)) return out;
   for (let tz = Math.floor(minZ / size); tz <= Math.floor(maxZ / size); tz++) for (let tx = Math.floor(minX / size); tx <= Math.floor(maxX / size); tx++) out.push(tx + ',' + tz);
   return out;
 }
-async function ensureLoaded(bounds) {
+// ensureLoaded(x, z, r, lod) | ({ x, z, r }, lod) | ({ minX, maxX, minZ, maxZ }, lod) -> Promise<tile[]>: once the
+// package's data is in memory and the city built on it (the road graph's traffic network up), the tile manager's tiles
+// there at lod (the world contract's, cities/sf/docs/STREAMING.md); the array also says .complete (every tile the
+// bounds touch is one the package compiled) and .missing (the grid keys 'ix,iz' it never compiled: v1 compiles them on
+// first request). No bounds: [] (complete) once the package is up.
+async function ensureLoaded(W, ...a) {
   const N = globalThis.window?.NYC;
   if (N?.dataReady) await N.dataReady;
   for (let i = 0; i < 1200 && !globalThis.window?.__NYC_APP?.trafficSystem?.network; i++) await new Promise((r) => setTimeout(r, 50));
-  if (!bounds) return true;
-  const have = new Set((PKG()?.tiles || []).map(([x, z]) => x + ',' + z));
-  return tilesFor(bounds).every((k) => have.has(k));
+  const got = a[0] == null ? [] : await W.tiles.ensureLoaded(...a);
+  const missing = a[0] == null ? [] : tilesFor(...a).filter((k) => !compiledSet().has(k));
+  return Object.assign(got, { complete: missing.length === 0, missing });
 }
 
 export function createPkg() {
@@ -54,11 +70,13 @@ export function createPkg() {
     commercial: new Set(),
     sceneGroups: { ...SCENE_GROUPS, landmarks: 'SFLandmarks', grid: null, boroughs: null, sfStreetDetails: 'SFStreetDetails' },
     grid: null,
+    // (its tiles on the compiler's grid, above)
+    tileSource,
   });
   W.pkg = P.id || null;
   // how busy its streets are, 0..1 (the compiled density, buildings per km2: wagmi/street/crowd.js reads it, 1 elsewhere)
   W.crowd = Math.max(0.1, Math.min(1, P.density ?? 1));
-  W.ensureLoaded = ensureLoaded;
+  W.ensureLoaded = (...a) => ensureLoaded(W, ...a);
   // the package's own landmarks: its public places (school, library, park...) by name
   Object.defineProperty(W, 'landmarks', { get: () => Object.fromEntries(Object.values(PKG()?.places || {}).filter((p) => p.kind && !/^the /.test(p.name)).map((p) => [p.name, { x: p.cx, z: p.cz, kind: p.kind }])) });
   return W;

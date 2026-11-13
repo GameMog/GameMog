@@ -18,11 +18,15 @@
 //            kind on this map, in the seed's order: MISSION-SITES.md), siteKinds, landmarks (name -> { x, z, ... })
 //   scene    sceneGroups (what the city's scene groups are called: grid, blocks, landmarks, streetDetails, traffic...)
 //   grid     New York's street grid (street(n), streetLine(n), avenue(id), avenueLine(id)); null in San Francisco
-//   ensureLoaded(bounds) -> Promise (v0: resolved, the whole city is in memory; a package: its data in and its tiles
-//            under the bounds compiled, wagmi/world/pkg.js)
 //   engine   app (the city's running app, null till it is up), scene (its three.js scene); assets (TSL, Addons, Terrain,
 //            the lofted cars: BODY_SPECS, buildCarGeometry..., the people: PersonCrowd, PersonRig), look (cityUniforms,
 //            GRADE_LOOKS, CRATER_GLOW, the power uniforms, quality), street (breakables, streetFootprints, parkLawn)
+//   tiles    ensureLoaded(x, z, r, lod = 'near') (or ({ x, z, r }) / ({ minX, maxX, minZ, maxZ })) -> Promise<tile[]>: the
+//            tiles there loaded; tiles: the tile manager (tiles.js: rings, LRU, on('load' | 'upgrade' | 'unload'),
+//            stats()), its source the city in memory sliced (tiles-mem.js), a package's on its compiled 512 m grid (pkg.js: the
+//            tiles also say .complete / .missing, what the package never compiled); ?tiles=1 has it follow the player
+//   origin   the floating origin (?origin=float, origin.js: the scene drawn rebased round the player, the world's
+//            coordinates unchanged), else null. See cities/sf/docs/STREAMING.md
 import { cityId } from './city.js';
 import { createNY } from './ny.js';
 import { createSF } from './sf.js';
