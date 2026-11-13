@@ -163,6 +163,12 @@ export function runHometownChecks(ok: Ok) {
   refused('"he was shot" at a sensitive place is still violence', said('He was shot outside the clinic.'), /violence \("shot"\)/);
   refused('"shot at" a sensitive place is still violence', said('They shot at the school.'), /violence \("shot"\)/);
   refused('"shoot" at a sensitive place is still violence', said('They shoot up the hospital.'), /violence \("shoot"\)/);
+  // a camera word that is also a noun ("group", "hero", "drone", "still") followed by a target is gunfire, not a shot
+  refused('"the group shot at the church" is still violence', said('The group shot at the church.'), /violence \("shot"\)/);
+  refused('"the hero shot the guard at the school" is still violence', said('The hero shot the guard at the school.'), /violence \("shot"\)/);
+  refused('"they were still shot at the clinic" is still violence', said('They were still shot at the clinic.'), /violence \("shot"\)/);
+  refused('"the drone shot Marcus outside the hospital" is still violence', said('The drone shot Marcus outside the hospital.'), /violence \("shot"\)/);
+  passes('"a wide shot, the school at dawn" and "group shot: the church choir" are camera words', said('A wide shot, the school at dawn. Group shot: the church choir.'));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

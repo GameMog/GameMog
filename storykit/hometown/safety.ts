@@ -248,8 +248,14 @@ const SENSITIVE_NOUNS = /\b(?:schools?|schoolyard|kindergarten|daycare|day care|
 /** Camera words with "shot" in them ("wide shot", "establishing shot", "shot of"): not violence. "he was shot", "shot at"
  * and "shoot" still are. */
 const CAMERA_SHOT = /\b(?:(?:wide|close|close-?up|extreme close|long|medium|establishing|tracking|aerial|crane|drone|overhead|low[- ]angle|high[- ]angle|over[- ]the[- ]shoulder|reaction|insert|master|cutaway|cut-away|point[- ]of[- ]view|pov|dolly|panning|pan|static|beauty|hero|camera|wider|closer|tight|reverse|group|split|still)\s+shots?\b|\bshots?\s+(?:of|list)\b)/gi;
+/** What follows gunfire "shot" (a target or a direction: "the group shot at", "the hero shot the guard", "shot Marcus"),
+ * never a camera shot, whose next word is "of", a colon, a comma or a verb ("a wide shot shows"). */
+const SHOT_TARGET = /^\s+(?:at|up|down|dead|back|out|through|into|from|in|on|him|her|them|it|me|us|you|the|a|an|his|their|our|my|its|this|that|these|those|someone|somebody|everyone|anyone)\b/i;
+const SHOT_NAME = /^\s+\p{Lu}/u;
+const isGunfire = (m: string, rest: string) => /shots?$/i.test(m) && (SHOT_TARGET.test(rest) || SHOT_NAME.test(rest));
 /** The violent word in a sentence (its camera "shot"s set aside), or null. */
-export const violenceIn = (s: string) => VIOLENT_WORDS.exec(s.replace(CAMERA_SHOT, ' '));
+export const violenceIn = (s: string) =>
+  VIOLENT_WORDS.exec(s.replace(CAMERA_SHOT, (m: string, offset: number) => (isGunfire(m, s.slice(offset + m.length)) ? m : ' ')));
 const sentences = (t: string) => t.split(/(?<=[.!?])\s+|\n+/);
 
 export type Ref = { key: string; at: string; mission: string | null; role: 'target' | 'visit' | 'scene' };
