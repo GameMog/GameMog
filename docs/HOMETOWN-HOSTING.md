@@ -147,12 +147,27 @@ that default OFF: a deploy of this code changes nothing until the owner turns `H
 | The queue (`data/hometown/queue.db`: jobs, wants, towns, workers, costs) | `gamemog` web, its disk, 1 instance | `lib/hometown-build/queue.ts` |
 | A town's job graph, phases, wait estimate, admission, limits | web | `lib/hometown-build/towns.ts` (stage 1 in TS: `grid.ts`) |
 | The worker protocol (claim, heartbeat, objects, complete, fail) | web, `/api/hometown/worker/*`, bearer `HOMETOWN_WORKER_TOKEN` | `lib/hometown-build/server.ts` |
-| Compiling (regions, ctx, tiles, far, frame, bundles) | `gamemog-town-builder` background worker, Docker, no disk, 1..N | `deploy/town-builder/worker.py`, `deploy/hometown-compiler.Dockerfile` |
+| Compiling (regions, ctx, tiles, far, frame, bundles) | `gamemog-town-builder` **Render Workflow**: task `build_jobs`, one 4c-8g instance per run, started on demand, 0 when idle | `deploy/town-builder/workflow.py` (the task), `worker.py` (its loop), `workflow-build.sh` (the pinned build) |
+| Starting runs (never Python) | web: the dispatcher, a pass every 5 s and on every queue change, Render REST API | `lib/hometown-build/dispatch.ts` (runs table in `queue.db`) |
 | The store: tiles, ctx, manifests, builds, frames, bundles, far, src, dem | web disk, `data/hometown/` | `lib/hometown-tiles/` (`keys.ts` grammar, `http.ts verifyObject`) |
 | The owner's view | `/admin` overview, "Town builder" card; `GET /api/hometown/admin/builder` | `app/admin/dashboard.tsx` |
 
-The web never runs Python (`HOMETOWN_COMPILE` stays off). A worker holds nothing the web needs; its cache
-(`/tmp/hometown-cache`, capped by `HOMETOWN_CACHE_GB`) may vanish at any restart.
+The web never runs Python (`HOMETOWN_COMPILE` stays off). A run holds nothing the web needs; its cache
+(`/tmp/hometown-cache`, capped by `HOMETOWN_CACHE_GB`) vanishes when it ends.
+
+**On demand (the owner, 13 Nov: "upgrade on DEMAND, not anticipation").** No builder is up while the queue is empty.
+When a town is asked, the dispatcher sees claimable work and starts runs of `build_jobs` through
+`POST https://api.render.com/v1/task-runs` (bearer `HOMETOWN_RENDER_API_KEY`). Each run is the worker loop run once:
+it long-polls the same claim protocol over Render's private network (same region, `HOMETOWN_WEB` = the web's
+hostport), keeps its local cache warm across the town's jobs, and returns when nothing has been claimable for 20 s and
+nothing runs (or after its 2 h cap; the dispatcher then starts a fresh one if work is left). Billed per second; leases,
+heartbeats, retries and the reaper are unchanged (a run that dies loses one lease of time, 60 s).
+How many runs: `want = min(ceil((ready + leased weight) / 4 slots), ceil(P0 work / (4 x 60 s) + other work / (4 x 600 s)))`,
+at least 1 when anything is ready, at most `HOMETOWN_MAX_RUNS` (20), or `HOMETOWN_PREWARM_RUNS` (4) while only P5 is
+ready; at most 4 new runs a minute (Hobby: 16 new CPU a minute). Work = units x the job kind's EWMA. Every start is
+written to the `runs` table with its idempotency key BEFORE the POST, so a web restart re-sends the same key and Render
+answers with the run it already made. One run per job was rejected: a town is 30-150 small jobs, and each run pays its
+start (spin-up + `--print-build` + first downloads, 5-15 s) and loses the region/ctx cache affinity.
 
 ### Switches (web service)
 
@@ -161,14 +176,30 @@ The web never runs Python (`HOMETOWN_COMPILE` stays off). A worker holds nothing
 | `HOMETOWN_BUILDER` | `off` | `off`: inert. `owner`: `/api/towns*`, `/api/towns/enabled`, `/api/places` and Create's town box answer only the owner's `/admin` session. `on`: players |
 | `HOMETOWN_WORKER_TOKEN` | unset | the workers' bearer token (24+ characters). Unset: the worker routes are 404 |
 | `HOMETOWN_BUILD` | unset | the build new towns are made at: the `build=` the worker logs at start |
-| `HOMETOWN_DISK_CAP_GB` / `HOMETOWN_SRC_CAP_GB` | 8 / 2 | the store's cap; the staged regions' own share (least recently used go first) |
+| `HOMETOWN_DISK_CAP_GB` / `HOMETOWN_SRC_CAP_GB` | 4 / 1 (render.yaml; 8 / 2 once the disk is 20 GB) | the store's cap; the staged regions' own share (least recently used go first) |
+| `HOMETOWN_RUNS` | `off` | `workflows`: the dispatcher starts Render Workflows runs (needs the two below and `HOMETOWN_BUILDER` owner/on) |
+| `HOMETOWN_RENDER_API_KEY` | unset | a Render API key (sync: false), only to start and read task runs |
+| `HOMETOWN_WORKFLOW_SLUG` | from the workflow | render.yaml `fromService ... property: slug`; the task is `<slug>/build_jobs` (`HOMETOWN_RUN_TASK` overrides) |
+| `HOMETOWN_MAX_RUNS` / `HOMETOWN_RUN_SLOTS` / `HOMETOWN_PREWARM_RUNS` | 20 / 4 / 4 | runs in flight at most; compile slots a run; runs while only pre-warm is ready |
+| `HOMETOWN_RUN_STARTS_PER_MIN` / `HOMETOWN_RUN_TARGET_S` / `HOMETOWN_RUN_SPINUP_S` | 4 / 60 / 45 | new runs a minute; P0 drain target; added to the wait estimate when no run is live |
 | `HOMETOWN_MAX_WAIT_S` | 600 | over this wait to drive, a new town is refused with the minutes and the 3 nearest built towns |
-| `HOMETOWN_PER_IP_HOUR`, `HOMETOWN_DAILY_COLD`, `HOMETOWN_QUEUE_MAX` | 3, slots x 400 (min 100), slots x 3 (min 10) | the limits on NEW towns (a built town is never limited) |
+| `HOMETOWN_PER_IP_HOUR`, `HOMETOWN_DAILY_COLD`, `HOMETOWN_QUEUE_MAX` | 3, live slots x 400 (min 100), slots x 3 (min 10; with runs on, slots = what the dispatcher may start) | the limits on NEW towns (a built town is never limited). `HOMETOWN_DAILY_COLD` is the day's spend cap: set it before opening to players |
 | `HOMETOWN_FRAME` | off | on only once the compiler has `--frame` and `--assemble` (MogCity M2/M4): spawn-first towns, district bundles, lock v3 |
 | `HOMETOWN_CANARY_RATE` | 0.01 | the share of tile jobs recompiled on another worker and compared byte for byte |
 
-Worker service: `HOMETOWN_WEB` (from the web's hostport), `HOMETOWN_WORKER_TOKEN` (from the web's variable),
-`HOMETOWN_SLOT_GB` 1.5, `HOMETOWN_CACHE_GB` 4, `HOMETOWN_WORKER_PAUSED` (created `1`: claims nothing).
+Workflow service: `PYTHON_VERSION` 3.14.6 (pinned: part of the buildId), `HOMETOWN_WEB` (the web's hostport),
+`HOMETOWN_WORKER_TOKEN` (from the web's variable), `HOMETOWN_RUN_PLAN` 4c-8g (read when the task registers, i.e. at a
+deploy), `HOMETOWN_SLOT_GB` 1.5, `HOMETOWN_CACHE_GB` 4, `HOMETOWN_WORKER_PAUSED` (`1`: a run claims nothing and ends).
+
+**The build environment (no Docker: a workflow is `runtime: python` or `node` only).** `buildCommand` installs the SDK
+(`workflow-requirements.txt`, exact versions) and runs `workflow-build.sh`, which writes `.town-builder/`: the compiler
+at `MOGCITY_SHA` (THE one line to re-pin), its own venv from the compiler's hash lock (`--require-hashes`, wheels only),
+the OSM lane table checked by sha256, duckdb's httpfs/spatial installed at build time, the Overture file index, and the
+recipe id (sha of all of that + machine + glibc) that `compile.py` hashes into the buildId as `HOMETOWN_IMAGE_DIGEST`.
+It refuses any Python but `PYTHON_VERSION`. `deploy/hometown-compiler.Dockerfile` is the same recipe, kept for reference.
+
+**Pre-warm** runs on the same task: `POST /api/hometown/admin/prewarm` enqueues P5 jobs, the dispatcher starts at most
+`HOMETOWN_PREWARM_RUNS` runs for them, and a run claims P5 only when no P0-P3 job is claimable.
 
 ### What a town is today, and what it becomes
 
@@ -196,54 +227,44 @@ store's `dem/` family, so the next worker reads them from the web instead of USG
 Not measured here: Render's hosts (the Mac is arm64, the image x86_64: a different buildId by design), several worker
 instances, the spawn-first path (needs MogCity M2/M4).
 
-### Cost table (fill the $ column from the Render dashboard)
+### Cost (Render Workflows, 13 Nov 2026)
 
-Known: Standard 1c-2g is $25 a month; the disk is $0.25 per GB-month; bandwidth $0.15/GB past the included amount.
-Workers bill like the same plan's web service, prorated by the second. Planning numbers (to be replaced by the
-measured job costs on the status page): about 150 slot-seconds a town, so one 4c-8g worker (4 slots) builds about 96
-new towns an hour.
-
-| Scenario | Web | Disk | Workers | Run time | Bandwidth | $ / period |
-|---|---|---|---|---|---|---|
-| A. Owner test | 1c-2g | 20 GB | 1 x 2c-4g, suspended between sessions | about 10 h a month | under 5 GB | |
-| B. Soft launch | 1c-2g | 20 GB | 1 x 4c-8g always on | 730 h a month | 50-200 GB a month | |
-| C. Viral day (2,000 picks an hour, about 600 distinct new towns) | 2c-4g | 50 GB | 9 x 4c-8g for 24 h | 216 instance-h | 1-3 TB that day | |
-| D. Pre-warm the top 1,000 (one-off) | as now | 20 to 50 GB | 4 x 4c-8g for about 3 h | 12 instance-h | 0 (private network) | |
-| E. Pre-build all US (one-off + storage) | as now | 300-400 GB | 10 x 4c-8g for about 9 h | 90 instance-h | 0 | compute once; the disk monthly |
-| F. After Milestone 3 (no bundles) | 1c-2g or 2c-4g | half of E | 1-2 x 4c-8g | 730 h | about 1/5 of B a play | |
+Runs bill per second by plan: 4c-8g (ours) $1.00/h; 2c-4g $0.40, 2c-8g $0.70, 4c-16g $1.50, 8c-32g $2.50. No run, no
+bill. Measured (`deploy/town-builder/workflow-sim.sh`, Boley OK, cold, 121 tiles): 181.5 CPU-s a town on the Mac; with
+2x for Render's vCPUs, about $0.025 a town on a busy run and $0.08-0.12 for a town built alone. Idle $0; a why.com-size
+viral day (600 new towns) about $15-60; the ceiling is `HOMETOWN_MAX_RUNS` x $1/h. Web 1c-2g $25/month and the 10 GB disk
+$2.50/month are unchanged. The full table is in the go-live runbook.
 
 ### Rollout runbook
 
 **Before the first push (agents never push or deploy):**
-1. The compiler commit the image pins (`ARG MOGCITY_SHA` in `deploy/hometown-compiler.Dockerfile`, today MogCity
-   `hometown-integrate` 5379f18) must be on GitHub (GameMog/GameMog, any branch): the image fetches it by SHA.
-2. `deploy/town-builder/osm-roads-us.parquet` (17 MB, ODbL, sha256 in the `.json` beside it) must be in the image's build
-   context: commit it, or the image build stops at its sha256 check. Owner's call (it makes the repo 17 MB bigger).
-3. `npm run check` and `npm run check:platform` pass; `deploy/town-builder/dry-run.sh` passes on the Mac.
+1. The compiler commit `workflow-build.sh` pins (`MOGCITY_SHA`) must be on GitHub (GameMog/GameMog, any branch): the
+   build fetches it by SHA.
+2. `deploy/town-builder/osm-roads-us.parquet` (17 MB, ODbL, sha256 in the `.json` beside it) must be in the checkout, or
+   reachable at `HOMETOWN_OSM_URL` (set on the workflow): otherwise the build stops at its sha256 check. Owner's call.
+3. `npm run check` passes; `deploy/town-builder/workflow-sim.sh` passes on the Mac.
 
-**Deploy order (owner):**
-1. Push. The web deploys with `HOMETOWN_BUILDER=off`: the queue code is inert (boot creates an empty `queue.db`).
-   Syncing the Blueprint creates `gamemog-town-builder` paused (`HOMETOWN_WORKER_PAUSED=1`); it starts billing.
-2. Enter `HOMETOWN_WORKER_TOKEN` on the web's Environment page (the worker reads it from there).
-3. The worker logs `{"event": "start", "build": "htc-0.5.0-hg1-b........", "image": "recipe-..."}`. Set the web's
-   `HOMETOWN_BUILD` to that build, `HOMETOWN_BUILDER=owner`, `HOMETOWN_TILES=on`. Unpause the worker
-   (`HOMETOWN_WORKER_PAUSED=0`).
-4. Production test (owner only; players see nothing): the `/admin` Town builder card; then Create, pick a town;
-   `POST /api/hometown/admin/loadtest {"n": 30, "spreadS": 60}`; scale to 3 instances by hand and repeat; the fault
-   drills (restart the worker mid-job, redeploy the web mid-build, fill the store to its cap). Exit criteria: p50 time
-   to drive at most 30 s staged / 90 s cold (needs `HOMETOWN_FRAME`), 0 canary mismatches, 0 lost jobs, web p95
-   within 10%, wait estimate within 30%.
-5. `HOMETOWN_BUILDER=on` opens it to players. Pre-warm: `POST /api/hometown/admin/prewarm {"n": 1000}` (P5: only idle
-   slots build it).
+**Deploy order (owner): the full list with every variable is the go-live runbook (`.scratch/prod-builder/RUNBOOK.md`).**
+1. Push. The web deploys with `HOMETOWN_BUILDER=off` and `HOMETOWN_RUNS=off`: inert.
+2. Blueprint sync: creates the `gamemog-town-builder` workflow (enter `HOMETOWN_WORKER_PAUSED=1` when asked). A
+   workflow bills only its runs: nothing runs yet, so it costs $0.
+3. On the web: `HOMETOWN_WORKER_TOKEN`, then `HOMETOWN_RENDER_API_KEY` (Render Account Settings, API Keys).
+4. Learn the buildId: Dashboard, the workflow, `build_jobs`, Run task with input `[]`. Still paused, the run logs
+   `{"event": "start", "build": "htc-0.7.0-hg1-b........", "caps": [...]}` and ends at once (`exit: paused`); its
+   result shows the build too.
+5. On the web: `HOMETOWN_BUILD` = that build, `HOMETOWN_TILES=on`, `HOMETOWN_BUILDER=owner`, `HOMETOWN_RUNS=workflows`;
+   on the workflow: `HOMETOWN_WORKER_PAUSED=0`.
+6. Production test (owner only); then `HOMETOWN_DAILY_COLD` (the spend cap) and `HOMETOWN_BUILDER=on`.
 
 **A compiler upgrade (for example 0.5.0 to 0.6.0):**
-1. Re-pin `MOGCITY_SHA` (one line) and push: only the worker rebuilds (`buildFilter`).
+1. Re-pin `MOGCITY_SHA` (one line in `workflow-build.sh`) and push: only the workflow rebuilds (`buildFilter`).
 2. The new workers report build B2 and claim only B2 jobs; the web's `HOMETOWN_BUILD` is still B1. Shadow-build the top
    towns at B2: `POST /api/hometown/admin/prewarm {"n": 100, "build": "<B2>"}` (P5). B1 on-demand work waits for the
-   rollout window: run it off-peak, or keep a B1 worker by deploying B2 as a second worker service for an hour.
+   rollout window: run it off-peak (a second workflow service at B1 for an hour is the alternative).
 3. Set `HOMETOWN_BUILD=B2` (restarts the web). Old towns keep serving: bundles, tiles and frames at B1 are immutable,
    every story pins its lock, and the GC never collects a pinned build.
 4. After 30 days, the GC dry run lists the unpinned B1 objects; the owner applies the plan.
 
-**Kill switches:** `HOMETOWN_WORKER_PAUSED=1` (the worker claims nothing), `HOMETOWN_BUILDER=off` (every town route
-404; built towns' bundles stop being served from the store too), scale the worker to 0.
+**Kill switches:** web `HOMETOWN_RUNS=off` (no new run; runs in flight finish their jobs and end), workflow
+`HOMETOWN_WORKER_PAUSED=1` (a run claims nothing and ends), `HOMETOWN_BUILDER=off` (every town route 404; built towns'
+bundles stop being served from the store too), or revoke the Render API key.

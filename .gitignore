@@ -48,3 +48,6 @@ data/towns/
 data/hometown/
 # Hometown search screenshots and scratch output
 /.scratch/
+
+# the town builder workflow build output (deploy/town-builder/workflow-build.sh)
+/.town-builder/

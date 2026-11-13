@@ -181,5 +181,119 @@ class WebAndRegions(unittest.TestCase):
             shutil.rmtree(tmp)
 
 
+class StubWeb:
+    """Answers the claim loop without a network: a list of (status, body) for successive claims, then 204s."""
+    def __init__(self, answers):
+        self.answers = list(answers)
+        self.claims = 0
+
+    def jcall(self, method, path, body=None, **kw):
+        if path == 'claim':
+            self.claims += 1
+            return self.answers.pop(0) if self.answers else (204, {})
+        return 200, {}
+
+
+def loop_worker(web, **env):
+    """A Worker with only what main() reads (no compiler, no web): HOMETOWN_ONCE, the idle window and the cap from env."""
+    w = object.__new__(W.Worker)
+    w.web, w.build, w.slots, w.cpus, w.mem, w.caps, w.env = web, 'htc-0.7.0-hg1-b00000000', 2, 2, 4 * W.GB, set(), {}
+    w.id, w.lock, w.used, w.running, w.draining, w.store = 'run-test', threading.Lock(), 0, {}, False, tempfile.mkdtemp()
+    w.once = env.get('once', True)
+    w.idle_s, w.cap_s, w.t_start = env.get('idle_s', 0.0), env.get('cap_s', 0.0), W.time.time()
+    w.stats = {'claimed': 0, 'done': 0, 'failed': 0, 'regions': 0}
+    w.cached_regions = lambda: []
+    def execute(job):
+        W.time.sleep(0.2)
+        with w.lock:
+            w.stats['done'] += 1
+            w.used -= job['held']
+            w.running.pop(job['key'], None)
+    w.execute = execute
+    return w
+
+
+class Once(unittest.TestCase):
+    """A Workflows run (HOMETOWN_ONCE=1) returns instead of waiting: idle, paused, refused, or at its cap."""
+    def test_idle_exit_after_the_jobs(self):
+        job = (200, {'key': 'tiles:a', 'kind': 'tiles', 'leaseId': 'l', 'args': {}})
+        w = loop_worker(StubWeb([job, (200, dict(job[1], key='tiles:b'))]), idle_s=0.3)
+        s = w.main()
+        self.assertEqual((s['exit'], s['claimed'], s['done'], s['build']), ('idle', 2, 2, w.build))
+        self.assertGreaterEqual(w.web.claims, 3)
+
+    def test_a_p0_only_poll_never_ends_the_run(self):
+        # 2 slots, one job running: the claim goes out with 1 free slot (P0 only) and comes back 204 after the job is
+        # done. That 204 is not idle: the run must claim again with both slots free (where P1 work is) before ending.
+        job = (200, {'key': 'tiles:a', 'kind': 'tiles', 'leaseId': 'l', 'args': {}})
+        p1 = (200, {'key': 'tiles:p1', 'kind': 'tiles', 'leaseId': 'l', 'args': {}})
+        web = StubWeb([job])
+        real = web.jcall
+        def jcall(method, path, body=None, **kw):
+            if path == 'claim' and body['freeSlots'] < 2:
+                W.time.sleep(0.4)  # (the long-poll outlives the job)
+                return 204, {}
+            if path == 'claim' and web.claims == 1:
+                web.claims += 1
+                return p1
+            return real(method, path, body, **kw)
+        web.jcall = jcall
+        w = loop_worker(web, idle_s=0.1)
+        s = w.main()
+        self.assertEqual((s['exit'], s['claimed'], s['done']), ('idle', 2, 2))
+
+    def test_paused_returns_at_once(self):
+        os.environ['HOMETOWN_WORKER_PAUSED'] = '1'
+        try:
+            w = loop_worker(StubWeb([]))
+            self.assertEqual(w.main()['exit'], 'paused')
+            self.assertEqual(w.web.claims, 0)
+        finally:
+            del os.environ['HOMETOWN_WORKER_PAUSED']
+
+    def test_refused_returns(self):
+        w = loop_worker(StubWeb([(404, {})]))
+        self.assertEqual(w.main()['exit'], 'refused-404')
+
+    def test_cap_drains(self):
+        job = (200, {'key': 'tiles:a', 'kind': 'tiles', 'leaseId': 'l', 'args': {}})
+        w = loop_worker(StubWeb([(200, dict(job[1], key='tiles:%d' % i)) for i in range(50)]), cap_s=0.5, idle_s=60)
+        s = w.main()
+        self.assertEqual(s['exit'], 'cap')
+        self.assertEqual(s['claimed'], s['done'])
+        self.assertLess(s['seconds'], 5)
+
+
+spec2 = importlib.util.spec_from_file_location('workflow', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'workflow.py'))
+WF = importlib.util.module_from_spec(spec2)
+spec2.loader.exec_module(WF)
+
+
+class Workflow(unittest.TestCase):
+    def test_slots_per_plan(self):
+        self.assertEqual({p: WF.slots_of(p, 1.5) for p in WF.PLANS}, {'2c-4g': 2, '2c-8g': 2, '4c-8g': 4, '4c-16g': 4, '8c-32g': 8})
+
+    def test_timeout_covers_the_cap_and_a_job(self):
+        self.assertGreaterEqual(WF.TIMEOUT_S, WF.CAP_S + 1800)
+        self.assertLessEqual(WF.TIMEOUT_S, 86400)
+
+    def test_environment_pins_and_paths(self):
+        keep = dict(os.environ)
+        try:
+            for k in ('HOMETOWN_SLOTS', 'HOMETOWN_PYTHON', 'HOMETOWN_IMAGE_ID_FILE', 'HOMETOWN_WORKER_ID'):
+                os.environ.pop(k, None)
+            e = WF.environment('trn-abc')
+            self.assertEqual((e['HOMETOWN_ONCE'], e['PYTHONHASHSEED'], e['HOMETOWN_WORKER_ID']), ('1', '0', 'run-trn-abc'))
+            self.assertTrue(e['HOMETOWN_PYTHON'].startswith(WF.TB) and e['HOMETOWN_IMAGE_ID_FILE'] == os.path.join(WF.TB, 'image-id'))
+            self.assertIn('AVX512F', e['NPY_DISABLE_CPU_FEATURES'])
+            self.assertEqual(e['HOMETOWN_SLOTS'], str(WF.slots_of(WF.PLAN, 1.5)))
+            # (every pin reaches a compile child: worker.py's allowlist)
+            for k in WF.PINNED_ENV:
+                self.assertIn(k, W.ENV_ALLOW)
+        finally:
+            os.environ.clear()
+            os.environ.update(keep)
+
+
 if __name__ == '__main__':
     unittest.main()

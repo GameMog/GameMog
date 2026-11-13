@@ -25,10 +25,15 @@ import type { HometownConfig } from '../hometown-tiles/config.ts';
 import { BuildQueue, ANY_BUILD, HEARTBEAT_MS, LEASE_MS, maskBits, type Job } from './queue.ts';
 import { afterJobDone, currentBuild, onBundleStored, prewarm, promisedOutputs, townsStatus, type BuilderDeps, type TownMeta } from './towns.ts';
 import { prewarmList } from '../hometown-tiles/prewarm-list.ts';
+import { Dispatcher, renderRuns, runsConfig, runsProblem, runsReady, type RunsConfig } from './dispatch.ts';
 
-const G = globalThis as unknown as { __hometownBuilder?: { file: string; q: BuildQueue; reaper: NodeJS.Timeout | null } };
-/** The server's one queue (data/hometown/queue.db), and a 10 s reaper. */
-export function builderDeps(cfg: HometownConfig = hometownConfig()): BuilderDeps {
+const G = globalThis as unknown as { __hometownBuilder?: { file: string; q: BuildQueue; reaper: NodeJS.Timeout | null; dispatcher: Dispatcher | null; runs: RunsConfig } };
+/**
+ * The server's one queue (data/hometown/queue.db), a 10 s reaper and, with HOMETOWN_RUNS=workflows and the builder not
+ * off, the dispatcher that starts Render Workflows runs on demand (dispatch.ts): a pass every 5 s and on every queue
+ * change. instrumentation.ts calls this at boot, so queued work after a restart gets its runs without a request.
+ */
+export function builderDeps(cfg: HometownConfig = hometownConfig(), env: Record<string, string | undefined> = process.env): BuilderDeps {
   const file = path.join(cfg.root, 'queue.db');
   if (G.__hometownBuilder?.file !== file) {
     const q = new BuildQueue({ file });
@@ -36,10 +41,26 @@ export function builderDeps(cfg: HometownConfig = hometownConfig()): BuilderDeps
     try { q.graceLeases(); } catch { /* the reaper's normal rules */ }
     const reaper = setInterval(() => { try { q.reap(); } catch { /* the next tick */ } }, 10_000);
     reaper.unref?.();
-    G.__hometownBuilder = { file, q, reaper };
+    const runs = runsConfig(env);
+    let dispatcher: Dispatcher | null = null;
+    if (cfg.builder !== 'off' && runsReady(runs)) {
+      const build = () => currentBuild({ cfg, store: hometownStore(cfg), queue: q });
+      const disp = new Dispatcher(q, runs, renderRuns(runs), build);
+      const kick = () => { disp.tick().catch((e) => console.error('hometown-build: dispatch', String((e as Error)?.message ?? e).slice(0, 300))); };
+      let soon: NodeJS.Timeout | null = null;
+      q.onChange(() => { if (!soon) { soon = setTimeout(() => { soon = null; kick(); }, 300); soon.unref?.(); } });
+      const every = setInterval(kick, 5_000);
+      every.unref?.();
+      kick();
+      dispatcher = disp;
+    } else if (runs.mode === 'workflows') console.error('hometown-build: HOMETOWN_RUNS=workflows but', runsProblem(runs) ?? `HOMETOWN_BUILDER is ${cfg.builder}`);
+    G.__hometownBuilder = { file, q, reaper, dispatcher, runs };
   }
-  return { cfg, store: hometownStore(cfg), queue: G.__hometownBuilder.q };
+  const h = G.__hometownBuilder;
+  return { cfg, store: hometownStore(cfg), queue: h.q, runs: h.dispatcher ? h.runs : null };
 }
+/** The dispatcher of this server, if it runs one (the owner's status page). */
+export const builderDispatcher = (): Dispatcher | null => G.__hometownBuilder?.dispatcher ?? null;
 
 /** HOMETOWN_CANARY_RATE (default 0.01): the share of tile jobs recompiled elsewhere and compared. */
 const canaryRate = () => { const v = Number(process.env.HOMETOWN_CANARY_RATE); return Number.isFinite(v) && v >= 0 && v <= 1 && process.env.HOMETOWN_CANARY_RATE ? v : 0.01; };
@@ -208,6 +229,8 @@ export function builderStatus(d: BuilderDeps) {
     canary: { runs: canary.length, mismatches: canary.filter((e) => e.match === false).length, last: canary.slice(0, 5) },
     etaError: eta.length ? { n: eta.length, meanPct: Math.round(eta.reduce((a, e) => a + Math.abs(Number(e.errPct ?? 0)), 0) / eta.length) } : null,
     recent: ev.slice(0, 30),
+    // (on-demand builders: Render Workflows runs in flight, the dispatcher's last plan and error; null when off)
+    runs: builderDispatcher()?.status() ?? (G.__hometownBuilder?.runs.mode === 'workflows' ? { problem: runsProblem(G.__hometownBuilder.runs) ?? `HOMETOWN_BUILDER is ${d.cfg.builder}` } : null),
   };
 }
 

@@ -22,15 +22,17 @@ services:
     domains:
       - gamemog.com
     # the database and the Story Kit store (data/storykit) live here, and
-    # survive deploys; 10 GB (the owner, 7 Nov; was 1 GB). The store may use
-    # STORYKIT_DISK_MB of it (8,000 by default, guard at 90%). 20 GB for the
-    # town builder's queue, tiles, bundles and staged sources (data/hometown,
-    # docs/HOMETOWN-HOSTING.md "Production builder"): $5 a month. A disk grows,
-    # never shrinks; 50 GB with region pre-staging is the owner's call.
+    # survive deploys; 10 GB (the owner, 7 Nov; was 1 GB), $2.50 a month. The store may use
+    # STORYKIT_DISK_MB of it (8,000 by default, guard at 90%). The town
+    # builder's queue, tiles, bundles and staged sources (data/hometown) share
+    # it under HOMETOWN_DISK_CAP_GB below. Grown on demand, not in advance (the
+    # owner, 13 Nov): when the status page shows the store near its cap, change
+    # sizeGB to 20 here AND HOMETOWN_DISK_CAP_GB to 8 (+$5 a month; a disk
+    # grows, never shrinks).
     disk:
       name: gamemog-data
       mountPath: /opt/render/project/src/data
-      sizeGB: 20
+      sizeGB: 10
     envVars:
       - key: NODE_VERSION
         value: "24"
@@ -58,59 +60,88 @@ services:
       - key: HOMETOWN_ADMIN_TOKEN
         sync: false
       # The production town builder (lib/hometown-build, docs/HOMETOWN-HOSTING.md "Production builder"): the web holds
-      # the job queue (data/hometown/queue.db) and the store, and NEVER compiles; the gamemog-town-builder workers below
-      # do. off: the queue is inert and no town route answers from it. owner: every town route, and Create's town box,
-      # answer only the owner's /admin session (the production test). on: players.
+      # the job queue (data/hometown/queue.db) and the store, and NEVER compiles; runs of the gamemog-town-builder
+      # workflow below do. off: the queue is inert and no town route answers from it. owner: every town route, and
+      # Create's town box, answer only the owner's /admin session (the production test). on: players.
       - key: HOMETOWN_BUILDER
         value: "off"
-      # the workers' bearer token (24+ characters), entered by the owner here once; the workers read it from this
-      # service (fromService envVarKey). Unset: /api/hometown/worker is not found
+      # the builder runs' bearer token (24+ characters), entered by the owner here once; the workflow reads it from
+      # this service (fromService envVarKey). Unset: /api/hometown/worker is not found
       - key: HOMETOWN_WORKER_TOKEN
         sync: false
-      # spawn first (compiler 0.7.0+: --frame and --assemble, pinned by the worker image): the story starts from the
+      # spawn first (compiler 0.7.0+: --frame and --assemble, pinned by workflow-build.sh): the story starts from the
       # town's frame, and players drive the 5 x 5 spawn district while the rest of the town builds
       - key: HOMETOWN_FRAME
         value: "on"
-      # the build new towns are made at: the buildId the workers log at start (the owner's status page shows it)
+      # the build new towns are made at: the buildId a run logs at start (the owner's status page shows it)
       - key: HOMETOWN_BUILD
         sync: false
-      # the store's share of the 20 GB disk (Story Kit 8 GB on paper, the 2 GB free floor), and the staged Overture
-      # regions' own share of it (least recently used go first)
+      # the store's share of the 10 GB disk (Story Kit's real use is far under its 8 GB on paper; no put lands under the
+      # 2 GB free floor whatever the cap), and the staged Overture regions' own share of it (least recently used go
+      # first). With the disk at 20 GB: 8 and 2
       - key: HOMETOWN_DISK_CAP_GB
-        value: "8"
+        value: "4"
       - key: HOMETOWN_SRC_CAP_GB
-        value: "2"
+        value: "1"
       # a new town is refused (busy, with the 3 nearest built towns) when its wait to drive is over this
       - key: HOMETOWN_MAX_WAIT_S
         value: "600"
       - key: HOMETOWN_PER_IP_HOUR
         value: "3"
 
-  # The town builder (docs/HOMETOWN-HOSTING.md "Production builder"): a background worker, Docker, NO disk, so it can
-  # run 1 to 100 instances (manual scaling on the Settings page; autoscaling needs a Pro workspace). It reaches the web
-  # over Render's private network and uploads through the web's hash-checked PUT. Created paused: the owner sets
-  # HOMETOWN_WORKER_PAUSED to 0 when the web is ready (HOMETOWN_BUILDER owner and HOMETOWN_BUILD set).
-  - type: worker
+      # Builders on demand (the owner, 13 Nov: "upgrade on DEMAND, not anticipation"): no builder is up while there is
+      # no work. The web's dispatcher (lib/hometown-build/dispatch.ts) starts runs of the gamemog-town-builder workflow
+      # through the Render API when the queue has claimable work; each run builds until the queue is idle for 20 s,
+      # then ends (billed per second; idle costs nothing). "off": no run is started. "workflows": on (needs the key and
+      # the slug below, and HOMETOWN_BUILDER owner or on)
+      - key: HOMETOWN_RUNS
+        value: "off"
+      # a Render API key (Account Settings, API Keys), entered by the owner here only. It starts and reads task runs
+      # (POST/GET /v1/task-runs); unset, nothing is started
+      - key: HOMETOWN_RENDER_API_KEY
+        sync: false
+      # the workflow's slug: the task the dispatcher starts is <slug>/build_jobs
+      - key: HOMETOWN_WORKFLOW_SLUG
+        fromService:
+          type: workflow
+          name: gamemog-town-builder
+          property: slug
+      # runs in flight at most (each 4c-8g, 4 compile slots, $1.00 an hour while it runs). Hobby starts at most 16 new
+      # CPU a minute (4 runs); Render queues the rest
+      - key: HOMETOWN_MAX_RUNS
+        value: "20"
+      - key: HOMETOWN_RUN_SLOTS
+        value: "4"
+      # while only pre-warm (P5) work is ready, at most this many runs
+      - key: HOMETOWN_PREWARM_RUNS
+        value: "4"
+
+  # The town builder (docs/HOMETOWN-HOSTING.md "Production builder"): a Render WORKFLOW, not an always-on worker. One
+  # task, build_jobs (deploy/town-builder/workflow.py): each run is its own 4c-8g instance, spun up on demand by the
+  # web's dispatcher, that claims jobs from the web over Render's private network (same region), uploads through the
+  # web's hash-checked PUT, and ends when the queue is idle for 20 s or after 2 h. No disk, no ports. Workflows build on
+  # the native runtime only (python or node; no Dockerfile): workflow-build.sh pins Python, the compiler commit, its
+  # packages by hash, the OSM table and the duckdb extensions (deploy/hometown-compiler.Dockerfile is the same recipe,
+  # kept for reference).
+  - type: workflow
     name: gamemog-town-builder
-    runtime: docker
+    runtime: python
     # same region as the web: the private network
     region: virginia
-    # Pro Plus, 4 CPU / 8 GB: 4 compile slots (1.5 GB each + 0.75 GB for the worker); 2c-4g for a first test. 4c-8g
-    # is a valid background-worker plan id on the Blueprint spec page (checked 13 Nov 2026)
-    plan: 4c-8g
-    numInstances: 1
-    dockerfilePath: ./deploy/hometown-compiler.Dockerfile
-    dockerContext: .
+    # the SDK into the service's Python; the compiler, its own venv and the data seed into .town-builder (10-15 min:
+    # pip by hash, duckdb extensions, the Overture file index)
+    buildCommand: pip install -r deploy/town-builder/workflow-requirements.txt && bash deploy/town-builder/workflow-build.sh
+    startCommand: python deploy/town-builder/workflow.py
     autoDeployTrigger: commit
-    # only the worker's own files rebuild and restart it (a GameMog commit elsewhere never does)
+    # only the builder's own files rebuild it (a GameMog commit elsewhere never does)
     buildFilter:
       paths:
-        - deploy/hometown-compiler.Dockerfile
         - deploy/town-builder/**
-    # on a deploy or scale-down: stop claiming, finish and upload the running jobs (worker.py drains on SIGTERM)
-    maxShutdownDelaySeconds: 300
     envVars:
-      # host:port on Render's private network
+      # the Python every build is made with (the compiler lock's wheels are CPython 3.14): part of the buildId
+      - key: PYTHON_VERSION
+        value: "3.14.6"
+      # host:port of the web on Render's private network
       - key: HOMETOWN_WEB
         fromService:
           type: web
@@ -121,11 +152,14 @@ services:
           type: web
           name: gamemog
           envVarKey: HOMETOWN_WORKER_TOKEN
+      # each run's compute plan (read when the task registers, at a deploy): 4 CPU, 8 GB, 4 compile slots
+      - key: HOMETOWN_RUN_PLAN
+        value: "4c-8g"
       - key: HOMETOWN_SLOT_GB
         value: "1.5"
       - key: HOMETOWN_CACHE_GB
         value: "4"
-      # "1": claim nothing (a kill switch that needs no deploy of the web); "0" to run. sync: false, so a later
-      # Blueprint sync never puts back a value the owner changed on the dashboard: enter "1" when the Blueprint asks
+      # "1": a run claims nothing and ends at once (a kill switch that needs no deploy of the web); "0" to build.
+      # sync: false, so a later Blueprint sync never puts back a value the owner changed: enter "1" when it asks
       - key: HOMETOWN_WORKER_PAUSED
         sync: false

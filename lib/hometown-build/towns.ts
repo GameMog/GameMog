@@ -28,6 +28,7 @@ import { playBox, boxHash, BOX_SOURCE, type Box } from '../hometown/box.ts';
 import { TOWN_ID, storyLock, type ServiceLock } from '../hometown/ids.ts';
 import { TOWN_WORDS } from '../hometown/words.ts';
 import { cityPackageOf, type Geodata } from '../hometown/bundle.ts';
+import { capacitySlots, type RunsConfig } from './dispatch.ts';
 import { bundleKey, ctxKey, farKey, frameKey, manifestKey, parseKeyString, srcKey, tileKey, type Domain } from '../hometown-tiles/keys.ts';
 import type { TileStore } from '../hometown-tiles/store.ts';
 import type { HometownConfig } from '../hometown-tiles/config.ts';
@@ -63,7 +64,9 @@ export const BUSY_WORDS = (min: number) => `Lots of towns are being built. Yours
 export const DEFAULT_COST: Record<JobKind, number> = { regions: 40_000, ctx: 6_000, frame: 4_000, tiles: 2_000, far: 5_000, bundle: 10_000, manifest: 1_000, canary: 9_000 };
 export const DISTRICT_RADIUS = 2;
 
-export type BuilderDeps = { cfg: HometownConfig; store: TileStore; queue: BuildQueue; now?: () => number; build?: () => string | null; place?: (id: string) => Place | null };
+export type BuilderDeps = { cfg: HometownConfig; store: TileStore; queue: BuildQueue; now?: () => number; build?: () => string | null; place?: (id: string) => Place | null;
+  /** on-demand builders (dispatch.ts, HOMETOWN_RUNS=workflows): the estimate counts the runs it may start */
+  runs?: RunsConfig | null };
 
 // ------------------------------------------------------------------------------------------------ the job graph
 type Gaz = { name: string; geoid: string; anchor: [number, number]; anchorSource: string; bbox: Box; bboxSource: string };
@@ -218,7 +221,7 @@ export function nearestBuilt(d: BuilderDeps, p: { lat: number; lon: number }, bu
 
 /** The wait to drive and to the whole town (s), from the work ahead and the live slots (SPEC 5.3). */
 export function estimate(d: BuilderDeps, place: string, build: string): { etaDriveS: number | null; etaFullS: number | null; slots: number } {
-  const q = d.queue, slots = q.liveSlots();
+  const q = d.queue, cap = capacitySlots(q.liveSlots(), d.runs), slots = cap.slots;
   const r = rowOf(q, place, build);
   const t = r?.first_asked ?? (d.now ?? Date.now)();
   const cost = (k: JobKind) => q.costOf(k, DEFAULT_COST[k]);
@@ -227,7 +230,8 @@ export function estimate(d: BuilderDeps, place: string, build: string): { etaDri
   // (the critical path of this town alone: ctx, then its spawn blocks, then the district or full bundle)
   // (a district's tiles are quads, 2 units each; without the frame the critical path is a whole block, 5)
   const crit = cost('ctx') + cost('tiles') * (d.cfg.frame ? 2 : 5) + (d.cfg.frame ? cost('frame') + cost('bundle') * 0.3 : cost('bundle'));
-  const drive = d.cfg.frame ? sum(0) / per + crit : sum(2) / per + crit;
+  // (no builder is up: the first run's start comes first; Render Workflows starts runs on demand)
+  const drive = (d.cfg.frame ? sum(0) / per + crit : sum(2) / per + crit) + cap.spinupS * 1000;
   const full = sum(2) / per + cost('bundle');
   return { etaDriveS: Math.round(drive / 1000), etaFullS: Math.round(Math.max(drive, full) / 1000), slots };
 }
@@ -342,10 +346,12 @@ export function requestTown(d: BuilderDeps, placeId: string, ip: string, source:
     return answer(d, rowOf(q, placeId, build)!);
   }
   // ---- a new town (or one that failed, asked again): the limits, then admission
-  const slots = q.liveSlots();
+  // (on-demand runs: the towns waiting may follow what the dispatcher can start; the day's cold towns, a spend cap,
+  // stay on the slots actually live unless the owner sets HOMETOWN_DAILY_COLD)
+  const live = q.liveSlots(), slots = capacitySlots(live, d.runs).slots;
   const env = process.env;
   const queueMax = Number(env.HOMETOWN_QUEUE_MAX) > 0 ? Number(env.HOMETOWN_QUEUE_MAX) : Math.max(10, slots * 3);
-  const dailyCold = Number(env.HOMETOWN_DAILY_COLD) > 0 ? Number(env.HOMETOWN_DAILY_COLD) : Math.max(100, slots * 400);
+  const dailyCold = Number(env.HOMETOWN_DAILY_COLD) > 0 ? Number(env.HOMETOWN_DAILY_COLD) : Math.max(100, live * 400);
   const perIp = Number(env.HOMETOWN_PER_IP_HOUR) > 0 ? Number(env.HOMETOWN_PER_IP_HOUR) : 3;
   if (source === 'player') {
     const waiting = (q.db.prepare("SELECT COUNT(*) n FROM towns WHERE build = ? AND state IN ('asked', 'framing') AND source != 'prewarm'").get(build) as { n: number }).n;

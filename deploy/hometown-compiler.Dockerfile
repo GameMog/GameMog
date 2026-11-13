@@ -1,4 +1,7 @@
 # syntax=docker/dockerfile:1
+# REFERENCE ONLY since 13 Nov 2026: the builder is now a Render Workflow (render.yaml gamemog-town-builder, type: workflow),
+# which builds on Render's native Python runtime, not from a Dockerfile. deploy/town-builder/workflow-build.sh is the same
+# recipe for that runtime (and its MOGCITY_SHA is the pin that counts). Kept for a Docker host, should one be needed.
 # The town-builder worker image (docs/HOMETOWN-HOSTING.md "Production builder"; render.yaml service
 # gamemog-town-builder, a background worker with no disk). It runs deploy/town-builder/worker.py, which claims jobs from
 # gamemog.com's queue over Render's private network and runs the pinned hg1 compiler (MogCity tools/hometown). No Next,

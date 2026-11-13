@@ -1,6 +1,9 @@
 """GameMog town builder worker (SPEC 3.5, 3.6, 6.2; task G9). Python standard library only.
 
-One process per instance of the Render background worker `gamemog-town-builder` (Docker, no disk). It claims jobs from
+One process per run of the Render Workflows task `build_jobs` (deploy/town-builder/workflow.py; the workflow service
+`gamemog-town-builder`, no disk, no ports), started on demand by the web's dispatcher (lib/hometown-build/dispatch.ts).
+In a run it works the queue until it is idle (HOMETOWN_ONCE=1, HOMETOWN_IDLE_S) or its time cap, then returns: no
+instance is up while there is no work. Run as a plain process (python worker.py) it is the same loop forever. It claims jobs from
 the web service's queue over Render's private network, runs the pinned hg1 compiler (MogCity tools/hometown) in child
 processes, uploads what they made through the web's hash-checked PUT, and says done or failed. It holds no state the
 web needs: its local cache (sources, ctx, tiles) is an optimisation that may vanish at any restart.
@@ -26,7 +29,11 @@ Environment:
   HOMETOWN_DATA_SEED        a folder whose osm/, dem/ and overture-index/ seed the data dir (the image's baked OSM table,
                             DEM snapshot and the Overture release's file index: a cold region fetch reads only its files)
   HOMETOWN_WORKER_ID        this worker's name (default hostname-pid)
-  HOMETOWN_ONCE=1           exit when the queue has been empty for one long-poll (the local dry run)
+  HOMETOWN_ONCE=1           return when nothing has been claimable for HOMETOWN_IDLE_S (default 20: one long-poll) and
+                            nothing runs; also return at once when paused or refused (401/404: the web is off or the
+                            token wrong) instead of waiting (a Workflows run is billed while it waits)
+  HOMETOWN_RUN_CAP_S        stop claiming after this many seconds and return when the running jobs are done (0: none)
+  HOMETOWN_IMAGE_ID_FILE    the build recipe's id (default /opt/hometown-image-id; workflow-build.sh writes its own)
 """
 import gzip
 import hashlib
@@ -189,6 +196,10 @@ class Worker:
         self.running = {}       # key -> job thread
         self.draining = False
         self.once = os.environ.get('HOMETOWN_ONCE') == '1'
+        self.idle_s = float(os.environ.get('HOMETOWN_IDLE_S') or 20)
+        self.cap_s = float(os.environ.get('HOMETOWN_RUN_CAP_S') or 0)
+        self.t_start = time.time()
+        self.stats = {'claimed': 0, 'done': 0, 'failed': 0, 'regions': 0}
         self.downloaded = set()
         self.region_locks = {}
         self.env = self.child_env()
@@ -202,7 +213,7 @@ class Worker:
         env = {k: os.environ[k] for k in ENV_ALLOW if os.environ.get(k) is not None}
         env.update({'PYTHONUNBUFFERED': '1', 'PYTHONDONTWRITEBYTECODE': '1'})
         # the image's identity: a recipe id computed in its build (the Dockerfile), the buildId hashes it
-        rid = _read('/opt/hometown-image-id')
+        rid = _read(os.environ.get('HOMETOWN_IMAGE_ID_FILE') or '/opt/hometown-image-id')
         if rid and 'HOMETOWN_IMAGE_DIGEST' not in env:
             env['HOMETOWN_IMAGE_DIGEST'] = 'recipe-' + rid
         return env
@@ -647,12 +658,15 @@ class Worker:
                 if 'canaryMatch' in r:
                     body['canaryMatch'] = r['canaryMatch']
                 st, j = self.web.jcall('POST', 'complete', body)
+                self.stats['done' if st == 200 else 'failed'] += 1
                 log(event='done', key=job['key'], kind=job['kind'], ms=r['ms'], peakMB=r.get('peak'), status=st, outputs=len(r['outputs']), **({'web': j} if st != 200 else {}))
             else:
                 body = {'key': job['key'], 'leaseId': job['leaseId'], 'code': r.get('code', 1), 'reason': r.get('reason', ''), 'final': bool(r.get('final'))}
                 if r.get('missingRegions'):
                     body['missingRegions'] = r['missingRegions']
                 st, j = self.web.jcall('POST', 'fail', body)
+                # (exit 3 naming regions is not a failure: the job waits for a regions job)
+                self.stats['regions' if body.get('missingRegions') else 'failed'] += 1
                 log(event='fail', key=job['key'], kind=job['kind'], code=body['code'], reason=body['reason'][-300:], status=st, **({'regionsJob': j.get('regionsJob')} if j.get('regionsJob') else {}))
         except RuntimeError as e:
             log(event='report-lost', key=job['key'], why=str(e)[:300])
@@ -695,48 +709,76 @@ class Worker:
             log(event='draining', running=list(self.running))
         self.draining = True
 
+    def summary(self, why):
+        """What a run did (a Workflows task's return value, kept by Render with the run)."""
+        return dict(self.stats, build=self.build, worker=self.id, slots=self.slots, exit=why, seconds=round(time.time() - self.t_start, 1))
+
     def main(self):
-        signal.signal(signal.SIGTERM, self.stop)
-        signal.signal(signal.SIGINT, self.stop)
+        """The claim loop. -> a summary when it returns (HOMETOWN_ONCE, the time cap, or a drain on SIGTERM)."""
+        try:
+            signal.signal(signal.SIGTERM, self.stop)
+            signal.signal(signal.SIGINT, self.stop)
+        except ValueError:
+            pass  # (not the main thread: the caller owns the signals)
         log(event='start', worker=self.id, build=self.build, slots=self.slots, cpus=self.cpus, memGB=round(self.mem / GB, 2), caps=sorted(self.caps),
-            image=self.env.get('HOMETOWN_IMAGE_DIGEST', 'unpinned (local venv)'), version=VERSION)
+            image=self.env.get('HOMETOWN_IMAGE_DIGEST', 'unpinned (local venv)'), version=VERSION, once=self.once, idleS=self.idle_s, capS=self.cap_s)
         # the build record first: a manifest is refused until its build's record is stored
         bk = 'builds/%s.json' % self.build
         if os.path.exists(self.path(bk)):
             self.put_store_object(bk)
-        idle = 0
+        quiet_since = time.time()   # nothing claimed and nothing running since
+        why = 'stopped'
         while True:
             if self.draining:
                 if not self.running:
-                    log(event='stopped')
-                    return
+                    log(event='stopped', why=why, **self.stats)
+                    return self.summary(why)
                 time.sleep(0.5)
                 continue
+            if self.cap_s and time.time() - self.t_start >= self.cap_s:
+                log(event='cap', capS=self.cap_s, running=list(self.running))
+                why, self.draining = 'cap', True
+                continue
             if os.environ.get('HOMETOWN_WORKER_PAUSED') == '1':
+                if self.once and not self.running:
+                    log(event='paused-exit')
+                    return self.summary('paused')
                 time.sleep(10)
                 continue
             with self.lock:
                 free = self.slots - self.used
+                busy = bool(self.running)
+            if busy:
+                quiet_since = time.time()
             if free <= 0:
                 time.sleep(0.2)
                 continue
+            # (only a claim made with EVERY slot free and nothing running proves the queue idle: a multi-slot worker's last
+            # free slot claims P0 only, so a 204 to it says nothing about P1-P5 work; the local simulation found runs
+            # ending after one job each this way)
+            whole = free >= self.slots and not busy
             try:
                 st, j = self.web.jcall('POST', 'claim', {'worker': self.id, 'build': self.build, 'freeSlots': free, 'totalSlots': self.slots, 'cached': self.cached_regions(),
                                                           'version': VERSION, 'memFreeMB': None}, timeout=40)
             except RuntimeError as e:
                 log(event='web-down', why=str(e)[:200])
+                if self.once and not self.running:
+                    return self.summary('web-down')
                 continue
             if st == 204:
-                idle += 1
-                if self.once and idle >= 1 and not self.running:
-                    log(event='idle-exit')
-                    return
+                if self.once and whole and not self.running and time.time() - quiet_since >= self.idle_s:
+                    log(event='idle-exit', **self.stats)
+                    return self.summary('idle')
                 continue
             if st != 200:
                 log(event='claim-refused', status=st, body=j)
+                # (401/403/404: the builder is off or the token is wrong; nothing a wait would fix in a billed run)
+                if self.once and st in (401, 403, 404) and not self.running:
+                    return self.summary('refused-%d' % st)
                 time.sleep(5)
                 continue
-            idle = 0
+            quiet_since = time.time()
+            self.stats['claimed'] += 1
             job = dict(j)
             job['weight'] = 2 if job['kind'] == 'regions' else 1
             log(event='claimed', key=job['key'], kind=job['kind'], prio=job.get('prio'), inputs=len(job.get('inputs', [])))
@@ -745,7 +787,6 @@ class Worker:
                 self.used += job['held']
                 self.running[job['key']] = job
             threading.Thread(target=self.execute, args=(job,), daemon=True).start()
-
 
 if __name__ == '__main__':
     Worker().main()

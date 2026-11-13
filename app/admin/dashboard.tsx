@@ -38,6 +38,9 @@ export type TownBuilderAdmin = {
   workers: { id: string; build: string | null; slots: number; seen: number }[]; slots: number; queue: { prio: number; state: string; n: number; weight: number }[];
   costs: Record<string, { ewmaMs: number; n: number }>; towns: { byState: { state: string; source: string; n: number }[] };
   canary: { runs: number; mismatches: number }; etaError: { n: number; meanPct: number } | null;
+  /** on-demand builders (Render Workflows runs, lib/hometown-build/dispatch.ts); null when HOMETOWN_RUNS is off */
+  runs?: { problem?: string; inFlight?: number; maxRuns?: number; byState?: Record<string, number>; plan?: { want: number; ready: number } | null;
+    lastError?: { status: number; message: string } | null; holdS?: number } | null;
 };
 export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null };
 
@@ -282,6 +285,7 @@ function TownBuilderCard({ t }: { t: TownBuilderAdmin }) {
       <dl className="facts">
         <div><dt>Switch</dt><dd>{t.mode === 'owner' ? 'Owner only' : 'On for everyone'}<small>{t.frame ? ' spawn first (frame)' : ' whole town'}</small></dd></div>
         <div><dt>Workers</dt><dd>{t.workers.length}<small> {t.slots} slots live</small></dd></div>
+        {t.runs && <div><dt>Runs</dt><dd>{t.runs.problem ? 'not starting' : `${t.runs.inFlight ?? 0} in flight`}<small>{t.runs.problem ? ` ${t.runs.problem}` : ` of ${t.runs.maxRuns} at most; wants ${t.runs.plan?.want ?? 0} for ${t.runs.plan?.ready ?? 0} ready jobs, ${t.runs.byState?.completed ?? 0} done${t.runs.lastError ? `; last error HTTP ${t.runs.lastError.status}${t.runs.holdS ? `, waiting ${t.runs.holdS} s` : ''}` : ''}`}</small></dd></div>}
         <div><dt>Build</dt><dd>{t.build.current ?? 'none'}<small>{t.build.mismatch ? ` workers report ${t.build.workersReport.join(', ')}: not HOMETOWN_BUILD` : t.build.configured ? ' HOMETOWN_BUILD' : ' from the workers (set HOMETOWN_BUILD)'}</small></dd></div>
         <div><dt>Towns</dt><dd>{towns('full')} built<small> {towns('asked') + towns('framing') + towns('district') + towns('growing')} building, {towns('failed')} failed</small></dd></div>
         <div><dt>Canary</dt><dd>{t.canary.mismatches ? `${t.canary.mismatches} MISMATCH` : 'clean'}<small> {t.canary.runs} recompiled elsewhere</small></dd></div>
