@@ -11,6 +11,7 @@ import { PLACES, CAM_POINTS, CITY_NAME, MOGCITY_BUILDS, buildsFor, type CityId }
 import { ANCHORS, MOGCITY_SCENES, CREATE_HELD, OPENING } from '../storykit/pack/schema.mjs';
 import { KOKORO_VOICES, COLOUR_VOICES, lintVoiceBlock, voiceKey, clipBase } from '../storykit/voices/voice-design.js';
 import { realNameProblems as sheetBrandProblems } from '../storykit/vehicles/sheet.js';
+import { fitCastWardrobes } from './storykit-wardrobe';
 import { NAMES_CHECK_SYSTEM, readNamesCheck, consented, type Consent } from './episode';
 import { storykitLive } from './storykit-switch';
 import { storyStore } from './storykit-store';
@@ -144,7 +145,7 @@ export function anchorTable() {
   const A = JSON.parse(read('storykit', 'anchors.json')).anchors as { id: string; label: string; who: string; pick: string }[];
   const rows = A.map((a) => `| \`${a.id}\` | ${a.label} | ${a.who} | ${a.pick} |`);
   const bare = (ANCHORS as string[]).filter((a) => a !== 'none' && !A.some((x) => x.id === a));
-  return `## The anchors (cast[].anchor)\n\nEach is a hand-tuned person the forge already builds well. Pick the nearest for each cast member by age, sex, build and job, then write their sheet as a variation of it (a new face, name, heritage, hair, colours and clothes for the story), keeping what the anchor gets right: the build band, the wardrobe items it wears, its posture. Two cast members may share an anchor; never the same silhouette.\n\n| anchor | label | who | pick it for |\n|---|---|---|---|\n${rows.join('\n')}\n\nArchetypes without a sheet yet (the nearest above is the safer start): ${bare.map((a) => `\`${a}\``).join(', ')}; \`none\` starts from the base body.`;
+  return `## The anchors (cast[].anchor)\n\nEach is a hand-tuned person the forge already builds well. Pick the nearest for each cast member by age, sex, build and job, then write their sheet as a variation of it (a new face, name, heritage, hair, colours and clothes for the story), keeping what the anchor gets right: the build band, the wardrobe items it wears, its posture. Dress each of them for their work and their story: a mechanic, a farmer or a builder wears work clothes and boots, and a suit (suit-jacket, suit-jacket-db) only goes on someone whose job or story puts them in one. Two cast members may share an anchor; never the same silhouette.\n\n| anchor | label | who | pick it for |\n|---|---|---|---|\n${rows.join('\n')}\n\nArchetypes without a sheet yet (the nearest above is the safer start): ${bare.map((a) => `\`${a}\``).join(', ')}; \`none\` starts from the base body.`;
 }
 /** The Kokoro voices a block may use, as a table. */
 export function voiceTable() {
@@ -686,6 +687,8 @@ export async function generateStorykit(
 
     if (!problems.length && meta && gated?.pack) {
       const pack = gated.pack;
+      // (a working person forged in a business suit gets their work's clothes: lib/storykit-wardrobe.ts)
+      const fitted = fitCastWardrobes(pack, sk.hero && 'look' in sk.hero ? sk.hero.look : null);
       const inherit = inheritance(pack, gated.lines, parent);
       // the store draft the creator's browser fills (its parent's files that still apply carried over by hash); a world
       // whose original has no store draft is opened without one (the gate above already held it to its parent)
@@ -698,7 +701,7 @@ export async function generateStorykit(
       // (STORY-KIT-PLAN 2.2 stages 3 to 6); until it reports, the draft is unverified, never a pass
       const report = {
         ok: true, problems: [] as string[], advisories: [] as string[], levelReached: 0, kind: 'storykit', status: 'unverified',
-        codeHash: createHash('sha256').update(code).digest('hex').slice(0, 16), warnings: gated.warnings, clamped: gated.clamped,
+        codeHash: createHash('sha256').update(code).digest('hex').slice(0, 16), warnings: gated.warnings, clamped: gated.clamped, fitted,
         inherit, store: { draft: opened.id, files: opened.inherited }, trail: { passes, shipped: attempt, why: 'it passed the gate' },
       };
       db.prepare('DELETE FROM drafts WHERE id = ?').run(draftId);

@@ -27,6 +27,7 @@ import { runStoryOwnerChecks } from './storykit-owner-check.ts';
 import { runStoryPatchChecks } from './storykit-patch-check.ts';
 import { runForgeBrowserChecks } from './storykit-forge-browser-check.ts';
 import { runHometownChecks } from './storykit-hometown-check.ts';
+import { runWardrobeChecks } from './storykit-wardrobe-check.ts';
 import { runTownChecks } from './hometown-towns-check.ts';
 import { runPlacesChecks } from './places-check.ts';
 import { runHometownTilesChecks } from './hometown-tiles-check.ts';
@@ -539,6 +540,8 @@ runStoryOwnerChecks(ok);
 runStoryPatchChecks(ok);
 // Hometown (12 Nov): the builder reads a town's CityPackage, the town lock on Mogs, and the real-place safety rules
 runHometownChecks(ok);
+// Story Kit (13 Nov): a forged person's clothes follow their work (a mechanic is never forged in a business suit)
+runWardrobeChecks(ok);
 await runTownChecks(ok);
 // Story Kit (B6): the Character Forge in a creator's browser: its sharp, and every anchor forged in Chrome under the store's cap
 await runForgeBrowserChecks(ok);
