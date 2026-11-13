@@ -18,6 +18,7 @@ import { distance } from '../lib/color.ts';
 import { BOUNDS } from '../lib/rig.ts';
 import { runDesignChecks } from './design-check.ts';
 import { runDifficultyChecks } from './difficulty-check.ts';
+import { runPlacesChecks } from './places-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -507,6 +508,7 @@ console.log('\na Mog keeps its parent: the DNA check, on real worlds');
 
 runDifficultyChecks(ok);
 runDesignChecks(ok);
+runPlacesChecks(ok);
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);
