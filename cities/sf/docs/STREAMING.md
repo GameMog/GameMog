@@ -37,22 +37,41 @@ from the whole city. Streaming gives them one grid and a lifecycle.
 
 ## 2. Tile grid and keys
 
-- Square tiles of `size` metres (**256 m** by default) on a grid that starts at the frame's origin:
-  `ix = floor(x / size)`, `iz = floor(z / size)`. The frame is the world contract's frame (`world.frame`: metres,
-  +x east, -z north). Tile keys are therefore stable across compiles, and a city's tiles never move.
+Two kinds of grid. San Francisco, New York and the fixcheck worlds keep their own frames; a Hometown place is on the
+national grid **hg1** (`tools/hometown/grid.py`, the authority; `wagmi/world/grid.js`, its display/validation twin).
+
+**A city's own grid** (San Francisco, New York, the in-memory source):
+
+- Square tiles of `size` metres (**256 m** by default) from the frame's origin: `ix = floor(x / size)`,
+  `iz = floor(z / size)` in the world contract's frame (`world.frame`: metres, +x east, -z north).
 - Each power-of-two multiple of 256 m lines up with the cells the systems use today (512 m terrain tiles and ground
-  cells, 1024 m static cells), so moving a system onto the grid does not re-cut its data.
-- **Cache key**: `<city>@<compilerVersion>:<ix>,<iz>`, for example `sf@mem-1:2,-3` (`manager.keyOf`). A new compiler
-  version is a new key space: old tiles are never mixed with new ones. The server's cache and the browser's
-  (Cache API / IndexedDB, Milestone 3) share this key.
-- `source.has(ix, iz)` marks where a city has data. Tiles outside it are never requested. The in-memory source uses
-  the region's flight bounds.
-- **A Hometown package** (`?city=pkg`, `wagmi/world/pkg.js`) shares the compiler's grid: 512 m tiles
-  (`PKG.tileSize`, `tools/hometown/compile.py` TILE) keyed the same way in the package's own frame, cache key
-  `pkg:<id>@<compilerVersion>:<ix>,<iz>` (for example `pkg:okemah@0.2.0:0,-1`), `has()` the tiles the package
-  compiled (`PKG.tiles`). Its `ensureLoaded` waits for the package's data and road graph, then returns the
-  manager's tiles with `.complete` and `.missing` (the grid keys it never compiled). The tile service
-  (`server/tiles`) still keys on web-mercator z16; its README's *Grid alignment* is the open decision.
+  cells, 1024 m static cells).
+- **Cache key** `<city>@<version>:<ix>,<iz>`, for example `sf@mem-1:2,-3` (`manager.keyOf`).
+- `source.has(ix, iz)` marks where a city has data (the in-memory source: the flight bounds).
+
+**The national grid hg1** (Hometown, `?city=pkg`, `wagmi/world/pkg.js`):
+
+- Per-domain Lambert Conformal Conic on GRS80 (conus, ak, hi, pr, gu, as; the domain from the Census GEOID, never from
+  lon/lat). Grid metres E' (east) and S (south, the engine's +z); integer centimetres `gx`, `gs`.
+- **L0 tiles are 512 grid-m**: `c = gx // 51200`, `r = gs // 51200`, half-open. Ids `hg1-{domain}/0/{c}/{r}`
+  (Okemah's spawn tile `hg1-conus/0/5806/8582`). Context blocks are L4 (16 x 16 tiles); compile blocks L2 (4 x 4,
+  never in a client key).
+- **Session frame**: the origin is the NW corner of the anchor's tile `(c0, r0)`, pinned with `k0` (1e-9) and `gamma0`
+  (1e-6 deg) by the descriptor. `x = (gx - 51200 c0) / (100 k0)`, `z` likewise: session metres are ground metres at
+  the origin (drift <= 3.5e-4 per 10 km). A tile is placed at `((c - c0) 512 / k0, (r - r0) 512 / k0)` with side
+  `512 / k0`, so the manager's `floor(x / size)` is `c - c0`; vertices are tile-local float32 (`|v| <= ~530 m`); the
+  terrain patch is square with step `2 / k0`. `frame.bearingDeg = gamma0` is the true bearing of -z (as New York's
+  29.02): the radar turns by it so true north is up, the full map stays grid-up with its needle turned by -gamma0.
+- **Cache key** `<buildId>:hg1-<domain>/0/<c>/<r>`, global: no city in it, so neighbouring towns share LRU entries
+  (`htc-0.3.0-hg1-becc45523:hg1-conus/0/5806/8582`). The source supplies `grid`, `domain`, `c0`, `r0`; its version is
+  the buildId. `has()`: the descriptor's tile set (`PKG.tiles`), else the domain's bounds.
+- Sources: the package in memory sliced on the 512 / k0 grid (default), or `?tiles=net` (`wagmi/world/tiles-net.js`):
+  the compiled HTL1 tiles fetched from `?tileBase=` (default the compiler's local store `/.scratch/hometown/store`; the
+  tile service serves the same paths, `server/tiles`), decoded and placed as above, with the interim water shim (one
+  engine water level: wet posts within 1 m of it are engine water, every other post at least 0.3 m above it).
+- `ensureLoaded` waits for the package's data and road graph, then returns the manager's tiles with `.complete` and
+  `.missing` (tile ids the package never compiled). The floating origin is on by default for `city=pkg` (`origin=off`
+  turns it off). `world.crowd` reads the compiled tiles' headers (buildings per km2) over the near and mid rings.
 
 ## 3. Rings, levels of detail, budgets
 

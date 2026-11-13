@@ -1,93 +1,93 @@
-# Hometown compiler (v0)
+# Hometown compiler 0.3.0 (the national grid hg1)
 
-Turns open US map data for one place into a **city package** that Mog City's San Francisco engine base plays through
-the world contract: `?city=pkg&pkg=<id>`.
+Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
+so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
+tiles plus a session frame. The legacy assembler still lays a place out as one package for Mog City's San Francisco
+engine base: `?city=pkg&pkg=<id>`.
 
 ## Run it
 
-Python 3.11+ with `duckdb` (with its `httpfs` and `spatial` extensions, installed on first use), `numpy`, `shapely` 2,
-`pillow` (`pip install duckdb numpy shapely pillow`). No account, no API key.
+Python 3.11+ with `duckdb` (its `httpfs` and `spatial` extensions install on first use), `numpy`, `shapely` 2,
+`pillow`. No account, no API key. Raw data and the store live under `.scratch/` (git-ignored).
 
 ```bash
-# 1. fetch the place's raw inputs, by bounding box only (into .scratch/hometown-m2/data/<id>/, git-ignored)
-python tools/hometown/fetch.py --id okemah --place "Okemah, OK"
-python tools/hometown/fetch.py --id phoenix --bbox -112.080,33.444,-112.062,33.458
-# 2. compile it (offline: reads only what fetch.py saved) into cities/pkg/packages/<id>/ (git-ignored)
-python tools/hometown/compile.py --id okemah --name "Okemah, OK"
-# 3. play it
-open "http://localhost:<port>/?city=pkg&pkg=okemah"          # add &start=chase for the chase-first opening
+# 1. Overture rows per L4 region (the regions a place's tiles + 3.2 km touch; one S3 read per layer for all of them)
+python tools/hometown/fetch.py --regions "conus:362,535;363,535;362,536;363,536;362,537;363,537"
+# 2. a place (tools/hometown/places.json): its descriptor, its tiles (store), then the legacy package
+python tools/hometown/compile.py --id okemah                       # -> cities/pkg/packages/okemah/
+# or single products (the tile service's subprocess contract):
+python tools/hometown/compile.py --tile hg1-conus/0/5806/8582 --out -      # HTL1 on stdout
+python tools/hometown/compile.py --block hg1-conus/2/1451/2145 --out -     # HTB1: the 16 children
+python tools/hometown/compile.py --ctx hg1-conus/4/362/536
+python tools/hometown/compile.py --descriptor okemah --stage 1             # JSON
+python tools/hometown/compile.py --print-build                             # the buildId and its record
 ```
 
-`--place "Name, ST"` is resolved through Overture's divisions theme (the locality of that name in that state: its area's
-bbox, capped at 4.5 km a side). `--bbox lonW,latS,lonE,latN` skips that.
+The 3DEP heights are read lazily from the USGS cloud-optimized GeoTIFFs (HTTP range reads of 512 px internal tiles) and
+mirrored by ETag under `<data>/dem/`; after the first read everything is offline.
 
-## Sources (all read by bounding box)
+## The grid (`grid.py`, frozen as hg1)
 
-| Source | What | How |
-|---|---|---|
-| Overture Maps, release `2026-10-21.0` | buildings (footprints, heights, floors, class), transportation segments + connectors (the road graph: class, subclass, names, one-way from access restrictions, bridge/tunnel flags), places (POIs for missions), base water and land use | duckdb over the public GeoParquet on S3 (`s3://overturemaps-us-west-2/release/...`), `WHERE bbox` filter (row-group statistics), saved as small parquet files |
-| USGS 3DEP 1/3 arc-second (`StagedProducts/Elevation/13/TIFF/current`) | bare-earth ground | `dem.py`: the cloud-optimized GeoTIFFs' internal 512 px tiles under the box, HTTP range requests, LZW + floating-point predictor decoded in Python; cached by ETag |
+- Per-domain Lambert Conformal Conic on GRS80, Snyder's ellipsoidal forms, no datum shift. Domains `conus`, `ak`
+  (longitudes normalised to (-200, -125]), `hi`, `pr` (+USVI), `gu` (+CNMI), `as` (n < 0); the domain comes from the
+  Census GEOID's state prefix. Grid metres E' = E + FE, S = S0 - N (southing: the engine's +z).
+- Integer centimetres once per source vertex (`round_half_even`); every ownership and clipping decision is integer or
+  exact-rational after that.
+- L0 tiles 512 grid-m (`c = gx // 51200`), 2 m posts (257 x 257, edges shared), 1 m mask cells, L2 compile blocks,
+  L4 context blocks (8192 grid-m).
+- `grid-vectors.json` (`grid_vectors.py`): 91 vectors over the six domains, edge-exact cm points, Attu, American Samoa;
+  `tests/grid.test.mjs` holds the JS twin to them.
+- Changing any of this is **hg2** (a new key namespace).
 
-Licences and credits: © OpenStreetMap contributors (ODbL 1.0) for the OSM-derived Overture rows, Overture Maps
-Foundation (CDLA Permissive 2.0 / ODbL by theme), USGS 3DEP (public domain). Every package's `manifest.json` carries
-them, `geodata.js` repeats them in its header, the game's map and credits show them (`cities/pkg/js/pkg-hud.js`,
-`wagmi/credits.js`), and the repository `NOTICE` lists them.
+## A tile = f(buildId, key, sources over tile + halo, ctx blocks)
 
-## Package format (`cities/pkg/packages/<id>/`)
-
-| File | Content |
+| Layer | Rule |
 |---|---|
-| `manifest.json` | `format: hometown-package`, `version: 1`; `compiler` (name, version, tile size, `libs`: the library versions); `placeInputs` (dense, density, downtown: see Stages); `sources` (Overture release and per-layer row counts, the DEM files' URLs + ETags + Last-Modified, the bbox and how it was resolved); `attribution`; `frame`; `box`; `waterLevel`; `tiles`; `stats`; `files` (bytes + sha256 each); `size` |
-| `geodata.js` | `window.NYC.GEO` in the SF engine's schema (`cities/sf/docs/formats.md`, `tools/geo-roadgraph.mjs`): `frame`, `box`, `data` (the bins' urls), `land`, `blocks` (curb islands), `roadGraph` (nodes, names, links `[a, b, name, width, lanes, dir, inner, flags, swL, swR]`, `control`, `stopMask`, `nhoods`, `linkNhood`, `decks`), `parks`, `water`, and empty SF-only tables (`piers`, `rail`, `transit`, `landmarks`, `bridges`...); `window.NYC.PLACE_DATA` (`regional`: the arrivals, as the teleport list); `window.NYC.PKG` (id, name, compiler, tile size, density, spawn, spawns, places, frame, box, tiles, downtown) |
-| `data/terrain.bin.gz` | SFB1 `sf-terrain` v1: 2 m cells, uint16, 1 cm steps; y = NAVD88 m minus `frame.yOffset` |
-| `data/buildings.bin.gz` | SFB1 `sf-buildings` v3: the SF engine's 20 fields per footprint (base/roof/peak in frame y, type by rule), outlines only (`massCount` 0) in v0 |
-| `data/groundmask.bin.gz` | SFB1 `sf-groundmask` v1: 1 m cells, `asphalt, sidewalk, lawn, sand, rock, waterEdge` |
+| terrain | each post's lon/lat (inverse projected) sampled bilinearly on the global 1/3" lattice, every pixel from the one file whose degree cell holds it (`dem.py` Sampler); water posts flattened to their polygon's level from ctx (per block); bridges up to 600 m with no road under and no water under raised; blur sigma 1 post with a 2-post halo; cm half-even; stored absolute (NAVD88), `base_cm` + uint16 |
+| roads | whole Overture segments meeting tile + 160 m, split at their connectors, then at every grid line E' = 512k / S = 512k exactly (int cm, `Fraction`); border nodes `b:{segment}:{E|S}{k}:{ordinal}`; a sub-piece belongs to the tile holding its first edge's midpoint; junction controls from every piece at the connector; no box-edge cut |
+| curb islands | land minus roadways over tile + 128 m, each island classified before the clip (median: < 120 m2 or < 6 m wide; cut by the window: < 6 m wide), clipped to the tile, clipped edges flagged `cut` |
+| buildings | owned by the tile holding the exact centroid of the full footprint (integer shoelace), outline kept whole (may overhang), base and rise from the post function over the footprint; `foreign` lists the owners of buildings overlapping the tile |
+| paved lots, trees | footprints within 25 m (buffer 8 / 12 m downtown); a 13 m tree lattice in global grid integers, `hash01(i, j, k ^ domain)`; `desert` from the tile centre |
+| mask | 512 x 512 1 m cells: asphalt, sidewalk, lawn, sand, rock, waterEdge, **water (6)** |
+| places, water, parks | POIs owned by the tile; water and park polygons clipped, each water with its ctx `level_cm` |
 
-Every `.gz` is written with `mtime 0` and no file name: the same inputs and compiler version give the same bytes.
+**Context blocks** (`context.py`, L4): `bcnt` / `pcnt` (buildings / places per 64 m cell) and `wlev` (each water
+polygon's median DEM height inside it, per block). They replace v0's whole-place inputs: the dense height blend
+(buildings within 1 km of a building, `smoothstep(800, 1600)` per km2), the downtown field (POI scores within 250 m,
+centres by non-max suppression within 2 km, downtown = within 350 m of a centre) and the per-polygon water levels.
+A tile reads the ctx blocks within 3.2 km and the regions within 3.2 km (a tile whose regions are not fetched is refused
+with the fetch command to run).
 
-**Frame.** Metres, origin the box centre (`lat0`, `lon0` rounded to 1e-6 degree), +x east, +z south (north is -z), the
-SF tools' local equirectangular projection on the WGS84 ellipsoid. y is the NAVD88 height minus `yOffset`, a whole
-number of metres: the river's surface (when the place's lowest ground is a river) or the box's lowest ground, so the
-place sits near y 0 as San Francisco does.
+**buildId** `htc-0.3.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
+compiler version, libraries incl. GEOS and zlib, image digest, Overture release, DEM snapshot, grid). Compiler logic
+changes bump `COMPILER_VERSION`; library, image or source changes change only `b`.
 
-## Stages
+## Containers (gzip, mtime 0, sorted JSON)
 
-1. **place**: frame, height datum, water level (only water lying in the place's lowest ground: the engine has one water
-   level, and every sample under it is water), terrain lattice and quantisation.
-2. **network** (the whole place: roads cross tiles): Overture road segments split at their connectors into links
-   between nodes; widths, lanes and sidewalks by class (Overture has no lane counts and rarely widths); one-ways from
-   access restrictions; signals where two main roads meet, all-way stops at residential crossings, stops on the minor
-   approaches elsewhere (a rule: Overture has no signals). Curb islands ("blocks") = the land minus every roadway
-   buffered to its curb-to-curb width (round ends make the corner radii), minus the water; holes cut open; under 120 m2
-   or narrower than 6 m: an island (median).
-3. **tiles** (512 m squares: `terrain_tile`, `buildings_tile`, `mask_tile`, `trees_tile`). A tile's output depends on
-   the place stage, the network, its own sources **and these whole-place inputs** (v0 computes them from every building
-   and place in the box, so a tile cannot yet be compiled from its own sources alone):
-   - `dense` (buildings per km2 of the box > 1200): switches the default height of every building with no Overture
-     height;
-   - the downtown disc (`downtown_of`, from all the box's Overture places): building type, shop fronts, and the paved lot
-     buffer (12 m downtown, 8 m elsewhere);
-   - `density` (`PKG.density`, the traffic and crowd level, from the whole place's building count);
-   - a building halo: `mask_tile`'s paved lots (`net.paved`, the union over all buildings) and `trees_tile`'s
-     building clearances (3 m clear, within 25 m) read neighbouring tiles' buildings, up to 25 m beyond the tile.
+- **HTL1** tile: `HTL1`, u32 header length, header JSON (format `hometown-tile` v1, grid, domain, L, c, r, buildId,
+  demSource, vdatum, bcount, groundAreaM2, k_tile, waters, foreign, ctx, sections), then sections: `terrain`, `mask`,
+  `buildings` (JSON, heights in absolute cm), `bverts` (int32 cm, tile-local), `roads`, `blocks`, `trees`, `places`,
+  `water`, `parks`. `wagmi/world/tiles-net.js` decodes it.
+- **HTC1** ctx, **HTB1** block stream (per child: u32 id length, id, u32 body length or 0xffffffff + reason).
 
-   The first three are written to `manifest.json` `placeInputs`. Terrain is computed with a 2-sample halo so the
-   Gaussian smoothing matches across tile seams; raised bridges (no road and no water under them) reach 10 m past the
-   deck's half-width.
-4. **assemble**: tiles concatenated (tile order, then Overture id) into the engine's single-file containers.
+## The place: descriptor and legacy package (`assemble.py`)
 
-v1 plan: compile on first request, cache by a key of `compiler.version` + `compiler.libs` (python, duckdb, shapely,
-GEOS, numpy, Pillow: the outputs depend on GEOS's buffer/union vertex order, numpy's percentile/median and Pillow's
-rasterisation) + the source versions (`sources.overture.release`, the DEM files' ETags: the 3DEP URLs are `/current/`,
-so the ETag, not the URL, names the data) + tile; the whole-place inputs above as a cheap place-wide query before any
-tile; the network stage per tile with a halo. `COMPILER_VERSION` is bumped on any change to a package's bytes. Same
-machine, same inputs give the same bytes; the tree lattice's hash is integer-only so it does not depend on the
-platform's libm.
+- Stage 1 (gazetteer + grid): domain, anchor (Census INTPTLAT/INTPTLONG; a bbox-only place: its centre), origin
+  `(c0, r0)`, `k0`, `gamma0`, the play box in cm, the pinned tile set (play box + 1 km, at most 1024).
+- Stage 2 (from the tiles): `yOffset` and `waterLevel` (v0's rule over the play box's tiles), spawns on lanes,
+  mission places, the downtown spawn (the strongest ctx centre in the box, else its top-scoring cell), density from the
+  tile headers, `tiles [{id, sha256 of the decoded tile}]`, `tileSetHash` (sorted `"{id} {sha256}\n"` lines) and the
+  lock v2. Written to `manifests/{buildId}/{placeId}.json`.
+- The legacy package: the tiles' posts, masks, buildings, roads (stitched by node id), curb islands (merged back across
+  cut edges), trees, places, water and parks in session coordinates, `frame.bearingDeg = gamma0`, terrain cell
+  `2 / k0`, mask cell `1 / k0`, the interim water shim. `PKG` carries buildId, grid, domain, origin, k0, gamma0, the
+  tile ids and their headers.
 
 ## Rules that are estimates, not data
 
-Road widths, lanes and sidewalks by class; building type (house, shop, warehouse, civic, tower) by Overture class,
-footprint area, height and whether it stands downtown; a house's height at least 3.4 m (Overture's ML heights are
-eaves); signals and stops; the street density (buildings per km2); paved aprons round non-house buildings. No brand
-names: a business is called by what it is and its street ("the gas station on W Broadway St"); public institutions
-keep their own names.
+Road widths, lanes and sidewalks by class; building type by Overture class, footprint area, height and the downtown
+field; a house at least 3.4 m; signals and stops; the street density; paved aprons round non-house buildings. No brand
+names: a business is called by what it is and its street; public institutions keep their own names.
+
+Licences and credits: © OpenStreetMap contributors (ODbL 1.0) via Overture Maps Foundation (CDLA Permissive 2.0 /
+ODbL by theme), USGS 3DEP (public domain); every package's `manifest.json` and `geodata.js` carry them.
