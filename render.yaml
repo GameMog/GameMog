@@ -41,3 +41,16 @@ services:
         value: https://gamemog.com
       - key: ADMIN_PASSWORD
         sync: false
+      # Hometown towns served from this disk (docs/HOMETOWN-HOSTING.md, lib/hometown-tiles/): off until the owner
+      # turns them on. data/hometown may use HOMETOWN_DISK_CAP_GB of the disk (2 by default; Story Kit has 8,000 MB
+      # of it on paper, so a 20 GB disk is the proposal before the cap goes up), and no put lands while the disk's free
+      # space is under HOMETOWN_FREE_FLOOR_GB (2). This server does not compile: towns are pre-warmed on the Mac
+      # and uploaded with the owner's token.
+      - key: HOMETOWN_TILES
+        value: "off"
+      - key: HOMETOWN_COMPILE
+        value: "off"
+      # the bearer token for /api/hometown/admin/* (upload, status, GC): entered by the owner on the Environment page,
+      # at least 24 characters; unset, the admin routes are not found
+      - key: HOMETOWN_ADMIN_TOKEN
+        sync: false

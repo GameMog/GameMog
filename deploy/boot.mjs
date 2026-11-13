@@ -11,6 +11,8 @@ import { interruptBuilds } from './builds.mjs';
 
 const DB = 'data/gamemog.db', SEED = 'deploy/seed.db.gz';
 mkdirSync('data', { recursive: true });
+// the Hometown tile store (lib/hometown-tiles/store.ts): its own folder on the disk, empty until towns are uploaded
+mkdirSync('data/hometown', { recursive: true });
 if (existsSync(DB)) {
   console.log(`boot: keeping ${DB} from the disk`);
 } else {

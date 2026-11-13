@@ -43,5 +43,7 @@ data/backups/
 !/public/storykit/vendor/gpl/
 # Story Kit world store (lib/storykit-store.ts): on the Render disk, never committed
 data/storykit/
+# Hometown tile store (lib/hometown-tiles/store.ts): on the Render disk, never committed
+data/hometown/
 # Hometown search screenshots and scratch output
 /.scratch/
