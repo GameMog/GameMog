@@ -15,26 +15,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { EXPAND, STATES, fold, words } from './normalize.ts';
+import type { Place } from './types.ts';
 
-/** What a picked place hands on: to the Create page, and later to the tile service. */
-export type Place = {
-  /** Stable: "us-" and the Census GEOID (state FIPS + place FIPS), e.g. "us-4054200" for Okemah, OK. */
-  placeId: string;
-  name: string;
-  /** USPS code, e.g. "OK". */
-  state: string;
-  stateName: string;
-  /** "city", "town", "village", "CDP", ... */
-  kind: string;
-  /** The Census internal point. */
-  lat: number;
-  lon: number;
-  /** [west, south, east, north], degrees. APPROXIMATE: a square around the internal point sized from the land and water area (the Gazetteer has no outline); the tile service replaces it with the real extent. */
-  bbox: [number, number, number, number];
-  /** 2010 Census population; null for a place first listed after 2010. */
-  pop: number | null;
-  landKm2: number;
-};
+export type { Place } from './types.ts';
 
 const KIND: Record<string, string> = {
   '21': 'borough', '25': 'city', '37': 'municipality', '43': 'town', '47': 'village', '53': 'city and borough',

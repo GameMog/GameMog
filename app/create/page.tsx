@@ -7,6 +7,13 @@ import type { WorldSpec } from '@/lib/worldspec';
 import { useGeneration, GenerationProgress, DraftResult } from './generation';
 import { WorldOptionsFields } from './options';
 import { DEFAULT_OPTIONS, type WorldOptions } from '@/lib/world-options';
+import { PlaceSearch } from './place-search';
+import { hometownSearchOn } from '@/lib/places/flag';
+import { requestCity, type CityRequest } from '@/lib/places/request-city';
+import type { Place } from '@/lib/places/types';
+
+// Hometown (Milestone 6): the town box, off unless NEXT_PUBLIC_HOMETOWN_SEARCH=on at build time
+const HOMETOWN = hometownSearchOn();
 
 type Finding = { level: 'error' | 'warn'; code: string; message: string };
 type Report = { ok: boolean; findings: Finding[]; stats: Record<string, number> };
@@ -172,6 +179,7 @@ export default function Create() {
   const [report, setReport] = useState<Report | null>(null);
   const [offline, setOffline] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [town, setTown] = useState<{ place: Place; request: CityRequest } | null>(null);
   // 'game': Opus writes the whole game. 'race': the tuned rhythm-race template.
   // every future game is a world on the runtime; the race template remains for
   // the worlds already built on it and for running without an API key
@@ -249,6 +257,18 @@ export default function Create() {
 
         <div className="cgrid">
           <section className="panel cidea">
+            {HOMETOWN && (
+              <div className="ctown">
+                <p className="lbl">Your hometown</p>
+                <PlaceSearch disabled={busy} onPick={async (sel, place) => setTown({ place, request: await requestCity(sel) })} />
+                {town && (
+                  <div className="msg info" data-place-id={town.place.placeId}>
+                    <b>town</b>
+                    <span>{town.place.name}, {town.place.stateName}. Its real streets load here when Hometown opens.</span>
+                  </div>
+                )}
+              </div>
+            )}
             <label className="lbl" htmlFor="p">Your world</label>
             <textarea
               id="p" rows={6} value={prompt}

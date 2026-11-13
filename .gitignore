@@ -34,3 +34,5 @@ data/backups/
 /gamemog-dare-mockups/
 # private planning notes (dated: strategy, go-to-market, capital); the product docs are undated
 /docs/*-20[0-9][0-9]-[0-9][0-9]-[0-9][0-9].md
+# Hometown search screenshots and scratch output
+/.scratch/
