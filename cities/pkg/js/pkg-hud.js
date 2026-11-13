@@ -46,6 +46,29 @@ if (repo) {
   repo.firstChild.textContent = c.short + ' ';
   repo.dataset.credit = 'pkg';
 }
+// ...but the title's line lives in .hud-top-left, which story mode, fights, cutscenes and the pause menu all put away, so
+// the map's data is also credited on a line of its own: small, bottom centre, outside every .hud, above the pause menu,
+// the full map and the loader, so no HUD toggle hides it (clean view [H] only dims it). ODbL 1.0 §4.3 asks for the
+// credit wherever the map is shown; it links to OpenStreetMap's copyright page.
+if (!document.getElementById('pkg-map-credit')) {
+  const c = N.pkgCredit(P.attribution);
+  const line = document.createElement('a');
+  line.id = 'pkg-map-credit';
+  line.href = 'https://www.openstreetmap.org/copyright';
+  line.target = '_blank';
+  line.rel = 'noopener noreferrer';
+  line.title = c.full;
+  line.setAttribute('aria-label', `Map data: ${c.full} (opens in a new tab)`);
+  line.textContent = c.short;
+  const css = document.createElement('style');
+  css.textContent = `#pkg-map-credit{position:fixed;left:50%;bottom:max(3px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:110;
+font:500 10px/1.25 Inter,system-ui,sans-serif;color:rgba(255,255,255,.72);text-shadow:0 1px 2px rgba(0,0,0,.9);text-decoration:none;
+white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis;pointer-events:auto;opacity:1!important;visibility:visible!important;display:block!important;transition:opacity .3s}
+#pkg-map-credit:hover,#pkg-map-credit:focus-visible{color:#fff;text-decoration:underline}
+body.hud-minimized #pkg-map-credit{opacity:.55!important}`;
+  document.head.appendChild(css);
+  document.body.appendChild(line);
+}
 $('btn-open-map')?.setAttribute('title', `Full ${place} street map [M]`);
 const radar = $('minimap-card');
 if (radar) { radar.setAttribute('aria-label', `Live ${place} street radar`); radar.title = `Open the full ${place} street map [M]`; }

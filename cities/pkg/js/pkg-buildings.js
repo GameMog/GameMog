@@ -330,5 +330,79 @@ function createPkgBuilder() {
   return { roof, chimney, porch, tower, canopy, mesh, stats };
 }
 
-window.NYC.PkgBuildings = { REGIONS, styleFor, regionOf, createPkgBuilder };
+// Shop signs: a town's storefronts are named after its own streets and its own name ("COLUMBIA ST PHARMACY", "OKEMAH
+// DINER"), from a neutral list of trades: no chain's, no San Francisco or New York name. One name per shop building,
+// a pure function of the package (its road graph, its name and the building's index), so it never changes with the
+// order shops stream in. Instanced signs need one texture per name, so a town gets at most MAX_SIGNS names.
+//   signPlan(roadGraph, townName, shops: [{ i, x, z }]) -> { themes: [{ text, style }], pick: Map(i -> theme index) }
+const SHOP_TRADES = ['PHARMACY', 'DINER', 'HARDWARE', 'BARBER SHOP', 'BAKERY', 'BOOKS & COFFEE', 'LAUNDROMAT', 'FLORIST',
+  'GROCERY', 'CLEANERS', 'AUTO PARTS', 'CAFE', 'DELI & GRILL', 'FURNITURE', 'VARIETY STORE', 'FEED & SUPPLY', 'TAILOR',
+  'SHOE REPAIR', 'PAWN & LOAN', 'MUSIC & RECORDS', 'TACKLE & BAIT', 'PIZZA', 'PHOTO STUDIO', 'GIFTS'];
+const MAX_SIGNS = 20;
+const shash = (s) => { let h = 2166136261; for (let k = 0; k < s.length; k++) { h ^= s.charCodeAt(k); h = Math.imul(h, 16777619); } return h >>> 0; };
+// a street's name as a shop would use it: no direction prefix, no route numbers, highways, ramps or long names
+function streetWord(name) {
+  let s = String(name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+  if (!s || /\d{3,}|\b(HWY|HIGHWAY|INTERSTATE|I-?\d|US \d|SR \d|ROUTE|RAMP|BYPASS|FRONTAGE|EXPY|EXPRESSWAY|TPKE|TURNPIKE|PKWY|FWY|FREEWAY|TUNNEL|BRIDGE|ALLEY|EXIT)\b/.test(s)) return '';
+  s = s.replace(/^(N|S|E|W|NE|NW|SE|SW|NORTH|SOUTH|EAST|WEST) (?=\S)/, '');
+  // (a town's own Polk St or Market St is real, but a sign reading like San Francisco's old ones would look like a leak)
+  if (/^(MARKET|POLK|MISSION|BAYSIDE|NOB HILL)\b/.test(s)) return '';
+  return s.length >= 4 && s.length <= 16 && /[A-Z]/.test(s) ? s : '';
+}
+function signPlan(rg, townName, shops) {
+  const town = String(townName || '').split(',')[0].trim().toUpperCase();
+  const names = (rg && rg.names) || [], nodes = (rg && rg.nodes) || [], links = (rg && rg.links) || [];
+  // every named link as a polyline (node a, its bends, node b), to find the street each shop fronts
+  const lines = [];
+  for (const l of links) {
+    const w = streetWord(names[l[2]]);
+    if (!w) continue;
+    const p = [nodes[2 * l[0]], nodes[2 * l[0] + 1], ...(l[6] || []), nodes[2 * l[1]], nodes[2 * l[1] + 1]];
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (let k = 0; k < p.length; k += 2) { x0 = Math.min(x0, p[k]); x1 = Math.max(x1, p[k]); z0 = Math.min(z0, p[k + 1]); z1 = Math.max(z1, p[k + 1]); }
+    lines.push({ w, p, x0, x1, z0, z1 });
+  }
+  const R = 45; // a shop fronts a street within 45 m of its sign
+  const streetOf = (x, z) => {
+    let best = '', bd = R * R;
+    for (const L of lines) {
+      if (x < L.x0 - R || x > L.x1 + R || z < L.z0 - R || z > L.z1 + R) continue;
+      const p = L.p;
+      for (let k = 0; k + 3 < p.length; k += 2) {
+        const ax = p[k], az = p[k + 1], dx = p[k + 2] - ax, dz = p[k + 3] - az, ll = dx * dx + dz * dz;
+        const t = ll > 0 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / ll)) : 0;
+        const ex = ax + dx * t - x, ez = az + dz * t - z, d = ex * ex + ez * ez;
+        if (d < bd || (d === bd && L.w < best)) { bd = d; best = L.w; }
+      }
+    }
+    return best;
+  };
+  // the streets most shops front (up to 7) each get a few trades, the town's name 5 more (MAX_SIGNS in all); a shop on
+  // one of those streets takes one of its trades (one in four the town's instead), any other shop one of the town's
+  const T = SHOP_TRADES.length, front = shops.map((s) => streetOf(s.x, s.z)), n = new Map();
+  for (const w of front) if (w) n.set(w, (n.get(w) || 0) + 1);
+  const top = [...n.keys()].sort((a, b) => n.get(b) - n.get(a) || (a < b ? -1 : 1)).slice(0, 7);
+  const own = town || (top.length ? '' : 'MAIN ST');
+  const themes = [], byStreet = new Map();
+  const add = (word, k) => { themes.push({ text: `${word} ${SHOP_TRADES[k % T]}`, style: shash(`${word}|${k % T}`) % 5 }); return themes.length - 1; };
+  let room = MAX_SIGNS - (own ? 5 : 0);
+  for (const w of top) {
+    const want = Math.min(n.get(w) >= 8 ? 3 : n.get(w) >= 3 ? 2 : 1, room - (top.length - top.indexOf(w) - 1));
+    if (want <= 0) continue;
+    const h = shash(w), list = [];
+    for (let k = 0; k < want; k++) list.push(add(w, h + k * 7)); // (7 and 24 share no factor: distinct trades)
+    byStreet.set(w, list); room -= want;
+  }
+  const mine = [];
+  if (own) { const h = shash(own); for (let k = 0; k < 5; k++) mine.push(add(own, h + k * 5)); }
+  const pick = new Map();
+  shops.forEach((s, j) => {
+    const h = shash(`${town}|${s.i}`), list = byStreet.get(front[j]);
+    const from = list && (h % 4 !== 0 || !mine.length) ? list : mine.length ? mine : [...byStreet.values()][0];
+    pick.set(s.i, from[(h >>> 4) % from.length]);
+  });
+  return { themes, pick };
+}
+
+window.NYC.PkgBuildings = { REGIONS, styleFor, regionOf, createPkgBuilder, signPlan, streetWord, SHOP_TRADES };
 })();

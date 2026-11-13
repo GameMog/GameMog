@@ -2015,6 +2015,7 @@ function buildCityBlocks(scene, opts = {}) {
   //     fronts (storefronts where the parcel has retail floor space, else an entrance), walls against another mass are
   //     party walls, the rest rear walls. Cornices on the masonry roofs, a bulkhead on the highest; footprints the
   //     rectangles cover badly are drawn as their outline in world-u mode.
+  let pkgSigns = null; // ({ themes, per }: a package's shop-sign names, set by buildSFMasses)
   function buildSFMasses() {
     const { header, table, verts, masses } = window.NYC.DATA.buildings;
     const T = window.NYC.Terrain;
@@ -2139,7 +2140,8 @@ function buildCityBlocks(scene, opts = {}) {
     }
 
     let awningN = 0;
-    function shopAwnings(blk, box) {
+    const pkgShops = []; // (a package's shops, for their signs' names: PkgBuildings.signPlan)
+    function shopAwnings(blk, box, shop) {
       // the longest shop wall of the box (createFacadeBoxes faces: local -x, +x, -z, +z): canvas awnings in 6 m bays
       // 2.8 m up, each turned with the wall (a.ry), its fascia sign over it (a.signY)
       let f = -1;
@@ -2154,12 +2156,13 @@ function buildCityBlocks(scene, opts = {}) {
       const nx = lx * cs + lz * sn, nz = -lx * sn + lz * cs;
       const ax = lx ? sn : cs, az = lx ? cs : -sn; // along the wall
       const ry = lx ? box.ry : box.ry + Math.PI / 2;
+      pkgShops.push({ i: shop, x: box.x + nx * (half + 0.8), z: box.z + nz * (half + 0.8), nx, nz });
       for (let k = 0; k < n; k++) {
         if (hash(box.x + k, box.z) < 0.25) continue;
         const u = -L / 2 + seg * (k + 0.5);
         const x = box.x + nx * (half + 0.8) + ax * u, z = box.z + nz * (half + 0.8) + az * u;
         const y = window.NYC.Terrain.groundAt(x, z) + 2.8;
-        blk.awnings.push({ x, y, z, w: 1.6, d: Math.min(5.5, seg - 0.8), ry, sideDir: 1, colorIdx: Math.floor(hash(box.x, box.z + k) * 5), signY: y + 0.95 });
+        blk.awnings.push({ x, y, z, w: 1.6, d: Math.min(5.5, seg - 0.8), ry, sideDir: 1, colorIdx: Math.floor(hash(box.x, box.z + k) * 5), signY: y + 0.95, shop });
         awningN++;
       }
     }
@@ -2328,7 +2331,7 @@ function buildCityBlocks(scene, opts = {}) {
       // a penthouse up to 12 m, a setback storey block up to 45 m, higher a setback and a spire (sf-buildings.js)
       // (a package shop: canvas awnings along its longest shop wall; a house: a chimney and a porch on the road side; a
       // church: its tower)
-      if (PK && kind === 'shop' && topBox) shopAwnings(blk, topBox);
+      if (PK && kind === 'shop' && topBox) shopAwnings(blk, topBox, i);
       if (pitched && biggest >= 0) {
         const big = all[biggest], fr = rec[FI.front], fa = (fr * Math.PI) / 180;
         if (look.chimney) pb.chimney(big, theta, roof, kRise * Math.min(big.w, big.d) * 0.5, (a) => hash(i, a));
@@ -2365,6 +2368,16 @@ function buildCityBlocks(scene, opts = {}) {
       const kinds = {};
       for (let i = 0; i < header.count; i++) { const k = header.kinds[table[i * F + FI.kind]] || 'unknown'; kinds[k] = (kinds[k] || 0) + 1; }
       console.info(`[roofs] ${header.region}: ${JSON.stringify(pb.stats)} kinds ${JSON.stringify(kinds)} awnings ${awningN}`);
+    }
+    // a package's shop signs: named after the town's own streets and name, one name per shop (PkgBuildings.signPlan)
+    if (PK && PK.signPlan && pkgShops.length) {
+      const G = window.NYC.GEO || {}, plan = PK.signPlan(G.roadGraph, (window.NYC.PKG && window.NYC.PKG.name) || G.city, pkgShops);
+      const per = plan.themes.map(() => 0);
+      for (const blk of allBlocks) for (const a of blk.awnings) if (a.shop !== undefined) { a.signIdx = plan.pick.get(a.shop); per[a.signIdx]++; }
+      pkgSigns = { themes: plan.themes, per };
+      // (for the survey and screenshots: every shop's name and front)
+      window.NYC.pkgSignPlan = { themes: plan.themes.map((t, k) => ({ text: t.text, awnings: per[k] })),
+        shops: pkgShops.map((s) => ({ i: s.i, x: +s.x.toFixed(1), z: +s.z.toFixed(1), nx: +s.nx.toFixed(3), nz: +s.nz.toFixed(3), text: plan.themes[plan.pick.get(s.i)].text })) };
     }
   }
 
@@ -2698,7 +2711,7 @@ function buildCityBlocks(scene, opts = {}) {
   }
   group.add(awningInst);
 
-  const signThemes = [
+  const sfSignThemes = [
     // (Mog City: San Francisco's own shop names, made up, and no chain's: the fork still had New York's, a real chain's
     // among them)
     { bg: '#161210', border: '#c89d54', text: 'MARKET ST BISTRO · EST. 1928', color: '#ffe4a8' },
@@ -2707,8 +2720,12 @@ function buildCityBlocks(scene, opts = {}) {
     { bg: '#280a10', border: '#ff5252', text: 'MISSION DELI & GRILL · 24HR', color: '#ffd180' },
     { bg: '#101318', border: '#e0e6ed', text: 'BAYSIDE WATCHES · SAN FRANCISCO', color: '#f5f9ff' }
   ];
+  // (a Hometown package: its own names in San Francisco's five sign colours, and each shop keeps its name: a.signIdx)
+  const signThemes = pkgSigns ? pkgSigns.themes.map((t) => ({ ...sfSignThemes[t.style], text: t.text })) : sfSignThemes;
   const MAX_SIGNS_PER_THEME = Math.ceil(MAX_AWNINGS / signThemes.length) + 32;
-  const signInsts = signThemes.map((st) => {
+  const signCap = (k) => (pkgSigns ? Math.max(1, Math.min(MAX_AWNINGS, pkgSigns.per[k])) : MAX_SIGNS_PER_THEME);
+  const signCaps = signThemes.map((_, k) => signCap(k));
+  const signInsts = signThemes.map((st, k) => {
     const c = document.createElement('canvas');
     c.width = 512;
     c.height = 96;
@@ -2720,6 +2737,8 @@ function buildCityBlocks(scene, opts = {}) {
     ctx.strokeRect(6, 6, 500, 84);
     ctx.fillStyle = st.color;
     ctx.font = '800 26px Inter, Arial, sans-serif';
+    // (a long name is set smaller to fit inside the border)
+    for (let px = 26; px > 14 && ctx.measureText(st.text).width > 476; px--) ctx.font = `800 ${px - 1}px Inter, Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(st.text, 256, 50);
@@ -2727,7 +2746,7 @@ function buildCityBlocks(scene, opts = {}) {
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     const sMat = new THREE.MeshBasicNodeMaterial({ map: tex });
-    const sInst = new THREE.InstancedMesh(unitBox, sMat, MAX_SIGNS_PER_THEME);
+    const sInst = new THREE.InstancedMesh(unitBox, sMat, signCap(k));
     sInst.frustumCulled = false;
     group.add(sInst);
     return sInst;
@@ -2875,8 +2894,8 @@ function buildCityBlocks(scene, opts = {}) {
         awningInst.setMatrixAt(awningCount, dummy.matrix);
         awningInst.setColorAt(awningCount, awningPalette[a.colorIdx % awningPalette.length]);
 
-        const themeIdx = awningCount % signInsts.length;
-        if (signCounts[themeIdx] < MAX_SIGNS_PER_THEME) {
+        const themeIdx = a.signIdx !== undefined ? a.signIdx : awningCount % signInsts.length;
+        if (signCounts[themeIdx] < signCaps[themeIdx]) {
           dummy.position.set(a.x, a.signY !== undefined ? a.signY : 4.68, a.z);
           dummy.scale.set(0.28, 0.86, a.d * 0.92);
           dummy.updateMatrix();
@@ -2987,7 +3006,7 @@ function buildCityBlocks(scene, opts = {}) {
         spot.position.set(a.x + outX * 0.45, 4.35, a.z + outZ * 0.45);
         spot.target.position.set(a.x + outX * 1.85, 0.0, a.z + outZ * 1.85);
         spot.target.updateMatrixWorld();
-        spot.color.copy(storeThemeColors[themeIdx % storeThemeColors.length]);
+        spot.color.copy(storeThemeColors[(pkgSigns ? pkgSigns.themes[themeIdx].style : themeIdx) % storeThemeColors.length]);
         spot.intensity = spotIntensity * fade;
       } else {
         spot.intensity = 0;

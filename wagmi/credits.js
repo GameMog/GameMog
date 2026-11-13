@@ -10,10 +10,12 @@ import { world } from './world/index.js';
 
 // (the city this page plays (wagmi/world: world.id): its own map's credits under 'The city')
 const SF = world.id === 'sf';
-// (a Hometown package: the place compiled from open data, tools/hometown, on San Francisco's engine)
+// (a Hometown package: the place compiled from open data, tools/hometown, on San Francisco's engine; its own name, from
+// the package (world.name is the engine's 'Hometown'))
+const place = () => { const n = globalThis.window?.NYC?.PKG?.name; return n ? String(n).split(',')[0] : world.name; };
 const PKGLINES = () => [
   { what: 'Slop San Francisco', who: 'Kamil (@unable0_) and Mr.doob', note: 'the city engine this place is played on', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: 'https://github.com/unable12/slop-sanfrancisco' },
-  { what: 'Map data', who: '© OpenStreetMap contributors', note: `${world.name}'s streets, their names and classes, water and parks (via Overture Maps)`, licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
+  { what: 'Map data', who: '© OpenStreetMap contributors', note: `${place()}'s streets, their names and classes, water and parks (via Overture Maps)`, licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
   { what: 'Overture Maps Foundation', who: 'Overture Maps', note: 'the building footprints and heights, the places', licence: 'CDLA Permissive 2.0 / ODbL 1.0', licenceUrl: 'https://cdla.dev/permissive-2-0/', src: 'https://overturemaps.org' },
   { what: 'Elevation', who: 'USGS 3D Elevation Program', note: 'the ground: 1/3 arc-second terrain in town, 1 arc-second out to the horizon', licence: 'public domain', licenceUrl: null, src: 'https://www.usgs.gov/3d-elevation-program' },
 ];
@@ -78,6 +80,8 @@ export const CREDITS = [
     { what: 'Dan, Jane, Mr. Big, Knox, Mack, Gears, Fiona, Brick, Dash, Bea and the camp', who: 'synthesised voices', note: 'invented voices; the tools and their licences are in NOTICE', licence: 'Apache-2.0', licenceUrl: 'https://www.apache.org/licenses/LICENSE-2.0', src: null },
   ] },
 ];
+// (a Hometown town: its map's data first, where a player opening the credits sees it: OpenStreetMap's ODbL credit)
+if (world.id === 'pkg') CREDITS.unshift(...CREDITS.splice(CREDITS.findIndex((c) => c.heading === 'The city'), 1).map((c) => ({ ...c, heading: `The map: ${place()}` })));
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const link = (url, text) => (url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:inherit">${esc(text)}</a>` : esc(text));

@@ -392,7 +392,7 @@ const NYC_LANDMARKS = [
   .filter(([, , , osm]) => LANDMARK_SITES[osm])
   .map(([id, name, short, osm, district]) => ({ id, name, short, x: LANDMARK_SITES[osm].x, z: LANDMARK_SITES[osm].z, district }));
 
-for (const [id,p] of Object.entries(window.NYC.PLACE_DATA?.regional || {})) NYC_LANDMARKS.push({id,name:p.name,short:p.name,x:p.x,z:p.z,district:'San Francisco'});
+for (const [id,p] of Object.entries(window.NYC.PLACE_DATA?.regional || {})) NYC_LANDMARKS.push({id,name:p.name,short:p.name,x:p.x,z:p.z,district:window.NYC.PKG?String(window.NYC.PKG.name).split(',')[0]:'San Francisco'});
 const NEIGHBORHOODS = (window.NYC.PLACE_DATA?.neighborhoods || []).map(n=>({...n,polygons:n.polygons.map(p=>p.map(r=>r.map(([x,z])=>({x,z}))))}));
 function neighborhoodAt(x,z) {
   for(const n of NEIGHBORHOODS) {
@@ -406,7 +406,9 @@ function neighborhoodAt(x,z) {
  * The place's name at any world (x, z): a landmark within 80 m, else the two nearest streets ("A & B"), else the nearest
  */
 function getLocationLabel(x, z) {
-  const near = nearestRoads(x, z, 120);
+  // (an unnamed road (a Hometown town's service road or alley, name '') is never a street sign: no blank blade beside
+  // the real one)
+  const near = nearestRoads(x, z, 120).filter((n) => n.road.name && String(n.road.name).trim());
   const pair = near.length > 1 && near[1].dist < 40 ? `${near[0].road.name} & ${near[1].road.name}` : near.length ? near[0].road.name : '';
   for (const lm of NYC_LANDMARKS) {
     if (Math.hypot(x - lm.x, z - lm.z) < 80) return `${lm.name}${pair ? ` · ${pair}` : ''}`;
@@ -414,7 +416,7 @@ function getLocationLabel(x, z) {
   const neighborhood = neighborhoodAt(x,z);
   if (neighborhood) return pair ? `${neighborhood} · ${pair}` : neighborhood;
   if (pair) return pair;
-  return 'San Francisco Bay';
+  return window.NYC.PKG ? String(window.NYC.PKG.name).split(',')[0] : 'San Francisco Bay';
 }
 
 // Keyboard shortcuts are ignored while typing into a form field (e.g. the map's street search box)

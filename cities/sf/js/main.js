@@ -579,7 +579,7 @@ async function initApp() {
         near.textContent = 'near';
         row.appendChild(near);
       }
-      for (const name of streets.split(' & ')) {
+      for (const name of streets.split(' & ').filter((n) => n.trim())) {
         const sign = document.createElement('span');
         sign.className = 'street-sign';
         sign.textContent = name;
