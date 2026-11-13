@@ -11,7 +11,7 @@
 //              LB counter (L)   RB grab · pick up · throw (E)   LT held, or L3 (on until the stick lets go): sprint
 //   IN THE CAR RT drive   LT brake · reverse   LS steer   RS look   A hop (Space)   X boost   LB · RB dash left · right
 //              (Z · C)   Y get out (F)   B reset car to road (X)   D-pad up electric · engine (Q)   D-pad right · left
-//              radio station next · back (R)   D-pad down radio off · on (T)
+//              radio: next song (R) · song back   D-pad down radio on · off (T)
 //   ALWAYS     Start pause (Esc)   View map (M)   R3 the brief (B)
 //   MENUS      the pause menu, the fail screen, the start gate: D-pad or LS choose, A OK, B back (Start resumes play)
 //   CUTSCENES  hold A to skip (as Space held); nothing else gets through
@@ -145,6 +145,7 @@ export function install(W) {
   function stationBack() {
     const R = W.radio; if (!R?.stations?.length) return;
     if (!R.on) return tap('KeyR'); // (off: R puts it back on)
+    if (R.back) return R.back(); // (Mog Music: the song again, or the one before)
     const n = R.stations.length; R.tune?.(R.stations[(R.idx - 1 + n) % n].id);
   }
 

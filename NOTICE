@@ -125,6 +125,15 @@ Characters (assets/characters)
     Spiderbench above).
 
 
+Mog Music (the car radio's Mog Music station: media/mog-music/)
+---------------------------------------------------------------
+All rights reserved by the owner. The songs in media/mog-music/ (*.mp3) and their titles in
+media/mog-music/manifest.json are the owner's own music, in the game with the owner's permission.
+They are NOT covered by the MIT License in LICENSE or by any other open terms in this file: they may
+not be copied, modified, redistributed or reused outside this game without the owner's written
+permission, and a fork must leave them out. See media/mog-music/NOTICE.md.
+
+
 Music (the car radio: wagmi/radio/stations.js)
 ----------------------------------------------
 The same list is in assets/CREDITS.md, and in the game on the pause menu's Credits page

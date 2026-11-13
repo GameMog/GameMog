@@ -32,7 +32,8 @@ const cityLines = () => world.id === 'pkg' ? PKGLINES() : SF ? [
 ];
 
 const music = () => {
-  const lines = [], seen = new Set();
+  // (the car radio's one station: the owner's own songs, media/mog-music; all rights reserved, not MIT)
+  const lines = [{ what: 'Mog Music', who: 'the owner\'s own songs', note: 'the car radio: all rights reserved by their owner, not covered by the MIT License', licence: 'All rights reserved', licenceUrl: null, src: null }], seen = new Set();
   for (const s of STATIONS) for (const t of s.tracks) {
     if (seen.has(t.file)) continue; seen.add(t.file);
     if (t.lic === 'original') { lines.push({ what: `"${t.title}"`, who: 'original to Mog City', note: s.name, licence: 'MIT', licenceUrl: null, src: null }); continue; }
