@@ -132,6 +132,7 @@ export function currentBuild(): Promise<string> {
 const bundleDirOf = (cfg: TownsConfig, buildId: string, placeId: string, tiles: string) => path.join(cfg.bundles, buildId, placeId, tiles);
 const readyFile = (cfg: TownsConfig, buildId: string, placeId: string) => path.join(cfg.ready, buildId, `${placeId}.json`);
 const SAFE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const FAR_FILE = /^data\/far\/[a-z]-[0-9]{1,5}-[0-9]{1,5}\.bin\.gz$/;
 
 /** The lock of the town as built at this build, or null. */
 export function readyLockAt(buildId: string, placeId: string): ServiceLock | null {
@@ -156,7 +157,7 @@ export function bundleFile(parts: string[]): { path: string; type: string } | nu
   const [place, build, tiles, ...rest] = parts;
   const file = rest.join('/');
   if (!place || !TOWN_ID.test(place) || !build || !SAFE.test(build) || !tiles || !/^[0-9a-f]{64}$/.test(tiles)) return null;
-  if (!/^(geodata\.json|citypackage\.json|lock\.json|data\/(terrain|buildings|groundmask)\.bin\.gz)$/.test(file)) return null;
+  if (!/^(geodata\.json|citypackage\.json|lock\.json|data\/(terrain|buildings|groundmask)\.bin\.gz)$/.test(file) && !FAR_FILE.test(file)) return null;
   const f = path.join(bundleDirOf(rt().cfg, build, place, tiles), file);
   return existsSync(f) ? { path: f, type: file.endsWith('.json') ? 'application/json' : 'application/octet-stream' } : null;
 }
@@ -289,6 +290,10 @@ async function buildTown(placeId: string) {
       writeFileSync(path.join(tmp, 'geodata.json'), JSON.stringify(geodataJson(g)));
       writeFileSync(path.join(tmp, 'citypackage.json'), JSON.stringify(pkg));
       for (const f of ['terrain', 'buildings', 'groundmask']) cpSync(path.join(pk, 'data', `${f}.bin.gz`), path.join(tmp, 'data', `${f}.bin.gz`));
+      // (the far field, PKG.far: the land past the core to the horizon, Mog City's cities/pkg/js/pkg-far.js; checked above)
+      const far = Object.keys(manifest.files).filter((f) => FAR_FILE.test(f));
+      if (far.length) mkdirSync(path.join(tmp, 'data', 'far'), { recursive: true });
+      for (const f of far) cpSync(path.join(pk, f), path.join(tmp, f));
       writeFileSync(path.join(tmp, 'lock.json'), JSON.stringify(lock));
       mkdirSync(path.dirname(dir), { recursive: true });
       rmSync(dir, { recursive: true, force: true });

@@ -7,6 +7,7 @@
  *                       legacy assembler writes into geodata.js (MogCity tools/hometown/assemble.py), as data, so Mog
  *                       City's engine fetches them (wagmi/world/town-src.js) instead of running a script from this site
  *     data/terrain.bin.gz, data/buildings.bin.gz, data/groundmask.bin.gz   the package's files, byte for byte
+ *     data/far/{tier}-{C}-{R}.bin.gz    its far field (PKG.far, Mog City's pkg-far.js), when the compiler wrote one
  *     citypackage.json  the Story Kit's CityPackage v1 (storykit/hometown/city-package.ts), built here from PKG and GEO
  *     lock.json         the compiler's lock v2 (PKG.lock; lib/hometown/ids.ts ServiceLock)
  *

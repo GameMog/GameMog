@@ -78,6 +78,9 @@ export async function runTownChecks(ok: Ok) {
     ok('cityPackageByLock reads the town by its lock, and nothing for a moved lock', !!cityPackageByLock(lock) && cityPackageByLock({ ...lock, tiles: 'e'.repeat(64) }) === null && cityPackageByLock({ ...lock, k0: 1 }) === null);
     ok('/towns serves stored bundle files only (no build, no other names)', !!bundleFile([lock.place, lock.compiler, lock.tiles, 'citypackage.json']) && bundleFile([lock.place, lock.compiler, lock.tiles, 'geodata.json']) === null
       && bundleFile([lock.place, lock.compiler, lock.tiles, '..', 'x']) === null && bundleFile(['okemah', lock.compiler, lock.tiles, 'lock.json']) === null);
+    mkdirSync(path.join(dir, 'data', 'far'), { recursive: true }); writeFileSync(path.join(dir, 'data', 'far', 'b-722-1069.bin.gz'), 'x');
+    ok('/towns serves the town\'s far field tiles (data/far/*.bin.gz) and no other far names', !!bundleFile([lock.place, lock.compiler, lock.tiles, 'data', 'far', 'b-722-1069.bin.gz'])
+      && bundleFile([lock.place, lock.compiler, lock.tiles, 'data', 'far', '..', 'lock.json']) === null && bundleFile([lock.place, lock.compiler, lock.tiles, 'data', 'far', 'b-722-1069.bin']) === null);
     const s = new StoryStore(path.join(tmp, 'store'));
     const o = s.open(pack);
     ok('the store opens a hometown pack (gated with its town\'s table)', o.ok, o.ok ? '' : `${o.error} ${(o as { problems?: string[] }).problems?.slice(0, 2).join(' | ')}`);
