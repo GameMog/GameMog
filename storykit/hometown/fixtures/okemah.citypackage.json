@@ -1,0 +1,60 @@
+{
+ "v": 1,
+ "placeId": "us-ok-okemah",
+ "name": "Okemah",
+ "state": "Oklahoma",
+ "compilerVersion": "htc-0.1.0",
+ "tileSet": { "hash": "eb41fc9b6279c2613586d747ed499cd8e16a9da24440a54eb328a83b91678e21", "count": 24 },
+ "places": [
+  { "id": "broadway-3rd", "kind": "corner", "name": "Broadway & 3rd St", "x": 0, "z": 0, "tags": ["highway=junction"], "district": "downtown" },
+  { "id": "town-square", "kind": "square", "name": "the town square on Broadway", "x": 60, "z": -40, "tags": ["place=square"], "district": "downtown" },
+  { "id": "depot", "kind": "train_station", "name": "the old rail depot", "x": 420, "z": 180, "tags": ["historic=railway_station"], "district": "east-side" },
+  { "id": "water-tower", "kind": "tower", "name": "the water tower", "x": -310, "z": -520, "tags": ["man_made=water_tower"], "district": "north-side" },
+  { "id": "town-park", "kind": "park", "name": "the town park", "x": -260, "z": 300, "tags": ["leisure=park"], "district": "south-side" },
+  { "id": "rodeo-grounds", "kind": "fairground", "name": "the rodeo grounds", "x": 900, "z": -640, "tags": ["landuse=recreation_ground"], "district": "east-side" },
+  { "id": "lake-ramp", "kind": "slipway", "name": "the boat ramp at the lake", "x": -1900, "z": -1200, "tags": ["leisure=slipway"], "district": "lakeside" },
+  { "id": "hwy62-junction", "kind": "corner", "name": "the Highway 62 junction", "x": 1500, "z": 40, "tags": ["highway=junction"], "district": "east-side" },
+  { "id": "grain-elevator", "kind": "silo", "name": "the grain elevator", "x": 520, "z": 260, "tags": ["man_made=silo"], "district": "east-side" },
+  { "id": "cotton-gin", "kind": "ruins", "name": "the old cotton gin", "x": 760, "z": 420, "tags": ["historic=ruins"], "district": "east-side" },
+  { "id": "salvage-yard", "kind": "scrap_yard", "name": "the salvage yard", "x": 1180, "z": 520, "tags": ["landuse=industrial"], "district": "east-side" },
+  { "id": "creek-trailhead", "kind": "trailhead", "name": "the creek trailhead", "x": -820, "z": 640, "tags": ["highway=trailhead"], "district": "south-side", "foot": true },
+  { "id": "fairgrounds-lot", "kind": "parking", "name": "the fairgrounds lot", "x": 860, "z": -560, "tags": ["amenity=parking"], "district": "east-side" },
+  { "id": "high-school", "kind": "school", "name": "Okemah High School", "x": -120, "z": -380, "tags": ["amenity=school"], "district": "north-side" },
+  { "id": "central-elementary", "kind": "yes", "name": "Central Elementary", "x": 150, "z": 340, "tags": ["overture=elementary_school"], "district": "south-side" },
+  { "id": "community-hospital", "kind": "hospital", "name": "Okemah Community Hospital", "x": -520, "z": -60, "tags": ["amenity=hospital"], "district": "north-side" },
+  { "id": "county-clinic", "kind": "yes", "name": "the county health clinic", "x": 240, "z": -120, "tags": [], "district": "downtown" },
+  { "id": "first-street-chapel", "kind": "place_of_worship", "name": "First Street Chapel", "x": 120, "z": 90, "tags": ["amenity=place_of_worship", "religion=christian"], "district": "downtown" },
+  { "id": "police-station", "kind": "police", "name": "Okemah Police Department", "x": 80, "z": -90, "tags": ["amenity=police"], "district": "downtown" },
+  { "id": "fire-station", "kind": "fire_station", "name": "Okemah Fire Station", "x": 30, "z": -150, "tags": ["amenity=fire_station"], "district": "downtown" },
+  { "id": "highland-cemetery", "kind": "grave_yard", "name": "Highland Cemetery", "x": -700, "z": -900, "tags": ["amenity=grave_yard"], "district": "north-side" },
+  { "id": "veterans-memorial", "kind": "memorial", "name": "Veterans Memorial", "x": 70, "z": -20, "tags": ["historic=memorial"], "district": "downtown" },
+  { "id": "family-shelter", "kind": "social_facility", "name": "the family shelter", "x": 300, "z": 60, "tags": ["social_facility=shelter"], "district": "downtown" },
+  { "id": "hollow-creek-house", "kind": "house", "name": "the Hollow Creek house", "x": -640, "z": 720, "tags": ["building=house"], "district": "south-side" },
+  { "id": "prairie-rose", "kind": "restaurant", "name": "Prairie Rose Diner", "x": 20, "z": 30, "tags": ["amenity=restaurant", "street=Broadway"], "district": "downtown" },
+  { "id": "burger-stand", "kind": "fast_food", "name": "BurgerBarn", "x": 1420, "z": 80, "tags": ["amenity=fast_food", "brand=BurgerBarn", "street=Highway 62"], "district": "east-side" },
+  { "id": "crossroads-fuel", "kind": "fuel", "name": "Crossroads Fuel", "x": 1460, "z": -20, "tags": ["amenity=fuel", "brand=Crossroads Fuel", "street=Highway 62"], "district": "east-side" },
+  { "id": "feed-store", "kind": "farm", "name": "Okfuskee Feed & Seed", "x": 480, "z": 120, "tags": ["shop=farm", "street=Columbia St"], "district": "east-side" },
+  { "id": "thunderbird-motel", "kind": "motel", "name": "Thunderbird Motel", "x": 1350, "z": -120, "tags": ["tourism=motel", "street=Highway 62"], "district": "east-side" }
+ ],
+ "landmarks": [
+  { "id": "water-tower", "name": "the water tower", "kind": "tower", "x": -310, "z": -520 },
+  { "id": "rail-depot", "name": "the old rail depot", "kind": "train_station", "x": 420, "z": 180 },
+  { "id": "grain-elevator", "name": "the grain elevator", "kind": "silo", "x": 520, "z": 260 },
+  { "id": "veterans-memorial", "name": "Veterans Memorial", "kind": "memorial", "x": 70, "z": -20 },
+  { "id": "first-street-chapel", "name": "First Street Chapel", "kind": "place_of_worship", "x": 120, "z": 90 },
+  { "id": "rodeo-arena", "name": "the rodeo arena", "kind": "stadium", "x": 920, "z": -660, "tags": ["generic-name"] }
+ ],
+ "districts": [
+  { "id": "downtown", "name": "Downtown", "x": 40, "z": 0 },
+  { "id": "north-side", "name": "the North Side", "x": -300, "z": -500 },
+  { "id": "south-side", "name": "the South Side", "x": -200, "z": 450 },
+  { "id": "east-side", "name": "the East Side", "x": 800, "z": 100 },
+  { "id": "lakeside", "name": "the lake", "x": -1800, "z": -1100 }
+ ],
+ "spawnPoints": [
+  { "id": "broadway-3rd", "x": 0, "z": 0, "heading": 0, "mode": "car", "name": "Broadway & 3rd St" },
+  { "id": "hwy62-junction", "x": 1500, "z": 40, "heading": -1.57, "mode": "car", "name": "the Highway 62 junction" },
+  { "id": "town-park", "x": -260, "z": 300, "heading": 3.14, "mode": "foot", "name": "the town park" }
+ ],
+ "roadsSummary": { "streets": 64, "km": 58.2, "main": ["Broadway", "Highway 62", "Columbia St", "3rd St", "Date St"] }
+}

@@ -1,0 +1,660 @@
+{
+ "meta": {
+  "tagline": "One autumn in a small prairie town",
+  "blurb": "Dust on Broadway: Back in town after ten years, fixing trucks and old mistakes. Runs the feed loans and wants the ledger burned.",
+  "people": [],
+  "brands": []
+ },
+ "pack": {
+  "storykit": 2,
+  "id": "draft",
+  "title": "Dust on Broadway",
+  "kicker": "OKEMAH",
+  "tagline": "One autumn in a small prairie town",
+  "base": {
+   "engine": "mogcity-1",
+   "city": "hometown",
+   "cityBuild": "hometown-htc-0.1.0",
+   "hometown": {
+    "place": "us-ok-okemah",
+    "compiler": "htc-0.1.0",
+    "tiles": "eb41fc9b6279c2613586d747ed499cd8e16a9da24440a54eb328a83b91678e21"
+   }
+  },
+  "dressing": {
+   "time": "twilight",
+   "season": "autumn",
+   "weather": "clear",
+   "holiday": []
+  },
+  "hero": "hero",
+  "ride": "roadster",
+  "hud": {
+   "meters": [
+    {
+     "id": "cash",
+     "label": "CASH",
+     "kind": "money",
+     "start": 40
+    }
+   ]
+  },
+  "places": {
+   "june-diner": {
+    "@": "prairie-rose",
+    "name": "the diner on Broadway"
+   }
+  },
+  "cast": [
+   {
+    "id": "hero",
+    "anchor": "young-hero",
+    "color": "#F2C14E",
+    "voice": {
+     "id": "hero-v1",
+     "kokoro": "am_puck",
+     "speed": 1.05,
+     "pitch": 0.5,
+     "description": "a steady man in his late twenties, dry and warm"
+    },
+    "sheet": {
+     "id": "hero",
+     "name": "Wade Tolliver",
+     "role": "the mechanic who came home",
+     "logline": "Back in town after ten years, fixing trucks and old mistakes.",
+     "identity": {
+      "age": 28,
+      "body": "male",
+      "heightCm": 178,
+      "build": {
+       "frame": "medium",
+       "weight": "slim",
+       "muscle": "athletic"
+      }
+     },
+     "heritage": {
+      "blend": {
+       "african": 0.1,
+       "asian": 0.05,
+       "european": 0.85
+      },
+      "skin": {
+       "tone": "light-medium",
+       "undertone": "olive"
+      }
+     },
+     "face": {
+      "jaw": "average",
+      "eyes": "brown"
+     },
+     "hair": {
+      "style": "short",
+      "color": "dark-brown"
+     },
+     "facialHair": {
+      "style": "stubble"
+     },
+     "wardrobe": {
+      "top": {
+       "item": "suit-jacket",
+       "color": "#202830"
+      },
+      "bottom": {
+       "item": "jeans"
+      },
+      "shoes": {
+       "item": "sneakers"
+      }
+     },
+     "posture": {
+      "stance": "relaxed",
+      "pace": "quick"
+     },
+     "voice": {
+      "id": "hero-v1"
+     }
+    }
+   },
+   {
+    "id": "ally",
+    "anchor": "office-worker",
+    "color": "#8FD3C8",
+    "voice": {
+     "id": "ally-v1",
+     "blend": {
+      "af_nicole": 0.7,
+      "af_kore": 0.3
+     },
+     "speed": 0.95,
+     "pitch": -0.5,
+     "description": "a low, dry woman in her thirties"
+    },
+    "sheet": {
+     "id": "ally",
+     "name": "June Harlow",
+     "role": "the diner cook who knows everyone",
+     "logline": "Keeps the coffee hot and the secrets hotter.",
+     "identity": {
+      "age": 34,
+      "body": "female",
+      "heightCm": 170,
+      "build": {
+       "frame": "small",
+       "weight": "slim",
+       "muscle": "average"
+      }
+     },
+     "heritage": {
+      "blend": {
+       "african": 0.8,
+       "asian": 0.05,
+       "european": 0.15
+      },
+      "skin": {
+       "tone": "brown",
+       "undertone": "warm"
+      }
+     },
+     "face": {
+      "jaw": "average",
+      "eyes": "brown"
+     },
+     "hair": {
+      "style": "box-braids",
+      "color": "black"
+     },
+     "facialHair": {
+      "style": "none"
+     },
+     "wardrobe": {
+      "top": {
+       "item": "overcoat",
+       "color": "#5A3E2B"
+      },
+      "bottom": {
+       "item": "trousers"
+      },
+      "shoes": {
+       "item": "dress"
+      }
+     },
+     "posture": {
+      "stance": "upright",
+      "pace": "steady"
+     },
+     "voice": {
+      "id": "ally-v1"
+     }
+    }
+   },
+   {
+    "id": "boss",
+    "anchor": "fixer",
+    "color": "#9B2D3A",
+    "voice": {
+     "id": "boss-v1",
+     "kokoro": "bm_lewis",
+     "speed": 0.92,
+     "pitch": -0.8,
+     "description": "a man in his fifties, low and unhurried"
+    },
+    "sheet": {
+     "id": "boss",
+     "name": "Merle Stroud",
+     "role": "the man who wants the grain money",
+     "logline": "Runs the feed loans and wants the ledger burned.",
+     "identity": {
+      "age": 52,
+      "body": "male",
+      "heightCm": 178,
+      "build": {
+       "frame": "medium",
+       "weight": "slim",
+       "muscle": "athletic"
+      }
+     },
+     "heritage": {
+      "blend": {
+       "african": 0.1,
+       "asian": 0.05,
+       "european": 0.85
+      },
+      "skin": {
+       "tone": "light-medium",
+       "undertone": "olive"
+      }
+     },
+     "face": {
+      "jaw": "average",
+      "eyes": "brown"
+     },
+     "hair": {
+      "style": "short",
+      "color": "dark-brown"
+     },
+     "facialHair": {
+      "style": "stubble"
+     },
+     "wardrobe": {
+      "top": {
+       "item": "suit-jacket",
+       "color": "#202830"
+      },
+      "bottom": {
+       "item": "jeans"
+      },
+      "shoes": {
+       "item": "sneakers"
+      }
+     },
+     "posture": {
+      "stance": "relaxed",
+      "pace": "quick"
+     },
+     "voice": {
+      "id": "boss-v1"
+     }
+    }
+   },
+   {
+    "id": "goon",
+    "anchor": "driver",
+    "color": "#6B6B6B",
+    "voice": {
+     "id": "goon-v1",
+     "kokoro": "am_michael",
+     "speed": 1,
+     "pitch": -0.3,
+     "description": "a flat young man"
+    },
+    "sheet": {
+     "id": "goon",
+     "name": "Dale Pruitt",
+     "role": "the muscle",
+     "logline": "Does what he is paid to do.",
+     "identity": {
+      "age": 31,
+      "body": "male",
+      "heightCm": 178,
+      "build": {
+       "frame": "medium",
+       "weight": "slim",
+       "muscle": "athletic"
+      }
+     },
+     "heritage": {
+      "blend": {
+       "african": 0.1,
+       "asian": 0.05,
+       "european": 0.85
+      },
+      "skin": {
+       "tone": "light-medium",
+       "undertone": "olive"
+      }
+     },
+     "face": {
+      "jaw": "average",
+      "eyes": "brown"
+     },
+     "hair": {
+      "style": "short",
+      "color": "dark-brown"
+     },
+     "facialHair": {
+      "style": "stubble"
+     },
+     "wardrobe": {
+      "top": {
+       "item": "suit-jacket",
+       "color": "#202830"
+      },
+      "bottom": {
+       "item": "jeans"
+      },
+      "shoes": {
+       "item": "sneakers"
+      }
+     },
+     "posture": {
+      "stance": "relaxed",
+      "pace": "quick"
+     },
+     "voice": {
+      "id": "goon-v1"
+     }
+    }
+   }
+  ],
+  "vehicles": [
+   {
+    "stock": "roadster"
+   }
+  ],
+  "opening": {
+   "place": "@broadway-3rd",
+   "time": "twilight",
+   "stage": [
+    {
+     "who": "ally",
+     "at": "@broadway-3rd"
+    },
+    {
+     "who": "boss",
+     "at": "@county-clinic"
+    }
+   ],
+   "shots": [
+    {
+     "cam": {
+      "rel": "player",
+      "right": -8,
+      "up": 34,
+      "fwd": -55
+     },
+     "to": {
+      "rel": "player",
+      "right": -11,
+      "up": 13,
+      "fwd": -25
+     },
+     "look": "player",
+     "dur": 8,
+     "where": {
+      "name": "Broadway",
+      "sub": "Okemah · Downtown · 6:10 PM"
+     }
+    },
+    {
+     "cam": {
+      "rel": "player",
+      "right": 0.7,
+      "up": 0.05,
+      "fwd": 2.3
+     },
+     "look": {
+      "rel": "player"
+     },
+     "dur": 7,
+     "card": {
+      "who": "hero",
+      "is": "hero",
+      "role": "the mechanic who came home"
+     },
+     "say": "hero",
+     "line": "Ten years gone, and this town still smells like wheat and diesel."
+    },
+    {
+     "cam": {
+      "rel": "ally",
+      "right": 1,
+      "up": 0.25,
+      "fwd": 3.2
+     },
+     "look": {
+      "rel": "ally"
+     },
+     "dur": 7,
+     "card": {
+      "who": "ally",
+      "is": "ally",
+      "role": "the diner cook who knows everyone"
+     },
+     "say": "ally",
+     "line": "Your daddy kept a ledger. Merle wants it before the harvest money comes in."
+    },
+    {
+     "cam": {
+      "rel": "boss",
+      "right": -1.2,
+      "up": 0.2,
+      "fwd": 3
+     },
+     "look": {
+      "rel": "boss"
+     },
+     "dur": 7,
+     "card": {
+      "who": "boss",
+      "is": "antagonist",
+      "role": "the man who wants the grain money"
+     },
+     "say": "boss",
+     "line": "Every farm on that ledger owes me. Find it, or find a new town."
+    },
+    {
+     "cam": {
+      "rel": "player",
+      "right": -9,
+      "up": 10,
+      "fwd": -18
+     },
+     "look": "player",
+     "dur": 6,
+     "title": true
+    }
+   ]
+  },
+  "acts": [
+   {
+    "id": "act1",
+    "name": "ACT ONE",
+    "missions": [
+     {
+      "id": "M1",
+      "title": "First Run",
+      "vehicle": "roadster",
+      "verbs": [
+       "drive"
+      ],
+      "start": {
+       "@": "broadway-3rd"
+      },
+      "traffic": 0.4,
+      "stakes": "The ledger was last seen at the depot.",
+      "passLine": "First Run: done.",
+      "steps": [
+       {
+        "type": "say",
+        "who": "ally",
+        "text": "Depot first. Your daddy hid things where the trains used to stop.",
+        "secs": 3
+       },
+       {
+        "type": "drive",
+        "to": "@depot",
+        "radius": 10,
+        "objective": "Drive to **the old rail depot**."
+       },
+       {
+        "type": "walk",
+        "to": "@depot",
+        "radius": 6,
+        "leaveCar": true,
+        "objective": "Walk up to **the old rail depot**."
+       },
+       {
+        "type": "search",
+        "at": "@depot",
+        "label": "search the crates",
+        "secs": 2,
+        "objective": "Search the **crates**."
+       },
+       {
+        "type": "say",
+        "who": "hero",
+        "text": "Half a ledger. Somebody tore it clean.",
+        "secs": 3
+       }
+      ]
+     },
+     {
+      "id": "M2",
+      "title": "Errand",
+      "vehicle": "roadster",
+      "verbs": [
+       "drive"
+      ],
+      "start": {
+       "@": "depot"
+      },
+      "traffic": 0.4,
+      "stakes": "Old Mrs. Harlan needs her medicine before dark.",
+      "passLine": "Errand: done.",
+      "steps": [
+       {
+        "type": "drive",
+        "to": "@county-clinic",
+        "radius": 10,
+        "objective": "Take the box to **the county health clinic**."
+       },
+       {
+        "type": "say",
+        "who": "ally",
+        "text": "You did right by her. Now keep your head down.",
+        "secs": 3
+       }
+      ]
+     },
+     {
+      "id": "M3",
+      "title": "Words Out Back",
+      "vehicle": "roadster",
+      "verbs": [
+       "walk",
+       "fight"
+      ],
+      "start": {
+       "@": "grain-elevator"
+      },
+      "traffic": 0.4,
+      "stakes": "Merle sent a message out back of the elevator.",
+      "passLine": "Words Out Back: done.",
+      "steps": [
+       {
+        "type": "say",
+        "who": "goon",
+        "text": "Merle says you are done asking around.",
+        "secs": 3
+       },
+       {
+        "type": "fight",
+        "enemies": [
+         "goon"
+        ],
+        "arena": "@cotton-gin",
+        "win": "ko-all",
+        "timer": 90,
+        "rules": "lesson",
+        "objective": "Put him down."
+       },
+       {
+        "type": "say",
+        "who": "hero",
+        "text": "Tell Merle the answer is no.",
+        "secs": 3
+       }
+      ]
+     },
+     {
+      "id": "M4",
+      "title": "Tail Lights",
+      "vehicle": "roadster",
+      "verbs": [
+       "escape",
+       "boost"
+      ],
+      "start": {
+       "@": "hwy62-junction"
+      },
+      "traffic": 0.4,
+      "stakes": "Headlights behind you since the highway.",
+      "passLine": "Tail Lights: done.",
+      "steps": [
+       {
+        "type": "pursuit",
+        "goal": "lose",
+        "count": 1,
+        "level": 1,
+        "kind": "crew",
+        "loseDist": 140,
+        "loseTime": 3.5,
+        "los": 4,
+        "objective": "Lose the car behind you."
+       },
+       {
+        "type": "drive",
+        "to": "@water-tower",
+        "radius": 10,
+        "objective": "Lie low at **the water tower**."
+       }
+      ]
+     },
+     {
+      "id": "M5",
+      "title": "The Ledger",
+      "vehicle": "roadster",
+      "verbs": [
+       "drive"
+      ],
+      "start": {
+       "@": "water-tower"
+      },
+      "traffic": 0.4,
+      "stakes": "June found the other half of the ledger.",
+      "passLine": "The Ledger: done.",
+      "steps": [
+       {
+        "type": "drive",
+        "to": "@june-diner",
+        "radius": 10,
+        "objective": "Meet her at **the diner on Broadway**."
+       },
+       {
+        "type": "say",
+        "who": "ally",
+        "text": "Both halves. Every name he squeezed is in here.",
+        "secs": 3
+       }
+      ]
+     },
+     {
+      "id": "M6",
+      "title": "Last Light",
+      "vehicle": "roadster",
+      "verbs": [
+       "walk",
+       "fight"
+      ],
+      "start": {
+       "@": "june-diner"
+      },
+      "traffic": 0.4,
+      "stakes": "Merle's men are at the salvage yard.",
+      "passLine": "Last Light: done.",
+      "steps": [
+       {
+        "type": "fight",
+        "enemies": [
+         "goon",
+         "goon"
+        ],
+        "arena": "@salvage-yard",
+        "win": "ko-all",
+        "timer": 120,
+        "objective": "Finish it."
+       },
+       {
+        "type": "say",
+        "who": "boss",
+        "text": "This town was never yours to keep.",
+        "secs": 3
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "voices": {}
+ }
+}

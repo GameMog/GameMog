@@ -1,0 +1,650 @@
+{
+ "meta": {
+  "tagline": "A courier, a ledger and a long night",
+  "blurb": "Fog Line: Rides the hills at night so his sister can sleep. Buys debts and sells silence.",
+  "people": [],
+  "brands": []
+ },
+ "pack": {
+  "storykit": 2,
+  "id": "draft",
+  "title": "Fog Line",
+  "kicker": "SAN FRANCISCO",
+  "tagline": "A courier, a ledger and a long night",
+  "dressing": {
+   "time": "twilight",
+   "season": "autumn",
+   "weather": "clear",
+   "holiday": []
+  },
+  "hero": "hero",
+  "ride": "roadster",
+  "hud": {
+   "meters": [
+    {
+     "id": "cash",
+     "label": "CASH",
+     "kind": "money",
+     "start": 40
+    }
+   ]
+  },
+  "places": {
+   "the-drop": {
+    "@": "pier24",
+    "name": "the drop on the Pier 24 dock"
+   }
+  },
+  "cast": [
+   {
+    "id": "hero",
+    "anchor": "young-hero",
+    "color": "#F2C14E",
+    "voice": {
+     "id": "hero-v1",
+     "kokoro": "am_puck",
+     "speed": 1.05,
+     "pitch": 0.5,
+     "description": "a steady man in his late twenties, dry and warm"
+    },
+    "sheet": {
+     "id": "hero",
+     "name": "Teo Marsh",
+     "role": "the night courier",
+     "logline": "Rides the hills at night so his sister can sleep.",
+     "identity": {
+      "age": 28,
+      "body": "male",
+      "heightCm": 178,
+      "build": {
+       "frame": "medium",
+       "weight": "slim",
+       "muscle": "athletic"
+      }
+     },
+     "heritage": {
+      "blend": {
+       "african": 0.1,
+       "asian": 0.05,
+       "european": 0.85
+      },
+      "skin": {
+       "tone": "light-medium",
+       "undertone": "olive"
+      }
+     },
+     "face": {
+      "jaw": "average",
+      "eyes": "brown"
+     },
+     "hair": {
+      "style": "short",
+      "color": "dark-brown"
+     },
+     "facialHair": {
+      "style": "stubble"
+     },
+     "wardrobe": {
+      "top": {
+       "item": "suit-jacket",
+       "color": "#202830"
+      },
+      "bottom": {
+       "item": "jeans"
+      },
+      "shoes": {
+       "item": "sneakers"
+      }
+     },
+     "posture": {
+      "stance": "relaxed",
+      "pace": "quick"
+     },
+     "voice": {
+      "id": "hero-v1"
+     }
+    }
+   },
+   {
+    "id": "ally",
+    "anchor": "office-worker",
+    "color": "#8FD3C8",
+    "voice": {
+     "id": "ally-v1",
+     "blend": {
+      "af_nicole": 0.7,
+      "af_kore": 0.3
+     },
+     "speed": 0.95,
+     "pitch": -0.5,
+     "description": "a low, dry woman in her thirties"
+    },
+    "sheet": {
+     "id": "ally",
+     "name": "Ines Calder",
+     "role": "the dispatcher who never sleeps",
+     "logline": "Runs the board and every rumour on it.",
+     "identity": {
+      "age": 34,
+      "body": "female",
+      "heightCm": 170,
+      "build": {
+       "frame": "small",
+       "weight": "slim",
+       "muscle": "average"
+      }
+     },
+     "heritage": {
+      "blend": {
+       "african": 0.8,
+       "asian": 0.05,
+       "european": 0.15
+      },
+      "skin": {
+       "tone": "brown",
+       "undertone": "warm"
+      }
+     },
+     "face": {
+      "jaw": "average",
+      "eyes": "brown"
+     },
+     "hair": {
+      "style": "box-braids",
+      "color": "black"
+     },
+     "facialHair": {
+      "style": "none"
+     },
+     "wardrobe": {
+      "top": {
+       "item": "overcoat",
+       "color": "#5A3E2B"
+      },
+      "bottom": {
+       "item": "trousers"
+      },
+      "shoes": {
+       "item": "dress"
+      }
+     },
+     "posture": {
+      "stance": "upright",
+      "pace": "steady"
+     },
+     "voice": {
+      "id": "ally-v1"
+     }
+    }
+   },
+   {
+    "id": "boss",
+    "anchor": "fixer",
+    "color": "#9B2D3A",
+    "voice": {
+     "id": "boss-v1",
+     "kokoro": "bm_lewis",
+     "speed": 0.92,
+     "pitch": -0.8,
+     "description": "a man in his fifties, low and unhurried"
+    },
+    "sheet": {
+     "id": "boss",
+     "name": "Cass Vey",
+     "role": "the broker on the waterfront",
+     "logline": "Buys debts and sells silence.",
+     "identity": {
+      "age": 52,
+      "body": "male",
+      "heightCm": 178,
+      "build": {
+       "frame": "medium",
+       "weight": "slim",
+       "muscle": "athletic"
+      }
+     },
+     "heritage": {
+      "blend": {
+       "african": 0.1,
+       "asian": 0.05,
+       "european": 0.85
+      },
+      "skin": {
+       "tone": "light-medium",
+       "undertone": "olive"
+      }
+     },
+     "face": {
+      "jaw": "average",
+      "eyes": "brown"
+     },
+     "hair": {
+      "style": "short",
+      "color": "dark-brown"
+     },
+     "facialHair": {
+      "style": "stubble"
+     },
+     "wardrobe": {
+      "top": {
+       "item": "suit-jacket",
+       "color": "#202830"
+      },
+      "bottom": {
+       "item": "jeans"
+      },
+      "shoes": {
+       "item": "sneakers"
+      }
+     },
+     "posture": {
+      "stance": "relaxed",
+      "pace": "quick"
+     },
+     "voice": {
+      "id": "boss-v1"
+     }
+    }
+   },
+   {
+    "id": "goon",
+    "anchor": "driver",
+    "color": "#6B6B6B",
+    "voice": {
+     "id": "goon-v1",
+     "kokoro": "am_michael",
+     "speed": 1,
+     "pitch": -0.3,
+     "description": "a flat young man"
+    },
+    "sheet": {
+     "id": "goon",
+     "name": "Rook Danner",
+     "role": "the muscle",
+     "logline": "Does what he is paid to do.",
+     "identity": {
+      "age": 31,
+      "body": "male",
+      "heightCm": 178,
+      "build": {
+       "frame": "medium",
+       "weight": "slim",
+       "muscle": "athletic"
+      }
+     },
+     "heritage": {
+      "blend": {
+       "african": 0.1,
+       "asian": 0.05,
+       "european": 0.85
+      },
+      "skin": {
+       "tone": "light-medium",
+       "undertone": "olive"
+      }
+     },
+     "face": {
+      "jaw": "average",
+      "eyes": "brown"
+     },
+     "hair": {
+      "style": "short",
+      "color": "dark-brown"
+     },
+     "facialHair": {
+      "style": "stubble"
+     },
+     "wardrobe": {
+      "top": {
+       "item": "suit-jacket",
+       "color": "#202830"
+      },
+      "bottom": {
+       "item": "jeans"
+      },
+      "shoes": {
+       "item": "sneakers"
+      }
+     },
+     "posture": {
+      "stance": "relaxed",
+      "pace": "quick"
+     },
+     "voice": {
+      "id": "goon-v1"
+     }
+    }
+   }
+  ],
+  "vehicles": [
+   {
+    "stock": "roadster"
+   }
+  ],
+  "opening": {
+   "place": "@market",
+   "time": "twilight",
+   "stage": [
+    {
+     "who": "ally",
+     "at": "@market"
+    },
+    {
+     "who": "boss",
+     "at": "@civic"
+    }
+   ],
+   "shots": [
+    {
+     "cam": {
+      "rel": "player",
+      "right": -8,
+      "up": 34,
+      "fwd": -55
+     },
+     "to": {
+      "rel": "player",
+      "right": -11,
+      "up": 13,
+      "fwd": -25
+     },
+     "look": "player",
+     "dur": 8,
+     "where": {
+      "name": "Market Street",
+      "sub": "Montgomery St · Financial District · 7:40 PM"
+     }
+    },
+    {
+     "cam": {
+      "rel": "player",
+      "right": 0.7,
+      "up": 0.05,
+      "fwd": 2.3
+     },
+     "look": {
+      "rel": "player"
+     },
+     "dur": 7,
+     "card": {
+      "who": "hero",
+      "is": "hero",
+      "role": "the night courier"
+     },
+     "say": "hero",
+     "line": "Forty deliveries a night, and tonight one of them is me."
+    },
+    {
+     "cam": {
+      "rel": "ally",
+      "right": 1,
+      "up": 0.25,
+      "fwd": 3.2
+     },
+     "look": {
+      "rel": "ally"
+     },
+     "dur": 7,
+     "card": {
+      "who": "ally",
+      "is": "ally",
+      "role": "the dispatcher who never sleeps"
+     },
+     "say": "ally",
+     "line": "Cass wants the ledger off your bike before the fog lifts."
+    },
+    {
+     "cam": {
+      "rel": "boss",
+      "right": -1.2,
+      "up": 0.2,
+      "fwd": 3
+     },
+     "look": {
+      "rel": "boss"
+     },
+     "dur": 7,
+     "card": {
+      "who": "boss",
+      "is": "antagonist",
+      "role": "the broker on the waterfront"
+     },
+     "say": "boss",
+     "line": "Everyone on this waterfront owes me something. Bring me the book."
+    },
+    {
+     "cam": {
+      "rel": "player",
+      "right": -9,
+      "up": 10,
+      "fwd": -18
+     },
+     "look": "player",
+     "dur": 6,
+     "title": true
+    }
+   ]
+  },
+  "acts": [
+   {
+    "id": "act1",
+    "name": "ACT ONE",
+    "missions": [
+     {
+      "id": "M1",
+      "title": "First Run",
+      "vehicle": "roadster",
+      "verbs": [
+       "drive"
+      ],
+      "start": {
+       "@": "market"
+      },
+      "traffic": 0.4,
+      "stakes": "The ledger went into the water off the Embarcadero.",
+      "passLine": "First Run: done.",
+      "steps": [
+       {
+        "type": "say",
+        "who": "ally",
+        "text": "The Embarcadero first. The book went over the rail there.",
+        "secs": 3
+       },
+       {
+        "type": "drive",
+        "to": "@emb_mission",
+        "radius": 10,
+        "objective": "Drive to **the Embarcadero at Mission**."
+       },
+       {
+        "type": "walk",
+        "to": "@emb_mission",
+        "radius": 6,
+        "leaveCar": true,
+        "objective": "Walk up to **the Embarcadero at Mission**."
+       },
+       {
+        "type": "search",
+        "at": "@emb_mission",
+        "label": "search the crates",
+        "secs": 2,
+        "objective": "Search the **crates**."
+       },
+       {
+        "type": "say",
+        "who": "hero",
+        "text": "Wet, but readable. Half of it.",
+        "secs": 3
+       }
+      ]
+     },
+     {
+      "id": "M2",
+      "title": "Errand",
+      "vehicle": "roadster",
+      "verbs": [
+       "drive"
+      ],
+      "start": {
+       "@": "emb_mission"
+      },
+      "traffic": 0.4,
+      "stakes": "A package for the clerk at Civic Center.",
+      "passLine": "Errand: done.",
+      "steps": [
+       {
+        "type": "drive",
+        "to": "@civic",
+        "radius": 10,
+        "objective": "Take the box to **Civic Center**."
+       },
+       {
+        "type": "say",
+        "who": "ally",
+        "text": "Nice work. Now vanish.",
+        "secs": 3
+       }
+      ]
+     },
+     {
+      "id": "M3",
+      "title": "Words Out Back",
+      "vehicle": "roadster",
+      "verbs": [
+       "walk",
+       "fight"
+      ],
+      "start": {
+       "@": "sixth_folsom"
+      },
+      "traffic": 0.4,
+      "stakes": "Cass sent someone to talk.",
+      "passLine": "Words Out Back: done.",
+      "steps": [
+       {
+        "type": "say",
+        "who": "goon",
+        "text": "Cass says stop riding past her door.",
+        "secs": 3
+       },
+       {
+        "type": "fight",
+        "enemies": [
+         "goon"
+        ],
+        "arena": "@under280",
+        "win": "ko-all",
+        "timer": 90,
+        "rules": "lesson",
+        "objective": "Put him down."
+       },
+       {
+        "type": "say",
+        "who": "hero",
+        "text": "Tell Cass the book stays with me.",
+        "secs": 3
+       }
+      ]
+     },
+     {
+      "id": "M4",
+      "title": "Tail Lights",
+      "vehicle": "roadster",
+      "verbs": [
+       "escape",
+       "boost"
+      ],
+      "start": {
+       "@": "emb_bryant"
+      },
+      "traffic": 0.4,
+      "stakes": "A car has been on you since the Embarcadero.",
+      "passLine": "Tail Lights: done.",
+      "steps": [
+       {
+        "type": "pursuit",
+        "goal": "lose",
+        "count": 1,
+        "level": 1,
+        "kind": "crew",
+        "loseDist": 140,
+        "loseTime": 3.5,
+        "los": 4,
+        "objective": "Lose the car behind you."
+       },
+       {
+        "type": "drive",
+        "to": "@mission_rock",
+        "radius": 10,
+        "objective": "Lie low at **3rd & Mission Rock**."
+       }
+      ]
+     },
+     {
+      "id": "M5",
+      "title": "The Ledger",
+      "vehicle": "roadster",
+      "verbs": [
+       "drive"
+      ],
+      "start": {
+       "@": "mission_rock"
+      },
+      "traffic": 0.4,
+      "stakes": "Ines found the other half.",
+      "passLine": "The Ledger: done.",
+      "steps": [
+       {
+        "type": "drive",
+        "to": "@the-drop",
+        "radius": 10,
+        "objective": "Meet her at **the drop on the Pier 24 dock**."
+       },
+       {
+        "type": "say",
+        "who": "ally",
+        "text": "Both halves. Her whole waterfront is in here.",
+        "secs": 3
+       }
+      ]
+     },
+     {
+      "id": "M6",
+      "title": "Last Light",
+      "vehicle": "roadster",
+      "verbs": [
+       "walk",
+       "fight"
+      ],
+      "start": {
+       "@": "the-drop"
+      },
+      "traffic": 0.4,
+      "stakes": "Cass is waiting at Pier 48.",
+      "passLine": "Last Light: done.",
+      "steps": [
+       {
+        "type": "fight",
+        "enemies": [
+         "goon",
+         "goon"
+        ],
+        "arena": "@pier48",
+        "win": "ko-all",
+        "timer": 120,
+        "objective": "Finish it."
+       },
+       {
+        "type": "say",
+        "who": "boss",
+        "text": "You could have been rich, courier.",
+        "secs": 3
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "voices": {}
+ }
+}
