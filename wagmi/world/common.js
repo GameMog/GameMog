@@ -5,6 +5,7 @@
 import { createTileManager } from './tiles.js';
 import { createMemoryTileSource } from './tiles-mem.js';
 import { createFloatingOrigin, floatingOriginWanted } from './origin.js';
+import { laneIndexFor } from './lanes.js';
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const query = () => { try { return new URLSearchParams(globalThis.location?.search || ''); } catch { return new URLSearchParams(); } };
 const N = () => globalThis.window?.NYC || {};
@@ -76,22 +77,27 @@ export function createWorld(city) {
   }
 
   // ------------------------------------------------------------------ the roads
-  // the nearest lane to (x, z) within R m on the traffic's drivable graph: { x, z, heading, d, edge } (4 m in from
-  // an edge's ends, edges under 8 m skipped)
-  function nearestLane(x, z, mode = 'car', R = 80) {
-    const n = net(); if (!n) return null;
-    let best = null;
-    for (const e of n.edges) {
-      if (e.len < 8) continue;
-      const mx = e.sx + e.dx * e.len / 2, mz = e.sz + e.dz * e.len / 2;
-      if (Math.abs(mx - x) > R + e.len / 2 || Math.abs(mz - z) > R + e.len / 2) continue;
-      const s = clamp((x - e.sx) * e.dx + (z - e.sz) * e.dz, 4, e.len - 4);
-      for (let l = 0; l < e.lanes.length; l++) {
-        const px = e.sx + e.dx * s + e.rx * e.lanes[l], pz = e.sz + e.dz * s + e.rz * e.lanes[l], d = Math.hypot(px - x, pz - z);
-        if (!best || d < best.d) best = { x: px, z: pz, heading: Math.atan2(e.dx, e.dz), d, edge: e };
-      }
-    }
-    return best;
+  // the nearest lane to (x, z) within R m on the traffic's drivable graph: { x, z, heading, d, edge, s, lane } (4 m in
+  // from an edge's ends, edges under 8 m skipped). The lane index (lanes.js: 32 m cells, rebuilt when the network
+  // changes); o { h, y }: with a heading, an edge facing over 100 degrees away from it costs 15 m more (a car's own
+  // side of the road); with a height, a lane 2.5 m and more above or below it (a deck, a tunnel) is skipped
+  function nearestLane(x, z, mode = 'car', R = 80, o = null) {
+    const L = laneIndexFor(net()); if (!L) return null;
+    return L.nearest(x, z, o ? { R, h: o.h, y: o.y } : { R });
+  }
+  // on the roadway at (x, z): not on a curb island (a block: sidewalks, lawns, plazas), not in the water, and inside
+  // the city's map (a package: its compiled tiles; outside them nothing is road, loaded or not). A curb island over a
+  // lane's own roadway (the graph's half-width either side of it: a compiled block that missed a road) is road. With y
+  // (a car's height): a bridge deck or a tunnel floor within 2.5 m of it is road too (grade-separation.js), whatever
+  // the 2D blocks under it say
+  function onRoadway(x, z, y = null) {
+    const n = N();
+    if (y != null && Number.isFinite(y)) { const f = n.GradeSeparation?.floorAt?.(x, z, y); if (f != null && Math.abs(f - y) < 2.5) return true; }
+    if (city.inExtent && !city.inExtent(x, z)) return false;
+    const T = n.Terrain;
+    if (T && T.loaded && T.groundAt && Number.isFinite(T.waterLevel) && !(T.groundAt(x, z) > T.waterLevel + 0.05)) return false;
+    if (n.blockAt?.(x, z)) return !!laneIndexFor(net())?.corridor(x, z);
+    return true;
   }
   // a through-road near (x, z): the nearest long main road of the drivable graph (the road graph's own class, at
   // least minLen m between junctions, not in a tunnel), at the road's level (not up on a deck), whose lane is a real
@@ -156,7 +162,9 @@ export function createWorld(city) {
   // 'foot' its walking one, 'chase' a chase car's (pursuit/nav.js: one-way streets either way)
   let chaseNav = null;
   async function navFor() {
-    if (!chaseNav) { const { createNav } = await import('../pursuit/nav.js'); chaseNav = createNav(APP()); }
+    // (made again when the traffic's network is rebuilt: a nav holds that network's corners and arrays)
+    const n = net();
+    if (!chaseNav || (n && !chaseNav.fresh(n))) { const { createNav } = await import('../pursuit/nav.js'); chaseNav = createNav(APP()); }
     return chaseNav;
   }
   async function route(a, b, mode = 'car') {
@@ -532,7 +540,7 @@ export function createWorld(city) {
     // grid's (hg1) or null: a city's own frame. Defaults only fill what a city leaves out)
     id: city.id, name: city.name, frame: city.frame && { bearingDeg: city.frame.gridBearingDeg ?? 0, scale: 1, grid: null, domain: null, ...city.frame },
     sampleSurface, groundY, roadY, queryColliders,
-    nearestLane, throughRoad, route, streetNameAt, districtAt, commercial, isPark, inWater,
+    nearestLane, onRoadway, throughRoad, route, streetNameAt, districtAt, commercial, isPark, inWater,
     walkSignal, signalAt,
     // a road's class: 'avenue' (a city's main roads: New York's avenues) or 'street'
     roadClass: (e) => (city.isAvenue(e) ? 'avenue' : 'street'),
