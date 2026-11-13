@@ -129,7 +129,7 @@ export function createThrusters(W, vapor) {
   // the gas on the plumes, the lens punched out while a dash shoves it
   const ground = () => {
     const ax = Math.sin(car.heading) * (car.axle || 1.45), az = Math.cos(car.heading) * (car.axle || 1.45);
-    return (cm.getGroundHeight(car.position.x + ax, car.position.z + az, 'car') + cm.getGroundHeight(car.position.x - ax, car.position.z - az, 'car')) * 0.5;
+    return (cm.getGroundHeight(car.position.x + ax, car.position.z + az, 'car', car.position.y) + cm.getGroundHeight(car.position.x - ax, car.position.z - az, 'car', car.position.y)) * 0.5;
   };
   const prev = car.onUpdate;
   car.onUpdate = (...a) => {

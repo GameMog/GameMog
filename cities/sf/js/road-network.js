@@ -124,7 +124,9 @@ function buildRoadNetwork(sidewalks, obstacles) {
     const pos = [];
     for (let i = 0; i < RG.nodes.length; i += 2) pos.push({ x: RG.nodes[i], z: RG.nodes[i + 1] });
     const links = [];
-    RG.links.forEach(([a, b, ni, w, lanes, dir, inner, flags], li) => {
+    // (a Hometown package's links carry [10] lanes forwards, [11] lanes backwards (-1: unknown), [12] a deck's profile
+    // [step, y0, y1, ...] (null: on the ground) and [13] its speed limit in mph; SF's and New York's do not)
+    RG.links.forEach(([a, b, ni, w, lanes, dir, inner, flags, , , lf, lb, elev], li) => {
       // pedestrian-only & private ways carry no traffic; freeways & ramps (decks drawn by grade-separation.js) aren't
       // driven (PLAN.md P2-10, P3-3); tunnels and bridges run straight between their portals or banks (spans())
       if (flags & (1 | 4 | 8 | 16)) return;
@@ -133,7 +135,8 @@ function buildRoadNetwork(sidewalks, obstacles) {
       pts.push(pos[b]);
       let len = 0;
       for (let k = 0; k + 1 < pts.length; k++) len += Math.hypot(pts[k + 1].x - pts[k].x, pts[k + 1].z - pts[k].z);
-      links.push({ li, a, b, name: RG.names[ni], w, lanes, dir, pts, len, tunnel: (flags & 2) !== 0, crooked: (flags & 64) !== 0 });
+      links.push({ li, a, b, name: RG.names[ni], w, lanes, dir, pts, len, tunnel: (flags & 2) !== 0, crooked: (flags & 64) !== 0,
+        lf: lf ?? -1, lb: lb ?? -1, elev: Array.isArray(elev) && elev.length > 2 ? elev : null });
     });
     const parent = pos.map((_, i) => i);
     const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
@@ -169,6 +172,19 @@ function buildRoadNetwork(sidewalks, obstacles) {
       const w = l.w > 3 ? l.w : 9.1;
       const half = w / 2;
       const axis = w >= 14.5 || l.lanes >= 3 ? 'ave' : 'st';
+      // (a package's own count each way, as many as fit the roadway)
+      if (l.lf >= 0 && l.lb >= 0 && l.lf + l.lb > 0) {
+        if (l.dir !== 0) {
+          const n = Math.max(1, Math.min(l.dir > 0 ? l.lf || l.lb : l.lb || l.lf, Math.floor((w - 1) / 3.0)));
+          const step = Math.min(LANE_W, (w - 1) / n);
+          const lanes = Array.from({ length: n }, (_, k) => (k - (n - 1) / 2) * step);
+          return { half, axis, fwd: l.dir > 0 ? lanes : [], back: l.dir < 0 ? lanes : [] };
+        }
+        const cap = Math.max(1, Math.floor((half - 0.5) / 3.0));
+        const nf = Math.max(1, Math.min(l.lf, cap)), nb = Math.max(1, Math.min(l.lb, cap));
+        const step = Math.min(LANE_W, (half - 0.5) / Math.max(nf, nb));
+        return { half, axis, fwd: Array.from({ length: nf }, (_, k) => step * (k + 0.5)), back: Array.from({ length: nb }, (_, k) => step * (k + 0.5)) };
+      }
       const count = Math.max(1, Math.round(l.lanes || w / LANE_W));
       if (l.dir !== 0) {
         const n = Math.max(1, Math.min(count, Math.floor((w - 1) / 3.0)));
@@ -267,7 +283,7 @@ function buildRoadNetwork(sidewalks, obstacles) {
       stations.push(B);
       arcs.push(arc + Math.hypot(B.x - pts[pts.length - 2].x, B.z - pts[pts.length - 2].z));
       const lanes = lanesOf(l);
-      const bore = l.tunnel ? spans(pts, true) : bridgeOf(l, pts);
+      const bore = l.tunnel ? spans(pts, true) : l.elev ? deckOf(l) : bridgeOf(l, pts);
       for (let k = 0; k + 1 < stations.length; k++) {
         runs.push({
           from: stations[k], to: stations[k + 1], ...lanes, name: l.name,
@@ -406,6 +422,10 @@ function buildRoadNetwork(sidewalks, obstacles) {
       }
       return hits;
     };
+    const midY = (e) => {
+      if (e.bore && e.bore.kind === 'deck') return boreY(e.bore, (e.bore.a0 + e.bore.a1) / 2);
+      return T && T.loaded ? T.groundAt(e.x0 + e.dx * e.span / 2, e.z0 + e.dz * e.span / 2) : 0;
+    };
     const partner = new Map(); // edge -> half width of the widest roadway running the other way on top of it
     const tested = new Set();
     for (const list of cells.values()) {
@@ -417,6 +437,8 @@ function buildRoadNetwork(sidewalks, obstacles) {
           const key = Math.min(e.oneWay, f.oneWay) * 65536 + Math.max(e.oneWay, f.oneWay);
           if (tested.has(key)) continue;
           tested.add(key);
+          // (a deck over a street the other way is not its other roadway)
+          if (Math.abs(midY(e) - midY(f)) > 3) continue;
           if (Math.max(onTop(e, f), onTop(f, e)) < 6) continue;
           partner.set(e, Math.max(partner.get(e) || 0, f.half));
           partner.set(f, Math.max(partner.get(f) || 0, e.half));
@@ -1007,6 +1029,47 @@ function spans(pts, tunnel, measureOnly = false) {
   while (k1 < n && g[k1] - line(k1) > 1) k1++;
   return { kind: 'tunnel', p0: u[k0], p1: u[k1], y0: g[k0], y1: g[k1], pts, cum };
 }
+// A Hometown package's deck (link field [12], tools/hometown/grade.py): its heights every `step` m along the link's own
+// centreline from its first point. Returns { kind: 'deck', p0, p1, ys, step, pts, cum, blendA, blendB }: [p0, p1] is the
+// stretch standing over DECK_OFF m above the terrain (where grade-separation.js builds the deck and its floors); its
+// height is the profile along the WHOLE link (boreY never returns null for a deck), blended over the last DECK_BLEND m to
+// the engine's own terrain at an end that sits on the ground. Null when no part of it leaves the ground.
+const DECK_OFF = 0.6;
+const DECK_BLEND = 8;
+function deckOf(l) {
+  const T = window.NYC.Terrain;
+  if (!T || !T.loaded) return null;
+  const pts = l.pts;
+  const cum = [0];
+  for (let k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].z - pts[k - 1].z));
+  const step = l.elev[0];
+  const ys = Float32Array.from(l.elev.slice(1));
+  const L = cum[cum.length - 1];
+  const b = { kind: 'deck', p0: Infinity, p1: -Infinity, ys, step, pts, cum, L, blendA: false, blendB: false };
+  for (let u = 0; u <= L + 1e-6; u += 1) {
+    const p = linkPoint(b, u);
+    if (deckRaw(b, u) - T.groundAt(p.x, p.z) > DECK_OFF) {
+      b.p0 = Math.min(b.p0, u);
+      b.p1 = Math.max(b.p1, u);
+    }
+  }
+  if (!(b.p1 >= b.p0)) return null;
+  b.p0 = Math.max(0, b.p0 - 1);
+  b.p1 = Math.min(L, b.p1 + 1);
+  b.blendA = Math.abs(ys[0] - T.groundAt(pts[0].x, pts[0].z)) < DECK_OFF;
+  b.blendB = Math.abs(ys[ys.length - 1] - T.groundAt(pts[pts.length - 1].x, pts[pts.length - 1].z)) < DECK_OFF;
+  return b;
+}
+function deckRaw(b, u) {
+  const n = b.ys.length;
+  // (stations every step m, the last one at the link's end)
+  const f = Math.max(0, u) / b.step;
+  let k = Math.floor(f);
+  if (k >= n - 1) return b.ys[n - 1];
+  const sk = k * b.step, sk1 = k + 2 === n ? b.L : (k + 1) * b.step;
+  const t = Math.min(1, Math.max(0, (u - sk) / (sk1 - sk || 1)));
+  return b.ys[k] + (b.ys[k + 1] - b.ys[k]) * t;
+}
 // The point u metres along a bore's link centreline
 function linkPoint(b, u) {
   const { pts, cum } = b;
@@ -1017,6 +1080,15 @@ function linkPoint(b, u) {
 }
 // The road's height u m along a tunnel's or bridge's link: on the line between its ends, or null outside (on the ground)
 function boreY(b, u) {
+  if (b.kind === 'deck') {
+    const y = deckRaw(b, u);
+    const T = window.NYC.Terrain;
+    const wa = b.blendA ? Math.max(0, 1 - u / DECK_BLEND) : 0, wb = b.blendB ? Math.max(0, 1 - (b.L - u) / DECK_BLEND) : 0;
+    const w = Math.max(wa, wb);
+    if (w <= 0 || !T || !T.loaded) return y;
+    const p = linkPoint(b, Math.min(b.L, Math.max(0, u)));
+    return y + (T.groundAt(p.x, p.z) - y) * w;
+  }
   if (u < b.p0 || u > b.p1) return null;
   return b.y0 + ((b.y1 - b.y0) * (u - b.p0)) / (b.p1 - b.p0 || 1);
 }
@@ -1230,5 +1302,5 @@ function buildRoadDebug(net) {
   return lines;
 }
 
-Object.assign(window.NYC, { buildRoadNetwork, buildRoadDebug, CROSSWALK, edgeY, edgeGrade, curveY, boreY, edgeArc, linkPoint });
+Object.assign(window.NYC, { buildRoadNetwork, buildRoadDebug, CROSSWALK, edgeY, edgeGrade, curveY, boreY, edgeArc, linkPoint, deckOf });
 })();

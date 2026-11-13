@@ -41,14 +41,16 @@ const personGround = (controllers, x, z) => controllers.getGroundHeight(x, z, 'p
 // road leaves the ground (grade-separation.js) the active entity's height (`level`, set every update) says whether it
 // is in the tunnel or on the hill above, on the bridge or under it
 const level = { y: null };
-const deckY = (x, z) => {
+// (y: something else's own height, for the grade-separated decks of a Hometown package: a car under a deck the player
+// is on stays on the ground; default the active entity's)
+const deckY = (x, z, y = level.y) => {
   const G = window.NYC.GradeSeparation;
-  return G && level.y !== null ? G.floorAt(x, z, level.y) : null;
+  return G && y !== null && y !== undefined ? G.floorAt(x, z, y) : null;
 };
-const terrainY = (x, z) => {
+const terrainY = (x, z, y) => {
   const T = window.NYC.Terrain;
   if (!(T && T.loaded)) return 0;
-  const d = deckY(x, z);
+  const d = deckY(x, z, y);
   return d !== null ? d : T.groundAt(x, z);
 };
 const inBay = (x, z) => {
@@ -801,10 +803,21 @@ class ThirdPersonControllerManager {
   // The terrain (the roadway), plus the curb on a curb island: for the pedestrian, and (Mog City, as New York's) for a
   // car's wheels too, so a car driven up the curb rides on the sidewalk (updateCar) and the game's curb checks see it
   // (wagmi/game.js). Not the bike's (the fork's own, unused by the game)
-  getGroundHeight(x, z, mode = 'person') {
-    const ground = terrainY(x, z);
-    if ((mode === 'person' || mode === 'car') && this.isPointOnSidewalk(x, z)) return ground + ISLAND_BOUNDS.sidewalkHeight;
+  // (y, optional: the height of the thing asking, on or under a package's deck; on a deck there is no curb)
+  getGroundHeight(x, z, mode = 'person', y) {
+    const ground = terrainY(x, z, y);
+    if ((mode === 'person' || mode === 'car') && this.isPointOnSidewalk(x, z)) {
+      const G = window.NYC.GradeSeparation;
+      if (G && G.onDeckAt && G.onDeckAt(x, z, y === undefined ? level.y : y)) return ground;
+      return ground + ISLAND_BOUNDS.sidewalkHeight;
+    }
     return ground;
+  }
+
+  // (Mog City) The terrain alone under (x, z): no deck, no curb (things known to be on the ground)
+  groundAt(x, z) {
+    const T = window.NYC.Terrain;
+    return T && T.loaded ? T.groundAt(x, z) : 0;
   }
 
   // (Mog City) The bare ground under (x, z), no curb: the terrain, or a bridge deck or tunnel floor at the active
