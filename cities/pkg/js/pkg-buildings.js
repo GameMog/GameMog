@@ -277,7 +277,8 @@ function createPkgBuilder() {
     quad(d, c, P(W / 2 + 0.2, D + 0.25, yr - 0.18), P(-W / 2 - 0.2, D + 0.25, yr - 0.18), trimHex);
     stats.porches++;
   }
-  // a church's bell tower at the road end of its nave (m: the largest mass); top <= ridge + 3 m and <= 1.6 x the eave
+  // a church's bell tower at the road end of its nave (m: the largest mass): 1.6 x the eave height, kept between 1.5 and
+  // 3 m over the ridge (never a minaret)
   function tower(m, theta, base, eave, peak, fx, fz, wallHex, roofHex) {
     const F = frame(m.cx, m.cz, m.w, m.d, theta);
     const cs = Math.cos(theta), sn = Math.sin(theta);
@@ -285,8 +286,7 @@ function createPkgBuilder() {
     const along = F.alongX ? lx : lz;
     const end = (along >= 0 ? 1 : -1) * F.L;
     const s = Math.max(2.4, Math.min(5, F.S * 0.75));
-    const topY = Math.min(base + 1.6 * (eave - base), peak + 3);
-    if (topY < eave + 1.5) return;
+    const topY = Math.min(peak + 3, Math.max(peak + 1.5, base + 1.6 * (eave - base)));
     const u0 = end > 0 ? end - s * 0.6 : end - s * 0.4, u1 = u0 + s;
     boxUV(F, u0, u1, -s / 2, s / 2, base, topY, wallHex, false);
     // a low pyramid cap (no spire)
