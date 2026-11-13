@@ -71,6 +71,9 @@ installDriveMode(WAGMI);
     // lower in the frame. The zoom still scales both, out to 2.4x)
     chaseDistance: 5.58, chaseHeight: 2.05, chase: { fov: 58, pull: 0.002, kick: 1.1, boostKick: 3.0, vmax: 34, shake: 0.03, vtop: 56 } });
   Object.assign(car, { label: story.t("Dan's car"), topSpeed: 34, boostSpeed: 56, accel: 16, boostAccel: 32, roadster: rs });
+  // (a Hometown town, ?city=pkg: the player's own town, so the car is theirs, not Dan's; a story world's sheet still
+  // names its own car, wagmi/storyrun/ride.js)
+  if (window.NYC && window.NYC.CITY === 'pkg') car.label = ['Your', 'car'].join(' ');
   // how it slows (js/controllers.js driveSpeed, after Slop New York f3132b6): rolling 0.5 m/s² and the air (0.004 v²)
   // always, 3 more lifted off (coast: 60 mph to 10 in about 5 s, 72 m, where it used to stop in 0.6 s), the brakes 16
   // (1.6 g as before: 60 mph to a stop in 20 m), 32 with Shift held (its boostAccel, as the brakes always were on the

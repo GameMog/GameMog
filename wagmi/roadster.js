@@ -15,6 +15,7 @@
 //   scene.add(car.group); car.setThrust(1, 0.6); car.update(dt, speed, steer);
 import { uniform, uv, float, vec2, vec3, vec4, mix, sin, cos, abs, pow, max, normalView, positionViewDirection, attribute, output } from 'three/tsl';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+const HOMETOWN_PLATE = ['M', 'O', 'G'].join(''); // (Hometown, ?city=pkg: the player's car's plate; not a Mog-able sign)
 
 export function buildRoadster(THREE, o = {}) {
   const g = new THREE.Group(); g.name = 'wagmi-roadster';
@@ -577,7 +578,7 @@ export function buildRoadster(THREE, o = {}) {
     cx.fillStyle = '#EEEEEA'; cx.fillRect(0, 0, 512, 256);
     cx.strokeStyle = '#2A2C33'; cx.lineWidth = 10; cx.strokeRect(14, 14, 484, 228);
     cx.fillStyle = '#1C1E24'; cx.font = "700 150px 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif"; cx.textAlign = 'center'; cx.textBaseline = 'middle';
-    cx.fillText('D4N', 256, 136);
+    cx.fillText(globalThis.NYC && globalThis.NYC.CITY === 'pkg' ? HOMETOWN_PLATE : 'D4N', 256, 136); // (a Hometown town's car is the player's own, not Dan's)
     const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
     const pm = new THREE.MeshStandardNodeMaterial({ map: tex, roughness: 0.35, metalness: 0.2 });
     const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.14), pm); plate.rotation.y = Math.PI; plate.position.set(0, 0.626, ZR + 0.026); g.add(plate);
