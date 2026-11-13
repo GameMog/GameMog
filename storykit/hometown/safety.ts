@@ -258,7 +258,7 @@ const CAM_NOUN = String.raw`(?:hero|group|drone|still|camera|reaction|beauty|spl
 /** What may come before a camera phrase: a sentence start, a determiner (and its adjectives), or "cut to" / "open on". */
 const LEAD = String.raw`(?:^|[.!?;:,(—–-]\s*|\b(?:to|on|with|then|and)\s+|\b${DET}\s+)(?:${DET}\s+){0,2}`;
 /** Camera verbs that may follow "shot" ("the shot shows", "a wide shot pans"). */
-const CAM_VERB = String.raw`(?:shows?|reveals?|pans?|cuts?|opens?|frames?|holds?|captures?|lingers?|tracks?|follows?|sweeps?|zooms?|pulls?\s+back|pushes?\s+in|establishes|fades?|dissolves?|showing|revealing|framing|panning)`;
+const CAM_VERB = String.raw`(?:shows?|reveals?|pans?|cuts?|opens?|frames?|holds?|captures?|lingers?|tracks?|follows?|sweeps?|zooms?|pulls?\s+back|pushes?\s+in|establishes|fades?|dissolves?|showing|revealing|framing|panning|rises?|rising|descends?|descending|drifts?|drifting|glides?|gliding)`;
 /** After a clear camera modifier + "shot": an end, a pause, "of", "from above", a camera verb, or "and"/"as"/"while". */
 const CAM_AFTER = new RegExp(String.raw`^(?:\s*$|\s*[.,:;!?)—–]|\s+-|\s+(?:of|list|from\s+(?:above|below|the\s+air|overhead|a\s+distance|afar|across)|over|across|along|${CAM_VERB}|and|as|while|then)\b)`, 'i');
 /** After a camera-ish noun + "shot", or a determiner + bare "shot": only "of", a colon or dash, a list, or a camera verb. */
@@ -272,7 +272,7 @@ const PASSIVE_BEFORE = /\b(?:is|was|were|are|be|been|being|get|gets|got|gotten|g
 /** Firing, weapon or impact words: a sentence with one of these anywhere reads every "shot" as gunfire ("The sniper took a
  * long shot across the schoolyard.", "A long shot then shattered the window."), however camera-like the phrase. ("fire"
  * as in "fire station" / "fire truck" is a place or a thing, not firing.) */
-const GUNFIRE_CONTEXT = /\b(?:fire(?!\s*(?:station|stations|house|truck|trucks|engine|engines|department|dept|fighters?|hydrants?|escape|alarm|exit|drill|chief|crew|hall))|fires|fired|firing|sniper\w*|gun\w*|rifles?|pistols?|revolvers?|shotguns?|bullets?|triggers?|aim|aims|aimed|aiming|shatter\w*|smash\w*|hit|hits|struck|strike|strikes|ricochet\w*|wound\w*|kill\w*|dropped)\b/i;
+const GUNFIRE_CONTEXT = /\b(?:fire(?!\s*(?:station|stations|house|truck|trucks|engine|engines|department|dept|fighters?|hydrants?|escape|alarm|exit|drill|chief|crew|hall))|fires|fired|firing|sniper\w*|gun\w*|rifles?|pistols?|revolvers?|shotguns?|bullets?|triggers?|aim|aims|aimed|aiming|shatter\w*|smash\w*|hit|hits|struck|strike|strikes|ricochet\w*|wound\w*|kill\w*|dropped|rang|rings?\s+out|ringing\s+out|bang\w*|falls|fell|collapse\w*)\b/i;
 const isCameraShot = (s: string, at: number, word: string) => {
   const before = s.slice(0, at), after = s.slice(at + word.length);
   if (GUNFIRE_CONTEXT.test(s)) return false;
