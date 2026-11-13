@@ -1,0 +1,23 @@
+{
+ "built": "2026-11-13T09:04:44Z",
+ "bytes": 17100621,
+ "columns": [
+  "way_id",
+  "highway",
+  "lanes",
+  "lanes_forward",
+  "lanes_backward",
+  "oneway",
+  "width",
+  "turn_lanes",
+  "layer",
+  "bridge",
+  "tunnel",
+  "maxspeed"
+ ],
+ "highwayWaysSeen": 52208714,
+ "licence": "ODbL 1.0, (c) OpenStreetMap contributors",
+ "sha256": "555ea001a758b77bf5c5c0e6103276f55901cd62e64ef822c0f1dd05bdb52f65",
+ "source": "us-261112.osm.pbf",
+ "ways": 3670803
+}

@@ -22,12 +22,15 @@ services:
     domains:
       - gamemog.com
     # the database and the Story Kit store (data/storykit) live here, and
-    # survive deploys; 10 GB (the owner, 7 Nov; was 1 GB), $2.50 a month. The
-    # store may use STORYKIT_DISK_MB of it (8,000 by default, guard at 90%).
+    # survive deploys; 10 GB (the owner, 7 Nov; was 1 GB). The store may use
+    # STORYKIT_DISK_MB of it (8,000 by default, guard at 90%). 20 GB for the
+    # town builder's queue, tiles, bundles and staged sources (data/hometown,
+    # docs/HOMETOWN-HOSTING.md "Production builder"): $5 a month. A disk grows,
+    # never shrinks; 50 GB with region pre-staging is the owner's call.
     disk:
       name: gamemog-data
       mountPath: /opt/render/project/src/data
-      sizeGB: 10
+      sizeGB: 20
     envVars:
       - key: NODE_VERSION
         value: "24"
@@ -54,3 +57,70 @@ services:
       # at least 24 characters; unset, the admin routes are not found
       - key: HOMETOWN_ADMIN_TOKEN
         sync: false
+      # The production town builder (lib/hometown-build, docs/HOMETOWN-HOSTING.md "Production builder"): the web holds
+      # the job queue (data/hometown/queue.db) and the store, and NEVER compiles; the gamemog-town-builder workers below
+      # do. off: the queue is inert and no town route answers from it. owner: every town route, and Create's town box,
+      # answer only the owner's /admin session (the production test). on: players.
+      - key: HOMETOWN_BUILDER
+        value: "off"
+      # the workers' bearer token (24+ characters), entered by the owner here once; the workers read it from this
+      # service (fromService envVarKey). Unset: /api/hometown/worker is not found
+      - key: HOMETOWN_WORKER_TOKEN
+        sync: false
+      # the build new towns are made at: the buildId the workers log at start (the owner's status page shows it)
+      - key: HOMETOWN_BUILD
+        sync: false
+      # the store's share of the 20 GB disk (Story Kit 8 GB on paper, the 2 GB free floor), and the staged Overture
+      # regions' own share of it (least recently used go first)
+      - key: HOMETOWN_DISK_CAP_GB
+        value: "8"
+      - key: HOMETOWN_SRC_CAP_GB
+        value: "2"
+      # a new town is refused (busy, with the 3 nearest built towns) when its wait to drive is over this
+      - key: HOMETOWN_MAX_WAIT_S
+        value: "600"
+      - key: HOMETOWN_PER_IP_HOUR
+        value: "3"
+
+  # The town builder (docs/HOMETOWN-HOSTING.md "Production builder"): a background worker, Docker, NO disk, so it can
+  # run 1 to 100 instances (manual scaling on the Settings page; autoscaling needs a Pro workspace). It reaches the web
+  # over Render's private network and uploads through the web's hash-checked PUT. Created paused: the owner sets
+  # HOMETOWN_WORKER_PAUSED to 0 when the web is ready (HOMETOWN_BUILDER owner and HOMETOWN_BUILD set).
+  - type: worker
+    name: gamemog-town-builder
+    runtime: docker
+    # same region as the web: the private network
+    region: virginia
+    # Pro Plus, 4 CPU / 8 GB: 4 compile slots (1.5 GB each + 0.75 GB for the worker); 2c-4g for a first test. The
+    # id follows this file's 1c-2g form: check it on the Blueprint spec page before the first sync
+    plan: 4c-8g
+    numInstances: 1
+    dockerfilePath: ./deploy/hometown-compiler.Dockerfile
+    dockerContext: .
+    autoDeployTrigger: commit
+    # only the worker's own files rebuild and restart it (a GameMog commit elsewhere never does)
+    buildFilter:
+      paths:
+        - deploy/hometown-compiler.Dockerfile
+        - deploy/town-builder/**
+    # on a deploy or scale-down: stop claiming, finish and upload the running jobs (worker.py drains on SIGTERM)
+    maxShutdownDelaySeconds: 300
+    envVars:
+      # host:port on Render's private network
+      - key: HOMETOWN_WEB
+        fromService:
+          type: web
+          name: gamemog
+          property: hostport
+      - key: HOMETOWN_WORKER_TOKEN
+        fromService:
+          type: web
+          name: gamemog
+          envVarKey: HOMETOWN_WORKER_TOKEN
+      - key: HOMETOWN_SLOT_GB
+        value: "1.5"
+      - key: HOMETOWN_CACHE_GB
+        value: "4"
+      # "1": claim nothing (a kill switch that needs no deploy of the web); "0" to run
+      - key: HOMETOWN_WORKER_PAUSED
+        value: "1"
