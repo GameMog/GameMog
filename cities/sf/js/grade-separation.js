@@ -77,6 +77,7 @@ function buildGradeSeparation(scene, network) {
   const done = new Set();
   const lateral = (e, x, z) => (x - e.x0) * e.rx + (z - e.z0) * e.rz;
   const discAt = new Map(); // (package decks) node -> { x, z, y, r, n }: deckEnds()
+  let linkOnly = 0; // (package decks built from the road graph's links alone: linkDecks())
   const MERGE_GAP = 14;
   const branchy = (n) => (n.in || []).length + (n.out || []).length > 4 || new Set([...(n.in || []), ...(n.out || [])].map((x) => x.name)).size > 1;
   for (const e of network.edges) {
@@ -111,6 +112,57 @@ function buildGradeSeparation(scene, network) {
     if (b.kind === 'tunnel') buildBore(seg, e, partner);
     else buildDeck(seg, e, partner);
     if (b.kind === 'deck') deckEnds(seg, e, partner);
+  }
+  // (package decks the traffic network left out: a freeway interchange whose ramps end at the data's edge or in a
+  // dropped tunnel is no through route for traffic, but its decks still stand and the player can drive them. Built
+  // from the road graph's links (field [12]) wherever no kept edge's floor already covers the link)
+  linkDecks();
+  function linkDecks() {
+    const RG = window.NYC.GEO.roadGraph;
+    if (!RG || !RG.links || !window.NYC.deckOf || !floors.some((f) => f.kind === 'deck') && !RG.links.some((l) => Array.isArray(l[12]))) return;
+    const covered = (x, z, y) => floors.some((f) => f.kind === 'deck' && (() => {
+      const px = x - f.x0, pz = z - f.z0, t = px * f.dx + pz * f.dz, o = px * f.rx + pz * f.rz;
+      if (t < f.t0 - 1 || t > f.t1 + 1 || o < f.L - 1 || o > f.R + 1) return false;
+      const k = Math.min(f.ys.length - 1, Math.max(0, Math.round((t - f.t0) / STEP)));
+      return Math.abs(f.ys[k] - y) < 1.5;
+    })());
+    const nodeOf = new Map();
+    const node = (x, z) => { const k = Math.round(x * 2) + ',' + Math.round(z * 2); if (!nodeOf.has(k)) nodeOf.set(k, { x, z, in: [], out: [] }); return nodeOf.get(k); };
+    for (let li = 0; li < RG.links.length; li++) {
+      const [a, b, ni, w, , dir, inner, flags, , , lf, lb, elev] = RG.links[li];
+      if (!Array.isArray(elev) || elev.length < 3 || flags & (8 | 16)) continue;
+      const pts = [{ x: RG.nodes[2 * a], z: RG.nodes[2 * a + 1] }];
+      for (let k = 0; k < inner.length; k += 2) pts.push({ x: inner[k], z: inner[k + 1] });
+      pts.push({ x: RG.nodes[2 * b], z: RG.nodes[2 * b + 1] });
+      const bore = window.NYC.deckOf({ pts, elev });
+      if (!bore) continue;
+      // (left out only where its middle has no floor at its height)
+      const um = (bore.p0 + bore.p1) / 2, pm = window.NYC.linkPoint(bore, um);
+      if (covered(pm.x, pm.z, boreY(bore, um))) continue;
+      const half = Math.max(2.5, (w || 7) / 2);
+      const n = Math.max(1, dir !== 0 ? Math.max(lf, lb, 1) : (lf > 0 ? lf : 1) + (lb > 0 ? lb : 1));
+      const nl = Math.min(n, Math.max(1, Math.floor((2 * half - 1) / 3)));
+      const lanes = Array.from({ length: nl }, (_, k) => (k - (nl - 1) / 2) * Math.min(3.4, (2 * half - 1) / nl));
+      let u = 0;
+      for (let k = 0; k + 1 < pts.length; k++) {
+        const p = pts[k], q = pts[k + 1], span = Math.hypot(q.x - p.x, q.z - p.z);
+        const u0 = u, u1 = u + span;
+        u = u1;
+        if (span < 0.5 || u1 < bore.p0 || u0 > bore.p1) continue;
+        const dx = (q.x - p.x) / span, dz = (q.z - p.z) / span;
+        const t0 = Math.max(0, bore.p0 - u0), t1 = Math.min(span, bore.p1 - u0);
+        if (t1 - t0 < 1) continue;
+        const m = Math.ceil((t1 - t0) / STEP), ys = new Float32Array(m + 1);
+        for (let i = 0; i <= m; i++) ys[i] = boreY(bore, u0 + Math.min(t1, t0 + i * STEP));
+        const L = -half, R = half;
+        const e = { name: RG.names[ni], lanes, from: node(p.x, p.z), to: node(q.x, q.z), span, x0: p.x, z0: p.z, dx, dz, rx: -dz, rz: dx };
+        const seg = { kind: 'deck', x0: p.x, z0: p.z, dx, dz, rx: -dz, rz: dx, t0, t1, L, R, ys, linkOnly: true };
+        floors.push(seg);
+        buildDeck(seg, e, null);
+        deckEnds(seg, e, null);
+        linkOnly++;
+      }
+    }
   }
   for (const [, d] of [...discAt].sort((p, q) => p[1].x - q[1].x || p[1].z - q[1].z)) {
     floors.push({ kind: 'disc', x: d.x, z: d.z, r: d.r, y: d.y });
@@ -537,7 +589,7 @@ function buildGradeSeparation(scene, network) {
   };
   const counts = { tunnels: floors.filter((f) => f.kind === 'tunnel').length, bridges: floors.filter((f) => f.kind === 'bridge').length };
   console.info(`[grade] ${counts.tunnels} tunnel bores, ${counts.bridges} bridge decks, ${highwayLanes.length} highway lanes, ${colliders.length} colliders` +
-    (decks ? `, ${decks} package decks, ${floors.length - counts.tunnels - counts.bridges - decks} deck discs` : ''));
+    (decks ? `, ${decks} package decks (${linkOnly} off the traffic network), ${floors.length - counts.tunnels - counts.bridges - decks} deck discs` : ''));
   return { group, colliders, highwayLanes, floorAt, roofAt, carveAt, onDeckAt, floors };
 }
 
