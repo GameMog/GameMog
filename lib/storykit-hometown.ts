@@ -14,7 +14,7 @@
  *                                 parent's on a Mog), the hometown gate (gatePack with the town's table + the safety
  *                                 rules), and on a Create the builder's own rules
  */
-import { storykitSystem, parseStorykitReply, builderProblems, CREATE_MISSIONS, type StorykitMeta } from './storykit-build';
+import { storykitSystem, parseStorykitReply, builderProblems, CREATE_MISSIONS, type StorykitMeta, type StoryHero } from './storykit-build';
 import { mogBase, type PackV2 } from '../storykit/pack/gate.ts';
 import { hometownBase, townName, type CityPackage } from '../storykit/hometown/city-package.ts';
 import { classify, displayName, sensitiveWord, descriptor } from '../storykit/hometown/safety.ts';
@@ -73,7 +73,8 @@ export function hometownSystem(pkg: CityPackage): string {
 const IN_TOWN = (pkg: CityPackage) => `The story happens in ${townName(pkg)}, not New York: wherever BUILDER.md says New York, read ${pkg.name}, and every on-screen word places the story here.`;
 
 /** The first turn: a Create in the town, or a Mog of a hometown world (its town locked: only the game, people and missions change). */
-export function hometownTurn(prompt: string, pkg: CityPackage, mog?: { parent: PackV2; instruction: string }): string {
+export function hometownTurn(prompt: string, pkg: CityPackage, mog?: { parent: PackV2; instruction: string }, hero?: StoryHero | null): string {
+  const asDan = playsAsDan(hero);
   if (mog) {
     const shown = { ...mog.parent }; delete shown.voices;
     return `MOG. The original: "${mog.parent.title}". It is set in ${townName(pkg)}, and a Mog keeps that town exactly: its base is ${JSON.stringify(mogBase(mog.parent.base))} (the same place, compiler version and tile set). The town is locked; rewrite only the game, the characters and the missions.
@@ -94,7 +95,27 @@ ${IN_TOWN(pkg)} Start from the original's pack and change what the idea asks for
 
 ${prompt}
 
-Its base is exactly ${JSON.stringify(hometownBase(pkg))}. ${IN_TOWN(pkg)} Write a new story pack: ${CREATE_MISSIONS.min} to ${CREATE_MISSIONS.max} missions in 1 to 3 acts in the town's real places, its own cast, rides and voices, a title of its own that never names Mog City, and an opening that sets the place, brings on the hero and the antagonist with name cards and says the premise before Mission 1. Hold to the real-place rules. Reply with the two blocks.`;
+Its base is exactly ${JSON.stringify(hometownBase(pkg))}. ${IN_TOWN(pkg)} Write a new story pack: ${CREATE_MISSIONS.min} to ${CREATE_MISSIONS.max} missions in 1 to 3 acts in the town's real places, its own cast, rides and voices, a title of its own that never names Mog City, and an opening that sets the place, brings on the hero and the antagonist with name cards and says the premise before Mission 1. Hold to the real-place rules.${asDan ? '' : ` ${OWN_HERO(pkg)}`} Reply with the two blocks.`;
+}
+
+/** A town's own hero (a Create not played as Dan): a forged person of this town, never one of Mog City's own people. */
+const OWN_HERO = (pkg: CityPackage) => `The hero is this story's own invented person from ${pkg.name}, with a Character Forge sheet (cast[].sheet), never Mog City's Dan or another of Mog City's own people (a "mogcity/..." model): Dan is the hero only when the creator chose to play as Dan.`;
+
+/** Whether the creator chose to play this story as Dan (the Create page's "Play as Dan": hero { model: 'dan' }). */
+const playsAsDan = (hero?: StoryHero | null) => !!hero && 'model' in hero;
+
+/**
+ * The hero a town's Create casts, as other Story Kit worlds do (the builder's own rules, builderProblems: "Play as Dan"
+ * is the shipped Dan; a described look is a forged sheet), and in a town one more: not played as Dan, the hero is never
+ * one of Mog City's own people (the engine draws a model hero as Dan, so an Okemah story about Wade would play as Dan).
+ */
+export function townHeroProblems(pack: PackV2, hero?: StoryHero | null): string[] {
+  if (playsAsDan(hero)) return [];
+  const h = (pack.cast ?? []).find((c: PackV2) => c?.id === pack.hero);
+  if (h && typeof h.model === 'string' && h.model.startsWith('mogcity/') && !h.voiceOnly) {
+    return [`The hero "${pack.hero}" is ${h.model}, one of Mog City's own people: the creator did not choose to play as Dan, so the hero is this story's own invented person with a Character Forge sheet (cast[].sheet), not a "mogcity/..." model.`];
+  }
+  return [];
 }
 
 /** The platform's fields on a hometown pass: the id, the parent (a Mog's), the town's base (a Mog: the parent's, locked). */
@@ -114,14 +135,16 @@ export type HometownPass = { problems: string[]; meta?: StorykitMeta; pack: Pack
  * One builder pass in a town, checked: what the build loop would send back (problems) or keep (pack). The real-name
  * check the build loop runs after this (a model call, lib/storykit-build.ts checkNames) is not run here.
  */
-export function checkHometownReply(text: string, o: { pkg: CityPackage; id: string; parent?: PackV2 | null }): HometownPass {
+export function checkHometownReply(text: string, o: { pkg: CityPackage; id: string; parent?: PackV2 | null; hero?: StoryHero | null }): HometownPass {
   const { meta, pack: raw, problems } = parseStorykitReply(text);
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { problems: raw ? [...problems, 'The story pack is not a JSON object.'] : problems, meta, pack: null, gated: null };
   problems.push(...hometownFields(raw, o.id, o.pkg, o.parent));
   const gated = gateHometown(raw, o.pkg, { parent: o.parent ?? null, meta });
   problems.push(...gated.problems);
   // the builder's own rules on a Create (6 to 9 missions, the opening, Mission 1's payoff, no em dash ...); a Mog's are
-  // held to its parent by the gate's framework rule
-  if (!o.parent) problems.push(...builderProblems(raw, {}, meta));
+  // held to its parent by the gate's framework rule. The creator's hero choice goes in as on a New York or San Francisco
+  // Create ("Play as Dan", or the look a forged hero is written from), and in a town the hero is never Mog City's own
+  // person unless played as Dan (townHeroProblems)
+  if (!o.parent) problems.push(...builderProblems(raw, { hero: o.hero ?? undefined }, meta), ...townHeroProblems(raw, o.hero));
   return { problems, meta, pack: problems.length ? null : gated.pack, gated };
 }

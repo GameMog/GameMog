@@ -617,7 +617,7 @@ export async function generateStorykit(
   const fake = fakeReply();
   const client = fake ? (null as unknown as Anthropic) : new Anthropic();
   const system = town ? hometownSystem(town) : storykitSystem(city);
-  const first = town ? hometownTurn(input.prompt, town, sk.mog && parent ? { parent, instruction: sk.mog.instruction } : undefined) + (sk.mog ? '' : heroTurn(sk.hero)) : storykitTurn(input.prompt, sk);
+  const first = town ? hometownTurn(input.prompt, town, sk.mog && parent ? { parent, instruction: sk.mog.instruction } : undefined, sk.mog ? undefined : sk.hero) + (sk.mog ? '' : heroTurn(sk.hero)) : storykitTurn(input.prompt, sk);
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: first }];
   const draftId = randomUUID(), packId = `sk-${draftId.slice(0, 8)}`;
   let lastProblems: string[] = [];
@@ -664,7 +664,7 @@ export async function generateStorykit(
     if (town && raw && typeof raw === 'object' && !Array.isArray(raw)) {
       // (a hometown pass: the town's base (a Mog: its parent's, locked), its gate (rule 16 with the town's table) and the
       // real-place safety rules, then the builder's own rules on a Create: lib/storykit-hometown.ts)
-      const h = checkHometownReply(text, { pkg: town, id: packId, parent });
+      const h = checkHometownReply(text, { pkg: town, id: packId, parent, hero: sk.mog ? null : sk.hero });
       problems.push(...h.problems.slice(0, 40));
       if (h.problems.length > 40) problems.push(`... and ${h.problems.length - 40} more of the same kinds: check the whole pack against the rules.`);
       gated = h.gated;

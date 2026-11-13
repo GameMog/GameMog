@@ -76,6 +76,19 @@ export function runHometownChecks(ok: Ok) {
     ok(`the ${n} story names only places that exist in its town`, !!p && storyPlan(p).length > 10 && unknownPlaces(p, pkg).length === 0, p ? unknownPlaces(p, pkg).join(', ') : 'no pack');
     ok(`the ${n} story's fights and chases target no sensitive place`, !!p && storyPlan(p).filter((r) => r.role === 'target').every((r) => !classify(pkg.places.find((x) => x.id === (p.places?.[r.key]?.['@'] ?? r.key))!).sensitive));
   }
+  // ── the hero: the story's own, as in New York and San Francisco; Dan only when the creator chose to play as Dan ──
+  const heroOf = (r: { pack: PackV2 }) => r.pack.cast.find((c: PackV2) => c.id === r.pack.hero);
+  ok('the Okemah story\'s hero is its own forged person (a sheet, Wade), not a model', !!heroOf(okReply)?.sheet && !heroOf(okReply)?.model && /Wade/.test(heroOf(okReply)?.sheet?.name ?? ''));
+  const lookPass = checkHometownReply(reply(okReply), { pkg: OK, id: 'sk-okemah4', hero: { look: 'late twenties, stubble, a dark jacket' } });
+  ok('given the creator\'s look, the forged hero passes in a town', lookPass.problems.length === 0, show(lookPass.problems));
+  const asDanRefused = checkHometownReply(reply(okReply), { pkg: OK, id: 'sk-okemah5', hero: { model: 'dan' } });
+  ok('"Play as Dan" in a town holds the hero to the shipped Dan (a forged hero is sent back)', asDanRefused.problems.some((p) => /plays this story as Dan/.test(p)), show(asDanRefused.problems));
+  const danReply = clone(okReply); { const h = heroOf(danReply); delete h.sheet; delete h.anchor; delete h.voice; h.model = 'mogcity/dan'; }
+  const danUnasked = checkHometownReply(reply(danReply), { pkg: OK, id: 'sk-okemah6' });
+  ok('not played as Dan, a town\'s hero that is Mog City\'s Dan is sent back (the engine would draw Dan)', danUnasked.problems.some((p) => /not a "mogcity\/\.\.\." model/.test(p)), show(danUnasked.problems));
+  const danAsked = checkHometownReply(reply(danReply), { pkg: OK, id: 'sk-okemah7', hero: { model: 'dan' } });
+  ok('played as Dan, the same Dan hero is not sent back for being Dan', !danAsked.problems.some((p) => /mogcity\/\.\.\.|plays this story as Dan/.test(p)), show(danAsked.problems));
+  ok('a town Create\'s turn asks for the story\'s own hero, and not when played as Dan', /never Mog City's Dan/.test(hometownTurn('a mechanic comes home', OK)) && !/never Mog City's Dan/.test(hometownTurn('a mechanic comes home', OK, undefined, { model: 'dan' })));
   ok('violent missions are the ones with a fight or a chase', [...violentMissions(okReply.pack)].sort().join() === 'M3,M4,M6');
   ok('a mission with no violence may visit a sensitive place (M2 to the clinic)', storyPlan(okReply.pack).some((r) => r.mission === 'M2' && r.key === 'county-clinic'));
 
