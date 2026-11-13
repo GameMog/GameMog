@@ -180,7 +180,7 @@ export function createWorld(city) {
     // ensureLoaded(x, z, r, lod = 'near') | ({ x, z, r }) | ({ minX, maxX, minZ, maxZ }) -> Promise<tile[]>: the tiles
     // there loaded (wagmi/world/tiles.js; today sliced from the city in memory, tiles-mem.js)
     ensureLoaded: (...a) => tiles().ensureLoaded(...a),
-    // the tile manager (made on first use; ?tiles=1 has it follow the player from the start)
+    // the tile manager (made on first use; ?tiles=1 has it follow the camera, round the player, from the start)
     get tiles() { return tiles(); },
     // the floating origin (?origin=float, wagmi/world/origin.js); null when off
     origin: null,
@@ -202,7 +202,8 @@ export function createWorld(city) {
         const app = APP(); if (!app?.controllerManager || !app.renderer) return;
         if (W.origin && !W.origin.enabled) W.origin.install(app);
         if (!follow) { clearInterval(tick); return; }
-        const e = app.controllerManager.getActiveEntity?.(), p = e?.position || app.cameraSystem?.camera?.position;
+        // (round the camera: what is drawn, and the player's own place on the follow cameras)
+        const p = app.cameraSystem?.camera?.position || app.controllerManager.getActiveEntity?.()?.position;
         if (p) tiles().update(p.x, p.z);
       }, 250);
     }
