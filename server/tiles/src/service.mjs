@@ -7,7 +7,7 @@
 //   getManifest(placeId, buildId?)           the place's session descriptor + tile set: the tile ids come only from the
 //                                            compiler's descriptor (stage 1, Python), every tile's content hash, the
 //                                            tileSetHash (sha256 over sorted 'hg1-{d}/0/{c}/{r} {sha256}' lines), and
-//                                            stage 2's pinned yOffset / waterLevel when the compiler gives them
+//                                            stage 2's pinned yOffset / waterLevel (a failed stage 2 stores nothing)
 //   createLock(placeId, buildId?)            lock v2 { format, formatVersion 2, place, buildId, grid, domain, origin {c0, r0},
 //                                            k0, gamma0, yOffset, waterLevel, tiles: tileSetHash }: what a Mog stores
 //   resolveLock(lock)                        the manifest the lock names; 409 on any mismatch (tile set, origin, k0, ...)
@@ -202,13 +202,16 @@ export function createTileService({
       const e = await tileEntry({ buildId, grid: GRID, domain: t.domain, L: 0, c: t.c, r: t.r, id: t.id });
       return { id: t.id, contentHash: e.meta.contentHash, hash: e.meta.hash, bytes: e.meta.bytes };
     });
-    let d2 = null;
-    if (typeof compiler.describePlace === 'function') d2 = await run(() => compiler.describePlace(place, 2), `${buildId}/${placeId} descriptor stage 2`).catch(() => null);
+    // stage 2 pins the session's height datum and engine water level, which a lock carries and resolveLock checks: a
+    // manifest stored without them would be served (and locked) forever with nulls. A failed or unusable stage 2 fails
+    // the request instead, and nothing is stored, so the next request tries again.
+    const d2 = await run(() => compiler.describePlace(place, 2), `${buildId}/${placeId} descriptor stage 2`);
+    if (!d2 || !Number.isFinite(d2.yOffset) || !Number.isFinite(d2.waterLevel)) throw new HttpError(502, `descriptor stage 2 for ${placeId} has no yOffset / waterLevel; manifest not stored`);
     return {
       format: MANIFEST_FORMAT, formatVersion: 2,
       placeId, name: place.name, buildId, grid: GRID, domain: d1.domain,
       origin: { c0: d1.origin.c0, r0: d1.origin.r0 }, k0: d1.k0, gamma0: d1.gamma0, anchor: d1.anchor || null, playBox: d1.playBox || null,
-      yOffset: d2?.yOffset ?? null, waterLevel: d2?.waterLevel ?? null,
+      yOffset: d2.yOffset, waterLevel: d2.waterLevel,
       tileCount: tiles.length, bytes: tiles.reduce((a, t) => a + t.bytes, 0),
       tileSetHash: tileSetHash(tiles),
       tileUrl: `/tiles/${buildId}/${GRID}-${d1.domain}/0/{c}/{r}`,
