@@ -538,7 +538,7 @@ runStoryOwnerChecks(ok);
 runStoryPatchChecks(ok);
 // Hometown (12 Nov): the builder reads a town's CityPackage, the town lock on Mogs, and the real-place safety rules
 runHometownChecks(ok);
-runTownChecks(ok);
+await runTownChecks(ok);
 // Story Kit (B6): the Character Forge in a creator's browser: its sharp, and every anchor forged in Chrome under the store's cap
 await runForgeBrowserChecks(ok);
 runPlacesChecks(ok);

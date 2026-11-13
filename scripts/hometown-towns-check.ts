@@ -15,7 +15,7 @@ import { checkHometownReply } from '../lib/storykit-hometown.ts';
 import { gatePack, toRunnerPack } from '../storykit/pack/gate.ts';
 import { cityTableOf } from '../storykit/hometown/hometown-gate.ts';
 import { TOWN_ID, canonicalPlaceId, serviceLock, storyLock, sameServiceLock, LOCK_FORMAT } from '../lib/hometown/ids.ts';
-import { canonicalBox, TOWN_WORDS, cityPackageByLock, bundleFile } from '../lib/hometown/towns.ts';
+import { canonicalBox, TOWN_WORDS, cityPackageByLock, bundleFile, requestTown, markInterrupted } from '../lib/hometown/towns.ts';
 import { townsConfig } from '../lib/hometown/config.ts';
 import { storyFrameQuery } from '../lib/storykit-publish.ts';
 import { StoryStore } from '../lib/storykit-store.ts';
@@ -28,7 +28,7 @@ const reply = (r: { meta: unknown; pack: unknown }) => '```json\n' + JSON.string
 /** Words a player never reads on GameMog (the owner's rule): the tools and vendors behind a town or a story. */
 export const FORBIDDEN = /\b(claude|anthropic|ai|a\.i\.|model|llm|gta|gen z quant|opus|sonnet)\b/i;
 
-export function runTownChecks(ok: Ok) {
+export async function runTownChecks(ok: Ok) {
   console.log('\nHometown towns: one place id, the lock adapter, the town bundle, a hometown story to the play address (lib/hometown)');
   const OK: CityPackage = R('okemah-us-4054200.citypackage.json');
   const lock = cityLock(OK);
@@ -85,6 +85,22 @@ export function runTownChecks(ok: Ok) {
       const w = s.world(o.id) as Record<string, any>;
       ok('the store\'s sealed world names the town (hometown, missions in Okemah)', JSON.stringify(w.hometown) === JSON.stringify(lock) && w.missions.every((m: { city: string }) => m.city === 'Okemah, Oklahoma'));
     }
+    // the limits: a new town per address per hour, the queue (a job held "running" so nothing is spawned here)
+    const rt = globalThis.__hometownTowns!;
+    rt.running = 'us-0000000'; rt.build = Promise.resolve(lock.compiler); rt.cfg = { ...cfg, perIpHour: 3, queueMax: 10, dailyCold: 100 };
+    const asks = [];
+    for (const id of ['us-4054200', 'us-4000100', 'us-4000200', 'us-4000250']) asks.push(await requestTown(id, '203.0.113.9'));
+    ok('three new towns from one address are queued, the fourth is 429', asks.slice(0, 3).every((a) => a.status === 202) && asks[3].status === 429, asks.map((a) => a.status).join());
+    const again = await requestTown('us-4054200', '203.0.113.9');
+    ok('asking again for a town already building joins it (no new build, no limit)', again.status === 202 && rt.queue.length === 3);
+    mkdirSync(path.join(cfg.ready, lock.compiler), { recursive: true }); writeFileSync(path.join(cfg.ready, lock.compiler, 'us-4054200.json'), JSON.stringify(svc));
+    const ready = await requestTown('us-4054200', '198.51.100.1');
+    ok('a built town is ready at once (its ready lock and bundle), never limited', ready.status === 200 && JSON.stringify((ready.body as { lock?: unknown }).lock) === JSON.stringify(lock));
+    rt.cfg = { ...rt.cfg, queueMax: 4 };
+    ok('a full queue is 503 for a new town', (await requestTown('us-4000300', '198.51.100.2')).status === 503);
+    ok('an unknown or bad place id is refused', (await requestTown('us-9999999', 'x')).status === 404 && (await requestTown('okemah', 'x')).status === 400);
+    ok('a restart marks the jobs it cut short interrupted', markInterrupted(cfg) === 3);
+    rt.queue = []; rt.running = null; rt.build = null;
     rmSync(dir, { recursive: true, force: true });
     ok('without its town\'s bundle a hometown pack is refused by the store', !s.open(pack).ok);
     ok('gatePack alone (no table) still refuses a hometown pack', !gatePack(pack).ok && gatePack(pack, { city: cityTableOf(OK) }).ok);
@@ -102,7 +118,7 @@ export function runTownChecks(ok: Ok) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   let failures = 0;
-  runTownChecks((name, cond, detail = '') => { if (!cond) failures++; console.log(`${cond ? '  ok  ' : 'FAIL  '}${name}${!cond && detail ? `\n        ${detail}` : ''}`); });
+  await runTownChecks((name, cond, detail = '') => { if (!cond) failures++; console.log(`${cond ? '  ok  ' : 'FAIL  '}${name}${!cond && detail ? `\n        ${detail}` : ''}`); });
   console.log(`\n${failures ? `${failures} FAILED` : 'all hometown town checks passed'}\n`);
   process.exit(failures ? 1 : 0);
 }
