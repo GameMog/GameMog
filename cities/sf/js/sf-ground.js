@@ -171,7 +171,10 @@ function buildSFGround(scene) {
     if (b.park > 0.5 && !b.median) Drape.polygon(ring, ground, normal, CURB_H + 0.012, c.lawn);
     sidewalks.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ, block: b });
   }
-  const sidewalkMat = createSidewalkMaterial();
+  // (a Hometown package: a block is mostly yards, fields and hillsides, not one paved slab: its top shows the ground
+  // mask under it, flags only along the streets (createGroundCoverMaterial))
+  const cover = window.NYC.PKG && window.NYC.DATA && window.NYC.DATA.groundMask && window.NYC.createGroundCoverMaterial && window.NYC.groundMaskTexture;
+  const sidewalkMat = cover ? window.NYC.createGroundCoverMaterial(window.NYC.groundMaskTexture(), window.NYC.DATA.groundMask.header) : createSidewalkMaterial();
   const curbMat = createCurbMaterial();
   const lawnMat = createParkLawnMaterial(false);
   let islandTris = 0;

@@ -30,7 +30,9 @@ const FILL_W = 400, FILL_DROP = 20;
 const EDGE_BLEND = 32;         // m: Terrain.edgeBlend, heightAt continuous across the core's edge
 const FADE = 300;              // m: the far ground takes the core's edge ground at the edge, fading (quadratically) to its own by this far out
 const ISO = 0.4;               // the far water's shore: this much of the 3 x 3 round a post wet
-const COLORS = { land: 0x6f7b4f, arid: 0xb49f7a, rock: 0x7d776c, water: 0x40525c, wet: 0x5f6e4f };
+// (classes, tools/hometown/far.py: 0 land (humid), 1 water, 2 arid, 3 dry (steppe); a humid hillside reads wooded, not
+// rock, below a cliff's slope)
+const COLORS = { land: 0x5c6e3a, arid: 0xb49f7a, dry: 0x857f54, rock: 0x7d776c, woods: 0x3f4a2a, water: 0x40525c, wet: 0x5f6e4f };
 
 function build(scene) {
   const { THREE, Terrain: T, createWaterMaterial } = N;
@@ -40,10 +42,11 @@ function build(scene) {
   group.name = 'PkgFar';
   scene.add(group);
   const core = { x0: T.originX, z0: T.originZ, x1: T.originX + (T.w - 1) * T.cell, z1: T.originZ + (T.h - 1) * T.cell };
-  const fr = P.frame || {}, arid = (fr.lon0 ?? 0) < -104 && (fr.lat0 ?? 90) < 37.5;
+  // (the package's climate, tools/hometown/climate.py; an older package: the old desert rule)
+  const fr = P.frame || {}, clim = P.climate || ((fr.lon0 ?? 0) < -104 && (fr.lat0 ?? 90) < 37.5 ? 'arid' : 'humid');
   const stats = { fill: true, tiles: 0, triangles: 0, waterTriangles: 0, loadMs: null, error: null, fog: null };
   const landMat = new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 1, metalness: 0, side: THREE.DoubleSide }); // (skirts face either way)
-  const flatMat = new THREE.MeshStandardNodeMaterial({ color: debug ? 0x00ff00 : arid ? COLORS.arid : COLORS.land, roughness: 1, metalness: 0 });
+  const flatMat = new THREE.MeshStandardNodeMaterial({ color: debug ? 0x00ff00 : clim === 'arid' ? COLORS.arid : clim === 'dry' ? COLORS.dry : COLORS.land, roughness: 1, metalness: 0 });
   const waterMat = debug ? new THREE.MeshBasicNodeMaterial({ color: 0x00ffff }) : createWaterMaterial();
 
   // ---- the ring round a rectangle: rings of vertices out from its perimeter (radially from its centre), quads between
@@ -98,18 +101,21 @@ function build(scene) {
     load().then(() => { stats.loadMs = Math.round(performance.now() - t0); }, (e) => { stats.error = String(e && e.message || e); console.warn('[pkg-far]', e); });
   }
 
-  // the ground the core shows at its own edge (what the far ground fades from): the curb islands' sidewalk slabs or
-  // park lawns on top (sf-ground.js), else the terrain material's class (ground mask), as albedo
-  const CORE_COLORS = { concrete: 0x84837b, park: 0x63903a, asphalt: 0x45474b, lawn: 0x4a6430, sand: 0xb09f7c, rock: 0x625a4c, seawall: 0x5a5650 };
+  // the ground the core shows at its own edge (what the far ground fades from): the park lawns on a curb island
+  // (sf-ground.js), else the ground mask's class there (a block's top shows it too: createGroundCoverMaterial), as
+  // albedo (roughly the materials' mean colours)
+  const CORE_COLORS = { concrete: 0x84837b, park: 0x63903a, asphalt: 0x45474b, lawn: 0x4f6a2e, sand: 0xb5a17b, rock: 0x6f6658, seawall: 0x5a5650,
+    lot: 0x515254, scrub: 0x7f7c4e, woods: 0x3a4424 };
   const cc = Object.fromEntries(Object.entries(CORE_COLORS).map(([k, v]) => [k, new THREE.Color(v)]));
+  const byClass = [cc.asphalt, cc.concrete, cc.lawn, cc.sand, cc.rock, cc.seawall, cc.seawall, cc.lot, cc.scrub, cc.woods];
   function coreGroundAt(x, z) {
     const b = N.blockAt && N.blockAt(x, z);
-    if (b) return b.park > 0.5 && !b.median ? cc.park : cc.concrete;
+    if (b && b.park > 0.5 && !b.median) return cc.park;
     const M = N.DATA && N.DATA.groundMask, H = M && M.header;
-    if (!H) return cc.lawn;
+    if (!H) return b ? cc.concrete : cc.lawn;
     const i = Math.floor((x - H.originX) / H.cell), j = Math.floor((z - H.originZ) / H.cell);
     const k = i < 0 || j < 0 || i >= H.w || j >= H.h ? 2 : M.mask[j * H.w + i];
-    return [cc.asphalt, cc.concrete, cc.lawn, cc.sand, cc.rock, cc.seawall][k] || cc.lawn;
+    return (b && k === 0 ? cc.concrete : byClass[k]) || cc.lawn;
   }
   // the edge's colour round the point (px, pz) on the core's boundary: 16 samples along it (+-56 m) and 2 deep (6, 30 m)
   const edgeCache = new Map();
@@ -257,7 +263,7 @@ function build(scene) {
     const { n, x0, z0, s, H, q, cls } = d;
     const inR = (x, z, r) => r && x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1;
     const pos = [], col = [], hid = new Uint8Array(n * n);
-    const cLand = new THREE.Color(COLORS.land), cArid = new THREE.Color(COLORS.arid), cRock = new THREE.Color(COLORS.rock), cWater = new THREE.Color(COLORS.water), c = new THREE.Color();
+    const cLand = new THREE.Color(COLORS.land), cArid = new THREE.Color(COLORS.arid), cDry = new THREE.Color(COLORS.dry), cRock = new THREE.Color(COLORS.rock), cWoods = new THREE.Color(COLORS.woods), cWater = new THREE.Color(COLORS.water), c = new THREE.Color();
     // the ground's slope at each post from Terrain.heightAt over the loaded patches (the same at a shared edge from
     // either tile), kept for the normals
     const G = new Float32Array(n * n * 2);
@@ -303,9 +309,10 @@ function build(scene) {
       pos.push(x, y, z);
       hid[k] = inR(x, z, hide) ? 1 : 0;
       const slope = Math.hypot(G[k * 2], G[k * 2 + 1]);
-      c.copy(cls[k] === 2 ? cArid : cLand);
+      c.copy(cls[k] === 2 ? cArid : cls[k] === 3 ? cDry : cLand);
       if (cls[k] === 1) c.copy(cWater);
-      c.lerp(cRock, Math.min(1, Math.max(0, (slope - 0.35) / 0.4)));
+      if (cls[k] === 0) c.lerp(cWoods, Math.min(1, Math.max(0, (slope - 0.3) / 0.3))).lerp(cRock, Math.min(1, Math.max(0, (slope - 1.2) / 0.6)));
+      else c.lerp(cRock, Math.min(1, Math.max(0, (slope - 0.35) / 0.4)));
       // (a little per-post variation: deterministic, by global post position, so shared edges match)
       const gi = d.C * 64 + i, gj = d.R * 64 + j, nz = Math.sin(gi * 12.9898 + gj * 78.233) * 43758.5453, v = 0.93 + 0.1 * (nz - Math.floor(nz));
       c.multiplyScalar(v);

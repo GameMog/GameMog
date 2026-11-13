@@ -218,8 +218,11 @@ function buildTerrainMesh(scene) {
   };
 }
 
-// The ground mask as a single-channel texture, read texel by texel
+// The ground mask as a single-channel texture, read texel by texel (one per page: a Hometown package's curb island
+// tops read the same one, sf-ground.js)
+let maskTexture = null;
 function makeMaskTexture() {
+  if (maskTexture) return maskTexture;
   const { header, mask } = window.NYC.DATA.groundMask;
   const tex = new THREE.DataTexture(mask, header.w, header.h, THREE.RedFormat, THREE.UnsignedByteType);
   tex.magFilter = THREE.NearestFilter;
@@ -227,7 +230,7 @@ function makeMaskTexture() {
   tex.generateMipmaps = false;
   tex.flipY = false;
   tex.needsUpdate = true;
-  return tex;
+  return (maskTexture = tex);
 }
 
 // Hills' shadows: the surface at SHADOW_STEP m, cut into SHADOW_CELL m cells on the shadow proxy layer
@@ -272,5 +275,5 @@ function buildShadowCaster(surfaceY, extentX, extentZ) {
   return meshes;
 }
 
-Object.assign(window.NYC, { buildTerrainMesh });
+Object.assign(window.NYC, { buildTerrainMesh, groundMaskTexture: makeMaskTexture });
 })();
