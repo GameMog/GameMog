@@ -269,8 +269,13 @@ const DET_BEFORE = new RegExp(String.raw`(?:^|[.!?;:(]\s*|\b${DET}\s+)$`, 'i');
 const IN_SHOT_BEFORE = /\b(?:in|within|out\s+of|throughout)\s+(?:the\s+)?(?:this|that|the|each|every|one|same|next|last|final|first|opening|closing|wide|establishing)\s+$/i;
 /** "was shot", "got shot", "being shot" (and "were still shot"): always gunfire. */
 const PASSIVE_BEFORE = /\b(?:is|was|were|are|be|been|being|get|gets|got|gotten|getting)\s+(?:\w+\s+)?$/i;
+/** Firing, weapon or impact words: a sentence with one of these anywhere reads every "shot" as gunfire ("The sniper took a
+ * long shot across the schoolyard.", "A long shot then shattered the window."), however camera-like the phrase. ("fire"
+ * as in "fire station" / "fire truck" is a place or a thing, not firing.) */
+const GUNFIRE_CONTEXT = /\b(?:fire(?!\s*(?:station|stations|house|truck|trucks|engine|engines|department|dept|fighters?|hydrants?|escape|alarm|exit|drill|chief|crew|hall))|fires|fired|firing|sniper\w*|gun\w*|rifles?|pistols?|revolvers?|shotguns?|bullets?|triggers?|aim|aims|aimed|aiming|shatter\w*|smash\w*|hit|hits|struck|strike|strikes|ricochet\w*|wound\w*|kill\w*|dropped)\b/i;
 const isCameraShot = (s: string, at: number, word: string) => {
   const before = s.slice(0, at), after = s.slice(at + word.length);
+  if (GUNFIRE_CONTEXT.test(s)) return false;
   if (PASSIVE_BEFORE.test(before) || /^\s+at\b/i.test(after)) return false;
   if (CAM_BEFORE.test(before)) return CAM_AFTER.test(after);
   if (CAM_NOUN_BEFORE.test(before)) return STRICT_AFTER.test(after);
