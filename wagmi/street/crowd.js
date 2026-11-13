@@ -22,8 +22,8 @@ const PARK_LANE = [1.0, 2.2]; // (round a park: its perimeter walk, short of the
 const rand = (a, b) => a + Math.random() * (b - a);
 
 export function createCrowd(W) {
-  const NYC = window.NYC, app = W.app, cm = app.controllerManager;
-  const { PersonCrowd, PersonRig } = NYC;
+  const app = W.app, cm = app.controllerManager;
+  const { PersonCrowd, PersonRig } = world.assets;
   // (the city's blocks, its busy districts and its WALK signals: the world contract's)
   const { blockAt, blocksInRect } = world, busy = (b) => world.commercial(b.district);
   const drawn = new PersonCrowd(MAX + EXTRA, { farShadow: false, name: 'StreetPeople' });
@@ -89,7 +89,7 @@ export function createCrowd(W) {
   const walkable = (S, o) => aEnd(S, o) - aStart(S, o) > 2;
   // street furniture (js/street-details.js footprints: poles, subway stairs, barricades) in 8 m cells
   const FP = new Map(), FCELL = 8, fkey = (ix, iz) => (ix + 8192) * 16384 + (iz + 8192);
-  for (const f of NYC.streetFootprints || []) {
+  for (const f of world.street.streetFootprints || []) {
     for (let ix = Math.floor(f.minX / FCELL); ix <= Math.floor(f.maxX / FCELL); ix++) {
       for (let iz = Math.floor(f.minZ / FCELL); iz <= Math.floor(f.maxZ / FCELL); iz++) {
         const k = fkey(ix, iz); let l = FP.get(k); if (!l) FP.set(k, (l = [])); l.push(f);

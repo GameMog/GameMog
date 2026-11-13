@@ -17,12 +17,13 @@
 //   ui.pause.restartCurrent() the running mission from its last checkpoint (the stall help's 'Restart the checkpoint')
 // In the car, with WAGMI.recoverCar (the driving track's), the menu has 'Reset car to road'.
 // Credits: the music, sounds, voices and the rest (wagmi/credits.js); Enter, then ↑↓ scroll it.
-// Graphics (only with the city's quality switch, window.NYC.quality: js/main.js): Auto, High or Low, saved for the next
+// Graphics (only with the city's quality switch, world.look.quality: js/main.js): Auto, High or Low, saved for the next
 // load (a live switch would stall the game for seconds), and 'Reload now'.
 // On a phone (body.touch-enabled): finger-sized rows, the menu scrolling where the screen is short, upright or
 // sideways, and the controls' Touch column (wagmi/touch.js's buttons).
 //   ui.pause.open(id)     open on one item ('select': Mission select); open() on Resume
 import { creditsHTML } from '../credits.js';
+import { world } from '../world/index.js';
 // (the story pack, wagmi/story: the missions' names and checkpoints as a Mog has them; Story, `story` being the mission
 // select's list here)
 import { S as Story } from '../story/index.js';
@@ -162,7 +163,7 @@ const HORSE_CONTROLS = [
   ['On Ranger', [['Ride · halt', 'W · S', 'RT · LT', 'stick up · down'], ['Steer', 'A · D', 'LS', 'stick left · right'], ['Gallop', 'Shift', 'X', 'BOOST'], ['Walk / trot', 'Q', '', ''], ['Jump (he clears rubble at a gallop)', 'Space', 'A', 'HOP'], ['Swing the bat', 'J · left click', '', ''], ['Buck: hind legs out', 'K · right click', '', ''], ['Dismount', 'F (slow down first)', 'Y', 'EXIT'], ['Back on the road', 'recover', 'B', 'RESET CAR'], ['Look round', 'drag the mouse', 'RS', 'drag the view']]],
 ];
 const controlsFor = () => (window.WAGMI?.car?.kind === 'horse' ? [...HORSE_CONTROLS, ...CONTROLS.slice(2).map(([h, rows]) => [h === 'Fighting' ? 'Fighting on foot' : h, rows])] : CONTROLS);
-// Graphics: [the saved choice, its name, what it means] (window.NYC.quality.set(choice): the next load's)
+// Graphics: [the saved choice, its name, what it means] (world.look.quality.set(choice): the next load's)
 const GFX = [['auto', 'Auto', 'Phone settings on a phone'], ['high', 'High', 'Every effect'], ['low', 'Low', 'Lightest, for older phones']];
 const TIER = { high: 'High', phone: 'Phone', low: 'Low' };
 // (a pad's column: its buttons drawn, the words between them as they are)
@@ -244,7 +245,7 @@ export function createPause(ui) {
   // (the car's reset only in the car, and only with the driving track's WAGMI.recoverCar: fixed while the menu is up;
   // Graphics only with the city's quality switch)
   let ITEMS = ALL;
-  const quality = () => window.NYC?.quality || null;
+  const quality = () => world.look.quality || null;
   const items = () => (ITEMS = ALL.filter(([id]) => (id !== 'recover' || (cm.activeMode === 'car' && typeof W.recoverCar === 'function')) && (id !== 'graphics' || !!quality())));
   // (the choice made here this session: the switch's own may only say so on the next load)
   let gfxPick = null;

@@ -14,7 +14,7 @@ export const CRATER_AT = [-4800, -450];
 const LIGHTS = 6;
 
 export function createFX(W) {
-  const app = W.app, scene = app.scene, N = window.NYC, T = N.TSL;
+  const app = W.app, scene = app.scene, N = W.world.look, T = W.world.assets.TSL;
   const { float, vec3, vec4, uniform, uniformArray, attribute, time, mix, smoothstep, max, min, abs, fract, sin, cos, dot, length, mod, int, exp,
     cameraPosition, varying, mrt, positionWorld } = T;
   const noMRT = () => (mrt ? mrt({ normal: vec4(0, 0, 0, 0), metalRough: vec4(0, 0, 0, 0) }) : null);

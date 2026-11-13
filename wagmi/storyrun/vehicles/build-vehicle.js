@@ -1328,7 +1328,8 @@ export function buildVehicle(THREE, raw, o = {}) {
     for (const w of wheels) { w.spin.rotation.x += (speed * dt) / w.r; if (w.front) w.W.rotation.y = steer * 0.5; }
     // (the steering wheel with them, a good deal further: left (steer > 0) is anticlockwise to the driver)
     if (steerWheel) steerWheel.rotation.z += (-steer * 1.25 - steerWheel.rotation.z) * Math.min(1, dt * 16);
-    const glow = globalThis.window?.NYC?.cityUniforms?.uInteriorGlow?.value;
+    // (the city's night, through the world contract on the game's handle: this kit imports nothing of the game's)
+    const glow = globalThis.window?.WAGMI?.world?.look?.cityUniforms?.uInteriorGlow?.value;
     if (glow !== undefined) night = Math.max(0, Math.min(1, (glow - 0.6) * 1.45));
     const acc = (speed - prevSpeed) / dt; prevSpeed = speed;
     accS += (acc - accS) * Math.min(1, dt * 8);

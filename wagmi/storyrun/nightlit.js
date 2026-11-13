@@ -12,7 +12,7 @@ const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a)
 
 export function createNightLit(W, dressing = {}) {
   if (dressing && dressing.blackout) return null;
-  const app = W.app, ls = app?.lightingSystem, cg = app?.postFX?.colorGrade, U = window.NYC?.cityUniforms;
+  const app = W.app, ls = app?.lightingSystem, cg = app?.postFX?.colorGrade, U = W.world?.look.cityUniforms;
   if (!ls || !U?.uInteriorGlow || ls.__nightLit) return null;
   ls.__nightLit = true;
   const night = () => sstep(0.6, 1.4, U.uInteriorGlow.value);

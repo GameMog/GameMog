@@ -219,7 +219,7 @@ function surface(id) {
 }
 
 export function createDebris(W, fx, { clear = [] } = {}) {
-  const app = W.app, scene = app.scene, N = window.NYC, cm = app.controllerManager;
+  const app = W.app, scene = app.scene, N = world.assets, cm = app.controllerManager;
   const net = app.trafficSystem?.network;
   const group = new THREE.Group(); group.name = 'apoc-debris'; scene.add(group);
   const ground = (x, z) => { try { const y = cm.getGroundHeight(x, z, 'person'); return Number.isFinite(y) ? y : N.Terrain.groundAt(x, z); } catch { return 0; } };

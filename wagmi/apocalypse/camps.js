@@ -23,7 +23,7 @@ const TENT = [0x5c6458, 0x6a6150, 0x4f5a62, 0x7a6a52, 0x5a4e48, 0x67705e, 0x4a46
 const COAT = [0x4a4440, 0x56503f, 0x3e4448, 0x5e5248, 0x48403a, 0x5a5e52, 0x6a5a48];
 
 export function createCamps(W, fx, { clear = [] } = {}) {
-  const app = W.app, scene = app.scene, N = window.NYC;
+  const app = W.app, scene = app.scene, N = W.world.assets;
   const ground = (x, z) => { try { const y = app.controllerManager.getGroundHeight(x, z, 'person'); return Number.isFinite(y) ? y : N.Terrain.groundAt(x, z); } catch { return 0; } };
   const solid = (x, z, r = 1.2) => { try { const q = new THREE.Vector3(x, ground(x, z), z), q0 = q.clone(); app.controllerManager.resolveHorizontalCollision?.(q, r, q.y + 1); return Math.hypot(q.x - q0.x, q.z - q0.z) > 0.05; } catch { return false; } };
   const mat = new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.95, side: THREE.DoubleSide });

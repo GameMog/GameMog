@@ -65,21 +65,63 @@ export function createWorld(city) {
     return best;
   }
   // a through-road near (x, z): the nearest long main road of the drivable graph (the road graph's own class, at
-  // least minLen m between junctions, not in a tunnel), at the road's level (not up on a deck): { x, z, heading, edge }
-  // a quarter of the way along it on its first lane, facing along it; null when there is none within R m
-  function throughRoad(near, { minLen = 60, R = 900 } = {}) {
+  // least minLen m between junctions, not in a tunnel), at the road's level (not up on a deck), whose lane is a real
+  // street's (realLane) and, with runway, runs on straight for that many metres (straightRun): { x, z, heading, edge }
+  // a quarter of the way along it, on the centre of its first lane (as nearestLane gives it), facing along it. Of
+  // those found, the nearest with the runway, else the nearest real lane, else the nearest; null when none is within R m
+  function throughRoad(near, { minLen = 60, R = 900, runway = 0 } = {}) {
     const n = net(); if (!n || !near) return null;
-    let best = null, bd = Infinity;
+    const cands = [];
     for (const e of n.edges) {
       if (!(e.len >= minLen) || !e.lanes?.length || e.bore || !city.isAvenue(e)) continue;
       const mx = e.sx + e.dx * e.len / 2, mz = e.sz + e.dz * e.len / 2, d = Math.hypot(mx - near.x, mz - near.z);
-      if (d > R || d >= bd) continue;
+      if (d > R) continue;
       if (Math.abs(groundY(mx, mz, 'car') - roadY(mx, mz)) > 0.3) continue;
-      best = e; bd = d;
+      cands.push([d, e]);
     }
-    if (!best) return null;
-    const s = clamp(best.len * 0.25, 12, best.len - 12), l = best.lanes[0];
-    return { x: best.sx + best.dx * s + best.rx * l, z: best.sz + best.dz * s + best.rz * l, heading: Math.atan2(best.dx, best.dz), edge: best };
+    cands.sort((a, b) => a[0] - b[0]);
+    const pick = (e) => {
+      const s = clamp(e.len * 0.25, 12, e.len - 12), l = e.lanes[0];
+      const px = e.sx + e.dx * s + e.rx * l, pz = e.sz + e.dz * s + e.rz * l;
+      // (the lane's own centre, as nearestLane has it: on this edge, or this point)
+      const L = nearestLane(px, pz, 'car', 6), at = L && L.edge === e ? L : { x: px, z: pz };
+      return { x: at.x, z: at.z, heading: Math.atan2(e.dx, e.dz), edge: e, s, l };
+    };
+    let real = null;
+    for (const [, e] of cands.slice(0, 60)) {
+      const p = pick(e);
+      if (!realLane(e, p.s, p.l)) continue;
+      if (!runway || straightRun(p, runway)) return out(p);
+      real = real || p;
+    }
+    return out(real || (cands.length ? pick(cands[0][1]) : null));
+  }
+  const out = (p) => (p ? { x: p.x, z: p.z, heading: p.heading, edge: p.edge } : null);
+  // the road runs on straight ahead of p { x, z, heading } for len m: every 10 m a lane of the graph under the line
+  // (within 3 m of it, facing within 15 degrees of the way), across a junction (up to 40 m with no lane) on the road
+  // and not up a curb
+  function straightRun(p, len) {
+    const ux = Math.sin(p.heading), uz = Math.cos(p.heading);
+    let gap = 0;
+    for (let d = 10; d <= len; d += 10) {
+      const x = p.x + ux * d, z = p.z + uz * d, L = nearestLane(x, z, 'car', 3);
+      if (L && L.d <= 3 && Math.abs(Math.atan2(Math.sin(L.heading - p.heading), Math.cos(L.heading - p.heading))) < 0.26) { gap = 0; continue; }
+      if ((gap += 10) > 40 || sampleSurface(x, z, 'person').curb || N().blockAt?.(x, z)) return false;
+    }
+    return true;
+  }
+  // a lane between curbs, not one drawn across an open paved expanse (San Francisco's waterfront by the Ferry Building,
+  // a one-lane edge along a curb with open ground for 40 m on its other side): from the lane (offset l at s m along
+  // edge e) out on its own side, a curb (a sidewalk up over the road, or a curb island) within the edge's half-width
+  // and 4 m more
+  function realLane(e, s, l) {
+    const side = l < 0 ? -1 : 1, reach = (e.half || 6) + 4;
+    const bx = e.sx + e.dx * s, bz = e.sz + e.dz * s;
+    for (let o = Math.abs(l) + 1; o <= reach; o += 0.5) {
+      const x = bx + e.rx * o * side, z = bz + e.rz * o * side;
+      if (N().blockAt?.(x, z) || sampleSurface(x, z, 'person').curb) return true;
+    }
+    return false;
   }
   // a route from a { x, z, h } to b { x, z }: [[x, z], ...]. mode 'car' the GPS's legal one (mission/gps.js plan),
   // 'foot' its walking one, 'chase' a chase car's (pursuit/nav.js: one-way streets either way)
@@ -154,6 +196,22 @@ export function createWorld(city) {
     return req.count ? out.slice(0, req.count) : out;
   }
 
+  // ------------------------------------------------------------------ the engine's parts
+  // what the game builds with from the city's own engine (each read when asked; undefined where a city has none):
+  //   assets  TSL, Addons (mergeGeometries...), Terrain, the lofted cars (BODY_SPECS, buildCarGeometry,
+  //           createLoftedCarMaterial, buildLightbarGeometry, createLightbarMaterial, carStyleCode), the people
+  //           (PersonCrowd, PersonRig)
+  //   look    cityUniforms, GRADE_LOOKS, CRATER_GLOW, the power uniforms (peopleWorn, signalPower, carLampPower), quality
+  //   street  breakables (the street furniture a car knocks over), streetFootprints (the buildings' footprints by the
+  //           sidewalks), parkLawn (a park lawn's box for a set's dressing: New York's Bryant Park; null elsewhere)
+  const pass = (names) => Object.defineProperties({}, Object.fromEntries(names.map((k) => [k, { enumerable: true, get: () => N()[k] }])));
+  const assets = pass(['TSL', 'Addons', 'Terrain', 'BODY_SPECS', 'buildCarGeometry', 'createLoftedCarMaterial', 'buildLightbarGeometry',
+    'createLightbarMaterial', 'carStyleCode', 'PersonCrowd', 'PersonRig']);
+  const look = pass(['cityUniforms', 'GRADE_LOOKS', 'CRATER_GLOW', 'peopleWorn', 'signalPower', 'carLampPower', 'quality']);
+  const street = Object.defineProperties(pass(['breakables', 'streetFootprints']), {
+    parkLawn: { enumerable: true, get: () => (city.parkLawn ? city.parkLawn(N()) : null) || null },
+  });
+
   const W = {
     id: city.id, name: city.name, frame: city.frame,
     sampleSurface, groundY, roadY, queryColliders,
@@ -175,6 +233,11 @@ export function createWorld(city) {
     grid: city.grid || null,
     // (v0: the whole city is in memory once the page has loaded it)
     ensureLoaded: () => Promise.resolve(),
+    // the city's running app (controllerManager, trafficSystem, lightingSystem, postFX, scene...): null till it is up
+    get app() { return APP(); },
+    // its three.js scene (null till the app is up)
+    get scene() { return APP()?.scene || null; },
+    assets, look, street,
   };
   return W;
 }
