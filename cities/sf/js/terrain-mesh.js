@@ -66,7 +66,9 @@ function buildTerrainMesh(scene) {
   }
 
   const material = createTerrainMaterial(makeMaskTexture(), window.NYC.DATA.groundMask.header);
-  if (window.NYC.DATA.fullRegion) {
+  if (window.NYC.DATA.fullRegion || (window.NYC.PKG && new URLSearchParams(location.search).get('far') !== 'none')) {
+    // (a Hometown package's far field, cities/pkg/js/pkg-far.js, always lies under its edge: the fill at boot, then the far
+    // tiles)
     // A 50 m dither transition reveals the regional ground underneath without alpha blending or double interiors.
     const { positionWorld, min, clamp, floor, sin, fract, step } = window.NYC.TSL;
     const distance = min(min(positionWorld.x.sub(T.originX), positionWorld.x.negate().add(T.originX + extentX)),

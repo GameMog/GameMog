@@ -153,6 +153,7 @@
         sf('lighting.js'),
         sf('terrain-mesh.js'),
         sf('region.js'),
+        ...(MC_PKG ? [`./cities/pkg/js/pkg-far.js?v=${v}`] : []),
         sf('sf-ground.js'),
         sf('sf-style.js'),
         sf('buildings.js'),

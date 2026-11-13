@@ -724,6 +724,9 @@ async function initApp() {
   const urlParams = new URLSearchParams(location.search);
   // (the fork's fog presets, ?fog=clear|haze|marine; Mog City has no fog menu: the haze, the fork's own default)
   lightingSystem.setFogPreset(urlParams.get('fog') || 'haze');
+  // (a Hometown package's far field picks its fog when it arrives after boot, cities/pkg/js/pkg-far.js; an explicit ?fog wins)
+  window.NYC.setFogPreset = (id) => { if (!urlParams.has('fog')) lightingSystem.setFogPreset(id); };
+  if (window.NYC.pkgFarFog) window.NYC.setFogPreset(window.NYC.pkgFarFog);
   const urlMode = { heli: 'helicopter', helicopter: 'helicopter', person: 'person', car: 'car', cyclist: 'cyclist' }[urlParams.get('mode')];
   // Every player model starts parked on the ground at the first teleport, clear of buildings & each other. (Mog City:
   // on the Embarcadero by the Ferry Building, the car first, onto the lane nearest Embarcadero Plaza (652, -683) and

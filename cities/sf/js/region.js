@@ -214,6 +214,9 @@ function installRegionTerrain(data) {
   for (const g of [data.city,data.horizon]) Terrain.addPatch({x0:g.x0,z0:g.z0,step:g.step,nx:g.w,nz:g.h,h:g.heights,rect:true});
 }
 function buildSFRegion(scene) {
+  // (a Hometown package: its far field, cities/pkg/js/pkg-far.js: the land past the compiled tiles to the horizon,
+  // loaded after boot; San Francisco's path below is untouched)
+  if(window.NYC.PKG)return window.NYC.PkgFar?window.NYC.PkgFar.build(scene):{update(){},stats:()=>({})};
   const data=window.NYC.DATA.fullRegion;
   if(!data || new URLSearchParams(location.search).get('region')==='0')return { update(){}, stats:()=>({}) };
   const group=new THREE.Group();group.name='SFRegion';scene.add(group);
