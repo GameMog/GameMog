@@ -83,9 +83,9 @@ const RULE = {
 // still loses them); one INTERCEPT.after s more than INTERCEPT.far m behind, out of view, is put on a street ahead of
 // him (rMin..rMax m, within the cone ahead, out of view or behind a building) facing him (at most one every
 // INTERCEPT.every s; he is going INTERCEPT.v m/s or more); a chase opens with one car close behind him (30-60 m) and
-// every other one ahead; a car is only ever put down on the asphalt; and one stuck off the road out of view is put
-// back after offRespawn s (REJOIN.respawn elsewhere)
-const INTERCEPT = { after: 2, far: 110, rMin: 100, rMax: 170, cone: 0.35, every: 5, v: 10, keep: 0.1, keepMax: 46, keepFrom: 45, offRespawn: 1.5 };
+// every other one ahead; a car is only ever put down on the asphalt; and one stuck off the road out of view (or in
+// view but more than viewFar m off: a speck) is put back after offRespawn s (REJOIN.respawn elsewhere)
+const INTERCEPT = { after: 2, far: 110, rMin: 100, rMax: 170, cone: 0.35, every: 5, v: 10, keep: 0.1, keepMax: 46, keepFrom: 45, offRespawn: 1.5, viewFar: 150 };
 // held up behind the city's traffic this long (s; crawling behind it GHOST.crawl s), a chase car noses through it for
 // GHOST.t s (at most GHOST.vView m/s while the camera sees it)
 const GHOST = { after: 1.0, t: 2.6, vView: 9, crawl: 2.5 };
@@ -326,7 +326,7 @@ export function install(W) {
       const exempt = !!(P.ram || (P.crew && P.crew.alive() > 0) || P.ghost > 0 || (g.direct && excused(onRoad, T, g.d)));
       const R = rejoin(P, dt, { onRoadway: roadAt(P.y), locate: laneAt(P.y), exempt, vmax: g.vt });
       if (R) { g.ax = R.ax; g.az = R.az; g.vt = Math.min(R.vt, Math.max(4, reach(P, R.ax, R.az))); }
-      if (!exempt && P.offT > (ch.open ? INTERCEPT.offRespawn : REJOIN.respawn) && P.mode === 'chase' && !inView(P.x, P.z, 4)) { P.offT = 0; P.rejoin = false; respawn(P, T); }
+      if (!exempt && P.offT > (ch.open ? INTERCEPT.offRespawn : REJOIN.respawn) && P.mode === 'chase' && (!inView(P.x, P.z, 4) || (ch.open && camDist(P.x, P.z) > INTERCEPT.viewFar))) { P.offT = 0; P.rejoin = false; respawn(P, T); }
       const err = wrap(Math.atan2(g.ax - P.x, g.az - P.z) - P.h);
       st = clamp(err * 1.8, -0.62, 0.62); vt = g.vt;
       // (nosing through the traffic where the camera sees it: at a crawl, as the traffic's own do)
