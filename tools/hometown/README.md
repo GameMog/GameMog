@@ -71,8 +71,9 @@ GameMog or Render disk) is seeded with the snapshot the compiler ships, `dem-sna
 | roads | whole Overture segments meeting tile + 160 m, split at their connectors, then at every grid line E' = 512k / S = 512k exactly (int cm, `Fraction`); border nodes `b:{segment}:{E|S}{k}:{ordinal}`; a sub-piece belongs to the tile holding its first edge's midpoint; junction controls from every piece at the connector; no box-edge cut |
 | curb islands | land minus roadways over tile + 128 m, each island classified before the clip: one under 120 m2 inside the window is a median; the rest by local width (`ISLAND_W` 6 m: the parts a 6 m morphological opening leaves out are islands, the rest block, so a polygon the window cuts gets the same kinds where two tiles' windows share it), clipped to the tile, clipped edges flagged `cut` |
 | buildings | owned by the tile holding the exact centroid of the full footprint (integer shoelace), outline kept whole (may overhang), base and rise from the post function over the footprint; `foreign` lists the owners of buildings overlapping the tile |
-| paved lots, trees | footprints within 25 m (buffer 8 / 12 m downtown); a 13 m tree lattice in global grid integers, `hash01(i, j, k ^ domain)`; `desert` from the tile centre |
-| mask | 512 x 512 1 m cells: asphalt, sidewalk, lawn, sand, rock, waterEdge, **water (6)** |
+| ground | off the curb islands asphalt; on them the climate's open land (`climate.py` from the tile centre: humid lawn, dry scrub, arid sand), Overture land use over it (`lu_ground`, larger first), then paved: Overture car parks (infrastructure `parking` polygons) and 6 m lots round commercial buildings (`LOT_KINDS`) as **lot (7)**, a downtown's buildings in 12 m of paved square, the narrow islands and the sidewalk bands (class sidewalk width past the curb) as sidewalk; a humid open hillside (slope > 0.35, 12 m from any house) **woods (9)**, rock past the cliff slope |
+| trees | yards: a 13 m lattice in global grid integers, `hash01(i, j, k ^ domain)`, 3..25 m from a building, clear of footprints + 8 / 12 m and bare ground; woodland: a 16 m lattice over the woods cells; `desert` = arid climate |
+| mask | 512 x 512 1 m cells: asphalt, sidewalk, lawn, sand, rock, waterEdge, **water (6)**, lot (7), scrub (8), woods (9) |
 | places, water, parks | POIs owned by the tile; water and park polygons clipped, each water with its ctx `level_cm` |
 
 **Context blocks** (`context.py`, L4): `bcnt` / `pcnt` (buildings / places per 64 m cell) and `wlev` (each water
@@ -121,7 +122,7 @@ self-contained and shared by neighbouring places:
 
 A tile's edge posts are its neighbours' (same global post, same computation: byte-identical). Classes per post: water
 where the 3 x 3 block of DEM pixels nearest it (1/3" for A, 1" for B and C) is exactly flat (3DEP is hydro-flattened;
-no land is flat to 1 mm over ~30-90 m), arid land by the compiler's desert rule (lon < -104, lat < 37.5, per post), else land. Store key
+no land is flat to 1 mm over ~30-90 m), else the post's climate (`climate.py`, per post): 2 arid, 3 dry (steppe), 0 land (humid). Store key
 `far/{buildId}/hg1-{d}/{L}/{C}/{R}`, `--far hg1-{d}/{1|3|5}/{C}/{R} --out -` for one; the legacy package carries them as
 `data/far/{a|b|c}-{C}-{R}.bin.gz` (SFB1 `hometown-far`: uint16 heights, NAVD88 = -100 + 0.1 q, q 0 no data; uint8
 class), listed in `PKG.far` and `manifest.json` `files` (so a Mog's pinned file hashes cover them). About 110-130
@@ -130,7 +131,7 @@ tiles, ~0.8-1 MB a place. The runtime (`pkg-far.js`) draws a zero-byte fill and 
 is never changed. Seams: tier A's last 64 m snaps to the core's own edge posts (the core's water flattening and bridges),
 `Terrain.edgeBlend` (32 m) takes up the core's 2 m ground between them, and each tier's outer 16 posts blend into the next
 coarser tier: heightAt is continuous core -> A -> B -> C. Near the core the far ground takes the core's own edge ground
-(sidewalk slabs, park lawns, mask classes) and fades to its own over 300 m; water shores are marching squares on the
+(park lawns, else the mask class under the block tops) and fades to its own over 300 m (a humid hillside wooded, not rock); water shores are marching squares on the
 smoothed wetness. Budget (horizon.md): far draw calls (chunks merged: A by quadrant, B and C 2 x 2 tiles, one water mesh a
 tier) about 35 of <= 80; Low graphics / a short draw distance draws every other post (`DATA.pkgFar.stats.budget`:
 phone triangles <= 0.6 M). Tests: `test_far.py`, `tests/pkg-far.test.mjs`.

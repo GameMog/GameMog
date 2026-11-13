@@ -18,7 +18,12 @@ LAYER_SQL = {
     'places': ("places", "place", "id, ST_X(geometry) AS lon, ST_Y(geometry) AS lat, name, basic_category, taxonomy.primary AS cat, confidence, operating_status"),
     'water': ("base", "water", "id, ST_AsWKB(geometry) AS wkb, subtype, class, name"),
     'land_use': ("base", "land_use", "id, ST_AsWKB(geometry) AS wkb, subtype, class, name"),
+    # (the paved car parks: polygons of class parking; a region fetched before this layer was read has the file all the
+    # same (fetch.py LAYERS), an older one without it reads none)
+    'parking': ("base", "infrastructure", "id, ST_AsWKB(geometry) AS wkb, subtype, class",
+                "WHERE class = 'parking' AND ST_GeometryType(geometry) IN ('POLYGON', 'MULTIPOLYGON')"),
 }
+OPTIONAL = {'parking'}
 BLOCK = grid.TILE << grid.CTX_L   # 8192 grid m
 EXTRAS_FILE = 'overture-transportation-segment-extras.parquet'   # fetch.py --extras: OSM way ids and speed limits
 
@@ -77,8 +82,10 @@ class Sources:
         c = duckdb.connect()
         c.execute('INSTALL spatial; LOAD spatial;')
         self.rows = {}
-        for key, (theme, typ, cols) in LAYER_SQL.items():
+        for key, (theme, typ, cols, *where) in LAYER_SQL.items():
             fl = [os.path.join(d, 'overture-%s-%s.parquet' % (theme, typ)) for d in dirs]
+            if key in OPTIONAL:
+                fl = [f for f in fl if os.path.exists(f)]
             # (an empty region file has no geometry type; it holds no rows, so leaving it out changes nothing)
             fl = [f for f in fl if c.execute(f"SELECT count(*) FROM read_parquet('{f}')").fetchone()[0] > 0]
             if not fl:
@@ -86,10 +93,10 @@ class Sources:
                 continue
             files = ', '.join("'%s'" % f for f in fl)
             cur = c.execute(f"""SELECT {cols} FROM (SELECT * FROM read_parquet([{files}], union_by_name=true)
-                QUALIFY row_number() OVER (PARTITION BY id ORDER BY id) = 1) ORDER BY id""")
+                QUALIFY row_number() OVER (PARTITION BY id ORDER BY id) = 1) {where[0] if where else ''} ORDER BY id""")
             names = [d[0] for d in cur.description]
             self.rows[key] = [dict(zip(names, r)) for r in cur.fetchall()]
-        for key in ('buildings', 'parts', 'segments', 'water', 'land_use'):
+        for key in ('buildings', 'parts', 'segments', 'water', 'land_use', 'parking'):
             rs = self.rows[key]
             geoms = shapely.from_wkb([bytes(r.pop('wkb')) for r in rs]) if rs else []
             geoms = shapely.transform(geoms, self._proj) if len(geoms) else geoms
@@ -103,7 +110,7 @@ class Sources:
                 p['gx'], p['gs'] = a, b
         self.extras = segment_extras(c, dirs)
         self.trees = {}
-        for key in ('buildings', 'segments', 'water', 'land_use'):
+        for key in ('buildings', 'segments', 'water', 'land_use', 'parking'):
             self.trees[key] = shapely.STRtree([r['geom'] for r in self.rows[key]])
         # (a building's parts, by its Overture id, each list in part id order)
         self.parts_of = {}
