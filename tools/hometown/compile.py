@@ -1650,6 +1650,10 @@ if __name__ == '__main__':
     ap.add_argument('--osm-roads', default=os.environ.get('HOMETOWN_OSM_ROADS'), help='the OSM lane side table (osm_roads.py); default <data>/osm/osm-roads-us.parquet')
     a = ap.parse_args()
     set_osm_roads(a.osm_roads or os.path.join(a.data, 'osm', 'osm-roads-us.parquet'))
+    # (assemble.py imports this file as `compile`, a second module object from __main__: give it the same table)
+    import compile as _mod  # noqa: E402
+    if _mod is not sys.modules[__name__]:
+        _mod.OSM_ROADS.update(OSM_ROADS)
     store = Store(os.path.abspath(a.store))
     bid, rec = register_build(store)
     if a.print_build:
