@@ -409,7 +409,7 @@ export default function Create() {
         </div>
 
         {telling
-          ? <GenerationProgress gen={gen} mode="create" subject={prompt} kind="story" city={storyCityName(city)} />
+          ? <GenerationProgress gen={gen} mode="create" subject={prompt} kind="story" city={HOMETOWN && town ? `${town.place.name}, ${town.place.stateName}` : storyCityName(city)} />
           : <GenerationProgress gen={gen} mode="create" subject={prompt} open={options.open} />}
 
         {report && report.findings.length > 0 && (
