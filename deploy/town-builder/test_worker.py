@@ -137,6 +137,32 @@ class WebAndRegions(unittest.TestCase):
         finally:
             shutil.rmtree(tmp)
 
+    def test_one_region_staged_by_many_jobs_at_once(self):
+        # (a fresh worker's slots all needing the same region: before the fix they shared one temp folder and removed
+        # each other's files, so compiles found 'No files found' and the jobs failed three times)
+        tmp = tempfile.mkdtemp()
+        try:
+            base = 'src/overture/2026-10-21.0/hg1-conus/4/362/270/'
+            files = {}
+            for i in range(6):
+                pq = b'PAR1' + bytes([i]) * 200000 + b'PAR1'
+                FakeWeb.objects[base + 'overture-l%d.parquet' % i] = pq
+                files['overture-l%d.parquet' % i] = {'sha256': hashlib.sha256(pq).hexdigest()}
+            FakeWeb.objects[base + 'files.json'] = json.dumps({'files': files}).encode()
+            w = self.worker(tmp)
+            out = []
+            ts = [threading.Thread(target=lambda: out.append(w.stage_regions('conus:362,270', '2026-10-21.0'))) for _ in range(4)]
+            for t in ts:
+                t.start()
+            for t in ts:
+                t.join()
+            self.assertEqual(out, [None] * 4)
+            d = w.region_dir('conus', 362, 270)
+            self.assertEqual(sorted(os.listdir(d)), sorted(files))
+            self.assertEqual([n for n in os.listdir(os.path.dirname(d)) if '.dl-' in n], [])
+        finally:
+            shutil.rmtree(tmp)
+
     def test_uploads_hash_and_retry_while_web_is_down(self):
         tmp = tempfile.mkdtemp()
         try:

@@ -27,7 +27,7 @@ ARG PY_IMAGE=python:3.14.6-slim-bookworm@sha256:4c92ffcde4dd6f1ff72a24518f49fd49
 # ---- the compiler at one commit (git only in this stage)
 FROM ${PY_IMAGE} AS compiler
 # THE ONE LINE to re-pin the compiler (a 40-hex commit of github.com/GameMog/GameMog that carries tools/hometown):
-ARG MOGCITY_SHA=5379f18b523e7d0b733043017a0e728cc1c328f4
+ARG MOGCITY_SHA=23e7d721a57fb2bb46f93c5ae5d9993d9a3678db
 # hadolint ignore=DL3008
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
@@ -41,7 +41,7 @@ RUN git init /opt/mogcity \
 
 # ---- the worker
 FROM ${PY_IMAGE}
-ARG MOGCITY_SHA=5379f18b523e7d0b733043017a0e728cc1c328f4
+ARG MOGCITY_SHA=23e7d721a57fb2bb46f93c5ae5d9993d9a3678db
 ENV PYTHONHASHSEED=0 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -53,13 +53,16 @@ ENV PYTHONHASHSEED=0 \
     HOMETOWN_COMPILER_DIR=/opt/mogcity/tools/hometown \
     HOMETOWN_DATA_SEED=/opt/hometown-data \
     HOMETOWN_OSM_ROADS=/opt/hometown-data/osm/osm-roads-us.parquet \
-    HOMETOWN_WORK=/tmp/hometown-cache
+    HOMETOWN_WORK=/tmp/hometown-cache \
+    DUCKDB_EXTENSION_DIRECTORY=/opt/duckdb-ext
 # (prlimit, for the per-slot memory cap of each compile child, is util-linux: essential in Debian 12, already here)
 RUN useradd --uid 10001 --create-home --home-dir /home/builder --shell /usr/sbin/nologin builder \
  && command -v prlimit
 COPY --from=compiler /opt/mogcity/tools/hometown /opt/mogcity/tools/hometown
 COPY --from=compiler /opt/mogcity-sha /opt/mogcity-sha
-COPY deploy/town-builder/requirements.lock /opt/hometown-build/requirements.lock
+# (the compiler's OWN hash lock at the pinned commit, tools/hometown/requirements.lock (MogCity M1); the copy in
+# deploy/town-builder is the same pins, kept for review: the image installs the compiler's)
+RUN mkdir -p /opt/hometown-build && cp /opt/mogcity/tools/hometown/requirements.lock /opt/hometown-build/requirements.lock
 RUN python -m venv /opt/venv \
  && /opt/venv/bin/pip install --no-cache-dir --require-hashes --only-binary=:all: -r /opt/hometown-build/requirements.lock
 # the OSM lane table (16 MB, ODbL), checked against its pin: without it the compiler makes ANOTHER build
@@ -68,10 +71,16 @@ RUN want="$(python -c 'import json;print(json.load(open("/opt/hometown-data/osm/
  && test -f /opt/hometown-data/osm/osm-roads-us.parquet \
  && echo "${want}  /opt/hometown-data/osm/osm-roads-us.parquet" | sha256sum -c -
 COPY deploy/town-builder/worker.py /opt/worker/worker.py
-# duckdb's extensions, installed now as the user that runs (fetch.py's INSTALL then finds them: no run-time download)
-USER 10001
-RUN /opt/venv/bin/python -c "import duckdb; c = duckdb.connect(); c.execute('INSTALL httpfs; INSTALL spatial; LOAD httpfs; LOAD spatial')"
-USER root
+# duckdb's extensions, installed now into DUCKDB_EXTENSION_DIRECTORY (compiler 0.7.0 duck.py only LOADs them, with
+# auto-install off: a run never downloads one), then checked by loading them
+RUN /opt/venv/bin/python /opt/mogcity/tools/hometown/duck.py --install \
+ && chmod -R a+rX /opt/duckdb-ext \
+ && /opt/venv/bin/python -c "import sys; sys.path.insert(0, '/opt/mogcity/tools/hometown'); import duck; duck.check()"
+# the Overture release's per-file bbox index (fetch.py --index, MogCity M5): a cold region fetch then reads only the S3
+# files that meet it (Phoenix's 4 regions: 418 s without, 23 s with). Built once here (about 4-5 min, network); the
+# worker links it into its data dir (HOMETOWN_DATA_SEED/overture-index). It selects files only, never a byte of output.
+RUN /opt/venv/bin/python /opt/mogcity/tools/hometown/fetch.py --index --data /opt/hometown-data \
+ && ls /opt/hometown-data/overture-index/*.json
 # the image's identity: a hash of everything that decides its bytes, computed IN the build (worker.py reads it)
 RUN { echo "${MOGCITY_SHA}"; sha256sum /opt/hometown-build/requirements.lock /opt/hometown-data/osm/osm-roads-us.parquet; \
       /opt/venv/bin/pip freeze --all; /opt/venv/bin/python -c "import platform,sys;print(platform.machine(), sys.version)"; \

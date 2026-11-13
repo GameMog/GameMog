@@ -169,10 +169,20 @@ export async function workerResponse(req: Request, parts: string[], d: BuilderDe
       const key = str(b.key, 300), code = Number(b.code);
       const j = queue.get(key);
       const rel = j ? (str(j.args.release as string, 20) || releaseOf(store, j.build === ANY_BUILD ? (currentBuild(d) ?? '') : j.build) || '') : '';
-      const regions = code === 3 && typeof b.missingRegions === 'string' ? regionsJobOf(rel, b.missingRegions) : null;
+      // (a region already being fetched by another job is waited on, never fetched twice: two workers fetching one region
+      // at once make two different byte strings of the same rows, and the second upload is refused)
+      let regions = code === 3 && typeof b.missingRegions === 'string' ? regionsJobOf(rel, b.missingRegions) : null;
       if (code === 3 && b.missingRegions && !regions) return json(400, { error: 'missingRegions is dom:C,R;C,R and the build record names its Overture release (upload builds/<id>.json first)' });
+      const also: string[] = [];
+      if (regions) {
+        const dom = String(regions.args.spec).split(':')[0], fresh: string[] = [];
+        for (const rg of regions.args.regions as string[]) { const [, C, R] = rg.split('/').map(Number); const k = queue.regionsActive(dom, C, R); if (k) also.push(k); else fresh.push(`${C},${R}`); }
+        if (!fresh.length && also.length) { const k = queue.get(also[0])!; regions = { key: k.key, args: k.args }; }
+        else if (also.length) regions = regionsJobOf(rel, `${dom}:${fresh.join(';')}`);
+      }
       const r = queue.fail(key, str(b.leaseId, 40), { code, reason: str(b.reason, 600), regions, final: b.final === true });
       if (!r.ok) return json(410, { error: 'the lease is not yours any more' });
+      if (r.regionsJob && also.length) queue.addDeps(key, also);
       queue.log('fail', { key, code, reason: str(b.reason, 300), regions: r.regionsJob ?? null });
       return json(200, { ok: true, ...(r.regionsJob ? { regionsJob: r.regionsJob } : {}) });
     }

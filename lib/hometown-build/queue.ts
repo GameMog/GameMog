@@ -84,6 +84,11 @@ const toJob = (r: Row): Job => ({
   doneMs: r.done_ms == null ? null : Number(r.done_ms), peakMb: r.peak_mb == null ? null : Number(r.peak_mb), error: (r.error as string) ?? null, grp: (r.grp as string) ?? null,
 });
 
+/**
+ * A job's size in cost units: a tile job is 1 + tiles/4 (a fixed start, World and source load, plus each tile:
+ * measured locally, a 4-tile quad costs about 2/5 of a 16-tile block), every other job 1.
+ */
+export const jobUnits = (j: { kind: string; args: Record<string, unknown> }) => j.kind === 'tiles' ? 1 + maskBits(Number(j.args.mask) & 0xffff).length / 4 : 1;
 /** The bits of a tile mask (16 tiles of an L2 block, bit i = tile (i % 4, i >> 2) of the block). */
 export const maskBits = (m: number) => { const out: number[] = []; for (let i = 0; i < 16; i++) if (m & (1 << i)) out.push(i); return out; };
 
@@ -103,11 +108,15 @@ export class BuildQueue {
   close() { this.db.close(); }
   /** Long-poll wake-ups: called after anything a claim could now take. */
   onChange(f: () => void) { this.listeners.add(f); return () => this.listeners.delete(f); }
-  private changed() { for (const f of [...this.listeners]) { try { f(); } catch { /* a listener's own problem */ } } }
+  changed() { for (const f of [...this.listeners]) { try { f(); } catch { /* a listener's own problem */ } } }
 
+  /** One transaction; re-entrant (an inner tx joins the outer one, so a town and all its jobs commit together). */
+  private txDepth = 0;
   tx<T>(f: () => T): T {
+    if (this.txDepth > 0) return f();
     this.db.exec('BEGIN IMMEDIATE');
-    try { const r = f(); this.db.exec('COMMIT'); return r; } catch (e) { try { this.db.exec('ROLLBACK'); } catch { /* none open */ } throw e; }
+    this.txDepth++;
+    try { const r = f(); this.txDepth--; this.db.exec('COMMIT'); return r; } catch (e) { this.txDepth = 0; try { this.db.exec('ROLLBACK'); } catch { /* none open */ } throw e; }
   }
 
   get(key: string): Job | null { const r = this.db.prepare('SELECT * FROM jobs WHERE key = ?').get(key) as Row | undefined; return r ? toJob(r) : null; }
@@ -133,13 +142,17 @@ export class BuildQueue {
     const want = (key: string) => { if (s.place) this.db.prepare('INSERT OR IGNORE INTO wants (job, place) VALUES (?, ?)').run(key, s.place); };
     if (s.kind === 'tiles') {
       const block = String(s.args.block), mask = Number(s.args.mask) & 0xffff;
-      const grp = `${s.build}:${block}`;
-      const rows = (this.db.prepare("SELECT * FROM jobs WHERE grp = ? AND state != 'failed'").all(grp) as Row[]).map(toJob);
+      // (a quad job, args.part 0-3: the 2 x 2 tiles of one quarter of the block, for the spawn's neighbourhood, so the
+      // district's tiles run on several slots at once instead of one 16-tile block per slot. It merges only with its own
+      // quad's queued job; leased or done jobs of the WHOLE block, quads or not, cover their bits)
+      const part = s.args.part == null ? '' : `:q${Number(s.args.part)}`;
+      const base = `${s.build}:${block}`, grp = base + part;
+      const rows = (this.db.prepare("SELECT * FROM jobs WHERE (grp = ? OR grp LIKE ?) AND state != 'failed'").all(base, `${base}:q%`) as Row[]).map(toJob);
       const keys: string[] = [];
       let covered = 0;
       for (const j of rows) if (j.state !== 'queued') { covered |= Number(j.args.mask); if (Number(j.args.mask) & mask) keys.push(j.key); }
       const need = mask & ~covered;
-      const q = rows.find((j) => j.state === 'queued');
+      const q = rows.find((j) => j.state === 'queued' && (j.args.part == null ? '' : `:q${Number(j.args.part)}`) === part);
       if (need && q) {
         const m = Number(q.args.mask) | need;
         this.db.prepare('UPDATE jobs SET args = ?, prio = MIN(prio, ?), ring = MIN(ring, ?), first_asked = MIN(first_asked, ?), updated = ? WHERE key = ?')
@@ -302,7 +315,9 @@ export class BuildQueue {
         .run(r.ms ?? null, r.peakMb ?? null, t, key);
       if (r.ms != null && Number.isFinite(r.ms) && r.ms >= 0) {
         const c = this.db.prepare('SELECT ewma_ms, n FROM costs WHERE kind = ?').get(j.kind) as Row | undefined;
-        const e = c ? (1 - EWMA) * Number(c.ewma_ms) + EWMA * r.ms : r.ms;
+        // (a tile job's cost is kept per tile unit, so 16-tile blocks and 4-tile quads share one estimate: jobUnits)
+        const ms = r.ms / jobUnits(j);
+        const e = c ? (1 - EWMA) * Number(c.ewma_ms) + EWMA * ms : ms;
         this.db.prepare('INSERT INTO costs (kind, ewma_ms, n) VALUES (?, ?, 1) ON CONFLICT(kind) DO UPDATE SET ewma_ms = ?, n = n + 1').run(j.kind, e, e);
       }
       return { ok: true as const, job: { ...j, state: 'done' as JobState } };
@@ -350,6 +365,12 @@ export class BuildQueue {
     return out;
   }
 
+  /** The queued or leased regions job that will fetch region dom/C/R, if any (one region is fetched by one job). */
+  regionsActive(dom: string, C: number, R: number): string | null {
+    const r = this.db.prepare("SELECT key FROM jobs WHERE kind = 'regions' AND state IN ('queued', 'leased') AND args LIKE ? ORDER BY created LIMIT 1").get(`%"${dom}/${C}/${R}"%`) as Row | undefined;
+    return r ? String(r.key) : null;
+  }
+
   // ------------------------------------------------------------------------------------------------- read models
   /** Live workers (seen within LIVE_MS) and their slots. */
   liveWorkers(): { id: string; build: string | null; slots: number; seen: number; version: string | null; memMb: number | null }[] {
@@ -365,9 +386,16 @@ export class BuildQueue {
       .map((r) => ({ prio: Number(r.prio), state: String(r.state), n: Number(r.n), weight: Number(r.w) }));
   }
   /** Queued and leased jobs at or under a priority, with their kinds (the wait estimate's work ahead). */
+  /** The work ahead, by kind and weight: n is a count of jobs, or for tiles a count of tile units (jobUnits). */
   ahead(prio: number, before: number): { kind: JobKind; weight: number; n: number }[] {
-    return (this.db.prepare("SELECT kind, weight, COUNT(*) n FROM jobs WHERE state IN ('queued', 'leased') AND prio <= ? AND first_asked <= ? GROUP BY kind, weight").all(prio, before) as Row[])
+    const out = (this.db.prepare("SELECT kind, weight, COUNT(*) n FROM jobs WHERE state IN ('queued', 'leased') AND prio <= ? AND first_asked <= ? AND kind != 'tiles' GROUP BY kind, weight").all(prio, before) as Row[])
       .map((r) => ({ kind: r.kind as JobKind, weight: Number(r.weight), n: Number(r.n) }));
+    let units = 0;
+    for (const r of this.db.prepare("SELECT args FROM jobs WHERE state IN ('queued', 'leased') AND prio <= ? AND first_asked <= ? AND kind = 'tiles'").all(prio, before) as Row[]) {
+      try { units += jobUnits({ kind: 'tiles', args: JSON.parse(String(r.args)) }); } catch { units += 5; }
+    }
+    if (units) out.push({ kind: 'tiles', weight: 1, n: units });
+    return out;
   }
   recentEvents(n = 50) { return (this.db.prepare('SELECT * FROM events ORDER BY at DESC LIMIT ?').all(n) as Row[]).map((r) => ({ at: Number(r.at), kind: String(r.kind), ...JSON.parse(String(r.data)) })); }
 }

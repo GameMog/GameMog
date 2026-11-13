@@ -67,6 +67,10 @@ services:
       # service (fromService envVarKey). Unset: /api/hometown/worker is not found
       - key: HOMETOWN_WORKER_TOKEN
         sync: false
+      # spawn first (compiler 0.7.0+: --frame and --assemble, pinned by the worker image): the story starts from the
+      # town's frame, and players drive the 5 x 5 spawn district while the rest of the town builds
+      - key: HOMETOWN_FRAME
+        value: "on"
       # the build new towns are made at: the buildId the workers log at start (the owner's status page shows it)
       - key: HOMETOWN_BUILD
         sync: false
@@ -91,8 +95,8 @@ services:
     runtime: docker
     # same region as the web: the private network
     region: virginia
-    # Pro Plus, 4 CPU / 8 GB: 4 compile slots (1.5 GB each + 0.75 GB for the worker); 2c-4g for a first test. The
-    # id follows this file's 1c-2g form: check it on the Blueprint spec page before the first sync
+    # Pro Plus, 4 CPU / 8 GB: 4 compile slots (1.5 GB each + 0.75 GB for the worker); 2c-4g for a first test. 4c-8g
+    # is a valid background-worker plan id on the Blueprint spec page (checked 13 Nov 2026)
     plan: 4c-8g
     numInstances: 1
     dockerfilePath: ./deploy/hometown-compiler.Dockerfile
@@ -121,6 +125,7 @@ services:
         value: "1.5"
       - key: HOMETOWN_CACHE_GB
         value: "4"
-      # "1": claim nothing (a kill switch that needs no deploy of the web); "0" to run
+      # "1": claim nothing (a kill switch that needs no deploy of the web); "0" to run. sync: false, so a later
+      # Blueprint sync never puts back a value the owner changed on the dashboard: enter "1" when the Blueprint asks
       - key: HOMETOWN_WORKER_PAUSED
-        value: "1"
+        sync: false

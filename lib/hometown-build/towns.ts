@@ -33,7 +33,7 @@ import type { TileStore } from '../hometown-tiles/store.ts';
 import type { HometownConfig } from '../hometown-tiles/config.ts';
 import { stage1, anchorTile, type Stage1 } from './grid.ts';
 import { ANY_BUILD, maskBits, type BuildQueue, type EnqueueSpec, type Job, type JobKind } from './queue.ts';
-import { cityPackageOfFrame, frameProblems, type TownFrame } from './frame.ts';
+import { cityPackageOfFrame, frameProblems, normalizeFrame, type TownFrame } from './frame.ts';
 
 export { TOWN_WORDS };
 export type TownPhase = 'asked' | 'framing' | 'district' | 'growing' | 'full' | 'failed';
@@ -59,7 +59,8 @@ export const PHASE_WORDS: Record<TownPhase, string> = {
 export const BUSY_WORDS = (min: number) => `Lots of towns are being built. Yours would take about ${min} minute${min === 1 ? '' : 's'}.`;
 
 /** Planning costs (ms) until the queue's EWMAs have numbers (SPEC 3.2). */
-export const DEFAULT_COST: Record<JobKind, number> = { regions: 40_000, ctx: 6_000, frame: 4_000, tiles: 9_000, far: 5_000, bundle: 10_000, manifest: 1_000, canary: 9_000 };
+/** (tiles: per tile unit, queue.ts jobUnits: a 16-tile block is 5 units, a 2 x 2 quad 2) */
+export const DEFAULT_COST: Record<JobKind, number> = { regions: 40_000, ctx: 6_000, frame: 4_000, tiles: 2_000, far: 5_000, bundle: 10_000, manifest: 1_000, canary: 9_000 };
 export const DISTRICT_RADIUS = 2;
 
 export type BuilderDeps = { cfg: HometownConfig; store: TileStore; queue: BuildQueue; now?: () => number; build?: () => string | null; place?: (id: string) => Place | null };
@@ -84,6 +85,37 @@ export function blocksOf(s: Stage1, ac: number, ar: number): Block[] {
   return [...by.values()].sort((a, b) => a.ring - b.ring || (a.block < b.block ? -1 : 1));
 }
 const ctxOf = (dom: string, c: number, r: number) => `hg1-${dom}/4/${c >> 4}/${r >> 4}`;
+/** The L4 map regions a town's tiles read: its tile range grown by the compiler's LOAD_REACH (3,200 grid m). */
+export const LOAD_REACH_M = 3200;
+export function townRegions(s: Stage1): [number, number][] {
+  const [c0, r0, c1, r1] = s.tileRange, T = 512, B = T << 4;
+  const x0 = c0 * T - LOAD_REACH_M, z0 = r0 * T - LOAD_REACH_M, x1 = (c1 + 1) * T + LOAD_REACH_M, z1 = (r1 + 1) * T + LOAD_REACH_M;
+  const out: [number, number][] = [];
+  for (let C = Math.floor(x0 / B); C <= Math.floor((x1 - 1e-9) / B); C++) for (let R = Math.floor(z0 / B); R <= Math.floor((z1 - 1e-9) / B); R++) out.push([C, R]);
+  return out;
+}
+/** The Overture release a build reads (its build record), or null before the record is stored. */
+export function releaseIn(store: TileStore, build: string): string | null {
+  const r = readJson<{ overture?: unknown }>(store, `builds/${build}.json`);
+  return typeof r?.overture === 'string' ? r.overture : null;
+}
+/** Blocks within this many tiles of the anchor are built as 2 x 2 quads (the likely spawn district: SPEC 3.3). */
+export const QUAD_RING = 3;
+/** A block mask's 2 x 2 quads that hold any of its bits: part 0..3 = (qx, qy) = (part & 1, part >> 1). */
+export function quadsOf(mask: number): { part: number; mask: number }[] {
+  const out: { part: number; mask: number }[] = [];
+  for (let part = 0; part < 4; part++) {
+    let m = 0;
+    for (let i = 0; i < 16; i++) if (((i & 3) >> 1) === (part & 1) && ((i >> 2) >> 1) === (part >> 1)) m |= 1 << i;
+    if (mask & m) out.push({ part, mask: mask & m });
+  }
+  return out;
+}
+/** The (c, r) tiles a tile job builds (its block and mask). */
+export const tilesOfJob = (args: Record<string, unknown>): [number, number][] => {
+  const [, , C, R] = String(args.block).split('/').map(Number);
+  return maskBits(Number(args.mask)).map((i) => [C * 4 + (i & 3), R * 4 + (i >> 2)]);
+};
 
 export type Graph = { specs: EnqueueSpec[]; tiles: string[]; stage: Stage1; anchor: [number, number]; box: Box };
 /** Every job a town needs, from its pick (SPEC 4.1). `base` is the source's priority floor (P5 pre-warm, P3 rebuild). */
@@ -99,9 +131,22 @@ export function townGraph(placeId: string, gaz: Gaz, build: string, o: { frame: 
   const tileKeys: string[] = [];
   for (const b of blocks) {
     const ck = `ctx:${build}:hg1-${s.domain}/4/${b.C >> 2}/${b.R >> 2}`;
+    const deps = ctxs.has(`hg1-${s.domain}/4/${b.C >> 2}/${b.R >> 2}`) ? [ck] : [];
+    // (round the anchor, where the spawn district almost always lands, the block is split into its 2 x 2 quads: the
+    // district's 25 tiles then build on many slots at once, the time to first drive; farther out, whole blocks, the
+    // cheapest per tile)
+    if (b.ring <= QUAD_RING) {
+      for (const qd of quadsOf(b.mask)) {
+        const ring = Math.min(...maskBits(qd.mask).map((i) => Math.max(Math.abs(b.C * 4 + (i & 3) - ac), Math.abs(b.R * 4 + (i >> 2) - ar))));
+        const key = `tiles:${build}:${b.block}:q${qd.part}`;
+        tileKeys.push(key);
+        specs.push({ key, kind: 'tiles', build, prio: P(ring <= DISTRICT_RADIUS ? 0 : 1), ring, args: { block: b.block, mask: qd.mask, part: qd.part }, deps, place: placeId, firstAsked: o.now });
+      }
+      continue;
+    }
     const key = `tiles:${build}:${b.block}`;
     tileKeys.push(key);
-    specs.push({ key, kind: 'tiles', build, prio: P(b.ring <= DISTRICT_RADIUS ? 0 : 1), ring: b.ring, args: { block: b.block, mask: b.mask }, deps: ctxs.has(`hg1-${s.domain}/4/${b.C >> 2}/${b.R >> 2}`) ? [ck] : [], place: placeId, firstAsked: o.now });
+    specs.push({ key, kind: 'tiles', build, prio: P(b.ring <= DISTRICT_RADIUS ? 0 : 1), ring: b.ring, args: { block: b.block, mask: b.mask }, deps, place: placeId, firstAsked: o.now });
   }
   const bh = boxHash(gaz.bbox);
   if (o.frame) specs.push({ key: `frame:${build}:${placeId}:${bh}`, kind: 'frame', build, prio: P(0), args: { placeId, gazetteer: gaz }, deps: [...ctxs.values()], place: placeId, firstAsked: o.now });
@@ -180,7 +225,8 @@ export function estimate(d: BuilderDeps, place: string, build: string): { etaDri
   const sum = (prio: number) => q.ahead(prio, t).reduce((a, x) => a + x.n * x.weight * cost(x.kind), 0);
   const per = Math.max(1, slots);
   // (the critical path of this town alone: ctx, then its spawn blocks, then the district or full bundle)
-  const crit = cost('ctx') + cost('tiles') + (d.cfg.frame ? cost('frame') + cost('bundle') * 0.3 : cost('bundle'));
+  // (a district's tiles are quads, 2 units each; without the frame the critical path is a whole block, 5)
+  const crit = cost('ctx') + cost('tiles') * (d.cfg.frame ? 2 : 5) + (d.cfg.frame ? cost('frame') + cost('bundle') * 0.3 : cost('bundle'));
   const drive = d.cfg.frame ? sum(0) / per + crit : sum(2) / per + crit;
   const full = sum(2) / per + cost('bundle');
   return { etaDriveS: Math.round(drive / 1000), etaFullS: Math.round(Math.max(drive, full) / 1000), slots };
@@ -189,6 +235,8 @@ export function estimate(d: BuilderDeps, place: string, build: string): { etaDri
 // ---------------------------------------------------------------------------------------------------- answers
 const summaryOf = (pkg: CityPackage): TownSummary => ({ name: pkg.name, state: pkg.state, places: pkg.places.length, streets: pkg.roadsSummary.streets });
 const readJson = <T,>(store: TileStore, key: string): T | null => { const g = store.get(key); if (!g) return null; try { return JSON.parse(g.body.toString('utf8')) as T; } catch { return null; } };
+/** A stored frame in this file's shape (the compiler's own shape normalised: frame.ts normalizeFrame). */
+export const readFrame = (store: TileStore, key: string): TownFrame | null => normalizeFrame(readJson<unknown>(store, key));
 
 /** The CityPackage a lock names from the production store: a bundle's citypackage.json, else the frame (lock v3). */
 export function cityPackageFromStore(store: TileStore, lock: HometownLock): CityPackage | null {
@@ -198,7 +246,7 @@ export function cityPackageFromStore(store: TileStore, lock: HometownLock): City
     if (pkg && !packageProblems(pkg).length && JSON.stringify(cityLock(pkg)) === JSON.stringify({ ...cityLock(pkg), ...lock })) return pkg;
   }
   if (lock.formatVersion === 3) {
-    const f = readJson<TownFrame>(store, frameKey(lock.compiler, lock.place));
+    const f = readFrame(store, frameKey(lock.compiler, lock.place));
     const p = placeById(lock.place);
     if (f && p && !frameProblems(f).length && f.lock.tiles === lock.tiles) {
       const pkg = cityPackageOfFrame(f, { placeId: lock.place, name: p.name, stateName: p.stateName });
@@ -218,7 +266,7 @@ export function storyReadyLock(d: BuilderDeps, placeId: string): ServiceLock | n
   const r = rowOf(d.queue, placeId, build), m = metaOf(r);
   if (m.full) { const l = readJson<ServiceLock>(d.store, bundleKey(build, placeId, m.full.tilesId, 'full', 'lock.json')); if (l && storyLock(l)) return l; }
   if (r && (r.state === 'district' || r.state === 'growing' || r.state === 'full')) {
-    const f = readJson<TownFrame>(d.store, frameKey(build, placeId));
+    const f = readFrame(d.store, frameKey(build, placeId));
     if (f && !frameProblems(f).length) return f.lock;
   }
   return null;
@@ -287,6 +335,8 @@ export function requestTown(d: BuilderDeps, placeId: string, ip: string, source:
   const had = rowOf(q, placeId, build);
   if (had && had.state !== 'failed') {
     q.db.prepare('UPDATE towns SET asks = asks + 1 WHERE place = ? AND build = ?').run(placeId, build);
+    // (a town left with no jobs (written before this fix by a pick that crashed half way): build it now)
+    if (had.state !== 'full' && !q.jobsOf(placeId).length) enqueueTown(d, place, build, had.source, had.first_asked, false);
     // (an interactive ask raises a pre-warm town's jobs to the player's priorities)
     if (had.source === 'prewarm' && source !== 'prewarm') enqueueTown(d, place, build, source, now, true);
     return answer(d, rowOf(q, placeId, build)!);
@@ -325,6 +375,12 @@ export function requestTown(d: BuilderDeps, placeId: string, ip: string, source:
 
 /** Write the town's row and enqueue its graph (idempotent: an existing job only gains the town and a priority). */
 export function enqueueTown(d: BuilderDeps, place: Place, build: string, source: TownSource, now: number, raise: boolean) {
+  // (the town's row and every job of its graph in ONE transaction: a crash or a restart in between can never leave a
+  // town 'asked' with no jobs, which a re-ask would only join, never build)
+  d.queue.tx(() => enqueueTownIn(d, place, build, source, now, raise));
+  d.queue.changed();
+}
+function enqueueTownIn(d: BuilderDeps, place: Place, build: string, source: TownSource, now: number, raise: boolean) {
   const q = d.queue, gaz = gazetteerOf(place);
   const base = source === 'prewarm' ? 5 : source === 'rebuild' ? 3 : 0;
   let g: Graph;
@@ -343,6 +399,28 @@ export function enqueueTown(d: BuilderDeps, place: Place, build: string, source:
         .run(raise ? 1 : 0, source, JSON.stringify(meta), place.placeId, build);
     }
   });
+  // the town's map regions not staged yet (its tiles' 3.2 km reach), fetched FIRST, each by exactly one job, before its
+  // ctx: one round of fetches at the pick instead of a compile finding them missing one exit 3 at a time
+  const rel = releaseIn(d.store, build), dom = g.stage.domain;
+  const regionDeps: string[] = [];
+  if (rel) {
+    const fresh: [number, number][] = [];
+    for (const [C, R] of townRegions(g.stage)) {
+      if (d.store.has(srcKey(rel, dom as Domain, C, R, 'files.json'))) continue;
+      const k = q.regionsActive(dom, C, R);
+      if (k) regionDeps.push(k); else fresh.push([C, R]);
+    }
+    const base = source === 'prewarm' ? 5 : source === 'rebuild' ? 3 : 0;
+    const regionSpecs: EnqueueSpec[] = [];
+    for (let i = 0; i < fresh.length; i += 4) {
+      const list = fresh.slice(i, i + 4).map(([C, R]) => `${C},${R}`).join(';');
+      const key = `regions:${rel}:hg1-${dom}:${list}`;
+      regionDeps.push(key);
+      regionSpecs.push({ key, kind: 'regions', build: ANY_BUILD, prio: base, ring: 0, weight: 2, args: { release: rel, spec: `${dom}:${list}`, regions: fresh.slice(i, i + 4).map(([C, R]) => `${dom}/${C}/${R}`) }, place: place.placeId, firstAsked: now });
+    }
+    if (regionSpecs.length) q.enqueueMany(regionSpecs);
+  }
+  for (const s of g.specs) if (s.kind === 'ctx' && regionDeps.length) s.deps = [...new Set([...(s.deps ?? []), ...regionDeps])];
   const tileSpecs = g.specs.filter((s) => s.kind === 'tiles'), rest = g.specs.filter((s) => s.kind !== 'tiles' && s.kind !== 'bundle');
   q.enqueueMany(rest);
   const tileKeys = q.enqueueMany(tileSpecs).flat();
@@ -364,23 +442,20 @@ export function afterJobDone(d: BuilderDeps, j: Job, reported: string[], refused
     if (refused.length) m.refused = [...new Set([...(m.refused ?? []), ...refused])];
     if (r.state === 'asked') r.state = 'framing';
     if (j.kind === 'frame') {
-      const f = readJson<TownFrame>(d.store, frameKey(r.build, place));
+      const f = readFrame(d.store, frameKey(r.build, place));
       if (!f || frameProblems(f).length) continue;
       m.frame = true;
       // re-ring from the spawn: the district's blocks to P0, the rest by distance from the spawn
       const [sc, sr] = f.spawn.tile, [c0, r0, c1, r1] = f.spawnDistrict;
       const distKeys: string[] = [];
+      // (by the tiles each job actually builds: a quad outside the district is not raised, nor waited on by its bundle)
+      const inD = (t: Job) => tilesOfJob(t.args).some(([c, rr]) => c >= c0 && c <= c1 && rr >= r0 && rr <= r1);
       for (const t of q.jobsOf(place).filter((x) => x.kind === 'tiles' && x.state === 'queued')) {
-        const [, , C, R] = String(t.args.block).split('/').map(Number);
-        const ring = Math.max(0, Math.abs(C * 4 + 1.5 - sc) - 1.5, Math.abs(R * 4 + 1.5 - sr) - 1.5) | 0;
-        const inDistrict = C * 4 <= c1 && C * 4 + 3 >= c0 && R * 4 <= r1 && R * 4 + 3 >= r0;
-        q.reprioritise(t.key, inDistrict ? 0 : 1, ring);
+        const ring = Math.min(...tilesOfJob(t.args).map(([c, rr]) => Math.max(Math.abs(c - sc), Math.abs(rr - sr))));
+        q.reprioritise(t.key, inD(t) ? 0 : 1, ring);
       }
-      for (const t of q.jobsOf(place).filter((x) => x.kind === 'tiles')) {
-        const [, , C, R] = String(t.args.block).split('/').map(Number);
-        if (C * 4 <= c1 && C * 4 + 3 >= c0 && R * 4 <= r1 && R * 4 + 3 >= r0) distKeys.push(t.key);
-      }
-      const variant = `district-${sc}-${sr}`, gaz = gazetteerOf((d.place ?? ((id: string) => placeById(id)))(place)!);
+      for (const t of q.jobsOf(place).filter((x) => x.kind === 'tiles' && x.state !== 'failed')) if (inD(t)) distKeys.push(t.key);
+      const variant = f.variant ?? `district-${sc}-${sr}`, gaz = gazetteerOf((d.place ?? ((id: string) => placeById(id)))(place)!);
       const base = r.source === 'prewarm' ? 5 : r.source === 'rebuild' ? 3 : 0;
       q.enqueueMany([{ key: `bundle:${r.build}:${place}:${f.lock.tiles}:${variant}`, kind: 'bundle', build: r.build, prio: Math.max(0, base), args: { placeId: place, gazetteer: gaz, variant, window: f.spawnDistrict, tilesId: f.lock.tiles }, deps: [j.key, ...distKeys], place, firstAsked: r.first_asked }]);
       // the far field, in windows of at most 32 far tiles, at P2 (the full bundle waits on them)
@@ -427,7 +502,7 @@ export function onBundleStored(d: BuilderDeps, key: string) {
   const town = p ? { placeId: k.placeId!, name: p.name, stateName: p.stateName } : { placeId: k.placeId!, name: String(g.PKG?.name ?? k.placeId), stateName: String(g.PKG?.state ?? '') };
   // (lock v3: the frame's places and spawns are the story's, one source of truth; else the bundle's own)
   let pkg: CityPackage;
-  const f = readJson<TownFrame>(d.store, frameKey(k.buildId, k.placeId!));
+  const f = readFrame(d.store, frameKey(k.buildId, k.placeId!));
   try { pkg = f && !frameProblems(f).length && f.lock.tiles === k.tilesId ? cityPackageOfFrame(f, town) : cityPackageOf(g as Geodata, town); } catch (e) { console.error('hometown-build: city package', key, String((e as Error).message).slice(0, 200)); return; }
   const bad = packageProblems(pkg);
   if (bad.length) { console.error('hometown-build: city package problems', key, bad.slice(0, 3).join('; ')); return; }
@@ -435,11 +510,13 @@ export function onBundleStored(d: BuilderDeps, key: string) {
 }
 
 /** The best playable variant of a town at a build (the engine's poll, /api/towns/{place}?build=). */
-export function bestVariant(d: BuilderDeps, placeId: string, build: string): { variant: string; tilesId: string; url: string } | null {
+/** (the engine's growing.js reads `state: 'full'` or `full: true` as "the whole town is ready": both are sent) */
+export function bestVariant(d: BuilderDeps, placeId: string, build: string): { variant: string; tilesId: string; url: string; state: 'full' | 'district'; full: boolean } | null {
   const r = rowOf(d.queue, placeId, build), m = metaOf(r);
   const pick = m.full ? { variant: 'full', tilesId: m.full.tilesId } : m.district ? { variant: m.district.variant, tilesId: m.district.tilesId } : null;
   if (!pick || !d.store.has(bundleKey(build, placeId, pick.tilesId, pick.variant, 'bundle.json'))) return null;
-  return { ...pick, url: `/towns/${placeId}/${build}/${pick.tilesId}/${pick.variant}/` };
+  const full = pick.variant === 'full';
+  return { ...pick, url: `/towns/${placeId}/${build}/${pick.tilesId}/${pick.variant}/`, state: full ? 'full' : 'district', full };
 }
 
 /** Pre-warm (SPEC 7): the towns of a list enqueued at P5 (district first inside each town, then rings). */

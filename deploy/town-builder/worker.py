@@ -23,7 +23,8 @@ Environment:
   HOMETOWN_SLOT_GB=1.5      memory per slot; HOMETOWN_CACHE_GB=4 the local cache's cap; HOMETOWN_SLOTS a fixed count
   HOMETOWN_PYTHON           the compiler's Python (default this one); HOMETOWN_COMPILER_DIR its tools/hometown
   HOMETOWN_WORK             the local cache root (default /tmp/hometown-cache)
-  HOMETOWN_DATA_SEED        a folder whose osm/ and dem/ seed the data dir (the image's baked OSM table and DEM snapshot)
+  HOMETOWN_DATA_SEED        a folder whose osm/, dem/ and overture-index/ seed the data dir (the image's baked OSM table,
+                            DEM snapshot and the Overture release's file index: a cold region fetch reads only its files)
   HOMETOWN_WORKER_ID        this worker's name (default hostname-pid)
   HOMETOWN_ONCE=1           exit when the queue has been empty for one long-poll (the local dry run)
 """
@@ -189,6 +190,7 @@ class Worker:
         self.draining = False
         self.once = os.environ.get('HOMETOWN_ONCE') == '1'
         self.downloaded = set()
+        self.region_locks = {}
         self.env = self.child_env()
         os.makedirs(self.store, exist_ok=True)
         os.makedirs(self.data, exist_ok=True)
@@ -210,7 +212,7 @@ class Worker:
         src = os.environ.get('HOMETOWN_DATA_SEED')
         if not src:
             return
-        for name in ('osm', 'dem'):
+        for name in ('osm', 'dem', 'overture-index'):
             a, b = os.path.join(src, name), os.path.join(self.data, name)
             if os.path.isdir(a) and not os.path.exists(b):
                 os.symlink(os.path.abspath(a), b)
@@ -298,27 +300,41 @@ class Worker:
         missing = []
         for b in [x for x in rest.split(';') if x]:
             C, R = [int(v) for v in b.split(',')]
-            d = self.region_dir(dom, C, R)
-            if os.path.exists(os.path.join(d, 'region.json')):
-                os.utime(d)
-                continue
-            base = 'src/overture/%s/hg1-%s/4/%d/%d/' % (release, dom, C, R)
-            st, j = self.web.jcall('GET', 'objects/' + base + 'files.json')
-            if st != 200 or not isinstance(j.get('files'), dict):
-                missing.append('%d,%d' % (C, R))
-                continue
-            tmp = d + '.dl-%d' % os.getpid()
-            shutil.rmtree(tmp, ignore_errors=True)
-            os.makedirs(tmp)
-            for name, e in sorted(j['files'].items()):
-                st, b = self.web.call('GET', 'objects/' + base + name, timeout=300)
-                if st != 200 or sha(b) != e['sha256']:
-                    raise RuntimeError('staged region file %s%s: %d or hash' % (base, name, st))
-                open(os.path.join(tmp, name), 'wb').write(b)
-            os.makedirs(os.path.dirname(d), exist_ok=True)
-            shutil.rmtree(d, ignore_errors=True)
-            os.rename(tmp, d)
+            # (one region is staged by one job thread at a time: two jobs of a fresh worker needing the same region once
+            # shared one temp folder (the pid) and removed each other's files mid-compile)
+            with self.region_lock(dom, C, R):
+                if not self.stage_one(dom, C, R, release):
+                    missing.append('%d,%d' % (C, R))
         return (dom + ':' + ';'.join(missing)) if missing else None
+
+    _region_guard = threading.Lock()
+
+    def region_lock(self, dom, C, R):
+        with Worker._region_guard:
+            return self.__dict__.setdefault('region_locks', {}).setdefault((dom, C, R), threading.Lock())
+
+    def stage_one(self, dom, C, R, release):
+        """One staged region into the data dir (True), or False when the web has not staged it."""
+        d = self.region_dir(dom, C, R)
+        if os.path.exists(os.path.join(d, 'region.json')):
+            os.utime(d)
+            return True
+        base = 'src/overture/%s/hg1-%s/4/%d/%d/' % (release, dom, C, R)
+        st, j = self.web.jcall('GET', 'objects/' + base + 'files.json')
+        if st != 200 or not isinstance(j.get('files'), dict):
+            return False
+        tmp = d + '.dl-%d-%d' % (os.getpid(), threading.get_ident())
+        shutil.rmtree(tmp, ignore_errors=True)
+        os.makedirs(tmp)
+        for name, e in sorted(j['files'].items()):
+            st, b = self.web.call('GET', 'objects/' + base + name, timeout=300)
+            if st != 200 or sha(b) != e['sha256']:
+                raise RuntimeError('staged region file %s%s: %d or hash' % (base, name, st))
+            open(os.path.join(tmp, name), 'wb').write(b)
+        os.makedirs(os.path.dirname(d), exist_ok=True)
+        shutil.rmtree(d, ignore_errors=True)
+        os.rename(tmp, d)
+        return True
 
     def cached_regions(self):
         out = []
@@ -483,12 +499,22 @@ class Worker:
         d = self.region_dir(dom, C, R)
         base = 'src/overture/%s/hg1-%s/4/%d/%d/' % (release, dom, C, R)
         files = {}
-        for name in sorted(os.listdir(d)):
-            if name.endswith('.parquet') or name == 'region.json':
-                b = open(os.path.join(d, name), 'rb').read()
-                files[name] = {'sha256': sha(b), 'bytes': len(b)}
-                self.put(base + name, b, sha(b))
-        self.put(base + 'files.json', json.dumps({'format': 'hometown-region-files', 'files': files}, sort_keys=True).encode())
+        try:
+            for name in sorted(os.listdir(d)):
+                if name.endswith('.parquet') or name == 'region.json':
+                    b = open(os.path.join(d, name), 'rb').read()
+                    files[name] = {'sha256': sha(b), 'bytes': len(b)}
+                    self.put(base + name, b, sha(b))
+            self.put(base + 'files.json', json.dumps({'format': 'hometown-region-files', 'files': files}, sort_keys=True).encode())
+        except RuntimeError as e:
+            # (another worker staged this region first: a second fetch of the same rows is other bytes (parquet is not
+            # byte-stable), refused with 409. Take the staged copy, so every worker reads the very bytes the web holds)
+            if ': 409 ' not in str(e):
+                raise
+            log(event='region-staged-elsewhere', region='%s:%d,%d' % (dom, C, R))
+            shutil.rmtree(d, ignore_errors=True)
+            if self.stage_regions('%s:%d,%d' % (dom, C, R), release):
+                raise
         return base + 'files.json'
 
     def bundle(self, job, release):
@@ -499,18 +525,29 @@ class Worker:
         pf = self.places_file(args)
         out = os.path.join(self.work, 'out-%s-%d' % (pid, os.getpid()))
         shutil.rmtree(out, ignore_errors=True)
-        if variant == 'full':
+        fr = self.path('frames/%s/%s.json' % (build, pid))
+        if '--assemble' in self.caps:
+            # (compiler 0.7.0+: the windowed assembler, frame-pinned when the frame is stored, writing the bundle itself.
+            # A district lists NO far tiles (--far-mode none): its bytes then depend only on the frame and its tiles, so
+            # a retried job re-uploads the very same bytes (objects never change); the full bundle compiles its far field)
+            a = ['--assemble', pid, '--window', 'full' if variant == 'full' else 'district', '--places', pf, '--out', out]
+            if os.path.exists(fr):
+                a += ['--frame', fr]
+            elif variant != 'full':
+                return {'fail': True, 'code': 2, 'reason': 'a district bundle needs its frame (frames/%s/%s.json not an input)' % (build, pid)}
+            if variant != 'full':
+                a += ['--far-mode', 'none']
+        elif variant == 'full':
             a = ['--id', pid, '--places', pf, '--out', out]
         else:
-            if '--assemble' not in self.caps:
-                return {'fail': True, 'code': 2, 'reason': 'this compiler has no --assemble (MogCity M4)', 'final': True}
-            fr = self.path('frames/%s/%s.json' % (build, pid))
-            a = ['--assemble', pid, '--window', 'district', '--frame', fr, '--places', pf, '--out', out]
+            return {'fail': True, 'code': 2, 'reason': 'this compiler has no --assemble (MogCity M4)', 'final': True}
         code, err, _, peak, missing = self.compile(a, job, release)
         if missing:
             return {'fail': True, 'code': 3, 'missingRegions': missing, 'reason': 'regions'}
         if code != 0:
             return {'fail': True, 'code': code, 'reason': err[-600:]}
+        if '--assemble' in self.caps:
+            return self.send_bundle(job, out, peak)
         pk = os.path.join(out, pid)
         man = json.load(open(os.path.join(pk, 'manifest.json')))
         for f, e in man['files'].items():
@@ -542,6 +579,35 @@ class Worker:
             if re.match(r'^data/(terrain|buildings|groundmask)\.bin\.gz$', f) or re.match(r'^data/far/[a-c]-[0-9]{1,6}-[0-9]{1,6}\.bin\.gz$', f):
                 send(f, open(os.path.join(pk, f), 'rb').read())
         bj = {'format': 'hometown-bundle-files', 'buildId': build, 'placeId': pid, 'tilesId': tiles_id, 'variant': variant, 'files': files}
+        self.put(base + 'bundle.json', json.dumps(bj, sort_keys=True).encode())
+        shutil.rmtree(out, ignore_errors=True)
+        return {'outputs': outputs + [base + 'bundle.json'], 'peak': peak}
+
+    def send_bundle(self, job, out, peak):
+        """Upload a bundle the compiler wrote (--assemble ... --out <dir>: geodata.json, lock.json, data/*.bin.gz and its
+        own bundle.json): checked against the compiler's list, then the web's bundle.json (format hometown-bundle-files) LAST."""
+        args, build = job['args'], job['build']
+        pid, variant = args['placeId'], args['variant']
+        cb = json.load(open(os.path.join(out, 'bundle.json')))
+        lock = json.load(open(os.path.join(out, 'lock.json')))
+        tiles_id = cb.get('tilesId')
+        if cb.get('place') != pid or cb.get('buildId') != build or lock.get('tiles') != tiles_id or not re.match(r'^[0-9a-f]{64}$', tiles_id or ''):
+            return {'fail': True, 'code': 2, 'reason': 'the bundle is not this town\'s: ' + json.dumps({k: cb.get(k) for k in ('place', 'buildId', 'tilesId', 'variant')})[:300], 'final': True}
+        if cb.get('variant') != variant:
+            return {'fail': True, 'code': 2, 'reason': 'the compiler made variant %s, the job asked %s' % (cb.get('variant'), variant), 'final': True}
+        for f, e in cb['files'].items():
+            if sha(open(os.path.join(out, f), 'rb').read()) != e['sha256']:
+                return {'fail': True, 'code': 2, 'reason': 'bundle file %s differs from its list' % f}
+        # (the build's objects first: far tiles, the stage-2 manifest and anything else the assembler stored; then the bundle)
+        outputs = self.upload_new(job['t0'])
+        base = 'bundles/%s/%s/%s/%s/' % (build, pid, tiles_id, variant)
+        files = {}
+        for f in sorted(cb['files']):
+            if f in ('geodata.json', 'lock.json') or re.match(r'^data/(terrain|buildings|groundmask)\.bin\.gz$', f) or re.match(r'^data/far/[a-c]-[0-9]{1,6}-[0-9]{1,6}\.bin\.gz$', f):
+                b = open(os.path.join(out, f), 'rb').read()
+                files[f] = {'sha256': sha(b), 'bytes': len(b)}
+                self.put(base + f, b, sha(b))
+        bj = {'format': 'hometown-bundle-files', 'buildId': build, 'placeId': pid, 'tilesId': tiles_id, 'variant': variant, 'files': files, 'farRefs': cb.get('farRefs', [])}
         self.put(base + 'bundle.json', json.dumps(bj, sort_keys=True).encode())
         shutil.rmtree(out, ignore_errors=True)
         return {'outputs': outputs + [base + 'bundle.json'], 'peak': peak}

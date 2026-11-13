@@ -25,10 +25,10 @@ import { verifyObject } from '../lib/hometown-tiles/http.ts';
 import { planGc } from '../lib/hometown-tiles/gc.ts';
 import { hometownConfig } from '../lib/hometown-tiles/config.ts';
 import { BuildQueue, LEASE_MS, MAX_ATTEMPTS, BACKOFF_MS } from '../lib/hometown-build/queue.ts';
-import { requestTown, townStatus, townGraph, gazetteerOf, blocksOf, promisedOutputs, afterJobDone, storyReadyLock, cityPackageFromStore, PHASE_WORDS, BUSY_WORDS, bestVariant, onBundleStored, type BuilderDeps } from '../lib/hometown-build/towns.ts';
+import { requestTown, townStatus, townGraph, gazetteerOf, blocksOf, quadsOf, QUAD_RING, townRegions, promisedOutputs, afterJobDone, storyReadyLock, cityPackageFromStore, PHASE_WORDS, BUSY_WORDS, bestVariant, onBundleStored, type BuilderDeps } from '../lib/hometown-build/towns.ts';
 import { workerResponse, builderAdminResponse, regionsJobOf } from '../lib/hometown-build/server.ts';
 import { townsAccess, townBoxEnabled } from '../lib/hometown-build/access.ts';
-import { cityPackageOfFrame, frameProblems, type TownFrame } from '../lib/hometown-build/frame.ts';
+import { cityPackageOfFrame, frameProblems, normalizeFrame, type TownFrame } from '../lib/hometown-build/frame.ts';
 import { storyLock, serviceLock, sameServiceLock, tilesIdOf, type ServiceLock } from '../lib/hometown/ids.ts';
 import { cityLock, packageProblems, hometownBase, type CityPackage } from '../storykit/hometown/city-package.ts';
 import { gateHometown, districtProblems } from '../storykit/hometown/hometown-gate.ts';
@@ -246,6 +246,9 @@ async function g4to6(ok: Ok, dir: string) {
   const pw = townGraph('us-4054200', gazetteerOf(okemah), B, { frame: true, base: 5, now: t.now });
   ok('pre-warm puts every job at P5; frame mode adds the frame job', pw.specs.every((s) => s.prio === 5) && pw.specs.some((s) => s.kind === 'frame'));
   ok('the anchor tile is inside the town\'s tile range', (() => { const [c, r] = anchorTile(g.stage.domain, okemah.lon, okemah.lat); const [c0, r0, c1, r1] = g.stage.tileRange; return c >= c0 && c <= c1 && r >= r0 && r <= r1; })());
+  ok('quads: a block mask splits into 2 x 2 quads that cover it exactly, never overlapping', [0xffff, 0xcccc, 0x0021, 0x8001].every((m) => { const qs = quadsOf(m); return qs.reduce((a, q) => a | q.mask, 0) === m && qs.every((q, i) => qs.every((r, k) => i === k || !(q.mask & r.mask))) && qs.every((q) => q.mask && (q.mask & ~m) === 0); }));
+  ok(`blocks within ${QUAD_RING} tiles of the anchor are quad jobs (part 0-3), the rest whole blocks`, tilesJobs.some((s) => s.args.part != null) && tilesJobs.some((s) => s.args.part == null) && tilesJobs.filter((s) => s.args.part != null).every((s) => /:q[0-3]$/.test(s.key)));
+  ok('a town\'s map regions are its tile range grown by the compiler\'s 3.2 km reach (Weleetka: the 6 its compiles asked for one exit 3 at a time)', (() => { const w = placeById('us-4079800')!, gw = gazetteerOf(w); return townRegions(stage1('us-4079800', { geoid: gw.geoid, anchor: gw.anchor, bbox: gw.bbox })).map((x) => x.join('/')).join(' ') === '364/536 364/537 364/538 365/536 365/537 365/538'; })());
   ok('blocks are ringed nearest first', (() => { const bl = blocksOf(g.stage, ...g.anchor); return bl.every((b, i) => i === 0 || bl[i - 1].ring <= b.ring); })());
 
   // admission, then status
@@ -257,7 +260,7 @@ async function g4to6(ok: Ok, dir: string) {
   for (const id of ['us-4055000', 'us-4075000']) requestTown(d, id, '5.5.5.5');
   const third = requestTown(d, 'us-0455000', '5.5.5.5');
   const four = requestTown(d, 'us-4261000', '5.5.5.5');
-  ok('per address, HOMETOWN_PER_IP_HOUR new towns (3), then 429', third.status === 202 && four.status === 429, `${third.status} ${four.status}`);
+  ok('per address, HOMETOWN_PER_IP_HOUR new towns (3), then 429', third.status === 202 && four.status === 429, `${third.status} ${four.status} ${JSON.stringify(third.body).slice(0, 200)}`);
   // busy: the wait over HOMETOWN_MAX_WAIT_S refuses with the minutes and the nearest built towns
   d.queue.db.prepare("INSERT INTO towns (place, build, box, state, first_asked, tiles_total, tiles_done, asks, source, meta) VALUES ('us-4075000x', ?, '[]', 'full', 0, 1, 1, 1, 'player', '{}')").run(B);
   d.queue.db.prepare("UPDATE towns SET state = 'full' WHERE place = 'us-4055000'").run();
@@ -324,7 +327,7 @@ async function g4to6(ok: Ok, dir: string) {
   ok('the town is full: 200 ready with its lock (v2 here), the town summary and the play variant', ready.status === 200 && (ready.body as { lock: { tiles: string } }).lock.tiles === L.tiles && (ready.body as { play?: { variant: string } }).play?.variant === 'full', JSON.stringify(ready.body).slice(0, 200));
   ok('the story may pin it, and the package is read back from the store by its lock', storyReadyLock(dB, 'us-4054200')?.tiles === L.tiles && !!cityPackageFromStore(dB.store, storyLock(L)!));
   ok('a town built in full logs its wait estimate\'s error (the status page\'s ETA error)', dB.queue.recentEvents(20).some((e) => e.kind === 'eta' && typeof e.errPct === 'number'));
-  ok('the engine\'s poll answers the best variant and its URL', bestVariant(dB, 'us-4054200', BL)?.url === `/towns/us-4054200/${BL}/${L.tiles}/full/`);
+  ok('the engine\'s poll answers the best variant and its URL, with state full / full: true (growing.js fullReady)', bestVariant(dB, 'us-4054200', BL)?.url === `/towns/us-4054200/${BL}/${L.tiles}/full/` && bestVariant(dB, 'us-4054200', BL)?.state === 'full' && bestVariant(dB, 'us-4054200', BL)?.full === true);
 
   // ---- G6: who may use the towns
   const req = new Request('http://web/api/towns');
@@ -350,6 +353,15 @@ function g7(ok: Ok) {
     roads: OK.roadsSummary,
   };
   ok('a frame with lock v3 reads (tiles = sha256(build + sorted ids))', frameProblems(frame).length === 0, frameProblems(frame).join('; '));
+  // the compiler's own frame shape (MogCity frame.py 0.7.0: version, district {...}, spawns and places keyed by name, streets)
+  const raw = { format: 'hometown-frame', version: 1, buildId: build, placeId: 'us-4054200', tiles: s.tiles, lock: L, spawnKey: 'downtown',
+    spawn: { x: 1, z: 2, heading: 0.5, name: 'Downtown', district: true },
+    spawns: { downtown: { x: 1, z: 2, heading: 0.5, name: 'Downtown', district: true }, east: { x: 900, z: 2, heading: 0, name: 'East' } },
+    places: { bank: { kind: 'bank', name: 'the bank', x: 3, z: 4, heading: 0, district: true }, bar: { kind: 'bar', name: 'the bar', x: 800, z: 4 } },
+    district: { tile: [s.origin.c0, s.origin.r0], tileRange: [s.origin.c0 - 2, s.origin.r0 - 2, s.origin.c0 + 2, s.origin.r0 + 2], variant: `district-${s.origin.c0}-${s.origin.r0}` },
+    streets: [{ name: 'MAIN ST', m: 1500 }, { name: 'ELM ST', m: 700 }] };
+  const nf = normalizeFrame(raw)!;
+  ok('the compiler\'s frame shape normalises: spawn tile and district from district {}, spawns/places with inDistrict, roads from streets', !!(frameProblems(nf).length === 0 && nf.spawn.tile[0] === s.origin.c0 && nf.spawnDistrict[0] === s.origin.c0 - 2 && nf.spawns[0].id === 'pkg_downtown' && nf.spawns[0].inDistrict && !nf.spawns[1].inDistrict && nf.places.bank.inDistrict && !nf.places.bar.inDistrict && nf.roads!.streets === 2 && nf.roads!.km === 2.2 && nf.variant === raw.district.variant && normalizeFrame(frame) === frame), frameProblems(nf).join('; '));
   ok('a frame whose lock is not its tiles\' is refused', frameProblems({ ...frame, tiles: s.tiles.slice(1) }).length > 0);
   const pkg = cityPackageOfFrame(frame, { placeId: 'us-4054200', name: okemah.name, stateName: okemah.stateName });
   ok('cityPackageOfFrame: a valid CityPackage whose lock is v3, pinning the frame', packageProblems(pkg).length === 0 && cityLock(pkg).formatVersion === 3 && cityLock(pkg).tiles === L.tiles && cityLock(pkg).yOffset === L.yOffset, packageProblems(pkg).slice(0, 3).join('; '));

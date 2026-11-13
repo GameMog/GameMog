@@ -30,7 +30,43 @@ export type TownFrame = {
   spawnDistrict: [number, number, number, number];
   spawns: FrameSpawn[]; places: Record<string, FramePlace>;
   roads?: { streets: number; km: number; main: string[] }; far?: string[]; refused?: string[];
+  /** the district bundle's variant as the compiler names it (`district-{c}-{r}`, the spawn tile) */
+  variant?: string;
 };
+
+/**
+ * The compiler's frame as it is stored (MogCity tools/hometown/frame.py, compiler 0.7.0) -> TownFrame. The compiler
+ * writes `version: 1`, `district: { tile, tileRange, variant, ... }`, `spawn` (no tile), `spawns` and `places` as
+ * objects keyed by name with `district: true`, and `streets: [{ name, m }]`; this file's shape is the one the queue and
+ * the Story Kit read. A frame already in this shape passes through unchanged. Never throws: frameProblems judges.
+ */
+export function normalizeFrame(raw: unknown): TownFrame | null {
+  const f = raw as Record<string, any> | null;
+  if (!f || typeof f !== 'object' || f.format !== 'hometown-frame') return null;
+  if (f.formatVersion === 1 && Array.isArray(f.spawnDistrict) && Array.isArray(f.spawns)) return f as TownFrame;
+  const d = f.district ?? {};
+  const spawnsObj: Record<string, any> = f.spawns && typeof f.spawns === 'object' && !Array.isArray(f.spawns) ? f.spawns : {};
+  const spawns: FrameSpawn[] = Object.keys(spawnsObj).sort((a, b) => (a === f.spawnKey ? -1 : b === f.spawnKey ? 1 : a < b ? -1 : 1)).map((k) => {
+    const s = spawnsObj[k];
+    return { id: `pkg_${k}`, name: String(s.name ?? k), x: Number(s.x), z: Number(s.z), heading: Number(s.heading ?? 0), inDistrict: !!(s.district ?? s.inDistrict) };
+  });
+  const places: Record<string, FramePlace> = {};
+  for (const [k, p] of Object.entries((f.places ?? {}) as Record<string, any>)) {
+    places[k] = { kind: String(p.kind), name: String(p.name), x: Number(p.x), z: Number(p.z), heading: p.heading == null ? undefined : Number(p.heading), inDistrict: !!(p.district ?? p.inDistrict) };
+  }
+  const streets = Array.isArray(f.streets) ? (f.streets as { name?: string; m?: number }[]) : [];
+  const tile = Array.isArray(d.tile) ? d.tile : f.spawn?.tile;
+  return {
+    format: 'hometown-frame', formatVersion: Number(f.formatVersion ?? f.version) as 1, buildId: f.buildId, placeId: f.placeId, name: f.name,
+    tiles: f.tiles, lock: f.lock,
+    spawn: { tile: tile as [number, number], x: Number(f.spawn?.x), z: Number(f.spawn?.z), heading: Number(f.spawn?.heading ?? 0) },
+    spawnDistrict: (d.tileRange ?? f.spawnDistrict) as [number, number, number, number],
+    spawns, places,
+    roads: { streets: streets.length, km: Math.round(streets.reduce((a, s) => a + (Number(s.m) || 0), 0) / 100) / 10, main: streets.slice(0, 8).map((s) => String(s.name ?? '')).filter(Boolean) },
+    far: Array.isArray(f.far) ? f.far : undefined, refused: Array.isArray(f.refused) ? f.refused : undefined,
+    ...(typeof d.variant === 'string' ? { variant: d.variant } : {}),
+  } as TownFrame;
+}
 
 /** What is wrong with a frame (empty: it can be used). */
 export function frameProblems(f: unknown): string[] {
