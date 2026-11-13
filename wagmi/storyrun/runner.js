@@ -1906,7 +1906,7 @@ export function createRunner(ctx) {
     const pts = [];
     for (let k = 0; k + 1 < route.length; k++) { const seg = gps.plan({ x: route[k].x, z: route[k].z }, { x: route[k + 1].x, z: route[k + 1].z }, route[k].heading) || [[route[k].x, route[k].z], [route[k + 1].x, route[k + 1].z]]; for (const q of seg) if (!pts.length || Math.hypot(q[0] - pts[pts.length - 1][0], q[1] - pts[pts.length - 1][1]) > 3) pts.push(q); }
     const { createDriver } = await import('../mission/m2-drive.js');
-    const N = window.NYC, g = new THREE.Group(), spec = N.BODY_SPECS?.[d.car === 'lowered' ? 'sedan' : d.car || 'sedan'];
+    const N = cityWorld.assets, g = new THREE.Group(), spec = N.BODY_SPECS?.[d.car === 'lowered' ? 'sedan' : d.car || 'sedan'];
     if (spec && N.buildCarGeometry) { const m = new THREE.Mesh(N.buildCarGeometry(spec, true), N.createLoftedCarMaterial(spec, new THREE.Color(d.color || '#1b1d22').getHex())); m.castShadow = true; g.add(m); }
     else { const m = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.4, 4.6), new THREE.MeshStandardMaterial({ color: d.color || '#1b1d22' })); m.position.y = 0.8; g.add(m); }
     app.scene.add(g);
@@ -2118,7 +2118,7 @@ export function createRunner(ctx) {
   const parked = [];
   const _tv = new THREE.Vector3(), _tq = new THREE.Quaternion(), _te = new THREE.Euler(0, 0, 0, 'YXZ');
   async function towCar(d) {
-    const N = window.NYC, ride = d.car && def0.rides?.[d.car];
+    const N = cityWorld.assets, ride = d.car && def0.rides?.[d.car];
     if (ride) {
       try {
         const { buildVehicle } = await import('./vehicles/build-vehicle.js');

@@ -81,5 +81,7 @@ export function createNY() {
     commercial: COMMERCIAL,
     sceneGroups: SCENE_GROUPS,
     grid,
+    // (Bryant Park's lawn, as js/landmarks.js measures it once its model is in)
+    parkLawn: (N) => N.bryantParkLawn || null,
   });
 }

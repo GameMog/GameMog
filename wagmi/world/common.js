@@ -154,6 +154,22 @@ export function createWorld(city) {
     return req.count ? out.slice(0, req.count) : out;
   }
 
+  // ------------------------------------------------------------------ the engine's parts
+  // what the game builds with from the city's own engine (each read when asked; undefined where a city has none):
+  //   assets  TSL, Addons (mergeGeometries...), Terrain, the lofted cars (BODY_SPECS, buildCarGeometry,
+  //           createLoftedCarMaterial, buildLightbarGeometry, createLightbarMaterial, carStyleCode), the people
+  //           (PersonCrowd, PersonRig)
+  //   look    cityUniforms, GRADE_LOOKS, CRATER_GLOW, the power uniforms (peopleWorn, signalPower, carLampPower), quality
+  //   street  breakables (the street furniture a car knocks over), streetFootprints (the buildings' footprints by the
+  //           sidewalks), parkLawn (a park lawn's box for a set's dressing: New York's Bryant Park; null elsewhere)
+  const pass = (names) => Object.defineProperties({}, Object.fromEntries(names.map((k) => [k, { enumerable: true, get: () => N()[k] }])));
+  const assets = pass(['TSL', 'Addons', 'Terrain', 'BODY_SPECS', 'buildCarGeometry', 'createLoftedCarMaterial', 'buildLightbarGeometry',
+    'createLightbarMaterial', 'carStyleCode', 'PersonCrowd', 'PersonRig']);
+  const look = pass(['cityUniforms', 'GRADE_LOOKS', 'CRATER_GLOW', 'peopleWorn', 'signalPower', 'carLampPower', 'quality']);
+  const street = Object.defineProperties(pass(['breakables', 'streetFootprints']), {
+    parkLawn: { enumerable: true, get: () => (city.parkLawn ? city.parkLawn(N()) : null) || null },
+  });
+
   const W = {
     id: city.id, name: city.name, frame: city.frame,
     sampleSurface, groundY, roadY, queryColliders,
@@ -175,6 +191,11 @@ export function createWorld(city) {
     grid: city.grid || null,
     // (v0: the whole city is in memory once the page has loaded it)
     ensureLoaded: () => Promise.resolve(),
+    // the city's running app (controllerManager, trafficSystem, lightingSystem, postFX, scene...): null till it is up
+    get app() { return APP(); },
+    // its three.js scene (null till the app is up)
+    get scene() { return APP()?.scene || null; },
+    assets, look, street,
   };
   return W;
 }

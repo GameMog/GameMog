@@ -1,4 +1,4 @@
-// Mog City: the street furniture a car runs into (js/street-details.js window.NYC.breakables, with the plazas' and
+// Mog City: the street furniture a car runs into (js/street-details.js breakables, world.street.breakables, with the plazas' and
 // parks' benches, lampposts and granite from js/city-grid.js). Poles and lamps snap at the foot and fall the way they
 // were hit, turning faster as they go, onto the street or onto their own arm, their light out; the small things (and
 // the benches) fly, tumbling, bounce off the ground and the buildings and lie flat where they stop; a hydrant goes up in
@@ -10,6 +10,7 @@
 // ground, the buildings, the wrecks and the other things knocked about, is shoved along by Dan's car (a kinematic body
 // in Jolt) and lies however it comes to rest; it can be knocked again. Poles still fall about their foot.
 import * as THREE from 'three/webgpu';
+import { world } from '../world/index.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 // per kind: fall (snaps and falls over) or fly; mass (to the car's 2: what knocking it costs the car's speed); snap
@@ -32,7 +33,7 @@ const CELL = 12;
 const key = (ix, iz) => (ix + 4096) * 8192 + (iz + 4096);
 
 export function createProps({ cm, fx, play, car = null, scene = null, physics: PH = null }) {
-  const list = (window.NYC.breakables || []).filter((b) => b.solid || (KINDS[b.kind] && b.parts && b.parts.length));
+  const list = (world.street.breakables || []).filter((b) => b.solid || (KINDS[b.kind] && b.parts && b.parts.length));
   const cells = new Map();
   for (const b of list) {
     const r = Math.max(b.r, b.w ? Math.hypot(b.w, b.d) / 2 : 0);

@@ -14,7 +14,7 @@
 //   camps.js   tent camps and food lines on the plazas and squares, people round barrel fires
 //   sound.js   wind, rumble, crackle, far sirens and booms, a far roar; the living city's bed turned down (no music)
 //   and here:  the traffic left where it stood (cities/sf/js/traffic.js abandon: no driving, askew, burnt out, doors
-//              open, solid and never shoved, no lamps lit (NYC.carLampPower 0), no buses; the freeways and the
+//              open, solid and never shoved, no lamps lit (world.look.carLampPower 0), no buses; the freeways and the
 //              streetcars stopped), the lawns dead (cityUniforms.uDeadGround), far fewer people out and those in drab, dusty clothes,
 //              and wild horses grazing on the open green near the camera (W.creatures.herd)
 //   createApocalypse(W, { time, clear: [[x, z, r]] (kept clear of the camps) }) -> W.apocalypse { look, fx, debris, camps, sound, setTime(id), stats() }
@@ -34,7 +34,7 @@ const PASTURES = [[520, -740], [-2322, -402], [-2062, 871], [-699, -1347], [-333
 
 export async function createApocalypse(W, { time = 'dusk', clear = [] } = {}) {
   if (W.apocalypse) return W.apocalypse;
-  const app = W.app, N = window.NYC;
+  const app = W.app, N = W.world.look;
   for (let i = 0; i < 1800 && !app.ready; i++) await sleep(100);
   const out = (W.apocalypse = { ready: false });
   document.documentElement.dataset.apocalypse = '1';

@@ -17,6 +17,9 @@
 //   scene    sceneGroups (what the city's scene groups are called: grid, blocks, landmarks, streetDetails, traffic...)
 //   grid     New York's street grid (street(n), streetLine(n), avenue(id), avenueLine(id)); null in San Francisco
 //   ensureLoaded(bounds) -> Promise (v0: resolved, the whole city is in memory)
+//   engine   app (the city's running app, null till it is up), scene (its three.js scene); assets (TSL, Addons, Terrain,
+//            the lofted cars: BODY_SPECS, buildCarGeometry..., the people: PersonCrowd, PersonRig), look (cityUniforms,
+//            GRADE_LOOKS, CRATER_GLOW, the power uniforms, quality), street (breakables, streetFootprints, parkLawn)
 import { cityId } from './city.js';
 import { createNY } from './ny.js';
 import { createSF } from './sf.js';

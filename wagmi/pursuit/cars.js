@@ -6,12 +6,13 @@
 // carry two spokes, so a wheel is seen turning.
 //   const c = buildChaseCar(kind, i)  ->  { group, tilt (the body, pitched and rolled), rims, hw, hl, roof, mass, kind }
 import * as THREE from 'three/webgpu';
+import { world } from '../world/index.js';
 
 const ACID = '#B6FF3B';
 const cache = {};
 function shared() {
   if (cache.ok) return cache;
-  const N = window.NYC || {};
+  const N = world.assets;
   cache.N = N;
   cache.geo = {}; cache.ok = true;
   cache.acid = new THREE.MeshStandardNodeMaterial({ color: ACID, emissive: '#6FA81A', emissiveIntensity: 0.9, roughness: 0.35, metalness: 0.4 });
@@ -29,7 +30,7 @@ function shared() {
 function rimGeo(r) {
   const key = 'rim' + r.toFixed(3);
   if (cache.geo[key]) return cache.geo[key];
-  const merge = window.NYC?.Addons?.mergeGeometries;
+  const merge = world.assets.Addons?.mergeGeometries;
   const t = new THREE.TorusGeometry(r, r * 0.17, 8, 26);
   const a = new THREE.BoxGeometry(r * 1.9, r * 0.2, r * 0.12), b = a.clone().rotateZ(Math.PI / 2);
   for (const x of [t, a, b]) { x.deleteAttribute('uv'); }

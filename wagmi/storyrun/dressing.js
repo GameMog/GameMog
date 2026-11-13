@@ -32,7 +32,7 @@ export function createDressing(W, dressing = {}) {
   // (every look here is New York's: Manhattan's streets and avenues, its blocks' and parks' groups, its sets'
   // corners. Another city (wagmi/world: world.id) wears none of them: the world plays in the city as it is)
   if (cityWorld.id !== 'ny') { console.info('[storyrun] dressing: New York only; this city is left as it is'); return null; }
-  const N = window.NYC, T = N.TSL, app = W.app, scene = app.scene;
+  const N = cityWorld.assets, L = cityWorld.look, T = N.TSL, app = W.app, scene = app.scene;
   const { Fn, float, vec2, vec3, vec4, uniform, mix, smoothstep, step, max, min, abs, fract, sin, cos, dot, length, floor, mod,
     positionWorld, normalWorld, cameraPosition, materialColor, attribute, instanceIndex, time, varying, mrt, color } = T;
   const want = {
@@ -41,7 +41,7 @@ export function createDressing(W, dressing = {}) {
     weather: ['snow', 'rain', 'storm'].includes(dressing.weather) ? dressing.weather : null,
   };
   const out = { want, ready: false, dark: () => 0, parts: {} };
-  const U = N.cityUniforms;
+  const U = L.cityUniforms;
   const groups = (names) => names.map((n) => scene.getObjectByName(n)).filter(Boolean);
   const ground = (x, z) => { try { const y = app.controllerManager.getGroundHeight(x, z, 'person'); return Number.isFinite(y) ? y : 0; } catch { return 0; } };
   // (Manhattan's grid, the world contract's: a numbered street's z, an avenue by id; its scene's groups by what they hold)
@@ -468,7 +468,7 @@ export function createDressing(W, dressing = {}) {
   }
 
   function christmasSet() {
-    const lawn = N.bryantParkLawn || { minX: -277, maxX: -134, minZ: 27, maxZ: 140 };
+    const lawn = cityWorld.street.parkLawn || { minX: -277, maxX: -134, minZ: 27, maxZ: 140 };
     tree(lawn.minX + 78, (lawn.minZ + lawn.maxZ) / 2 - 14, 14);
     const x7 = ave('7') ? ave('7').x : -585;
     tree(x7 - 30, Z(45) - 30, 8);

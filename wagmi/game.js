@@ -1,4 +1,4 @@
-// Mog City: the game on top of the city. Waits for the city app (window.__NYC_APP), then
+// Mog City: the game on top of the city. Waits for the city app (world.app), then
 //  - puts Dan (assets/characters/dan.glb, every clip) in place of the procedural walker, his idle, walk, jog, run
 //    and sprint blended from his speed and his jump from the air under him;
 //  - puts Dan's car (wagmi/roadster.js) in place of the taxi, faster, its rocket package firing on the boost;
@@ -24,7 +24,7 @@ const HORSE = (PACK?.ok && PACK.modelCar?.model === 'mogcity/horse') || new URLS
 // (its way over the ground, in place of the car's: made in the car block)
 let HD = null;
 
-const app = await new Promise((res) => { const t = setInterval(() => { if (window.__NYC_APP && window.__NYC_APP.controllerManager) { clearInterval(t); res(window.__NYC_APP); } }, 100); });
+const app = await new Promise((res) => { const t = setInterval(() => { const a = world.app; if (a && a.controllerManager) { clearInterval(t); res(a); } }, 100); });
 const cm = app.controllerManager, person = cm.entities.person, car = cm.entities.car;
 const WAGMI = (window.WAGMI = { app, person, car, world });
 if (PACK) WAGMI.pack = PACK;

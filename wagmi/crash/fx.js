@@ -5,6 +5,7 @@
 // hundred). All always drawn (one tiny instance under the street when idle, so their pipelines are built at the start
 // and the first crash doesn't stall).
 import * as THREE from 'three/webgpu';
+import { world } from '../world/index.js';
 import { attribute, uv, texture, vec2, vec3, vec4, float, length, select, mix, modelViewMatrix, cameraProjectionMatrix, positionGeometry, mrt } from 'three/tsl';
 
 const G = 9.8;
@@ -49,7 +50,7 @@ function waterPool(scene, max) {
   const off = ax.mul(positionGeometry.y.mul(iSize.x.mul(iSize.y.add(1)))).add(ay.mul(positionGeometry.x.mul(iSize.x)));
   m.vertexNode = cameraProjectionMatrix.mul(vec4(mv.xy.add(off), mv.z, mv.w));
   const mask = texture(waterAtlas(), uv().mul(vec2(0.5, 1)).add(vec2(iSize.z.mul(0.5), 0))).a;
-  const U = window.NYC && window.NYC.cityUniforms;
+  const U = world.look.cityUniforms;
   const lit = U ? U.uSkyHorizonColor.mul(0.55).add(U.uSkyTopColor.mul(0.2)).add(U.uSunColor.mul(U.uSkyHorizonColor.g.mul(0.35))).add(0.03) : vec3(0.75, 0.82, 0.9);
   // (the drops a touch brighter than the mist: they catch the light)
   m.colorNode = vec4(lit.mul(mix(float(0.92), float(1.15), iSize.z)), mask.mul(iAlpha));

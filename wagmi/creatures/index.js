@@ -18,6 +18,7 @@
 // centaur), ogre(), trex() (a boss), scorpion() (one in its lair), herd() (four horses), mech(), ape(); &scene=<name>
 // starts one.
 import * as THREE from 'three/webgpu';
+import { world } from '../world/index.js';
 import { loadCreature } from '../library/creature.js';
 import { PROFILES, nameOf } from './profiles.js';
 import { CreatureFighter } from './fighter.js';
@@ -30,7 +31,7 @@ const Q = new URLSearchParams(location.search);
 
 export async function install(W, c) {
   const app = W.app, P = W.person;
-  const low = () => { try { return /phone|low/.test(String(window.NYC?.quality?.tier || window.NYC?.quality || '')); } catch (e) { return false; } };
+  const low = () => { try { return /phone|low/.test(String(world.look.quality?.tier || world.look.quality || '')); } catch (e) { return false; } };
   const handles = new Set(), herds = new Set();
   // the kinds, loaded once each; their pipelines compiled up front (a fighter's dissolving copy and a herd's plain one)
   const kits = new Map();

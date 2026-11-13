@@ -8,7 +8,7 @@
 const WRECK_R = 170;
 
 export function createBurning(W, fx) {
-  const app = W.app, N = window.NYC;
+  const app = W.app, N = W.world.look;
   const setOn = (on) => { if (N.cityUniforms?.uFireWindows) N.cityUniforms.uFireWindows.value = on ? 1 : 0; };
   setOn(true);
   const wrecks = []; fx.sources.set('wrecks', wrecks);

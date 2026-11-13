@@ -33,5 +33,7 @@ export function createSF() {
     // (San Francisco's fork keeps most of the engine's group names; its landmarks and its own street details are its own)
     sceneGroups: { ...SCENE_GROUPS, landmarks: 'SFLandmarks', grid: null, boroughs: null, sfStreetDetails: 'SFStreetDetails' },
     grid: null,
+    // (no park lawn measured for a set's dressing)
+    parkLawn: () => null,
   });
 }

@@ -1,5 +1,5 @@
 // SF 2040: the sky and the light after Erebus. Three looks added to San Francisco's own lighting presets
-// (cities/sf/js/lighting.js LightingSystem.PRESETS) and colour grade (post-processing.js window.NYC.GRADE_LOOKS):
+// (cities/sf/js/lighting.js LightingSystem.PRESETS) and colour grade (post-processing.js GRADE_LOOKS, world.look):
 //   ash-dusk  (the default) a dim copper sun low in the west through the ash, a red glow on the horizon toward the
 //             Presidio (where Erebus came down), heavy warm-grey haze, a desaturated warm grade, the power out
 //   ash-day   the same sky higher and paler: a brown overcast, the sun a smudge
@@ -59,7 +59,7 @@ const MAP = { golden: 'ash-dusk', twilight: 'ash-dusk', midday: 'ash-day', midni
 export const lookOf = (id) => (PRESETS[id] ? id : MAP[id] || 'ash-dusk');
 
 export function installLook(W, base = 'ash-dusk') {
-  const app = W.app, N = window.NYC, ls = app.lightingSystem;
+  const app = W.app, N = W.world.look, ls = app.lightingSystem;
   const P = ls.constructor.PRESETS, G = N.GRADE_LOOKS;
   if (!P || !G) { console.warn('[apocalypse] this city has no presets to add to'); return null; }
   Object.assign(P, PRESETS); Object.assign(G, LOOKS);
