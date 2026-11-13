@@ -23,6 +23,10 @@ const RADAR_SCALE = 0.32; // radar pixels per metre on the ground (zooms out wit
 // (Mog City, as js/nyc-map.js: a click on the map teleports only behind ?debug, the sandbox's; in play it sets a waypoint)
 const DEBUG_TELEPORT = /[?&]debug\b/.test(location.search);
 const GRID_BEARING = GEO.frame?.bearingDeg ?? 0; // SF world north is true north
+// (Mog City, Hometown on the national grid hg1: -z is grid north, its true bearing gamma0 = GEO.frame.bearingDeg. The
+// radar is drawn turned clockwise by gamma0 so true north is up; the full map stays grid-up and its compass needle
+// turns by -gamma0. San Francisco and New York (no frame.grid) are untouched.)
+const RADAR_ROT = GEO.frame?.grid === 'hg1' ? (GRID_BEARING * Math.PI) / 180 : 0;
 
 // Map palette, shared by the radar & the atlas (in step with css/style.css): graphite ground with the streets a shade
 // lighter than the blocks they run between, muted parks & water; a yellow waypoint bearing, white landmarks & player,
@@ -1029,10 +1033,12 @@ class NYCMapSystem {
     ctx.fillStyle = MAP.water;
     ctx.fillRect(0, 0, bw, bh);
     const k = scale / c.s;
+    if (RADAR_ROT) { ctx.translate(bw / 2, bh / 2); ctx.rotate(RADAR_ROT); ctx.translate(-bw / 2, -bh / 2); }
     ctx.drawImage(c.canvas, dpr * ((c.cx - w / c.s - px) * scale + w * 0.5), dpr * ((c.cz - h / c.s - pz) * scale + h * 0.5),
       dpr * w * 2 * k, dpr * h * 2 * k);
 
     v.screen(ctx);
+    if (RADAR_ROT) ctx.rotate(RADAR_ROT);
     const toX = (wx) => v.toX(wx);
     const toY = (wz) => v.toY(wz);
 

@@ -528,7 +528,9 @@ export function createWorld(city) {
   });
 
   const W = {
-    id: city.id, name: city.name, frame: city.frame,
+    // (the frame contract: bearingDeg, the true bearing of -z; scale, grid m per session m; grid / domain, the national
+    // grid's (hg1) or null: a city's own frame. Defaults only fill what a city leaves out)
+    id: city.id, name: city.name, frame: city.frame && { bearingDeg: city.frame.gridBearingDeg ?? 0, scale: 1, grid: null, domain: null, ...city.frame },
     sampleSurface, groundY, roadY, queryColliders,
     nearestLane, throughRoad, route, streetNameAt, districtAt, commercial, isPark, inWater,
     walkSignal, signalAt,
@@ -571,7 +573,7 @@ export function createWorld(city) {
   }
   // (the flags: nothing of this runs without them)
   if (globalThis.window && globalThis.setInterval) {
-    const q = query(), follow = q.get('tiles') === '1';
+    const q = query(), follow = q.get('tiles') === '1' || q.get('tiles') === 'net';
     if (floatingOriginWanted()) W.origin = createFloatingOrigin();
     if (follow || W.origin) {
       const tick = setInterval(() => {

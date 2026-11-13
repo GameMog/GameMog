@@ -15,8 +15,13 @@
 // API (world.origin): { enabled, x, z, threshold, rebases, log, rebase(x, z), toRender(p), toWorld(p), on(fn) }.
 const APP = () => globalThis.window?.__NYC_APP || null;
 
+// on with ?origin=float; ON BY DEFAULT for a Hometown place (?city=pkg | hometown: national-grid sessions reach 50 km
+// from their origin), ?origin=off turns it off there. index.html's shader swap uses the same rule.
 export function floatingOriginWanted() {
-  try { return new URLSearchParams(globalThis.location?.search || '').get('origin') === 'float'; } catch { return false; }
+  try {
+    const q = new URLSearchParams(globalThis.location?.search || '');
+    return q.get('origin') === 'float' || (/^(pkg|hometown)$/.test(q.get('city') || '') && q.get('origin') !== 'off');
+  } catch { return false; }
 }
 
 export function createFloatingOrigin() {

@@ -6,6 +6,8 @@
 //
 // TileSource (the interface):
 //   id, version          the city and the compiler version: together the cache key's prefix ('sf@mem-1:12,-4')
+//   grid, domain, c0, r0 optional, a source on the national grid (Hometown hg1): the key is then global,
+//                        '<version = buildId>:hg1-<domain>/0/<c0 + ix>/<r0 + iz>' (STREAMING.md section 2)
 //   size                 the tile's side, m (square tiles on a grid from the frame's origin: ix = floor(x / size))
 //   has(ix, iz)          optional: false where the city has no tile (outside its data); never requested
 //   load(ix, iz, lod)    -> Promise<tile payload>, lod 'near' | 'mid' | 'far' (what ring it is wanted for). The payload
@@ -50,7 +52,11 @@ export function createTileManager(source, opts = {}) {
   let active = 0, center = null, wanted = new Map(), disposed = false;
 
   const gk = (ix, iz) => ix + ',' + iz;
-  const keyOf = (ix, iz) => `${source.id}@${source.version}:${ix},${iz}`;
+  // (a source on the national grid hg1, wagmi/world/grid.js: a GLOBAL key, the build and the tile id, no city in it, so
+  // neighbouring towns share entries: '<buildId>:hg1-conus/0/<c0 + ix>/<r0 + iz>'; else the city's own square grid)
+  const keyOf = source.grid
+    ? (ix, iz) => `${source.version}:${source.grid}-${source.domain}/0/${source.c0 + ix}/${source.r0 + iz}`
+    : (ix, iz) => `${source.id}@${source.version}:${ix},${iz}`;
   const emit = (ev, ...a) => { for (const f of handlers[ev]) { try { f(...a); } catch (e) { console.warn('[tiles] ' + ev, e); } } };
   const bounds = (ix, iz) => ({ minX: ix * size, maxX: (ix + 1) * size, minZ: iz * size, maxZ: (iz + 1) * size });
   const ringOf = (ix, iz) => {
@@ -190,7 +196,7 @@ export function createTileManager(source, opts = {}) {
     const byLod = { near: 0, mid: 0, far: 0 }, byRing = { near: 0, mid: 0, far: 0, cold: 0 };
     let bytes = 0;
     for (const t of tiles.values()) { bytes += t.bytes; byLod[t.lod]++; byRing[t.ring || 'cold']++; }
-    return { source: `${source.id}@${source.version}`, size, rings, budget, tiles: tiles.size, bytes, byLod, byRing, queued: queue.length, loading: active, pinned: pins.size, center, ...st, meanMs: st.loads + st.upgrades ? +(st.totalMs / (st.loads + st.upgrades)).toFixed(2) : 0 };
+    return { source: source.grid ? `${source.version}:${source.grid}-${source.domain}` : `${source.id}@${source.version}`, size, rings, budget, tiles: tiles.size, bytes, byLod, byRing, queued: queue.length, loading: active, pinned: pins.size, center, ...st, meanMs: st.loads + st.upgrades ? +(st.totalMs / (st.loads + st.upgrades)).toFixed(2) : 0 };
   }
 
   function dispose() {
