@@ -280,3 +280,17 @@ Voices (assets/voice)
   - Any character not yet voiced: placeholders made with the macOS speech voices (the `say` command). They
     are meant to be replaced by recordings or synthesised voices like the others'. assets/voice/manifest.json records each line's source;
     docs/VOICE-LINES.md is the line sheet and says how to drop new voices in.
+
+Hometown packages (tools/hometown, cities/pkg)
+----------------------------------------------
+  A Hometown package (?city=pkg&pkg=<id>) is a place compiled by tools/hometown/compile.py from open map data. The
+  compiler is part of this repository (MIT); the packages it writes are derived databases and keep their sources'
+  terms. Each package's manifest.json lists its sources, their versions and these credits:
+  - (c) OpenStreetMap contributors, Open Database License 1.0 (https://www.openstreetmap.org/copyright): the road
+    network (names, classes, one-ways), water and land use, and the OpenStreetMap-derived building footprints, read
+    through Overture Maps. A package's geodata.js is an ODbL derived database.
+  - Overture Maps Foundation (https://overturemaps.org), CDLA Permissive 2.0 / ODbL 1.0 by theme: the buildings theme
+    (footprints and heights, including Microsoft, Google and Esri contributions), the places theme.
+  - USGS 3D Elevation Program, 1/3 arc-second DEM: US government work, public domain.
+  The game shows the credit on the map (cities/pkg/js/pkg-hud.js) and on its Credits page (wagmi/credits.js). No
+  brand name is shown: businesses are named by what they are and the street they stand on.

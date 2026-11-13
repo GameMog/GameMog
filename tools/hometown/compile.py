@@ -218,6 +218,17 @@ def place_stage(fetch, S, dem):
                     samp.append(float(v))
         if len(samp) > 10:
             level = float(np.median(samp))
+    # the engine's water is one level (js/terrain.js waterLevel: every sample at or under it is water): only water that
+    # lies in the place's lowest ground (a river in its valley) is taken; a pond or reservoir above dry ground lower
+    # down (a dammed lake, a park's pool) is left out in v0 (it would flood that ground)
+    if level is not None:
+        lon, lat = F.from_world(*np.meshgrid(np.linspace(tx0, tx0 + (tw - 1) * CELL, 120), np.linspace(tz0, tz0 + (th - 1) * CELL, 120)))
+        hs = dem_sample(dem, lon.ravel(), lat.ravel())
+        xs, zs = F.to_world(lon.ravel(), lat.ravel())
+        dry = ~shapely.contains_xy(water.buffer(25), xs, zs) & np.isfinite(hs)
+        low = float(np.percentile(hs[dry], 0.5)) if dry.any() else level
+        if level > low + 1.0:
+            level, water = None, None
     # height datum: the ground of the box near 0 (the engine's lighting, fog and flight were tuned on San Francisco's
     # 0..120 m): the water's surface at 0 where there is water, else the box's lowest ground
     finite = grid[np.isfinite(grid)]
@@ -227,8 +238,10 @@ def place_stage(fetch, S, dem):
     water_level = round(level - y_off, 2) if level is not None else -10.0
     minH = math.floor(min(gmin - y_off, water_level)) - 1
     maxH = math.ceil(gmax - y_off) + 1
+    # 1 cm steps (the 1/3" source is ~10 m cells: finer steps would only be interpolation, and cost gzip 3x)
+    scale = 0.01 if (maxH - minH) / 0.01 <= 65535 else (maxH - minH) / 65535
     return {
-        'frame': F, 'box': B, 'terrain': {'x0': tx0, 'z0': tz0, 'w': tw, 'h': th, 'minH': minH, 'maxH': maxH, 'scale': (maxH - minH) / 65535},
+        'frame': F, 'box': B, 'terrain': {'x0': tx0, 'z0': tz0, 'w': tw, 'h': th, 'minH': minH, 'maxH': maxH, 'scale': scale},
         'water': water, 'waterLevel': water_level, 'waterNAVD88': level,
     }
 
@@ -445,7 +458,7 @@ def network_stage(P, S, place_name):
                 rect = pp.area / max(1e-9, (bx1 - bx0) * (bz1 - bz0)) > 0.97
                 blocks.append([flat(pts), [], round(share, 2) if share > 0.5 else 0, pname if share > 0.5 else '', 1 if rect else 0,
                                [[round(theta, 4), q1((bx0 + bx1) / 2), q1((bz0 + bz1) / 2), []]], kind])
-    return {'roadGraph': rg, 'blocks': blocks, 'roadway': roadway, 'links': links, 'nodes': nodes, 'stats': stats, 'parks': parks}
+    return {'roadGraph': rg, 'blocks': blocks, 'roadway': roadway, 'road_parts': roads, 'links': links, 'nodes': nodes, 'stats': stats, 'parks': parks}
 
 
 def polygons(g):
@@ -663,17 +676,19 @@ def building_records(P, S, ground, net, downtown_poly):
         recs.append({'r': r, 'g': wg, 'cx': c.x, 'cz': c.y})
     # footprints in the roadway (an ML trace over a street, a stale outline) are dropped; ones the road's estimated width
     # only grazes are kept, pulled back off it
-    tree = shapely.STRtree([o['g'] for o in recs]) if recs else None
+    rparts = net['road_parts']
+    rtree = shapely.STRtree(rparts) if rparts else None
     out = []
     dropped = 0
     for o in recs:
         g = o['g']
-        inter = g.intersection(roadway).area if roadway.intersects(g) else 0
+        hits = [rparts[i] for i in rtree.query(g, predicate='intersects')] if rtree is not None else []
+        inter = unary_union(hits).intersection(g).area if hits else 0
         if inter > 0.35 * g.area:
             dropped += 1
             continue
         if inter > 0:
-            g2 = g.difference(roadway.buffer(0.3))
+            g2 = g.difference(unary_union(hits).buffer(0.3))
             g2 = max(polygons(g2), key=lambda p: p.area) if not g2.is_empty else None
             if g2 is None or g2.area < 8:
                 dropped += 1
@@ -778,7 +793,13 @@ def mask_tile(P, net, ground, tile, mx0, mz0, mw, mh):
     for b in net['blocks_geom']:
         if not b['g'].intersects(tb):
             continue
-        poly(b['ring'], MASK['sidewalk'] if (b['kind'] == 'island' or b['paved']) else MASK['lawn'])
+        poly(b['ring'], MASK['sidewalk'] if b['kind'] == 'island' else MASK['lawn'])
+    # paved lots: round the buildings that are not houses (stores, offices, warehouses, churches: their parking and
+    # aprons), wider downtown
+    for g in net['paved']:
+        if g.intersects(tb):
+            for pp in polygons(g.intersection(tb)):
+                poly(list(pp.exterior.coords), MASK['sidewalk'])
     # sidewalk bands: each road's buffer to its curb plus its sidewalk width, drawn under the lawn's edge
     band = net['sidewalk_band']
     if band is not None:
@@ -812,6 +833,62 @@ def mask_tile(P, net, ground, tile, mx0, mz0, mw, mh):
         a[near] = MASK['waterEdge']
     del island
     return {'x0': int(x0 - mx0), 'z0': int(z0 - mz0), 'a': a}
+
+
+def hash01(x, z, k):
+    v = math.sin(x * 12.9898 + z * 78.233 + k * 37.719) * 43758.5453
+    return v - math.floor(v)
+
+
+def trees_tile(P, net, bidx, tile, desert):
+    """Trees on the curb islands of this tile (a rule: no tree data in v0): a jittered 13 m lattice over the lawns,
+    kept where 3 m clear of a building but within 25 m of one (yards, not fields), 2 m in from the curb and off the paved lots; about two in five kept, a third of
+    those on the street edge. [x, z, class, trunk cm] as GEO.trees (tree-classes: 0 broadleaf, 1 elm-like, 2 palm,
+    4 conifer)."""
+    tx, tz = tile
+    out = []
+    STEP = 13.0
+    tb = sbox(tx * TILE, tz * TILE, (tx + 1) * TILE, (tz + 1) * TILE)
+    for b in net['blocks_geom']:
+        if b['kind'] == 'island' or not b['g'].intersects(tb) or b['g'].area < 250:
+            continue
+        inner = b['g'].buffer(-2.0)
+        if inner.is_empty:
+            continue
+        x0, z0, x1, z1 = inner.intersection(tb).bounds if inner.intersects(tb) else (0, 0, -1, -1)
+        if x1 < x0:
+            continue
+        i0, i1 = math.floor(x0 / STEP), math.floor(x1 / STEP)
+        j0, j1 = math.floor(z0 / STEP), math.floor(z1 / STEP)
+        cand = []
+        for j in range(j0, j1 + 1):
+            for i in range(i0, i1 + 1):
+                x = (i + 0.15 + 0.7 * hash01(i, j, 1)) * STEP
+                z = (j + 0.15 + 0.7 * hash01(i, j, 2)) * STEP
+                if hash01(i, j, 3) > 0.42:
+                    continue
+                if not (tx * TILE <= x < (tx + 1) * TILE and tz * TILE <= z < (tz + 1) * TILE):
+                    continue
+                cand.append((x, z, i, j))
+        if not cand:
+            continue
+        pts = shapely.points(np.array([(c[0], c[1]) for c in cand]))
+        ok = shapely.contains(inner, pts)
+        for k, c in enumerate(cand):
+            if not ok[k]:
+                continue
+            pt = pts[k]
+            if len(bidx['tree'].query(pt.buffer(3.0), predicate='intersects')):
+                continue
+            # (yards and street edges: within 25 m of a building; not out in the fields)
+            if not len(bidx['tree'].query(pt.buffer(25.0), predicate='intersects')):
+                continue
+            if bidx['paved'] is not None and len(bidx['paved'].query(pt, predicate='intersects')):
+                continue
+            h = hash01(c[2], c[3], 4)
+            cls = (2 if h < 0.55 else 0) if desert else (0 if h < 0.5 else 1 if h < 0.85 else 4)
+            out.append([q1(c[0]), q1(c[1]), cls, int(12 + 30 * hash01(c[2], c[3], 5))])
+    return out
 
 
 # ------------------------------------------------------------------------------------------------------------- places
@@ -937,9 +1014,21 @@ def compile_place(pid, raw, out_root, name=None):
     for b in net['blocks']:
         ring = [(b[0][i], b[0][i + 1]) for i in range(0, len(b[0]), 2)]
         g = Polygon(ring)
-        paved = downtown_poly is not None and downtown_poly.contains(g.representative_point())
-        bgeoms.append({'ring': ring, 'g': g, 'kind': b[6], 'paved': paved})
+        bgeoms.append({'ring': ring, 'g': g, 'kind': b[6]})
     net['blocks_geom'] = bgeoms
+    paved = []
+    for o in brecs:
+        if o['btype'] in ('rowhouse', 'shed'):
+            continue
+        dt = downtown_poly is not None and downtown_poly.contains(Point(o['cx'], o['cz']))
+        paved.append(o['g'].buffer(12 if dt else 8, quad_segs=2))
+    net['paved'] = polygons(unary_union(paved)) if paved else []
+    bidx = {'tree': shapely.STRtree([o['g'] for o in brecs]), 'paved': shapely.STRtree(net['paved']) if net['paved'] else None}
+    desert = P['frame'].lon0 < -104 and P['frame'].lat0 < 37.5
+    trees = []
+    for t in tiles:
+        trees += trees_tile(P, net, bidx, t, desert)
+    mark('trees')
     bands = []
     for l in net['links']:
         if l['sw'] <= 0 or l['flags'] & FLAGS['pedestrian']:
@@ -989,7 +1078,7 @@ def compile_place(pid, raw, out_root, name=None):
     stats = {
         'buildings': bcount, 'buildingsDroppedOnRoads': dropped, 'roadLinks': len(net['roadGraph']['links']), 'roadNodes': len(net['roadGraph']['nodes']) // 2,
         'blocks': len(net['blocks']), 'islands': sum(1 for b in net['blocks'] if b[6] == 'island'), 'places': len(places),
-        'heightsFromOverture': sum(1 for o in brecs if o['r']['height'] is not None), 'oneway': net['stats']['oneway'],
+        'heightsFromOverture': sum(1 for o in brecs if o['r']['height'] is not None), 'oneway': net['stats']['oneway'], 'trees': len(trees),
     }
     manifest = {
         'format': 'hometown-package', 'version': 1, 'id': pid, 'name': name,
@@ -1015,12 +1104,16 @@ def compile_place(pid, raw, out_root, name=None):
         'data': {'terrain': {'url': 'data/terrain.bin', 'waterLevel': P['waterLevel'], 'minH': T['minH'], 'maxH': T['maxH']},
                  'buildings': {'url': 'data/buildings.bin', 'count': bcount}, 'groundMask': {'url': 'data/groundmask.bin'}},
         'land': land, 'blocks': net['blocks'], 'roadGraph': net['roadGraph'], 'parks': parks, 'piers': [], 'water': water, 'rail': [],
-        'trolley': [], 'muniStops': [], 'bikeways': [], 'trees': [], 'transit': [], 'landmarks': {}, 'bridges': {},
+        'trolley': [], 'muniStops': [], 'bikeways': [], 'trees': [v for t in trees for v in t], 'transit': [], 'landmarks': {}, 'bridges': {},
     }
     PLACE_DATA = {'source': 'hometown ' + COMPILER_VERSION, 'neighborhoods': [], 'regional': {}}
     for k, s in spawns.items():
         PLACE_DATA['regional']['pkg_' + k] = {'x': s['x'], 'z': s['z'], 'heading': s['heading'], 'name': s['name']}
-    PKG = {'id': pid, 'name': name, 'compiler': COMPILER_VERSION, 'tileSize': TILE, 'spawn': spawn, 'spawns': spawns, 'places': places,
+    # how busy its streets are (the engine's traffic and the street crowd, 0.15..1): buildings per km2 of the box
+    km2 = (B['x1'] - B['x0']) * (B['z1'] - B['z0']) / 1e6
+    density = round(min(1.0, max(0.15, 0.15 + bcount / max(km2, 0.1) / 2000)), 2)
+    stats['density'] = density
+    PKG = {'id': pid, 'name': name, 'compiler': COMPILER_VERSION, 'tileSize': TILE, 'density': density, 'spawn': spawn, 'spawns': spawns, 'places': places,
            'attribution': ATTRIBUTION, 'frame': manifest['frame'], 'box': manifest['box'], 'tiles': manifest['tiles'],
            'downtown': {'x': q1(center[0]), 'z': q1(center[1])}}
     js = ('// geodata.js: GENERATED by tools/hometown/compile.py %s for "%s", do not edit by hand.\n'

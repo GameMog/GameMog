@@ -56,6 +56,8 @@ export function createPkg() {
     grid: null,
   });
   W.pkg = P.id || null;
+  // how busy its streets are, 0..1 (the compiled density, buildings per km2: wagmi/street/crowd.js reads it, 1 elsewhere)
+  W.crowd = Math.max(0.1, Math.min(1, P.density ?? 1));
   W.ensureLoaded = ensureLoaded;
   // the package's own landmarks: its public places (school, library, park...) by name
   Object.defineProperty(W, 'landmarks', { get: () => Object.fromEntries(Object.values(PKG()?.places || {}).filter((p) => p.kind && !/^the /.test(p.name)).map((p) => [p.name, { x: p.cx, z: p.cz, kind: p.kind }])) });

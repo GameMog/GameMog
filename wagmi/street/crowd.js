@@ -166,7 +166,7 @@ export function createCrowd(W) {
     nearW = near.reduce((s, n) => s + n.w, 0);
     // (how many of them are out: all of them in the commercial districts, under half on the quieter streets)
     const cw = near.reduce((s, n) => s + (busy(n.b) ? n.w : 0), 0);
-    active = Math.min(limit, Math.round(MAX * (0.45 + 0.55 * (nearW ? cw / nearW : 1))));
+    active = Math.min(limit, Math.round(MAX * (world.crowd ?? 1) * (0.45 + 0.55 * (nearW ? cw / nearW : 1))));
   }
 
   // the view (with a margin for the people's own height and shadows)

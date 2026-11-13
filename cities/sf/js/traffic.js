@@ -39,9 +39,12 @@ const { mergeGeometries } = window.NYC.Addons;
 
 // San Francisco slice (P2.8): vehicles respawn around the camera, so these are a density, not a city total (New York's
 // Midtown ran 200 cars & 32 buses)
-const NUM_CARS = 60;
-const NUM_BUSES = 6;
-const NUM_PEDS = 340;
+// (Mog City, Hometown: a compiled place's own density, window.NYC.PKG.density 0..1 by its buildings per km2: a small
+// town's streets are quiet)
+const DENSITY = Math.max(0.1, Math.min(1, window.NYC.PKG?.density ?? 1));
+const NUM_CARS = Math.max(8, Math.round(60 * DENSITY));
+const NUM_BUSES = Math.max(1, Math.round(6 * DENSITY));
+const NUM_PEDS = Math.round(340 * DENSITY);
 
 // Intelligent Driver Model: max acceleration, comfortable braking, time headway, standstill gap; and the sideways
 // acceleration drivers accept in bends, which sets how fast they take each turn or lane shift
