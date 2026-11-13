@@ -1030,7 +1030,11 @@ function createTreeField(scene, sites) {
   scene.onBeforeRender = function (renderer, scn, camera, target) {
     prevBeforeRender.call(this, renderer, scn, camera, target);
     if (camera.isOrthographicCamera === true || camera.isArrayCamera === true) return;
-    update(viewPos.setFromMatrixPosition(camera.matrixWorld));
+    viewPos.setFromMatrixPosition(camera.matrixWorld);
+    // (Mog City, ?origin=float: the camera draws shifted by the render origin, wagmi/world/origin.js; the trees are absolute)
+    const o = window.NYC.renderOrigin;
+    if (o) { viewPos.x += o.x; viewPos.z += o.z; }
+    update(viewPos);
   };
 
   // Levels for the start-up view (Midtown, 5th Ave), so the precompile pass sees the tree meshes; a mesh the view has
