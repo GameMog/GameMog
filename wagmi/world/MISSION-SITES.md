@@ -62,7 +62,9 @@ A stand-in is used only when no real place of that kind passes the request. `fal
 call then gives `[]`). A kind the city has nothing for gives `[]`, never an error.
 
 A compiled town's adapter can hand the world its own points of interest by kind: `city.pois(kind) -> [{ id, name, x,
-z }]` (any kind of the list). They come first, as real places.
+z }]` (any kind of the list). They come first, as real places. A Hometown package's does (`wagmi/world/pkg.js`): its compiled places
+by their Overture category, `gas_station` (gas_station, fuel), `store` (grocery, supermarket, convenience store,
+pharmacy, hardware store) and `parking`; its ground mask gives `city.sidewalkAt` as San Francisco's does.
 
 ### Constraints
 

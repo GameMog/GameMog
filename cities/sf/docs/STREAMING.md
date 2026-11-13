@@ -47,6 +47,12 @@ from the whole city. Streaming gives them one grid and a lifecycle.
   (Cache API / IndexedDB, Milestone 3) share this key.
 - `source.has(ix, iz)` marks where a city has data. Tiles outside it are never requested. The in-memory source uses
   the region's flight bounds.
+- **A Hometown package** (`?city=pkg`, `wagmi/world/pkg.js`) shares the compiler's grid: 512 m tiles
+  (`PKG.tileSize`, `tools/hometown/compile.py` TILE) keyed the same way in the package's own frame, cache key
+  `pkg:<id>@<compilerVersion>:<ix>,<iz>` (for example `pkg:okemah@0.2.0:0,-1`), `has()` the tiles the package
+  compiled (`PKG.tiles`). Its `ensureLoaded` waits for the package's data and road graph, then returns the
+  manager's tiles with `.complete` and `.missing` (the grid keys it never compiled). The tile service
+  (`server/tiles`) still keys on web-mercator z16; its README's *Grid alignment* is the open decision.
 
 ## 3. Rings, levels of detail, budgets
 
