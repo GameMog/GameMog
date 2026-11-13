@@ -3,8 +3,10 @@
  "placeId": "us-ok-okemah",
  "name": "Okemah",
  "state": "Oklahoma",
- "compilerVersion": "htc-0.1.0",
- "tileSet": { "hash": "eb41fc9b6279c2613586d747ed499cd8e16a9da24440a54eb328a83b91678e21", "count": 24 },
+ "compilerVersion": "htc-0.3.0-hg1-becc45523",
+ "buildId": "htc-0.3.0-hg1-becc45523",
+ "grid": "hg1", "domain": "conus", "origin": { "c0": 5806, "r0": 8582 }, "k0": 0.996523396, "gamma0": -0.190411, "yOffset": 244, "waterLevel": -10,
+ "tileSet": { "hash": "9189788bbc4681761d9f3b16c863c5a7ef8622d467e8ec4dd6c3c5290ea5c335", "count": 156 },
  "places": [
   { "id": "broadway-3rd", "kind": "corner", "name": "Broadway & 3rd St", "x": 0, "z": 0, "tags": ["highway=junction"], "district": "downtown" },
   { "id": "town-square", "kind": "square", "name": "the town square on Broadway", "x": 60, "z": -40, "tags": ["place=square"], "district": "downtown" },

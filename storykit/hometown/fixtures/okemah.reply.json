@@ -14,11 +14,19 @@
   "base": {
    "engine": "mogcity-1",
    "city": "hometown",
-   "cityBuild": "hometown-htc-0.1.0",
+   "cityBuild": "hometown-htc-0.3.0-hg1-becc45523",
    "hometown": {
     "place": "us-ok-okemah",
-    "compiler": "htc-0.1.0",
-    "tiles": "eb41fc9b6279c2613586d747ed499cd8e16a9da24440a54eb328a83b91678e21"
+    "compiler": "htc-0.3.0-hg1-becc45523",
+    "tiles": "9189788bbc4681761d9f3b16c863c5a7ef8622d467e8ec4dd6c3c5290ea5c335",
+    "formatVersion": 2,
+    "grid": "hg1",
+    "domain": "conus",
+    "origin": { "c0": 5806, "r0": 8582 },
+    "k0": 0.996523396,
+    "gamma0": -0.190411,
+    "yOffset": 244,
+    "waterLevel": -10
    }
   },
   "dressing": {

@@ -88,9 +88,65 @@
        "type": "string",
        "maxLength": 64,
        "pattern": "^[0-9a-f]{16,64}$"
+      },
+      "formatVersion": {
+       "const": 2
+      },
+      "grid": {
+       "const": "hg1"
+      },
+      "domain": {
+       "enum": [
+        "conus",
+        "ak",
+        "hi",
+        "pr",
+        "gu",
+        "as"
+       ]
+      },
+      "origin": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "c0",
+        "r0"
+       ],
+       "properties": {
+        "c0": {
+         "type": "integer",
+         "minimum": 0,
+         "maximum": 999999
+        },
+        "r0": {
+         "type": "integer",
+         "minimum": 0,
+         "maximum": 999999
+        }
+       }
+      },
+      "k0": {
+       "type": "number",
+       "minimum": 0.9,
+       "maximum": 1.1
+      },
+      "gamma0": {
+       "type": "number",
+       "minimum": -40,
+       "maximum": 40
+      },
+      "yOffset": {
+       "type": "integer",
+       "minimum": -1000,
+       "maximum": 10000
+      },
+      "waterLevel": {
+       "type": "number",
+       "minimum": -1000,
+       "maximum": 1000
       }
      },
-     "description": "a hometown only (city 'hometown'): the town it plays, pinned (its place id, the compiler version and the tile set's hash); a Mog keeps it exactly"
+     "description": "a hometown only (city 'hometown'): the town it plays, pinned (its place id, the build and the tile set's hash; on the national grid also its frame: grid, domain, origin, k0, gamma0, yOffset, waterLevel); copied exactly from the city package, and a Mog keeps it exactly"
     }
    },
    "description": "what the story runs on; on a Mog, equal to the parent's (locked)"

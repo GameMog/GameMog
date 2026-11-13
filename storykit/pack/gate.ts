@@ -69,7 +69,7 @@ import SCHEMA from './schema.json' with { type: 'json' };
 import FORGE from '../../scripts/forge/character-sheet.schema.json' with { type: 'json' };
 import VEHICLE_SCHEMA from '../vehicles/vehicle-sheet.schema.json' with { type: 'json' };
 import { Validator, type Schema } from './validate.ts';
-import { PLACES, CAM_POINTS, CITY_NAME, HOMETOWN, foreignIn, buildsFor, type CityId, type CityTable } from './cities.ts';
+import { PLACES, CAM_POINTS, CITY_NAME, HOMETOWN, LOCK_KEYS, foreignIn, buildsFor, type CityId, type CityTable } from './cities.ts';
 import { MOGCITY_STUBS, OPENING, SHOWCASE, SHOWCASE_PACKS, SHOWCASE_CARS } from './schema.mjs';
 import { lintVoiceBlock, KOKORO_VOICES, lineHash as vdLineHash } from '../voices/voice-design.js';
 import { isBlocked } from '../../lib/names.ts';
@@ -284,7 +284,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   if (T) {
     const pin = pack.base.hometown;
     if (!pin) refuse(`base.hometown: a hometown world pins its town: ${JSON.stringify(T.lock)}.`);
-    else for (const k of ['place', 'compiler', 'tiles'] as const) if (pin[k] !== T.lock[k]) refuse(`base.hometown.${k}: "${pin[k]}" is not the city package's ("${T.lock[k]}"); a hometown world plays the exact town it pins.`);
+    else for (const k of LOCK_KEYS) if (JSON.stringify(pin[k] ?? null) !== JSON.stringify(T.lock[k] ?? null)) refuse(`base.hometown.${k}: ${JSON.stringify(pin[k] ?? null)} is not the city package's (${JSON.stringify(T.lock[k] ?? null)}); a hometown world plays the exact town it pins.`);
   }
 
   // 1. base: the engine plays the city at that build (Mog City's engine, mogcity-1: New York only so far)
@@ -300,7 +300,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
     // (a hometown's lock is its town exactly: the same place, compiler version and tile set, so a Mog never plays a
     // recompiled or re-tiled town; each part that moved is named)
     const pinned = parent.base?.hometown;
-    if (pinned) for (const k of ['place', 'compiler', 'tiles'] as const) if (pack.base.hometown?.[k] !== pinned[k]) refuse(`base.hometown.${k}: a Mog keeps its parent's town exactly ("${pinned[k]}", not ${JSON.stringify(pack.base.hometown?.[k] ?? null)}): the town is locked; only the game, the people and the missions are rewritten.`);
+    if (pinned) for (const k of LOCK_KEYS) if (JSON.stringify(pack.base.hometown?.[k] ?? null) !== JSON.stringify(pinned[k] ?? null)) refuse(`base.hometown.${k}: a Mog keeps its parent's town exactly (${JSON.stringify(pinned[k] ?? null)}, not ${JSON.stringify(pack.base.hometown?.[k] ?? null)}): the town is locked; only the game, the people and the missions are rewritten.`);
     if (!keeps) refuse(`A Mog keeps its parent's base: ${JSON.stringify(want)}, not ${JSON.stringify(pack.base)} (the city is locked; dressing may change).`);
     if (pack.id === parent.id) refuse('A Mog needs its own id, not its parent\'s.');
     // 12. a Mog keeps its parent's framework: the same rules, meters and kinds of mission; its own story, cast, cars, voices, dressing
