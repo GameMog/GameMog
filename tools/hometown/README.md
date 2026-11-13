@@ -23,6 +23,23 @@ python tools/hometown/compile.py --descriptor okemah --stage 1             # JSO
 python tools/hometown/compile.py --print-build                             # the buildId and its record
 ```
 
+### Pre-warm a list of towns (hosting, phase 1)
+
+GameMog's server only serves towns; they are built here, one child process per town, and uploaded. `requirements.txt`
+pins the libraries: a build's id hashes their versions (and Python's and zlib's), so another environment makes another
+build. GameMog's `scripts/hometown-prewarm-list.ts` writes the list (top N by 2010 population, as `us-<GEOID>`, each
+with its capped play box) in `places.json` format:
+
+```bash
+python tools/hometown/prewarm.py --places top100.json --store .scratch/prewarm/store [--only us-4054200] [--jobs 1]
+```
+
+A town whose regions are not fetched is refused by the compiler with the regions it needs; `prewarm.py` fetches them
+and retries. Finished towns go to `<store>/state/prewarm-<buildId>.jsonl` (seconds, tiles, bytes, the terrain share,
+the peak RSS of the children so far) and are skipped on the next run. Peak RSS measured on an M-series Mac
+(`/usr/bin/time -l`, 12 Nov): a whole-place compile 1.2-1.8 GB, one `--block` 0.36-1.2 GB, one `--tile` 0.35-1.2 GB,
+a stage-1 descriptor 65 MB, and `fetch.py --regions` (duckdb over S3, no memory limit) about 3 GB.
+
 The 3DEP heights are read lazily from the USGS cloud-optimized GeoTIFFs (HTTP range reads of 512 px internal tiles) and
 mirrored by ETag under `<data>/dem/`; after the first read everything is offline.
 
