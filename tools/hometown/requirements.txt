@@ -1,0 +1,9 @@
+# tools/hometown: the exact environment a Hometown build is made in. compile.py lib_versions() puts python, duckdb,
+# shapely (and its GEOS), numpy, pillow and zlib in every build record, so the buildId is a function of these pins:
+# a machine with other versions makes a DIFFERENT build (its tiles are not interchangeable). The Mac pre-warm venv:
+# Python 3.14.6 (macOS arm64; GEOS 3.14.1 and zlib 1.2.12 come with the wheels / the OS).
+#   python3.14 -m venv venv && venv/bin/pip install -r tools/hometown/requirements.txt
+duckdb==2.0.0
+numpy==2.5.4
+shapely==2.2.0
+pillow==13.0.0

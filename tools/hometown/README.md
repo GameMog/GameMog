@@ -24,20 +24,26 @@ python tools/hometown/compile.py --print-build                             # the
 python tools/hometown/compile.py --dem-snapshot                            # pin the DEM (once per build)
 ```
 
-The 3DEP heights are read lazily from the USGS cloud-optimized GeoTIFFs (HTTP range reads of 512 px internal tiles).
+### Pre-warm a list of towns (hosting, phase 1)
 
-**The DEM snapshot pin.** USGS serves each file at a mutable `.../TIFF/current/` URL, so a build pins the DEM with a
-snapshot: `python tools/hometown/compile.py --dem-snapshot` lists the bucket once (S3 ListObjectsV2, ~10 s: every 1/3"
-and 1" `.tif` with its ETag) and stores it content-addressed at `dem/snapshots/dem-{16 hex}.json` in the store, with
-`dem/current.json` pointing at it (`HOMETOWN_DEM_SNAPSHOT=<id>` names another). The build record's `demSnapshot.id` is that
-id, so the buildId changes exactly when the DEM it reads does; a compile with no snapshot in its store refuses to start.
-Every read of a file (its IFD header and each internal tile) is a range read with `If-Match: "<snapshot ETag>"`: a file
-USGS replaced since answers 412 and the compile fails (`DemChanged`) rather than mixing bytes of two versions. The bytes
-are mirrored in the store at `dem/{13|1}/{nXXwYYY}/{etag}/` (`meta.json`, `{k}.bin`, written ifAbsent), so every worker
-sharing the store reads the same bytes and `/current/` is read once per internal tile; the old local mirror
-`<data>/dem/` seeds it when its ETag matches. A file the snapshot does not list has no data (a tile with none is refused,
-naming it). `--dem-snapshot-from-mirror` makes an offline, partial snapshot of the local mirror's files.
-`tools/hometown/test_dem_pin.py` tests all of this offline.
+GameMog's server only serves towns; they are built here, one child process per town, and uploaded. `requirements.txt`
+pins the libraries: a build's id hashes their versions (and Python's and zlib's), so another environment makes another
+build. GameMog's `scripts/hometown-prewarm-list.ts` writes the list (top N by 2010 population, as `us-<GEOID>`, each
+with its capped play box) in `places.json` format:
+
+```bash
+python tools/hometown/prewarm.py --places top100.json --store .scratch/prewarm/store [--only us-4054200] [--jobs 1]
+```
+
+A town whose regions are not fetched is refused by the compiler with the regions it needs; `prewarm.py` fetches them
+and retries. Finished towns go to `<store>/state/prewarm-<buildId>.jsonl` (seconds, tiles, bytes, the terrain share,
+the peak RSS of the children so far) and are skipped on the next run. Peak RSS measured on an M-series Mac
+(`/usr/bin/time -l`, 12 Nov): a whole-place compile 1.2-1.8 GB, one `--block` 0.36-1.2 GB, one `--tile` 0.35-1.2 GB,
+a stage-1 descriptor 65 MB, and `fetch.py --regions` (duckdb over S3, no memory limit) about 3 GB.
+
+The 3DEP heights are read lazily from the USGS cloud-optimized GeoTIFFs (HTTP range reads of 512 px internal tiles,
+If-Match the store's DEM snapshot, so run `compile.py --dem-snapshot` against the pre-warm store once first) and mirrored
+in the store's `dem/` prefix; after the first read everything is offline.
 
 ## The grid (`grid.py`, frozen as hg1)
 
