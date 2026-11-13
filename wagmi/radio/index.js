@@ -1,5 +1,7 @@
 // Mog City: the car radio (stations, the WAGMI theme) and the cast's voices (WAGMI.radio, WAGMI.voice). Installed by game.js.
-//   radio.js     the stations (stations.js), R next station · T radio off / on in the car, the station card
+//   radio.js     the car radio, OFF until the player turns it on (remembered per device): Mog Music, the owner's own
+//                songs (media/mog-music), T on / off · R skip in the car, the pause menu's Sound; the old stations
+//                (stations.js) only with ?stations=all
 //   voices.js    the spoken lines (assets/voice), played as the subtitles show them
 //   build/       Node tools (not loaded here): the voice build, the music it was composed with
 // Sound goes through WAGMI.audio's mixer when there is one (its music and voice buses), else through a little mixer of

@@ -153,7 +153,7 @@ body.touch-enabled #wg-pause .keys { display: none; }
 // (and the fourth: the touch screen's, wagmi/touch.js's buttons by the names they show; shown only on a touch screen)
 const CONTROLS = [
   ['On foot', [['Move', 'W A S D', 'LS', 'stick'], ['Sprint', 'Shift', 'LT · L3', 'SPRINT'], ['Jump', 'Space', 'A', 'JUMP'], ['Get in the car', 'F', 'Y', 'GET IN'], ['Look round', 'drag the mouse', 'RS', 'drag the view']]],
-  ['In the car', [['Drive · brake', 'W · S', 'RT · LT', 'stick up · down'], ['Steer', 'A · D', 'LS', 'stick left · right'], ['Boost', 'Shift', 'X', 'BOOST'], ['Get out', 'F (slow down first)', 'Y', 'EXIT'], ['Reset car to road', 'recover', 'B', 'RESET CAR'], ['Electric / Engine', 'Q', 'Up', 'ELECTRIC'], ['Thrusters: hop', 'Space', 'A', 'HOP'], ['Thrusters: dash left · right', 'Z · C', 'LB · RB', 'DASH ◀ · ▶'], ['Next station', 'R', 'Right', 'RADIO'], ['Station back', '', 'Left', ''], ['Radio off / on', 'T', 'Down', 'hold RADIO'], ['Look round', 'drag the mouse', 'RS', 'drag the view']]],
+  ['In the car', [['Drive · brake', 'W · S', 'RT · LT', 'stick up · down'], ['Steer', 'A · D', 'LS', 'stick left · right'], ['Boost', 'Shift', 'X', 'BOOST'], ['Get out', 'F (slow down first)', 'Y', 'EXIT'], ['Reset car to road', 'recover', 'B', 'RESET CAR'], ['Electric / Engine', 'Q', 'Up', 'ELECTRIC'], ['Thrusters: hop', 'Space', 'A', 'HOP'], ['Thrusters: dash left · right', 'Z · C', 'LB · RB', 'DASH ◀ · ▶'], ['Radio on / off (Mog Music)', 'T', 'Down', 'hold RADIO'], ['Radio: next song', 'R', 'Right', 'RADIO'], ['Radio: song back', '', 'Left', ''], ['Look round', 'drag the mouse', 'RS', 'drag the view']]],
   ['Fighting', [['Strike', 'Left click · J', 'X', 'STRIKE'], ['Heavy', 'Right click · K', 'Y', 'HEAVY'], ['Counter (on the cue)', 'Q · L', 'LB', 'DODGE · COUNTER'], ['Dodge', 'C · Space', 'B', 'DODGE · COUNTER'], ['Grab · pick up · throw', 'E', 'RB', 'GRAB'], ['Lock the mouse to the view', 'click in a fight', '', '']]],
   ['Anywhere', [['Map', 'M', 'View', 'Map button'], ['Brief: the objective, the last lines', 'B', 'R3', 'tap the objective'], ['Pause', 'Esc · P', 'Start', 'Pause button'], ['Skip a cutscene', 'hold Space', 'hold A', 'hold anywhere'], ['Menus: choose · OK · back', '↑ ↓ · Enter · Esc', 'Up Down · A · B', 'tap'], ['Need a hand? options', '1 · 2 · 3', 'Up · Right · Down', 'tap one']]],
 ];
@@ -288,7 +288,7 @@ export function createPause(ui) {
         : `<div class="t">Restart</div><div class="mu">No mission running: nothing to restart.</div>`;
     } else if (id === 'sound') {
       panel.innerHTML = `<div class="t">Sound</div>${W.audio?.bus ? VOLS.map(([k, label], i) => `<div class="sl${inPanel && i === sub ? ' sel' : ''}" data-v="${k}"><span>${label}</span><div class="bar"><i style="width:${Math.round(vol[k] * 100)}%"></i></div><span class="v">${Math.round(vol[k] * 100)}%</span></div>`).join('')
-        : '<div class="mu">No sound in this session.</div>'}<div class="mu" style="margin-top:12px;font-size:15px">${inPanel ? '<kbd>←</kbd><kbd>→</kbd> change · <kbd>↑</kbd><kbd>↓</kbd> choose' : '<kbd>Enter</kbd> to change'}</div>`;
+        : radioRows().length ? '' : '<div class="mu">No sound in this session.</div>'}${radioHTML()}<div class="mu" style="margin-top:12px;font-size:15px">${inPanel ? '<kbd>←</kbd><kbd>→</kbd> change · <kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> OK' : '<kbd>Enter</kbd> to change'}</div>`;
     } else if (id === 'select') {
       panel.innerHTML = `<div class="t">Mission select</div>${story().map((m, i) => `<button class="opt${inPanel && i === sub ? ' sel' : ''}${m.passed ? '' : ' lock'}" data-ms="${i}">${esc(Story.t(m.title))}<small>${m.passed ? 'Replay' : 'Not passed yet'}</small></button>`).join('') || '<div class="mu">No missions yet.</div>'}
         <div class="mu" style="margin-top:8px;font-size:15px">A replay starts the mission from the top. Your story stays where it is.</div>`;
@@ -307,7 +307,21 @@ export function createPause(ui) {
     }
   }
   const draw = () => { drawMenu(); drawPanel(); };
-  const subCount = () => { const id = ITEMS[sel][0]; return id === 'restart' ? checkpoints().list.length : id === 'select' ? story().length : id === 'sound' ? (W.audio?.bus ? VOLS.length : 0) : id === 'graphics' ? GFX.length + 1 : id === 'title' ? 2 : 0; };
+  // the Sound panel's rows: its sliders (with the game's mixer), then the car radio's Mog Music on / off and, while on,
+  // skip the song (wagmi/radio: the choice remembered on this device). Not on horseback: Ranger has no radio.
+  const nVol = () => (W.audio?.bus ? VOLS.length : 0);
+  const radioRows = () => (!W.radio?.set || W.car?.kind === 'horse' ? [] : W.radio.on ? ['radio', 'skip'] : ['radio']);
+  function radioHTML() {
+    const R = W.radio, rows = radioRows(); if (!rows.length) return '';
+    const title = R.title?.();
+    return `<div class="t g">Car radio</div>` + rows.map((r, i) => {
+      const s = inPanel && sub === nVol() + i ? ' sel' : '';
+      return r === 'radio' ? `<button class="opt${s}" data-radio="1">Mog Music<small>${R.on ? 'On' : 'Off'}</small></button>`
+        : `<button class="opt${s}" data-skip="1">Skip song<small>${title ? esc(title) : 'Next song'}</small></button>`;
+    }).join('') + `<div class="mu" style="font-size:15px">${R.on ? 'Plays in the car.' : 'Off: nothing plays in the car until you turn it on.'}</div>`;
+  }
+  function radioAct(i) { const r = radioRows()[i]; if (r === 'radio') W.radio.toggle(); else if (r === 'skip') W.radio.skip(); sub = Math.min(sub, nVol() + radioRows().length - 1); drawPanel(); }
+  const subCount = () => { const id = ITEMS[sel][0]; return id === 'restart' ? checkpoints().list.length : id === 'select' ? story().length : id === 'sound' ? nVol() + radioRows().length : id === 'graphics' ? GFX.length + 1 : id === 'title' ? 2 : 0; };
   // (from inside a cutscene: it is skipped first, as a held Space would, and has let go of the camera before the restart)
   async function leaveScene() {
     if (!W.cutscene || !W.cineSkip?.()) return;
@@ -373,6 +387,7 @@ export function createPause(ui) {
     else if (id === 'select') replay(sub);
     else if (id === 'graphics') { if (sub < GFX.length) setGfx(GFX[sub][0]); else location.reload(); }
     else if (id === 'title') { if (sub === 0) toTitle(); else { inPanel = false; draw(); } }
+    else if (id === 'sound' && sub >= nVol()) radioAct(sub - nVol());
   }
 
   /* --------------------------------------------------------- the inputs -- */
@@ -390,7 +405,7 @@ export function createPause(ui) {
     // (the credits only scroll: redrawing them would jump back to the top)
     if (id === 'credits') { if (up || down) panel.scrollBy({ top: up ? -90 : 90 }); else if (back || left) { inPanel = false; draw(); } return; }
     if (up || down) { sub = (sub + (up ? -1 : 1) + n) % Math.max(1, n); drawPanel(); }
-    else if (id === 'sound' && (left || right)) { const k = VOLS[sub][0]; setVol(k, vol[k] + (right ? 0.1 : -0.1)); }
+    else if (id === 'sound' && (left || right) && sub < nVol()) { const k = VOLS[sub][0]; setVol(k, vol[k] + (right ? 0.1 : -0.1)); }
     else if (ok) enterSub();
     else if (back || left) { inPanel = false; draw(); }
   }
@@ -424,6 +439,7 @@ export function createPause(ui) {
     if (t.dataset.ms != null) { inPanel = true; sub = +t.dataset.ms; return replay(sub); }
     if (t.dataset.gfx) { inPanel = true; sub = GFX.findIndex(([k]) => k === t.dataset.gfx); return setGfx(t.dataset.gfx); }
     if (t.dataset.reload) return location.reload();
+    if (t.dataset.radio || t.dataset.skip) { inPanel = true; const i = radioRows().indexOf(t.dataset.radio ? 'radio' : 'skip'); sub = nVol() + i; return radioAct(i); }
     if (t.dataset.yes) return toTitle();
     if (t.dataset.no) { inPanel = false; return draw(); }
     if (t.classList.contains('bar')) { const k = t.parentElement.dataset.v, r = t.getBoundingClientRect(); inPanel = true; sub = VOLS.findIndex(([v]) => v === k); setVol(k, (e.clientX - r.left) / r.width); }
