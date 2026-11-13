@@ -39,6 +39,7 @@ from context import Context, building_owner_cm, downtown_at, floor_div, largest_
 import dem as demlib  # noqa: E402
 from dem import Sampler  # noqa: E402
 import grade  # noqa: E402
+import climate  # noqa: E402
 from sources import Sources, blocks_for, MissingRegion  # noqa: E402
 import rects as rects_mod  # noqa: E402
 import shapely.ops  # noqa: E402
@@ -165,7 +166,33 @@ ROAD = {
     'unclassified': (7.5, 2, 0.0, 2), 'service': (6.0, 2, 0.0, 1), 'unknown': (7.0, 2, 0.0, 1),
 }
 SKIP_SUBCLASS = {'driveway', 'parking_aisle', 'drive_through'}
-MASK = {'asphalt': 0, 'sidewalk': 1, 'lawn': 2, 'sand': 3, 'rock': 4, 'waterEdge': 5, 'water': 6}
+# ground classes, one byte per 1 m cell (0..5 San Francisco's; 7 paved lot, 8 dry grass and scrub, 9 woodland floor)
+MASK = {'asphalt': 0, 'sidewalk': 1, 'lawn': 2, 'sand': 3, 'rock': 4, 'waterEdge': 5, 'water': 6, 'lot': 7, 'scrub': 8, 'woods': 9}
+CLIMATE_GROUND = {'humid': 'lawn', 'dry': 'scrub', 'arid': 'sand'}   # the open land where the map says nothing
+LOT_KINDS = {'shop', 'office', 'warehouse', 'apartment', 'school', 'civic', 'church', 'tower'}   # buildings with a paved lot round
+LOT_M = 6.0           # m of it (outside a downtown, whose buildings stand in 12 m of paved square)
+WOODS_SLOPE = 0.35    # a humid place's open hillside steeper than this (rise / run), WOODS_CLEAR m from any house: woodland
+WOODS_CLEAR = 12.0
+ROCK_SLOPE = 1.2      # (humid) bare rock past this; arid and dry places past 0.7
+WOODS_STEP, WOODS_P = 16.0, 0.5   # the woodland's trees: a global lattice, this share of its cells
+
+
+def lu_ground(sub, cls, clim):
+    """The ground (MASK name) an Overture land use area has, or None (the climate's open land: yards, lots of grass)."""
+    if cls in ('bunker', 'beach_resort', 'sand'):
+        return 'sand'
+    if sub == 'resource_extraction' or cls in ('quarry', 'landfill'):
+        return 'sand' if clim == 'arid' else 'rock'
+    if cls in ('brownfield', 'construction', 'greenfield') or sub == 'construction':
+        return 'sand' if clim == 'arid' else 'scrub'
+    if cls in ('forest', 'wood', 'nature_reserve') or sub == 'forest':
+        return 'woods' if clim == 'humid' else 'scrub'
+    if cls in ('farmland', 'farmyard', 'orchard', 'vineyard', 'allotments', 'meadow', 'plant_nursery'):
+        return 'lawn' if clim == 'humid' else 'scrub'
+    if sub in ('park', 'golf', 'cemetery') or cls in ('grass', 'pitch', 'recreation_ground', 'village_green', 'garden', 'dog_park', 'flowerbed',
+                                                       'schoolyard', 'grave_yard', 'cemetery'):
+        return 'lawn'
+    return None
 BTYPES = ['shed', 'rowhouse', 'flats', 'apartment', 'office-low', 'warehouse', 'midrise', 'tower', 'civic', 'landmark']
 PALETTES = ['victorian', 'north-beach', 'chinatown', 'downtown', 'soma']
 ERAS = ['unknown', 'victorian-edwardian', 'interwar', 'postwar', 'contemporary']
@@ -1887,7 +1914,8 @@ def _compile_tile(Wd, c, r, dem_files):
         bout.append(dict(common, id=rec['id'], base=cm(base), roof=cm(base + rise + rec['h']), peak=cm(base + rise + rec['h'] + rec['peakAdd']),
                          ringStart=start, ringCount=len(pts), theta=round(rec['theta'], 4), stories=int(rec['stories']), roofShape=rec['roofShape'],
                          minH=cm(rec['minH']), masses=[mrec(m) for m in rec['rects']]))
-    # ---- paved lots (footprints within 25 m, buffered 8 / 12 m) and the sidewalk bands
+    # ---- what keeps trees off (footprints within 25 m, buffered 8 / 12 m: the yards' trees stand clear of them) and
+    # the sidewalk bands
     paved = [rec['g'].buffer(12 if rec['downtown'] else 8, quad_segs=2) for bid, (b, rec) in sorted(brecs_near.items()) if rec['btype'] not in ('rowhouse', 'shed')]
     paved_u = unary_union(paved) if paved else None
     bands = []
@@ -1897,29 +1925,60 @@ def _compile_tile(Wd, c, r, dem_files):
         for gl in Wd.ground_lines(p):
             bands.append(gl.buffer(p['w'] / 2 + p['sw'], quad_segs=4))
     band = unary_union(bands) if bands else None
-    # ---- ground mask: 512 x 512 global 1 m cells
-    img = Image.new('L', (TILE, TILE), MASK['asphalt'])
-    dr = ImageDraw.Draw(img)
+    # ---- ground mask: 512 x 512 global 1 m cells (MASK). Off the curb islands it is roadway (asphalt). On them the
+    # ground is the climate's open land (climate.py: green grass, dry scrub or bare desert ground) unless the map says
+    # otherwise: land use (LU_GROUND; larger areas first, so a smaller one inside wins), then what is paved: the car
+    # parks (Overture's parking polygons) and the lots round commercial buildings (LOT_KINDS, LOT_M), a downtown's
+    # paved squares round its buildings (sidewalk), the narrow curb islands, and the sidewalk bands along the streets
+    # (the road class's sidewalk width past the curb). Hillsides: a humid place's open ground away from the houses is
+    # woodland past WOODS_SLOPE, any ground rock past the cliff slope (ROCK_SLOPE; arid / dry: 0.7, as before)
+    clim = climate.zone(lon_c, lat_c)
     tb40 = TB.buffer(40, join_style='mitre')
 
     def poly(draw, ring, v):
         draw.polygon([((x - X0), (z - Z0)) for x, z in ring], fill=v)
-    for pp, kind in islands:
-        if pp.intersects(tb40):
-            for q in polygons(pp.intersection(tb40)):
-                poly(dr, list(q.exterior.coords), MASK['sidewalk'] if kind == 'island' else MASK['lawn'])
+
+    def raster(geoms):
+        """The cells (centres) inside the polygons, their holes left out."""
+        im = Image.new('L', (TILE, TILE), 0)
+        d_ = ImageDraw.Draw(im)
+        for g0 in geoms:
+            if g0 is None or g0.is_empty or not g0.intersects(tb40):
+                continue
+            for q in polygons(g0.intersection(tb40)):
+                poly(d_, list(q.exterior.coords), 1)
                 for hole in q.interiors:
-                    poly(dr, list(hole.coords), MASK['asphalt'])
-    if paved_u is not None:
-        for pp in polygons(paved_u.intersection(tb40)):
-            poly(dr, list(pp.exterior.coords), MASK['sidewalk'])
+                    poly(d_, list(hole.coords), 0)
+        return np.array(im, dtype=bool)
+    a = np.full((TILE, TILE), 255, np.uint8)
+    landm = raster([pp for pp, _ in islands])
+    a[~landm] = MASK['asphalt']
+    lus = []
+    for lu in Wd.src.query('land_use', tb40):
+        k = lu_ground(lu['subtype'] or '', lu['class'] or '', clim)
+        if k is None or lu['geom'].geom_type not in ('Polygon', 'MultiPolygon'):
+            continue
+        lus.append((-round(lu['geom'].area, 2), lu['id'], k, lu['geom']))
+    if lus:
+        lim = Image.new('L', (TILE, TILE), 255)
+        ld = ImageDraw.Draw(lim)
+        for _, _, k, g0 in sorted(lus, key=lambda t: (t[0], t[1])):
+            for q in polygons(shapely.make_valid(g0).intersection(tb40)):
+                poly(ld, list(q.exterior.coords), MASK[k])
+                for hole in q.interiors:
+                    poly(ld, list(hole.coords), 255)
+        lu_a = np.array(lim, dtype=np.uint8)
+        a[landm & (lu_a != 255)] = lu_a[landm & (lu_a != 255)]
+    lots = [shapely.make_valid(r['geom']) for r in Wd.src.query('parking', tb40)]
+    lots += [rec['g'].buffer(LOT_M, quad_segs=2) for bid, (b, rec) in sorted(brecs_near.items()) if rec['kind'] in LOT_KINDS and not rec['downtown']]
+    a[landm & raster(lots)] = MASK['lot']
+    a[landm & raster([rec['g'].buffer(12, quad_segs=2) for bid, (b, rec) in sorted(brecs_near.items())
+                      if rec['downtown'] and rec['btype'] not in ('rowhouse', 'shed')])] = MASK['sidewalk']
+    a[raster([pp for pp, kind in islands if kind == 'island'])] = MASK['sidewalk']
     if band is not None:
-        for g in polygons(band.intersection(tb40)):
-            poly(dr, list(g.exterior.coords), MASK['sidewalk'])
-            for hole in g.interiors:
-                poly(dr, list(hole.coords), 255)
-    a = np.array(img, dtype=np.uint8)
-    a[a == 255] = MASK['lawn']
+        a[landm & raster([band])] = MASK['sidewalk']
+    opn = a == 255
+    a[opn] = MASK[CLIMATE_GROUND[clim]]
     road = Image.new('L', (TILE, TILE), 0)
     rd = ImageDraw.Draw(road)
     for g in polygons(roadway.intersection(tb40)):
@@ -1932,7 +1991,14 @@ def _compile_tile(Wd, c, r, dem_files):
     XX, ZZ = np.meshgrid(xs, zs)
     gxr = (ground(XX + 1, ZZ) - ground(XX - 1, ZZ)) / 2
     gzr = (ground(XX, ZZ + 1) - ground(XX, ZZ - 1)) / 2
-    a[(np.hypot(gxr, gzr) > 0.7) & (a == MASK['lawn'])] = MASK['rock']
+    slope = np.hypot(gxr, gzr)
+    natural = np.isin(a, [MASK['lawn'], MASK['scrub'], MASK['sand']])
+    if clim == 'humid':
+        houses = raster([rec['g'].buffer(WOODS_CLEAR, quad_segs=2) for bid, (b, rec) in sorted(brecs_near.items())])
+        a[opn & (a == MASK['lawn']) & (slope > WOODS_SLOPE) & ~houses] = MASK['woods']
+        a[(natural | (a == MASK['woods'])) & (slope > ROCK_SLOPE)] = MASK['rock']
+    else:
+        a[natural & (slope > 0.7)] = MASK['rock']
     wsec = []
     if waters:
         wu = unary_union([w['poly'].intersection(tb40) for w in waters])
@@ -1951,7 +2017,8 @@ def _compile_tile(Wd, c, r, dem_files):
             wsec.append({'id': w['id'], 'level_cm': lv, 'cells': int(inside.sum()), 'rings': rings, 'name': w['name'] or ''})
     # ---- trees: a global 13 m lattice over the lawns (yards: 3 m clear of a building, within 25 m of one, off lots)
     STEP = 13.0
-    desert = lon_c < -104 and lat_c < 37.5
+    desert = clim == 'arid'
+    bare = np.isin(a, [MASK['asphalt'], MASK['sidewalk'], MASK['lot'], MASK['waterEdge'], MASK['water']])
     btree = shapely.STRtree([rec['g'] for _, (b, rec) in sorted(brecs_near.items())]) if brecs_near else None
     ptree = shapely.STRtree(polygons(paved_u)) if paved_u is not None else None
     trees = []
@@ -1985,9 +2052,28 @@ def _compile_tile(Wd, c, r, dem_files):
                 continue
             if deck_tree is not None and len(deck_tree.query(pt.buffer(2.0), predicate='intersects')):
                 continue
+            if bare[int(q[1] - Z0), int(q[0] - X0)]:
+                continue
             hh = hash01(q[2], q[3], 4 ^ d.index)
             cls = (2 if hh < 0.55 else 0) if desert else (0 if hh < 0.5 else 1 if hh < 0.85 else 4)
             trees.append((cm(q[0]) - c * TCM, cm(q[1]) - r * TCM, cls, int(12 + 30 * hash01(q[2], q[3], 5 ^ d.index))))
+    # (the woodland: its own global WOODS_STEP m lattice over the woods cells, clear of buildings and decks)
+    if (a == MASK['woods']).any():
+        for j in range(math.floor(Z0 / WOODS_STEP), math.floor((Z1 - 1e-9) / WOODS_STEP) + 1):
+            for i in range(math.floor(X0 / WOODS_STEP), math.floor((X1 - 1e-9) / WOODS_STEP) + 1):
+                if hash01(i, j, 6 ^ d.index) > WOODS_P:
+                    continue
+                x = (i + 0.1 + 0.8 * hash01(i, j, 7 ^ d.index)) * WOODS_STEP
+                z = (j + 0.1 + 0.8 * hash01(i, j, 8 ^ d.index)) * WOODS_STEP
+                if not (X0 <= x < X1 and Z0 <= z < Z1) or a[int(z - Z0), int(x - X0)] != MASK['woods']:
+                    continue
+                pt = Point(x, z)
+                if btree is not None and len(btree.query(pt.buffer(3.0), predicate='intersects')):
+                    continue
+                if deck_tree is not None and len(deck_tree.query(pt.buffer(2.0), predicate='intersects')):
+                    continue
+                hh = hash01(i, j, 9 ^ d.index)
+                trees.append((cm(x) - c * TCM, cm(z) - r * TCM, 0 if hh < 0.6 else 1 if hh < 0.9 else 4, int(16 + 30 * hash01(i, j, 10 ^ d.index))))
     trees.sort()
     # ---- places (POIs owned by the tile)
     places = []
@@ -2036,7 +2122,7 @@ def _compile_tile(Wd, c, r, dem_files):
               'posts': grid.POSTS, 'post': grid.POST, 'mask': {'cell': 1, 'n': TILE, 'classes': list(MASK)}, 'base_cm': base,
               'bcount': len(bout), 'groundAreaM2': round((TILE / k_tile) ** 2, 1), 'k_tile': round(k_tile, 9), 'gamma_tile': round(d.gamma(lon_c), 6),
               'centre': [round(lon_c, 7), round(lat_c, 7)], 'waters': [{'id': w['id'], 'level_cm': w['level_cm'], 'cells': w['cells']} for w in wsec],
-              'foreign': sorted(foreign), 'ctx': ctx_ids, 'noDemPosts': nan, 'desert': desert, 'region': region_of(lon_c, lat_c),
+              'foreign': sorted(foreign), 'ctx': ctx_ids, 'noDemPosts': nan, 'desert': desert, 'climate': clim, 'region': region_of(lon_c, lat_c),
               'buildingKinds': dict(sorted(kinds.items())), 'roofShapesFromData': from_data,
               'counts': {'links': len(links), 'nodes': len(nodes_out), 'blocks': len(blocks), 'trees': len(trees), 'places': len(places),
                          'deckLinks': sum(1 for l in links if l.get('deck')), 'underDeckDropped': under_deck}}
