@@ -115,18 +115,25 @@ self-contained and shared by neighbouring places:
 
 | tier | level | tile | posts | step | heights | reach past the core |
 |---|---|---|---|---|---|---|
+| a | L1 | 1024 grid m | 65 x 65 | 16 m | the core's own post function on land (`compile.py posts_cm`: 3DEP 1/3" bilinear at the 5 x 5 posts round it, the sigma-1-post blur, cm), so at the core's edge far = core | 1 km (a ring: tiles wholly inside the core are not listed) |
 | b | L3 | 4096 grid m | 65 x 65 | 64 m | 3DEP 1" (`dem.Sampler(product='1')`, same snapshot), mean of 2 x 2 point samples per post | 10 km |
 | c | L5 | 16384 grid m | 65 x 65 | 256 m | 3DEP 1", mean of 8 x 8 | 30 km |
 
 A tile's edge posts are its neighbours' (same global post, same computation: byte-identical). Classes per post: water
-where the 3 x 3 block of 1" pixels nearest it is exactly flat (3DEP is hydro-flattened; no land is flat to 1 mm over
-~90 m), arid land by the compiler's desert rule (lon < -104, lat < 37.5, per post), else land. Store key
-`far/{buildId}/hg1-{d}/{L}/{C}/{R}`, `--far hg1-{d}/{3|5}/{C}/{R} --out -` for one; the legacy package carries them as
-`data/far/{b|c}-{C}-{R}.bin.gz` (SFB1 `hometown-far`: uint16 heights, NAVD88 = -100 + 0.1 q, q 0 no data; uint8
-class), listed in `PKG.far` and `manifest.json` `files` (so a Mog's pinned file hashes cover them). About 80 tiles,
-~0.5 MB a place. The runtime (`pkg-far.js`) draws a zero-byte fill and apron at boot, then the tiles after boot (off
-the critical path) as Terrain patches (`surface`: groundAt is the 3DEP height over far water) and meshes; the core is
-never changed. Tests: `test_far.py`, `tests/pkg-far.test.mjs`.
+where the 3 x 3 block of DEM pixels nearest it (1/3" for A, 1" for B and C) is exactly flat (3DEP is hydro-flattened;
+no land is flat to 1 mm over ~30-90 m), arid land by the compiler's desert rule (lon < -104, lat < 37.5, per post), else land. Store key
+`far/{buildId}/hg1-{d}/{L}/{C}/{R}`, `--far hg1-{d}/{1|3|5}/{C}/{R} --out -` for one; the legacy package carries them as
+`data/far/{a|b|c}-{C}-{R}.bin.gz` (SFB1 `hometown-far`: uint16 heights, NAVD88 = -100 + 0.1 q, q 0 no data; uint8
+class), listed in `PKG.far` and `manifest.json` `files` (so a Mog's pinned file hashes cover them). About 110-130
+tiles, ~0.8-1 MB a place. The runtime (`pkg-far.js`) draws a zero-byte fill and apron at boot, then the tiles after boot
+(off the critical path) as Terrain patches (`surface`: groundAt is the 3DEP height over far water) and meshes; the core
+is never changed. Seams: tier A's last 64 m snaps to the core's own edge posts (the core's water flattening and bridges),
+`Terrain.edgeBlend` (32 m) takes up the core's 2 m ground between them, and each tier's outer 16 posts blend into the next
+coarser tier: heightAt is continuous core -> A -> B -> C. Near the core the far ground takes the core's own edge ground
+(sidewalk slabs, park lawns, mask classes) and fades to its own over 400 m; water shores are marching squares on the
+smoothed wetness. Budget (horizon.md): far draw calls (chunks merged: A by quadrant, B and C 2 x 2 tiles, one water mesh a
+tier) about 35 of <= 80; Low graphics / a short draw distance draws every other post (`DATA.pkgFar.stats.budget`:
+phone triangles <= 0.6 M). Tests: `test_far.py`, `tests/pkg-far.test.mjs`.
 
 ## Building shapes (sf-buildings v4)
 
