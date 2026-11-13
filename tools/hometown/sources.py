@@ -13,6 +13,7 @@ import grid
 
 LAYER_SQL = {
     'buildings': ("buildings", "building", "id, ST_AsWKB(geometry) AS wkb, height, num_floors, min_height, class, subtype, roof_shape, roof_height, is_underground, name"),
+    'parts': ("buildings", "building_part", "id, ST_AsWKB(geometry) AS wkb, height, num_floors, min_height, building_id"),
     'segments': ("transportation", "segment", "id, ST_AsWKB(geometry) AS wkb, subtype, class, subclass, names.primary AS name, connectors, access_restrictions, road_flags, width_rules, level_rules, subclass_rules"),
     'places': ("places", "place", "id, ST_X(geometry) AS lon, ST_Y(geometry) AS lat, name, basic_category, taxonomy.primary AS cat, confidence, operating_status"),
     'water': ("base", "water", "id, ST_AsWKB(geometry) AS wkb, subtype, class, name"),
@@ -43,12 +44,18 @@ class Sources:
         c.execute('INSTALL spatial; LOAD spatial;')
         self.rows = {}
         for key, (theme, typ, cols) in LAYER_SQL.items():
-            files = ', '.join("'%s'" % os.path.join(d, 'overture-%s-%s.parquet' % (theme, typ)) for d in dirs)
+            fl = [os.path.join(d, 'overture-%s-%s.parquet' % (theme, typ)) for d in dirs]
+            # (an empty region file has no geometry type; it holds no rows, so leaving it out changes nothing)
+            fl = [f for f in fl if c.execute(f"SELECT count(*) FROM read_parquet('{f}')").fetchone()[0] > 0]
+            if not fl:
+                self.rows[key] = []
+                continue
+            files = ', '.join("'%s'" % f for f in fl)
             cur = c.execute(f"""SELECT {cols} FROM (SELECT * FROM read_parquet([{files}], union_by_name=true)
                 QUALIFY row_number() OVER (PARTITION BY id ORDER BY id) = 1) ORDER BY id""")
             names = [d[0] for d in cur.description]
             self.rows[key] = [dict(zip(names, r)) for r in cur.fetchall()]
-        for key in ('buildings', 'segments', 'water', 'land_use'):
+        for key in ('buildings', 'parts', 'segments', 'water', 'land_use'):
             rs = self.rows[key]
             geoms = shapely.from_wkb([bytes(r.pop('wkb')) for r in rs]) if rs else []
             geoms = shapely.transform(geoms, self._proj) if len(geoms) else geoms
@@ -63,6 +70,11 @@ class Sources:
         self.trees = {}
         for key in ('buildings', 'segments', 'water', 'land_use'):
             self.trees[key] = shapely.STRtree([r['geom'] for r in self.rows[key]])
+        # (a building's parts, by its Overture id, each list in part id order)
+        self.parts_of = {}
+        for r in self.rows['parts']:
+            if r['building_id']:
+                self.parts_of.setdefault(r['building_id'], []).append(r)
         self._ptree = shapely.STRtree(shapely.points([(p['gx'] / 100.0, p['gs'] / 100.0) for p in P])) if P else None
 
     def _proj(self, c):
