@@ -429,6 +429,15 @@ table.bd td:nth-child(2){font-weight:600}
 /* Hometown's town box (app/create/place-search.tsx), behind NEXT_PUBLIC_HOMETOWN_SEARCH */
 .ctown{margin-bottom:16px}
 .ctown .lbl{margin-bottom:8px}
+.ttown{margin-top:10px;padding:12px 14px;border-radius:var(--r);background:var(--fill)}
+.ttown-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ttown-head b{font-size:16px;color:var(--ink)}
+.ttown-x{background:none;border:0;color:var(--ink-2);font:inherit;font-size:14px;text-decoration:underline;cursor:pointer;padding:4px}
+.ttown-stage{margin:6px 0 0;font-size:15px;color:var(--ink)}
+.ttown-note{margin:6px 0 0;font-size:13px;color:var(--ink-3)}
+.ttown-bar{height:6px;margin-top:8px;border-radius:3px;background:var(--line);overflow:hidden}
+.ttown-bar i{display:block;height:100%;background:var(--brand)}
+.ttown.error .ttown-stage{color:var(--err-ink)}
 .psearch{position:relative}
 .psearch input[type=text]{font-size:17px;height:48px}
 .psearch-list{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;list-style:none;margin:0;padding:6px;background:var(--surface);border-radius:var(--r);box-shadow:var(--elev-hover);max-height:min(360px,60vh);overflow-y:auto;overscroll-behavior:contain}
