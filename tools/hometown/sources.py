@@ -19,6 +19,40 @@ LAYER_SQL = {
     'land_use': ("base", "land_use", "id, ST_AsWKB(geometry) AS wkb, subtype, class, name"),
 }
 BLOCK = grid.TILE << grid.CTX_L   # 8192 grid m
+EXTRAS_FILE = 'overture-transportation-segment-extras.parquet'   # fetch.py --extras: OSM way ids and speed limits
+
+
+def mph(v, unit):
+    return v if (unit or 'mph') == 'mph' else v / 1.609344
+
+
+def segment_extras(c, dirs):
+    """{segment id: (OSM way id or None, max speed in mph or None)} from the regions' extras files, or None unless EVERY
+    loaded region has one (all or nothing: a segment's lanes never depend on which regions happened to be loaded)."""
+    files = [os.path.join(d, EXTRAS_FILE) for d in dirs]
+    if not files or not all(os.path.exists(f) for f in files):
+        return None
+    lst = ', '.join("'%s'" % f for f in files)
+    out = {}
+    for sid, srcs, sl in c.execute(f"""SELECT id, sources, speed_limits FROM (SELECT * FROM read_parquet([{lst}], union_by_name=true)
+            QUALIFY row_number() OVER (PARTITION BY id ORDER BY id) = 1) ORDER BY id""").fetchall():
+        way = None
+        for r in srcs or []:
+            rid = (r or {}).get('record_id') or ''
+            if rid.startswith('w') and (r.get('dataset') or 'OpenStreetMap') == 'OpenStreetMap':
+                try:
+                    way = int(rid[1:].split('@')[0])
+                    break
+                except ValueError:
+                    pass
+        spd = None
+        for r in sl or []:
+            ms = (r or {}).get('max_speed') or {}
+            if ms.get('value') and not r.get('between') and not r.get('when'):
+                spd = mph(float(ms['value']), ms.get('unit'))
+                break
+        out[sid] = (way, spd)
+    return out
 
 
 class Sources:
@@ -60,6 +94,7 @@ class Sources:
             gx, gs = grid.project_cm(self.dom, [p['lon'] for p in P], [p['lat'] for p in P])
             for p, a, b in zip(P, gx.tolist(), gs.tolist()):
                 p['gx'], p['gs'] = a, b
+        self.extras = segment_extras(c, dirs)
         self.trees = {}
         for key in ('buildings', 'segments', 'water', 'land_use'):
             self.trees[key] = shapely.STRtree([r['geom'] for r in self.rows[key]])

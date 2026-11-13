@@ -73,7 +73,7 @@ def solve(pieces, node_ground, free, ext=None):
     constraints naming it), None if unknown. -> ({key: [y per station]}, stats)"""
     ps = sorted(pieces, key=lambda p: p.key)
     by = {p.key: p for p in ps}
-    stats = {'gradeRelaxed': 0, 'sweeps': 0, 'maxGrade': 0.0, 'constraints': 0, 'unmet': 0}
+    stats = {'gradeRelaxed': 0, 'sweeps': 0, 'maxGrade': 0.0, 'constraints': 0, 'unmet': 0, 'grades': []}
     nodes = sorted(set([p.a for p in ps] + [p.b for p in ps]))
     inc = {n: [] for n in nodes}
     for p in ps:
@@ -113,8 +113,8 @@ def solve(pieces, node_ground, free, ext=None):
         s0, n0 = end_s(p, 'a')
         s1, n1 = end_s(p, 'b')
         y0, y1 = end_y(p, 'a'), end_y(p, 'b')
-        fix0 = not n0 or p.a not in free
-        fix1 = not n1 or p.b not in free
+        # (both ends hold the climb: a free node's height is itself held to RELAX off its neighbours, solve() below)
+        fix0 = fix1 = True
         g = G(p)
         ys = []
         relaxed = 0
@@ -192,6 +192,9 @@ def solve(pieces, node_ground, free, ext=None):
                     num += w * end_y(p, other)
                     den += w
                 v = max(lb[n], num / den) if den else lb[n]
+                cap = min((end_y(p, 'b' if end == 'a' else 'a') + RELAX * max(1.0, abs((end_s(p, 'b' if end == 'a' else 'a')[0]) - (0.0 if end == 'a' else p.L))))
+                          for p, end in inc[n]) if inc[n] else v
+                v = min(v, max(cap, node_ground[n]))
                 moved = max(moved, abs(v - y[n]))
                 y[n] = v
             if moved < 1e-4:
@@ -209,8 +212,10 @@ def solve(pieces, node_ground, free, ext=None):
     for p in ps:
         for k in range(1, len(p.ss)):
             ds = p.ss[k] - p.ss[k - 1]
-            if ds > 1:
-                stats['maxGrade'] = max(stats['maxGrade'], abs(p.ys[k] - p.ys[k - 1]) / ds)
+            if ds > 1 and p.u0 - 1e-6 <= p.ss[k - 1] and p.ss[k] <= p.u1 + 1e-6 and min(p.ys[k] - p.ground[k], p.ys[k - 1] - p.ground[k - 1]) > 0.6:
+                gr = abs(p.ys[k] - p.ys[k - 1]) / ds
+                stats['maxGrade'] = max(stats['maxGrade'], gr)
+                stats['grades'].append((round(gr, 4), 'main' if p.main else 'link'))
         for sc, yc in constraints(p):
             stats['constraints'] += 1
             if interp(p.ss, p.ys, sc) < yc - 0.5:

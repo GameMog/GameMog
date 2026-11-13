@@ -50,6 +50,28 @@
    "bboxSource": "given bbox",
    "domain": "conus",
    "name": "Pittsburgh, PA"
+  },
+  "pittsburgh-bridges": {
+   "bbox": [
+    -80.025,
+    40.425,
+    -79.988,
+    40.446
+   ],
+   "bboxSource": "grade-lanes check box (spec section 6): Fort Pitt Bridge and tunnel portal, Smithfield St and Liberty bridges, the I-376 ramps at the Point",
+   "domain": "conus",
+   "name": "Pittsburgh Bridges (grade test box)"
+  },
+  "phoenix-stack": {
+   "bbox": [
+    -112.118,
+    33.452,
+    -112.094,
+    33.472
+   ],
+   "bboxSource": "grade-lanes check box (spec section 6): round the I-10/I-17 Stack",
+   "domain": "conus",
+   "name": "Phoenix Stack (grade test box)"
   }
  }
 }

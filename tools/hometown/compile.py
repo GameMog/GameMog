@@ -36,6 +36,7 @@ import grid  # noqa: E402
 import context  # noqa: E402
 from context import Context, building_owner_cm, downtown_at, floor_div, largest_polygon, water_polys, exact_centroid_cm  # noqa: E402
 from dem import Sampler  # noqa: E402
+import grade  # noqa: E402
 from sources import Sources, blocks_for, MissingRegion  # noqa: E402
 
 # bump on ANY change to a tile's bytes (a rule, a constant, an output field). 0.1.0 90bae8c; 0.2.0 water rule, 1 cm
@@ -63,7 +64,87 @@ LICENSES = {
     'transportation': 'ODbL 1.0 (OpenStreetMap)', 'places': 'CDLA Permissive 2.0', 'base': 'ODbL 1.0 (OpenStreetMap)',
     'dem': 'Public domain (USGS)',
 }
-FLAGS = {'freeway': 1, 'tunnel': 2, 'ramp': 4, 'pedestrian': 8, 'private': 16, 'alley': 32, 'crooked': 64}
+FLAGS = {'freeway': 1, 'tunnel': 2, 'ramp': 4, 'pedestrian': 8, 'private': 16, 'alley': 32, 'crooked': 64, 'deck': 128}
+# ---- grade separation and lanes (grade-lanes; tools/hometown/grade.py, README "Decks and lanes")
+CULVERT_MAX = 25.0   # m: a bridge span shorter than this with no road and no water under it stays a terrain raise
+CLEAR_ROAD = 6.5     # m: a deck over a road (5.1 m clearance + the 1.4 m deck)
+CLEAR_RAIL = 8.4     # m: ... over rail (23 ft + the deck)
+CLEAR_WATER = 6.0    # m: ... over water (3.0 over a narrow channel, NARROW_WATER m of wet stations or less)
+CLEAR_STREAM = 3.0
+NARROW_WATER = 20.0
+CLEAR_MARGIN = 0.3   # m added to every clearance (the vertical curves round crests off)
+DECK_SHRINK = 10.0   # m: the roadway (asphalt, no curb island, no building) runs this far onto a deck from each abutment
+DECK_UNDER = 1.4     # m: the deck's thickness (its underside: the profile minus this)
+PROMOTE_PAD = 25.0   # m: a mis-tagged crossing's deck runs this far past the road under it, each side
+CLUSTER_CAP = 3000.0  # m: a grade cluster's extent; past it the cluster is cut (clusterSplit) at the next node
+URBAN_BLD = 340      # buildings within 300 m (1200 per km2): the urban lane defaults
+LANE_W = 3.4
+MAINLINE = ('motorway', 'trunk')
+OSM_ROADS = {'path': None, 'meta': None}   # the national side table (osm_roads.py): set by set_osm_roads()
+
+
+def set_osm_roads(path):
+    if path and os.path.exists(path):
+        OSM_ROADS['path'] = path
+        mp = path + '.json'
+        OSM_ROADS['meta'] = json.load(open(mp)) if os.path.exists(mp) else {'sha256': hashlib.sha256(open(path, 'rb').read()).hexdigest()}
+
+
+def osm_int(v):
+    """'3' -> 3; '2;3' -> 3 (the larger); junk -> None"""
+    if v is None:
+        return None
+    best = None
+    for part in str(v).replace(',', ';').split(';'):
+        try:
+            n = int(float(part.strip()))
+        except ValueError:
+            continue
+        if 0 < n <= 12:
+            best = n if best is None else max(best, n)
+    return best
+
+
+def osm_float(v):
+    if v is None:
+        return None
+    t = str(v).strip().lower().replace('m', '').strip()
+    try:
+        f = float(t.split(';')[0])
+    except ValueError:
+        return None
+    return f if 2 <= f <= 60 else None
+
+
+def osm_speed(v):
+    if v is None:
+        return None
+    t = str(v).strip().lower()
+    try:
+        if 'mph' in t:
+            return float(t.replace('mph', '').strip())
+        return float(t.split(';')[0]) / 1.609344
+    except ValueError:
+        return None
+
+
+def class_lanes(cls, link, oneway, divided, urban, spd, w_rule):
+    """(per-direction lanes or (fwd, back), source) from the class defaults (spec B3): one-way -> n, two-way -> per side."""
+    if link:
+        return (2 if (w_rule or 0) >= 7 else 1), 'class'
+    if cls == 'motorway':
+        return (3 if urban else 2), 'class'
+    if cls == 'trunk':
+        return (2 if (divided or oneway) else (2 if urban else 1)), 'class'
+    if cls == 'primary':
+        if oneway and not divided:
+            return (3 if urban else 2), 'class'
+        return (2 if urban else 1), 'class'
+    if cls == 'secondary':
+        if oneway and not divided:
+            return (2 if urban and (spd or 0) >= 40 else 1), 'class'
+        return (2 if urban and (spd or 0) >= 40 else 1), 'class'
+    return 1, 'class'
 # Road classes: curb-to-curb width (m), lanes (both ways), sidewalk (m each side, 0 none), rank. Estimates by class.
 ROAD = {
     'motorway': (22.0, 4, 0.0, 6), 'trunk': (18.0, 4, 0.0, 5), 'primary': (15.0, 4, 2.4, 5), 'secondary': (13.0, 2, 2.2, 4),
@@ -150,13 +231,32 @@ def dominant_angle(pts):
     return math.atan2(sy, sx) / 4
 
 
-def access_dir(ar):
-    d = 0
+MOTOR = ('motor_vehicle', 'vehicle', 'car')
+
+
+def access_dirs(ar):
+    """The one-way rules of a segment: [(dir, b0, b1)] (dir 1: only forwards along it, -1: only backwards; [b0, b1] its
+    stretch). A heading denial counts when its modes are absent or include a motor vehicle; bicycle/foot-only denials,
+    `during` rules and `using`/`vehicle` qualifiers (destination, dimensions) are ignored."""
+    out = []
     for a in ar or []:
         w = a.get('when') or {}
-        if a.get('access_type') != 'denied' or not w.get('heading') or w.get('mode') or w.get('using') or w.get('vehicle') or w.get('during') or a.get('between'):
+        if a.get('access_type') != 'denied' or not w.get('heading') or w.get('using') or w.get('vehicle') or w.get('during'):
             continue
-        d = 1 if w['heading'] == 'backward' else -1
+        modes = w.get('mode') or []
+        if modes and not any(m in MOTOR for m in modes):
+            continue
+        b0, b1 = tuple(a['between']) if a.get('between') else (0.0, 1.0)
+        out.append((1 if w['heading'] == 'backward' else -1, b0, b1))
+    return out
+
+
+def access_dir(ar, a0=0.0, a1=1.0):
+    """The one-way direction of the stretch [a0, a1] of a segment (the last rule covering it wins)."""
+    d = 0
+    for dd, b0, b1 in access_dirs(ar):
+        if b0 <= a0 + 1e-9 and a1 <= b1 + 1e-9:
+            d = dd
     return d
 
 
@@ -261,7 +361,8 @@ def build_record():
     snap = hashlib.sha256(jdump(DEM_SNAPSHOT).encode()).hexdigest()
     return {'format': 'hometown-build', 'version': 1, 'grid': grid.GRID, 'compilerVersion': COMPILER_VERSION, 'libs': lib_versions(),
             'image': os.environ.get('HOMETOWN_IMAGE_DIGEST', 'unpinned (local venv %s)' % '.'.join(map(str, sys.version_info[:2]))),
-            'overture': OVERTURE_RELEASE, 'demSnapshot': snap}
+            'overture': OVERTURE_RELEASE, 'demSnapshot': snap,
+            'osmRoads': None if not OSM_ROADS['meta'] else {k: OSM_ROADS['meta'].get(k) for k in ('source', 'sha256', 'ways')}}
 
 
 def build_id_of(rec):
@@ -318,6 +419,8 @@ class World:
         self.store, self.bid = store, bid
         self.ctxs = {}
         self.pieces_c, self.junction_c, self.brec_c, self.bridge_c, self.k_c = {}, {}, {}, {}, {}
+        self.lanes_c, self.osm_c, self.deck_c, self.prof_c, self.gstats = {}, None, {}, {}, {}
+        self.seg_rows, self.iv_c, self.cross_c, self.solving = {}, {}, {}, set()
         self.log = log or (lambda *a: None)
 
     # ---- ctx
@@ -359,11 +462,10 @@ class World:
         L = g.length
         if L < 0.5:
             return out
-        w, lanes, sw, rank = ROAD[cls]
-        wr = [r['value'] for r in s['width_rules'] or [] if r.get('value') and not r.get('between')]
-        if wr and 3 <= wr[0] <= 40:
-            w = float(wr[0])
+        _, _, sw, rank = ROAD[cls]
         d = access_dir(s['access_restrictions'])
+        LN = self.lanes(s, d)
+        w, lanes = LN['w'], LN['lf'] + LN['lb']
         flags = 0
         if s['subclass'] == 'alley':
             flags |= FLAGS['alley']
@@ -377,9 +479,10 @@ class World:
             for k in spans:
                 if k in (rr.get('values') or []):
                     spans[k].append(tuple(rr['between']) if rr.get('between') else (0.0, 1.0))
-        if d:
-            w = max(6.0, w * 0.6) if lanes >= 4 else w
-            lanes = max(1, lanes // 2) if lanes >= 4 else max(1, lanes)
+        if flagged(s['road_flags'], 'is_under_construction') or flagged(s['road_flags'], 'is_abandoned'):
+            return out
+        self.seg_rows[sid] = s
+        lv = [(r.get('value') or 0, tuple(r['between']) if r.get('between') else (0.0, 1.0)) for r in s['level_rules'] or []]
         cs = sorted([(c['at'], c['connector_id']) for c in s['connectors'] or [] if c.get('connector_id') is not None and c.get('at') is not None])
         if len(cs) < 2:
             return out
@@ -409,8 +512,26 @@ class World:
                     q.append(p)
             if len(q) < 2:
                 continue
-            out.append({'seg': sid, 'i': k, 'a': c0, 'b': c1, 'pts': q, 'w': w, 'lanes': lanes, 'dir': d, 'flags': flags, 'sw': sw,
-                        'cls': cls, 'rank': rank, 'name': name})
+            # (per piece: a one-way rule over part of the segment; its level and bridge/tunnel stretches as fractions of it)
+            dp = access_dir(s['access_restrictions'], a0, a1)
+            lf, lb = (LN['lf'], LN['lb']) if dp == d else ((max(LN['lf'], LN['lb']), 0) if dp > 0 else (0, max(LN['lf'], LN['lb'])) if dp < 0 else (max(1, LN['lf']), max(1, LN['lb'])))
+            mid = (a0 + a1) / 2
+            lvl = 0
+            for v, (t0, t1) in lv:
+                if t0 <= mid <= t1:
+                    lvl = v
+
+            def frac(iv):
+                o = []
+                for t0, t1 in iv:
+                    f0, f1 = max(0.0, (t0 - a0) / (a1 - a0)), min(1.0, (t1 - a0) / (a1 - a0))
+                    if f1 - f0 > 1e-6:
+                        o.append((f0, f1))
+                return o
+            out.append({'seg': sid, 'i': k, 'a': c0, 'b': c1, 'pts': q, 'w': w, 'lanes': lf + lb, 'dir': dp, 'flags': flags, 'sw': sw,
+                        'cls': cls, 'rank': rank, 'name': name, 'lf': lf, 'lb': lb, 'spd': LN['spd'], 'lsrc': LN['src'], 'lvl': lvl,
+                        'link': s['subclass'] == 'link', 'br': frac(spans['is_bridge']), 'tun': frac(spans['is_tunnel']),
+                        'brs': [(t0, t1) for t0, t1 in spans['is_bridge'] if min(a1, t1) - max(a0, t0) > 1e-6]})
             k += 1
         # grid-line splits along the whole segment (ordinals count along it, piece after piece)
         ordinal = 0
@@ -444,6 +565,120 @@ class World:
                 p['subs'].append({'j': j, 'pts': pts, 'na': na, 'nb': nb, 'own': own})
         return out
 
+    # ---- lanes, widths (pure per segment): OSM tags (side table) > width_rules > class defaults (spec B)
+    def osm_tags(self, sid):
+        ex = self.src.extras
+        if ex is None or not OSM_ROADS['path']:
+            return None
+        if self.osm_c is None:
+            ways = sorted(set(w for w, _ in ex.values() if w is not None))
+            self.osm_c = {}
+            if ways:
+                c = duckdb.connect()
+                c.execute('CREATE TABLE w (way_id BIGINT)')
+                c.executemany('INSERT INTO w VALUES (?)', [(v,) for v in ways])
+                cur = c.execute("SELECT t.* FROM read_parquet('%s') t SEMI JOIN w ON t.way_id = w.way_id ORDER BY t.way_id" % OSM_ROADS['path'].replace("'", "''"))
+                cols = [x[0] for x in cur.description]
+                for row in cur.fetchall():
+                    r = dict(zip(cols, row))
+                    self.osm_c[r['way_id']] = r
+        w = ex.get(sid, (None, None))[0]
+        return self.osm_c.get(w) if w is not None else None
+
+    def lanes(self, s, d):
+        sid = s['id']
+        if sid in self.lanes_c:
+            return self.lanes_c[sid]
+        cls = s['class'] or 'unknown'
+        link = s['subclass'] == 'link'
+        w0, lanes0, _, _ = ROAD[cls]
+        wr = [r['value'] for r in s['width_rules'] or [] if r.get('value') and not r.get('between')]
+        w_rule = float(wr[0]) if wr and 3 <= wr[0] <= 40 else None
+        ex = self.src.extras
+        spd = ex.get(sid, (None, None))[1] if ex else None
+        osm = self.osm_tags(sid)
+        lf = lb = None
+        src = None
+        turn = False
+        if osm:
+            if spd is None:
+                spd = osm_speed(osm.get('maxspeed'))
+            n, f, b = osm_int(osm.get('lanes')), osm_int(osm.get('lanes_forward')), osm_int(osm.get('lanes_backward'))
+            if d:
+                k = n or (f if d > 0 else b)
+                if k:
+                    lf, lb = (k, 0) if d > 0 else (0, k)
+            elif f and b:
+                lf, lb = f, b
+            elif n:
+                if f:
+                    lf, lb = f, max(1, n - f)
+                elif b:
+                    lf, lb = max(1, n - b), b
+                else:
+                    per = max(1, n // 2)
+                    lf = lb = per
+                    turn = n >= 3 and n % 2 == 1
+            if lf is not None:
+                src = 'osm'
+            if 'left' in str(osm.get('turn_lanes') or '') and not d and n and n % 2 == 1:
+                turn = True
+            if w_rule is None:
+                w_rule = osm_float(osm.get('width'))
+        if src is None and w_rule:
+            if d:
+                k = int((w_rule - 1.0) // 3.3)
+                if k >= 1:
+                    lf, lb = (k, 0) if d > 0 else (0, k)
+                    src = 'width'
+            else:
+                k = int((w_rule / 2 - 0.5) // 3.3)
+                if k >= 1:
+                    lf = lb = k
+                    src = 'width'
+        if src is None:
+            g = s['geom']
+            mid = g.interpolate(0.5, normalized=True)
+            urban = len(self.src.query('buildings', mid.buffer(300))) >= URBAN_BLD
+            divided = False
+            if d and s['name']:
+                t = g.interpolate(min(1.0, 0.5 + 1.0 / max(g.length, 2)), normalized=True)
+                tx, tz = (t.x - mid.x) * d, (t.y - mid.y) * d
+                for o in self.src.query('segments', mid.buffer(35)):
+                    if o['id'] == sid or o['subtype'] != 'road' or o['name'] != s['name'] or o['geom'].geom_type != 'LineString':
+                        continue
+                    od = access_dir(o['access_restrictions'])
+                    if not od:
+                        continue
+                    og = o['geom']
+                    u = og.project(mid)
+                    p0, p1 = og.interpolate(max(0, u - 1)), og.interpolate(min(og.length, u + 1))
+                    if ((p1.x - p0.x) * tx + (p1.y - p0.y) * tz) * od < 0:
+                        divided = True
+                        break
+            k, src = class_lanes(cls, link, d != 0, divided, urban, spd, w_rule)
+            lf, lb = ((k, 0) if d > 0 else (0, k)) if d else (k, k)
+        n1 = max(lf, lb)
+        if d:
+            wl = n1 * LANE_W + (2.2 if link else 4.2 if cls == 'motorway' else 1.0)
+            wmin = 3.0 * n1 + 1
+        else:
+            wl = (lf + lb) * LANE_W + 1.0 + (LANE_W if turn else 0)
+            wmin = 2 * (3.0 * max(lf, lb) + 0.5)
+        if w_rule and w_rule >= wmin:
+            w = w_rule
+        elif link or cls in MAINLINE:
+            w = wl
+        else:
+            # (streets keep their class width where it is wider: parking lanes, gutters)
+            wc = max(6.0, w0 * 0.6) if (d and lanes0 >= 4) else w0
+            w = max(wc, wl)
+        if s['subclass'] == 'alley':
+            w = min(w, 5.0)
+        res = {'lf': int(lf), 'lb': int(lb), 'w': round(w, 2), 'src': src, 'spd': None if spd is None else int(round(spd))}
+        self.lanes_c[sid] = res
+        return res
+
     def pieces_near(self, geom):
         out = []
         for s in self.src.query('segments', geom):
@@ -465,7 +700,12 @@ class World:
         inc.sort(key=lambda p: (p['seg'], p['i']))
         drive = [p for p in inc if not p['flags'] & (FLAGS['private'] | FLAGS['pedestrian'])]
         res = (0, 0)
-        if len(set(p['name'] for p in drive)) >= 2 and len(drive) >= 3:
+        # (no signal or stop where only motorways, trunks and their links meet: merges yield by rank; none on a deck)
+        free_flow = drive and all(p['cls'] in MAINLINE or p['link'] for p in drive)
+        on_deck = drive and all(self.deck_touches(p, 'a' if p['a'] == cid else 'b') for p in drive)
+        if free_flow or on_deck:
+            res = (0, max(p['rank'] for p in drive))
+        elif len(set(p['name'] for p in drive)) >= 2 and len(drive) >= 3:
             ranks = sorted((p['rank'] for p in drive), reverse=True)
             top = ranks[0]
             if ranks[1] >= 4 and ranks[2] >= 3:
@@ -496,7 +736,7 @@ class World:
             if b1 - b0 <= 1e-6:
                 continue
             line = shapely.ops.substring(g, b0 * L, b1 * L)
-            if line.length <= 3 or line.length > BRIDGE_MAX:
+            if line.length <= 3 or line.length > CULVERT_MAX:
                 continue
             crossing = [p for p in self.pieces_near(line) if p['seg'] != s['id'] and LineString([(x / 100.0, z / 100.0) for x, z in p['pts']]).crosses(line)]
             if crossing:
@@ -507,7 +747,273 @@ class World:
             lon, lat = self.d.inverse([x0, x1], [z0, z1])
             e = self.dem.sample(lon, lat)
             if np.isfinite(e).all():
-                out.append((line, w, float(e[0]), float(e[1])))
+                out.append((line, w, float(e[0]), float(e[1]), b0, b1))
+        return out
+
+    # ---- decks (grade-lanes, spec A): which stretches of a piece are decks, and their heights (grade.py)
+    @staticmethod
+    def pkey(p):
+        return (p['seg'], p['i'])
+
+    def pgeom(self, p):
+        """(LineString in grid m, its length, cumulative arc per vertex)"""
+        if 'geom_' not in p:
+            line = LineString([(x / 100.0, z / 100.0) for x, z in p['pts']])
+            cum = [0.0]
+            for (x0, z0), (x1, z1) in zip(p['pts'], p['pts'][1:]):
+                cum.append(cum[-1] + math.hypot(x1 - x0, z1 - z0) / 100.0)
+            p['geom_'] = (line, cum[-1], cum)
+        return p['geom_']
+
+    def at_arc(self, p, ss):
+        """Points (x, z arrays, grid m) at arcs ss along the piece's pts."""
+        _, L, cum = self.pgeom(p)
+        P = np.array(p['pts'], dtype=float) / 100.0
+        ss = np.clip(np.asarray(ss, dtype=float), 0, L)
+        k = np.clip(np.searchsorted(cum, ss, side='right') - 1, 0, len(cum) - 2)
+        c = np.array(cum)
+        t = (ss - c[k]) / np.maximum(c[k + 1] - c[k], 1e-9)
+        return P[k, 0] + (P[k + 1, 0] - P[k, 0]) * t, P[k, 1] + (P[k + 1, 1] - P[k, 1]) * t
+
+    def ground_at(self, xs, zs):
+        """The final post function (the terrain the engine reads), bilinear, at grid-metre points; and wet flags."""
+        xs, zs = np.asarray(xs, dtype=float), np.asarray(zs, dtype=float)
+        I0, J0 = int(math.floor(xs.min() / grid.POST)) - 1, int(math.floor(zs.min() / grid.POST)) - 1
+        I1, J1 = int(math.floor(xs.max() / grid.POST)) + 3, int(math.floor(zs.max() / grid.POST)) + 3
+        ctx = self.context_for(I0 * grid.POST, J0 * grid.POST, I1 * grid.POST, J1 * grid.POST)
+        hcm, wet, _ = self.posts_cm(I0, J0, I1, J1, ctx)
+        fi, fj = xs / grid.POST - I0, zs / grid.POST - J0
+        i, j = np.floor(fi).astype(int), np.floor(fj).astype(int)
+        tx, tz = fi - i, fj - j
+        Hm = hcm / 100.0
+        g = (Hm[j, i] * (1 - tx) + Hm[j, i + 1] * tx) * (1 - tz) + (Hm[j + 1, i] * (1 - tx) + Hm[j + 1, i + 1] * tx) * tz
+        w = wet[np.rint(fj).astype(int), np.rint(fi).astype(int)]
+        return g, w
+
+    def pground(self, p):
+        """(stations, ground, wet) along a piece: the post function at grade.stations(length) (cached per piece)."""
+        k = self.pkey(p)
+        if k not in self.prof_c:
+            ss = grade.stations(self.pgeom(p)[1])
+            xs, zs = self.at_arc(p, ss)
+            g, wet = self.ground_at(xs, zs)
+            self.prof_c[k] = (ss, [float(v) for v in g], [bool(v) for v in wet], xs, zs)
+        return self.prof_c[k]
+
+    def crossings(self, p):
+        """[(s along p, other piece, s along it)] where another drivable piece crosses p with no connector there."""
+        k = self.pkey(p)
+        if k in self.cross_c:
+            return self.cross_c[k]
+        out = []
+        self.cross_c[k] = out
+        line, L, _ = self.pgeom(p)
+        ends = {p['a']: Point(line.coords[0]), p['b']: Point(line.coords[-1])}
+        for r in sorted(self.pieces_near(line), key=self.pkey):
+            if self.pkey(r) == k or r['flags'] & (FLAGS['private'] | FLAGS['pedestrian']):
+                continue
+            rl, _, _ = self.pgeom(r)
+            if not rl.intersects(line):
+                continue
+            pts = [g for g in getattr(rl.intersection(line), 'geoms', [rl.intersection(line)]) if g.geom_type == 'Point']
+            for pt in sorted(pts, key=lambda g: (round(g.x, 3), round(g.y, 3))):
+                shared = [n for n in (r['a'], r['b']) if n in ends and ends[n].distance(pt) < 1.5]
+                if shared:
+                    continue
+                out.append((float(line.project(pt)), r, float(rl.project(pt))))
+        return out
+
+    def deck_iv(self, p):
+        """The piece's deck interval (u0, u1) in arc m, or None: its bridge stretches that are not culverts (bridges()),
+        and a level > 0 stretch over an unconnected lower road the data forgot to tag (bridgeTagMissing)."""
+        k = self.pkey(p)
+        if k in self.iv_c:
+            return self.iv_c[k]
+        self.iv_c[k] = None
+        if p['flags'] & (FLAGS['pedestrian'] | FLAGS['tunnel']):
+            return None
+        _, L, _ = self.pgeom(p)
+        s = self.seg_rows.get(p['seg'])
+        culverts = set((round(b0, 9), round(b1, 9)) for *_, b0, b1 in self.bridges(s)) if s is not None else set()
+        ivs = []
+        for (f0, f1), (t0, t1) in zip(p['br'], p['brs']):
+            if (round(t0, 9), round(t1, 9)) in culverts:
+                continue
+            ivs.append((f0 * L, f1 * L))
+        promoted = 0
+        if not p['br'] and p['lvl'] > 0:
+            for sq, r, sr in self.crossings(p):
+                _, Lr, _ = self.pgeom(r)
+                if r['lvl'] < p['lvl'] and not any(f0 * Lr <= sr <= f1 * Lr for f0, f1 in r['br']):
+                    ivs.append((max(0.0, sq - r['w'] / 2 - PROMOTE_PAD), min(L, sq + r['w'] / 2 + PROMOTE_PAD)))
+                    promoted += 1
+        if not ivs:
+            return None
+        u0, u1 = min(a for a, _ in ivs), max(b for _, b in ivs)
+        if u0 < 3.0:
+            u0 = 0.0
+        if u1 > L - 3.0:
+            u1 = L
+        if u1 - u0 < 2.0:
+            return None
+        self.iv_c[k] = (u0, u1)
+        if promoted:
+            self.gstats.setdefault('bridgeTagMissing', set()).add(p['seg'])
+        return self.iv_c[k]
+
+    def deck_touches(self, p, end):
+        iv = self.deck_iv(p)
+        if iv is None:
+            return False
+        return iv[0] <= 0.0 if end == 'a' else iv[1] >= self.pgeom(p)[1]
+
+    def node_pieces(self, cid, pt):
+        x, z = pt[0] / 100.0, pt[1] / 100.0
+        return sorted([q for q in self.pieces_near(Point(x, z).buffer(0.05)) if (q['a'] == cid or q['b'] == cid)
+                       and not q['flags'] & (FLAGS['private'] | FLAGS['pedestrian'])], key=self.pkey)
+
+    def deck_profile(self, p):
+        """(stations, heights m NAVD88) of a deck piece along its pts, solved with its grade cluster; None: no deck."""
+        if self.deck_iv(p) is None:
+            return None
+        k = self.pkey(p)
+        if k in self.deck_c:
+            return self.deck_c[k]
+        # the cluster: deck pieces joined through free nodes (every drivable piece there is on its deck at that node)
+        members, todo, free, nodes, split = {}, [p], set(), {}, False
+        bb = [math.inf, math.inf, -math.inf, -math.inf]
+        while todo:
+            q = todo.pop()
+            if self.pkey(q) in members:
+                continue
+            members[self.pkey(q)] = q
+            ln, _, _ = self.pgeom(q)
+            b = ln.bounds
+            bb = [min(bb[0], b[0]), min(bb[1], b[1]), max(bb[2], b[2]), max(bb[3], b[3])]
+            for end in ('a', 'b'):
+                nid = q[end]
+                pt = q['pts'][0] if end == 'a' else q['pts'][-1]
+                nodes[nid] = pt
+                if not self.deck_touches(q, end) or nid in free:
+                    continue
+                inc = self.node_pieces(nid, pt)
+                ok = len(inc) >= 2 and all(self.deck_touches(r, 'a' if r['a'] == nid else 'b') for r in inc)
+                if not ok:
+                    continue
+                if max(bb[2] - bb[0], bb[3] - bb[1]) > CLUSTER_CAP:
+                    split = True
+                    continue
+                free.add(nid)
+                for r in inc:
+                    if self.pkey(r) not in members:
+                        todo.append(r)
+        ckey = min(members)
+        if ckey in self.solving:
+            return None
+        self.solving.add(ckey)
+        try:
+            gp, byk = [], {}
+            for kk in sorted(members):
+                q = members[kk]
+                _, L, _ = self.pgeom(q)
+                u0, u1 = self.deck_iv(q)
+                ss, g, wet, _, _ = self.pground(q)
+                fixed, under = [], []
+                # water: wet stations inside the deck (a narrow run: a stream)
+                run = []
+                for i, s_ in enumerate(ss + [None]):
+                    if s_ is not None and wet[i] and u0 <= s_ <= u1:
+                        run.append(i)
+                        continue
+                    if run:
+                        clr = CLEAR_STREAM if (ss[run[-1]] - ss[run[0]]) <= NARROW_WATER else CLEAR_WATER
+                        fixed += [(ss[i2], float(g[i2]) + clr + CLEAR_MARGIN) for i2 in run]
+                        run = []
+                line, _, _ = self.pgeom(q)
+                # rail under it
+                for rr in self.src.query('segments', line):
+                    if rr['subtype'] != 'rail' or rr['geom'].geom_type != 'LineString' or flagged(rr['road_flags'], 'is_bridge') or flagged(rr['road_flags'], 'is_tunnel'):
+                        continue
+                    if (rr['class'] or '') in ('abandoned', 'disused'):
+                        continue
+                    ix = rr['geom'].intersection(line)
+                    for pt in [g2 for g2 in getattr(ix, 'geoms', [ix]) if g2.geom_type == 'Point']:
+                        sq = float(line.project(pt))
+                        if u0 <= sq <= u1:
+                            fixed.append((sq, grade.interp(ss, g, sq) + CLEAR_RAIL + CLEAR_MARGIN))
+                # roads under it
+                for sq, r, sr in self.crossings(q):
+                    if not (u0 <= sq <= u1):
+                        continue
+                    _, Lr, _ = self.pgeom(r)
+                    if r['flags'] & FLAGS['tunnel'] or any(f0 * Lr <= sr <= f1 * Lr for f0, f1 in r['tun']):
+                        continue
+                    riv = self.deck_iv(r)
+                    if riv is None or not (riv[0] <= sr <= riv[1]):
+                        fixed.append((sq, grade.interp(ss, g, sq) + CLEAR_ROAD + CLEAR_MARGIN))
+                        continue
+                    # (both decks: the higher level goes over; on equal levels the lower segment id)
+                    if (q['lvl'], r['seg'], r['i']) > (r['lvl'], q['seg'], q['i']):
+                        under.append((sq, self.pkey(r), sr, CLEAR_ROAD + CLEAR_MARGIN))
+                        byk[self.pkey(r)] = r
+                main = q['cls'] in MAINLINE and not q['link']
+                gp.append(grade.Piece(kk, q['a'], q['b'], L, u0, u1, main, g, fixed, under))
+            # (a node's ground: its first piece's (in key order) end station; every piece's end there is the same point)
+            node_ground = {}
+            for gpc in gp:
+                node_ground.setdefault(gpc.a, gpc.ground[0])
+                node_ground.setdefault(gpc.b, gpc.ground[-1])
+
+            # decks of OTHER clusters under this one: solved first (their own cluster; a cycle reads as unknown)
+            others = {k2: self.deck_profile(byk[k2]) for k2 in sorted(byk) if k2 not in members}
+
+            def ext(k2, s2):
+                if k2 not in others or others[k2] is None:
+                    return None
+                ss2, ys2 = others[k2]
+                return grade.interp(ss2, ys2, s2)
+            prof, st = grade.solve(gp, node_ground, free, ext)
+        finally:
+            self.solving.discard(ckey)
+        for gpc in gp:
+            self.deck_c[gpc.key] = (gpc.ss, prof[gpc.key])
+        cs = self.gstats.setdefault('clusters', {})
+        cs[ckey] = {'pieces': len(gp), 'extent': round(max(bb[2] - bb[0], bb[3] - bb[1]), 1), 'split': split, **st}
+        return self.deck_c[k]
+
+    def ground_lines(self, p):
+        """The piece's centreline where it is on the ground: all of it, less a deck's interior (DECK_SHRINK m in from each
+        abutment). The roadway, the sidewalk bands and the buildings-on-roads rule use these."""
+        line, L, _ = self.pgeom(p)
+        iv = self.deck_iv(p)
+        if iv is None:
+            return [line]
+        a, b = iv[0] + (DECK_SHRINK if iv[0] > 0 else 0), iv[1] - (DECK_SHRINK if iv[1] < L else 0)
+        if b - a < 1.0:
+            return [line]
+        out = []
+        if a > 0.3:
+            out.append(shapely.ops.substring(line, 0, a))
+        if b < L - 0.3:
+            out.append(shapely.ops.substring(line, b, L))
+        return [g for g in out if g.geom_type == 'LineString' and g.length > 0.2]
+
+    def deck_footprint(self, p):
+        """[(polygon, underside y)] per station step of a deck piece standing over 2 m off its ground."""
+        pr = self.deck_profile(p)
+        if pr is None:
+            return []
+        ss, ys = pr
+        u0, u1 = self.deck_iv(p)
+        _, g, _, xs, zs = self.pground(p)
+        out = []
+        for i in range(len(ss) - 1):
+            if ss[i + 1] < u0 or ss[i] > u1 or min(ys[i] - g[i], ys[i + 1] - g[i + 1]) < 2.0:
+                continue
+            seg = LineString([(xs[i], zs[i]), (xs[i + 1], zs[i + 1])])
+            if seg.length < 0.05:
+                continue
+            out.append((seg.buffer(p['w'] / 2 + 0.5, cap_style='flat'), min(ys[i], ys[i + 1]) - DECK_UNDER))
         return out
 
     # ---- terrain: the global post function
@@ -536,7 +1042,7 @@ class World:
                 h[sel] = lv / 100.0
                 wet |= sel
         for s in self.src.query('segments', win.buffer(30)):
-            for line, w, e0, e1 in self.bridges(s):
+            for line, w, e0, e1, _, _ in self.bridges(s):
                 bx0, bz0, bx1, bz1 = line.bounds
                 reach = w / 2 + 10
                 ci = (X[0] >= bx0 - reach) & (X[0] <= bx1 + reach)
@@ -606,9 +1112,10 @@ class World:
         for p in sorted(near, key=lambda p: (p['seg'], p['i'])):
             if p['flags'] & FLAGS['pedestrian']:
                 continue
-            pg = LineString([(x / 100.0, z / 100.0) for x, z in p['pts']]).buffer(p['w'] / 2 + max(p['sw'], 0.6), quad_segs=4)
-            if pg.intersects(wg):
-                parts.append(pg)
+            for gl in self.ground_lines(p):
+                pg = gl.buffer(p['w'] / 2 + max(p['sw'], 0.6), quad_segs=4)
+                if pg.intersects(wg):
+                    parts.append(pg)
         if parts:
             hit = unary_union(parts)
             inter = hit.intersection(wg).area
@@ -698,10 +1205,24 @@ def compile_tile(Wd, c, r):
             nodes[nid] = n
         return nid
     for p in pieces:
+        prof = Wd.deck_profile(p)
+        iv = Wd.deck_iv(p) if prof is not None else None
+        off = 0.0
         for sb in p['subs']:
+            pts = sb['pts']
+            sl = sum(math.hypot(x1 - x0, z1 - z0) for (x0, z0), (x1, z1) in zip(pts, pts[1:])) / 100.0
+            o0, off = off, off + sl
             if sb['own'] != (c, r):
                 continue
-            pts = sb['pts']
+            extra = {}
+            if prof is not None:
+                # the deck's heights along this sub-piece every grade.STEP m from its start, and at its end (int cm NAVD88)
+                at = [o0 + k * grade.STEP for k in range(int(sl // grade.STEP) + 1)]
+                if sl - (at[-1] - o0) > 0.05:
+                    at.append(o0 + sl)
+                extra['elev'] = [int(grade.STEP * 100)] + [cm(grade.interp(prof[0], prof[1], a)) for a in at]
+                if iv[1] > o0 and iv[0] < o0 + sl:
+                    extra['deck'] = 1
             stops = []
             for end, nid in (('a', sb['na']), ('b', sb['nb'])):
                 stop = 0
@@ -711,7 +1232,10 @@ def compile_tile(Wd, c, r):
                 stops.append(stop)
             links.append({'a': node(sb['na'], pts[0]), 'b': node(sb['nb'], pts[-1]), 'pts': [[x - c * TCM, z - r * TCM] for x, z in pts],
                           'w': p['w'], 'lanes': p['lanes'], 'dir': p['dir'], 'flags': p['flags'], 'sw': p['sw'], 'cls': p['cls'], 'rank': p['rank'],
-                          'name': p['name'], 'seg': p['seg'], 'piece': p['i'], 'sub': sb['j'], 'stopA': stops[0], 'stopB': stops[1]})
+                          'name': p['name'], 'seg': p['seg'], 'piece': p['i'], 'sub': sb['j'], 'stopA': stops[0], 'stopB': stops[1],
+                          'lf': p['lf'], 'lb': p['lb'], 'spd': -1 if p['spd'] is None else p['spd'], 'lsrc': p['lsrc'], 'lvl': p['lvl'], **extra})
+            if extra.get('deck'):
+                links[-1]['flags'] = p['flags'] | FLAGS['deck']
     links.sort(key=lambda l: (l['seg'], l['piece'], l['sub']))
     # ---- curb islands over the tile + ISLAND_HALO, classified before the clip
     WB = TB.buffer(ISLAND_HALO, join_style='mitre')
@@ -720,7 +1244,8 @@ def compile_tile(Wd, c, r):
     for p in sorted(pieces, key=lambda p: (p['seg'], p['i'])):
         if p['flags'] & FLAGS['pedestrian']:
             continue
-        roads_poly.append(LineString([(x / 100.0, z / 100.0) for x, z in p['pts']]).buffer(p['w'] / 2, quad_segs=4))
+        for gl in Wd.ground_lines(p):
+            roads_poly.append(gl.buffer(p['w'] / 2, quad_segs=4))
     roadway = unary_union(roads_poly) if roads_poly else Polygon()
     land = WB
     WB10 = TB.buffer(ISLAND_HALO + 10, join_style='mitre')
@@ -802,6 +1327,10 @@ def compile_tile(Wd, c, r):
         b = Hm[j + 1, i] * (1 - tx) + Hm[j + 1, i + 1] * tx
         return a * (1 - tz) + b * tz
 
+    # ---- the decks overhead (grade-lanes): no building whose roof reaches a deck's underside - 0.5 m, no tree under one
+    deck_fp = [fp for p in sorted(pieces, key=lambda p: (p['seg'], p['i'])) for fp in Wd.deck_footprint(p)]
+    deck_tree = shapely.STRtree([g for g, _ in deck_fp]) if deck_fp else None
+    under_deck = 0
     # ---- buildings: owned by the tile holding the full footprint's centroid
     brecs_near = {}
     tb28 = TB.buffer(28, join_style='mitre')
@@ -844,6 +1373,11 @@ def compile_tile(Wd, c, r):
             gr = ground(np.append(xs, rec['gx'] / 100.0), np.append(zs, rec['gs'] / 100.0))
         base = float(gr.min())
         rise = min(8.0, float(gr.max()) - base)
+        if deck_tree is not None:
+            roof = base + rise + rec['h']
+            if any(roof > deck_fp[i][1] - 0.5 for i in deck_tree.query(g, predicate='intersects').tolist()):
+                under_deck += 1
+                continue
         theta = -dominant_angle(pts)
         start = len(bverts) // 2
         for x, z in pts:
@@ -859,7 +1393,8 @@ def compile_tile(Wd, c, r):
     for p in sorted(pieces, key=lambda p: (p['seg'], p['i'])):
         if p['sw'] <= 0 or p['flags'] & FLAGS['pedestrian']:
             continue
-        bands.append(LineString([(x / 100.0, z / 100.0) for x, z in p['pts']]).buffer(p['w'] / 2 + p['sw'], quad_segs=4))
+        for gl in Wd.ground_lines(p):
+            bands.append(gl.buffer(p['w'] / 2 + p['sw'], quad_segs=4))
     band = unary_union(bands) if bands else None
     # ---- ground mask: 512 x 512 global 1 m cells
     img = Image.new('L', (TILE, TILE), MASK['asphalt'])
@@ -947,6 +1482,8 @@ def compile_tile(Wd, c, r):
                 continue
             if ptree is not None and len(ptree.query(pt, predicate='intersects')):
                 continue
+            if deck_tree is not None and len(deck_tree.query(pt.buffer(2.0), predicate='intersects')):
+                continue
             hh = hash01(q[2], q[3], 4 ^ d.index)
             cls = (2 if hh < 0.55 else 0) if desert else (0 if hh < 0.5 else 1 if hh < 0.85 else 4)
             trees.append((cm(q[0]) - c * TCM, cm(q[1]) - r * TCM, cls, int(12 + 30 * hash01(q[2], q[3], 5 ^ d.index))))
@@ -999,7 +1536,8 @@ def compile_tile(Wd, c, r):
               'bcount': len(bout), 'groundAreaM2': round((TILE / k_tile) ** 2, 1), 'k_tile': round(k_tile, 9), 'gamma_tile': round(d.gamma(lon_c), 6),
               'centre': [round(lon_c, 7), round(lat_c, 7)], 'waters': [{'id': w['id'], 'level_cm': w['level_cm'], 'cells': w['cells']} for w in wsec],
               'foreign': sorted(foreign), 'ctx': ctx_ids, 'noDemPosts': nan, 'desert': desert,
-              'counts': {'links': len(links), 'nodes': len(nodes_out), 'blocks': len(blocks), 'trees': len(trees), 'places': len(places)}}
+              'counts': {'links': len(links), 'nodes': len(nodes_out), 'blocks': len(blocks), 'trees': len(trees), 'places': len(places),
+                         'deckLinks': sum(1 for l in links if l.get('deck')), 'underDeckDropped': under_deck}}
     if nan == wetp.size:
         raise RefusedTile('tile %s: no 3DEP data under any post (%s)' % (grid.tile_id(dom, c, r), '; '.join(sorted(Wd.dem.missing)) or 'outside the DEM'))
     out = htl1(header, sections)
@@ -1084,7 +1622,9 @@ if __name__ == '__main__':
     ap.add_argument('--places', default=os.path.join(HERE, 'places.json'))
     ap.add_argument('--no-store', action='store_true', help='--tile: compile without reading or writing the store (ctx included)')
     ap.add_argument('--print-build', action='store_true', help='the buildId and its record (the tile service registers it)')
+    ap.add_argument('--osm-roads', default=os.environ.get('HOMETOWN_OSM_ROADS'), help='the OSM lane side table (osm_roads.py); default <data>/osm/osm-roads-us.parquet')
     a = ap.parse_args()
+    set_osm_roads(a.osm_roads or os.path.join(a.data, 'osm', 'osm-roads-us.parquet'))
     store = Store(os.path.abspath(a.store))
     bid, rec = register_build(store)
     if a.print_build:

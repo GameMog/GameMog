@@ -83,6 +83,57 @@ changes bump `COMPILER_VERSION`; library, image or source changes change only `b
   `2 / k0`, mask cell `1 / k0`, the interim water shim. `PKG` carries buildId, grid, domain, origin, k0, gamma0, the
   tile ids and their headers.
 
+## Decks and lanes (grade-lanes)
+
+**Decks** (`grade.py`, the solver; `compile.py` World.deck_iv / deck_profile). A piece's deck interval is its Overture
+`is_bridge` stretch, unless it is a *culvert* (under `CULVERT_MAX` 25 m, no drivable road crossing it, no water within
+w/2 + 10 m: the old terrain raise, `bridges()`), plus a level > 0 stretch over an unconnected lower road that the data
+forgot to tag (`bridgeTagMissing`, ±`PROMOTE_PAD` m round the crossing). A level without `is_bridge` is not a deck: an
+embankment, already in 3DEP.
+
+- **Grade cluster:** the deck pieces joined through *free* nodes (every drivable piece there is on its deck at that
+  node). A node with an at-grade road, a dead end, or a deck interval's end inside a piece is an *anchor* at the
+  terrain's height (the final post function: the heights the engine reads). Cluster extent cap `CLUSTER_CAP` 3 km
+  (`clusterSplit`); one cluster is solved once per World and cached per piece, so every tile that holds a piece writes
+  the same heights.
+- **Constraints:** a road under it (no shared connector) +6.5 m, rail +8.4 m, water (wet posts: the DEM's flattened
+  water surface) +6 m, +3 m over a wet run of 20 m or less; +0.3 m margin each. Two decks crossing: the higher level goes
+  over, on equal levels the lower segment id (its profile is solved first, its own cluster).
+- **Profile:** free nodes by arc-weighted harmonic interpolation between the anchors (on a chain: the chord), at least
+  each constraint's tent (4 % mainlines, 6 % links and streets) and the ground + 0.3; along each piece the max of chord,
+  tents and ground + 0.3, held to 10 % off each end (`gradeRelaxed` counts the clamps), rounded by a box filter as long
+  as a vertical curve (40 m mainline, 20 m link). No sag below the chord, no dip into a ravine, a river bridge between
+  high banks stays at the chord. `python tools/hometown/test_grade.py` (13 cases).
+- **Tile output:** each road link (tile sub-piece) of a deck piece gets `elev: [step_cm, y_cm...]` (every 5 m of its
+  own arc from its start and at its end, int cm NAVD88) and flag 128 (`deck`) when its range meets the deck interval.
+  The deck's interior (10 m in from each abutment) leaves the roadway and the sidewalk bands, so the ground under it is
+  ground (curb islands, lawn), the buildings-on-roads rule ignores it, a building whose roof reaches the deck's
+  underside (y − 1.4) − 0.5 m is dropped (`underDeckDropped`), no tree under it.
+- **Junctions:** no signal or stop where only motorways, trunks and links meet, or on a deck.
+- **Package (assemble.py):** links gain [10] lanes forwards, [11] lanes backwards, [12] the deck profile
+  `[step, y0, y1, ...]` in session metres (step = 5 / k0) or null, [13] the speed limit in mph (−1 unknown). Spawns and
+  mission places never land on a deck. Stats: `deckLinks`, `deckMetres`, `grade` (clusters, constraints, unmet,
+  gradeRelaxed, p95 grades, bridgeTagMissing).
+- **Engine** (cities/sf/js, inert without field [12]): `road-network.js` deckOf / boreY (the whole link's profile,
+  blended over the last 8 m to the engine's terrain at an anchored end), lanesOf from [10]/[11];
+  `grade-separation.js` builds the deck (slab, parapets open 14 m before a merge, columns every 30 m off the streets
+  under it, piers into water), floor discs at every deck node, a 16 m floor grid whose `find()` returns the nearest
+  floor below (stacked decks), `roofAt` under a deck, `onDeckAt`; `controllers.js` getGroundHeight(x, z, mode, y) (an
+  entity's own height; no curb on a deck), groundAt; `traffic.js` the player is on the road at their own level, cars
+  ignore a player one level away; the pursuit's cars and thrusters ride at their own height.
+
+**Lanes** (World.lanes, per segment): (1) the OSM tags through `sources[].record_id` (way id) and the national side
+table `osm_roads.py` builds from Geofabrik's US extract (`lanes`, `lanes:forward/backward`, `turn:lanes`, `width`,
+`maxspeed`; main classes and their links), (2) `width_rules` (one-way n = ⌊(w − 1)/3.3⌋, two-way per side
+⌊(w/2 − 0.5)/3.3⌋), (3) class defaults per direction (urban: 340+ buildings within 300 m): motorway 3 / 2, link 1
+(2 if 7 m wide), trunk 2, primary 2 per side (3 one-way urban), secondary 2 per side at 40 mph+ urban, else 1. The
+width follows the lanes (3.4 m each + 1 m; motorway carriageway + 4.2 m shoulders; link + 2.2 m; a centre turn lane
++3.4 m), streets keep their class width where wider; no halving. One-ways: heading denials for motor vehicles (or no
+mode), per piece where the rule has `between`. Segments' way ids and speed limits come from
+`fetch.py --extras <regions>` (`overture-transportation-segment-extras.parquet` per region; used only when every loaded
+region has one). The side table: `--osm-roads <parquet>` or `<data>/osm/osm-roads-us.parquet`; its sha256 is in the
+build record (a new table, a new buildId).
+
 ## Rules that are estimates, not data
 
 Road widths, lanes and sidewalks by class; building type by Overture class, footprint area, height and the downtown
