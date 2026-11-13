@@ -16,7 +16,7 @@ import { gatePack, type PackV2 } from '../storykit/pack/gate.ts';
 import { PLACES, foreignIn } from '../storykit/pack/cities.ts';
 import { places as sfLibrary } from '../storykit/cities/sf/city.js';
 import { packageProblems, hometownBase, cityLock, tileSetHash, type CityPackage } from '../storykit/hometown/city-package.ts';
-import { classify, displayName, withheldNames, SENSITIVE_KINDS } from '../storykit/hometown/safety.ts';
+import { classify, displayName, withheldNames, SENSITIVE_KINDS, violenceIn } from '../storykit/hometown/safety.ts';
 import { gateHometown, cityTableOf, storyPlan, violentMissions, unknownPlaces } from '../storykit/hometown/hometown-gate.ts';
 import { sfCityPackage, SF_PLACE_ID } from '../storykit/hometown/sf-package.ts';
 import { hometownPlaceList, hometownSystem, hometownTurn, checkHometownReply, REAL_PLACE_RULES } from '../lib/storykit-hometown.ts';
@@ -169,6 +169,20 @@ export function runHometownChecks(ok: Ok) {
   refused('"they were still shot at the clinic" is still violence', said('They were still shot at the clinic.'), /violence \("shot"\)/);
   refused('"the drone shot Marcus outside the hospital" is still violence', said('The drone shot Marcus outside the hospital.'), /violence \("shot"\)/);
   passes('"a wide shot, the school at dawn" and "group shot: the church choir" are camera words', said('A wide shot, the school at dawn. Group shot: the church choir.'));
+  // "shot" is a camera word only in a camera phrase; as a verb, or when unclear, it is gunfire
+  passes('"Wide shot of the school." is a camera phrase', said('Wide shot of the school.'));
+  passes('"in this shot", "the shot shows", "aerial shots of", "a tracking shot along" are camera phrases', said('In this shot the school is quiet. The shot shows the hospital. Aerial shots of the church. Cut to a tracking shot along the clinic.'));
+  refused('"the hero shot guards at the school" is violence', said('The hero shot guards at the school.'), /violence \("shot"\)/);
+  refused('"then the hero shot." (a sentence ending at "shot") at a sensitive place is violence', said('They reached the school, and then the hero shot.'), /violence \("shot"\)/);
+  refused('"he was shot, get him to the hospital" is violence', said('He was shot, get him to the hospital.'), /violence \("shot"\)/);
+  refused('"got shot" at a sensitive place is violence', said('He got shot near the school.'), /violence \("shot"\)/);
+  refused('"shot him" at a sensitive place is violence', said('She shot him at the hospital.'), /violence \("shot"\)/);
+  refused('"shots rang out" at a sensitive place is violence', said('Shots rang out at the school.'), /violence \("Shots"\)/);
+  refused('a camera word followed by a target is violence ("wide shot guards the school")', said('Wide shot guards the school.'), /violence \("shot"\)/);
+  const cam = ['Wide shot of the school.', 'Open on a wide shot of the school.', 'Close shot: the clinic doors.', 'One last shot of the church steeple.', 'Group shot: the church choir.', 'In this shot the school is quiet.', 'The shot shows the school.', 'An over-the-shoulder shot of the clinic.', 'Then a close-up shot.', 'A long shot of the church.'];
+  const gun = ['the hero shot guards at the school', 'Then the hero shot.', 'He was shot, get him to the hospital', 'They shot at the school.', 'He got shot.', 'She shot him.', 'They shot them.', 'The guards shot.', 'The drone shot Marcus.', 'The two shot the guards.', 'A wide shot at the school.', 'The shot rang out.', 'Outside the school, the hero shot.', 'The master shot.', 'Shots rang out.'];
+  ok('violenceIn: camera phrases are not violence', cam.every((t) => !violenceIn(t)), cam.filter((t) => violenceIn(t)).join(' | '));
+  ok('violenceIn: verb "shot" (and unclear "shot") is violence', gun.every((t) => violenceIn(t)), gun.filter((t) => !violenceIn(t)).join(' | '));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -241,21 +241,53 @@ export function withheldNames(pkg: CityPackage): { name: string; why: string }[]
 /** A street address: a house number, then a street ("412 N 4th St", "1200 Example Road"). */
 export const ADDRESS = /\b\d{1,6}[A-Za-z]?\s+(?:[NSEW]\.?\s+|(?:North|South|East|West)\s+)?(?:[A-Za-z0-9][\w.'-]*\s+){1,3}(?:St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Ln|Lane|Blvd|Boulevard|Ct|Court|Way|Pl|Place|Ter|Terrace|Cir|Circle|Pkwy|Parkway|Hwy|Highway|Trl|Trail)\b\.?/;
 /** Violence in words: a sentence that has one of these and a sensitive place is refused. */
-export const VIOLENT_WORDS = /\b(?:blow(?:s|ing|n)?\s+(?:it\s+|them\s+)?up|blew\s+(?:it\s+|them\s+)?up|bomb\w*|explo(?:de|des|ded|ding|sion|sions|sive|sives)|detonat\w*|shoot\w*|shot|gunfire|gunfight|gunm[ae]n|crash(?:es|ed|ing)?|ram(?:s|med|ming)?|burn(?:s|ed|ing)?\s+(?:it\s+)?down|torch(?:es|ed|ing)?|set\s+fire|arson|attack\w*|kill\w*|murder\w*|stab\w*|fight\w*|brawl\w*|wreck\w*|raid\w*|ambush\w*|hostage\w*|smash\w*|storm(?:s|ed|ing)?\s+the|siege|massacre|shootout)\b/i;
+export const VIOLENT_WORDS = /\b(?:blow(?:s|ing|n)?\s+(?:it\s+|them\s+)?up|blew\s+(?:it\s+|them\s+)?up|bomb\w*|explo(?:de|des|ded|ding|sion|sions|sive|sives)|detonat\w*|shoot\w*|shots?|gunfire|gunfight|gunm[ae]n|crash(?:es|ed|ing)?|ram(?:s|med|ming)?|burn(?:s|ed|ing)?\s+(?:it\s+)?down|torch(?:es|ed|ing)?|set\s+fire|arson|attack\w*|kill\w*|murder\w*|stab\w*|fight\w*|brawl\w*|wreck\w*|raid\w*|ambush\w*|hostage\w*|smash\w*|storm(?:s|ed|ing)?\s+the|siege|massacre|shootout)\b/i;
 /** Generic words for sensitive places, for the same sentence rule. */
 const SENSITIVE_NOUNS = /\b(?:schools?|schoolyard|kindergarten|daycare|day care|hospitals?|clinics?|emergency room|churche?s?|chapels?|cathedrals?|mosques?|synagogues?|temples?|police station|precinct|sheriff'?s office|fire station|firehouse|memorials?|cemeter(?:y|ies)|graveyard|graves?|shelters?|nursing home)\b/i;
 
-/** Camera words with "shot" in them ("wide shot", "establishing shot", "shot of"): not violence. "he was shot", "shot at"
- * and "shoot" still are. */
-const CAMERA_SHOT = /\b(?:(?:wide|close|close-?up|extreme close|long|medium|establishing|tracking|aerial|crane|drone|overhead|low[- ]angle|high[- ]angle|over[- ]the[- ]shoulder|reaction|insert|master|cutaway|cut-away|point[- ]of[- ]view|pov|dolly|panning|pan|static|beauty|hero|camera|wider|closer|tight|reverse|group|split|still)\s+shots?\b|\bshots?\s+(?:of|list)\b)/gi;
-/** What follows gunfire "shot" (a target or a direction: "the group shot at", "the hero shot the guard", "shot Marcus"),
- * never a camera shot, whose next word is "of", a colon, a comma or a verb ("a wide shot shows"). */
-const SHOT_TARGET = /^\s+(?:at|up|down|dead|back|out|through|into|from|in|on|him|her|them|it|me|us|you|the|a|an|his|their|our|my|its|this|that|these|those|someone|somebody|everyone|anyone)\b/i;
-const SHOT_NAME = /^\s+\p{Lu}/u;
-const isGunfire = (m: string, rest: string) => /shots?$/i.test(m) && (SHOT_TARGET.test(rest) || SHOT_NAME.test(rest));
-/** The violent word in a sentence (its camera "shot"s set aside), or null. */
-export const violenceIn = (s: string) =>
-  VIOLENT_WORDS.exec(s.replace(CAMERA_SHOT, (m: string, offset: number) => (isGunfire(m, s.slice(offset + m.length)) ? m : ' ')));
+/** Camera phrases with "shot" in them are not violence; every other "shot" is gunfire. A "shot" is a camera word only in
+ * a camera noun phrase: a camera modifier after a determiner or a sentence start ("a wide shot", "Establishing shot of",
+ * "the over-the-shoulder shot"), a determiner and "shot of" / "shot shows" ("one last shot of", "the shot shows"), or
+ * "in this shot". When it reads as a verb ("the hero shot guards", "Then the hero shot.", "shot at", "was shot",
+ * "got shot", "shot him") or is unclear, it is violence: refusing beats letting gunfire at a school through. */
+const DET = String.raw`(?:a|an|the|this|that|these|those|each|every|one|two|our|your|their|its|another|same|next|first|last|final|opening|closing|single|quick|slow|brief|long|extreme|very|sweeping|steady|handheld|static|full|dramatic|wide)`;
+/** Modifiers that only ever describe a camera shot. */
+const CAM = String.raw`(?:wide|wider|close|closer|close-?up|extreme\s+close(?:-?up)?|long|medium|establishing|tracking|aerial|crane|overhead|low[- ]angle|high[- ]angle|over[- ]the[- ]shoulder|cutaway|cut-away|point[- ]of[- ]view|pov|dolly|panning|tight|insert|reverse|wide-angle)`;
+/** Words that are camera modifiers but also people or things that can fire ("the hero shot", "the group shot at"). */
+const CAM_NOUN = String.raw`(?:hero|group|drone|still|camera|reaction|beauty|split|pan|master|two|three)`;
+/** What may come before a camera phrase: a sentence start, a determiner (and its adjectives), or "cut to" / "open on". */
+const LEAD = String.raw`(?:^|[.!?;:,(—–-]\s*|\b(?:to|on|with|then|and)\s+|\b${DET}\s+)(?:${DET}\s+){0,2}`;
+/** Camera verbs that may follow "shot" ("the shot shows", "a wide shot pans"). */
+const CAM_VERB = String.raw`(?:shows?|reveals?|pans?|cuts?|opens?|frames?|holds?|captures?|lingers?|tracks?|follows?|sweeps?|zooms?|pulls?\s+back|pushes?\s+in|establishes|fades?|dissolves?|showing|revealing|framing|panning)`;
+/** After a clear camera modifier + "shot": an end, a pause, "of", "from above", a camera verb, or "and"/"as"/"while". */
+const CAM_AFTER = new RegExp(String.raw`^(?:\s*$|\s*[.,:;!?)—–]|\s+-|\s+(?:of|list|from\s+(?:above|below|the\s+air|overhead|a\s+distance|afar|across)|over|across|along|${CAM_VERB}|and|as|while|then)\b)`, 'i');
+/** After a camera-ish noun + "shot", or a determiner + bare "shot": only "of", a colon or dash, a list, or a camera verb. */
+const STRICT_AFTER = new RegExp(String.raw`^(?:\s*[:—–]|\s+-|\s+(?:of|list|${CAM_VERB})\b)`, 'i');
+const CAM_BEFORE = new RegExp(String.raw`${LEAD}${CAM}\s+$`, 'i');
+const CAM_NOUN_BEFORE = new RegExp(String.raw`(?:^|[.!?;:(]\s*|\b(?:a|an|to|on)\s+)${CAM_NOUN}\s+$`, 'i');
+const DET_BEFORE = new RegExp(String.raw`(?:^|[.!?;:(]\s*|\b${DET}\s+)$`, 'i');
+const IN_SHOT_BEFORE = /\b(?:in|within|out\s+of|throughout)\s+(?:the\s+)?(?:this|that|the|each|every|one|same|next|last|final|first|opening|closing|wide|establishing)\s+$/i;
+/** "was shot", "got shot", "being shot" (and "were still shot"): always gunfire. */
+const PASSIVE_BEFORE = /\b(?:is|was|were|are|be|been|being|get|gets|got|gotten|getting)\s+(?:\w+\s+)?$/i;
+const isCameraShot = (s: string, at: number, word: string) => {
+  const before = s.slice(0, at), after = s.slice(at + word.length);
+  if (PASSIVE_BEFORE.test(before) || /^\s+at\b/i.test(after)) return false;
+  if (CAM_BEFORE.test(before)) return CAM_AFTER.test(after);
+  if (CAM_NOUN_BEFORE.test(before)) return STRICT_AFTER.test(after);
+  if (IN_SHOT_BEFORE.test(before)) return true;
+  if (DET_BEFORE.test(before)) return STRICT_AFTER.test(after);
+  return false;
+};
+const VIOLENT_ALL = new RegExp(VIOLENT_WORDS.source, 'gi');
+/** The first violent word in a sentence that is not a camera "shot", or null. */
+export const violenceIn = (s: string): RegExpExecArray | null => {
+  VIOLENT_ALL.lastIndex = 0;
+  for (let m = VIOLENT_ALL.exec(s); m; m = VIOLENT_ALL.exec(s)) {
+    if (/^shots?$/i.test(m[0]) && isCameraShot(s, m.index, m[0])) continue;
+    return m;
+  }
+  return null;
+};
 const sentences = (t: string) => t.split(/(?<=[.!?])\s+|\n+/);
 
 export type Ref = { key: string; at: string; mission: string | null; role: 'target' | 'visit' | 'scene' };
