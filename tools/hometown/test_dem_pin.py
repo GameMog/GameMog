@@ -192,6 +192,31 @@ class DemPin(unittest.TestCase):
             del os.environ['HOMETOWN_DEM_SNAPSHOT']
 
 
+class DemSourceScopes(unittest.TestCase):
+    """demSource (Sampler.record / add / sources): a product lists the files its own outputs came from, whatever the
+    session read before it, and a cached value brings its files along."""
+    def test_scopes(self):
+        S = dem.Sampler.__new__(dem.Sampler)
+        S.used, S.scopes = {}, []
+        for u in ('a', 'b', 'c'):
+            S.used[u] = {'url': u, 'etag': 'e', 'lastModified': 'x'}
+        S.add(('a',))                                   # (no scope open: nothing recorded)
+        with S.record(isolated=True) as tile:
+            with S.record() as deck:
+                S.add(('b',))                           # (a file read while solving a deck)
+            cached = frozenset(deck)
+            with S.record(isolated=True) as ctx:        # (a ctx block: its own product, not the tile's)
+                S.add(('c',))
+                self.assertEqual([r['url'] for r in S.sources()], ['c'])
+            S.add(())
+        self.assertEqual(tile, {'b'})
+        with S.record(isolated=True) as tile2:          # (a later tile reusing the cached deck)
+            S.add(cached)
+        self.assertEqual([r['url'] for r in S.sources(tile2)], ['b'])
+        self.assertEqual(ctx, {'c'})
+        self.assertEqual([r['url'] for r in S.sources()], ['a', 'b', 'c'])
+
+
 class AssembleText(unittest.TestCase):
     def test_frame_north_has_no_placeholder(self):
         src = open(os.path.join(HERE, 'assemble.py')).read()

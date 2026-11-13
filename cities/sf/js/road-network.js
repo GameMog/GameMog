@@ -283,7 +283,7 @@ function buildRoadNetwork(sidewalks, obstacles) {
       stations.push(B);
       arcs.push(arc + Math.hypot(B.x - pts[pts.length - 2].x, B.z - pts[pts.length - 2].z));
       const lanes = lanesOf(l);
-      const bore = l.tunnel ? spans(pts, true) : l.elev ? deckOf(l) : bridgeOf(l, pts);
+      const bore = l.tunnel ? (l.elev ? tunnelOf(l) : spans(pts, true)) : l.elev ? deckOf(l) : bridgeOf(l, pts);
       for (let k = 0; k + 1 < stations.length; k++) {
         runs.push({
           from: stations[k], to: stations[k + 1], ...lanes, name: l.name,
@@ -453,6 +453,44 @@ function buildRoadNetwork(sidewalks, obstacles) {
     }
     edges = edges.filter((e) => e.lanes.length);
   }
+  // (a Hometown package: a one-way road leaving the data at its edge (a freeway's carriageway, a ramp) turns round
+  // there onto the one-way road coming in beside it, as a two-way street does at a dead end; so a freeway, and the
+  // decks and ramps that join it to the streets inside the box, stay in the traffic network (7.) and the chase's.
+  // San Francisco and New York have no package (window.NYC.PKG): unchanged)
+  const edgeTurn = new Map(); // edge leaving the data -> the edge coming in nearest its end, the other way
+  const turnStats = { exits: 0, entries: 0, paired: 0, moves: 0, kept: 0 };
+  if (window.NYC.PKG) {
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const e of edges) {
+      for (const n of [e.from, e.to]) {
+        x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x); z0 = Math.min(z0, n.z); z1 = Math.max(z1, n.z);
+      }
+    }
+    const rim = (n) => Math.min(n.x - x0, x1 - n.x, n.z - z0, z1 - n.z) < EDGE_RIM;
+    const starts = new Set(edges.map((e) => e.from)), ends = new Set(edges.map((e) => e.to));
+    const entries = edges.filter((f) => !ends.has(f.from) && rim(f.from));
+    // (one to one, nearest pairs first; the road coming in starts at the leaving road's end node, so that node has a
+    // way in and a way on and the traffic treats it as the dead end it turns round at)
+    const pairs = [];
+    for (const e of edges) {
+      if (starts.has(e.to) || !rim(e.to)) continue;
+      for (const f of entries) {
+        const d = Math.hypot(f.from.x - e.to.x, f.from.z - e.to.z);
+        if (f !== e && d < EDGE_TURN && e.dx * f.dx + e.dz * f.dz < -0.8) pairs.push([d, e, f]);
+      }
+    }
+    pairs.sort((p, q) => p[0] - q[0]);
+    const usedEntry = new Set();
+    for (const [, e, f] of pairs) {
+      if (edgeTurn.has(e) || usedEntry.has(f) || f.to === e.to) continue;
+      edgeTurn.set(e, f);
+      usedEntry.add(f);
+      f.from = e.to;
+    }
+    turnStats.exits = edges.filter((e) => !starts.has(e.to) && rim(e.to)).length;
+    turnStats.entries = entries.length;
+    turnStats.paired = edgeTurn.size;
+  }
   // Edges no vehicle could both reach and leave (dead ends, and roads reached only from them) are dropped once the
   // moves are known (7.); know them already, so that no road keeps clear of a dead one merging with it or forking off it
   {
@@ -461,7 +499,8 @@ function buildRoadNetwork(sidewalks, obstacles) {
       if (!outsOf.has(e.from)) outsOf.set(e.from, []);
       outsOf.get(e.from).push(e);
     }
-    const live = largestComponent(edges, (e) => (outsOf.get(e.to) || []).filter((f) => f.to !== e.from && e.dx * f.dx + e.dz * f.dz >= -0.5));
+    const live = largestComponent(edges, (e) => (outsOf.get(e.to) || []).filter((f) => f.to !== e.from && e.dx * f.dx + e.dz * f.dz >= -0.5)
+      .concat(edgeTurn.has(e) ? [edgeTurn.get(e)] : []));
     for (const e of edges) e.live = live.has(e);
   }
   const liveArm = (a) => !!((a.in && a.in.live) || (a.out && a.out.live));
@@ -656,7 +695,9 @@ function buildRoadNetwork(sidewalks, obstacles) {
   // Ave at Greenwich St)
   function link(e, m, i, j) {
     j = Math.max(0, Math.min(m.to.lanes.length - 1, j));
-    if (m.out[i] < 0 && inOrder(e, m, i, j) && (e.to.shape || pathClear(e, i, m.to, j, m.turn === 'S' ? 0.4 : 0.8))) m.out[i] = j;
+    // (from a package's deck onto a deck: up there no curb or building stands in the way; the obstacles are the ground's)
+    const aloft = e.bore && e.bore.kind === 'deck' && m.to.bore && m.to.bore.kind === 'deck';
+    if (m.out[i] < 0 && inOrder(e, m, i, j) && (e.to.shape || aloft || pathClear(e, i, m.to, j, m.turn === 'S' ? 0.4 : 0.8))) m.out[i] = j;
     return m.out[i] >= 0;
   }
   function serveEveryLane(e) {
@@ -673,6 +714,7 @@ function buildRoadNetwork(sidewalks, obstacles) {
     e.moves = e.moves.filter((m) => m.out.some((j) => j >= 0));
   }
   for (const e of edges) e.from.out.push(e);
+  const liveEdges = new Set(edges);
   for (const e of edges) {
     const n = e.lanes.length;
     // a dead end (the street stops there, or leaves the data box) is the one place to turn round
@@ -686,6 +728,12 @@ function buildRoadNetwork(sidewalks, obstacles) {
       if (f.to === e.from || e.dx * f.dx + e.dz * f.dz < -0.8) continue;
       const cross = e.dx * f.dz - e.dz * f.dx;
       e.moves.push({ to: f, turn: cross > 0.5 ? 'R' : cross < -0.5 ? 'L' : 'S', cross, out: new Array(n).fill(-1) });
+    }
+    const turn = edgeTurn.get(e);
+    // (out past the data, where nothing stands: every lane into the lane nearest it, no path check)
+    if (turn && liveEdges.has(turn)) {
+      e.moves.push({ to: turn, turn: 'U', cross: -1, out: Array.from({ length: n }, (_, i) => Math.min(turn.lanes.length - 1, n - 1 - i)), edgeTurn: true });
+      turnStats.moves++;
     }
     // the straightest first: where a road forks, the branch going most nearly straight on keeps most of its lanes
     const ahead = (m) => e.dx * m.to.dx + e.dz * m.to.dz;
@@ -984,7 +1032,8 @@ function buildRoadNetwork(sidewalks, obstacles) {
     return c;
   }
 
-  return { nodes, edges, connector, curvePoint, walkable, onSidewalk, edgeY, edgeGrade, curveY };
+  turnStats.kept = edges.reduce((a, e) => a + e.moves.filter((m) => m.edgeTurn).length, 0);
+  return { nodes, edges, connector, curvePoint, walkable, onSidewalk, edgeY, edgeGrade, curveY, edgeTurns: turnStats };
 }
 
 // Where a link leaves the ground, along its centreline pts (from its first point): a tunnel link's bore, the stretch
@@ -995,6 +1044,8 @@ function buildRoadNetwork(sidewalks, obstacles) {
 // cum } (arcs along the link in m), or null where the link stays on the ground (or the water reaches its ends: a pier,
 // or the data's edge)
 const PORTAL_COVER = 3;
+const EDGE_RIM = 60; // m: a package road's end this near the data's edge leaves the data (edgeTurn)
+const EDGE_TURN = 150; // m: ... and turns round onto a road coming in within this of it
 const BANK_SETBACK = 8;
 function spans(pts, tunnel, measureOnly = false) {
   const T = window.NYC.Terrain;
@@ -1028,6 +1079,32 @@ function spans(pts, tunnel, measureOnly = false) {
   let k1 = last;
   while (k1 < n && g[k1] - line(k1) > 1) k1++;
   return { kind: 'tunnel', p0: u[k0], p1: u[k1], y0: g[k0], y1: g[k1], pts, cum };
+}
+// A Hometown package's tunnel link with its road's profile (field [12]: the straight line between the tunnel's portals,
+// tools/hometown/compile.py tunnel_line; every link of one tunnel on that one line, wherever the tiles split it): its
+// bore where the hill stands PORTAL_COVER m over the road, each portal set back to where the cover is under 1 m, as
+// spans() does from the link's own ends (a tunnel link wholly inside the hill has no ground at its ends). Null where the
+// road nowhere runs under the hill
+function tunnelOf(l) {
+  const T = window.NYC.Terrain;
+  if (!T || !T.loaded) return null;
+  const pts = l.pts;
+  const cum = [0];
+  for (let k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].z - pts[k - 1].z));
+  const L = cum[cum.length - 1];
+  const b = { kind: 'tunnel', ys: Float32Array.from(l.elev.slice(1)), step: l.elev[0], pts, cum, L };
+  const n = Math.max(2, Math.ceil(L / 2));
+  const u = Array.from({ length: n + 1 }, (_, k) => (L * k) / n);
+  const y = u.map((a) => deckRaw(b, a));
+  const cover = u.map((a, k) => { const p = linkPoint(b, a); return T.heightAt(p.x, p.z) - y[k]; });
+  const first = cover.findIndex((c) => c > PORTAL_COVER);
+  if (first < 0) return null;
+  let last = n;
+  while (cover[last] <= PORTAL_COVER) last--;
+  let k0 = first, k1 = last;
+  while (k0 > 0 && cover[k0] > 1) k0--;
+  while (k1 < n && cover[k1] > 1) k1++;
+  return { kind: 'tunnel', p0: u[k0], p1: u[k1], y0: y[k0], y1: y[k1], pts, cum };
 }
 // A Hometown package's deck (link field [12], tools/hometown/grade.py): its heights every `step` m along the link's own
 // centreline from its first point. Returns { kind: 'deck', p0, p1, ys, step, pts, cum, blendA, blendB }: [p0, p1] is the

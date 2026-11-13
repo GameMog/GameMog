@@ -256,7 +256,7 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
     # ---- spawns and mission places on the lanes (session coordinates)
     lines = []
     for l in rl:
-        if l['flags'] & (C.FLAGS['private'] | C.FLAGS['pedestrian'] | C.FLAGS['deck']) or l['cls'] == 'motorway' or l['elev']:
+        if l['flags'] & (C.FLAGS['private'] | C.FLAGS['pedestrian'] | C.FLAGS['deck'] | C.FLAGS['tunnel']) or l['cls'] == 'motorway' or l['elev']:
             continue
         lines.append((LineString([nodes[l['a']], *l['inner'], nodes[l['b']]]), l))
     ltree = shapely.STRtree([g for g, _ in lines]) if lines else None

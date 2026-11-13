@@ -17,6 +17,7 @@
 #
 # No account, no key: https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/{13|1}/TIFF/current/n{lat}w{lon}/...
 # (USGS 3D Elevation Program, a US government work in the public domain).
+import contextlib
 import hashlib
 import json
 import math
@@ -357,6 +358,7 @@ class Sampler:
         self.RES = PRODUCTS[product]
         self.cogs, self.tiles, self.used = {}, {}, {}
         self.missing = set()
+        self.scopes = []   # (record(): the files a computation read, open scopes innermost last; None: an isolated mark)
 
     def _cog(self, latc, lonc):
         k = (latc, lonc)
@@ -417,6 +419,7 @@ class Sampler:
                     t[t < -1000] = np.nan
                     self.tiles[tk] = t
                 self.used[m['url']] = {'url': m['url'], 'etag': m['etag'], 'lastModified': m['lastModified']}
+                self.add((m['url'],))
                 t = self.tiles[tk]
                 s2 = ok & (ti == a) & (tj == b)
                 flat_o[sel[s2]] = t[lr[s2] - b * m['th'], lc[s2] - a * m['tw']]
@@ -438,5 +441,32 @@ class Sampler:
         b = v01 * (1 - tx) + v11 * tx
         return (a * (1 - ty) + b * ty).reshape(shape)
 
-    def sources(self):
-        return [self.used[k] for k in sorted(self.used)]
+    # ---- demSource: the files a product's own outputs depend on. A computation runs inside record(); every file read
+    # in it, and every file a cached result it reuses was computed from (add()), lands in its scope and in the open
+    # scopes round it, up to the innermost isolated one. So a tile lists the same files whatever was compiled before it
+    # in the session (its cached decks bring their files along) and nothing a neighbour read.
+    def add(self, files):
+        for sc in reversed(self.scopes):
+            if sc is None:
+                break
+            sc.update(files)
+
+    @contextlib.contextmanager
+    def record(self, isolated=False):
+        fs = set()
+        if isolated:
+            self.scopes.append(None)
+        self.scopes.append(fs)
+        try:
+            yield fs
+        finally:
+            self.scopes.pop()
+            if isolated:
+                self.scopes.pop()
+
+    def sources(self, files=None):
+        """The used files' records: of `files`, else of the innermost open scope, else every file read."""
+        if files is None and self.scopes and self.scopes[-1] is not None:
+            files = self.scopes[-1]
+        keys = sorted(self.used) if files is None else sorted(files)
+        return [self.used[k] for k in keys]

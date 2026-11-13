@@ -62,6 +62,17 @@
    "domain": "conus",
    "name": "Pittsburgh Bridges (grade test box)"
   },
+  "pittsburgh-bridges-ne": {
+   "bbox": [
+    -80.013,
+    40.428,
+    -79.976,
+    40.449
+   ],
+   "bboxSource": "the pittsburgh-bridges box moved ~1 km east, ~0.3 km north (an overlapping place sharing the Fort Pitt, Smithfield St and Liberty bridges, for the overlap proof)",
+   "domain": "conus",
+   "name": "Pittsburgh Bridges NE (overlap test box)"
+  },
   "phoenix-stack": {
    "bbox": [
     -112.102,

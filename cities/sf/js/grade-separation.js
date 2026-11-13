@@ -78,6 +78,7 @@ function buildGradeSeparation(scene, network) {
   const lateral = (e, x, z) => (x - e.x0) * e.rx + (z - e.z0) * e.rz;
   const discAt = new Map(); // (package decks) node -> { x, z, y, r, n }: deckEnds()
   let linkOnly = 0; // (package decks built from the road graph's links alone: linkDecks())
+  const parapetQ = []; // (package decks' parapet pieces, placed by parapets() once every deck stands)
   const MERGE_GAP = 14;
   const branchy = (n) => (n.in || []).length + (n.out || []).length > 4 || new Set([...(n.in || []), ...(n.out || [])].map((x) => x.name)).size > 1;
   for (const e of network.edges) {
@@ -117,6 +118,41 @@ function buildGradeSeparation(scene, network) {
   // dropped tunnel is no through route for traffic, but its decks still stand and the player can drive them. Built
   // from the road graph's links (field [12]) wherever no kept edge's floor already covers the link)
   linkDecks();
+  parapets();
+  // (a package deck's parapet stands where its edge drops away: not where another deck's floor carries on beside it at
+  // its height, as where two decks merge, part or run side by side (the Stack's ramps): there it would wall the lanes)
+  function parapets() {
+    if (!parapetQ.length) return;
+    const C = 32, grid = new Map(), decks = floors.filter((f) => f.kind === 'deck');
+    for (const f of decks) {
+      const xs = [], zs = [];
+      for (const t of [f.t0, f.t1]) for (const o of [f.L, f.R]) { xs.push(f.x0 + f.dx * t + f.rx * o); zs.push(f.z0 + f.dz * t + f.rz * o); }
+      for (let i = Math.floor(Math.min(...xs) / C); i <= Math.floor(Math.max(...xs) / C); i++) {
+        for (let j = Math.floor(Math.min(...zs) / C); j <= Math.floor(Math.max(...zs) / C); j++) {
+          const k = i + ',' + j;
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k).push(f);
+        }
+      }
+    }
+    const beside = (seg, x, z, y) => (grid.get(Math.floor(x / C) + ',' + Math.floor(z / C)) || []).some((f) => {
+      if (f === seg) return false;
+      const px = x - f.x0, pz = z - f.z0, t = px * f.dx + pz * f.dz, o = px * f.rx + pz * f.rz;
+      if (t < f.t0 || t > f.t1 || o < f.L || o > f.R) return false;
+      return Math.abs(P(f, t, o)[1] - y) < 1.2;
+    });
+    for (const { seg, ta, tb, tm, o, len, out } of parapetQ) {
+      const [cx, y, cz] = P(seg, tm, o);
+      const [bx, , bz] = P(seg, tm, o + out * 0.9);
+      if (beside(seg, bx, bz, y)) continue;
+      // (a package deck's parapet follows its slope: sloped faces, not a stair of boxes)
+      const o0 = o - 0.15, o1 = o + 0.15;
+      quad(geo.concrete, P(seg, ta, o1), P(seg, tb, o1), P(seg, tb, o1, PARAPET_H), P(seg, ta, o1, PARAPET_H));
+      quad(geo.concrete, P(seg, tb, o0), P(seg, ta, o0), P(seg, ta, o0, PARAPET_H), P(seg, tb, o0, PARAPET_H));
+      quad(geo.concrete, P(seg, ta, o0, PARAPET_H), P(seg, ta, o1, PARAPET_H), P(seg, tb, o1, PARAPET_H), P(seg, tb, o0, PARAPET_H));
+      collider(cx, cz, seg.dx, seg.dz, len + 0.5, 0.3, y - 1, y + PARAPET_H);
+    }
+  }
   function linkDecks() {
     const RG = window.NYC.GEO.roadGraph;
     if (!RG || !RG.links || !window.NYC.deckOf || !floors.some((f) => f.kind === 'deck') && !RG.links.some((l) => Array.isArray(l[12]))) return;
@@ -130,7 +166,7 @@ function buildGradeSeparation(scene, network) {
     const node = (x, z) => { const k = Math.round(x * 2) + ',' + Math.round(z * 2); if (!nodeOf.has(k)) nodeOf.set(k, { x, z, in: [], out: [] }); return nodeOf.get(k); };
     for (let li = 0; li < RG.links.length; li++) {
       const [a, b, ni, w, , dir, inner, flags, , , lf, lb, elev] = RG.links[li];
-      if (!Array.isArray(elev) || elev.length < 3 || flags & (8 | 16)) continue;
+      if (!Array.isArray(elev) || elev.length < 3 || flags & (2 | 8 | 16)) continue; // (a tunnel link's profile: no deck)
       const pts = [{ x: RG.nodes[2 * a], z: RG.nodes[2 * a + 1] }];
       for (let k = 0; k < inner.length; k += 2) pts.push({ x: inner[k], z: inner[k + 1] });
       pts.push({ x: RG.nodes[2 * b], z: RG.nodes[2 * b + 1] });
@@ -279,14 +315,9 @@ function buildGradeSeparation(scene, network) {
       if (seg.kind === 'deck' && ((tm < MERGE_GAP && branchy(e.from)) || (tm > e.span - MERGE_GAP && branchy(e.to)))) continue;
       for (const o of [seg.L + 0.15, seg.R - 0.15]) {
         const [cx, y, cz] = P(seg, tm, o);
-        if (seg.kind === 'deck') {
-          // (a package deck's parapet follows its slope: sloped faces, not a stair of boxes)
-          for (const [o0, o1] of [[o - 0.15, o + 0.15]]) {
-            quad(geo.concrete, P(seg, ta, o1), P(seg, tb, o1), P(seg, tb, o1, PARAPET_H), P(seg, ta, o1, PARAPET_H));
-            quad(geo.concrete, P(seg, tb, o0), P(seg, ta, o0), P(seg, ta, o0, PARAPET_H), P(seg, tb, o0, PARAPET_H));
-            quad(geo.concrete, P(seg, ta, o0, PARAPET_H), P(seg, ta, o1, PARAPET_H), P(seg, tb, o1, PARAPET_H), P(seg, tb, o0, PARAPET_H));
-          }
-        } else box(geo.concrete, cx, cz, seg.dx, seg.dz, len + 0.02, 0.3, y, y + PARAPET_H);
+        // (a package deck's parapets are placed once every deck stands: parapets())
+        if (seg.kind === 'deck') { parapetQ.push({ seg, ta, tb, tm, o, len, out: o < (seg.L + seg.R) / 2 ? -1 : 1 }); continue; }
+        box(geo.concrete, cx, cz, seg.dx, seg.dz, len + 0.02, 0.3, y, y + PARAPET_H);
         collider(cx, cz, seg.dx, seg.dz, len + 0.5, 0.3, y - 1, y + PARAPET_H);
       }
     }

@@ -80,9 +80,15 @@ NARROW_WATER = 20.0
 CLEAR_MARGIN = 0.3   # m added to every clearance (the vertical curves round crests off)
 DECK_SHRINK = 10.0   # m: the roadway (asphalt, no curb island, no building) runs this far onto a deck from each abutment
 DECK_UNDER = 1.4     # m: the deck's thickness (its underside: the profile minus this)
+ISLAND_W = 6.0       # m: a curb island narrower than this is a median or a strip (sidewalk), wider ground is a block
+TUNNEL_COVER = 6.0   # m: a building over a tunnel's road with less ground than this over it is dropped (a portal's cut)
+PORTAL_PAD = 30.0    # m: a tunnel link's roadway runs this far in from a portal (the cut before the bore)
 PROMOTE_PAD = 25.0   # m: a mis-tagged crossing's deck runs this far past the road under it, each side
 OVERLAP_END = 40.0   # m: a lower road running under a deck counts from this far in from an abutment
-CLUSTER_CAP = 3000.0  # m: a grade cluster's extent; past it the cluster is cut (clusterSplit) at the next node
+CLUSTER_CAP = 6000.0  # m: a grade group's extent; past it the group is cut at its pieces' L3 home cells (clusterSplit)
+GROUP_CELL = (819200, 409600)  # cm: a deck piece's home cell (its first point's) at L4 and, for a cut group, L3
+GROUP_REACH = 80.0   # m: the deck pieces a deck piece interacts with (crossing, or another level alongside) lie within
+ENSURE_PAD = 120.0   # m: the rows loaded round a deck piece before anything is computed from them
 URBAN_BLD = 340      # buildings within 300 m (1200 per km2): the urban lane defaults
 LANE_W = 3.4
 MAINLINE = ('motorway', 'trunk')
@@ -676,8 +682,37 @@ class World:
         self.ctxs = {}
         self.pieces_c, self.junction_c, self.brec_c, self.bridge_c, self.k_c = {}, {}, {}, {}, {}
         self.lanes_c, self.osm_c, self.deck_c, self.prof_c, self.gstats = {}, None, {}, {}, {}
-        self.seg_rows, self.iv_c, self.cross_c, self.solving = {}, {}, {}, set()
+        self.seg_rows, self.iv_c, self.cross_c = {}, {}, {}
+        self.files_c, self.grp_c, self.near_c, self.base_c, self.l4_c, self.tline_c = {}, {}, {}, {}, {}, {}
+        self.data = data
         self.log = log or (lambda *a: None)
+
+    # ---- the DEM files behind a cached value (demSource): a value computed once is reused with its files
+    def memo(self, cache, key, fn):
+        fk = (id(cache), key)
+        if key in cache:
+            self.dem.add(self.files_c.get(fk, ()))
+            return cache[key]
+        with self.dem.record() as fs:
+            v = fn()
+        cache[key] = v
+        self.files_c[fk] = frozenset(fs)
+        return v
+
+    # ---- rows: a grade group reaches past the tile's own window; its rows are loaded wherever it goes, so it is the
+    # same group in a tile compiled alone and in any place round it (a region not fetched refuses the tile)
+    def ensure(self, x0, z0, x1, z1):
+        if self.src.covered(x0, z0, x1, z1):
+            return
+        need = sorted(set(self.src.blocks) | set(blocks_for(x0, z0, x1, z1)))
+        self.log(jdump({'loadRegions': [list(b) for b in need if b not in set(self.src.blocks)]}))
+        self.src = Sources(self.data, self.dom_name, need, skip_missing=True)
+        self.osm_c = None
+        self.src.require(x0, z0, x1, z1, 'grade group')
+
+    def ensure_piece(self, p):
+        b = self.pgeom(p)[0].bounds
+        self.ensure(b[0] - ENSURE_PAD, b[1] - ENSURE_PAD, b[2] + ENSURE_PAD, b[3] + ENSURE_PAD)
 
     # ---- ctx
     def ctx_block(self, C, R):
@@ -685,7 +720,8 @@ class World:
             k = ctx_key(self.bid, self.dom_name, C, R)
             b = self.store.get(k) if self.store else None
             if b is None:
-                h, bc, pc = context.compile_ctx(self.src, self.dem, C, R, self.bid)
+                with self.dem.record(isolated=True):
+                    h, bc, pc = context.compile_ctx(self.src, self.dem, C, R, self.bid)
                 b = context.pack_ctx(h, bc, pc)
                 if self.store:
                     self.store.put_if_absent(k, b)
@@ -742,6 +778,13 @@ class World:
         cs = sorted([(c['at'], c['connector_id']) for c in s['connectors'] or [] if c.get('connector_id') is not None and c.get('at') is not None])
         if len(cs) < 2:
             return out
+        # (a tunnel's portals split the road too (node 'p:{segment}:{portal at, 1e-9}'), so a piece is all tunnel or
+        # none of it: the bridge that runs into Fort Pitt's tunnel ends at the portal, the tunnel link starts there)
+        for t0, t1 in spans['is_tunnel']:
+            for t in (t0, t1):
+                if cs[0][0] < t < cs[-1][0] and all(abs(t - a) * L >= 1.0 for a, _ in cs):
+                    cs.append((t, 'p:%s:%d' % (sid, round(t * 1e9))))
+        cs.sort()
         verts = shapely.get_coordinates(g)
         name = pretty_raw(s['name'])
 
@@ -756,9 +799,11 @@ class World:
             piece = shapely.ops.substring(g, a0 * L, a1 * L)
             if piece.length < 0.3:
                 continue
+            # (a piece more than half underground is a tunnel link: kept, so the road through it connects (Fort Pitt's
+            # bridge runs straight into its tunnel); the engine bores it where the hill stands over it, and the ground
+            # above its interior is not roadway (ground_lines))
             under = sum(max(0, min(a1, t1) - max(a0, t0)) for t0, t1 in spans['is_tunnel'] if (t0, t1) != (0.0, 1.0))
-            if under > 0.5 * (a1 - a0):
-                continue
+            pflags = flags | (FLAGS['tunnel'] if under > 0.5 * (a1 - a0) else 0)
             pts = [(cm(x), cm(z)) for x, z in shapely.get_coordinates(piece.simplify(0.4))]
             pts[0], pts[-1] = snap(Point(piece.coords[0])), snap(Point(piece.coords[-1]))
             # (consecutive duplicate cm points dropped)
@@ -784,9 +829,10 @@ class World:
                     if f1 - f0 > 1e-6:
                         o.append((f0, f1))
                 return o
-            out.append({'seg': sid, 'i': k, 'a': c0, 'b': c1, 'pts': q, 'w': w, 'lanes': lf + lb, 'dir': dp, 'flags': flags, 'sw': sw,
+            out.append({'seg': sid, 'i': k, 'a': c0, 'b': c1, 'pts': q, 'w': w, 'lanes': lf + lb, 'dir': dp, 'flags': pflags, 'sw': sw,
                         'cls': cls, 'rank': rank, 'name': name, 'lf': lf, 'lb': lb, 'spd': LN['spd'], 'lsrc': LN['src'], 'lvl': lvl,
-                        'link': s['subclass'] == 'link', 'br': frac(spans['is_bridge']), 'tun': frac(spans['is_tunnel']),
+                        'link': s['subclass'] == 'link', 'br': frac(spans['is_bridge']), 'tun': frac(spans['is_tunnel']), 'f0': a0, 'f1': a1,
+                        'tspan': next(((t0, t1) for t0, t1 in spans['is_tunnel'] if t0 <= mid <= t1), None),
                         'brs': [(t0, t1) for t0, t1 in spans['is_bridge'] if min(a1, t1) - max(a0, t0) > 1e-6]})
             k += 1
         # grid-line splits along the whole segment (ordinals count along it, piece after piece)
@@ -975,16 +1021,13 @@ class World:
         return res
 
     # ---- bridges raised on the ground (pure per segment)
-    def bridges(self, s):
-        if s['id'] in self.bridge_c:
-            return self.bridge_c[s['id']]
-        out = []
-        self.bridge_c[s['id']] = out
+    def bridge_lines(self, s):
+        """[(b0, b1, line)]: the segment's bridge stretches long enough to be a culvert (pure per segment, no rows)."""
         ps = self.pieces(s)
         if not ps or s['geom'].geom_type != 'LineString':
-            return out
+            return []
         g, L = s['geom'], s['geom'].length
-        w = ps[0]['w']
+        out = []
         for rr in s['road_flags'] or []:
             if 'is_bridge' not in (rr.get('values') or []):
                 continue
@@ -994,16 +1037,36 @@ class World:
             line = shapely.ops.substring(g, b0 * L, b1 * L)
             if line.length <= 3 or line.length > CULVERT_MAX:
                 continue
+            out.append((b0, b1, line))
+        return out
+
+    def culvert(self, s, b0, b1, line):
+        """(line, w, e0, e1, b0, b1) when this bridge stretch is a culvert (no drivable road crossing it, no water within
+        w/2 + 10 m: the old terrain raise), else None. Reads the rows round the stretch alone."""
+        def f():
+            b = line.bounds
+            self.ensure(b[0] - ENSURE_PAD, b[1] - ENSURE_PAD, b[2] + ENSURE_PAD, b[3] + ENSURE_PAD)
+            w = self.pieces(s)[0]['w']
             crossing = [p for p in self.pieces_near(line) if p['seg'] != s['id'] and LineString([(x / 100.0, z / 100.0) for x, z in p['pts']]).crosses(line)]
             if crossing:
-                continue
+                return None
             if any(r['poly'].intersects(line.buffer(w / 2 + 10)) for r in water_polys(self.src, line.buffer(w / 2 + 10))):
-                continue
+                return None
             (x0, z0), (x1, z1) = line.coords[0], line.coords[-1]
             lon, lat = self.d.inverse([x0, x1], [z0, z1])
             e = self.dem.sample(lon, lat)
-            if np.isfinite(e).all():
-                out.append((line, w, float(e[0]), float(e[1]), b0, b1))
+            return (line, w, float(e[0]), float(e[1]), b0, b1) if np.isfinite(e).all() else None
+        return self.memo(self.bridge_c, (s['id'], b0, b1), f)
+
+    def bridges(self, s, near=None):
+        """The segment's culverts (those whose stretch meets `near`, if given)."""
+        out = []
+        for b0, b1, line in self.bridge_lines(s):
+            if near is not None and not line.intersects(near):
+                continue
+            c = self.culvert(s, b0, b1, line)
+            if c is not None:
+                out.append(c)
         return out
 
     # ---- decks (grade-lanes, spec A): which stretches of a piece are decks, and their heights (grade.py)
@@ -1046,15 +1109,28 @@ class World:
         w = wet[np.rint(fj).astype(int), np.rint(fi).astype(int)]
         return g, w
 
+    def tunnel_line(self, p):
+        """A tunnel link's road (pure per segment): straight from the ground at one portal of its tunnel to the ground at
+        the other (the stretch of the segment its piece lies in). -> (t0, y0, t1, y1): segment fractions, m NAVD88."""
+        t0, t1 = p['tspan']
+
+        def f():
+            g = self.seg_rows[p['seg']]['geom']
+            pa, pb = g.interpolate(t0, normalized=True), g.interpolate(t1, normalized=True)
+            self.ensure(min(pa.x, pb.x) - 50, min(pa.y, pb.y) - 50, max(pa.x, pb.x) + 50, max(pa.y, pb.y) + 50)
+            y, _ = self.ground_at([pa.x, pb.x], [pa.y, pb.y])
+            return (t0, float(y[0]), t1, float(y[1]))
+        return self.memo(self.tline_c, (p['seg'], t0, t1), f)
+
     def pground(self, p):
         """(stations, ground, wet) along a piece: the post function at grade.stations(length) (cached per piece)."""
-        k = self.pkey(p)
-        if k not in self.prof_c:
+        def f():
+            self.ensure_piece(p)
             ss = grade.stations(self.pgeom(p)[1])
             xs, zs = self.at_arc(p, ss)
             g, wet = self.ground_at(xs, zs)
-            self.prof_c[k] = (ss, [float(v) for v in g], [bool(v) for v in wet], xs, zs)
-        return self.prof_c[k]
+            return (ss, [float(v) for v in g], [bool(v) for v in wet], xs, zs)
+        return self.memo(self.prof_c, self.pkey(p), f)
 
     def crossings(self, p):
         """[(s along p, other piece, s along it)] where another drivable piece crosses p with no connector there."""
@@ -1082,15 +1158,22 @@ class World:
     def deck_iv(self, p):
         """The piece's deck interval (u0, u1) in arc m, or None: its bridge stretches that are not culverts (bridges()),
         and a level > 0 stretch over an unconnected lower road the data forgot to tag (bridgeTagMissing)."""
-        k = self.pkey(p)
-        if k in self.iv_c:
-            return self.iv_c[k]
-        self.iv_c[k] = None
-        if p['flags'] & (FLAGS['pedestrian'] | FLAGS['tunnel']):
+        return self.memo(self.iv_c, self.pkey(p), lambda: self._deck_iv(p))
+
+    def _deck_iv(self, p):
+        if p['flags'] & (FLAGS['pedestrian'] | FLAGS['tunnel']) or (not p['br'] and p['lvl'] <= 0):
             return None
         _, L, _ = self.pgeom(p)
         s = self.seg_rows.get(p['seg'])
-        culverts = set((round(b0, 9), round(b1, 9)) for *_, b0, b1 in self.bridges(s)) if s is not None else set()
+        if not p['br']:
+            self.ensure_piece(p)   # (a level over a road the data did not tag: its crossings along all of it)
+        # (the culvert test of its own bridge stretches only: each reads the rows round its stretch)
+        own = set((round(t0, 9), round(t1, 9)) for t0, t1 in p['brs'])
+        culverts = set()
+        if s is not None:
+            for b0, b1, line in self.bridge_lines(s):
+                if (round(b0, 9), round(b1, 9)) in own and self.culvert(s, b0, b1, line) is not None:
+                    culverts.add((round(b0, 9), round(b1, 9)))
         ivs = []
         for (f0, f1), (t0, t1) in zip(p['br'], p['brs']):
             if (round(t0, 9), round(t1, 9)) in culverts:
@@ -1100,6 +1183,8 @@ class World:
         if not p['br'] and p['lvl'] > 0:
             for sq, r, sr in self.crossings(p):
                 _, Lr, _ = self.pgeom(r)
+                if r['flags'] & FLAGS['tunnel'] or any(f0 * Lr <= sr <= f1 * Lr for f0, f1 in r['tun']):
+                    continue
                 if r['lvl'] < p['lvl'] and not any(f0 * Lr <= sr <= f1 * Lr for f0, f1 in r['br']):
                     ivs.append((max(0.0, sq - r['w'] / 2 - PROMOTE_PAD), min(L, sq + r['w'] / 2 + PROMOTE_PAD)))
                     promoted += 1
@@ -1112,10 +1197,9 @@ class World:
             u1 = L
         if u1 - u0 < 2.0:
             return None
-        self.iv_c[k] = (u0, u1)
         if promoted:
             self.gstats.setdefault('bridgeTagMissing', set()).add(p['seg'])
-        return self.iv_c[k]
+        return (u0, u1)
 
     def deck_touches(self, p, end):
         iv = self.deck_iv(p)
@@ -1128,157 +1212,241 @@ class World:
         return sorted([q for q in self.pieces_near(Point(x, z).buffer(0.05)) if (q['a'] == cid or q['b'] == cid)
                        and not q['flags'] & (FLAGS['private'] | FLAGS['pedestrian'])], key=self.pkey)
 
-    def deck_profile(self, p):
-        """(stations, heights m NAVD88) of a deck piece along its pts, solved with its grade cluster; None: no deck."""
-        if self.deck_iv(p) is None:
-            return None
-        k = self.pkey(p)
-        if k in self.deck_c:
-            return self.deck_c[k]
-        # the cluster: deck pieces joined through free nodes (every drivable piece there is on its deck at that node)
-        members, todo, free, nodes, split = {}, [p], set(), {}, False
-        bb = [math.inf, math.inf, -math.inf, -math.inf]
+    # ---- grade groups: which deck pieces are solved together (a pure function of the global data, whichever tile asks)
+    def home(self, q, lv):
+        m = GROUP_CELL[lv]
+        return (q['pts'][0][0] // m, q['pts'][0][1] // m)
+
+    def deck_near(self, q):
+        """The deck pieces q interacts with (symmetric: q is in each one's list): one crossing it with no shared node,
+        or one of another level within max(w, w') / 2 + 15 m (a stacked deck, a viaduct alongside)."""
+        def f():
+            self.ensure_piece(q)
+            line, _, _ = self.pgeom(q)
+            kq = self.pkey(q)
+            xq = set(self.pkey(r) for _, r, _ in self.crossings(q))
+            out = []
+            for r in sorted(self.pieces_near(line.buffer(GROUP_REACH)), key=self.pkey):
+                kr = self.pkey(r)
+                if kr == kq or self.deck_iv(r) is None:
+                    continue
+                rl, _, _ = self.pgeom(r)
+                if (r['lvl'] != q['lvl'] and rl.distance(line) <= max(q['w'], r['w']) / 2 + 15) or kr in xq or \
+                        kq in set(self.pkey(o) for _, o, _ in self.crossings(r)):
+                    out.append(r)
+            return out
+        return self.memo(self.near_c, self.pkey(q), f)
+
+    def _closure(self, p, lv):
+        """(members {key: piece}, free nodes): the deck pieces reached from p through free nodes (every drivable piece
+        there is on its deck at that node, all of one home cell) and deck_near(), within p's home cell at level lv."""
+        members, free, todo = {}, set(), [p]
+        hp = self.home(p, lv)
         while todo:
             q = todo.pop()
-            if self.pkey(q) in members:
+            kq = self.pkey(q)
+            if kq in members:
                 continue
-            members[self.pkey(q)] = q
-            ln, _, _ = self.pgeom(q)
-            b = ln.bounds
-            bb = [min(bb[0], b[0]), min(bb[1], b[1]), max(bb[2], b[2]), max(bb[3], b[3])]
+            members[kq] = q
             for end in ('a', 'b'):
                 nid = q[end]
-                pt = q['pts'][0] if end == 'a' else q['pts'][-1]
-                nodes[nid] = pt
-                if not self.deck_touches(q, end) or nid in free:
+                if nid in free or not self.deck_touches(q, end):
                     continue
-                inc = self.node_pieces(nid, pt)
-                ok = len(inc) >= 2 and all(self.deck_touches(r, 'a' if r['a'] == nid else 'b') for r in inc)
-                if not ok:
-                    continue
-                if max(bb[2] - bb[0], bb[3] - bb[1]) > CLUSTER_CAP:
-                    split = True
-                    continue
-                free.add(nid)
-                for r in inc:
-                    if self.pkey(r) not in members:
-                        todo.append(r)
-        ckey = min(members)
-        if ckey in self.solving:
+                inc = self.node_pieces(nid, q['pts'][0] if end == 'a' else q['pts'][-1])
+                if len(inc) >= 2 and all(self.home(r, lv) == hp and self.deck_touches(r, 'a' if r['a'] == nid else 'b') for r in inc):
+                    free.add(nid)
+                    todo += [r for r in inc if self.pkey(r) not in members]
+            todo += [r for r in self.deck_near(q) if self.home(r, lv) == hp and self.pkey(r) not in members]
+        return members, free
+
+    def deck_group(self, p):
+        """The grade group of a deck piece: {members, free, rank, ckey, extent, split}. Canonical: the closure is an
+        equivalence class (every relation in it is symmetric), cut only at fixed home cells (L4; L3 when the L4 group is
+        wider than CLUSTER_CAP), so every tile that holds any of its pieces solves the same group from the same rows."""
+        k = self.pkey(p)
+        if k in self.grp_c:
+            G = self.grp_c[k]
+            self.dem.add(G['files'])
+            return G
+        with self.dem.record() as fs:
+            if k in self.l4_c:
+                members, free = self.l4_c[k]
+            else:
+                members, free = self._closure(p, 0)
+            ext = self._extent(members)
+            split = ext > CLUSTER_CAP
+            if split:
+                for kk in members:
+                    self.l4_c[kk] = (members, free)
+                members, free = self._closure(p, 1)
+                ext = self._extent(members)
+        h4 = self.home(p, 0)
+        rank = (h4[0], h4[1]) + ((1,) + self.home(p, 1) if split else (0, 0, 0))
+        G = {'members': members, 'free': free, 'rank': rank, 'ckey': min(members), 'extent': ext, 'split': split, 'files': frozenset(fs)}
+        for kk in members:
+            self.grp_c[kk] = G
+        return G
+
+    def _extent(self, members):
+        bb = [math.inf, math.inf, -math.inf, -math.inf]
+        for q in members.values():
+            b = self.pgeom(q)[0].bounds
+            bb = [min(bb[0], b[0]), min(bb[1], b[1]), max(bb[2], b[2]), max(bb[3], b[3])]
+        return max(bb[2] - bb[0], bb[3] - bb[1])
+
+    def deck_profile(self, p):
+        """(stations, heights m NAVD88) of a deck piece along its pts, solved with its grade group; None: no deck."""
+        if self.deck_iv(p) is None:
             return None
-        self.solving.add(ckey)
-        try:
-            gp, byk = [], {}
-            for kk in sorted(members):
-                q = members[kk]
-                _, L, _ = self.pgeom(q)
-                u0, u1 = self.deck_iv(q)
-                ss, g, wet, _, _ = self.pground(q)
-                fixed, under = [], []
-                # water: wet stations inside the deck (a narrow run: a stream)
-                run = []
-                for i, s_ in enumerate(ss + [None]):
-                    if s_ is not None and wet[i] and u0 <= s_ <= u1:
-                        run.append(i)
-                        continue
-                    if run:
-                        clr = CLEAR_STREAM if (ss[run[-1]] - ss[run[0]]) <= NARROW_WATER else CLEAR_WATER
-                        fixed += [(ss[i2], float(g[i2]) + clr + CLEAR_MARGIN) for i2 in run]
-                        run = []
-                line, _, _ = self.pgeom(q)
-                # rail under it
-                for rr in self.src.query('segments', line):
-                    if rr['subtype'] != 'rail' or rr['geom'].geom_type != 'LineString' or flagged(rr['road_flags'], 'is_bridge') or flagged(rr['road_flags'], 'is_tunnel'):
-                        continue
-                    if (rr['class'] or '') in ('abandoned', 'disused'):
-                        continue
-                    ix = rr['geom'].intersection(line)
-                    for pt in [g2 for g2 in getattr(ix, 'geoms', [ix]) if g2.geom_type == 'Point']:
-                        sq = float(line.project(pt))
-                        if u0 <= sq <= u1:
-                            fixed.append((sq, grade.interp(ss, g, sq) + CLEAR_RAIL + CLEAR_MARGIN))
-                # roads under it
-                for sq, r, sr in self.crossings(q):
-                    if not (u0 <= sq <= u1):
-                        continue
-                    _, Lr, _ = self.pgeom(r)
-                    if r['flags'] & FLAGS['tunnel'] or any(f0 * Lr <= sr <= f1 * Lr for f0, f1 in r['tun']):
-                        continue
-                    riv = self.deck_iv(r)
-                    if riv is None or not (riv[0] <= sr <= riv[1]):
-                        fixed.append((sq, grade.interp(ss, g, sq) + CLEAR_ROAD + CLEAR_MARGIN))
-                        continue
-                    # (both decks: the higher level goes over; on equal levels the lower segment id)
-                    if (q['lvl'], r['seg'], r['i']) > (r['lvl'], q['seg'], q['i']):
-                        under.append((sq, self.pkey(r), sr, CLEAR_ROAD + CLEAR_MARGIN))
-                        byk[self.pkey(r)] = r
-                # roads of a LOWER level running under it along the way (a stacked deck: Fort Pitt's two; a viaduct over a
-                # street): every station within (w + w') / 2 of one, over 20 m of overlap, clear of a node they share
-                qa, qb = Point(line.coords[0]), Point(line.coords[-1])
-                for r in sorted(self.pieces_near(line.buffer(q['w'] / 2 + 15)), key=self.pkey):
-                    if r['seg'] == q['seg'] or r['lvl'] >= q['lvl'] or r['flags'] & (FLAGS['private'] | FLAGS['pedestrian'] | FLAGS['tunnel']):
-                        continue
-                    rl, Lr, _ = self.pgeom(r)
-                    shared = [Point(rl.coords[0]) if n == r['a'] else Point(rl.coords[-1]) for n in (r['a'], r['b']) if n in (q['a'], q['b'])]
-                    hits = []
-                    for i2, s_ in enumerate(ss):
-                        # (not within OVERLAP_END m of an abutment: there the two run side by side, the deck still low)
-                        if not (u0 + (OVERLAP_END if u0 > 0 or q['a'] not in free else 0) <= s_ <= u1 - (OVERLAP_END if u1 < L or q['b'] not in free else 0)):
-                            continue
-                        pt = Point(*self.at_arc(q, [s_]))
-                        if rl.distance(pt) > (q['w'] + r['w']) / 2 or any(sh.distance(pt) < 30 for sh in shared):
-                            continue
-                        hits.append((s_, float(rl.project(pt))))
-                    if len(hits) < 5:
-                        continue
-                    riv = self.deck_iv(r)
-                    for s_, sr in hits:
-                        if riv is not None and riv[0] <= sr <= riv[1]:
-                            under.append((s_, self.pkey(r), sr, CLEAR_ROAD + CLEAR_MARGIN))
-                            byk[self.pkey(r)] = r
-                        else:
-                            fixed.append((s_, grade.interp(ss, g, s_) + CLEAR_ROAD + CLEAR_MARGIN))
-                main = q['cls'] in MAINLINE and not q['link']
-                gp.append(grade.Piece(kk, q['a'], q['b'], L, u0, u1, main, g, fixed, under))
-            # (a node's ground: its first piece's (in key order) end station; every piece's end there is the same point)
-            node_ground = {}
-            for gpc in gp:
-                node_ground.setdefault(gpc.a, gpc.ground[0])
-                node_ground.setdefault(gpc.b, gpc.ground[-1])
+        G = self.deck_group(p)
+        return self.memo(self.deck_c, G['ckey'], lambda: self._group_profiles(G, False))[self.pkey(p)]
 
-            # decks of OTHER clusters under this one: solved first (their own cluster; a cycle reads as unknown)
-            others = {k2: self.deck_profile(byk[k2]) for k2 in sorted(byk) if k2 not in members}
+    def deck_base(self, p):
+        """The deck's profile solved with its group alone (no deck of another group under it): what a deck of a group
+        ranked lower reads, so no two groups ever wait on each other."""
+        G = self.deck_group(p)
+        return self.memo(self.base_c, G['ckey'], lambda: self._group_profiles(G, True))[self.pkey(p)]
 
-            def ext(k2, s2):
-                if k2 not in others or others[k2] is None:
-                    return None
-                ss2, ys2 = others[k2]
-                return grade.interp(ss2, ys2, s2)
-            prof, st = grade.solve(gp, node_ground, free, ext)
-        finally:
-            self.solving.discard(ckey)
+    def _group_profiles(self, G, base):
+        members, free = G['members'], G['free']
+        gp, ext_refs = [], {}
+        for kk in sorted(members):
+            q = members[kk]
+            _, L, _ = self.pgeom(q)
+            u0, u1 = self.deck_iv(q)
+            ss, g, wet, _, _ = self.pground(q)
+            fixed, under = [], []
+            # water: wet stations inside the deck (a narrow run: a stream)
+            run = []
+            for i, s_ in enumerate(ss + [None]):
+                if s_ is not None and wet[i] and u0 <= s_ <= u1:
+                    run.append(i)
+                    continue
+                if run:
+                    clr = CLEAR_STREAM if (ss[run[-1]] - ss[run[0]]) <= NARROW_WATER else CLEAR_WATER
+                    fixed += [(ss[i2], float(g[i2]) + clr + CLEAR_MARGIN) for i2 in run]
+                    run = []
+            line, _, _ = self.pgeom(q)
+            # rail under it
+            for rr in self.src.query('segments', line):
+                if rr['subtype'] != 'rail' or rr['geom'].geom_type != 'LineString' or flagged(rr['road_flags'], 'is_bridge') or flagged(rr['road_flags'], 'is_tunnel'):
+                    continue
+                if (rr['class'] or '') in ('abandoned', 'disused'):
+                    continue
+                ix = rr['geom'].intersection(line)
+                for pt in [g2 for g2 in getattr(ix, 'geoms', [ix]) if g2.geom_type == 'Point']:
+                    sq = float(line.project(pt))
+                    if u0 <= sq <= u1:
+                        fixed.append((sq, grade.interp(ss, g, sq) + CLEAR_RAIL + CLEAR_MARGIN))
+            # roads under it
+            for sq, r, sr in self.crossings(q):
+                if not (u0 <= sq <= u1):
+                    continue
+                _, Lr, _ = self.pgeom(r)
+                if r['flags'] & FLAGS['tunnel'] or any(f0 * Lr <= sr <= f1 * Lr for f0, f1 in r['tun']):
+                    continue
+                riv = self.deck_iv(r)
+                if riv is None or not (riv[0] <= sr <= riv[1]):
+                    fixed.append((sq, grade.interp(ss, g, sq) + CLEAR_ROAD + CLEAR_MARGIN))
+                    continue
+                # (both decks: the higher level goes over; on equal levels the lower segment id)
+                if (q['lvl'], r['seg'], r['i']) > (r['lvl'], q['seg'], q['i']):
+                    under.append((sq, self.pkey(r), sr, CLEAR_ROAD + CLEAR_MARGIN))
+                    ext_refs[self.pkey(r)] = r
+            # roads of a LOWER level running under it along the way (a stacked deck: Fort Pitt's two; a viaduct over a
+            # street): every station within (w + w') / 2 of one, over 20 m of overlap, clear of a node they share
+            for r in sorted(self.pieces_near(line.buffer(q['w'] / 2 + 15)), key=self.pkey):
+                if r['seg'] == q['seg'] or r['lvl'] >= q['lvl'] or r['flags'] & (FLAGS['private'] | FLAGS['pedestrian'] | FLAGS['tunnel']):
+                    continue
+                rl, Lr, _ = self.pgeom(r)
+                shared = [Point(rl.coords[0]) if n == r['a'] else Point(rl.coords[-1]) for n in (r['a'], r['b']) if n in (q['a'], q['b'])]
+                hits = []
+                for i2, s_ in enumerate(ss):
+                    # (not within OVERLAP_END m of an abutment: there the two run side by side, the deck still low)
+                    if not (u0 + (OVERLAP_END if u0 > 0 or q['a'] not in free else 0) <= s_ <= u1 - (OVERLAP_END if u1 < L or q['b'] not in free else 0)):
+                        continue
+                    pt = Point(*self.at_arc(q, [s_]))
+                    if rl.distance(pt) > (q['w'] + r['w']) / 2 or any(sh.distance(pt) < 30 for sh in shared):
+                        continue
+                    hits.append((s_, float(rl.project(pt))))
+                if len(hits) < 5:
+                    continue
+                riv = self.deck_iv(r)
+                for s_, sr in hits:
+                    if riv is not None and riv[0] <= sr <= riv[1]:
+                        under.append((s_, self.pkey(r), sr, CLEAR_ROAD + CLEAR_MARGIN))
+                        ext_refs[self.pkey(r)] = r
+                    else:
+                        fixed.append((s_, grade.interp(ss, g, s_) + CLEAR_ROAD + CLEAR_MARGIN))
+            main = q['cls'] in MAINLINE and not q['link']
+            gp.append(grade.Piece(kk, q['a'], q['b'], L, u0, u1, main, g, fixed, under))
+        # (a node's ground: its first piece's (in key order) end station; every piece's end there is the same point)
+        node_ground = {}
         for gpc in gp:
-            self.deck_c[gpc.key] = (gpc.ss, prof[gpc.key])
-        cs = self.gstats.setdefault('clusters', {})
-        cs[ckey] = {'pieces': len(gp), 'extent': round(max(bb[2] - bb[0], bb[3] - bb[1]), 1), 'split': split, **st}
-        return self.deck_c[k]
+            node_ground.setdefault(gpc.a, gpc.ground[0])
+            node_ground.setdefault(gpc.b, gpc.ground[-1])
+        # decks of OTHER groups under this one: a group ranked lower is read solved in full, one ranked higher as its
+        # base profile; the base solve reads none (so the reads form no cycle, whatever the order of the compiles)
+        others = {}
+        if not base:
+            for k2 in sorted(ext_refs):
+                if k2 in members:
+                    continue
+                r = ext_refs[k2]
+                G2 = self.deck_group(r)
+                others[k2] = self.deck_profile(r) if G2['rank'] < G['rank'] else self.deck_base(r)
+
+        def ext(k2, s2):
+            if others.get(k2) is None:
+                return None
+            ss2, ys2 = others[k2]
+            return grade.interp(ss2, ys2, s2)
+        prof, st = grade.solve(gp, node_ground, free, ext)
+        if not base:
+            cs = self.gstats.setdefault('clusters', {})
+            cs[G['ckey']] = {'pieces': len(gp), 'extent': round(G['extent'], 1), 'split': G['split'], **st}
+        return {gpc.key: (gpc.ss, prof[gpc.key]) for gpc in gp}
 
     def ground_lines(self, p):
         """The piece's centreline where it is on the ground: all of it, less a deck's interior (DECK_SHRINK m in from each
-        abutment). The roadway, the sidewalk bands and the buildings-on-roads rule use these."""
+        abutment) and, on a tunnel link, its tunnel stretches' interior (PORTAL_PAD m in from a portal inside the piece).
+        The roadway, the sidewalk bands and the buildings-on-roads rule use these."""
         line, L, _ = self.pgeom(p)
+        cut = []
         iv = self.deck_iv(p)
-        if iv is None:
+        if iv is not None:
+            cut.append((iv[0] + (DECK_SHRINK if iv[0] > 0 else 0), iv[1] - (DECK_SHRINK if iv[1] < L else 0)))
+        if p['flags'] & FLAGS['tunnel']:
+            for f0, f1 in p['tun']:
+                cut.append((f0 * L + (PORTAL_PAD if f0 > 0 else 0), f1 * L - (PORTAL_PAD if f1 < 1 else 0)))
+        cut = sorted((a, b) for a, b in cut if b - a >= 1.0)
+        if not cut:
             return [line]
-        a, b = iv[0] + (DECK_SHRINK if iv[0] > 0 else 0), iv[1] - (DECK_SHRINK if iv[1] < L else 0)
-        if b - a < 1.0:
-            return [line]
-        out = []
-        if a > 0.3:
-            out.append(shapely.ops.substring(line, 0, a))
-        if b < L - 0.3:
-            out.append(shapely.ops.substring(line, b, L))
+        out, at = [], 0.0
+        for a, b in cut:
+            if a > at + 0.3:
+                out.append(shapely.ops.substring(line, at, a))
+            at = max(at, b)
+        if at < L - 0.3:
+            out.append(shapely.ops.substring(line, at, L))
         return [g for g in out if g.geom_type == 'LineString' and g.length > 0.2]
+
+    def tunnel_footprint(self, p):
+        """[(polygon, road y)] per 5 m of a tunnel link (its road: tunnel_line), half its width + 1 m each side."""
+        if not (p['flags'] & FLAGS['tunnel'] and p.get('tspan')):
+            return []
+        t0, y0, t1, y1 = self.tunnel_line(p)
+        _, L, _ = self.pgeom(p)
+        ss = grade.stations(L)
+        xs, zs = self.at_arc(p, ss)
+        out = []
+        for i in range(len(ss) - 1):
+            seg = LineString([(xs[i], zs[i]), (xs[i + 1], zs[i + 1])])
+            if seg.length < 0.05:
+                continue
+            f = p['f0'] + (p['f1'] - p['f0']) * (ss[i] + ss[i + 1]) / 2 / L
+            out.append((seg.buffer(p['w'] / 2 + 1.0, cap_style='flat'), y0 + (y1 - y0) * min(1.0, max(0.0, (f - t0) / ((t1 - t0) or 1.0)))))
+        return out
 
     def deck_footprint(self, p):
         """[(polygon, underside y)] per station step of a deck piece standing over 2 m off its ground."""
@@ -1324,7 +1492,7 @@ class World:
                 h[sel] = lv / 100.0
                 wet |= sel
         for s in self.src.query('segments', win.buffer(30)):
-            for line, w, e0, e1, _, _ in self.bridges(s):
+            for line, w, e0, e1, _, _ in self.bridges(s, win.buffer(30 + CULVERT_MAX)):
                 bx0, bz0, bx1, bz1 = line.bounds
                 reach = w / 2 + 10
                 ci = (X[0] >= bx0 - reach) & (X[0] <= bx1 + reach)
@@ -1459,14 +1627,20 @@ def htl1(header, sections):
 
 def compile_tile(Wd, c, r):
     """The tile (c, r) of Wd's domain -> (gz HTL1 bytes, summary). Reads only: rows within the tile's halos (Sources
-    queries, sorted by id), the ctx blocks within CTX_REACH and the DEM under its posts."""
+    queries, sorted by id) and round the grade groups of its decks, the ctx blocks within CTX_REACH and the DEM under
+    its posts and its decks' groups. demSource: the DEM files those outputs were computed from (dem.Sampler.record),
+    the same in any compile that holds the tile."""
+    with Wd.dem.record(isolated=True) as files:
+        return _compile_tile(Wd, c, r, files)
+
+
+def _compile_tile(Wd, c, r, dem_files):
     t0 = time.time()
     d, dom = Wd.d, Wd.dom_name
     X0, Z0, X1, Z1 = c * TILE, r * TILE, (c + 1) * TILE, (r + 1) * TILE
     Wd.src.require(X0 - LOAD_REACH, Z0 - LOAD_REACH, X1 + LOAD_REACH, Z1 + LOAD_REACH, 'tile %d,%d' % (c, r))
     ctx = Wd.context_for(X0 - CTX_REACH, Z0 - CTX_REACH, X1 + CTX_REACH, Z1 + CTX_REACH)
     ctx_ids = sorted('%s-%s/4/%d/%d' % (grid.GRID, dom, C, R) for C, R in ctx.blocks)
-    Wd.dem.used = {}
     TB = sbox(X0, Z0, X1, Z1)
     cells = context.CELL / 100.0
     centres = ctx.centres(int((X0 - CENTRE_REACH) // cells), int((Z0 - CENTRE_REACH) // cells), int((X1 + CENTRE_REACH) // cells), int((Z1 + CENTRE_REACH) // cells))
@@ -1492,6 +1666,7 @@ def compile_tile(Wd, c, r):
     for p in pieces:
         prof = Wd.deck_profile(p)
         iv = Wd.deck_iv(p) if prof is not None else None
+        tl = Wd.tunnel_line(p) if p['flags'] & FLAGS['tunnel'] and p.get('tspan') else None
         off = 0.0
         for sb in p['subs']:
             pts = sb['pts']
@@ -1508,6 +1683,15 @@ def compile_tile(Wd, c, r):
                 extra['elev'] = [int(grade.STEP * 100)] + [cm(grade.interp(prof[0], prof[1], a)) for a in at]
                 if iv[1] > o0 and iv[0] < o0 + sl:
                     extra['deck'] = 1
+            elif tl is not None:
+                # a tunnel link's road (the same encoding as a deck's): the straight line between its portals
+                at = [o0 + k * grade.STEP for k in range(int(sl // grade.STEP) + 1)]
+                if sl - (at[-1] - o0) > 0.05:
+                    at.append(o0 + sl)
+                Lp = Wd.pgeom(p)[1]
+                f0t, y0t, f1t, y1t = tl   # (not t0: the tile's clock)
+                fr = [p['f0'] + (p['f1'] - p['f0']) * a / Lp for a in at]
+                extra['elev'] = [int(grade.STEP * 100)] + [cm(y0t + (y1t - y0t) * min(1.0, max(0.0, (f - f0t) / ((f1t - f0t) or 1.0)))) for f in fr]
             stops = []
             for end, nid in (('a', sb['na']), ('b', sb['nb'])):
                 stop = 0
@@ -1551,18 +1735,27 @@ def compile_tile(Wd, c, r):
     park_union = unary_union([pg for _, pg in parks]) if parks else None
     wb_edge = WB.exterior
     islands = []   # (unclipped polygon, kind)
-    for pp in sorted(polygons(raised), key=lambda g: (round(g.bounds[0], 2), round(g.bounds[1], 2), round(g.area, 2))):
+    okey = lambda g: (round(g.bounds[0], 2), round(g.bounds[1], 2), round(g.area, 2))  # noqa: E731
+    for pp in sorted(polygons(raised), key=okey):
         if pp.area < 6:
             continue
-        mrr = pp.minimum_rotated_rectangle
-        sides = sorted(LineString(mrr.exterior.coords[i:i + 2]).length for i in range(2)) if mrr.geom_type == 'Polygon' else [0, 0]
-        if pp.distance(wb_edge) < 1e-6:
-            # (cut by the window: its area is the window's, not its own, so it counts as large; but a strip narrower
-            # than 6 m is a median whatever its length, and its width is the same in every window that holds it)
-            kind = 'island' if sides[0] < 6 else 'block'
-        else:
-            kind = 'island' if (pp.area < 120 or sides[0] < 6) else 'block'
-        islands.append((pp, kind))
+        if pp.area < 120 and pp.distance(wb_edge) >= 1e-6:
+            islands.append((pp, 'island'))   # (a small one: whole, and inside every window that holds any of it)
+            continue
+        # the rest by local width, the same in every window that holds the place (a polygon cut by the window has the
+        # window's extent, not its own): the parts narrower than ISLAND_W m (medians, strips; the morphological opening
+        # leaves them out) are islands, the rest block; a narrow bit under 6 m2 stays with the block
+        # (the overlays on valid inputs and a 1 cm grid: robust where the opening's edges run along the polygon's own; a
+        # polygon GEOS still cannot split is one kind, block if any of it is wide)
+        pv = shapely.make_valid(pp)
+        op = shapely.make_valid(pv.buffer(-ISLAND_W / 2, join_style='mitre').buffer(ISLAND_W / 2, join_style='mitre'))
+        try:
+            wide = shapely.intersection(op, pv, grid_size=0.01)
+            narrow = [q for q in polygons(shapely.difference(pv, wide, grid_size=0.01)) if q.area >= 6]
+            block = polygons(shapely.difference(pv, unary_union(narrow), grid_size=0.01)) if narrow else [pp]
+        except shapely.errors.GEOSException:
+            narrow, block = ([], [pp]) if op.area > 1.0 else ([pp], [])
+        islands += sorted([(q, 'block') for q in block if q.area >= 1.0] + [(q, 'island') for q in narrow], key=lambda t: okey(t[0]))
     blocks = []
     for pp, kind in islands:
         if not pp.intersects(TB):
@@ -1616,6 +1809,9 @@ def compile_tile(Wd, c, r):
     deck_fp = [fp for p in sorted(pieces, key=lambda p: (p['seg'], p['i'])) for fp in Wd.deck_footprint(p)]
     deck_tree = shapely.STRtree([g for g, _ in deck_fp]) if deck_fp else None
     under_deck = 0
+    # ---- tunnels: no building stands on a tunnel's road with less than TUNNEL_COVER m of ground over it (by a portal)
+    tun_fp = [fp for p in sorted(pieces, key=lambda p: (p['seg'], p['i'])) for fp in Wd.tunnel_footprint(p)]
+    tun_tree = shapely.STRtree([g for g, _ in tun_fp]) if tun_fp else None
     # ---- buildings: owned by the tile holding the full footprint's centroid
     brecs_near = {}
     tb28 = TB.buffer(28, join_style='mitre')
@@ -1659,6 +1855,9 @@ def compile_tile(Wd, c, r):
             gr = ground(np.append(xs, rec['gx'] / 100.0), np.append(zs, rec['gs'] / 100.0))
         base = float(gr.min())
         rise = min(8.0, float(gr.max()) - base)
+        if tun_tree is not None and any(base < tun_fp[i][1] + TUNNEL_COVER for i in tun_tree.query(g, predicate='intersects').tolist()):
+            under_deck += 1
+            continue
         if deck_tree is not None:
             roof = base + rise + rec['h']
             if any(roof > deck_fp[i][1] - 0.5 for i in deck_tree.query(g, predicate='intersects').tolist()):
@@ -1832,7 +2031,7 @@ def compile_tile(Wd, c, r):
         ('parks', 'json', jdump(psec).encode()),
     ]
     header = {'format': 'hometown-tile', 'version': 1, 'grid': grid.GRID, 'domain': dom, 'L': 0, 'c': c, 'r': r, 'id': grid.tile_id(dom, c, r),
-              'buildId': Wd.bid, 'compiler': COMPILER_VERSION, 'demSource': Wd.dem.sources(), 'vdatum': 'NAVD88 (3DEP), no datum shift',
+              'buildId': Wd.bid, 'compiler': COMPILER_VERSION, 'demSource': Wd.dem.sources(dem_files), 'vdatum': 'NAVD88 (3DEP), no datum shift',
               'posts': grid.POSTS, 'post': grid.POST, 'mask': {'cell': 1, 'n': TILE, 'classes': list(MASK)}, 'base_cm': base,
               'bcount': len(bout), 'groundAreaM2': round((TILE / k_tile) ** 2, 1), 'k_tile': round(k_tile, 9), 'gamma_tile': round(d.gamma(lon_c), 6),
               'centre': [round(lon_c, 7), round(lat_c, 7)], 'waters': [{'id': w['id'], 'level_cm': w['level_cm'], 'cells': w['cells']} for w in wsec],

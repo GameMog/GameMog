@@ -69,7 +69,7 @@ GameMog or Render disk) is seeded with the snapshot the compiler ships, `dem-sna
 |---|---|
 | terrain | each post's lon/lat (inverse projected) sampled bilinearly on the global 1/3" lattice, every pixel from the one file whose degree cell holds it (`dem.py` Sampler); water posts flattened to their polygon's level from ctx (per block); bridges up to 600 m with no road under and no water under raised; blur sigma 1 post with a 2-post halo; cm half-even; stored absolute (NAVD88), `base_cm` + uint16 |
 | roads | whole Overture segments meeting tile + 160 m, split at their connectors, then at every grid line E' = 512k / S = 512k exactly (int cm, `Fraction`); border nodes `b:{segment}:{E|S}{k}:{ordinal}`; a sub-piece belongs to the tile holding its first edge's midpoint; junction controls from every piece at the connector; no box-edge cut |
-| curb islands | land minus roadways over tile + 128 m, each island classified before the clip (median: < 120 m2 or < 6 m wide; cut by the window: < 6 m wide), clipped to the tile, clipped edges flagged `cut` |
+| curb islands | land minus roadways over tile + 128 m, each island classified before the clip: one under 120 m2 inside the window is a median; the rest by local width (`ISLAND_W` 6 m: the parts a 6 m morphological opening leaves out are islands, the rest block, so a polygon the window cuts gets the same kinds where two tiles' windows share it), clipped to the tile, clipped edges flagged `cut` |
 | buildings | owned by the tile holding the exact centroid of the full footprint (integer shoelace), outline kept whole (may overhang), base and rise from the post function over the footprint; `foreign` lists the owners of buildings overlapping the tile |
 | paved lots, trees | footprints within 25 m (buffer 8 / 12 m downtown); a 13 m tree lattice in global grid integers, `hash01(i, j, k ^ domain)`; `desert` from the tile centre |
 | mask | 512 x 512 1 m cells: asphalt, sidewalk, lawn, sand, rock, waterEdge, **water (6)** |
@@ -164,11 +164,22 @@ w/2 + 10 m: the old terrain raise, `bridges()`), plus a level > 0 stretch over a
 forgot to tag (`bridgeTagMissing`, ±`PROMOTE_PAD` m round the crossing). A level without `is_bridge` is not a deck: an
 embankment, already in 3DEP.
 
-- **Grade cluster:** the deck pieces joined through *free* nodes (every drivable piece there is on its deck at that
-  node). A node with an at-grade road, a dead end, or a deck interval's end inside a piece is an *anchor* at the
-  terrain's height (the final post function: the heights the engine reads). Cluster extent cap `CLUSTER_CAP` 3 km
-  (`clusterSplit`); one cluster is solved once per World and cached per piece, so every tile that holds a piece writes
-  the same heights.
+- **Grade group** (`World.deck_group`): the deck pieces joined through *free* nodes (every drivable piece there is on
+  its deck at that node) and to the deck pieces they interact with (one crossing it, or one of another level within
+  max(w, w') / 2 + 15 m: a stacked deck), all of one *home cell* (the L4 block of a piece's first point; when that group
+  is wider than `CLUSTER_CAP` 6 km, the L3 cell: `clusterSplit`). Every relation is symmetric, so the group is the same
+  set whichever piece a tile starts from, and its rows are loaded wherever it reaches (`World.ensure`, a region not
+  fetched refuses the tile): a tile's deck heights never depend on the place, the window or the compile order. A node
+  with an at-grade road, a dead end, a deck interval's end inside a piece, or a piece of another home cell is an
+  *anchor* at the terrain's height (the final post function: the heights the engine reads). A deck of another group
+  under this one is read solved in full when that group ranks lower (home cells in order), else as its base profile
+  (solved with no other group), so no two groups wait on each other.
+- **Tunnels:** a tunnel's portals split the road (node `p:{segment}:{at}`); a piece inside it is a tunnel link (flag 2),
+  kept so the road through it connects (Fort Pitt's bridge runs into its tunnel), with `elev` the straight line between
+  the ground at its tunnel's two portals (pure per segment; the engine bores it where the hill stands 3 m over it). Its
+  interior (30 m in from a portal) is not roadway: the ground over it keeps its blocks and buildings.
+- **demSource:** the DEM files a tile's own outputs were computed from (`dem.Sampler.record`: its posts, its decks'
+  groups, culverts; a cached value carries its files), the same whatever was compiled before it in the session.
 - **Constraints:** a road under it (no shared connector) +6.5 m, rail +8.4 m, water (wet posts: the DEM's flattened
   water surface) +6 m, +3 m over a wet run of 20 m or less; +0.3 m margin each. Two decks crossing: the higher level goes
   over, on equal levels the lower segment id (its profile is solved first, its own cluster).
