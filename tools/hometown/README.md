@@ -1,4 +1,4 @@
-# Hometown compiler 0.4.0 (the national grid hg1)
+# Hometown compiler 0.5.0 (the national grid hg1)
 
 Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
 so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
@@ -82,7 +82,7 @@ centres by non-max suppression within 2 km, downtown = within 350 m of a centre)
 A tile reads the ctx blocks within 3.2 km and the regions within 3.2 km (a tile whose regions are not fetched is refused
 with the fetch command to run).
 
-**buildId** `htc-0.4.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
+**buildId** `htc-0.5.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
 compiler version, libraries incl. GEOS and zlib, image digest, Overture release, DEM snapshot, grid). Compiler logic
 changes bump `COMPILER_VERSION`; library, image or source changes change only `b`.
 

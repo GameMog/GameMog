@@ -1,4 +1,4 @@
-# tools/hometown/compile.py: Hometown compiler 0.4.0 on the national grid hg1 (grid.py). A TILE is compiled from its
+# tools/hometown/compile.py: Hometown compiler 0.5.0 on the national grid hg1 (grid.py). A TILE is compiled from its
 # own sources and context alone: tile = f(buildId, key, sources over tile + halo, ctx blocks). It never reads a whole
 # place's inputs nor a neighbour's output, so neighbouring towns share identical tiles, any tile can be compiled on first
 # request, and a 4 x 4 block compiled in one process gives the same bytes as its 16 tiles compiled one by one.
@@ -47,8 +47,9 @@ import shapely.ops  # noqa: E402
 # steps, density, paved lots, yard trees, edge cuts, tunnels, bridges, slopes, integer tree hash; 0.3.0 hg1 national grid:
 # per-tile compile from tile + halo sources and ctx blocks (no whole-place inputs), split-at-grid-line roads with border
 # nodes, centroid-owned buildings, absolute cm heights + wet mask, per-polygon water levels; 0.4.0 overnight merge: the
-# DEM snapshot pin (If-Match reads), far-field tiles, sf-buildings v4 shapes, decks at height and lanes from data
-COMPILER_VERSION = '0.4.0'
+# DEM snapshot pin (If-Match reads), far-field tiles, sf-buildings v4 shapes, decks at height and lanes from data; 0.5.0 round-2 merge: canonical grade groups (order-free), tunnel links,
+# curb islands by local width, demSource per tile (Sampler.record scopes), far tier A (16 m ring = the core's own posts)
+COMPILER_VERSION = '0.5.0'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 ROAD_HALO = 160      # m: segments read round a tile (owned pieces, curb islands' roadway, sidewalk bands)
