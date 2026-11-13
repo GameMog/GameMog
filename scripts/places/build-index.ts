@@ -11,8 +11,11 @@
  *     the 2010 file, the last Gazetteer to carry population (POP10), joined on GEOID; a place
  *     new since 2010 has no population and ranks on its land area instead
  *
- * Deterministic: rows sorted by GEOID, fixed number formats, gzip level 9 with a zero mtime, so
- * the same inputs always give the same bytes. The index carries no county: the Gazetteer place
+ * Deterministic: rows sorted by GEOID, fixed number formats, gzip level 9 with a zero mtime and the
+ * header's OS byte fixed at 255 ("unknown": zlib writes the build machine's), so the same inputs give
+ * the same TSV everywhere. The compressed bytes can still differ with the zlib version, so the sha256
+ * of the uncompressed TSV is written beside it, lib/places/us-places.tsv.sha256, and npm run check
+ * holds the index to it. The index carries no county: the Gazetteer place
  * files do not have one (the Census place-by-county relationship file would add it).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -26,6 +29,7 @@ if (!file2025 || !file2010) {
   process.exit(2);
 }
 const OUT = new URL('../../lib/places/us-places.tsv.gz', import.meta.url).pathname;
+const OUT_SHA = new URL('../../lib/places/us-places.tsv.sha256', import.meta.url).pathname;
 
 /** The kind word(s) the Gazetteer appends to a name, by LSAD code. */
 const SUFFIX: Record<string, RegExp> = {
@@ -97,7 +101,12 @@ const header = [
 const body = out.map((r) => [r.geoid, clean(r.name), r.state, r.lsad, r.lat, r.lon, r.pop, r.aland, r.awater, r.aliases.map(clean).join('|')].join('\t')).join('\n');
 const tsv = `${header}\n${body}\n`;
 const gz = gzipSync(Buffer.from(tsv, 'utf8'), { level: 9 });
+// RFC 1952 header: bytes 4-7 the mtime (zero already), byte 9 the OS; neither is covered by the CRC
+gz.writeUInt32LE(0, 4);
+gz[9] = 0xff;
 writeFileSync(OUT, gz);
+const tsvSha = createHash('sha256').update(tsv, 'utf8').digest('hex');
+writeFileSync(OUT_SHA, `${tsvSha}  us-places.tsv\n`);
 const withPop = out.filter((r) => r.pop).length;
 console.log(`${out.length} places (${withPop} with 2010 population), ${skipped.length} skipped (${skipped.slice(0, 3).join(', ')})`);
-console.log(`${OUT}: ${gz.length} bytes gzip (${tsv.length} raw), sha256 ${createHash('sha256').update(gz).digest('hex')}`);
+console.log(`${OUT}: ${gz.length} bytes gzip (${tsv.length} raw), sha256 ${createHash('sha256').update(gz).digest('hex')} gzip, ${tsvSha} TSV`);

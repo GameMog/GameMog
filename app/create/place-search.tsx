@@ -1,8 +1,7 @@
 'use client';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useReducer, useRef } from 'react';
 import type { Place, PlaceSelection } from '@/lib/places/types';
-
-type Option = Place & { match?: string };
+import { boxReducer, enterPick, initialBox, type Option } from '@/lib/places/combobox';
 
 const people = (n: number | null) => (n === null ? '' : `${n.toLocaleString('en-US')} people`);
 
@@ -10,43 +9,32 @@ const people = (n: number | null) => (n === null ? '' : `${n.toLocaleString('en-
  * The town box (Hometown, Milestone 6): type a US town, pick it from the list. A combobox in the
  * WAI-ARIA 1.2 pattern: the input owns the list (aria-controls, aria-expanded, aria-activedescendant),
  * Up and Down move through it, Enter picks, Escape closes it and a second Escape clears the box.
- * Results come from /api/places as you type, the newest query winning. `onPick` gets
+ * Results come from /api/places as you type; every edit empties the list and aborts the search before,
+ * and only the answer for the text in the box is shown (lib/places/combobox.ts). `onPick` gets
  * {placeId, name, state, bbox, lat, lon}.
  */
 export function PlaceSearch({ onPick, disabled }: { onPick: (place: PlaceSelection, full: Place) => void; disabled?: boolean }) {
   const id = useId();
   const listId = `${id}-list`;
-  const [text, setText] = useState('');
-  const [options, setOptions] = useState<Option[]>([]);
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState('');
-  const abort = useRef<AbortController | null>(null);
+  const [box, dispatch] = useReducer(boxReducer, initialBox);
+  const { text, options, open, active, loading, searched, seq } = box;
   const listRef = useRef<HTMLUListElement>(null);
 
-  // as you type: a short pause, then the newest query only
+  // as you type: a short pause, then the newest query only; a newer edit (or clearing the box) aborts it
   useEffect(() => {
     const q = text.trim();
-    if (!q) { setOptions([]); setSearched(''); setLoading(false); return; }
+    if (!q) return;
+    const ctl = new AbortController();
     const t = setTimeout(async () => {
-      abort.current?.abort();
-      const ctl = new AbortController();
-      abort.current = ctl;
-      setLoading(true);
+      let places: Option[] = [];
       try {
         const res = await fetch(`/api/places?q=${encodeURIComponent(q)}&limit=8`, { signal: ctl.signal });
-        const data = res.ok ? await res.json() as { places: Option[] } : { places: [] };
-        if (ctl.signal.aborted) return;
-        setOptions(data.places); setSearched(q); setActive(data.places.length ? 0 : -1);
-      } catch {
-        if (!ctl.signal.aborted) { setOptions([]); setSearched(q); }
-      } finally {
-        if (!ctl.signal.aborted) setLoading(false);
-      }
+        if (res.ok) places = (await res.json() as { places: Option[] }).places;
+      } catch { /* aborted or offline: no rows */ }
+      if (!ctl.signal.aborted) dispatch({ t: 'results', seq, q, places });
     }, 90);
-    return () => clearTimeout(t);
-  }, [text]);
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, [text, seq]);
 
   // the highlighted row stays in view
   useEffect(() => {
@@ -56,25 +44,21 @@ export function PlaceSearch({ onPick, disabled }: { onPick: (place: PlaceSelecti
 
   function pick(o: Option) {
     const { placeId, name, state, bbox, lat, lon } = o;
-    setText(`${name}, ${state}`);
-    setOpen(false); setActive(-1);
+    dispatch({ t: 'input', text: `${name}, ${state}`, open: false });
     onPick({ placeId, name, state, bbox, lat, lon }, o);
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
-      if (!open) { setOpen(true); if (options.length && active < 0) setActive(0); return; }
-      if (options.length) setActive((a) => (a + 1) % options.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (!open) { setOpen(true); return; }
-      if (options.length) setActive((a) => (a <= 0 ? options.length - 1 : a - 1));
+      dispatch({ t: 'move', by: e.key === 'ArrowDown' ? 1 : -1 });
     } else if (e.key === 'Enter') {
-      if (open && active >= 0 && options[active]) { e.preventDefault(); pick(options[active]); }
+      // only a row that answers the text in the box: never one left from older text
+      const o = enterPick(box);
+      if (o) { e.preventDefault(); pick(o); }
     } else if (e.key === 'Escape') {
-      if (open) { e.preventDefault(); setOpen(false); }
-      else if (text) { e.preventDefault(); setText(''); }
+      if (open) { e.preventDefault(); dispatch({ t: 'close' }); }
+      else if (text) { e.preventDefault(); dispatch({ t: 'input', text: '', open: false }); }
     }
   }
 
@@ -92,9 +76,9 @@ export function PlaceSearch({ onPick, disabled }: { onPick: (place: PlaceSelecti
         inputMode="search" enterKeyHint="search"
         placeholder="Type a US town or city"
         value={text} disabled={disabled}
-        onChange={(e) => { setText(e.target.value); setOpen(true); }}
-        onFocus={() => { if (q) setOpen(true); }}
-        onBlur={() => setOpen(false)}
+        onChange={(e) => dispatch({ t: 'input', text: e.target.value })}
+        onFocus={() => { if (q) dispatch({ t: 'open' }); }}
+        onBlur={() => dispatch({ t: 'close' })}
         onKeyDown={onKeyDown}
       />
       <ul id={listId} role="listbox" aria-label="Towns" ref={listRef} className="psearch-list" hidden={!showList}>
@@ -104,7 +88,7 @@ export function PlaceSearch({ onPick, disabled }: { onPick: (place: PlaceSelecti
             className={i === active ? 'on' : undefined}
             // mousedown, not click: the input keeps focus, so the list is not closed first
             onMouseDown={(e) => { e.preventDefault(); pick(o); }}
-            onMouseMove={() => { if (active !== i) setActive(i); }}
+            onMouseMove={() => dispatch({ t: 'hover', i })}
           >
             <b>{o.name}<span>, {o.state}</span></b>
             <small>{[o.stateName, o.kind === 'CDP' ? 'community' : o.kind, people(o.pop)].filter(Boolean).join(' · ')}</small>

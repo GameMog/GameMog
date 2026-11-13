@@ -135,7 +135,11 @@ function toPlace(ix: Index, i: number): Place {
   };
 }
 
-/** A trailing state in the words ("... il", "... new york"): the state and the words before it. */
+/**
+ * A trailing state in the words ("... il", "... new york"): the state and the words before it. Only a
+ * candidate: the last words may as well be the unfinished end of a name ("el pa" is El Paso, not "el"
+ * in Pennsylvania), so searchPlaces weighs both readings.
+ */
 function splitState(ws: string[]): { state: string | null; rest: string[] } {
   if (ws.length < 2) return { state: null, rest: ws };
   for (let take = Math.min(3, ws.length - 1); take >= 1; take--) {
@@ -146,19 +150,28 @@ function splitState(ws: string[]): { state: string | null; rest: string[] } {
   return { state: null, rest: ws };
 }
 
-/** The places for a query, best first. Under a millisecond or two for most queries once the index is loaded. */
+/** How far a whole name in the trailing state ("springfield il") outranks every reading of the whole string. */
+const STATE_EXACT = 3;
+
+/**
+ * The places for a query, best first. Under a millisecond or two for most queries once the index is loaded.
+ * With a trailing state, the places in it and the matches of the whole string are merged on score: a name
+ * that is whole before the state ("springfield il", "austin texas") comes first, but a state that only
+ * narrows a half-typed word ("el pa", "new yo") never hides the names the whole string starts.
+ */
 export function searchPlaces(query: string, opts: { limit?: number; index?: Index } = {}): Hit[] {
   const limit = Math.max(1, Math.min(25, opts.limit ?? 8));
   const ix = opts.index ?? loadIndex();
   const raw = words(query).slice(0, 8);
   if (!raw.length) return [];
   const { state, rest } = splitState(raw);
-  const withState = state ? run(ix, rest, state, limit, true) : [];
-  if (withState.length >= limit) return withState;
-  // with the state found, the other places only fill the list: no typo search for them
-  const all = run(ix, raw, null, limit, !withState.length);
-  const have = new Set(withState.map((h) => h.placeId));
-  return [...withState, ...all.filter((h) => !have.has(h.placeId))].slice(0, limit);
+  const withState = (state && rest.length ? run(ix, rest, state, limit, true) : [])
+    .map((h) => (h.match === 'exact' ? { ...h, score: Math.round((h.score + STATE_EXACT) * 1000) / 1000 } : h));
+  // a whole name found in the state: the other places only fill the list, so no typo search for them
+  const all = run(ix, raw, null, limit, !withState.some((h) => h.match === 'exact'));
+  const best = new Map<string, Hit>();
+  for (const h of [...withState, ...all]) { const had = best.get(h.placeId); if (!had || had.score < h.score) best.set(h.placeId, h); }
+  return [...best.values()].sort((a, b) => b.score - a.score || (a.placeId < b.placeId ? -1 : 1)).slice(0, limit);
 }
 
 function run(ix: Index, raw: string[], state: string | null, limit: number, fuzzy: boolean): Hit[] {
