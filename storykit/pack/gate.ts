@@ -57,6 +57,11 @@
  *      lib/storykit-store.ts showcaseLine) gets the same longer limits, so it can keep what its original has (the owner,
  *      7 Nov: "DO NOT close Mogs for Pickup Time"). A showcase's id is GameMog's own: no other pack may take it.
  *
+ *  16. a hometown (base.city 'hometown', Hometown Build Spec v1): a town compiled from open data, gated only with its city
+ *      package's table (opts.city: its places, cityBuild and lock; storykit/hometown/hometown-gate.ts gateHometown, which
+ *      adds the real-place safety rules). base.hometown pins the town exactly (place id, compiler version, tile-set hash)
+ *      and must equal the package's; a Mog keeps its parent's pin exactly. Without a table a hometown pack is refused.
+ *
  * toRunnerPack(pack) turns a passed pack into the runner's pack format (storykit: 1, with its engine): what the store
  * seals as a world and Mog City's runner plays (Mog City wagmi/storyrun/pack.js).
  */
@@ -64,7 +69,7 @@ import SCHEMA from './schema.json' with { type: 'json' };
 import FORGE from '../../scripts/forge/character-sheet.schema.json' with { type: 'json' };
 import VEHICLE_SCHEMA from '../vehicles/vehicle-sheet.schema.json' with { type: 'json' };
 import { Validator, type Schema } from './validate.ts';
-import { PLACES, CAM_POINTS, CITY_NAME, foreignIn, buildsFor, type CityId } from './cities.ts';
+import { PLACES, CAM_POINTS, CITY_NAME, HOMETOWN, foreignIn, buildsFor, type CityId, type CityTable } from './cities.ts';
 import { MOGCITY_STUBS, OPENING, SHOWCASE, SHOWCASE_PACKS, SHOWCASE_CARS } from './schema.mjs';
 import { lintVoiceBlock, KOKORO_VOICES, lineHash as vdLineHash } from '../voices/voice-design.js';
 import { isBlocked } from '../../lib/names.ts';
@@ -234,7 +239,7 @@ export function frameworkProblems(pack: PackV2, parent: PackV2): string[] {
  * The gate. `parent` is the pack a Mog remixes (its base and framework must be kept). `own`: Mog City's own story as a
  * world (storykit/packs/mog-city.json), whose title is Mog City's; only the repo's own checks pass it.
  */
-export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: boolean; showcase?: boolean; showcaseLine?: boolean } = {}): GateResult {
+export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: boolean; showcase?: boolean; showcaseLine?: boolean; city?: CityTable | null } = {}): GateResult {
   const problems: string[] = [], warnings: string[] = [], clamped: string[] = [];
   const refuse = (s: string) => problems.push(s);
   const done = (pack: PackV2 | null, lines: Line[] = []): GateResult => ({ ok: problems.length === 0, problems, warnings, clamped, pack: problems.length ? null : pack, lines });
@@ -268,17 +273,34 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   if (checked.problems.length) { problems.push(...dedupe(checked.problems)); return done(null); }
   const pack: PackV2 = checked.value;
   const city = pack.base.city as CityId;
+  // 16. a hometown (base.city 'hometown'): a town compiled from open data, gated only with its city package's table
+  // (opts.city, storykit/hometown/hometown-gate.ts); the table stands in for the static lists of cities.ts
+  const T = opts.city ?? null, town = (pack.base.city as string) === HOMETOWN;
+  const cityName: string = T ? T.name : CITY_NAME[city];
+  const camPoints: string[] = T ? T.camPoints : CAM_POINTS[city] ?? [];
+  if (town && !T) { refuse(`base: a hometown world is gated with its town's city package (its places, compiler version and tile set); none was given.`); return done(null); }
+  if (T && !town) { refuse(`base: a city package is for a hometown world (base.city "${HOMETOWN}"), not "${city}".`); return done(null); }
+  if (!town && pack.base.hometown) refuse(`base.hometown: only a hometown world (base.city "${HOMETOWN}") pins a town.`);
+  if (T) {
+    const pin = pack.base.hometown;
+    if (!pin) refuse(`base.hometown: a hometown world pins its town: ${JSON.stringify(T.lock)}.`);
+    else for (const k of ['place', 'compiler', 'tiles'] as const) if (pin[k] !== T.lock[k]) refuse(`base.hometown.${k}: "${pin[k]}" is not the city package's ("${T.lock[k]}"); a hometown world plays the exact town it pins.`);
+  }
 
   // 1. base: the engine plays the city at that build (Mog City's engine, mogcity-1: New York only so far)
-  const engine = pack.base.engine as string, mc = engine === MOGCITY, builds = buildsFor(engine, city);
-  if (!builds.length) refuse(`base: ${mc ? "Mog City's engine (mogcity-1)" : engine} does not play ${CITY_NAME[city]} yet${mc ? '; only New York (base.city "ny")' : ''}.`);
-  else if (!builds.includes(pack.base.cityBuild)) refuse(`base.cityBuild "${pack.base.cityBuild}" is not a build of ${CITY_NAME[city]} on ${engine} (${builds.join(', ')}).`);
+  const engine = pack.base.engine as string, mc = engine === MOGCITY, builds = T ? (mc ? T.builds : []) : buildsFor(engine, city);
+  if (!builds.length) refuse(`base: ${mc ? "Mog City's engine (mogcity-1)" : engine} does not play ${cityName} yet${mc && !T ? '; only New York (base.city "ny")' : ''}.`);
+  else if (!builds.includes(pack.base.cityBuild)) refuse(`base.cityBuild "${pack.base.cityBuild}" is not a build of ${cityName} on ${engine} (${builds.join(', ')}).`);
   if (opts.parent) {
     const parent = opts.parent;
     if (pack.parent !== parent.id) refuse(`A Mog names its parent: parent must be "${parent.id}", not ${JSON.stringify(pack.parent ?? null)}.`);
     // (the city is locked; a parent on the older engine may move to Mog City's, the same city, never back: mogBase. The
     // builder always moves it, lib/storykit-build.ts platformFields)
     const want = mogBase(parent.base), keeps = [parent.base, want].some((b) => JSON.stringify(sortKeys(pack.base)) === JSON.stringify(sortKeys(b)));
+    // (a hometown's lock is its town exactly: the same place, compiler version and tile set, so a Mog never plays a
+    // recompiled or re-tiled town; each part that moved is named)
+    const pinned = parent.base?.hometown;
+    if (pinned) for (const k of ['place', 'compiler', 'tiles'] as const) if (pack.base.hometown?.[k] !== pinned[k]) refuse(`base.hometown.${k}: a Mog keeps its parent's town exactly ("${pinned[k]}", not ${JSON.stringify(pack.base.hometown?.[k] ?? null)}): the town is locked; only the game, the people and the missions are rewritten.`);
     if (!keeps) refuse(`A Mog keeps its parent's base: ${JSON.stringify(want)}, not ${JSON.stringify(pack.base)} (the city is locked; dressing may change).`);
     if (pack.id === parent.id) refuse('A Mog needs its own id, not its parent\'s.');
     // 12. a Mog keeps its parent's framework: the same rules, meters and kinds of mission; its own story, cast, cars, voices, dressing
@@ -397,12 +419,12 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   }
 
   // 2. places: the pack's aliases
-  const cityPlaces = PLACES[city];
+  const cityPlaces: Record<string, Json> = T ? T.places : PLACES[city];
   const aliases: Record<string, Json> = pack.places || {};
   for (const [k, a] of Object.entries(aliases)) {
-    if (cityPlaces[k]) refuse(`places.${k}: ${CITY_NAME[city]} already has a place "${k}" (${cityPlaces[k].name}); an alias needs its own key.`);
-    if (!cityPlaces[a['@']]) refuse(`places.${k}: "${a['@']}" is not a place in ${CITY_NAME[city]}.`);
-    if (a.face && !cityPlaces[a.face] && !aliases[a.face]) refuse(`places.${k}.face: "${a.face}" is not a place in ${CITY_NAME[city]}.`);
+    if (cityPlaces[k]) refuse(`places.${k}: ${cityName} already has a place "${k}" (${cityPlaces[k].name}); an alias needs its own key.`);
+    if (!cityPlaces[a['@']]) refuse(`places.${k}: "${a['@']}" is not a place in ${cityName}.`);
+    if (a.face && !cityPlaces[a.face] && !aliases[a.face]) refuse(`places.${k}.face: "${a.face}" is not a place in ${cityName}.`);
   }
   const placeOf = (key: string) => (aliases[key] ? cityPlaces[aliases[key]['@']] : cityPlaces[key]);
   const meters = new Set<string>((pack.hud?.meters || []).map((m: Json) => m.id));
@@ -446,18 +468,18 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
       const key = typeof ref === 'string' ? ref.slice(1) : ref?.['@'];
       if (!key) return;
       const p = placeOf(key);
-      if (!p) { refuse(`${at}: "@${key}" is not a place in ${CITY_NAME[city]}${suggest(key, [...Object.keys(cityPlaces), ...Object.keys(aliases)])}.`); return; }
+      if (!p) { refuse(`${at}: "@${key}" is not a place in ${cityName}${suggest(key, [...Object.keys(cityPlaces), ...Object.keys(aliases)])}.`); return; }
       if (use === 'drive' && p.foot) refuse(`${at}: ${p.name} ("@${key}") is off the lanes, a walk target; drive to a corner near it, then walk.`);
       if ((use === 'drive' || use === 'walk') && p.startOnly) refuse(`${at}: ${p.name} ("@${key}") has no lanes in the route graph; it is a start point only.`);
       if (use === 'start' && p.foot && ride.family !== 'foot') refuse(`${at}: ${p.name} ("@${key}") is off the lanes; a ${ride.label} can't start there.`);
-      if (ref && typeof ref === 'object' && ref.face && !placeOf(ref.face)) refuse(`${at}.face: "@${ref.face}" is not a place in ${CITY_NAME[city]}.`);
+      if (ref && typeof ref === 'object' && ref.face && !placeOf(ref.face)) refuse(`${at}.face: "@${ref.face}" is not a place in ${cityName}.`);
     };
     const cam = (ref: Json, at: string) => {
       // { rel: <cast id> }: in front of someone on the street (a close-up); they need a body, never a voice-only person
       if (ref && typeof ref === 'object') { if (ref.rel && ref.rel !== 'player') who(ref.rel, `${at}.rel`, true); return; }
       if (typeof ref !== 'string' || ref === 'player') return;
       if (ref.startsWith('@')) return place(ref, at, 'any');
-      if (!CAM_POINTS[city].includes(ref)) refuse(`${at}: "${ref}" is not a camera point of ${CITY_NAME[city]}${CAM_POINTS[city].length ? ` (${CAM_POINTS[city].join(', ')})` : ' (it has none; use a place or the player)'}.`);
+      if (!camPoints.includes(ref)) refuse(`${at}: "${ref}" is not a camera point of ${cityName}${camPoints.length ? ` (${camPoints.join(', ')})` : ' (it has none; use a place or the player)'}.`);
     };
     const who = (id: Json, at: string, body = false) => {
       if (id == null) return;
@@ -620,7 +642,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
 
   // 14. the opening: the world's own, before Mission 1 (openingProblems); a Mog keeps its parent's unless it writes its own
   if (pack.opening) {
-    for (const p of openingProblems(pack, { cast, pets, placeOf, camPoints: CAM_POINTS[city], cityName: CITY_NAME[city], keys: [...Object.keys(cityPlaces), ...Object.keys(aliases)], secs: show ? SHOWCASE.openingSecs : undefined })) refuse(p);
+    for (const p of openingProblems(pack, { cast, pets, placeOf, camPoints, cityName, keys: [...Object.keys(cityPlaces), ...Object.keys(aliases)], secs: show ? SHOWCASE.openingSecs : undefined })) refuse(p);
     collect(pack.opening, 'opening', texts);
     pack.opening.shots.forEach((sh: Json, j: number) => { if (sh.say && sh.line && cast.has(sh.say)) lines.push({ id: `OPEN.c${j}`, who: sh.say, text: sh.line, hash: lineHash(sh.line), status: 'pending', clip: null }); });
   } else if (opts.parent?.opening) refuse(`opening: the original has an opening (its place card, its people's name cards, its premise). A Mog keeps it: copy the original's "opening" exactly, or, when the idea changes the story or its people, write the Mog's own, by the same rules.`);
@@ -632,9 +654,9 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
     if (isBlocked(t.text)) refuse(`${t.at}: has a word GameMog doesn't allow.`);
     if (neverMentioned(t.text)) refuse(`${t.at}: names something GameMog never mentions.`);
     for (const tok of t.text.matchAll(/\{([^{}]{0,24})\}/g)) if (!TOKENS.has(tok[1])) refuse(`${t.at}: {${tok[1]}} is not a token (${[...TOKENS].map((x) => `{${x}}`).join(' ')}).`);
-    const foreign = foreignIn(t.text, city);
+    const foreign = foreignIn(t.text, city, T ? T.self : undefined);
     if (foreign.length) {
-      const say = `${t.at}: "${clip(t.text)}" names ${foreign.map((f) => `${f.city} ("${f.word}")`).join(', ')}, but the story is set in ${CITY_NAME[city]}.`;
+      const say = `${t.at}: "${clip(t.text)}" names ${foreign.map((f) => `${f.city} ("${f.word}")`).join(', ')}, but the story is set in ${cityName}.`;
       if (t.speech) warnings.push(`${say} (dialogue, so allowed)`);
       else refuse(`${say} On-screen labels name the city the story is in.`);
     }

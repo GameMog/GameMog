@@ -37,7 +37,8 @@ export const MOGCITY_SCENES = {
   'm1.tracker': 'Mission 1: the laptop tracker close-up, Dan sees where it is going',
   'm1.park': 'set dressing, at once: the park as Mission 1 dresses it, the van at its mark, the street there held clear',
 };
-export const CITIES = ['ny', 'sf'];
+// 'hometown': a town compiled from open data (Hometown), pinned in base.hometown and gated only with its city package
+export const CITIES = ['ny', 'sf', 'hometown'];
 export const TIMES = ['golden', 'midday', 'twilight', 'midnight', 'dawn'];
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 export const WEATHER = ['clear', 'overcast', 'rain', 'storm', 'fog', 'snow'];
@@ -334,7 +335,9 @@ export const SCHEMA = {
     id: R('packId'),
     parent: { ...R('packId'), description: 'a Mog: the pack it remixes (its base is copied and locked)' },
     title: S(48), kicker: S(24), tagline: S(80),
-    base: O({ engine: E(ENGINES), city: E(CITIES), cityBuild: S(40, { pattern: '^[a-z]{2,8}-[a-z0-9.-]{1,30}$' }) }, ['engine', 'city', 'cityBuild'],
+    base: O({ engine: E(ENGINES), city: E(CITIES), cityBuild: S(40, { pattern: '^[a-z]{2,8}-[a-z0-9.-]{1,30}$' }),
+      hometown: O({ place: S(80, { pattern: '^[a-z0-9][a-z0-9-]{1,79}$' }), compiler: S(30, { pattern: '^[a-z0-9][a-z0-9.-]{0,29}$' }), tiles: S(64, { pattern: '^[0-9a-f]{16,64}$' }) },
+        ['place', 'compiler', 'tiles'], { description: "a hometown only (city 'hometown'): the town it plays, pinned (its place id, the compiler version and the tile set's hash); a Mog keeps it exactly" }) }, ['engine', 'city', 'cityBuild'],
       { description: 'what the story runs on; on a Mog, equal to the parent\'s (locked)' }),
     dressing: O({ time: E(TIMES), season: E(SEASONS), weather: E(WEATHER), holiday: A(E(HOLIDAYS), 2, 0, { uniqueItems: true }),
       blackout: E(BLACKOUTS, { description: 'the power is out there (midtown: 34th to 59th St; downtown: below 34th St; manhattan: all of it, the boroughs over the rivers lit): dark windows, street lights and billboards, dead signals, emergency cars, stranded cars, generator-lit islands. Left out, the power is on' }) }, ['time', 'season', 'weather']),

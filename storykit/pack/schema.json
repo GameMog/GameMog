@@ -56,13 +56,41 @@
     "city": {
      "enum": [
       "ny",
-      "sf"
+      "sf",
+      "hometown"
      ]
     },
     "cityBuild": {
      "type": "string",
      "maxLength": 40,
      "pattern": "^[a-z]{2,8}-[a-z0-9.-]{1,30}$"
+    },
+    "hometown": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "place",
+      "compiler",
+      "tiles"
+     ],
+     "properties": {
+      "place": {
+       "type": "string",
+       "maxLength": 80,
+       "pattern": "^[a-z0-9][a-z0-9-]{1,79}$"
+      },
+      "compiler": {
+       "type": "string",
+       "maxLength": 30,
+       "pattern": "^[a-z0-9][a-z0-9.-]{0,29}$"
+      },
+      "tiles": {
+       "type": "string",
+       "maxLength": 64,
+       "pattern": "^[0-9a-f]{16,64}$"
+      }
+     },
+     "description": "a hometown only (city 'hometown'): the town it plays, pinned (its place id, the compiler version and the tile set's hash); a Mog keeps it exactly"
     }
    },
    "description": "what the story runs on; on a Mog, equal to the parent's (locked)"

@@ -16,6 +16,28 @@ export type CityId = 'ny' | 'sf';
 
 export const CITY_NAME: Record<CityId, string> = { ny: 'New York', sf: 'San Francisco' };
 
+/**
+ * A hometown (Hometown, Build Spec v1): a US town compiled from open data, its pack's base.city 'hometown' and its town
+ * pinned in base.hometown { place, compiler, tiles }. It has no static list here: the gate reads its city package's
+ * table (storykit/hometown/hometown-gate.ts cityTableOf), passed as gatePack(pack, { city }). Without one a hometown
+ * pack is refused, so nothing that gates without a table (the store, the builder's New York path) lets one through.
+ */
+export const HOMETOWN = 'hometown';
+export type HometownLock = { place: string; compiler: string; tiles: string };
+export type CityTable = {
+  /** the town's name, as the gate's words say it ("Okemah, Oklahoma") */
+  name: string;
+  /** every "@key" a pack may name: the package's places (private homes left out), in cities.ts's Place shape */
+  places: Record<string, Place>;
+  camPoints: string[];
+  /** the cityBuilds Mog City's engine plays the town at (one: hometown-<compiler version>) */
+  builds: string[];
+  /** the town the pack must pin, exactly */
+  lock: HometownLock;
+  /** how the town's own name is written (never a foreign city in its own story) */
+  self: string[];
+};
+
 export const BUILDS: Record<CityId, string[]> = {
   ny: ['ny-bc7d0b3-1'],
   sf: ['sf-bc7d0b3-1'],
@@ -167,12 +189,14 @@ const LOCAL: Record<CityId, string[]> = { ny: ['Houston'], sf: [] };
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** The other cities a text names, for a story set in `city`: [{ city, word }] (empty when it names none). */
-export function foreignIn(text: string, city: CityId): { city: string; word: string }[] {
+export function foreignIn(text: string, city: CityId | string, own?: string[]): { city: string; word: string }[] {
   const out: { city: string; word: string }[] = [];
+  // (a hometown names itself: `own` is its own names, so a story set in a town that shares a name with one of these is not foreign)
+  const mine = own ? own.map((w) => w.toLowerCase()) : [];
   for (const [other, words] of Object.entries(SIGNATURE)) {
-    if (other === OWN[city]) continue;
+    if (other === OWN[city as CityId] || mine.includes(other.toLowerCase())) continue;
     for (const w of words) {
-      if (LOCAL[city].includes(w)) continue;
+      if ((LOCAL[city as CityId] ?? []).includes(w) || mine.includes(w.toLowerCase())) continue;
       const re = new RegExp(`(^|[^\\p{L}\\p{N}])${esc(w)}(?=$|[^\\p{L}\\p{N}])`, 'iu');
       if (re.test(text)) { out.push({ city: other, word: w }); break; }
     }
