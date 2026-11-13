@@ -113,3 +113,24 @@ So Phase 1 serves only.
 - Render includes 5 GB a month on a Hobby workspace and 25 GB on Pro (render.com/docs/outbound-bandwidth), then charges $0.15/GB.
 - A play pulls between about 1 MB (the 13 tiles around the spawn, at 60-70 KB each) and 11 MB (a whole town).
 - Tiles are immutable for a year, so a returning player costs nothing.
+
+## Turning on town building (`HOMETOWN_TOWNS=on`): assessment, 13 Nov 2026
+
+`HOMETOWN_TOWNS=on` is a different switch from the tiles above. It turns on the Create page's town search and the
+town builder, `lib/hometown/towns.ts`, which **compiles on this server**: per town, `compile.py --descriptor` (66 MB),
+then `compile.py --id` (the whole place, 1.4-1.8 GB peak), then `fetch.py --regions` for a town whose map regions are
+not read yet (about 3 GB). It writes its bundles to `data/towns/` (not under `HOMETOWN_DISK_CAP_GB`; about 13 MB a
+town with its far field). On today's Render service it cannot work, and it is **not ready to turn on**:
+
+| Need | Today | What it takes |
+|---|---|---|
+| Python and the compiler | not installed; `HOMETOWN_COMPILER` defaults to `hometown/compiler`, which is not in this repo | the Phase 2 image (`deploy/hometown-compiler.Dockerfile` now sets `HOMETOWN_COMPILER` and `HOMETOWN_SOURCES` too), or a vendored copy plus a pinned venv |
+| Memory | `1c-2g`, Next 0.3-0.5 GB | a whole-place compile does not fit; a fetch does not fit. Pro (4 GB) at least |
+| The DEM pin | fixed: an empty store now starts at the snapshot the compiler ships (`dem-12b3e06663843b4d`) | nothing |
+| The same buildId as the pre-warm | the id hashes the Python and library versions and the OSM lane table | the pre-warm run in the same image, and `osm/osm-roads-us.parquet` (16 MB) in `HOMETOWN_SOURCES` |
+| Sources | `data/towns/src` is empty: every town fetches its regions from Overture's S3 (duckdb) | fine on Pro; the first town in a new area is slow (Phoenix: 347 s with 4 regions) |
+| Mog City | a town plays on `mc.gamemog.com/?city=pkg&town=` | the mogcity release with the town loader and far field **first** |
+
+With no compiler, `/api/towns` now answers 503 with the town card's "couldn't build this town" words (it was a bare
+500). Until the image is chosen, keep `HOMETOWN_TOWNS` and `NEXT_PUBLIC_HOMETOWN_SEARCH` unset, as `render.yaml` does.
+

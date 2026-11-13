@@ -17,7 +17,9 @@ COPY --from=py /usr/local /usr/local
 RUN ldconfig && python3 -V
 WORKDIR /opt/render/project/src
 # the compiler: MogCity tools/hometown at the commit the build is made from (the ODbL method offer: it is public)
-ARG MOGCITY_REF=hometown-integrate
+# (mogcity: Mog City's branch of the GameMog repo, which carries tools/hometown once the hometown release is on it.
+# Not hometown-integrate: on GitHub that name is GameMog's own branch, which has no tools/hometown)
+ARG MOGCITY_REF=mogcity
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/* \
  && git clone --depth 1 --branch "$MOGCITY_REF" https://github.com/GameMog/GameMog.git /opt/mogcity \
  && python3 -m venv /opt/hometown-venv \
@@ -26,7 +28,12 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
+# (two readers of one compiler: the tile service, lib/hometown-tiles, wants the checkout's root; the town builder,
+# lib/hometown/towns.ts (HOMETOWN_TOWNS=on), wants tools/hometown itself. Both read the same sources folder, which must
+# hold osm/osm-roads-us.parquet (tools/hometown/osm_roads.py) for the server's buildId to be the pre-warm's)
 ENV HOMETOWN_PYTHON=/opt/hometown-venv/bin/python \
     HOMETOWN_COMPILER_DIR=/opt/mogcity \
-    HOMETOWN_SOURCES_DIR=/opt/render/project/src/data/hometown-src
+    HOMETOWN_SOURCES_DIR=/opt/render/project/src/data/hometown-src \
+    HOMETOWN_COMPILER=/opt/mogcity/tools/hometown \
+    HOMETOWN_SOURCES=/opt/render/project/src/data/hometown-src
 CMD ["sh", "-c", "node deploy/boot.mjs && node_modules/.bin/next start -p $PORT"]
