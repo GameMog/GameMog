@@ -16,8 +16,10 @@ import { isOwnerPath } from '@/lib/owner-path';
 const SOON: Record<string, string> = {
   '/api/generate': 'Building worlds is coming soon.',
   '/api/me/selfie': 'Photo matching is coming soon. Build your runner by hand for now.',
+  // (a town build, lib/hometown/towns.ts: it spends server time, so it is a build too)
+  '/api/towns': 'Building worlds is coming soon.',
 };
-const gated = (p: string) => !!SOON[p] || p === '/create' || p.startsWith('/create/') || p.startsWith('/mog/');
+const gated = (p: string) => !!SOON[p] || p.startsWith('/api/towns/') || p === '/create' || p.startsWith('/create/') || p.startsWith('/mog/');
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -25,7 +27,7 @@ export async function middleware(req: NextRequest) {
   if (pathname === '/admin' || pathname.startsWith('/admin/')) return NextResponse.rewrite(new URL('/_gm-not-found', req.url));
   if (await isOwnerPath(pathname)) return NextResponse.rewrite(new URL('/admin', req.url));
   if (process.env.NEXT_PUBLIC_BUILDS !== 'off' || !gated(pathname)) return NextResponse.next();
-  if (SOON[pathname]) return NextResponse.json({ error: SOON[pathname] }, { status: 503 });
+  if (SOON[pathname] || pathname.startsWith('/api/towns/')) return NextResponse.json({ error: SOON[pathname] ?? SOON['/api/towns'] }, { status: 503 });
   const to = req.nextUrl.clone();
   const mog = pathname.match(/^\/mog\/([^/]+)/);
   to.pathname = mog ? `/g/${mog[1]}` : '/';
@@ -35,4 +37,4 @@ export async function middleware(req: NextRequest) {
 }
 
 // (single segments too, for the owner's address: lib/owner-path.ts fingerprints only lowercase words, once each)
-export const config = { matcher: ['/admin', '/admin/:path*', '/:seg', '/create/:path*', '/mog/:path*', '/api/generate', '/api/me/selfie'] };
+export const config = { matcher: ['/admin', '/admin/:path*', '/:seg', '/create/:path*', '/mog/:path*', '/api/generate', '/api/me/selfie', '/api/towns', '/api/towns/:path*'] };

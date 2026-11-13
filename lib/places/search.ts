@@ -118,6 +118,15 @@ export function prefixDistance(q: string, key: string, max: number): number {
   return best;
 }
 
+/** One place by its id ("us-<GEOID>"), as the search lists it, or null (the town builder resolves a picked id here). */
+export function placeById(placeId: string, opts: { index?: Index } = {}): Place | null {
+  const m = /^us-([0-9]{7})$/.exec(placeId);
+  if (!m) return null;
+  const ix = opts.index ?? loadIndex();
+  const i = ix.geoid.indexOf(m[1]);
+  return i < 0 ? null : toPlace(ix, i);
+}
+
 const TIER = { exact: 6, prefix: 4, word: 2, fuzzy: 1.5 } as const;
 export type Match = keyof typeof TIER;
 export type Hit = Place & { match: Match; score: number };
