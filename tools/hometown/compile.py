@@ -1689,9 +1689,9 @@ def _compile_tile(Wd, c, r, dem_files):
                 if sl - (at[-1] - o0) > 0.05:
                     at.append(o0 + sl)
                 Lp = Wd.pgeom(p)[1]
-                t0, y0, t1, y1 = tl
+                f0t, y0t, f1t, y1t = tl   # (not t0: the tile's clock)
                 fr = [p['f0'] + (p['f1'] - p['f0']) * a / Lp for a in at]
-                extra['elev'] = [int(grade.STEP * 100)] + [cm(y0 + (y1 - y0) * min(1.0, max(0.0, (f - t0) / ((t1 - t0) or 1.0)))) for f in fr]
+                extra['elev'] = [int(grade.STEP * 100)] + [cm(y0t + (y1t - y0t) * min(1.0, max(0.0, (f - f0t) / ((f1t - f0t) or 1.0)))) for f in fr]
             stops = []
             for end, nid in (('a', sb['na']), ('b', sb['nb'])):
                 stop = 0
