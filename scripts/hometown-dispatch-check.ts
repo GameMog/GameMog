@@ -13,7 +13,7 @@ import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { BuildQueue, ANY_BUILD } from '../lib/hometown-build/queue.ts';
-import { Dispatcher, RenderApiError, renderRuns, runsConfig, runsReady, runsProblem, capacitySlots, type RenderRuns, type RunsConfig } from '../lib/hometown-build/dispatch.ts';
+import { Dispatcher, RenderApiError, stateOf, renderRuns, runsConfig, runsReady, runsProblem, capacitySlots, type RenderRuns, type RunsConfig } from '../lib/hometown-build/dispatch.ts';
 import { estimate, type BuilderDeps } from '../lib/hometown-build/towns.ts';
 import { hometownConfig } from '../lib/hometown-tiles/config.ts';
 import { TileStore, GB } from '../lib/hometown-tiles/store.ts';
@@ -35,7 +35,14 @@ class FakeRender implements RenderRuns {
     return { id, status: 'pending' };
   }
   async get(id: string) { this.gets++; const r = this.runs.get(id); if (!r) throw new RenderApiError(404, 'no run'); return { id, status: r.status }; }
-  end(status = 'completed') { for (const r of this.runs.values()) if (r.status === 'pending' || r.status === 'running') r.status = status; }
+  /** the queue the runs claim from: an ended run that `claimed` has its worker row (run-<id>) at `build`, as a real one would */
+  q: BuildQueue | null = null;
+  end(status = 'completed', o: { claimed?: boolean; build?: string } = {}) {
+    for (const r of this.runs.values()) if (r.status === 'pending' || r.status === 'running') {
+      r.status = status;
+      if (o.claimed !== false && this.q) this.q.db.prepare('INSERT OR IGNORE INTO workers (id, build, slots, seen) VALUES (?, ?, 4, 0)').run(`run-${r.id}`, o.build ?? B);
+    }
+  }
 }
 
 const cfgOf = (env: Record<string, string> = {}): RunsConfig => runsConfig({ HOMETOWN_RUNS: 'workflows', HOMETOWN_RENDER_API_KEY: 'rnd_fake', HOMETOWN_WORKFLOW_SLUG: 'gamemog-town-builder', ...env });
@@ -59,6 +66,7 @@ export async function runDispatchChecks(ok: Ok) {
     let t = 1_000_000;
     const q = new BuildQueue({ file: path.join(dir, 'q.db'), now: () => t });
     const api = new FakeRender();
+    api.q = q;
     let d = new Dispatcher(q, c, api, () => B, () => t);
     ok('an empty queue wants no run', d.plan().want === 0);
     await d.tick();
@@ -138,6 +146,30 @@ export async function runDispatchChecks(ok: Ok) {
     t += 301_000; await d.tick();
     ok('after the hold a run is started again', d.inFlight() === 1);
     q.db.prepare("UPDATE jobs SET state = 'done'").run(); api.end(); t += 61_000; await d.tick();
+
+    // ---- the breaker: runs that end without claiming at the current build are not started again and again
+    const fruitless = async (o: { claimed?: boolean; build?: string }) => {
+      for (let i = 0; i < 3; i++) { jobs(q, 1, 0, 'ctx', 4000 + i * 10 + api.runs.size); t += 61_000; await d.tick(); api.end('completed', o); t += 31_000; q.db.prepare('UPDATE runs SET checked = 0').run(); await d.tick(); }
+    };
+    q.db.prepare("UPDATE jobs SET state = 'done'").run(); api.end(); t += 61_000; await d.tick();
+    await fruitless({ claimed: false });
+    let n0 = api.posts; t += 61_000; await d.tick();
+    ok('breaker: 3 runs in a row that never claimed (paused, refused, failed at start): no 4th run while work is ready; the status says why', api.posts === n0 && d.inFlight() === 0 && d.plan().ready > 0
+      && /without claiming/.test(d.status().lastError?.message ?? ''), d.status().lastError?.message);
+    t += 10 * 60_000 + 1; await d.tick();
+    ok('breaker: after 10 minutes ONE probe run', api.posts === n0 + 1 && d.inFlight() === 1);
+    api.end('completed', { claimed: false }); t += 31_000; q.db.prepare('UPDATE runs SET checked = 0').run(); await d.tick(); n0 = api.posts; t += 61_000; await d.tick();
+    ok('breaker: a probe that claims nothing holds again', api.posts === n0);
+    q.db.prepare("UPDATE jobs SET state = 'done'").run(); t += 11 * 60_000; await d.tick();
+    await fruitless({ build: 'htc-0.7.0-hg1-b0000ffff' });
+    n0 = api.posts; t += 61_000; await d.tick();
+    ok('breaker: runs of another build (a workflow redeploy before HOMETOWN_BUILD was set) hold too, naming that build', api.posts === n0 && /b0000ffff.*set HOMETOWN_BUILD/.test(d.status().lastError?.message ?? ''), d.status().lastError?.message);
+    q.db.prepare("UPDATE jobs SET state = 'done'").run(); t += 11 * 60_000; await d.tick();
+    await fruitless({});
+    ok('breaker: runs that claimed at the current build never hold', api.posts > n0 + 2 && d.inFlight() >= 1, `${api.posts - n0}`);
+    q.db.prepare("UPDATE jobs SET state = 'done'").run(); api.end(); t += 61_000; await d.tick();
+
+    ok('a run status Render may add later counts as live, never as ended (no replacement started for it)', stateOf('queued') === 'running' && stateOf('succeeded') === 'succeeded' && stateOf('sleeping') === 'sleeping');
 
     // ---- pre-warm: P5 only is capped at HOMETOWN_PREWARM_RUNS, and never runs behind a deps chain
     jobs(q, 200, 5, 'tiles', 20000);

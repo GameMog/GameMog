@@ -67,6 +67,10 @@ export function runsProblem(c: RunsConfig): string | null {
 // --------------------------------------------------------------------------------------------- the Render API
 export type RunState = 'starting' | 'pending' | 'running' | 'completed' | 'succeeded' | 'failed' | 'canceled' | 'paused' | 'suspended' | 'sleeping' | 'lost';
 export const LIVE: RunState[] = ['starting', 'pending', 'running', 'paused', 'suspended', 'sleeping'];
+/** Render's run status as a row state: a status this code does not know counts as live (never as ended: an unknown
+ * state read as ended would start a replacement on every pass), until RUN_MAX_MS retires the row. */
+const ENDED: RunState[] = ['completed', 'succeeded', 'failed', 'canceled'];
+export const stateOf = (s: string): RunState => (LIVE.includes(s as RunState) || ENDED.includes(s as RunState) ? s as RunState : 'running');
 export class RenderApiError extends Error { readonly status: number; constructor(status: number, msg: string) { super(msg); this.status = status; } }
 export type RenderRuns = {
   start(task: string, input: unknown[], idempotencyKey: string): Promise<{ id: string; status: string }>;
@@ -105,6 +109,9 @@ export const RUN_MAX_MS = (3 * 3600 + 600) * 1000;
 export const CHECK_MS = 30_000;
 /** a 'starting' row whose POST keeps failing is dropped after this (idempotency keys hold 24 h) */
 export const STARTING_MAX_MS = 10 * 60_000;
+/** the breaker (Dispatcher.fruitless): this many ended runs in a row that never claimed hold starts this long */
+export const FRUITLESS_N = 3;
+export const FRUITLESS_HOLD_MS = 10 * 60_000;
 const COST_FALLBACK: Record<JobKind, number> = { regions: 40_000, ctx: 6_000, frame: 4_000, tiles: 2_000, far: 5_000, bundle: 10_000, manifest: 1_000, canary: 9_000 };
 
 export class Dispatcher {
@@ -182,7 +189,7 @@ export class Dispatcher {
     if (!this.cfg.task) return false;
     try {
       const r = await this.api.start(this.cfg.task, [row.reason ?? ''], row.idem);
-      this.set(row.idem, { id: r.id, state: (r.status as RunState) || 'pending', checked: this.now(), tries: row.tries + 1, error: null });
+      this.set(row.idem, { id: r.id, state: r.status ? stateOf(r.status) : 'pending', checked: this.now(), tries: row.tries + 1, error: null });
       this.q.log('run-started', { id: r.id, want: row.want, reason: row.reason });
       return true;
     } catch (e) {
@@ -215,13 +222,18 @@ export class Dispatcher {
       const quiet = w ? t - Number(w.seen) > 25_000 : t - r.created > 90_000;
       if (t - r.checked < (quiet ? 5_000 : CHECK_MS) || checks >= 10 || t < this.holdUntil) continue;
       checks++;
-      try { const g = await this.api.get(r.id); this.set(r.idem, { state: (g.status as RunState) || r.state, checked: t }); }
+      try { const g = await this.api.get(r.id); this.set(r.idem, { state: g.status ? stateOf(g.status) : r.state, checked: t }); }
       catch (e) { if (e instanceof RenderApiError && e.status === 404) this.set(r.idem, { state: 'lost', checked: t, error: 'not found' }); else { this.failed(e); this.set(r.idem, { checked: t }); } }
     }
     // 3. start what is missing
     const p = this.plan();
     this.lastPlan = p;
     if (!p.toStart || t < this.holdUntil) return;
+    const stuck = this.fruitless(t);
+    if (stuck) {
+      if (this.lastError?.message !== stuck) { this.lastError = { at: t, status: 0, message: stuck }; this.q.log('runs-held', { why: stuck }); }
+      return;
+    }
     const lastMinute = (this.q.db.prepare('SELECT COUNT(*) n FROM runs WHERE created > ?').get(t - 60_000) as { n: number }).n;
     const n = Math.min(p.toStart, Math.max(0, this.cfg.startsPerMin - lastMinute));
     for (let i = 0; i < n; i++) {
@@ -230,6 +242,27 @@ export class Dispatcher {
       this.q.db.prepare("INSERT INTO runs (idem, state, want, reason, created, updated) VALUES (?, 'starting', ?, ?, ?, ?)").run(idem, p.want, reason, t, t);
       if (!(await this.send(this.rows(['starting']).find((r) => r.idem === idem)!))) break;
     }
+  }
+
+  /**
+   * The breaker against paying for runs that cannot work: when the last FRUITLESS_N runs that ended never claimed at the
+   * current build (paused, the token refused, the web off, a crash at start, or a workflow redeploy that changed the
+   * buildId before HOMETOWN_BUILD was set to it), no run is started for FRUITLESS_HOLD_MS after the last of them ended;
+   * then ONE probe run. Without it the dispatcher would start 4 runs a minute for as long as work is ready.
+   * -> why it holds, or null.
+   */
+  fruitless(t: number): string | null {
+    const ended = this.q.db.prepare(`SELECT id, updated FROM runs WHERE id IS NOT NULL AND state NOT IN (${LIVE.map(() => '?').join(',')}) ORDER BY created DESC LIMIT ?`)
+      .all(...LIVE, FRUITLESS_N) as { id: string; updated: number }[];
+    if (ended.length < FRUITLESS_N || t - Math.max(...ended.map((r) => Number(r.updated))) > FRUITLESS_HOLD_MS) return null;
+    const build = this.build(), seen = this.q.db.prepare('SELECT build FROM workers WHERE id = ?');
+    const builds = new Set<string>();
+    for (const r of ended) {
+      const w = seen.get(`run-${r.id}`.slice(0, 80)) as { build: string | null } | undefined;
+      if (w && (!build || w.build === build)) return null;
+      if (w?.build) builds.add(w.build);
+    }
+    return `the last ${FRUITLESS_N} runs ended without claiming${builds.size ? ` (they report build ${[...builds].join(', ')}, not ${build}: set HOMETOWN_BUILD)` : ' (paused, refused or failed at start: see their logs)'}; one more run in ${Math.ceil(FRUITLESS_HOLD_MS / 60_000)} min`;
   }
 
   /** The owner's status page. */

@@ -267,4 +267,7 @@ $2.50/month are unchanged. The full table is in the go-live runbook.
 
 **Kill switches:** web `HOMETOWN_RUNS=off` (no new run; runs in flight finish their jobs and end), workflow
 `HOMETOWN_WORKER_PAUSED=1` (a run claims nothing and ends), `HOMETOWN_BUILDER=off` (every town route 404; built towns'
-bundles stop being served from the store too), or revoke the Render API key.
+bundles stop being served from the store too), or revoke the Render API key. **The breaker** (dispatch.ts `fruitless`):
+when the last 3 runs ended without claiming at the current build (paused, token refused, a crash at start, or a
+workflow redeploy whose buildId is not yet `HOMETOWN_BUILD`), the dispatcher starts nothing for 10 minutes, then one
+probe run; the /admin card says why. So a paused or mismatched builder costs 3 short runs, then one every 10 minutes.
