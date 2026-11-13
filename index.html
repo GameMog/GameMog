@@ -135,7 +135,7 @@
       const sf = (f) => `./cities/sf/js/${f}?v=${v}`, shared = (f) => `./js/${f}?v=${v}`;
       // (a Hometown package: its own geodata.js (window.NYC.GEO, PLACE_DATA and PKG, tools/hometown/compile.py) in
       // place of San Francisco's geodata and places, then the same engine)
-      const pkg = MC_PKG ? [`./cities/pkg/packages/${MC_PKG}/geodata.js?v=${v}`, `./cities/pkg/js/pkg-hud.js?v=${v}`] : [sf('sf-geodata.js'), sf('sf-places.js')];
+      const pkg = MC_PKG ? [`./cities/pkg/packages/${MC_PKG}/geodata.js?v=${v}`, `./cities/pkg/js/pkg-hud.js?v=${v}`, `./cities/pkg/js/pkg-buildings.js?v=${v}`] : [sf('sf-geodata.js'), sf('sf-places.js')];
       return [
         sf('sf-hud.js'),
         ...pkg,

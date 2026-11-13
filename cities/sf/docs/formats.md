@@ -77,6 +77,27 @@ a fixed record size.
 - then the mass pool of `massFloats` values: per rectangle its centre `cx, cz` and size `w` (along local x) and `d`
   (along local z), turned by its building's `theta` (`tools/rect-cover.mjs`).
 
+**Version 4 (Hometown packages, `tools/hometown/assemble.py`).** Fields appended after `podium`, header gains `kinds`,
+`roofShapes`, `walls` (code names) and `region` (the place's building region: `plains-midwest`, `southwest`,
+`southeast`, `northeast-rust`, `pacific-nw`, `mountain`, `california`); `massFloats` is no longer 0 (the masses are in
+record order, `tools/hometown/rects.py`). Every new engine path is gated on `kind` being in `fields`, so v3 packages and
+San Francisco draw as before.
+  - `kind`: index into `kinds` (`unknown, house, garage, shed, rowhouse, apartment, shop, office, church, school, civic,
+    warehouse, canopy, tower`): Overture class, the places inside it (Christian worship: church; other worship: civic;
+    schools; shops), the land use under it, its size, height and `row`;
+  - `roofShape`: index into `roofShapes` (`unknown, flat, gabled, hipped, half_hipped, gambrel, mansard, pyramidal,
+    skillion, saltbox, dome, round, sawtooth, other`): Overture's `roof_shape`, else 0 (the engine picks by kind and
+    region; churches gabled);
+  - `roof` is the eave and `peak` the ridge where a roof is pitched (Overture's `roof_height`, else 0.38 x the half span
+    of its largest mass, 0.75..3 m; churches 0.62 x up to 9 m); towers: `peak - roof` 7..11 m on half of them (a crown);
+  - `wall`, `wallRGB`, `roofRGB`: Overture facade material and colours (24-bit integers) where fetched, else 0 (the
+    region palette of `cities/pkg/js/pkg-buildings.js`);
+  - `front`: degrees (0 = +x, 90 = +z) from its centroid to the nearest roadway edge within 12 m, -1 none; `frontDist`:
+    that distance in 0.25 m steps;
+  - `minH`: metres its base stands above the ground (Overture `min_height`: building parts, canopies);
+  - `row` is 1 + the buildings within 0.5 m of it; `podium` an estimated tower / base share on broad towers; parts: a
+    building whose Overture `building_part`s cover 90% of it is written as its parts (ids of the parts) instead.
+
 ## `data/groundmask-<box>.bin`: ground classes (`format: "sf-groundmask"`, version 1)
 
 **Header fields:** `cell` (1 m), `originX`, `originZ` (world position of the corner of cell (0, 0)), `w`, `h`, `classes`

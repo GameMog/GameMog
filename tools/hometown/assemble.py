@@ -210,8 +210,13 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
             for x, z in ring:
                 bverts += [x, z]
             y = lambda v: v / 100.0 - y_off  # noqa: E731
-            btable.append((b['id'], [y(b['base']), y(b['roof']), y(b['peak']), start, b['ringCount'], b['theta'], 0, 0, b['shops'], b['type'],
-                                     b['palette'], 0, 0, 0, 0, 1, 3.4, b['stories'], 0, 0], b))
+            ms = []
+            for mx, mz, mw, md in b.get('masses') or []:
+                x, z = S(mx + c * TCM, mz + r * TCM)
+                ms.append([x, z, mw / (100.0 * k0), md / (100.0 * k0)])
+            btable.append((b['id'], [y(b['base']), y(b['roof']), y(b['peak']), start, b['ringCount'], b['theta'], 0, len(ms), b['shops'], b['type'],
+                                     b['palette'], b.get('bays', 0), 0, 0, b.get('frontW', 0), b.get('row', 1), 3.4, b['stories'], 0, b.get('podium', 0),
+                                     b.get('kind', 0), b.get('roofShape', 0), 0, 0, 0, b.get('front', -1), b.get('frontDist', 0), b.get('minH', 0) / 100.0], b, ms))
         tr = s['trees'].reshape(-1, 4) if s['trees'].size else np.zeros((0, 4), np.int64)
         for u, v, cls, trunk in tr.tolist():
             x, z = S(u + c * TCM, v + r * TCM)
@@ -318,26 +323,31 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
     out = os.path.join(out_root, pid)
     os.makedirs(os.path.join(out, 'data'), exist_ok=True)
     btable.sort(key=lambda t: t[0])
-    table = [v for _, rec, _ in btable for v in rec]
-    # (ringStart in assembled order)
-    verts2, k = [], 0
-    for _, rec, _ in btable:
+    # (ringStart and massStart in assembled order; masses in record order)
+    verts2, k, mass, region = [], 0, [], None
+    for _, rec, _, ms in btable:
         s0, n = rec[3], rec[4]
         rec[3] = k
         verts2 += bverts[2 * s0:2 * (s0 + n)]
         k += n
-    table = [v for _, rec, _ in btable for v in rec]
+        rec[6] = len(mass) // 4
+        for m in ms:
+            mass += m
+    table = [v for _, rec, _, _ in btable for v in rec]
+    # (the place's building region: its anchor tile's)
+    region = dec[min(order, key=lambda k: abs(k[0] - fr['c0']) + abs(k[1] - fr['r0']))][0].get('region', 'plains-midwest') if order else 'plains-midwest'
     theader = {'format': 'sf-terrain', 'version': 1, 'box': 'pkg', 'cell': 2 / k0, 'originX': ox, 'originZ': oz, 'w': Wp, 'h': Hp,
                'minH': minH, 'maxH': maxH, 'scale': scale, 'waterLevel': water_level, 'datum': 'NAVD88 m minus %d' % y_off,
                'grid': grid.GRID, 'source': sorted({os.path.basename(s['url']) for (c, r) in order for s in dec[(c, r)][0]['demSource']})}
     mheader = {'format': 'sf-groundmask', 'version': 1, 'box': 'pkg', 'cell': 1 / k0, 'originX': ox, 'originZ': oz, 'w': nc * grid.TILE,
                'h': nr * grid.TILE, 'classes': list(C.MASK)[:6]}
-    bheader = {'format': 'sf-buildings', 'version': 3, 'box': 'pkg', 'count': len(btable), 'fields': C.BFIELDS, 'types': C.BTYPES, 'palettes': C.PALETTES,
+    bheader = {'format': 'sf-buildings', 'version': 4, 'box': 'pkg', 'count': len(btable), 'fields': C.BFIELDS, 'types': C.BTYPES, 'palettes': C.PALETTES,
                'eras': C.ERAS, 'facades': C.FACADES, 'tableFloats': len(table), 'vertexFloats': len(verts2), 'massFields': ['cx', 'cz', 'w', 'd'],
-               'massFloats': 0, 'datum': 'NAVD88 m minus frame.yOffset'}
+               'massFloats': len(mass), 'datum': 'NAVD88 m minus frame.yOffset', 'kinds': C.KINDS, 'roofShapes': C.ROOF_SHAPES, 'walls': C.WALLS,
+               'region': region}
     files = {
         'data/terrain.bin.gz': C.gz(sfb1(theader, q.tobytes())),
-        'data/buildings.bin.gz': C.gz(sfb1(bheader, np.array(table, dtype='<f4').tobytes() + np.array(verts2, dtype='<f4').tobytes())),
+        'data/buildings.bin.gz': C.gz(sfb1(bheader, np.array(table, dtype='<f4').tobytes() + np.array(verts2, dtype='<f4').tobytes() + np.array(mass, dtype='<f4').tobytes())),
         'data/groundmask.bin.gz': C.gz(sfb1(mheader, mask_e.tobytes())),
     }
     # ---- the far field (far.py): hg1 far tiles round the core, the land to the horizon (they never touch the core)
@@ -374,7 +384,11 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
     box = {k: C.q1(v) for k, v in B.items()}
     stats = {'buildings': len(btable), 'roadLinks': len(rl), 'roadNodes': len(nodes), 'blocks': len(blocks),
              'islands': sum(1 for b in blocks if b[6] == 'island'), 'places': len(places), 'trees': len(trees) // 4, 'density': density,
-             'tiles': len(order), 'playTiles': len(play), 'heightsFromOverture': sum(1 for _, _, b in btable if b['fromOverture'])}
+             'tiles': len(order), 'playTiles': len(play), 'heightsFromOverture': sum(1 for _, _, b, _ in btable if b['fromOverture']),
+             'buildingKinds': dict(sorted(((C.KINDS[k], n) for k, n in __import__('collections').Counter(b.get('kind', 0) for _, _, b, _ in btable).items()))),
+             'masses': len(mass) // 4, 'outlines': sum(1 for _, rec, _, _ in btable if rec[7] == 0), 'parts': sum(1 for _, _, b, _ in btable if b.get('parent')),
+             'roofShapes': dict(sorted(((C.ROOF_SHAPES[k], n) for k, n in __import__('collections').Counter(b.get('roofShape', 0) for _, _, b, _ in btable).items()))),
+             'region': region}
     tile_ids = [t['id'] for t in tiles]
     GEO = {'version': 2, 'city': D1['name'], 'pkg': pid, 'frame': {k: frame[k] for k in ('lat0', 'lon0', 'units', 'bearingDeg', 'yOffset', 'grid', 'domain', 'c0', 'r0', 'k0')},
            'box': {'name': 'pkg', **box},

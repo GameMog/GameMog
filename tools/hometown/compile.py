@@ -39,6 +39,8 @@ from context import Context, building_owner_cm, downtown_at, floor_div, largest_
 import dem as demlib  # noqa: E402
 from dem import Sampler  # noqa: E402
 from sources import Sources, blocks_for, MissingRegion  # noqa: E402
+import rects as rects_mod  # noqa: E402
+import shapely.ops  # noqa: E402
 
 # bump on ANY change to a tile's bytes (a rule, a constant, an output field). 0.1.0 90bae8c; 0.2.0 water rule, 1 cm
 # steps, density, paved lots, yard trees, edge cuts, tunnels, bridges, slopes, integer tree hash; 0.3.0 hg1 national grid:
@@ -79,7 +81,11 @@ PALETTES = ['victorian', 'north-beach', 'chinatown', 'downtown', 'soma']
 ERAS = ['unknown', 'victorian-edwardian', 'interwar', 'postwar', 'contemporary']
 FACADES = ['unknown', 'glass', 'concrete', 'stone', 'metal', 'terracotta']
 BFIELDS = ['base', 'roof', 'peak', 'ringStart', 'ringCount', 'theta', 'massStart', 'massCount', 'shops', 'type', 'palette', 'bays',
-           'garage', 'era', 'frontW', 'row', 'storeyH', 'stories', 'facade', 'podium']
+           'garage', 'era', 'frontW', 'row', 'storeyH', 'stories', 'facade', 'podium',
+           # v4 (appended): what it is, its roof, walls / colours (Overture's when present, else 0: the engine's region
+           # palette), the road side (degrees in the session frame, -1 none) and its distance (0.25 m), the base above
+           # the ground (parts, canopies)
+           'kind', 'roofShape', 'wall', 'wallRGB', 'roofRGB', 'front', 'frontDist', 'minH']
 CIVIC = {'church', 'cathedral', 'chapel', 'mosque', 'synagogue', 'temple', 'school', 'university', 'college', 'hospital', 'public',
          'civic', 'government', 'post_office', 'library', 'fire_station', 'police', 'train_station', 'museum', 'courthouse', 'townhall'}
 SHOPS = {'retail', 'commercial', 'supermarket', 'kiosk', 'shop'}
@@ -245,6 +251,226 @@ def classify(r, area, h, downtown):
     if c in ('apartments', 'dormitory') or area > 400:
         return 'apartment', 0
     return 'rowhouse', 0
+
+
+
+# ------------------------------------------------------------------------------------------------- building shapes (v4)
+# What a building is (kind), its roof, its front and its masses, from its own row, the places inside it, the land use
+# under it, its neighbours within 0.5 m and the roads within 12 m: only Sources queries round the footprint, so the record
+# is the same in every tile compile that reads it. Overture's roof_shape / roof_height / building_part win where present;
+# the rest are estimates (README "Rules that are estimates").
+KINDS = ['unknown', 'house', 'garage', 'shed', 'rowhouse', 'apartment', 'shop', 'office', 'church', 'school', 'civic', 'warehouse', 'canopy', 'tower']
+ROOF_SHAPES = ['unknown', 'flat', 'gabled', 'hipped', 'half_hipped', 'gambrel', 'mansard', 'pyramidal', 'skillion', 'saltbox', 'dome', 'round', 'sawtooth',
+               'other']
+WALLS = ['unknown', 'clapboard', 'brick', 'stucco', 'stone', 'siding', 'wood', 'concrete', 'metal', 'glass']
+REGIONS = ['plains-midwest', 'southwest', 'southeast', 'northeast-rust', 'pacific-nw', 'mountain', 'california']
+KIND_TYPE = {'house': 'rowhouse', 'garage': 'shed', 'shed': 'shed', 'canopy': 'shed', 'rowhouse': 'rowhouse', 'apartment': 'apartment', 'shop': 'office-low',
+             'office': 'office-low', 'church': 'civic', 'school': 'civic', 'civic': 'civic', 'warehouse': 'warehouse', 'tower': 'tower'}
+HOUSE_CLASS = {'house', 'detached', 'semidetached_house', 'residential', 'bungalow', 'cabin', 'farm', 'static_caravan', 'hut'}
+CHRISTIAN = {'christian_place_of_worship'}
+OTHER_WORSHIP = {'jewish_place_of_worship', 'muslim_place_of_worship', 'buddhist_place_of_worship', 'hindu_place_of_worship', 'place_of_worship'}
+SCHOOL_PLACES = {'elementary_school', 'middle_school', 'high_school', 'preschool'}
+GAS_PLACES = {'gas_station', 'fueling_station'}
+SHOP_WORDS = ('store', 'shop', 'restaurant', 'eatery', 'cafe', 'coffee', 'bar', 'bakery', 'salon', 'barber', 'bank', 'pharmacy', 'grocery', 'supermarket',
+              'diner', 'pizza', 'laundromat', 'dealer', 'boutique')
+RETAIL_LU = {'retail', 'commercial'}
+INDUSTRIAL_LU = {'industrial', 'quarry', 'landfill'}
+FRONT_REACH = 12.0
+
+
+def region_of(lon, lat):
+    """A tile's building region from its centre (coarse US regions, an estimate: wall and roof mixes by region)."""
+    if lon < -116.5 and lat >= 42:
+        return 'pacific-nw'
+    if lon < -114.5 and lat < 42:
+        return 'california'
+    if lon < -103 and lat < 37.5 or (lon < -100 and lat < 32.5):
+        return 'southwest'
+    if lon < -102:
+        return 'mountain'
+    if (lon > -91 and lat > 39) or (lon > -81 and lat > 37.6):
+        return 'northeast-rust'
+    if lon > -94.6 and lat < 36.6:
+        return 'southeast'
+    return 'plains-midwest'
+
+
+def _place_set(src, g, reach=0.0):
+    out = []
+    for p in src.places_in(g.buffer(reach) if reach else g):
+        if (p['confidence'] or 0) < 0.45 or (p['operating_status'] and p['operating_status'] != 'open'):
+            continue
+        out.append(((p['basic_category'] or ''), (p['cat'] or '')))
+    return out
+
+
+def _land_use_at(src, pt):
+    for lu in src.query('land_use', pt):
+        if lu['geom'].geom_type in ('Polygon', 'MultiPolygon'):
+            return (lu['subtype'] or ''), (lu['class'] or '')
+    return '', ''
+
+
+def _short_half(rects):
+    if not rects:
+        return 3.0
+    cx, cz, w, d = max(rects, key=lambda q: (q[2] * q[3], q))
+    return min(w, d) / 2
+
+
+def shape_building(W, r, rec, near, downtown):
+    """Kind, roof, front, row and masses of a brec (and its parts), in place."""
+    src = W.src
+    wg, area, h = rec['g'], rec['area'], rec['h']
+    cls = (r['class'] or '').lower()
+    sub = (r['subtype'] or '').lower()
+    pts = neg_ring(list(wg.exterior.coords))
+    theta = -dominant_angle(pts)
+    rec['theta'] = theta
+    # neighbours within 0.5 m (shared walls)
+    nb = 0
+    gb = wg.buffer(0.5, quad_segs=2)
+    for o in src.query('buildings', gb):
+        if o['id'] == r['id'] or o['is_underground']:
+            continue
+        og = largest_polygon(o['geom'])
+        if og is not None and og.buffer(0).intersection(gb).area > 0.6:
+            nb += 1
+    row = nb + 1
+    # the roadway edge within FRONT_REACH: the outward direction and the distance
+    roads = []
+    for p in sorted(near, key=lambda p: (p['seg'], p['i'])):
+        if p['flags'] & (FLAGS['pedestrian'] | FLAGS['freeway'] | FLAGS['tunnel']):
+            continue
+        roads.append(LineString([(x / 100.0, z / 100.0) for x, z in p['pts']]).buffer(p['w'] / 2, quad_segs=4))
+    front, front_d = -1, 0
+    if roads:
+        ru = unary_union(roads)
+        dist = wg.distance(ru)
+        if dist <= FRONT_REACH:
+            a, b = shapely.ops.nearest_points(wg, ru)
+            c0 = wg.centroid
+            dx, dz = b.x - c0.x, b.y - c0.y
+            if dx * dx + dz * dz > 1e-6:
+                # (degrees in the tile frame: 0 = +x (east), 90 = +z (south))
+                front = int(round(math.degrees(math.atan2(dz, dx)))) % 360
+                front_d = int(round(dist * 4))
+    rp = wg.representative_point()
+    lu_sub, lu_cls = _land_use_at(src, rp)
+    places = _place_set(src, wg)
+    pcat = {a for a, _ in places} | {b for _, b in places}
+    shopish = any(any(w in c for w in SHOP_WORDS) for c in pcat)
+    minh = float(r['min_height'] or 0)
+    # kind
+    if cls in ('church', 'cathedral', 'chapel') or pcat & CHRISTIAN:
+        kind = 'church'
+    elif cls in ('mosque', 'synagogue', 'temple', 'shrine', 'religious') or pcat & OTHER_WORSHIP:
+        kind = 'civic'
+    elif cls in ('school', 'kindergarten') or pcat & SCHOOL_PLACES:
+        kind = 'school'
+    elif cls in CIVIC:
+        kind = 'civic' if cls not in ('university', 'college') else 'school'
+    elif cls in ('roof', 'carport', 'shelter') or (minh >= 3.5 and h < 9):
+        gas = any(a in GAS_PLACES for a, _ in _place_set(src, wg, 20.0))
+        kind = 'canopy' if (minh >= 3.5 or gas) and h < 9 else 'shed'
+    elif cls in ('garage', 'garages'):
+        kind = 'garage'
+    elif cls in SHEDS or area < 30:
+        kind = 'shed'
+    elif h >= 45:
+        kind = 'tower'
+    elif cls in WAREHOUSE or (lu_sub in INDUSTRIAL_LU and area > 400) or (area > 1500 and h < 12):
+        kind = 'warehouse'
+    elif cls in SHOPS or shopish or (row >= 2 and (lu_sub in RETAIL_LU or lu_cls in RETAIL_LU) and 0 <= front < 360 and front_d < 24):
+        kind = 'shop'
+    elif cls in ('office', 'hotel'):
+        kind = 'office'
+    elif cls in HOUSE_CLASS and h <= 12 and area < 450 and row < 3:
+        kind = 'house'
+    elif row >= 3 and h <= 15 and area < 450:
+        kind = 'rowhouse'
+    elif h >= 18:
+        kind = 'office' if downtown else 'apartment'
+    elif cls in ('apartments', 'dormitory'):
+        kind = 'apartment'
+    elif downtown and area > 120:
+        kind = 'shop' if h < 12 else 'office'
+    elif h <= 10 and area < 400 and lu_sub not in RETAIL_LU | INDUSTRIAL_LU and lu_cls not in RETAIL_LU:
+        kind = 'house' if row < 3 else 'rowhouse'
+    elif h <= 10 and area < 400:
+        kind = 'shop'
+    elif h < 8:
+        # (a large low building off the downtown: a one-storey commercial block)
+        kind = 'office'
+    else:
+        kind = 'apartment'
+    btype = KIND_TYPE[kind]
+    if btype in ('office-low', 'apartment') and h >= 18:
+        btype = 'midrise'
+    rec['btype'] = btype
+    if kind == 'shop':
+        rec['shops'] = 1
+    # the masses: rectangles over the footprint in the building's turn
+    cov, rects = rects_mod.rect_cover(pts, theta)
+    # roof: data first, then the kind's rule (houses: the engine's region table picks the shape, the height is laid here)
+    rs = (r['roof_shape'] or '').lower()
+    shape = ROOF_SHAPES.index(rs) if rs in ROOF_SHAPES else (ROOF_SHAPES.index('other') if rs else 0)
+    rh = r['roof_height']
+    half = _short_half(rects)
+    pitched_kind = kind in ('house', 'garage', 'church')
+    if rh is not None and rh > 0:
+        roof_h = min(float(rh), h * 0.6)
+    elif shape in (0,) and pitched_kind or shape >= 2 and shape != ROOF_SHAPES.index('other'):
+        k = 0.62 if kind == 'church' else 0.38
+        roof_h = min(9.0 if kind == 'church' else 3.0, max(0.75, k * half))
+        if kind == 'church' and shape == 0:
+            shape = ROOF_SHAPES.index('gabled')
+    else:
+        roof_h = 0.0
+    if roof_h > 0:
+        # Overture's height is the top of the roof; a defaulted height is the eave
+        eave = max(2.7, h - roof_h) if rec['heightFromOverture'] else h
+        rec['h'], rec['peakAdd'] = eave, roof_h
+    elif kind == 'tower' and shape in (0, 1):
+        # towers: a crown (penthouse) on half of them, a podium setback on the broad ones (estimates)
+        hz = hash01(rec['gx'] // 100, rec['gs'] // 100, 71)
+        rec['peakAdd'] = 7.0 + 4.0 * hash01(rec['gx'] // 100, rec['gs'] // 100, 72) if hz < 0.5 else 0.6
+    podium = 0.0
+    if kind == 'tower' and area > 1200 and not src.parts_of.get(r['id']):
+        podium = round(0.45 + 0.25 * hash01(rec['gx'] // 100, rec['gs'] // 100, 73), 2)
+    # front width: the largest mass's side facing the road
+    frontw = 0.0
+    if front >= 0 and rects:
+        cx, cz, w, d = max(rects, key=lambda q: (q[2] * q[3], q))
+        fa = math.radians(front)
+        # local axes: +x along (cos t, -sin t), +z along (sin t, cos t); the side facing the road is the one across it
+        ax = abs(math.cos(fa) * math.cos(theta) - math.sin(fa) * math.sin(theta))
+        frontw = d if ax > 0.7071 else w
+    rec.update({'kind': kind, 'roofShape': shape, 'front': front, 'frontDist': front_d, 'row': row, 'minH': minh, 'cover': cov,
+                'rects': rects if cov >= 0.9 or kind in ('house', 'garage', 'church') else [], 'frontW': frontw, 'podium': podium,
+                'bays': min(2, int(frontw // 3.5)) if kind == 'rowhouse' else 0})
+    # parts: a building whose parts cover 90% of it is drawn as its parts (each its own heights and masses)
+    rec['parts'] = []
+    plist = src.parts_of.get(r['id']) or []
+    if plist:
+        pg = []
+        for pr in plist:
+            g = largest_polygon(pr['geom'].buffer(0)) if pr['geom'].geom_type in ('Polygon', 'MultiPolygon') else None
+            if g is None or g.area < 4:
+                continue
+            g = Polygon(g.exterior).simplify(0.25)
+            if g.is_empty or g.geom_type != 'Polygon' or g.area < 4:
+                continue
+            ph = float(pr['height']) if pr['height'] is not None else (pr['num_floors'] * 3.3 + 0.8 if pr['num_floors'] else h)
+            pmin = float(pr['min_height'] or 0)
+            if ph - pmin < 1.0:
+                continue
+            ppts = neg_ring(list(g.exterior.coords))
+            pth = -dominant_angle(ppts)
+            pc, prs = rects_mod.rect_cover(ppts, pth)
+            pg.append({'id': pr['id'], 'g': g, 'h': ph, 'minH': pmin, 'theta': pth, 'rects': prs if pc >= 0.9 else []})
+        if pg and unary_union([q['g'] for q in pg]).intersection(wg).area >= 0.9 * wg.area:
+            rec['parts'] = pg
 
 
 def lib_versions():
@@ -631,13 +857,15 @@ class World:
         bx0, bz0, bx1, bz1 = wg.bounds
         near = self.pieces_near(sbox(bx0 - 15, bz0 - 15, bx1 + 15, bz1 + 15))
         parts = []
+        elevated = (r['min_height'] or 0) >= 3
         for p in sorted(near, key=lambda p: (p['seg'], p['i'])):
             if p['flags'] & FLAGS['pedestrian']:
                 continue
             pg = LineString([(x / 100.0, z / 100.0) for x, z in p['pts']]).buffer(p['w'] / 2 + max(p['sw'], 0.6), quad_segs=4)
             if pg.intersects(wg):
                 parts.append(pg)
-        if parts:
+        if parts and not elevated:
+            # (a footprint in the roadway is dropped or trimmed; an elevated one (canopy, skybridge) spans it)
             hit = unary_union(parts)
             inter = hit.intersection(wg).area
             if inter > 0.35 * wg.area:
@@ -671,6 +899,7 @@ class World:
                'shops': 1 if (r['class'] or '') in SHOPS or (dt and btype == 'office-low') else 0,
                'stories': r['num_floors'] or max(1, int(round(h / 3.4))), 'peakAdd': 1.6 if btype == 'rowhouse' and area < 300 else 0.6,
                'heightFromOverture': r['height'] is not None}
+        shape_building(self, r, rec, near, dt)
         self.brec_c[bid] = rec
         return rec
 
@@ -853,6 +1082,7 @@ def compile_tile(Wd, c, r):
         elif rec['g'].intersects(TB):
             foreign.add(grid.tile_id(dom, *rec['own']))
     bout, bverts = [], []
+    kinds, from_data = {}, 0
     for b, rec in owned:
         g = rec['g']
         pts = neg_ring(list(g.exterior.coords))
@@ -872,14 +1102,29 @@ def compile_tile(Wd, c, r):
             gr = ground(np.append(xs, rec['gx'] / 100.0), np.append(zs, rec['gs'] / 100.0))
         base = float(gr.min())
         rise = min(8.0, float(gr.max()) - base)
-        theta = -dominant_angle(pts)
+        kinds[rec['kind']] = kinds.get(rec['kind'], 0) + 1
+        from_data += 1 if b['roof_shape'] else 0
+        mrec = lambda q: [cm(q[0]) - c * TCM, cm(q[1]) - r * TCM, cm(q[2]), cm(q[3])]  # noqa: E731
+        common = {'shops': rec['shops'], 'type': BTYPES.index(rec['btype']), 'palette': rec['pal'], 'fromOverture': 1 if rec['heightFromOverture'] else 0,
+                  'downtown': 1 if rec['downtown'] else 0, 'kind': KINDS.index(rec['kind']), 'front': rec['front'], 'frontDist': rec['frontDist'],
+                  'row': rec['row'], 'frontW': round(rec['frontW'], 1), 'bays': rec['bays'], 'podium': rec['podium']}
+        if rec['parts']:
+            # (drawn as its parts, in part id order; the parent's outline is not emitted)
+            for q in sorted(rec['parts'], key=lambda q: q['id']):
+                qp = neg_ring(list(q['g'].exterior.coords))
+                start = len(bverts) // 2
+                for x, z in qp:
+                    bverts += [cm(x) - c * TCM, cm(z) - r * TCM]
+                bout.append(dict(common, id=q['id'], parent=rec['id'], base=cm(base), roof=cm(base + rise + q['h']), peak=cm(base + rise + q['h'] + 0.6),
+                                 ringStart=start, ringCount=len(qp), theta=round(q['theta'], 4), stories=max(1, int(round((q['h'] - q['minH']) / 3.4))),
+                                 roofShape=0, minH=cm(q['minH']), masses=[mrec(m) for m in q['rects']], podium=0))
+            continue
         start = len(bverts) // 2
         for x, z in pts:
             bverts += [cm(x) - c * TCM, cm(z) - r * TCM]
-        bout.append({'id': rec['id'], 'base': cm(base), 'roof': cm(base + rise + rec['h']), 'peak': cm(base + rise + rec['h'] + rec['peakAdd']),
-                     'ringStart': start, 'ringCount': len(pts), 'theta': round(theta, 4), 'shops': rec['shops'], 'type': BTYPES.index(rec['btype']),
-                     'palette': rec['pal'], 'stories': int(rec['stories']), 'fromOverture': 1 if rec['heightFromOverture'] else 0,
-                     'downtown': 1 if rec['downtown'] else 0})
+        bout.append(dict(common, id=rec['id'], base=cm(base), roof=cm(base + rise + rec['h']), peak=cm(base + rise + rec['h'] + rec['peakAdd']),
+                         ringStart=start, ringCount=len(pts), theta=round(rec['theta'], 4), stories=int(rec['stories']), roofShape=rec['roofShape'],
+                         minH=cm(rec['minH']), masses=[mrec(m) for m in rec['rects']]))
     # ---- paved lots (footprints within 25 m, buffered 8 / 12 m) and the sidewalk bands
     paved = [rec['g'].buffer(12 if rec['downtown'] else 8, quad_segs=2) for bid, (b, rec) in sorted(brecs_near.items()) if rec['btype'] not in ('rowhouse', 'shed')]
     paved_u = unary_union(paved) if paved else None
@@ -1026,7 +1271,8 @@ def compile_tile(Wd, c, r):
               'posts': grid.POSTS, 'post': grid.POST, 'mask': {'cell': 1, 'n': TILE, 'classes': list(MASK)}, 'base_cm': base,
               'bcount': len(bout), 'groundAreaM2': round((TILE / k_tile) ** 2, 1), 'k_tile': round(k_tile, 9), 'gamma_tile': round(d.gamma(lon_c), 6),
               'centre': [round(lon_c, 7), round(lat_c, 7)], 'waters': [{'id': w['id'], 'level_cm': w['level_cm'], 'cells': w['cells']} for w in wsec],
-              'foreign': sorted(foreign), 'ctx': ctx_ids, 'noDemPosts': nan, 'desert': desert,
+              'foreign': sorted(foreign), 'ctx': ctx_ids, 'noDemPosts': nan, 'desert': desert, 'region': region_of(lon_c, lat_c),
+              'buildingKinds': dict(sorted(kinds.items())), 'roofShapesFromData': from_data,
               'counts': {'links': len(links), 'nodes': len(nodes_out), 'blocks': len(blocks), 'trees': len(trees), 'places': len(places)}}
     if nan == wetp.size:
         raise RefusedTile('tile %s: no 3DEP data under any post (%s)' % (grid.tile_id(dom, c, r), '; '.join(sorted(Wd.dem.missing)) or 'outside the DEM'))
