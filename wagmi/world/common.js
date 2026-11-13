@@ -82,8 +82,27 @@ export function createWorld(city) {
   // changes); o { h, y }: with a heading, an edge facing over 100 degrees away from it costs 15 m more (a car's own
   // side of the road); with a height, a lane 2.5 m and more above or below it (a deck, a tunnel) is skipped
   function nearestLane(x, z, mode = 'car', R = 80, o = null) {
-    const L = laneIndexFor(net()); if (!L) return null;
-    return L.nearest(x, z, o ? { R, h: o.h, y: o.y } : { R });
+    const n = net(), L = laneIndexFor(n); if (!L) return null;
+    const hit = L.nearest(x, z, o ? { R, h: o.h, y: o.y } : { R });
+    if (hit || o) return hit;
+    return nearestLaneScan(n, x, z, R);
+  }
+  // (none within R m, and no heading or height asked: the scan it always was, which took any edge whose box lies
+  // within R m and its nearest lane however far: a package's mission place 60-115 m from the traffic's lanes, as
+  // Okemah's hospital and Phoenix's museum, keeps its lane and stays in the place library)
+  function nearestLaneScan(n, x, z, R) {
+    let best = null;
+    for (const e of n.edges) {
+      if (e.len < 8) continue;
+      const mx = e.sx + e.dx * e.len / 2, mz = e.sz + e.dz * e.len / 2;
+      if (Math.abs(mx - x) > R + e.len / 2 || Math.abs(mz - z) > R + e.len / 2) continue;
+      const s = clamp((x - e.sx) * e.dx + (z - e.sz) * e.dz, 4, e.len - 4);
+      for (let l = 0; l < e.lanes.length; l++) {
+        const px = e.sx + e.dx * s + e.rx * e.lanes[l], pz = e.sz + e.dz * s + e.rz * e.lanes[l], d = Math.hypot(px - x, pz - z);
+        if (!best || d < best.d) best = { x: px, z: pz, heading: Math.atan2(e.dx, e.dz), d, edge: e, s, lane: l };
+      }
+    }
+    return best;
   }
   // on the roadway at (x, z): not on a curb island (a block: sidewalks, lawns, plazas), not in the water, and inside
   // the city's map (a package: its compiled tiles; outside them nothing is road, loaded or not). A curb island over a
