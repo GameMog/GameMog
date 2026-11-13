@@ -1,4 +1,4 @@
-# tools/hometown/compile.py: Hometown compiler 0.3.0 on the national grid hg1 (grid.py). A TILE is compiled from its
+# tools/hometown/compile.py: Hometown compiler 0.4.0 on the national grid hg1 (grid.py). A TILE is compiled from its
 # own sources and context alone: tile = f(buildId, key, sources over tile + halo, ctx blocks). It never reads a whole
 # place's inputs nor a neighbour's output, so neighbouring towns share identical tiles, any tile can be compiled on first
 # request, and a 4 x 4 block compiled in one process gives the same bytes as its 16 tiles compiled one by one.
@@ -46,8 +46,9 @@ import shapely.ops  # noqa: E402
 # bump on ANY change to a tile's bytes (a rule, a constant, an output field). 0.1.0 90bae8c; 0.2.0 water rule, 1 cm
 # steps, density, paved lots, yard trees, edge cuts, tunnels, bridges, slopes, integer tree hash; 0.3.0 hg1 national grid:
 # per-tile compile from tile + halo sources and ctx blocks (no whole-place inputs), split-at-grid-line roads with border
-# nodes, centroid-owned buildings, absolute cm heights + wet mask, per-polygon water levels
-COMPILER_VERSION = '0.3.0'
+# nodes, centroid-owned buildings, absolute cm heights + wet mask, per-polygon water levels; 0.4.0 overnight merge: the
+# DEM snapshot pin (If-Match reads), far-field tiles, sf-buildings v4 shapes, decks at height and lanes from data
+COMPILER_VERSION = '0.4.0'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 ROAD_HALO = 160      # m: segments read round a tile (owned pieces, curb islands' roadway, sidewalk bands)
