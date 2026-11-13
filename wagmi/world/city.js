@@ -11,8 +11,13 @@ export function cityId() {
   if (set === 'sf' || set === 'ny' || set === 'pkg') return set;
   try {
     const Q = new URLSearchParams(globalThis.location?.search || '');
-    return Q.get('city') === 'sf' ? 'sf' : Q.get('city') === 'pkg' && /^[a-z0-9-]{1,40}$/.test(Q.get('pkg') || '') ? 'pkg' : 'ny';
+    // (a package by id, ?pkg=, or a town from GameMog by its lock, ?town=&tc=&ts=: wagmi/world/town-src.js)
+    return Q.get('city') === 'sf' ? 'sf' : Q.get('city') === 'pkg' && (/^[a-z0-9-]{1,40}$/.test(Q.get('pkg') || '') || /^us-[0-9]{7}$/.test(Q.get('town') || '')) ? 'pkg' : 'ny';
   } catch { return 'ny'; }
 }
 
-export const cityQuery = (id) => (id === 'pkg' ? `?city=pkg&pkg=${globalThis.window?.NYC?.PKG?.id || ''}` : `?city=${id}`);
+export const cityQuery = (id) => {
+  if (id !== 'pkg') return `?city=${id}`;
+  const T = globalThis.window?.NYC?.TOWN;
+  return T ? `?city=pkg&town=${T.place}&tc=${T.buildId}&ts=${T.tiles}` : `?city=pkg&pkg=${globalThis.window?.NYC?.PKG?.id || ''}`;
+};

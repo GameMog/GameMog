@@ -15,6 +15,7 @@ import { watch, error as hostError } from './host.js';
 import { showTitle, plainTitle, isOwn } from './title.js';
 import { applyTheme, THEMES } from './theme.js';
 import { world as cityWorld, CITIES, cityQuery } from '../world/index.js';
+import { townLockMismatch } from '../world/town-src.js';
 import { SITE_KINDS } from '../world/common.js';
 import { isSiteRef, siteRefs, SITE_KEYS } from './places.js';
 // (a hero's wear: wear.js WEARS, kept here too so the check needs no three.js)
@@ -189,7 +190,12 @@ export function check(w) {
   if (w.storykit !== 1) bad('storykit: not a runner world (1)');
   if (typeof w.id !== 'string' || !/^[a-z0-9][a-z0-9-]{1,39}$/.test(w.id)) bad('id');
   if (typeof w.title !== 'string' || !w.title) bad('title');
-  if (w.city && !CITY_NAMES[w.city]) bad(`city ${w.city}: Mog City's engine plays New York and San Francisco`);
+  // (a hometown world, GameMog's base.city 'hometown': it plays only on a page that loaded its exact town, a GameMog town
+  // bundle (?city=pkg&town=...), its pin (world.hometown) the bundle's lock field by field: wagmi/world/town-src.js)
+  if (w.city === 'hometown') {
+    const T = globalThis.window?.NYC?.TOWN, miss = PAGE_CITY === 'pkg' && T ? townLockMismatch(w.hometown, globalThis.window.NYC.PKG?.lock) : 'no town loaded';
+    if (miss) bad(`city hometown: this page has not loaded the town the world pins (${miss})`);
+  } else if (w.city && !CITY_NAMES[w.city]) bad(`city ${w.city}: Mog City's engine plays New York and San Francisco`);
   else if ((w.city || 'ny') !== PAGE_CITY) bad(`city ${w.city || 'ny'}: this page plays ${CITY_NAMES[PAGE_CITY]} (${cityQuery(w.city || 'ny')} for ${CITY_NAMES[w.city || 'ny']})`);
   if (!w.cast || typeof w.cast !== 'object') bad('cast');
   else for (const [name, c] of Object.entries(w.cast)) {
@@ -287,6 +293,8 @@ export async function load() {
     const h = await sha256(bytes), want = packHash(url);
     if (want && h !== want) throw new Error('its bytes do not match its name');
     const def = JSON.parse(new TextDecoder().decode(bytes));
+    // (a hometown world is checked against the town the page loaded: index.html's NYC.townReady, the bundle fetched)
+    if (def && def.city === 'hometown' && globalThis.window?.NYC?.townReady) await globalThis.window.NYC.townReady;
     const errs = check(def);
     if (errs.length) throw new Error('refused: ' + errs.slice(0, 4).join('; '));
     Object.assign(out, { ok: true, hash: h, id: def.id, title: def.title, def });
