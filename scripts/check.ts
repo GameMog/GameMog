@@ -27,6 +27,7 @@ import { runStoryOwnerChecks } from './storykit-owner-check.ts';
 import { runStoryPatchChecks } from './storykit-patch-check.ts';
 import { runForgeBrowserChecks } from './storykit-forge-browser-check.ts';
 import { runHometownChecks } from './storykit-hometown-check.ts';
+import { runPlacesChecks } from './places-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -538,6 +539,7 @@ runStoryPatchChecks(ok);
 runHometownChecks(ok);
 // Story Kit (B6): the Character Forge in a creator's browser: its sharp, and every anchor forged in Chrome under the store's cap
 await runForgeBrowserChecks(ok);
+runPlacesChecks(ok);
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);

@@ -89,6 +89,14 @@ from Freesound's previews, credited with thanks though CC0 does not require it.
   checked by `npm run check`), with its licence from the same folder (`OFL.txt`). The owner approved this download (3 Nov 2026).
 - `plate-wide.jpg`, `plate-square.jpg`: graded from Mog City's own poster renders (MIT, the Mog City repo).
 
+## Data
+
+The Hometown place index (`lib/places/us-places.tsv.gz`, built by `scripts/places/build-index.ts`) is derived from
+the U.S. Census Bureau's [Gazetteer files](https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.html):
+the 2025 national places file (names, kinds, land and water area, internal points) and the 2010 national places file
+(2010 population). They are U.S. Government works in the public domain; the Census Bureau is credited with thanks.
+The index is not endorsed by the Census Bureau.
+
 ## Names and likenesses
 
 Worlds use invented names and look-alikes with no logos. No trademark or likeness of anyone else

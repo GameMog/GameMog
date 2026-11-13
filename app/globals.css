@@ -426,6 +426,21 @@ table.bd td:nth-child(2){font-weight:600}
 .cselect svg{position:absolute;right:14px;top:15px;pointer-events:none;color:var(--ink-2)}
 .ccheck{display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;border-radius:var(--r);background:var(--surface);box-shadow:var(--elev-hair);font-size:14px;font-weight:700;color:var(--ink);cursor:pointer}
 .ccheck input{width:18px;height:18px;margin:0;accent-color:var(--ink)}
+/* Hometown's town box (app/create/place-search.tsx), behind NEXT_PUBLIC_HOMETOWN_SEARCH */
+.ctown{margin-bottom:16px}
+.ctown .lbl{margin-bottom:8px}
+.psearch{position:relative}
+.psearch input[type=text]{font-size:17px;height:48px}
+.psearch-list{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;list-style:none;margin:0;padding:6px;background:var(--surface);border-radius:var(--r);box-shadow:var(--elev-hover);max-height:min(360px,60vh);overflow-y:auto;overscroll-behavior:contain}
+.psearch-list[hidden]{display:none}
+.psearch-list li{display:flex;flex-direction:column;justify-content:center;min-height:52px;padding:8px 12px;border-radius:var(--r-sm);cursor:pointer}
+.psearch-list li b{font-size:16px;font-weight:700;color:var(--ink);line-height:22px}
+.psearch-list li b span{font-weight:500;color:var(--ink-2)}
+.psearch-list li small{font-size:13px;color:var(--ink-3);line-height:18px}
+.psearch-list li.on{background:var(--fill)}
+.psearch-list li.none{cursor:default;color:var(--ink-3);font-size:14px}
+.psearch .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ctown .msg{margin:10px 0 0}
 .cgo p{font-size:13px;line-height:18px}
 .cideashead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px;margin-bottom:8px}
 .cideashead .lbl{margin:0}
