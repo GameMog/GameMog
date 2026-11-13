@@ -15,7 +15,8 @@ import { checkHometownReply } from '../lib/storykit-hometown.ts';
 import { gatePack, toRunnerPack } from '../storykit/pack/gate.ts';
 import { cityTableOf } from '../storykit/hometown/hometown-gate.ts';
 import { TOWN_ID, canonicalPlaceId, serviceLock, storyLock, sameServiceLock, LOCK_FORMAT } from '../lib/hometown/ids.ts';
-import { canonicalBox, TOWN_WORDS, cityPackageByLock, bundleFile, requestTown, markInterrupted, printBuildArgs } from '../lib/hometown/towns.ts';
+import { canonicalBox, TOWN_WORDS, cityPackageByLock, bundleFile, requestTown, townStatus, markInterrupted, printBuildArgs, storedTiles, type Job } from '../lib/hometown/towns.ts';
+import { townClientKey } from '../lib/hometown/client.ts';
 import { townsConfig } from '../lib/hometown/config.ts';
 import { storyFrameQuery } from '../lib/storykit-publish.ts';
 import { StoryStore } from '../lib/storykit-store.ts';
@@ -69,7 +70,7 @@ export async function runTownChecks(ok: Ok) {
   const tmp = mkdtempSync(path.join(tmpdir(), 'hometown-towns-'));
   const was = globalThis.__hometownTowns;
   try {
-    const cfg = { ...townsConfig(), root: tmp, bundles: path.join(tmp, 'bundles'), jobs: path.join(tmp, 'jobs'), ready: path.join(tmp, 'ready') };
+    const cfg = { ...townsConfig(), root: tmp, bundles: path.join(tmp, 'bundles'), jobs: path.join(tmp, 'jobs'), ready: path.join(tmp, 'ready'), store: path.join(tmp, 'tstore'), scratch: path.join(tmp, 'scratch') };
     globalThis.__hometownTowns = { cfg, queue: [], running: null, build: null, ips: new Map(), booted: true };
     const dir = path.join(cfg.bundles, lock.compiler, lock.place, lock.tiles);
     mkdirSync(path.join(dir, 'data'), { recursive: true });
@@ -105,6 +106,32 @@ export async function runTownChecks(ok: Ok) {
     ok('a restart marks the jobs it cut short interrupted', markInterrupted(cfg) === 3);
     const pb = printBuildArgs(cfg);
     ok('the build id is read with the jobs\' own --data (it includes the OSM lane table under it)', pb[pb.indexOf('--data') + 1] === cfg.sources && pb[pb.indexOf('--store') + 1] === cfg.store);
+    // ── hardening: the address a town is counted against, a cut-short build, a warm store, the ready cache ──
+    const R0 = (h: Record<string, string>) => new Request('http://x/api/towns', { method: 'POST', headers: h });
+    const onRender = { RENDER: 'true' }, off = {};
+    ok('on Render the address is Cloudflare\'s (a forged X-Forwarded-For first hop is never read)', townClientKey(R0({ 'cf-connecting-ip': '198.51.100.7', 'x-forwarded-for': '1.2.3.4, 198.51.100.7, 172.70.1.1' }), onRender) === '198.51.100.7'
+      && townClientKey(R0({ 'true-client-ip': '198.51.100.8', 'x-forwarded-for': '9.9.9.9, 172.70.1.1' }), onRender) === '198.51.100.8');
+    ok('off Render a forged cf-connecting-ip or first X-Forwarded-For hop is never read (the last hop is the proxy\'s)', townClientKey(R0({ 'cf-connecting-ip': '1.1.1.1', 'x-forwarded-for': '2.2.2.2, 203.0.113.5' }), off) === '203.0.113.5'
+      && townClientKey(R0({ 'cf-connecting-ip': '1.1.1.1' }), off) === 'local' && townClientKey(R0({ 'x-forwarded-for': '2.2.2.2, 203.0.113.5, 10.0.0.2' }), { HOMETOWN_TRUSTED_HOPS: '2' }) === '203.0.113.5');
+    ok('a header that is not an address is never a key', townClientKey(R0({ 'x-forwarded-for': 'evil<script>' }), off) === 'local' && townClientKey(R0({ 'cf-connecting-ip': 'x'.repeat(80) }), onRender) === 'local');
+    const pk1 = cityPackageByLock(lock), pk2 = cityPackageByLock(lock);
+    ok('a ready town\'s CityPackage is read once, not on every ask (the same object while its file is unchanged)', !!pk1 && pk1 === pk2);
+    const bid = 'htc-test-1';
+    mkdirSync(path.join(cfg.store, 'tiles', bid, 'hg1-conus', '0', '1'), { recursive: true }); writeFileSync(path.join(cfg.store, 'tiles', bid, 'hg1-conus', '0', '1', '2'), 'x');
+    ok('the tiles a warm store holds are counted (hg1 ids under tiles/<build>), nothing else', storedTiles(cfg, bid, ['hg1-conus/0/1/2', 'hg1-conus/0/1/3', '../../x']) === 1 && storedTiles(cfg, '../x', ['hg1-conus/0/1/2']) === 0);
+    // a cold build that writes nothing is stopped, and says where and why (a stand-in compiler: the descriptor, then silence)
+    const fake = path.join(tmp, 'compiler');
+    mkdirSync(fake, { recursive: true });
+    writeFileSync(path.join(fake, 'compile.py'), `import sys, json, time\nif '--descriptor' in sys.argv:\n    print(json.dumps({'tiles': ['hg1-conus/0/1/2', 'hg1-conus/0/1/3'], 'buildId': '${bid}'})); sys.exit(0)\ntime.sleep(60)\n`);
+    rt.queue = []; rt.running = null; rt.build = Promise.resolve(bid); rt.ips = new Map();
+    rt.cfg = { ...rt.cfg, compiler: fake, python: 'python3', scratch: path.join(tmp, 'scratch'), stallMs: 1500, jobMs: 60_000, queueMax: 10 };
+    const cold = await requestTown('us-4000100', '203.0.113.20');
+    let jj: Job | null = null;
+    for (let i = 0; i < 60; i++) { await new Promise((r) => setTimeout(r, 250)); jj = JSON.parse(readFileSync(path.join(cfg.jobs, 'us-4000100.json'), 'utf8')); if (jj!.state === 'error') break; }
+    ok('a compile that writes nothing is stopped at HOMETOWN_STALL_SECS, its stage and reason kept', cold.status === 202 && jj?.state === 'error' && jj.reason === 'stalled' && jj.failedAt === 'compiling' && /stopped building streets \(compiling\)/.test(jj.error ?? ''), JSON.stringify(jj).slice(0, 300));
+    ok('the warm tile was counted before the compile ran (1 of 2)', jj?.stored === 1 && jj.done === 1 && jj.total === 2, JSON.stringify(jj && { stored: jj.stored, done: jj.done, total: jj.total }));
+    const st = await townStatus('us-4000100');
+    ok('the card reads the stage it stopped at and "took too long", in a player\'s words', st.status === 409 && (st.body as { stage?: string }).stage === 'Building streets' && (st.body as { error: string }).error === TOWN_WORDS.slow && (st.body as { reason?: string }).reason === 'stalled', JSON.stringify(st.body));
     rt.queue = []; rt.running = null; rt.build = null;
     rmSync(dir, { recursive: true, force: true });
     ok('without its town\'s bundle a hometown pack is refused by the store', !s.open(pack).ok);
