@@ -229,6 +229,8 @@ export async function adminResponse(req: Request, parts: string[], d: Deps): Pro
     if (parts[0] === 'gc' && parts.length === 1 && (req.method === 'GET' || req.method === 'POST')) {
       const url = new URL(req.url);
       const tg = url.searchParams.get('target_gb');
+      // (a target that is not a number would compare false and plan to collect every unpinned build: refuse it)
+      if (tg != null && tg !== '' && !(Number.isFinite(Number(tg)) && Number(tg) >= 0)) return json(req, cfg, 400, { error: 'target_gb is a number of GB, 0 or more' });
       const p = pins();
       const plan = planGc({ entries: store.list(), tmp: store.tmpFiles(), current: currentBuilds(store, cfg), pins: p.builds, pinsOk: p.ok, pinSources: [...p.sources, ...p.errors.map((e) => `ERROR ${e}`)], lastServed: store.lastServed(), targetBytes: tg != null && tg !== '' ? Number(tg) * GB : null, now });
       const view = (pl: typeof plan) => ({ ...pl, pinned: [...p.builds].sort(), delete: { ...pl.delete, keys: url.searchParams.get('keys') === '1' ? pl.delete.keys : pl.delete.keys.length }, tmp: { ...pl.tmp, keys: pl.tmp.keys.length } });

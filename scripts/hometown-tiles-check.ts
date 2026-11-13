@@ -199,6 +199,8 @@ async function checks(ok: Ok, dir: string) {
   const stillServes = await publicResponse(req(kA), parts(kA), on);
   ok('disk guard: with the cap tiny, an upload is 507 and stored tiles still serve', fullPut.status === 507 && stillServes.status === 200);
   store.capBytes = GB;
+  const badTarget = await Promise.all(['abc', '-1', '1,5'].map((t) => adminResponse(areq('GET', `gc?target_gb=${t}`), ['gc'], admin)));
+  ok('a GC target that is not a number of GB (abc, -1, 1,5) is 400, never a plan to collect everything', badTarget.every((r) => r.status === 400) && store.has(k1));
   const dry = await adminResponse(areq('GET', 'gc'), ['gc'], admin);
   const dj = await dry.json() as { dryRun: boolean; planId: string; delete: { keys: number; builds: string[] } };
   ok('GET admin/gc is a dry run with a plan id (here: the old build A, not the newest)', dry.status === 200 && dj.dryRun && dj.delete.builds.includes(A.id) && !dj.delete.builds.includes(P.id) && store.has(k1), JSON.stringify(dj.delete));
