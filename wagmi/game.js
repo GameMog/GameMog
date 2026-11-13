@@ -1163,10 +1163,10 @@ WAGMI.trailerEarly = import('./trailer.js').then((m) => m.createTrailer(WAGMI)).
 
 // the rest of the game, a module each (one that fails to load leaves the others running)
 // (with ?pack=, the world's story runner in place of the opening and Mog City's missions: wagmi/storyrun)
-// (another city with no world, ?city=sf alone: free roam there, wagmi/city.js, in place of the opening and the
+// (another city with no world, ?city=sf or a Hometown package (?city=pkg) alone: free roam there, wagmi/city.js, in place of the opening and the
 // missions, which are set on Manhattan's streets. The city: the world contract's, wagmi/world world.id. And
 // ?start=chase in any city: free roam opened on a chase, wagmi/chase-start.js)
-const ROAM = !PACK && (world.id === 'sf' || CHASE_START);
+const ROAM = !PACK && (world.id !== 'ny' || CHASE_START);
 for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
   try { const mod = await import(m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); }
 }

@@ -2,7 +2,7 @@
 // the one city reader (city.js: window.NYC.CITY, set by index.html from ?city=), and its adapter (ny.js, sf.js) reads
 // that city's own globals behind it. Nothing outside wagmi/world/ reads the city's tables, its place library or the
 // address's ?city= itself.
-//   world.id ('ny' | 'sf'), world.name, world.frame
+//   world.id ('ny' | 'sf' | 'pkg': a Hometown package, world.pkg its id), world.name, world.frame
 //   ground   sampleSurface(x, z, mode = 'person') -> { y, base, water, curb, park };  groundY(x, z, mode);  roadY(x, z)
 //            (the road's level: a hill's bare ground, 0 on New York's flat streets);  isPark(x, z);  inWater(x, z)
 //   solids   queryColliders({ x, z, r } | { minX, maxX, minZ, maxZ })
@@ -16,11 +16,13 @@
 //            findMissionSites({ near, min, max, count, foot }), landmarks (name -> { x, z, ... })
 //   scene    sceneGroups (what the city's scene groups are called: grid, blocks, landmarks, streetDetails, traffic...)
 //   grid     New York's street grid (street(n), streetLine(n), avenue(id), avenueLine(id)); null in San Francisco
-//   ensureLoaded(bounds) -> Promise (v0: resolved, the whole city is in memory)
+//   ensureLoaded(bounds) -> Promise (v0: resolved, the whole city is in memory; a package: its data in and its tiles
+//            under the bounds compiled, wagmi/world/pkg.js)
 import { cityId } from './city.js';
 import { createNY } from './ny.js';
 import { createSF } from './sf.js';
+import { createPkg } from './pkg.js';
 
 export { cityId, cityQuery, CITIES } from './city.js';
-export const world = cityId() === 'sf' ? createSF() : createNY();
+export const world = cityId() === 'sf' ? createSF() : cityId() === 'pkg' ? createPkg() : createNY();
 export default world;

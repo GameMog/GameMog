@@ -1,3 +1,7 @@
 .DS_Store
 .scratch/
 *.sb-*
+
+# Hometown packages: compiled by tools/hometown/compile.py (open map data, ODbL-derived), reproducible from the compiler
+cities/pkg/packages/
+__pycache__/

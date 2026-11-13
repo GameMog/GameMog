@@ -122,7 +122,8 @@ async function initApp() {
     loadingFill.style.transform = `scaleX(${k})`;
   };
   // (Mog City: plain words for the player while it loads, not the engine's steps)
-  const LOADING_TEXT = 'Loading San Francisco…';
+  // (a Hometown package: its own place's name, cities/pkg)
+  const LOADING_TEXT = window.NYC.PKG ? `Loading ${String(window.NYC.PKG.name).split(',')[0]}…` : 'Loading San Francisco…';
 
   if (loadingStatus) {
     loadingStatus.textContent = LOADING_TEXT;
@@ -729,7 +730,9 @@ async function initApp() {
   // facing along it, and Dan by it (the game puts him out at its door: wagmi/city.js); the sandbox's bike and helicopter,
   // which the game doesn't use, parked out of the way at Market & Montgomery. Market & Montgomery for all if the lanes
   // are missing)
-  const spawn = laneNear(652, -683, 90) || window.NYC.TELEPORT_LOCATIONS.market;
+  // (a Hometown package: its compiled arrival, downtown, onto the lane nearest it)
+  const PKG_SPAWN = window.NYC.PKG && window.NYC.PKG.spawn;
+  const spawn = PKG_SPAWN ? laneNear(PKG_SPAWN.x, PKG_SPAWN.z, 150) || PKG_SPAWN : laneNear(652, -683, 90) || window.NYC.TELEPORT_LOCATIONS.market;
   const parking = window.NYC.TELEPORT_LOCATIONS.market || spawn;
   if (spawn) {
     for (const [mode, at] of [['car', spawn], ['person', spawn], ['cyclist', parking], ['helicopter', parking]]) {

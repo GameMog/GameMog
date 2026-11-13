@@ -65,5 +65,5 @@ export async function install(W) {
   if (CITY === 'sf' && Q.has('apocalypse')) {
     try { const A = await import('./apocalypse/index.js'); await A.createApocalypse(W, { time: Q.get('apocalypse') || 'dusk' }); } catch (e) { console.warn('[city] apocalypse', e); }
   }
-  console.log(`[wagmi] free roam in ${CITY === 'sf' ? 'San Francisco' : CITY}`);
+  console.log(`[wagmi] free roam in ${CITY === 'sf' ? 'San Francisco' : CITY === 'pkg' ? world.name + ' (package ' + world.pkg + ')' : CITY}`);
 }

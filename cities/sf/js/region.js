@@ -176,6 +176,8 @@ function decodeRegionRLE(runs, count) {
   return mask;
 }
 async function loadSFRegion(fetchBin) {
+  // (a Hometown package, cities/pkg: no regional scenery round it in v0; its own terrain is all the ground there is)
+  if (window.NYC.PKG) return null;
   const response = await fetch(new URL('data/region/manifest.json', window.NYC.BASE || location.href));
   if (!response.ok) throw Error(`Region manifest: HTTP ${response.status}`);
   const manifest = await response.json();
@@ -205,6 +207,7 @@ async function loadSFRegion(fetchBin) {
   return { manifest, city, horizon, mask, buildings:b, trees, roads };
 }
 function installRegionTerrain(data) {
+  if (!data) return;
   const h=data.manifest.horizon;
   window.NYC.FLIGHT_BOUNDS={minX:h.x0,maxX:h.x1,minZ:h.z0,maxZ:h.z1};
   // Fine landmark patches precede these. Core sampling remains authoritative inside its own grid.

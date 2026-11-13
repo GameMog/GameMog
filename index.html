@@ -52,7 +52,11 @@
     // Francisco, by Kamil (@unable0_) and Mr.doob, MIT; its own scripts and data, the shared engine modules from js/),
     // anything else New York, exactly as before. One city a page: another city is another page load. The title below
     // and the city's scripts are picked by it, and window.NYC.CITY carries it to the game (wagmi/world/city.js)
-    const MC_CITY = new URLSearchParams(location.search).get('city') === 'sf' ? 'sf' : 'ny';
+    // ?city=pkg&pkg=<id>: a Hometown package (cities/pkg: a place compiled from open map data by tools/hometown) on San
+    // Francisco's engine base; MC_PKG its id (letters, digits, '-' only), its folder cities/pkg/packages/<id>/
+    const MC_Q = new URLSearchParams(location.search);
+    const MC_PKG = MC_Q.get('city') === 'pkg' && /^[a-z0-9-]{1,40}$/.test(MC_Q.get('pkg') || '') ? MC_Q.get('pkg') : null;
+    const MC_CITY = MC_Q.get('city') === 'sf' ? 'sf' : MC_PKG ? 'pkg' : 'ny';
   </script>
   <script>
     // (Mog City: the instant title, #wg-boot in the body. On every start that shows the start gate the first thing
@@ -66,8 +70,9 @@
       if (Q.has('pack')) H.classList.add('wg-pk');
       // (?city=sf: San Francisco, html[data-city=sf]. With no story told there yet it starts in free roam, as ?nointro
       // does: wagmi/city.js. Midtown's aerial is never its still)
-      const sf = MC_CITY === 'sf';
-      if (sf) H.dataset.city = 'sf';
+      // (?city=pkg: a Hometown package, html[data-city=pkg], free roam on the SF engine base as San Francisco is)
+      const sf = MC_CITY !== 'ny';
+      if (sf) H.dataset.city = MC_CITY;
       // (?start=chase: the chase-first opening, wagmi/chase-start.js, straight in, no gate)
       if (Q.has('nointro') || Q.has('nogate') || Q.has('fight') || Q.get('m1') || Q.get('m2') || Q.get('m3') || (sf && !Q.has('pack')) || (Q.get('start') === 'chase' && !Q.has('pack'))) return;
       H.classList.add('wg-t');
@@ -122,16 +127,18 @@
   <script>
     // (the city's scripts: MC_CITY, read from the address in the head's first city script)
     // Download the city scripts while Three.js loads; execute them only after its imports are ready below.
-    const nycAppScripts = MC_CITY === 'sf' ? (() => {
+    const nycAppScripts = MC_CITY !== 'ny' ? (() => {
       // (San Francisco's own modules from cities/sf/js; the ones both cities share as they are (the people, the touch
       // and pad controls, the cameras with their hill clearance, the culling, the lamps) from js/. Not SF's settings
       // dialog or its robotaxi ride: Mog City's pause menu and Dan's car are the game's)
       const v = '20261111-atmos';
       const sf = (f) => `./cities/sf/js/${f}?v=${v}`, shared = (f) => `./js/${f}?v=${v}`;
+      // (a Hometown package: its own geodata.js (window.NYC.GEO, PLACE_DATA and PKG, tools/hometown/compile.py) in
+      // place of San Francisco's geodata and places, then the same engine)
+      const pkg = MC_PKG ? [`./cities/pkg/packages/${MC_PKG}/geodata.js?v=${v}`, `./cities/pkg/js/pkg-hud.js?v=${v}`] : [sf('sf-geodata.js'), sf('sf-places.js')];
       return [
         sf('sf-hud.js'),
-        sf('sf-geodata.js'),
-        sf('sf-places.js'),
+        ...pkg,
         sf('city-config.js'),
         sf('data-loader.js'),
         sf('terrain.js'),
@@ -287,7 +294,7 @@
     @media (max-aspect-ratio: 3/4) { html.wg-t #wg-boot .wg-boot-pic { background-image: url(assets/ui/gate-aerial-port.webp); } }
     @media (min-aspect-ratio: 2/1) { html.wg-t #wg-boot .wg-boot-pic { background-image: url(assets/ui/gate-aerial-wide.webp); } }
     /* (San Francisco: not Midtown's still under its title; the veil's own dusk until its live city is up) */
-    html[data-city='sf'] #wg-boot .wg-boot-pic { background-image: none !important; }
+    html[data-city='sf'] #wg-boot .wg-boot-pic, html[data-city='pkg'] #wg-boot .wg-boot-pic { background-image: none !important; }
     html.wg-t #wg-boot .wg-boot-bar { display: block; left: 0; right: 0; height: var(--bar); background: #000; z-index: 5; }
     #wg-boot .wg-boot-bar.top { top: 0; } #wg-boot .wg-boot-bar.bot { bottom: 0; }
     html.wg-t #wg-boot .wg-boot-veil { display: block; inset: 0; z-index: 2;
@@ -470,7 +477,7 @@
   <script>
     (() => {
       const H = document.documentElement, boot = document.getElementById('wg-boot'), load = document.getElementById('wg-load');
-      if (/[?&](nointro|nogate|fight)\b/.test(location.search) || ((H.dataset.city === 'sf' || /[?&]start=chase\b/.test(location.search)) && !/[?&]pack=/.test(location.search))) { boot.remove(); load.remove(); return; }
+      if (/[?&](nointro|nogate|fight)\b/.test(location.search) || ((H.dataset.city === 'sf' || H.dataset.city === 'pkg' || /[?&]start=chase\b/.test(location.search)) && !/[?&]pack=/.test(location.search))) { boot.remove(); load.remove(); return; }
       const T = (window.__wgTitle = { adopted: false, started: null, typeAt: 0 });
       const t = setInterval(() => {
         if (!window.__NYC_APP || !window.__NYC_APP.ready) return;
@@ -822,6 +829,8 @@
     // (San Francisco's data is fetched from its own folder: cities/sf/js/data-loader.js, region.js)
     window.NYC.CITY = MC_CITY;
     if (MC_CITY === 'sf') Object.assign(window.NYC, { BASE: new URL('./cities/sf/', document.baseURI).href });
+    // (a Hometown package's data/*.bin.gz from its own folder)
+    if (MC_CITY === 'pkg') Object.assign(window.NYC, { BASE: new URL(`./cities/pkg/packages/${MC_PKG}/`, document.baseURI).href });
 
     for (const src of nycAppScripts) {
       const s = document.createElement('script');

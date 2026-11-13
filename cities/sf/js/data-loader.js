@@ -30,6 +30,11 @@ async function fetchBin(url, onBytes) {
   return { header, buf, offset: 8 + n };
 }
 
+// (Mog City) window.NYC.dataReady: resolved with DATA once the city's data is in memory (the world contract's
+// ensureLoaded waits on it: wagmi/world/pkg.js)
+let dataLoaded;
+window.NYC.dataReady = new Promise((r) => { dataLoaded = r; });
+
 async function loadCityData(onProgress) {
   const d = GEO.data;
   let done = 0;
@@ -49,6 +54,7 @@ async function loadCityData(onProgress) {
   window.NYC.DATA = DATA;
   window.NYC.Terrain.load(DATA.terrain.header, DATA.terrain.q);
   window.NYC.installRegionTerrain(fullRegion);
+  dataLoaded(DATA);
   return DATA;
 }
 
