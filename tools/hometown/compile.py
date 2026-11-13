@@ -2223,7 +2223,7 @@ if __name__ == '__main__':
             import assemble
             pid = a.descriptor or a.id
             if a.descriptor and a.stage == 1:
-                print(jdump(assemble.stage1(pid, json.load(open(a.places))['places'], bid)))
+                print(jdump(assemble.stage1(pid, json.load(open(a.places))['places'], bid, a.data, store)))
             else:
                 assemble.compile_place(pid, json.load(open(a.places))['places'], a.data, store, bid, a.out or (P['out'] if a.id else None), log=log)
         else:
