@@ -53,7 +53,11 @@ function near(px, pz, bx, bz, by, bw, bl, out) {
   return out;
 }
 
+// off the road in a Hometown package (world.onRoadway: its lawns and lots, no buildings at the curb to stop it), a
+// wreck's slide and spin are damped this much more (1/s); New York and San Francisco as before
+const LAWN = { v: 2.5, w: 3 };
 export function createWrecks({ TS, cm, fx, play, props, camera, physics: PH = null }) {
+  const lawn = (x, z) => world.id === 'pkg' && !!world.onRoadway && !world.onRoadway(x, z);
   const vehicles = [...(TS.cars || []), ...(TS.buses || [])];
   const live = new Set();
   const stats = { taken: 0, square: 0, backed: 0, away: 0, backing: 0, waiting: 0, inWay: 0 }; // (handed back how, for a test)
@@ -159,6 +163,12 @@ export function createWrecks({ TS, cm, fx, play, props, camera, physics: PH = nu
     if (!B.frozen && !PH.inside(B.p.x, B.p.z, 3)) PH.freeze(B);
     readJ(R, v);
     R.t += dt;
+    // (off the asphalt and on the ground, a lawn's grip: its slide and spin damped harder than the road's friction)
+    if (!B.frozen && (Math.abs(R.vx) + Math.abs(R.vz) > 0.3 || Math.abs(R.w) > 0.3) && B.p.y < cm.getGroundHeight(R.x, R.z, 'person') + 0.9 && lawn(R.x, R.z)) {
+      const k = Math.max(0, 1 - LAWN.v * dt), kw = Math.max(0, 1 - LAWN.w * dt);
+      PH.vel(B, _lv); PH.angVel(B, _av); PH.setVel(B, { x: _lv.x * k, y: _lv.y, z: _lv.z * k }, { x: _av.x, y: _av.y * kw, z: _av.z });
+      R.vx *= k; R.vz *= k; R.w *= kw;
+    }
     const sp = Math.hypot(R.vx, R.vz), [hw, hl] = dims(v), m = massOf(v);
     if (!B.frozen && (sp > 0.05 || R.wl > 0.05) && R.upY > -2) {
       // the city's cars still in their lanes (and any wreck not in Jolt): shoved, and wrecked too when hit hard
@@ -231,6 +241,8 @@ export function createWrecks({ TS, cm, fx, play, props, camera, physics: PH = nu
     lat = Math.sign(lat) * Math.max(0, Math.abs(lat) - 9 * dt);
     R.vx = fwd * c + lat * s; R.vz = fwd * s - lat * c;
     R.w = Math.sign(R.w) * Math.max(0, Math.abs(R.w) - (2.2 + Math.abs(R.w) * 1.2) * dt);
+    // (off the asphalt, a lawn's grip: it stops in a few metres, not a long slide across the grass)
+    if (lawn(R.x, R.z)) { const k = Math.max(0, 1 - LAWN.v * dt); R.vx *= k; R.vz *= k; R.w *= Math.max(0, 1 - LAWN.w * dt); }
     R.x += R.vx * dt; R.z += R.vz * dt; R.yaw += R.w * dt;
     const sp = Math.hypot(R.vx, R.vz);
     const [hw, hl] = dims(v), m = massOf(v);
