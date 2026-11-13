@@ -283,7 +283,7 @@ function buildRoadNetwork(sidewalks, obstacles) {
       stations.push(B);
       arcs.push(arc + Math.hypot(B.x - pts[pts.length - 2].x, B.z - pts[pts.length - 2].z));
       const lanes = lanesOf(l);
-      const bore = l.tunnel ? spans(pts, true) : l.elev ? deckOf(l) : bridgeOf(l, pts);
+      const bore = l.tunnel ? (l.elev ? tunnelOf(l) : spans(pts, true)) : l.elev ? deckOf(l) : bridgeOf(l, pts);
       for (let k = 0; k + 1 < stations.length; k++) {
         runs.push({
           from: stations[k], to: stations[k + 1], ...lanes, name: l.name,
@@ -1028,6 +1028,32 @@ function spans(pts, tunnel, measureOnly = false) {
   let k1 = last;
   while (k1 < n && g[k1] - line(k1) > 1) k1++;
   return { kind: 'tunnel', p0: u[k0], p1: u[k1], y0: g[k0], y1: g[k1], pts, cum };
+}
+// A Hometown package's tunnel link with its road's profile (field [12]: the straight line between the tunnel's portals,
+// tools/hometown/compile.py tunnel_line; every link of one tunnel on that one line, wherever the tiles split it): its
+// bore where the hill stands PORTAL_COVER m over the road, each portal set back to where the cover is under 1 m, as
+// spans() does from the link's own ends (a tunnel link wholly inside the hill has no ground at its ends). Null where the
+// road nowhere runs under the hill
+function tunnelOf(l) {
+  const T = window.NYC.Terrain;
+  if (!T || !T.loaded) return null;
+  const pts = l.pts;
+  const cum = [0];
+  for (let k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].z - pts[k - 1].z));
+  const L = cum[cum.length - 1];
+  const b = { kind: 'tunnel', ys: Float32Array.from(l.elev.slice(1)), step: l.elev[0], pts, cum, L };
+  const n = Math.max(2, Math.ceil(L / 2));
+  const u = Array.from({ length: n + 1 }, (_, k) => (L * k) / n);
+  const y = u.map((a) => deckRaw(b, a));
+  const cover = u.map((a, k) => { const p = linkPoint(b, a); return T.heightAt(p.x, p.z) - y[k]; });
+  const first = cover.findIndex((c) => c > PORTAL_COVER);
+  if (first < 0) return null;
+  let last = n;
+  while (cover[last] <= PORTAL_COVER) last--;
+  let k0 = first, k1 = last;
+  while (k0 > 0 && cover[k0] > 1) k0--;
+  while (k1 < n && cover[k1] > 1) k1++;
+  return { kind: 'tunnel', p0: u[k0], p1: u[k1], y0: y[k0], y1: y[k1], pts, cum };
 }
 // A Hometown package's deck (link field [12], tools/hometown/grade.py): its heights every `step` m along the link's own
 // centreline from its first point. Returns { kind: 'deck', p0, p1, ys, step, pts, cum, blendA, blendB }: [p0, p1] is the

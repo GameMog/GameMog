@@ -130,7 +130,7 @@ function buildGradeSeparation(scene, network) {
     const node = (x, z) => { const k = Math.round(x * 2) + ',' + Math.round(z * 2); if (!nodeOf.has(k)) nodeOf.set(k, { x, z, in: [], out: [] }); return nodeOf.get(k); };
     for (let li = 0; li < RG.links.length; li++) {
       const [a, b, ni, w, , dir, inner, flags, , , lf, lb, elev] = RG.links[li];
-      if (!Array.isArray(elev) || elev.length < 3 || flags & (8 | 16)) continue;
+      if (!Array.isArray(elev) || elev.length < 3 || flags & (2 | 8 | 16)) continue; // (a tunnel link's profile: no deck)
       const pts = [{ x: RG.nodes[2 * a], z: RG.nodes[2 * a + 1] }];
       for (let k = 0; k < inner.length; k += 2) pts.push({ x: inner[k], z: inner[k + 1] });
       pts.push({ x: RG.nodes[2 * b], z: RG.nodes[2 * b + 1] });
