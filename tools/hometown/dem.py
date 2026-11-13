@@ -170,3 +170,91 @@ def read_dem(bbox, cache):
             np.copyto(sub, win, where=np.isnan(sub))
             sources.append({'url': url, 'etag': m['etag'], 'lastModified': m['lastModified']})
     return grid, (c0 + 0.5) * res, -(r0 + 0.5) * res, res, sources
+
+
+# ------------------------------------------------------------------------------------------------- hg1 sampler
+class Sampler:
+    """3DEP 1/3" heights at any lon/lat, independent of what else was read: bilinear between the 4 global lattice
+    pixels round the point (column k's centre is (k + 0.5) / 10800 degrees, row r's -(r + 0.5) / 10800), each pixel
+    taken from the ONE file whose nominal 1 x 1 degree cell holds its centre (the files overlap by 6 px: a fixed owner
+    per pixel, so a mosaic's extent never changes a value). Internal tiles come from the ETag mirror under <mirror>
+    (fetched on first use, then offline). Records every file it read (demSource)."""
+    RES = 10800
+
+    def __init__(self, mirror):
+        self.mirror = mirror
+        self.cogs, self.tiles, self.used = {}, {}, {}
+        self.missing = set()
+
+    def _cog(self, latc, lonc):
+        k = (latc, lonc)
+        if k not in self.cogs:
+            if lonc >= 0 or latc < 0:
+                # (the national map names n{lat}w{lon} files only: the east / south hemisphere tiles (Guam, American
+                # Samoa) are not in this naming scheme)
+                self.cogs[k] = None
+                self.missing.add('no 3DEP 1/3" file name for cell lat %d lon %d' % (latc, lonc))
+            else:
+                name = 'n%02dw%03d' % (latc + 1, -lonc)
+                url = '%s/%s/USGS_13_%s.tif' % (BASE, name, name)
+                try:
+                    cog = COG(url, self.mirror)
+                except Exception as e:  # (a cell 3DEP has no 1/3" file for: open ocean, outside the US)
+                    self.cogs[k] = None
+                    self.missing.add('%s: %s' % (name, str(e)[:80]))
+                    return None
+                m = cog.meta
+                cog.fc0 = round((m['tie'][0] + m['scale'][0] / 2) * self.RES - 0.5)
+                cog.fr0 = round(-(m['tie'][1] - m['scale'][1] / 2) * self.RES - 0.5)
+                self.cogs[k] = cog
+        return self.cogs[k]
+
+    def pixels(self, col, row):
+        """Global lattice pixels (int arrays) -> float64 heights (NaN where no data)."""
+        col = np.asarray(col, dtype=np.int64)
+        row = np.asarray(row, dtype=np.int64)
+        out = np.full(col.shape, np.nan)
+        lonc = np.floor((col + 0.5) / self.RES).astype(np.int64)
+        latc = np.floor(-(row + 0.5) / self.RES).astype(np.int64)
+        keys = np.stack([latc, lonc], axis=-1).reshape(-1, 2)
+        flat_c, flat_r, flat_o = col.ravel(), row.ravel(), out.ravel()
+        for la, lo in sorted(set(map(tuple, keys.tolist()))):
+            sel = np.nonzero((keys[:, 0] == la) & (keys[:, 1] == lo))[0]
+            cog = self._cog(la, lo)
+            if cog is None:
+                continue
+            m = cog.meta
+            lc, lr = flat_c[sel] - cog.fc0, flat_r[sel] - cog.fr0
+            ok = (lc >= 0) & (lr >= 0) & (lc < m['w']) & (lr < m['h'])
+            ti, tj = lc // m['tw'], lr // m['th']
+            for a, b in sorted(set(zip(ti[ok].tolist(), tj[ok].tolist()))):
+                tk = (la, lo, a, b)
+                if tk not in self.tiles:
+                    t = cog.tile(a, b).astype(np.float64)
+                    t[t <= m['nodata'] + 1] = np.nan
+                    t[t < -1000] = np.nan
+                    self.tiles[tk] = t
+                self.used[m['url']] = {'url': m['url'], 'etag': m['etag'], 'lastModified': m['lastModified']}
+                t = self.tiles[tk]
+                s2 = ok & (ti == a) & (tj == b)
+                flat_o[sel[s2]] = t[lr[s2] - b * m['th'], lc[s2] - a * m['tw']]
+        return out
+
+    def sample(self, lon, lat):
+        """Bilinear heights (NAVD88 m, float64) at lon/lat arrays."""
+        shape = np.shape(lon)
+        fc = np.asarray(lon, dtype=np.float64).ravel() * self.RES - 0.5
+        fr = -np.asarray(lat, dtype=np.float64).ravel() * self.RES - 0.5
+        c, r = np.floor(fc), np.floor(fr)
+        tx, ty = fc - c, fr - r
+        c, r = c.astype(np.int64), r.astype(np.int64)
+        cc = np.concatenate([c, c + 1, c, c + 1]); rr = np.concatenate([r, r, r + 1, r + 1])
+        v = self.pixels(cc, rr)
+        n = c.size
+        v00, v10, v01, v11 = v[:n], v[n:2 * n], v[2 * n:3 * n], v[3 * n:]
+        a = v00 * (1 - tx) + v10 * tx
+        b = v01 * (1 - tx) + v11 * tx
+        return (a * (1 - ty) + b * ty).reshape(shape)
+
+    def sources(self):
+        return [self.used[k] for k in sorted(self.used)]

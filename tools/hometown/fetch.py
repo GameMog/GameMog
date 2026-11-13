@@ -24,7 +24,7 @@ S3 = 's3://overturemaps-us-west-2/release/%s' % RELEASE
 LAYERS = [
     ('buildings', 'building', 'id, geometry, height, num_floors, min_height, class, subtype, roof_shape, roof_height, is_underground, names.primary AS name, sources'),
     ('buildings', 'building_part', 'id, geometry, height, num_floors, min_height, building_id'),
-    ('transportation', 'segment', '*'),
+    ('transportation', 'segment', 'id, geometry, subtype, class, subclass, names, connectors, access_restrictions, road_flags, width_rules, level_rules, subclass_rules'),
     ('transportation', 'connector', 'id, geometry'),
     ('places', 'place', 'id, geometry, names.primary AS name, basic_category, taxonomy, confidence, operating_status'),
     ('base', 'water', 'id, geometry, subtype, class, names.primary AS name, is_salt, is_intermittent'),
@@ -69,6 +69,72 @@ def resolve(c, place):
     return (r(W), r(S), r(E), r(N)), how
 
 
+# ------------------------------------------------------------------------------------------------- hg1 regions (L4)
+# A region is one hg1 context block (L4: 16 x 16 tiles, 8192 grid-m) and REGION_HALO grid-m round it: every Overture row
+# whose bbox meets that envelope (whole rows, never clipped), saved under <data>/regions/hg1-{d}/4/{C}/{R}/. A tile or
+# ctx compile reads the regions covering its windows (compile.py checks the coverage), so the same rows reach every
+# compile of a tile whichever place asked for it. Several regions are fetched with ONE read of S3 per layer (the union
+# of their envelopes), split locally: the same rows as one read per region.
+REGION_HALO = 300
+
+
+def region_dir(data_dir, dom, C, R):
+    return os.path.join(data_dir, 'regions', 'hg1-%s' % dom, '4', str(C), str(R))
+
+
+def region_envelope(dom, C, R, halo=REGION_HALO):
+    """The lon/lat bbox of block (C, R) + halo: 33 inverse-projected points per edge, then a 1e-4 degree pad."""
+    import numpy as np
+    import grid
+    d = grid.domain(dom)
+    B = 8192
+    e0, e1, s0, s1 = C * B - halo, (C + 1) * B + halo, R * B - halo, (R + 1) * B + halo
+    t = np.linspace(0, 1, 33)
+    E = np.concatenate([e0 + (e1 - e0) * t, np.full(33, e1), e1 - (e1 - e0) * t, np.full(33, e0)])
+    S = np.concatenate([np.full(33, s0), s0 + (s1 - s0) * t, np.full(33, s1), s1 - (s1 - s0) * t])
+    lon, lat = d.inverse(E, S)
+    pad = 1e-4
+    return (float(lon.min()) - pad, float(lat.min()) - pad, float(lon.max()) + pad, float(lat.max()) + pad)
+
+
+def fetch_regions(dom, blocks, data_dir):
+    todo = []
+    for C, R in blocks:
+        out = region_dir(data_dir, dom, C, R)
+        if os.path.exists(os.path.join(out, 'region.json')):
+            continue
+        todo.append((C, R, out, region_envelope(dom, C, R)))
+    if not todo:
+        return
+    W = min(t[3][0] for t in todo); S_ = min(t[3][1] for t in todo); E_ = max(t[3][2] for t in todo); N = max(t[3][3] for t in todo)
+    c = connect()
+    tmp = os.path.join(data_dir, 'regions', '.tmp')
+    os.makedirs(tmp, exist_ok=True)
+    recs = {(C, R): {'grid': 'hg1', 'domain': dom, 'block': [C, R], 'halo': REGION_HALO, 'envelope': list(env),
+                     'overture': {'release': RELEASE, 'layers': {}}} for C, R, _, env in todo}
+    for theme, typ, cols in LAYERS:
+        f = os.path.join(tmp, f'{theme}-{typ}.parquet')
+        t = time.time()
+        if not os.path.exists(f):
+            c.execute(f"""COPY (SELECT {cols}, bbox FROM read_parquet('{S3}/theme={theme}/type={typ}/*.parquet', hive_partitioning=0)
+                WHERE bbox.xmin <= {E_} AND bbox.xmax >= {W} AND bbox.ymin <= {N} AND bbox.ymax >= {S_} ORDER BY id)
+                TO '{f}.part' (FORMAT parquet, COMPRESSION zstd)""")
+            os.replace(f + '.part', f)
+        print(f'regions {theme}/{typ}: union read {time.time() - t:.1f}s', flush=True)
+        for C, R, out, (w, s, e, n) in todo:
+            os.makedirs(out, exist_ok=True)
+            g = os.path.join(out, f'overture-{theme}-{typ}.parquet')
+            c.execute(f"""COPY (SELECT * FROM read_parquet('{f}') WHERE bbox.xmin <= {e} AND bbox.xmax >= {w} AND bbox.ymin <= {n} AND bbox.ymax >= {s}
+                ORDER BY id) TO '{g}' (FORMAT parquet, COMPRESSION zstd)""")
+            nrows = c.execute(f"SELECT count(*) FROM read_parquet('{g}')").fetchone()[0]
+            recs[(C, R)]['overture']['layers'][f'{theme}/{typ}'] = {'rows': nrows}
+    for C, R, out, _ in todo:
+        json.dump(recs[(C, R)], open(os.path.join(out, 'region.json'), 'w'), indent=1, sort_keys=True)
+        print('region', dom, C, R, recs[(C, R)]['overture']['layers'], flush=True)
+    for name in os.listdir(tmp):
+        os.remove(os.path.join(tmp, name))
+
+
 def fetch(pid, bbox, data_dir, margin_m=150, place=None, how=None):
     out = os.path.join(data_dir, pid)
     os.makedirs(out, exist_ok=True)
@@ -102,11 +168,16 @@ def fetch(pid, bbox, data_dir, margin_m=150, place=None, how=None):
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument('--id', required=True)
+    ap.add_argument('--id')
     ap.add_argument('--place')
     ap.add_argument('--bbox', help='lonW,latS,lonE,latN')
+    ap.add_argument('--regions', help='hg1 L4 blocks: dom:C,R;C,R... (fetched with one S3 read per layer)')
     ap.add_argument('--data', default=os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../.scratch/hometown-m2/data'))
     a = ap.parse_args()
+    if a.regions:
+        dom, _, rest = a.regions.partition(':')
+        fetch_regions(dom, [tuple(int(v) for v in b.split(',')) for b in rest.split(';')], os.path.abspath(a.data))
+        raise SystemExit(0)
     how = None
     if a.bbox:
         bbox = tuple(float(v) for v in a.bbox.split(','))
