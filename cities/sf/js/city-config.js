@@ -31,8 +31,12 @@ function prettyName(n) {
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .replace(/\b0*(\d+)(st|nd|rd|th)\b/gi, (_, d) => ordinal(+d))
-    .replace(/\bTunl\b/, 'Tunnel');
+    .replace(/\bTunl\b/, 'Tunnel')
+    // (the names' own spelling, which DataSF's capitals lose: McAllister St, O'Farrell St, MacArthur Ave)
+    .replace(/\bMc([a-z])/g, (_, c) => 'Mc' + c.toUpperCase())
+    .replace(/\b(Ofarrell|Macarthur)\b/g, (w) => REAL_SPELLING[w]);
 }
+const REAL_SPELLING = { Ofarrell: "O'Farrell", Macarthur: 'MacArthur' };
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Manhattan grid tables of the original engine: San Francisco has no single grid, its streets come from the road graph

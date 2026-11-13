@@ -8,7 +8,7 @@ globalThis.location = new URL('http://127.0.0.1:4663/?pack=x');
 
 // a 7 x 7 grid of junctions 100 m apart, two-way: the x roads streets, the z roads avenues (axis 'ave'), one street
 // that stops short (a dead end), a park block, a plaza, two landmarks, a pier, a raised highway over one street
-function town({ reverse = false } = {}) {
+function town({ reverse = false, flat = false, extra = [], sites = {}, mask = null, stName = null } = {}) {
   const nodes = [], edges = [], S = 100, K = 7;
   const node = (x, z) => { const n = { x, z, id: nodes.length, in: [], out: [], signal: (x + z) % 200 === 0 }; nodes.push(n); return n; };
   const grid = [];
@@ -20,7 +20,7 @@ function town({ reverse = false } = {}) {
   };
   for (let i = 0; i < K; i++) for (let j = 0; j < K; j++) {
     const a = grid[i][j];
-    if (i + 1 < K) { link(a, grid[i + 1][j], 'st', `${j + 1}TH ST`); link(grid[i + 1][j], a, 'st', `${j + 1}TH ST`); }
+    if (i + 1 < K) { const nm = (stName && stName(j)) || `${j + 1}TH ST`; link(a, grid[i + 1][j], 'st', nm); link(grid[i + 1][j], a, 'st', nm); }
     if (j + 1 < K) { link(a, grid[i][j + 1], 'ave', `${String.fromCharCode(65 + i)} AVE`); link(grid[i][j + 1], a, 'ave', `${String.fromCharCode(65 + i)} AVE`); }
   }
   // (a dead-end street off C Ave, between 3rd and 4th: 60 m long)
@@ -35,6 +35,7 @@ function town({ reverse = false } = {}) {
   const colliders = [
     { minX: 120, maxX: 180, minZ: 120, maxZ: 180, minY: 0, maxY: 30 }, // a building in block (1,1)
     { minX: 420, maxX: 480, minZ: 120, maxZ: 180, minY: 0, maxY: 40 },
+    ...extra,
   ];
   const blocks = [
     { id: 0, cx: 350, cz: 350, area: 4500, park: 1, parkName: 'Town Green', median: false, minX: 306, maxX: 394, minZ: 306, maxZ: 394 },
@@ -45,7 +46,7 @@ function town({ reverse = false } = {}) {
   const NYC = {
     CITY: 'ny', BLOCKS: blocks, ROADS: [], TELEPORT_LOCATIONS: { hall: { x: 300, z: 300, heading: 0 }, depot: { x: 0, z: 600, heading: Math.PI } },
     NYC_LANDMARKS: [{ id: 'clock', name: 'the Clock Tower', x: 150, z: 150 }, { id: 'mill', name: 'the Old Mill', x: 450, z: 150 }],
-    LANDMARK_SITES: {}, WATERFRONT_PIERS: [{ name: 'Pier 1', cx: 700, cz: 300, ring: [[650, 290], [750, 290], [750, 310], [650, 310]] }],
+    LANDMARK_SITES: sites, WATERFRONT_PIERS: [{ name: 'Pier 1', cx: 700, cz: 300, ring: [[650, 290], [750, 290], [750, 310], [650, 310]] }],
     GEO: { plazas: [] },
     blockAt: (x, z) => blocks.find((b) => inBlock(b, x, z)) || null,
     blocksInRect: () => blocks,
@@ -59,7 +60,7 @@ function town({ reverse = false } = {}) {
     },
   };
   const cm = {
-    getGroundHeight: (x, z) => (roadDist(x, z) > 6 ? 0.15 : 0),
+    getGroundHeight: (x, z) => (!flat && roadDist(x, z) > 6 ? 0.15 : 0),
     baseHeight: () => 0,
     inParkWater: () => false,
     nearColliders: (x, z, r) => colliders.filter((c) => Math.hypot(Math.max(c.minX - x, 0, x - c.maxX), Math.max(c.minZ - z, 0, z - c.maxZ)) <= r),
@@ -67,6 +68,12 @@ function town({ reverse = false } = {}) {
   // (a highway deck 8 m up, along 2nd St from A to D Ave)
   const hw = { pts: [] };
   for (let x = 0; x <= 300; x += 10) hw.pts.push({ x, y: 8, z: 100 });
+  // (San Francisco's ground mask, when asked: class 1, a sidewalk, from 6 to 18 m off a road's centre, west of x 300)
+  if (mask) {
+    const W = 700, M = new Uint8Array(W * W);
+    for (let j = 0; j < W; j++) for (let i = 0; i < W; i++) { const d = roadDist(i + 0.5, j + 0.5); M[j * W + i] = d >= 6 && d < 18 && i < 300 ? 1 : 0; }
+    NYC.DATA = { groundMask: { header: { originX: 0, originZ: 0, cell: 1, w: W, h: W }, mask: M } };
+  }
   const net = { nodes: reverse ? nodes.slice().reverse() : nodes, edges: reverse ? edges.slice().reverse() : edges };
   return { NYC, app: { controllerManager: cm, trafficSystem: { network: net }, highwayTraffic: { lanes: [hw] } } };
 }
@@ -223,4 +230,88 @@ test('a mission\'s sites are picked once, in its order, seeded: the same world t
   const pick = (P, d) => d.missions[0].steps.slice(0, 2).map((s) => P.at(s.to).site);
   const seeds = new Set(['s1', 's2', 's3', 's4', 's5'].map((seed) => { const d = { ...JSON.parse(JSON.stringify(def)), seed }; return pick(createPlaces(W, d), d).join(); }));
   assert.ok(seeds.size > 1, 'seeds choose differently');
+});
+
+test('a place\'s front where the curb is not raised: the city\'s sidewalk data, a building\'s real outline, its wall, else the place itself', () => {
+  // (a flat town, San Francisco's way: no curb a metre up anywhere. A turned building in block (1,2) whose upright
+  // bounds take in the sidewalk in front of it; an upright one in block (4,2) with no sidewalk in the data before it;
+  // nothing at all in block (5,2))
+  const turned = { minX: 110, maxX: 192, minZ: 205, maxZ: 250, minY: 0, maxY: 20, polygon: [{ x: 110, z: 240 }, { x: 190, z: 205 }, { x: 192, z: 215 }, { x: 112, z: 250 }] };
+  const upright = { minX: 420, maxX: 480, minZ: 215, maxZ: 285, minY: 0, maxY: 20 };
+  const sites = { 'Turned Shop': { x: 151, z: 228, kind: 'retail' }, 'Wall Shop': { x: 450, z: 250, kind: 'retail' }, 'Lot Shop': { x: 550, z: 248, kind: 'retail' } };
+  const T = town({ flat: true, extra: [turned, upright], sites, mask: true });
+  use(T);
+  const w = createSF();
+  const by = (list) => Object.fromEntries(list.map((s) => [s.name, s]));
+  const all = by(w.findMissionSites({ kind: 'store', fallback: false, reach: 1e9 }));
+  // (the sidewalk the ground mask names, though the turned building's bounds stand over it)
+  assert.equal(all['Turned Shop'].front, 'sidewalk');
+  assert.ok(all['Turned Shop'].reach > 3 && all['Turned Shop'].reach < 12, `turned: reach ${all['Turned Shop'].reach}`);
+  // (no sidewalk: the open ground before the wall, 3 m or more off the lane)
+  assert.equal(all['Wall Shop'].front, 'face');
+  assert.ok(all['Wall Shop'].reach >= 3 && all['Wall Shop'].reach < 14 && all['Wall Shop'].cz < 215, `wall: ${all['Wall Shop'].reach} ${all['Wall Shop'].cz}`);
+  // (nothing: the place where the data puts it, its reach the whole way from the lane, not 0)
+  assert.equal(all['Lot Shop'].front, false);
+  assert.deepEqual([all['Lot Shop'].cx, all['Lot Shop'].cz], [550, 248]);
+  assert.ok(all['Lot Shop'].reach > 40, `lot: reach ${all['Lot Shop'].reach}`);
+  // (and the car's reach is tested on that point: a 30 m limit keeps the other two, not it)
+  assert.deepEqual(w.findMissionSites({ kind: 'store', fallback: false, reach: 30 }).map((s) => s.name).sort(), ['Turned Shop', 'Wall Shop']);
+  // (no mask: the turned building's real outline, not its bounds, is where its wall is)
+  use(town({ flat: true, extra: [turned], sites: { 'Turned Shop': sites['Turned Shop'] } }));
+  const t2 = createSF().findMissionSites({ kind: 'store', fallback: false, reach: 1e9 })[0];
+  assert.equal(t2.front, 'face'); assert.ok(t2.cz > 215 && t2.cz < 223, `face at ${t2.cz}`);
+  // (a building hard by the lane, no ground before it: the place itself, tested on foot there, inside the building)
+  use(town({ flat: true, extra: [{ minX: 510, maxX: 590, minZ: 203, maxZ: 290, minY: 0, maxY: 20 }], sites: { 'Inside Shop': { x: 550, z: 248, kind: 'retail' } } }));
+  const w2 = createSF();
+  const inside = w2.findMissionSites({ kind: 'store', fallback: false, reach: 1e9 })[0];
+  assert.equal(inside.front, false);
+  assert.deepEqual([inside.cx, inside.cz], [550, 248]);
+  assert.equal(w2.findMissionSites({ kind: 'store', fallback: false }).length, 1, 'by car: within 80 m');
+  assert.equal(w2.findMissionSites({ kind: 'store', fallback: false, access: 'foot' }).length, 0, 'on foot: no place to stand');
+  assert.equal(w2.findMissionSites({ kind: 'store', fallback: false, roadView: true }).length, 0, 'no sightline from inside to the road');
+  // (New York's raised curbs: as before, the sidewalk)
+  use(town({ sites: { 'Curb Shop': { x: 550, z: 248, kind: 'retail' } } }));
+  assert.equal(createNY().findMissionSites({ kind: 'store', fallback: false })[0].front, 'sidewalk');
+  use(T0);
+});
+
+test('street names keep their real spelling: O\'Farrell St, McAllister St, MacArthur Ave (San Francisco\'s display names)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../cities/sf/js/city-config.js', import.meta.url), 'utf8');
+  const a = src.indexOf('function ordinal('), b = src.indexOf('\n', src.indexOf('const REAL_SPELLING'));
+  assert.ok(a > 0 && b > a);
+  const prettyName = new Function(`${src.slice(a, b)}\nreturn prettyName;`)();
+  assert.equal(prettyName('OFARRELL ST'), "O'Farrell St");
+  assert.equal(prettyName('MCALLISTER ST'), 'McAllister St');
+  assert.equal(prettyName('MCCOPPIN ST'), 'McCoppin St');
+  assert.equal(prettyName('MACARTHUR AVE'), 'MacArthur Ave');
+  // (the rest as before)
+  assert.equal(prettyName('VAN NESS AVE'), 'Van Ness Ave');
+  assert.equal(prettyName('03RD ST'), '3rd St');
+  assert.equal(prettyName('MACONDRAY LN'), 'Macondray Ln');
+  assert.equal(prettyName('LAPU-LAPU ST'), 'Lapu-Lapu St');
+  assert.equal(prettyName('CLAUDE LN'), 'Lane');
+  assert.equal(prettyName('DR CARLTON B GOODLETT PL'), 'Dr Carlton B Goodlett Pl');
+  // (and a site's name off a road's data name goes through the city's own display names)
+  const T = town({ stName: (j) => (j === 2 ? 'OFARRELL ST' : null) });
+  T.NYC.prettyName = prettyName; delete T.NYC.nearestRoads;
+  use(T);
+  const names = createSF().findMissionSites({ kind: 'junction' }).map((s) => s.name);
+  assert.ok(names.some((n) => n.includes("O'Farrell St")), names.slice(0, 6).join(', '));
+  assert.ok(!names.some((n) => /Ofarrell/.test(n)));
+  use(T0);
+});
+
+test('a mission with no site refs logs nothing of sites; one with them logs its picks once', () => {
+  use(T0);
+  const info = console.info, seen = [];
+  console.info = (...a) => { seen.push(a.join(' ')); };
+  try {
+    const def = pack([M('N1', [{ type: 'say', who: 'Dan', text: 'hi', secs: 1 }]), M('N2', [{ type: 'drive', to: { site: { kind: 'junction' } } }])]);
+    const P = createPlaces({}, def);
+    assert.deepEqual(P.prepare(def.missions[0]), []);
+    assert.equal(seen.filter((l) => l.startsWith('[storyrun] sites')).length, 0);
+    P.prepare(def.missions[1]); P.prepare(def.missions[1]);
+    assert.equal(seen.filter((l) => l.startsWith('[storyrun] sites')).length, 1);
+  } finally { console.info = info; }
 });

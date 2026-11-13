@@ -93,7 +93,7 @@ export function createPlaces(W, world) {
       list.push(e); all.push(e);
     });
     for (const r of refs) if (typeof r.site === 'string') picked.set(r, ids.get(r.site) || null);
-    console.info('[storyrun] sites', m.id, list.map((e) => `${e.kind}${e.id ? ' ' + e.id : ''} -> ${e.name || 'none'}${e.fallback ? ' (' + e.fallback + ')' : ''}`).join('; '));
+    if (list.length) console.info('[storyrun] sites', m.id, list.map((e) => `${e.kind}${e.id ? ' ' + e.id : ''} -> ${e.name || 'none'}${e.fallback ? ' (' + e.fallback + ')' : ''}`).join('; '));
     return list;
   }
   function siteAt(ref) {

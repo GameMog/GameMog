@@ -27,7 +27,9 @@ export function seededOrder(list, seed) {
   for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
   return out;
 }
-const pretty = (s) => (s ? String(s).toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase()) : s);
+// a road's data name for a screen: the city's own display names when it has them (San Francisco's: O'Farrell St,
+// McAllister St), else title case
+const pretty = (s) => (s ? (typeof N().prettyName === 'function' ? N().prettyName(String(s)) : String(s).toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase())) : s);
 
 export function createWorld(city) {
   const cm = () => APP()?.controllerManager;
@@ -221,25 +223,57 @@ export function createWorld(city) {
     const y = groundY(x, z, 'person');
     return queryColliders({ x, z, r }).filter((c) => !(c.minY >= y + 2) && !(c.maxY <= y + 0.3));
   }
-  const boxD = (c, x, z) => Math.hypot(Math.max(c.minX - x, 0, x - c.maxX), Math.max(c.minZ - z, 0, z - c.maxZ));
-  const inSolid = (x, z) => solids(x, z, 3).some((c) => boxD(c, x, z) < 0.3);
+  // (by its real outline when it has one: San Francisco's buildings' polygons, a turned box's obb; their bounds, an
+  // upright box round a turned building, take in the sidewalk and often the street in front of it. lim: beyond that
+  // the bounds' own distance, a lower bound, is enough)
+  function boxD(c, x, z, lim = Infinity) {
+    const a = Math.hypot(Math.max(c.minX - x, 0, x - c.maxX), Math.max(c.minZ - z, 0, z - c.maxZ));
+    if (a >= lim) return a;
+    const P = c.polygon;
+    if (Array.isArray(P) && P.length >= 3) {
+      let inside = false, d = Infinity;
+      for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+        const p = P[i], q = P[j];
+        if ((p.z > z) !== (q.z > z) && x < ((q.x - p.x) * (z - p.z)) / (q.z - p.z) + p.x) inside = !inside;
+        const dx = q.x - p.x, dz = q.z - p.z, t = clamp(((x - p.x) * dx + (z - p.z) * dz) / (dx * dx + dz * dz || 1e-9), 0, 1);
+        d = Math.min(d, Math.hypot(p.x + dx * t - x, p.z + dz * t - z));
+      }
+      return inside ? 0 : d;
+    }
+    const o = c.obb;
+    if (o && Number.isFinite(o.cx)) {
+      const dx = x - o.cx, dz = z - o.cz, lx = dx * o.cs - dz * o.sn, lz = dx * o.sn + dz * o.cs;
+      return Math.hypot(Math.max(Math.abs(lx) - o.hx, 0), Math.max(Math.abs(lz) - o.hz, 0));
+    }
+    return a;
+  }
+  const inSolid = (x, z) => solids(x, z, 3).some((c) => boxD(c, x, z, 0.3) < 0.3);
   // nothing solid within r m of (x, z), and dry
-  const openAt = (x, z, r) => !inWater(x, z) && !solids(x, z, r + 2).some((c) => boxD(c, x, z) < r);
+  const openAt = (x, z, r) => !inWater(x, z) && !solids(x, z, r + 2).some((c) => boxD(c, x, z, r) < r);
   // a clear line at a person's height from (ax, az) to (bx, bz): no collider on it (1 m steps)
   function sightline(ax, az, bx, bz) {
     const L = Math.hypot(bx - ax, bz - az); if (L < 1) return true;
     const list = solids((ax + bx) / 2, (az + bz) / 2, L / 2 + 2), n = Math.ceil(L);
-    for (let k = 1; k < n; k++) { const x = ax + (bx - ax) * k / n, z = az + (bz - az) * k / n; if (list.some((c) => boxD(c, x, z) < 0.2)) return false; }
+    for (let k = 1; k < n; k++) { const x = ax + (bx - ax) * k / n, z = az + (bz - az) * k / n; if (list.some((c) => boxD(c, x, z, 0.2) < 0.2)) return false; }
     return true;
   }
-  // the first point on the sidewalk from a lane toward (tx, tz) (1 m steps, up to `reach` m) that nothing stands on: a
-  // place's front, where a man on foot meets it; null when there is none
-  function frontPoint(lx, lz, tx, tz, reach = 16) {
+  // off the roadway, where a man on foot stands: up on a sidewalk or a raised slab, on a park's ground, or what the
+  // city's own data calls a sidewalk or a paved square without a raised curb (city.sidewalkAt: San Francisco's ground
+  // mask)
+  const footGround = (x, z) => { const s = sampleSurface(x, z); return s.curb || s.park || !!city.sidewalkAt?.(x, z); };
+  // a place's front, where a man on foot meets it: from a lane toward (tx, tz) (1 m steps, up to `reach` m), the first
+  // point off the roadway that nothing stands on; else, where there is no sidewalk in the data, the open ground just
+  // short of the first building on the way, 3 m or more off the lane ({ face: true }); null when there is neither
+  function frontPoint(lx, lz, tx, tz, reach = 30) {
     const L = Math.hypot(tx - lx, tz - lz) || 1, ux = (tx - lx) / L, uz = (tz - lz) / L;
+    let open = null;
     for (let k = 2; k <= Math.min(reach, L + 2); k++) {
       const x = lx + ux * k, z = lz + uz * k;
       if (inWater(x, z)) return null;
-      if (sampleSurface(x, z).curb && !inSolid(x, z)) return { x, z };
+      const solid = inSolid(x, z);
+      if (!solid && footGround(x, z)) return { x, z };
+      if (solid) return open && k - 1 >= 3 ? { ...open, face: true } : null;
+      open = { x, z };
     }
     return null;
   }
@@ -247,10 +281,17 @@ export function createWorld(city) {
   const neighbours = (nd) => new Set([...(nd.in || []).map((e) => e.from), ...(nd.out || []).map((e) => e.to)]);
   // a site on a lane: where a car stops (x, z, heading) and the place itself (cx, cz)
   const site = (c, lane, cx, cz, more) => (lane ? { key: c.key, kind: c.kind, name: c.name, x: lane.x, z: lane.z, heading: lane.heading, cx, cz, road: lane.edge ? (city.isAvenue(lane.edge) ? 'avenue' : 'street') : null, reach: Math.hypot(cx - lane.x, cz - lane.z), ...(c.fallback ? { fallback: c.fallback } : {}), ...more } : null);
-  // a building's or a landmark's front: its nearest lane within R m, then the sidewalk in front of it
-  const frontSite = (c, R = 200) => { const lane = laneAt(c.fx, c.fz, R); if (!lane) return null; const f = frontPoint(lane.x, lane.z, c.fx, c.fz) || { x: lane.x, z: lane.z }; return site(c, lane, f.x, f.z); };
+  // a building's or a landmark's front: its nearest lane within R m, then the sidewalk in front of it (front: 'sidewalk',
+  // or 'face': open ground before its wall where the data has no sidewalk). None: the place is where the city's data
+  // puts it, its reach the whole way there from the lane, and every test (a car's reach, open, roadView, on foot) is
+  // of that point (front: false), never of the lane
+  const frontSite = (c, R = 200) => {
+    const lane = laneAt(c.fx, c.fz, R); if (!lane) return null;
+    const f = frontPoint(lane.x, lane.z, c.fx, c.fz);
+    return f ? site(c, lane, f.x, f.z, { front: f.face ? 'face' : 'sidewalk' }) : site(c, lane, c.fx, c.fz, { front: false });
+  };
   // the kerb side of an edge's last lane, s m along it (the sidewalk there, else 2 m off the lane)
-  const kerbSite = (c, e, s, more) => { const lane = lanePt(e, s, e.lanes.length - 1), f = frontPoint(lane.x, lane.z, lane.x + e.rx * 14, lane.z + e.rz * 14, 14) || { x: lane.x + e.rx * 2, z: lane.z + e.rz * 2 }; return site(c, lane, f.x, f.z, more); };
+  const kerbSite = (c, e, s, more) => { const lane = lanePt(e, s, e.lanes.length - 1), f = frontPoint(lane.x, lane.z, lane.x + e.rx * 14, lane.z + e.rz * 14, 14); return site(c, lane, f ? f.x : lane.x + e.rx * 2, f ? f.z : lane.z + e.rz * 2, { front: f ? (f.face ? 'face' : 'sidewalk') : false, ...more }); };
   // a park's block: its nearest lane, then into the park from there (a few metres in)
   const parkSite = (c, b) => {
     const lane = laneAt(b.cx, b.cz, 600); if (!lane) return null;

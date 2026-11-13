@@ -32,8 +32,9 @@ nearest first (`[{ key, x, z, heading, name, d }]`).
 | `name` | a name a player can read: the park's or the landmark's own name, or one made from the streets (`the gas station at Powell St & California St`) |
 | `x, z, heading` | where a car stops for it: on a drivable lane, facing along the lane |
 | `cx, cz` | the place itself, where a man on foot goes: the sidewalk at a building's front, a few metres into a park, out on a pier, the junction's centre |
+| `front` | (a building, a landmark, a kerb) how its front was found: `'sidewalk'` (a raised curb, a park's ground, or the city's own sidewalk data: San Francisco's ground mask), `'face'` (no sidewalk in the data: the open ground just short of its wall, by the building's real outline) or `false` (neither: `cx, cz` is where the city's data puts the place, and every test is of that point) |
 | `road` | the class of the lane at `x, z`: `'avenue'` (a main road of the city's road graph) or `'street'` |
-| `reach` | metres from the car's stop to the place itself |
+| `reach` | metres from the car's stop to the place itself (`cx, cz`): with no front found, the whole way to the place |
 | `d` | metres from `near` to the place itself (0 with no `near`) |
 | `fallback` | set when the city has no data for the kind and a stand-in was found instead (below) |
 
