@@ -14,6 +14,11 @@ import { storykitForRequest } from '@/lib/storykit-http';
 import { isMogCityEpisode, mogCityStoryParent } from '@/lib/storykit-mogcity';
 import { storykitMode } from '@/lib/storykit-switch';
 import { storyStore, storeGuard } from '@/lib/storykit-store';
+import { fakeReply } from '@/lib/storykit-build';
+import { townsOn } from '@/lib/hometown/config';
+import { readyLock, cityPackageByLock, TOWN_WORDS } from '@/lib/hometown/towns';
+import { TOWN_ID, storyLock } from '@/lib/hometown/ids';
+import type { CityPackage } from '@/storykit/hometown/city-package';
 
 export const runtime = 'nodejs';
 // Opus writing a whole game, a real-browser playtest and up to two repairs
@@ -51,7 +56,8 @@ export async function POST(req: Request) {
   const storyMog = isStoryParent(from);
   let storyCity: ReturnType<typeof readCity> = null;
   let storyHero: StoryHero | null = null;
-  const storyAsk = (body.storykit ?? body.story) as { city?: unknown; hero?: unknown } | null | undefined;
+  let storyTown: CityPackage | null = null;
+  const storyAsk = (body.storykit ?? body.story) as { city?: unknown; hero?: unknown; place?: unknown } | null | undefined;
   if ((storyAsk != null && !parent) || storyMog) {
     if (!storykitForRequest(req)) return NextResponse.json({ error: storyMog ? MOG_SOON : STORY_CLOSED }, { status: storyMog ? 409 : 404 });
     // (the store's size guard, lib/storykit-store.ts storeGuard: refused here too, before a slot is taken or anything is spent)
@@ -59,7 +65,18 @@ export async function POST(req: Request) {
     if (full) return NextResponse.json({ error: full }, { status: 507 });
     if (storyMog) { if (!storyParentPack(from!)) return NextResponse.json({ error: 'The story world you are mogging could not be read.' }, { status: 409 }); }
     else {
-      storyCity = readCity(storyAsk?.city);
+      // a hometown (HOMETOWN_TOWNS=on): the picked town, built already (lib/hometown/towns.ts; POST /api/towns builds it),
+      // its CityPackage read from its bundle by the town's ready lock. Read here, before a slot is taken or anything is
+      // spent: a town still being built holds no build slot
+      if (storyAsk?.city === 'hometown') {
+        if (!townsOn()) return NextResponse.json({ error: STORY_CLOSED }, { status: 404 });
+        const place = typeof storyAsk.place === 'string' && TOWN_ID.test(storyAsk.place) ? storyAsk.place : null;
+        if (!place) return NextResponse.json({ error: TOWN_WORDS.unknown, field: 'city' }, { status: 400 });
+        const lock = await readyLock(place), pin = lock && storyLock(lock);
+        storyTown = pin ? cityPackageByLock(pin) : null;
+        if (!storyTown) return NextResponse.json({ error: TOWN_WORDS.notReady, field: 'city' }, { status: 409 });
+      }
+      storyCity = storyTown ? 'ny' : readCity(storyAsk?.city);
       if (!storyCity) return NextResponse.json({ error: 'Pick a city for the story world: New York (story worlds play on Mog City\'s engine, which plays New York so far).', field: 'city' }, { status: 400 });
       // the hero (5 Nov, optional): the creator's words for how they look (up to 400 characters), or Mog City's Dan
       // ({ model: 'dan' }); read strictly here, before a slot is taken or anything is spent (lib/storykit-build.ts readStoryHero)
@@ -87,7 +104,9 @@ export async function POST(req: Request) {
   const episode = !ownStory && isEpisodeParent(parent);
   const consent = episode || storyMog || storyCity ? readConsent(body.consent) : { ok: true as const, consent: null };
   if (!consent.ok) return NextResponse.json({ error: consent.error, field: 'consent' }, { status: 400 });
-  if ((parent || storyCity) && !(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN)) {
+  // (STORYKIT_FAKE_REPLY, development only: a story build replays a fixture reply and calls no model, lib/storykit-build.ts)
+  const fake = !!(storyCity || storyMog) && !!fakeReply();
+  if ((parent || storyCity) && !fake && !(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN)) {
     return NextResponse.json({ error: 'Mogging needs the model: set ANTHROPIC_API_KEY.' }, { status: 503 });
   }
 
@@ -111,7 +130,7 @@ export async function POST(req: Request) {
       ? body.hintFur.toUpperCase()
       : undefined;
 
-  const hasKey = !!(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+  const hasKey = fake || !!(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
 
   // The default: Opus writes the whole game. Progress streams back as NDJSON,
   // one event per line, because a game takes minutes and the creator should
@@ -194,7 +213,7 @@ export async function POST(req: Request) {
           if (parent && parent.format === 'world' && (worldMode(parent.code, parent.meta) === 'shootout' || worldMode(parent.code, parent.meta) === 'gp' || episode)) {
             options.hazards = 'same'; options.music = null; delete options.soundtrack;
           }
-          await generateGame({ prompt: text, image, origin, mog: parent ? { parent: from!, instruction: text, ...(ownStory ? { lineage: parent } : {}) } : undefined, options, consent: consent.consent, ...(storyCity ? { storykit: { city: storyCity, hero: storyHero } } : {}), signal: stop.signal, usage }, (e) => {
+          await generateGame({ prompt: text, image, origin, mog: parent ? { parent: from!, instruction: text, ...(ownStory ? { lineage: parent } : {}) } : undefined, options, consent: consent.consent, ...(storyCity ? { storykit: { city: storyCity, hero: storyHero, ...(storyTown ? { town: storyTown } : {}) } } : {}), signal: stop.signal, usage }, (e) => {
             if (e.type === 'stage') attempts = Math.max(attempts, e.attempt);
             if (e.type === 'drive' || e.type === 'done') draftId = e.draftId;
             if (e.type === 'done' || e.type === 'error') result = e;

@@ -6,6 +6,7 @@ import { storyStore } from './storykit-store';
 import { MC_PROD, mcOrigin } from './episode';
 import { onSky } from './portrait-sky-key';
 import { storyKeyArt } from './story-art';
+import type { HometownLock } from '../storykit/pack/cities.ts';
 
 /**
  * A Story Kit world from its draft to its game (STORYKIT=on): what the creator's browser reports after its work, what
@@ -31,7 +32,7 @@ import { storyKeyArt } from './story-art';
  */
 
 const STORE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-type StoryMeta = { mode?: string; storykit?: { city?: string; pack?: string; world?: string; packId?: string } };
+type StoryMeta = { mode?: string; storykit?: { city?: string; pack?: string; world?: string; packId?: string; hometown?: HometownLock } };
 const metaOf = (meta?: string | null): StoryMeta => { try { return JSON.parse(meta ?? '{}') as StoryMeta; } catch { return {}; } };
 
 /** The store draft a game or draft's meta names (storykit.pack), or null for anything that is not a story world. */
@@ -73,12 +74,26 @@ export function storySite(reqOrigin?: string | null) {
  * world's city; Mog City loads one city a page and plays New York unless told ?city=sf (its index.html), and refuses a
  * world set in another city than the page's (wagmi/storyrun/pack.js), so a San Francisco world (SF 2040, 11 Nov) names it.
  */
-export function storyFrameSrc(world: string, game: string, site = storySite(), city?: string | null) {
+export function storyFrameSrc(world: string, game: string, site = storySite(), city?: string | null, town?: HometownLock | null) {
   const pack = `${site}/storykit/f/${world}.json`;
-  return `${storykitMc()}/?${city === 'sf' ? 'city=sf&' : ''}pack=${encodeURIComponent(pack)}&host=${encodeURIComponent(site)}&game=${encodeURIComponent(game)}`;
+  return `${storykitMc()}/?${storyFrameQuery(city, town)}pack=${encodeURIComponent(pack)}&host=${encodeURIComponent(site)}&game=${encodeURIComponent(game)}`;
+}
+/**
+ * The city part of Mog City's frame address, '' (New York) or ending in '&': ?city=sf for San Francisco; for a hometown
+ * (base.city 'hometown') the town's bundle by its lock, ?city=pkg&town=<place>&tc=<buildId>&ts=<tile set hash>, which
+ * Mog City loads from the world's own host (?host=; gamemog.com in production: its index.html, wagmi/world/town-src.js).
+ * One helper for every address that boots a world: the play page (storyPlaySrc), the frame (storyFrameSrc) and the test
+ * drive (the draft status's `frame`, public/storykit/work.js).
+ */
+export function storyFrameQuery(city?: string | null, town?: HometownLock | null): string {
+  if (city === 'sf') return 'city=sf&';
+  if (city === 'hometown' && town) return `city=pkg&town=${encodeURIComponent(town.place)}&tc=${encodeURIComponent(town.compiler)}&ts=${encodeURIComponent(town.tiles)}&`;
+  return '';
 }
 /** A story world's city as its meta names it (storykit.city), or null. */
 export const storyCityOf = (meta?: string | null): string | null => { const c = metaOf(meta).storykit?.city; return typeof c === 'string' ? c : null; };
+/** A hometown story world's town as its meta pins it (storykit.hometown, the pack's base.hometown), or null. */
+export const storyTownOf = (meta?: string | null): HometownLock | null => { const h = metaOf(meta).storykit?.hometown; return h && typeof h === 'object' && typeof h.place === 'string' ? h as HometownLock : null; };
 /**
  * A story world's playable world: its sealed world when published, else its store draft sealed now (a draft's world
  * changes as the creator's browser stores files, so it is frozen as it is when it is played; sealing the same world
@@ -95,7 +110,7 @@ export function playableWorld(meta?: string | null): string | null {
 /** Where a story world plays (the game page's frame, /g/<slug>/play, /d/<id>/play): Mog City with its world, or null. */
 export function storyPlaySrc(meta: string | null | undefined, game: string, site = storySite()): string | null {
   const w = playableWorld(meta);
-  return w ? storyFrameSrc(w, game, site, storyCityOf(meta)) : null;
+  return w ? storyFrameSrc(w, game, site, storyCityOf(meta), storyTownOf(meta)) : null;
 }
 
 /** The newest GameMog draft made with this store draft (the build route writes one per pass that passed). */
