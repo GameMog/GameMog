@@ -149,8 +149,17 @@ bytes are a function of (frame, window, the tiles, the far tiles) (`test_assembl
   bbox meets the envelope (none: an empty layer), instead of opening every footer.
 - The 8 layers are read in parallel through one duckdb database (cursors share `memory_limit` 2GB; `threads` 4; the
   object cache on; `HOMETOWN_FETCH_MEMORY` / `HOMETOWN_FETCH_THREADS`). `--no-index` / `--serial` give the old read.
+- Each region's share of each layer is split from the union locally, in parallel through the same database.
 - `dem.py` reads every internal tile a sample needs ahead of the loop, 16 range reads at a time
   (`HOMETOWN_DEM_THREADS`); the values are unchanged.
+
+Measured 13 Nov 2026 on the dev Mac (a loaded 10-core M-series, load average ~300 from other work; Phoenix's 4 regions
+`conus:530,453;531,453;530,454;531,454`, from Overture's public S3 in us-west-2): the old read (glob, one layer at a
+time) **418 s**, peak RSS 0.89 GB; the index, once per release, 263 s (512 + 128 + ... = 769 files), 0.58 GB; the
+indexed parallel read **23 s** (each layer reads 1-3 files), peak RSS 1.13 GB. Every region has the same rows (row
+counts and an md5 over every row, in id order). The same day: `--frame` 5.4 s CPU, 1.05 GB peak (Okemah; ctx stored);
+`--assemble --window district` 2.4 s CPU, 0.24 GB; `--window full` 4.5 s CPU, 0.62 GB (tiles and far tiles stored);
+the whole town (`--id`, every tile and far tile compiled) 118 s CPU, 0.97 GB.
 
 ## The place: descriptor and legacy package (`assemble.py`)
 

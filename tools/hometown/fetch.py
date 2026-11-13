@@ -209,13 +209,22 @@ def fetch_regions(dom, blocks, data_dir, use_index=True, parallel=True):
         res = list(ex.map(read, LAYERS))
     for (theme, typ, cols), f, dt, nfiles in res:
         print(f'regions {theme}/{typ}: union read {dt:.1f}s' + ('' if nfiles is None else f' ({nfiles} indexed files)'), flush=True)
-        for C, R, out, (w, s, e, n) in todo:
-            os.makedirs(out, exist_ok=True)
-            g = os.path.join(out, f'overture-{theme}-{typ}.parquet')
-            c.execute(f"""COPY (SELECT * FROM read_parquet('{f}') WHERE bbox.xmin <= {e} AND bbox.xmax >= {w} AND bbox.ymin <= {n} AND bbox.ymax >= {s}
-                ORDER BY id) TO '{g}' (FORMAT parquet, COMPRESSION zstd)""")
-            nrows = c.execute(f"SELECT count(*) FROM read_parquet('{g}')").fetchone()[0]
-            recs[(C, R)]['overture']['layers'][f'{theme}/{typ}'] = {'rows': nrows}
+
+    # (each region's share of each layer, split locally from the union: in parallel too, through the same database)
+    def split(job):
+        (theme, typ, cols), f, C, R, out, (w, s, e, n) = job
+        cur = c.cursor()
+        os.makedirs(out, exist_ok=True)
+        g = os.path.join(out, f'overture-{theme}-{typ}.parquet')
+        cur.execute(f"""COPY (SELECT * FROM read_parquet('{f}') WHERE bbox.xmin <= {e} AND bbox.xmax >= {w} AND bbox.ymin <= {n} AND bbox.ymax >= {s}
+            ORDER BY id) TO '{g}' (FORMAT parquet, COMPRESSION zstd)""")
+        return C, R, f'{theme}/{typ}', cur.execute(f"SELECT count(*) FROM read_parquet('{g}')").fetchone()[0]
+    t_split = time.time()
+    jobs = [(layer, f, C, R, out, env) for layer, f, _, _ in res for C, R, out, env in todo]
+    with ThreadPoolExecutor(min(8, len(jobs)) if parallel else 1) as ex:
+        for C, R, key, nrows in ex.map(split, jobs):
+            recs[(C, R)]['overture']['layers'][key] = {'rows': nrows}
+    print(f'regions split {time.time() - t_split:.1f}s', flush=True)
     for C, R, out, _ in todo:
         json.dump(recs[(C, R)], open(os.path.join(out, 'region.json'), 'w'), indent=1, sort_keys=True)
         print('region', dom, C, R, recs[(C, R)]['overture']['layers'], flush=True)
