@@ -80,6 +80,8 @@ NARROW_WATER = 20.0
 CLEAR_MARGIN = 0.3   # m added to every clearance (the vertical curves round crests off)
 DECK_SHRINK = 10.0   # m: the roadway (asphalt, no curb island, no building) runs this far onto a deck from each abutment
 DECK_UNDER = 1.4     # m: the deck's thickness (its underside: the profile minus this)
+TUNNEL_COVER = 6.0   # m: a building over a tunnel's road with less ground than this over it is dropped (a portal's cut)
+PORTAL_PAD = 30.0    # m: a tunnel link's roadway runs this far in from a portal (the cut before the bore)
 PROMOTE_PAD = 25.0   # m: a mis-tagged crossing's deck runs this far past the road under it, each side
 OVERLAP_END = 40.0   # m: a lower road running under a deck counts from this far in from an abutment
 CLUSTER_CAP = 6000.0  # m: a grade group's extent; past it the group is cut at its pieces' L3 home cells (clusterSplit)
@@ -680,7 +682,7 @@ class World:
         self.pieces_c, self.junction_c, self.brec_c, self.bridge_c, self.k_c = {}, {}, {}, {}, {}
         self.lanes_c, self.osm_c, self.deck_c, self.prof_c, self.gstats = {}, None, {}, {}, {}
         self.seg_rows, self.iv_c, self.cross_c = {}, {}, {}
-        self.files_c, self.grp_c, self.near_c, self.base_c, self.l4_c = {}, {}, {}, {}, {}
+        self.files_c, self.grp_c, self.near_c, self.base_c, self.l4_c, self.tline_c = {}, {}, {}, {}, {}, {}
         self.data = data
         self.log = log or (lambda *a: None)
 
@@ -775,6 +777,13 @@ class World:
         cs = sorted([(c['at'], c['connector_id']) for c in s['connectors'] or [] if c.get('connector_id') is not None and c.get('at') is not None])
         if len(cs) < 2:
             return out
+        # (a tunnel's portals split the road too (node 'p:{segment}:{portal at, 1e-9}'), so a piece is all tunnel or
+        # none of it: the bridge that runs into Fort Pitt's tunnel ends at the portal, the tunnel link starts there)
+        for t0, t1 in spans['is_tunnel']:
+            for t in (t0, t1):
+                if cs[0][0] < t < cs[-1][0] and all(abs(t - a) * L >= 1.0 for a, _ in cs):
+                    cs.append((t, 'p:%s:%d' % (sid, round(t * 1e9))))
+        cs.sort()
         verts = shapely.get_coordinates(g)
         name = pretty_raw(s['name'])
 
@@ -789,9 +798,11 @@ class World:
             piece = shapely.ops.substring(g, a0 * L, a1 * L)
             if piece.length < 0.3:
                 continue
+            # (a piece more than half underground is a tunnel link: kept, so the road through it connects (Fort Pitt's
+            # bridge runs straight into its tunnel); the engine bores it where the hill stands over it, and the ground
+            # above its interior is not roadway (ground_lines))
             under = sum(max(0, min(a1, t1) - max(a0, t0)) for t0, t1 in spans['is_tunnel'] if (t0, t1) != (0.0, 1.0))
-            if under > 0.5 * (a1 - a0):
-                continue
+            pflags = flags | (FLAGS['tunnel'] if under > 0.5 * (a1 - a0) else 0)
             pts = [(cm(x), cm(z)) for x, z in shapely.get_coordinates(piece.simplify(0.4))]
             pts[0], pts[-1] = snap(Point(piece.coords[0])), snap(Point(piece.coords[-1]))
             # (consecutive duplicate cm points dropped)
@@ -817,9 +828,10 @@ class World:
                     if f1 - f0 > 1e-6:
                         o.append((f0, f1))
                 return o
-            out.append({'seg': sid, 'i': k, 'a': c0, 'b': c1, 'pts': q, 'w': w, 'lanes': lf + lb, 'dir': dp, 'flags': flags, 'sw': sw,
+            out.append({'seg': sid, 'i': k, 'a': c0, 'b': c1, 'pts': q, 'w': w, 'lanes': lf + lb, 'dir': dp, 'flags': pflags, 'sw': sw,
                         'cls': cls, 'rank': rank, 'name': name, 'lf': lf, 'lb': lb, 'spd': LN['spd'], 'lsrc': LN['src'], 'lvl': lvl,
-                        'link': s['subclass'] == 'link', 'br': frac(spans['is_bridge']), 'tun': frac(spans['is_tunnel']),
+                        'link': s['subclass'] == 'link', 'br': frac(spans['is_bridge']), 'tun': frac(spans['is_tunnel']), 'f0': a0, 'f1': a1,
+                        'tspan': next(((t0, t1) for t0, t1 in spans['is_tunnel'] if t0 <= mid <= t1), None),
                         'brs': [(t0, t1) for t0, t1 in spans['is_bridge'] if min(a1, t1) - max(a0, t0) > 1e-6]})
             k += 1
         # grid-line splits along the whole segment (ordinals count along it, piece after piece)
@@ -1096,6 +1108,19 @@ class World:
         w = wet[np.rint(fj).astype(int), np.rint(fi).astype(int)]
         return g, w
 
+    def tunnel_line(self, p):
+        """A tunnel link's road (pure per segment): straight from the ground at one portal of its tunnel to the ground at
+        the other (the stretch of the segment its piece lies in). -> (t0, y0, t1, y1): segment fractions, m NAVD88."""
+        t0, t1 = p['tspan']
+
+        def f():
+            g = self.seg_rows[p['seg']]['geom']
+            pa, pb = g.interpolate(t0, normalized=True), g.interpolate(t1, normalized=True)
+            self.ensure(min(pa.x, pb.x) - 50, min(pa.y, pb.y) - 50, max(pa.x, pb.x) + 50, max(pa.y, pb.y) + 50)
+            y, _ = self.ground_at([pa.x, pb.x], [pa.y, pb.y])
+            return (t0, float(y[0]), t1, float(y[1]))
+        return self.memo(self.tline_c, (p['seg'], t0, t1), f)
+
     def pground(self, p):
         """(stations, ground, wet) along a piece: the post function at grade.stations(length) (cached per piece)."""
         def f():
@@ -1157,6 +1182,8 @@ class World:
         if not p['br'] and p['lvl'] > 0:
             for sq, r, sr in self.crossings(p):
                 _, Lr, _ = self.pgeom(r)
+                if r['flags'] & FLAGS['tunnel'] or any(f0 * Lr <= sr <= f1 * Lr for f0, f1 in r['tun']):
+                    continue
                 if r['lvl'] < p['lvl'] and not any(f0 * Lr <= sr <= f1 * Lr for f0, f1 in r['br']):
                     ivs.append((max(0.0, sq - r['w'] / 2 - PROMOTE_PAD), min(L, sq + r['w'] / 2 + PROMOTE_PAD)))
                     promoted += 1
@@ -1381,20 +1408,44 @@ class World:
 
     def ground_lines(self, p):
         """The piece's centreline where it is on the ground: all of it, less a deck's interior (DECK_SHRINK m in from each
-        abutment). The roadway, the sidewalk bands and the buildings-on-roads rule use these."""
+        abutment) and, on a tunnel link, its tunnel stretches' interior (PORTAL_PAD m in from a portal inside the piece).
+        The roadway, the sidewalk bands and the buildings-on-roads rule use these."""
         line, L, _ = self.pgeom(p)
+        cut = []
         iv = self.deck_iv(p)
-        if iv is None:
+        if iv is not None:
+            cut.append((iv[0] + (DECK_SHRINK if iv[0] > 0 else 0), iv[1] - (DECK_SHRINK if iv[1] < L else 0)))
+        if p['flags'] & FLAGS['tunnel']:
+            for f0, f1 in p['tun']:
+                cut.append((f0 * L + (PORTAL_PAD if f0 > 0 else 0), f1 * L - (PORTAL_PAD if f1 < 1 else 0)))
+        cut = sorted((a, b) for a, b in cut if b - a >= 1.0)
+        if not cut:
             return [line]
-        a, b = iv[0] + (DECK_SHRINK if iv[0] > 0 else 0), iv[1] - (DECK_SHRINK if iv[1] < L else 0)
-        if b - a < 1.0:
-            return [line]
-        out = []
-        if a > 0.3:
-            out.append(shapely.ops.substring(line, 0, a))
-        if b < L - 0.3:
-            out.append(shapely.ops.substring(line, b, L))
+        out, at = [], 0.0
+        for a, b in cut:
+            if a > at + 0.3:
+                out.append(shapely.ops.substring(line, at, a))
+            at = max(at, b)
+        if at < L - 0.3:
+            out.append(shapely.ops.substring(line, at, L))
         return [g for g in out if g.geom_type == 'LineString' and g.length > 0.2]
+
+    def tunnel_footprint(self, p):
+        """[(polygon, road y)] per 5 m of a tunnel link (its road: tunnel_line), half its width + 1 m each side."""
+        if not (p['flags'] & FLAGS['tunnel'] and p.get('tspan')):
+            return []
+        t0, y0, t1, y1 = self.tunnel_line(p)
+        _, L, _ = self.pgeom(p)
+        ss = grade.stations(L)
+        xs, zs = self.at_arc(p, ss)
+        out = []
+        for i in range(len(ss) - 1):
+            seg = LineString([(xs[i], zs[i]), (xs[i + 1], zs[i + 1])])
+            if seg.length < 0.05:
+                continue
+            f = p['f0'] + (p['f1'] - p['f0']) * (ss[i] + ss[i + 1]) / 2 / L
+            out.append((seg.buffer(p['w'] / 2 + 1.0, cap_style='flat'), y0 + (y1 - y0) * min(1.0, max(0.0, (f - t0) / ((t1 - t0) or 1.0)))))
+        return out
 
     def deck_footprint(self, p):
         """[(polygon, underside y)] per station step of a deck piece standing over 2 m off its ground."""
@@ -1614,6 +1665,7 @@ def _compile_tile(Wd, c, r, dem_files):
     for p in pieces:
         prof = Wd.deck_profile(p)
         iv = Wd.deck_iv(p) if prof is not None else None
+        tl = Wd.tunnel_line(p) if p['flags'] & FLAGS['tunnel'] and p.get('tspan') else None
         off = 0.0
         for sb in p['subs']:
             pts = sb['pts']
@@ -1630,6 +1682,15 @@ def _compile_tile(Wd, c, r, dem_files):
                 extra['elev'] = [int(grade.STEP * 100)] + [cm(grade.interp(prof[0], prof[1], a)) for a in at]
                 if iv[1] > o0 and iv[0] < o0 + sl:
                     extra['deck'] = 1
+            elif tl is not None:
+                # a tunnel link's road (the same encoding as a deck's): the straight line between its portals
+                at = [o0 + k * grade.STEP for k in range(int(sl // grade.STEP) + 1)]
+                if sl - (at[-1] - o0) > 0.05:
+                    at.append(o0 + sl)
+                Lp = Wd.pgeom(p)[1]
+                t0, y0, t1, y1 = tl
+                fr = [p['f0'] + (p['f1'] - p['f0']) * a / Lp for a in at]
+                extra['elev'] = [int(grade.STEP * 100)] + [cm(y0 + (y1 - y0) * min(1.0, max(0.0, (f - t0) / ((t1 - t0) or 1.0)))) for f in fr]
             stops = []
             for end, nid in (('a', sb['na']), ('b', sb['nb'])):
                 stop = 0
@@ -1738,6 +1799,9 @@ def _compile_tile(Wd, c, r, dem_files):
     deck_fp = [fp for p in sorted(pieces, key=lambda p: (p['seg'], p['i'])) for fp in Wd.deck_footprint(p)]
     deck_tree = shapely.STRtree([g for g, _ in deck_fp]) if deck_fp else None
     under_deck = 0
+    # ---- tunnels: no building stands on a tunnel's road with less than TUNNEL_COVER m of ground over it (by a portal)
+    tun_fp = [fp for p in sorted(pieces, key=lambda p: (p['seg'], p['i'])) for fp in Wd.tunnel_footprint(p)]
+    tun_tree = shapely.STRtree([g for g, _ in tun_fp]) if tun_fp else None
     # ---- buildings: owned by the tile holding the full footprint's centroid
     brecs_near = {}
     tb28 = TB.buffer(28, join_style='mitre')
@@ -1781,6 +1845,9 @@ def _compile_tile(Wd, c, r, dem_files):
             gr = ground(np.append(xs, rec['gx'] / 100.0), np.append(zs, rec['gs'] / 100.0))
         base = float(gr.min())
         rise = min(8.0, float(gr.max()) - base)
+        if tun_tree is not None and any(base < tun_fp[i][1] + TUNNEL_COVER for i in tun_tree.query(g, predicate='intersects').tolist()):
+            under_deck += 1
+            continue
         if deck_tree is not None:
             roof = base + rise + rec['h']
             if any(roof > deck_fp[i][1] - 0.5 for i in deck_tree.query(g, predicate='intersects').tolist()):
