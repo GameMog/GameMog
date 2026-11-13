@@ -355,10 +355,9 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
                           'rings': [[v for q_ in C.neg_ring(list(pp.exterior.coords)) for v in (C.q1(q_[0]), C.q1(q_[1]))]]})
     frame = {'units': 'm', 'grid': grid.GRID, 'domain': dom, 'c0': fr['c0'], 'r0': fr['r0'], 'k0': k0, 'gamma0': D1['gamma0'],
              'lat0': D1['origin']['lat'], 'lon0': D1['origin']['lon'], 'origin': 'NW corner of tile %s' % grid.tile_id(dom, fr['c0'], fr['r0']),
-             'east': '+x (grid east)', 'north': '-z (grid north; true north is gamma0 clockwise of it... see bearingDeg)', 'up': '+y', 'headingZero': '+z',
+             'east': '+x (grid east)', 'north': '-z (grid north; its true bearing is bearingDeg)', 'up': '+y', 'headingZero': '+z',
              'bearingDeg': D1['gamma0'], 'yOffset': y_off, 'datum': 'NAVD88',
              'projection': 'hg1 %s: Lambert Conformal Conic on GRS80 (tools/hometown/grid.py); session metres = grid metres / k0' % dom}
-    frame['north'] = '-z (grid north; its true bearing is bearingDeg)'
     box = {k: C.q1(v) for k, v in B.items()}
     stats = {'buildings': len(btable), 'roadLinks': len(rl), 'roadNodes': len(nodes), 'blocks': len(blocks),
              'islands': sum(1 for b in blocks if b[6] == 'island'), 'places': len(places), 'trees': len(trees) // 4, 'density': density,
