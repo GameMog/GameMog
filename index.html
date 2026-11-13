@@ -158,7 +158,8 @@
         sf('lighting.js'),
         sf('terrain-mesh.js'),
         sf('region.js'),
-        ...(MC_PKG ? [`./cities/pkg/js/pkg-far.js?v=${v}`] : []),
+        // (the far field for a town from GameMog too: without it a ?town= booted on the old 60 km sea plane)
+        ...(MC_PKG || MC_TOWN ? [`./cities/pkg/js/pkg-far.js?v=${v}`] : []),
         sf('sf-ground.js'),
         sf('sf-style.js'),
         sf('buildings.js'),
