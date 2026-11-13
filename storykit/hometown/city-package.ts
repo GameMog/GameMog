@@ -6,8 +6,13 @@
  *
  *   placeId          the town's id ("us-ok-okemah"); with compilerVersion and tileSet.hash it is the town's LOCK
  *   name, state      "Okemah", "Oklahoma"
- *   compilerVersion  the city compiler's version the tiles were built with ("htc-0.1.0")
- *   tileSet          { hash, count }: the pinned tile set (tileSetHash over every tile's id and SHA-256)
+ *   compilerVersion  the build the tiles were made by: on the national grid hg1 the buildId
+ *                    ("htc-0.3.0-hg1-becc45523": compiler version, libraries, sources, grid), before it a version
+ *   tileSet          { hash, count }: the pinned tile set (tileSetHash over every tile's "hg1-{domain}/0/{c}/{r}" id and
+ *                    the SHA-256 of its decoded bytes; the same code as MogCity's tile service and compiler)
+ *   grid, domain, buildId, origin {c0, r0}, k0, gamma0, yOffset, waterLevel
+ *                    on hg1 (MogCity tools/hometown/grid.py): the session frame the descriptor pinned. A Mog's story
+ *                    coordinates are relative to this origin, so the lock (v2) pins all of it
  *   places[]         { id, kind, name, x, z, tags[], foot?, heading?, district? }: the story places a pack names by
  *                    "@id" (world.places); kind is the OSM / Overture kind ("hospital", "fast_food", "park"), tags the
  *                    source's own ("amenity=hospital", "brand=...", "overture=elementary_school")
@@ -40,7 +45,19 @@ export type CityPackage = {
   districts: District[];
   spawnPoints: SpawnPoint[];
   roadsSummary: RoadsSummary;
+  // (the national grid hg1: the session frame; absent on a package from before it, San Francisco's adapter)
+  grid?: 'hg1';
+  domain?: HometownDomain;
+  buildId?: string;
+  origin?: { c0: number; r0: number };
+  k0?: number;
+  gamma0?: number;
+  yOffset?: number;
+  waterLevel?: number;
 };
+export type HometownDomain = 'conus' | 'ak' | 'hi' | 'pr' | 'gu' | 'as';
+export const DOMAINS: HometownDomain[] = ['conus', 'ak', 'hi', 'pr', 'gu', 'as'];
+export const BUILD_ID = /^htc-[0-9][0-9.]{0,9}-hg1-b[0-9a-f]{8}$/;
 
 export const PLACE_ID = /^[a-z0-9][a-z0-9-]{1,79}$/;
 export const COMPILER_VERSION = /^[a-z0-9][a-z0-9.-]{0,29}$/;
@@ -49,14 +66,24 @@ export const TILE_HASH = /^[0-9a-f]{16,64}$/;
 export const PLACE_KEY = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 const KIND = /^[a-z0-9_:.=-]{1,60}$/;
 
-/** The tile set's hash: SHA-256 over every tile's "id sha256" line, sorted (order-free, any tile changed changes it). */
+/**
+ * The tile set's hash: SHA-256 over every tile's "id sha256\n" line, sorted (order-free, any tile changed changes it).
+ * The same bytes as MogCity's server/tiles/src/service.mjs tileSetHash and tools/hometown/assemble.py tile_set_hash.
+ */
 export function tileSetHash(tiles: { id: string; sha256: string }[]): string {
-  const lines = tiles.map((t) => `${t.id} ${t.sha256}`).sort();
-  return createHash('sha256').update(lines.join('\n')).digest('hex');
+  const lines = tiles.map((t) => `${t.id} ${t.sha256}\n`).sort();
+  return createHash('sha256').update(lines.join('')).digest('hex');
 }
 
-/** The town's lock: what a hometown pack pins in base.hometown, and a Mog keeps exactly. */
-export const cityLock = (pkg: CityPackage): HometownLock => ({ place: pkg.placeId, compiler: pkg.compilerVersion, tiles: pkg.tileSet.hash });
+/**
+ * The town's lock: what a hometown pack pins in base.hometown, and a Mog keeps exactly. On the national grid it is
+ * lock v2: the place, the build (compiler: the buildId), the tile set AND the session frame (grid, domain, origin, k0,
+ * gamma0, yOffset, waterLevel), so a Mog never plays a recompiled town nor one whose frame moved.
+ */
+export const cityLock = (pkg: CityPackage): HometownLock => (pkg.grid === 'hg1'
+  ? { place: pkg.placeId, compiler: pkg.compilerVersion, tiles: pkg.tileSet.hash, formatVersion: 2, grid: 'hg1', domain: pkg.domain!, origin: { c0: pkg.origin!.c0, r0: pkg.origin!.r0 },
+    k0: pkg.k0!, gamma0: pkg.gamma0!, yOffset: pkg.yOffset!, waterLevel: pkg.waterLevel! }
+  : { place: pkg.placeId, compiler: pkg.compilerVersion, tiles: pkg.tileSet.hash });
 /** The cityBuild Mog City's engine plays the town at: one per compiler version. */
 export const cityBuildOf = (pkg: CityPackage) => `${HOMETOWN}-${pkg.compilerVersion}`;
 /** The base a hometown Create runs on (a Mog copies its parent's). */
@@ -72,6 +99,15 @@ export function packageProblems(pkg: unknown): string[] {
   if (typeof p.placeId !== 'string' || !PLACE_ID.test(p.placeId)) out.push(`placeId ${JSON.stringify(p.placeId)} is not a place id (${PLACE_ID})`);
   for (const k of ['name', 'state'] as const) if (typeof p[k] !== 'string' || !p[k].trim() || p[k].length > 60) out.push(`${k} is 1 to 60 characters`);
   if (typeof p.compilerVersion !== 'string' || !COMPILER_VERSION.test(p.compilerVersion)) out.push(`compilerVersion ${JSON.stringify(p.compilerVersion)} is not a version (${COMPILER_VERSION})`);
+  if (p.grid !== undefined) {
+    // (the national grid: the frame the descriptor pinned, all of it, and the build named twice the same)
+    const num = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+    if (p.grid !== 'hg1') out.push(`grid ${JSON.stringify(p.grid)} is not hg1`);
+    if (!DOMAINS.includes(p.domain as HometownDomain)) out.push(`domain ${JSON.stringify(p.domain)} is not one of ${DOMAINS.join(', ')}`);
+    if (typeof p.buildId !== 'string' || !BUILD_ID.test(p.buildId) || p.buildId !== p.compilerVersion) out.push(`buildId ${JSON.stringify(p.buildId)} is a build id (${BUILD_ID}) equal to compilerVersion`);
+    if (!p.origin || !Number.isInteger(p.origin.c0) || !Number.isInteger(p.origin.r0) || p.origin.c0 < 0 || p.origin.r0 < 0) out.push('origin is { c0, r0 }: tile indices');
+    if (!num(p.k0, 0.9, 1.1) || !num(p.gamma0, -40, 40) || !Number.isInteger(p.yOffset) || !num(p.waterLevel, -1000, 1000)) out.push('k0, gamma0, yOffset (an integer) and waterLevel are the pinned frame\'s numbers');
+  }
   if (!p.tileSet || typeof p.tileSet.hash !== 'string' || !TILE_HASH.test(p.tileSet.hash) || !(Number.isInteger(p.tileSet.count) && p.tileSet.count > 0)) out.push('tileSet is { hash: hex, count: a positive integer }');
   const finite = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
   const ids = new Set<string>();

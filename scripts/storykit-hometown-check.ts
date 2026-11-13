@@ -12,6 +12,7 @@
  * package refused for a pinned Mog), and each safety rule refusing what it is meant to (and letting by what it is not).
  */
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { gatePack, type PackV2 } from '../storykit/pack/gate.ts';
 import { PLACES, foreignIn } from '../storykit/pack/cities.ts';
 import { places as sfLibrary } from '../storykit/cities/sf/city.js';
@@ -91,8 +92,11 @@ export function runHometownChecks(ok: Ok) {
   const mog = (f: (p: PackV2) => void) => { const p = clone(okPack); p.id = 'sk-okemog1'; p.parent = okPack.id; p.title = 'Harvest Moon'; f(p); return p; };
   const good = gateHometown(mog((p) => { p.acts[0].missions[0].stakes = 'Somebody moved the ledger.'; }), OK, { parent: okPack });
   ok('a Mog of a hometown world keeping its town passes', good.ok, show(good.problems));
-  for (const k of ['place', 'compiler', 'tiles'] as const) {
-    const moved = gateHometown(mog((p) => { p.base.hometown[k] = k === 'tiles' ? 'f'.repeat(64) : k === 'compiler' ? 'htc-0.2.0' : 'us-ok-boley'; }), OK, { parent: okPack });
+  ok('the Okemah package is on the national grid: its lock is v2 and pins the frame (origin, k0, gamma0, yOffset, waterLevel)', OK.grid === 'hg1' && cityLock(OK).formatVersion === 2 && cityLock(OK).origin?.c0 === 5806 && cityLock(OK).gamma0 === -0.190411 && cityLock(OK).compiler === OK.buildId);
+  ok('the tile set hash is the tile service\'s and the compiler\'s (sorted "id sha256\\n" lines)', tileSetHash([{ id: 'hg1-conus/0/1/2', sha256: 'ab' }]) === createHash('sha256').update('hg1-conus/0/1/2 ab\n').digest('hex'));
+  ok('a package whose frame is broken is refused (domain, build id, origin)', packageProblems({ ...OK, domain: 'mars', buildId: 'htc-x', origin: { c0: -1, r0: 2 } }).length >= 3);
+  for (const k of ['place', 'compiler', 'tiles', 'origin', 'k0', 'gamma0', 'yOffset', 'waterLevel', 'domain'] as const) {
+    const moved = gateHometown(mog((p) => { const h = p.base.hometown as Record<string, unknown>; h[k] = k === 'tiles' ? 'f'.repeat(64) : k === 'compiler' ? 'htc-0.2.0' : k === 'place' ? 'us-ok-boley' : k === 'origin' ? { c0: 5807, r0: 8582 } : k === 'domain' ? 'ak' : (h[k] as number) + (k === 'k0' ? 0.001 : 1); }), OK, { parent: okPack });
     ok(`a Mog that moves the town's ${k} is refused (the town is locked)`, !moved.ok && moved.problems.some((p) => new RegExp(`base\\.hometown\\.${k}: a Mog keeps its parent's town exactly`).test(p)), show(moved.problems));
   }
   const recompiled = { ...clone(OK), compilerVersion: 'htc-0.2.0', tileSet: { hash: 'a'.repeat(64), count: 24 } };

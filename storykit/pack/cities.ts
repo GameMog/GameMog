@@ -23,7 +23,16 @@ export const CITY_NAME: Record<CityId, string> = { ny: 'New York', sf: 'San Fran
  * pack is refused, so nothing that gates without a table (the store, the builder's New York path) lets one through.
  */
 export const HOMETOWN = 'hometown';
-export type HometownLock = { place: string; compiler: string; tiles: string };
+/**
+ * base.hometown: the town pinned. v1 { place, compiler, tiles }; v2 (the national grid hg1) adds the session frame the
+ * town's descriptor pinned (grid, domain, origin, k0, gamma0, yOffset, waterLevel; compiler is the buildId).
+ */
+export type HometownLock = {
+  place: string; compiler: string; tiles: string;
+  formatVersion?: 2; grid?: 'hg1'; domain?: string; origin?: { c0: number; r0: number }; k0?: number; gamma0?: number; yOffset?: number; waterLevel?: number;
+};
+/** every part of a lock the gate compares (a v1 lock has the first three) */
+export const LOCK_KEYS = ['place', 'compiler', 'tiles', 'formatVersion', 'grid', 'domain', 'origin', 'k0', 'gamma0', 'yOffset', 'waterLevel'] as const;
 export type CityTable = {
   /** the town's name, as the gate's words say it ("Okemah, Oklahoma") */
   name: string;
