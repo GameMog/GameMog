@@ -26,6 +26,7 @@ const BORE_H = 5.2; // tunnel: floor to ceiling (Bush St crosses over the Stockt
 const PORTAL_T = 1.4; // portal headwall thickness
 const LIGHT_STEP = 8;
 const PARAPET_H = 1.0;
+const PARAPET_MIN_DROP = 1.0; // m: a package deck's parapet stands only where the ground beside it is this far below
 const DECK_T = 1.4; // deck thickness
 const DECK_H_ESTIMATE = [0, 8, 15, 22]; // m over the ground by OSM layer (0 at grade): an ESTIMATE, the data has no heights
 const DECK_GRADE = 0.05; // freeways climb at most 5% between their estimated heights
@@ -79,6 +80,8 @@ function buildGradeSeparation(scene, network) {
   const discAt = new Map(); // (package decks) node -> { x, z, y, r, n }: deckEnds()
   let linkOnly = 0; // (package decks built from the road graph's links alone: linkDecks())
   const parapetQ = []; // (package decks' parapet pieces, placed by parapets() once every deck stands)
+  const columnQ = []; // (package decks' column stations, placed by columns() once every deck stands)
+  let bents = 0;
   const MERGE_GAP = 14;
   const branchy = (n) => (n.in || []).length + (n.out || []).length > 4 || new Set([...(n.in || []), ...(n.out || [])].map((x) => x.name)).size > 1;
   for (const e of network.edges) {
@@ -119,6 +122,102 @@ function buildGradeSeparation(scene, network) {
   // from the road graph's links (field [12]) wherever no kept edge's floor already covers the link)
   linkDecks();
   parapets();
+  columns();
+  // (a package deck's columns: never through another deck or road surface under it. Each stands under its deck's
+  // middle every COLUMN_STEP m where the deck is over 3.5 m up (over water: a pier the deck's width down into it),
+  // moved across the deck and a few metres along it to the nearest place clear of every street and deck floor below;
+  // where a lower deck or road fills the whole width (a stacked deck: Fort Pitt's two), a BENT: two legs just clear of
+  // it either side under a cap beam across, when the beam clears the floors under it by CAP_CLEAR m; else left out)
+  function columns() {
+    if (!columnQ.length) return;
+    const C = 32, grid = new Map(), surf = floors.filter((f) => f.kind === 'deck' || f.kind === 'disc');
+    for (const f of surf) {
+      let x0, x1, z0, z1;
+      if (f.kind === 'disc') { x0 = f.x - f.r; x1 = f.x + f.r; z0 = f.z - f.r; z1 = f.z + f.r; } else {
+        const xs = [], zs = [];
+        for (const t of [f.t0, f.t1]) for (const o of [f.L, f.R]) { xs.push(f.x0 + f.dx * t + f.rx * o); zs.push(f.z0 + f.dz * t + f.rz * o); }
+        x0 = Math.min(...xs); x1 = Math.max(...xs); z0 = Math.min(...zs); z1 = Math.max(...zs);
+      }
+      for (let i = Math.floor((x0 - 1) / C); i <= Math.floor((x1 + 1) / C); i++) {
+        for (let j = Math.floor((z0 - 1) / C); j <= Math.floor((z1 + 1) / C); j++) {
+          const k = i + ',' + j;
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k).push(f);
+        }
+      }
+    }
+    // the highest floor (deck or disc) other than seg within PAD m of (x, z) standing under `top` (null: none)
+    const PAD = 0.9;
+    const floorUnder = (seg, x, z, top) => {
+      let best = null;
+      for (const f of grid.get(Math.floor(x / C) + ',' + Math.floor(z / C)) || []) {
+        if (f === seg) continue;
+        let y;
+        if (f.kind === 'disc') {
+          if (Math.hypot(x - f.x, z - f.z) > f.r + PAD) continue;
+          y = f.y;
+        } else {
+          const px = x - f.x0, pz = z - f.z0, t = px * f.dx + pz * f.dz, o = px * f.rx + pz * f.rz;
+          if (t < f.t0 - PAD || t > f.t1 + PAD || o < f.L - PAD || o > f.R + PAD) continue;
+          y = P(f, Math.min(f.t1, Math.max(f.t0, t)), 0)[1];
+        }
+        if (y < top && (best === null || y > best)) best = y;
+      }
+      return best;
+    };
+    const CAP_CLEAR = 4.6, CAP_T = 1.0, W = 1.6;
+    const clear = (seg, x, z, top) => !onStreet(x, z, PAD) && floorUnder(seg, x, z, top) === null;
+    const column = (seg, px, pz, bottom, top) => {
+      box(geo.concrete, px, pz, seg.dx, seg.dz, W, W, bottom - 0.5, top);
+      collider(px, pz, seg.dx, seg.dz, W, W, bottom - 1, top);
+    };
+    for (const { seg, t } of columnQ) {
+      const mid = (seg.L + seg.R) / 2, h = (seg.R - seg.L) / 2;
+      const [cx, y, cz] = P(seg, t, mid);
+      const wet = Terrain.heightAt(cx, cz) <= Terrain.waterLevel + 0.05;
+      if (!wet && y - ground(cx, cz) < 3.5) continue;
+      const top = y - DECK_T;
+      // over water: the full-width pier where nothing stands under the deck
+      if (wet && [seg.L + 0.5, mid, seg.R - 0.5].every((o) => { const [x, , z] = P(seg, t, o); return floorUnder(seg, x, z, top) === null; })) {
+        box(geo.concrete, cx, cz, seg.dx, seg.dz, W, seg.R - seg.L - 1, Terrain.waterLevel - 2, top);
+        continue;
+      }
+      const bottomAt = (x, z) => (Terrain.heightAt(x, z) <= Terrain.waterLevel + 0.05 ? Terrain.waterLevel - 2 : ground(x, z));
+      // one column: across the deck, then a few metres along it
+      let spot = null;
+      for (const dt of [0, -3, 3, -6, 6, -9, 9]) {
+        const ta = t + dt;
+        if (ta < seg.t0 + 1 || ta > seg.t1 - 1) continue;
+        for (let k = 0; spot === null && k <= 4 * h; k++) {
+          const c = mid + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5;
+          if (Math.abs(c - mid) > h - 0.8) continue;
+          const [x, py, z] = P(seg, ta, c);
+          if (clear(seg, x, z, py - DECK_T)) spot = [x, z, py - DECK_T];
+        }
+        if (spot) break;
+      }
+      if (spot) { column(seg, spot[0], spot[1], bottomAt(spot[0], spot[1]), spot[2]); continue; }
+      // a bent: the nearest clear place each side of the floors under the deck's middle, at most 10 m out from its edge
+      let lo = null, hi = null, under = -Infinity;
+      for (let o = mid; o >= seg.L - 10; o -= 0.5) {
+        const [x, , z] = P(seg, t, o);
+        const fu = floorUnder(seg, x, z, top);
+        if (fu === null && !onStreet(x, z, PAD)) { lo = o; break; }
+        if (fu !== null) under = Math.max(under, fu);
+      }
+      for (let o = mid; o <= seg.R + 10; o += 0.5) {
+        const [x, , z] = P(seg, t, o);
+        const fu = floorUnder(seg, x, z, top);
+        if (fu === null && !onStreet(x, z, PAD)) { hi = o; break; }
+        if (fu !== null) under = Math.max(under, fu);
+      }
+      if (lo === null || hi === null || !(top - CAP_T - under >= CAP_CLEAR)) continue;
+      for (const o of [lo, hi]) { const [x, , z] = P(seg, t, o); column(seg, x, z, bottomAt(x, z), top); }
+      const [ax, , az] = P(seg, t, lo), [bx, , bz] = P(seg, t, hi);
+      box(geo.concrete, (ax + bx) / 2, (az + bz) / 2, seg.dx, seg.dz, W, hi - lo + W, top - CAP_T, top);
+      bents++;
+    }
+  }
   // (a package deck's parapet stands where its edge drops away: not where another deck's floor carries on beside it at
   // its height, as where two decks merge, part or run side by side (the Stack's ramps): there it would wall the lanes)
   function parapets() {
@@ -145,6 +244,8 @@ function buildGradeSeparation(scene, network) {
       const [cx, y, cz] = P(seg, tm, o);
       const [bx, , bz] = P(seg, tm, o + out * 0.9);
       if (beside(seg, bx, bz, y)) continue;
+      // (nor where the deck is still on the ground beside it: a deck's ends at grade, where the road comes onto it)
+      if (y - ground(bx, bz) < PARAPET_MIN_DROP) continue;
       // (a package deck's parapet follows its slope: sloped faces, not a stair of boxes)
       const o0 = o - 0.15, o1 = o + 0.15;
       quad(geo.concrete, P(seg, ta, o1), P(seg, tb, o1), P(seg, tb, o1, PARAPET_H), P(seg, ta, o1, PARAPET_H));
@@ -172,10 +273,12 @@ function buildGradeSeparation(scene, network) {
       pts.push({ x: RG.nodes[2 * b], z: RG.nodes[2 * b + 1] });
       const bore = window.NYC.deckOf({ pts, elev });
       if (!bore) continue;
-      // (left out only where its middle has no floor at its height)
-      const um = (bore.p0 + bore.p1) / 2, pm = window.NYC.linkPoint(bore, um);
-      if (covered(pm.x, pm.z, boreY(bore, um))) continue;
+      // (left out only where its middle has a floor at its height across its whole width: a two-way link whose one
+      // direction is on the traffic network and the other not has only half its width floored by the kept edge)
       const half = Math.max(2.5, (w || 7) / 2);
+      const um = (bore.p0 + bore.p1) / 2, pm = window.NYC.linkPoint(bore, um), pn = window.NYC.linkPoint(bore, Math.min(bore.p1, um + 1));
+      const ml = Math.hypot(pn.x - pm.x, pn.z - pm.z) || 1, mx = -(pn.z - pm.z) / ml, mz = (pn.x - pm.x) / ml, ym = boreY(bore, um);
+      if ([0, -(half - 1), half - 1].every((o) => covered(pm.x + mx * o, pm.z + mz * o, ym))) continue;
       const n = Math.max(1, dir !== 0 ? Math.max(lf, lb, 1) : (lf > 0 ? lf : 1) + (lb > 0 ? lb : 1));
       const nl = Math.min(n, Math.max(1, Math.floor((2 * half - 1) / 3)));
       const lanes = Array.from({ length: nl }, (_, k) => (k - (nl - 1) / 2) * Math.min(3.4, (2 * half - 1) / nl));
@@ -322,25 +425,10 @@ function buildGradeSeparation(scene, network) {
       }
     }
     for (let t = seg.t0 + COLUMN_STEP / 2; t < seg.t1; t += COLUMN_STEP) {
+      // (a package's deck: its columns are placed once every deck stands, clear of the roads and decks under it: columns())
+      if (seg.kind === 'deck') { columnQ.push({ seg, t }); continue; }
       const [cx, y, cz] = P(seg, t, (seg.L + seg.R) / 2);
-      if (Terrain.heightAt(cx, cz) > Terrain.waterLevel + 0.05) {
-        // (a package's deck over land: a column under its middle where it stands over 3.5 m up, moved across off any
-        // street under it, or left out)
-        if (seg.kind !== 'deck' || y - ground(cx, cz) < 3.5) continue;
-        let o = null;
-        const mid = (seg.L + seg.R) / 2, h = (seg.R - seg.L) / 2;
-        for (let k = 0; o === null && k <= 4 * h; k++) {
-          const c = mid + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5;
-          const [x, , z] = P(seg, t, c);
-          if (Math.abs(c - mid) <= h - 0.8 && !onStreet(x, z, 0.8)) o = c;
-        }
-        if (o === null) continue;
-        const [px, py, pz] = P(seg, t, o);
-        const g = ground(px, pz);
-        box(geo.concrete, px, pz, seg.dx, seg.dz, 1.6, 1.6, g - 0.5, py - DECK_T);
-        collider(px, pz, seg.dx, seg.dz, 1.6, 1.6, g - 1, py - DECK_T);
-        continue;
-      }
+      if (Terrain.heightAt(cx, cz) > Terrain.waterLevel + 0.05) continue;
       box(geo.concrete, cx, cz, seg.dx, seg.dz, 1.6, seg.R - seg.L - 1, Terrain.waterLevel - 2, y - DECK_T);
     }
     laneLines(seg, e, partner);
@@ -620,7 +708,7 @@ function buildGradeSeparation(scene, network) {
   };
   const counts = { tunnels: floors.filter((f) => f.kind === 'tunnel').length, bridges: floors.filter((f) => f.kind === 'bridge').length };
   console.info(`[grade] ${counts.tunnels} tunnel bores, ${counts.bridges} bridge decks, ${highwayLanes.length} highway lanes, ${colliders.length} colliders` +
-    (decks ? `, ${decks} package decks (${linkOnly} off the traffic network), ${floors.length - counts.tunnels - counts.bridges - decks} deck discs` : ''));
+    (decks ? `, ${decks} package decks (${linkOnly} off the traffic network), ${floors.length - counts.tunnels - counts.bridges - decks} deck discs, ${bents} column bents` : ''));
   return { group, colliders, highwayLanes, floorAt, roofAt, carveAt, onDeckAt, floors };
 }
 
