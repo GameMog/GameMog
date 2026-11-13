@@ -59,6 +59,7 @@ The code is under the MIT License (see [LICENSE](LICENSE)), the same licence as 
 
 Some parts are not ours and keep their own terms:
 
+- **Mog Music** (`media/mog-music/`, the car radio's Mog Music station) is the owner's own music: all rights reserved, not covered by the MIT License, and not to be reused or redistributed outside this game (see [media/mog-music/NOTICE.md](media/mog-music/NOTICE.md)).
 - The street-combat system, the Suits' rig and the freeflow fight moves are ported from **Spiderbench** by Shikhar and used with the author's permission. They are not covered by the MIT License.
 - Some motion capture (`assets/anim/bandai`: the Suits' walks and idles, the rally crowd, Dan's fight footwork) is from the **Bandai Namco Research Motion Dataset**, © 2022 Bandai Namco Research Inc., under CC BY-NC 4.0: non-commercial use only and not covered by the MIT License (see [NOTICE](NOTICE)).
 - The rest of the music, the engine recordings, the 3D characters' source assets, the motion capture and the props come from their own authors under CC0, CC BY and similar licences.
