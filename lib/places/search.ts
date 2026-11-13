@@ -122,7 +122,8 @@ const TIER = { exact: 6, prefix: 4, word: 2, fuzzy: 1.5 } as const;
 export type Match = keyof typeof TIER;
 export type Hit = Place & { match: Match; score: number };
 
-function toPlace(ix: Index, i: number): Place {
+/** The public place of index row i (the pre-warm list reads rows by population; lib/hometown-tiles/prewarm-list.ts). */
+export function toPlace(ix: Index, i: number): Place {
   const lat = ix.lat[i], lon = ix.lon[i];
   // half the side of a square of the place's area, times 1.5 (a town is rarely square), at least a kilometre
   const half = Math.max(1000, 0.75 * Math.sqrt(ix.aland[i] + ix.awater[i]));
