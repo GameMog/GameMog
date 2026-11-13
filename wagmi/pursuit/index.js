@@ -514,7 +514,7 @@ export function install(W) {
   // its pose: on the road (eased up a curb), pitched by its braking and rolled by its turning on springs; its rims
   // turning; its smoke when wrecked; its engine (and siren) heard near the camera; the Suits on the horn
   function pose(P, dt) {
-    P.y += (cm.getGroundHeight(P.x, P.z, 'car') - P.y) * Math.min(1, dt * 14);
+    P.y += (cm.getGroundHeight(P.x, P.z, 'car', P.y) - P.y) * Math.min(1, dt * 14); // (its own level: on or under a deck)
     const vmax = vmaxOf(P.ch);
     const tp = clamp(-P.acc * 0.006, -0.05, 0.06), tr = clamp(-P.steer * (P.speed / vmax) * 0.11, -0.09, 0.09);
     P.pitchV += ((tp - P.pitch) * 68 - P.pitchV * 10.8) * dt; P.pitch = clamp(P.pitch + P.pitchV * dt, -0.2, 0.2);
@@ -737,7 +737,7 @@ export function install(W) {
     const along = [0.9, -0.9, -2.2, 2.0];
     crew.enemies.forEach((e, k) => {
       const ax = dx + fx * along[k % along.length], az = dz + fz * along[k % along.length];
-      e.pos.x = ax; e.pos.z = az; e.pos.y = cm.getGroundHeight(ax, az, 'person');
+      e.pos.x = ax; e.pos.z = az; e.pos.y = cm.getGroundHeight(ax, az, 'person', e.pos.y);
     });
     P.crew = crew; ch.crews.push(crew);
     play('doorOpen', { pos: [dx, 1, dz], vol: 0.9 });

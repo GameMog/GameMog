@@ -135,6 +135,51 @@ def fetch_regions(dom, blocks, data_dir):
         os.remove(os.path.join(tmp, name))
 
 
+# Segment extras (grade-lanes): the OSM way ids (`sources[].record_id`) and `speed_limits` of every segment of a fetched
+# region, in their own file beside the segments (overture-transportation-segment-extras.parquet), so the lanes can be
+# joined to the OSM side table (osm_roads.py) without refetching the regions. One S3 read of the union per run.
+EXTRAS = ('transportation', 'segment', 'id, sources, speed_limits')
+EXTRAS_FILE = 'overture-transportation-segment-extras.parquet'
+
+
+def fetch_extras(dom, blocks, data_dir):
+    todo = []
+    for C, R in blocks:
+        out = region_dir(data_dir, dom, C, R)
+        if not os.path.exists(os.path.join(out, 'region.json')):
+            raise SystemExit('region %s/%d/%d not fetched: fetch it first (--regions)' % (dom, C, R))
+        if not os.path.exists(os.path.join(out, EXTRAS_FILE)):
+            todo.append((C, R, out, region_envelope(dom, C, R)))
+    if not todo:
+        return
+    W = min(t[3][0] for t in todo); S_ = min(t[3][1] for t in todo); E_ = max(t[3][2] for t in todo); N = max(t[3][3] for t in todo)
+    c = connect()
+    tmp = os.path.join(data_dir, 'regions', '.tmp-extras')
+    os.makedirs(tmp, exist_ok=True)
+    theme, typ, cols = EXTRAS
+    f = os.path.join(tmp, 'extras.parquet')
+    t = time.time()
+    if not os.path.exists(f):
+        c.execute(f"""COPY (SELECT {cols}, bbox FROM read_parquet('{S3}/theme={theme}/type={typ}/*.parquet', hive_partitioning=0)
+            WHERE bbox.xmin <= {E_} AND bbox.xmax >= {W} AND bbox.ymin <= {N} AND bbox.ymax >= {S_} ORDER BY id)
+            TO '{f}.part' (FORMAT parquet, COMPRESSION zstd)""")
+        os.replace(f + '.part', f)
+    print(f'extras: union read {time.time() - t:.1f}s', flush=True)
+    for C, R, out, (w, s, e, n) in todo:
+        g = os.path.join(out, EXTRAS_FILE)
+        # (exactly the region's segment ids)
+        c.execute(f"""COPY (SELECT x.id, x.sources, x.speed_limits FROM read_parquet('{f}') x
+            SEMI JOIN read_parquet('{os.path.join(out, 'overture-transportation-segment.parquet')}') s ON s.id = x.id ORDER BY x.id) TO '{g}.part' (FORMAT parquet, COMPRESSION zstd)""")
+        os.replace(g + '.part', g)
+        rj = os.path.join(out, 'region.json')
+        rec = json.load(open(rj))
+        rec['overture']['layers']['transportation/segment-extras'] = {'rows': c.execute(f"SELECT count(*) FROM read_parquet('{g}')").fetchone()[0], 'columns': cols}
+        json.dump(rec, open(rj, 'w'), indent=1, sort_keys=True)
+        print('extras', dom, C, R, rec['overture']['layers']['transportation/segment-extras'], flush=True)
+    for name in os.listdir(tmp):
+        os.remove(os.path.join(tmp, name))
+
+
 def fetch(pid, bbox, data_dir, margin_m=150, place=None, how=None):
     out = os.path.join(data_dir, pid)
     os.makedirs(out, exist_ok=True)
@@ -172,11 +217,16 @@ if __name__ == '__main__':
     ap.add_argument('--place')
     ap.add_argument('--bbox', help='lonW,latS,lonE,latN')
     ap.add_argument('--regions', help='hg1 L4 blocks: dom:C,R;C,R... (fetched with one S3 read per layer)')
+    ap.add_argument('--extras', help='hg1 L4 blocks (as --regions): add the segments\' OSM way ids and speed limits (grade-lanes)')
     ap.add_argument('--data', default=os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../.scratch/hometown-m2/data'))
     a = ap.parse_args()
     if a.regions:
         dom, _, rest = a.regions.partition(':')
         fetch_regions(dom, [tuple(int(v) for v in b.split(',')) for b in rest.split(';')], os.path.abspath(a.data))
+        raise SystemExit(0)
+    if a.extras:
+        dom, _, rest = a.extras.partition(':')
+        fetch_extras(dom, [tuple(int(v) for v in b.split(',')) for b in rest.split(';')], os.path.abspath(a.data))
         raise SystemExit(0)
     how = None
     if a.bbox:

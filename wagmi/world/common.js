@@ -41,14 +41,16 @@ export function createWorld(city) {
 
   // ------------------------------------------------------------------ the ground
   // the height a walker (or mode's body: 'car', 'person') stands at; 0 before the city is up
-  function groundY(x, z, mode = 'person') {
+  // (atY: the asker's own height, on or under a Hometown package's deck; default the active entity's)
+  function groundY(x, z, mode = 'person', atY) {
     const c = cm(); if (!c) return 0;
-    const y = c.getGroundHeight(x, z, mode);
+    const y = atY === undefined ? c.getGroundHeight(x, z, mode) : c.getGroundHeight(x, z, mode, atY);
     return Number.isFinite(y) ? y : 0;
   }
   // the road's own level under (x, z): a hill's bare ground (cm.baseHeight, San Francisco), New York's streets at 0
-  function roadY(x, z) {
+  function roadY(x, z, atY) {
     const c = cm();
+    if (atY !== undefined && c && c.getGroundHeight && globalThis.window?.NYC?.GradeSeparation?.onDeckAt?.(x, z, atY)) return c.getGroundHeight(x, z, 'bike', atY);
     return (c && c.baseHeight?.(x, z)) || 0;
   }
   function isPark(x, z) {
@@ -83,6 +85,7 @@ export function createWorld(city) {
     let best = null;
     for (const e of n.edges) {
       if (e.len < 8) continue;
+      if (e.bore && e.bore.kind === 'deck') continue; // (a Hometown package's deck: places and spawns stay on the ground)
       const mx = e.sx + e.dx * e.len / 2, mz = e.sz + e.dz * e.len / 2;
       if (Math.abs(mx - x) > R + e.len / 2 || Math.abs(mz - z) > R + e.len / 2) continue;
       const s = clamp((x - e.sx) * e.dx + (z - e.sz) * e.dz, 4, e.len - 4);

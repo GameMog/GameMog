@@ -142,8 +142,14 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
             continue
         inner = [S(x, z) for x, z in l['pts'][1:-1]]
         idx = len(rl)
+        # (a deck's heights: session metres every grade.STEP / k0 m of session arc; the tile's are grid metres, NAVD88 cm)
+        elev = None
+        if l.get('elev'):
+            elev = [round(l['elev'][0] / 100.0 / k0, 4)] + [round(v / 100.0 - y_off, 2) for v in l['elev'][1:]]
         rl.append({'a': a, 'b': b, 'ni': name_idx(l['name']), 'w': l['w'], 'lanes': l['lanes'], 'dir': l['dir'], 'inner': inner, 'flags': l['flags'],
-                   'sw': l['sw'], 'cls': l['cls'], 'rank': l['rank'], 'stopA': l['stopA'], 'stopB': l['stopB']})
+                   'sw': l['sw'], 'cls': l['cls'], 'rank': l['rank'], 'stopA': l['stopA'], 'stopB': l['stopB'],
+                   'lf': l.get('lf', -1), 'lb': l.get('lb', -1), 'elev': elev, 'spd': l.get('spd', -1), 'lsrc': l.get('lsrc'), 'seg': l['seg'],
+                   'len': sum(math.hypot(x1 - x0, z1 - z0) for (x0, z0), (x1, z1) in zip(l['pts'], l['pts'][1:])) / 100.0})
         inc.setdefault(a, []).append((idx, 'A'))
         inc.setdefault(b, []).append((idx, 'B'))
     control, stop_mask = [0] * len(nodes), [0] * len(nodes)
@@ -153,7 +159,9 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
             if rl[li]['stop' + end]:
                 stop_mask[i] |= 1 << slot
     rg = {'nodes': [v for p in nodes for v in (C.q1(p[0]), C.q1(p[1]))], 'names': names,
-          'links': [[l['a'], l['b'], l['ni'], C.q1(l['w']), l['lanes'], l['dir'], [v for p in l['inner'] for v in (C.q1(p[0]), C.q1(p[1]))], l['flags'], C.q1(l['sw']), C.q1(l['sw'])] for l in rl],
+          # links: [a, b, name, w, lanes, dir, inner, flags, swL, swR, lanesFwd, lanesBack, elev|null, maxSpeedMph] (README)
+          'links': [[l['a'], l['b'], l['ni'], C.q1(l['w']), l['lanes'], l['dir'], [v for p in l['inner'] for v in (C.q1(p[0]), C.q1(p[1]))], l['flags'], C.q1(l['sw']), C.q1(l['sw']),
+                     l['lf'], l['lb'], l['elev'], l['spd']] for l in rl],
           'control': control, 'stopMask': stop_mask, 'nhoods': [D1['name'].split(',')[0]], 'linkNhood': [0] * len(rl), 'decks': []}
 
     # ---- curb islands: pieces merged back across the tiles' cut edges (by kind)
@@ -248,7 +256,7 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
     # ---- spawns and mission places on the lanes (session coordinates)
     lines = []
     for l in rl:
-        if l['flags'] & (C.FLAGS['private'] | C.FLAGS['pedestrian']) or l['cls'] == 'motorway':
+        if l['flags'] & (C.FLAGS['private'] | C.FLAGS['pedestrian'] | C.FLAGS['deck']) or l['cls'] == 'motorway' or l['elev']:
             continue
         lines.append((LineString([nodes[l['a']], *l['inner'], nodes[l['b']]]), l))
     ltree = shapely.STRtree([g for g, _ in lines]) if lines else None
@@ -389,6 +397,24 @@ def compile_place(pid, places, data, store, bid, out_root, log=print):
              'masses': len(mass) // 4, 'outlines': sum(1 for _, rec, _, _ in btable if rec[7] == 0), 'parts': sum(1 for _, _, b, _ in btable if b.get('parent')),
              'roofShapes': dict(sorted(((C.ROOF_SHAPES[k], n) for k, n in __import__('collections').Counter(b.get('roofShape', 0) for _, _, b, _ in btable).items()))),
              'region': region}
+    # (grade-lanes) decks and lane sources, by link metres; tiles' own counts
+    dl = [l for l in rl if l['flags'] & C.FLAGS['deck']]
+    srcm = {}
+    for l in rl:
+        if l['lsrc']:
+            srcm[l['lsrc']] = srcm.get(l['lsrc'], 0.0) + l['len']
+    stats.update({'deckLinks': len(dl), 'deckSegments': len(set(l['seg'] for l in dl)), 'deckMetres': round(sum(l['len'] for l in dl)),
+                  'lanesMetresBySource': {k: round(v) for k, v in sorted(srcm.items())}, 'onewayLinks': sum(1 for l in rl if l['dir']),
+                  'underDeckBuildingsDropped': sum(dec[k][0]['counts'].get('underDeckDropped', 0) for k in order)})
+    if hasattr(W, 'gstats') and W.gstats.get('clusters'):
+        cl = W.gstats['clusters']
+        stats['grade'] = {'clusters': len(cl), 'gradeRelaxed': sum(v['gradeRelaxed'] for v in cl.values()), 'unmet': sum(v['unmet'] for v in cl.values()),
+                          'constraints': sum(v['constraints'] for v in cl.values()), 'maxGrade': max(v['maxGrade'] for v in cl.values()),
+                          'clusterSplit': sum(1 for v in cl.values() if v['split']), 'maxExtent': max(v['extent'] for v in cl.values()),
+                          'bridgeTagMissing': sorted(W.gstats.get('bridgeTagMissing', []))}
+        for kind in ('main', 'link'):
+            gs = sorted(g for v in cl.values() for g, k in v.get('grades', []) if k == kind)
+            stats['grade']['p95Grade_' + kind] = gs[int(0.95 * (len(gs) - 1))] if gs else None
     tile_ids = [t['id'] for t in tiles]
     GEO = {'version': 2, 'city': D1['name'], 'pkg': pid, 'frame': {k: frame[k] for k in ('lat0', 'lon0', 'units', 'bearingDeg', 'yOffset', 'grid', 'domain', 'c0', 'r0', 'k0')},
            'box': {'name': 'pkg', **box},
