@@ -111,9 +111,14 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     const T = window.NYC.Terrain;
     return T && T.loaded ? T.groundAt(x, z) : 0;
   };
+  // (a Hometown package's deck only: on SF's and New York's bridges and in their tunnels, the terrain as before)
+  const deckAt = (x, z, y) => {
+    const G = window.NYC.GradeSeparation;
+    return !!(G && G.onDeckAt && G.onDeckAt(x, z, y));
+  };
   const floorOrGround = (x, z, y) => {
     const G = window.NYC.GradeSeparation;
-    const f = G && G.floorAt ? G.floorAt(x, z, y) : null;
+    const f = deckAt(x, z, y) ? G.floorAt(x, z, y) : null;
     return f !== null && f !== undefined ? f : groundAt(x, z);
   };
   const GRAVITY = 9.81;
@@ -464,7 +469,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   const phaseOf = (e) => signalPhase(clock + (e.to.signalOffset || 0), e.axisIndex === 0);
   let focusX = 0;
   let focusZ = 140;
-  const player = { active: false, entity: null, x: 0, y: 0, z: 0, vx: 0, vz: 0, halfW: 0.86, halfL: 2.18, push: 0.5 };
+  const player = { active: false, entity: null, x: 0, y: 0, z: 0, deck: false, vx: 0, vz: 0, halfW: 0.86, halfL: 2.18, push: 0.5 };
 
   // Lane lists hold pooled { v, s } entries sorted by position s along the lane, rebuilt every frame
   const pool = [];
@@ -653,8 +658,12 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     v.pAhead = Infinity;
     relateToBlockers(v);
     if (!player.active) return;
-    // (one on a deck, the other on the road under it)
-    if (v.y !== undefined && Math.abs(player.y - v.y) > 2.5) return;
+    // (one on a package's deck, the other on the road under it, or on decks stacked one over the other; never two on
+    // the same hill, the ground or a deck's ramp: there the height between them is the slope's, SF's steep streets)
+    if (v.y !== undefined && Math.abs(player.y - v.y) > 2.5) {
+      const vd = deckAt(v.x, v.z, v.y);
+      if (player.deck !== vd || (vd && Math.abs(player.y - v.y) > 2.5 + 0.1 * Math.hypot(player.x - v.x, player.z - v.z))) return;
+    }
     const dx = player.x - v.x;
     const dz = player.z - v.z;
     if (Math.abs(dx) > LOOKAHEAD + 10 || Math.abs(dz) > LOOKAHEAD + 10) return;
@@ -2123,6 +2132,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     player.active = Boolean(playerEntity && activeMode !== 'helicopter' &&
       playerEntity.position.y - floorOrGround(playerEntity.position.x, playerEntity.position.z, playerEntity.position.y) < 2.6);
     player.y = playerEntity ? playerEntity.position.y : 0;
+    player.deck = player.active && deckAt(playerEntity.position.x, playerEntity.position.z, playerEntity.position.y);
     if (playerEntity) {
       const heading = playerEntity.heading || 0;
       const speed = playerEntity.speed || 0;
