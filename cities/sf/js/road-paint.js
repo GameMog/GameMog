@@ -30,6 +30,9 @@ function buildRoadPaint(scene, network) {
   const T = window.NYC.Terrain;
   const loaded = T && T.loaded;
   const n = { x: 0, y: 1, z: 0 };
+  // (a Hometown package: every marking strip's kind, road and corners, for the markings survey: mesh.userData.marks)
+  const marks = window.NYC.PKG ? [] : null;
+  let kind = 'other', owner = null;
 
   // Strip w wide from a to b, with a dash pattern (period, duty cycle) running along it, on the ground (and on the curb
   // islands' tops, `onIslands`)
@@ -39,6 +42,7 @@ function buildRoadPaint(scene, network) {
     const sx = ((az - bz) / len) * w * 0.5;
     const sz = ((bx - ax) / len) * w * 0.5;
     const steps = Math.max(1, Math.ceil(len / STEP));
+    if (marks) marks.push({ kind, e: owner, w, q: [ax - sx, az - sz, ax + sx, az + sz, bx + sx, bz + sz, bx - sx, bz - sz] });
     const i0 = position.length / 3;
     for (let k = 0; k <= steps; k++) {
       const u = (len * k) / steps;
@@ -73,8 +77,8 @@ function buildRoadPaint(scene, network) {
 
   // Edges run between stop lines; s is measured from the start one and o to the right of the centre line
   const at = (e, s, o) => [e.sx + e.dx * s + e.rx * o, e.sz + e.dz * s + e.rz * o];
-  const along = (e, o, w, col, period, duty) => strip(...at(e, 0.9, o), ...at(e, e.len - 0.9, o), w, col, period, duty);
-  const across = (e, s, o0, o1, w, col, period, duty) => strip(...at(e, s, o0), ...at(e, s, o1), w, col, period, duty);
+  const along = (e, o, w, col, period, duty) => { owner = e; kind = col === YELLOW ? 'yellow' : col === GREEN ? 'bike' : period > 1 ? 'dash' : 'line'; strip(...at(e, 0.9, o), ...at(e, e.len - 0.9, o), w, col, period, duty); kind = 'other'; owner = null; };
+  const across = (e, s, o0, o1, w, col, period, duty) => { owner = e; kind = period > 1 ? 'crosswalk' : 'stopbar'; strip(...at(e, s, o0), ...at(e, s, o1), w, col, period, duty); kind = 'other'; owner = null; };
 
   // Bike lanes (GEO.bikeways) by 16 m grid cell, segment by segment, to find the one running along a road
   const BIKE_CELL = 16;
@@ -214,6 +218,7 @@ function buildRoadPaint(scene, network) {
   mesh.name = 'RoadMarkings';
   mesh.receiveShadow = true;
   mesh.renderOrder = -1; // under the other see-through ground effects (contact shadows, headlight beams)
+  if (marks) mesh.userData.marks = marks;
   scene.add(mesh);
   console.info(`[paint] ${bikeLanes} bike lanes along ${roads.size} roads`);
   return mesh;
