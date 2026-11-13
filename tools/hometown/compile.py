@@ -34,6 +34,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import grid  # noqa: E402
 import context  # noqa: E402
+import far as farlib  # noqa: E402
 from context import Context, building_owner_cm, downtown_at, floor_div, largest_polygon, water_polys, exact_centroid_cm  # noqa: E402
 import dem as demlib  # noqa: E402
 from dem import Sampler  # noqa: E402
@@ -1079,6 +1080,27 @@ def tile_window(c0, r0, c1, r1):
     return c0 * TILE, r0 * TILE, (c1 + 1) * TILE, (r1 + 1) * TILE
 
 
+def far_tiles(dom, bid, data, store, keys, log=print, dem_store=None):
+    """Far tiles [(tier, C, R)] -> {key: gzipped SFB1 bytes}, compiled or read from the store (far.py)."""
+    Wd = None
+    out = {}
+    for tier, C_, R_ in keys:
+        k = farlib.far_key(bid, dom, tier, C_, R_)
+        b = store.get(k) if store else None
+        if b is None:
+            if Wd is None:
+                dsn = dem_snapshot(dem_store or store)[1]
+                Wd = Sampler(os.path.join(data, 'dem'), dem_store or store, dsn, product='1')
+            t0 = time.time()
+            b = gz(farlib.compile_far(dom, tier, C_, R_, Wd, bid))
+            if store:
+                store.put_if_absent(k, b)
+                b = store.get(k)
+            log(jdump({'far': k, 'bytes': len(b), 'ms': round((time.time() - t0) * 1000)}))
+        out[(tier, C_, R_)] = b
+    return out
+
+
 def compile_tiles(Wd, store, tiles, log=print):
     """Compile (or read from the store) each (c, r); children stored ifAbsent. -> {(c, r): bytes}"""
     out = {}
@@ -1101,6 +1123,7 @@ if __name__ == '__main__':
     ap.add_argument('--tile')
     ap.add_argument('--block')
     ap.add_argument('--ctx')
+    ap.add_argument('--far', help='one far tile hg1-{d}/{3|5}/{C}/{R} (far.py)')
     ap.add_argument('--descriptor')
     ap.add_argument('--stage', type=int, default=2)
     ap.add_argument('--id')
@@ -1160,6 +1183,13 @@ if __name__ == '__main__':
             else:
                 compile_tiles(Wd, store, kids, log)
                 print(jdump({'block': a.block, 'buildId': bid}))
+        elif a.far:
+            dom, tier, C_, R_ = farlib.parse_far_id(a.far)
+            b = far_tiles(dom, bid, a.data, None if a.no_store else store, [(tier, C_, R_)], log, dem_store=store)[(tier, C_, R_)]
+            if a.out in (None, '-'):
+                sys.stdout.buffer.write(b)
+            else:
+                open(a.out, 'wb').write(b)
         elif a.ctx:
             dom, L, C, R = grid.parse_tile_id(a.ctx)
             assert L == grid.CTX_L
