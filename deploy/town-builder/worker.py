@@ -11,7 +11,7 @@ web needs: its local cache (sources, ctx, tiles) is an optimisation that may van
   slots      min(cgroup v2 cpu.max, floor((memory.max - 0.75 GB) / HOMETOWN_SLOT_GB)), at least 1 (HOMETOWN_SLOTS overrides)
   claim      a 20 s long-poll; the last free slot of a multi-slot worker claims P0 only (the web decides)
   heartbeat  every 15 s per running job; a 410 kills the child (its process group) and drops the result
-  children   one per slot, under `prlimit --as` (the slot's memory) where prlimit exists, with an allowlisted environment
+  children   one per slot (`prlimit --as` only with HOMETOWN_PRLIMIT_AS=on: it aborts duckdb), with an allowlisted environment
              (the worker's token never reaches Python)
   inputs     downloaded from the web store into the local store / data dir; staged regions fetched on a compile's
              exit 3 before a regions job is asked for
@@ -215,7 +215,7 @@ class Worker:
 
     def child_env(self):
         env = {k: os.environ[k] for k in ENV_ALLOW if os.environ.get(k) is not None}
-        env.update({'PYTHONUNBUFFERED': '1', 'PYTHONDONTWRITEBYTECODE': '1'})
+        env.update({'PYTHONUNBUFFERED': '1', 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONFAULTHANDLER': '1'})
         # the image's identity: a recipe id computed in its build (the Dockerfile), the buildId hashes it
         rid = _read(os.environ.get('HOMETOWN_IMAGE_ID_FILE') or '/opt/hometown-image-id')
         if rid and 'HOMETOWN_IMAGE_DIGEST' not in env:
@@ -365,7 +365,10 @@ class Worker:
     def run(self, argv, job, timeout=1800):
         """One compile child: (code, stderr tail, peak MB). Killed when the job's lease is lost or at the timeout."""
         lim = int(self.slot_gb * GB * max(1, job.get('weight', 1)))
-        pre = ['prlimit', '--as=%d' % lim, '--'] if shutil.which('prlimit') else []
+        # (an address-space cap is OFF by default: duckdb's allocator reserves far more virtual memory than it uses, so
+        # `prlimit --as` at a slot's size aborts it at once on Linux, "terminate called without an active exception".
+        # HOMETOWN_PRLIMIT_AS=on brings it back; memory is bounded by the slots and duckdb's own memory_limit instead)
+        pre = (['prlimit', '--as=%d' % lim, '--'] if os.environ.get('HOMETOWN_PRLIMIT_AS') == 'on' and shutil.which('prlimit') else [])
         p = subprocess.Popen(pre + [self.python] + argv, cwd=self.compiler, env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
         job['child'] = p
         err = []
