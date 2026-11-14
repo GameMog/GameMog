@@ -56,7 +56,16 @@ export function prepare(ctx) {
     const u = seg(a, e), l = seg(e, w); return u.r < l.r || u.t < 1 ? u.t * u.L : u.L + l.t * l.L; };
   // (the wrist's distance down the arm, each side)
   const wristDown = { L: arm.L.len, R: arm.R.len };
-  const crotch = (() => { let y = 9; for (let v = 0; v < nBody; v++) if (cls[v] === 3 && Math.abs(bPos[v * 3]) < 0.02 && bPos[v * 3 + 1] > 0.5) y = Math.min(y, bPos[v * 3 + 1]); return y; })();
+  // (the crotch: the lowest leg point within 2 cm of the middle. r8: a woman's shaped body can have none there (her
+  // thighs' inner points 2-3 cm out), and the crotch fell to 9 m: every jacket and coat hemmed at it (suit-jacket,
+  // overcoat, doorman-coat) lost its whole body, sleeves and a collar left floating over the top under them (The
+  // Courtesy Lane's hero: MakeHuman's female body at full lean, its nearest 2.5 cm out). With none there, the lowest of
+  // the leg points within 4 mm of the nearest one to the middle: the top of the gap between the thighs (on the bodies
+  // that have points within 2 cm it is the same height, 0.737 and 0.718 m for the woman at no and full muscle; a wider
+  // band, 2 cm, ran down the inner thigh and hemmed her jacket 7 cm low)
+  const crotch = (() => { let y = 9, m = 9; for (let v = 0; v < nBody; v++) if (cls[v] === 3 && bPos[v * 3 + 1] > 0.5) { m = Math.min(m, Math.abs(bPos[v * 3])); if (Math.abs(bPos[v * 3]) < 0.02) y = Math.min(y, bPos[v * 3 + 1]); }
+    if (y === 9 && m < 0.08) for (let v = 0; v < nBody; v++) if (cls[v] === 3 && bPos[v * 3 + 1] > 0.5 && Math.abs(bPos[v * 3]) < m + 0.004) y = Math.min(y, bPos[v * 3 + 1]);
+    return y; })();
   return Object.assign(ctx, { N, wid, cls, BI, share, down, wristDown, arm, crotch, ankle: ctx.jpos('foot.L')[1], knee: ctx.jpos('lowerleg01.L')[1], hip: ctx.jpos('upperleg01.L')[1] });
 }
 
