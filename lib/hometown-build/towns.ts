@@ -107,7 +107,16 @@ export function blocksOf(s: Pick<Stage1, 'tiles' | 'domain'>, ac: number, ar: nu
   }
   return [...by.values()].sort((a, b) => a.ring - b.ring || (a.block < b.block ? -1 : 1));
 }
-const ctxOf = (dom: string, c: number, r: number) => `hg1-${dom}/4/${c >> 4}/${r >> 4}`;
+/** The ctx (and region) blocks, L4, within `reach` grid m of the tile range c0..c1, r0..r1 (inclusive). */
+export function reachBlocks(c0: number, r0: number, c1: number, r1: number, reach: number): [number, number][] {
+  const T = 512, B = T << 4;
+  const x0 = c0 * T - reach, z0 = r0 * T - reach, x1 = (c1 + 1) * T + reach, z1 = (r1 + 1) * T + reach;
+  const out: [number, number][] = [];
+  for (let C = Math.floor(x0 / B); C <= Math.floor((x1 - 1e-9) / B); C++) for (let R = Math.floor(z0 / B); R <= Math.floor((z1 - 1e-9) / B); R++) out.push([C, R]);
+  return out;
+}
+/** The compiler's CTX_REACH (compile.py): the ctx a tile compile reads round it, grid m. */
+export const CTX_REACH_M = 3200;
 /** The L4 map regions a town's tiles read: its tile range grown by the compiler's LOAD_REACH (3,200 grid m). */
 export const LOAD_REACH_M = 3200;
 export function townRegions(s: Stage1): [number, number][] {
@@ -157,14 +166,20 @@ export function townGraph(placeId: string, gaz: Gaz, build: string, o: { frame: 
 export function tileGraph(placeId: string, s: Pick<Stage1, 'tiles' | 'domain'>, build: string, ac: number, ar: number, o: { base: number; now: number }) {
   const P = (p: number) => Math.max(p, o.base);
   const specs: EnqueueSpec[] = [];
+  // (every ctx block the town's compiles read: a tile reads the ctx within CTX_REACH_M of it, the frame within 3 km of
+  // the box. Each its own job, so they compute side by side on every slot; before, only the blocks holding the town's
+  // tiles were jobs, and the frame computed the rest one after another itself: Prague, OK, 1 ctx job and 8 blocks in
+  // the frame, 54-104 s of the time to the story under load)
   const ctxs = new Map<string, string>();
-  for (const id of s.tiles) { const [, , c, r] = id.split('/'); const k = ctxOf(s.domain, Number(c), Number(r)); if (!ctxs.has(k)) ctxs.set(k, `ctx:${build}:${k}`); }
+  const cr = s.tiles.map((id) => id.split('/').slice(2).map(Number));
+  const [tc0, tr0, tc1, tr1] = [Math.min(...cr.map((x) => x[0])), Math.min(...cr.map((x) => x[1])), Math.max(...cr.map((x) => x[0])), Math.max(...cr.map((x) => x[1]))];
+  for (const [C, R] of reachBlocks(tc0, tr0, tc1, tr1, CTX_REACH_M)) { const k = `hg1-${s.domain}/4/${C}/${R}`; ctxs.set(k, `ctx:${build}:${k}`); }
   for (const [k, key] of ctxs) specs.push({ key, kind: 'ctx', build, prio: P(0), ring: 0, args: { ctx: k }, place: placeId, firstAsked: o.now });
   const blocks = blocksOf(s, ac, ar);
   const tileKeys: string[] = [];
   for (const b of blocks) {
-    const ck = `ctx:${build}:hg1-${s.domain}/4/${b.C >> 2}/${b.R >> 2}`;
-    const deps = ctxs.has(`hg1-${s.domain}/4/${b.C >> 2}/${b.R >> 2}`) ? [ck] : [];
+    // (the ctx blocks within reach of the block's tiles: a tile job never computes a neighbour's ctx a ctx job is on)
+    const deps = reachBlocks(b.C * 4, b.R * 4, b.C * 4 + 3, b.R * 4 + 3, CTX_REACH_M).map(([C, R]) => ctxs.get(`hg1-${s.domain}/4/${C}/${R}`)).filter((k): k is string => !!k);
     // (round the anchor, where the spawn district almost always lands, the block is split into its 2 x 2 quads: the
     // district's 25 tiles then build on many slots at once, the time to first drive; farther out, whole blocks, the
     // cheapest per tile)

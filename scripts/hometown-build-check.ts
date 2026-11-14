@@ -239,7 +239,9 @@ function fakeDeps(dir: string, name: string, env: Record<string, string>, t: { n
 }
 async function g4to6(ok: Ok, dir: string) {
   const t = { now: Date.now() };
-  const d = fakeDeps(dir, 'g4', { HOMETOWN_BUILDER: 'on' }, t);
+  // (the address limit is what these picks test, not the admission wait: with no live slot the wait counts one, and a town's
+  // every ctx block is a job of its own now)
+  const d = fakeDeps(dir, 'g4', { HOMETOWN_BUILDER: 'on', HOMETOWN_MAX_WAIT_S: '100000' }, t);
   const okemah = placeById('us-4054200')!;
   const g = townGraph('us-4054200', gazetteerOf(okemah), B, { frame: false, base: 0, now: t.now });
   const tilesJobs = g.specs.filter((s) => s.kind === 'tiles'), ctx = g.specs.filter((s) => s.kind === 'ctx');
@@ -450,6 +452,13 @@ async function robustness(ok: Ok, dir: string) {
   ok('...but a district bundle waiting on it fails (the spawn path fails clearly)', dist.state === 'failed' && /dependency/.test(dist.error ?? ''));
   ok('...and both are journalled for the owner (split, degraded)', ['split', 'degraded'].every((k) => q.recentEvents(50).some((e) => e.kind === k)));
   q.close();
+
+  // ---- the cold start: every ctx block the town's compiles read is its own job (side by side), the frame waits on all
+  const prague = placeById('us-4060500')!, pg = townGraph('us-4060500', gazetteerOf(prague), B, { frame: true, base: 0, now: t });
+  const pctx = pg.specs.filter((x) => x.kind === 'ctx'), pframe = pg.specs.find((x) => x.kind === 'frame')!, ptiles = pg.specs.filter((x) => x.kind === 'tiles');
+  ok('Prague, OK: the 9 ctx blocks within the compiler\'s reach are 9 P0 jobs (before: 1, and the frame computed 8 itself, one after another), the frame waits on all, a tile on those within its reach',
+    pctx.length === 9 && pctx.every((x) => x.prio === 0) && pctx.every((x) => pframe.deps!.includes(x.key)) && ptiles.every((x) => x.deps!.length >= 1 && x.deps!.length <= 4 && x.deps!.every((k) => pctx.some((c) => c.key === k))),
+    `${pctx.length} ctx; tile deps ${[...new Set(ptiles.map((x) => x.deps!.length))]}`);
 
   // ---- which failed tiles fail a town: the spawn district's only (frame: its spawnDistrict; no frame: the anchor's 5 x 5)
   const tileJob = (block: string, mask: number) => ({ key: `t:${block}`, kind: 'tiles', state: 'failed', args: { block, mask } }) as unknown as Job;
