@@ -216,7 +216,9 @@
         './js/main.js'
       ].map((src) => `${src}?v=${assetVersion}`);
     })();
+    // (not the town's 'town:geodata.json' marker: it is fetched as data below, and preloading it was an unknown-scheme error)
     for (const src of nycAppScripts) {
+      if (!/^\.?\//.test(src)) continue;
       const preload = document.createElement('link');
       preload.rel = 'preload';
       preload.as = 'script';

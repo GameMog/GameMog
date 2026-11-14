@@ -451,8 +451,56 @@ const SPECIES = [
     twigs: { n: 2, t: [0.3, 1.0], angle: [0.6, 1.0], len: [0.9, 0.6], up: 0, out: 0, droop: 0.08, jitter: 0.1, segs: 2 },
     cards: { perTwig: 2, scale: [0.8, 1.0], droop: 0.1 },
     tints: [0x23402a, 0x2c4a30, 0x1f3a26]
+  },
+  // The warm band's (Hometown towns in the tropics and subtropics: tools/hometown/compile.py TREE_CLASS 6..10), built only
+  // when a town plants them (createTreeField):
+  { // 6: Royal palm: a tall smooth pale-grey column, a green crownshaft, a crown of long arching feather fronds
+    name: 'royal', tile: 1, fronds: true, light: true,
+    trunk: { r: 0.22, top: 16, lean: 0.02, segs: 10 },
+    limbs: { n: 15, y: [15.3, 16], tilt: [1.65, 0.4], len: [4.4, 3.4], r: 0.15, up: 0, out: 0, droop: 0.2, jitter: 0.05, segs: 6 },
+    branches: { n: 0, t: [0.15, 0.98], angle: [1.1, 1.3], len: [0.18, 0.1], up: 0, out: 0, droop: 0.05, jitter: 0.05, segs: 2 },
+    twigs: { n: 0, t: [0.6, 1.0], angle: [0.3, 0.5], len: [0.5, 0.4], up: 0, out: 0, droop: 0.1, jitter: 0.05, segs: 1 },
+    cards: { perTwig: 2, scale: [2.3, 2.7], droop: 0.3 },
+    tints: [0x5f7a2e, 0x6b8434, 0x56702a]
+  },
+  { // 7: Coconut palm: a slim ringed trunk leaning out and curving back up, a head of long drooping fronds
+    name: 'coconut', tile: 1, fronds: true, light: true,
+    trunk: { r: 0.2, top: 12, lean: 0.4, curve: 0.045, segs: 12 },
+    limbs: { n: 18, y: [11.6, 12], tilt: [1.85, 0.55], len: [4.6, 3.6], r: 0.16, up: 0, out: 0, droop: 0.32, jitter: 0.06, segs: 6 },
+    branches: { n: 0, t: [0.15, 0.98], angle: [1.1, 1.3], len: [0.18, 0.1], up: 0, out: 0, droop: 0.05, jitter: 0.05, segs: 2 },
+    twigs: { n: 0, t: [0.6, 1.0], angle: [0.3, 0.5], len: [0.5, 0.4], up: 0, out: 0, droop: 0.1, jitter: 0.05, segs: 1 },
+    cards: { perTwig: 2, scale: [2.3, 2.7], droop: 0.35 },
+    tints: [0x667a2c, 0x748632, 0x5c7028]
+  },
+  { // 8: Sabal (cabbage) palm: a short rough trunk under a dense round head of stiff fan fronds, some hanging down
+    name: 'sabal', tile: 1, fronds: true, light: true,
+    trunk: { r: 0.24, top: 7.5, lean: 0.07, segs: 7 },
+    limbs: { n: 22, y: [6.7, 7.5], tilt: [2.3, 0.2], len: [2.6, 2.1], r: 0.14, up: 0, out: 0, droop: 0.08, jitter: 0.06, segs: 4 },
+    branches: { n: 0, t: [0.15, 0.98], angle: [1.1, 1.3], len: [0.18, 0.1], up: 0, out: 0, droop: 0.05, jitter: 0.05, segs: 2 },
+    twigs: { n: 0, t: [0.6, 1.0], angle: [0.3, 0.5], len: [0.5, 0.4], up: 0, out: 0, droop: 0.1, jitter: 0.05, segs: 1 },
+    cards: { perTwig: 2, scale: [2.0, 2.4], droop: 0.1 },
+    tints: [0x4e6430, 0x58703a, 0x47602c]
+  },
+  { // 9: Sea grape: a multi-stemmed shrub forking at the ground, a broad mound of big round leathery leaves
+    name: 'seagrape', tile: 0, light: true,
+    trunk: { r: 0.11, top: 0.5, lean: 0.2, segs: 3 },
+    limbs: { n: 6, y: [0.25, 0.5], tilt: [1.2, 0.6], len: [2.4, 1.9], r: 0.75, up: 0.05, out: 0, droop: 0.02, jitter: 0.12, segs: 4 },
+    branches: { n: 3, t: [0.3, 0.98], angle: [0.6, 1.0], len: [0.55, 0.4], up: 0.04, out: 0.02, droop: 0.02, jitter: 0.12, segs: 3 },
+    twigs: { n: 2, t: [0.3, 1.0], angle: [0.6, 1.05], len: [0.9, 0.6], up: 0.02, out: 0, droop: 0.04, jitter: 0.12, segs: 2 },
+    cards: { perTwig: 3, scale: [0.8, 1.0], droop: 0.08 },
+    tints: [0x5d7630, 0x6c8236, 0x6e6a30]
+  },
+  { // 10: Clipped hedge (ficus / clusia / sea grape hedges along the property lines): a block HEDGE.l m long, its ends
+    //     overlapping its neighbours', leaf-card skins over a solid core (hedge: buildHedgeGeometries)
+    name: 'hedge', tile: 3, light: true, hedge: { l: 2.25, w: 1.0, h: 1.7 },
+    trunk: { r: 0.1, top: 1, lean: 0, segs: 1 }, limbs: { n: 0 }, branches: { n: 0 }, twigs: { n: 0 }, cards: { perTwig: 0, scale: [1, 1], droop: 0 },
+    tints: [0x3e5c26, 0x46652b, 0x385424]
   }
 ];
+const WARM_SPECIES = 6; // (species from here on are built only when a field plants them)
+// (`light` species, the warm band's: one variant, palms' fronds carded more coarsely, their far level just a 10-card crown
+// shell over the trunk, a hedge's far level its core alone, shadows from the near level only: planted by the thousand)
+const variantsOf = (sp) => (sp.light ? 1 : 2);
 
 // =====================================================================================================================
 // 3. SKELETON
@@ -519,7 +567,8 @@ function growTree(sp, seed) {
   const trunkDir = new V3(Math.cos(lean) * T.lean, 1, Math.sin(lean) * T.lean).normalize();
   const schedule = [0, 0.03, 0.08];
   for (let i = 1; i <= T.segs; i++) schedule.push(0.08 + (0.92 * i) / T.segs);
-  const trunk = growBranch(new V3(0, 0, 0), trunkDir, T.top, T.r, T.r * 0.3, T.segs, still, rng, 0, schedule);
+  // (a coconut palm's trunk curves back toward the sky: T.curve per metre)
+  const trunk = growBranch(new V3(0, 0, 0), trunkDir, T.top, T.r, T.r * 0.3, T.segs, T.curve ? { ...still, up: T.curve } : still, rng, 0, schedule);
   trunk.rad = trunk.rad.map((r, i) => r * (1 + 0.75 * Math.exp(-(trunk.ts[i] * T.top) / 0.28)));
   branches.push(trunk);
 
@@ -741,7 +790,7 @@ function placeCards(sp, branches, lod, tileMeters, rng, crown) {
   const size = tileMeters[sp.tile];
   if (sp.fronds && lod <= 1) {
     // palm fronds: cards along each frond (limb), overlapping from its base to its tip
-    const step = lod === 0 ? 0.11 : 0.2;
+    const step = lod === 0 ? (sp.light ? 0.2 : 0.11) : sp.light ? 0.42 : 0.2;
     for (const b of branches) {
       if (b.level !== 1) continue;
       for (let t = 0.08; t < 1; t += step) {
@@ -789,7 +838,7 @@ function placeCards(sp, branches, lod, tileMeters, rng, crown) {
     }
   } else {
     // Fibonacci directions over the crown, fewer underneath; cards centred just inside the shell, facing out
-    const n = 18;
+    const n = sp.light ? 10 : 18;
     const meanR = (crown.R.x + crown.R.y + crown.R.z) / 3;
     const s = Math.max(meanR * 1.25, 2.4);
     for (let i = 0; i < n; i++) {
@@ -809,9 +858,76 @@ function placeCards(sp, branches, lod, tileMeters, rng, crown) {
   return cards;
 }
 
+// A clipped hedge block (species with `hedge`): a solid core (bark faces, which the tree material colours as dense
+// foliage for this species) under skins of overlapping far-clump cards on its sides and top (lod 0: two layers, lod 1:
+// one, lod 2: one card per face). Local +x along the hedge, the block's base centred on the origin.
+function buildHedgeGeometries(sp, variant, tileMeters) {
+  const { l: L, w: W, h: H } = sp.hedge;
+  const seed = 7919 * 11 + 104729 * (variant + 1);
+  const crown = makeCrown([new V3(-L / 2, 0, -W / 2), new V3(L / 2, H, W / 2)]);
+  const geos = [];
+  const levels = variant === 0 ? [0, 1, 2] : [0, 1];
+  for (const lod of levels) {
+    const gb = new TreeGeometryBuilder();
+    const rng = mulberry32(seed + lod * 31337);
+    const R = (a, b) => a + (b - a) * rng();
+    // core: inset 0.14 m, five faces (no bottom), bark uv in metres
+    const ix = L / 2 - 0.14, iz = W / 2 - 0.14, iy = H - 0.12;
+    const face = (corners, n) => {
+      const base = gb.pos.length / 3;
+      corners.forEach(([x, y, z], k) => gb.vertex(new V3(x, y, z), n, k === 1 || k === 2 ? 1 : 0, y, 0, 0.55 + 0.35 * (y / H), 0, 0));
+      gb.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    };
+    face([[-ix, 0, iz], [ix, 0, iz], [ix, iy, iz], [-ix, iy, iz]], new V3(0, 0, 1));
+    face([[ix, 0, -iz], [-ix, 0, -iz], [-ix, iy, -iz], [ix, iy, -iz]], new V3(0, 0, -1));
+    face([[ix, 0, iz], [ix, 0, -iz], [ix, iy, -iz], [ix, iy, iz]], new V3(1, 0, 0));
+    face([[-ix, 0, -iz], [-ix, 0, iz], [-ix, iy, iz], [-ix, iy, -iz]], new V3(-1, 0, 0));
+    face([[-ix, iy, iz], [ix, iy, iz], [ix, iy, -iz], [-ix, iy, -iz]], new V3(0, 1, 0));
+    // skins: cards of side s every `step` over each face, standing on it (sides) or lying on it (top)
+    // (lod 1: one card per face, as a hedge 105-420 m away covers a few pixels; lod 2: the core alone)
+    const far = lod >= 1;
+    const s = lod === 0 ? 0.95 : Math.max(L, H);
+    const layers = lod === 0 ? [0, -0.16] : [0];
+    const cards = [];
+    const up = new V3(0, 1, 0), along = new V3(1, 0, 0);
+    const span = (len, sz) => {
+      if (far) return [0];
+      const n = Math.max(1, Math.ceil((len - sz * 0.35) / (sz * 0.5)));
+      return Array.from({ length: n }, (_, k) => (n === 1 ? 0 : -len / 2 + sz * 0.3 + (k * (len - sz * 0.6)) / (n - 1)));
+    };
+    const rows = (sz) => {
+      if (far) return [0];
+      const n = Math.max(1, Math.round((H - sz * 0.2) / (sz * 0.55)));
+      return Array.from({ length: n }, (_, k) => (n === 1 ? 0 : (k * (H - sz * 0.85)) / (n - 1)));
+    };
+    for (const d of lod === 2 ? [] : layers) {
+      for (const sgn of [1, -1]) {
+        // long sides
+        for (const u of span(L, s)) for (const y of rows(s)) {
+          cards.push({ at: new V3(u + R(-0.06, 0.06), far ? 0 : y - 0.05, sgn * (W / 2 + d + R(-0.03, 0.03))), up: up.clone(), face: new V3(0, 0, sgn), size: far ? Math.max(L, H) : s * R(0.95, 1.08) });
+        }
+        // ends
+        for (const u of span(W, s)) for (const y of rows(s)) {
+          cards.push({ at: new V3(sgn * (L / 2 + d), far ? 0 : y - 0.05, u + R(-0.05, 0.05)), up: up.clone(), face: new V3(sgn, 0, 0), size: far ? Math.max(W, H) : s * R(0.95, 1.08) });
+        }
+      }
+      // top: cards lying flat, rising along +x
+      for (const u of span(L, s)) for (const v of span(W, s)) {
+        cards.push({ at: new V3(u - (far ? L / 2 : s / 2), H + d + R(-0.03, 0.02), v), up: along.clone(), face: new V3(0, 1, 0), size: far ? L : s * R(0.95, 1.08) });
+      }
+    }
+    for (const c of cards) addCard(gb, c.at, c.up, c.face, c.size, sp.tile, rng() < 0.5, rng(), crown);
+    const g = gb.build();
+    g.userData = { species: sp.name, variant, lod, cards: cards.length, triangles: gb.idx.length / 3 };
+    geos[lod] = g;
+  }
+  return geos;
+}
+
 // One species / variant: [lod0, lod1, lod2] geometries (lod 2 only for variant 0)
 function buildTreeGeometries(speciesIndex, variant, tileMeters) {
   const sp = SPECIES[speciesIndex];
+  if (sp.hedge) return buildHedgeGeometries(sp, variant, tileMeters);
   const seed = 7919 * (speciesIndex + 1) + 104729 * (variant + 1);
   const branches = growTree(sp, seed);
 
@@ -839,9 +955,9 @@ function buildTreeGeometries(speciesIndex, variant, tileMeters) {
       if (lod === 0) {
         const radial = [9, 6, 4, 3][b.level];
         addTube(gb, b, radial, 1, aoAt, swayWeight);
-      } else if (lod === 1 && b.level <= 2) {
+      } else if (lod === 1 && b.level <= 2 && !(sp.light && sp.fronds && b.level === 1)) {
         addTube(gb, b, [6, 5, 3][b.level], 2, aoAt, swayWeight);
-      } else if (lod === 2 && b.level <= 1) {
+      } else if (lod === 2 && (b.level === 0 || (b.level === 1 && !(sp.light && sp.fronds)))) {
         addTube(gb, b, b.level === 0 ? 5 : 3, b.level === 0 ? 4 : 6, aoAt, swayWeight);
       }
     }
@@ -858,6 +974,9 @@ function buildTreeGeometries(speciesIndex, variant, tileMeters) {
 // 5. TREE FIELD: per-tree level of detail, regrouped into one instanced mesh per species / variant / level
 // =====================================================================================================================
 const LOD_NEAR = 105; // full detail within (m)
+// (a light species': planted thick, so its full detail only within 60 m and its coarse level only within 280 m)
+const LOD_NEAR_LIGHT = 60;
+const LOD_MID_LIGHT = 280;
 const LOD_MID = 420; // coarse cards & branches within; whole-crown cards beyond
 const LOD_HYSTERESIS = 6;
 // The camera moves this far before the levels are worked out again (was 4 m: with San Francisco's ~23k street trees
@@ -885,8 +1004,9 @@ function createTreeField(scene, sites) {
   const atlas = createLeafAtlas();
   const material = createTreeMaterial(atlas.texture);
 
-  // Geometries: [species][variant][lod]
-  const geos = SPECIES.map((_, s) => [0, 1].map((v) => buildTreeGeometries(s, v, atlas.tileMeters)));
+  // Geometries: [species][variant][lod] (the warm band's species only when a site plants one: null otherwise)
+  const planted = new Set(sites.map((t) => Math.min(SPECIES.length - 1, Math.max(0, t.species || 0))));
+  const geos = SPECIES.map((sp, s) => (s < WARM_SPECIES || planted.has(s) ? Array.from({ length: variantsOf(sp) }, (_, v) => buildTreeGeometries(s, v, atlas.tileMeters)) : null));
 
   // Per-tree transform & data
   const N = sites.length;
@@ -897,20 +1017,25 @@ function createTreeField(scene, sites) {
   const pz = new Float32Array(N);
   const meshOf = new Int16Array(N * 3); // mesh index per level
   const tier = new Uint8Array(N);
+  const nearOf = new Float32Array(N);
+  const midOf = new Float32Array(N);
   const lod = new Uint8Array(N).fill(255);
 
   // Meshes: lod 0 & 1 per species & variant, lod 2 per species
   const meshes = [];
   const counts = [];
-  const makeMesh = (geo, name) => {
-    meshes.push({ geo, name, capacity: 0 });
+  const makeMesh = (geo, name, shadow = true) => {
+    meshes.push({ geo, name, capacity: 0, shadow });
     return meshes.length - 1;
   };
-  const meshIndex = SPECIES.map((sp, s) => ({
-    l0: [0, 1].map((v) => makeMesh(geos[s][v][0], `Trees_${sp.name}_v${v}_lod0`)),
-    l1: [0, 1].map((v) => makeMesh(geos[s][v][1], `Trees_${sp.name}_v${v}_lod1`)),
-    l2: makeMesh(geos[s][0][2], `Trees_${sp.name}_lod2`)
-  }));
+  const meshIndex = SPECIES.map((sp, s) => {
+    if (!geos[s]) return null;
+    const l0 = geos[s].map((g, v) => makeMesh(g[0], `Trees_${sp.name}_v${v}_lod0`));
+    const l1 = geos[s].map((g, v) => makeMesh(g[1], `Trees_${sp.name}_v${v}_lod1`, !sp.light));
+    // (a one-variant species: both variants' trees in its one mesh per level; a light species casts shadows from its near
+    // level only: hundreds of them past 105 m, where the cascades are coarse anyway)
+    return { l0: [l0[0], l0[l0.length - 1]], l1: [l1[0], l1[l1.length - 1]], l2: makeMesh(geos[s][0][2], `Trees_${sp.name}_lod2`, !sp.light) };
+  });
 
   const dummy = new THREE.Object3D();
   const tint = new THREE.Color();
@@ -920,10 +1045,12 @@ function createTreeField(scene, sites) {
     const r2 = hashPos(t.z, 7.1, t.x);
     const r3 = hashPos(t.x + t.z, 3.3, 0.7);
     const variant = hashPos(t.x, 5.9, t.z) < 0.5 ? 0 : 1;
-    const s = t.scale * (0.9 + r1 * 0.2);
+    // (t.exact: no per-tree size jitter, so a run of hedge blocks keeps one height)
+    const s = t.exact ? t.scale : t.scale * (0.9 + r1 * 0.2);
     dummy.position.set(t.x, t.y || 0, t.z);
     dummy.rotation.set(0, t.yaw ?? r2 * Math.PI * 2, 0);
-    dummy.scale.set(s * (0.9 + r3 * 0.2) * (t.sx || 1), s * (0.88 + r1 * 0.24), s * (0.9 + r2 * 0.2) * (t.sz || 1));
+    if (t.exact) dummy.scale.set(s * (t.sx || 1), s, s * (t.sz || 1));
+    else dummy.scale.set(s * (0.9 + r3 * 0.2) * (t.sx || 1), s * (0.88 + r1 * 0.24), s * (0.9 + r2 * 0.2) * (t.sz || 1));
     dummy.updateMatrix();
     dummy.matrix.toArray(mats, i * 16);
     tint.setHex(SPECIES[sp].tints[Math.floor(r3 * 2.999)]).multiplyScalar(0.82 + r1 * 0.36);
@@ -932,6 +1059,8 @@ function createTreeField(scene, sites) {
     py[i] = (t.y || 0) + 6 * s;
     pz[i] = t.z;
     tier[i] = Math.min(2, t.tier || 0);
+    nearOf[i] = SPECIES[sp].light ? LOD_NEAR_LIGHT : LOD_NEAR;
+    midOf[i] = SPECIES[sp].light ? LOD_MID_LIGHT : LOD_MID;
     const mi = meshIndex[sp];
     meshOf[i * 3] = mi.l0[variant];
     meshOf[i * 3 + 1] = mi.l1[variant];
@@ -955,7 +1084,7 @@ function createTreeField(scene, sites) {
     mesh.count = 0;
     mesh.visible = false;
     mesh.frustumCulled = false; // instances surround the camera: the per-tree levels do the culling
-    mesh.castShadow = true;
+    mesh.castShadow = m.shadow;
     mesh.receiveShadow = true;
     group.add(mesh);
     counts.push(0);
@@ -1009,9 +1138,10 @@ function createTreeField(scene, sites) {
       const maxD = low ? Math.min(MAX_DIST[tier[i]], LOW_CUTOFF) : MAX_DIST[tier[i]];
       // levels 0-2, 3 = hidden; next to a boundary a tree keeps the level it has
       const curL = lod[i] === 255 ? 3 : lod[i];
-      let nextL = d < LOD_NEAR ? 0 : d < LOD_MID ? 1 : d < maxD ? 2 : 3;
+      const near = nearOf[i], mid = midOf[i];
+      let nextL = d < near ? 0 : d < mid ? 1 : d < maxD ? 2 : 3;
       if (Math.abs(nextL - curL) === 1) {
-        const edge = [LOD_NEAR, LOD_MID, maxD][Math.min(nextL, curL)];
+        const edge = [near, mid, maxD][Math.min(nextL, curL)];
         if (Math.abs(d - edge) < LOD_HYSTERESIS) nextL = curL;
       }
       const next = nextL === 3 ? 255 : nextL;
@@ -1050,8 +1180,8 @@ function createTreeField(scene, sites) {
 
   const stats = {
     trees: N,
-    triangles: geos.map((v) => v.map((l) => l.map((g) => g && g.userData.triangles))),
-    cards: geos.map((v) => v.map((l) => l.map((g) => g && g.userData.cards)))
+    triangles: geos.map((v) => v && v.map((l) => l.map((g) => g && g.userData.triangles))),
+    cards: geos.map((v) => v && v.map((l) => l.map((g) => g && g.userData.cards)))
   };
   return { group, material, atlas, update, meshes: instanced, stats };
 }

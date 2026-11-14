@@ -176,7 +176,9 @@ function buildSFGround(scene) {
   const cover = window.NYC.PKG && window.NYC.DATA && window.NYC.DATA.groundMask && window.NYC.createGroundCoverMaterial && window.NYC.groundMaskTexture;
   const sidewalkMat = cover ? window.NYC.createGroundCoverMaterial(window.NYC.groundMaskTexture(), window.NYC.DATA.groundMask.header, window.NYC.PKG.climate) : createSidewalkMaterial();
   const curbMat = createCurbMaterial();
-  const lawnMat = createParkLawnMaterial(false);
+  // (a Hometown package: a park's beach shows its sand, not the park's lawn: createParkLawnOffSandMaterial)
+  const lawnMat = cover && window.NYC.createParkLawnOffSandMaterial
+    ? window.NYC.createParkLawnOffSandMaterial(window.NYC.groundMaskTexture(), window.NYC.DATA.groundMask.header) : createParkLawnMaterial(false);
   let islandTris = 0;
   for (const c of cells.values()) {
     if (c.top.idx.length) group.add(drapedMesh(c.top, sidewalkMat, 'SFCurbIslands'));

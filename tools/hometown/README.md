@@ -90,9 +90,9 @@ USGS kept no copy of that version (`dem.DemUnavailable`, refused per tile).
 | roads | whole Overture segments meeting tile + 160 m, split at their connectors, then at every grid line E' = 512k / S = 512k exactly (int cm, `Fraction`); border nodes `b:{segment}:{E|S}{k}:{ordinal}`; a sub-piece belongs to the tile holding its first edge's midpoint; junction controls from every piece at the connector; no box-edge cut |
 | curb islands | land minus roadways over tile + 128 m, each island classified before the clip: one under 120 m2 inside the window is a median; the rest by local width (`ISLAND_W` 6 m: the parts a 6 m morphological opening leaves out are islands, the rest block, so a polygon the window cuts gets the same kinds where two tiles' windows share it), clipped to the tile, clipped edges flagged `cut` |
 | buildings | owned by the tile holding the exact centroid of the full footprint (integer shoelace), outline kept whole (may overhang), base and rise from the post function over the footprint; `foreign` lists the owners of buildings overlapping the tile |
-| ground | off the curb islands asphalt; on them the climate's open land (`climate.py` from the tile centre: humid lawn, dry scrub, arid sand), Overture land use over it (`lu_ground`, larger first), then paved: Overture car parks (infrastructure `parking` polygons) and 6 m lots round commercial buildings (`LOT_KINDS`) as **lot (7)**, a downtown's buildings in 12 m of paved square, the narrow islands and the sidewalk bands (class sidewalk width past the curb) as sidewalk; a humid open hillside (slope > 0.35, 12 m from any house) **woods (9)**, rock past the cliff slope |
-| trees | yards: a 13 m lattice in global grid integers, `hash01(i, j, k ^ domain)`, 3..25 m from a building, clear of footprints + 8 / 12 m and bare ground; woodland: a 16 m lattice over the woods cells; `desert` = arid climate |
-| mask | 512 x 512 1 m cells: asphalt, sidewalk, lawn, sand, rock, waterEdge, **water (6)**, lot (7), scrub (8), woods (9) |
+| ground | off the curb islands asphalt; on them the climate's open land (`climate.py` from the tile centre: humid lawn, dry scrub, arid sand), Overture land use over it (`lu_ground`, larger first), the **beaches** over that (Overture land subtype `sand`: OSM `natural=beach / sand / dune`, not `shingle`; a beach resort's land use too) as **beach (10)**, then paved: Overture car parks (infrastructure `parking` polygons) and 6 m lots round commercial buildings (`LOT_KINDS`) as **lot (7)**, a downtown's buildings in 12 m of paved square, the narrow islands (but a divided road's median island: open ground) and the sidewalk bands (class sidewalk width past the curb) as sidewalk; a humid open hillside (slope > 0.35, 12 m from any house) **woods (9)**, rock past the cliff slope (never on a beach); a beach's sand within 6 m of the water, and the water's edge band within 4 m of a beach, **wet sand (11)**; a curb island's park share leaves its beaches out (a park's beach is no lawn) |
+| trees | yards: a 13 m lattice in global grid integers, `hash01(i, j, k ^ domain)`, 3..25 m from a building, clear of footprints + 8 / 12 m and bare ground (paved, water, beach and wet sand); woodland: a 16 m lattice over the woods cells; `desert` = arid climate. The **warm band** (`climate.warmth`, below): yards 3..45 m from a building, the paved squares allowed, a palm / sea grape / evergreen mix (`WARM_YARD`); and street plantings (`warm_plantings`): stations along every street piece's ground lines at fixed arcs from the piece's start, each side of a segment planted or not and its species by `hash01(crc32(segment id), side, k ^ domain)` (rows): palms every 12 / 15 m in the strip 1.8 m past the sidewalk, clipped **hedge** blocks every 2 m on the property line (0.7 m past it; the class's fourth field is the block's yaw in degrees), and on one-way pieces palms 1.3 m past the curb where that is a narrow island (medians). Each side reads its own sidewalk (fid-roads' `swl` / `swr`); a divided road's inner side (towards its other carriageway, `pair`) has no hedge, and its street palms stand only where the median is wider than a narrow island (kind 3, deduped as the street row). A station of a kind is dropped where one of the same kind with a smaller key (segment, piece, line, side, k) stands within 5 / 1 / 5 m (raw stations, before any check, so every tile agrees), then kept only inside its tile, on lawn / scrub / sand (a hedge: lawn / scrub along its length; a median palm: a narrow island), clear of buildings (2.5 m, a hedge 1.2 m) and decks. Classes: 0 plane, 1 ficus, 2 palm, 3 elm, 4 conifer, 5 locust (San Francisco's), 6 royal palm, 7 coconut palm, 8 sabal palm, 9 sea grape, 10 hedge |
+| mask | 512 x 512 1 m cells: asphalt, sidewalk, lawn, sand (3: bare desert ground), rock, waterEdge, **water (6)**, lot (7), scrub (8), woods (9), beach (10), wetsand (11) |
 | places, water, parks | POIs owned by the tile; water and park polygons clipped, each water with its ctx `level_cm` |
 
 **Context blocks** (`context.py`, L4): `bcnt` / `pcnt` (buildings / places per 64 m cell) and `wlev` (each water
@@ -159,6 +159,11 @@ covers the tiles a run compiled itself, goes to the build log, never into `manif
 - The 8 layers are read in parallel through one duckdb database (cursors share `memory_limit` 2GB; `threads` 4; the
   object cache on; `HOMETOWN_FETCH_MEMORY` / `HOMETOWN_FETCH_THREADS`). `--no-index` / `--serial` give the old read.
 - Each region's share of each layer is split from the union locally, in parallel through the same database.
+- Since 0.8.1 a region also holds `overture-base-land.parquet` (Overture's natural features, less the coastline land
+  masses, subtype `land`: `fetch.LAYER_WHERE`); the compiler reads its sand (beaches) and refuses a region fetched
+  without it (`sources.REQUIRED_FILES`), naming `fetch.py --regions`, which for a fetched region reads only the layers it
+  has no file of (a top-up; `prewarm.py` runs it on the refusal). An index built before the layer lists no files for it:
+  that layer is read by the glob.
 - `dem.py` reads every internal tile a sample needs ahead of the loop, 16 range reads at a time
   (`HOMETOWN_DEM_THREADS`); the values are unchanged.
 
@@ -232,7 +237,27 @@ stays the same bytes in any compile that holds it (the seam / block / overlap pr
   penthouse crown on half of them.
 - **front / frontDist**: the direction and distance to the nearest roadway edge within 12 m (porches, awnings).
 - **region**: the tile's centre by coarse US regions (`region_of`), in the tile header and the package's buildings header.
+  Florida and Puerto Rico / the Virgin Islands in the warm band are `south-florida` (white, cream and pastel stucco and
+  concrete, no brick, flat roofs behind 0.95 m parapets or low barrel-tile hips; condo and hotel blocks of 20 m and more
+  get balcony slabs on every storey over pale balcony glass or painted concrete: `pkg-buildings.js`, `buildings.js`).
+- **climate** / **climateZone** (tile header, `PKG`): `climate` is the ground zone (`climate.zone`: humid / dry / arid,
+  as before; the ground and the far field read it); `climateZone` is `climate.zone_name`: the warm band's `tropical` /
+  `subtropical` (`climate.warmth`: \|lat\| < 23.5, the Florida peninsula south of 27.0 N, then subtropical to 29.2 N
+  and the south Texas coast and Rio Grande valley south of 28.0 N between -99.6 and -96.8), else the ground zone.
 - Elevated footprints (`min_height` >= 3 m) are not dropped by the in-the-roadway rule.
+- **Site roads (0.8.1, `World.footprint` / `site_cut` / `site_run`):** a footprint more than 35% in the roadway is
+  dropped, but round a building of 150 m2 or more that is not a roof or carport a site's own road (`soft`: class
+  service, any subclass or none, or private access) that runs into it does not count (Bal Harbour's 24,000 m2 mall
+  outline stood over its service passage). `site_run` says how a soft piece runs into a footprint (shrunk 1 m): half
+  its length or more inside, it is no road (dropped from every product: links, roadway, islands, junction controls,
+  the frame's lanes); in from an end, it is cut back to 1 m + half its width off the footprint, its new end a dead-end
+  node `x:{segment}:{piece}:a|b` (control 0, never a border); through the middle (or a bridge, tunnel, level or link
+  piece), it is kept whole and counts against the building unless that has 1,000 m2 (a passage under a mall or a
+  garage; a house with a drive through it is dropped, as before). Site roads beside a building count as every road
+  does (an alley garage half in the alley is still dropped), so a building that takes a road off the map always keeps
+  its own place. Bridges, decks, tunnels, grade groups and this test read the data's own pieces (`raw_pieces`), never
+  the cut ones (no cycle, tiles stay pure). Public streets are never touched; smaller buildings, roofs and carports
+  keep the old rule.
 
 Step 0 (Overture 2026-10-21.0, the fetched regions): `roof_shape` on 0 of 3,186 Okemah buildings, 225 of 182,368
 round Phoenix, 538 of 272,900 round Pittsburgh; `roof_height` and facade / roof colours on none (they are not fetched;
@@ -302,9 +327,27 @@ table `osm_roads.py` builds from Geofabrik's US extract (`lanes`, `lanes:forward
 width follows the lanes (3.4 m each + 1 m; motorway carriageway + 4.2 m shoulders; link + 2.2 m; a centre turn lane
 +3.4 m), streets keep their class width where wider; no halving. One-ways: heading denials for motor vehicles (or no
 mode), per piece where the rule has `between`. Segments' way ids and speed limits come from
-`fetch.py --extras <regions>` (`overture-transportation-segment-extras.parquet` per region; used only when every loaded
-region has one). The side table: `--osm-roads <parquet>` or `<data>/osm/osm-roads-us.parquet`; its sha256 is in the
+`overture-transportation-segment-extras.parquet` per region, which `fetch.py --regions` fetches with the region since
+0.8.1 (`--extras <regions>` adds it to a region fetched before). A region without it counts as not fetched: the
+compiler refuses its tiles with the `fetch.py --regions` command (`prewarm.py` runs it and retries), because a town
+built without it silently fell back to the class defaults (production Bal Harbour, FL, 0.8.0: Collins Ave one lane
+and 9 m a carriageway instead of OSM's three and 11.2 m). The side table: `--osm-roads <parquet>` or `<data>/osm/osm-roads-us.parquet`; its sha256 is in the
 build record (a new table, a new buildId).
+
+**Sides** (0.8.1, fid-roads; World.pair / World.sides, per segment, left / right of the segment's own direction, which
+is the OSM way's): a one-way carriageway's **pair** is the other half of a divided road: a one-way road of the same name
+(both unnamed: the same main class) running the other way, parallel within ~25 degrees, 3-45 m off the centreline and
+abeam of its middle (else a quarter or three quarters along). **Sidewalks** from the side table's `sidewalk`,
+`sidewalk:left/right/both` (`separate` counts as one: the tiles draw no footways; a class with none by default gets
+2 m), else a paired carriageway has its class sidewalk on its outer side only, else both sides as before. **Bike lanes**
+from `cycleway`, `cycleway:left/right/both` (0 none, 1 shared lane, 2 lane, 3 track; a one-way's plain tag on the right
+of travel). A paired carriageway with OSM lanes is as wide as its lanes (3.4 m each + 1 m, no class floor). The tiles'
+links carry `swl`, `swr`, `cyl`, `cyr`; the sidewalk bands follow each side (`side_band`: the round-capped buffer when
+both sides match, as before, else the bare side cut off flat); a narrow curb island inside a pair's median (each
+carriageway's inner side, half way to the other) is open ground (lawn in a humid place) instead of paving. The package's
+links: [8] / [9] the sidewalk left / right (they were the one class width twice), [14] / [15] the bike lanes. The engine
+(`cities/sf/js/road-paint.js`, packages only) paints solid edge lines along a road with two or more lanes one way:
+white on the right of the travel, yellow on the left of a one-way roadway, beside the outer lanes.
 
 Building the side table (offline, the dev Mac, once per Overture release; never on Render):
 
@@ -316,8 +359,10 @@ python tools/hometown/fetch.py --extras "conus:C,R;C,R..."      # the regions' w
 ```
 
 First build (13 Nov 2026): `us-261112.osm.pbf` (12,264,531,947 B, md5 11b2a6f5dcfe611cbba52cafe354edf1), 52.2 M highway
-ways read, 3,670,803 kept, 17.1 MB, sha256 `555ea001a758b77b...`, 36 min on a loaded 10-core Mac. ODbL 1.0
-(© OpenStreetMap contributors), a derived database: keep `osm_roads.py` public with the compiler.
+ways read, 3,670,803 kept, 17.1 MB, sha256 `555ea001a758b77b...`, 36 min on a loaded 10-core Mac. Second build
+(14 Nov 2026, 0.8.1, the same extract, + the sidewalk and cycleway tags): 3,727,594 kept (every earlier row's lane
+columns unchanged; 56,791 more ways that carry only the new tags), 19.4 MB, sha256 `369b9debd00efaef...`, 20 min.
+ODbL 1.0 (© OpenStreetMap contributors), a derived database: keep `osm_roads.py` public with the compiler.
 
 That build is committed beside the compiler: `tools/hometown/osm/osm-roads-us.parquet` (+ `.json`, its record; ODbL
 notice in `tools/hometown/osm/NOTICE.md`), so a checkout of this repository at a pinned commit carries the exact bytes
@@ -327,7 +372,9 @@ this copy (`--osm-roads` / `HOMETOWN_OSM_ROADS` override both); the build record
 ## Rules that are estimates, not data
 
 Road widths, lanes and sidewalks by class; building type by Overture class, footprint area, height and the downtown
-field; a house at least 3.4 m; signals and stops; the street density; paved aprons round non-house buildings. No brand
+field; a house at least 3.4 m; signals and stops; the street density; paved aprons round non-house buildings; the warm
+band's bounds, its planting shares and spacings, and the south-florida look (no data says which street has palms or a
+hedge: Overture's fetched layers carry no tree points). No brand
 names: a business is called by what it is and its street; public institutions keep their own names.
 
 Licences and credits: © OpenStreetMap contributors (ODbL 1.0) via Overture Maps Foundation (CDLA Permissive 2.0 /

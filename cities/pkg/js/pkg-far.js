@@ -138,17 +138,18 @@ function build(scene) {
   // (sf-ground.js), else the ground mask's class there (a block's top shows it too: createGroundCoverMaterial), as
   // albedo (roughly the materials' mean colours)
   const CORE_COLORS = { concrete: 0x84837b, park: 0x63903a, asphalt: 0x45474b, lawn: 0x4f6a2e, sand: 0xa8936f, rock: 0x6f6658, seawall: 0x5a5650,
-    lot: 0x515254, scrub: 0x7f7c4e, woods: 0x3a4424 };
+    lot: 0x515254, scrub: 0x7f7c4e, woods: 0x3a4424, beach: 0xcdb994, wetsand: 0x9d8966 };
   const cc = Object.fromEntries(Object.entries(CORE_COLORS).map(([k, v]) => [k, new THREE.Color(v)]));
   if (clim === 'humid') cc.scrub = new THREE.Color(0x5f6835); // (createGroundCoverMaterial: a humid place's rough ground is weedy green)
-  const byClass = [cc.asphalt, cc.concrete, cc.lawn, cc.sand, cc.rock, cc.seawall, cc.seawall, cc.lot, cc.scrub, cc.woods];
+  const byClass = [cc.asphalt, cc.concrete, cc.lawn, cc.sand, cc.rock, cc.seawall, cc.seawall, cc.lot, cc.scrub, cc.woods, cc.beach, cc.wetsand];
   function coreGroundAt(x, z) {
     const b = N.blockAt && N.blockAt(x, z);
-    if (b && b.park > 0.5 && !b.median) return cc.park;
     const M = N.DATA && N.DATA.groundMask, H = M && M.header;
+    const i = H ? Math.floor((x - H.originX) / H.cell) : -1, j = H ? Math.floor((z - H.originZ) / H.cell) : -1;
+    const k = !H || i < 0 || j < 0 || i >= H.w || j >= H.h ? 2 : M.mask[j * H.w + i];
+    // (a park's beach shows its sand, sf-ground.js: the park lawn is cut away over beach and wet sand, 10 and 11)
+    if (b && b.park > 0.5 && !b.median && k < 10) return cc.park;
     if (!H) return b ? cc.concrete : cc.lawn;
-    const i = Math.floor((x - H.originX) / H.cell), j = Math.floor((z - H.originZ) / H.cell);
-    const k = i < 0 || j < 0 || i >= H.w || j >= H.h ? 2 : M.mask[j * H.w + i];
     return (b && k === 0 ? cc.concrete : byClass[k]) || cc.lawn;
   }
   // the edge's colour round the point (px, pz) on the core's boundary: 16 samples along it (+-56 m) and 2 deep (6, 30 m)

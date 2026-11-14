@@ -193,7 +193,7 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
         if l.get('elev'):
             elev = [round(l['elev'][0] / 100.0 / k0, 4)] + [round(v / 100.0 - y_off, 2) for v in l['elev'][1:]]
         rl.append({'a': a, 'b': b, 'ni': name_idx(l['name']), 'w': l['w'], 'lanes': l['lanes'], 'dir': l['dir'], 'inner': inner, 'flags': l['flags'],
-                   'sw': l['sw'], 'cls': l['cls'], 'rank': l['rank'], 'stopA': l['stopA'], 'stopB': l['stopB'],
+                   'sw': l['sw'], 'swl': l.get('swl', l['sw']), 'swr': l.get('swr', l['sw']), 'cyl': l.get('cyl', 0), 'cyr': l.get('cyr', 0), 'cls': l['cls'], 'rank': l['rank'], 'stopA': l['stopA'], 'stopB': l['stopB'],
                    'lf': l.get('lf', -1), 'lb': l.get('lb', -1), 'elev': elev, 'spd': l.get('spd', -1), 'lsrc': l.get('lsrc'), 'seg': l['seg'],
                    'len': sum(math.hypot(x1 - x0, z1 - z0) for (x0, z0), (x1, z1) in zip(l['pts'], l['pts'][1:])) / 100.0})
         inc.setdefault(a, []).append((idx, 'A'))
@@ -205,9 +205,10 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
             if rl[li]['stop' + end]:
                 stop_mask[i] |= 1 << slot
     rg = {'nodes': [v for p in nodes for v in (C.q1(p[0]), C.q1(p[1]))], 'names': names,
-          # links: [a, b, name, w, lanes, dir, inner, flags, swL, swR, lanesFwd, lanesBack, elev|null, maxSpeedMph] (README)
-          'links': [[l['a'], l['b'], l['ni'], C.q1(l['w']), l['lanes'], l['dir'], [v for p in l['inner'] for v in (C.q1(p[0]), C.q1(p[1]))], l['flags'], C.q1(l['sw']), C.q1(l['sw']),
-                     l['lf'], l['lb'], l['elev'], l['spd']] for l in rl],
+          # links: [a, b, name, w, lanes, dir, inner, flags, swL, swR, lanesFwd, lanesBack, elev|null, maxSpeedMph, cycleL,
+          # cycleR] (README; swL / swR and cycleL / cycleR left / right of the link's own direction)
+          'links': [[l['a'], l['b'], l['ni'], C.q1(l['w']), l['lanes'], l['dir'], [v for p in l['inner'] for v in (C.q1(p[0]), C.q1(p[1]))], l['flags'], C.q1(l['swl']), C.q1(l['swr']),
+                     l['lf'], l['lb'], l['elev'], l['spd'], l['cyl'], l['cyr']] for l in rl],
           'control': control, 'stopMask': stop_mask, 'nhoods': [D1['name'].split(',')[0]], 'linkNhood': [0] * len(rl), 'decks': []}
 
     # ---- curb islands: pieces merged back across the tiles' cut edges (by kind)
@@ -338,6 +339,8 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
     region = dec[min(order, key=lambda k: abs(k[0] - fr['c0']) + abs(k[1] - fr['r0']))][0].get('region', 'plains-midwest') if order else 'plains-midwest'
     # (and its climate, the same way: the far field's flat fill and apron take its open ground's colour)
     clim = dec[min(order, key=lambda k: abs(k[0] - fr['c0']) + abs(k[1] - fr['r0']))][0].get('climate', 'humid') if order else 'humid'
+    # (and its climate zone: the warm band's 'tropical' / 'subtropical' where it is in it, else the same as climate)
+    czone = dec[min(order, key=lambda k: abs(k[0] - fr['c0']) + abs(k[1] - fr['r0']))][0].get('climateZone', clim) if order else clim
     theader = {'format': 'sf-terrain', 'version': 1, 'box': 'pkg', 'cell': 2 / k0, 'originX': ox, 'originZ': oz, 'w': Wp, 'h': Hp,
                'minH': minH, 'maxH': maxH, 'scale': scale, 'waterLevel': water_level, 'datum': 'NAVD88 m minus %d' % y_off,
                'grid': grid.GRID, 'source': sorted({os.path.basename(s['url']) for (c, r) in order for s in dec[(c, r)][0]['demSource']})}
@@ -441,7 +444,7 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
            'tileSize': grid.TILE / k0, 'density': density, 'spawn': spawn, 'spawns': sp, 'places': places, 'attribution': C.ATTRIBUTION,
            'frame': frame, 'box': box, 'tiles': tile_ids, 'tileSetHash': D2['tileSetHash'], 'lock': D2['lock'],
            'tileHeaders': {grid.tile_id(dom, c, r): {'bcount': dec[(c, r)][0]['bcount'], 'groundAreaM2': dec[(c, r)][0]['groundAreaM2']} for (c, r) in order},
-           'downtown': {'x': C.q1(center[0]), 'z': C.q1(center[1])}, 'far': FAR, 'climate': clim,
+           'downtown': {'x': C.q1(center[0]), 'z': C.q1(center[1])}, 'far': FAR, 'climate': clim, 'climateZone': czone,
            # (the growing town: which tiles this variant holds; the engine keeps the player, traffic and missions in it)
            'variant': variant, 'tilesId': F['lock']['tiles'], 'district': F['district'],
            'window': {'variant': variant, 'tileRange': [c0t, r0t, c1t, r1t], 'box': {'x0': C.q1(X0), 'z0': C.q1(Z0), 'x1': C.q1(X1), 'z1': C.q1(Z1)},

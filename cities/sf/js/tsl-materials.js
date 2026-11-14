@@ -562,10 +562,14 @@ function createCurtainWallMaterial(opts = {}) {
     reflectivity = 0.92,
     seed = 1.0,
     boxLocal = false,
-    groundBase = boxLocal // floors count from the per-vertex / per-instance `boxBase` (facadeCell)
+    groundBase = boxLocal, // floors count from the per-vertex / per-instance `boxBase` (facadeCell)
+    // (a painted frame, e.g. South Florida's white balcony bands: the spandrel's own colour instead of the frame's darker
+    // shade, and the frame's metalness instead of the glass's; unset: as every other style)
+    spandrelTint = null,
+    frameMetalness = null
   } = opts;
 
-  const cacheKey = `${glassTint}_${frameTint}_${windowWidth}_${floorHeight}_${litProbability}_${warmth}_${reflectivity}_${seed}_${boxLocal}_${groundBase}`;
+  const cacheKey = `${glassTint}_${frameTint}_${windowWidth}_${floorHeight}_${litProbability}_${warmth}_${reflectivity}_${seed}_${boxLocal}_${groundBase}_${mullionThickness}_${spandrelRatio}_${spandrelTint}_${frameMetalness}`;
   if (_curtainWallCache.has(cacheKey)) {
     return _curtainWallCache.get(cacheKey);
   }
@@ -661,7 +665,7 @@ function createCurtainWallMaterial(opts = {}) {
     const glassColor = mix(glazedBase, envReflection, fresnel.mul(uReflectivity).add(0.18))
       .add(cityUniforms.uSunColor.mul(sunSpec));
 
-    const spandrelDark = cFrame.mul(0.52);
+    const spandrelDark = spandrelTint == null ? cFrame.mul(0.52) : uniform(new THREE.Color(spandrelTint));
     const frameBase = mix(cFrame, spandrelDark, filteredPulse(cellUV.y, 0.0, spandrelRatio, fw.y));
 
     const canyonBand = smoothstep(0.0, 14.0, vCoord).mul(float(1.0).sub(smoothstep(22.0, 75.0, vCoord)));
@@ -694,8 +698,14 @@ function createCurtainWallMaterial(opts = {}) {
     return mix(mix(glassOrFrame, float(0.36), coping), float(0.88), blank);
   })();
 
-  // Glass & metal, but the concrete lot-line walls aren't
-  mat.metalnessNode = mix(float(0.72), float(0.0), blank);
+  // Glass & metal, but the concrete lot-line walls aren't (nor a painted frame)
+  if (frameMetalness == null) mat.metalnessNode = mix(float(0.72), float(0.0), blank);
+  else {
+    const isFrameM = float(1.0).sub(
+      filteredPulse(cellUV.x, mullionThickness, 1.0 - mullionThickness, fw.x).mul(filteredPulse(cellUV.y, spandrelRatio, 1.0, fw.y))
+    );
+    mat.metalnessNode = mix(mix(float(0.72), float(frameMetalness), max(max(isFrameM, isRoof), coping)), float(0.0), blank);
+  }
 
   // Hardware derivative bumpNormal for raised curtain-wall mullions & spandrel channels (ramps >= 2px, see pre-war)
   mat.normalNode = Fn(() => {
@@ -1559,7 +1569,21 @@ function createTreeMaterial(leafAtlas) {
     // (a palm's: pale grey-brown with the rings of old leaf bases, P4.5)
     const palmBark = mix(color(0x6f6556), color(0x9a8e78), smoothstep(0.2, 0.8, fract(bu.y.mul(3.0))).mul(n2.mul(0.5).add(0.5)));
     const isPalm = step(3.5, species).mul(step(species, 4.5));
-    const bark = mix(mix(furrowed, planeBark, step(species, 0.5)), palmBark, isPalm).mul(crownAO.mul(0.4).add(0.6));
+    // (the warm band's, trees.js 6..10: the royal palm's smooth pale-grey column under a green crownshaft, the coconut's and
+    // sabal's ringed palm bark, the sea grape's grey stems, and a clipped hedge's core: its own foliage, dark and dense)
+    const isWarmPalm = step(5.5, species).mul(step(species, 8.5));
+    const isRoyal = step(5.5, species).mul(step(species, 6.5));
+    const royalBark = mix(color(0x9c978c), color(0xc4bfb3), n2.mul(0.6).add(smoothstep(0.85, 1.0, fract(bu.y.mul(1.4))).mul(-0.25)).add(0.3));
+    const crownshaft = step(13.2, bu.y).mul(step(aTree.z, 0.001)).mul(isRoyal);
+    // (the coconut's: paler, its leaf-scar rings finer and softer than the date palm's)
+    const coconutBark = mix(color(0x8b8476), color(0xaaa293), smoothstep(0.15, 0.85, fract(bu.y.mul(5.0))).mul(0.6).add(n2.mul(0.4)));
+    const isCoconut = step(6.5, species).mul(step(species, 7.5));
+    const warmPalm = mix(mix(mix(palmBark, coconutBark, isCoconut), royalBark, isRoyal), color(0x6f8a3a).mul(n2.mul(0.25).add(0.85)), crownshaft);
+    const seaGrapeBark = mix(color(0x5e5a52), color(0x8a8478), n2);
+    const hedgeCore = aData.xyz.mul(n1.mul(0.35).add(0.45));
+    const barkBase = mix(mix(furrowed, planeBark, step(species, 0.5)), palmBark, isPalm);
+    const barkWarm = mix(mix(barkBase, warmPalm, isWarmPalm), seaGrapeBark, step(8.5, species).mul(step(species, 9.5)));
+    const bark = mix(barkWarm, hedgeCore, step(9.5, species)).mul(crownAO.mul(0.4).add(0.6));
 
     return vec4(mix(bark, foliage, isLeaf), alpha);
   })();
@@ -2008,14 +2032,17 @@ function createTerrainMaterial(maskTexture, mask) {
   const cSand = color(0xc8b58e);
   const cRock = color(0x6f6556);
   const cSeawall = color(0x5f5b54);
-  // (a Hometown package's mask also has 7 paved lot, 8 dry scrub, 9 woodland floor: tools/hometown/compile.py MASK)
+  // (a Hometown package's mask also has 7 paved lot, 8 dry scrub, 9 woodland floor, 10 beach sand, 11 wet sand:
+  // tools/hometown/compile.py MASK)
   const cLot = color(0x4d4e51);
   const cScrub = color(0x857f52);
   const cWoods = color(0x34431f);
+  const cBeach = color(0xcab691);
+  const cWetSand = color(0x9f8b68);
   const classColor = (c) => {
     const is = (k) => float(1.0).sub(step(0.5, abs(c.sub(k))));
     return cSidewalk.mul(is(1)).add(cLawn.mul(is(2))).add(cSand.mul(is(3))).add(cRock.mul(is(4))).add(cSeawall.mul(is(5)))
-      .add(cLot.mul(is(7))).add(cScrub.mul(is(8))).add(cWoods.mul(is(9)));
+      .add(cLot.mul(is(7))).add(cScrub.mul(is(8))).add(cWoods.mul(is(9))).add(cBeach.mul(is(10))).add(cWetSand.mul(is(11)));
   };
   const size = vec2(mask.w, mask.h);
   // cell coordinates with texel centres on integers: the four cells around the fragment and its place between them
@@ -2066,9 +2093,9 @@ function createTerrainMaterial(maskTexture, mask) {
  * (Hometown packages) The curb islands' tops (js/sf-ground.js) by the ground mask under them, so a block is not one
  * paved slab: concrete flags only where the mask says sidewalk (the bands along the streets, a downtown's paved squares,
  * and the roadway class in the cells a curb line straddles), the paved lots (7) as worn asphalt, and the land as grass
- * (2), bare ground (3), rock (4), the water's edge (5), dry scrub (8) or woodland floor (9) (tools/hometown/compile.py
- * MASK). The cells are read as the terrain material reads them: the four round the fragment, the flags' share
- * sharpened to about a pixel, the other classes blended among themselves.
+ * (2), bare ground (3), rock (4), the water's edge (5), dry scrub (8), woodland floor (9), beach sand (10) or the wet
+ * sand along the water (11) (tools/hometown/compile.py MASK). The cells are read as the terrain material reads them:
+ * the four round the fragment, the flags' share sharpened to about a pixel, the other classes blended among themselves.
  * `maskTexture`: the terrain's own R8 DataTexture (terrain-mesh.js groundMaskTexture); `mask`: its header; `climate`: the
  * package's (tools/hometown/climate.py): its rough ground (8) is weedy green in a humid place, dry scrub elsewhere.
  */
@@ -2107,26 +2134,52 @@ function createGroundCoverMaterial(maskTexture, mask, climate = 'humid') {
     ? mix(mix(color(0x58602f), color(0x6f6f3e), n1), grass, n2.mul(0.4).add(0.3))
     : mix(mix(color(0x7b7a4c), color(0x958c5e), n1), grass, n2.mul(0.35).add(0.1));
   const cWoods = mix(color(0x2c3d1d), color(0x45402a), n2.mul(0.6)).mul(n1.mul(0.25).add(0.85));
+  // (a beach, 10: pale warm sand in broad drifts, a fine grain and wind ripples (about 0.6 m, wandering with the noise)
+  // that fade out before they would shimmer; 11: the wet band along the water, darker, smooth and a little glossy)
+  const pix = length(fwidth(xz));
+  const rippleFade = smoothstep(0.12, 0.03, pix);
+  const ripple = sin(dot(xz, vec2(0.82, 0.57)).add(n1.mul(5.0)).add(noise2D(xz.mul(0.37)).mul(2.5)).mul(10.5)).mul(0.5).add(0.5).mul(rippleFade);
+  const cBeach = mix(color(0xbfa880), color(0xd6c39c), n1).mul(n2.mul(0.06).add(0.97)).mul(grit.mul(0.08).add(0.96)).mul(ripple.mul(0.06).add(0.97));
+  const cWet = mix(color(0x8f7b5b), color(0xa8946f), n2).mul(grit.mul(0.05).add(0.975));
   const is = (c, k) => float(1.0).sub(step(0.5, abs(c.sub(k))));
   const landColor = (c) => grass.mul(is(c, 2)).add(cSand.mul(is(c, 3))).add(cRock.mul(is(c, 4))).add(cEdge.mul(is(c, 5)))
-    .add(cLot.mul(is(c, 7))).add(cScrub.mul(is(c, 8))).add(cWoods.mul(is(c, 9)));
+    .add(cLot.mul(is(c, 7))).add(cScrub.mul(is(c, 8))).add(cWoods.mul(is(c, 9))).add(cBeach.mul(is(c, 10))).add(cWet.mul(is(c, 11)));
   const ows = cs.map((c, i) => ws[i].mul(step(1.5, c)));
   const owSum = max(ows.reduce((a, w) => a.add(w), float(0.0)), 0.0001);
   const land = cs.reduce((acc, c, i) => acc.add(landColor(c).mul(ows[i])), vec3(0.0)).div(owSum);
   // (the lots: smooth, so no lawn relief or grass specular on them)
   const lot = cs.reduce((acc, c, i) => acc.add(is(c, 7).mul(ows[i])), float(0.0)).div(owSum);
+  // (the beach: its ripples for relief, no lawn's; the wet sand smooth and glossier)
+  const dry = cs.reduce((acc, c, i) => acc.add(is(c, 10).mul(ows[i])), float(0.0)).div(owSum);
+  const wetK = cs.reduce((acc, c, i) => acc.add(is(c, 11).mul(ows[i])), float(0.0)).div(owSum);
+  const sandK = dry.add(wetK);
+  const sandNormal = bumpNormal(ripple.mul(0.012).mul(dry));
 
   mat.colorNode = mix(land, slab.colorNode, flags);
-  mat.roughnessNode = mix(mix(lawn.roughnessNode, float(0.8), lot), slab.roughnessNode, flags);
+  mat.roughnessNode = mix(mix(mix(lawn.roughnessNode, float(0.8), lot), mix(float(0.95), float(0.55), wetK.div(max(sandK, 0.0001))), sandK), slab.roughnessNode, flags);
   mat.metalnessNode = slab.metalnessNode.mul(flags);
-  mat.normalNode = normalize(mix(mix(lawn.normalNode, normalView, lot), slab.normalNode, flags));
+  mat.normalNode = normalize(mix(mix(mix(lawn.normalNode, normalView, lot), sandNormal, sandK), slab.normalNode, flags));
   const { specularColor, specularColorBlended, specularF90 } = window.NYC.TSL;
   mat.setupSpecular = function () {
-    const k = mix(mix(float(0.025), float(0.04), lot), float(0.04), flags);
+    const k = mix(mix(mix(float(0.025), float(0.04), lot), float(0.03), sandK), float(0.04), flags);
     specularColor.assign(vec3(k));
     specularColorBlended.assign(vec3(k));
-    specularF90.assign(mix(mix(float(0.3), float(1.0), lot), float(1.0), flags));
+    specularF90.assign(mix(mix(mix(float(0.3), float(1.0), lot), mix(float(0.5), float(1.0), wetK.div(max(sandK, 0.0001))), sandK), float(1.0), flags));
   };
+  return mat;
+}
+
+/**
+ * (Hometown packages) A park block's mown lawn (sf-ground.js lays it over the whole curb island) cut away where the
+ * ground mask says beach (10) or wet sand (11): a beach park shows its sand (createGroundCoverMaterial, under it), the
+ * rest of the park its lawn. The cell under the fragment, read as the cover material reads it.
+ */
+function createParkLawnOffSandMaterial(maskTexture, mask) {
+  const mat = createParkLawnMaterial(false);
+  const size = vec2(mask.w, mask.h);
+  const cell = floor(positionWorld.xz.sub(vec2(mask.originX, mask.originZ)).div(mask.cell));
+  const c = floor(texture(maskTexture, cell.add(0.5).div(size)).r.mul(255.0).add(0.5));
+  mat.maskNode = c.lessThan(9.5);
   return mat;
 }
 
@@ -3444,5 +3497,5 @@ function createCarFlareMaterial() {
   return mat;
 }
 
-Object.assign(window.NYC, { cityUniforms, WALL_KINDS, createCurtainWallMaterial, createPreWarBuildingMaterial, createFacadeBoxes, createChryslerCrownMaterial, createCarPaintMaterial, createFoliageMaterial, createTreeBarkMaterial, createTreeMaterial, createParkPavingMaterial, createParkWallMaterial, createIronFenceMaterial, createParkLampGlobeMaterial, createParkLampPoolMaterial, createTunnelShadeMaterial, createTktsStepMaterial, createMarbleAshlarMaterial, createTreeGrateMaterial, createRoadSurfaceMaterial, createTerrainMaterial, createGroundCoverMaterial, createRoadPaintMaterial, createSidewalkMaterial, createCurbMaterial, createBillboardMaterial, createWaterMaterial, createParkLawnMaterial, createSteamMaterial, createGodRayMaterial, createContactShadowMaterial, createHeadlightBeamMaterial, createCarFlareMaterial });
+Object.assign(window.NYC, { cityUniforms, WALL_KINDS, createCurtainWallMaterial, createPreWarBuildingMaterial, createFacadeBoxes, createChryslerCrownMaterial, createCarPaintMaterial, createFoliageMaterial, createTreeBarkMaterial, createTreeMaterial, createParkPavingMaterial, createParkWallMaterial, createIronFenceMaterial, createParkLampGlobeMaterial, createParkLampPoolMaterial, createTunnelShadeMaterial, createTktsStepMaterial, createMarbleAshlarMaterial, createTreeGrateMaterial, createRoadSurfaceMaterial, createTerrainMaterial, createGroundCoverMaterial, createParkLawnOffSandMaterial, createRoadPaintMaterial, createSidewalkMaterial, createCurbMaterial, createBillboardMaterial, createWaterMaterial, createParkLawnMaterial, createSteamMaterial, createGodRayMaterial, createContactShadowMaterial, createHeadlightBeamMaterial, createCarFlareMaterial });
 })();
