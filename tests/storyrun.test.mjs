@@ -384,9 +384,11 @@ test("every place a step sends him on foot is one he can stand on (owner, 14 Nov
   // (a compiled town's approach first: walk and npc went to the lane point, a man in the road)
   assert.match(run, /const footAt = \(p, why\) => footing\(p\.ax \?\? p\.x, p\.az \?\? p\.z, p, why\);/);
   assert.match(step('walk'), /pt = footAt\(p, 'walk'\)/);
-  assert.match(step('walk'), /ring\.at\(pt\.x, 0, pt\.z\)/);
+  assert.match(step('walk'), /ring\.at\(pt\.x, groundY\(pt\.x, pt\.z\), pt\.z\)/);
   assert.match(step('walk'), /dist\(P\.position, pt\.x, pt\.z\) < r/);
-  assert.match(step('search'), /const pt = footing\(p\.cx \?\? p\.x, p\.cz \?\? p\.z, p, 'search'\);/);
+  // (a search's spot: the approach from its street (guidance), then the guard)
+  assert.match(step('search'), /const spot = p\.cx != null \? approach\(p, /);
+  assert.match(step('search'), /const g = footing\(spot\.x, spot\.z, p, 'search'\);/);
   assert.match(step('npc'), /footAt\(p, 'npc'\)/);
   assert.match(step('collect'), /footing\(pp\.cx \?\? pp\.x, pp\.cz \?\? pp\.z, pp, 'collect'\)/);
   assert.match(step('stealth'), /footing\(dest0\.cx \?\? dest0\.x, dest0\.cz \?\? dest0\.z, dest0, 'stealth'\)/);

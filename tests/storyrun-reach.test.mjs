@@ -101,9 +101,11 @@ test('the reason the builder reads: the step, the place and why, in a player\'s 
 
 test('the runner holds every spot a step sends him to to it, and the autopilot never moves through a wall', () => {
   const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
-  // walk, search, drive and stops (goTo), place, a mission's start, a fight's arena, a collect, a tow
-  for (const re of [/mustReach\(hx, hz, 'person', d, p/, /mustReach\(p\.x, p\.z, 'person', d, p\);\n    gps\.objective\(parts\(d\.objective \|\| `Walk to/, /mustReach\(p\.x, p\.z, inCar\(\) \|\| needsCar/,
-    /STEPS\.place = [^\n]*mustReach/, /type: 'start' \}, p\)/, /const p = placeOf\(d\.arena\);\n    mustReach/, /placeOf\(r\); mustReach\(/, /mustReach\(cx, cz, 'car'/]) assert.match(run, re);
+  // walk, search, drive and stops (goTo), place, a mission's start, a fight's arena, a collect, a tow (the spot the
+  // runner's guard settled on: a town place's approach, a target walked out of a building; and again where it moves it)
+  for (const re of [/mustReach\(hx, hz, 'person', d, p/, /mustReach\(pt\.x, pt\.z, 'person', d, p\);\n    gps\.objective\(obj, /, /mustReach\(p\.x, p\.z, inCar\(\) \|\| needsCar/,
+    /STEPS\.place = [^\n]*mustReach/, /type: 'start' \}, p\)/, /const p = placeOf\(d\.arena\);\n    mustReach/, /placeOf\(r\), g = footing\([^\n]*mustReach\(g\.x, g\.z, 'person'/, /mustReach\(cx, cz, 'car'/,
+    /footWatch\(pt, p, 'walk', \(q\) => \{ mustReach\(q\.x, q\.z/, /footWatch\(pt, p, 'search', \(q\) => \{\n      mustReach\(q\.x, q\.z/]) assert.match(run, re);
   assert.match(run, /e\.kind === 'reach'\)\) return \{ how: 'fail'/);
   const ap = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/autopilot.js'), 'utf8');
   // (every direct move of the person is the guarded hop, the landing checked walk jump, or his door when he gets in)
