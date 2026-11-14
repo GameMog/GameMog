@@ -1,4 +1,4 @@
-# tools/hometown/compile.py: Hometown compiler 0.9.0 on the national grid hg1 (grid.py). A TILE is compiled from its
+# tools/hometown/compile.py: Hometown compiler 0.10.0 on the national grid hg1 (grid.py). A TILE is compiled from its
 # own sources and context alone: tile = f(buildId, key, sources over tile + halo, ctx blocks). It never reads a whole
 # place's inputs nor a neighbour's output, so neighbouring towns share identical tiles, any tile can be compiled on first
 # request, and a 4 x 4 block compiled in one process gives the same bytes as its 16 tiles compiled one by one.
@@ -66,7 +66,7 @@ import shapely.ops  # noqa: E402
 # bridge that starts there; its roadway as before the move), a tunnel leaving another underground starts at that tunnel's
 # road; 0.9.0 the round-4 merge (0.8.1's tunnel portals released; the engine's sign, street-name, bus and crash fixes
 # need no compiler change);
-# the fidelity line (labelled 0.8.1 on its own branch):
+# the fidelity line (labelled 0.8.1 on its own branch, released in 0.10.0):
 # malls: a site's own roads (service, private) never drop a building of 150 m2 or more, and the stretches of
 # them inside a kept building's footprint are no roads (World.footprint / site_cut: Bal Harbour's mall, garages,
 # campuses); a drive cut back from one ends in a dead-end node 'x:{segment}:{piece}:a|b';
@@ -76,8 +76,10 @@ import shapely.ops  # noqa: E402
 # fid-subtropic: the warm band (climate.warmth: tropical / subtropical): palm rows along the streets and medians, clipped hedges
 # on the property lines, more yard trees (palms, sea grape) and the south-florida building region; climateZone in the header;
 # fid-beach: beaches and sand (Overture base/land subtype sand) as ground classes beach (10) and wet sand (11), no
-# yard trees on them, and a region fetched without the land layer refused
-COMPILER_VERSION = '0.9.0'
+# yard trees on them, and a region fetched without the land layer refused;
+# 0.10.0 release r5: 0.9.0 + the fidelity line + the DEM's /historical/ fallback (dem.py: a pinned 3DEP file that
+# /current/ has replaced is read from /historical/, its bytes unchanged)
+COMPILER_VERSION = '0.10.0'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 ROAD_HALO = 160      # m: segments read round a tile (owned pieces, curb islands' roadway, sidewalk bands)
