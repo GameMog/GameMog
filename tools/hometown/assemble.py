@@ -338,6 +338,8 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
     region = dec[min(order, key=lambda k: abs(k[0] - fr['c0']) + abs(k[1] - fr['r0']))][0].get('region', 'plains-midwest') if order else 'plains-midwest'
     # (and its climate, the same way: the far field's flat fill and apron take its open ground's colour)
     clim = dec[min(order, key=lambda k: abs(k[0] - fr['c0']) + abs(k[1] - fr['r0']))][0].get('climate', 'humid') if order else 'humid'
+    # (and its climate zone: the warm band's 'tropical' / 'subtropical' where it is in it, else the same as climate)
+    czone = dec[min(order, key=lambda k: abs(k[0] - fr['c0']) + abs(k[1] - fr['r0']))][0].get('climateZone', clim) if order else clim
     theader = {'format': 'sf-terrain', 'version': 1, 'box': 'pkg', 'cell': 2 / k0, 'originX': ox, 'originZ': oz, 'w': Wp, 'h': Hp,
                'minH': minH, 'maxH': maxH, 'scale': scale, 'waterLevel': water_level, 'datum': 'NAVD88 m minus %d' % y_off,
                'grid': grid.GRID, 'source': sorted({os.path.basename(s['url']) for (c, r) in order for s in dec[(c, r)][0]['demSource']})}
@@ -441,7 +443,7 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
            'tileSize': grid.TILE / k0, 'density': density, 'spawn': spawn, 'spawns': sp, 'places': places, 'attribution': C.ATTRIBUTION,
            'frame': frame, 'box': box, 'tiles': tile_ids, 'tileSetHash': D2['tileSetHash'], 'lock': D2['lock'],
            'tileHeaders': {grid.tile_id(dom, c, r): {'bcount': dec[(c, r)][0]['bcount'], 'groundAreaM2': dec[(c, r)][0]['groundAreaM2']} for (c, r) in order},
-           'downtown': {'x': C.q1(center[0]), 'z': C.q1(center[1])}, 'far': FAR, 'climate': clim,
+           'downtown': {'x': C.q1(center[0]), 'z': C.q1(center[1])}, 'far': FAR, 'climate': clim, 'climateZone': czone,
            # (the growing town: which tiles this variant holds; the engine keeps the player, traffic and missions in it)
            'variant': variant, 'tilesId': F['lock']['tiles'], 'district': F['district'],
            'window': {'variant': variant, 'tileRange': [c0t, r0t, c1t, r1t], 'box': {'x0': C.q1(X0), 'z0': C.q1(Z0), 'x1': C.q1(X1), 'z1': C.q1(Z1)},

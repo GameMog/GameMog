@@ -562,10 +562,14 @@ function createCurtainWallMaterial(opts = {}) {
     reflectivity = 0.92,
     seed = 1.0,
     boxLocal = false,
-    groundBase = boxLocal // floors count from the per-vertex / per-instance `boxBase` (facadeCell)
+    groundBase = boxLocal, // floors count from the per-vertex / per-instance `boxBase` (facadeCell)
+    // (a painted frame, e.g. South Florida's white balcony bands: the spandrel's own colour instead of the frame's darker
+    // shade, and the frame's metalness instead of the glass's; unset: as every other style)
+    spandrelTint = null,
+    frameMetalness = null
   } = opts;
 
-  const cacheKey = `${glassTint}_${frameTint}_${windowWidth}_${floorHeight}_${litProbability}_${warmth}_${reflectivity}_${seed}_${boxLocal}_${groundBase}`;
+  const cacheKey = `${glassTint}_${frameTint}_${windowWidth}_${floorHeight}_${litProbability}_${warmth}_${reflectivity}_${seed}_${boxLocal}_${groundBase}_${mullionThickness}_${spandrelRatio}_${spandrelTint}_${frameMetalness}`;
   if (_curtainWallCache.has(cacheKey)) {
     return _curtainWallCache.get(cacheKey);
   }
@@ -661,7 +665,7 @@ function createCurtainWallMaterial(opts = {}) {
     const glassColor = mix(glazedBase, envReflection, fresnel.mul(uReflectivity).add(0.18))
       .add(cityUniforms.uSunColor.mul(sunSpec));
 
-    const spandrelDark = cFrame.mul(0.52);
+    const spandrelDark = spandrelTint == null ? cFrame.mul(0.52) : uniform(new THREE.Color(spandrelTint));
     const frameBase = mix(cFrame, spandrelDark, filteredPulse(cellUV.y, 0.0, spandrelRatio, fw.y));
 
     const canyonBand = smoothstep(0.0, 14.0, vCoord).mul(float(1.0).sub(smoothstep(22.0, 75.0, vCoord)));
@@ -694,8 +698,14 @@ function createCurtainWallMaterial(opts = {}) {
     return mix(mix(glassOrFrame, float(0.36), coping), float(0.88), blank);
   })();
 
-  // Glass & metal, but the concrete lot-line walls aren't
-  mat.metalnessNode = mix(float(0.72), float(0.0), blank);
+  // Glass & metal, but the concrete lot-line walls aren't (nor a painted frame)
+  if (frameMetalness == null) mat.metalnessNode = mix(float(0.72), float(0.0), blank);
+  else {
+    const isFrameM = float(1.0).sub(
+      filteredPulse(cellUV.x, mullionThickness, 1.0 - mullionThickness, fw.x).mul(filteredPulse(cellUV.y, spandrelRatio, 1.0, fw.y))
+    );
+    mat.metalnessNode = mix(mix(float(0.72), float(frameMetalness), max(max(isFrameM, isRoof), coping)), float(0.0), blank);
+  }
 
   // Hardware derivative bumpNormal for raised curtain-wall mullions & spandrel channels (ramps >= 2px, see pre-war)
   mat.normalNode = Fn(() => {
@@ -1559,7 +1569,21 @@ function createTreeMaterial(leafAtlas) {
     // (a palm's: pale grey-brown with the rings of old leaf bases, P4.5)
     const palmBark = mix(color(0x6f6556), color(0x9a8e78), smoothstep(0.2, 0.8, fract(bu.y.mul(3.0))).mul(n2.mul(0.5).add(0.5)));
     const isPalm = step(3.5, species).mul(step(species, 4.5));
-    const bark = mix(mix(furrowed, planeBark, step(species, 0.5)), palmBark, isPalm).mul(crownAO.mul(0.4).add(0.6));
+    // (the warm band's, trees.js 6..10: the royal palm's smooth pale-grey column under a green crownshaft, the coconut's and
+    // sabal's ringed palm bark, the sea grape's grey stems, and a clipped hedge's core: its own foliage, dark and dense)
+    const isWarmPalm = step(5.5, species).mul(step(species, 8.5));
+    const isRoyal = step(5.5, species).mul(step(species, 6.5));
+    const royalBark = mix(color(0x9c978c), color(0xc4bfb3), n2.mul(0.6).add(smoothstep(0.85, 1.0, fract(bu.y.mul(1.4))).mul(-0.25)).add(0.3));
+    const crownshaft = step(13.2, bu.y).mul(step(aTree.z, 0.001)).mul(isRoyal);
+    // (the coconut's: paler, its leaf-scar rings finer and softer than the date palm's)
+    const coconutBark = mix(color(0x8b8476), color(0xaaa293), smoothstep(0.15, 0.85, fract(bu.y.mul(5.0))).mul(0.6).add(n2.mul(0.4)));
+    const isCoconut = step(6.5, species).mul(step(species, 7.5));
+    const warmPalm = mix(mix(mix(palmBark, coconutBark, isCoconut), royalBark, isRoyal), color(0x6f8a3a).mul(n2.mul(0.25).add(0.85)), crownshaft);
+    const seaGrapeBark = mix(color(0x5e5a52), color(0x8a8478), n2);
+    const hedgeCore = aData.xyz.mul(n1.mul(0.35).add(0.45));
+    const barkBase = mix(mix(furrowed, planeBark, step(species, 0.5)), palmBark, isPalm);
+    const barkWarm = mix(mix(barkBase, warmPalm, isWarmPalm), seaGrapeBark, step(8.5, species).mul(step(species, 9.5)));
+    const bark = mix(barkWarm, hedgeCore, step(9.5, species)).mul(crownAO.mul(0.4).add(0.6));
 
     return vec4(mix(bark, foliage, isLeaf), alpha);
   })();
