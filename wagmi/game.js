@@ -112,7 +112,7 @@ installDriveMode(WAGMI);
     curbAssist(dt, steer);
     unpin(dt, throttle);
     stuckClock(dt, throttle);
-    if (TOWN) rescue(dt);
+    if (TOWN) rescue(dt, throttle);
   };
   // (on the horse: its gaits for its speed, turn and yaw; no boost flame, no wall nosing, no curb, no wriggle)
   if (horseRs) car.onUpdate = (dt, keys, throttle) => { rs.update(dt, car.speed, car.steerK || 0, HD.S.yawRate); stuckClock(dt, throttle); };
@@ -212,21 +212,22 @@ installDriveMode(WAGMI);
   // bubbles while it settles; its keys do nothing. The prompt says so ('Your car is in the water — X to reset'); X puts it
   // back on the road at once, and if the player does nothing it is put back WET.reset s on (again every WET.again s till
   // there is room). Cedar Key: off the seawall at 34 m/s it stood at the bank, nose in the water, at 0-1 mph, for good.
-  // Stuck off the road: the throttle held going nowhere (stuckClock) or tipped over OFF.tilt rad and stopped, off the
-  // asphalt (world.onRoadway), within OFF.moved m: OFF.say s of that and the prompt says so, OFF.reset s and it is put
-  // back on the road
+  // Stuck off the road: the throttle held at under OFF.slow m/s (wedged, or grinding along a wall) or tipped over
+  // OFF.tilt rad and stopped, off the asphalt (world.onRoadway): OFF.say s of that and the prompt says so, OFF.reset s
+  // and it is put back on the road (the throttle let go, the count runs back down; OFF.slow or more, or on the road,
+  // it starts again)
   const TOWN = window.NYC?.CITY === 'pkg';
   const WET = { min: 5, glide: 6, depth: 0.95, reset: 3, again: 1 };
-  const OFF = { say: 2, reset: 5, tilt: 0.6, moved: 6 };
-  const off = { t: 0, x: 0, z: 0 };
+  const OFF = { say: 2, reset: 5, tilt: 0.6, slow: 3 };
+  const off = { t: 0 };
   const busyNow = () => !!(car.halt || WAGMI.cutscene || WAGMI.directed || WAGMI.ride?.phase || WAGMI.paused);
-  function rescue(dt) {
+  function rescue(dt, throttle) {
     const hit = car.bayHit; car.bayHit = null;
     if (hit && !car.wet && Math.abs(hit.speed) >= WET.min && !busyNow()) { intoWater(hit); return; }
     const x = car.position.x, z = car.position.z;
-    if (car.wet || busyNow() || world.onRoadway(x, z, car.position.y) || Math.hypot(x - off.x, z - off.z) > OFF.moved) { off.t = 0; off.x = x; off.z = z; return; }
+    if (car.wet || busyNow() || world.onRoadway(x, z, car.position.y) || Math.abs(car.speed) >= OFF.slow) { off.t = 0; return; }
     const tipped = Math.max(Math.abs(car.terrainPitch || 0), Math.abs(car.terrainRoll || 0)) > OFF.tilt && Math.abs(car.speed) < 2;
-    off.t = stuck.t > 0 || tipped ? off.t + dt : Math.max(0, off.t - dt * 0.5);
+    off.t = throttle || tipped ? off.t + dt : Math.max(0, off.t - dt * 0.5);
     if (off.t >= OFF.reset) { off.t = 0; recoverCar(); }
   }
   function intoWater(hit) {
@@ -456,7 +457,7 @@ installDriveMode(WAGMI);
     Object.assign(pin, { t: 0, slide: 0, x, z }); Object.assign(stuck, { t: 0, held: 0, hist: [] });
     // (out of the water, or unstuck: upright, its pose from the ground again)
     if (car.wet) { car.wet = null; car.mesh.rotation.x = car.mesh.rotation.z = 0; }
-    Object.assign(car, { bayHit: null, terrainPitch: undefined, terrainRoll: undefined }); Object.assign(off, { t: 0, x, z });
+    Object.assign(car, { bayHit: null, terrainPitch: undefined, terrainRoll: undefined }); off.t = 0;
     if (driving) { person.position.copy(car.position); person.heading = h; }
     WAGMI.audio?.play?.('whoosh', { pos: [x, 0.8, z], vol: 0.6, rate: 0.8 });
     // (the stall help's 'Stuck?' offer, if it is up, has been answered)
