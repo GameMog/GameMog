@@ -6916,6 +6916,27 @@
         "hood"
        ],
        "description": "with on: 'ride', which part of the car (trunk if left out; door for the glovebox, the seats or the door pockets)"
+      },
+      "prop": {
+       "oneOf": [
+        {
+         "const": false
+        },
+        {
+         "enum": [
+          "pickup",
+          "van",
+          "minivan",
+          "suv",
+          "taxi",
+          "sedan",
+          "bag",
+          "case",
+          "crate"
+         ],
+         "description": "the thing at the spot when the words don't say it plainly (the runner reads them: a truck is a pickup, a box a crate); false: nothing put there"
+        }
+       ]
       }
      }
     },
