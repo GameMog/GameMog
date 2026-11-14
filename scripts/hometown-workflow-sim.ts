@@ -15,7 +15,7 @@
  * The CLI's own task server (`render workflows dev`) is the official version of this; it is not installed on this Mac
  * (no system packages), so this plays its part against the real SDK code.
  *
- * Environment: SIM_PORT (4860-4869), SIM_KEY (the bearer key), SIM_PYTHON (a Python with the render SDK),
+ * Environment: SIM_PORT (4830-4849), SIM_KEY (the bearer key), SIM_PYTHON (a Python with the render SDK),
  * SIM_START (the start command's script, deploy/town-builder/workflow.py), SIM_SLUG (the workflow slug),
  * SIM_MAX_ACTIVE (default 2), SIM_WORK (a folder: sockets, per-run logs and work dirs). Every HOMETOWN_* variable is
  * passed to the runs (as a workflow service's env vars are). One JSON line per event on stdout.
@@ -25,8 +25,8 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, openSync, closeSync, rmSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
-const PORT = Number(process.env.SIM_PORT || 4861);
-if (!(PORT >= 4860 && PORT <= 4869)) { console.error('SIM_PORT must be 4860-4869 (shared machine)'); process.exit(2); }
+const PORT = Number(process.env.SIM_PORT || 4840);
+if (!(PORT >= 4830 && PORT <= 4849)) { console.error('SIM_PORT must be 4830-4849 (shared machine)'); process.exit(2); }
 const KEY = process.env.SIM_KEY || '';
 const PY = process.env.SIM_PYTHON || 'python3';
 const START = process.env.SIM_START || 'deploy/town-builder/workflow.py';

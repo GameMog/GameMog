@@ -46,34 +46,45 @@ services:
         value: https://gamemog.com
       - key: ADMIN_PASSWORD
         sync: false
-      # Hometown towns served from this disk (docs/HOMETOWN-HOSTING.md, lib/hometown-tiles/): off until the owner
-      # turns them on. data/hometown may use HOMETOWN_DISK_CAP_GB of the disk (2 by default; Story Kit has 8,000 MB
-      # of it on paper, so a 20 GB disk is the proposal before the cap goes up), and no put lands while the disk's free
-      # space is under HOMETOWN_FREE_FLOOR_GB (2). This server does not compile: towns are pre-warmed on the Mac
-      # and uploaded with the owner's token.
+      # Story Kit (lib/storykit-switch.ts): story worlds on Create and their Mogs, for everyone (the owner, 13 Nov: the
+      # hometown live test). "owner": the owner's /admin session only; anything else: off. /create is prerendered, so
+      # this is read when the site is built (a deploy)
+      - key: STORYKIT
+        value: "on"
+      # Hometown (docs/HOMETOWN.md): Create's town box and /api/places for everyone, built into the page (the server's
+      # HOMETOWN_BUILDER below answers the same at run time)
+      - key: NEXT_PUBLIC_HOMETOWN_SEARCH
+        value: "on"
+      # Hometown towns served from this disk (docs/HOMETOWN-HOSTING.md, lib/hometown-tiles/): the tiles, descriptors,
+      # build records and bundles Mog City's engine reads. data/hometown may use HOMETOWN_DISK_CAP_GB of the disk, and
+      # no put lands while the disk's free space is under HOMETOWN_FREE_FLOOR_GB (2). This server never compiles
+      # (HOMETOWN_COMPILE stays off): the builder runs below do.
       - key: HOMETOWN_TILES
-        value: "off"
+        value: "on"
       - key: HOMETOWN_COMPILE
         value: "off"
       # the bearer token for /api/hometown/admin/* (upload, status, GC): entered by the owner on the Environment page,
       # at least 24 characters; unset, the admin routes are not found
       - key: HOMETOWN_ADMIN_TOKEN
         sync: false
-      # The production town builder (lib/hometown-build, docs/HOMETOWN-HOSTING.md "Production builder"): the web holds
+      # The production town builder (lib/hometown-build, docs/HOMETOWN-HOSTING.md): the web holds
       # the job queue (data/hometown/queue.db) and the store, and NEVER compiles; runs of the gamemog-town-builder
       # workflow below do. off: the queue is inert and no town route answers from it. owner: every town route, and
-      # Create's town box, answer only the owner's /admin session (the production test). on: players.
+      # Create's town box, answer only the owner's /admin session (the production test). on: players (the owner,
+      # 13 Nov: "switch the builder on, full visibility to everyone")
       - key: HOMETOWN_BUILDER
-        value: "off"
+        value: "on"
       # the builder runs' bearer token (24+ characters), entered by the owner here once; the workflow reads it from
       # this service (fromService envVarKey). Unset: /api/hometown/worker is not found
       - key: HOMETOWN_WORKER_TOKEN
         sync: false
-      # spawn first (compiler 0.7.0+: --frame and --assemble, pinned by workflow-build.sh): the story starts from the
+      # spawn first (compiler 0.7.0+, 0.8.0 pinned by workflow-build.sh: --frame and --assemble): the story starts from the
       # town's frame, and players drive the 5 x 5 spawn district while the rest of the town builds
       - key: HOMETOWN_FRAME
         value: "on"
-      # the build new towns are made at: the buildId a run logs at start (the owner's status page shows it)
+      # the build new towns are made at: the buildId a run logs at start (the owner's status page shows it). Optional:
+      # unset, it is the build the last run reported, and the very first pick (no run ever) starts one run to learn it
+      # (that pick is asked to try again in a minute). Set it to pin a build across a compiler upgrade
       - key: HOMETOWN_BUILD
         sync: false
       # the store's share of the 10 GB disk (Story Kit's real use is far under its 8 GB on paper; no put lands under the
@@ -88,14 +99,18 @@ services:
         value: "600"
       - key: HOMETOWN_PER_IP_HOUR
         value: "3"
+      # new towns players may ask for in a UTC day (built towns are never limited): THE spend cap of the builder runs,
+      # about $0.10 a town alone (docs/HOMETOWN.md, costs), so at most about $10 a day
+      - key: HOMETOWN_DAILY_COLD
+        value: "100"
 
       # Builders on demand (the owner, 13 Nov: "upgrade on DEMAND, not anticipation"): no builder is up while there is
       # no work. The web's dispatcher (lib/hometown-build/dispatch.ts) starts runs of the gamemog-town-builder workflow
       # through the Render API when the queue has claimable work; each run builds until the queue is idle for 20 s,
-      # then ends (billed per second; idle costs nothing). "off": no run is started. "workflows": on (needs the key and
-      # the slug below, and HOMETOWN_BUILDER owner or on)
+      # then ends (billed per second; idle costs nothing). "off": no run is started (the fastest kill switch).
+      # "workflows": on (needs the key and the slug below, and HOMETOWN_BUILDER owner or on)
       - key: HOMETOWN_RUNS
-        value: "off"
+        value: "workflows"
       # a Render API key (Account Settings, API Keys), entered by the owner here only. It starts and reads task runs
       # (POST/GET /v1/task-runs); unset, nothing is started
       - key: HOMETOWN_RENDER_API_KEY
@@ -116,7 +131,7 @@ services:
       - key: HOMETOWN_PREWARM_RUNS
         value: "4"
 
-  # The town builder (docs/HOMETOWN-HOSTING.md "Production builder"): a Render WORKFLOW, not an always-on worker. One
+  # The town builder (docs/HOMETOWN-HOSTING.md): a Render WORKFLOW, not an always-on worker. One
   # task, build_jobs (deploy/town-builder/workflow.py): each run is its own 4c-8g instance, spun up on demand by the
   # web's dispatcher, that claims jobs from the web over Render's private network (same region), uploads through the
   # web's hash-checked PUT, and ends when the queue is idle for 20 s or after 2 h. No disk, no ports. Workflows build on
@@ -159,7 +174,8 @@ services:
         value: "1.5"
       - key: HOMETOWN_CACHE_GB
         value: "4"
-      # "1": a run claims nothing and ends at once (a kill switch that needs no deploy of the web); "0" to build.
-      # sync: false, so a later Blueprint sync never puts back a value the owner changed: enter "1" when it asks
+      # "1": a run claims nothing and ends at once (a kill switch that needs no deploy of the web); "0" or unset builds.
+      # sync: false, so a later Blueprint sync never puts back a value the owner changed: to build, enter "0" (or leave it
+      # empty) when it asks
       - key: HOMETOWN_WORKER_PAUSED
         sync: false

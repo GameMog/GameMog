@@ -1,5 +1,5 @@
 /**
- * The town builder's dispatcher (docs/HOMETOWN-HOSTING.md "Production builder"): builders run ON DEMAND as Render
+ * The town builder's dispatcher (docs/HOMETOWN-HOSTING.md): builders run ON DEMAND as Render
  * Workflows task runs (deploy/town-builder/workflow.py, task `build_jobs`), never always on. This web process never
  * runs Python and never compiles: it only asks Render for runs, through the REST API, when the queue has work.
  *
@@ -102,7 +102,7 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS runs (idem TEXT PRIMARY KEY, id TEXT,
   created INTEGER NOT NULL, updated INTEGER NOT NULL, checked INTEGER NOT NULL DEFAULT 0, tries INTEGER NOT NULL DEFAULT 0, error TEXT);
 CREATE INDEX IF NOT EXISTS runs_state ON runs(state, created);`;
 export type RunRow = { idem: string; id: string | null; state: RunState; want: number | null; reason: string | null; created: number; updated: number; checked: number; tries: number; error: string | null };
-export type Plan = { ready: number; readyWeight: number; leasedWeight: number; interactive: boolean; workMs: number; p0Ms: number; byJobs: number; byWork: number; want: number; inFlight: number; toStart: number };
+export type Plan = { ready: number; readyWeight: number; leasedWeight: number; interactive: boolean; workMs: number; p0Ms: number; byJobs: number; byWork: number; want: number; inFlight: number; toStart: number; probe?: boolean };
 
 /** A run older than this is treated as gone (its own timeout is the cap + 1 h: workflow.py), 3 h + 10 min. */
 export const RUN_MAX_MS = (3 * 3600 + 600) * 1000;
@@ -112,6 +112,10 @@ export const STARTING_MAX_MS = 10 * 60_000;
 /** the breaker (Dispatcher.fruitless): this many ended runs in a row that never claimed hold starts this long */
 export const FRUITLESS_N = 3;
 export const FRUITLESS_HOLD_MS = 10 * 60_000;
+/** a pick refused for want of a build within this starts one probe run (plan) */
+export const PROBE_MS = 10 * 60_000;
+/** (towns.ts BUILD_UNKNOWN: the same event kind; not imported, towns.ts imports this file) */
+const BUILD_UNKNOWN = 'build-unknown';
 const COST_FALLBACK: Record<JobKind, number> = { regions: 40_000, ctx: 6_000, frame: 4_000, tiles: 2_000, far: 5_000, bundle: 10_000, manifest: 1_000, canary: 9_000 };
 
 export class Dispatcher {
@@ -158,9 +162,12 @@ export class Dispatcher {
     const byJobs = Math.ceil((readyWeight + leasedWeight) / slots);
     const byWork = Math.ceil(p0Ms / (slots * target) + workMs / (slots * target * 10));
     const cap = interactive ? this.cfg.maxRuns : Math.min(this.cfg.maxRuns, this.cfg.prewarmRuns);
-    const want = ready ? Math.max(Math.min(1, cap), Math.min(byJobs, byWork, cap)) : 0;
+    // (no build known yet, no HOMETOWN_BUILD and no run ever: a pick was refused for it within PROBE_MS, so ONE run is
+    // started to learn it; its first claim reports the build (queue.ts workers) and the next pick is admitted)
+    const probe = !build && !ready && this.cfg.maxRuns > 0 && !!this.q.db.prepare('SELECT 1 FROM events WHERE kind = ? AND at > ? LIMIT 1').get(BUILD_UNKNOWN, t - PROBE_MS);
+    const want = ready ? Math.max(Math.min(1, cap), Math.min(byJobs, byWork, cap)) : probe ? 1 : 0;
     const inFlight = this.inFlight();
-    return { ready, readyWeight, leasedWeight, interactive, workMs: Math.round(workMs + p0Ms), p0Ms: Math.round(p0Ms), byJobs, byWork, want, inFlight, toStart: Math.max(0, want - inFlight) };
+    return { ready, readyWeight, leasedWeight, interactive, workMs: Math.round(workMs + p0Ms), p0Ms: Math.round(p0Ms), byJobs, byWork, want, inFlight, toStart: Math.max(0, want - inFlight), ...(probe ? { probe } : {}) };
   }
 
   /** One pass; concurrent calls join it (and one more pass follows if something changed meanwhile). */
@@ -238,7 +245,7 @@ export class Dispatcher {
     const n = Math.min(p.toStart, Math.max(0, this.cfg.startsPerMin - lastMinute));
     for (let i = 0; i < n; i++) {
       const idem = `ht-${t.toString(36)}-${randomBytes(6).toString('hex')}`;
-      const reason = `want ${p.want}, ready ${p.ready}${p.interactive ? '' : ' (pre-warm)'}`;
+      const reason = p.probe ? 'learn the build (a pick and no build known)' : `want ${p.want}, ready ${p.ready}${p.interactive ? '' : ' (pre-warm)'}`;
       this.q.db.prepare("INSERT INTO runs (idem, state, want, reason, created, updated) VALUES (?, 'starting', ?, ?, ?, ?)").run(idem, p.want, reason, t, t);
       if (!(await this.send(this.rows(['starting']).find((r) => r.idem === idem)!))) break;
     }

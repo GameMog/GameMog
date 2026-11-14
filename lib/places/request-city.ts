@@ -34,11 +34,20 @@ export async function requestCity(place: PlaceSelection, onProgress?: (p: TownPr
     try { body = await r.json(); } catch { /* not JSON: a refusal below */ }
     return { status: r.status, body };
   };
-  let retried = false;
+  let retried = false, waits = 0;
   try {
     let a = await ask('POST');
     for (;;) {
       if (signal?.aborted) return { status: 'error', place, error: 'Stopped.' };
+      // (the production builder knows no build yet: it is starting a builder to learn it, retryS; ask again, for up to
+      // about 5 minutes, showing the town as waiting its turn)
+      if (a.status === 503 && typeof a.body.retryS === 'number' && waits < 20) {
+        waits++;
+        onProgress?.({ state: 'queued', stage: 'Waiting its turn', done: 0, total: 0, position: 1, etaS: null, phase: 'asked' });
+        await sleep(Math.min(60, Math.max(2, a.body.retryS)) * 1000, signal);
+        a = await ask('POST');
+        continue;
+      }
       if (a.status === 200 && a.body.state === 'ready') return { status: 'ready', place, lock: a.body.lock as TownLockView, town: a.body.town as Extract<CityRequest, { status: 'ready' }>['town'] };
       // (the production builder: the town's frame is in, so the story may be written now while the rest builds)
       if (a.status === 202 && a.body.lock && a.body.town && (a.body.phase === 'district' || a.body.phase === 'growing')) return { status: 'ready', place, lock: a.body.lock as TownLockView, town: a.body.town as Extract<CityRequest, { status: 'ready' }>['town'], growing: true };

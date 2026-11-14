@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The town builder's build environment on Render Workflows (render.yaml service gamemog-town-builder, its buildCommand;
-# docs/HOMETOWN-HOSTING.md "Production builder"). Workflow services build on Render's native Python runtime: no
+# docs/HOMETOWN-HOSTING.md). Workflow services build on Render's native Python runtime: no
 # Dockerfile (the Blueprint's type: workflow takes runtime python or node only, and the Docker fields are "not
 # supported for workflows"). This script does what deploy/hometown-compiler.Dockerfile did, into .town-builder/ inside
 # the repo checkout, which Render builds into the image every run starts from.
@@ -10,7 +10,8 @@
 #   - the compiler by commit: MOGCITY_SHA below is THE ONE LINE to re-pin it (a compiler upgrade is a new buildId)
 #   - its packages by hash: the compiler's own tools/hometown/requirements.lock at that commit, pip --require-hashes,
 #     wheels only, into its own venv (.town-builder/venv); the SDK lives in the service's Python, never in this venv
-#   - the OSM lane table by sha256 (deploy/town-builder/osm-roads-us.parquet.json)
+#   - the OSM lane table by sha256 (deploy/town-builder/osm-roads-us.parquet.json; the file itself ships in the compiler
+#     commit, tools/hometown/osm/, since 0.8.0)
 #   - duckdb's extensions (httpfs, spatial) installed here into .town-builder/duckdb-ext (a run never downloads one)
 #   - numpy's CPU dispatch and the hash seed: set for every compile child by workflow.py (PINNED_ENV)
 # The recipe id (.town-builder/image-id) hashes all of the above plus the architecture and glibc; workflow.py passes it
@@ -18,14 +19,18 @@
 #
 # Environment (all optional on Render):
 #   HOMETOWN_TB_DIR       output folder (default <repo>/.town-builder)
-#   HOMETOWN_OSM_URL      where to download osm-roads-us.parquet when it is not in the checkout (checked by sha256)
+#   HOMETOWN_OSM_URL      where to download osm-roads-us.parquet when neither checkout has it (checked by sha256)
+#   HOMETOWN_MOGCITY_REF  the branch to fetch when the SHA cannot be fetched alone (default hometown-compiler)
 #   HOMETOWN_MOGCITY_SRC  a local MogCity checkout at MOGCITY_SHA instead of the fetch (the local simulation)
 #   HOMETOWN_TB_VENV      an existing venv with the pinned packages instead of the pip install (the local simulation:
 #                         the lock's wheels are Linux ones)
 #   HOMETOWN_TB_DATA      an existing data folder (osm/, overture-index/) instead of building the index (local)
 set -euo pipefail
 # THE ONE LINE to re-pin the compiler (a 40-hex commit of github.com/GameMog/GameMog that carries tools/hometown):
-MOGCITY_SHA=23e7d721a57fb2bb46f93c5ae5d9993d9a3678db
+# compiler 0.8.0 (round 3 merged into the production builder), on the branch below
+MOGCITY_SHA=aa0bc4515ceff34f57f00ba92eb75d96b77a6cd3
+# the branch that carries it: fetched when the commit cannot be fetched by its SHA alone (the checkout is still the SHA)
+MOGCITY_REF="${HOMETOWN_MOGCITY_REF:-hometown-compiler}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TB="${HOMETOWN_TB_DIR:-$ROOT/.town-builder}"
 PY="${PYTHON:-python3}"
@@ -48,8 +53,15 @@ if [ -n "${HOMETOWN_MOGCITY_SRC:-}" ]; then
   git -C "$HOMETOWN_MOGCITY_SRC" archive "$MOGCITY_SHA" tools/hometown | tar -x -C "$TB/mogcity"
 else
   git init -q "$TB/mogcity"
-  git -C "$TB/mogcity" fetch -q --depth 1 https://github.com/GameMog/GameMog.git "$MOGCITY_SHA"
-  git -C "$TB/mogcity" checkout -q --detach FETCH_HEAD
+  # (by SHA: GitHub serves any commit reachable from a ref of the public repo; else the branch, then the SHA in it)
+  CO=FETCH_HEAD
+  if ! git -C "$TB/mogcity" fetch -q --depth 1 https://github.com/GameMog/GameMog.git "$MOGCITY_SHA"; then
+    say "fetch by SHA refused: fetching branch $MOGCITY_REF"
+    git -C "$TB/mogcity" fetch -q --depth 50 https://github.com/GameMog/GameMog.git "refs/heads/$MOGCITY_REF"
+    git -C "$TB/mogcity" cat-file -e "$MOGCITY_SHA^{commit}" || { say "$MOGCITY_SHA is not in the last 50 commits of $MOGCITY_REF"; exit 1; }
+    CO="$MOGCITY_SHA"
+  fi
+  git -C "$TB/mogcity" checkout -q --detach "$CO"
   test "$(git -C "$TB/mogcity" rev-parse HEAD)" = "$MOGCITY_SHA"
   rm -rf "$TB/mogcity/.git"
 fi
@@ -69,9 +81,11 @@ VPY="$TB/venv/bin/python"
 # ---- the OSM lane table, checked against its pin (without it the compiler makes ANOTHER build)
 OSM="$TB/data/osm/osm-roads-us.parquet"
 want="$("$PY" -c 'import json,sys;print(json.load(open(sys.argv[1]))["sha256"])' "$ROOT/deploy/town-builder/osm-roads-us.parquet.json")"
+# (compiler 0.8.0 carries it: tools/hometown/osm/, ODbL notice beside it; a copy here or HOMETOWN_OSM_URL still wins)
 if [ -f "$ROOT/deploy/town-builder/osm-roads-us.parquet" ]; then cp "$ROOT/deploy/town-builder/osm-roads-us.parquet" "$OSM"
+elif [ -f "$HT/osm/osm-roads-us.parquet" ]; then cp "$HT/osm/osm-roads-us.parquet" "$OSM"
 elif [ -n "${HOMETOWN_OSM_URL:-}" ]; then curl -fsSL --retry 3 -o "$OSM" "$HOMETOWN_OSM_URL"
-else say "osm-roads-us.parquet is neither in the checkout nor at HOMETOWN_OSM_URL"; exit 1; fi
+else say "osm-roads-us.parquet is neither in the checkout, nor in the compiler, nor at HOMETOWN_OSM_URL"; exit 1; fi
 got="$("$PY" -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$OSM")"
 [ "$got" = "$want" ] || { say "osm-roads-us.parquet sha256 $got is not the pinned $want"; exit 1; }
 cp "$ROOT/deploy/town-builder/osm-roads-us.parquet.json" "$TB/data/osm/"

@@ -7,6 +7,9 @@ import { MC_PROD, mcOrigin } from './episode';
 import { onSky } from './portrait-sky-key';
 import { storyKeyArt } from './story-art';
 import type { HometownLock } from '../storykit/pack/cities.ts';
+import { builderMode } from './hometown-build/access.ts';
+import { builderDeps } from './hometown-build/server.ts';
+import { bestVariant } from './hometown-build/towns.ts';
 
 /**
  * A Story Kit world from its draft to its game (STORYKIT=on): what the creator's browser reports after its work, what
@@ -87,10 +90,23 @@ export function storyFrameSrc(world: string, game: string, site = storySite(), c
  * One helper for every address that boots a world: the play page (storyPlaySrc), the frame (storyFrameSrc) and the test
  * drive (the draft status's `frame`, public/storykit/work.js).
  */
-export function storyFrameQuery(city?: string | null, town?: HometownLock | null): string {
+export function storyFrameQuery(city?: string | null, town?: HometownLock | null, tv: string | null = city === 'hometown' ? townVariant(town) : null): string {
   if (city === 'sf') return 'city=sf';
-  if (city === 'hometown' && town) return `city=pkg&town=${encodeURIComponent(town.place)}&tc=${encodeURIComponent(town.compiler)}&ts=${encodeURIComponent(town.tiles)}`;
+  if (city === 'hometown' && town) return `city=pkg&town=${encodeURIComponent(town.place)}&tc=${encodeURIComponent(town.compiler)}&ts=${encodeURIComponent(town.tiles)}${tv ? `&tv=${encodeURIComponent(tv)}` : ''}`;
   return '';
+}
+/**
+ * The bundle variant a town built by the production builder plays (&tv=, Mog City's wagmi/world/town-src.js): its bundles
+ * live at /towns/{place}/{build}/{tiles}/{variant}/, the whole town's ('full') once built, else the spawn district's
+ * (growing.js swaps to the whole town when it is ready). Null for a town of the in-process builder (its one bundle at
+ * /towns/{place}/{build}/{tiles}/), or when the production builder is off.
+ */
+export function townVariant(town?: HometownLock | null): string | null {
+  if (!town || builderMode() === 'off') return null;
+  try {
+    const v = bestVariant(builderDeps(), town.place, town.compiler);
+    return v && v.tilesId === town.tiles ? v.variant : null;
+  } catch { return null; }
 }
 /** A story world's city as its meta names it (storykit.city), or null. */
 export const storyCityOf = (meta?: string | null): string | null => { const c = metaOf(meta).storykit?.city; return typeof c === 'string' ? c : null; };

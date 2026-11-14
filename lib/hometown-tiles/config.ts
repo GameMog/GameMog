@@ -14,7 +14,7 @@
  *                                  needs HOMETOWN_PYTHON and HOMETOWN_COMPILER_DIR (see the doc: not on today's plan)
  *   HOMETOWN_DIR                   the store's root (default data/hometown, on the Render disk)
  *
- * The production builder (docs/HOMETOWN-HOSTING.md "Production builder", lib/hometown-build/):
+ * The production builder (docs/HOMETOWN-HOSTING.md, lib/hometown-build/):
  *   HOMETOWN_BUILDER=off|owner|on  off (default): the queue is inert, no town route answers from it. owner: every town
  *                                  route answers only the owner's /admin session (ownerVisit). on: players
  *   HOMETOWN_WORKER_TOKEN          the town-builder workers' bearer token (24+ characters, render.yaml sync:false; the

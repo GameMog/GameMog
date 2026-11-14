@@ -50,7 +50,7 @@ export type Progress = {
 export type TownAnswer =
   | { status: 200; body: { state: 'ready'; placeId: string; lock: HometownLock; town: TownSummary; phase: 'full'; play?: Progress['play'] } }
   | { status: 202; body: Progress }
-  | { status: 400 | 404 | 409 | 429 | 503 | 507; body: { state?: string; placeId?: string; error: string; stage?: string; waitMin?: number; nearby?: Nearby[] } };
+  | { status: 400 | 404 | 409 | 429 | 503 | 507; body: { state?: string; placeId?: string; error: string; stage?: string; waitMin?: number; nearby?: Nearby[]; retryS?: number } };
 
 /** The Create card's words by phase (SPEC 4.6; no tool, model or vendor names: scripts/hometown-words-check). */
 export const PHASE_WORDS: Record<TownPhase, string> = {
@@ -69,12 +69,18 @@ export type BuilderDeps = { cfg: HometownConfig; store: TileStore; queue: BuildQ
   runs?: RunsConfig | null };
 
 // ------------------------------------------------------------------------------------------------ the job graph
-type Gaz = { name: string; geoid: string; anchor: [number, number]; anchorSource: string; bbox: Box; bboxSource: string };
-export const gazetteerOf = (p: Place): Gaz => ({ name: `${p.name}, ${p.state}`, geoid: p.geoid, anchor: [p.lon, p.lat], anchorSource: 'Census Gazetteer INTPTLAT/INTPTLONG', bbox: playBox(p), bboxSource: BOX_SOURCE });
+/**
+ * The compiler's places entry of a pick. `bbox` is THE play box (box.ts: the internal point's, stage 1 here); `searchBbox`
+ * is the search's whole square (compiler 0.8.0+): when the cap cuts it, the compiler's frame centres a box of the same size
+ * on the place's downtown (MogCity tools/hometown/assemble.py downtown_box), so a capped town's FRAME may pin other tiles
+ * than stage 1 here. The frame is the truth: afterJobDone re-tiles the town to it (retileToFrame).
+ */
+type Gaz = { name: string; geoid: string; anchor: [number, number]; anchorSource: string; bbox: Box; bboxSource: string; searchBbox?: Box };
+export const gazetteerOf = (p: Place): Gaz => ({ name: `${p.name}, ${p.state}`, geoid: p.geoid, anchor: [p.lon, p.lat], anchorSource: 'Census Gazetteer INTPTLAT/INTPTLONG', bbox: playBox(p), bboxSource: BOX_SOURCE, searchBbox: [...p.bbox] as Box });
 
 type Block = { block: string; C: number; R: number; mask: number; ring: number; tiles: [number, number][] };
 /** The town's tiles grouped into L2 blocks with their masks, ringed (Chebyshev, in tiles) from (ac, ar). */
-export function blocksOf(s: Stage1, ac: number, ar: number): Block[] {
+export function blocksOf(s: Pick<Stage1, 'tiles' | 'domain'>, ac: number, ar: number): Block[] {
   const by = new Map<string, Block>();
   for (const id of s.tiles) {
     const [, , c, r] = id.split('/'), cc = Number(c), rr = Number(r);
@@ -125,6 +131,16 @@ export type Graph = { specs: EnqueueSpec[]; tiles: string[]; stage: Stage1; anch
 export function townGraph(placeId: string, gaz: Gaz, build: string, o: { frame: boolean; base: number; now: number }): Graph {
   const s = stage1(placeId, { geoid: gaz.geoid, anchor: gaz.anchor, bbox: gaz.bbox });
   const [ac, ar] = anchorTile(s.domain, gaz.anchor[0], gaz.anchor[1]);
+  const { specs, ctxs } = tileGraph(placeId, s, build, ac, ar, o);
+  const bh = boxHash(gaz.bbox);
+  if (o.frame) specs.push({ key: `frame:${build}:${placeId}:${bh}`, kind: 'frame', build, prio: Math.max(0, o.base), args: { placeId, gazetteer: gaz }, deps: [...ctxs.values()], place: placeId, firstAsked: o.now });
+  // (the full bundle: its deps are filled in by requestTown with the tile jobs' actual keys, which the block merge decides)
+  specs.push({ key: `bundle:${build}:${placeId}:${bh}:full`, kind: 'bundle', build, prio: Math.max(2, o.base), args: { placeId, gazetteer: gaz, variant: 'full', tiles: s.tiles.length }, deps: [...ctxs.values()], place: placeId, firstAsked: o.now });
+  return { specs, tiles: s.tiles, stage: s, anchor: [ac, ar], box: gaz.bbox };
+}
+
+/** The ctx and tile jobs of a tile set, ringed from (ac, ar): quads near it, whole blocks farther out (SPEC 3.3). */
+export function tileGraph(placeId: string, s: Pick<Stage1, 'tiles' | 'domain'>, build: string, ac: number, ar: number, o: { base: number; now: number }) {
   const P = (p: number) => Math.max(p, o.base);
   const specs: EnqueueSpec[] = [];
   const ctxs = new Map<string, string>();
@@ -151,11 +167,7 @@ export function townGraph(placeId: string, gaz: Gaz, build: string, o: { frame: 
     tileKeys.push(key);
     specs.push({ key, kind: 'tiles', build, prio: P(b.ring <= DISTRICT_RADIUS ? 0 : 1), ring: b.ring, args: { block: b.block, mask: b.mask }, deps, place: placeId, firstAsked: o.now });
   }
-  const bh = boxHash(gaz.bbox);
-  if (o.frame) specs.push({ key: `frame:${build}:${placeId}:${bh}`, kind: 'frame', build, prio: P(0), args: { placeId, gazetteer: gaz }, deps: [...ctxs.values()], place: placeId, firstAsked: o.now });
-  // (the full bundle: its deps are filled in by requestTown with the tile jobs' actual keys, which the block merge decides)
-  specs.push({ key: `bundle:${build}:${placeId}:${bh}:full`, kind: 'bundle', build, prio: P(2), args: { placeId, gazetteer: gaz, variant: 'full', tiles: s.tiles.length }, deps: [...ctxs.values()], place: placeId, firstAsked: o.now });
-  return { specs, tiles: s.tiles, stage: s, anchor: [ac, ar], box: gaz.bbox };
+  return { specs, ctxs, tileKeys };
 }
 
 /** The objects a done job must have stored (queue.ts complete: done means stored). */
@@ -200,8 +212,16 @@ export function currentBuild(d: BuilderDeps): string | null {
   if (d.build) return d.build();
   if (d.cfg.build) return d.cfg.build;
   const w = d.queue.liveWorkers().map((x) => x.build).filter((b): b is string => !!b).sort();
-  return w[w.length - 1] ?? null;
+  if (w.length) return w[w.length - 1];
+  // (no builder live: on-demand runs are up only while there is work. The build the last run reported, so a pick between
+  // runs is never refused for want of one; HOMETOWN_BUILD pins it instead, the upgrade runbook's step)
+  const last = d.queue.db.prepare('SELECT build FROM workers WHERE build IS NOT NULL ORDER BY seen DESC LIMIT 1').get() as { build: string } | undefined;
+  return last?.build ?? null;
 }
+/** The event a pick logs when no build is known yet (no HOMETOWN_BUILD, no run ever): the dispatcher starts ONE run to
+ * learn it (dispatch.ts plan, `probe`); the player is asked to try again in a minute. */
+export const BUILD_UNKNOWN = 'build-unknown';
+export const BUILD_UNKNOWN_RETRY_S = 15;
 
 const ACTIVE: TownPhase[] = ['asked', 'framing', 'district', 'growing'];
 const day = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -334,7 +354,12 @@ export function requestTown(d: BuilderDeps, placeId: string, ip: string, source:
   const place = (d.place ?? ((id: string) => placeById(id)))(placeId);
   if (!place) return { status: 404, body: { placeId, error: TOWN_WORDS.unknown } };
   const build = currentBuild(d);
-  if (!build) return { status: 503, body: { placeId, error: TOWN_WORDS.busy } };
+  if (!build) {
+    d.queue.log(BUILD_UNKNOWN, { place: placeId });
+    d.queue.changed();
+    // (retryS: the Create card asks again by itself while the run that learns the build starts: lib/places/request-city.ts)
+    return { status: 503, body: { placeId, error: TOWN_WORDS.busy, retryS: BUILD_UNKNOWN_RETRY_S } };
+  }
   const q = d.queue, now = (d.now ?? Date.now)();
   const had = rowOf(q, placeId, build);
   if (had && had.state !== 'failed') {
@@ -451,6 +476,8 @@ export function afterJobDone(d: BuilderDeps, j: Job, reported: string[], refused
       const f = readFrame(d.store, frameKey(r.build, place));
       if (!f || frameProblems(f).length) continue;
       m.frame = true;
+      // (compiler 0.8.0: a capped town's frame pins its downtown-centred box, not stage 1's; the frame is the truth)
+      if (!sameTiles(f.tiles, m.tiles)) retileToFrame(d, r, f, m);
       // re-ring from the spawn: the district's blocks to P0, the rest by distance from the spawn
       const [sc, sr] = f.spawn.tile, [c0, r0, c1, r1] = f.spawnDistrict;
       const distKeys: string[] = [];
@@ -494,6 +521,43 @@ export function afterJobDone(d: BuilderDeps, j: Job, reported: string[], refused
     }
     setTown(q, place, r.build, { state: r.state, meta: m });
   }
+}
+
+const sameTiles = (a: string[] | undefined, b: string[] | undefined) => !!a && !!b && a.length === b.length && new Set([...a, ...b]).size === a.length;
+
+/**
+ * A town whose frame pins other tiles than stage 1 did (compiler 0.8.0: a capped place's box centred on its downtown,
+ * MogCity assemble.py downtown_box): its tile set becomes the frame's. The frame's ctx and tile jobs are enqueued (the
+ * block merge adds only the bits not covered), the town stops wanting the tile jobs that build none of the frame's
+ * tiles (dropped when no other town wants them and they have not started), and the full bundle waits on the new set.
+ * New ctx blocks read map regions that may not be staged: their worker exits 3 and the queue makes the regions job.
+ */
+export function retileToFrame(d: BuilderDeps, r: Pick<TownRow, 'place' | 'build' | 'source' | 'first_asked'>, f: TownFrame, m: TownMeta) {
+  const q = d.queue, place = r.place, build = r.build;
+  const domain = String(f.tiles[0] ?? '').split('/')[0].slice(4) || m.domain || 'conus';
+  const base = r.source === 'prewarm' ? 5 : r.source === 'rebuild' ? 3 : 0;
+  const [sc, sr] = f.spawn.tile;
+  const want = new Set(f.tiles), before = m.tiles?.length ?? 0;
+  q.tx(() => {
+    const g = tileGraph(place, { tiles: f.tiles, domain: domain as Stage1['domain'] }, build, sc, sr, { base, now: r.first_asked });
+    q.enqueueMany(g.specs.filter((x) => x.kind === 'ctx'));
+    const tileKeys = q.enqueueMany(g.specs.filter((x) => x.kind === 'tiles')).flat();
+    const dropped: string[] = [];
+    for (const t of q.jobsOf(place).filter((x) => x.kind === 'tiles' && x.build === build)) {
+      if (tilesOfJob(t.args).some(([c, rr]) => want.has(`hg1-${domain}/0/${c}/${rr}`))) continue;
+      q.db.prepare('DELETE FROM wants WHERE job = ? AND place = ?').run(t.key, place);
+      dropped.push(t.key);
+      if (t.state === 'queued' && !q.db.prepare('SELECT 1 FROM wants WHERE job = ?').get(t.key)) q.db.prepare('DELETE FROM jobs WHERE key = ?').run(t.key);
+    }
+    const full = q.jobsOf(place).find((x) => x.kind === 'bundle' && x.args.variant === 'full' && x.build === build);
+    if (full) {
+      const deps = [...new Set([...full.deps.filter((k) => !dropped.includes(k)), ...tileKeys, ...g.ctxs.values()])];
+      q.db.prepare('UPDATE jobs SET deps = ?, args = ?, updated = ? WHERE key = ?').run(JSON.stringify(deps), JSON.stringify({ ...full.args, tiles: f.tiles.length }), q.now(), full.key);
+    }
+    m.tiles = [...f.tiles];
+    q.db.prepare('UPDATE towns SET tiles_total = ? WHERE place = ? AND build = ?').run(f.tiles.length, place, build);
+    q.log('retile', { place, build, before, after: f.tiles.length, dropped: dropped.length });
+  });
 }
 
 /** When a bundle's bundle.json lands: write its citypackage.json (this server's, never uploaded). */

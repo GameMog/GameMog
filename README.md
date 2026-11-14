@@ -418,10 +418,11 @@ A posted score is a claim from an untrusted surface. `POST /api/scores` does the
 checks that catch accidents and casual tampering. **It is not proof.** Real verification needs
 replay validation; the shape is there for it to slot into.
 
-## Story Kit (behind a switch)
+## Story Kit
 
 Story worlds (`storykit/README.md`: a creator's 3-act story played on Mog City's engine) are behind one server switch,
-`STORYKIT` (`lib/storykit-switch.ts`; a rebuild is needed to change it, /create is prerendered):
+`STORYKIT` (`lib/storykit-switch.ts`; a rebuild is needed to change it, /create is prerendered). `render.yaml` sets it
+**on** (13 Nov 2026):
 
 - unset: off. The site is exactly as it is without the Story Kit.
 - `STORYKIT=owner`: on only for the owner's /admin session (the same sign-in and cookie). Everyone else sees the site
@@ -439,6 +440,29 @@ while the switch is on or owner. The rules: `docs/RULES.md` section 1h.
 - the play page framing mc.gamemog.com and the messages Mog City posts back;
 - the switch, the showcase exemption and first-party worlds shipped by migration;
 - the store's limits, headshots, and which checks to run.
+
+## Hometown
+
+A story world in the player's own town: on Create's "Story world", **Or your hometown** searches every US town and
+city, and the town is built on demand from OpenStreetMap, Overture Maps and USGS 3DEP data. The story can be written
+about a minute after the pick (the town's frame: its spawn, places and lock), the streets round the spawn are drivable
+soon after, and the whole town follows; Mog City's engine plays it at mc.gamemog.com and swaps to the whole town when
+it is ready.
+
+- **No builder runs while nothing is asked.** The web holds the job queue and the store and never compiles; a pick
+  makes the web start runs of a Render Workflow (`gamemog-town-builder`, 4c-8g each, billed per second) that build
+  the town's jobs and end 20 s after the queue is idle. Idle costs $0; a new town about $0.03-0.12.
+- **The compiler** is MogCity's `tools/hometown` (0.8.0), pinned by commit in `deploy/town-builder/workflow-build.sh`.
+- **Switches** (`render.yaml`, on for everyone since 13 Nov 2026): `HOMETOWN_BUILDER=on`, `HOMETOWN_RUNS=workflows`,
+  `HOMETOWN_TILES=on`, `HOMETOWN_FRAME=on`, `NEXT_PUBLIC_HOMETOWN_SEARCH=on`, `STORYKIT=on`; the spend cap
+  `HOMETOWN_DAILY_COLD` (new towns a day). The fastest kill switch is `HOMETOWN_RUNS=off`.
+- Code: `lib/hometown-build/` (queue, graph, dispatcher, worker protocol), `lib/hometown-tiles/` (the store and its
+  routes), `lib/hometown/` (boxes, bundles, locks), `deploy/town-builder/` (the workflow, the worker, the pinned build
+  and the local simulation `workflow-sim.sh`).
+
+Docs: [docs/HOMETOWN.md](docs/HOMETOWN.md) (the overview: product flow, switches, costs, open items),
+[docs/HOMETOWN-HOSTING.md](docs/HOMETOWN-HOSTING.md) (the architecture and measurements) and
+[docs/HOMETOWN-RUNBOOK.md](docs/HOMETOWN-RUNBOOK.md) (going live and the live test).
 
 ## Pickup Time
 

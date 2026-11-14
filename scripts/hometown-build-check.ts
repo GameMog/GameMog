@@ -24,7 +24,7 @@ import { TileStore, GB } from '../lib/hometown-tiles/store.ts';
 import { verifyObject } from '../lib/hometown-tiles/http.ts';
 import { planGc } from '../lib/hometown-tiles/gc.ts';
 import { hometownConfig } from '../lib/hometown-tiles/config.ts';
-import { BuildQueue, LEASE_MS, MAX_ATTEMPTS, BACKOFF_MS } from '../lib/hometown-build/queue.ts';
+import { BuildQueue, LEASE_MS, MAX_ATTEMPTS, BACKOFF_MS, maskBits } from '../lib/hometown-build/queue.ts';
 import { requestTown, townStatus, townGraph, gazetteerOf, blocksOf, quadsOf, QUAD_RING, townRegions, promisedOutputs, afterJobDone, storyReadyLock, cityPackageFromStore, PHASE_WORDS, BUSY_WORDS, bestVariant, onBundleStored, type BuilderDeps } from '../lib/hometown-build/towns.ts';
 import { workerResponse, builderAdminResponse, regionsJobOf } from '../lib/hometown-build/server.ts';
 import { townsAccess, townBoxEnabled } from '../lib/hometown-build/access.ts';
@@ -328,6 +328,37 @@ async function g4to6(ok: Ok, dir: string) {
   ok('the story may pin it, and the package is read back from the store by its lock', storyReadyLock(dB, 'us-4054200')?.tiles === L.tiles && !!cityPackageFromStore(dB.store, storyLock(L)!));
   ok('a town built in full logs its wait estimate\'s error (the status page\'s ETA error)', dB.queue.recentEvents(20).some((e) => e.kind === 'eta' && typeof e.errPct === 'number'));
   ok('the engine\'s poll answers the best variant and its URL, with state full / full: true (growing.js fullReady)', bestVariant(dB, 'us-4054200', BL)?.url === `/towns/us-4054200/${BL}/${L.tiles}/full/` && bestVariant(dB, 'us-4054200', BL)?.state === 'full' && bestVariant(dB, 'us-4054200', BL)?.full === true);
+
+  // ---- compiler 0.8.0: a capped town's frame pins its downtown-centred box; the town is re-tiled to the frame
+  {
+    const dR = fakeDeps(dir, 'g4r', { HOMETOWN_BUILDER: 'on', HOMETOWN_FRAME: 'on' }, t);
+    const pid = 'us-4261000', pit = placeById(pid)!, gz = gazetteerOf(pit);
+    ok('the compiler\'s places entry carries the search\'s whole square (searchBbox) beside the capped play box', JSON.stringify(gz.searchBbox) === JSON.stringify(pit.bbox) && gz.bbox[2] - gz.bbox[0] < pit.bbox[2] - pit.bbox[0]);
+    requestTown(dR, pid, '4.4.4.4');
+    const q = dR.queue, row0 = q.db.prepare('SELECT meta, tiles_total FROM towns WHERE place = ?').get(pid) as { meta: string; tiles_total: number };
+    const before: string[] = JSON.parse(row0.meta).tiles;
+    // (the frame: the same size of box moved 4 tiles east and 3 north, as downtown_box moves Pittsburgh's onto the Triangle)
+    const moved = before.map((id) => { const [g, L, c, r] = id.split('/'); return `${g}/${L}/${Number(c) - 4}/${Number(r) + 3}`; });
+    const [mc, mr] = moved[Math.floor(moved.length / 2)].split('/').slice(2).map(Number);
+    const fr = { format: 'hometown-frame', formatVersion: 1, buildId: B, placeId: pid, tiles: moved, lock: lockV3(pid, B, moved),
+      spawn: { tile: [mc, mr], x: 0, z: 0, heading: 0 }, spawnDistrict: [mc - 2, mr - 2, mc + 2, mr + 2], variant: `district-${mc}-${mr}`,
+      spawns: [{ id: 'pkg_downtown', name: 'Downtown', x: 0, z: 0, heading: 0, inDistrict: true }], places: {} };
+    dR.store.put(frameKey(B, pid), Buffer.from(JSON.stringify(fr)));
+    const fj = q.jobsOf(pid).find((j) => j.kind === 'frame')!;
+    q.db.prepare("UPDATE jobs SET state = 'done' WHERE key = ?").run(fj.key);
+    afterJobDone(dR, fj, []);
+    const row = q.db.prepare('SELECT meta, tiles_total, state FROM towns WHERE place = ?').get(pid) as { meta: string; tiles_total: number; state: string };
+    const m = JSON.parse(row.meta), want = new Set(moved);
+    const tj = q.jobsOf(pid).filter((j) => j.kind === 'tiles');
+    const built = new Set(tj.flatMap((j) => maskBits(Number(j.args.mask)).map((i) => { const [, , C, R] = String(j.args.block).split('/').map(Number); return `hg1-conus/0/${C * 4 + (i & 3)}/${R * 4 + (i >> 2)}`; })));
+    ok('re-tiled: the town\'s tile set is the frame\'s, and its count', JSON.stringify(m.tiles) === JSON.stringify(moved) && row.tiles_total === moved.length && row.state === 'district');
+    ok('every frame tile is built by a job the town wants; no job it wants builds none of them', moved.every((id) => built.has(id)) && tj.every((j) => maskBits(Number(j.args.mask)).some((i) => { const [, , C, R] = String(j.args.block).split('/').map(Number); return want.has(`hg1-conus/0/${C * 4 + (i & 3)}/${R * 4 + (i >> 2)}`); })));
+    const full = q.jobsOf(pid).find((j) => j.kind === 'bundle' && j.args.variant === 'full')!, dist = q.jobsOf(pid).find((j) => j.kind === 'bundle' && j.args.variant !== 'full');
+    ok('the full bundle waits on the new tile jobs and on no dropped one; the district bundle on the district\'s', full.deps.every((k) => !!q.get(k)) && tj.every((j) => full.deps.includes(j.key)) && Number(full.args.tiles) === moved.length
+      && !!dist && dist.deps.every((k) => !!q.get(k)) && String(dist.args.variant) === fr.variant);
+    ok('the new ctx blocks are enqueued before their tiles', tj.every((j) => j.deps.every((k) => q.get(k)?.kind === 'ctx')) && q.recentEvents(50).some((e) => e.kind === 'retile'));
+    dR.queue.close();
+  }
 
   // ---- G6: who may use the towns
   const req = new Request('http://web/api/towns');

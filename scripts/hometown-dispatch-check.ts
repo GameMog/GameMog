@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { BuildQueue, ANY_BUILD } from '../lib/hometown-build/queue.ts';
 import { Dispatcher, RenderApiError, stateOf, renderRuns, runsConfig, runsReady, runsProblem, capacitySlots, type RenderRuns, type RunsConfig } from '../lib/hometown-build/dispatch.ts';
-import { estimate, type BuilderDeps } from '../lib/hometown-build/towns.ts';
+import { currentBuild, estimate, requestTown, type BuilderDeps } from '../lib/hometown-build/towns.ts';
 import { hometownConfig } from '../lib/hometown-tiles/config.ts';
 import { TileStore, GB } from '../lib/hometown-tiles/store.ts';
 
@@ -184,6 +184,32 @@ export async function runDispatchChecks(ok: Ok) {
     ok('jobs of another build are not counted (runs claim by build)', (() => { jobs(q, 3, 0, 'ctx', 3000); q.db.prepare("UPDATE jobs SET build = 'htc-0.6.0-hg1-b99999999' WHERE state = 'queued'").run(); return d.plan().ready === 0; })());
     q.close();
 
+    // ---- no build known yet (no HOMETOWN_BUILD, no run ever): a pick starts ONE run to learn it; then the last run's build
+    {
+      let t2 = 9_000_000;
+      const q2 = new BuildQueue({ file: path.join(dir, 'probe.db'), now: () => t2 });
+      const api2 = new FakeRender(); api2.q = q2;
+      const hc2 = hometownConfig({ HOMETOWN_DIR: path.join(dir, 'probe'), HOMETOWN_DATA_DIR: path.join(dir, 'probe', 'data'), HOMETOWN_BUILDER: 'on', HOMETOWN_FRAME: 'on' });
+      const deps2: BuilderDeps = { cfg: hc2, store: new TileStore({ root: hc2.root, capBytes: GB, minFreeBytes: 0, freeBytes: () => 100 * GB, log: () => {} }), queue: q2, now: () => t2,
+        place: (id) => (id === 'us-4007500' ? { placeId: id, name: 'Boley', state: 'OK', stateName: 'Oklahoma', geoid: '4007500', lat: 35.4917, lon: -96.4836, bbox: [-96.5, 35.48, -96.47, 35.5], pop: 1184 } as never : null) };
+      const d2 = new Dispatcher(q2, cfgOf(), api2, () => currentBuild(deps2), () => t2);
+      await d2.tick();
+      ok('no build known and nothing asked: no run', api2.posts === 0 && currentBuild(deps2) === null);
+      const a = requestTown(deps2, 'us-4007500', '1.2.3.4');
+      await d2.tick();
+      ok('a pick with no build known is asked to try again (retryS: the Create card asks again by itself), and starts ONE run to learn the build', a.status === 503 && (a.body as { retryS?: number }).retryS === 15 && api2.posts === 1 && /learn the build/.test(String(api2.runs.get('trn-1')?.input[0])) && d2.inFlight() === 1);
+      await d2.tick();
+      ok('...only one while it is in flight', api2.posts === 1);
+      q2.claim({ worker: 'run-trn-1', build: B, freeSlots: 4, totalSlots: 4 });
+      ok('its first claim reports the build: the next pick is admitted at it', currentBuild(deps2) === B && requestTown(deps2, 'us-4007500', '1.2.3.4').status === 202);
+      api2.end('completed'); t2 += 120_000;
+      ok('the run ended (no live builder): the build is still the last run\'s', q2.liveWorkers().length === 0 && currentBuild(deps2) === B);
+      q2.db.prepare("UPDATE jobs SET state = 'done'").run(); q2.db.prepare('UPDATE runs SET checked = 0').run(); await d2.tick();
+      const n = api2.posts; t2 += 61_000; await d2.tick();
+      ok('with the build known the probe never starts again', api2.posts === n && !d2.plan().probe);
+      q2.close();
+    }
+
     // ---- the REST shapes (fetch injected: no socket)
     const seen: { url: string; method: string; body: unknown; auth: string | null }[] = [];
     const fakeFetch = (async (url: string | URL | Request, init?: RequestInit) => {
@@ -216,8 +242,16 @@ export async function runDispatchChecks(ok: Ok) {
       && /buildCommand: pip install -r deploy\/town-builder\/workflow-requirements.txt && bash deploy\/town-builder\/workflow-build.sh/.test(wf) && /startCommand: python deploy\/town-builder\/workflow.py/.test(wf));
     ok('render.yaml: Python pinned for the buildId; the web reached by hostport; the token from the web; paused is the owner\'s', /key: PYTHON_VERSION\n\s+value: "3\.\d+\.\d+"/.test(wf) && /property: hostport/.test(wf) && /envVarKey: HOMETOWN_WORKER_TOKEN/.test(wf) && /key: HOMETOWN_WORKER_PAUSED\n\s+sync: false/.test(wf));
     ok('render.yaml: the web disk stays 10 GB (grown on demand: a documented one-line change)', /sizeGB: 10\n/.test(y) && /change\n\s+# sizeGB to 20 here/.test(y));
-    ok('render.yaml: HOMETOWN_RUNS and HOMETOWN_BUILDER off; the API key sync: false; the slug from the workflow', /key: HOMETOWN_RUNS\n\s+value: "off"/.test(y) && /key: HOMETOWN_BUILDER\n\s+value: "off"/.test(y)
-      && /key: HOMETOWN_RENDER_API_KEY\n\s+sync: false/.test(y) && /key: HOMETOWN_WORKFLOW_SLUG\n\s+fromService:\n\s+type: workflow\n\s+name: gamemog-town-builder\n\s+property: slug/.test(y));
+    // (the owner, 13 Nov: "switch the builder on, full visibility to everyone": the live test)
+    ok('render.yaml: the builder on for everyone (HOMETOWN_BUILDER on, HOMETOWN_RUNS workflows, HOMETOWN_TILES on, the town box and Story Kit on); the secrets sync: false; the slug from the workflow',
+      /key: HOMETOWN_RUNS\n\s+value: "workflows"/.test(y) && /key: HOMETOWN_BUILDER\n\s+value: "on"/.test(y) && /key: HOMETOWN_TILES\n\s+value: "on"/.test(y)
+      && /key: NEXT_PUBLIC_HOMETOWN_SEARCH\n\s+value: "on"/.test(y) && /key: STORYKIT\n\s+value: "on"/.test(y) && /key: HOMETOWN_COMPILE\n\s+value: "off"/.test(y)
+      && /key: HOMETOWN_DAILY_COLD\n\s+value: "\d+"/.test(y) && !/key: HOMETOWN_TOWNS\b/.test(y) && !/key: HOMETOWN_RENDER_API\n/.test(y)
+      && ['HOMETOWN_RENDER_API_KEY', 'HOMETOWN_WORKER_TOKEN', 'HOMETOWN_ADMIN_TOKEN', 'ADMIN_PASSWORD', 'HOMETOWN_BUILD'].every((k) => new RegExp(`key: ${k}\\n\\s+sync: false`).test(y))
+      && /key: HOMETOWN_WORKFLOW_SLUG\n\s+fromService:\n\s+type: workflow\n\s+name: gamemog-town-builder\n\s+property: slug/.test(y));
+    const wb = readFileSync('deploy/town-builder/workflow-build.sh', 'utf8');
+    ok('workflow-build.sh pins compiler 0.8.0 by SHA, falls back to its branch, and takes the OSM table from the compiler commit',
+      /^MOGCITY_SHA=aa0bc4515ceff34f57f00ba92eb75d96b77a6cd3$/m.test(wb) && /MOGCITY_REF="\$\{HOMETOWN_MOGCITY_REF:-hometown-compiler\}"/.test(wb) && /"\$HT\/osm\/osm-roads-us\.parquet"/.test(wb));
     const PY_VER = /key: PYTHON_VERSION\n\s+value: "([0-9.]+)"/.exec(wf)?.[1];
     const lock = readFileSync('deploy/town-builder/requirements.lock', 'utf8');
     ok('the pinned Python is a CPython 3.14 (the lock\'s wheels) and the build script refuses any other', !!PY_VER?.startsWith('3.14.') && /CPython 3\.14/.test(lock) && /Python \$have is not the pinned \$PYTHON_VERSION/.test(readFileSync('deploy/town-builder/workflow-build.sh', 'utf8')));

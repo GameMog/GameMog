@@ -65,6 +65,8 @@ export async function runTownChecks(ok: Ok) {
   ok('a New York runner pack has no hometown and keeps "New York"', (() => { const ny = gatePack(JSON.parse(readFileSync('storykit/pack/fixtures/good-ny.json', 'utf8'))).pack; const r = ny ? toRunnerPack(ny) : null; return !!r && !('hometown' in r) && r.missions.every((m: { city: string }) => m.city === 'New York'); })());
   ok('the play address boots the built town (city=pkg&town&tc&ts), New York and San Francisco as before',
     storyFrameQuery('hometown', lock) === `city=pkg&town=us-4054200&tc=${lock.compiler}&ts=${lock.tiles}` && storyFrameQuery('ny') === '' && storyFrameQuery('sf') === 'city=sf' && storyFrameQuery('hometown', null) === '');
+  ok('a town of the production builder plays its bundle variant (&tv=full, or the spawn district while the rest builds: Mog City town-src.js)',
+    storyFrameQuery('hometown', lock, 'full') === `city=pkg&town=us-4054200&tc=${lock.compiler}&ts=${lock.tiles}&tv=full` && storyFrameQuery('hometown', lock, 'district-5806-4290').endsWith('&tv=district-5806-4290') && storyFrameQuery('ny', null, 'full') === '');
   ok('the frame address joins the city part with one \'&\' (none stray), New York with none', /\/\?city=pkg&town=us-4054200&tc=[^&]+&ts=[0-9a-f]{64}&pack=/.test(storyFrameSrc('a'.repeat(64), 'g', 'http://localhost:1', 'hometown', lock)) && /\/\?pack=/.test(storyFrameSrc('a'.repeat(64), 'g', 'http://localhost:1', 'ny')) && /\/\?city=sf&pack=/.test(storyFrameSrc('a'.repeat(64), 'g', 'http://localhost:1', 'sf')) && !/&&/.test(storyFrameSrc('a'.repeat(64), 'g', 'http://localhost:1', 'hometown', lock)));
 
   // the store: gates the pack with its town's table (read by its lock from the bundles), seals the runner pack with it

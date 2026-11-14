@@ -2,7 +2,7 @@
 # REFERENCE ONLY since 13 Nov 2026: the builder is now a Render Workflow (render.yaml gamemog-town-builder, type: workflow),
 # which builds on Render's native Python runtime, not from a Dockerfile. deploy/town-builder/workflow-build.sh is the same
 # recipe for that runtime (and its MOGCITY_SHA is the pin that counts). Kept for a Docker host, should one be needed.
-# The town-builder worker image (docs/HOMETOWN-HOSTING.md "Production builder"; render.yaml service
+# The town-builder worker image (docs/HOMETOWN-HOSTING.md; render.yaml service
 # gamemog-town-builder, a background worker with no disk). It runs deploy/town-builder/worker.py, which claims jobs from
 # gamemog.com's queue over Render's private network and runs the pinned hg1 compiler (MogCity tools/hometown). No Next,
 # no Node: the web service never compiles, and this image never serves a page.
@@ -30,7 +30,7 @@ ARG PY_IMAGE=python:3.14.6-slim-bookworm@sha256:4c92ffcde4dd6f1ff72a24518f49fd49
 # ---- the compiler at one commit (git only in this stage)
 FROM ${PY_IMAGE} AS compiler
 # THE ONE LINE to re-pin the compiler (a 40-hex commit of github.com/GameMog/GameMog that carries tools/hometown):
-ARG MOGCITY_SHA=23e7d721a57fb2bb46f93c5ae5d9993d9a3678db
+ARG MOGCITY_SHA=aa0bc4515ceff34f57f00ba92eb75d96b77a6cd3
 # hadolint ignore=DL3008
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
@@ -44,7 +44,7 @@ RUN git init /opt/mogcity \
 
 # ---- the worker
 FROM ${PY_IMAGE}
-ARG MOGCITY_SHA=23e7d721a57fb2bb46f93c5ae5d9993d9a3678db
+ARG MOGCITY_SHA=aa0bc4515ceff34f57f00ba92eb75d96b77a6cd3
 ENV PYTHONHASHSEED=0 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

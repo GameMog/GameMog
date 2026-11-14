@@ -1,4 +1,4 @@
-"""The town builder as a Render Workflows task (docs/HOMETOWN-HOSTING.md "Production builder"; render.yaml service
+"""The town builder as a Render Workflows task (docs/HOMETOWN-HOSTING.md; render.yaml service
 `gamemog-town-builder`, type: workflow, runtime: python).
 
 One task, `build_jobs`. Its body IS the worker loop (worker.py) run once: it claims jobs from the web's queue over
