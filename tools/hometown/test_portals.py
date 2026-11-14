@@ -16,6 +16,12 @@ def world():
     W.pieces_c, W.seg_rows, W.moved_c, W.iv_c, W.files_c = {}, {}, {}, {}, {}
     W.dem = type('NoDem', (), {'record': lambda self: __import__('contextlib').nullcontext(set()), 'add': lambda self, fs: None})()
     W.lanes = lambda s, d: {'w': 11.0, 'lf': 2, 'lb': 0, 'spd': None, 'src': 'class'}
+    # (0.10.0: pieces() keeps a segment's pieces less those inside a building (site_cut: a motorway is never soft) and
+    # each piece carries its sides and pair (World.sides / World.pair read the OSM tags and the neighbours: the class's
+    # sidewalks both sides, no pair here)
+    W.kept_c, W.pair_c, W.side_c = {}, {}, {}
+    W.pair = lambda s, d: None
+    W.sides = lambda s, d: {'swl': C.ROAD[s['class']][2], 'swr': C.ROAD[s['class']][2], 'cyl': 0, 'cyr': 0}
     return W
 
 
