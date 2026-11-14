@@ -7,6 +7,7 @@ import { dareLoop } from '@/lib/funnel';
 import { adminEnabled, isAdmin } from './session';
 import { storykitMode } from '@/lib/storykit-switch';
 import { storyStore } from '@/lib/storykit-store';
+import { storyTownsAdmin } from '@/lib/storykit-publish';
 import { Dashboard } from './dashboard';
 import { builderMode } from '@/lib/hometown-build/access';
 import { builderDeps, builderStatus } from '@/lib/hometown-build/server';
@@ -48,5 +49,8 @@ export default async function AdminPage() {
   // (JSON round trip: node:sqlite rows have a null prototype, which a Client Component prop refuses)
   let towns = null;
   if (builderMode() !== 'off') { try { towns = JSON.parse(JSON.stringify(builderStatus(builderDeps()))); } catch (e) { console.error('admin: town builder status', String((e as Error).message).slice(0, 200)); } }
-  return <Dashboard towns={towns} stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} slots={slots} loop={dareLoop(now)} mc={mc} storykit={storykit} />;
+  // the published hometown story worlds pinned to an older build of their town: what each plays, and why (lib/storykit-upgrade.ts)
+  let storyTowns = null;
+  if (towns && storykit) { try { storyTowns = JSON.parse(JSON.stringify(storyTownsAdmin())); } catch (e) { console.error('admin: story towns', String((e as Error).message).slice(0, 200)); } }
+  return <Dashboard storyTowns={storyTowns} towns={towns} stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} slots={slots} loop={dareLoop(now)} mc={mc} storykit={storykit} />;
 }

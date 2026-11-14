@@ -26,6 +26,7 @@ import { TileStore, GB } from '../lib/hometown-tiles/store.ts';
 import { bundleKey } from '../lib/hometown-tiles/keys.ts';
 import { StoryStore } from '../lib/storykit-store.ts';
 import { placeById } from '../lib/places/search.ts';
+import { storyUpgradeWith, checkPlaces, worldPlaces, frameMoved, upgradedWorld, sha256, worldBytes, MOVE_M, type UpgradeDeps } from '../lib/storykit-upgrade.ts';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
 const F = 'storykit/hometown/fixtures/';
@@ -100,6 +101,62 @@ export async function runTownChecks(ok: Ok) {
     } finally { rmSync(tq, { recursive: true, force: true }); }
   }
 
+  // ── a story pinned to an older build of its town (14 Nov: The Courtesy Lane kept the 0.8.0 district of Bal Harbour for
+  // ever): it plays the town's current whole town when the frame is the same and every place it names is the same place
+  // there (lib/storykit-upgrade.ts); else it keeps its pinned build and says why
+  {
+    const NB = 'htc-0.4.0-hg1-bdeadbeef', NT = 'd'.repeat(64);
+    const NEW: CityPackage = { ...OK, compilerVersion: NB, buildId: NB, tileSet: { ...OK.tileSet, hash: NT }, places: OK.places.map((p) => (p.id === 'restaurant' ? { ...p, name: 'the diner on W Broadway' } : p)) };
+    const toLock = cityLock(NEW);
+    const world = { storykit: 1, id: 'sk-test', city: 'hometown', hometown: lock, places: { hideout: { '@': 'bar', name: 'the back room' }, mark: { at: [10, 20, 0], name: 'a corner' }, unused: { '@': 'cafe' } },
+      opening: { shots: [{ cam: '@pkg_downtown' }] }, missions: [{ id: 'M1', start: '@hotel', steps: [{ type: 'drive', to: '@hideout' }, { type: 'goto', to: { '@': 'gas_station' } }, { type: 'drive', to: '@mark' }] }], voice: { lines: [{ say: '@nope' }] } };
+    const wp = worldPlaces(world);
+    ok('the world\'s places: every "@key" it plays, through its aliases, with the missions that name them; marks apart; the voice plan and the alias table itself are not places',
+      [...wp.ids.keys()].sort().join() === 'bar,cafe,gas_station,hotel,pkg_downtown' && [...wp.ids.get('bar')!.via].join() === 'hideout' && [...wp.ids.get('hotel')!.missions].join() === 'M1' && wp.marks.join() === 'mark', [...wp.ids.keys()].join());
+    const W = 'a'.repeat(64);
+    let derived: Uint8Array | null = null;
+    const deps = (o: Partial<UpgradeDeps> & { cur?: string | null; fullAt?: boolean; newPkg?: CityPackage | null; oldPkg?: CityPackage | null } = {}): UpgradeDeps => ({
+      current: () => (o.cur === undefined ? NB : o.cur),
+      full: (_p, b) => (o.fullAt === false || b !== NB ? null : { tilesId: NT, lock: toLock }),
+      pkg: (l) => (l.compiler === NB ? (o.newPkg === undefined ? NEW : o.newPkg) : (o.oldPkg === undefined ? OK : o.oldPkg)),
+      world: (h) => (h === W ? (o.world ? o.world(h) : world) : null),
+      derive: (_f, b) => { derived = b; return sha256(b); },
+    });
+    const up = storyUpgradeWith(deps(), W, { derive: true });
+    ok('an older pin, the current build\'s whole town built, the same frame, every place the same place: it plays the current whole town',
+      up?.state === 'upgrade' && up.to.compiler === NB && up.tilesId === NT && JSON.stringify(up.to) === JSON.stringify(toLock), JSON.stringify(up).slice(0, 300));
+    ok('...with the world re-pinned and nothing else changed (the same id: the same save), kept by its SHA-256',
+      up?.state === 'upgrade' && !!derived && up.world === sha256(derived!) && JSON.stringify(JSON.parse(new TextDecoder().decode(derived!))) === JSON.stringify({ ...world, hometown: toLock })
+        && sha256(worldBytes(upgradedWorld(world, toLock))) === up.world);
+    ok('...a place whose name only changed is a note, not a hold', up?.state === 'upgrade' && up.notes.length === 0);
+    const named = storyUpgradeWith(deps({ newPkg: { ...NEW, places: NEW.places.map((p) => (p.id === 'hotel' ? { ...p, name: 'the inn' } : p)) } }), W);
+    ok('...a place renamed (same kind, same spot) still upgrades, with a note', named?.state === 'upgrade' && named.notes.some((n) => n.includes('@hotel')), JSON.stringify(named));
+    ok('the pin is the current build: nothing to do', storyUpgradeWith(deps({ cur: lock.compiler }), W)?.state === 'current');
+    ok('no current build known: nothing to do', storyUpgradeWith(deps({ cur: null }), W)?.state === 'current');
+    ok('the current build\'s whole town not built yet: it waits on its pinned build', storyUpgradeWith(deps({ fullAt: false }), W)?.state === 'waiting');
+    const held = (o: Parameters<typeof deps>[0]) => { const u = storyUpgradeWith(deps(o), W); return u?.state === 'held' ? u.why.join(' | ') : `not held: ${u?.state}`; };
+    const gone = held({ newPkg: { ...NEW, places: NEW.places.filter((p) => p.id !== 'gas_station') } });
+    ok('a place not on the new map: held, and it says which', /gas_station is not on the current build's map/.test(gone), gone);
+    const other = held({ newPkg: { ...NEW, places: NEW.places.map((p) => (p.id === 'bar' ? { ...p, kind: 'school', name: 'the school' } : p)) } });
+    ok('an id now naming another kind of place: held (another place has its id), by its alias', /@hideout \(bar\) was bar .* another place has its id/.test(other), other);
+    const far = held({ newPkg: { ...NEW, places: NEW.places.map((p) => (p.id === 'hotel' ? { ...p, x: p.x + MOVE_M + 5 } : p)) } });
+    ok(`a place moved more than ${MOVE_M} m: held`, /@hotel .* moved 35 m/.test(far), far);
+    ok('a place moved less than that: the same place', storyUpgradeWith(deps({ newPkg: { ...NEW, places: NEW.places.map((p) => (p.id === 'hotel' ? { ...p, x: p.x + 12 } : p)) } }), W)?.state === 'upgrade');
+    const unused = held({ newPkg: { ...NEW, places: NEW.places.filter((p) => p.id !== 'cafe') } });
+    ok('an alias of the world\'s nothing names is still checked (it is the story\'s map)', /@unused \(cafe\)/.test(unused), unused);
+    ok('the pinned build\'s places unreadable: held (nothing to compare)', /pinned build's places can no longer be read/.test(held({ oldPkg: null })));
+    ok('the current build\'s places unreadable: held', /current build's places cannot be read/.test(held({ newPkg: null })));
+    const moved = storyUpgradeWith({ ...deps(), full: () => ({ tilesId: NT, lock: { ...toLock, origin: { c0: toLock.origin!.c0 + 1, r0: toLock.origin!.r0 } } }) }, W);
+    ok('the frame moved (origin, k0, gamma0, yOffset, waterLevel, domain): held, whatever the places', moved?.state === 'held' && /frame moved between the builds \(origin\)/.test(moved.why.join()), JSON.stringify(moved));
+    ok('frameMoved compares the coordinate fields only (the build and tiles may differ)', frameMoved(lock, toLock) === '' && frameMoved(lock, { ...toLock, k0: 1 }) === 'k0' && frameMoved(lock, { ...toLock, place: 'us-0000001' }) === 'place');
+    ok('the store could not keep the upgraded world: held, never an address that is not there', storyUpgradeWith({ ...deps(), derive: () => null }, W, { derive: true })?.state === 'held');
+    ok('a world that is not a hometown world, or not stored: no upgrade', storyUpgradeWith(deps({ world: () => ({ ...world, city: 'ny' }) }), W) === null && storyUpgradeWith(deps(), 'b'.repeat(64)) === null && storyUpgradeWith(deps(), 'nope') === null);
+    const homes = checkPlaces(world, OK, { ...NEW, places: NEW.places.map((p) => (p.id === 'bar' ? { ...p, kind: 'house', name: 'a house', tags: ['building=house'] } : p)) });
+    ok('a place that is a home on the new map is refused', !homes.ok && homes.why.some((w) => /@hideout \(bar\)/.test(w)), homes.why.join(' | '));
+    ok('the play address of an upgrade boots the new build\'s whole town (tc, ts, tv=full) with the re-pinned world',
+      storyFrameQuery('hometown', toLock, { variant: 'full', tilesId: NT }) === `city=pkg&town=${lock.place}&tc=${NB}&ts=${NT}&tv=full`);
+  }
+
   // the store: gates the pack with its town's table (read by its lock from the bundles), seals the runner pack with it
   const tmp = mkdtempSync(path.join(tmpdir(), 'hometown-towns-'));
   const was = globalThis.__hometownTowns;
@@ -122,6 +179,23 @@ export async function runTownChecks(ok: Ok) {
     if (o.ok) {
       const w = s.world(o.id) as Record<string, any>;
       ok('the store\'s sealed world names the town (hometown, missions in Okemah)', JSON.stringify(w.hometown) === JSON.stringify(lock) && w.missions.every((m: { city: string }) => m.city === 'Okemah, Oklahoma'));
+      // (an upgrade and a re-pin: the world kept by its store draft; lib/storykit-upgrade.ts, StoryStore.derive / repin)
+      const NB = 'htc-0.4.0-hg1-bdeadbeef', NEW: CityPackage = { ...OK, compilerVersion: NB, buildId: NB, tileSet: { ...OK.tileSet, hash: 'd'.repeat(64) } };
+      const kept = s.keep(o.id, 'game-1'), sealed = s.seal(s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(o.id) as never);
+      const from = sealed.ok ? sealed.hash : '';
+      const body = worldBytes(upgradedWorld(JSON.parse(s.read(`${from}.json`)!.bytes.toString('utf8')), cityLock(NEW)));
+      const h = s.derive(from, body);
+      ok('the upgraded world is kept with its store draft (served by its SHA-256, never swept) and made once', kept && !!h && h === sha256(body) && !!s.read(`${h}.json`) && s.derive(from, body) === h
+        && (s.db.prepare("SELECT COUNT(*) n FROM files WHERE draft_id = ? AND name = ?").get(o.id, `up-${h}.json`) as { n: number }).n === 1 && s.sweep(true).blobs === 0 && !!s.read(`${h}.json`));
+      ok('...only for a world a draft holds, and only the same world (its id)', s.derive('e'.repeat(64), body) === null && s.derive(from, worldBytes({ storykit: 1, id: 'another' })) === null);
+      const bad = s.repin(o.id, { from, pin: cityLock(NEW), cityBuild: `hometown-${NB}`, city: cityTableOf({ ...NEW, places: NEW.places.filter((p) => !JSON.stringify(pack).includes(`"@${p.id}"`)) }) });
+      ok('a re-pin whose pack does not gate against the new map changes nothing (and says what)', !bad.ok && !!(bad as { problems?: string[] }).problems?.length && (s.db.prepare('SELECT world FROM drafts WHERE id = ?').get(o.id) as { world: string }).world === from);
+      ok('a re-pin over a world the game no longer plays is refused', !s.repin(o.id, { from: 'f'.repeat(64), pin: cityLock(NEW), cityBuild: `hometown-${NB}`, city: cityTableOf(NEW) }).ok);
+      const rp = s.repin(o.id, { from, pin: cityLock(NEW), cityBuild: `hometown-${NB}`, city: cityTableOf(NEW) });
+      const row = s.db.prepare('SELECT pack, world FROM drafts WHERE id = ?').get(o.id) as { pack: string; world: string };
+      ok('the owner\'s re-pin: the pack pins the new build and gates, the sealed world is the same world re-pinned, the old one kept',
+        rp.ok && row.world === rp.hash && rp.hash === h && JSON.stringify(JSON.parse(row.pack).base.hometown) === JSON.stringify(cityLock(NEW)) && JSON.parse(row.pack).base.cityBuild === `hometown-${NB}`
+          && !!s.db.prepare("SELECT 1 FROM files WHERE draft_id = ? AND name = ?").get(o.id, `was-${from}.json`) && !!s.read(`${from}.json`), rp.ok ? '' : `${rp.error} ${(rp as { problems?: string[] }).problems?.join(' | ')}`);
     }
     // the limits: a new town per address per hour, the queue (a job held "running" so nothing is spawned here)
     const rt = globalThis.__hometownTowns!;

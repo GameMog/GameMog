@@ -29,6 +29,7 @@ import { storykitLive } from './storykit-switch.ts';
 import { cityPackageByLock } from './hometown/towns.ts';
 import { cityTableOf } from '../storykit/hometown/hometown-gate.ts';
 import { townName } from '../storykit/hometown/city-package.ts';
+import type { CityTable, HometownLock } from '../storykit/pack/cities.ts';
 
 /**
  * A hometown pack's town (base.city 'hometown'): the city table its gate reads (rule 16) and its name, from the town
@@ -619,6 +620,86 @@ export class StoryStore {
     if (!b || b.ext !== m[2]) return null;
     const f = this.blobPath(m[1], m[2]);
     try { const st = statSync(f); return st.isFile() ? { path: f, size: st.size, type: TYPES[m[2]], hash: m[1] } : null; } catch { return null; }
+  }
+
+  /**
+   * A world made from a sealed one for a newer build of its town (lib/storykit-upgrade.ts: the same world, `hometown`
+   * re-pinned): kept as a file of the store draft that holds `from` (its world.json or a was- row), `up-<sha256>.json`,
+   * so it is served at /storykit/f/<sha256>.json like any sealed world and swept only with its draft. The same bytes
+   * twice are the same file. Its SHA-256, or null (no draft holds `from`, not a runner world of the same id, too large,
+   * or the store full).
+   */
+  derive(from: string, body: Uint8Array): string | null {
+    if (!/^[0-9a-f]{64}$/.test(from) || body.length > LIMITS.sealed) return null;
+    const owner = this.db.prepare("SELECT draft_id FROM files WHERE hash = ? AND kind = 'pack' AND ext = 'json' ORDER BY at LIMIT 1").get(from) as { draft_id: string } | undefined;
+    const old = owner ? this.read(`${from}.json`) : null;
+    if (!owner || !old) return null;
+    let w: Record<string, unknown>, was: Record<string, unknown>;
+    try { w = JSON.parse(new TextDecoder().decode(body)); was = JSON.parse(old.bytes.toString('utf8')); } catch { return null; }
+    if (w?.storykit !== 1 || w.id !== was.id) return null;
+    const hash = sha(body), t = this.now(), name = `up-${hash}.json`;
+    if (this.db.prepare("SELECT 1 FROM files WHERE draft_id = ? AND kind = 'pack' AND name = ?").get(owner.draft_id, name)) return hash;
+    const known = !!this.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(hash);
+    if (!known && this.used() + body.length > LIMITS.disk) return null;
+    if (!known || !existsSync(this.blobPath(hash, 'json'))) {
+      const f = this.blobPath(hash, 'json'); mkdirSync(path.dirname(f), { recursive: true });
+      const tmp = `${f}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`; writeFileSync(tmp, body); renameSync(tmp, f);
+    }
+    this.db.exec('BEGIN');
+    try {
+      this.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)').run(hash, 'json', body.length, t);
+      this.db.prepare("INSERT OR IGNORE INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, 'pack', ?, ?, 'json', ?, NULL, 0, ?)").run(owner.draft_id, name, hash, body.length, t);
+      this.db.exec('COMMIT');
+    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+    return hash;
+  }
+
+  /**
+   * The owner's re-pin of a published (kept) world to a newer build of its town (lib/storykit-publish.ts repinStoryWorld,
+   * which judged it first): the draft's pack takes the new pin (base.hometown, base.cityBuild) and gates with the new
+   * town's table (rule 16: every "@key" on its map; a Mog's parent read with the same pin), the sealed world becomes the
+   * one it was with `hometown` replaced (nothing else of it is remade), and the world it replaces is kept (a was- row),
+   * as a patch keeps it. `from`: the world the game plays now.
+   */
+  repin(id: string, input: { from: string; pin: HometownLock; cityBuild: string; city: CityTable; extra?: (pack: any) => string[] }):
+    { ok: true; hash: string; was: string } | (Fail & { problems?: string[] }) {
+    const d = this.draft(id);
+    if (!d || d.state !== 'kept' || !d.world) return fail(404, 'No published story world to re-pin.');
+    if (input.from !== d.world) return fail(409, `The game plays ${input.from}, but its store draft is sealed as ${d.world}. Nothing was changed.`);
+    const old = this.read(`${d.world}.json`);
+    const was = old ? JSON.parse(old.bytes.toString('utf8')) : null;
+    if (!was || was.city !== 'hometown') return fail(422, 'Not a hometown world.');
+    const pack = JSON.parse(d.pack);
+    if (pack?.base?.city !== 'hometown') return fail(422, 'Not a hometown pack.');
+    pack.base = { ...pack.base, cityBuild: input.cityBuild, hometown: input.pin };
+    const parentRow = d.parent ? this.draft(d.parent) : undefined;
+    const parent = parentRow ? JSON.parse(parentRow.pack) : null;
+    // (a Mog keeps its parent's town: read here as the same town at the new pin, so only the rest of the rule is checked)
+    if (parent?.base?.city === 'hometown') parent.base = { ...parent.base, cityBuild: input.cityBuild, hometown: input.pin };
+    const g = gatePack(pack, { parent, showcaseLine: !!parentRow && this.showcaseLine(parentRow.id), city: input.city });
+    const problems = [...g.problems, ...(g.ok && g.pack && input.extra ? input.extra(g.pack) : [])];
+    if (!g.ok || !g.pack || problems.length) return { ...fail(422, 'The pack does not pass against the new build. Nothing was changed.'), problems };
+    const body = new TextEncoder().encode(JSON.stringify({ ...was, hometown: input.pin }));
+    if (body.length > LIMITS.sealed) return fail(413, 'The world is too large.');
+    const hash = sha(body), t = this.now();
+    const known = !!this.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(hash);
+    if (!known && this.used() + body.length > LIMITS.disk) return fail(507, 'The Story Kit store is full.');
+    if (!known || !existsSync(this.blobPath(hash, 'json'))) {
+      const f = this.blobPath(hash, 'json'); mkdirSync(path.dirname(f), { recursive: true });
+      const tmp = `${f}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`; writeFileSync(tmp, body); renameSync(tmp, f);
+    }
+    const prior = d.world;
+    this.db.exec('BEGIN');
+    try {
+      this.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)').run(hash, 'json', body.length, t);
+      const file = this.db.prepare('INSERT OR REPLACE INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)');
+      if (prior !== hash) file.run(d.id, 'pack', `was-${prior}.json`, prior, 'json', old!.bytes.length, null, t);
+      this.db.prepare("DELETE FROM files WHERE draft_id = ? AND kind = 'pack' AND name IN (?, ?)").run(d.id, `was-${hash}.json`, `up-${hash}.json`);
+      file.run(d.id, 'pack', 'world.json', hash, 'json', body.length, null, t);
+      this.db.prepare('UPDATE drafts SET pack = ?, world = ?, touched_at = ? WHERE id = ?').run(JSON.stringify(pack), hash, t, d.id);
+      this.db.exec('COMMIT');
+    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+    return { ok: true, hash, was: prior };
   }
 
   /** A stored blob by its served name (<sha256>.<ext>), or null. Only blobs a draft points at are in the table. */

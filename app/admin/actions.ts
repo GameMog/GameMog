@@ -1,6 +1,7 @@
 'use server';
 import { cookies, headers } from 'next/headers';
 import { setScoreHidden, setWorldHidden } from '@/lib/analytics';
+import { repinStoryWorld } from '@/lib/storykit-publish';
 import { COOKIE, adminEnabled, clearMisses, isAdmin, lockedOut, passwordMatches, recordMiss, sessionValue } from './session';
 
 /** Server actions for /admin. Every one but signing in checks the session first. */
@@ -38,4 +39,11 @@ export async function setWorld(id: string, hidden: boolean) {
 export async function setScore(id: number, hidden: boolean) {
   await must();
   return setScoreHidden(Number(id), !!hidden);
+}
+
+/** Re-pin a published hometown story world to its town's current whole town (lib/storykit-publish.ts repinStoryWorld). */
+export async function repinStory(slug: string): Promise<{ ok: boolean; error?: string; problems?: string[]; build?: string; notes?: string[] }> {
+  await must();
+  const r = repinStoryWorld(String(slug));
+  return r.ok ? { ok: true, build: r.build, notes: r.notes } : { ok: false, error: r.error, problems: r.problems?.slice(0, 12) };
 }

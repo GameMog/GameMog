@@ -5,6 +5,7 @@ import { builderDeps } from '@/lib/hometown-build/server';
 import { townStatus, bestVariant } from '@/lib/hometown-build/towns';
 import { storyCors, storyPreflight } from '@/lib/storykit-http';
 import { BUILD_ID } from '@/lib/hometown-tiles/keys';
+import { storyUpgrade } from '@/lib/storykit-publish';
 
 export const runtime = 'nodejs';
 
@@ -12,7 +13,9 @@ export const runtime = 'nodejs';
  * GET /api/towns/{placeId}: a town's build as POST /api/towns answers it, never starting one (polled every 2 s).
  * GET /api/towns/{placeId}?build=<buildId>: Mog City's engine poll (SPEC 4.4, every 10 s): the best playable variant of
  * the town at that build, { variant: 'full' | 'district-c-r', tilesId, url }, or 404. Public (the bytes it points at
- * are), CORS for Mog City's origin, whenever the production builder is not off.
+ * are), CORS for Mog City's origin, whenever the production builder is not off. &world=<sha256> (the story world the
+ * page plays): `upgrade` { build, tilesId, variant: 'full', url, pack } as well, when that world may play the town's current
+ * whole town instead (lib/storykit-upgrade.ts).
  */
 export async function GET(req: Request, ctx: { params: Promise<{ placeId: string }> }) {
   const { placeId } = await ctx.params;
@@ -20,7 +23,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ placeId: string
   if (build != null) {
     if (builderMode() === 'off' || !BUILD_ID.test(build) || !/^us-[0-9]{7}$/.test(placeId)) return new Response('Not found', { status: 404, headers: { 'cache-control': 'no-store', ...storyCors(req) } });
     const v = bestVariant(builderDeps(), placeId, build);
-    return Response.json(v ?? { error: 'not built' }, { status: v ? 200 : 404, headers: { 'cache-control': 'no-store', ...storyCors(req) } });
+    // (&world=<sha256>: the story world the page plays, growing.js. Pinned to this build while the town's current build has
+    // its whole town and every place of the world is the same place there: `upgrade`, where the page goes instead,
+    // lib/storykit-upgrade.ts. The answer about this build is unchanged, so an engine that does not read it is unchanged)
+    const world = new URL(req.url).searchParams.get('world');
+    const u = v && world && /^[0-9a-f]{64}$/.test(world) ? storyUpgrade(world, { derive: true }) : null;
+    const upgrade = u?.state === 'upgrade' && u.world && u.from.place === placeId && u.from.compiler === build
+      ? { build: u.to.compiler, tilesId: u.tilesId, variant: 'full', url: `/towns/${placeId}/${u.to.compiler}/${u.tilesId}/full/`, pack: `/storykit/f/${u.world}.json` } : null;
+    return Response.json(v ? (upgrade ? { ...v, upgrade } : v) : { error: 'not built' }, { status: v ? 200 : 404, headers: { 'cache-control': 'no-store', ...storyCors(req) } });
   }
   const access = townsAccess(req, process.env, ownerVisit);
   if (!access) return new Response('Not found', { status: 404 });
