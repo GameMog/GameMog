@@ -283,7 +283,7 @@ ${T} #wg .m2-prompt kbd::after { content: 'TAKE DOWN'; }`;
       case 'exit': tap('KeyF'); return null;
       case 'drive': tap('KeyQ'); return null;
       case 'radio': {
-        // (a tap: the next station, R; held 0.6 s: off or on, T)
+        // (a tap: R, the radio on or the next song; held 0.6 s: T, off or on)
         let done = false; const t = setTimeout(() => { done = true; tap('KeyT'); }, 600);
         return (cancelled) => { clearTimeout(t); if (!done && !cancelled) tap('KeyR'); };
       }

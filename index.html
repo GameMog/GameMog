@@ -467,6 +467,12 @@
       <div id="loading-status">Loading Manhattan…</div>
     </div>
   </div>
+  <!-- (Mog City: the loading line's first words are the city's from the first frame: a Hometown town's (?city=pkg) never
+       New York's or San Francisco's, before its package or bundle has loaded and cities/pkg/js/pkg-hud.js names it) -->
+  <script>
+    (() => { const c = new URLSearchParams(location.search).get('city'), el = document.getElementById('loading-status');
+      if (el && c === 'pkg') el.textContent = 'Loading your town…'; else if (el && c === 'sf') el.textContent = 'Loading San Francisco…'; })();
+  </script>
 
   <!-- 3D WebGPU Viewport Container -->
   <main id="canvas-container" aria-label="MOG CITY"></main>

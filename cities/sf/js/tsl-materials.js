@@ -2008,9 +2008,14 @@ function createTerrainMaterial(maskTexture, mask) {
   const cSand = color(0xc8b58e);
   const cRock = color(0x6f6556);
   const cSeawall = color(0x5f5b54);
+  // (a Hometown package's mask also has 7 paved lot, 8 dry scrub, 9 woodland floor: tools/hometown/compile.py MASK)
+  const cLot = color(0x4d4e51);
+  const cScrub = color(0x857f52);
+  const cWoods = color(0x34431f);
   const classColor = (c) => {
     const is = (k) => float(1.0).sub(step(0.5, abs(c.sub(k))));
-    return cSidewalk.mul(is(1)).add(cLawn.mul(is(2))).add(cSand.mul(is(3))).add(cRock.mul(is(4))).add(cSeawall.mul(is(5)));
+    return cSidewalk.mul(is(1)).add(cLawn.mul(is(2))).add(cSand.mul(is(3))).add(cRock.mul(is(4))).add(cSeawall.mul(is(5)))
+      .add(cLot.mul(is(7))).add(cScrub.mul(is(8))).add(cWoods.mul(is(9)));
   };
   const size = vec2(mask.w, mask.h);
   // cell coordinates with texel centres on integers: the four cells around the fragment and its place between them
@@ -2054,6 +2059,74 @@ function createTerrainMaterial(maskTexture, mask) {
   mat.roughnessNode = mix(float(0.92), asphaltRoughness, asphalt);
   mat.metalnessNode = asphaltMetalness.mul(asphalt);
   mat.emissiveNode = asphaltEmissive.mul(asphalt);
+  return mat;
+}
+
+/**
+ * (Hometown packages) The curb islands' tops (js/sf-ground.js) by the ground mask under them, so a block is not one
+ * paved slab: concrete flags only where the mask says sidewalk (the bands along the streets, a downtown's paved squares,
+ * and the roadway class in the cells a curb line straddles), the paved lots (7) as worn asphalt, and the land as grass
+ * (2), bare ground (3), rock (4), the water's edge (5), dry scrub (8) or woodland floor (9) (tools/hometown/compile.py
+ * MASK). The cells are read as the terrain material reads them: the four round the fragment, the flags' share
+ * sharpened to about a pixel, the other classes blended among themselves.
+ * `maskTexture`: the terrain's own R8 DataTexture (terrain-mesh.js groundMaskTexture); `mask`: its header; `climate`: the
+ * package's (tools/hometown/climate.py): its rough ground (8) is weedy green in a humid place, dry scrub elsewhere.
+ */
+function createGroundCoverMaterial(maskTexture, mask, climate = 'humid') {
+  const slab = createSidewalkMaterial();
+  const lawn = createParkLawnMaterial(false);
+  const mat = new THREE.MeshStandardNodeMaterial({ metalness: 0.0, roughness: 0.9 });
+  mat.aoNode = canyonSkyAONode();
+
+  const size = vec2(mask.w, mask.h);
+  const p = positionWorld.xz.sub(vec2(mask.originX, mask.originZ)).div(mask.cell).sub(0.5);
+  const base = floor(p);
+  const f = fract(p);
+  const sampleClass = (dx, dz) => floor(texture(maskTexture, base.add(vec2(dx + 0.5, dz + 0.5)).div(size)).r.mul(255.0).add(0.5));
+  const cs = [sampleClass(0, 0), sampleClass(1, 0), sampleClass(0, 1), sampleClass(1, 1)];
+  const ws = [float(1.0).sub(f.x).mul(float(1.0).sub(f.y)), f.x.mul(float(1.0).sub(f.y)), float(1.0).sub(f.x).mul(f.y), f.x.mul(f.y)];
+  // the flags: classes 0 (a curb's own cells) and 1
+  const flagged = (c) => float(1.0).sub(step(1.5, c));
+  const share = cs.reduce((acc, c, i) => acc.add(flagged(c).mul(ws[i])), float(0.0));
+  const aa = max(fwidth(share), 0.0001);
+  const flags = smoothstep(float(0.5).sub(aa), float(0.5).add(aa), share);
+
+  // the land
+  const xz = positionWorld.xz;
+  const n1 = noise2D(xz.mul(0.09));
+  const n2 = noise2D(xz.mul(0.7));
+  // (open land, not a park's mown lawn: some of it drier and olive, in broad patches)
+  const grass = mix(lawn.colorNode, color(0x66703b), n1.mul(0.35).add(0.15));
+  const cLot = mix(color(0x47484b), color(0x5a5a5b), n2).mul(n1.mul(0.12).add(0.94));
+  // (bare ground: a desert yard's gravel and decomposed granite, speckled, not beach sand)
+  const grit = noise2D(xz.mul(9.0));
+  const cSand = mix(color(0x9a8565), color(0xb19d78), n1).mul(n2.mul(0.1).add(0.93)).mul(grit.mul(0.12).add(0.94));
+  const cRock = mix(color(0x6a6152), color(0x7f7666), n2);
+  const cEdge = color(0x5f5b54);
+  const cScrub = climate === 'humid'
+    ? mix(mix(color(0x58602f), color(0x6f6f3e), n1), grass, n2.mul(0.4).add(0.3))
+    : mix(mix(color(0x7b7a4c), color(0x958c5e), n1), grass, n2.mul(0.35).add(0.1));
+  const cWoods = mix(color(0x2c3d1d), color(0x45402a), n2.mul(0.6)).mul(n1.mul(0.25).add(0.85));
+  const is = (c, k) => float(1.0).sub(step(0.5, abs(c.sub(k))));
+  const landColor = (c) => grass.mul(is(c, 2)).add(cSand.mul(is(c, 3))).add(cRock.mul(is(c, 4))).add(cEdge.mul(is(c, 5)))
+    .add(cLot.mul(is(c, 7))).add(cScrub.mul(is(c, 8))).add(cWoods.mul(is(c, 9)));
+  const ows = cs.map((c, i) => ws[i].mul(step(1.5, c)));
+  const owSum = max(ows.reduce((a, w) => a.add(w), float(0.0)), 0.0001);
+  const land = cs.reduce((acc, c, i) => acc.add(landColor(c).mul(ows[i])), vec3(0.0)).div(owSum);
+  // (the lots: smooth, so no lawn relief or grass specular on them)
+  const lot = cs.reduce((acc, c, i) => acc.add(is(c, 7).mul(ows[i])), float(0.0)).div(owSum);
+
+  mat.colorNode = mix(land, slab.colorNode, flags);
+  mat.roughnessNode = mix(mix(lawn.roughnessNode, float(0.8), lot), slab.roughnessNode, flags);
+  mat.metalnessNode = slab.metalnessNode.mul(flags);
+  mat.normalNode = normalize(mix(mix(lawn.normalNode, normalView, lot), slab.normalNode, flags));
+  const { specularColor, specularColorBlended, specularF90 } = window.NYC.TSL;
+  mat.setupSpecular = function () {
+    const k = mix(mix(float(0.025), float(0.04), lot), float(0.04), flags);
+    specularColor.assign(vec3(k));
+    specularColorBlended.assign(vec3(k));
+    specularF90.assign(mix(mix(float(0.3), float(1.0), lot), float(1.0), flags));
+  };
   return mat;
 }
 
@@ -3371,5 +3444,5 @@ function createCarFlareMaterial() {
   return mat;
 }
 
-Object.assign(window.NYC, { cityUniforms, WALL_KINDS, createCurtainWallMaterial, createPreWarBuildingMaterial, createFacadeBoxes, createChryslerCrownMaterial, createCarPaintMaterial, createFoliageMaterial, createTreeBarkMaterial, createTreeMaterial, createParkPavingMaterial, createParkWallMaterial, createIronFenceMaterial, createParkLampGlobeMaterial, createParkLampPoolMaterial, createTunnelShadeMaterial, createTktsStepMaterial, createMarbleAshlarMaterial, createTreeGrateMaterial, createRoadSurfaceMaterial, createTerrainMaterial, createRoadPaintMaterial, createSidewalkMaterial, createCurbMaterial, createBillboardMaterial, createWaterMaterial, createParkLawnMaterial, createSteamMaterial, createGodRayMaterial, createContactShadowMaterial, createHeadlightBeamMaterial, createCarFlareMaterial });
+Object.assign(window.NYC, { cityUniforms, WALL_KINDS, createCurtainWallMaterial, createPreWarBuildingMaterial, createFacadeBoxes, createChryslerCrownMaterial, createCarPaintMaterial, createFoliageMaterial, createTreeBarkMaterial, createTreeMaterial, createParkPavingMaterial, createParkWallMaterial, createIronFenceMaterial, createParkLampGlobeMaterial, createParkLampPoolMaterial, createTunnelShadeMaterial, createTktsStepMaterial, createMarbleAshlarMaterial, createTreeGrateMaterial, createRoadSurfaceMaterial, createTerrainMaterial, createGroundCoverMaterial, createRoadPaintMaterial, createSidewalkMaterial, createCurbMaterial, createBillboardMaterial, createWaterMaterial, createParkLawnMaterial, createSteamMaterial, createGodRayMaterial, createContactShadowMaterial, createHeadlightBeamMaterial, createCarFlareMaterial });
 })();

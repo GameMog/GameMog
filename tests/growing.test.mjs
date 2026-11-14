@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const TC = 'htc-0.7.0-hg1-be9d23a20', TS = '06ad1e104d8b325b2a4e7821585b83e5e9b972ef79e5ef570fed581b86f61a92';
+const TC = 'htc-0.8.0-hg1-bd21d7d2c', TS = '374619d446da8abe062dde3b8cda89f7f951450d430c3e10bb1a2ce7405e976d';
 const LOCK3 = { format: 'hometown-city-lock', formatVersion: 3, place: 'us-4054200', buildId: TC, grid: 'hg1', domain: 'conus', origin: { c0: 5806, r0: 8582 }, k0: 0.996523396, gamma0: -0.190411, yOffset: 246, waterLevel: -10, tiles: TS };
 const PIN3 = { place: 'us-4054200', compiler: TC, tiles: TS, formatVersion: 3, grid: 'hg1', domain: 'conus', origin: { c0: 5806, r0: 8582 }, k0: 0.996523396, gamma0: -0.190411, yOffset: 246, waterLevel: -10 };
 const SEARCH = `?city=pkg&town=us-4054200&tc=${TC}&ts=${TS}&host=http://localhost:4841`;

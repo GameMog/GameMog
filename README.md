@@ -20,7 +20,7 @@ cd mog-city
 python3 -m http.server 8000
 ```
 
-Then open http://localhost:8000. Click, or press any key, for sound. The game opens on its title screen and goes straight into the opening; `?trailer=1` plays the cold-open trailer first and `?trailer=only` plays the trailer by itself. Every URL switch (mission checkpoints, graphics tiers, test switches) is listed in [CONTRIBUTING.md](CONTRIBUTING.md#url-switches).
+Then open http://localhost:8000 (or run `node tools/serve.mjs 8000`, which also serves byte ranges, so the car radio's songs stream and resume as they do online). Click, or press any key, for sound. The car radio starts off: in a car, `T` turns on Mog Music and `R` skips a song. The game opens on its title screen and goes straight into the opening; `?trailer=1` plays the cold-open trailer first and `?trailer=only` plays the trailer by itself. Every URL switch (mission checkpoints, graphics tiers, test switches) is listed in [CONTRIBUTING.md](CONTRIBUTING.md#url-switches).
 
 At mc.gamemog.com the game counts its own visits, first-party, at gamemog.com ([`wagmi/stats.js`](wagmi/stats.js)): a random id the browser makes for itself, page loads (with the linking site's name and any `?utm_source=` or `?ref=`), starts, the missions reached, passed or failed, and play time. No cookies, no IP addresses, nothing from the developer switches, and a copy you run yourself sends nothing.
 
@@ -59,6 +59,7 @@ The code is under the MIT License (see [LICENSE](LICENSE)), the same licence as 
 
 Some parts are not ours and keep their own terms:
 
+- **Mog Music** (`media/mog-music/`, the car radio's Mog Music station) is the owner's own music: all rights reserved, not covered by the MIT License, and not to be reused or redistributed outside this game (see [media/mog-music/NOTICE.md](media/mog-music/NOTICE.md)).
 - The street-combat system, the Suits' rig and the freeflow fight moves are ported from **Spiderbench** by Shikhar and used with the author's permission. They are not covered by the MIT License.
 - Some motion capture (`assets/anim/bandai`: the Suits' walks and idles, the rally crowd, Dan's fight footwork) is from the **Bandai Namco Research Motion Dataset**, © 2022 Bandai Namco Research Inc., under CC BY-NC 4.0: non-commercial use only and not covered by the MIT License (see [NOTICE](NOTICE)).
 - The rest of the music, the engine recordings, the 3D characters' source assets, the motion capture and the props come from their own authors under CC0, CC BY and similar licences.

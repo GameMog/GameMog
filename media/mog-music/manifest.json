@@ -1,0 +1,97 @@
+{
+ "station": "Mog Music",
+ "rights": "All rights reserved by the owner. Not covered by this repository's LICENSE.",
+ "songs": [
+  {
+   "file": "feelin-stunty.mp3",
+   "title": "Feelin Stunty",
+   "dur": 233.64,
+   "kbps": 192,
+   "bytes": 5607552
+  },
+  {
+   "file": "hope-you-dont-love-her.mp3",
+   "title": "Hope You Don't Love Her",
+   "dur": 233.25,
+   "kbps": 128,
+   "bytes": 3736182
+  },
+  {
+   "file": "last-song.mp3",
+   "title": "LAST SONG",
+   "dur": 278.65,
+   "kbps": 128,
+   "bytes": 4458371
+  },
+  {
+   "file": "let-me-hit-it.mp3",
+   "title": "Let Me Hit It",
+   "dur": 296.1,
+   "kbps": 192,
+   "bytes": 7106688
+  },
+  {
+   "file": "lex-kday.mp3",
+   "title": "Lex Kday",
+   "dur": 215.51,
+   "kbps": 128,
+   "bytes": 3448960
+  },
+  {
+   "file": "lex-weapons-theme-song.mp3",
+   "title": "Lex- Weapons Theme Song",
+   "dur": 264.25,
+   "kbps": 160,
+   "bytes": 5289318
+  },
+  {
+   "file": "lex-waits-for-me.mp3",
+   "title": "Lex- WAITS FOR ME",
+   "dur": 229.75,
+   "kbps": 192,
+   "bytes": 5515079
+  },
+  {
+   "file": "lex-and-roy.mp3",
+   "title": "LEX&ROY",
+   "dur": 252.31,
+   "kbps": 192,
+   "bytes": 6057582
+  },
+  {
+   "file": "ride-for-me.mp3",
+   "title": "Ride For Me",
+   "dur": 213.39,
+   "kbps": 128,
+   "bytes": 3416192
+  },
+  {
+   "file": "road-to-the-money.mp3",
+   "title": "Road To The Money",
+   "dur": 321.83,
+   "kbps": 128,
+   "bytes": 5153481
+  },
+  {
+   "file": "see-what.mp3",
+   "title": "See What",
+   "dur": 253.34,
+   "kbps": 192,
+   "bytes": 6075172
+  },
+  {
+   "file": "sho-nuff.mp3",
+   "title": "Sho Nuff",
+   "dur": 21.37,
+   "kbps": 192,
+   "bytes": 513024
+  },
+  {
+   "file": "wind-blows.mp3",
+   "title": "Wind Blows",
+   "dur": 271.52,
+   "kbps": 192,
+   "bytes": 6510868
+  }
+ ]
+}

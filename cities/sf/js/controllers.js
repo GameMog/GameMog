@@ -69,6 +69,8 @@ const STEP_DOWN = 0.4;
 // Colliders are ignored more than this far below the building's lowest ground (minY): tunnels run under buildings, but a
 // road a little below a building's terrace must still bump into it (PLAN.md P2-8)
 const BELOW_COLLIDER = 3;
+// (a collider's own `below` stands in for it: a package deck's parapet counts only for what is on its deck, never for a
+// car passing under the deck, grade-separation.js)
 // (Mog City) on foot the way to go is the camera's (readFootMove, walkToward): how briskly he turns to it, and how
 // lazily the view comes round behind him as he walks away from it
 const FOOT_TURN = 11; // rad/s
@@ -1022,7 +1024,7 @@ class ThirdPersonControllerManager {
     const shape=mode==='car'?G.carShape(pos,heading,padding,this.entities.car&&this.entities.car.body):G.circleShape(pos,({person:.48,cyclist:.65,helicopter:4.5}[mode]||.48)+padding);
     const y=pos.y+(mode==='helicopter'?0:1);
     for(const c of this.nearColliders(pos.x,pos.z,shape.reach)){
-      if(y>c.maxY+1.5||y<(c.minY??-Infinity)-BELOW_COLLIDER)continue;
+      if(y>c.maxY+1.5||y<(c.minY??-Infinity)-(c.below??BELOW_COLLIDER))continue;
       if(G.contact(shape,c))return false;
     }
     return true;
@@ -1084,7 +1086,7 @@ class ThirdPersonControllerManager {
       let shape=shapeAt(),moved=false;
       const near=this.nearColliders(pos.x,pos.z,shape.reach+1);
       for(const c of near){
-        if(yHeight>c.maxY+1.5||yHeight<(c.minY??-Infinity)-BELOW_COLLIDER)continue;
+        if(yHeight>c.maxY+1.5||yHeight<(c.minY??-Infinity)-(c.below??BELOW_COLLIDER))continue;
         const hit=G.contact(shape,c);if(!hit)continue;
         const {nx,nz,depth,point}=hit;
         pos.x+=nx*(depth+G.SKIN);pos.z+=nz*(depth+G.SKIN);moved=true;

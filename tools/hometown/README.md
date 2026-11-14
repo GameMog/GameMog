@@ -1,4 +1,4 @@
-# Hometown compiler 0.7.0 (the national grid hg1)
+# Hometown compiler 0.8.0 (the national grid hg1)
 
 Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
 so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
@@ -87,8 +87,9 @@ GameMog or Render disk) is seeded with the snapshot the compiler ships, `dem-sna
 | roads | whole Overture segments meeting tile + 160 m, split at their connectors, then at every grid line E' = 512k / S = 512k exactly (int cm, `Fraction`); border nodes `b:{segment}:{E|S}{k}:{ordinal}`; a sub-piece belongs to the tile holding its first edge's midpoint; junction controls from every piece at the connector; no box-edge cut |
 | curb islands | land minus roadways over tile + 128 m, each island classified before the clip: one under 120 m2 inside the window is a median; the rest by local width (`ISLAND_W` 6 m: the parts a 6 m morphological opening leaves out are islands, the rest block, so a polygon the window cuts gets the same kinds where two tiles' windows share it), clipped to the tile, clipped edges flagged `cut` |
 | buildings | owned by the tile holding the exact centroid of the full footprint (integer shoelace), outline kept whole (may overhang), base and rise from the post function over the footprint; `foreign` lists the owners of buildings overlapping the tile |
-| paved lots, trees | footprints within 25 m (buffer 8 / 12 m downtown); a 13 m tree lattice in global grid integers, `hash01(i, j, k ^ domain)`; `desert` from the tile centre |
-| mask | 512 x 512 1 m cells: asphalt, sidewalk, lawn, sand, rock, waterEdge, **water (6)** |
+| ground | off the curb islands asphalt; on them the climate's open land (`climate.py` from the tile centre: humid lawn, dry scrub, arid sand), Overture land use over it (`lu_ground`, larger first), then paved: Overture car parks (infrastructure `parking` polygons) and 6 m lots round commercial buildings (`LOT_KINDS`) as **lot (7)**, a downtown's buildings in 12 m of paved square, the narrow islands and the sidewalk bands (class sidewalk width past the curb) as sidewalk; a humid open hillside (slope > 0.35, 12 m from any house) **woods (9)**, rock past the cliff slope |
+| trees | yards: a 13 m lattice in global grid integers, `hash01(i, j, k ^ domain)`, 3..25 m from a building, clear of footprints + 8 / 12 m and bare ground; woodland: a 16 m lattice over the woods cells; `desert` = arid climate |
+| mask | 512 x 512 1 m cells: asphalt, sidewalk, lawn, sand, rock, waterEdge, **water (6)**, lot (7), scrub (8), woods (9) |
 | places, water, parks | POIs owned by the tile; water and park polygons clipped, each water with its ctx `level_cm` |
 
 **Context blocks** (`context.py`, L4): `bcnt` / `pcnt` (buildings / places per 64 m cell) and `wlev` (each water
@@ -98,7 +99,7 @@ centres by non-max suppression within 2 km, downtown = within 350 m of a centre)
 A tile reads the ctx blocks within 3.2 km and the regions within 3.2 km (a tile whose regions are not fetched is refused
 with the fetch command to run).
 
-**buildId** `htc-0.7.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
+**buildId** `htc-0.8.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
 compiler version, libraries incl. GEOS and zlib, the CPU architecture (`machine`) and the duckdb `spatial` extension's
 version, image digest (`HOMETOWN_IMAGE_DIGEST` from the environment: the town-builder image sets a recipe id), Overture
 release, DEM snapshot, grid). Compiler logic
@@ -133,6 +134,10 @@ from a compiled tile**, so it exists seconds after a town is picked and is the s
   yOffset, waterLevel, tiles}` with `tiles = sha256(buildId + '\n' + the sorted tile ids joined by '\n')` (no trailing
   newline): the same for every bundle variant. The stage-2 manifest keeps the content `tileSetHash`.
 
+Since 0.8.0 stage 1 is round 3's: a capped place (its `searchBbox` wider than its capped `bbox`) takes the same size of
+box centred on its downtown (`assemble.downtown_box`), so the frame's play box, tile range, district, spawns and lock
+are all over the downtown-centred box.
+
 The assembler lays out spawns, places, the datum and density **from the frame** (one source of truth); `--id` computes
 and stores the frame first. `--assemble <placeId> --window district|full --frame <file> --out <dir>` writes a **bundle**
 over a window: `geodata.json` (`hometown-bundle` v1: GEO, PLACE_DATA, PKG), `lock.json`, `data/*.bin.gz`,
@@ -140,7 +145,8 @@ over a window: `geodata.json` (`hometown-bundle` v1: GEO, PLACE_DATA, PKG), `loc
 `PKG.window` (`{variant, tileRange, box, full}`), `PKG.district`, `PKG.tilesId`; far tiles are listed by store key
 (`far/{buildId}/hg1-{d}/{L}/{C}/{R}`, with sha256 and bytes) instead of copied, a district's only those already stored
 (`--far-mode stored`), and a district's arrivals (`PLACE_DATA.regional`) only those inside its window less 150 m. The
-bytes are a function of (frame, window, the tiles, the far tiles) (`test_assemble_window.py`).
+bytes are a function of (frame, window, the tiles, the far tiles) (`test_assemble_window.py`, cold store or warm: the grade groups' diagnostic `stats.grade`, which only
+covers the tiles a run compiled itself, goes to the build log, never into `manifest.json`).
 
 ## Fast cold fetch (`fetch.py`, M5)
 
@@ -188,7 +194,7 @@ self-contained and shared by neighbouring places:
 
 A tile's edge posts are its neighbours' (same global post, same computation: byte-identical). Classes per post: water
 where the 3 x 3 block of DEM pixels nearest it (1/3" for A, 1" for B and C) is exactly flat (3DEP is hydro-flattened;
-no land is flat to 1 mm over ~30-90 m), arid land by the compiler's desert rule (lon < -104, lat < 37.5, per post), else land. Store key
+no land is flat to 1 mm over ~30-90 m), else the post's climate (`climate.py`, per post): 2 arid, 3 dry (steppe), 0 land (humid). Store key
 `far/{buildId}/hg1-{d}/{L}/{C}/{R}`, `--far hg1-{d}/{1|3|5}/{C}/{R} --out -` for one; the legacy package carries them as
 `data/far/{a|b|c}-{C}-{R}.bin.gz` (SFB1 `hometown-far`: uint16 heights, NAVD88 = -100 + 0.1 q, q 0 no data; uint8
 class), listed in `PKG.far` and `manifest.json` `files` (so a Mog's pinned file hashes cover them). About 110-130
@@ -197,7 +203,7 @@ tiles, ~0.8-1 MB a place. The runtime (`pkg-far.js`) draws a zero-byte fill and 
 is never changed. Seams: tier A's last 64 m snaps to the core's own edge posts (the core's water flattening and bridges),
 `Terrain.edgeBlend` (32 m) takes up the core's 2 m ground between them, and each tier's outer 16 posts blend into the next
 coarser tier: heightAt is continuous core -> A -> B -> C. Near the core the far ground takes the core's own edge ground
-(sidewalk slabs, park lawns, mask classes) and fades to its own over 300 m; water shores are marching squares on the
+(park lawns, else the mask class under the block tops) and fades to its own over 300 m (a humid hillside wooded, not rock); water shores are marching squares on the
 smoothed wetness. Budget (horizon.md): far draw calls (chunks merged: A by quadrant, B and C 2 x 2 tiles, one water mesh a
 tier) about 35 of <= 80; Low graphics / a short draw distance draws every other post (`DATA.pkgFar.stats.budget`:
 phone triangles <= 0.6 M). Tests: `test_far.py`, `tests/pkg-far.test.mjs`.
@@ -304,6 +310,11 @@ python tools/hometown/fetch.py --extras "conus:C,R;C,R..."      # the regions' w
 First build (13 Nov 2026): `us-261112.osm.pbf` (12,264,531,947 B, md5 11b2a6f5dcfe611cbba52cafe354edf1), 52.2 M highway
 ways read, 3,670,803 kept, 17.1 MB, sha256 `555ea001a758b77b...`, 36 min on a loaded 10-core Mac. ODbL 1.0
 (© OpenStreetMap contributors), a derived database: keep `osm_roads.py` public with the compiler.
+
+That build is committed beside the compiler: `tools/hometown/osm/osm-roads-us.parquet` (+ `.json`, its record; ODbL
+notice in `tools/hometown/osm/NOTICE.md`), so a checkout of this repository at a pinned commit carries the exact bytes
+the production town builder needs. The compiler reads `<data>/osm/osm-roads-us.parquet` when there is one, else
+this copy (`--osm-roads` / `HOMETOWN_OSM_ROADS` override both); the build record pins it by sha256 either way.
 
 ## Rules that are estimates, not data
 

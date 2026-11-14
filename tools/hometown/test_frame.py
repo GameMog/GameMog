@@ -61,13 +61,13 @@ def fake_world(water):
 
 class Unit(unittest.TestCase):
     def test_tiles_id_vector(self):
-        bid = 'htc-0.7.0-hg1-b00000000'
+        bid = 'htc-0.8.0-hg1-b00000000'
         ids = ['hg1-conus/0/2/1', 'hg1-conus/0/1/2', 'hg1-conus/0/10/2']
         want = hashlib.sha256(('%s\nhg1-conus/0/1/2\nhg1-conus/0/10/2\nhg1-conus/0/2/1' % bid).encode()).hexdigest()
         self.assertEqual(FR.tiles_id(bid, ids), want)
         self.assertEqual(FR.tiles_id(bid, list(reversed(ids))), want)
         self.assertNotEqual(FR.tiles_id(bid, ids[:2]), want)
-        self.assertNotEqual(FR.tiles_id('htc-0.7.0-hg1-b00000001', ids), want)
+        self.assertNotEqual(FR.tiles_id('htc-0.8.0-hg1-b00000001', ids), want)
 
     def test_posts_match_tiles_post_function(self):
         # a window of 2 m posts near Okemah's grid position, a lake polygon over part of it

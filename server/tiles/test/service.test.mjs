@@ -341,8 +341,13 @@ test('tileSetHash: the service\'s hash equals the Python descriptor\'s', { skip:
   const d = JSON.parse(readFileSync(path.join(PYSTORE, 'manifests', pyBuild, 'okemah.json')));
   const tiles = d.tiles.map((t) => ({ id: t.id, contentHash: sha256(zlib.gunzipSync(readFileSync(path.join(PYSTORE, 'tiles', pyBuild, ...t.id.split('/'))))) }));
   assert.equal(tileSetHash(tiles), d.tileSetHash);
-  assert.equal(d.lock.tiles, d.tileSetHash);
-  assert.equal(d.lock.formatVersion, 2);
+  // (lock v2 named the tiles by that content hash; lock v3, compiler 0.7.0+ (frame.py tiles_id), by their ids:
+  // sha256 of the buildId and the sorted tile ids, one per line)
+  if (d.lock.formatVersion === 2) assert.equal(d.lock.tiles, d.tileSetHash);
+  else {
+    assert.equal(d.lock.formatVersion, 3);
+    assert.equal(d.lock.tiles, sha256(Buffer.from([pyBuild, ...d.tiles.map((t) => t.id).sort()].join('\n'))));
+  }
 });
 
 test('a failed or unusable descriptor stage 2 stores no manifest (no null yOffset / waterLevel cached forever); the next request retries', async () => {

@@ -21,8 +21,8 @@
 # B / C: a post's height is the mean of its finite point samples on a k x k sub-lattice of its cell (bilinear on the 1"
 # lattice, dem.Sampler product '1'); none finite -> no data (q 0). Its class: 1 water when the 3 x 3 block of DEM
 # pixels nearest it (1/3" for A, 1" for B / C) is exactly flat (3DEP is hydro-flattened: a water body is one constant
-# height; land is never flat to 1 mm over ~30-90 m), 2 arid land (the compiler's desert rule, per post: lon < -104 and
-# lat < 37.5), else 0 land. Nothing depends on the place: far tile = f(buildId, key, the DEM snapshot).
+# height; land is never flat to 1 mm over ~30-90 m), else the post's climate (climate.py, per post): 2 arid land, 3 dry
+# land (steppe), 0 land (humid). Nothing depends on the place: far tile = f(buildId, key, the DEM snapshot).
 #
 # File (SFB1, gzip mtime 0): header {format 'hometown-far', version 1, grid, domain, tier, L, C, R, n 65, step,
 # minH -100, scale 0.1, classes, water, demSource}, then uint16 heights (NAVD88 m = -100 + 0.1 q; q 0 no data) and uint8
@@ -35,6 +35,7 @@ import struct
 
 import numpy as np
 
+import climate
 import grid
 
 N = 64                      # post intervals per far tile
@@ -42,7 +43,7 @@ TIERS = {'a': {'L': 1, 'sub': 1, 'product': '13'}, 'b': {'L': 3, 'sub': 2, 'prod
 FAR_A = 1024                # grid m past the core rect
 FAR_B = 10000
 FAR_C = 30000
-CLASSES = ['land', 'water', 'arid']
+CLASSES = ['land', 'water', 'arid', 'dry']
 MIN_H, SCALE = -100.0, 0.1
 
 
@@ -152,8 +153,7 @@ def compile_far(dom_name, tier, C, R, dem1, bid):
     dc, dr = np.meshgrid([-1, 0, 1], [-1, 0, 1])
     blk = dem1.pixels(fc[:, None] + dc.ravel()[None, :], fr[:, None] + dr.ravel()[None, :])
     flat = np.isfinite(blk).all(axis=1) & (np.ptp(np.where(np.isfinite(blk), blk, 0), axis=1) < 0.001)
-    arid = (np.asarray(plon) < -104) & (np.asarray(plat) < 37.5)
-    cls = np.where(flat, 1, np.where(arid, 2, 0)).astype(np.uint8)
+    cls = np.where(flat, 1, climate.zone_code(plon, plat)).astype(np.uint8)
     q = np.where(np.isfinite(mean), np.clip(np.rint((mean - MIN_H) / SCALE), 1, 65535), 0).astype('<u2')
     header = {'format': 'hometown-far', 'version': 1, 'grid': grid.GRID, 'domain': dom_name, 'tier': tier, 'L': TIERS[tier]['L'], 'C': C, 'R': R,
               'id': '%s-%s/%d/%d/%d' % (grid.GRID, dom_name, TIERS[tier]['L'], C, R), 'n': N + 1, 'step': st, 'sub': k,

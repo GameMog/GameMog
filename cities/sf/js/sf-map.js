@@ -65,8 +65,11 @@ const MAP = {
 const MODELLED_LANDMARKS = Object.keys(window.NYC.LANDMARK_SITES || {});
 
 // Labels share the city's georeferenced landmark positions.
+// (a Hometown town, window.NYC.PKG: its own name over its downtown, and no San Francisco or its bay)
+const PKG_ = window.NYC.PKG;
 const AREA_LABELS = [
-  ['SAN FRANCISCO', -1800, 1800, 0], ['SAN FRANCISCO BAY', 3000, -1000, 1],
+  ...(PKG_ ? [[String(PKG_.name).split(',')[0].toUpperCase(), PKG_.downtown?.x ?? PKG_.spawn?.x ?? 0, PKG_.downtown?.z ?? PKG_.spawn?.z ?? 0, 0]]
+    : [['SAN FRANCISCO', -1800, 1800, 0], ['SAN FRANCISCO BAY', 3000, -1000, 1]]),
   ...(NYC_LANDMARKS || []).map((l) => [(l.name || 'Landmark').toUpperCase(), l.x, l.z, 2])
 ];
 
@@ -454,7 +457,8 @@ class NYCMapSystem {
     this.searchPath = null;
     this.textWidths = new Map();
     // Start the map waypoint at the Ferry Building.
-    const ts = NYC_LANDMARKS.find((l) => l.id === 'ferrybuilding') || { x: 0, z: 0 };
+    // (a Hometown town: its downtown, under the town's name)
+    const ts = NYC_LANDMARKS.find((l) => l.id === 'ferrybuilding') || (PKG_ ? { x: PKG_.downtown?.x ?? 0, z: PKG_.downtown?.z ?? 0, name: String(PKG_.name).split(',')[0] } : { x: 0, z: 0 });
     this.waypoint = { x: ts.x, z: ts.z, name: ts.name || 'Market St & Montgomery St' };
     // (Mog City, as js/nyc-map.js) the player's own waypoint (a click on the map, or Enter on a search hit); onWaypoint(wp)
     // hands it to the game's GPS (wagmi/mission/gps.js), which routes there and draws it; searchExtra: () => [{ name, sub,

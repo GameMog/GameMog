@@ -209,7 +209,7 @@ export function createWorld(city) {
   }
   function streetNameAt(x, z, { dir = null, horizontal = null, r = 30 } = {}) {
     const n = N(); if (!n.nearestRoads) return null;
-    const near = n.nearestRoads(x, z, r);
+    const near = n.nearestRoads(x, z, r).filter((q) => q.road.name && String(q.road.name).trim()); // (never an unnamed road)
     let pick = near[0];
     if (dir) pick = near.find((q) => { const u = roadDir(q.road, x, z); return u && Math.abs(u.ux * dir.ux + u.uz * dir.uz) >= Math.SQRT1_2; }) || near[0];
     else if (horizontal != null) pick = near.find((q) => q.horizontal === horizontal) || near[0];

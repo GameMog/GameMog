@@ -144,7 +144,7 @@ def datum(cm, wet, wid, ids, wlv):
 def compute(pid, places, data, store, bid, log=print, W=None):
     """-> (frame, World). W: a World private to the frame (never one tiles are compiled in)."""
     import assemble
-    D1 = assemble.stage1(pid, places, bid)
+    D1 = assemble.stage1(pid, places, bid, data, store)
     dom = D1['domain']
     c0t, r0t, c1t, r1t = D1['tileRange']
     pb = D1['playBox']
@@ -321,11 +321,13 @@ def store_frame(store, F, log=print):
 
 
 def load_or_compute(pid, places, data, store, bid, log=print):
-    """The stored frame, else a computed (and stored) one."""
+    """The stored frame, else a computed (and stored) one: always as its stored bytes read back (sorted keys), so a
+    package or bundle laid out from a frame just computed and one from a frame already in the store are the same bytes
+    (the spawns' and places' order is the JSON's)."""
     if store:
         b = store.get(frame_key(bid, pid))
         if b is not None:
             return json.loads(b)
     F, _ = compute(pid, places, data, store, bid, log)
     F, _ = store_frame(store, F, log)
-    return F
+    return json.loads(body(F))

@@ -22,8 +22,12 @@ N.SCENIC_CAMERAS = {
   waterfront: { name: 'China Basin Ballpark & the Waterfront', short: 'Ballpark', site: 'Oracle Park', from: [170, 190], up: 100, look: 20 }
 };
 
-text($('loading-status'), 'Loading San Francisco…');
-document.querySelector('main#canvas-container')?.setAttribute('aria-label', 'MOG CITY: San Francisco');
+// (a Hometown town, ?city=pkg: never San Francisco's name, not even while its package or bundle is still on its way;
+// cities/pkg/js/pkg-hud.js puts the town's own name in as soon as it has loaded)
+const TOWN_BOOT = new URLSearchParams(location.search).get('city') === 'pkg';
+const TOWN_NAME = N.PKG ? String(N.PKG.name).split(',')[0] : '';
+text($('loading-status'), TOWN_BOOT ? (TOWN_NAME ? `Loading ${TOWN_NAME}…` : 'Loading your town…') : 'Loading San Francisco…');
+document.querySelector('main#canvas-container')?.setAttribute('aria-label', TOWN_BOOT ? `MOG CITY${TOWN_NAME ? ': ' + TOWN_NAME : ''}` : 'MOG CITY: San Francisco');
 
 // the credit under the title (the sandbox's: wagmi's story mode puts it away)
 const repo = document.querySelector('.brand .repo-link');

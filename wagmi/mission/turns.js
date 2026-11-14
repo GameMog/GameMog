@@ -122,6 +122,28 @@ export function createTurns(W, gps) {
     el = document.createElement('div'); el.className = 'wg-turn'; el.setAttribute('aria-live', 'polite'); root.appendChild(el);
     return el;
   };
+  // (a chase: the cue keeps clear of the HEAT meter (wagmi/pursuit/hud.js, beside the toolbar): a long street name
+  // centred at the top ran under its label. It moves left as far as it has to, then gets narrower)
+  const clearHeat = () => {
+    if (!el) return;
+    el.style.marginLeft = ''; el.style.maxWidth = '';
+    const heat = document.getElementById('wg-heat');
+    if (!heat || !heat.classList.contains('on')) return;
+    let b = heat.getBoundingClientRect();
+    const st = heat.querySelector('.st');
+    if (st && heat.classList.contains('live')) { const r = st.getBoundingClientRect(); b = { left: Math.min(b.left, r.left), right: Math.max(b.right, r.right), top: b.top, bottom: Math.max(b.bottom, r.bottom) }; }
+    const a = el.getBoundingClientRect(), gap = 14, edge = 16;
+    if (a.bottom <= b.top || a.top >= b.bottom || a.right + gap <= b.left || a.left >= b.right + gap) return;
+    // (on a phone it sits beside the radar: it only gets narrower)
+    if (body.classList.contains('touch-enabled')) { el.style.maxWidth = `${Math.max(120, Math.floor(b.left - gap - a.left))}px`; return; }
+    const over = a.right + gap - b.left, room = Math.max(0, a.left - edge);
+    if (over <= room) { el.style.marginLeft = `${-over}px`; return; }
+    // (centred on left: 50%: narrower, then moved so its left edge is at the screen's edge)
+    const w = Math.max(120, Math.floor(b.left - gap - edge));
+    el.style.maxWidth = `${w}px`;
+    const w2 = el.getBoundingClientRect().width;
+    el.style.marginLeft = `${Math.round(edge - (a.left + a.width / 2) + w2 / 2)}px`;
+  };
   const hide = () => { cue = null; if (on) { on = false; el?.classList.remove('on'); body.classList.remove('wg-turnon'); } };
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const T = {
@@ -157,6 +179,7 @@ export function createTurns(W, gps) {
         if (k !== head) { head = k; el.classList.remove('new'); void el.offsetWidth; el.classList.add('new'); }
       }
       if (!on) { on = true; el.classList.add('on'); cls.add('wg-turnon'); }
+      clearHeat();
     },
     hide,
     get cue() { return cue; },

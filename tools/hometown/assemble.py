@@ -37,7 +37,42 @@ def box_cm(d, bbox):
     return int(gx.min()), int(gs.min()), int(gx.max()), int(gs.max())
 
 
-def stage1(pid, places, bid):
+def downtown_box(pl, dom, data, store, bid):
+    """THE BOX RULE for a capped place (its search box `searchBbox` wider than its capped `bbox`, a square round the
+    Census internal point): the same size of box centred on the place's DOWNTOWN, the strongest ctx downtown centre
+    (context.py: POI score within 250 m, non-max suppression within 2000 m) within half the box of the internal point
+    (so the internal point stays in the box) and inside the search box; the internal point's box when there is none.
+    A city's internal point is a polygon's interior point, often kilometres from its downtown (Pittsburgh's lies 2 km
+    east of the Golden Triangle). -> (bbox, info) or (None, None) when the place is not capped. Raises MissingRegion
+    when the Overture regions round it are not fetched yet (compile.py exits 3 with the regions to fetch)."""
+    sb, bb = pl.get('searchBbox'), pl['bbox']
+    if not sb or (sb[2] - sb[0] <= bb[2] - bb[0] + 2e-5 and sb[3] - sb[1] <= bb[3] - bb[1] + 2e-5):
+        return None, None
+    d = grid.domain(dom)
+    lon, lat = pl['anchor']
+    hx, hy = (bb[2] - bb[0]) / 2, (bb[3] - bb[1]) / 2
+    win = [max(sb[0], lon - hx), max(sb[1], lat - hy), min(sb[2], lon + hx), min(sb[3], lat + hy)]
+    w = box_cm(d, win)
+    pad = 2400.0   # m: the centres' score (250 m) and suppression (2000 m) reach round the window
+    Wd = C.World(data, dom, (w[0] / 100 - pad, w[1] / 100 - pad, w[2] / 100 + pad, w[3] / 100 + pad), store, bid)
+    ctx = Wd.context_for(w[0] / 100 - pad, w[1] / 100 - pad, w[2] / 100 + pad, w[3] / 100 + pad)
+    cc = context.CELL
+    cent = ctx.centres(w[0] // cc, w[1] // cc, w[2] // cc, w[3] // cc)
+    if not cent:
+        return None, {'rule': 'capped: no downtown centre within half the box of the internal point (the internal point\'s box)'}
+    ci, cj, sc = cent[0]
+    clon, clat = d.inverse([(ci * cc + cc // 2) / 100.0], [(cj * cc + cc // 2) / 100.0])
+    clon, clat = float(clon[0]), float(clat[0])
+    # (still inside the window: the internal point stays in the box)
+    clon, clat = min(max(clon, win[0]), win[2]), min(max(clat, win[1]), win[3])
+    r = lambda v: round(v * 1e5) / 1e5  # noqa: E731
+    box = [r(clon - hx), r(clat - hy), r(clon + hx), r(clat + hy)]
+    kx = 111320 * math.cos(math.radians(lat))
+    return box, {'rule': 'capped: centred on the strongest downtown centre within half the box of the internal point', 'cell': [ci, cj], 'score': sc,
+                 'movedM': [round((clon - lon) * kx), round((clat - lat) * 111320)], 'internalPointBox': bb}
+
+
+def stage1(pid, places, bid, data=None, store=None):
     pl = places[pid]
     dom = grid.domain_of_geoid(pl['geoid']) if pl.get('geoid') else pl.get('domain', 'conus')
     d = grid.domain(dom)
@@ -47,14 +82,18 @@ def stage1(pid, places, bid):
         W, S, E, N = pl['bbox']
         lon, lat, how = (W + E) / 2, (S + N) / 2, 'the given bbox centre (no gazetteer place)'
     fr = grid.session_frame(dom, lon, lat)
-    bx = box_cm(d, pl['bbox'])
+    bbox, box_rule = (downtown_box(pl, dom, data, store, bid) if (data and pl.get('anchor')) else (None, None))
+    if bbox is None:
+        bbox = pl['bbox']
+    bx = box_cm(d, bbox)
     c0, r0 = (bx[0] - PIN_PAD_CM) // grid.TILE_CM, (bx[1] - PIN_PAD_CM) // grid.TILE_CM
     c1, r1 = (bx[2] + PIN_PAD_CM) // grid.TILE_CM, (bx[3] + PIN_PAD_CM) // grid.TILE_CM
     n = (c1 - c0 + 1) * (r1 - r0 + 1)
     if n > MAX_TILES:
         raise SystemExit('%s: %d tiles over the %d cap' % (pid, n, MAX_TILES))
     return {'format': 'hometown-session', 'version': 1, 'stage': 1, 'placeId': pid, 'name': pl.get('name', pid), 'geoid': pl.get('geoid'),
-            'buildId': bid, 'grid': grid.GRID, 'domain': dom, 'anchor': {'lon': lon, 'lat': lat, 'source': how}, 'bbox': pl['bbox'],
+            'buildId': bid, 'grid': grid.GRID, 'domain': dom, 'anchor': {'lon': lon, 'lat': lat, 'source': how}, 'bbox': bbox,
+            **({'boxRule': box_rule} if box_rule else {}),
             'origin': {'c0': fr['c0'], 'r0': fr['r0'], 'lon': fr['originLon'], 'lat': fr['originLat']}, 'k0': fr['k0'], 'gamma0': fr['gamma0'],
             'playBox': {'gx0': bx[0], 'gs0': bx[1], 'gx1': bx[2], 'gs1': bx[3]},
             'tileRange': [c0, r0, c1, r1], 'tiles': [grid.tile_id(dom, c, r) for r in range(r0, r1 + 1) for c in range(c0, c1 + 1)]}
@@ -297,11 +336,13 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
     table = [v for _, rec, _, _ in btable for v in rec]
     # (the place's building region: its anchor tile's)
     region = dec[min(order, key=lambda k: abs(k[0] - fr['c0']) + abs(k[1] - fr['r0']))][0].get('region', 'plains-midwest') if order else 'plains-midwest'
+    # (and its climate, the same way: the far field's flat fill and apron take its open ground's colour)
+    clim = dec[min(order, key=lambda k: abs(k[0] - fr['c0']) + abs(k[1] - fr['r0']))][0].get('climate', 'humid') if order else 'humid'
     theader = {'format': 'sf-terrain', 'version': 1, 'box': 'pkg', 'cell': 2 / k0, 'originX': ox, 'originZ': oz, 'w': Wp, 'h': Hp,
                'minH': minH, 'maxH': maxH, 'scale': scale, 'waterLevel': water_level, 'datum': 'NAVD88 m minus %d' % y_off,
                'grid': grid.GRID, 'source': sorted({os.path.basename(s['url']) for (c, r) in order for s in dec[(c, r)][0]['demSource']})}
     mheader = {'format': 'sf-groundmask', 'version': 1, 'box': 'pkg', 'cell': 1 / k0, 'originX': ox, 'originZ': oz, 'w': nc * grid.TILE,
-               'h': nr * grid.TILE, 'classes': list(C.MASK)[:6]}
+               'h': nr * grid.TILE, 'classes': [k if k != 'water' else 'waterEdge' for k in C.MASK]}
     bheader = {'format': 'sf-buildings', 'version': 4, 'box': 'pkg', 'count': len(btable), 'fields': C.BFIELDS, 'types': C.BTYPES, 'palettes': C.PALETTES,
                'eras': C.ERAS, 'facades': C.FACADES, 'tableFloats': len(table), 'vertexFloats': len(verts2), 'massFields': ['cx', 'cz', 'w', 'd'],
                'massFloats': len(mass), 'datum': 'NAVD88 m minus frame.yOffset', 'kinds': C.KINDS, 'roofShapes': C.ROOF_SHAPES, 'walls': C.WALLS,
@@ -369,9 +410,12 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
     stats.update({'deckLinks': len(dl), 'deckSegments': len(set(l['seg'] for l in dl)), 'deckMetres': round(sum(l['len'] for l in dl)),
                   'lanesMetresBySource': {k: round(v) for k, v in sorted(srcm.items())}, 'onewayLinks': sum(1 for l in rl if l['dir']),
                   'underDeckBuildingsDropped': sum(dec[k][0]['counts'].get('underDeckDropped', 0) for k in order)})
+    # (the grade groups of the tiles THIS run compiled: a warm store compiles none, so `grade` goes to the build log only,
+    # never into manifest.json, whose bytes stay a function of the frame, the window and the tiles)
     if hasattr(W, 'gstats') and W.gstats.get('clusters'):
         cl = W.gstats['clusters']
         stats['grade'] = {'clusters': len(cl), 'gradeRelaxed': sum(v['gradeRelaxed'] for v in cl.values()), 'unmet': sum(v['unmet'] for v in cl.values()),
+                          'deckEndsMoved': sum(v.get('deckEndsMoved', 0) for v in cl.values()),
                           'constraints': sum(v['constraints'] for v in cl.values()), 'maxGrade': max(v['maxGrade'] for v in cl.values()),
                           'clusterSplit': sum(1 for v in cl.values() if v['split']), 'maxExtent': max(v['extent'] for v in cl.values()),
                           'bridgeTagMissing': sorted(W.gstats.get('bridgeTagMissing', []))}
@@ -397,7 +441,7 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
            'tileSize': grid.TILE / k0, 'density': density, 'spawn': spawn, 'spawns': sp, 'places': places, 'attribution': C.ATTRIBUTION,
            'frame': frame, 'box': box, 'tiles': tile_ids, 'tileSetHash': D2['tileSetHash'], 'lock': D2['lock'],
            'tileHeaders': {grid.tile_id(dom, c, r): {'bcount': dec[(c, r)][0]['bcount'], 'groundAreaM2': dec[(c, r)][0]['groundAreaM2']} for (c, r) in order},
-           'downtown': {'x': C.q1(center[0]), 'z': C.q1(center[1])}, 'far': FAR,
+           'downtown': {'x': C.q1(center[0]), 'z': C.q1(center[1])}, 'far': FAR, 'climate': clim,
            # (the growing town: which tiles this variant holds; the engine keeps the player, traffic and missions in it)
            'variant': variant, 'tilesId': F['lock']['tiles'], 'district': F['district'],
            'window': {'variant': variant, 'tileRange': [c0t, r0t, c1t, r1t], 'box': {'x0': C.q1(X0), 'z0': C.q1(Z0), 'x1': C.q1(X1), 'z1': C.q1(Z1)},
@@ -410,7 +454,7 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
                 'compiler': {'name': 'hometown', 'version': C.COMPILER_VERSION, 'buildId': bid, 'tile': grid.TILE, 'grid': grid.GRID, 'libs': C.lib_versions()},
                 'sources': {'overture': {'release': C.OVERTURE_RELEASE, 'licenses': C.LICENSES}, 'dem': theader['source'], 'bbox': D1['bbox']},
                 'attribution': C.ATTRIBUTION, 'frame': frame, 'box': box, 'waterLevel': water_level, 'descriptor': mk, 'tiles': tile_ids,
-                'tileSetHash': D2['tileSetHash'], 'lock': D2['lock'], 'stats': stats, 'files': {}, 'variant': variant, 'window': PKG['window'],
+                'tileSetHash': D2['tileSetHash'], 'lock': D2['lock'], 'stats': {k: v for k, v in stats.items() if k != 'grade'}, 'files': {}, 'variant': variant, 'window': PKG['window'],
                 'farRefs': [e['key'] for e in far_list if 'key' in e]}
     if bundle:
         # (the bundle GameMog serves: geodata.json (the three objects as data), lock.json; bundle.json lists every
