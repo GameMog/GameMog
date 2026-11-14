@@ -382,6 +382,23 @@ function buildCityBlocks(scene, opts = {}) {
       warmth: 0.48,
       reflectivity: 0.95,
       seed: 94.3
+    }],
+    // 6: Pale balcony glass (a Hometown package in the 'south-florida' region: its condo and hotel towers): light sea-green
+    //    glass between white spandrel bands and slim white mullions, under the white balcony slabs pkg-buildings.js lays
+    //    on the same storey lines (box.storeyH)
+    [createCurtainWallMaterial, {
+      glassTint: 0xa3bdbc,
+      frameTint: 0xe8ebe8,
+      spandrelTint: 0xf2f2ee,
+      frameMetalness: 0.04,
+      spandrelRatio: 0.3,
+      mullionThickness: 0.04,
+      windowWidth: 3.0,
+      floorHeight: 3.4,
+      litProbability: 0.5,
+      warmth: 0.7,
+      reflectivity: 0.4,
+      seed: 105.7
     }]
   ];
   // San Francisco (P4.2, P4.3): the three masonry styles become painted ones, colour per building (sf-style.js): 0 downtown
@@ -2192,7 +2209,14 @@ function buildCityBlocks(scene, opts = {}) {
       const tone = hash(i, base);
       const vict = !PK && victorianBlock(type, height, (minX + maxX) * 0.5, (minZ + maxZ) * 0.5);
       let { mat, paint } = styleOf(i, type, rec[FI.palette], rec[FI.era], rec[FI.facade], height, vict);
-      if (PK && mat <= 2) {
+      // (South Florida's condo and hotel blocks, the package region 'south-florida': balcony slabs on every storey over
+      // pale balcony glass (most) or white / pastel painted concrete, never a dark curtain wall)
+      const balcony = PK && header.region === 'south-florida' && kind !== 'church' && kind !== 'warehouse' && kind !== 'house' && kind !== 'rowhouse'
+        && (type === 'tower' || type === 'midrise' || height >= 20);
+      if (balcony) {
+        if (hash(i, 17.3) < 0.6) { mat = 6; paint = look.paint; }
+        else { mat = 0; paint = [look.paint[0], 0xffffff, look.paint[2], 0.3]; }
+      } else if (PK && mat <= 2) {
         // (region walls: painted wood / siding / stucco / brick by the record's kind; curtain walls stay)
         paint = look.paint;
         mat = kind === 'warehouse' ? 2 : kind === 'church' || kind === 'school' || kind === 'civic' || ((kind === 'office' || kind === 'shop') && height >= 12) || type === 'midrise' || type === 'tower' ? 0 : 1;
@@ -2303,6 +2327,7 @@ function buildCityBlocks(scene, opts = {}) {
             const tower = { ...box, y: (podiumTop + roof) * 0.5, w: tm.w, h: roof - podiumTop, d: tm.d, plinth: Math.max(0, box.plinth), faces: [WALL_KINDS.entry, WALL_KINDS.entry, WALL_KINDS.entry, WALL_KINDS.entry] };
             buckets[mat].push(tower);
             collider(tm, roof);
+            if (balcony && tm.w >= 5 && tm.d >= 5) pb.balconies(tm, theta, tower.base + tower.plinth, roof, storeyH || storeys[mat], 0xf3f3ef, 0xa7bcc1, 1.35, podiumTop);
             top = tm;
             topBox = tower;
           }
@@ -2310,7 +2335,8 @@ function buildCityBlocks(scene, opts = {}) {
         }
         buckets[mat].push(box);
         collider(m, roof);
-        if (pitched) { if (m.w * m.d >= 6 || k === biggest) pb.roof(m, theta, roof, Math.min(rise0, kRise * Math.min(m.w, m.d) * 0.5), look.roof, look.roofColor, paint[0]); }
+        if (balcony && m.w >= 5 && m.d >= 5) pb.balconies(m, theta, box.base + box.plinth, roof, storeyH || storeys[mat], 0xf3f3ef, 0xa7bcc1);
+        if (pitched) { if (m.w * m.d >= 6 || k === biggest) pb.roof(m, theta, roof, Math.min(rise0, kRise * Math.min(m.w, m.d) * 0.5), look.roof, look.roofColor, paint[0], look.parapet); }
         else if (mat <= 2 && m.w > 3 && m.d > 3) blk.cornices.push({ x: m.cx, y: roof, z: m.cz, w: m.w + 1.0, h: 0.8, d: m.d + 1.0 });
         if (!top || m.w * m.d > top.w * top.d) { top = m; topBox = box; }
       }

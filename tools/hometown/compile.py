@@ -28,6 +28,7 @@ import os
 import struct
 import sys
 import time
+import zlib
 
 import duckdb
 import numpy as np
@@ -66,7 +67,9 @@ import shapely.ops  # noqa: E402
 # campuses); a drive cut back from one ends in a dead-end node 'x:{segment}:{piece}:a|b';
 # 0.8.1 fid-roads: each carriageway's sides (OSM sidewalk / cycleway tags, else a divided road's sidewalk on its outer
 # side only), a divided road's OSM-laned carriageway as wide as its lanes, a narrow median as open ground, and a region
-# without its segment extras refused (the OSM lanes join through them)
+# without its segment extras refused (the OSM lanes join through them);
+# 0.8.1 fid-subtropic: the warm band (climate.warmth: tropical / subtropical): palm rows along the streets and medians, clipped hedges
+# on the property lines, more yard trees (palms, sea grape) and the south-florida building region; climateZone in the header
 COMPILER_VERSION = '0.8.1'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
@@ -260,6 +263,38 @@ WOODS_SLOPE = 0.35    # a humid place's open hillside steeper than this (rise / 
 WOODS_CLEAR = 12.0
 ROCK_SLOPE = 1.2      # (humid) bare rock past this; arid and dry places past 0.7
 WOODS_STEP, WOODS_P = 16.0, 0.5   # the woodland's trees: a global lattice, this share of its cells
+# Tree classes (a tree's third field; the engine's sf-street-details.js SPECIES_OF maps them to trees.js species). 0..5 are
+# San Francisco's tree-classes.json; 6.. the warm band's. A hedge's fourth field is its yaw (degrees, 0..179) instead of a
+# trunk size: a clipped hedge block HEDGE_STEP m long, turned along its street.
+TREE_CLASS = {'plane': 0, 'ficus': 1, 'palm': 2, 'elm': 3, 'conifer': 4, 'locust': 5, 'royal': 6, 'coconut': 7, 'sabal': 8, 'seagrape': 9,
+              'hedge': 10}
+# The warm band (climate.warmth, an estimate from what grows there): the yard mix ([class, weight]), the street palms (one
+# species per side of a segment, so a street gets rows), the share of street sides planted, the palm spacing and the share
+# of street sides with a clipped hedge on the property line (STREET_CLASSES only; links, alleys, private, tunnels never)
+WARM_YARD = {'tropical': [('royal', 0.22), ('coconut', 0.22), ('sabal', 0.2), ('ficus', 0.2), ('seagrape', 0.16)],
+             'subtropical': [('sabal', 0.3), ('ficus', 0.3), ('palm', 0.15), ('plane', 0.15), ('royal', 0.1)]}
+WARM_STREET = {'tropical': [('royal', 0.45), ('coconut', 0.35), ('sabal', 0.2)], 'subtropical': [('sabal', 0.6), ('palm', 0.25), ('royal', 0.15)]}
+WARM_STREET_P = {'tropical': 0.8, 'subtropical': 0.6}
+WARM_STREET_STEP = {'tropical': 12.0, 'subtropical': 15.0}
+WARM_HEDGE_P = {'tropical': 0.6, 'subtropical': 0.35}
+WARM_YARD_P = 0.42       # share of the yards' lattice cells planted (as elsewhere)
+WARM_YARD_REACH = 45.0   # m: yard trees within this of a building (25 elsewhere), the paved squares round them allowed
+HEDGE_STEP = 2.0
+STREET_CLASSES = ('trunk', 'primary', 'secondary', 'tertiary', 'residential', 'living_street', 'unclassified')
+# (raw stations of one kind closer than this to one with a smaller key are dropped, before any tile's own checks, so the
+# rule is the same in every tile that holds them)
+WARM_DEDUPE = {0: 5.0, 1: 1.0, 2: 5.0}
+
+
+def pick_w(table, h):
+    """The class of a [(name, weight)] table at h in [0, 1)."""
+    t = sum(w for _, w in table)
+    x = h * t
+    for name, w in table:
+        x -= w
+        if x < 0:
+            return TREE_CLASS[name]
+    return TREE_CLASS[table[-1][0]]
 
 
 def lu_ground(sub, cls, clim):
@@ -484,7 +519,7 @@ KINDS = ['unknown', 'house', 'garage', 'shed', 'rowhouse', 'apartment', 'shop', 
 ROOF_SHAPES = ['unknown', 'flat', 'gabled', 'hipped', 'half_hipped', 'gambrel', 'mansard', 'pyramidal', 'skillion', 'saltbox', 'dome', 'round', 'sawtooth',
                'other']
 WALLS = ['unknown', 'clapboard', 'brick', 'stucco', 'stone', 'siding', 'wood', 'concrete', 'metal', 'glass']
-REGIONS = ['plains-midwest', 'southwest', 'southeast', 'northeast-rust', 'pacific-nw', 'mountain', 'california']
+REGIONS = ['plains-midwest', 'southwest', 'southeast', 'northeast-rust', 'pacific-nw', 'mountain', 'california', 'south-florida']
 KIND_TYPE = {'house': 'rowhouse', 'garage': 'shed', 'shed': 'shed', 'canopy': 'shed', 'rowhouse': 'rowhouse', 'apartment': 'apartment', 'shop': 'office-low',
              'office': 'office-low', 'church': 'civic', 'school': 'civic', 'civic': 'civic', 'warehouse': 'warehouse', 'tower': 'tower'}
 HOUSE_CLASS = {'house', 'detached', 'semidetached_house', 'residential', 'bungalow', 'cabin', 'farm', 'static_caravan', 'hut'}
@@ -500,7 +535,10 @@ FRONT_REACH = 12.0
 
 
 def region_of(lon, lat):
-    """A tile's building region from its centre (coarse US regions, an estimate: wall and roof mixes by region)."""
+    """A tile's building region from its centre (coarse US regions, an estimate: wall and roof mixes by region). The warm
+    band in Florida (and Puerto Rico / the Virgin Islands: the same concrete and stucco) is 'south-florida'."""
+    if climate.warmth(lon, lat) and (climate.in_florida(lon, lat) or (abs(lat) < 23.5 and -68.0 < lon < -64.0)):
+        return 'south-florida'
     if lon < -116.5 and lat >= 42:
         return 'pacific-nw'
     if lon < -114.5 and lat < 42:
@@ -2353,11 +2391,12 @@ def _compile_tile(Wd, c, r, dem_files):
     a[landm & raster(lots)] = MASK['lot']
     a[landm & raster([rec['g'].buffer(12, quad_segs=2) for bid, (b, rec) in sorted(brecs_near.items())
                       if rec['downtown'] and rec['btype'] not in ('rowhouse', 'shed')])] = MASK['sidewalk']
-    nar = raster([pp for pp, kind in islands if kind == 'island'])
-    a[nar] = MASK['sidewalk']
+    narrow_m = raster([pp for pp, kind in islands if kind == 'island'])
+    a[narrow_m] = MASK['sidewalk']
     if medz is not None:
-        # (a narrow island down a divided road's median is open ground, grass in a humid place, not paving)
-        a[nar & landm & raster([medz])] = 255
+        # (a narrow island down a divided road's median is open ground, grass in a humid place, not paving; the warm
+        # band's median palms stand on it: warm_plantings reads narrow_m)
+        a[narrow_m & landm & raster([medz])] = 255
     if band is not None:
         a[landm & raster([band])] = MASK['sidewalk']
     opn = a == 255
@@ -2401,6 +2440,8 @@ def _compile_tile(Wd, c, r, dem_files):
     # ---- trees: a global 13 m lattice over the lawns (yards: 3 m clear of a building, within 25 m of one, off lots)
     STEP = 13.0
     desert = clim == 'arid'
+    warm = climate.warmth(lon_c, lat_c)
+    yard_p, reach = (WARM_YARD_P, WARM_YARD_REACH) if warm else (0.42, 25.0)
     bare = np.isin(a, [MASK['asphalt'], MASK['sidewalk'], MASK['lot'], MASK['waterEdge'], MASK['water']])
     btree = shapely.STRtree([rec['g'] for _, (b, rec) in sorted(brecs_near.items())]) if brecs_near else None
     ptree = shapely.STRtree(polygons(paved_u)) if paved_u is not None else None
@@ -2415,11 +2456,13 @@ def _compile_tile(Wd, c, r, dem_files):
         cand = []
         for j in range(math.floor(z0 / STEP), math.floor(z1 / STEP) + 1):
             for i in range(math.floor(x0 / STEP), math.floor(x1 / STEP) + 1):
-                if hash01(i, j, 3 ^ d.index) > 0.42:
+                if hash01(i, j, 3 ^ d.index) > yard_p:
                     continue
                 x = (i + 0.15 + 0.7 * hash01(i, j, 1 ^ d.index)) * STEP
                 z = (j + 0.15 + 0.7 * hash01(i, j, 2 ^ d.index)) * STEP
-                if X0 <= x < X1 and Z0 <= z < Z1:
+                # (the warm band: owned by the tile its cm point is in, so a point a hair short of the line is not
+                # written as the next tile's u = 0 by both)
+                if (0 <= cm(x) - c * TCM < TCM and 0 <= cm(z) - r * TCM < TCM) if warm else (X0 <= x < X1 and Z0 <= z < Z1):
                     cand.append((x, z, i, j))
         if not cand:
             continue
@@ -2429,16 +2472,19 @@ def _compile_tile(Wd, c, r, dem_files):
             if not ok[kk]:
                 continue
             pt = pts[kk]
-            if btree is None or len(btree.query(pt.buffer(3.0), predicate='intersects')) or not len(btree.query(pt.buffer(25.0), predicate='intersects')):
+            if btree is None or len(btree.query(pt.buffer(3.0), predicate='intersects')) or not len(btree.query(pt.buffer(reach), predicate='intersects')):
                 continue
-            if ptree is not None and len(ptree.query(pt, predicate='intersects')):
+            if not warm and ptree is not None and len(ptree.query(pt, predicate='intersects')):
                 continue
             if deck_tree is not None and len(deck_tree.query(pt.buffer(2.0), predicate='intersects')):
                 continue
-            if bare[int(q[1] - Z0), int(q[0] - X0)]:
+            if bare[min(TILE - 1, max(0, int(q[1] - Z0))), min(TILE - 1, max(0, int(q[0] - X0)))]:
                 continue
             hh = hash01(q[2], q[3], 4 ^ d.index)
-            cls = (2 if hh < 0.55 else 0) if desert else (0 if hh < 0.5 else 1 if hh < 0.85 else 4)
+            if warm:
+                cls = pick_w(WARM_YARD[warm], hh)
+            else:
+                cls = (2 if hh < 0.55 else 0) if desert else (0 if hh < 0.5 else 1 if hh < 0.85 else 4)
             trees.append((cm(q[0]) - c * TCM, cm(q[1]) - r * TCM, cls, int(12 + 30 * hash01(q[2], q[3], 5 ^ d.index))))
     # (the woodland: its own global WOODS_STEP m lattice over the woods cells, clear of buildings and decks)
     if (a == MASK['woods']).any():
@@ -2457,6 +2503,8 @@ def _compile_tile(Wd, c, r, dem_files):
                     continue
                 hh = hash01(i, j, 9 ^ d.index)
                 trees.append((cm(x) - c * TCM, cm(z) - r * TCM, 0 if hh < 0.6 else 1 if hh < 0.9 else 4, int(16 + 30 * hash01(i, j, 10 ^ d.index))))
+    if warm:
+        trees += warm_plantings(Wd, warm, pieces, a, narrow_m, btree, deck_tree, c, r)
     trees.sort()
     # ---- places (POIs owned by the tile)
     places = []
@@ -2505,7 +2553,8 @@ def _compile_tile(Wd, c, r, dem_files):
               'posts': grid.POSTS, 'post': grid.POST, 'mask': {'cell': 1, 'n': TILE, 'classes': list(MASK)}, 'base_cm': base,
               'bcount': len(bout), 'groundAreaM2': round((TILE / k_tile) ** 2, 1), 'k_tile': round(k_tile, 9), 'gamma_tile': round(d.gamma(lon_c), 6),
               'centre': [round(lon_c, 7), round(lat_c, 7)], 'waters': [{'id': w['id'], 'level_cm': w['level_cm'], 'cells': w['cells']} for w in wsec],
-              'foreign': sorted(foreign), 'ctx': ctx_ids, 'noDemPosts': nan, 'desert': desert, 'climate': clim, 'region': region_of(lon_c, lat_c),
+              'foreign': sorted(foreign), 'ctx': ctx_ids, 'noDemPosts': nan, 'desert': desert, 'climate': clim, 'climateZone': climate.zone_name(lon_c, lat_c),
+              'region': region_of(lon_c, lat_c),
               'buildingKinds': dict(sorted(kinds.items())), 'roofShapesFromData': from_data,
               'counts': {'links': len(links), 'nodes': len(nodes_out), 'blocks': len(blocks), 'trees': len(trees), 'places': len(places),
                          'deckLinks': sum(1 for l in links if l.get('deck')), 'underDeckDropped': under_deck}}
@@ -2598,6 +2647,104 @@ def write_stream(dom, keys, body_of, id_of):
             why = str(e).encode()
             w.write(struct.pack('<II', 0xffffffff, len(why)) + why)
     w.flush()
+
+
+def warm_plantings(Wd, warm, pieces, a, narrow_m, btree, deck_tree, c, r):
+    """The warm band's street plantings of tile (c, r) -> [(u cm, v cm, class, trunk | yaw)]: stations along every street
+    piece's ground lines (each side of a piece: palms every WARM_STREET_STEP m in the strip past its sidewalk (kind 0),
+    a clipped hedge every HEDGE_STEP m on the property line (kind 1), and on a one-way piece palms just past the curb
+    where that is a narrow island: a median (kind 2)). Stations are a function of the piece alone (its cm points, its
+    width and sidewalk, its segment id's hash), dropped where a station of the same kind with a smaller key stands within
+    WARM_DEDUPE (raw, before any check), then kept only inside the tile, on its own ground (lawn / scrub / sand; a
+    median's narrow island), clear of buildings and decks."""
+    d = Wd.d
+    X0, Z0 = c * TILE, r * TILE
+    X1, Z1 = X0 + TILE, Z0 + TILE
+    pad = max(WARM_DEDUPE.values()) + 1.0
+    raw = {0: [], 1: [], 2: []}
+    skip = FLAGS['pedestrian'] | FLAGS['freeway'] | FLAGS['tunnel'] | FLAGS['alley'] | FLAGS['private']
+    for p in sorted(pieces, key=lambda p: (p['seg'], p['i'])):
+        if p['flags'] & skip or p['cls'] not in STREET_CLASSES or p['link']:
+            continue
+        sk = zlib.crc32(p['seg'].encode())
+        oneway = p['lf'] == 0 or p['lb'] == 0
+        for gi, gl in enumerate(Wd.ground_lines(p)):
+            L = gl.length
+            if L < 2.0:
+                continue
+            for side in (1, -1):
+                sd = 1 if side > 0 else 0
+                # (side +1 is the right of the piece's own direction; its sidewalk there (fid-roads' sides). A divided
+                # road's inner side faces the median: only the median's palms (kind 2) stand there)
+                sws = p.get('swr' if side > 0 else 'swl', p['sw'])
+                inner = p.get('pair') is not None and p['pair'][0] == side
+                plans = []
+                if not inner and hash01(sk, sd, 41 ^ d.index) < WARM_STREET_P[warm]:
+                    off = p['w'] / 2 + (sws + 1.8 if sws > 0 else 2.0)
+                    plans.append((0, off, WARM_STREET_STEP[warm], pick_w(WARM_STREET[warm], hash01(sk, sd, 42 ^ d.index))))
+                if not inner and hash01(sk, sd, 43 ^ d.index) < WARM_HEDGE_P[warm]:
+                    plans.append((1, p['w'] / 2 + (sws + 0.7 if sws > 0 else 1.2), HEDGE_STEP, TREE_CLASS['hedge']))
+                if oneway:
+                    plans.append((2, p['w'] / 2 + 1.3, WARM_STREET_STEP[warm], pick_w(WARM_STREET[warm], hash01(sk, sd, 44 ^ d.index))))
+                for kind, off, step, cls in plans:
+                    n = int(L // step)
+                    if n < 1:
+                        continue
+                    ss = (np.arange(n) + 0.5) * step
+                    pa = shapely.line_interpolate_point(gl, np.maximum(ss - 0.5, 0.0))
+                    pb = shapely.line_interpolate_point(gl, np.minimum(ss + 0.5, L))
+                    p0 = shapely.line_interpolate_point(gl, ss)
+                    A, B, P0 = shapely.get_coordinates(pa), shapely.get_coordinates(pb), shapely.get_coordinates(p0)
+                    dv = B - A
+                    ln = np.hypot(dv[:, 0], dv[:, 1])
+                    for k in range(n):
+                        if ln[k] < 1e-6:
+                            continue
+                        tx, tz = dv[k, 0] / ln[k], dv[k, 1] / ln[k]
+                        x, z = P0[k, 0] - tz * off * side, P0[k, 1] + tx * off * side
+                        if not (X0 - pad <= x < X1 + pad and Z0 - pad <= z < Z1 + pad):
+                            continue
+                        yaw = int(round(math.degrees(math.atan2(-tz, tx)))) % 180
+                        raw[kind].append(((p['seg'], p['i'], gi, sd, k), x, z, cls, yaw, tx, tz))
+    out = []
+    bad = (MASK['asphalt'], MASK['water'], MASK['waterEdge'])
+    for kind, lst in raw.items():
+        if not lst:
+            continue
+        pts = shapely.points(np.array([(q[1], q[2]) for q in lst]))
+        tree = shapely.STRtree(pts)
+        R = WARM_DEDUPE[kind]
+        for n_, q in enumerate(lst):
+            key, x, z, cls, yaw, tx, tz = q
+            # (owned by the tile its cm point is in)
+            if not (0 <= cm(x) - c * TCM < TCM and 0 <= cm(z) - r * TCM < TCM):
+                continue
+            near = tree.query(pts[n_].buffer(R))
+            if any(lst[m][0] < key and (lst[m][1] - x) ** 2 + (lst[m][2] - z) ** 2 < R * R for m in near.tolist()):
+                continue
+            i, j = min(TILE - 1, max(0, int(x - X0))), min(TILE - 1, max(0, int(z - Z0)))
+            cell = a[j, i]
+            if kind == 2:
+                if not narrow_m[j, i]:
+                    continue
+            elif cell not in ((MASK['lawn'], MASK['scrub']) if kind == 1 else (MASK['lawn'], MASK['scrub'], MASK['sand'])):
+                continue
+            # (a palm off the curb's cells, a hedge's ends on the same ground as its middle)
+            if kind == 1:
+                ends = [(x + tx * 0.9, z + tz * 0.9), (x - tx * 0.9, z - tz * 0.9)]
+            else:
+                ends = [(x + 1, z), (x - 1, z), (x, z + 1), (x, z - 1)]
+            if any(X0 <= ex < X1 and Z0 <= ez < Z1 and (a[int(ez - Z0), int(ex - X0)] in bad or (kind == 1 and a[int(ez - Z0), int(ex - X0)] != cell))
+                   for ex, ez in ends):
+                continue
+            pt = Point(x, z)
+            if btree is not None and len(btree.query(pt.buffer(1.2 if kind == 1 else 2.5), predicate='intersects')):
+                continue
+            if deck_tree is not None and len(deck_tree.query(pt.buffer(2.0), predicate='intersects')):
+                continue
+            trunk = yaw if kind == 1 else int(20 + 22 * hash01(cm(x), cm(z), 45 ^ d.index))
+            out.append((cm(x) - c * TCM, cm(z) - r * TCM, cls, trunk))
+    return out
 
 
 def compile_tiles(Wd, store, tiles, log=print):

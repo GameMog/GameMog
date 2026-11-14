@@ -6,6 +6,10 @@
 // - pitched roofs over a record's masses (gabled, hipped, half-hipped, gambrel, mansard, pyramidal, skillion,
 //   saltbox; a flat roof gets a low parapet), porches on the road side, chimneys, a church's short bell tower (no
 //   spire, no symbol), a gas station's open canopy you can drive under;
+// - South Florida (the compiler's 'south-florida' region: Florida and Puerto Rico in the warm band, climate.py warmth):
+//   white, cream and pastel stucco and white concrete, no brick, flat roofs behind taller parapets or low barrel-tile
+//   hips; its condo and hotel towers get white balcony slabs with pale glass railings on every storey (balconies(),
+//   with buildings.js's pale balcony glass facade);
 // - everything merged into one vertex-coloured mesh per build (dispose() frees it), so a per-tile build can call it.
 // Masses are three.js boxes turned by theta about +y: world = c + R_y(theta) local, local +x along (cos t, -sin t).
 
@@ -99,6 +103,20 @@ const REGIONS = {
     },
     trims: [0xf4f0e8, 0x6b5a48, 0x3f3b37],
     roofColors: [0xa8583c, 0xb46a4c, 0x7f7468, 0x5d5853, 0x8f8478]
+  },
+  // (nonHouse: the walls of every building that is not a house; stone: the concrete / stone colours; parapet: m)
+  'south-florida': {
+    walls: [['stucco', 0.88], ['concrete', 0.08], ['siding', 0.04]],
+    roofs: [['hipped', 0.42], ['flat', 0.38], ['gabled', 0.12], ['pyramidal', 0.08]],
+    pitch: 0.6, chimney: 0, porch: 0.08, parapet: 0.95,
+    nonHouse: [['stucco', 0.78], ['concrete', 0.22]],
+    colors: {
+      stucco: [0xf6f4ee, 0xf1ebdd, 0xf3e7cc, 0xeedbc8, 0xdce9e1, 0xd8e6ec, 0xf2e0da, 0xefece4, 0xe9e0cd, 0xf7f2e4],
+      siding: [0xf0ede4, 0xd9e5e4]
+    },
+    stone: [0xf0efea, 0xe6e4dd, 0xeae6da, 0xdedcd5],
+    trims: [0xffffff, 0xf6f5f0, 0x6f8f98, 0xdccdb2],
+    roofColors: [0xb8694a, 0xc47e5c, 0xa95f45, 0xe9e7e1, 0xd9d6cf, 0x9c978e]
   }
 };
 const SURFACE = { brick: 0, stucco: 1, siding: 2, clapboard: 2, wood: 2, stone: 3, concrete: 3, metal: 3, glass: 3 };
@@ -124,6 +142,7 @@ function styleFor(o) {
   let wall = o.wall && SURFACE[o.wall] !== undefined ? o.wall : null;
   if (!wall) {
     if (house) wall = pickW(R.walls, h(1.7));
+    else if (R.nonHouse) wall = pickW(R.nonHouse, h(3.1));
     else if (o.kind === 'church' || o.kind === 'school' || o.kind === 'civic') wall = h(2.3) < 0.7 ? 'brick' : (R.walls[0][0] === 'stucco' ? 'stucco' : 'stone');
     else if (o.kind === 'warehouse') wall = h(2.9) < 0.5 ? 'brick' : 'concrete';
     else if (o.kind === 'shop' || o.kind === 'office' || o.kind === 'apartment') wall = R.walls[0][0] === 'stucco' ? (h(3.1) < 0.75 ? 'stucco' : 'brick') : (h(3.1) < 0.6 ? 'brick' : pickW(R.walls, h(3.3)));
@@ -132,7 +151,7 @@ function styleFor(o) {
   const pal = R.colors[wall] || R.colors[R.walls[0][0]];
   const STONE = [0xd2c8b4, 0xc4baa4, 0xb9b4aa, 0xd9d2c2];
   let wallHex = o.wallRGB || (pal ? pickA(pal, h(4.1)) : pickA(STONE, h(4.1)));
-  if (!o.wallRGB && (wall === 'stone' || wall === 'concrete')) wallHex = pickA(STONE, h(4.1));
+  if (!o.wallRGB && (wall === 'stone' || wall === 'concrete')) wallHex = pickA(R.stone || STONE, h(4.1));
   const trimHex = pickA(R.trims, h(5.3));
   let roof = o.roofShape && ROOF_TAG[o.roofShape] ? ROOF_TAG[o.roofShape] : null;
   if (!roof) roof = o.kind === 'house' || o.kind === 'garage' ? pickW(R.roofs, h(6.7)) : o.kind === 'church' ? 'gabled' : 'flat';
@@ -140,7 +159,7 @@ function styleFor(o) {
   if (o.kind === 'garage' && roof === 'mansard') roof = 'gabled';
   const roofColor = o.roofRGB || pickA(R.roofColors, h(7.9));
   return {
-    wall, paint: [wallHex, trimHex, SURFACE[wall] ?? 1, house ? 0.4 : 0.3], roof, roofColor, pitch: R.pitch,
+    wall, paint: [wallHex, trimHex, SURFACE[wall] ?? 1, house ? 0.4 : 0.3], roof, roofColor, pitch: R.pitch, parapet: R.parapet || 0.45,
     chimney: o.kind === 'house' && roof !== 'flat' && h(8.3) < R.chimney, porch: o.kind === 'house' && h(9.1) < R.porch
   };
 }
@@ -177,13 +196,13 @@ function createPkgBuilder() {
     quad(d, c, b, a, hex);
   }
   // a roof over the rectangle (cx, cz, w, d, theta) from the eave at y up `rise` m
-  function roof(m, theta, y, rise, shape, roofHex, wallHex) {
+  function roof(m, theta, y, rise, shape, roofHex, wallHex, parapet = 0.45) {
     const F = frame(m.cx, m.cz, m.w, m.d, theta);
     const { L, S, P } = F;
     stats.roofs++;
     if (shape === 'flat' || rise < 0.3 || S < 1.2) {
       // a low parapet round the flat roof
-      const t = 0.22, ph = 0.45;
+      const t = 0.22, ph = parapet;
       boxUV(F, -L, L, -S, -S + t, y, y + ph, wallHex);
       boxUV(F, -L, L, S - t, S, y, y + ph, wallHex);
       boxUV(F, -L, -L + t, -S, S, y, y + ph, wallHex);
@@ -313,6 +332,30 @@ function createPkgBuilder() {
     stats.canopies++;
     return cols;
   }
+  // balconies round a tower mass (South Florida's condos and hotels): on every storey from the second up to the one
+  // under the roof, a white slab `out` m past each wall (wrapping the corners: its top, underside and outer edge; the
+  // mesh is double-sided) and a pale glass railing on its edge. y0: where the facade counts its storeys from (its base
+  // and plinth), so the slabs sit on its storey lines; yMin: none at or below it (a podium's roof)
+  function balconies(m, theta, y0, roofY, storey, slabHex, railHex, out = 1.35, yMin = -Infinity) {
+    const { L, S, P } = frame(m.cx, m.cz, m.w, m.d, theta);
+    const n = Math.floor((roofY - y0) / storey + 0.05);
+    const inner = [[-L, -S], [L, -S], [L, S], [-L, S]];
+    const outer = [[-L - out, -S - out], [L + out, -S - out], [L + out, S + out], [-L - out, S + out]];
+    for (let k = 1; k < n; k++) {
+      const y = y0 + k * storey;
+      if (y > roofY - 1.0) break;
+      if (y < yMin + 0.5) continue;
+      const t = 0.28, rh = 1.05;
+      for (let e = 0; e < 4; e++) {
+        const a = inner[e], b = inner[(e + 1) % 4], A = outer[e], B = outer[(e + 1) % 4];
+        quad(P(a[0], a[1], y), P(b[0], b[1], y), P(B[0], B[1], y), P(A[0], A[1], y), slabHex);
+        quad(P(A[0], A[1], y - t), P(B[0], B[1], y - t), P(b[0], b[1], y - t), P(a[0], a[1], y - t), slabHex);
+        quad(P(A[0], A[1], y - t), P(B[0], B[1], y - t), P(B[0], B[1], y), P(A[0], A[1], y), slabHex);
+        quad(P(A[0], A[1], y), P(B[0], B[1], y), P(B[0], B[1], y + rh), P(A[0], A[1], y + rh), railHex);
+      }
+      stats.balconies = (stats.balconies || 0) + 1;
+    }
+  }
   function mesh(name) {
     if (!pos.length) return null;
     const g = new THREE.BufferGeometry();
@@ -327,7 +370,7 @@ function createPkgBuilder() {
     me.userData.dispose = () => { g.dispose(); mat.dispose(); };
     return me;
   }
-  return { roof, chimney, porch, tower, canopy, mesh, stats };
+  return { roof, chimney, porch, tower, canopy, balconies, mesh, stats };
 }
 
 // Shop signs: a town's storefronts are named after its own streets and its own name ("COLUMBIA ST PHARMACY", "OKEMAH

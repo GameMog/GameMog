@@ -88,7 +88,7 @@ GameMog or Render disk) is seeded with the snapshot the compiler ships, `dem-sna
 | curb islands | land minus roadways over tile + 128 m, each island classified before the clip: one under 120 m2 inside the window is a median; the rest by local width (`ISLAND_W` 6 m: the parts a 6 m morphological opening leaves out are islands, the rest block, so a polygon the window cuts gets the same kinds where two tiles' windows share it), clipped to the tile, clipped edges flagged `cut` |
 | buildings | owned by the tile holding the exact centroid of the full footprint (integer shoelace), outline kept whole (may overhang), base and rise from the post function over the footprint; `foreign` lists the owners of buildings overlapping the tile |
 | ground | off the curb islands asphalt; on them the climate's open land (`climate.py` from the tile centre: humid lawn, dry scrub, arid sand), Overture land use over it (`lu_ground`, larger first), then paved: Overture car parks (infrastructure `parking` polygons) and 6 m lots round commercial buildings (`LOT_KINDS`) as **lot (7)**, a downtown's buildings in 12 m of paved square, the narrow islands and the sidewalk bands (class sidewalk width past the curb) as sidewalk; a humid open hillside (slope > 0.35, 12 m from any house) **woods (9)**, rock past the cliff slope |
-| trees | yards: a 13 m lattice in global grid integers, `hash01(i, j, k ^ domain)`, 3..25 m from a building, clear of footprints + 8 / 12 m and bare ground; woodland: a 16 m lattice over the woods cells; `desert` = arid climate |
+| trees | yards: a 13 m lattice in global grid integers, `hash01(i, j, k ^ domain)`, 3..25 m from a building, clear of footprints + 8 / 12 m and bare ground; woodland: a 16 m lattice over the woods cells; `desert` = arid climate. The **warm band** (`climate.warmth`, below): yards 3..45 m from a building, the paved squares allowed, a palm / sea grape / evergreen mix (`WARM_YARD`); and street plantings (`warm_plantings`): stations along every street piece's ground lines at fixed arcs from the piece's start, each side of a segment planted or not and its species by `hash01(crc32(segment id), side, k ^ domain)` (rows): palms every 12 / 15 m in the strip 1.8 m past the sidewalk, clipped **hedge** blocks every 2 m on the property line (0.7 m past it; the class's fourth field is the block's yaw in degrees), and on one-way pieces palms 1.3 m past the curb where that is a narrow island (medians). A station of a kind is dropped where one of the same kind with a smaller key (segment, piece, line, side, k) stands within 5 / 1 / 5 m (raw stations, before any check, so every tile agrees), then kept only inside its tile, on lawn / scrub / sand (a hedge: lawn / scrub along its length; a median palm: a narrow island), clear of buildings (2.5 m, a hedge 1.2 m) and decks. Classes: 0 plane, 1 ficus, 2 palm, 3 elm, 4 conifer, 5 locust (San Francisco's), 6 royal palm, 7 coconut palm, 8 sabal palm, 9 sea grape, 10 hedge |
 | mask | 512 x 512 1 m cells: asphalt, sidewalk, lawn, sand, rock, waterEdge, **water (6)**, lot (7), scrub (8), woods (9) |
 | places, water, parks | POIs owned by the tile; water and park polygons clipped, each water with its ctx `level_cm` |
 
@@ -229,6 +229,13 @@ stays the same bytes in any compile that holds it (the seam / block / overlap pr
   penthouse crown on half of them.
 - **front / frontDist**: the direction and distance to the nearest roadway edge within 12 m (porches, awnings).
 - **region**: the tile's centre by coarse US regions (`region_of`), in the tile header and the package's buildings header.
+  Florida and Puerto Rico / the Virgin Islands in the warm band are `south-florida` (white, cream and pastel stucco and
+  concrete, no brick, flat roofs behind 0.95 m parapets or low barrel-tile hips; condo and hotel blocks of 20 m and more
+  get balcony slabs on every storey over pale balcony glass or painted concrete: `pkg-buildings.js`, `buildings.js`).
+- **climate** / **climateZone** (tile header, `PKG`): `climate` is the ground zone (`climate.zone`: humid / dry / arid,
+  as before; the ground and the far field read it); `climateZone` is `climate.zone_name`: the warm band's `tropical` /
+  `subtropical` (`climate.warmth`: \|lat\| < 23.5, the Florida peninsula south of 27.0 N, then subtropical to 29.2 N
+  and the south Texas coast and Rio Grande valley south of 28.0 N between -99.6 and -96.8), else the ground zone.
 - Elevated footprints (`min_height` >= 3 m) are not dropped by the in-the-roadway rule.
 - **Site roads (0.8.1, `World.footprint` / `site_cut` / `site_run`):** a footprint more than 35% in the roadway is
   dropped, but round a building of 150 m2 or more that is not a roof or carport a site's own road (`soft`: class
@@ -352,7 +359,9 @@ this copy (`--osm-roads` / `HOMETOWN_OSM_ROADS` override both); the build record
 ## Rules that are estimates, not data
 
 Road widths, lanes and sidewalks by class; building type by Overture class, footprint area, height and the downtown
-field; a house at least 3.4 m; signals and stops; the street density; paved aprons round non-house buildings. No brand
+field; a house at least 3.4 m; signals and stops; the street density; paved aprons round non-house buildings; the warm
+band's bounds, its planting shares and spacings, and the south-florida look (no data says which street has palms or a
+hedge: Overture's fetched layers carry no tree points). No brand
 names: a business is called by what it is and its street; public institutions keep their own names.
 
 Licences and credits: © OpenStreetMap contributors (ODbL 1.0) via Overture Maps Foundation (CDLA Permissive 2.0 /
