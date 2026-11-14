@@ -131,6 +131,19 @@ export function TownCard({ town, onClear }: { town: { place: Place; progress: To
   if (top.current.id !== place.placeId) top.current = { id: place.placeId, pct: 0 };
   const raw = whole ? 100 : p?.pct ?? (p && p.total ? Math.round((95 * p.done) / p.total) : 0);
   const pct = (top.current.pct = Math.max(top.current.pct, Math.min(100, raw)));
+  // (the waits as times they end, kept while a poll's new one is within 25% of the wait left (or a minute) of it: the
+  // server's estimate moves with the queue's measured costs as jobs finish (r8: a big town's hidden waits went 2304 s,
+  // 1203, 1596, 2547 in a few polls), so the card counts down and moves only for a real change)
+  const ends = useRef<{ id: string; drive: number | null; full: number | null }>({ id: '', drive: null, full: null });
+  if (ends.current.id !== place.placeId) ends.current = { id: place.placeId, drive: null, full: null };
+  const now = Date.now();
+  const steady = (k: 'drive' | 'full', s: number | null | undefined) => {
+    if (s == null) { ends.current[k] = null; return null; }
+    const at = now + s * 1000, was = ends.current[k];
+    if (was == null || Math.abs(at - was) > Math.max(60_000, 0.25 * Math.max(0, was - now))) ends.current[k] = at;
+    return Math.max(0, Math.round((ends.current[k]! - now) / 1000));
+  };
+  const etaDrive = steady('drive', p?.etaDriveS), etaFull = steady('full', p?.etaFullS);
   const state = request ? (request.status === 'ready' ? (whole ? 'whole' : drivable ? 'drive' : 'write') : 'error') : p?.state ?? 'asking';
 
   let head = '', note = '';
@@ -145,8 +158,8 @@ export function TownCard({ town, onClear }: { town: { place: Place; progress: To
     const tilesOn = s ? s.tiles.total > 0 && (s.ctx.total === 0 || s.ctx.done >= s.ctx.total) : !!p?.total;
     if (p && p.total && tilesOn) bits.push(`${p.done} of ${p.total} map tiles`);
     // (a town past what towns usually take gets no time it cannot back: it says it is slow instead, below)
-    if (!p?.slow && !drivable && p?.etaDriveS != null) bits.push(`ready to drive in ${wait(p.etaDriveS)}`);
-    if (!p?.slow && p?.etaFullS != null && (drivable || p.etaFullS > (p.etaDriveS ?? 0) + 30)) bits.push(`whole town in ${wait(p.etaFullS)}`);
+    if (!p?.slow && !drivable && etaDrive != null) bits.push(`ready to drive in ${wait(etaDrive)}`);
+    if (!p?.slow && etaFull != null && (drivable || etaFull > (etaDrive ?? 0) + 30)) bits.push(`whole town in ${wait(etaFull)}`);
     if (p?.elapsedS != null) bits.push(`${clock(p.elapsedS)} so far`);
     note = bits.length ? `${bits.join(', ')}.` : 'Building its real streets.';
     note = note.charAt(0).toUpperCase() + note.slice(1);

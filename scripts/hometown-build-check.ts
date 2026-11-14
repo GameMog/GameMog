@@ -127,6 +127,16 @@ function honestCard(ok: Ok, dir: string) {
       && honestEta({ etaDriveS: 50, etaFullS: 90 }, steps2, 0, 'asked').etaFullS === 404 && honestEta({ etaDriveS: 10, etaFullS: 40 }, steps2, 431, 'growing', { sinceDriveS: 250 }).slow
       && honestEta({ etaDriveS: 10, etaFullS: 40 }, steps2, 300, 'district', { sinceFrameS: 2 }).etaDriveS === 16);
   ok('...and the estimate is scaled by how far towns overran it (actual / promised)', honestEta({ etaDriveS: 100, etaFullS: 100 }, { ...seed, driveRatio: 4 }, 300, 'framing').etaDriveS === 400);
+  // (r8: a big town promised "about 12 minutes" to drive (its own estimate 708 s) was called slow at 4:30, past 1.25 x the
+  // median town's 215 s: slow is judged against what this town was told, the median or its own promise, the longer)
+  const big = { driveS: 708, fullS: 1100 }, eBig = { etaDriveS: 500, etaFullS: 900 };
+  ok('a big town is not slow before its own promised wait; past 1.25 x it, it is (and a small one still against the median)',
+    !honestEta(eBig, steps2, 270, 'framing', { promised: big }).slow && !honestEta(eBig, steps2, 880, 'framing', { promised: big }).slow
+      && honestEta(eBig, steps2, 890, 'framing', { promised: big }).slow && honestEta(eBig, steps2, 270, 'framing').slow
+      && !honestEta(eBig, steps2, 1370, 'growing', { promised: big, sinceDriveS: 300 }).slow && honestEta(eBig, steps2, 1380, 'growing', { promised: big, sinceDriveS: 300 }).slow
+      && honestEta({ etaDriveS: 5, etaFullS: 5 }, seed, 400, 'framing', { promised: { driveS: 50, fullS: 90 } }).slow,
+    JSON.stringify([270, 880, 890].map((t) => honestEta(eBig, steps2, t, 'framing', { promised: big }).slow)));
+  ok('...and scaled by the ratio as the card scaled it', !honestEta(eBig, { ...steps2, driveRatio: 2 }, 1700, 'framing', { promised: big }).slow && honestEta(eBig, { ...steps2, driveRatio: 2 }, 1780, 'framing', { promised: big }).slow);
   // the recorded timings: the towns table (first ask to district_at and full_at), the seed while it has under 3
   const t = { now: Date.now() };
   const d = fakeDeps(dir, 'r7', { HOMETOWN_BUILDER: 'on' }, t);

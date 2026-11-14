@@ -401,7 +401,7 @@ function progressOf(d: BuilderDeps, r: TownRow): Progress {
   const starting = r.state === 'asked' && !steps.running && q.liveSlots() === 0 && !!d.runs;
   const stage = stageOf(r.state, steps, starting, reading, tiles.some((j) => j.state === 'done'));
   const since = (t: number | null) => (t == null ? null : Math.max(0, Math.round((now - t) / 1000)));
-  const h = honestEta(e, waitHistory(d), elapsedS, r.state, { sinceFrameS: since(r.frame_at), sinceDriveS: since(r.district_at) });
+  const h = honestEta(e, waitHistory(d), elapsedS, r.state, { sinceFrameS: since(r.frame_at), sinceDriveS: since(r.district_at), promised: m.promised ?? null });
   const out: Progress = {
     state: r.state === 'asked' ? 'queued' : r.state === 'framing' ? (reading ? 'reading' : 'compiling') : r.state === 'full' ? 'ready' : 'compiling',
     placeId: r.place, stage, done, total, position, etaS: r.state === 'growing' ? h.etaFullS : h.etaDriveS,
@@ -505,18 +505,24 @@ export const ETA_FLOOR_S = 15;
  * slots: estimate) scaled by how far towns overran it (WaitHistory ratios), and never under what the median town still
  * had to go at this point: its median minus the time this town has waited, and step by step, once its frame is in (the
  * story may start) the median frame-to-drive less the time since, once drivable the median drive-to-whole less the time
- * since; the whole town never sooner than drive plus the median drive-to-whole. `slow`: past SLOW_PAST x the median
- * already (of the whole wait, or of the step it is on). The admission rule and meta.promised keep the plain estimate,
- * so the ratio stays measured against it.
+ * since; the whole town never sooner than drive plus the median drive-to-whole. `slow`: past SLOW_PAST x what this town
+ * was told already (of the whole wait, or of the step it is on): the median, or, for a town whose own estimate was longer
+ * (at.promised, meta.promised: the plain estimate when it was asked for, scaled by the ratio as the card's first wait
+ * was), that (r8: a big town promised 12 minutes was called slow at 4:30, past 1.25 x the median town's 215 s). The
+ * admission rule and meta.promised keep the plain estimate, so the ratio stays measured against it.
  */
 export function honestEta(e: { etaDriveS: number | null; etaFullS: number | null }, h: WaitHistory, elapsedS: number, phase: TownPhase | 'pending',
-  at: { sinceFrameS?: number | null; sinceDriveS?: number | null } = {}): { etaDriveS: number | null; etaFullS: number | null; slow: boolean } {
+  at: { sinceFrameS?: number | null; sinceDriveS?: number | null; promised?: { driveS: number | null; fullS: number | null } | null } = {}): { etaDriveS: number | null; etaFullS: number | null; slow: boolean } {
   const drivable = phase === 'growing' || phase === 'full';
   const sf = at.sinceFrameS ?? null, sd = at.sinceDriveS ?? null, aff = h.driveAfterFrameS ?? 0, afd = h.fullAfterDriveS ?? 0;
   const drive = drivable ? 0 : e.etaDriveS == null ? null : Math.max(ETA_FLOOR_S, Math.round(e.etaDriveS * h.driveRatio), Math.round(h.driveS - elapsedS), sf != null ? Math.round(aff - sf) : 0);
   const full = phase === 'full' ? 0 : e.etaFullS == null ? null : Math.max(ETA_FLOOR_S, drive ?? 0, Math.round(e.etaFullS * h.fullRatio), Math.round(h.fullS - elapsedS),
     drivable ? (sd != null ? Math.round(afd - sd) : 0) : (drive ?? 0) + afd);
-  const slow = drivable ? elapsedS > h.fullS * SLOW_PAST || (sd != null && afd > 0 && sd > afd * SLOW_PAST) : elapsedS > h.driveS * SLOW_PAST;
+  // (what it was told: the median town's waits, or its own promise as the card first said it, the longer)
+  const pd = at.promised?.driveS, pf = at.promised?.fullS;
+  const toldDrive = Math.max(h.driveS, pd != null && pd > 0 ? pd * h.driveRatio : 0), toldFull = Math.max(h.fullS, toldDrive + afd, pf != null && pf > 0 ? pf * h.fullRatio : 0);
+  const toldStep = Math.max(afd, toldFull - toldDrive);
+  const slow = drivable ? elapsedS > toldFull * SLOW_PAST || (sd != null && afd > 0 && sd > toldStep * SLOW_PAST) : elapsedS > toldDrive * SLOW_PAST;
   return { etaDriveS: drive, etaFullS: full, slow };
 }
 
@@ -590,7 +596,7 @@ function pendingAnswer(d: BuilderDeps, placeId: string): TownAnswer | null {
   const e = estimate(d, '\u0000new', '');
   const position = (d.queue.db.prepare('SELECT COUNT(*) n FROM pending WHERE asked < ?').get(p.asked) as { n: number }).n + 1;
   // (r7: no build known yet: a builder is being started to learn it; the waits as history says, from the pick)
-  const elapsedS = Math.max(0, Math.round((now - p.asked) / 1000)), h = honestEta(e, waitHistory(d), elapsedS, 'pending');
+  const elapsedS = Math.max(0, Math.round((now - p.asked) / 1000)), h = honestEta(e, waitHistory(d), elapsedS, 'pending', { promised: { driveS: e.etaDriveS, fullS: e.etaFullS } });
   const steps: TownSteps = { regions: { done: 0, total: 0 }, ctx: { done: 0, total: 0 }, frame: null, tiles: { done: 0, total: 0 }, district: false, full: false, running: 0 };
   return { status: 202, body: { state: 'queued', placeId, stage: STEP_WORDS.starting, done: 0, total: 0, position, etaS: h.etaDriveS, phase: 'asked', district: false, etaDriveS: h.etaDriveS, etaFullS: h.etaFullS, steps, pct: 1, elapsedS, starting: true, slow: h.slow } };
 }
