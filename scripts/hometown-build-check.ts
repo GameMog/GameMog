@@ -36,9 +36,13 @@ import { cityLock, packageProblems, hometownBase, type CityPackage } from '../st
 import { gateHometown, districtProblems } from '../storykit/hometown/hometown-gate.ts';
 import { placeById } from '../lib/places/search.ts';
 import type { Place } from '../lib/places/types.ts';
+import { requestCity, setFollowMsForChecks, FOLLOW_MS, type CityRequest } from '../lib/places/request-city.ts';
+import { TOWN_WORDS } from '../lib/hometown/words.ts';
+const TOWN_WORDS_FAILED = TOWN_WORDS.failed;
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
 const sha = (b: Uint8Array | string) => createHash('sha256').update(b).digest('hex');
+const tilesOfJobIds = (j: Job) => maskBits(Number(j.args.mask)).map((i) => { const [, , C, R] = String(j.args.block).split('/').map(Number); return `hg1-conus/0/${C * 4 + (i & 3)}/${R * 4 + (i >> 2)}`; });
 const W_TOKEN = 'worker-token-0123456789abcdef-only-for-this-check';
 const A_TOKEN = 'admin-token-0123456789abcdef-only-for-this-check';
 const FORBIDDEN = /\b(claude|anthropic|ai|a\.i\.|model|llm|gta|gen z quant|opus|sonnet)\b/i;
@@ -53,7 +57,33 @@ export async function runBuildChecks(ok: Ok) {
     await g4to6(ok, dir);
     g7(ok);
     await robustness(ok, dir);
+    await createCard(ok);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
+// ---------------------------------------------------- the Create card follows a town that is ready to write (14 Nov)
+async function createCard(ok: Ok) {
+  const real = globalThis.fetch;
+  const place = { placeId: 'us-1207150', name: 'Beverly Beach', state: 'FL' } as unknown as Parameters<typeof requestCity>[0];
+  const growing = { status: 202, body: { state: 'compiling', phase: 'growing', lock: { place: 'us-1207150', compiler: B, tiles: 'a'.repeat(64) }, town: { name: 'Beverly Beach', state: 'FL', places: 9, streets: 31 } } };
+  const run = async (later: { status: number; body: Record<string, unknown> }[]) => {
+    const answers = [growing, ...later];
+    globalThis.fetch = (async () => { const a = answers.length > 1 ? answers.shift()! : answers[0]; return new Response(JSON.stringify(a.body), { status: a.status }); }) as typeof fetch;
+    const got: CityRequest[] = [];
+    const ctl = new AbortController();
+    const first = await requestCity(place, undefined, ctl.signal, (r) => got.push(r));
+    for (let i = 0; i < 100 && !got.length; i++) await new Promise((r) => setTimeout(r, 10));
+    ctl.abort();
+    return { first, got };
+  };
+  setFollowMsForChecks(5);
+  try {
+    const failed = await run([growing, { status: 409, body: { state: 'error', error: TOWN_WORDS_FAILED } }]);
+    ok('the Create card follows a town ready to write: when it fails afterwards the card is told (not left "Ready to write")',
+      failed.first.status === 'ready' && !!(failed.first as { growing?: boolean }).growing && failed.got.length === 1 && failed.got[0].status === 'error', JSON.stringify(failed.got));
+    const whole = await run([{ status: 503, body: { error: 'busy' } }, { status: 200, body: { state: 'ready', lock: growing.body.lock, town: growing.body.town } }]);
+    ok('...and when it is whole the card says so (a server busy for a moment is no failure)', whole.got.length === 1 && whole.got[0].status === 'ready' && !(whole.got[0] as { growing?: boolean }).growing, JSON.stringify(whole.got));
+  } finally { globalThis.fetch = real; setFollowMsForChecks(FOLLOW_MS); }
 }
 
 // ---------------------------------------------------------------------------------------- G1: one box, stage 1
@@ -372,7 +402,43 @@ async function g4to6(ok: Ok, dir: string) {
       && !!dist && dist.deps.every((k) => !!q.get(k)) && String(dist.args.variant) === fr.variant);
     // (and the town's regions: an empty store's pick queues them first, 14 Nov)
     ok('the new ctx blocks are enqueued before their tiles', tj.every((j) => j.deps.every((k) => ['ctx', 'regions'].includes(String(q.get(k)?.kind))) && j.deps.some((k) => q.get(k)?.kind === 'ctx')) && q.recentEvents(50).some((e) => e.kind === 'retile'));
+    ok('once the frame is in, the full bundle keeps the spawn district (args.keep): it never lays a district tile flat', JSON.stringify(full.args.keep) === JSON.stringify(fr.spawnDistrict));
     dR.queue.close();
+  }
+  // ---- a spawn district tile failed before the frame said where the district is: the full bundle had already gone on
+  // without it (flat ground); when the frame lands the town fails AND that full bundle fails with it, so it is never
+  // assembled and served as ready (Beverly Beach, FL); a full bundle that did lay the district flat never makes it full
+  {
+    const dK = fakeDeps(dir, 'g4k', { HOMETOWN_BUILDER: 'on', HOMETOWN_FRAME: 'on', HOMETOWN_MAX_WAIT_S: '1000000' }, t);
+    const pid = 'us-4054200';
+    requestTown(dK, pid, '5.5.5.5');
+    const q = dK.queue, tiles: string[] = JSON.parse((q.db.prepare('SELECT meta FROM towns WHERE place = ?').get(pid) as { meta: string }).meta).tiles;
+    const [mc, mr] = tiles[Math.floor(tiles.length / 2)].split('/').slice(2).map(Number), dead = `hg1-conus/0/${mc}/${mr}`;
+    const tjob = q.jobsOf(pid).find((j) => j.kind === 'tiles' && tilesOfJobIds(j).includes(dead))!;
+    const fb0 = q.jobsOf(pid).find((j) => j.kind === 'bundle' && j.args.variant === 'full')!;
+    q.db.prepare("UPDATE jobs SET state = 'failed', attempts = 3, error = 'compile crashed' WHERE key = ?").run(tjob.key);
+    q.db.prepare('UPDATE jobs SET args = ? WHERE key = ?').run(JSON.stringify({ ...fb0.args, absent: [dead] }), fb0.key);
+    const fr = { format: 'hometown-frame', formatVersion: 1, buildId: B, placeId: pid, tiles, lock: lockV3(pid, B, tiles),
+      spawn: { tile: [mc, mr], x: 0, z: 0, heading: 0 }, spawnDistrict: [mc - 2, mr - 2, mc + 2, mr + 2], variant: `district-${mc}-${mr}`,
+      spawns: [{ id: 'pkg_downtown', name: 'Downtown', x: 0, z: 0, heading: 0, inDistrict: true }], places: {} };
+    dK.store.put(frameKey(B, pid), Buffer.from(JSON.stringify(fr)));
+    const fj = q.jobsOf(pid).find((j) => j.kind === 'frame')!;
+    q.db.prepare("UPDATE jobs SET state = 'done' WHERE key = ?").run(fj.key);
+    afterJobDone(dK, fj, []);
+    const fb = q.get(fb0.key)!;
+    ok('the frame lands after a district tile failed: the town fails and its degraded full bundle fails too (never assembled with a flat downtown)',
+      townStatus(dK, pid).status === 409 && fb.state === 'failed' && /spawn district/.test(fb.error ?? ''), JSON.stringify([fb.state, fb.error]));
+    // (the last guard: a full bundle reported done with a district tile laid flat does not make the town full)
+    q.db.prepare("UPDATE towns SET state = 'growing' WHERE place = ?").run(pid);
+    afterJobDone(dK, { ...fb, state: 'done', args: { ...fb.args, absent: [dead] } }, [bundleKey(B, pid, 'a'.repeat(64), 'full', 'bundle.json')]);
+    const st = q.db.prepare('SELECT state FROM towns WHERE place = ?').get(pid) as { state: string };
+    ok('...and a full bundle that laid the district flat leaves the town failed, not full', st.state === 'failed', st.state);
+    // (a district tile the compile refused, no DEM under it (out at sea), is flat ground by design: the town is full)
+    q.db.prepare("UPDATE towns SET state = 'growing', meta = json_set(meta, '$.refused', json(?)) WHERE place = ?").run(JSON.stringify([dead]), pid);
+    afterJobDone(dK, { ...fb, state: 'done', args: { ...fb.args, absent: [dead] } }, [bundleKey(B, pid, 'a'.repeat(64), 'full', 'bundle.json')]);
+    const st2 = q.db.prepare('SELECT state FROM towns WHERE place = ?').get(pid) as { state: string };
+    ok('...but a district tile refused for want of a DEM (out at sea) is flat ground by design: the town is full', st2.state === 'full', st2.state);
+    dK.queue.close();
   }
 
   // ---- G6: who may use the towns
@@ -473,6 +539,51 @@ async function robustness(ok: Ok, dir: string) {
   ok('...and both are journalled for the owner (split, degraded)', ['split', 'degraded'].every((k) => q.recentEvents(50).some((e) => e.kind === k)));
   q.close();
 
+  // ---- a district bundle waits on its own window's tiles only (Surfside, FL: a tile outside the spawn district failed
+  // in a block job it shared with district tiles, and failed the town), and a full bundle never lays the spawn district
+  // flat (Beverly Beach, FL was served ready with its downtown as flat ground)
+  {
+    const qs = new BuildQueue({ file: ':memory:', now: () => t });
+    const [bk] = qs.enqueue({ key: `tiles:${B}:${blk}`, kind: 'tiles', build: B, prio: 1, args: { block: blk, mask: 0b0011 }, place: 'us-2' });
+    // (tile 40/80 is outside the district window, 41/80 inside it; the town's spawn district is the full bundle's keep)
+    qs.enqueue({ key: `bundle:${B}:us-2:district`, kind: 'bundle', build: B, prio: 0, args: { placeId: 'us-2', variant: 'district-43-82', window: [41, 80, 45, 84] }, deps: [bk], place: 'us-2' });
+    qs.enqueue({ key: `bundle:${B}:us-2:full`, kind: 'bundle', build: B, prio: 2, args: { placeId: 'us-2', variant: 'full', keep: [41, 80, 45, 84] }, deps: [bk], place: 'us-2' });
+    for (let i = 0; i < MAX_ATTEMPTS; i++) { t += 600_000; const c = qs.claim(W('w'))!; if (c?.key !== bk) break; qs.fail(c.key, c.leaseId, { code: 1, reason: 'compile crashed' }); }
+    ok('after the split, the district bundle waits only on its window\'s tile; the full bundle on both',
+      JSON.stringify(qs.get(`bundle:${B}:us-2:district`)!.deps) === JSON.stringify([`${bk}:t1`]) && qs.get(`bundle:${B}:us-2:full`)!.deps.length === 2, JSON.stringify(qs.get(`bundle:${B}:us-2:district`)!.deps));
+    for (let i = 0; i < 12; i++) {
+      t += 600_000;
+      const c = qs.claim(W('w'));
+      if (!c) break;
+      if (c.key.endsWith(':t0')) qs.fail(c.key, c.leaseId, { code: 1, reason: 'compile crashed' }); else qs.complete(c.key, c.leaseId, { ms: 1000 }, none);
+    }
+    const sd = qs.get(`bundle:${B}:us-2:district`)!, sf = qs.get(`bundle:${B}:us-2:full`)!;
+    ok('the tile outside the district failed for good: the district bundle is built (the town plays), the full bundle degrades for that tile only',
+      qs.get(`${bk}:t0`)!.state === 'failed' && sd.state === 'done' && sf.state === 'done' && JSON.stringify(sf.args.absent) === JSON.stringify(['hg1-conus/0/40/80']), JSON.stringify([sd.state, sd.error, sf.state, sf.args.absent]));
+    qs.close();
+
+    const qb = new BuildQueue({ file: ':memory:', now: () => t });
+    const [k1] = qb.enqueue({ key: `tiles:${B}:${blk}`, kind: 'tiles', build: B, prio: 0, args: { block: blk, mask: 0b0010 }, place: 'us-3' });
+    qb.enqueue({ key: `bundle:${B}:us-3:full`, kind: 'bundle', build: B, prio: 2, args: { placeId: 'us-3', variant: 'full', keep: [41, 80, 45, 84] }, deps: [k1], place: 'us-3' });
+    for (let i = 0; i < MAX_ATTEMPTS; i++) { t += 600_000; const c = qb.claim(W('w'))!; if (c?.key !== k1) break; qb.fail(c.key, c.leaseId, { code: 1, reason: 'compile crashed' }); }
+    const bf = qb.get(`bundle:${B}:us-3:full`)!;
+    ok('a spawn district tile failed for good: the full bundle fails (never flat ground downtown)', qb.get(k1)!.state === 'failed' && bf.state === 'failed' && !bf.args.absent, JSON.stringify([bf.state, bf.args.absent]));
+    const again = qb.retryFailed('us-3');
+    ok('"Try again" queues the tile and the full bundle again, the bundle waiting on the tile', again.includes(k1) && qb.get(bf.key)!.state === 'queued' && qb.get(bf.key)!.deps.includes(k1));
+    qb.close();
+
+    const qa = new BuildQueue({ file: ':memory:', now: () => t });
+    const [k2] = qa.enqueue({ key: `tiles:${B}:${blk}`, kind: 'tiles', build: B, prio: 0, args: { block: blk, mask: 0b0001 }, place: 'us-4' });
+    qa.enqueue({ key: `bundle:${B}:us-4:full`, kind: 'bundle', build: B, prio: 2, args: { placeId: 'us-4', variant: 'full' }, deps: [k2, 'ctx:x'], place: 'us-4' });
+    for (let i = 0; i < MAX_ATTEMPTS; i++) { t += 600_000; const c = qa.claim(W('w'))!; if (c?.key !== k2) break; qa.fail(c.key, c.leaseId, { code: 1, reason: 'compile crashed' }); }
+    const before = qa.get(`bundle:${B}:us-4:full`)!;
+    qa.retryFailed('us-4');
+    const after = qa.get(`bundle:${B}:us-4:full`)!;
+    ok('a degraded full bundle not yet built: "Try again" takes the tile it queues again out of args.absent and waits on it (Jupiter Inlet Colony\'s rebuilt tile was laid flat all the same)',
+      JSON.stringify(before.args.absent) === JSON.stringify(['hg1-conus/0/40/80']) && !after.args.absent && after.deps.includes(k2) && after.deps.includes('ctx:x'), JSON.stringify([before.args.absent, after.args.absent, after.deps]));
+    qa.close();
+  }
+
   // ---- the cold start: every ctx block the town's compiles read is its own job (side by side), the frame waits on all
   const prague = placeById('us-4060500')!, pg = townGraph('us-4060500', gazetteerOf(prague), B, { frame: true, base: 0, now: t });
   const pctx = pg.specs.filter((x) => x.kind === 'ctx'), pframe = pg.specs.find((x) => x.kind === 'frame')!, ptiles = pg.specs.filter((x) => x.kind === 'tiles');
@@ -517,6 +628,21 @@ async function robustness(ok: Ok, dir: string) {
   ok('the address itself is never stored (a hash)', !JSON.stringify(d2.queue.db.prepare('SELECT * FROM ip_hits').all()).includes('2.2.2.2'));
   tt.now += 3600_000 + 1;
   ok('an hour later it may ask again', requestTown(d2, ids[3], '2.2.2.2').status === 202);
+  // ---- "Try again" of a failed town is not a new town for the address (its third pick of the hour failed, and the
+  // retry was refused at once with "Lots of towns are being built")
+  {
+    const ip = '198.51.100.23', mine = ['us-4007500', 'us-1211225', 'us-4080550'];
+    tt.now += 3600_000 + 1;
+    const r = mine.map((id) => requestTown(d2, id, ip).status);
+    const ctx = d2.queue.jobsOf(mine[2]).find((j) => j.kind === 'ctx')!;
+    d2.queue.db.prepare("UPDATE jobs SET state = 'failed', attempts = 3, not_before = ?, error = 'compile crashed' WHERE key = ?").run(tt.now + 60_000, ctx.key);
+    const failedNow = townStatus(d2, mine[2]).status;
+    tt.now += 5_000;
+    const retry = requestTown(d2, mine[2], ip), retry2 = requestTown(d2, mine[2], ip);
+    ok('the third pick of the hour failed: its "Try again" is built (202), not refused (429); asking again counts no new town',
+      JSON.stringify(r) === '[202,202,202]' && failedNow === 409 && retry.status === 202 && retry2.status === 202, JSON.stringify([r, failedNow, retry.status, retry2.status]));
+    { const r4 = requestTown(d2, 'us-4060500', ip); ok('...while a fourth new town from that address is still refused', r4.status === 429, JSON.stringify(r4).slice(0, 200)); }
+  }
   // ---- the owner's status: degraded and failed towns
   d2.queue.db.prepare("INSERT INTO towns (place, build, box, state, first_asked, tiles_total, tiles_done, asks, source, meta) VALUES ('us-9999999', ?, '[]', 'full', 1, 4, 4, 1, 'player', ?)").run(B, JSON.stringify({ name: 'Somewhere', absent: ['hg1-conus/0/40/80'] }));
   const st = townsStatus(d2);

@@ -23,7 +23,9 @@
  * Degraded towns: a tile that cannot be built (queue.ts: retried, split to one job per tile, retried again) leaves flat
  * ground in the whole town (the full bundle's args.absent; deploy/town-builder/worker.py lays it), and the town still
  * becomes 'full' (meta.absent: the owner's status lists it). A failed tile inside the spawn district fails the town:
- * the district is the frame's spawnDistrict (meta.districtWindow), or without the frame the anchor's 5 x 5.
+ * the district is the frame's spawnDistrict (meta.districtWindow), or without the frame the anchor's 5 x 5. The full
+ * bundle carries that window as args.keep and fails rather than lay a district tile flat, so a failed town is never
+ * later served as ready; a district bundle waits only on its own window's tiles.
  *
  * No build known yet (no HOMETOWN_BUILD, no run ever): the pick is kept (pending) and answered 202 at once; the
  * dispatcher starts one run, and that run's FIRST claim admits it at the build it reports and takes its first job
@@ -44,7 +46,7 @@ import { bundleKey, ctxKey, farKey, frameKey, manifestKey, parseKeyString, srcKe
 import type { TileStore } from '../hometown-tiles/store.ts';
 import type { HometownConfig } from '../hometown-tiles/config.ts';
 import { stage1, anchorTile, type Stage1 } from './grid.ts';
-import { ANY_BUILD, maskBits, type BuildQueue, type EnqueueSpec, type Job, type JobKind } from './queue.ts';
+import { ANY_BUILD, maskBits, tileInWindow, type BuildQueue, type EnqueueSpec, type Job, type JobKind } from './queue.ts';
 import { cityPackageOfFrame, frameProblems, normalizeFrame, type TownFrame } from './frame.ts';
 
 export { TOWN_WORDS };
@@ -161,7 +163,10 @@ export function townGraph(placeId: string, gaz: Gaz, build: string, o: { frame: 
   const bh = boxHash(gaz.bbox);
   if (o.frame) specs.push({ key: `frame:${build}:${placeId}:${bh}`, kind: 'frame', build, prio: Math.max(0, o.base), args: { placeId, gazetteer: gaz }, deps: [...ctxs.values()], place: placeId, firstAsked: o.now });
   // (the full bundle: its deps are filled in by requestTown with the tile jobs' actual keys, which the block merge decides)
-  specs.push({ key: `bundle:${build}:${placeId}:${bh}:full`, kind: 'bundle', build, prio: Math.max(2, o.base), args: { placeId, gazetteer: gaz, variant: 'full', tiles: s.tiles.length }, deps: [...ctxs.values()], place: placeId, firstAsked: o.now });
+  // (args.keep: the spawn district, whose tiles are never laid as flat ground (queue.ts failDependents): without the frame
+  // the anchor's 5 x 5 (districtOf); with it, set when the frame lands (afterJobDone))
+  const keep = o.frame ? {} : { keep: [ac - DISTRICT_RADIUS, ar - DISTRICT_RADIUS, ac + DISTRICT_RADIUS, ar + DISTRICT_RADIUS] };
+  specs.push({ key: `bundle:${build}:${placeId}:${bh}:full`, kind: 'bundle', build, prio: Math.max(2, o.base), args: { placeId, gazetteer: gaz, variant: 'full', tiles: s.tiles.length, ...keep }, deps: [...ctxs.values()], place: placeId, firstAsked: o.now });
   return { specs, tiles: s.tiles, stage: s, anchor: [ac, ar], box: gaz.bbox };
 }
 
@@ -557,8 +562,8 @@ export function requestTown(d: BuilderDeps, placeId: string, ip: string, source:
     // is building, so the queue's limits are moot)
     if (!pendingOf(q, placeId)) {
       if (source === 'player') {
-        if (q.ipCount(ipk, now - 3600_000) >= perIp) return { status: 429, body: { placeId, error: TOWN_WORDS.busy } };
-        q.ipHit(ipk, now);
+        if (q.ipCount(ipk, now - 3600_000, placeId) >= perIp) return { status: 429, body: { placeId, error: TOWN_WORDS.busy } };
+        q.ipHit(ipk, now, placeId);
       }
       q.db.prepare('INSERT OR IGNORE INTO pending (place, source, asked) VALUES (?, ?, ?)').run(placeId, source, now);
     }
@@ -591,14 +596,16 @@ export function requestTown(d: BuilderDeps, placeId: string, ip: string, source:
     if (waiting >= queueMax) return { status: 503, body: { placeId, error: TOWN_WORDS.busy, nearby: near() } };
     const today = (q.db.prepare("SELECT COUNT(*) n FROM towns WHERE source = 'player' AND first_asked >= ?").get(Date.parse(`${day(now)}T00:00:00Z`)) as { n: number }).n;
     if (today >= dailyCold) return { status: 503, body: { placeId, error: TOWN_WORDS.busy, nearby: near() } };
-    if (q.ipCount(ipk, now - 3600_000) >= perIp) return { status: 429, body: { placeId, error: TOWN_WORDS.busy, nearby: near() } };
+    // (towns, not asks: a town this address already asked for this hour, failed and asked again ("Try again"), is not a
+    // new town, so it is never refused by this limit; the hit is kept once per town)
+    if (q.ipCount(ipk, now - 3600_000, placeId) >= perIp) return { status: 429, body: { placeId, error: TOWN_WORDS.busy, nearby: near() } };
     // admission: the wait to drive this town would have, were it admitted now
     const e = estimate(d, '\u0000new', build);
     if (e.etaDriveS != null && e.etaDriveS > d.cfg.maxWaitS) {
       const min = Math.max(1, Math.round(e.etaDriveS / 60));
       return { status: 503, body: { placeId, error: BUSY_WORDS(min), waitMin: min, nearby: near() } };
     }
-    q.ipHit(ipk, now);
+    if (!q.ipAsked(ipk, now - 3600_000, placeId)) q.ipHit(ipk, now, placeId);
   }
   if (d.store.fullReason(32 * 1024 * 1024)) return { status: 507, body: { placeId, error: TOWN_WORDS.failed } };
   // (a failed town asked again, the Create card's "Try again": its failed jobs are queued again NOW, not after the 60 s
@@ -710,6 +717,14 @@ export function afterJobDone(d: BuilderDeps, j: Job, reported: string[], refused
       m.districtWindow = [...f.spawnDistrict] as [number, number, number, number];
       // (compiler 0.8.0: a capped town's frame pins its downtown-centred box, not stage 1's; the frame is the truth)
       if (!sameTiles(f.tiles, m.tiles)) retileToFrame(d, r, f, m);
+      // (the full bundle never lays the spawn district as flat ground: args.keep. One already degraded over a district
+      // tile (it failed before the frame said where the district is) fails now, with the town below, instead of
+      // assembling a town with a flat downtown that would then be served as ready)
+      for (const fb of q.jobsOf(place).filter((x) => x.kind === 'bundle' && x.args.variant === 'full' && x.build === r.build && x.state === 'queued')) {
+        q.mergeArgs(fb.key, { keep: m.districtWindow });
+        const flat = ((fb.args.absent as string[] | undefined) ?? []).filter((t) => tileInWindow(t, m.districtWindow));
+        if (flat.length) q.failNow(fb.key, `spawn district tile(s) could not be built: ${flat.slice(0, 4).join(', ')}`);
+      }
       // (a tile of the spawn district failed for good before the frame said where the district is: the town fails now,
       // clearly, instead of a district bundle compiling that tile again and failing three attempts later)
       const deadInDistrict = fatalFailures(d, m, q.jobsOf(place).filter((x) => x.kind === 'tiles' && x.build === r.build));
@@ -750,9 +765,20 @@ export function afterJobDone(d: BuilderDeps, j: Job, reported: string[], refused
       const k = b ? parseKeyString(b) : null;
       if (!k) continue;
       if (k.variant === 'full') {
-        m.full = { tilesId: k.tilesId! };
         // (a degraded town: built whole, these tiles laid as flat ground)
         const absent = (j.args.absent as string[] | undefined) ?? [];
+        // (never a town whose spawn district is flat ground for want of a tile that failed: args.keep prevents it; this is
+        // the last guard. A tile the compile refused (no DEM under it: out at sea) is flat ground anywhere, by design)
+        const noDem = new Set(m.refused ?? []), w = districtOf(d, m), flat = w ? absent.filter((t) => tileInWindow(t, w) && !noDem.has(t)) : [];
+        if (flat.length) {
+          m.failed = { key: j.key, why: `the full bundle laid spawn district tile(s) as flat ground: ${flat.slice(0, 4).join(', ')}`, at: q.now() };
+          setTown(q, place, r.build, { state: 'failed', meta: m });
+          q.log('town-failed', { place, build: r.build, job: j.key, flatDistrict: flat.length });
+          continue;
+        }
+        m.full = { tilesId: k.tilesId! };
+        // (built whole: a town failed earlier (its district bundle) plays in full now)
+        delete m.failed;
         if (absent.length) { m.absent = absent; q.log('town-degraded', { place, build: r.build, absent: absent.length }); } else delete m.absent;
         setTown(q, place, r.build, { state: 'full', full_at: q.now(), meta: m });
         const actual = (q.now() - r.first_asked) / 1000, promised = m.promised?.fullS;

@@ -146,18 +146,39 @@ jobs before it take about one ctx job's time (10-20 s) on a run's 4 slots and a 
   degraded town has no `manifests/` descriptor (the web takes one only when every tile it lists is stored; a later whole
   build may store its own). The town still becomes `full`; its row keeps `meta.absent`, and `/admin` lists it ("built with
   flat patches"). Tiles a compile refused (no DEM under them) are laid the same way in the full bundle.
-- **The spawn district still fails clearly.** A district bundle that waits on a failed tile fails, and so does its town;
-  a failed tile inside the frame's `spawnDistrict` (without the frame: the anchor's 5 x 5) fails the town as soon as the
-  frame lands (`towns.ts fatalFailures`). Any other failed job (regions, ctx, frame, bundle) fails the town as before;
-  `/admin` shows the job and its error.
+- **The spawn district still fails clearly.** A district bundle that waits on a failed tile of its window fails, and so
+  does its town; a failed tile inside the frame's `spawnDistrict` (without the frame: the anchor's 5 x 5) fails the town
+  as soon as the frame lands (`towns.ts fatalFailures`). Any other failed job (regions, ctx, frame, bundle) fails the town
+  as before; `/admin` shows the job and its error.
+- **Only the district's own tiles hold the district** (14 Nov): when a block job shared by district and outside tiles is
+  split, the district bundle (`args.window`) waits on its window's tiles only, and a failed tile outside it drops out of
+  it (Surfside, FL failed for a tile outside its district before).
+- **The full bundle never lays the spawn district flat** (14 Nov): it carries the district as `args.keep` (set when the
+  frame lands; without the frame, the anchor's 5 x 5) and fails instead of degrading for a tile there; one degraded over a
+  district tile before the frame landed fails with the town when it does. A failed town is no longer assembled anyway
+  and then served as ready with its downtown as flat ground (Beverly Beach, FL).
 - **"Try again"** on a failed town (the Create card POSTs the pick again) queues that town's failed jobs again **at
-  once**, their attempts reset (`queue.ts retryFailed`; `town-retry` in the log). Before, a re-ask within 60 s joined the
-  same failed jobs and got the same "Not built".
+  once**, their attempts reset (`queue.ts retryFailed`; `town-retry` in the log), and takes the tiles it queues again out
+  of the full bundle's `args.absent` (it waits on them again instead of laying them flat). Before, a re-ask within 60 s
+  joined the same failed jobs and got the same "Not built". The retry is not a new town for the address limit.
+- **The Create card follows a town ready to write** (phase district or growing) every 5 s until it is whole or fails
+  (`lib/places/request-city.ts` onLater), so a town that fails after its frame no longer keeps saying "Ready to write".
 
 ### The per-address limit and the dispatcher's own housekeeping
 
 - `HOMETOWN_PER_IP_HOUR` is counted in `queue.db` (`ip_hits`, a hash of the address, never the address): a deploy no
-  longer resets it.
+  longer resets it. It counts towns, not asks (14 Nov: `ip_hits.place`): a failed town asked again by the address that
+  asked for it is no new town, so its "Try again" is never refused with "Lots of towns are being built".
+- **A worker tops up regions staged by an older compiler** (14 Nov): compiler 0.10.0 refuses a region without
+  `overture-base-land.parquet` and the segment extras ("fetched without ..."), which no region staged by 0.8.0 has, and a
+  staged region's `files.json` is write-once. When a compile still refuses a region staged on the worker ("fetched
+  without ...", or a ctx's "no region of [...] fetched"), `worker.py compile` runs `fetch.py --regions` once per region
+  and job for it and its neighbours the web has staged (one read of each layer's union for the town's 3 x 3), under
+  their locks (it fetches only the missing layers and the extras), and compiles again. A worker runs one `fetch.py` at a
+  time: its segment extras go through one fixed folder of the data dir, and two side by side would mix envelopes.
+- **A retry uploads what an earlier attempt left** (14 Nov): `worker.py upload_new` takes every object made in this run
+  and not yet uploaded, not only this attempt's: a full bundle's stage-2 manifest (`put_if_absent`) left by a failed
+  first attempt was never uploaded before, and every retry got "outputs not stored" (Boley, OK).
 - The dispatcher's plan (every 5 s and on every queue change) sums the work in SQL over the `jobs_plan` index (each job
   carries its cost units) and counts ready jobs with their deps checked by primary key, only as far as a decision needs:
   about 8 ms at 20,000 queued jobs (under 100 ms when none of them is ready) where it parsed every row in JS before
@@ -236,12 +257,12 @@ nothing and ends; empty or `0` builds). Optional: `HOMETOWN_RUN_CAP_S` (7200), `
 
 Workflows build on the native runtime only (`runtime: python`; no Dockerfile). The buildCommand installs the Render SDK
 (`workflow-requirements.txt`) and runs `workflow-build.sh`, which writes `.town-builder/`:
-- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `26b28450e603bc0e5c8bf0ac4f21698b7a0f0491`, compiler
+- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `d7a5b6f7beae0f73ef1f51bf5675b1e85a03f172`, compiler
   0.10.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
   `HOMETOWN_MOGCITY_REF` (default `hometown-compiler`) and then the SHA inside it;
 - its packages from the compiler's own hash lock (`--require-hashes`, wheels only) in their own venv;
-- **the OSM lane table** (`osm-roads-us.parquet`, 17,100,621 bytes, ODbL) checked against
-  `deploy/town-builder/osm-roads-us.parquet.json` (sha256 `555ea001...2f65`): from this checkout if present, else from
+- **the OSM lane table** (`osm-roads-us.parquet`, 19,372,313 bytes, ODbL) checked against
+  `deploy/town-builder/osm-roads-us.parquet.json` (sha256 `369b9deb...0128`): from this checkout if present, else from
   the compiler commit (`tools/hometown/osm/`, with its ODbL notice), else `HOMETOWN_OSM_URL`;
 - duckdb's httpfs and spatial extensions installed at build time (a run never downloads one);
 - the Overture release's file index; and the **recipe id** (a hash of all of the above, the machine and glibc), which
@@ -349,7 +370,7 @@ Safe fallback while any step is open: `HOMETOWN_BUILDER=owner` and `NEXT_PUBLIC_
 Everything is committed locally and nothing is pushed. It supersedes the round 4 release (never pushed: its branches
 `mogcity-release-2` and MogCity `prod-builder` `dd7e82ec` are folded into this one). What is in it:
 
-- **Compiler 0.10.0** (MogCity `release-r5`, tip `26b28450e603bc0e5c8bf0ac4f21698b7a0f0491`): round 4 (0.9.0: Fort Pitt's tunnel portals at
+- **Compiler 0.10.0** (MogCity `release-r5`, tip `d7a5b6f7beae0f73ef1f51bf5675b1e85a03f172`): round 4 (0.9.0: Fort Pitt's tunnel portals at
   their connectors, no link that short at a portal); the DEM's `/historical/` fallback (a pinned 3DEP file that USGS
   replaced under `/current/` is read from its dated copy, same bytes, so a build never fails because upstream moved);
   the fidelity line, rounds 1 and 2: each carriageway's own sidewalks and cycleways, a divided road's lanes as OSM
@@ -364,18 +385,22 @@ Everything is committed locally and nothing is pushed. It supersedes the round 4
   their curbs, palms and hedge walls, beach sand, the mall's storefronts); a town's buses signed with the town's name and
   in one of a few plain liveries, and the player's plate from the town's state (never San Francisco's); road paint that
   stays put under the floating origin; Pittsburgh's chase start on E Carson St, not boxed in; street names cased right
-  for towns built before 0.10.0.
+  for towns built before 0.10.0; a mission place whose own street the traffic does not drive (Cedar Key's Dock St, out on
+  the water) keeps the nearest lane it does, within 250 m, instead of going missing.
 - **GameMog** `prod-builder-clean`: the pin above, the town builder fixes, rough builder/signs/wardrobe, the storyart
   fix, the build learned from a new workflow deploy by itself, regions at a pinned pick, the full town playing at its
-  build, and the key art page (below). The /admin crash fix fc8ba0fc is already live.
+  build, and the key art page (below); the OSM lane table pin of compiler 0.10.0 (fid-roads' sidewalk and cycleway
+  columns); the release r6 builder fixes (regions staged by 0.8.0 topped up, a retry uploading what its first attempt
+  left, the spawn district never laid flat, a district held by its own tiles only, the card following a growing town,
+  "Try again" not counted as a new town). The /admin crash fix fc8ba0fc is already live.
 
 In this order (a push of `main` restarts the web and stops builds in flight, so the owner picks the moment):
 
 1. **Mog City's engine** (`mogcity`; no build needed, old towns keep playing): push the local MogCity branch
    `mogcity-release-r6` (parent `c2d9749` = the live `mogcity`, so a fast-forward; the tree of MogCity `release-r5`
-   `26b28450e603bc0e5c8bf0ac4f21698b7a0f0491` without `.scratch`, the live README paragraph and `CNAME` kept; no live file deleted) to the
+   `d7a5b6f7beae0f73ef1f51bf5675b1e85a03f172` without `.scratch`, the live README paragraph and `CNAME` kept; no live file deleted) to the
    `mogcity` branch of GameMog/GameMog.
-2. **The compiler commit** (`hometown-compiler`): push MogCity `release-r5` (tip `26b28450e603bc0e5c8bf0ac4f21698b7a0f0491`, compiler 0.10.0)
+2. **The compiler commit** (`hometown-compiler`): push MogCity `release-r5` (tip `d7a5b6f7beae0f73ef1f51bf5675b1e85a03f172`, compiler 0.10.0)
    to the `hometown-compiler` branch of GameMog/GameMog BEFORE `main` (it descends from the live `aa0bc45`, so a
    fast-forward).
 3. **Nothing building** on Render, then push GameMog `prod-builder-clean` to `main`. `deploy/town-builder/**` changed

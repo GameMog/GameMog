@@ -8,6 +8,7 @@ import os
 import shutil
 import tempfile
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -237,6 +238,111 @@ class WebAndRegions(unittest.TestCase):
             self.assertEqual(got, [k])
             self.assertIn((k, hashlib.sha256(raw).hexdigest()), FakeWeb.puts)
             self.assertEqual(w.upload_new(0), [])  # (uploaded once)
+        finally:
+            shutil.rmtree(tmp)
+
+
+    def test_a_retry_uploads_what_an_earlier_attempt_of_this_run_left(self):
+        # (Boley, OK: a full bundle's first attempt wrote the stage-2 manifest (put_if_absent) and then failed; the retry's
+        # assembler kept that file, older than the retry, and upload_new(t0) skipped it: 'outputs not stored' for good)
+        tmp = tempfile.mkdtemp()
+        try:
+            w = self.jobs_worker(tmp)
+            now = time.time()
+            w.t_start = now - 100
+            k = 'manifests/%s/us-4007500.json' % w.build
+            w.write_local(k, b'{"stage":2}')
+            os.utime(w.path(k), (now - 50, now - 50))
+            old = 'tiles/%s/hg1-conus/0/1/1' % w.build
+            w.write_local(old, gzip.compress(b'HTL1' + b'o' * 20))
+            os.utime(w.path(old), (now - 500, now - 500))  # (before this run: a plain process's cache, not this run's)
+            got = w.upload_new(now)
+            self.assertEqual(got, [k])
+            self.assertEqual(FakeWeb.objects[k], b'{"stage":2}')
+            self.assertEqual(w.upload_new(now), [])
+        finally:
+            shutil.rmtree(tmp)
+
+    def short_region(self, w, C, R):
+        d = w.region_dir('conus', C, R)
+        os.makedirs(d)
+        open(os.path.join(d, 'region.json'), 'w').write('{}')
+        open(os.path.join(d, 'overture-base-water.parquet'), 'wb').write(b'PAR1')
+        return d
+
+    def test_a_region_staged_without_land_or_extras_is_topped_up(self):
+        # (compiler 0.10.0 refuses a region staged by 0.8.0, which fetched no base/land and no segment extras; the web's
+        # files.json is write-once, so the worker fetches the missing layers itself, once, and compiles again)
+        tmp = tempfile.mkdtemp()
+        try:
+            w = self.jobs_worker(tmp)
+            w.region_locks = {}
+            d = self.short_region(w, 362, 268)
+            self.short_region(w, 362, 269)
+            calls = []
+            why = ('MissingRegion: region hg1-conus/4/362/268 fetched without base/land, segment extras '
+                   '(tools/hometown/fetch.py --regions conus:362,268)')
+
+            def run(argv, job, timeout=1800):
+                calls.append(argv[0])
+                if argv[0] == 'fetch.py':
+                    # (with its neighbour 362,269 staged here too: one fetch for both)
+                    self.assertEqual(argv[1:3], ['--regions', 'conus:362,268;362,269'])
+                    self.assertTrue(w.region_lock('conus', 362, 268).locked())
+                    for f in ('overture-base-land.parquet', 'overture-transportation-segment-extras.parquet'):
+                        open(os.path.join(d, f), 'wb').write(b'PAR1')
+                    return 0, '', '', None
+                ok = os.path.exists(os.path.join(d, 'overture-base-land.parquet'))
+                return (0, '', '', None) if ok else (3, why, '', None)
+            w.run = run
+            job = {'key': 'tiles:x', 'kind': 'tiles', 'build': w.build, 'args': {'block': 'hg1-conus/2/90/67'}}
+            code, err, _, _, missing = w.compile(['--tiles', 'hg1-conus/0/362/268'], job, '2026-10-21.0')
+            self.assertEqual((code, missing), (0, None))
+            self.assertEqual(calls, ['compile.py', 'fetch.py', 'compile.py'])
+            self.assertFalse(w.region_lock('conus', 362, 268).locked())
+            # (a ctx compile skips a short region and says 'no region of [...] fetched': the same top-up; a region not
+            # staged here yet is staged from the web first, with no fetch)
+            d2 = self.short_region(w, 362, 270)
+            calls.clear()
+            why = '{"refused":"no region of [(362, 270)] fetched"}'
+
+            def run2(argv, job, timeout=1800):
+                calls.append(argv[0])
+                if argv[0] == 'fetch.py':
+                    open(os.path.join(d2, 'overture-base-land.parquet'), 'wb').write(b'PAR1')
+                    return 0, '', '', None
+                return (0, '', '', None) if os.path.exists(os.path.join(d2, 'overture-base-land.parquet')) else (3, why, '', None)
+            w.run = run2
+            code, err, _, _, missing = w.compile(['--ctx', 'hg1-conus/4/362/270'], {'key': 'ctx:y', 'kind': 'ctx', 'args': {'ctx': 'hg1-conus/4/362/270'}}, '2026-10-21.0')
+            self.assertEqual((code, missing, calls), (0, None, ['compile.py', 'fetch.py', 'compile.py']))
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_a_top_up_runs_once_and_its_failure_is_the_jobs(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            w = self.jobs_worker(tmp)
+            w.region_locks = {}
+            self.short_region(w, 362, 269)
+            why = 'region hg1-conus/4/362/269 fetched without base/land (tools/hometown/fetch.py --regions conus:362,269)'
+            calls = []
+
+            def still_short(argv, job, timeout=1800):
+                calls.append(argv[0])
+                return (0, '', '', None) if argv[0] == 'fetch.py' else (3, why, '', None)
+            w.run = still_short
+            job = {'key': 'frame:x', 'kind': 'frame', 'build': w.build, 'args': {}}
+            code, err, _, _, missing = w.compile(['--frame', 'us-1'], job, '2026-10-21.0')
+            self.assertEqual((code, missing), (1, None))  # (a failure, never exit 3: a tile job reads that as no DEM)
+            self.assertIn('still refused after its top-up', err)
+            self.assertEqual(calls, ['compile.py', 'fetch.py', 'compile.py'])  # (no fetch loop)
+
+            def fetch_fails(argv, job, timeout=1800):
+                return (1, 'duckdb: HTTP 503', '', None) if argv[0] == 'fetch.py' else (3, why, '', None)
+            w.run = fetch_fails
+            code, err, _, _, missing = w.compile(['--frame', 'us-1'], {'key': 'frame:y', 'args': {}}, '2026-10-21.0')
+            self.assertEqual((code, missing), (1, None))
+            self.assertIn('top-up fetch of conus:362,269', err)
         finally:
             shutil.rmtree(tmp)
 

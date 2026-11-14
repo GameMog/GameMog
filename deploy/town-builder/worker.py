@@ -14,7 +14,8 @@ web needs: its local cache (sources, ctx, tiles) is an optimisation that may van
   children   one per slot (`prlimit --as` only with HOMETOWN_PRLIMIT_AS=on: it aborts duckdb), with an allowlisted environment
              (the worker's token never reaches Python)
   inputs     downloaded from the web store into the local store / data dir; staged regions fetched on a compile's
-             exit 3 before a regions job is asked for
+             exit 3 before a regions job is asked for; a staged region short of a layer the compiler now needs
+             ('fetched without', compiler 0.10.0) topped up locally by fetch.py --regions, once per region and job
   uploads    every new object, x-content-sha256 on each, list files (files.json, bundle.json, manifests) LAST
   SIGTERM    stop claiming, finish the running jobs (Render waits maxShutdownDelaySeconds), exit
   web down   every call retried with backoff for up to 10 minutes (a deploy of the web has downtime)
@@ -478,6 +479,11 @@ class Worker:
         return sorted(out, key=lambda k: (ORDER.index(k.split('/')[0]), k))
 
     def upload_new(self, since):
+        # (since this run started, not only since this attempt: an earlier attempt in this run that failed after its
+        # compile (a connection reset) left its outputs in the local store, and the compile of a retry keeps them as they
+        # are (put_if_absent: a full bundle's stage-2 manifest, its far tiles, a frame), so their mtime is older than the
+        # retry; skipping them answered 'outputs not stored' to every retry. Whatever was uploaded is in self.downloaded)
+        since = min(since, getattr(self, 't_start', since))
         keys = self.new_objects(since)
         for k in keys:
             self.put_store_object(k)
@@ -502,6 +508,10 @@ class Worker:
         return (dom + ':' + ';'.join(missing)) if missing else None
 
     _region_guard = threading.Lock()
+    # one fetch.py at a time in a worker: its segment extras are read through ONE fixed folder of the data dir
+    # (fetch.py fetch_extras: regions/.tmp-extras/extras.parquet, kept while it exists), so a second fetch running beside
+    # it would take the first one's union, another envelope, and write its regions' extras nearly empty
+    _fetch_guard = threading.Lock()
     # the placeholder tiles lying in the local store right now (bundle(): never uploaded, never taken for a built tile)
     laid = set()
 
@@ -588,18 +598,64 @@ class Worker:
         return p.returncode, ''.join(err), ''.join(out), peak_mb
 
     def compile(self, args, job, release):
-        """compile.py with staged regions fetched on exit 3: -> (code, err, out, peak, missingRegions)."""
+        """compile.py with staged regions fetched on exit 3: -> (code, err, out, peak, missingRegions).
+
+        A region already staged here that the compiler still refuses is short of a layer it needs (compiler 0.10.0 needs
+        base/land and the segment extras, sources.py REQUIRED_FILES: 'fetched without ...', or a ctx's 'no region of
+        [...] fetched'; every region staged by an older compiler has neither, and the web's copy of a region, files.json,
+        is write-once). It is topped up here once per region and job: fetch.py --regions fetches only the layers a
+        region has no file of, and its segment extras."""
         dom = job_domain(job)
-        for _ in range(4):
+        topped = job.setdefault('toppedUp', set())
+        # (one round per region a compile reads: staged from the web, then topped up)
+        for _ in range(12):
             code, err, out, peak = self.run(['compile.py', '--store', self.store, '--data', self.data] + args, job)
             spec = missing_regions(err, dom)
             if code == 3 and spec and release:
+                d0, _, rest = spec.partition(':')
+                here = all(os.path.exists(os.path.join(self.region_dir(d0, *[int(v) for v in b.split(',')]), 'region.json')) for b in rest.split(';') if b)
                 left = self.stage_regions(spec, release)
                 if left:
                     return code, err, out, peak, left
+                if here:
+                    if spec in topped:
+                        # (topped up and still refused: a failure of this job (exit 1), never exit 3, which a tile job
+                        # would read as a tile refused for want of a DEM and lay as flat ground)
+                        return 1, 'region %s still refused after its top-up: %s' % (spec, err[-400:]), out, peak, None
+                    topped.add(spec)
+                    c2, e2, o2, p2 = self.top_up(spec, job, release)
+                    if c2 != 0:
+                        # (a fetch that failed is a failure of this job, never a refused tile: exit 1, not 3)
+                        return (c2 if c2 != 3 else 1), 'top-up fetch of %s: %s' % (spec, e2[-500:]), o2, p2, None
                 continue
             return code, err, out, peak, None
         return code, err, out, peak, None
+
+    def top_up(self, spec, job, release):
+        """fetch.py --regions for regions staged short of a layer, each region's lock held: -> run()'s result.
+
+        The regions named and their neighbours the web has staged (a town reads a 3 x 3 of them): one fetch reads each
+        layer's union once (a fetch of one region costs about as much as of nine), and the town's other jobs on this
+        worker then find theirs topped up already (fetch.py skips a region that lacks nothing)."""
+        dom, _, rest = spec.partition(':')
+        named = {tuple(int(v) for v in b.split(',')) for b in rest.split(';') if b}
+        blocks = []
+        for C, R in sorted({(C + dc, R + dr) for C, R in named for dc in (-1, 0, 1) for dr in (-1, 0, 1)}):
+            with self.region_lock(dom, C, R):
+                if (C, R) in named or self.stage_one(dom, C, R, release):
+                    blocks.append((C, R))
+        spec = dom + ':' + ';'.join('%d,%d' % b for b in blocks)
+        # (the locks in one order, (C, R) sorted, so two top-ups never wait on each other's)
+        locks = [self.region_lock(dom, C, R) for C, R in blocks]
+        for lk in locks:
+            lk.acquire()
+        try:
+            with Worker._fetch_guard:
+                log(event='region-top-up', key=job.get('key'), regions=spec)
+                return self.run(['fetch.py', '--regions', spec, '--data', self.data], job, timeout=1800)
+        finally:
+            for lk in reversed(locks):
+                lk.release()
 
     # ---- the jobs
     def do_job(self, job):
@@ -618,7 +674,8 @@ class Worker:
             rel = args.get('release') or release
             st = self.stage_regions(args['spec'], rel)
             if st:
-                code, err, out, peak = self.run(['fetch.py', '--regions', st, '--data', self.data], job, timeout=1800)
+                with Worker._fetch_guard:
+                    code, err, out, peak = self.run(['fetch.py', '--regions', st, '--data', self.data], job, timeout=1800)
                 if code != 0:
                     return {'fail': True, 'code': code, 'reason': 'fetch: ' + err[-400:]}
             dom = args['spec'].split(':')[0]
@@ -760,6 +817,7 @@ class Worker:
         else:
             return {'fail': True, 'code': 2, 'reason': 'this compiler has no --assemble (MogCity M4)', 'final': True}
         laid = []
+        mk = 'manifests/%s/%s.json' % (build, pid)
         try:
             for t in (args.get('absent') or []) if variant == 'full' else []:
                 k = 'tiles/%s/%s' % (build, t)
@@ -768,17 +826,19 @@ class Worker:
                     laid.append(k)
                     self.write_local(k, placeholder_tile(self.store, build, t))
             if laid:
+                # (the descriptor written over them is no upload either, by this job or by another job's upload_new)
+                Worker.laid.add(mk)
                 log(event='placeholders', key=job['key'], tiles=len(laid))
             code, err, _, peak, missing = self.compile(a, job, release)
         finally:
             # (the placeholders, and the session descriptor the assembler wrote over them: the web takes a manifest only
             # when every tile it lists is stored, and a later whole build of this town must be free to store its own)
-            for k in laid + (['manifests/%s/%s.json' % (build, pid)] if laid else []):
+            for k in laid + ([mk] if laid else []):
                 try:
                     os.remove(self.path(k))
                 except OSError:
                     pass
-            Worker.laid.difference_update(laid)
+            Worker.laid.difference_update(laid + ([mk] if laid else []))
         if missing:
             return {'fail': True, 'code': 3, 'missingRegions': missing, 'reason': 'regions'}
         if code != 0:
@@ -952,6 +1012,7 @@ class Worker:
         bk = 'builds/%s.json' % self.build
         if os.path.exists(self.path(bk)):
             self.put_store_object(bk)
+            self.downloaded.add(bk)
         quiet_since = time.time()   # nothing claimed and nothing running since
         why = 'stopped'
         while True:

@@ -198,7 +198,9 @@ export default function Create() {
     townAsk.current?.abort();
     const ctl = (townAsk.current = new AbortController());
     setTown({ place, progress: null, request: null });
-    requestCity(sel, (progress) => { if (!ctl.signal.aborted) setTown({ place, progress, request: null }); }, ctl.signal)
+    // (a town ready to write while it keeps building is followed: whole, or refused after all, the card says so)
+    const later = (request: CityRequest) => { if (!ctl.signal.aborted) setTown({ place, progress: null, request }); };
+    requestCity(sel, (progress) => { if (!ctl.signal.aborted) setTown({ place, progress, request: null }); }, ctl.signal, later)
       .then((request) => { if (!ctl.signal.aborted) setTown({ place, progress: null, request }); });
   }
   function clearTown() { townAsk.current?.abort(); setTown(null); }

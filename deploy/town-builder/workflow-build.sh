@@ -28,7 +28,7 @@
 set -euo pipefail
 # THE ONE LINE to re-pin the compiler (a 40-hex commit of github.com/GameMog/GameMog that carries tools/hometown):
 # compiler 0.10.0 (release r6: round 4, rough-dem, the fidelity line and street-name casing), on the branch below
-MOGCITY_SHA=26b28450e603bc0e5c8bf0ac4f21698b7a0f0491
+MOGCITY_SHA=d7a5b6f7beae0f73ef1f51bf5675b1e85a03f172
 # the branch that carries it: fetched when the commit cannot be fetched by its SHA alone (the checkout is still the SHA)
 MOGCITY_REF="${HOMETOWN_MOGCITY_REF:-hometown-compiler}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

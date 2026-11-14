@@ -7,7 +7,7 @@ State of the code (14 Nov 2026; release r6 is committed and not pushed, its rele
 [HOMETOWN-HOSTING.md](HOMETOWN-HOSTING.md#release-r6-compiler-0100)): `render.yaml` has the builder **on for players** (`HOMETOWN_BUILDER` on,
 `HOMETOWN_RUNS` workflows, `HOMETOWN_TILES` on, `NEXT_PUBLIC_HOMETOWN_SEARCH` on, `STORYKIT` on,
 `HOMETOWN_DAILY_COLD` 100). `deploy/town-builder/workflow-build.sh` pins MogCity compiler 0.10.0,
-`MOGCITY_SHA=26b28450e603bc0e5c8bf0ac4f21698b7a0f0491`, fetched from github.com/GameMog/GameMog (branch
+`MOGCITY_SHA=d7a5b6f7beae0f73ef1f51bf5675b1e85a03f172`, fetched from github.com/GameMog/GameMog (branch
 `hometown-compiler`).
 
 ---------------------------------------------------------------------------------------------------------------------
@@ -29,10 +29,10 @@ idle. Idle costs $0.
 
 ## 2. Before the push (prerequisites)
 
-1. **The compiler commit is on GitHub.** Push MogCity `release-r5` (tip `26b28450...`) to the branch
+1. **The compiler commit is on GitHub.** Push MogCity `release-r5` (tip `d7a5b6f7...`) to the branch
    `hometown-compiler` of GameMog/GameMog. `workflow-build.sh` fetches the SHA by itself (GitHub serves any commit
    reachable from a branch of the public repo) and falls back to fetching that branch.
-2. **The OSM lane table** ships in that commit (`tools/hometown/osm/osm-roads-us.parquet`, 17,100,621 bytes, ODbL, its
+2. **The OSM lane table** ships in that commit (`tools/hometown/osm/osm-roads-us.parquet`, 19,372,313 bytes, ODbL, its
    notice beside it); its sha256 is checked against `deploy/town-builder/osm-roads-us.parquet.json`. Nothing else to host.
 3. **The engine.** MogCity's engine files (the growing town, `town-src.js`, `pkg-far.js`, the town loader words "Loading
    your town...", the town-only map labels) go to the `mogcity` branch. They are inert without `?city=pkg`, so they can

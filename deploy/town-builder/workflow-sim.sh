@@ -23,6 +23,9 @@
 #   SIM_HOLD_S=<s>      keep the servers up this long after the result (to play the town), then stop them
 #   SIM_FAKE_REPLY      the story fixture the web replays (STORYKIT_FAKE_REPLY; it is read at each build, so a driver may
 #                       write it once the town's frame is in); MC_ORIGIN a local Mog City (STORYKIT_MC_ORIGIN)
+#   SIM_SEED_SRC=<dir>  a web store (an earlier sim's <run>/web) whose staged regions (src/) the web's store starts with:
+#                       regions staged by an older compiler, as the live store holds them (0.8.0's lack base/land and the
+#                       segment extras, which 0.10.0 needs: the workers top them up, worker.py compile)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PLACE="${PLACE:-us-4007500}"
@@ -33,6 +36,11 @@ WEB_PORT="${WEB_PORT:-4830}"; API_PORT="${API_PORT:-4840}"
 RUN="$ROOT/.scratch/workflow-sim/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$RUN"
 echo "workflow sim in $RUN (place $PLACE)"
+if [ -n "${SIM_SEED_SRC:-}" ]; then
+  mkdir -p "$RUN/web"
+  cp -Rc "$SIM_SEED_SRC/src" "$RUN/web/src" 2>/dev/null || cp -R "$SIM_SEED_SRC/src" "$RUN/web/src"
+  echo "web store seeded with $(find "$RUN/web/src" -name files.json | wc -l | tr -d ' ') staged regions from $SIM_SEED_SRC"
+fi
 WTOK="sim-worker-$(openssl rand -hex 16)"; ATOK="sim-admin-$(openssl rand -hex 16)"; KEY="rnd_sim_$(openssl rand -hex 12)"
 # (only this script's own processes: the trees under the two servers it started; the Mac is shared)
 kill_tree() { local c; for c in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$c"; done; kill "$1" 2>/dev/null || true; }

@@ -19,9 +19,12 @@
  *   lease    60 s, extended by a heartbeat (every 15 s); an expired lease goes back to queued with backoff
  *            5 s * 2^(attempts-1); after 3 attempts the job is failed
  *   tiles    a tile job of several tiles that fails for good is split into one job per tile (3 attempts each, so one
- *            bad tile never costs its 15 neighbours); a one-tile job that fails for good DEGRADES the full bundles that
- *            wait on it (the dep is dropped, the tile listed in args.absent: the worker lays flat ground there) and
- *            fails anything else that waits on it (a district bundle: the spawn path fails clearly)
+ *            bad tile never costs its 15 neighbours; a district bundle, args.window, then waits on its window's only);
+ *            a one-tile job that fails for good DEGRADES the full bundles that wait on it (the dep is dropped, the tile
+ *            listed in args.absent: the worker lays flat ground there) unless the tile is in the town's spawn district
+ *            (args.keep: the bundle fails), drops out of a district bundle whose window it is not in, and fails anything
+ *            else that waits on it (a district bundle: the spawn path fails clearly). A "Try again" (retryFailed) takes
+ *            the tiles it queues again out of the full bundle's args.absent
  *   complete the outputs must be stored (the caller's check) or the attempt counts as failed
  *   fail     exit 3 naming missing regions is not a failure: a regions job is added as a dep, no attempt charged
  *
@@ -102,6 +105,12 @@ const toJob = (r: Row): Job => ({
 export const jobUnits = (j: { kind: string; args: Record<string, unknown> }) => j.kind === 'tiles' ? 1 + maskBits(Number(j.args.mask) & 0xffff).length / 4 : 1;
 /** The bits of a tile mask (16 tiles of an L2 block, bit i = tile (i % 4, i >> 2) of the block). */
 export const maskBits = (m: number) => { const out: number[] = []; for (let i = 0; i < 16; i++) if (m & (1 << i)) out.push(i); return out; };
+/** Whether tile "hg1-conus/0/c/r" lies in the tile window [c0, r0, c1, r1] (a bundle's args.window, a full bundle's args.keep). */
+export const tileInWindow = (id: string, w: unknown): boolean => {
+  if (!Array.isArray(w) || w.length !== 4) return false;
+  const [, , c, r] = id.split('/').map(Number);
+  return c >= w[0] && c <= w[2] && r >= w[1] && r <= w[3];
+};
 /** The tile ids a tile job builds ("hg1-conus/2/C/R" + mask -> "hg1-conus/0/c/r", ...). */
 export const tileIdsOfJob = (args: Record<string, unknown>): string[] => {
   const [g, , C, R] = String(args.block).split('/');
@@ -124,6 +133,9 @@ export class BuildQueue {
     // (the deploy stamp a worker reports with its claims, 14 Nov: towns.ts buildView)
     const wcols = (this.db.prepare('PRAGMA table_info(workers)').all() as Row[]).map((r) => String(r.name));
     if (!wcols.includes('deploy')) this.db.exec('ALTER TABLE workers ADD COLUMN deploy TEXT');
+    // (the town an address asked for, 14 Nov: the limit counts towns, so a "Try again" of the same town is no new one)
+    const icols = (this.db.prepare('PRAGMA table_info(ip_hits)').all() as Row[]).map((r) => String(r.name));
+    if (!icols.includes('place')) this.db.exec('ALTER TABLE ip_hits ADD COLUMN place TEXT');
     this.db.exec(MIGRATE);
     const fill = this.db.prepare('UPDATE jobs SET units = ? WHERE key = ?');
     for (const r of this.db.prepare('SELECT key, kind, args FROM jobs WHERE units IS NULL').all() as Row[]) {
@@ -236,21 +248,59 @@ export class BuildQueue {
       const keys = (this.db.prepare("SELECT j.key FROM jobs j JOIN wants w ON w.job = j.key WHERE w.place = ? AND j.state = 'failed'").all(place) as Row[]).map((r) => String(r.key));
       const up = this.db.prepare("UPDATE jobs SET state = 'queued', attempts = 0, not_before = 0, error = NULL, lease_id = NULL, lease_worker = NULL, lease_until = NULL, updated = ? WHERE key = ?");
       for (const k of keys) up.run(this.now(), k);
+      // (a tile tried again is no longer absent: the town's unbuilt full bundle waits for it again instead of laying it as
+      // flat ground (Jupiter Inlet Colony's rebuilt spawn tile was laid flat all the same))
+      const again = keys.map((k) => this.get(k)!).filter((j) => j.kind === 'tiles');
+      if (again.length) {
+        const ids = new Map(again.flatMap((j) => tileIdsOfJob(j.args).map((t) => [t, j.key] as [string, string])));
+        const fulls = (this.db.prepare("SELECT j.* FROM jobs j JOIN wants w ON w.job = j.key WHERE w.place = ? AND j.kind = 'bundle' AND j.state IN ('queued', 'leased')").all(place) as Row[]).map(toJob)
+          .filter((b) => b.args.variant === 'full' && ((b.args.absent as string[] | undefined) ?? []).some((t) => ids.has(t)));
+        for (const b of fulls) {
+          const absent = (b.args.absent as string[]).filter((t) => !ids.has(t));
+          const back = (b.args.absent as string[]).filter((t) => ids.has(t)).map((t) => ids.get(t)!);
+          const args = { ...b.args }; if (absent.length) args.absent = absent; else delete args.absent;
+          this.db.prepare('UPDATE jobs SET deps = ?, args = ?, updated = ? WHERE key = ?').run(JSON.stringify([...new Set([...b.deps, ...back])]), JSON.stringify(args), this.now(), b.key);
+        }
+      }
       if (keys.length) this.log('retry', { place, jobs: keys.length });
       return keys;
     });
   }
 
-  /** New towns asked from one address (a hash of it) since `since`; persisted, so a deploy never resets the limit. */
-  ipCount(ip: string, since: number): number { return Number((this.db.prepare('SELECT COUNT(*) n FROM ip_hits WHERE ip = ? AND at >= ?').get(ip, since) as Row).n); }
-  ipHit(ip: string, at: number) {
-    this.db.prepare('INSERT INTO ip_hits (ip, at) VALUES (?, ?)').run(ip, at);
+  /**
+   * The towns asked from one address (a hash of it) since `since`, each town once: a town asked again (a failed town's
+   * "Try again") is not another town. `place`: the count without that town (is it a NEW town for this address?).
+   * Persisted, so a deploy never resets the limit. (A row from before the place was kept counts as its own town.)
+   */
+  ipCount(ip: string, since: number, place?: string): number {
+    return Number((this.db.prepare("SELECT COUNT(DISTINCT COALESCE(place, 'row:' || rowid)) n FROM ip_hits WHERE ip = ? AND at >= ? AND (? IS NULL OR place IS NULL OR place != ?)")
+      .get(ip, since, place ?? null, place ?? null) as Row).n);
+  }
+  /** Whether this address asked for this town since `since` (its own pick, counted already). */
+  ipAsked(ip: string, since: number, place: string): boolean { return !!this.db.prepare('SELECT 1 FROM ip_hits WHERE ip = ? AND at >= ? AND place = ? LIMIT 1').get(ip, since, place); }
+  ipHit(ip: string, at: number, place?: string) {
+    this.db.prepare('INSERT INTO ip_hits (ip, at, place) VALUES (?, ?, ?)').run(ip, at, place ?? null);
     if (Math.random() < 0.02) this.db.prepare('DELETE FROM ip_hits WHERE at < ?').run(at - 2 * 3600_000);
   }
 
   /** Raise (never lower) a job's priority and set its ring (a town's re-ringing when its frame lands). */
   reprioritise(key: string, prio: number, ring: number) {
     this.db.prepare("UPDATE jobs SET prio = MIN(prio, ?), ring = ?, updated = ? WHERE key = ? AND state = 'queued'").run(prio, ring, this.now(), key);
+  }
+  /** Merge into a job's args (a full bundle's args.keep once the town's spawn district is known). */
+  mergeArgs(key: string, patch: Record<string, unknown>) {
+    const j = this.get(key); if (!j) return;
+    this.db.prepare('UPDATE jobs SET args = ?, updated = ? WHERE key = ?').run(JSON.stringify({ ...j.args, ...patch }), this.now(), key);
+  }
+  /** Fail a queued job for good now (and what waits on it), with why: a full bundle that would lay the spawn district flat. */
+  failNow(key: string, why: string) {
+    this.tx(() => {
+      const j = this.get(key);
+      if (!j || j.state !== 'queued') return;
+      this.db.prepare("UPDATE jobs SET state = 'failed', attempts = ?, error = ?, not_before = ?, updated = ? WHERE key = ?").run(MAX_ATTEMPTS, why.slice(0, 600), this.now() + 60_000, this.now(), key);
+      this.log('failed', { key, why: why.slice(0, 300) });
+      this.failDependents(key, why, j);
+    });
   }
   addDeps(key: string, deps: string[]) {
     const j = this.get(key); if (!j) return;
@@ -296,9 +346,17 @@ export class BuildQueue {
     const rows = (this.db.prepare("SELECT * FROM jobs WHERE state IN ('queued', 'leased') AND deps LIKE ?").all(`%${JSON.stringify(key).slice(1, -1)}%`) as Row[]).map(toJob);
     for (const d of rows) {
       if (!d.deps.includes(key)) continue;
-      if (failed?.kind === 'tiles' && d.kind === 'bundle' && d.args.variant === 'full' && d.state === 'queued') {
+      const tiles = failed?.kind === 'tiles' ? tileIdsOfJob(failed.args) : [];
+      if (tiles.length && d.kind === 'bundle' && Array.isArray(d.args.window) && !tiles.some((t) => tileInWindow(t, d.args.window)) && d.state === 'queued') {
+        // (a district bundle never waits on a tile outside its window: Surfside's spawn district failed for a tile of the
+        // same block job outside it. The dep is dropped; the full bundle degrades for that tile)
+        this.db.prepare('UPDATE jobs SET deps = ?, updated = ? WHERE key = ?').run(JSON.stringify(d.deps.filter((k) => k !== key)), this.now(), d.key);
+        continue;
+      }
+      // (a full bundle is degraded (flat ground) for a tile outside the town's spawn district only, args.keep: a town with
+      // its downtown laid flat is not built (Beverly Beach was served 'ready' that way); one inside fails the bundle)
+      if (tiles.length && d.kind === 'bundle' && d.args.variant === 'full' && d.state === 'queued' && !tiles.some((t) => tileInWindow(t, d.args.keep))) {
         // (the whole town goes on without these tiles: flat ground in their place, listed in the bundle's args.absent)
-        const tiles = tileIdsOfJob(failed.args);
         const absent = [...new Set([...((d.args.absent as string[] | undefined) ?? []), ...tiles])].sort();
         this.db.prepare('UPDATE jobs SET deps = ?, args = ?, updated = ? WHERE key = ?').run(JSON.stringify(d.deps.filter((k) => k !== key)), JSON.stringify({ ...d.args, absent }), this.now(), d.key);
         this.log('degraded', { bundle: d.key, job: key, tiles, why: why.slice(0, 200) });
@@ -324,9 +382,13 @@ export class BuildQueue {
       }
       this.db.prepare('INSERT OR IGNORE INTO wants (job, place) SELECT ?, place FROM wants WHERE job = ?').run(key, j.key);
     }
+    // (a district bundle (args.window) waits only on the tiles of its window: the block's other tiles may fail alone)
+    const [g, , C, R] = String(j.args.block).split('/');
+    const tileOf = (k: string) => { const i = Number(k.slice(k.lastIndexOf(':t') + 2)); return `${g}/0/${Number(C) * 4 + (i & 3)}/${Number(R) * 4 + (i >> 2)}`; };
     for (const d of (this.db.prepare("SELECT * FROM jobs WHERE state IN ('queued', 'leased') AND deps LIKE ?").all(`%${JSON.stringify(j.key).slice(1, -1)}%`) as Row[]).map(toJob)) {
       if (!d.deps.includes(j.key)) continue;
-      this.db.prepare('UPDATE jobs SET deps = ?, updated = ? WHERE key = ?').run(JSON.stringify([...new Set(d.deps.flatMap((k) => (k === j.key ? keys : [k])))]), t, d.key);
+      const mine = Array.isArray(d.args.window) ? keys.filter((k) => tileInWindow(tileOf(k), d.args.window)) : keys;
+      this.db.prepare('UPDATE jobs SET deps = ?, updated = ? WHERE key = ?').run(JSON.stringify([...new Set(d.deps.flatMap((k) => (k === j.key ? mine : [k])))]), t, d.key);
     }
     this.db.prepare('DELETE FROM wants WHERE job = ?').run(j.key);
     this.db.prepare('DELETE FROM jobs WHERE key = ?').run(j.key);
