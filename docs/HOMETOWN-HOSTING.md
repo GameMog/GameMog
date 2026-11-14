@@ -67,20 +67,76 @@ Golden Triangle). Stage 1 in TS cannot know that box (it needs the map), so:
 
 Uncapped towns (the search's square already under the cap) are unchanged: their frame is stage 1's box.
 
-### The first pick on a fresh deploy: the build is learned
+### The first pick on a fresh deploy: the build is learned in the same run
 
 The build new towns are made at is `HOMETOWN_BUILD` when set; else the build the live runs report; else the build the
-**last** run reported (the `workers` table survives runs ending). A buildId hashes the compiler, its packages, the OSM
-table and the run's machine (the recipe id), so it is only known once a run has started on Render. On a fresh deploy with
-no run ever, the first pick is answered 503 with `retryS: 15`, logs `build-unknown`, and the dispatcher starts **one**
-run to learn it (`plan().probe`). Create's card shows "Waiting its turn" and asks again by itself every 15 s
-(`lib/places/request-city.ts`, for up to about 5 minutes); the run's first claim reports the build and the next ask is
-admitted. Measured locally: the pick admitted **16 s** after it was made. The breaker (below) bounds a probe that never
-claims.
+**last** run reported (the `workers` table in `queue.db`, on the disk: it survives runs ending and web deploys alike). A
+buildId hashes the compiler, its packages, the OSM table and the run's machine (the recipe id), so it is only known once
+a run has started on Render. On a fresh deploy with no run ever, the first pick is **kept** (the `pending` table) and
+answered 202 "Waiting its turn" at once; it logs `build-unknown`, and the dispatcher starts **one** run to learn it
+(`plan().probe`). That run's first claim records its build and admits every kept pick at it (`towns.ts admitPending`,
+called by the claim itself), then takes the town's first job **in the same claim**: no refusal, no 15 s retry round trip
+by the Create card, no idle claim. A kept pick that no run admits within 10 minutes is refused as busy. (Before 14 Nov the
+pick was answered 503 with `retryS: 15` and admitted on the card's next ask: the live Wewoka pick reached "framing" at
+15.9 s for that round trip alone.) The breaker (below) bounds a probe that never claims.
 
 When `HOMETOWN_RUNS=workflows` but no run can start (no `HOMETOWN_RENDER_API_KEY`, or no slug: the status page's "runs
 problem"), a pick of any town not built in full is refused at once with "New towns aren't being built right now"
 (503, no `retryS`), so nobody waits on a run that cannot come. Towns built in full keep playing.
+
+### The cold start, measured (14 Nov, the local simulation, cold Prague, OK: 196 tiles, no build known)
+
+| | before | after |
+|---|---|---|
+| pick -> first job claimed ("framing") | 18 s (503, the card's 15 s retry) | 3-11 s (kept, admitted by the run's first claim) |
+| a run's start-up (compiler flags + buildId) | serial | side by side, 0.6-1.9 s (`initS`) |
+| the frame's own compile (same machine, same inputs) | 66.6 s (it computed 9 ctx blocks in turn) | 22.5 s (9 ctx jobs side by side before it) |
+| slot idle between a job's end and the run's next claim | 38 gaps over 5 s, 577 s | 4 gaps, 28 s |
+| slot use while the town builds | 37-38 % | 63-68 % |
+| whole town / billed run seconds (load-confounded) | 1,224 s / 2,321 s | 487 s / 920 s |
+
+Every ctx block a town's compiles read (Prague: 9) is its own P0 job waiting on its own region only, the frame waits on
+all of them, and a tile block on those within its reach; the bytes are the compiler's either way (Prague's 248 tiles,
+9 ctx, frame and both bundles byte-identical before and after). On Render the first pick after a quiet spell now waits
+the run's spin-up plus about 1-2 s to "framing" (live: 15.9 s, the retry round trip), and the story's frame waits the
+slowest of its ctx blocks instead of all of them in turn: on Prague here the frame compile is 44 s shorter, and the 9 ctx
+jobs before it take about one ctx job's time (10-20 s) on a run's 4 slots and a second run's, so about 25-30 s less.
+
+### When a job fails: retries, split tiles, degraded towns, "Try again"
+
+- **Retries.** Any job is retried with backoff (5 s, then 10 s) and fails after 3 attempts (`queue.ts`).
+- **A tile job of several tiles** (a 16-tile block or a 2 x 2 quad) that fails 3 times is **split** into one job per tile,
+  each with 3 fresh attempts; the tiles that compile are kept. The event log records `split`.
+- **A one-tile job that fails for good degrades the town instead of failing it**: the full bundle stops waiting on it and
+  lists the tile in its `args.absent` (`degraded` in the log). The worker lays **flat ground** there in its local store
+  before the assembler runs (`worker.py placeholder_tile`: the HTL1 tile format, lawn, no roads or buildings, the terrain
+  a Coons patch between the edges of the built neighbours, so no cliff at a seam), and removes it, with the session
+  descriptor written over it, before any upload: a placeholder never reaches the web's store under a real tile key, and a
+  degraded town has no `manifests/` descriptor (the web takes one only when every tile it lists is stored; a later whole
+  build may store its own). The town still becomes `full`; its row keeps `meta.absent`, and `/admin` lists it ("built with
+  flat patches"). Tiles a compile refused (no DEM under them) are laid the same way in the full bundle.
+- **The spawn district still fails clearly.** A district bundle that waits on a failed tile fails, and so does its town;
+  a failed tile inside the frame's `spawnDistrict` (without the frame: the anchor's 5 x 5) fails the town as soon as the
+  frame lands (`towns.ts fatalFailures`). Any other failed job (regions, ctx, frame, bundle) fails the town as before;
+  `/admin` shows the job and its error.
+- **"Try again"** on a failed town (the Create card POSTs the pick again) queues that town's failed jobs again **at
+  once**, their attempts reset (`queue.ts retryFailed`; `town-retry` in the log). Before, a re-ask within 60 s joined the
+  same failed jobs and got the same "Not built".
+
+### The per-address limit and the dispatcher's own housekeeping
+
+- `HOMETOWN_PER_IP_HOUR` is counted in `queue.db` (`ip_hits`, a hash of the address, never the address): a deploy no
+  longer resets it.
+- The dispatcher's plan (every 5 s and on every queue change) sums the work in SQL over the `jobs_plan` index (each job
+  carries its cost units) and counts ready jobs with their deps checked by primary key, only as far as a decision needs:
+  about 8 ms at 20,000 queued jobs (under 100 ms when none of them is ready) where it parsed every row in JS before
+  (about 200-330 ms, the event loop blocked).
+- Rows of the `runs` table that can no longer be live (a `starting` row whose POST never went through for 10 minutes, a
+  run older than a run can be) are retired in one indexed update at the start of every pass (`runs-reaped`), even while
+  starts are held; before, they could stay counted in flight and hold back new runs.
+- A worker claims one job at a time; a claim made with its last slot free asks for P0 work only. The claim's long-poll
+  now re-reads the worker's free slots from its leases on every wake-up, so when its other job completes that same claim
+  takes P1 work at once, instead of sitting out its 20 s (one P1 job per 20 s per run, measured in the simulation).
 
 ## The store (`data/hometown`, `lib/hometown-tiles/store.ts`)
 
