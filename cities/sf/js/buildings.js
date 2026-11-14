@@ -2156,7 +2156,7 @@ function buildCityBlocks(scene, opts = {}) {
       return { mat, paint };
     }
 
-    let awningN = 0;
+    let awningN = 0, mallN = 0;
     const pkgShops = []; // (a package's shops, for their signs' names: PkgBuildings.signPlan)
     function shopAwnings(blk, box, shop) {
       // the longest shop wall of the box (createFacadeBoxes faces: local -x, +x, -z, +z): canvas awnings in 6 m bays
@@ -2205,6 +2205,8 @@ function buildCityBlocks(scene, opts = {}) {
       const [base, roofRec, , ringStart, ringCount, theta, start, count, shopsFlag] = rec;
       const type = typeName(rec[FI.type]);
       const kind = PK ? header.kinds[rec[FI.kind]] || 'unknown' : null;
+      // (a mall's part taller than a mall, a tower over its shops: drawn as any other block)
+      const mall = PK && kind === 'mall' && roofRec - base < 20;
       const minH = PK ? rec[FI.minH] || 0 : 0;
       const look = PK ? PK.styleFor({
         kind, roofShape: header.roofShapes[rec[FI.roofShape]] || '', wall: header.walls[rec[FI.wall]] || '', wallRGB: rec[FI.wallRGB], roofRGB: rec[FI.roofRGB],
@@ -2346,6 +2348,43 @@ function buildCityBlocks(scene, opts = {}) {
           }
           continue;
         }
+        if (mall) {
+          // (a mall, the compiler's 0.8.2 kind: a storefront storey on every open wall (shops all round: it faces its
+          // car parks), a plain stucco band over it up to a tall parapet, and a colonnade along each wall 8 m or longer
+          // that nothing stands close in front of (a cantilevered canopy where a roadway comes within its depth))
+          const faces = box.faces.map((f) => (f === WALL_KINDS.lotLine ? f : WALL_KINDS.shop));
+          const g = box.base + box.plinth, H = roof - g;
+          const G = H < 7 ? H : Math.min(5.6, Math.max(4.2, H * 0.45));
+          const low = { ...box, faces, storeyH: G, h: g + G - bottom, y: (bottom + g + G) * 0.5 };
+          buckets[mat].push(low);
+          if (H - G > 0.5) {
+            buckets[mat].push({ ...box, faces: faces.map((f) => (f === WALL_KINDS.shop ? WALL_KINDS.blankStone : f)), base: g + G, plinth: 0, storeyH: H - G,
+              h: H - G, y: g + G + (H - G) * 0.5 });
+          }
+          collider(m, roof);
+          pb.roof(m, theta, roof, 0, 'flat', look.roofColor, paint[0], look.parapet);
+          pb.membrane(m, theta, roof + 0.03, look.roofColor);
+          WALLS.forEach(([lx, lz], f) => {
+            if (faces[f] !== WALL_KINDS.shop || (lx ? m.d : m.w) < 8) return;
+            const nx = lx * cs + lz * sn, nz = -lx * sn + lz * cs, half = lx ? m.w * 0.5 : m.d * 0.5, len = lx ? m.d : m.w;
+            const ax = -lz * cs + lx * sn, az = lz * sn + lx * cs;
+            const at = (u, o) => [m.cx + nx * (half + o) + ax * u * len, m.cz + nz * (half + o) + az * u * len];
+            const DEPTH = 3.2;
+            let blocked = false, road = false;
+            for (const u of [-0.4, 0, 0.4]) {
+              for (const o of [0.8, DEPTH * 0.5, DEPTH + 0.3]) {
+                const [x, z] = at(u, o);
+                if (massAt(x, z, m)) blocked = true;
+                else if (onRoadway(x, z)) road = true;
+              }
+            }
+            if (blocked) return;
+            for (const c of pb.colonnade(m, theta, lx, lz, g, Math.min(g + G - 0.5, g + 4.6), roof, road ? 1.6 : DEPTH, !road, paint[0], paint[1])) colliders.push(c);
+          });
+          mallN++;
+          if (!top || m.w * m.d > top.w * top.d) { top = m; topBox = low; }
+          continue;
+        }
         buckets[mat].push(box);
         collider(m, roof);
         if (balcony && m.w >= 5 && m.d >= 5) pb.balconies(m, theta, box.base + box.plinth, roof, storeyH || storeys[mat], 0xf3f3ef, 0xa7bcc1);
@@ -2406,7 +2445,7 @@ function buildCityBlocks(scene, opts = {}) {
       if (me) group.add(me);
       const kinds = {};
       for (let i = 0; i < header.count; i++) { const k = header.kinds[table[i * F + FI.kind]] || 'unknown'; kinds[k] = (kinds[k] || 0) + 1; }
-      console.info(`[roofs] ${header.region}: ${JSON.stringify(pb.stats)} kinds ${JSON.stringify(kinds)} awnings ${awningN}`);
+      console.info(`[roofs] ${header.region}: ${JSON.stringify(pb.stats)} kinds ${JSON.stringify(kinds)} awnings ${awningN} mall masses ${mallN}`);
     }
     // a package's shop signs: named after the town's own streets, name and sides, one name per storefront, none twice
     // within sight (PkgBuildings.signPlan)

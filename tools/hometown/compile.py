@@ -77,7 +77,13 @@ import shapely.ops  # noqa: E402
 # on the property lines, more yard trees (palms, sea grape) and the south-florida building region; climateZone in the header;
 # fid-beach: beaches and sand (Overture base/land subtype sand) as ground classes beach (10) and wet sand (11), no
 # yard trees on them, and a region fetched without the land layer refused;
-# 0.10.0 release r5: 0.9.0 + the fidelity line + the DEM's /historical/ fallback (dem.py: a pinned 3DEP file that
+# fid2-mall: a large low retail building is a 'mall' (kind 14: a shopping-centre place in it, a retail class,
+# MALL_SHOPS shop places in it, retail land use under it, or a shop in it and a commercial class or commercial land and a
+# car park beside it), shops on every open wall; the
+# warm band's hedges along trunk / primary / secondary roads are hedge walls (tall, on lawn, scrub or a paved lot; the
+# fourth field's yaw + 180) on WARM_WALL_P of their sides, and hedge walls ring its car parks (kind 4);
+# 0.10.0 release r5: 0.9.0 + the fidelity line (rounds 1 and 2: fid-roads, fid-subtropic, fid-beach, fid2-mall) + the
+# DEM's /historical/ fallback (dem.py: a pinned 3DEP file that
 # /current/ has replaced is read from /historical/, its bytes unchanged); the frame's arrival and place street names
 # spelled as a sign spells them (street_names.street_case: "N 3rd St", "McDonald Ave", "US Hwy 1"), not str.title() ("N 3Rd St")
 COMPILER_VERSION = '0.10.0'
@@ -275,7 +281,7 @@ MASK = {'asphalt': 0, 'sidewalk': 1, 'lawn': 2, 'sand': 3, 'rock': 4, 'waterEdge
 WET_SAND_M = 6.0      # a beach's sand within this many m of the water: the wet band the waves reach
 BEACH_EDGE_M = 4.0    # the water's edge band (waterEdge) within this many m of a beach is its wet sand, not a stone edge
 CLIMATE_GROUND = {'humid': 'lawn', 'dry': 'scrub', 'arid': 'sand'}   # the open land where the map says nothing
-LOT_KINDS = {'shop', 'office', 'warehouse', 'apartment', 'school', 'civic', 'church', 'tower'}   # buildings with a paved lot round
+LOT_KINDS = {'shop', 'mall', 'office', 'warehouse', 'apartment', 'school', 'civic', 'church', 'tower'}   # buildings with a paved lot round
 LOT_M = 6.0           # m of it (outside a downtown, whose buildings stand in 12 m of paved square)
 WOODS_SLOPE = 0.35    # a humid place's open hillside steeper than this (rise / run), WOODS_CLEAR m from any house: woodland
 WOODS_CLEAR = 12.0
@@ -295,13 +301,24 @@ WARM_STREET = {'tropical': [('royal', 0.45), ('coconut', 0.35), ('sabal', 0.2)],
 WARM_STREET_P = {'tropical': 0.8, 'subtropical': 0.6}
 WARM_STREET_STEP = {'tropical': 12.0, 'subtropical': 15.0}
 WARM_HEDGE_P = {'tropical': 0.6, 'subtropical': 0.35}
+# (0.8.2) hedge walls: the share of a trunk / primary / secondary road's sides with one on the property line (the same
+# hash as WARM_HEDGE_P, so every side that had a hedge keeps it), and round the car parks (Overture parking polygons of
+# PARK_HEDGE_MIN m2 or more): blocks PARK_HEDGE_OUT m outside the lot's edge, never inside another lot, nor within
+# PARK_HEDGE_CLEAR m of a street hedge's raw station. A wall's fourth field is its yaw + 180 (an engine without walls
+# reads the same line: a block turned 180 degrees)
+HEDGE_WALL_ROADS = ('trunk', 'primary', 'secondary')
+WARM_WALL_P = {'tropical': 0.85, 'subtropical': 0.75}
+PARK_HEDGE_MIN = 300.0
+PARK_HEDGE_OUT = 0.9
+PARK_HEDGE_CLEAR = 2.5
 WARM_YARD_P = 0.42       # share of the yards' lattice cells planted (as elsewhere)
 WARM_YARD_REACH = 45.0   # m: yard trees within this of a building (25 elsewhere), the paved squares round them allowed
 HEDGE_STEP = 2.0
 STREET_CLASSES = ('trunk', 'primary', 'secondary', 'tertiary', 'residential', 'living_street', 'unclassified')
 # (raw stations of one kind closer than this to one with a smaller key are dropped, before any tile's own checks, so the
 # rule is the same in every tile that holds them)
-WARM_DEDUPE = {0: 5.0, 1: 1.0, 2: 5.0, 3: 5.0}   # (3: a divided road's street palms on its median side, off the narrow islands)
+WARM_DEDUPE = {0: 5.0, 1: 1.0, 2: 5.0, 3: 5.0, 4: 1.0}   # (3: a divided road's street palms on its median side, off the narrow
+                                                         # islands; 4: the car parks' hedge walls)
 
 
 def pick_w(table, h):
@@ -535,13 +552,15 @@ def classify(r, area, h, downtown):
 # under it, its neighbours within 0.5 m and the roads within 12 m: only Sources queries round the footprint, so the record
 # is the same in every tile compile that reads it. Overture's roof_shape / roof_height / building_part win where present;
 # the rest are estimates (README "Rules that are estimates").
-KINDS = ['unknown', 'house', 'garage', 'shed', 'rowhouse', 'apartment', 'shop', 'office', 'church', 'school', 'civic', 'warehouse', 'canopy', 'tower']
+KINDS = ['unknown', 'house', 'garage', 'shed', 'rowhouse', 'apartment', 'shop', 'office', 'church', 'school', 'civic', 'warehouse', 'canopy', 'tower',
+         'mall']
 ROOF_SHAPES = ['unknown', 'flat', 'gabled', 'hipped', 'half_hipped', 'gambrel', 'mansard', 'pyramidal', 'skillion', 'saltbox', 'dome', 'round', 'sawtooth',
                'other']
 WALLS = ['unknown', 'clapboard', 'brick', 'stucco', 'stone', 'siding', 'wood', 'concrete', 'metal', 'glass']
 REGIONS = ['plains-midwest', 'southwest', 'southeast', 'northeast-rust', 'pacific-nw', 'mountain', 'california', 'south-florida']
 KIND_TYPE = {'house': 'rowhouse', 'garage': 'shed', 'shed': 'shed', 'canopy': 'shed', 'rowhouse': 'rowhouse', 'apartment': 'apartment', 'shop': 'office-low',
-             'office': 'office-low', 'church': 'civic', 'school': 'civic', 'civic': 'civic', 'warehouse': 'warehouse', 'tower': 'tower'}
+             'office': 'office-low', 'church': 'civic', 'school': 'civic', 'civic': 'civic', 'warehouse': 'warehouse', 'tower': 'tower',
+             'mall': 'office-low'}
 HOUSE_CLASS = {'house', 'detached', 'semidetached_house', 'residential', 'bungalow', 'cabin', 'farm', 'static_caravan', 'hut'}
 CHRISTIAN = {'christian_place_of_worship'}
 OTHER_WORSHIP = {'jewish_place_of_worship', 'muslim_place_of_worship', 'buddhist_place_of_worship', 'hindu_place_of_worship', 'place_of_worship'}
@@ -552,6 +571,22 @@ SHOP_WORDS = ('store', 'shop', 'restaurant', 'eatery', 'cafe', 'coffee', 'bar', 
 RETAIL_LU = {'retail', 'commercial'}
 INDUSTRIAL_LU = {'industrial', 'quarry', 'landfill'}
 FRONT_REACH = 12.0
+# (0.8.2) the mall: a large low retail building (a shopping centre, a strip of shops, a big store) of MALL_MIN_AREA m2 or
+# more under MALL_MAX_H m, not an industrial, residential, hotel, office or parking class nor on industrial land, with
+# one of: a shopping-centre place inside it, a retail class (MALL_CLASSES), MALL_SHOPS shop places inside it, retail land
+# use under it; or a shop place inside it and either a commercial class or commercial land use with car parks (Overture
+# parking polygons, less its own footprint) of MALL_PARK_MIN m2 and a quarter of its area within MALL_PARK_REACH m (a
+# theatre, a jail or a school beside a car park is no mall). The engine draws it as one: storefronts on every open wall,
+# cream stucco, a colonnade
+MALL_PLACES = {'shopping_mall', 'shopping_center', 'outlet_mall', 'department_store'}
+MALL_CLASSES = {'retail', 'supermarket', 'shop', 'kiosk', 'department_store'}   # ('commercial' is offices and storage too: with a shop in it)
+MALL_NOT = {'apartments', 'dormitory', 'hotel', 'office', 'parking', 'garage', 'garages', 'house', 'detached', 'semidetached_house',
+            'residential', 'bungalow', 'cabin', 'farm', 'static_caravan', 'hut'}
+MALL_MIN_AREA = 1500.0
+MALL_MAX_H = 18.0
+MALL_SHOPS = 3
+MALL_PARK_REACH = 12.0
+MALL_PARK_MIN = 800.0
 
 
 def region_of(lon, lat):
@@ -588,6 +623,15 @@ def _land_use_at(src, pt):
         if lu['geom'].geom_type in ('Polygon', 'MultiPolygon'):
             return (lu['subtype'] or ''), (lu['class'] or '')
     return '', ''
+
+
+def _parking_by(src, g, area):
+    """Car parks within MALL_PARK_REACH m of footprint g (less the footprint) of MALL_PARK_MIN m2 and area / 4 or more?"""
+    tot = 0.0
+    for p in src.query('parking', g.buffer(MALL_PARK_REACH, quad_segs=2)):
+        pg = shapely.make_valid(p['geom'])
+        tot += pg.difference(g).area if pg.intersects(g) else pg.area
+    return tot >= max(MALL_PARK_MIN, 0.25 * area)
 
 
 def _short_half(rects):
@@ -639,6 +683,7 @@ def shape_building(W, r, rec, near, downtown):
     places = _place_set(src, wg)
     pcat = {a for a, _ in places} | {b for _, b in places}
     shopish = any(any(w in c for w in SHOP_WORDS) for c in pcat)
+    nshops = sum(1 for a, b in places if any(w in a or w in b for w in SHOP_WORDS))
     minh = float(r['min_height'] or 0)
     # kind
     if cls in ('church', 'cathedral', 'chapel') or pcat & CHRISTIAN:
@@ -658,6 +703,11 @@ def shape_building(W, r, rec, near, downtown):
         kind = 'shed'
     elif h >= 45:
         kind = 'tower'
+    elif (area >= MALL_MIN_AREA and h < MALL_MAX_H and cls not in WAREHOUSE and cls not in MALL_NOT and lu_sub not in INDUSTRIAL_LU
+          and lu_cls not in INDUSTRIAL_LU
+          and (pcat & MALL_PLACES or cls in MALL_CLASSES or nshops >= MALL_SHOPS or 'retail' in (lu_sub, lu_cls)
+               or (nshops >= 1 and (cls == 'commercial' or (lu_cls in RETAIL_LU and _parking_by(src, wg, area)))))):
+        kind = 'mall'
     elif cls in WAREHOUSE or (lu_sub in INDUSTRIAL_LU and area > 400) or (area > 1500 and h < 12):
         kind = 'warehouse'
     elif cls in SHOPS or shopish or (row >= 2 and (lu_sub in RETAIL_LU or lu_cls in RETAIL_LU) and 0 <= front < 360 and front_d < 24):
@@ -687,7 +737,7 @@ def shape_building(W, r, rec, near, downtown):
     if btype in ('office-low', 'apartment') and h >= 18:
         btype = 'midrise'
     rec['btype'] = btype
-    if kind == 'shop':
+    if kind in ('shop', 'mall'):
         rec['shops'] = 1
     # the masses: rectangles over the footprint in the building's turn
     cov, rects = rects_mod.rect_cover(pts, theta)
@@ -2759,16 +2809,19 @@ def write_stream(dom, keys, body_of, id_of):
 def warm_plantings(Wd, warm, pieces, a, narrow_m, btree, deck_tree, c, r):
     """The warm band's street plantings of tile (c, r) -> [(u cm, v cm, class, trunk | yaw)]: stations along every street
     piece's ground lines (each side of a piece: palms every WARM_STREET_STEP m in the strip past its sidewalk (kind 0),
-    a clipped hedge every HEDGE_STEP m on the property line (kind 1), and on a one-way piece palms just past the curb
-    where that is a narrow island: a median (kind 2)). Stations are a function of the piece alone (its cm points, its
-    width and sidewalk, its segment id's hash), dropped where a station of the same kind with a smaller key stands within
-    WARM_DEDUPE (raw, before any check), then kept only inside the tile, on its own ground (lawn / scrub / sand; a
-    median's narrow island), clear of buildings and decks."""
+    a clipped hedge every HEDGE_STEP m on the property line (kind 1; on a trunk / primary / secondary road a hedge
+    wall), and on a one-way piece palms just past the curb where that is a narrow island: a median (kind 2)), and hedge
+    walls every HEDGE_STEP m round the car parks, PARK_HEDGE_OUT m outside their edge (kind 4). Stations are a function
+    of the piece (or the car park) alone (its cm points, its width and sidewalk, its segment id's hash), dropped where a
+    station of the same kind with a smaller key stands within WARM_DEDUPE (raw, before any check; a car park's also
+    within PARK_HEDGE_CLEAR m of a street hedge's, and inside any car park), then kept only inside the tile, on its own
+    ground (lawn / scrub / sand; a hedge lawn / scrub, a wall also a paved lot; a median's narrow island), clear of
+    buildings and decks."""
     d = Wd.d
     X0, Z0 = c * TILE, r * TILE
     X1, Z1 = X0 + TILE, Z0 + TILE
     pad = max(WARM_DEDUPE.values()) + 1.0
-    raw = {0: [], 1: [], 2: [], 3: []}
+    raw = {0: [], 1: [], 2: [], 3: [], 4: []}
     skip = FLAGS['pedestrian'] | FLAGS['freeway'] | FLAGS['tunnel'] | FLAGS['alley'] | FLAGS['private']
     for p in sorted(pieces, key=lambda p: (p['seg'], p['i'])):
         if p['flags'] & skip or p['cls'] not in STREET_CLASSES or p['link']:
@@ -2789,12 +2842,13 @@ def warm_plantings(Wd, warm, pieces, a, narrow_m, btree, deck_tree, c, r):
                 plans = []
                 if hash01(sk, sd, 41 ^ d.index) < WARM_STREET_P[warm]:
                     off = p['w'] / 2 + (sws + 1.8 if sws > 0 else 2.0)
-                    plans.append((3 if inner else 0, off, WARM_STREET_STEP[warm], pick_w(WARM_STREET[warm], hash01(sk, sd, 42 ^ d.index))))
-                if not inner and hash01(sk, sd, 43 ^ d.index) < WARM_HEDGE_P[warm]:
-                    plans.append((1, p['w'] / 2 + (sws + 0.7 if sws > 0 else 1.2), HEDGE_STEP, TREE_CLASS['hedge']))
+                    plans.append((3 if inner else 0, off, WARM_STREET_STEP[warm], pick_w(WARM_STREET[warm], hash01(sk, sd, 42 ^ d.index)), 0))
+                wall = p['cls'] in HEDGE_WALL_ROADS
+                if not inner and hash01(sk, sd, 43 ^ d.index) < (WARM_WALL_P if wall else WARM_HEDGE_P)[warm]:
+                    plans.append((1, p['w'] / 2 + (sws + 0.7 if sws > 0 else 1.2), HEDGE_STEP, TREE_CLASS['hedge'], 180 if wall else 0))
                 if oneway:
-                    plans.append((2, p['w'] / 2 + 1.3, WARM_STREET_STEP[warm], pick_w(WARM_STREET[warm], hash01(sk, sd, 44 ^ d.index))))
-                for kind, off, step, cls in plans:
+                    plans.append((2, p['w'] / 2 + 1.3, WARM_STREET_STEP[warm], pick_w(WARM_STREET[warm], hash01(sk, sd, 44 ^ d.index)), 0))
+                for kind, off, step, cls, add in plans:
                     n = int(L // step)
                     if n < 1:
                         continue
@@ -2812,8 +2866,39 @@ def warm_plantings(Wd, warm, pieces, a, narrow_m, btree, deck_tree, c, r):
                         x, z = P0[k, 0] - tz * off * side, P0[k, 1] + tx * off * side
                         if not (X0 - pad <= x < X1 + pad and Z0 - pad <= z < Z1 + pad):
                             continue
-                        yaw = int(round(math.degrees(math.atan2(-tz, tx)))) % 180
+                        yaw = int(round(math.degrees(math.atan2(-tz, tx)))) % 180 + add
                         raw[kind].append(((p['seg'], p['i'], gi, sd, k), x, z, cls, yaw, tx, tz))
+    # the car parks' hedge walls: along each lot's outer edges (its polygons' exterior rings, counter-clockwise, so the
+    # outside is to the right of the way round), a station every HEDGE_STEP m from the ring's first point
+    parks = []
+    for q in Wd.src.query('parking', sbox(X0 - pad - 2.0, Z0 - pad - 2.0, X1 + pad + 2.0, Z1 + pad + 2.0)):
+        g = shapely.make_valid(q['geom'])
+        parks.append(g)
+        for pi, pg in enumerate(polygons(g)):
+            if pg.area < PARK_HEDGE_MIN:
+                continue
+            ring = LineString(shapely.orient_polygons(pg, exterior_cw=False).exterior.coords)
+            L = ring.length
+            n = int(L // HEDGE_STEP)
+            if n < 1:
+                continue
+            ss = (np.arange(n) + 0.5) * HEDGE_STEP
+            A = shapely.get_coordinates(shapely.line_interpolate_point(ring, np.maximum(ss - 0.5, 0.0)))
+            B = shapely.get_coordinates(shapely.line_interpolate_point(ring, np.minimum(ss + 0.5, L)))
+            P0 = shapely.get_coordinates(shapely.line_interpolate_point(ring, ss))
+            for k in range(n):
+                dx, dz = B[k, 0] - A[k, 0], B[k, 1] - A[k, 1]
+                ln = math.hypot(dx, dz)
+                if ln < 1e-6:
+                    continue
+                tx, tz = dx / ln, dz / ln
+                x, z = P0[k, 0] + tz * PARK_HEDGE_OUT, P0[k, 1] - tx * PARK_HEDGE_OUT
+                if not (X0 - pad <= x < X1 + pad and Z0 - pad <= z < Z1 + pad):
+                    continue
+                yaw = int(round(math.degrees(math.atan2(-tz, tx)))) % 180 + 180
+                raw[4].append(((q['id'], pi, k), x, z, TREE_CLASS['hedge'], yaw, tx, tz))
+    park_tree = shapely.STRtree(parks) if parks else None
+    street_hedges = shapely.STRtree(shapely.points(np.array([(q[1], q[2]) for q in raw[1]]))) if raw[1] else None
     out = []
     bad = (MASK['asphalt'], MASK['water'], MASK['waterEdge'])
     for kind, lst in raw.items():
@@ -2837,22 +2922,32 @@ def warm_plantings(Wd, warm, pieces, a, narrow_m, btree, deck_tree, c, r):
                     continue
             elif kind == 3 and narrow_m[j, i]:
                 continue
-            elif cell not in ((MASK['lawn'], MASK['scrub']) if kind == 1 else (MASK['lawn'], MASK['scrub'], MASK['sand'])):
+            hedge = kind in (1, 4)
+            wall = hedge and yaw >= 180
+            ground = (MASK['lawn'], MASK['scrub'], MASK['lot']) if wall else (MASK['lawn'], MASK['scrub']) if hedge else (MASK['lawn'], MASK['scrub'], MASK['sand'])
+            if kind != 2 and cell not in ground:
                 continue
-            # (a palm off the curb's cells, a hedge's ends on the same ground as its middle)
-            if kind == 1:
+            # (a palm off the curb's cells, a hedge's ends on the same ground as its middle; a wall's on its own ground)
+            if hedge:
                 ends = [(x + tx * 0.9, z + tz * 0.9), (x - tx * 0.9, z - tz * 0.9)]
             else:
                 ends = [(x + 1, z), (x - 1, z), (x, z + 1), (x, z - 1)]
-            if any(X0 <= ex < X1 and Z0 <= ez < Z1 and (a[int(ez - Z0), int(ex - X0)] in bad or (kind == 1 and a[int(ez - Z0), int(ex - X0)] != cell))
+            if any(X0 <= ex < X1 and Z0 <= ez < Z1 and (a[int(ez - Z0), int(ex - X0)] in bad
+                                                       or (hedge and (a[int(ez - Z0), int(ex - X0)] not in ground if wall else a[int(ez - Z0), int(ex - X0)] != cell)))
                    for ex, ez in ends):
                 continue
             pt = Point(x, z)
-            if btree is not None and len(btree.query(pt.buffer(1.2 if kind == 1 else 2.5), predicate='intersects')):
+            if kind == 4:
+                # (a car park's hedge: never inside a lot (two lots side by side), nor doubling a street hedge)
+                if park_tree is not None and len(park_tree.query(pt, predicate='intersects')):
+                    continue
+                if street_hedges is not None and len(street_hedges.query(pt.buffer(PARK_HEDGE_CLEAR), predicate='intersects')):
+                    continue
+            if btree is not None and len(btree.query(pt.buffer(1.2 if hedge else 2.5), predicate='intersects')):
                 continue
             if deck_tree is not None and len(deck_tree.query(pt.buffer(2.0), predicate='intersects')):
                 continue
-            trunk = yaw if kind == 1 else int(20 + 22 * hash01(cm(x), cm(z), 45 ^ d.index))
+            trunk = yaw if hedge else int(20 + 22 * hash01(cm(x), cm(z), 45 ^ d.index))
             out.append((cm(x) - c * TCM, cm(z) - r * TCM, cls, trunk))
     return out
 

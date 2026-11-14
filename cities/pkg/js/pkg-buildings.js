@@ -10,6 +10,10 @@
 //   white, cream and pastel stucco and white concrete, no brick, flat roofs behind taller parapets or low barrel-tile
 //   hips; its condo and hotel towers get white balcony slabs with pale glass railings on every storey (balconies(),
 //   with buildings.js's pale balcony glass facade);
+// - malls (the compiler's kind 'mall', 0.8.2: a large low retail building): cream and white stucco (beige outside the warm
+//   and dry regions), storefronts on every open wall, a colonnade along each long one (a flat canopy on square columns,
+//   planters between them, pilasters up the wall over it) and a tall parapet (colonnade(); buildings.js splits the
+//   mass into a storefront storey and a plain band over it). Generic: no names, no signs;
 // - everything merged into one vertex-coloured mesh per build (dispose() frees it), so a per-tile build can call it.
 // Masses are three.js boxes turned by theta about +y: world = c + R_y(theta) local, local +x along (cos t, -sin t).
 
@@ -119,6 +123,12 @@ const REGIONS = {
     roofColors: [0xb8694a, 0xc47e5c, 0xa95f45, 0xe9e7e1, 0xd9d6cf, 0x9c978e]
   }
 };
+// (a mall's stucco: bright cream and white where the region builds in stucco, warmer beige elsewhere; its trim)
+const MALL_COLORS = {
+  bright: [0xf6f2e8, 0xf2ead8, 0xf8f6f0, 0xefe5d0, 0xf4eee2],
+  beige: [0xe6dcc8, 0xddd0b8, 0xece4d4, 0xd8ccb4, 0xe9e1cf]
+};
+const MALL_TRIMS = [0xffffff, 0xf7f5ef, 0xece7dc];
 const SURFACE = { brick: 0, stucco: 1, siding: 2, clapboard: 2, wood: 2, stone: 3, concrete: 3, metal: 3, glass: 3 };
 const ROOF_TAG = { gabled: 'gabled', hipped: 'hipped', half_hipped: 'half_hipped', gambrel: 'gambrel', mansard: 'mansard', pyramidal: 'pyramidal',
   skillion: 'skillion', saltbox: 'saltbox', dome: 'hipped', round: 'gabled', sawtooth: 'skillion', flat: 'flat' };
@@ -140,6 +150,14 @@ function styleFor(o) {
   const h = o.hash;
   const house = o.kind === 'house' || o.kind === 'garage' || o.kind === 'shed' || o.kind === 'rowhouse';
   let wall = o.wall && SURFACE[o.wall] !== undefined ? o.wall : null;
+  if (o.kind === 'mall') {
+    wall = wall || 'stucco';
+    const pal = R.walls[0][0] === 'stucco' ? MALL_COLORS.bright : MALL_COLORS.beige;
+    return {
+      wall, paint: [o.wallRGB || pickA(pal, h(4.1)), pickA(MALL_TRIMS, h(5.3)), SURFACE[wall] ?? 1, 0.3], roof: 'flat',
+      roofColor: o.roofRGB || pickA([0xe4e2dc, 0xd6d3cc, 0xcfccc4], h(7.9)), pitch: R.pitch, parapet: 1.1, chimney: false, porch: false
+    };
+  }
   if (!wall) {
     if (house) wall = pickW(R.walls, h(1.7));
     else if (R.nonHouse) wall = pickW(R.nonHouse, h(3.1));
@@ -356,6 +374,57 @@ function createPkgBuilder() {
       stats.balconies = (stats.balconies || 0) + 1;
     }
   }
+  // a mall's colonnade along one wall of mass m (lx, lz: the wall's outward axis in the mass's frame, createFacadeBoxes
+  // order): a flat canopy `depth` m out from the wall with its top at y, square columns along its outer edge every ~6 m
+  // (none when cols is false: a cantilevered canopy where the road comes close), a planter with a clipped shrub in every
+  // other bay, and pilasters up the wall from the canopy to `top`. Returns the colliders (columns, the canopy slab)
+  function colonnade(m, theta, lx, lz, base, y, top, depth, cols, wallHex, trimHex) {
+    const cs = Math.cos(theta), sn = Math.sin(theta);
+    const half = lx ? m.w * 0.5 : m.d * 0.5, len = lx ? m.d : m.w, sgn = lx || lz;
+    // (u along the wall, v out from it): local (sgn (half + v), u) on an x wall, (u, sgn (half + v)) on a z wall
+    const P = (u, v, yy) => {
+      const ax = lx ? sgn * (half + v) : u, az = lx ? u : sgn * (half + v);
+      return [m.cx + ax * cs + az * sn, yy, m.cz - ax * sn + az * cs];
+    };
+    const F = { P };
+    const out = [];
+    const slab = 0.45, L2 = len * 0.5;
+    boxUV(F, -L2, L2, 0, depth, y - slab, y, trimHex);
+    boxUV(F, -L2, L2, depth - 0.12, depth + 0.04, y - slab - 0.12, y + 0.08, wallHex, false); // the fascia's lip
+    const ox = lx ? sgn * (half + depth * 0.5) : 0, oz = lx ? 0 : sgn * (half + depth * 0.5);
+    const scx = m.cx + ox * cs + oz * sn, scz = m.cz - ox * sn + oz * cs;
+    const hx = lx ? depth * 0.5 : L2, hz = lx ? L2 : depth * 0.5;
+    out.push({ minX: scx - (Math.abs(cs) * hx + Math.abs(sn) * hz), maxX: scx + (Math.abs(cs) * hx + Math.abs(sn) * hz),
+      minZ: scz - (Math.abs(sn) * hx + Math.abs(cs) * hz), maxZ: scz + (Math.abs(sn) * hx + Math.abs(cs) * hz), minY: y - slab, maxY: y,
+      obb: { cx: scx, cz: scz, hx, hz, cs, sn } });
+    const n = Math.max(2, Math.round((len - 1.2) / 6) + 1);
+    const us = Array.from({ length: n }, (_, k) => -L2 + 0.6 + (k * (len - 1.2)) / (n - 1));
+    for (const u of us) {
+      if (cols) {
+        boxUV(F, u - 0.24, u + 0.24, depth - 0.56, depth - 0.08, base, y - slab, trimHex, false);
+        boxUV(F, u - 0.32, u + 0.32, depth - 0.64, depth, base, base + 0.35, trimHex); // the column's plinth
+        const [x, , z] = P(u, depth - 0.32, 0);
+        out.push({ minX: x - 0.3, maxX: x + 0.3, minZ: z - 0.3, maxZ: z + 0.3, minY: base, maxY: y - slab });
+      }
+      if (top - y > 1.5) boxUV(F, u - 0.36, u + 0.36, 0, 0.22, y, top - 0.35, trimHex, false);
+    }
+    if (cols) {
+      for (let k = 0; k + 1 < n; k += 2) {
+        const c = (us[k] + us[k + 1]) * 0.5, hw = Math.min(1.1, (us[k + 1] - us[k]) * 0.5 - 0.6);
+        if (hw < 0.4) continue;
+        boxUV(F, c - hw, c + hw, depth - 0.9, depth - 0.1, base, base + 0.6, wallHex);
+        boxUV(F, c - hw + 0.08, c + hw - 0.08, depth - 0.82, depth - 0.18, base + 0.6, base + 1.05, 0x3d6a2e);
+        stats.planters = (stats.planters || 0) + 1;
+      }
+    }
+    stats.colonnades = (stats.colonnades || 0) + 1;
+    return out;
+  }
+  // a flat roof's membrane over the rectangle at y (a mall's pale roof over the facade box's grey one)
+  function membrane(m, theta, y, hex) {
+    const { L, S, P } = frame(m.cx, m.cz, m.w, m.d, theta);
+    quad(P(-L, -S, y), P(L, -S, y), P(L, S, y), P(-L, S, y), hex);
+  }
   function mesh(name) {
     if (!pos.length) return null;
     const g = new THREE.BufferGeometry();
@@ -370,7 +439,7 @@ function createPkgBuilder() {
     me.userData.dispose = () => { g.dispose(); mat.dispose(); };
     return me;
   }
-  return { roof, chimney, porch, tower, canopy, balconies, mesh, stats };
+  return { roof, chimney, porch, tower, canopy, balconies, colonnade, membrane, mesh, stats };
 }
 
 // Shop signs: a town's storefronts are named after its own streets, its own name and its side of town ("COLUMBIA ST
