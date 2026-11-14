@@ -42,6 +42,9 @@ class LandUse(unittest.TestCase):
         self.assertEqual(g('agriculture', 'farmland', 'dry'), 'scrub')
         self.assertEqual(g('protected', 'nature_reserve', 'humid'), 'woods')
         self.assertEqual(g('resource_extraction', 'quarry', 'humid'), 'rock')
+        # (a beach resort's land is beach sand in any climate; a golf bunker stays the bare-ground class)
+        for clim in ('humid', 'dry', 'arid'):
+            self.assertEqual(g('recreation', 'beach_resort', clim), 'beach')
         # (yards, shops, offices: the climate's open land, the paved lots come from the buildings and car parks)
         for sub, cls in (('residential', 'residential'), ('developed', 'commercial'), ('developed', 'retail'), ('education', 'school')):
             self.assertIsNone(g(sub, cls, 'humid'), (sub, cls))
@@ -50,8 +53,47 @@ class LandUse(unittest.TestCase):
         # San Francisco's classes keep their numbers; the new ones follow water (6)
         self.assertEqual([C.MASK[k] for k in ('asphalt', 'sidewalk', 'lawn', 'sand', 'rock', 'waterEdge', 'water')], list(range(7)))
         self.assertEqual((C.MASK['lot'], C.MASK['scrub'], C.MASK['woods']), (7, 8, 9))
+        self.assertEqual((C.MASK['beach'], C.MASK['wetsand']), (10, 11))
+        # (the engine reads the classes by number: tsl-materials.js, pkg-far.js byClass; the package header lists them in order)
+        self.assertEqual(sorted(C.MASK.values()), list(range(len(C.MASK))))
         for k in C.CLIMATE_GROUND.values():
             self.assertIn(k, C.MASK)
+
+
+class SandLayer(unittest.TestCase):
+    """The beaches' rows (Overture base/land): a region fetched before the layer is refused with the top-up command."""
+
+    def test_region_without_land_refused(self):
+        import json
+        import tempfile
+        import fetch
+        import sources
+        with tempfile.TemporaryDirectory() as d:
+            out = fetch.region_dir(d, 'conus', 5, 7)
+            os.makedirs(out)
+            for theme, typ, _ in fetch.LAYERS:
+                if (theme, typ) != ('base', 'land'):
+                    open(fetch.layer_file(out, theme, typ), 'wb').close()
+            json.dump({'overture': {'release': fetch.RELEASE, 'layers': {}}}, open(os.path.join(out, 'region.json'), 'w'))
+            self.assertEqual([l[:2] for l in fetch.missing_layers(out)], [('base', 'land')])
+            with self.assertRaises(sources.MissingRegion) as e:
+                sources.Sources(d, 'conus', [(5, 7)])
+            self.assertIn('fetched without base/land', str(e.exception))
+            self.assertIn('fetch.py --regions conus:5,7', str(e.exception))
+            # (the refusal is what prewarm.py retries on: its pattern finds the regions to fetch)
+            import prewarm
+            self.assertEqual(prewarm.REGIONS.search(str(e.exception)).group(1), 'conus:5,7')
+
+    def test_land_filter(self):
+        import fetch
+        import sources
+        # (the coastline land masses are never fetched; the compiler reads only the sand polygons of the rest)
+        self.assertIn("subtype IS DISTINCT FROM 'land'", fetch.LAYER_WHERE[('base', 'land')])
+        self.assertIn(('base', 'land'), [l[:2] for l in fetch.LAYERS])
+        theme, typ, cols, where = sources.LAYER_SQL['sand']
+        self.assertEqual((theme, typ), ('base', 'land'))
+        self.assertIn("subtype = 'sand'", where)
+        self.assertIn(('base', 'land'), sources.REQUIRED_FILES)
 
 
 if __name__ == '__main__':

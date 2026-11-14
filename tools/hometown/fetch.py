@@ -29,7 +29,21 @@ LAYERS = [
     ('base', 'water', 'id, geometry, subtype, class, names.primary AS name, is_salt, is_intermittent'),
     ('base', 'land_use', 'id, geometry, subtype, class, names.primary AS name'),
     ('base', 'infrastructure', 'id, geometry, subtype, class, names.primary AS name'),
+    # (OSM's natural features: beaches and sand (subtype sand: natural=beach / sand / dune / shingle), scrub, rock, tree
+    # rows and trees; LAYER_WHERE leaves out the coastline-derived land masses, subtype 'land', continent-sized polygons)
+    ('base', 'land', 'id, geometry, subtype, class, surface, names.primary AS name'),
 ]
+# (a layer's row filter in the read, beside the bbox test)
+LAYER_WHERE = {('base', 'land'): "subtype IS DISTINCT FROM 'land'"}
+
+
+def layer_file(out, theme, typ):
+    return os.path.join(out, f'overture-{theme}-{typ}.parquet')
+
+
+def missing_layers(out):
+    """The layers a fetched region (region.json) has no file of: one fetched before a layer was added to LAYERS."""
+    return [l for l in LAYERS if not os.path.exists(layer_file(out, l[0], l[1]))]
 STATES = {'AL': 'US-AL', 'AK': 'US-AK', 'AZ': 'US-AZ', 'AR': 'US-AR', 'CA': 'US-CA', 'CO': 'US-CO', 'CT': 'US-CT', 'DE': 'US-DE', 'FL': 'US-FL', 'GA': 'US-GA', 'HI': 'US-HI', 'ID': 'US-ID', 'IL': 'US-IL', 'IN': 'US-IN', 'IA': 'US-IA', 'KS': 'US-KS', 'KY': 'US-KY', 'LA': 'US-LA', 'ME': 'US-ME', 'MD': 'US-MD', 'MA': 'US-MA', 'MI': 'US-MI', 'MN': 'US-MN', 'MS': 'US-MS', 'MO': 'US-MO', 'MT': 'US-MT', 'NE': 'US-NE', 'NV': 'US-NV', 'NH': 'US-NH', 'NJ': 'US-NJ', 'NM': 'US-NM', 'NY': 'US-NY', 'NC': 'US-NC', 'ND': 'US-ND', 'OH': 'US-OH', 'OK': 'US-OK', 'OR': 'US-OR', 'PA': 'US-PA', 'RI': 'US-RI', 'SC': 'US-SC', 'SD': 'US-SD', 'TN': 'US-TN', 'TX': 'US-TX', 'UT': 'US-UT', 'VT': 'US-VT', 'VA': 'US-VA', 'WA': 'US-WA', 'WV': 'US-WV', 'WI': 'US-WI', 'WY': 'US-WY', 'DC': 'US-DC'}
 MAX_SIDE_M = 4500  # a place's box is capped at this many metres a side (v0 compiles a town, not a county)
 
@@ -155,8 +169,9 @@ def load_index(data_dir, release=RELEASE):
 
 
 def layer_files(ix, theme, typ, W, S_, E_, N):
-    """The S3 files of a layer whose rows can meet the bbox (all of them without an index: the glob)."""
-    if ix is None:
+    """The S3 files of a layer whose rows can meet the bbox (all of them without an index, or for a layer an older
+    index does not list: the glob)."""
+    if ix is None or '%s/%s' % (theme, typ) not in ix['layers']:
         return "'%s/theme=%s/type=%s/*.parquet'" % (S3, theme, typ)
     fs = [e['file'] for e in ix['layers']['%s/%s' % (theme, typ)]
           if e['bbox'] is None or not (e['bbox'][0] > E_ or e['bbox'][2] < W or e['bbox'][1] > N or e['bbox'][3] < S_)]
@@ -171,14 +186,21 @@ FETCH_MEMORY = os.environ.get('HOMETOWN_FETCH_MEMORY', '2GB')
 
 def fetch_regions(dom, blocks, data_dir, use_index=True, parallel=True):
     from concurrent.futures import ThreadPoolExecutor
-    todo = []
+    todo, need = [], {}
     for C, R in blocks:
         out = region_dir(data_dir, dom, C, R)
         if os.path.exists(os.path.join(out, 'region.json')):
-            continue
+            # (a region fetched before a layer was added: only the layers it has no file of, the rest kept as they are)
+            ls = missing_layers(out)
+            if not ls:
+                continue
+            need[(C, R)] = ls
+        else:
+            need[(C, R)] = list(LAYERS)
         todo.append((C, R, out, region_envelope(dom, C, R)))
     if not todo:
         return
+    layers = [l for l in LAYERS if any(l in v for v in need.values())]
     W = min(t[3][0] for t in todo); S_ = min(t[3][1] for t in todo); E_ = max(t[3][2] for t in todo); N = max(t[3][3] for t in todo)
     ix = load_index(data_dir) if use_index else None
     c = connect(threads=FETCH_THREADS, memory_limit=FETCH_MEMORY, object_cache=True)
@@ -186,11 +208,17 @@ def fetch_regions(dom, blocks, data_dir, use_index=True, parallel=True):
     # union envelope and whether the index chose the files. A run for other regions never reuses another run's union, the
     # rows of a different envelope, which would write those regions short of rows and mark them fetched)
     import hashlib
-    tag = hashlib.sha256(json.dumps([RELEASE, round(W, 9), round(S_, 9), round(E_, 9), round(N, 9), ix is not None]).encode()).hexdigest()[:16]
+    tag = hashlib.sha256(json.dumps([RELEASE, round(W, 9), round(S_, 9), round(E_, 9), round(N, 9), ix is not None, LAYER_WHERE.get(('base', 'land'))]).encode()).hexdigest()[:16]
     tmp = os.path.join(data_dir, 'regions', '.tmp-' + tag)
     os.makedirs(tmp, exist_ok=True)
-    recs = {(C, R): {'grid': 'hg1', 'domain': dom, 'block': [C, R], 'halo': REGION_HALO, 'envelope': list(env),
-                     'overture': {'release': RELEASE, 'layers': {}}} for C, R, _, env in todo}
+    recs = {}
+    for C, R, out, env in todo:
+        rj = os.path.join(out, 'region.json')
+        if os.path.exists(rj):
+            recs[(C, R)] = json.load(open(rj))
+            assert recs[(C, R)]['overture']['release'] == RELEASE, '%s: fetched at Overture %s, not %s' % (rj, recs[(C, R)]['overture']['release'], RELEASE)
+        else:
+            recs[(C, R)] = {'grid': 'hg1', 'domain': dom, 'block': [C, R], 'halo': REGION_HALO, 'envelope': list(env), 'overture': {'release': RELEASE, 'layers': {}}}
     t_all = time.time()
 
     def read(layer):
@@ -199,19 +227,20 @@ def fetch_regions(dom, blocks, data_dir, use_index=True, parallel=True):
         f = os.path.join(tmp, f'{theme}-{typ}.parquet')
         t = time.time()
         src = layer_files(ix, theme, typ, W, S_, E_, N)
-        nfiles = None if ix is None else (0 if src is None else src.count("'") // 2)
+        nfiles = None if ix is None or '%s/%s' % (theme, typ) not in ix['layers'] else (0 if src is None else src.count("'") // 2)
+        where = (' AND ' + LAYER_WHERE[(theme, typ)]) if (theme, typ) in LAYER_WHERE else ''
         if not os.path.exists(f):
             if src is None:   # (no file can hold a row of the envelope: an empty layer of the same schema)
                 cur.execute(f"""COPY (SELECT {cols}, bbox FROM read_parquet('{S3}/theme={theme}/type={typ}/*.parquet', hive_partitioning=0) LIMIT 0)
                     TO '{f}.part' (FORMAT parquet, COMPRESSION zstd)""")
             else:
                 cur.execute(f"""COPY (SELECT {cols}, bbox FROM read_parquet({src}, hive_partitioning=0)
-                    WHERE bbox.xmin <= {E_} AND bbox.xmax >= {W} AND bbox.ymin <= {N} AND bbox.ymax >= {S_} ORDER BY id)
+                    WHERE bbox.xmin <= {E_} AND bbox.xmax >= {W} AND bbox.ymin <= {N} AND bbox.ymax >= {S_}{where} ORDER BY id)
                     TO '{f}.part' (FORMAT parquet, COMPRESSION zstd)""")
             os.replace(f + '.part', f)
         return layer, f, time.time() - t, nfiles
-    with ThreadPoolExecutor(len(LAYERS) if parallel else 1) as ex:
-        res = list(ex.map(read, LAYERS))
+    with ThreadPoolExecutor(len(layers) if parallel else 1) as ex:
+        res = list(ex.map(read, layers))
     for (theme, typ, cols), f, dt, nfiles in res:
         print(f'regions {theme}/{typ}: union read {dt:.1f}s' + ('' if nfiles is None else f' ({nfiles} indexed files)'), flush=True)
 
@@ -220,12 +249,15 @@ def fetch_regions(dom, blocks, data_dir, use_index=True, parallel=True):
         (theme, typ, cols), f, C, R, out, (w, s, e, n) = job
         cur = c.cursor()
         os.makedirs(out, exist_ok=True)
-        g = os.path.join(out, f'overture-{theme}-{typ}.parquet')
+        g = layer_file(out, theme, typ)
+        # (written beside and renamed: a region's layer file exists whole or not at all, so a top-up killed half way is
+        # retried, never read short)
         cur.execute(f"""COPY (SELECT * FROM read_parquet('{f}') WHERE bbox.xmin <= {e} AND bbox.xmax >= {w} AND bbox.ymin <= {n} AND bbox.ymax >= {s}
-            ORDER BY id) TO '{g}' (FORMAT parquet, COMPRESSION zstd)""")
+            ORDER BY id) TO '{g}.part' (FORMAT parquet, COMPRESSION zstd)""")
+        os.replace(g + '.part', g)
         return C, R, f'{theme}/{typ}', cur.execute(f"SELECT count(*) FROM read_parquet('{g}')").fetchone()[0]
     t_split = time.time()
-    jobs = [(layer, f, C, R, out, env) for layer, f, _, _ in res for C, R, out, env in todo]
+    jobs = [(layer, f, C, R, out, env) for layer, f, _, _ in res for C, R, out, env in todo if layer in need[(C, R)]]
     with ThreadPoolExecutor(min(8, len(jobs)) if parallel else 1) as ex:
         for C, R, key, nrows in ex.map(split, jobs):
             recs[(C, R)]['overture']['layers'][key] = {'rows': nrows}
@@ -237,7 +269,7 @@ def fetch_regions(dom, blocks, data_dir, use_index=True, parallel=True):
             json.dump(recs[(C, R)], fh, indent=1, sort_keys=True)
         os.replace(rj + '.part', rj)
         print('region', dom, C, R, recs[(C, R)]['overture']['layers'], flush=True)
-    print(json.dumps({'regionsFetched': len(todo), 'seconds': round(time.time() - t_all, 1), 'index': ix is not None, 'parallel': parallel}), flush=True)
+    print(json.dumps({'regionsFetched': len(todo), 'layers': ['%s/%s' % l[:2] for l in layers], 'seconds': round(time.time() - t_all, 1), 'index': ix is not None, 'parallel': parallel}), flush=True)
     for name in os.listdir(tmp):
         os.remove(os.path.join(tmp, name))
     os.rmdir(tmp)
@@ -303,7 +335,7 @@ def fetch(pid, bbox, data_dir, margin_m=150, place=None, how=None):
         t = time.time()
         if not os.path.exists(f):
             q = f"""COPY (SELECT {cols} FROM read_parquet('{S3}/theme={theme}/type={typ}/*.parquet', hive_partitioning=0)
-                WHERE bbox.xmin <= {RE} AND bbox.xmax >= {RW} AND bbox.ymin <= {RN} AND bbox.ymax >= {RS} ORDER BY id)
+                WHERE bbox.xmin <= {RE} AND bbox.xmax >= {RW} AND bbox.ymin <= {RN} AND bbox.ymax >= {RS}{(' AND ' + LAYER_WHERE[(theme, typ)]) if (theme, typ) in LAYER_WHERE else ''} ORDER BY id)
                 TO '{f}' (FORMAT parquet, COMPRESSION zstd)"""
             c.execute(q)
         n = c.execute(f"SELECT count(*) FROM read_parquet('{f}')").fetchone()[0]

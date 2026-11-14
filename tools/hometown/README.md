@@ -1,4 +1,4 @@
-# Hometown compiler 0.8.0 (the national grid hg1)
+# Hometown compiler 0.8.1 (the national grid hg1)
 
 Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
 so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
@@ -87,9 +87,9 @@ GameMog or Render disk) is seeded with the snapshot the compiler ships, `dem-sna
 | roads | whole Overture segments meeting tile + 160 m, split at their connectors, then at every grid line E' = 512k / S = 512k exactly (int cm, `Fraction`); border nodes `b:{segment}:{E|S}{k}:{ordinal}`; a sub-piece belongs to the tile holding its first edge's midpoint; junction controls from every piece at the connector; no box-edge cut |
 | curb islands | land minus roadways over tile + 128 m, each island classified before the clip: one under 120 m2 inside the window is a median; the rest by local width (`ISLAND_W` 6 m: the parts a 6 m morphological opening leaves out are islands, the rest block, so a polygon the window cuts gets the same kinds where two tiles' windows share it), clipped to the tile, clipped edges flagged `cut` |
 | buildings | owned by the tile holding the exact centroid of the full footprint (integer shoelace), outline kept whole (may overhang), base and rise from the post function over the footprint; `foreign` lists the owners of buildings overlapping the tile |
-| ground | off the curb islands asphalt; on them the climate's open land (`climate.py` from the tile centre: humid lawn, dry scrub, arid sand), Overture land use over it (`lu_ground`, larger first), then paved: Overture car parks (infrastructure `parking` polygons) and 6 m lots round commercial buildings (`LOT_KINDS`) as **lot (7)**, a downtown's buildings in 12 m of paved square, the narrow islands and the sidewalk bands (class sidewalk width past the curb) as sidewalk; a humid open hillside (slope > 0.35, 12 m from any house) **woods (9)**, rock past the cliff slope |
-| trees | yards: a 13 m lattice in global grid integers, `hash01(i, j, k ^ domain)`, 3..25 m from a building, clear of footprints + 8 / 12 m and bare ground; woodland: a 16 m lattice over the woods cells; `desert` = arid climate |
-| mask | 512 x 512 1 m cells: asphalt, sidewalk, lawn, sand, rock, waterEdge, **water (6)**, lot (7), scrub (8), woods (9) |
+| ground | off the curb islands asphalt; on them the climate's open land (`climate.py` from the tile centre: humid lawn, dry scrub, arid sand), Overture land use over it (`lu_ground`, larger first), the **beaches** over that (Overture land subtype `sand`: OSM `natural=beach / sand / dune / shingle`; a beach resort's land use too) as **beach (10)**, then paved: Overture car parks (infrastructure `parking` polygons) and 6 m lots round commercial buildings (`LOT_KINDS`) as **lot (7)**, a downtown's buildings in 12 m of paved square, the narrow islands and the sidewalk bands (class sidewalk width past the curb) as sidewalk; a humid open hillside (slope > 0.35, 12 m from any house) **woods (9)**, rock past the cliff slope (never on a beach); a beach's sand within 6 m of the water, and the water's edge band within 4 m of a beach, **wet sand (11)**; a curb island's park share leaves its beaches out (a park's beach is no lawn) |
+| trees | yards: a 13 m lattice in global grid integers, `hash01(i, j, k ^ domain)`, 3..25 m from a building, clear of footprints + 8 / 12 m and bare ground (paved, water, beach and wet sand); woodland: a 16 m lattice over the woods cells; `desert` = arid climate |
+| mask | 512 x 512 1 m cells: asphalt, sidewalk, lawn, sand (3: bare desert ground), rock, waterEdge, **water (6)**, lot (7), scrub (8), woods (9), beach (10), wetsand (11) |
 | places, water, parks | POIs owned by the tile; water and park polygons clipped, each water with its ctx `level_cm` |
 
 **Context blocks** (`context.py`, L4): `bcnt` / `pcnt` (buildings / places per 64 m cell) and `wlev` (each water
@@ -156,6 +156,11 @@ covers the tiles a run compiled itself, goes to the build log, never into `manif
 - The 8 layers are read in parallel through one duckdb database (cursors share `memory_limit` 2GB; `threads` 4; the
   object cache on; `HOMETOWN_FETCH_MEMORY` / `HOMETOWN_FETCH_THREADS`). `--no-index` / `--serial` give the old read.
 - Each region's share of each layer is split from the union locally, in parallel through the same database.
+- Since 0.8.1 a region also holds `overture-base-land.parquet` (Overture's natural features, less the coastline land
+  masses, subtype `land`: `fetch.LAYER_WHERE`); the compiler reads its sand (beaches) and refuses a region fetched
+  without it (`sources.REQUIRED_FILES`), naming `fetch.py --regions`, which for a fetched region reads only the layers it
+  has no file of (a top-up; `prewarm.py` runs it on the refusal). An index built before the layer lists no files for it:
+  that layer is read by the glob.
 - `dem.py` reads every internal tile a sample needs ahead of the loop, 16 range reads at a time
   (`HOMETOWN_DEM_THREADS`); the values are unchanged.
 
