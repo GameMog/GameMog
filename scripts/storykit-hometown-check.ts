@@ -206,6 +206,15 @@ export function runHometownChecks(ok: Ok) {
   const gun = ['the hero shot guards at the school', 'Then the hero shot.', 'He was shot, get him to the hospital', 'They shot at the school.', 'He got shot.', 'She shot him.', 'They shot them.', 'The guards shot.', 'The drone shot Marcus.', 'The two shot the guards.', 'A wide shot at the school.', 'The shot rang out.', 'Outside the school, the hero shot.', 'The master shot.', 'Shots rang out.', 'The sniper took a long shot across the schoolyard.', 'A long shot then shattered the hospital window.', 'He fired a wide shot over the school.', 'The sniper took a close shot from above the school.', 'The gunman lined up a wide shot of the clinic.', 'A close shot hit the guard.', 'A long shot, then another, rang out at the school.', 'A wide shot and the teacher at the school falls.', 'Bang: a wide shot across the schoolyard.'];
   ok('violenceIn: camera phrases are not violence', cam.every((t) => !violenceIn(t)), cam.filter((t) => violenceIn(t)).join(' | '));
   ok('violenceIn: verb "shot" (and unclear "shot") is violence', gun.every((t) => violenceIn(t)), gun.filter((t) => !violenceIn(t)).join(' | '));
+
+  // ── the browser's test drive takes a town's whole frame address (public/storykit/work.js): with room for three parts
+  // after city=pkg, a town with a bundle variant (&tv=, 13 Nov) fell back to New York and never took its key art
+  const work = readFileSync('public/storykit/work.js', 'utf8');
+  const m = /const frame0 = (\/\^.*?\$\/)\.test/.exec(work);
+  const frameRe = m ? new RegExp(m[1].slice(1, -1)) : null;
+  const town = 'city=pkg&town=us-1203275&tc=htc-0.8.0-hg1-b9120c8ae&ts=095fbb92b1411bbf0fb0d7432eb2f6cfa653bb9580943761d46e22c96d492d15&tv=district-9011-10385';
+  ok('the test drive keeps a town\'s frame with its bundle variant (town, tc, ts, tv)', !!frameRe && frameRe.test(town) && frameRe.test(town + '&') && frameRe.test('city=sf') && frameRe.test(''));
+  ok('the test drive still refuses a frame with anything else in it', !!frameRe && !frameRe.test('city=pkg&town=x&evil=<b>') && !frameRe.test('city=ny&x=1'));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
