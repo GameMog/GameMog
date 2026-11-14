@@ -19,6 +19,7 @@ import { mogBase, type PackV2 } from '../storykit/pack/gate.ts';
 import { hometownBase, townName, type CityPackage } from '../storykit/hometown/city-package.ts';
 import { classify, displayName, sensitiveWord, descriptor } from '../storykit/hometown/safety.ts';
 import { gateHometown, type HometownResult } from '../storykit/hometown/hometown-gate.ts';
+import { approachOf } from '../storykit/hometown/approach.ts';
 
 /** How many landmarks the builder reads (the rest are still the town's; a big city has over a thousand). */
 export const LANDMARKS_SHOWN = 60;
@@ -28,6 +29,7 @@ export const REAL_PLACE_RULES = `## Real places: the rules (a hometown is a real
 - **No violence at a sensitive place.** Schools and childcare, hospitals and clinics, places of worship, police and fire stations, memorials and cemeteries, and shelters (marked **sensitive** below) are never where a fight, a chase, a roadblock, lookouts, a crash or an explosion happens, and never a place in a mission that has any of those. A mission may pass by one, and a mission with no violence in it may go there (drop the medicine at the clinic). No line or label puts violence there either ("blow up the school" is refused, however it is said).
 - **No private homes.** Homes are not on the list and are never a story place. Never write a street address (a house number and a street): name the corner or the place.
 - **No real private people.** Every person is invented. Never name a real resident, owner or official.
+- **Only where a player can stand.** Nobody can enter a building in the game: every place a mission sends the player is outdoors, a street front, a lot, a park, a dock. A search on foot is held at the place's middle, so never at one marked drive-up only; a scene "inside" a place is a cutscene, never a step.
 - **No real businesses or brands.** A business is on the list by what it is ("the diner on Broadway", "the gas station on Highway 62"): call it that or give it an invented name of your own; never its real name or a chain's.`;
 
 /** The town as the builder reads it. */
@@ -37,11 +39,15 @@ export function hometownPlaceList(pkg: CityPackage): string {
   for (const p of pkg.places) {
     const c = classify(p), name = displayName(p);
     if (name === null) continue; // (a home: never offered)
+    // (a place a test drive found no player could reach: never offered; approach.ts)
+    const reach = approachOf(p);
+    if (reach === 'none') continue;
     const notes = [p.kind.replace(/_/g, ' ')];
     if (p.district) notes.push(pkg.districts.find((d) => d.id === p.district)?.name ?? p.district);
     if (c.business) notes.push(`a business: call it ${descriptor(p)} or an invented name, never its real one`);
     if (c.sensitive) notes.push(`**sensitive** (${sensitiveWord(c.sensitive)}): pass by or visit in a mission with no violence, never a target`);
     if (p.foot) notes.push('foot: off the lanes, walk there');
+    if (reach === 'car') notes.push('drive-up only: its middle is inside a building, so never an on-foot search, a collect or a tow there');
     if (pkg.lockVersion === 3 && p.inDistrict) notes.push('near the start: Mission 1 may use it');
     rows.push(`- @${p.id}: ${name} (${notes.join('; ')})`);
   }

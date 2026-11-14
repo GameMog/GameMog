@@ -206,6 +206,10 @@ const DRIVE_LIMITS = (() => {
 // that did not load; each distinct one once, Mog City wagmi/storyrun/host.js). Every error is counted, by kind, and a
 // drive with any is not a pass (lib/storykit-publish.ts: 0 page errors). Its autopilot plays every step kind and nudges
 // what sticks (Mog City wagmi/storyrun/autopilot.js), so this page only keeps time and listens.
+// A mission-fail or mission-end with `reach` (Mog City wagmi/storyrun/reach.js, the owner, 14 Nov: buildings cannot be
+// entered) is a step no player could do: a place inside a building, walled in, off the roads, or one the autopilot
+// could only finish through a wall. It is reported (`reach`), and the server's builder swaps the place for a reachable
+// one when it can (lib/storykit-reach.ts: `swap` in its answer); the drive then goes on from that mission, up to 3 times.
 const site = () => (/(^|\.)gamemog\.com$/.test(location.hostname) ? 'https://gamemog.com' : location.origin);
 const toDataUrl = (bytes) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(null); r.readAsDataURL(new Blob([bytes], { type: 'image/jpeg' })); });
 
@@ -249,7 +253,15 @@ async function driving(world, status) {
   let pauses = 0;
   // (the count rides on every drive patch: the show replaces its drive with each one)
   const errInfo = () => (errors.length ? { errors: errors.length, errorKinds: { ...errorKinds } } : {});
-  let ended = false, art = null, ready = null, failWhy = '', failAt = null, endFail = null, runtimeHidden = false;
+  let ended = false, art = null, ready = null, failWhy = '', failAt = null, endFail = null, runtimeHidden = false, reach = null;
+  // (a step no player could do, as Mog City says it: kept to the fields the server reads, lib/drive-reach.ts)
+  const reachOf = (r) => {
+    if (!r || typeof r !== 'object' || typeof r.mission !== 'string' || typeof r.why !== 'string') return null;
+    const o = {};
+    for (const k of ['mission', 'type', 'at', 'place', 'kind', 'name', 'why', 'mode', 'label']) if (typeof r[k] === 'string') o[k] = r[k].slice(0, 60);
+    for (const k of ['step', 'x', 'z']) if (Number.isFinite(r[k])) o[k] = r[k];
+    return o;
+  };
   const started = {};
   const missionOf = (id) => list.find((x) => x.id === id);
   const states = () => list.map((x) => ({ id: x.id, title: x.title, state: x.state }));
@@ -283,10 +295,10 @@ async function driving(world, status) {
         W.now = now;
         break;
       }
-      case 'mission-fail': failWhy = String(d.why || failWhy).slice(0, 240); failAt = { id: d.id, ...(typeof d.kind === 'string' ? { type: d.kind } : {}), ...(typeof d.step === 'string' ? { stepId: d.step } : {}) }; break;
+      case 'mission-fail': failWhy = String(d.why || failWhy).slice(0, 240); failAt = { id: d.id, ...(typeof d.kind === 'string' ? { type: d.kind } : {}), ...(typeof d.step === 'string' ? { stepId: d.step } : {}) }; reach = reachOf(d.reach) || reach; break;
       case 'mission-end':
         if (d.how === 'pass') { set(d.id, 'passed'); betweenAt = live; prog = { key: 'between', left: Infinity, at: live }; banked(); }
-        else if (d.how === 'fail') { failWhy = String(d.why || failWhy).slice(0, 240); endFail = d.id; }
+        else if (d.how === 'fail') { failWhy = String(d.why || failWhy).slice(0, 240); endFail = d.id; reach = reachOf(d.reach) || (reach && reach.mission === d.id ? reach : null); }
         break;
       case 'keyart':
         if (d.wide instanceof ArrayBuffer && d.square instanceof ArrayBuffer && d.wide.byteLength > 1000) {
@@ -357,6 +369,8 @@ async function driving(world, status) {
     }
     if (endFail) {
       const m = missionOf(endFail);
+      // (a step no player could do: the reason in full, it says what and where for the builder to fix)
+      if (reach && reach.mission === endFail) { stop(`"${m ? m.title : endFail}" cannot be played: ${failWhy.trim().replace(/[.!]+$/, '').slice(0, 240)}.`, { id: endFail, ...(Number.isInteger(reach.step) && reach.step >= 0 ? { step: reach.step } : {}), ...(reach.type ? { type: reach.type } : {}) }); break; }
       stop(`"${m ? m.title : endFail}" failed under the autopilot${failWhy ? `: ${failWhy.trim().replace(/[.!]+$/, '').slice(0, 160)}` : ''}.`, { id: endFail, ...(failAt && failAt.id === endFail && failAt.type ? { type: failAt.type } : now && now.id === endFail ? { ...(now.i >= 0 ? { step: now.i } : {}), ...(now.type ? { type: now.type } : {}) } : {}) });
       break;
     }
@@ -376,9 +390,9 @@ async function driving(world, status) {
   // every mission played, but Mog City reported errors on the way: said, as the reason it is not a pass
   if (!reason && errors.length) { reason = `Mog City reported ${errors.length} error${errors.length > 1 ? 's' : ''} during the test drive (${Object.entries(errorKinds).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(', ')}); the first: ${errors[0].slice(0, 160)}.`; W.driveNote = reason; report({ drive: { missions: states(), ...errInfo(), note: reason } }); }
   removeEventListener('message', onMessage);
-  W.drive = { ms: Math.round(performance.now() - t0), live: Math.round(live), hidden: Math.round(hidden), ended, reason, stuck, ready, errors: errors.slice(0, 20), errorCount: errors.length, errorKinds, pauses, art: !!art };
+  W.drive = { ms: Math.round(performance.now() - t0), live: Math.round(live), hidden: Math.round(hidden), ended, reason, stuck, ready, errors: errors.slice(0, 20), errorCount: errors.length, errorKinds, pauses, art: !!art, ...(reach ? { reach } : {}) };
   if (reason) { W.stuck = stuck; log({ stopped: reason }); }
-  return { list, errors, art, frame: f, reason, stuck, live, hidden };
+  return { list, errors, art, frame: f, reason, stuck, live, hidden, reach: reason && reach && endFail === reach.mission ? reach : null };
 }
 
 /* --------------------------------------------------------------------- art -- */
@@ -410,15 +424,31 @@ async function keyArt(art, hero) {
   await timed('voice', () => voicing(world));
   world = await getJson(`${API}/pack`);
   // (the draft's status again: what is banked is judged on the world as it is after the voices)
-  const drive = await timed('drive', async () => driving(world, await getJson(API)));
-  await timed('art', () => keyArt(drive.art, hero));
-  // the drive's frame goes: the world has been played, and its city is a gigabyte of memory
-  drive.frame?.remove();
-  // (a banked mission is the server's to carry, recordStoryReport: only what this sitting played is reported)
-  const rep = { missions: drive.list.filter((m) => !m.banked && (m.state === 'passed' || m.state === 'failed')).map((m) => ({ id: m.id, state: m.state, ...(m.ms ? { ms: m.ms } : {}) })),
-    errors: drive.errors.length, ms: Math.round(performance.now() - W.t0), stages: W.stages,
-    ...(drive.reason ? { reason: drive.reason } : {}), ...(drive.stuck ? { stuck: drive.stuck } : {}), live: Math.round(drive.live), hidden: Math.round(drive.hidden) };
-  W.report = await getJson(`${API}/report`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(rep) });
+  let drive = null, art = null, rep = null;
+  const swaps = (W.swaps = []);
+  for (;;) {
+    drive = await timed(swaps.length ? 'redrive' : 'drive', async () => driving(world, await getJson(API)));
+    art = art || drive.art;
+    // (the key art in the store before the report, which makes the draft's cover from it: stored as it arrived, else now)
+    if (art && !(art.stored && await art.stored)) art.stored = storeArt(art).then(() => true, (err) => { log({ art: String(err && err.message || err).slice(0, 160) }); return false; });
+    if (art) await art.stored;
+    // the drive's frame goes: the world has been played, and its city is a gigabyte of memory
+    drive.frame?.remove();
+    // (a banked mission is the server's to carry, recordStoryReport: only what this sitting played is reported)
+    rep = { missions: drive.list.filter((m) => !m.banked && (m.state === 'passed' || m.state === 'failed')).map((m) => ({ id: m.id, state: m.state, ...(m.ms ? { ms: m.ms } : {}) })),
+      errors: drive.errors.length, ms: Math.round(performance.now() - W.t0), stages: W.stages,
+      ...(drive.reason ? { reason: drive.reason } : {}), ...(drive.stuck ? { stuck: drive.stuck } : {}), ...(drive.reach ? { reach: drive.reach } : {}), live: Math.round(drive.live), hidden: Math.round(drive.hidden) };
+    W.report = await getJson(`${API}/report`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(rep) });
+    // (a place no player could reach, swapped by the builder for one they can (lib/storykit-reach.ts): driven again from
+    // that mission, the ones before it banked; at most 3 swaps)
+    const sw = W.report && W.report.swap;
+    if (!sw || swaps.length >= 3) break;
+    swaps.push(sw); log({ swap: sw });
+    const note = `A place in "${(drive.list.find((m) => m.id === sw.mission) || {}).title || sw.mission}" could not be reached on foot, so it moved to ${String(sw.name || 'another place').replace(/[<>&]/g, '')}. Test-driving it again...`;
+    report({ drive: { missions: drive.list.map((x) => ({ id: x.id, title: x.title, state: x.state })), note, swap: sw } }); say(note);
+    world = await getJson(`${API}/pack`);
+  }
+  await timed('art', () => keyArt(art, hero));
   W.state = 'done'; W.ms = rep.ms;
   say(W.report.status === 'passed' ? 'Done: every mission played to the end.' : `Done: ${W.report.passed} of ${W.report.of} missions played to the end.${drive.reason ? ' ' + drive.reason : ''}`);
   report({ done: true, result: { ...W.report, ...(drive.reason ? { reason: drive.reason } : {}) }, stages: W.stages });

@@ -575,6 +575,23 @@ export class StoryStore {
     return { ok: true, hash, url: blobUrl(hash, 'json'), bytes: body.length, was: prior, clips: clips.length, stored, bodies: bodies.size, worldBytes: total };
   }
 
+  /**
+   * A draft's pack replaced before it is published (lib/storykit-reach.ts: a place a test drive found no player could
+   * reach, swapped by the builder's own rule): gated as open() gates a pack (its parent's lock on a Mog), its files kept
+   * (only a place changed, so every body and clip still applies), its world sealed afresh at the next seal(). Never a
+   * kept world: that is patch().
+   */
+  repack(id: string, input: unknown): { ok: true; pack: Record<string, unknown> } | (Fail & { problems?: string[] }) {
+    const d = this.draft(id);
+    if (!d) return fail(404, 'No such draft.');
+    if (d.state === 'kept') return fail(409, 'A published world is not changed here.');
+    const parent = d.parent ? this.draft(d.parent) : undefined;
+    const g = gatePack(input, { parent: parent ? JSON.parse(parent.pack) : null, showcaseLine: !!parent && this.showcaseLine(parent.id), city: townOf(input).city });
+    if (!g.ok || !g.pack) return { ...fail(422, 'The story pack was refused.'), problems: g.problems };
+    this.db.prepare("UPDATE drafts SET pack = ?, state = 'draft', touched_at = ? WHERE id = ?").run(JSON.stringify(g.pack), this.now(), id);
+    return { ok: true, pack: g.pack as Record<string, unknown> };
+  }
+
   /** Abandon a draft now (the creator's DELETE): its rows go, then every blob nothing else points at. */
   abandon(d: DraftRow): { ok: true; freed: number } | Fail {
     if (d.state === 'kept') return fail(409, 'A published world is not deleted here.');

@@ -7,11 +7,16 @@
  * "A story plan" here is the pack's places as the missions use them: storyPlan(pack) lists every place a pack names,
  * where, in which mission and in what role (target: a fight, chase, roadblock, lookouts or patrol is set there; visit:
  * the hero goes there; scene: a camera or a backdrop looks at it).
+ *
+ * And the reach rule (the owner, 14 Nov: buildings cannot be entered; approach.ts): no step is held where a player cannot
+ * get, an on-foot search, a collect or a tow at the middle of a parking structure, or anything at a place a test drive
+ * found unreachable (the package marks those, lib/storykit-reach.ts withDriveReach).
  */
 import { gatePack, type GateResult, type PackV2 } from '../pack/gate.ts';
 import type { CityTable, Place } from '../pack/cities.ts';
 import { packageProblems, cityLock, cityBuildOf, type CityPackage } from './city-package.ts';
 import { classify, displayName, safetyProblems, type Ref } from './safety.ts';
+import { approachProblems } from './approach.ts';
 
 /** The step kinds that make a mission violent, and whose own places are targets. */
 export const VIOLENT_STEPS = new Set(['fight', 'pursuit', 'roadblock', 'stealth', 'patrol']);
@@ -109,7 +114,8 @@ export function gateHometown(input: unknown, pkg: CityPackage, opts: { parent?: 
   if (opts.meta?.blurb) texts.push({ at: 'meta.blurb', text: opts.meta.blurb });
   const safety = pack && typeof pack === 'object' ? safetyProblems({ pkg, refs: plan, violentMissions: violentMissions(pack), texts, aliases: pack.places ?? {} }) : [];
   const district = pack && typeof pack === 'object' ? districtProblems(pack, pkg, plan) : [];
-  const problems = [...gated.problems, ...safety, ...district];
+  const reach = pack && typeof pack === 'object' ? approachProblems(pack, pkg) : [];
+  const problems = [...gated.problems, ...safety, ...district, ...reach];
   return { ...gated, ok: problems.length === 0, problems, pack: problems.length ? null : gated.pack, safety, plan };
 }
 

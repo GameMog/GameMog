@@ -63,6 +63,11 @@ function roadsOf(GEO: Json) {
  * keys Mog City's world builds them under (wagmi/world/pkg.js buildPlaces) plus the arrivals as "pkg_<k>" (its
  * TELEPORT_LOCATIONS, PLACE_DATA.regional), the parts of town are the compiler's arrivals, the landmarks its public places.
  */
+/** A compiled place's middle (cx, cz) and the compiler's reach flag (approach), when it has them (storykit/hometown/approach.ts). */
+export function middleOf(p: Json): Pick<PackagePlace, 'cx' | 'cz' | 'approach'> {
+  const ok = Number.isFinite(p?.cx) && Number.isFinite(p?.cz);
+  return { ...(ok ? { cx: Number(p.cx), cz: Number(p.cz) } : {}), ...(p?.approach === 'foot' || p?.approach === 'car' || p?.approach === 'none' ? { approach: p.approach } : {}) };
+}
 export function cityPackageOf(g: Geodata, town: { placeId: string; name: string; stateName: string }): CityPackage {
   const P = g.PKG, lock = storyLock(P.lock as ServiceLock);
   if (!lock) throw new Error('the bundle has no lock v2 or v3');
@@ -78,7 +83,7 @@ export function cityPackageOf(g: Geodata, town: { placeId: string; name: string;
   }
   for (const [k, p] of Object.entries((P.places || {}) as Record<string, Json>)) {
     if (!/^[a-z0-9][a-z0-9_-]{0,39}$/.test(k)) continue;
-    places.push({ id: k, kind: String(p.kind), name: nameCase(String(p.name)).slice(0, 80), x: p.x, z: p.z, heading: p.heading, tags: [`overture=${p.kind}`] });
+    places.push({ id: k, kind: String(p.kind), name: nameCase(String(p.name)).slice(0, 80), x: p.x, z: p.z, heading: p.heading, tags: [`overture=${p.kind}`], ...middleOf(p) });
   }
   const landmarks: PackageLandmark[] = places.filter((p) => p.kind !== 'arrival' && !classify(p).business && !classify(p).residence)
     .map((p) => ({ id: p.id, name: p.name, kind: p.kind, x: p.x, z: p.z }));
