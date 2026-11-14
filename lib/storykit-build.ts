@@ -19,6 +19,7 @@ import { storykitMc } from './storykit-publish';
 import { hometownSystem, hometownTurn, checkHometownReply } from './storykit-hometown';
 import { townName, type CityPackage } from '../storykit/hometown/city-package.ts';
 import { cityPackageByLock } from './hometown/towns';
+import { withDriveReach } from './drive-reach';
 
 /**
  * The Story Kit builder (4 Nov 2026; .scratch/storykit/STORY-KIT-PLAN.md 2.2 stage 1 and 5): GameMog's build route
@@ -605,8 +606,11 @@ export async function generateStorykit(
   if (sk.mog && !parent) return emit({ type: 'error', error: 'The story world you are mogging could not be read.' });
   // a hometown (base.city 'hometown'): a Create in the town the build route read (sk.town), or a Mog of a hometown world,
   // whose town is read by its parent's lock (never the town's current build): the town is locked
-  const town: CityPackage | null = sk.town ?? (parent?.base.city === 'hometown' ? cityPackageByLock(parent.base.hometown) : null);
-  if (parent?.base.city === 'hometown' && !town) return emit({ type: 'error', error: 'The town this story world is set in could not be read.' });
+  const town0: CityPackage | null = sk.town ?? (parent?.base.city === 'hometown' ? cityPackageByLock(parent.base.hometown) : null);
+  if (parent?.base.city === 'hometown' && !town0) return emit({ type: 'error', error: 'The town this story world is set in could not be read.' });
+  // (with what the town's test drives found: a place no player could reach never offered, and refused by the gate; a
+  // parking structure whose middle was inside a building, drive-up only: lib/drive-reach.ts, storykit/hometown/approach.ts)
+  const town: CityPackage | null = town0 ? withDriveReach(town0, { place: town0.placeId, compiler: town0.compilerVersion }) : null;
   const city = (town ? 'hometown' : parent?.base.city ?? sk.city) as CityId;
   if (!town) {
     if (!city || !PLACES[city]) return emit({ type: 'error', error: 'Pick a city for the story world.' });
