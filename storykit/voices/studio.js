@@ -6,15 +6,19 @@
 //                            (storykit-draft:<id>); each clip is PUT to /api/storykit/drafts/<id>/files/voice/<name>
 //   studio.html?pack=<id>    a committed repo pack (public/storykit/packs/<id>.json), on the local dev server only:
 //                            the same address with the id repo-<id>, stored beside the pack
+//   studio.html?revoice=<slug> the owner's: a published story world's lines with no clip (its plan from
+//                            /api/storykit/admin/revoice, the owner's session), recorded here and kept in this tab
+//                            (window.__studio.collected: each clip's bytes and its entry in the world's voice.clips), never
+//                            stored one by one: the owner's page (public/storykit/revoice.js) sends them as one patch
 //   &model=local             the model and its runtime from this server (npm run storykit:voice-files) instead of
 //                            Hugging Face and jsDelivr, for working offline
 import { createVoicePass, LOCAL_FILES } from './browser-voice-pass.js';
 import { encodeClip } from './clip-codec.js';
 
-const Q = new URLSearchParams(location.search), draft = Q.get('draft') || '', id = draft || Q.get('pack') || '';
+const Q = new URLSearchParams(location.search), draft = Q.get('draft') || '', revoice = Q.get('revoice') || '', id = draft || revoice || Q.get('pack') || '';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const S = (window.__studio = { pack: id, draft: !!draft, state: 'loading', lines: 0, todo: 0, made: [], failed: [], log: [] });
+const S = (window.__studio = { pack: id, draft: !!draft, revoice: !!revoice, state: 'loading', lines: 0, todo: 0, made: [], failed: [], collected: [], log: [] });
 const log = (x) => { S.log.push(x); if (S.log.length > 200) S.log.shift(); };
 const token = (() => {
   if (!draft) return null;
@@ -24,14 +28,16 @@ const token = (() => {
   try { return t || sessionStorage.getItem(key); } catch { return t; }
 })();
 const FILES = `/api/storykit/drafts/${draft || `repo-${id}`}/files/voice/`;
-const PACK_URL = draft ? `/api/storykit/drafts/${draft}/pack` : `/storykit/packs/${id}.json`;
+const PACK_URL = draft ? `/api/storykit/drafts/${draft}/pack` : revoice ? `/api/storykit/admin/revoice?slug=${encodeURIComponent(revoice)}` : `/storykit/packs/${id}.json`;
 
 async function manifest(pack) {
   if (pack.voice && pack.voice.clips) return { clips: { ...pack.voice.clips } };
   try { const r = await fetch(`/storykit/packs/${id}/voice/manifest.json`, { cache: 'no-store' }); if (r.ok) { const m = await r.json(); if (m && m.clips) return m; } } catch {}
   return { clips: {} };
 }
-const clipUrl = (plan, c) => c.url || `/storykit/${plan.dir}${c.file}?v=${c.bytes}`;
+// (a clip recorded for a revoice is not stored yet: it plays from this tab)
+const clipUrl = (plan, c) => c.local || c.url || `/storykit/${plan.dir}${c.file}?v=${c.bytes}`;
+const hex = (b) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
 
 // What the creator reads when the voices can't be made here. The model comes from Hugging Face, so a failed download
 // is said plainly, without the browser's own error text.
@@ -43,10 +49,10 @@ function fallbackNote(reason = '') {
 function fail(msg) { S.state = 'error'; S.error = msg; $('#st').innerHTML = `<b>${esc(msg)}</b>`; }
 
 (async () => {
-  if (draft ? !/^[0-9a-f-]{36}$/.test(draft) : !/^[a-z0-9][a-z0-9-]{1,39}$/.test(id)) return fail('Open this page with ?draft=<draft id> or ?pack=<pack id>.');
+  if (draft ? !/^[0-9a-f-]{36}$/.test(draft) : revoice ? !/^[a-z0-9-]{1,80}$/.test(revoice) : !/^[a-z0-9][a-z0-9-]{1,39}$/.test(id)) return fail('Open this page with ?draft=<draft id> or ?pack=<pack id>.');
   if (draft && !token) return fail('This page needs the draft\'s token: open it from the world you are making.');
   let pack;
-  try { const r = await fetch(PACK_URL, { cache: 'no-store' }); if (!r.ok) throw 0; pack = await r.json(); } catch { return fail(draft ? `No draft ${draft}.` : `No built pack called ${id} (npm run storykit:pack -- ${id}).`); }
+  try { const r = await fetch(PACK_URL, { cache: 'no-store', credentials: 'same-origin' }); if (!r.ok) throw 0; pack = await r.json(); } catch { return fail(draft ? `No draft ${draft}.` : revoice ? `No published story world ${revoice} (sign in at /admin first: the owner only).` : `No built pack called ${id} (npm run storykit:pack -- ${id}).`); }
   const plan = pack.voice;
   if (!plan || !plan.lines) return fail(`${id} has no voice plan: build it again (npm run storykit:pack -- ${id}).`);
   document.title = `${pack.title} voices`;
@@ -82,6 +88,17 @@ function fail(msg) { S.state = 'error'; S.error = msg; $('#st').innerHTML = `<b>
     async onClip(line, clip) {
       const l = plan.lines.find((x) => x.id === line.id); if (!l) return;
       const file = `${l.clip}.${clip.ext}`;
+      if (revoice) {
+        // (kept in this tab with the entry the world's voice.clips gets, as the store would write it: StoryStore.put/world)
+        const bytes = new Uint8Array(await clip.blob.arrayBuffer()), sha = hex(await crypto.subtle.digest('SHA-256', bytes));
+        const entry = { file, url: `/storykit/f/${sha}.${clip.ext}`, bytes: bytes.length, line: l.id, who: l.who, voice: l.voice, codec: clip.ext === 'ogg' ? 'opus' : 'pcm16',
+          secs: clip.seconds, renderMs: Math.round(clip.renderMs || 0), encodeMs: Math.round(clip.encodeMs || 0), device: pass.device || S.device || null, dtype: S.dtype || null };
+        S.collected.push({ clip: l.clip, ext: clip.ext, bytes, entry });
+        man.clips[l.clip] = { ...entry, local: URL.createObjectURL(clip.blob) };
+        S.made.push({ line: l.id, file, secs: clip.seconds, bytes: bytes.length, codec: entry.codec, renderMs: clip.renderMs ?? null, encodeMs: clip.encodeMs ?? null, cached: clip.cached });
+        show(l, 'ready', `${clip.seconds.toFixed(1)} s · ${(bytes.length / 1024).toFixed(1)} KB · not sent yet`);
+        return;
+      }
       const r = await fetch(FILES + file, { method: 'PUT', body: clip.blob, headers: { 'content-type': clip.blob.type, ...(token ? { authorization: `Bearer ${token}` } : {}),
         'x-voice-secs': String(clip.seconds), 'x-voice-render-ms': String(Math.round(clip.renderMs || 0)), 'x-voice-encode-ms': String(Math.round(clip.encodeMs || 0)),
         'x-voice-device': String(pass.device || S.device || ''), 'x-voice-dtype': String(S.dtype || '') } });

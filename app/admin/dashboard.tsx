@@ -2,10 +2,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AdminBuild, AdminScore, AdminWorld, Kpis, McKpis, McStats, Range, Row, Stats } from '@/lib/analytics';
-import { repinStory, setScore, setWorld, signOut } from './actions';
+import type { AdminBuild, AdminScore, AdminWorld, WorldVisibility, Kpis, McKpis, McStats, Range, Row, Stats } from '@/lib/analytics';
+import { repinStory, setScore, setVisibility, signOut } from './actions';
 import { LineChart } from './chart';
-import { Bar, BlurIn, MorphButton, Num, Segmented, Toasts, Toggle, useToast, type Busy } from './motion';
+import { Bar, BlurIn, MorphButton, Num, Segmented, Toasts, useToast, type Busy } from './motion';
 import { Palette, type Command } from './palette';
 import type { KartReportRow } from '@/lib/kart-report';
 import type { DareLoop, LoopWindow } from '@/lib/funnel';
@@ -86,14 +86,17 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
     return () => window.removeEventListener('keydown', k);
   }, []);
 
-  const publish = useCallback(async (w: AdminWorld, live: boolean, quiet = false) => {
-    setWorlds((all) => all.map((x) => (x.id === w.id ? { ...x, hidden: live ? 0 : 1 } : x)));
+
+  // who can open a world: live (listed), link (unlisted: anyone with the link), owner (only this session)
+  const visibility = useCallback(async (w: AdminWorld, v: WorldVisibility) => {
+    const next = { hidden: v === 'live' ? 0 : 1, unlisted: v === 'link' ? 1 : 0 }, was = { hidden: w.hidden, unlisted: w.unlisted };
+    setWorlds((all) => all.map((x) => (x.id === w.id ? { ...x, ...next } : x)));
     try {
-      if (!(await setWorld(w.id, !live))) throw new Error('missing');
-      if (!quiet) toast(live ? `${w.title} is live again` : `${w.title} is unpublished`, { label: 'Undo', run: () => publish(w, !live, true) });
+      if (!(await setVisibility(w.id, v))) throw new Error('missing');
+      toast(v === 'live' ? `${w.title} is live` : v === 'link' ? `${w.title}: anyone with the link can play it` : `${w.title}: only you can open it`);
       router.refresh();
     } catch {
-      setWorlds((all) => all.map((x) => (x.id === w.id ? { ...x, hidden: live ? 1 : 0 } : x)));
+      setWorlds((all) => all.map((x) => (x.id === w.id ? { ...x, ...was } : x)));
       toast('That did not save. Try again.');
     }
   }, [router, toast]);
@@ -103,11 +106,12 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
     ...RANGE_ITEMS.map((r) => ({ id: `range-${r.id}`, label: RANGE_COMMANDS[r.id], group: 'Range', always: true, run: () => { setRange(r.id); setTab((t) => (ranged(t) ? t : 'overview')); } })),
     { id: 'refresh', label: 'Refresh the numbers', group: 'Data', always: true, run: () => { router.refresh(); toast('Numbers refreshed'); } },
     ...worlds.flatMap((w) => [
-      { id: `pub-${w.id}`, label: `${w.hidden ? 'Restore' : 'Unpublish'} ${w.title}`, group: kindOf(w), run: () => publish(w, !!w.hidden) },
+      { id: `pub-${w.id}`, label: `${w.hidden ? 'Make live' : 'Make only-me'} ${w.title}`, group: kindOf(w), run: () => visibility(w, w.hidden ? 'live' : 'owner') },
+      { id: `link-${w.id}`, label: `Link only: ${w.title}`, group: kindOf(w), run: () => visibility(w, 'link') },
       { id: `open-${w.id}`, label: `Open ${w.title}`, group: 'Page', run: () => window.open(`/g/${w.slug}`, '_blank', 'noopener') },
     ]),
     { id: 'signout', label: 'Sign out', group: 'Account', always: true, run: async () => { await signOut(); router.refresh(); } },
-  ], [worlds, publish, router, toast]);
+  ], [worlds, visibility, router, toast]);
 
   const s = stats[range];
   const hiddenCount = worlds.filter((w) => w.hidden).length;
@@ -134,7 +138,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
         <BlurIn k={ranged(tab) ? `${tab}-${range}` : tab}>
           {tab === 'overview' && <Overview s={s} slots={slots} storykit={storykit} towns={towns} storyTowns={storyTowns} />}
           {tab === 'dares' && <Dares loop={loop} />}
-          {tab === 'worlds' && <Worlds worlds={worlds} hidden={hiddenCount} publish={publish} />}
+          {tab === 'worlds' && <Worlds worlds={worlds} hidden={hiddenCount} visibility={visibility} />}
           {tab === 'builds' && <Builds builds={builds} titles={new Map(worlds.map((w) => [w.slug, w.title]))} />}
           {tab === 'names' && <Names scores={scores} setScores={setScores} />}
           {tab === 'traffic' && <Traffic s={s} />}
@@ -276,6 +280,7 @@ function StoryKitCard({ k }: { k: StoryKitAdmin }) {
         ? `New story worlds are paused: the store is past its guard (${guardPct}% of ${mb(k.disk)}). Published worlds still play. Raise STORYKIT_DISK_MB if the disk has room, or move the store off the disk.`
         : `New story worlds stop at ${guardPct}% (${mb(k.guard)}), ${mb(Math.max(0, k.guard - k.used))} from now; drafts already open can finish. STORYKIT_DISK_MB sets the size.`}</p>
       <p className="fine">A published story world with no key art (its test drive never played it): <a href="/storykit/keyart.html">take its key art</a> in this browser.</p>
+      <p className="fine">A published story world whose lines have no voice (every hometown story before 14 Nov): <a href="/storykit/revoice.html">record its voices</a> in this browser.</p>
     </section>
   );
 }
@@ -429,7 +434,7 @@ function Dares({ loop }: { loop: DareLoop }) {
 }
 
 /* -------------------------------------------------------------- worlds -- */
-function Worlds({ worlds, hidden, publish }: { worlds: AdminWorld[]; hidden: number; publish: (w: AdminWorld, live: boolean) => void }) {
+function Worlds({ worlds, hidden, visibility }: { worlds: AdminWorld[]; hidden: number; visibility: (w: AdminWorld, v: WorldVisibility) => void }) {
   const [show, setShow] = useState<'all' | 'live' | 'hidden'>('all');
   const [q, setQ] = useState('');
   const list = worlds.filter((w) => (show === 'all' || (show === 'hidden') === !!w.hidden) && `${w.title} ${w.prompt ?? ''} ${w.mog_prompt ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()));
@@ -438,7 +443,7 @@ function Worlds({ worlds, hidden, publish }: { worlds: AdminWorld[]; hidden: num
       <div className="tools">
         <input className="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search titles and prompts" aria-label="Search worlds" />
         <Segmented label="Show" pill value={show} onChange={setShow}
-          items={[{ id: 'all', label: 'All' }, { id: 'live', label: 'Live' }, { id: 'hidden', label: 'Unpublished' }] as const}
+          items={[{ id: 'all', label: 'All' }, { id: 'live', label: 'Live' }, { id: 'hidden', label: 'Not live' }] as const}
           counts={{ hidden }} />
       </div>
       <ul className="rows">
@@ -450,7 +455,10 @@ function Worlds({ worlds, hidden, publish }: { worlds: AdminWorld[]; hidden: num
               <p className="row-s">{w.parent_title ? `Mog of ${w.parent_title}: ${w.mog_prompt ?? ''}` : !w.prompt || w.prompt.startsWith('first-party world') ? 'First-party world, published by GameMog' : w.prompt}</p>
               <p className="row-n">{w.plays.toLocaleString('en-US')} loads · {w.players} finished · {w.up} up, {w.down} down · {w.mogs} Mogs · {ago(w.created_at)}</p>
             </div>
-            <label className="row-live"><span>{w.hidden ? 'Unpublished' : 'Live'}</span><Toggle on={!w.hidden} onChange={(on) => publish(w, on)} label={`${w.title} is live`} /></label>
+            <div className="row-live" title="Live: on GameMog's lists. Link only: off every list, but anyone with its link can play it. Only me: its link is 'not found' for everyone but you.">
+              <Segmented label={`Who can open ${w.title}`} pill value={(w.hidden ? (w.unlisted ? 'link' : 'owner') : 'live') as WorldVisibility} onChange={(v) => visibility(w, v)}
+                items={[{ id: 'live', label: 'Live' }, { id: 'link', label: 'Link only' }, { id: 'owner', label: 'Only me' }] as const} />
+            </div>
           </li>
         ))}
         {!list.length && <li className="none">No worlds match.</li>}

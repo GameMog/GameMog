@@ -301,10 +301,13 @@ export function mcStats(range: Range, now = Date.now()): McStats {
 // browser, which takes plain objects only, hence the spreads below.
 export type AdminWorld = {
   id: string; slug: string; title: string; format: string; featured: number; plays: number; created_at: number; hidden: number;
+  /** 1: hidden from every list but open to anyone with the link (lib/db.ts getUnlistedGameBySlug) */
+  unlisted: number;
   parent_title: string | null; prompt: string | null; mog_prompt: string | null; players: number; up: number; down: number; mogs: number;
 };
 export const adminWorlds = () => db.prepare(`
   SELECT g.id, g.slug, g.title, g.format, g.featured, g.plays, g.created_at, g.hidden, g.prompt, g.mog_prompt,
+    COALESCE(json_extract(g.meta, '$.unlisted'), 0) AS unlisted,
     (SELECT p.title FROM games p WHERE p.id = g.parent_id) AS parent_title,
     (SELECT COUNT(*) FROM plays p WHERE p.game_id = g.id) AS players,
     (SELECT COUNT(*) FROM votes v WHERE v.game_id = g.id AND v.value = 1) AS up,
@@ -344,5 +347,17 @@ export const adminScores = (limit = 120) => db.prepare(`
 
 export const setWorldHidden = (id: string, hidden: boolean) =>
   db.prepare('UPDATE games SET hidden = ? WHERE id = ?').run(hidden ? 1 : 0, id).changes > 0;
+/**
+ * Who can open a world (the owner, 14 Nov: "I need to have control over that"):
+ *   live   listed: home, lists, search, Mogs (hidden 0)
+ *   link   unlisted: in no list, but anyone with its link can play it (hidden 1, meta.unlisted 1)
+ *   owner  only the owner's session can open it; its link is "not found" for everyone else (hidden 1, no unlisted)
+ */
+export type WorldVisibility = 'live' | 'link' | 'owner';
+export const setWorldVisibility = (id: string, v: WorldVisibility) =>
+  db.prepare(v === 'link'
+    ? "UPDATE games SET hidden = 1, meta = json_set(COALESCE(meta, '{}'), '$.unlisted', 1) WHERE id = ?"
+    : "UPDATE games SET hidden = ?, meta = CASE WHEN meta IS NULL THEN NULL ELSE json_remove(meta, '$.unlisted') END WHERE id = ?")
+    .run(...(v === 'link' ? [id] : [v === 'live' ? 0 : 1, id])).changes > 0;
 export const setScoreHidden = (id: number, hidden: boolean) =>
   db.prepare('UPDATE scores SET hidden = ? WHERE id = ?').run(hidden ? 1 : 0, id).changes > 0;

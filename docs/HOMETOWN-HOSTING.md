@@ -469,6 +469,9 @@ In this order (a push of `main` restarts the web and stops builds in flight, so 
 6. **Story worlds with no key art** (published while the test drive played the wrong city, before work.js read the
    town's four-part frame): open `/storykit/keyart.html` in the owner's /admin browser; it lists them, and each one's
    link plays that world in Mog City and keeps its key art (below, "Key art again").
+7. **Story worlds with no voices** (every hometown story published before the voice plan read the town's table, 14 Nov:
+   sealed with no lines, so the cast spoke only the placeholder mumble): open `/storykit/revoice.html` in the owner's
+   /admin browser and record each one (below, "Voices again").
 
 ### Key art again
 
@@ -484,6 +487,22 @@ browser takes it again:
 3. They are sent to `POST /api/storykit/admin/keyart` (owner only): checked as JPEG frames, stored as the game's cover
    (the plain frame) and art, and titled in Mog City's lockup (`titleStoryArt`). The world, its plays and its Mogs are
    unchanged. `/g/<slug>/cover` is cached up to an hour.
+
+### Voices again
+
+Every hometown story published before 14 Nov (fbc60528) was sealed with an empty voice plan: `voicePlanOf` gated the pack
+without the town's table, the gate refused it before it listed a line, the creator's voice studio recorded nothing, and
+the cast spoke only Mog City's placeholder mumble. The voices are made by Kokoro in a browser (the server has no model),
+so the owner's browser records them:
+
+1. Sign in at `/admin` (the Story Kit card links the page), then open `/storykit/revoice.html`: the published story worlds
+   whose voice plan (the pack's, with its town's table: `StoryStore.voiceGap`) has lines with no clip, each a link.
+2. `?slug=<slug>` runs the voice studio in the page (`studio.html?revoice=<slug>`: the creator's pass and codec, the
+   model from Hugging Face; WebGPU or WASM) over the missing lines and keeps the clips in the tab.
+3. They are sent as the owner's patch (`POST /api/storykit/admin/patch`, at most 48 clips a patch, each patch the world
+   as the last one left it): the world as it is, its `voice` the pack's plan with every clip. `StoryStore.patch` checks
+   the lines against that plan and each clip against a line; nothing else of the world changes, the old world is kept
+   (patching back is a patch with it), and Mogs of the world inherit the clips. `/g/<slug>` plays them at once.
 
 ## Compiler upgrade
 
