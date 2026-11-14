@@ -327,6 +327,20 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
   //    A Hometown town in the warm band (tools/hometown/compile.py TREE_CLASS 6..10) adds royal, coconut and sabal palms
   //    (their trunk field a height share), sea grape, and clipped hedge blocks whose fourth field is their yaw (degrees)
   const SPECIES_OF = [0, 3, 4, 2, 5, 1, 6, 7, 8, 9, 10]; // tree-classes.json class -> trees.js species
+  // (r7) a smooth 0..1 field over the ground: value noise on a `cell` m lattice (hashed corners, smoothstepped), for a
+  // hedge's height and colour to drift along its run; and its colour from it: stretches lighter and yellower (new growth,
+  // a different shrub) or darker
+  const hedgeField = (x, z, cell, seed) => {
+    const fx = x / cell, fz = z / cell, i = Math.floor(fx), j = Math.floor(fz);
+    const h = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7 + seed * 74.7) * 43758.5453; return v - Math.floor(v); };
+    const sx = (fx - i) * (fx - i) * (3 - 2 * (fx - i)), sz = (fz - j) * (fz - j) * (3 - 2 * (fz - j));
+    const a = h(i, j) + (h(i + 1, j) - h(i, j)) * sx, b = h(i, j + 1) + (h(i + 1, j + 1) - h(i, j + 1)) * sx;
+    return a + (b - a) * sz;
+  };
+  const hedgeTint = (x, z) => {
+    const f = hedgeField(x, z, 15, 3);
+    return f > 0.55 ? [0x6f8c3c, Math.min(0.6, (f - 0.55) * 1.5)] : f < 0.3 ? [0x2c4420, Math.min(0.5, (0.3 - f) * 1.6)] : null;
+  };
   const HEDGE = 10;
   const TREE_SNAP = 2;
   const sites = [];
@@ -349,10 +363,13 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
     }
     if (cls === HEDGE) {
       // (a yaw of 180 or more: a hedge wall, the compiler's 0.8.2 hedges along the main roads and round the car parks:
-      // the same block 1.4 x as tall (2.4 m), 1.4 m thick, 2.6 m long; an older engine draws it as a plain hedge)
+      // r7: 2.6 m blocks 1.15 m thick and 1.8 to 2.2 m tall, the height drifting along the run (hedgeField: a smooth
+      // field over the ground, so neighbouring blocks differ by centimetres and a run rises and dips over tens of
+      // metres), not one 2.4 m wall; an older engine draws it as a plain hedge)
       const wall = dbh >= 180;
-      sites.push({ x, y: groundAt(x, z) + CURB_H - 0.05, z, scale: wall ? 1.4 : 1, sx: wall ? 0.82 : 1, species: SPECIES_OF[cls],
-        yaw: ((dbh % 180) * Math.PI) / 180, tier: 2, exact: true, wall });
+      const hgt = wall ? 1.8 + 0.42 * (0.65 * hedgeField(x, z, 11, 1) + 0.35 * hedgeField(x, z, 4.5, 2)) : 0;
+      sites.push({ x, y: groundAt(x, z) + CURB_H - 0.05, z, scale: 1, sx: wall ? 1.15 : 1, sz: wall ? 1.15 : 1, sy: wall ? hgt / 1.7 : 1,
+        species: SPECIES_OF[cls], yaw: ((dbh % 180) * Math.PI) / 180, tier: 2, exact: true, wall, mix: hedgeTint(x, z) });
       continue;
     }
     const s = cls === 2 ? 0.75 + Math.min(dbh, 30) / 120 : cls >= 6 && cls <= 8 ? 0.78 + Math.min(dbh, 42) / 110 : cls === 9 ? 0.75 + Math.min(dbh, 42) / 90
