@@ -320,13 +320,14 @@ PARK_HEDGE_CLEAR = 2.5
 # a beach or open land). Every street hedge and car-park wall has a gap where a road or path crosses its line (a driveway,
 # a lot entrance, a footway: any Overture segment but its own street within DRIVE_GAP m, running across it, cos < 0.7).
 # Trees rise over a street's hedge wall: a station every HEDGE_TREE_STEP m HEDGE_TREE_BACK m behind it, planted on
-# HEDGE_TREE_P of them, a ficus or a sea grape (kind 5, deduped 5 m, none within 2.5 m of a street palm's raw station)
+# HEDGE_TREE_P of them, a ficus (HEDGE_TREE_FICUS of them) or a sea grape (kind 5, deduped 5 m, none within 2.5 m of a street palm's raw station)
 FRONT_LU = ('residential', 'developed')
 FRONT_LU_BACK = 4.0
 DRIVE_GAP = 3.0
 HEDGE_TREE_STEP = 8.0
 HEDGE_TREE_BACK = 2.6
 HEDGE_TREE_P = 0.7
+HEDGE_TREE_FICUS = 0.25   # (the rest sea grape: a ficus's near level costs about three sea grapes' triangles)
 # (r7, 0.10.1) the warm band's planting strip: a trunk or primary road's sidewalk stands STRIP_M m back from the curb,
 # grass between (the strip the street's palms and signs stand in), on each side that has a sidewalk
 STRIP_ROADS = ('trunk', 'primary')
@@ -2954,7 +2955,7 @@ def warm_plantings(Wd, warm, pieces, a, narrow_m, btree, deck_tree, c, r):
                         if kind == 5:
                             if hash01(sk, sd * 100003 + k, 48 ^ d.index) >= HEDGE_TREE_P:
                                 continue
-                            kc = TREE_CLASS['ficus'] if hash01(sk, sd * 100003 + k, 49 ^ d.index) < 0.5 else TREE_CLASS['seagrape']
+                            kc = TREE_CLASS['ficus'] if hash01(sk, sd * 100003 + k, 49 ^ d.index) < HEDGE_TREE_FICUS else TREE_CLASS['seagrape']
                         else:
                             kc = cls
                         raw[kind].append(((p['seg'], p['i'], gi, sd, k), x, z, kc, yaw, tx, tz, -tz * side, tx * side, front, p['seg']))
