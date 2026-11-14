@@ -30,7 +30,13 @@ import { HOMETOWN, type HometownLock } from '../pack/cities.ts';
 
 export type PackagePlace = { id: string; kind: string; name: string; x: number; z: number; tags: string[]; foot?: boolean; heading?: number; district?: string;
   /** inside the spawn district (5 x 5 tiles round the spawn, less 300 m): built first, so mission 1 may use it (lock v3) */
-  inDistrict?: boolean };
+  inDistrict?: boolean;
+  /** the place's middle (x, z is its street front, on its lane): where Mog City holds an on-foot search, a collect or a
+   *  tow; absent on an older package */
+  cx?: number; cz?: number;
+  /** how a player reaches it (storykit/hometown/approach.ts): the compiler's own when its data says (the hook for the
+   *  town source's reach flags); 'none' also for a place a test drive found unreachable (lib/storykit-reach.ts) */
+  approach?: 'foot' | 'car' | 'none' };
 export type PackageLandmark = { id: string; name: string; kind: string; x: number; z: number; tags?: string[] };
 export type District = { id: string; name: string; x: number; z: number };
 export type SpawnPoint = { id: string; x: number; z: number; heading: number; mode?: 'car' | 'foot'; name?: string; inDistrict?: boolean };

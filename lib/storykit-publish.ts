@@ -17,6 +17,7 @@ import { storyUpgradeWith, upgradeWords, frameMoved, type StoryUpgrade, type Upg
 import { cityTableOf, storyPlan, playerTexts, violentMissions } from '../storykit/hometown/hometown-gate.ts';
 import { safetyProblems } from '../storykit/hometown/safety.ts';
 import { cityBuildOf, townName } from '../storykit/hometown/city-package.ts';
+import { readReach, type DriveReach } from './drive-reach';
 
 /**
  * A Story Kit world from its draft to its game (STORYKIT=on): what the creator's browser reports after its work, what
@@ -300,6 +301,9 @@ export type DriveReport = {
   /** why the drive stopped short (public/storykit/work.js: a stuck or failed mission, a world that did not load, a tab
    * left in the background), and where: the mission, its step and kind. `live`/`hidden`: ms the tab was in front / not */
   reason?: string; stuck?: { id: string; step?: number; type?: string }; live?: number; hidden?: number;
+  /** a step no player could do (Mog City's reach check, MogCity wagmi/storyrun/reach.js): the builder's to fix,
+   * lib/storykit-reach.ts afterDriveReach */
+  reach?: DriveReach;
   /** a mission passed while the drive goes on (work.js banked): what it passed so far, never a verdict on the rest */
   partial?: boolean;
 };
@@ -320,12 +324,13 @@ export function readDriveReport(x: unknown): DriveReport | null {
   const stuck = st && typeof st === 'object' && typeof st.id === 'string' && /^[A-Za-z0-9_.-]{1,40}$/.test(st.id)
     ? { id: st.id, ...(Number.isInteger(st.step) ? { step: st.step as number } : {}), ...(typeof st.type === 'string' && /^[a-zA-Z]{1,24}$/.test(st.type) ? { type: st.type } : {}) } : null;
   const ms = (k: string) => (Number.isFinite(r[k]) ? { [k]: Math.max(0, Math.round(r[k] as number)) } : {});
-  return { missions, errors: r.errors as number, ...ms('ms'), ...(Object.keys(stages).length ? { stages } : {}),
+  const reach = readReach(r.reach);
+  return { missions, errors: r.errors as number, ...ms('ms'), ...(Object.keys(stages).length ? { stages } : {}), ...(reach ? { reach } : {}),
     ...(typeof r.reason === 'string' && r.reason.trim() ? { reason: r.reason.trim().slice(0, 400) } : {}), ...(stuck ? { stuck } : {}), ...ms('live'), ...ms('hidden'), ...(r.partial === true ? { partial: true } : {}) };
 }
 
 /** The world a test drive plays, without its art (key art and headshots change between sittings; the play does not). */
-function playHashOf(storeId: string): string | null {
+export function playHashOf(storeId: string): string | null {
   const w = storyStore().world(storeId); if (!w) return null;
   delete w.art;
   return createHash('sha256').update(JSON.stringify(w)).digest('hex');
@@ -368,7 +373,7 @@ export async function recordStoryReport(storeId: string, pack: { title?: unknown
   // (a partial report, a mission passed with the drive still going: not a failure until the drive says so)
   const status = ok ? 'passed' : rep.partial && rep.errors === 0 ? 'unverified' : 'failed';
   const next: Record<string, unknown> = { ...report, ran: true, status, codeHash: codeHash(d.code), levelReached: passed.size,
-    drive: { missions, want: want.length, passed: passed.size, errors: rep.errors, ms: rep.ms ?? null, stages: rep.stages ?? null, reason: rep.reason ?? null, stuck: rep.stuck ?? null, live: rep.live ?? null, hidden: rep.hidden ?? null, at: Date.now(),
+    drive: { missions, want: want.length, passed: passed.size, errors: rep.errors, ms: rep.ms ?? null, stages: rep.stages ?? null, reason: rep.reason ?? null, stuck: rep.stuck ?? null, reach: rep.reach ?? null, live: rep.live ?? null, hidden: rep.hidden ?? null, at: Date.now(),
       ...(play ? { play } : {}), ...(carried.length ? { carried: carried.map((m) => m.id) } : {}), ...(rep.partial ? { partial: true } : {}) } };
   // the store's key art: the draft's cover (the plain wide frame), and its key art, wide and square, titled in Mog City's
   // lockup (lib/story-art.ts; the owner, 5 Nov: story thumbnails "need to pop like the rest ... with game title"). A

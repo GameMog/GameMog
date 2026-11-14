@@ -21,8 +21,9 @@ import type { CityPackage, PackagePlace, SpawnPoint, District, PackageLandmark }
 import { classify } from '../../storykit/hometown/safety.ts';
 import { storyLock, tilesIdOf, type ServiceLock } from '../hometown/ids.ts';
 import { nameCase, titleStreet } from '../hometown/names.ts';
+import { middleOf } from '../hometown/bundle.ts';
 
-export type FramePlace = { kind: string; name: string; x: number; z: number; heading?: number; inDistrict?: boolean };
+export type FramePlace = { kind: string; name: string; x: number; z: number; heading?: number; inDistrict?: boolean; cx?: number; cz?: number; approach?: 'foot' | 'car' | 'none' };
 export type FrameSpawn = { id: string; name: string; x: number; z: number; heading: number; inDistrict?: boolean };
 export type TownFrame = {
   format: 'hometown-frame'; formatVersion: 1; buildId: string; placeId: string; name?: string;
@@ -53,7 +54,7 @@ export function normalizeFrame(raw: unknown): TownFrame | null {
   });
   const places: Record<string, FramePlace> = {};
   for (const [k, p] of Object.entries((f.places ?? {}) as Record<string, any>)) {
-    places[k] = { kind: String(p.kind), name: String(p.name), x: Number(p.x), z: Number(p.z), heading: p.heading == null ? undefined : Number(p.heading), inDistrict: !!(p.district ?? p.inDistrict) };
+    places[k] = { kind: String(p.kind), name: String(p.name), x: Number(p.x), z: Number(p.z), heading: p.heading == null ? undefined : Number(p.heading), inDistrict: !!(p.district ?? p.inDistrict), ...middleOf(p) };
   }
   const streets = Array.isArray(f.streets) ? (f.streets as { name?: string; m?: number }[]) : [];
   const tile = Array.isArray(d.tile) ? d.tile : f.spawn?.tile;
@@ -101,7 +102,7 @@ export function cityPackageOfFrame(f: TownFrame, town: { placeId: string; name: 
   }
   for (const [k, p] of Object.entries(f.places)) {
     if (!/^[a-z0-9][a-z0-9_-]{0,39}$/.test(k) || places.some((q) => q.id === k)) continue;
-    places.push({ id: k, kind: String(p.kind), name: nameCase(String(p.name)).slice(0, 80), x: p.x, z: p.z, heading: p.heading, tags: [`overture=${p.kind}`], inDistrict: !!p.inDistrict });
+    places.push({ id: k, kind: String(p.kind), name: nameCase(String(p.name)).slice(0, 80), x: p.x, z: p.z, heading: p.heading, tags: [`overture=${p.kind}`], inDistrict: !!p.inDistrict, ...middleOf(p) });
   }
   const landmarks: PackageLandmark[] = places.filter((p) => p.kind !== 'arrival' && !classify(p).business && !classify(p).residence)
     .map((p) => ({ id: p.id, name: p.name, kind: p.kind, x: p.x, z: p.z }));

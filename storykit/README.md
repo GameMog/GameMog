@@ -217,7 +217,11 @@ browser, only what is not stored yet (so the page can be reopened on the same dr
    &autoanswer=1&autochoose=0 ... &keyart=1`). Mog City's runner drives it and posts ready, mission-start, progress,
    mission-fail, mission-end, keyart, result and story-end; the work page listens to Mog City's origin only. The limits
    count only time the tab is in front: 90 s with no progress on a step, 6 min per mission, 60 s between missions,
-   2 min to load, 20 min in all; it stops at the first stuck or failed mission with the reason.
+   2 min to load, 20 min in all; it stops at the first stuck or failed mission with the reason. A step no player could
+   do (a place inside a building, walled in, off the roads; or one the autopilot could finish only through a wall: Mog
+   City `wagmi/storyrun/reach.js`) fails its mission with `reach` (what and where); in a town the server swaps that
+   place for a reachable one of the same kind (`lib/storykit-reach.ts`, answered as `swap`) and the drive goes on from
+   that mission, at most 3 times (`docs/RULES.md` 1i).
 4. **Key art:** Mog City sends its frames in the `keyart` message -> `PUT files/art/key-wide.jpg`, `key-square.jpg`.
    Since 5 Nov (mogcity branch) the frame is a staged hero shot: a low three-quarter front of the hero car on a long
    lens, its face lit, the HUD hidden (the chase camera's view when no side is clear).

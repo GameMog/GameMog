@@ -263,7 +263,10 @@ const STEPS = {
   // takes a search whose words name the car's trunk, boot or glovebox, or the car by name, as one; on: 'place' says not
   search: step('search', { at: R('placeRef'), label: S(40, { description: 'what holding does, lower case: "search the van", "search the trunk"' }), secs: N(0.3, 6), radius: N(1.5, 12), objective: R('objective'),
     on: E(['place', 'ride'], { description: "place (default): hold F at the place. ride: at the hero's own car (the mission's vehicle), wherever he parked it: its trunk, door or hood (part)" }),
-    part: E(['trunk', 'door', 'hood'], { description: "with on: 'ride', which part of the car (trunk if left out; door for the glovebox, the seats or the door pockets)" }) }, ['at', 'label']),
+    part: E(['trunk', 'door', 'hood'], { description: "with on: 'ride', which part of the car (trunk if left out; door for the glovebox, the seats or the door pockets)" }),
+    // (the thing its words name, there: Mog City's runner parks a vehicle the objective names ('from his truck') at the
+    // spot, its tailgate at the ring, or sets down a bag, case or crate; with no room, the objective says the place)
+    prop: ONE({ const: false }, E(['pickup', 'van', 'minivan', 'suv', 'taxi', 'sedan', 'bag', 'case', 'crate'], { description: "the thing at the spot when the words don't say it plainly (the runner reads them: a truck is a pickup, a box a crate); false: nothing put there" })) }, ['at', 'label']),
   // a tow (Mog City's runner): a car stands at the target place; the hero's wrecker (a ride with the tow ability) backs up
   // to its nose, F held at the wheel hooks it on the wheel-lift, then it is towed to `to` and let down there
   tow: step('tow', {

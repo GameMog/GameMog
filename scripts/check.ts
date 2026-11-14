@@ -29,6 +29,7 @@ import { runKeyArtChecks } from './storykit-keyart-check.ts';
 import { runRevoiceChecks } from './storykit-revoice-check.ts';
 import { runForgeBrowserChecks } from './storykit-forge-browser-check.ts';
 import { runHometownChecks } from './storykit-hometown-check.ts';
+import { runReachChecks } from './storykit-reach-check.ts';
 import { runWardrobeChecks } from './storykit-wardrobe-check.ts';
 import { runTownChecks } from './hometown-towns-check.ts';
 import { runPlacesChecks } from './places-check.ts';
@@ -548,6 +549,8 @@ await runKeyArtChecks(ok);
 runRevoiceChecks(ok);
 // Hometown (12 Nov): the builder reads a town's CityPackage, the town lock on Mogs, and the real-place safety rules
 runHometownChecks(ok);
+// Story Kit (14 Nov): only where a player can stand: the gate, the place list, a drive's unreachable place swapped
+await runReachChecks(ok);
 // Story Kit (13 Nov): a forged person's clothes follow their work (a mechanic is never forged in a business suit)
 runWardrobeChecks(ok);
 await runTownChecks(ok);
