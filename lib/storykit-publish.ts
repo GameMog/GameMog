@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { db, type DraftRow } from './db';
 import { codeHash } from './test-drive';
-import { storykitPublic } from './storykit-switch';
+import { storykitPublic, storykitMode } from './storykit-switch';
 import { storyStore } from './storykit-store';
 import { MC_PROD, mcOrigin } from './episode';
 import { onSky } from './portrait-sky-key';
@@ -9,7 +9,14 @@ import { storyKeyArt } from './story-art';
 import type { HometownLock } from '../storykit/pack/cities.ts';
 import { builderMode } from './hometown-build/access.ts';
 import { builderDeps } from './hometown-build/server.ts';
-import { bestVariant } from './hometown-build/towns.ts';
+import { bestVariant, servingBuild } from './hometown-build/towns.ts';
+import { bundleKey } from './hometown-tiles/keys.ts';
+import { storyLock } from './hometown/ids.ts';
+import { cityPackageByLock } from './hometown/towns.ts';
+import { storyUpgradeWith, upgradeWords, frameMoved, type StoryUpgrade, type UpgradeDeps } from './storykit-upgrade.ts';
+import { cityTableOf, storyPlan, playerTexts, violentMissions } from '../storykit/hometown/hometown-gate.ts';
+import { safetyProblems } from '../storykit/hometown/safety.ts';
+import { cityBuildOf } from '../storykit/hometown/city-package.ts';
 
 /**
  * A Story Kit world from its draft to its game (STORYKIT=on): what the creator's browser reports after its work, what
@@ -138,10 +145,115 @@ export function playableWorld(meta?: string | null): string | null {
   const r = s.seal(row);
   return r.ok ? r.hash : null;
 }
-/** Where a story world plays (the game page's frame, /g/<slug>/play, /d/<id>/play): Mog City with its world, or null. */
+/**
+ * Where a story world plays (the game page's frame, /g/<slug>/play, /d/<id>/play): Mog City with its world, or null. A
+ * hometown world pinned to an older build plays the current whole town when every place it names is the same place
+ * there (lib/storykit-upgrade.ts: the world re-pinned, kept with its store draft), else its pinned build as before.
+ */
 export function storyPlaySrc(meta: string | null | undefined, game: string, site = storySite()): string | null {
   const w = playableWorld(meta);
-  return w ? storyFrameSrc(w, game, site, storyCityOf(meta), storyTownOf(meta)) : null;
+  if (!w) return null;
+  const city = storyCityOf(meta), town = storyTownOf(meta);
+  if (city === 'hometown' && town) {
+    const u = storyUpgrade(w, { derive: true });
+    if (u?.state === 'upgrade' && u.world && u.from.compiler === town.compiler && u.from.tiles === town.tiles) return storyFrameSrc(u.world, game, site, city, u.to);
+  }
+  return storyFrameSrc(w, game, site, city, town);
+}
+
+/**
+ * A sealed world's upgrade to its town's current whole town (lib/storykit-upgrade.ts storyUpgradeWith, on this server's
+ * builder and store). Null when the production builder or the Story Kit is off, or for a world that is not a hometown
+ * world. Judged once per world, build and whole-town tile set (a process cache: the bundles it reads never change).
+ */
+const UPGRADES = new Map<string, StoryUpgrade | null>(), PINS = new Map<string, { place: string; compiler: string } | null>();
+export function storyUpgrade(world: string, opts: { derive?: boolean; fresh?: boolean } = {}): StoryUpgrade | null {
+  if (builderMode() === 'off' || storykitMode() === 'off' || !/^[0-9a-f]{64}$/.test(world)) return null;
+  try {
+    const d = builderDeps(), store = storyStore();
+    const deps: UpgradeDeps = {
+      current: (place) => servingBuild(d, place),
+      full: (place, build) => {
+        const v = bestVariant(d, place, build);
+        if (!v?.full) return null;
+        const g = d.store.get(bundleKey(build, place, v.tilesId, 'full', 'lock.json'));
+        let lock: HometownLock | null = null;
+        try { lock = g ? storyLock(JSON.parse(g.body.toString('utf8'))) : null; } catch { lock = null; }
+        return lock && lock.tiles === v.tilesId ? { tilesId: v.tilesId, lock } : null;
+      },
+      pkg: (lock) => cityPackageByLock(lock),
+      world: (h) => { const r = store.read(`${h}.json`); try { return r ? JSON.parse(r.bytes.toString('utf8')) : null; } catch { return null; } },
+      derive: (from, body) => store.derive(from, body),
+    };
+    // (the cache key: the world, and the current build and its whole town as they are now)
+    // (a sealed world never changes: its pin is read once)
+    let pin = PINS.get(world);
+    if (pin === undefined) { const w = deps.world(world), h = w?.hometown; pin = h && typeof h.place === 'string' && typeof h.compiler === 'string' ? { place: h.place, compiler: h.compiler } : null; if (w) { if (PINS.size > 512) PINS.clear(); PINS.set(world, pin); } }
+    if (!pin) return null;
+    const build = deps.current(pin.place);
+    const full = build && build !== pin.compiler ? bestVariant(d, pin.place, build) : null;
+    const key = `${world}|${build}|${full?.full ? full.tilesId : '-'}|${opts.derive ? 1 : 0}`;
+    if (!opts.fresh && UPGRADES.has(key)) return UPGRADES.get(key)!;
+    const u = storyUpgradeWith(deps, world, opts);
+    // (an upgrade or a hold is final for that key; 'waiting' and 'current' are cheap and change as the town builds)
+    if (u && (u.state === 'upgrade' || u.state === 'held')) {
+      if (UPGRADES.size > 256) UPGRADES.delete(UPGRADES.keys().next().value!);
+      UPGRADES.set(key, u);
+      if (u.state === 'held' && !opts.fresh) console.warn(`storykit: world ${world.slice(0, 12)} ${upgradeWords(u)}`.slice(0, 600));
+    }
+    return u;
+  } catch (e) { console.error('storykit: upgrade', String((e as Error)?.message ?? e).slice(0, 300)); return null; }
+}
+
+/** The published hometown story worlds and what each plays now (the owner's screen: app/admin). */
+export type StoryTownRow = { slug: string; title: string; hidden: boolean; place: string; pinned: string; state: StoryUpgrade['state'] | 'unknown'; build: string | null; words: string; why: string[]; notes: string[] };
+export function storyTownsAdmin(): StoryTownRow[] {
+  if (builderMode() === 'off' || storykitMode() === 'off') return [];
+  const rows = db.prepare("SELECT slug, title, hidden, meta FROM games WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.city') = 'hometown' ORDER BY created_at DESC LIMIT 200").all() as { slug: string; title: string; hidden: number; meta: string }[];
+  return rows.map((g) => {
+    const town = storyTownOf(g.meta), w = sealedWorldOf(g.meta), u = w ? storyUpgrade(w) : null;
+    return { slug: g.slug, title: g.title, hidden: !!g.hidden, place: town?.place ?? '', pinned: town?.compiler ?? '', state: u?.state ?? 'unknown', build: u && 'build' in u ? u.build : null,
+      words: upgradeWords(u), why: u?.state === 'held' ? u.why : [], notes: u && (u.state === 'held' || u.state === 'upgrade') ? u.notes : [] };
+  });
+}
+
+/**
+ * The owner's one-click re-pin (app/admin actions.ts repinStory): a published hometown story world moved for good to its
+ * town's current whole town. Judged again first (lib/storykit-upgrade.ts: the same frame, the current whole town built),
+ * then the store draft's pack gates against the new town's table (every "@key" on its map, the safety rules; StoryStore
+ * .repin), and only then do the sealed world (re-pinned), the game's meta (storykit.world and storykit.hometown) and any
+ * GameMog draft that named the old world change. A place the judge called another place is the owner's call here: it
+ * passes when the pack gates (the problems the judge saw come back as notes).
+ */
+export function repinStoryWorld(slug: unknown): { ok: true; hash: string; was: string; build: string; notes: string[] } | { ok: false; status: number; error: string; problems?: string[] } {
+  if (typeof slug !== 'string' || !/^[a-z0-9-]{1,80}$/.test(slug)) return { ok: false, status: 400, error: 'slug: a game\'s slug.' };
+  const game = db.prepare('SELECT id, meta FROM games WHERE slug = ?').get(slug) as { id: string; meta: string | null } | undefined;
+  const storeId = game ? storeDraftOf(game.meta) : null, was = game ? sealedWorldOf(game.meta) : null, town = game ? storyTownOf(game.meta) : null;
+  if (!game || !storeId || !was || !town || storyCityOf(game.meta) !== 'hometown') return { ok: false, status: 404, error: 'No published hometown story world has that slug.' };
+  const u = storyUpgrade(was, { fresh: true });
+  if (!u || u.state === 'current') return { ok: false, status: 409, error: 'It already plays its town\'s current build.' };
+  if (u.state === 'waiting') return { ok: false, status: 409, error: `The current build (${u.build}) has not built the whole town yet. Try again once it has.` };
+  if (!u.to) return { ok: false, status: 409, error: u.state === 'held' ? u.why.join('; ') : 'No current whole town.' };
+  if (frameMoved(u.from, u.to)) return { ok: false, status: 409, error: `The town's frame moved between the builds (${frameMoved(u.from, u.to)}): a re-pin would move every spot of the story.` };
+  const pkg = cityPackageByLock(u.to);
+  if (!pkg) return { ok: false, status: 409, error: 'The current build\'s places cannot be read.' };
+  const table = cityTableOf(pkg);
+  const r = storyStore().repin(storeId, { from: was, pin: u.to, cityBuild: cityBuildOf(pkg), city: table, extra: (pack) => {
+    // (the real-place rules too, as a hometown pack opens; the spawn-district rule is moot: the whole town is built)
+    const plan = storyPlan(pack), texts = playerTexts(pack);
+    return safetyProblems({ pkg, refs: plan, violentMissions: violentMissions(pack), texts, aliases: pack.places ?? {} });
+  } });
+  if (!r.ok) return r;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const m = JSON.parse(game.meta!) as Record<string, any>;
+    db.prepare('UPDATE games SET meta = ? WHERE id = ?').run(JSON.stringify({ ...m, storykit: { ...m.storykit, world: r.hash, hometown: u.to } }), game.id);
+    const drafts = db.prepare("SELECT id, meta FROM drafts WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.pack') = ? AND json_extract(meta, '$.storykit.world') = ?").all(storeId, was) as { id: string; meta: string }[];
+    for (const d of drafts) { const dm = JSON.parse(d.meta); db.prepare('UPDATE drafts SET meta = ? WHERE id = ?').run(JSON.stringify({ ...dm, storykit: { ...dm.storykit, world: r.hash, hometown: u.to } }), d.id); }
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  for (const k of [...UPGRADES.keys()]) if (k.startsWith(`${was}|`)) UPGRADES.delete(k);
+  return { ok: true, hash: r.hash, was: r.was, build: u.build, notes: u.state === 'held' ? [...u.why, ...u.notes] : u.notes };
 }
 
 /** The newest GameMog draft made with this store draft (the build route writes one per pass that passed). */

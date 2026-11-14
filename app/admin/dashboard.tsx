@@ -3,13 +3,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AdminBuild, AdminScore, AdminWorld, Kpis, McKpis, McStats, Range, Row, Stats } from '@/lib/analytics';
-import { setScore, setWorld, signOut } from './actions';
+import { repinStory, setScore, setWorld, signOut } from './actions';
 import { LineChart } from './chart';
 import { Bar, BlurIn, MorphButton, Num, Segmented, Toasts, Toggle, useToast, type Busy } from './motion';
 import { Palette, type Command } from './palette';
 import type { KartReportRow } from '@/lib/kart-report';
 import type { DareLoop, LoopWindow } from '@/lib/funnel';
 import type { StoreUsage } from '@/lib/storykit-store';
+import type { StoryTownRow } from '@/lib/storykit-publish';
 
 /** The Story Kit's store on the owner's screen, only while the switch is on or owner-only (else null: nothing shown). */
 export type StoryKitAdmin = StoreUsage & { mode: 'owner' | 'on' };
@@ -47,7 +48,7 @@ export type TownBuilderAdmin = {
   runs?: { problem?: string; inFlight?: number; maxRuns?: number; byState?: Record<string, number>; plan?: { want: number; ready: number } | null;
     lastError?: { status: number; message: string } | null; holdS?: number } | null;
 };
-export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null };
+export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null; storyTowns?: StoryTownRow[] | null };
 
 export function Dashboard(props: AdminData) {
   return <Toasts><Board {...props} /></Toasts>;
@@ -64,7 +65,7 @@ export function ago(at: number) {
   return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, slots, loop, mc, storykit = null, towns = null }: AdminData) {
+function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, slots, loop, mc, storykit = null, towns = null, storyTowns = null }: AdminData) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('overview');
@@ -131,7 +132,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
 
       <main className="adm-main">
         <BlurIn k={ranged(tab) ? `${tab}-${range}` : tab}>
-          {tab === 'overview' && <Overview s={s} slots={slots} storykit={storykit} towns={towns} />}
+          {tab === 'overview' && <Overview s={s} slots={slots} storykit={storykit} towns={towns} storyTowns={storyTowns} />}
           {tab === 'dares' && <Dares loop={loop} />}
           {tab === 'worlds' && <Worlds worlds={worlds} hidden={hiddenCount} publish={publish} />}
           {tab === 'builds' && <Builds builds={builds} titles={new Map(worlds.map((w) => [w.slug, w.title]))} />}
@@ -172,7 +173,7 @@ function Kpi({ label, k, s, format, hint }: { label: string; k: keyof Kpis; s: S
   );
 }
 
-function Overview({ s, slots, storykit, towns }: { s: Stats; slots: AdminData['slots']; storykit: StoryKitAdmin | null; towns: TownBuilderAdmin | null }) {
+function Overview({ s, slots, storykit, towns, storyTowns }: { s: Stats; slots: AdminData['slots']; storykit: StoryKitAdmin | null; towns: TownBuilderAdmin | null; storyTowns: StoryTownRow[] | null }) {
   const n = s.now;
   const funnel = [
     { label: 'Visited', value: n.visitors },
@@ -196,6 +197,7 @@ function Overview({ s, slots, storykit, towns }: { s: Stats; slots: AdminData['s
       <CapacityCard c={slots} />
       {storykit && <StoryKitCard k={storykit} />}
       {towns && <TownBuilderCard t={towns} />}
+      {storyTowns && storyTowns.some((r) => r.state !== 'current') && <StoryTownsCard rows={storyTowns} />}
 
       <section className="card">
         <div className="card-h">
@@ -274,6 +276,47 @@ function StoryKitCard({ k }: { k: StoryKitAdmin }) {
         ? `New story worlds are paused: the store is past its guard (${guardPct}% of ${mb(k.disk)}). Published worlds still play. Raise STORYKIT_DISK_MB if the disk has room, or move the store off the disk.`
         : `New story worlds stop at ${guardPct}% (${mb(k.guard)}), ${mb(Math.max(0, k.guard - k.used))} from now; drafts already open can finish. STORYKIT_DISK_MB sets the size.`}</p>
       <p className="fine">A published story world with no key art (its test drive never played it): <a href="/storykit/keyart.html">take its key art</a> in this browser.</p>
+    </section>
+  );
+}
+
+// the published hometown story worlds pinned to an older build of their town (lib/storykit-upgrade.ts): those that play
+// the current whole town anyway, those kept on their pinned build and why, and a one-click re-pin that gates the pack
+// against the new build before anything changes (actions.ts repinStory)
+const STORY_STATE: Record<StoryTownRow['state'], string> = { current: 'Current', waiting: 'Waiting', upgrade: 'Plays the new town', held: 'Kept on its build', unknown: 'Unknown' };
+function StoryTownsCard({ rows: initial }: { rows: StoryTownRow[] }) {
+  const router = useRouter();
+  const [rows, setRows] = useState(initial);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [said, setSaid] = useState<Record<string, string>>({});
+  useEffect(() => { setRows(initial); }, [initial]);
+  const repin = async (r: StoryTownRow) => {
+    setBusy(r.slug);
+    try {
+      const x = await repinStory(r.slug);
+      setSaid((m) => ({ ...m, [r.slug]: x.ok ? `Re-pinned to ${x.build}.${x.notes?.length ? ` Notes: ${x.notes.join('; ')}` : ''}` : `Not re-pinned: ${x.error}${x.problems?.length ? ` ${x.problems.join(' | ')}` : ''}` }));
+      if (x.ok) { setRows((all) => all.map((y) => (y.slug === r.slug ? { ...y, state: 'current', pinned: x.build ?? y.pinned, why: [], words: `plays its own build (${x.build})` } : y))); router.refresh(); }
+    } catch (e) { setSaid((m) => ({ ...m, [r.slug]: `Not re-pinned: ${String((e as Error)?.message ?? e)}` })); }
+    finally { setBusy(null); }
+  };
+  const shown = rows.filter((r) => r.state !== 'current');
+  return (
+    <section className="card">
+      <div className="card-h"><h2>Story towns</h2></div>
+      <table className="lt">
+        <thead><tr><th>Story</th><th>Pinned</th><th>Now</th><th /></tr></thead>
+        <tbody>
+          {shown.map((r) => (
+            <tr key={r.slug}>
+              <td><a href={`/g/${r.slug}`}>{r.title}</a>{r.hidden ? <small> hidden</small> : null}</td>
+              <td><small>{r.pinned}</small></td>
+              <td>{STORY_STATE[r.state]}<small> {r.state === 'held' ? r.why.join('; ') : r.state === 'upgrade' ? `the whole town at ${r.build}${r.notes.length ? `; ${r.notes.join('; ')}` : ''}` : r.state === 'waiting' ? `${r.build}: its whole town is not built yet` : ''}</small>{said[r.slug] ? <p className="fine">{said[r.slug]}</p> : null}</td>
+              <td>{(r.state === 'held' || r.state === 'upgrade') && <button type="button" className="adm-out" disabled={busy === r.slug} onClick={() => repin(r)}>{busy === r.slug ? 'Checking' : `Re-pin to ${r.build}`}</button>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="fine">A story pinned to an older build plays its town&apos;s current whole town by itself when every place it uses is the same place there (same kind, within 30 m). Kept on its build: a place moved or became another place. Re-pin checks the story against the new build&apos;s map and the place rules first; nothing changes unless it passes, and the old world is kept.</p>
     </section>
   );
 }

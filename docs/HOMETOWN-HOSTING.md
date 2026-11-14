@@ -51,6 +51,13 @@ A run holds nothing the web needs: its cache (`/tmp/hometown-cache`, capped by `
    at its edge and "The rest of town is still being built".
 7. **The full bundle lands**: `full`. Mog City's `growing.js` polls `/api/towns/{place}?build=` and swaps to the whole
    town at the next pause, keeping the player's position.
+8. **A story pinned to an older build** (the builder moved on before that build's whole town was built, so it would
+   play the old spawn district for ever, its places outside the district missing): when the town's current build has
+   its whole town, the same frame, and every place the story names is the same place there (same id, same kind, within
+   30 m; `lib/storykit-upgrade.ts`), the play page plays the current whole town with the world re-pinned to it, and
+   `growing.js` (it sends `&world=<sha256>` with its poll) gets `upgrade: { build, tilesId, variant, url, pack }` and
+   swaps there. Otherwise the story keeps its pinned build; the owner's screen (Story towns) says why and offers a
+   re-pin, which gates the pack against the new build's map before anything changes.
 
 ### Compiler 0.8.0: the downtown box, and the town re-tiled to its frame
 
