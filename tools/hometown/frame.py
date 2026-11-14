@@ -18,7 +18,7 @@
 #                         str.title()'s "N 3Rd St"); each with its approach ax, az (aHow): where a person on foot is
 #                         sent, outdoors, clear of every building, off the water and the carriageway, a straight walk
 #                         from its lane point (approach.py; none found: no ax, az)
-#   spawns               downtown (the strongest ctx centre in the box, else its top-scoring cell, else the box
+#   spawns                downtown (the strongest ctx centre in the box, else its top-scoring cell, else the box
 #                         centre, on a lane within 600 m) and the north / south / east / west arrivals
 #   district              the spawn's tile and 2 tiles each way (5 x 5, ~2.5 km), the first bundle a player drives in;
 #                         spawns and places inside it less DISTRICT_MARGIN carry district: true

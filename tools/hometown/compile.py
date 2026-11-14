@@ -1,4 +1,4 @@
-# tools/hometown/compile.py: Hometown compiler 0.11.0 on the national grid hg1 (grid.py). A TILE is compiled from its
+# tools/hometown/compile.py: Hometown compiler 0.12.0 on the national grid hg1 (grid.py). A TILE is compiled from its
 # own sources and context alone: tile = f(buildId, key, sources over tile + halo, ctx blocks). It never reads a whole
 # place's inputs nor a neighbour's output, so neighbouring towns share identical tiles, any tile can be compiled on first
 # request, and a 4 x 4 block compiled in one process gives the same bytes as its 16 tiles compiled one by one.
@@ -90,8 +90,11 @@ import shapely.ops  # noqa: E402
 # the warm band only): a trunk / primary road's planting strip (its
 # sidewalk STRIP_M m back from the curb, grass between), the dunes behind a beach (sand and scrub in patches within DUNE_M
 # m of it, not lawn), hedge walls where a lot fronts the road on the sides the draw left bare, a gap in every hedge where
-# a road or path crosses it, and trees (ficus, sea grape) rising over the street's hedge walls (kind 5)
-COMPILER_VERSION = '0.11.0'
+# a road or path crosses it, and trees (ficus, sea grape) rising over the street's hedge walls (kind 5);
+# 0.12.0 release r8 (reach): the frame's places carry their approach ax, az (aHow, approach.py): where a person on foot
+# is sent, outdoors, clear of every building, off the water and the carriageway; the frame's bytes (and so the bundle's
+# PKG.places) change, the tiles do not
+COMPILER_VERSION = '0.12.0'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 ROAD_HALO = 160      # m: segments read round a tile (owned pieces, curb islands' roadway, sidewalk bands)

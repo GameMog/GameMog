@@ -1,4 +1,4 @@
-# Hometown compiler 0.11.0 (the national grid hg1)
+# Hometown compiler 0.12.0 (the national grid hg1)
 
 Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
 so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
@@ -102,7 +102,7 @@ centres by non-max suppression within 2 km, downtown = within 350 m of a centre)
 A tile reads the ctx blocks within 3.2 km and the regions within 3.2 km (a tile whose regions are not fetched is refused
 with the fetch command to run).
 
-**buildId** `htc-0.11.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
+**buildId** `htc-0.12.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
 compiler version, libraries incl. GEOS and zlib, the CPU architecture (`machine`) and the duckdb `spatial` extension's
 version, image digest (`HOMETOWN_IMAGE_DIGEST` from the environment: the town-builder image sets a recipe id), Overture
 release, DEM snapshot, grid). Compiler logic
@@ -132,7 +132,7 @@ from a compiled tile**, so it exists seconds after a town is picked and is the s
   downtown from ctx; nearest-lane ties broken by (segment, piece), never by an index's order. Their street names are
   spelled as a sign spells them (`street_names.street_case`: "N 3rd St", "NE 2nd Ave", "McDonald Ave", "US Hwy 1",
   "St John's Rd"; before 0.10.0 Python's `str.title()` wrote "N 3Rd St"). Tests: `test_street_names.py`.
-- each story place's **approach** `ax, az` (`approach.py`; `aHow` says how it was found, `approachRule` counts them):
+- 0.12.0 (r8): each story place's **approach** `ax, az` (`approach.py`; `aHow` says how it was found, `approachRule` counts them):
   where a person on foot is sent, never inside a building (the owner's rule, 14 Nov: nobody can enter one on the
   platform). Outdoors, 1.5 m clear of every Overture footprint (a roof a person walks under, ROOFS or raised 3 m, is
   no wall on the way but no place to stand), off the water and off the carriageway (half its class width, or its width
