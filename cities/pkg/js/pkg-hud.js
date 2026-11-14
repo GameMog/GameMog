@@ -22,7 +22,7 @@ const pkgCredit = (lines) => {
   return { short: parts.join(' · '), full: L.length ? L.join('; ') : '© OpenStreetMap contributors (ODbL 1.0)',
     href: osm ? 'https://www.openstreetmap.org/copyright' : 'https://overturemaps.org' };
 };
-// pkgNameCase(name): a name as a street sign spells it. The compiler (tools/hometown/frame.py, up to 0.8.0) title-cases
+// pkgNameCase(name): a name as a street sign spells it. The compiler (tools/hometown/frame.py, up to 0.9.0) title-cases
 // its arrivals' and mission places' street names with Python's str.title(), which writes "N 3Rd St", "S 14Th St",
 // "Mccord St", "St John'S Rd", "Us Hwy 62" and "Ne 23Rd St": here "N 3rd St", "S 14th St", "McCord St", "St John's Rd",
 // "US Hwy 62", "NE 23rd St". Text already spelled right is unchanged (and "O'Connor St" stays as it is).

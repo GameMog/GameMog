@@ -1,4 +1,4 @@
-# tools/hometown/compile.py: Hometown compiler 0.8.1 on the national grid hg1 (grid.py). A TILE is compiled from its
+# tools/hometown/compile.py: Hometown compiler 0.9.0 on the national grid hg1 (grid.py). A TILE is compiled from its
 # own sources and context alone: tile = f(buildId, key, sources over tile + halo, ctx blocks). It never reads a whole
 # place's inputs nor a neighbour's output, so neighbouring towns share identical tiles, any tile can be compiled on first
 # request, and a 4 x 4 block compiled in one process gives the same bytes as its 16 tiles compiled one by one.
@@ -63,8 +63,9 @@ import shapely.ops  # noqa: E402
 # 0.8.0 the merge of both (round 3's rules in 0.7.0's builder; the frame's play box is round 3's downtown-centred box);
 # 0.8.1 bridges: both portals of a tunnel split its segment, a portal within PORTAL_SNAP m of a connector is at it (with a
 # bridge that starts there; its roadway as before the move), a tunnel leaving another underground starts at that tunnel's
-# road
-COMPILER_VERSION = '0.8.1'
+# road; 0.9.0 the round-4 merge (0.8.1's tunnel portals released; the engine's sign, street-name, bus and crash fixes
+# need no compiler change)
+COMPILER_VERSION = '0.9.0'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 ROAD_HALO = 160      # m: segments read round a tile (owned pieces, curb islands' roadway, sidewalk bands)
