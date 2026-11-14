@@ -199,6 +199,15 @@ export function install(W) {
   const hwList = [];
   const HB = { x: 0, z: 0, vx: 0, vz: 0, mass: 1.5, paint: null, key: null, kind: 'highway', c: null, knock: null };
   HB.knock = (Jx, Jz) => { const c = HB.c, s = Math.sin(HB.yaw), co = Math.cos(HB.yaw); HW.knock(c, (Jx * s + Jz * co) / HB.mass); };
+  // (a town's parked car: knocked, it slides and turns, its own way of settling, cities/sf/js/traffic.js updateParked)
+  const PB = { x: 0, z: 0, vx: 0, vz: 0, mass: 1.4, paint: null, key: null, kind: 'parked', v: null, knock: null };
+  PB.knock = (Jx, Jz) => {
+    const v = PB.v; if (!v) return;
+    v.vx += Jx / PB.mass; v.vz += Jz / PB.mass;
+    const across = (Jx * Math.cos(v.yaw) - Jz * Math.sin(v.yaw)) / PB.mass;
+    v.yawVel = (v.yawVel || 0) + Math.max(-1.6, Math.min(1.6, across * 0.12));
+    v.rollVel = (v.rollVel || 0) + Math.max(-2, Math.min(2, across * 0.2));
+  };
   // the mission's own vehicles standing in the street (a van at the curb, a wreck, the getaway SUV, the scene's parked
   // cars: wagmi/mission, wagmi/intro.js, found by their names): solid while they stand still a moment and are shown
   // (one the mission drives, moving, is its own: wagmi/mission/m2-drive.js); their box from their meshes, once
@@ -249,6 +258,7 @@ export function install(W) {
     }
     if (HW) for (const p of HW.near(x, z, r, [])) if (y == null || Math.abs(p.y - y) < 2.6) out.push([p.x, p.z, p.yaw, p.hw, p.hl]);
     for (const s of solids.values()) if (s && s.on && Math.abs(s.x - x) < r && Math.abs(s.z - z) < r) out.push([s.x, s.z, s.yaw, s.hw, s.hl]);
+    for (const v of TS?.parked || []) if (v.placed && !v.taken && Math.abs(v.x - x) < r && Math.abs(v.z - z) < r) out.push([v.x, v.z, v.yaw, v.bodyW, v.bodyL]);
     return out;
   };
   // the street furniture: the car as a mover (props.js)
@@ -302,6 +312,16 @@ export function install(W) {
         if (!boxes(x, z, car.heading, B.hx, hl, p.x, p.z, p.yaw, p.hw, p.hl, hit)) continue;
         Object.assign(HB, { x: p.x, z: p.z, yaw: p.yaw, vx: Math.sin(p.yaw) * p.c.v, vz: Math.cos(p.yaw) * p.c.v, c: p.c, key: p.c, paint: p.c.col });
         meetBody(HB);
+      }
+    }
+    // a town's parked cars (cities/sf/js/traffic.js FLEET): the blow, the crunch and the shove, as a city car's
+    if (TS?.parked?.length && air < 1.4) {
+      const x = car.position.x + s * cz, z = car.position.z + c * cz;
+      for (const v of TS.parked) {
+        if (!v.placed || v.taken || Math.abs(v.x - x) > 10 || Math.abs(v.z - z) > 10 || Math.abs((v.y || 0) - car.position.y) > 2.6) continue;
+        if (!boxes(x, z, car.heading, B.hx, hl, v.x, v.z, v.yaw, v.bodyW, v.bodyL, hit)) continue;
+        Object.assign(PB, { x: v.x, z: v.z, vx: v.vx, vz: v.vz, mass: massOf(v), paint: v.paint, key: v, v });
+        meetBody(PB);
       }
     }
     // the mission's vehicles standing in the street

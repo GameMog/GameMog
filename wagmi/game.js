@@ -379,7 +379,7 @@ installDriveMode(WAGMI);
     const s = Math.sin(car.heading), c = Math.cos(car.heading), v = car.speed || 0;
     Object.assign(b, { x: car.position.x, z: car.position.z, yaw: car.heading, vx: s * v + (car.vx || 0), vz: c * v + (car.vz || 0) });
   };
-  function place(x, z, h) {
+  function place(x, z, h, quiet = false) {
     const driving = cm.activeMode === 'car';
     // (the camera snapped to its usual place behind it, not glided from where it was: wedged by a wall or a bus, that
     // was low and tight against the car. Its clear-view state goes too, _view: swung round to the side of a car backed
@@ -391,11 +391,13 @@ installDriveMode(WAGMI);
     car.mesh.position.copy(car.position); car.mesh.rotation.y = h;
     Object.assign(pin, { t: 0, slide: 0, x, z }); Object.assign(stuck, { t: 0, held: 0, hist: [] });
     if (driving) { person.position.copy(car.position); person.heading = h; }
-    WAGMI.audio?.play?.('whoosh', { pos: [x, 0.8, z], vol: 0.6, rate: 0.8 });
+    if (!quiet) WAGMI.audio?.play?.('whoosh', { pos: [x, 0.8, z], vol: 0.6, rate: 0.8 });
     // (the stall help's 'Stuck?' offer, if it is up, has been answered)
     WAGMI.ui?.offer?.(null);
   }
   WAGMI.recoverCar = Object.assign(recoverCar, { key: 'KeyX' });
+  // (the car put down at x, z facing h, as the reset does: a town's taken car, wagmi/jack.js; quiet: no whoosh)
+  WAGMI.placeCar = place;
   // stopped (under 5 m/s) facing more than 120 degrees off the GPS route's way, WRONG s on end: the prompt offers the
   // reset (a phone's RESET CAR, the pad's B). WAGMI.carWrongWay(dt) (the prompt's tick) is how long it has been
   const WRONG = 1.5, wrong = { t: 0 };
@@ -1030,6 +1032,8 @@ addEventListener('keydown', (e) => {
   if (WAGMI.cutscene || WAGMI.directed) return;
   if (ride.phase) return skip();
   if (cm.activeMode === 'person' && near()) getIn(!!WAGMI.combat?.fighting);
+  // (a town's car on the street, taken: wagmi/jack.js)
+  else if (cm.activeMode === 'person' && WAGMI.jack?.()) return;
   else if (cm.activeMode === 'car') getOut();
 });
 addEventListener('keydown', (e) => {
@@ -1148,6 +1152,7 @@ let last = performance.now();
   const wrongWay = WAGMI.carWrongWay(ride.phase || WAGMI.paused || WAGMI.cutscene || WAGMI.directed ? 0 : dt) > 0;
   const pinned = cm.activeMode === 'car' && ((WAGMI.carStuck?.() || 0) > 1.2 || wrongWay);
   const show = ride.phase || WAGMI.paused || WAGMI.cutscene || WAGMI.directed || (WAGMI.carF && WAGMI.carF()) ? '' : cm.activeMode === 'person' && near() ? (MOUNT ? 'F  ·  Mount' : 'F  ·  Get in')
+    : cm.activeMode === 'person' && WAGMI.jackPrompt?.() ? WAGMI.jackPrompt()
     : pinned ? (MOUNT ? 'X  ·  Back to the road' : 'X  ·  Reset car to road') : cm.activeMode === 'car' && Math.abs(car.speed) < (MOUNT ? 2.2 : 4) ? (MOUNT ? 'F  ·  Dismount' : 'F  ·  Get out') : '';
   // (the key in a key cap that reads as plain text, so a game pad's button can stand in for it: wagmi/pad.js; what is
   // offered, WAGMI.prompt, for the pad's Y: the car's door, or else the fight's heavy)
@@ -1170,6 +1175,6 @@ WAGMI.trailerEarly = import('./trailer.js').then((m) => m.createTrailer(WAGMI)).
 // missions, which are set on Manhattan's streets. The city: the world contract's, wagmi/world world.id. And
 // ?start=chase in any city: free roam opened on a chase, wagmi/chase-start.js)
 const ROAM = !PACK && (world.id !== 'ny' || CHASE_START);
-for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
+for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
   try { const mod = await import(m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); }
 }
