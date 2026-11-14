@@ -362,7 +362,7 @@ test("a hand-built body's arms hang at its sides on Dan's clips: its armhang bon
   assert.ok(fs.existsSync(path.join(ROOT, 'tools/storyrun/arms.mts')));
 });
 
-test("a forged person is finished for the close lens (owner: \"smoother looking characters\"): soft hair edges and a graded skin, Mog City's own people as they shipped", () => {
+test("a forged person is finished for the close lens (owner: \"smoother looking characters\"; director on r8: the temples' saw, waxy skin, foil hair): Mog City's own people as they shipped", () => {
   const pack = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/pack.js'), 'utf8');
   const cast = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/cast.js'), 'utf8');
   const polish = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/polish.js'), 'utf8');
@@ -371,14 +371,35 @@ test("a forged person is finished for the close lens (owner: \"smoother looking 
   assert.match(cast, /if \(!nat\) try \{ polishBody\(inner\); \}/);
   const hero = pack.slice(pack.indexOf('W.heroGLTF = async'), pack.indexOf('};', pack.indexOf('W.heroGLTF = async')));
   assert.match(hero, /import\('\.\/polish\.js'\)\)\.polishBody\(g\.scene\)/);
-  // (materials only: hair cards to alpha to coverage under MSAA, a skin without a relief map graded; ?polish=0 leaves them)
-  assert.match(polish, /n\.alphaToCoverage = true/);
+  // (the hair: its normals turned to the hair's volume and its flow as the tangent (shapeHair), lit as strands (two
+  // Kajiya-Kay bands), soft edges by alpha to coverage under MSAA with the shadow still cut, a buzz's shell left as forged)
+  assert.match(polish, /function shapeHair\(mesh, head\)/);
+  assert.match(polish, /g\.setAttribute\('tangent', new THREE\.BufferAttribute\(T, 4\)\)/);
+  assert.match(polish, /class HairLighting extends THREE\.PhysicalLightingModel/);
+  assert.match(polish, /n\.alphaToCoverage = true; n\.alphaTest = 0;/);
+  assert.match(polish, /n\.maskShadowNode = a\.greaterThan\(cut\)/);
+  assert.match(polish, /m\.name === 'hairShell' \? r8Card\(m, msaa\)/);
+  // (the skin without a relief map of its own: the scalp's line drawn again in its band (never the eyes, brows, a beard
+  // or the ears), pores, the T-zone, light wrapped red past the shadow's edge with the lit side's energy kept)
   assert.match(polish, /m\.name === 'skin' && !m\.normalMap && m\.map/);
-  assert.match(polish, /\[\?&\]polish=0/);
-  assert.doesNotMatch(polish, /setXYZ|needsUpdate/);
-  // (the mouth's shade keeps the graded colour and the bump: face.js shadeMouth)
+  assert.match(polish, /const ear = /);
+  assert.match(polish, /class SkinLighting extends THREE\.PhysicalLightingModel/);
+  assert.match(polish, /div\(w\.add\(1\)\.mul\(w\.add\(1\)\)\)/);
+  // (a body forged since people2 carries its fixes: the runner leaves its hair's normals and its scalp's line as forged)
+  assert.match(polish, /userData\?\.hairNormals === 'volume'/);
+  assert.match(polish, /userData\?\.scalpLine === 'graded'/);
+  // (the eyes wet, as Mr. Big's; an inner garment's collar moves with the jacket's over it)
+  assert.match(polish, /n\.clearcoat = 1/);
+  assert.match(polish, /function collarWeights\(inner\)/);
+  // (?polish=0 leaves them; ?polish=r8 is r8's finish, for a before and after)
+  assert.match(polish, /\[\?&\]polish=\(\[a-z0-9\]\+\)/);
+  assert.match(polish, /const OFF = MODE === '0'/);
+  assert.match(polish, /const r8 = MODE === 'r8'/);
+  // (the mouth's shade keeps a node material's own kind and nodes, its light with it)
+  assert.match(face, /m\.isNodeMaterial \? new m\.constructor\(\)/);
   assert.match(face, /nm\.colorNode = \(m\.colorNode \|\| materialColor\)\.mul/);
-  assert.match(face, /'bumpMap', 'bumpScale'/);
+  // (a forged person's idle from their own moment and at their own pace)
+  assert.match(cast, /a\.time = \(h % 997\) \/ 997 \* idle\.duration/);
 });
 
 test("a tail says how far it has to go, and free roam names the place, not the mission's title (owner, PT-7: \"I followed for 5 minutes but nothing happened\", \"i think i'm in the VIG\")", () => {
