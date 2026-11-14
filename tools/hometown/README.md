@@ -64,7 +64,10 @@ If-Match the store's DEM snapshot) and mirrored
 in the store's `dem/` prefix; after the first read everything is offline. A store with no `dem/current.json` (a new
 GameMog or Render disk) is seeded with the snapshot the compiler ships, `dem-snapshots/dem-12b3e06663843b4d.json.gz`
 (`dem.PINNED`, the one the pre-warmed packages were built at), so it reaches the same buildId with no USGS listing;
-`compile.py --dem-snapshot` moves a store to a newer listing (a new buildId).
+`compile.py --dem-snapshot` moves a store to a newer listing (a new buildId). When USGS replaces a pinned file under
+`/current/` (412), the pinned version is read from its dated copy under `.../TIFF/historical/{name}/` (matched by
+ETag and size, still If-Match), with the same bytes and demSource: a build never fails because upstream moved, unless
+USGS kept no copy of that version (`dem.DemUnavailable`, refused per tile).
 
 ## The grid (`grid.py`, frozen as hg1)
 
