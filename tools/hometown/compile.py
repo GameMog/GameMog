@@ -69,7 +69,9 @@ import shapely.ops  # noqa: E402
 # side only), a divided road's OSM-laned carriageway as wide as its lanes, a narrow median as open ground, and a region
 # without its segment extras refused (the OSM lanes join through them);
 # 0.8.1 fid-subtropic: the warm band (climate.warmth: tropical / subtropical): palm rows along the streets and medians, clipped hedges
-# on the property lines, more yard trees (palms, sea grape) and the south-florida building region; climateZone in the header
+# on the property lines, more yard trees (palms, sea grape) and the south-florida building region; climateZone in the header;
+# 0.8.1 fid-beach: beaches and sand (Overture base/land subtype sand) as ground classes beach (10) and wet sand (11), no
+# yard trees on them, and a region fetched without the land layer refused
 COMPILER_VERSION = '0.8.1'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
@@ -254,8 +256,12 @@ INSIDE_IN = 1.0       # m: a soft piece inside a building runs in its footprint 
 INSIDE_MIN_AREA = 150.0   # m2: smaller buildings keep the old rule (a shed, a kiosk, a booth on a drive: the drive wins)
 CUT_GAP = 1.0         # m: a site road cut back from a building ends this far plus half its width off the footprint
 PASSAGE_MIN_AREA = 1000.0   # m2: a site road through the middle of a building this large is its passage (it stands over it)
-# ground classes, one byte per 1 m cell (0..5 San Francisco's; 7 paved lot, 8 dry grass and scrub, 9 woodland floor)
-MASK = {'asphalt': 0, 'sidewalk': 1, 'lawn': 2, 'sand': 3, 'rock': 4, 'waterEdge': 5, 'water': 6, 'lot': 7, 'scrub': 8, 'woods': 9}
+# ground classes, one byte per 1 m cell (0..5 San Francisco's; 7 paved lot, 8 dry grass and scrub, 9 woodland floor,
+# 10 beach sand, 11 the wet sand along the water; 3 'sand' is bare desert ground, gravel and decomposed granite)
+MASK = {'asphalt': 0, 'sidewalk': 1, 'lawn': 2, 'sand': 3, 'rock': 4, 'waterEdge': 5, 'water': 6, 'lot': 7, 'scrub': 8, 'woods': 9,
+        'beach': 10, 'wetsand': 11}
+WET_SAND_M = 6.0      # a beach's sand within this many m of the water: the wet band the waves reach
+BEACH_EDGE_M = 4.0    # the water's edge band (waterEdge) within this many m of a beach is its wet sand, not a stone edge
 CLIMATE_GROUND = {'humid': 'lawn', 'dry': 'scrub', 'arid': 'sand'}   # the open land where the map says nothing
 LOT_KINDS = {'shop', 'office', 'warehouse', 'apartment', 'school', 'civic', 'church', 'tower'}   # buildings with a paved lot round
 LOT_M = 6.0           # m of it (outside a downtown, whose buildings stand in 12 m of paved square)
@@ -299,7 +305,9 @@ def pick_w(table, h):
 
 def lu_ground(sub, cls, clim):
     """The ground (MASK name) an Overture land use area has, or None (the climate's open land: yards, lots of grass)."""
-    if cls in ('bunker', 'beach_resort', 'sand'):
+    if cls == 'beach_resort':
+        return 'beach'
+    if cls in ('bunker', 'sand'):
         return 'sand'
     if sub == 'resource_extraction' or cls in ('quarry', 'landfill'):
         return 'sand' if clim == 'arid' else 'rock'
@@ -2173,6 +2181,12 @@ def _compile_tile(Wd, c, r, dem_files):
             continue
         parks.append((lu, pg))
     park_union = unary_union([pg for _, pg in parks]) if parks else None
+    # (beaches and sand, Overture land subtype sand: the ground mask draws them as sand below, and a park's beach is no
+    # lawn, so a curb island's park share leaves them out: the engine lays a park block's lawn over the whole block)
+    sands = [shapely.make_valid(r['geom']) for r in Wd.src.query('sand', WB10)]
+    sand_union = unary_union(sands) if sands else None
+    if park_union is not None and sand_union is not None:
+        park_union = park_union.difference(sand_union)
     wb_edge = WB.exterior
     islands = []   # (unclipped polygon, kind)
     okey = lambda g: (round(g.bounds[0], 2), round(g.bounds[1], 2), round(g.area, 2))  # noqa: E731
@@ -2386,6 +2400,11 @@ def _compile_tile(Wd, c, r, dem_files):
                     poly(ld, list(hole.coords), 255)
         lu_a = np.array(lim, dtype=np.uint8)
         a[landm & (lu_a != 255)] = lu_a[landm & (lu_a != 255)]
+    # beaches and sand (OSM natural=beach / sand / dune): over the land use (a park's beach is sand), under what
+    # is paved (lots, a downtown's squares, the sidewalk bands) and the roadway
+    beach = raster([sand_union]) if sand_union is not None else None
+    if beach is not None:
+        a[landm & beach] = MASK['beach']
     lots = [shapely.make_valid(r['geom']) for r in Wd.src.query('parking', tb40)]
     lots += [rec['g'].buffer(LOT_M, quad_segs=2) for bid, (b, rec) in sorted(brecs_near.items()) if rec['kind'] in LOT_KINDS and not rec['downtown']]
     a[landm & raster(lots)] = MASK['lot']
@@ -2407,7 +2426,8 @@ def _compile_tile(Wd, c, r, dem_files):
         poly(rd, list(g.exterior.coords), 1)
         for hole in g.interiors:
             poly(rd, list(hole.coords), 0)
-    a[np.array(road, dtype=bool)] = MASK['asphalt']
+    roadm = np.array(road, dtype=bool)
+    a[roadm] = MASK['asphalt']
     xs = X0 + np.arange(TILE) + 0.5
     zs = Z0 + np.arange(TILE) + 0.5
     XX, ZZ = np.meshgrid(xs, zs)
@@ -2437,12 +2457,18 @@ def _compile_tile(Wd, c, r, dem_files):
             for q in polygons(w['poly'].intersection(TB)):
                 rings.append([v for x, z in neg_ring(list(q.simplify(0.5).exterior.coords)) for v in (cm(x) - c * TCM, cm(z) - r * TCM)])
             wsec.append({'id': w['id'], 'level_cm': lv, 'cells': int(inside.sum()), 'rings': rings, 'name': w['name'] or ''})
+        # (a beach meets the water as wet sand: its sand within WET_SAND_M of the water, and the water's edge band next to
+        # it, which elsewhere is a stone edge)
+        if beach is not None:
+            wet = shapely.contains_xy(wu.buffer(WET_SAND_M), XX.ravel(), ZZ.ravel()).reshape(XX.shape)
+            shore = raster([sand_union.buffer(BEACH_EDGE_M, quad_segs=4)])
+            a[wet & ~roadm & (((a == MASK['beach']) & beach) | ((a == MASK['waterEdge']) & shore))] = MASK['wetsand']
     # ---- trees: a global 13 m lattice over the lawns (yards: 3 m clear of a building, within 25 m of one, off lots)
     STEP = 13.0
     desert = clim == 'arid'
     warm = climate.warmth(lon_c, lat_c)
     yard_p, reach = (WARM_YARD_P, WARM_YARD_REACH) if warm else (0.42, 25.0)
-    bare = np.isin(a, [MASK['asphalt'], MASK['sidewalk'], MASK['lot'], MASK['waterEdge'], MASK['water']])
+    bare = np.isin(a, [MASK['asphalt'], MASK['sidewalk'], MASK['lot'], MASK['waterEdge'], MASK['water'], MASK['beach'], MASK['wetsand']])
     btree = shapely.STRtree([rec['g'] for _, (b, rec) in sorted(brecs_near.items())]) if brecs_near else None
     ptree = shapely.STRtree(polygons(paved_u)) if paved_u is not None else None
     trees = []
