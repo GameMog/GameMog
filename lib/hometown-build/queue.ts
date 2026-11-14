@@ -18,6 +18,10 @@
  *            waits behind a block); P5 (pre-warm) only when no P0-P3 job is claimable at all
  *   lease    60 s, extended by a heartbeat (every 15 s); an expired lease goes back to queued with backoff
  *            5 s * 2^(attempts-1); after 3 attempts the job is failed
+ *   tiles    a tile job of several tiles that fails for good is split into one job per tile (3 attempts each, so one
+ *            bad tile never costs its 15 neighbours); a one-tile job that fails for good DEGRADES the full bundles that
+ *            wait on it (the dep is dropped, the tile listed in args.absent: the worker lays flat ground there) and
+ *            fails anything else that waits on it (a district bundle: the spawn path fails clearly)
  *   complete the outputs must be stored (the caller's check) or the attempt counts as failed
  *   fail     exit 3 naming missing regions is not a failure: a regions job is added as a dep, no attempt charged
  *
@@ -73,7 +77,12 @@ CREATE TABLE IF NOT EXISTS towns (place TEXT NOT NULL, build TEXT NOT NULL, box 
 CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, build TEXT, slots INTEGER, seen INTEGER, version TEXT, mem_mb INTEGER);
 CREATE TABLE IF NOT EXISTS costs (kind TEXT PRIMARY KEY, ewma_ms REAL, n INTEGER);
 CREATE TABLE IF NOT EXISTS events (at INTEGER NOT NULL, kind TEXT NOT NULL, data TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS ip_hits (ip TEXT NOT NULL, at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS ip_hits_ip ON ip_hits(ip, at);
+CREATE TABLE IF NOT EXISTS pending (place TEXT PRIMARY KEY, source TEXT NOT NULL, asked INTEGER NOT NULL);
 `;
+/** (added after the first release: a column an older queue.db lacks, added at open) */
+const MIGRATE = `CREATE INDEX IF NOT EXISTS jobs_plan ON jobs(state, build, kind, prio, units, weight);`;
 
 type Row = Record<string, unknown>;
 const toJob = (r: Row): Job => ({
@@ -91,6 +100,11 @@ const toJob = (r: Row): Job => ({
 export const jobUnits = (j: { kind: string; args: Record<string, unknown> }) => j.kind === 'tiles' ? 1 + maskBits(Number(j.args.mask) & 0xffff).length / 4 : 1;
 /** The bits of a tile mask (16 tiles of an L2 block, bit i = tile (i % 4, i >> 2) of the block). */
 export const maskBits = (m: number) => { const out: number[] = []; for (let i = 0; i < 16; i++) if (m & (1 << i)) out.push(i); return out; };
+/** The tile ids a tile job builds ("hg1-conus/2/C/R" + mask -> "hg1-conus/0/c/r", ...). */
+export const tileIdsOfJob = (args: Record<string, unknown>): string[] => {
+  const [g, , C, R] = String(args.block).split('/');
+  return maskBits(Number(args.mask) & 0xffff).map((i) => `${g}/0/${Number(C) * 4 + (i & 3)}/${Number(R) * 4 + (i >> 2)}`);
+};
 
 export class BuildQueue {
   readonly db: DatabaseSync;
@@ -102,6 +116,16 @@ export class BuildQueue {
     this.db = new DatabaseSync(o.file);
     this.db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000; PRAGMA synchronous = NORMAL;');
     this.db.exec(SCHEMA);
+    // (a job's size in cost units, kept with the row so the dispatcher's plan sums it in SQL: jobUnits)
+    const cols = (this.db.prepare('PRAGMA table_info(jobs)').all() as Row[]).map((r) => String(r.name));
+    if (!cols.includes('units')) this.db.exec('ALTER TABLE jobs ADD COLUMN units REAL');
+    this.db.exec(MIGRATE);
+    const fill = this.db.prepare('UPDATE jobs SET units = ? WHERE key = ?');
+    for (const r of this.db.prepare('SELECT key, kind, args FROM jobs WHERE units IS NULL').all() as Row[]) {
+      let args: Record<string, unknown> = {};
+      try { args = JSON.parse(String(r.args)); } catch { /* one unit */ }
+      fill.run(jobUnits({ kind: String(r.kind), args }), String(r.key));
+    }
     this.now = o.now ?? Date.now;
   }
 
@@ -147,7 +171,8 @@ export class BuildQueue {
       // quad's queued job; leased or done jobs of the WHOLE block, quads or not, cover their bits)
       const part = s.args.part == null ? '' : `:q${Number(s.args.part)}`;
       const base = `${s.build}:${block}`, grp = base + part;
-      const rows = (this.db.prepare("SELECT * FROM jobs WHERE (grp = ? OR grp LIKE ?) AND state != 'failed'").all(base, `${base}:q%`) as Row[]).map(toJob);
+      // (the block and its four quads by the grp index: a LIKE here scanned the whole table on every tile enqueue)
+      const rows = (this.db.prepare("SELECT * FROM jobs WHERE grp IN (?, ?, ?, ?, ?) AND state != 'failed'").all(base, `${base}:q0`, `${base}:q1`, `${base}:q2`, `${base}:q3`) as Row[]).map(toJob);
       const keys: string[] = [];
       let covered = 0;
       for (const j of rows) if (j.state !== 'queued') { covered |= Number(j.args.mask); if (Number(j.args.mask) & mask) keys.push(j.key); }
@@ -155,8 +180,8 @@ export class BuildQueue {
       const q = rows.find((j) => j.state === 'queued' && (j.args.part == null ? '' : `:q${Number(j.args.part)}`) === part);
       if (need && q) {
         const m = Number(q.args.mask) | need;
-        this.db.prepare('UPDATE jobs SET args = ?, prio = MIN(prio, ?), ring = MIN(ring, ?), first_asked = MIN(first_asked, ?), updated = ? WHERE key = ?')
-          .run(JSON.stringify({ ...q.args, mask: m }), s.prio, s.ring ?? 0, first, t, q.key);
+        this.db.prepare('UPDATE jobs SET args = ?, units = ?, prio = MIN(prio, ?), ring = MIN(ring, ?), first_asked = MIN(first_asked, ?), updated = ? WHERE key = ?')
+          .run(JSON.stringify({ ...q.args, mask: m }), jobUnits({ kind: 'tiles', args: { mask: m } }), s.prio, s.ring ?? 0, first, t, q.key);
         keys.push(q.key);
       } else if (need) {
         const key = `${s.key}:${need.toString(16).padStart(4, '0')}`;
@@ -189,11 +214,33 @@ export class BuildQueue {
     return [s.key];
   }
 
-  private insert(s: EnqueueSpec, first: number, grp: string | null) {
+  private insert(s: EnqueueSpec, first: number, grp: string | null, notBefore = 0) {
     const t = this.now();
-    this.db.prepare(`INSERT INTO jobs (key, kind, build, prio, ring, args, deps, state, weight, first_asked, created, updated, grp)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?)`)
-      .run(s.key, s.kind, s.build, s.prio, s.ring ?? 0, JSON.stringify(s.args), JSON.stringify(s.deps ?? []), s.weight ?? 1, first, t, t, grp);
+    this.db.prepare(`INSERT INTO jobs (key, kind, build, prio, ring, args, deps, state, weight, first_asked, created, updated, grp, units, not_before)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?)`)
+      .run(s.key, s.kind, s.build, s.prio, s.ring ?? 0, JSON.stringify(s.args), JSON.stringify(s.deps ?? []), s.weight ?? 1, first, t, t, grp, jobUnits(s), notBefore);
+  }
+
+  /**
+   * An explicit "try again" of a town whose build failed: every failed job the town waits on is queued again at once,
+   * its attempts reset (the 60 s a failure otherwise holds a job is for asks of OTHER towns sharing it, not for this
+   * player's own retry). -> the jobs re-queued.
+   */
+  retryFailed(place: string): string[] {
+    return this.tx(() => {
+      const keys = (this.db.prepare("SELECT j.key FROM jobs j JOIN wants w ON w.job = j.key WHERE w.place = ? AND j.state = 'failed'").all(place) as Row[]).map((r) => String(r.key));
+      const up = this.db.prepare("UPDATE jobs SET state = 'queued', attempts = 0, not_before = 0, error = NULL, lease_id = NULL, lease_worker = NULL, lease_until = NULL, updated = ? WHERE key = ?");
+      for (const k of keys) up.run(this.now(), k);
+      if (keys.length) this.log('retry', { place, jobs: keys.length });
+      return keys;
+    });
+  }
+
+  /** New towns asked from one address (a hash of it) since `since`; persisted, so a deploy never resets the limit. */
+  ipCount(ip: string, since: number): number { return Number((this.db.prepare('SELECT COUNT(*) n FROM ip_hits WHERE ip = ? AND at >= ?').get(ip, since) as Row).n); }
+  ipHit(ip: string, at: number) {
+    this.db.prepare('INSERT INTO ip_hits (ip, at) VALUES (?, ?)').run(ip, at);
+    if (Math.random() < 0.02) this.db.prepare('DELETE FROM ip_hits WHERE at < ?').run(at - 2 * 3600_000);
   }
 
   /** Raise (never lower) a job's priority and set its ring (a town's re-ringing when its frame lands). */
@@ -225,26 +272,67 @@ export class BuildQueue {
     return rows.length;
   }
 
-  private retryOrFail(j: Job, why: string) {
+  private retryOrFail(j: Job, why: string, final = false) {
     const t = this.now();
     if (j.attempts >= MAX_ATTEMPTS) {
+      // (a tile job of several tiles: one per tile from here, so the tiles that do compile are kept)
+      if (j.kind === 'tiles' && !final && maskBits(Number(j.args.mask) & 0xffff).length > 1) { this.split(j, why); return; }
       this.db.prepare("UPDATE jobs SET state = 'failed', lease_id = NULL, lease_worker = NULL, lease_until = NULL, error = ?, not_before = ?, updated = ? WHERE key = ?")
         .run(why.slice(0, 600), t + 60_000, t, j.key);
       this.log('failed', { key: j.key, why: why.slice(0, 300) });
-      // (everything that depends on it, transitively, fails with it)
-      this.failDependents(j.key, why);
+      // (everything that depends on it, transitively, fails with it; a full bundle waiting on a tile job degrades)
+      this.failDependents(j.key, why, j);
     } else {
       this.db.prepare("UPDATE jobs SET state = 'queued', lease_id = NULL, lease_worker = NULL, lease_until = NULL, error = ?, not_before = ?, updated = ? WHERE key = ?")
         .run(why.slice(0, 600), t + BACKOFF_MS * 2 ** Math.max(0, j.attempts - 1), t, j.key);
     }
   }
-  private failDependents(key: string, why: string) {
+  private failDependents(key: string, why: string, failed?: Job) {
     const rows = (this.db.prepare("SELECT * FROM jobs WHERE state IN ('queued', 'leased') AND deps LIKE ?").all(`%${JSON.stringify(key).slice(1, -1)}%`) as Row[]).map(toJob);
     for (const d of rows) {
       if (!d.deps.includes(key)) continue;
+      if (failed?.kind === 'tiles' && d.kind === 'bundle' && d.args.variant === 'full' && d.state === 'queued') {
+        // (the whole town goes on without these tiles: flat ground in their place, listed in the bundle's args.absent)
+        const tiles = tileIdsOfJob(failed.args);
+        const absent = [...new Set([...((d.args.absent as string[] | undefined) ?? []), ...tiles])].sort();
+        this.db.prepare('UPDATE jobs SET deps = ?, args = ?, updated = ? WHERE key = ?').run(JSON.stringify(d.deps.filter((k) => k !== key)), JSON.stringify({ ...d.args, absent }), this.now(), d.key);
+        this.log('degraded', { bundle: d.key, job: key, tiles, why: why.slice(0, 200) });
+        continue;
+      }
       this.db.prepare("UPDATE jobs SET state = 'failed', lease_id = NULL, error = ?, not_before = ?, updated = ? WHERE key = ?").run(`dependency ${key} failed: ${why}`.slice(0, 600), this.now() + 60_000, this.now(), d.key);
       this.failDependents(d.key, why);
     }
+  }
+
+  /** A tile job of several tiles that failed for good, as one job per tile (fresh attempts, after a backoff); the
+   * towns that wanted it want each, and the jobs that waited on it wait on each. The job itself is removed. */
+  private split(j: Job, why: string) {
+    const t = this.now();
+    const keys: string[] = [];
+    for (const i of maskBits(Number(j.args.mask) & 0xffff)) {
+      const key = `${j.key}:t${i}`;
+      keys.push(key);
+      if (this.get(key)) {
+        this.db.prepare("UPDATE jobs SET state = 'queued', attempts = 0, not_before = ?, error = NULL, lease_id = NULL, lease_worker = NULL, lease_until = NULL, updated = ? WHERE key = ?").run(t + BACKOFF_MS, t, key);
+      } else {
+        this.insert({ key, kind: 'tiles', build: j.build, prio: j.prio, ring: j.ring, args: { ...j.args, mask: 1 << i, split: true }, deps: j.deps, weight: j.weight }, j.firstAsked, j.grp, t + BACKOFF_MS);
+      }
+      this.db.prepare('INSERT OR IGNORE INTO wants (job, place) SELECT ?, place FROM wants WHERE job = ?').run(key, j.key);
+    }
+    for (const d of (this.db.prepare("SELECT * FROM jobs WHERE state IN ('queued', 'leased') AND deps LIKE ?").all(`%${JSON.stringify(j.key).slice(1, -1)}%`) as Row[]).map(toJob)) {
+      if (!d.deps.includes(j.key)) continue;
+      this.db.prepare('UPDATE jobs SET deps = ?, updated = ? WHERE key = ?').run(JSON.stringify([...new Set(d.deps.flatMap((k) => (k === j.key ? keys : [k])))]), t, d.key);
+    }
+    this.db.prepare('DELETE FROM wants WHERE job = ?').run(j.key);
+    this.db.prepare('DELETE FROM jobs WHERE key = ?').run(j.key);
+    this.log('split', { key: j.key, into: keys.length, why: why.slice(0, 300) });
+  }
+
+  /** A worker seen now (its build becomes the current one when none is pinned: towns.ts currentBuild). */
+  seenWorker(c: ClaimSpec) { this.seen(c); }
+  /** The slots a worker's leased jobs hold (the claim's long-poll re-reads its free slots from this). */
+  heldBy(worker: string, totalSlots: number): number {
+    return Number((this.db.prepare("SELECT COALESCE(SUM(MIN(weight, ?)), 0) n FROM jobs WHERE state = 'leased' AND lease_worker = ?").get(Math.max(1, totalSlots), worker) as Row).n);
   }
 
   private seen(c: ClaimSpec) {
@@ -348,7 +436,7 @@ export class BuildQueue {
         }
         if (had?.state === 'failed' && had.notBefore > t) {
           // (its regions failed for good moments ago: this job fails too, rather than waiting on a failed dep forever)
-          this.retryOrFail({ ...j, attempts: MAX_ATTEMPTS }, `regions ${f.regions.key} failed: ${had.error ?? ''}`);
+          this.retryOrFail({ ...j, attempts: MAX_ATTEMPTS }, `regions ${f.regions.key} failed: ${had.error ?? ''}`, true);
           return { ok: true };
         }
         this.enqueueIn({ key: f.regions.key, kind: 'regions', build: ANY_BUILD, prio: j.prio, ring: j.ring, args: f.regions.args, weight: 2, firstAsked: j.firstAsked });
@@ -358,7 +446,7 @@ export class BuildQueue {
         return { ok: true, regionsJob: f.regions.key };
       }
       if (f.final) { this.db.prepare('UPDATE jobs SET attempts = ? WHERE key = ?').run(MAX_ATTEMPTS, key); j.attempts = MAX_ATTEMPTS; }
-      this.retryOrFail(j, `exit ${f.code ?? '?'}: ${f.reason ?? ''}`);
+      this.retryOrFail(j, `exit ${f.code ?? '?'}: ${f.reason ?? ''}`, !!f.final);
       return { ok: true };
     });
     this.changed();

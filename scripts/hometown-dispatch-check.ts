@@ -13,8 +13,8 @@ import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { BuildQueue, ANY_BUILD } from '../lib/hometown-build/queue.ts';
-import { Dispatcher, RenderApiError, stateOf, renderRuns, runsConfig, runsReady, runsProblem, capacitySlots, type RenderRuns, type RunsConfig } from '../lib/hometown-build/dispatch.ts';
-import { currentBuild, estimate, requestTown, type BuilderDeps } from '../lib/hometown-build/towns.ts';
+import { Dispatcher, RenderApiError, stateOf, renderRuns, runsConfig, runsReady, runsProblem, capacitySlots, STARTING_MAX_MS, RUN_MAX_MS, type RenderRuns, type RunsConfig } from '../lib/hometown-build/dispatch.ts';
+import { admitPending, currentBuild, estimate, requestTown, townStatus, type BuilderDeps } from '../lib/hometown-build/towns.ts';
 import { hometownConfig } from '../lib/hometown-tiles/config.ts';
 import { TOWN_WORDS } from '../lib/hometown/words.ts';
 import { TileStore, GB } from '../lib/hometown-tiles/store.ts';
@@ -84,7 +84,8 @@ export async function runDispatchChecks(ok: Ok) {
     ok('60 more P0 quads (2 units of 2 s each: 252 s of P0 work): byJobs 16, byWork 2 (P0 sized to drain in 60 s on 4 slots), want the smaller', p.byJobs === 16 && p.byWork === 2 && p.want === 2, JSON.stringify(p));
     jobs(q, 540, 0, 'tiles', 200);
     p = d.plan();
-    ok('600 P0 quads (2,412 s of work): want 11 runs (byWork), under HOMETOWN_MAX_RUNS', p.want === 11 && p.byJobs === 151, JSON.stringify(p));
+    // (the ready jobs are counted only as far as a decision needs: MAX_RUNS x slots + 1; more cannot change want)
+    ok('600 P0 quads (2,412 s of work): want 11 runs (byWork), under HOMETOWN_MAX_RUNS', p.want === 11 && p.byWork === 11 && p.ready === 81 && p.byJobs > p.want, JSON.stringify(p));
     await d.tick();
     ok('starts are rate limited: 4 a rolling minute (Hobby: 16 new CPU a minute)', api.posts === 4 && d.inFlight() === 4, `${api.posts}`);
     t += 61_000;
@@ -198,11 +199,15 @@ export async function runDispatchChecks(ok: Ok) {
       ok('no build known and nothing asked: no run', api2.posts === 0 && currentBuild(deps2) === null);
       const a = requestTown(deps2, 'us-4007500', '1.2.3.4');
       await d2.tick();
-      ok('a pick with no build known is asked to try again (retryS: the Create card asks again by itself), and starts ONE run to learn the build', a.status === 503 && (a.body as { retryS?: number }).retryS === 15 && api2.posts === 1 && /learn the build/.test(String(api2.runs.get('trn-1')?.input[0])) && d2.inFlight() === 1);
+      // (before: a 503 with retryS 15, and the Create card asked again 15 s later; the live Wewoka pick reached 'framing'
+      // at 15.9 s for exactly that round trip)
+      ok('a pick with no build known is kept and answered 202 at once (waiting its turn, no retry round trip), and starts ONE run to learn the build',
+        a.status === 202 && (a.body as { phase?: string }).phase === 'asked' && (a.body as { retryS?: number }).retryS === undefined && api2.posts === 1 && /learn the build/.test(String(api2.runs.get('trn-1')?.input[0])) && d2.inFlight() === 1);
+      ok('...its status is waiting too (GET), not "not asked"', townStatus(deps2, 'us-4007500').status === 202);
       await d2.tick();
-      ok('...only one while it is in flight', api2.posts === 1);
+      ok('...only one run while it is in flight', api2.posts === 1);
       q2.claim({ worker: 'run-trn-1', build: B, freeSlots: 4, totalSlots: 4 });
-      ok('its first claim reports the build: the next pick is admitted at it', currentBuild(deps2) === B && requestTown(deps2, 'us-4007500', '1.2.3.4').status === 202);
+      ok('its first claim reports the build: the kept pick is admitted at it', currentBuild(deps2) === B && admitPending(deps2) === 1 && q2.jobsOf('us-4007500').length > 0 && requestTown(deps2, 'us-4007500', '1.2.3.4').status === 202);
       api2.end('completed'); t2 += 120_000;
       ok('the run ended (no live builder): the build is still the last run\'s', q2.liveWorkers().length === 0 && currentBuild(deps2) === B);
       q2.db.prepare("UPDATE jobs SET state = 'done'").run(); q2.db.prepare('UPDATE runs SET checked = 0').run(); await d2.tick();
@@ -216,6 +221,41 @@ export async function runDispatchChecks(ok: Ok) {
       q2.db.prepare("UPDATE towns SET state = 'full' WHERE place = 'us-4007500'").run();
       ok('...but a town built in full is not refused', requestTown(down, 'us-4007500', '9.9.9.9').status !== 503);
       q2.close();
+    }
+
+    // ---- orphaned rows: a 'starting' row whose POST never went through, behind 500 newer rows and a held start
+    {
+      let t3 = 50_000_000;
+      const q3 = new BuildQueue({ file: path.join(dir, 'orphans.db'), now: () => t3 });
+      const api3 = new FakeRender(); api3.q = q3;
+      const d3 = new Dispatcher(q3, cfgOf(), api3, () => B, () => t3);
+      const ins = q3.db.prepare('INSERT INTO runs (idem, id, state, created, updated) VALUES (?, ?, ?, ?, ?)');
+      ins.run('ht-orphan', null, 'starting', t3, t3);
+      ins.run('ht-ancient', 'trn-old', 'running', t3 - RUN_MAX_MS - 1, t3);
+      for (let i = 0; i < 600; i++) ins.run(`ht-ended-${i}`, `trn-e${i}`, 'completed', t3 + 1 + i, t3);
+      t3 += STARTING_MAX_MS + 1;
+      ok('(the orphan is counted in flight, hidden behind 600 newer rows)', d3.inFlight() === 2);
+      // (a held start: before, pass() stopped at the first held 'starting' row and never retired it)
+      (d3 as unknown as { holdUntil: number }).holdUntil = t3 + 300_000;
+      await d3.tick();
+      const st = (k: string) => (q3.db.prepare('SELECT state FROM runs WHERE idem = ?').get(k) as { state: string }).state;
+      ok('orphaned rows are reaped in one indexed update on every pass, even while starts are held: a never-sent "starting" row after 10 min and a run older than a run can be', st('ht-orphan') === 'lost' && st('ht-ancient') === 'lost' && d3.inFlight() === 0);
+      ok('...and the reap is journalled for the owner\'s page', q3.recentEvents(5).some((e) => e.kind === 'runs-reaped'));
+      q3.close();
+    }
+
+    // ---- the plan stays cheap on a deep queue (it runs every 5 s and on every queue change)
+    {
+      const q4 = new BuildQueue({ file: ':memory:', now: () => 1 });
+      const d4 = new Dispatcher(q4, cfgOf(), new FakeRender(), () => B, () => 1);
+      q4.enqueueMany(Array.from({ length: 20_000 }, (_, i) => ({ key: `tiles:${B}:deep:${i}`, kind: 'tiles' as const, build: B, prio: 1 + (i % 3), args: { block: `hg1-conus/2/${i}/7`, mask: 0xffff }, deps: [i % 2 ? 'ctx:none' : `tiles:${B}:deep:${i - 1}`] })));
+      d4.plan();
+      const t0 = performance.now(); for (let i = 0; i < 5; i++) d4.plan(); const ms = (performance.now() - t0) / 5;
+      const p4 = d4.plan();
+      const qp = JSON.stringify(q4.db.prepare(`EXPLAIN QUERY PLAN SELECT state, build, kind, prio, SUM(COALESCE(units, 1)) u, SUM(weight) w FROM jobs WHERE state IN ('queued', 'leased') AND build IN (?, ?) GROUP BY state, build, kind, prio`).all(B, ANY_BUILD));
+      ok(`plan() over 20,000 queued jobs, none ready (its worst case), takes ${ms.toFixed(1)} ms on this machine: the work summed in SQL over the plan index (no row parsed in JS; before about 200-330 ms)`, /jobs_plan/.test(qp) && !/TEMP B-TREE/.test(qp) && ms < 2000 && p4.ready === 0 && p4.workMs === Math.round(20_000 * 5 * 2_000), JSON.stringify(p4));
+      ok('the plan index exists, and every job carries its cost units', !!q4.db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'jobs_plan'").get() && (q4.db.prepare('SELECT COUNT(*) n FROM jobs WHERE units IS NULL').get() as { n: number }).n === 0);
+      q4.close();
     }
 
     // ---- the REST shapes (fetch injected: no socket)

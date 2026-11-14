@@ -30,7 +30,7 @@
  * wrong key or slug) stops starting for 5 minutes and shows on the owner's status page.
  */
 import { randomBytes } from 'node:crypto';
-import { ANY_BUILD, jobUnits, type BuildQueue, type JobKind } from './queue.ts';
+import { ANY_BUILD, type BuildQueue, type JobKind } from './queue.ts';
 
 export type RunsConfig = {
   mode: 'off' | 'workflows'; apiBase: string; apiKey: string | null; task: string | null; maxRuns: number; slotsPerRun: number;
@@ -131,34 +131,57 @@ export class Dispatcher {
     q.db.exec(SCHEMA);
   }
 
+  /** Rows by state, newest first (filtered in SQL: a row in a live state is never hidden behind 500 newer ended ones). */
   rows(states?: RunState[]): RunRow[] {
-    const all = this.q.db.prepare('SELECT * FROM runs ORDER BY created DESC LIMIT 500').all() as RunRow[];
-    return states ? all.filter((r) => states.includes(r.state)) : all;
+    if (!states) return this.q.db.prepare('SELECT * FROM runs ORDER BY created DESC LIMIT 500').all() as RunRow[];
+    return this.q.db.prepare(`SELECT * FROM runs WHERE state IN (${states.map(() => '?').join(',')}) ORDER BY created DESC LIMIT 500`).all(...states) as RunRow[];
+  }
+  /**
+   * Rows that can no longer be live, retired in ONE indexed update before anything counts them: a 'starting' row whose
+   * POST never went through for STARTING_MAX_MS (the web died between the row and the POST, or every re-send failed),
+   * and any live row older than a run can be. Before, these were retired only while visited one by one (a pass that
+   * stopped at a held start, or a row past the 500 newest, left them counted in inFlight for good: fewer runs started).
+   */
+  reapOrphans(t = this.now()): number {
+    const a = this.q.db.prepare("UPDATE runs SET state = 'lost', error = COALESCE(error, 'never started'), updated = ? WHERE state = 'starting' AND created < ?").run(t, t - STARTING_MAX_MS);
+    const b = this.q.db.prepare(`UPDATE runs SET state = 'lost', error = 'older than a run can be', updated = ? WHERE state IN (${LIVE.map(() => '?').join(',')}) AND created < ?`).run(t, ...LIVE, t - RUN_MAX_MS);
+    const n = Number(a.changes) + Number(b.changes);
+    if (n) this.q.log('runs-reaped', { starting: Number(a.changes), old: Number(b.changes) });
+    return n;
   }
   inFlight(): number { return (this.q.db.prepare(`SELECT COUNT(*) n FROM runs WHERE state IN (${LIVE.map(() => '?').join(',')})`).get(...LIVE) as { n: number }).n; }
 
-  /** What the queue asks for now (pure: reads the queue and the runs table). */
+  /**
+   * What the queue asks for now (pure: reads the queue and the runs table). Cheap at any depth (it runs every 5 s and
+   * on every queue change): the work is summed per kind in SQL over the plan index (jobs.units, a job's cost units);
+   * the ready jobs are counted in SQL with their deps checked by primary key, in claim order and only as far as a
+   * decision needs (more ready weight than MAX_RUNS runs can hold changes nothing). Before: every queued row parsed in
+   * JS with a cost lookup per row (about 200-330 ms at 20,000 jobs, the event loop blocked).
+   */
   plan(): Plan {
     const t = this.now(), build = this.build();
-    const rows = this.q.db.prepare(`SELECT key, kind, prio, args, deps, weight, state, not_before FROM jobs WHERE state IN ('queued', 'leased')${build ? ' AND (build = ? OR build = ?)' : ''} LIMIT 20000`)
-      .all(...(build ? [build, ANY_BUILD] : [])) as { key: string; kind: JobKind; prio: number; args: string; deps: string; weight: number; state: string; not_before: number }[];
-    const depState = new Map<string, string>();
-    const done = (k: string) => {
-      if (!depState.has(k)) { const r = this.q.db.prepare('SELECT state FROM jobs WHERE key = ?').get(k) as { state: string } | undefined; depState.set(k, r?.state ?? 'failed'); }
-      return depState.get(k) === 'done';
-    };
-    let ready = 0, readyWeight = 0, leasedWeight = 0, interactive = false, workMs = 0, p0Ms = 0;
-    for (const r of rows) {
-      let args: Record<string, unknown> = {}, deps: string[] = [];
-      try { args = JSON.parse(r.args); deps = JSON.parse(r.deps); } catch { /* counted as one unit */ }
-      const ms = jobUnits({ kind: r.kind, args }) * this.q.costOf(r.kind, COST_FALLBACK[r.kind] ?? 5_000);
-      if (r.prio <= 0) p0Ms += ms; else workMs += ms;
-      if (r.state === 'leased') { leasedWeight += r.weight; continue; }
-      if (r.not_before > t || !deps.every(done)) continue;
-      ready++; readyWeight += r.weight;
-      if (r.prio <= 3) interactive = true;
+    const bf = build ? ' AND build IN (?, ?)' : '', bp = build ? [build, ANY_BUILD] : [];
+    let leasedWeight = 0, workMs = 0, p0Ms = 0;
+    // (grouped in the plan index's own order: a streaming aggregate, no sort)
+    const sums = this.q.db.prepare(`SELECT state, build, kind, prio, SUM(COALESCE(units, 1)) u, SUM(weight) w FROM jobs WHERE state IN ('queued', 'leased')${bf} GROUP BY state, build, kind, prio`)
+      .all(...bp) as { kind: JobKind; state: string; prio: number; u: number; w: number }[];
+    const cost = new Map<string, number>();
+    for (const r of sums) {
+      if (!cost.has(r.kind)) cost.set(r.kind, this.q.costOf(r.kind, COST_FALLBACK[r.kind] ?? 5_000));
+      const ms = Number(r.u) * cost.get(r.kind)!;
+      if (Number(r.prio) <= 0) p0Ms += ms; else workMs += ms;
+      if (r.state === 'leased') leasedWeight += Number(r.w);
     }
     const slots = this.cfg.slotsPerRun, target = this.cfg.targetS * 1000;
+    // (ready: queued, past its backoff, every dep done (checked by primary key in SQL); in claim order, so the first row
+    // says whether it is interactive, and only as far as a decision needs: more ready weight than MAX_RUNS runs can
+    // hold changes nothing)
+    const enough = Math.max(1, this.cfg.maxRuns) * slots + 1;
+    const readyRows = this.q.db.prepare(`SELECT prio, weight FROM jobs j WHERE state = 'queued'${bf} AND not_before <= ?
+      AND NOT EXISTS (SELECT 1 FROM json_each(j.deps) d LEFT JOIN jobs x ON x.key = d.value WHERE x.state IS NOT 'done')
+      ORDER BY prio LIMIT ?`).all(...bp, t, enough) as { prio: number; weight: number }[];
+    const ready = readyRows.length, readyWeight = readyRows.reduce((a, r) => a + Number(r.weight), 0);
+    const interactive = readyRows.some((r) => r.prio <= 3);
     const byJobs = Math.ceil((readyWeight + leasedWeight) / slots);
     const byWork = Math.ceil(p0Ms / (slots * target) + workMs / (slots * target * 10));
     const cap = interactive ? this.cfg.maxRuns : Math.min(this.cfg.maxRuns, this.cfg.prewarmRuns);
@@ -210,6 +233,7 @@ export class Dispatcher {
 
   private async pass() {
     const t = this.now();
+    this.reapOrphans(t);
     // 1. rows written but never confirmed (the web died between the row and the POST, or the POST failed): the same key
     for (const r of this.rows(['starting'])) {
       if (t - r.created > STARTING_MAX_MS) { this.set(r.idem, { state: 'lost', error: r.error ?? 'never started' }); continue; }

@@ -95,8 +95,9 @@ idle. Idle costs $0.
 ## 5. Live test checklist (gamemog.com)
 
 1. [ ] With an empty queue: `/admin` shows 0 runs in flight; the workflow's Runs page shows no run for 10 minutes.
-2. [ ] First pick after the deploy: the card says "Waiting its turn", one run appears (reason "learn the build"), and
-       the pick is admitted by itself. Its first log line has the 4 caps.
+2. [ ] First pick after the deploy: the card says "Waiting its turn" at once (202, never a refusal), one run appears
+       (reason "learn the build"), and that run's first claim admits the pick and takes its first job (`admitted` in the
+       event log). Its first log line has the 4 caps and `initS` (the run's start-up).
 3. [ ] A cold town in a state never asked before: record pick -> "Ready to write", -> "Ready to drive", -> "Your whole
        town is built" (the Create card and the /admin card). ONE regions job per region.
 4. [ ] A capped town (a city whose search square is over 4.5 km, e.g. Pittsburgh): the frame centres on its downtown;

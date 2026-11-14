@@ -23,7 +23,7 @@ import { BUILD_ID, WORKER_PUT, contentType, parseKeyString, buildKey, ctxKey, ti
 import { StoreFull, type TileStore } from '../hometown-tiles/store.ts';
 import type { HometownConfig } from '../hometown-tiles/config.ts';
 import { BuildQueue, ANY_BUILD, HEARTBEAT_MS, LEASE_MS, maskBits, type Job } from './queue.ts';
-import { afterJobDone, currentBuild, onBundleStored, prewarm, promisedOutputs, townsStatus, type BuilderDeps, type TownMeta } from './towns.ts';
+import { admitPending, afterJobDone, currentBuild, onBundleStored, prewarm, promisedOutputs, townsStatus, type BuilderDeps, type TownMeta } from './towns.ts';
 import { prewarmList } from '../hometown-tiles/prewarm-list.ts';
 import { Dispatcher, renderRuns, runsConfig, runsProblem, runsReady, type RunsConfig } from './dispatch.ts';
 
@@ -115,6 +115,20 @@ export function inputsOf(d: BuilderDeps, j: Job): string[] {
   return out;
 }
 
+/**
+ * A job's args as sent to a worker: a full bundle also lists, in `absent`, the town's tiles refused for good (no DEM
+ * under them: queue.ts never had a job fail for those, the compile refused them) besides the tiles of failed jobs, so
+ * the assembler lays flat ground there instead of refusing the whole town.
+ */
+export function argsOf(d: BuilderDeps, j: Job): Record<string, unknown> {
+  if (j.kind !== 'bundle' || j.args.variant !== 'full') return j.args;
+  const r = d.queue.db.prepare('SELECT meta FROM towns WHERE place = ? AND build = ?').get(String(j.args.placeId), j.build) as { meta: string } | undefined;
+  let refused: string[] = [];
+  try { refused = (r ? (JSON.parse(r.meta) as TownMeta).refused : null) ?? []; } catch { /* none */ }
+  const absent = [...new Set([...((j.args.absent as string[] | undefined) ?? []), ...refused])].sort();
+  return absent.length ? { ...j.args, absent } : j.args;
+}
+
 /** "conus:530,453;530,454" -> the regions job's key and args (sorted, at most 4 a job: more become several deps). */
 export function regionsJobOf(release: string, spec: string): { key: string; args: Record<string, unknown> } | null {
   const m = /^([a-z]+):([0-9,;]+)$/.exec(spec);
@@ -137,11 +151,20 @@ export async function workerResponse(req: Request, parts: string[], d: BuilderDe
       const spec = { worker: str(b.worker, 80), build: str(b.build, 40), freeSlots: Math.max(0, Math.floor(Number(b.freeSlots) || 0)), totalSlots: Math.max(1, Math.floor(Number(b.totalSlots) || 1)),
         cached: Array.isArray(b.cached) ? (b.cached as unknown[]).map((x) => str(x, 80)).slice(0, 500) : [], version: str(b.version, 80), memMb: Math.floor(Number(b.memFreeMB) || 0) };
       if (!spec.worker || !spec.build || !spec.freeSlots) return json(400, { error: 'worker, build and freeSlots' });
+      // (this worker's build is now known: picks kept while no build was (towns.ts admitPending) are admitted at it before
+      // this very claim, so the run started for them takes their first job now, not one long-poll later)
+      queue.seenWorker(spec);
+      try { admitPending(d); } catch (e) { console.error('hometown-build: admit', String((e as Error)?.message ?? e).slice(0, 200)); }
+      const asked = spec.freeSlots;
       const until = Date.now() + Math.min(20_000, o.pollMs ?? 20_000);
       for (;;) {
+        // (the free slots re-read on every wake-up from the leases this worker still holds: a worker claims one job at a
+        // time, so a claim made with its last slot free (P0 only) would otherwise sit out its whole 20 s long-poll after
+        // its other jobs finished, one P1 job per 20 s per run; the local simulation measured exactly that)
+        spec.freeSlots = Math.max(asked, spec.totalSlots - queue.heldBy(spec.worker, spec.totalSlots));
         const j = queue.claim(spec);
         if (j) {
-          return json(200, { key: j.key, kind: j.kind, build: j.build === ANY_BUILD ? spec.build : j.build, leaseId: j.leaseId, leaseMs: LEASE_MS, heartbeatMs: HEARTBEAT_MS, args: j.args, prio: j.prio,
+          return json(200, { key: j.key, kind: j.kind, build: j.build === ANY_BUILD ? spec.build : j.build, leaseId: j.leaseId, leaseMs: LEASE_MS, heartbeatMs: HEARTBEAT_MS, args: argsOf(d, j), prio: j.prio,
             release: releaseOf(store, spec.build), inputs: inputsOf(d, j), attempts: j.attempts, current: currentBuild(d) });
         }
         const left = until - Date.now();
@@ -171,9 +194,10 @@ export async function workerResponse(req: Request, parts: string[], d: BuilderDe
       const b = await readBody(req);
       const outputs = Array.isArray(b.outputs) ? (b.outputs as unknown[]).map((x) => str(x, 300)).filter(Boolean).slice(0, 4000) : [];
       const refused = Array.isArray(b.refused) ? (b.refused as unknown[]).map((x) => str(x, 60)).filter((t) => /^hg1-[a-z]+\/0\/[0-9]+\/[0-9]+$/.test(t)) : [];
-      const r = queue.complete(str(b.key, 300), str(b.leaseId, 40), { ms: Number(b.ms), peakMb: Number(b.peakMB) || undefined }, (j) => promisedOutputs(store, j, outputs, refused));
+      // (a full bundle as the worker saw it: with its absent tiles, which decide what it promised and that the town is degraded)
+      const r = queue.complete(str(b.key, 300), str(b.leaseId, 40), { ms: Number(b.ms), peakMb: Number(b.peakMB) || undefined }, (j) => promisedOutputs(store, { ...j, args: argsOf(d, j) }, outputs, refused));
       if (!r.ok) return r.why === 'lost' ? json(410, { error: 'the lease is not yours any more' }) : json(409, { error: 'outputs not stored', missing: r.missing?.slice(0, 20) });
-      afterJobDone(d, r.job, outputs, refused);
+      afterJobDone(d, { ...r.job, args: argsOf(d, r.job) }, outputs, refused);
       if (r.job.kind === 'canary') queue.log('canary', { tile: r.job.args.tile, build: r.job.build, match: b.canaryMatch === true, worker: r.job.leaseWorker, of: r.job.args.notWorker });
       // the determinism canary (SPEC 6.2): 1% of tile jobs recompile one of their tiles on ANOTHER worker, bytes compared
       if (r.job.kind === 'tiles' && Math.random() < canaryRate()) {

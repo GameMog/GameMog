@@ -163,6 +163,66 @@ class WebAndRegions(unittest.TestCase):
         finally:
             shutil.rmtree(tmp)
 
+    def jobs_worker(self, tmp):
+        w = self.worker(tmp)
+        w.build, w.record, w.caps, w.fail_tiles, w.work = 'htc-0.8.0-hg1-b00000000', {}, {'--tiles', '--assemble'}, set(), tmp
+        return w
+
+    def test_tiles_compiled_by_an_earlier_attempt_are_uploaded(self):
+        # (an attempt that failed after compiling some tiles leaves them in the local store; the next attempt in the same
+        # run skips compiling them, and they are older than it: they must still be uploaded, or the web says "not stored")
+        tmp = tempfile.mkdtemp()
+        try:
+            w = self.jobs_worker(tmp)
+            k = 'tiles/%s/hg1-conus/0/40/80' % w.build
+            w.write_local(k, gzip.compress(b'HTL1' + b'z' * 20))
+            os.utime(w.path(k), (1, 1))
+            r = w.do_job({'key': 'tiles:x', 'kind': 'tiles', 'build': w.build, 'args': {'block': 'hg1-conus/2/10/20', 'mask': 1}, 'inputs': []})
+            self.assertTrue(r.get('ok'), r)
+            self.assertIn(k, r['outputs'])
+            self.assertIn(k, FakeWeb.objects)
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_injected_tile_failure(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            w = self.jobs_worker(tmp)
+            w.fail_tiles = {'hg1-conus/0/41/80'}
+            r = w.do_job({'key': 'tiles:x', 'kind': 'tiles', 'build': w.build, 'args': {'block': 'hg1-conus/2/10/20', 'mask': 3}, 'inputs': []})
+            self.assertTrue(r.get('fail') and 'injected' in r['reason'] and not r.get('final'), r)
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_absent_tiles_laid_for_the_assembler_then_removed(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            w = self.jobs_worker(tmp)
+            w.write_local('tiles/%s/hg1-conus/0/9/20' % w.build, a_tile(9, 20, lambda i, j: 100 * i))
+            seen = {}
+
+            def compile_(a, job, release):
+                p = w.path('tiles/%s/hg1-conus/0/10/20' % w.build)
+                seen['laid'] = os.path.exists(p) and W.read_htl1(open(p, 'rb').read())[0].get('placeholder')
+                seen['argv'] = a
+                seen['busy'] = 'tiles/%s/hg1-conus/0/10/20' % w.build in W.Worker.laid and 'tiles/%s/hg1-conus/0/10/20' % w.build not in w.new_objects(0)
+                # (the assembler writes the session descriptor over the placeholders: it must never be uploaded)
+                w.write_local('manifests/%s/us-4054200.json' % w.build, b'{}')
+                return 1, 'stop here', '', None, None
+            w.compile = compile_
+            job = {'key': 'bundle:x', 'kind': 'bundle', 'build': w.build, 't0': 0,
+                   'args': {'placeId': 'us-4054200', 'variant': 'full', 'gazetteer': {}, 'absent': ['hg1-conus/0/10/20']}}
+            r = w.bundle(job, None)
+            self.assertTrue(seen['laid'] and seen['busy'])
+            self.assertFalse(os.path.exists(w.path('manifests/%s/us-4054200.json' % w.build)))
+            self.assertEqual(W.Worker.laid, set())
+            self.assertTrue(r.get('fail'))
+            self.assertFalse(os.path.exists(w.path('tiles/%s/hg1-conus/0/10/20' % w.build)))  # (never uploaded)
+            self.assertTrue(os.path.exists(w.path('tiles/%s/hg1-conus/0/9/20' % w.build)))
+            self.assertNotIn('tiles/%s/hg1-conus/0/10/20' % w.build, w.new_objects(0))
+        finally:
+            shutil.rmtree(tmp)
+
     def test_uploads_hash_and_retry_while_web_is_down(self):
         tmp = tempfile.mkdtemp()
         try:
@@ -177,6 +237,66 @@ class WebAndRegions(unittest.TestCase):
             self.assertEqual(got, [k])
             self.assertIn((k, hashlib.sha256(raw).hexdigest()), FakeWeb.puts)
             self.assertEqual(w.upload_new(0), [])  # (uploaded once)
+        finally:
+            shutil.rmtree(tmp)
+
+
+def a_tile(c, r, heights, build='htc-0.8.0-hg1-b00000000', P=5):
+    """A small HTL1 tile (P x P posts; heights(i, j) in cm, i the row (r), j the column (c)) shaped as compile.py's."""
+    post = [heights(i, j) for i in range(P) for j in range(P)]
+    base = min(post)
+    h = {'format': 'hometown-tile', 'version': 1, 'grid': 'hg1', 'domain': 'conus', 'L': 0, 'c': c, 'r': r, 'id': 'hg1-conus/0/%d/%d' % (c, r),
+         'buildId': build, 'posts': P, 'post': 2, 'base_cm': base, 'mask': {'cell': 1, 'n': 4, 'classes': ['asphalt', 'sidewalk', 'lawn']},
+         'bcount': 3, 'waters': [{'id': 'w', 'level_cm': 1, 'cells': 2}], 'counts': {'links': 2, 'nodes': 3}}
+    secs = [('terrain', 'u16', W.struct.pack('<%dH' % len(post), *[v - base for v in post])), ('mask', 'u8', bytes([0]) * 16),
+            ('buildings', 'json', b'[{"id":"b"}]'), ('bverts', 'i32', b'\x01\0\0\0'), ('roads', 'json', b'{"links":[1],"nodes":[2]}'),
+            ('blocks', 'json', b'[]'), ('trees', 'i32', b''), ('places', 'json', b'[]'), ('water', 'json', b'[]'), ('parks', 'json', b'[]')]
+    return W.htl1(h, secs)
+
+
+class AbsentTiles(unittest.TestCase):
+    """A tile that could not be built: flat ground the assembler takes, seamless with its built neighbours."""
+    B = 'htc-0.8.0-hg1-b00000000'
+
+    def store_with(self, tiles):
+        tmp = tempfile.mkdtemp()
+        for (c, r), b in tiles.items():
+            p = os.path.join(tmp, 'tiles', self.B, 'hg1-conus', '0', str(c), str(r))
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            open(p, 'wb').write(b)
+        return tmp
+
+    def test_placeholder_meets_its_neighbours(self):
+        west = a_tile(9, 20, lambda i, j: 10000 + 100 * i + 10 * j)
+        north = a_tile(10, 19, lambda i, j: 10000 + 100 * (i - 4) + 10 * (j + 4))
+        tmp = self.store_with({(9, 20): west, (10, 19): north})
+        try:
+            b = W.placeholder_tile(tmp, self.B, 'hg1-conus/0/10/20')
+            self.assertEqual(b, W.placeholder_tile(tmp, self.B, 'hg1-conus/0/10/20'))  # (deterministic)
+            h, sec = W.read_htl1(b)
+            t = W.terrain_of(h, sec)
+            tw = W.terrain_of(*W.read_htl1(west))
+            tn = W.terrain_of(*W.read_htl1(north))
+            self.assertEqual([t[i][0] for i in range(5)], [tw[i][4] for i in range(5)])  # the west seam
+            self.assertEqual(t[0], tn[4])  # the north seam
+            self.assertEqual((h['id'], h['c'], h['r'], h['bcount'], h['waters'], h['counts']), ('hg1-conus/0/10/20', 10, 20, 0, [], {'links': 0, 'nodes': 0}))
+            self.assertIn('placeholder', h)
+            self.assertEqual(sec['mask'][1], bytes([2]) * 16)  # (lawn)
+            self.assertEqual((sec['buildings'][1], sec['roads'][1], sec['bverts'][1], sec['trees'][1]), (b'[]', b'{"links":[],"nodes":[]}', b'', b''))
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_no_neighbour_is_level_ground(self):
+        tmp = self.store_with({(3, 3): a_tile(3, 3, lambda i, j: 5000 + i)})
+        try:
+            h, sec = W.read_htl1(W.placeholder_tile(tmp, self.B, 'hg1-conus/0/40/40'))
+            self.assertEqual(set(v for row in W.terrain_of(h, sec) for v in row), {5000})
+        finally:
+            shutil.rmtree(tmp)
+        tmp = self.store_with({})
+        try:
+            with self.assertRaises(RuntimeError):
+                W.placeholder_tile(tmp, self.B, 'hg1-conus/0/40/40')
         finally:
             shutil.rmtree(tmp)
 

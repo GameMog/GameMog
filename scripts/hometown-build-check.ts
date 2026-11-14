@@ -25,8 +25,9 @@ import { verifyObject } from '../lib/hometown-tiles/http.ts';
 import { planGc } from '../lib/hometown-tiles/gc.ts';
 import { hometownConfig } from '../lib/hometown-tiles/config.ts';
 import { BuildQueue, LEASE_MS, MAX_ATTEMPTS, BACKOFF_MS, maskBits } from '../lib/hometown-build/queue.ts';
-import { requestTown, townStatus, townGraph, gazetteerOf, blocksOf, quadsOf, QUAD_RING, townRegions, promisedOutputs, afterJobDone, storyReadyLock, cityPackageFromStore, PHASE_WORDS, BUSY_WORDS, bestVariant, onBundleStored, type BuilderDeps } from '../lib/hometown-build/towns.ts';
-import { workerResponse, builderAdminResponse, regionsJobOf } from '../lib/hometown-build/server.ts';
+import { requestTown, townStatus, townGraph, gazetteerOf, blocksOf, quadsOf, QUAD_RING, townRegions, promisedOutputs, afterJobDone, storyReadyLock, cityPackageFromStore, PHASE_WORDS, BUSY_WORDS, bestVariant, onBundleStored, fatalFailures, townsStatus, type BuilderDeps } from '../lib/hometown-build/towns.ts';
+import { workerResponse, builderAdminResponse, regionsJobOf, argsOf } from '../lib/hometown-build/server.ts';
+import type { Job } from '../lib/hometown-build/queue.ts';
 import { townsAccess, townBoxEnabled } from '../lib/hometown-build/access.ts';
 import { cityPackageOfFrame, frameProblems, normalizeFrame, type TownFrame } from '../lib/hometown-build/frame.ts';
 import { storyLock, serviceLock, sameServiceLock, tilesIdOf, type ServiceLock } from '../lib/hometown/ids.ts';
@@ -50,6 +51,7 @@ export async function runBuildChecks(ok: Ok) {
     g3(ok, dir);
     await g4to6(ok, dir);
     g7(ok);
+    await robustness(ok, dir);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
@@ -202,7 +204,8 @@ function g3(ok: Ok, dir: string) {
   q3.close(); q2.close();
   // (review fixes) a failed tile job asked again, exit 3 on done/failed regions, blocked rows, leases over a restart
   const q4 = new BuildQueue({ file: ':memory:', now: () => t });
-  const blk = { key: `tiles:${B}:hg1-conus/2/1/1`, kind: 'tiles' as const, build: B, prio: 0, args: { block: 'hg1-conus/2/1/1', mask: 3 }, place: 'us-9' };
+  // (one tile: a job of several tiles is split instead of failing, the robustness checks below)
+  const blk = { key: `tiles:${B}:hg1-conus/2/1/1`, kind: 'tiles' as const, build: B, prio: 0, args: { block: 'hg1-conus/2/1/1', mask: 1 }, place: 'us-9' };
   const [tk] = q4.enqueue(blk);
   for (let i = 0; i < MAX_ATTEMPTS; i++) { t += 600_000; const c = q4.claim(W('w', 2, 2))!; q4.fail(c.key, c.leaseId, { code: 1 }); }
   t += 600_000;
@@ -236,7 +239,9 @@ function fakeDeps(dir: string, name: string, env: Record<string, string>, t: { n
 }
 async function g4to6(ok: Ok, dir: string) {
   const t = { now: Date.now() };
-  const d = fakeDeps(dir, 'g4', { HOMETOWN_BUILDER: 'on' }, t);
+  // (the address limit is what these picks test, not the admission wait: with no live slot the wait counts one, and a town's
+  // every ctx block is a job of its own now)
+  const d = fakeDeps(dir, 'g4', { HOMETOWN_BUILDER: 'on', HOMETOWN_MAX_WAIT_S: '100000' }, t);
   const okemah = placeById('us-4054200')!;
   const g = townGraph('us-4054200', gazetteerOf(okemah), B, { frame: false, base: 0, now: t.now });
   const tilesJobs = g.specs.filter((s) => s.kind === 'tiles'), ctx = g.specs.filter((s) => s.kind === 'ctx');
@@ -415,4 +420,108 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   let failed = 0;
   await runBuildChecks((name, cond, detail) => { if (!cond) failed++; console.log(`${cond ? 'ok  ' : 'FAIL'} ${name}${detail ? ` (${detail})` : ''}`); });
   process.exit(failed ? 1 : 0);
+}
+
+// ------------------------------------------------------------------- robustness (the production builder, 14 Nov)
+async function robustness(ok: Ok, dir: string) {
+  let t = 5_000_000;
+  const W = (id: string, free = 4, total = 4) => ({ worker: id, build: B, freeSlots: free, totalSlots: total });
+  const none = () => [] as string[];
+  // ---- a tile job of several tiles that keeps failing is split; a lone bad tile degrades the whole town, fails its district
+  const q = new BuildQueue({ file: ':memory:', now: () => t });
+  const blk = 'hg1-conus/2/10/20';
+  const [tk] = q.enqueue({ key: `tiles:${B}:${blk}`, kind: 'tiles', build: B, prio: 1, args: { block: blk, mask: 0b0011 }, place: 'us-1' });
+  q.enqueue({ key: `bundle:${B}:us-1:full`, kind: 'bundle', build: B, prio: 2, args: { placeId: 'us-1', variant: 'full' }, deps: [tk], place: 'us-1' });
+  q.enqueue({ key: `bundle:${B}:us-1:district`, kind: 'bundle', build: B, prio: 0, args: { placeId: 'us-1', variant: 'district-40-80' }, deps: [tk], place: 'us-1' });
+  for (let i = 0; i < MAX_ATTEMPTS; i++) { t += 600_000; const c = q.claim(W('w'))!; if (c?.key !== tk) break; q.fail(c.key, c.leaseId, { code: 1, reason: 'compile crashed' }); }
+  const singles = [`${tk}:t0`, `${tk}:t1`];
+  ok('a 2-tile job that failed 3 times is split into one job per tile (fresh attempts, after a backoff); the towns want each; what waited on it waits on each',
+    !q.get(tk) && singles.every((k) => q.get(k)?.state === 'queued' && q.get(k)!.attempts === 0 && q.get(k)!.notBefore > t && maskBits(Number(q.get(k)!.args.mask)).length === 1)
+    && q.jobsOf('us-1').filter((j) => j.kind === 'tiles').length === 2 && JSON.stringify(q.get(`bundle:${B}:us-1:full`)!.deps) === JSON.stringify(singles), JSON.stringify(q.jobsOf('us-1').map((j) => [j.key, j.state])));
+  for (let i = 0; i < 12; i++) {
+    t += 600_000;
+    const c = q.claim(W('w'));
+    if (!c) break;
+    if (c.key.endsWith(':t0')) q.fail(c.key, c.leaseId, { code: 1, reason: 'compile crashed' }); else q.complete(c.key, c.leaseId, { ms: 1000 }, none);
+    if (c.kind === 'bundle') break;
+  }
+  const full = q.get(`bundle:${B}:us-1:full`)!, dist = q.get(`bundle:${B}:us-1:district`)!;
+  ok('the bad tile, failed for good: the full bundle goes on without it (dep dropped, the tile listed absent: flat ground; claimed and built) and the good tile is built',
+    q.get(singles[0])!.state === 'failed' && q.get(singles[1])!.state === 'done' && full.state === 'done' && JSON.stringify(full.deps) === JSON.stringify([singles[1]])
+    && JSON.stringify(full.args.absent) === JSON.stringify(['hg1-conus/0/40/80']), JSON.stringify({ full, t0: q.get(singles[0])!.state }));
+  ok('...but a district bundle waiting on it fails (the spawn path fails clearly)', dist.state === 'failed' && /dependency/.test(dist.error ?? ''));
+  ok('...and both are journalled for the owner (split, degraded)', ['split', 'degraded'].every((k) => q.recentEvents(50).some((e) => e.kind === k)));
+  q.close();
+
+  // ---- the cold start: every ctx block the town's compiles read is its own job (side by side), the frame waits on all
+  const prague = placeById('us-4060500')!, pg = townGraph('us-4060500', gazetteerOf(prague), B, { frame: true, base: 0, now: t });
+  const pctx = pg.specs.filter((x) => x.kind === 'ctx'), pframe = pg.specs.find((x) => x.kind === 'frame')!, ptiles = pg.specs.filter((x) => x.kind === 'tiles');
+  ok('Prague, OK: the 9 ctx blocks within the compiler\'s reach are 9 P0 jobs (before: 1, and the frame computed 8 itself, one after another), the frame waits on all, a tile on those within its reach',
+    pctx.length === 9 && pctx.every((x) => x.prio === 0) && pctx.every((x) => pframe.deps!.includes(x.key)) && ptiles.every((x) => x.deps!.length >= 1 && x.deps!.length <= 4 && x.deps!.every((k) => pctx.some((c) => c.key === k))),
+    `${pctx.length} ctx; tile deps ${[...new Set(ptiles.map((x) => x.deps!.length))]}`);
+
+  // ---- which failed tiles fail a town: the spawn district's only (frame: its spawnDistrict; no frame: the anchor's 5 x 5)
+  const tileJob = (block: string, mask: number) => ({ key: `t:${block}`, kind: 'tiles', state: 'failed', args: { block, mask } }) as unknown as Job;
+  const at4080 = tileJob('hg1-conus/2/10/20', 1), ctxDead = { ...tileJob('x', 0), kind: 'ctx' } as Job;
+  const off = { cfg: { frame: false } } as BuilderDeps, on = { cfg: { frame: true } } as BuilderDeps;
+  ok('no frame: a failed tile in the anchor\'s 5 x 5 fails the town; one outside degrades it; any other failed job fails it',
+    fatalFailures(off, { anchor: [41, 81] }, [at4080]).length === 1 && fatalFailures(off, { anchor: [60, 60] }, [at4080]).length === 0 && fatalFailures(off, { anchor: [60, 60] }, [ctxDead]).length === 1);
+  ok('frame mode: undecided until the frame lands (no fail yet), then by its spawn district',
+    fatalFailures(on, {}, [at4080]).length === 0 && fatalFailures(on, { districtWindow: [38, 78, 42, 82] }, [at4080]).length === 1 && fatalFailures(on, { districtWindow: [0, 0, 4, 4] }, [at4080]).length === 0);
+
+  // ---- a failed town's "Try again" re-queues at once; a degradable tile never fails a town
+  const tt = { now: 7_000_000 };
+  const d = fakeDeps(dir, 'robust', { HOMETOWN_BUILDER: 'on', HOMETOWN_MAX_WAIT_S: '1000000' }, tt);
+  ok('a new town is admitted', requestTown(d, 'us-4054200', '1.1.1.1').status === 202);
+  const jobs = d.queue.jobsOf('us-4054200');
+  const far = jobs.filter((j) => j.kind === 'tiles' && j.prio === 1).at(-1)!;
+  d.queue.db.prepare("UPDATE jobs SET state = 'failed', attempts = 3, not_before = ?, error = 'compile crashed' WHERE key = ?").run(tt.now + 60_000, far.key);
+  ok('a tile failed for good far from the spawn: the town keeps building (it will be degraded, not failed)', townStatus(d, 'us-4054200').status === 202);
+  const ctx0 = jobs.find((j) => j.kind === 'ctx')!;
+  d.queue.db.prepare("UPDATE jobs SET state = 'failed', attempts = 3, not_before = ?, error = 'compile crashed' WHERE key = ?").run(tt.now + 60_000, ctx0.key);
+  const failed = townStatus(d, 'us-4054200');
+  ok('a ctx failed for good: the town fails (409), with the job and its error kept for the owner', failed.status === 409 && townsStatus(d).failed.some((f) => f.place === 'us-4054200' && f.job === ctx0.key && /crashed/.test(f.why ?? '')));
+  tt.now += 5_000;
+  const again = requestTown(d, 'us-4054200', '1.1.1.1');
+  ok('"Try again" 5 s later (inside the 60 s a failure holds a job): the town\'s failed jobs are queued again at once and it builds (202), not the same 409',
+    again.status === 202 && d.queue.get(ctx0.key)!.state === 'queued' && d.queue.get(ctx0.key)!.attempts === 0 && d.queue.recentEvents(20).some((e) => e.kind === 'town-retry'), `${again.status} ${d.queue.get(ctx0.key)!.state}`);
+
+  // ---- the per-address limit survives a deploy (it lives in the queue's SQLite, as a hash)
+  const ids = ['us-4055000', 'us-4075000', 'us-0455000', 'us-4261000'];
+  const r3 = ids.slice(0, 3).map((id) => requestTown(d, id, '2.2.2.2').status);
+  ok('three new towns from one address, then 429', JSON.stringify(r3) === '[202,202,202]' && requestTown(d, ids[3], '2.2.2.2').status === 429, JSON.stringify(r3));
+  const file = path.join(d.cfg.root, 'queue.db');
+  d.queue.close();
+  const d2 = { ...d, queue: new BuildQueue({ file, now: () => tt.now }) };
+  ok('after a restart (a deploy: a new process, the same disk) the address is still at its limit', requestTown(d2, ids[3], '2.2.2.2').status === 429);
+  ok('the address itself is never stored (a hash)', !JSON.stringify(d2.queue.db.prepare('SELECT * FROM ip_hits').all()).includes('2.2.2.2'));
+  tt.now += 3600_000 + 1;
+  ok('an hour later it may ask again', requestTown(d2, ids[3], '2.2.2.2').status === 202);
+  // ---- the owner's status: degraded and failed towns
+  d2.queue.db.prepare("INSERT INTO towns (place, build, box, state, first_asked, tiles_total, tiles_done, asks, source, meta) VALUES ('us-9999999', ?, '[]', 'full', 1, 4, 4, 1, 'player', ?)").run(B, JSON.stringify({ name: 'Somewhere', absent: ['hg1-conus/0/40/80'] }));
+  const st = townsStatus(d2);
+  ok('status lists degraded towns (built whole, some tiles flat ground)', st.degraded.n === 1 && st.degraded.recent[0].place === 'us-9999999' && st.degraded.recent[0].absent === 1);
+  d2.queue.db.prepare("UPDATE towns SET meta = ? WHERE place = 'us-4054200'").run(JSON.stringify({ refused: ['hg1-conus/0/1/2'] }));
+  const fb = d2.queue.jobsOf('us-4054200').find((j) => j.kind === 'bundle' && j.args.variant === 'full')!;
+  ok('a full bundle is sent with the town\'s refused tiles (no DEM) as absent too: flat ground, not a refused town', JSON.stringify(argsOf(d2, { ...fb, args: { ...fb.args, absent: ['hg1-conus/0/9/9'] } }).absent) === JSON.stringify(['hg1-conus/0/1/2', 'hg1-conus/0/9/9']));
+  d2.queue.close();
+
+  // ---- no build known: the pick is kept, and the run's first claim admits it and takes its first job in the same call
+  const tp = { now: 9_000_000 };
+  const p = fakeDeps(dir, 'pending', { HOMETOWN_BUILDER: 'on', HOMETOWN_BUILD: '', HOMETOWN_MAX_WAIT_S: '1000000' }, tp);
+  const call = (body: unknown, pollMs = 50) => workerResponse(new Request('http://web/api/hometown/worker/claim', { method: 'POST', headers: { authorization: `Bearer ${W_TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify(body) }), ['claim'], p, { pollMs });
+  const kept = requestTown(p, 'us-4054200', '3.3.3.3');
+  ok('no build known: 202 waiting its turn at once (kept)', kept.status === 202 && (kept.body as { phase: string }).phase === 'asked' && townStatus(p, 'us-4054200').status === 202);
+  const first = await call({ worker: 'run-1', build: B, freeSlots: 4, totalSlots: 4 });
+  const fj = await first.json() as { key: string; kind: string; leaseId: string };
+  ok('the first claim of the run (reporting the build) admits the kept pick and is handed its first job in that same claim', first.status === 200 && fj.kind === 'ctx' && p.queue.jobsOf('us-4054200').length > 0
+    && (p.queue.db.prepare('SELECT COUNT(*) n FROM pending').get() as { n: number }).n === 0 && p.queue.recentEvents(20).some((e) => e.kind === 'admitted'), JSON.stringify(fj).slice(0, 200));
+  // ---- the claim's free slots re-read on every wake-up: a last-slot (P0 only) claim takes P1 work once the other job ends
+  p.queue.db.prepare("UPDATE jobs SET state = 'done' WHERE state = 'queued' AND key != ? AND kind != 'tiles'").run(fj.key);
+  p.queue.db.prepare("UPDATE jobs SET prio = 1, deps = '[]', not_before = 0 WHERE kind = 'tiles' AND state = 'queued'").run();
+  const lastSlot = call({ worker: 'run-1', build: B, freeSlots: 1, totalSlots: 2 }, 3000);
+  setTimeout(() => { p.queue.complete(fj.key, fj.leaseId, { ms: 1 }, none); }, 200);
+  const t0 = Date.now(), ls = await lastSlot, lj = ls.status === 200 ? await ls.json() as { prio: number } : null;
+  ok(`a claim made with the last of 2 slots free (P0 only) is handed P1 work as soon as the other job completes (${Date.now() - t0} ms), not after its whole long-poll`, ls.status === 200 && lj?.prio === 1 && Date.now() - t0 < 2500);
+  p.queue.close();
 }
