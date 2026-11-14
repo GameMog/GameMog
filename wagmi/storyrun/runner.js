@@ -356,10 +356,25 @@ export function createRunner(ctx) {
   // car by name: carSearch) is held at the car wherever he parked it: its trunk (or door, or hood), the ring, the blip and
   // the route following the car; the place stays the route's target while he is still driving there, more than 40 m out.
   // F at the car then searches it rather than getting in (W.carF, as the tow's hook-up)
+  // can a person stand at x, z (the controllers' own arrival test: buildings and walls, not other people)
+  const standable = (x, z) => {
+    try { const y = cm.getGroundHeight(x, z, 'person'); return cm.isWorldPositionClear({ x, z, y }, 0, 'person', 0.1) !== false; }
+    catch { return true; }
+  };
   STEPS.search = async (d, t) => {
     const p = placeOf(d.at), on = carSearch(d);
     if (on) return searchCar(d, p, on, t);
-    const reach = d.radius || 3.2, hx = p.cx ?? p.x, hz = p.cz ?? p.z;
+    const reach = d.radius || 3.2;
+    let hx = p.cx ?? p.x, hz = p.cz ?? p.z;
+    // (a place's centre a person cannot stand on, inside a building: the ring walks back toward the place's lane point
+    // until he can. A town's parking place can be a tower's garage, its centre inside the tower: The Courtesy Lane's
+    // salvage log, 14 Nov, a ring nobody could reach)
+    if (p.cx != null && !standable(hx, hz)) {
+      for (let k = 1; k <= 24; k++) {
+        const f = k / 24, x = hx + (p.x - hx) * f, z = hz + (p.z - hz) * f;
+        if (standable(x, z) || k === 24) { hx = x; hz = z; break; }
+      }
+    }
     // (the route and the blip lead to that same spot: they went to the place's lane point, up to 7 m off the corner's
     // centre, so the autopilot stood at the lane point beside a ring it never reached; MCM, 5 Nov: a Mog of Mog City's
     // own story stuck at Mission 1's '@chelseapark' van search)
