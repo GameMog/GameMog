@@ -390,7 +390,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   // (Mog City, Hometown) The ready-made cars of the town's mix (window.NYC.Fleet), loaded as the town boots (only the
   // models its own fleet drives); each, once here, is drawn in place of its procedural stand-in: per model, instanced
   // like the bodies, LOD0 (the full model: body, glass, lamps, decals, and its wheels, spun and steered) near the camera,
-  // LOD1 (~4k triangles, wheels and glass in it) further, LOD2 (~700, no cast shadow) far. Their bodies read the same per-instance paint
+  // LOD1 (~4k triangles, wheels and glass in it) further, LOD2 (~700) far; only LOD0 casts a shadow. Their bodies read the same per-instance paint
   // and lamp state (paintColor, carState) as the procedural ones, and join bodyMeshes for it; glass, decals and wheels
   // are counted in modelAux.
   const modelBodies = {};
@@ -424,8 +424,12 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     if (g.optics) MB.optics = inst(g.optics, FM.material('optics', { instanced: true, own }), n, true);
     if (g.decal) MB.decal = inst(g.decal, FM.material('decal', { own }), n);
     if (g.lod1glass) MB.lod1glass = inst(g.lod1glass, FM.material('glass'), n);
-    // (no shadow from the glass, nor from the far cars: their contact shadow is enough at that distance)
-    MB.glass.castShadow = false; MB.lod2.castShadow = false;
+    // (no shadow from the glass, nor from the cars past LOD0: their contact shadow is enough from 30 m off, and the sun's
+    // cascades redraw every caster each frame)
+    MB.glass.castShadow = false; MB.lod1.castShadow = false; MB.lod2.castShadow = false;
+    if (MB.lod1glass) MB.lod1glass.castShadow = false;
+    // (nor from the decals, which lie on the body)
+    if (MB.decal) MB.decal.castShadow = false;
     // (its shaders compile with the frame it first shows in: the models share a handful of materials, and a
     // compileAsync() of our own could run into the boot's precompilation, main.js, which keeps one state on the renderer)
     modelBodies[id] = MB;
@@ -2268,10 +2272,10 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     }
   }
 
-  // A ready-made car (or bus) of the town's fleet: its LOD by its distance from the camera (LOD0 within 40 m, a parked
-  // one's within 28; LOD1 to 130 m), the body instance's paint and lamps as the procedural bodies', and near the camera its glass, lamps, decals
+  // A ready-made car (or bus) of the town's fleet: its LOD by its distance from the camera (LOD0 within 32 m, a parked
+  // one's within 24; LOD1 to 120 m), the body instance's paint and lamps as the procedural bodies', and near the camera its glass, lamps, decals
   // and wheels, each wheel turned on its axle and the front ones steered
-  const LOD0_DIST = 40, LOD0_PARKED = 28, LOD1_DIST = 130;
+  const LOD0_DIST = 32, LOD0_PARKED = 24, LOD1_DIST = 120;
   const _wl = new THREE.Matrix4(), _wa = new THREE.Matrix4(), _wb = new THREE.Matrix4(), _ww = new THREE.Matrix4();
   function slotState(inst, slot, c, b0, b1, b2, b3) {
     const attrs = inst.geometry.attributes;

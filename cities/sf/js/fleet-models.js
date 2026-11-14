@@ -120,9 +120,11 @@ function material(kind, o = {}) {
     return mat;
   }
   if (kind === 'decal') {
-    mat = new THREE.MeshStandardNodeMaterial({ alphaTest: 0.5, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
+    // (its alpha test a node, as the trees' in tsl-materials.js: an `alphaTest`, copied onto the shadow passes' one
+    // shared material, bumps its version and re-keys every caster drawn after it, each frame; and it casts no shadow)
+    mat = new THREE.MeshStandardNodeMaterial({ roughness: 0.6, metalness: 0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
     const d = texture(own.decal, uv());
-    mat.colorNode = d.rgb; mat.opacityNode = d.a;
+    mat.colorNode = d.rgb; mat.opacityNode = d.a; mat.alphaTestNode = float(0.5);
     mats.set(key, mat);
     return mat;
   }
@@ -216,7 +218,8 @@ function buildCar(model, o = {}) {
     spin.add(mesh); W.add(spin); W.position.set(w.x, w.y, w.z); group.add(W);
     wheels.push({ W, spin, front: w.front, r: w.r, side: w.side });
   }
-  group.traverse((x) => { if (x.isMesh) { x.castShadow = true; x.receiveShadow = true; x.userData.shared = true; } });
+  // (its decals cast no shadow: they lie on the body, which casts it)
+  group.traverse((x) => { if (x.isMesh) { x.castShadow = x.name !== 'fleet-decals'; x.receiveShadow = true; x.userData.shared = true; } });
   return { group, body, glass, wheels, uniforms: U, meta: m, setPaint: U.setPaint, setState: U.setState };
 }
 
